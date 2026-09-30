@@ -12,6 +12,8 @@ import json
 from collections.abc import Mapping
 from typing import cast
 
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.core.serialization import normalize_collections
 from bms_core.services.module_registry import SERVICE_CATALOG, ModuleRecord, ModuleStatus
 
 __all__ = [
@@ -68,43 +70,45 @@ def service_enabled(service_key: str) -> bool:
     )
 
 
-def render_contract_json(openapi: Mapping[str, object]) -> str:
+def render_contract_json(openapi: ConcurrentStableDict[str, object]) -> str:
     """把公开契约（OpenAPI 映射）渲染为确定性 JSON 文本。
 
     Args:
-        openapi: `app.openapi()` 产物。
+        openapi: `app.openapi()` 产物（插入序；渲染前经 `normalize_collections` 规整）。
 
     Returns:
         str: 确定性 JSON（缩进 2 / 键排序 / 非 ASCII 直出 + 末尾换行）。
     """
-    return json.dumps(openapi, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
+    return json.dumps(normalize_collections(openapi), ensure_ascii=False, indent=2, sort_keys=True) + "\n"
 
 
-def validate_contract(service_key: str, openapi: Mapping[str, object], record: ModuleRecord) -> list[str]:
+def validate_contract(
+    service_key: str, openapi: ConcurrentStableDict[str, object], record: ModuleRecord
+) -> ConcurrentStableList[str]:
     """校验公开契约结构与契约版本（与登记值一致）。
 
     Args:
         service_key: 服务标识。
-        openapi: 公开契约映射。
+        openapi: 公开契约映射（插入序）。
         record: 服务目录登记行。
 
     Returns:
-        list[str]: 违规明细；空列表表示通过。
+        ConcurrentStableList[str]: 违规明细；空列表表示通过。
     """
-    errors: list[str] = []
+    errors: ConcurrentStableList[str] = ConcurrentStableList()
     if not isinstance(openapi.get("openapi"), str):
-        errors.append(f"{service_key}：OpenAPI 缺少 openapi 版本字段")
+        errors.add(f"{service_key}：OpenAPI 缺少 openapi 版本字段")
     info = openapi.get("info")
-    if not isinstance(info, dict):
-        errors.append(f"{service_key}：OpenAPI 缺少 info 段")
+    if not isinstance(info, Mapping):
+        errors.add(f"{service_key}：OpenAPI 缺少 info 段")
     else:
-        info_map = cast("dict[str, object]", info)
+        info_map = cast("Mapping[str, object]", info)
         if not info_map.get("title"):
-            errors.append(f"{service_key}：OpenAPI info.title 为空")
+            errors.add(f"{service_key}：OpenAPI info.title 为空")
         version = info_map.get("version")
         if version != record.contract_version:
-            errors.append(f"{service_key}：契约版本不一致（OpenAPI {version!r}，登记 {record.contract_version!r}）")
+            errors.add(f"{service_key}：契约版本不一致（OpenAPI {version!r}，登记 {record.contract_version!r}）")
     paths = openapi.get("paths")
-    if not isinstance(paths, dict) or not paths:
-        errors.append(f"{service_key}：OpenAPI paths 为空")
+    if not isinstance(paths, Mapping) or not paths:
+        errors.add(f"{service_key}：OpenAPI paths 为空")
     return errors

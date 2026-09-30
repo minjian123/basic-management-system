@@ -4,6 +4,7 @@ import json
 
 import pytest
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.services.service_contract import (
     contract_file_name,
     enabled_service_records,
@@ -34,8 +35,8 @@ def test_enabled_services_and_lookup() -> None:
 @pytest.mark.kiwi_id(2168)
 def test_render_contract_deterministic() -> None:
     """渲染确定性：键序无关，产出同一文本。"""
-    first = render_contract_json({"b": 1, "a": {"y": 2, "x": 3}})
-    second = render_contract_json({"a": {"x": 3, "y": 2}, "b": 1})
+    first = render_contract_json(ConcurrentStableDict({"b": 1, "a": {"y": 2, "x": 3}}))
+    second = render_contract_json(ConcurrentStableDict({"a": {"x": 3, "y": 2}, "b": 1}))
     assert first == second
     assert first.endswith("\n")
     assert json.loads(first) == {"a": {"x": 3, "y": 2}, "b": 1}
@@ -45,27 +46,36 @@ def test_render_contract_deterministic() -> None:
 def test_validate_contract() -> None:
     """契约校验：版本一致 / 结构齐备通过；版本不符 / 结构缺失报错。"""
     record = enabled_service_records()[0]
-    good: dict[str, object] = {
-        "openapi": "3.1.0",
-        "info": {"title": "服务", "version": record.contract_version},
-        "paths": {"/api/v1/x": {}},
-    }
+    good: ConcurrentStableDict[str, object] = ConcurrentStableDict(
+        {
+            "openapi": "3.1.0",
+            "info": ConcurrentStableDict({"title": "服务", "version": record.contract_version}),
+            "paths": ConcurrentStableDict({"/api/v1/x": ConcurrentStableDict()}),
+        }
+    )
     assert validate_contract("platform", good, record) == []
 
-    bad_version: dict[str, object] = {
-        "openapi": "3.1.0",
-        "info": {"title": "服务", "version": "9.9.9"},
-        "paths": {"/api/v1/x": {}},
-    }
+    bad_version: ConcurrentStableDict[str, object] = ConcurrentStableDict(
+        {
+            "openapi": "3.1.0",
+            "info": ConcurrentStableDict({"title": "服务", "version": "9.9.9"}),
+            "paths": ConcurrentStableDict({"/api/v1/x": ConcurrentStableDict()}),
+        }
+    )
     errors = validate_contract("platform", bad_version, record)
     assert any("契约版本不一致" in message for message in errors)
 
-    missing: dict[str, object] = {"openapi": "3.1.0", "info": {"title": "", "version": record.contract_version}}
+    missing: ConcurrentStableDict[str, object] = ConcurrentStableDict(
+        {
+            "openapi": "3.1.0",
+            "info": ConcurrentStableDict({"title": "", "version": record.contract_version}),
+        }
+    )
     errors = validate_contract("platform", missing, record)
     assert any("paths 为空" in message for message in errors)
     assert any("title 为空" in message for message in errors)
 
-    empty: dict[str, object] = {}
+    empty: ConcurrentStableDict[str, object] = ConcurrentStableDict()
     errors = validate_contract("platform", empty, record)
     assert any("缺少 openapi 版本字段" in message for message in errors)
     assert any("缺少 info 段" in message for message in errors)

@@ -30,6 +30,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.services.module_registry import enabled_service_keys
 from bms_core.services.service_contract import (
     BASELINE_DIR,
@@ -225,7 +226,7 @@ def compare_service(
         return BreakingResult(service_key, 0, "", False, error=f"契约构建失败：{exc}")
     with tempfile.TemporaryDirectory(prefix="bms-contract-") as tmp:
         current = Path(tmp) / contract_file_name(service_key)
-        current.write_text(render_contract_json(openapi), encoding="utf-8")
+        current.write_text(render_contract_json(ConcurrentStableDict(openapi)), encoding="utf-8")
         try:
             returncode, stdout, stderr = diff(baseline, current, image)
         except OSError as exc:

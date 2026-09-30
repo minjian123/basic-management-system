@@ -23,7 +23,7 @@ import sys
 from collections.abc import Sequence
 from pathlib import Path
 
-from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.exceptions import EventContractError
 from bms_core.events.contracts import (
     EVENT_SNAPSHOT_PATH,
@@ -94,7 +94,7 @@ def _registry_errors(registry: EventContractRegistry) -> list[str]:
     Returns:
         list[str]: 违规明细。
     """
-    return list(validate_event_registry(registry, domains=ConcurrentStableSet(known_event_domains())))
+    return list(validate_event_registry(registry, domains=known_event_domains()))
 
 
 def export(root: Path, *, to_stdout: bool = False) -> int:

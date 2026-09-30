@@ -1,14 +1,18 @@
-"""core 层集合体系：BaseCollection（基础集合基类 / 集合体系唯根） + BaseSorted + SortedList / SortedDict / SortedSet。
+"""core 层集合体系根与有序公共段：`BaseCollection`（集合体系唯根） + `BaseSorted`（有序公共段）。
 
-基于 sortedcontainers（插入即有序），统一稳定序列化、排序视图、分批与集合运算；
-基础并发版本见 bms_core.core.concurrent，跨副本与通用缓存版本见 bms_core.core.redis_collections。
+**无第三方依赖（集合体系「无依赖面」）**：本模块与 `core/concurrent.py`（基础并发层 + 插入序形态）
+只依赖标准库——CI `base-integrity` 的精简镜像（`python:3.14-slim`，不装依赖）会导入基座模块做边界校验，
+故根、公共段与插入序形态**不得**引入第三方依赖。升序形态基于第三方 `sortedcontainers`，单列
+`bms_core.core.sorted_collections`（依赖止步于该模块）；跨副本与通用缓存形态见 `core/redis_collections.py`。
 
 **集合体系唯一继承链**（所有集合类均（间接）继承基础集合基类 `BaseCollection`，无例外）：
 
 ```
 BaseCollection（基础集合基类 · 集合体系唯根）
-├── BaseSorted（非并发有序：无锁高效）→ SortedList / SortedDict / SortedSet
-│   ├── BaseConcurrent（基础并发：锁守卫 + 原子复合操作 + 快照遍历）→ ConcurrentSorted* / ConcurrentStable*
+├── BaseSorted（非并发有序：无锁高效）→ SortedList / SortedDict / SortedSet（core/sorted_collections.py）
+│   ├── BaseConcurrent（基础并发：锁守卫 + 原子复合操作 + 快照遍历）
+│   │   ├── ConcurrentStable*（插入序 · 业务与契约唯一落点；core/concurrent.py）
+│   │   └── ConcurrentSorted*（升序 · 体系内部；core/sorted_collections.py）
 │   └── BaseAsyncSorted（跨副本异步有序）→ RedisSortedSet / RedisSortedDict
 └── BaseCacheSnapshot（通用缓存层）→ RedisSnapshot
 ```
@@ -16,15 +20,14 @@ BaseCollection（基础集合基类 · 集合体系唯根）
 
 import heapq
 from abc import ABC, abstractmethod
-from collections.abc import Callable, Iterable, Iterator, Mapping
+from collections.abc import Callable, Iterable, Iterator
 from typing import Any, ClassVar, Self, cast
-
-from sortedcontainers import SortedDict as _SortedDict
-from sortedcontainers import SortedList as _SortedList
-from sortedcontainers import SortedSet as _SortedSet
 
 from bms_core.core.base import BaseObject
 from bms_core.core.serialization import stable_json_dumps
+
+MAX_INDEX = 9223372036854775807
+"""`Sequence.index` 的默认上界（与内置序列一致；避免用 `None` 与 `SupportsIndex` 冲突）。"""
 
 
 class BaseCollection[ItemT](BaseObject, ABC):
@@ -151,107 +154,3 @@ class BaseSorted[ItemT](BaseCollection[ItemT], ABC):
         Returns:
             object: 可直接 JSON 序列化的载荷。
         """
-
-
-class SortedList[ItemT](_SortedList[ItemT], BaseSorted[ItemT]):
-    """有序列表：按元素（或构造 key=）升序，插入即有序。"""
-
-    def to_list(self) -> list[ItemT]:
-        """有序元素列表。
-
-        Returns:
-            list[ItemT]: 元素列表。
-        """
-        return list(self)
-
-    def _json_data(self) -> object:
-        """JSON 载荷（数组）。
-
-        Returns:
-            object: 元素列表。
-        """
-        return self.to_list()
-
-
-class SortedDict[KeyT, ValueT](_SortedDict[KeyT, ValueT], BaseSorted[tuple[KeyT, ValueT]]):
-    """有序字典：按键升序，插入即有序。"""
-
-    def to_list(self) -> list[tuple[KeyT, ValueT]]:
-        """有序键值对列表。
-
-        Returns:
-            list[tuple[KeyT, ValueT]]: 键值对列表。
-        """
-        return list(self.items())
-
-    def to_dict(self) -> dict[KeyT, ValueT]:  # pyright: ignore[reportIncompatibleMethodOverride]
-        """键序字典（内置 dict 副本）。
-
-        Returns:
-            dict[KeyT, ValueT]: 键序字典。
-        """
-        return dict(self.items())
-
-    def merge(self, *others: Iterable[tuple[KeyT, ValueT]]) -> Self:
-        """多路归并键值对（同键后者覆盖），返回同类且保持有序。
-
-        Args:
-            *others: 其他有序键值对可迭代对象。
-
-        Returns:
-            Self: 合并后的同类实例。
-        """
-        return type(self)(heapq.merge(self.to_list(), *others))
-
-    def keys_intersection(self, other: Iterable[KeyT]) -> Self:
-        """按键求交（保留本实例的值），返回同类且保持有序。
-
-        Args:
-            other: 参与求交的键集合。
-
-        Returns:
-            Self: 交集结果。
-        """
-        keys = set(other)
-        return type(self)((key, self[key]) for key in self if key in keys)
-
-    def keys_union(self, other: Mapping[KeyT, ValueT]) -> Self:
-        """按键求并（同键 other 覆盖），返回同类且保持有序。
-
-        Args:
-            other: 参与求并的映射。
-
-        Returns:
-            Self: 并集结果。
-        """
-        merged: dict[KeyT, ValueT] = dict(self.items())
-        merged.update(other)
-        return type(self)(merged)
-
-    def _json_data(self) -> object:
-        """JSON 载荷（对象）。
-
-        Returns:
-            object: 键序字典。
-        """
-        return dict(self.items())
-
-
-class SortedSet[ItemT](_SortedSet[ItemT], BaseSorted[ItemT]):
-    """有序集合：按元素升序去重，插入即有序。"""
-
-    def to_list(self) -> list[ItemT]:
-        """有序元素列表。
-
-        Returns:
-            list[ItemT]: 元素列表。
-        """
-        return list(self)
-
-    def _json_data(self) -> object:
-        """JSON 载荷（数组）。
-
-        Returns:
-            object: 元素列表。
-        """
-        return self.to_list()

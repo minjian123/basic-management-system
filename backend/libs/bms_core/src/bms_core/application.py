@@ -30,7 +30,7 @@ from bms_core.api.middleware import (
 from bms_core.cache.base import CacheRegion
 from bms_core.catalog.loader import load_catalog_snapshot
 from bms_core.core.assembly import assemble_plugins, register_platform_plugins
-from bms_core.core.concurrent import ConcurrentStableSet
+from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.config import Settings, get_settings, validate_startup
 from bms_core.core.exceptions import CatalogError, EventContractError
 from bms_core.core.factory import BaseApplicationFactory, register_factory, resolve_factory
@@ -101,8 +101,8 @@ async def _validate_service_catalog(app: FastAPI) -> None:
         logger.warning("service_catalog_empty", hint="服务目录无登记行，跳过接库校验")
         return
     errors = validate_catalog(
-        SERVICE_CATALOG,
-        records,
+        ConcurrentStableList(SERVICE_CATALOG),
+        ConcurrentStableList(records),
         service_key=identity.name,
         contract_version=identity.contract_version,
     )
@@ -149,7 +149,7 @@ async def _validate_table_ownership(app: FastAPI) -> None:
     if not records:
         logger.warning("table_ownership_empty", hint="表归属登记无登记行，跳过接库对账（先执行 ops.seed_tables）")
         return
-    errors = validate_table_ownership(TABLE_OWNERSHIP, records)
+    errors = validate_table_ownership(ConcurrentStableList(TABLE_OWNERSHIP), ConcurrentStableList(records))
     if errors:
         logger.critical("table_ownership_invalid", scope="database", errors=errors)
         raise CatalogError("表归属登记校验失败（接库）：" + "；".join(errors))

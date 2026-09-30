@@ -9,11 +9,11 @@
 
 import re
 from collections import Counter
-from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any, cast
 
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.objects import BaseFrameworkObject, BaseRegistryRecordContract
 from bms_core.core.version import CONTRACT_VERSION_RE, contract_major
 
@@ -282,15 +282,15 @@ PLATFORM_MODULES: tuple[ModuleRecord, ...] = tuple(
 """平台域模块视图（`sys` / `wf` / `rpt` / `ai`，保持既有引用兼容）。"""
 
 
-def known_event_domains() -> frozenset[str]:
+def known_event_domains() -> ConcurrentStableSet[str]:
     """取服务目录已登记事件域集合（事件契约命名校验的域来源）。
 
     事件名首段必须是本集合中的事件域（《命名规范》「事件总线/Webhook 事件」行口径）。
 
     Returns:
-        frozenset[str]: 去重后的事件域集合。
+        ConcurrentStableSet[str]: 去重后的事件域集合（插入序）。
     """
-    return frozenset(record.event_domain for record in SERVICE_CATALOG)
+    return ConcurrentStableSet(record.event_domain for record in SERVICE_CATALOG)
 
 
 def enabled_service_keys() -> tuple[str, ...]:
@@ -307,37 +307,41 @@ def enabled_service_keys() -> tuple[str, ...]:
     )
 
 
-def _duplicates(values: list[str]) -> list[str]:
+def _duplicates(values: ConcurrentStableList[str]) -> ConcurrentStableList[str]:
     """取重复值（保持首次出现顺序）。
 
     Args:
-        values: 待检查值列表。
+        values: 待检查值列表（插入序）。
 
     Returns:
-        list[str]: 重复出现的值。
+        ConcurrentStableList[str]: 重复出现的值（插入序）。
     """
     counter = Counter(values)
-    seen: set[str] = set()
-    result: list[str] = []
+    seen: ConcurrentStableSet[str] = ConcurrentStableSet()
+    result: ConcurrentStableList[str] = ConcurrentStableList()
     for value in values:
         if counter[value] > 1 and value not in seen:
             seen.add(value)
-            result.append(value)
+            result.add(value)
     return result
 
 
 class ModuleRegistry(BaseFrameworkObject):
     """服务目录与注册要素校验 / 清单查询（离线）。"""
 
-    def __init__(self, modules: Sequence[ModuleRecord] = SERVICE_CATALOG) -> None:
+    def __init__(self, modules: ConcurrentStableList[ModuleRecord] | None = None) -> None:
         """初始化。
 
         Args:
-            modules: 注册清单；默认全量服务目录 `SERVICE_CATALOG`。
+            modules: 注册清单（插入序）；默认全量服务目录 `SERVICE_CATALOG`。
         """
-        self._modules = list(modules)
+        self._modules: ConcurrentStableList[ModuleRecord] = (
+            ConcurrentStableList(SERVICE_CATALOG) if modules is None else ConcurrentStableList(modules)
+        )
 
-    def list_modules(self, *, status: str | None = None, group: str | None = None) -> list[ModuleRecord]:
+    def list_modules(
+        self, *, status: str | None = None, group: str | None = None
+    ) -> ConcurrentStableList[ModuleRecord]:
         """返回注册清单（可按状态 / 归属分组筛选）。
 
         Args:
@@ -345,82 +349,85 @@ class ModuleRegistry(BaseFrameworkObject):
             group: 归属分组筛选（`foundation` / `capability` / `product`）；None 返回全部。
 
         Returns:
-            list[ModuleRecord]: 注册记录列表。
+            ConcurrentStableList[ModuleRecord]: 注册记录列表（插入序）。
         """
         result = self._modules
         if status is not None:
-            result = [module for module in result if module.status == status]
+            result = ConcurrentStableList(module for module in result if module.status == status)
         if group is not None:
-            result = [module for module in result if module.service_group == group]
-        return list(result)
+            result = ConcurrentStableList(module for module in result if module.service_group == group)
+        return ConcurrentStableList(result)
 
-    def validate(self) -> list[str]:
+    def validate(self) -> ConcurrentStableList[str]:
         """校验注册清单：注册要素唯一 + 格式 + 分组 / 版本 / 产品维度一致。
 
         Returns:
-            list[str]: 冲突 / 非法明细；空列表表示通过。
+            ConcurrentStableList[str]: 冲突 / 非法明细；空列表表示通过。
         """
-        errors: list[str] = []
+        errors: ConcurrentStableList[str] = ConcurrentStableList()
         for module in self._modules:
-            errors.extend(self._validate_record(module))
-        errors.extend(self._validate_duplicates())
+            errors.update(self._validate_record(module))
+        errors.update(self._validate_duplicates())
         return errors
 
-    def _validate_record(self, module: ModuleRecord) -> list[str]:
+    def _validate_record(self, module: ModuleRecord) -> ConcurrentStableList[str]:
         """校验单条记录（格式 / 分组 / 版本 / 产品维度）。
 
         Args:
             module: 注册记录。
 
         Returns:
-            list[str]: 非法明细。
+            ConcurrentStableList[str]: 非法明细。
         """
-        errors: list[str] = []
+        errors: ConcurrentStableList[str] = ConcurrentStableList()
         key = module.module_key
         if not _KEY_RE.match(key):
-            errors.append(f"{key}：module_key 非法")
+            errors.add(f"{key}：module_key 非法")
         if module.service_key is not None and not _SERVICE_KEY_RE.match(module.service_key):
-            errors.append(f"{key}：service_key 非法（{module.service_key}）")
+            errors.add(f"{key}：service_key 非法（{module.service_key}）")
         if not _PREFIX_RE.match(module.table_prefix):
-            errors.append(f"{key}：table_prefix 非法（{module.table_prefix}）")
+            errors.add(f"{key}：table_prefix 非法（{module.table_prefix}）")
         elif not module.table_prefix.startswith(f"{key}_"):
-            errors.append(f"{key}：table_prefix 首段与 module_key 不一致（{module.table_prefix}）")
+            errors.add(f"{key}：table_prefix 首段与 module_key 不一致（{module.table_prefix}）")
         if module.errcode_segment is not None and (
             not _SEGMENT_RE.match(module.errcode_segment) or int(module.errcode_segment) < 1
         ):
-            errors.append(f"{key}：errcode_segment 非法（{module.errcode_segment}）")
+            errors.add(f"{key}：errcode_segment 非法（{module.errcode_segment}）")
         if not _DOMAIN_RE.match(module.event_domain):
-            errors.append(f"{key}：event_domain 非法（{module.event_domain}）")
+            errors.add(f"{key}：event_domain 非法（{module.event_domain}）")
         if module.service_group not in tuple(ServiceGroup):
-            errors.append(f"{key}：service_group 非法（{module.service_group}）")
+            errors.add(f"{key}：service_group 非法（{module.service_group}）")
         if not 0 <= module.build_batch <= 3:
-            errors.append(f"{key}：build_batch 越界（{module.build_batch}）")
+            errors.add(f"{key}：build_batch 越界（{module.build_batch}）")
         for field, value in (
             ("service_version", module.service_version),
             ("contract_version", module.contract_version),
         ):
             if not CONTRACT_VERSION_RE.fullmatch(value):
-                errors.append(f"{key}：{field} 非 semver（{value}）")
+                errors.add(f"{key}：{field} 非 semver（{value}）")
         if module.service_group == ServiceGroup.PRODUCT and not module.product_key:
-            errors.append(f"{key}：产品分组缺 product_key")
+            errors.add(f"{key}：产品分组缺 product_key")
         if module.service_group != ServiceGroup.PRODUCT and module.product_key:
-            errors.append(f"{key}：非产品分组不应有 product_key（{module.product_key}）")
+            errors.add(f"{key}：非产品分组不应有 product_key（{module.product_key}）")
         return errors
 
-    def _validate_duplicates(self) -> list[str]:
+    def _validate_duplicates(self) -> ConcurrentStableList[str]:
         """校验注册要素唯一性（服务键 / 段位仅非空去重）。
 
         Returns:
-            list[str]: 重复明细。
+            ConcurrentStableList[str]: 重复明细。
         """
-        errors: list[str] = []
+        errors: ConcurrentStableList[str] = ConcurrentStableList()
         for field in ("module_key", "table_prefix", "event_domain"):
-            for duplicate in _duplicates([str(getattr(module, field)) for module in self._modules]):
-                errors.append(f"{field} 重复：{duplicate}")
-        for optional in ("service_key", "errcode_segment"):
-            values = [value for module in self._modules if (value := getattr(module, optional)) is not None]
+            values = ConcurrentStableList(str(getattr(module, field)) for module in self._modules)
             for duplicate in _duplicates(values):
-                errors.append(f"{optional} 重复：{duplicate}")
+                errors.add(f"{field} 重复：{duplicate}")
+        for optional in ("service_key", "errcode_segment"):
+            optional_values = ConcurrentStableList(
+                value for module in self._modules if (value := getattr(module, optional)) is not None
+            )
+            for duplicate in _duplicates(optional_values):
+                errors.add(f"{optional} 重复：{duplicate}")
         return errors
 
 
@@ -440,12 +447,12 @@ _COMPARE_FIELDS: tuple[str, ...] = (
 
 
 def validate_catalog(
-    catalog: Sequence[ModuleRecord],
-    records: Sequence[ModuleRecord],
+    catalog: ConcurrentStableList[ModuleRecord],
+    records: ConcurrentStableList[ModuleRecord],
     *,
     service_key: str | None = None,
     contract_version: str | None = None,
-) -> list[str]:
+) -> ConcurrentStableList[str]:
     """接库服务目录校验（启动 / CI 共用）：库内查重与格式 + 与清单双向对账 + 运行服务契约版本。
 
     Args:
@@ -455,32 +462,34 @@ def validate_catalog(
         contract_version: 运行服务自报契约版本（`ServiceIdentity.contract_version`）。
 
     Returns:
-        list[str]: 冲突 / 非法明细；空列表表示通过。
+        ConcurrentStableList[str]: 冲突 / 非法明细；空列表表示通过。
     """
     errors = ModuleRegistry(records).validate()
-    errors.extend(_diff_catalog(catalog, records))
+    errors.update(_diff_catalog(catalog, records))
     if service_key is not None:
-        errors.extend(_check_running_service(records, service_key=service_key, contract_version=contract_version or ""))
+        errors.update(_check_running_service(records, service_key=service_key, contract_version=contract_version or ""))
     return errors
 
 
-def _diff_catalog(catalog: Sequence[ModuleRecord], records: Sequence[ModuleRecord]) -> list[str]:
+def _diff_catalog(
+    catalog: ConcurrentStableList[ModuleRecord], records: ConcurrentStableList[ModuleRecord]
+) -> ConcurrentStableList[str]:
     """清单与库记录双向对账（缺行 / 清单外行 / 字段不符 / 契约主版本不兼容）。
 
     Args:
-        catalog: 服务目录清单。
-        records: 库中未软删行转换结果。
+        catalog: 服务目录清单（插入序）。
+        records: 库中未软删行转换结果（插入序）。
 
     Returns:
-        list[str]: 对账明细。
+        ConcurrentStableList[str]: 对账明细。
     """
-    errors: list[str] = []
-    expected_by_key = {module.module_key: module for module in catalog}
-    actual_by_key = {record.module_key: record for record in records}
+    errors: ConcurrentStableList[str] = ConcurrentStableList()
+    expected_by_key = ConcurrentStableDict((module.module_key, module) for module in catalog)
+    actual_by_key = ConcurrentStableDict((record.module_key, record) for record in records)
     for key in sorted(actual_by_key.keys() - expected_by_key.keys()):
-        errors.append(f"库中登记行不在清单：{key}")
+        errors.add(f"库中登记行不在清单：{key}")
     for key in sorted(expected_by_key.keys() - actual_by_key.keys()):
-        errors.append(f"库中缺登记行：{key}")
+        errors.add(f"库中缺登记行：{key}")
     for key in sorted(expected_by_key.keys() & actual_by_key.keys()):
         expected = expected_by_key[key]
         actual = actual_by_key[key]
@@ -488,45 +497,45 @@ def _diff_catalog(catalog: Sequence[ModuleRecord], records: Sequence[ModuleRecor
             expected_value = getattr(expected, field)
             actual_value = getattr(actual, field)
             if expected_value != actual_value:
-                errors.append(f"{key}：{field} 与清单不一致（库 {actual_value!r}，清单 {expected_value!r}）")
+                errors.add(f"{key}：{field} 与清单不一致（库 {actual_value!r}，清单 {expected_value!r}）")
         if not _contract_compatible(expected.contract_version, actual.contract_version):
-            errors.append(
-                f"{key}：契约版本主版本不兼容（库 {actual.contract_version}，清单 {expected.contract_version}）"
-            )
+            errors.add(f"{key}：契约版本主版本不兼容（库 {actual.contract_version}，清单 {expected.contract_version}）")
     return errors
 
 
 def _check_running_service(
-    records: Sequence[ModuleRecord],
+    records: ConcurrentStableList[ModuleRecord],
     *,
     service_key: str,
     contract_version: str,
-) -> list[str]:
+) -> ConcurrentStableList[str]:
     """运行服务项：登记行存在 + 契约版本主版本兼容。
 
     Args:
-        records: 库中未软删行转换结果。
+        records: 库中未软删行转换结果（插入序）。
         service_key: 运行服务标识（微服务工程名）。
         contract_version: 运行服务自报契约版本。
 
     Returns:
-        list[str]: 冲突 / 非法明细。
+        ConcurrentStableList[str]: 冲突 / 非法明细。
     """
     expected_major = contract_major(contract_version)
     if expected_major is None:
-        return [f"运行服务契约版本非法：{service_key} → {contract_version!r}（应为 X.Y.Z）"]
+        return ConcurrentStableList([f"运行服务契约版本非法：{service_key} → {contract_version!r}（应为 X.Y.Z）"])
     actual = next((record for record in records if record.service_key == service_key), None)
     if actual is None:
-        return [f"运行服务未登记：{service_key}"]
+        return ConcurrentStableList([f"运行服务未登记：{service_key}"])
     actual_major = contract_major(actual.contract_version)
     if actual_major is None:
-        return [f"{actual.module_key}：登记契约版本非法（{actual.contract_version!r}）"]
+        return ConcurrentStableList([f"{actual.module_key}：登记契约版本非法（{actual.contract_version!r}）"])
     if actual_major != expected_major:
-        return [
-            f"运行服务契约版本主版本不兼容：{service_key} 自报 {contract_version}（主版本 {expected_major}）"
-            f" vs 登记 {actual.contract_version}（主版本 {actual_major}）"
-        ]
-    return []
+        return ConcurrentStableList(
+            [
+                f"运行服务契约版本主版本不兼容：{service_key} 自报 {contract_version}（主版本 {expected_major}）"
+                f" vs 登记 {actual.contract_version}（主版本 {actual_major}）"
+            ]
+        )
+    return ConcurrentStableList()
 
 
 def _contract_compatible(expected_version: str, actual_version: str) -> bool:

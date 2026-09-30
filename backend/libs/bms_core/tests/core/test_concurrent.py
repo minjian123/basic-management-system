@@ -6,13 +6,13 @@ import pytest
 
 from bms_core.core.base import BaseObject
 from bms_core.core.collections import BaseSorted
-from bms_core.core.concurrent import (
-    BaseConcurrent,
+from bms_core.core.concurrent import BaseConcurrent
+from bms_core.core.locking import LockStrategy, ReadWriteLock
+from bms_core.core.sorted_collections import (
     ConcurrentSortedDict,
     ConcurrentSortedList,
     ConcurrentSortedSet,
 )
-from bms_core.core.locking import LockStrategy, ReadWriteLock
 
 STRATEGIES = [LockStrategy.RW, LockStrategy.RLCK, LockStrategy.SHARDED, LockStrategy.SNAPSHOT]
 

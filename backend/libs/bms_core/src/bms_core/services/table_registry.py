@@ -11,11 +11,12 @@
 
 import re
 from collections import Counter
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any, cast
 
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.objects import BaseFrameworkObject, BaseRegistryRecordContract
 from bms_core.services.module_registry import SERVICE_CATALOG, ModuleRecord
 
@@ -332,25 +333,31 @@ def _owner_label(record: ModuleRecord) -> str:
     return record.service_key or record.module_key
 
 
-def known_service_keys() -> frozenset[str]:
+def known_service_keys() -> ConcurrentStableSet[str]:
     """可作为归属标签的服务标识集合（服务目录标签 ∪ 预留服务标识）。
 
     Returns:
-        frozenset[str]: 归属标签集合。
+        ConcurrentStableSet[str]: 归属标签集合（插入序）。
     """
-    return frozenset(_owner_label(record) for record in SERVICE_CATALOG) | frozenset(RESERVED_SERVICE_KEYS)
+    keys = ConcurrentStableSet(_owner_label(record) for record in SERVICE_CATALOG)
+    keys.update(RESERVED_SERVICE_KEYS)
+    return keys
 
 
-def service_table_prefixes() -> dict[str, frozenset[str]]:
+def service_table_prefixes() -> ConcurrentStableDict[str, ConcurrentStableSet[str]]:
     """服务标识 → 该服务在服务目录登记的表前缀集合。
 
     Returns:
-        dict[str, frozenset[str]]: 归属标签到前缀集合。
+        ConcurrentStableDict[str, ConcurrentStableSet[str]]: 归属标签到前缀集合（插入序）。
     """
-    prefixes: dict[str, set[str]] = {}
+    prefixes: ConcurrentStableDict[str, ConcurrentStableSet[str]] = ConcurrentStableDict()
     for record in SERVICE_CATALOG:
-        prefixes.setdefault(_owner_label(record), set()).add(record.table_prefix)
-    return {label: frozenset(values) for label, values in prefixes.items()}
+        label = _owner_label(record)
+        existing = prefixes.get(label)
+        bucket: ConcurrentStableSet[str] = existing if existing is not None else ConcurrentStableSet()
+        bucket.add(record.table_prefix)
+        prefixes.set(label, bucket)
+    return prefixes
 
 
 def table_owner(table_name: str) -> str | None:
@@ -380,7 +387,9 @@ def table_record(table_name: str) -> TableRecord | None:
     return next((record for record in TABLE_OWNERSHIP if record.table_name == table_name), None)
 
 
-def owned_tables_for(service: str, *, datasource: str | None = None, include_planned: bool = True) -> frozenset[str]:
+def owned_tables_for(
+    service: str, *, datasource: str | None = None, include_planned: bool = True
+) -> ConcurrentStableSet[str]:
     """取某服务名下的表集合（可按库类别与状态过滤）。
 
     Args:
@@ -389,9 +398,9 @@ def owned_tables_for(service: str, *, datasource: str | None = None, include_pla
         include_planned: 是否含预留归属（`planned`）。
 
     Returns:
-        frozenset[str]: 表名集合。
+        ConcurrentStableSet[str]: 表名集合（插入序）。
     """
-    return frozenset(
+    return ConcurrentStableSet(
         record.table_name
         for record in TABLE_OWNERSHIP
         if record.owner == service
@@ -400,20 +409,20 @@ def owned_tables_for(service: str, *, datasource: str | None = None, include_pla
     )
 
 
-def infrastructure_tables() -> frozenset[str]:
+def infrastructure_tables() -> ConcurrentStableSet[str]:
     """基础设施表集合（每服务自有，不参与跨服务归属判定）。
 
     Returns:
-        frozenset[str]: 表名集合。
+        ConcurrentStableSet[str]: 表名集合（插入序）。
     """
-    return frozenset(
+    return ConcurrentStableSet(
         record.table_name
         for record in TABLE_OWNERSHIP
         if record.owner == OWNER_EVERY_SERVICE and record.datasource == Datasource.BOTH
     )
 
 
-def chain_tables(service: str, datasource: str) -> frozenset[str]:
+def chain_tables(service: str, datasource: str) -> ConcurrentStableSet[str]:
     """取迁移链 / 自动建表的**目标表集**（归属登记派生：该服务表 + 基础设施表）。
 
     口径（06_02 收口）：
@@ -427,72 +436,74 @@ def chain_tables(service: str, datasource: str) -> frozenset[str]:
         datasource: 库类别（`platform` / `tenant` / `archive`）。
 
     Returns:
-        frozenset[str]: 表名集合（保序无关）。
+        ConcurrentStableSet[str]: 表名集合（插入序）。
     """
-    owned = {
+    owned = ConcurrentStableSet(
         record.table_name
         for record in TABLE_OWNERSHIP
         if record.owner == service and record.datasource == datasource and record.status == TableStatus.ENABLED
-    }
+    )
     if datasource == Datasource.ARCHIVE:
-        return frozenset(owned)
-    infra = {
+        return ConcurrentStableSet(owned)
+    infra = ConcurrentStableSet(
         record.table_name
         for record in TABLE_OWNERSHIP
         if record.owner == OWNER_EVERY_SERVICE
         and record.datasource in (datasource, Datasource.BOTH)
         and record.status == TableStatus.ENABLED
-    }
-    return frozenset(owned | infra)
+    )
+    return owned | infra
 
 
-def table_names() -> frozenset[str]:
+def table_names() -> ConcurrentStableSet[str]:
     """全部已登记表名。
 
     Returns:
-        frozenset[str]: 表名集合。
+        ConcurrentStableSet[str]: 表名集合（插入序）。
     """
-    return frozenset(record.table_name for record in TABLE_OWNERSHIP)
+    return ConcurrentStableSet(record.table_name for record in TABLE_OWNERSHIP)
 
 
-def registered_services() -> frozenset[str]:
+def registered_services() -> ConcurrentStableSet[str]:
     """有表登记在册的服务标识（含预留）。
 
     Returns:
-        frozenset[str]: 服务标识集合。
+        ConcurrentStableSet[str]: 服务标识集合（插入序）。
     """
-    return frozenset(record.owner for record in TABLE_OWNERSHIP if record.owner != OWNER_EVERY_SERVICE)
+    return ConcurrentStableSet(record.owner for record in TABLE_OWNERSHIP if record.owner != OWNER_EVERY_SERVICE)
 
 
-def _duplicates(values: list[str]) -> list[str]:
+def _duplicates(values: ConcurrentStableList[str]) -> ConcurrentStableList[str]:
     """取重复值（保持首次出现顺序）。
 
     Args:
-        values: 待检查值列表。
+        values: 待检查值列表（插入序）。
 
     Returns:
-        list[str]: 重复出现的值。
+        ConcurrentStableList[str]: 重复出现的值（插入序）。
     """
     counter = Counter(values)
-    seen: set[str] = set()
-    result: list[str] = []
+    seen: ConcurrentStableSet[str] = ConcurrentStableSet()
+    result: ConcurrentStableList[str] = ConcurrentStableList()
     for value in values:
         if counter[value] > 1 and value not in seen:
             seen.add(value)
-            result.append(value)
+            result.add(value)
     return result
 
 
 class TableOwnershipRegistry(BaseFrameworkObject):
     """表归属校验 / 清单查询（离线，与服务目录校验同源模式）。"""
 
-    def __init__(self, tables: Sequence[TableRecord] = TABLE_OWNERSHIP) -> None:
+    def __init__(self, tables: ConcurrentStableList[TableRecord] | None = None) -> None:
         """初始化。
 
         Args:
-            tables: 归属清单；默认全量 `TABLE_OWNERSHIP`。
+            tables: 归属清单（插入序）；默认全量 `TABLE_OWNERSHIP`。
         """
-        self._tables = list(tables)
+        self._tables: ConcurrentStableList[TableRecord] = (
+            ConcurrentStableList(TABLE_OWNERSHIP) if tables is None else ConcurrentStableList(tables)
+        )
 
     def list_tables(
         self,
@@ -500,7 +511,7 @@ class TableOwnershipRegistry(BaseFrameworkObject):
         owner: str | None = None,
         datasource: str | None = None,
         status: str | None = None,
-    ) -> list[TableRecord]:
+    ) -> ConcurrentStableList[TableRecord]:
         """返回归属清单（可按归属 / 库类别 / 状态筛选）。
 
         Args:
@@ -509,115 +520,120 @@ class TableOwnershipRegistry(BaseFrameworkObject):
             status: 状态过滤；None 返回全部。
 
         Returns:
-            list[TableRecord]: 归属记录列表。
+            ConcurrentStableList[TableRecord]: 归属记录列表（插入序）。
         """
         result = self._tables
         if owner is not None:
-            result = [record for record in result if record.owner == owner]
+            result = ConcurrentStableList(record for record in result if record.owner == owner)
         if datasource is not None:
-            result = [record for record in result if record.datasource == datasource]
+            result = ConcurrentStableList(record for record in result if record.datasource == datasource)
         if status is not None:
-            result = [record for record in result if record.status == status]
-        return list(result)
+            result = ConcurrentStableList(record for record in result if record.status == status)
+        return ConcurrentStableList(result)
 
-    def validate(self) -> list[str]:
+    def validate(self) -> ConcurrentStableList[str]:
         """校验归属清单：表名唯一与格式 + 归属 / 库类别 / 状态合法 + 前缀归属一致。
 
         Returns:
-            list[str]: 非法明细；空列表表示通过。
+            ConcurrentStableList[str]: 非法明细；空列表表示通过。
         """
-        errors: list[str] = []
+        errors: ConcurrentStableList[str] = ConcurrentStableList()
         for record in self._tables:
-            errors.extend(self._validate_record(record))
-        for duplicate in _duplicates([record.table_name for record in self._tables]):
-            errors.append(f"表名重复登记：{duplicate}")
+            errors.update(self._validate_record(record))
+        names = ConcurrentStableList(record.table_name for record in self._tables)
+        for duplicate in _duplicates(names):
+            errors.add(f"表名重复登记：{duplicate}")
         return errors
 
-    def _validate_record(self, record: TableRecord) -> list[str]:
+    def _validate_record(self, record: TableRecord) -> ConcurrentStableList[str]:
         """校验单条归属记录。
 
         Args:
             record: 归属记录。
 
         Returns:
-            list[str]: 非法明细。
+            ConcurrentStableList[str]: 非法明细。
         """
-        errors: list[str] = []
+        errors: ConcurrentStableList[str] = ConcurrentStableList()
         name = record.table_name
         if not _TABLE_NAME_RE.match(name):
-            errors.append(f"{name}：表名非法")
+            errors.add(f"{name}：表名非法")
         services = known_service_keys()
         if record.owner != OWNER_EVERY_SERVICE and record.owner not in services:
-            errors.append(f"{name}：归属服务未登记（{record.owner}）")
+            errors.add(f"{name}：归属服务未登记（{record.owner}）")
         if record.owner == OWNER_EVERY_SERVICE and record.datasource != Datasource.BOTH:
-            errors.append(f"{name}：`{OWNER_EVERY_SERVICE}` 归属须为 `both` 库类别（现 {record.datasource}）")
+            errors.add(f"{name}：`{OWNER_EVERY_SERVICE}` 归属须为 `both` 库类别（现 {record.datasource}）")
         if record.datasource not in tuple(Datasource):
-            errors.append(f"{name}：库类别非法（{record.datasource}）")
+            errors.add(f"{name}：库类别非法（{record.datasource}）")
         elif record.datasource == Datasource.BOTH and record.owner != OWNER_EVERY_SERVICE:
-            errors.append(f"{name}：`both` 库类别仅限「每服务自有」基础设施表")
+            errors.add(f"{name}：`both` 库类别仅限「每服务自有」基础设施表")
         if record.status not in tuple(TableStatus):
-            errors.append(f"{name}：状态非法（{record.status}）")
-        errors.extend(self._validate_prefix(record))
+            errors.add(f"{name}：状态非法（{record.status}）")
+        errors.update(self._validate_prefix(record))
         return errors
 
-    def _validate_prefix(self, record: TableRecord) -> list[str]:
+    def _validate_prefix(self, record: TableRecord) -> ConcurrentStableList[str]:
         """校验表名前缀归属（`sys_` 共享前缀与无前缀表跳过）。
 
         Args:
             record: 归属记录。
 
         Returns:
-            list[str]: 非法明细。
+            ConcurrentStableList[str]: 非法明细。
         """
         name = record.table_name
         if "_" not in name or name.startswith(_SHARED_TABLE_PREFIX):
-            return []
+            return ConcurrentStableList()
         prefix = f"{name.split('_', 1)[0]}_"
-        prefixes = service_table_prefixes().get(record.owner, frozenset())
+        prefixes = service_table_prefixes().get(record.owner, ConcurrentStableSet())
         if prefix not in prefixes:
-            return [f"{name}：表前缀 {prefix} 不属于归属服务 {record.owner}（已登记前缀 {sorted(prefixes) or '无'}）"]
-        return []
+            return ConcurrentStableList(
+                [f"{name}：表前缀 {prefix} 不属于归属服务 {record.owner}（已登记前缀 {sorted(prefixes) or '无'}）"]
+            )
+        return ConcurrentStableList()
 
 
 def validate_table_ownership(
-    ownership: Sequence[TableRecord],
-    records: Sequence[TableRecord],
-) -> list[str]:
+    ownership: ConcurrentStableList[TableRecord],
+    records: ConcurrentStableList[TableRecord],
+) -> ConcurrentStableList[str]:
     """接库表归属校验（启动 / CI 共用）：库内校验 + 与清单双向对账。
 
     Args:
-        ownership: 归属清单（`TABLE_OWNERSHIP`）。
-        records: 库中未软删行转换结果（`TableRecord.from_row`）。
+        ownership: 归属清单（`TABLE_OWNERSHIP`；插入序）。
+        records: 库中未软删行转换结果（`TableRecord.from_row`；插入序）。
 
     Returns:
-        list[str]: 冲突 / 非法明细；空列表表示通过。
+        ConcurrentStableList[str]: 冲突 / 非法明细；空列表表示通过。
     """
     errors = TableOwnershipRegistry(records).validate()
-    errors.extend(_diff_ownership(ownership, records))
+    errors.update(_diff_ownership(ownership, records))
     return errors
 
 
-def _diff_ownership(ownership: Iterable[TableRecord], records: Sequence[TableRecord]) -> list[str]:
+def _diff_ownership(
+    ownership: Iterable[TableRecord], records: ConcurrentStableList[TableRecord]
+) -> ConcurrentStableList[str]:
     """清单与库记录双向对账（缺行 / 清单外行 / 字段不符）。
 
     Args:
-        ownership: 归属清单。
-        records: 库中未软删行转换结果。
+        ownership: 归属清单（仅迭代）。
+        records: 库中未软删行转换结果（插入序）。
 
     Returns:
-        list[str]: 对账明细。
+        ConcurrentStableList[str]: 对账明细。
     """
-    expected = {record.table_name: record for record in ownership}
-    actual = {record.table_name: record for record in records}
-    errors: list[str] = []
+    expected = ConcurrentStableDict((record.table_name, record) for record in ownership)
+    actual = ConcurrentStableDict((record.table_name, record) for record in records)
+    errors: ConcurrentStableList[str] = ConcurrentStableList()
     for name in sorted(actual.keys() - expected.keys()):
-        errors.append(f"库中登记行不在清单：{name}")
+        errors.add(f"库中登记行不在清单：{name}")
     for name in sorted(expected.keys() - actual.keys()):
-        errors.append(f"库中缺登记行：{name}")
+        errors.add(f"库中缺登记行：{name}")
     for name in sorted(expected.keys() & actual.keys()):
         for field in ("owner", "datasource", "status", "note"):
             expected_value = getattr(expected[name], field)
             actual_value = getattr(actual[name], field)
             if expected_value != actual_value:
-                errors.append(f"{name}：{field} 与清单不一致（库 {actual_value!r}，清单 {expected_value!r}）")
+                errors.add(f"{name}：{field} 与清单不一致（库 {actual_value!r}，清单 {expected_value!r}）")
     return errors
