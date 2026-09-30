@@ -1,5 +1,6 @@
 """demo 示例模块：业务服务（继承 BaseTransactionalService，内存实现）。"""
 
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.services.base_transactional_service import BaseTransactionalService
 from bms_platform.models.demo import Demo
 from bms_platform.repositories.demo_repository import DemoRepository
@@ -16,11 +17,11 @@ class DemoService(BaseTransactionalService[Demo]):
         """
         super().__init__(repository)
 
-    async def list_demos(self) -> list[Demo]:
+    async def list_demos(self) -> ConcurrentStableList[Demo]:
         """返回全部 demo。
 
         Returns:
-            list[Demo]: 按 ID 升序的记录列表。
+            ConcurrentStableList[Demo]: 按 ID 升序的记录列表。
         """
         return await self.list()
 

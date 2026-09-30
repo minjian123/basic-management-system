@@ -2978,286 +2978,6 @@
       "count": 1
     },
     {
-      "file": "backend/libs/bms_core/src/bms_core/repositories/base_db_repository.py",
-      "line": "_OPERATOR_BUILDERS: dict[str, Callable[[InstrumentedAttribute[Any], object], ColumnElement[bool]]] = {",
-      "container": "dict",
-      "position": "local",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/repositories/base_db_repository.py",
-      "line": "_WRITE_BLOCKED_FIELDS: frozenset[str] = frozenset(",
-      "container": "frozenset",
-      "position": "local",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/repositories/base_db_repository.py",
-      "line": "async def list(self, *, sort: Sequence[SortSpec] | None = None) -> list[ModelT]:",
-      "container": "Sequence",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/repositories/base_db_repository.py",
-      "line": "async def list(self, *, sort: Sequence[SortSpec] | None = None) -> list[ModelT]:",
-      "container": "list",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/repositories/base_db_repository.py",
-      "line": "async def list_cursor(self, query: BaseCursorQuery) -> list[ModelT]:",
-      "container": "list",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/repositories/base_db_repository.py",
-      "line": "async def list_page(self, query: BasePageQuery) -> list[ModelT]:",
-      "container": "list",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/repositories/base_db_repository.py",
-      "line": "def _apply_sort[StatementT](self, statement: StatementT, sort: Sequence[SortSpec]) -> StatementT:",
-      "container": "Sequence",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/repositories/base_db_repository.py",
-      "line": "def _apply_tenant_scope(self, payload: dict[str, object], *, creating: bool) -> dict[str, object]:",
-      "container": "dict",
-      "position": "signature_return",
-      "count": 2
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/repositories/base_db_repository.py",
-      "line": "def _scope_where(self, *, include_soft_delete: bool = True) -> list[ColumnElement[bool]]:",
-      "container": "list",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/repositories/base_db_repository.py",
-      "line": "def _write_values(self, values: dict[str, object], *, creating: bool) -> dict[str, object]:",
-      "container": "dict",
-      "position": "signature_return",
-      "count": 2
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/repositories/base_db_repository.py",
-      "line": "payload: dict[str, object] = {}",
-      "container": "dict",
-      "position": "local",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/repositories/base_memory_repository.py",
-      "line": "async def list(self, *, sort: Sequence[SortSpec] | None = None) -> list[ModelT]:",
-      "container": "Sequence",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/repositories/base_memory_repository.py",
-      "line": "async def list(self, *, sort: Sequence[SortSpec] | None = None) -> list[ModelT]:",
-      "container": "list",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/repositories/base_memory_repository.py",
-      "line": "def _apply(self, item: ModelT, values: dict[str, object]) -> ModelT:",
-      "container": "dict",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/repositories/base_memory_repository.py",
-      "line": "def _build(self, item_id: int, values: dict[str, object]) -> ModelT:",
-      "container": "dict",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/repositories/base_memory_repository.py",
-      "line": "self._items: dict[int, ModelT] = {}",
-      "container": "dict",
-      "position": "local",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/repositories/base_repository.py",
-      "line": "async def list(self, *, sort: Sequence[SortSpec] | None = None) -> list[ModelT]:",
-      "container": "Sequence",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/repositories/base_repository.py",
-      "line": "async def list(self, *, sort: Sequence[SortSpec] | None = None) -> list[ModelT]:",
-      "container": "list",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/repositories/base_repository.py",
-      "line": "async def list_cursor(self, query: BaseCursorQuery) -> list[ModelT]:",
-      "container": "list",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/repositories/base_repository.py",
-      "line": "async def list_page(self, query: BasePageQuery) -> list[ModelT]:",
-      "container": "list",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/repositories/base_repository.py",
-      "line": "def _apply_sort[StatementT](self, statement: StatementT, sort: Sequence[SortSpec]) -> StatementT:",
-      "container": "Sequence",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/repositories/base_repository.py",
-      "line": "def _resolve_sort(self, query: BaseSortQuery | None) -> list[SortSpec]:",
-      "container": "list",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/repositories/base_repository.py",
-      "line": "def build_cursor(self, query: BaseCursorQuery, items: Sequence[ModelT]) -> str | None:",
-      "container": "Sequence",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/repositories/base_repository.py",
-      "line": "def effective_sort(self, query: BaseSortQuery | None = None) -> list[SortSpec]:",
-      "container": "list",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/repositories/base_scoped_repository.py",
-      "line": "_COMPARATORS: dict[str, Callable[[Any, Any], bool]] = {",
-      "container": "dict",
-      "position": "local",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/repositories/base_scoped_repository.py",
-      "line": "conditions: list[ScopeCondition] = []",
-      "container": "list",
-      "position": "local",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/repositories/base_scoped_repository.py",
-      "line": "def _scope_conditions(self, *, include_soft_delete: bool = True) -> list[ScopeCondition]:",
-      "container": "list",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/repositories/ordering.py",
-      "line": ") -> list[ItemT]:",
-      "container": "list",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/repositories/ordering.py",
-      "line": "clauses: list[ColumnElement[bool]] = []",
-      "container": "list",
-      "position": "local",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/repositories/ordering.py",
-      "line": "criteria: list[ColumnElement[Any]] = []",
-      "container": "list",
-      "position": "local",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/repositories/ordering.py",
-      "line": "def _direction_of(specs: Sequence[tuple[str, str]], index: int, spec: SortSpec) -> SortDirection:",
-      "container": "Sequence",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/repositories/ordering.py",
-      "line": "def assert_sortable_fields_indexed(model: type[Any], sortable_fields: Collection[str]) -> None:",
-      "container": "Collection",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/repositories/ordering.py",
-      "line": "def order_criteria(sort: Sequence[SortSpec], *, resolve: _Resolver, id_column: _Col) -> list[ColumnElement[Any]]:",
-      "container": "Sequence",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/repositories/ordering.py",
-      "line": "def order_criteria(sort: Sequence[SortSpec], *, resolve: _Resolver, id_column: _Col) -> list[ColumnElement[Any]]:",
-      "container": "list",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/repositories/ordering.py",
-      "line": "indexed: set[str] = {column.name for column in cast(\"Table\", table).primary_key.columns}",
-      "container": "set",
-      "position": "local",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/repositories/ordering.py",
-      "line": "items: Sequence[ItemT],",
-      "container": "Sequence",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/repositories/ordering.py",
-      "line": "payload_specs: Sequence[tuple[str, str]],",
-      "container": "Sequence",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/repositories/ordering.py",
-      "line": "prefix: list[ColumnElement[bool]] = []",
-      "container": "list",
-      "position": "local",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/repositories/ordering.py",
-      "line": "sort: Sequence[SortSpec],",
-      "container": "Sequence",
-      "position": "signature_param",
-      "count": 3
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/repositories/ordering.py",
-      "line": "values: Sequence[object],",
-      "container": "Sequence",
-      "position": "signature_param",
-      "count": 2
-    },
-    {
       "file": "backend/libs/bms_core/src/bms_core/saga/base.py",
       "line": "errors: list[str] = []",
       "container": "list",
@@ -3430,20 +3150,6 @@
       "line": "kwargs: dict[str, object] = {\"timeout\": request.policy.timeout}",
       "container": "dict",
       "position": "local",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/services/base_service.py",
-      "line": "async def list(self, *, sort: Sequence[SortSpec] | None = None) -> list[ModelT]:",
-      "container": "Sequence",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/services/base_service.py",
-      "line": "async def list(self, *, sort: Sequence[SortSpec] | None = None) -> list[ModelT]:",
-      "container": "list",
-      "position": "signature_return",
       "count": 1
     },
     {
@@ -4735,20 +4441,6 @@
       "count": 1
     },
     {
-      "file": "backend/libs/bms_core/tests/db/test_data_access.py",
-      "line": "def _apply(self, item: Item, values: dict[str, object]) -> Item:",
-      "container": "dict",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/tests/db/test_data_access.py",
-      "line": "def _build(self, item_id: int, values: dict[str, object]) -> Item:",
-      "container": "dict",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
       "file": "backend/libs/bms_core/tests/db/test_db_admin.py",
       "line": "async def _fetch_existing(admin_url: str, statement: str, *, name: str) -> list[object]:",
       "container": "list",
@@ -5102,20 +4794,6 @@
       "file": "backend/libs/bms_core/tests/db/test_tenant_routing.py",
       "line": "def __init__(self, tenants: list[TenantContext]) -> None:",
       "container": "list",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/tests/db/test_tenant_routing.py",
-      "line": "def _apply(self, item: _Note, values: dict[str, object]) -> _Note:",
-      "container": "dict",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/tests/db/test_tenant_routing.py",
-      "line": "def _build(self, item_id: int, values: dict[str, object]) -> _Note:",
-      "container": "dict",
       "position": "signature_param",
       "count": 1
     },
@@ -5778,30 +5456,9 @@
       "count": 1
     },
     {
-      "file": "backend/libs/bms_core/tests/repositories/test_db_repository.py",
-      "line": "def tenant_payload(self, values: dict[str, object], *, creating: bool) -> dict[str, object]:",
-      "container": "dict",
-      "position": "signature_return",
-      "count": 2
-    },
-    {
       "file": "backend/libs/bms_core/tests/repositories/test_scoped_repository.py",
       "line": "def __init__(self, condition: ScopeCondition | list[ScopeCondition]) -> None:",
       "container": "list",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/tests/repositories/test_scoped_repository.py",
-      "line": "def _apply(self, item: Row, values: dict[str, object]) -> Row:",
-      "container": "dict",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/tests/repositories/test_scoped_repository.py",
-      "line": "def _build(self, item_id: int, values: dict[str, object]) -> Row:",
-      "container": "dict",
       "position": "signature_param",
       "count": 1
     },
@@ -8298,20 +7955,6 @@
       "count": 1
     },
     {
-      "file": "backend/services/platform/src/bms_platform/repositories/demo_repository.py",
-      "line": "def _apply(self, item: Demo, values: dict[str, object]) -> Demo:",
-      "container": "dict",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/services/platform/src/bms_platform/repositories/demo_repository.py",
-      "line": "def _build(self, item_id: int, values: dict[str, object]) -> Demo:",
-      "container": "dict",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
       "file": "backend/services/platform/src/bms_platform/repositories/module_repository.py",
       "line": ") -> list[ColumnElement[bool]]:",
       "container": "list",
@@ -8344,13 +7987,6 @@
       "line": "payload: dict[str, Any]",
       "container": "dict",
       "position": "class_field",
-      "count": 1
-    },
-    {
-      "file": "backend/services/platform/src/bms_platform/services/demo_service.py",
-      "line": "async def list_demos(self) -> list[Demo]:",
-      "container": "list",
-      "position": "signature_return",
       "count": 1
     },
     {
@@ -8760,87 +8396,10 @@
       "count": 1
     },
     {
-      "file": "backend/services/platform/tests/repositories/test_base_repository.py",
-      "line": "def _apply(self, item: Item, values: dict[str, object]) -> Item:",
-      "container": "dict",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/services/platform/tests/repositories/test_base_repository.py",
-      "line": "def _apply(self, item: MixedItem, values: dict[str, object]) -> MixedItem:",
-      "container": "dict",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/services/platform/tests/repositories/test_base_repository.py",
-      "line": "def _apply(self, item: SortableItem, values: dict[str, object]) -> SortableItem:",
-      "container": "dict",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/services/platform/tests/repositories/test_base_repository.py",
-      "line": "def _build(self, item_id: int, values: dict[str, object]) -> Item:",
-      "container": "dict",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/services/platform/tests/repositories/test_base_repository.py",
-      "line": "def _build(self, item_id: int, values: dict[str, object]) -> MixedItem:",
-      "container": "dict",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/services/platform/tests/repositories/test_base_repository.py",
-      "line": "def _build(self, item_id: int, values: dict[str, object]) -> SortableItem:",
-      "container": "dict",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/services/platform/tests/repositories/test_base_repository.py",
-      "line": "def resolve_sort(self, query: BasePageQuery) -> list[SortSpec]:",
-      "container": "list",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
       "file": "backend/services/platform/tests/schemas/test_base_schema.py",
       "line": "items: list[_IdSchema]",
       "container": "list",
       "position": "class_field",
-      "count": 1
-    },
-    {
-      "file": "backend/services/platform/tests/services/test_base_service.py",
-      "line": "def _apply(self, item: Item, values: dict[str, object]) -> Item:",
-      "container": "dict",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/services/platform/tests/services/test_base_service.py",
-      "line": "def _build(self, item_id: int, values: dict[str, object]) -> Item:",
-      "container": "dict",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/services/platform/tests/services/test_base_transactional_service.py",
-      "line": "def _apply(self, item: Item, values: dict[str, object]) -> Item:",
-      "container": "dict",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/services/platform/tests/services/test_base_transactional_service.py",
-      "line": "def _build(self, item_id: int, values: dict[str, object]) -> Item:",
-      "container": "dict",
-      "position": "signature_param",
       "count": 1
     },
     {

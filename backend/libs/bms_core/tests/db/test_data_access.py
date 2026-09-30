@@ -11,6 +11,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 from sqlalchemy.orm.exc import StaleDataError
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.config import Settings
 from bms_core.core.context import is_read_only, reset_read_only, set_read_only
 from bms_core.core.exceptions import ConcurrentConflictError
@@ -34,10 +35,10 @@ class Item:
 class ItemRepository(BaseMemoryRepository[Item]):
     """测试仓储：只实现构造钩子。"""
 
-    def _build(self, item_id: int, values: dict[str, object]) -> Item:
+    def _build(self, item_id: int, values: ConcurrentStableDict[str, object]) -> Item:
         return Item(id=item_id, name=str(values["name"]))
 
-    def _apply(self, item: Item, values: dict[str, object]) -> Item:
+    def _apply(self, item: Item, values: ConcurrentStableDict[str, object]) -> Item:
         return Item(id=item.id, name=str(values["name"]))
 
     def binding_default(self) -> str:

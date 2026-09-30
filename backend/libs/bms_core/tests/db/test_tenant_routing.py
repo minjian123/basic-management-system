@@ -11,6 +11,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from bms_core.api.middleware import TenantMiddleware
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.config import Settings
 from bms_core.core.context import (
     reset_current_tenant,
@@ -217,14 +218,14 @@ class _NoteRepo(BaseMemoryRepository[_Note]):
 
     tenant_scoped = True
 
-    def _build(self, item_id: int, values: dict[str, object]) -> _Note:
+    def _build(self, item_id: int, values: ConcurrentStableDict[str, object]) -> _Note:
         return _Note(
             id=item_id,
             tenant_id=int(cast("int", values.get("tenant_id", 0))),
             deleted_at=cast("str | None", values.get("deleted_at")),
         )
 
-    def _apply(self, item: _Note, values: dict[str, object]) -> _Note:
+    def _apply(self, item: _Note, values: ConcurrentStableDict[str, object]) -> _Note:
         return _Note(
             id=item.id,
             tenant_id=int(cast("int", values.get("tenant_id", item.tenant_id))),

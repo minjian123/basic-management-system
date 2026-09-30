@@ -8,19 +8,22 @@
 
 import operator
 from abc import ABC
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Iterable
 from typing import Any, cast
 
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.db.tenant import current_tenant_context
 from bms_core.repositories.base_repository import BaseRepository
 from bms_core.scope.base import ScopeCondition
 
-_COMPARATORS: dict[str, Callable[[Any, Any], bool]] = {
-    "gt": operator.gt,
-    "gte": operator.ge,
-    "lt": operator.lt,
-    "lte": operator.le,
-}
+_COMPARATORS: ConcurrentStableDict[str, Callable[[Any, Any], bool]] = ConcurrentStableDict(
+    {
+        "gt": operator.gt,
+        "gte": operator.ge,
+        "lt": operator.lt,
+        "lte": operator.le,
+    }
+)
 
 
 def _compare(value: object, target: object, op: str) -> bool:
@@ -55,7 +58,7 @@ def _between(value: object, target: object) -> bool:
     """
     if not isinstance(target, (list, tuple)):
         return False
-    sequence = cast("Sequence[object]", target)
+    sequence = cast("list[object] | tuple[object, ...]", target)
     if len(sequence) != 2:
         return False
     return _compare(value, sequence[0], "gte") and _compare(value, sequence[1], "lte")
@@ -100,28 +103,28 @@ class BaseScopedRepository[ModelT](BaseRepository[ModelT], ABC):
     tenant_scoped: bool = False
     """模型含 `tenant_id` 列时置 True（同库多租户 / 平台侧租户维度表），强制注入租户条件。"""
 
-    def _scope_conditions(self, *, include_soft_delete: bool = True) -> list[ScopeCondition]:
+    def _scope_conditions(self, *, include_soft_delete: bool = True) -> ConcurrentStableList[ScopeCondition]:
         """作用域条件（软删除 → 数据范围 → 租户）。
 
         Args:
             include_soft_delete: 是否包含软删除过滤（物理删除出口需穿透已软删行时为 False）。
 
         Returns:
-            list[ScopeCondition]: 过滤条件列表。
+            ConcurrentStableList[ScopeCondition]: 过滤条件列表。
         """
-        conditions: list[ScopeCondition] = []
+        conditions: ConcurrentStableList[ScopeCondition] = ConcurrentStableList()
         if self.soft_delete_enabled and include_soft_delete:
-            conditions.append(ScopeCondition("deleted_at", "is_null", None))
+            conditions.add(ScopeCondition("deleted_at", "is_null", None))
         if self._data_scope is not None:
             predicate = self._data_scope.read_predicate()
             if isinstance(predicate, ScopeCondition):
-                conditions.append(predicate)
+                conditions.add(predicate)
             elif isinstance(predicate, list):
                 members = cast("list[object]", predicate)
-                conditions.extend(item for item in members if isinstance(item, ScopeCondition))
+                conditions.update(item for item in members if isinstance(item, ScopeCondition))
         tenant = self._tenant_condition()
         if tenant is not None:
-            conditions.append(tenant)
+            conditions.add(tenant)
         return conditions
 
     def _tenant_condition(self) -> ScopeCondition | None:

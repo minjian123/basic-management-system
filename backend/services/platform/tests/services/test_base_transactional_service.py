@@ -7,6 +7,7 @@ from dataclasses import dataclass
 import pytest
 
 from bms_core.core.base import BaseObject
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.exceptions import NotFoundError
 from bms_core.db.null import NullUnitOfWork
 from bms_core.repositories.base_memory_repository import BaseMemoryRepository
@@ -25,10 +26,10 @@ class Item:
 class ItemRepository(BaseMemoryRepository[Item]):
     """测试仓储：只实现构造钩子。"""
 
-    def _build(self, item_id: int, values: dict[str, object]) -> Item:
+    def _build(self, item_id: int, values: ConcurrentStableDict[str, object]) -> Item:
         return Item(id=item_id, name=str(values["name"]))
 
-    def _apply(self, item: Item, values: dict[str, object]) -> Item:
+    def _apply(self, item: Item, values: ConcurrentStableDict[str, object]) -> Item:
         return Item(id=item.id, name=str(values["name"]))
 
 

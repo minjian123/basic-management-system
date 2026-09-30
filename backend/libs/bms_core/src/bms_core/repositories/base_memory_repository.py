@@ -5,8 +5,8 @@
 """
 
 from abc import abstractmethod
-from collections.abc import Sequence
 
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.repositories.base_scoped_repository import BaseScopedRepository
 from bms_core.repositories.ordering import sort_items
 from bms_core.schemas.sorting import SortSpec
@@ -17,11 +17,11 @@ class BaseMemoryRepository[ModelT](BaseScopedRepository[ModelT]):
 
     def __init__(self) -> None:
         """初始化空存储。"""
-        self._items: dict[int, ModelT] = {}
+        self._items: ConcurrentStableDict[int, ModelT] = ConcurrentStableDict()
         self._next_id = 1
 
     @abstractmethod
-    def _build(self, item_id: int, values: dict[str, object]) -> ModelT:
+    def _build(self, item_id: int, values: ConcurrentStableDict[str, object]) -> ModelT:
         """按字段值构造新实体（子类实现）。
 
         Args:
@@ -33,7 +33,7 @@ class BaseMemoryRepository[ModelT](BaseScopedRepository[ModelT]):
         """
 
     @abstractmethod
-    def _apply(self, item: ModelT, values: dict[str, object]) -> ModelT:
+    def _apply(self, item: ModelT, values: ConcurrentStableDict[str, object]) -> ModelT:
         """按字段值生成更新后的实体（子类实现）。
 
         Args:
@@ -44,17 +44,19 @@ class BaseMemoryRepository[ModelT](BaseScopedRepository[ModelT]):
             ModelT: 更新后的实体。
         """
 
-    async def list(self, *, sort: Sequence[SortSpec] | None = None) -> list[ModelT]:
+    async def list(self, *, sort: ConcurrentStableList[SortSpec] | None = None) -> ConcurrentStableList[ModelT]:
         """返回全部记录（按 ID 升序，经作用域过滤；传 `sort` 时按规格排序）。
 
         Args:
             sort: 生效排序规格（经白名单校验）；空则保持 ID 升序。
 
         Returns:
-            list[ModelT]: 记录列表。
+            ConcurrentStableList[ModelT]: 记录列表。
         """
-        items = [self._items[key] for key in sorted(self._items) if self._matches_scope(self._items[key])]
-        return sort_items(items, sort or [], id_of=self._item_id)
+        items = ConcurrentStableList(
+            self._items[key] for key in sorted(self._items) if self._matches_scope(self._items[key])
+        )
+        return sort_items(items, sort or ConcurrentStableList(), id_of=self._item_id)
 
     async def get(self, item_id: int) -> ModelT | None:
         """按 ID 查询记录。
@@ -90,7 +92,7 @@ class BaseMemoryRepository[ModelT](BaseScopedRepository[ModelT]):
         item_id = self._next_id
         self._next_id += 1
         item = self._build(item_id, values)
-        self._items[item_id] = item
+        self._items.set(item_id, item)
         return item
 
     async def update(self, item_id: int, **values: object) -> ModelT | None:
@@ -107,7 +109,7 @@ class BaseMemoryRepository[ModelT](BaseScopedRepository[ModelT]):
         if item is None or not self._matches_scope(item):
             return None
         updated = self._apply(item, values)
-        self._items[item_id] = updated
+        self._items.set(item_id, updated)
         return updated
 
     async def delete(self, item_id: int) -> bool:
@@ -122,5 +124,5 @@ class BaseMemoryRepository[ModelT](BaseScopedRepository[ModelT]):
         item = self._items.get(item_id)
         if item is None or not self._matches_scope(item):
             return False
-        del self._items[item_id]
+        self._items.delete(item_id)
         return True
