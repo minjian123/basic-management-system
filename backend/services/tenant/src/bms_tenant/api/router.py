@@ -5,6 +5,7 @@
 """
 
 from bms_core.api.base import mount_service_routers
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_tenant.api import tenant, tenant_registry
 
-api_router = mount_service_routers((tenant.router, tenant_registry.router))
+api_router = mount_service_routers(ConcurrentStableList([tenant.router, tenant_registry.router]))

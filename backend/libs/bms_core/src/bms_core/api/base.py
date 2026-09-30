@@ -22,7 +22,7 @@ from typing import Annotated, Any, cast
 from fastapi import APIRouter, Depends, Header, Query, Request, params
 from pydantic import ValidationError
 
-from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.context import (
     get_current_client_ip,
     set_current_tenant,
@@ -61,7 +61,7 @@ __all__ = [
 API_PREFIX = "/api/v1"
 """内部接口统一前缀（管理端 / 租户端全部接口；开放接口 `/api/open` 独立，见《API接口规范》）。"""
 
-DEFAULT_RESPONSES: Mapping[int, dict[str, object]] = {
+DEFAULT_RESPONSES: Mapping[int, dict[str, object]] = {  # bare-collections:allow（FastAPI responses 契约，须内置 dict）
     401: {"model": ApiResponse, "description": "未认证"},
     403: {"model": ApiResponse, "description": "无权限"},
     404: {"model": ApiResponse, "description": "资源不存在"},
@@ -89,9 +89,9 @@ class BaseRouter(APIRouter, BaseFrameworkObject):
         *,
         key: str = "",
         prefix: str = "",
-        tags: Sequence[str] = (),
-        dependencies: Sequence[params.Depends] | None = None,
-        responses: Mapping[int | str, dict[str, object]] | None = None,
+        tags: Sequence[str] = (),  # bare-collections:allow（FastAPI APIRouter 构造参数）
+        dependencies: Sequence[params.Depends] | None = None,  # bare-collections:allow（FastAPI APIRouter 构造参数）
+        responses: Mapping[int | str, dict[str, object]] | None = None,  # bare-collections:allow（FastAPI responses）
         default_responses: bool | None = None,
         **kwargs: Any,
     ) -> None:
@@ -109,6 +109,7 @@ class BaseRouter(APIRouter, BaseFrameworkObject):
         self.key = key or type(self).key
         if default_responses is not None:
             self.default_responses = default_responses
+        # bare-collections:allow（FastAPI responses 合并：须内置 dict）
         merged: dict[int | str, dict[str, object]] = dict(responses or {})
         if self.default_responses:
             merged = {**DEFAULT_RESPONSES, **merged}
@@ -134,7 +135,7 @@ class RouterRegistry(BaseFrameworkObject):
 
     def __init__(self) -> None:
         """初始化空登记表（登记保序）。"""
-        self._routers: dict[str, BaseRouter] = {}
+        self._routers: ConcurrentStableDict[str, BaseRouter] = ConcurrentStableDict()
 
     def register(self, router: BaseRouter) -> None:
         """登记路由（重复 `key` 拒重，不静默覆盖）。
@@ -147,7 +148,7 @@ class RouterRegistry(BaseFrameworkObject):
         """
         if router.key in self._routers:
             raise ConflictError(f"路由重复登记：{router.key}")
-        self._routers[router.key] = router
+        self._routers.set(router.key, router)
 
     def get(self, key: str) -> BaseRouter | None:
         """按 `key` 取路由（未命中返回 None）。
@@ -226,7 +227,7 @@ def build_api_router(*, prefix: str = API_PREFIX) -> APIRouter:
     return parent
 
 
-def mount_service_routers(routers: Sequence[BaseRouter], *, prefix: str = API_PREFIX) -> APIRouter:
+def mount_service_routers(routers: ConcurrentStableList[BaseRouter], *, prefix: str = API_PREFIX) -> APIRouter:
     """构建**服务级**接口聚合路由（服务内独立登记表，避免多服务同名登记表跨服务串扰）。
 
     与 `register_router` / `build_api_router` 同口径（登记唯一性 + 统一前缀挂载），但使用服务内
@@ -289,6 +290,7 @@ def page_query(
     page: Annotated[int, Query(ge=1, description="页码（从 1 起）")] = 1,
     size: Annotated[int, Query(ge=1, le=200, description="每页条数（默认 20，上限 200）")] = 20,
     order_by: Annotated[str | None, Query(description="排序字段，逗号分隔多值（如 status,created_at）")] = None,
+    # bare-collections:allow（FastAPI 查询入参绑定：内置 list，集合类会破坏参数绑定）
     order: Annotated[list[str] | None, Query(description="排序方向数组，与 order_by 位置一一对应")] = None,
 ) -> BasePageQuery:
     """页码分页参数绑定（含排序，复用 `BasePageQuery`）。
@@ -310,6 +312,7 @@ def page_query(
 
 def sort_query(
     order_by: Annotated[str | None, Query(description="排序字段，逗号分隔多值")] = None,
+    # bare-collections:allow（FastAPI 查询入参绑定：内置 list，集合类会破坏参数绑定）
     order: Annotated[list[str] | None, Query(description="排序方向数组，与 order_by 位置一一对应")] = None,
 ) -> BaseSortQuery:
     """排序参数绑定（复用 `BaseSortQuery`）。
@@ -331,6 +334,7 @@ def cursor_query(
     cursor: Annotated[str | None, Query(description="游标（首页为空）")] = None,
     limit: Annotated[int, Query(ge=1, le=200, description="每批条数（默认 20，上限 200）")] = 20,
     order_by: Annotated[str | None, Query(description="排序字段，逗号分隔多值")] = None,
+    # bare-collections:allow（FastAPI 查询入参绑定：内置 list，集合类会破坏参数绑定）
     order: Annotated[list[str] | None, Query(description="排序方向数组，与 order_by 位置一一对应")] = None,
 ) -> BaseCursorQuery:
     """游标分页参数绑定（含排序，复用 `BaseCursorQuery`）。
@@ -495,7 +499,7 @@ async def require_auth(
         AuthError: 缺少 / 无效登录凭证、纯服务身份、或缺会话标识（20001 / 401）。
         SessionAuthError: 会话标记不存在或设备 / IP 不一致（20012 / 401）。
     """
-    state: dict[str, object] = request.scope.setdefault("state", {})
+    state: dict[str, object] = request.scope.setdefault("state", {})  # bare-collections:allow（Starlette scope state）
     identity = cast("EdgeIdentity | None", state.get("edge_identity"))
     context = _context_from_identity(identity) if identity is not None else await _context_from_token(request, verifier)
     context = await _wire_tenant(request, context)
@@ -521,7 +525,7 @@ async def _wire_tenant(request: Request, context: AuthContext) -> AuthContext:
     Raises:
         AuthError: 显式租户来源与令牌租户主键不一致（跨租户；20001 / 401）。
     """
-    state: dict[str, object] = request.scope.setdefault("state", {})
+    state: dict[str, object] = request.scope.setdefault("state", {})  # bare-collections:allow（Starlette scope state）
     resolved = cast("TenantContext | None", state.get("tenant"))
     source = cast("TenantLookup | None", getattr(request.app.state, "tenant_source", None))
     token_id = context.tenant_id
@@ -576,7 +580,7 @@ async def _verify_session(request: Request, store: BaseSessionStore, context: Au
         raise SessionAuthError("登录设备或地址不一致")
 
 
-def _device_matches(request: Request, payload: Mapping[str, object]) -> bool:
+def _device_matches(request: Request, payload: ConcurrentStableDict[str, object]) -> bool:
     """设备 / IP 一致性判定（两侧均非空才比对，任一侧缺失不判）。
 
     Args:

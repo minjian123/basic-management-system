@@ -4,20 +4,23 @@
 """
 
 from bms_core.api.base import mount_service_routers
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_platform.api import codecheck, demo, icon, internal_config, modules, outbox, plugins, preference, query_scheme
 from bms_platform.api import dict as dict_api
 
 api_router = mount_service_routers(
-    (
-        demo.router,
-        modules.router,
-        plugins.router,
-        preference.router,
-        query_scheme.router,
-        dict_api.router,
-        icon.router,
-        codecheck.router,
-        outbox.router,
-        internal_config.router,
+    ConcurrentStableList(
+        [
+            demo.router,
+            modules.router,
+            plugins.router,
+            preference.router,
+            query_scheme.router,
+            dict_api.router,
+            icon.router,
+            codecheck.router,
+            outbox.router,
+            internal_config.router,
+        ]
     )
 )

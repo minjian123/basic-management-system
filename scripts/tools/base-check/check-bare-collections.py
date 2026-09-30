@@ -20,6 +20,9 @@
   及后续登记形态。
 - **不查**：迭代与调用协议（`Iterable` / `Iterator` / `Generator` / `AsyncIterator` / `Callable`）——
   非集合声明，不承担有序输出。
+- **框架边界豁免**（2026-09-30）：Starlette / FastAPI **框架自有容器**（ASGI `scope` / `scope["state"]`、FastAPI
+  查询入参绑定、路由构造参数与端点返回注解等）不受本护栏约束——该类声明在**声明行行尾**标注
+  `# bare-collections:allow`（须限于框架强制为内置类型的容器，并附一句理由），护栏跳过该行命中。
 - **不属约束对象**：集合体系**实现文件**（`core/collections.py` / `core/concurrent.py` /
   `core/sorted_collections.py` / `core/redis_collections.py`）不属本护栏的约束对象——本护栏只约束**业务侧集合声明**
   （对外数据契约、值对象与模块类）；集合体系实现文件是体系自身，其内置容器是内部底座与序列化出口（08_02，2026-09-29）。
@@ -106,6 +109,9 @@ ASCENDING_FORMS: frozenset[str] = frozenset(
 
 BANNED_FORMS: frozenset[str] = BARE_CONTAINERS | READONLY_ABSTRACTIONS | ASCENDING_FORMS
 """判违规形态全集（集合声明必须命中插入序白名单）。"""
+
+ALLOW_MARKER = "# bare-collections:allow"
+"""框架边界行级豁免标记：Starlette / FastAPI 框架自有容器（强制内置类型）在声明行行尾标注后跳过。"""
 
 WHITELIST_FORMS: frozenset[str] = frozenset(
     {"ConcurrentStableList", "ConcurrentStableSet", "ConcurrentStableDict"}
@@ -242,9 +248,15 @@ def _scan_source(rel: str, source: str) -> list[Hit]:
                 class_fields[id(stmt)] = base_object
 
     def add(node: ast.AST, container: str, position: str, *, base_object: bool = False) -> None:
-        """登记一处命中（行内容取声明行、规范化空白）。"""
+        """登记一处命中（行内容取声明行、规范化空白；框架边界标记行跳过）。
+
+        豁免标记可落在声明行行尾，或紧随其上的整行注释（长声明行放不下时）。
+        """
         lineno = getattr(node, "lineno", 0)
         text = lines[lineno - 1].strip() if 0 < lineno <= len(lines) else ""
+        window = "\n".join(lines[max(0, lineno - 2) : lineno])
+        if ALLOW_MARKER in window:
+            return
         hits.append(Hit(rel, text, container, position, base_object))
 
     for node in ast.walk(tree):
@@ -490,7 +502,8 @@ _FIXTURE_FILES: dict[str, str] = {
         "\n"
         "def inner() -> None:\n"
         "    local: dict[str, int] = {}\n"
-        "    del local\n"
+        "    allowed: dict[str, int] = {}  # bare-collections:allow（框架边界样例）\n"
+        "    del local, allowed\n"
     ),
     "backend/libs/bms_core/src/demo/tests/test_local.py": "class X:\n    bad: list[int] = []\n",
     "backend/libs/bms_core/src/bms_core/core/concurrent.py": "def to_list(self) -> list[int]:\n    return []\n",
@@ -557,6 +570,10 @@ def _self_test() -> int:
         expect(
             (demo, "local: dict[str, int] = {}", "dict", "local") in found,
             "函数体局部变量报（豁免已取消）",
+        )
+        expect(
+            not any(hit.container == "dict" and hit.line.startswith("allowed:") for hit in hits),
+            "框架边界标记（bare-collections:allow）行跳过",
         )
         expect(
             any(hit.file.endswith("demo/tests/test_local.py") for hit in hits),

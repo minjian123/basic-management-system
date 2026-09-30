@@ -5,6 +5,7 @@
 """
 
 from bms_core.api.base import mount_service_routers
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_identity.api import (
     auth,
     captcha,
@@ -18,15 +19,17 @@ from bms_identity.api import (
 )
 
 api_router = mount_service_routers(
-    (
-        auth.router,
-        password_reset.router,
-        session.router,
-        captcha.router,
-        sso.router,
-        identity_providers.router,
-        users.router,
-        oidc.router,
-        clients.router,
+    ConcurrentStableList(
+        [
+            auth.router,
+            password_reset.router,
+            session.router,
+            captcha.router,
+            sso.router,
+            identity_providers.router,
+            users.router,
+            oidc.router,
+            clients.router,
+        ]
     )
 )
