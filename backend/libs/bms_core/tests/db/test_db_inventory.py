@@ -4,6 +4,7 @@ from typing import cast
 
 import pytest
 
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import get_settings
 from bms_core.db.engine import EngineFactory
 from bms_core.db.inventory import db_count_rows, db_counts_by_kind, db_counts_from_keys
@@ -32,17 +33,19 @@ class _Recorder:
 @pytest.mark.kiwi_id(2178)
 def test_db_count_expected_and_active() -> None:
     """预期口径：平台服务库 = 服务数、服务租户库 = 服务数 × 租户数、归档 1；活跃口径按库键统计。"""
-    count = db_count_rows(("platform", "tenant", "org"), ("demo", "acme"))
+    count = db_count_rows(ConcurrentStableList(["platform", "tenant", "org"]), ConcurrentStableList(["demo", "acme"]))
     assert count.platform == 3
     assert count.tenant == 6
     assert count.archive == 1
     assert count.total == 10
     assert "共 10 个库" in count.describe()
 
-    active = db_counts_by_kind(["platform", "tenant_demo", "tenant_acme", "tenant_org_demo", "archive", "zzz_bad"])
+    active = db_counts_by_kind(
+        ConcurrentStableList(["platform", "tenant_demo", "tenant_acme", "tenant_org_demo", "archive", "zzz_bad"])
+    )
     assert active == {"platform": 1, "tenant": 3, "archive": 1}
 
-    active_count = db_counts_from_keys(["platform", "tenant_demo"])
+    active_count = db_counts_from_keys(ConcurrentStableList(["platform", "tenant_demo"]))
     assert (active_count.platform, active_count.tenant, active_count.archive) == (1, 1, 1)
 
 

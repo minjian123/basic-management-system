@@ -6,11 +6,11 @@
 - `to_tenant_context`：快照 → `TenantContext`（库键由消费方按本地命名口径派生）。
 """
 
-from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any, cast
 
 from bms_core.cache.base import build_cache_key
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.objects import BaseTenantViewContract
 from bms_core.db.tenant import TenantContext, build_tenant_db_key
 
@@ -37,30 +37,32 @@ class TenantSnapshot(BaseTenantViewContract):
     db_basis: str | None = None
     """库名基（创建时冻结的租户编码；库键 / 库名由其派生，租户编码变更不随之变）。"""
 
-    def to_payload(self, *, version: int | None = None) -> dict[str, Any]:
+    def to_payload(self, *, version: int | None = None) -> ConcurrentStableDict[str, Any]:
         """转可缓存字典（可选附版本戳）。
 
         Args:
             version: 记录时捕获的全局版本号；None 不带版本。
 
         Returns:
-            dict[str, Any]: 载荷字典。
+            ConcurrentStableDict[str, Any]: 载荷字典。
         """
-        payload: dict[str, Any] = {
-            "code": self.code,
-            "name": self.name,
-            "domain": self.domain,
-            "status": self.status,
-            "expire_at": self.expire_at,
-            "tenant_id": self.tenant_id,
-            "db_basis": self.db_basis,
-        }
+        payload: ConcurrentStableDict[str, Any] = ConcurrentStableDict(
+            {
+                "code": self.code,
+                "name": self.name,
+                "domain": self.domain,
+                "status": self.status,
+                "expire_at": self.expire_at,
+                "tenant_id": self.tenant_id,
+                "db_basis": self.db_basis,
+            }
+        )
         if version is not None:
-            payload["version"] = version
+            payload.set("version", version)
         return payload
 
     @classmethod
-    def from_payload(cls, payload: Mapping[str, object]) -> TenantSnapshot:
+    def from_payload(cls, payload: ConcurrentStableDict[str, object]) -> TenantSnapshot:
         """由载荷字典构造快照（字段宽松读取）。
 
         Args:

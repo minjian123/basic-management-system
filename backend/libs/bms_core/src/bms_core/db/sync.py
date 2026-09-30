@@ -21,9 +21,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 from sqlalchemy.sql.base import Executable
 
+from bms_core.core.concurrent import ConcurrentStableSet
 from bms_core.core.objects import BaseFrameworkObject
 
-SYNC_ONLY_DIALECTS: frozenset[str] = frozenset({"dm"})
+SYNC_ONLY_DIALECTS: ConcurrentStableSet[str] = ConcurrentStableSet({"dm"})
 """无异步方言、仅同步驱动的方言（达梦）。"""
 
 

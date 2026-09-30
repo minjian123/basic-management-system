@@ -8,6 +8,7 @@
 from sqlalchemy import text
 
 from bms_core.core.capability import BaseAsyncResource
+from bms_core.core.concurrent import ConcurrentStableSet
 from bms_core.db.engine import EngineFactory
 from bms_core.db.registry import PLATFORM_DB_KEY
 
@@ -22,7 +23,7 @@ class PrimaryHealth(BaseAsyncResource):
             factory: 引擎工厂（探测经其取主引擎）。
         """
         self._factory = factory
-        self._degraded: set[str] = set()
+        self._degraded: ConcurrentStableSet[str] = ConcurrentStableSet()
 
     def mark_degraded(self, db_key: str = PLATFORM_DB_KEY) -> None:
         """标记主库不可用（进入只读降级）。

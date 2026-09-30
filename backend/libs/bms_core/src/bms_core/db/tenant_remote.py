@@ -13,6 +13,7 @@ from collections.abc import Awaitable, Callable, Mapping
 from typing import cast
 
 from bms_core.cache.base import CacheRegion
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.config import Settings
 from bms_core.core.exceptions import ServiceUnavailableError, TenantNotFoundError, TenantSuspendedError
 from bms_core.core.logging import get_logger
@@ -235,7 +236,7 @@ class RemoteTenantSource(BaseFrameworkObject):
         if not isinstance(version, int) or cache.is_stale(TENANT_VERSION_KEY, version):
             return None
         try:
-            return TenantSnapshot.from_payload(payload)
+            return TenantSnapshot.from_payload(ConcurrentStableDict(payload))
         except KeyError:
             return None
 
@@ -250,7 +251,7 @@ class RemoteTenantSource(BaseFrameworkObject):
         if cache is None:
             return
         version = cache.get_global_version()
-        cache.set(key, snapshot.to_payload(version=version), self._cache_ttl)
+        cache.set(key, dict(snapshot.to_payload(version=version)), self._cache_ttl)
 
     def _cache_delete(self, key: str) -> None:
         """删缓存（幂等）。
@@ -294,14 +295,14 @@ def register_remote_tenant_source() -> None:
     register_tenant_lookup(REMOTE_TENANT_SOURCE, _factory)
 
 
-def _payload_data(response: ServiceResponse) -> Mapping[str, object]:
+def _payload_data(response: ServiceResponse) -> ConcurrentStableDict[str, object]:
     """取统一响应包裹的 `data` 字段。
 
     Args:
         response: 契约响应。
 
     Returns:
-        Mapping[str, object]: `data` 字典（缺失或非对象时抛 `ServiceUnavailableError`）。
+        ConcurrentStableDict[str, object]: `data` 字典（缺失或非对象时抛 `ServiceUnavailableError`）。
 
     Raises:
         ServiceUnavailableError: 响应体非法。
@@ -311,7 +312,7 @@ def _payload_data(response: ServiceResponse) -> Mapping[str, object]:
     data: object = body.get("data") if body is not None else None
     if not isinstance(data, Mapping):
         raise ServiceUnavailableError("租户注册契约响应缺少 data")
-    return cast("Mapping[str, object]", data)
+    return ConcurrentStableDict(cast("Mapping[str, object]", data))
 
 
 register_remote_tenant_source()

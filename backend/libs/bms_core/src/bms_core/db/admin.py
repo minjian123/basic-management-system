@@ -12,7 +12,6 @@
 
 import asyncio
 import re
-from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -21,6 +20,7 @@ from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.pool import NullPool
 
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.exceptions import ConfigError
 from bms_core.core.objects import BaseOpsReportContract
 
@@ -158,7 +158,7 @@ async def run_statements(admin_url: str, statements: str) -> None:
     await _execute(admin_url, statements)
 
 
-async def fetch_rows(admin_url: str, statement: str, *, name: str) -> Sequence[object]:
+async def fetch_rows(admin_url: str, statement: str, *, name: str) -> ConcurrentStableList[object]:
     """执行带 `:name` 绑定的管理查询（公开入口；自动提交，达梦走同步线程）。
 
     Args:
@@ -167,7 +167,7 @@ async def fetch_rows(admin_url: str, statement: str, *, name: str) -> Sequence[o
         name: 绑定值（如角色名 / 库名）。
 
     Returns:
-        Sequence[object]: 结果行列表。
+        ConcurrentStableList[object]: 结果行列表。
     """
     return await _fetch(admin_url, statement, name=name)
 
@@ -295,7 +295,7 @@ def _execute_sync(admin_url: str, statements: str) -> None:
         engine.dispose()
 
 
-async def _fetch(admin_url: str, statement: str, *, name: str) -> Sequence[object]:
+async def _fetch(admin_url: str, statement: str, *, name: str) -> ConcurrentStableList[object]:
     """执行存在性查询（自动提交；达梦走同步驱动线程）。
 
     Args:
@@ -304,7 +304,7 @@ async def _fetch(admin_url: str, statement: str, *, name: str) -> Sequence[objec
         name: 目标名。
 
     Returns:
-        Sequence[object]: 结果行列表。
+        ConcurrentStableList[object]: 结果行列表。
     """
     if make_url(admin_url).get_backend_name() == _DM:
         return await asyncio.to_thread(_fetch_sync, admin_url, statement, name)
@@ -312,12 +312,12 @@ async def _fetch(admin_url: str, statement: str, *, name: str) -> Sequence[objec
     try:
         async with engine.connect() as connection:
             result = await connection.execute(text(statement), {"name": name})
-            return list(result.all())
+            return ConcurrentStableList(result.all())
     finally:
         await engine.dispose()
 
 
-def _fetch_sync(admin_url: str, statement: str, name: str) -> Sequence[object]:
+def _fetch_sync(admin_url: str, statement: str, name: str) -> ConcurrentStableList[object]:
     """同步执行存在性查询（达梦等无异步方言的驱动）。
 
     Args:
@@ -326,11 +326,11 @@ def _fetch_sync(admin_url: str, statement: str, name: str) -> Sequence[object]:
         name: 目标名。
 
     Returns:
-        Sequence[object]: 结果行列表。
+        ConcurrentStableList[object]: 结果行列表。
     """
     engine = create_engine(admin_url, isolation_level="AUTOCOMMIT", poolclass=NullPool)
     try:
         with engine.connect() as connection:
-            return list(connection.execute(text(statement), {"name": name}).all())
+            return ConcurrentStableList(connection.execute(text(statement), {"name": name}).all())
     finally:
         engine.dispose()
