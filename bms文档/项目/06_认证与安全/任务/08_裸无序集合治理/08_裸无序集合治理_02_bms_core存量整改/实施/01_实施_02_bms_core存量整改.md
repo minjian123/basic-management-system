@@ -603,3 +603,36 @@ flowchart LR
 **过程处置（已闭环）**：① `boundary/` 属 CI 精简镜像（`python:3.14-slim`）经 `check-service-boundaries.py` 导入的**无依赖面**，改动后首次用系统 `python3` 实证「导入 + 调用 + 形态」全部通过，`sortedcontainers` 未入 `sys.modules`（承接 §16.1 拆分，确认集合体系无依赖面即 `core.collections` / `core.concurrent`）；② 常量落 `ConcurrentStableSet` 后 `in` 判定 / `sorted(...)` 用法不变，`_IGNORED_TABLES` 与 `found`（集合类）成员判断语义不变。
 
 **遗留**：`boundary/` 模块归零；`bms_core` 剩余 **402 处**（`libs`：`tests` 278 / `outbox` 10 / `schemas` 10 / `security` 9 / `fieldtype` 7 / `tracing` 7 …），按交接单 §7 第 1 项续推。
+
+## 24. 实施过程补充 · 存量整改子批 3 · `fieldtype/` + `i18n/` + `tracing/` 能力域（签名单轮，2026-09-30） <a id="batch3-leaf-domains"></a>
+
+**范围**：`bms_core` 三个**低耦合叶子能力域**共 **18 处**（`fieldtype/` 7 / `i18n/` 4 / `tracing/` 7），外加调用方 / 测试替身适配（`libs` 测试 2 处、`services/platform` 契约测试替身 2 处）。按交接单 §5 第 1 步「优先低耦合叶子模块」推进。
+
+**动作**：
+
+1. **字段类型（`fieldtype/`）**：`BaseFieldType.validate` 的 `options` 与 `render_metadata` 返回、`BaseFieldTypeRegistry.validate` 的 `options`、`SimpleFieldType` 同名两处落 `ConcurrentStableDict[str, object]`（`render_metadata` 的局部 `metadata` 同型，构造点包集合类）；`NullFieldTypeRegistry.validate` 的 `options` 同步。
+2. **国际化（`i18n/`）**：`BaseTranslator.translate` 的 `params` 落 `ConcurrentStableDict[str, object]`、`load_messages` 返回落 `ConcurrentStableDict[str, str]`；`NullTranslator` 同名两处同步（空包 `{}` → `ConcurrentStableDict()`）。
+3. **链路（`tracing/`）**：`BaseTracer.start_span` / `span` 的 `attributes` 落 `ConcurrentStableDict[str, object]`（`SpanContext.attributes` 字段此前已落集合类）；`NullTracer.start_span` 同步；`OtelTracer.start_span` 的 `attributes` 与 `_local_span` 入参同步，`OtelTracer._active` 落 `ConcurrentStableDict[str, tuple[Any, object]]`（`[]=` → `set`、`pop` → `get_and_remove`）；`tracing/setup.py::_build_sampler` 局部 `mapping` 落 `ConcurrentStableDict[str, Any]`。
+4. **第三方边界（OTel SDK）**：`OtelTracer.start_span` 调 SDK `start_span(attributes=...)` 处**显式 `dict(attributes)`**（承接 §3「第三方调用点显式转内置容器」口径），避免把集合类实例交给 SDK 内部处理；`_local_span` 仍按集合类携带（非第三方）。
+5. **文档口径**：`tracing/base.py` 头部键值类型说明由 `Mapping[str, object]` 更新为 `ConcurrentStableDict[str, object]`。
+
+**调用方与测试同步**：`libs` 侧 `tests/i18n/test_i18n.py`（`params={"x": 1}` 包集合类）、`tests/tracing/test_tracing.py`（`attributes={"route": …}` 包集合类，`assert outer.attributes == {…}` 走内容相等）、`tests/fieldtype/fieldtype/test_fieldtype.py`（`_FakeFieldType` 覆写两处落集合类）；`services/platform/tests/contracts/support.py`（`TextFieldType` 覆写 `validate` / `render_metadata` 落集合类——直接实现变更后的抽象契约，保持形态一致）。断言维持内容相等（`== {..}`），未改语义。
+
+**验证**：
+
+| 项 | 命令 | 结果 |
+| --- | --- | --- |
+| 定向用例 | `pytest libs/bms_core/tests/{fieldtype,i18n,tracing}` | **23 passed** |
+| 服务侧契约 | `pytest services/platform/tests/contracts` | **103 passed** |
+| 全量 `libs` | `pytest libs/bms_core/tests` | **1099 passed / 37 skipped** |
+| 全量 `services` | `pytest services` | **787 passed / 3 skipped / 1 failed**（既有 red，见偏差） |
+| 静态检查 | `ruff check .` / `ruff format --check .`（backend 全量） | 全绿（957 文件） |
+| 护栏 | `check-bare-collections.py .` | **「新增 0 / 残留 0」**；`fieldtype/` **7 → 0**、`i18n/` **4 → 0**、`tracing/` **7 → 0** |
+| 基线递减 | `--update-baseline` | **1052 → 1030**（`libs` 402 → 382 / `services` 324 → 322） |
+| 本地预检 | `check-preflight.py --fast` | **全部通过**（含契约 / 事件契约 / 网关 / 前端 `api-types` 零漂移） |
+
+**偏差（既有 red，非本轮引入）**：`services/platform/tests/dict/test_dict_real.py::test_http_endpoints`（`query-providers` 的 `model_dump` 序列化出口）仍为既有 red，本轮未扩大；另轮单独修。
+
+**过程处置（集合类非内置容器超集的坑复现）**：`OtelTracer._active` 落 `ConcurrentStableDict` 后，`self._active[span_id] = …` 与 `self._active.pop(span_id, None)` 不可用（无 `__setitem__` / `pop`）→ 改 `set(...)` / `get_and_remove(...)`；首次定向用例即暴露（`test_otel_tracer` 3 项红），修复后全绿。OTel SDK 为第三方边界，`attributes` 在调用处转内置 `dict`。
+
+**遗留**：`fieldtype/` / `i18n/` / `tracing/` 归零；`bms_core` 剩余 **382 处**（`libs`：`tests` 276 / `outbox` 10 / `schemas` 10 / `security` 9 / `archive` 6 / `audit` 6 / `chat` 6 / `edge` 6 / `org` 6 …），按交接单 §7 第 1 项续推。
