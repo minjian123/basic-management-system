@@ -248,3 +248,30 @@ flowchart LR
 **过程处置（运行期回归，已闭环）**：① `MemoryIdpStateStore.clear` / `IdentityProviderRegistry.clear` 原用 `.clear()`，`ConcurrentStableDict` 不提供 → 改逐键 `get_and_remove`；② identity SSO 回调 `_flow_from_payload` 原 `isinstance(payload, dict)`，`consume` 返回集合类后判定失败（回调 400）→ 改 `isinstance(payload, Mapping)`（redis / memory 两实现与回调链路用例复绿）。
 
 **遗留**：`bms_core` 剩余 **756 处**（`libs`：`tests` 约 292 / `db` 43 / `core` 36 / `api` 32 / `oauth` 31 / `events` 20 / `boundary` 18 …），按交接单 §7 顺序续推（能力域其余 → 注册表目录 → 其余 `libs` → `tests` 收尾）。
+
+## 13. 实施过程补充 · 存量整改子批 2 主体 · `oauth/` 能力域（签名单轮，2026-09-30） <a id="batch2-oauth"></a>
+
+**范围**：`bms_core` `oauth/` 能力域 **31 处**（`user_jwt.py` 7 / `oidc_jwt.py` 6 / `jwt.py` 5 / `keys.py` 4 / `oidc_provider.py` 4 / `null.py` 3 / `token.py` 1 / `user_token.py` 1），按交接单 §7 第 2 项「能力域」续项推进（上一轮已先行适配三处 `verify_jwt` 调用点，本轮域内收口）。
+
+**动作**：
+
+1. **JWKS 文档链（`keys.py`）**：`TokenKey.public_jwk` / `build_jwks` / `merge_jwks` 落 `ConcurrentStableDict[str, object]`（`merged` 局部量同型，写改 `set`）；**顶层返回集合类、嵌套 `keys` 条目保持内置容器**（JSON 友好，避开「集合类直入 JSON 序列化」的坑）。
+2. **三类签发器（`jwt.py` / `user_jwt.py` / `oidc_jwt.py`）**：`_signing` / `_signing_algorithms` 缓存与 `claims` 局部量落 `ConcurrentStableDict`（写改 `set`）；`jwks()` 返回落 `ConcurrentStableDict`；`algorithms` 参数改 `ConcurrentStableList[str] | None`（None 回落默认，避免可变默认参）。
+3. **Provider 契约与文档（`oidc_provider.py` / `token.py` / `user_token.py` / `null.py`）**：`Base*Issuer.jwks` 抽象、`BaseOidcProvider.jwks` 抽象、`Null*` 三处空 JWKS 落 `ConcurrentStableDict`；`build_discovery_document` 的 `scopes` / `algorithms` 参数落集合类（None 回落）与返回落 `ConcurrentStableDict`（嵌套 supported 字段为内置列表）。
+4. **外部 IO 边界显式转换（不新增豁免）**：joserfc `jwt.encode(header, dict(claims), key)`（三处签发路径），避免集合类直入 `json.dumps`。
+5. **调用方适配**：identity 服务 `services/oidc_provider.py` 的 `discovery()` 与 `api/wellknown.py` 的 JWKS 端点出口按边界 `dict(...)` 转换（保持各端点 `-> dict[str, object]` 声明不变）。
+
+**验证**：
+
+| 项 | 命令 | 结果 |
+| --- | --- | --- |
+| 定向用例 | `pytest libs/bms_core/tests/{oauth,security,idp} services/identity/tests/{oauth,idp,sso}` | **214 passed / 1 skipped** |
+| 全量后端 | `pytest`（`libs` + 9 服务） | **1876 passed / 40 skipped / 1 failed**（既有 red，见偏差） |
+| 静态检查 | `ruff check .` / `ruff format --check .`（backend 全量） | 全绿 |
+| 护栏 | `check-bare-collections.py .` | **「新增 0 / 残留 0」**；`oauth/` **31 → 0** |
+| 基线递减 | `--update-baseline` | **1415 → 1384**（`libs` 756 → 725 / `services` 332 / `ops` 103 / `scripts/tools` 224） |
+| 本地预检 | `check-preflight.py --fast` | **全部通过** |
+
+**偏差（既有 red，非本轮引入）**：`services/platform/tests/dict/test_dict_real.py::test_http_endpoints`（`query-providers` 的 `model_dump` 序列化出口）仍为既有 red，本轮未扩大；另轮单独修。
+
+**遗留**：`bms_core` 剩余 **725 处**（`libs`：`tests` 约 292 / `db` 43 / `core` 36 / `api` 32 / `events` 20 / `boundary` 18 / `captcha` 16 / `config` 16 …），按交接单 §7 顺序续推（能力域其余 → 注册表目录 → 其余 `libs` → `tests` 收尾）。
