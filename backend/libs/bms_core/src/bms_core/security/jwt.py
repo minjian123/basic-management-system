@@ -10,12 +10,13 @@
 from __future__ import annotations
 
 import time
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable
 
 from joserfc import jwt
 from joserfc.errors import JoseError
 from joserfc.jwk import ECKey, RSAKey
 
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.core.exceptions import AuthError, ConfigError
 from bms_core.core.factory import BasePluginFactory
@@ -39,7 +40,7 @@ class JwtTokenCodec(BaseTokenCodec):
         *,
         keys: Iterable[TokenKey],
         active_kid: str = "",
-        algorithms: Sequence[str] = DEFAULT_ALGORITHMS,
+        algorithms: ConcurrentStableList[str] = DEFAULT_ALGORITHMS,
         leeway: int = DEFAULT_LEEWAY,
     ) -> None:
         """初始化。
@@ -53,12 +54,16 @@ class JwtTokenCodec(BaseTokenCodec):
         self._algorithms = tuple(algorithms)
         self._leeway = leeway
         self._keys = tuple(keys)
-        self._signing: dict[str, RSAKey | ECKey] = {key.kid: key.signing_key() for key in self._keys if key.can_sign}
-        self._signing_algorithms: dict[str, str] = {key.kid: key.algorithm for key in self._keys if key.can_sign}
+        self._signing: ConcurrentStableDict[str, RSAKey | ECKey] = ConcurrentStableDict(
+            {key.kid: key.signing_key() for key in self._keys if key.can_sign}
+        )
+        self._signing_algorithms: ConcurrentStableDict[str, str] = ConcurrentStableDict(
+            {key.kid: key.algorithm for key in self._keys if key.can_sign}
+        )
         self._key_set = to_key_set(self._keys)
         self._active_kid = active_kid
 
-    def encode(self, claims: dict[str, object], *, expires_in: int | None = None) -> str:
+    def encode(self, claims: ConcurrentStableDict[str, object], *, expires_in: int | None = None) -> str:
         """签发 JWT（补 `iat`；`expires_in` 非空补 `exp`）。
 
         Args:
@@ -79,14 +84,14 @@ class JwtTokenCodec(BaseTokenCodec):
             payload["exp"] = now + expires_in
         return jwt.encode({"alg": self._signing_algorithms[kid], "kid": kid}, payload, key)
 
-    def decode(self, token: str) -> dict[str, object]:
+    def decode(self, token: str) -> ConcurrentStableDict[str, object]:
         """校验并解析 JWT（签名 / 算法白名单 / `exp`）。
 
         Args:
             token: JWT 紧凑串。
 
         Returns:
-            dict[str, object]: 声明。
+            ConcurrentStableDict[str, object]: 声明。
 
         Raises:
             AuthError: 验签 / 声明校验失败（20001 / 401）。
@@ -95,7 +100,7 @@ class JwtTokenCodec(BaseTokenCodec):
             decoded = jwt.decode(token, self._key_set, algorithms=list(self._algorithms))
         except (JoseError, ValueError, TypeError) as exc:
             raise AuthError("令牌校验失败") from exc
-        claims = dict(decoded.claims)
+        claims = ConcurrentStableDict(decoded.claims)
         expires_at = claims.get("exp")
         if expires_at is not None:
             if not isinstance(expires_at, int | float) or isinstance(expires_at, bool):

@@ -8,12 +8,11 @@
   + 排序（`BaseSortQuery`）+ 筛选（本模块）。
 """
 
-from collections.abc import Sequence
 from typing import Annotated, cast
 
 from pydantic import Field
 
-from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.schemas.base import CONTRACT_COLLECTION, CONTRACT_STABLE_LIST, BaseSchema
 from bms_core.scope.base import SCOPE_OPERATORS
 
@@ -39,39 +38,39 @@ class FilterSpec(BaseSchema):
     operator: str = Field(default="eq", description="操作符（取 FILTER_OPERATORS）")
     value: object = Field(default=None, description="筛选值（多值 / 区间用数组）")
 
-    def serialize(self) -> dict[str, object]:
+    def serialize(self) -> ConcurrentStableDict[str, object]:
         """按《API接口规范》口径序列化为查询参数。
 
         Returns:
-            dict[str, object]: 查询参数（字段名 → 值）。
+            ConcurrentStableDict[str, object]: 查询参数（字段名 → 值）。
         """
         value = self.value
         if isinstance(value, (list, tuple)):
             items = cast("list[object]", value)
             if self.operator == "between" and len(items) == 2:
-                return {f"{self.field}_start": items[0], f"{self.field}_end": items[1]}
+                return ConcurrentStableDict({f"{self.field}_start": items[0], f"{self.field}_end": items[1]})
             if self.operator in ("in", "not_in"):
                 joined = FILTER_MULTI_SEPARATOR.join(str(item) for item in items)
-                return {self.field: joined}
+                return ConcurrentStableDict({self.field: joined})
         if self.operator == "is_null":
-            return {f"{self.field}_is_null": "1"}
+            return ConcurrentStableDict({f"{self.field}_is_null": "1"})
         if self.operator == "is_not_null":
-            return {f"{self.field}_is_not_null": "1"}
-        return {self.field: value}
+            return ConcurrentStableDict({f"{self.field}_is_not_null": "1"})
+        return ConcurrentStableDict({self.field: value})
 
 
-def serialize_filters(filters: Sequence[FilterSpec]) -> dict[str, object]:
+def serialize_filters(filters: ConcurrentStableList[FilterSpec]) -> ConcurrentStableDict[str, object]:
     """把筛选条件列表序列化为查询参数（同名字段后者覆盖）。
 
     Args:
         filters: 筛选条件列表。
 
     Returns:
-        dict[str, object]: 查询参数字典。
+        ConcurrentStableDict[str, object]: 查询参数字典。
     """
-    params: dict[str, object] = {}
+    params: ConcurrentStableDict[str, object] = ConcurrentStableDict()
     for spec in filters:
-        params.update(spec.serialize())
+        params.update(spec.serialize().items())
     return params
 
 
@@ -86,13 +85,13 @@ class BaseFilterQuery(BaseSchema):
         default_factory=CONTRACT_STABLE_LIST, description="筛选条件列表"
     )
 
-    def to_query_params(self) -> dict[str, object]:
+    def to_query_params(self) -> ConcurrentStableDict[str, object]:
         """序列化为请求查询参数（筛选条件 + 关键字；空关键字不传）。
 
         Returns:
-            dict[str, object]: 查询参数字典。
+            ConcurrentStableDict[str, object]: 查询参数字典。
         """
         params = serialize_filters(self.filters)
         if self.keyword:
-            params["keyword"] = self.keyword
+            params.set("keyword", self.keyword)
         return params

@@ -13,6 +13,7 @@ from fastapi import FastAPI
 from sqlalchemy import func, select
 from starlette.requests import Request
 
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.exceptions import OutboxDeliveryError
 from bms_core.db.engine import PLATFORM_DB_KEY
 from bms_core.db.registry import EngineRegistry
@@ -98,7 +99,9 @@ class BrokenStore(BaseOutboxStore):
         """不实现（测试用）。"""
         return ""
 
-    async def claim_pending(self, session: DbSession, *, now: datetime, limit: int) -> list[OutboxRecord]:
+    async def claim_pending(
+        self, session: DbSession, *, now: datetime, limit: int
+    ) -> ConcurrentStableList[OutboxRecord]:
         """恒定抛错。"""
         raise RuntimeError("store down")
 
@@ -132,9 +135,9 @@ class BrokenStore(BaseOutboxStore):
         source: str | None = None,
         offset: int = 0,
         limit: int = 20,
-    ) -> tuple[list[DeadLetterRecord], int]:
+    ) -> tuple[ConcurrentStableList[DeadLetterRecord], int]:
         """不实现（测试用）。"""
-        return [], 0
+        return ConcurrentStableList(), 0
 
     async def get_dead_letter(self, session: DbSession, dead_letter_id: int) -> DeadLetterRecord | None:
         """不实现（测试用）。"""
@@ -178,7 +181,9 @@ def _build_dispatcher(
 class ErrorStore(BrokenStore):
     """取待投递抛 `OutboxDeliveryError` 的存储替身（验证投递器原样上抛）。"""
 
-    async def claim_pending(self, session: DbSession, *, now: datetime, limit: int) -> list[OutboxRecord]:
+    async def claim_pending(
+        self, session: DbSession, *, now: datetime, limit: int
+    ) -> ConcurrentStableList[OutboxRecord]:
         """恒定抛 `OutboxDeliveryError`。"""
         raise OutboxDeliveryError("store advance error")
 

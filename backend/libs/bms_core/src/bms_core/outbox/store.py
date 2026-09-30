@@ -14,6 +14,7 @@ from typing import Any, cast
 from sqlalchemy import ColumnElement, func, select, update
 from sqlalchemy.engine import CursorResult
 
+from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.exceptions import ConfigError, EventContractError
 from bms_core.core.id import id_generator
 from bms_core.core.logging import get_logger
@@ -215,7 +216,9 @@ class SqlOutboxStore(BaseOutboxStore):
         await session.flush()
         return event_id
 
-    async def claim_pending(self, session: DbSession, *, now: datetime, limit: int) -> list[OutboxRecord]:
+    async def claim_pending(
+        self, session: DbSession, *, now: datetime, limit: int
+    ) -> ConcurrentStableList[OutboxRecord]:
         """取待投递事件（同聚合仅队首、到期者）。
 
         Args:
@@ -224,10 +227,10 @@ class SqlOutboxStore(BaseOutboxStore):
             limit: 返回上限。
 
         Returns:
-            list[OutboxRecord]: 待投递记录。
+            ConcurrentStableList[OutboxRecord]: 待投递记录。
         """
         if limit <= 0:
-            return []
+            return ConcurrentStableList()
         statement = (
             select(SysOutbox)
             .where(SysOutbox.status == OUTBOX_STATUS_PENDING)
@@ -235,8 +238,8 @@ class SqlOutboxStore(BaseOutboxStore):
             .limit(limit * ORDER_SCAN_FACTOR)
         )
         rows = list((await session.execute(statement)).scalars())
-        seen: set[str] = set()
-        claimed: list[OutboxRecord] = []
+        seen: ConcurrentStableSet[str] = ConcurrentStableSet()
+        claimed: ConcurrentStableList[OutboxRecord] = ConcurrentStableList()
         for row in rows:
             key = row.aggregate_key
             if key is not None:
@@ -245,7 +248,7 @@ class SqlOutboxStore(BaseOutboxStore):
                 seen.add(key)
                 if row.next_retry_at is not None and row.next_retry_at > now:
                     continue
-            claimed.append(_to_record(row))
+            claimed.add(_to_record(row))
             if len(claimed) >= limit:
                 break
         return claimed
@@ -336,15 +339,17 @@ class SqlOutboxStore(BaseOutboxStore):
         Returns:
             int: 重置条数。
         """
-        conditions: list[ColumnElement[bool]] = [SysOutbox.status.in_((OUTBOX_STATUS_DELIVERED, OUTBOX_STATUS_DEAD))]
+        conditions: ConcurrentStableList[ColumnElement[bool]] = ConcurrentStableList(
+            [SysOutbox.status.in_((OUTBOX_STATUS_DELIVERED, OUTBOX_STATUS_DEAD))]
+        )
         if event_id is not None:
-            conditions.append(SysOutbox.event_id == event_id)
+            conditions.add(SysOutbox.event_id == event_id)
         if event_type is not None:
-            conditions.append(SysOutbox.event_type == event_type)
+            conditions.add(SysOutbox.event_type == event_type)
         if aggregate_key is not None:
-            conditions.append(SysOutbox.aggregate_key == aggregate_key)
+            conditions.add(SysOutbox.aggregate_key == aggregate_key)
         if since is not None:
-            conditions.append(SysOutbox.occurred_at >= since)
+            conditions.add(SysOutbox.occurred_at >= since)
         id_statement = select(SysOutbox.id).where(*conditions).order_by(SysOutbox.id)
         if limit is not None:
             id_statement = id_statement.limit(limit)
@@ -374,7 +379,7 @@ class SqlOutboxStore(BaseOutboxStore):
         source: str | None = None,
         offset: int = 0,
         limit: int = 20,
-    ) -> tuple[list[DeadLetterRecord], int]:
+    ) -> tuple[ConcurrentStableList[DeadLetterRecord], int]:
         """死信列表（倒序 + 筛选 + 分页）。
 
         Args:
@@ -385,13 +390,13 @@ class SqlOutboxStore(BaseOutboxStore):
             limit: 上限。
 
         Returns:
-            tuple[list[DeadLetterRecord], int]: （记录列表，总数）。
+            tuple[ConcurrentStableList[DeadLetterRecord], int]: （记录列表，总数）。
         """
-        conditions: list[ColumnElement[bool]] = []
+        conditions: ConcurrentStableList[ColumnElement[bool]] = ConcurrentStableList()
         if status is not None:
-            conditions.append(SysEventDeadLetter.status == status)
+            conditions.add(SysEventDeadLetter.status == status)
         if source is not None:
-            conditions.append(SysEventDeadLetter.source == source)
+            conditions.add(SysEventDeadLetter.source == source)
         count_statement = select(func.count()).select_from(SysEventDeadLetter).where(*conditions)
         total = int((await session.execute(count_statement)).scalar_one())
         statement = (
@@ -402,7 +407,7 @@ class SqlOutboxStore(BaseOutboxStore):
             .limit(limit)
         )
         rows = list((await session.execute(statement)).scalars())
-        return [_to_dead_record(row) for row in rows], total
+        return ConcurrentStableList(_to_dead_record(row) for row in rows), total
 
     async def get_dead_letter(self, session: DbSession, dead_letter_id: int) -> DeadLetterRecord | None:
         """取单条死信。

@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 from bms_core.core.capability import BaseNullObject
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.exceptions import AuthError, ConfigError
 from bms_core.security.base import (
     BasePasswordHasher,
@@ -68,7 +69,7 @@ class NullPasswordHasher(BasePasswordHasher, BaseNullObject):
 class NullTokenCodec(BaseTokenCodec, BaseNullObject):
     """令牌编解码缺省实现（fail-closed）。"""
 
-    def encode(self, claims: dict[str, object], *, expires_in: int | None = None) -> str:
+    def encode(self, claims: ConcurrentStableDict[str, object], *, expires_in: int | None = None) -> str:
         """拒绝签发。
 
         Args:
@@ -80,7 +81,7 @@ class NullTokenCodec(BaseTokenCodec, BaseNullObject):
         """
         raise ConfigError(_MISSING_IMPLEMENTATION.format(plugin_key="token_codec"))
 
-    def decode(self, token: str) -> dict[str, object]:
+    def decode(self, token: str) -> ConcurrentStableDict[str, object]:
         """拒绝校验（一律视为非法令牌）。
 
         Args:

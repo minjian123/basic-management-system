@@ -18,6 +18,7 @@ from typing import cast
 
 from fastapi import Request
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.config import Settings
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 
@@ -91,7 +92,7 @@ class BaseTokenCodec(BaseSecurity, ABC):
     contract_version: str = DEFAULT_CONTRACT_VERSION
 
     @abstractmethod
-    def encode(self, claims: dict[str, object], *, expires_in: int | None = None) -> str:
+    def encode(self, claims: ConcurrentStableDict[str, object], *, expires_in: int | None = None) -> str:
         """签发令牌（自动补 `iat`；`expires_in` 非空补 `exp`）。
 
         Args:
@@ -106,14 +107,14 @@ class BaseTokenCodec(BaseSecurity, ABC):
         """
 
     @abstractmethod
-    def decode(self, token: str) -> dict[str, object]:
+    def decode(self, token: str) -> ConcurrentStableDict[str, object]:
         """校验并解析令牌（签名 / 算法白名单 / `exp`）。
 
         Args:
             token: JWT 紧凑串。
 
         Returns:
-            dict[str, object]: 声明。
+            ConcurrentStableDict[str, object]: 声明。
 
         Raises:
             AuthError: 验签 / 声明校验失败（20001 / 401）。

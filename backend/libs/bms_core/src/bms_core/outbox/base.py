@@ -20,7 +20,7 @@ from typing import ClassVar, cast
 from fastapi import Request
 
 from bms_core.core.capability import BaseAsyncResource
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.core.objects import BaseEventRecordContract, BaseTallyContract
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
@@ -209,7 +209,9 @@ class BaseOutboxStore(BasePluggable, ABC):
         """
 
     @abstractmethod
-    async def claim_pending(self, session: DbSession, *, now: datetime, limit: int) -> list[OutboxRecord]:
+    async def claim_pending(
+        self, session: DbSession, *, now: datetime, limit: int
+    ) -> ConcurrentStableList[OutboxRecord]:
         """取待投递事件（按 `(aggregate_key, id)` 同聚合仅队首、到期者）。
 
         Args:
@@ -218,7 +220,7 @@ class BaseOutboxStore(BasePluggable, ABC):
             limit: 返回上限。
 
         Returns:
-            list[OutboxRecord]: 待投递记录。
+            ConcurrentStableList[OutboxRecord]: 待投递记录。
         """
 
     @abstractmethod
@@ -287,7 +289,7 @@ class BaseOutboxStore(BasePluggable, ABC):
         source: str | None = None,
         offset: int = 0,
         limit: int = 20,
-    ) -> tuple[list[DeadLetterRecord], int]:
+    ) -> tuple[ConcurrentStableList[DeadLetterRecord], int]:
         """死信列表（按 `id` 倒序 + 筛选 + 分页）。
 
         Args:
@@ -298,7 +300,7 @@ class BaseOutboxStore(BasePluggable, ABC):
             limit: 上限。
 
         Returns:
-            tuple[list[DeadLetterRecord], int]: （记录列表，总数）。
+            tuple[ConcurrentStableList[DeadLetterRecord], int]: （记录列表，总数）。
         """
 
     @abstractmethod

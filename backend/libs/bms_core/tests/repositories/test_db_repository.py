@@ -398,7 +398,9 @@ async def test_cursor_rejects_invalid_and_mismatched(session: AsyncSession) -> N
     with pytest.raises(ParamError):
         await repo.list_cursor(BaseCursorQuery(limit=1, cursor="not-a-cursor"))
 
-    token = encode_cursor([SortSpec(field="rank", direction=SortDirection.ASC)], [1], 1)
+    token = encode_cursor(
+        ConcurrentStableList([SortSpec(field="rank", direction=SortDirection.ASC)]), ConcurrentStableList([1]), 1
+    )
     with pytest.raises(ParamError):
         await repo.list_cursor(
             BaseCursorQuery(limit=1, order_by="name", order=ConcurrentStableList(["asc"]), cursor=token)
