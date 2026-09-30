@@ -337,3 +337,43 @@ flowchart LR
 **另一处既有 red（非本轮引入，已另行修正）**：`check-links.py` 实测 **18 处断链**（0 失效锚点）——14 处为 `项目/01_项目骨架/` 下多层任务文档指向 `后端基类清单.md` / `规范/后端开发规范.md` 的相对层级少 3 层，4 处为 `08_05 集合体系收链` 三份文档 + 盘点报告指向 08_02 详细设计 `#unique-chain` 的链接（`../08_02…` 少一层，应为兄弟任务目录 `../../08_02…`）；均在**干净树同样失败**（本任务未改这些文档的链接），属文档层既有问题。经用户拍板**以独立 docs 提交单独修正**，未混入本任务改动；修正后 `check-links.py` 实测 **断链 0 / 失效锚点 0**。
 
 **遗留**：`bms_core` 剩余 **652 处**（`libs`：`tests` 约 291 / `services` 89 / `db` 43 / `core` 36 / `api` 32 / `boundary` 18 / `session` 13 / `schemas` 10 …）；本轮范围内的 `masking/` 余 4 处（`base.py` 两个局部、`default.py` 模块常量与 `DefaultMasker.__init__` 的 `rules` 参数）与 `core/objects/tally.py` 1 处，随各自域批次推进。
+
+## 16. 实施过程补充 · 存量整改子批 3 · 注册表与目录类（`services/` 模块，2026-09-30） <a id="batch3-registries"></a>
+
+**范围**：`bms_core` `services/` 模块 **89 处**中本轮落 **53 处**——`module_registry.py` 22 / `table_registry.py` 27 / `service_contract.py` 4；`gateway_catalog.py`（36 处，含 YAML 出口）留待下一轮（见「遗留」）。按交接单 §7 第 1 项「`services/` 注册表与目录类」推进。
+
+**动作**：
+
+1. **`module_registry.py`**：`known_event_domains()` → `ConcurrentStableSet[str]`；`_duplicates` / `list_modules` / `validate` / `_validate_record` / `_validate_duplicates` / `validate_catalog` / `_diff_catalog` / `_check_running_service` 全落 `ConcurrentStableList`（`append` → `add`、`extend` → `update`）；`ModuleRegistry.__init__(modules: ConcurrentStableList[ModuleRecord] | None = None)`（缺省取 `SERVICE_CATALOG` 副本）；`_diff_catalog` 的清单 / 库两张对照表落 `ConcurrentStableDict`。
+2. **`table_registry.py`**：`known_service_keys` / `owned_tables_for` / `infrastructure_tables` / `chain_tables` / `table_names` / `registered_services` 落 `ConcurrentStableSet`（`chain_tables` 的 `owned | infra` 走集合运算）；`service_table_prefixes()` → `ConcurrentStableDict[str, ConcurrentStableSet[str]]`（桶复用 `get` + `set`）；`TableOwnershipRegistry`（含 `list_tables` / `validate` / `_validate_record` / `_validate_prefix`）与 `validate_table_ownership` / `_diff_ownership` 落集合类（对照表落 `ConcurrentStableDict`）。
+3. **`service_contract.py`**：`render_contract_json(openapi: ConcurrentStableDict[str, object])`（渲染前经 `normalize_collections` 规整，**公开契约快照逐字节不变**）、`validate_contract` 返回落 `ConcurrentStableList`（形态判定改 `isinstance(..., Mapping)`，兼容内置容器与集合类两种嵌套）。
+4. **调用方适配（关键：保住「无依赖导入链」，见下节）**：`boundary/directory.py`（`known_tables` / `known_services` / `owned_tables_for` 三处按自身既有 `frozenset` 声明转换）、`db/keys.py::_known_service_keys`（同口径）、`application.py`（`validate_catalog` / `validate_table_ownership` 入参包集合类、`known_event_domains()` 直用）、`ops/check_modules.py` 与 `ops/check_tables.py`（`ModuleRegistry().validate()` 结果改 `add` / `update`，并按各自 `list[str]` 声明转换）、`ops/contract_snapshot.py` 与 `ops/contract_gate.py`（`openapi` 包 `ConcurrentStableDict`）、`ops/event_contracts.py`（`domains` 直用）。
+   - **延迟批次口径延续**：`ops` / `db` / `boundary` 等后续批次文件的**既有注解与运行期形态保留**（其护栏命中仍在基线，随各自批次清理），本轮只做「入参按集合类构造、返出按对侧声明转换」的最小适配。
+
+### 16.1 基座拆分：集合体系「无依赖面」（实施中拍板，2026-09-30） <a id="batch3-split"></a>
+
+**冲突**（详见 §15「既有 red 已修正」同源）：CI `base-integrity` job 用 `python:3.14-slim`（**不装依赖**）跑 `check-service-boundaries.py(+--self-test)` 与 `python backend/ops/gateway_config.py check`；两者经 `bms_core.boundary` / `bms_core.services.gateway_catalog` **导入并调用** `services/` 注册表。注册表落 `ConcurrentStable*` 后，导入链变为 `services.module_registry → core.concurrent → core.collections → sortedcontainers`（第三方）——本地预检实测 3 项红，CI 同 job 必红；`ops/gateway_config.py` 文档明写「仅依赖标准库 + bms_core 的 stdlib 导入链」。延迟导入救不了（`known_tables()` / `known_services()` 等**会被实际调用**，调用期同样需要第三方类）。
+
+**拍板**：用户选定「**基座侧解耦**」（选项二），而非「CI 装依赖」或「设无依赖面豁免」。
+
+**动作**：
+
+- **新增** `core/sorted_collections.py`：承载 `SortedList` / `SortedDict` / `SortedSet` 与 `ConcurrentSortedList` / `ConcurrentSortedSet` / `ConcurrentSortedDict`（**第三方依赖止步于此**）。
+- **`core/collections.py`**：只留体系根 `BaseCollection` + 有序公共段 `BaseSorted` + 公共常量 `MAX_INDEX`（原 `core/concurrent.py` 的私有 `_MAX_INDEX` 上移为**单一来源**，两模块共用）；顶层**不再**导入 `sortedcontainers`。
+- **`core/concurrent.py`**：只留 `BaseConcurrent` + `ConcurrentStable*`；`ConcurrentStableList.__eq__` 去掉对 `ConcurrentSortedList` 的直接引用（跨形态比较由对侧 `__eq__` **反射**完成，行为不变）。
+- **护栏**：`check-bare-collections.py` 的 `SYSTEM_IMPLEMENTATION_FILES` 与自测矩阵补第 4 个实现文件（`.py` 白名单 + `--self-test` 设「实现文件不属约束对象」样例）。
+- **回写**：《后端基类清单》§3 / §4 表落点、「集合体系」节补「模块拆分与无依赖面」段、护栏段实现文件清单；设计 §3.2 落点表补第 12 行、§3.7 实现文件豁免补拆分说明；续行交接单 §3 补「无依赖面铁律」。
+
+**验证**：
+
+| 项 | 命令 | 结果 |
+| --- | --- | --- |
+| **无依赖链实证** | 系统 `python3`（无第三方依赖）导入 `bms_core.services.module_registry` / `table_registry` / `bms_core.boundary.assess` / `directory` 并调用 `table_names()` / `known_tables()` / `known_services()` | **通过**（导入 + 调用均成功） |
+| 全量 `libs` | `pytest libs/bms_core/tests` | **1099 passed / 37 skipped** |
+| 服务侧 | `pytest services/platform/tests services/org/tests` | **390 passed / 1 skipped / 1 failed**（既有 red） |
+| 静态检查 | `ruff check` / `ruff format --check` | 全绿 |
+| 护栏 | `check-bare-collections.py .`（+ `--self-test`） | 「新增 0 / 残留 0」；`bms_core/services` **89 → 36**（仅 `gateway_catalog`）；基线 **1306 → 1246**（`libs` 652 → 592） |
+| 基座 / 边界护栏 | `check-base.py` / `check-backend-base.py`(+`--self-test`) / `check-service-boundaries.py`(+`--self-test`) | 全绿（此前因 `sortedcontainers` 缺失而红的 2 项恢复） |
+| 本地预检 | `check-preflight.py --fast` | **全部通过** |
+
+**遗留**：`gateway_catalog.py`（36 处）下一轮——其 `render_*` 返回落集合类后，`ops/gateway_config.py` 的 YAML 出口须在 `dump_yaml` 前 `normalize_collections` 规整，且因 `ConcurrentStable*` 已在**无依赖面**内，精简镜像下仍可运行；`bms_core` 剩余 **592 处**（`libs`：`tests` 282 / `db` 43 / `core` 27 / `api` 32 / `boundary` 18 / `session` 13 / `outbox` 10 / `schemas` 10 …）。
