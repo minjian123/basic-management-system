@@ -11,6 +11,7 @@ from fastapi import Depends, Query
 from bms_core.api.base import BaseRouter, require_auth
 from bms_core.api.deps import get_chat_action_gate, get_chat_session_store, get_chat_stream
 from bms_core.chat.base import BaseChatActionGate, BaseChatSessionStore, BaseChatStream
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.llm.base import ChatMessage
 from bms_core.schemas.chat import (
     ChatStopRequest,
@@ -43,7 +44,7 @@ async def chat_stream(stream: StreamDep, req: ChatStreamRequest) -> ApiResponse:
     Returns:
         ApiResponse: 统一响应，data 为 `{stream_id, events}`。
     """
-    messages = [ChatMessage(content=item.content, role=item.role) for item in req.messages]
+    messages = ConcurrentStableList([ChatMessage(content=item.content, role=item.role) for item in req.messages])
     handle = await stream.stream(messages, module=req.module, session_id=req.session_id)
     events = [event async for event in handle.events]
     return ApiResponse.ok(ChatStreamResponse(stream_id=handle.stream_id, events=events))
@@ -77,7 +78,7 @@ async def list_chat_sessions(
     Returns:
         ApiResponse: 统一响应，data 为会话列表。
     """
-    return ApiResponse.ok(await store.list_sessions(module=module))
+    return ApiResponse.ok(list(await store.list_sessions(module=module)))
 
 
 @router.get("/sessions/{session_id}")
@@ -105,7 +106,7 @@ async def list_chat_messages(store: SessionDep, session_id: str) -> ApiResponse:
     Returns:
         ApiResponse: 统一响应，data 为消息列表。
     """
-    return ApiResponse.ok(await store.list_messages(session_id))
+    return ApiResponse.ok(list(await store.list_messages(session_id)))
 
 
 @router.delete("/sessions/{session_id}")

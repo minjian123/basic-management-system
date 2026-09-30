@@ -1,6 +1,6 @@
 """chat 能力域缺省实现（Null Object）：单次 done / 空会话 / unknown 结果，不做真实流与执行。"""
 
-from collections.abc import AsyncIterator, Sequence
+from collections.abc import AsyncIterator
 
 from bms_core.chat.base import (
     NULL_CHAT_STREAM_ID,
@@ -14,6 +14,7 @@ from bms_core.chat.base import (
     ChatStreamHandle,
 )
 from bms_core.core.capability import BaseNullObject
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.llm.base import NULL_CHAT_REPLY, ChatMessage
 
 __all__ = [
@@ -28,7 +29,7 @@ class NullChatStream(BaseChatStream, BaseNullObject):
 
     async def stream(
         self,
-        messages: Sequence[ChatMessage],
+        messages: ConcurrentStableList[ChatMessage],
         *,
         module: str,
         session_id: str | None = None,
@@ -74,17 +75,17 @@ class NullChatStream(BaseChatStream, BaseNullObject):
 class NullChatSessionStore(BaseChatSessionStore, BaseNullObject):
     """占位会话查询：空集 / None，不查 `ai_chat_log`。"""
 
-    async def list_sessions(self, *, module: str | None = None) -> Sequence[ChatSession]:
+    async def list_sessions(self, *, module: str | None = None) -> ConcurrentStableList[ChatSession]:
         """列当前用户会话（占位恒空）。
 
         Args:
             module: 模式过滤（占位忽略）。
 
         Returns:
-            Sequence[ChatSession]: 空元组。
+            ConcurrentStableList[ChatSession]: 空列表。
         """
         del module
-        return ()
+        return ConcurrentStableList()
 
     async def get_session(self, session_id: str) -> ChatSession | None:
         """取单会话（占位恒未命中）。
@@ -98,17 +99,17 @@ class NullChatSessionStore(BaseChatSessionStore, BaseNullObject):
         del session_id
         return None
 
-    async def list_messages(self, session_id: str) -> Sequence[ChatSessionMessage]:
+    async def list_messages(self, session_id: str) -> ConcurrentStableList[ChatSessionMessage]:
         """取会话消息（占位恒空）。
 
         Args:
             session_id: 会话标识（占位忽略）。
 
         Returns:
-            Sequence[ChatSessionMessage]: 空元组。
+            ConcurrentStableList[ChatSessionMessage]: 空列表。
         """
         del session_id
-        return ()
+        return ConcurrentStableList()
 
     async def delete_session(self, session_id: str) -> bool:
         """删除会话（占位恒无既有会话）。

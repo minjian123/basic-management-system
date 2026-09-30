@@ -30,6 +30,7 @@ from bms_core.chat.base import (
 )
 from bms_core.chat.null import NullChatActionGate, NullChatSessionStore, NullChatStream
 from bms_core.core.capability import BaseCapability, BaseNullObject
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.plugin import BasePluggable, resolve_plugin
 from bms_core.llm.base import NULL_CHAT_REPLY, ChatMessage
 from tests_support.auth import auth_headers
@@ -46,7 +47,7 @@ class _InMemoryChatStream(BaseChatStream):
 
     async def stream(
         self,
-        messages: Sequence[ChatMessage],
+        messages: ConcurrentStableList[ChatMessage],
         *,
         module: str,
         session_id: str | None = None,
@@ -83,15 +84,15 @@ class _InMemoryChatSessionStore(BaseChatSessionStore):
         self._messages[session.id] = list(messages)
         return session
 
-    async def list_sessions(self, *, module: str | None = None) -> Sequence[ChatSession]:
+    async def list_sessions(self, *, module: str | None = None) -> ConcurrentStableList[ChatSession]:
         items = [s for s in self._sessions.values() if module is None or s.module == module]
-        return sorted(items, key=lambda s: s.id)
+        return ConcurrentStableList(sorted(items, key=lambda s: s.id))
 
     async def get_session(self, session_id: str) -> ChatSession | None:
         return self._sessions.get(session_id)
 
-    async def list_messages(self, session_id: str) -> Sequence[ChatSessionMessage]:
-        return self._messages.get(session_id, [])
+    async def list_messages(self, session_id: str) -> ConcurrentStableList[ChatSessionMessage]:
+        return ConcurrentStableList(self._messages.get(session_id, []))
 
     async def delete_session(self, session_id: str) -> bool:
         self._messages.pop(session_id, None)

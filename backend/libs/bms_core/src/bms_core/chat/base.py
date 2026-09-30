@@ -22,7 +22,7 @@
 """
 
 from abc import ABC, abstractmethod
-from collections.abc import AsyncIterator, Sequence
+from collections.abc import AsyncIterator
 from datetime import datetime
 from typing import Annotated, Any, ClassVar, cast
 
@@ -198,7 +198,7 @@ class BaseChatStream(BasePluggable, ABC):
     @abstractmethod
     async def stream(
         self,
-        messages: Sequence[ChatMessage],
+        messages: ConcurrentStableList[ChatMessage],
         *,
         module: str,
         session_id: str | None = None,
@@ -239,14 +239,14 @@ class BaseChatSessionStore(BasePluggable, ABC):
     contract_version: str = DEFAULT_CONTRACT_VERSION
 
     @abstractmethod
-    async def list_sessions(self, *, module: str | None = None) -> Sequence[ChatSession]:
+    async def list_sessions(self, *, module: str | None = None) -> ConcurrentStableList[ChatSession]:
         """列当前用户会话（可按模式过滤）。
 
         Args:
             module: 模式过滤；None 表示全部。
 
         Returns:
-            Sequence[ChatSession]: 会话列表（占位空集）。
+            ConcurrentStableList[ChatSession]: 会话列表（占位空列表）。
         """
 
     @abstractmethod
@@ -261,14 +261,14 @@ class BaseChatSessionStore(BasePluggable, ABC):
         """
 
     @abstractmethod
-    async def list_messages(self, session_id: str) -> Sequence[ChatSessionMessage]:
+    async def list_messages(self, session_id: str) -> ConcurrentStableList[ChatSessionMessage]:
         """取会话消息（升序；分页随真实实现）。
 
         Args:
             session_id: 会话标识。
 
         Returns:
-            Sequence[ChatSessionMessage]: 消息列表（占位空集）。
+            ConcurrentStableList[ChatSessionMessage]: 消息列表（占位空列表）。
         """
 
     @abstractmethod

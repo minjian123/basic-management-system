@@ -6,6 +6,7 @@ from typing import cast
 
 from fastapi import Request
 
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.core.objects import BaseDataContract
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
@@ -46,7 +47,7 @@ class AuditCapturer(BasePluggable, ABC):
         *,
         table: str,
         model_id: int,
-        changes: list[FieldChange],
+        changes: ConcurrentStableList[FieldChange],
         actor: int | None = None,
     ) -> EventEnvelope:
         """捕获字段级变更并生成审计事件。

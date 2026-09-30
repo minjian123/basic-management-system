@@ -12,13 +12,12 @@
 """
 
 from abc import ABC, abstractmethod
-from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import cast
 
 from fastapi import Request
 
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.core.objects import BaseValueObject
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
@@ -94,7 +93,7 @@ class BaseHashChain(BasePluggable, ABC):
     contract_version: str = DEFAULT_CONTRACT_VERSION
 
     @abstractmethod
-    def compute(self, prev_hash: str, record: Mapping[str, object]) -> str:
+    def compute(self, prev_hash: str, record: ConcurrentStableDict[str, object]) -> str:
         """计算单条记录哈希（`SHA256(prev_hash + 规范化记录内容)`）。
 
         Args:
@@ -106,7 +105,7 @@ class BaseHashChain(BasePluggable, ABC):
         """
 
     @abstractmethod
-    def verify(self, entries: Sequence[HashChainEntry]) -> ChainVerifyResult:
+    def verify(self, entries: ConcurrentStableList[HashChainEntry]) -> ChainVerifyResult:
         """逐条重算校验链完整性。
 
         Args:
