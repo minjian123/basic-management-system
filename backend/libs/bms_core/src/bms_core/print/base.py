@@ -189,14 +189,14 @@ class BasePrintTemplateProvider(BasePluggable, ABC):
     contract_version: str = DEFAULT_CONTRACT_VERSION
 
     @abstractmethod
-    async def list(self, *, biz_type: str | None = None) -> list[PrintTemplateInfo]:
+    async def list(self, *, biz_type: str | None = None) -> ConcurrentStableList[PrintTemplateInfo]:
         """取打印模板清单（可按单据类型过滤）。
 
         Args:
             biz_type: 单据类型（None 表示全部）。
 
         Returns:
-            list[PrintTemplateInfo]: 模板清单（占位为空清单，消费方以空态回退）。
+            ConcurrentStableList[PrintTemplateInfo]: 模板清单（占位为空清单，消费方以空态回退）。
         """
 
     @abstractmethod
@@ -244,7 +244,7 @@ class BasePrintExporter(BasePluggable, ABC):
     @abstractmethod
     async def batch_print(
         self,
-        keys: list[str],
+        keys: ConcurrentStableList[str],
         *,
         template_key: str,
         mode: str = "separate",

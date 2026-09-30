@@ -9,12 +9,12 @@
 """
 
 from abc import ABC, abstractmethod
-from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import cast
 
 from fastapi import Request
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.config import Settings
 from bms_core.core.objects import BaseDeliveryResultContract
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
@@ -49,7 +49,9 @@ class BaseWebhookSender(BasePluggable, ABC):
     contract_version: str = DEFAULT_CONTRACT_VERSION
 
     @abstractmethod
-    async def send(self, url: str, payload: Mapping[str, object], *, secret: str | None = None) -> WebhookResult:
+    async def send(
+        self, url: str, payload: ConcurrentStableDict[str, object], *, secret: str | None = None
+    ) -> WebhookResult:
         """投递 Webhook。
 
         Args:

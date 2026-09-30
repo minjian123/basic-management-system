@@ -9,12 +9,12 @@
 """
 
 from abc import ABC, abstractmethod
-from collections.abc import Sequence
 from datetime import datetime
 from typing import cast
 
 from fastapi import Request
 
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 
@@ -66,7 +66,7 @@ class BasePasswordPolicy(BasePluggable, ABC):
         """
 
     @abstractmethod
-    async def reused(self, password: str, *, history: Sequence[str]) -> bool:
+    async def reused(self, password: str, *, history: ConcurrentStableList[str]) -> bool:
         """密码是否命中历史密码。
 
         Args:

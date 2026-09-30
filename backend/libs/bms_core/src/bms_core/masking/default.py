@@ -12,7 +12,6 @@
 全掩码。示例与退化表见《后端基类清单》「数据脱敏」条目规则清单与任务详细设计。
 """
 
-from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Self
 
@@ -61,14 +60,16 @@ class MaskSpec(BaseValueObject):
     """固定掩码字符数（不随被掩码字符数变化）。"""
 
 
-BUILTIN_MASK_SPECS: dict[str, MaskSpec] = {
-    "phone": MaskSpec(head=3, tail=4, stars=4),
-    "id_card": MaskSpec(head=6, tail=4, stars=8),
-    "bank_card": MaskSpec(head=4, tail=4, stars=8),
-    "name": MaskSpec(head=1, tail=0, stars=1),
-    "address": MaskSpec(head=6, tail=0, stars=3),
-    "custom": MaskSpec(head=0, tail=0, stars=3),
-}
+BUILTIN_MASK_SPECS: ConcurrentStableDict[str, MaskSpec] = ConcurrentStableDict(
+    {
+        "phone": MaskSpec(head=3, tail=4, stars=4),
+        "id_card": MaskSpec(head=6, tail=4, stars=8),
+        "bank_card": MaskSpec(head=4, tail=4, stars=8),
+        "name": MaskSpec(head=1, tail=0, stars=1),
+        "address": MaskSpec(head=6, tail=0, stars=3),
+        "custom": MaskSpec(head=0, tail=0, stars=3),
+    }
+)
 """内置策略规格（`email` 为特殊分支，见 `mask_email`）。"""
 
 
@@ -153,7 +154,7 @@ class DefaultMasker(BaseMasker):
         *,
         checker: BasePermissionChecker,
         mask_char: str = DEFAULT_MASK_CHAR,
-        rules: Mapping[str, str] | None = None,
+        rules: ConcurrentStableDict[str, str] | None = None,
     ) -> None:
         """初始化真实脱敏实现。
 
@@ -169,7 +170,7 @@ class DefaultMasker(BaseMasker):
         if len(mask_char) != 1:
             raise PluginError("脱敏掩码字符非法（须为单字符）")
         self._mask_char = mask_char
-        for field_name, strategy in (rules or {}).items():
+        for field_name, strategy in (rules or ConcurrentStableDict[str, str]()).items():
             self.register(field_name, strategy)
 
     def check_plain(self) -> bool:

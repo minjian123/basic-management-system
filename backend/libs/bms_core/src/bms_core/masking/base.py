@@ -15,7 +15,7 @@ from typing import cast
 
 from fastapi import Request
 
-from bms_core.core.concurrent import ConcurrentStableSet
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableSet
 from bms_core.core.config import Settings
 from bms_core.core.context import reset_current_masker, set_current_masker
 from bms_core.core.exceptions import PluginError
@@ -60,8 +60,8 @@ class BaseMasker(BasePluggable, ABC):
         """
         super().__init__()
         self._checker = checker
-        self._rules: dict[str, MaskRule] = {}
-        self._strategies: dict[str, MaskStrategy] = {}
+        self._rules: ConcurrentStableDict[str, MaskRule] = ConcurrentStableDict()
+        self._strategies: ConcurrentStableDict[str, MaskStrategy] = ConcurrentStableDict()
 
     def register(self, field: str, strategy: str = "custom") -> MaskRule:
         """登记敏感字段（同字段重复注册以最后一次为准）。
@@ -74,7 +74,7 @@ class BaseMasker(BasePluggable, ABC):
             MaskRule: 登记项。
         """
         rule = MaskRule(field=field, strategy=strategy)
-        self._rules[field] = rule
+        self._rules.set(field, rule)
         return rule
 
     @property
@@ -112,7 +112,7 @@ class BaseMasker(BasePluggable, ABC):
             raise PluginError(f"自定义掩码策略名与内置策略同名：{name}")
         if not STRATEGY_NAME_PATTERN.match(name):
             raise PluginError(f"自定义掩码策略名格式非法（须为小写字母开头的 snake_case）：{name}")
-        self._strategies[name] = strategy
+        self._strategies.set(name, strategy)
 
     def strategies(self) -> tuple[str, ...]:
         """自定义策略名快照（按名称排序，输出稳定）。

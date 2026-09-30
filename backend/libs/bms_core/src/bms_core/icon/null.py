@@ -30,7 +30,7 @@ class NullIconRegistry(BaseIconRegistry, BaseNullObject):
         category: str | None = None,
         status: str | None = None,
         keyword: str | None = None,
-    ) -> list[IconInfo]:
+    ) -> ConcurrentStableList[IconInfo]:
         """取图标清单（占位固定空清单，不区分过滤参数）。
 
         Args:
@@ -67,7 +67,7 @@ class NullIconRegistry(BaseIconRegistry, BaseNullObject):
             code=draft.code,
             name=draft.name,
             category=draft.category,
-            tags=list(draft.tags),
+            tags=ConcurrentStableList(draft.tags),
             svg=draft.svg,
             status=DEFAULT_ICON_STATUS,
         )
@@ -103,7 +103,9 @@ class NullIconRegistry(BaseIconRegistry, BaseNullObject):
         return True
 
     @staticmethod
-    def _placeholder(*, code: str, name: str, category: str, tags: list[str], svg: str, status: str) -> IconInfo:
+    def _placeholder(
+        *, code: str, name: str, category: str, tags: ConcurrentStableList[str], svg: str, status: str
+    ) -> IconInfo:
         """构造占位图标定义（新增与更新共用）。
 
         Args:
@@ -122,7 +124,7 @@ class NullIconRegistry(BaseIconRegistry, BaseNullObject):
             code=code,
             name=name,
             category=category,
-            tags=ConcurrentStableList(tags),
+            tags=tags,
             svg=svg,
             status=status,
             icon_key=build_icon_key(code, source=ICON_CUSTOM_SOURCE),

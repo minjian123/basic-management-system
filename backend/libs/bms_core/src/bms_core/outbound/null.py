@@ -1,9 +1,8 @@
 """outbound 能力域缺省实现（Null Object）：占位返回、无副作用
 （02-3 自 bms_core.outbound.http.py、bms_core.outbound.webhook.py 迁入）。"""
 
-from collections.abc import Mapping
-
 from bms_core.core.capability import BaseNullObject
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.outbound.http import BaseHttpClient, HttpResponse
 from bms_core.outbound.webhook import BaseWebhookSender, WebhookResult
 
@@ -21,7 +20,7 @@ class NullHttpClient(BaseHttpClient, BaseNullObject):
         method: str,
         url: str,
         *,
-        headers: Mapping[str, str] | None = None,
+        headers: ConcurrentStableDict[str, str] | None = None,
         content: bytes | None = None,
         timeout: int | None = None,
     ) -> HttpResponse:
@@ -37,13 +36,15 @@ class NullHttpClient(BaseHttpClient, BaseNullObject):
         Returns:
             HttpResponse: 成功响应（`status_code=200`、空头 / 空 body）。
         """
-        return HttpResponse(status_code=200, headers={}, content=b"")
+        return HttpResponse(status_code=200, headers=ConcurrentStableDict(), content=b"")
 
 
 class NullWebhookSender(BaseWebhookSender, BaseNullObject):
     """占位 Webhook 发送器：固定返回投递成功（不外呼，未接入真实实现时使用）。"""
 
-    async def send(self, url: str, payload: Mapping[str, object], *, secret: str | None = None) -> WebhookResult:
+    async def send(
+        self, url: str, payload: ConcurrentStableDict[str, object], *, secret: str | None = None
+    ) -> WebhookResult:
         """恒定返回投递成功（不外呼）。
 
         Args:

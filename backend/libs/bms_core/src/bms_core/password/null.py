@@ -1,9 +1,9 @@
 """password 能力域缺省实现（Null Object）：占位返回、无副作用（02-3 自 bms_core.password.base.py 迁入）。"""
 
-from collections.abc import Sequence
 from datetime import datetime
 
 from bms_core.core.capability import BaseNullObject
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.password.base import BasePasswordPolicy
 
 __all__ = [
@@ -38,7 +38,7 @@ class NullPasswordPolicy(BasePasswordPolicy, BaseNullObject):
         """
         return False
 
-    async def reused(self, password: str, *, history: Sequence[str]) -> bool:
+    async def reused(self, password: str, *, history: ConcurrentStableList[str]) -> bool:
         """恒定未命中（占位不比对历史）。
 
         Args:

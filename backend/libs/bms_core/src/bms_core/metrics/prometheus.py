@@ -14,7 +14,6 @@
   防静默串指标。`workers=1`（一服务一容器）下无需多进程聚合；多 worker 随扩展评估（见任务设计开放项）。
 """
 
-from collections.abc import Mapping
 from typing import Any
 
 from prometheus_client import (
@@ -26,6 +25,7 @@ from prometheus_client import (
     generate_latest,
 )
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.metrics.base import BaseMetrics, MetricLabels
 
 __all__ = [
@@ -41,18 +41,20 @@ SERVICE_LABEL = "service"
 DEFAULT_BUCKETS: tuple[float, ...] = (0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0)
 """直方图缺省桶（秒；5ms~10s，覆盖 Web 请求延迟量级）。"""
 
-METRIC_DOCS: Mapping[str, str] = {
-    "bms_request_total": "HTTP 请求总数（按服务 / 方法 / 路由 / 状态码）。",
-    "bms_request_duration_seconds": "HTTP 请求耗时（秒；按服务 / 方法 / 路由）。",
-    "bms_dependency_up": "依赖就绪状态（1 就绪 / 0 未就绪；按服务 / 依赖）。",
-    "bms_catalog_degraded": "服务目录降级状态（1 快照不可达 / 0 可达；按服务）。",
-    "bms_db_count": "库数量（按服务与库类别 platform / tenant / archive）。",
-    "bms_boundary_cross_access_total": "跨服务边界访问次数（按服务 / 表前缀 / 归属 / 操作）。",
-    "bms_outbox_delivery_total": "发件箱投递次数（按服务 / 结果）。",
-    "bms_outbox_backlog": "发件箱积压（按服务 / 库键）。",
-    "bms_release_total": "服务发布次数（按服务 / 结果；CI 推送 Pushgateway）。",
-    "bms_contract_breaking_total": "契约破坏性变更数（按服务；CI 推送 Pushgateway）。",
-}
+METRIC_DOCS: ConcurrentStableDict[str, str] = ConcurrentStableDict(
+    {
+        "bms_request_total": "HTTP 请求总数（按服务 / 方法 / 路由 / 状态码）。",
+        "bms_request_duration_seconds": "HTTP 请求耗时（秒；按服务 / 方法 / 路由）。",
+        "bms_dependency_up": "依赖就绪状态（1 就绪 / 0 未就绪；按服务 / 依赖）。",
+        "bms_catalog_degraded": "服务目录降级状态（1 快照不可达 / 0 可达；按服务）。",
+        "bms_db_count": "库数量（按服务与库类别 platform / tenant / archive）。",
+        "bms_boundary_cross_access_total": "跨服务边界访问次数（按服务 / 表前缀 / 归属 / 操作）。",
+        "bms_outbox_delivery_total": "发件箱投递次数（按服务 / 结果）。",
+        "bms_outbox_backlog": "发件箱积压（按服务 / 库键）。",
+        "bms_release_total": "服务发布次数（按服务 / 结果；CI 推送 Pushgateway）。",
+        "bms_contract_breaking_total": "契约破坏性变更数（按服务；CI 推送 Pushgateway）。",
+    }
+)
 """候选指标名 → HELP 文档（未登记名回退通用文案）。"""
 
 _DEFAULT_DOC = "BMS 指标。"
@@ -72,7 +74,7 @@ class PrometheusMetrics(BaseMetrics):
         """
         self._service = service
         self._registry = registry if registry is not None else CollectorRegistry()
-        self._metrics: dict[tuple[str, str, tuple[str, ...]], Any] = {}
+        self._metrics: ConcurrentStableDict[tuple[str, str, tuple[str, ...]], Any] = ConcurrentStableDict()
 
     async def counter(self, name: str, *, value: float = 1.0, labels: MetricLabels | None = None) -> None:
         """记录计数器（单调递增）。
@@ -123,9 +125,9 @@ class PrometheusMetrics(BaseMetrics):
         Returns:
             Any: 已绑定标签的指标子对象（`.inc` / `.set` / `.observe`）。
         """
-        merged: dict[str, str] = {SERVICE_LABEL: self._service}
+        merged: ConcurrentStableDict[str, str] = ConcurrentStableDict({SERVICE_LABEL: self._service})
         if labels:
-            merged.update(labels)
+            merged.update(labels.items())
         metric = self._metric(kind, name, tuple(sorted(merged)))
         return metric.labels(**merged)
 
@@ -163,5 +165,5 @@ class PrometheusMetrics(BaseMetrics):
             metric = Histogram(name, doc, labelnames=list(labelnames), buckets=DEFAULT_BUCKETS, registry=self._registry)
         else:  # pragma: no cover - 类型白名单由 METRIC_KINDS 约束
             raise ValueError(f"未知指标类型：{kind}")
-        self._metrics[key] = metric
+        self._metrics.set(key, metric)
         return metric

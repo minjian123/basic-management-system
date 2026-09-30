@@ -31,16 +31,16 @@ __all__ = ["NullPrintExporter", "NullPrintTemplateProvider"]
 class NullPrintTemplateProvider(BasePrintTemplateProvider, BaseNullObject):
     """占位打印模板来源：清单固定为空、取模板恒定未命中（不臆造模板定义）。"""
 
-    async def list(self, *, biz_type: str | None = None) -> list[PrintTemplateInfo]:
+    async def list(self, *, biz_type: str | None = None) -> ConcurrentStableList[PrintTemplateInfo]:
         """取打印模板清单（占位固定空清单，不区分单据类型）。
 
         Args:
             biz_type: 单据类型（占位忽略）。
 
         Returns:
-            list[PrintTemplateInfo]: 空清单。
+            ConcurrentStableList[PrintTemplateInfo]: 空清单。
         """
-        return []
+        return ConcurrentStableList()
 
     async def get(self, template_key: str) -> PrintTemplateInfo:
         """取单模板定义（占位恒定未命中）。
@@ -79,7 +79,7 @@ class NullPrintExporter(BasePrintExporter, BaseNullObject):
 
     async def batch_print(
         self,
-        keys: list[str],
+        keys: ConcurrentStableList[str],
         *,
         template_key: str,
         mode: str = "separate",
