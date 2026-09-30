@@ -858,3 +858,29 @@ flowchart LR
 **偏差（水位口径修正）**：§30 引入的 3 处 `_OPEN_ENGINES` 未落集合类、也未递减基线，致本轮开工前护栏实测 **3 项新增**（实际命中 904 而非基线 901）。经用户拍板本轮一并整改，清零后 `--update-baseline` 使基线由 **901 → 764**；三目录 137 处与未入基线 3 处合计清零 **140 处**。
 
 **遗留**：全局剩余 **764 处**（`libs` `tests` 134 / `services` 304 / `scripts/tools` 223 / `ops` 103）。`libs` `tests` 其余目录（`idp` 18 / `crosscut` 17 / `servicecall` 14 / `api` 9 / `captcha` 9 / `outbox` 6 / `repositories` 5 / `saga` 5 / `tracing` 5 / `alembic` 4 / `integration` 4 …）续推，随后进 `services`（批次 2）/ `scripts/tools`（批次 3）+ `ops`。
+
+## 32. 实施过程补充 · 存量整改子批 4 · `libs` `tests` 收尾（二）· `api/` + `captcha/` + `crosscut/` + `idp/` + `servicecall/`（签名单轮，2026-09-30） <a id="batch4-libs-tests-2"></a>
+
+**范围**：`bms_core` **`tests`** 五目录共 **67 处 / 17 文件**（`idp/` 18 / `crosscut/` 17 / `servicecall/` 14 / `api/` 9 / `captcha/` 9），纯测试机械适配。按交接单 §7 第 1 项「`libs` `tests` 收尾」第二批推进。
+
+**动作**（按位置归并）：
+
+1. **测试替身 / 辅助函数签名与局部量落集合类**：`_record` / `_keys` / `_payload` / `_table_rows` / `_validate` / `_discover` / `_spec`（含 `_cas_spec` / `_wecom_spec` / `_dingtalk_spec`）/ `_request` 等辅助函数，与 `_RecordingNotifier.messages` / `RecordingCircuit.successes·failures` / `StubRateLimiter.checked` / `StubTokenIssuer.specs` / `_DingtalkMock.token_forms·token_headers` / `_FakeTenantSource._tenants` / `_MIGRATED` / `_PACKAGE_ROOTS` / `_SHARED_LAYER_RULES` / `_SERVICE_LAYER_RULES` / `bad_options` / `seen` / `calls` / `urls` / `merged` 等声明全落 `ConcurrentStableList` / `ConcurrentStableDict` / `ConcurrentStableSet`；写用法 `append` → `add`、`x[k] = v` → `set`、`update(映射)` → `update(...items())`。
+2. **第三方 / 外部 IO 边界（调用处显式转换）**：`json.loads(...)` 产物入口包 `ConcurrentStableDict(...)`（`_record` / `_payload`）；进 Starlette `scope` 的 `dict(state) if state else {}` / `dict(headers) if headers else {}`；`ConcurrentStableDict` 构造点统一走映射入参。
+3. **断言维持内容相等**：`== [..]` / `== {..}` 对集合类成立（`__eq__` 支持内置容器内容相等），断言无改写。
+4. **`frozenset` 落 `ConcurrentStableSet`**：`_SHARED_LAYER_RULES` / `_SERVICE_LAYER_RULES` 的值与 `_scan` 内 `layer_rules.get(source, ConcurrentStableSet[str]())` 默认值按集合语义落地。
+
+**验证**：
+
+| 项 | 命令 | 结果 |
+| --- | --- | --- |
+| 全量 `libs` | `pytest libs/bms_core/tests` | **1099 passed / 37 skipped** |
+| 定向用例 | `pytest libs/bms_core/tests/{api,captcha,crosscut,idp,servicecall}` | 通过（改动前后一致；跨目录合并运行时 `test_dependency_provider_resolves` 受插件注册表全局态影响的既有现象单文件运行不复现） |
+| 静态检查 | `ruff check .` / `ruff format --check .`（backend 全量） | 全绿（957 文件） |
+| 护栏 | `check-bare-collections.py .` | **「新增 0 / 残留 0」**；五目录 67 处全清 |
+| 基线递减 | `--update-baseline` | **764 → 697**（`libs` 134 → 67 / `services` 304 / `scripts/tools` 223 / `ops` 103） |
+| 本地预检 | `check-preflight.py --fast` | **全部通过** |
+
+**过程处置（已闭环）**：① `ConcurrentStableDict.update` 只吃键值对 → 传映射处改 `.items()`（`seen` / `merged` / `base`）；② 集合类无下标赋值 / 无 `append` → 分别改 `set` / `add`；③ `_keys` / `_table_rows` 返回值包集合类；④ FastAPI 端点返回注解保留内置 + 行级标记（多行端点标记落在 `) -> dict[...]:` 行尾——行级豁免窗口为声明行与其上一行，标记需与返回注解同处两行内）。
+
+**遗留**：`libs` `tests` 余 **67 处**（`outbox` 6 / `repositories` 5 / `saga` 5 / `tracing` 5 / `alembic` 4 / `integration` 4 / 其余零散目录群）。随后进 `services`（批次 2，304 处）/ `scripts/tools`（批次 3，223 处）+ `ops`（103 处）。
