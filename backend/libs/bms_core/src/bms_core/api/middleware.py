@@ -22,7 +22,6 @@
 import time
 import uuid
 from abc import ABC, abstractmethod
-from collections.abc import Mapping
 from contextlib import suppress
 from contextvars import Token
 from typing import cast
@@ -31,6 +30,7 @@ from starlette.datastructures import Headers, MutableHeaders
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from bms_core.api.errors import build_error_response
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableSet
 from bms_core.core.context import (
     get_current_request_id,
     reset_current_client_ip,
@@ -171,7 +171,7 @@ class TenantMiddleware(BaseMiddleware):
             await self.app(scope, receive, send)
             return
 
-        state: dict[str, object] = scope.setdefault("state", {})
+        state: dict[str, object] = scope.setdefault("state", {})  # bare-collections:allow（Starlette scope state）
         app = scope.get("app")
         app_state = getattr(app, "state", None)
         settings = getattr(app_state, "settings", None)
@@ -316,15 +316,17 @@ class RequestLoggingMiddleware(BaseMiddleware):
         if path in _EXCLUDED_PATHS:
             return
         logger = get_logger("app.request")
-        fields: dict[str, object] = {
-            "method": scope.get("method", ""),
-            "path": path,
-            "status": status_code,
-            "duration_ms": duration_ms,
-        }
-        state: Mapping[str, object] = scope.get("state", {})
+        fields: ConcurrentStableDict[str, object] = ConcurrentStableDict(
+            {
+                "method": scope.get("method", ""),
+                "path": path,
+                "status": status_code,
+                "duration_ms": duration_ms,
+            }
+        )
+        state = ConcurrentStableDict(scope.get("state", {}))
         if trace_id := state.get("trace_id"):
-            fields["trace_id"] = trace_id
+            fields.set("trace_id", trace_id)
         if duration_ms >= self.slow_request_ms:
             logger.warning("slow_request", **fields)
         else:
@@ -363,7 +365,7 @@ class EdgeGuardMiddleware(BaseMiddleware):
             await self.app(scope, receive, send)
             return
 
-        state: dict[str, object] = scope.setdefault("state", {})
+        state: dict[str, object] = scope.setdefault("state", {})  # bare-collections:allow（Starlette scope state）
         app_state = getattr(scope.get("app"), "state", None)
         settings = getattr(app_state, "settings", None)
         edge_settings = getattr(settings, "edge", None)
@@ -383,14 +385,16 @@ class EdgeGuardMiddleware(BaseMiddleware):
             return
 
         identity = decision.identity if trusted else None
-        drops = {
-            GATEWAY_IDENTITY_HEADER.lower(),
-            USER_ID_HEADER.lower(),
-            USER_SUBJECT_HEADER.lower(),
-            USER_SCOPES_HEADER.lower(),
-            SERVICE_IDENTITY_HEADER.lower(),
-            SESSION_ID_HEADER.lower(),
-        }
+        drops = ConcurrentStableSet(
+            {
+                GATEWAY_IDENTITY_HEADER.lower(),
+                USER_ID_HEADER.lower(),
+                USER_SUBJECT_HEADER.lower(),
+                USER_SCOPES_HEADER.lower(),
+                SERVICE_IDENTITY_HEADER.lower(),
+                SESSION_ID_HEADER.lower(),
+            }
+        )
         if enforced or trusted:
             drops.add(TENANT_ID_HEADER.lower())
         _rewrite_headers(scope, drops=drops, sets=_identity_headers(identity))
@@ -405,32 +409,34 @@ class EdgeGuardMiddleware(BaseMiddleware):
             reset_current_user_id(user_token)
 
 
-def _raw_headers(scope: Scope) -> dict[str, str]:
+def _raw_headers(scope: Scope) -> ConcurrentStableDict[str, str]:
     """把 ASGI 原始头转为映射（值按 latin-1 解码，HTTP 头为 ascii 兼容）。"""
-    return {key.decode("latin-1"): value.decode("latin-1") for key, value in scope.get("headers", [])}
+    return ConcurrentStableDict(
+        {key.decode("latin-1"): value.decode("latin-1") for key, value in scope.get("headers", [])}
+    )
 
 
-def _identity_headers(identity: EdgeIdentity | None) -> dict[str, str]:
+def _identity_headers(identity: EdgeIdentity | None) -> ConcurrentStableDict[str, str]:
     """按可信身份生成规范身份头（缺失项不注入）。"""
     if identity is None:
-        return {}
-    headers: dict[str, str] = {}
+        return ConcurrentStableDict()
+    headers: ConcurrentStableDict[str, str] = ConcurrentStableDict()
     if identity.user_id is not None:
-        headers[USER_ID_HEADER] = str(identity.user_id)
+        headers.set(USER_ID_HEADER, str(identity.user_id))
     if identity.subject:
-        headers[USER_SUBJECT_HEADER] = identity.subject
+        headers.set(USER_SUBJECT_HEADER, identity.subject)
     if identity.tenant_code:
-        headers[TENANT_ID_HEADER] = identity.tenant_code
+        headers.set(TENANT_ID_HEADER, identity.tenant_code)
     if identity.scopes:
-        headers[USER_SCOPES_HEADER] = ",".join(identity.scopes)
+        headers.set(USER_SCOPES_HEADER, ",".join(identity.scopes))
     if identity.service_identity:
-        headers[SERVICE_IDENTITY_HEADER] = identity.service_identity
+        headers.set(SERVICE_IDENTITY_HEADER, identity.service_identity)
     if identity.session_id:
-        headers[SESSION_ID_HEADER] = identity.session_id
+        headers.set(SESSION_ID_HEADER, identity.session_id)
     return headers
 
 
-def _rewrite_headers(scope: Scope, *, drops: set[str], sets: Mapping[str, str]) -> None:
+def _rewrite_headers(scope: Scope, *, drops: ConcurrentStableSet[str], sets: ConcurrentStableDict[str, str]) -> None:
     """重建请求头：按小写名剥除 `drops`，再追加 `sets`（规范身份头）。"""
     kept = [(key, value) for key, value in scope.get("headers", []) if key.decode("latin-1").lower() not in drops]
     kept.extend((name.lower().encode("latin-1"), value.encode("latin-1")) for name, value in sets.items())

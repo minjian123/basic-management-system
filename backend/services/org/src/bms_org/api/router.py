@@ -5,14 +5,17 @@
 """
 
 from bms_core.api.base import mount_service_routers
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_org.api import account_locks, internal, internal_account_locks, internal_users, org
 
 api_router = mount_service_routers(
-    (
-        org.router,
-        account_locks.router,
-        internal.router,
-        internal_users.router,
-        internal_account_locks.router,
+    ConcurrentStableList(
+        [
+            org.router,
+            account_locks.router,
+            internal.router,
+            internal_users.router,
+            internal_account_locks.router,
+        ]
     )
 )

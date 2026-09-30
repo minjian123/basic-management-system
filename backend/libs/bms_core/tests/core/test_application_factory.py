@@ -8,6 +8,7 @@ from httpx import ASGITransport, AsyncClient
 
 from bms_core.api.base import BaseRouter, mount_service_routers
 from bms_core.application import BaseServiceApplicationFactory, service_lifespan
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import Settings
 
 _probe_router = BaseRouter(key="probe", prefix="/probe")
@@ -61,7 +62,7 @@ class _Factory(BaseServiceApplicationFactory):
         Returns:
             Sequence[APIRouter]: 路由清单。
         """
-        return (mount_service_routers((_probe_router,)),)
+        return (mount_service_routers(ConcurrentStableList([_probe_router])),)
 
 
 @pytest.mark.kiwi_id(1206)

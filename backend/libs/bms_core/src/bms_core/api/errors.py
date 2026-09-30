@@ -1,8 +1,6 @@
 """api 层全局异常处理器：业务异常、参数校验与未捕获异常统一转 `ApiResponse`。"""
 
 import uuid
-from collections.abc import Mapping
-from typing import cast
 
 from fastapi import FastAPI, Request
 from fastapi.encoders import jsonable_encoder
@@ -10,7 +8,9 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import InterfaceError, OperationalError
 from starlette.datastructures import Headers
+from starlette.types import Scope
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.context import get_current_request_id
 from bms_core.core.exceptions import BizError, DatabaseUnavailableError, InternalError, ParamError
 from bms_core.core.logging import get_logger
@@ -24,7 +24,7 @@ logger = get_logger("bms_core.api.errors")
 _REQUEST_ID_HEADER = "X-Request-Id"
 
 
-def _request_id(scope: Mapping[str, object]) -> str:
+def _request_id(scope: Scope) -> str:
     """取请求 id（读 `X-Request-Id` → 请求态 request_id → 上下文 → 生成 UUID4）。
 
     Args:
@@ -33,20 +33,20 @@ def _request_id(scope: Mapping[str, object]) -> str:
     Returns:
         str: 请求 id。
     """
-    state = cast("Mapping[str, object]", scope.get("state", {}))
+    state = ConcurrentStableDict(scope.get("state", {}))
     state_id = state.get("request_id")
-    header_id = Headers(scope=scope).get(_REQUEST_ID_HEADER)  # type: ignore[arg-type]
+    header_id = Headers(scope=scope).get(_REQUEST_ID_HEADER)
     request_id = header_id or (str(state_id) if state_id else None) or get_current_request_id()
     return request_id or str(uuid.uuid4())
 
 
-def _render(status_code: int, body: ApiResponse, scope: Mapping[str, object]) -> JSONResponse:
+def _render(status_code: int, body: ApiResponse, scope: Scope) -> JSONResponse:
     """构造统一响应并回写请求 id 与链路 id 头。
 
     `X-Trace-Id` 从请求态读取（未捕获异常的响应在中间件外层生成，
     上下文已被中间件复位，请求态不受复位影响）。
     """
-    state: Mapping[str, object] = scope.get("state", {})  # type: ignore[assignment]
+    state = ConcurrentStableDict(scope.get("state", {}))
     response = JSONResponse(status_code=status_code, content=jsonable_encoder(body))
     response.headers[_REQUEST_ID_HEADER] = _request_id(scope)
     if trace_id := state.get("trace_id"):
@@ -59,7 +59,7 @@ def _respond(status_code: int, body: ApiResponse, request: Request) -> JSONRespo
     return _render(status_code, body, request.scope)
 
 
-def build_error_response(scope: Mapping[str, object], exc: BizError) -> JSONResponse:
+def build_error_response(scope: Scope, exc: BizError) -> JSONResponse:
     """构造业务异常的统一错误响应（中间件层复用，与全局异常处理器同源）。
 
     Args:
@@ -114,12 +114,14 @@ def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(Exception)
     async def _uncaught_error_handler(request: Request, exc: Exception) -> JSONResponse:  # pyright: ignore[reportUnusedFunction]
         """未捕获异常 → 500 统一响应（不暴露堆栈，日志记录完整堆栈）。"""
-        state: Mapping[str, object] = request.scope.get("state", {})
-        fields: dict[str, object] = {"path": request.url.path, "method": request.method}
+        state = ConcurrentStableDict(request.scope.get("state", {}))
+        fields: ConcurrentStableDict[str, object] = ConcurrentStableDict(
+            {"path": request.url.path, "method": request.method}
+        )
         if trace_id := state.get("trace_id"):
-            fields["trace_id"] = trace_id
+            fields.set("trace_id", trace_id)
         if request_id := state.get("request_id"):
-            fields["request_id"] = request_id
+            fields.set("request_id", request_id)
         logger.exception("uncaught_exception", **fields)
         error = InternalError()
         body = ApiResponse(code=error.code, message=f"error.{error.code}", data=None)

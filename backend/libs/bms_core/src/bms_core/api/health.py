@@ -13,6 +13,7 @@ from fastapi.responses import JSONResponse
 
 from bms_core.api.base import BaseRouter
 from bms_core.api.deps import get_health_check_registry
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.service import ServiceIdentity
 from bms_core.health.base import BaseHealthCheckRegistry, HealthCheckReport
 from bms_core.health.checks import CATALOG_CHECK_KEY
@@ -24,23 +25,23 @@ router = BaseRouter(key="health", default_responses=False)
 HealthCheckRegistryDep = Annotated[BaseHealthCheckRegistry, Depends(get_health_check_registry)]
 
 
-def _service_fields(request: Request) -> dict[str, str]:
+def _service_fields(request: Request) -> ConcurrentStableDict[str, str]:
     """取探针响应的服务身份字段（未接入运行时的应用返回空字典）。
 
     Args:
         request: 当前请求。
 
     Returns:
-        dict[str, str]: `{"service": 名, "version": 版}`；无身份时为空。
+        ConcurrentStableDict[str, str]: `{"service": 名, "version": 版}`；无身份时为空。
     """
     identity = getattr(request.app.state, "service_identity", None)
     if isinstance(identity, ServiceIdentity):
-        return {"service": identity.name, "version": identity.version}
-    return {}
+        return ConcurrentStableDict({"service": identity.name, "version": identity.version})
+    return ConcurrentStableDict()
 
 
 @router.get("/healthz")
-def healthz(request: Request) -> dict[str, object]:
+def healthz(request: Request) -> dict[str, object]:  # bare-collections:allow（FastAPI 端点返回注解）
     """存活检查端点。
 
     Args:
