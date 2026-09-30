@@ -12,6 +12,7 @@ from bms_core.api.deps import get_llm_provider
 from bms_core.application import service_lifespan as lifespan
 from bms_core.core.base import BaseObject
 from bms_core.core.capability import BaseCapability, BaseNullObject
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.llm.base import (
     LLM_PROVIDER_TYPES,
     NULL_CHAT_REPLY,
@@ -66,7 +67,7 @@ def test_data_contracts_defaults_and_frozen() -> None:
 async def test_null_chat_fixed() -> None:
     """占位 chat 恒定返回占位回复（model / provider_key 回显）。"""
     provider = NullLlmProvider()
-    result = await provider.chat([ChatMessage(content="hi")], provider_key="p1", model="m1")
+    result = await provider.chat(ConcurrentStableList([ChatMessage(content="hi")]), provider_key="p1", model="m1")
     assert result == ChatResult(content=NULL_CHAT_REPLY, model="m1", provider_key="p1")
     assert result.content == "null-chat-reply"
 
@@ -75,7 +76,7 @@ async def test_null_chat_fixed() -> None:
 async def test_null_embedding_zero_vectors() -> None:
     """占位 embedding 返回固定维度零向量（条数 == texts 条数）。"""
     provider = NullLlmProvider()
-    result = await provider.embedding(["a", "b", "c"], provider_key="p1", model="m1")
+    result = await provider.embedding(ConcurrentStableList(["a", "b", "c"]), provider_key="p1", model="m1")
     assert len(result.vectors) == 3
     assert all(len(vector) == NULL_EMBEDDING_DIM for vector in result.vectors)
     assert all(value == 0.0 for vector in result.vectors for value in vector)
@@ -103,7 +104,7 @@ async def test_dependency_provider_resolves() -> None:
         async def probe(  # pyright: ignore[reportUnusedFunction]
             provider: Annotated[BaseLlmProvider, Depends(get_llm_provider)],
         ) -> dict[str, object]:
-            chat = await provider.chat([ChatMessage(content="hi")])
+            chat = await provider.chat(ConcurrentStableList([ChatMessage(content="hi")]))
             return {"key": provider.key, "type": type(provider).__name__, "reply": chat.content}
 
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:

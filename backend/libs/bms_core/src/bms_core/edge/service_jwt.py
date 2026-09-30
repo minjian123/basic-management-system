@@ -13,10 +13,10 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 from dataclasses import replace
 from typing import cast
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.config import Settings
 from bms_core.core.exceptions import AuthError, PluginError
 from bms_core.core.factory import BasePluginFactory
@@ -50,7 +50,7 @@ class ServiceJwtEdgeTrust(BaseEdgeTrust):
         """
         self._issuer = issuer
 
-    def evaluate(self, headers: Mapping[str, str]) -> EdgeTrustDecision:
+    def evaluate(self, headers: ConcurrentStableDict[str, str]) -> EdgeTrustDecision:
         """按入站服务 JWT 判定信任并解析身份。
 
         Args:
@@ -115,7 +115,7 @@ class ServiceJwtEdgeTrustFactory(BasePluginFactory[ServiceJwtEdgeTrust]):
         return ServiceJwtEdgeTrust(issuer=issuer)
 
 
-def _bearer_token(headers: Mapping[str, str]) -> str | None:
+def _bearer_token(headers: ConcurrentStableDict[str, str]) -> str | None:
     """取入站 Bearer 令牌（大小写不敏感）。
 
     Args:

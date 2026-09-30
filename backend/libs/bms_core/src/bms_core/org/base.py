@@ -16,7 +16,6 @@
 """
 
 from abc import ABC, abstractmethod
-from collections.abc import Sequence
 from typing import Annotated, cast
 
 from fastapi import Request
@@ -161,14 +160,14 @@ class BaseOrgDataSource(BasePluggable, ABC):
         """
 
     @abstractmethod
-    async def dept_tree(self, *, status: str | None = None) -> Sequence[OrgDept]:
+    async def dept_tree(self, *, status: str | None = None) -> ConcurrentStableList[OrgDept]:
         """取部门树（一次性返回、不分页）。
 
         Args:
             status: 状态过滤（`ORG_STATUSES` 之一）；None 不过滤。
 
         Returns:
-            Sequence[OrgDept]: 部门树根节点序列（`children` 嵌套）。
+            ConcurrentStableList[OrgDept]: 部门树根节点序列（`children` 嵌套）。
         """
 
 
@@ -181,7 +180,7 @@ class BaseOrgNameResolver(BasePluggable, ABC):
     contract_version: str = DEFAULT_CONTRACT_VERSION
 
     @abstractmethod
-    async def resolve_names(self, target: str, ids: Sequence[int]) -> Sequence[OrgNameRef]:
+    async def resolve_names(self, target: str, ids: ConcurrentStableList[int]) -> ConcurrentStableList[OrgNameRef]:
         """按 id 批量回显名称。
 
         Args:
@@ -189,7 +188,7 @@ class BaseOrgNameResolver(BasePluggable, ABC):
             ids: 对象 ID 序列。
 
         Returns:
-            Sequence[OrgNameRef]: 回显项（未命中 id 也在结果中占位，`exists=False`）。
+            ConcurrentStableList[OrgNameRef]: 回显项（未命中 id 也在结果中占位，`exists=False`）。
         """
 
 

@@ -1,8 +1,7 @@
 """llm 能力域缺省实现（Null Object）：占位返回、无副作用（02-3 自 bms_core.llm.base.py 迁入）。"""
 
-from collections.abc import Sequence
-
 from bms_core.core.capability import BaseNullObject
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.llm.base import (
     NULL_CHAT_REPLY,
     NULL_EMBEDDING_DIM,
@@ -24,7 +23,7 @@ class NullLlmProvider(BaseLlmProvider, BaseNullObject):
 
     async def chat(
         self,
-        messages: Sequence[ChatMessage],
+        messages: ConcurrentStableList[ChatMessage],
         *,
         provider_key: str | None = None,
         model: str | None = None,
@@ -43,7 +42,7 @@ class NullLlmProvider(BaseLlmProvider, BaseNullObject):
 
     async def embedding(
         self,
-        texts: Sequence[str],
+        texts: ConcurrentStableList[str],
         *,
         provider_key: str | None = None,
         model: str | None = None,

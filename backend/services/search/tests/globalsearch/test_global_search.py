@@ -1,6 +1,5 @@
 """全文检索查询契约测试（Kiwi 821）：三契约 / 常量与数据契约 / 降级 / 错误码 / 空实现 / 依赖解析 / 占位路由。"""
 
-from collections.abc import Sequence
 from datetime import datetime
 
 import pytest
@@ -9,6 +8,7 @@ from httpx import ASGITransport, AsyncClient
 from bms_core.api.deps import get_audit_search, get_file_content_search, get_global_search
 from bms_core.application import service_lifespan as lifespan
 from bms_core.core.capability import BaseCapability, BaseNullObject
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.error_codes import ErrorCode
 from bms_core.core.plugin import BasePluggable, resolve_plugin
 from bms_core.globalsearch.base import (
@@ -45,14 +45,14 @@ class _InMemoryGlobalSearch(BaseGlobalSearch):
             "dept": [GlobalSearchHit(doc_type="dept", biz_id="d1", title="研发部")],
         }
 
-    async def domains(self) -> Sequence[str]:
-        return tuple(self._hits)
+    async def domains(self) -> ConcurrentStableList[str]:
+        return ConcurrentStableList(self._hits)
 
     async def search(
         self,
         q: str,
         *,
-        types: Sequence[str] | None = None,
+        types: ConcurrentStableList[str] | None = None,
         page: int = 1,
         size: int = DEFAULT_GLOBAL_SEARCH_SIZE,
     ) -> GlobalSearchResult:
@@ -183,8 +183,8 @@ def test_search_error_codes_registered() -> None:
 async def test_null_fixed_returns_with_degrade() -> None:
     """占位实现：域空 / 空结果 + 降级标记。"""
     global_search = NullGlobalSearch()
-    assert await global_search.domains() == ()
-    result = await global_search.search("x", types=["user"])
+    assert await global_search.domains() == []
+    result = await global_search.search("x", types=ConcurrentStableList(["user"]))
     assert result.groups == []
     assert result.total == 0
     assert result.degraded is True

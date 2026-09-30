@@ -15,12 +15,12 @@
 """
 
 from abc import ABC, abstractmethod
-from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import cast
 
 from fastapi import Request
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.config import Settings
 from bms_core.core.exceptions import AuthError
 from bms_core.core.objects import BaseDecisionContract, BaseRequestIdentityContract
@@ -69,7 +69,7 @@ class EdgeIdentity(BaseRequestIdentityContract):
     """网关验证过的会话 id（用户 access `jti`）；无为空（每请求会话标记校验依据）。"""
 
     @classmethod
-    def from_headers(cls, headers: Mapping[str, str]) -> EdgeIdentity:
+    def from_headers(cls, headers: ConcurrentStableDict[str, str]) -> EdgeIdentity:
         """按身份头解析可信身份（规范化头名大小写）。
 
         Args:
@@ -123,7 +123,7 @@ class BaseEdgeTrust(BasePluggable, ABC):
     contract_version: str = DEFAULT_CONTRACT_VERSION
 
     @abstractmethod
-    def evaluate(self, headers: Mapping[str, str]) -> EdgeTrustDecision:
+    def evaluate(self, headers: ConcurrentStableDict[str, str]) -> EdgeTrustDecision:
         """判定请求是否来自可信边缘并解析身份。
 
         Args:

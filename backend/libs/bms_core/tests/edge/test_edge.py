@@ -12,6 +12,7 @@ from support_app import ApplicationFactory, lifespan
 
 from bms_core.api.deps import get_edge_trust
 from bms_core.core.assembly import MarkerEdgeTrustFactory
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.config import Settings
 from bms_core.core.exceptions import AuthError
 from bms_core.edge.base import BaseEdgeTrust, EdgeIdentity, require_edge_identity
@@ -40,21 +41,23 @@ def _factory(options: dict[str, object] | None = None) -> MarkerEdgeTrustFactory
 
 def test_null_edge_trust_is_always_untrusted() -> None:
     """占位实现恒定不信任、不引入假身份。"""
-    decision = NullEdgeTrust().evaluate({USER_ID_HEADER: "42"})
+    decision = NullEdgeTrust().evaluate(ConcurrentStableDict({USER_ID_HEADER: "42"}))
     assert decision.allowed is False
     assert decision.identity is None
 
 
 def test_marker_edge_trust_trusts_matching_marker() -> None:
     """标记命中即信任，并按身份头解析身份。"""
-    headers = {
-        GATEWAY_IDENTITY_HEADER: GATEWAY_IDENTITY_VALUE,
-        USER_ID_HEADER: "42",
-        TENANT_ID_HEADER: "acme",
-        USER_SCOPES_HEADER: "user:read, user:write,, ",
-        SERVICE_IDENTITY_HEADER: "svc-a",
-        SESSION_ID_HEADER: "sess-1",
-    }
+    headers = ConcurrentStableDict(
+        {
+            GATEWAY_IDENTITY_HEADER: GATEWAY_IDENTITY_VALUE,
+            USER_ID_HEADER: "42",
+            TENANT_ID_HEADER: "acme",
+            USER_SCOPES_HEADER: "user:read, user:write,, ",
+            SERVICE_IDENTITY_HEADER: "svc-a",
+            SESSION_ID_HEADER: "sess-1",
+        }
+    )
     decision = MarkerEdgeTrust(expected=GATEWAY_IDENTITY_VALUE).evaluate(headers)
     assert decision.allowed is True
     assert decision.identity == EdgeIdentity(
@@ -69,18 +72,20 @@ def test_marker_edge_trust_trusts_matching_marker() -> None:
 def test_marker_edge_trust_rejects_missing_or_wrong_marker() -> None:
     """标记缺失 / 不符即不信任。"""
     guard = MarkerEdgeTrust(expected="bms-edge")
-    assert guard.evaluate({}).allowed is False
-    assert guard.evaluate({GATEWAY_IDENTITY_HEADER: "other"}).allowed is False
+    assert guard.evaluate(ConcurrentStableDict()).allowed is False
+    assert guard.evaluate(ConcurrentStableDict({GATEWAY_IDENTITY_HEADER: "other"})).allowed is False
 
 
 def test_edge_identity_parses_headers_case_insensitively() -> None:
     """头名大小写不敏感；非法 user_id 记 None，其余身份照常解析。"""
     identity = EdgeIdentity.from_headers(
-        {
-            USER_ID_HEADER.lower(): "not-a-number",
-            USER_SUBJECT_HEADER.upper(): "u-123",
-            TENANT_ID_HEADER.upper(): "acme",
-        }
+        ConcurrentStableDict(
+            {
+                USER_ID_HEADER.lower(): "not-a-number",
+                USER_SUBJECT_HEADER.upper(): "u-123",
+                TENANT_ID_HEADER.upper(): "acme",
+            }
+        )
     )
     assert identity.user_id is None
     assert identity.subject == "u-123"
@@ -90,7 +95,7 @@ def test_edge_identity_parses_headers_case_insensitively() -> None:
 
 def test_edge_identity_subject_defaults_none_when_missing() -> None:
     """缺失主体头时 `subject` 为 None（加法扩展不破坏既有解析）。"""
-    identity = EdgeIdentity.from_headers({USER_ID_HEADER: "7"})
+    identity = EdgeIdentity.from_headers(ConcurrentStableDict({USER_ID_HEADER: "7"}))
     assert identity.user_id == 7
     assert identity.subject is None
     assert identity.session_id is None
@@ -98,18 +103,22 @@ def test_edge_identity_subject_defaults_none_when_missing() -> None:
 
 def test_edge_identity_parses_session_id_header() -> None:
     """会话 id 头解析（01_05 每请求会话标记校验依据；缺失为 None）。"""
-    assert EdgeIdentity.from_headers({SESSION_ID_HEADER: "sess-9"}).session_id == "sess-9"
-    assert EdgeIdentity.from_headers({}).session_id is None
+    assert EdgeIdentity.from_headers(ConcurrentStableDict({SESSION_ID_HEADER: "sess-9"})).session_id == "sess-9"
+    assert EdgeIdentity.from_headers(ConcurrentStableDict()).session_id is None
 
 
 def test_marker_factory_uses_option_and_default_value() -> None:
     """工厂期望值：`[edge].options.gateway_identity` 优先，缺省取基座常量。"""
     default_guard = _factory().create()
-    assert default_guard.evaluate({GATEWAY_IDENTITY_HEADER: GATEWAY_IDENTITY_VALUE}).allowed is True
+    assert (
+        default_guard.evaluate(ConcurrentStableDict({GATEWAY_IDENTITY_HEADER: GATEWAY_IDENTITY_VALUE})).allowed is True
+    )
 
     custom_guard = _factory({"gateway_identity": "custom-edge"}).create()
-    assert custom_guard.evaluate({GATEWAY_IDENTITY_HEADER: "custom-edge"}).allowed is True
-    assert custom_guard.evaluate({GATEWAY_IDENTITY_HEADER: GATEWAY_IDENTITY_VALUE}).allowed is False
+    assert custom_guard.evaluate(ConcurrentStableDict({GATEWAY_IDENTITY_HEADER: "custom-edge"})).allowed is True
+    assert (
+        custom_guard.evaluate(ConcurrentStableDict({GATEWAY_IDENTITY_HEADER: GATEWAY_IDENTITY_VALUE})).allowed is False
+    )
 
 
 def test_require_edge_identity_reads_state_and_raises_without() -> None:

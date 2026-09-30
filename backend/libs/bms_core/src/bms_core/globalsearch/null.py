@@ -1,6 +1,5 @@
 """globalsearch 能力域缺省实现（Null Object）：空结果 + 降级标记，不连 ES。"""
 
-from collections.abc import Sequence
 from datetime import datetime
 
 from bms_core.core.capability import BaseNullObject
@@ -27,19 +26,19 @@ __all__ = [
 class NullGlobalSearch(BaseGlobalSearch, BaseNullObject):
     """占位多域聚合检索：固定空分组结果 + 降级标记（不连 ES）。"""
 
-    async def domains(self) -> Sequence[str]:
+    async def domains(self) -> ConcurrentStableList[str]:
         """当前用户可检索域（占位恒空）。
 
         Returns:
-            Sequence[str]: 空元组。
+            ConcurrentStableList[str]: 空列表。
         """
-        return ()
+        return ConcurrentStableList()
 
     async def search(
         self,
         q: str,
         *,
-        types: Sequence[str] | None = None,
+        types: ConcurrentStableList[str] | None = None,
         page: int = 1,
         size: int = DEFAULT_GLOBAL_SEARCH_SIZE,
     ) -> GlobalSearchResult:

@@ -7,8 +7,7 @@
   随 07_03 / K8s 阶段回补，届时以真实实现替换 `[edge].provider`。
 """
 
-from collections.abc import Mapping
-
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.edge.base import BaseEdgeTrust, EdgeIdentity, EdgeTrustDecision
 from bms_core.edge.headers import GATEWAY_IDENTITY_HEADER
 
@@ -28,7 +27,7 @@ class MarkerEdgeTrust(BaseEdgeTrust):
         """
         self._expected = expected
 
-    def evaluate(self, headers: Mapping[str, str]) -> EdgeTrustDecision:
+    def evaluate(self, headers: ConcurrentStableDict[str, str]) -> EdgeTrustDecision:
         """按标记头判定信任并解析身份。
 
         Args:

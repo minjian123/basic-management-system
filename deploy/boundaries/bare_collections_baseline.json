@@ -10,76 +10,6 @@
       "count": 1
     },
     {
-      "file": "backend/libs/bms_core/src/bms_core/edge/base.py",
-      "line": "def evaluate(self, headers: Mapping[str, str]) -> EdgeTrustDecision:",
-      "container": "Mapping",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/edge/base.py",
-      "line": "def from_headers(cls, headers: Mapping[str, str]) -> EdgeIdentity:",
-      "container": "Mapping",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/edge/marker.py",
-      "line": "def evaluate(self, headers: Mapping[str, str]) -> EdgeTrustDecision:",
-      "container": "Mapping",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/edge/null.py",
-      "line": "def evaluate(self, headers: Mapping[str, str]) -> EdgeTrustDecision:",
-      "container": "Mapping",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/edge/service_jwt.py",
-      "line": "def _bearer_token(headers: Mapping[str, str]) -> str | None:",
-      "container": "Mapping",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/edge/service_jwt.py",
-      "line": "def evaluate(self, headers: Mapping[str, str]) -> EdgeTrustDecision:",
-      "container": "Mapping",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/globalsearch/base.py",
-      "line": "async def domains(self) -> Sequence[str]:",
-      "container": "Sequence",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/globalsearch/base.py",
-      "line": "types: Sequence[str] | None = None,",
-      "container": "Sequence",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/globalsearch/null.py",
-      "line": "async def domains(self) -> Sequence[str]:",
-      "container": "Sequence",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/globalsearch/null.py",
-      "line": "types: Sequence[str] | None = None,",
-      "container": "Sequence",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
       "file": "backend/libs/bms_core/src/bms_core/health/base.py",
       "line": "results: dict[int, HealthCheckResult] = {}",
       "container": "dict",
@@ -112,34 +42,6 @@
       "line": "_PROCESSING_MARKER: dict[str, object] = {\"__processing__\": True}",
       "container": "dict",
       "position": "local",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/llm/base.py",
-      "line": "messages: Sequence[ChatMessage],",
-      "container": "Sequence",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/llm/base.py",
-      "line": "texts: Sequence[str],",
-      "container": "Sequence",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/llm/null.py",
-      "line": "messages: Sequence[ChatMessage],",
-      "container": "Sequence",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/llm/null.py",
-      "line": "texts: Sequence[str],",
-      "container": "Sequence",
-      "position": "signature_param",
       "count": 1
     },
     {
@@ -211,34 +113,6 @@
       "container": "Sequence",
       "position": "signature_param",
       "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/org/base.py",
-      "line": "async def dept_tree(self, *, status: str | None = None) -> Sequence[OrgDept]:",
-      "container": "Sequence",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/org/base.py",
-      "line": "async def resolve_names(self, target: str, ids: Sequence[int]) -> Sequence[OrgNameRef]:",
-      "container": "Sequence",
-      "position": "signature_return",
-      "count": 2
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/org/null.py",
-      "line": "async def dept_tree(self, *, status: str | None = None) -> Sequence[OrgDept]:",
-      "container": "Sequence",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/org/null.py",
-      "line": "async def resolve_names(self, target: str, ids: Sequence[int]) -> Sequence[OrgNameRef]:",
-      "container": "Sequence",
-      "position": "signature_return",
-      "count": 2
     },
     {
       "file": "backend/libs/bms_core/src/bms_core/outbound/http.py",
@@ -1545,13 +1419,6 @@
     {
       "file": "backend/libs/bms_core/tests/edge/test_edge.py",
       "line": "def _factory(options: dict[str, object] | None = None) -> MarkerEdgeTrustFactory:",
-      "container": "dict",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/tests/edge/test_service_jwt.py",
-      "line": "def test_service_jwt_rejects_missing_or_invalid(headers: dict[str, str]) -> None:",
       "container": "dict",
       "position": "signature_param",
       "count": 1
@@ -4428,20 +4295,6 @@
     },
     {
       "file": "backend/services/org/tests/org/test_org.py",
-      "line": "async def dept_tree(self, *, status: str | None = None) -> Sequence[OrgDept]:",
-      "container": "Sequence",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "backend/services/org/tests/org/test_org.py",
-      "line": "async def resolve_names(self, target: str, ids: Sequence[int]) -> Sequence[OrgNameRef]:",
-      "container": "Sequence",
-      "position": "signature_return",
-      "count": 2
-    },
-    {
-      "file": "backend/services/org/tests/org/test_org.py",
       "line": "self.last_users: dict[str, object] = {}",
       "container": "dict",
       "position": "local",
@@ -4967,13 +4820,6 @@
     },
     {
       "file": "backend/services/search/tests/globalsearch/test_global_search.py",
-      "line": "async def domains(self) -> Sequence[str]:",
-      "container": "Sequence",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "backend/services/search/tests/globalsearch/test_global_search.py",
       "line": "self._hits: dict[str, list[GlobalSearchHit]] = {",
       "container": "dict",
       "position": "local",
@@ -4984,13 +4830,6 @@
       "line": "self._hits: dict[str, list[GlobalSearchHit]] = {",
       "container": "list",
       "position": "local",
-      "count": 1
-    },
-    {
-      "file": "backend/services/search/tests/globalsearch/test_global_search.py",
-      "line": "types: Sequence[str] | None = None,",
-      "container": "Sequence",
-      "position": "signature_param",
       "count": 1
     },
     {

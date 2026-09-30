@@ -12,6 +12,7 @@ from fastapi import Depends, Query
 
 from bms_core.api.base import BaseRouter, require_auth
 from bms_core.api.deps import get_masker, get_org_data_source, get_org_name_resolver
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.exceptions import ParamError
 from bms_core.org.base import (
     DEFAULT_ORG_PAGE_SIZE,
@@ -148,5 +149,5 @@ async def resolve_org_names(
     Returns:
         ApiResponse: 统一响应，data 为回显项序列。
     """
-    refs: tuple[OrgNameRef, ...] = tuple(await service.resolve_names(target, parse_id_in(id_in)))
+    refs: tuple[OrgNameRef, ...] = tuple(await service.resolve_names(target, ConcurrentStableList(parse_id_in(id_in))))
     return ApiResponse.ok(refs)
