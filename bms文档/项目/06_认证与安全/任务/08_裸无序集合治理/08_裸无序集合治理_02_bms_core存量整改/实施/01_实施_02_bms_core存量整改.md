@@ -699,3 +699,34 @@ flowchart LR
 **过程处置**：① `org` 路由出口本已 `tuple(await …)`（框架序列化边界），`Cursor`/`ApiResponse` 侧零改动；② `edge` 中间件传入的 `_raw_headers(scope)` 在 §21 已落集合类，本轮 `evaluate` 收窄后**调用方零适配**（契约与中间件形态自然对齐）。
 
 **遗留**：`edge/` / `org/` / `globalsearch/` / `llm/` 归零；`bms_core` 剩余 **343 处**（`libs`：`tests` 275 / `outbox` 10 / `schemas` 10 / `security` 9 / `masking` 4 / `outbound` 4 / `password` 4 …），按交接单 §7 第 1 项续推。
+
+## 27. 实施过程补充 · 存量整改子批 3 · `masking/` + `outbound/` + `password/` + `print/` + `icon/` + `metrics/` + `servicecall/` 七能力域（签名单轮，2026-09-30） <a id="batch3-leaf-internals"></a>
+
+**范围**：`bms_core` 七个**低耦合叶子能力域**共 **25 处**（`masking/` 4 / `outbound/` 4 / `password/` 4 / `print/` 4 / `icon/` 3 / `metrics/` 3 / `servicecall/` 3）。按交接单 §5 第 1 步「优先低耦合叶子模块」推进——本轮命中全为 `bms_core` 内部（含模块常量、实例字段、局部量与签名），**调用方零改动**（服务侧实参形态天然兼容）。
+
+**动作**：
+
+1. **数据脱敏（`masking/`）**：`BaseMasker._rules` / `_strategies` 落 `ConcurrentStableDict`（`[]=` → `set`）；`BUILTIN_MASK_SPECS` 落 `ConcurrentStableDict[str, MaskSpec]`；`DefaultMasker.__init__` 的 `rules` 落 `ConcurrentStableDict[str, str] | None`（缺省 `ConcurrentStableDict()`）。
+2. **出站集成（`outbound/`）**：`BaseHttpClient.request` 的 `headers`、`BaseWebhookSender.send` 的 `payload` 落 `ConcurrentStableDict`；`NullHttpClient.request` / `NullWebhookSender.send` 同步（空头 `{}` → `ConcurrentStableDict()`）。
+3. **密码策略（`password/`）**：`BasePasswordPolicy.reused` 的 `history` 落 `ConcurrentStableList[str]`（`NullPasswordPolicy` / `DefaultPasswordPolicy` 同步）；`DefaultPasswordPolicy.validate` 局部 `violations` 落 `ConcurrentStableList[str]`（`append` → `add`，`tuple(violations)` 出口不变）。
+4. **打印导出（`print/`）**：`BasePrintTemplateProvider.list` 返回、`BasePrintExporter.batch_print` 的 `keys` 落 `ConcurrentStableList`；`NullPrintTemplateProvider` / `NullPrintExporter` 同步（空清单 `[]` → `ConcurrentStableList()`）。
+5. **图标注册（`icon/`）**：`BaseIconRegistry.list` 返回、`NullIconRegistry.list` 返回与 `_placeholder` 的 `tags` 落 `ConcurrentStableList`（调用点 `list(draft.tags)` → `ConcurrentStableList(...)`）。
+6. **指标（`metrics/`）**：`METRIC_DOCS` 落 `ConcurrentStableDict[str, str]`；`PrometheusMetrics._metrics` 落 `ConcurrentStableDict`（`[]=` → `set`，迭代取键解包不变）；`_record` 局部 `merged` 落 `ConcurrentStableDict[str, str]`——**集合类 `update` 只吃键值对**，`merged.update(labels)` 改 `merged.update(labels.items())`；`metric.labels(**merged)` 以 Mapping 解包（第三方边界）。
+7. **服务间调用（`servicecall/`）**：`HttpServiceClient._outbound_headers` 返回与 `_send` 的 `headers` 落 `ConcurrentStableDict[str, str]`（`headers["Authorization"] = …` → `.set(…)`）；`_send` 局部 `kwargs` 落 `ConcurrentStableDict[str, object]`（`kwargs["…"] = …` → `.set(…)`；`client.request(..., **kwargs)` 以 Mapping 解包）；出站请求头本已 `dict(headers)`、响应头本已 `dict(response.headers)`（第三方 httpx 边界）。
+
+**验证**：
+
+| 项 | 命令 | 结果 |
+| --- | --- | --- |
+| 全量 `libs` | `pytest libs/bms_core/tests` | **1099 passed / 37 skipped** |
+| 全量 `services` | `pytest services` | **787 passed / 3 skipped / 1 failed**（既有 red，见偏差） |
+| 静态检查 | `ruff check .` / `ruff format --check .`（backend 全量） | 全绿（957 文件） |
+| 护栏 | `check-bare-collections.py .` | **「新增 0 / 残留 0」**；七域 **25 → 0** |
+| 基线递减 | `--update-baseline` | **983 → 958**（`libs` 343 → 318） |
+| 本地预检 | `check-preflight.py --fast` | **全部通过**（含契约 / 事件契约 / 网关 / 前端 `api-types` 零漂移） |
+
+**偏差（既有 red，非本轮引入）**：`services/platform/tests/dict/test_dict_real.py::test_http_endpoints`（`query-providers` 的 `model_dump` 序列化出口）仍为既有 red，本轮未扩大；另轮单独修。
+
+**过程处置（集合类非内置容器超集的坑复现）**：`metrics` 的 `merged.update(labels)` 传映射 → 集合类 `update` 按键解包，改 `.items()`；`masking` / `metrics` / `servicecall` 的 `[]=` 写点统一改 `set(...)`。
+
+**遗留**：七域归零；`bms_core` 剩余 **318 处**（`libs`：`tests` 275 / `outbox` 10 / `schemas` 10 / `security` 9 / `notification` 2 / `saga` 2 / `scope` 2 / `workflow` 2 …；`libs` 源侧仅余 **43** 处），按交接单 §7 第 1 项续推。
