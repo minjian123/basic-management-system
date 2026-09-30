@@ -19,17 +19,19 @@ from pathlib import Path
 
 import pytest
 
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
+
 _ROOT = Path(__file__).resolve().parents[4]
 """后端工程根（`backend/`）。"""
 
 
-def _discover() -> dict[str, Path]:
+def _discover() -> ConcurrentStableDict[str, Path]:
     """发现工作区包（`libs/*` 共享库 + `services/*` 服务）。
 
     Returns:
-        dict[str, Path]: 包名 → 包根目录。
+        ConcurrentStableDict[str, Path]: 包名 → 包根目录。
     """
-    packages: dict[str, Path] = {}
+    packages: ConcurrentStableDict[str, Path] = ConcurrentStableDict()
     for kind in ("libs", "services"):
         base = _ROOT / kind
         if not base.is_dir():
@@ -40,26 +42,30 @@ def _discover() -> dict[str, Path]:
                 continue
             for package in sorted(src.iterdir()):
                 if package.is_dir() and (package / "__init__.py").is_file():
-                    packages[package.name] = package
+                    packages.set(package.name, package)
     return packages
 
 
-_PACKAGE_ROOTS: dict[str, Path] = _discover()
+_PACKAGE_ROOTS: ConcurrentStableDict[str, Path] = _discover()
 """工作区包：`{包名: 包根}`（含共享库与全部服务）。"""
 
 _SHARED = "bms_core"
 """共享基座库包名（其余为服务包）。"""
 
-_SHARED_LAYER_RULES: dict[str, frozenset[str]] = {
-    "core": frozenset({"api", "services"}),
-    "repositories": frozenset({"services"}),
-}
-_SERVICE_LAYER_RULES: dict[str, frozenset[str]] = {
-    "services": frozenset({"api"}),
-    "repositories": frozenset({"api", "services"}),
-    "models": frozenset({"api", "services", "repositories"}),
-    "schemas": frozenset({"api", "services", "repositories"}),
-}
+_SHARED_LAYER_RULES: ConcurrentStableDict[str, ConcurrentStableSet[str]] = ConcurrentStableDict(
+    {
+        "core": ConcurrentStableSet({"api", "services"}),
+        "repositories": ConcurrentStableSet({"services"}),
+    }
+)
+_SERVICE_LAYER_RULES: ConcurrentStableDict[str, ConcurrentStableSet[str]] = ConcurrentStableDict(
+    {
+        "services": ConcurrentStableSet({"api"}),
+        "repositories": ConcurrentStableSet({"api", "services"}),
+        "models": ConcurrentStableSet({"api", "services", "repositories"}),
+        "schemas": ConcurrentStableSet({"api", "services", "repositories"}),
+    }
+)
 
 _MIN_SOURCE_FILES = 100
 
@@ -108,9 +114,9 @@ def _scan() -> tuple[tuple[str, ...], tuple[str, ...], tuple[str, ...], int]:
     Returns:
         tuple: （跨包反向依赖、分层反向依赖、跨包私有引用、已扫描文件数）。
     """
-    cross: list[str] = []
-    reverse: list[str] = []
-    private: list[str] = []
+    cross: ConcurrentStableList[str] = ConcurrentStableList()
+    reverse: ConcurrentStableList[str] = ConcurrentStableList()
+    private: ConcurrentStableList[str] = ConcurrentStableList()
     scanned = 0
     for package, root in _PACKAGE_ROOTS.items():
         shared = package == _SHARED
@@ -125,16 +131,16 @@ def _scan() -> tuple[tuple[str, ...], tuple[str, ...], tuple[str, ...], int]:
                 detail = f"{rel}:{lineno} import {module}"
                 target_shared = top == _SHARED
                 if shared and not target_shared:
-                    cross.append(f"[{package}→{top}] {detail}")
+                    cross.add(f"[{package}→{top}] {detail}")
                 if not shared and top != package and not target_shared:
-                    cross.append(f"[服务互相依赖 {package}→{top}] {detail}")
+                    cross.add(f"[服务互相依赖 {package}→{top}] {detail}")
                 target = parts[1] if len(parts) > 1 else package
-                if top == package and target in layer_rules.get(source, frozenset()):
-                    reverse.append(f"[{source}→{target}] {detail}")
+                if top == package and target in layer_rules.get(source, ConcurrentStableSet[str]()):
+                    reverse.add(f"[{source}→{target}] {detail}")
                 if top != package and any(part.startswith("_") for part in parts[1:]):
-                    private.append(f"[{package}→{top}] {detail}")
+                    private.add(f"[{package}→{top}] {detail}")
                 if top == package and target != source and any(part.startswith("_") for part in parts[1:]):
-                    private.append(f"[{source}→{target}] {detail}")
+                    private.add(f"[{source}→{target}] {detail}")
     return tuple(cross), tuple(reverse), tuple(private), scanned
 
 

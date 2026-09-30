@@ -2,6 +2,7 @@
 
 import pytest
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.exceptions import ConfigError, DingtalkConfigError, WecomConfigError
 from bms_core.idp.cas import CasIdentityProvider
 from bms_core.idp.dingtalk import DingtalkIdentityProvider
@@ -32,19 +33,21 @@ def test_resolve_secret_ref_env_and_errors(monkeypatch: pytest.MonkeyPatch) -> N
 
 def _spec(
     *,
-    config: dict[str, object] | None = None,
+    config: ConcurrentStableDict[str, object] | None = None,
     idp_key: str = "demo:keycloak",
     updated_at: str = "2026-09-27T00:00:00+00:00",
 ) -> IdentityProviderSpec:
     """构造行配置视图（默认 OIDC 必填齐备）。"""
-    merged: dict[str, object] = {
-        "issuer": "http://idp.test/realms/bms",
-        "client_id": "bms-backend",
-        "client_secret_ref": "env:IDP_TEST_SECRET",
-        "redirect_uri": "http://app.test/api/v1/auth/sso/keycloak/callback",
-    }
+    merged: ConcurrentStableDict[str, object] = ConcurrentStableDict(
+        {
+            "issuer": "http://idp.test/realms/bms",
+            "client_id": "bms-backend",
+            "client_secret_ref": "env:IDP_TEST_SECRET",
+            "redirect_uri": "http://app.test/api/v1/auth/sso/keycloak/callback",
+        }
+    )
     if config is not None:
-        merged.update(config)
+        merged.update(config.items())
     return IdentityProviderSpec(id=1, idp_key=idp_key, type="oidc", config=merged, updated_at=updated_at)
 
 
@@ -53,7 +56,9 @@ def test_build_oidc_from_spec(monkeypatch: pytest.MonkeyPatch) -> None:
     """按行配置构造 OIDC 实例（密钥引用转明文；scopes / 缓存 TTL 可选注入）。"""
     monkeypatch.setenv("IDP_TEST_SECRET", "s3cr3t")
     registry = IdentityProviderRegistry()
-    instance = registry.build(_spec(config={"scopes": ["openid", "profile"], "discovery_cache_ttl": 60}))
+    instance = registry.build(
+        _spec(config=ConcurrentStableDict({"scopes": ["openid", "profile"], "discovery_cache_ttl": 60}))
+    )
     assert isinstance(instance, OidcIdentityProvider)
     assert instance._issuer == "http://idp.test/realms/bms"  # pyright: ignore[reportPrivateUsage]
     assert instance._client_id == "bms-backend"  # pyright: ignore[reportPrivateUsage]
@@ -69,13 +74,15 @@ def test_build_rejects_missing_config_and_unknown_type(monkeypatch: pytest.Monke
     monkeypatch.setenv("IDP_TEST_SECRET", "s3cr3t")
     registry = IdentityProviderRegistry()
     with pytest.raises(ConfigError):
-        registry.build(_spec(config={"issuer": ""}))
+        registry.build(_spec(config=ConcurrentStableDict({"issuer": ""})))
     with pytest.raises(ConfigError):
-        registry.build(_spec(config={"client_secret_ref": ""}))
+        registry.build(_spec(config=ConcurrentStableDict({"client_secret_ref": ""})))
     with pytest.raises(ConfigError):
-        registry.build(_spec(config={"client_secret_ref": "env:IDP_TEST_MISSING"}))
+        registry.build(_spec(config=ConcurrentStableDict({"client_secret_ref": "env:IDP_TEST_MISSING"})))
     with pytest.raises(ConfigError):
-        registry.build(IdentityProviderSpec(id=2, idp_key="demo:saml", type="saml", config={}, updated_at="t"))
+        registry.build(
+            IdentityProviderSpec(id=2, idp_key="demo:saml", type="saml", config=ConcurrentStableDict(), updated_at="t")
+        )
 
 
 @pytest.mark.kiwi_id(2197)
@@ -105,7 +112,7 @@ def test_custom_secret_resolver_injected() -> None:
     assert instance._client_secret == "resolved:env:IDP_TEST_SECRET"  # pyright: ignore[reportPrivateUsage]
 
 
-def _cas_spec(config: dict[str, object] | None = None) -> IdentityProviderSpec:
+def _cas_spec(config: ConcurrentStableDict[str, object] | None = None) -> IdentityProviderSpec:
     """构造 CAS 行配置视图（默认必填齐备）。
 
     Args:
@@ -114,12 +121,14 @@ def _cas_spec(config: dict[str, object] | None = None) -> IdentityProviderSpec:
     Returns:
         IdentityProviderSpec: 行配置视图。
     """
-    merged: dict[str, object] = {
-        "cas_server_url": "https://cas.test/cas",
-        "redirect_uri": "http://app.test/api/v1/auth/sso/cas/callback",
-    }
+    merged: ConcurrentStableDict[str, object] = ConcurrentStableDict(
+        {
+            "cas_server_url": "https://cas.test/cas",
+            "redirect_uri": "http://app.test/api/v1/auth/sso/cas/callback",
+        }
+    )
     if config is not None:
-        merged.update(config)
+        merged.update(config.items())
     return IdentityProviderSpec(id=3, idp_key="demo:cas", type="cas", config=merged, updated_at="t")
 
 
@@ -129,11 +138,13 @@ def test_build_cas_from_spec() -> None:
     registry = IdentityProviderRegistry()
     instance = registry.build(
         _cas_spec(
-            {
-                "cas_login_path": "/cas/login",
-                "cas_service_validate_path": "/serviceValidate",
-                "attribute_map": {"name": ["displayName"]},
-            }
+            ConcurrentStableDict(
+                {
+                    "cas_login_path": "/cas/login",
+                    "cas_service_validate_path": "/serviceValidate",
+                    "attribute_map": {"name": ["displayName"]},
+                }
+            )
         )
     )
     assert isinstance(instance, CasIdentityProvider)
@@ -147,14 +158,14 @@ def test_build_cas_rejects_missing_and_invalid_config() -> None:
     """CAS 必填缺失（cas_server_url / redirect_uri）与 attribute_map 非法类型均抛配置错误。"""
     registry = IdentityProviderRegistry()
     with pytest.raises(ConfigError):
-        registry.build(_cas_spec({"cas_server_url": ""}))
+        registry.build(_cas_spec(ConcurrentStableDict({"cas_server_url": ""})))
     with pytest.raises(ConfigError):
-        registry.build(_cas_spec({"redirect_uri": ""}))
+        registry.build(_cas_spec(ConcurrentStableDict({"redirect_uri": ""})))
     with pytest.raises(ConfigError):
-        registry.build(_cas_spec({"attribute_map": ["uid"]}))
+        registry.build(_cas_spec(ConcurrentStableDict({"attribute_map": ["uid"]})))
 
 
-def _wecom_spec(config: dict[str, object] | None = None) -> IdentityProviderSpec:
+def _wecom_spec(config: ConcurrentStableDict[str, object] | None = None) -> IdentityProviderSpec:
     """构造企业微信行配置视图（默认必填齐备）。
 
     Args:
@@ -163,14 +174,16 @@ def _wecom_spec(config: dict[str, object] | None = None) -> IdentityProviderSpec
     Returns:
         IdentityProviderSpec: 行配置视图。
     """
-    merged: dict[str, object] = {
-        "corp_id": "corp-1",
-        "agent_id": "agent-1",
-        "secret_ref": "env:IDP_TEST_SECRET",
-        "redirect_uri": "http://app.test/api/v1/auth/sso/wecom/callback",
-    }
+    merged: ConcurrentStableDict[str, object] = ConcurrentStableDict(
+        {
+            "corp_id": "corp-1",
+            "agent_id": "agent-1",
+            "secret_ref": "env:IDP_TEST_SECRET",
+            "redirect_uri": "http://app.test/api/v1/auth/sso/wecom/callback",
+        }
+    )
     if config is not None:
-        merged.update(config)
+        merged.update(config.items())
     return IdentityProviderSpec(id=4, idp_key="demo:wecom", type="wecom", config=merged, updated_at="t")
 
 
@@ -179,7 +192,7 @@ def test_build_wecom_from_spec(monkeypatch: pytest.MonkeyPatch) -> None:
     """按行配置构造企业微信实例（密钥引用转明文、mode / login_type 生效）。"""
     monkeypatch.setenv("IDP_TEST_SECRET", "s3cr3t")
     registry = IdentityProviderRegistry()
-    instance = registry.build(_wecom_spec({"mode": "oauth", "login_type": "ServiceApp"}))
+    instance = registry.build(_wecom_spec(ConcurrentStableDict({"mode": "oauth", "login_type": "ServiceApp"})))
     assert isinstance(instance, WecomIdentityProvider)
     assert instance._corp_id == "corp-1"  # pyright: ignore[reportPrivateUsage]
     assert instance._agent_id == "agent-1"  # pyright: ignore[reportPrivateUsage]
@@ -194,16 +207,16 @@ def test_build_wecom_rejects_missing_and_invalid_config(monkeypatch: pytest.Monk
     monkeypatch.setenv("IDP_TEST_SECRET", "s3cr3t")
     registry = IdentityProviderRegistry()
     with pytest.raises(WecomConfigError):
-        registry.build(_wecom_spec({"corp_id": ""}))
+        registry.build(_wecom_spec(ConcurrentStableDict({"corp_id": ""})))
     with pytest.raises(WecomConfigError):
-        registry.build(_wecom_spec({"agent_id": ""}))
+        registry.build(_wecom_spec(ConcurrentStableDict({"agent_id": ""})))
     with pytest.raises(WecomConfigError):
-        registry.build(_wecom_spec({"secret_ref": "env:IDP_TEST_MISSING"}))
+        registry.build(_wecom_spec(ConcurrentStableDict({"secret_ref": "env:IDP_TEST_MISSING"})))
     with pytest.raises(WecomConfigError):
-        registry.build(_wecom_spec({"mode": "bad"}))
+        registry.build(_wecom_spec(ConcurrentStableDict({"mode": "bad"})))
 
 
-def _dingtalk_spec(config: dict[str, object] | None = None) -> IdentityProviderSpec:
+def _dingtalk_spec(config: ConcurrentStableDict[str, object] | None = None) -> IdentityProviderSpec:
     """构造钉钉行配置视图（默认必填齐备）。
 
     Args:
@@ -212,13 +225,15 @@ def _dingtalk_spec(config: dict[str, object] | None = None) -> IdentityProviderS
     Returns:
         IdentityProviderSpec: 行配置视图。
     """
-    merged: dict[str, object] = {
-        "client_id": "client-1",
-        "client_secret_ref": "env:IDP_TEST_SECRET",
-        "redirect_uri": "http://app.test/api/v1/auth/sso/dingtalk/callback",
-    }
+    merged: ConcurrentStableDict[str, object] = ConcurrentStableDict(
+        {
+            "client_id": "client-1",
+            "client_secret_ref": "env:IDP_TEST_SECRET",
+            "redirect_uri": "http://app.test/api/v1/auth/sso/dingtalk/callback",
+        }
+    )
     if config is not None:
-        merged.update(config)
+        merged.update(config.items())
     return IdentityProviderSpec(id=5, idp_key="demo:dingtalk", type="dingtalk", config=merged, updated_at="t")
 
 
@@ -227,7 +242,7 @@ def test_build_dingtalk_from_spec(monkeypatch: pytest.MonkeyPatch) -> None:
     """按行配置构造钉钉实例（密钥引用转明文、scope 生效）。"""
     monkeypatch.setenv("IDP_TEST_SECRET", "s3cr3t")
     registry = IdentityProviderRegistry()
-    instance = registry.build(_dingtalk_spec({"scope": "openid corpid"}))
+    instance = registry.build(_dingtalk_spec(ConcurrentStableDict({"scope": "openid corpid"})))
     assert isinstance(instance, DingtalkIdentityProvider)
     assert instance._client_id == "client-1"  # pyright: ignore[reportPrivateUsage]
     assert instance._client_secret == "s3cr3t"  # pyright: ignore[reportPrivateUsage]
@@ -240,6 +255,6 @@ def test_build_dingtalk_rejects_missing_and_invalid_config(monkeypatch: pytest.M
     monkeypatch.setenv("IDP_TEST_SECRET", "s3cr3t")
     registry = IdentityProviderRegistry()
     with pytest.raises(DingtalkConfigError):
-        registry.build(_dingtalk_spec({"client_id": ""}))
+        registry.build(_dingtalk_spec(ConcurrentStableDict({"client_id": ""})))
     with pytest.raises(DingtalkConfigError):
-        registry.build(_dingtalk_spec({"client_secret_ref": "env:IDP_TEST_MISSING"}))
+        registry.build(_dingtalk_spec(ConcurrentStableDict({"client_secret_ref": "env:IDP_TEST_MISSING"})))

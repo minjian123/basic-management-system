@@ -6,7 +6,7 @@ from typing import cast
 import fakeredis.aioredis
 import pytest
 
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.idp.state import base as state_base
 from bms_core.idp.state import redis as redis_module
@@ -129,11 +129,11 @@ async def test_null_store_behaviour() -> None:
 @pytest.mark.kiwi_id(2197)
 def test_resolve_store_by_provider(monkeypatch: pytest.MonkeyPatch) -> None:
     """依赖提供者：按 `settings.idp_state_store.provider` 经 `resolve_plugin` 解析（应用级单例）。"""
-    calls: list[tuple[str, str, str]] = []
+    calls: ConcurrentStableList[tuple[str, str, str]] = ConcurrentStableList()
     sentinel = object()
 
     def _fake_resolve(key: str, provider: str, *, expected_version: str = "") -> object:
-        calls.append((key, provider, expected_version))
+        calls.add((key, provider, expected_version))
         return sentinel
 
     monkeypatch.setattr(state_base, "resolve_plugin", _fake_resolve)
@@ -156,10 +156,10 @@ async def test_redis_store_dirty_raw_and_lazy_client(monkeypatch: pytest.MonkeyP
     assert await weird.consume("x") is None
 
     client = fakeredis.aioredis.FakeRedis(decode_responses=True)
-    urls: list[str] = []
+    urls: ConcurrentStableList[str] = ConcurrentStableList()
 
     def _from_url(url: str, **kwargs: object) -> object:
-        urls.append(url)
+        urls.add(url)
         return client
 
     monkeypatch.setattr(redis_module.AsyncRedis, "from_url", staticmethod(_from_url))

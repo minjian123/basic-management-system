@@ -5,29 +5,33 @@ from pathlib import Path
 
 import pytest
 
+from bms_core.core.concurrent import ConcurrentStableList
+
 _STAGE = Path(__file__).resolve().parents[5] / "bms文档" / "项目" / "03_后端插件化"
 _REPORT = _STAGE / "01_测试报告_后端插件化.md"
 _OVERVIEW = _STAGE / "需求" / "00_需求_后端插件化.md"
 _PLAN = _STAGE / "计划" / "01_计划_后端插件化.md"
 
 
-def _table_rows(section: str) -> list[str]:
+def _table_rows(section: str) -> ConcurrentStableList[str]:
     """取 Markdown 表格数据行（去表头与分隔行）。
 
     Args:
         section: 片段文本。
 
     Returns:
-        list[str]: 数据行列表。
+        ConcurrentStableList[str]: 数据行列表。
     """
-    return [
-        line
-        for line in section.splitlines()
-        if line.startswith("| ")
-        and "---" not in line
-        and not line.startswith("| 编号 ")
-        and not line.startswith("| 验收点 ")
-    ]
+    return ConcurrentStableList(
+        [
+            line
+            for line in section.splitlines()
+            if line.startswith("| ")
+            and "---" not in line
+            and not line.startswith("| 编号 ")
+            and not line.startswith("| 验收点 ")
+        ]
+    )
 
 
 @pytest.mark.kiwi_id(663)

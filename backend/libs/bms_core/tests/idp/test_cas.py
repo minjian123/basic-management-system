@@ -12,6 +12,7 @@ from urllib.parse import parse_qs, urlparse
 import httpx
 import pytest
 
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import IdentityProviderSettings, Settings
 from bms_core.core.exceptions import AuthError, ConfigError, PluginError, ServiceUnavailableError
 from bms_core.idp.cas import (
@@ -30,7 +31,7 @@ SERVICE = f"{REDIRECT_URI}?state=state-1"
 def _success_xml(
     principal: str = "alice",
     *,
-    attributes: dict[str, str] | None = None,
+    attributes: ConcurrentStableDict[str, str] | None = None,
     element_form: bool = True,
 ) -> bytes:
     """构造 CAS 校验成功响应 XML。
@@ -43,7 +44,11 @@ def _success_xml(
     Returns:
         bytes: XML 响应体。
     """
-    attrs = {"displayName": "Alice", "email": "alice@example.com"} if attributes is None else attributes
+    attrs = (
+        ConcurrentStableDict({"displayName": "Alice", "email": "alice@example.com"})
+        if attributes is None
+        else attributes
+    )
     if element_form:
         body = "".join(f"<cas:{name}>{value}</cas:{name}>" for name, value in attrs.items())
     else:
@@ -126,10 +131,11 @@ async def test_authorize_builds_login_url_with_service() -> None:
 @pytest.mark.kiwi_id(2199)
 async def test_exchange_token_success_and_default_mapping() -> None:
     """票据校验成功：请求 service / ticket 正确；身份按默认映射回填（无 username 属性时回落 principal）。"""
-    seen: dict[str, list[str]] = {}
+    seen: ConcurrentStableDict[str, ConcurrentStableList[str]] = ConcurrentStableDict()
 
     def handle(request: httpx.Request) -> httpx.Response:
-        seen.update(parse_qs(request.url.query.decode()))
+        for key, values in parse_qs(request.url.query.decode()).items():
+            seen.set(key, ConcurrentStableList(values))
         return httpx.Response(200, content=_success_xml())
 
     token = await _provider(handle).exchange_token("ST-1", service=SERVICE)
@@ -149,7 +155,9 @@ async def test_exchange_token_success_and_default_mapping() -> None:
 async def test_exchange_token_attribute_map_override_and_multi_value() -> None:
     """属性映射覆盖：行配置候选优先；多值取首 token；`cas:attribute` 形态兼容；未配置字段回落默认。"""
     provider = _provider(
-        _responder(_success_xml(element_form=False, attributes={"uid": "uid-9", "cn": "First Second"})),
+        _responder(
+            _success_xml(element_form=False, attributes=ConcurrentStableDict({"uid": "uid-9", "cn": "First Second"}))
+        ),
         attribute_map={"username": ["uid"], "name": ["cn"]},
     )
     token = await provider.exchange_token("ST-2", service=SERVICE)
