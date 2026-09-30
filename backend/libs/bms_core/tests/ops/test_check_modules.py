@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 import ops.check_modules as check_modules
 import ops.seed_module as seed_module
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.services.module_registry import SERVICE_CATALOG, ModuleRecord
 from bms_platform.models.catalog import SysModule
 
@@ -41,9 +42,9 @@ def test_check_modules_fails_on_conflict(monkeypatch: pytest.MonkeyPatch) -> Non
     class BadRegistry:
         """返回冲突明细的测试替身。"""
 
-        def validate(self) -> list[str]:
+        def validate(self) -> ConcurrentStableList[str]:
             """返回固定冲突明细。"""
-            return ["table_prefix 重复：pur_"]
+            return ConcurrentStableList(["table_prefix 重复：pur_"])
 
     monkeypatch.setattr(check_modules, "ModuleRegistry", BadRegistry)
     assert check_modules.main([]) == 1

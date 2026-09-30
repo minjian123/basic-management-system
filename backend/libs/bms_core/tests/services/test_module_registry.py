@@ -7,6 +7,7 @@ import pytest
 from sqlalchemy import Engine, UniqueConstraint, create_engine
 from sqlalchemy.orm import Session
 
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.models.base import Base
 from bms_core.services.module_registry import (
     PLATFORM_MODULES,
@@ -32,12 +33,14 @@ _BASE_RECORD = ModuleRecord(
 
 def _record(module_key: str = "pur", **overrides: object) -> ModuleRecord:
     """构造测试注册记录（默认满足格式与产品维度一致性）。"""
-    fields: dict[str, object] = {
-        "module_key": module_key,
-        "table_prefix": f"{module_key}_",
-        "event_domain": module_key,
-    }
-    fields.update(overrides)
+    fields: ConcurrentStableDict[str, object] = ConcurrentStableDict(
+        {
+            "module_key": module_key,
+            "table_prefix": f"{module_key}_",
+            "event_domain": module_key,
+        }
+    )
+    fields.update(overrides.items())
     return replace(_BASE_RECORD, **fields)  # pyright: ignore[reportCallIssue, reportArgumentType]
 
 
@@ -105,20 +108,22 @@ def test_service_catalog_shape() -> None:
 def test_validate_accepts_legal_registry() -> None:
     """合法清单：服务目录与业务模块均通过。"""
     assert ModuleRegistry().validate() == []
-    assert ModuleRegistry([_record(), _record("sale", errcode_segment="12")]).validate() == []
+    assert ModuleRegistry(ConcurrentStableList([_record(), _record("sale", errcode_segment="12")])).validate() == []
 
 
 @pytest.mark.kiwi_id(28)
 def test_validate_detects_duplicates() -> None:
     """唯一性：module_key / table_prefix / event_domain 与可空列（service_key / 段位）重复均检出。"""
     registry = ModuleRegistry(
-        [
-            _record("pur"),
-            _record("pur", name="采购2"),
-            _record("sale", table_prefix="pur_", event_domain="pur"),
-            _record("wh", service_key="biz", errcode_segment="11"),
-            _record("sup", service_key="biz", errcode_segment="11"),
-        ]
+        ConcurrentStableList(
+            [
+                _record("pur"),
+                _record("pur", name="采购2"),
+                _record("sale", table_prefix="pur_", event_domain="pur"),
+                _record("wh", service_key="biz", errcode_segment="11"),
+                _record("sup", service_key="biz", errcode_segment="11"),
+            ]
+        )
     )
     errors = registry.validate()
     assert any("module_key 重复" in e for e in errors)
@@ -132,12 +137,14 @@ def test_validate_detects_duplicates() -> None:
 def test_validate_detects_bad_format() -> None:
     """格式 / 分组 / 版本：非法前缀、段号、事件域、分组、批次、semver、产品维度均检出。"""
     registry = ModuleRegistry(
-        [
-            _record("Bad", table_prefix="Bad", event_domain="Bad-Domain", errcode_segment="0"),
-            _record("pur", service_group="unknown", build_batch=9, service_version="1.0"),
-            _record("pay", product_key=None),
-            _record("wh", service_key="Bad Key"),
-        ]
+        ConcurrentStableList(
+            [
+                _record("Bad", table_prefix="Bad", event_domain="Bad-Domain", errcode_segment="0"),
+                _record("pur", service_group="unknown", build_batch=9, service_version="1.0"),
+                _record("pay", product_key=None),
+                _record("wh", service_key="Bad Key"),
+            ]
+        )
     )
     errors = registry.validate()
     assert any("module_key 非法" in e for e in errors)
@@ -212,26 +219,52 @@ def test_module_record_from_row_matches_catalog() -> None:
     assert ModuleRecord.from_row(row) == SERVICE_CATALOG[1]
 
 
+def _catalog_records() -> ConcurrentStableList[ModuleRecord]:
+    """服务目录的插入序副本（接库对账用例的「库中行」基线）。
+
+    Returns:
+        ConcurrentStableList[ModuleRecord]: 服务目录副本。
+    """
+    return ConcurrentStableList(SERVICE_CATALOG)
+
+
+def _replaced(
+    catalog: ConcurrentStableList[ModuleRecord], index: int, **changes: object
+) -> ConcurrentStableList[ModuleRecord]:
+    """按序号替换一条目录行（集合类无下标赋值，按插入序重建）。
+
+    Args:
+        catalog: 服务目录清单。
+        index: 待替换行序号。
+        changes: 字段替换值。
+
+    Returns:
+        ConcurrentStableList[ModuleRecord]: 替换后的目录副本。
+    """
+    return ConcurrentStableList(
+        replace(record, **changes) if position == index else record for position, record in enumerate(catalog)
+    )
+
+
 @pytest.mark.kiwi_id(2163)
 def test_validate_catalog_roundtrip_and_conflicts() -> None:
     """接库校验：清单自身与主版本兼容通过；缺行 / 清单外 / 字段 / 主版本 / 运行服务逐项检出。"""
-    catalog = SERVICE_CATALOG
-    assert validate_catalog(catalog, list(catalog)) == []
-    assert validate_catalog(catalog, list(catalog), service_key="platform", contract_version="0.1.0") == []
+    catalog = _catalog_records()
+    assert validate_catalog(catalog, _catalog_records()) == []
+    assert validate_catalog(catalog, _catalog_records(), service_key="platform", contract_version="0.1.0") == []
 
-    records = list(catalog)
-    records[1] = replace(records[1], contract_version="0.2.0")
+    records = _replaced(catalog, 1, contract_version="0.2.0")
     assert validate_catalog(catalog, records) == []
 
-    records[1] = replace(records[1], contract_version="1.0.0")
+    records = _replaced(catalog, 1, contract_version="1.0.0")
     assert any("契约版本主版本不兼容" in error for error in validate_catalog(catalog, records))
 
-    records = list(catalog)
-    del records[1]
+    records = _catalog_records()
+    records.remove(catalog[1])
     assert any("库中缺登记行：identity" in error for error in validate_catalog(catalog, records))
 
-    records = list(catalog)
-    records.append(
+    records = _catalog_records()
+    records.add(
         ModuleRecord(
             module_key="ghost",
             name="幽灵模块",
@@ -242,25 +275,22 @@ def test_validate_catalog_roundtrip_and_conflicts() -> None:
     )
     assert any("库中登记行不在清单：ghost" in error for error in validate_catalog(catalog, records))
 
-    records = list(catalog)
-    records[1] = replace(records[1], name="改过的名字")
+    records = _replaced(catalog, 1, name="改过的名字")
     assert any("name 与清单不一致" in error for error in validate_catalog(catalog, records))
 
 
 @pytest.mark.kiwi_id(2163)
 def test_validate_catalog_running_service_rules() -> None:
     """运行服务项：主版本兼容通过；未登记 / 自报非法 / 登记非法逐项检出。"""
-    catalog = SERVICE_CATALOG
+    catalog = _catalog_records()
 
-    records = list(catalog)
-    records[1] = replace(records[1], service_key=None)
+    records = _replaced(catalog, 1, service_key=None)
     errors = validate_catalog(catalog, records, service_key="identity", contract_version="0.1.0")
     assert any("运行服务未登记：identity" in error for error in errors)
 
-    errors = validate_catalog(catalog, list(catalog), service_key="platform", contract_version="0.1")
+    errors = validate_catalog(catalog, _catalog_records(), service_key="platform", contract_version="0.1")
     assert any("运行服务契约版本非法" in error for error in errors)
 
-    records = list(catalog)
-    records[0] = replace(records[0], contract_version="bad")
+    records = _replaced(catalog, 0, contract_version="bad")
     errors = validate_catalog(catalog, records, service_key="platform", contract_version="0.1.0")
     assert any("登记契约版本非法" in error for error in errors)

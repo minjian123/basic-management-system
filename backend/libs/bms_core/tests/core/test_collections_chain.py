@@ -20,12 +20,9 @@ from pathlib import Path
 import pytest
 
 from bms_core.core.base import BaseObject
-from bms_core.core.collections import BaseCollection, BaseSorted, SortedDict, SortedList, SortedSet
+from bms_core.core.collections import BaseCollection, BaseSorted
 from bms_core.core.concurrent import (
     BaseConcurrent,
-    ConcurrentSortedDict,
-    ConcurrentSortedList,
-    ConcurrentSortedSet,
     ConcurrentStableDict,
     ConcurrentStableList,
     ConcurrentStableSet,
@@ -36,6 +33,14 @@ from bms_core.core.redis_collections import (
     RedisSnapshot,
     RedisSortedDict,
     RedisSortedSet,
+)
+from bms_core.core.sorted_collections import (
+    ConcurrentSortedDict,
+    ConcurrentSortedList,
+    ConcurrentSortedSet,
+    SortedDict,
+    SortedList,
+    SortedSet,
 )
 
 _ROOT = Path(__file__).resolve().parents[5]

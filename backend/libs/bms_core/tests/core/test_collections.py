@@ -3,7 +3,8 @@
 import pytest
 
 from bms_core.core.base import BaseObject
-from bms_core.core.collections import BaseSorted, SortedDict, SortedList, SortedSet
+from bms_core.core.collections import BaseSorted
+from bms_core.core.sorted_collections import SortedDict, SortedList, SortedSet
 
 
 @pytest.mark.kiwi_id(15)

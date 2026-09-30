@@ -21,8 +21,8 @@
 - **不查**：迭代与调用协议（`Iterable` / `Iterator` / `Generator` / `AsyncIterator` / `Callable`）——
   非集合声明，不承担有序输出。
 - **不属约束对象**：集合体系**实现文件**（`core/collections.py` / `core/concurrent.py` /
-  `core/redis_collections.py`）不属本护栏的约束对象——本护栏只约束**业务侧集合声明**（对外数据契约、
-  值对象与模块类）；集合体系实现文件是体系自身，其内置容器是内部底座与序列化出口（08_02，2026-09-29）。
+  `core/sorted_collections.py` / `core/redis_collections.py`）不属本护栏的约束对象——本护栏只约束**业务侧集合声明**
+  （对外数据契约、值对象与模块类）；集合体系实现文件是体系自身，其内置容器是内部底座与序列化出口（08_02，2026-09-29）。
 - **范围**：`backend/libs/bms_core/src` + `tests`、`backend/services/*/src` + `tests`、`backend/ops`、`scripts/tools`
   （**含测试目录与函数体局部变量**；`ClassVar` 类级常量与 `BaseSettings` 配置字段不再豁免，2026-09-29）。
 - **基线**：`deploy/boundaries/bare_collections_baseline.json`（文件 + 规范化行内容指纹 + 容器 + 计数）；
@@ -82,6 +82,7 @@ SYSTEM_IMPLEMENTATION_FILES: frozenset[str] = frozenset(
     {
         "backend/libs/bms_core/src/bms_core/core/collections.py",
         "backend/libs/bms_core/src/bms_core/core/concurrent.py",
+        "backend/libs/bms_core/src/bms_core/core/sorted_collections.py",
         "backend/libs/bms_core/src/bms_core/core/redis_collections.py",
     }
 )
@@ -493,6 +494,7 @@ _FIXTURE_FILES: dict[str, str] = {
     ),
     "backend/libs/bms_core/src/demo/tests/test_local.py": "class X:\n    bad: list[int] = []\n",
     "backend/libs/bms_core/src/bms_core/core/concurrent.py": "def to_list(self) -> list[int]:\n    return []\n",
+    "backend/libs/bms_core/src/bms_core/core/sorted_collections.py": "class S:\n    data: dict[str, int] = {}\n",
     "backend/services/svc/src/svc/mod.py": "class A:\n    data: List[int] = []\n",
     "backend/ops/op.py": "def run(payload: DefaultDict[str, int]) -> None:\n    del payload\n",
     "scripts/tools/thing.py": "def x() -> frozenset[str]:\n    return frozenset()\n",
@@ -575,7 +577,14 @@ def _self_test() -> int:
         )
         expect((demo, "def h() -> 'list[int]':", "list", "signature_return") in found, "命中字符串前向引用")
         expect(
-            all(hit.file != "backend/libs/bms_core/src/bms_core/core/concurrent.py" for hit in hits),
+            all(
+                hit.file
+                not in {
+                    "backend/libs/bms_core/src/bms_core/core/concurrent.py",
+                    "backend/libs/bms_core/src/bms_core/core/sorted_collections.py",
+                }
+                for hit in hits
+            ),
             "集合体系实现文件不属约束对象（不报）",
         )
 

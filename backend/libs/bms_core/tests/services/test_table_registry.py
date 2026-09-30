@@ -5,6 +5,7 @@ from dataclasses import replace
 import pytest
 from sqlalchemy import UniqueConstraint
 
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.models.base import Base
 from bms_core.models.ownership import SysTableOwnership
 from bms_core.services.table_registry import (
@@ -29,8 +30,8 @@ _BASE_RECORD = TableRecord(table_name="zzz_item", owner="platform", datasource=D
 
 def _record(table_name: str = "zzz_item", **overrides: object) -> TableRecord:
     """构造测试归属记录（默认满足格式与归属合法性）。"""
-    fields: dict[str, object] = {"table_name": table_name}
-    fields.update(overrides)
+    fields: ConcurrentStableDict[str, object] = ConcurrentStableDict({"table_name": table_name})
+    fields.update(overrides.items())
     return replace(_BASE_RECORD, **fields)  # pyright: ignore[reportCallIssue, reportArgumentType]
 
 
@@ -103,16 +104,18 @@ def test_owned_tables_and_chain_derivation() -> None:
 def test_registry_detects_conflicts() -> None:
     """归属校验：表名重复 / 归属未登记 / 库类别与状态非法 / 哨兵误用 / 前缀不符逐项检出。"""
     registry = TableOwnershipRegistry(
-        [
-            _record("zzz_item"),
-            _record("zzz_item", note="重复"),
-            _record("zzz_ghost", owner="ghost"),
-            _record("zzz_bad_ds", datasource="memory"),
-            _record("zzz_bad_status", status="disabled"),
-            _record("zzz_sentinel", owner=OWNER_EVERY_SERVICE, datasource=Datasource.TENANT),
-            _record("org_item", owner="platform"),
-            _record("BadTable"),
-        ]
+        ConcurrentStableList(
+            [
+                _record("zzz_item"),
+                _record("zzz_item", note="重复"),
+                _record("zzz_ghost", owner="ghost"),
+                _record("zzz_bad_ds", datasource="memory"),
+                _record("zzz_bad_status", status="disabled"),
+                _record("zzz_sentinel", owner=OWNER_EVERY_SERVICE, datasource=Datasource.TENANT),
+                _record("org_item", owner="platform"),
+                _record("BadTable"),
+            ]
+        )
     )
     errors = registry.validate()
     joined = "；".join(errors)
@@ -125,23 +128,49 @@ def test_registry_detects_conflicts() -> None:
     assert "表名非法" in joined
 
 
+def _ownership_records() -> ConcurrentStableList[TableRecord]:
+    """归属清单的插入序副本（接库对账用例的「库中行」基线）。
+
+    Returns:
+        ConcurrentStableList[TableRecord]: 归属清单副本。
+    """
+    return ConcurrentStableList(TABLE_OWNERSHIP)
+
+
+def _replaced_owner(
+    records: ConcurrentStableList[TableRecord], table_name: str, owner: str
+) -> ConcurrentStableList[TableRecord]:
+    """把指定表的归属改为给定值（集合类无下标赋值，按插入序重建）。
+
+    Args:
+        records: 归属记录副本。
+        table_name: 目标表名。
+        owner: 替换后的归属标签。
+
+    Returns:
+        ConcurrentStableList[TableRecord]: 替换后的副本。
+    """
+    return ConcurrentStableList(
+        replace(record, owner=owner) if record.table_name == table_name else record for record in records
+    )
+
+
 @pytest.mark.kiwi_id(2176)
 def test_validate_table_ownership_roundtrip() -> None:
     """接库对账：清单自身往返通过；缺行 / 清单外行 / 字段不符逐项检出。"""
-    assert validate_table_ownership(TABLE_OWNERSHIP, list(TABLE_OWNERSHIP)) == []
+    ownership = ConcurrentStableList(TABLE_OWNERSHIP)
+    assert validate_table_ownership(ownership, _ownership_records()) == []
 
-    records = list(TABLE_OWNERSHIP)
-    del records[0]
-    assert any("库中缺登记行" in error for error in validate_table_ownership(TABLE_OWNERSHIP, records))
+    records = _ownership_records()
+    records.remove(ownership[0])
+    assert any("库中缺登记行" in error for error in validate_table_ownership(ownership, records))
 
-    records = list(TABLE_OWNERSHIP)
-    records.append(_record("zzz_extra"))
-    assert any("库中登记行不在清单：zzz_extra" in error for error in validate_table_ownership(TABLE_OWNERSHIP, records))
+    records = _ownership_records()
+    records.add(_record("zzz_extra"))
+    assert any("库中登记行不在清单：zzz_extra" in error for error in validate_table_ownership(ownership, records))
 
-    records = list(TABLE_OWNERSHIP)
-    index = next(i for i, record in enumerate(records) if record.table_name == "sys_tenant")
-    records[index] = replace(records[index], owner="platform")
-    errors = validate_table_ownership(TABLE_OWNERSHIP, records)
+    records = _replaced_owner(_ownership_records(), "sys_tenant", "platform")
+    errors = validate_table_ownership(ownership, records)
     assert any("owner 与清单不一致" in error for error in errors)
 
 

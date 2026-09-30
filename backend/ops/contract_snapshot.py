@@ -22,6 +22,7 @@ from importlib import import_module
 from pathlib import Path
 from typing import Any, cast
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.services.module_registry import ModuleRecord
 from bms_core.services.service_contract import (
     CONTRACTS_DIR,
@@ -97,7 +98,7 @@ def _validate(record: ModuleRecord, openapi: dict[str, Any]) -> list[str]:
     Returns:
         list[str]: 违规明细；空列表表示通过。
     """
-    return validate_contract(cast("str", record.service_key), openapi, record)
+    return list(validate_contract(cast("str", record.service_key), ConcurrentStableDict(openapi), record))
 
 
 def export(root: Path, *, to_stdout: bool = False) -> int:
@@ -120,7 +121,7 @@ def export(root: Path, *, to_stdout: bool = False) -> int:
         if errors:
             failures.extend(errors)
             continue
-        text = render_contract_json(openapi)
+        text = render_contract_json(ConcurrentStableDict(openapi))
         path = snapshot_path(root, service_key)
         path.write_text(text, encoding="utf-8")
         if to_stdout:
@@ -158,7 +159,7 @@ def check(root: Path) -> int:
         if errors:
             problems.extend(errors)
             continue
-        if path.read_text(encoding="utf-8") != render_contract_json(openapi):
+        if path.read_text(encoding="utf-8") != render_contract_json(ConcurrentStableDict(openapi)):
             problems.append(f"{service_key}：快照与当前公开契约漂移（重新运行 export）")
     if problems:
         print(f"[contract_snapshot] 不通过：{len(problems)} 项", file=sys.stderr)

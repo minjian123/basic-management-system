@@ -36,6 +36,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import NullPool
 
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.db.migration import (
     COMMON_MODEL_MODULES,
     DATASOURCES,
@@ -116,17 +117,17 @@ def check_offline(*, versions_root: Path = VERSIONS_ROOT) -> list[str]:
     modeled = imported_model_tables()
 
     for table in sorted(modeled - registered):
-        errors.append(f"模型表未登记归属：{table}（须在 TABLE_OWNERSHIP 登记）")
+        errors.add(f"模型表未登记归属：{table}（须在 TABLE_OWNERSHIP 登记）")
 
     for record in TABLE_OWNERSHIP:
         if record.owner == OWNER_EVERY_SERVICE or record.status != "enabled":
             continue
         owned_chain = chain_tables(record.owner, record.datasource)
         if record.table_name not in owned_chain:
-            errors.append(f"{record.table_name}：enabled 但未进入归属服务 {record.owner} 的 {record.datasource} 链")
+            errors.add(f"{record.table_name}：enabled 但未进入归属服务 {record.owner} 的 {record.datasource} 链")
 
-    errors.extend(_check_script_tables(versions_root))
-    return errors
+    errors.update(_check_script_tables(versions_root))
+    return list(errors)
 
 
 def _check_script_tables(versions_root: Path) -> list[str]:
@@ -226,7 +227,7 @@ def check_table_db(url: str, *, schema: str = "") -> list[str]:
         return [f"表归属登记库不可读（请先执行平台服务链迁移）：{exc}"]
     if not records:
         return ["库中无登记行（种子未执行？）"]
-    return validate_table_ownership(TABLE_OWNERSHIP, records)
+    return list(validate_table_ownership(ConcurrentStableList(TABLE_OWNERSHIP), ConcurrentStableList(records)))
 
 
 def main(argv: Sequence[str] | None = None) -> int:

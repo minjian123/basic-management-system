@@ -112,7 +112,7 @@ def _known_service_keys() -> frozenset[str]:
     """
     from bms_core.services.table_registry import known_service_keys
 
-    return known_service_keys()
+    return frozenset(known_service_keys())
 
 
 def build_platform_db_key(service: str | None = None) -> str:

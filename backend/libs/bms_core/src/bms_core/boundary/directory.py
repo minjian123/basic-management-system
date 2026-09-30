@@ -106,7 +106,7 @@ def owned_tables_for(service: str, *, datasource: str | None = None, include_pla
     Returns:
         frozenset[str]: 该服务拥有的表名集合。
     """
-    return _owned_tables_for(service, datasource=datasource, include_planned=include_planned)
+    return frozenset(_owned_tables_for(service, datasource=datasource, include_planned=include_planned))
 
 
 def known_tables() -> frozenset[str]:
@@ -115,7 +115,7 @@ def known_tables() -> frozenset[str]:
     Returns:
         frozenset[str]: 已登记表名集合。
     """
-    return table_names()
+    return frozenset(table_names())
 
 
 def known_prefixes() -> frozenset[str]:
@@ -135,4 +135,4 @@ def known_services() -> frozenset[str]:
     Returns:
         frozenset[str]: 标识集合。
     """
-    return known_service_keys()
+    return frozenset(known_service_keys())

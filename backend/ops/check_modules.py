@@ -25,6 +25,7 @@ from pathlib import Path
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.version import contract_major
 from bms_core.services.module_registry import (
     SERVICE_CATALOG,
@@ -139,8 +140,8 @@ def check_offline(services_dir: Path = _SERVICES_DIR) -> list[str]:
         list[str]: 冲突 / 非法明细。
     """
     errors = ModuleRegistry().validate()
-    errors.extend(check_service_declarations(SERVICE_CATALOG, resolve_service_contracts(services_dir)))
-    return errors
+    errors.update(check_service_declarations(SERVICE_CATALOG, resolve_service_contracts(services_dir)))
+    return list(errors)
 
 
 async def _read_catalog(url: str) -> list[ModuleRecord]:
@@ -177,7 +178,7 @@ def check_catalog_db(url: str) -> list[str]:
         return [f"服务目录库不可读（请先执行平台库迁移）：{exc}"]
     if not records:
         return ["库中无登记行（种子未执行？）"]
-    return validate_catalog(SERVICE_CATALOG, records)
+    return list(validate_catalog(ConcurrentStableList(SERVICE_CATALOG), ConcurrentStableList(records)))
 
 
 def main(argv: Sequence[str] | None = None) -> int:
