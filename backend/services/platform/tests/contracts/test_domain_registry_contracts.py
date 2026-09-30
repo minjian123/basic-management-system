@@ -108,7 +108,7 @@ def test_null_dashboard_metadata_semantics() -> None:
 async def test_null_dashboard_fetch_semantics() -> None:
     """Null 卡片取数聚合：恒空映射。"""
     registry = NullDashboardCardRegistry()
-    assert await registry.fetch("missing", {}) == {}
+    assert await registry.fetch("missing", ConcurrentStableDict()) == {}
 
 
 async def test_null_health_semantics() -> None:
@@ -160,7 +160,7 @@ async def test_memory_dashboard_fetch_not_found() -> None:
     registry = MemoryDashboardCardRegistry()
     registry.register(TodoCardProvider())
     with pytest.raises(NotFoundError, match="工作台卡片不存在"):
-        await registry.fetch("missing", {})
+        await registry.fetch("missing", ConcurrentStableDict())
 
 
 async def test_health_aggregation_templates() -> None:

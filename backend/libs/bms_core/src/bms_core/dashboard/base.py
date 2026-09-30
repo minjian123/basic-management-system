@@ -11,11 +11,11 @@
 """
 
 from abc import ABC, abstractmethod
-from collections.abc import Mapping
 from typing import cast
 
 from fastapi import Request
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.config import Settings
 from bms_core.core.exceptions import NotFoundError
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, resolve_plugin
@@ -36,22 +36,22 @@ class BaseDashboardCardProvider(BaseProvider, ABC):
     """卡片提供者契约：元数据 + 取数。"""
 
     @abstractmethod
-    def metadata(self) -> Mapping[str, object]:
+    def metadata(self) -> ConcurrentStableDict[str, object]:
         """卡片元数据（名称 / 尺寸 / `render_key` / 数据接口地址 / `card_type` 等）。
 
         Returns:
-            Mapping[str, object]: 元数据。
+            ConcurrentStableDict[str, object]: 元数据。
         """
 
     @abstractmethod
-    async def fetch(self, params: Mapping[str, object]) -> Mapping[str, object]:
+    async def fetch(self, params: ConcurrentStableDict[str, object]) -> ConcurrentStableDict[str, object]:
         """取卡片数据（真实实现转发来源模块既有接口，不绕行其权限校验）。
 
         Args:
             params: 取数参数。
 
         Returns:
-            Mapping[str, object]: 卡片数据。
+            ConcurrentStableDict[str, object]: 卡片数据。
         """
 
 
@@ -63,14 +63,14 @@ class BaseDashboardCardRegistry(BaseProviderRegistry[BaseDashboardCardProvider],
     plugin_name: str = NULL_PLUGIN_NAME
     contract_version: str = DEFAULT_CONTRACT_VERSION
 
-    def metadata(self, card_key: str) -> Mapping[str, object]:
+    def metadata(self, card_key: str) -> ConcurrentStableDict[str, object]:
         """聚合元数据（模板方法：解析卡片 → 委托）。
 
         Args:
             card_key: 卡片标识。
 
         Returns:
-            Mapping[str, object]: 卡片元数据。
+            ConcurrentStableDict[str, object]: 卡片元数据。
 
         Raises:
             NotFoundError: 卡片不存在（10002 / 404，全局处理器统一转响应）。
@@ -80,7 +80,9 @@ class BaseDashboardCardRegistry(BaseProviderRegistry[BaseDashboardCardProvider],
             raise NotFoundError(f"工作台卡片不存在：{card_key}")
         return provider.metadata()
 
-    async def fetch(self, card_key: str, params: Mapping[str, object]) -> Mapping[str, object]:
+    async def fetch(
+        self, card_key: str, params: ConcurrentStableDict[str, object]
+    ) -> ConcurrentStableDict[str, object]:
         """聚合取数（模板方法：解析卡片 → 委托）。
 
         Args:
@@ -88,7 +90,7 @@ class BaseDashboardCardRegistry(BaseProviderRegistry[BaseDashboardCardProvider],
             params: 取数参数。
 
         Returns:
-            Mapping[str, object]: 卡片数据。
+            ConcurrentStableDict[str, object]: 卡片数据。
 
         Raises:
             NotFoundError: 卡片不存在（10002 / 404）。

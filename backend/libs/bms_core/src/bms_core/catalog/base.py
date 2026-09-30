@@ -5,10 +5,11 @@
 - 失败：不可达 / 响应非法 → `ServiceUnavailableError`（调用方按降级口径处置，见详细设计 §5）。
 """
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from dataclasses import fields
 from typing import cast
 
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.exceptions import ServiceUnavailableError
 from bms_core.servicecall.base import BaseServiceClient, ServiceRequest, ServiceResponse
 from bms_core.services.module_registry import ModuleRecord
@@ -28,7 +29,7 @@ async def fetch_catalog_snapshot(
     client: BaseServiceClient,
     *,
     service: str = CATALOG_SERVICE_KEY,
-) -> list[ModuleRecord]:
+) -> ConcurrentStableList[ModuleRecord]:
     """取服务目录快照（全量清单，不分页）。
 
     Args:
@@ -36,7 +37,7 @@ async def fetch_catalog_snapshot(
         service: 提供方服务标识。
 
     Returns:
-        list[ModuleRecord]: 服务目录清单。
+        ConcurrentStableList[ModuleRecord]: 服务目录清单。
 
     Raises:
         ServiceUnavailableError: 契约不可达、非 2xx 或响应体非法。
@@ -45,17 +46,17 @@ async def fetch_catalog_snapshot(
     response = await client.call(request)
     if not 200 <= response.status_code < 300:
         raise ServiceUnavailableError(f"服务目录快照契约调用失败（{response.status_code}）")
-    return [_to_record(row) for row in _payload_rows(response)]
+    return ConcurrentStableList(_to_record(row) for row in _payload_rows(response))
 
 
-def _payload_rows(response: ServiceResponse) -> Sequence[Mapping[str, object]]:
+def _payload_rows(response: ServiceResponse) -> ConcurrentStableList[ConcurrentStableDict[str, object]]:
     """取统一响应包裹的 `data` 数组。
 
     Args:
         response: 契约响应。
 
     Returns:
-        Sequence[Mapping[str, object]]: 清单行序列。
+        ConcurrentStableList[ConcurrentStableDict[str, object]]: 清单行序列。
 
     Raises:
         ServiceUnavailableError: 响应体非法。
@@ -65,15 +66,15 @@ def _payload_rows(response: ServiceResponse) -> Sequence[Mapping[str, object]]:
     data: object = body.get("data") if body is not None else None
     if not isinstance(data, list):
         raise ServiceUnavailableError("服务目录快照响应缺少 data 数组")
-    rows: list[Mapping[str, object]] = []
+    rows: ConcurrentStableList[ConcurrentStableDict[str, object]] = ConcurrentStableList()
     for item in cast("list[object]", data):
         if not isinstance(item, Mapping):
             raise ServiceUnavailableError("服务目录快照响应行须为对象")
-        rows.append(cast("Mapping[str, object]", item))
+        rows.add(ConcurrentStableDict(cast("Mapping[str, object]", item)))
     return rows
 
 
-def _to_record(row: Mapping[str, object]) -> ModuleRecord:
+def _to_record(row: ConcurrentStableDict[str, object]) -> ModuleRecord:
     """清单行 → `ModuleRecord`（仅取登记字段）。
 
     Args:

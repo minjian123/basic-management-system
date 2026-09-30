@@ -18,6 +18,7 @@ from fastapi import FastAPI
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bms_core.catalog.base import CATALOG_SERVICE_KEY, fetch_catalog_snapshot
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.core.exceptions import CatalogError
 from bms_core.core.plugin import resolve_plugin
@@ -38,7 +39,7 @@ __all__ = [
 CatalogReader = Callable[[AsyncSession], Awaitable[list[ModuleRecord]]]
 """目录权威本地读取器（入参为**本服务平台服务库**的会话，返回服务目录清单）。"""
 
-_CATALOG_READERS: dict[str, CatalogReader] = {}
+_CATALOG_READERS: ConcurrentStableDict[str, CatalogReader] = ConcurrentStableDict()
 """目录权威本地读取器注册表（`{服务标识: 读取器}`；由服务包在装配期登记）。"""
 
 
@@ -49,7 +50,7 @@ def register_catalog_reader(service: str, reader: CatalogReader) -> None:
         service: 服务标识（目录权威，如 `platform`）。
         reader: 读取器（读本服务平台服务库 `sys_module`）。
     """
-    _CATALOG_READERS[service] = reader
+    _CATALOG_READERS.set(service, reader)
 
 
 def resolve_catalog_reader(service: str) -> CatalogReader | None:
@@ -76,14 +77,14 @@ def is_catalog_authority(service: str) -> bool:
     return service == CATALOG_SERVICE_KEY
 
 
-async def load_catalog_snapshot(app: FastAPI) -> list[ModuleRecord]:
+async def load_catalog_snapshot(app: FastAPI) -> ConcurrentStableList[ModuleRecord]:
     """取服务目录快照（platform 本地权威读；其余服务经契约）。
 
     Args:
         app: 应用实例（取服务身份 / 配置 / 引擎注册表 / 会话工厂）。
 
     Returns:
-        list[ModuleRecord]: 服务目录清单。
+        ConcurrentStableList[ModuleRecord]: 服务目录清单。
 
     Raises:
         CatalogError: 权威服务读取器未登记或本地读失败（平台库不可读 / 表缺失）。
@@ -103,7 +104,7 @@ async def load_catalog_snapshot(app: FastAPI) -> list[ModuleRecord]:
                 db_key=PLATFORM_DB_KEY,
                 factory=cast("SessionFactory", app.state.session_factory),
             ) as session:
-                return await reader(cast("AsyncSession", session))
+                return ConcurrentStableList(await reader(cast("AsyncSession", session)))
         except CatalogError:
             raise
         except Exception as exc:

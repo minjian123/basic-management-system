@@ -416,62 +416,6 @@
       "count": 1
     },
     {
-      "file": "backend/libs/bms_core/src/bms_core/catalog/base.py",
-      "line": ") -> list[ModuleRecord]:",
-      "container": "list",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/catalog/base.py",
-      "line": "def _payload_rows(response: ServiceResponse) -> Sequence[Mapping[str, object]]:",
-      "container": "Mapping",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/catalog/base.py",
-      "line": "def _payload_rows(response: ServiceResponse) -> Sequence[Mapping[str, object]]:",
-      "container": "Sequence",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/catalog/base.py",
-      "line": "def _to_record(row: Mapping[str, object]) -> ModuleRecord:",
-      "container": "Mapping",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/catalog/base.py",
-      "line": "rows: list[Mapping[str, object]] = []",
-      "container": "Mapping",
-      "position": "local",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/catalog/base.py",
-      "line": "rows: list[Mapping[str, object]] = []",
-      "container": "list",
-      "position": "local",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/catalog/loader.py",
-      "line": "_CATALOG_READERS: dict[str, CatalogReader] = {}",
-      "container": "dict",
-      "position": "local",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/catalog/loader.py",
-      "line": "async def load_catalog_snapshot(app: FastAPI) -> list[ModuleRecord]:",
-      "container": "list",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
       "file": "backend/libs/bms_core/src/bms_core/chat/base.py",
       "line": "async def list_messages(self, session_id: str) -> Sequence[ChatSessionMessage]:",
       "container": "Sequence",
@@ -700,48 +644,6 @@
       "line": "converted: list[tuple[object, object]] = []",
       "container": "list",
       "position": "local",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/dashboard/base.py",
-      "line": "async def fetch(self, card_key: str, params: Mapping[str, object]) -> Mapping[str, object]:",
-      "container": "Mapping",
-      "position": "signature_return",
-      "count": 2
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/dashboard/base.py",
-      "line": "async def fetch(self, params: Mapping[str, object]) -> Mapping[str, object]:",
-      "container": "Mapping",
-      "position": "signature_return",
-      "count": 2
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/dashboard/base.py",
-      "line": "def metadata(self) -> Mapping[str, object]:",
-      "container": "Mapping",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/dashboard/base.py",
-      "line": "def metadata(self, card_key: str) -> Mapping[str, object]:",
-      "container": "Mapping",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/dashboard/null.py",
-      "line": "async def fetch(self, card_key: str, params: Mapping[str, object]) -> Mapping[str, object]:",
-      "container": "Mapping",
-      "position": "signature_return",
-      "count": 2
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/dashboard/null.py",
-      "line": "def metadata(self, card_key: str) -> Mapping[str, object]:",
-      "container": "Mapping",
-      "position": "signature_return",
       "count": 1
     },
     {
@@ -2379,20 +2281,6 @@
       "file": "backend/libs/bms_core/tests/dashboard/test_dashboard.py",
       "line": ") -> dict[str, object]:",
       "container": "dict",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/tests/dashboard/test_dashboard.py",
-      "line": "async def fetch(self, params: Mapping[str, object]) -> Mapping[str, object]:",
-      "container": "Mapping",
-      "position": "signature_return",
-      "count": 2
-    },
-    {
-      "file": "backend/libs/bms_core/tests/dashboard/test_dashboard.py",
-      "line": "def metadata(self) -> Mapping[str, object]:",
-      "container": "Mapping",
       "position": "signature_return",
       "count": 1
     },
@@ -6003,21 +5891,7 @@
     },
     {
       "file": "backend/services/platform/tests/contracts/support.py",
-      "line": "async def fetch(self, params: Mapping[str, object]) -> Mapping[str, object]:",
-      "container": "Mapping",
-      "position": "signature_return",
-      "count": 2
-    },
-    {
-      "file": "backend/services/platform/tests/contracts/support.py",
       "line": "def build_snapshot() -> Mapping[str, Mapping[str, PluginImpl]]:",
-      "container": "Mapping",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "backend/services/platform/tests/contracts/support.py",
-      "line": "def metadata(self) -> Mapping[str, object]:",
       "container": "Mapping",
       "position": "signature_return",
       "count": 1
