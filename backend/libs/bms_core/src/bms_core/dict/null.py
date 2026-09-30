@@ -1,7 +1,5 @@
 """dict 能力域缺省实现（Null Object）：固定 / 批量占位数据、原样翻译与空缓存，不连库、不连 Redis。"""
 
-from collections.abc import Mapping
-
 from bms_core.core.capability import BaseNullObject
 from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.dict.base import (
@@ -136,16 +134,16 @@ class NullDictSource(BaseDictSource, BaseNullObject):
 class NullDictTranslator(BaseDictTranslator, BaseNullObject):
     """占位字典翻译：按 value 原样生成占位标签；不查缓存、不查库。"""
 
-    async def translate(self, query: DictTranslateQuery) -> Mapping[str, str]:
+    async def translate(self, query: DictTranslateQuery) -> ConcurrentStableDict[str, str]:
         """批量翻译（占位）。
 
         Args:
             query: 翻译参数。
 
         Returns:
-            Mapping[str, str]: value → 占位标签。
+            ConcurrentStableDict[str, str]: value → 占位标签。
         """
-        return {value: f"{_TRANSLATE_PREFIX}{query.dict_type}:{value}" for value in query.values}
+        return ConcurrentStableDict({value: f"{_TRANSLATE_PREFIX}{query.dict_type}:{value}" for value in query.values})
 
 
 class NullDictCacheRegion(DictCacheRegion, BaseNullObject):

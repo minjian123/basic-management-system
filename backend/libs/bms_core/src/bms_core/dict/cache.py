@@ -6,13 +6,14 @@
 - 两层键构成统一由 `DictCacheRegion`（`dict_key` / `value_key` / `version_key`）提供，实现不重拼 key。
 """
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from threading import Lock
 from time import monotonic
 from typing import cast
 
 from bms_core.cache.memory import MemoryCacheRegion
 from bms_core.cache.redis import RedisCacheRegion
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.dict.base import DICT_CACHE_DOMAIN, DictCacheRegion
 
 __all__ = ["MemoryDictCacheRegion", "RedisDictCacheRegion"]
@@ -34,8 +35,8 @@ class MemoryDictCacheRegion(DictCacheRegion):
             max_items: L1 条目上限（LRU；整类型与子集共享）。
         """
         self._memory = MemoryCacheRegion(domain=DICT_CACHE_DOMAIN, max_items=max_items)
-        self._versions: dict[str, int] = {}
-        self._locks: dict[str, tuple[str, float]] = {}
+        self._versions: ConcurrentStableDict[str, int] = ConcurrentStableDict()
+        self._locks: ConcurrentStableDict[str, tuple[str, float]] = ConcurrentStableDict()
         self._lock = Lock()
 
     def get(self, key: str) -> object | None:
@@ -89,7 +90,7 @@ class MemoryDictCacheRegion(DictCacheRegion):
         """
         with self._lock:
             version = self._versions.get(tenant or "", 0) + 1
-            self._versions[tenant or ""] = version
+            self._versions.set(tenant or "", version)
         self._memory.bump_version()
         return version
 
@@ -142,7 +143,7 @@ class MemoryDictCacheRegion(DictCacheRegion):
             current = self._locks.get(key)
             if current is not None and current[1] > now:
                 return False
-            self._locks[key] = (token, now + max(1, ttl))
+            self._locks.set(key, (token, now + max(1, ttl)))
             return True
 
     async def arelease_lock(
@@ -168,7 +169,7 @@ class MemoryDictCacheRegion(DictCacheRegion):
             current = self._locks.get(key)
             if current is None or current[0] != token:
                 return False
-            del self._locks[key]
+            self._locks.delete(key)
             return True
 
 
@@ -315,8 +316,8 @@ class RedisDictCacheRegion(DictCacheRegion):
         tenant: str | None,
         locale: str,
         dict_type: str,
-        values: Sequence[str],
-    ) -> Mapping[str, str]:
+        values: ConcurrentStableList[str],
+    ) -> ConcurrentStableDict[str, str]:
         """读按值子集缓存（L1 + Redis）。
 
         Args:
@@ -326,7 +327,7 @@ class RedisDictCacheRegion(DictCacheRegion):
             values: 待查 value 序列。
 
         Returns:
-            Mapping[str, str]: value → label（仅命中项）。
+            ConcurrentStableDict[str, str]: value → label（仅命中项）。
         """
         key = self.value_key(tenant, locale, dict_type)
         cached = self._l1.get(key)
@@ -335,12 +336,12 @@ class RedisDictCacheRegion(DictCacheRegion):
             if isinstance(cached, Mapping):
                 self._l1.set(key, cast("Mapping[str, object]", cached))
         if not isinstance(cached, Mapping):
-            return {}
+            return ConcurrentStableDict()
         payload = cast("Mapping[str, object]", cached)
-        result: dict[str, str] = {}
+        result: ConcurrentStableDict[str, str] = ConcurrentStableDict()
         for value in values:
             if value in payload:
-                result[value] = str(payload[value])
+                result.set(value, str(payload[value]))
         return result
 
     async def aset_value_subset(
@@ -348,7 +349,7 @@ class RedisDictCacheRegion(DictCacheRegion):
         tenant: str | None,
         locale: str,
         dict_type: str,
-        mapping: Mapping[str, str],
+        mapping: ConcurrentStableDict[str, str],
     ) -> None:
         """回填按值子集缓存（L1 + Redis 合并写）。
 
@@ -362,13 +363,14 @@ class RedisDictCacheRegion(DictCacheRegion):
         cached = self._l1.get(key)
         if not isinstance(cached, Mapping):
             cached = await self._redis.aget(key)
-        merged: dict[str, str] = {}
+        merged: ConcurrentStableDict[str, str] = ConcurrentStableDict()
         if isinstance(cached, Mapping):
             payload = cast("Mapping[str, object]", cached)
-            merged.update({str(item): str(label) for item, label in payload.items()})
-        merged.update({str(item): str(label) for item, label in mapping.items()})
-        self._l1.set(key, merged)
-        await self._redis.aset(key, merged)
+            merged.update((str(item), str(label)) for item, label in payload.items())
+        merged.update((str(item), str(label)) for item, label in mapping.items())
+        payload = dict(merged)
+        self._l1.set(key, payload)
+        await self._redis.aset(key, payload)
 
     async def aversion(self, tenant: str | None) -> int:
         """读指定租户版本号（Redis 版本键）。

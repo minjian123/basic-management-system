@@ -1,6 +1,6 @@
 """数据查询提供者基座契约测试（Kiwi 55）：契约 / 标识 / 结果契约 / 占位空结果 / 注册表模板 / 依赖解析。"""
 
-from collections.abc import Iterator, Mapping
+from collections.abc import Iterator
 from dataclasses import FrozenInstanceError
 from typing import Annotated
 
@@ -12,6 +12,7 @@ from support_app import ApplicationFactory, lifespan
 from bms_core.api.deps import get_query_provider_registry
 from bms_core.core.base import BaseObject
 from bms_core.core.capability import BaseCapability, BaseNullObject
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.config import get_settings
 from bms_core.core.exceptions import NotFoundError
 from bms_core.query.base import BaseQueryProvider, BaseQueryProviderRegistry, QueryResult
@@ -40,7 +41,7 @@ class _FakeProvider(BaseQueryProvider):
     def describe(self) -> str:
         return f"测试查询提供者 {self._key}"
 
-    async def query(self, params: Mapping[str, object]) -> QueryResult:
+    async def query(self, params: ConcurrentStableDict[str, object]) -> QueryResult:
         return QueryResult(rows=({"provider": self._key, "arg": params.get("x")},), total=1)
 
 
@@ -85,7 +86,7 @@ def test_query_result_defaults_and_frozen() -> None:
 @pytest.mark.kiwi_id(55)
 async def test_null_query_provider_empty() -> None:
     """占位提供者恒定返回空结果。"""
-    result = await NullQueryProvider().query({"x": 1})
+    result = await NullQueryProvider().query(ConcurrentStableDict({"x": 1}))
     assert result == QueryResult(rows=(), total=0)
 
 
@@ -97,7 +98,7 @@ async def test_null_registry_fixed() -> None:
     registry.register(provider)
     assert registry.get("p1") is provider
     assert registry.keys() == ("p1",)
-    assert await registry.query("p1", {}) == QueryResult(rows=(), total=0)
+    assert await registry.query("p1", ConcurrentStableDict()) == QueryResult(rows=(), total=0)
 
 
 @pytest.mark.kiwi_id(55)
@@ -108,11 +109,11 @@ async def test_registry_template_resolution() -> None:
     registry.register(_FakeProvider("p2"))
 
     assert registry.keys() == ("p1", "p2")
-    result = await registry.query("p2", {"x": 7})
+    result = await registry.query("p2", ConcurrentStableDict({"x": 7}))
     assert result == QueryResult(rows=({"provider": "p2", "arg": 7},), total=1)
 
     with pytest.raises(NotFoundError):
-        await registry.query("missing", {})
+        await registry.query("missing", ConcurrentStableDict())
 
 
 @pytest.mark.kiwi_id(55)
@@ -126,7 +127,7 @@ async def test_dependency_provider_resolves() -> None:
         async def probe(  # pyright: ignore[reportUnusedFunction]
             registry: Annotated[BaseQueryProviderRegistry, Depends(get_query_provider_registry)],
         ) -> dict[str, object]:
-            result = await registry.query("any", {})
+            result = await registry.query("any", ConcurrentStableDict())
             return {"key": registry.key, "type": type(registry).__name__, "total": result.total}
 
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:

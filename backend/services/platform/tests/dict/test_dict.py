@@ -1,6 +1,6 @@
 """字典取数与缓存契约基座测试（Kiwi 844）：三契约 / 常量与数据契约 / 空实现 / 缓存 / 错误码 / 依赖解析 / 占位路由。"""
 
-from collections.abc import Iterator, Mapping
+from collections.abc import Iterator
 from types import SimpleNamespace
 from typing import cast
 
@@ -12,6 +12,7 @@ from bms_core.api.deps import get_dict_cache_region, get_dict_source, get_dict_t
 from bms_core.application import service_lifespan as lifespan
 from bms_core.cache.base import CacheRegion
 from bms_core.core.capability import BaseCapability, BaseNullObject
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.config import get_settings
 from bms_core.core.error_codes import ErrorCode
 from bms_core.core.plugin import BasePluggable, resolve_plugin
@@ -81,8 +82,8 @@ class _InMemoryDictSource(BaseDictSource):
 class _InMemoryDictTranslator(BaseDictTranslator):
     """测试用内存字典翻译。"""
 
-    async def translate(self, query: DictTranslateQuery) -> Mapping[str, str]:
-        return {value: f"{query.locale}:{query.dict_type}:{value}" for value in query.values}
+    async def translate(self, query: DictTranslateQuery) -> ConcurrentStableDict[str, str]:
+        return ConcurrentStableDict({value: f"{query.locale}:{query.dict_type}:{value}" for value in query.values})
 
 
 @pytest.mark.kiwi_id(844)

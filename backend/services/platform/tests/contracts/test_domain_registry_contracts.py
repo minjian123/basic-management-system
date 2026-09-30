@@ -5,6 +5,7 @@ from typing import cast
 
 import pytest
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.exceptions import ConflictError, NotFoundError
 from bms_core.core.plugin import resolve_plugin
 from bms_core.core.provider import BaseProvider, BaseProviderRegistry
@@ -93,7 +94,7 @@ def test_null_fieldtype_semantics() -> None:
 async def test_null_query_semantics() -> None:
     """Null 查询聚合：恒空结果。"""
     registry = NullQueryProviderRegistry()
-    result = await registry.query("missing", {})
+    result = await registry.query("missing", ConcurrentStableDict())
     assert result.rows == ()
     assert result.total == 0
 
@@ -139,10 +140,10 @@ async def test_memory_query_aggregation_not_found() -> None:
     """内存查询注册表：命中委托、未命中转 NotFoundError。"""
     registry = MemoryQueryProviderRegistry()
     registry.register(DictQueryProvider())
-    result = await registry.query("dict:user", {})
+    result = await registry.query("dict:user", ConcurrentStableDict())
     assert result.total == 0
     with pytest.raises(NotFoundError, match="查询提供者不存在"):
-        await registry.query("missing", {})
+        await registry.query("missing", ConcurrentStableDict())
 
 
 def test_memory_dashboard_aggregation_not_found() -> None:

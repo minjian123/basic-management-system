@@ -17,7 +17,7 @@ from pydantic import Field
 from sqlalchemy import ColumnElement, Integer, Numeric, and_, func, not_, or_, select, true
 from sqlalchemy import cast as sa_cast
 
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.exceptions import ParamError
 from bms_core.core.objects import BaseFrameworkObject
 from bms_core.db.registry import EngineRegistry
@@ -54,25 +54,29 @@ DICT_ADV_PAGE_SIZE_MAX = 100
 DICT_ADV_FIXED_FIELDS: tuple[str, ...] = ("value", "label", "code", "sort", "status")
 """固定可查字段（除扩展属性外）。"""
 
-DICT_FIXED_FIELD_TYPES: Mapping[str, str] = {
-    "value": "text",
-    "label": "text",
-    "code": "text",
-    "sort": "number",
-    "status": "enum",
-}
+DICT_FIXED_FIELD_TYPES: ConcurrentStableDict[str, str] = ConcurrentStableDict(
+    {
+        "value": "text",
+        "label": "text",
+        "code": "text",
+        "sort": "number",
+        "status": "enum",
+    }
+)
 """固定字段数据类型。"""
 
-DICT_OPERATORS_BY_TYPE: Mapping[str, tuple[str, ...]] = {
-    "text": ("eq", "ne", "contains", "not_contains", "starts_with", "is_null", "not_null", "in", "not_in"),
-    "number": ("eq", "ne", "gt", "lt", "between", "is_null", "not_null", "in", "not_in"),
-    "date": ("eq", "ne", "gt", "lt", "between", "is_null", "not_null"),
-    "enum": ("eq", "ne", "in", "not_in", "is_null", "not_null"),
-    "bool": ("eq", "ne", "is_null", "not_null"),
-}
+DICT_OPERATORS_BY_TYPE: ConcurrentStableDict[str, tuple[str, ...]] = ConcurrentStableDict(
+    {
+        "text": ("eq", "ne", "contains", "not_contains", "starts_with", "is_null", "not_null", "in", "not_in"),
+        "number": ("eq", "ne", "gt", "lt", "between", "is_null", "not_null", "in", "not_in"),
+        "date": ("eq", "ne", "gt", "lt", "between", "is_null", "not_null"),
+        "enum": ("eq", "ne", "in", "not_in", "is_null", "not_null"),
+        "bool": ("eq", "ne", "is_null", "not_null"),
+    }
+)
 """按数据类型派生的可用操作符（属性未声明 operators 时的缺省）。"""
 
-_ALL_OPERATORS: frozenset[str] = frozenset(
+_ALL_OPERATORS: ConcurrentStableSet[str] = ConcurrentStableSet(
     {
         "eq",
         "ne",
@@ -200,11 +204,11 @@ class DictQueryService(BaseFrameworkObject):
                 .order_by(SysDictAttr.sort, SysDictAttr.id)
             )
             rows = (await session.execute(stmt)).all()
-        result: list[DictAttrInfo] = []
+        result: ConcurrentStableList[DictAttrInfo] = ConcurrentStableList()
         for attr, i18n_name in rows:
             operators = tuple(attr.operators) if attr.operators else DICT_OPERATORS_BY_TYPE.get(attr.data_type, ())
             options = tuple(attr.options) if attr.options else ()
-            result.append(
+            result.add(
                 DictAttrInfo(
                     attr_key=attr.attr_key,
                     name=str(i18n_name or attr.name),
@@ -244,10 +248,12 @@ class DictQueryService(BaseFrameworkObject):
             if registry is None:
                 raise ParamError("查询提供者注册表未就绪")
             key = payload.provider or "builtin"
-            params = dict(payload.params or {})
-            params.setdefault("dict_type", dict_type)
-            params["page"] = page
-            params["size"] = size
+            params: ConcurrentStableDict[str, object] = (
+                ConcurrentStableDict(payload.params) if payload.params is not None else ConcurrentStableDict()
+            )
+            params.put_if_absent("dict_type", dict_type)
+            params.set("page", page)
+            params.set("size", size)
             result = await registry.query(key, params)
             return DictAdvQueryResult(
                 rows=tuple(ConcurrentStableDict(row) for row in result.rows),
@@ -256,19 +262,23 @@ class DictQueryService(BaseFrameworkObject):
                 size=size,
             )
         locale = current_dict_locale.get() or DEFAULT_LOCALE
-        attrs = {info.attr_key: info for info in await self.load_attrs(dict_type, locale)}
+        attrs: ConcurrentStableDict[str, DictAttrInfo] = ConcurrentStableDict(
+            {info.attr_key: info for info in await self.load_attrs(dict_type, locale)}
+        )
         async with self._session() as session:
             type_row = await _load_type(session, dict_type)
             if type_row is None:
                 return DictAdvQueryResult(page=page, size=size)
             dialect = _dialect_name(session)
-            conditions: list[ColumnElement[bool]] = [
-                SysDictItem.type_id == type_row.id,
-                SysDictItem.status == "enabled",
-                SysDictItem.deleted_at.is_(None),
-            ]
+            conditions: ConcurrentStableList[ColumnElement[bool]] = ConcurrentStableList(
+                [
+                    SysDictItem.type_id == type_row.id,
+                    SysDictItem.status == "enabled",
+                    SysDictItem.deleted_at.is_(None),
+                ]
+            )
             if payload.conditions is not None:
-                conditions.append(_build_conditions(payload.conditions, attrs, dialect))
+                conditions.add(_build_conditions(payload.conditions, attrs, dialect))
             total = int(
                 (await session.execute(select(func.count()).select_from(SysDictItem).where(*conditions))).scalar_one()
             )
@@ -342,8 +352,8 @@ def _dialect_name(session: DbSession) -> str:
 
 
 def _build_conditions(
-    group: Mapping[str, object],
-    attrs: Mapping[str, DictAttrInfo],
+    group: ConcurrentStableDict[str, object],
+    attrs: ConcurrentStableDict[str, DictAttrInfo],
     dialect: str,
 ) -> ColumnElement[bool]:
     """把条件组递归构建为 SQL 条件（白名单 + 参数绑定；深度 ≤ 2）。
@@ -363,8 +373,8 @@ def _build_conditions(
 
 
 def _build_group(
-    group: Mapping[str, object],
-    attrs: Mapping[str, DictAttrInfo],
+    group: ConcurrentStableDict[str, object],
+    attrs: ConcurrentStableDict[str, DictAttrInfo],
     dialect: str,
     *,
     depth: int,
@@ -394,21 +404,21 @@ def _build_group(
     raw_children = cast("list[object]", children)
     if len(raw_children) == 0:
         return true()
-    parts: list[ColumnElement[bool]] = []
+    parts: ConcurrentStableList[ColumnElement[bool]] = ConcurrentStableList()
     for child in raw_children:
         if not isinstance(child, Mapping):
             raise ParamError("条件项结构非法")
-        item = cast("Mapping[str, object]", child)
+        item = ConcurrentStableDict(cast("Mapping[str, object]", child))
         if "children" in item:
-            parts.append(_build_group(item, attrs, dialect, depth=depth + 1))
+            parts.add(_build_group(item, attrs, dialect, depth=depth + 1))
         else:
-            parts.append(_build_item(item, attrs, dialect))
+            parts.add(_build_item(item, attrs, dialect))
     return or_(*parts) if logic == "OR" else and_(*parts)
 
 
 def _build_item(
-    item: Mapping[str, object],
-    attrs: Mapping[str, DictAttrInfo],
+    item: ConcurrentStableDict[str, object],
+    attrs: ConcurrentStableDict[str, DictAttrInfo],
     dialect: str,
 ) -> ColumnElement[bool]:
     """构建单个条件项（字段 / 操作符白名单 + 值绑定）。
@@ -438,7 +448,7 @@ def _build_item(
 
 def _field_expression(
     field: str,
-    attrs: Mapping[str, DictAttrInfo],
+    attrs: ConcurrentStableDict[str, DictAttrInfo],
     dialect: str,
 ) -> tuple[ColumnElement[Any], str]:
     """解析字段 → SQL 表达式与数据类型。
@@ -515,7 +525,8 @@ def _apply_operator(
         return expression.is_not(None)
     if operator in ("in", "not_in"):
         values = _as_list(value)
-        return expression.in_(values) if operator == "in" else expression.not_in(values)
+        members = list(values)
+        return expression.in_(members) if operator == "in" else expression.not_in(members)
     if operator in ("contains", "not_contains", "starts_with"):
         text = _as_text(value)
         pattern = f"%{text}%" if operator != "starts_with" else f"{text}%"
@@ -576,14 +587,14 @@ def _normalize_scalar(value: object, data_type: str, dialect: str) -> object:
     return value
 
 
-def _as_list(value: object) -> list[object]:
+def _as_list(value: object) -> ConcurrentStableList[object]:
     """条件值 → 列表（单值包成单元素）。
 
     Args:
         value: 条件值。
 
     Returns:
-        list[object]: 列表。
+        ConcurrentStableList[object]: 列表。
 
     Raises:
         ParamError: 值为空。
@@ -592,10 +603,10 @@ def _as_list(value: object) -> list[object]:
         items = cast("list[object]", value)
         if not items:
             raise ParamError("in / not_in 需要至少一个值")
-        return items
+        return ConcurrentStableList(items)
     if value is None:
         raise ParamError("in / not_in 需要至少一个值")
-    return [value]
+    return ConcurrentStableList([value])
 
 
 def _as_pair(value: object) -> tuple[object, object]:

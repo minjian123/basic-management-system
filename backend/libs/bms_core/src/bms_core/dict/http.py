@@ -16,11 +16,11 @@
 - **不含**：字典 / 查询方案的**真实数据、写路径与缓存实现迁出**（归阶段八）——本模块只落跨服务读出口。
 """
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from typing import cast
 from urllib.parse import quote
 
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.context import get_current_tenant
 from bms_core.core.exceptions import ServiceUnavailableError
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION
@@ -82,19 +82,19 @@ def dict_type_path(dict_type: str) -> str:
     return DICT_TYPE_PATH.format(dict_type=quote(dict_type, safe=""))
 
 
-def _headers(locale: str) -> dict[str, str]:
+def _headers(locale: str) -> ConcurrentStableDict[str, str]:
     """构造调用头（语言 + 租户上下文透传）。
 
     Args:
         locale: 语言标识。
 
     Returns:
-        dict[str, str]: 请求头。
+        ConcurrentStableDict[str, str]: 请求头。
     """
-    headers = {ACCEPT_LANGUAGE_HEADER: locale}
+    headers: ConcurrentStableDict[str, str] = ConcurrentStableDict({ACCEPT_LANGUAGE_HEADER: locale})
     tenant = get_current_tenant()
     if tenant:
-        headers[TENANT_ID_HEADER] = tenant
+        headers.set(TENANT_ID_HEADER, tenant)
     return headers
 
 
@@ -115,7 +115,7 @@ async def _fetch_type(
     version: int | None = None,
     keyword: str | None = None,
     parent_id: str | None = None,
-    values: Sequence[str] | None = None,
+    values: ConcurrentStableList[str] | None = None,
     limit: int | None = None,
 ) -> DictTypeResult | None:
     """取单类型字典（契约调用 + 降级；失败返回 None 由调用方处置）。
@@ -133,17 +133,17 @@ async def _fetch_type(
     Returns:
         DictTypeResult | None: 取数结果；调用失败 / 响应非法返回 None。
     """
-    query: dict[str, str] = {}
+    query: ConcurrentStableDict[str, str] = ConcurrentStableDict()
     if version is not None:
-        query["version"] = str(version)
+        query.set("version", str(version))
     if keyword:
-        query["keyword"] = keyword
+        query.set("keyword", keyword)
     if parent_id is not None:
-        query["parent_id"] = parent_id
+        query.set("parent_id", parent_id)
     if values is not None:
-        query["values"] = ",".join(values)
+        query.set("values", ",".join(values))
     if limit is not None:
-        query["limit"] = str(limit)
+        query.set("limit", str(limit))
     request = ServiceRequest(
         service=DICT_SERVICE_KEY,
         method="GET",
@@ -155,7 +155,7 @@ async def _fetch_type(
     return None if data is None else _to_type_result(data)
 
 
-async def _call(client: BaseServiceClient, request: ServiceRequest) -> Mapping[str, object] | None:
+async def _call(client: BaseServiceClient, request: ServiceRequest) -> ConcurrentStableDict[str, object] | None:
     """发起契约调用并取统一响应的 `data` 对象（不可达 / 非 2xx / 非法响应 → None）。
 
     Args:
@@ -163,7 +163,7 @@ async def _call(client: BaseServiceClient, request: ServiceRequest) -> Mapping[s
         request: 调用请求。
 
     Returns:
-        Mapping[str, object] | None: 响应 `data` 对象；降级返回 None。
+        ConcurrentStableDict[str, object] | None: 响应 `data` 对象；降级返回 None。
     """
     try:
         response = await client.call(request)
@@ -175,10 +175,10 @@ async def _call(client: BaseServiceClient, request: ServiceRequest) -> Mapping[s
     if not isinstance(payload, Mapping):
         return None
     data = cast("Mapping[str, object]", payload).get("data")
-    return cast("Mapping[str, object]", data) if isinstance(data, Mapping) else None
+    return ConcurrentStableDict(cast("Mapping[str, object]", data)) if isinstance(data, Mapping) else None
 
 
-def _to_type_result(data: Mapping[str, object]) -> DictTypeResult:
+def _to_type_result(data: ConcurrentStableDict[str, object]) -> DictTypeResult:
     """响应 `data` → `DictTypeResult`（缺失字段按契约缺省）。
 
     Args:
@@ -191,7 +191,7 @@ def _to_type_result(data: Mapping[str, object]) -> DictTypeResult:
     items: tuple[DictItem, ...] | None = None
     if isinstance(raw_items, list):
         items = tuple(
-            _to_item(cast("Mapping[str, object]", item))
+            _to_item(ConcurrentStableDict(cast("Mapping[str, object]", item)))
             for item in cast("list[object]", raw_items)
             if isinstance(item, Mapping)
         )
@@ -203,7 +203,7 @@ def _to_type_result(data: Mapping[str, object]) -> DictTypeResult:
     )
 
 
-def _to_item(row: Mapping[str, object]) -> DictItem:
+def _to_item(row: ConcurrentStableDict[str, object]) -> DictItem:
     """响应行 → `DictItem`。
 
     Args:
@@ -282,7 +282,7 @@ class HttpDictSource(BaseDictSource):
             version=query.version,
             keyword=query.keyword,
             parent_id=query.parent_id,
-            values=query.values,
+            values=None if query.values is None else ConcurrentStableList(query.values),
             limit=query.limit,
         )
         return _empty_result() if result is None else result
@@ -296,17 +296,19 @@ class HttpDictSource(BaseDictSource):
         Returns:
             DictBatchResult: 批量结果；平台侧不可达时各类型返回空结果（降级）。
         """
-        body: dict[str, object] = {
-            "types": list(query.types),
-            "version": query.version,
-            "locale": query.locale,
-        }
+        body: ConcurrentStableDict[str, object] = ConcurrentStableDict(
+            {
+                "types": list(query.types),
+                "version": query.version,
+                "locale": query.locale,
+            }
+        )
         request = ServiceRequest(
             service=DICT_SERVICE_KEY,
             method="POST",
             path=DICT_BATCH_PATH,
             headers=_headers(query.locale),
-            json_body=body,
+            json_body=dict(body),
         )
         data = await _call(self._client, request)
         if data is None:
@@ -314,16 +316,16 @@ class HttpDictSource(BaseDictSource):
                 version=0, items=ConcurrentStableDict({name: _empty_result() for name in query.types})
             )
         raw_items = data.get("items")
-        items: dict[str, DictTypeResult | None] = {}
+        items: ConcurrentStableDict[str, DictTypeResult | None] = ConcurrentStableDict()
         if isinstance(raw_items, Mapping):
             for name, value in cast("Mapping[str, object]", raw_items).items():
                 if value is None:
-                    items[str(name)] = None
+                    items.set(str(name), None)
                 elif isinstance(value, Mapping):
-                    items[str(name)] = _to_type_result(cast("Mapping[str, object]", value))
+                    items.set(str(name), _to_type_result(ConcurrentStableDict(cast("Mapping[str, object]", value))))
         for name in query.types:
-            items.setdefault(name, _empty_result())
-        return DictBatchResult(version=_as_int(data.get("version")), items=ConcurrentStableDict(items))
+            items.put_if_absent(name, _empty_result())
+        return DictBatchResult(version=_as_int(data.get("version")), items=items)
 
 
 class HttpDictTranslator(BaseDictTranslator):
@@ -342,24 +344,25 @@ class HttpDictTranslator(BaseDictTranslator):
         self._client = client
         self._cache = cache
 
-    async def translate(self, query: DictTranslateQuery) -> Mapping[str, str]:
+    async def translate(self, query: DictTranslateQuery) -> ConcurrentStableDict[str, str]:
         """按 value 批量翻译为 label（未命中回退原值；平台侧不可达同样回退原值）。
 
         Args:
             query: 翻译参数对象。
 
         Returns:
-            Mapping[str, str]: value → label（未命中项映射为原值）。
+            ConcurrentStableDict[str, str]: value → label（未命中项映射为原值）。
         """
-        mapping: dict[str, str] = {value: value for value in query.values}
-        pending: list[str] = list(query.values)
+        mapping: ConcurrentStableDict[str, str] = ConcurrentStableDict({value: value for value in query.values})
+        pending: ConcurrentStableList[str] = ConcurrentStableList(query.values)
         tenant = get_current_tenant()
         if self._cache is not None and pending:
             cached = await self._cache.avalue_subset(tenant, query.locale, query.dict_type, pending)
             if cached:
-                mapping.update({value: label for value, label in cached.items()})
-                pending = [value for value in pending if value not in cached]
-        fresh: dict[str, str] = {}
+                for value, label in cached.items():
+                    mapping.set(value, label)
+                pending = ConcurrentStableList(value for value in pending if value not in cached)
+        fresh: ConcurrentStableDict[str, str] = ConcurrentStableDict()
         for chunk in _chunks(pending, TRANSLATE_VALUES_CHUNK):
             result = await _fetch_type(
                 self._client,
@@ -371,14 +374,14 @@ class HttpDictTranslator(BaseDictTranslator):
                 continue
             for item in result.items:
                 if item.value in mapping:
-                    fresh[item.value] = item.label
-        mapping.update(fresh)
+                    fresh.set(item.value, item.label)
+        mapping.update(fresh.items())
         if self._cache is not None and fresh:
             await self._cache.aset_value_subset(tenant, query.locale, query.dict_type, fresh)
         return mapping
 
 
-def _chunks(values: Sequence[str], size: int) -> list[tuple[str, ...]]:
+def _chunks(values: ConcurrentStableList[str], size: int) -> ConcurrentStableList[ConcurrentStableList[str]]:
     """按批大小切分 value 序列（空序列返回空列表）。
 
     Args:
@@ -386,8 +389,8 @@ def _chunks(values: Sequence[str], size: int) -> list[tuple[str, ...]]:
         size: 单批上限。
 
     Returns:
-        list[tuple[str, ...]]: 分批结果。
+        ConcurrentStableList[ConcurrentStableList[str]]: 分批结果。
     """
     if size <= 0 or not values:
-        return []
-    return [tuple(values[index : index + size]) for index in range(0, len(values), size)]
+        return ConcurrentStableList()
+    return ConcurrentStableList(values[index : index + size] for index in range(0, len(values), size))

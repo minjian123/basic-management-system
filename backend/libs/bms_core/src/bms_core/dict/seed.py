@@ -5,13 +5,12 @@
   真实平台种子随字典模块阶段（阶段八）扩展。
 """
 
-from collections.abc import Sequence
 from dataclasses import dataclass, field
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.objects import BaseI18nSeedContract, BaseValueObject
 from bms_core.dict.models import SysDictAttr, SysDictItem, SysDictItemI18n, SysDictType, SysDictTypeI18n
 
@@ -58,20 +57,32 @@ SEED_TYPES: tuple[SeedType, ...] = (
         type="user_status",
         name="用户状态",
         sort=1,
-        i18n={"en-US": "User status"},
+        i18n=ConcurrentStableDict({"en-US": "User status"}),
         items=(
-            SeedItem(code="enabled", value="enabled", label="启用", color="success", i18n={"en-US": "Enabled"}),
-            SeedItem(code="disabled", value="disabled", label="停用", color="danger", i18n={"en-US": "Disabled"}),
+            SeedItem(
+                code="enabled",
+                value="enabled",
+                label="启用",
+                color="success",
+                i18n=ConcurrentStableDict({"en-US": "Enabled"}),
+            ),
+            SeedItem(
+                code="disabled",
+                value="disabled",
+                label="停用",
+                color="danger",
+                i18n=ConcurrentStableDict({"en-US": "Disabled"}),
+            ),
         ),
     ),
     SeedType(
         type="user_gender",
         name="性别",
         sort=2,
-        i18n={"en-US": "Gender"},
+        i18n=ConcurrentStableDict({"en-US": "Gender"}),
         items=(
-            SeedItem(code="male", value="male", label="男", i18n={"en-US": "Male"}),
-            SeedItem(code="female", value="female", label="女", i18n={"en-US": "Female"}),
+            SeedItem(code="male", value="male", label="男", i18n=ConcurrentStableDict({"en-US": "Male"})),
+            SeedItem(code="female", value="female", label="女", i18n=ConcurrentStableDict({"en-US": "Female"})),
             SeedItem(code="unknown", value="unknown", label="未知"),
         ),
     ),
@@ -79,7 +90,7 @@ SEED_TYPES: tuple[SeedType, ...] = (
         type="biz_type",
         name="业务类型",
         sort=3,
-        i18n={"en-US": "Business type"},
+        i18n=ConcurrentStableDict({"en-US": "Business type"}),
         items=(
             SeedItem(code="purchase", value="purchase", label="采购", color="primary"),
             SeedItem(code="sales", value="sales", label="销售", color="success"),
@@ -91,7 +102,7 @@ SEED_TYPES: tuple[SeedType, ...] = (
         type="region",
         name="行政区划",
         sort=4,
-        i18n={"en-US": "Region"},
+        i18n=ConcurrentStableDict({"en-US": "Region"}),
         items=(
             SeedItem(code="zj", value="zj", label="浙江省"),
             SeedItem(code="hz", value="hz", label="杭州市", parent_value="zj"),
@@ -120,8 +131,8 @@ async def seed_dicts(session: AsyncSession) -> int:
             await session.flush()
             created += 1
         created += await _seed_type_i18n(session, type_row, seed)
-        created += await _seed_items(session, type_row, seed.items)
-        created += await _seed_attrs(session, type_row, seed.attrs)
+        created += await _seed_items(session, type_row, ConcurrentStableList(seed.items))
+        created += await _seed_attrs(session, type_row, ConcurrentStableList(seed.attrs))
     await session.commit()
     return created
 
@@ -165,7 +176,7 @@ async def _seed_type_i18n(session: AsyncSession, type_row: SysDictType, seed: Se
     return created
 
 
-async def _seed_items(session: AsyncSession, type_row: SysDictType, items: Sequence[SeedItem]) -> int:
+async def _seed_items(session: AsyncSession, type_row: SysDictType, items: ConcurrentStableList[SeedItem]) -> int:
     """写入条目与条目 i18n（幂等）。
 
     Args:
@@ -211,7 +222,7 @@ async def _seed_items(session: AsyncSession, type_row: SysDictType, items: Seque
     return created
 
 
-async def _seed_attrs(session: AsyncSession, type_row: SysDictType, attrs: Sequence[SeedAttr]) -> int:
+async def _seed_attrs(session: AsyncSession, type_row: SysDictType, attrs: ConcurrentStableList[SeedAttr]) -> int:
     """写入扩展属性（幂等）。
 
     Args:

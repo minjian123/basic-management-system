@@ -11,7 +11,6 @@
 """
 
 from abc import ABC, abstractmethod
-from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import cast
 
@@ -47,7 +46,7 @@ class BaseQueryProvider(BaseProvider, ABC):
     """查询提供者契约：`key` + 只读查询。"""
 
     @abstractmethod
-    async def query(self, params: Mapping[str, object]) -> QueryResult:
+    async def query(self, params: ConcurrentStableDict[str, object]) -> QueryResult:
         """执行只读查询（**只读数据源约束**：数据集白名单 / 只读从库由实现保证）。
 
         Args:
@@ -66,7 +65,7 @@ class BaseQueryProviderRegistry(BaseProviderRegistry[BaseQueryProvider], ABC):
     plugin_name: str = NULL_PLUGIN_NAME
     contract_version: str = DEFAULT_CONTRACT_VERSION
 
-    async def query(self, key: str, params: Mapping[str, object]) -> QueryResult:
+    async def query(self, key: str, params: ConcurrentStableDict[str, object]) -> QueryResult:
         """聚合查询（模板方法：解析提供者 → 委托）。
 
         Args:
