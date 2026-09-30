@@ -18,7 +18,6 @@
 """
 
 from abc import ABC, abstractmethod
-from collections.abc import Sequence
 from datetime import datetime
 from typing import Annotated, cast
 
@@ -169,11 +168,11 @@ class BaseGlobalSearch(BasePluggable, ABC):
     contract_version: str = DEFAULT_CONTRACT_VERSION
 
     @abstractmethod
-    async def domains(self) -> Sequence[str]:
+    async def domains(self) -> ConcurrentStableList[str]:
         """当前用户可检索域（权限并集；无权限域不返回）。
 
         Returns:
-            Sequence[str]: 可检索域标识（占位空集）。
+            ConcurrentStableList[str]: 可检索域标识（占位空列表）。
         """
 
     @abstractmethod
@@ -181,7 +180,7 @@ class BaseGlobalSearch(BasePluggable, ABC):
         self,
         q: str,
         *,
-        types: Sequence[str] | None = None,
+        types: ConcurrentStableList[str] | None = None,
         page: int = 1,
         size: int = DEFAULT_GLOBAL_SEARCH_SIZE,
     ) -> GlobalSearchResult:

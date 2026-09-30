@@ -12,12 +12,12 @@
 """
 
 from abc import ABC, abstractmethod
-from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import cast
 
 from fastapi import Request
 
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.core.objects import BaseLlmResultContract, BaseValueObject
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
@@ -112,7 +112,7 @@ class BaseLlmProvider(BasePluggable, ABC):
     @abstractmethod
     async def chat(
         self,
-        messages: Sequence[ChatMessage],
+        messages: ConcurrentStableList[ChatMessage],
         *,
         provider_key: str | None = None,
         model: str | None = None,
@@ -131,7 +131,7 @@ class BaseLlmProvider(BasePluggable, ABC):
     @abstractmethod
     async def embedding(
         self,
-        texts: Sequence[str],
+        texts: ConcurrentStableList[str],
         *,
         provider_key: str | None = None,
         model: str | None = None,

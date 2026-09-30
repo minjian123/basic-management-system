@@ -12,6 +12,7 @@ from fastapi import Depends, Query
 
 from bms_core.api.base import BaseRouter, require_auth
 from bms_core.api.deps import get_audit_search, get_file_content_search, get_global_search
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.globalsearch.base import (
     DEFAULT_GLOBAL_SEARCH_SIZE,
     BaseAuditSearch,
@@ -52,7 +53,9 @@ async def global_search(
     Returns:
         ApiResponse: 统一响应，data 为多域分组结果（含降级字段）。
     """
-    return ApiResponse.ok(await service.search(q, types=types, page=page, size=size))
+    return ApiResponse.ok(
+        await service.search(q, types=ConcurrentStableList(types) if types is not None else None, page=page, size=size)
+    )
 
 
 @router.get("/logs")

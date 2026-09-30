@@ -11,6 +11,7 @@ import pytest
 from joserfc import jwt as joserfc_jwt
 from joserfc.jwk import RSAKey
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.config import Settings
 from bms_core.core.exceptions import PluginError
 from bms_core.edge.headers import (
@@ -63,13 +64,15 @@ def test_service_jwt_trusts_valid_token_and_parses_identity() -> None:
     issuer, _ = _issuer()
     guard = ServiceJwtEdgeTrust(issuer=issuer)
     decision = guard.evaluate(
-        {
-            "Authorization": f"Bearer {_issue(issuer)}",
-            USER_ID_HEADER: "42",
-            USER_SUBJECT_HEADER: "u-1",
-            USER_SCOPES_HEADER: "user:read, user:write,, ",
-            TENANT_ID_HEADER: "acme",
-        }
+        ConcurrentStableDict(
+            {
+                "Authorization": f"Bearer {_issue(issuer)}",
+                USER_ID_HEADER: "42",
+                USER_SUBJECT_HEADER: "u-1",
+                USER_SCOPES_HEADER: "user:read, user:write,, ",
+                TENANT_ID_HEADER: "acme",
+            }
+        )
     )
     assert decision.allowed is True
     identity = decision.identity
@@ -87,7 +90,7 @@ def test_service_jwt_falls_back_to_token_tenant_claim() -> None:
     """身份头无租户时回落服务 JWT 的 `tenant_id` claim（雪花 id 字符串）。"""
     issuer, _ = _issuer()
     guard = ServiceJwtEdgeTrust(issuer=issuer)
-    decision = guard.evaluate({"Authorization": f"Bearer {_issue(issuer, tenant_id='2002')}"})
+    decision = guard.evaluate(ConcurrentStableDict({"Authorization": f"Bearer {_issue(issuer, tenant_id='2002')}"}))
     assert decision.allowed is True
     assert decision.identity is not None
     assert decision.identity.tenant_id == "2002"
@@ -97,13 +100,13 @@ def test_service_jwt_falls_back_to_token_tenant_claim() -> None:
 @pytest.mark.parametrize(
     "headers",
     [
-        {},
-        {"Authorization": "Bearer "},
-        {"Authorization": "Basic abc"},
-        {"Authorization": "Bearer not.a.jwt"},
+        ConcurrentStableDict(),
+        ConcurrentStableDict({"Authorization": "Bearer "}),
+        ConcurrentStableDict({"Authorization": "Basic abc"}),
+        ConcurrentStableDict({"Authorization": "Bearer not.a.jwt"}),
     ],
 )
-def test_service_jwt_rejects_missing_or_invalid(headers: dict[str, str]) -> None:
+def test_service_jwt_rejects_missing_or_invalid(headers: ConcurrentStableDict[str, str]) -> None:
     """缺失 / 非 Bearer / 非法令牌 → 不信任、无身份（不抛错）。"""
     issuer, _ = _issuer()
     decision = ServiceJwtEdgeTrust(issuer=issuer).evaluate(headers)
@@ -119,7 +122,9 @@ def test_service_jwt_rejects_user_audience_token() -> None:
         {"iss": "bms", "sub": "user-1", "aud": TOKEN_AUDIENCE_API, "exp": 4102444800},
         key,
     )
-    decision = ServiceJwtEdgeTrust(issuer=issuer).evaluate({"Authorization": f"Bearer {user_token}"})
+    decision = ServiceJwtEdgeTrust(issuer=issuer).evaluate(
+        ConcurrentStableDict({"Authorization": f"Bearer {user_token}"})
+    )
     assert decision.allowed is False
     assert decision.identity is None
 

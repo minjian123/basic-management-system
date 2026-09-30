@@ -1,13 +1,12 @@
 """组织主数据查询基座测试（Kiwi 843）：两契约 / 常量与数据契约 / 空实现 / 错误码 / 依赖解析 / 占位路由。"""
 
-from collections.abc import Sequence
-
 import pytest
 from httpx import ASGITransport, AsyncClient
 
 from bms_core.api.deps import get_org_data_source, get_org_name_resolver
 from bms_core.application import service_lifespan as lifespan
 from bms_core.core.capability import BaseCapability, BaseNullObject
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.error_codes import ErrorCode
 from bms_core.core.plugin import BasePluggable, resolve_plugin
 from bms_core.org.base import (
@@ -71,17 +70,17 @@ class _InMemoryOrgDataSource(BaseOrgDataSource):
             list=[OrgPost(id=9, code="dev", name="开发岗", dept_id=1)], total=1, page=1, size=DEFAULT_ORG_PAGE_SIZE
         )
 
-    async def dept_tree(self, *, status: str | None = None) -> Sequence[OrgDept]:
+    async def dept_tree(self, *, status: str | None = None) -> ConcurrentStableList[OrgDept]:
         del status
         child = OrgDept(id=2, parent_id=1, name="子部门")
-        return (OrgDept(id=1, name="根部门", children=[child]),)
+        return ConcurrentStableList([OrgDept(id=1, name="根部门", children=[child])])
 
 
 class _InMemoryOrgNameResolver(BaseOrgNameResolver):
     """测试用内存批量回显。"""
 
-    async def resolve_names(self, target: str, ids: Sequence[int]) -> Sequence[OrgNameRef]:
-        return tuple(OrgNameRef(id=item, name=f"{target}:{item}", target=target) for item in ids)
+    async def resolve_names(self, target: str, ids: ConcurrentStableList[int]) -> ConcurrentStableList[OrgNameRef]:
+        return ConcurrentStableList(OrgNameRef(id=item, name=f"{target}:{item}", target=target) for item in ids)
 
 
 @pytest.mark.kiwi_id(843)
@@ -168,7 +167,7 @@ async def test_null_fixed_and_batch_returns() -> None:
     assert len(tree[0].children) == 1
     assert tree[0].children[0].parent_id == 1
 
-    refs = await NullOrgNameResolver().resolve_names("post", [1, 2])
+    refs = await NullOrgNameResolver().resolve_names("post", ConcurrentStableList([1, 2]))
     assert [ref.id for ref in refs] == [1, 2]
     assert refs[0].name == "占位#1"
     assert all(ref.target == "post" and ref.exists is True for ref in refs)

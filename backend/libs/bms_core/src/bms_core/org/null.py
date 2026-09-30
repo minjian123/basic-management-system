@@ -1,7 +1,5 @@
 """org 能力域缺省实现（Null Object）：固定 / 批量占位数据，不连组织库、不做过滤与展开。"""
 
-from collections.abc import Sequence
-
 from bms_core.core.capability import BaseNullObject
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.org.base import (
@@ -89,27 +87,27 @@ class NullOrgDataSource(BaseOrgDataSource, BaseNullObject):
         item = OrgPost(id=1, code="null-post", name="占位岗位", dept_id=1, status="enabled", sort=0)
         return BasePageResponse[OrgPost](list=ConcurrentStableList([item]), total=1, page=page, size=size)
 
-    async def dept_tree(self, *, status: str | None = None) -> Sequence[OrgDept]:
+    async def dept_tree(self, *, status: str | None = None) -> ConcurrentStableList[OrgDept]:
         """取部门树（占位固定两节点：根 + 一子）。
 
         Args:
             status: 状态过滤（占位忽略）。
 
         Returns:
-            Sequence[OrgDept]: 固定两节点部门树。
+            ConcurrentStableList[OrgDept]: 固定两节点部门树。
         """
         del status
         child = OrgDept(id=2, parent_id=1, name="占位子部门", sort=0, status="enabled")
         root = OrgDept(
             id=1, parent_id=None, name="占位根部门", sort=0, status="enabled", children=ConcurrentStableList([child])
         )
-        return (root,)
+        return ConcurrentStableList([root])
 
 
 class NullOrgNameResolver(BaseOrgNameResolver, BaseNullObject):
     """占位组织回显：对传入 id 逐个返回占位名（不查库、不做数据范围与脱敏）。"""
 
-    async def resolve_names(self, target: str, ids: Sequence[int]) -> Sequence[OrgNameRef]:
+    async def resolve_names(self, target: str, ids: ConcurrentStableList[int]) -> ConcurrentStableList[OrgNameRef]:
         """按 id 批量回显名称（占位按 id 生成占位名）。
 
         Args:
@@ -117,9 +115,9 @@ class NullOrgNameResolver(BaseOrgNameResolver, BaseNullObject):
             ids: 对象 ID 序列。
 
         Returns:
-            Sequence[OrgNameRef]: 每个 id 一条回显项（`exists=True` / `status=enabled`）。
+            ConcurrentStableList[OrgNameRef]: 每个 id 一条回显项（`exists=True` / `status=enabled`）。
         """
-        return tuple(
+        return ConcurrentStableList(
             OrgNameRef(id=item, name=f"{_NULL_NAME_PREFIX}{item}", target=target, exists=True, status="enabled")
             for item in ids
         )
