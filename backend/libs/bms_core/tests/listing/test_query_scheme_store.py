@@ -3,7 +3,7 @@
 测试库：临时 SQLite 文件（跑 Alembic 首个迁移建表）。
 """
 
-from collections.abc import Generator, Iterator
+from collections.abc import AsyncIterator, Generator, Iterator
 from contextlib import contextmanager
 from pathlib import Path
 from types import SimpleNamespace
@@ -50,6 +50,22 @@ def _as_user(user_id: int | None) -> Generator[None]:
         current_user_id.reset(token)
 
 
+_OPEN_ENGINES: list[EngineRegistry] = []
+"""用例内构造的引擎注册表（用例结束统一 `aclose`，避免连接在事件循环关闭后被 GC）。"""
+
+
+@pytest.fixture(autouse=True)
+async def _close_open_engines() -> AsyncIterator[None]:
+    """用例结束释放本模块内构造的引擎注册表。
+
+    Yields:
+        None: 用例运行期。
+    """
+    yield
+    while _OPEN_ENGINES:
+        await _OPEN_ENGINES.pop().aclose()
+
+
 @pytest.fixture
 def scheme_store(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[SqlQuerySchemeStore]:
     """临时库 + 查询方案真实存储。
@@ -58,14 +74,16 @@ def scheme_store(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Sq
         tmp_path: 临时目录。
         monkeypatch: 环境变量覆盖。
 
-    Returns:
+    Yields:
         SqlQuerySchemeStore: 存储实例。
     """
     url = f"sqlite+aiosqlite:///{tmp_path / 'scheme_test.db'}"
     monkeypatch.setenv("BMS_DATABASE__TENANTS__URL", url)
     get_settings.cache_clear()
     _run_migrations(url)
-    store = SqlQuerySchemeStore(engines=EngineRegistry(EngineFactory(get_settings())))
+    registry = EngineRegistry(EngineFactory(get_settings()))
+    _OPEN_ENGINES.append(registry)
+    store = SqlQuerySchemeStore(engines=registry)
     yield store
     get_settings.cache_clear()
 
