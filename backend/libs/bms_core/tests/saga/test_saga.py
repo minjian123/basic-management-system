@@ -122,12 +122,14 @@ def test_build_saga_consumer_and_event() -> None:
     with pytest.raises(ParamError):
         build_saga_consumer("order_flow", "reserve_stock", "rollback")
 
-    event = build_saga_event(_STEP, SAGA_STEP_CANCEL, {"order_id": "o1"}, saga_id="saga-1", tenant_id="demo")
+    event = build_saga_event(
+        _STEP, SAGA_STEP_CANCEL, ConcurrentStableDict({"order_id": "o1"}), saga_id="saga-1", tenant_id="demo"
+    )
     assert event.event_type == "sys.stock.released"
     assert event.aggregate_key == "saga-1"
     assert event.tenant_id == "demo"
     with pytest.raises(ParamError):
-        build_saga_event(_PLAIN_STEP, SAGA_STEP_CONFIRM, {}, saga_id="saga-1")
+        build_saga_event(_PLAIN_STEP, SAGA_STEP_CONFIRM, ConcurrentStableDict(), saga_id="saga-1")
     with pytest.raises(ParamError):
         _STEP.event_type_of("rollback")
 
@@ -137,7 +139,7 @@ async def test_try_step_idempotent_and_emit(saga_session: AsyncSession) -> None:
     """预占态：首次执行动作 + 同事务发件箱事件；同一触发事件重复投递跳过副作用。"""
     executor = ChoreographySagaExecutor(SqlOutboxStore())
     calls: list[str] = []
-    emit = build_saga_event(_STEP, SAGA_STEP_TRY, {"order_id": "o1"}, saga_id="saga-1")
+    emit = build_saga_event(_STEP, SAGA_STEP_TRY, ConcurrentStableDict({"order_id": "o1"}), saga_id="saga-1")
 
     async with saga_session.begin():
         first = await executor.try_step(
@@ -216,7 +218,7 @@ async def test_action_failure_rolls_back_and_retries(saga_session: AsyncSession)
     """动作异常整体回滚（幂等登记与事件一并撤销）；同触发事件重投可再次执行。"""
     executor = ChoreographySagaExecutor(SqlOutboxStore())
     calls: list[str] = []
-    emit = build_saga_event(_STEP, SAGA_STEP_TRY, {"order_id": "o1"}, saga_id="saga-2")
+    emit = build_saga_event(_STEP, SAGA_STEP_TRY, ConcurrentStableDict({"order_id": "o1"}), saga_id="saga-2")
 
     with pytest.raises(RuntimeError):
         async with saga_session.begin():
@@ -300,7 +302,7 @@ def test_event_contract_validation_failure_rejected(monkeypatch: pytest.MonkeyPa
 
 def test_saga_event_envelope_defaults() -> None:
     """Saga 事件信封字段缺省（版本由发件箱补齐；trace 等不设置）。"""
-    event = build_saga_event(_STEP, SAGA_STEP_TRY, {}, saga_id="saga-3")
+    event = build_saga_event(_STEP, SAGA_STEP_TRY, ConcurrentStableDict(), saga_id="saga-3")
     assert isinstance(event, EventEnvelope)
     assert event.event_version is None
     assert event.payload == {}

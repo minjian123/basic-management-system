@@ -1,8 +1,7 @@
 """workflow 能力域缺省实现（Null Object）：占位返回、无副作用（02-3 自 bms_core.workflow.base.py 迁入）。"""
 
-from collections.abc import Mapping
-
 from bms_core.core.capability import BaseNullObject
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.workflow.base import (
     NULL_INSTANCE_ID,
     BaseWorkflowEngine,
@@ -51,7 +50,7 @@ class NullWorkflowEngine(BaseWorkflowEngine, BaseNullObject):
         task_id: str,
         *,
         action: WorkflowAction,
-        variables: Mapping[str, object] | None = None,
+        variables: ConcurrentStableDict[str, object] | None = None,
     ) -> ProcessInstance:
         """固定返回占位实例（不连引擎）。
 

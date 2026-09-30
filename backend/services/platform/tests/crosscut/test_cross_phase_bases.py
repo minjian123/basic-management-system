@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from bms_core.audit.base import AuditCapturer, FieldChange
 from bms_core.cache.base import CacheRegion, build_cache_key
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.events.base import EventConsumer, EventEnvelope, EventPublisher
 from bms_core.models.base import Base, BaseModel
 from bms_core.scope.base import DataScope
@@ -179,7 +180,7 @@ def test_data_scope_and_repository_hook() -> None:
     """数据范围：占位规则 + 仓储钩子挂载。"""
     scope = NullDataScope()
     assert scope.read_predicate() is None
-    assert scope.allow_write({"name": "x"}) is True
+    assert scope.allow_write(ConcurrentStableDict({"name": "x"})) is True
     repo = RoutedRepository()
     assert repo.current_scope() is None
     repo.use_scope(scope)

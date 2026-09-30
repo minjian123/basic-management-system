@@ -1,13 +1,12 @@
 """通知中心读契约测试（Kiwi 812）：契约继承 / 数据契约与事件负载 / 占位实现 / 依赖解析 / 占位路由。"""
 
-from collections.abc import Sequence
-
 import pytest
 from httpx import ASGITransport, AsyncClient
 
 from bms_core.api.deps import get_notification_center
 from bms_core.application import service_lifespan as lifespan
 from bms_core.core.capability import BaseCapability, BaseNullObject
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.plugin import BasePluggable, resolve_plugin
 from bms_core.notification.base import (
     NOTIFICATION_NEW_EVENT,
@@ -64,7 +63,7 @@ class _InMemoryNotificationCenter(BaseNotificationCenter):
     async def unread_count(self) -> int:
         return sum(1 for item in self._items.values() if not item.is_read)
 
-    async def mark_read(self, ids: Sequence[int]) -> int:
+    async def mark_read(self, ids: ConcurrentStableList[int]) -> int:
         for notification_id in ids:
             item = self._items.get(notification_id)
             if item is not None and not item.is_read:
@@ -126,7 +125,7 @@ async def test_null_center_fixed_returns() -> None:
 
     assert await center.detail(1) is None
     assert await center.unread_count() == 0
-    assert await center.mark_read([1, 2]) == 0
+    assert await center.mark_read(ConcurrentStableList([1, 2])) == 0
     assert await center.mark_all_read() == 0
     assert await center.delete(1) is False
 

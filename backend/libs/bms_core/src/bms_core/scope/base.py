@@ -3,6 +3,7 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.objects import BaseFieldRuleContract
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
 
@@ -46,7 +47,7 @@ class DataScope(BasePluggable, ABC):
         """读过滤条件（`ScopeCondition` 或条件列表；None 表示不过滤）。"""
 
     @abstractmethod
-    def allow_write(self, values: dict[str, object]) -> bool:
+    def allow_write(self, values: ConcurrentStableDict[str, object]) -> bool:
         """写校验：数据是否落在授权范围内。
 
         Args:

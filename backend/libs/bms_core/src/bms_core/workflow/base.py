@@ -12,13 +12,13 @@
 """
 
 from abc import ABC, abstractmethod
-from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import cast
 
 from fastapi import Request
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.config import Settings
 from bms_core.core.objects import BaseProcessContract, BaseValueObject
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
@@ -150,7 +150,7 @@ class BaseWorkflowEngine(BasePluggable, ABC):
         task_id: str,
         *,
         action: WorkflowAction,
-        variables: Mapping[str, object] | None = None,
+        variables: ConcurrentStableDict[str, object] | None = None,
     ) -> ProcessInstance:
         """完成待办任务并推进流程。
 

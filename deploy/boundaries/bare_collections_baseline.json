@@ -3,48 +3,6 @@
   "generated_at": "2026-09-30",
   "entries": [
     {
-      "file": "backend/libs/bms_core/src/bms_core/application.py",
-      "line": "def service_routers(self) -> Sequence[APIRouter]:",
-      "container": "Sequence",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/health/base.py",
-      "line": "results: dict[int, HealthCheckResult] = {}",
-      "container": "dict",
-      "position": "local",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/idempotency/redis.py",
-      "line": "_PROCESSING_MARKER: dict[str, object] = {\"__processing__\": True}",
-      "container": "dict",
-      "position": "local",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/lock/memory.py",
-      "line": "self._locks: dict[str, tuple[str, float]] = {}",
-      "container": "dict",
-      "position": "local",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/notification/base.py",
-      "line": "async def mark_read(self, ids: Sequence[int]) -> int:",
-      "container": "Sequence",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/notification/null.py",
-      "line": "async def mark_read(self, ids: Sequence[int]) -> int:",
-      "container": "Sequence",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
       "file": "backend/libs/bms_core/src/bms_core/outbox/base.py",
       "line": ") -> tuple[list[DeadLetterRecord], int]:",
       "container": "list",
@@ -115,27 +73,6 @@
       "count": 1
     },
     {
-      "file": "backend/libs/bms_core/src/bms_core/ratelimit/memory.py",
-      "line": "self._windows: dict[str, tuple[int, float]] = {}",
-      "container": "dict",
-      "position": "local",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/saga/base.py",
-      "line": "errors: list[str] = []",
-      "container": "list",
-      "position": "local",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/saga/base.py",
-      "line": "payload: Mapping[str, object],",
-      "container": "Mapping",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
       "file": "backend/libs/bms_core/src/bms_core/schemas/cursor.py",
       "line": "def decode_cursor_for(token: str, sort: Sequence[SortSpec]) -> CursorPayload:",
       "container": "Sequence",
@@ -199,20 +136,6 @@
       "count": 1
     },
     {
-      "file": "backend/libs/bms_core/src/bms_core/scope/base.py",
-      "line": "def allow_write(self, values: dict[str, object]) -> bool:",
-      "container": "dict",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/scope/null.py",
-      "line": "def allow_write(self, values: dict[str, object]) -> bool:",
-      "container": "dict",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
       "file": "backend/libs/bms_core/src/bms_core/security/base.py",
       "line": "def decode(self, token: str) -> dict[str, object]:",
       "container": "dict",
@@ -272,27 +195,6 @@
       "file": "backend/libs/bms_core/src/bms_core/security/null.py",
       "line": "def encode(self, claims: dict[str, object], *, expires_in: int | None = None) -> str:",
       "container": "dict",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/storage/null.py",
-      "line": "self._sessions: dict[str, tuple[MultipartInit, MultipartSession]] = {}",
-      "container": "dict",
-      "position": "local",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/workflow/base.py",
-      "line": "variables: Mapping[str, object] | None = None,",
-      "container": "Mapping",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/workflow/null.py",
-      "line": "variables: Mapping[str, object] | None = None,",
-      "container": "Mapping",
       "position": "signature_param",
       "count": 1
     },
@@ -496,13 +398,6 @@
       "file": "backend/libs/bms_core/tests/core/test_application_factory.py",
       "line": "async def _ping() -> dict[str, bool]:  # pyright: ignore[reportUnusedFunction]",
       "container": "dict",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/tests/core/test_application_factory.py",
-      "line": "def service_routers(self) -> Sequence[APIRouter]:",
-      "container": "Sequence",
       "position": "signature_return",
       "count": 1
     },
@@ -2677,13 +2572,6 @@
       "count": 1
     },
     {
-      "file": "backend/services/ai/src/bms_ai/main.py",
-      "line": "def service_routers(self) -> Sequence[APIRouter]:",
-      "container": "Sequence",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
       "file": "backend/services/ai/tests/chat/test_chat.py",
       "line": "def add(self, session: ChatSession, messages: Sequence[ChatSessionMessage] = ()) -> ChatSession:",
       "container": "Sequence",
@@ -2729,13 +2617,6 @@
       "file": "backend/services/ai/tests/llm/test_llm.py",
       "line": ") -> dict[str, object]:",
       "container": "dict",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "backend/services/file/src/bms_file/main.py",
-      "line": "def service_routers(self) -> Sequence[APIRouter]:",
-      "container": "Sequence",
       "position": "signature_return",
       "count": 1
     },
@@ -2799,13 +2680,6 @@
       "file": "backend/services/identity/src/bms_identity/api/wellknown.py",
       "line": "async def get_jwks(request: Request) -> dict[str, object]:",
       "container": "dict",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "backend/services/identity/src/bms_identity/main.py",
-      "line": "def service_routers(self) -> Sequence[APIRouter]:",
-      "container": "Sequence",
       "position": "signature_return",
       "count": 1
     },
@@ -4021,20 +3895,6 @@
       "count": 1
     },
     {
-      "file": "backend/services/notification/src/bms_notification/main.py",
-      "line": "def service_routers(self) -> Sequence[APIRouter]:",
-      "container": "Sequence",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "backend/services/notification/tests/notification/test_notification.py",
-      "line": "async def mark_read(self, ids: Sequence[int]) -> int:",
-      "container": "Sequence",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
       "file": "backend/services/notification/tests/notification/test_notification.py",
       "line": "self._items: dict[int, Notification] = {}",
       "container": "dict",
@@ -4059,13 +3919,6 @@
       "file": "backend/services/org/src/bms_org/api/org.py",
       "line": "def parse_id_in(raw: str) -> list[int]:",
       "container": "list",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "backend/services/org/src/bms_org/main.py",
-      "line": "def service_routers(self) -> Sequence[APIRouter]:",
-      "container": "Sequence",
       "position": "signature_return",
       "count": 1
     },
@@ -4186,13 +4039,6 @@
       "line": "items: list[PluginImplementationResponse] = []",
       "container": "list",
       "position": "local",
-      "count": 1
-    },
-    {
-      "file": "backend/services/platform/src/bms_platform/main.py",
-      "line": "def service_routers(self) -> Sequence[APIRouter]:",
-      "container": "Sequence",
-      "position": "signature_return",
       "count": 1
     },
     {
@@ -4588,13 +4434,6 @@
       "count": 1
     },
     {
-      "file": "backend/services/report/src/bms_report/main.py",
-      "line": "def service_routers(self) -> Sequence[APIRouter]:",
-      "container": "Sequence",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
       "file": "backend/services/report/tests/print/test_print_exporter.py",
       "line": "async def list(self, *, biz_type: str | None = None) -> list[PrintTemplateInfo]:",
       "container": "list",
@@ -4637,13 +4476,6 @@
       "count": 1
     },
     {
-      "file": "backend/services/search/src/bms_search/main.py",
-      "line": "def service_routers(self) -> Sequence[APIRouter]:",
-      "container": "Sequence",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
       "file": "backend/services/search/tests/globalsearch/test_global_search.py",
       "line": "self._hits: dict[str, list[GlobalSearchHit]] = {",
       "container": "dict",
@@ -4668,13 +4500,6 @@
       "file": "backend/services/tenant/src/bms_tenant/api/tenant_registry.py",
       "line": "def _snapshot(row: SysTenant, db_basis: str | None = None) -> Mapping[str, object]:",
       "container": "Mapping",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "backend/services/tenant/src/bms_tenant/main.py",
-      "line": "def service_routers(self) -> Sequence[APIRouter]:",
-      "container": "Sequence",
       "position": "signature_return",
       "count": 1
     },

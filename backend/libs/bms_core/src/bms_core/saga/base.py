@@ -16,12 +16,13 @@
 
 import re
 from abc import ABC, abstractmethod
-from collections.abc import Awaitable, Callable, Mapping
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import cast
 
 from fastapi import Request
 
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.core.exceptions import ParamError
 from bms_core.core.objects import BaseValueObject
@@ -188,7 +189,7 @@ def build_saga_consumer(definition_key: str, step_name: str, kind: str) -> str:
 def build_saga_event(
     step: SagaStep,
     kind: str,
-    payload: Mapping[str, object],
+    payload: ConcurrentStableDict[str, object],
     *,
     saga_id: str,
     tenant_id: str | None = None,
@@ -228,18 +229,18 @@ def validate_saga_definition(
     Returns:
         tuple[str, ...]: 违规明细；空元组通过。
     """
-    errors: list[str] = []
+    errors: ConcurrentStableList[str] = ConcurrentStableList()
     if not SAGA_KEY_RE.fullmatch(definition.key):
-        errors.append(f"Saga 定义键非法（应为小写下划线）：{definition.key}")
+        errors.add(f"Saga 定义键非法（应为小写下划线）：{definition.key}")
     if not definition.steps:
-        errors.append(f"Saga 定义步骤为空：{definition.key}")
+        errors.add(f"Saga 定义步骤为空：{definition.key}")
     names = [step.name for step in definition.steps]
     for name in sorted({name for name in names if names.count(name) > 1}):
-        errors.append(f"Saga 步骤名重复：{definition.key}.{name}")
+        errors.add(f"Saga 步骤名重复：{definition.key}.{name}")
     for step in definition.steps:
         label = f"{definition.key}.{step.name}"
         if not SAGA_KEY_RE.fullmatch(step.name):
-            errors.append(f"Saga 步骤名非法（应为小写下划线）：{label}")
+            errors.add(f"Saga 步骤名非法（应为小写下划线）：{label}")
         for kind, event_type in (
             (SAGA_STEP_TRY, step.try_event_type),
             (SAGA_STEP_CONFIRM, step.confirm_event_type),
@@ -248,9 +249,9 @@ def validate_saga_definition(
             if not event_type:
                 continue
             if not EVENT_TYPE_RE.fullmatch(event_type):
-                errors.append(f"Saga 步骤 {kind} 态事件名非法：{label}（{event_type}）")
+                errors.add(f"Saga 步骤 {kind} 态事件名非法：{label}（{event_type}）")
             elif contracts is not None and contracts.contract(event_type) is None:
-                errors.append(f"Saga 步骤 {kind} 态事件未登记契约：{label}（{event_type}）")
+                errors.add(f"Saga 步骤 {kind} 态事件未登记契约：{label}（{event_type}）")
     return tuple(errors)
 
 

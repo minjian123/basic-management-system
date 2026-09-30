@@ -7,6 +7,7 @@
 """
 
 from bms_core.core.capability import BaseNullObject
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.exceptions import NotFoundError
 from bms_core.storage.base import (
     DEFAULT_PART_SIZE,
@@ -104,7 +105,7 @@ class NullMultipartUpload(BaseMultipartUpload, BaseNullObject):
 
     def __init__(self) -> None:
         """初始化空会话表与递增序号。"""
-        self._sessions: dict[str, tuple[MultipartInit, MultipartSession]] = {}
+        self._sessions: ConcurrentStableDict[str, tuple[MultipartInit, MultipartSession]] = ConcurrentStableDict()
         self._sequence = 0
 
     async def initiate(self, init: MultipartInit) -> MultipartSession:
@@ -125,7 +126,7 @@ class NullMultipartUpload(BaseMultipartUpload, BaseNullObject):
             part_size=part_size,
             total_parts=total_parts,
         )
-        self._sessions[session.upload_id] = (init, session)
+        self._sessions.set(session.upload_id, (init, session))
         return session
 
     async def upload_part(self, upload_id: str, part_no: int, data: bytes) -> MultipartPart:
@@ -160,7 +161,7 @@ class NullMultipartUpload(BaseMultipartUpload, BaseNullObject):
             NotFoundError: 会话不存在（10002）。
         """
         init, session = self._require_session(upload_id)
-        del self._sessions[upload_id]
+        self._sessions.delete(upload_id)
         return StoredObject(key=session.key, size=init.size, content_type=init.mime, etag=NULL_ETAG)
 
     async def abort(self, upload_id: str) -> None:
@@ -173,7 +174,7 @@ class NullMultipartUpload(BaseMultipartUpload, BaseNullObject):
             NotFoundError: 会话不存在（10002）。
         """
         self._require_session(upload_id)
-        del self._sessions[upload_id]
+        self._sessions.delete(upload_id)
 
     async def check(self, sha256: str, size: int) -> ExistingObjectRef | None:
         """恒定未命中（占位不判定秒传，避免上层跳过上传）。
