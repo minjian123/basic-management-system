@@ -11,14 +11,13 @@
 from __future__ import annotations
 
 import time
-from collections.abc import Iterable, Mapping, Sequence
-from typing import cast
+from collections.abc import Iterable
 from uuid import uuid4
 
 from joserfc import jwt
 from joserfc.jwk import ECKey, RSAKey
 
-from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import ServiceTokenSettings, Settings
 from bms_core.core.exceptions import ConfigError
 from bms_core.core.factory import BasePluginFactory
@@ -53,7 +52,7 @@ class JwtServiceTokenIssuer(BaseServiceTokenIssuer):
         keys: Iterable[TokenKey],
         active_kid: str = "",
         ttl: int = DEFAULT_SERVICE_TOKEN_TTL,
-        algorithms: Sequence[str] = DEFAULT_ALGORITHMS,
+        algorithms: ConcurrentStableList[str] | None = None,
     ) -> None:
         """初始化。
 
@@ -62,15 +61,19 @@ class JwtServiceTokenIssuer(BaseServiceTokenIssuer):
             keys: 密钥集（kid → 密钥材料）。
             active_kid: 当前签名密钥 kid（多把签名私钥时必填）。
             ttl: 默认有效期（秒）。
-            algorithms: 允许算法白名单（默认仅 RS256 / ES256）。
+            algorithms: 允许算法白名单；None 取默认（仅 RS256 / ES256）。
         """
         self._issuer = issuer
         self._ttl = ttl
         self._active_kid = active_kid
-        self._algorithms = tuple(algorithms)
+        self._algorithms = tuple(DEFAULT_ALGORITHMS if algorithms is None else algorithms)
         self._keys = tuple(keys)
-        self._signing: dict[str, RSAKey | ECKey] = {key.kid: key.signing_key() for key in self._keys if key.can_sign}
-        self._signing_algorithms: dict[str, str] = {key.kid: key.algorithm for key in self._keys if key.can_sign}
+        self._signing: ConcurrentStableDict[str, RSAKey | ECKey] = ConcurrentStableDict(
+            {key.kid: key.signing_key() for key in self._keys if key.can_sign}
+        )
+        self._signing_algorithms: ConcurrentStableDict[str, str] = ConcurrentStableDict(
+            {key.kid: key.algorithm for key in self._keys if key.can_sign}
+        )
         self._key_set = to_key_set(self._keys)
         self._jwks = build_jwks(self._keys)
 
@@ -89,29 +92,31 @@ class JwtServiceTokenIssuer(BaseServiceTokenIssuer):
         kid, key = self._signing_key()
         ttl = spec.ttl if spec.ttl is not None else self._ttl
         now = int(time.time())
-        claims: dict[str, object] = {
-            "iss": self._issuer,
-            "sub": spec.service,
-            "aud": TOKEN_AUDIENCE_SERVICE,
-            "exp": now + ttl,
-            "iat": now,
-            "jti": uuid4().hex,
-            "scope": " ".join(spec.scopes),
-            "typ": SERVICE_TOKEN_TYPE,
-            "service": spec.service,
-        }
+        claims: ConcurrentStableDict[str, object] = ConcurrentStableDict(
+            {
+                "iss": self._issuer,
+                "sub": spec.service,
+                "aud": TOKEN_AUDIENCE_SERVICE,
+                "exp": now + ttl,
+                "iat": now,
+                "jti": uuid4().hex,
+                "scope": " ".join(spec.scopes),
+                "typ": SERVICE_TOKEN_TYPE,
+                "service": spec.service,
+            }
+        )
         if spec.tenant_id:
-            claims["tenant_id"] = spec.tenant_id
-        token = jwt.encode({"alg": self._signing_algorithms[kid], "kid": kid}, claims, key)
+            claims.set("tenant_id", spec.tenant_id)
+        token = jwt.encode({"alg": self._signing_algorithms[kid], "kid": kid}, dict(claims), key)
         return OAuthToken(access_token=token, expires_in=ttl, scopes=spec.scopes)
 
-    def jwks(self) -> Mapping[str, object]:
+    def jwks(self) -> ConcurrentStableDict[str, object]:
         """取公开 JWKS 文档（只含公钥，按 kid 排序）。
 
         Returns:
-            Mapping[str, object]: `{"keys": [公钥 JWK, ...]}`。
+            ConcurrentStableDict[str, object]: `{"keys": [公钥 JWK, ...]}`。
         """
-        return cast("Mapping[str, object]", self._jwks)
+        return self._jwks
 
     def verify(self, token: str) -> IdentityClaims:
         """本地验签服务 JWT（签名 / `exp` / `iss` / `aud=service`）。

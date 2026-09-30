@@ -12,12 +12,12 @@
 from __future__ import annotations
 
 import time
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Iterable
 
 from joserfc import jwt
 from joserfc.jwk import ECKey, RSAKey
 
-from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.core.exceptions import AuthError, ConfigError, ParamError
 from bms_core.core.factory import BasePluginFactory
@@ -57,7 +57,7 @@ class JwtUserTokenIssuer(BaseUserTokenIssuer):
         active_kid: str = "",
         access_ttl: int,
         refresh_ttl: int,
-        algorithms: Sequence[str] = DEFAULT_ALGORITHMS,
+        algorithms: ConcurrentStableList[str] | None = None,
         leeway: int = DEFAULT_LEEWAY,
     ) -> None:
         """初始化。
@@ -68,7 +68,7 @@ class JwtUserTokenIssuer(BaseUserTokenIssuer):
             active_kid: 当前签名密钥 kid（多把签名私钥时必填）。
             access_ttl: access 有效期（秒）。
             refresh_ttl: refresh 有效期（秒）。
-            algorithms: 允许算法白名单（默认仅 RS256 / ES256）。
+            algorithms: 允许算法白名单；None 取默认（仅 RS256 / ES256）。
             leeway: 时间声明容差（秒）。
 
         Raises:
@@ -78,14 +78,18 @@ class JwtUserTokenIssuer(BaseUserTokenIssuer):
         self._access_ttl = access_ttl
         self._refresh_ttl = refresh_ttl
         self._active_kid = active_kid
-        self._algorithms = tuple(algorithms)
+        self._algorithms = tuple(DEFAULT_ALGORITHMS if algorithms is None else algorithms)
         self._leeway = leeway
         self._keys = tuple(keys)
         for key in self._keys:
             if not key.kid.startswith(USER_TOKEN_KID_PREFIX):
                 raise ConfigError(f"用户令牌密钥 kid 必须带 {USER_TOKEN_KID_PREFIX} 前缀：{key.kid}")
-        self._signing: dict[str, RSAKey | ECKey] = {key.kid: key.signing_key() for key in self._keys if key.can_sign}
-        self._signing_algorithms: dict[str, str] = {key.kid: key.algorithm for key in self._keys if key.can_sign}
+        self._signing: ConcurrentStableDict[str, RSAKey | ECKey] = ConcurrentStableDict(
+            {key.kid: key.signing_key() for key in self._keys if key.can_sign}
+        )
+        self._signing_algorithms: ConcurrentStableDict[str, str] = ConcurrentStableDict(
+            {key.kid: key.algorithm for key in self._keys if key.can_sign}
+        )
         self._key_set = to_key_set(self._keys)
         self._jwks = build_jwks(self._keys)
 
@@ -111,27 +115,31 @@ class JwtUserTokenIssuer(BaseUserTokenIssuer):
         header = {"alg": self._signing_algorithms[kid], "kid": kid}
         access = jwt.encode(
             header,
-            self._claims(
-                subject=subject,
-                session_id=session_id,
-                token_type=USER_TOKEN_TYPE_ACCESS,
-                ttl=self._access_ttl,
-                tenant_id=spec.tenant_id,
-                scopes=spec.scopes,
-                now=now,
+            dict(
+                self._claims(
+                    subject=subject,
+                    session_id=session_id,
+                    token_type=USER_TOKEN_TYPE_ACCESS,
+                    ttl=self._access_ttl,
+                    tenant_id=spec.tenant_id,
+                    scopes=ConcurrentStableList(spec.scopes),
+                    now=now,
+                )
             ),
             key,
         )
         refresh = jwt.encode(
             header,
-            self._claims(
-                subject=subject,
-                session_id=session_id,
-                token_type=USER_TOKEN_TYPE_REFRESH,
-                ttl=self._refresh_ttl,
-                tenant_id=spec.tenant_id,
-                scopes=spec.scopes,
-                now=now,
+            dict(
+                self._claims(
+                    subject=subject,
+                    session_id=session_id,
+                    token_type=USER_TOKEN_TYPE_REFRESH,
+                    ttl=self._refresh_ttl,
+                    tenant_id=spec.tenant_id,
+                    scopes=ConcurrentStableList(spec.scopes),
+                    now=now,
+                )
             ),
             key,
         )
@@ -144,11 +152,11 @@ class JwtUserTokenIssuer(BaseUserTokenIssuer):
             scopes=spec.scopes,
         )
 
-    def jwks(self) -> Mapping[str, object]:
+    def jwks(self) -> ConcurrentStableDict[str, object]:
         """取公开 JWKS 文档（只含公钥，按 kid 排序）。
 
         Returns:
-            Mapping[str, object]: `{"keys": [公钥 JWK, ...]}`。
+            ConcurrentStableDict[str, object]: `{"keys": [公钥 JWK, ...]}`。
         """
         return self._jwks
 
@@ -188,9 +196,9 @@ class JwtUserTokenIssuer(BaseUserTokenIssuer):
         token_type: str,
         ttl: int,
         tenant_id: str | None,
-        scopes: Sequence[str],
+        scopes: ConcurrentStableList[str],
         now: int,
-    ) -> dict[str, object]:
+    ) -> ConcurrentStableDict[str, object]:
         """构造用户令牌声明（固定 claims + 可选扩展）。
 
         Args:
@@ -203,21 +211,23 @@ class JwtUserTokenIssuer(BaseUserTokenIssuer):
             now: 当前时刻（Unix 秒）。
 
         Returns:
-            dict[str, object]: 声明。
+            ConcurrentStableDict[str, object]: 声明。
         """
-        claims: dict[str, object] = {
-            "iss": self._issuer,
-            "sub": subject,
-            "aud": TOKEN_AUDIENCE_API,
-            "jti": session_id,
-            "type": token_type,
-            "exp": now + ttl,
-            "iat": now,
-        }
+        claims: ConcurrentStableDict[str, object] = ConcurrentStableDict(
+            {
+                "iss": self._issuer,
+                "sub": subject,
+                "aud": TOKEN_AUDIENCE_API,
+                "jti": session_id,
+                "type": token_type,
+                "exp": now + ttl,
+                "iat": now,
+            }
+        )
         if tenant_id:
-            claims["tenant_id"] = tenant_id
+            claims.set("tenant_id", tenant_id)
         if scopes:
-            claims["scope"] = " ".join(scopes)
+            claims.set("scope", " ".join(scopes))
         return claims
 
     def _signing_key(self) -> tuple[str, RSAKey | ECKey]:

@@ -16,6 +16,7 @@ from typing import ClassVar, cast
 
 from joserfc.jwk import ECKey, KeyParameters, KeySet, RSAKey
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.exceptions import ConfigError
 from bms_core.core.objects import BaseSecretMaterialContract
 from bms_core.idp.jwks import DEFAULT_ALGORITHMS
@@ -102,16 +103,16 @@ class TokenKey(BaseSecretMaterialContract):
             raise ConfigError(f"服务令牌密钥未配置公钥：{self.kid}")
         return self._import(self.public_key)
 
-    def public_jwk(self) -> Mapping[str, object]:
+    def public_jwk(self) -> ConcurrentStableDict[str, object]:
         """导出公钥 JWK（只含公有参数 + kid / alg / use）。
 
         Returns:
-            Mapping[str, object]: JWK 字典。
+            ConcurrentStableDict[str, object]: JWK 映射。
 
         Raises:
             ConfigError: 未配置公钥（40001）。
         """
-        return cast("Mapping[str, object]", self.verify_key().as_dict(private=False))
+        return ConcurrentStableDict(cast("Mapping[str, object]", self.verify_key().as_dict(private=False)))
 
     def _import(self, pem: str) -> RSAKey | ECKey:
         """按算法族导入 PEM 密钥。
@@ -133,31 +134,31 @@ class TokenKey(BaseSecretMaterialContract):
             raise ConfigError(f"服务令牌密钥 PEM 非法或不匹配算法：{self.kid}") from exc
 
 
-def build_jwks(keys: Iterable[TokenKey]) -> dict[str, object]:
+def build_jwks(keys: Iterable[TokenKey]) -> ConcurrentStableDict[str, object]:
     """构建标准 JWKS 文档（只含公钥，按 kid 排序）。
 
     Args:
         keys: 密钥集（只需公钥即可输出）。
 
     Returns:
-        dict[str, object]: `{"keys": [公钥 JWK, ...]}`（确定性输出）。
+        ConcurrentStableDict[str, object]: `{"keys": [公钥 JWK, ...]}`（确定性输出；嵌套条目为内置容器）。
     """
-    return {"keys": [dict(key.public_jwk()) for key in sorted(keys, key=lambda item: item.kid)]}
+    return ConcurrentStableDict({"keys": [dict(key.public_jwk()) for key in sorted(keys, key=lambda item: item.kid)]})
 
 
-def merge_jwks(*documents: Mapping[str, object]) -> dict[str, object]:
+def merge_jwks(*documents: ConcurrentStableDict[str, object]) -> ConcurrentStableDict[str, object]:
     """合并多份 JWKS 文档（服务令牌 / 用户令牌公钥同端点发布）。
 
     Args:
         *documents: JWKS 文档（`{"keys": [公钥 JWK, ...]}`）。
 
     Returns:
-        dict[str, object]: 合并后的标准 JWKS 文档（按 kid 排序，确定性输出）。
+        ConcurrentStableDict[str, object]: 合并后的标准 JWKS 文档（按 kid 排序，确定性输出）。
 
     Raises:
         ConfigError: 文档结构非法或两域 kid 冲突（40001；不得发布有歧义的键集）。
     """
-    merged: dict[str, dict[str, object]] = {}
+    merged: ConcurrentStableDict[str, object] = ConcurrentStableDict()
     for document in documents:
         entries = document.get("keys")
         if not isinstance(entries, list):
@@ -171,8 +172,8 @@ def merge_jwks(*documents: Mapping[str, object]) -> dict[str, object]:
                 raise ConfigError("JWKS 条目缺少 kid")
             if kid in merged:
                 raise ConfigError(f"JWKS kid 冲突（服务令牌与用户令牌密钥不可同名）：{kid}")
-            merged[kid] = dict(entry)
-    return {"keys": [merged[kid] for kid in sorted(merged)]}
+            merged.set(kid, dict(entry))
+    return ConcurrentStableDict({"keys": [merged[kid] for kid in sorted(merged)]})
 
 
 def to_key_set(keys: Iterable[TokenKey]) -> KeySet:

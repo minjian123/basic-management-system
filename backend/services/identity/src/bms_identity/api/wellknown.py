@@ -28,7 +28,7 @@ async def get_jwks(request: Request) -> dict[str, object]:
         HTTPException: 两域 kid 冲突 / 文档非法（503，fail-closed）。
     """
     documents = [
-        dict(issuer.jwks())
+        issuer.jwks()
         for issuer in (
             getattr(request.app.state, "service_token", None),
             getattr(request.app.state, "user_token", None),
@@ -36,6 +36,6 @@ async def get_jwks(request: Request) -> dict[str, object]:
         if issuer is not None
     ]
     try:
-        return merge_jwks(*documents)
+        return dict(merge_jwks(*documents))
     except ConfigError as exc:
         raise HTTPException(status_code=503) from exc
