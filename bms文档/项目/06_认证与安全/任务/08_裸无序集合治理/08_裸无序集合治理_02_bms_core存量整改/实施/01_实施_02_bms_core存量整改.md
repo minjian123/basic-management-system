@@ -570,3 +570,36 @@ flowchart LR
 **过程处置（暴露并修复）**：① `BaseObject.to_dict` 返回集合类后 `str()` 展示形态变化 → `__str__` 改 `dict(self.to_dict())` 复原；② `core/base.py` 顶层 import `core.concurrent` 触发**运行期导入成环**（`core.concurrent → core.base`）→ 改 `TYPE_CHECKING` + 使用处延迟导入 + 字符串前向引用；③ pydantic-settings 配置源 `__call__` 返回集合类触发 `deep_update` 的 `dict.copy` `AttributeError`（首次全量 `libs` 实测 **186 失败**）→ 按**框架边界豁免**保留内置 dict。**框架边界豁免类别随之扩展**：除 Starlette / FastAPI 外增列 **pydantic-settings 配置源契约**（规范 / 清单 / 交接单已同步）。
 
 **遗留**：`core/` 模块归零（`config` 一处框架边界经标记豁免）；`bms_core` 剩余 **420 处**（`libs`：`tests` 278 / `boundary` 18 / `outbox` 10 / `schemas` 10 / `security` 9 / `fieldtype` 7 / `tracing` 7 …），按交接单 §7 第 1 项续推。
+
+## 23. 实施过程补充 · 存量整改子批 3 · `boundary/` 能力域（签名单轮，2026-09-30） <a id="batch3-boundary"></a>
+
+**范围**：`bms_core` `boundary/` 能力域 **18 处**（`directory.py` 6 / `exceptions.py` 5 / `sql.py` 5 / `assess.py` 1 / `table.py` 1），外加调用方适配（`scripts/tools/base-check/check-service-boundaries.py` 1 处签名注解）。按交接单 §7 第 1 项「其余 `libs`」续项推进。
+
+**动作**：
+
+1. **归属查询（`directory.py`）**：`table_owners_map()` → `ConcurrentStableDict[str, str]`；`owned_tables_for` / `known_tables` / `known_prefixes` / `known_services` → `ConcurrentStableSet[str]`（由 §16 的「返出按 `frozenset` 转换」改为**直落集合类**——集合体系拆分后 `core.concurrent` 已属「无依赖面」，无需再回转为内置 `frozenset`）。
+2. **SQL 提取（`sql.py`）**：模块常量 `_READ_KEYWORDS` / `_WRITE_KEYWORDS` / `_DDL_KEYWORDS` / `_IGNORED_TABLES` 落 `ConcurrentStableSet[str]`；`extract_tables` 局部 `found` 落 `ConcurrentStableList[str]`（`append` → `add`，`tuple(found)` 出口不变）。
+3. **例外登记（`exceptions.py`）**：`_parse_exception` 局部 `values` 落 `ConcurrentStableDict[str, str]`（`values[field] = ...` → `.set(...)`）；`validate_exceptions` 的 `known_tables` / `known_prefixes` / `known_services` 参数落 `ConcurrentStableSet[str]`、局部 `problems` 与返回落 `ConcurrentStableList[str]`（`append` → `add`）。
+4. **越界判定（`assess.py`）**：`assess_statement` 局部 `violations` 落 `ConcurrentStableList[OwnershipViolation]`（`append` → `add`，`tuple(violations)` 出口不变）。
+5. **守卫计数（`table.py`）**：`TableOwnershipGuard._pending_tasks` 落 `ConcurrentStableSet[asyncio.Task[None]]`（`add` / 回调 `discard` 不变）。
+6. **`__init__` 文档**：`boundary/__init__.py` 与 `sql.py` / `exceptions.py` 头部「仅标准库」口径更新为「仅标准库与集合体系『无依赖面』」。
+7. **调用方适配**：`scripts/tools/base-check/check-service-boundaries.py::_load_exceptions` 返回注解与错误分支随 `validate_exceptions` 落 `ConcurrentStableList[str]`（导入 `core.concurrent`，与既有 `bms_core` 导入同路）；其余调用方（`core/assembly.py` 直传 `known_*()` 产物、`directory.table_owners_map` 无调用点）零改动。
+
+**调用方与测试同步**：`libs` 侧 `tests/boundary/test_boundary.py` 两处 `validate_exceptions(known_tables=/known_prefixes=/known_services=frozenset(...))` 改 `ConcurrentStableSet(...)`（并补 import）。断言维持内容相等（`== [..]` / `== {..}` / `in`），未改语义。
+
+**验证**：
+
+| 项 | 命令 | 结果 |
+| --- | --- | --- |
+| 定向用例 | `pytest libs/bms_core/tests/boundary` | **17 passed** |
+| 全量 `libs` | `pytest libs/bms_core/tests` | **1099 passed / 37 skipped** |
+| **无依赖面实证** | 系统 `python3`（无第三方依赖）导入 `bms_core.boundary.{directory,sql,exceptions,assess}` 并调用 `known_tables()` / `known_services()` / `known_prefixes()` / `table_owners_map()` / `assess_statement` | **通过**（导入 + 调用 + 形态断言成功；`sortedcontainers` 未入 `sys.modules`） |
+| 边界护栏 | `check-service-boundaries.py`（+`--self-test`） | 全绿（含精简镜像不依赖第三方） |
+| 静态检查 | `ruff check .` / `ruff format --check .`（backend 全量） | 全绿（957 文件） |
+| 护栏 | `check-bare-collections.py .` | **「新增 0 / 残留 0」**；`boundary/` **18 → 0**；`scripts/tools` **224 → 223**（`_load_exceptions` 注解） |
+| 基线递减 | `--update-baseline` | **1071 → 1052**（`libs` 420 → 402） |
+| 本地预检 | `check-preflight.py --fast` | **全部通过**（含契约 / 事件契约 / 网关 / 前端 `api-types` 零漂移） |
+
+**过程处置（已闭环）**：① `boundary/` 属 CI 精简镜像（`python:3.14-slim`）经 `check-service-boundaries.py` 导入的**无依赖面**，改动后首次用系统 `python3` 实证「导入 + 调用 + 形态」全部通过，`sortedcontainers` 未入 `sys.modules`（承接 §16.1 拆分，确认集合体系无依赖面即 `core.collections` / `core.concurrent`）；② 常量落 `ConcurrentStableSet` 后 `in` 判定 / `sorted(...)` 用法不变，`_IGNORED_TABLES` 与 `found`（集合类）成员判断语义不变。
+
+**遗留**：`boundary/` 模块归零；`bms_core` 剩余 **402 处**（`libs`：`tests` 278 / `outbox` 10 / `schemas` 10 / `security` 9 / `fieldtype` 7 / `tracing` 7 …），按交接单 §7 第 1 项续推。
