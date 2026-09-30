@@ -9,12 +9,12 @@
 """
 
 import asyncio
-from collections.abc import Mapping
 from typing import NoReturn
 
 import httpx
 
 from bms_core.circuit.base import BaseCircuitBreaker
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.exceptions import ServiceUnavailableError
 from bms_core.fallback.base import BaseFallbackPolicy, FallbackAction
 from bms_core.oauth.token import BaseServiceTokenIssuer, ServiceTokenSpec
@@ -132,7 +132,7 @@ class HttpServiceClient(BaseServiceClient):
             return response
         raise AssertionError("服务间调用重试循环不可达")  # pragma: no cover
 
-    async def _outbound_headers(self, request: ServiceRequest) -> dict[str, str]:
+    async def _outbound_headers(self, request: ServiceRequest) -> ConcurrentStableDict[str, str]:
         """构造出站请求头：剥离入站 `Authorization`，按开关附自签服务 JWT。
 
         东西向服务身份取**调用方**服务标识（`self._caller`）——目标服务的入站校验按
@@ -142,20 +142,22 @@ class HttpServiceClient(BaseServiceClient):
             request: 调用请求。
 
         Returns:
-            dict[str, str]: 出站请求头（外部 token 一律不透传）。
+            ConcurrentStableDict[str, str]: 出站请求头（外部 token 一律不透传）。
         """
-        headers = {
-            name: value for name, value in (request.headers or {}).items() if name.lower() != AUTHORIZATION_HEADER
-        }
+        headers = ConcurrentStableDict(
+            {name: value for name, value in (request.headers or {}).items() if name.lower() != AUTHORIZATION_HEADER}
+        )
         if self._attach_service_token and self._token_issuer is not None and self._caller:
             token = await self._token_issuer.issue(
                 ServiceTokenSpec(service=self._caller, scopes=request.policy.scopes, tenant_id=request.tenant_id)
             )
             if token.access_token:
-                headers["Authorization"] = f"Bearer {token.access_token}"
+                headers.set("Authorization", f"Bearer {token.access_token}")
         return headers
 
-    async def _send(self, request: ServiceRequest, url: str, headers: Mapping[str, str]) -> ServiceResponse:
+    async def _send(
+        self, request: ServiceRequest, url: str, headers: ConcurrentStableDict[str, str]
+    ) -> ServiceResponse:
         """执行单次 httpx 请求（显式超时；JSON 体与原始体二选一）。
 
         Args:
@@ -170,13 +172,13 @@ class HttpServiceClient(BaseServiceClient):
             httpx.HTTPError: 传输层 / 超时错误。
         """
         client = self._ensure_client()
-        kwargs: dict[str, object] = {"timeout": request.policy.timeout}
+        kwargs: ConcurrentStableDict[str, object] = ConcurrentStableDict({"timeout": request.policy.timeout})
         if headers:
-            kwargs["headers"] = dict(headers)
+            kwargs.set("headers", dict(headers))
         if request.json_body is not None:
-            kwargs["json"] = request.json_body
+            kwargs.set("json", request.json_body)
         elif request.content is not None:
-            kwargs["content"] = request.content
+            kwargs.set("content", request.content)
         response = await client.request(request.method.upper(), url, **kwargs)  # pyright: ignore[reportArgumentType]
         return ServiceResponse(
             status_code=response.status_code,

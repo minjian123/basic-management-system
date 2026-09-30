@@ -159,7 +159,7 @@ class BaseIconRegistry(BasePluggable, ABC):
         category: str | None = None,
         status: str | None = None,
         keyword: str | None = None,
-    ) -> list[IconInfo]:
+    ) -> ConcurrentStableList[IconInfo]:
         """取图标清单（可按分组 / 状态过滤，关键字匹配图标键 / 名称 / 标签）。
 
         Args:
@@ -168,7 +168,7 @@ class BaseIconRegistry(BasePluggable, ABC):
             keyword: 关键字（None 表示不过滤）。
 
         Returns:
-            list[IconInfo]: 图标清单（占位为空清单，消费方以空态回退）。
+            ConcurrentStableList[IconInfo]: 图标清单（占位为空清单，消费方以空态回退）。
         """
 
     @abstractmethod

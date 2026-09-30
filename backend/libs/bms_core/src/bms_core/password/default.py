@@ -14,7 +14,6 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 
 from bms_core.config.base import BaseConfigSource
@@ -146,27 +145,27 @@ class DefaultPasswordPolicy(BasePasswordPolicy):
                 )
             )
         )
-        violations: list[str] = []
+        violations: ConcurrentStableList[str] = ConcurrentStableList()
         min_length = _parse_int(values.get("password.min_length"), DEFAULT_MIN_LENGTH, minimum=1)
         max_length = _parse_int(values.get("password.max_length"), DEFAULT_MAX_LENGTH, minimum=1)
         if len(password) < min_length:
-            violations.append("too_short")
+            violations.add("too_short")
         if len(password) > max_length:
-            violations.append("too_long")
+            violations.add("too_long")
         if _parse_bool(values.get("password.require_upper"), True) and not _UPPER_RE.search(password):
-            violations.append("need_upper")
+            violations.add("need_upper")
         if _parse_bool(values.get("password.require_lower"), True) and not _LOWER_RE.search(password):
-            violations.append("need_lower")
+            violations.add("need_lower")
         if _parse_bool(values.get("password.require_digit"), True) and not _DIGIT_RE.search(password):
-            violations.append("need_digit")
+            violations.add("need_digit")
         if _parse_bool(values.get("password.require_symbol"), True) and not _SYMBOL_RE.search(password):
-            violations.append("need_symbol")
+            violations.add("need_symbol")
         if (
             _parse_bool(values.get("password.forbid_username"), True)
             and username
             and username.strip().lower() in password.lower()
         ):
-            violations.append("username_included")
+            violations.add("username_included")
         return tuple(violations)
 
     async def expired(self, pwd_changed_at: datetime, *, now: datetime | None = None) -> bool:
@@ -184,7 +183,7 @@ class DefaultPasswordPolicy(BasePasswordPolicy):
         current = now or datetime.now(UTC).replace(tzinfo=None)
         return current - pwd_changed_at > timedelta(days=days)
 
-    async def reused(self, password: str, *, history: Sequence[str]) -> bool:
+    async def reused(self, password: str, *, history: ConcurrentStableList[str]) -> bool:
         """密码是否命中历史密码（逐条 PBKDF2 比对；常量时间）。
 
         Args:

@@ -7,7 +7,6 @@
 """
 
 from abc import ABC, abstractmethod
-from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import cast
 
@@ -61,7 +60,7 @@ class BaseHttpClient(BasePluggable, ABC):
         method: str,
         url: str,
         *,
-        headers: Mapping[str, str] | None = None,
+        headers: ConcurrentStableDict[str, str] | None = None,
         content: bytes | None = None,
         timeout: int | None = None,
     ) -> HttpResponse:
