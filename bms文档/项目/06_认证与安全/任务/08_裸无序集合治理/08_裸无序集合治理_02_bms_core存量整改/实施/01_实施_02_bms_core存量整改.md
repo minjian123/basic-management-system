@@ -730,3 +730,39 @@ flowchart LR
 **过程处置（集合类非内置容器超集的坑复现）**：`metrics` 的 `merged.update(labels)` 传映射 → 集合类 `update` 按键解包，改 `.items()`；`masking` / `metrics` / `servicecall` 的 `[]=` 写点统一改 `set(...)`。
 
 **遗留**：七域归零；`bms_core` 剩余 **318 处**（`libs`：`tests` 275 / `outbox` 10 / `schemas` 10 / `security` 9 / `notification` 2 / `saga` 2 / `scope` 2 / `workflow` 2 …；`libs` 源侧仅余 **43** 处），按交接单 §7 第 1 项续推。
+
+## 28. 实施过程补充 · 存量整改子批 3 · `libs` 源侧收尾（一）· 应用工厂 + 八小域（签名单轮，2026-09-30） <a id="batch3-appfactory-tail"></a>
+
+**范围**：`bms_core` 源侧 **14 处**（`application.py` 1 / `health/base.py` 1 / `idempotency/redis.py` 1 / `lock/memory.py` 1 / `notification/{base,null}.py` 2 / `ratelimit/memory.py` 1 / `saga/base.py` 2 / `scope/{base,null}.py` 2 / `storage/null.py` 1 / `workflow/{base,null}.py` 2），外加调用方适配（**9 个服务的 `main.py::service_routers`** + `libs` 应用工厂测试 1 + `notification` 服务测试替身 1 + `saga` / `scope` 测试 2 + `lock` 测试 1）。按交接单 §7 第 1 项「`libs` 其余」推进。
+
+**动作**：
+
+1. **应用工厂（`application.py`）**：`BaseServiceApplicationFactory.service_routers` 返回落 `ConcurrentStableList[APIRouter]`（缺省 `ConcurrentStableList()`）——**签名波及 9 个服务 `main.py` 覆写**（`def service_routers(self) -> ConcurrentStableList[APIRouter]`、`return ConcurrentStableList([api_router])` / 多路由 `ConcurrentStableList([api_router, wellknown_router])`）与 `libs` 测试覆写（`mount_service_routers(...)` 出口包集合类）。
+2. **健康检查（`health/base.py`）**：聚合局部 `results` 落 `ConcurrentStableDict[int, HealthCheckResult]`（`results[index] = …` → `.set(index, …)`）。
+3. **幂等（`idempotency/redis.py`）**：`_PROCESSING_MARKER` 落 `ConcurrentStableDict[str, object]`——**json 边界** `_dump(dict(_PROCESSING_MARKER))`（`json.dumps(default=str)` 会把集合类 `str()` 化而破坏占位语义）；命中判定 `value == dict(_PROCESSING_MARKER)`（值为 JSON 反序列化的内置 dict）。
+4. **内存锁（`lock/memory.py`）**：`_locks` 落 `ConcurrentStableDict`（`del` → `delete`、`[]=` → `set`、`clear()` 无对应方法 → **逐键 `get_and_remove`**）。
+5. **通知中心（`notification/`）**：`mark_read(ids)` 落 `ConcurrentStableList[int]`（base + null；服务侧实参为契约字段 `NotificationReadRequest.ids` 已是集合类，源侧零改动）。
+6. **内存限流（`ratelimit/memory.py`）**：`_windows` 落 `ConcurrentStableDict`（`[]=` → `set`、`pop(key, None)` → `get_and_remove(key)`、`clear()` → 逐键 `get_and_remove`）。
+7. **Saga（`saga/base.py`）**：`build_saga_event` 的 `payload` 落 `ConcurrentStableDict[str, object]`（`dict(payload)` 出口不变）；`validate_saga_definition` 局部 `errors` 落 `ConcurrentStableList[str]`（`append` → `add`，`tuple(errors)` 出口不变）。
+8. **数据范围（`scope/`）**：`allow_write(values)` 落 `ConcurrentStableDict[str, object]`（base + null）。
+9. **对象存储占位（`storage/null.py`）**：`_sessions` 落 `ConcurrentStableDict`（`[]=` → `set`、`del` → `delete`）。
+10. **工作流（`workflow/`）**：`complete_task(variables)` 落 `ConcurrentStableDict[str, object] | None`（base + null；调用方零改动）。
+
+**调用方与测试同步**：`libs` 侧 `tests/core/test_application_factory.py`、`tests/saga/test_saga.py`（`build_saga_event` 载荷包集合类）、`tests/lock/test_lock_memory.py`（`_locks[key] = …` → `.set(...)`）；`services` 侧 9 个 `main.py`、`tests/notification/.../test_notification.py`（`_FakeCenter.mark_read` 覆写 + 实参包集合类）、`services/platform/tests/crosscut/test_cross_phase_bases.py`（`allow_write` 实参包集合类）。断言维持内容相等，未改语义。
+
+**验证**：
+
+| 项 | 命令 | 结果 |
+| --- | --- | --- |
+| 全量 `libs` | `pytest libs/bms_core/tests` | **1099 passed / 37 skipped** |
+| 全量 `services` | `pytest services` | **787 passed / 3 skipped / 1 failed**（既有 red，见偏差） |
+| 静态检查 | `ruff check .` / `ruff format --check .`（backend 全量） | 全绿（957 文件） |
+| 护栏 | `check-bare-collections.py .` | **「新增 0 / 残留 0」**；`libs` 源侧 **43 → 29** |
+| 基线递减 | `--update-baseline` | **958 → 933**（`libs` 318 → 303 / `services` 314 → 304） |
+| 本地预检 | `check-preflight.py --fast` | **全部通过**（含契约 / 事件契约 / 网关 / 前端 `api-types` 零漂移） |
+
+**偏差（既有 red，非本轮引入）**：`services/platform/tests/dict/test_dict_real.py::test_http_endpoints`（`query-providers` 的 `model_dump` 序列化出口）仍为既有 red，本轮未扩大；另轮单独修。
+
+**过程处置（集合类功能缺口复现）**：`ConcurrentStableDict` **未提供 `clear` / `pop`** → 内存锁 / 内存限流的 `clear()` 改「逐键 `get_and_remove`」、`pop(key, None)` 改 `get_and_remove(key)`；`json.dumps(default=str)` 边界显式 `dict(...)`，否则集合类被 `str()` 化。
+
+**遗留**：`libs` 源侧仅余 **29 处**（`outbox` 10 / `schemas` 10 / `security` 9）；`bms_core` 剩余 **303 处**（`libs`：`tests` 275 / `outbox` 10 / `schemas` 10 / `security` 9；`services` 304 / `scripts/tools` 223 / `ops` 103），按交接单 §7 第 1 项续推。
