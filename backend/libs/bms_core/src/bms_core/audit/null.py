@@ -3,11 +3,10 @@
 （02-3 自 `bms_core.audit.hashchain.py` 迁入；05 补审计捕获。）
 """
 
-from collections.abc import Mapping, Sequence
-
 from bms_core.audit.base import AuditCapturer, FieldChange
 from bms_core.audit.hashchain import BaseHashChain, ChainVerifyResult, HashChainEntry
 from bms_core.core.capability import BaseNullObject
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.events.base import EventEnvelope
 
 __all__ = [
@@ -35,7 +34,7 @@ class NullAuditCapturer(AuditCapturer, BaseNullObject):
         *,
         table: str,
         model_id: int,
-        changes: list[FieldChange],
+        changes: ConcurrentStableList[FieldChange],
         actor: int | None = None,
     ) -> EventEnvelope:
         """捕获字段级变更（占位返回空审计事件，不改写库）。
@@ -55,7 +54,7 @@ class NullAuditCapturer(AuditCapturer, BaseNullObject):
 class NullHashChain(BaseHashChain, BaseNullObject):
     """占位哈希链：固定返回 / 恒定通过（不计算，未接入真实实现时使用）。"""
 
-    def compute(self, prev_hash: str, record: Mapping[str, object]) -> str:
+    def compute(self, prev_hash: str, record: ConcurrentStableDict[str, object]) -> str:
         """恒定返回占位哈希。
 
         Args:
@@ -67,7 +66,7 @@ class NullHashChain(BaseHashChain, BaseNullObject):
         """
         return "null-record-hash"
 
-    def verify(self, entries: Sequence[HashChainEntry]) -> ChainVerifyResult:
+    def verify(self, entries: ConcurrentStableList[HashChainEntry]) -> ChainVerifyResult:
         """恒定通过。
 
         Args:

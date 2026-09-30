@@ -11,13 +11,13 @@
 """
 
 from abc import ABC, abstractmethod
-from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from typing import cast
 
 from fastapi import Request
 
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.core.objects import BaseValueObject
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
@@ -58,7 +58,7 @@ class BaseArchivePolicy(BasePluggable, ABC):
     contract_version: str = DEFAULT_CONTRACT_VERSION
 
     @abstractmethod
-    async def matches(self, record: Mapping[str, object], *, now: datetime | None = None) -> bool:
+    async def matches(self, record: ConcurrentStableDict[str, object], *, now: datetime | None = None) -> bool:
         """判断记录是否达归档条件。
 
         Args:
@@ -70,7 +70,7 @@ class BaseArchivePolicy(BasePluggable, ABC):
         """
 
     @abstractmethod
-    async def archive(self, records: Sequence[Mapping[str, object]]) -> ArchiveResult:
+    async def archive(self, records: ConcurrentStableList[ConcurrentStableDict[str, object]]) -> ArchiveResult:
         """执行归档搬迁（真实实现经链校验后迁 `bms_archive`）。
 
         Args:

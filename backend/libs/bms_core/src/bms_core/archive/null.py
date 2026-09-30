@@ -1,10 +1,10 @@
 """archive 能力域缺省实现（Null Object）：占位返回、无副作用（02-3 自 bms_core.archive.base.py 迁入）。"""
 
-from collections.abc import Mapping, Sequence
 from datetime import datetime
 
 from bms_core.archive.base import ArchiveResult, BaseArchivePolicy, BaseArchiveQueryRouter
 from bms_core.core.capability import BaseNullObject
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 
 __all__ = [
     "NullArchivePolicy",
@@ -15,7 +15,7 @@ __all__ = [
 class NullArchivePolicy(BaseArchivePolicy, BaseNullObject):
     """占位归档策略：恒定不归档（不搬数据，未接入真实实现时使用）。"""
 
-    async def matches(self, record: Mapping[str, object], *, now: datetime | None = None) -> bool:
+    async def matches(self, record: ConcurrentStableDict[str, object], *, now: datetime | None = None) -> bool:
         """恒定不归档。
 
         Args:
@@ -27,7 +27,7 @@ class NullArchivePolicy(BaseArchivePolicy, BaseNullObject):
         """
         return False
 
-    async def archive(self, records: Sequence[Mapping[str, object]]) -> ArchiveResult:
+    async def archive(self, records: ConcurrentStableList[ConcurrentStableDict[str, object]]) -> ArchiveResult:
         """返回空归档结果（不搬迁）。
 
         Args:
