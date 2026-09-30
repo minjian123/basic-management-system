@@ -23,6 +23,7 @@ from bms_core.boundary.base import (
     OwnershipStats,
 )
 from bms_core.boundary.exceptions import OwnershipException
+from bms_core.core.concurrent import ConcurrentStableSet
 from bms_core.core.exceptions import ConfigError, DataOwnershipError
 from bms_core.core.logging import get_logger
 from bms_core.metrics.base import BaseMetrics
@@ -63,7 +64,7 @@ class TableOwnershipGuard(BaseDataOwnershipGuard):
         self._exceptions = exceptions
         self._metrics = metrics
         self._lock = threading.Lock()
-        self._pending_tasks: set[asyncio.Task[None]] = set()
+        self._pending_tasks: ConcurrentStableSet[asyncio.Task[None]] = ConcurrentStableSet()
         self._statements = 0
         self._violations = 0
         self._blocked = 0

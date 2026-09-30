@@ -8,5 +8,6 @@
 
 本 `__init__` 保持**轻量**（仅文档字符串，不导入子模块）：精简 CI（`base-integrity` 的
 python:3.14-slim）经 `bms_core.boundary.directory` / `sql` / `exceptions` / `assess` 复用归属与
-SQL 解析能力，导入链只依赖标准库与服务目录；重依赖（fastapi / sqlalchemy）仅在 `base` / `table` 内。
+SQL 解析能力，导入链只依赖**标准库 + 集合体系「无依赖面」**（`core.collections` / `core.concurrent`，
+仅标准库）与服务目录；重依赖（fastapi / sqlalchemy）仅在 `base` / `table` 内。
 """

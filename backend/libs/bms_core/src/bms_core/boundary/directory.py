@@ -9,6 +9,7 @@
 口径：**不再有「共享前缀」概念**——`sys_` 表按表级归属判定；未登记表名无归属可判（声明场景由静态校验拦截）。
 """
 
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableSet
 from bms_core.services.module_registry import SERVICE_CATALOG
 from bms_core.services.table_registry import (
     OWNER_EVERY_SERVICE,
@@ -65,13 +66,13 @@ def table_owner(table: str) -> str | None:
     return _table_owner(table)
 
 
-def table_owners_map() -> dict[str, str]:
+def table_owners_map() -> ConcurrentStableDict[str, str]:
     """表名 → 归属标签映射（单一来源快照）。
 
     Returns:
-        dict[str, str]: 表名到归属标签。
+        ConcurrentStableDict[str, str]: 表名到归属标签。
     """
-    return {record.table_name: record.owner for record in TABLE_OWNERSHIP}
+    return ConcurrentStableDict({record.table_name: record.owner for record in TABLE_OWNERSHIP})
 
 
 def table_records() -> tuple[TableRecord, ...]:
@@ -95,7 +96,9 @@ def is_infrastructure(table: str) -> bool:
     return table in infrastructure_tables()
 
 
-def owned_tables_for(service: str, *, datasource: str | None = None, include_planned: bool = True) -> frozenset[str]:
+def owned_tables_for(
+    service: str, *, datasource: str | None = None, include_planned: bool = True
+) -> ConcurrentStableSet[str]:
     """某服务名下全部表（按归属标签匹配）。
 
     Args:
@@ -104,35 +107,35 @@ def owned_tables_for(service: str, *, datasource: str | None = None, include_pla
         include_planned: 是否含预留归属（`planned`）。
 
     Returns:
-        frozenset[str]: 该服务拥有的表名集合。
+        ConcurrentStableSet[str]: 该服务拥有的表名集合。
     """
-    return frozenset(_owned_tables_for(service, datasource=datasource, include_planned=include_planned))
+    return ConcurrentStableSet(_owned_tables_for(service, datasource=datasource, include_planned=include_planned))
 
 
-def known_tables() -> frozenset[str]:
+def known_tables() -> ConcurrentStableSet[str]:
     """归属登记的全部表名。
 
     Returns:
-        frozenset[str]: 已登记表名集合。
+        ConcurrentStableSet[str]: 已登记表名集合。
     """
-    return frozenset(table_names())
+    return ConcurrentStableSet(table_names())
 
 
-def known_prefixes() -> frozenset[str]:
+def known_prefixes() -> ConcurrentStableSet[str]:
     """可作为例外登记目标的表前缀集合（服务目录前缀 ∪ 归属登记表名前缀）。
 
     Returns:
-        frozenset[str]: 前缀集合。
+        ConcurrentStableSet[str]: 前缀集合。
     """
     catalog_prefixes = {record.table_prefix for record in SERVICE_CATALOG}
     owned_prefixes = {table_prefix_of(record.table_name) for record in TABLE_OWNERSHIP}
-    return frozenset(catalog_prefixes | owned_prefixes)
+    return ConcurrentStableSet(catalog_prefixes | owned_prefixes)
 
 
-def known_services() -> frozenset[str]:
+def known_services() -> ConcurrentStableSet[str]:
     """可作为归属 / 消费方的服务标识（服务目录标签 ∪ 预留服务标识）。
 
     Returns:
-        frozenset[str]: 标识集合。
+        ConcurrentStableSet[str]: 标识集合。
     """
-    return frozenset(known_service_keys())
+    return ConcurrentStableSet(known_service_keys())
