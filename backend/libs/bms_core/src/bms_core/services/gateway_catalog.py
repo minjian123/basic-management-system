@@ -29,9 +29,10 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import cast
 
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.edge.headers import (
     GATEWAY_IDENTITY_HEADER,
     GATEWAY_IDENTITY_VALUE,
@@ -94,21 +95,21 @@ GATEWAY_PATH_PREFIX = "/api"
 SERVICE_PORT = 8000
 """上游默认端口；每服务端口随「每服务独立配置」（06_需求）回改本常量来源。"""
 
-ROUTE_PLUGINS: dict[str, dict[str, object]] = {}
+ROUTE_PLUGINS: ConcurrentStableDict[str, ConcurrentStableDict[str, object]] = ConcurrentStableDict()
 """路由级插件钩子（按 `service_key` 合并）。
 
 认证（`forward-auth`）/ 限流（`limit-count`）/ 观测（`prometheus`）/ 灰度（`traffic-split`）
 由本模块直接产出；本钩子暂空（保留声明式扩展点）。
 """
 
-ROUTE_HEADERS_SET: dict[str, dict[str, str]] = {}
+ROUTE_HEADERS_SET: ConcurrentStableDict[str, ConcurrentStableDict[str, str]] = ConcurrentStableDict()
 """路由级请求头注入钩子（按 `service_key` 合并到路由 `proxy-rewrite.headers.set`）。
 
 07_03 起「网关验证过的身份头」改由 `forward-auth.upstream_headers` 注入（认证服务产出、网关覆盖
 `Authorization`），本钩子保留为空；`proxy-rewrite.headers.set` 仍置网关专属标记 `X-Gateway-Identity`。
 """
 
-GRAY_TRAFFIC: dict[str, dict[str, object]] = {}
+GRAY_TRAFFIC: ConcurrentStableDict[str, ConcurrentStableDict[str, object]] = ConcurrentStableDict()
 """灰度路由钩子（按 `service_key` 合并为路由级 `traffic-split` 插件配置，04_03 预留）。
 
 默认空 = 不启用灰度、流量不变；配置形如
@@ -245,7 +246,7 @@ def env_var(name: str, default: str) -> str:
     return "${{" + name + ":=" + default + "}}"
 
 
-def rate_limit_plugin(*, count: int, window: int, key: str = RATE_LIMIT_KEY) -> dict[str, object]:
+def rate_limit_plugin(*, count: int, window: int, key: str = RATE_LIMIT_KEY) -> ConcurrentStableDict[str, object]:
     """构造 `limit-count` 插件配置（共享 Redis，多副本一致计数）。
 
     Args:
@@ -254,51 +255,55 @@ def rate_limit_plugin(*, count: int, window: int, key: str = RATE_LIMIT_KEY) -> 
         key: 限流维度（默认 `var_combination`：真实客户端 IP + 租户 / 用户）。
 
     Returns:
-        dict[str, object]: APISIX `limit-count` 插件配置。
+        ConcurrentStableDict[str, object]: APISIX `limit-count` 插件配置。
     """
-    return {
-        "count": count,
-        "time_window": window,
-        "key_type": RATE_LIMIT_KEY_TYPE,
-        "key": key,
-        "policy": "redis",
-        "redis_host": env_var(GATEWAY_REDIS_HOST_VAR, DEFAULT_GATEWAY_REDIS_HOST),
-        "redis_port": RATE_LIMIT_REDIS_PORT,
-        "redis_database": RATE_LIMIT_REDIS_DATABASE,
-        "redis_password": env_var(GATEWAY_REDIS_PASSWORD_VAR, DEFAULT_GATEWAY_REDIS_PASSWORD),
-        "rejected_code": RATE_LIMIT_REJECTED_CODE,
-        "allow_degradation": True,
-        "show_limit_quota_header": True,
-    }
+    return ConcurrentStableDict(
+        {
+            "count": count,
+            "time_window": window,
+            "key_type": RATE_LIMIT_KEY_TYPE,
+            "key": key,
+            "policy": "redis",
+            "redis_host": env_var(GATEWAY_REDIS_HOST_VAR, DEFAULT_GATEWAY_REDIS_HOST),
+            "redis_port": RATE_LIMIT_REDIS_PORT,
+            "redis_database": RATE_LIMIT_REDIS_DATABASE,
+            "redis_password": env_var(GATEWAY_REDIS_PASSWORD_VAR, DEFAULT_GATEWAY_REDIS_PASSWORD),
+            "rejected_code": RATE_LIMIT_REJECTED_CODE,
+            "allow_degradation": True,
+            "show_limit_quota_header": True,
+        }
+    )
 
 
-def forward_auth_plugin() -> dict[str, object]:
+def forward_auth_plugin() -> ConcurrentStableDict[str, object]:
     """构造 `forward-auth` 插件配置（转调认证服务校验用户 JWT 并注入身份头）。
 
     Returns:
-        dict[str, object]: APISIX `forward-auth` 插件配置（认证服务主机经环境变量替换）。
+        ConcurrentStableDict[str, object]: APISIX `forward-auth` 插件配置（认证服务主机经环境变量替换）。
     """
     host = env_var(GATEWAY_AUTH_HOST_VAR, DEFAULT_GATEWAY_AUTH_HOST)
-    return {
-        "uri": f"http://{host}:{SERVICE_PORT}{AUTH_INTROSPECT_PATH}",
-        "request_method": "GET",
-        "request_headers": list(AUTH_REQUEST_HEADERS),
-        "upstream_headers": list(AUTH_UPSTREAM_HEADERS),
-        "client_headers": list(AUTH_CLIENT_HEADERS),
-        "timeout": AUTH_TIMEOUT_MS,
-        "status_on_error": AUTH_STATUS_ON_ERROR,
-    }
+    return ConcurrentStableDict(
+        {
+            "uri": f"http://{host}:{SERVICE_PORT}{AUTH_INTROSPECT_PATH}",
+            "request_method": "GET",
+            "request_headers": list(AUTH_REQUEST_HEADERS),
+            "upstream_headers": list(AUTH_UPSTREAM_HEADERS),
+            "client_headers": list(AUTH_CLIENT_HEADERS),
+            "timeout": AUTH_TIMEOUT_MS,
+            "status_on_error": AUTH_STATUS_ON_ERROR,
+        }
+    )
 
 
-def _gray_plugins(service_key: str) -> dict[str, object]:
+def _gray_plugins(service_key: str) -> ConcurrentStableDict[str, object]:
     """按服务合并灰度插件（`traffic-split`）；未配置返回空。"""
     gray = GRAY_TRAFFIC.get(service_key)
     if not gray:
-        return {}
-    return {"traffic-split": gray}
+        return ConcurrentStableDict()
+    return ConcurrentStableDict({"traffic-split": gray})
 
 
-def validate_service_discovery(config: Mapping[str, object]) -> list[str]:
+def validate_service_discovery(config: ConcurrentStableDict[str, object]) -> ConcurrentStableList[str]:
     """校验「服务发现按名寻址、禁硬编码 IP」。
 
     上游节点主机必须为服务名，`redis_host` 不得为 IP 字面量；违规以字符串清单返回。
@@ -307,36 +312,36 @@ def validate_service_discovery(config: Mapping[str, object]) -> list[str]:
         config: 生成配置映射（`render_apisix_config()` 产物）。
 
     Returns:
-        list[str]: 违规描述清单（空表示通过）。
+        ConcurrentStableList[str]: 违规描述清单（空表示通过）。
     """
-    violations: list[str] = []
+    violations: ConcurrentStableList[str] = ConcurrentStableList()
     upstreams = config.get("upstreams")
-    if isinstance(upstreams, list):
-        for upstream in cast("list[object]", upstreams):
-            if not isinstance(upstream, dict):
+    if isinstance(upstreams, Sequence):
+        for upstream in cast("Sequence[object]", upstreams):
+            if not isinstance(upstream, Mapping):
                 continue
-            record = cast("dict[str, object]", upstream)
+            record = cast("Mapping[str, object]", upstream)
             nodes = record.get("nodes")
-            if not isinstance(nodes, dict):
+            if not isinstance(nodes, Mapping):
                 continue
-            for node in cast("dict[str, object]", nodes):
+            for node in cast("Mapping[object, object]", nodes):
                 host = str(node).rsplit(":", 1)[0]
                 if _IPV4_RE.match(host) is not None:
-                    violations.append(f"上游 {record.get('id')} 节点为硬编码 IP：{node}")
+                    violations.add(f"上游 {record.get('id')} 节点为硬编码 IP：{node}")
     routes = config.get("routes")
-    if isinstance(routes, list):
-        for route in cast("list[object]", routes):
-            if not isinstance(route, dict):
+    if isinstance(routes, Sequence):
+        for route in cast("Sequence[object]", routes):
+            if not isinstance(route, Mapping):
                 continue
-            record = cast("dict[str, object]", route)
+            record = cast("Mapping[str, object]", route)
             plugins = record.get("plugins")
-            if not isinstance(plugins, dict):
+            if not isinstance(plugins, Mapping):
                 continue
-            limit_count = cast("dict[str, object]", plugins).get(_LIMIT_COUNT_PLUGIN)
-            if isinstance(limit_count, dict):
-                host = str(cast("dict[str, object]", limit_count).get("redis_host", ""))
+            limit_count = cast("Mapping[str, object]", plugins).get(_LIMIT_COUNT_PLUGIN)
+            if isinstance(limit_count, Mapping):
+                host = str(cast("Mapping[str, object]", limit_count).get("redis_host", ""))
                 if _IPV4_RE.match(host) is not None:
-                    violations.append(f"路由 {record.get('id')} 限流 redis_host 为硬编码 IP：{host}")
+                    violations.add(f"路由 {record.get('id')} 限流 redis_host 为硬编码 IP：{host}")
     return violations
 
 
@@ -359,13 +364,13 @@ def gateway_services() -> tuple[ModuleRecord, ...]:
     )
 
 
-def _enabled_service_keys() -> list[str]:
+def _enabled_service_keys() -> ConcurrentStableList[str]:
     """启用服务的标识列表（顺序与目录一致）。
 
     Returns:
-        list[str]: 服务标识（`service_key`）。
+        ConcurrentStableList[str]: 服务标识（`service_key`）。
     """
-    return [cast("str", record.service_key) for record in gateway_services()]
+    return ConcurrentStableList(cast("str", record.service_key) for record in gateway_services())
 
 
 def route_prefix(service_key: str) -> str:
@@ -397,99 +402,119 @@ def _rewrite_regex(service_key: str) -> str:
     return f"^{route_prefix(service_key)}(.*)$"
 
 
-def render_upstreams() -> list[dict[str, object]]:
+def render_upstreams() -> ConcurrentStableList[ConcurrentStableDict[str, object]]:
     """上游段（每启用服务一条，`roundrobin`）。
 
     Returns:
-        list[dict[str, object]]: APISIX `upstreams` 列表。
+        ConcurrentStableList[ConcurrentStableDict[str, object]]: APISIX `upstreams` 列表。
     """
-    return [
-        {
-            "id": service_key,
-            "type": "roundrobin",
-            "nodes": {upstream_node(service_key): 1},
-        }
+    return ConcurrentStableList(
+        ConcurrentStableDict(
+            {
+                "id": service_key,
+                "type": "roundrobin",
+                "nodes": {upstream_node(service_key): 1},
+            }
+        )
         for service_key in _enabled_service_keys()
-    ]
+    )
 
 
-def render_routes() -> list[dict[str, object]]:
+def render_routes() -> ConcurrentStableList[ConcurrentStableDict[str, object]]:
     """路由段（每启用服务一条，含前缀重写、限流、观测与插件钩子合并）。
 
     Returns:
-        list[dict[str, object]]: APISIX `routes` 列表。
+        ConcurrentStableList[ConcurrentStableDict[str, object]]: APISIX `routes` 列表。
     """
-    routes: list[dict[str, object]] = []
+    routes: ConcurrentStableList[ConcurrentStableDict[str, object]] = ConcurrentStableList()
     for service_key in _enabled_service_keys():
-        headers_set: dict[str, str] = {GATEWAY_IDENTITY_HEADER: GATEWAY_IDENTITY_VALUE}
-        headers_set.update(ROUTE_HEADERS_SET.get(service_key) or {})
-        rewrite: dict[str, object] = {
-            "regex_uri": [_rewrite_regex(service_key), f"{API_PREFIX}{_REWRITE_SUFFIX}"],
-            "headers": {"set": headers_set},
-        }
-        plugins: dict[str, object] = {
-            "proxy-rewrite": rewrite,
-            FORWARD_AUTH_PLUGIN: forward_auth_plugin(),
-            _LIMIT_COUNT_PLUGIN: rate_limit_plugin(
-                count=DEFAULT_RATE_LIMIT_COUNT,
-                window=DEFAULT_RATE_LIMIT_WINDOW,
-            ),
-            _PROMETHEUS_PLUGIN: {},
-        }
-        plugins.update(_gray_plugins(service_key))
-        plugins.update(ROUTE_PLUGINS.get(service_key) or {})
-        prefix = route_prefix(service_key)
-        routes.append(
+        headers_set: ConcurrentStableDict[str, str] = ConcurrentStableDict(
+            {GATEWAY_IDENTITY_HEADER: GATEWAY_IDENTITY_VALUE}
+        )
+        headers_set.update((ROUTE_HEADERS_SET.get(service_key) or ConcurrentStableDict()).items())
+        rewrite: ConcurrentStableDict[str, object] = ConcurrentStableDict(
             {
-                "id": f"{_ROUTE_ID_PREFIX}{service_key}",
-                "uris": [prefix, f"{prefix}/*"],
-                "upstream_id": service_key,
-                "plugins": plugins,
+                "regex_uri": [_rewrite_regex(service_key), f"{API_PREFIX}{_REWRITE_SUFFIX}"],
+                "headers": {"set": headers_set},
             }
+        )
+        plugins: ConcurrentStableDict[str, object] = ConcurrentStableDict(
+            {
+                "proxy-rewrite": rewrite,
+                FORWARD_AUTH_PLUGIN: forward_auth_plugin(),
+                _LIMIT_COUNT_PLUGIN: rate_limit_plugin(
+                    count=DEFAULT_RATE_LIMIT_COUNT,
+                    window=DEFAULT_RATE_LIMIT_WINDOW,
+                ),
+                _PROMETHEUS_PLUGIN: {},
+            }
+        )
+        plugins.update(_gray_plugins(service_key).items())
+        plugins.update((ROUTE_PLUGINS.get(service_key) or ConcurrentStableDict()).items())
+        prefix = route_prefix(service_key)
+        routes.add(
+            ConcurrentStableDict(
+                {
+                    "id": f"{_ROUTE_ID_PREFIX}{service_key}",
+                    "uris": [prefix, f"{prefix}/*"],
+                    "upstream_id": service_key,
+                    "plugins": plugins,
+                }
+            )
         )
     return routes
 
 
-def render_login_routes() -> list[dict[str, object]]:
+def render_login_routes() -> ConcurrentStableList[ConcurrentStableDict[str, object]]:
     """认证敏感路径的独立限流路由（登录限流优先，04_03）。
 
     仅当认证服务（`identity`）启用时生成；显式更高 `priority` 保证精确路由优先命中，
     挂更严档位并复用服务上游与路径重写。
 
     Returns:
-        list[dict[str, object]]: APISIX `routes` 列表（0 或 1 条）。
+        ConcurrentStableList[ConcurrentStableDict[str, object]]: APISIX `routes` 列表（0 或 1 条）。
     """
     if LOGIN_SERVICE_KEY not in _enabled_service_keys():
-        return []
-    headers_set: dict[str, str] = {GATEWAY_IDENTITY_HEADER: GATEWAY_IDENTITY_VALUE}
-    headers_set.update(ROUTE_HEADERS_SET.get(LOGIN_SERVICE_KEY) or {})
-    rewrite: dict[str, object] = {
-        "regex_uri": [_rewrite_regex(LOGIN_SERVICE_KEY), f"{API_PREFIX}{_REWRITE_SUFFIX}"],
-        "headers": {"set": headers_set},
-    }
-    plugins: dict[str, object] = {
-        "proxy-rewrite": rewrite,
-        FORWARD_AUTH_PLUGIN: forward_auth_plugin(),
-        _LIMIT_COUNT_PLUGIN: rate_limit_plugin(
-            count=LOGIN_RATE_LIMIT_COUNT,
-            window=LOGIN_RATE_LIMIT_WINDOW,
-        ),
-        _PROMETHEUS_PLUGIN: {},
-    }
-    plugins.update(_gray_plugins(LOGIN_SERVICE_KEY))
-    plugins.update(ROUTE_PLUGINS.get(LOGIN_SERVICE_KEY) or {})
-    return [
+        return ConcurrentStableList()
+    headers_set: ConcurrentStableDict[str, str] = ConcurrentStableDict(
+        {GATEWAY_IDENTITY_HEADER: GATEWAY_IDENTITY_VALUE}
+    )
+    headers_set.update((ROUTE_HEADERS_SET.get(LOGIN_SERVICE_KEY) or ConcurrentStableDict()).items())
+    rewrite: ConcurrentStableDict[str, object] = ConcurrentStableDict(
         {
-            "id": LOGIN_ROUTE_ID,
-            "uris": list(LOGIN_PATHS),
-            "priority": LOGIN_ROUTE_PRIORITY,
-            "upstream_id": LOGIN_SERVICE_KEY,
-            "plugins": plugins,
+            "regex_uri": [_rewrite_regex(LOGIN_SERVICE_KEY), f"{API_PREFIX}{_REWRITE_SUFFIX}"],
+            "headers": {"set": headers_set},
         }
-    ]
+    )
+    plugins: ConcurrentStableDict[str, object] = ConcurrentStableDict(
+        {
+            "proxy-rewrite": rewrite,
+            FORWARD_AUTH_PLUGIN: forward_auth_plugin(),
+            _LIMIT_COUNT_PLUGIN: rate_limit_plugin(
+                count=LOGIN_RATE_LIMIT_COUNT,
+                window=LOGIN_RATE_LIMIT_WINDOW,
+            ),
+            _PROMETHEUS_PLUGIN: {},
+        }
+    )
+    plugins.update(_gray_plugins(LOGIN_SERVICE_KEY).items())
+    plugins.update((ROUTE_PLUGINS.get(LOGIN_SERVICE_KEY) or ConcurrentStableDict()).items())
+    return ConcurrentStableList(
+        [
+            ConcurrentStableDict(
+                {
+                    "id": LOGIN_ROUTE_ID,
+                    "uris": list(LOGIN_PATHS),
+                    "priority": LOGIN_ROUTE_PRIORITY,
+                    "upstream_id": LOGIN_SERVICE_KEY,
+                    "plugins": plugins,
+                }
+            )
+        ]
+    )
 
 
-def render_global_rules() -> list[dict[str, object]]:
+def render_global_rules() -> ConcurrentStableList[ConcurrentStableDict[str, object]]:
     """全局规则：伪造身份头剥除（04_02）+ 真实客户端 IP 还原（04_03）。
 
     网关专属标记的置入**归路由级** `proxy-rewrite.headers.set`（见 `render_routes`）：
@@ -497,53 +522,65 @@ def render_global_rules() -> list[dict[str, object]]:
     `proxy-rewrite` 执行后被丢弃，故标记与身份注入统一落路由级；剥头保留在 global 规则（集中、一次生效）。
 
     Returns:
-        list[dict[str, object]]: APISIX `global_rules` 列表。
+        ConcurrentStableList[ConcurrentStableDict[str, object]]: APISIX `global_rules` 列表。
     """
-    return [
-        {
-            "id": _GLOBAL_RULE_ID,
-            "plugins": {"proxy-rewrite": {"headers": {"remove": list(STRIPPED_HEADERS)}}},
-        },
-        {
-            "id": _REAL_IP_RULE_ID,
-            "plugins": {
-                "real-ip": {
-                    "source": "http_x_real_ip",
-                    "trusted_addresses": [env_var(GATEWAY_TRUSTED_CIDR_VAR, DEFAULT_GATEWAY_TRUSTED_CIDR)],
+    return ConcurrentStableList(
+        [
+            ConcurrentStableDict(
+                {
+                    "id": _GLOBAL_RULE_ID,
+                    "plugins": {"proxy-rewrite": {"headers": {"remove": list(STRIPPED_HEADERS)}}},
                 }
-            },
-        },
-    ]
+            ),
+            ConcurrentStableDict(
+                {
+                    "id": _REAL_IP_RULE_ID,
+                    "plugins": {
+                        "real-ip": {
+                            "source": "http_x_real_ip",
+                            "trusted_addresses": [env_var(GATEWAY_TRUSTED_CIDR_VAR, DEFAULT_GATEWAY_TRUSTED_CIDR)],
+                        }
+                    },
+                }
+            ),
+        ]
+    )
 
 
-def render_plugin_metadata() -> list[dict[str, object]]:
+def render_plugin_metadata() -> ConcurrentStableList[ConcurrentStableDict[str, object]]:
     """插件元数据段（限流响应头名，声明式扩展点）。
 
     Returns:
-        list[dict[str, object]]: APISIX `plugin_metadata` 列表。
+        ConcurrentStableList[ConcurrentStableDict[str, object]]: APISIX `plugin_metadata` 列表。
     """
-    return [
-        {
-            "id": _LIMIT_COUNT_PLUGIN,
-            "limit_header": "X-RateLimit-Limit",
-            "remaining_header": "X-RateLimit-Remaining",
-            "reset_header": "X-RateLimit-Reset",
-        }
-    ]
+    return ConcurrentStableList(
+        [
+            ConcurrentStableDict(
+                {
+                    "id": _LIMIT_COUNT_PLUGIN,
+                    "limit_header": "X-RateLimit-Limit",
+                    "remaining_header": "X-RateLimit-Remaining",
+                    "reset_header": "X-RateLimit-Reset",
+                }
+            )
+        ]
+    )
 
 
-def render_apisix_config() -> dict[str, object]:
+def render_apisix_config() -> ConcurrentStableDict[str, object]:
     """完整配置映射（可扩展 `consumers` / `plugin_metadata`）。
 
     Returns:
-        dict[str, object]: APISIX 配置映射。
+        ConcurrentStableDict[str, object]: APISIX 配置映射。
     """
-    return {
-        "upstreams": render_upstreams(),
-        "routes": [*render_routes(), *render_login_routes()],
-        "global_rules": render_global_rules(),
-        "plugin_metadata": render_plugin_metadata(),
-    }
+    return ConcurrentStableDict(
+        {
+            "upstreams": render_upstreams(),
+            "routes": ConcurrentStableList([*render_routes(), *render_login_routes()]),
+            "global_rules": render_global_rules(),
+            "plugin_metadata": render_plugin_metadata(),
+        }
+    )
 
 
 def render_apisix_yaml() -> str:
@@ -558,8 +595,10 @@ def render_apisix_yaml() -> str:
 def dump_yaml(value: object) -> str:
     """把映射 / 序列 / 标量渲染为最小 YAML 文本（公开展出以复用与单测）。
 
+    接受内置容器与基座插入序集合类（按 `collections.abc` 只读面识别），输出确定性文本。
+
     Args:
-        value: 待序列化的值（仅支持 dict / list / 标量）。
+        value: 待序列化的值（仅支持映射 / 序列 / 标量）。
 
     Returns:
         str: YAML 文本（无末尾换行）。
@@ -567,73 +606,73 @@ def dump_yaml(value: object) -> str:
     return "\n".join(_dump(value, 0))
 
 
-def _dump(value: object, indent: int) -> list[str]:
-    """最小 YAML 发出器（仅覆盖本模块使用的 dict / list / 标量结构）。
+def _dump(value: object, indent: int) -> ConcurrentStableList[str]:
+    """最小 YAML 发出器（仅覆盖本模块使用的映射 / 序列 / 标量结构）。
 
     Args:
         value: 待序列化值。
         indent: 当前缩进空格数。
 
     Returns:
-        list[str]: YAML 行。
+        ConcurrentStableList[str]: YAML 行。
 
     Raises:
         TypeError: 遇到不支持的值类型。
     """
-    if isinstance(value, dict):
-        return _dump_mapping(cast("dict[object, object]", value), indent)
-    if isinstance(value, list):
-        return _dump_sequence(cast("list[object]", value), indent)
+    if isinstance(value, Mapping):
+        return _dump_mapping(cast("ConcurrentStableDict[object, object]", value), indent)
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+        return _dump_sequence(cast("ConcurrentStableList[object]", value), indent)
     raise TypeError(f"不支持的 YAML 值类型：{type(value)!r}")
 
 
-def _dump_mapping(mapping: dict[object, object], indent: int) -> list[str]:
-    """映射序列化（值非空 dict / list 走子块，空集合内联）。"""
+def _dump_mapping(mapping: ConcurrentStableDict[object, object], indent: int) -> ConcurrentStableList[str]:
+    """映射序列化（值非空映射 / 序列走子块，空集合内联）。"""
     pad = " " * indent
-    lines: list[str] = []
+    lines: ConcurrentStableList[str] = ConcurrentStableList()
     for raw_key, item in mapping.items():
         key = _key(str(raw_key))
-        if isinstance(item, dict):
-            inner = cast("dict[object, object]", item)
+        if isinstance(item, Mapping):
+            inner = cast("ConcurrentStableDict[object, object]", item)
             if inner:
-                lines.append(f"{pad}{key}:")
-                lines.extend(_dump_mapping(inner, indent + 2))
+                lines.add(f"{pad}{key}:")
+                lines.update(_dump_mapping(inner, indent + 2))
             else:
-                lines.append(f"{pad}{key}: {{}}")
-        elif isinstance(item, list):
-            values = cast("list[object]", item)
+                lines.add(f"{pad}{key}: {{}}")
+        elif isinstance(item, Sequence) and not isinstance(item, (str, bytes, bytearray)):
+            values = cast("ConcurrentStableList[object]", item)
             if values:
-                lines.append(f"{pad}{key}:")
-                lines.extend(_dump_sequence(values, indent + 2))
+                lines.add(f"{pad}{key}:")
+                lines.update(_dump_sequence(values, indent + 2))
             else:
-                lines.append(f"{pad}{key}: []")
+                lines.add(f"{pad}{key}: []")
         else:
-            lines.append(f"{pad}{key}: {_scalar(item)}")
+            lines.add(f"{pad}{key}: {_scalar(item)}")
     return lines
 
 
-def _dump_sequence(sequence: list[object], indent: int) -> list[str]:
+def _dump_sequence(sequence: ConcurrentStableList[object], indent: int) -> ConcurrentStableList[str]:
     """序列序列化（列表项为映射时首键与 `- ` 同行）。"""
     pad = " " * indent
-    lines: list[str] = []
+    lines: ConcurrentStableList[str] = ConcurrentStableList()
     for item in sequence:
-        if isinstance(item, dict):
-            inner = cast("dict[object, object]", item)
+        if isinstance(item, Mapping):
+            inner = cast("ConcurrentStableDict[object, object]", item)
             if not inner:
-                lines.append(f"{pad}- {{}}")
+                lines.add(f"{pad}- {{}}")
                 continue
             rendered = _dump_mapping(inner, indent + 2)
-            lines.append(f"{pad}- {rendered[0][indent + 2 :]}")
-            lines.extend(rendered[1:])
-        elif isinstance(item, list):
-            values = cast("list[object]", item)
+            lines.add(f"{pad}- {rendered[0][indent + 2 :]}")
+            lines.update(rendered[1:])
+        elif isinstance(item, Sequence) and not isinstance(item, (str, bytes, bytearray)):
+            values = cast("ConcurrentStableList[object]", item)
             if not values:
-                lines.append(f"{pad}- []")
+                lines.add(f"{pad}- []")
                 continue
-            lines.append(f"{pad}-")
-            lines.extend(_dump_sequence(values, indent + 2))
+            lines.add(f"{pad}-")
+            lines.update(_dump_sequence(values, indent + 2))
         else:
-            lines.append(f"{pad}- {_scalar(item)}")
+            lines.add(f"{pad}- {_scalar(item)}")
     return lines
 
 

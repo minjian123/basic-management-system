@@ -6,6 +6,7 @@ from typing import Any, cast
 import pytest
 import yaml
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.services import gateway_catalog as gc
 
 _EXPECTED_SERVICES = (
@@ -74,7 +75,13 @@ def test_render_is_deterministic() -> None:
 @pytest.mark.kiwi_id(2165)
 def test_route_plugins_hook_merges(monkeypatch: pytest.MonkeyPatch) -> None:
     """ROUTE_PLUGINS 钩子按 service_key 合并附加插件（认证 07_03 预留）。"""
-    monkeypatch.setitem(gc.ROUTE_PLUGINS, "platform", {"openid-connect": {"client_id": "bms"}})
+    monkeypatch.setattr(
+        gc,
+        "ROUTE_PLUGINS",
+        ConcurrentStableDict(
+            {"platform": ConcurrentStableDict({"openid-connect": ConcurrentStableDict({"client_id": "bms"})})}
+        ),
+    )
     by_id = {route["id"]: route for route in gc.render_routes()}
     plugins = cast("dict[str, Any]", by_id["route-platform"]["plugins"])
     assert "proxy-rewrite" in plugins
@@ -120,7 +127,11 @@ def test_route_headers_inject_marker_and_reserved_hook(monkeypatch: pytest.Monke
     """路由级注入：默认置网关专属标记；`ROUTE_HEADERS_SET` 登记后按服务合并身份头。"""
     default_rewrite = cast("dict[str, Any]", cast("dict[str, Any]", gc.render_routes()[0]["plugins"])["proxy-rewrite"])
     assert default_rewrite["headers"] == {"set": {gc.GATEWAY_IDENTITY_HEADER: gc.GATEWAY_IDENTITY_VALUE}}
-    monkeypatch.setitem(gc.ROUTE_HEADERS_SET, "platform", {"X-User-Id": "$jwt_claim_sub"})
+    monkeypatch.setattr(
+        gc,
+        "ROUTE_HEADERS_SET",
+        ConcurrentStableDict({"platform": ConcurrentStableDict({"X-User-Id": "$jwt_claim_sub"})}),
+    )
     by_id = {route["id"]: route for route in gc.render_routes()}
     rewrite = cast("dict[str, Any]", cast("dict[str, Any]", by_id["route-platform"]["plugins"])["proxy-rewrite"])
     assert rewrite["headers"] == {
@@ -261,10 +272,16 @@ def test_gray_traffic_hook_merges(monkeypatch: pytest.MonkeyPatch) -> None:
     """灰度钩子：默认不注入；登记后按 service_key 合并 traffic-split 加权配置。"""
     by_id = {route["id"]: route for route in gc.render_routes()}
     assert "traffic-split" not in cast("dict[str, Any]", by_id["route-tenant"]["plugins"])
-    monkeypatch.setitem(
-        gc.GRAY_TRAFFIC,
-        "tenant",
-        {"rules": [{"weighted_upstreams": [{"upstream_id": "tenant-v2", "weight": 1}]}]},
+    monkeypatch.setattr(
+        gc,
+        "GRAY_TRAFFIC",
+        ConcurrentStableDict(
+            {
+                "tenant": ConcurrentStableDict(
+                    {"rules": [{"weighted_upstreams": [{"upstream_id": "tenant-v2", "weight": 1}]}]}
+                )
+            }
+        ),
     )
     routes = {route["id"]: route for route in gc.render_routes()}
     plugins = cast("dict[str, Any]", routes["route-tenant"]["plugins"])
@@ -291,29 +308,39 @@ def test_plugin_metadata_declared() -> None:
 def test_validate_service_discovery_flags_hardcoded_ip() -> None:
     """服务发现护栏：正常生成件通过；上游节点 / 限流 redis_host 为 IP 时报违规。"""
     assert gc.validate_service_discovery(gc.render_apisix_config()) == []
-    bad_upstream = {
-        "upstreams": [{"id": "platform", "type": "roundrobin", "nodes": {"10.0.0.5:8000": 1}}],
-        "routes": [],
-    }
+    bad_upstream = ConcurrentStableDict(
+        {
+            "upstreams": [{"id": "platform", "type": "roundrobin", "nodes": {"10.0.0.5:8000": 1}}],
+            "routes": [],
+        }
+    )
     assert gc.validate_service_discovery(bad_upstream) == ["上游 platform 节点为硬编码 IP：10.0.0.5:8000"]
-    bad_redis = {
-        "upstreams": [],
-        "routes": [
-            {"id": "route-a", "plugins": {"limit-count": {"redis_host": "192.168.1.1"}}},
-        ],
-    }
+    bad_redis = ConcurrentStableDict(
+        {
+            "upstreams": [],
+            "routes": [
+                {"id": "route-a", "plugins": {"limit-count": {"redis_host": "192.168.1.1"}}},
+            ],
+        }
+    )
     assert gc.validate_service_discovery(bad_redis) == ["路由 route-a 限流 redis_host 为硬编码 IP：192.168.1.1"]
 
 
 @pytest.mark.kiwi_id(2167)
 def test_validate_service_discovery_tolerates_malformed_config() -> None:
-    """护栏对畸形结构（非 dict 项 / 非 dict nodes 或 plugins / 无 redis_host）容错放行。"""
-    malformed: dict[str, object] = {
-        "upstreams": ["not-a-dict", {"id": "x", "nodes": "not-a-dict"}],
-        "routes": ["not-a-dict", {"id": "r", "plugins": "not-a-dict"}, {"id": "r2", "plugins": {"limit-count": "x"}}],
-    }
+    """护栏对畸形结构（非映射项 / 非映射 nodes 或 plugins / 无 redis_host）容错放行。"""
+    malformed = ConcurrentStableDict(
+        {
+            "upstreams": ["not-a-dict", {"id": "x", "nodes": "not-a-dict"}],
+            "routes": [
+                "not-a-dict",
+                {"id": "r", "plugins": "not-a-dict"},
+                {"id": "r2", "plugins": {"limit-count": "x"}},
+            ],
+        }
+    )
     assert gc.validate_service_discovery(malformed) == []
-    assert gc.validate_service_discovery({}) == []
+    assert gc.validate_service_discovery(ConcurrentStableDict()) == []
 
 
 @pytest.mark.kiwi_id(2167)
