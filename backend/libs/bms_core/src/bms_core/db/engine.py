@@ -23,6 +23,7 @@ from sqlalchemy import Engine
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncEngine
 
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import DatabaseTargetSettings, DbPoolSettings, Settings, get_settings
 from bms_core.core.exceptions import ConfigError
 from bms_core.core.factory import BaseDbFactory
@@ -83,9 +84,9 @@ class EngineFactory(BaseDbFactory[str | None, AsyncEngine]):
         """
         self._settings = settings or get_settings()
         self._allow_cross_service = allow_cross_service
-        self._engines: dict[tuple[str, str], AsyncEngine] = {}
-        self._sync_engines: dict[tuple[str, str], Engine] = {}
-        self._round_robin: dict[str, int] = {}
+        self._engines: ConcurrentStableDict[tuple[str, str], AsyncEngine] = ConcurrentStableDict()
+        self._sync_engines: ConcurrentStableDict[tuple[str, str], Engine] = ConcurrentStableDict()
+        self._round_robin: ConcurrentStableDict[str, int] = ConcurrentStableDict()
 
     def validate_key(self, db_key: str | None = None) -> DbKey:
         """解析并校验数据源键归属（取键入口统一前置；注册表复用同一判定）。
@@ -130,7 +131,7 @@ class EngineFactory(BaseDbFactory[str | None, AsyncEngine]):
                 f"数据库方言 {dialect} 为同步驱动、无异步实现（运行期请走同步门面 SyncSession）：{key.raw}"
             )
         engine = sqlalchemy.ext.asyncio.create_async_engine(url, **self._engine_kwargs(target, dialect))
-        self._engines[(key.raw, role)] = engine
+        self._engines.set((key.raw, role), engine)
         return engine
 
     def create_sync(self, options: str | None = None, *, read_only: bool = False) -> Engine:
@@ -151,19 +152,19 @@ class EngineFactory(BaseDbFactory[str | None, AsyncEngine]):
         if engine is not None:
             return engine
         engine = sqlalchemy.create_engine(url, pool_pre_ping=True)
-        self._sync_engines[(key.raw, role)] = engine
+        self._sync_engines.set((key.raw, role), engine)
         return engine
 
-    def replicas(self, db_key: str) -> list[str]:
+    def replicas(self, db_key: str) -> ConcurrentStableList[str]:
         """取该库配置的只读副本连接串列表。
 
         Args:
             db_key: 数据源键。
 
         Returns:
-            list[str]: 副本连接串列表（可能为空）。
+            ConcurrentStableList[str]: 副本连接串列表（可能为空）。
         """
-        return list(self._resolve(db_key)[1].replicas)
+        return ConcurrentStableList(self._resolve(db_key)[1].replicas)
 
     def resolve_url(self, db_key: str = PLATFORM_DB_KEY) -> str:
         """取数据源连接串（不含分字段密码；迁移脚本与 `ops` 复用）。
@@ -257,10 +258,10 @@ class EngineFactory(BaseDbFactory[str | None, AsyncEngine]):
         if not read_only or not target.replicas:
             return _with_password(self._target_url(key, target), target), "write"
         index = self._round_robin.get(key.raw, 0)
-        self._round_robin[key.raw] = (index + 1) % len(target.replicas)
+        self._round_robin.set(key.raw, (index + 1) % len(target.replicas))
         return _with_password(target.replicas[index], target), f"read:{index}"
 
-    def _engine_kwargs(self, target: DatabaseTargetSettings, dialect: str) -> dict[str, object]:
+    def _engine_kwargs(self, target: DatabaseTargetSettings, dialect: str) -> ConcurrentStableDict[str, object]:
         """构造引擎参数（SQLite 无池参数；余下附池参数与建连超时）。
 
         Args:
@@ -268,20 +269,22 @@ class EngineFactory(BaseDbFactory[str | None, AsyncEngine]):
             dialect: 方言名。
 
         Returns:
-            dict[str, object]: `create_async_engine` 关键字参数。
+            ConcurrentStableDict[str, object]: `create_async_engine` 关键字参数。
         """
         if dialect == _SQLITE:
-            return {"pool_pre_ping": True}
+            return ConcurrentStableDict({"pool_pre_ping": True})
         pool: DbPoolSettings = target.effective_pool(self._settings.app.service)
-        kwargs: dict[str, object] = {
-            "pool_pre_ping": True,
-            "pool_size": pool.pool_size,
-            "max_overflow": pool.max_overflow,
-            "pool_timeout": pool.pool_timeout,
-            "pool_recycle": pool.pool_recycle,
-        }
+        kwargs: ConcurrentStableDict[str, object] = ConcurrentStableDict(
+            {
+                "pool_pre_ping": True,
+                "pool_size": pool.pool_size,
+                "max_overflow": pool.max_overflow,
+                "pool_timeout": pool.pool_timeout,
+                "pool_recycle": pool.pool_recycle,
+            }
+        )
         if dialect in _CONNECT_TIMEOUT_DIALECTS:
-            kwargs["connect_args"] = {"connect_timeout": int(pool.connect_timeout)}
+            kwargs.set("connect_args", {"connect_timeout": int(pool.connect_timeout)})
         return kwargs
 
     async def drop(self, db_key: str) -> None:
@@ -292,22 +295,25 @@ class EngineFactory(BaseDbFactory[str | None, AsyncEngine]):
         """
         roles = [role for (key, role) in self._engines if key == db_key]
         for role in roles:
-            engine = self._engines.pop((db_key, role), None)
+            engine = self._engines.get_and_remove((db_key, role))
             if engine is not None:
                 await engine.dispose()
         sync_roles = [role for (key, role) in self._sync_engines if key == db_key]
         for sync_role in sync_roles:
-            sync_engine = self._sync_engines.pop((db_key, sync_role), None)
+            sync_engine = self._sync_engines.get_and_remove((db_key, sync_role))
             if sync_engine is not None:
                 sync_engine.dispose()
-        self._round_robin.pop(db_key, None)
+        self._round_robin.get_and_remove(db_key)
 
     async def aclose(self) -> None:
         """释放全部缓存引擎（幂等）。"""
         for engine in self._engines.values():
             await engine.dispose()
-        self._engines.clear()
+        for key in list(self._engines):
+            self._engines.get_and_remove(key)
         for sync_engine in self._sync_engines.values():
             sync_engine.dispose()
-        self._sync_engines.clear()
-        self._round_robin.clear()
+        for key in list(self._sync_engines):
+            self._sync_engines.get_and_remove(key)
+        for db_key in list(self._round_robin):
+            self._round_robin.get_and_remove(db_key)

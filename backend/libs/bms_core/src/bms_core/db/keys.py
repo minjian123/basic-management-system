@@ -19,6 +19,7 @@ import re
 from dataclasses import dataclass
 from functools import lru_cache
 
+from bms_core.core.concurrent import ConcurrentStableSet
 from bms_core.core.exceptions import ConfigError, DataOwnershipError
 from bms_core.core.objects import BaseValueObject
 
@@ -70,7 +71,7 @@ DB_KIND_TENANT = "tenant"
 DB_KIND_ARCHIVE = "archive"
 """库类别：归档库。"""
 
-DB_KEY_KINDS: frozenset[str] = frozenset({DB_KIND_PLATFORM, DB_KIND_TENANT, DB_KIND_ARCHIVE})
+DB_KEY_KINDS: ConcurrentStableSet[str] = ConcurrentStableSet({DB_KIND_PLATFORM, DB_KIND_TENANT, DB_KIND_ARCHIVE})
 """合法库类别集合。"""
 
 _IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,62}$")
@@ -104,15 +105,15 @@ class DbKey(BaseValueObject):
 
 
 @lru_cache(maxsize=1)
-def _known_service_keys() -> frozenset[str]:
+def _known_service_keys() -> ConcurrentStableSet[str]:
     """已知服务标识集合（归属登记导出；懒导入避免 db ← services 导入期耦合）。
 
     Returns:
-        frozenset[str]: 服务标识集合。
+        ConcurrentStableSet[str]: 服务标识集合。
     """
     from bms_core.services.table_registry import known_service_keys
 
-    return frozenset(known_service_keys())
+    return ConcurrentStableSet(known_service_keys())
 
 
 def build_platform_db_key(service: str | None = None) -> str:

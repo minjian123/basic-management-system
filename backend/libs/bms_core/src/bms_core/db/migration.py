@@ -36,7 +36,7 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.pool import NullPool
 
 from alembic import command
-from bms_core.core.concurrent import ConcurrentStableSet
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.config import Settings, get_settings
 from bms_core.core.exceptions import ConfigError
 from bms_core.core.objects import BaseValueObject
@@ -80,11 +80,13 @@ COMMON_MODEL_MODULES: tuple[str, ...] = (
 SERVICE_MODEL_MODULES_ENTRY = "MODEL_MODULES"
 """服务包自声明模型模块清单的常量名（`bms_{service}/models/__init__.py`）。"""
 
-_SCOPE_SUFFIX: dict[str, str] = {
-    DATASOURCE_PLATFORM: "平台服务库",
-    DATASOURCE_TENANT: "服务租户库",
-    DATASOURCE_ARCHIVE: "归档库",
-}
+_SCOPE_SUFFIX: ConcurrentStableDict[str, str] = ConcurrentStableDict(
+    {
+        DATASOURCE_PLATFORM: "平台服务库",
+        DATASOURCE_TENANT: "服务租户库",
+        DATASOURCE_ARCHIVE: "归档库",
+    }
+)
 
 
 def _find_backend_root() -> Path:
@@ -230,32 +232,32 @@ def default_chain() -> MigrationChain:
     return resolve_chain(DEFAULT_CHAIN_NAME)
 
 
-def chain_names() -> list[str]:
+def chain_names() -> ConcurrentStableList[str]:
     """全部候选链名（服务集 × 数据源集，保序；空链由 `has_revisions` 过滤）。
 
     Returns:
-        list[str]: 链名列表。
+        ConcurrentStableList[str]: 链名列表。
     """
-    return [
+    return ConcurrentStableList(
         f"{service}{CHAIN_SEPARATOR}{datasource}"
         for service in sorted(known_service_keys())
         for datasource in DATASOURCES
-    ]
+    )
 
 
-def service_chains(service: str) -> list[MigrationChain]:
+def service_chains(service: str) -> ConcurrentStableList[MigrationChain]:
     """某服务的三条链（平台 / 租户 / 归档，启动自动建表与批量迁移用）。
 
     Args:
         service: 服务标识。
 
     Returns:
-        list[MigrationChain]: 链定义列表（保序）。
+        ConcurrentStableList[MigrationChain]: 链定义列表（保序）。
 
     Raises:
         ConfigError: 服务标识未登记。
     """
-    return [resolve_chain(build_chain_name(service, datasource)) for datasource in DATASOURCES]
+    return ConcurrentStableList(resolve_chain(build_chain_name(service, datasource)) for datasource in DATASOURCES)
 
 
 def archive_chain() -> MigrationChain:

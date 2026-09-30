@@ -13,7 +13,7 @@
 
 import asyncio
 import time
-from collections.abc import AsyncGenerator, Sequence
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from typing import cast
@@ -22,6 +22,7 @@ from sqlalchemy import Engine
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from bms_core.core.capability import BaseAsyncResource
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.config import Settings
 from bms_core.core.objects import BaseOpsReportContract
 from bms_core.db.engine import EngineFactory
@@ -81,16 +82,16 @@ class EngineRegistry(BaseAsyncResource):
         self._lock = lock
         self._metrics = metrics
         self._metrics_service = metrics_service
-        self._engines: dict[str, AsyncEngine] = {}
-        self._sync_keys: set[str] = set()
-        self._last_used: dict[str, float] = {}
-        self._locks: dict[str, asyncio.Lock] = {}
+        self._engines: ConcurrentStableDict[str, AsyncEngine] = ConcurrentStableDict()
+        self._sync_keys: ConcurrentStableSet[str] = ConcurrentStableSet()
+        self._last_used: ConcurrentStableDict[str, float] = ConcurrentStableDict()
+        self._locks: ConcurrentStableDict[str, asyncio.Lock] = ConcurrentStableDict()
 
-    def db_counts(self) -> dict[str, int]:
+    def db_counts(self) -> ConcurrentStableDict[str, int]:
         """按库类别统计活跃引擎数（运行期库数量水位）。
 
         Returns:
-            dict[str, int]: 库类别 → 活跃数。
+            ConcurrentStableDict[str, int]: 库类别 → 活跃数。
         """
         return db_counts_by_kind(self.active_keys())
 
@@ -134,7 +135,7 @@ class EngineRegistry(BaseAsyncResource):
                 if engine is None:
                     await self._evict()
                     engine = self._factory.create(db_key)
-                    self._engines[db_key] = engine
+                    self._engines.set(db_key, engine)
         self._touch(db_key)
         await self.record_db_counts()
         if read_only:
@@ -193,13 +194,13 @@ class EngineRegistry(BaseAsyncResource):
         await self._dispose(db_key)
         await self.record_db_counts()
 
-    def active_keys(self) -> list[str]:
+    def active_keys(self) -> ConcurrentStableList[str]:
         """当前活跃 `db_key` 列表（含平台；异步与同步路径合并视图）。
 
         Returns:
-            list[str]: 数据源键列表。
+            ConcurrentStableList[str]: 数据源键列表。
         """
-        return list(dict.fromkeys([*self._engines, *sorted(self._sync_keys)]))
+        return ConcurrentStableList(dict.fromkeys([*self._engines, *sorted(self._sync_keys)]))
 
     def redis_lock_key(self, db_key: str) -> str:
         """跨实例创建锁键（经锁基座 key 规范：`bms:global:lock:engine:{db_key}`）。
@@ -236,21 +237,24 @@ class EngineRegistry(BaseAsyncResource):
     async def aclose(self) -> None:
         """释放全部引擎（幂等）。"""
         await self._factory.aclose()
-        self._engines.clear()
+        for key in list(self._engines):
+            self._engines.get_and_remove(key)
         self._sync_keys.clear()
-        self._last_used.clear()
-        self._locks.clear()
+        for key in list(self._last_used):
+            self._last_used.get_and_remove(key)
+        for key in list(self._locks):
+            self._locks.get_and_remove(key)
 
     def _touch(self, db_key: str) -> None:
         """刷新引擎使用时间。"""
-        self._last_used[db_key] = time.monotonic()
+        self._last_used.set(db_key, time.monotonic())
 
     def _lock_for(self, db_key: str) -> asyncio.Lock:
         """取（或建）该数据源的进程内创建锁。"""
         lock = self._locks.get(db_key)
         if lock is None:
             lock = asyncio.Lock()
-            self._locks[db_key] = lock
+            self._locks.set(db_key, lock)
         return lock
 
     @asynccontextmanager
@@ -281,7 +285,7 @@ class EngineRegistry(BaseAsyncResource):
             await self._dispose(oldest)
             tenants.remove(oldest)
 
-    def _tenant_keys(self) -> list[str]:
+    def _tenant_keys(self) -> ConcurrentStableList[str]:
         """当前活跃服务租户库键（异步与同步路径合并，已排序快照）。
 
         只统计**库类别为租户**的键：平台类键（含运维跨服务取到的 `platform_{service}`）常驻，
@@ -289,13 +293,13 @@ class EngineRegistry(BaseAsyncResource):
         """
         keys = {key for key in self._engines if _db_kind(key) == DB_KIND_TENANT}
         keys |= {key for key in self._sync_keys if _db_kind(key) == DB_KIND_TENANT}
-        return sorted(keys)
+        return ConcurrentStableList(sorted(keys))
 
     async def _dispose(self, db_key: str) -> None:
         """释放并移除单个引擎（异步 + 同步）。"""
-        self._last_used.pop(db_key, None)
+        self._last_used.get_and_remove(db_key)
         await self._factory.drop(db_key)
-        self._engines.pop(db_key, None)
+        self._engines.get_and_remove(db_key)
         self._sync_keys.discard(db_key)
 
 
@@ -406,9 +410,9 @@ def _budget_row(
 def pool_budget_rows(
     settings: Settings,
     *,
-    services: Sequence[str] | None = None,
+    services: ConcurrentStableList[str] | None = None,
     active_tenants: int = 0,
-) -> list[PoolBudgetRow]:
+) -> ConcurrentStableList[PoolBudgetRow]:
     """按「服务 × 库类别」核算连接预算（启动告警与离线核对共用同一内核）。
 
     口径：`workers_for(service) × (pool_size + max_overflow) ≤ max_connections_for(service) × 70%`；
@@ -420,14 +424,14 @@ def pool_budget_rows(
         active_tenants: 活跃租户数（`0` = 不按活跃数核算；租户库行专用）。
 
     Returns:
-        list[PoolBudgetRow]: 核算行（保序：平台服务库 → 服务租户库 → 归档库）。
+        ConcurrentStableList[PoolBudgetRow]: 核算行（保序：平台服务库 → 服务租户库 → 归档库）。
     """
     resolved = tuple(services) if services is not None else enabled_service_keys()
-    rows: list[PoolBudgetRow] = []
+    rows: ConcurrentStableList[PoolBudgetRow] = ConcurrentStableList()
     for service in resolved:
-        rows.append(_budget_row(settings, service=service, datasource="platform", target=settings.database.platform))
+        rows.add(_budget_row(settings, service=service, datasource="platform", target=settings.database.platform))
     for service in resolved:
-        rows.append(
+        rows.add(
             _budget_row(
                 settings,
                 service=service,
@@ -436,23 +440,23 @@ def pool_budget_rows(
                 active_tenants=active_tenants,
             )
         )
-    rows.append(_budget_row(settings, service="", datasource="archive", target=settings.database.archive))
+    rows.add(_budget_row(settings, service="", datasource="archive", target=settings.database.archive))
     return rows
 
 
-def pool_budget_warnings(settings: Settings) -> list[str]:
+def pool_budget_warnings(settings: Settings) -> ConcurrentStableList[str]:
     """计算各「服务 × 库类别」连接预算告警（启动期调用；超限不阻断启动）。
 
     Args:
         settings: 应用配置（worker 数、库目标与按服务的池参数）。
 
     Returns:
-        list[str]: 超限告警文案（空列表表示均在预算内；`max_connections == 0` 跳过）。
+        ConcurrentStableList[str]: 超限告警文案（空列表表示均在预算内；`max_connections == 0` 跳过）。
     """
-    return [row.describe() for row in pool_budget_rows(settings) if not row.ok]
+    return ConcurrentStableList(row.describe() for row in pool_budget_rows(settings) if not row.ok)
 
 
-def tenant_pool_budget_warnings(settings: Settings, max_active: int) -> list[str]:
+def tenant_pool_budget_warnings(settings: Settings, max_active: int) -> ConcurrentStableList[str]:
     """按活跃引擎数核算各服务租户库连接预算（启动期告警）。
 
     口径：`max_active × workers_for(service) × (pool_size + max_overflow) ≤ max_connections_for(service) × 70%`；
@@ -463,7 +467,7 @@ def tenant_pool_budget_warnings(settings: Settings, max_active: int) -> list[str
         max_active: 租户引擎活跃上限（`[tenant].engine_max_active`）。
 
     Returns:
-        list[str]: 超限告警文案（空列表表示在预算内）。
+        ConcurrentStableList[str]: 超限告警文案（空列表表示在预算内）。
     """
     rows = pool_budget_rows(settings, active_tenants=max_active)
-    return [row.describe() for row in rows if row.datasource == "tenants" and not row.ok]
+    return ConcurrentStableList(row.describe() for row in rows if row.datasource == "tenants" and not row.ok)

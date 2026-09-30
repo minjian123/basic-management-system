@@ -10,6 +10,7 @@
 from typing import Protocol
 
 from bms_core.cache.base import CacheRegion
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.config import Settings
 from bms_core.core.exceptions import ConfigError
 from bms_core.db.registry import EngineRegistry
@@ -57,7 +58,7 @@ class TenantLookupFactory(Protocol):
         ...
 
 
-_LOOKUP_FACTORIES: dict[str, TenantLookupFactory] = {}
+_LOOKUP_FACTORIES: ConcurrentStableDict[str, TenantLookupFactory] = ConcurrentStableDict()
 
 
 def register_tenant_lookup(name: str, factory: TenantLookupFactory) -> None:
@@ -72,7 +73,7 @@ def register_tenant_lookup(name: str, factory: TenantLookupFactory) -> None:
     """
     if not name:
         raise ConfigError("租户源实现名不得为空")
-    _LOOKUP_FACTORIES[name] = factory
+    _LOOKUP_FACTORIES.set(name, factory)
 
 
 def registered_tenant_sources() -> tuple[str, ...]:

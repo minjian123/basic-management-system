@@ -11,6 +11,7 @@ from typing import cast
 from sqlalchemy import select
 
 from bms_core.cache.base import CacheRegion
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.config import Settings
 from bms_core.core.exceptions import TenantNotFoundError, TenantSuspendedError
 from bms_core.core.logging import get_logger
@@ -213,7 +214,7 @@ class LocalTenantSource(BaseFrameworkObject):
         if not isinstance(version, int) or cache.is_stale(TENANT_VERSION_KEY, version):
             return None
         try:
-            return TenantSnapshot.from_payload(payload)
+            return TenantSnapshot.from_payload(ConcurrentStableDict(payload))
         except KeyError:
             return None
 
@@ -227,7 +228,7 @@ class LocalTenantSource(BaseFrameworkObject):
         cache = self.cache
         if cache is None:
             return
-        cache.set(key, snapshot.to_payload(version=cache.get_global_version()), self._cache_ttl)
+        cache.set(key, dict(snapshot.to_payload(version=cache.get_global_version())), self._cache_ttl)
 
     def _cache_delete(self, key: str) -> None:
         """删缓存（幂等）。

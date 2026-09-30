@@ -8,9 +8,9 @@
   （见 `db/registry.py`；Prometheus 暴露端点归阶段八 08_01）。
 """
 
-from collections.abc import Sequence
 from dataclasses import dataclass
 
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.objects import BaseOpsReportContract
 from bms_core.db.keys import parse_db_key
 
@@ -72,7 +72,7 @@ class DbCount(BaseOpsReportContract):
         return f"共 {self.total} 个库（平台服务库 {self.platform}、服务租户库 {self.tenant}、归档库 {self.archive}）"
 
 
-def db_count_rows(services: Sequence[str], tenants: Sequence[str]) -> DbCount:
+def db_count_rows(services: ConcurrentStableList[str], tenants: ConcurrentStableList[str]) -> DbCount:
     """按「服务 × 租户」计算预期库数量（纯计算）。
 
     Args:
@@ -85,26 +85,26 @@ def db_count_rows(services: Sequence[str], tenants: Sequence[str]) -> DbCount:
     return DbCount(services=len(tuple(services)), tenants=len(tuple(tenants)))
 
 
-def db_counts_by_kind(active_keys: Sequence[str]) -> dict[str, int]:
+def db_counts_by_kind(active_keys: ConcurrentStableList[str]) -> ConcurrentStableDict[str, int]:
     """按库类别统计活跃引擎数（非法键忽略，不因历史键形态失败）。
 
     Args:
         active_keys: 活跃数据源键集合（`EngineRegistry.active_keys()`）。
 
     Returns:
-        dict[str, int]: 库类别 → 活跃数（仅含有值的类别）。
+        ConcurrentStableDict[str, int]: 库类别 → 活跃数（仅含有值的类别）。
     """
-    counts: dict[str, int] = {}
+    counts: ConcurrentStableDict[str, int] = ConcurrentStableDict()
     for key in active_keys:
         try:
             kind = parse_db_key(key).kind
         except Exception:  # 记账路径不因历史键形态失败
             continue
-        counts[kind] = counts.get(kind, 0) + 1
+        counts.set(kind, counts.get(kind, 0) + 1)
     return counts
 
 
-def db_counts_from_keys(active_keys: Sequence[str]) -> DbCount:
+def db_counts_from_keys(active_keys: ConcurrentStableList[str]) -> DbCount:
     """按活跃库键折算库数量统计（活跃口径；归档恒 1）。
 
     Args:
