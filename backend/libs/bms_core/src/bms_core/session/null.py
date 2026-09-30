@@ -1,8 +1,7 @@
 """session 能力域缺省实现（Null Object）：占位返回、无副作用（02-3 自 bms_core.session.base.py 迁入）。"""
 
-from collections.abc import Mapping
-
 from bms_core.core.capability import BaseNullObject
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.session.base import DEFAULT_SESSION_TTL, BaseSessionStore
 
 __all__ = [
@@ -16,7 +15,7 @@ class NullSessionStore(BaseSessionStore, BaseNullObject):
     async def save(
         self,
         session_id: str,
-        payload: Mapping[str, object],
+        payload: ConcurrentStableDict[str, object],
         *,
         tenant: str | None = None,
         ttl: int = DEFAULT_SESSION_TTL,
@@ -30,7 +29,7 @@ class NullSessionStore(BaseSessionStore, BaseNullObject):
             ttl: 有效期（占位忽略）。
         """
 
-    async def load(self, session_id: str, *, tenant: str | None = None) -> Mapping[str, object] | None:
+    async def load(self, session_id: str, *, tenant: str | None = None) -> ConcurrentStableDict[str, object] | None:
         """固定返回占位会话。
 
         Args:
@@ -38,9 +37,9 @@ class NullSessionStore(BaseSessionStore, BaseNullObject):
             tenant: 租户编码（占位忽略）。
 
         Returns:
-            Mapping[str, object] | None: 占位会话（`{"session_id": session_id}`）。
+            ConcurrentStableDict[str, object] | None: 占位会话（`{"session_id": session_id}`）。
         """
-        return {"session_id": session_id}
+        return ConcurrentStableDict({"session_id": session_id})
 
     async def delete(self, session_id: str, *, tenant: str | None = None) -> None:
         """空操作（占位不删除）。

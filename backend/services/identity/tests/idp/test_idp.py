@@ -11,6 +11,7 @@ from bms_core.api.deps import get_identity_provider, get_session_store
 from bms_core.application import service_lifespan as lifespan
 from bms_core.core.base import BaseObject
 from bms_core.core.capability import BaseCapability, BaseNullObject
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.exceptions import ConfigError
 from bms_core.idp.base import (
     IDP_PROTOCOLS,
@@ -84,7 +85,7 @@ async def test_null_identity_provider_fixed() -> None:
 async def test_null_session_store() -> None:
     """占位会话存储：写 / 删空操作、读返回占位会话。"""
     store = NullSessionStore()
-    assert await store.save("sess-1", {"user": "1"}) is None
+    assert await store.save("sess-1", ConcurrentStableDict({"user": "1"})) is None
     assert await store.load("sess-1") == {"session_id": "sess-1"}
     assert await store.delete("sess-1") is None
 
@@ -108,7 +109,7 @@ async def test_dependency_providers_resolve() -> None:
                 "idp_key": provider.key,
                 "idp_subject": user.subject,
                 "session_key": store.key,
-                "session": session,
+                "session": dict(session) if session is not None else None,
             }
 
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:

@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 
 from bms_core.captcha.base import BaseCaptcha, CaptchaCredential, CaptchaKind
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.config import LoginSettings, SessionSettings
 from bms_core.core.exceptions import (
     AccountDisabledError,
@@ -257,7 +258,7 @@ class LoginService(BaseFrameworkObject):
             await self._sessions.update_refresh_hash(session_id, hash_refresh_token(pair.refresh_token))
         await self._store.save(
             session_id,
-            {"user_id": record.user_id, "tenant": tenant_id, "ip": ip, "ua": user_agent},
+            ConcurrentStableDict({"user_id": record.user_id, "tenant": tenant_id, "ip": ip, "ua": user_agent}),
             tenant=tenant_id,
             ttl=pair.refresh_expires_in,
         )

@@ -4,6 +4,7 @@ import pytest
 from fastapi import FastAPI
 from httpx import AsyncClient, Response
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.ratelimit.memory import MemoryRateLimiter
 from bms_core.security.session import DefaultSessionSecurity
 from bms_core.session.memory import MemorySessionStore
@@ -120,7 +121,7 @@ async def test_refresh_record_missing(client: AsyncClient, service_app: FastAPI)
     """会话标记存在但记录缺失：401。"""
     issuer, store = await _prepare(client, service_app)
     issuer.mint("ref-ghost", jti="ghost-1", tenant_id="demo")
-    await store.save("ghost-1", {"user_id": 1, "tenant": "demo"}, tenant="demo", ttl=60)
+    await store.save("ghost-1", ConcurrentStableDict({"user_id": 1, "tenant": "demo"}), tenant="demo", ttl=60)
     client.cookies.clear()
     assert (await client.post(API_REFRESH, headers={"Cookie": f"{COOKIE}=ref-ghost"})).status_code == 401
 

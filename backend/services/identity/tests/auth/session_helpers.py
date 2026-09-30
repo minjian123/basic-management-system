@@ -8,6 +8,7 @@ from datetime import UTC, datetime, timedelta
 from fastapi import FastAPI
 from httpx import AsyncClient, Response
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.db.session import DbSession, session_scope
 from bms_core.db.tenant import DEMO_TENANT
 from bms_core.ratelimit.memory import MemoryRateLimiter
@@ -63,7 +64,7 @@ async def wire_login(
     org.set_user("admin", password="secret", user_id=user_id, name="管理员")
     await store.save(
         TEST_SESSION_ID,
-        {"user_id": user_id, "tenant": TENANT_ID},
+        ConcurrentStableDict({"user_id": user_id, "tenant": TENANT_ID}),
         tenant=TENANT_ID,
     )
     wire_auth(app, issuer=issuer, org=org, store=store, limiter=limiter)
