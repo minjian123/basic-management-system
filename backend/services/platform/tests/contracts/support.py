@@ -100,7 +100,7 @@ class TextFieldType(BaseFieldType):
         """
         return f"字段类型 {self.key}"
 
-    def validate(self, value: object, *, options: Mapping[str, object] | None = None) -> tuple[str, ...]:
+    def validate(self, value: object, *, options: ConcurrentStableDict[str, object] | None = None) -> tuple[str, ...]:
         """恒定通过。
 
         Args:
@@ -113,13 +113,13 @@ class TextFieldType(BaseFieldType):
         del value, options
         return ()
 
-    def render_metadata(self) -> Mapping[str, object]:
+    def render_metadata(self) -> ConcurrentStableDict[str, object]:
         """渲染元数据。
 
         Returns:
-            Mapping[str, object]: 固定元数据。
+            ConcurrentStableDict[str, object]: 固定元数据。
         """
-        return {"input": "text"}
+        return ConcurrentStableDict({"input": "text"})
 
     def column_type(self, dialect: str) -> str:
         """固定列类型。

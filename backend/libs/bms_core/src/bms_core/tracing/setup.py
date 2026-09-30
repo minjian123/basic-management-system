@@ -12,7 +12,6 @@
 不影响业务（collector 未部署时应用照常运行）。
 """
 
-from collections.abc import Mapping
 from importlib import import_module
 from typing import Any, cast
 
@@ -27,6 +26,7 @@ from opentelemetry.sdk.trace.sampling import ALWAYS_OFF, ALWAYS_ON, ParentBased,
 from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 
 from bms_core.core.capability import BaseAsyncResource
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.config import Settings
 from bms_core.core.logging import get_logger
 
@@ -138,13 +138,15 @@ def _build_sampler(settings: Settings) -> Any:
         Any: OTel `Sampler`。
     """
     ratio = settings.tracer.sampler_ratio
-    mapping: Mapping[str, Any] = {
-        "always_on": ALWAYS_ON,
-        "always_off": ALWAYS_OFF,
-        "traceidratio": TraceIdRatioBased(ratio),
-        "parentbased_always_on": ParentBased(ALWAYS_ON),
-        "parentbased_traceidratio": ParentBased(TraceIdRatioBased(ratio)),
-    }
+    mapping: ConcurrentStableDict[str, Any] = ConcurrentStableDict(
+        {
+            "always_on": ALWAYS_ON,
+            "always_off": ALWAYS_OFF,
+            "traceidratio": TraceIdRatioBased(ratio),
+            "parentbased_always_on": ParentBased(ALWAYS_ON),
+            "parentbased_traceidratio": ParentBased(TraceIdRatioBased(ratio)),
+        }
+    )
     sampler = mapping.get(settings.tracer.sampler)
     if sampler is None:
         get_logger(_LOGGER).warning("tracer_sampler_unknown", sampler=settings.tracer.sampler)

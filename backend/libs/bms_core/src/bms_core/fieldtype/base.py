@@ -11,11 +11,11 @@
 """
 
 from abc import ABC, abstractmethod
-from collections.abc import Mapping
 from typing import cast
 
 from fastapi import Request
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.config import Settings
 from bms_core.core.exceptions import NotFoundError
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, resolve_plugin
@@ -40,7 +40,7 @@ class BaseFieldType(BaseProvider, ABC):
     """字段类型提供者契约：校验 / 渲染元数据 / 类型映射。"""
 
     @abstractmethod
-    def validate(self, value: object, *, options: Mapping[str, object] | None = None) -> tuple[str, ...]:
+    def validate(self, value: object, *, options: ConcurrentStableDict[str, object] | None = None) -> tuple[str, ...]:
         """校验字段值。
 
         Args:
@@ -52,11 +52,11 @@ class BaseFieldType(BaseProvider, ABC):
         """
 
     @abstractmethod
-    def render_metadata(self) -> Mapping[str, object]:
+    def render_metadata(self) -> ConcurrentStableDict[str, object]:
         """渲染元数据（组件名 / 属性）。
 
         Returns:
-            Mapping[str, object]: 渲染元数据。
+            ConcurrentStableDict[str, object]: 渲染元数据。
         """
 
     @abstractmethod
@@ -80,7 +80,7 @@ class BaseFieldTypeRegistry(BaseProviderRegistry[BaseFieldType], ABC):
     contract_version: str = DEFAULT_CONTRACT_VERSION
 
     def validate(
-        self, field_type: str, value: object, *, options: Mapping[str, object] | None = None
+        self, field_type: str, value: object, *, options: ConcurrentStableDict[str, object] | None = None
     ) -> tuple[str, ...]:
         """聚合校验（模板方法：解析字段类型 → 委托）。
 

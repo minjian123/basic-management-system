@@ -1,8 +1,7 @@
 """fieldtype 能力域缺省实现（Null Object）：占位返回、无副作用（02-3 自 bms_core.fieldtype.base.py 迁入）。"""
 
-from collections.abc import Mapping
-
 from bms_core.core.capability import BaseNullObject
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.fieldtype.base import NULL_COLUMN_TYPE, BaseFieldType, BaseFieldTypeRegistry
 
 __all__ = [
@@ -26,7 +25,7 @@ class NullFieldTypeRegistry(BaseFieldTypeRegistry, BaseNullObject):
         return provider.key
 
     def validate(
-        self, field_type: str, value: object, *, options: Mapping[str, object] | None = None
+        self, field_type: str, value: object, *, options: ConcurrentStableDict[str, object] | None = None
     ) -> tuple[str, ...]:
         """恒定通过（占位不校验）。
 

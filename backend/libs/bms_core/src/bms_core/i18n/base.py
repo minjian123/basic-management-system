@@ -11,11 +11,11 @@
 """
 
 from abc import ABC, abstractmethod
-from collections.abc import Mapping
 from typing import cast
 
 from fastapi import Request
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.config import Settings
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 
@@ -43,7 +43,7 @@ class BaseTranslator(BasePluggable, ABC):
 
     @abstractmethod
     async def translate(
-        self, key: str, *, locale: str | None = None, params: Mapping[str, object] | None = None
+        self, key: str, *, locale: str | None = None, params: ConcurrentStableDict[str, object] | None = None
     ) -> str:
         """取词（真实实现按 locale 查语言包、缺省回退默认文案）。
 
@@ -57,14 +57,14 @@ class BaseTranslator(BasePluggable, ABC):
         """
 
     @abstractmethod
-    async def load_messages(self, locale: str) -> Mapping[str, str]:
+    async def load_messages(self, locale: str) -> ConcurrentStableDict[str, str]:
         """加载语言包（真实实现读 `sys_i18n_message` / Redis 缓存）。
 
         Args:
             locale: 语言。
 
         Returns:
-            Mapping[str, str]: key → 文案映射。
+            ConcurrentStableDict[str, str]: key → 文案映射。
         """
 
     @abstractmethod

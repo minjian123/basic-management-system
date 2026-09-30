@@ -10,7 +10,6 @@
 口径：OTel 为链路 id **唯一事实源**（`resolve_trace_id`）；跨进程经 W3C `traceparent` 传播（httpx 自动埋点）。
 """
 
-from collections.abc import Mapping
 from contextlib import suppress
 from typing import Any, cast
 
@@ -19,6 +18,7 @@ from opentelemetry import trace
 from opentelemetry.trace import NonRecordingSpan, TraceFlags
 from opentelemetry.trace import SpanContext as OtelSpanContext
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.context import get_current_trace_id
 from bms_core.tracing.base import BaseTracer, SpanContext, new_span_id, new_trace_id
 
@@ -40,13 +40,13 @@ class OtelTracer(BaseTracer):
             tracer: 显式注入的 OTel `Tracer`（测试用独立 provider；缺省取全局 tracer）。
         """
         self._tracer: Any = tracer if tracer is not None else trace.get_tracer(tracer_name)
-        self._active: dict[str, tuple[Any, object]] = {}
+        self._active: ConcurrentStableDict[str, tuple[Any, object]] = ConcurrentStableDict()
 
     async def start_span(
         self,
         name: str,
         *,
-        attributes: Mapping[str, object] | None = None,
+        attributes: ConcurrentStableDict[str, object] | None = None,
         parent: SpanContext | None = None,
     ) -> SpanContext:
         """开启 OTel span（无有效 provider 时退回本地占位 id）。
@@ -60,7 +60,10 @@ class OtelTracer(BaseTracer):
             SpanContext: 与 OTel span 一致的上下文（降级时为本地产物）。
         """
         context = _parent_context(parent)
-        otel_span = self._tracer.start_span(name, context=context, attributes=cast("Any", attributes))
+        # 第三方边界（OTel SDK）：显式转内置 dict，避免把集合类实例交给 SDK 内部处理
+        otel_span = self._tracer.start_span(
+            name, context=context, attributes=dict(attributes) if attributes is not None else None
+        )
         span_context: Any = otel_span.get_span_context()
         # 无有效 provider 时 OTel 返回 NonRecordingSpan（上下文无效，或仅透传父上下文）：
         # 退回本地占位 id，保持父子链与上下文贯穿（与 NullTracer 同口径）。
@@ -69,7 +72,7 @@ class OtelTracer(BaseTracer):
         span_id = format(span_context.span_id, "016x")
         otel_parent: Any = getattr(otel_span, "parent", None)
         token = otel_context.attach(trace.set_span_in_context(otel_span))
-        self._active[span_id] = (otel_span, token)
+        self._active.set(span_id, (otel_span, token))
         return SpanContext(
             trace_id=format(span_context.trace_id, "032x"),
             span_id=span_id,
@@ -84,7 +87,7 @@ class OtelTracer(BaseTracer):
         Args:
             span: 待结束的 span 上下文（本实现开启的 span；未知 span 忽略）。
         """
-        entry = self._active.pop(span.span_id, None)
+        entry = self._active.get_and_remove(span.span_id)
         if entry is None:
             return
         otel_span, token = entry
@@ -120,7 +123,7 @@ def _parent_context(parent: SpanContext | None) -> Any:
 
 def _local_span(
     name: str,
-    attributes: Mapping[str, object] | None,
+    attributes: ConcurrentStableDict[str, object] | None,
     parent: SpanContext | None,
 ) -> SpanContext:
     """无有效 OTel provider 时生成本地占位 span（保持父子链与上下文贯穿）。

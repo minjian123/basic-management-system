@@ -178,55 +178,6 @@
       "count": 1
     },
     {
-      "file": "backend/libs/bms_core/src/bms_core/fieldtype/base.py",
-      "line": "def render_metadata(self) -> Mapping[str, object]:",
-      "container": "Mapping",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/fieldtype/base.py",
-      "line": "def validate(self, value: object, *, options: Mapping[str, object] | None = None) -> tuple[str, ...]:",
-      "container": "Mapping",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/fieldtype/base.py",
-      "line": "self, field_type: str, value: object, *, options: Mapping[str, object] | None = None",
-      "container": "Mapping",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/fieldtype/local.py",
-      "line": "def render_metadata(self) -> Mapping[str, object]:",
-      "container": "Mapping",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/fieldtype/local.py",
-      "line": "def validate(self, value: object, *, options: Mapping[str, object] | None = None) -> tuple[str, ...]:",
-      "container": "Mapping",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/fieldtype/local.py",
-      "line": "metadata: dict[str, object] = {\"widget\": self._widget, \"multiple\": self._multiple}",
-      "container": "dict",
-      "position": "local",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/fieldtype/null.py",
-      "line": "self, field_type: str, value: object, *, options: Mapping[str, object] | None = None",
-      "container": "Mapping",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
       "file": "backend/libs/bms_core/src/bms_core/globalsearch/base.py",
       "line": "async def domains(self) -> Sequence[str]:",
       "container": "Sequence",
@@ -259,34 +210,6 @@
       "line": "results: dict[int, HealthCheckResult] = {}",
       "container": "dict",
       "position": "local",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/i18n/base.py",
-      "line": "async def load_messages(self, locale: str) -> Mapping[str, str]:",
-      "container": "Mapping",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/i18n/base.py",
-      "line": "self, key: str, *, locale: str | None = None, params: Mapping[str, object] | None = None",
-      "container": "Mapping",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/i18n/null.py",
-      "line": "async def load_messages(self, locale: str) -> Mapping[str, str]:",
-      "container": "Mapping",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/i18n/null.py",
-      "line": "self, key: str, *, locale: str | None = None, params: Mapping[str, object] | None = None",
-      "container": "Mapping",
-      "position": "signature_param",
       "count": 1
     },
     {
@@ -783,48 +706,6 @@
       "file": "backend/libs/bms_core/src/bms_core/storage/null.py",
       "line": "self._sessions: dict[str, tuple[MultipartInit, MultipartSession]] = {}",
       "container": "dict",
-      "position": "local",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/tracing/base.py",
-      "line": "attributes: Mapping[str, object] | None = None,",
-      "container": "Mapping",
-      "position": "signature_param",
-      "count": 2
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/tracing/null.py",
-      "line": "attributes: Mapping[str, object] | None = None,",
-      "container": "Mapping",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/tracing/otel.py",
-      "line": "attributes: Mapping[str, object] | None = None,",
-      "container": "Mapping",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/tracing/otel.py",
-      "line": "attributes: Mapping[str, object] | None,",
-      "container": "Mapping",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/tracing/otel.py",
-      "line": "self._active: dict[str, tuple[Any, object]] = {}",
-      "container": "dict",
-      "position": "local",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/tracing/setup.py",
-      "line": "mapping: Mapping[str, Any] = {",
-      "container": "Mapping",
       "position": "local",
       "count": 1
     },
@@ -1813,20 +1694,6 @@
       "line": ") -> dict[str, object]:",
       "container": "dict",
       "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/tests/fieldtype/fieldtype/test_fieldtype.py",
-      "line": "def render_metadata(self) -> Mapping[str, object]:",
-      "container": "Mapping",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/tests/fieldtype/fieldtype/test_fieldtype.py",
-      "line": "def validate(self, value: object, *, options: Mapping[str, object] | None = None) -> tuple[str, ...]:",
-      "container": "Mapping",
-      "position": "signature_param",
       "count": 1
     },
     {
@@ -4998,20 +4865,6 @@
       "line": "def build_snapshot() -> Mapping[str, Mapping[str, PluginImpl]]:",
       "container": "Mapping",
       "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "backend/services/platform/tests/contracts/support.py",
-      "line": "def render_metadata(self) -> Mapping[str, object]:",
-      "container": "Mapping",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "backend/services/platform/tests/contracts/support.py",
-      "line": "def validate(self, value: object, *, options: Mapping[str, object] | None = None) -> tuple[str, ...]:",
-      "container": "Mapping",
-      "position": "signature_param",
       "count": 1
     },
     {
