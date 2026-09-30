@@ -30,6 +30,7 @@ from bms_core.api.middleware import (
 from bms_core.cache.base import CacheRegion
 from bms_core.catalog.loader import load_catalog_snapshot
 from bms_core.core.assembly import assemble_plugins, register_platform_plugins
+from bms_core.core.concurrent import ConcurrentStableSet
 from bms_core.core.config import Settings, get_settings, validate_startup
 from bms_core.core.exceptions import CatalogError, EventContractError
 from bms_core.core.factory import BaseApplicationFactory, register_factory, resolve_factory
@@ -182,7 +183,9 @@ def _validate_event_contracts() -> None:
     Raises:
         EventContractError: 契约或订阅校验失败（含事件域未登记、订阅未覆盖当前主版本）。
     """
-    errors = validate_event_registry(default_event_contract_registry(), domains=known_event_domains())
+    errors = validate_event_registry(
+        default_event_contract_registry(), domains=ConcurrentStableSet(known_event_domains())
+    )
     if errors:
         get_logger("bms").critical("event_contract_invalid", errors=errors)
         raise EventContractError("事件契约校验失败：" + "；".join(errors))

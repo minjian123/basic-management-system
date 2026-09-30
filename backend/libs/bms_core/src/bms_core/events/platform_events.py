@@ -11,6 +11,7 @@
 > `bms_core/events/contracts.py` 与《后端开发规范》「事件与任务规范」节。
 """
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.events.contracts import (
     EventContract,
     EventContractRegistry,
@@ -42,145 +43,167 @@ TENANT_ID_PAYLOAD_KEY = "tenant_id"
 _TENANT_EVENT_VERSION = "2.0.0"
 """租户事件契约版本：负载租户位由 `tenant_code`（编码）改 `tenant_id`（雪花 id），破坏性变更升主版本。"""
 
-_USER_PAYLOAD: dict[str, EventFieldSpec] = {
-    "user_id": _STRING_REQUIRED,
-    "username": _STRING_REQUIRED,
-    "dept_id": _STRING_OPTIONAL,
-    "status": _STRING_REQUIRED,
-}
+_USER_PAYLOAD: ConcurrentStableDict[str, EventFieldSpec] = ConcurrentStableDict(
+    {
+        "user_id": _STRING_REQUIRED,
+        "username": _STRING_REQUIRED,
+        "dept_id": _STRING_OPTIONAL,
+        "status": _STRING_REQUIRED,
+    }
+)
 
-_HELP_ARTICLE_PAYLOAD: dict[str, EventFieldSpec] = {
-    "article_id": _STRING_REQUIRED,
-    "category_id": _STRING_OPTIONAL,
-    "target_key": _STRING_OPTIONAL,
-}
+_HELP_ARTICLE_PAYLOAD: ConcurrentStableDict[str, EventFieldSpec] = ConcurrentStableDict(
+    {
+        "article_id": _STRING_REQUIRED,
+        "category_id": _STRING_OPTIONAL,
+        "target_key": _STRING_OPTIONAL,
+    }
+)
 
-_TENANT_PAYLOAD: dict[str, EventFieldSpec] = {
-    TENANT_ID_PAYLOAD_KEY: _STRING_REQUIRED,
-    "db_key": _STRING_REQUIRED,
-    "status": _STRING_REQUIRED,
-}
+_TENANT_PAYLOAD: ConcurrentStableDict[str, EventFieldSpec] = ConcurrentStableDict(
+    {
+        TENANT_ID_PAYLOAD_KEY: _STRING_REQUIRED,
+        "db_key": _STRING_REQUIRED,
+        "status": _STRING_REQUIRED,
+    }
+)
 
 PLATFORM_EVENT_CONTRACTS: tuple[EventContract, ...] = (
-    EventContract(event_type="sys.user.created", description="用户创建后", fields=dict(_USER_PAYLOAD)),
-    EventContract(event_type="sys.user.updated", description="用户修改后", fields=dict(_USER_PAYLOAD)),
-    EventContract(event_type="sys.user.deleted", description="用户删除后", fields=dict(_USER_PAYLOAD)),
+    EventContract(event_type="sys.user.created", description="用户创建后", fields=ConcurrentStableDict(_USER_PAYLOAD)),
+    EventContract(event_type="sys.user.updated", description="用户修改后", fields=ConcurrentStableDict(_USER_PAYLOAD)),
+    EventContract(event_type="sys.user.deleted", description="用户删除后", fields=ConcurrentStableDict(_USER_PAYLOAD)),
     EventContract(
         event_type="sys.user.password_reset",
         description="管理员重置密码或自助找回后",
-        fields={"user_id": _STRING_REQUIRED},
+        fields=ConcurrentStableDict({"user_id": _STRING_REQUIRED}),
     ),
     EventContract(
         event_type="sys.dept.changed",
         description="部门增删改 / 移动",
-        fields={"dept_id": _STRING_REQUIRED, "parent_id": _STRING_OPTIONAL},
+        fields=ConcurrentStableDict({"dept_id": _STRING_REQUIRED, "parent_id": _STRING_OPTIONAL}),
     ),
     EventContract(
         event_type="wf.process.deployed",
         description="流程定义发布新版本",
-        fields={"definition_key": _STRING_REQUIRED, "version": _STRING_REQUIRED},
+        fields=ConcurrentStableDict({"definition_key": _STRING_REQUIRED, "version": _STRING_REQUIRED}),
     ),
     EventContract(
         event_type="wf.instance.started",
         description="流程实例启动",
-        fields={
-            "instance_id": _STRING_REQUIRED,
-            "business_type": _STRING_REQUIRED,
-            "business_id": _STRING_REQUIRED,
-        },
+        fields=ConcurrentStableDict(
+            {
+                "instance_id": _STRING_REQUIRED,
+                "business_type": _STRING_REQUIRED,
+                "business_id": _STRING_REQUIRED,
+            }
+        ),
     ),
     EventContract(
         event_type="wf.task.completed",
         description="审批节点通过",
-        fields={
-            "task_id": _STRING_REQUIRED,
-            "instance_id": _STRING_REQUIRED,
-            "approver": _STRING_REQUIRED,
-            "action": _STRING_REQUIRED,
-        },
+        fields=ConcurrentStableDict(
+            {
+                "task_id": _STRING_REQUIRED,
+                "instance_id": _STRING_REQUIRED,
+                "approver": _STRING_REQUIRED,
+                "action": _STRING_REQUIRED,
+            }
+        ),
     ),
     EventContract(
         event_type="wf.instance.rejected",
         description="流程被驳回",
-        fields={"instance_id": _STRING_REQUIRED, "node_id": _STRING_REQUIRED, "comment": _STRING_OPTIONAL},
+        fields=ConcurrentStableDict(
+            {"instance_id": _STRING_REQUIRED, "node_id": _STRING_REQUIRED, "comment": _STRING_OPTIONAL}
+        ),
     ),
     EventContract(
         event_type="wf.instance.finished",
         description="流程实例结束",
-        fields={"instance_id": _STRING_REQUIRED, "result": _STRING_REQUIRED},
+        fields=ConcurrentStableDict({"instance_id": _STRING_REQUIRED, "result": _STRING_REQUIRED}),
     ),
     EventContract(
         event_type="file.uploaded",
         description="文件上传完成",
-        fields={"file_id": _STRING_REQUIRED, "sha256": _STRING_REQUIRED, "size": _INTEGER_REQUIRED},
+        fields=ConcurrentStableDict(
+            {"file_id": _STRING_REQUIRED, "sha256": _STRING_REQUIRED, "size": _INTEGER_REQUIRED}
+        ),
     ),
     EventContract(
         event_type="notification.sent",
         description="通知 / 邮件 / 短信发送",
-        fields={"user_id": _STRING_REQUIRED, "type": _STRING_REQUIRED, "biz_type": _STRING_OPTIONAL},
+        fields=ConcurrentStableDict(
+            {"user_id": _STRING_REQUIRED, "type": _STRING_REQUIRED, "biz_type": _STRING_OPTIONAL}
+        ),
     ),
     EventContract(
         event_type="sys.notice.published",
         description="公告发布 / 更新 / 下线",
-        fields={"notice_id": _STRING_REQUIRED, "title": _STRING_REQUIRED, "is_top": _BOOLEAN_REQUIRED},
+        fields=ConcurrentStableDict(
+            {"notice_id": _STRING_REQUIRED, "title": _STRING_REQUIRED, "is_top": _BOOLEAN_REQUIRED}
+        ),
     ),
     EventContract(
         event_type="sys.form.updated",
         description="菜单 / 表单 / 字段 / 按钮变更（平台统一维护）",
-        fields={
-            "form_id": _STRING_REQUIRED,
-            "menu_id": _STRING_OPTIONAL,
-            "business_id": _STRING_OPTIONAL,
-            "changed_type": _STRING_REQUIRED,
-        },
+        fields=ConcurrentStableDict(
+            {
+                "form_id": _STRING_REQUIRED,
+                "menu_id": _STRING_OPTIONAL,
+                "business_id": _STRING_OPTIONAL,
+                "changed_type": _STRING_REQUIRED,
+            }
+        ),
     ),
     EventContract(
         event_type="sys.help.article.published",
         description="帮助文章发布",
-        fields=dict(_HELP_ARTICLE_PAYLOAD),
+        fields=ConcurrentStableDict(_HELP_ARTICLE_PAYLOAD),
     ),
     EventContract(
         event_type="sys.help.article.updated",
         description="帮助文章更新",
-        fields=dict(_HELP_ARTICLE_PAYLOAD),
+        fields=ConcurrentStableDict(_HELP_ARTICLE_PAYLOAD),
     ),
     EventContract(
         event_type="sys.help.article.deleted",
         description="帮助文章删除",
-        fields=dict(_HELP_ARTICLE_PAYLOAD),
+        fields=ConcurrentStableDict(_HELP_ARTICLE_PAYLOAD),
     ),
     EventContract(
         event_type="sys.task.completed",
         description="定时任务执行完成",
-        fields={"task_id": _STRING_REQUIRED, "status": _STRING_REQUIRED},
+        fields=ConcurrentStableDict({"task_id": _STRING_REQUIRED, "status": _STRING_REQUIRED}),
     ),
     EventContract(
         event_type="tenant.created",
         version=_TENANT_EVENT_VERSION,
         description="租户开通",
-        fields=dict(_TENANT_PAYLOAD),
+        fields=ConcurrentStableDict(_TENANT_PAYLOAD),
     ),
     EventContract(
         event_type="tenant.suspended",
         version=_TENANT_EVENT_VERSION,
         description="租户停用",
-        fields=dict(_TENANT_PAYLOAD),
+        fields=ConcurrentStableDict(_TENANT_PAYLOAD),
     ),
     EventContract(
         event_type="tenant.activated",
         version=_TENANT_EVENT_VERSION,
         description="租户启用",
-        fields=dict(_TENANT_PAYLOAD),
+        fields=ConcurrentStableDict(_TENANT_PAYLOAD),
     ),
     EventContract(
         event_type="identity.user.jit_created",
         description="SSO 首登自动建号",
-        fields={"user_id": _STRING_REQUIRED, "idp_key": _STRING_REQUIRED},
+        fields=ConcurrentStableDict({"user_id": _STRING_REQUIRED, "idp_key": _STRING_REQUIRED}),
     ),
     EventContract(
         event_type="sys.archive.completed",
         description="归档批次完成",
-        fields={"policy_id": _STRING_REQUIRED, "archived_count": _INTEGER_REQUIRED, "target": _STRING_REQUIRED},
+        fields=ConcurrentStableDict(
+            {"policy_id": _STRING_REQUIRED, "archived_count": _INTEGER_REQUIRED, "target": _STRING_REQUIRED}
+        ),
     ),
 )
 """平台默认事件契约（23 条；三条租户事件 `2.0.0`，其余 `1.0.0`；字段规格为对外契约，变更走兼容规则）。"""

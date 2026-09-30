@@ -11,6 +11,7 @@ import pytest
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.exceptions import ConfigError, EventContractError
 from bms_core.events.base import DEFAULT_EVENT_VERSION, EventEnvelope
 from bms_core.events.contracts import (
@@ -240,7 +241,7 @@ async def test_event_version_defaults_and_persistence(session: AsyncSession) -> 
 @pytest.mark.kiwi_id(2174)
 async def test_contract_mode_enforce_and_warn(session: AsyncSession) -> None:
     """签发契约校验三态：enforce 拒发未登记 / 非法版本且事务回滚；warn 放行；登记契约补齐契约版本。"""
-    contract = EventContract(event_type="e.a", version="1.2.0", fields={})
+    contract = EventContract(event_type="e.a", version="1.2.0", fields=ConcurrentStableDict())
 
     def _resolver(event_type: str) -> EventContract | None:
         return contract if event_type == "e.a" else None

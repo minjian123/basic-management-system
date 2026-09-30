@@ -23,6 +23,7 @@ import sys
 from collections.abc import Sequence
 from pathlib import Path
 
+from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.exceptions import EventContractError
 from bms_core.events.contracts import (
     EVENT_SNAPSHOT_PATH,
@@ -93,7 +94,7 @@ def _registry_errors(registry: EventContractRegistry) -> list[str]:
     Returns:
         list[str]: 违规明细。
     """
-    return list(validate_event_registry(registry, domains=known_event_domains()))
+    return list(validate_event_registry(registry, domains=ConcurrentStableSet(known_event_domains())))
 
 
 def export(root: Path, *, to_stdout: bool = False) -> int:
@@ -114,7 +115,7 @@ def export(root: Path, *, to_stdout: bool = False) -> int:
         errors.append(f"已提交快照不可解析：{EVENT_SNAPSHOT_PATH}（{exc}）")
         previous = None
     if previous is not None:
-        errors.extend(check_snapshot_compatibility(previous[0], registry))
+        errors.extend(check_snapshot_compatibility(ConcurrentStableList(previous[0]), registry))
     if errors:
         print("事件契约导出失败（兼容校验未通过）：")
         for error in errors:
@@ -152,7 +153,7 @@ def check(root: Path) -> int:
     if previous is None:
         errors.append(f"事件契约快照缺失：{EVENT_SNAPSHOT_PATH}（请运行 export）")
     else:
-        errors.extend(check_snapshot_compatibility(previous[0], registry))
+        errors.extend(check_snapshot_compatibility(ConcurrentStableList(previous[0]), registry))
         path = snapshot_path(root)
         if path.read_text(encoding="utf-8") != render_event_snapshot(registry):
             errors.append(f"事件契约快照与现行注册表漂移：{EVENT_SNAPSHOT_PATH}（请运行 export 重导出）")
