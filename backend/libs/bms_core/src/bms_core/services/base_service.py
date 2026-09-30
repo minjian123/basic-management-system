@@ -1,7 +1,5 @@
 """services 层基类：通用 CRUD 委派、统一不存在语义与分页（含排序透传）。"""
 
-from collections.abc import Sequence
-
 from bms_core.core.base import BaseObject
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.exceptions import NotFoundError
@@ -24,14 +22,14 @@ class BaseService[ModelT](BaseObject):
         """
         self._repository = repository
 
-    async def list(self, *, sort: Sequence[SortSpec] | None = None) -> list[ModelT]:
+    async def list(self, *, sort: ConcurrentStableList[SortSpec] | None = None) -> ConcurrentStableList[ModelT]:
         """返回全部记录。
 
         Args:
             sort: 生效排序规格（经仓储白名单校验）；空则不排序。
 
         Returns:
-            list[ModelT]: 记录列表。
+            ConcurrentStableList[ModelT]: 记录列表。
         """
         return await self._repository.list(sort=sort)
 
@@ -123,7 +121,7 @@ class BaseService[ModelT](BaseObject):
         """
         items = await self._repository.list_page(query)
         total = await self._repository.count()
-        return BasePageResponse[ModelT](list=ConcurrentStableList(items), total=total, page=query.page, size=query.size)
+        return BasePageResponse[ModelT](list=items, total=total, page=query.page, size=query.size)
 
     async def cursor_page(self, query: BaseCursorQuery) -> BaseCursorResponse[ModelT]:
         """游标分页查询（keyset：下一批游标由仓储按本批末行生成）。
@@ -139,6 +137,4 @@ class BaseService[ModelT](BaseObject):
         """
         items = await self._repository.list_cursor(query)
         next_cursor = self._repository.build_cursor(query, items)
-        return BaseCursorResponse[ModelT](
-            list=ConcurrentStableList(items), next_cursor=next_cursor, has_more=next_cursor is not None
-        )
+        return BaseCursorResponse[ModelT](list=items, next_cursor=next_cursor, has_more=next_cursor is not None)

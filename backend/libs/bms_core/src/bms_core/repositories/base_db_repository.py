@@ -10,13 +10,14 @@
 """
 
 from abc import ABC
-from collections.abc import Callable, Sequence
+from collections.abc import Callable
 from typing import Any, ClassVar, cast
 
 from sqlalchemy import ColumnElement, Select, false, func, inspect, select
 from sqlalchemy import exists as sa_exists
 from sqlalchemy.orm import InstrumentedAttribute
 
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.exceptions import ConfigError
 from bms_core.db.session import DbSession
 from bms_core.db.tenant import current_tenant_context
@@ -28,7 +29,7 @@ from bms_core.schemas.pagination import BaseCursorQuery, BasePageQuery
 from bms_core.schemas.sorting import SortSpec
 from bms_core.scope.base import ScopeCondition
 
-_WRITE_BLOCKED_FIELDS: frozenset[str] = frozenset(
+_WRITE_BLOCKED_FIELDS: ConcurrentStableSet[str] = ConcurrentStableSet(
     {"id", "created_at", "created_by", "updated_at", "updated_by", "deleted_at", "version"}
 )
 """写入保留字段：由 ORM 事件 / `soft_delete()` / `version_id_col` 维护，禁止手动赋值。"""
@@ -94,19 +95,23 @@ def _build_between(column: InstrumentedAttribute[Any], value: object) -> ColumnE
     return column.between(sequence[0], sequence[1])
 
 
-_OPERATOR_BUILDERS: dict[str, Callable[[InstrumentedAttribute[Any], object], ColumnElement[bool]]] = {
-    "eq": lambda column, value: column == value,
-    "ne": lambda column, value: column != value,
-    "in": _build_in,
-    "like": _build_like,
-    "gt": lambda column, value: column > value,
-    "gte": lambda column, value: column >= value,
-    "lt": lambda column, value: column < value,
-    "lte": lambda column, value: column <= value,
-    "between": _build_between,
-    "is_null": lambda column, _value: column.is_(None),
-    "is_not_null": lambda column, _value: column.is_not(None),
-}
+_OPERATOR_BUILDERS: ConcurrentStableDict[str, Callable[[InstrumentedAttribute[Any], object], ColumnElement[bool]]] = (
+    ConcurrentStableDict(
+        {
+            "eq": lambda column, value: column == value,
+            "ne": lambda column, value: column != value,
+            "in": _build_in,
+            "like": _build_like,
+            "gt": lambda column, value: column > value,
+            "gte": lambda column, value: column >= value,
+            "lt": lambda column, value: column < value,
+            "lte": lambda column, value: column <= value,
+            "between": _build_between,
+            "is_null": lambda column, _value: column.is_(None),
+            "is_not_null": lambda column, _value: column.is_not(None),
+        }
+    )
+)
 """作用域操作符 → SQL 条件构造器（与内存基线 `_match` 的 11 种操作符一一对应）。"""
 
 
@@ -129,18 +134,18 @@ class BaseDbRepository[ModelT: BaseModel](BaseScopedRepository[ModelT], ABC):
         self._session = session
         self._columns = frozenset(column.key for column in inspect(self.model).columns)
 
-    async def list(self, *, sort: Sequence[SortSpec] | None = None) -> list[ModelT]:
+    async def list(self, *, sort: ConcurrentStableList[SortSpec] | None = None) -> ConcurrentStableList[ModelT]:
         """查询全部记录（作用域过滤 + 排序，默认 `id` 升序）。
 
         Args:
             sort: 生效排序规格（经 `_resolve_sort` 白名单校验后传入）。
 
         Returns:
-            list[ModelT]: 记录列表。
+            ConcurrentStableList[ModelT]: 记录列表。
         """
-        statement = self._apply_sort(self._select(), sort or [])
+        statement = self._apply_sort(self._select(), sort or ConcurrentStableList())
         result = await self._session.execute(statement)
-        return list(result.scalars().all())
+        return ConcurrentStableList(result.scalars().all())
 
     async def get(self, item_id: int) -> ModelT | None:
         """按 ID 查询记录（作用域过滤；已软删 / 不在范围返回 None）。
@@ -265,28 +270,28 @@ class BaseDbRepository[ModelT: BaseModel](BaseScopedRepository[ModelT], ABC):
             await self._session.flush()
         return True
 
-    async def list_page(self, query: BasePageQuery) -> list[ModelT]:
+    async def list_page(self, query: BasePageQuery) -> ConcurrentStableList[ModelT]:
         """页码分页查询（SQL 侧 `LIMIT/OFFSET`）。
 
         Args:
             query: 页码分页请求（含排序参数）。
 
         Returns:
-            list[ModelT]: 当前页记录。
+            ConcurrentStableList[ModelT]: 当前页记录。
         """
         statement = self._apply_sort(self._select(), self._resolve_sort(query))
         statement = statement.limit(query.size).offset((query.page - 1) * query.size)
         result = await self._session.execute(statement)
-        return list(result.scalars().all())
+        return ConcurrentStableList(result.scalars().all())
 
-    async def list_cursor(self, query: BaseCursorQuery) -> list[ModelT]:
+    async def list_cursor(self, query: BaseCursorQuery) -> ConcurrentStableList[ModelT]:
         """游标分页查询（keyset：排序键 + 主键元组比较，`LIMIT` 无 `OFFSET`）。
 
         Args:
             query: 游标分页请求（含排序参数与游标令牌）。
 
         Returns:
-            list[ModelT]: 当前批记录。
+            ConcurrentStableList[ModelT]: 当前批记录。
 
         Raises:
             ParamError: 游标非法或与当前排序不一致。
@@ -298,17 +303,17 @@ class BaseDbRepository[ModelT: BaseModel](BaseScopedRepository[ModelT], ABC):
             statement = statement.where(
                 keyset_condition(
                     sort,
-                    payload.specs,
-                    payload.values,
+                    ConcurrentStableList(payload.specs),
+                    ConcurrentStableList(payload.values),
                     payload.item_id,
                     resolve=self._sort_column,
                     id_column=self._column("id"),
                 )
             )
         result = await self._session.execute(statement.limit(query.limit))
-        return list(result.scalars().all())
+        return ConcurrentStableList(result.scalars().all())
 
-    def _apply_sort[StatementT](self, statement: StatementT, sort: Sequence[SortSpec]) -> StatementT:
+    def _apply_sort[StatementT](self, statement: StatementT, sort: ConcurrentStableList[SortSpec]) -> StatementT:
         """排序语句钩子：白名单字段 → ORDER BY（NULL 恒末位 + 主键兜底）。
 
         字段经白名单过滤后解析为模型列（`_sort_column`），未知字段忽略、全忽略回落
@@ -337,17 +342,17 @@ class BaseDbRepository[ModelT: BaseModel](BaseScopedRepository[ModelT], ABC):
         statement = select(self.model).where(*self._scope_where(include_soft_delete=include_soft_delete))
         return cast("Select[tuple[ModelT]]", statement)
 
-    def _scope_where(self, *, include_soft_delete: bool = True) -> list[ColumnElement[bool]]:
+    def _scope_where(self, *, include_soft_delete: bool = True) -> ConcurrentStableList[ColumnElement[bool]]:
         """作用域条件翻译为 SQL WHERE（次序软删除 → 数据范围 → 租户）。
 
         Args:
             include_soft_delete: 是否包含软删除过滤。
 
         Returns:
-            list[ColumnElement[bool]]: 条件表达式列表。
+            ConcurrentStableList[ColumnElement[bool]]: 条件表达式列表。
         """
         conditions = self._scope_conditions(include_soft_delete=include_soft_delete)
-        return [self._condition_expression(condition) for condition in conditions]
+        return ConcurrentStableList(self._condition_expression(condition) for condition in conditions)
 
     def _condition_expression(self, condition: ScopeCondition) -> ColumnElement[bool]:
         """单条作用域条件 → SQL 条件。
@@ -395,7 +400,9 @@ class BaseDbRepository[ModelT: BaseModel](BaseScopedRepository[ModelT], ABC):
             return None
         return cast("InstrumentedAttribute[Any]", getattr(self.model, field))
 
-    def _write_values(self, values: dict[str, object], *, creating: bool) -> dict[str, object]:
+    def _write_values(
+        self, values: ConcurrentStableDict[str, object], *, creating: bool
+    ) -> ConcurrentStableDict[str, object]:
         """写入字段白名单与租户写入口径。
 
         Args:
@@ -403,21 +410,23 @@ class BaseDbRepository[ModelT: BaseModel](BaseScopedRepository[ModelT], ABC):
             creating: 是否创建（区分租户注入与禁改）。
 
         Returns:
-            dict[str, object]: 可写字段值。
+            ConcurrentStableDict[str, object]: 可写字段值。
 
         Raises:
             ConfigError: 字段不在模型映射列 / 属保留字段 / 租户写入越界。
         """
-        payload: dict[str, object] = {}
+        payload: ConcurrentStableDict[str, object] = ConcurrentStableDict()
         for field, value in values.items():
             if field in _WRITE_BLOCKED_FIELDS:
                 raise ConfigError(f"字段不可经仓储写入：{self.model.__name__}.{field}")
             if field not in self._columns:
                 raise ConfigError(f"字段不存在：{self.model.__name__}.{field}")
-            payload[field] = value
+            payload.set(field, value)
         return self._apply_tenant_scope(payload, creating=creating)
 
-    def _apply_tenant_scope(self, payload: dict[str, object], *, creating: bool) -> dict[str, object]:
+    def _apply_tenant_scope(
+        self, payload: ConcurrentStableDict[str, object], *, creating: bool
+    ) -> ConcurrentStableDict[str, object]:
         """租户写入口径：create 注入 / 校验，update 禁改。
 
         Args:
@@ -425,7 +434,7 @@ class BaseDbRepository[ModelT: BaseModel](BaseScopedRepository[ModelT], ABC):
             creating: 是否创建。
 
         Returns:
-            dict[str, object]: 注入租户后的字段值。
+            ConcurrentStableDict[str, object]: 注入租户后的字段值。
 
         Raises:
             ConfigError: 模型声明 `tenant_scoped` 但无 `tenant_id` 列 / 租户值与上下文不一致 / 尝试修改租户。
@@ -443,7 +452,7 @@ class BaseDbRepository[ModelT: BaseModel](BaseScopedRepository[ModelT], ABC):
             return payload
         explicit = payload.get("tenant_id")
         if explicit is None:
-            payload["tenant_id"] = tenant_id
+            payload.set("tenant_id", tenant_id)
         elif explicit != tenant_id:
             raise ConfigError("tenant_id 与当前租户不一致")
         return payload

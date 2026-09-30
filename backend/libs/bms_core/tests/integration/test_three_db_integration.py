@@ -36,6 +36,7 @@ from sqlalchemy import (
 from sqlalchemy.engine import make_url
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.core.plugin import resolve_plugin
 from bms_core.db.engine import PLATFORM_DB_KEY, EngineFactory
@@ -364,7 +365,7 @@ async def test_ordering_nulls_last(dialect: str, urls: tuple[str, str], registry
         async with session_scope(registry, db_key=_TENANT_DB_KEY) as session:
             ascending = select(_PROBE.c.name).order_by(
                 *order_criteria(
-                    [SortSpec(field="name", direction=SortDirection.ASC)],
+                    ConcurrentStableList([SortSpec(field="name", direction=SortDirection.ASC)]),
                     resolve=resolve,
                     id_column=_PROBE.c.id,
                 )
@@ -372,7 +373,7 @@ async def test_ordering_nulls_last(dialect: str, urls: tuple[str, str], registry
             assert (await session.execute(ascending)).scalars().all() == ["b", None, None]
             descending = select(_PROBE.c.name).order_by(
                 *order_criteria(
-                    [SortSpec(field="name", direction=SortDirection.DESC)],
+                    ConcurrentStableList([SortSpec(field="name", direction=SortDirection.DESC)]),
                     resolve=resolve,
                     id_column=_PROBE.c.id,
                 )

@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 import pytest
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.repositories.base_memory_repository import BaseMemoryRepository
 from bms_core.scope.base import DataScope, ScopeCondition
 from bms_core.scope.null import NullDataScope
@@ -22,7 +23,7 @@ class Row:
 class RowRepository(BaseMemoryRepository[Row]):
     """测试仓储。"""
 
-    def _build(self, item_id: int, values: dict[str, object]) -> Row:
+    def _build(self, item_id: int, values: ConcurrentStableDict[str, object]) -> Row:
         return Row(
             id=item_id,
             name=str(values["name"]),
@@ -30,7 +31,7 @@ class RowRepository(BaseMemoryRepository[Row]):
             owner_id=int(values.get("owner_id", 0)),  # type: ignore[arg-type]
         )
 
-    def _apply(self, item: Row, values: dict[str, object]) -> Row:
+    def _apply(self, item: Row, values: ConcurrentStableDict[str, object]) -> Row:
         return Row(id=item.id, name=str(values["name"]), deleted_at=item.deleted_at, owner_id=item.owner_id)
 
 

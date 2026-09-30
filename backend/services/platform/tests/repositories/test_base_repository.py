@@ -8,7 +8,7 @@ import pytest
 
 from bms_core.core.base import BaseObject
 from bms_core.core.capability import BaseStub
-from bms_core.core.concurrent import ConcurrentStableSet
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.exceptions import ParamError
 from bms_core.repositories.base_db_repository import BaseDbRepository
 from bms_core.repositories.base_memory_repository import BaseMemoryRepository
@@ -29,10 +29,10 @@ class Item:
 class ItemRepository(BaseMemoryRepository[Item]):
     """测试仓储：只实现内存构造钩子。"""
 
-    def _build(self, item_id: int, values: dict[str, object]) -> Item:
+    def _build(self, item_id: int, values: ConcurrentStableDict[str, object]) -> Item:
         return Item(id=item_id, name=str(values["name"]))
 
-    def _apply(self, item: Item, values: dict[str, object]) -> Item:
+    def _apply(self, item: Item, values: ConcurrentStableDict[str, object]) -> Item:
         return Item(id=item.id, name=str(values["name"]))
 
     def binding(self, *, read_only: bool) -> str:
@@ -150,14 +150,14 @@ class SortableRepository(BaseMemoryRepository[SortableItem]):
 
     sortable_fields = ConcurrentStableSet({"name", "rank"})
 
-    def _build(self, item_id: int, values: dict[str, object]) -> SortableItem:
+    def _build(self, item_id: int, values: ConcurrentStableDict[str, object]) -> SortableItem:
         return SortableItem(item_id, str(values["name"]), cast("int | None", values.get("rank")))
 
-    def _apply(self, item: SortableItem, values: dict[str, object]) -> SortableItem:
+    def _apply(self, item: SortableItem, values: ConcurrentStableDict[str, object]) -> SortableItem:
         rank = cast("int | None", values.get("rank", item.rank))
         return SortableItem(item.id, str(values.get("name", item.name)), rank)
 
-    def resolve_sort(self, query: BasePageQuery) -> list[SortSpec]:
+    def resolve_sort(self, query: BasePageQuery) -> ConcurrentStableList[SortSpec]:
         """暴露排序解析钩子（测试用）。"""
         return self._resolve_sort(query)
 
@@ -175,10 +175,10 @@ class MixedRepository(BaseMemoryRepository[MixedItem]):
 
     sortable_fields = ConcurrentStableSet({"value"})
 
-    def _build(self, item_id: int, values: dict[str, object]) -> MixedItem:
+    def _build(self, item_id: int, values: ConcurrentStableDict[str, object]) -> MixedItem:
         return MixedItem(item_id, values.get("value"))
 
-    def _apply(self, item: MixedItem, values: dict[str, object]) -> MixedItem:
+    def _apply(self, item: MixedItem, values: ConcurrentStableDict[str, object]) -> MixedItem:
         return MixedItem(item.id, values.get("value", item.value))
 
 
@@ -188,8 +188,8 @@ async def test_memory_list_sorts_single_field_both_directions() -> None:
     repo = SortableRepository()
     await repo.create(name="乙", rank=2)
     await repo.create(name="甲", rank=1)
-    asc = await repo.list(sort=[SortSpec(field="rank", direction=SortDirection.ASC)])
-    desc = await repo.list(sort=[SortSpec(field="rank", direction=SortDirection.DESC)])
+    asc = await repo.list(sort=ConcurrentStableList([SortSpec(field="rank", direction=SortDirection.ASC)]))
+    desc = await repo.list(sort=ConcurrentStableList([SortSpec(field="rank", direction=SortDirection.DESC)]))
     assert [item.name for item in asc] == ["甲", "乙"]
     assert [item.name for item in desc] == ["乙", "甲"]
 
@@ -201,10 +201,12 @@ async def test_memory_list_sorts_multi_key_and_keeps_default_order() -> None:
     await repo.create(name="b", rank=1)
     await repo.create(name="a", rank=1)
     await repo.create(name="c", rank=0)
-    specs = [
-        SortSpec(field="rank", direction=SortDirection.ASC),
-        SortSpec(field="name", direction=SortDirection.ASC),
-    ]
+    specs = ConcurrentStableList(
+        [
+            SortSpec(field="rank", direction=SortDirection.ASC),
+            SortSpec(field="name", direction=SortDirection.ASC),
+        ]
+    )
     assert [item.name for item in await repo.list(sort=specs)] == ["c", "a", "b"]
     assert [item.id for item in await repo.list()] == [1, 2, 3]
 
@@ -215,8 +217,8 @@ async def test_memory_list_handles_none_values_by_direction() -> None:
     repo = SortableRepository()
     await repo.create(name="甲", rank=2)
     await repo.create(name="乙")
-    asc = await repo.list(sort=[SortSpec(field="rank", direction=SortDirection.ASC)])
-    desc = await repo.list(sort=[SortSpec(field="rank", direction=SortDirection.DESC)])
+    asc = await repo.list(sort=ConcurrentStableList([SortSpec(field="rank", direction=SortDirection.ASC)]))
+    desc = await repo.list(sort=ConcurrentStableList([SortSpec(field="rank", direction=SortDirection.DESC)]))
     assert [item.name for item in asc] == ["甲", "乙"]
     assert [item.name for item in desc] == ["甲", "乙"]
 
@@ -231,7 +233,7 @@ async def test_memory_cursor_keyset_pagination() -> None:
     await repo.create(name="d", rank=1)
     await repo.create(name="e", rank=3)
 
-    sort = [SortSpec(field="rank", direction=SortDirection.ASC)]
+    sort = ConcurrentStableList([SortSpec(field="rank", direction=SortDirection.ASC)])
     expected = [item.name for item in await repo.list(sort=sort)]
     assert expected == ["b", "d", "a", "e", "c"]
 
@@ -269,7 +271,7 @@ async def test_memory_sort_tolerates_mixed_types() -> None:
     await repo.create(value="字")
     await repo.create(value=3)
     await repo.create(value=None)
-    result = await repo.list(sort=[SortSpec(field="value", direction=SortDirection.ASC)])
+    result = await repo.list(sort=ConcurrentStableList([SortSpec(field="value", direction=SortDirection.ASC)]))
     assert [item.value for item in result] == [3, "字", None]
 
 
@@ -305,4 +307,4 @@ def test_contract_defaults_effective_sort_and_apply_sort() -> None:
     repo = _repo()
     assert repo.effective_sort() == []
     assert repo.effective_sort(None) == []
-    assert repo._apply_sort("statement", [SortSpec(field="name")]) == "statement"  # pyright: ignore[reportPrivateUsage]
+    assert repo._apply_sort("statement", ConcurrentStableList([SortSpec(field="name")])) == "statement"  # pyright: ignore[reportPrivateUsage]

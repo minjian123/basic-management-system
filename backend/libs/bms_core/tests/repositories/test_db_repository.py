@@ -11,7 +11,7 @@ from sqlalchemy.dialects import sqlite
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import Mapped, mapped_column
 
-from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.context import current_user_id, reset_tenant_context, set_tenant_context
 from bms_core.core.exceptions import ConcurrentConflictError, ConfigError, ParamError
 from bms_core.db.tenant import TenantContext
@@ -70,7 +70,9 @@ class NoteRepository(BaseDbRepository[ScopedNote]):
     model = ScopedNote
     tenant_scoped = True
 
-    def tenant_payload(self, values: dict[str, object], *, creating: bool) -> dict[str, object]:
+    def tenant_payload(
+        self, values: ConcurrentStableDict[str, object], *, creating: bool
+    ) -> ConcurrentStableDict[str, object]:
         """暴露租户写入口径（测试用）。
 
         Args:
@@ -78,7 +80,7 @@ class NoteRepository(BaseDbRepository[ScopedNote]):
             creating: 是否创建。
 
         Returns:
-            dict[str, object]: 注入租户后的字段值。
+            ConcurrentStableDict[str, object]: 注入租户后的字段值。
         """
         return self._apply_tenant_scope(values, creating=creating)
 
@@ -311,7 +313,7 @@ async def test_tenant_write_and_read_scope(session: AsyncSession) -> None:
 async def test_tenant_scope_edge_branches(session: AsyncSession) -> None:
     """租户分支：上下文无主键不注入；声明与模型不符快速失败。"""
     repo = NoteRepository(session)
-    assert repo.tenant_payload({"title": "x"}, creating=True) == {"title": "x"}
+    assert repo.tenant_payload(ConcurrentStableDict({"title": "x"}), creating=True) == {"title": "x"}
 
     token = set_tenant_context(_demo_tenant(7))
     try:
@@ -355,7 +357,9 @@ async def test_pagination_and_sort(session: AsyncSession) -> None:
     page2 = await repo.list_page(BasePageQuery(page=2, size=2, order_by="rank", order=ConcurrentStableList(["desc"])))
     assert [row.name for row in page2] == ["b"]
 
-    ignored = await repo.list(sort=[SortSpec(field="ghost"), SortSpec(field="name", direction=SortDirection.DESC)])
+    ignored = await repo.list(
+        sort=ConcurrentStableList([SortSpec(field="ghost"), SortSpec(field="name", direction=SortDirection.DESC)])
+    )
     assert [row.name for row in ignored] == ["c", "b", "a"]
 
 
@@ -367,7 +371,9 @@ async def test_cursor_keyset_pagination_with_nulls(session: AsyncSession) -> Non
         await repo.create(name=name, rank=rank)
 
     for order in ("asc", "desc"):
-        sort = [SortSpec(field="rank", direction=SortDirection.ASC if order == "asc" else SortDirection.DESC)]
+        sort = ConcurrentStableList(
+            [SortSpec(field="rank", direction=SortDirection.ASC if order == "asc" else SortDirection.DESC)]
+        )
         expected = [row.name for row in await repo.list(sort=sort)]
         assert expected[-1] == "c", "NULL 恒排末位"
 
@@ -403,7 +409,7 @@ async def test_cursor_rejects_invalid_and_mismatched(session: AsyncSession) -> N
 async def test_db_sort_orders_nulls_last_in_compiled_sql(session: AsyncSession) -> None:
     """ORDER BY 编译：NULL 位次用 `rank IS NULL` 排序键显式表达（不出现 `NULLS FIRST/LAST` 字面量）。"""
     repo = DbItemRepository(session)
-    sort = [SortSpec(field="rank", direction=SortDirection.DESC)]
+    sort = ConcurrentStableList([SortSpec(field="rank", direction=SortDirection.DESC)])
     statement = repo._apply_sort(repo._select(), sort)  # pyright: ignore[reportPrivateUsage]
     sql = str(statement.compile(dialect=sqlite.dialect()))
     assert "rank IS NULL" in sql

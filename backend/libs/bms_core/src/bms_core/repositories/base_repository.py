@@ -8,14 +8,14 @@
 """
 
 from abc import ABC, abstractmethod
-from collections.abc import AsyncGenerator, Sequence
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from typing import Any, ClassVar, cast
 
 from sqlalchemy.orm.exc import StaleDataError
 
 from bms_core.core.base import BaseObject
-from bms_core.core.concurrent import ConcurrentStableSet
+from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.context import is_read_only
 from bms_core.core.exceptions import ConcurrentConflictError
 from bms_core.db.routing import READ_BINDING, WRITE_BINDING
@@ -37,7 +37,7 @@ class BaseRepository[ModelT](BaseObject, ABC):
     _sharding_router: ShardingRouter | None = None
 
     @abstractmethod
-    async def list(self, *, sort: Sequence[SortSpec] | None = None) -> list[ModelT]:
+    async def list(self, *, sort: ConcurrentStableList[SortSpec] | None = None) -> ConcurrentStableList[ModelT]:
         """返回全部记录（传 `sort` 时按规格排序，不传由实现给默认顺序，内存基线按 ID 升序）。
 
         Args:
@@ -75,27 +75,27 @@ class BaseRepository[ModelT](BaseObject, ABC):
     async def delete(self, item_id: int) -> bool:
         """删除记录；不存在返回 False。"""
 
-    async def list_page(self, query: BasePageQuery) -> list[ModelT]:
+    async def list_page(self, query: BasePageQuery) -> ConcurrentStableList[ModelT]:
         """页码分页查询（派生：内存基线切片；DB 实现回补 LIMIT/OFFSET）。
 
         Args:
             query: 页码分页请求（含排序参数）。
 
         Returns:
-            list[ModelT]: 当前页记录（已按白名单校验后的排序规格排序）。
+            ConcurrentStableList[ModelT]: 当前页记录（已按白名单校验后的排序规格排序）。
         """
         items = await self.list(sort=self._resolve_sort(query))
         start = (query.page - 1) * query.size
         return items[start : start + query.size]
 
-    async def list_cursor(self, query: BaseCursorQuery) -> list[ModelT]:
+    async def list_cursor(self, query: BaseCursorQuery) -> ConcurrentStableList[ModelT]:
         """游标分页查询（派生默认：keyset 口径的内存镜像；DB 实现回补 SQL 谓词）。
 
         Args:
             query: 游标分页请求（含排序参数与游标令牌）。
 
         Returns:
-            list[ModelT]: 当前批记录（已按白名单校验后的排序规格排序）。
+            ConcurrentStableList[ModelT]: 当前批记录（已按白名单校验后的排序规格排序）。
 
         Raises:
             ParamError: 游标非法或与当前排序不一致。
@@ -105,23 +105,25 @@ class BaseRepository[ModelT](BaseObject, ABC):
         if not query.cursor:
             return items[: query.limit]
         payload = decode_cursor_for(query.cursor, sort)
-        remaining = [
-            item for item in items if is_after_cursor(item, sort, payload.values, payload.item_id, id_of=self._item_id)
-        ]
+        remaining = ConcurrentStableList(
+            item
+            for item in items
+            if is_after_cursor(item, sort, ConcurrentStableList(payload.values), payload.item_id, id_of=self._item_id)
+        )
         return remaining[: query.limit]
 
-    def effective_sort(self, query: BaseSortQuery | None = None) -> list[SortSpec]:
+    def effective_sort(self, query: BaseSortQuery | None = None) -> ConcurrentStableList[SortSpec]:
         """生效排序规格（白名单已过滤；供服务层生成游标与外部读取）。
 
         Args:
             query: 排序请求（分页请求继承之）；None 表示不排序。
 
         Returns:
-            list[SortSpec]: 生效排序规格。
+            ConcurrentStableList[SortSpec]: 生效排序规格。
         """
         return self._resolve_sort(query)
 
-    def build_cursor(self, query: BaseCursorQuery, items: Sequence[ModelT]) -> str | None:
+    def build_cursor(self, query: BaseCursorQuery, items: ConcurrentStableList[ModelT]) -> str | None:
         """生成 keyset 下一批游标（不足一页返回 None）。
 
         Args:
@@ -151,20 +153,20 @@ class BaseRepository[ModelT](BaseObject, ABC):
         """
         return int(cast("Any", item).id)
 
-    def _resolve_sort(self, query: BaseSortQuery | None) -> list[SortSpec]:
+    def _resolve_sort(self, query: BaseSortQuery | None) -> ConcurrentStableList[SortSpec]:
         """排序请求解析钩子：按类属性白名单校验排序规格（类属性为默认、`specs(whitelist=...)` 可覆盖）。
 
         Args:
             query: 排序请求（分页请求继承之）；None 表示不排序。
 
         Returns:
-            list[SortSpec]: 生效排序规格（白名单外字段已忽略）。
+            ConcurrentStableList[SortSpec]: 生效排序规格（白名单外字段已忽略）。
         """
         if query is None:
-            return []
+            return ConcurrentStableList()
         return query.specs(self.sortable_fields)
 
-    def _apply_sort[StatementT](self, statement: StatementT, sort: Sequence[SortSpec]) -> StatementT:
+    def _apply_sort[StatementT](self, statement: StatementT, sort: ConcurrentStableList[SortSpec]) -> StatementT:
         """排序语句钩子（默认原样返回：非 SQL 实现无需拼接 ORDER BY）。
 
         数据库实现侧经 `app/repositories/ordering.py::order_criteria` 拼接 ORDER BY

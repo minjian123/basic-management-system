@@ -7,12 +7,13 @@
   `sort_items` / `is_after_cursor` 逐条镜像，保证内存基线与数据库实现行为一致。
 """
 
-from collections.abc import Callable, Collection, Sequence
+from collections.abc import Callable
 from datetime import date, datetime
 from typing import Any, cast
 
 from sqlalchemy import ColumnElement, Table, UniqueConstraint, and_, false, or_
 
+from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.exceptions import ConfigError
 from bms_core.schemas.sorting import SortDirection, SortSpec
 
@@ -22,7 +23,9 @@ _Resolver = Callable[[str], Any]
 """字段名 → 模型列解析器（返回 None 表示白名单外 / 非映射列）。"""
 
 
-def order_criteria(sort: Sequence[SortSpec], *, resolve: _Resolver, id_column: _Col) -> list[ColumnElement[Any]]:
+def order_criteria(
+    sort: ConcurrentStableList[SortSpec], *, resolve: _Resolver, id_column: _Col
+) -> ConcurrentStableList[ColumnElement[Any]]:
     """构造 ORDER BY 元素（NULL 恒末位 + 主键兜底）。
 
     Args:
@@ -31,28 +34,26 @@ def order_criteria(sort: Sequence[SortSpec], *, resolve: _Resolver, id_column: _
         id_column: 主键列（稳定序兜底）。
 
     Returns:
-        list[ColumnElement[Any]]: ORDER BY 元素列表。
+        ConcurrentStableList[ColumnElement[Any]]: ORDER BY 元素列表。
     """
-    criteria: list[ColumnElement[Any]] = []
+    criteria: ConcurrentStableList[ColumnElement[Any]] = ConcurrentStableList()
     uses_id = False
     for spec in sort:
         column = resolve(spec.field)
         if column is None:
             continue
-        criteria.append(cast("ColumnElement[Any]", column.is_(None).asc()))
-        criteria.append(
-            cast("ColumnElement[Any]", column.asc() if spec.direction is SortDirection.ASC else column.desc())
-        )
+        criteria.add(cast("ColumnElement[Any]", column.is_(None).asc()))
+        criteria.add(cast("ColumnElement[Any]", column.asc() if spec.direction is SortDirection.ASC else column.desc()))
         uses_id = uses_id or column.key == id_column.key
     if not uses_id:
-        criteria.append(cast("ColumnElement[Any]", id_column.asc()))
+        criteria.add(cast("ColumnElement[Any]", id_column.asc()))
     return criteria
 
 
 def keyset_condition(
-    sort: Sequence[SortSpec],
-    payload_specs: Sequence[tuple[str, str]],
-    values: Sequence[object],
+    sort: ConcurrentStableList[SortSpec],
+    payload_specs: ConcurrentStableList[tuple[str, str]],
+    values: ConcurrentStableList[object],
     item_id: int,
     *,
     resolve: _Resolver,
@@ -76,8 +77,8 @@ def keyset_condition(
     Raises:
         ConfigError: 生效排序字段不在白名单 / 非映射列（声明与游标不一致）。
     """
-    clauses: list[ColumnElement[bool]] = []
-    prefix: list[ColumnElement[bool]] = []
+    clauses: ConcurrentStableList[ColumnElement[bool]] = ConcurrentStableList()
+    prefix: ConcurrentStableList[ColumnElement[bool]] = ConcurrentStableList()
     for index, spec in enumerate(sort):
         column = resolve(spec.field)
         if column is None:
@@ -85,18 +86,18 @@ def keyset_condition(
         direction = _direction_of(payload_specs, index, spec)
         value = values[index]
         clause = _greater_than(column, direction, value)
-        clauses.append(and_(*prefix, clause) if prefix else clause)
-        prefix.append(_equal(column, value))
-    clauses.append(and_(*prefix, id_column > item_id))
+        clauses.add(and_(*prefix, clause) if prefix else clause)
+        prefix.add(_equal(column, value))
+    clauses.add(and_(*prefix, id_column > item_id))
     return or_(*clauses)
 
 
 def sort_items[ItemT](
-    items: Sequence[ItemT],
-    sort: Sequence[SortSpec],
+    items: ConcurrentStableList[ItemT],
+    sort: ConcurrentStableList[SortSpec],
     *,
     id_of: Callable[[ItemT], int],
-) -> list[ItemT]:
+) -> ConcurrentStableList[ItemT]:
     """内存排序（NULL 恒末位 + 多键稳定序 + 主键兜底）。
 
     实现：先按主键（最次键）排序，再按规格逆序逐次稳定排序——每条规格先按值排序
@@ -108,7 +109,7 @@ def sort_items[ItemT](
         id_of: 取条目主键。
 
     Returns:
-        list[ItemT]: 排序后的条目列表。
+        ConcurrentStableList[ItemT]: 排序后的条目列表。
     """
     result = list(items)
     result.sort(key=id_of)
@@ -118,13 +119,13 @@ def sort_items[ItemT](
             reverse=spec.direction is SortDirection.DESC,
         )
         result.sort(key=lambda item, field=spec.field: getattr(item, field, None) is None)
-    return result
+    return ConcurrentStableList(result)
 
 
 def is_after_cursor[ItemT](
     item: ItemT,
-    sort: Sequence[SortSpec],
-    values: Sequence[object],
+    sort: ConcurrentStableList[SortSpec],
+    values: ConcurrentStableList[object],
     item_id: int,
     *,
     id_of: Callable[[ItemT], int],
@@ -159,7 +160,7 @@ def is_after_cursor[ItemT](
     return id_of(item) > item_id
 
 
-def assert_sortable_fields_indexed(model: type[Any], sortable_fields: Collection[str]) -> None:
+def assert_sortable_fields_indexed(model: type[Any], sortable_fields: ConcurrentStableSet[str]) -> None:
     """校验「可排序字段须有索引或为主键」（模块声明白名单时调用）。
 
     索引口径：主键列 + 表级索引列 + 单列唯一约束列（复合唯一约束不视为单列可排序索引）。
@@ -174,7 +175,9 @@ def assert_sortable_fields_indexed(model: type[Any], sortable_fields: Collection
     table = getattr(model, "__table__", None)
     if table is None:
         raise ConfigError(f"{getattr(model, '__name__', model)} 无 __table__（仅 ORM 模型适用索引断言）")
-    indexed: set[str] = {column.name for column in cast("Table", table).primary_key.columns}
+    indexed: ConcurrentStableSet[str] = ConcurrentStableSet(
+        column.name for column in cast("Table", table).primary_key.columns
+    )
     for index in cast("Table", table).indexes:
         indexed.update(column.name for column in index.columns)
     for constraint in cast("Table", table).constraints:
@@ -185,7 +188,7 @@ def assert_sortable_fields_indexed(model: type[Any], sortable_fields: Collection
         raise ConfigError(f"{model.__name__} 可排序字段缺索引：{', '.join(missing)}（建索引或移出可排序白名单）")
 
 
-def _direction_of(specs: Sequence[tuple[str, str]], index: int, spec: SortSpec) -> SortDirection:
+def _direction_of(specs: ConcurrentStableList[tuple[str, str]], index: int, spec: SortSpec) -> SortDirection:
     """取游标指纹中该位的方向（缺失 / 非法回落生效规格方向）。
 
     Args:
