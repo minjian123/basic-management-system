@@ -409,3 +409,33 @@ flowchart LR
 **过程处置（已闭环）**：① `plugins.update(_gray_plugins(...))` / `headers_set.update(ROUTE_HEADERS_SET.get(...))` 传映射 → 集合类 `update` 按键解包报错，改 `.items()`；② 用例 `monkeypatch.setitem` 注入集合类常量行不通（无 `__setitem__`）→ 改 `setattr` + 副本；③ `_dump*` 若只认内置 `dict` / `list` 会把集合类当不支持类型抛 `TypeError` → 分支改 `Mapping` / `Sequence`。
 
 **遗留**：`libs` 的 `services/` 模块归零；`bms_core` 剩余 **555 处**（`libs`：`tests` 281 / `db` 43 / `api` 32 / `core` 27 / `boundary` 18 / `session` 13 / `outbox` 10 / `schemas` 10 / `dashboard` 9 / `security` 9 …），按交接单 §7 第 2 项续推（其余 `libs` 与 `tests` 收尾）。
+
+## 18. 实施过程补充 · 存量整改子批 3 · `dashboard/` 与 `catalog/` 能力域（签名单轮，2026-09-30） <a id="batch3-dashboard-catalog"></a>
+
+**范围**：`bms_core` `dashboard/` 能力域 **9 处**（`base.py` 6 / `null.py` 3）与 `catalog/` 能力域 **8 处**（`base.py` 6 / `loader.py` 2），外加实现方 / 调用方测试适配（`libs` 侧 `tests/dashboard/test_dashboard.py`、`services/platform` 侧 `tests/contracts/support.py` / `test_domain_registry_contracts.py`）。按交接单 §7 第 1 项「其余 `libs` 低耦合叶子模块」首轮推进。
+
+**动作**：
+
+1. **首页工作台卡片（`dashboard/`）**：`BaseDashboardCardProvider` / `BaseDashboardCardRegistry` 的 `metadata` / `fetch` 返回与 `fetch` 入参由 `Mapping[str, object]` 落 `ConcurrentStableDict[str, object]`（抽象契约与聚合模板同步）；`NullDashboardCardRegistry` 两处空返回 `{}` → `ConcurrentStableDict()`。
+2. **服务目录快照客户端（`catalog/base.py`）**：`fetch_catalog_snapshot` 返回落 `ConcurrentStableList[ModuleRecord]`（生成式构造）；`_payload_rows` 返回 `Sequence[Mapping[...]]` → `ConcurrentStableList[ConcurrentStableDict[str, object]]`（`rows.append` → `add`、每行 `ConcurrentStableDict(...)` 构造）；`_to_record` 入参落 `ConcurrentStableDict[str, object]`。
+3. **目录读取器注册点（`catalog/loader.py`）**：`_CATALOG_READERS` 落 `ConcurrentStableDict[str, CatalogReader]`（登记由 `_CATALOG_READERS[service] = reader` 改原子 `.set(...)`）；`load_catalog_snapshot` 返回落 `ConcurrentStableList[ModuleRecord]`，本地权威分支 `ConcurrentStableList(await reader(...))`（`CatalogReader` 契约为 `list`，`services` 侧读取器声明留批次 2，本轮只在出口同型重组）。
+4. **调用方零改动**：`application.py::_validate_service_catalog`（既有 `ConcurrentStableList(records)` 同型重组 + `if not records` 走只读面）、`health/checks.py`（仅 `await`）与平台 `api/modules.py`（自有响应）均无需适配。
+
+**调用方与测试同步**：`tests/dashboard/test_dashboard.py`（`_FakeCard.metadata` / `fetch` 落集合类、`fetch` 实参包 `ConcurrentStableDict(...)`）、`services/platform/tests/contracts/support.py`（`TodoCardProvider` 同上）、`services/platform/tests/contracts/test_domain_registry_contracts.py`（`fetch("missing", {})` 包 `ConcurrentStableDict()`）。断言维持内容相等（`== {..}`），未改语义。
+
+**验证**：
+
+| 项 | 命令 | 结果 |
+| --- | --- | --- |
+| 定向用例（libs） | `pytest libs/bms_core/tests/dashboard libs/bms_core/tests/health libs/bms_core/tests/core/test_service_catalog_startup.py` | **22 passed** |
+| 定向用例（平台契约） | `pytest services/platform/tests/contracts` | **103 passed** |
+| 全量 `libs` | `pytest libs/bms_core/tests` | **1099 passed / 37 skipped** |
+| 平台全量 | `pytest services/platform/tests` | **349 passed / 1 skipped / 1 failed**（既有 red，见偏差） |
+| 静态检查 | `ruff check .` / `ruff format --check .`（backend 全量） | 全绿（957 文件） |
+| 护栏 | `check-bare-collections.py .` | **「新增 0 / 残留 0」**；`dashboard/` **9 → 0**、`catalog/` **8 → 0** |
+| 基线递减 | `--update-baseline` | **1209 → 1186**（`libs` 555 → 535 / `services` 327 → 324） |
+| 本地预检 | `check-preflight.py --fast` | **全部通过** |
+
+**偏差（既有 red，非本轮引入）**：`services/platform/tests/dict/test_dict_real.py::test_http_endpoints`（`query-providers` 的 `model_dump` 序列化出口）仍为既有 red，本轮未扩大；另轮单独修。
+
+**遗留**：`bms_core` 剩余 **535 处**（`libs`：`tests` 278 / `db` 43 / `api` 32 / `core` 27 / `boundary` 18 / `session` 13 / `outbox` 10 / `schemas` 10 / `security` 9 / `fieldtype` 7 / `tracing` 7 …），按交接单 §7 第 1 项续推（其余 `libs` 与 `tests` 收尾）。
