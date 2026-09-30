@@ -439,3 +439,33 @@ flowchart LR
 **偏差（既有 red，非本轮引入）**：`services/platform/tests/dict/test_dict_real.py::test_http_endpoints`（`query-providers` 的 `model_dump` 序列化出口）仍为既有 red，本轮未扩大；另轮单独修。
 
 **遗留**：`bms_core` 剩余 **535 处**（`libs`：`tests` 278 / `db` 43 / `api` 32 / `core` 27 / `boundary` 18 / `session` 13 / `outbox` 10 / `schemas` 10 / `security` 9 / `fieldtype` 7 / `tracing` 7 …），按交接单 §7 第 1 项续推（其余 `libs` 与 `tests` 收尾）。
+
+## 19. 实施过程补充 · 存量整改子批 3 · `session/` 能力域（签名单轮，2026-09-30） <a id="batch3-session"></a>
+
+**范围**：`bms_core` `session/` 能力域 **13 处**（`base.py` 2 / `memory.py` 4 / `null.py` 2 / `redis.py` 5），外加 `save` 载荷构造的调用方适配（`libs` 测试 2 份、identity 服务 src 2 处 + 测试 3 份）。按交接单 §7 第 1 项「其余 `libs` 低耦合叶子模块」续项推进。
+
+**动作**：
+
+1. **会话存取契约（`base.py`）**：`BaseSessionStore.save` 入参、`load` 返回由 `Mapping[str, object]` 落 `ConcurrentStableDict[str, object]`。
+2. **内存实现（`memory.py`）**：`_items` / `_blacklist` 落 `ConcurrentStableDict`；写改原子方法（`self._items[k] = ...` → `.set(...)`）；`pop(k, None)` 集合类不提供 → 改 `get_and_remove(k)`；`dict(payload)` → `ConcurrentStableDict(payload)`；`clear()` 改逐键 `get_and_remove`。
+3. **Null 实现（`null.py`）**：`save` / `load` 签名落集合类；占位返回 `{"session_id": session_id}` → `ConcurrentStableDict(...)`。
+4. **Redis 实现（`redis.py`）**：`_dump` / `_load` / `save` / `load` / `_tenant_of` 签名落 `ConcurrentStableDict`；`_load` 解析 JSON 后构造 `ConcurrentStableDict`（形态一致）；`_dump` 第三方边界 `dict(value)` 保持不变。
+5. **调用方载荷构造（边界口径）**：identity 服务注入会话标记的两处 `save(...)` 载荷（`session_issuer.py` / `auth.py`）与测试写入点包 `ConcurrentStableDict(...)`。
+
+**调用方与测试同步**：`libs` 侧 `tests/session/test_session_store.py`、`tests/api/test_require_auth.py`；identity 侧 `tests/auth/{session_helpers.py,test_refresh.py}`、`tests/idp/test_idp.py`。**边界处置（关键）**：`tests/idp/test_idp.py` 探针路由原直接回传 `load` 结果（内置 dict）交 FastAPI JSON 序列化——`load` 返回集合类后触发 `Unable to serialize unknown type: ConcurrentStableDict`，按第三方 / JSON 边界口径改 `dict(session)` 显式转换（与 `dict` 子批同口径）。断言维持内容相等（`== {..}`），未改语义。
+
+**验证**：
+
+| 项 | 命令 | 结果 |
+| --- | --- | --- |
+| 定向用例（libs + identity） | `pytest libs/bms_core/tests/{session,api} services/identity/tests/{auth,idp}` | **146 passed / 1 skipped** |
+| 全量 `libs` | `pytest libs/bms_core/tests` | **1099 passed / 37 skipped** |
+| identity + ai 全量 | `pytest services/identity/tests services/ai/tests` | **282 passed / 1 skipped** |
+| 静态检查 | `ruff check .` / `ruff format --check .`（backend 全量） | 全绿（957 文件） |
+| 护栏 | `check-bare-collections.py .` | **「新增 0 / 残留 0」**；`session/` **13 → 0** |
+| 基线递减 | `--update-baseline` | **1186 → 1173**（`libs` 535 → 522） |
+| 本地预检 | `check-preflight.py --fast` | **全部通过** |
+
+**过程处置（已闭环）**：`tests/idp/test_idp.py` 探针路由直传集合类触发 FastAPI 序列化失败 → 按第三方 JSON 边界口径改 `dict(session)`（`None` 分支保留）。
+
+**遗留**：`bms_core` 剩余 **522 处**（`libs`：`tests` 278 / `db` 43 / `api` 32 / `core` 27 / `boundary` 18 / `outbox` 10 / `schemas` 10 / `security` 9 / `fieldtype` 7 / `tracing` 7 …），按交接单 §7 第 1 项续推（其余 `libs` 与 `tests` 收尾）。
