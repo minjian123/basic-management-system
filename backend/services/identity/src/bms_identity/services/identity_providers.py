@@ -17,6 +17,7 @@ from typing import cast
 from sqlalchemy.exc import IntegrityError
 
 from bms_core.audit.base import AuditCapturer
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.config import IdpManageSettings
 from bms_core.core.exceptions import (
     ConfigError,
@@ -325,8 +326,8 @@ class IdentityProviderService(BaseFrameworkObject):
             idp_key=row.idp_key,
             type=row.type,
             icon=row.icon or "",
-            config=mask_provider_config(row.type, config),
-            secret_configured=has_secret(row.type, config),
+            config=dict(mask_provider_config(row.type, ConcurrentStableDict(config))),
+            secret_configured=has_secret(row.type, ConcurrentStableDict(config)),
             status=row.status,
             sort=row.sort,
         )
@@ -344,7 +345,11 @@ class IdentityProviderService(BaseFrameworkObject):
         Raises:
             IdpConfigInvalidError: 配置非法（20064/400）。
         """
-        return validate_provider_config(type, config, allow_private_hosts=self._manage.allow_private_hosts)
+        return dict(
+            validate_provider_config(
+                type, ConcurrentStableDict(config), allow_private_hosts=self._manage.allow_private_hosts
+            )
+        )
 
     async def _probe(self, spec: IdentityProviderSpec) -> IdpProbeResult:
         """构造实例并探测（构造失败转 `20066`）。

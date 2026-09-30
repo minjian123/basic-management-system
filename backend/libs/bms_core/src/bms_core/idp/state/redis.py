@@ -9,12 +9,12 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping
 from typing import cast
 
 from redis.asyncio import Redis as AsyncRedis
 
 from bms_core.core.capability import BaseAsyncResource
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.logging import get_logger
 from bms_core.idp.state.base import (
     DEFAULT_IDP_STATE_TTL,
@@ -28,7 +28,7 @@ __all__ = ["RedisIdpStateStore"]
 _LOGGER = get_logger("bms")
 
 
-def _dump(value: Mapping[str, object]) -> str:
+def _dump(value: ConcurrentStableDict[str, object]) -> str:
     """序列化流程状态负载（JSON；不可序列化项经 `default=str` 兜底）。
 
     Args:
@@ -40,14 +40,14 @@ def _dump(value: Mapping[str, object]) -> str:
     return json.dumps(dict(value), ensure_ascii=False, default=str)
 
 
-def _load(raw: object) -> Mapping[str, object] | None:
+def _load(raw: object) -> ConcurrentStableDict[str, object] | None:
     """反序列化流程状态负载（失败按未命中）。
 
     Args:
         raw: Redis 原始值。
 
     Returns:
-        Mapping[str, object] | None: 流程状态负载；未命中 / 脏值返回 None。
+        ConcurrentStableDict[str, object] | None: 流程状态负载；未命中 / 脏值返回 None。
     """
     if raw is None:
         return None
@@ -61,7 +61,7 @@ def _load(raw: object) -> Mapping[str, object] | None:
         return None
     if not isinstance(parsed, dict):
         return None
-    return cast("Mapping[str, object]", parsed)
+    return ConcurrentStableDict(cast("dict[str, object]", parsed))
 
 
 class RedisIdpStateStore(BaseIdpStateStore, BaseAsyncResource):
@@ -91,7 +91,7 @@ class RedisIdpStateStore(BaseIdpStateStore, BaseAsyncResource):
     async def save(
         self,
         state: str,
-        payload: Mapping[str, object],
+        payload: ConcurrentStableDict[str, object],
         *,
         tenant: str | None = None,
         ttl: int = DEFAULT_IDP_STATE_TTL,
@@ -118,7 +118,7 @@ class RedisIdpStateStore(BaseIdpStateStore, BaseAsyncResource):
         *,
         tenant: str | None = None,
         namespace: str = IDP_STATE_DEFAULT_NAMESPACE,
-    ) -> Mapping[str, object] | None:
+    ) -> ConcurrentStableDict[str, object] | None:
         """一次性原子消费流程状态（`GETDEL`；Redis 异常按未命中并记日志）。
 
         Args:
@@ -127,7 +127,7 @@ class RedisIdpStateStore(BaseIdpStateStore, BaseAsyncResource):
             namespace: 命名空间（默认 `idpstate`）。
 
         Returns:
-            Mapping[str, object] | None: 状态数据；不存在 / 已消费 / 过期返回 None。
+            ConcurrentStableDict[str, object] | None: 状态数据；不存在 / 已消费 / 过期返回 None。
         """
         key = build_idp_state_key(state, tenant=tenant, namespace=namespace)
         try:

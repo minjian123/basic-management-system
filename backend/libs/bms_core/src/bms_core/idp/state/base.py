@@ -11,12 +11,12 @@
 """
 
 from abc import ABC, abstractmethod
-from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import cast
 
 from fastapi import Request
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.config import Settings
 from bms_core.core.objects import BaseValueObject
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
@@ -93,7 +93,7 @@ class BaseIdpStateStore(BasePluggable, ABC):
     async def save(
         self,
         state: str,
-        payload: Mapping[str, object],
+        payload: ConcurrentStableDict[str, object],
         *,
         tenant: str | None = None,
         ttl: int = DEFAULT_IDP_STATE_TTL,
@@ -116,7 +116,7 @@ class BaseIdpStateStore(BasePluggable, ABC):
         *,
         tenant: str | None = None,
         namespace: str = IDP_STATE_DEFAULT_NAMESPACE,
-    ) -> Mapping[str, object] | None:
+    ) -> ConcurrentStableDict[str, object] | None:
         """一次性原子消费流程状态（取出即删除；未命中返回 None）。
 
         Args:
@@ -125,7 +125,7 @@ class BaseIdpStateStore(BasePluggable, ABC):
             namespace: 命名空间（默认 `idpstate`）。
 
         Returns:
-            Mapping[str, object] | None: 状态数据；缺失 / 已消费 / 过期返回 None。
+            ConcurrentStableDict[str, object] | None: 状态数据；缺失 / 已消费 / 过期返回 None。
         """
 
     @abstractmethod

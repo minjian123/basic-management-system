@@ -13,12 +13,13 @@ XML 解析拒绝 `<!DOCTYPE` / `<!ENTITY` 并限制响应体积（防 XXE / 实�
 from __future__ import annotations
 
 import xml.etree.ElementTree as ET
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from typing import cast
 from urllib.parse import urlencode
 
 import httpx
 
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import IdentityProviderSettings, Settings
 from bms_core.core.exceptions import AuthError, ConfigError, PluginError, ServiceUnavailableError
 from bms_core.core.factory import BasePluginFactory
@@ -42,11 +43,13 @@ _DEFAULT_SERVICE_VALIDATE_PATH = "/p3/serviceValidate"
 _MAX_RESPONSE_BYTES = 256 * 1024
 """响应体上限（字节；超限按 IdP 响应非法处理，防超大 / 膨胀响应）。"""
 
-_DEFAULT_ATTRIBUTE_MAP: dict[str, tuple[str, ...]] = {
-    "username": ("username", "uid", "userName", "account"),
-    "name": ("displayName", "cn", "name"),
-    "email": ("email", "mail"),
-}
+_DEFAULT_ATTRIBUTE_MAP: ConcurrentStableDict[str, tuple[str, ...]] = ConcurrentStableDict(
+    {
+        "username": ("username", "uid", "userName", "account"),
+        "name": ("displayName", "cn", "name"),
+        "email": ("email", "mail"),
+    }
+)
 """属性映射默认候选（行配置 `attribute_map` 同名键覆盖）。"""
 
 _FIELDS = ("username", "name", "email")
@@ -65,7 +68,7 @@ class CasIdentityProvider(BaseIdentityProvider):
         redirect_uri: str,
         login_path: str = _DEFAULT_LOGIN_PATH,
         service_validate_path: str = _DEFAULT_SERVICE_VALIDATE_PATH,
-        attribute_map: Mapping[str, Sequence[str]] | None = None,
+        attribute_map: ConcurrentStableDict[str, ConcurrentStableList[str]] | None = None,
         timeout: float = _HTTP_TIMEOUT,
         transport: httpx.AsyncBaseTransport | None = None,
     ) -> None:
@@ -185,7 +188,7 @@ class CasIdentityProvider(BaseIdentityProvider):
             return IdpProbeResult(reachable=False, protocol="cas", detail="CAS 端点不可达")
         return IdpProbeResult(reachable=True, protocol="cas", status=response.status_code, detail="CAS 端点可达")
 
-    def _build_identity(self, principal: str, attributes: Mapping[str, str]) -> IdentityUser:
+    def _build_identity(self, principal: str, attributes: ConcurrentStableDict[str, str]) -> IdentityUser:
         """按映射规则由 principal 与 attributes 构造身份。
 
         Args:
@@ -206,7 +209,7 @@ class CasIdentityProvider(BaseIdentityProvider):
             idp_key=self._server_url,
         )
 
-    def _first(self, attributes: Mapping[str, str], field: str) -> str:
+    def _first(self, attributes: ConcurrentStableDict[str, str], field: str) -> str:
         """取字段首个命中的属性值（候选序由 `attribute_map` 决定）。
 
         Args:
@@ -262,23 +265,23 @@ class CasIdentityProviderFactory(BasePluginFactory[CasIdentityProvider]):
         )
 
 
-def normalize_attribute_map(raw: object) -> dict[str, tuple[str, ...]]:
+def normalize_attribute_map(raw: object) -> ConcurrentStableDict[str, tuple[str, ...]]:
     """归一化行配置属性映射覆盖（校验类型）。
 
     Args:
         raw: 行配置 `attribute_map` 原始值。
 
     Returns:
-        dict[str, tuple[str, ...]]: 字段 → 候选属性名（仅含合法字段；空返回空 dict）。
+        ConcurrentStableDict[str, tuple[str, ...]]: 字段 → 候选属性名（仅含合法字段；空返回空映射）。
 
     Raises:
         ConfigError: 非对象 / 值非字符串数组（40001）。
     """
     if raw is None:
-        return {}
+        return ConcurrentStableDict()
     if not isinstance(raw, Mapping):
         raise ConfigError("身份源行配置 attribute_map 必须是对象")
-    normalized: dict[str, tuple[str, ...]] = {}
+    normalized: ConcurrentStableDict[str, tuple[str, ...]] = ConcurrentStableDict()
     for key, value in cast("Mapping[object, object]", raw).items():
         field = str(key)
         if field not in _FIELDS:
@@ -288,25 +291,29 @@ def normalize_attribute_map(raw: object) -> dict[str, tuple[str, ...]]:
         names = tuple(
             str(item).strip() for item in cast("list[object] | tuple[object, ...]", value) if str(item).strip()
         )
-        normalized[field] = names
+        normalized.set(field, names)
     return normalized
 
 
-def _merge_attribute_map(overrides: Mapping[str, Sequence[str]] | None) -> dict[str, tuple[str, ...]]:
+def _merge_attribute_map(
+    overrides: ConcurrentStableDict[str, ConcurrentStableList[str]] | None,
+) -> ConcurrentStableDict[str, tuple[str, ...]]:
     """合并默认映射与覆盖（按字段覆盖）。
 
     Args:
         overrides: 行配置 / 单例配置覆盖。
 
     Returns:
-        dict[str, tuple[str, ...]]: 合并后的字段 → 候选属性名。
+        ConcurrentStableDict[str, tuple[str, ...]]: 合并后的字段 → 候选属性名。
     """
-    merged = {field: tuple(names) for field, names in _DEFAULT_ATTRIBUTE_MAP.items()}
+    merged: ConcurrentStableDict[str, tuple[str, ...]] = ConcurrentStableDict(
+        {field: tuple(names) for field, names in _DEFAULT_ATTRIBUTE_MAP.items()}
+    )
     if overrides:
         for field, names in overrides.items():
             if field not in _FIELDS:
                 continue
-            merged[field] = tuple(name for name in names if name)
+            merged.set(field, tuple(name for name in names if name))
     return merged
 
 
@@ -365,19 +372,19 @@ def _child_text(parent: ET.Element, name: str) -> str:
     return child.text.strip()
 
 
-def _parse_attributes(success: ET.Element) -> dict[str, str]:
+def _parse_attributes(success: ET.Element) -> ConcurrentStableDict[str, str]:
     """解析 `authenticationSuccess` 下的 attributes（兼容元素名与 `cas:attribute` 两种形态）。
 
     Args:
         success: `authenticationSuccess` 节点。
 
     Returns:
-        dict[str, str]: 属性名 → 值（多值拼串取首个 token）。
+        ConcurrentStableDict[str, str]: 属性名 → 值（多值拼串取首个 token）。
     """
     container = _find_local(success, "attributes")
     if container is None:
-        return {}
-    attributes: dict[str, str] = {}
+        return ConcurrentStableDict()
+    attributes: ConcurrentStableDict[str, str] = ConcurrentStableDict()
     for child in container:
         local = _local(child.tag)
         if local == "attribute":
@@ -389,7 +396,7 @@ def _parse_attributes(success: ET.Element) -> dict[str, str]:
         name = name.strip()
         if not name:
             continue
-        attributes.setdefault(name, _first_token(value))
+        attributes.put_if_absent(name, _first_token(value))
     return attributes
 
 

@@ -8,8 +8,8 @@
 from __future__ import annotations
 
 import time
-from collections.abc import Mapping
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.idp.state.base import (
     DEFAULT_IDP_STATE_TTL,
     IDP_STATE_DEFAULT_NAMESPACE,
@@ -25,12 +25,12 @@ class MemoryIdpStateStore(BaseIdpStateStore):
 
     def __init__(self) -> None:
         """初始化（空存储）。"""
-        self._items: dict[str, tuple[dict[str, object], float]] = {}
+        self._items: ConcurrentStableDict[str, tuple[ConcurrentStableDict[str, object], float]] = ConcurrentStableDict()
 
     async def save(
         self,
         state: str,
-        payload: Mapping[str, object],
+        payload: ConcurrentStableDict[str, object],
         *,
         tenant: str | None = None,
         ttl: int = DEFAULT_IDP_STATE_TTL,
@@ -45,9 +45,9 @@ class MemoryIdpStateStore(BaseIdpStateStore):
             ttl: 有效期（秒）。
             namespace: 命名空间（默认 `idpstate`）。
         """
-        self._items[build_idp_state_key(state, tenant=tenant, namespace=namespace)] = (
-            dict(payload),
-            time.monotonic() + ttl,
+        self._items.set(
+            build_idp_state_key(state, tenant=tenant, namespace=namespace),
+            (ConcurrentStableDict(payload), time.monotonic() + ttl),
         )
 
     async def consume(
@@ -56,7 +56,7 @@ class MemoryIdpStateStore(BaseIdpStateStore):
         *,
         tenant: str | None = None,
         namespace: str = IDP_STATE_DEFAULT_NAMESPACE,
-    ) -> Mapping[str, object] | None:
+    ) -> ConcurrentStableDict[str, object] | None:
         """一次性消费流程状态（取出即删除；不存在 / 已过期返回 None）。
 
         Args:
@@ -65,15 +65,15 @@ class MemoryIdpStateStore(BaseIdpStateStore):
             namespace: 命名空间（默认 `idpstate`）。
 
         Returns:
-            Mapping[str, object] | None: 状态数据；不存在 / 已过期返回 None。
+            ConcurrentStableDict[str, object] | None: 状态数据；不存在 / 已过期返回 None。
         """
-        item = self._items.pop(build_idp_state_key(state, tenant=tenant, namespace=namespace), None)
+        item = self._items.get_and_remove(build_idp_state_key(state, tenant=tenant, namespace=namespace))
         if item is None:
             return None
         payload, expires_at = item
         if expires_at <= time.monotonic():
             return None
-        return dict(payload)
+        return payload
 
     async def delete(
         self,
@@ -89,8 +89,9 @@ class MemoryIdpStateStore(BaseIdpStateStore):
             tenant: 租户编码（并入键）。
             namespace: 命名空间（默认 `idpstate`）。
         """
-        self._items.pop(build_idp_state_key(state, tenant=tenant, namespace=namespace), None)
+        self._items.get_and_remove(build_idp_state_key(state, tenant=tenant, namespace=namespace))
 
     def clear(self) -> None:
         """清空全部流程状态（测试 / 调试用）。"""
-        self._items.clear()
+        for key in self._items:
+            self._items.get_and_remove(key)

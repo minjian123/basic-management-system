@@ -14,6 +14,7 @@ from __future__ import annotations
 import ipaddress
 from urllib.parse import urlsplit
 
+from bms_core.core.concurrent import ConcurrentStableSet
 from bms_core.core.exceptions import IdpConfigInvalidError
 
 __all__ = [
@@ -21,7 +22,7 @@ __all__ = [
     "validate_outbound_url",
 ]
 
-_ALLOWED_SCHEMES: frozenset[str] = frozenset({"http", "https"})
+_ALLOWED_SCHEMES: ConcurrentStableSet[str] = ConcurrentStableSet({"http", "https"})
 """允许的 URL 协议（出站与浏览器跳转）。"""
 
 

@@ -2,6 +2,7 @@
 
 import pytest
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.exceptions import IdpConfigInvalidError
 from bms_core.idp.schema import has_secret, mask_provider_config, validate_provider_config
 
@@ -15,7 +16,7 @@ _OIDC = {
 
 def _validate(protocol: str, config: dict[str, object], *, allow_private: bool = False) -> dict[str, object]:
     """调用校验（默认不允许私网）。"""
-    return validate_provider_config(protocol, config, allow_private_hosts=allow_private)
+    return dict(validate_provider_config(protocol, ConcurrentStableDict(config), allow_private_hosts=allow_private))
 
 
 @pytest.mark.kiwi_id(2203)
@@ -90,7 +91,7 @@ def test_outbound_url_ssrf_rejected() -> None:
     assert _validate("oidc", {**_OIDC, "issuer": "https://idp.example.com"})["issuer"] == "https://idp.example.com"
     private_ok = validate_provider_config(
         "oidc",
-        {**_OIDC, "issuer": "http://127.0.0.1:8090"},
+        ConcurrentStableDict({**_OIDC, "issuer": "http://127.0.0.1:8090"}),
         allow_private_hosts=True,
     )
     assert private_ok["issuer"] == "http://127.0.0.1:8090"
@@ -111,12 +112,14 @@ def test_secret_ref_only_env() -> None:
 def test_mask_and_has_secret() -> None:
     """脱敏：敏感键掩码为 `env:***`，非敏感键原样；`has_secret` 反映是否已配置。"""
     config = {**_OIDC, "client_secret_ref": "env:IDP_SECRET"}
-    masked = mask_provider_config("oidc", config)
+    masked = mask_provider_config("oidc", ConcurrentStableDict(config))
     assert masked["client_secret_ref"] == "env:***"
     assert masked["client_id"] == "bms-backend"
-    assert has_secret("oidc", config) is True
-    assert has_secret("oidc", {**_OIDC, "client_secret_ref": ""}) is False
-    assert mask_provider_config("oidc", {"client_secret_ref": "weird"})["client_secret_ref"] == "***"
-    assert mask_provider_config("unknown", {"client_secret": "plain"}) == {}
-    dirty = mask_provider_config("oidc", {**_OIDC, "legacy_secret_ref": "env:X"})
+    assert has_secret("oidc", ConcurrentStableDict(config)) is True
+    assert has_secret("oidc", ConcurrentStableDict({**_OIDC, "client_secret_ref": ""})) is False
+    assert (
+        mask_provider_config("oidc", ConcurrentStableDict({"client_secret_ref": "weird"}))["client_secret_ref"] == "***"
+    )
+    assert mask_provider_config("unknown", ConcurrentStableDict({"client_secret": "plain"})) == {}
+    dirty = mask_provider_config("oidc", ConcurrentStableDict({**_OIDC, "legacy_secret_ref": "env:X"}))
     assert dirty["legacy_secret_ref"] == "env:***"

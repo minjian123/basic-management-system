@@ -20,6 +20,7 @@ from urllib.parse import urlencode
 
 import httpx
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.config import IdentityProviderSettings, Settings
 from bms_core.core.exceptions import (
     ConfigError,
@@ -135,22 +136,26 @@ class WecomIdentityProvider(BaseIdentityProvider):
         """
         del nonce, code_challenge, code_challenge_method, service
         if self._mode == "oauth":
-            query: dict[str, str] = {
-                "appid": self._corp_id,
-                "redirect_uri": self._redirect_uri,
-                "response_type": "code",
-                "scope": self._scope,
-                "state": state,
-                "agentid": self._agent_id,
-            }
+            query: ConcurrentStableDict[str, str] = ConcurrentStableDict(
+                {
+                    "appid": self._corp_id,
+                    "redirect_uri": self._redirect_uri,
+                    "response_type": "code",
+                    "scope": self._scope,
+                    "state": state,
+                    "agentid": self._agent_id,
+                }
+            )
             return f"{self._oauth_url}?{urlencode(query)}#wechat_redirect"
-        query = {
-            "login_type": self._login_type,
-            "appid": self._corp_id,
-            "agentid": self._agent_id,
-            "redirect_uri": self._redirect_uri,
-            "state": state,
-        }
+        query = ConcurrentStableDict(
+            {
+                "login_type": self._login_type,
+                "appid": self._corp_id,
+                "agentid": self._agent_id,
+                "redirect_uri": self._redirect_uri,
+                "state": state,
+            }
+        )
         return f"{self._login_url}?{urlencode(query)}"
 
     async def exchange_token(
@@ -179,7 +184,7 @@ class WecomIdentityProvider(BaseIdentityProvider):
         access_token = await self._access_token()
         payload = await self._get(
             f"{self._api_base_url}/cgi-bin/auth/getuserinfo",
-            params={"access_token": access_token, "code": code},
+            params=ConcurrentStableDict({"access_token": access_token, "code": code}),
         )
         errcode = _as_int(payload.get("errcode"))
         if errcode != 0:
@@ -249,7 +254,7 @@ class WecomIdentityProvider(BaseIdentityProvider):
             return cached[1]
         payload = await self._get(
             f"{self._api_base_url}/cgi-bin/gettoken",
-            params={"corpid": self._corp_id, "corpsecret": self._secret},
+            params=ConcurrentStableDict({"corpid": self._corp_id, "corpsecret": self._secret}),
         )
         errcode = _as_int(payload.get("errcode"))
         if errcode != 0:
@@ -262,7 +267,7 @@ class WecomIdentityProvider(BaseIdentityProvider):
         self._token_cache = (now + max(effective - _TOKEN_SKEW, 1.0), token)
         return token
 
-    async def _get(self, url: str, *, params: Mapping[str, str]) -> Mapping[str, object]:
+    async def _get(self, url: str, *, params: ConcurrentStableDict[str, str]) -> ConcurrentStableDict[str, object]:
         """调企微接口并解析 JSON 对象。
 
         Args:
@@ -270,21 +275,21 @@ class WecomIdentityProvider(BaseIdentityProvider):
             params: 查询参数。
 
         Returns:
-            Mapping[str, object]: 响应 JSON 对象。
+            ConcurrentStableDict[str, object]: 响应 JSON 对象。
 
         Raises:
             WecomUnavailableError: 网络 / 非 2xx / 响应非 JSON 对象。
         """
         try:
             async with httpx.AsyncClient(timeout=self._timeout, transport=self._transport) as client:
-                response = await client.get(url, params=params)
+                response = await client.get(url, params=dict(params))
                 response.raise_for_status()
                 payload: object = response.json()
         except (httpx.HTTPError, ValueError) as exc:
             raise WecomUnavailableError(f"企业微信接口调用失败：{url}") from exc
         if not isinstance(payload, Mapping):
             raise WecomUnavailableError(f"企业微信接口响应非对象：{url}")
-        return cast("Mapping[str, object]", payload)
+        return ConcurrentStableDict(cast("Mapping[str, object]", payload))
 
 
 class WecomIdentityProviderFactory(BasePluginFactory[WecomIdentityProvider]):

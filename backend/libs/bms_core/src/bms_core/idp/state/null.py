@@ -1,8 +1,7 @@
 """流程状态存储能力域缺省实现（Null Object）：占位返回、无副作用（未接入真实实现时使用）。"""
 
-from collections.abc import Mapping
-
 from bms_core.core.capability import BaseNullObject
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.idp.state.base import DEFAULT_IDP_STATE_TTL, IDP_STATE_DEFAULT_NAMESPACE, BaseIdpStateStore
 
 __all__ = [
@@ -20,7 +19,7 @@ class NullIdpStateStore(BaseIdpStateStore, BaseNullObject):
     async def save(
         self,
         state: str,
-        payload: Mapping[str, object],
+        payload: ConcurrentStableDict[str, object],
         *,
         tenant: str | None = None,
         ttl: int = DEFAULT_IDP_STATE_TTL,
@@ -42,7 +41,7 @@ class NullIdpStateStore(BaseIdpStateStore, BaseNullObject):
         *,
         tenant: str | None = None,
         namespace: str = IDP_STATE_DEFAULT_NAMESPACE,
-    ) -> Mapping[str, object] | None:
+    ) -> ConcurrentStableDict[str, object] | None:
         """消费流程状态（占位恒定未命中）。
 
         Args:
@@ -51,7 +50,7 @@ class NullIdpStateStore(BaseIdpStateStore, BaseNullObject):
             namespace: 命名空间（占位忽略）。
 
         Returns:
-            Mapping[str, object] | None: 恒定 None。
+            ConcurrentStableDict[str, object] | None: 恒定 None。
         """
         return None
 

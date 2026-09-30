@@ -15,6 +15,7 @@ import secrets
 from collections.abc import Mapping
 
 from bms_core.captcha.base import BaseCaptcha, CaptchaCredential, CaptchaKind
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.config import PasswordResetSettings
 from bms_core.core.exceptions import (
     CaptchaVerifyError,
@@ -261,7 +262,7 @@ class PasswordResetService(BaseFrameworkObject):
         try:
             await self._state.save(
                 token,
-                payload,
+                ConcurrentStableDict(payload),
                 tenant=tenant,
                 ttl=self._settings.token_ttl_seconds,
                 namespace=PASSWORD_RESET_NAMESPACE,
