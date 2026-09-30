@@ -14,12 +14,12 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import cast
 
 from fastapi import Request
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.config import Settings
 from bms_core.core.objects import BaseTokenSpecContract
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
@@ -93,11 +93,11 @@ class BaseServiceTokenIssuer(BasePluggable, ABC):
         """
 
     @abstractmethod
-    def jwks(self) -> Mapping[str, object]:
+    def jwks(self) -> ConcurrentStableDict[str, object]:
         """取公开 JWKS 文档（只含公钥）。
 
         Returns:
-            Mapping[str, object]: `{"keys": [公钥 JWK, ...]}`。
+            ConcurrentStableDict[str, object]: `{"keys": [公钥 JWK, ...]}`。
         """
 
     @abstractmethod

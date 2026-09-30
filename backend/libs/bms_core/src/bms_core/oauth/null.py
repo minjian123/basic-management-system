@@ -6,9 +6,10 @@
 - `NullOidcProvider`：OIDC Provider 服务端占位（02_05；**fail-closed**，不签真 JWT、校验恒拒）。
 """
 
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable
 
 from bms_core.core.capability import BaseNullObject
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.exceptions import AuthError, ConfigError
 from bms_core.idp.base import IdentityClaims
 from bms_core.oauth.base import NULL_ACCESS_TOKEN, BaseOAuthServer, BaseScopeChecker, ClientCredentials, OAuthToken
@@ -79,13 +80,13 @@ class NullServiceTokenIssuer(BaseServiceTokenIssuer, BaseNullObject):
         """
         return OAuthToken(access_token=NULL_ACCESS_TOKEN, scopes=spec.scopes)
 
-    def jwks(self) -> Mapping[str, object]:
+    def jwks(self) -> ConcurrentStableDict[str, object]:
         """返回空 JWKS 文档（占位无公钥）。
 
         Returns:
-            Mapping[str, object]: `{"keys": []}`。
+            ConcurrentStableDict[str, object]: `{"keys": []}`。
         """
-        return {"keys": []}
+        return ConcurrentStableDict({"keys": []})
 
     def verify(self, token: str) -> IdentityClaims:
         """返回占位身份声明（不验签；占位来源固定）。
@@ -129,13 +130,13 @@ class NullUserTokenIssuer(BaseUserTokenIssuer, BaseNullObject):
         """
         raise ConfigError("用户令牌实现未配置（user_token 未选定真实实现）")
 
-    def jwks(self) -> Mapping[str, object]:
+    def jwks(self) -> ConcurrentStableDict[str, object]:
         """返回空 JWKS 文档（占位无公钥）。
 
         Returns:
-            Mapping[str, object]: `{"keys": []}`。
+            ConcurrentStableDict[str, object]: `{"keys": []}`。
         """
-        return {"keys": []}
+        return ConcurrentStableDict({"keys": []})
 
     def verify(self, token: str, *, expected_type: str) -> IdentityClaims:
         """拒绝校验（一律视为非法令牌）。
@@ -187,10 +188,10 @@ class NullOidcProvider(BaseOidcProvider, BaseNullObject):
         """
         raise AuthError("令牌校验失败")
 
-    def jwks(self) -> Mapping[str, object]:
+    def jwks(self) -> ConcurrentStableDict[str, object]:
         """返回空 JWKS 文档（占位无公钥）。
 
         Returns:
-            Mapping[str, object]: `{"keys": []}`。
+            ConcurrentStableDict[str, object]: `{"keys": []}`。
         """
-        return {"keys": []}
+        return ConcurrentStableDict({"keys": []})

@@ -16,13 +16,12 @@ issuer）与 `aud`（ID Token 为 `client_id`、access token 为 `userinfo`）�
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import cast
 
 from fastapi import Request
 
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.core.objects import BaseOidcTokenSpecContract, BaseTokenClaimsContract
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
@@ -226,11 +225,11 @@ class BaseOidcProvider(BasePluggable, ABC):
         """
 
     @abstractmethod
-    def jwks(self) -> Mapping[str, object]:
+    def jwks(self) -> ConcurrentStableDict[str, object]:
         """取公开 JWKS 文档（只含公钥）。
 
         Returns:
-            Mapping[str, object]: `{"keys": [公钥 JWK, ...]}`。
+            ConcurrentStableDict[str, object]: `{"keys": [公钥 JWK, ...]}`。
         """
 
 
@@ -241,9 +240,9 @@ def build_discovery_document(
     token_endpoint: str,
     userinfo_endpoint: str,
     jwks_uri: str,
-    scopes: Sequence[str] = OIDC_DEFAULT_SCOPES,
-    algorithms: Sequence[str] = ("RS256", "ES256"),
-) -> dict[str, object]:
+    scopes: ConcurrentStableList[str] | None = None,
+    algorithms: ConcurrentStableList[str] | None = None,
+) -> ConcurrentStableDict[str, object]:
     """构造 OIDC Discovery 1.0 文档（标准字段；端点由调用方按 issuer 派生）。
 
     Args:
@@ -252,38 +251,40 @@ def build_discovery_document(
         token_endpoint: 令牌端点。
         userinfo_endpoint: 用户信息端点。
         jwks_uri: JWKS 端点。
-        scopes: 支持的 scope 集合。
-        algorithms: ID Token 签名算法白名单。
+        scopes: 支持的 scope 集合；None 取默认。
+        algorithms: ID Token 签名算法白名单；None 取默认（仅 RS256 / ES256）。
 
     Returns:
-        dict[str, object]: Discovery 文档。
+        ConcurrentStableDict[str, object]: Discovery 文档（嵌套 supported 字段为内置容器）。
     """
-    return {
-        "issuer": issuer,
-        "authorization_endpoint": authorization_endpoint,
-        "token_endpoint": token_endpoint,
-        "userinfo_endpoint": userinfo_endpoint,
-        "jwks_uri": jwks_uri,
-        "scopes_supported": list(scopes),
-        "response_types_supported": [OIDC_RESPONSE_TYPE_CODE],
-        "response_modes_supported": ["query"],
-        "grant_types_supported": [OIDC_GRANT_AUTHORIZATION_CODE],
-        "subject_types_supported": ["public"],
-        "id_token_signing_alg_values_supported": list(algorithms),
-        "token_endpoint_auth_methods_supported": ["client_secret_basic", "client_secret_post", "none"],
-        "code_challenge_methods_supported": ["S256"],
-        "claims_supported": [
-            "sub",
-            "iss",
-            "aud",
-            "exp",
-            "iat",
-            "auth_time",
-            "nonce",
-            "preferred_username",
-            "name",
-        ],
-    }
+    return ConcurrentStableDict(
+        {
+            "issuer": issuer,
+            "authorization_endpoint": authorization_endpoint,
+            "token_endpoint": token_endpoint,
+            "userinfo_endpoint": userinfo_endpoint,
+            "jwks_uri": jwks_uri,
+            "scopes_supported": list(OIDC_DEFAULT_SCOPES if scopes is None else scopes),
+            "response_types_supported": [OIDC_RESPONSE_TYPE_CODE],
+            "response_modes_supported": ["query"],
+            "grant_types_supported": [OIDC_GRANT_AUTHORIZATION_CODE],
+            "subject_types_supported": ["public"],
+            "id_token_signing_alg_values_supported": list(("RS256", "ES256") if algorithms is None else algorithms),
+            "token_endpoint_auth_methods_supported": ["client_secret_basic", "client_secret_post", "none"],
+            "code_challenge_methods_supported": ["S256"],
+            "claims_supported": [
+                "sub",
+                "iss",
+                "aud",
+                "exp",
+                "iat",
+                "auth_time",
+                "nonce",
+                "preferred_username",
+                "name",
+            ],
+        }
+    )
 
 
 def get_oidc_provider(request: Request) -> BaseOidcProvider:

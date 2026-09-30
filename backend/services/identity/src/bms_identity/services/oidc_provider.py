@@ -173,12 +173,14 @@ class OidcProviderService(BaseFrameworkObject):
             dict[str, object]: OIDC Discovery 文档。
         """
         issuer = self.issuer_for(tenant_code)
-        return build_discovery_document(
-            issuer=issuer,
-            authorization_endpoint=f"{issuer}/authorize",
-            token_endpoint=f"{issuer}/token",
-            userinfo_endpoint=f"{issuer}/userinfo",
-            jwks_uri=f"{issuer}/jwks",
+        return dict(
+            build_discovery_document(
+                issuer=issuer,
+                authorization_endpoint=f"{issuer}/authorize",
+                token_endpoint=f"{issuer}/token",
+                userinfo_endpoint=f"{issuer}/userinfo",
+                jwks_uri=f"{issuer}/jwks",
+            )
         )
 
     async def authorize(

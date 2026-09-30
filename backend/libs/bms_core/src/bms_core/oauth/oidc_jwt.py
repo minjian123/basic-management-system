@@ -13,12 +13,12 @@ from __future__ import annotations
 
 import secrets
 import time
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Iterable
 
 from joserfc import jwt
 from joserfc.jwk import ECKey, RSAKey
 
-from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.core.exceptions import AuthError, ConfigError, ParamError
 from bms_core.core.factory import BasePluginFactory
@@ -56,7 +56,7 @@ class JwtOidcProvider(BaseOidcProvider):
         active_kid: str = "",
         id_token_ttl: int = DEFAULT_ID_TOKEN_TTL,
         access_ttl: int = DEFAULT_IDP_ACCESS_TTL,
-        algorithms: Sequence[str] = DEFAULT_ALGORITHMS,
+        algorithms: ConcurrentStableList[str] | None = None,
         leeway: int = DEFAULT_LEEWAY,
     ) -> None:
         """初始化。
@@ -66,7 +66,7 @@ class JwtOidcProvider(BaseOidcProvider):
             active_kid: 当前签名密钥 kid（多把签名私钥时必填）。
             id_token_ttl: ID Token 默认有效期（秒）。
             access_ttl: IdP access token 默认有效期（秒）。
-            algorithms: 允许算法白名单（默认仅 RS256 / ES256）。
+            algorithms: 允许算法白名单；None 取默认（仅 RS256 / ES256）。
             leeway: 时间声明容差（秒）。
 
         Raises:
@@ -75,14 +75,18 @@ class JwtOidcProvider(BaseOidcProvider):
         self._id_token_ttl = id_token_ttl
         self._access_ttl = access_ttl
         self._active_kid = active_kid
-        self._algorithms = tuple(algorithms)
+        self._algorithms = tuple(DEFAULT_ALGORITHMS if algorithms is None else algorithms)
         self._leeway = leeway
         self._keys = tuple(keys)
         for key in self._keys:
             if not key.kid.startswith(USER_TOKEN_KID_PREFIX):
                 raise ConfigError(f"OIDC Provider 密钥 kid 必须带 {USER_TOKEN_KID_PREFIX} 前缀：{key.kid}")
-        self._signing: dict[str, RSAKey | ECKey] = {key.kid: key.signing_key() for key in self._keys if key.can_sign}
-        self._signing_algorithms: dict[str, str] = {key.kid: key.algorithm for key in self._keys if key.can_sign}
+        self._signing: ConcurrentStableDict[str, RSAKey | ECKey] = ConcurrentStableDict(
+            {key.kid: key.signing_key() for key in self._keys if key.can_sign}
+        )
+        self._signing_algorithms: ConcurrentStableDict[str, str] = ConcurrentStableDict(
+            {key.kid: key.algorithm for key in self._keys if key.can_sign}
+        )
         self._key_set = to_key_set(self._keys)
         self._jwks = build_jwks(self._keys)
 
@@ -106,23 +110,25 @@ class JwtOidcProvider(BaseOidcProvider):
             raise ParamError("ID Token 签发缺少主体 / 客户端 / 签发方")
         kid, key = self._signing_key()
         now = int(time.time())
-        claims: dict[str, object] = {
-            "iss": issuer,
-            "sub": subject,
-            "aud": client_id,
-            "typ": OIDC_TOKEN_TYPE_ID,
-            "iat": now,
-            "exp": now + (spec.ttl or self._id_token_ttl),
-        }
+        claims: ConcurrentStableDict[str, object] = ConcurrentStableDict(
+            {
+                "iss": issuer,
+                "sub": subject,
+                "aud": client_id,
+                "typ": OIDC_TOKEN_TYPE_ID,
+                "iat": now,
+                "exp": now + (spec.ttl or self._id_token_ttl),
+            }
+        )
         if spec.auth_time:
-            claims["auth_time"] = spec.auth_time
+            claims.set("auth_time", spec.auth_time)
         if spec.nonce:
-            claims["nonce"] = spec.nonce
+            claims.set("nonce", spec.nonce)
         if spec.preferred_username:
-            claims["preferred_username"] = spec.preferred_username
+            claims.set("preferred_username", spec.preferred_username)
         if spec.name:
-            claims["name"] = spec.name
-        return jwt.encode({"alg": self._signing_algorithms[kid], "kid": kid}, claims, key)
+            claims.set("name", spec.name)
+        return jwt.encode({"alg": self._signing_algorithms[kid], "kid": kid}, dict(claims), key)
 
     async def issue_access_token(self, spec: AccessTokenSpec) -> str:
         """签发 IdP access token（`aud=userinfo` / `typ=idp_access`）。
@@ -143,22 +149,24 @@ class JwtOidcProvider(BaseOidcProvider):
             raise ParamError("IdP access token 签发缺少主体 / 签发方")
         kid, key = self._signing_key()
         now = int(time.time())
-        claims: dict[str, object] = {
-            "iss": issuer,
-            "sub": subject,
-            "aud": OIDC_ACCESS_AUDIENCE,
-            "typ": OIDC_TOKEN_TYPE_ACCESS,
-            "jti": secrets.token_urlsafe(16),
-            "iat": now,
-            "exp": now + (spec.ttl or self._access_ttl),
-        }
+        claims: ConcurrentStableDict[str, object] = ConcurrentStableDict(
+            {
+                "iss": issuer,
+                "sub": subject,
+                "aud": OIDC_ACCESS_AUDIENCE,
+                "typ": OIDC_TOKEN_TYPE_ACCESS,
+                "jti": secrets.token_urlsafe(16),
+                "iat": now,
+                "exp": now + (spec.ttl or self._access_ttl),
+            }
+        )
         if spec.tenant_id:
-            claims["tenant_id"] = spec.tenant_id
+            claims.set("tenant_id", spec.tenant_id)
         if spec.client_id:
-            claims["client_id"] = spec.client_id
+            claims.set("client_id", spec.client_id)
         if spec.scopes:
-            claims["scope"] = " ".join(spec.scopes)
-        return jwt.encode({"alg": self._signing_algorithms[kid], "kid": kid}, claims, key)
+            claims.set("scope", " ".join(spec.scopes))
+        return jwt.encode({"alg": self._signing_algorithms[kid], "kid": kid}, dict(claims), key)
 
     def verify_access_token(self, token: str, *, issuer: str) -> OidcAccessClaims:
         """本地校验 IdP access token（签名 / `exp` / `iss` / `aud=userinfo` / `typ`）。
@@ -201,11 +209,11 @@ class JwtOidcProvider(BaseOidcProvider):
             payload=payload,
         )
 
-    def jwks(self) -> Mapping[str, object]:
+    def jwks(self) -> ConcurrentStableDict[str, object]:
         """取公开 JWKS 文档（只含公钥，按 kid 排序）。
 
         Returns:
-            Mapping[str, object]: `{"keys": [公钥 JWK, ...]}`。
+            ConcurrentStableDict[str, object]: `{"keys": [公钥 JWK, ...]}`。
         """
         return self._jwks
 
