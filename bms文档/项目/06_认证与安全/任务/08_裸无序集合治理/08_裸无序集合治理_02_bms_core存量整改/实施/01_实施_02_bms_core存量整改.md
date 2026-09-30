@@ -793,3 +793,31 @@ flowchart LR
 **偏差（既有 red，非本轮引入）**：`services/platform/tests/dict/test_dict_real.py::test_http_endpoints`（`query-providers` 的 `model_dump` 序列化出口）仍为既有 red，本轮未扩大；另轮单独修。
 
 **遗留**：**`libs` 源侧归零**（`bms_core` 侧仅余 `tests`）；全局剩余 **901 处**（`libs` `tests` 271 / `services` 304 / `scripts/tools` 223 / `ops` 103）。`libs` `tests` 收尾与 `services`（批次 2）/ `scripts/tools`（批次 3，含长期口径评估）/ `ops` 续推。
+
+## 30. 既有 red 修复 · 平台字典路由 `model_dump` 出口（2026-09-30） <a id="fix-dict-dump"></a>
+
+**背景**：自 §15 起，各子批偏差栏连续登记的既有 red `services/platform/tests/dict/test_dict_real.py::test_http_endpoints`（`query-providers` 的 `model_dump` 序列化出口）在本轮单独修复。
+
+**根因**：契约字段经 `CONTRACT_COLLECTION` 后，`model_dump()`（Python 模式）按 §3.5 口径**输出集合类实例**；平台字典路由把 `model_dump()` 结果直接塞进 `ApiResponse.data` 返回，FastAPI / Pydantic 序列化时报 `Unable to serialize unknown type: <class 'ConcurrentStableDict'>`（框架响应出口未适配）。
+
+**修复**（`services/platform/src/bms_platform/api/dict.py`，3 处）：
+
+- 查询提供者清单 `_provider_record`：`payload.model_dump()` → `payload.model_dump(mode="json")`（`DictQueryProviderInfo.param_schema` 为契约集合字段）；
+- 属性 schema `get_dict_attrs`：`attr.model_dump()` → `attr.model_dump(mode="json")`（`DictAttrInfo.options` 为契约集合元组）；
+- 高级查询 `advanced_query_dict`：`result.model_dump()` → `result.model_dump(mode="json")`（`DictAdvQueryResult.rows` 为契约集合元组）。
+
+口径依据：**未标注 `CONTRACT_COLLECTION` 的框架响应出口**在调用处显式转内置容器——`model_dump(mode="json")` 即 §3.5 口径 3 的「JSON 模式输出内置容器」，序列化后 JSON 逐字节不变（`api-types` / 契约快照零漂移）。
+
+**扫描**：`services/*/src` + `libs/bms_core/src` 全文复核，除 `libs/bms_core/src/bms_core/core/base.py` 的内部 `model_dump()`（包入 `ConcurrentStableDict`，非框架出口）外，**无其他未转 JSON 模式的响应出口**。
+
+**验证**：
+
+| 项 | 命令 | 结果 |
+| --- | --- | --- |
+| 定向用例 | `pytest services/platform/tests/dict` | **18 passed**（原 1 failed） |
+| 全量 `services` | `pytest services` | **788 passed / 3 skipped / 0 failed**（原 787 passed / 1 failed） |
+| 全量 `libs` | `pytest libs/bms_core/tests` | **1099 passed / 37 skipped** |
+| 静态检查 | `ruff check .` / `ruff format --check .` | 全绿（957 文件） |
+| 本地预检 | `check-preflight.py --fast` | **全部通过**（`api-types` 零漂移，响应形态不变） |
+
+**说明（非失败）**：`pytest` 输出仍有 `PytestUnhandledThreadExceptionWarning`（`aiosqlite` 连接工作线程在事件循环关闭后被 GC 清理，`test_outbox` 等用例 teardown 报 `Event loop is closed`）——属**测试夹具 / 异步引擎 GC 时机**的告警，非用例失败，与本次集合整改无关；另轮按需清理（不影响门禁）。
