@@ -334,6 +334,6 @@ flowchart LR
 
 **偏差（既有 red，非本轮引入）**：`services/platform/tests/dict/test_dict_real.py::test_http_endpoints`（`_provider_record` 的 `model_dump()` 序列化出口，`Unable to serialize unknown type: ConcurrentStableDict`）在干净树同样失败，本轮未扩大；另轮单独修。
 
-**另一处既有 red（非本轮引入，待定夺）**：`check-links.py` 实测 **18 处断链**（0 失效锚点）——14 处为 `项目/01_项目骨架/` 下多层任务文档指向 `后端基类清单.md` / `规范/后端开发规范.md` 的相对层级少 3 层（应为 7 层，实为 4 层），4 处为 `08_05 集合体系收链` 三份文档 + 盘点报告指向 08_02 详细设计 `#unique-chain` 的链接；均在**干净树同样失败**（本任务未改这些文档的链接），属文档层既有问题，是否随本任务一并修正待用户定夺。
+**另一处既有 red（非本轮引入，已另行修正）**：`check-links.py` 实测 **18 处断链**（0 失效锚点）——14 处为 `项目/01_项目骨架/` 下多层任务文档指向 `后端基类清单.md` / `规范/后端开发规范.md` 的相对层级少 3 层，4 处为 `08_05 集合体系收链` 三份文档 + 盘点报告指向 08_02 详细设计 `#unique-chain` 的链接（`../08_02…` 少一层，应为兄弟任务目录 `../../08_02…`）；均在**干净树同样失败**（本任务未改这些文档的链接），属文档层既有问题。经用户拍板**以独立 docs 提交单独修正**，未混入本任务改动；修正后 `check-links.py` 实测 **断链 0 / 失效锚点 0**。
 
 **遗留**：`bms_core` 剩余 **652 处**（`libs`：`tests` 约 291 / `services` 89 / `db` 43 / `core` 36 / `api` 32 / `boundary` 18 / `session` 13 / `schemas` 10 …）；本轮范围内的 `masking/` 余 4 处（`base.py` 两个局部、`default.py` 模块常量与 `DefaultMasker.__init__` 的 `rules` 参数）与 `core/objects/tally.py` 1 处，随各自域批次推进。
