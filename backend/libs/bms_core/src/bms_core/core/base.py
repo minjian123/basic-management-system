@@ -2,9 +2,14 @@
 
 import dataclasses
 from collections.abc import Iterable, Mapping, Sequence, Set
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from bms_core.core.serialization import rebuild_mapping, rebuild_sequence, stable_json_dumps, stringify_ids
+
+if TYPE_CHECKING:
+    # 运行期反向依赖：`core.concurrent -> core.base`（集合体系实现承 `BaseObject`），故此处仅类型期引用，
+    # 构造点在使用处延迟导入，避免运行期导入成环。
+    from bms_core.core.concurrent import ConcurrentStableDict
 
 
 class BaseObject:
@@ -16,14 +21,17 @@ class BaseObject:
     - 普通类（非 ABC）：可被 SQLAlchemy 声明式基类等混合继承（元类兼容）
     """
 
-    def to_dict(self) -> dict[str, object]:
+    # 运行期成环：`core.concurrent -> core.base`，须字符串前向引用（免运行期导入）
+    def to_dict(self) -> "ConcurrentStableDict[str, object]":  # noqa: UP037
         """公开字段字典（递归转换嵌套对象；ID 值按字符串输出）。
 
         Returns:
-            dict[str, object]: 字段名到转换后值的映射。
+            ConcurrentStableDict[str, object]: 字段名到转换后值的映射。
         """
-        fields = {key: self._convert(value) for key, value in self._public_fields().items()}
-        return cast("dict[str, object]", stringify_ids(fields))
+        from bms_core.core.concurrent import ConcurrentStableDict
+
+        fields = ConcurrentStableDict({key: self._convert(value) for key, value in self._public_fields().items()})
+        return cast("ConcurrentStableDict[str, object]", stringify_ids(fields))
 
     def to_json(self, sort_keys: bool = True) -> str:
         """JSON 字符串（稳定序；不可序列化值降级 str）。
@@ -38,7 +46,7 @@ class BaseObject:
 
     def __str__(self) -> str:
         """字符串输出：类名 + 公开字段字典。"""
-        return f"{type(self).__name__}({self.to_dict()})"
+        return f"{type(self).__name__}({dict(self.to_dict())})"
 
     def __repr__(self) -> str:
         """字符串输出（与 __str__ 一致，容器内展示统一）。"""
@@ -74,30 +82,36 @@ class BaseObject:
             return object.__hash__(self)
         return hash((type(self).__name__, item_id))
 
-    def _public_fields(self) -> dict[str, object]:
+    def _public_fields(self) -> "ConcurrentStableDict[str, object]":  # noqa: UP037
         """取公开字段：Pydantic 序列化器 → dataclass 声明字段 → 实例字典兜底。
 
         Returns:
-            dict[str, object]: 字段映射。
+            ConcurrentStableDict[str, object]: 字段映射。
 
         Note:
             dataclass 分支要求**本类自身**由 `@dataclass` 声明（`__dataclass_fields__` 在自己的
             `__dict__` 中）：ORM 模型（`BaseModel`）继承 `@dataclass` 体系根（`BaseDataContract`）后
             会被 `dataclasses.is_dataclass` 判真，但其字段在实例字典而非 dataclass 字段 → 须走兜底分支。
         """
+        from bms_core.core.concurrent import ConcurrentStableDict
+
         model_dump = getattr(self, "model_dump", None)
         if callable(model_dump) and getattr(type(self), "model_fields", None) is not None:
-            return cast("dict[str, object]", model_dump())
+            return ConcurrentStableDict(cast("Mapping[str, object]", model_dump()))
         if dataclasses.is_dataclass(self) and not isinstance(self, type) and "__dataclass_fields__" in vars(type(self)):
             try:
-                return {
-                    field.name: getattr(self, field.name)
-                    for field in dataclasses.fields(cast("Any", self))
-                    if not field.name.startswith("_")
-                }
+                return ConcurrentStableDict(
+                    {
+                        field.name: getattr(self, field.name)
+                        for field in dataclasses.fields(cast("Any", self))
+                        if not field.name.startswith("_")
+                    }
+                )
             except TypeError:
                 pass
-        return {key: value for key, value in getattr(self, "__dict__", {}).items() if not key.startswith("_")}
+        return ConcurrentStableDict(
+            {key: value for key, value in getattr(self, "__dict__", {}).items() if not key.startswith("_")}
+        )
 
     @classmethod
     def _convert(cls, value: object) -> object:

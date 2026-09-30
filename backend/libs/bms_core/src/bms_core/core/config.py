@@ -775,11 +775,12 @@ class _EnvSelectorSource(PydanticBaseSettingsSource):
         del field, field_name
         return None, "", False
 
+    # bare-collections:allow（pydantic-settings 配置源契约：须内置 dict，deep_update 依赖 dict.copy）
     def __call__(self) -> dict[str, Any]:
         """返回 `app.env` 覆盖。
 
         Returns:
-            dict: 仅含生效环境的嵌套字典。
+            dict[str, Any]: 仅含生效环境的嵌套字典。
         """
         return {"app": {"env": self._env}}
 
@@ -944,10 +945,10 @@ def _summarize(error: ValidationError) -> str:
     Returns:
         str: 逐条「键路径：原因」的汇总文本。
     """
-    lines: list[str] = []
+    lines: ConcurrentStableList[str] = ConcurrentStableList()
     for item in error.errors():
         path = ".".join(str(part) for part in item["loc"]) or "(根)"
-        lines.append(f"{path}：{item['msg']}")
+        lines.add(f"{path}：{item['msg']}")
     return "配置校验失败：" + "；".join(lines)
 
 

@@ -13,6 +13,7 @@
 from abc import ABC, abstractmethod
 
 from bms_core.core.capability import BaseCapability
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.exceptions import ConflictError
 from bms_core.core.plugin import BasePluggable
 
@@ -39,7 +40,7 @@ class BaseProviderRegistry[ItemT](BasePluggable, ABC):
 
     def __init__(self) -> None:
         """初始化空注册表（登记保序）。"""
-        self._providers: dict[str, ItemT] = {}
+        self._providers: ConcurrentStableDict[str, ItemT] = ConcurrentStableDict()
 
     @classmethod
     @abstractmethod
@@ -65,7 +66,7 @@ class BaseProviderRegistry[ItemT](BasePluggable, ABC):
         item_key = self._provider_key(provider)
         if item_key in self._providers:
             raise ConflictError(f"{self.key} 重复登记：{item_key}")
-        self._providers[item_key] = provider
+        self._providers.set(item_key, provider)
 
     def get(self, key: str) -> ItemT | None:
         """按 key 取提供者（未命中返回 `None`）。

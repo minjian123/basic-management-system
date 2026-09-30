@@ -20,6 +20,7 @@ from typing import Any, cast
 import structlog
 from structlog.typing import EventDict, Processor, WrappedLogger
 
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.core.context import (
     current_user_id,
@@ -182,57 +183,59 @@ class StdoutLogger(BaseLogger):
             **fields: 预绑定上下文字段。
         """
         self._name = name
-        self._fields: dict[str, object] = dict(fields)
+        self._fields: ConcurrentStableDict[str, object] = ConcurrentStableDict(fields)
         self._logger = structlog.get_logger(name)
 
     def bind(self, **fields: object) -> BaseLogger:
         """绑定上下文字段（返回新门面）。"""
         return StdoutLogger(self._name, **{**self._fields, **fields})
 
-    def _emit(self, fields: dict[str, object]) -> Any:
+    def _emit(self, fields: ConcurrentStableDict[str, object]) -> Any:
         return self._logger.bind(**{**self._fields, **fields})
 
     def debug(self, event: str, **fields: object) -> None:
         """DEBUG 日志。"""
-        self._emit(fields).debug(event)
+        self._emit(ConcurrentStableDict(fields)).debug(event)
 
     def info(self, event: str, **fields: object) -> None:
         """INFO 日志。"""
-        self._emit(fields).info(event)
+        self._emit(ConcurrentStableDict(fields)).info(event)
 
     def warning(self, event: str, **fields: object) -> None:
         """WARNING 日志。"""
-        self._emit(fields).warning(event)
+        self._emit(ConcurrentStableDict(fields)).warning(event)
 
     def error(self, event: str, **fields: object) -> None:
         """ERROR 日志。"""
-        self._emit(fields).error(event)
+        self._emit(ConcurrentStableDict(fields)).error(event)
 
     def critical(self, event: str, **fields: object) -> None:
         """CRITICAL 日志。"""
-        self._emit(fields).critical(event)
+        self._emit(ConcurrentStableDict(fields)).critical(event)
 
     def exception(self, event: str, **fields: object) -> None:
         """ERROR 日志（附当前异常堆栈）。"""
-        self._emit(fields).exception(event)
+        self._emit(ConcurrentStableDict(fields)).exception(event)
 
 
-def _build_processors() -> list[Processor]:
+def _build_processors() -> ConcurrentStableList[Processor]:
     """组装处理器链（业务日志与第三方 stdlib 日志共用）。
 
     首部 `merge_contextvars` 汇聚 `structlog.contextvars` 的全局绑定（如服务身份
     `service` / `service_version`），使业务日志与第三方 stdlib 日志一并携带。
     """
-    return [
-        structlog.contextvars.merge_contextvars,
-        _add_context_fields,
-        structlog.stdlib.add_log_level,
-        structlog.stdlib.add_logger_name,
-        _add_timestamp,
-        structlog.processors.StackInfoRenderer(),
-        structlog.processors.format_exc_info,
-        _redact_sensitive,
-    ]
+    return ConcurrentStableList(
+        [
+            structlog.contextvars.merge_contextvars,
+            _add_context_fields,
+            structlog.stdlib.add_log_level,
+            structlog.stdlib.add_logger_name,
+            _add_timestamp,
+            structlog.processors.StackInfoRenderer(),
+            structlog.processors.format_exc_info,
+            _redact_sensitive,
+        ]
+    )
 
 
 def _build_renderer(settings: Settings) -> Processor:
