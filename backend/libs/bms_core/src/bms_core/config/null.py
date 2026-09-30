@@ -1,9 +1,8 @@
 """config 能力域缺省实现（Null Object）：空取数与空缓存，不连库、不连 Redis。"""
 
-from collections.abc import Mapping, Sequence
-
 from bms_core.config.base import BaseConfigSource, ConfigCacheRegion
 from bms_core.core.capability import BaseNullObject
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 
 __all__ = ["NullConfigCacheRegion", "NullConfigSource"]
 
@@ -11,16 +10,16 @@ __all__ = ["NullConfigCacheRegion", "NullConfigSource"]
 class NullConfigSource(BaseConfigSource, BaseNullObject):
     """占位系统参数取数：恒空结果（调用方回落代码默认表）。"""
 
-    async def get_many(self, keys: Sequence[str]) -> Mapping[str, str]:
+    async def get_many(self, keys: ConcurrentStableList[str]) -> ConcurrentStableDict[str, str]:
         """批量取参数（占位恒空）。
 
         Args:
-            keys: 参数键序列（占位忽略）。
+            keys: 参数键序列（插入序；占位忽略）。
 
         Returns:
-            Mapping[str, str]: 空映射。
+            ConcurrentStableDict[str, str]: 空映射。
         """
-        return {}
+        return ConcurrentStableDict()
 
 
 class NullConfigCacheRegion(ConfigCacheRegion, BaseNullObject):

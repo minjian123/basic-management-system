@@ -3,14 +3,13 @@
 覆盖：`POST /api/v1/platform/internal/configs/resolve` 服务 JWT 鉴权（白名单服务放行 / 网关与无票据拒绝）与响应映射。
 """
 
-from collections.abc import Mapping, Sequence
-
 import pytest
 from fastapi import FastAPI
 from httpx import AsyncClient
 
 from bms_core.api.deps import get_config_source
 from bms_core.config.base import BaseConfigSource
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.exceptions import AuthError
 from bms_core.oauth.verify import VerifiedToken, get_token_verifier
 
@@ -43,17 +42,17 @@ class _StubVerifier:
 class _FakeConfigSource(BaseConfigSource):
     """测试替身：固定键值。"""
 
-    async def get_many(self, keys: Sequence[str]) -> Mapping[str, str]:
+    async def get_many(self, keys: ConcurrentStableList[str]) -> ConcurrentStableDict[str, str]:
         """返回预置键值子集。
 
         Args:
-            keys: 参数键序列。
+            keys: 参数键序列（插入序）。
 
         Returns:
-            Mapping[str, str]: 命中键 → 值。
+            ConcurrentStableDict[str, str]: 命中键 → 值（插入序）。
         """
         pool = {"captcha.scene.login.fail_threshold": "3", "captcha.channel.sms": "false"}
-        return {key: pool[key] for key in keys if key in pool}
+        return ConcurrentStableDict({key: pool[key] for key in keys if key in pool})
 
 
 @pytest.fixture(autouse=True)

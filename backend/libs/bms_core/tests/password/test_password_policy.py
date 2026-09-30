@@ -4,7 +4,6 @@
 非法值回落默认；有效期（`password.max_age_days`）；历史比对（PBKDF2）与 `history_count`；Null 回落。
 """
 
-from collections.abc import Mapping, Sequence
 from datetime import datetime, timedelta
 from typing import cast
 
@@ -12,6 +11,7 @@ import pytest
 
 from bms_core.config.base import BaseConfigSource
 from bms_core.config.null import NullConfigSource
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.password.base import PASSWORD_HISTORY_COUNT
 from bms_core.password.default import (
     DEFAULT_MAX_AGE_DAYS,
@@ -24,19 +24,19 @@ from bms_core.security.pbkdf2 import Pbkdf2PasswordHasher
 class _MappingSource(BaseConfigSource):
     """内存取数替身（返回预置键值子集；值可为任意类型以覆盖非法分支）。"""
 
-    def __init__(self, values: Mapping[str, object] | None = None) -> None:
+    def __init__(self, values: ConcurrentStableDict[str, object] | None = None) -> None:
         self._values = dict(values or {})
 
-    async def get_many(self, keys: Sequence[str]) -> Mapping[str, str]:
+    async def get_many(self, keys: ConcurrentStableList[str]) -> ConcurrentStableDict[str, str]:
         """返回预置映射的子集。
 
         Args:
-            keys: 参数键序列。
+            keys: 参数键序列（插入序）。
 
         Returns:
-            Mapping[str, str]: 命中键 → 值。
+            ConcurrentStableDict[str, str]: 命中键 → 值（插入序）。
         """
-        return {key: cast("str", self._values[key]) for key in keys if key in self._values}
+        return ConcurrentStableDict({key: cast("str", self._values[key]) for key in keys if key in self._values})
 
 
 def _hasher() -> Pbkdf2PasswordHasher:
@@ -86,7 +86,7 @@ async def test_validate_reports_violations_in_order() -> None:
 async def test_validate_true_string_config_values() -> None:
     """真值字符串配置直通（`true` / `1` / `yes` / `on`）。"""
     for raw in ("true", "1", "yes", "on"):
-        source = _MappingSource({"password.require_symbol": raw})
+        source = _MappingSource(ConcurrentStableDict({"password.require_symbol": raw}))
         violations = await _policy(source).validate("Abcdefg1", username=None)
         assert violations == ("need_symbol",)
 
@@ -95,14 +95,16 @@ async def test_validate_true_string_config_values() -> None:
 async def test_validate_reads_tenant_overrides() -> None:
     """按租户覆盖复杂度规则即时生效。"""
     source = _MappingSource(
-        {
-            "password.min_length": "3",
-            "password.require_upper": "false",
-            "password.require_lower": "false",
-            "password.require_digit": "false",
-            "password.require_symbol": "false",
-            "password.forbid_username": "false",
-        }
+        ConcurrentStableDict(
+            {
+                "password.min_length": "3",
+                "password.require_upper": "false",
+                "password.require_lower": "false",
+                "password.require_digit": "false",
+                "password.require_symbol": "false",
+                "password.forbid_username": "false",
+            }
+        )
     )
     assert await _policy(source).validate("abc", username="abc") == ()
 
@@ -111,11 +113,13 @@ async def test_validate_reads_tenant_overrides() -> None:
 async def test_validate_invalid_values_fall_back() -> None:
     """非法 / 越界配置回落默认（不抛错）。"""
     source = _MappingSource(
-        {
-            "password.min_length": "abc",
-            "password.max_length": "0",
-            "password.require_symbol": "maybe",
-        }
+        ConcurrentStableDict(
+            {
+                "password.min_length": "abc",
+                "password.max_length": "0",
+                "password.require_symbol": "maybe",
+            }
+        )
     )
     violations = await _policy(source).validate("Ab1", username=None)
     assert "too_short" in violations and "need_symbol" in violations
@@ -131,7 +135,7 @@ async def test_expired_uses_max_age_days() -> None:
     assert await policy.expired(fresh, now=now) is False
     assert await policy.expired(stale, now=now) is True
 
-    shorter = _policy(_MappingSource({"password.max_age_days": "10"}))
+    shorter = _policy(_MappingSource(ConcurrentStableDict({"password.max_age_days": "10"})))
     assert await shorter.expired(now - timedelta(days=11), now=now) is True
     assert await shorter.expired(now - timedelta(days=9), now=now) is False
 
@@ -151,16 +155,25 @@ async def test_reused_matches_history_hashes() -> None:
 async def test_history_count_override_and_default() -> None:
     """历史条数：默认平台值；按租户覆盖生效；非法回落默认。"""
     assert await _policy().history_count() == PASSWORD_HISTORY_COUNT
-    assert await _policy(_MappingSource({"password.history_count": "3"})).history_count() == 3
-    assert await _policy(_MappingSource({"password.history_count": "0"})).history_count() == PASSWORD_HISTORY_COUNT
+    assert await _policy(_MappingSource(ConcurrentStableDict({"password.history_count": "3"}))).history_count() == 3
+    assert (
+        await _policy(_MappingSource(ConcurrentStableDict({"password.history_count": "0"}))).history_count()
+        == PASSWORD_HISTORY_COUNT
+    )
 
 
 @pytest.mark.kiwi_id(2209)
 async def test_resolve_inactive_lock_days() -> None:
     """未登录锁定天数：默认 180；按租户覆盖；非法回落。"""
     assert await resolve_inactive_lock_days(NullConfigSource()) == 180
-    assert await resolve_inactive_lock_days(_MappingSource({"account.inactive_lock_days": "30"})) == 30
-    assert await resolve_inactive_lock_days(_MappingSource({"account.inactive_lock_days": "-1"})) == 180
+    assert (
+        await resolve_inactive_lock_days(_MappingSource(ConcurrentStableDict({"account.inactive_lock_days": "30"})))
+        == 30
+    )
+    assert (
+        await resolve_inactive_lock_days(_MappingSource(ConcurrentStableDict({"account.inactive_lock_days": "-1"})))
+        == 180
+    )
 
 
 @pytest.mark.kiwi_id(2209)
@@ -168,7 +181,7 @@ async def test_null_policy_contract_and_defaults() -> None:
     """Null 取数恒空；`NullPasswordPolicy` 恒定通过且派生 `history_count` 取默认（向后兼容）。"""
     from bms_core.password.null import NullPasswordPolicy
 
-    assert await NullConfigSource().get_many(("password.min_length",)) == {}
+    assert await NullConfigSource().get_many(ConcurrentStableList(("password.min_length",))) == {}
     null_policy = NullPasswordPolicy()
     assert await null_policy.validate("x") == ()
     assert await null_policy.expired(datetime(2000, 1, 1, tzinfo=None)) is False
@@ -183,5 +196,5 @@ async def test_expired_boundary_and_boolean_config_values() -> None:
     exactly = now - timedelta(days=DEFAULT_MAX_AGE_DAYS)
     assert await _policy().expired(exactly, now=now) is False
 
-    bool_source = _MappingSource({"password.require_upper": False})
+    bool_source = _MappingSource(ConcurrentStableDict({"password.require_upper": False}))
     assert "need_upper" not in await _policy(bool_source).validate("lower1!", username=None)

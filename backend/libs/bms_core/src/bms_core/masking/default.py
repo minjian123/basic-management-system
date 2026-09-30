@@ -124,11 +124,11 @@ class MaskerOptions(BaseOptionsContract):
     """字段名 → 策略名映射（缺省空）。"""
 
     @classmethod
-    def from_options(cls, options: Mapping[str, object] | None = None) -> Self:
+    def from_options(cls, options: ConcurrentStableDict[str, object] | None = None) -> Self:
         """解析并校验配置选项（缺省回落）；非法取值**不静默**。
 
         Args:
-            options: `[masking].options`（可为 None）。
+            options: `[masking].options`（插入序；可为 None）。
 
         Returns:
             MaskerOptions: 解析结果。
@@ -136,10 +136,10 @@ class MaskerOptions(BaseOptionsContract):
         Raises:
             PluginError: 掩码字符非单字符 / 规则表非映射 / 字段名或策略名非非空字符串（40002）。
         """
-        values = options or {}
+        values: ConcurrentStableDict[str, object] = options or ConcurrentStableDict()
         return cls(
             mask_char=cls._single_char_option(values, OPTION_MASK_CHAR, DEFAULT_MASK_CHAR),
-            rules=dict(cls._mapping_option(values, OPTION_RULES)),
+            rules=cls._mapping_option(values, OPTION_RULES),
         )
 
 

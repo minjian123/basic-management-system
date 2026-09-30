@@ -11,9 +11,12 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Self, cast
+from typing import TYPE_CHECKING, Self, cast
 
 from bms_core.core.objects.roots import BaseValueObject
+
+if TYPE_CHECKING:  # `core.concurrent` 经 `core.holder` 反向依赖本包，运行期导入会成环
+    from bms_core.core.concurrent import ConcurrentStableDict
 
 # 说明：`PluginError` 由 `core.exceptions` 定义，而本模块被 `core.exceptions.BizError` 反向依赖
 # （`BizError` 挂 `BaseFrameworkObject`，09_05 批次 ②b）——顶层导入会形成 `core.exceptions ↔ core.objects`
@@ -31,11 +34,11 @@ class BaseOptionsContract(BaseValueObject, ABC):
 
     @classmethod
     @abstractmethod
-    def from_options(cls, options: Mapping[str, object] | None = None) -> Self:
+    def from_options(cls, options: ConcurrentStableDict[str, object] | None = None) -> Self:
         """从配置选项映射构造不可变选项对象（缺失取缺省，非法拒启）。
 
         Args:
-            options: 配置选项映射（可为 None，视同空映射）。
+            options: 配置选项映射（插入序；可为 None，视同空映射）。
 
         Returns:
             Self: 解析结果。
@@ -45,7 +48,9 @@ class BaseOptionsContract(BaseValueObject, ABC):
         """
 
     @classmethod
-    def _int_option(cls, options: Mapping[str, object], key: str, default: int, minimum: int, maximum: int) -> int:
+    def _int_option(
+        cls, options: ConcurrentStableDict[str, object], key: str, default: int, minimum: int, maximum: int
+    ) -> int:
         """取整型选项并做范围校验（缺失取缺省，非法拒启）。
 
         Args:
@@ -75,7 +80,7 @@ class BaseOptionsContract(BaseValueObject, ABC):
         return value
 
     @classmethod
-    def _str_option(cls, options: Mapping[str, object], key: str, default: str) -> str:
+    def _str_option(cls, options: ConcurrentStableDict[str, object], key: str, default: str) -> str:
         """取非空字符串选项（缺失取缺省，非法拒启）。
 
         Args:
@@ -97,7 +102,7 @@ class BaseOptionsContract(BaseValueObject, ABC):
         return raw
 
     @classmethod
-    def _single_char_option(cls, options: Mapping[str, object], key: str, default: str) -> str:
+    def _single_char_option(cls, options: ConcurrentStableDict[str, object], key: str, default: str) -> str:
         """取单字符选项（缺失 / 空值取缺省，非法拒启）。
 
         Args:
@@ -119,31 +124,32 @@ class BaseOptionsContract(BaseValueObject, ABC):
         return raw
 
     @classmethod
-    def _mapping_option(cls, options: Mapping[str, object], key: str) -> Mapping[str, str]:
+    def _mapping_option(cls, options: ConcurrentStableDict[str, object], key: str) -> ConcurrentStableDict[str, str]:
         """取「非空字符串 → 非空字符串」映射选项（缺失取空映射，非法拒启）。
 
         Args:
-            options: 选项映射。
+            options: 选项映射（插入序）。
             key: 选项键。
 
         Returns:
-            Mapping[str, str]: 校验通过的映射（键值均为非空字符串）。
+            ConcurrentStableDict[str, str]: 校验通过的映射（键值均为非空字符串；插入序）。
 
         Raises:
             PluginError: 非映射，或键 / 值为非非空字符串。
         """
+        from bms_core.core.concurrent import ConcurrentStableDict
         from bms_core.core.exceptions import PluginError
 
         raw: object = options.get(key)
         if raw is None:
-            return {}
+            return ConcurrentStableDict()
         if not isinstance(raw, Mapping):
             raise PluginError(f"{cls.__name__} 选项非法：{key}（应为「键 → 值」映射）")
-        parsed: dict[str, str] = {}
+        parsed: ConcurrentStableDict[str, str] = ConcurrentStableDict()
         for name, value in cast("Mapping[object, object]", raw).items():
             if not isinstance(name, str) or not name:
                 raise PluginError(f"{cls.__name__} 选项映射键非法（须为非空字符串）：{key}")
             if not isinstance(value, str) or not value:
                 raise PluginError(f"{cls.__name__} 选项映射值非法（须为非空字符串）：{key}.{name}")
-            parsed[name] = value
+            parsed.set(name, value)
         return parsed

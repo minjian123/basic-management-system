@@ -4,7 +4,6 @@
 非法值回落 / `send_sms` 自动取按租户冷却与有效期。
 """
 
-from collections.abc import Mapping, Sequence
 from typing import cast
 
 import pytest
@@ -14,24 +13,25 @@ from bms_core.captcha.base import CAPTCHA_FAIL_THRESHOLD, CAPTCHA_TTL, SMS_COOLD
 from bms_core.captcha.default import DefaultCaptcha
 from bms_core.config.base import BaseConfigSource
 from bms_core.config.null import NullConfigSource
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 
 
 class _MappingSource(BaseConfigSource):
     """内存取数替身（返回预置键值子集）。"""
 
-    def __init__(self, values: Mapping[str, object] | None = None) -> None:
+    def __init__(self, values: ConcurrentStableDict[str, object] | None = None) -> None:
         self._values = dict(values or {})
 
-    async def get_many(self, keys: Sequence[str]) -> Mapping[str, str]:
+    async def get_many(self, keys: ConcurrentStableList[str]) -> ConcurrentStableDict[str, str]:
         """返回预置映射的子集。
 
         Args:
-            keys: 参数键序列。
+            keys: 参数键序列（插入序）。
 
         Returns:
-            Mapping[str, str]: 命中键 → 值。
+            ConcurrentStableDict[str, str]: 命中键 → 值（插入序）。
         """
-        return {key: cast("str", self._values[key]) for key in keys if key in self._values}
+        return ConcurrentStableDict({key: cast("str", self._values[key]) for key in keys if key in self._values})
 
 
 def _captcha(config: BaseConfigSource | None = None) -> DefaultCaptcha:
@@ -62,12 +62,14 @@ async def test_policy_defaults_when_no_config() -> None:
 async def test_policy_reads_tenant_overrides() -> None:
     """按租户配置覆盖策略字段（覆盖生效）。"""
     source = _MappingSource(
-        {
-            "captcha.scene.login.required": "true",
-            "captcha.scene.login.fail_threshold": "5",
-            "captcha.scene.login.ttl": "120",
-            "captcha.scene.login.cooldown": "30",
-        }
+        ConcurrentStableDict(
+            {
+                "captcha.scene.login.required": "true",
+                "captcha.scene.login.fail_threshold": "5",
+                "captcha.scene.login.ttl": "120",
+                "captcha.scene.login.cooldown": "30",
+            }
+        )
     )
     policy = await _captcha(source).policy("login")
     assert policy.required is True
@@ -80,11 +82,13 @@ async def test_policy_reads_tenant_overrides() -> None:
 async def test_policy_invalid_values_fall_back() -> None:
     """非法配置值回落默认（不抛错）。"""
     source = _MappingSource(
-        {
-            "captcha.scene.login.required": "maybe",
-            "captcha.scene.login.fail_threshold": "abc",
-            "captcha.scene.login.ttl": "0",
-        }
+        ConcurrentStableDict(
+            {
+                "captcha.scene.login.required": "maybe",
+                "captcha.scene.login.fail_threshold": "abc",
+                "captcha.scene.login.ttl": "0",
+            }
+        )
     )
     policy = await _captcha(source).policy("login")
     assert policy.required is False
@@ -100,15 +104,17 @@ async def test_policy_channels_degradation() -> None:
     assert closed.channels == (CaptchaKind.SLIDER, CaptchaKind.IMAGE)
 
     # 短信开启：注册场景按 sms → slider → image 顺序
-    enabled = await _captcha(_MappingSource({"captcha.channel.sms": "true"})).policy("register")
+    enabled = await _captcha(_MappingSource(ConcurrentStableDict({"captcha.channel.sms": "true"}))).policy("register")
     assert enabled.channels == (CaptchaKind.SMS, CaptchaKind.SLIDER, CaptchaKind.IMAGE)
 
     # 登录场景不含短信（场景顺序固定 slider → image）
-    login = await _captcha(_MappingSource({"captcha.channel.sms": "true"})).policy("login")
+    login = await _captcha(_MappingSource(ConcurrentStableDict({"captcha.channel.sms": "true"}))).policy("login")
     assert login.channels == (CaptchaKind.SLIDER, CaptchaKind.IMAGE)
 
     # 滑块关闭：图形码兜底仍在
-    image_only = await _captcha(_MappingSource({"captcha.channel.slider": "false"})).policy("login")
+    image_only = await _captcha(_MappingSource(ConcurrentStableDict({"captcha.channel.slider": "false"}))).policy(
+        "login"
+    )
     assert image_only.channels == (CaptchaKind.IMAGE,)
 
 
@@ -124,15 +130,17 @@ async def test_policy_unknown_scene_fallback() -> None:
 @pytest.mark.kiwi_id(2208)
 async def test_policy_bool_value_and_image_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
     """布尔配置值直通；渠道顺序缺图形码时补兜底。"""
-    bool_source = _MappingSource({"captcha.scene.login.required": True})
+    bool_source = _MappingSource(ConcurrentStableDict({"captcha.scene.login.required": True}))
     assert (await _captcha(bool_source).policy("login")).required is True
 
-    monkeypatch.setitem(captcha_default.CAPTCHA_SCENE_CHANNELS, "ghost", (CaptchaKind.SLIDER,))
-    channels = captcha_default._resolve_channels("ghost", {})  # pyright: ignore[reportPrivateUsage]
+    channels_map = ConcurrentStableDict(captcha_default.CAPTCHA_SCENE_CHANNELS)
+    channels_map.set("ghost", (CaptchaKind.SLIDER,))
+    monkeypatch.setattr(captcha_default, "CAPTCHA_SCENE_CHANNELS", channels_map)
+    channels = captcha_default._resolve_channels("ghost", ConcurrentStableDict())  # pyright: ignore[reportPrivateUsage]
     assert channels == (CaptchaKind.SLIDER, CaptchaKind.IMAGE)
 
 
 @pytest.mark.kiwi_id(2208)
 async def test_null_source_returns_empty() -> None:
     """Null 取数恒空，确保策略走默认。"""
-    assert await NullConfigSource().get_many(("captcha.scene.login.required",)) == {}
+    assert await NullConfigSource().get_many(ConcurrentStableList(("captcha.scene.login.required",))) == {}

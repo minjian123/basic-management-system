@@ -416,118 +416,6 @@
       "count": 1
     },
     {
-      "file": "backend/libs/bms_core/src/bms_core/captcha/base.py",
-      "line": "CAPTCHA_SCENE_CHANNELS: Mapping[str, tuple[CaptchaKind, ...]] = {",
-      "container": "Mapping",
-      "position": "local",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/captcha/default.py",
-      "line": "async def _register_failure(self, captcha_id: str, record: Mapping[str, object], ttl_ms: int) -> None:",
-      "container": "Mapping",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/captcha/default.py",
-      "line": "async def _take(self, captcha_id: str) -> tuple[dict[str, object] | None, int]:",
-      "container": "dict",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/captcha/default.py",
-      "line": "def _channel_enabled(kind: CaptchaKind, values: Mapping[str, object]) -> bool:",
-      "container": "Mapping",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/captcha/default.py",
-      "line": "def _dump(record: Mapping[str, object]) -> str:",
-      "container": "Mapping",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/captcha/default.py",
-      "line": "def _load(raw: object) -> dict[str, object] | None:",
-      "container": "dict",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/captcha/default.py",
-      "line": "def _matches(self, record: Mapping[str, object], credential: CaptchaCredential) -> bool:",
-      "container": "Mapping",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/captcha/default.py",
-      "line": "def _matches_code(self, record: Mapping[str, object], credential: CaptchaCredential) -> bool:",
-      "container": "Mapping",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/captcha/default.py",
-      "line": "def _matches_slider(self, record: Mapping[str, object], credential: CaptchaCredential) -> bool:",
-      "container": "Mapping",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/captcha/default.py",
-      "line": "def _resolve_channels(scene: str, values: Mapping[str, object]) -> tuple[CaptchaKind, ...]:",
-      "container": "Mapping",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/captcha/default.py",
-      "line": "def from_options(cls, options: Mapping[str, object] | None = None) -> CaptchaImageOptions:",
-      "container": "Mapping",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/captcha/default.py",
-      "line": "def from_options(cls, options: Mapping[str, object] | None = None) -> CaptchaSliderOptions:",
-      "container": "Mapping",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/captcha/default.py",
-      "line": "def from_options(cls, options: Mapping[str, object] | None = None) -> CaptchaSmsOptions:",
-      "container": "Mapping",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/captcha/default.py",
-      "line": "record: dict[str, object] = {",
-      "container": "dict",
-      "position": "local",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/captcha/default.py",
-      "line": "record: dict[str, object] = {\"code\": code, \"scene\": scene, \"kind\": kind.value, \"fails\": 0}",
-      "container": "dict",
-      "position": "local",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/captcha/default.py",
-      "line": "record: dict[str, object] = {\"kind\": CaptchaKind.SMS.value, \"scene\": scene, \"code\": code, \"fails\": 0}",
-      "container": "dict",
-      "position": "local",
-      "count": 1
-    },
-    {
       "file": "backend/libs/bms_core/src/bms_core/catalog/base.py",
       "line": ") -> list[ModuleRecord]:",
       "container": "list",
@@ -626,118 +514,6 @@
       "count": 1
     },
     {
-      "file": "backend/libs/bms_core/src/bms_core/config/base.py",
-      "line": "async def get_many(self, keys: Sequence[str]) -> Mapping[str, str]:",
-      "container": "Mapping",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/config/base.py",
-      "line": "async def get_many(self, keys: Sequence[str]) -> Mapping[str, str]:",
-      "container": "Sequence",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/config/cache.py",
-      "line": "self._versions: dict[str, int] = {}",
-      "container": "dict",
-      "position": "local",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/config/http.py",
-      "line": "async def get_many(self, keys: Sequence[str]) -> Mapping[str, str]:",
-      "container": "Mapping",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/config/http.py",
-      "line": "async def get_many(self, keys: Sequence[str]) -> Mapping[str, str]:",
-      "container": "Sequence",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/config/http.py",
-      "line": "headers: dict[str, str] = {}",
-      "container": "dict",
-      "position": "local",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/config/null.py",
-      "line": "async def get_many(self, keys: Sequence[str]) -> Mapping[str, str]:",
-      "container": "Mapping",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/config/null.py",
-      "line": "async def get_many(self, keys: Sequence[str]) -> Mapping[str, str]:",
-      "container": "Sequence",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/config/sql.py",
-      "line": "async def _load(self, keys: Sequence[str]) -> Mapping[str, str]:",
-      "container": "Mapping",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/config/sql.py",
-      "line": "async def _load(self, keys: Sequence[str]) -> Mapping[str, str]:",
-      "container": "Sequence",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/config/sql.py",
-      "line": "async def _query_values(session: DbSession, keys: Sequence[str]) -> Mapping[str, str]:",
-      "container": "Mapping",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/config/sql.py",
-      "line": "async def _query_values(session: DbSession, keys: Sequence[str]) -> Mapping[str, str]:",
-      "container": "Sequence",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/config/sql.py",
-      "line": "async def get_many(self, keys: Sequence[str]) -> Mapping[str, str]:",
-      "container": "Mapping",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/config/sql.py",
-      "line": "async def get_many(self, keys: Sequence[str]) -> Mapping[str, str]:",
-      "container": "Sequence",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/config/sql.py",
-      "line": "missing: list[str] = []",
-      "container": "list",
-      "position": "local",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/config/sql.py",
-      "line": "result: dict[str, str] = {}",
-      "container": "dict",
-      "position": "local",
-      "count": 1
-    },
-    {
       "file": "backend/libs/bms_core/src/bms_core/core/assembly.py",
       "line": "_PREPARED_REGISTRIES: list[PluginRegistry] = []",
       "container": "list",
@@ -810,48 +586,6 @@
     {
       "file": "backend/libs/bms_core/src/bms_core/core/logging.py",
       "line": "self._fields: dict[str, object] = dict(fields)",
-      "container": "dict",
-      "position": "local",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/core/objects/options.py",
-      "line": "def _int_option(cls, options: Mapping[str, object], key: str, default: int, minimum: int, maximum: int) -> int:",
-      "container": "Mapping",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/core/objects/options.py",
-      "line": "def _mapping_option(cls, options: Mapping[str, object], key: str) -> Mapping[str, str]:",
-      "container": "Mapping",
-      "position": "signature_return",
-      "count": 2
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/core/objects/options.py",
-      "line": "def _single_char_option(cls, options: Mapping[str, object], key: str, default: str) -> str:",
-      "container": "Mapping",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/core/objects/options.py",
-      "line": "def _str_option(cls, options: Mapping[str, object], key: str, default: str) -> str:",
-      "container": "Mapping",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/core/objects/options.py",
-      "line": "def from_options(cls, options: Mapping[str, object] | None = None) -> Self:",
-      "container": "Mapping",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/core/objects/options.py",
-      "line": "parsed: dict[str, str] = {}",
       "container": "dict",
       "position": "local",
       "count": 1
@@ -1540,13 +1274,6 @@
       "line": "BUILTIN_MASK_SPECS: dict[str, MaskSpec] = {",
       "container": "dict",
       "position": "local",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/src/bms_core/masking/default.py",
-      "line": "def from_options(cls, options: Mapping[str, object] | None = None) -> Self:",
-      "container": "Mapping",
-      "position": "signature_param",
       "count": 1
     },
     {
@@ -2754,27 +2481,6 @@
       "count": 1
     },
     {
-      "file": "backend/libs/bms_core/tests/captcha/test_captcha_policy.py",
-      "line": "async def get_many(self, keys: Sequence[str]) -> Mapping[str, str]:",
-      "container": "Mapping",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/tests/captcha/test_captcha_policy.py",
-      "line": "async def get_many(self, keys: Sequence[str]) -> Mapping[str, str]:",
-      "container": "Sequence",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/tests/captcha/test_captcha_policy.py",
-      "line": "def __init__(self, values: Mapping[str, object] | None = None) -> None:",
-      "container": "Mapping",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
       "file": "backend/libs/bms_core/tests/captcha/test_captcha_slider.py",
       "line": "async def _record(client: Redis, captcha_id: str) -> dict[str, Any]:",
       "container": "dict",
@@ -2828,27 +2534,6 @@
       "line": ") -> dict[str, str]:",
       "container": "dict",
       "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/tests/config/test_config_real.py",
-      "line": "async def get_many(self, keys: Sequence[str]) -> Mapping[str, str]:",
-      "container": "Mapping",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/tests/config/test_config_real.py",
-      "line": "async def get_many(self, keys: Sequence[str]) -> Mapping[str, str]:",
-      "container": "Sequence",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/tests/config/test_config_real.py",
-      "line": "def __init__(self, values: Mapping[str, str] | None = None) -> None:",
-      "container": "Mapping",
-      "position": "signature_param",
       "count": 1
     },
     {
@@ -4144,27 +3829,6 @@
       "line": "self.gauges: list[tuple[str, float]] = []",
       "container": "list",
       "position": "local",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/tests/password/test_password_policy.py",
-      "line": "async def get_many(self, keys: Sequence[str]) -> Mapping[str, str]:",
-      "container": "Mapping",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/tests/password/test_password_policy.py",
-      "line": "async def get_many(self, keys: Sequence[str]) -> Mapping[str, str]:",
-      "container": "Sequence",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/libs/bms_core/tests/password/test_password_policy.py",
-      "line": "def __init__(self, values: Mapping[str, object] | None = None) -> None:",
-      "container": "Mapping",
-      "position": "signature_param",
       "count": 1
     },
     {
@@ -6625,27 +6289,6 @@
       "count": 1
     },
     {
-      "file": "backend/services/org/tests/account_lock/test_scan.py",
-      "line": "async def get_many(self, keys: Sequence[str]) -> Mapping[str, str]:",
-      "container": "Mapping",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "backend/services/org/tests/account_lock/test_scan.py",
-      "line": "async def get_many(self, keys: Sequence[str]) -> Mapping[str, str]:",
-      "container": "Sequence",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "backend/services/org/tests/account_lock/test_scan.py",
-      "line": "def __init__(self, values: Mapping[str, object] | None = None) -> None:",
-      "container": "Mapping",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
       "file": "backend/services/org/tests/org/test_org.py",
       "line": "async def dept_tree(self, *, status: str | None = None) -> Sequence[OrgDept]:",
       "container": "Sequence",
@@ -6930,20 +6573,6 @@
       "line": "self.keys: list[str] = []",
       "container": "list",
       "position": "local",
-      "count": 1
-    },
-    {
-      "file": "backend/services/platform/tests/config/test_internal_config.py",
-      "line": "async def get_many(self, keys: Sequence[str]) -> Mapping[str, str]:",
-      "container": "Mapping",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "backend/services/platform/tests/config/test_internal_config.py",
-      "line": "async def get_many(self, keys: Sequence[str]) -> Mapping[str, str]:",
-      "container": "Sequence",
-      "position": "signature_param",
       "count": 1
     },
     {
