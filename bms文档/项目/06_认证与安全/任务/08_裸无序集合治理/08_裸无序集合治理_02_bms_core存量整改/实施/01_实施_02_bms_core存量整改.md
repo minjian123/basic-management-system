@@ -275,3 +275,65 @@ flowchart LR
 **偏差（既有 red，非本轮引入）**：`services/platform/tests/dict/test_dict_real.py::test_http_endpoints`（`query-providers` 的 `model_dump` 序列化出口）仍为既有 red，本轮未扩大；另轮单独修。
 
 **遗留**：`bms_core` 剩余 **725 处**（`libs`：`tests` 约 292 / `db` 43 / `core` 36 / `api` 32 / `events` 20 / `boundary` 18 / `captcha` 16 / `config` 16 …），按交接单 §7 顺序续推（能力域其余 → 注册表目录 → 其余 `libs` → `tests` 收尾）。
+
+## 14. 实施过程补充 · 存量整改子批 2 主体 · `events/` 能力域（签名单轮，2026-09-30） <a id="batch2-events"></a>
+
+**范围**：`bms_core` `events/` 能力域 **20 处**（`contracts.py` 17 / `platform_events.py` 3），外加其**快照往返基座 `core/objects/event_contracts.py` 2 处**（抽象成对方法 `to_snapshot` / `from_snapshot` 是三类契约对象的父契约——参数收窄会触发覆写签名不兼容，故同批收口）；按交接单 §7 第 1 项「能力域剩余」首项推进。
+
+**动作**：
+
+1. **快照往返基座与三类契约对象（形态一致）**：`BaseSnapshotRoundTripContract.to_snapshot()` → `ConcurrentStableDict[str, object]`、`from_snapshot(entry)` 入参同型；`EventFieldSpec` / `EventContract` / `EventSubscription` 三处实现同步——**顶层返回集合类、嵌套 `fields` 亦为集合类**。
+   - `core/objects/event_contracts.py` 对 `core.concurrent` 的引用走 **`TYPE_CHECKING`**（`core.concurrent → core.holder → core.objects` 为反向依赖，运行期导入成环；注解惰性求值，语义不变）。
+2. **注册表与校验**：`EventContractRegistry._contracts` / `_subscriptions` 落 `ConcurrentStableDict`（写改原子 `set`）；`validate_event_contract` / `validate_event_registry` 的 `domains` 落 `ConcurrentStableSet[str]`、局部 `errors` 落 `ConcurrentStableList`；`check_event_compatibility` 的 `violations` 与 `check_snapshot_compatibility` 的 `errors` 同型；`check_subscription_coverage` 的 `subscriptions` 与 `check_snapshot_compatibility` 的 `previous` 落 `ConcurrentStableList`；聚合处 `errors.extend(...)` → **`errors.update(...)`**（集合类无 `extend`）。
+3. **JSON 快照出口（边界适配，不新增豁免）**：`event_snapshot_payload` 返回 `ConcurrentStableDict`（嵌套清单落 `ConcurrentStableList`）；`render_event_snapshot` 由 `json.dumps(payload, …)` 改 **`json.dumps(normalize_collections(payload), …)`**——快照文本与既有 `deploy/events/contracts.json` **逐字节一致**；`parse_event_snapshot` 解析 JSON 后**逐条构造** `ConcurrentStableDict` 再交 `from_snapshot`（形态一致）。
+4. **`platform_events.py`**：三条模块级载荷常量落 `ConcurrentStableDict`；**23 条契约的 `fields=` 构造点**统一包 `ConcurrentStableDict(...)`（原 `dict(_PAYLOAD)` 改 `ConcurrentStableDict(_PAYLOAD)` 取副本，避免共享可变实例）。
+5. **调用方适配**：`application.py::_validate_event_contracts` 与 `ops/event_contracts.py::_registry_errors` 的 `domains=known_event_domains()` 包 `ConcurrentStableSet(...)`；`ops/event_contracts.py` 两处 `check_snapshot_compatibility(previous[0], …)` 包 `ConcurrentStableList(...)`。
+
+**调用方与测试同步**：`tests/events/test_event_contracts.py`（`DOMAINS` / `_USER_FIELDS` / `_contract` 助手 / `bad_fields` 与全部 `fields=` 实参 / `check_subscription_coverage` 与 `check_snapshot_compatibility` 实参）、`tests/events/test_platform_events.py`（域集合与快照兼容实参）、`tests/saga/test_saga.py`（4 处空 `fields`）、`tests/outbox/test_outbox_store.py`（1 处）。断言维持内容相等（`== []` / `== {}` / `== {..}`），未改语义。
+
+**验证**：
+
+| 项 | 命令 | 结果 |
+| --- | --- | --- |
+| 定向 + 全量 `libs` | `pytest libs/bms_core/tests` | **1099 passed / 37 skipped** |
+| 静态检查 | `ruff check` / `ruff format --check`（改动文件） | 全绿 |
+| 护栏 | `check-bare-collections.py .` | **「新增 0 / 残留 0」**；`events/` **20 → 0** |
+| 基线递减 | `--update-baseline` | **1384 → 1360**（`libs` 725 → 701） |
+| 快照零漂移 | `python -m ops.event_contracts check --root ..` | 通过（契约 23 条，`deploy/events/contracts.json` 零漂移） |
+| 本地预检 | `check-preflight.py --fast` | **全部通过** |
+
+**过程处置（已闭环）**：① 首版在 `core/objects/event_contracts.py` 顶层导入 `core.concurrent` 触发循环导入（`core.concurrent → core.holder → core.objects`）→ 改 `TYPE_CHECKING` 引用；② `render_event_snapshot` 直接 `json.dumps` 集合类会失败 → 前置 `normalize_collections` 规整（输出与旧实现逐字节一致）。
+
+**遗留**：`bms_core` 剩余 **701 处**（`libs`：`tests` 约 291 / `services` 89 / `db` 43 / `core` 36 / `api` 32 / `boundary` 18 / `captcha` 16 / `config` 16 …），按交接单 §7 续推。
+
+## 15. 实施过程补充 · 存量整改子批 2 主体 · `captcha/` 与 `config/` 能力域（签名单轮，2026-09-30） <a id="batch2-captcha-config"></a>
+
+**范围**：`bms_core` `captcha/` 能力域 **16 处**（`default.py` 15 / `base.py` 1）与 `config/` 能力域 **16 处**（`sql.py` 8 / `http.py` 3 / `base.py` 2 / `null.py` 2 / `cache.py` 1），外加两者共同依赖的**选项链基座 `core/objects/options.py` 7 处**与**被迫同步的 `masking/default.py::MaskerOptions.from_options` 1 处**（抽象 `BaseOptionsContract.from_options` 收窄会触发覆写不兼容）；按交接单 §7 第 1 项「能力域剩余」续项推进。
+
+**动作**：
+
+1. **选项链基座（`core/objects/options.py`）**：`from_options` 抽象入口与四个取值助手（`_int_option` / `_str_option` / `_single_char_option` / `_mapping_option`）的 `options` 落 `ConcurrentStableDict[str, object]`；`_mapping_option` 返回落 `ConcurrentStableDict[str, str]`（局部 `parsed` 同型、写改原子 `set`）。对 `core.concurrent` 走 **`TYPE_CHECKING` + 使用处延迟导入**（`_mapping_option` 需运行期构造，函数内导入；与 `PluginError` 既有定式一致）。
+2. **验证码能力域**：`CAPTCHA_SCENE_CHANNELS` 落 `ConcurrentStableDict[str, tuple[CaptchaKind, …]]`；`DefaultCaptcha` 的 `record` 三处局部量与 `_dump` / `_load` / `_take` / `_matches` / `_matches_code` / `_matches_slider` / `_register_failure` 全落集合类（`updated["fails"] = …` → `updated.set(...)`）；`_channel_enabled` / `_resolve_channels` 的 `values` 落 `ConcurrentStableDict[str, str]`（与 `get_many` 返回型对齐）；三个 `from_options` 与调用方对齐。
+3. **系统参数能力域**：`BaseConfigSource.get_many` 契约（含 `http` / `null` / `sql` 三实现）改 `keys: ConcurrentStableList[str]` → `ConcurrentStableDict[str, str]`；`get()` 默认实现按集合类构造入参；`HttpConfigSource` 的 `headers` 落 `ConcurrentStableDict`（`json_body` 保持**内置容器**——httpx `json=` 边界，沿用 `dict` 子批既有口径）、四处降级返回空集合类；`SqlConfigSource` 的 `result` / `missing` 落集合类（写改 `set` / `add`）；`MemoryConfigCacheRegion._versions` 落 `ConcurrentStableDict`（写改 `set`）。
+4. **调用方适配**：`password/default.py` 四处与 `captcha/default.py::policy` 的 `get_many` 实参包 `ConcurrentStableList`；`services/platform/.../api/internal_config.py` 无需改（`ConfigResolveRequest.keys` 已是集合类）。
+
+**调用方与测试同步**：`libs` 侧 `tests/config/test_config_edges.py`、`tests/config/test_config_real.py`、`tests/captcha/test_captcha_policy.py`、`tests/password/test_password_policy.py`（三者含取数替身 `_MappingSource` 的 `__init__` / `get_many` 签名）；`services` 侧 `org/tests/account_lock/test_scan.py`、`platform/tests/config/test_internal_config.py` 的取数替身同步。
+
+**验证**：
+
+| 项 | 命令 | 结果 |
+| --- | --- | --- |
+| 全量 `libs` | `pytest libs/bms_core/tests` | **1099 passed / 37 skipped** |
+| 服务侧 | `pytest services/platform/tests services/org/tests` | **390 passed / 1 skipped / 1 failed**（既有 red，见偏差） |
+| 静态检查 | `ruff check` / `ruff format --check`（改动文件） | 全绿 |
+| 护栏 | `check-bare-collections.py .` | **「新增 0 / 残留 0」**；`captcha/` **16 → 0**、`config/` **16 → 0** |
+| 基线递减 | `--update-baseline` | **1360 → 1306**（`libs` 701 → 652 / `services` 332 → 327） |
+| 本地预检 | `check-preflight.py --fast` | **全部通过** |
+
+**过程处置（已闭环，两个「集合类不是内置容器超集」的坑）**：① `SqlConfigSource.get_many` 回填原为 `result.update(loaded)`——集合类 `update` **只吃键值对**，直接传映射会按键解包，改 `result.update(loaded.items())`；② `tests/captcha/test_captcha_policy.py` 原用 `monkeypatch.setitem(CAPTCHA_SCENE_CHANNELS, …)` 注入场景——集合类**不提供 `__setitem__`**，改 `monkeypatch.setattr` + 副本 `ConcurrentStableDict(...)`。
+
+**偏差（既有 red，非本轮引入）**：`services/platform/tests/dict/test_dict_real.py::test_http_endpoints`（`_provider_record` 的 `model_dump()` 序列化出口，`Unable to serialize unknown type: ConcurrentStableDict`）在干净树同样失败，本轮未扩大；另轮单独修。
+
+**另一处既有 red（非本轮引入，待定夺）**：`check-links.py` 实测 **18 处断链**（0 失效锚点）——14 处为 `项目/01_项目骨架/` 下多层任务文档指向 `后端基类清单.md` / `规范/后端开发规范.md` 的相对层级少 3 层（应为 7 层，实为 4 层），4 处为 `08_05 集合体系收链` 三份文档 + 盘点报告指向 08_02 详细设计 `#unique-chain` 的链接；均在**干净树同样失败**（本任务未改这些文档的链接），属文档层既有问题，是否随本任务一并修正待用户定夺。
+
+**遗留**：`bms_core` 剩余 **652 处**（`libs`：`tests` 约 291 / `services` 89 / `db` 43 / `core` 36 / `api` 32 / `boundary` 18 / `session` 13 / `schemas` 10 …）；本轮范围内的 `masking/` 余 4 处（`base.py` 两个局部、`default.py` 模块常量与 `DefaultMasker.__init__` 的 `rules` 参数）与 `core/objects/tally.py` 1 处，随各自域批次推进。
