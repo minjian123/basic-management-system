@@ -11,13 +11,13 @@
 
 上下文变量落点：链路 id / span id 存 `app/core/context.py`（`current_trace_id` / `current_span_id`），
 供日志体系（03-2）与审计直接读取；span 对象本身存本域私有变量（`current_span()` 读取）。
-键值类型口径：`SpanContext.attributes` 为 `Mapping[str, object]`（贴 OTel `AttributeValue`，允许 int / bool /
-float / 字符串序列）；指标标签 `MetricLabels` 为 `Mapping[str, str]`（两域类型不同，回补时按各自规范转换）。
+键值类型口径：`SpanContext.attributes` 为 `ConcurrentStableDict[str, object]`（贴 OTel `AttributeValue`，允许 int /
+bool / float / 字符串序列）；指标标签 `MetricLabels` 为 `Mapping[str, str]`（两域类型不同，回补时按各自规范转换）。
 """
 
 import uuid
 from abc import ABC, abstractmethod
-from collections.abc import AsyncGenerator, Mapping
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
@@ -117,7 +117,7 @@ class BaseTracer(BasePluggable, ABC):
         self,
         name: str,
         *,
-        attributes: Mapping[str, object] | None = None,
+        attributes: ConcurrentStableDict[str, object] | None = None,
         parent: SpanContext | None = None,
     ) -> SpanContext:
         """开启 span。
@@ -144,7 +144,7 @@ class BaseTracer(BasePluggable, ABC):
         self,
         name: str,
         *,
-        attributes: Mapping[str, object] | None = None,
+        attributes: ConcurrentStableDict[str, object] | None = None,
     ) -> AsyncGenerator[SpanContext]:
         """span 异步上下文：进入开启、退出结束（异常路径亦保证结束与复位）。
 

@@ -10,6 +10,7 @@ from support_app import ApplicationFactory, lifespan
 from bms_core.api.deps import get_tracer
 from bms_core.core.base import BaseObject
 from bms_core.core.capability import BaseCapability, BaseNullObject
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.context import (
     get_current_span_id,
     get_current_trace_id,
@@ -68,7 +69,7 @@ async def test_span_chain_and_context() -> None:
     assert current_span() is None
     assert current_trace_id() is None
 
-    async with tracer.span("http.request", attributes={"route": "/api/v1/users"}) as outer:
+    async with tracer.span("http.request", attributes=ConcurrentStableDict({"route": "/api/v1/users"})) as outer:
         assert len(outer.trace_id) == TRACE_ID_LENGTH
         assert outer.parent_span_id is None
         assert outer.attributes == {"route": "/api/v1/users"}

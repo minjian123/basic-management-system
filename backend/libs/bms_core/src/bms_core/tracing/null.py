@@ -1,8 +1,7 @@
 """tracing 能力域缺省实现（Null Object）：占位返回、无副作用（02-3 自 bms_core.tracing.base.py 迁入）。"""
 
-from collections.abc import Mapping
-
 from bms_core.core.capability import BaseNullObject
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.context import get_current_trace_id
 from bms_core.tracing.base import BaseTracer, SpanContext, new_span_id, new_trace_id
 
@@ -18,7 +17,7 @@ class NullTracer(BaseTracer, BaseNullObject):
         self,
         name: str,
         *,
-        attributes: Mapping[str, object] | None = None,
+        attributes: ConcurrentStableDict[str, object] | None = None,
         parent: SpanContext | None = None,
     ) -> SpanContext:
         """开启占位 span。

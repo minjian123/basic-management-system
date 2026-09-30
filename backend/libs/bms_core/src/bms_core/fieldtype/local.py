@@ -6,9 +6,9 @@
 - 自建字段白名单（`EXT_FIELD_TYPES`）仍归表单定制；本实现只负责类型级校验与列类型映射。
 """
 
-from collections.abc import Mapping
 from typing import cast
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.fieldtype.base import BaseFieldType, BaseFieldTypeRegistry
 
 __all__ = ["LocalFieldTypeRegistry", "SimpleFieldType"]
@@ -64,7 +64,7 @@ class SimpleFieldType(BaseFieldType):
         """
         return f"字段类型 {self._key}（{self._widget}）"
 
-    def validate(self, value: object, *, options: Mapping[str, object] | None = None) -> tuple[str, ...]:
+    def validate(self, value: object, *, options: ConcurrentStableDict[str, object] | None = None) -> tuple[str, ...]:
         """校验字段值（类型级；空值放行，必填由字段规则承载）。
 
         Args:
@@ -95,13 +95,15 @@ class SimpleFieldType(BaseFieldType):
             return ()
         return ()
 
-    def render_metadata(self) -> Mapping[str, object]:
+    def render_metadata(self) -> ConcurrentStableDict[str, object]:
         """渲染元数据（控件语义键 / 是否多值）。
 
         Returns:
-            Mapping[str, object]: 渲染元数据。
+            ConcurrentStableDict[str, object]: 渲染元数据。
         """
-        metadata: dict[str, object] = {"widget": self._widget, "multiple": self._multiple}
+        metadata: ConcurrentStableDict[str, object] = ConcurrentStableDict(
+            {"widget": self._widget, "multiple": self._multiple}
+        )
         return metadata
 
     def column_type(self, dialect: str) -> str:

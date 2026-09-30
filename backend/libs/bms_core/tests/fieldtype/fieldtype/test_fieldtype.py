@@ -1,6 +1,6 @@
 """表单字段类型注册表基座契约测试（Kiwi 59）：契约 / 标识 / 常量 / 注册表模板 / 占位恒定通过 / 依赖解析。"""
 
-from collections.abc import Iterator, Mapping
+from collections.abc import Iterator
 from typing import Annotated
 
 import pytest
@@ -11,6 +11,7 @@ from support_app import ApplicationFactory, lifespan
 from bms_core.api.deps import get_field_type_registry
 from bms_core.core.base import BaseObject
 from bms_core.core.capability import BaseCapability, BaseNullObject
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.config import get_settings
 from bms_core.core.exceptions import NotFoundError
 from bms_core.fieldtype.base import COLUMN_TYPE_DIALECTS, NULL_COLUMN_TYPE, BaseFieldType, BaseFieldTypeRegistry
@@ -39,11 +40,11 @@ class _FakeFieldType(BaseFieldType):
     def describe(self) -> str:
         return f"测试字段类型 {self._key}"
 
-    def validate(self, value: object, *, options: Mapping[str, object] | None = None) -> tuple[str, ...]:
+    def validate(self, value: object, *, options: ConcurrentStableDict[str, object] | None = None) -> tuple[str, ...]:
         return () if value else ("required",)
 
-    def render_metadata(self) -> Mapping[str, object]:
-        return {"component": "input", "type": self._key}
+    def render_metadata(self) -> ConcurrentStableDict[str, object]:
+        return ConcurrentStableDict({"component": "input", "type": self._key})
 
     def column_type(self, dialect: str) -> str:
         return f"{self._key}:{dialect}"

@@ -10,6 +10,7 @@ from support_app import ApplicationFactory, lifespan
 from bms_core.api.deps import get_translator
 from bms_core.core.base import BaseObject
 from bms_core.core.capability import BaseCapability, BaseNullObject
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.i18n.base import DEFAULT_LOCALE, SUPPORTED_LOCALES, BaseTranslator
 from bms_core.i18n.null import NullTranslator
 
@@ -41,7 +42,9 @@ async def test_null_translator_fixed() -> None:
     """占位翻译器：原样返回 key、默认 locale、空语言包。"""
     translator = NullTranslator()
     assert await translator.translate("user.form.username") == "user.form.username"
-    assert await translator.translate("common.confirm", locale="en-US", params={"x": 1}) == "common.confirm"
+    assert await translator.translate("common.confirm", locale="en-US", params=ConcurrentStableDict({"x": 1})) == (
+        "common.confirm"
+    )
     assert translator.resolve_locale("en-US,en;q=0.9") == DEFAULT_LOCALE
     assert await translator.load_messages("zh-CN") == {}
 
