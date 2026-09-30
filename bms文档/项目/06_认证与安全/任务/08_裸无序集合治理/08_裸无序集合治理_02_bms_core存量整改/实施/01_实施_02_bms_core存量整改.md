@@ -667,3 +667,35 @@ flowchart LR
 **过程处置（新增一条边界口径）**：集合类**返回值直入 Pydantic / FastAPI 响应封装**（`ApiResponse.ok(集合类)`）会触发运行期序列化失败（`Unable to serialize unknown type: ConcurrentStableList`，首次定向用例即暴露 `test_placeholder_routes`）。处置：**未标注 `CONTRACT_COLLECTION` 的响应出口**在调用处显式 `list(...)`（承接 §3「第三方 / 框架边界调用处显式转内置容器」口径；契约字段仍走 `CONTRACT_COLLECTION` 无需转换）。
 
 **遗留**：`archive/` / `audit/` / `chat/` 归零；`bms_core` 剩余 **364 处**（`libs`：`tests` 276 / `outbox` 10 / `schemas` 10 / `security` 9 / `edge` 6 / `org` 6 …），按交接单 §7 第 1 项续推。
+
+## 26. 实施过程补充 · 存量整改子批 3 · `edge/` + `org/` + `globalsearch/` + `llm/` 能力域（签名单轮，2026-09-30） <a id="batch3-edge-org-search-llm"></a>
+
+**范围**：`bms_core` 四个**低耦合叶子能力域**共 **20 处**（`edge/` 6 / `org/` 6 / `globalsearch/` 4 / `llm/` 4），外加调用方 / 测试替身适配（`libs` 测试 1 处、`services/search` 与 `services/org` 路由出口 2 处、`services` 测试替身 5 处）。按交接单 §5 第 1 步「优先低耦合叶子模块」推进。
+
+**动作**：
+
+1. **边缘信任（`edge/`）**：`BaseEdgeTrust.evaluate` 的 `headers`、`EdgeIdentity.from_headers` 的 `headers`、`MarkerEdgeTrust` / `NullEdgeTrust` / `ServiceJwtEdgeTrust.evaluate` 与 `_bearer_token` 全部落 `ConcurrentStableDict[str, str]`（中间件传入的 `_raw_headers(scope)` 已为集合类，勿需转换）。
+2. **组织主数据（`org/`）**：`BaseOrgDataSource.dept_tree` 返回、`BaseOrgNameResolver.resolve_names` 的 `ids` 与返回落 `ConcurrentStableList`（`NullOrgDataSource.dept_tree` 的 `(root,)` → `ConcurrentStableList([root])`、`NullOrgNameResolver.resolve_names` 的 `tuple(...)` → `ConcurrentStableList(...)`）。
+3. **全文检索（`globalsearch/`）**：`BaseGlobalSearch.domains` 返回、`search` 的 `types` 参数落 `ConcurrentStableList[str]`；`NullGlobalSearch` 同名两处同步（空返回 `()` → `ConcurrentStableList()`）。
+4. **LLM 适配（`llm/`）**：`BaseLlmProvider.chat` 的 `messages`、`embedding` 的 `texts` 落 `ConcurrentStableList`；`NullLlmProvider` 同名两处同步。
+5. **服务侧出口/入参边界（必需）**：`services/search/src/bms_search/api/search.py` 的 FastAPI 查询参数 `types: list[str] | None`（框架绑定，声明保留基线）在调用契约前显式 `ConcurrentStableList(types)`；`services/org/src/bms_org/api/org.py` 的 `parse_id_in(id_in)` 产物显式 `ConcurrentStableList(...)` 传入 `resolve_names`。
+
+**调用方与测试同步**：`libs` 侧 `tests/edge/test_edge.py` / `test_service_jwt.py`（`evaluate` / `from_headers` 实参包 `ConcurrentStableDict`、参数化 `headers` 注解同步）；`services/search/tests/globalsearch/test_global_search.py` 的 `_InMemoryGlobalSearch` 覆写（`domains` / `search`）、空实现断言 `domains() == []`、`search(types=ConcurrentStableList(["user"]))`；`services/org/tests/org/test_org.py` 的 `_InMemoryOrgDataSource.dept_tree` / `_InMemoryOrgNameResolver.resolve_names` 覆写与 `resolve_names("post", ConcurrentStableList([1, 2]))`；`services/ai/tests/llm/test_llm.py` 的 `chat` / `embedding` 实参包集合类。断言维持内容相等，未改语义。
+
+**验证**：
+
+| 项 | 命令 | 结果 |
+| --- | --- | --- |
+| 定向用例 | `pytest libs/bms_core/tests/edge services/{search,org,ai}/tests/...` | **47 passed** |
+| 全量 `libs` | `pytest libs/bms_core/tests` | **1099 passed / 37 skipped** |
+| 全量 `services` | `pytest services` | **787 passed / 3 skipped / 1 failed**（既有 red，见偏差） |
+| 静态检查 | `ruff check .` / `ruff format --check .`（backend 全量） | 全绿（957 文件） |
+| 护栏 | `check-bare-collections.py .` | **「新增 0 / 残留 0」**；`edge/` **6 → 0**、`org/` **6 → 0**、`globalsearch/` **4 → 0**、`llm/` **4 → 0** |
+| 基线递减 | `--update-baseline` | **1009 → 983**（`libs` 364 → 343 / `services` 319 → 314） |
+| 本地预检 | `check-preflight.py --fast` | **全部通过**（含契约 / 事件契约 / 网关 / 前端 `api-types` 零漂移） |
+
+**偏差（既有 red，非本轮引入）**：`services/platform/tests/dict/test_dict_real.py::test_http_endpoints`（`query-providers` 的 `model_dump` 序列化出口）仍为既有 red，本轮未扩大；另轮单独修。
+
+**过程处置**：① `org` 路由出口本已 `tuple(await …)`（框架序列化边界），`Cursor`/`ApiResponse` 侧零改动；② `edge` 中间件传入的 `_raw_headers(scope)` 在 §21 已落集合类，本轮 `evaluate` 收窄后**调用方零适配**（契约与中间件形态自然对齐）。
+
+**遗留**：`edge/` / `org/` / `globalsearch/` / `llm/` 归零；`bms_core` 剩余 **343 处**（`libs`：`tests` 275 / `outbox` 10 / `schemas` 10 / `security` 9 / `masking` 4 / `outbound` 4 / `password` 4 …），按交接单 §7 第 1 项续推。
