@@ -7,6 +7,7 @@ from fakeredis.aioredis import FakeRedis
 from redis.exceptions import WatchError
 
 from bms_core.core.base import BaseObject
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.exceptions import ConcurrentConflictError
 from bms_core.core.redis_collections import RedisSnapshot, RedisSortedDict, RedisSortedSet
 
@@ -92,10 +93,10 @@ async def test_redis_snapshot_lazy_reload(redis_client: FakeRedis) -> None:
     zset = RedisSortedSet[str](redis_client, f"{KEY}:snap")
     loader_calls = 0
 
-    async def loader() -> list[str]:
+    async def loader() -> ConcurrentStableList[str]:
         nonlocal loader_calls
         loader_calls += 1
-        return await zset.top(10)
+        return ConcurrentStableList(await zset.top(10))
 
     snapshot = RedisSnapshot(redis_client, zset.version_key, loader)
     assert await snapshot.get() == []

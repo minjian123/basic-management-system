@@ -85,7 +85,7 @@ def config_db_url(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[s
     get_settings.cache_clear()
 
 
-_OPEN_ENGINES: list[EngineRegistry] = []
+_OPEN_ENGINES: ConcurrentStableList[EngineRegistry] = ConcurrentStableList()
 """用例内构造的引擎注册表（用例结束统一 `aclose`，避免连接在事件循环关闭后被 GC）。"""
 
 
@@ -97,8 +97,9 @@ async def _close_open_engines() -> AsyncIterator[None]:
         None: 用例运行期。
     """
     yield
-    while _OPEN_ENGINES:
-        await _OPEN_ENGINES.pop().aclose()
+    for registry in list(_OPEN_ENGINES):
+        await registry.aclose()
+    _OPEN_ENGINES.clear()
 
 
 def _engines() -> EngineRegistry:
@@ -108,7 +109,7 @@ def _engines() -> EngineRegistry:
         EngineRegistry: 引擎注册表。
     """
     registry = EngineRegistry(EngineFactory(get_settings()))
-    _OPEN_ENGINES.append(registry)
+    _OPEN_ENGINES.add(registry)
     return registry
 
 
@@ -196,7 +197,7 @@ def _broken_engines() -> EngineRegistry:
     settings = get_settings().model_copy(deep=True)
     settings.database.tenants.url = "sqlite+aiosqlite:////nonexistent-dir/config_broken.db"
     registry = EngineRegistry(EngineFactory(settings))
-    _OPEN_ENGINES.append(registry)
+    _OPEN_ENGINES.add(registry)
     return registry
 
 

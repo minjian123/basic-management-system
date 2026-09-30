@@ -9,6 +9,7 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 
 from bms_core.api.errors import register_exception_handlers
 from bms_core.api.middleware import TenantMiddleware
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.config import Settings
 from bms_core.core.context import get_current_tenant
 from bms_core.core.exceptions import TenantNotFoundError, TenantSuspendedError
@@ -21,14 +22,16 @@ EXEMPT_PATH = "/healthz"
 class _Source:
     """内存租户源替身（按编码 / 域名命中；可选抛停用异常）。"""
 
-    def __init__(self, tenants: list[TenantContext], *, suspended: set[str] | None = None) -> None:
-        self.tenants = {tenant.code: tenant for tenant in tenants}
-        self.suspended = suspended or set()
-        self.calls: list[tuple[str, str]] = []
+    def __init__(
+        self, tenants: ConcurrentStableList[TenantContext], *, suspended: ConcurrentStableSet[str] | None = None
+    ) -> None:
+        self.tenants = ConcurrentStableDict({tenant.code: tenant for tenant in tenants})
+        self.suspended = suspended if suspended is not None else ConcurrentStableSet[str]()
+        self.calls: ConcurrentStableList[tuple[str, str]] = ConcurrentStableList()
 
     async def by_code(self, code: str) -> TenantContext:
         """按编码取租户（记账）。"""
-        self.calls.append(("code", code))
+        self.calls.add(("code", code))
         tenant = self.tenants.get(code)
         if tenant is None:
             raise TenantNotFoundError(f"未知租户：{code}")
@@ -38,7 +41,7 @@ class _Source:
 
     async def by_domain(self, domain: str) -> TenantContext:
         """按子域名取租户（记账）。"""
-        self.calls.append(("domain", domain))
+        self.calls.add(("domain", domain))
         for tenant in self.tenants.values():
             if tenant.domain == domain:
                 if tenant.code in self.suspended:
@@ -48,7 +51,7 @@ class _Source:
 
     async def by_id(self, tenant_id: str) -> TenantContext:
         """按租户主键（雪花 id 字符串）取租户（记账）。"""
-        self.calls.append(("id", tenant_id))
+        self.calls.add(("id", tenant_id))
         for tenant in self.tenants.values():
             if tenant.tenant_id is not None and str(tenant.tenant_id) == tenant_id:
                 if tenant.code in self.suspended:
@@ -68,6 +71,7 @@ def _app(source: _Source | None, *, allow_demo_fallback: bool = True) -> FastAPI
     app.add_middleware(TenantMiddleware)
 
     @app.get(API_PATH)
+    # bare-collections:allow（FastAPI 端点返回注解）
     async def who(request: Request) -> dict[str, str | None]:  # pyright: ignore[reportUnusedFunction]
         state = request.scope.get("state", {})
         tenant = state.get("tenant")
@@ -77,17 +81,20 @@ def _app(source: _Source | None, *, allow_demo_fallback: bool = True) -> FastAPI
         }
 
     @app.get(EXEMPT_PATH)
+    # bare-collections:allow（FastAPI 端点返回注解）
     async def health() -> dict[str, str | None]:  # pyright: ignore[reportUnusedFunction]
         return {"context": get_current_tenant()}
 
     return app
 
 
-async def _get(app: FastAPI, path: str, headers: dict[str, str] | None = None) -> tuple[int, dict[str, object]]:
+async def _get(
+    app: FastAPI, path: str, headers: ConcurrentStableDict[str, str] | None = None
+) -> tuple[int, ConcurrentStableDict[str, object]]:
     """经 ASGI 内存客户端发起 GET，返回（状态码, JSON）。"""
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        response = await client.get(path, headers=headers or {})
-        return response.status_code, response.json()
+        response = await client.get(path, headers=dict(headers) if headers else {})
+        return response.status_code, ConcurrentStableDict(response.json())
 
 
 @pytest.mark.kiwi_id(1019)
@@ -95,17 +102,19 @@ async def test_chain_priority_and_context() -> None:
     """链优先级（子域名 → 请求头 → token 位）与请求态 / 上下文注入、请求结束复位。"""
     demo = TenantContext(code="demo", db_key="tenant_demo", name="演示租户", domain="demo.bms.example.com")
     acme = TenantContext(code="acme", db_key="tenant_acme", name="示例租户", domain="acme.bms.example.com")
-    source = _Source([demo, acme])
+    source = _Source(ConcurrentStableList([demo, acme]))
     app = _app(source)
 
     status, body = await _get(app, API_PATH)
     assert status == 200
     assert body == {"state": "demo", "context": "demo"}  # 无来源回落演示租户
 
-    status, body = await _get(app, API_PATH, {"X-Tenant-ID": "acme"})
+    status, body = await _get(app, API_PATH, ConcurrentStableDict({"X-Tenant-ID": "acme"}))
     assert (status, body) == (200, {"state": "acme", "context": "acme"})
 
-    status, body = await _get(app, API_PATH, {"Host": "demo.bms.example.com", "X-Tenant-ID": "acme"})
+    status, body = await _get(
+        app, API_PATH, ConcurrentStableDict({"Host": "demo.bms.example.com", "X-Tenant-ID": "acme"})
+    )
     assert (status, body) == (200, {"state": "demo", "context": "demo"})
     assert source.calls[-1] == ("domain", "demo.bms.example.com")
 
@@ -116,7 +125,7 @@ async def test_chain_priority_and_context() -> None:
 async def test_token_tenant_scope_state() -> None:
     """token 租户位读请求态（认证阶段写入雪花 id 即生效；配合外层中间件预置）。"""
     acme = TenantContext(code="acme", db_key="tenant_acme", name="示例租户", tenant_id=2002)
-    source = _Source([acme])
+    source = _Source(ConcurrentStableList([acme]))
 
     class _AuthStub:
         """外层认证替身：写入请求态 token 租户位（雪花 id 字符串）。"""
@@ -140,14 +149,14 @@ async def test_token_tenant_scope_state() -> None:
 async def test_unknown_and_suspended_rejected() -> None:
     """未知租户就地 404 / 80001；停用租户就地 403 / 80002（不进入下游）。"""
     acme = TenantContext(code="acme", db_key="tenant_acme", name="示例租户")
-    source = _Source([acme], suspended={"acme"})
+    source = _Source(ConcurrentStableList([acme]), suspended=ConcurrentStableSet({"acme"}))
     app = _app(source)
 
-    status, body = await _get(app, API_PATH, {"X-Tenant-ID": "nope"})
+    status, body = await _get(app, API_PATH, ConcurrentStableDict({"X-Tenant-ID": "nope"}))
     assert status == 404
     assert body["code"] == 80001
 
-    status, body = await _get(app, API_PATH, {"X-Tenant-ID": "acme"})
+    status, body = await _get(app, API_PATH, ConcurrentStableDict({"X-Tenant-ID": "acme"}))
     assert status == 403
     assert body["code"] == 80002
     assert get_current_tenant() is None
@@ -156,7 +165,7 @@ async def test_unknown_and_suspended_rejected() -> None:
 @pytest.mark.kiwi_id(1019)
 async def test_exempt_path_skips_resolution() -> None:
     """豁免路径不解析、不设置上下文。"""
-    source = _Source([])
+    source = _Source(ConcurrentStableList())
     app = _app(source)
     status, body = await _get(app, EXEMPT_PATH)
     assert (status, body) == (200, {"context": None})
@@ -170,15 +179,15 @@ async def test_exempt_path_skips_resolution() -> None:
 @pytest.mark.kiwi_id(1019)
 async def test_no_fallback_and_no_source() -> None:
     """prod 口径（关闭回落）无来源拒绝；租户源未装配时未知租户拒绝、demo 兜底。"""
-    app = _app(_Source([]), allow_demo_fallback=False)
+    app = _app(_Source(ConcurrentStableList()), allow_demo_fallback=False)
     status, body = await _get(app, API_PATH)
     assert status == 404
     assert body["code"] == 80001
 
     bare = _app(None)
-    status, body = await _get(bare, API_PATH, {"X-Tenant-ID": "demo"})
+    status, body = await _get(bare, API_PATH, ConcurrentStableDict({"X-Tenant-ID": "demo"}))
     assert (status, body) == (200, {"state": "demo", "context": "demo"})
-    status, _ = await _get(bare, API_PATH, {"X-Tenant-ID": "nope"})
+    status, _ = await _get(bare, API_PATH, ConcurrentStableDict({"X-Tenant-ID": "nope"}))
     assert status == 404
 
 
@@ -186,9 +195,10 @@ async def test_no_fallback_and_no_source() -> None:
 async def test_tenant_dependency_reads_state() -> None:
     """`get_tenant` 依赖读请求态（中间件解析结果），豁免路径返回 None。"""
     demo = TenantContext(code="demo", db_key="tenant_demo", name="演示租户")
-    app = _app(_Source([demo]))
+    app = _app(_Source(ConcurrentStableList([demo])))
 
     @app.get("/dep")
+    # bare-collections:allow（FastAPI 端点返回注解）
     async def dep(tenant: Annotated[TenantContext | None, Depends(get_tenant)]) -> dict[str, str | None]:  # pyright: ignore[reportUnusedFunction]
         return {"code": tenant.code if tenant else None}
 
@@ -203,9 +213,10 @@ async def test_tenant_dependency_without_middleware() -> None:
     app = FastAPI()
     register_exception_handlers(app)
     app.state.settings = Settings()
-    app.state.tenant_source = _Source([demo])
+    app.state.tenant_source = _Source(ConcurrentStableList([demo]))
 
     @app.get("/dep")
+    # bare-collections:allow（FastAPI 端点返回注解）
     async def dep(tenant: Annotated[TenantContext | None, Depends(get_tenant)]) -> dict[str, str | None]:  # pyright: ignore[reportUnusedFunction]
         return {"code": tenant.code if tenant else None}
 
@@ -216,6 +227,7 @@ async def test_tenant_dependency_without_middleware() -> None:
     register_exception_handlers(bare)
 
     @bare.get("/dep")
+    # bare-collections:allow（FastAPI 端点返回注解）
     async def bare_dep(tenant: Annotated[TenantContext | None, Depends(get_tenant)]) -> dict[str, str | None]:  # pyright: ignore[reportUnusedFunction]
         return {"code": tenant.code if tenant else None}
 
@@ -226,10 +238,10 @@ async def test_tenant_dependency_without_middleware() -> None:
 @pytest.mark.kiwi_id(1019)
 async def test_non_http_passthrough() -> None:
     """非 HTTP 作用域直通（lifespan 等不解析租户）。"""
-    calls: list[str] = []
+    calls: ConcurrentStableList[str] = ConcurrentStableList()
 
     async def _downstream(scope: Scope, receive: Receive, send: Send) -> None:
-        calls.append(str(scope["type"]))
+        calls.add(str(scope["type"]))
 
     middleware = TenantMiddleware(_downstream)
     scope: Scope = {"type": "lifespan"}

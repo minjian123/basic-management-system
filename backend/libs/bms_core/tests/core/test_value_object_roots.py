@@ -16,7 +16,7 @@
 import ast
 import dataclasses
 import json
-from collections.abc import Iterator, Sequence
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
@@ -28,6 +28,7 @@ from bms_core.boundary.exceptions import OwnershipException
 from bms_core.captcha.base import CaptchaChallenge, CaptchaCredential
 from bms_core.captcha.default import CaptchaImageOptions, CaptchaSliderOptions, CaptchaSmsOptions
 from bms_core.chat.base import ChatStreamHandle
+from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.objects import (
     BaseAuthorizeUrlResultContract,
     BaseCaptchaContract,
@@ -323,7 +324,7 @@ def _direct_base_object_inheritors() -> Iterator[tuple[str, str]]:
                 yield rel, node.name
 
 
-def _class_bases(rel: str, name: str) -> Sequence[str]:
+def _class_bases(rel: str, name: str) -> ConcurrentStableList[str]:
     """取指定类声明的父类名列表（源码内 `class X(...)` 的括号内容）。
 
     Args:
@@ -331,41 +332,43 @@ def _class_bases(rel: str, name: str) -> Sequence[str]:
         name: 类名。
 
     Returns:
-        Sequence[str]: 父类名（按声明顺序）；未找到该类时为空。
+        ConcurrentStableList[str]: 父类名（按声明顺序）；未找到该类时为空。
     """
     tree = ast.parse((_ROOT / rel).read_text(encoding="utf-8"))
     for node in ast.walk(tree):
         if isinstance(node, ast.ClassDef) and node.name == name:
-            return [ast.unparse(base) for base in node.bases]
-    return []
+            return ConcurrentStableList(ast.unparse(base) for base in node.bases)
+    return ConcurrentStableList()
 
 
-def _baseline_entries() -> Sequence[tuple[str, str, str]]:
+def _baseline_entries() -> ConcurrentStableList[tuple[str, str, str]]:
     """读取直继承存量基线快照（`(文件, 类名, 拟归位体系)`）。
 
     Returns:
-        Sequence[tuple[str, str, str]]: 基线条目。
+        ConcurrentStableList[tuple[str, str, str]]: 基线条目。
     """
     payload = json.loads(_BASELINE.read_text(encoding="utf-8"))
-    return [(str(entry["file"]), str(entry["class"]), str(entry["target_system"])) for entry in payload["entries"]]
+    return ConcurrentStableList(
+        (str(entry["file"]), str(entry["class"]), str(entry["target_system"])) for entry in payload["entries"]
+    )
 
 
-def _manifest_system_roots() -> Sequence[str]:
+def _manifest_system_roots() -> ConcurrentStableList[str]:
     """解析《后端基类清单》§10「体系根清单」小节的体系根（护栏白名单权威来源）。
 
     Returns:
-        Sequence[str]: 体系根类名（稳定序）。
+        ConcurrentStableList[str]: 体系根类名（稳定序）。
     """
     text = _MANIFEST.read_text(encoding="utf-8")
     section = text[text.index("## 10.") : text.index("## 11.")]
-    roots: list[str] = []
+    roots: ConcurrentStableList[str] = ConcurrentStableList()
     for raw_line in section[section.index(_ROOT_BASES_MARKER) :].splitlines()[1:]:
         line = raw_line.strip()
         if not line:
             continue
         if not line.startswith("- "):
             break
-        roots.append(line.split("`")[1])
+        roots.add(line.split("`")[1])
     return roots
 
 
@@ -379,11 +382,11 @@ def test_value_object_batch_is_frozen_and_complete() -> None:
 @pytest.mark.kiwi_id(2216)
 def test_value_object_batch_declares_value_object_base() -> None:
     """归位完整性：批次 109 处均声明**单一**值对象体系父基类（体系根或已落地角色链层）。"""
-    offenders: list[str] = []
+    offenders: ConcurrentStableList[str] = ConcurrentStableList()
     for rel, name in VALUE_OBJECT_BATCH:
         bases = _class_bases(rel, name)
         if len(bases) != 1 or bases[0] not in VALUE_OBJECT_BASES:
-            offenders.append(f"{rel}::{name} → {bases}")
+            offenders.add(f"{rel}::{name} → {bases}")
     assert not offenders, "批次 1 值对象须挂值对象体系（体系根或角色链层）；违规：\n" + "\n".join(offenders)
 
 
@@ -408,28 +411,28 @@ def test_options_chain_layer_contract() -> None:
 @pytest.mark.kiwi_id(2216)
 def test_role_chain_members_inherit_their_layer() -> None:
     """角色链台账：层内成员全部继承本层，且层均在值对象体系根之下。"""
-    offenders: list[str] = []
+    offenders: ConcurrentStableList[str] = ConcurrentStableList()
     for layer, members in ROLE_CHAINS:
         assert issubclass(layer, BaseValueObject)
         for member in members:
             if not issubclass(member, layer):
-                offenders.append(f"{member.__name__} 未挂 {layer.__name__}")
+                offenders.add(f"{member.__name__} 未挂 {layer.__name__}")
     assert not offenders, "角色链成员与层不一致：\n" + "\n".join(offenders)
 
 
 @pytest.mark.kiwi_id(2216)
 def test_role_chain_common_fields_hold_on_all_members() -> None:
     """公共段完整性：每层声明的公共段（沿 MRO 累加）都是**全部**成员的 dataclass 字段。"""
-    offenders: list[str] = []
+    offenders: ConcurrentStableList[str] = ConcurrentStableList()
     for layer, members in ROLE_CHAINS:
-        common: set[str] = set()
+        common: ConcurrentStableSet[str] = ConcurrentStableSet()
         for ancestor in layer.__mro__:
             declared: tuple[str, ...] = getattr(ancestor, "COMMON_FIELDS", ())
             common.update(declared)
         for member in members:
             missing = common - {field.name for field in dataclasses.fields(member)}
             if missing:
-                offenders.append(f"{member.__name__} 缺 {layer.__name__} 公共段：{sorted(missing)}")
+                offenders.add(f"{member.__name__} 缺 {layer.__name__} 公共段：{sorted(missing)}")
     assert not offenders, "层公共段在成员上不成立：\n" + "\n".join(offenders)
 
 

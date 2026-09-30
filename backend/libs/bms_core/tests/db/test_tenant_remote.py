@@ -5,6 +5,7 @@ import json
 import pytest
 
 from bms_core.cache.memory import MemoryCacheRegion
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.exceptions import ServiceUnavailableError, TenantNotFoundError, TenantSuspendedError
 from bms_core.db.tenant_registry import snapshot_cache_key
 from bms_core.db.tenant_remote import TENANT_REGISTRY_PATH, RemoteTenantSource, register_remote_tenant_source
@@ -17,42 +18,44 @@ class _StubClient(BaseServiceClient):
 
     plugin_name: str = "stub"
 
-    def __init__(self, responses: list[ServiceResponse | Exception]) -> None:
+    def __init__(self, responses: ConcurrentStableList[ServiceResponse | Exception]) -> None:
         """初始化预设响应序列。"""
         super().__init__()
-        self.responses = responses
-        self.calls: list[ServiceRequest] = []
+        self.responses = list(responses)
+        self.calls: ConcurrentStableList[ServiceRequest] = ConcurrentStableList()
 
     async def call(self, request: ServiceRequest) -> ServiceResponse:
         """返回预设响应（异常项直接抛出）。"""
-        self.calls.append(request)
+        self.calls.add(request)
         item = self.responses.pop(0)
         if isinstance(item, Exception):
             raise item
         return item
 
 
-def _ok(payload: dict[str, object], status_code: int = 200) -> ServiceResponse:
+def _ok(payload: ConcurrentStableDict[str, object], status_code: int = 200) -> ServiceResponse:
     """构造统一响应包裹的成功响应。"""
-    body = json.dumps({"code": 0, "message": "ok", "data": payload}).encode("utf-8")
+    body = json.dumps({"code": 0, "message": "ok", "data": dict(payload)}).encode("utf-8")
     return ServiceResponse(status_code=status_code, content=body)
 
 
 def _client(*items: ServiceResponse | Exception) -> _StubClient:
     """构造带预设响应的客户端替身。"""
-    return _StubClient(responses=list(items))
+    return _StubClient(responses=ConcurrentStableList(items))
 
 
-def _payload(code: str = "demo", *, status: str = "active") -> dict[str, object]:
+def _payload(code: str = "demo", *, status: str = "active") -> ConcurrentStableDict[str, object]:
     """构造租户注册载荷。"""
-    return {
-        "code": code,
-        "name": f"{code} 租户",
-        "domain": f"{code}.bms.example.com",
-        "status": status,
-        "expire_at": None,
-        "tenant_id": 7,
-    }
+    return ConcurrentStableDict(
+        {
+            "code": code,
+            "name": f"{code} 租户",
+            "domain": f"{code}.bms.example.com",
+            "status": status,
+            "expire_at": None,
+            "tenant_id": 7,
+        }
+    )
 
 
 @pytest.mark.kiwi_id(2176)
@@ -75,10 +78,10 @@ async def test_remote_source_fetches_and_maps_context() -> None:
 @pytest.mark.kiwi_id(2176)
 async def test_remote_source_failure_branches() -> None:
     """失败分支：未知 404 / 停用 403（先强制回收引擎）/ 响应非法 / 契约不可达（无兜底即抛）。"""
-    released: list[str] = []
+    released: ConcurrentStableList[str] = ConcurrentStableList()
 
     async def _release(code: str) -> None:
-        released.append(code)
+        released.add(code)
 
     source = RemoteTenantSource(
         client=_client(ServiceResponse(status_code=404), ServiceResponse(status_code=403)),

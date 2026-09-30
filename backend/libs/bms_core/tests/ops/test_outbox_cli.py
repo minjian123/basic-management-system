@@ -12,6 +12,7 @@ import pytest
 from sqlalchemy import Table, select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import get_settings
 from bms_core.db.engine import PLATFORM_DB_KEY
 from bms_core.events.base import EventEnvelope
@@ -21,11 +22,13 @@ from bms_core.outbox.base import OUTBOX_STATUS_DELIVERED, OUTBOX_STATUS_PENDING
 from bms_core.outbox.store import SqlOutboxStore
 from ops.outbox import main
 
-_TABLES: list[Table] = [
-    cast("Table", SysOutbox.__table__),
-    cast("Table", SysEventConsumed.__table__),
-    cast("Table", SysEventDeadLetter.__table__),
-]
+_TABLES: ConcurrentStableList[Table] = ConcurrentStableList(
+    [
+        cast("Table", SysOutbox.__table__),
+        cast("Table", SysEventConsumed.__table__),
+        cast("Table", SysEventDeadLetter.__table__),
+    ]
+)
 
 
 def _run[T](coro: Coroutine[Any, Any, T]) -> T:
@@ -37,7 +40,7 @@ async def _create_tables(url: str) -> None:
     """建发件箱三表。"""
     engine = create_async_engine(url)
     async with engine.begin() as connection:
-        await connection.run_sync(lambda conn: Base.metadata.create_all(conn, tables=_TABLES))
+        await connection.run_sync(lambda conn: Base.metadata.create_all(conn, tables=list(_TABLES)))
     await engine.dispose()
 
 
@@ -61,14 +64,14 @@ async def _seed(url: str, *, delivered: bool) -> str:
     return event_id
 
 
-async def _status(url: str) -> list[str]:
+async def _status(url: str) -> ConcurrentStableList[str]:
     """读取发件箱全部状态。"""
     engine = create_async_engine(url)
     maker = async_sessionmaker(engine, expire_on_commit=False)
     async with maker() as session:
         rows = (await session.execute(select(SysOutbox.status))).scalars().all()
     await engine.dispose()
-    return list(rows)
+    return ConcurrentStableList(rows)
 
 
 def _point_to(url: str, monkeypatch: pytest.MonkeyPatch) -> None:

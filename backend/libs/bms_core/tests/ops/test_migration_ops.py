@@ -8,6 +8,7 @@ import pytest
 import ops.db_admin as db_admin
 import ops.init_tenant as init_tenant
 import ops.migrate_tenants as migrate_tenants
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import get_settings
 
 
@@ -27,18 +28,18 @@ def _prepare(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     get_settings().app.service = "platform"
 
 
-def _revisions(path: Path) -> list[str]:
+def _revisions(path: Path) -> ConcurrentStableList[str]:
     """取库文件 `alembic_version` 版本列表。
 
     Args:
         path: 库文件路径。
 
     Returns:
-        list[str]: 版本号列表。
+        ConcurrentStableList[str]: 版本号列表。
     """
     connection = sqlite3.connect(path)
     try:
-        return [row[0] for row in connection.execute("SELECT version_num FROM alembic_version")]
+        return ConcurrentStableList(row[0] for row in connection.execute("SELECT version_num FROM alembic_version"))
     finally:
         connection.close()
 

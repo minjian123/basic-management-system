@@ -9,7 +9,6 @@ import ast
 import dataclasses
 import inspect
 import json
-from collections.abc import Sequence
 from pathlib import Path
 
 import pytest
@@ -23,6 +22,7 @@ from bms_core.api.middleware import (
     TraceIdMiddleware,
 )
 from bms_core.audit.base import FieldChange
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.exceptions import BizError
 from bms_core.core.holder import ValueHolder
 from bms_core.core.objects import BaseFrameworkObject
@@ -136,7 +136,7 @@ BASELINE_REMAINING = 0
 0 ＝ 需求 09-1 验收目标「除体系根外零直继承」达成。"""
 
 
-def _class_bases(rel: str, name: str) -> Sequence[str]:
+def _class_bases(rel: str, name: str) -> ConcurrentStableList[str]:
     """取指定类声明的父类名列表（源码内 `class X(...)` 的括号内容）。
 
     Args:
@@ -144,36 +144,38 @@ def _class_bases(rel: str, name: str) -> Sequence[str]:
         name: 类名。
 
     Returns:
-        Sequence[str]: 父类名（按声明顺序）；未找到该类时为空。
+        ConcurrentStableList[str]: 父类名（按声明顺序）；未找到该类时为空。
     """
     tree = ast.parse((_ROOT / rel).read_text(encoding="utf-8"))
     for node in ast.walk(tree):
         if isinstance(node, ast.ClassDef) and node.name == name:
             # 去泛型参数：`BaseAsyncSorted[tuple[KeyT, ValueT]]` → `BaseAsyncSorted`
-            return [ast.unparse(base).split("[")[0] for base in node.bases]
-    return []
+            return ConcurrentStableList(ast.unparse(base).split("[")[0] for base in node.bases)
+    return ConcurrentStableList()
 
 
-def _baseline_entries() -> Sequence[tuple[str, str, str]]:
+def _baseline_entries() -> ConcurrentStableList[tuple[str, str, str]]:
     """读取直继承存量基线快照（`(文件, 类名, 拟归位体系)`）。
 
     Returns:
-        Sequence[tuple[str, str, str]]: 基线条目。
+        ConcurrentStableList[tuple[str, str, str]]: 基线条目。
     """
     payload = json.loads(_BASELINE.read_text(encoding="utf-8"))
-    return [(str(entry["file"]), str(entry["class"]), str(entry["target_system"])) for entry in payload["entries"]]
+    return ConcurrentStableList(
+        (str(entry["file"]), str(entry["class"]), str(entry["target_system"])) for entry in payload["entries"]
+    )
 
 
 @pytest.mark.kiwi_id(2217)
 def test_object_batch_declares_expected_base() -> None:
     """归位完整性：台账条目均声明**单一**目标父基类（体系根 / 能力域基类），且不再直继承 `BaseObject`。"""
-    offenders: list[str] = []
+    offenders: ConcurrentStableList[str] = ConcurrentStableList()
     for rel, name, expected in OBJECT_BATCH:
         bases = _class_bases(rel, name)
         # 归位目标须在首位；除 `Exception`（`BizError` 多父类特例）外不允许其它父类。
         extra = set(bases[1:]) - {"Exception"}
         if bases[:1] != [expected] or extra or expected not in OBJECT_BASES:
-            offenders.append(f"{rel}::{name} → {bases}（期望 {expected}）")
+            offenders.add(f"{rel}::{name} → {bases}（期望 {expected}）")
     assert not offenders, "台账条目须挂目标体系根 / 能力域基类；违规：\n" + "\n".join(offenders)
 
 
@@ -223,9 +225,9 @@ def test_value_holder_moved_to_own_module() -> None:
 @pytest.mark.kiwi_id(2217)
 def test_data_contract_batch_is_mutable_dataclass() -> None:
     """数据类体系语义：`BaseDataContract` 归位项为**可变** dataclass（非 frozen）。"""
-    offenders: list[str] = []
+    offenders: ConcurrentStableList[str] = ConcurrentStableList()
     for cls in (FieldChange, EventEnvelope, ShardBinding):
         params = getattr(cls, "__dataclass_params__", None)
         if not dataclasses.is_dataclass(cls) or params is None or params.frozen:
-            offenders.append(cls.__name__)
+            offenders.add(cls.__name__)
     assert not offenders, "数据契约体系成员须为可变 dataclass（非 frozen）：\n" + "\n".join(offenders)

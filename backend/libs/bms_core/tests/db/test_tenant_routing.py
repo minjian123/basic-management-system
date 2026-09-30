@@ -11,7 +11,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from bms_core.api.middleware import TenantMiddleware
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.core.context import (
     reset_current_tenant,
@@ -30,8 +30,8 @@ from bms_core.repositories.base_memory_repository import BaseMemoryRepository
 class _Source:
     """内存租户源替身（单演示租户）。"""
 
-    def __init__(self, tenants: list[TenantContext]) -> None:
-        self.tenants = {tenant.code: tenant for tenant in tenants}
+    def __init__(self, tenants: ConcurrentStableList[TenantContext]) -> None:
+        self.tenants = ConcurrentStableDict({tenant.code: tenant for tenant in tenants})
 
     async def by_code(self, code: str) -> TenantContext:
         """按编码取租户。"""
@@ -92,7 +92,7 @@ async def test_session_routes_by_tenant_db_key(tmp_path: Path) -> None:
     settings.tenant.allow_demo_fallback = False
     settings.tenant.exempt_paths = ["/platform-db"]
     registry = EngineRegistry(EngineFactory(settings))
-    source = _Source([TenantContext(code="demo", db_key="tenant_demo", name="演示租户")])
+    source = _Source(ConcurrentStableList([TenantContext(code="demo", db_key="tenant_demo", name="演示租户")]))
 
     app = FastAPI()
     app.state.settings = settings
@@ -105,24 +105,29 @@ async def test_session_routes_by_tenant_db_key(tmp_path: Path) -> None:
         return str(cast("AsyncEngine", session.bind).url).rsplit("/", 1)[-1]
 
     @app.get("/api/v1/db")
+    # bare-collections:allow（FastAPI 端点返回注解）
     async def db(session: Annotated[AsyncSession, Depends(get_db)]) -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]
         return {"bind": _bind_name(session)}
 
     @app.get("/api/v1/read")
+    # bare-collections:allow（FastAPI 端点返回注解）
     async def read(session: Annotated[AsyncSession, Depends(get_read_db)]) -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]
         return {"bind": _bind_name(session)}
 
     @app.get("/api/v1/write")
+    # bare-collections:allow（FastAPI 端点返回注解）
     async def write(session: Annotated[AsyncSession, Depends(get_write_db)]) -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]
         return {"bind": _bind_name(session)}
 
     @app.get("/api/v1/uow")
+    # bare-collections:allow（FastAPI 端点返回注解）
     async def uow(unit: Annotated[object, Depends(get_uow)]) -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]
         session = cast("AsyncSession | None", getattr(unit, "session", None))
         assert session is not None
         return {"bind": _bind_name(session)}
 
     @app.get("/platform-db")
+    # bare-collections:allow（FastAPI 端点返回注解）
     async def platform(session: Annotated[AsyncSession, Depends(get_db)]) -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]
         return {"bind": _bind_name(session)}
 

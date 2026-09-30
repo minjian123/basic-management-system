@@ -90,10 +90,12 @@ async def test_session_factory_and_get_db_dependency() -> None:
     app.state.engine_registry = registry
 
     @app.get("/db")
+    # bare-collections:allow（FastAPI 端点返回注解）
     async def read(session: Annotated[AsyncSession, Depends(get_db)]) -> dict[str, int]:  # pyright: ignore[reportUnusedFunction]
         return {"value": (await session.execute(text("SELECT 1"))).scalar() or 0}
 
     @app.get("/uow")
+    # bare-collections:allow（FastAPI 端点返回注解）
     async def read_uow(uow: Annotated[DbUnitOfWork, Depends(get_uow)]) -> dict[str, bool]:  # pyright: ignore[reportUnusedFunction]
         return {"has_session": uow.session is not None}  # pyright: ignore[reportUnnecessaryComparison]
 

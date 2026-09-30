@@ -14,6 +14,7 @@ from typing import Any, cast
 import pytest
 import yaml
 
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.db.migration import BACKEND_ROOT
 from bms_core.services.module_registry import enabled_service_keys
 
@@ -24,30 +25,30 @@ _IMAGE_SWITCH = _REPO / "deploy" / "ci" / "verify" / "image"
 _DOCKERFILE = BACKEND_ROOT / "Dockerfile"
 
 
-def _load(path: Path) -> dict[str, Any]:
+def _load(path: Path) -> ConcurrentStableDict[str, Any]:
     """读取 YAML 配置。
 
     Args:
         path: 配置文件路径。
 
     Returns:
-        dict[str, Any]: 解析结果。
+        ConcurrentStableDict[str, Any]: 解析结果。
     """
     parsed = yaml.safe_load(path.read_text(encoding="utf-8"))
     assert isinstance(parsed, dict)
-    return cast("dict[str, Any]", parsed)
+    return ConcurrentStableDict(cast("dict[str, Any]", parsed))
 
 
-def _trigger_jobs(ci: dict[str, Any]) -> dict[str, dict[str, Any]]:
+def _trigger_jobs(ci: ConcurrentStableDict[str, Any]) -> ConcurrentStableDict[str, ConcurrentStableDict[str, Any]]:
     """取父流水线 trigger 调度 job（stage = trigger 且含 trigger 关键字；排除 `.` 前缀隐藏模板）。
 
     Args:
         ci: `.gitlab-ci.yml` 解析结果。
 
     Returns:
-        dict[str, dict[str, Any]]: job 名 → job 定义。
+        ConcurrentStableDict[str, ConcurrentStableDict[str, Any]]: job 名 → job 定义。
     """
-    jobs: dict[str, dict[str, Any]] = {}
+    jobs: ConcurrentStableDict[str, ConcurrentStableDict[str, Any]] = ConcurrentStableDict()
     for name, job in ci.items():
         if name.startswith("."):
             continue
@@ -55,27 +56,27 @@ def _trigger_jobs(ci: dict[str, Any]) -> dict[str, dict[str, Any]]:
         if job_map is None:
             continue
         if job_map.get("stage") == "trigger" and "trigger" in job_map:
-            jobs[name] = job_map
+            jobs.set(name, ConcurrentStableDict(job_map))
     return jobs
 
 
-def _rule_paths(rules: list[dict[str, Any]]) -> list[str]:
+def _rule_paths(rules: ConcurrentStableList[ConcurrentStableDict[str, Any]]) -> ConcurrentStableList[str]:
     """收集 rules 中全部 changes.paths（含 compare_to 兜底规则）。
 
     Args:
         rules: job 的 rules 列表。
 
     Returns:
-        list[str]: 路径模式列表。
+        ConcurrentStableList[str]: 路径模式列表。
     """
-    paths: list[str] = []
+    paths: ConcurrentStableList[str] = ConcurrentStableList()
     for rule in rules:
         changes = rule.get("changes")
         if not isinstance(changes, dict):
             continue
         raw_paths = cast("dict[str, Any]", changes).get("paths")
         if isinstance(raw_paths, list):
-            paths.extend(str(item) for item in cast("list[Any]", raw_paths))
+            paths.update(str(item) for item in cast("list[Any]", raw_paths))
     return paths
 
 
@@ -91,7 +92,7 @@ def test_trigger_jobs_cover_enabled_services() -> None:
         trigger = job["trigger"]
         assert trigger["include"] == [{"local": "deploy/ci/templates/backend-service.yml"}]
         assert trigger["strategy"] == "depend"
-        paths = _rule_paths(job["rules"])
+        paths = _rule_paths(ConcurrentStableList(ConcurrentStableDict(rule) for rule in job["rules"]))
         assert f"backend/services/{service}/**/*" in paths
         assert any(rule.get("if") == '$CI_PIPELINE_SOURCE == "merge_request_event"' for rule in job["rules"])
         assert any("compare_to" in (rule.get("changes") or {}) for rule in job["rules"])
@@ -101,7 +102,7 @@ def test_trigger_jobs_cover_enabled_services() -> None:
 def test_parent_backend_test_rules_are_shared_paths_only() -> None:
     """全量测试只守共享 / 工作区路径；单体镜像 job 已移除；trigger 阶段已入 stages。"""
     ci = _load(_CI_PATH)
-    paths = _rule_paths(ci["backend-test"]["rules"])
+    paths = _rule_paths(ConcurrentStableList(ConcurrentStableDict(rule) for rule in ci["backend-test"]["rules"]))
     assert {"backend/libs/**/*", "backend/ops/**/*", "deploy/**/*", ".gitlab-ci.yml"} <= set(paths)
     assert not any(path.startswith("backend/services") for path in paths)
     assert "backend-image" not in ci

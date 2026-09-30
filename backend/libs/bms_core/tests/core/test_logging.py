@@ -7,6 +7,7 @@ from typing import Literal
 import pytest
 
 from bms_core.core.base import BaseObject
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import LogSettings, Settings
 from bms_core.core.context import (
     current_user_id,
@@ -23,9 +24,11 @@ def _settings(fmt: Literal["console", "json"], *, level: str = "INFO", slow_ms: 
     return Settings(log=LogSettings(level=level, format=fmt, slow_request_ms=slow_ms))
 
 
-def _records(capsys: pytest.CaptureFixture[str]) -> list[dict[str, object]]:
+def _records(capsys: pytest.CaptureFixture[str]) -> ConcurrentStableList[ConcurrentStableDict[str, object]]:
     """读取 stdout 并按 JSON 行解析（忽略空行）。"""
-    return [json.loads(line) for line in capsys.readouterr().out.splitlines() if line.strip()]
+    return ConcurrentStableList(
+        ConcurrentStableDict(json.loads(line)) for line in capsys.readouterr().out.splitlines() if line.strip()
+    )
 
 
 @pytest.mark.kiwi_id(34)
@@ -197,7 +200,7 @@ def test_redaction_depth_limit_keeps_value() -> None:
     """超深嵌套（达到限深）原样返回，避免递归放大。"""
     from bms_core.core.logging import _MAX_REDACT_DEPTH, _redact_value  # pyright: ignore[reportPrivateUsage]
 
-    payload: dict[str, object] = {"inner": "postgresql://u:p@h/db"}
+    payload: ConcurrentStableDict[str, object] = ConcurrentStableDict({"inner": "postgresql://u:p@h/db"})
     assert _redact_value(payload, depth=_MAX_REDACT_DEPTH) is payload
 
 

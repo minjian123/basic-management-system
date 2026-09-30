@@ -17,6 +17,7 @@ from typing import Any, cast
 import pytest
 import yaml
 
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.db.migration import BACKEND_ROOT
 from bms_core.services.module_registry import enabled_service_keys
 from bms_core.services.service_contract import BASELINE_DIR, contract_file_name, enabled_service_records
@@ -39,26 +40,26 @@ def _first_service() -> str:
     return str(enabled_service_keys()[0])
 
 
-def _rules(job: dict[str, Any]) -> list[dict[str, Any]]:
+def _rules(job: ConcurrentStableDict[str, Any]) -> ConcurrentStableList[ConcurrentStableDict[str, Any]]:
     """取 job 的 rules 列表。"""
-    return cast("list[dict[str, Any]]", job["rules"])
+    return ConcurrentStableList(ConcurrentStableDict(rule) for rule in cast("list[dict[str, Any]]", job["rules"]))
 
 
-def _change_paths(job: dict[str, Any]) -> list[str]:
+def _change_paths(job: ConcurrentStableDict[str, Any]) -> ConcurrentStableList[str]:
     """收集 job 规则中的 `changes.paths`（兼容 dict 与 `[{paths: [...]}]` 两种写法）。"""
-    paths: list[str] = []
+    paths: ConcurrentStableList[str] = ConcurrentStableList()
     for rule in _rules(job):
         changes = rule.get("changes")
         if isinstance(changes, dict):
             raw = cast("dict[str, Any]", changes).get("paths")
             if isinstance(raw, list):
-                paths.extend(str(item) for item in cast("list[object]", raw))
+                paths.update(str(item) for item in cast("list[object]", raw))
         elif isinstance(changes, list):
             for entry in cast("list[object]", changes):
                 if isinstance(entry, dict):
                     raw = cast("dict[str, Any]", entry).get("paths")
                     if isinstance(raw, list):
-                        paths.extend(str(item) for item in cast("list[object]", raw))
+                        paths.update(str(item) for item in cast("list[object]", raw))
     return paths
 
 
@@ -145,10 +146,10 @@ def test_oasdiff_args_and_docker_diff_sequence() -> None:
         "/base.json",
         "/cur.json",
     ]
-    calls: list[list[str]] = []
+    calls: ConcurrentStableList[ConcurrentStableList[str]] = ConcurrentStableList()
 
     def fake_run(command: Any) -> subprocess.CompletedProcess[str]:
-        calls.append(list(command))
+        calls.add(ConcurrentStableList(command))
         if "start" in command:
             return _completed(command, 1, '[{"level": 3}]', "")
         return _completed(command, 0)
@@ -189,10 +190,10 @@ def test_push_metrics_swallows_url_error(tmp_path: Path, monkeypatch: pytest.Mon
 @pytest.mark.kiwi_id(2186)
 def test_ci_contract_jobs_and_switch() -> None:
     """CI 契约门禁：contract-gate 与按服务 9 个冒烟 job 均为阻断 job（仅变更服务）。"""
-    ci = cast("dict[str, Any]", yaml.safe_load(_CI.read_text(encoding="utf-8")))
+    ci = ConcurrentStableDict(cast("dict[str, Any]", yaml.safe_load(_CI.read_text(encoding="utf-8"))))
     assert _SWITCH.is_file()
 
-    gate = cast("dict[str, Any]", ci["contract-gate"])
+    gate = ConcurrentStableDict(cast("dict[str, Any]", ci["contract-gate"]))
     assert gate["stage"] == "verify"
     assert "ci-backend" in str(gate["image"])
     assert ["deploy/ci/verify/contract-gate"] in [
@@ -205,7 +206,11 @@ def test_ci_contract_jobs_and_switch() -> None:
     assert "allow_failure" not in gate
 
     # 按服务冒烟：job 集合 == 启用服务；仅本服务路径变更时运行；用已构建镜像；阻断（06_04 起）
-    smoke_jobs = {name: cast("dict[str, Any]", ci[name]) for name in ci if name.startswith("contract-smoke-")}
+    smoke_jobs = {
+        name: ConcurrentStableDict(cast("dict[str, Any]", ci[name]))
+        for name in ci
+        if name.startswith("contract-smoke-")
+    }
     services = {name.removeprefix("contract-smoke-") for name in smoke_jobs}
     assert services == set(enabled_service_keys())
     for name, job in smoke_jobs.items():

@@ -8,7 +8,7 @@
 """
 
 import logging
-from collections.abc import Callable, Generator, Sequence
+from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from dataclasses import replace
 from pathlib import Path
@@ -21,6 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from bms_core.application import BaseServiceApplicationFactory, service_lifespan
 from bms_core.catalog.loader import register_catalog_reader
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import get_settings
 from bms_core.core.error_codes import ErrorCode
 from bms_core.core.exceptions import CatalogError, ServiceUnavailableError
@@ -56,7 +57,7 @@ class _LogCapture(logging.Handler):
     def __init__(self) -> None:
         """初始化捕获列表。"""
         super().__init__()
-        self.messages: list[str] = []
+        self.messages: ConcurrentStableList[str] = ConcurrentStableList()
 
     def emit(self, record: logging.LogRecord) -> None:
         """收集日志消息。
@@ -64,7 +65,7 @@ class _LogCapture(logging.Handler):
         Args:
             record: 日志记录。
         """
-        self.messages.append(record.getMessage())
+        self.messages.add(record.getMessage())
 
 
 @contextmanager
@@ -106,7 +107,7 @@ def _create_app(*, service: str = "platform", contract: str = "0.1.0") -> FastAP
     return _Factory().create(None)
 
 
-async def _write_records(url: str, records: Sequence[ModuleRecord]) -> None:
+async def _write_records(url: str, records: ConcurrentStableList[ModuleRecord]) -> None:
     """建表并写入目录记录（测试种子）。
 
     Args:
@@ -126,14 +127,14 @@ async def _write_records(url: str, records: Sequence[ModuleRecord]) -> None:
         await engine.dispose()
 
 
-async def _snapshot(url: str) -> list[tuple[object, ...]]:
+async def _snapshot(url: str) -> ConcurrentStableList[tuple[object, ...]]:
     """目录行快照（只读边界断言用）。
 
     Args:
         url: 平台库连接串。
 
     Returns:
-        list[tuple[object, ...]]: 关键列快照（按 id 升序）。
+        ConcurrentStableList[tuple[object, ...]]: 关键列快照（按 id 升序）。
     """
     engine = create_async_engine(url)
     factory: async_sessionmaker[AsyncSession] = async_sessionmaker(engine, expire_on_commit=False)
@@ -141,7 +142,9 @@ async def _snapshot(url: str) -> list[tuple[object, ...]]:
         async with factory() as session:
             statement = select(SysModule).order_by(SysModule.id)
             rows = (await session.execute(statement)).scalars().all()
-            return [(row.module_key, row.table_prefix, row.contract_version, row.status) for row in rows]
+            return ConcurrentStableList(
+                (row.module_key, row.table_prefix, row.contract_version, row.status) for row in rows
+            )
     finally:
         await engine.dispose()
 
@@ -162,7 +165,7 @@ def catalog_db_url(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> str:
 @pytest.mark.kiwi_id(2163)
 async def test_lifespan_accepts_seeded_catalog(catalog_db_url: str) -> None:
     """正常种子库：启动通过；身份携带自报契约版本；启动前后目录行快照一致（只读）。"""
-    await _write_records(catalog_db_url, list(SERVICE_CATALOG))
+    await _write_records(catalog_db_url, ConcurrentStableList(SERVICE_CATALOG))
     before = await _snapshot(catalog_db_url)
     app = _create_app()
     assert app.state.service_identity.contract_version == "0.1.0"
@@ -174,7 +177,7 @@ async def test_lifespan_accepts_seeded_catalog(catalog_db_url: str) -> None:
 @pytest.mark.kiwi_id(2163)
 async def test_lifespan_tolerates_empty_catalog(catalog_db_url: str) -> None:
     """空目录（未播种）：仅告警放行，不阻断启动。"""
-    await _write_records(catalog_db_url, [])
+    await _write_records(catalog_db_url, ConcurrentStableList())
     app = _create_app()
     with _capture_bms_logs() as logs:
         async with service_lifespan(app):
@@ -182,21 +185,21 @@ async def test_lifespan_tolerates_empty_catalog(catalog_db_url: str) -> None:
     assert any("service_catalog_empty" in message for message in logs.messages)
 
 
-def _duplicate_prefix(records: list[ModuleRecord]) -> list[ModuleRecord]:
+def _duplicate_prefix(records: ConcurrentStableList[ModuleRecord]) -> ConcurrentStableList[ModuleRecord]:
     """重复表前缀（identity 行改为 sys_）。"""
-    records[1] = replace(records[1], table_prefix="sys_")
-    return records
+    return ConcurrentStableList(
+        replace(record, table_prefix="sys_") if index == 1 else record for index, record in enumerate(records)
+    )
 
 
-def _missing_row(records: list[ModuleRecord]) -> list[ModuleRecord]:
+def _missing_row(records: ConcurrentStableList[ModuleRecord]) -> ConcurrentStableList[ModuleRecord]:
     """缺行（移除 identity 行）。"""
-    del records[1]
-    return records
+    return ConcurrentStableList(record for index, record in enumerate(records) if index != 1)
 
 
-def _extra_row(records: list[ModuleRecord]) -> list[ModuleRecord]:
+def _extra_row(records: ConcurrentStableList[ModuleRecord]) -> ConcurrentStableList[ModuleRecord]:
     """清单外登记行。"""
-    records.append(
+    records.add(
         ModuleRecord(
             module_key="ghost",
             name="幽灵模块",
@@ -208,16 +211,18 @@ def _extra_row(records: list[ModuleRecord]) -> list[ModuleRecord]:
     return records
 
 
-def _field_mismatch(records: list[ModuleRecord]) -> list[ModuleRecord]:
+def _field_mismatch(records: ConcurrentStableList[ModuleRecord]) -> ConcurrentStableList[ModuleRecord]:
     """字段与清单不符（identity 名称被改）。"""
-    records[1] = replace(records[1], name="改过的名字")
-    return records
+    return ConcurrentStableList(
+        replace(record, name="改过的名字") if index == 1 else record for index, record in enumerate(records)
+    )
 
 
-def _contract_major_mismatch(records: list[ModuleRecord]) -> list[ModuleRecord]:
+def _contract_major_mismatch(records: ConcurrentStableList[ModuleRecord]) -> ConcurrentStableList[ModuleRecord]:
     """库中契约版本主版本不符（identity 升 1.0.0）。"""
-    records[1] = replace(records[1], contract_version="1.0.0")
-    return records
+    return ConcurrentStableList(
+        replace(record, contract_version="1.0.0") if index == 1 else record for index, record in enumerate(records)
+    )
 
 
 @pytest.mark.kiwi_id(2163)
@@ -233,11 +238,11 @@ def _contract_major_mismatch(records: list[ModuleRecord]) -> list[ModuleRecord]:
 )
 async def test_lifespan_rejects_catalog_conflicts(
     catalog_db_url: str,
-    mutate: Callable[[list[ModuleRecord]], list[ModuleRecord]],
+    mutate: Callable[[ConcurrentStableList[ModuleRecord]], ConcurrentStableList[ModuleRecord]],
     match: str,
 ) -> None:
     """接库冲突：重复 / 缺行 / 清单外 / 字段不符 / 契约主版本不符均拒启（码 40003）并 critical 告警。"""
-    await _write_records(catalog_db_url, mutate(list(SERVICE_CATALOG)))
+    await _write_records(catalog_db_url, mutate(ConcurrentStableList(SERVICE_CATALOG)))
     app = _create_app()
     with _capture_bms_logs() as logs, pytest.raises(CatalogError, match=match) as excinfo:
         async with service_lifespan(app):
@@ -246,7 +251,7 @@ async def test_lifespan_rejects_catalog_conflicts(
     assert any("service_catalog_invalid" in message for message in logs.messages)
 
 
-def _stub_snapshot(monkeypatch: pytest.MonkeyPatch, records: Sequence[ModuleRecord]) -> None:
+def _stub_snapshot(monkeypatch: pytest.MonkeyPatch, records: ConcurrentStableList[ModuleRecord]) -> None:
     """以桩替换快照取数（模拟非目录权威服务经契约取到的清单）。
 
     Args:
@@ -254,8 +259,8 @@ def _stub_snapshot(monkeypatch: pytest.MonkeyPatch, records: Sequence[ModuleReco
         records: 桩返回的服务目录记录。
     """
 
-    async def _load(app: object) -> list[ModuleRecord]:  # pragma: no cover - 桩内联
-        return list(records)
+    async def _load(app: object) -> ConcurrentStableList[ModuleRecord]:  # pragma: no cover - 桩内联
+        return ConcurrentStableList(records)
 
     monkeypatch.setattr("bms_core.application.load_catalog_snapshot", _load)
 
@@ -268,9 +273,9 @@ async def test_lifespan_rejects_unregistered_running_service(
 
     非目录权威服务经契约取快照（06_01），故用例注入桩快照（内容取自播种库）保留原断言语义。
     """
-    records = [
+    records = ConcurrentStableList(
         replace(record, service_key=None) if record.service_key == "workflow" else record for record in SERVICE_CATALOG
-    ]
+    )
     await _write_records(catalog_db_url, records)
     _stub_snapshot(monkeypatch, records)
     app = _create_app(service="workflow")
@@ -285,7 +290,7 @@ async def test_lifespan_degrades_when_snapshot_unavailable(
 ) -> None:
     """非目录权威服务：快照契约不可达 → 告警放行 + `catalog_degraded`（不拒启）。"""
 
-    async def _unreachable(app: object) -> list[ModuleRecord]:  # pragma: no cover - 桩内联
+    async def _unreachable(app: object) -> ConcurrentStableList[ModuleRecord]:  # pragma: no cover - 桩内联
         raise ServiceUnavailableError("服务目录快照契约调用失败（503）")
 
     monkeypatch.setattr("bms_core.application.load_catalog_snapshot", _unreachable)
