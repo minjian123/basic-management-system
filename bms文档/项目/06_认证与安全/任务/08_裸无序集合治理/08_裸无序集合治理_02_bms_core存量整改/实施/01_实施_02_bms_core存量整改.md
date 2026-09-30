@@ -377,3 +377,35 @@ flowchart LR
 | 本地预检 | `check-preflight.py --fast` | **全部通过** |
 
 **遗留**：`gateway_catalog.py`（36 处）下一轮——其 `render_*` 返回落集合类后，`ops/gateway_config.py` 的 YAML 出口须在 `dump_yaml` 前 `normalize_collections` 规整，且因 `ConcurrentStable*` 已在**无依赖面**内，精简镜像下仍可运行；`bms_core` 剩余 **592 处**（`libs`：`tests` 282 / `db` 43 / `core` 27 / `api` 32 / `boundary` 18 / `session` 13 / `outbox` 10 / `schemas` 10 …）。
+
+## 17. 实施过程补充 · 存量整改子批 3 · `services/` 模块收尾（`gateway_catalog`，2026-09-30） <a id="batch3-gateway-catalog"></a>
+
+**范围**：`bms_core` `services/gateway_catalog.py` **36 处**（函数体局部变量 14 / 签名参数 3 / 签名返回 19），把网关声明式配置生成器全量落插入序集合类；并同步两份用例（`tests/services/test_gateway_catalog.py` / `tests/ops/test_gateway_config.py`）。按交接单 §7 第 1 项推进——本文件是 `libs` 的 `services/` 模块最后一份（`module_registry` / `table_registry` / `service_contract` 已于 §16 收口）。
+
+**动作**：
+
+1. **模块钩子常量**：`ROUTE_PLUGINS` / `ROUTE_HEADERS_SET` / `GRAY_TRAFFIC` 落 `ConcurrentStableDict[str, ConcurrentStableDict[...]]`（空默认为集合类实例）。
+2. **产出与校验（形态一致）**：`rate_limit_plugin` / `forward_auth_plugin` / `_gray_plugins` 返回落 `ConcurrentStableDict`；`render_upstreams` / `render_routes` / `render_login_routes` / `render_global_rules` / `render_plugin_metadata` 返回落 `ConcurrentStableList[ConcurrentStableDict[str, object]]`（原 `list[dict[...]]`）；`render_apisix_config` 返回落 `ConcurrentStableDict[str, object]`；`_enabled_service_keys` 落 `ConcurrentStableList[str]`；`validate_service_discovery` 入参落 `ConcurrentStableDict[str, object]`、返回与局部 `violations` 落 `ConcurrentStableList[str]`。
+3. **写用法改原子方法**：`routes.append(...)` → `routes.add(...)`；`headers_set.update(...)` / `plugins.update(...)` 的映射实参改 `.items()`（集合类 `update` **只吃键值对**，直接传映射会按键解包）；`violations.append` → `add`。
+4. **YAML 发出器按只读面识别**：`_dump` / `_dump_mapping` / `_dump_sequence` 三处签名与局部 `lines` 落集合类；分支判定由 `isinstance(..., dict/list)` 改 `isinstance(..., Mapping/Sequence)`（排除 `str` / `bytes` 以保标量语义），嵌套值仍可为内置容器。**输出与旧实现逐字节一致**（`deploy/gateway/apisix.yaml` 零漂移）。
+5. **`validate_service_discovery` 形态判定改只读面**：`isinstance(upstreams/routes, list)` → `Sequence`、各处 `isinstance(..., dict)` → `Mapping`——生成件（集合类）与调用方传入的内置容器两种嵌套均可校验。
+6. **调用方与测试同步**：`ops/gateway_config.py` 实参已是 `render_apisix_config()` 产物（集合类），零改动；用例三处 `monkeypatch.setitem(集合类常量, …)`（集合类**不提供 `__setitem__`**）改 `monkeypatch.setattr` + 副本 `ConcurrentStableDict(...)`，`validate_service_discovery` 的畸形 / 内置容器实参包 `ConcurrentStableDict(...)`。断言维持内容相等（`== [..]` / `== {..}`），未改语义。
+
+**验证**：
+
+| 项 | 命令 | 结果 |
+| --- | --- | --- |
+| 定向用例 | `pytest libs/bms_core/tests/services/test_gateway_catalog.py libs/bms_core/tests/ops/test_gateway_config.py` | **29 passed** |
+| 全量 `libs` | `pytest libs/bms_core/tests` | **1099 passed / 37 skipped** |
+| 网关零漂移 | `python -m ops.gateway_config check --root ..` | 通过（`deploy/gateway/apisix.yaml` 逐字节一致、服务发现无硬编码 IP） |
+| **无依赖面实证** | 系统 `python3`（不装第三方依赖）导入 `gateway_catalog` 并 `render_apisix_yaml` / `validate_service_discovery` | 通过（CI 精简镜像下仍可运行） |
+| 静态检查 | `ruff check` / `ruff format --check`（改动文件） | 全绿 |
+| 护栏 | `check-bare-collections.py .` | **「新增 0 / 残留 0」**；`bms_core/services` **36 → 0**（模块收尾） |
+| 基线递减 | `--update-baseline` | **1246 → 1209**（`libs` 592 → 555；含用例 1 处局部量一并清理，故递减 37） |
+| 本地预检 | `check-preflight.py --fast` | **全部通过**（网关 / 契约快照 / 事件契约 / 前端 `api-types` 零漂移） |
+
+**偏差（实现细化，非新坑）**：交接单 §7 建议「YAML 出口在 `dump_yaml` 前置 `normalize_collections` 规整」；本轮改为**在 `_dump` 内按 `Mapping` / `Sequence` 只读面识别**——集合类与内置容器同路处理，无需引入 `normalize_collections` 依赖，输出仍逐字节一致（`_dump*` 的入参声明已落集合类，若先规整为内置容器反而与签名不符）。
+
+**过程处置（已闭环）**：① `plugins.update(_gray_plugins(...))` / `headers_set.update(ROUTE_HEADERS_SET.get(...))` 传映射 → 集合类 `update` 按键解包报错，改 `.items()`；② 用例 `monkeypatch.setitem` 注入集合类常量行不通（无 `__setitem__`）→ 改 `setattr` + 副本；③ `_dump*` 若只认内置 `dict` / `list` 会把集合类当不支持类型抛 `TypeError` → 分支改 `Mapping` / `Sequence`。
+
+**遗留**：`libs` 的 `services/` 模块归零；`bms_core` 剩余 **555 处**（`libs`：`tests` 281 / `db` 43 / `api` 32 / `core` 27 / `boundary` 18 / `session` 13 / `outbox` 10 / `schemas` 10 / `dashboard` 9 / `security` 9 …），按交接单 §7 第 2 项续推（其余 `libs` 与 `tests` 收尾）。
