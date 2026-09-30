@@ -16,6 +16,7 @@ from typing import Any, cast
 import pytest
 import yaml
 
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.db.migration import BACKEND_ROOT
 from bms_core.services.module_registry import enabled_service_keys
 
@@ -36,21 +37,23 @@ release_cli = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(release_cli)
 
 
-def _load(path: Path) -> dict[str, Any]:
+def _load(path: Path) -> ConcurrentStableDict[str, Any]:
     """读取 YAML 配置。"""
     parsed = yaml.safe_load(path.read_text(encoding="utf-8"))
     assert isinstance(parsed, dict)
-    return cast("dict[str, Any]", parsed)
+    return ConcurrentStableDict(cast("dict[str, Any]", parsed))
 
 
-def _scrape_targets(prom: dict[str, Any], job_name: str) -> tuple[list[str], dict[str, Any]]:
+def _scrape_targets(
+    prom: ConcurrentStableDict[str, Any], job_name: str
+) -> tuple[ConcurrentStableList[str], ConcurrentStableDict[str, Any]]:
     """取指定 job 的抓取目标列表与 job 定义。"""
     for job in cast("list[dict[str, Any]]", prom["scrape_configs"]):
         if job.get("job_name") == job_name:
-            targets: list[str] = []
+            targets: ConcurrentStableList[str] = ConcurrentStableList()
             for static in job["static_configs"]:
-                targets.extend(str(item) for item in static.get("targets", []))
-            return targets, job
+                targets.update(str(item) for item in static.get("targets", []))
+            return targets, ConcurrentStableDict(job)
     raise AssertionError(f"未找到抓取 job：{job_name}")
 
 
@@ -94,7 +97,7 @@ def test_prometheus_targets_switch_to_compose_dns() -> None:
     expected_probe = {f"http://{key}:8000/{probe}" for key in enabled_service_keys() for probe in ("healthz", "readyz")}
     assert set(probe_targets) == expected_probe
     assert probe_job["params"]["module"] == ["http_2xx"]
-    assert "host.docker.internal" not in "\n".join(services_targets + probe_targets)
+    assert "host.docker.internal" not in "\n".join([*services_targets, *probe_targets])
 
 
 @pytest.mark.kiwi_id(2185)

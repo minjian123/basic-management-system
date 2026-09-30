@@ -4,7 +4,7 @@ from typing import cast
 
 import pytest
 
-from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import get_settings
 from bms_core.db.engine import EngineFactory
 from bms_core.db.inventory import db_count_rows, db_counts_by_kind, db_counts_from_keys
@@ -17,9 +17,9 @@ class _Recorder:
 
     def __init__(self) -> None:
         """初始化空记录。"""
-        self.calls: list[tuple[str, float, dict[str, str]]] = []
+        self.calls: ConcurrentStableList[tuple[str, float, ConcurrentStableDict[str, str]]] = ConcurrentStableList()
 
-    async def gauge(self, name: str, *, value: float, labels: dict[str, str] | None = None) -> None:
+    async def gauge(self, name: str, *, value: float, labels: ConcurrentStableDict[str, str] | None = None) -> None:
         """记录一次 gauge 调用。
 
         Args:
@@ -27,7 +27,7 @@ class _Recorder:
             value: 指标值。
             labels: 标签集。
         """
-        self.calls.append((name, value, dict(labels or {})))
+        self.calls.add((name, value, ConcurrentStableDict(labels or {})))
 
 
 @pytest.mark.kiwi_id(2178)

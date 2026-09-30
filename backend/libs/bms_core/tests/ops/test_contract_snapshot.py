@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.services.service_contract import contract_file_name, enabled_service_records, render_contract_json
 from ops import contract_snapshot
 
@@ -124,9 +125,9 @@ def test_export_and_check_validation_failure(tmp_path: Path, monkeypatch: pytest
     """快照校验失败：export / check 均以退出码 1 收口。"""
     assert contract_snapshot.export(tmp_path) == 0
 
-    def fake_validate(record: object, openapi: object) -> list[str]:
+    def fake_validate(record: object, openapi: object) -> ConcurrentStableList[str]:
         del record, openapi
-        return ["版本不一致"]
+        return ConcurrentStableList(["版本不一致"])
 
     monkeypatch.setattr(contract_snapshot, "_validate", fake_validate)
     assert contract_snapshot.export(tmp_path) == 1

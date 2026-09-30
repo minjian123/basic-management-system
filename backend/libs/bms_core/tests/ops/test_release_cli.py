@@ -10,6 +10,8 @@ from typing import Any
 
 import pytest
 
+from bms_core.core.concurrent import ConcurrentStableDict
+
 _REPO_ROOT = Path(__file__).resolve().parents[5]
 _SCRIPT = _REPO_ROOT / "scripts" / "tools" / "deploy" / "release.py"
 _spec = importlib.util.spec_from_file_location("release_cli", _SCRIPT)
@@ -55,10 +57,12 @@ def test_rotate_ledger_first_and_second_deploy() -> None:
 @pytest.mark.kiwi_id(2185)
 def test_resolve_rollback_target() -> None:
     """回滚目标解析：`--to` 优先；缺省上一版本；无上一版本报错。"""
-    ledger: dict[str, Any] = {
-        "current": {"tag": "v0.3.0"},
-        "previous": {"tag": "v0.2.0"},
-    }
+    ledger: ConcurrentStableDict[str, Any] = ConcurrentStableDict(
+        {
+            "current": {"tag": "v0.3.0"},
+            "previous": {"tag": "v0.2.0"},
+        }
+    )
     assert release.resolve_rollback_target(ledger, "v0.1.0") == "v0.1.0"
     assert release.resolve_rollback_target(ledger) == "v0.2.0"
     with pytest.raises(ValueError):

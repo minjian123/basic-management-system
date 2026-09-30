@@ -6,6 +6,7 @@ from httpx import ASGITransport, AsyncClient
 from starlette.types import Message, Receive, Scope, Send
 
 from bms_core.api.middleware import ReadOnlyMiddleware
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.context import is_read_only
 from bms_core.db.routing import is_read_method
 
@@ -27,10 +28,12 @@ async def test_middleware_sets_and_resets_marker() -> None:
     app.add_middleware(ReadOnlyMiddleware)
 
     @app.get("/ro")
+    # bare-collections:allow（FastAPI 端点返回注解）
     async def _ro() -> dict[str, bool]:  # pyright: ignore[reportUnusedFunction]
         return {"ro": is_read_only()}
 
     @app.post("/rw")
+    # bare-collections:allow（FastAPI 端点返回注解）
     async def _rw() -> dict[str, bool]:  # pyright: ignore[reportUnusedFunction]
         return {"ro": is_read_only()}
 
@@ -43,10 +46,10 @@ async def test_middleware_sets_and_resets_marker() -> None:
 @pytest.mark.kiwi_id(984)
 async def test_middleware_passthrough_non_http() -> None:
     """非 HTTP 作用域直通（不设只读标记）。"""
-    seen: list[str] = []
+    seen: ConcurrentStableList[str] = ConcurrentStableList()
 
     async def _app(scope: Scope, receive: Receive, send: Send) -> None:
-        seen.append(str(scope["type"]))
+        seen.add(str(scope["type"]))
 
     async def _receive() -> Message:
         return {"type": "lifespan.startup"}

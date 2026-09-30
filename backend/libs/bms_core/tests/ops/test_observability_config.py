@@ -6,22 +6,23 @@ from typing import Any
 import pytest
 import yaml
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.db.migration import BACKEND_ROOT
 
 _DEPLOY = BACKEND_ROOT.parent / "deploy"
 _OBS = _DEPLOY / "observability"
 
 
-def _load(path: Path) -> dict[str, Any]:
+def _load(path: Path) -> ConcurrentStableDict[str, Any]:
     """读取 YAML 配置（断言用）。
 
     Args:
         path: 配置文件路径。
 
     Returns:
-        dict[str, Any]: 解析结果。
+        ConcurrentStableDict[str, Any]: 解析结果。
     """
-    return yaml.safe_load(path.read_text(encoding="utf-8"))
+    return ConcurrentStableDict(yaml.safe_load(path.read_text(encoding="utf-8")))
 
 
 @pytest.mark.kiwi_id(2182)

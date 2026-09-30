@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 import bms_core.db.admin as admin
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.exceptions import ConfigError
 from bms_core.db.admin import (
     DatabaseTarget,
@@ -61,19 +62,19 @@ async def test_mysql_statements(monkeypatch: pytest.MonkeyPatch) -> None:
     """MySQL 语句：存在性查询、`CREATE DATABASE IF NOT EXISTS`（utf8mb4）、`DROP DATABASE IF EXISTS`。"""
     url = "mysql+aiomysql://u:p@h:3306/bms_migrcheck"
     target = resolve_target(url)
-    statements: list[str] = []
-    fetches: list[str] = []
+    statements: ConcurrentStableList[str] = ConcurrentStableList()
+    fetches: ConcurrentStableList[str] = ConcurrentStableList()
 
-    async def fake_fetch(admin_url: str, statement: str, *, name: str) -> list[object]:
+    async def fake_fetch(admin_url: str, statement: str, *, name: str) -> ConcurrentStableList[object]:
         """替身：记录查询并模拟「不存在」。"""
         del admin_url, name
-        fetches.append(statement)
-        return []
+        fetches.add(statement)
+        return ConcurrentStableList()
 
     async def fake_execute(admin_url: str, statement: str) -> None:
         """替身：记录管理语句。"""
         del admin_url
-        statements.append(statement)
+        statements.add(statement)
 
     monkeypatch.setattr(admin, "_fetch", fake_fetch)
     monkeypatch.setattr(admin, "_execute", fake_execute)
@@ -95,17 +96,17 @@ async def test_mysql_statements(monkeypatch: pytest.MonkeyPatch) -> None:
 @pytest.mark.kiwi_id(1078)
 async def test_postgresql_and_dm_statements(monkeypatch: pytest.MonkeyPatch) -> None:
     """PostgreSQL / 达梦语句：建库（UTF8）/ 建删模式与存在性查询。"""
-    statements: list[str] = []
+    statements: ConcurrentStableList[str] = ConcurrentStableList()
 
-    async def fake_fetch(admin_url: str, statement: str, *, name: str) -> list[object]:
+    async def fake_fetch(admin_url: str, statement: str, *, name: str) -> ConcurrentStableList[object]:
         """替身：模拟不存在。"""
         del admin_url, statement, name
-        return []
+        return ConcurrentStableList()
 
     async def fake_execute(admin_url: str, statement: str) -> None:
         """替身：记录管理语句。"""
         del admin_url
-        statements.append(statement)
+        statements.add(statement)
 
     monkeypatch.setattr(admin, "_fetch", fake_fetch)
     monkeypatch.setattr(admin, "_execute", fake_execute)
@@ -126,7 +127,7 @@ async def test_postgresql_and_dm_statements(monkeypatch: pytest.MonkeyPatch) -> 
     assert statements == ["DROP SCHEMA BMS_MIGRCHECK CASCADE"]
 
 
-async def _fetch_existing(admin_url: str, statement: str, *, name: str) -> list[object]:
+async def _fetch_existing(admin_url: str, statement: str, *, name: str) -> ConcurrentStableList[object]:
     """替身：模拟目标已存在。
 
     Args:
@@ -135,10 +136,10 @@ async def _fetch_existing(admin_url: str, statement: str, *, name: str) -> list[
         name: 目标名。
 
     Returns:
-        list[object]: 单行结果。
+        ConcurrentStableList[object]: 单行结果。
     """
     del admin_url, statement, name
-    return [(1,)]
+    return ConcurrentStableList([(1,)])
 
 
 @pytest.mark.kiwi_id(1078)
@@ -173,17 +174,17 @@ async def test_statement_helpers_execute_on_sqlite(tmp_path: Path) -> None:
 @pytest.mark.kiwi_id(1078)
 async def test_drop_missing_target_skips(monkeypatch: pytest.MonkeyPatch) -> None:
     """非文件型目标不存在时 `drop` 跳过（返回 False，不执行语句）。"""
-    statements: list[str] = []
+    statements: ConcurrentStableList[str] = ConcurrentStableList()
 
-    async def fake_fetch(admin_url: str, statement: str, *, name: str) -> list[object]:
+    async def fake_fetch(admin_url: str, statement: str, *, name: str) -> ConcurrentStableList[object]:
         """替身：模拟目标不存在。"""
         del admin_url, statement, name
-        return []
+        return ConcurrentStableList()
 
     async def fake_execute(admin_url: str, statement: str) -> None:
         """替身：记录语句。"""
         del admin_url
-        statements.append(statement)
+        statements.add(statement)
 
     monkeypatch.setattr(admin, "_fetch", fake_fetch)
     monkeypatch.setattr(admin, "_execute", fake_execute)
@@ -196,17 +197,17 @@ async def test_drop_missing_target_skips(monkeypatch: pytest.MonkeyPatch) -> Non
 @pytest.mark.kiwi_id(1078)
 async def test_dm_delegates_to_sync_helpers(monkeypatch: pytest.MonkeyPatch) -> None:
     """达梦方言经同步助手线程执行（不尝试异步引擎）。"""
-    executed: list[tuple[str, str]] = []
-    fetched: list[tuple[str, str, str]] = []
+    executed: ConcurrentStableList[tuple[str, str]] = ConcurrentStableList()
+    fetched: ConcurrentStableList[tuple[str, str, str]] = ConcurrentStableList()
 
     def fake_execute_sync(admin_url: str, statements: str) -> None:
         """替身：记录同步执行。"""
-        executed.append((admin_url, statements))
+        executed.add((admin_url, statements))
 
-    def fake_fetch_sync(admin_url: str, statement: str, name: str) -> list[object]:
+    def fake_fetch_sync(admin_url: str, statement: str, name: str) -> ConcurrentStableList[object]:
         """替身：记录同步查询并返回空结果。"""
-        fetched.append((admin_url, statement, name))
-        return []
+        fetched.add((admin_url, statement, name))
+        return ConcurrentStableList()
 
     monkeypatch.setattr(admin, "_execute_sync", fake_execute_sync)
     monkeypatch.setattr(admin, "_fetch_sync", fake_fetch_sync)

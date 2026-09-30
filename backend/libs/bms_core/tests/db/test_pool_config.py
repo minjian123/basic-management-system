@@ -3,7 +3,7 @@
 import pytest
 import sqlalchemy.ext.asyncio as sa_async
 
-from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import DbPoolSettings, Settings
 from bms_core.db.engine import EngineFactory
 from bms_core.db.registry import pool_budget_rows, pool_budget_warnings
@@ -16,12 +16,12 @@ class _FakeEngine:
         """空释放。"""
 
 
-def _capture(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, dict[str, object]]]:
+def _capture(monkeypatch: pytest.MonkeyPatch) -> ConcurrentStableList[tuple[str, ConcurrentStableDict[str, object]]]:
     """替换建引擎入口，返回捕获列表。"""
-    captured: list[tuple[str, dict[str, object]]] = []
+    captured: ConcurrentStableList[tuple[str, ConcurrentStableDict[str, object]]] = ConcurrentStableList()
 
     def _fake_create(url: str, **kwargs: object) -> _FakeEngine:
-        captured.append((url, kwargs))
+        captured.add((url, ConcurrentStableDict(kwargs)))
         return _FakeEngine()
 
     monkeypatch.setattr(sa_async, "create_async_engine", _fake_create)

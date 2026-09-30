@@ -13,6 +13,7 @@ from typing import Any
 
 import pytest
 
+from bms_core.core.concurrent import ConcurrentStableList
 from ops import contract_smoke
 
 
@@ -44,11 +45,11 @@ def test_container_name_and_schemathesis_args() -> None:
 @pytest.mark.kiwi_id(2186)
 def test_service_up_healthy() -> None:
     """起容器 → 轮询 healthy 即就绪；镜像标签随命令传入；注入一次性测试服务令牌密钥。"""
-    calls: list[list[str]] = []
+    calls: ConcurrentStableList[ConcurrentStableList[str]] = ConcurrentStableList()
     inspect_n = {"n": 0}
 
     def fake_run(command: Any) -> subprocess.CompletedProcess[str]:
-        calls.append(list(command))
+        calls.add(ConcurrentStableList(command))
         if "inspect" in command:
             inspect_n["n"] += 1
             return _completed(command, 0, "starting" if inspect_n["n"] == 1 else "healthy")
@@ -94,18 +95,18 @@ def test_service_up_start_failure_and_timeout() -> None:
 @pytest.mark.kiwi_id(2186)
 def test_service_down_runs_rm() -> None:
     """停止服务容器执行 `docker rm -f <容器>`。"""
-    calls: list[list[str]] = []
-    contract_smoke.service_down("platform", run=lambda c: (calls.append(list(c)), _completed(c, 0))[1])
+    calls: ConcurrentStableList[ConcurrentStableList[str]] = ConcurrentStableList()
+    contract_smoke.service_down("platform", run=lambda c: (calls.add(ConcurrentStableList(c)), _completed(c, 0))[1])
     assert calls[0][1:4] == ["rm", "-f", "bms-smoke-platform"]
 
 
 @pytest.mark.kiwi_id(2186)
 def test_docker_schemathesis_sequence() -> None:
     """Schemathesis：create（--network container:服务容器 + 固定镜像）→ cp → start → rm。"""
-    calls: list[list[str]] = []
+    calls: ConcurrentStableList[ConcurrentStableList[str]] = ConcurrentStableList()
 
     def fake_run(command: Any) -> subprocess.CompletedProcess[str]:
-        calls.append(list(command))
+        calls.add(ConcurrentStableList(command))
         if "start" in command:
             return _completed(command, 0, "ok", "")
         return _completed(command, 0)
@@ -129,10 +130,10 @@ def test_docker_schemathesis_sequence() -> None:
 @pytest.mark.kiwi_id(2186)
 def test_run_reports_service_not_ready() -> None:
     """服务容器未就绪时 run 失败并清理。"""
-    calls: list[list[str]] = []
+    calls: ConcurrentStableList[ConcurrentStableList[str]] = ConcurrentStableList()
 
     def fake_run(command: Any) -> subprocess.CompletedProcess[str]:
-        calls.append(list(command))
+        calls.add(ConcurrentStableList(command))
         if command[1] == "run":
             return _completed(command, 1, "", "cannot start")
         return _completed(command, 0)

@@ -8,6 +8,7 @@ import pytest
 from bms_core.core import plugin as plugin_module
 from bms_core.core.base import BaseObject
 from bms_core.core.capability import BaseAsyncResource, BaseNullObject
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.error_codes import ErrorCode
 from bms_core.core.exceptions import ConfigError, PluginError
 from bms_core.core.plugin import (
@@ -291,7 +292,7 @@ def test_module_entrypoints(monkeypatch: pytest.MonkeyPatch) -> None:
 async def test_lifecycle_defaults_and_resource_manager(registry: PluginRegistry) -> None:
     """生命周期：默认 setup / aclose 空实现；aclose 经 ResourceManager 逆序回收。"""
     del registry
-    closed: list[str] = []
+    closed: ConcurrentStableList[str] = ConcurrentStableList()
 
     class Plain(BasePluggable):
         plugin_key = "test_lifecycle_plain"
@@ -306,7 +307,7 @@ async def test_lifecycle_defaults_and_resource_manager(registry: PluginRegistry)
 
         async def aclose(self) -> None:
             """记录释放顺序。"""
-            closed.append(self.name)
+            closed.add(self.name)
 
     plain = Plain()
     assert await plain.setup() is None

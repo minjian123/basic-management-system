@@ -14,6 +14,7 @@ from collections.abc import Iterator
 from pathlib import Path
 
 from bms_core.core.base import BaseObject
+from bms_core.core.concurrent import ConcurrentStableList
 
 _BACKEND = Path(__file__).resolve().parents[4]
 _PACKAGE_DIRS = [
@@ -59,7 +60,7 @@ def _iter_class_defs(path: Path) -> Iterator[ast.ClassDef]:
 
 def test_all_app_classes_inherit_a_base() -> None:
     """工作区各包下所有类均须继承基类（无基类 / 仅内建基类即失败）。"""
-    offenders: list[str] = []
+    offenders: ConcurrentStableList[str] = ConcurrentStableList()
     for package_dir in _PACKAGE_DIRS:
         for path in sorted(package_dir.rglob("*.py")):
             for node in _iter_class_defs(path):
@@ -68,9 +69,9 @@ def test_all_app_classes_inherit_a_base() -> None:
                 bases = [ast.unparse(base) for base in node.bases]
                 rel = path.relative_to(_BACKEND)
                 if not bases or set(bases) <= {"object"}:
-                    offenders.append(f"{rel}:{node.lineno} {node.name} 无基类")
+                    offenders.add(f"{rel}:{node.lineno} {node.name} 无基类")
                 elif all(base in _FORBIDDEN_BUILTINS for base in bases):
-                    offenders.append(f"{rel}:{node.lineno} {node.name} 仅继承内建基类 {bases}")
+                    offenders.add(f"{rel}:{node.lineno} {node.name} 仅继承内建基类 {bases}")
     assert not offenders, "所有自定义类必须继承基类（《后端开发规范》§3.1）；违规：\n" + "\n".join(offenders)
 
 
@@ -82,9 +83,9 @@ def test_guard_detects_offenders(tmp_path: Path) -> None:
         "class NoBase:\n    pass\n\nclass BuiltinOnly(Exception):\n    pass\n",
         encoding="utf-8",
     )
-    offenders: list[str] = []
+    offenders: ConcurrentStableList[str] = ConcurrentStableList()
     for node in _iter_class_defs(bad):
         bases = [ast.unparse(base) for base in node.bases]
         if not bases or set(bases) <= {"object"} or all(base in _FORBIDDEN_BUILTINS for base in bases):
-            offenders.append(node.name)
+            offenders.add(node.name)
     assert offenders == ["NoBase", "BuiltinOnly"]

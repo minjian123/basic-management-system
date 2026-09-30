@@ -2,6 +2,7 @@
 
 import pytest
 
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.context import (
     reset_current_tenant,
     reset_tenant_context,
@@ -29,13 +30,13 @@ from bms_core.db.tenant import (
 class _RecordingSource:
     """记账租户源（断言解析链取数与来源类型）。"""
 
-    def __init__(self, tenants: dict[str, TenantContext] | None = None) -> None:
-        self.tenants = tenants or {}
-        self.calls: list[tuple[str, str]] = []
+    def __init__(self, tenants: ConcurrentStableDict[str, TenantContext] | None = None) -> None:
+        self.tenants = tenants if tenants is not None else ConcurrentStableDict[str, TenantContext]()
+        self.calls: ConcurrentStableList[tuple[str, str]] = ConcurrentStableList()
 
     async def by_code(self, code: str) -> TenantContext:
         """按编码取租户（记账）。"""
-        self.calls.append(("code", code))
+        self.calls.add(("code", code))
         tenant = self.tenants.get(code)
         if tenant is None:
             raise TenantNotFoundError(f"未知租户：{code}")
@@ -43,7 +44,7 @@ class _RecordingSource:
 
     async def by_domain(self, domain: str) -> TenantContext:
         """按子域名取租户（记账）。"""
-        self.calls.append(("domain", domain))
+        self.calls.add(("domain", domain))
         for tenant in self.tenants.values():
             if tenant.domain == domain:
                 return tenant
@@ -51,7 +52,7 @@ class _RecordingSource:
 
     async def by_id(self, tenant_id: str) -> TenantContext:
         """按租户主键（雪花 id 字符串）取租户（记账）。"""
-        self.calls.append(("id", tenant_id))
+        self.calls.add(("id", tenant_id))
         for tenant in self.tenants.values():
             if tenant.tenant_id is not None and str(tenant.tenant_id) == tenant_id:
                 return tenant
@@ -141,7 +142,7 @@ async def test_resolve_chain_priority_and_kinds() -> None:
     acme = TenantContext(
         code="acme", db_key="tenant_acme", name="示例租户", domain="acme.bms.example.com", tenant_id=1002
     )
-    source = _RecordingSource({"demo": demo, "acme": acme})
+    source = _RecordingSource(ConcurrentStableDict({"demo": demo, "acme": acme}))
 
     hit = await resolve_request_tenant(
         path="/api/v1/x", host="demo.bms.example.com", header="acme", token_tenant_id="1002", source=source
@@ -164,7 +165,7 @@ async def test_resolve_chain_priority_and_kinds() -> None:
 async def test_resolve_fallback_and_rejection() -> None:
     """无来源：dev 经租户源取演示租户 / 源不可用回落内置；prod（关闭回落）拒绝。"""
     demo = TenantContext(code="demo", db_key="tenant_demo", name="演示租户")
-    source = _RecordingSource({"demo": demo})
+    source = _RecordingSource(ConcurrentStableDict({"demo": demo}))
     hit = await resolve_request_tenant(path="/api/v1/x", source=source)
     assert hit == demo
     assert source.calls == [("code", "demo")]
@@ -172,7 +173,7 @@ async def test_resolve_fallback_and_rejection() -> None:
     builtin = await resolve_request_tenant(path="/api/v1/x", source=None)
     assert builtin == DEMO_TENANT
 
-    empty = _RecordingSource({})
+    empty = _RecordingSource(ConcurrentStableDict())
     assert await resolve_request_tenant(path="/api/v1/x", source=empty) == DEMO_TENANT  # 源无 demo 回落内置
 
     with pytest.raises(TenantNotFoundError):
@@ -191,7 +192,7 @@ async def test_malformed_sources_treated_as_absent() -> None:
     触发取数与库键派生，从而不产生「库名形态非法」类 5xx。
     """
     demo = TenantContext(code="demo", db_key="tenant_demo", name="演示租户")
-    source = _RecordingSource({"demo": demo})
+    source = _RecordingSource(ConcurrentStableDict({"demo": demo}))
 
     hit = await resolve_request_tenant(path="/api/v1/x", host="127.0.0.1:8000", source=source)
     assert hit == demo

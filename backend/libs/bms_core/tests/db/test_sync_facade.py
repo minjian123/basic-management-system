@@ -167,18 +167,22 @@ async def test_request_level_dependencies_use_sync_facade() -> None:
     app.state.session_factory = SessionFactory()
 
     @app.get("/db")
+    # bare-collections:allow（FastAPI 端点返回注解）
     async def db(session: Annotated[DbSession, Depends(get_db)]) -> dict[str, bool]:  # pyright: ignore[reportUnusedFunction]
         return {"sync": isinstance(session, SyncSession)}
 
     @app.get("/read")
+    # bare-collections:allow（FastAPI 端点返回注解）
     async def read(session: Annotated[DbSession, Depends(get_read_db)]) -> dict[str, bool]:  # pyright: ignore[reportUnusedFunction]
         return {"sync": isinstance(session, SyncSession)}
 
     @app.get("/write")
+    # bare-collections:allow（FastAPI 端点返回注解）
     async def write(session: Annotated[DbSession, Depends(get_write_db)]) -> dict[str, bool]:  # pyright: ignore[reportUnusedFunction]
         return {"sync": isinstance(session, SyncSession)}
 
     @app.get("/uow")
+    # bare-collections:allow（FastAPI 端点返回注解）
     async def uow(unit: Annotated[DbUnitOfWork, Depends(get_uow)]) -> dict[str, bool]:  # pyright: ignore[reportUnusedFunction]
         session = cast("DbSession | None", unit.session)
         return {"sync": isinstance(session, SyncSession)}

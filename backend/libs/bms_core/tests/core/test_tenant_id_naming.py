@@ -26,6 +26,7 @@ from sqlalchemy import BigInteger, inspect
 from bms_core.api.base import AuthContext
 from bms_core.api.deps import current_code_of, current_tenant_id_of
 from bms_core.cache.base import GLOBAL_TENANT, build_cache_key
+from bms_core.core.concurrent import ConcurrentStableSet
 from bms_core.db.keys import DbKey
 from bms_core.db.tenant import TenantContext, is_tenant_code, is_tenant_id
 from bms_core.db.tenant_registry import TenantSnapshot
@@ -47,18 +48,18 @@ DEMO_ID = "1001"
 """演示雪花租户主键（十进制字符串）。"""
 
 
-def _fields(cls: object) -> frozenset[str]:
+def _fields(cls: object) -> ConcurrentStableSet[str]:
     """取 dataclass 字段名集合（非 dataclass 返回空集）。
 
     Args:
         cls: 待取字段的类型对象。
 
     Returns:
-        frozenset[str]: 字段名集合。
+        ConcurrentStableSet[str]: 字段名集合。
     """
     if not dataclasses.is_dataclass(cls):
-        return frozenset()
-    return frozenset(field.name for field in dataclasses.fields(cls))
+        return ConcurrentStableSet()
+    return ConcurrentStableSet(field.name for field in dataclasses.fields(cls))
 
 
 def _tenant_column(model: type[object]) -> Any:

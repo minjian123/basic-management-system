@@ -7,6 +7,7 @@ import pytest
 from fastapi import FastAPI
 
 from bms_core.core import run as run_module
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.config import Settings
 from bms_core.core.factory import BaseApplicationFactory
 from bms_core.core.run import ServiceServer, build_server
@@ -57,15 +58,15 @@ def test_run_service_builds_server_and_runs(monkeypatch: pytest.MonkeyPatch) -> 
         def create(self, options: None = None) -> FastAPI:
             return app
 
-    captured: dict[str, object] = {}
+    captured: ConcurrentStableDict[str, object] = ConcurrentStableDict()
 
     class _Server:
         def run(self) -> None:
-            captured["ran"] = True
+            captured.set("ran", True)
 
     def _fake_build(settings: Settings, built: FastAPI, *, on_drain: ServiceRuntime | None = None) -> ServiceServer:
-        captured["app"] = built
-        captured["on_drain"] = on_drain
+        captured.set("app", built)
+        captured.set("on_drain", on_drain)
         return cast("ServiceServer", _Server())
 
     monkeypatch.setattr(run_module, "build_server", _fake_build)

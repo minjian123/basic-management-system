@@ -12,7 +12,7 @@ import pytest
 from alembic.config import Config
 
 from alembic import command
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import get_settings
 from bms_core.core.context import current_user_id
 from bms_core.db.engine import EngineFactory
@@ -50,7 +50,7 @@ def _as_user(user_id: int | None) -> Generator[None]:
         current_user_id.reset(token)
 
 
-_OPEN_ENGINES: list[EngineRegistry] = []
+_OPEN_ENGINES: ConcurrentStableList[EngineRegistry] = ConcurrentStableList()
 """用例内构造的引擎注册表（用例结束统一 `aclose`，避免连接在事件循环关闭后被 GC）。"""
 
 
@@ -62,8 +62,9 @@ async def _close_open_engines() -> AsyncIterator[None]:
         None: 用例运行期。
     """
     yield
-    while _OPEN_ENGINES:
-        await _OPEN_ENGINES.pop().aclose()
+    for registry in list(_OPEN_ENGINES):
+        await registry.aclose()
+    _OPEN_ENGINES.clear()
 
 
 @pytest.fixture
@@ -82,7 +83,7 @@ def scheme_store(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Sq
     get_settings.cache_clear()
     _run_migrations(url)
     registry = EngineRegistry(EngineFactory(get_settings()))
-    _OPEN_ENGINES.append(registry)
+    _OPEN_ENGINES.add(registry)
     store = SqlQuerySchemeStore(engines=registry)
     yield store
     get_settings.cache_clear()

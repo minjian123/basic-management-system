@@ -101,22 +101,27 @@ async def _build_app(factory: EngineFactory, *, read_middleware: bool = False) -
     app.state.primary_health = PrimaryHealth(factory)
 
     @app.get("/marker")
+    # bare-collections:allow（FastAPI 端点返回注解）
     async def _marker(session: Annotated[AsyncSession, Depends(get_db)]) -> dict[str, int]:  # pyright: ignore[reportUnusedFunction]
         return {"bind": id(session.bind)}
 
     @app.post("/marker")
+    # bare-collections:allow（FastAPI 端点返回注解）
     async def _marker_write(session: Annotated[AsyncSession, Depends(get_db)]) -> dict[str, int]:  # pyright: ignore[reportUnusedFunction]
         return {"bind": id(session.bind)}
 
     @app.get("/read")
+    # bare-collections:allow（FastAPI 端点返回注解）
     async def _read(session: Annotated[AsyncSession, Depends(get_read_db)]) -> dict[str, int]:  # pyright: ignore[reportUnusedFunction]
         return {"bind": id(session.bind)}
 
     @app.get("/write")
+    # bare-collections:allow（FastAPI 端点返回注解）
     async def _write(session: Annotated[AsyncSession, Depends(get_write_db)]) -> dict[str, int]:  # pyright: ignore[reportUnusedFunction]
         return {"bind": id(session.bind)}
 
     @app.get("/platform")
+    # bare-collections:allow（FastAPI 端点返回注解）
     async def _platform(session: Annotated[AsyncSession, Depends(get_platform_read_db)]) -> dict[str, int]:  # pyright: ignore[reportUnusedFunction]
         return {"bind": id(session.bind)}
 

@@ -3,6 +3,7 @@
 import pytest
 from sqlalchemy.ext.asyncio import AsyncEngine
 
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.db.engine import EngineFactory
 from bms_core.db.registry import PLATFORM_DB_KEY, EngineRegistry, tenant_pool_budget_warnings
@@ -22,17 +23,17 @@ class _RecordingLock(BaseDistributedLock):
     """记账分布式锁替身（记录 acquire / release 调用；不声明实现名，不入插件登记）。"""
 
     def __init__(self) -> None:
-        self.acquired: list[str] = []
-        self.released: list[str] = []
+        self.acquired: ConcurrentStableList[str] = ConcurrentStableList()
+        self.released: ConcurrentStableList[str] = ConcurrentStableList()
 
     async def acquire(self, key: str, *, ttl: int = DEFAULT_LOCK_TTL, wait: float = DEFAULT_WAIT) -> str | None:
         """记录获取并恒定成功。"""
-        self.acquired.append(key)
+        self.acquired.add(key)
         return "token"
 
     async def release(self, key: str, token: str) -> bool:
         """记录释放并恒定成功。"""
-        self.released.append(key)
+        self.released.add(key)
         return True
 
     async def extend(self, key: str, token: str, *, ttl: int = DEFAULT_LOCK_TTL) -> bool:

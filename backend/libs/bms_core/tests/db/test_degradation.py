@@ -61,6 +61,7 @@ async def _build_app(factory: EngineFactory, health: PrimaryHealth) -> FastAPI:
     app.state.primary_health = health
 
     @app.get("/write")
+    # bare-collections:allow（FastAPI 端点返回注解）
     async def _write(session: Annotated[AsyncSession, Depends(get_write_db)]) -> dict[str, bool]:  # pyright: ignore[reportUnusedFunction]
         return {"ok": isinstance(session.bind, AsyncEngine)}
 

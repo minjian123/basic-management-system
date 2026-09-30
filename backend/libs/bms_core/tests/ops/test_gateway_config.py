@@ -2,11 +2,11 @@
 
 import runpy
 import sys
-from collections.abc import Mapping
 from pathlib import Path
 
 import pytest
 
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.services.gateway_catalog import render_apisix_yaml
 from ops import gateway_config
 
@@ -53,8 +53,8 @@ def test_check_blocks_hardcoded_ip(tmp_path: Path, monkeypatch: pytest.MonkeyPat
     """check 在服务发现校验失败（硬编码 IP）时退出码非 0。"""
     assert gateway_config.main(["render", "--root", str(tmp_path)]) == 0
 
-    def _fake(config: Mapping[str, object]) -> list[str]:
-        return ["上游 platform 节点为硬编码 IP：10.0.0.5:8000"]
+    def _fake(config: ConcurrentStableDict[str, object]) -> ConcurrentStableList[str]:
+        return ConcurrentStableList(["上游 platform 节点为硬编码 IP：10.0.0.5:8000"])
 
     monkeypatch.setattr(gateway_config, "validate_service_discovery", _fake)
     assert gateway_config.main(["check", "--root", str(tmp_path)]) == 1

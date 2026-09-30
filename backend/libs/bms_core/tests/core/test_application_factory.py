@@ -13,7 +13,7 @@ _probe_router = BaseRouter(key="probe", prefix="/probe")
 
 
 @_probe_router.get("/ping")
-async def _ping() -> dict[str, bool]:  # pyright: ignore[reportUnusedFunction]
+async def _ping() -> dict[str, bool]:  # pyright: ignore[reportUnusedFunction]  # bare-collections:allow（FastAPI 端点返回注解）
     """测试用探针路由。
 
     Returns:
@@ -22,7 +22,7 @@ async def _ping() -> dict[str, bool]:  # pyright: ignore[reportUnusedFunction]
     return {"ok": True}
 
 
-_calls: list[str] = []
+_calls: ConcurrentStableList[str] = ConcurrentStableList()
 
 
 class _Factory(BaseServiceApplicationFactory):
@@ -41,7 +41,7 @@ class _Factory(BaseServiceApplicationFactory):
             settings: 应用配置。
         """
         del settings
-        _calls.append("prepare")
+        _calls.add("prepare")
 
     def configure_service(self, app: FastAPI, settings: Settings) -> None:
         """记录服务 state 注入钩子（写入测试标记）。
@@ -51,7 +51,7 @@ class _Factory(BaseServiceApplicationFactory):
             settings: 应用配置。
         """
         del settings
-        _calls.append("configure")
+        _calls.add("configure")
         app.state.custom = True
 
     def service_routers(self) -> ConcurrentStableList[APIRouter]:

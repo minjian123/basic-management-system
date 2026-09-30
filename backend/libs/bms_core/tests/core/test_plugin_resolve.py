@@ -7,6 +7,7 @@ import pytest
 from bms_core.core import plugin as plugin_module
 from bms_core.core.base import BaseObject
 from bms_core.core.capability import BaseNullObject
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.core.exceptions import PluginError
 from bms_core.core.logging import configure_logging
@@ -88,7 +89,7 @@ def test_resolve_unregistered_raises(registry: PluginRegistry) -> None:
 @pytest.mark.kiwi_id(530)
 def test_resolve_factory_cached(registry: PluginRegistry) -> None:
     """组合路径工厂：仅调用一次，结果缓存复用。"""
-    calls: list[int] = []
+    calls: ConcurrentStableList[int] = ConcurrentStableList()
 
     def factory() -> object:
         """零参工厂（结构化实现入口）。
@@ -96,7 +97,7 @@ def test_resolve_factory_cached(registry: PluginRegistry) -> None:
         Returns:
             object: 实现实例。
         """
-        calls.append(1)
+        calls.add(1)
         return BaseObject()
 
     registry.register("test_resolve_factory", "factory", factory)

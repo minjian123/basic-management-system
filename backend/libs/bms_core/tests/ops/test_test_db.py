@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.db.migration import head_revision, resolve_chain
 from ops.test_db import (
     ENGINE_CHOICES,
@@ -30,11 +31,11 @@ CI_FILE = REPO_ROOT / ".gitlab-ci.yml"
 _DM_URL = "dm+dmPython://SYSDBA:secret@192.0.2.10:5236/BMS_TEST_DM"
 
 
-def _revisions(path: Path) -> list[str]:
+def _revisions(path: Path) -> ConcurrentStableList[str]:
     """读 SQLite 库 `alembic_version` 版本行。"""
     connection = sqlite3.connect(path)
     try:
-        return [row[0] for row in connection.execute("SELECT version_num FROM alembic_version")]
+        return ConcurrentStableList(row[0] for row in connection.execute("SELECT version_num FROM alembic_version"))
     finally:
         connection.close()
 
