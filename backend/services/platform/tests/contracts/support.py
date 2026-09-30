@@ -179,25 +179,25 @@ class TodoCardProvider(BaseDashboardCardProvider):
         """
         return f"卡片提供者 {self.key}"
 
-    def metadata(self) -> Mapping[str, object]:
+    def metadata(self) -> ConcurrentStableDict[str, object]:
         """卡片元数据。
 
         Returns:
-            Mapping[str, object]: 固定元数据。
+            ConcurrentStableDict[str, object]: 固定元数据。
         """
-        return {"title": "待办"}
+        return ConcurrentStableDict({"title": "待办"})
 
-    async def fetch(self, params: Mapping[str, object]) -> Mapping[str, object]:
+    async def fetch(self, params: ConcurrentStableDict[str, object]) -> ConcurrentStableDict[str, object]:
         """卡片取数。
 
         Args:
             params: 取数参数（忽略）。
 
         Returns:
-            Mapping[str, object]: 空数据。
+            ConcurrentStableDict[str, object]: 空数据。
         """
         del params
-        return {}
+        return ConcurrentStableDict()
 
 
 class MemoryFieldTypeRegistry(BaseFieldTypeRegistry):

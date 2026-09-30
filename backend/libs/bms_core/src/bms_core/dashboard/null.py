@@ -1,8 +1,7 @@
 """dashboard 能力域缺省实现（Null Object）：占位返回、无副作用（02-3 自 bms_core.dashboard.base.py 迁入）。"""
 
-from collections.abc import Mapping
-
 from bms_core.core.capability import BaseNullObject
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.dashboard.base import BaseDashboardCardProvider, BaseDashboardCardRegistry
 
 __all__ = [
@@ -25,18 +24,20 @@ class NullDashboardCardRegistry(BaseDashboardCardRegistry, BaseNullObject):
         """
         return provider.key
 
-    def metadata(self, card_key: str) -> Mapping[str, object]:
+    def metadata(self, card_key: str) -> ConcurrentStableDict[str, object]:
         """固定返回空元数据（占位空卡片集）。
 
         Args:
             card_key: 卡片标识（占位忽略）。
 
         Returns:
-            Mapping[str, object]: 空映射。
+            ConcurrentStableDict[str, object]: 空映射。
         """
-        return {}
+        return ConcurrentStableDict()
 
-    async def fetch(self, card_key: str, params: Mapping[str, object]) -> Mapping[str, object]:
+    async def fetch(
+        self, card_key: str, params: ConcurrentStableDict[str, object]
+    ) -> ConcurrentStableDict[str, object]:
         """固定返回空数据（占位空卡片集）。
 
         Args:
@@ -44,6 +45,6 @@ class NullDashboardCardRegistry(BaseDashboardCardRegistry, BaseNullObject):
             params: 取数参数（占位忽略）。
 
         Returns:
-            Mapping[str, object]: 空映射。
+            ConcurrentStableDict[str, object]: 空映射。
         """
-        return {}
+        return ConcurrentStableDict()

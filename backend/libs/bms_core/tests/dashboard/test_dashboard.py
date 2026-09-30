@@ -1,6 +1,5 @@
 """首页工作台卡片提供者基座契约测试（Kiwi 61）：契约 / 标识 / 常量 / 注册表模板 / 占位空卡片集 / 依赖解析。"""
 
-from collections.abc import Mapping
 from typing import Annotated
 
 import pytest
@@ -11,6 +10,7 @@ from support_app import ApplicationFactory, lifespan
 from bms_core.api.deps import get_dashboard_card_registry
 from bms_core.core.base import BaseObject
 from bms_core.core.capability import BaseCapability, BaseNullObject
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.exceptions import NotFoundError
 from bms_core.dashboard.base import CARD_TYPES, BaseDashboardCardProvider, BaseDashboardCardRegistry
 from bms_core.dashboard.null import NullDashboardCardRegistry
@@ -29,11 +29,11 @@ class _FakeCard(BaseDashboardCardProvider):
     def describe(self) -> str:
         return f"测试卡片提供者 {self._key}"
 
-    def metadata(self) -> Mapping[str, object]:
-        return {"name": self._key, "card_type": "builtin", "render_key": self._key}
+    def metadata(self) -> ConcurrentStableDict[str, object]:
+        return ConcurrentStableDict({"name": self._key, "card_type": "builtin", "render_key": self._key})
 
-    async def fetch(self, params: Mapping[str, object]) -> Mapping[str, object]:
-        return {"card": self._key, "arg": params.get("x")}
+    async def fetch(self, params: ConcurrentStableDict[str, object]) -> ConcurrentStableDict[str, object]:
+        return ConcurrentStableDict({"card": self._key, "arg": params.get("x")})
 
 
 class _InMemoryRegistry(BaseDashboardCardRegistry):
@@ -73,12 +73,12 @@ async def test_registry_template_resolution() -> None:
 
     assert registry.keys() == ("todo", "notice")
     assert registry.metadata("todo") == {"name": "todo", "card_type": "builtin", "render_key": "todo"}
-    assert await registry.fetch("notice", {"x": 7}) == {"card": "notice", "arg": 7}
+    assert await registry.fetch("notice", ConcurrentStableDict({"x": 7})) == {"card": "notice", "arg": 7}
 
     with pytest.raises(NotFoundError):
         registry.metadata("missing")
     with pytest.raises(NotFoundError):
-        await registry.fetch("missing", {})
+        await registry.fetch("missing", ConcurrentStableDict())
 
 
 @pytest.mark.kiwi_id(61)
@@ -90,7 +90,7 @@ async def test_null_registry_empty_cards() -> None:
     assert registry.get("todo") is card
     assert registry.keys() == ("todo",)
     assert registry.metadata("todo") == {}
-    assert await registry.fetch("todo", {}) == {}
+    assert await registry.fetch("todo", ConcurrentStableDict()) == {}
 
 
 @pytest.mark.kiwi_id(61)
@@ -104,7 +104,7 @@ async def test_dependency_provider_resolves() -> None:
         async def probe(  # pyright: ignore[reportUnusedFunction]
             registry: Annotated[BaseDashboardCardRegistry, Depends(get_dashboard_card_registry)],
         ) -> dict[str, object]:
-            data = await registry.fetch("todo", {})
+            data = await registry.fetch("todo", ConcurrentStableDict())
             return {"key": registry.key, "type": type(registry).__name__, "cards": registry.keys(), "data": dict(data)}
 
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
