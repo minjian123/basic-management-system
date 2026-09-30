@@ -821,3 +821,11 @@ flowchart LR
 | 本地预检 | `check-preflight.py --fast` | **全部通过**（`api-types` 零漂移，响应形态不变） |
 
 **说明（非失败）**：`pytest` 输出仍有 `PytestUnhandledThreadExceptionWarning`（`aiosqlite` 连接工作线程在事件循环关闭后被 GC 清理，`test_outbox` 等用例 teardown 报 `Event loop is closed`）——属**测试夹具 / 异步引擎 GC 时机**的告警，非用例失败，与本次集合整改无关；另轮按需清理（不影响门禁）。
+
+**测试连接泄漏清理（2026-09-30，随本修复）**：顺手修掉 3 处**真实测试连接泄漏**（测试内构造的 `EngineRegistry` / 引擎从不释放，GC 时事件循环已关闭 → SAWarning + 线程异常）：
+
+- `libs/bms_core/tests/listing/test_query_scheme_store.py`：`scheme_store` 的 `EngineRegistry` 从不关闭 → 增 `_OPEN_ENGINES` 登记 + 异步 autouse 夹具用例结束统一 `aclose()`（**保持 sync 夹具**：夹具内 `_run_migrations` 走 Alembic `asyncio.run`，不能放进运行中的事件循环）；
+- `libs/bms_core/tests/config/test_config_real.py`：`_engines()` / `_broken_engines()` 从不关闭 → 同款登记 + autouse 释放；
+- `services/platform/tests/dict/test_dict_real.py`：`dict_client` 的临时 `EngineRegistry` 与 `_engines()` 从不关闭 → `dict_client` teardown 显式 `await engines.aclose()`，`_engines()` 同款登记 + autouse 释放。
+
+**遗留告警经用户拍板（2026-09-30）登记为已知项、不再追**：`pytest` 的 `PytestUnhandledThreadExceptionWarning`（`Event loop is closed`）仍有残留（`services` 侧某测试持有的连接在事件循环关闭后被 GC），属测试卫生问题、**不影响门禁**（默认 `pytest` 退出码 0）；已定位的 3 处泄漏已修，其余不再深挖。详见交接单 §9。
