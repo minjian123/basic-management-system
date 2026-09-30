@@ -469,3 +469,42 @@ flowchart LR
 **过程处置（已闭环）**：`tests/idp/test_idp.py` 探针路由直传集合类触发 FastAPI 序列化失败 → 按第三方 JSON 边界口径改 `dict(session)`（`None` 分支保留）。
 
 **遗留**：`bms_core` 剩余 **522 处**（`libs`：`tests` 278 / `db` 43 / `api` 32 / `core` 27 / `boundary` 18 / `outbox` 10 / `schemas` 10 / `security` 9 / `fieldtype` 7 / `tracing` 7 …），按交接单 §7 第 1 项续推（其余 `libs` 与 `tests` 收尾）。
+
+## 20. 实施过程补充 · 存量整改子批 3 · `db/` 模块（签名单轮，2026-09-30） <a id="batch3-db"></a>
+
+**范围**：`bms_core` `db/` 模块 **43 处**（`registry.py` 12 / `engine.py` 6 / `inventory.py` 5 / `bootstrap.py` 4 / `admin.py` 3 / `migration.py` 3 / `tenant_registry.py` 3 / `keys.py` 2 / `health.py` 1 / `sync.py` 1 / `tenant_source.py` 1 / `tenant_remote.py` 1），外加调用方 / 测试适配（`libs` 测试 2 份、tenant 服务本地源 1 份）。按交接单 §7 第 1 项「其余 `libs`」续项推进。
+
+**动作**（按文件）：
+
+1. **引擎工厂（`engine.py`）**：内部缓存 `_engines` / `_sync_engines` / `_round_robin` 落 `ConcurrentStableDict`（`[]=` → `set`、`pop(k, None)` → `get_and_remove`、`clear()` → 逐键取走）；`replicas` → `ConcurrentStableList[str]`、`_engine_kwargs` → `ConcurrentStableDict[str, object]`（局部 `kwargs` 同型、`kwargs["connect_args"]` → `.set`；`**kwargs` 展开 Mapping 语义不变）。
+2. **引擎注册表（`registry.py`）**：`_engines` / `_last_used` / `_locks` 落 `ConcurrentStableDict`、`_sync_keys` 落 `ConcurrentStableSet`；`active_keys` / `_tenant_keys` → `ConcurrentStableList[str]`；`db_counts` → `ConcurrentStableDict[str, int]`；`pool_budget_rows` 入参落 `ConcurrentStableList[str] | None`、返回 `ConcurrentStableList[PoolBudgetRow]`（局部 `rows` 同型、`append` → `add`）；`pool_budget_warnings` / `tenant_pool_budget_warnings` → `ConcurrentStableList[str]`。
+3. **库数量统计（`inventory.py`）**：`db_count_rows` / `db_counts_by_kind` / `db_counts_from_keys` 入参落 `ConcurrentStableList[str]`；`db_counts_by_kind` 返回 `ConcurrentStableDict[str, int]`（局部 `counts` 同型、`counts[k] = ...` → `set`）。
+4. **开发库自动建表（`bootstrap.py`）**：`handled` 落 `ConcurrentStableList`（`append` → `add`）、`seen_urls` 落 `ConcurrentStableSet`；`db_keys_for` / `ensure_development_schema` 返回落集合类。
+5. **库级建删（`admin.py`）**：`fetch_rows` / `_fetch` / `_fetch_sync` 返回 `Sequence[object]` → `ConcurrentStableList[object]`（`list(...)` → `ConcurrentStableList(...)`）。
+6. **迁移链（`migration.py`）**：`_SCOPE_SUFFIX` 落 `ConcurrentStableDict`；`chain_names` / `service_chains` 返回落 `ConcurrentStableList`。
+7. **数据源键（`keys.py`）**：`DB_KEY_KINDS` 落 `ConcurrentStableSet`；`_known_service_keys() -> ConcurrentStableSet[str]`。
+8. **同步方言（`sync.py`）**：`SYNC_ONLY_DIALECTS` 落 `ConcurrentStableSet`。
+9. **主库健康（`health.py`）**：`_degraded` 落 `ConcurrentStableSet`。
+10. **租户源装配（`tenant_source.py`）**：`_LOOKUP_FACTORIES` 落 `ConcurrentStableDict`（`[]=` → `set`）。
+11. **租户快照（`tenant_registry.py`）**：`to_payload() -> ConcurrentStableDict[str, Any]`（`payload["version"]` → `.set`）、`from_payload(payload: ConcurrentStableDict[str, object])`。
+12. **远程租户源（`tenant_remote.py`）**：`_payload_data() -> ConcurrentStableDict[str, object]`；`_cache_get` 载荷构造集合类；**缓存写边界** `cache.set(..., dict(snapshot.to_payload(...)))`——Redis 缓存 Region 的 `_dump` 为 `json.dumps(default=str)`，集合类直入会按 `str()` 破坏载荷，故显式 `dict(...)` 转换（与 `dict` 子批同口径）。
+
+**调用方与测试同步**：`libs` 侧 `tests/db/test_db_inventory.py`（`db_count_rows` / `db_counts_by_kind` / `db_counts_from_keys` 实参包 `ConcurrentStableList`）、`tests/db/test_pool_config.py`（`pool_budget_rows(services=...)` 同上）；tenant 服务 `sources/tenant_source.py`（`from_payload` 入参构造集合类、`to_payload` 出口 `dict(...)`）。断言维持内容相等（`== [..]` / `== {..}`），未改语义。
+
+**验证**：
+
+| 项 | 命令 | 结果 |
+| --- | --- | --- |
+| 定向用例（libs db + alembic + core） | `pytest libs/bms_core/tests/{db,alembic,core}` | **346 passed** |
+| 全量 `libs` | `pytest libs/bms_core/tests` | **1099 passed / 37 skipped** |
+| 全量 `services` | `pytest services` | **787 passed / 3 skipped / 1 failed**（既有 red，见偏差） |
+| 静态检查 | `ruff check .` / `ruff format --check .`（backend 全量） | 全绿（957 文件） |
+| 护栏 | `check-bare-collections.py .` | **「新增 0 / 残留 0」**；`db/` **43 → 0** |
+| 基线递减 | `--update-baseline` | **1173 → 1130**（`libs` 522 → 479） |
+| 本地预检 | `check-preflight.py --fast` | **全部通过**（含契约 / 事件契约 / 网关 / 前端 `api-types` 零漂移） |
+
+**偏差（既有 red，非本轮引入）**：`services/platform/tests/dict/test_dict_real.py::test_http_endpoints`（`query-providers` 的 `model_dump` 序列化出口）仍为既有 red，本轮未扩大；另轮单独修。
+
+**过程处置（集合类非内置容器超集的坑复现）**：`ConcurrentStableDict` 无 `pop(k, None)` / `clear` → 一律改 `get_and_remove` / 逐键取走；`[]=` → `set`。缓存写出口（Redis `json.dumps(default=str)`）须 `dict(...)`，否则集合类被 `str()` 化。
+
+**遗留**：`db/` 模块归零；`bms_core` 剩余 **479 处**（`libs`：`tests` 278 / `api` 32 / `core` 27 / `boundary` 18 / `outbox` 10 / `schemas` 10 / `security` 9 / `fieldtype` 7 / `tracing` 7 …），按交接单 §7 第 1 项续推（其余 `libs` 与 `tests` 收尾）。
