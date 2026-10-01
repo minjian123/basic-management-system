@@ -1186,3 +1186,36 @@ flowchart LR
 | 本地预检 | `check-preflight.py --fast` | **全部通过** |
 
 **遗留**：`scripts/tools` **归零**（批次 3 收口）；全局余 **103 处**全在 `ops`（21 文件）。
+
+## 45. 实施过程补充 · 存量整改子批 14 · 批次 4 `ops`（2026-10-01） <a id="batch14-ops"></a>
+
+**范围**：`backend/ops/` **103 处 / 21 文件**（签名参数 84 / 签名返回 41 / 局部变量 28；按文件：`migrate_tenants` 19 / `backfill_tenant_id_columns` 12 / `check_modules` 10 / `check_tables` 10 / `test_db` 10 / `contract_gate` 8 / `contract_snapshot` 6 / `provision_tenant` 6 / `seed_oidc_client` 3 / `contract_smoke` 3 / `event_contracts` 2 / `check_plugins` 2 / `seed_module` 2 / `seed_sso` 2 / `seed_tables` 2 / `check_budget` 1 / `db_admin` 1 / `gateway_config` 1 / `init_tenant` 1 / `outbox` 1 / `seed_tenant` 1），另 **17 个调用方测试文件**适配；收口后**全局基线归零**。
+
+**动作**：
+
+1. **声明侧**：`Sequence[...]` / `Mapping[...]` / `list[...]` / `dict[...]` / `set[...]` 全落 `ConcurrentStableList` / `ConcurrentStableDict` / `ConcurrentStableSet`（含 `TEST_DATABASES` 之类**嵌套结构**：外层与内层同落）；`main(argv)` 统一 `ConcurrentStableList[str] | None`。
+2. **写用法**：`append` → `add`、`extend` / `+=` → `update`、`x[k] = v` → `set`、`dict(env)` 复制 → `ConcurrentStableDict(env)`。
+3. **第三方边界出口**：`subprocess.run(list(command))`（`contract_smoke` / `contract_gate` 的执行器）、`connection.execute(text(...), params)`（回填绑定参数落 `ConcurrentStableDict`）、`json.dumps`（`seed_oidc_client` 的 `redirect_uris` / `scopes` → `list(...)`；`seed_sso` 的 `_idp_config()` → `normalize_collections`）。
+4. **对称适配**：`contract_gate` / `contract_smoke` 的 `Runner` 类型别名同步为 `Callable[[ConcurrentStableList[str]], ...]`，其全部 `run([...])` 调用点改 `run(ConcurrentStableList([...]))`。
+5. **调用方适配（17 测试文件）**：`libs/bms_core/tests/ops/*`（16）与 `services/tenant/tests/sources/test_tenant_routing_integration.py` —— `X.main([...])` → `ConcurrentStableList([...])`、`check_service_declarations(catalog, {...})` 双包装、`_catalog()` 返回落集合类、`_ID_MAP` 落 `ConcurrentStableDict`、`services=[...]` → `ConcurrentStableList([...])`。
+
+**偏差修复（本轮暴露的两处既有缺口）**：
+
+- `scripts/tools/base-check/check-service-boundaries.py`（§41 遗留）：`_emit` 的 `--json` 分支未把 `counts` / `problems` 转内置容器 → `json.dumps` 报 `Object of type ConcurrentStableDict is not JSON serializable`（`libs/bms_core/tests/ops/test_boundary_metrics.py` 与度量脚本依赖 `--json`）；已改 `dict(counts)` / `list(problems)`。
+- `ops/event_contracts.py`：`check()` 内漏改一处 `errors.append`（集合类无 `append`）→ 由 `test_event_contracts_cli.py::test_check_drift_fails` 抓到，已改 `add`。
+
+**验证**：
+
+| 项 | 命令 | 结果 |
+| --- | --- | --- |
+| lint | `ruff check` + `ruff format --check`（backend 配置） | 全绿（21 ops + 17 测试） |
+| 定向用例 | `pytest libs/bms_core/tests/ops services/tenant/tests/sources/test_tenant_routing_integration.py` | **155 passed / 1 skipped** |
+| 护栏 | `check-bare-collections.py .` | **「新增 0」**；`ops` **103 → 0** |
+| 基线递减 | `--update-baseline` | **103 → 0**（条目 102 → 0；**全局归零**） |
+| 脚本自测 | `check-service-boundaries.py --self-test` | 全部通过 |
+| 类型抽样 | `pyright libs/bms_core/tests/ops …` | 真实类型错误 0（余 1 处 `pytest.skip` 收窄属本地依赖外置噪声，CI 完整依赖不报） |
+| 本地预检 | `check-preflight.py --fast` | **全部通过**（含 `gateway_config` / `contract_snapshot` / `event_contracts` 三个 ops 脚本实跑） |
+
+**遗留**：**全局基线归零** —— `libs`（§28~§33）、`services`（§34~§36）、`scripts/tools`（§37~§44）、`ops`（§45）四批全部收口，08_02 存量整改完成；`ops/gateway_config.py` 保持**无依赖面**（CI 精简镜像直接执行，仅引标准库依赖链），其余 ops 经完整依赖环境运行。
+
+**已知非门禁项**：`scripts/tools/base-check/check-service-boundaries.py` 在 backend 配置下存 6 条 ruff 提示（import 排序 / 3 处既有超长行 / 1 处未用循环变量），均为既有且 `scripts/tools` 不在 CI ruff 范围（`cd backend && ruff check .`），不属本轮范围。
