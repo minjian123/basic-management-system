@@ -1157,3 +1157,32 @@ flowchart LR
 **口径订正**：实测 `ConcurrentStableList.clear()` 与 `ConcurrentStableSet.clear()` **存在**，仅 `ConcurrentStableDict.clear()` 不存在——交接单 §9 原「集合类无 `clear()`」表述已订正（见该单 §9）。
 
 **遗留**：`scripts/tools` 余 **50 处**（`deploy/release.py`，805 行）；随后 `ops`（103）。
+
+## 44. 实施过程补充 · 存量整改子批 13 · 批次 3 收口 `deploy/release.py`（2026-10-01） <a id="batch13-release"></a>
+
+**范围**：`scripts/tools/deploy/release.py` **50 处 / 1 文件**（签名参数 38 / 签名返回 11 / 局部变量 1）；805 行发布编排 CLI（bootstrap / deploy / rollback / status / health-gate / prune）。
+
+**动作**：
+
+1. **基座导入引导**：脚本顶部以 `REPO_ROOT` 定位后 `sys.path.insert(0, REPO_ROOT/"backend"/"libs"/"bms_core"/"src")`，引入 `ConcurrentStableDict` / `ConcurrentStableList` / `ConcurrentStableSet` 与 `normalize_collections`（`# noqa: E402`；照抄 `check-service-boundaries.py` 范式）。因 `models.base.to_stable_value` 依赖 SQLAlchemy（脚本不可引），自备零依赖 `_to_stable`（内置容器递归转集合类，对齐其语义）。
+2. **纯函数声明**：`parse_env` / `_read_env` / `_base_env` / `_fill_service_tags` / `_load_ledger` / `rotate_ledger` / `build_manifest` 的局部 / 参数 / 返回落集合类（局部 `values` 由 `{}` 改 `ConcurrentStableDict()`，`values[key] = val` → `set`）；`select_prunable_tags` 参数 `ConcurrentStableList[ConcurrentStableDict[str, str]]`、返回 `ConcurrentStableList[str]`，`if keep <= 0: return ConcurrentStableList()`、切片返回同类（`ConcurrentStableList.__getitem__(slice) -> Self`）。
+3. **运行时辅助全链路**：`env: dict[str, str]` → `ConcurrentStableDict[str, str]`（`_compose` / `_compose_run` / `_wait_readyz` / `_check_gateway` / `health_gate` / `_up` / `_migrate` / `_deploy_one` / `_rollback_one` / `_ensure_app_user` / `_tenant_url` / `cmd_*`）；`args` / `command` / `services` / `tenants` / `argv` 落 `ConcurrentStableList`；`extra_env` 与 `headers`（原为内置字面量）落 `ConcurrentStableDict`。
+4. **写用法改原子方法**：`result[key] = v` → `result.set(key, v)`（`_fill_service_tags` / `_up` / `_migrate` / `_deploy_one` / `_rollback_one`）、`dict(env)` 复制 → `ConcurrentStableDict(env)`（构造接受 `Mapping`）、`args += [...]` → `args.update([...])`、`args.append` → `args.add`、`merged.update(_read_env(...))` → `.items()`（**集合类 `update` 只吃键值对，传 Mapping 会按键解包**）、`merged.update({k: v …})` → 生成器键值对。
+5. **第三方边界出口**：`subprocess.run(env=env)` → `env=dict(env)`（`_compose` / `_wait_readyz`）；`urllib.request.Request(headers=headers)` → `headers=dict(headers)`（`_api_get` / `_api_delete`）；`json.dumps(ledger/record)` → `json.dumps(normalize_collections(...))`（`_save_ledger` / `_append_log`，集合类嵌套不可直序列化）。
+6. **JSON 读回落插入序形态**：`_load_ledger` / `_api_get` 由 `json.loads` 得内置容器 → 经 `_to_stable` 递归转集合类（嵌套 `current` / `previous` 与 tag 项同落），保证「声明是集合类、运行期亦为集合类」。
+7. **运行期容器判定同步**：`isinstance(x, dict)` 改为 `isinstance(x, Mapping)`（覆盖内置 `dict` 与 `ConcurrentStableDict`），避免读回值落集合类后静默失配（交接单 §9「运行期容器识别缺口」）。
+8. **模块级常量**：`GATEWAY_SMOKE_PASS` 由裸 `frozenset` 改 `ConcurrentStableSet[int]`（加注解 + 落插入序形态，符合「集合常量全查」口径）。
+
+**验证**：
+
+| 项 | 命令 | 结果 |
+| --- | --- | --- |
+| 编译 | `py_compile` | 通过 |
+| lint | `ruff check` + `ruff format --check`（backend 配置，line-length=120） | 全绿 |
+| 实跑只读路径 | `--help` / `status` / `deploy --service …`（缺 `--tag`）/ `prune`（缺 token） | rc 依次 0 / 0 / 2 / 2，输出正常 |
+| 运行期冒烟 | 临时脚本（纯函数 + JSON 往返 + 嵌套转换 + 切片 + CLI 端到端） | **SMOKE-OK**（用完即删） |
+| 护栏 | `check-bare-collections.py .` | **「新增 0」**；`scripts/tools` **50 → 0** |
+| 基线递减 | `--update-baseline` | **153 → 103**（条目 147 → 102、计数合计 103；新增条目 0 / 移除 50） |
+| 本地预检 | `check-preflight.py --fast` | **全部通过** |
+
+**遗留**：`scripts/tools` **归零**（批次 3 收口）；全局余 **103 处**全在 `ops`（21 文件）。
