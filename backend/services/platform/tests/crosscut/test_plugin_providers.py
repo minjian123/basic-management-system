@@ -15,6 +15,7 @@ import bms_core as app_pkg
 from bms_core.application import service_lifespan as lifespan
 from bms_core.core import plugin as plugin_module
 from bms_core.core.base import BaseObject
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import PluginSelection, Settings
 from bms_core.core.exceptions import ConflictError
 from bms_core.core.plugin import BasePluggable, PluginRegistry, plugin_registry_snapshot, resolve_plugin
@@ -80,7 +81,7 @@ async def test_provider_resolves_from_registry(monkeypatch: pytest.MonkeyPatch) 
     @app.get("/storage-probe")
     async def probe(  # pyright: ignore[reportUnusedFunction]
         storage: Annotated[BaseObjectStorage, Depends(get_object_storage)],
-    ) -> dict[str, str]:
+    ) -> dict[str, str]:  # bare-collections:allow（FastAPI 端点返回注解）
         return {"type": type(storage).__name__}
 
     async with lifespan(app):
@@ -110,7 +111,7 @@ async def test_config_switch_with_no_consumer_change(monkeypatch: pytest.MonkeyP
     @app.get("/storage-probe")
     async def probe(  # pyright: ignore[reportUnusedFunction]
         storage: Annotated[BaseObjectStorage, Depends(get_object_storage)],
-    ) -> dict[str, str]:
+    ) -> dict[str, str]:  # bare-collections:allow（FastAPI 端点返回注解）
         return {"type": type(storage).__name__}
 
     async with lifespan(app):
@@ -163,7 +164,7 @@ def test_provider_registry_base_semantics() -> None:
 @pytest.mark.kiwi_id(565)
 def test_providers_have_no_direct_state_bypass() -> None:
     """直连残留护栏：能力域提供者均经 `resolve_plugin`，且不再直读 `app.state.<能力属性>`。"""
-    offenders: list[str] = []
+    offenders: ConcurrentStableList[str] = ConcurrentStableList()
     checked = 0
     for path in sorted(_CORE.rglob("*.py")):
         if any(part in {"api", "db", "core"} for part in path.relative_to(_CORE).parts):
@@ -180,6 +181,6 @@ def test_providers_have_no_direct_state_bypass() -> None:
             segment = ast.get_source_segment(source, node) or ""
             bypass = re.search(r"app\.state\.(?!settings)", segment) is not None
             if "resolve_plugin(" not in segment or bypass:
-                offenders.append(f"{path.relative_to(_CORE)}::{node.name}")
+                offenders.add(f"{path.relative_to(_CORE)}::{node.name}")
     assert checked >= 34
     assert not offenders, offenders

@@ -7,6 +7,7 @@ import pytest
 from pydantic import computed_field
 
 from bms_core.core.base import BaseObject
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.repositories.base_repository import BaseRepository
 from bms_core.schemas.base import BaseSchema
 from bms_core.services.base_service import BaseService
@@ -27,7 +28,7 @@ class Nested(BaseObject):
 
     name: str
     point: Point
-    tags: list[object]
+    tags: ConcurrentStableList[object]
 
 
 class Entity(BaseObject):
@@ -41,7 +42,9 @@ class Entity(BaseObject):
 @pytest.mark.kiwi_id(14)
 def test_to_dict_reflects_public_fields_recursively() -> None:
     """to_dict 取公开字段并递归转换嵌套对象与容器。"""
-    nested = Nested(name="n", point=Point(id=1, x=2), tags=[Point(id=3, x=4), {"a": Point(id=5, x=6)}])
+    nested = Nested(
+        name="n", point=Point(id=1, x=2), tags=ConcurrentStableList([Point(id=3, x=4), {"a": Point(id=5, x=6)}])
+    )
     assert nested.to_dict() == {
         "name": "n",
         "point": {"id": "1", "x": 2},
@@ -52,7 +55,7 @@ def test_to_dict_reflects_public_fields_recursively() -> None:
 @pytest.mark.kiwi_id(14)
 def test_to_json_sorts_keys_and_falls_back_to_str() -> None:
     """to_json 默认按键排序；不可序列化值降级 str；可关闭排序。"""
-    obj = Nested(name="n", point=Point(id=1, x=2), tags=[object()])
+    obj = Nested(name="n", point=Point(id=1, x=2), tags=ConcurrentStableList([object()]))
     assert obj.to_json().startswith('{"name": "n"')
     assert "object object at" in obj.to_json()
     assert obj.to_json(sort_keys=False).startswith('{"name": "n"')
@@ -65,7 +68,7 @@ def test_str_and_repr_with_mro_precedence() -> None:
     assert str(entity) == repr(entity)
     assert str(entity).startswith("Entity(")
 
-    nested = Nested(name="n", point=Point(id=1, x=2), tags=[])
+    nested = Nested(name="n", point=Point(id=1, x=2), tags=ConcurrentStableList())
     assert repr(nested).startswith("Nested(name=")  # dataclass 生成的 __repr__ 优先
 
 
@@ -96,7 +99,7 @@ def test_public_fields_fallback_when_fields_unavailable(monkeypatch: pytest.Monk
         raise TypeError("boom")
 
     monkeypatch.setattr(dataclasses, "fields", boom)
-    assert Nested(name="n", point=Point(id=1, x=2), tags=[]).to_dict() == {
+    assert Nested(name="n", point=Point(id=1, x=2), tags=ConcurrentStableList()).to_dict() == {
         "name": "n",
         "point": {"id": "1", "x": 2},
         "tags": [],

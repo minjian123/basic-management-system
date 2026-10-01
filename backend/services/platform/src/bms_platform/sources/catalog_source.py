@@ -7,18 +7,19 @@
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.services.module_registry import ModuleRecord
 from bms_platform.repositories.module_repository import ModuleRepository
 
 
-async def read_catalog(session: AsyncSession) -> list[ModuleRecord]:
+async def read_catalog(session: AsyncSession) -> ConcurrentStableList[ModuleRecord]:
     """读本服务平台服务库的服务目录（未软删行）。
 
     Args:
         session: 平台服务库会话（由调用方按库键 `platform` 取）。
 
     Returns:
-        list[ModuleRecord]: 服务目录清单（`id` 升序）。
+        ConcurrentStableList[ModuleRecord]: 服务目录清单（`id` 升序）。
     """
     rows = await ModuleRepository(session).list_catalog()
-    return [ModuleRecord.from_row(row) for row in rows]
+    return ConcurrentStableList(ModuleRecord.from_row(row) for row in rows)

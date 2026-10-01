@@ -23,6 +23,7 @@ from bms_core.codecheck.base import (
 )
 from bms_core.codecheck.null import NullCodeValidator
 from bms_core.core.capability import BaseCapability, BaseNullObject
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.error_codes import ErrorCode
 from bms_core.core.plugin import BasePluggable, resolve_plugin
 from bms_core.ratelimit.base import RateLimitRule
@@ -39,7 +40,7 @@ class _RecordingLimiter:
 
     def __init__(self) -> None:
         """初始化空限流键记录。"""
-        self.keys: list[str] = []
+        self.keys: ConcurrentStableList[str] = ConcurrentStableList()
 
     async def require(self, key: str, rule: RateLimitRule) -> None:
         """记录限流键并恒定放行。
@@ -49,7 +50,7 @@ class _RecordingLimiter:
             rule: 限流规则（替身忽略）。
         """
         del rule
-        self.keys.append(key)
+        self.keys.add(key)
 
 
 @pytest.mark.kiwi_id(927)

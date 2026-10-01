@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from bms_core.audit.base import AuditCapturer, FieldChange
 from bms_core.cache.base import CacheRegion, build_cache_key
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.events.base import EventConsumer, EventEnvelope, EventPublisher
 from bms_core.models.base import Base, BaseModel
 from bms_core.scope.base import DataScope
@@ -25,7 +25,7 @@ class StubRegion(CacheRegion):
     """测试缓存 Region 占位实现。"""
 
     def __init__(self, version: int = 1) -> None:
-        self._store: dict[str, object] = {}
+        self._store: ConcurrentStableDict[str, object] = ConcurrentStableDict()
         self._version = version
 
     @property
@@ -39,11 +39,11 @@ class StubRegion(CacheRegion):
 
     def set(self, key: str, value: object, ttl: int | None = None) -> None:
         """写缓存。"""
-        self._store[key] = value
+        self._store.set(key, value)
 
     def delete(self, key: str) -> bool:
         """删缓存。"""
-        return self._store.pop(key, None) is not None
+        return self._store.get_and_remove(key) is not None
 
     def get_global_version(self) -> int:
         """取全局版本号。"""
@@ -87,22 +87,22 @@ class StubPublisher(EventPublisher):
         return "user_created"
 
     def __init__(self) -> None:
-        self.events: list[EventEnvelope] = []
+        self.events: ConcurrentStableList[EventEnvelope] = ConcurrentStableList()
 
     async def publish(self, event: EventEnvelope) -> None:
         """发布事件。"""
-        self.events.append(event)
+        self.events.add(event)
 
     async def publish_transactional(self, event: EventEnvelope) -> None:
         """事务消息发布。"""
-        self.events.append(event)
+        self.events.add(event)
 
 
 class StubConsumer(EventConsumer):
     """测试事件消费者。"""
 
     def __init__(self) -> None:
-        self.received: list[EventEnvelope] = []
+        self.received: ConcurrentStableList[EventEnvelope] = ConcurrentStableList()
 
     @property
     def event_type(self) -> str:
@@ -111,7 +111,7 @@ class StubConsumer(EventConsumer):
 
     async def consume(self, event: EventEnvelope) -> None:
         """消费事件。"""
-        self.received.append(event)
+        self.received.add(event)
 
 
 class StubTask(BaseTask):
@@ -139,7 +139,7 @@ class StubCapturer(AuditCapturer):
         *,
         table: str,
         model_id: int,
-        changes: list[FieldChange],
+        changes: ConcurrentStableList[FieldChange],
         actor: int | None = None,
     ) -> EventEnvelope:
         """生成审计事件。"""
@@ -250,6 +250,6 @@ def test_audit_base() -> None:
     capturer = StubCapturer()
     assert capturer.is_audited("demo") is True
     assert capturer.is_audited("other") is False
-    event = capturer.capture(table="demo", model_id=1, changes=[change], actor=9)
+    event = capturer.capture(table="demo", model_id=1, changes=ConcurrentStableList([change]), actor=9)
     assert event.event_type == "audit_changed"
     assert event.payload["changes"] == [{"field": "name", "old": "a", "new": "b"}]

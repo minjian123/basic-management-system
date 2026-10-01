@@ -36,7 +36,7 @@ __all__ = [
     "resolve_catalog_reader",
 ]
 
-CatalogReader = Callable[[AsyncSession], Awaitable[list[ModuleRecord]]]
+CatalogReader = Callable[[AsyncSession], Awaitable[ConcurrentStableList[ModuleRecord]]]
 """目录权威本地读取器（入参为**本服务平台服务库**的会话，返回服务目录清单）。"""
 
 _CATALOG_READERS: ConcurrentStableDict[str, CatalogReader] = ConcurrentStableDict()
@@ -104,7 +104,7 @@ async def load_catalog_snapshot(app: FastAPI) -> ConcurrentStableList[ModuleReco
                 db_key=PLATFORM_DB_KEY,
                 factory=cast("SessionFactory", app.state.session_factory),
             ) as session:
-                return ConcurrentStableList(await reader(cast("AsyncSession", session)))
+                return await reader(cast("AsyncSession", session))
         except CatalogError:
             raise
         except Exception as exc:

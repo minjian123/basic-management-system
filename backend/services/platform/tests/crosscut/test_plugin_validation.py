@@ -14,6 +14,7 @@ import bms_core as app_pkg
 from bms_core.application import service_lifespan as lifespan
 from bms_core.core import plugin as plugin_module
 from bms_core.core.base import BaseObject
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.config import PluginSelection, Settings
 from bms_core.core.exceptions import PluginError
 from bms_core.core.plugin import BasePluggable, PluginRegistry
@@ -169,18 +170,18 @@ async def test_unselected_factory_not_imported(monkeypatch: pytest.MonkeyPatch, 
         assert "plugin_probe_unused" not in sys.modules
 
 
-def _script_env(extra: dict[str, str] | None = None) -> dict[str, str]:
+def _script_env(extra: ConcurrentStableDict[str, str] | None = None) -> ConcurrentStableDict[str, str]:
     """构造 CI 脚本子进程环境（剔除进程内 `BMS_` 残留）。
 
     Args:
         extra: 额外环境变量。
 
     Returns:
-        dict[str, str]: 环境变量映射。
+        ConcurrentStableDict[str, str]: 环境变量映射。
     """
     env = {key: value for key, value in os.environ.items() if not key.startswith("BMS_")}
     env.update(extra or {})
-    return env
+    return ConcurrentStableDict(env)
 
 
 @pytest.mark.kiwi_id(534)
@@ -204,7 +205,7 @@ def test_check_plugins_script_rejects_illegal_provider() -> None:
     result = subprocess.run(
         [sys.executable, "-m", "ops.check_plugins"],
         cwd=_BACKEND,
-        env=_script_env({"BMS_STORAGE__PROVIDER": "ghost"}),
+        env=_script_env(ConcurrentStableDict({"BMS_STORAGE__PROVIDER": "ghost"})),
         capture_output=True,
         text=True,
         check=False,

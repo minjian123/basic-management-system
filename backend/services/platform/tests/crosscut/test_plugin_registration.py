@@ -12,6 +12,7 @@ import pytest
 import bms_core as app_pkg
 from bms_core.core import plugin as plugin_module
 from bms_core.core.capability import BaseNullObject
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.plugin import (
     DEFAULT_CONTRACT_VERSION,
     NULL_PLUGIN_NAME,
@@ -106,42 +107,42 @@ _EXPECTED_PLUGIN_KEYS = frozenset(
 )
 
 
-_PORTS_WITHOUT_NULL: frozenset[str] = frozenset()
+_PORTS_WITHOUT_NULL: ConcurrentStableSet[str] = ConcurrentStableSet()
 """暂无 `NullXxx` 缺省实现的端口（05 已补齐 cache / audit / task / event，当前为空集）。"""
 
 _PLATFORM_FACTORY_KEYS = frozenset({"masking"})
 """构造需参数（`NullMasker` 需注入 checker），不自动登记、由装配清单显式工厂登记（01_02）。"""
 
 
-def _collect_app_classes() -> list[type[BasePluggable]]:
+def _collect_app_classes() -> ConcurrentStableList[type[BasePluggable]]:
     """导入 app 包全部模块并收集 `BasePluggable` 子类（仅 app 模块，过滤测试类）。
 
     Returns:
-        list[type[BasePluggable]]: 应用侧插件子类（含间接子类）。
+        ConcurrentStableList[type[BasePluggable]]: 应用侧插件子类（含间接子类）。
     """
     for info in pkgutil.walk_packages(app_pkg.__path__, prefix="bms_core."):
         if ".tests" in info.name or info.name.endswith("main"):
             continue
         importlib.import_module(info.name)
-    collected: list[type[BasePluggable]] = []
+    collected: ConcurrentStableList[type[BasePluggable]] = ConcurrentStableList()
     pending = list(BasePluggable.__subclasses__())
     while pending:
         cls = pending.pop()
-        collected.append(cls)
+        collected.add(cls)
         pending.extend(cls.__subclasses__())
-    return [cls for cls in collected if cls.__module__.startswith("bms_core.")]
+    return ConcurrentStableList(cls for cls in collected if cls.__module__.startswith("bms_core."))
 
 
-def _ports() -> list[type[BasePluggable]]:
+def _ports() -> ConcurrentStableList[type[BasePluggable]]:
     """能力域端口（不写死数量）：按 `plugin_key` 取最顶层抽象类。
 
     发布 / 消费在共享父 `BaseEventWorker` 之下各加一层基类后仍各自成端口——
     `BaseEventWorker`（`event`）与 `BaseEventConsumer`（`event_consumer`）分别代表两个能力域。
 
     Returns:
-        list[type[BasePluggable]]: 端口基类列表。
+        ConcurrentStableList[type[BasePluggable]]: 端口基类列表。
     """
-    ports: dict[str, type[BasePluggable]] = {}
+    ports: ConcurrentStableDict[str, type[BasePluggable]] = ConcurrentStableDict()
     for cls in _collect_app_classes():
         if cls.__module__.startswith("bms_core.core.factory"):
             continue  # 工厂基类（02-54）不属能力域端口
@@ -149,20 +150,20 @@ def _ports() -> list[type[BasePluggable]]:
             continue
         current = ports.get(cls.plugin_key)
         if current is None or issubclass(current, cls):  # 取最顶层（最接近 BasePluggable 的抽象类）
-            ports[cls.plugin_key] = cls
-    return list(ports.values())
+            ports.set(cls.plugin_key, cls)
+    return ConcurrentStableList(ports.values())
 
 
-def _snapshot_of_app_classes() -> dict[str, dict[str, PluginImpl]]:
+def _snapshot_of_app_classes() -> ConcurrentStableDict[str, ConcurrentStableDict[str, PluginImpl]]:
     """以独立注册表收集全部应用候选并构建快照。
 
     Returns:
-        dict[str, dict[str, PluginImpl]]: 两级映射（可变副本，便于断言）。
+        ConcurrentStableDict[str, ConcurrentStableDict[str, PluginImpl]]: 两级映射（可变副本，便于断言）。
     """
     registry = PluginRegistry()
     for cls in _collect_app_classes():
         registry.collect(cls)
-    return {key: dict(bucket) for key, bucket in registry.build().items()}
+    return ConcurrentStableDict({key: ConcurrentStableDict(bucket) for key, bucket in registry.build().items()})
 
 
 @pytest.fixture

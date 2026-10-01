@@ -11,6 +11,7 @@ from sqlalchemy.orm import Mapped, Session, mapped_column
 from sqlalchemy.orm.exc import StaleDataError
 
 from bms_core.core.base import BaseObject
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.context import current_user_id
 from bms_core.core.id import SnowflakeGenerator, id_generator
 from bms_core.models.base import Base, BaseModel
@@ -129,7 +130,7 @@ def test_snowflake_unique_and_monotonic() -> None:
     assert ids == sorted(ids)
 
 
-def _fake_time_module(values: list[float]) -> types.SimpleNamespace:
+def _fake_time_module(values: ConcurrentStableList[float]) -> types.SimpleNamespace:
     """构造只暴露 `time.time()` 的假 time 模块。
 
     直接 patch 全局 `time.time`（`bms_core.core.id.time` 即 time 模块本身）会影响进程内所有调用方
@@ -146,7 +147,9 @@ def _fake_time_module(values: list[float]) -> types.SimpleNamespace:
 def test_snowflake_seq_wrap(monkeypatch: pytest.MonkeyPatch) -> None:
     """同毫秒序列用尽后等待下一毫秒，ID 不重复。"""
     generator = SnowflakeGenerator(worker_id=0)
-    monkeypatch.setattr("bms_core.core.id.time", _fake_time_module([2_000_000_000.0] * 4097 + [2_000_000_000.001]))
+    monkeypatch.setattr(
+        "bms_core.core.id.time", _fake_time_module(ConcurrentStableList([2_000_000_000.0] * 4097 + [2_000_000_000.001]))
+    )
     ids = [generator.next_id() for _ in range(4097)]
     assert len(set(ids)) == 4097
 
@@ -156,7 +159,7 @@ def test_snowflake_clock_rollback(monkeypatch: pytest.MonkeyPatch) -> None:
     """小幅回拨等待追平；大幅回拨抛错。"""
     monkeypatch.setattr(
         "bms_core.core.id.time",
-        _fake_time_module([2_000_000_000.0, 1_999_999_999.996, 2_000_000_000.0]),
+        _fake_time_module(ConcurrentStableList([2_000_000_000.0, 1_999_999_999.996, 2_000_000_000.0])),
     )
     generator = SnowflakeGenerator(worker_id=0)
     generator.next_id()
@@ -164,7 +167,7 @@ def test_snowflake_clock_rollback(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr(
         "bms_core.core.id.time",
-        _fake_time_module([2_000_000_000.0, 1_999_000_000.0, 2_000_000_000.0]),
+        _fake_time_module(ConcurrentStableList([2_000_000_000.0, 1_999_000_000.0, 2_000_000_000.0])),
     )
     generator2 = SnowflakeGenerator(worker_id=0)
     generator2.next_id()

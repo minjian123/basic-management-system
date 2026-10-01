@@ -11,6 +11,7 @@ from bms_core.core.capability import (
     BasePlaceholder,
     BaseStub,
 )
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.db.engine import EngineFactory
 from bms_core.events.base import BaseEventWorker, EventConsumer, EventPublisher
@@ -90,7 +91,7 @@ async def test_resource_manager_closes_in_reverse() -> None:
     """资源登记表：逆序统一释放。"""
     from bms_core.core.resources import ResourceManager
 
-    closed: list[str] = []
+    closed: ConcurrentStableList[str] = ConcurrentStableList()
 
     class DummyResource(BaseAsyncResource):
         """记录释放顺序的测试资源。"""
@@ -100,7 +101,7 @@ async def test_resource_manager_closes_in_reverse() -> None:
 
         async def aclose(self) -> None:
             """记录释放。"""
-            closed.append(self.name)
+            closed.add(self.name)
 
     manager = ResourceManager()
     manager.register(DummyResource("a"))

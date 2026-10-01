@@ -7,7 +7,7 @@
 
 from sqlalchemy import ColumnElement, func, select
 
-from bms_core.core.concurrent import ConcurrentStableSet
+from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
 from bms_core.repositories.base_db_repository import BaseDbRepository
 from bms_core.schemas.pagination import BasePageQuery
 from bms_platform.models.catalog import SysModule
@@ -29,7 +29,7 @@ class ModuleRepository(BaseDbRepository[SysModule]):
         group: str | None = None,
         status: str | None = None,
         service_only: bool = False,
-    ) -> list[ColumnElement[bool]]:
+    ) -> ConcurrentStableList[ColumnElement[bool]]:
         """构造服务目录筛选条件（`list_catalog` / `page_catalog` 同源，防口径漂移）。
 
         Args:
@@ -38,15 +38,15 @@ class ModuleRepository(BaseDbRepository[SysModule]):
             service_only: 仅返回服务行（`service_key` 非空）。
 
         Returns:
-            list[ColumnElement[bool]]: 条件表达式列表。
+            ConcurrentStableList[ColumnElement[bool]]: 条件表达式列表。
         """
-        conditions: list[ColumnElement[bool]] = []
+        conditions: ConcurrentStableList[ColumnElement[bool]] = ConcurrentStableList()
         if group is not None:
-            conditions.append(self._column("service_group") == group)
+            conditions.add(self._column("service_group") == group)
         if status is not None:
-            conditions.append(self._column("status") == status)
+            conditions.add(self._column("status") == status)
         if service_only:
-            conditions.append(self._column("service_key").is_not(None))
+            conditions.add(self._column("service_key").is_not(None))
         return conditions
 
     async def list_catalog(
@@ -55,7 +55,7 @@ class ModuleRepository(BaseDbRepository[SysModule]):
         group: str | None = None,
         status: str | None = None,
         service_only: bool = False,
-    ) -> list[SysModule]:
+    ) -> ConcurrentStableList[SysModule]:
         """按分组 / 状态 / 服务维度查询服务目录（默认全部，`id` 升序）。
 
         Args:
@@ -64,12 +64,12 @@ class ModuleRepository(BaseDbRepository[SysModule]):
             service_only: 仅返回服务行（`service_key` 非空）。
 
         Returns:
-            list[SysModule]: 记录列表。
+            ConcurrentStableList[SysModule]: 记录列表。
         """
         conditions = self._catalog_conditions(group=group, status=status, service_only=service_only)
         statement = self._select().where(*conditions).order_by(self._column("id").asc())
         result = await self._session.execute(statement)
-        return list(result.scalars().all())
+        return ConcurrentStableList(result.scalars().all())
 
     async def page_catalog(
         self,
@@ -77,7 +77,7 @@ class ModuleRepository(BaseDbRepository[SysModule]):
         *,
         group: str | None = None,
         status: str | None = None,
-    ) -> tuple[list[SysModule], int]:
+    ) -> tuple[ConcurrentStableList[SysModule], int]:
         """分页查询服务目录（筛选 + 排序 + 当前页 + 筛选后总数）。
 
         Args:
@@ -86,12 +86,12 @@ class ModuleRepository(BaseDbRepository[SysModule]):
             status: 状态筛选（`enabled` / `disabled` / `planned`）；None 不过滤。
 
         Returns:
-            tuple[list[SysModule], int]: (当前页记录, 筛选后总数)。
+            tuple[ConcurrentStableList[SysModule], int]: (当前页记录, 筛选后总数)。
         """
         conditions = self._catalog_conditions(group=group, status=status)
         statement = self._apply_sort(self._select().where(*conditions), self._resolve_sort(query))
         statement = statement.limit(query.size).offset((query.page - 1) * query.size)
-        rows = list((await self._session.execute(statement)).scalars().all())
+        rows = ConcurrentStableList((await self._session.execute(statement)).scalars().all())
         count_statement = select(func.count()).select_from(self.model).where(*self._scope_where(), *conditions)
         total = int((await self._session.execute(count_statement)).scalar_one())
         return rows, total

@@ -531,7 +531,7 @@ async def test_redis_cache_region_with_fake_client() -> None:
     assert await region.arelease_lock(None, "zh-CN", "user_status", token) is True
 
 
-async def _find_item_ids(db_url: str, dict_type: str, values: tuple[str, ...]) -> dict[str, int]:
+async def _find_item_ids(db_url: str, dict_type: str, values: tuple[str, ...]) -> ConcurrentStableDict[str, int]:
     """按类型 + value 批量查条目 ID（测试辅助）。
 
     Args:
@@ -540,7 +540,7 @@ async def _find_item_ids(db_url: str, dict_type: str, values: tuple[str, ...]) -
         values: 条目值序列。
 
     Returns:
-        dict[str, int]: value → ID。
+        ConcurrentStableDict[str, int]: value → ID。
     """
     engine = create_async_engine(db_url)
     factory: async_sessionmaker[AsyncSession] = async_sessionmaker(engine, expire_on_commit=False)
@@ -559,6 +559,6 @@ async def _find_item_ids(db_url: str, dict_type: str, values: tuple[str, ...]) -
                     )
                 )
             ).scalars()
-            return {row.value: row.id for row in rows}
+            return ConcurrentStableDict({row.value: row.id for row in rows})
     finally:
         await engine.dispose()

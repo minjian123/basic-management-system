@@ -19,6 +19,7 @@ from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
 from bms_core.cache.memory import MemoryCacheRegion
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import get_settings
 from bms_core.db.migration import BACKEND_ROOT
 from bms_core.db.tenant import resolve_request_tenant
@@ -38,17 +39,17 @@ PATH_PARAM_VALUE = "smoke1"
 """路径参数占位值（只求命中路由，不求命中业务数据；4xx 视为可达通过）。"""
 
 
-def _contract_spec(service: str = "platform") -> dict[str, Any]:
+def _contract_spec(service: str = "platform") -> ConcurrentStableDict[str, Any]:
     """读公开契约快照（仓库根 `deploy/contracts/<服务>.json`）。
 
     Args:
         service: 服务标识。
 
     Returns:
-        dict[str, Any]: OpenAPI 文档。
+        ConcurrentStableDict[str, Any]: OpenAPI 文档。
     """
     path = BACKEND_ROOT.parent / CONTRACTS_DIR / contract_file_name(service)
-    return cast("dict[str, Any]", json.loads(path.read_text(encoding="utf-8")))
+    return ConcurrentStableDict(cast("dict[str, Any]", json.loads(path.read_text(encoding="utf-8"))))
 
 
 def _fill_path(path: str) -> str:
@@ -68,7 +69,7 @@ def _fill_path(path: str) -> str:
     return result
 
 
-def _required_query(operation: dict[str, Any]) -> str:
+def _required_query(operation: ConcurrentStableDict[str, Any]) -> str:
     """构造必填查询参数（按 schema 类型取占位值）。
 
     Args:
@@ -77,7 +78,7 @@ def _required_query(operation: dict[str, Any]) -> str:
     Returns:
         str: `?a=1&b=x` 形态；无必填参数返回空串。
     """
-    parts: list[str] = []
+    parts: ConcurrentStableList[str] = ConcurrentStableList()
     parameters = cast("list[dict[str, Any]]", operation.get("parameters") or [])
     for parameter in parameters:
         if parameter.get("in") != "query" or not parameter.get("required"):
@@ -86,31 +87,31 @@ def _required_query(operation: dict[str, Any]) -> str:
         schema = cast("dict[str, Any]", parameter.get("schema") or {})
         kind = schema.get("type")
         if kind == "integer":
-            parts.append(f"{name}=1")
+            parts.add(f"{name}=1")
         elif kind == "boolean":
-            parts.append(f"{name}=true")
+            parts.add(f"{name}=true")
         else:
-            parts.append(f"{name}={PATH_PARAM_VALUE}")
+            parts.add(f"{name}={PATH_PARAM_VALUE}")
     return ("?" + "&".join(parts)) if parts else ""
 
 
-def _read_operations(spec: dict[str, Any]) -> list[str]:
+def _read_operations(spec: ConcurrentStableDict[str, Any]) -> ConcurrentStableList[str]:
     """枚举只读（GET）操作的请求地址。
 
     Args:
         spec: OpenAPI 文档。
 
     Returns:
-        list[str]: 请求地址（相对路径 + 必填查询参数），已剔除基础设施端点。
+        ConcurrentStableList[str]: 请求地址（相对路径 + 必填查询参数），已剔除基础设施端点。
     """
-    targets: list[str] = []
+    targets: ConcurrentStableList[str] = ConcurrentStableList()
     paths = cast("dict[str, dict[str, Any]]", spec.get("paths") or {})
     for path, item in paths.items():
-        operation = cast("dict[str, Any]", item.get("get") or {})
+        operation = ConcurrentStableDict(cast("dict[str, Any]", item.get("get") or {}))
         if not operation or path in EXCLUDED_PATHS:
             continue
-        targets.append(_fill_path(path) + _required_query(operation))
-    return sorted(targets)
+        targets.add(_fill_path(path) + _required_query(operation))
+    return ConcurrentStableList(sorted(targets))
 
 
 def _clear_tenant_cache(app: FastAPI) -> None:
@@ -160,11 +161,11 @@ async def test_dev_contract_get_endpoints_have_no_server_error(dev_template_app:
 
     transport = ASGITransport(app=dev_template_app)
     async with AsyncClient(transport=transport, base_url=SMOKE_BASE_URL) as client:
-        failures: list[str] = []
+        failures: ConcurrentStableList[str] = ConcurrentStableList()
         for target in targets:
             response = await client.get(target)
             if response.status_code >= 500:
-                failures.append(f"{target} → {response.status_code} {response.text[:200]}")
+                failures.add(f"{target} → {response.status_code} {response.text[:200]}")
     assert not failures, "dev 环境契约端点出现 5xx：\n" + "\n".join(failures)
 
 

@@ -24,6 +24,7 @@ from bms_core.api.deps import (
     get_dict_translator,
     get_query_provider_registry,
 )
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.dict.base import (
     BaseDictSource,
     BaseDictTranslator,
@@ -111,7 +112,7 @@ async def list_query_providers(
     Returns:
         ApiResponse: 统一响应，data 为提供者清单数组。
     """
-    items: list[dict[str, object]] = []
+    items: ConcurrentStableList[ConcurrentStableDict[str, object]] = ConcurrentStableList()
     provider_keys = registry.keys()
     for key in provider_keys:
         provider = registry.get(key)
@@ -123,11 +124,11 @@ async def list_query_providers(
             names = [str(item) for item in cast("list[object]", dict_types)]
             if len(names) > 0 and dict_type not in names:
                 continue
-        items.append(record)
-    return ApiResponse.ok(items)
+        items.add(record)
+    return ApiResponse.ok([dict(record) for record in items])
 
 
-def _provider_record(key: str, provider: BaseQueryProvider) -> dict[str, object]:
+def _provider_record(key: str, provider: BaseQueryProvider) -> ConcurrentStableDict[str, object]:
     """提供者 → 清单记录（有 `info()` 用其声明，否则按契约降级）。
 
     Args:
@@ -135,19 +136,21 @@ def _provider_record(key: str, provider: BaseQueryProvider) -> dict[str, object]
         provider: 提供者实例。
 
     Returns:
-        dict[str, object]: 清单记录。
+        ConcurrentStableDict[str, object]: 清单记录。
     """
     info = getattr(provider, "info", None)
     if callable(info):
         payload = cast("DictQueryProviderInfo", info())
-        return {str(name): value for name, value in payload.model_dump(mode="json").items()}
-    return {
-        "key": key,
-        "name": provider.describe(),
-        "target": "business",
-        "dict_types": [],
-        "param_schema": {},
-    }
+        return ConcurrentStableDict({str(name): value for name, value in payload.model_dump(mode="json").items()})
+    return ConcurrentStableDict(
+        {
+            "key": key,
+            "name": provider.describe(),
+            "target": "business",
+            "dict_types": [],
+            "param_schema": {},
+        }
+    )
 
 
 @router.post("/types")
@@ -162,7 +165,7 @@ async def create_dict_type(service: ServiceDep, payload: DictTypePayload) -> Api
         ApiResponse: 统一响应，data 为类型行。
     """
     row = await service.create_type(payload)
-    return ApiResponse.ok(_type_out(row))
+    return ApiResponse.ok(dict(_type_out(row)))
 
 
 @router.put("/types/{type_id}")
@@ -178,7 +181,7 @@ async def update_dict_type(service: ServiceDep, type_id: int, payload: DictTypeP
         ApiResponse: 统一响应，data 为类型行。
     """
     row = await service.update_type(type_id, payload)
-    return ApiResponse.ok(_type_out(row))
+    return ApiResponse.ok(dict(_type_out(row)))
 
 
 @router.delete("/types/{type_id}")
@@ -209,7 +212,7 @@ async def create_dict_item(service: ServiceDep, dict_type: str, payload: DictIte
         ApiResponse: 统一响应，data 为条目行。
     """
     row = await service.create_item(dict_type, payload)
-    return ApiResponse.ok(_item_out(row))
+    return ApiResponse.ok(dict(_item_out(row)))
 
 
 @router.post("/types/{dict_type}/attrs")
@@ -225,7 +228,7 @@ async def upsert_dict_attr(service: ServiceDep, dict_type: str, payload: DictAtt
         ApiResponse: 统一响应，data 为属性行。
     """
     row = await service.upsert_attr(dict_type, payload)
-    return ApiResponse.ok(_attr_out(row))
+    return ApiResponse.ok(dict(_attr_out(row)))
 
 
 @router.put("/items/{item_id}")
@@ -241,7 +244,7 @@ async def update_dict_item(service: ServiceDep, item_id: int, payload: DictItemP
         ApiResponse: 统一响应，data 为条目行。
     """
     row = await service.update_item(item_id, payload)
-    return ApiResponse.ok(_item_out(row))
+    return ApiResponse.ok(dict(_item_out(row)))
 
 
 @router.delete("/items/{item_id}")
@@ -377,65 +380,71 @@ def _accept_locale(request: Request) -> str:
     return DEFAULT_LOCALE
 
 
-def _type_out(row: SysDictType) -> dict[str, object]:
+def _type_out(row: SysDictType) -> ConcurrentStableDict[str, object]:
     """类型行 → 响应字典。
 
     Args:
         row: 类型行。
 
     Returns:
-        dict[str, object]: 响应数据。
+        ConcurrentStableDict[str, object]: 响应数据。
     """
-    return {
-        "id": row.id,
-        "type": row.type,
-        "name": row.name,
-        "sort": row.sort,
-        "status": row.status,
-    }
+    return ConcurrentStableDict(
+        {
+            "id": row.id,
+            "type": row.type,
+            "name": row.name,
+            "sort": row.sort,
+            "status": row.status,
+        }
+    )
 
 
-def _item_out(row: SysDictItem) -> dict[str, object]:
+def _item_out(row: SysDictItem) -> ConcurrentStableDict[str, object]:
     """条目行 → 响应字典。
 
     Args:
         row: 条目行。
 
     Returns:
-        dict[str, object]: 响应数据。
+        ConcurrentStableDict[str, object]: 响应数据。
     """
-    return {
-        "id": row.id,
-        "type_id": row.type_id,
-        "code": row.code,
-        "label": row.label,
-        "value": row.value,
-        "parent_id": row.parent_id,
-        "color": row.color,
-        "sort": row.sort,
-        "status": row.status,
-    }
+    return ConcurrentStableDict(
+        {
+            "id": row.id,
+            "type_id": row.type_id,
+            "code": row.code,
+            "label": row.label,
+            "value": row.value,
+            "parent_id": row.parent_id,
+            "color": row.color,
+            "sort": row.sort,
+            "status": row.status,
+        }
+    )
 
 
-def _attr_out(row: SysDictAttr) -> dict[str, object]:
+def _attr_out(row: SysDictAttr) -> ConcurrentStableDict[str, object]:
     """属性行 → 响应字典。
 
     Args:
         row: 属性行。
 
     Returns:
-        dict[str, object]: 响应数据。
+        ConcurrentStableDict[str, object]: 响应数据。
     """
-    return {
-        "id": row.id,
-        "type_id": row.type_id,
-        "attr_key": row.attr_key,
-        "name": row.name,
-        "data_type": row.data_type,
-        "operators": list(row.operators) if row.operators is not None else None,
-        "widget": row.widget,
-        "options": list(row.options) if row.options is not None else None,
-        "sort": row.sort,
-        "status": row.status,
-        "scope": row.scope,
-    }
+    return ConcurrentStableDict(
+        {
+            "id": row.id,
+            "type_id": row.type_id,
+            "attr_key": row.attr_key,
+            "name": row.name,
+            "data_type": row.data_type,
+            "operators": list(row.operators) if row.operators is not None else None,
+            "widget": row.widget,
+            "options": list(row.options) if row.options is not None else None,
+            "sort": row.sort,
+            "status": row.status,
+            "scope": row.scope,
+        }
+    )

@@ -237,7 +237,7 @@ async def test_dependency_provider_resolves() -> None:
         @app.get("/health-registry-probe")
         async def probe(  # pyright: ignore[reportUnusedFunction]
             registry: Annotated[BaseHealthCheckRegistry, Depends(get_health_check_registry)],
-        ) -> dict[str, object]:
+        ) -> dict[str, object]:  # bare-collections:allow（FastAPI 端点返回注解）
             return {"key": registry.key, "type": type(registry).__name__}
 
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:

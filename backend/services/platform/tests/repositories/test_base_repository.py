@@ -237,12 +237,12 @@ async def test_memory_cursor_keyset_pagination() -> None:
     expected = [item.name for item in await repo.list(sort=sort)]
     assert expected == ["b", "d", "a", "e", "c"]
 
-    collected: list[str] = []
+    collected: ConcurrentStableList[str] = ConcurrentStableList()
     cursor: str | None = None
     for _ in range(10):
-        query = BaseCursorQuery(limit=2, order_by="rank", order=["asc"], cursor=cursor)
+        query = BaseCursorQuery(limit=2, order_by="rank", order=ConcurrentStableList(["asc"]), cursor=cursor)
         batch = await repo.list_cursor(query)
-        collected.extend(item.name for item in batch)
+        collected.update(item.name for item in batch)
         cursor = repo.build_cursor(query, batch)
         if cursor is None:
             break
