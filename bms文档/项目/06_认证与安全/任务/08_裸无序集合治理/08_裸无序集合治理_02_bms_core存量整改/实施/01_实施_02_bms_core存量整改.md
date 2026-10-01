@@ -992,3 +992,26 @@ flowchart LR
 **过程处置（已闭环）**：① 测试侧批量脚本改写过程中出现「缺右括号 / 缺花括号」语法错误与导入缺失，由 `ruff`（F821 / invalid-syntax / I001）即时暴露并逐处修正；② mock 响应与 httpx `json=` 出口遇**嵌套**集合类时改用 `normalize_collections` 深转换（顶层的 `dict(...)` 不足以消除嵌套）；③ `TENANT_HEADERS` 改集合类后，`{**TENANT_HEADERS, ...}` 展开与 httpx `headers=` 均按 `Mapping` 正常接受；④ `json.dumps(<集合类>)` 在 IdP 配置落库、客户端多值列、JWT 声明三处均需显式 `dict(...)` / `list(...)`。
 
 **遗留**：全局剩余 **326 处**（`scripts/tools` 223〔`base-check` 86 / `deploy` 50 / `check-docs` 25 / `defect` 18 / `governance` 17 / 其余 27〕、`ops` 103）。**批次 2（`services`）已完成**；随后批次 3 `scripts/tools` + `ops`，其中 `scripts/tools` 含**长期口径评估**（是否纳入长期强制扫描），结论回写《后端开发规范》《后端基类清单》。
+
+## 37. 实施过程补充 · 存量整改子批 6 · 批次 3 起步 `scripts/tools`（零依赖独立工具群 + `defect`，2026-10-01） <a id="batch6-scripts-tools-1"></a>
+
+**范围**：`scripts/tools` 起步 **36 处 / 13 文件**——零依赖独立工具群 **18 处 / 10 文件**（`winrm` 4 / `wol` 3 / `gitlab` 1 / `reorder-design` 2 / `observability` 8）与 `defect` 服务工具 **18 处 / 3 文件**（`ai_fix` 8 / `defect_capture` 7 / `reproduce` 3）。
+
+**长期口径专项结论（需求 §关键决策 5 与完成标准要求，2026-10-01 用户拍板）**：`scripts/tools` **统一整改、不设内部工具豁免**。依据：① 脚本均在仓库内运行（以 `parents[3]` 定位仓根、读 `deploy/.env`，`check-status.py` 还被 preflight 调用）；② 引用的 `bms_core.core.concurrent` 依赖链（`core.base` / `core.collections` / `core.holder` / `core.locking`）为**无依赖面**（纯标准库），引入代价可控；③ 护栏「插入序白名单 + 无例外」口径得以完整保持，基线**最终归零**。故 22 个原纯标准库脚本**新增 `sys.path` 引导**（照抄 `check-service-boundaries.py` 既有范式：`_SRC_ROOT = <repo>/backend/libs/bms_core/src` + `sys.path.insert(0, ...)` + `# noqa: E402`）。该结论已同步回写《[后端开发规范](../../../../../../规范/后端开发规范.md)》「集合与排序」与《[后端基类清单](../../../../../../后端基类清单.md)》「集合体系」。
+
+**动作**（按位置归并）：
+
+1. **零依赖独立工具群**：`load_env()` / `parse_env_file()` 落 `ConcurrentStableDict[str, str]`（`env = {}` → `ConcurrentStableDict()`、`env[k] = v` → `env.set(k, v)`）；`gitlab/watch_pipeline` 的 `{**load_env(), **{...}}`（字典合并展开）改为 `env = load_env()` + `env.update(生成器)`；`observability/render_alertmanager` 的 `_get` / `_smtp_global_block` / `_email_block` / `_webhook_block` / `render` 形参与 `main(argv)` 一并落集合类（`values[k] = v` → `values.set(k, v)`、`args = parser.parse_args(argv)` 经 `list(args)` 接受集合类）；`reorder-design` 的 `build_file_mappings(...)` 签名落 `ConcurrentStableDict[str, object]` / `ConcurrentStableList[object]`、`result.append` → `result.add`，调用处按契约浅包 `ConcurrentStableDict(dir_cfg)`。
+2. **`defect` 工具群**：`api()` 的 `body` 与返回（`dict | list | None` → `ConcurrentStableDict | ConcurrentStableList | None`；出口按 `isinstance` 分流包集合类、空体返回 `None`）、`chat(messages)` 落 `ConcurrentStableList[ConcurrentStableDict[str, object]]`（请求体经 `normalize_collections` **递归**转内置）、`gather_context(issue)` / `find_open_issue` / `parse_patch` / `load_repro` / `load_env` / `run(cmd)` / `collect_logs` 全落集合类；调用点同步包 `ConcurrentStableList([...])` / `ConcurrentStableDict({...})`，`messages[1] = {...}` → `messages.set(1, ...)`，`ApiResponse` 式 JSON 出口 `json.dumps(dict(body))`。
+
+**验证**：
+
+| 项 | 命令 | 结果 |
+| --- | --- | --- |
+| 编译与冒烟 | `py_compile` + 各脚本 `--help` | **13/13 通过**（`winrm/shutdown_mjw`·`sleep_mjw` 退 2 系其原行为：顶层 `import winrm` 失败即退，缺 pywinrm） |
+| 运行期形态 | 直接调用 `load_env` / `parse_env_file` / `build_file_mappings` | 返回值均为 `ConcurrentStable*`（集合类） |
+| 护栏 | `check-bare-collections.py .` | **「新增 0」**；`scripts/tools` **223 → 187** |
+| 基线递减 | `--update-baseline` | **326 → 290**（条目 313 → 279、计数合计 290；新增条目 0 / 移除 34；`scripts/tools` 187 / `ops` 103） |
+| 本地预检 | `check-preflight.py --fast` | **全部通过** |
+
+**遗留**：`scripts/tools` 余 **187 处**（`base-check` 86〔`check-backend-base` 39 · `check-service-boundaries` 24 · `check-bare-collections` 21 · `check-docs-scope` 2〕/ `deploy/release.py` 50 / `check-docs/check-status.py` 25 / `governance` 17 / `preflight` 9）；随后 `ops`（103）。
