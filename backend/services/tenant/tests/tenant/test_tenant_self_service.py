@@ -7,8 +7,10 @@ from httpx import ASGITransport, AsyncClient
 from bms_core.api.deps import current_code_of, get_idempotency_store
 from bms_core.application import service_lifespan as lifespan
 from bms_core.core.capability import BaseCapability, BaseNullObject
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.plugin import BasePluggable, resolve_plugin
 from bms_core.db.tenant import DEMO_TENANT
+from bms_core.idempotency.base import IDEMPOTENCY_PAYLOAD_TYPE
 from bms_core.tenant.base import (
     DEFAULT_BRAND_PRIMARY_COLOR,
     TENANT_STATUSES,
@@ -41,8 +43,8 @@ class _RecordingIdempotency:
 
     def __init__(self) -> None:
         """初始化空首次结果表。"""
-        self.keys: list[str] = []
-        self._payloads: dict[str, dict[str, object]] = {}
+        self.keys: ConcurrentStableList[str] = ConcurrentStableList()
+        self._payloads: ConcurrentStableDict[str, IDEMPOTENCY_PAYLOAD_TYPE] = ConcurrentStableDict()
 
     async def begin(self, key: str, *, ttl: int | None = None) -> bool:
         """登记幂等键（首次为 True）。
@@ -54,21 +56,21 @@ class _RecordingIdempotency:
         Returns:
             bool: 首次 True。
         """
-        self.keys.append(key)
+        self.keys.add(key)
         return key not in self._payloads
 
-    async def load(self, key: str) -> dict[str, object] | None:
+    async def load(self, key: str) -> IDEMPOTENCY_PAYLOAD_TYPE | None:
         """取首次结果载荷。
 
         Args:
             key: 幂等键。
 
         Returns:
-            dict[str, object] | None: 首次结果；未缓存为 None。
+            IDEMPOTENCY_PAYLOAD_TYPE | None: 首次结果；未缓存为 None。
         """
         return self._payloads.get(key)
 
-    async def save(self, key: str, payload: dict[str, object], *, ttl: int | None = None) -> None:
+    async def save(self, key: str, payload: IDEMPOTENCY_PAYLOAD_TYPE, *, ttl: int | None = None) -> None:
         """写首次结果。
 
         Args:
@@ -76,7 +78,7 @@ class _RecordingIdempotency:
             payload: 首次结果载荷。
             ttl: 键有效期（替身忽略）。
         """
-        self._payloads[key] = payload
+        self._payloads.set(key, payload)
 
 
 @pytest.mark.kiwi_id(891)

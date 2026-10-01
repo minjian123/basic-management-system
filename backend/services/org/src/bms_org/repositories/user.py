@@ -4,7 +4,7 @@ from datetime import datetime
 
 from sqlalchemy import and_, func, or_
 
-from bms_core.core.concurrent import ConcurrentStableSet
+from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
 from bms_core.repositories.base_db_repository import BaseDbRepository
 from bms_org.models.user import SysUser
 
@@ -67,7 +67,7 @@ class UserRepository(BaseDbRepository[SysUser]):
         statement = self._select().where(self._column("phone") == phone).order_by(self._column("id").asc()).limit(1)
         return (await self._session.execute(statement)).scalars().first()
 
-    async def list_inactive(self, threshold: datetime, *, now: datetime) -> list[SysUser]:
+    async def list_inactive(self, threshold: datetime, *, now: datetime) -> ConcurrentStableList[SysUser]:
         """列出不活跃待锁定候选：启用、未锁定、最近登录（或建号）早于阈值。
 
         - 未软删除、`status = enabled`、`locked_until` 为 NULL 或已到期；
@@ -78,7 +78,7 @@ class UserRepository(BaseDbRepository[SysUser]):
             now: 当前时间（UTC naive；判定锁定是否仍生效）。
 
         Returns:
-            list[SysUser]: 候选用户列表。
+            ConcurrentStableList[SysUser]: 候选用户列表。
         """
         never_logged_in = and_(
             self._column("last_login_at").is_(None),
@@ -94,4 +94,4 @@ class UserRepository(BaseDbRepository[SysUser]):
             or_(self._column("locked_until").is_(None), self._column("locked_until") <= now),
             or_(never_logged_in, stale_login),
         )
-        return list((await self._session.execute(statement)).scalars().all())
+        return ConcurrentStableList((await self._session.execute(statement)).scalars().all())

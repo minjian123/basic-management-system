@@ -7,13 +7,13 @@
 - `db_basis` 经对照表 `sys_tenant_database` 取数；缺对照行回落当前 `code` 并记 WARNING。
 """
 
-from collections.abc import Mapping
 from typing import Annotated
 
 from fastapi import Depends, Query
 
 from bms_core.api.base import BaseRouter
 from bms_core.api.deps import get_platform_read_db
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.exceptions import ParamError, TenantNotFoundError, TenantSuspendedError
 from bms_core.core.logging import get_logger
 from bms_core.db.session import DbSession
@@ -75,10 +75,10 @@ async def get_tenant_registry(
     db_basis = await repository.db_basis(int(row.id))
     if not db_basis:
         _LOGGER.warning("tenant_db_basis_missing", tenant_id=int(row.id), code=row.code)
-    return ApiResponse.ok(_snapshot(row, db_basis))
+    return ApiResponse.ok(dict(_snapshot(row, db_basis)))
 
 
-def _snapshot(row: SysTenant, db_basis: str | None = None) -> Mapping[str, object]:
+def _snapshot(row: SysTenant, db_basis: str | None = None) -> ConcurrentStableDict[str, object]:
     """注册行 → 契约响应载荷。
 
     Args:
@@ -86,14 +86,16 @@ def _snapshot(row: SysTenant, db_basis: str | None = None) -> Mapping[str, objec
         db_basis: 库名基（对照表）；缺行回落当前 `code`。
 
     Returns:
-        dict[str, object]: 载荷（编码 / 名称 / 域名 / 状态 / 到期 / 主键 / 库名基）。
+        ConcurrentStableDict[str, object]: 载荷（编码 / 名称 / 域名 / 状态 / 到期 / 主键 / 库名基）。
     """
-    return {
-        "code": row.code,
-        "name": row.name,
-        "domain": row.domain,
-        "status": row.status,
-        "expire_at": row.expire_at.isoformat() if row.expire_at else None,
-        "tenant_id": row.id,
-        "db_basis": db_basis or row.code,
-    }
+    return ConcurrentStableDict(
+        {
+            "code": row.code,
+            "name": row.name,
+            "domain": row.domain,
+            "status": row.status,
+            "expire_at": row.expire_at.isoformat() if row.expire_at else None,
+            "tenant_id": row.id,
+            "db_basis": db_basis or row.code,
+        }
+    )

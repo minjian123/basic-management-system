@@ -74,7 +74,7 @@ async def test_dependency_provider_resolves() -> None:
         @app.get("/notify-probe")
         async def probe(  # pyright: ignore[reportUnusedFunction]
             notifier: Annotated[BaseNotifier, Depends(get_notifier)],
-        ) -> dict[str, object]:
+        ) -> dict[str, object]:  # bare-collections:allow（FastAPI 端点返回注解）
             result = await notifier.send(NotificationMessage(channel=NotifyChannel.INBOX, recipient="1", content="hi"))
             return {"key": notifier.key, "type": type(notifier).__name__, "delivered": result.delivered}
 

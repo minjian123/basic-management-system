@@ -90,7 +90,7 @@ async def test_dependency_provider_resolves() -> None:
         @app.get("/search-probe")
         async def probe(  # pyright: ignore[reportUnusedFunction]
             index: Annotated[BaseSearchIndex, Depends(get_search_index)],
-        ) -> dict[str, object]:
+        ) -> dict[str, object]:  # bare-collections:allow（FastAPI 端点返回注解）
             result = await index.search(SearchQuery(index="bms-main", text="kw"))
             return {"key": index.key, "type": type(index).__name__, "total": result.total}
 

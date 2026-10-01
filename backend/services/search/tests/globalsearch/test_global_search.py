@@ -8,7 +8,7 @@ from httpx import ASGITransport, AsyncClient
 from bms_core.api.deps import get_audit_search, get_file_content_search, get_global_search
 from bms_core.application import service_lifespan as lifespan
 from bms_core.core.capability import BaseCapability, BaseNullObject
-from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.error_codes import ErrorCode
 from bms_core.core.plugin import BasePluggable, resolve_plugin
 from bms_core.globalsearch.base import (
@@ -40,10 +40,12 @@ class _InMemoryGlobalSearch(BaseGlobalSearch):
     """测试用内存多域聚合（验证分组与域过滤；真实 ES 随全文检索阶段）。"""
 
     def __init__(self) -> None:
-        self._hits: dict[str, list[GlobalSearchHit]] = {
-            "user": [GlobalSearchHit(doc_type="user", biz_id="u1", title="张三")],
-            "dept": [GlobalSearchHit(doc_type="dept", biz_id="d1", title="研发部")],
-        }
+        self._hits: ConcurrentStableDict[str, ConcurrentStableList[GlobalSearchHit]] = ConcurrentStableDict(
+            {
+                "user": ConcurrentStableList([GlobalSearchHit(doc_type="user", biz_id="u1", title="张三")]),
+                "dept": ConcurrentStableList([GlobalSearchHit(doc_type="dept", biz_id="d1", title="研发部")]),
+            }
+        )
 
     async def domains(self) -> ConcurrentStableList[str]:
         return ConcurrentStableList(self._hits)

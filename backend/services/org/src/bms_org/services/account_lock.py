@@ -13,6 +13,7 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 
 from bms_core.config.base import BaseConfigSource
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.exceptions import AccountLockNotFoundError, NotFoundError
 from bms_core.core.logging import get_logger
 from bms_core.core.objects import BaseFrameworkObject
@@ -187,7 +188,7 @@ class AccountLockService(BaseFrameworkObject):
         locked_from: datetime | None = None,
         locked_to: datetime | None = None,
         now: datetime | None = None,
-    ) -> tuple[list[SysAccountLock], int]:
+    ) -> tuple[ConcurrentStableList[SysAccountLock], int]:
         """锁定记录筛选分页查询。
 
         Args:
@@ -200,7 +201,7 @@ class AccountLockService(BaseFrameworkObject):
             now: 当前时间（UTC naive；活跃判定用）。
 
         Returns:
-            tuple[list[SysAccountLock], int]: (当前页记录, 总数)。
+            tuple[ConcurrentStableList[SysAccountLock], int]: (当前页记录, 总数)。
         """
         items = await self._locks.list_filtered(
             query,

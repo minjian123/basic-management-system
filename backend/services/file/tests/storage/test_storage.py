@@ -19,6 +19,7 @@ from bms_core.application import service_lifespan as lifespan
 from bms_core.core import plugin as plugin_module
 from bms_core.core.base import BaseObject
 from bms_core.core.capability import BaseCapability, BaseNullObject
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.config import MinioSettings, PluginSelection, Settings
 from bms_core.core.exceptions import NotFoundError, PluginError
 from bms_core.core.plugin import BasePluggable, PluginRegistry, plugin_registry_snapshot, resolve_plugin
@@ -114,7 +115,7 @@ async def test_dependency_provider_resolves(monkeypatch: pytest.MonkeyPatch, tmp
         @app.get("/object-storage-probe")
         async def probe(  # pyright: ignore[reportUnusedFunction]
             storage: Annotated[BaseObjectStorage, Depends(get_object_storage)],
-        ) -> dict[str, object]:
+        ) -> dict[str, object]:  # bare-collections:allow（FastAPI 端点返回注解）
             stored = await storage.put("probe.txt", b"abc")
             return {"key": storage.key, "type": type(storage).__name__, "size": stored.size}
 
@@ -179,12 +180,12 @@ class _FakeMinioClient:
     """假 MinIO 客户端（内存对象表；不连服务）。"""
 
     def __init__(self) -> None:
-        self.objects: dict[tuple[str, str], bytes] = {}
+        self.objects: ConcurrentStableDict[tuple[str, str], bytes] = ConcurrentStableDict()
 
     def put_object(self, bucket: str, key: str, stream: Any, length: int, content_type: str | None = None) -> None:
         """写入对象。"""
         del length, content_type
-        self.objects[(bucket, key)] = stream.read()
+        self.objects.set((bucket, key), stream.read())
 
     def get_object(self, bucket: str, key: str) -> _FakeBody:
         """读取对象（未命中抛 NoSuchKey）。"""
@@ -196,7 +197,7 @@ class _FakeMinioClient:
         """删除对象（未命中抛 NoSuchKey）。"""
         if (bucket, key) not in self.objects:
             raise _FakeS3Error("NoSuchKey")
-        del self.objects[(bucket, key)]
+        self.objects.delete((bucket, key))
 
     def stat_object(self, bucket: str, key: str) -> None:
         """对象存在判定（未命中抛 NoSuchKey）。"""
@@ -279,7 +280,7 @@ async def test_storage_provider_switch_zero_change(monkeypatch: pytest.MonkeyPat
         @app.get("/storage-switch-probe")
         async def probe(  # pyright: ignore[reportUnusedFunction]
             storage: Annotated[BaseObjectStorage, Depends(get_object_storage)],
-        ) -> dict[str, object]:
+        ) -> dict[str, object]:  # bare-collections:allow（FastAPI 端点返回注解）
             return {"type": type(storage).__name__}
 
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:

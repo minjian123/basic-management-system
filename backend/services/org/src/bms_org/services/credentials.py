@@ -11,6 +11,7 @@ import json
 from datetime import UTC, datetime, timedelta
 from typing import cast
 
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.logging import get_logger
 from bms_core.db.unit_of_work import UnitOfWork
 from bms_core.password.base import BasePasswordPolicy
@@ -135,18 +136,20 @@ class CredentialService(BaseService[SysUser]):
                 return UpdatePasswordResult(updated=False, reason="not_found")
             violations = await self._policy.validate(new_password, username=user.username)
             if violations:
-                return UpdatePasswordResult(updated=False, reason="policy_violation", violations=list(violations))
+                return UpdatePasswordResult(
+                    updated=False, reason="policy_violation", violations=ConcurrentStableList(violations)
+                )
             history = parse_password_history(user.pwd_history)
-            if await self._policy.reused(new_password, history=[user.password_hash, *history]):
+            if await self._policy.reused(new_password, history=ConcurrentStableList([user.password_hash, *history])):
                 return UpdatePasswordResult(updated=False, reason="history_reused")
             keep = keep_history if keep_history is not None else await self._policy.history_count()
-            history.append(user.password_hash)
-            history = history[-keep:] if keep > 0 else []
+            history.add(user.password_hash)
+            history = history[-keep:] if keep > 0 else ConcurrentStableList()
             await self._repo().update(
                 user.id,
                 password_hash=self._hasher.hash(new_password),
                 pwd_changed_at=_utc_now(),
-                pwd_history=json.dumps(history, ensure_ascii=False),
+                pwd_history=json.dumps(list(history), ensure_ascii=False),
                 pwd_reset_required=False,
             )
             return UpdatePasswordResult(updated=True)
@@ -240,21 +243,21 @@ class CredentialService(BaseService[SysUser]):
         return repository
 
 
-def parse_password_history(raw: str | None) -> list[str]:
+def parse_password_history(raw: str | None) -> ConcurrentStableList[str]:
     """解析历史密码 JSON（脏值按空列表）。
 
     Args:
         raw: `pwd_history` 原始值。
 
     Returns:
-        list[str]: 历史哈希列表。
+        ConcurrentStableList[str]: 历史哈希列表。
     """
     if not raw:
-        return []
+        return ConcurrentStableList()
     try:
         parsed = json.loads(raw)
     except json.JSONDecodeError:
-        return []
+        return ConcurrentStableList()
     if not isinstance(parsed, list):
-        return []
-    return [item for item in cast("list[object]", parsed) if isinstance(item, str)]
+        return ConcurrentStableList()
+    return ConcurrentStableList(item for item in cast("list[object]", parsed) if isinstance(item, str))
