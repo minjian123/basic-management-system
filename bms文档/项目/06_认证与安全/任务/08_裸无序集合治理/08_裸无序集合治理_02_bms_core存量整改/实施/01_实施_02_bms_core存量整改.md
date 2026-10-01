@@ -1037,3 +1037,28 @@ flowchart LR
 | 本地预检 | `check-preflight.py --fast` | **全部通过** |
 
 **遗留**：`scripts/tools` 余 **170 处**（`base-check` 86〔`check-backend-base` 39 · `check-service-boundaries` 24 · `check-bare-collections` 21 · `check-docs-scope` 2〕/ `deploy/release.py` 50 / `check-docs/check-status.py` 25 / `preflight` 9）；随后 `ops`（103）。
+
+## 39. 实施过程补充 · 存量整改子批 8 · 批次 3 续推 `check-docs/check-status.py`（2026-10-01） <a id="batch8-check-status"></a>
+
+**范围**：`scripts/tools/check-docs/check-status.py` **25 处 / 1 文件**（类字段 3 / 签名返回 7 / 签名参数 1 / 局部变量 14）。
+
+**动作**：
+
+1. **数据类字段**：`TaskDoc.reqs` 落 `ConcurrentStableList[str]`；`Report.hard` / `soft` 落 `ConcurrentStableList[Finding] | None`（`__post_init__` 由 `[] if … else` 改 `ConcurrentStableList()`，去掉原 `# type: ignore[assignment]`），`Report.fail` 的 `target.append` → `target.add`。
+2. **函数签名**：`split_row` / `expand_reqs` / `parse_req_domain` / `parse_overview` / `parse_task_meta` / `parse_plan` / `collect_tasks` 返回与 `main(argv)` 落集合类；`parse_domain_overview` 的局部 `result` 落 `ConcurrentStableList`（返回仍 `tuple(result)`）。
+3. **模块级与函数内映射 / 集合**：模块级 `REQ_INDEX` 落 `ConcurrentStableDict`；`domain_reqs` / `seen` / `done` / `todo` / `tasks` / `gantt` 落集合类；从 `plan["done"] / ["todo"] / ["gantt"]` 取值处用 `cast(...)` 收窄（保留类型信息）；写用法一律 `x[k] = v` → `set(k, v)`。
+4. **顺带订正既有注解与实现不符**：`parse_req_domain` 原注解 `dict[str, tuple[str, str]]` 而实现返回集合（调用方亦按集合使用），本轮按实现落 `ConcurrentStableSet[str]` 并订正 docstring。
+5. **运行期暴露的兼容缺口（护栏不可见）**：`main` 汇总处 `report.hard + report.soft` 依赖内置 list 的 `+` 拼接，而集合类**无 `__add__`** → 改 `[*report.hard, *report.soft]`。该问题由 `preflight --fast` 的**真实执行**暴露（护栏只看声明，不报；编译期亦不报）。
+
+**验证**：
+
+| 项 | 命令 | 结果 |
+| --- | --- | --- |
+| 编译与冒烟 | `py_compile` + `--help` | 通过 |
+| 实际执行 | `check-status.py --root .` | **检查 272 项：硬规则不合规 0 / 软提示 0** |
+| `governance` 补验（子批 7） | `review_stage.py --stage 01_项目骨架` / `collect_metrics.py --skip-tests` | 均 rc=0（输出正常） |
+| 护栏 | `check-bare-collections.py .` | **「新增 0」**；`scripts/tools` **170 → 145** |
+| 基线递减 | `--update-baseline` | **273 → 248**（条目 263 → 239、计数合计 248；新增条目 0 / 移除 24） |
+| 本地预检 | `check-preflight.py --fast` | **全部通过**（含 `check-status` 步骤） |
+
+**遗留**：`scripts/tools` 余 **145 处**（`base-check` 86〔`check-backend-base` 39 · `check-service-boundaries` 24 · `check-bare-collections` 21 · `check-docs-scope` 2〕/ `deploy/release.py` 50 / `preflight` 9）；随后 `ops`（103）。
