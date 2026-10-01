@@ -33,6 +33,13 @@ from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPT_DIR.parents[2]
+
+# bms_core 源码根：脚本在仓库内运行，集合声明统一落插入序集合类（ConcurrentStable*）。
+_SRC_ROOT = REPO_ROOT / "backend" / "libs" / "bms_core" / "src"
+if str(_SRC_ROOT) not in sys.path:
+    sys.path.insert(0, str(_SRC_ROOT))
+
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList  # noqa: E402
 NUM_RE = re.compile(r"^\d{2}_")
 
 
@@ -63,9 +70,11 @@ def find_target_file(directory: Path, name: str, to: str):
     return None
 
 
-def build_file_mappings(dir_cfg: dict, module_name: str, dir_path: Path) -> list:
+def build_file_mappings(
+    dir_cfg: ConcurrentStableDict[str, object], module_name: str, dir_path: Path
+) -> ConcurrentStableList[object]:
     """原型模块内文件重排映射（moduleFiles 配置）。"""
-    result = []
+    result: ConcurrentStableList[object] = ConcurrentStableList()
     for fm in dir_cfg.get("moduleFiles", []):
         if fm.get("name") != module_name:
             continue
@@ -82,7 +91,7 @@ def build_file_mappings(dir_cfg: dict, module_name: str, dir_path: Path) -> list
                 print(f"      新增界面文件（未创建，按目标编号 {fto} 直接创建即可）: {module_name}/{fname}")
                 continue
             old_no = old.stem.split("_")[0]
-            result.append({
+            result.add({
                 "OldNo": old_no, "NewNo": fto, "Name": fname,
                 "OldFile": old, "OldFull": f"{old_no}_{fname}.html",
                 "NewFull": f"{fto}_{fname}.html",
@@ -199,7 +208,7 @@ def main() -> int:
                 if not old_dir:
                     if (directory / f"{to}_{mname}").exists():
                         in_place += 1
-                        fms = build_file_mappings(dir_cfg, mname, directory / f"{to}_{mname}")
+                        fms = build_file_mappings(ConcurrentStableDict(dir_cfg), mname, directory / f"{to}_{mname}")
                         if fms:
                             file_only_mappings.append({"No": to, "Name": mname,
                                                        "Dir": directory / f"{to}_{mname}", "FileMappings": fms})
@@ -211,7 +220,7 @@ def main() -> int:
                     "OldNo": old_no, "NewNo": to, "Name": mname, "OldDir": old_dir,
                     "OldSeg": f"{old_no}_{mname}/", "NewSeg": f"{to}_{mname}/",
                     "OldTxt": f"{old_no}_{mname}", "NewTxt": f"{to}_{mname}",
-                    "FileMappings": build_file_mappings(dir_cfg, mname, old_dir),
+                    "FileMappings": build_file_mappings(ConcurrentStableDict(dir_cfg), mname, old_dir),
                 })
             dup = {m["NewNo"] for m in module_mappings}
             if len(dup) != len(module_mappings):

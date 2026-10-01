@@ -15,9 +15,16 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[3]
 ENV_FILE = ROOT / "deploy" / ".env"
 
+# bms_core 源码根：脚本在仓库内运行，集合声明统一落插入序集合类（ConcurrentStable*）。
+_SRC_ROOT = ROOT / "backend" / "libs" / "bms_core" / "src"
+if str(_SRC_ROOT) not in sys.path:
+    sys.path.insert(0, str(_SRC_ROOT))
 
-def load_env(path: Path) -> dict:
-    env = {}
+from bms_core.core.concurrent import ConcurrentStableDict  # noqa: E402
+
+
+def load_env(path: Path) -> ConcurrentStableDict[str, str]:
+    env: ConcurrentStableDict[str, str] = ConcurrentStableDict()
     try:
         lines = path.read_text(encoding="utf-8").splitlines()
     except FileNotFoundError:
@@ -27,7 +34,7 @@ def load_env(path: Path) -> dict:
         if not line or line.startswith("#") or "=" not in line:
             continue
         key, _, value = line.partition("=")
-        env[key.strip()] = value.strip().strip('"').strip("'")
+        env.set(key.strip(), value.strip().strip('"').strip("'"))
     return env
 
 

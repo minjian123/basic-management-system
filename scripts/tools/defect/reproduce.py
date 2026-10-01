@@ -27,32 +27,40 @@ from pathlib import Path
 
 DEFAULT_ARCHIVE_ROOT = "/mnt/data/backup/defects"
 
+# bms_core 源码根：脚本在仓库内运行，集合声明统一落插入序集合类（ConcurrentStable*）。
+_SRC_ROOT = Path(__file__).resolve().parents[3] / "backend" / "libs" / "bms_core" / "src"
+if str(_SRC_ROOT) not in sys.path:
+    sys.path.insert(0, str(_SRC_ROOT))
 
-def run(cmd: list[str], cwd: str | None = None) -> subprocess.CompletedProcess:
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList  # noqa: E402
+
+
+def run(cmd: ConcurrentStableList[str], cwd: str | None = None) -> subprocess.CompletedProcess:
     print(f"$ {' '.join(cmd)}")
     return subprocess.run(cmd, cwd=cwd)
 
 
-def load_repro(issue_repro: str) -> dict:
+def load_repro(issue_repro: str) -> ConcurrentStableDict[str, object]:
     root = Path(issue_repro)
     meta_file = root / "repro.json"
     if not meta_file.is_file():
         print(f"[失败] 未找到 {meta_file}（该目录不是完整复现包）")
         sys.exit(2)
-    return json.loads(meta_file.read_text(encoding="utf-8"))
+    return ConcurrentStableDict(json.loads(meta_file.read_text(encoding="utf-8")))
 
 
 def import_dump(args) -> None:
     if args.engine == "mysql":
-        run([args.mysql_client, "-h", args.db_host, "-P", str(args.db_port),
-             "-u", args.db_user, f"-p{args.db_password}", args.dump_target,
-             "-e", f"SOURCE {args.dump}"])
+        run(ConcurrentStableList([args.mysql_client, "-h", args.db_host, "-P", str(args.db_port),
+                                  "-u", args.db_user, f"-p{args.db_password}", args.dump_target,
+                                  "-e", f"SOURCE {args.dump}"]))
     elif args.engine == "postgres":
-        run([args.pg_client, "-h", args.db_host, "-p", str(args.db_port),
-             "-U", args.db_user, "-d", args.dump_target, "-f", str(args.dump)])
+        run(ConcurrentStableList([args.pg_client, "-h", args.db_host, "-p", str(args.db_port),
+                                  "-U", args.db_user, "-d", args.dump_target, "-f", str(args.dump)]))
     elif args.engine == "dm8":
-        run(["/opt/dmdbms/bin/dimp", f"SYSDBA/{args.db_password}@{args.db_host}:{args.db_port}",
-             f"FILE={args.dump}", f"OWNER={args.dump_target}"])
+        run(ConcurrentStableList(["/opt/dmdbms/bin/dimp",
+                                  f"SYSDBA/{args.db_password}@{args.db_host}:{args.db_port}",
+                                  f"FILE={args.dump}", f"OWNER={args.dump_target}"]))
     else:
         print(f"[失败] 不支持的引擎: {args.engine}")
         sys.exit(2)
@@ -77,7 +85,7 @@ def main() -> int:
     parser.add_argument("--dm-disql", default="/opt/dmdbms/bin/disql")
     args = parser.parse_args()
 
-    meta = load_repro(args.issue_repro) if args.issue_repro else {}
+    meta = load_repro(args.issue_repro) if args.issue_repro else ConcurrentStableDict()
     commit = args.commit or meta.get("commit", "")
     test_cmd = args.test_command or meta.get("test_command", "")
     dump = args.dump or meta.get("dump_path", "")
@@ -92,18 +100,18 @@ def main() -> int:
         return 2
 
     print(f"[1/3] 检出 commit {commit}")
-    if run(["git", "-C", str(repo), "checkout", commit]).returncode != 0:
+    if run(ConcurrentStableList(["git", "-C", str(repo), "checkout", commit])).returncode != 0:
         return 1
 
     print(f"[2/3] 导入 dump {dump} -> {args.dump_target}（{engine}）")
     import_dump(args)
 
     print(f"[3/3] 执行复现命令: {test_cmd}")
-    return run(test_cmd.split(), cwd=str(repo)).returncode
+    return run(ConcurrentStableList(test_cmd.split()), cwd=str(repo)).returncode
 
 
-def load_env(path: Path) -> dict:
-    env = {}
+def load_env(path: Path) -> ConcurrentStableDict[str, str]:
+    env: ConcurrentStableDict[str, str] = ConcurrentStableDict()
     try:
         lines = path.read_text(encoding="utf-8").splitlines()
     except FileNotFoundError:
@@ -113,7 +121,7 @@ def load_env(path: Path) -> dict:
         if not line or line.startswith("#") or "=" not in line:
             continue
         key, _, value = line.partition("=")
-        env[key.strip()] = value.strip().strip('"').strip("'")
+        env.set(key.strip(), value.strip().strip('"').strip("'"))
     return env
 
 

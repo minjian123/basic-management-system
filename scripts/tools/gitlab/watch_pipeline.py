@@ -13,18 +13,26 @@ import time
 import urllib.request
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[3] / "deploy" / ".env"  # deploy/.env
+_REPO_ROOT = Path(__file__).resolve().parents[3]
+ROOT = _REPO_ROOT / "deploy" / ".env"  # deploy/.env
+
+# bms_core 源码根：脚本在仓库内运行，集合声明统一落插入序集合类（ConcurrentStable*）。
+_SRC_ROOT = _REPO_ROOT / "backend" / "libs" / "bms_core" / "src"
+if str(_SRC_ROOT) not in sys.path:
+    sys.path.insert(0, str(_SRC_ROOT))
+
+from bms_core.core.concurrent import ConcurrentStableDict  # noqa: E402
 
 
-def load_env() -> dict:
-    env = {}
+def load_env() -> ConcurrentStableDict[str, str]:
+    env: ConcurrentStableDict[str, str] = ConcurrentStableDict()
     if not ROOT.exists():
         return env
     for line in ROOT.read_text(encoding="utf-8").splitlines():
         line = line.strip()
         if line and not line.startswith("#") and "=" in line:
             k, _, v = line.partition("=")
-            env[k.strip()] = v.strip()
+            env.set(k.strip(), v.strip())
     return env
 
 
@@ -36,8 +44,10 @@ def main() -> int:
     parser.add_argument("--interval", type=int, default=15, help="轮询间隔秒数（默认 15）")
     args = parser.parse_args()
 
-    env = {**load_env(), **{k: v for k, v in __import__("os").environ.items()
-                            if k.startswith(("GITLAB_API", "CI_PROJECT_ID"))}}
+    env = load_env()
+    env.update(
+        (k, v) for k, v in __import__("os").environ.items() if k.startswith(("GITLAB_API", "CI_PROJECT_ID"))
+    )
     api = env.get("GITLAB_API_URL")
     token = env.get("GITLAB_API_TOKEN")
     if not (api and token):

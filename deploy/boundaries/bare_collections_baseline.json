@@ -1473,118 +1473,6 @@
       "count": 1
     },
     {
-      "file": "scripts/tools/defect/ai_fix.py",
-      "line": "def api(path: str, method: str = \"GET\", body: dict | None = None) -> dict | list | None:",
-      "container": "dict",
-      "position": "signature_return",
-      "count": 2
-    },
-    {
-      "file": "scripts/tools/defect/ai_fix.py",
-      "line": "def api(path: str, method: str = \"GET\", body: dict | None = None) -> dict | list | None:",
-      "container": "list",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "scripts/tools/defect/ai_fix.py",
-      "line": "def chat(url: str, model: str, messages: list[dict], temperature: float = 0.2) -> str:",
-      "container": "dict",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "scripts/tools/defect/ai_fix.py",
-      "line": "def chat(url: str, model: str, messages: list[dict], temperature: float = 0.2) -> str:",
-      "container": "list",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "scripts/tools/defect/ai_fix.py",
-      "line": "def gather_context(issue: dict, repo: Path) -> str:",
-      "container": "dict",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "scripts/tools/defect/ai_fix.py",
-      "line": "def parse_patch(reply: str) -> dict:",
-      "container": "dict",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "scripts/tools/defect/ai_fix.py",
-      "line": "def run(cmd: list[str], cwd: Path) -> bool:",
-      "container": "list",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "scripts/tools/defect/defect_capture.py",
-      "line": "def api(path: str, method: str = \"GET\", body: dict | None = None) -> dict | list | None:",
-      "container": "dict",
-      "position": "signature_return",
-      "count": 2
-    },
-    {
-      "file": "scripts/tools/defect/defect_capture.py",
-      "line": "def api(path: str, method: str = \"GET\", body: dict | None = None) -> dict | list | None:",
-      "container": "list",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "scripts/tools/defect/defect_capture.py",
-      "line": "def collect_logs(log_dir: str | None, out_dir: Path) -> list[str]:",
-      "container": "list",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "scripts/tools/defect/defect_capture.py",
-      "line": "def find_open_issue(project_id: str, fp: str) -> dict | None:",
-      "container": "dict",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "scripts/tools/defect/defect_capture.py",
-      "line": "def load_env(path: Path) -> dict:",
-      "container": "dict",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "scripts/tools/defect/defect_capture.py",
-      "line": "def run(cmd: list[str]) -> subprocess.CompletedProcess | None:",
-      "container": "list",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "scripts/tools/defect/reproduce.py",
-      "line": "def load_env(path: Path) -> dict:",
-      "container": "dict",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "scripts/tools/defect/reproduce.py",
-      "line": "def load_repro(issue_repro: str) -> dict:",
-      "container": "dict",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "scripts/tools/defect/reproduce.py",
-      "line": "def run(cmd: list[str], cwd: str | None = None) -> subprocess.CompletedProcess:",
-      "container": "list",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
       "file": "scripts/tools/deploy/release.py",
       "line": ") -> dict[str, object]:",
       "container": "dict",
@@ -1900,13 +1788,6 @@
       "count": 1
     },
     {
-      "file": "scripts/tools/gitlab/watch_pipeline.py",
-      "line": "def load_env() -> dict:",
-      "container": "dict",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
       "file": "scripts/tools/governance/boundary_metrics.py",
       "line": "def main(argv: list[str] | None = None) -> int:",
       "container": "list",
@@ -2019,62 +1900,6 @@
       "count": 1
     },
     {
-      "file": "scripts/tools/observability/render_alertmanager.py",
-      "line": "def _email_block(env_file: dict[str, str], *, indent: str) -> str:",
-      "container": "dict",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "scripts/tools/observability/render_alertmanager.py",
-      "line": "def _get(key: str, env_file: dict[str, str]) -> str:",
-      "container": "dict",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "scripts/tools/observability/render_alertmanager.py",
-      "line": "def _smtp_global_block(env_file: dict[str, str]) -> str:",
-      "container": "dict",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "scripts/tools/observability/render_alertmanager.py",
-      "line": "def _webhook_block(env_file: dict[str, str], *, indent: str) -> str:",
-      "container": "dict",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "scripts/tools/observability/render_alertmanager.py",
-      "line": "def main(argv: list[str] | None = None) -> int:",
-      "container": "list",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "scripts/tools/observability/render_alertmanager.py",
-      "line": "def parse_env_file(path: Path) -> dict[str, str]:",
-      "container": "dict",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "scripts/tools/observability/render_alertmanager.py",
-      "line": "def render(template_text: str, env_file: dict[str, str]) -> str:",
-      "container": "dict",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "scripts/tools/observability/render_alertmanager.py",
-      "line": "values: dict[str, str] = {}",
-      "container": "dict",
-      "position": "local",
-      "count": 1
-    },
-    {
       "file": "scripts/tools/preflight/check-preflight.py",
       "line": "def _frontend_api_types(root: Path, failures: list[str]) -> None:",
       "container": "list",
@@ -2128,69 +1953,6 @@
       "line": "values: dict[str, str] = {}",
       "container": "dict",
       "position": "local",
-      "count": 1
-    },
-    {
-      "file": "scripts/tools/reorder-design/reorder-design.py",
-      "line": "def build_file_mappings(dir_cfg: dict, module_name: str, dir_path: Path) -> list:",
-      "container": "dict",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "scripts/tools/reorder-design/reorder-design.py",
-      "line": "def build_file_mappings(dir_cfg: dict, module_name: str, dir_path: Path) -> list:",
-      "container": "list",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "scripts/tools/winrm/pwsh_mjw.py",
-      "line": "def load_env(path: Path) -> dict:",
-      "container": "dict",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "scripts/tools/winrm/shutdown_mjw.py",
-      "line": "def load_env(path: Path) -> dict:",
-      "container": "dict",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "scripts/tools/winrm/sleep_mjw.py",
-      "line": "def load_env(path: Path) -> dict:",
-      "container": "dict",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "scripts/tools/winrm/wake_mjw.py",
-      "line": "def load_env(path: Path) -> dict:",
-      "container": "dict",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "scripts/tools/wol/shutdown_mjbk.py",
-      "line": "def load_env(path: Path) -> dict:",
-      "container": "dict",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "scripts/tools/wol/sleep_mjbk.py",
-      "line": "def load_env(path: Path) -> dict:",
-      "container": "dict",
-      "position": "signature_return",
-      "count": 1
-    },
-    {
-      "file": "scripts/tools/wol/wake_mjbk.py",
-      "line": "def load_env(path: Path) -> dict:",
-      "container": "dict",
-      "position": "signature_return",
       "count": 1
     }
   ]

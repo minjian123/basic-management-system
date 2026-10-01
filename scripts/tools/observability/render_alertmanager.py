@@ -48,28 +48,40 @@ _SMTP_KEYS = (
 _WEBHOOK_KEYS = ("ALERTMANAGER_WECOM_WEBHOOK_URL", "ALERTMANAGER_DINGTALK_WEBHOOK_URL")
 
 
-def parse_env_file(path: Path) -> dict[str, str]:
+_REPO_ROOT = Path(__file__).resolve().parents[3]
+
+# bms_core 源码根：脚本在仓库内运行，集合声明统一落插入序集合类（ConcurrentStable*）。
+_SRC_ROOT = _REPO_ROOT / "backend" / "libs" / "bms_core" / "src"
+if str(_SRC_ROOT) not in sys.path:
+    sys.path.insert(0, str(_SRC_ROOT))
+
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList  # noqa: E402
+
+_DEFAULT_ENV = _REPO_ROOT / "deploy" / ".env"
+
+
+def parse_env_file(path: Path) -> ConcurrentStableDict[str, str]:
     """读取键值型凭据文件（只取需要的键，不回显值）。
 
     Args:
         path: `.env` 文件路径（不存在时返回空字典）。
 
     Returns:
-        dict[str, str]: 键值对（去引号）。
+        ConcurrentStableDict[str, str]: 键值对（去引号）。
     """
     if not path.is_file():
-        return {}
-    values: dict[str, str] = {}
+        return ConcurrentStableDict()
+    values: ConcurrentStableDict[str, str] = ConcurrentStableDict()
     for line in path.read_text(encoding="utf-8").splitlines():
         line = line.strip()
         if not line or line.startswith("#") or "=" not in line:
             continue
         key, _, val = line.partition("=")
-        values[key.strip()] = val.strip().strip('"').strip("'")
+        values.set(key.strip(), val.strip().strip('"').strip("'"))
     return values
 
 
-def _get(key: str, env_file: dict[str, str]) -> str:
+def _get(key: str, env_file: ConcurrentStableDict[str, str]) -> str:
     """取配置值（进程环境变量优先于 `.env`，去首尾空白）。"""
     return (os.environ.get(key) or env_file.get(key, "")).strip()
 
@@ -79,7 +91,7 @@ def _quote(value: str) -> str:
     return "'" + value.replace("'", "''") + "'"
 
 
-def _smtp_global_block(env_file: dict[str, str]) -> str:
+def _smtp_global_block(env_file: ConcurrentStableDict[str, str]) -> str:
     """渲染 `global` 的 SMTP 默认项（无 smarthost 时返回空串）。"""
     smarthost = _get("ALERTMANAGER_SMTP_SMARTHOST", env_file)
     sender = _get("ALERTMANAGER_SMTP_FROM", env_file)
@@ -99,7 +111,7 @@ def _smtp_global_block(env_file: dict[str, str]) -> str:
     return "\n".join(lines)
 
 
-def _email_block(env_file: dict[str, str], *, indent: str) -> str:
+def _email_block(env_file: ConcurrentStableDict[str, str], *, indent: str) -> str:
     """渲染 `email_configs` 块（smarthost / from / to 三者缺一不渲染；缩进由调用方给定）。"""
     smarthost = _get("ALERTMANAGER_SMTP_SMARTHOST", env_file)
     sender = _get("ALERTMANAGER_SMTP_FROM", env_file)
@@ -119,7 +131,7 @@ def _email_block(env_file: dict[str, str], *, indent: str) -> str:
     )
 
 
-def _webhook_block(env_file: dict[str, str], *, indent: str) -> str:
+def _webhook_block(env_file: ConcurrentStableDict[str, str], *, indent: str) -> str:
     """渲染 `webhook_configs` 块（企业微信 / 钉钉群机器人；无 URL 时返回空串）。"""
     urls = [url for key in _WEBHOOK_KEYS if (url := _get(key, env_file))]
     if not urls:
@@ -131,7 +143,7 @@ def _webhook_block(env_file: dict[str, str], *, indent: str) -> str:
     return "\n".join(lines)
 
 
-def render(template_text: str, env_file: dict[str, str]) -> str:
+def render(template_text: str, env_file: ConcurrentStableDict[str, str]) -> str:
     """按模板与凭据渲染配置文本。
 
     Args:
@@ -152,7 +164,7 @@ def render(template_text: str, env_file: dict[str, str]) -> str:
     )
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(argv: ConcurrentStableList[str] | None = None) -> int:
     """入口：渲染 / 校验产物。
 
     Args:
