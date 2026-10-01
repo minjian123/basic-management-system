@@ -1062,3 +1062,25 @@ flowchart LR
 | 本地预检 | `check-preflight.py --fast` | **全部通过**（含 `check-status` 步骤） |
 
 **遗留**：`scripts/tools` 余 **145 处**（`base-check` 86〔`check-backend-base` 39 · `check-service-boundaries` 24 · `check-bare-collections` 21 · `check-docs-scope` 2〕/ `deploy/release.py` 50 / `preflight` 9）；随后 `ops`（103）。
+
+## 40. 实施过程补充 · 存量整改子批 9 · 批次 3 续推 `preflight/check-preflight.py`（2026-10-01） <a id="batch9-preflight"></a>
+
+**范围**：`scripts/tools/preflight/check-preflight.py` **9 处 / 1 文件**（签名参数 6 / 局部变量 3）。
+
+**动作**：
+
+1. **声明侧**：`_run(label, cmd, cwd, failures)` 的 `cmd` 与 `failures`、`_yaml_parse` / `_pytest_flags_from_ci` / `_gitlab_ci_lint` / `_frontend_api_types` 的 `failures` 形参落 `ConcurrentStableList[str]`；局部 `failures` / `flags` 落 `ConcurrentStableList`，`values` 落 `ConcurrentStableDict[str, str]`。
+2. **写用法**：`failures.append` → `failures.add`（6 处）、`flags.extend` → `flags.update`、`values[k] = v` → `values.set(k, v)`。
+3. **调用点全量适配（19 处 `_run`）**：`cmd` 实参一律包 `ConcurrentStableList([...])`（含 `cov_args` 展开项）；`subprocess.run(cmd, …)` 与 `" ".join(cmd)` 对集合类天然可用（前者内部 `list(args)`、后者按可迭代消费），无需额外转换。
+4. 脚本新增 `sys.path` 引导（`parents[3]` → `backend/libs/bms_core/src`）。
+
+**验证**：
+
+| 项 | 命令 | 结果 |
+| --- | --- | --- |
+| 编译 | `py_compile` | 通过 |
+| 护栏 | `check-bare-collections.py .` | **「新增 0」**；`scripts/tools` **145 → 136** |
+| 基线递减 | `--update-baseline` | **248 → 239**（条目 239 → 231、计数合计 239；新增条目 0 / 移除 8） |
+| 自验（真实执行） | `check-preflight.py --fast` | **全部通过**（本脚本即门禁本体，跑通等价端到端验证） |
+
+**遗留**：`scripts/tools` 余 **136 处**（`base-check` 86〔`check-backend-base` 39 · `check-service-boundaries` 24 · `check-bare-collections` 21 · `check-docs-scope` 2〕/ `deploy/release.py` 50）；随后 `ops`（103）。
