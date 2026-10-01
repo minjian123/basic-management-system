@@ -33,6 +33,13 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+# bms_core 源码根：脚本在仓库内运行，集合声明统一落插入序集合类（ConcurrentStable*）。
+_SRC_ROOT = Path(__file__).resolve().parents[3] / "backend" / "libs" / "bms_core" / "src"
+if str(_SRC_ROOT) not in sys.path:
+    sys.path.insert(0, str(_SRC_ROOT))
+
+from bms_core.core.concurrent import ConcurrentStableList  # noqa: E402
+
 STATUSES_DONE = {"已完成"}
 STATUS_LEGAL = {"未开始", "进行中", "部分完成", "已完成", "搁置"}
 CONCLUSIONS = {"达标", "进行中", "不达标"}
@@ -70,12 +77,12 @@ class Check:
     evidence: str
 
 
-def split_row(line: str) -> list[str] | None:
+def split_row(line: str) -> ConcurrentStableList[str] | None:
     """切分 Markdown 表格行（表头分隔行返回 None）。"""
     match = ROW_RE.match(line)
     if not match:
         return None
-    cells = [cell.strip() for cell in match.group("cells").split("|")]
+    cells = ConcurrentStableList(cell.strip() for cell in match.group("cells").split("|"))
     if all(cell and set(cell) <= set("-: ") for cell in cells):
         return None
     return cells
@@ -127,21 +134,21 @@ def check_gate_table(stage_dir: Path) -> Check:
 
 def check_residue(stage_dir: Path) -> Check:
     """阶段残留：需求与任务文档不得停在未开始 / 进行中 / 部分完成。"""
-    pending: list[str] = []
+    pending: ConcurrentStableList[str] = ConcurrentStableList()
     for doc in sorted((stage_dir / "需求").glob("*.md")):
         if doc.name.startswith("00_"):
             continue
         for line in doc.read_text(encoding="utf-8").splitlines():
             meta = REQ_META_RE.match(line)
             if meta and meta.group(1) not in STATUSES_DONE and meta.group(1) in STATUS_LEGAL:
-                pending.append(f"{doc.name}:{meta.group(1)}")
+                pending.add(f"{doc.name}:{meta.group(1)}")
     for doc in sorted((stage_dir / "任务").rglob("*.md")):
         if doc.parent.name in ("设计", "实施", "测试"):
             continue
         for line in doc.read_text(encoding="utf-8").splitlines():
             meta = TASK_META_RE.match(line)
             if meta and meta.group(1) not in STATUSES_DONE and meta.group(1) in STATUS_LEGAL:
-                pending.append(f"{doc.name}:{meta.group(1)}")
+                pending.add(f"{doc.name}:{meta.group(1)}")
     return Check(
         "阶段残留为 0（需求 / 任务全部已完成）",
         not pending,
@@ -163,15 +170,15 @@ def check_deferred(stage_dir: Path) -> Check:
 
 def check_deliverables(root: Path, stage_dir: Path) -> Check:
     """报告与 README 就位（章节 + 关键命令 + 导航）。"""
-    problems: list[str] = []
+    problems: ConcurrentStableList[str] = ConcurrentStableList()
     report = stage_dir / "01_测试报告_项目骨架.md"
     if not report.is_file():
-        problems.append("缺测试报告")
+        problems.add("缺测试报告")
     else:
         text = report.read_text(encoding="utf-8")
         for heading in ("用例执行统计", "缺陷统计", "覆盖率", "风险与遗留项", "复盘", "附录"):
             if heading not in text:
-                problems.append(f"报告缺「{heading}」")
+                problems.add(f"报告缺「{heading}」")
     readme_expect = {
         "README.md": ["app.asgi:app", "01_测试报告_项目骨架.md", "pnpm run dev"],
         "backend/README.md": ["uv run uvicorn", "文档导航", "check-status.py"],
@@ -179,12 +186,12 @@ def check_deliverables(root: Path, stage_dir: Path) -> Check:
     for rel, needles in readme_expect.items():
         path = root / rel
         if not path.is_file():
-            problems.append(f"缺 {rel}")
+            problems.add(f"缺 {rel}")
             continue
         text = path.read_text(encoding="utf-8")
         missing = [needle for needle in needles if needle not in text]
         if missing:
-            problems.append(f"{rel} 缺 {missing}")
+            problems.add(f"{rel} 缺 {missing}")
     return Check(
         "报告与 README 就位",
         not problems,
@@ -194,7 +201,7 @@ def check_deliverables(root: Path, stage_dir: Path) -> Check:
 
 def check_records(stage_dir: Path) -> Check:
     """记录齐备：已完成任务目录存在 实施/（父任务可由嵌套子任务承担）。"""
-    missing: list[str] = []
+    missing: ConcurrentStableList[str] = ConcurrentStableList()
     task_root = stage_dir / "任务"
     for domain_dir in sorted(p for p in task_root.iterdir() if p.is_dir()):
         for task_dir in sorted(p for p in domain_dir.iterdir() if p.is_dir()):
@@ -215,7 +222,7 @@ def check_records(stage_dir: Path) -> Check:
                 (child / "实施").is_dir() for child in task_dir.iterdir() if child.is_dir()
             )
             if not has_impl:
-                missing.append(task_dir.name)
+                missing.add(task_dir.name)
     return Check(
         "记录齐备（已完成任务有实施记录）",
         not missing,
@@ -225,10 +232,10 @@ def check_records(stage_dir: Path) -> Check:
 
 def check_kiwi(stage_dir: Path) -> Check:
     """Kiwi 用例编号引用：任务测试记录均含 Kiwi 字段。"""
-    missing: list[str] = []
+    missing: ConcurrentStableList[str] = ConcurrentStableList()
     for record in sorted((stage_dir / "任务").rglob("测试/*.md")):
         if "Kiwi" not in record.read_text(encoding="utf-8"):
-            missing.append(record.name)
+            missing.add(record.name)
     return Check(
         "Kiwi 用例编号引用齐备",
         not missing,
@@ -245,7 +252,7 @@ def check_review_triggers() -> Check:
     )
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(argv: ConcurrentStableList[str] | None = None) -> int:
     """入口：跑九项复盘清单并汇总。"""
     parser = argparse.ArgumentParser(description="阶段末复盘清单自动核对（只读）")
     parser.add_argument("--stage", default="01_项目骨架", help="阶段目录名（默认 01_项目骨架）")
