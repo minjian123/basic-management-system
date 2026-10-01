@@ -62,6 +62,17 @@ from typing import NamedTuple
 SCRIPT_REPO = Path(__file__).resolve().parents[3]
 """本脚本所在 bms 仓库根（按脚本位置定位，自检的临时仓库不影响定位）。"""
 
+# bms_core 源码根：护栏自身亦遵守同一集合口径（声明一律落插入序集合类）。
+_SRC_ROOT = SCRIPT_REPO / "backend" / "libs" / "bms_core" / "src"
+if str(_SRC_ROOT) not in sys.path:
+    sys.path.insert(0, str(_SRC_ROOT))
+
+from bms_core.core.concurrent import (  # noqa: E402
+    ConcurrentStableDict,
+    ConcurrentStableList,
+    ConcurrentStableSet,
+)
+
 ROOT = Path(sys.argv[1] if len(sys.argv) > 1 and not sys.argv[1].startswith("-") else ".").resolve()
 
 BASELINE_RELATIVE = "deploy/boundaries/bare_collections_baseline.json"
@@ -81,7 +92,7 @@ SCAN_TARGETS: tuple[str, ...] = (
 
 _EXCLUDED_PARTS = frozenset({"__pycache__", ".venv", "node_modules", ".git"})
 
-SYSTEM_IMPLEMENTATION_FILES: frozenset[str] = frozenset(
+SYSTEM_IMPLEMENTATION_FILES: ConcurrentStableSet[str] = ConcurrentStableSet(
     {
         "backend/libs/bms_core/src/bms_core/core/collections.py",
         "backend/libs/bms_core/src/bms_core/core/concurrent.py",
@@ -92,28 +103,30 @@ SYSTEM_IMPLEMENTATION_FILES: frozenset[str] = frozenset(
 """集合体系实现文件：**不属本护栏的约束对象**（护栏只约束业务侧集合声明；实现文件是体系自身，
 其内置容器为内部底座与序列化出口，`Sorted*` / `ConcurrentSorted*` 为体系内部形态）。"""
 
-BARE_CONTAINERS: frozenset[str] = frozenset(
+BARE_CONTAINERS: ConcurrentStableSet[str] = ConcurrentStableSet(
     {"dict", "list", "set", "frozenset", "Dict", "List", "Set", "FrozenSet", "DefaultDict"}
 )
 """裸容器：内建可变 / 无序容器与 typing 别名。"""
 
-READONLY_ABSTRACTIONS: frozenset[str] = frozenset(
+READONLY_ABSTRACTIONS: ConcurrentStableSet[str] = ConcurrentStableSet(
     {"Sequence", "Mapping", "AbstractSet", "Collection", "MutableSequence", "MutableMapping", "MutableSet"}
 )
 """只读 / 可变抽象落点（不再作集合落点）。"""
 
-ASCENDING_FORMS: frozenset[str] = frozenset(
+ASCENDING_FORMS: ConcurrentStableSet[str] = ConcurrentStableSet(
     {"SortedList", "SortedDict", "SortedSet", "ConcurrentSortedList", "ConcurrentSortedSet", "ConcurrentSortedDict"}
 )
 """升序形态（基座内部实现，业务与契约不得声明 / 继承）。"""
 
-BANNED_FORMS: frozenset[str] = BARE_CONTAINERS | READONLY_ABSTRACTIONS | ASCENDING_FORMS
+BANNED_FORMS: ConcurrentStableSet[str] = ConcurrentStableSet(
+    BARE_CONTAINERS | READONLY_ABSTRACTIONS | ASCENDING_FORMS
+)
 """判违规形态全集（集合声明必须命中插入序白名单）。"""
 
 ALLOW_MARKER = "# bare-collections:allow"
 """框架边界行级豁免标记：Starlette / FastAPI 框架自有容器（强制内置类型）在声明行行尾标注后跳过。"""
 
-WHITELIST_FORMS: frozenset[str] = frozenset(
+WHITELIST_FORMS: ConcurrentStableSet[str] = ConcurrentStableSet(
     {"ConcurrentStableList", "ConcurrentStableSet", "ConcurrentStableDict"}
 )
 """插入序白名单（业务与契约唯一落点；后续登记形态在此追加）。"""
@@ -126,7 +139,7 @@ POSITION_LOCAL = "local"
 _STRING_CONTAINER = re.compile(r"\b(" + "|".join(sorted(BANNED_FORMS)) + r")\b")
 """字符串前向引用注解中的违规形态名（词边界近似，AST 不解析字符串注解语义）。"""
 
-problems: list[str] = []
+problems: ConcurrentStableList[str] = ConcurrentStableList()
 """全部问题（违规 + 扫描异常），main 据此决定退出码。"""
 
 counts: Counter[str] = Counter()
@@ -165,7 +178,7 @@ def _base_name(node: ast.expr) -> str:
     return ""
 
 
-def _annotation_containers(node: ast.expr | None) -> list[str]:
+def _annotation_containers(node: ast.expr | None) -> ConcurrentStableList[str]:
     """递归取注解中出现的违规集合形态名（裸容器 / 只读-可变抽象 / 升序形态）。
 
     Args:
@@ -185,9 +198,9 @@ def _annotation_containers(node: ast.expr | None) -> list[str]:
     if isinstance(node, ast.BinOp) and isinstance(node.op, ast.BitOr):
         return [*_annotation_containers(node.left), *_annotation_containers(node.right)]
     if isinstance(node, (ast.Tuple, ast.List)):
-        found: list[str] = []
+        found: ConcurrentStableList[str] = ConcurrentStableList()
         for item in node.elts:
-            found.extend(_annotation_containers(item))
+            found.update(_annotation_containers(item))
         return found
     if isinstance(node, ast.Constant) and isinstance(node.value, str):
         return sorted(set(_STRING_CONTAINER.findall(node.value)))
@@ -200,9 +213,9 @@ def _is_excluded(path: Path, root: Path) -> bool:
     return any(part in _EXCLUDED_PARTS for part in rel.parts)
 
 
-def _iter_target_files(root: Path) -> list[Path]:
+def _iter_target_files(root: Path) -> ConcurrentStableList[Path]:
     """枚举扫描目标下的 Python 文件（`backend/services` 取其下各服务的 `src` 与 `tests`）。"""
-    files: list[Path] = []
+    files: ConcurrentStableList[Path] = ConcurrentStableList()
     for rel in SCAN_TARGETS:
         base = root / rel
         if not base.is_dir():
@@ -218,11 +231,11 @@ def _iter_target_files(root: Path) -> list[Path]:
                 continue
             for path in sorted(candidate.rglob("*.py")):
                 if not _is_excluded(path, root):
-                    files.append(path)
+                    files.add(path)
     return files
 
 
-def _scan_source(rel: str, source: str) -> list[Hit]:
+def _scan_source(rel: str, source: str) -> ConcurrentStableList[Hit]:
     """扫描单个源文件，收集违规集合声明命中。
 
     覆盖位置：**类字段注解** + **函数签名注解**（参数 / 返回）+ **函数体带注解局部变量**。
@@ -236,16 +249,16 @@ def _scan_source(rel: str, source: str) -> list[Hit]:
     """
     tree = ast.parse(source)
     lines = source.splitlines()
-    hits: list[Hit] = []
+    hits: ConcurrentStableList[Hit] = ConcurrentStableList()
 
-    class_fields: dict[int, bool] = {}
+    class_fields: ConcurrentStableDict[int, bool] = ConcurrentStableDict()
     for cls in ast.walk(tree):
         if not isinstance(cls, ast.ClassDef):
             continue
         base_object = any(_base_name(base) == "BaseObject" for base in cls.bases)
         for stmt in cls.body:
             if isinstance(stmt, ast.AnnAssign):
-                class_fields[id(stmt)] = base_object
+                class_fields.set(id(stmt), base_object)
 
     def add(node: ast.AST, container: str, position: str, *, base_object: bool = False) -> None:
         """登记一处命中（行内容取声明行、规范化空白；框架边界标记行跳过）。
@@ -257,7 +270,7 @@ def _scan_source(rel: str, source: str) -> list[Hit]:
         window = "\n".join(lines[max(0, lineno - 2) : lineno])
         if ALLOW_MARKER in window:
             return
-        hits.append(Hit(rel, text, container, position, base_object))
+        hits.add(Hit(rel, text, container, position, base_object))
 
     for node in ast.walk(tree):
         if isinstance(node, ast.AnnAssign):
@@ -277,7 +290,7 @@ def _scan_source(rel: str, source: str) -> list[Hit]:
     return hits
 
 
-def collect(root: Path) -> list[Hit]:
+def collect(root: Path) -> ConcurrentStableList[Hit]:
     """扫描目标文件，收集违规集合声明命中（扫描异常记入 `problems`）。
 
     覆盖位置：**类字段注解** + **函数签名注解**（参数 / 返回）+ **函数体带注解局部变量**。
@@ -289,7 +302,7 @@ def collect(root: Path) -> list[Hit]:
     Returns:
         list[Hit]: 命中清单（按文件与行序稳定）。
     """
-    hits: list[Hit] = []
+    hits: ConcurrentStableList[Hit] = ConcurrentStableList()
     for path in _iter_target_files(root):
         rel = path.relative_to(root).as_posix()
         if rel in SYSTEM_IMPLEMENTATION_FILES:
@@ -298,9 +311,9 @@ def collect(root: Path) -> list[Hit]:
             source = path.read_text(encoding="utf-8")
             file_hits = _scan_source(rel, source)
         except (OSError, SyntaxError, UnicodeDecodeError) as exc:
-            problems.append(f"[扫描异常] {rel}：{exc}")
+            problems.add(f"[扫描异常] {rel}：{exc}")
             continue
-        hits.extend(file_hits)
+        hits.update(file_hits)
     return hits
 
 
@@ -347,7 +360,7 @@ def _read_baseline(path: Path) -> Counter[tuple[str, str, str]]:
     return counter
 
 
-def write_baseline(path: Path, hits: list[Hit]) -> None:
+def write_baseline(path: Path, hits: ConcurrentStableList[Hit]) -> None:
     """以本次扫描结果重写基线快照（自然完成递减）。
 
     Args:
@@ -355,9 +368,11 @@ def write_baseline(path: Path, hits: list[Hit]) -> None:
         hits: 本次命中清单。
     """
     aggregate: Counter[tuple[str, str, str]] = Counter(_baseline_key(hit) for hit in hits)
-    positions: dict[tuple[str, str, str], str] = {}
+    positions: ConcurrentStableDict[tuple[str, str, str], str] = ConcurrentStableDict()
     for hit in hits:
-        positions.setdefault(_baseline_key(hit), hit.position)
+        hit_key = _baseline_key(hit)
+        if hit_key not in positions:
+            positions.set(hit_key, hit.position)
     entries = [
         {
             "file": key[0],
@@ -373,7 +388,7 @@ def write_baseline(path: Path, hits: list[Hit]) -> None:
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
-def _summarize(hits: list[Hit]) -> None:
+def _summarize(hits: ConcurrentStableList[Hit]) -> None:
     """填充分类计数（供 JSON 与报告模式）。"""
     counts.clear()
     counts["total"] = len(hits)
@@ -395,13 +410,15 @@ def check(root: Path) -> None:
     hits = collect(root)
     _summarize(hits)
     actual: Counter[tuple[str, str, str]] = Counter(_baseline_key(hit) for hit in hits)
-    positions: dict[tuple[str, str, str], str] = {}
+    positions: ConcurrentStableDict[tuple[str, str, str], str] = ConcurrentStableDict()
     for hit in hits:
-        positions.setdefault(_baseline_key(hit), hit.position)
+        hit_key = _baseline_key(hit)
+        if hit_key not in positions:
+            positions.set(hit_key, hit.position)
     try:
         baseline = _read_baseline(root / BASELINE_RELATIVE)
     except BaselineError as exc:
-        problems.append(f"[基线非法] {exc}")
+        problems.add(f"[基线非法] {exc}")
         return
     added = actual - baseline
     stale = baseline - actual
@@ -409,7 +426,7 @@ def check(root: Path) -> None:
     counts["added"] = sum(added.values())
     counts["stale"] = sum(stale.values())
     for (file, line, container), count in sorted(added.items()):
-        problems.append(
+        problems.add(
             f"[新增] {file}（{positions.get((file, line, container), '?')} / {container} × {count}）：{line}"
         )
     if stale and not added:
@@ -438,7 +455,7 @@ def _report(root: Path, *, as_json: bool) -> None:
             "by_area": dict(sorted(by_area.items())),
             "by_container": dict(sorted(by_container.items())),
             "top_files": dict(by_file.most_common(20)),
-            "problems": problems,
+            "problems": list(problems),
         }
         print(json.dumps(payload, ensure_ascii=False, indent=2))
         return
@@ -460,7 +477,7 @@ def _report(root: Path, *, as_json: bool) -> None:
 def _emit(as_json: bool) -> None:
     """输出检查结果（文本或 JSON）。"""
     if as_json:
-        payload = {"passed": not problems, "counts": dict(counts), "problems": problems}
+        payload = {"passed": not problems, "counts": dict(counts), "problems": list(problems)}
         print(json.dumps(payload, ensure_ascii=False, indent=2))
         return
     if problems:
@@ -474,7 +491,7 @@ def _emit(as_json: bool) -> None:
     )
 
 
-_FIXTURE_FILES: dict[str, str] = {
+_FIXTURE_FILES: ConcurrentStableDict[str, str] = ConcurrentStableDict({
     "backend/libs/bms_core/src/demo/mod.py": (
         "from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence\n"
         "from typing import AbstractSet, ClassVar\n"
@@ -511,7 +528,7 @@ _FIXTURE_FILES: dict[str, str] = {
     "backend/services/svc/src/svc/mod.py": "class A:\n    data: List[int] = []\n",
     "backend/ops/op.py": "def run(payload: DefaultDict[str, int]) -> None:\n    del payload\n",
     "scripts/tools/thing.py": "def x() -> frozenset[str]:\n    return frozenset()\n",
-}
+})
 
 
 def _self_test() -> int:
