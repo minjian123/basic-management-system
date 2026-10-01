@@ -1015,3 +1015,25 @@ flowchart LR
 | 本地预检 | `check-preflight.py --fast` | **全部通过** |
 
 **遗留**：`scripts/tools` 余 **187 处**（`base-check` 86〔`check-backend-base` 39 · `check-service-boundaries` 24 · `check-bare-collections` 21 · `check-docs-scope` 2〕/ `deploy/release.py` 50 / `check-docs/check-status.py` 25 / `governance` 17 / `preflight` 9）；随后 `ops`（103）。
+
+## 38. 实施过程补充 · 存量整改子批 7 · 批次 3 续推 `governance` 三脚本（2026-10-01） <a id="batch7-governance"></a>
+
+**范围**：`scripts/tools/governance` **17 处 / 3 文件**（`collect_metrics` 8 / `review_stage` 6 / `boundary_metrics` 3），全部为签名返回 / 形参 / 局部变量位。
+
+**动作**：
+
+1. **`boundary_metrics`**：`run_static` / `scrape_runtime` 返回落 `ConcurrentStableDict[str, object]`（`return {...}` 与 `json.loads(result.stdout)` 出口全包）、`main(argv)` 落集合类；**JSON 落盘出口** `json.dumps(result)` → `json.dumps(normalize_collections(result))`（`result` 内嵌集合类，须递归转内置）。
+2. **`collect_metrics`**：`parse_env_file` / `collect_defects` / `collect_coverage` 返回与 `run(cmd)` 形参落集合类；`backend_data` / `frontend` 局部量落集合类（`frontend[name] = {...}` → `set(name, ConcurrentStableDict({...}))`；`setdefault(name, {})` + `frontend[name].update(映射)` → `get(name)` + 按需 `set` + `update(...items())`）；两处 `run([...])` 调用点包集合类；落盘出口同走 `normalize_collections`。
+3. **`review_stage`**：`split_row` 返回 `ConcurrentStableList[str] | None`（列表推导改集合类构造）、`pending` / `problems` / `missing` 局部量落集合类（`append` → `add`）、`main(argv)` 落集合类。
+4. 三脚本统一新增 `sys.path` 引导（`parents[3]` → `backend/libs/bms_core/src`，与子批 6 同范式）。
+
+**验证**：
+
+| 项 | 命令 | 结果 |
+| --- | --- | --- |
+| 编译与冒烟 | `py_compile` + 三脚本 `--help` | **3/3 通过** |
+| 护栏 | `check-bare-collections.py .` | **「新增 0」**；`scripts/tools` **187 → 170** |
+| 基线递减 | `--update-baseline` | **290 → 273**（条目 279 → 263、计数合计 273；新增条目 0 / 移除 16） |
+| 本地预检 | `check-preflight.py --fast` | **全部通过** |
+
+**遗留**：`scripts/tools` 余 **170 处**（`base-check` 86〔`check-backend-base` 39 · `check-service-boundaries` 24 · `check-bare-collections` 21 · `check-docs-scope` 2〕/ `deploy/release.py` 50 / `check-docs/check-status.py` 25 / `preflight` 9）；随后 `ops`（103）。
