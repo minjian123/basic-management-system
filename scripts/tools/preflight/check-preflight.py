@@ -29,11 +29,18 @@ import subprocess
 import sys
 from pathlib import Path
 
+# bms_core 源码根：脚本在仓库内运行，集合声明统一落插入序集合类（ConcurrentStable*）。
+_SRC_ROOT = Path(__file__).resolve().parents[3] / "backend" / "libs" / "bms_core" / "src"
+if str(_SRC_ROOT) not in sys.path:
+    sys.path.insert(0, str(_SRC_ROOT))
+
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList  # noqa: E402
+
 _ROOTS = ("libs/bms_core", "services/platform", "services/identity", "services/tenant", "services/org",
           "services/file", "services/notification", "services/search", "services/ai", "services/report")
 
 
-def _run(label: str, cmd: list[str], cwd: Path, failures: list[str]) -> bool:
+def _run(label: str, cmd: ConcurrentStableList[str], cwd: Path, failures: ConcurrentStableList[str]) -> bool:
     """执行一条命令并打印结果。
 
     Args:
@@ -50,13 +57,13 @@ def _run(label: str, cmd: list[str], cwd: Path, failures: list[str]) -> bool:
     tail = "\n".join((result.stdout + result.stderr).splitlines()[-12:])
     if result.returncode != 0:
         print(tail)
-        failures.append(label)
+        failures.add(label)
         return False
     print("  通过" + (f"（{tail.splitlines()[-1]}）" if tail.strip() else ""))
     return True
 
 
-def _yaml_parse(root: Path, failures: list[str]) -> None:
+def _yaml_parse(root: Path, failures: ConcurrentStableList[str]) -> None:
     """解析 CI / 编排配置（`.gitlab-ci.yml` + `deploy/ci/templates/*.yml` + `deploy/compose/*.yml`）。
 
     Args:
@@ -81,14 +88,14 @@ def _yaml_parse(root: Path, failures: list[str]) -> None:
             print(f"  通过（{rel}）")
         except Exception as exc:  # noqa: BLE001
             print(f"  失败（{rel}）：{exc}")
-            failures.append(f"CI YAML 解析（{rel}）")
+            failures.add(f"CI YAML 解析（{rel}）")
     # 部署 / 回滚 / 门禁 CLI 结构层存在性（09_02；行为由 Kiwi 2185 护栏用例覆盖）
     cli = root / "scripts" / "tools" / "deploy" / "release.py"
     if cli.is_file():
         print("  通过（scripts/tools/deploy/release.py 就位）")
     else:
         print("  失败：scripts/tools/deploy/release.py 缺失")
-        failures.append("部署 CLI 缺失")
+        failures.add("部署 CLI 缺失")
     # 契约门禁结构层存在性（09_03；行为由 Kiwi 2186 护栏用例覆盖）
     gate_assets = [
         root / "deploy" / "ci" / "verify" / "contract-gate",
@@ -102,10 +109,10 @@ def _yaml_parse(root: Path, failures: list[str]) -> None:
             print(f"  通过（{rel} 就位）")
         else:
             print(f"  失败：{rel} 缺失")
-            failures.append(f"契约门禁资产缺失（{rel}）")
+            failures.add(f"契约门禁资产缺失（{rel}）")
 
 
-def _pytest_flags_from_ci(root: Path, backend: Path, failures: list[str]) -> None:
+def _pytest_flags_from_ci(root: Path, backend: Path, failures: ConcurrentStableList[str]) -> None:
     """校验 `backend-test` 里 `uv run pytest` 的长选项均被本地 pytest 接受（防拼错）。
 
     Args:
@@ -124,13 +131,13 @@ def _pytest_flags_from_ci(root: Path, backend: Path, failures: list[str]) -> Non
     joined = "\n".join(script)
     # 仅取 `uv run pytest` 命令自身（含反斜杠续行）的选项，避免把 `uv sync --frozen` 等误算
     lines = joined.splitlines()
-    flags: list[str] = []
+    flags: ConcurrentStableList[str] = ConcurrentStableList()
     collecting = False
     for line in lines:
         if not collecting and "uv run pytest" in line:
             collecting = True
         if collecting:
-            flags.extend(re.findall(r"--[a-z][a-z0-9-]*", line))
+            flags.update(re.findall(r"--[a-z][a-z0-9-]*", line))
             if not line.rstrip().endswith("\\"):
                 collecting = False
     flags = sorted(set(flags))
@@ -140,12 +147,12 @@ def _pytest_flags_from_ci(root: Path, backend: Path, failures: list[str]) -> Non
     unknown = [flag for flag in flags if flag not in help_out]
     if unknown:
         print(f"  失败：backend-test 使用但本地 pytest 未识别的选项：{unknown}")
-        failures.append("CI pytest 选项校验")
+        failures.add("CI pytest 选项校验")
     else:
         print(f"  通过（校验 {len(flags)} 个选项：{'、'.join(flags)}）")
 
 
-def _gitlab_ci_lint(root: Path, failures: list[str]) -> None:
+def _gitlab_ci_lint(root: Path, failures: ConcurrentStableList[str]) -> None:
     """可选：经 GitLab CI Lint API 校验流水线配置（有 token 时）。
 
     Args:
@@ -155,11 +162,11 @@ def _gitlab_ci_lint(root: Path, failures: list[str]) -> None:
     env = root / "deploy" / ".env"
     if not env.is_file():
         return
-    values: dict[str, str] = {}
+    values: ConcurrentStableDict[str, str] = ConcurrentStableDict()
     for line in env.read_text(encoding="utf-8").splitlines():
         if "=" in line and not line.strip().startswith("#"):
             key, _, value = line.partition("=")
-            values[key.strip()] = value.strip()
+            values.set(key.strip(), value.strip())
     token = values.get("GITLAB_API_TOKEN")
     api = values.get("GITLAB_API_URL")
     if not token or not api:
@@ -179,12 +186,12 @@ def _gitlab_ci_lint(root: Path, failures: list[str]) -> None:
             print("  通过")
         else:
             print(f"  失败：{payload.get('errors')}")
-            failures.append("CI Lint API")
+            failures.add("CI Lint API")
     except Exception as exc:  # noqa: BLE001
         print(f"  跳过（不可达：{exc}）")
 
 
-def _frontend_api_types(root: Path, failures: list[str]) -> None:
+def _frontend_api_types(root: Path, failures: ConcurrentStableList[str]) -> None:
     """前端契约类型零漂移（04-1-1）：node 直接跑生成器 `--check`，与仓库产物比对。
 
     不走 pnpm（避免触发依赖重装）；node 或依赖未就位时跳过并提示。
@@ -199,7 +206,12 @@ def _frontend_api_types(root: Path, failures: list[str]) -> None:
     if not script.is_file() or node is None or not (pkg_dir / "node_modules").exists():
         print("\n[preflight] 前端契约类型：跳过（@bms/api-types / node 依赖未就位）")
         return
-    _run("前端：api-types 契约类型零漂移", [node, "scripts/generate.mjs", "--check"], pkg_dir, failures)
+    _run(
+        "前端：api-types 契约类型零漂移",
+        ConcurrentStableList([node, "scripts/generate.mjs", "--check"]),
+        pkg_dir,
+        failures,
+    )
 
 
 def main() -> int:
@@ -214,103 +226,127 @@ def main() -> int:
     fast = "--fast" in sys.argv
     no_scope = "--no-scope" in sys.argv
     no_cov = "--no-cov" in sys.argv
-    failures: list[str] = []
+    failures: ConcurrentStableList[str] = ConcurrentStableList()
 
     _yaml_parse(root, failures)
     _pytest_flags_from_ci(root, backend, failures)
     _gitlab_ci_lint(root, failures)
 
     if not fast:
-        _run("后端静态：ruff check", ["uv", "run", "ruff", "check", "."], backend, failures)
-        _run("后端静态：ruff format --check", ["uv", "run", "ruff", "format", "--check", "."], backend, failures)
-        _run("后端静态：pyright", ["uv", "run", "pyright"], backend, failures)
+        _run("后端静态：ruff check", ConcurrentStableList(["uv", "run", "ruff", "check", "."]), backend, failures)
+        _run(
+            "后端静态：ruff format --check",
+            ConcurrentStableList(["uv", "run", "ruff", "format", "--check", "."]),
+            backend,
+            failures,
+        )
+        _run("后端静态：pyright", ConcurrentStableList(["uv", "run", "pyright"]), backend, failures)
 
         cov_args = [] if no_cov else [
             "--cov=bms_core", "--cov=bms_platform", "--cov=bms_identity", "--cov=bms_tenant", "--cov=bms_org",
             "--cov=bms_file", "--cov=bms_notification", "--cov=bms_search", "--cov=bms_ai", "--cov=bms_report",
             "--cov-branch", "--cov-fail-under=70",
         ]
-        _run("后端测试：聚合全量", ["uv", "run", "pytest", "-q", *cov_args], backend, failures)
+        _run(
+            "后端测试：聚合全量",
+            ConcurrentStableList(["uv", "run", "pytest", "-q", *cov_args]),
+            backend,
+            failures,
+        )
         if not no_scope:
             for rel in _ROOTS:
-                _run(f"后端测试：工程级范围（{rel}）", ["uv", "run", "pytest", "-q"], backend / rel, failures)
+                _run(
+                    f"后端测试：工程级范围（{rel}）",
+                    ConcurrentStableList(["uv", "run", "pytest", "-q"]),
+                    backend / rel,
+                    failures,
+                )
 
-    _run("基座：check-base", [sys.executable, "scripts/tools/base-check/check-base.py", str(root)], root, failures)
+    _run(
+        "基座：check-base",
+        ConcurrentStableList([sys.executable, "scripts/tools/base-check/check-base.py", str(root)]),
+        root,
+        failures,
+    )
     _run(
         "基座：check-backend-base",
-        [sys.executable, "scripts/tools/base-check/check-backend-base.py", str(root)],
+        ConcurrentStableList([sys.executable, "scripts/tools/base-check/check-backend-base.py", str(root)]),
         root,
         failures,
     )
     _run(
         "基座：check-backend-base --self-test",
-        [sys.executable, "scripts/tools/base-check/check-backend-base.py", "--self-test"],
+        ConcurrentStableList([sys.executable, "scripts/tools/base-check/check-backend-base.py", "--self-test"]),
         root,
         failures,
     )
     _run(
         "边界：check-service-boundaries",
-        [sys.executable, "scripts/tools/base-check/check-service-boundaries.py", str(root)],
+        ConcurrentStableList([sys.executable, "scripts/tools/base-check/check-service-boundaries.py", str(root)]),
         root,
         failures,
     )
     _run(
         "边界：check-service-boundaries --self-test",
-        [sys.executable, "scripts/tools/base-check/check-service-boundaries.py", "--self-test"],
+        ConcurrentStableList(
+            [sys.executable, "scripts/tools/base-check/check-service-boundaries.py", "--self-test"]
+        ),
         root,
         failures,
     )
     _run(
         "基座：check-bare-collections（裸无序集合护栏）",
-        [sys.executable, "scripts/tools/base-check/check-bare-collections.py", str(root)],
+        ConcurrentStableList([sys.executable, "scripts/tools/base-check/check-bare-collections.py", str(root)]),
         root,
         failures,
     )
     _run(
         "基座：check-bare-collections --self-test",
-        [sys.executable, "scripts/tools/base-check/check-bare-collections.py", "--self-test"],
+        ConcurrentStableList(
+            [sys.executable, "scripts/tools/base-check/check-bare-collections.py", "--self-test"]
+        ),
         root,
         failures,
     )
     _run(
         "文档：check-docs-scope（排期与工时落点护栏）",
-        [sys.executable, "scripts/tools/base-check/check-docs-scope.py", str(root)],
+        ConcurrentStableList([sys.executable, "scripts/tools/base-check/check-docs-scope.py", str(root)]),
         root,
         failures,
     )
     _run(
         "文档：check-docs-scope --self-test",
-        [sys.executable, "scripts/tools/base-check/check-docs-scope.py", "--self-test"],
+        ConcurrentStableList([sys.executable, "scripts/tools/base-check/check-docs-scope.py", "--self-test"]),
         root,
         failures,
     )
     _run(
         "边界：boundary_metrics（越界 / 跨库 / 例外计数）",
-        [sys.executable, "scripts/tools/governance/boundary_metrics.py", "--root", str(root)],
+        ConcurrentStableList([sys.executable, "scripts/tools/governance/boundary_metrics.py", "--root", str(root)]),
         root,
         failures,
     )
     _run(
         "文档：check-status",
-        [sys.executable, "scripts/tools/check-docs/check-status.py", "--root", str(root)],
+        ConcurrentStableList([sys.executable, "scripts/tools/check-docs/check-status.py", "--root", str(root)]),
         root,
         failures,
     )
     _run(
         "网关：gateway_config check（服务目录零漂移）",
-        [sys.executable, "backend/ops/gateway_config.py", "check", "--root", str(root)],
+        ConcurrentStableList([sys.executable, "backend/ops/gateway_config.py", "check", "--root", str(root)]),
         root,
         failures,
     )
     _run(
         "契约：contract_snapshot check（公开契约零漂移）",
-        ["uv", "run", "python", "-m", "ops.contract_snapshot", "check", "--root", str(root)],
+        ConcurrentStableList(["uv", "run", "python", "-m", "ops.contract_snapshot", "check", "--root", str(root)]),
         backend,
         failures,
     )
     _run(
         "契约：event_contracts check（事件契约零漂移 + 兼容）",
-        ["uv", "run", "python", "-m", "ops.event_contracts", "check", "--root", str(root)],
+        ConcurrentStableList(["uv", "run", "python", "-m", "ops.event_contracts", "check", "--root", str(root)]),
         backend,
         failures,
     )
