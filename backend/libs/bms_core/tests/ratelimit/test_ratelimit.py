@@ -98,7 +98,7 @@ async def test_dependency_provider_resolves() -> None:
         @app.get("/rate")
         async def rate_info(  # pyright: ignore[reportUnusedFunction]
             limiter: Annotated[BaseRateLimiter, Depends(get_rate_limiter)],
-        ) -> dict[str, object]:
+        ) -> dict[str, object]:  # bare-collections:allow（FastAPI 端点返回注解）
             key = build_rate_limit_key(dimension="user", target="1", tenant="t1")
             decision = await limiter.check(key, RateLimitRule(limit=5))
             return {

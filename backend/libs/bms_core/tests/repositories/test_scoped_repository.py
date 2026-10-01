@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 import pytest
 
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.repositories.base_memory_repository import BaseMemoryRepository
 from bms_core.scope.base import DataScope, ScopeCondition
 from bms_core.scope.null import NullDataScope
@@ -50,14 +50,14 @@ class ScopedRowRepository(RowRepository):
 class FixedScope(DataScope):
     """固定返回条件的测试数据范围。"""
 
-    def __init__(self, condition: ScopeCondition | list[ScopeCondition]) -> None:
+    def __init__(self, condition: ScopeCondition | ConcurrentStableList[ScopeCondition]) -> None:
         self._condition = condition
 
     def read_predicate(self) -> object:
         """返回固定条件。"""
         return self._condition
 
-    def allow_write(self, values: dict[str, object]) -> bool:
+    def allow_write(self, values: ConcurrentStableDict[str, object]) -> bool:
         """恒定允许。"""
         return True
 
@@ -158,7 +158,9 @@ async def test_scope_condition_list_and_write_scope() -> None:
     await repo.create(name="乙", owner_id=2)
     await repo.create(name="删", owner_id=2, deleted_at="2026-09-13")
 
-    repo.use_scope(FixedScope([ScopeCondition("owner_id", "eq", 2), ScopeCondition("name", "eq", "乙")]))
+    repo.use_scope(
+        FixedScope(ConcurrentStableList([ScopeCondition("owner_id", "eq", 2), ScopeCondition("name", "eq", "乙")]))
+    )
     assert [row.name for row in await repo.list()] == ["乙"]
 
     repo.use_scope(FixedScope(ScopeCondition("owner_id", "eq", 1)))

@@ -6,6 +6,7 @@ import pytest
 from sqlalchemy import create_engine
 
 import bms_core.db.migration as migration
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.exceptions import ConfigError
 from bms_core.db.migration import (
     MigrationChain,
@@ -85,7 +86,7 @@ class _FakeConnection:
 
     def __init__(self, dialect: str, *, fail_first: bool = False, in_transaction: bool = False) -> None:
         self.dialect = _FakeDialect(dialect)
-        self.statements: list[str] = []
+        self.statements: ConcurrentStableList[str] = ConcurrentStableList()
         self.commits = 0
         self._fail_first = fail_first
         self._in_transaction = in_transaction
@@ -99,7 +100,7 @@ class _FakeConnection:
         Raises:
             RuntimeError: 首条语句且 `fail_first` 为真时抛出。
         """
-        self.statements.append(statement)
+        self.statements.add(statement)
         if self._fail_first and len(self.statements) == 1:
             raise RuntimeError("SET SCHEMA 不支持")
 
@@ -154,11 +155,11 @@ def test_has_revisions_missing_directory() -> None:
 @pytest.mark.kiwi_id(1078)
 async def test_current_revision_delegates_to_sync_for_dm(monkeypatch: pytest.MonkeyPatch) -> None:
     """达梦方言走同步读取线程（不尝试异步引擎）。"""
-    calls: list[tuple[str, str]] = []
+    calls: ConcurrentStableList[tuple[str, str]] = ConcurrentStableList()
 
     def fake_read(url: str, schema: str) -> str:
         """替身：记录调用并返回版本号。"""
-        calls.append((url, schema))
+        calls.add((url, schema))
         return "0001_demo"
 
     monkeypatch.setattr(migration, "_read_revision", fake_read)

@@ -10,6 +10,7 @@ from redis.asyncio import Redis
 
 from bms_core.captcha.base import CaptchaCredential, CaptchaKind, build_captcha_key
 from bms_core.captcha.default import DefaultCaptcha
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.exceptions import CaptchaTooFrequentError
 from bms_core.ratelimit.base import build_rate_limit_key
 from bms_core.ratelimit.redis import RedisRateLimiter
@@ -120,7 +121,7 @@ async def test_sms_roundtrip_against_real_redis() -> None:
         await captcha.aclose()
 
 
-async def _record_of(client: Redis, captcha_id: str) -> dict[str, object]:
+async def _record_of(client: Redis, captcha_id: str) -> ConcurrentStableDict[str, object]:
     """读取挑战记录（真 Redis）。
 
     Args:
@@ -128,8 +129,8 @@ async def _record_of(client: Redis, captcha_id: str) -> dict[str, object]:
         captcha_id: 挑战编号。
 
     Returns:
-        dict: 挑战记录。
+        ConcurrentStableDict[str, object]: 挑战记录。
     """
     raw = await client.get(build_captcha_key(captcha_id))
     assert raw is not None
-    return cast("dict[str, object]", json.loads(raw))
+    return ConcurrentStableDict(cast("dict[str, object]", json.loads(raw)))

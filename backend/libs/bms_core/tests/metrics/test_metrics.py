@@ -87,7 +87,7 @@ async def test_dependency_provider_resolves() -> None:
         @app.get("/metrics-probe")
         async def metrics_probe(  # pyright: ignore[reportUnusedFunction]
             metrics: Annotated[BaseMetrics, Depends(get_metrics)],
-        ) -> dict[str, object]:
+        ) -> dict[str, object]:  # bare-collections:allow（FastAPI 端点返回注解）
             await metrics.counter("bms_request_total", labels={"route": "/metrics-probe"})
             return {"key": metrics.key, "type": type(metrics).__name__}
 

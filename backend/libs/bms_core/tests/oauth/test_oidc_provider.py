@@ -7,6 +7,7 @@ import pytest
 from joserfc import jwt
 from joserfc.jwk import RSAKey
 
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.exceptions import AuthError, ConfigError, ParamError
 from bms_core.idp.jwks import verify_jwt
 from bms_core.oauth.keys import TokenKey, to_key_set
@@ -25,11 +26,11 @@ ISS = "http://localhost:8000/api/v1/oidc"
 CLIENT = "bms-demo-client"
 
 
-def _keys() -> tuple[TokenKey, list[TokenKey]]:
+def _keys() -> tuple[TokenKey, ConcurrentStableList[TokenKey]]:
     """生成一把测试密钥（kid=usr-k1）。
 
     Returns:
-        tuple[TokenKey, list[TokenKey]]: (主密钥, 密钥集)。
+        tuple[TokenKey, ConcurrentStableList[TokenKey]]: (主密钥, 密钥集)。
     """
     key = RSAKey.generate_key(2048, private=True)
     token_key = TokenKey(
@@ -38,7 +39,7 @@ def _keys() -> tuple[TokenKey, list[TokenKey]]:
         public_key=key.as_pem(private=False).decode(),
         private_key=key.as_pem(private=True).decode(),
     )
-    return token_key, [token_key]
+    return token_key, ConcurrentStableList([token_key])
 
 
 @pytest.mark.kiwi_id(2202)

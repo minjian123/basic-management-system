@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+from bms_core.core.concurrent import ConcurrentStableSet
 from bms_core.core.config import get_settings
 from bms_core.db.bootstrap import db_keys_for, ensure_development_schema
 from bms_core.db.engine import EngineFactory
@@ -12,18 +13,20 @@ from bms_core.db.migration import resolve_chain
 from bms_core.db.registry import EngineRegistry
 
 
-def _tables(path: Path) -> set[str]:
+def _tables(path: Path) -> ConcurrentStableSet[str]:
     """取 SQLite 文件表名集合。
 
     Args:
         path: 库文件路径。
 
     Returns:
-        set[str]: 表名集合。
+        ConcurrentStableSet[str]: 表名集合。
     """
     connection = sqlite3.connect(path)
     try:
-        return {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        return ConcurrentStableSet(
+            row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        )
     finally:
         connection.close()
 

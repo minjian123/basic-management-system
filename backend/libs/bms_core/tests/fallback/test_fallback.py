@@ -64,7 +64,7 @@ async def test_dependency_provider_resolves() -> None:
         @app.get("/fallback")
         async def fallback_info(  # pyright: ignore[reportUnusedFunction]
             policy: Annotated[BaseFallbackPolicy, Depends(get_fallback_policy)],
-        ) -> dict[str, str]:
+        ) -> dict[str, str]:  # bare-collections:allow（FastAPI 端点返回注解）
             action = await policy.resolve("redis")
             return {"key": policy.key, "type": type(policy).__name__, "action": action.value}
 

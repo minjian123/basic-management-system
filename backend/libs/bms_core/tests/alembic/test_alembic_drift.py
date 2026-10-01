@@ -10,6 +10,7 @@ from alembic.migration import MigrationContext
 from sqlalchemy import Column, Integer, MetaData, Table, create_engine
 
 from alembic import command
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.db.migration import (
     BACKEND_ROOT,
     chain_metadata,
@@ -47,7 +48,7 @@ def _upgrade(chain_name: str, url: str) -> None:
     command.upgrade(config, "head")
 
 
-def _diff(url: str, metadata: object) -> list[object]:
+def _diff(url: str, metadata: object) -> ConcurrentStableList[object]:
     """对比库结构与元数据（返回差异列表）。
 
     Args:
@@ -55,13 +56,13 @@ def _diff(url: str, metadata: object) -> list[object]:
         metadata: 目标元数据。
 
     Returns:
-        list[object]: 差异列表（空表示零漂移）。
+        ConcurrentStableList[object]: 差异列表（空表示零漂移）。
     """
     engine = create_engine(url)
     try:
         with engine.connect() as connection:
             context = MigrationContext.configure(connection)
-            return compare_metadata(context, metadata)  # pyright: ignore[reportArgumentType]
+            return ConcurrentStableList(compare_metadata(context, metadata))  # pyright: ignore[reportArgumentType]
     finally:
         engine.dispose()
 

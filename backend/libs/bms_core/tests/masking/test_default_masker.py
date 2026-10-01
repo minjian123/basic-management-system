@@ -1,6 +1,6 @@
 """脱敏基座真实实现用例（Kiwi 2212）：内置规则分派 / 自定义策略 / 明文揭示 fail-closed / 配置化 / 装配。"""
 
-from collections.abc import AsyncGenerator, Mapping
+from collections.abc import AsyncGenerator
 from types import SimpleNamespace
 from typing import cast
 
@@ -11,6 +11,7 @@ from bms_core.core import plugin as plugin_module
 from bms_core.core.assembly import DefaultMaskerFactory, PlaceholderMaskerFactory
 from bms_core.core.base import BaseObject
 from bms_core.core.capability import BaseCapability, BasePlaceholder
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.config import PluginSelection, Settings
 from bms_core.core.exceptions import PluginError
 from bms_core.core.plugin import PluginRegistry
@@ -88,7 +89,7 @@ def _show_value(value: str, mask_char: str) -> str:
 def _masker(
     checker: BasePermissionChecker | None = None,
     mask_char: str = "*",
-    rules: Mapping[str, str] | None = None,
+    rules: ConcurrentStableDict[str, str] | None = None,
 ) -> DefaultMasker:
     """构造真实掩码器（缺省注入占位权限检查器）。
 
@@ -257,7 +258,7 @@ def test_reveal_mirrors_mask() -> None:
 @pytest.mark.kiwi_id(2212)
 def test_mask_char_and_rules_from_config() -> None:
     """掩码字符与规则表可配置（构造期注册）；掩码字符非单字符拒启。"""
-    masker = _masker(mask_char="#", rules={"phone": "phone"})
+    masker = _masker(mask_char="#", rules=ConcurrentStableDict({"phone": "phone"}))
     assert masker.masked_fields == frozenset({"phone"})
     assert masker.mask("phone", "13812345678") == "138####5678"
 
@@ -283,15 +284,15 @@ def test_options_defaults_and_override() -> None:
 @pytest.mark.parametrize(
     "options",
     [
-        {"mask_char": "**"},
-        {"mask_char": 1},
-        {"rules": ["phone"]},
-        {"rules": {"": "phone"}},
-        {"rules": {"phone": ""}},
-        {"rules": {"phone": 1}},
+        ConcurrentStableDict({"mask_char": "**"}),
+        ConcurrentStableDict({"mask_char": 1}),
+        ConcurrentStableDict({"rules": ["phone"]}),
+        ConcurrentStableDict({"rules": {"": "phone"}}),
+        ConcurrentStableDict({"rules": {"phone": ""}}),
+        ConcurrentStableDict({"rules": {"phone": 1}}),
     ],
 )
-def test_options_invalid(options: Mapping[str, object]) -> None:
+def test_options_invalid(options: ConcurrentStableDict[str, object]) -> None:
     """选项非法一律拒启（40002，不静默降级）。"""
     with pytest.raises(PluginError):
         MaskerOptions.from_options(options)

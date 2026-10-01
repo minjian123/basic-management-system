@@ -102,7 +102,7 @@ class FakeScope(DataScope):
         """返回固定条件。"""
         return self._predicate
 
-    def allow_write(self, values: dict[str, object]) -> bool:
+    def allow_write(self, values: ConcurrentStableDict[str, object]) -> bool:
         """写恒定允许（本用例只验证读侧翻译）。"""
         return True
 
@@ -189,20 +189,22 @@ async def test_scope_operator_translation(session: AsyncSession) -> None:
     repo = DbItemRepository(session)
     await repo.create(name="alpha", rank=2)
 
-    cases: list[tuple[list[ScopeCondition], int]] = [
-        ([ScopeCondition("name", "eq", "alpha")], 1),
-        ([ScopeCondition("name", "ne", "beta")], 1),
-        ([ScopeCondition("rank", "in", [1, 2])], 1),
-        ([ScopeCondition("rank", "in", [])], 0),
-        ([ScopeCondition("name", "like", "lph")], 1),
-        ([ScopeCondition("rank", "gt", 1)], 1),
-        ([ScopeCondition("rank", "gte", 2)], 1),
-        ([ScopeCondition("rank", "lt", 3)], 1),
-        ([ScopeCondition("rank", "lte", 2)], 1),
-        ([ScopeCondition("rank", "between", (1, 3))], 1),
-        ([ScopeCondition("rank", "is_null", None)], 0),
-        ([ScopeCondition("name", "is_not_null", None)], 1),
-    ]
+    cases: ConcurrentStableList[tuple[ConcurrentStableList[ScopeCondition], int]] = ConcurrentStableList(
+        [
+            (ConcurrentStableList([ScopeCondition("name", "eq", "alpha")]), 1),
+            (ConcurrentStableList([ScopeCondition("name", "ne", "beta")]), 1),
+            (ConcurrentStableList([ScopeCondition("rank", "in", [1, 2])]), 1),
+            (ConcurrentStableList([ScopeCondition("rank", "in", [])]), 0),
+            (ConcurrentStableList([ScopeCondition("name", "like", "lph")]), 1),
+            (ConcurrentStableList([ScopeCondition("rank", "gt", 1)]), 1),
+            (ConcurrentStableList([ScopeCondition("rank", "gte", 2)]), 1),
+            (ConcurrentStableList([ScopeCondition("rank", "lt", 3)]), 1),
+            (ConcurrentStableList([ScopeCondition("rank", "lte", 2)]), 1),
+            (ConcurrentStableList([ScopeCondition("rank", "between", (1, 3))]), 1),
+            (ConcurrentStableList([ScopeCondition("rank", "is_null", None)]), 0),
+            (ConcurrentStableList([ScopeCondition("name", "is_not_null", None)]), 1),
+        ]
+    )
     for conditions, expected in cases:
         repo.apply_scope(FakeScope(conditions))
         assert await repo.count() == expected, conditions
@@ -377,12 +379,12 @@ async def test_cursor_keyset_pagination_with_nulls(session: AsyncSession) -> Non
         expected = [row.name for row in await repo.list(sort=sort)]
         assert expected[-1] == "c", "NULL 恒排末位"
 
-        collected: list[str] = []
+        collected: ConcurrentStableList[str] = ConcurrentStableList()
         cursor: str | None = None
         for _ in range(10):
             query = BaseCursorQuery(limit=2, order_by="rank", order=ConcurrentStableList([order]), cursor=cursor)
             batch = await repo.list_cursor(query)
-            collected.extend(row.name for row in batch)
+            collected.update(row.name for row in batch)
             cursor = repo.build_cursor(query, batch)
             if cursor is None:
                 break

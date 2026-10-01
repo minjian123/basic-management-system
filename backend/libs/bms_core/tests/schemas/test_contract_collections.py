@@ -59,13 +59,15 @@ class _Holder(BaseObject):
 
 def _envelope(**overrides: object) -> _Envelope:
     """构造含集合字段的契约实例（默认插入序样本）。"""
-    payload: dict[str, object] = {
-        "items": [{"id": 1, "name": "甲"}, {"id": 2, "name": "乙"}],
-        "index": {"k1": {"id": 3, "name": "丙"}},
-        "tags": ["beta", "alpha"],
-        "optional_items": [{"id": 4, "name": "丁"}],
-    }
-    payload.update(overrides)
+    payload: ConcurrentStableDict[str, object] = ConcurrentStableDict(
+        {
+            "items": [{"id": 1, "name": "甲"}, {"id": 2, "name": "乙"}],
+            "index": {"k1": {"id": 3, "name": "丙"}},
+            "tags": ["beta", "alpha"],
+            "optional_items": [{"id": 4, "name": "丁"}],
+        }
+    )
+    payload.update(overrides.items())
     return _Envelope(**payload)  # pyright: ignore[reportArgumentType]  # 按 dict 载荷校验
 
 

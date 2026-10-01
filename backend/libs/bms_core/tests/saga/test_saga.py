@@ -14,7 +14,7 @@ from support_app import ApplicationFactory, lifespan
 
 import bms_core.application as application
 import bms_core.saga.base as saga_base
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.exceptions import ConfigError, EventContractError, ParamError
 from bms_core.db.sync import DbSession
 from bms_core.events.base import EventEnvelope
@@ -46,7 +46,7 @@ _PLAIN_STEP = SagaStep(name="plain", try_event_type="sys.plain.tried")
 _DEFINITION = SagaDefinition(key="order_flow", steps=(_STEP, _PLAIN_STEP))
 
 
-def _action(calls: list[str], *, fail: bool = False) -> SagaAction:
+def _action(calls: ConcurrentStableList[str], *, fail: bool = False) -> SagaAction:
     """构造步骤动作（记录调用；可选首次失败）。
 
     Args:
@@ -60,7 +60,7 @@ def _action(calls: list[str], *, fail: bool = False) -> SagaAction:
     async def action(_session: DbSession) -> None:
         if fail:
             raise RuntimeError("业务失败")
-        calls.append("run")
+        calls.add("run")
 
     return action
 
@@ -138,7 +138,7 @@ def test_build_saga_consumer_and_event() -> None:
 async def test_try_step_idempotent_and_emit(saga_session: AsyncSession) -> None:
     """预占态：首次执行动作 + 同事务发件箱事件；同一触发事件重复投递跳过副作用。"""
     executor = ChoreographySagaExecutor(SqlOutboxStore())
-    calls: list[str] = []
+    calls: ConcurrentStableList[str] = ConcurrentStableList()
     emit = build_saga_event(_STEP, SAGA_STEP_TRY, ConcurrentStableDict({"order_id": "o1"}), saga_id="saga-1")
 
     async with saga_session.begin():
@@ -178,7 +178,7 @@ async def test_try_step_idempotent_and_emit(saga_session: AsyncSession) -> None:
 async def test_confirm_and_cancel_steps(saga_session: AsyncSession) -> None:
     """确认 / 取消态：各自独立幂等（消费标识含 kind）；取消即幂等补偿。"""
     executor = ChoreographySagaExecutor(SqlOutboxStore())
-    calls: list[str] = []
+    calls: ConcurrentStableList[str] = ConcurrentStableList()
 
     async with saga_session.begin():
         confirmed = await executor.confirm_step(
@@ -217,7 +217,7 @@ async def test_confirm_and_cancel_steps(saga_session: AsyncSession) -> None:
 async def test_action_failure_rolls_back_and_retries(saga_session: AsyncSession) -> None:
     """动作异常整体回滚（幂等登记与事件一并撤销）；同触发事件重投可再次执行。"""
     executor = ChoreographySagaExecutor(SqlOutboxStore())
-    calls: list[str] = []
+    calls: ConcurrentStableList[str] = ConcurrentStableList()
     emit = build_saga_event(_STEP, SAGA_STEP_TRY, ConcurrentStableDict({"order_id": "o1"}), saga_id="saga-2")
 
     with pytest.raises(RuntimeError):

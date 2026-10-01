@@ -94,7 +94,7 @@ async def test_dependency_provider_resolves() -> None:
         @app.get("/hash-chain-probe")
         async def probe(  # pyright: ignore[reportUnusedFunction]
             chain: Annotated[BaseHashChain, Depends(get_hash_chain)],
-        ) -> dict[str, object]:
+        ) -> dict[str, object]:  # bare-collections:allow（FastAPI 端点返回注解）
             digest = chain.compute(GENESIS_HASH, {"a": 1})
             return {"key": chain.key, "type": type(chain).__name__, "digest": digest}
 

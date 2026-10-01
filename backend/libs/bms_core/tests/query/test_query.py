@@ -126,7 +126,7 @@ async def test_dependency_provider_resolves() -> None:
         @app.get("/query-probe")
         async def probe(  # pyright: ignore[reportUnusedFunction]
             registry: Annotated[BaseQueryProviderRegistry, Depends(get_query_provider_registry)],
-        ) -> dict[str, object]:
+        ) -> dict[str, object]:  # bare-collections:allow（FastAPI 端点返回注解）
             result = await registry.query("any", ConcurrentStableDict())
             return {"key": registry.key, "type": type(registry).__name__, "total": result.total}
 

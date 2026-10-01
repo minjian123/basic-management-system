@@ -36,7 +36,7 @@ from sqlalchemy import (
 from sqlalchemy.engine import make_url
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
-from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.core.plugin import resolve_plugin
 from bms_core.db.engine import PLATFORM_DB_KEY, EngineFactory
@@ -106,12 +106,12 @@ def _settings(
     platform_url: str,
     tenant_url: str,
     *,
-    replicas: list[str] | None = None,
+    replicas: ConcurrentStableList[str] | None = None,
 ) -> Settings:
     """按真库连接串构造配置（租户模板置空 → 租户库键回落该连接串）。"""
     settings = Settings()
     settings.database.platform.url = platform_url
-    settings.database.platform.replicas = replicas if replicas is not None else []
+    settings.database.platform.replicas = replicas if replicas is not None else ConcurrentStableList()
     settings.database.tenants.url = tenant_url
     settings.database.tenants.url_template = ""
     return settings
@@ -142,11 +142,11 @@ async def _scalar(
     registry: EngineRegistry,
     db_key: str,
     statement: str,
-    params: dict[str, Any] | None = None,
+    params: ConcurrentStableDict[str, Any] | None = None,
 ) -> Any:
     """在指定对象上取单值（同步 / 异步方言经统一会话入口；参数化避免方言字面量差异）。"""
     async with session_scope(registry, db_key=db_key) as session:
-        return (await session.execute(text(statement), params or {})).scalar_one()
+        return (await session.execute(text(statement), dict(params) if params else {})).scalar_one()
 
 
 def _as_json(value: object) -> object:
@@ -227,7 +227,9 @@ async def test_tenant_isolation(dialect: str, urls: tuple[str, str], registry: E
 async def test_read_replica_routing(dialect: str, urls: tuple[str, str]) -> None:
     """读写分离路由：配置副本后只读请求命中副本引擎（副本 URL），写路径仍绑主引擎。"""
     platform_url, tenant_url = urls
-    instance = EngineRegistry(EngineFactory(_settings(platform_url, tenant_url, replicas=[platform_url])))
+    instance = EngineRegistry(
+        EngineFactory(_settings(platform_url, tenant_url, replicas=ConcurrentStableList([platform_url])))
+    )
     try:
         if dialect == "dm8":
             main_engine: Any = await instance.get_sync(PLATFORM_DB_KEY)
@@ -290,7 +292,7 @@ async def test_type_probe_roundtrip(dialect: str, urls: tuple[str, str], registr
                 registry,
                 _TENANT_DB_KEY,
                 "SELECT COUNT(*) FROM bms_it_probe WHERE flag = :flag",
-                {"flag": True},
+                ConcurrentStableDict({"flag": True}),
             )
             == 1
         )

@@ -86,7 +86,7 @@ async def test_dependency_providers_resolve() -> None:
         async def probe(  # pyright: ignore[reportUnusedFunction]
             client: Annotated[BaseHttpClient, Depends(get_http_client)],
             sender: Annotated[BaseWebhookSender, Depends(get_webhook_sender)],
-        ) -> dict[str, object]:
+        ) -> dict[str, object]:  # bare-collections:allow（FastAPI 端点返回注解）
             response = await client.request("GET", "https://example.com")
             result = await sender.send("https://example.com/hook", {})
             return {

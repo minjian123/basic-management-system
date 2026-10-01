@@ -127,7 +127,7 @@ async def test_dependency_provider_resolves() -> None:
         @app.get("/trace-probe")
         async def trace_probe(  # pyright: ignore[reportUnusedFunction]
             tracer: Annotated[BaseTracer, Depends(get_tracer)],
-        ) -> dict[str, object]:
+        ) -> dict[str, object]:  # bare-collections:allow（FastAPI 端点返回注解）
             async with tracer.span("http.request"):
                 return {"key": tracer.key, "trace_id": current_trace_id()}
 

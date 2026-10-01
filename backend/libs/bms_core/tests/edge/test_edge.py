@@ -33,9 +33,9 @@ from bms_core.edge.service_jwt import ServiceJwtEdgeTrust
 pytestmark = pytest.mark.kiwi_id(2166)
 
 
-def _factory(options: dict[str, object] | None = None) -> MarkerEdgeTrustFactory:
+def _factory(options: ConcurrentStableDict[str, object] | None = None) -> MarkerEdgeTrustFactory:
     """构造标记实现工厂（注入最小 settings 替身）。"""
-    settings = cast("Settings", SimpleNamespace(edge=SimpleNamespace(options=options or {})))
+    settings = cast("Settings", SimpleNamespace(edge=SimpleNamespace(options=dict(options) if options else {})))
     return MarkerEdgeTrustFactory(settings)
 
 
@@ -114,7 +114,7 @@ def test_marker_factory_uses_option_and_default_value() -> None:
         default_guard.evaluate(ConcurrentStableDict({GATEWAY_IDENTITY_HEADER: GATEWAY_IDENTITY_VALUE})).allowed is True
     )
 
-    custom_guard = _factory({"gateway_identity": "custom-edge"}).create()
+    custom_guard = _factory(ConcurrentStableDict({"gateway_identity": "custom-edge"})).create()
     assert custom_guard.evaluate(ConcurrentStableDict({GATEWAY_IDENTITY_HEADER: "custom-edge"})).allowed is True
     assert (
         custom_guard.evaluate(ConcurrentStableDict({GATEWAY_IDENTITY_HEADER: GATEWAY_IDENTITY_VALUE})).allowed is False
@@ -143,7 +143,7 @@ async def test_default_provider_resolves_service_jwt_and_dependency() -> None:
         @app.get("/edge-probe")
         async def edge_probe(  # pyright: ignore[reportUnusedFunction]
             trust: Annotated[BaseEdgeTrust, Depends(get_edge_trust)],
-        ) -> dict[str, object]:
+        ) -> dict[str, object]:  # bare-collections:allow（FastAPI 端点返回注解）
             return {"key": trust.key, "type": type(trust).__name__}
 
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:

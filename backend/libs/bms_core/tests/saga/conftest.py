@@ -8,13 +8,16 @@ import pytest_asyncio
 from sqlalchemy import Table
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.models.base import Base
 from bms_core.models.outbox import SysEventConsumed, SysOutbox
 
-SAGA_TABLES: list[Table] = [
-    cast("Table", SysOutbox.__table__),
-    cast("Table", SysEventConsumed.__table__),
-]
+SAGA_TABLES: ConcurrentStableList[Table] = ConcurrentStableList(
+    [
+        cast("Table", SysOutbox.__table__),
+        cast("Table", SysEventConsumed.__table__),
+    ]
+)
 
 
 @pytest_asyncio.fixture
@@ -31,7 +34,7 @@ async def saga_session(tmp_path: Path) -> AsyncGenerator[AsyncSession]:
     engine = create_async_engine(url)
     try:
         async with engine.begin() as connection:
-            await connection.run_sync(lambda conn: Base.metadata.create_all(conn, tables=SAGA_TABLES))
+            await connection.run_sync(lambda conn: Base.metadata.create_all(conn, tables=list(SAGA_TABLES)))
         maker = async_sessionmaker(engine, expire_on_commit=False)
         async with maker() as session:
             yield session

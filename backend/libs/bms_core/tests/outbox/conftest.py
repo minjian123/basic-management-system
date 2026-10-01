@@ -9,17 +9,20 @@ import pytest_asyncio
 from sqlalchemy import Table
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import get_settings
 from bms_core.db.engine import PLATFORM_DB_KEY, EngineFactory
 from bms_core.db.registry import EngineRegistry
 from bms_core.models.base import Base
 from bms_core.models.outbox import SysEventConsumed, SysEventDeadLetter, SysOutbox
 
-OUTBOX_TABLES: list[Table] = [
-    cast("Table", SysOutbox.__table__),
-    cast("Table", SysEventConsumed.__table__),
-    cast("Table", SysEventDeadLetter.__table__),
-]
+OUTBOX_TABLES: ConcurrentStableList[Table] = ConcurrentStableList(
+    [
+        cast("Table", SysOutbox.__table__),
+        cast("Table", SysEventConsumed.__table__),
+        cast("Table", SysEventDeadLetter.__table__),
+    ]
+)
 
 
 async def create_outbox_tables(url: str) -> None:
@@ -31,7 +34,7 @@ async def create_outbox_tables(url: str) -> None:
     engine = create_async_engine(url)
     try:
         async with engine.begin() as connection:
-            await connection.run_sync(lambda conn: Base.metadata.create_all(conn, tables=OUTBOX_TABLES))
+            await connection.run_sync(lambda conn: Base.metadata.create_all(conn, tables=list(OUTBOX_TABLES)))
     finally:
         await engine.dispose()
 

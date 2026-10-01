@@ -79,7 +79,7 @@ def _build_app(masker: BaseMasker, monkeypatch: pytest.MonkeyPatch) -> FastAPI:
     app.state.settings = Settings(masking=PluginSelection(provider="test"))
 
     @app.get("/user")
-    async def user(_: Annotated[BaseMasker, Depends(get_masker)]) -> dict[str, object]:  # pyright: ignore[reportUnusedFunction]
+    async def user(_: Annotated[BaseMasker, Depends(get_masker)]) -> dict[str, object]:  # pyright: ignore[reportUnusedFunction]  # bare-collections:allow（FastAPI 端点返回注解）
         return UserResponse(id=1, name="甲", phone="13800001111").model_dump()
 
     return app

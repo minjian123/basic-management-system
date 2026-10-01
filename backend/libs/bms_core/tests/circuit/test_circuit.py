@@ -66,7 +66,7 @@ async def test_dependency_provider_resolves() -> None:
         @app.get("/circuit")
         async def circuit_info(  # pyright: ignore[reportUnusedFunction]
             breaker: Annotated[BaseCircuitBreaker, Depends(get_circuit_breaker)],
-        ) -> dict[str, str]:
+        ) -> dict[str, str]:  # bare-collections:allow（FastAPI 端点返回注解）
             return {
                 "key": breaker.key,
                 "type": type(breaker).__name__,

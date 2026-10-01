@@ -120,7 +120,7 @@ async def test_dependency_provider_resolves() -> None:
         @app.get("/fieldtype-probe")
         async def probe(  # pyright: ignore[reportUnusedFunction]
             registry: Annotated[BaseFieldTypeRegistry, Depends(get_field_type_registry)],
-        ) -> dict[str, object]:
+        ) -> dict[str, object]:  # bare-collections:allow（FastAPI 端点返回注解）
             violations = registry.validate("text", "")
             return {"key": registry.key, "type": type(registry).__name__, "violations": list(violations)}
 
