@@ -909,3 +909,30 @@ flowchart LR
 | 本地预检 | `check-preflight.py --fast` | **全部通过** |
 
 **遗留**：全局剩余 **630 处**（`services` 304〔`identity` 195 / `platform` 68 / `org` 9 / `ai` 7 / `file`·`report` 各 6 / `tenant` 5 / `notification`·`search` 各 4〕、`scripts/tools` 223、`ops` 103）。`libs`（源侧 + `tests`）**已归零**；后续为批次 2 `services` → 批次 3 `scripts/tools` + `ops`。
+
+## 34. 实施过程补充 · 存量整改子批 5 · 批次 2 首轮 · 七小服务（`org` / `ai` / `file` / `report` / `tenant` / `notification` / `search`，签名单轮，2026-10-01） <a id="batch5-seven-services"></a>
+
+**范围**：`services` 七小服务共 **41 处 / 22 文件**（`org` 9 / `ai` 7 / `file` 6 / `report` 6 / `tenant` 5 / `notification` 4 / `search` 4；按位置＝类字段 1 / 签名参数 4 / 签名返回 19 / 局部变量 17），其中**实现侧 9 处**（`src/`）与测试侧 32 处。按交接单 §7 第 2 项「批次 2 `services`」起步，取**低耦合叶子服务群**先做，`identity`（195）与 `platform`（68）单独成后续轮。
+
+**动作**（按位置归并）：
+
+1. **实现侧签名与局部量落集合类**：`org` 的 `parse_id_in` → `ConcurrentStableList[int]`、`UserRepository.list_inactive` → `ConcurrentStableList[SysUser]`、`AccountLockRepository.list_filtered`·`_filter_conditions` → `ConcurrentStableList[...]`（`conditions` 局部量同步、`append` → `add`、`list(...)` 出口改 `ConcurrentStableList(...)`）、`AccountLockService.list_locks` 返回 `tuple[ConcurrentStableList[SysAccountLock], int]`、`parse_password_history` → `ConcurrentStableList[str]`；`notification` 的 `_parse_filters` → `ConcurrentStableList[FilterSpec]`；`tenant` 的 `_snapshot` → `ConcurrentStableDict[str, object]`。
+2. **契约字段（Pydantic）**：`org.schemas.credentials.UpdatePasswordResult.violations` 改 `Annotated[ConcurrentStableList[str], CONTRACT_COLLECTION] = Field(default_factory=CONTRACT_STABLE_LIST, ...)`（与 `bms_core` 契约集合字段同款写法）。
+3. **调用方适配（形态一致）**：`policy.reused(history=ConcurrentStableList([...]))`（`BasePasswordPolicy.reused` 入参已为集合类）；`violations=ConcurrentStableList(...)`；`history.add(...)`、`history[-keep:]`（切片返回同类）、`else ConcurrentStableList()`、`json.dumps(list(history), ...)`（JSON 出口显式转换）；`ApiResponse.ok(dict(_snapshot(row, db_basis)))`（**框架响应出口**：集合类不可直入未标注 `CONTRACT_COLLECTION` 的响应封装）；`parse_id_in(...)` 直接入参（去原二次 `ConcurrentStableList(...)` 包裹）。
+4. **查询入参边界（保留内置 + 行级标记）**：`search` 路由 `types: Annotated[list[str] | None, Query(...)]` 保持内置 `list`（集合类会破坏 FastAPI 参数绑定），标记单独成行置于声明行之上；出口侧原有 `ConcurrentStableList(types)` 保留。
+5. **测试侧替身与签名**：`_InMemoryChatStream._active` / `_InMemoryChatSessionStore._sessions`·`_messages` / `_InMemoryChatActionGate._confirmed` / `_InMemoryChatDataSource.last_users` / `_FakeMinioClient.objects` / `_FakeIdempotencyStore.begun`·`saved` / `_InMemoryNotificationCenter._items` / `_InMemoryGlobalSearch._hits` / `_RecordingIdempotency.keys`·`_payloads` / `_StubTemplateProvider.list` 等落集合类；集合类无 `pop` / `__delitem__` → `get_and_remove` / `delete`，无 `append` → `add`，无 `__setitem__` → `set`；**幂等替身 payload 沿用 `IDEMPOTENCY_PAYLOAD_TYPE` 别名**（`bms_core` 已声明为 JSON 载荷内置 `dict`，与同型替身 `services/file/tests/storage/test_multipart.py` 同款范式，非新豁免）。
+6. **框架端点返回注解**：本轮 **9 处** FastAPI 端点返回注解保持内置 `dict[...]` 并加行级标记 `# bare-collections:allow（FastAPI 端点返回注解）`（`ai/llm` / `file/storage` 2 处 / `notification/notify` / `notification/ws` / `search/search` …）。
+
+**验证**：
+
+| 项 | 命令 | 结果 |
+| --- | --- | --- |
+| 定向用例 | `pytest services/{org,ai,file,report,tenant,notification,search}/tests` | **160 passed / 1 skipped** |
+| 静态检查 | `ruff check .` / `ruff format --check .`（backend 全量） | 全绿（957 文件） |
+| 护栏 | `check-bare-collections.py .` | **「新增 0 / 残留 0」**；七小服务 **41 → 0** |
+| 基线递减 | `--update-baseline` | **630 → 589**（条目 593 → 554、计数合计 589；`services` **304 → 263**〔`identity` 195 / `platform` 68〕/ `scripts/tools` 223 / `ops` 103；新增条目 0） |
+| 本地预检 | `check-preflight.py --fast` | **全部通过** |
+
+**过程处置（已闭环）**：① `ConcurrentStableDict` 无 `pop(key, default)` → 幂等 / 会话 / 通知替身改用 `get_and_remove(...)`（语义一致，缺失返回 None）；② `del d[k]` → `delete(k)`；③ `json.dumps(history)` 因集合类不可直序列化 → `json.dumps(list(history))`；④ `_scope_conditions` 式「运行期识别」缺口的同类风险已在交接单 §9 立条目；⑤ `ConcurrentStableList[messages] | None = None` 规避 `ConcurrentStableSet()` 形参默认值的 ruff `B008`。
+
+**遗留**：全局剩余 **589 处**（`services` 263〔`identity` 195 / `platform` 68〕、`scripts/tools` 223、`ops` 103）。批次 2 续推 `identity`（195，量最大、含 `sso`·`oidc`·`idp` 测试编排较重）与 `platform`（68）；随后批次 3 `scripts/tools` + `ops`。**测试卫生观察项**：`services/org/tests/account_lock/test_endpoints.py::test_lock_endpoints_reject_invalid_token` 出现 `SAWarning`（GC 回收未归还连接）——属既有测试卫生现象、不影响门禁，未在本轮追改。
