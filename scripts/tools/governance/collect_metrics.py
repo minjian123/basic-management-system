@@ -31,6 +31,14 @@ import urllib.request
 from datetime import date
 from pathlib import Path
 
+# bms_core 源码根：脚本在仓库内运行，集合声明统一落插入序集合类（ConcurrentStable*）。
+_SRC_ROOT = Path(__file__).resolve().parents[3] / "backend" / "libs" / "bms_core" / "src"
+if str(_SRC_ROOT) not in sys.path:
+    sys.path.insert(0, str(_SRC_ROOT))
+
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList  # noqa: E402
+from bms_core.core.serialization import normalize_collections  # noqa: E402
+
 PYTEST_SUMMARY_RE = re.compile(r"(\d+) passed(?:, (\d+) skipped)?(?:, (\d+) failed)?")
 PYTEST_TOTAL_RE = re.compile(
     r"^TOTAL\s+(?P<stmts>\d+)\s+(?P<miss>\d+)\s+(?P<br>\d+)\s+(?P<brmiss>\d+)\s+(?P<pct>\d+)%", re.M
@@ -47,21 +55,21 @@ def strip_ansi(text: str) -> str:
     return ANSI_RE.sub("", text)
 
 
-def parse_env_file(path: Path) -> dict[str, str]:
+def parse_env_file(path: Path) -> ConcurrentStableDict[str, str]:
     """读取键值型凭据文件（仅取需要的键，不回显值）。"""
     if not path.is_file():
-        return {}
-    values: dict[str, str] = {}
+        return ConcurrentStableDict()
+    values: ConcurrentStableDict[str, str] = ConcurrentStableDict()
     for line in path.read_text(encoding="utf-8").splitlines():
         line = line.strip()
         if not line or line.startswith("#") or "=" not in line:
             continue
         key, _, val = line.partition("=")
-        values[key.strip()] = val.strip().strip('"').strip("'")
+        values.set(key.strip(), val.strip().strip('"').strip("'"))
     return values
 
 
-def run(cmd: list[str], cwd: Path, timeout: int = 600) -> tuple[int, str]:
+def run(cmd: ConcurrentStableList[str], cwd: Path, timeout: int = 600) -> tuple[int, str]:
     """执行只读命令，返回 (退出码, 合并输出)。"""
     try:
         proc = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, timeout=timeout, check=False)
@@ -70,21 +78,29 @@ def run(cmd: list[str], cwd: Path, timeout: int = 600) -> tuple[int, str]:
     return proc.returncode, (proc.stdout or "") + (proc.stderr or "")
 
 
-def collect_defects(root: Path) -> dict[str, object]:
+def collect_defects(root: Path) -> ConcurrentStableDict[str, object]:
     """度量二：缺陷分布与收敛（GitLab Issue）。"""
     env = parse_env_file(root / "deploy" / ".env")
     api = env.get("GITLAB_API_URL")
     token = env.get("GITLAB_API_TOKEN")
     if not api or not token:
-        return {"available": False, "reason": "deploy/.env 缺 GITLAB_API_URL / GITLAB_API_TOKEN", "items": []}
+        return ConcurrentStableDict(
+            {
+                "available": False,
+                "reason": "deploy/.env 缺 GITLAB_API_URL / GITLAB_API_TOKEN",
+                "items": ConcurrentStableList(),
+            }
+        )
     url = f"{api.rstrip('/')}/projects/bms%2Fbms/issues?state=all&per_page=100"
     request = urllib.request.Request(url, headers={"PRIVATE-TOKEN": token})
     try:
         with urllib.request.urlopen(request, timeout=20) as resp:  # 内网自托管地址，凭据取本地 .env
             items = json.loads(resp.read().decode("utf-8"))
     except Exception as exc:  # 网络 / 鉴权失败按降级处理，不阻断采集
-        return {"available": False, "reason": f"GitLab API 不可达：{type(exc).__name__}", "items": []}
-    rows = [
+        return ConcurrentStableDict(
+            {"available": False, "reason": f"GitLab API 不可达：{type(exc).__name__}", "items": ConcurrentStableList()}
+        )
+    rows: ConcurrentStableList[object] = ConcurrentStableList(
         {
             "iid": item["iid"],
             "state": item["state"],
@@ -94,7 +110,7 @@ def collect_defects(root: Path) -> dict[str, object]:
             "closed_at": (item.get("closed_at") or "")[:10],
         }
         for item in items
-    ]
+    )
     auto = [row for row in rows if "defect-auto" in row["labels"]]
     manual = [row for row in rows if "defect-auto" not in row["labels"] and any(str(tag).startswith("defect") for tag in row["labels"])]
     auto_like = [row for row in rows if any(str(tag).startswith("defect") for tag in row["labels"])]
@@ -104,7 +120,7 @@ def collect_defects(root: Path) -> dict[str, object]:
         if row["state"] == "opened"
         and any(str(tag).upper() in ("P0", "P1") for tag in row["labels"])
     ]
-    return {
+    return ConcurrentStableDict({
         "available": True,
         "total": len(rows),
         "open": sum(1 for row in rows if row["state"] == "opened"),
@@ -114,16 +130,16 @@ def collect_defects(root: Path) -> dict[str, object]:
         "defect_labelled": len(auto_like),
         "p0_p1_open": len(high_open),
         "items": rows,
-    }
+    })
 
 
-def collect_coverage(root: Path, skip_tests: bool, with_frontend: bool) -> dict[str, object]:
+def collect_coverage(root: Path, skip_tests: bool, with_frontend: bool) -> ConcurrentStableDict[str, object]:
     """度量三 + 用例执行统计：后端 pytest 与前端 Vitest。"""
     backend = root / "backend"
-    backend_data: dict[str, object] = {"ran": False}
+    backend_data: ConcurrentStableDict[str, object] = ConcurrentStableDict({"ran": False})
     if not skip_tests:
         code, out = run(
-            ["uv", "run", "pytest", "-q", "--cov=app", "--cov-branch", "--cov-fail-under=70"],
+            ConcurrentStableList(["uv", "run", "pytest", "-q", "--cov=app", "--cov-branch", "--cov-fail-under=70"]),
             cwd=backend,
             timeout=900,
         )
@@ -132,7 +148,7 @@ def collect_coverage(root: Path, skip_tests: bool, with_frontend: bool) -> dict[
         precise = PYTEST_COVERAGE_TOTAL_RE.search(out)
         summary = PYTEST_SUMMARY_RE.search(out)
         duration = DURATION_RE.search(out)
-        backend_data = {
+        backend_data = ConcurrentStableDict({
             "ran": True,
             "exit_code": code,
             "passed": int(summary.group(1)) if summary else None,
@@ -141,40 +157,42 @@ def collect_coverage(root: Path, skip_tests: bool, with_frontend: bool) -> dict[
             "duration_s": float(duration.group(1)) if duration else None,
             "branches_enabled": bool(total),
             "lines_pct": float(precise.group(1)) if precise else (int(total.group("pct")) if total else None),
-        }
-    frontend: dict[str, object] = {}
+        })
+    frontend: ConcurrentStableDict[str, ConcurrentStableDict[str, object]] = ConcurrentStableDict()
     for name in ("frontend/apps/desktop", "frontend/apps/mobile"):
         project = root / name
         if with_frontend and not skip_tests:
-            code, raw = run(["npm", "run", "test:cov"], cwd=project, timeout=900)
+            code, raw = run(ConcurrentStableList(["npm", "run", "test:cov"]), cwd=project, timeout=900)
             out = strip_ansi(raw)
             tests = VITEST_TESTS_RE.search(out)
             files = VITEST_FILES_RE.search(out)
-            frontend[name] = {
+            frontend.set(name, ConcurrentStableDict({
                 "ran": True,
                 "exit_code": code,
                 "tests_passed": int(tests.group(1)) if tests else None,
                 "files_passed": int(files.group(1)) if files else None,
-            }
+            }))
         summary_path = project / "coverage" / "coverage-summary.json"
+        entry = frontend.get(name)
+        if entry is None:
+            entry = ConcurrentStableDict()
+            frontend.set(name, entry)
         if summary_path.is_file():
             data = json.loads(summary_path.read_text(encoding="utf-8")).get("total", {})
-            frontend.setdefault(name, {})
-            frontend[name].update(  # type: ignore[union-attr]
+            entry.update(
                 {
                     "coverage_lines_pct": data.get("lines", {}).get("pct"),
                     "coverage_branches_pct": data.get("branches", {}).get("pct"),
                     "coverage_functions_pct": data.get("functions", {}).get("pct"),
                     "coverage_file_mtime": date.fromtimestamp(summary_path.stat().st_mtime).isoformat(),
-                }
+                }.items()
             )
         else:
-            frontend.setdefault(name, {})
-            frontend[name].update({"coverage_lines_pct": None, "note": "缺 coverage-summary.json"})  # type: ignore[union-attr]
-    return {"backend": backend_data, "frontend": frontend}
+            entry.update({"coverage_lines_pct": None, "note": "缺 coverage-summary.json"}.items())
+    return ConcurrentStableDict({"backend": backend_data, "frontend": frontend})
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(argv: ConcurrentStableList[str] | None = None) -> int:
     """入口：采集四项并分区打印（可选落 JSON）。"""
     parser = argparse.ArgumentParser(description="阶段度量与用例执行统计采集（只读）")
     parser.add_argument("--stage", default="01_项目骨架", help="阶段目录名（默认 01_项目骨架）")
@@ -236,7 +254,7 @@ def main(argv: list[str] | None = None) -> int:
     print("  Playwright E2E：本阶段未启用（tests/e2e 待建，重验证层分档开关 deploy/ci/verify/e2e 未开）")
 
     if args.out:
-        Path(args.out).write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+        Path(args.out).write_text(json.dumps(normalize_collections(result), ensure_ascii=False, indent=2), encoding="utf-8")
         print(f"\n已写入 JSON：{args.out}")
     return 0
 

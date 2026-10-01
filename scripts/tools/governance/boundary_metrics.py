@@ -28,6 +28,14 @@ import urllib.request
 from datetime import date
 from pathlib import Path
 
+# bms_core 源码根：脚本在仓库内运行，集合声明统一落插入序集合类（ConcurrentStable*）。
+_SRC_ROOT = Path(__file__).resolve().parents[3] / "backend" / "libs" / "bms_core" / "src"
+if str(_SRC_ROOT) not in sys.path:
+    sys.path.insert(0, str(_SRC_ROOT))
+
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList  # noqa: E402
+from bms_core.core.serialization import normalize_collections  # noqa: E402
+
 _CHECKER = Path(__file__).resolve().parents[1] / "base-check" / "check-service-boundaries.py"
 _METRIC_LINE_RE = re.compile(r"^bms_boundary_cross_access_total(?:\{[^}]*\})?\s+([0-9.eE+]+)\s*$", re.MULTILINE)
 _VIOLATION_KEYS = (
@@ -41,14 +49,14 @@ _VIOLATION_KEYS = (
 )
 
 
-def run_static(root: Path) -> dict[str, object]:
+def run_static(root: Path) -> ConcurrentStableDict[str, object]:
     """运行静态边界校验并解析 `--json` 输出。
 
     Args:
         root: bms 仓库根。
 
     Returns:
-        dict[str, object]: 校验结果（`counts` / `problems` / `passed`）；运行失败时 `error`。
+        ConcurrentStableDict[str, object]: 校验结果（`counts` / `problems` / `passed`）；运行失败时 `error`。
     """
     result = subprocess.run(
         [sys.executable, str(_CHECKER), str(root), "--json"],
@@ -56,34 +64,36 @@ def run_static(root: Path) -> dict[str, object]:
         text=True,
     )
     if not result.stdout.strip():
-        return {"error": f"边界校验无输出（退出码 {result.returncode}）：{result.stderr.strip()[:200]}"}
+        return ConcurrentStableDict(
+            {"error": f"边界校验无输出（退出码 {result.returncode}）：{result.stderr.strip()[:200]}"}
+        )
     try:
-        return json.loads(result.stdout)
+        return ConcurrentStableDict(json.loads(result.stdout))
     except json.JSONDecodeError as exc:
-        return {"error": f"边界校验输出非 JSON：{exc}"}
+        return ConcurrentStableDict({"error": f"边界校验输出非 JSON：{exc}"})
 
 
-def scrape_runtime(metrics_url: str | None) -> dict[str, object]:
+def scrape_runtime(metrics_url: str | None) -> ConcurrentStableDict[str, object]:
     """抓取运行期跨库访问计数（未配置 / 不可达则降级）。
 
     Args:
         metrics_url: Prometheus 文本端点地址；None 表示未采集。
 
     Returns:
-        dict[str, object]: `available` + `cross_access_total`（或 `reason`）。
+        ConcurrentStableDict[str, object]: `available` + `cross_access_total`（或 `reason`）。
     """
     if not metrics_url:
-        return {"available": False, "reason": "未配置 --metrics-url（运行期遥测随 08_01）"}
+        return ConcurrentStableDict({"available": False, "reason": "未配置 --metrics-url（运行期遥测随 08_01）"})
     try:
         with urllib.request.urlopen(metrics_url, timeout=10) as resp:  # noqa: S310 - 内网自托管端点
             text = resp.read().decode("utf-8", errors="ignore")
     except Exception as exc:  # noqa: BLE001 - 网络 / 鉴权失败按降级处理
-        return {"available": False, "reason": f"指标端点不可达：{type(exc).__name__}"}
+        return ConcurrentStableDict({"available": False, "reason": f"指标端点不可达：{type(exc).__name__}"})
     matches = [float(value) for value in _METRIC_LINE_RE.findall(text)]
-    return {"available": True, "cross_access_total": sum(matches) if matches else 0.0}
+    return ConcurrentStableDict({"available": True, "cross_access_total": sum(matches) if matches else 0.0})
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(argv: ConcurrentStableList[str] | None = None) -> int:
     """入口：采集静态与运行时计数并打印 / 落盘。
 
     Args:
@@ -148,7 +158,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  运行时：未采集（{runtime.get('reason')}）")
 
     if args.out:
-        Path(args.out).write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+        Path(args.out).write_text(json.dumps(normalize_collections(result), ensure_ascii=False, indent=2), encoding="utf-8")
         print(f"已写入 JSON：{args.out}")
     if args.fail_on_violation and total_violations:
         return 1
