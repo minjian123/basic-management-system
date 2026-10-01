@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 import ops.check_modules as check_modules
 import ops.seed_module as seed_module
-from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.services.module_registry import SERVICE_CATALOG, ModuleRecord
 from bms_platform.models.catalog import SysModule
 
@@ -20,7 +20,7 @@ from bms_platform.models.catalog import SysModule
 @pytest.mark.kiwi_id(28)
 def test_check_modules_passes() -> None:
     """服务目录清单 + 服务包声明：校验通过、退出码 0。"""
-    assert check_modules.main([]) == 0
+    assert check_modules.main(ConcurrentStableList([])) == 0
 
 
 @pytest.mark.kiwi_id(2163)
@@ -47,7 +47,7 @@ def test_check_modules_fails_on_conflict(monkeypatch: pytest.MonkeyPatch) -> Non
             return ConcurrentStableList(["table_prefix 重复：pur_"])
 
     monkeypatch.setattr(check_modules, "ModuleRegistry", BadRegistry)
-    assert check_modules.main([]) == 1
+    assert check_modules.main(ConcurrentStableList([])) == 1
 
 
 def _write_service(root: Path, name: str, body: str) -> None:
@@ -63,7 +63,9 @@ def _write_service(root: Path, name: str, body: str) -> None:
     init_path.write_text(body, encoding="utf-8")
 
 
-def _catalog(*, service_key: str | None = "alpha", contract_version: str = "0.1.0") -> tuple[ModuleRecord, ...]:
+def _catalog(
+    *, service_key: str | None = "alpha", contract_version: str = "0.1.0"
+) -> ConcurrentStableList[ModuleRecord]:
     """构造单行测试清单。
 
     Args:
@@ -71,17 +73,19 @@ def _catalog(*, service_key: str | None = "alpha", contract_version: str = "0.1.
         contract_version: 清单契约版本。
 
     Returns:
-        tuple[ModuleRecord, ...]: 清单。
+        ConcurrentStableList[ModuleRecord]: 清单。
     """
-    return (
-        ModuleRecord(
-            module_key="alpha",
-            service_key=service_key,
-            name="甲服务",
-            table_prefix="alpha_",
-            event_domain="alpha",
-            contract_version=contract_version,
-        ),
+    return ConcurrentStableList(
+        [
+            ModuleRecord(
+                module_key="alpha",
+                service_key=service_key,
+                name="甲服务",
+                table_prefix="alpha_",
+                event_domain="alpha",
+                contract_version=contract_version,
+            ),
+        ]
     )
 
 
@@ -98,17 +102,25 @@ def test_resolve_service_contracts_and_declarations(tmp_path: Path) -> None:
     assert declarations == {"alpha": "0.1.0", "beta": None, "gamma": None}
 
     catalog = _catalog()
-    assert check_modules.check_service_declarations(catalog, {"alpha": "0.1.0"}) == []
-    assert check_modules.check_service_declarations(catalog, {"alpha": "0.2.0"}) == []
-    assert any("主版本不符" in error for error in check_modules.check_service_declarations(catalog, {"alpha": "1.0.0"}))
+    assert check_modules.check_service_declarations(catalog, ConcurrentStableDict({"alpha": "0.1.0"})) == []
+    assert check_modules.check_service_declarations(catalog, ConcurrentStableDict({"alpha": "0.2.0"})) == []
+    assert any(
+        "主版本不符" in error
+        for error in check_modules.check_service_declarations(catalog, ConcurrentStableDict({"alpha": "1.0.0"}))
+    )
     assert any(
         "未声明 CONTRACT_VERSION" in error
-        for error in check_modules.check_service_declarations(catalog, {"alpha": None})
+        for error in check_modules.check_service_declarations(catalog, ConcurrentStableDict({"alpha": None}))
     )
-    assert any("非 semver" in error for error in check_modules.check_service_declarations(catalog, {"alpha": "1.0"}))
+    assert any(
+        "非 semver" in error
+        for error in check_modules.check_service_declarations(catalog, ConcurrentStableDict({"alpha": "1.0"}))
+    )
     assert any(
         "服务工程未登记：beta" in error
-        for error in check_modules.check_service_declarations(catalog, {"alpha": "0.1.0", "beta": "0.1.0"})
+        for error in check_modules.check_service_declarations(
+            catalog, ConcurrentStableDict({"alpha": "0.1.0", "beta": "0.1.0"})
+        )
     )
 
 
@@ -128,7 +140,7 @@ def test_resolve_service_contracts_real_workspace() -> None:
         "tenant",
     }
     assert all(version is not None for version in declarations.values())
-    assert check_modules.check_service_declarations(SERVICE_CATALOG, declarations) == []
+    assert check_modules.check_service_declarations(ConcurrentStableList(SERVICE_CATALOG), declarations) == []
 
 
 async def _create_table(url: str) -> None:
@@ -176,9 +188,9 @@ def test_check_catalog_db_modes(tmp_path: Path) -> None:
 
     asyncio.run(seed_module.seed_modules(url))
     assert check_modules.check_catalog_db(url) == []
-    assert check_modules.main(["--url", url]) == 0
+    assert check_modules.main(ConcurrentStableList(["--url", url])) == 0
 
     asyncio.run(_set_contract_version(url, "identity", "1.0.0"))
     errors = check_modules.check_catalog_db(url)
     assert any("契约版本主版本不兼容" in error for error in errors)
-    assert check_modules.main(["--url", url]) == 1
+    assert check_modules.main(ConcurrentStableList(["--url", url])) == 1

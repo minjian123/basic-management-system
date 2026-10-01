@@ -14,15 +14,15 @@ from ops import gateway_config
 @pytest.mark.kiwi_id(2165)
 def test_render_and_check_roundtrip(tmp_path: Path) -> None:
     """render 写出生成件；check 对生成件通过（零漂移）。"""
-    assert gateway_config.main(["render", "--root", str(tmp_path)]) == 0
+    assert gateway_config.main(ConcurrentStableList(["render", "--root", str(tmp_path)])) == 0
     assert gateway_config.config_path(tmp_path).read_text(encoding="utf-8") == render_apisix_yaml()
-    assert gateway_config.main(["check", "--root", str(tmp_path)]) == 0
+    assert gateway_config.main(ConcurrentStableList(["check", "--root", str(tmp_path)])) == 0
 
 
 @pytest.mark.kiwi_id(2165)
 def test_render_print_outputs_content(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     """render --print 打印生成内容，同时写出文件。"""
-    assert gateway_config.main(["render", "--print", "--root", str(tmp_path)]) == 0
+    assert gateway_config.main(ConcurrentStableList(["render", "--print", "--root", str(tmp_path)])) == 0
     assert render_apisix_yaml() in capsys.readouterr().out
     assert gateway_config.config_path(tmp_path).is_file()
 
@@ -30,7 +30,7 @@ def test_render_print_outputs_content(tmp_path: Path, capsys: pytest.CaptureFixt
 @pytest.mark.kiwi_id(2165)
 def test_check_missing_file_fails(tmp_path: Path) -> None:
     """生成件缺失时 check 退出码非 0。"""
-    assert gateway_config.main(["check", "--root", str(tmp_path)]) == 1
+    assert gateway_config.main(ConcurrentStableList(["check", "--root", str(tmp_path)])) == 1
 
 
 @pytest.mark.kiwi_id(2165)
@@ -39,7 +39,7 @@ def test_check_drift_fails(tmp_path: Path) -> None:
     target = gateway_config.config_path(tmp_path)
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(render_apisix_yaml().replace("platform", "platform-x"), encoding="utf-8")
-    assert gateway_config.main(["check", "--root", str(tmp_path)]) == 1
+    assert gateway_config.main(ConcurrentStableList(["check", "--root", str(tmp_path)])) == 1
 
 
 @pytest.mark.kiwi_id(2165)
@@ -51,13 +51,13 @@ def test_committed_config_in_sync() -> None:
 @pytest.mark.kiwi_id(2167)
 def test_check_blocks_hardcoded_ip(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """check 在服务发现校验失败（硬编码 IP）时退出码非 0。"""
-    assert gateway_config.main(["render", "--root", str(tmp_path)]) == 0
+    assert gateway_config.main(ConcurrentStableList(["render", "--root", str(tmp_path)])) == 0
 
     def _fake(config: ConcurrentStableDict[str, object]) -> ConcurrentStableList[str]:
         return ConcurrentStableList(["上游 platform 节点为硬编码 IP：10.0.0.5:8000"])
 
     monkeypatch.setattr(gateway_config, "validate_service_discovery", _fake)
-    assert gateway_config.main(["check", "--root", str(tmp_path)]) == 1
+    assert gateway_config.main(ConcurrentStableList(["check", "--root", str(tmp_path)])) == 1
 
 
 @pytest.mark.kiwi_id(2165)

@@ -2,6 +2,7 @@
 
 import pytest
 
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import DbPoolSettings, get_settings
 from ops.check_budget import main
 
@@ -14,7 +15,7 @@ def test_check_budget_pass_and_service_filter(capsys: pytest.CaptureFixture[str]
     settings.database.tenants.max_connections = 0
     settings.database.archive.max_connections = 0
 
-    assert main(["--service", "platform"]) == 0
+    assert main(ConcurrentStableList(["--service", "platform"])) == 0
     out = capsys.readouterr().out
     assert "platform.platform" in out and "platform.tenants" in out and "archive" in out
     assert "校验通过" in out
@@ -28,7 +29,7 @@ def test_check_budget_exceeded(capsys: pytest.CaptureFixture[str]) -> None:
     settings.database.platform.max_connections = 10
     settings.database.platform.pool = DbPoolSettings(pool_size=5, max_overflow=10)
 
-    assert main(["--service", "platform"]) == 1
+    assert main(ConcurrentStableList(["--service", "platform"])) == 1
     out = capsys.readouterr().out
     assert "超限" in out and "platform.platform" in out
 
@@ -46,9 +47,9 @@ def test_check_budget_active_tenants(capsys: pytest.CaptureFixture[str]) -> None
     settings.database.tenants.pool = DbPoolSettings(pool_size=5, max_overflow=10)
     settings.database.tenants.services = {}
 
-    assert main(["--service", "ai", "--active-tenants", "1"]) == 0
+    assert main(ConcurrentStableList(["--service", "ai", "--active-tenants", "1"])) == 0
     capsys.readouterr()
-    assert main(["--service", "ai", "--active-tenants", "3"]) == 1
+    assert main(ConcurrentStableList(["--service", "ai", "--active-tenants", "3"])) == 1
     assert "3 活跃租户" in capsys.readouterr().out
 
     settings.database.tenants.max_connections = 0

@@ -12,6 +12,7 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.db.engine import EngineFactory
 from bms_core.db.registry import PLATFORM_DB_KEY, EngineRegistry
@@ -126,7 +127,7 @@ def test_test_db_plan_lists_fixed_databases(capsys: pytest.CaptureFixture[str]) 
     """三库测试库流程计划：平台 / 租户两对象与步骤（纯清单断言，无需真库，恒常绿）。"""
     for engine, objects in TEST_DATABASES.items():
         capsys.readouterr()
-        assert main(["plan", "--engine", engine]) == 0
+        assert main(ConcurrentStableList(["plan", "--engine", engine])) == 0
         out = capsys.readouterr().out
         for database in objects.values():
             assert database in out

@@ -78,7 +78,10 @@ def test_check_passes_without_breaking(tmp_path: Path) -> None:
     """无破坏性变更时 check 退出码 0，指标文本含 0 且末尾换行。"""
     metrics = tmp_path / "m.txt"
     rc = contract_gate.check(
-        _REPO, services=[_first_service()], diff=lambda b, c, i: (0, "[]", ""), metrics_out=metrics
+        _REPO,
+        services=ConcurrentStableList([_first_service()]),
+        diff=lambda b, c, i: (0, "[]", ""),
+        metrics_out=metrics,
     )
     assert rc == 0
     text = metrics.read_text(encoding="utf-8")
@@ -91,7 +94,9 @@ def test_check_fails_on_breaking(tmp_path: Path, capsys: pytest.CaptureFixture[s
     service = _first_service()
     breaking = json.dumps([{"level": "error", "text": "removed field"}, {"level": "error", "text": "removed path"}])
     metrics = tmp_path / "m.txt"
-    rc = contract_gate.check(_REPO, services=[service], diff=lambda b, c, i: (1, breaking, ""), metrics_out=metrics)
+    rc = contract_gate.check(
+        _REPO, services=ConcurrentStableList([service]), diff=lambda b, c, i: (1, breaking, ""), metrics_out=metrics
+    )
     assert rc == 1
     assert "破坏性变更" in capsys.readouterr().err
     assert f'bms_contract_breaking_total{{service="{service}"}} 2\n' in metrics.read_text(encoding="utf-8")
@@ -100,7 +105,7 @@ def test_check_fails_on_breaking(tmp_path: Path, capsys: pytest.CaptureFixture[s
 @pytest.mark.kiwi_id(2186)
 def test_check_reports_missing_baseline(tmp_path: Path) -> None:
     """基线缺件时 check 非零退出。"""
-    assert contract_gate.check(tmp_path, services=["platform"]) == 1
+    assert contract_gate.check(tmp_path, services=ConcurrentStableList(["platform"])) == 1
 
 
 @pytest.mark.kiwi_id(2186)
@@ -119,9 +124,9 @@ def test_baseline_update_copies_current_snapshot(tmp_path: Path) -> None:
     current = tmp_path / "deploy" / "contracts"
     current.mkdir(parents=True)
     (current / "platform.json").write_text('{"info": {}}\n', encoding="utf-8")
-    assert contract_gate.baseline_update(tmp_path, services=["platform"]) == 0
+    assert contract_gate.baseline_update(tmp_path, services=ConcurrentStableList(["platform"])) == 0
     assert (tmp_path / BASELINE_DIR / "platform.json").read_text(encoding="utf-8") == '{"info": {}}\n'
-    assert contract_gate.baseline_update(tmp_path, services=["ghost"]) == 1
+    assert contract_gate.baseline_update(tmp_path, services=ConcurrentStableList(["ghost"])) == 1
 
 
 @pytest.mark.kiwi_id(2186)

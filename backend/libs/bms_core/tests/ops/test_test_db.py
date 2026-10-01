@@ -127,7 +127,7 @@ def test_build_target_dm_strips_schema_segment() -> None:
 @pytest.mark.parametrize("engine", ENGINE_CHOICES)
 def test_plan_lists_objects_and_steps(engine: str, capsys: pytest.CaptureFixture[str]) -> None:
     """`plan` 输出两对象与四个流程步骤（无副作用，退出码 0）。"""
-    assert main(["plan", "--engine", engine]) == 0
+    assert main(ConcurrentStableList(["plan", "--engine", engine])) == 0
     out = capsys.readouterr().out
     for database in TEST_DATABASES[engine].values():
         assert database in out
@@ -143,7 +143,7 @@ def test_plan_mode_without_execute_has_no_side_effect(
     db_file = tmp_path / "planned.db"
     monkeypatch.setenv("BMS_TEST_DB_URL", f"sqlite+aiosqlite:///{db_file}")
     monkeypatch.delenv("BMS_TEST_TENANT_DB_URL", raising=False)
-    assert main(["create", "--engine", "mysql", "--scope", "platform"]) == 0
+    assert main(ConcurrentStableList(["create", "--engine", "mysql", "--scope", "platform"])) == 0
     out = capsys.readouterr().out
     assert "（plan）" in out
     assert not db_file.exists()
@@ -153,7 +153,7 @@ def test_plan_mode_without_execute_has_no_side_effect(
 def test_execute_without_url_fails(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     """`--execute` 但未配置连接串：显式失败（退出码 1），不静默跳过。"""
     _clear_url_env(monkeypatch)
-    assert main(["create", "--engine", "mysql", "--execute"]) == 1
+    assert main(ConcurrentStableList(["create", "--engine", "mysql", "--execute"])) == 1
     out = capsys.readouterr().out
     assert "未配置" in out
     assert "失败" in out
@@ -163,10 +163,10 @@ def test_execute_without_url_fails(monkeypatch: pytest.MonkeyPatch, capsys: pyte
 def test_invalid_arguments_exit_two() -> None:
     """非法 `--engine` / `--scope` 由 argparse 以退出码 2 结束。"""
     with pytest.raises(SystemExit) as engine_exc:
-        main(["plan", "--engine", "sqlite"])
+        main(ConcurrentStableList(["plan", "--engine", "sqlite"]))
     assert engine_exc.value.code == 2
     with pytest.raises(SystemExit) as scope_exc:
-        main(["create", "--engine", "mysql", "--scope", "all2"])
+        main(ConcurrentStableList(["create", "--engine", "mysql", "--scope", "all2"]))
     assert scope_exc.value.code == 2
     assert SCOPE_CHOICES == ("all", "platform", "tenant")
 

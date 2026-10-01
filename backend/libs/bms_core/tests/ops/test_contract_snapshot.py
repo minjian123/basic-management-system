@@ -79,9 +79,9 @@ def test_contract_file_name_used() -> None:
 @pytest.mark.kiwi_id(2168)
 def test_export_print_and_main_subcommands(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     """export --print 打印内容；main 子命令 export / check 可执行。"""
-    assert contract_snapshot.main(["export", "--print", "--root", str(tmp_path)]) == 0
+    assert contract_snapshot.main(ConcurrentStableList(["export", "--print", "--root", str(tmp_path)])) == 0
     assert "info" in capsys.readouterr().out
-    assert contract_snapshot.main(["check", "--root", str(tmp_path)]) == 0
+    assert contract_snapshot.main(ConcurrentStableList(["check", "--root", str(tmp_path)])) == 0
 
 
 @pytest.mark.kiwi_id(2168)

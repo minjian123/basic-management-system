@@ -6,6 +6,7 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 import ops.seed_tenant as seed_tenant
+from bms_core.core.concurrent import ConcurrentStableList
 
 
 @pytest.mark.kiwi_id(1019)
@@ -46,9 +47,9 @@ async def test_seed_tenant_idempotent(tmp_path: Path) -> None:
 def test_seed_tenant_cli(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     """CLI：dry-run 输出种子清单；正式执行输出新增行数。"""
     url = f"sqlite+aiosqlite:///{tmp_path / 'platform.db'}"
-    assert seed_tenant.main(["--url", url, "--dry-run"]) == 0
+    assert seed_tenant.main(ConcurrentStableList(["--url", url, "--dry-run"])) == 0
     out = capsys.readouterr().out
     assert "demo" in out
     assert "acme" in out
-    assert seed_tenant.main(["--url", url]) == 0
+    assert seed_tenant.main(ConcurrentStableList(["--url", url])) == 0
     assert "新增 4 行" in capsys.readouterr().out

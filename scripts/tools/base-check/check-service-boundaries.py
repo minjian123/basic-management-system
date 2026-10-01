@@ -615,7 +615,8 @@ def _emit(as_json: bool) -> None:
         as_json: 是否输出 JSON（供度量脚本解析）。
     """
     if as_json:
-        print(json.dumps({"passed": not problems, "counts": counts, "problems": problems}, ensure_ascii=False, indent=2))
+        payload = {"passed": not problems, "counts": dict(counts), "problems": list(problems)}
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
         return
     if problems:
         print(f"\n[check-service-boundaries] 不通过：{len(problems)} 项")
