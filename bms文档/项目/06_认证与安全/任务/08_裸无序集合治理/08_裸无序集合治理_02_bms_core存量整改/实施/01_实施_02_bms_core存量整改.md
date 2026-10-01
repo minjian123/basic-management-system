@@ -1084,3 +1084,26 @@ flowchart LR
 | 自验（真实执行） | `check-preflight.py --fast` | **全部通过**（本脚本即门禁本体，跑通等价端到端验证） |
 
 **遗留**：`scripts/tools` 余 **136 处**（`base-check` 86〔`check-backend-base` 39 · `check-service-boundaries` 24 · `check-bare-collections` 21 · `check-docs-scope` 2〕/ `deploy/release.py` 50）；随后 `ops`（103）。
+
+## 41. 实施过程补充 · 存量整改子批 10 · 批次 3 续推 `base-check` 族两脚本（2026-10-01） <a id="batch10-base-check-1"></a>
+
+**范围**：`scripts/tools/base-check` 两文件共 **26 处**——`check-service-boundaries.py` 24 处（局部 18 / 签名返回 5 / 签名参数 1）与 `check-docs-scope.py` 2 处（局部 2）。
+
+**动作**：
+
+1. **`check-service-boundaries`（本仓唯一原本即 `import bms_core` 的脚本，导入引导已就位）**：模块级 `problems` / `counts` / `service_tables` 与函数内 `packages` / `found` / `ids` / `tables` / `prefixes` / `known_tables` / `seen` 落集合类；`_discover_packages` / `_iter_imports` / `_iter_tablenames` / `_iter_cross_reference_tables` / `_bare_string_nodes` 的返回与 `known_tables` 形参落集合类；模块级规则表 `_SHARED_LAYER_RULES` / `_SERVICE_LAYER_RULES` 落 `ConcurrentStableDict[str, ConcurrentStableSet[str]]`（其值由 `frozenset` 改 `ConcurrentStableSet`）。
+2. **写用法换算（新增两类）**：计数自增 `x[k] += 1` → `x.set(k, x.get(k, 0) + 1)`；`dict.setdefault(k, set()).add(v)` → `get` + 按需 `set` + 集合类 `add`（集合类无 `setdefault`）。其余沿用既有口径：`append` → `add`、`extend` → `update`、`x[k] = v` → `set`；`layer_rules.get(source, frozenset())` 默认值改 `ConcurrentStableSet()`；`frozenset(known_tables)` → `ConcurrentStableSet(known_tables)`。
+3. **`check-docs-scope`**：局部 `findings` / `failures` 落集合类（`append` → `add`），脚本新增 `sys.path` 引导。
+
+**验证**：
+
+| 项 | 命令 | 结果 |
+| --- | --- | --- |
+| 编译 | `py_compile`（两脚本） | 通过 |
+| 实跑 | `check-service-boundaries.py .` / `check-docs-scope.py .` | 正常（跨服务越界 0 / 口径违规 0） |
+| 自测矩阵 | 两脚本 `--self-test` | **全部通过** |
+| 护栏 | `check-bare-collections.py .` | **「新增 0」**；`scripts/tools` **134 → 110** |
+| 基线递减 | `--update-baseline` | **239 → 213**（条目 231 → 205、计数合计 213；新增条目 0 / 移除 26） |
+| 本地预检 | `check-preflight.py --fast` | **全部通过** |
+
+**遗留**：`scripts/tools` 余 **110 处**（`base-check` 60〔`check-backend-base` 39 · `check-bare-collections` 21〕/ `deploy/release.py` 50）；随后 `ops`（103）。
