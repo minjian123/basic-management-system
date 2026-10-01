@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 from sqlalchemy import create_engine, text
 
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from ops.backfill_tenant_id_columns import (
     BackfillError,
     backfill_outbox,
@@ -13,7 +14,7 @@ from ops.backfill_tenant_id_columns import (
     process_database,
 )
 
-_ID_MAP = {"demo": 1001, "acme": 2002}
+_ID_MAP = ConcurrentStableDict({"demo": 1001, "acme": 2002})
 
 
 def _engine(path: Path):
@@ -147,5 +148,5 @@ def test_backfill_dry_run_requires_registry(tmp_path: Path, monkeypatch: pytest.
     from bms_core.core.config import get_settings
 
     get_settings.cache_clear()
-    assert main(["--dry-run", "--service", "platform"]) == 1
+    assert main(ConcurrentStableList(["--dry-run", "--service", "platform"])) == 1
     get_settings.cache_clear()

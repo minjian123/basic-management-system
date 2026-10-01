@@ -107,11 +107,11 @@ def test_main_idempotent_and_check(tmp_path: Path) -> None:
     out = tmp_path / "rendered" / "alertmanager.yml"
     args = ["--env-file", str(env_file), "--template", str(_TEMPLATE), "--out", str(out)]
 
-    assert render_alertmanager.main(args) == 0
+    assert render_alertmanager.main(ConcurrentStableList(args)) == 0
     first = out.read_text(encoding="utf-8")
-    assert render_alertmanager.main(args) == 0
+    assert render_alertmanager.main(ConcurrentStableList(args)) == 0
     assert out.read_text(encoding="utf-8") == first
-    assert render_alertmanager.main(["--check", *args]) == 0
+    assert render_alertmanager.main(ConcurrentStableList(["--check", *args])) == 0
 
     out.unlink()
-    assert render_alertmanager.main(["--check", *args]) == 1
+    assert render_alertmanager.main(ConcurrentStableList(["--check", *args])) == 1

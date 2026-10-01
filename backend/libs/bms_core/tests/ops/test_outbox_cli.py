@@ -87,7 +87,7 @@ def test_cli_dispatch(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     _point_to(url, monkeypatch)
     _run(_seed(url, delivered=False))
 
-    assert main(["dispatch", "--db-key", PLATFORM_DB_KEY]) == 0
+    assert main(ConcurrentStableList(["dispatch", "--db-key", PLATFORM_DB_KEY])) == 0
     assert _run(_status(url)) == [OUTBOX_STATUS_DELIVERED]
 
 
@@ -99,7 +99,7 @@ def test_cli_replay(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     _run(_seed(url, delivered=True))
     assert _run(_status(url)) == [OUTBOX_STATUS_DELIVERED]
 
-    assert main(["replay", "--event-type", "order.created", "--db-key", PLATFORM_DB_KEY]) == 0
+    assert main(ConcurrentStableList(["replay", "--event-type", "order.created", "--db-key", PLATFORM_DB_KEY])) == 0
     assert _run(_status(url)) == [OUTBOX_STATUS_PENDING]
 
 
@@ -108,4 +108,4 @@ def test_cli_failure_exit_code(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) 
     """库不可用：命令返回非 0 退出码（不抛未捕获异常）。"""
     url = f"sqlite+aiosqlite:///{tmp_path / 'missing' / 'deep' / 'cli.db'}"
     _point_to(url, monkeypatch)
-    assert main(["replay"]) == 1
+    assert main(ConcurrentStableList(["replay"])) == 1

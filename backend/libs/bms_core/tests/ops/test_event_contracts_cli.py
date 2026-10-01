@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+from bms_core.core.concurrent import ConcurrentStableList
 from ops import event_contracts
 
 
@@ -59,8 +60,8 @@ def test_check_and_export_invalid_snapshot_fails(tmp_path: Path) -> None:
 @pytest.mark.kiwi_id(2174)
 def test_main_dispatch(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     """命令行分发：export（--print）/ check。"""
-    assert event_contracts.main(["export", "--root", str(tmp_path), "--print"]) == 0
-    assert event_contracts.main(["check", "--root", str(tmp_path)]) == 0
+    assert event_contracts.main(ConcurrentStableList(["export", "--root", str(tmp_path), "--print"])) == 0
+    assert event_contracts.main(ConcurrentStableList(["check", "--root", str(tmp_path)])) == 0
     output = capsys.readouterr().out
     assert "事件契约快照已写入" in output
     assert "事件契约校验通过" in output

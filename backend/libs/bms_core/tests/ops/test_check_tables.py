@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 from sqlalchemy import create_engine, text
 
+from bms_core.core.concurrent import ConcurrentStableList
 from ops.check_tables import check_offline, check_table_db, main
 from ops.seed_tables import seed_tables
 
@@ -71,5 +72,5 @@ def test_check_table_db_roundtrip_and_conflicts(tmp_path: Path) -> None:
 @pytest.mark.kiwi_id(2178)
 def test_check_tables_cli(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     """CLI：离线通过（未给 `--url`）退出码 0 且输出校验范围。"""
-    assert main([]) == 0
+    assert main(ConcurrentStableList([])) == 0
     assert "校验通过" in capsys.readouterr().out

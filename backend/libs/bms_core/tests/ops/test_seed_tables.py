@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 from sqlalchemy import create_engine, text
 
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.services.table_registry import TABLE_OWNERSHIP
 from ops.seed_tables import seed_tables
 
@@ -85,7 +86,7 @@ def test_seed_tables_cli_dry_run(tmp_path: Path, capsys: pytest.CaptureFixture[s
     from ops.seed_tables import main
 
     url = _url(tmp_path)
-    assert main(["--url", url, "--dry-run"]) == 0
+    assert main(ConcurrentStableList(["--url", url, "--dry-run"])) == 0
     out = capsys.readouterr().out
     assert "dry-run" in out and "sys_table_ownership" in out
     assert not (tmp_path / "bms_platform.db").exists()

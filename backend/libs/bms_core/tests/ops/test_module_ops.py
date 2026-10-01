@@ -7,6 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 import ops.seed_module as seed_module
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.services.module_registry import SERVICE_CATALOG
 from bms_platform.models.catalog import SysModule
 
@@ -55,11 +56,11 @@ async def test_seed_module_upsert_idempotent(tmp_path: Path) -> None:
 def test_seed_module_cli(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     """CLI：dry-run 输出种子清单；正式执行输出新增 / 更新行数。"""
     url = f"sqlite+aiosqlite:///{tmp_path / 'platform.db'}"
-    assert seed_module.main(["--url", url, "--dry-run"]) == 0
+    assert seed_module.main(ConcurrentStableList(["--url", url, "--dry-run"])) == 0
     out = capsys.readouterr().out
     for module in SERVICE_CATALOG:
         assert module.module_key in out
-    assert seed_module.main(["--url", url]) == 0
+    assert seed_module.main(ConcurrentStableList(["--url", url])) == 0
     assert f"新增 {len(SERVICE_CATALOG)} 行 / 更新 0 行" in capsys.readouterr().out
-    assert seed_module.main(["--url", url]) == 0
+    assert seed_module.main(ConcurrentStableList(["--url", url])) == 0
     assert "新增 0 行 / 更新 0 行" in capsys.readouterr().out
