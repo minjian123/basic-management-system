@@ -27,7 +27,7 @@ from bms_core.boundary.exceptions import (
 from bms_core.boundary.null import NullDataOwnershipGuard
 from bms_core.boundary.sql import analyze, extract_tables, operation_of
 from bms_core.boundary.table import TableOwnershipGuard
-from bms_core.core.concurrent import ConcurrentStableSet
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.exceptions import ConfigError, DataOwnershipError
 from bms_core.metrics.null import NullMetrics
 
@@ -49,10 +49,11 @@ def _exception(**overrides: str) -> OwnershipException:
     return OwnershipException(**values)
 
 
-def _write_exceptions(path: Path, entries: list[dict[str, str]]) -> None:
+def _write_exceptions(path: Path, entries: ConcurrentStableList[ConcurrentStableDict[str, str]]) -> None:
     """写例外白名单文件（version=1）。"""
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps({"version": 1, "exceptions": entries}, ensure_ascii=False), encoding="utf-8")
+    payload = {"version": 1, "exceptions": [dict(entry) for entry in entries]}
+    path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
 
 
 @pytest.mark.kiwi_id(2170)
@@ -106,14 +107,14 @@ def test_exceptions_load_and_validate(tmp_path: Path) -> None:
     """例外白名单加载 / 结构校验 / 命中判定。"""
     assert load_exceptions(tmp_path / "none.json") == ()
     valid = tmp_path / "valid.json"
-    _write_exceptions(valid, [_exception().__dict__])
+    _write_exceptions(valid, ConcurrentStableList([ConcurrentStableDict(_exception().__dict__)]))
     entries = load_exceptions(valid)
     assert len(entries) == 1
     assert exception_allows(entries, service="report", table="org_item", operation="read")
     assert not exception_allows(entries, service="report", table="org_item", operation="write")
 
     invalid = tmp_path / "invalid.json"
-    _write_exceptions(invalid, [_exception(access="write").__dict__])
+    _write_exceptions(invalid, ConcurrentStableList([ConcurrentStableDict(_exception(access="write").__dict__)]))
     with pytest.raises(ValueError, match="access"):
         load_exceptions(invalid)
 

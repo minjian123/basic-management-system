@@ -14,6 +14,7 @@ from httpx import ASGITransport, AsyncClient
 
 from bms_core.api import health
 from bms_core.api.deps import get_health_check_registry
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.exceptions import ServiceUnavailableError
 from bms_core.health.base import BaseHealthCheck, HealthCheckResult
 from bms_core.health.checks import CatalogHealthCheck
@@ -64,10 +65,10 @@ def _stub_snapshot(monkeypatch: pytest.MonkeyPatch, *, error: Exception | None =
         error: 非空表示抛出该异常（模拟契约不可达）。
     """
 
-    async def _load(app: object) -> list[object]:
+    async def _load(app: object) -> ConcurrentStableList[object]:
         if error is not None:
             raise error
-        return [*SERVICE_CATALOG]
+        return ConcurrentStableList(SERVICE_CATALOG)
 
     monkeypatch.setattr("bms_core.catalog.loader.load_catalog_snapshot", _load)
 

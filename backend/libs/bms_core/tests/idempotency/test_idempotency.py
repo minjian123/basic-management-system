@@ -63,7 +63,7 @@ async def test_dependency_provider_resolves() -> None:
         @app.post("/idem")
         async def idem_probe(  # pyright: ignore[reportUnusedFunction]
             store: Annotated[IdempotencyStore, Depends(get_idempotency_store)],
-        ) -> dict[str, object]:
+        ) -> dict[str, object]:  # bare-collections:allow（FastAPI 端点返回注解）
             key = build_idempotency_key(key="abc-1", tenant="t1")
             first = await store.begin(key)
             await store.save(key, {"ok": True})

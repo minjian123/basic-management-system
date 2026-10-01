@@ -50,11 +50,11 @@ def _build_app(checker: BasePermissionChecker, monkeypatch: pytest.MonkeyPatch) 
     register_exception_handlers(app)
 
     @app.get("/protected")
-    async def protected(_: Annotated[None, Depends(require_permission("data:plain"))]) -> dict[str, bool]:  # pyright: ignore[reportUnusedFunction]
+    async def protected(_: Annotated[None, Depends(require_permission("data:plain"))]) -> dict[str, bool]:  # pyright: ignore[reportUnusedFunction]  # bare-collections:allow（FastAPI 端点返回注解）
         return {"ok": True}
 
     @app.get("/checker")
-    async def checker_key(c: Annotated[BasePermissionChecker, Depends(get_permission_checker)]) -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]
+    async def checker_key(c: Annotated[BasePermissionChecker, Depends(get_permission_checker)]) -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]  # bare-collections:allow（FastAPI 端点返回注解）
         return {"key": c.key}
 
     return app

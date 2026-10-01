@@ -5,7 +5,7 @@ from decimal import Decimal
 
 import pytest
 
-from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.exceptions import ParamError
 from bms_core.schemas.cursor import (
     CURSOR_VERSION,
@@ -77,20 +77,36 @@ def test_cursor_rejects_version_and_shape_errors() -> None:
     import base64
     import json
 
-    def _encode(payload: dict[str, object]) -> str:
-        raw = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+    def _encode(payload: ConcurrentStableDict[str, object]) -> str:
+        raw = json.dumps(dict(payload), ensure_ascii=False).encode("utf-8")
         return base64.urlsafe_b64encode(raw).decode("ascii").rstrip("=")
 
     with pytest.raises(ParamError):
-        decode_cursor(_encode({"version": CURSOR_VERSION + 1, "specs": [], "values": [], "id": 1}))
+        decode_cursor(
+            _encode(ConcurrentStableDict({"version": CURSOR_VERSION + 1, "specs": [], "values": [], "id": 1}))
+        )
     with pytest.raises(ParamError):
-        decode_cursor(_encode({"version": CURSOR_VERSION, "specs": [], "values": [1], "id": 1}))
+        decode_cursor(_encode(ConcurrentStableDict({"version": CURSOR_VERSION, "specs": [], "values": [1], "id": 1})))
     with pytest.raises(ParamError):
-        decode_cursor(_encode({"version": CURSOR_VERSION, "specs": [["rank", "sideways"]], "values": [1], "id": 1}))
+        decode_cursor(
+            _encode(
+                ConcurrentStableDict(
+                    {"version": CURSOR_VERSION, "specs": [["rank", "sideways"]], "values": [1], "id": 1}
+                )
+            )
+        )
     with pytest.raises(ParamError):
-        decode_cursor(_encode({"version": CURSOR_VERSION, "specs": [["rank"]], "values": [1], "id": 1}))
+        decode_cursor(
+            _encode(ConcurrentStableDict({"version": CURSOR_VERSION, "specs": [["rank"]], "values": [1], "id": 1}))
+        )
     with pytest.raises(ParamError):
-        decode_cursor(_encode({"version": CURSOR_VERSION, "specs": [["rank", "asc"]], "values": [{"x": 1}], "id": 1}))
+        decode_cursor(
+            _encode(
+                ConcurrentStableDict(
+                    {"version": CURSOR_VERSION, "specs": [["rank", "asc"]], "values": [{"x": 1}], "id": 1}
+                )
+            )
+        )
 
 
 @pytest.mark.kiwi_id(1078)

@@ -9,6 +9,7 @@ import pytest
 from fakeredis.aioredis import FakeRedis
 from redis.asyncio import Redis
 
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.idempotency.base import IdempotencyStore, build_idempotency_key
 from bms_core.idempotency.redis import RedisIdempotencyStore
 
@@ -72,14 +73,16 @@ async def test_setnx_first_and_result_reuse() -> None:
 @pytest.mark.kiwi_id(2173)
 async def test_load_deserialization_edges() -> None:
     """反序列化边界：字节 / 非字符串 / 非法 JSON / 非对象 → 按未命中。"""
-    cases: list[tuple[object, object]] = [
-        (None, None),
-        (b'{"a": 1}', {"a": 1}),
-        (123, None),
-        ("{bad", None),
-        ("[1, 2]", None),
-        ('{"a": 1}', {"a": 1}),
-    ]
+    cases: ConcurrentStableList[tuple[object, object]] = ConcurrentStableList(
+        [
+            (None, None),
+            (b'{"a": 1}', {"a": 1}),
+            (123, None),
+            ("{bad", None),
+            ("[1, 2]", None),
+            ('{"a": 1}', {"a": 1}),
+        ]
+    )
     for raw, expected in cases:
         store = RedisIdempotencyStore(_REDIS_URL, client=cast("Redis", _RawClient(raw)))
         assert await store.load("bms:global:idem:k") == expected

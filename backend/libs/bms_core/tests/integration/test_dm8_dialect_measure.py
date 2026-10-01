@@ -39,6 +39,7 @@ from sqlalchemy import (
 from sqlalchemy.engine import make_url
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
+from bms_core.core.concurrent import ConcurrentStableSet
 from bms_core.core.config import Settings
 from bms_core.db.engine import PLATFORM_DB_KEY, EngineFactory
 from bms_core.db.migration import resolve_chain
@@ -87,10 +88,10 @@ async def registry(dm_url: str) -> AsyncIterator[EngineRegistry]:
         await instance.aclose()
 
 
-def _table_names(engine: Engine) -> set[str]:
+def _table_names(engine: Engine) -> ConcurrentStableSet[str]:
     """当前连接模式下的表名集合（元数据展示口径）。"""
     with engine.connect() as connection:
-        return set(inspect(connection).get_table_names())
+        return ConcurrentStableSet(inspect(connection).get_table_names())
 
 
 async def _with_probe(registry: EngineRegistry) -> Engine:

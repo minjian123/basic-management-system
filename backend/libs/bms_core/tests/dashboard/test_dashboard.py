@@ -103,7 +103,7 @@ async def test_dependency_provider_resolves() -> None:
         @app.get("/dashboard-probe")
         async def probe(  # pyright: ignore[reportUnusedFunction]
             registry: Annotated[BaseDashboardCardRegistry, Depends(get_dashboard_card_registry)],
-        ) -> dict[str, object]:
+        ) -> dict[str, object]:  # bare-collections:allow（FastAPI 端点返回注解）
             data = await registry.fetch("todo", ConcurrentStableDict())
             return {"key": registry.key, "type": type(registry).__name__, "cards": registry.keys(), "data": dict(data)}
 

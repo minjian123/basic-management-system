@@ -1,12 +1,11 @@
 """字典跨服务读出口测试（Kiwi 1078）：契约路径与参数 / 响应解析 / 降级回退 / 按值子集分批。"""
 
-import json
-from collections.abc import Sequence
-
 import pytest
 
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.context import reset_current_tenant, set_current_tenant
 from bms_core.core.exceptions import ServiceUnavailableError
+from bms_core.core.serialization import stable_json_dumps
 from bms_core.dict.base import DictBatchQuery, DictQuery, DictTranslateQuery
 from bms_core.dict.http import (
     ACCEPT_LANGUAGE_HEADER,
@@ -22,15 +21,15 @@ from bms_core.servicecall.base import BaseServiceClient, ServiceRequest, Service
 class _FakeClient(BaseServiceClient):
     """伪服务间调用客户端：记录请求，按给定负载返回统一响应（可编排为不可达）。"""
 
-    def __init__(self, payloads: Sequence[object] | None = None, *, unavailable: bool = False) -> None:
+    def __init__(self, payloads: ConcurrentStableList[object] | None = None, *, unavailable: bool = False) -> None:
         """初始化。
 
         Args:
             payloads: 依次返回的 `data` 负载（用尽后复用最后一个）。
             unavailable: 是否模拟下游不可达（抛 `ServiceUnavailableError`）。
         """
-        self.requests: list[ServiceRequest] = []
-        self._payloads = list(payloads or [])
+        self.requests: ConcurrentStableList[ServiceRequest] = ConcurrentStableList()
+        self._payloads = ConcurrentStableList(payloads or ())
         self._unavailable = unavailable
 
     async def call(self, request: ServiceRequest) -> ServiceResponse:
@@ -45,15 +44,15 @@ class _FakeClient(BaseServiceClient):
         Raises:
             ServiceUnavailableError: `unavailable` 为真时抛出。
         """
-        self.requests.append(request)
+        self.requests.add(request)
         if self._unavailable:
             raise ServiceUnavailableError("下游不可达")
         payload: object = self._payloads[min(len(self.requests) - 1, len(self._payloads) - 1)] if self._payloads else {}
-        body = json.dumps({"code": 0, "message": "ok", "data": payload}).encode()
+        body = stable_json_dumps({"code": 0, "message": "ok", "data": payload}).encode()
         return ServiceResponse(status_code=200, content=body)
 
 
-def _item_payload(value: str, label: str) -> dict[str, object]:
+def _item_payload(value: str, label: str) -> ConcurrentStableDict[str, object]:
     """构造条目负载。
 
     Args:
@@ -61,15 +60,21 @@ def _item_payload(value: str, label: str) -> dict[str, object]:
         label: 条目标签。
 
     Returns:
-        dict[str, object]: 条目负载。
+        ConcurrentStableDict[str, object]: 条目负载。
     """
-    return {"value": value, "label": label, "code": value, "parent_id": None, "sort": 1, "status": "enabled"}
+    return ConcurrentStableDict(
+        {"value": value, "label": label, "code": value, "parent_id": None, "sort": 1, "status": "enabled"}
+    )
 
 
 @pytest.mark.kiwi_id(2178)
 async def test_by_type_maps_query_and_parses_response() -> None:
     """单类型取数：路径 / 查询参数 / 语言与租户头透传，响应解析为 `DictTypeResult`。"""
-    client = _FakeClient([{"version": 7, "items": [_item_payload("enabled", "启用")], "has_more": False, "total": 1}])
+    client = _FakeClient(
+        ConcurrentStableList(
+            [{"version": 7, "items": [_item_payload("enabled", "启用")], "has_more": False, "total": 1}]
+        )
+    )
     source = HttpDictSource(client=client)
     token = set_current_tenant("demo")
     try:
@@ -95,7 +100,7 @@ async def test_by_type_maps_query_and_parses_response() -> None:
 @pytest.mark.kiwi_id(2178)
 async def test_by_type_version_current_and_values_subset() -> None:
     """版本一致（平台侧返回 `items=null`）→ `items=None`；按值子集经逗号拼接传参。"""
-    client = _FakeClient([{"version": 7, "items": None, "has_more": False, "total": 0}])
+    client = _FakeClient(ConcurrentStableList([{"version": 7, "items": None, "has_more": False, "total": 0}]))
     source = HttpDictSource(client=client)
     result = await source.by_type(DictQuery(dict_type="status", values=("a", "b")))
     assert result.items is None
@@ -106,15 +111,17 @@ async def test_by_type_version_current_and_values_subset() -> None:
 async def test_batch_posts_body_and_parses_items() -> None:
     """批量取数：POST 契约路径 + JSON 体（types / version / locale），逐类型解析（版本一致为 None）。"""
     client = _FakeClient(
-        [
-            {
-                "version": 9,
-                "items": {
-                    "status": {"version": 9, "items": [_item_payload("enabled", "启用")], "total": 1},
-                    "level": None,
-                },
-            }
-        ]
+        ConcurrentStableList(
+            [
+                {
+                    "version": 9,
+                    "items": {
+                        "status": {"version": 9, "items": [_item_payload("enabled", "启用")], "total": 1},
+                        "level": None,
+                    },
+                }
+            ]
+        )
     )
     source = HttpDictSource(client=client)
     result = await source.batch(DictBatchQuery(types=("status", "level"), version=8))
@@ -132,7 +139,7 @@ async def test_batch_posts_body_and_parses_items() -> None:
 @pytest.mark.kiwi_id(2178)
 async def test_translate_maps_hits_and_keeps_misses() -> None:
     """翻译：命中取 label、未命中回退原值；单批内一次调用。"""
-    client = _FakeClient([{"version": 3, "items": [_item_payload("a", "甲")], "total": 1}])
+    client = _FakeClient(ConcurrentStableList([{"version": 3, "items": [_item_payload("a", "甲")], "total": 1}]))
     translator = HttpDictTranslator(client=client)
     mapping = await translator.translate(DictTranslateQuery(dict_type="status", values=("a", "b")))
     assert mapping == {"a": "甲", "b": "b"}
@@ -144,7 +151,7 @@ async def test_translate_chunks_large_value_sets() -> None:
     """翻译：value 子集超单批上限时按批拆分调用（避免一次请求过大）。"""
     size = TRANSLATE_VALUES_CHUNK
     values = tuple(f"v{index}" for index in range(size + 1))
-    client = _FakeClient([{"version": 1, "items": [_item_payload(values[0], "首")], "total": 1}])
+    client = _FakeClient(ConcurrentStableList([{"version": 1, "items": [_item_payload(values[0], "首")], "total": 1}]))
     translator = HttpDictTranslator(client=client)
     mapping = await translator.translate(DictTranslateQuery(dict_type="big", values=values))
     assert len(client.requests) == 2

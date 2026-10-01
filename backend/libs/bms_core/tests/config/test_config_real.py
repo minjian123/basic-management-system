@@ -226,7 +226,7 @@ class _FakeServiceClient(BaseServiceClient):
     def __init__(self, values: object, *, fail: bool = False) -> None:
         self._values = values
         self._fail = fail
-        self.requests: list[ServiceRequest] = []
+        self.requests: ConcurrentStableList[ServiceRequest] = ConcurrentStableList()
 
     async def call(self, request: ServiceRequest) -> ServiceResponse:
         """记录请求并返回统一响应（或抛不可用）。
@@ -240,7 +240,7 @@ class _FakeServiceClient(BaseServiceClient):
         Raises:
             ServiceUnavailableError: 配置为不可达。
         """
-        self.requests.append(request)
+        self.requests.add(request)
         if self._fail:
             raise ServiceUnavailableError("down")
         body = {"code": 0, "message": "ok", "data": {"values": self._values}}

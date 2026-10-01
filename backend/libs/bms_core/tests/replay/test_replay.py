@@ -10,6 +10,7 @@ from support_app import ApplicationFactory, lifespan
 from bms_core.api.deps import get_replay_guard
 from bms_core.core.base import BaseObject
 from bms_core.core.capability import BaseCapability, BaseNullObject
+from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.exceptions import AuthError
 from bms_core.core.security import SIGNATURE_HEADER, SignatureCodec
 from bms_core.replay.base import (
@@ -50,12 +51,12 @@ class RecordingGuard(BaseReplayGuard):
 
     def __init__(self, *, allow_nonce: bool = True) -> None:
         super().__init__()
-        self.claimed: list[str] = []
+        self.claimed: ConcurrentStableList[str] = ConcurrentStableList()
         self._allow_nonce = allow_nonce
 
     async def claim_nonce(self, nonce: str, *, ttl: int = REPLAY_WINDOW) -> bool:
         """记录调用并返回预设结果。"""
-        self.claimed.append(nonce)
+        self.claimed.add(nonce)
         return self._allow_nonce
 
 
@@ -64,7 +65,7 @@ class MemoryGuard(BaseReplayGuard):
 
     def __init__(self) -> None:
         super().__init__()
-        self._claimed: set[str] = set()
+        self._claimed: ConcurrentStableSet[str] = ConcurrentStableSet()
 
     async def claim_nonce(self, nonce: str, *, ttl: int = REPLAY_WINDOW) -> bool:
         """首次占用返回 True，重复返回 False。"""
@@ -203,7 +204,7 @@ async def test_dependency_provider_resolves() -> None:
         @app.post("/open-probe")
         async def open_probe(  # pyright: ignore[reportUnusedFunction]
             guard: Annotated[BaseReplayGuard, Depends(get_replay_guard)],
-        ) -> dict[str, object]:
+        ) -> dict[str, object]:  # bare-collections:allow（FastAPI 端点返回注解）
             decision = await _verify(guard)
             return {"key": guard.key, "type": type(guard).__name__, "allowed": decision.allowed}
 

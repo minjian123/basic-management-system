@@ -119,8 +119,8 @@ class BaseScopedRepository[ModelT](BaseRepository[ModelT], ABC):
             predicate = self._data_scope.read_predicate()
             if isinstance(predicate, ScopeCondition):
                 conditions.add(predicate)
-            elif isinstance(predicate, list):
-                members = cast("list[object]", predicate)
+            elif isinstance(predicate, (list, ConcurrentStableList)):
+                members = cast("Iterable[object]", predicate)
                 conditions.update(item for item in members if isinstance(item, ScopeCondition))
         tenant = self._tenant_condition()
         if tenant is not None:

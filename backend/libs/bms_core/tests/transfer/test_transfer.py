@@ -96,7 +96,7 @@ async def test_dependency_providers_resolve() -> None:
         async def probe(  # pyright: ignore[reportUnusedFunction]
             importer: Annotated[BaseImporter, Depends(get_importer)],
             exporter: Annotated[BaseExporter, Depends(get_exporter)],
-        ) -> dict[str, object]:
+        ) -> dict[str, object]:  # bare-collections:allow（FastAPI 端点返回注解）
             parsed = await importer.parse(b"", columns=ConcurrentStableList())
             chunks = [chunk async for chunk in exporter.export(ConcurrentStableList(), columns=ConcurrentStableList())]
             return {

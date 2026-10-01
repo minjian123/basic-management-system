@@ -59,7 +59,7 @@ async def test_dependency_provider_resolves() -> None:
         @app.get("/i18n-probe")
         async def probe(  # pyright: ignore[reportUnusedFunction]
             translator: Annotated[BaseTranslator, Depends(get_translator)],
-        ) -> dict[str, object]:
+        ) -> dict[str, object]:  # bare-collections:allow（FastAPI 端点返回注解）
             text = await translator.translate("common.confirm")
             return {"key": translator.key, "type": type(translator).__name__, "text": text}
 

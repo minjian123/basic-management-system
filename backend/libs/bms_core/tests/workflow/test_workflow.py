@@ -106,7 +106,7 @@ async def test_dependency_provider_resolves() -> None:
         @app.get("/workflow-probe")
         async def probe(  # pyright: ignore[reportUnusedFunction]
             engine: Annotated[BaseWorkflowEngine, Depends(get_workflow_engine)],
-        ) -> dict[str, object]:
+        ) -> dict[str, object]:  # bare-collections:allow（FastAPI 端点返回注解）
             instance = await engine.start("k", business_type="b", business_id="1")
             return {"key": engine.key, "type": type(engine).__name__, "status": instance.status}
 

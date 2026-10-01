@@ -96,13 +96,13 @@ async def test_redis_store_load_variants() -> None:
     class _Stub:
         def __init__(self, value: object) -> None:
             self._value = value
-            self.store: dict[str, object] = {}
+            self.store: ConcurrentStableDict[str, object] = ConcurrentStableDict()
 
         async def get(self, key: str) -> object:
             return self._value
 
         async def set(self, key: str, value: object, ex: int | None = None) -> None:
-            self.store[key] = (value, ex)
+            self.store.set(key, (value, ex))
 
     assert await RedisSessionStore(client=_Stub(b'{"a": 1}')).load("x") == {"a": 1}  # type: ignore[arg-type]
     assert await RedisSessionStore(client=_Stub(123)).load("x") is None  # type: ignore[arg-type]

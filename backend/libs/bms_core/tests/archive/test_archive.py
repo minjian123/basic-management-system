@@ -79,7 +79,7 @@ async def test_dependency_providers_resolve() -> None:
         async def probe(  # pyright: ignore[reportUnusedFunction]
             policy: Annotated[BaseArchivePolicy, Depends(get_archive_policy)],
             router: Annotated[BaseArchiveQueryRouter, Depends(get_archive_query_router)],
-        ) -> dict[str, object]:
+        ) -> dict[str, object]:  # bare-collections:allow（FastAPI 端点返回注解）
             result = await policy.archive([])
             return {
                 "policy_key": policy.key,

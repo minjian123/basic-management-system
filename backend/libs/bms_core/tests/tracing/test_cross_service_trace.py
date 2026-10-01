@@ -26,6 +26,7 @@ from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 from opentelemetry.trace import SpanKind
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.tracing.base import otel_trace_id, resolve_trace_id
 
 _STARTUP_TIMEOUT_S = 5.0
@@ -46,20 +47,20 @@ def provider(exporter: InMemorySpanExporter) -> TracerProvider:
 
 
 @pytest.fixture
-def downstream(provider: TracerProvider) -> Iterator[tuple[int, dict[str, str | None]]]:
+def downstream(provider: TracerProvider) -> Iterator[tuple[int, ConcurrentStableDict[str, str | None]]]:
     """被调服务：真实 uvicorn（本地回环，后台线程），产出端口与处理期上下文捕获。
 
     Yields:
-        tuple[int, dict[str, str | None]]: `(端口, 处理期链路上下文捕获)`。
+        tuple[int, ConcurrentStableDict[str, str | None]]: `(端口, 处理期链路上下文捕获)`。
     """
-    captured: dict[str, str | None] = {}
+    captured: ConcurrentStableDict[str, str | None] = ConcurrentStableDict()
     app = FastAPI()
 
     @app.get("/internal/ping")
-    async def ping() -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]
+    async def ping() -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]  # bare-collections:allow（FastAPI 端点返回注解）
         """被调服务端点：记录处理期链路上下文（模拟日志取值）。"""
-        captured["otel"] = otel_trace_id()
-        captured["resolved"] = resolve_trace_id()
+        captured.set("otel", otel_trace_id())
+        captured.set("resolved", resolve_trace_id())
         return {"status": "ok"}
 
     FastAPIInstrumentor.instrument_app(app, tracer_provider=provider)
@@ -98,7 +99,9 @@ def _span_id_of(span: object) -> str:
 
 @pytest.mark.kiwi_id(2183)
 async def test_cross_service_trace_propagation(
-    provider: TracerProvider, exporter: InMemorySpanExporter, downstream: tuple[int, dict[str, str | None]]
+    provider: TracerProvider,
+    exporter: InMemorySpanExporter,
+    downstream: tuple[int, ConcurrentStableDict[str, str | None]],
 ) -> None:
     """客户端与服务端 span 同 trace、父链正确；服务端上下文 id 与 span 一致。"""
     port, captured = downstream

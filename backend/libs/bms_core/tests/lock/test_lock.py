@@ -10,6 +10,7 @@ from support_app import ApplicationFactory, lifespan
 from bms_core.api.deps import get_distributed_lock
 from bms_core.core.base import BaseObject
 from bms_core.core.capability import BaseCapability, BaseNullObject
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.exceptions import ConcurrentConflictError
 from bms_core.lock.base import DEFAULT_LOCK_TTL, DEFAULT_WAIT, BaseDistributedLock, build_lock_key
 from bms_core.lock.null import NullDistributedLock
@@ -25,7 +26,7 @@ class RecordingLock(BaseDistributedLock):
             acquire_ok: `acquire` 是否成功（False 模拟未取到锁）。
         """
         super().__init__()
-        self.calls: list[tuple[str, object]] = []
+        self.calls: ConcurrentStableList[tuple[str, object]] = ConcurrentStableList()
         self._acquire_ok = acquire_ok
 
     async def acquire(self, key: str, *, ttl: int = DEFAULT_LOCK_TTL, wait: float = DEFAULT_WAIT) -> str | None:
@@ -39,7 +40,7 @@ class RecordingLock(BaseDistributedLock):
         Returns:
             str | None: 令牌或 None。
         """
-        self.calls.append(("acquire", (key, ttl, wait)))
+        self.calls.add(("acquire", (key, ttl, wait)))
         return "token-1" if self._acquire_ok else None
 
     async def release(self, key: str, token: str) -> bool:
@@ -52,7 +53,7 @@ class RecordingLock(BaseDistributedLock):
         Returns:
             bool: True。
         """
-        self.calls.append(("release", (key, token)))
+        self.calls.add(("release", (key, token)))
         return True
 
     async def extend(self, key: str, token: str, *, ttl: int = DEFAULT_LOCK_TTL) -> bool:
@@ -66,7 +67,7 @@ class RecordingLock(BaseDistributedLock):
         Returns:
             bool: True。
         """
-        self.calls.append(("extend", (key, token, ttl)))
+        self.calls.add(("extend", (key, token, ttl)))
         return True
 
 
@@ -148,7 +149,7 @@ async def test_dependency_provider_resolves() -> None:
         assert isinstance(app.state.distributed_lock, NullDistributedLock)
 
         @app.get("/lock")
-        async def lock_info(lock: Annotated[BaseDistributedLock, Depends(get_distributed_lock)]) -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]
+        async def lock_info(lock: Annotated[BaseDistributedLock, Depends(get_distributed_lock)]) -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]  # bare-collections:allow（FastAPI 端点返回注解）
             return {"key": lock.key, "type": type(lock).__name__, "same": str(lock is app.state.distributed_lock)}
 
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:

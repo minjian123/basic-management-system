@@ -4,7 +4,6 @@
 """
 
 import asyncio
-from collections.abc import Mapping
 from datetime import UTC, datetime
 from types import SimpleNamespace
 
@@ -13,7 +12,7 @@ from fastapi import FastAPI
 from sqlalchemy import func, select
 from starlette.requests import Request
 
-from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.exceptions import OutboxDeliveryError
 from bms_core.db.engine import PLATFORM_DB_KEY
 from bms_core.db.registry import EngineRegistry
@@ -45,14 +44,14 @@ def _utc_now() -> datetime:
 class RecordingPublisher(EventPublisher):
     """记录发布事件（可指定失败类型）。"""
 
-    def __init__(self, *, fail_types: frozenset[str] = frozenset()) -> None:
+    def __init__(self, *, fail_types: ConcurrentStableSet[str] | None = None) -> None:
         """初始化。
 
         Args:
             fail_types: 触发发布失败的事件类型集合。
         """
-        self.events: list[EventEnvelope] = []
-        self._fail_types = fail_types
+        self.events: ConcurrentStableList[EventEnvelope] = ConcurrentStableList()
+        self._fail_types: ConcurrentStableSet[str] = fail_types or ConcurrentStableSet()
 
     @property
     def event_type(self) -> str:
@@ -61,7 +60,7 @@ class RecordingPublisher(EventPublisher):
 
     async def publish(self, event: EventEnvelope) -> None:
         """记录并可按类型抛错。"""
-        self.events.append(event)
+        self.events.add(event)
         if event.event_type in self._fail_types:
             raise RuntimeError("publish failed")
 
@@ -75,17 +74,17 @@ class RecordingMetrics(BaseMetrics):
 
     def __init__(self) -> None:
         """初始化。"""
-        self.counters: list[tuple[str, float, Mapping[str, str] | None]] = []
-        self.gauges: list[tuple[str, float]] = []
+        self.counters: ConcurrentStableList[tuple[str, float, MetricLabels | None]] = ConcurrentStableList()
+        self.gauges: ConcurrentStableList[tuple[str, float]] = ConcurrentStableList()
 
     async def counter(self, name: str, *, value: float = 1.0, labels: MetricLabels | None = None) -> None:
         """记录计数器。"""
-        self.counters.append((name, value, labels))
+        self.counters.add((name, value, labels))
 
     async def gauge(self, name: str, *, value: float, labels: MetricLabels | None = None) -> None:
         """记录瞬时值。"""
         del labels
-        self.gauges.append((name, value))
+        self.gauges.add((name, value))
 
     async def histogram(self, name: str, *, value: float, labels: MetricLabels | None = None) -> None:
         """记录直方图（未使用）。"""
@@ -239,7 +238,7 @@ async def test_dispatch_failure_to_dead_letter(session: DbSession, registry: Eng
     store = SqlOutboxStore()
     async with session.begin():
         await store.enqueue(session, EventEnvelope(event_type="e.fail", tenant_id="1001"))
-    publisher = RecordingPublisher(fail_types=frozenset({"e.fail"}))
+    publisher = RecordingPublisher(fail_types=ConcurrentStableSet({"e.fail"}))
     dispatcher = _build_dispatcher(registry, publisher, max_retries=1)
 
     result = await dispatcher.dispatch_once(db_key=PLATFORM_DB_KEY)
