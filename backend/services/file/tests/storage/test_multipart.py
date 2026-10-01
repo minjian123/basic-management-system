@@ -12,6 +12,7 @@ from pydantic import ValidationError
 from bms_core.api.deps import get_idempotency_store, get_multipart_upload
 from bms_core.application import service_lifespan as lifespan
 from bms_core.core.capability import BaseCapability, BaseNullObject
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.error_codes import ErrorCode
 from bms_core.core.exceptions import NotFoundError
 from bms_core.core.plugin import BasePluggable, resolve_plugin
@@ -253,8 +254,8 @@ class _FakeIdempotencyStore(IdempotencyStore):
             payload: 首次会话载荷；非 None 时模拟「非首次」（`begin` 返回 False）。
         """
         self.payload = payload
-        self.begun: list[str] = []
-        self.saved: list[str] = []
+        self.begun: ConcurrentStableList[str] = ConcurrentStableList()
+        self.saved: ConcurrentStableList[str] = ConcurrentStableList()
 
     async def begin(self, key: str, *, ttl: int = DEFAULT_IDEMPOTENCY_TTL) -> bool:
         """记录调用并返回是否首次。
@@ -267,7 +268,7 @@ class _FakeIdempotencyStore(IdempotencyStore):
             bool: 首次为 True。
         """
         del ttl
-        self.begun.append(key)
+        self.begun.add(key)
         return self.payload is None
 
     async def load(self, key: str) -> IDEMPOTENCY_PAYLOAD_TYPE | None:
@@ -291,7 +292,7 @@ class _FakeIdempotencyStore(IdempotencyStore):
             ttl: 键有效期（忽略）。
         """
         del payload, ttl
-        self.saved.append(key)
+        self.saved.add(key)
 
 
 @pytest.mark.kiwi_id(845)

@@ -6,7 +6,7 @@ from httpx import ASGITransport, AsyncClient
 from bms_core.api.deps import get_notification_center
 from bms_core.application import service_lifespan as lifespan
 from bms_core.core.capability import BaseCapability, BaseNullObject
-from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.plugin import BasePluggable, resolve_plugin
 from bms_core.notification.base import (
     NOTIFICATION_NEW_EVENT,
@@ -27,7 +27,7 @@ class _InMemoryNotificationCenter(BaseNotificationCenter):
     """测试用内存通知中心（验证查看即已读与角标口径；真实落库随通知公告阶段）。"""
 
     def __init__(self) -> None:
-        self._items: dict[int, Notification] = {}
+        self._items: ConcurrentStableDict[int, Notification] = ConcurrentStableDict()
         self._seq = 0
 
     def add(self, title: str) -> Notification:
@@ -41,7 +41,7 @@ class _InMemoryNotificationCenter(BaseNotificationCenter):
         """
         self._seq += 1
         item = Notification(id=self._seq, user_id=1, title=title)
-        self._items[self._seq] = item
+        self._items.set(self._seq, item)
         return item
 
     async def list(self, filter: BaseFilterQuery, page: BasePageQuery) -> BasePageResponse[Notification]:
@@ -57,7 +57,7 @@ class _InMemoryNotificationCenter(BaseNotificationCenter):
             return None
         if mark_read and not item.is_read:
             item = item.model_copy(update={"is_read": True})
-            self._items[notification_id] = item
+            self._items.set(notification_id, item)
         return item
 
     async def unread_count(self) -> int:
@@ -67,17 +67,17 @@ class _InMemoryNotificationCenter(BaseNotificationCenter):
         for notification_id in ids:
             item = self._items.get(notification_id)
             if item is not None and not item.is_read:
-                self._items[notification_id] = item.model_copy(update={"is_read": True})
+                self._items.set(notification_id, item.model_copy(update={"is_read": True}))
         return await self.unread_count()
 
     async def mark_all_read(self) -> int:
         for notification_id, item in list(self._items.items()):
             if not item.is_read:
-                self._items[notification_id] = item.model_copy(update={"is_read": True})
+                self._items.set(notification_id, item.model_copy(update={"is_read": True}))
         return 0
 
     async def delete(self, notification_id: int) -> bool:
-        return self._items.pop(notification_id, None) is not None
+        return self._items.get_and_remove(notification_id) is not None
 
 
 @pytest.mark.kiwi_id(812)

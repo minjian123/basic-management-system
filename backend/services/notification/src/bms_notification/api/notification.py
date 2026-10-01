@@ -12,6 +12,7 @@ from fastapi import Depends, Query
 
 from bms_core.api.base import BaseRouter, page_query, require_auth
 from bms_core.api.deps import get_notification_center
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.exceptions import ParamError
 from bms_core.notification.base import BaseNotificationCenter
 from bms_core.schemas.common import ApiResponse
@@ -30,27 +31,27 @@ CenterDep = Annotated[BaseNotificationCenter, Depends(get_notification_center)]
 PageDep = Annotated[BasePageQuery, Depends(page_query)]
 
 
-def _parse_filters(raw: str | None) -> list[FilterSpec]:
+def _parse_filters(raw: str | None) -> ConcurrentStableList[FilterSpec]:
     """解析筛选条件 JSON（`FilterSpec` 数组）。
 
     Args:
         raw: JSON 字符串；空 / None 表示无条件。
 
     Returns:
-        list[FilterSpec]: 筛选条件列表。
+        ConcurrentStableList[FilterSpec]: 筛选条件列表。
 
     Raises:
         ParamError: 非合法 JSON 或非数组（10001）。
     """
     if not raw:
-        return []
+        return ConcurrentStableList()
     try:
         items = json.loads(raw)
     except json.JSONDecodeError as exc:
         raise ParamError("filters 不是合法 JSON") from exc
     if not isinstance(items, list):
         raise ParamError("filters 应为 JSON 数组")
-    return [FilterSpec.model_validate(item) for item in cast("list[object]", items)]
+    return ConcurrentStableList(FilterSpec.model_validate(item) for item in cast("list[object]", items))
 
 
 def filter_query(

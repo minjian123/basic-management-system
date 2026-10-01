@@ -1,6 +1,6 @@
 """AI 对话基座契约测试（Kiwi 820）：三契约 / 常量与数据契约 / 空实现 / 依赖解析 / 占位路由 / 表声明。"""
 
-from collections.abc import AsyncIterator, Sequence
+from collections.abc import AsyncIterator
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -30,7 +30,7 @@ from bms_core.chat.base import (
 )
 from bms_core.chat.null import NullChatActionGate, NullChatSessionStore, NullChatStream
 from bms_core.core.capability import BaseCapability, BaseNullObject
-from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.plugin import BasePluggable, resolve_plugin
 from bms_core.llm.base import NULL_CHAT_REPLY, ChatMessage
 from tests_support.auth import auth_headers
@@ -42,7 +42,7 @@ class _InMemoryChatStream(BaseChatStream):
     """测试用内存流式对话（验证停止语义；真实流式随 AI 阶段）。"""
 
     def __init__(self) -> None:
-        self._active: dict[str, bool] = {}
+        self._active: ConcurrentStableDict[str, bool] = ConcurrentStableDict()
         self._seq = 0
 
     async def stream(
@@ -57,7 +57,7 @@ class _InMemoryChatStream(BaseChatStream):
         del messages, module, session_id, provider_key, model
         self._seq += 1
         stream_id = f"s{self._seq}"
-        self._active[stream_id] = True
+        self._active.set(stream_id, True)
         return ChatStreamHandle(stream_id=stream_id, events=self._events(stream_id))
 
     async def _events(self, stream_id: str) -> AsyncIterator[ChatStreamEvent]:
@@ -67,7 +67,7 @@ class _InMemoryChatStream(BaseChatStream):
 
     async def stop(self, stream_id: str) -> bool:
         if stream_id in self._active:
-            self._active[stream_id] = False
+            self._active.set(stream_id, False)
             return True
         return False
 
@@ -76,12 +76,14 @@ class _InMemoryChatSessionStore(BaseChatSessionStore):
     """测试用内存会话查询（验证派生视图查询口径）。"""
 
     def __init__(self) -> None:
-        self._sessions: dict[str, ChatSession] = {}
-        self._messages: dict[str, list[ChatSessionMessage]] = {}
+        self._sessions: ConcurrentStableDict[str, ChatSession] = ConcurrentStableDict()
+        self._messages: ConcurrentStableDict[str, ConcurrentStableList[ChatSessionMessage]] = ConcurrentStableDict()
 
-    def add(self, session: ChatSession, messages: Sequence[ChatSessionMessage] = ()) -> ChatSession:
-        self._sessions[session.id] = session
-        self._messages[session.id] = list(messages)
+    def add(
+        self, session: ChatSession, messages: ConcurrentStableList[ChatSessionMessage] | None = None
+    ) -> ChatSession:
+        self._sessions.set(session.id, session)
+        self._messages.set(session.id, ConcurrentStableList(messages or ()))
         return session
 
     async def list_sessions(self, *, module: str | None = None) -> ConcurrentStableList[ChatSession]:
@@ -92,18 +94,18 @@ class _InMemoryChatSessionStore(BaseChatSessionStore):
         return self._sessions.get(session_id)
 
     async def list_messages(self, session_id: str) -> ConcurrentStableList[ChatSessionMessage]:
-        return ConcurrentStableList(self._messages.get(session_id, []))
+        return self._messages.get(session_id, ConcurrentStableList())
 
     async def delete_session(self, session_id: str) -> bool:
-        self._messages.pop(session_id, None)
-        return self._sessions.pop(session_id, None) is not None
+        self._messages.get_and_remove(session_id)
+        return self._sessions.get_and_remove(session_id) is not None
 
 
 class _InMemoryChatActionGate(BaseChatActionGate):
     """测试用内存确认 / 撤销（验证确认前置与撤销状态）。"""
 
     def __init__(self) -> None:
-        self._confirmed: set[str] = set()
+        self._confirmed: ConcurrentStableSet[str] = ConcurrentStableSet()
 
     async def confirm_action(self, action_id: str) -> ChatActionResult:
         self._confirmed.add(action_id)
@@ -293,7 +295,7 @@ async def test_routes_with_in_memory_implementations() -> None:
         store = _InMemoryChatSessionStore()
         store.add(
             ChatSession(id="sess-1", title="问数", module="report", message_count=1),
-            [ChatSessionMessage(id="m1", session_id="sess-1", content="上月销量")],
+            ConcurrentStableList([ChatSessionMessage(id="m1", session_id="sess-1", content="上月销量")]),
         )
         gate = _InMemoryChatActionGate()
         app.dependency_overrides[get_chat_stream] = lambda: stream

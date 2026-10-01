@@ -37,20 +37,20 @@ DataSourceDep = Annotated[BaseOrgDataSource, Depends(get_org_data_source)]
 NameResolverDep = Annotated[BaseOrgNameResolver, Depends(get_org_name_resolver)]
 
 
-def parse_id_in(raw: str) -> list[int]:
+def parse_id_in(raw: str) -> ConcurrentStableList[int]:
     """解析逗号分隔的 id 列表（`id_in=1,2,3`）。
 
     Args:
         raw: 逗号分隔字符串。
 
     Returns:
-        list[int]: id 列表。
+        ConcurrentStableList[int]: id 列表。
 
     Raises:
         ParamError: 含非整数项（10001）。
     """
     try:
-        return [int(part) for part in raw.split(",") if part.strip()]
+        return ConcurrentStableList(int(part) for part in raw.split(",") if part.strip())
     except ValueError as exc:
         raise ParamError("id_in 应为逗号分隔的整数列表") from exc
 
@@ -149,5 +149,5 @@ async def resolve_org_names(
     Returns:
         ApiResponse: 统一响应，data 为回显项序列。
     """
-    refs: tuple[OrgNameRef, ...] = tuple(await service.resolve_names(target, ConcurrentStableList(parse_id_in(id_in))))
+    refs: tuple[OrgNameRef, ...] = tuple(await service.resolve_names(target, parse_id_in(id_in)))
     return ApiResponse.ok(refs)

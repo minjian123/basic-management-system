@@ -69,7 +69,7 @@ async def test_dependency_provider_resolves() -> None:
         @app.get("/realtime-probe")
         async def probe(  # pyright: ignore[reportUnusedFunction]
             publisher: Annotated[BaseRealtimePublisher, Depends(get_realtime_publisher)],
-        ) -> dict[str, object]:
+        ) -> dict[str, object]:  # bare-collections:allow（FastAPI 端点返回注解）
             await publisher.emit(RealtimeEvent(event="notification.new", data={}, user_id="1"))
             return {"key": publisher.key, "type": type(publisher).__name__}
 

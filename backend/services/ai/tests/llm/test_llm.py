@@ -103,7 +103,7 @@ async def test_dependency_provider_resolves() -> None:
         @app.get("/llm-probe")
         async def probe(  # pyright: ignore[reportUnusedFunction]
             provider: Annotated[BaseLlmProvider, Depends(get_llm_provider)],
-        ) -> dict[str, object]:
+        ) -> dict[str, object]:  # bare-collections:allow（FastAPI 端点返回注解）
             chat = await provider.chat(ConcurrentStableList([ChatMessage(content="hi")]))
             return {"key": provider.key, "type": type(provider).__name__, "reply": chat.content}
 

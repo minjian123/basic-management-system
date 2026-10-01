@@ -37,6 +37,7 @@ FileContentSearchDep = Annotated[BaseFileContentSearch, Depends(get_file_content
 async def global_search(
     service: GlobalSearchDep,
     q: Annotated[str, Query(description="检索关键词")],
+    # bare-collections:allow（FastAPI 查询入参绑定：内置 list，集合类会破坏参数绑定）
     types: Annotated[list[str] | None, Query(description="限定域（多值，缺省 = 全部可检索域）")] = None,
     page: Annotated[int, Query(ge=1, le=100, description="页码（从 1 起，限深 ≤ 100）")] = 1,
     size: Annotated[int, Query(ge=1, le=200, description="每页条数")] = DEFAULT_GLOBAL_SEARCH_SIZE,

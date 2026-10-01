@@ -6,7 +6,7 @@ from httpx import ASGITransport, AsyncClient
 from bms_core.api.deps import get_org_data_source, get_org_name_resolver
 from bms_core.application import service_lifespan as lifespan
 from bms_core.core.capability import BaseCapability, BaseNullObject
-from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.error_codes import ErrorCode
 from bms_core.core.plugin import BasePluggable, resolve_plugin
 from bms_core.org.base import (
@@ -32,7 +32,7 @@ class _InMemoryOrgDataSource(BaseOrgDataSource):
     """测试用内存组织查询（验证参数透传与取数；真实 DB 随 RBAC 阶段）。"""
 
     def __init__(self) -> None:
-        self.last_users: dict[str, object] = {}
+        self.last_users: ConcurrentStableDict[str, object] = ConcurrentStableDict()
 
     async def users(
         self,
@@ -44,14 +44,16 @@ class _InMemoryOrgDataSource(BaseOrgDataSource):
         page: int = 1,
         size: int = DEFAULT_ORG_PAGE_SIZE,
     ) -> BasePageResponse[OrgUser]:
-        self.last_users = {
-            "keyword": keyword,
-            "dept_id": dept_id,
-            "include_children": include_children,
-            "status": status,
-            "page": page,
-            "size": size,
-        }
+        self.last_users = ConcurrentStableDict(
+            {
+                "keyword": keyword,
+                "dept_id": dept_id,
+                "include_children": include_children,
+                "status": status,
+                "page": page,
+                "size": size,
+            }
+        )
         item = OrgUser(id=7, username="u7", nickname="研发张三", dept_id=dept_id, status=status or "enabled")
         return BasePageResponse[OrgUser](list=[item], total=1, page=page, size=size)
 

@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 
 from sqlalchemy import ColumnElement, and_, func, or_, select
 
-from bms_core.core.concurrent import ConcurrentStableSet
+from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
 from bms_core.repositories.base_db_repository import BaseDbRepository
 from bms_core.schemas.pagination import BasePageQuery
 from bms_org.models.account_lock import SysAccountLock
@@ -74,7 +74,7 @@ class AccountLockRepository(BaseDbRepository[SysAccountLock]):
         locked_from: datetime | None = None,
         locked_to: datetime | None = None,
         now: datetime | None = None,
-    ) -> list[SysAccountLock]:
+    ) -> ConcurrentStableList[SysAccountLock]:
         """按筛选条件分页查询锁定记录（页码分页；排序经白名单）。
 
         Args:
@@ -87,7 +87,7 @@ class AccountLockRepository(BaseDbRepository[SysAccountLock]):
             now: 当前时间（UTC naive；活跃判定用，None 取当前 UTC）。
 
         Returns:
-            list[SysAccountLock]: 当前页记录。
+            ConcurrentStableList[SysAccountLock]: 当前页记录。
         """
         statement = self._apply_sort(self._select(), self._resolve_sort(query)).where(
             *self._filter_conditions(
@@ -101,7 +101,7 @@ class AccountLockRepository(BaseDbRepository[SysAccountLock]):
         )
         statement = statement.limit(query.size).offset((query.page - 1) * query.size)
         result = await self._session.execute(statement)
-        return list(result.scalars().all())
+        return ConcurrentStableList(result.scalars().all())
 
     async def count_filtered(
         self,
@@ -152,7 +152,7 @@ class AccountLockRepository(BaseDbRepository[SysAccountLock]):
         locked_from: datetime | None,
         locked_to: datetime | None,
         now: datetime | None,
-    ) -> list[ColumnElement[bool]]:
+    ) -> ConcurrentStableList[ColumnElement[bool]]:
         """组装列表 / 统计筛选条件（`active` 以 `unlock_at` 与 `expire_at` 联合判定）。
 
         Args:
@@ -164,13 +164,13 @@ class AccountLockRepository(BaseDbRepository[SysAccountLock]):
             now: 当前时间。
 
         Returns:
-            list[ColumnElement[bool]]: SQL 条件列表。
+            ConcurrentStableList[ColumnElement[bool]]: SQL 条件列表。
         """
-        conditions: list[ColumnElement[bool]] = []
+        conditions: ConcurrentStableList[ColumnElement[bool]] = ConcurrentStableList()
         if user_id is not None:
-            conditions.append(self._column("user_id") == user_id)
+            conditions.add(self._column("user_id") == user_id)
         if lock_type is not None:
-            conditions.append(self._column("lock_type") == lock_type)
+            conditions.add(self._column("lock_type") == lock_type)
         if active is not None:
             current = now or _utc_now()
             not_expired = or_(
@@ -178,16 +178,16 @@ class AccountLockRepository(BaseDbRepository[SysAccountLock]):
                 self._column("expire_at") > current,
             )
             if active:
-                conditions.append(and_(self._column("unlock_at").is_(None), not_expired))
+                conditions.add(and_(self._column("unlock_at").is_(None), not_expired))
             else:
-                conditions.append(
+                conditions.add(
                     or_(
                         self._column("unlock_at").is_not(None),
                         and_(self._column("expire_at").is_not(None), self._column("expire_at") <= current),
                     )
                 )
         if locked_from is not None:
-            conditions.append(self._column("locked_at") >= locked_from)
+            conditions.add(self._column("locked_at") >= locked_from)
         if locked_to is not None:
-            conditions.append(self._column("locked_at") <= locked_to)
+            conditions.add(self._column("locked_at") <= locked_to)
         return conditions
