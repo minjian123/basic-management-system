@@ -27,7 +27,6 @@ uv run python -m ops.init_tenant --code acme \
 
 import argparse
 import asyncio
-from collections.abc import Sequence
 from dataclasses import dataclass
 
 from sqlalchemy.engine import make_url
@@ -35,6 +34,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from sqlalchemy.pool import NullPool
 
 from bms_core.config.seed import seed_configs
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import get_settings
 from bms_core.core.exceptions import ConfigError
 from bms_core.core.objects import BaseValueObject
@@ -199,7 +199,7 @@ async def run(args: argparse.Namespace) -> InitResult:
     return InitResult(created=created, revision=current, seeded=seeded)
 
 
-def main(argv: Sequence[str] | None = None) -> int:
+def main(argv: ConcurrentStableList[str] | None = None) -> int:
     """入口。
 
     Args:

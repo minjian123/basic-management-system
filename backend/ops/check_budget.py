@@ -19,8 +19,8 @@ uv run python -m ops.check_budget --active-tenants 20     # 租户库另按活�
 """
 
 import argparse
-from collections.abc import Sequence
 
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import get_settings
 from bms_core.db.registry import PoolBudgetRow, pool_budget_rows
 
@@ -54,7 +54,7 @@ def _format(row: PoolBudgetRow) -> str:
     )
 
 
-def main(argv: Sequence[str] | None = None) -> int:
+def main(argv: ConcurrentStableList[str] | None = None) -> int:
     """入口。
 
     Args:

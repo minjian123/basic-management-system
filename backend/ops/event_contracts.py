@@ -20,7 +20,6 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from collections.abc import Sequence
 from pathlib import Path
 
 from bms_core.core.concurrent import ConcurrentStableList
@@ -85,16 +84,16 @@ def load_snapshot(root: Path) -> tuple[tuple[EventContract, ...], tuple[EventSub
     return parse_event_snapshot(json.loads(path.read_text(encoding="utf-8")))
 
 
-def _registry_errors(registry: EventContractRegistry) -> list[str]:
+def _registry_errors(registry: EventContractRegistry) -> ConcurrentStableList[str]:
     """注册表校验明细。
 
     Args:
         registry: 事件契约注册表。
 
     Returns:
-        list[str]: 违规明细。
+        ConcurrentStableList[str]: 违规明细。
     """
-    return list(validate_event_registry(registry, domains=known_event_domains()))
+    return ConcurrentStableList(validate_event_registry(registry, domains=known_event_domains()))
 
 
 def export(root: Path, *, to_stdout: bool = False) -> int:
@@ -112,10 +111,10 @@ def export(root: Path, *, to_stdout: bool = False) -> int:
     try:
         previous = load_snapshot(root)
     except (EventContractError, json.JSONDecodeError) as exc:
-        errors.append(f"已提交快照不可解析：{EVENT_SNAPSHOT_PATH}（{exc}）")
+        errors.add(f"已提交快照不可解析：{EVENT_SNAPSHOT_PATH}（{exc}）")
         previous = None
     if previous is not None:
-        errors.extend(check_snapshot_compatibility(ConcurrentStableList(previous[0]), registry))
+        errors.update(check_snapshot_compatibility(ConcurrentStableList(previous[0]), registry))
     if errors:
         print("事件契约导出失败（兼容校验未通过）：")
         for error in errors:
@@ -148,15 +147,15 @@ def check(root: Path) -> int:
     try:
         previous = load_snapshot(root)
     except (EventContractError, json.JSONDecodeError) as exc:
-        errors.append(f"已提交快照不可解析：{EVENT_SNAPSHOT_PATH}（{exc}）")
+        errors.add(f"已提交快照不可解析：{EVENT_SNAPSHOT_PATH}（{exc}）")
         previous = None
     if previous is None:
-        errors.append(f"事件契约快照缺失：{EVENT_SNAPSHOT_PATH}（请运行 export）")
+        errors.add(f"事件契约快照缺失：{EVENT_SNAPSHOT_PATH}（请运行 export）")
     else:
-        errors.extend(check_snapshot_compatibility(ConcurrentStableList(previous[0]), registry))
+        errors.update(check_snapshot_compatibility(ConcurrentStableList(previous[0]), registry))
         path = snapshot_path(root)
         if path.read_text(encoding="utf-8") != render_event_snapshot(registry):
-            errors.append(f"事件契约快照与现行注册表漂移：{EVENT_SNAPSHOT_PATH}（请运行 export 重导出）")
+            errors.add(f"事件契约快照与现行注册表漂移：{EVENT_SNAPSHOT_PATH}（请运行 export 重导出）")
     if errors:
         print("事件契约校验失败：")
         for error in errors:
@@ -169,7 +168,7 @@ def check(root: Path) -> int:
     return 0
 
 
-def main(argv: Sequence[str] | None = None) -> int:
+def main(argv: ConcurrentStableList[str] | None = None) -> int:
     """命令行入口。
 
     Args:

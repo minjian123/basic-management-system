@@ -25,7 +25,6 @@ uv run python -m ops.backfill_tenant_id_columns --code demo --code acme   # 仅�
 
 import argparse
 import asyncio
-from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
 from sqlalchemy import Connection, create_engine, inspect, select, text
@@ -33,6 +32,7 @@ from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.pool import NullPool
 
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import get_settings
 from bms_core.core.exceptions import ConfigError
 from bms_core.core.objects import BaseValueObject
@@ -114,7 +114,7 @@ def _is_id(value: object) -> bool:
     return isinstance(value, str) and value.isdigit()
 
 
-def _resolve_code(value: str, id_map: Mapping[str, int], *, detail: str) -> int:
+def _resolve_code(value: str, id_map: ConcurrentStableDict[str, int], *, detail: str) -> int:
     """按编码取租户 id（不可解析抛 `BackfillError`）。
 
     Args:
@@ -134,7 +134,7 @@ def _resolve_code(value: str, id_map: Mapping[str, int], *, detail: str) -> int:
     return tenant_id
 
 
-def _update_row(connection: Connection, statement: str, params: Mapping[str, object]) -> None:
+def _update_row(connection: Connection, statement: str, params: ConcurrentStableDict[str, object]) -> None:
     """执行单行更新。
 
     Args:
@@ -145,7 +145,7 @@ def _update_row(connection: Connection, statement: str, params: Mapping[str, obj
     connection.execute(text(statement), params)
 
 
-def backfill_user_identity(connection: Connection, id_map: Mapping[str, int]) -> BackfillStats:
+def backfill_user_identity(connection: Connection, id_map: ConcurrentStableDict[str, int]) -> BackfillStats:
     """回填 `sys_user_identity`（`tenant_id` 与 `idp_key` 前缀；不可解析中止）。
 
     Args:
@@ -180,13 +180,13 @@ def backfill_user_identity(connection: Connection, id_map: Mapping[str, int]) ->
             _update_row(
                 connection,
                 "UPDATE sys_user_identity SET tenant_id = :tenant_id, idp_key = :idp_key WHERE id = :id",
-                {"tenant_id": new_tenant_id, "idp_key": new_key, "id": row_id},
+                ConcurrentStableDict({"tenant_id": new_tenant_id, "idp_key": new_key, "id": row_id}),
             )
             stats.updated += 1
     return stats
 
 
-def backfill_outbox(connection: Connection, id_map: Mapping[str, int], *, strict: bool) -> BackfillStats:
+def backfill_outbox(connection: Connection, id_map: ConcurrentStableDict[str, int], *, strict: bool) -> BackfillStats:
     """回填发件箱 / 死信 `tenant_id`（严格模式不可解析中止；否则置 NULL）。
 
     Args:
@@ -217,13 +217,13 @@ def backfill_outbox(connection: Connection, id_map: Mapping[str, int], *, strict
                 _update_row(
                     connection,
                     f"UPDATE {table} SET tenant_id = NULL WHERE id = :id",
-                    {"id": row_id},
+                    ConcurrentStableDict({"id": row_id}),
                 )
             else:
                 _update_row(
                     connection,
                     f"UPDATE {table} SET tenant_id = :tenant_id WHERE id = :id",
-                    {"tenant_id": new_value, "id": row_id},
+                    ConcurrentStableDict({"tenant_id": new_value, "id": row_id}),
                 )
             stats.updated += 1
     return stats
@@ -231,7 +231,7 @@ def backfill_outbox(connection: Connection, id_map: Mapping[str, int], *, strict
 
 def process_database(
     connection: Connection,
-    id_map: Mapping[str, int],
+    id_map: ConcurrentStableDict[str, int],
     *,
     with_identity: bool,
     strict: bool,
@@ -254,14 +254,14 @@ def process_database(
     return stats
 
 
-def _tenant_records_sync(url: str) -> Sequence[TenantRecord]:
+def _tenant_records_sync(url: str) -> ConcurrentStableList[TenantRecord]:
     """同步读注册租户（达梦等无异步方言驱动；`code` / `db_basis` / `id`）。
 
     Args:
         url: 租户注册库连接串。
 
     Returns:
-        list[TenantRecord]: 注册租户列表。
+        ConcurrentStableList[TenantRecord]: 注册租户列表。
     """
     from bms_tenant.models.tenant import SysTenant  # 惰性：仅读租户注册库时需要
     from bms_tenant.models.tenant_database import SysTenantDatabase
@@ -277,7 +277,9 @@ def _tenant_records_sync(url: str) -> Sequence[TenantRecord]:
                 )
                 .where(SysTenant.deleted_at.is_(None))
             )
-            return [_record(code, tenant_id, basis) for code, tenant_id, basis in connection.execute(statement).all()]
+            return ConcurrentStableList(
+                _record(code, tenant_id, basis) for code, tenant_id, basis in connection.execute(statement).all()
+            )
     finally:
         engine.dispose()
 
@@ -297,14 +299,14 @@ def _record(code: object, tenant_id: object, db_basis: object) -> TenantRecord:
     return TenantRecord(code=str(code), db_basis=basis, tenant_id=int(str(tenant_id)))
 
 
-async def tenant_records(registry_url: str) -> Sequence[TenantRecord]:
+async def tenant_records(registry_url: str) -> ConcurrentStableList[TenantRecord]:
     """读注册租户（达梦走同步驱动线程）。
 
     Args:
         registry_url: 租户注册库连接串。
 
     Returns:
-        list[TenantRecord]: 注册租户列表。
+        ConcurrentStableList[TenantRecord]: 注册租户列表。
     """
     if make_url(registry_url).get_backend_name() == _DM:
         return await asyncio.to_thread(_tenant_records_sync, registry_url)
@@ -323,19 +325,19 @@ async def tenant_records(registry_url: str) -> Sequence[TenantRecord]:
                 .where(SysTenant.deleted_at.is_(None))
             )
             result = await connection.execute(statement)
-            return [_record(code, tenant_id, basis) for code, tenant_id, basis in result.all()]
+            return ConcurrentStableList(_record(code, tenant_id, basis) for code, tenant_id, basis in result.all())
     finally:
         await engine.dispose()
 
 
-async def _load_records(registry_url: str) -> Sequence[TenantRecord]:
+async def _load_records(registry_url: str) -> ConcurrentStableList[TenantRecord]:
     """读注册租户（不可读即明确报错）。
 
     Args:
         registry_url: 租户注册库连接串。
 
     Returns:
-        list[TenantRecord]: 注册租户列表。
+        ConcurrentStableList[TenantRecord]: 注册租户列表。
 
     Raises:
         ConfigError: 注册库不可读。
@@ -346,7 +348,7 @@ async def _load_records(registry_url: str) -> Sequence[TenantRecord]:
         raise ConfigError(f"租户注册库不可读：{type(exc).__name__}: {exc}") from exc
 
 
-def _run_sync(url: str, id_map: Mapping[str, int], *, with_identity: bool, strict: bool) -> BackfillStats:
+def _run_sync(url: str, id_map: ConcurrentStableDict[str, int], *, with_identity: bool, strict: bool) -> BackfillStats:
     """同步执行单库回填（达梦；SQLite 演练）。
 
     Args:
@@ -366,7 +368,9 @@ def _run_sync(url: str, id_map: Mapping[str, int], *, with_identity: bool, stric
         engine.dispose()
 
 
-async def run_database(url: str, id_map: Mapping[str, int], *, with_identity: bool, strict: bool) -> BackfillStats:
+async def run_database(
+    url: str, id_map: ConcurrentStableDict[str, int], *, with_identity: bool, strict: bool
+) -> BackfillStats:
     """执行单库回填（非达梦走异步引擎，经 `run_sync` 复用同步逻辑）。
 
     Args:
@@ -415,14 +419,14 @@ async def run(args: argparse.Namespace) -> int:
         raise ConfigError(f"注册库未找到租户：{', '.join(missing)}")
     id_map = {record.code: record.tenant_id for record in selected}
 
-    targets: list[tuple[str, str, bool, bool]] = []
+    targets: ConcurrentStableList[tuple[str, str, bool, bool]] = ConcurrentStableList()
     for service in services:
         platform_key = build_platform_db_key(service)
-        targets.append((platform_key, factory.resolved_url(platform_key), service == "identity", False))
+        targets.add((platform_key, factory.resolved_url(platform_key), service == "identity", False))
     for service in services:
         for record in selected:
             key = build_tenant_db_key(record.db_basis, service=service)
-            targets.append((key, factory.resolved_url(key), False, True))
+            targets.add((key, factory.resolved_url(key), False, True))
 
     print(f"[backfill_tenant_id_columns] 目标 {len(targets)} 个库（服务 {len(services)} 个 / 租户 {len(selected)} 个）")
     if args.dry_run:
@@ -454,7 +458,7 @@ async def run(args: argparse.Namespace) -> int:
     return 0
 
 
-def main(argv: Sequence[str] | None = None) -> int:
+def main(argv: ConcurrentStableList[str] | None = None) -> int:
     """入口。
 
     Args:

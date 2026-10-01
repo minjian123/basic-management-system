@@ -25,12 +25,12 @@ import sys
 import tempfile
 import urllib.error
 import urllib.request
-from collections.abc import Callable, Sequence
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.services.module_registry import enabled_service_keys
 from bms_core.services.service_contract import (
     BASELINE_DIR,
@@ -55,14 +55,14 @@ METRIC_NAME = "bms_contract_breaking_total"
 _ERROR_LEVELS = frozenset({"3", "err", "error"})
 """oasdiff 破坏性变更等级（数值 3 = ERR；文本 `err` / `error` 兼容）。"""
 
-Runner = Callable[[Sequence[str]], "subprocess.CompletedProcess[str]"]
+Runner = Callable[[ConcurrentStableList[str]], "subprocess.CompletedProcess[str]"]
 """子进程执行器类型（默认 docker；单测注入桩，不真联）。"""
 
 DiffRunner = Callable[[Path, Path, str], tuple[int, str, str]]
 """单次 oasdiff 比对执行器类型：`(基线, 当前, 镜像) -> (返回码, stdout, stderr)`。"""
 
 
-def _run_command(command: Sequence[str]) -> subprocess.CompletedProcess[str]:
+def _run_command(command: ConcurrentStableList[str]) -> subprocess.CompletedProcess[str]:
     """默认子进程执行器（docker）。
 
     Args:
@@ -152,13 +152,13 @@ def count_breaking(raw: str) -> int:
     return 1
 
 
-def oasdiff_args() -> list[str]:
+def oasdiff_args() -> ConcurrentStableList[str]:
     """oasdiff `breaking` 子命令参数（容器内路径 `/base.json` / `/cur.json`）。
 
     Returns:
-        list[str]: `["breaking", "--fail-on", "ERR", "--format", "json", "/base.json", "/cur.json"]`。
+        ConcurrentStableList[str]: `["breaking", "--fail-on", "ERR", "--format", "json", "/base.json", "/cur.json"]`。
     """
-    return ["breaking", "--fail-on", "ERR", "--format", "json", "/base.json", "/cur.json"]
+    return ConcurrentStableList(["breaking", "--fail-on", "ERR", "--format", "json", "/base.json", "/cur.json"])
 
 
 def docker_diff(
@@ -184,19 +184,19 @@ def docker_diff(
         tuple[int, str, str]: oasdiff 返回码 / 标准输出 / 标准错误。
     """
     name = f"bms-contract-gate-{os.getpid()}-{baseline.stem}"
-    run([OASDIFF_COMMAND, "rm", "-f", name])
-    created = run([OASDIFF_COMMAND, "create", "--name", name, image, *oasdiff_args()])
+    run(ConcurrentStableList([OASDIFF_COMMAND, "rm", "-f", name]))
+    created = run(ConcurrentStableList([OASDIFF_COMMAND, "create", "--name", name, image, *oasdiff_args()]))
     if created.returncode != 0:
         return created.returncode, created.stdout or "", created.stderr or ""
     try:
         for source, target in ((baseline, "/base.json"), (current, "/cur.json")):
-            copied = run([OASDIFF_COMMAND, "cp", str(source), f"{name}:{target}"])
+            copied = run(ConcurrentStableList([OASDIFF_COMMAND, "cp", str(source), f"{name}:{target}"]))
             if copied.returncode != 0:
                 return copied.returncode, copied.stdout or "", copied.stderr or ""
-        started = run([OASDIFF_COMMAND, "start", "-a", name])
+        started = run(ConcurrentStableList([OASDIFF_COMMAND, "start", "-a", name]))
         return started.returncode, started.stdout or "", started.stderr or ""
     finally:
-        run([OASDIFF_COMMAND, "rm", "-f", name])
+        run(ConcurrentStableList([OASDIFF_COMMAND, "rm", "-f", name]))
 
 
 def compare_service(
@@ -265,7 +265,7 @@ def _metrics_line(service_key: str, count: int) -> str:
 def check(
     root: Path,
     *,
-    services: Sequence[str] | None = None,
+    services: ConcurrentStableList[str] | None = None,
     image: str = OASDIFF_IMAGE,
     diff: DiffRunner = docker_diff,
     metrics_out: Path | None = None,
@@ -282,18 +282,18 @@ def check(
     Returns:
         int: 退出码（0 全部兼容；1 存在破坏性变更 / 缺件 / 工具失败）。
     """
-    targets = list(services) if services is not None else list(enabled_service_keys())
-    metrics: list[str] = []
-    problems: list[BreakingResult] = []
+    targets = ConcurrentStableList(services) if services is not None else ConcurrentStableList(enabled_service_keys())
+    metrics: ConcurrentStableList[str] = ConcurrentStableList()
+    problems: ConcurrentStableList[BreakingResult] = ConcurrentStableList()
     for service_key in targets:
         result = compare_service(root, service_key, image=image, diff=diff)
         if not result.ok:
             print(f"[contract_gate] 服务 {service_key}：{result.error}", file=sys.stderr)
-            problems.append(result)
+            problems.add(result)
             continue
-        metrics.append(_metrics_line(service_key, result.count))
+        metrics.add(_metrics_line(service_key, result.count))
         if result.count:
-            problems.append(result)
+            problems.add(result)
             print(f"[contract_gate] 服务 {service_key}：检测到 {result.count} 项破坏性变更（基线 → 当前公开契约）")
             for line in result.raw.splitlines():
                 if line.strip():
@@ -311,7 +311,7 @@ def check(
     return 0
 
 
-def baseline_update(root: Path, *, services: Sequence[str], current_dir: Path | None = None) -> int:
+def baseline_update(root: Path, *, services: ConcurrentStableList[str], current_dir: Path | None = None) -> int:
     """把当前快照复制为基线（预期破坏性变更时人工执行；不自动提交）。
 
     Args:
@@ -369,7 +369,7 @@ def push_metrics(metrics_file: Path, gateway: str) -> int:
     return 0
 
 
-def _select_services(service: str | None, all_services: bool) -> list[str]:
+def _select_services(service: str | None, all_services: bool) -> ConcurrentStableList[str]:
     """解析目标服务集合。
 
     Args:
@@ -377,19 +377,19 @@ def _select_services(service: str | None, all_services: bool) -> list[str]:
         all_services: 是否全部启用服务。
 
     Returns:
-        list[str]: 目标服务列表（缺省全部启用服务）。
+        ConcurrentStableList[str]: 目标服务列表（缺省全部启用服务）。
 
     Raises:
         SystemExit: 既未指定服务也未指定 `--all` 时。
     """
     if all_services:
-        return list(enabled_service_keys())
+        return ConcurrentStableList(enabled_service_keys())
     if service:
-        return [service]
+        return ConcurrentStableList([service])
     raise SystemExit("请指定 --service <服务> 或 --all")
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(argv: ConcurrentStableList[str] | None = None) -> int:
     """命令行入口。
 
     Args:

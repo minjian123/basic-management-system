@@ -22,13 +22,14 @@ import argparse
 import asyncio
 import json
 import os
-from collections.abc import Sequence
 
 from sqlalchemy import select
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import get_settings
+from bms_core.core.serialization import normalize_collections
 from bms_core.db.engine import EngineFactory
 from bms_core.db.keys import build_platform_db_key
 from bms_identity.models.identity_provider import SysIdentityProvider
@@ -91,19 +92,21 @@ def _platform_url(url: str) -> str:
     return EngineFactory(settings, allow_cross_service=True).resolved_url(build_platform_db_key("identity"))
 
 
-def _idp_config() -> dict[str, object]:
+def _idp_config() -> ConcurrentStableDict[str, object]:
     """取演示 IdP 行配置（issuer 取 `KEYCLOAK_PUBLIC_URL`，密钥仅存引用）。
 
     Returns:
-        dict[str, object]: OIDC 行配置 JSON。
+        ConcurrentStableDict[str, object]: OIDC 行配置 JSON。
     """
     issuer_base = os.environ.get("KEYCLOAK_PUBLIC_URL", "http://localhost:8090").rstrip("/")
-    return {
-        "issuer": f"{issuer_base}/realms/bms",
-        "client_id": DEFAULT_CLIENT_ID,
-        "client_secret_ref": "env:KEYCLOAK_CLIENT_SECRET",
-        "scopes": ["openid", "profile", "email"],
-    }
+    return ConcurrentStableDict(
+        {
+            "issuer": f"{issuer_base}/realms/bms",
+            "client_id": DEFAULT_CLIENT_ID,
+            "client_secret_ref": "env:KEYCLOAK_CLIENT_SECRET",
+            "scopes": ConcurrentStableList(["openid", "profile", "email"]),
+        }
+    )
 
 
 async def seed_identity_provider(url: str) -> tuple[int, int]:
@@ -134,7 +137,7 @@ async def seed_identity_provider(url: str) -> tuple[int, int]:
                         idp_key=DEFAULT_IDP_KEY,
                         type="oidc",
                         icon="",
-                        config=json.dumps(_idp_config(), ensure_ascii=False),
+                        config=json.dumps(normalize_collections(_idp_config()), ensure_ascii=False),
                         status="enabled",
                         sort=10,
                     )
@@ -144,7 +147,7 @@ async def seed_identity_provider(url: str) -> tuple[int, int]:
                 payload = {
                     "name": "Keycloak",
                     "type": "oidc",
-                    "config": json.dumps(_idp_config(), ensure_ascii=False),
+                    "config": json.dumps(normalize_collections(_idp_config()), ensure_ascii=False),
                     "status": "enabled",
                     "sort": 10,
                 }
@@ -199,7 +202,7 @@ async def seed_user_mapping(url: str, *, tenant: str, user_id: int, external_id:
     return created, updated
 
 
-def main(argv: Sequence[str] | None = None) -> int:
+def main(argv: ConcurrentStableList[str] | None = None) -> int:
     """入口。
 
     Args:

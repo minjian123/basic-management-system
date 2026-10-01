@@ -22,7 +22,7 @@ from importlib import import_module
 from pathlib import Path
 from typing import Any, cast
 
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.services.module_registry import ModuleRecord
 from bms_core.services.service_contract import (
     CONTRACTS_DIR,
@@ -62,14 +62,14 @@ def snapshot_path(root: Path, service_key: str) -> Path:
     return contracts_dir(root) / contract_file_name(service_key)
 
 
-def build_openapi(service_key: str) -> dict[str, Any]:
+def build_openapi(service_key: str) -> ConcurrentStableDict[str, Any]:
     """内存构建服务应用并取公开契约（OpenAPI）。
 
     Args:
         service_key: 服务标识（包名 `bms_<service_key>`）。
 
     Returns:
-        dict[str, Any]: OpenAPI 映射。
+        ConcurrentStableDict[str, Any]: OpenAPI 映射。
 
     Raises:
         RuntimeError: 服务包 / 应用工厂缺失或应用构建失败。
@@ -83,12 +83,12 @@ def build_openapi(service_key: str) -> dict[str, Any]:
         raise RuntimeError(f"服务缺少 ApplicationFactory：bms_{service_key}.main")
     try:
         app = factory_cls().create(None)
-        return cast("dict[str, Any]", app.openapi())
+        return ConcurrentStableDict(cast("dict[str, Any]", app.openapi()))
     except Exception as exc:
         raise RuntimeError(f"服务应用构建失败：{service_key}（{exc!r}）") from exc
 
 
-def _validate(record: ModuleRecord, openapi: dict[str, Any]) -> list[str]:
+def _validate(record: ModuleRecord, openapi: ConcurrentStableDict[str, Any]) -> ConcurrentStableList[str]:
     """校验单个服务快照（结构 + 契约版本）。
 
     Args:
@@ -96,9 +96,11 @@ def _validate(record: ModuleRecord, openapi: dict[str, Any]) -> list[str]:
         openapi: 公开契约映射。
 
     Returns:
-        list[str]: 违规明细；空列表表示通过。
+        ConcurrentStableList[str]: 违规明细；空列表表示通过。
     """
-    return list(validate_contract(cast("str", record.service_key), ConcurrentStableDict(openapi), record))
+    return ConcurrentStableList(
+        validate_contract(cast("str", record.service_key), ConcurrentStableDict(openapi), record)
+    )
 
 
 def export(root: Path, *, to_stdout: bool = False) -> int:
@@ -113,13 +115,13 @@ def export(root: Path, *, to_stdout: bool = False) -> int:
     """
     target_dir = contracts_dir(root)
     target_dir.mkdir(parents=True, exist_ok=True)
-    failures: list[str] = []
+    failures: ConcurrentStableList[str] = ConcurrentStableList()
     for record in enabled_service_records():
         service_key = cast("str", record.service_key)
         openapi = build_openapi(service_key)
         errors = _validate(record, openapi)
         if errors:
-            failures.extend(errors)
+            failures.update(errors)
             continue
         text = render_contract_json(ConcurrentStableDict(openapi))
         path = snapshot_path(root, service_key)
@@ -148,8 +150,10 @@ def check(root: Path) -> int:
     expected = {contract_file_name(service_key) for service_key in records}
     directory = contracts_dir(root)
     actual = {path.name for path in directory.glob("*.json")} if directory.is_dir() else set()
-    problems: list[str] = [f"缺快照文件：{name}" for name in sorted(expected - actual)]
-    problems.extend(f"多余快照文件：{name}" for name in sorted(actual - expected))
+    problems: ConcurrentStableList[str] = ConcurrentStableList(
+        f"缺快照文件：{name}" for name in sorted(expected - actual)
+    )
+    problems.update(f"多余快照文件：{name}" for name in sorted(actual - expected))
     for service_key, record in records.items():
         path = snapshot_path(root, service_key)
         if not path.is_file():
@@ -157,10 +161,10 @@ def check(root: Path) -> int:
         openapi = build_openapi(service_key)
         errors = _validate(record, openapi)
         if errors:
-            problems.extend(errors)
+            problems.update(errors)
             continue
         if path.read_text(encoding="utf-8") != render_contract_json(ConcurrentStableDict(openapi)):
-            problems.append(f"{service_key}：快照与当前公开契约漂移（重新运行 export）")
+            problems.add(f"{service_key}：快照与当前公开契约漂移（重新运行 export）")
     if problems:
         print(f"[contract_snapshot] 不通过：{len(problems)} 项", file=sys.stderr)
         for problem in problems:
@@ -170,7 +174,7 @@ def check(root: Path) -> int:
     return 0
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(argv: ConcurrentStableList[str] | None = None) -> int:
     """命令行入口。
 
     Args:

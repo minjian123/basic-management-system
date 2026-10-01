@@ -12,10 +12,10 @@ uv run python -m ops.check_plugins
 """
 
 import sys
-from collections.abc import Sequence
 from typing import cast
 
 from bms_core.core.assembly import PLUGIN_WIRINGS, register_platform_plugins
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import PluginSelection, Settings
 from bms_core.core.exceptions import PluginError
 from bms_core.core.plugin import NULL_PLUGIN_NAME, build_plugin_registry
@@ -23,7 +23,7 @@ from bms_core.core.resources import ResourceManager
 from bms_platform.main import ApplicationFactory
 
 
-def main(argv: Sequence[str] | None = None) -> int:
+def main(argv: ConcurrentStableList[str] | None = None) -> int:
     """校验各能力 provider 引用（存在性 / 重名 / 版本格式）。
 
     Args:
@@ -42,7 +42,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     except PluginError as exc:
         print(f"[插件装配] {exc}")
         return 1
-    errors: list[str] = []
+    errors: ConcurrentStableList[str] = ConcurrentStableList()
     for wiring in PLUGIN_WIRINGS:
         selection = getattr(settings, wiring.settings_section, None)
         provider = selection.provider if isinstance(selection, PluginSelection) else ""
@@ -50,7 +50,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         bucket = snapshot.get(wiring.plugin_key)
         if not bucket or name not in bucket:
             registered = "、".join(sorted(bucket)) if bucket else "无"
-            errors.append(f"{wiring.plugin_key} 未注册实现：{name}（已注册：{registered}）")
+            errors.add(f"{wiring.plugin_key} 未注册实现：{name}（已注册：{registered}）")
     if errors:
         for error in errors:
             print(f"[插件装配] {error}")
@@ -60,4 +60,4 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main(sys.argv[1:]))
+    raise SystemExit(main(ConcurrentStableList(sys.argv[1:])))

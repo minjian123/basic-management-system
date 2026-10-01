@@ -33,7 +33,6 @@ uv run python -m ops.migrate_tenants --target tenant \
 import argparse
 import asyncio
 from collections import Counter
-from collections.abc import Sequence
 from dataclasses import dataclass
 
 from sqlalchemy import create_engine, select
@@ -41,6 +40,7 @@ from sqlalchemy.engine import Engine, make_url
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.pool import NullPool
 
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import Settings, get_settings
 from bms_core.core.exceptions import ConfigError
 from bms_core.core.objects import BaseValueObject
@@ -136,14 +136,14 @@ def _masked(url: str) -> str:
     return make_url(url).render_as_string(hide_password=True)
 
 
-def _tenant_refs_sync(url: str) -> Sequence[TenantRef]:
+def _tenant_refs_sync(url: str) -> ConcurrentStableList[TenantRef]:
     """同步枚举租户引用（达梦等无异步方言驱动的租户注册库）。
 
     Args:
         url: 租户注册库连接串。
 
     Returns:
-        list[TenantRef]: 租户引用列表（库名基缺对照行回落当前编码）。
+        ConcurrentStableList[TenantRef]: 租户引用列表（库名基缺对照行回落当前编码）。
     """
     from bms_tenant.models.tenant import SysTenant  # 惰性：仅读租户注册库时需要，避免单一服务镜像强依赖
     from bms_tenant.models.tenant_database import SysTenantDatabase
@@ -159,7 +159,7 @@ def _tenant_refs_sync(url: str) -> Sequence[TenantRef]:
                 )
                 .where(SysTenant.deleted_at.is_(None))
             )
-            return [_ref(code, basis) for code, basis in connection.execute(statement).all()]
+            return ConcurrentStableList(_ref(code, basis) for code, basis in connection.execute(statement).all())
     finally:
         engine.dispose()
 
@@ -178,14 +178,14 @@ def _ref(code: object, db_basis: object) -> TenantRef:
     return TenantRef(code=str(code), db_basis=basis)
 
 
-async def tenant_refs(registry_url: str) -> Sequence[TenantRef]:
+async def tenant_refs(registry_url: str) -> ConcurrentStableList[TenantRef]:
     """枚举租户引用（租户注册库查询；库名基经对照表；达梦走同步驱动线程）。
 
     Args:
         registry_url: 租户注册库连接串。
 
     Returns:
-        list[TenantRef]: 租户引用列表（按主键序）。
+        ConcurrentStableList[TenantRef]: 租户引用列表（按主键序）。
     """
     if make_url(registry_url).get_backend_name() == _DM:
         return await asyncio.to_thread(_tenant_refs_sync, registry_url)
@@ -204,43 +204,43 @@ async def tenant_refs(registry_url: str) -> Sequence[TenantRef]:
                 .where(SysTenant.deleted_at.is_(None))
             )
             result = await connection.execute(statement)
-            return [_ref(code, basis) for code, basis in result.all()]
+            return ConcurrentStableList(_ref(code, basis) for code, basis in result.all())
     finally:
         await engine.dispose()
 
 
-def resolve_services(requested: Sequence[str], *, use_default: bool = True) -> tuple[str, ...]:
+def resolve_services(requested: ConcurrentStableList[str], *, use_default: bool = True) -> ConcurrentStableList[str]:
     """解析服务维度（显式指定须为已登记服务标识；缺省取全部启用服务）。
 
     Args:
         requested: 命令行指定的服务标识列表。
-        use_default: 未指定时是否回落全部启用服务（False 时返回空元组）。
+        use_default: 未指定时是否回落全部启用服务（False 时返回空列表）。
 
     Returns:
-        tuple[str, ...]: 服务标识元组（保序去重）。
+        ConcurrentStableList[str]: 服务标识列表（保序去重）。
 
     Raises:
         ConfigError: 指定服务未登记 / 目录无启用服务。
     """
     if requested:
-        return tuple(dict.fromkeys(requested))
+        return ConcurrentStableList(dict.fromkeys(requested))
     if not use_default:
-        return ()
+        return ConcurrentStableList()
     services = enabled_service_keys()
     if not services:
         raise ConfigError("服务目录无已启用服务（service_key 非空且 status=enabled），请显式 --service")
-    return services
+    return ConcurrentStableList(services)
 
 
 def service_tasks(
-    services: Sequence[str],
-    tenants: Sequence[TenantRef],
+    services: ConcurrentStableList[str],
+    tenants: ConcurrentStableList[TenantRef],
     *,
     settings: Settings | None = None,
     include_platform: bool = True,
     include_tenants: bool = True,
     include_archive: bool = False,
-) -> list[MigrationTask]:
+) -> ConcurrentStableList[MigrationTask]:
     """构建「服务 × 数据源 × 租户」迁移任务清单（建库入口与批量迁移共用）。
 
     Args:
@@ -252,39 +252,39 @@ def service_tasks(
         include_archive: 是否包含归档库。
 
     Returns:
-        list[MigrationTask]: 任务清单（保序：平台 → 各服务租户 → 归档）。
+        ConcurrentStableList[MigrationTask]: 任务清单（保序：平台 → 各服务租户 → 归档）。
 
     Raises:
         ConfigError: 服务标识未登记。
     """
     resolved = settings or get_settings()
     factory = EngineFactory(resolved, allow_cross_service=True)  # 运维通道：批量迁移按各服务库执行
-    tasks: list[MigrationTask] = []
+    tasks: ConcurrentStableList[MigrationTask] = ConcurrentStableList()
     for service in services:
         if include_platform:
             chain = resolve_chain(build_chain_name(service, DATASOURCE_PLATFORM))
             key = build_platform_db_key(service)
-            tasks.append(MigrationTask(chain=chain, label=key, url=factory.resolved_url(key)))
+            tasks.add(MigrationTask(chain=chain, label=key, url=factory.resolved_url(key)))
         if not include_tenants:
             continue
         for tenant in tenants:
             chain = resolve_chain(build_chain_name(service, DATASOURCE_TENANT))
             key = build_tenant_db_key(tenant.db_basis, service=service)
-            tasks.append(MigrationTask(chain=chain, label=key, url=factory.resolved_url(key)))
+            tasks.add(MigrationTask(chain=chain, label=key, url=factory.resolved_url(key)))
     if include_archive:
         chain = archive_chain()
-        tasks.append(MigrationTask(chain=chain, label="archive", url=factory.resolved_url("archive")))
+        tasks.add(MigrationTask(chain=chain, label="archive", url=factory.resolved_url("archive")))
     return tasks
 
 
-async def build_tasks(args: argparse.Namespace) -> list[MigrationTask]:
+async def build_tasks(args: argparse.Namespace) -> ConcurrentStableList[MigrationTask]:
     """按命令行参数构建迁移任务清单。
 
     Args:
         args: 命令行参数。
 
     Returns:
-        list[MigrationTask]: 任务清单。
+        ConcurrentStableList[MigrationTask]: 任务清单。
 
     Raises:
         ConfigError: 目标与参数组合非法 / 租户维度缺失 / 租户注册库不可读。
@@ -292,41 +292,45 @@ async def build_tasks(args: argparse.Namespace) -> list[MigrationTask]:
     settings = get_settings()
     factory = EngineFactory(settings, allow_cross_service=True)
     use_default_services = args.target in ("all", "platform", "tenants")
-    services = resolve_services(args.service, use_default=use_default_services)
+    services = resolve_services(ConcurrentStableList(args.service), use_default=use_default_services)
 
     if args.target == "tenant":
         if not args.url:
             raise ConfigError("`--target tenant` 需显式 `--url`（单库模式：演练 / 指定库）")
-        service = (services or (settings.app.service,))[0]
+        service = services[0] if services else settings.app.service
         chain = resolve_chain(build_chain_name(service, DATASOURCE_TENANT))
-        return [MigrationTask(chain=chain, label=args.db_key or "tenant", url=args.url, schema=args.schema)]
+        return ConcurrentStableList(
+            [MigrationTask(chain=chain, label=args.db_key or "tenant", url=args.url, schema=args.schema)]
+        )
 
     if args.target == "archive":
         chain = archive_chain()
         url = args.url or factory.resolved_url("archive")
-        return [MigrationTask(chain=chain, label="archive", url=url, schema=args.schema)]
+        return ConcurrentStableList([MigrationTask(chain=chain, label="archive", url=url, schema=args.schema)])
 
     if args.target == "platform":
         if args.url:  # 单库模式（演练）：指定服务（缺省取 [app].service）的平台服务库
-            service = (services or (settings.app.service,))[0]
+            service = services[0] if services else settings.app.service
             if not service:
                 raise ConfigError("`--target platform --url` 需 `--service` 或 [app].service 指定服务")
             chain = resolve_chain(build_chain_name(service, DATASOURCE_PLATFORM))
-            return [
-                MigrationTask(
-                    chain=chain,
-                    label=args.db_key or build_platform_db_key(service),
-                    url=args.url,
-                    schema=args.schema,
-                )
-            ]
-        return service_tasks(services, (), settings=settings, include_tenants=False)
+            return ConcurrentStableList(
+                [
+                    MigrationTask(
+                        chain=chain,
+                        label=args.db_key or build_platform_db_key(service),
+                        url=args.url,
+                        schema=args.schema,
+                    )
+                ]
+            )
+        return service_tasks(services, ConcurrentStableList(), settings=settings, include_tenants=False)
 
-    codes = list(dict.fromkeys(args.code))
+    codes = ConcurrentStableList(dict.fromkeys(args.code))
     registry_url = factory.resolved_url(build_platform_db_key(TENANT_SERVICE_KEY))
-    refs: list[TenantRef] = []
+    refs: ConcurrentStableList[TenantRef] = ConcurrentStableList()
     if codes:
-        refs = [TenantRef(code=code, db_basis=code) for code in codes]
+        refs = ConcurrentStableList(TenantRef(code=code, db_basis=code) for code in codes)
         refs = await enrich_refs(refs, registry_url)
     if args.all_tenants:
         refs = await _load_refs(registry_url)
@@ -344,14 +348,14 @@ async def build_tasks(args: argparse.Namespace) -> list[MigrationTask]:
     )
 
 
-async def _load_refs(registry_url: str) -> Sequence[TenantRef]:
+async def _load_refs(registry_url: str) -> ConcurrentStableList[TenantRef]:
     """读租户注册库全部未软删租户引用（不可读即明确报错）。
 
     Args:
         registry_url: 租户注册库连接串。
 
     Returns:
-        list[TenantRef]: 租户引用列表。
+        ConcurrentStableList[TenantRef]: 租户引用列表。
 
     Raises:
         ConfigError: 租户注册库不可读。
@@ -362,7 +366,7 @@ async def _load_refs(registry_url: str) -> Sequence[TenantRef]:
         raise ConfigError(f"租户注册库不可读（请先建库并迁移 + 种子 ops.seed_tenant，或改用 --code）：{exc}") from exc
 
 
-async def enrich_refs(refs: Sequence[TenantRef], registry_url: str) -> Sequence[TenantRef]:
+async def enrich_refs(refs: ConcurrentStableList[TenantRef], registry_url: str) -> ConcurrentStableList[TenantRef]:
     """显式 `--code` 模式补库名基（读对照表；注册库不可读回落编码，离线 / 演练可用）。
 
     Args:
@@ -370,18 +374,18 @@ async def enrich_refs(refs: Sequence[TenantRef], registry_url: str) -> Sequence[
         registry_url: 租户注册库连接串。
 
     Returns:
-        list[TenantRef]: 补库名基后的租户引用。
+        ConcurrentStableList[TenantRef]: 补库名基后的租户引用。
     """
     try:
         records = await tenant_refs(registry_url)
     except Exception as exc:
         print(f"[migrate_tenants] 租户注册库不可读，显式 --code 按编码作库名基：{type(exc).__name__}: {exc}")
-        return list(refs)
+        return ConcurrentStableList(refs)
     mapping = {record.code: record.db_basis for record in records}
-    return [TenantRef(code=ref.code, db_basis=mapping.get(ref.code, ref.db_basis)) for ref in refs]
+    return ConcurrentStableList(TenantRef(code=ref.code, db_basis=mapping.get(ref.code, ref.db_basis)) for ref in refs)
 
 
-def _counts(tasks: Sequence[MigrationTask]) -> str:
+def _counts(tasks: ConcurrentStableList[MigrationTask]) -> str:
     """库数量统计（按库类别与链名）。
 
     Args:
@@ -400,7 +404,7 @@ def _counts(tasks: Sequence[MigrationTask]) -> str:
     return f"共 {len(tasks)} 个目标（{detail}）"
 
 
-async def run_tasks(tasks: Sequence[MigrationTask]) -> MigrationSummary:
+async def run_tasks(tasks: ConcurrentStableList[MigrationTask]) -> MigrationSummary:
     """逐库执行迁移（幂等；单库失败不中断）。
 
     Args:
@@ -409,33 +413,33 @@ async def run_tasks(tasks: Sequence[MigrationTask]) -> MigrationSummary:
     Returns:
         MigrationSummary: 结果汇总。
     """
-    succeeded: list[str] = []
-    skipped: list[str] = []
-    failed: list[str] = []
+    succeeded: ConcurrentStableList[str] = ConcurrentStableList()
+    skipped: ConcurrentStableList[str] = ConcurrentStableList()
+    failed: ConcurrentStableList[str] = ConcurrentStableList()
     for task in tasks:
         chain = task.chain
         if head_revision(chain) is None:
-            skipped.append(task.label)
+            skipped.add(task.label)
             print(f"[migrate_tenants] {chain.name} {task.label} → 无脚本（跳过）")
             continue
         try:
             head = head_revision(chain)
             current = await current_revision(task.url, schema=task.schema)
             if head is not None and current == head:
-                skipped.append(task.label)
+                skipped.add(task.label)
                 print(f"[migrate_tenants] {chain.name} {task.label} → 已是最新（跳过）")
                 continue
             await asyncio.to_thread(upgrade_chain, chain, task.url, schema=task.schema)
         except Exception as exc:  # 单库失败不中断整批
-            failed.append(task.label)
+            failed.add(task.label)
             print(f"[migrate_tenants] {chain.name} {task.label} → 失败：{type(exc).__name__}: {exc}")
             continue
-        succeeded.append(task.label)
+        succeeded.add(task.label)
         print(f"[migrate_tenants] {chain.name} {task.label} → 迁移完成（{current or '未迁移'} → {head or '无脚本'}）")
     return MigrationSummary(succeeded=tuple(succeeded), skipped=tuple(skipped), failed=tuple(failed))
 
 
-def report(summary: MigrationSummary, tasks: Sequence[MigrationTask]) -> int:
+def report(summary: MigrationSummary, tasks: ConcurrentStableList[MigrationTask]) -> int:
     """输出汇总与库数量统计，返回退出码。
 
     Args:
@@ -474,7 +478,7 @@ async def run(args: argparse.Namespace) -> int:
     return report(await run_tasks(tasks), tasks)
 
 
-def main(argv: Sequence[str] | None = None) -> int:
+def main(argv: ConcurrentStableList[str] | None = None) -> int:
     """入口。
 
     Args:

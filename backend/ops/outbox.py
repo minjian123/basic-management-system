@@ -19,6 +19,7 @@ from datetime import datetime
 from importlib import import_module
 from typing import cast
 
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import get_settings
 from bms_core.core.plugin import build_plugin_registry, resolve_plugin
 from bms_core.db.engine import PLATFORM_DB_KEY, EngineFactory
@@ -147,7 +148,7 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(argv: ConcurrentStableList[str] | None = None) -> int:
     """入口：解析参数并执行子命令。
 
     Args:

@@ -19,7 +19,6 @@ uv run python -m ops.seed_tables --dry-run
 
 import argparse
 import asyncio
-from collections.abc import Sequence
 from typing import cast
 
 from sqlalchemy import Table, select
@@ -29,6 +28,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import NullPool
 
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.db.keys import PLATFORM_SERVICE_KEY
 from bms_core.db.migration import apply_session_schema
 from bms_core.db.sync import is_sync_only_url
@@ -50,22 +50,24 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _fields(seed: TableRecord) -> dict[str, object]:
+def _fields(seed: TableRecord) -> ConcurrentStableDict[str, object]:
     """取种子的可写字段（与 `sys_table_ownership` 列对齐）。
 
     Args:
         seed: 归属登记记录。
 
     Returns:
-        dict[str, object]: 字段值。
+        ConcurrentStableDict[str, object]: 字段值。
     """
-    return {
-        "table_name": seed.table_name,
-        "owner": seed.owner,
-        "datasource": seed.datasource,
-        "status": seed.status,
-        "note": seed.note,
-    }
+    return ConcurrentStableDict(
+        {
+            "table_name": seed.table_name,
+            "owner": seed.owner,
+            "datasource": seed.datasource,
+            "status": seed.status,
+            "note": seed.note,
+        }
+    )
 
 
 def _seed_tables_sync(url: str, schema: str) -> tuple[int, int]:
@@ -155,7 +157,7 @@ async def seed_tables(url: str, *, schema: str = "") -> tuple[int, int]:
     return created, updated
 
 
-def main(argv: Sequence[str] | None = None) -> int:
+def main(argv: ConcurrentStableList[str] | None = None) -> int:
     """入口。
 
     Args:

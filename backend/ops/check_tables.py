@@ -26,7 +26,6 @@ uv run python -m ops.check_tables --url sqlite+aiosqlite:///./bms_platform.db
 import argparse
 import asyncio
 import re
-from collections.abc import Sequence
 from pathlib import Path
 from typing import cast
 
@@ -36,7 +35,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import NullPool
 
-from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
 from bms_core.db.migration import (
     COMMON_MODEL_MODULES,
     DATASOURCES,
@@ -77,21 +76,21 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def imported_model_tables() -> set[str]:
+def imported_model_tables() -> ConcurrentStableSet[str]:
     """导入各启用服务与公共模型模块后取**已声明模块**的模型表名。
 
     只统计模块属于「公共模型清单 + 各服务 `MODEL_MODULES`」的模型（按 `__module__` 归属判定），
     以免测试或其他进程内临时模型（同进程共享 `Base.metadata`）干扰本断言。
 
     Returns:
-        set[str]: 模型表名集合。
+        ConcurrentStableSet[str]: 模型表名集合。
     """
-    declared: set[str] = set(COMMON_MODEL_MODULES)
+    declared: ConcurrentStableSet[str] = ConcurrentStableSet(COMMON_MODEL_MODULES)
     for service in enabled_service_keys():
         import_models(service)
         declared.update(service_model_modules(service))
 
-    tables: set[str] = set()
+    tables: ConcurrentStableSet[str] = ConcurrentStableSet()
     for mapper in Base.registry.mappers:
         module = str(getattr(mapper.class_, "__module__", ""))
         if module not in declared:
@@ -103,16 +102,16 @@ def imported_model_tables() -> set[str]:
     return tables
 
 
-def check_offline(*, versions_root: Path = VERSIONS_ROOT) -> list[str]:
+def check_offline(*, versions_root: Path = VERSIONS_ROOT) -> ConcurrentStableList[str]:
     """离线校验：清单自校验 + 模型表必登记 + enabled 表必入链 + 脚本表集不越界。
 
     Args:
         versions_root: 版本目录根（自检可指定替身目录）。
 
     Returns:
-        list[str]: 冲突 / 非法明细；空列表表示通过。
+        ConcurrentStableList[str]: 冲突 / 非法明细；空列表表示通过。
     """
-    errors = TableOwnershipRegistry().validate()
+    errors = ConcurrentStableList(TableOwnershipRegistry().validate())
     registered = table_names()
     modeled = imported_model_tables()
 
@@ -127,19 +126,19 @@ def check_offline(*, versions_root: Path = VERSIONS_ROOT) -> list[str]:
             errors.add(f"{record.table_name}：enabled 但未进入归属服务 {record.owner} 的 {record.datasource} 链")
 
     errors.update(_check_script_tables(versions_root))
-    return list(errors)
+    return errors
 
 
-def _check_script_tables(versions_root: Path) -> list[str]:
+def _check_script_tables(versions_root: Path) -> ConcurrentStableList[str]:
     """校验各链迁移脚本建表 / 改表的表名 ⊆ 该链派生表集（防脚本越界建表）。
 
     Args:
         versions_root: 版本目录根（`alembic/versions`）。
 
     Returns:
-        list[str]: 违规明细。
+        ConcurrentStableList[str]: 违规明细。
     """
-    errors: list[str] = []
+    errors: ConcurrentStableList[str] = ConcurrentStableList()
     if not versions_root.is_dir():
         return errors
     for service_dir in sorted(versions_root.iterdir()):
@@ -156,14 +155,14 @@ def _check_script_tables(versions_root: Path) -> list[str]:
                 names |= set(_BATCH_TABLE_RE.findall(text)) - set(_DROP_TABLE_RE.findall(text))
                 for name in sorted(names):
                     if name not in chain.tables:
-                        errors.append(
+                        errors.add(
                             f"{chain.name}/{script.name}：建表 / 改表 {name} 不在该链派生表集内"
                             "（须先登记归属并置 enabled）"
                         )
     return errors
 
 
-def _read_ownership_sync(url: str, schema: str) -> list[TableRecord]:
+def _read_ownership_sync(url: str, schema: str) -> ConcurrentStableList[TableRecord]:
     """同步方言（达梦）只读读取归属登记（阻塞驱动走线程池）。
 
     Args:
@@ -171,7 +170,7 @@ def _read_ownership_sync(url: str, schema: str) -> list[TableRecord]:
         schema: 目标模式名（达梦）。
 
     Returns:
-        list[TableRecord]: 归属登记记录列表。
+        ConcurrentStableList[TableRecord]: 归属登记记录列表。
     """
     engine = create_sync_engine(url, poolclass=NullPool, isolation_level="AUTOCOMMIT")
     try:
@@ -181,14 +180,14 @@ def _read_ownership_sync(url: str, schema: str) -> list[TableRecord]:
             try:
                 statement = select(SysTableOwnership).where(SysTableOwnership.deleted_at.is_(None))
                 rows = session.execute(statement).scalars().all()
-                return [TableRecord.from_row(row) for row in rows]
+                return ConcurrentStableList(TableRecord.from_row(row) for row in rows)
             finally:
                 session.close()
     finally:
         engine.dispose()
 
 
-async def _read_ownership(url: str, schema: str = "") -> list[TableRecord]:
+async def _read_ownership(url: str, schema: str = "") -> ConcurrentStableList[TableRecord]:
     """只读读取平台服务库表归属登记（未软删行）。
 
     Args:
@@ -196,7 +195,7 @@ async def _read_ownership(url: str, schema: str = "") -> list[TableRecord]:
         schema: 目标模式名（达梦；同步方言必填）。
 
     Returns:
-        list[TableRecord]: 归属登记记录列表。
+        ConcurrentStableList[TableRecord]: 归属登记记录列表。
     """
     if is_sync_only_url(url):
         return await asyncio.to_thread(_read_ownership_sync, url, schema)
@@ -206,12 +205,12 @@ async def _read_ownership(url: str, schema: str = "") -> list[TableRecord]:
         async with factory() as session:
             statement = select(SysTableOwnership).where(SysTableOwnership.deleted_at.is_(None))
             rows = (await session.execute(statement)).scalars()
-            return [TableRecord.from_row(row) for row in rows.all()]
+            return ConcurrentStableList(TableRecord.from_row(row) for row in rows.all())
     finally:
         await engine.dispose()
 
 
-def check_table_db(url: str, *, schema: str = "") -> list[str]:
+def check_table_db(url: str, *, schema: str = "") -> ConcurrentStableList[str]:
     """接库校验：读库查重与格式 + 与清单双向对账（空库判失败）。
 
     Args:
@@ -219,18 +218,20 @@ def check_table_db(url: str, *, schema: str = "") -> list[str]:
         schema: 目标模式名（达梦；同步方言必填）。
 
     Returns:
-        list[str]: 冲突 / 非法明细（含库不可读）。
+        ConcurrentStableList[str]: 冲突 / 非法明细（含库不可读）。
     """
     try:
         records = asyncio.run(_read_ownership(url, schema))
     except Exception as exc:
-        return [f"表归属登记库不可读（请先执行平台服务链迁移）：{exc}"]
+        return ConcurrentStableList([f"表归属登记库不可读（请先执行平台服务链迁移）：{exc}"])
     if not records:
-        return ["库中无登记行（种子未执行？）"]
-    return list(validate_table_ownership(ConcurrentStableList(TABLE_OWNERSHIP), ConcurrentStableList(records)))
+        return ConcurrentStableList(["库中无登记行（种子未执行？）"])
+    return ConcurrentStableList(
+        validate_table_ownership(ConcurrentStableList(TABLE_OWNERSHIP), ConcurrentStableList(records))
+    )
 
 
-def main(argv: Sequence[str] | None = None) -> int:
+def main(argv: ConcurrentStableList[str] | None = None) -> int:
     """入口：离线校验（默认）+ 可选接库校验。
 
     Args:
@@ -242,7 +243,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     errors = check_offline()
     if args.url:
-        errors.extend(check_table_db(args.url, schema=args.schema))
+        errors.update(check_table_db(args.url, schema=args.schema))
     if errors:
         for error in errors:
             print(f"[表归属] {error}")
