@@ -322,6 +322,7 @@ async def delete_provider(
     auth: AuthDep,
     audit: AuditDep,
     limiter: LimiterDep,
+    # bare-collections:allow（FastAPI 端点返回注解）
 ) -> ApiResponse[dict[str, object]]:
     """软删除 IdP 配置。
 

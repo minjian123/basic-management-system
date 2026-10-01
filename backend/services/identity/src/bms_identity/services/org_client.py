@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from typing import cast
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.exceptions import (
     PasswordPolicyViolationError,
     PasswordReusedError,
@@ -113,11 +114,11 @@ class OrgCredentialClient(BaseFrameworkObject):
         Raises:
             ServiceUnavailableError: 下游不可达 / 响应非法（10007/503）。
         """
-        body: dict[str, object] = {"account": account, "success": success}
+        body: ConcurrentStableDict[str, object] = ConcurrentStableDict({"account": account, "success": success})
         if failed_count is not None:
-            body["failed_count"] = failed_count
+            body.set("failed_count", failed_count)
         if lock_seconds is not None:
-            body["lock_seconds"] = lock_seconds
+            body.set("lock_seconds", lock_seconds)
         data = await self._post("login-state", tenant, body)
         return OrgLoginState.model_validate(data)
 
@@ -193,12 +194,14 @@ class OrgCredentialClient(BaseFrameworkObject):
             "/api/v1/org/internal/users/create",
             _PROFILE_SCOPES,
             tenant,
-            {"username": username, "name": name, "locale": locale, "timezone": timezone},
+            ConcurrentStableDict({"username": username, "name": name, "locale": locale, "timezone": timezone}),
             interface=_PROFILE_INTERFACE,
         )
         return OrgUserCreateResult.model_validate(data)
 
-    async def _post(self, action: str, tenant: str | None, body: dict[str, object]) -> dict[str, object]:
+    async def _post(
+        self, action: str, tenant: str | None, body: ConcurrentStableDict[str, object]
+    ) -> ConcurrentStableDict[str, object]:
         """发起内部凭据 POST（公开契约面 + 服务 JWT），解析统一响应体 `data`。
 
         Args:
@@ -207,7 +210,7 @@ class OrgCredentialClient(BaseFrameworkObject):
             body: JSON 请求体。
 
         Returns:
-            dict[str, object]: 统一响应 `data`。
+            ConcurrentStableDict[str, object]: 统一响应 `data`。
 
         Raises:
             ServiceUnavailableError: 下游不可达 / 非 2xx / 响应契约非法（10007/503）。
@@ -225,10 +228,10 @@ class OrgCredentialClient(BaseFrameworkObject):
         path: str,
         scopes: tuple[str, ...],
         tenant: str | None,
-        body: dict[str, object],
+        body: ConcurrentStableDict[str, object],
         *,
         interface: str,
-    ) -> dict[str, object]:
+    ) -> ConcurrentStableDict[str, object]:
         """发起内部 POST（公开契约面 + 服务 JWT），解析统一响应体 `data`。
 
         Args:
@@ -239,7 +242,7 @@ class OrgCredentialClient(BaseFrameworkObject):
             interface: 错误提示用接口名称。
 
         Returns:
-            dict[str, object]: 统一响应 `data`。
+            ConcurrentStableDict[str, object]: 统一响应 `data`。
 
         Raises:
             ServiceUnavailableError: 下游不可达 / 非 2xx / 响应契约非法（10007/503）。
@@ -258,10 +261,10 @@ class OrgCredentialClient(BaseFrameworkObject):
         data = payload.get("data")
         if not isinstance(data, dict):
             raise ServiceUnavailableError(f"{interface}返回契约非法")
-        return cast("dict[str, object]", data)
+        return ConcurrentStableDict(cast("dict[str, object]", data))
 
 
-def _payload(response: ServiceResponse, interface: str) -> dict[str, object]:
+def _payload(response: ServiceResponse, interface: str) -> ConcurrentStableDict[str, object]:
     """解析服务响应为统一响应体（非 2xx / 非对象 / code≠0 即服务不可用）。
 
     Args:
@@ -269,7 +272,7 @@ def _payload(response: ServiceResponse, interface: str) -> dict[str, object]:
         interface: 错误提示用接口名称。
 
     Returns:
-        dict[str, object]: 统一响应体。
+        ConcurrentStableDict[str, object]: 统一响应体。
 
     Raises:
         ServiceUnavailableError: 非 2xx / 非对象 / 业务码非 0（10007/503）。

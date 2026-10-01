@@ -13,6 +13,7 @@ from fastapi import FastAPI
 from sqlalchemy import Table, delete, select, update
 
 from bms_core.api.deps import get_idp_state_store, get_service_client
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.db.session import DbSession, session_scope
 from bms_core.db.tenant import DEMO_TENANT
 from bms_core.idp.state.memory import MemoryIdpStateStore
@@ -47,9 +48,9 @@ class OidcHarness:
         client_id: str = CLIENT_ID,
         secret: str = CLIENT_SECRET,
         public: bool = False,
-        redirect_uris: list[str] | None = None,
-        grant_types: list[str] | None = None,
-        scopes: list[str] | None = None,
+        redirect_uris: ConcurrentStableList[str] | None = None,
+        grant_types: ConcurrentStableList[str] | None = None,
+        scopes: ConcurrentStableList[str] | None = None,
         status: str = "enabled",
         name: str = "Demo Client",
     ) -> SysClient:
@@ -74,9 +75,9 @@ class OidcHarness:
                 client_id=client_id,
                 client_secret_hash=None if public else hasher.hash(secret),
                 name=name,
-                redirect_uris=json.dumps(redirect_uris if redirect_uris is not None else [REDIRECT_URI]),
-                grant_types=json.dumps(grant_types if grant_types is not None else ["authorization_code"]),
-                scopes=json.dumps(scopes if scopes is not None else ["openid", "profile"]),
+                redirect_uris=json.dumps(list(redirect_uris) if redirect_uris is not None else [REDIRECT_URI]),
+                grant_types=json.dumps(list(grant_types) if grant_types is not None else ["authorization_code"]),
+                scopes=json.dumps(list(scopes) if scopes is not None else ["openid", "profile"]),
                 ip_whitelist="[]",
                 status=status,
             )

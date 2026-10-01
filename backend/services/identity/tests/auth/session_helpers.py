@@ -27,7 +27,7 @@ from .helpers import (
 
 API_LOGIN = "/api/v1/auth/login"
 API_SESSIONS = "/api/v1/sessions"
-TENANT_HEADERS = {"X-Tenant-ID": DEMO_TENANT.code}
+TENANT_HEADERS: ConcurrentStableDict[str, str] = ConcurrentStableDict({"X-Tenant-ID": DEMO_TENANT.code})
 
 
 def utc_now() -> datetime:
@@ -75,7 +75,9 @@ async def wire_login(
     return issuer, store, recorder
 
 
-async def login(client: AsyncClient, *, headers: dict[str, str] | None = None, **extra: object) -> Response:
+async def login(
+    client: AsyncClient, *, headers: ConcurrentStableDict[str, str] | None = None, **extra: object
+) -> Response:
     """发登录请求（默认账号 admin / secret）。
 
     Args:

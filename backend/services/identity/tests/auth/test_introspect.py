@@ -4,7 +4,6 @@
 """
 
 import asyncio
-from collections.abc import Mapping
 
 import pytest
 from fastapi import FastAPI
@@ -13,6 +12,7 @@ from joserfc.jwk import RSAKey
 
 from bms_core.api.deps import get_service_token_issuer, get_tenant_source, get_token_verifier
 from bms_core.application import service_lifespan
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.exceptions import AuthError, ConfigError, ServiceUnavailableError, TenantNotFoundError
 from bms_core.db.tenant import TenantContext
 from bms_core.idp.base import IdentityClaims
@@ -55,11 +55,11 @@ class _StubVerifier(BaseTokenVerifier):
     def __init__(self, *, result: VerifiedToken | None = None, error: Exception | None = None) -> None:
         self._result = result
         self._error = error
-        self.audiences: list[str] = []
+        self.audiences: ConcurrentStableList[str] = ConcurrentStableList()
 
     async def verify(self, token: str, *, audience: str) -> VerifiedToken:
         """记录期望受众并返回注入结果 / 抛注入异常。"""
-        self.audiences.append(audience)
+        self.audiences.add(audience)
         if self._error is not None:
             raise self._error
         assert self._result is not None
@@ -76,7 +76,7 @@ class _FailingIssuer(BaseServiceTokenIssuer):
         del spec
         raise ConfigError("未配置签名私钥")
 
-    def jwks(self) -> Mapping[str, object]:
+    def jwks(self) -> ConcurrentStableDict[str, object]:
         """空 JWKS。"""
         return {"keys": []}
 
@@ -109,8 +109,8 @@ async def _request(
     *,
     verifier: BaseTokenVerifier,
     issuer: BaseServiceTokenIssuer,
-    headers: dict[str, str] | None = None,
-) -> tuple[int, dict[str, str]]:
+    headers: ConcurrentStableDict[str, str] | None = None,
+) -> tuple[int, ConcurrentStableDict[str, str]]:
     """构造应用并经依赖覆盖发起一次 introspect 请求。
 
     Args:
@@ -119,7 +119,7 @@ async def _request(
         headers: 请求头。
 
     Returns:
-        tuple[int, dict[str, str]]: 状态码与响应头。
+        tuple[int, ConcurrentStableDict[str, str]]: 状态码与响应头。
     """
     app: FastAPI = ApplicationFactory().create(None)
     async with service_lifespan(app):

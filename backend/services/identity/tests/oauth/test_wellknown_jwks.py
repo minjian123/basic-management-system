@@ -151,7 +151,7 @@ def test_dependency_providers_resolve() -> None:
                 issuer: Annotated[BaseServiceTokenIssuer, Depends(get_service_token_issuer)],
                 user_issuer: Annotated[BaseUserTokenIssuer, Depends(get_user_token_issuer)],
                 verifier: Annotated[BaseTokenVerifier, Depends(get_token_verifier)],
-            ) -> dict[str, str]:
+            ) -> dict[str, str]:  # bare-collections:allow（FastAPI 端点返回注解）
                 return {
                     "issuer": type(issuer).__name__,
                     "user_issuer": type(user_issuer).__name__,

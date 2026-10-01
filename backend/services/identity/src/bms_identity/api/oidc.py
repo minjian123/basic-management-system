@@ -179,7 +179,7 @@ async def openid_configuration(
             hasher=hasher,
         )
         document = await service.discovery(context.code)
-    return JSONResponse(content=document, headers=_GOOD_HTML)
+    return JSONResponse(content=dict(document), headers=_GOOD_HTML)
 
 
 @router.get("/jwks")

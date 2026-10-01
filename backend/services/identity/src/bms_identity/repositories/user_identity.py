@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from bms_core.core.concurrent import ConcurrentStableSet
+from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.exceptions import SsoIdentityConflictError
 from bms_core.repositories.base_db_repository import BaseDbRepository
 from bms_identity.models.user_identity import SysUserIdentity
@@ -44,14 +44,14 @@ class UserIdentityRepository(BaseDbRepository[SysUserIdentity]):
             raise SsoIdentityConflictError()
         return rows[0] if rows else None
 
-    async def list_by_user(self, user_id: int) -> list[SysUserIdentity]:
+    async def list_by_user(self, user_id: int) -> ConcurrentStableList[SysUserIdentity]:
         """按本地用户反查绑定（`sso:bind` 只读端点）。
 
         Args:
             user_id: 本地用户主键。
 
         Returns:
-            list[SysUserIdentity]: 绑定映射行（按主键升序；无绑定返回空列表）。
+            ConcurrentStableList[SysUserIdentity]: 绑定映射行（按主键升序；无绑定返回空列表）。
         """
         statement = self._select().where(self._column("user_id") == user_id).order_by(self._column("id"))
-        return list((await self._session.execute(statement)).scalars().all())
+        return ConcurrentStableList((await self._session.execute(statement)).scalars().all())

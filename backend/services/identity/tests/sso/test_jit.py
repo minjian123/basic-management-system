@@ -11,6 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.config import Settings
 from bms_core.core.exceptions import (
     ConfigError,
@@ -231,8 +232,16 @@ async def test_provision_username_suffix_and_exhaustion() -> None:
     """撞名换后缀 `_2.._5`；用尽仍冲突 → 20054。"""
     session, engine = await _platform_session()
     org = FakeSsoOrgClient()
-    org.users[1] = {"username": "alice", "name": "a", "status": "enabled", "locale": None, "timezone": None}
-    org.users[2] = {"username": "alice_2", "name": "a", "status": "enabled", "locale": None, "timezone": None}
+    org.users.set(
+        1,
+        ConcurrentStableDict({"username": "alice", "name": "a", "status": "enabled", "locale": None, "timezone": None}),
+    )
+    org.users.set(
+        2,
+        ConcurrentStableDict(
+            {"username": "alice_2", "name": "a", "status": "enabled", "locale": None, "timezone": None}
+        ),
+    )
     service = _service(org)
     result = await service.provision(
         tenant_id=TENANT_ID,
@@ -247,7 +256,12 @@ async def test_provision_username_suffix_and_exhaustion() -> None:
 
     for index in range(1, 6):
         name = "bob" if index == 1 else f"bob_{index}"
-        org.users[100 + index] = {"username": name, "name": "b", "status": "enabled", "locale": None, "timezone": None}
+        org.users.set(
+            100 + index,
+            ConcurrentStableDict(
+                {"username": name, "name": "b", "status": "enabled", "locale": None, "timezone": None}
+            ),
+        )
     with pytest.raises(SsoIdentityUnmatchedError):
         await service.provision(
             tenant_id=TENANT_ID,

@@ -102,7 +102,7 @@ async def test_dependency_providers_resolve() -> None:
         async def probe(  # pyright: ignore[reportUnusedFunction]
             provider: Annotated[BaseIdentityProvider, Depends(get_identity_provider)],
             store: Annotated[BaseSessionStore, Depends(get_session_store)],
-        ) -> dict[str, object]:
+        ) -> dict[str, object]:  # bare-collections:allow（FastAPI 端点返回注解）
             user = await provider.userinfo("t")
             session = await store.load("sess-1")
             return {

@@ -13,6 +13,7 @@ from joserfc import jwt
 from joserfc.jwk import ECKey, RSAKey
 
 from bms_core.core.capability import BaseNullObject
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import SecuritySettings, Settings, TokenKeySettings, UserTokenSettings
 from bms_core.core.exceptions import AuthError, ConfigError, ParamError
 from bms_core.oauth.keys import TokenKey, merge_jwks
@@ -71,7 +72,7 @@ def _ec_key(kid: str = "usr-e1") -> TokenKey:
 
 def _issuer(
     *,
-    keys: list[TokenKey] | None = None,
+    keys: ConcurrentStableList[TokenKey] | None = None,
     active_kid: str = "usr-k1",
     issuer: str = DEFAULT_USER_TOKEN_ISSUER,
     access_ttl: int = _ACCESS_TTL,
@@ -98,7 +99,7 @@ def _issuer(
     )
 
 
-def _craft(key: TokenKey, claims: dict[str, object], *, kid: str | None = None) -> str:
+def _craft(key: TokenKey, claims: ConcurrentStableDict[str, object], *, kid: str | None = None) -> str:
     """用给定密钥手工签发令牌（负向用例：伪造 aud / iss / 类型 / 缺声明）。
 
     Args:
@@ -110,29 +111,31 @@ def _craft(key: TokenKey, claims: dict[str, object], *, kid: str | None = None) 
         str: 紧凑 JWT。
     """
     header = {"alg": key.algorithm, "kid": kid or key.kid}
-    return jwt.encode(header, claims, key.signing_key())
+    return jwt.encode(header, dict(claims), key.signing_key())
 
 
-def _claims(**overrides: object) -> dict[str, object]:
+def _claims(**overrides: object) -> ConcurrentStableDict[str, object]:
     """构造合法用户令牌声明（可覆盖字段）。
 
     Args:
         **overrides: 覆盖字段。
 
     Returns:
-        dict[str, object]: 声明。
+        ConcurrentStableDict[str, object]: 声明。
     """
     now = int(time.time())
-    claims: dict[str, object] = {
-        "iss": DEFAULT_USER_TOKEN_ISSUER,
-        "sub": "1001",
-        "aud": TOKEN_AUDIENCE_API,
-        "jti": "sess-1",
-        "type": USER_TOKEN_TYPE_ACCESS,
-        "exp": now + 300,
-        "iat": now - 60,
-    }
-    claims.update(overrides)
+    claims: ConcurrentStableDict[str, object] = ConcurrentStableDict(
+        {
+            "iss": DEFAULT_USER_TOKEN_ISSUER,
+            "sub": "1001",
+            "aud": TOKEN_AUDIENCE_API,
+            "jti": "sess-1",
+            "type": USER_TOKEN_TYPE_ACCESS,
+            "exp": now + 300,
+            "iat": now - 60,
+        }
+    )
+    claims.update(overrides.items())
     return claims
 
 

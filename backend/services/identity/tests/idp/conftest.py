@@ -15,6 +15,7 @@ from fastapi import FastAPI
 from sqlalchemy import Table, delete
 
 from bms_core.api.deps import get_rate_limiter
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.db.session import DbSession, session_scope
 from bms_core.db.tenant import DEMO_TENANT
 from bms_core.ratelimit.memory import MemoryRateLimiter
@@ -22,7 +23,7 @@ from bms_identity.api import identity_providers as idp_api
 from bms_identity.models.identity_provider import SysIdentityProvider
 from bms_identity.services.provider_registry import ProviderRegistry
 
-TENANT_HEADERS = {"X-Tenant-ID": "demo"}
+TENANT_HEADERS: ConcurrentStableDict[str, str] = ConcurrentStableDict({"X-Tenant-ID": "demo"})
 TENANT_ID = "1001"
 ISSUER = "https://idp.example.com/realms/bms"
 CAS_SERVER = "https://cas.example.com/cas"
@@ -34,11 +35,13 @@ class ProbeMock:
     def __init__(self) -> None:
         """初始化（默认四协议均可达）。"""
         self.oidc_status = 200
-        self.oidc_document: dict[str, object] = {
-            "issuer": ISSUER,
-            "authorization_endpoint": f"{ISSUER}/authorize",
-            "token_endpoint": f"{ISSUER}/token",
-        }
+        self.oidc_document: ConcurrentStableDict[str, object] = ConcurrentStableDict(
+            {
+                "issuer": ISSUER,
+                "authorization_endpoint": f"{ISSUER}/authorize",
+                "token_endpoint": f"{ISSUER}/token",
+            }
+        )
         self.cas_status = 200
         self.wecom_errcode = 0
         self.dingtalk_status = 400
@@ -54,7 +57,7 @@ class ProbeMock:
         """
         path = request.url.path
         if path.endswith("/.well-known/openid-configuration"):
-            return httpx.Response(self.oidc_status, json=self.oidc_document)
+            return httpx.Response(self.oidc_status, json=dict(self.oidc_document))
         if path.endswith("/p3/serviceValidate"):
             return httpx.Response(self.cas_status, content=b"<xml/>")
         if path.endswith("/cgi-bin/gettoken"):
@@ -91,7 +94,7 @@ class ManageHarness:
         type: str = "oidc",
         status: str = "enabled",
         sort: int = 0,
-        config: dict[str, object] | None = None,
+        config: ConcurrentStableDict[str, object] | None = None,
         raw_config: str | None = None,
         name: str = "Keycloak",
     ) -> None:
@@ -107,7 +110,7 @@ class ManageHarness:
             name: 显示名。
         """
         payload = self._oidc_config() if config is None else config
-        raw = raw_config if raw_config is not None else json.dumps(payload, ensure_ascii=False)
+        raw = raw_config if raw_config is not None else json.dumps(dict(payload), ensure_ascii=False)
         async with self.tenant_scope() as session:
             session.add(
                 SysIdentityProvider(
@@ -116,7 +119,7 @@ class ManageHarness:
             )
             await session.commit()
 
-    def _oidc_config(self) -> dict[str, object]:
+    def _oidc_config(self) -> ConcurrentStableDict[str, object]:
         """OIDC 行配置（指向探测替身）。"""
         return {
             "issuer": ISSUER,

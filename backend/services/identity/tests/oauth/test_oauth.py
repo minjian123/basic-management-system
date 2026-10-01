@@ -117,7 +117,7 @@ async def test_dependency_providers_resolve() -> None:
         async def probe(  # pyright: ignore[reportUnusedFunction]
             server: Annotated[BaseOAuthServer, Depends(get_oauth_server)],
             checker: Annotated[BaseScopeChecker, Depends(get_scope_checker)],
-        ) -> dict[str, object]:
+        ) -> dict[str, object]:  # bare-collections:allow（FastAPI 端点返回注解）
             token = await server.issue_token(ClientCredentials(client_id="c", client_secret="s"))
             return {
                 "server_key": server.key,

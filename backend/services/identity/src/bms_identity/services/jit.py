@@ -20,6 +20,7 @@ from typing import cast
 
 from sqlalchemy.exc import IntegrityError
 
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.config import SsoSettings
 from bms_core.core.exceptions import (
     ConcurrentConflictError,
@@ -312,7 +313,7 @@ def jit_enabled_for(config: str, settings: SsoSettings) -> bool:
     return settings.jit_enabled
 
 
-def allowed_email_domains(config: str, provider_key: str) -> frozenset[str]:
+def allowed_email_domains(config: str, provider_key: str) -> ConcurrentStableSet[str]:
     """取行配置的邮箱域名白名单（小写去重；未配置返回空集）。
 
     Args:
@@ -320,22 +321,22 @@ def allowed_email_domains(config: str, provider_key: str) -> frozenset[str]:
         provider_key: 租户内 IdP 标识（错误提示用）。
 
     Returns:
-        frozenset[str]: 域名集合（空 = 不限制）。
+        ConcurrentStableSet[str]: 域名集合（空 = 不限制）。
 
     Raises:
         ConfigError: 配置项类型非法（40001）。
     """
     raw = _row_config(config, provider_key).get("allowed_email_domains")
     if raw is None:
-        return frozenset()
+        return ConcurrentStableSet()
     if not isinstance(raw, list):
         raise ConfigError(f"身份源行配置 allowed_email_domains 必须是数组：{provider_key}")
-    domains: list[str] = []
+    domains: ConcurrentStableList[str] = ConcurrentStableList()
     for item in cast("list[object]", raw):
         text = str(item).strip().lower()
         if text:
-            domains.append(text)
-    return frozenset(domains)
+            domains.add(text)
+    return ConcurrentStableSet(domains)
 
 
 def derive_username(identity: ExternalIdentity) -> str:
@@ -383,7 +384,7 @@ def _email_local(email: str | None) -> str:
     return email.rsplit("@", 1)[0]
 
 
-def _row_config(config: str, provider_key: str) -> dict[str, object]:
+def _row_config(config: str, provider_key: str) -> ConcurrentStableDict[str, object]:
     """解析 IdP 行配置 JSON（必须是对象）。
 
     Args:
@@ -391,7 +392,7 @@ def _row_config(config: str, provider_key: str) -> dict[str, object]:
         provider_key: 租户内 IdP 标识（错误提示用）。
 
     Returns:
-        dict[str, object]: 配置对象。
+        ConcurrentStableDict[str, object]: 配置对象。
 
     Raises:
         ConfigError: 非法 JSON / 非对象（40001）。
@@ -402,4 +403,4 @@ def _row_config(config: str, provider_key: str) -> dict[str, object]:
         raise ConfigError(f"身份源行配置非法 JSON：{provider_key}") from exc
     if not isinstance(parsed, dict):
         raise ConfigError(f"身份源行配置必须是 JSON 对象：{provider_key}")
-    return cast("dict[str, object]", parsed)
+    return ConcurrentStableDict(cast("dict[str, object]", parsed))

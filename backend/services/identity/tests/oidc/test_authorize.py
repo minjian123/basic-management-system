@@ -3,6 +3,7 @@
 import pytest
 from httpx import ASGITransport, AsyncClient
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.idp.state.base import build_idp_state_key
 
 from .conftest import OidcHarness
@@ -11,7 +12,7 @@ from .helpers import CLIENT_ID, REDIRECT_URI, TENANT, TENANT_HEADERS, TENANT_ID,
 _AUTHORIZE = "/api/v1/oidc/authorize"
 
 
-def _params(**overrides: str) -> dict[str, str]:
+def _params(**overrides: str) -> ConcurrentStableDict[str, str]:
     """构造授权请求参数（缺省合规）。
 
     Args:
@@ -20,15 +21,17 @@ def _params(**overrides: str) -> dict[str, str]:
     Returns:
         dict[str, str]: 查询参数。
     """
-    params: dict[str, str] = {
-        "response_type": "code",
-        "client_id": CLIENT_ID,
-        "redirect_uri": REDIRECT_URI,
-        "scope": "openid",
-        "state": "st-1",
-        "nonce": "n-1",
-    }
-    params.update(overrides)
+    params: ConcurrentStableDict[str, str] = ConcurrentStableDict(
+        {
+            "response_type": "code",
+            "client_id": CLIENT_ID,
+            "redirect_uri": REDIRECT_URI,
+            "scope": "openid",
+            "state": "st-1",
+            "nonce": "n-1",
+        }
+    )
+    params.update(overrides.items())
     return params
 
 

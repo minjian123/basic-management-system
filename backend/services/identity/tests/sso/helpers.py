@@ -6,7 +6,6 @@ org 内部接口客户端（含 profile）与可控 OIDC IdP（Discovery / JWKS 
 
 from __future__ import annotations
 
-import json
 import time
 from typing import cast
 from urllib.parse import parse_qs
@@ -15,7 +14,9 @@ import httpx
 from joserfc import jwt
 from joserfc.jwk import RSAKey
 
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.exceptions import AuthError, ServiceUnavailableError
+from bms_core.core.serialization import stable_json_dumps
 from bms_core.db.session import DbSession
 from bms_core.events.base import EventEnvelope
 from bms_core.idp.base import IdentityClaims
@@ -36,7 +37,7 @@ WECOM_CORP_ID = "corp-1"
 WECOM_AGENT_ID = "agent-1"
 DINGTALK_IDP_KEY = "dingtalk"
 DINGTALK_CLIENT_ID = "client-1"
-TENANT_HEADERS = {"X-Tenant-ID": TENANT}
+TENANT_HEADERS: ConcurrentStableDict[str, str] = ConcurrentStableDict({"X-Tenant-ID": TENANT})
 
 _ACCESS = "access"
 _REFRESH = "refresh"
@@ -48,9 +49,9 @@ class FakeUserTokenIssuer(BaseUserTokenIssuer):
     plugin_name = "sso_fake"
 
     def __init__(self) -> None:
-        self._by_token: dict[str, dict[str, object]] = {}
+        self._by_token: ConcurrentStableDict[str, ConcurrentStableDict[str, object]] = ConcurrentStableDict()
         self._n = 0
-        self.specs: list[UserTokenSpec] = []
+        self.specs: ConcurrentStableList[UserTokenSpec] = ConcurrentStableList()
 
     async def issue_pair(self, spec: UserTokenSpec) -> UserTokenPair:
         """签发双 token（同会话 id；记录类型与租户）。
@@ -63,10 +64,10 @@ class FakeUserTokenIssuer(BaseUserTokenIssuer):
         """
         self._n += 1
         access, refresh = f"acc-{self._n}", f"ref-{self._n}"
-        base = {"sub": spec.subject, "jti": spec.session_id, "tenant_id": spec.tenant_id}
-        self._by_token[access] = {**base, "type": _ACCESS}
-        self._by_token[refresh] = {**base, "type": _REFRESH}
-        self.specs.append(spec)
+        base = ConcurrentStableDict({"sub": spec.subject, "jti": spec.session_id, "tenant_id": spec.tenant_id})
+        self._by_token.set(access, ConcurrentStableDict({**base, "type": _ACCESS}))
+        self._by_token.set(refresh, ConcurrentStableDict({**base, "type": _REFRESH}))
+        self.specs.add(spec)
         return UserTokenPair(
             access_token=access,
             refresh_token=refresh,
@@ -93,13 +94,13 @@ class FakeUserTokenIssuer(BaseUserTokenIssuer):
             raise AuthError("invalid token")
         return IdentityClaims(subject=cast("str", info["sub"]), payload=info)
 
-    def jwks(self) -> dict[str, object]:
+    def jwks(self) -> ConcurrentStableDict[str, object]:
         """占位 JWKS。
 
         Returns:
-            dict[str, object]: 空公钥集。
+            ConcurrentStableDict[str, object]: 空公钥集。
         """
-        return {"keys": []}
+        return ConcurrentStableDict({"keys": ConcurrentStableList()})
 
 
 class FakeSsoOrgClient(BaseServiceClient):
@@ -108,11 +109,11 @@ class FakeSsoOrgClient(BaseServiceClient):
     plugin_name = "sso_fake"
 
     def __init__(self) -> None:
-        self.users: dict[int, dict[str, object]] = {}
+        self.users: ConcurrentStableDict[int, ConcurrentStableDict[str, object]] = ConcurrentStableDict()
         self.fail_profile = False
         self.fail_create = False
-        self.calls: list[str] = []
-        self.login_states: list[dict[str, object]] = []
+        self.calls: ConcurrentStableList[str] = ConcurrentStableList()
+        self.login_states: ConcurrentStableList[ConcurrentStableDict[str, object]] = ConcurrentStableList()
         self._next_id = 5000
 
     def set_user(
@@ -135,13 +136,18 @@ class FakeSsoOrgClient(BaseServiceClient):
             locale: 语言偏好。
             timezone: 时区偏好。
         """
-        self.users[user_id] = {
-            "username": username,
-            "name": name,
-            "status": status,
-            "locale": locale,
-            "timezone": timezone,
-        }
+        self.users.set(
+            user_id,
+            ConcurrentStableDict(
+                {
+                    "username": username,
+                    "name": name,
+                    "status": status,
+                    "locale": locale,
+                    "timezone": timezone,
+                }
+            ),
+        )
 
     async def call(self, request: ServiceRequest) -> ServiceResponse:
         """按路径动作返回统一响应体。
@@ -153,8 +159,8 @@ class FakeSsoOrgClient(BaseServiceClient):
             ServiceResponse: 统一响应。
         """
         action = request.path.rsplit("/", 1)[-1]
-        body = request.json_body or {}
-        self.calls.append(action)
+        body = request.json_body or ConcurrentStableDict()
+        self.calls.add(action)
         if action == "profile":
             if self.fail_profile:
                 raise ServiceUnavailableError("org 用户接口不可用")
@@ -164,68 +170,82 @@ class FakeSsoOrgClient(BaseServiceClient):
                 raise ServiceUnavailableError("org 建号接口不可用")
             return _ok(self._create(body))
         if action == "login-state":
-            self.login_states.append(body)
-            return _ok({"failed_count": 0, "locked_until": None, "last_login_at": "now"})
-        return _ok({})
+            self.login_states.add(body)
+            return _ok(ConcurrentStableDict({"failed_count": 0, "locked_until": None, "last_login_at": "now"}))
+        return _ok(ConcurrentStableDict())
 
-    def _create(self, body: dict[str, object]) -> dict[str, object]:
+    def _create(self, body: ConcurrentStableDict[str, object]) -> ConcurrentStableDict[str, object]:
         """按账号建号（撞名返回 conflict；否则分配新主键）。
 
         Args:
             body: 建号请求体。
 
         Returns:
-            dict[str, object]: 建号 data。
+            ConcurrentStableDict[str, object]: 建号 data。
         """
         username = str(body.get("username", ""))
         if any(user["username"] == username for user in self.users.values()):
-            return {"created": False, "reason": "username_conflict", "user": None}
+            return ConcurrentStableDict({"created": False, "reason": "username_conflict", "user": None})
         self._next_id += 1
         user_id = self._next_id
-        self.users[user_id] = {
-            "username": username,
-            "name": str(body.get("name") or username),
-            "status": "enabled",
-            "locale": body.get("locale"),
-            "timezone": body.get("timezone"),
-        }
-        return {
-            "created": True,
-            "reason": None,
-            "user": {
-                "id": user_id,
-                "username": username,
-                "name": self.users[user_id]["name"],
-                "status": "enabled",
-                "locale": self.users[user_id]["locale"],
-                "timezone": self.users[user_id]["timezone"],
-            },
-        }
+        self.users.set(
+            user_id,
+            ConcurrentStableDict(
+                {
+                    "username": username,
+                    "name": str(body.get("name") or username),
+                    "status": "enabled",
+                    "locale": body.get("locale"),
+                    "timezone": body.get("timezone"),
+                }
+            ),
+        )
+        created = self.users[user_id]
+        return ConcurrentStableDict(
+            {
+                "created": True,
+                "reason": None,
+                "user": ConcurrentStableDict(
+                    {
+                        "id": user_id,
+                        "username": username,
+                        "name": created["name"],
+                        "status": "enabled",
+                        "locale": created["locale"],
+                        "timezone": created["timezone"],
+                    }
+                ),
+            }
+        )
 
-    def _profile(self, body: dict[str, object]) -> dict[str, object]:
+    def _profile(self, body: ConcurrentStableDict[str, object]) -> ConcurrentStableDict[str, object]:
         """按 user_id 返回概要（未登记 → found=False）。
 
         Args:
             body: 请求体。
 
         Returns:
-            dict[str, object]: 概要 data。
+            ConcurrentStableDict[str, object]: 概要 data。
         """
         user_id = int(cast("int", body.get("user_id", 0)))
         user = self.users.get(user_id)
         if user is None:
-            return {"found": False, "user": None}
-        return {
-            "found": True,
-            "user": {
-                "id": user_id,
-                "username": user["username"],
-                "name": user["name"],
-                "status": user["status"],
-                "locale": user["locale"],
-                "timezone": user["timezone"],
-            },
-        }
+            return ConcurrentStableDict({"found": False, "user": None})
+        return ConcurrentStableDict(
+            {
+                "found": True,
+                "user": ConcurrentStableDict(
+                    {
+                        "id": user_id,
+                        "username": user["username"],
+                        "name": user["name"],
+                        "status": user["status"],
+                        "locale": user["locale"],
+                        "timezone": user["timezone"],
+                    }
+                ),
+            }
+        )
 
 
 class RecordingOutboxStore(NullOutboxStore):
@@ -235,7 +255,7 @@ class RecordingOutboxStore(NullOutboxStore):
 
     def __init__(self) -> None:
         """初始化（空事件列表）。"""
-        self.events: list[EventEnvelope] = []
+        self.events: ConcurrentStableList[EventEnvelope] = ConcurrentStableList()
 
     async def enqueue(self, session: DbSession, event: EventEnvelope) -> str:
         """记录事件并回显 ID。
@@ -247,11 +267,11 @@ class RecordingOutboxStore(NullOutboxStore):
         Returns:
             str: 事件 ID。
         """
-        self.events.append(event)
+        self.events.add(event)
         return event.event_id or "recording"
 
 
-def _ok(data: dict[str, object]) -> ServiceResponse:
+def _ok(data: ConcurrentStableDict[str, object]) -> ServiceResponse:
     """构造统一响应（HTTP 200 + code=0）。
 
     Args:
@@ -260,7 +280,9 @@ def _ok(data: dict[str, object]) -> ServiceResponse:
     Returns:
         ServiceResponse: 统一响应。
     """
-    return ServiceResponse(status_code=200, content=json.dumps({"code": 0, "message": "ok", "data": data}).encode())
+    return ServiceResponse(
+        status_code=200, content=stable_json_dumps({"code": 0, "message": "ok", "data": data}).encode()
+    )
 
 
 class IdpMock:
@@ -273,9 +295,9 @@ class IdpMock:
         self.discovery_status = 200
         self.jwks_status = 200
         self.token_status = 200
-        self.token_forms: list[str] = []
+        self.token_forms: ConcurrentStableList[str] = ConcurrentStableList()
         self.userinfo_sub = "sub-1"
-        self.discovery_drop: set[str] | None = None
+        self.discovery_drop: ConcurrentStableSet[str] | None = None
         self.token_bad_json = False
         self.userinfo_status = 200
 
@@ -311,25 +333,27 @@ class IdpMock:
         if path.endswith("/.well-known/openid-configuration"):
             if self.discovery_status != 200:
                 return httpx.Response(self.discovery_status, json={})
-            return httpx.Response(200, json=_metadata(drop=self.discovery_drop))
+            return httpx.Response(200, json=dict(_metadata(drop=self.discovery_drop)))
         if path.endswith("/certs"):
             if self.jwks_status != 200:
                 return httpx.Response(self.jwks_status, json={})
-            return httpx.Response(200, json={"keys": [self.public]})
+            return httpx.Response(200, json={"keys": [dict(self.public)]})
         if path.endswith("/token"):
-            self.token_forms.append(request.content.decode())
+            self.token_forms.add(request.content.decode())
             if self.token_status != 200:
                 return httpx.Response(self.token_status, json={"error": "invalid_grant"})
             if self.token_bad_json:
                 return httpx.Response(200, json=[])
-            payload: dict[str, object] = {
-                "access_token": "access-token",
-                "token_type": "Bearer",
-                "expires_in": 300,
-            }
+            payload: ConcurrentStableDict[str, object] = ConcurrentStableDict(
+                {
+                    "access_token": "access-token",
+                    "token_type": "Bearer",
+                    "expires_in": 300,
+                }
+            )
             if self.id_token is not None:
-                payload["id_token"] = self.id_token
-            return httpx.Response(200, json=payload)
+                payload.set("id_token", self.id_token)
+            return httpx.Response(200, json=dict(payload))
         if path.endswith("/userinfo"):
             if self.userinfo_status != 200:
                 return httpx.Response(self.userinfo_status, json={})
@@ -337,7 +361,7 @@ class IdpMock:
         return httpx.Response(404, json={"error": "not_found"})
 
 
-def _metadata(issuer: str = ISSUER, *, drop: set[str] | None = None) -> dict[str, str]:
+def _metadata(issuer: str = ISSUER, *, drop: ConcurrentStableSet[str] | None = None) -> ConcurrentStableDict[str, str]:
     """构造 OIDC Discovery 文档（`drop` 可剔除字段以覆盖配置缺失分支）。
 
     Args:
@@ -345,30 +369,34 @@ def _metadata(issuer: str = ISSUER, *, drop: set[str] | None = None) -> dict[str
         drop: 需剔除的字段名集合（可选）。
 
     Returns:
-        dict[str, str]: Discovery 文档。
+        ConcurrentStableDict[str, str]: Discovery 文档。
     """
-    document = {
-        "issuer": issuer,
-        "authorization_endpoint": f"{issuer}/protocol/openid-connect/auth",
-        "token_endpoint": f"{issuer}/protocol/openid-connect/token",
-        "userinfo_endpoint": f"{issuer}/protocol/openid-connect/userinfo",
-        "jwks_uri": f"{issuer}/protocol/openid-connect/certs",
-    }
+    document: ConcurrentStableDict[str, str] = ConcurrentStableDict(
+        {
+            "issuer": issuer,
+            "authorization_endpoint": f"{issuer}/protocol/openid-connect/auth",
+            "token_endpoint": f"{issuer}/protocol/openid-connect/token",
+            "userinfo_endpoint": f"{issuer}/protocol/openid-connect/userinfo",
+            "jwks_uri": f"{issuer}/protocol/openid-connect/certs",
+        }
+    )
     if drop:
         for field in drop:
-            document.pop(field, None)
+            document.get_and_remove(field)
     return document
 
 
-def _key_pair() -> tuple[RSAKey, dict[str, object]]:
+def _key_pair() -> tuple[RSAKey, ConcurrentStableDict[str, object]]:
     """生成 RSA 密钥与对应公钥 JWK（kid=k1）。
 
     Returns:
-        tuple[RSAKey, dict[str, object]]: 私钥与公钥 JWK。
+        tuple[RSAKey, ConcurrentStableDict[str, object]]: 私钥与公钥 JWK。
     """
     key = RSAKey.generate_key(2048, private=True)
-    public = cast("dict[str, object]", key.as_dict(private=False))
-    public["kid"] = "k1"
+    public: ConcurrentStableDict[str, object] = ConcurrentStableDict(
+        cast("dict[str, object]", key.as_dict(private=False))
+    )
+    public.set("kid", "k1")
     return key, public
 
 
@@ -399,18 +427,20 @@ def _token(
         str: JWT 紧凑串。
     """
     now = int(time.time())
-    claims: dict[str, object] = {
-        "iss": iss,
-        "sub": subject,
-        "aud": aud,
-        "exp": now + exp_delta,
-        "iat": now,
-        "preferred_username": "alice",
-        "email": "alice@example.com",
-    }
+    claims: ConcurrentStableDict[str, object] = ConcurrentStableDict(
+        {
+            "iss": iss,
+            "sub": subject,
+            "aud": aud,
+            "exp": now + exp_delta,
+            "iat": now,
+            "preferred_username": "alice",
+            "email": "alice@example.com",
+        }
+    )
     if nonce is not None:
-        claims["nonce"] = nonce
-    return jwt.encode({"alg": alg, "kid": kid}, claims, key)
+        claims.set("nonce", nonce)
+    return jwt.encode({"alg": alg, "kid": kid}, dict(claims), key)
 
 
 class CasMock:
@@ -419,13 +449,15 @@ class CasMock:
     def __init__(self) -> None:
         """初始化（默认成功响应）。"""
         self.principal = "cas-alice"
-        self.attributes: dict[str, str] = {"displayName": "Alice", "email": "alice@example.com"}
+        self.attributes: ConcurrentStableDict[str, str] = ConcurrentStableDict(
+            {"displayName": "Alice", "email": "alice@example.com"}
+        )
         self.failure_code: str | None = None
         self.status = 200
         self.raw: bytes | None = None
-        self.allowed_services: set[str] | None = None
-        self.services: list[str] = []
-        self.tickets: list[str] = []
+        self.allowed_services: ConcurrentStableSet[str] | None = None
+        self.services: ConcurrentStableList[str] = ConcurrentStableList()
+        self.tickets: ConcurrentStableList[str] = ConcurrentStableList()
 
     def handle(self, request: httpx.Request) -> httpx.Response:
         """MockTransport 处理函数（按 `serviceValidate` 路径分派）。
@@ -440,8 +472,8 @@ class CasMock:
             return httpx.Response(404, json={"error": "not_found"})
         query = parse_qs(request.url.query.decode())
         service = query.get("service", [""])[0]
-        self.services.append(service)
-        self.tickets.append(query.get("ticket", [""])[0])
+        self.services.add(service)
+        self.tickets.add(query.get("ticket", [""])[0])
         if self.status != 200:
             return httpx.Response(self.status, content=b"")
         if self.raw is not None:
@@ -453,7 +485,7 @@ class CasMock:
         return httpx.Response(200, content=_cas_success_xml(self.principal, self.attributes))
 
 
-def _cas_success_xml(principal: str, attributes: dict[str, str]) -> bytes:
+def _cas_success_xml(principal: str, attributes: ConcurrentStableDict[str, str]) -> bytes:
     """构造 CAS 校验成功响应 XML。
 
     Args:
@@ -521,12 +553,14 @@ class WecomMock:
         if path.endswith("/cgi-bin/auth/getuserinfo"):
             if self.user_status != 200:
                 return httpx.Response(self.user_status, json={})
-            payload: dict[str, object] = {"errcode": self.user_errcode, "errmsg": "ok"}
+            payload: ConcurrentStableDict[str, object] = ConcurrentStableDict(
+                {"errcode": self.user_errcode, "errmsg": "ok"}
+            )
             if self.userid is not None:
-                payload["userid"] = self.userid
+                payload.set("userid", self.userid)
             if self.openid is not None:
-                payload["openid"] = self.openid
-            return httpx.Response(200, json=payload)
+                payload.set("openid", self.openid)
+            return httpx.Response(200, json=dict(payload))
         return httpx.Response(404, json={"error": "not_found"})
 
 
@@ -536,9 +570,13 @@ class DingtalkMock:
     def __init__(self) -> None:
         """初始化（默认成功响应）。"""
         self.token_status = 200
-        self.token_body: dict[str, object] = {"accessToken": "dingtalk-token", "expireIn": 7200, "refreshToken": "rt"}
+        self.token_body: ConcurrentStableDict[str, object] = ConcurrentStableDict(
+            {"accessToken": "dingtalk-token", "expireIn": 7200, "refreshToken": "rt"}
+        )
         self.user_status = 200
-        self.user_body: dict[str, object] = {"unionId": "dingtalk-union", "openId": "dingtalk-open", "nick": "丁丁"}
+        self.user_body: ConcurrentStableDict[str, object] = ConcurrentStableDict(
+            {"unionId": "dingtalk-union", "openId": "dingtalk-open", "nick": "丁丁"}
+        )
 
     def handle(self, request: httpx.Request) -> httpx.Response:
         """MockTransport 处理函数（按路径分派）。
@@ -553,9 +591,9 @@ class DingtalkMock:
         if path.endswith("/v1.0/oauth2/userAccessToken"):
             if self.token_status != 200:
                 return httpx.Response(self.token_status, json={})
-            return httpx.Response(200, json=self.token_body)
+            return httpx.Response(200, json=dict(self.token_body))
         if path.endswith("/v1.0/contact/users/me"):
             if self.user_status != 200:
                 return httpx.Response(self.user_status, json={})
-            return httpx.Response(200, json=self.user_body)
+            return httpx.Response(200, json=dict(self.user_body))
         return httpx.Response(404, json={"error": "not_found"})

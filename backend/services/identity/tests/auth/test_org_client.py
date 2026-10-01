@@ -4,6 +4,7 @@ import json
 
 import pytest
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.exceptions import (
     PasswordPolicyViolationError,
     PasswordReusedError,
@@ -101,7 +102,7 @@ async def test_org_client_failure_branches() -> None:
 async def test_org_client_update_password_policy_mapping() -> None:
     """改密策略闸门映射：复杂度违规 30005（带 violations）/ 历史重复 30006 / 账号不存在 False。"""
 
-    def _client(data: dict[str, object]) -> OrgCredentialClient:
+    def _client(data: ConcurrentStableDict[str, object]) -> OrgCredentialClient:
         return OrgCredentialClient(_Scripted(_resp(200, {"code": 0, "data": data})))
 
     with pytest.raises(PasswordPolicyViolationError) as weak:

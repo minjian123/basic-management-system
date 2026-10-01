@@ -3,12 +3,13 @@
 import pytest
 from httpx import AsyncClient
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.db.tenant import TenantContext
 
 from .conftest import SsoHarness
 
 API = "/api/v1/auth/sso/providers"
-TENANT_HEADERS = {"X-Tenant-ID": "demo"}
+TENANT_HEADERS: ConcurrentStableDict[str, str] = ConcurrentStableDict({"X-Tenant-ID": "demo"})
 
 
 @pytest.mark.kiwi_id(2197)

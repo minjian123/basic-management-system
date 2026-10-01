@@ -4,21 +4,31 @@
 - 客户端管理接口走平台统一响应体（`ApiResponse`）。
 """
 
+from typing import Annotated
+
 from pydantic import Field
 
-from bms_core.schemas.base import BaseSchema
+from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.schemas.base import CONTRACT_COLLECTION, CONTRACT_STABLE_LIST, BaseSchema
 
 
 class ClientCreateRequest(BaseSchema):
     """客户端注册请求。"""
 
     name: str = Field(min_length=1, max_length=128, description="应用名称")
-    redirect_uris: list[str] = Field(default_factory=list[str], description="回调地址白名单（精确匹配）")
-    grant_types: list[str] = Field(
-        default_factory=lambda: ["authorization_code"], description="授权类型（client_credentials/authorization_code）"
+    redirect_uris: Annotated[ConcurrentStableList[str], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_LIST, description="回调地址白名单（精确匹配）"
     )
-    scopes: list[str] = Field(default_factory=lambda: ["openid"], description="允许申请的 scope 集合")
-    ip_whitelist: list[str] = Field(default_factory=list[str], description="来源 IP / CIDR 白名单（开放接口阶段十用）")
+    grant_types: Annotated[ConcurrentStableList[str], CONTRACT_COLLECTION] = Field(
+        default_factory=lambda: ConcurrentStableList(["authorization_code"]),
+        description="授权类型（client_credentials/authorization_code）",
+    )
+    scopes: Annotated[ConcurrentStableList[str], CONTRACT_COLLECTION] = Field(
+        default_factory=lambda: ConcurrentStableList(["openid"]), description="允许申请的 scope 集合"
+    )
+    ip_whitelist: Annotated[ConcurrentStableList[str], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_LIST, description="来源 IP / CIDR 白名单（开放接口阶段十用）"
+    )
     public: bool = Field(default=False, description="是否公共客户端（不生成 secret；授权码流程强制 PKCE）")
 
 
@@ -28,10 +38,18 @@ class ClientItem(BaseSchema):
     id: int = Field(description="主键")
     client_id: str = Field(description="客户端标识")
     name: str = Field(description="应用名称")
-    redirect_uris: list[str] = Field(default_factory=list[str], description="回调地址白名单")
-    grant_types: list[str] = Field(default_factory=list[str], description="授权类型")
-    scopes: list[str] = Field(default_factory=list[str], description="scope 集合")
-    ip_whitelist: list[str] = Field(default_factory=list[str], description="IP / CIDR 白名单")
+    redirect_uris: Annotated[ConcurrentStableList[str], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_LIST, description="回调地址白名单"
+    )
+    grant_types: Annotated[ConcurrentStableList[str], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_LIST, description="授权类型"
+    )
+    scopes: Annotated[ConcurrentStableList[str], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_LIST, description="scope 集合"
+    )
+    ip_whitelist: Annotated[ConcurrentStableList[str], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_LIST, description="IP / CIDR 白名单"
+    )
     status: str = Field(description="状态（enabled/disabled）")
 
 
@@ -41,10 +59,18 @@ class ClientCreated(BaseSchema):
     client_id: str = Field(description="客户端标识")
     client_secret: str = Field(description="客户端密钥明文（仅本次返回；请妥善保存）")
     name: str = Field(description="应用名称")
-    redirect_uris: list[str] = Field(default_factory=list[str], description="回调地址白名单")
-    grant_types: list[str] = Field(default_factory=list[str], description="授权类型")
-    scopes: list[str] = Field(default_factory=list[str], description="scope 集合")
-    ip_whitelist: list[str] = Field(default_factory=list[str], description="IP / CIDR 白名单")
+    redirect_uris: Annotated[ConcurrentStableList[str], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_LIST, description="回调地址白名单"
+    )
+    grant_types: Annotated[ConcurrentStableList[str], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_LIST, description="授权类型"
+    )
+    scopes: Annotated[ConcurrentStableList[str], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_LIST, description="scope 集合"
+    )
+    ip_whitelist: Annotated[ConcurrentStableList[str], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_LIST, description="IP / CIDR 白名单"
+    )
     status: str = Field(description="状态")
 
 

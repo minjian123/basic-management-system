@@ -17,6 +17,7 @@ from typing import cast
 
 import httpx
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.exceptions import ConfigError
 from bms_core.core.objects import BaseFrameworkObject
 from bms_core.idp.base import BaseIdentityProvider
@@ -73,7 +74,7 @@ class ProviderRegistry(BaseFrameworkObject):
         config = _parse_config(row.config, row.idp_key)
         redirect_uri = _resolve_redirect_uri(config, row.idp_key, self._callback_base_url)
         if redirect_uri and not config.get("redirect_uri"):
-            config = {**config, "redirect_uri": redirect_uri}
+            config = ConcurrentStableDict({**config, "redirect_uri": redirect_uri})
         return IdentityProviderSpec(
             id=row.id,
             idp_key=row.idp_key,
@@ -87,7 +88,7 @@ class ProviderRegistry(BaseFrameworkObject):
         *,
         idp_key: str,
         type: str,
-        config: dict[str, object],
+        config: ConcurrentStableDict[str, object],
     ) -> IdentityProviderSpec:
         """草稿配置 → 实例规格（连通性测试用；不落库、不缓存）。
 
@@ -102,9 +103,9 @@ class ProviderRegistry(BaseFrameworkObject):
             IdentityProviderSpec: 实例规格（`id=0` / `updated_at=""`）。
         """
         redirect_uri = _resolve_redirect_uri(config, idp_key, self._callback_base_url)
-        merged = dict(config)
+        merged = ConcurrentStableDict(config)
         if redirect_uri and not merged.get("redirect_uri"):
-            merged["redirect_uri"] = redirect_uri
+            merged.set("redirect_uri", redirect_uri)
         return IdentityProviderSpec(id=0, idp_key=idp_key, type=type, config=merged, updated_at="")
 
     def instance_for_spec(self, spec: IdentityProviderSpec) -> BaseIdentityProvider:
@@ -134,7 +135,7 @@ class ProviderRegistry(BaseFrameworkObject):
         self._registry.clear()
 
 
-def _parse_config(raw: str | None, idp_key: str) -> dict[str, object]:
+def _parse_config(raw: str | None, idp_key: str) -> ConcurrentStableDict[str, object]:
     """解析 IdP 行配置 JSON（必须是对象）。
 
     Args:
@@ -142,7 +143,7 @@ def _parse_config(raw: str | None, idp_key: str) -> dict[str, object]:
         idp_key: 租户内标识（错误提示用）。
 
     Returns:
-        dict[str, object]: 配置对象。
+        ConcurrentStableDict[str, object]: 配置对象。
 
     Raises:
         ConfigError: 非法 JSON / 非对象（40001）。
@@ -153,10 +154,10 @@ def _parse_config(raw: str | None, idp_key: str) -> dict[str, object]:
         raise ConfigError(f"身份源行配置非法 JSON：{idp_key}") from exc
     if not isinstance(parsed, dict):
         raise ConfigError(f"身份源行配置必须是 JSON 对象：{idp_key}")
-    return cast("dict[str, object]", parsed)
+    return ConcurrentStableDict(cast("dict[str, object]", parsed))
 
 
-def _resolve_redirect_uri(config: dict[str, object], idp_key: str, callback_base_url: str) -> str:
+def _resolve_redirect_uri(config: ConcurrentStableDict[str, object], idp_key: str, callback_base_url: str) -> str:
     """行配置 `redirect_uri` 优先；缺省按回调基址派生。
 
     Args:

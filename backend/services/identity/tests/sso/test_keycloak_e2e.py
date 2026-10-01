@@ -13,6 +13,7 @@ from urllib.parse import parse_qs, urlparse
 import httpx
 import pytest
 
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_identity.api import sso as sso_api
 from bms_identity.services.provider_registry import ProviderRegistry
 
@@ -31,20 +32,20 @@ _FORM_ACTION = re.compile(r'<form[^>]*\saction="([^"]+)"', re.IGNORECASE)
 _INPUT_TAG = re.compile(r"<input\b[^>]*>", re.IGNORECASE)
 
 
-def _load_env() -> dict[str, str]:
+def _load_env() -> ConcurrentStableDict[str, str]:
     """读取 deploy/.env 键值（注释与空行跳过）。
 
     Returns:
-        dict[str, str]: 环境变量映射。
+        ConcurrentStableDict[str, str]: 环境变量映射。
     """
-    data: dict[str, str] = {}
+    data: ConcurrentStableDict[str, str] = ConcurrentStableDict()
     if _ENV_FILE.exists():
         for line in _ENV_FILE.read_text(encoding="utf-8").splitlines():
             stripped = line.strip()
             if not stripped or stripped.startswith("#") or "=" not in stripped:
                 continue
             key, value = stripped.split("=", 1)
-            data[key.strip()] = value.strip()
+            data.set(key.strip(), value.strip())
     return data
 
 
@@ -88,21 +89,21 @@ def _form_action(page: str) -> str:
     return html.unescape(matched.group(1))
 
 
-def _form_fields(page: str) -> dict[str, str]:
+def _form_fields(page: str) -> ConcurrentStableDict[str, str]:
     """提取登录页隐藏域（含 credentialId 等）。
 
     Args:
         page: 页面 HTML。
 
     Returns:
-        dict[str, str]: 表单字段。
+        ConcurrentStableDict[str, str]: 表单字段。
     """
-    fields: dict[str, str] = {}
+    fields: ConcurrentStableDict[str, str] = ConcurrentStableDict()
     for tag in _INPUT_TAG.findall(page):
         name = _attr(tag, "name")
         value = _attr(tag, "value")
         if name and value is not None:
-            fields[name] = value
+            fields.set(name, value)
     return fields
 
 
@@ -118,13 +119,15 @@ async def _ensure_redirect_uris(realm: httpx.AsyncClient, token: str) -> None:
     found = await realm.get(clients_url, headers=headers, params={"clientId": "bms-backend"})
     if found.status_code != 200 or not found.json():
         pytest.skip("Keycloak 缺 bms-backend 客户端（实仓未导入 bms-realm.json）")
-    client: dict[str, object] = found.json()[0]
-    uris: list[str] = [str(uri) for uri in cast("list[object]", client.get("redirectUris") or [])]
+    client: ConcurrentStableDict[str, object] = ConcurrentStableDict(found.json()[0])
+    uris: ConcurrentStableList[str] = ConcurrentStableList(
+        str(uri) for uri in cast("list[object]", client.get("redirectUris") or [])
+    )
     missing = [uri for uri in (_REGISTERED_REDIRECT, _REGISTERED_REDIRECT_EDGE) if uri not in uris]
     if missing:
-        updated = dict(client)
-        updated["redirectUris"] = [*uris, *missing]
-        put = await realm.put(f"{clients_url}/{client['id']}", headers=headers, json=updated)
+        updated = ConcurrentStableDict(client)
+        updated.set("redirectUris", ConcurrentStableList([*uris, *missing]))
+        put = await realm.put(f"{clients_url}/{client['id']}", headers=headers, json=dict(updated))
         if put.status_code not in (200, 204):
             pytest.skip(f"Keycloak 回调地址补登记失败（HTTP {put.status_code}）")
 
@@ -248,7 +251,7 @@ async def test_keycloak_end_to_end_login(
         page = await realm.get(location)
         assert page.status_code == 200, page.text
         fields = _form_fields(page.text)
-        fields.update({"username": _USERNAME, "password": _PASSWORD})
+        fields.update({"username": _USERNAME, "password": _PASSWORD}.items())
         posted = await realm.post(_form_action(page.text), data=fields)
         assert posted.status_code == 302, posted.text
         redirect = urlparse(posted.headers["location"])

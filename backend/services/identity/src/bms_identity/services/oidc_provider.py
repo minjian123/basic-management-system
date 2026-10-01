@@ -23,7 +23,7 @@ from dataclasses import dataclass
 from typing import ClassVar, cast
 from urllib.parse import urlencode
 
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import OidcProviderSettings
 from bms_core.core.exceptions import (
     AuthError,
@@ -163,17 +163,17 @@ class OidcProviderService(BaseFrameworkObject):
         except KeyError, IndexError, ValueError:
             return template
 
-    async def discovery(self, tenant_code: str) -> dict[str, object]:
+    async def discovery(self, tenant_code: str) -> ConcurrentStableDict[str, object]:
         """构造 Discovery 文档（issuer 与端点按租户编码派生）。
 
         Args:
             tenant_code: 租户编码（外部 URL 形态）。
 
         Returns:
-            dict[str, object]: OIDC Discovery 文档。
+            ConcurrentStableDict[str, object]: OIDC Discovery 文档。
         """
         issuer = self.issuer_for(tenant_code)
-        return dict(
+        return ConcurrentStableDict(
             build_discovery_document(
                 issuer=issuer,
                 authorization_endpoint=f"{issuer}/authorize",
@@ -244,7 +244,7 @@ class OidcProviderService(BaseFrameworkObject):
         )
         await self._state.save(
             code,
-            ConcurrentStableDict(_code_payload(payload)),
+            _code_payload(payload),
             tenant=tenant_id,
             ttl=self._settings.authorization_code_ttl_seconds,
             namespace=OIDC_CODE_NAMESPACE,
@@ -462,10 +462,10 @@ def clean_scope(scope: str | None) -> str:
     """
     if not scope:
         return ""
-    seen: list[str] = []
+    seen: ConcurrentStableList[str] = ConcurrentStableList()
     for item in scope.split():
         if item and item not in seen:
-            seen.append(item)
+            seen.add(item)
     return " ".join(seen)
 
 
@@ -480,9 +480,9 @@ def redirect_error(redirect_uri: str, error: str, state: str | None) -> str:
     Returns:
         str: 回跳地址。
     """
-    params: dict[str, str] = {"error": error, "error_description": error}
+    params: ConcurrentStableDict[str, str] = ConcurrentStableDict({"error": error, "error_description": error})
     if state:
-        params["state"] = state
+        params.set("state", state)
     return with_query(redirect_uri, urlencode(params))
 
 
@@ -517,14 +517,14 @@ def verify_pkce(challenge: str, verifier: str | None) -> bool:
     return secrets.compare_digest(computed, challenge)
 
 
-def load_list(raw: str | None) -> list[str]:
+def load_list(raw: str | None) -> ConcurrentStableList[str]:
     """解析 JSON 数组字段（非法 / 非数组返回空列表）。
 
     Args:
         raw: 列原文。
 
     Returns:
-        list[str]: 字符串列表。
+        ConcurrentStableList[str]: 字符串列表。
     """
     try:
         parsed = json.loads(raw or "[]")
@@ -535,14 +535,14 @@ def load_list(raw: str | None) -> list[str]:
     return [str(item) for item in cast("list[object]", parsed)]
 
 
-def _code_payload(code: OidcCode) -> dict[str, object]:
+def _code_payload(code: OidcCode) -> ConcurrentStableDict[str, object]:
     """授权码载荷 → 存储 payload。
 
     Args:
         code: 授权码载荷。
 
     Returns:
-        dict[str, object]: payload。
+        ConcurrentStableDict[str, object]: payload。
     """
     return {
         "client_id": code.client_id,
@@ -558,7 +558,7 @@ def _code_payload(code: OidcCode) -> dict[str, object]:
     }
 
 
-def code_from_payload(raw: Mapping[str, object] | None) -> OidcCode:
+def code_from_payload(raw: ConcurrentStableDict[str, object] | None) -> OidcCode:
     """存储 payload → 授权码载荷（缺失 / 非法按无效授权码）。
 
     Args:
