@@ -10,7 +10,7 @@ import os
 import subprocess
 import sys
 import time
-from collections.abc import Callable, Mapping
+from collections.abc import Callable
 from pathlib import Path
 from typing import cast
 from urllib.parse import parse_qs, urlparse
@@ -20,6 +20,7 @@ import pytest
 from joserfc import jwt
 from joserfc.jwk import RSAKey
 
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import IdentityProviderSettings, Settings
 from bms_core.core.exceptions import AuthError, ConfigError, PluginError, ServiceUnavailableError
 from bms_core.idp.base import IdentityClaims
@@ -36,7 +37,7 @@ _REALM_FILE = _BACKEND_ROOT.parent / "deploy" / "keycloak" / "bms-realm.json"
 type Handler = Callable[[httpx.Request], httpx.Response]
 
 
-def _metadata(issuer: str = ISSUER, *, drop: str | None = None) -> dict[str, str]:
+def _metadata(issuer: str = ISSUER, *, drop: str | None = None) -> ConcurrentStableDict[str, str]:
     """构造 OIDC Discovery 文档。
 
     Args:
@@ -44,29 +45,33 @@ def _metadata(issuer: str = ISSUER, *, drop: str | None = None) -> dict[str, str
         drop: 需删除的字段（验证缺字段分支）。
 
     Returns:
-        dict[str, str]: Discovery 文档。
+        ConcurrentStableDict[str, str]: Discovery 文档。
     """
-    doc = {
-        "issuer": issuer,
-        "authorization_endpoint": f"{issuer}/protocol/openid-connect/auth",
-        "token_endpoint": f"{issuer}/protocol/openid-connect/token",
-        "userinfo_endpoint": f"{issuer}/protocol/openid-connect/userinfo",
-        "jwks_uri": f"{issuer}/protocol/openid-connect/certs",
-    }
+    doc: ConcurrentStableDict[str, str] = ConcurrentStableDict(
+        {
+            "issuer": issuer,
+            "authorization_endpoint": f"{issuer}/protocol/openid-connect/auth",
+            "token_endpoint": f"{issuer}/protocol/openid-connect/token",
+            "userinfo_endpoint": f"{issuer}/protocol/openid-connect/userinfo",
+            "jwks_uri": f"{issuer}/protocol/openid-connect/certs",
+        }
+    )
     if drop is not None:
-        doc.pop(drop, None)
+        doc.get_and_remove(drop)
     return doc
 
 
-def _key_pair() -> tuple[RSAKey, dict[str, object]]:
+def _key_pair() -> tuple[RSAKey, ConcurrentStableDict[str, object]]:
     """生成 RSA 密钥与对应公钥 JWK（kid=k1）。
 
     Returns:
-        tuple[RSAKey, dict[str, object]]: 私钥与公钥 JWK。
+        tuple[RSAKey, ConcurrentStableDict[str, object]]: 私钥与公钥 JWK。
     """
     key = RSAKey.generate_key(2048, private=True)
-    public = cast("dict[str, object]", key.as_dict(private=False))
-    public["kid"] = "k1"
+    public: ConcurrentStableDict[str, object] = ConcurrentStableDict(
+        cast("dict[str, object]", key.as_dict(private=False))
+    )
+    public.set("kid", "k1")
     return key, public
 
 
@@ -97,25 +102,27 @@ def _token(
         str: JWT 紧凑串。
     """
     now = int(time.time())
-    claims: dict[str, object] = {
-        "iss": iss,
-        "sub": subject,
-        "aud": aud,
-        "exp": now + exp_delta,
-        "iat": now,
-        "preferred_username": "alice",
-        "email": "alice@example.com",
-    }
+    claims: ConcurrentStableDict[str, object] = ConcurrentStableDict(
+        {
+            "iss": iss,
+            "sub": subject,
+            "aud": aud,
+            "exp": now + exp_delta,
+            "iat": now,
+            "preferred_username": "alice",
+            "email": "alice@example.com",
+        }
+    )
     if nonce is not None:
-        claims["nonce"] = nonce
+        claims.set("nonce", nonce)
     return jwt.encode(
         {"alg": alg, "kid": kid},
-        claims,
+        dict(claims),
         key,
     )
 
 
-def _compact(header: Mapping[str, object], payload: Mapping[str, object]) -> str:
+def _compact(header: ConcurrentStableDict[str, object], payload: ConcurrentStableDict[str, object]) -> str:
     """手工拼装紧凑 JWT（用于构造非白名单算法的票据）。
 
     Args:
@@ -126,20 +133,20 @@ def _compact(header: Mapping[str, object], payload: Mapping[str, object]) -> str
         str: 紧凑 JWT 串。
     """
 
-    def encode(part: Mapping[str, object]) -> str:
-        raw = json.dumps(part, separators=(",", ":")).encode()
+    def encode(part: ConcurrentStableDict[str, object]) -> str:
+        raw = json.dumps(dict(part), separators=(",", ":")).encode()
         return base64.urlsafe_b64encode(raw).rstrip(b"=").decode()
 
-    return f"{encode(header)}.{encode(payload)}.{encode({'sig': 1})}"
+    return f"{encode(header)}.{encode(payload)}.{encode(ConcurrentStableDict({'sig': 1}))}"
 
 
 def _handler(
     *,
-    public: Mapping[str, object],
+    public: ConcurrentStableDict[str, object],
     id_token: str | None = None,
-    jwks_calls: list[int] | None = None,
+    jwks_calls: ConcurrentStableList[int] | None = None,
     drop: str | None = None,
-    public_supplier: Callable[[], Mapping[str, object]] | None = None,
+    public_supplier: Callable[[], ConcurrentStableDict[str, object]] | None = None,
 ) -> Handler:
     """构造 MockTransport 处理器（路由 Discovery / JWKS / token / userinfo）。
 
@@ -157,12 +164,12 @@ def _handler(
     def handle(request: httpx.Request) -> httpx.Response:
         path = request.url.path
         if path.endswith("/.well-known/openid-configuration"):
-            return httpx.Response(200, json=_metadata(drop=drop))
+            return httpx.Response(200, json=dict(_metadata(drop=drop)))
         if path.endswith("/certs"):
             if jwks_calls is not None:
-                jwks_calls.append(1)
+                jwks_calls.add(1)
             keys = public_supplier() if public_supplier is not None else public
-            return httpx.Response(200, json={"keys": [keys]})
+            return httpx.Response(200, json={"keys": [dict(keys)]})
         if path.endswith("/token"):
             return httpx.Response(
                 200,
@@ -263,7 +270,10 @@ async def test_verify_token_rejects_bad_tokens() -> None:
     with pytest.raises(AuthError):
         await provider.verify_token(_token(key, aud="other"), audience=CLIENT_ID)
 
-    hs_token = _compact({"alg": "HS256", "typ": "JWT"}, {"iss": ISSUER, "sub": "u", "exp": int(time.time()) + 300})
+    hs_token = _compact(
+        ConcurrentStableDict({"alg": "HS256", "typ": "JWT"}),
+        ConcurrentStableDict({"iss": ISSUER, "sub": "u", "exp": int(time.time()) + 300}),
+    )
     with pytest.raises(AuthError):
         await provider.verify_token(hs_token)
 
@@ -272,12 +282,12 @@ async def test_verify_token_rejects_bad_tokens() -> None:
 async def test_verify_token_refreshes_jwks_on_kid_miss() -> None:
     """首次 JWKS 无匹配 kid 时强制刷新一次再验签（容忍密钥轮换）。"""
     key, public = _key_pair()
-    rotated = dict(public)
-    rotated["kid"] = "k2"
-    calls: list[int] = []
+    rotated = ConcurrentStableDict(public)
+    rotated.set("kid", "k2")
+    calls: ConcurrentStableList[int] = ConcurrentStableList()
     state = {"served": 0}
 
-    def supplier() -> Mapping[str, object]:
+    def supplier() -> ConcurrentStableDict[str, object]:
         state["served"] += 1
         return rotated if state["served"] == 1 else public
 
@@ -337,7 +347,7 @@ async def test_jwks_error_branches() -> None:
 
     def unreachable(request: httpx.Request) -> httpx.Response:
         if request.url.path.endswith("/.well-known/openid-configuration"):
-            return httpx.Response(200, json=_metadata())
+            return httpx.Response(200, json=dict(_metadata()))
         raise httpx.ConnectError("jwks down", request=request)
 
     with pytest.raises(ServiceUnavailableError):
@@ -345,7 +355,7 @@ async def test_jwks_error_branches() -> None:
 
     def not_object(request: httpx.Request) -> httpx.Response:
         if request.url.path.endswith("/.well-known/openid-configuration"):
-            return httpx.Response(200, json=_metadata())
+            return httpx.Response(200, json=dict(_metadata()))
         return httpx.Response(200, json=["not", "an", "object"])
 
     with pytest.raises(AuthError):
@@ -353,7 +363,7 @@ async def test_jwks_error_branches() -> None:
 
     def malformed(request: httpx.Request) -> httpx.Response:
         if request.url.path.endswith("/.well-known/openid-configuration"):
-            return httpx.Response(200, json=_metadata())
+            return httpx.Response(200, json=dict(_metadata()))
         return httpx.Response(200, json={"keys": [{"kty": "bogus"}]})
 
     with pytest.raises(AuthError):
@@ -367,7 +377,7 @@ async def test_token_endpoint_non_object_response() -> None:
 
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.path.endswith("/.well-known/openid-configuration"):
-            return httpx.Response(200, json=_metadata())
+            return httpx.Response(200, json=dict(_metadata()))
         return httpx.Response(200, json=["unexpected"])
 
     provider = _provider(handler)
@@ -516,12 +526,12 @@ async def test_authorize_without_new_params_keeps_old_shape() -> None:
 @pytest.mark.kiwi_id(2179)
 async def test_exchange_token_sends_code_verifier() -> None:
     """换码请求：传 `code_verifier` 时并入表单；未传时不出现该字段。"""
-    seen: list[dict[str, str]] = []
+    seen: ConcurrentStableList[ConcurrentStableDict[str, str]] = ConcurrentStableList()
 
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.path.endswith("/.well-known/openid-configuration"):
-            return httpx.Response(200, json=_metadata())
-        seen.append(dict(pair.split("=", 1) for pair in request.content.decode().split("&") if pair))
+            return httpx.Response(200, json=dict(_metadata()))
+        seen.add(ConcurrentStableDict(dict(pair.split("=", 1) for pair in request.content.decode().split("&") if pair)))
         return httpx.Response(200, json={"access_token": "at", "token_type": "Bearer", "expires_in": 300})
 
     provider = _provider(handler)

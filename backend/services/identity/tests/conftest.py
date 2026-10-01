@@ -9,6 +9,7 @@ from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
 from bms_core.cache.memory import MemoryCacheRegion
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.config import Settings, get_settings
 from bms_core.core.context import (
     current_client_ip,
@@ -59,7 +60,7 @@ class _SeedTenantSource:
                 return tenant
         raise TenantNotFoundError(f"未知租户主键：{tenant_id}")
 
-    def _tenants(self) -> dict[str, TenantContext]:
+    def _tenants(self) -> ConcurrentStableDict[str, TenantContext]:
         """演示 / 示例租户上下文（带雪花主键与固定库键）。"""
         return {
             "demo": TenantContext(

@@ -26,6 +26,7 @@ from bms_core.api.deps import (
     get_session_store,
     get_user_token_issuer,
 )
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.db.registry import PLATFORM_DB_KEY
 from bms_core.db.session import DbSession, session_scope
 from bms_core.db.tenant import DEMO_TENANT
@@ -115,86 +116,94 @@ class SsoHarness:
             factory=self.app.state.session_factory,
         )
 
-    def peek(self, state: str) -> dict[str, object]:
+    def peek(self, state: str) -> ConcurrentStableDict[str, object]:
         """读取流程状态载荷（私有字典直读）。
 
         Args:
             state: 流程状态串。
 
         Returns:
-            dict[str, object]: 流程载荷。
+            ConcurrentStableDict[str, object]: 流程载荷。
         """
         entry = self.states._items[build_idp_state_key(state)]  # pyright: ignore[reportPrivateUsage]
         return entry[0]
 
-    def provider_config(self, **overrides: object) -> dict[str, object]:
+    def provider_config(self, **overrides: object) -> ConcurrentStableDict[str, object]:
         """构造 OIDC IdP 行配置（缺省指向 Mock IdP）。
 
         Args:
             **overrides: 覆盖字段。
 
         Returns:
-            dict[str, object]: 配置对象。
+            ConcurrentStableDict[str, object]: 配置对象。
         """
-        config: dict[str, object] = {
-            "issuer": ISSUER,
-            "client_id": CLIENT_ID,
-            "client_secret_ref": f"env:{SECRET_ENV}",
-            "redirect_uri": REDIRECT_URI,
-            "scopes": ["openid", "profile", "email"],
-        }
-        config.update(overrides)
+        config: ConcurrentStableDict[str, object] = ConcurrentStableDict(
+            {
+                "issuer": ISSUER,
+                "client_id": CLIENT_ID,
+                "client_secret_ref": f"env:{SECRET_ENV}",
+                "redirect_uri": REDIRECT_URI,
+                "scopes": ["openid", "profile", "email"],
+            }
+        )
+        config.update(overrides.items())
         return config
 
-    def cas_provider_config(self, **overrides: object) -> dict[str, object]:
+    def cas_provider_config(self, **overrides: object) -> ConcurrentStableDict[str, object]:
         """构造 CAS IdP 行配置（缺省指向 Mock CAS）。
 
         Args:
             **overrides: 覆盖字段。
 
         Returns:
-            dict[str, object]: 配置对象。
+            ConcurrentStableDict[str, object]: 配置对象。
         """
-        config: dict[str, object] = {
-            "cas_server_url": CAS_SERVER,
-            "redirect_uri": CAS_REDIRECT_URI,
-        }
-        config.update(overrides)
+        config: ConcurrentStableDict[str, object] = ConcurrentStableDict(
+            {
+                "cas_server_url": CAS_SERVER,
+                "redirect_uri": CAS_REDIRECT_URI,
+            }
+        )
+        config.update(overrides.items())
         return config
 
-    def wecom_provider_config(self, **overrides: object) -> dict[str, object]:
+    def wecom_provider_config(self, **overrides: object) -> ConcurrentStableDict[str, object]:
         """构造企业微信 IdP 行配置（缺省指向 Mock 企微）。
 
         Args:
             **overrides: 覆盖字段。
 
         Returns:
-            dict[str, object]: 配置对象。
+            ConcurrentStableDict[str, object]: 配置对象。
         """
-        config: dict[str, object] = {
-            "corp_id": WECOM_CORP_ID,
-            "agent_id": WECOM_AGENT_ID,
-            "secret_ref": f"env:{WECOM_SECRET_ENV}",
-            "redirect_uri": WECOM_REDIRECT_URI,
-        }
-        config.update(overrides)
+        config: ConcurrentStableDict[str, object] = ConcurrentStableDict(
+            {
+                "corp_id": WECOM_CORP_ID,
+                "agent_id": WECOM_AGENT_ID,
+                "secret_ref": f"env:{WECOM_SECRET_ENV}",
+                "redirect_uri": WECOM_REDIRECT_URI,
+            }
+        )
+        config.update(overrides.items())
         return config
 
-    def dingtalk_provider_config(self, **overrides: object) -> dict[str, object]:
+    def dingtalk_provider_config(self, **overrides: object) -> ConcurrentStableDict[str, object]:
         """构造钉钉 IdP 行配置（缺省指向 Mock 钉钉）。
 
         Args:
             **overrides: 覆盖字段。
 
         Returns:
-            dict[str, object]: 配置对象。
+            ConcurrentStableDict[str, object]: 配置对象。
         """
-        config: dict[str, object] = {
-            "client_id": DINGTALK_CLIENT_ID,
-            "client_secret_ref": f"env:{DINGTALK_SECRET_ENV}",
-            "redirect_uri": DINGTALK_REDIRECT_URI,
-        }
-        config.update(overrides)
+        config: ConcurrentStableDict[str, object] = ConcurrentStableDict(
+            {
+                "client_id": DINGTALK_CLIENT_ID,
+                "client_secret_ref": f"env:{DINGTALK_SECRET_ENV}",
+                "redirect_uri": DINGTALK_REDIRECT_URI,
+            }
+        )
+        config.update(overrides.items())
         return config
 
     async def seed_provider(
@@ -204,7 +213,7 @@ class SsoHarness:
         type: str = "oidc",
         status: str = "enabled",
         sort: int = 0,
-        config: dict[str, object] | None = None,
+        config: ConcurrentStableDict[str, object] | None = None,
         name: str = "Keycloak",
     ) -> None:
         """播种一条 IdP 提供方行。
@@ -234,7 +243,7 @@ class SsoHarness:
                     idp_key=idp_key,
                     type=type,
                     icon="",
-                    config=json.dumps(payload),
+                    config=json.dumps(dict(payload)),
                     status=status,
                     sort=sort,
                 )
@@ -294,7 +303,7 @@ class SsoHarness:
 
     async def start_flow(
         self, client: AsyncClient, *, idp_key: str = IDP_KEY, tenant_header: bool = True
-    ) -> tuple[str, str, dict[str, object]]:
+    ) -> tuple[str, str, ConcurrentStableDict[str, object]]:
         """发起授权跳转并返回 (state, Location, 流程载荷)。
 
         Args:
@@ -303,7 +312,7 @@ class SsoHarness:
             tenant_header: 是否带租户请求头。
 
         Returns:
-            tuple[str, str, dict[str, object]]: (state, 跳转 URL, 流程载荷)。
+            tuple[str, str, ConcurrentStableDict[str, object]]: (state, 跳转 URL, 流程载荷)。
         """
         response = await client.get(
             f"/api/v1/auth/sso/{idp_key}/authorize",
@@ -314,17 +323,17 @@ class SsoHarness:
         state = parse_qs(urlparse(location).query)["state"][0]
         return state, location, self.peek(state)
 
-    async def flow_payload(self, state: str) -> dict[str, object]:
+    async def flow_payload(self, state: str) -> ConcurrentStableDict[str, object]:
         """读流程载荷（state 不存在返回空）。
 
         Args:
             state: 流程状态串。
 
         Returns:
-            dict[str, object]: 流程载荷。
+            ConcurrentStableDict[str, object]: 流程载荷。
         """
         entry = self.states._items.get(build_idp_state_key(state))  # pyright: ignore[reportPrivateUsage]
-        return entry[0] if entry is not None else {}
+        return entry[0] if entry is not None else ConcurrentStableDict()
 
 
 @pytest.fixture

@@ -1,8 +1,11 @@
 """认证与身份服务 schemas 层：SSO 入口 / 回调与服务间概要契约。"""
 
+from typing import Annotated
+
 from pydantic import Field
 
-from bms_core.schemas.base import BaseSchema
+from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.schemas.base import CONTRACT_COLLECTION, CONTRACT_STABLE_LIST, BaseSchema
 from bms_core.schemas.service import ServiceDto
 
 
@@ -19,7 +22,9 @@ class SsoProviderItem(BaseSchema):
 class SsoProviderList(BaseSchema):
     """SSO 入口清单响应体。"""
 
-    items: list[SsoProviderItem] = Field(default_factory=list[SsoProviderItem], description="可用 IdP 清单")
+    items: Annotated[ConcurrentStableList[SsoProviderItem], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_LIST, description="可用 IdP 清单"
+    )
 
 
 class SsoAuthorizeInfo(BaseSchema):
@@ -73,4 +78,6 @@ class SsoIdentityItem(BaseSchema):
 class SsoIdentityList(BaseSchema):
     """SSO 身份绑定清单响应体。"""
 
-    items: list[SsoIdentityItem] = Field(default_factory=list[SsoIdentityItem], description="绑定清单")
+    items: Annotated[ConcurrentStableList[SsoIdentityItem], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_LIST, description="绑定清单"
+    )

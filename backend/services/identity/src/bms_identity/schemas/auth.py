@@ -1,8 +1,11 @@
 """认证与身份服务 schemas 层：登录 / 刷新 / 登出请求与响应契约。"""
 
+from typing import Annotated
+
 from pydantic import Field
 
-from bms_core.schemas.base import BaseSchema
+from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.schemas.base import CONTRACT_COLLECTION, CONTRACT_STABLE_LIST, BaseSchema
 from bms_core.schemas.service import ServiceDto
 
 REFRESH_COOKIE_NAME = "bms_refresh_token"
@@ -18,8 +21,8 @@ class CaptchaInput(BaseSchema):
     captcha_id: str = Field(default="", description="挑战编号")
     kind: str = Field(default="image", description="验证码形态（image / slider / sms）")
     code: str = Field(default="", description="校验码（图形 / 短信）")
-    trace: list[tuple[int, int, int]] = Field(
-        default_factory=lambda: list[tuple[int, int, int]](), description="滑块轨迹点（x / y / 相对起点毫秒）"
+    trace: Annotated[ConcurrentStableList[tuple[int, int, int]], CONTRACT_COLLECTION] = Field(
+        default_factory=ConcurrentStableList, description="滑块轨迹点（x / y / 相对起点毫秒）"
     )
 
 
@@ -89,7 +92,9 @@ class OrgUpdatePasswordResult(ServiceDto):
 
     updated: bool = Field(default=False, description="是否更新成功")
     reason: str = Field(default="", description="未更新原因（空=成功；not_found / policy_violation / history_reused）")
-    violations: list[str] = Field(default_factory=list, description="复杂度违规原因码清单")
+    violations: Annotated[ConcurrentStableList[str], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_LIST, description="复杂度违规原因码清单"
+    )
 
 
 class OrgLoginState(ServiceDto):

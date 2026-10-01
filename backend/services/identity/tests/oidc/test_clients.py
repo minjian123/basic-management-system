@@ -3,13 +3,15 @@
 import pytest
 from httpx import AsyncClient
 
+from bms_core.core.concurrent import ConcurrentStableDict
+
 from .conftest import OidcHarness
 from .helpers import TENANT_HEADERS, authorize_code, pkce
 
 _CLIENTS = "/api/v1/open/clients"
 
 
-async def _create(client: AsyncClient, **overrides: object) -> dict[str, object]:
+async def _create(client: AsyncClient, **overrides: object) -> ConcurrentStableDict[str, object]:
     """调注册接口创建客户端。
 
     Args:
@@ -19,14 +21,16 @@ async def _create(client: AsyncClient, **overrides: object) -> dict[str, object]
     Returns:
         dict[str, object]: 响应 data。
     """
-    body: dict[str, object] = {
-        "name": "RP App",
-        "redirect_uris": ["http://rp.test/created"],
-        "grant_types": ["authorization_code"],
-        "scopes": ["openid", "profile"],
-    }
-    body.update(overrides)
-    response = await client.post(_CLIENTS, json=body, headers=TENANT_HEADERS)
+    body: ConcurrentStableDict[str, object] = ConcurrentStableDict(
+        {
+            "name": "RP App",
+            "redirect_uris": ["http://rp.test/created"],
+            "grant_types": ["authorization_code"],
+            "scopes": ["openid", "profile"],
+        }
+    )
+    body.update(overrides.items())
+    response = await client.post(_CLIENTS, json=dict(body), headers=TENANT_HEADERS)
     assert response.status_code == 200, response.text
     return response.json()["data"]
 

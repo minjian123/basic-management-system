@@ -6,6 +6,7 @@ import pytest
 from httpx import AsyncClient
 from starlette.datastructures import FormData
 
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import OidcProviderSettings
 from bms_core.core.exceptions import AuthError, OidcInvalidGrantError
 from bms_core.db.session import DbSession
@@ -139,7 +140,7 @@ class _FakeTenantSource:
 
     def __init__(self) -> None:
         """初始化。"""
-        self.calls: list[str] = []
+        self.calls: ConcurrentStableList[str] = ConcurrentStableList()
 
     async def by_code(self, code: str) -> TenantContext:
         """返回租户上下文（带雪花主键）。
@@ -150,7 +151,7 @@ class _FakeTenantSource:
         Returns:
             TenantContext: 租户上下文。
         """
-        self.calls.append(code)
+        self.calls.add(code)
         tenant_id = 1001 if code == "demo" else 2002
         return TenantContext(code=code, db_key=f"tenant_{code}", name=code, tenant_id=tenant_id)
 

@@ -6,7 +6,7 @@ from datetime import datetime
 
 from sqlalchemy import ColumnElement, func, select
 
-from bms_core.core.concurrent import ConcurrentStableSet
+from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
 from bms_core.repositories.base_db_repository import BaseDbRepository
 from bms_core.schemas.pagination import BasePageQuery
 from bms_identity.models.session import SysSession
@@ -111,7 +111,7 @@ class SessionRepository(BaseDbRepository[SysSession]):
         ip: str | None = None,
         login_from: datetime | None = None,
         login_to: datetime | None = None,
-    ) -> list[SysSession]:
+    ) -> ConcurrentStableList[SysSession]:
         """在线会话分页查询（未撤销且未过期；筛选 + 统一排序）。
 
         Args:
@@ -124,7 +124,7 @@ class SessionRepository(BaseDbRepository[SysSession]):
             login_to: 登录时间上界（闭区间，可选）。
 
         Returns:
-            list[SysSession]: 当前页会话。
+            ConcurrentStableList[SysSession]: 当前页会话。
         """
         statement = self._apply_sort(
             self._select().where(*self._active_conditions(now, user_id, device, ip, login_from, login_to)),
@@ -132,7 +132,7 @@ class SessionRepository(BaseDbRepository[SysSession]):
         )
         statement = statement.limit(query.size).offset((query.page - 1) * query.size)
         result = await self._session.execute(statement)
-        return list(result.scalars().all())
+        return ConcurrentStableList(result.scalars().all())
 
     async def count_active(
         self,
@@ -167,7 +167,7 @@ class SessionRepository(BaseDbRepository[SysSession]):
         )
         return int((await self._session.execute(statement)).scalar_one())
 
-    async def list_active_by_user(self, user_id: int, *, now: datetime) -> list[SysSession]:
+    async def list_active_by_user(self, user_id: int, *, now: datetime) -> ConcurrentStableList[SysSession]:
         """取指定用户的在线会话（按登录时间升序、主键兜底；多端上限作废最旧用）。
 
         Args:
@@ -175,7 +175,7 @@ class SessionRepository(BaseDbRepository[SysSession]):
             now: 当前 UTC 时间（过期判定基准）。
 
         Returns:
-            list[SysSession]: 该用户在线会话（最旧在前）。
+            ConcurrentStableList[SysSession]: 该用户在线会话（最旧在前）。
         """
         statement = (
             self._select()
@@ -183,7 +183,7 @@ class SessionRepository(BaseDbRepository[SysSession]):
             .order_by(self._column("login_at").asc(), self._column("id").asc())
         )
         result = await self._session.execute(statement)
-        return list(result.scalars().all())
+        return ConcurrentStableList(result.scalars().all())
 
     def _active_conditions(
         self,
@@ -193,7 +193,7 @@ class SessionRepository(BaseDbRepository[SysSession]):
         ip: str | None = None,
         login_from: datetime | None = None,
         login_to: datetime | None = None,
-    ) -> list[ColumnElement[bool]]:
+    ) -> ConcurrentStableList[ColumnElement[bool]]:
         """在线会话筛选条件（未撤销 + 未过期 + 可选筛选）。
 
         Args:
@@ -205,20 +205,22 @@ class SessionRepository(BaseDbRepository[SysSession]):
             login_to: 登录时间上界（可选）。
 
         Returns:
-            list[ColumnElement[bool]]: 条件表达式列表。
+            ConcurrentStableList[ColumnElement[bool]]: 条件表达式列表。
         """
-        conditions: list[ColumnElement[bool]] = [
-            self._column("revoked_at").is_(None),
-            self._column("expires_at") > now,
-        ]
+        conditions: ConcurrentStableList[ColumnElement[bool]] = ConcurrentStableList(
+            [
+                self._column("revoked_at").is_(None),
+                self._column("expires_at") > now,
+            ]
+        )
         if user_id is not None:
-            conditions.append(self._column("user_id") == user_id)
+            conditions.add(self._column("user_id") == user_id)
         if device:
-            conditions.append(self._column("device").contains(device, autoescape=True))
+            conditions.add(self._column("device").contains(device, autoescape=True))
         if ip:
-            conditions.append(self._column("ip").contains(ip, autoescape=True))
+            conditions.add(self._column("ip").contains(ip, autoescape=True))
         if login_from is not None:
-            conditions.append(self._column("login_at") >= login_from)
+            conditions.add(self._column("login_at") >= login_from)
         if login_to is not None:
-            conditions.append(self._column("login_at") <= login_to)
+            conditions.add(self._column("login_at") <= login_to)
         return conditions

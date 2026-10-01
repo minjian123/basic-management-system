@@ -24,7 +24,7 @@ from datetime import UTC, datetime
 from typing import ClassVar, cast
 from urllib.parse import quote
 
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import SsoSettings
 from bms_core.core.exceptions import (
     AccountDisabledError,
@@ -126,7 +126,7 @@ class SsoService(BaseFrameworkObject):
             sso_settings=sso_settings,
         )
 
-    async def list_providers(self, tenant: str, session: DbSession) -> list[SsoProviderItem]:
+    async def list_providers(self, tenant: str, session: DbSession) -> ConcurrentStableList[SsoProviderItem]:
         """可用 IdP 清单（仅 `enabled`，按 `sort` / `id` 升序）。
 
         Args:
@@ -134,10 +134,10 @@ class SsoService(BaseFrameworkObject):
             session: 认证服务租户库会话。
 
         Returns:
-            list[SsoProviderItem]: 入口清单项（租户无启用 IdP 时为空列表）。
+            ConcurrentStableList[SsoProviderItem]: 入口清单项（租户无启用 IdP 时为空列表）。
         """
         rows = await IdentityProviderRepository(session).list_enabled()
-        return [
+        return ConcurrentStableList(
             SsoProviderItem(
                 idp_key=row.idp_key,
                 name=row.name,
@@ -146,7 +146,7 @@ class SsoService(BaseFrameworkObject):
                 sort=row.sort,
             )
             for row in rows
-        ]
+        )
 
     async def authorize(
         self,
@@ -603,16 +603,16 @@ def _code_challenge(verifier: str) -> str:
     return base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
 
 
-def _flow_payload(flow: IdpFlowState) -> dict[str, object]:
+def _flow_payload(flow: IdpFlowState) -> ConcurrentStableDict[str, object]:
     """流程记录 → 存储 payload（JSON 序列化口径）。
 
     Args:
         flow: 流程记录。
 
     Returns:
-        dict[str, object]: payload。
+        ConcurrentStableDict[str, object]: payload。
     """
-    return cast("dict[str, object]", asdict(flow))
+    return ConcurrentStableDict(cast("dict[str, object]", asdict(flow)))
 
 
 def _flow_from_payload(payload: object) -> IdpFlowState:

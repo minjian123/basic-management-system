@@ -6,7 +6,9 @@ import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.exceptions import PermissionError
+from bms_core.core.serialization import normalize_collections
 from bms_core.permission import base as permission_base
 
 from .conftest import ISSUER, TENANT_HEADERS, TENANT_ID, ManageHarness
@@ -15,28 +17,32 @@ _BASE = "/api/v1/idp/providers"
 _SSO_PROVIDERS = "/api/v1/auth/sso/providers"
 
 
-def _oidc_config(**overrides: object) -> dict[str, object]:
+def _oidc_config(**overrides: object) -> ConcurrentStableDict[str, object]:
     """OIDC 配置（指向探测替身）。"""
-    config: dict[str, object] = {
-        "issuer": ISSUER,
-        "client_id": "bms-backend",
-        "client_secret_ref": "env:MANAGE_TEST_SECRET",
-        "redirect_uri": "https://app.example.com/api/v1/auth/sso/keycloak/callback",
-    }
-    config.update(overrides)
+    config: ConcurrentStableDict[str, object] = ConcurrentStableDict(
+        {
+            "issuer": ISSUER,
+            "client_id": "bms-backend",
+            "client_secret_ref": "env:MANAGE_TEST_SECRET",
+            "redirect_uri": "https://app.example.com/api/v1/auth/sso/keycloak/callback",
+        }
+    )
+    config.update(overrides.items())
     return config
 
 
-async def _create(client: AsyncClient, **overrides: object) -> dict[str, object]:
+async def _create(client: AsyncClient, **overrides: object) -> ConcurrentStableDict[str, object]:
     """调新建接口。"""
-    body: dict[str, object] = {
-        "name": "Keycloak",
-        "idp_key": "keycloak",
-        "type": "oidc",
-        "config": _oidc_config(),
-    }
-    body.update(overrides)
-    response = await client.post(_BASE, json=body, headers=TENANT_HEADERS)
+    body: ConcurrentStableDict[str, object] = ConcurrentStableDict(
+        {
+            "name": "Keycloak",
+            "idp_key": "keycloak",
+            "type": "oidc",
+            "config": _oidc_config(),
+        }
+    )
+    body.update(overrides.items())
+    response = await client.post(_BASE, json=normalize_collections(body), headers=TENANT_HEADERS)
     assert response.status_code == 200, response.text
     return response.json()["data"]
 
@@ -62,7 +68,7 @@ async def test_crud_and_soft_delete_reuse(client: AsyncClient, manage: ManageHar
 
     updated = await client.put(
         f"{_BASE}/{provider_id}",
-        json={"name": "Keycloak2", "icon": "logo.png", "sort": 5, "config": _oidc_config(jit_enabled=True)},
+        json={"name": "Keycloak2", "icon": "logo.png", "sort": 5, "config": dict(_oidc_config(jit_enabled=True))},
         headers=TENANT_HEADERS,
     )
     assert updated.json()["data"]["name"] == "Keycloak2"
@@ -100,7 +106,7 @@ async def test_write_validation_and_conflict(client: AsyncClient, manage: Manage
     await _create(client)
     conflict = await client.post(
         _BASE,
-        json={"name": "Dup", "idp_key": "keycloak", "type": "oidc", "config": _oidc_config()},
+        json={"name": "Dup", "idp_key": "keycloak", "type": "oidc", "config": dict(_oidc_config())},
         headers=TENANT_HEADERS,
     )
     assert conflict.status_code == 409 and conflict.json()["code"] == 20065
@@ -114,7 +120,7 @@ async def test_write_validation_and_conflict(client: AsyncClient, manage: Manage
 
     unknown = await client.post(
         _BASE,
-        json={"name": "Bad", "idp_key": "bad2", "type": "oidc", "config": _oidc_config(bogus=1)},
+        json={"name": "Bad", "idp_key": "bad2", "type": "oidc", "config": dict(_oidc_config(bogus=1))},
         headers=TENANT_HEADERS,
     )
     assert unknown.status_code == 400 and unknown.json()["code"] == 20064
@@ -125,7 +131,7 @@ async def test_write_validation_and_conflict(client: AsyncClient, manage: Manage
             "name": "Bad",
             "idp_key": "bad3",
             "type": "oidc",
-            "config": _oidc_config(client_secret_ref="plain-secret"),
+            "config": dict(_oidc_config(client_secret_ref="plain-secret")),
         },
         headers=TENANT_HEADERS,
     )
@@ -157,7 +163,9 @@ async def test_status_invalid(client: AsyncClient, manage: ManageHarness) -> Non
 @pytest.mark.kiwi_id(2203)
 async def test_draft_and_saved_connectivity(client: AsyncClient, manage: ManageHarness) -> None:
     """草稿测试与已存行测试：成功 200、失败 20066（data 携结果）。"""
-    draft = await client.post(f"{_BASE}/test", json={"type": "oidc", "config": _oidc_config()}, headers=TENANT_HEADERS)
+    draft = await client.post(
+        f"{_BASE}/test", json={"type": "oidc", "config": dict(_oidc_config())}, headers=TENANT_HEADERS
+    )
     assert draft.status_code == 200
     assert draft.json()["data"]["reachable"] is True
 
@@ -206,7 +214,7 @@ async def test_draft_build_failure(client: AsyncClient, manage: ManageHarness) -
     """草稿测试：凭据引用环境变量缺失（实例化失败）转 20066。"""
     response = await client.post(
         f"{_BASE}/test",
-        json={"type": "oidc", "config": _oidc_config(client_secret_ref="env:MANAGE_MISSING_SECRET")},
+        json={"type": "oidc", "config": dict(_oidc_config(client_secret_ref="env:MANAGE_MISSING_SECRET"))},
         headers=TENANT_HEADERS,
     )
     assert response.status_code == 502 and response.json()["code"] == 20066
@@ -217,12 +225,12 @@ async def test_draft_build_failure(client: AsyncClient, manage: ManageHarness) -
 @pytest.mark.kiwi_id(2218)
 async def test_test_rate_limit(client: AsyncClient, manage: ManageHarness) -> None:
     """连通性测试限流：超过阈值 10005/429；限流键租户位与 target 租户段为雪花 id。"""
-    codes: list[int] = []
+    codes: ConcurrentStableList[int] = ConcurrentStableList()
     for _ in range(11):
         response = await client.post(
-            f"{_BASE}/test", json={"type": "oidc", "config": _oidc_config()}, headers=TENANT_HEADERS
+            f"{_BASE}/test", json={"type": "oidc", "config": dict(_oidc_config())}, headers=TENANT_HEADERS
         )
-        codes.append(response.status_code)
+        codes.add(response.status_code)
     assert codes[-1] == 429
     assert 200 in codes
     keys = set(manage.limiter._windows)  # pyright: ignore[reportPrivateUsage]

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from typing import cast
 
 from fastapi import FastAPI
@@ -18,7 +17,9 @@ from bms_core.api.deps import (
     get_user_token_issuer,
 )
 from bms_core.captcha.base import BaseCaptcha, CaptchaChallenge, CaptchaCredential, CaptchaKind, CaptchaScenePolicy
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.exceptions import AuthError
+from bms_core.core.serialization import stable_json_dumps
 from bms_core.db.tenant import TenantContext, TenantNotFoundError
 from bms_core.idp.base import IdentityClaims
 from bms_core.idp.state.base import BaseIdpStateStore
@@ -65,9 +66,9 @@ class FakeUserTokenIssuer(BaseUserTokenIssuer):
     plugin_name = "fake"
 
     def __init__(self) -> None:
-        self._by_token: dict[str, dict[str, object]] = {}
+        self._by_token: ConcurrentStableDict[str, ConcurrentStableDict[str, object]] = ConcurrentStableDict()
         self._n = 0
-        self.specs: list[UserTokenSpec] = []
+        self.specs: ConcurrentStableList[UserTokenSpec] = ConcurrentStableList()
 
     async def issue_pair(self, spec: UserTokenSpec) -> UserTokenPair:
         """签发双 token（同会话 id；记录类型与租户）。
@@ -80,10 +81,10 @@ class FakeUserTokenIssuer(BaseUserTokenIssuer):
         """
         self._n += 1
         access, refresh = f"acc-{self._n}", f"ref-{self._n}"
-        base = {"sub": spec.subject, "jti": spec.session_id, "tenant_id": spec.tenant_id}
-        self._by_token[access] = {**base, "type": _ACCESS}
-        self._by_token[refresh] = {**base, "type": _REFRESH}
-        self.specs.append(spec)
+        base = ConcurrentStableDict({"sub": spec.subject, "jti": spec.session_id, "tenant_id": spec.tenant_id})
+        self._by_token.set(access, ConcurrentStableDict({**base, "type": _ACCESS}))
+        self._by_token.set(refresh, ConcurrentStableDict({**base, "type": _REFRESH}))
+        self.specs.add(spec)
         return UserTokenPair(
             access_token=access,
             refresh_token=refresh,
@@ -110,13 +111,13 @@ class FakeUserTokenIssuer(BaseUserTokenIssuer):
             raise AuthError("invalid token")
         return IdentityClaims(subject=cast("str", info["sub"]), payload=info)
 
-    def jwks(self) -> dict[str, object]:
+    def jwks(self) -> ConcurrentStableDict[str, object]:
         """占位 JWKS。
 
         Returns:
-            dict[str, object]: 空公钥集。
+            ConcurrentStableDict[str, object]: 空公钥集。
         """
-        return {"keys": []}
+        return ConcurrentStableDict({"keys": ConcurrentStableList()})
 
     def mint(
         self,
@@ -136,7 +137,9 @@ class FakeUserTokenIssuer(BaseUserTokenIssuer):
             tenant_id: 租户主键（雪花 id 字符串；异常分支可为 None / 任意串）。
             token_type: 令牌类型。
         """
-        self._by_token[token] = {"sub": sub, "jti": jti, "tenant_id": tenant_id, "type": token_type}
+        self._by_token.set(
+            token, ConcurrentStableDict({"sub": sub, "jti": jti, "tenant_id": tenant_id, "type": token_type})
+        )
 
 
 class FakeOrgClient(BaseServiceClient):
@@ -145,10 +148,10 @@ class FakeOrgClient(BaseServiceClient):
     plugin_name = "fake"
 
     def __init__(self) -> None:
-        self.users: dict[str, dict[str, object]] = {}
-        self.last_state: dict[str, object] = {}
+        self.users: ConcurrentStableDict[str, ConcurrentStableDict[str, object]] = ConcurrentStableDict()
+        self.last_state: ConcurrentStableDict[str, object] = ConcurrentStableDict()
         self.fail_count = 0
-        self.calls: list[str] = []
+        self.calls: ConcurrentStableList[str] = ConcurrentStableList()
 
     def set_user(
         self,
@@ -180,18 +183,23 @@ class FakeOrgClient(BaseServiceClient):
             email: 邮箱（找回密码通道）。
             phone: 手机号（找回密码通道）。
         """
-        self.users[account] = {
-            "password": password,
-            "id": user_id,
-            "name": name,
-            "status": status,
-            "locked": locked,
-            "pwd_reset_required": pwd_reset_required,
-            "locale": locale,
-            "timezone": timezone,
-            "email": email,
-            "phone": phone,
-        }
+        self.users.set(
+            account,
+            ConcurrentStableDict(
+                {
+                    "password": password,
+                    "id": user_id,
+                    "name": name,
+                    "status": status,
+                    "locked": locked,
+                    "pwd_reset_required": pwd_reset_required,
+                    "locale": locale,
+                    "timezone": timezone,
+                    "email": email,
+                    "phone": phone,
+                }
+            ),
+        )
 
     async def call(self, request: ServiceRequest) -> ServiceResponse:
         """按路径动作返回统一响应体。
@@ -203,12 +211,14 @@ class FakeOrgClient(BaseServiceClient):
             ServiceResponse: 统一响应。
         """
         action = request.path.rsplit("/", 1)[-1]
-        body = request.json_body or {}
-        self.calls.append(action)
+        body = request.json_body or ConcurrentStableDict()
+        self.calls.add(action)
         data = self._dispatch(action, body)
-        return ServiceResponse(status_code=200, content=json.dumps({"code": 0, "message": "ok", "data": data}).encode())
+        return ServiceResponse(
+            status_code=200, content=stable_json_dumps({"code": 0, "message": "ok", "data": data}).encode()
+        )
 
-    def _dispatch(self, action: str, body: dict[str, object]) -> dict[str, object]:
+    def _dispatch(self, action: str, body: ConcurrentStableDict[str, object]) -> ConcurrentStableDict[str, object]:
         """分派动作。
 
         Args:
@@ -216,56 +226,64 @@ class FakeOrgClient(BaseServiceClient):
             body: 请求体。
 
         Returns:
-            dict[str, object]: 响应 data。
+            ConcurrentStableDict[str, object]: 响应 data。
         """
         account = str(body.get("account", ""))
         user = self.users.get(account)
         if action == "verify":
             if user is None:
-                return {"found": False, "valid": False, "locked": False, "status": ""}
-            return {
-                "found": True,
-                "valid": user["password"] == body.get("password"),
-                "locked": bool(user["locked"]),
-                "status": user["status"],
-                "rehashed": False,
-                "pwd_reset_required": bool(user["pwd_reset_required"]),
-                "user": {
-                    "id": user["id"],
-                    "username": account,
-                    "name": user["name"],
-                    "locale": user["locale"],
-                    "timezone": user["timezone"],
-                    "pwd_changed_at": None,
-                },
-            }
+                return ConcurrentStableDict({"found": False, "valid": False, "locked": False, "status": ""})
+            return ConcurrentStableDict(
+                {
+                    "found": True,
+                    "valid": user["password"] == body.get("password"),
+                    "locked": bool(user["locked"]),
+                    "status": user["status"],
+                    "rehashed": False,
+                    "pwd_reset_required": bool(user["pwd_reset_required"]),
+                    "user": {
+                        "id": user["id"],
+                        "username": account,
+                        "name": user["name"],
+                        "locale": user["locale"],
+                        "timezone": user["timezone"],
+                        "pwd_changed_at": None,
+                    },
+                }
+            )
         if action == "reset-target":
             return self._reset_target(str(body.get("identifier", "")))
         if action == "update-password":
             if user is None:
-                return {"updated": False, "reason": "not_found", "violations": []}
+                return ConcurrentStableDict({"updated": False, "reason": "not_found", "violations": []})
             if body.get("new_password") == "weak":
-                return {"updated": False, "reason": "policy_violation", "violations": ["too_short"]}
+                return ConcurrentStableDict(
+                    {"updated": False, "reason": "policy_violation", "violations": ["too_short"]}
+                )
             if body.get("new_password") == "old-pass":
-                return {"updated": False, "reason": "history_reused", "violations": []}
-            user["password"] = body.get("new_password")
-            return {"updated": True, "reason": "", "violations": []}
+                return ConcurrentStableDict({"updated": False, "reason": "history_reused", "violations": []})
+            user.set("password", body.get("new_password"))
+            return ConcurrentStableDict({"updated": True, "reason": "", "violations": []})
         if action == "login-state":
             if user is None:
-                return {"failed_count": 0, "locked_until": None, "last_login_at": None}
+                return ConcurrentStableDict({"failed_count": 0, "locked_until": None, "last_login_at": None})
             if body.get("success"):
-                self.last_state = {"failed_count": 0, "locked_until": None, "last_login_at": "now"}
+                self.last_state = ConcurrentStableDict(
+                    {"failed_count": 0, "locked_until": None, "last_login_at": "now"}
+                )
             else:
                 self.fail_count = int(cast("int", body.get("failed_count", 0)))
-                self.last_state = {
-                    "failed_count": self.fail_count,
-                    "locked_until": "locked" if body.get("lock_seconds") else None,
-                    "last_login_at": None,
-                }
+                self.last_state = ConcurrentStableDict(
+                    {
+                        "failed_count": self.fail_count,
+                        "locked_until": "locked" if body.get("lock_seconds") else None,
+                        "last_login_at": None,
+                    }
+                )
             return self.last_state
-        return {}
+        return ConcurrentStableDict({})
 
-    def _reset_target(self, identifier: str) -> dict[str, object]:
+    def _reset_target(self, identifier: str) -> ConcurrentStableDict[str, object]:
         """解析找回密码重置目标（邮箱小写不敏感 / 手机 / 账号）。
 
         Args:
@@ -275,7 +293,7 @@ class FakeOrgClient(BaseServiceClient):
             dict[str, object]: 重置目标结果 data。
         """
         account: str | None = None
-        user: dict[str, object] | None = None
+        user: ConcurrentStableDict[str, object] | None = None
         for name, item in self.users.items():
             email = item.get("email")
             if "@" in identifier and isinstance(email, str) and email.lower() == identifier.lower():
@@ -288,17 +306,21 @@ class FakeOrgClient(BaseServiceClient):
             account = identifier
             user = self.users.get(identifier)
         if user is None:
-            return {"found": False, "user_id": None, "account": "", "deliverable": False, "channel": "", "target": ""}
+            return ConcurrentStableDict(
+                {"found": False, "user_id": None, "account": "", "deliverable": False, "channel": "", "target": ""}
+            )
         channel = "email" if user.get("email") else ("sms" if user.get("phone") else "")
         target = str(user.get("email") or user.get("phone") or "")
-        return {
-            "found": True,
-            "user_id": user["id"],
-            "account": account,
-            "deliverable": user["status"] == "enabled" and channel != "",
-            "channel": channel,
-            "target": target,
-        }
+        return ConcurrentStableDict(
+            {
+                "found": True,
+                "user_id": user["id"],
+                "account": account,
+                "deliverable": user["status"] == "enabled" and channel != "",
+                "channel": channel,
+                "target": target,
+            }
+        )
 
 
 class FakeCaptcha(BaseCaptcha):
@@ -326,7 +348,7 @@ class FakeCaptcha(BaseCaptcha):
         self._verified = verified
         self._fail_threshold = fail_threshold
         self._required_scene = required_scene
-        self.seen: list[CaptchaCredential] = []
+        self.seen: ConcurrentStableList[CaptchaCredential] = ConcurrentStableList()
 
     async def generate(self, scene: str = "login", *, kind: CaptchaKind = CaptchaKind.IMAGE) -> CaptchaChallenge:
         """出题（占位）。
@@ -361,7 +383,7 @@ class FakeCaptcha(BaseCaptcha):
         Returns:
             bool: 是否通过。
         """
-        self.seen.append(credential)
+        self.seen.add(credential)
         return self._verified
 
     async def policy(self, scene: str = "login") -> CaptchaScenePolicy:
@@ -389,7 +411,7 @@ class RecordingNotifier(BaseNotifier):
             delivered: 是否返回已送达。
             raises: 是否发送即抛异常（渠道故障分支）。
         """
-        self.messages: list[NotificationMessage] = []
+        self.messages: ConcurrentStableList[NotificationMessage] = ConcurrentStableList()
         self._delivered = delivered
         self._raises = raises
 
@@ -405,7 +427,7 @@ class RecordingNotifier(BaseNotifier):
         Raises:
             RuntimeError: `raises=True` 时模拟渠道异常。
         """
-        self.messages.append(message)
+        self.messages.add(message)
         if self._raises:
             raise RuntimeError("notify down")
         return SendResult(delivered=self._delivered)
@@ -418,7 +440,7 @@ class RecordingRealtimePublisher(BaseRealtimePublisher):
 
     def __init__(self) -> None:
         """初始化空事件列表。"""
-        self.events: list[RealtimeEvent] = []
+        self.events: ConcurrentStableList[RealtimeEvent] = ConcurrentStableList()
 
     async def emit(self, event: RealtimeEvent) -> None:
         """记录事件（不真实推送）。
@@ -426,7 +448,7 @@ class RecordingRealtimePublisher(BaseRealtimePublisher):
         Args:
             event: 推送事件。
         """
-        self.events.append(event)
+        self.events.add(event)
 
     async def join(self, session_id: str, room: str) -> None:
         """空操作（占位）。

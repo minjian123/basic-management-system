@@ -70,7 +70,7 @@ async def test_dependency_provider_resolves() -> None:
         assert isinstance(app.state.password_policy, DefaultPasswordPolicy)
 
         @app.get("/policy")
-        async def policy_info(policy: Annotated[BasePasswordPolicy, Depends(get_password_policy)]) -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]
+        async def policy_info(policy: Annotated[BasePasswordPolicy, Depends(get_password_policy)]) -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]  # bare-collections:allow（FastAPI 端点返回注解）
             return {"key": policy.key, "type": type(policy).__name__}
 
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:

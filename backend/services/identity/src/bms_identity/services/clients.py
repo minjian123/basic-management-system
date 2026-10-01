@@ -11,9 +11,9 @@ from __future__ import annotations
 
 import json
 import secrets
-from collections.abc import Sequence
 
 from bms_core.audit.base import AuditCapturer
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.exceptions import ClientInvalidError, ClientNotFoundError
 from bms_core.core.objects import BaseFrameworkObject
 from bms_core.db.session import DbSession
@@ -74,10 +74,10 @@ class ClientService(BaseFrameworkObject):
         self,
         *,
         name: str,
-        redirect_uris: Sequence[str],
-        grant_types: Sequence[str],
-        scopes: Sequence[str],
-        ip_whitelist: Sequence[str],
+        redirect_uris: ConcurrentStableList[str],
+        grant_types: ConcurrentStableList[str],
+        scopes: ConcurrentStableList[str],
+        ip_whitelist: ConcurrentStableList[str],
         public: bool,
     ) -> ClientSecret:
         """注册客户端（`client_secret` 仅本次明文返回）。
@@ -109,10 +109,10 @@ class ClientService(BaseFrameworkObject):
                 client_id=client_id,
                 client_secret_hash=None if public else self._hasher.hash(secret),
                 name=name,
-                redirect_uris=json.dumps(redirects, ensure_ascii=False),
-                grant_types=json.dumps(grants, ensure_ascii=False),
-                scopes=json.dumps(allowed_scopes, ensure_ascii=False),
-                ip_whitelist=json.dumps(ips, ensure_ascii=False),
+                redirect_uris=json.dumps(list(redirects), ensure_ascii=False),
+                grant_types=json.dumps(list(grants), ensure_ascii=False),
+                scopes=json.dumps(list(allowed_scopes), ensure_ascii=False),
+                ip_whitelist=json.dumps(list(ips), ensure_ascii=False),
                 status="enabled",
             )
         self._record(client, "created")
@@ -124,7 +124,7 @@ class ClientService(BaseFrameworkObject):
         *,
         status: str | None = None,
         name: str | None = None,
-    ) -> tuple[list[SysClient], int]:
+    ) -> tuple[ConcurrentStableList[SysClient], int]:
         """客户端分页查询。
 
         Args:
@@ -133,7 +133,7 @@ class ClientService(BaseFrameworkObject):
             name: 名称模糊过滤（可选）。
 
         Returns:
-            tuple[list[SysClient], int]: 当前页客户端与总数。
+            tuple[ConcurrentStableList[SysClient], int]: 当前页客户端与总数。
         """
         items = await self._repo.list_filtered(query, status=status, name=name)
         total = await self._repo.count_filtered(status=status, name=name)
@@ -212,7 +212,7 @@ class ClientService(BaseFrameworkObject):
             client: 客户端行。
             action: 动作标识（created / status_changed / secret_reset）。
         """
-        self._audit.capture(table="sys_client", model_id=client.id, changes=[], actor=None)
+        self._audit.capture(table="sys_client", model_id=client.id, changes=ConcurrentStableList(), actor=None)
 
 
 def _new_client_id() -> str:
@@ -226,11 +226,11 @@ def _new_client_id() -> str:
 
 def _validate(
     *,
-    grant_types: Sequence[str],
-    redirect_uris: Sequence[str],
-    scopes: Sequence[str],
-    ip_whitelist: Sequence[str],
-) -> tuple[list[str], list[str], list[str], list[str]]:
+    grant_types: ConcurrentStableList[str],
+    redirect_uris: ConcurrentStableList[str],
+    scopes: ConcurrentStableList[str],
+    ip_whitelist: ConcurrentStableList[str],
+) -> tuple[ConcurrentStableList[str], ConcurrentStableList[str], ConcurrentStableList[str], ConcurrentStableList[str]]:
     """校验并归一化客户端字段。
 
     Args:
@@ -263,18 +263,18 @@ def _validate(
     return grants, redirects, allowed_scopes, ips
 
 
-def _dedupe(values: Sequence[str]) -> list[str]:
+def _dedupe(values: ConcurrentStableList[str]) -> ConcurrentStableList[str]:
     """去重并去空白（保持首次出现顺序）。
 
     Args:
         values: 原始值序列。
 
     Returns:
-        list[str]: 去重结果。
+        ConcurrentStableList[str]: 去重结果。
     """
-    seen: list[str] = []
+    seen: ConcurrentStableList[str] = ConcurrentStableList()
     for value in values:
         item = (value or "").strip()
         if item and item not in seen:
-            seen.append(item)
+            seen.add(item)
     return seen

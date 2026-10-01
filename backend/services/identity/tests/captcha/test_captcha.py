@@ -72,7 +72,7 @@ async def test_dependency_provider_resolves() -> None:
         assert isinstance(app.state.captcha, NullCaptcha)
 
         @app.get("/captcha")
-        async def captcha_info(captcha: Annotated[BaseCaptcha, Depends(get_captcha)]) -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]
+        async def captcha_info(captcha: Annotated[BaseCaptcha, Depends(get_captcha)]) -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]  # bare-collections:allow（FastAPI 端点返回注解）
             return {"key": captcha.key, "type": type(captcha).__name__}
 
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:

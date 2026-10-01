@@ -4,9 +4,12 @@
 - `idp_key` 格式由请求契约约束（非法走参数校验 `10001`）；`status` / `type` 语义校验在服务层（`20064`）。
 """
 
+from typing import Annotated
+
 from pydantic import Field
 
-from bms_core.schemas.base import BaseSchema
+from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.schemas.base import CONTRACT_COLLECTION, CONTRACT_STABLE_DICT, BaseSchema
 
 _IDP_KEY_PATTERN = r"^[a-z0-9][a-z0-9_-]{0,63}$"
 """租户内标识 slug（小写字母 / 数字开头，允许 `-` / `_`）。"""
@@ -20,7 +23,9 @@ class IdpProviderItem(BaseSchema):
     idp_key: str = Field(description="租户内标识 slug")
     type: str = Field(description="协议类型（oidc / cas / wecom / dingtalk）")
     icon: str = Field(default="", description="图标（可空）")
-    config: dict[str, object] = Field(default_factory=dict[str, object], description="脱敏后的协议配置对象")
+    config: Annotated[ConcurrentStableDict[str, object], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_DICT, description="脱敏后的协议配置对象"
+    )
     secret_configured: bool = Field(default=False, description="是否已配置密钥引用")
     status: str = Field(description="状态（enabled/disabled）")
     sort: int = Field(default=0, description="登录页排序")
@@ -33,7 +38,9 @@ class IdpProviderCreateRequest(BaseSchema):
     idp_key: str = Field(pattern=_IDP_KEY_PATTERN, description="租户内标识 slug")
     type: str = Field(description="协议类型（oidc / cas / wecom / dingtalk）")
     icon: str = Field(default="", max_length=255, description="图标（可空）")
-    config: dict[str, object] = Field(default_factory=dict[str, object], description="协议配置对象")
+    config: Annotated[ConcurrentStableDict[str, object], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_DICT, description="协议配置对象"
+    )
     status: str = Field(default="enabled", description="状态（enabled/disabled，缺省 enabled）")
     sort: int = Field(default=0, description="登录页排序")
 
@@ -43,7 +50,9 @@ class IdpProviderUpdateRequest(BaseSchema):
 
     name: str | None = Field(default=None, min_length=1, max_length=64, description="显示名")
     icon: str | None = Field(default=None, max_length=255, description="图标")
-    config: dict[str, object] | None = Field(default=None, description="协议配置对象（全量替换）")
+    config: Annotated[ConcurrentStableDict[str, object] | None, CONTRACT_COLLECTION] = Field(
+        default=None, description="协议配置对象（全量替换）"
+    )
     sort: int | None = Field(default=None, description="登录页排序")
 
 
@@ -57,7 +66,9 @@ class IdpProviderTestRequest(BaseSchema):
     """草稿连通性测试请求（不落库）。"""
 
     type: str = Field(description="协议类型")
-    config: dict[str, object] = Field(default_factory=dict[str, object], description="协议配置对象")
+    config: Annotated[ConcurrentStableDict[str, object], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_DICT, description="协议配置对象"
+    )
     idp_key: str = Field(default="draft", description="租户内标识（派生回调地址用；可占位）")
 
 

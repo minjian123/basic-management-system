@@ -12,7 +12,6 @@
 from __future__ import annotations
 
 import secrets
-from collections.abc import Mapping
 
 from bms_core.captcha.base import BaseCaptcha, CaptchaCredential, CaptchaKind
 from bms_core.core.concurrent import ConcurrentStableDict
@@ -254,15 +253,17 @@ class PasswordResetService(BaseFrameworkObject):
         Raises:
             ServiceUnavailableError: 存储不可用（10007/503）。
         """
-        payload: Mapping[str, object] = {
-            "user_id": target.user_id,
-            "account": target.account,
-            "tenant_id": tenant,
-        }
+        payload: ConcurrentStableDict[str, object] = ConcurrentStableDict(
+            {
+                "user_id": target.user_id,
+                "account": target.account,
+                "tenant_id": tenant,
+            }
+        )
         try:
             await self._state.save(
                 token,
-                ConcurrentStableDict(payload),
+                payload,
                 tenant=tenant,
                 ttl=self._settings.token_ttl_seconds,
                 namespace=PASSWORD_RESET_NAMESPACE,
@@ -330,7 +331,7 @@ def _normalize_identifier(identifier: str) -> str:
     return normalized.lower() if "@" in normalized else normalized
 
 
-def _parse_token_payload(payload: Mapping[str, object] | None) -> tuple[int, str]:
+def _parse_token_payload(payload: ConcurrentStableDict[str, object] | None) -> tuple[int, str]:
     """解析并校验 token 载荷（缺失 / 已消费 / 过期 / 脏值统一按令牌无效）。
 
     Args:

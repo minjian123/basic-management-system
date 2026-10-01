@@ -11,13 +11,12 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping
 from typing import cast
 
 from sqlalchemy.exc import IntegrityError
 
 from bms_core.audit.base import AuditCapturer
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import IdpManageSettings
 from bms_core.core.exceptions import (
     ConfigError,
@@ -83,7 +82,7 @@ class IdentityProviderService(BaseFrameworkObject):
         status: str | None = None,
         type: str | None = None,
         name: str | None = None,
-    ) -> tuple[list[SysIdentityProvider], int]:
+    ) -> tuple[ConcurrentStableList[SysIdentityProvider], int]:
         """管理面分页查询。
 
         Args:
@@ -123,7 +122,7 @@ class IdentityProviderService(BaseFrameworkObject):
         idp_key: str,
         type: str,
         icon: str,
-        config: Mapping[str, object],
+        config: ConcurrentStableDict[str, object],
         status: str,
         sort: int,
         actor: int | None,
@@ -158,7 +157,7 @@ class IdentityProviderService(BaseFrameworkObject):
                     idp_key=idp_key,
                     type=type,
                     icon=icon,
-                    config=json.dumps(normalized, ensure_ascii=False),
+                    config=json.dumps(dict(normalized), ensure_ascii=False),
                     status=status,
                     sort=sort,
                 )
@@ -173,7 +172,7 @@ class IdentityProviderService(BaseFrameworkObject):
         *,
         name: str | None,
         icon: str | None,
-        config: Mapping[str, object] | None,
+        config: ConcurrentStableDict[str, object] | None,
         sort: int | None,
         actor: int | None,
     ) -> SysIdentityProvider:
@@ -198,15 +197,15 @@ class IdentityProviderService(BaseFrameworkObject):
             row = await self._repo.get(provider_id)
             if row is None:
                 raise IdpNotFoundError("IdP 配置不存在")
-            values: dict[str, object] = {}
+            values: ConcurrentStableDict[str, object] = ConcurrentStableDict()
             if name is not None:
-                values["name"] = name
+                values.set("name", name)
             if icon is not None:
-                values["icon"] = icon
+                values.set("icon", icon)
             if sort is not None:
-                values["sort"] = sort
+                values.set("sort", sort)
             if config is not None:
-                values["config"] = json.dumps(self._validate(row.type, config), ensure_ascii=False)
+                values.set("config", json.dumps(dict(self._validate(row.type, config)), ensure_ascii=False))
             updated = await self._repo.update(provider_id, **values)
         if updated is None:  # pragma: no cover - 事务内已确认存在
             raise IdpNotFoundError("IdP 配置不存在")
@@ -256,7 +255,7 @@ class IdentityProviderService(BaseFrameworkObject):
         self,
         *,
         type: str,
-        config: Mapping[str, object],
+        config: ConcurrentStableDict[str, object],
         idp_key: str,
         tenant_id: str,
         actor: int | None,
@@ -332,7 +331,7 @@ class IdentityProviderService(BaseFrameworkObject):
             sort=row.sort,
         )
 
-    def _validate(self, type: str, config: Mapping[str, object]) -> dict[str, object]:
+    def _validate(self, type: str, config: ConcurrentStableDict[str, object]) -> ConcurrentStableDict[str, object]:
         """按协议校验配置（未知键拒绝 + SSRF）。
 
         Args:
@@ -340,12 +339,12 @@ class IdentityProviderService(BaseFrameworkObject):
             config: 协议配置对象。
 
         Returns:
-            dict[str, object]: 归一化配置。
+            ConcurrentStableDict[str, object]: 归一化配置。
 
         Raises:
             IdpConfigInvalidError: 配置非法（20064/400）。
         """
-        return dict(
+        return ConcurrentStableDict(
             validate_provider_config(
                 type, ConcurrentStableDict(config), allow_private_hosts=self._manage.allow_private_hosts
             )
@@ -420,14 +419,14 @@ def _ensure_status(status: str) -> None:
         raise IdpConfigInvalidError("状态取值非法（应为 enabled / disabled）")
 
 
-def _row_config(row: SysIdentityProvider) -> dict[str, object]:
+def _row_config(row: SysIdentityProvider) -> ConcurrentStableDict[str, object]:
     """解析行配置 JSON（非法转 `20064`）。
 
     Args:
         row: IdP 行。
 
     Returns:
-        dict[str, object]: 配置对象。
+        ConcurrentStableDict[str, object]: 配置对象。
 
     Raises:
         IdpConfigInvalidError: 非法 JSON / 非对象（20064/400）。
@@ -438,4 +437,4 @@ def _row_config(row: SysIdentityProvider) -> dict[str, object]:
         raise IdpConfigInvalidError("IdP 配置非法 JSON") from exc
     if not isinstance(parsed, dict):
         raise IdpConfigInvalidError("IdP 配置必须是 JSON 对象")
-    return cast("dict[str, object]", parsed)
+    return ConcurrentStableDict(cast("dict[str, object]", parsed))

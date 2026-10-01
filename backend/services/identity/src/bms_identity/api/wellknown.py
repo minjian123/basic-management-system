@@ -15,7 +15,7 @@ router = BaseRouter(key="wellknown", prefix="/.well-known", tags=["wellknown"], 
 
 
 @router.get("/jwks.json")
-async def get_jwks(request: Request) -> dict[str, object]:
+async def get_jwks(request: Request) -> dict[str, object]:  # bare-collections:allow（FastAPI 端点返回注解）
     """取公开 JWKS 文档（服务令牌 + 用户令牌公钥合并）。
 
     Args:

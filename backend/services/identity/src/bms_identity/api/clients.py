@@ -14,6 +14,7 @@ from fastapi import Depends, Path, Request
 from bms_core.api.base import BaseRouter, page_query, require_auth
 from bms_core.api.deps import get_audit_capturer, get_password_hasher, get_tenant
 from bms_core.audit.base import AuditCapturer
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.exceptions import AuthError
 from bms_core.db.registry import EngineRegistry
 from bms_core.db.session import session_scope
@@ -85,20 +86,24 @@ def _item(row: SysClient) -> ClientItem:
     )
 
 
-def _load_list(raw: str | None) -> list[str]:
+def _load_list(raw: str | None) -> ConcurrentStableList[str]:
     """解析 JSON 数组字段（非法返回空列表）。
 
     Args:
         raw: 列原文。
 
     Returns:
-        list[str]: 字符串列表。
+        ConcurrentStableList[str]: 字符串列表。
     """
     try:
         parsed = json.loads(raw or "[]")
     except ValueError:
-        return []
-    return [str(item) for item in cast("list[object]", parsed)] if isinstance(parsed, list) else []
+        return ConcurrentStableList()
+    return (
+        ConcurrentStableList(str(item) for item in cast("list[object]", parsed))
+        if isinstance(parsed, list)
+        else ConcurrentStableList()
+    )
 
 
 async def _run_list(

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from sqlalchemy import ColumnElement, func, select
 
-from bms_core.core.concurrent import ConcurrentStableSet
+from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
 from bms_core.repositories.base_db_repository import BaseDbRepository
 from bms_core.schemas.pagination import BasePageQuery
 from bms_identity.models.identity_provider import SysIdentityProvider
@@ -16,11 +16,11 @@ class IdentityProviderRepository(BaseDbRepository[SysIdentityProvider]):
     model = SysIdentityProvider
     sortable_fields = ConcurrentStableSet({"id", "name", "sort", "status", "type", "created_at"})
 
-    async def list_enabled(self) -> list[SysIdentityProvider]:
+    async def list_enabled(self) -> ConcurrentStableList[SysIdentityProvider]:
         """取启用中的 IdP 行（按 `sort` 升序、主键兜底；入口清单主路径）。
 
         Returns:
-            list[SysIdentityProvider]: 启用中的 IdP 行。
+            ConcurrentStableList[SysIdentityProvider]: 启用中的 IdP 行。
         """
         statement = (
             self._select()
@@ -28,7 +28,7 @@ class IdentityProviderRepository(BaseDbRepository[SysIdentityProvider]):
             .order_by(self._column("sort").asc(), self._column("id").asc())
         )
         result = await self._session.execute(statement)
-        return list(result.scalars().all())
+        return ConcurrentStableList(result.scalars().all())
 
     async def get_by_key(self, idp_key: str) -> SysIdentityProvider | None:
         """按租户内标识取行（authorize / callback 定位配置）。
@@ -49,7 +49,7 @@ class IdentityProviderRepository(BaseDbRepository[SysIdentityProvider]):
         status: str | None = None,
         type: str | None = None,
         name: str | None = None,
-    ) -> list[SysIdentityProvider]:
+    ) -> ConcurrentStableList[SysIdentityProvider]:
         """管理面分页查询（状态 / 协议 / 名称筛选 + 统一排序）。
 
         Args:
@@ -59,14 +59,14 @@ class IdentityProviderRepository(BaseDbRepository[SysIdentityProvider]):
             name: 名称模糊过滤（可选）。
 
         Returns:
-            list[SysIdentityProvider]: 当前页 IdP 行。
+            ConcurrentStableList[SysIdentityProvider]: 当前页 IdP 行。
         """
         statement = self._apply_sort(
             self._select().where(*self._filter_conditions(status=status, type=type, name=name)),
             self._resolve_sort(query),
         )
         statement = statement.limit(query.size).offset((query.page - 1) * query.size)
-        return list((await self._session.execute(statement)).scalars().all())
+        return ConcurrentStableList((await self._session.execute(statement)).scalars().all())
 
     async def count_filtered(
         self,
@@ -98,7 +98,7 @@ class IdentityProviderRepository(BaseDbRepository[SysIdentityProvider]):
         status: str | None,
         type: str | None,
         name: str | None,
-    ) -> list[ColumnElement[bool]]:
+    ) -> ConcurrentStableList[ColumnElement[bool]]:
         """构造筛选条件（状态 / 协议精确 + 名称模糊）。
 
         Args:
@@ -107,13 +107,13 @@ class IdentityProviderRepository(BaseDbRepository[SysIdentityProvider]):
             name: 名称模糊过滤（可选）。
 
         Returns:
-            list[ColumnElement[bool]]: 筛选条件列表。
+            ConcurrentStableList[ColumnElement[bool]]: 筛选条件列表。
         """
-        conditions: list[ColumnElement[bool]] = []
+        conditions: ConcurrentStableList[ColumnElement[bool]] = ConcurrentStableList()
         if status:
-            conditions.append(self._column("status") == status)
+            conditions.add(self._column("status") == status)
         if type:
-            conditions.append(self._column("type") == type)
+            conditions.add(self._column("type") == type)
         if name:
-            conditions.append(self._column("name").like(f"%{name}%"))
+            conditions.add(self._column("name").like(f"%{name}%"))
         return conditions

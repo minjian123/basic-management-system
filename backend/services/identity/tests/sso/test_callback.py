@@ -8,6 +8,7 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy import delete, select
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.db.tenant import TenantContext
 from bms_identity.models.identity_provider import SysIdentityProvider
 from bms_identity.models.session import SysSession
@@ -25,7 +26,7 @@ async def _flow_callback(
     sso: SsoHarness,
     *,
     code: str = "code-1",
-    headers: dict[str, str] | None = None,
+    headers: ConcurrentStableDict[str, str] | None = None,
     sign_nonce: str | None = "flow",
 ):
     """发起授权后回调（ID Token nonce 默认取流程载荷）。
@@ -218,7 +219,7 @@ async def test_callback_identity_mapping_and_org_failures(client: AsyncClient, s
         await session.commit()
 
     await sso.seed_mapping()
-    sso.org.users.clear()
+    sso.org.users = ConcurrentStableDict()
     org_missing = await _flow_callback(client, sso)
     assert org_missing.status_code == 403 and org_missing.json()["code"] == 20054
 
@@ -250,7 +251,7 @@ async def test_callback_config_and_dependency_failures(client: AsyncClient, sso:
 
     async with sso.tenant_scope() as session:
         row = (await session.execute(select(SysIdentityProvider))).scalars().one()
-        row.config = json.dumps(sso.provider_config())
+        row.config = json.dumps(dict(sso.provider_config()))
         await session.commit()
 
     sso.idp.token_bad_json = True

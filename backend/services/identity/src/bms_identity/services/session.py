@@ -12,6 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.exceptions import SessionExpiredError, SessionNotFoundError, SessionRevokedError
 from bms_core.core.logging import get_logger
 from bms_core.core.objects import BaseFrameworkObject, BaseValueObject
@@ -107,7 +108,7 @@ class SessionService(BaseFrameworkObject):
         ip: str | None = None,
         login_from: datetime | None = None,
         login_to: datetime | None = None,
-    ) -> tuple[list[SysSession], int]:
+    ) -> tuple[ConcurrentStableList[SysSession], int]:
         """在线会话分页查询（仅未撤销未过期）。
 
         Args:
@@ -119,7 +120,7 @@ class SessionService(BaseFrameworkObject):
             login_to: 登录时间上界（可选）。
 
         Returns:
-            tuple[list[SysSession], int]: (当前页会话, 命中的在线会话总数)。
+            tuple[ConcurrentStableList[SysSession], int]: (当前页会话, 命中的在线会话总数)。
         """
         now = _utc_now()
         items = await self._repo.list_active(
@@ -209,7 +210,7 @@ class SessionService(BaseFrameworkObject):
         await self._after_revoke(record, tenant=tenant, reason=reason, broadcast=broadcast, now=now)
         return SessionRevokeResult(session_id=session_id, found=True, already_revoked=False)
 
-    async def enforce_max_active(self, user_id: int, *, tenant: str, max_active: int) -> list[str]:
+    async def enforce_max_active(self, user_id: int, *, tenant: str, max_active: int) -> ConcurrentStableList[str]:
         """多端上限：超限作废该用户最旧在线会话（为新建会话腾位）。
 
         Args:
@@ -218,23 +219,23 @@ class SessionService(BaseFrameworkObject):
             max_active: 活跃会话上限。
 
         Returns:
-            list[str]: 被作废的会话 id（未超限为空）。
+            ConcurrentStableList[str]: 被作废的会话 id（未超限为空）。
         """
         now = _utc_now()
-        targets: list[SysSession] = []
+        targets: ConcurrentStableList[SysSession] = ConcurrentStableList()
         async with self._uow.begin():
             active = await self._repo.list_active_by_user(user_id, now=now)
             overflow = len(active) - max_active + 1
             if overflow <= 0:
-                return []
+                return ConcurrentStableList()
             targets = active[:overflow]
             for record in targets:
                 await self._repo.revoke(record.session_id, revoked_at=now)
         for record in targets:
             await self._after_revoke(record, tenant=tenant, reason=REASON_MAX_ACTIVE, broadcast=True, now=now)
-        return [record.session_id for record in targets]
+        return ConcurrentStableList(record.session_id for record in targets)
 
-    async def revoke_user_sessions(self, user_id: int, *, tenant: str | None, reason: str) -> list[str]:
+    async def revoke_user_sessions(self, user_id: int, *, tenant: str | None, reason: str) -> ConcurrentStableList[str]:
         """按用户批量撤销全部在线会话（重置密码后即时失效；复用统一撤销原语）。
 
         - 单事务内取该用户全部在线会话并逐个 `revoked_at` 落库；提交后逐会话运行时清理
@@ -247,10 +248,10 @@ class SessionService(BaseFrameworkObject):
             reason: 撤销原因（`REASON_PASSWORD_RESET`）。
 
         Returns:
-            list[str]: 被撤销的会话 id 清单（无在线会话为空）。
+            ConcurrentStableList[str]: 被撤销的会话 id 清单（无在线会话为空）。
         """
         now = _utc_now()
-        targets: list[SysSession] = []
+        targets: ConcurrentStableList[SysSession] = ConcurrentStableList()
         async with self._uow.begin():
             targets = await self._repo.list_active_by_user(user_id, now=now)
             for record in targets:
@@ -260,7 +261,7 @@ class SessionService(BaseFrameworkObject):
                 await self._after_revoke(record, tenant=tenant, reason=reason, broadcast=True, now=now)
             except Exception as exc:  # 运行时清理尽力而为，DB 撤销已提交
                 _LOGGER.warning("会话撤销运行时清理未完成", session_id=record.session_id, error=str(exc))
-        return [record.session_id for record in targets]
+        return ConcurrentStableList(record.session_id for record in targets)
 
     async def _after_revoke(
         self, record: SysSession, *, tenant: str | None, reason: str, broadcast: bool, now: datetime

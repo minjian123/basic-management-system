@@ -24,6 +24,7 @@ from bms_core.api.deps import (
     get_user_token_issuer,
 )
 from bms_core.captcha.base import BaseCaptcha
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.context import current_client_ip
 from bms_core.core.exceptions import AuthError, ConfigError, ServiceUnavailableError
 from bms_core.db.registry import EngineRegistry
@@ -135,7 +136,7 @@ def _bearer_token(authorization: str | None) -> str | None:
     return authorization[len(_BEARER_PREFIX) :].strip() or None
 
 
-def _is_public(path: str, public_paths: list[str]) -> bool:
+def _is_public(path: str, public_paths: ConcurrentStableList[str]) -> bool:
     """判定是否公开路径（前缀匹配）。
 
     Args:
