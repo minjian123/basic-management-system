@@ -1618,62 +1618,6 @@
       "container": "dict",
       "position": "local",
       "count": 1
-    },
-    {
-      "file": "scripts/tools/preflight/check-preflight.py",
-      "line": "def _frontend_api_types(root: Path, failures: list[str]) -> None:",
-      "container": "list",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "scripts/tools/preflight/check-preflight.py",
-      "line": "def _gitlab_ci_lint(root: Path, failures: list[str]) -> None:",
-      "container": "list",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "scripts/tools/preflight/check-preflight.py",
-      "line": "def _pytest_flags_from_ci(root: Path, backend: Path, failures: list[str]) -> None:",
-      "container": "list",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "scripts/tools/preflight/check-preflight.py",
-      "line": "def _run(label: str, cmd: list[str], cwd: Path, failures: list[str]) -> bool:",
-      "container": "list",
-      "position": "signature_param",
-      "count": 2
-    },
-    {
-      "file": "scripts/tools/preflight/check-preflight.py",
-      "line": "def _yaml_parse(root: Path, failures: list[str]) -> None:",
-      "container": "list",
-      "position": "signature_param",
-      "count": 1
-    },
-    {
-      "file": "scripts/tools/preflight/check-preflight.py",
-      "line": "failures: list[str] = []",
-      "container": "list",
-      "position": "local",
-      "count": 1
-    },
-    {
-      "file": "scripts/tools/preflight/check-preflight.py",
-      "line": "flags: list[str] = []",
-      "container": "list",
-      "position": "local",
-      "count": 1
-    },
-    {
-      "file": "scripts/tools/preflight/check-preflight.py",
-      "line": "values: dict[str, str] = {}",
-      "container": "dict",
-      "position": "local",
-      "count": 1
     }
   ]
 }
