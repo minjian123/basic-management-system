@@ -31,6 +31,13 @@ import re
 import sys
 from pathlib import Path
 
+# bms_core 源码根：脚本在仓库内运行，集合声明统一落插入序集合类（ConcurrentStable*）。
+_SRC_ROOT = Path(__file__).resolve().parents[3] / "backend" / "libs" / "bms_core" / "src"
+if str(_SRC_ROOT) not in sys.path:
+    sys.path.insert(0, str(_SRC_ROOT))
+
+from bms_core.core.concurrent import ConcurrentStableList  # noqa: E402
+
 #: 违规特征：词面 + 数据形态（工时数字 `{数字}h` 与 `{数字}.{数字}h`）。
 RULES: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"工时"), "工时字样"),
@@ -80,14 +87,14 @@ def scan_text(text: str) -> tuple[tuple[int, str, str], ...]:
     Returns:
         tuple[tuple[int, str, str], ...]: (行号, 违规类型, 命中片段) 列表。
     """
-    findings: list[tuple[int, str, str]] = []
+    findings: ConcurrentStableList[tuple[int, str, str]] = ConcurrentStableList()
     for number, line in enumerate(text.splitlines(), start=1):
         if ALLOW_MARKER in line:
             continue
         for pattern, label in RULES:
             match = pattern.search(line)
             if match:
-                findings.append((number, label, match.group(0)))
+                findings.add((number, label, match.group(0)))
                 break
     return findings
 
@@ -147,11 +154,11 @@ def _self_test() -> int:
     Returns:
         int: 退出码（0 通过 / 1 失败）。
     """
-    failures: list[str] = []
+    failures: ConcurrentStableList[str] = ConcurrentStableList()
 
     def expect(name: str, actual: object, wanted: object) -> None:
         if actual != wanted:
-            failures.append(f"{name}: 实际 {actual!r}，期望 {wanted!r}")
+            failures.add(f"{name}: 实际 {actual!r}，期望 {wanted!r}")
 
     expect("工时数字", bool(scan_text("本任务 4h 交付")), True)
     expect("小数工时", bool(scan_text("合计 34.5h")), True)

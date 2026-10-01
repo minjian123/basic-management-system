@@ -54,39 +54,45 @@ from bms_core.boundary.exceptions import (  # noqa: E402
     validate_exceptions,
 )
 from bms_core.boundary.sql import analyze, operation_of  # noqa: E402
-from bms_core.core.concurrent import ConcurrentStableList  # noqa: E402
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet  # noqa: E402
 
 ROOT = Path(sys.argv[1] if len(sys.argv) > 1 and not sys.argv[1].startswith("-") else ".").resolve()
 
 # 分层反向依赖黑名单：源子包 → 禁止依赖的目标子包
-_SHARED_LAYER_RULES: dict[str, frozenset[str]] = {
-    "core": frozenset({"api", "services"}),
-    "repositories": frozenset({"services"}),
-}
-_SERVICE_LAYER_RULES: dict[str, frozenset[str]] = {
-    "services": frozenset({"api"}),
-    "repositories": frozenset({"api", "services"}),
-    "models": frozenset({"api", "services", "repositories"}),
-    "schemas": frozenset({"api", "services", "repositories"}),
-}
+_SHARED_LAYER_RULES: ConcurrentStableDict[str, ConcurrentStableSet[str]] = ConcurrentStableDict(
+    {
+        "core": ConcurrentStableSet({"api", "services"}),
+        "repositories": ConcurrentStableSet({"services"}),
+    }
+)
+_SERVICE_LAYER_RULES: ConcurrentStableDict[str, ConcurrentStableSet[str]] = ConcurrentStableDict(
+    {
+        "services": ConcurrentStableSet({"api"}),
+        "repositories": ConcurrentStableSet({"api", "services"}),
+        "models": ConcurrentStableSet({"api", "services", "repositories"}),
+        "schemas": ConcurrentStableSet({"api", "services", "repositories"}),
+    }
+)
 
 _SQL_HINTS = ("select", "insert", "update", "delete", "from", "join")
 _IDENTIFIER_LIKE = re.compile(r"^[A-Za-z0-9_.]+$")
 """标识符形态字符串（整串即表名 / 点分名；用于表名 token 扫描，避免文档文案误报）。"""
 
-problems: list[str] = []
-counts: dict[str, int] = {
-    "cross_service_dependency": 0,
-    "layer_violation": 0,
-    "private_reference": 0,
-    "table_name_conflict": 0,
-    "table_prefix_conflict": 0,
-    "table_ownership_violation": 0,
-    "cross_service_access_violation": 0,
-    "registered_exceptions_total": 0,
-    "registered_exceptions_used": 0,
-}
-service_tables: dict[str, list[str]] = {}
+problems: ConcurrentStableList[str] = ConcurrentStableList()
+counts: ConcurrentStableDict[str, int] = ConcurrentStableDict(
+    {
+        "cross_service_dependency": 0,
+        "layer_violation": 0,
+        "private_reference": 0,
+        "table_name_conflict": 0,
+        "table_prefix_conflict": 0,
+        "table_ownership_violation": 0,
+        "cross_service_access_violation": 0,
+        "registered_exceptions_total": 0,
+        "registered_exceptions_used": 0,
+    }
+)
+service_tables: ConcurrentStableDict[str, ConcurrentStableList[str]] = ConcurrentStableDict()
 """各服务声明的表名清单（规则 5 扫描产出；供服务目录（03_01）登记参考）。"""
 
 
@@ -104,17 +110,17 @@ def _record(message: str, counter: str) -> None:
         message: 违规文案。
         counter: 计数键。
     """
-    problems.append(message)
-    counts[counter] += 1
+    problems.add(message)
+    counts.set(counter, counts.get(counter, 0) + 1)
 
 
-def _discover_packages() -> dict[str, tuple[Path, bool]]:
+def _discover_packages() -> ConcurrentStableDict[str, tuple[Path, bool]]:
     """发现工作区包：`{包名: (源码目录, 是否共享库)}`。
 
     Returns:
-        dict[str, tuple[Path, bool]]: 包名 → （包根，是否共享库）。
+        ConcurrentStableDict[str, tuple[Path, bool]]: 包名 → （包根，是否共享库）。
     """
-    packages: dict[str, tuple[Path, bool]] = {}
+    packages: ConcurrentStableDict[str, tuple[Path, bool]] = ConcurrentStableDict()
     for kind, shared in (("libs", True), ("services", False)):
         base = ROOT / "backend" / kind
         if not base.is_dir():
@@ -125,21 +131,21 @@ def _discover_packages() -> dict[str, tuple[Path, bool]]:
                 continue
             for pkg in sorted(src.iterdir()):
                 if pkg.is_dir() and (pkg / "__init__.py").is_file():
-                    packages[pkg.name] = (pkg, shared)
+                    packages.set(pkg.name, (pkg, shared))
     return packages
 
 
-def _iter_imports(path: Path) -> list[tuple[int, str]]:
+def _iter_imports(path: Path) -> ConcurrentStableList[tuple[int, str]]:
     """解析文件并产出受管包导入（任意工作区包名开头）。
 
     Args:
         path: Python 源文件路径。
 
     Returns:
-        list[tuple[int, str]]: 行号与导入模块名。
+        ConcurrentStableList[tuple[int, str]]: 行号与导入模块名。
     """
     tree = ast.parse(path.read_text(encoding="utf-8"))
-    found: list[tuple[int, str]] = []
+    found: ConcurrentStableList[tuple[int, str]] = ConcurrentStableList()
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             modules = [alias.name for alias in node.names]
@@ -147,20 +153,20 @@ def _iter_imports(path: Path) -> list[tuple[int, str]]:
             modules = [node.module] if node.module else []
         else:
             continue
-        found.extend((node.lineno, module) for module in modules)
+        found.update((node.lineno, module) for module in modules)
     return found
 
 
-def _iter_tablenames(root: Path) -> list[str]:
+def _iter_tablenames(root: Path) -> ConcurrentStableList[str]:
     """解析包内源文件，产出全部 `__tablename__ = "..."` 表名。
 
     Args:
         root: 包根目录。
 
     Returns:
-        list[str]: 表名列表（按文件与行号顺序）。
+        ConcurrentStableList[str]: 表名列表（按文件与行号顺序）。
     """
-    found: list[str] = []
+    found: ConcurrentStableList[str] = ConcurrentStableList()
     for path in sorted(root.rglob("*.py")):
         tree = ast.parse(path.read_text(encoding="utf-8"))
         for node in ast.walk(tree):
@@ -170,7 +176,7 @@ def _iter_tablenames(root: Path) -> list[str]:
                 continue
             value = node.value
             if isinstance(value, ast.Constant) and isinstance(value.value, str):
-                found.append(value.value)
+                found.add(value.value)
     return found
 
 
@@ -218,7 +224,9 @@ def _is_test_path(path: Path, root: Path) -> bool:
     return "tests" in rel.split("/")
 
 
-def _iter_cross_reference_tables(root: Path, known_tables: frozenset[str]) -> list[tuple[str, int, str, str]]:
+def _iter_cross_reference_tables(
+    root: Path, known_tables: ConcurrentStableSet[str]
+) -> ConcurrentStableList[tuple[str, int, str, str]]:
     """扫描包内源码的跨服务表引用（原始 SQL / ForeignKey / 已知表名字符串 token）。
 
     仅扫描非测试源码；跳过 docstring / 裸字符串表达式。表名 token 只匹配**已声明的表名**
@@ -229,9 +237,9 @@ def _iter_cross_reference_tables(root: Path, known_tables: frozenset[str]) -> li
         known_tables: 全仓已声明表名集合。
 
     Returns:
-        list[tuple[str, int, str, str]]: （相对路径, 行号, 表名, 操作）。
+        ConcurrentStableList[tuple[str, int, str, str]]: （相对路径, 行号, 表名, 操作）。
     """
-    found: list[tuple[str, int, str, str]] = []
+    found: ConcurrentStableList[tuple[str, int, str, str]] = ConcurrentStableList()
     if known_tables:
         token_re: re.Pattern[str] | None = re.compile(
             r"(?<![A-Za-z0-9_])(" + "|".join(re.escape(table) for table in sorted(known_tables)) + r")(?![A-Za-z0-9_])"
@@ -248,7 +256,7 @@ def _iter_cross_reference_tables(root: Path, known_tables: frozenset[str]) -> li
             if isinstance(node, ast.Call):
                 target = _foreign_key_target(node)
                 if target is not None:
-                    found.append((rel, node.lineno, target, "schema"))
+                    found.add((rel, node.lineno, target, "schema"))
                 continue
             if not (isinstance(node, ast.Constant) and isinstance(node.value, str)):
                 continue
@@ -257,24 +265,24 @@ def _iter_cross_reference_tables(root: Path, known_tables: frozenset[str]) -> li
             value = node.value
             if operation_of(value) != "unknown" and any(hint in value.lower() for hint in _SQL_HINTS):
                 for ref in analyze(value):
-                    found.append((rel, node.lineno, ref.table, ref.operation))
+                    found.add((rel, node.lineno, ref.table, ref.operation))
                 continue
             if token_re is not None and _IDENTIFIER_LIKE.fullmatch(value.strip()):
                 for match in token_re.findall(value):
-                    found.append((rel, node.lineno, match, "unknown"))
+                    found.add((rel, node.lineno, match, "unknown"))
     return found
 
 
-def _bare_string_nodes(tree: ast.AST) -> set[int]:
+def _bare_string_nodes(tree: ast.AST) -> ConcurrentStableSet[int]:
     """收集裸字符串表达式常量节点 id（docstring / 属性文档等，扫描时排除）。
 
     Args:
         tree: 语法树。
 
     Returns:
-        set[int]: 裸字符串常量节点 id 集合。
+        ConcurrentStableSet[int]: 裸字符串常量节点 id 集合。
     """
-    ids: set[int] = set()
+    ids: ConcurrentStableSet[int] = ConcurrentStableSet()
     for node in ast.walk(tree):
         if isinstance(node, ast.Expr) and isinstance(node.value, ast.Constant) and isinstance(node.value.value, str):
             ids.add(id(node.value))
@@ -360,29 +368,34 @@ def check() -> int:
                     _record(f"[服务互相依赖] {detail}", "cross_service_dependency")
                 parts = module.split(".")
                 target = parts[1] if len(parts) > 1 else top
-                if top == package and target in layer_rules.get(source, frozenset()):
+                if top == package and target in layer_rules.get(source, ConcurrentStableSet()):
                     _record(f"[分层反向依赖] {detail}", "layer_violation")
                 if top != package and any(part.startswith("_") for part in parts[1:]):
                     _record(f"[跨包私有引用] {detail}", "private_reference")
 
     # 规则 5：表名跨服务唯一 + 表名前缀跨服务唯一（`sys_` 为平台共享前缀，按表级归属判定、不判前缀冲突）
-    tables: dict[str, str] = {}
-    prefixes: dict[str, set[str]] = {}
-    known_tables: set[str] = set()
+    tables: ConcurrentStableDict[str, str] = ConcurrentStableDict()
+    prefixes: ConcurrentStableDict[str, ConcurrentStableSet[str]] = ConcurrentStableDict()
+    known_tables: ConcurrentStableSet[str] = ConcurrentStableSet()
     ownership = registered_tables()
     for package, (root, shared) in packages.items():
         declared = _iter_tablenames(root)
         known_tables.update(declared)
         if shared:
             continue
-        service_tables[package] = declared
+        service_tables.set(package, declared)
         for table in declared:
             owner = tables.get(table)
             if owner is not None and owner != package:
                 _record(f"[表名跨服务重复] {table}：{owner} / {package}", "table_name_conflict")
             else:
-                tables[table] = package
-            prefixes.setdefault(table_prefix_of(table), set()).add(package)
+                tables.set(table, package)
+            prefix_key = table_prefix_of(table)
+            prefix_owners = prefixes.get(prefix_key)
+            if prefix_owners is None:
+                prefix_owners = ConcurrentStableSet()
+                prefixes.set(prefix_key, prefix_owners)
+            prefix_owners.add(package)
     for prefix, owners in sorted(prefixes.items()):
         if prefix != "sys_" and len(owners) > 1:
             _record(f"[表前缀跨服务重复] {prefix}：{'、'.join(sorted(owners))}", "table_prefix_conflict")
@@ -397,7 +410,7 @@ def check() -> int:
     exceptions, exception_problems = _load_exceptions()
     for message in exception_problems:
         _record(message, "table_ownership_violation")
-    counts["registered_exceptions_total"] = len(exceptions)
+    counts.set("registered_exceptions_total", len(exceptions))
 
     # 规则 6①：声明越权（`__tablename__` 归属他服务；未登记表名同拦）
     for package, (root, shared) in packages.items():
@@ -430,10 +443,10 @@ def check() -> int:
 
     # 规则 6②：引用越界（原始 SQL / ForeignKey / 已知表名字符串 token；未登记表名无归属可判、放行）
     # 例外：表归属登记模块本身按定义要引用全部表名（`TABLE_OWNERSHIP` 常量），不参与引用越界扫描
-    known_table_set = frozenset(known_tables)
+    known_table_set = ConcurrentStableSet(known_tables)
     for package, (root, _shared) in packages.items():
         service = _service_of_package(package)
-        seen: set[tuple[str, int, str]] = set()
+        seen: ConcurrentStableSet[tuple[str, int, str]] = ConcurrentStableSet()
         for rel, lineno, table, operation in _iter_cross_reference_tables(root, known_table_set):
             if rel.endswith(_OWNERSHIP_REGISTRY_RELATIVE):
                 continue
@@ -444,7 +457,9 @@ def check() -> int:
             violation = _assess(service, table, operation, exceptions)
             if violation is None:
                 if _assess(service, table, operation, ()) is not None:
-                    counts["registered_exceptions_used"] += 1
+                    counts.set(
+                        "registered_exceptions_used", counts.get("registered_exceptions_used", 0) + 1
+                    )
                 continue
             _record(
                 f"[跨服务库访问] {rel}:{lineno} {table}（归属 {violation.owner}，操作 {operation}）",
