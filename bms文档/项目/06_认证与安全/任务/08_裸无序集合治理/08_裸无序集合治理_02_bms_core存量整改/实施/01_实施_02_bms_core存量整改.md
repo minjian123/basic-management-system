@@ -1130,3 +1130,30 @@ flowchart LR
 | 本地预检 | `check-preflight.py --fast` | **全部通过** |
 
 **遗留**：`scripts/tools` 余 **71 处**（护栏 `check-bare-collections.py` 自身 21 / `deploy/release.py` 50）；随后 `ops`（103）。
+
+## 43. 实施过程补充 · 存量整改子批 12 · 批次 3 续推护栏 `check-bare-collections.py` 自身（2026-10-01） <a id="batch12-guard-self"></a>
+
+**范围**：`scripts/tools/base-check/check-bare-collections.py`（护栏本体）**21 处 / 1 文件**（局部 15 / 签名返回 4 / 签名参数 2）。
+
+**动作**：
+
+1. **模块级形态黑白名单**：`SYSTEM_IMPLEMENTATION_FILES` / `BARE_CONTAINERS` / `READONLY_ABSTRACTIONS` / `ASCENDING_FORMS` / `WHITELIST_FORMS` 由 `frozenset` 落 `ConcurrentStableSet`；`BANNED_FORMS` 原为三集合按位运算得值，改 `ConcurrentStableSet(BARE_CONTAINERS | READONLY_ABSTRACTIONS | ASCENDING_FORMS)`（集合类 `|` 返回同类，外层再包一层保证形态）。
+2. **声明落点**：模块级 `problems` 与 `files` / `hits`（两处）/ `found` / `_FIXTURE_FILES` / `class_fields` / `positions`（两处）落集合类；4 个返回签名（`_annotation_containers` / `_iter_target_files` / `_scan_source` / `collect`）与 2 个形参（`write_baseline` / `_summarize` 的 `hits`）落集合类。
+3. **写用法与出口**：`append` → `add`、`extend` → `update`、`x[k] = v` → `set`、`positions.setdefault(k, v)` → 「取键判存在 + `set`」（2 处）、**JSON 出口** `{"problems": problems}` → `{"problems": list(problems)}`（2 处，`--json` / `--report` 模式）。
+4. 护栏自身新增 `sys.path` 引导（`SCRIPT_REPO` 之后）；**`--self-test` 矩阵未改**（口径未变，断言全部沿用）。
+
+**验证**：
+
+| 项 | 命令 | 结果 |
+| --- | --- | --- |
+| 编译 | `py_compile` | 通过 |
+| 实跑 | `check-bare-collections.py .` | **「通过：无新增违规」** |
+| 自测矩阵 | `--self-test` | **全部通过**（含 JSON 结构 / 基线语义断言） |
+| 输出模式 | `--json` / `--report` | 正常 |
+| 护栏 | 自身复跑 | **护栏自身 21 → 0**；`scripts/tools` **71 → 50** |
+| 基线递减 | `--update-baseline` | **174 → 153**（条目 166 → 147、计数合计 153；新增条目 0 / 移除 19） |
+| 本地预检 | `check-preflight.py --fast` | **全部通过** |
+
+**口径订正**：实测 `ConcurrentStableList.clear()` 与 `ConcurrentStableSet.clear()` **存在**，仅 `ConcurrentStableDict.clear()` 不存在——交接单 §9 原「集合类无 `clear()`」表述已订正（见该单 §9）。
+
+**遗留**：`scripts/tools` 余 **50 处**（`deploy/release.py`，805 行）；随后 `ops`（103）。
