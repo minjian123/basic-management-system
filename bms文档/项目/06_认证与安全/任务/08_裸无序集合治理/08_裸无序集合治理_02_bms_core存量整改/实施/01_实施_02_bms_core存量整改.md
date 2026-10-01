@@ -1107,3 +1107,26 @@ flowchart LR
 | 本地预检 | `check-preflight.py --fast` | **全部通过** |
 
 **遗留**：`scripts/tools` 余 **110 处**（`base-check` 60〔`check-backend-base` 39 · `check-bare-collections` 21〕/ `deploy/release.py` 50）；随后 `ops`（103）。
+
+## 42. 实施过程补充 · 存量整改子批 11 · 批次 3 续推 `base-check/check-backend-base.py`（2026-10-01） <a id="batch11-check-backend-base"></a>
+
+**范围**：`scripts/tools/base-check/check-backend-base.py` **39 处 / 1 文件**（局部 19 / 签名返回 13 / 签名参数 7）。
+
+**动作**：
+
+1. **声明侧**：模块级 `problems` 与函数内 `chains` / `groups` / `parts` / `index` / `roots` / `baseline` / `found`（两处）/ `shapes` / `children` / `revisions` / `labels` / `entries` 落集合类；`parse_chains` / `split_bases` / `index_classes` / `parse_root_bases` / `load_direct_baseline` / `scan_direct_base_object` / `_iter_class_defs` / `scan_class_shapes` / `_descendants` / `_iter_chain_dirs` / `_known_services` 的返回与 `index` / `entries` 形参落集合类。**只读抽象退场**——`Sequence[...]` / `Mapping[...]` / `Collection[...]` 一律改对应插入序集合类（原 `from collections.abc import Collection, Mapping, Sequence` 随之移除）。
+2. **写用法换算**：`append` → `add`、`extend` → `update`、`x[k] = v` → `set`、`x.setdefault(k, []).append(v)` → `get` 判空 + `set` + `add`（3 处）、`keys |= set(...)` → `keys.update(...)`；列表推导改集合类构造（`ConcurrentStableList(生成器)`）。
+3. **嵌套注解与 JSON 出口（本轮暴露两条口径）**：① `ConcurrentStableList[dict[str, object]]` 这类**内层仍为裸容器**的注解**照样被护栏检出**（护栏按注解文本扫描全部容器名）→ 内层同步落 `ConcurrentStableDict`（`entries` 即此，首轮漏改被护栏复跑抓到）；② 基线落盘 `json.dumps(payload)` 因 `payload` 内嵌集合类改 `json.dumps(normalize_collections(payload))`。
+
+**验证**：
+
+| 项 | 命令 | 结果 |
+| --- | --- | --- |
+| 编译 | `py_compile` | 通过 |
+| 实跑 | `check-backend-base.py .` | **通过**（继承链 / 清单登记 / 直继承合法性 / 数据类体系语义 / 错误码段位 / 迁移链全部对齐） |
+| 自测矩阵 | `--self-test` | **全部通过** |
+| 护栏 | `check-bare-collections.py .` | **「新增 0」**；`scripts/tools` **110 → 71** |
+| 基线递减 | `--update-baseline` | **213 → 174**（条目 205 → 166、计数合计 174；新增条目 0 / 移除 39） |
+| 本地预检 | `check-preflight.py --fast` | **全部通过** |
+
+**遗留**：`scripts/tools` 余 **71 处**（护栏 `check-bare-collections.py` 自身 21 / `deploy/release.py` 50）；随后 `ops`（103）。
