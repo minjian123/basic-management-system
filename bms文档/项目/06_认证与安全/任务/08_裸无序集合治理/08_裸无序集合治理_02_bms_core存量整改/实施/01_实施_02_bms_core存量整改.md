@@ -884,3 +884,28 @@ flowchart LR
 **过程处置（已闭环）**：① `ConcurrentStableDict.update` 只吃键值对 → 传映射处改 `.items()`（`seen` / `merged` / `base`）；② 集合类无下标赋值 / 无 `append` → 分别改 `set` / `add`；③ `_keys` / `_table_rows` 返回值包集合类；④ FastAPI 端点返回注解保留内置 + 行级标记（多行端点标记落在 `) -> dict[...]:` 行尾——行级豁免窗口为声明行与其上一行，标记需与返回注解同处两行内）。
 
 **遗留**：`libs` `tests` 余 **67 处**（`outbox` 6 / `repositories` 5 / `saga` 5 / `tracing` 5 / `alembic` 4 / `integration` 4 / 其余零散目录群）。随后进 `services`（批次 2，304 处）/ `scripts/tools`（批次 3，223 处）+ `ops`（103 处）。
+
+## 33. 实施过程补充 · 存量整改子批 4 · `libs` `tests` 收尾（三）· 余下 43 文件（签名单轮，2026-10-01） <a id="batch4-libs-tests-3"></a>
+
+**范围**：`bms_core` `tests` 余下 **67 处 / 43 文件**（`outbox` 6 / `repositories` 5 / `saga` 5 / `tracing` 5 / `alembic` 4 / `integration` 4 / `dict` 3 / `masking` 3 / `replay` 3，其余为 `boundary` / `edge` / `health` / `idempotency` / `lock` / `permission` / `schemas` / `session` 等零散目录群），纯测试机械适配；本轮收口后 **`libs`（源侧 + `tests`）归零**。按交接单 §7 第 1 项收口。
+
+**动作**（按位置归并）：
+
+1. **测试替身 / 辅助函数签名与局部量落集合类**：`RecordingLock.calls` / `RecordingPublisher.events`·`fail_types` / `RecordingMetrics.counters`·`gauges` / `RecordingGuard.claimed` / `MemoryGuard._claimed` / `_FakeConnection.statements` / `_FakeClient.requests`·`_payloads` / `_FakeServiceClient.requests` / `_Stub.store` / `_factory` 的 `options` / `FixedScope` 条件与 `allow_write` 入参，与 `_diff` / `_tables` / `_item_payload` / `_record_of` / `_table_names` / `_load` / `_keys` / `_masker` / `_action` / `_scalar` / `_settings` / `_encode` / `_write_exceptions` / `_envelope` 等辅助函数签名、`calls` / `cases` / `collected` / `captured` / `payload` / `statements` / `requests` / `SAGA_TABLES` / `OUTBOX_TABLES` 与 parametrize 数据等局部量，全落 `ConcurrentStableList` / `ConcurrentStableDict` / `ConcurrentStableSet`；写用法 `append` → `add`、`extend` → `update`、`x[k] = v` → `set`、`update(映射)` → `update(...items())`；断言一律维持内容相等（`== [..]` / `== {..}`），语义未改。
+2. **框架边界（保留内置 + 行级标记）**：本轮 **22 处** FastAPI 端点返回注解保持内置 `dict[...]`，加行级标记 `# bare-collections:allow（FastAPI 端点返回注解）`（`archive` / `audit` / `circuit` / `dashboard` / `edge` / `fallback` / `fieldtype` / `i18n` / `idempotency` / `lock` / `masking` / `metrics` / `outbound` / `permission` 2 处 / `query` / `ratelimit` / `replay` / `tracing` 2 处 / `transfer` / `workflow`）；单行签名者随既有 `# pyright: ignore` 同处行尾（超 120 列不另起行）。
+3. **第三方 / 外部 IO 边界（调用处显式转换）**：`_FakeClient` 负载含集合类 → `json.dumps` 改 `stable_json_dumps`（基座集合类前置规整）；sqlalchemy `create_all(tables=list(SAGA_TABLES / OUTBOX_TABLES))`、`session.execute(text(...), dict(params) if params else {})`；配置 / Starlette 替身 `options=dict(options) if options else {}`；`json.dumps(dict(payload))` 与 `[dict(entry) for entry in entries]`（`_write_exceptions` 的 `json.dumps` 出口）。
+4. **基座识别口径补齐（本轮暴露并修复）**：`base_scoped_repository._scope_conditions` 的 predicate 判定原为 `isinstance(predicate, list)`——属**运行期识别**而非声明，护栏不查，故 `repositories/` 基座子批未暴露；本轮 `FixedScope` 条件入参落集合类后两条用例失败（过滤被整体跳过），已补为 `isinstance(predicate, (list, ConcurrentStableList))` 并同步 `cast`，使基座对「条件列表」的识别与唯一落点对齐。
+5. **签名默认值与格式**：`ConcurrentStableSet()` 作形参默认值触发 ruff `B008` → 改 `ConcurrentStableSet[str] | None = None` + 函数体内 `or ConcurrentStableSet()`；三条超长行由 `ruff format` 收口。
+
+**验证**：
+
+| 项 | 命令 | 结果 |
+| --- | --- | --- |
+| 定向用例（受影响 32 目录） | `pytest libs/bms_core/tests/{alembic,archive,audit,boundary,circuit,config,dashboard,dict,edge,fallback,fieldtype,health,i18n,idempotency,integration,lock,masking,metrics,oauth,outbound,outbox,permission,query,ratelimit,replay,repositories,saga,schemas,session,tracing,transfer,workflow}` | **376 passed / 37 skipped** |
+| 平台侧定向 | `pytest services/platform/tests/{repositories,services}` | **31 passed** |
+| 静态检查 | `ruff check .` / `ruff format --check .`（backend 全量） | 全绿（957 文件） |
+| 护栏 | `check-bare-collections.py .` | **「新增 0 / 残留 0」**；`libs` `tests` **67 → 0** |
+| 基线递减 | `--update-baseline` | **697 → 630**（条目 658 → 593、计数合计 630；`libs` **0** / `services` 304 / `scripts/tools` 223 / `ops` 103；新增条目 0） |
+| 本地预检 | `check-preflight.py --fast` | **全部通过** |
+
+**遗留**：全局剩余 **630 处**（`services` 304〔`identity` 195 / `platform` 68 / `org` 9 / `ai` 7 / `file`·`report` 各 6 / `tenant` 5 / `notification`·`search` 各 4〕、`scripts/tools` 223、`ops` 103）。`libs`（源侧 + `tests`）**已归零**；后续为批次 2 `services` → 批次 3 `scripts/tools` + `ops`。
