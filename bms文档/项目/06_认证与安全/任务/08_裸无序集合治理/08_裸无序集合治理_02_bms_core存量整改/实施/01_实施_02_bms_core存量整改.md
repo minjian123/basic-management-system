@@ -965,3 +965,30 @@ flowchart LR
 **过程处置（已闭环）**：① 契约集合字段**必填形态**（无默认值）按「`Annotated[集合类, CONTRACT_COLLECTION]` 裸注解」落地，不臆造 `default_factory`；② 解析型辅助函数的**嵌套**结构在「进入签名」处包集合类（顶层 JSON 入口 + 调用点各包一层，避免只改注解不改运行期）；③ 两处 `ConcurrentStableDict(` 初值改写一度丢掉字面量花括号致语法错误，由 `ruff` 即时暴露并修正；④ 集合类无 `pop` / 无 `|=`（只读 `Set` 面）→ 分别改 `get_and_remove` / `update(...)`。
 
 **遗留**：全局剩余 **521 处**（`services` 195〔**仅 `identity`**〕、`scripts/tools` 223、`ops` 103）。批次 2 收尾即 `identity`（195：`services/sso`·`idp`·`oidc`·`auth`·`oauth` 的 `src` 与 `tests` 编排较重，含 SSO 端到端与 OIDC 签发链）；随后批次 3 `scripts/tools` + `ops`。
+
+## 36. 实施过程补充 · 存量整改子批 5 · 批次 2 收尾 · `identity` 服务（签名单轮，2026-10-01） <a id="batch5-identity"></a>
+
+**范围**：`bms_identity` 共 **195 处 / 45 文件**（实现侧 **84 处 / 21 文件** + 测试侧 **111 处 / 24 文件**；按位置＝类字段 20 / 签名参数 45 / 签名返回 67 / 局部变量 63）。**本轮后批次 2 的 `services` 全部归零**。
+
+**动作**（按位置归并）：
+
+1. **仓储层（`src/repositories/`）**：`SysClientRepository` / `IdentityProviderRepository` / `SessionRepository` / `UserIdentityRepository` 的 `list_*` / `_filter_conditions` 返回与局部量落 `ConcurrentStableList`（`conditions` 初值改集合构造、`append` → `add`、`list(...)` 出口改 `ConcurrentStableList(...)`）；`_active_conditions` 的字面量初值同步改集合类。
+2. **服务层（`src/services/`）**：`ClientService.create`（4 个 `Sequence[str]` 入参 + `_validate` 四元组返回）、`IdentityProviderService`（`create` / `update` / `test_draft` 的 `config`、`_validate` 归一化返回、`values` 局部量、`_row_config`）、`ProviderRegistry`（`spec_for_config` / `_parse_config` / `_resolve_redirect_uri`、`merged` 局部量）、`OidcProviderService`（`discovery` / `load_list` / `_code_payload` / `code_from_payload` / `seen` 局部量 / `params` 局部量）、`OrgCredentialClient`（`_post` / `_post_path` / `_payload` / login-state `body`）、`PasswordResetService`、`SessionService`（`list_sessions` / `enforce_max_active` / `revoke_user_sessions`）、`SsoService`（`list_providers` / `_flow_payload`）、`JitService`（`allowed_email_domains` → `ConcurrentStableSet`、`domains` 局部量、`_row_config`）。
+3. **API 与契约层**：`api/auth.py::_is_public` 的 `public_paths` 落集合类（调用点 `settings.gateway.public_paths` 本就是配置集合字段）、`api/clients.py::_load_list` 返回集合类；`schemas/oidc.py` **12 个**契约集合字段、`schemas/identity_provider.py` **4 个** `config` 字段（含 `| None` 联合形态）、`schemas/auth.py`（`trace` / `violations`）、`schemas/sso.py`（两个 `items`）一律改 `Annotated[集合类, CONTRACT_COLLECTION]` + `default_factory=CONTRACT_STABLE_*`。
+4. **调用方与边界适配**：IdP 行配置落库 `json.dumps(dict(payload))`、客户端多值列 `json.dumps(list(...))`、密码历史 `json.dumps(list(history))`；`jwt.encode(header, dict(claims), key)`；Discovery 出口 `JSONResponse(content=dict(document))`；`idp_state.save(state, payload)` 直接复用集合类（`BaseIdpStateStore.save/consume` 早已为集合类）；`ApiResponse[dict[str, object]]` 与 JWKS / 端点返回注解保留内置 + 行级标记。
+5. **测试侧（111 处 / 24 文件）**：替身与夹具的字段 / 签名（`_by_token` / `users` / `last_state` / `calls` / `specs` / `events` / `messages` / `seen` / `tickets` / `services` / `discovery_drop` / `allowed_services` / `login_states` / `oidc_document` 等）落集合类；`TENANT_HEADERS` 等测试头常量改集合类（httpx 按 `Mapping` 接受，`{**CONST, ...}` 展开仍为内置 dict）；OpenAPI / JWKS / Discovery 构造链（`_metadata` / `_key_pair` / `_compact` / `_handler` / `_params` / `_claims` / `_craft`）落集合类；mock 响应出口 `json=dict(...)`（嵌套集合类用 `normalize_collections` 深转换）；幂等替身沿用 `IDEMPOTENCY_PAYLOAD_TYPE` 别名。
+6. **写面与运算适配**：`pop(key, None)` → `get_and_remove(key)`；`append` → `add`；`update(映射)` → `update(...items())`；集合常量清空改重新构造（`ConcurrentStableDict()`）替代 `clear()`。
+
+**验证**：
+
+| 项 | 命令 | 结果 |
+| --- | --- | --- |
+| 定向用例 | `pytest services/identity/tests` | **266 passed / 1 skipped** |
+| 静态检查 | `ruff check .` / `ruff format --check .`（backend 全量） | 全绿（957 文件） |
+| 护栏 | `check-bare-collections.py .` | **「新增 0 / 残留 0」**；`identity` **195 → 0**（**`services` 归零**） |
+| 基线递减 | `--update-baseline` | **521 → 326**（条目 489 → 313、计数合计 326；`libs` 0 / `services` **0** / `scripts/tools` 223 / `ops` 103；新增条目 0） |
+| 本地预检 | `check-preflight.py --fast` | **全部通过** |
+
+**过程处置（已闭环）**：① 测试侧批量脚本改写过程中出现「缺右括号 / 缺花括号」语法错误与导入缺失，由 `ruff`（F821 / invalid-syntax / I001）即时暴露并逐处修正；② mock 响应与 httpx `json=` 出口遇**嵌套**集合类时改用 `normalize_collections` 深转换（顶层的 `dict(...)` 不足以消除嵌套）；③ `TENANT_HEADERS` 改集合类后，`{**TENANT_HEADERS, ...}` 展开与 httpx `headers=` 均按 `Mapping` 正常接受；④ `json.dumps(<集合类>)` 在 IdP 配置落库、客户端多值列、JWT 声明三处均需显式 `dict(...)` / `list(...)`。
+
+**遗留**：全局剩余 **326 处**（`scripts/tools` 223〔`base-check` 86 / `deploy` 50 / `check-docs` 25 / `defect` 18 / `governance` 17 / 其余 27〕、`ops` 103）。**批次 2（`services`）已完成**；随后批次 3 `scripts/tools` + `ops`，其中 `scripts/tools` 含**长期口径评估**（是否纳入长期强制扫描），结论回写《后端开发规范》《后端基类清单》。
