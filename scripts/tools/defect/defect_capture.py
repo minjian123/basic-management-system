@@ -46,9 +46,16 @@ DEFAULT_ARCHIVE_ROOT = "/mnt/data/backup/defects"
 
 LABEL_AUTO = "defect-auto"
 
+# bms_core 源码根：脚本在仓库内运行，集合声明统一落插入序集合类（ConcurrentStable*）。
+_SRC_ROOT = Path(__file__).resolve().parents[3] / "backend" / "libs" / "bms_core" / "src"
+if str(_SRC_ROOT) not in sys.path:
+    sys.path.insert(0, str(_SRC_ROOT))
 
-def load_env(path: Path) -> dict:
-    env = {}
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList  # noqa: E402
+
+
+def load_env(path: Path) -> ConcurrentStableDict[str, str]:
+    env: ConcurrentStableDict[str, str] = ConcurrentStableDict()
     try:
         lines = path.read_text(encoding="utf-8").splitlines()
     except FileNotFoundError:
@@ -58,11 +65,11 @@ def load_env(path: Path) -> dict:
         if not line or line.startswith("#") or "=" not in line:
             continue
         key, _, value = line.partition("=")
-        env[key.strip()] = value.strip().strip('"').strip("'")
+        env.set(key.strip(), value.strip().strip('"').strip("'"))
     return env
 
 
-def run(cmd: list[str]) -> subprocess.CompletedProcess | None:
+def run(cmd: ConcurrentStableList[str]) -> subprocess.CompletedProcess | None:
     """执行命令；失败或工具缺失返回 `None`（现场捕获尽力而为，不阻断归档）。"""
     try:
         result = subprocess.run(cmd, capture_output=True, text=True)
@@ -78,8 +85,9 @@ def run(cmd: list[str]) -> subprocess.CompletedProcess | None:
 def dump_mysql(args) -> Path | None:
     out = args.out_dir / f"{args.db_name}-{date.today().isoformat()}.sql"
     # --ssl=0：内网自签证书环境（mariadb 客户端默认尝试 TLS 会握手失败）
-    result = run(["mysqldump", "--single-transaction", "--ssl=0", "-h", args.db_host, "-P", str(args.db_port),
-                  "-u", args.db_user, f"-p{args.db_password}", args.db_name, "-r", str(out)])
+    result = run(ConcurrentStableList(["mysqldump", "--single-transaction", "--ssl=0", "-h", args.db_host,
+                                       "-P", str(args.db_port), "-u", args.db_user,
+                                       f"-p{args.db_password}", args.db_name, "-r", str(out)]))
     return out if result is not None else None
 
 
@@ -97,8 +105,10 @@ def dump_postgres(args) -> Path | None:
 
 def dump_dm8(args) -> Path | None:
     out = args.out_dir / f"{args.db_name}-{date.today().isoformat()}.dmp"
-    result = run(["/opt/dmdbms/bin/dexp", f"SYSDBA/{args.db_password}@{args.db_host}:{args.db_port}",
-                  f"FILE={out.name}", f"DIRECTORY={args.out_dir}", f"OWNER={args.db_name}", "LOG=exp.log"])
+    result = run(ConcurrentStableList(["/opt/dmdbms/bin/dexp",
+                                       f"SYSDBA/{args.db_password}@{args.db_host}:{args.db_port}",
+                                       f"FILE={out.name}", f"DIRECTORY={args.out_dir}",
+                                       f"OWNER={args.db_name}", "LOG=exp.log"]))
     return out if result is not None else None
 
 
@@ -107,20 +117,20 @@ def fingerprint(case_id: str, summary: str) -> str:
     return hashlib.sha256(f"{case_id}|{norm}".encode("utf-8")).hexdigest()[:12]
 
 
-def collect_logs(log_dir: str | None, out_dir: Path) -> list[str]:
+def collect_logs(log_dir: str | None, out_dir: Path) -> ConcurrentStableList[str]:
     if not log_dir:
-        return []
+        return ConcurrentStableList()
     src = Path(log_dir)
     if not src.is_dir():
         print(f"[警告] 日志目录不存在: {src}")
-        return []
+        return ConcurrentStableList()
     dst = out_dir / "logs"
     dst.mkdir(parents=True, exist_ok=True)
-    names = []
+    names: ConcurrentStableList[str] = ConcurrentStableList()
     for f in sorted(src.iterdir()):
         if f.is_file():
             shutil.copy2(f, dst / f.name)
-            names.append(f.name)
+            names.add(f.name)
     return names
 
 
@@ -192,9 +202,13 @@ def build_description(args, fp: str, dump_path: Path, repro_md: Path) -> str:
     )
 
 
-def api(path: str, method: str = "GET", body: dict | None = None) -> dict | list | None:
+def api(
+    path: str,
+    method: str = "GET",
+    body: ConcurrentStableDict[str, object] | None = None,
+) -> ConcurrentStableDict[str, object] | ConcurrentStableList[object] | None:
     url = f"{os.environ['GITLAB_API_URL'].rstrip('/')}/{path.lstrip('/')}"
-    data = json.dumps(body).encode("utf-8") if body is not None else None
+    data = json.dumps(dict(body)).encode("utf-8") if body is not None else None
     req = urllib.request.Request(
         url, data=data, method=method,
         headers={"PRIVATE-TOKEN": os.environ["GITLAB_API_TOKEN"],
@@ -202,18 +216,25 @@ def api(path: str, method: str = "GET", body: dict | None = None) -> dict | list
     try:
         with urllib.request.urlopen(req) as resp:
             payload = resp.read()
-            return json.loads(payload) if payload else None
+            if not payload:
+                return None
+            parsed: object = json.loads(payload)
+            if isinstance(parsed, dict):
+                return ConcurrentStableDict(parsed)
+            if isinstance(parsed, list):
+                return ConcurrentStableList(parsed)
+            return None
     except urllib.error.HTTPError as e:
         print(f"[失败] GitLab API {method} {path} -> HTTP {e.code}: {e.read().decode('utf-8', 'ignore')}")
         sys.exit(1)
 
 
-def find_open_issue(project_id: str, fp: str) -> dict | None:
+def find_open_issue(project_id: str, fp: str) -> ConcurrentStableDict[str, object] | None:
     q = urllib.parse.quote(fp)
     issues = api(f"projects/{project_id}/issues?scope=all&state=opened&search={q}")
     for issue in issues or []:
         if fp in f"{issue.get('title', '')} {issue.get('description', '')}":
-            return issue
+            return ConcurrentStableDict(issue)
     return None
 
 
@@ -269,15 +290,15 @@ def main() -> int:
     issue = find_open_issue(project_id, fp)
     if issue:
         note = f"再次失败（commit `{commit}`）：新现场 dump `{dump}`，复现包 `{repro_md}`，见流水线 {args.pipeline_url}"
-        api(f"projects/{project_id}/issues/{issue['iid']}/notes", "POST", {"body": note})
+        api(f"projects/{project_id}/issues/{issue['iid']}/notes", "POST", ConcurrentStableDict({"body": note}))
         url = issue["web_url"]
         print(f"[3/3] 已追加评论到现有 Issue: {url}")
     else:
-        issue = api(f"projects/{project_id}/issues", "POST", {
+        issue = api(f"projects/{project_id}/issues", "POST", ConcurrentStableDict({
             "title": f"[自动缺陷] {args.summary}",
             "description": build_description(args, fp, dump, repro_md),
             "labels": LABEL_AUTO,
-        })
+        }))
         url = issue["web_url"]
         print(f"[3/3] 已创建自动缺陷 Issue: {url}")
 
