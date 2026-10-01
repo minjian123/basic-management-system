@@ -34,6 +34,7 @@ from sqlalchemy.engine import Dialect
 from sqlalchemy.orm import Session
 from sqlalchemy.schema import CreateTable
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_platform.models.catalog import SysModule
 from bms_platform.models.system import SysTask
 
@@ -53,48 +54,58 @@ _PROBE = Table(
 )
 """类型探针表：覆盖公共字段与布尔 / 多值口径（不连库，仅编译 DDL）。"""
 
-_EXPECTED_TYPES: dict[str, dict[str, str]] = {
-    "sqlite": {
-        "big": "BIGINT",
-        "flag": "BOOLEAN",
-        "tiny": "SMALLINT",
-        "count": "INTEGER",
-        "name": "VARCHAR(16)",
-        "note": "TEXT",
-        "at": "DATETIME",
-        "tags": "JSON",
-    },
-    "mysql": {
-        "big": "BIGINT",
-        "flag": "BOOL",
-        "tiny": "SMALLINT",
-        "count": "INTEGER",
-        "name": "VARCHAR(16)",
-        "note": "TEXT",
-        "at": "DATETIME",
-        "tags": "JSON",
-    },
-    "postgresql": {
-        "big": "BIGINT",
-        "flag": "BOOLEAN",
-        "tiny": "SMALLINT",
-        "count": "INTEGER",
-        "name": "VARCHAR(16)",
-        "note": "TEXT",
-        "at": "TIMESTAMP WITHOUT TIME ZONE",
-        "tags": "JSON",
-    },
-    "dm": {
-        "big": "BIGINT",
-        "flag": "SMALLINT",
-        "tiny": "SMALLINT",
-        "count": "INTEGER",
-        "name": "VARCHAR2(16 CHAR)",
-        "note": "TEXT",
-        "at": "DATETIME",
-        "tags": "JSON",
-    },
-}
+_EXPECTED_TYPES: ConcurrentStableDict[str, ConcurrentStableDict[str, str]] = ConcurrentStableDict(
+    {
+        "sqlite": ConcurrentStableDict(
+            {
+                "big": "BIGINT",
+                "flag": "BOOLEAN",
+                "tiny": "SMALLINT",
+                "count": "INTEGER",
+                "name": "VARCHAR(16)",
+                "note": "TEXT",
+                "at": "DATETIME",
+                "tags": "JSON",
+            }
+        ),
+        "mysql": ConcurrentStableDict(
+            {
+                "big": "BIGINT",
+                "flag": "BOOL",
+                "tiny": "SMALLINT",
+                "count": "INTEGER",
+                "name": "VARCHAR(16)",
+                "note": "TEXT",
+                "at": "DATETIME",
+                "tags": "JSON",
+            }
+        ),
+        "postgresql": ConcurrentStableDict(
+            {
+                "big": "BIGINT",
+                "flag": "BOOLEAN",
+                "tiny": "SMALLINT",
+                "count": "INTEGER",
+                "name": "VARCHAR(16)",
+                "note": "TEXT",
+                "at": "TIMESTAMP WITHOUT TIME ZONE",
+                "tags": "JSON",
+            }
+        ),
+        "dm": ConcurrentStableDict(
+            {
+                "big": "BIGINT",
+                "flag": "SMALLINT",
+                "tiny": "SMALLINT",
+                "count": "INTEGER",
+                "name": "VARCHAR2(16 CHAR)",
+                "note": "TEXT",
+                "at": "DATETIME",
+                "tags": "JSON",
+            }
+        ),
+    }
+)
 """四库类型映射实测登记表（与 `BaseModel` docstring 一致）。
 
 离线 DDL 编译断言为**对照基线**；真库落库复核结论见本模块 docstring

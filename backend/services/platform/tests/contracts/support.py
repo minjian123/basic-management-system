@@ -1,7 +1,7 @@
 """契约套件公共支撑：装配快照构建与域注册表 / 注册项测试替身（测试专用，不入 app/）。"""
 
 import asyncio
-from collections.abc import Callable, Mapping
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Protocol, cast
 
@@ -63,11 +63,11 @@ class EmptyRegistryProbe(Protocol):
         ...
 
 
-def build_snapshot() -> Mapping[str, Mapping[str, PluginImpl]]:
+def build_snapshot() -> ConcurrentStableDict[str, ConcurrentStableDict[str, PluginImpl]]:
     """构建离线全量装配快照（应用工厂 → 平台实现登记 → 注册表构建；不进入 lifespan）。
 
     Returns:
-        Mapping[str, Mapping[str, PluginImpl]]: 两级映射快照。
+        ConcurrentStableDict[str, ConcurrentStableDict[str, PluginImpl]]: 两级映射快照。
     """
     # 会话级 / 单文件运行可能先于用例函数级配置隔离：此处显式关闭可观测真实 provider，
     # 避免装配引入全局 TracerProvider / 后台导出线程（08_01）。

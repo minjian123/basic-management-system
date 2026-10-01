@@ -8,6 +8,7 @@ from httpx import ASGITransport, AsyncClient
 from bms_core.api.deps import get_query_scheme_store
 from bms_core.application import service_lifespan as lifespan
 from bms_core.core.capability import BaseCapability, BaseNullObject
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.config import get_settings
 from bms_core.core.plugin import BasePluggable, resolve_plugin
 from bms_core.listing.base import (
@@ -40,7 +41,7 @@ class _InMemorySchemeStore(BaseQuerySchemeStore):
     """测试用内存查询方案存储（验证契约聚合行为；真实存储随通用能力阶段）。"""
 
     def __init__(self) -> None:
-        self._items: dict[int, QueryScheme] = {}
+        self._items: ConcurrentStableDict[int, QueryScheme] = ConcurrentStableDict()
         self._seq = 0
 
     async def list(self, target: QuerySchemeTarget, *, field_key: str | None = None) -> tuple[QueryScheme, ...]:
@@ -60,11 +61,11 @@ class _InMemorySchemeStore(BaseQuerySchemeStore):
             self._seq += 1
             scheme_id = self._seq
             stored = stored.model_copy(update={"id": scheme_id})
-        self._items[scheme_id] = stored
+        self._items.set(scheme_id, stored)
         return stored
 
     async def delete(self, scheme_id: int) -> bool:
-        return self._items.pop(scheme_id, None) is not None
+        return self._items.get_and_remove(scheme_id) is not None
 
     async def resolve_default(self, target: QuerySchemeTarget, *, field_key: str | None = None) -> QueryScheme | None:
         defaults = [scheme for scheme in await self.list(target, field_key=field_key) if scheme.is_default]

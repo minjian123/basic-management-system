@@ -1,9 +1,12 @@
 """BaseSchema 公共配置、序列化与分页契约测试（Kiwi 13）。"""
 
+from typing import Annotated
+
 import pytest
 from pydantic import ValidationError
 
-from bms_core.schemas.base import BaseSchema
+from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.schemas.base import CONTRACT_COLLECTION, BaseSchema
 from bms_core.schemas.pagination import (
     BaseCursorQuery,
     BaseCursorResponse,
@@ -87,7 +90,7 @@ class _IdSchema(BaseSchema):
 class _IdListSchema(BaseSchema):
     """嵌套列表 ID 序列化测试模型。"""
 
-    items: list[_IdSchema]
+    items: Annotated[ConcurrentStableList[_IdSchema], CONTRACT_COLLECTION]
 
 
 @pytest.mark.kiwi_id(13)

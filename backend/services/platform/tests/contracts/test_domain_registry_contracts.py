@@ -31,12 +31,14 @@ from tests.contracts.support import (
 
 pytestmark = pytest.mark.kiwi_id(568)
 
-_UNIQUENESS_PROVIDERS: dict[str, Callable[[], BaseProvider]] = {
-    "fieldtype": TextFieldType,
-    "query": DictQueryProvider,
-    "dashboard": TodoCardProvider,
-    "health": lambda: NamedCheck("duplicated"),
-}
+_UNIQUENESS_PROVIDERS: ConcurrentStableDict[str, Callable[[], BaseProvider]] = ConcurrentStableDict(
+    {
+        "fieldtype": TextFieldType,
+        "query": DictQueryProvider,
+        "dashboard": TodoCardProvider,
+        "health": lambda: NamedCheck("duplicated"),
+    }
+)
 
 
 @pytest.mark.parametrize("contract", REGISTRY_CONTRACTS, ids=lambda item: item.suite_name)

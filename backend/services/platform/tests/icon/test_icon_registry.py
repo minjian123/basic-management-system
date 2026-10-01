@@ -10,6 +10,7 @@ from sqlalchemy import Table, UniqueConstraint
 from bms_core.api.deps import get_idempotency_store
 from bms_core.application import service_lifespan as lifespan
 from bms_core.core.capability import BaseCapability, BaseNullObject
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.error_codes import ErrorCode
 from bms_core.core.exceptions import NotFoundError
 from bms_core.core.plugin import BasePluggable, resolve_plugin
@@ -31,6 +32,7 @@ from bms_core.icon.base import (
     is_valid_icon_code,
 )
 from bms_core.icon.null import NullIconRegistry
+from bms_core.idempotency.base import IDEMPOTENCY_PAYLOAD_TYPE
 from bms_platform.api.icon import router as icon_router
 from bms_platform.main import ApplicationFactory
 from bms_platform.models.system import SysIcon, SysIconI18n
@@ -47,8 +49,8 @@ class _RecordingIdempotency:
 
     def __init__(self) -> None:
         """初始化空首次结果表。"""
-        self.keys: list[str] = []
-        self._payloads: dict[str, dict[str, object]] = {}
+        self.keys: ConcurrentStableList[str] = ConcurrentStableList()
+        self._payloads: ConcurrentStableDict[str, IDEMPOTENCY_PAYLOAD_TYPE] = ConcurrentStableDict()
 
     async def begin(self, key: str, *, ttl: int | None = None) -> bool:
         """登记幂等键（首次为 True）。
@@ -61,21 +63,21 @@ class _RecordingIdempotency:
             bool: 首次 True。
         """
         del ttl
-        self.keys.append(key)
+        self.keys.add(key)
         return key not in self._payloads
 
-    async def load(self, key: str) -> dict[str, object] | None:
+    async def load(self, key: str) -> IDEMPOTENCY_PAYLOAD_TYPE | None:
         """取首次结果载荷。
 
         Args:
             key: 幂等键。
 
         Returns:
-            dict[str, object] | None: 首次结果；未缓存为 None。
+            IDEMPOTENCY_PAYLOAD_TYPE | None: 首次结果；未缓存为 None。
         """
         return self._payloads.get(key)
 
-    async def save(self, key: str, payload: dict[str, object], *, ttl: int | None = None) -> None:
+    async def save(self, key: str, payload: IDEMPOTENCY_PAYLOAD_TYPE, *, ttl: int | None = None) -> None:
         """写首次结果。
 
         Args:
@@ -84,7 +86,7 @@ class _RecordingIdempotency:
             ttl: 键有效期（替身忽略）。
         """
         del ttl
-        self._payloads[key] = payload
+        self._payloads.set(key, payload)
 
 
 class _StaleIdempotency(_RecordingIdempotency):
@@ -103,14 +105,14 @@ class _StaleIdempotency(_RecordingIdempotency):
         await super().begin(key, ttl=ttl)
         return False
 
-    async def load(self, key: str) -> dict[str, object] | None:
+    async def load(self, key: str) -> IDEMPOTENCY_PAYLOAD_TYPE | None:
         """取首次结果（恒不可读）。
 
         Args:
             key: 幂等键。
 
         Returns:
-            dict[str, object] | None: 恒 None。
+            IDEMPOTENCY_PAYLOAD_TYPE | None: 恒 None。
         """
         del key
         return None

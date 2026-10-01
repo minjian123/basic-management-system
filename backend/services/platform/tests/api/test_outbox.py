@@ -8,6 +8,7 @@ from httpx import AsyncClient
 from sqlalchemy import Table, select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import get_settings
 from bms_core.events.base import EventEnvelope
 from bms_core.models.base import Base
@@ -15,11 +16,13 @@ from bms_core.models.outbox import SysEventConsumed, SysEventDeadLetter, SysOutb
 from bms_core.outbox.base import DEAD_LETTER_STATUS_PENDING, OUTBOX_STATUS_PENDING
 from bms_core.outbox.store import SqlOutboxStore
 
-_TABLES: list[Table] = [
-    cast("Table", SysOutbox.__table__),
-    cast("Table", SysEventConsumed.__table__),
-    cast("Table", SysEventDeadLetter.__table__),
-]
+_TABLES: ConcurrentStableList[Table] = ConcurrentStableList(
+    [
+        cast("Table", SysOutbox.__table__),
+        cast("Table", SysEventConsumed.__table__),
+        cast("Table", SysEventDeadLetter.__table__),
+    ]
+)
 
 
 @pytest_asyncio.fixture(autouse=True)
@@ -41,7 +44,7 @@ async def outbox_schema(
     for url in (platform_db_url, tenant_url):
         engine = create_async_engine(url)
         async with engine.begin() as connection:
-            await connection.run_sync(lambda conn: Base.metadata.create_all(conn, tables=_TABLES))
+            await connection.run_sync(lambda conn: Base.metadata.create_all(conn, tables=list(_TABLES)))
         await engine.dispose()
 
 

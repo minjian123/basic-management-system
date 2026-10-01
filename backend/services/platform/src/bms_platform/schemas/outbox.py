@@ -1,9 +1,10 @@
 """schemas 层死信看板契约：事件死信记录响应。"""
 
 from datetime import datetime
-from typing import Any
+from typing import Annotated, Any
 
-from bms_core.schemas.base import BaseSchema
+from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.schemas.base import CONTRACT_COLLECTION, BaseSchema
 
 
 class DeadLetterResponse(BaseSchema):
@@ -16,7 +17,7 @@ class DeadLetterResponse(BaseSchema):
     consumer: str | None
     aggregate_key: str | None
     tenant_id: str | None
-    payload: dict[str, Any]
+    payload: Annotated[ConcurrentStableDict[str, Any], CONTRACT_COLLECTION]
     error_msg: str
     retry_count: int
     status: str

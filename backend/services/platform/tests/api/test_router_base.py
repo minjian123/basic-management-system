@@ -91,7 +91,7 @@ async def test_unified_mount_and_prefix() -> None:
     router = BaseRouter(key="probe", prefix="/probe")
 
     @router.get("/ping")
-    async def _ping() -> dict[str, bool]:  # pyright: ignore[reportUnusedFunction]
+    async def _ping() -> dict[str, bool]:  # pyright: ignore[reportUnusedFunction]  # bare-collections:allow（FastAPI 端点返回注解）
         return {"ok": True}
 
     registry = RouterRegistry()
@@ -113,15 +113,15 @@ async def test_parameter_binding_factories() -> None:
     router = BaseRouter(key="bind", prefix="/bind")
 
     @router.get("/page")
-    async def _page(query: Annotated[BasePageQuery, Depends(page_query)]) -> dict[str, object]:  # pyright: ignore[reportUnusedFunction]
+    async def _page(query: Annotated[BasePageQuery, Depends(page_query)]) -> dict[str, object]:  # pyright: ignore[reportUnusedFunction]  # bare-collections:allow（FastAPI 端点返回注解）
         return query.model_dump(mode="json")
 
     @router.get("/sort")
-    async def _sort(query: Annotated[BaseSortQuery, Depends(sort_query)]) -> dict[str, object]:  # pyright: ignore[reportUnusedFunction]
+    async def _sort(query: Annotated[BaseSortQuery, Depends(sort_query)]) -> dict[str, object]:  # pyright: ignore[reportUnusedFunction]  # bare-collections:allow（FastAPI 端点返回注解）
         return query.model_dump(mode="json")
 
     @router.get("/cursor")
-    async def _cursor(query: Annotated[BaseCursorQuery, Depends(cursor_query)]) -> dict[str, object]:  # pyright: ignore[reportUnusedFunction]
+    async def _cursor(query: Annotated[BaseCursorQuery, Depends(cursor_query)]) -> dict[str, object]:  # pyright: ignore[reportUnusedFunction]  # bare-collections:allow（FastAPI 端点返回注解）
         return query.model_dump(mode="json")
 
     app.include_router(router)
@@ -170,7 +170,7 @@ async def test_auth_dependency_requires_login(client: AsyncClient, service_app: 
     router = BaseRouter(key="guarded", prefix="/guarded", dependencies=[Depends(require_auth)])
 
     @router.get("/ping")
-    async def _guarded_ping() -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]
+    async def _guarded_ping() -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]  # bare-collections:allow（FastAPI 端点返回注解）
         return {"status": "ok"}
 
     service_app.include_router(router)
@@ -185,7 +185,7 @@ async def test_auth_dependency_passes_with_login(client: AsyncClient, service_ap
     router = BaseRouter(key="guarded-ok", prefix="/guarded-ok", dependencies=[Depends(require_auth)])
 
     @router.get("/ping")
-    async def _guarded_ok_ping() -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]
+    async def _guarded_ok_ping() -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]  # bare-collections:allow（FastAPI 端点返回注解）
         return {"status": "ok"}
 
     service_app.include_router(router)

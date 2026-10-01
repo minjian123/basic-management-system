@@ -9,6 +9,7 @@ from starlette.types import Message, Receive, Scope, Send
 
 from bms_core.api.middleware import RequestLoggingMiddleware, TraceIdMiddleware
 from bms_core.application import service_lifespan as lifespan
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import LogSettings, Settings
 from bms_core.core.context import get_current_request_id, get_current_trace_id
 from bms_core.core.logging import configure_logging
@@ -28,19 +29,19 @@ def _build_app(*, slow_ms: int = 1000) -> FastAPI:
     app.add_middleware(RequestLoggingMiddleware, slow_request_ms=slow_ms)
 
     @app.get("/whoami")
-    async def whoami() -> dict[str, object]:  # pyright: ignore[reportUnusedFunction]
+    async def whoami() -> dict[str, object]:  # pyright: ignore[reportUnusedFunction]  # bare-collections:allow（FastAPI 端点返回注解）
         return {"trace_id": get_current_trace_id(), "request_id": get_current_request_id()}
 
     return app
 
 
-def _records(capsys: pytest.CaptureFixture[str]) -> list[dict[str, object]]:
+def _records(capsys: pytest.CaptureFixture[str]) -> ConcurrentStableList[ConcurrentStableDict[str, object]]:
     """读取 stdout 并按 JSON 行解析（跳过非 JSON 行，如 lifespan 装配日志的其它渲染形态）。"""
-    records: list[dict[str, object]] = []
+    records: ConcurrentStableList[ConcurrentStableDict[str, object]] = ConcurrentStableList()
     for line in capsys.readouterr().out.splitlines():
         text = line.strip()
         if text.startswith("{"):
-            records.append(json.loads(text))
+            records.add(ConcurrentStableDict(json.loads(text)))
     return records
 
 
@@ -108,7 +109,7 @@ async def test_client_ip_prefers_forwarded_for(capsys: pytest.CaptureFixture[str
 @pytest.mark.kiwi_id(63)
 async def test_non_http_scope_passthrough() -> None:
     """非 HTTP 作用域（lifespan 等）直通，不进请求上下文、不记访问日志。"""
-    sent: list[str] = []
+    sent: ConcurrentStableList[str] = ConcurrentStableList()
 
     async def downstream(scope: Scope, receive: Receive, send: Send) -> None:
         del scope, receive
@@ -118,7 +119,7 @@ async def test_non_http_scope_passthrough() -> None:
         return {"type": "lifespan.startup"}
 
     async def send(message: Message) -> None:
-        sent.append(str(message["type"]))
+        sent.add(str(message["type"]))
 
     await RequestLoggingMiddleware(downstream)({"type": "lifespan"}, receive, send)
     assert sent == ["lifespan.startup.complete"]

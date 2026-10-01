@@ -6,6 +6,7 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from bms_core.application import service_lifespan as lifespan
+from bms_core.core.concurrent import ConcurrentStableSet
 from bms_core.core.config import get_settings
 from bms_core.core.exceptions import CatalogError
 from bms_core.schemas.module import ModuleResponse
@@ -169,8 +170,8 @@ async def test_startup_validation_passes_for_platform_seed() -> None:
 async def test_modules_routes_get_only() -> None:
     """只读边界：服务目录路由（含 03_03 明细路由）仅 GET（以 OpenAPI 契约为准）。"""
     app = ApplicationFactory().create(None)
-    operations: set[str] = set()
+    operations: ConcurrentStableSet[str] = ConcurrentStableSet()
     for path, item in app.openapi()["paths"].items():
         if path.startswith("/api/v1/modules"):
-            operations |= set(item)
+            operations.update(set(item))
     assert operations == {"get"}
