@@ -936,3 +936,32 @@ flowchart LR
 **过程处置（已闭环）**：① `ConcurrentStableDict` 无 `pop(key, default)` → 幂等 / 会话 / 通知替身改用 `get_and_remove(...)`（语义一致，缺失返回 None）；② `del d[k]` → `delete(k)`；③ `json.dumps(history)` 因集合类不可直序列化 → `json.dumps(list(history))`；④ `_scope_conditions` 式「运行期识别」缺口的同类风险已在交接单 §9 立条目；⑤ `ConcurrentStableList[messages] | None = None` 规避 `ConcurrentStableSet()` 形参默认值的 ruff `B008`。
 
 **遗留**：全局剩余 **589 处**（`services` 263〔`identity` 195 / `platform` 68〕、`scripts/tools` 223、`ops` 103）。批次 2 续推 `identity`（195，量最大、含 `sso`·`oidc`·`idp` 测试编排较重）与 `platform`（68）；随后批次 3 `scripts/tools` + `ops`。**测试卫生观察项**：`services/org/tests/account_lock/test_endpoints.py::test_lock_endpoints_reject_invalid_token` 出现 `SAWarning`（GC 回收未归还连接）——属既有测试卫生现象、不影响门禁，未在本轮追改。
+
+## 35. 实施过程补充 · 存量整改子批 5 · 批次 2 续推 · `platform` 服务（签名单轮，2026-10-01） <a id="batch5-platform"></a>
+
+**范围**：`bms_platform` 共 **68 处 / 24 文件**（按位置＝类字段 3 / 签名参数 7 / 签名返回 30 / 局部变量 28），其中**实现侧 15 处**（`src/` 5 文件）与测试侧 53 处（22 文件）；另在 `libs/bms_core/catalog/loader.py` 做 **2 处类型适配**。按交接单 §7 第 2 项推进（`platform` 面小、耦合低，先于 `identity` 195）。
+
+**动作**（按位置归并）：
+
+1. **实现侧（`src/`）落集合类**：`api/dict.py`（`items` 局部量 + `_provider_record` / `_type_out` / `_item_out` / `_attr_out` 四个响应组装函数）；`repositories/module_repository.py`（`_catalog_conditions` 返回与 `conditions` 局部量、`list_catalog` / `page_catalog` 返回）；`api/plugins.py`（模块常量 `_PORT_VERSIONS`、`_group` 的 `implementations` 入参与 `items` 局部量）；`sources/catalog_source.py`（`read_catalog` 返回）。
+2. **契约字段（必填形态首例）**：`schemas/outbox.py::DeadLetterResponse.payload` 改 `Annotated[ConcurrentStableDict[str, Any], CONTRACT_COLLECTION]`——**必填字段不补 `Field(default_factory=...)`**（原字段无默认；`CONTRACT_COLLECTION` 只负责校验 / 序列化接入，ORM 侧该列已是 `StableJson` 产集合类）。
+3. **框架响应出口显式转换**：`api/dict.py` 5 处 `ApiResponse.ok(dict(_type_out(row)))`（含 `_item_out` / `_attr_out`）；`query-providers` 清单出口改 `ApiResponse.ok([dict(record) for record in items])`（外层与内层均为集合类，须双层显式转换）。
+4. **`libs` 类型适配（2 处）**：`catalog/loader.py` 的 `CatalogReader` 别名由 `Awaitable[list[ModuleRecord]]` 改 `Awaitable[ConcurrentStableList[ModuleRecord]]`（读取器实现已落集合类，别名不同步会使登记点类型不符），并去掉 `load_catalog_snapshot` 对 reader 返回值的**二次包裹**（`ConcurrentStableList(await reader(...))` → `await reader(...)`）。
+5. **测试侧（53 处）**：OpenAPI 快照解析链（`_contract_spec` / `_required_query` / `_read_operations`，嵌套 `operation` 在调用处包 `ConcurrentStableDict(...)` 保形态一致）、日志行解析 `_records`、插件登记快照链（`_collect_app_classes` / `_ports` / `_snapshot_of_app_classes`；`_PORTS_WITHOUT_NULL` 由 `frozenset` → `ConcurrentStableSet`）、模块常量（`_TABLES` / `_UNIQUENESS_PROVIDERS` / `_EXPECTED_TYPES` 两级嵌套）、幂等替身（`icon` 沿用 `IDEMPOTENCY_PAYLOAD_TYPE` 别名）、`_script_env` / `_fake_time_module` / `Nested.tags`（数据类字段 + 4 处构造实参）/ `_IdListSchema.items`（`CONTRACT_COLLECTION`）/ 内存替身 `_items`·`_store`·`events`·`received` 等。
+6. **写面与运算适配**：`pop(key, None)` → `get_and_remove(key)`；`del d[k]` → `delete(k)`；`append` / `extend` → `add` / `update`；集合 `|=` → `update(...)`；构造实参（`changes=[...]`、`order=["asc"]`、`tags=[...]`）按集合类构造。
+7. **框架边界（保留内置 + 行级标记）**：**10 处** FastAPI 端点返回注解保持内置 `dict[...]` 并加 `# bare-collections:allow（FastAPI 端点返回注解）`（`test_router_base` 6 / `test_request_logging` 1 / `test_plugin_providers` 2 / `test_health_registry` 1）。
+
+**验证**：
+
+| 项 | 命令 | 结果 |
+| --- | --- | --- |
+| 定向用例（服务） | `pytest services/platform/tests` | **350 passed / 1 skipped** |
+| 定向用例（受 `loader` 影响的 `libs`） | `pytest libs/bms_core/tests/{core,health,services,db}` | **362 passed** |
+| 静态检查 | `ruff check .` / `ruff format --check .`（backend 全量） | 全绿（957 文件） |
+| 护栏 | `check-bare-collections.py .` | **「新增 0 / 残留 0」**；`platform` **68 → 0** |
+| 基线递减 | `--update-baseline` | **589 → 521**（条目 554 → 489、计数合计 521；`services` **263 → 195**〔仅余 `identity`〕/ `scripts/tools` 223 / `ops` 103；新增条目 0） |
+| 本地预检 | `check-preflight.py --fast` | **全部通过** |
+
+**过程处置（已闭环）**：① 契约集合字段**必填形态**（无默认值）按「`Annotated[集合类, CONTRACT_COLLECTION]` 裸注解」落地，不臆造 `default_factory`；② 解析型辅助函数的**嵌套**结构在「进入签名」处包集合类（顶层 JSON 入口 + 调用点各包一层，避免只改注解不改运行期）；③ 两处 `ConcurrentStableDict(` 初值改写一度丢掉字面量花括号致语法错误，由 `ruff` 即时暴露并修正；④ 集合类无 `pop` / 无 `|=`（只读 `Set` 面）→ 分别改 `get_and_remove` / `update(...)`。
+
+**遗留**：全局剩余 **521 处**（`services` 195〔**仅 `identity`**〕、`scripts/tools` 223、`ops` 103）。批次 2 收尾即 `identity`（195：`services/sso`·`idp`·`oidc`·`auth`·`oauth` 的 `src` 与 `tests` 编排较重，含 SSO 端到端与 OIDC 签发链）；随后批次 3 `scripts/tools` + `ops`。
