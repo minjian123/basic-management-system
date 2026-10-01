@@ -35,11 +35,11 @@ uv run python -m ops.provision_tenant --code demo \
 
 import argparse
 import asyncio
-from collections.abc import Sequence
 from dataclasses import dataclass
 
 from sqlalchemy.engine import make_url
 
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import get_settings
 from bms_core.core.exceptions import ConfigError
 from bms_core.core.objects import BaseValueObject
@@ -113,31 +113,31 @@ def _masked(url: str) -> str:
     return make_url(url).render_as_string(hide_password=True)
 
 
-def _resolve_services(requested: Sequence[str]) -> tuple[str, ...]:
+def _resolve_services(requested: ConcurrentStableList[str]) -> ConcurrentStableList[str]:
     """解析服务维度（显式指定须为已登记服务标识；缺省取全部启用服务）。
 
     Args:
         requested: 命令行指定的服务标识列表。
 
     Returns:
-        tuple[str, ...]: 服务标识元组（保序去重）。
+        ConcurrentStableList[str]: 服务标识列表（保序去重）。
 
     Raises:
         ConfigError: 指定服务未登记 / 目录无启用服务。
     """
     if requested:
         registered = known_service_keys()
-        unknown = [service for service in requested if service not in registered]
+        unknown = ConcurrentStableList(service for service in requested if service not in registered)
         if unknown:
             raise ConfigError(f"服务标识未登记：{', '.join(unknown)}")
-        return tuple(dict.fromkeys(requested))
+        return ConcurrentStableList(dict.fromkeys(requested))
     services = enabled_service_keys()
     if not services:
         raise ConfigError("服务目录无已启用服务（service_key 非空且 status=enabled），请显式 --service")
-    return services
+    return ConcurrentStableList(services)
 
 
-async def _resolve_refs(args: argparse.Namespace, factory: EngineFactory) -> Sequence[TenantRef]:
+async def _resolve_refs(args: argparse.Namespace, factory: EngineFactory) -> ConcurrentStableList[TenantRef]:
     """解析租户维度（`--code` 显式，或 `--all-tenants` 读租户注册库；库名基经对照表）。
 
     Args:
@@ -145,13 +145,13 @@ async def _resolve_refs(args: argparse.Namespace, factory: EngineFactory) -> Seq
         factory: 引擎工厂（运维通道，用于解析租户注册库连接串）。
 
     Returns:
-        list[TenantRef]: 租户引用列表（保序去重）。
+        ConcurrentStableList[TenantRef]: 租户引用列表（保序去重）。
 
     Raises:
         ConfigError: 租户维度缺失或租户注册库不可读。
     """
-    codes = list(dict.fromkeys(args.code))
-    refs = [TenantRef(code=code, db_basis=code) for code in codes]
+    codes = ConcurrentStableList(dict.fromkeys(args.code))
+    refs = ConcurrentStableList(TenantRef(code=code, db_basis=code) for code in codes)
     registry_key = build_platform_db_key(TENANT_SERVICE_KEY)
     registry_url = factory.resolved_url(registry_key)
     if refs:
@@ -170,14 +170,14 @@ async def _resolve_refs(args: argparse.Namespace, factory: EngineFactory) -> Seq
     return refs
 
 
-async def build_tasks(args: argparse.Namespace) -> list[ProvisionTask]:
+async def build_tasks(args: argparse.Namespace) -> ConcurrentStableList[ProvisionTask]:
     """构建建库任务清单（平台服务库 → 各服务租户库）。
 
     Args:
         args: 命令行参数。
 
     Returns:
-        list[ProvisionTask]: 任务清单（保序）。
+        ConcurrentStableList[ProvisionTask]: 任务清单（保序）。
 
     Raises:
         ConfigError: 服务 / 租户维度缺失或租户注册库不可用。
@@ -185,15 +185,13 @@ async def build_tasks(args: argparse.Namespace) -> list[ProvisionTask]:
     settings = get_settings()
     # 运维通道：允许跨服务库键（按各服务建库，不以运行服务为限）
     factory = EngineFactory(settings, allow_cross_service=True)
-    services = _resolve_services(args.service)
+    services = _resolve_services(ConcurrentStableList(args.service))
 
-    tasks: list[ProvisionTask] = []
+    tasks: ConcurrentStableList[ProvisionTask] = ConcurrentStableList()
     if not args.skip_platform:
         for service in services:
             key = build_platform_db_key(service)
-            tasks.append(
-                ProvisionTask(kind=DB_KIND_PLATFORM, service=service, db_key=key, url=factory.resolved_url(key))
-            )
+            tasks.add(ProvisionTask(kind=DB_KIND_PLATFORM, service=service, db_key=key, url=factory.resolved_url(key)))
 
     if args.skip_tenants:
         return tasks
@@ -203,7 +201,7 @@ async def build_tasks(args: argparse.Namespace) -> list[ProvisionTask]:
     for service in services:
         for ref in refs:
             key = build_tenant_db_key(ref.db_basis, service=service)
-            tasks.append(
+            tasks.add(
                 ProvisionTask(
                     kind=DB_KIND_TENANT,
                     service=service,
@@ -226,7 +224,10 @@ async def run(args: argparse.Namespace) -> int:
         int: 退出码（成功 0）。
     """
     tasks = await build_tasks(args)
-    print(f"[provision_tenant] 待建库 {len(tasks)} 个目标（服务 {len(_resolve_services(args.service))} 个）")
+    print(
+        f"[provision_tenant] 待建库 {len(tasks)} 个目标"
+        f"（服务 {len(_resolve_services(ConcurrentStableList(args.service)))} 个）"
+    )
     for task in tasks:
         key = parse_db_key(task.db_key)
         name = database_name(key, service=task.service)
@@ -239,7 +240,7 @@ async def run(args: argparse.Namespace) -> int:
 
     created = 0
     existed = 0
-    failed: list[str] = []
+    failed: ConcurrentStableList[str] = ConcurrentStableList()
     for task in tasks:
         target = resolve_target(task.url, name=args.schema or None, admin_url=args.admin_url)
         try:
@@ -250,7 +251,7 @@ async def run(args: argparse.Namespace) -> int:
                 existed += 1
                 print(f"[provision_tenant] {task.db_key} → 已存在（跳过）")
         except Exception as exc:  # 单库失败不中断整批
-            failed.append(task.db_key)
+            failed.add(task.db_key)
             print(f"[provision_tenant] {task.db_key} → 失败：{type(exc).__name__}: {exc}")
     print(
         f"[provision_tenant] 汇总：新建 {created}、已存在 {existed}、失败 {len(failed)}"
@@ -262,8 +263,8 @@ async def run(args: argparse.Namespace) -> int:
     # 开通即迁移（06_02）：建库完成后按同一编排内核迁移本次涉及的服务 × 数据源（幂等）
     settings = get_settings()
     factory = EngineFactory(settings, allow_cross_service=True)
-    services = _resolve_services(args.service)
-    refs = [] if args.skip_tenants else await _resolve_refs(args, factory)
+    services = _resolve_services(ConcurrentStableList(args.service))
+    refs = ConcurrentStableList() if args.skip_tenants else await _resolve_refs(args, factory)
     migration_tasks = service_tasks(
         services,
         refs,
@@ -276,7 +277,7 @@ async def run(args: argparse.Namespace) -> int:
     return 1 if failed or migrate_code else 0
 
 
-def main(argv: Sequence[str] | None = None) -> int:
+def main(argv: ConcurrentStableList[str] | None = None) -> int:
     """入口。
 
     Args:

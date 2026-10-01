@@ -28,9 +28,10 @@ import os
 import subprocess
 import sys
 import time
-from collections.abc import Callable, Sequence
+from collections.abc import Callable
 from pathlib import Path
 
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.db.migration import BACKEND_ROOT
 from bms_core.services.service_contract import CONTRACTS_DIR, contract_file_name
 
@@ -58,11 +59,11 @@ SERVICE_PORT = 8000
 HEALTH_ATTEMPTS = 60
 """服务容器就绪轮询次数（1s 一次，镜像 HEALTHCHECK `/healthz`）。"""
 
-Runner = Callable[[Sequence[str]], "subprocess.CompletedProcess[str]"]
+Runner = Callable[[ConcurrentStableList[str]], "subprocess.CompletedProcess[str]"]
 """子进程执行器类型（默认 docker；单测注入桩，不真联）。"""
 
 
-def _run_command(command: Sequence[str]) -> subprocess.CompletedProcess[str]:
+def _run_command(command: ConcurrentStableList[str]) -> subprocess.CompletedProcess[str]:
     """默认子进程执行器（docker）。
 
     Args:
@@ -86,7 +87,7 @@ def service_container_name(service_key: str) -> str:
     return f"bms-smoke-{service_key}"
 
 
-def schemathesis_args(service_key: str, *, max_examples: int = DEFAULT_MAX_EXAMPLES) -> list[str]:
+def schemathesis_args(service_key: str, *, max_examples: int = DEFAULT_MAX_EXAMPLES) -> ConcurrentStableList[str]:
     """Schemathesis 子命令参数（容器内 schema 路径 `/tmp/<服务>.json`）。
 
     Args:
@@ -94,26 +95,28 @@ def schemathesis_args(service_key: str, *, max_examples: int = DEFAULT_MAX_EXAMP
         max_examples: 每操作样例上限。
 
     Returns:
-        list[str]: `run … --url http://127.0.0.1:<port> …`。
+        ConcurrentStableList[str]: `run … --url http://127.0.0.1:<port> …`。
     """
-    command = [
-        "run",
-        f"/tmp/{contract_file_name(service_key)}",
-        "--url",
-        f"http://127.0.0.1:{SERVICE_PORT}",
-        "--max-examples",
-        str(max_examples),
-        "--phases",
-        SMOKE_PHASES,
-        "--checks",
-        "not_a_server_error",
-        "--suppress-health-check",
-        "all",
-    ]
+    command = ConcurrentStableList(
+        [
+            "run",
+            f"/tmp/{contract_file_name(service_key)}",
+            "--url",
+            f"http://127.0.0.1:{SERVICE_PORT}",
+            "--max-examples",
+            str(max_examples),
+            "--phases",
+            SMOKE_PHASES,
+            "--checks",
+            "not_a_server_error",
+            "--suppress-health-check",
+            "all",
+        ]
+    )
     for method in READ_METHODS:
-        command += ["--include-method", method]
+        command.update(["--include-method", method])
     for path in EXCLUDED_PATHS:
-        command += ["--exclude-path", path]
+        command.update(["--exclude-path", path])
     return command
 
 
@@ -165,28 +168,30 @@ def service_up(
         bool: 就绪 True（起容器失败或超时 False）。
     """
     name = service_container_name(service_key)
-    run([CONTAINER_COMMAND, "rm", "-f", name])
+    run(ConcurrentStableList([CONTAINER_COMMAND, "rm", "-f", name]))
     token_keys, active_kid = smoke_service_token_keys()
     started = run(
-        [
-            CONTAINER_COMMAND,
-            "run",
-            "-d",
-            "--name",
-            name,
-            "-e",
-            "BMS_ENV=dev",
-            "-e",
-            f"BMS_SERVICE_TOKEN__KEYS={token_keys}",
-            "-e",
-            f"BMS_SERVICE_TOKEN__ACTIVE_KID={active_kid}",
-            image,
-        ]
+        ConcurrentStableList(
+            [
+                CONTAINER_COMMAND,
+                "run",
+                "-d",
+                "--name",
+                name,
+                "-e",
+                "BMS_ENV=dev",
+                "-e",
+                f"BMS_SERVICE_TOKEN__KEYS={token_keys}",
+                "-e",
+                f"BMS_SERVICE_TOKEN__ACTIVE_KID={active_kid}",
+                image,
+            ]
+        )
     )
     if started.returncode != 0:
         return False
     for _ in range(attempts):
-        status = run([CONTAINER_COMMAND, "inspect", "-f", "{{.State.Health.Status}}", name])
+        status = run(ConcurrentStableList([CONTAINER_COMMAND, "inspect", "-f", "{{.State.Health.Status}}", name]))
         if (status.stdout or "").strip() == "healthy":
             return True
         sleep(1)
@@ -200,7 +205,7 @@ def service_down(service_key: str, *, run: Runner = _run_command) -> None:
         service_key: 服务标识。
         run: 子进程执行器（单测注入桩）。
     """
-    run([CONTAINER_COMMAND, "rm", "-f", service_container_name(service_key)])
+    run(ConcurrentStableList([CONTAINER_COMMAND, "rm", "-f", service_container_name(service_key)]))
 
 
 def docker_schemathesis(
@@ -230,29 +235,35 @@ def docker_schemathesis(
         tuple[int, str, str]: Schemathesis 返回码 / 标准输出 / 标准错误。
     """
     name = f"bms-contract-smoke-{os.getpid()}-{service_key}"
-    run([CONTAINER_COMMAND, "rm", "-f", name])
+    run(ConcurrentStableList([CONTAINER_COMMAND, "rm", "-f", name]))
     created = run(
-        [
-            CONTAINER_COMMAND,
-            "create",
-            "--name",
-            name,
-            "--network",
-            f"container:{service_container}",
-            image,
-            *schemathesis_args(service_key, max_examples=max_examples),
-        ]
+        ConcurrentStableList(
+            [
+                CONTAINER_COMMAND,
+                "create",
+                "--name",
+                name,
+                "--network",
+                f"container:{service_container}",
+                image,
+                *schemathesis_args(service_key, max_examples=max_examples),
+            ]
+        )
     )
     if created.returncode != 0:
         return created.returncode, created.stdout or "", created.stderr or ""
     try:
-        copied = run([CONTAINER_COMMAND, "cp", str(schema_path), f"{name}:/tmp/{contract_file_name(service_key)}"])
+        copied = run(
+            ConcurrentStableList(
+                [CONTAINER_COMMAND, "cp", str(schema_path), f"{name}:/tmp/{contract_file_name(service_key)}"]
+            )
+        )
         if copied.returncode != 0:
             return copied.returncode, copied.stdout or "", copied.stderr or ""
-        started = run([CONTAINER_COMMAND, "start", "-a", name])
+        started = run(ConcurrentStableList([CONTAINER_COMMAND, "start", "-a", name]))
         return started.returncode, started.stdout or "", started.stderr or ""
     finally:
-        run([CONTAINER_COMMAND, "rm", "-f", name])
+        run(ConcurrentStableList([CONTAINER_COMMAND, "rm", "-f", name]))
 
 
 def _tail(text: str, limit: int = 120) -> str:
@@ -317,7 +328,7 @@ def run(
     return 1
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(argv: ConcurrentStableList[str] | None = None) -> int:
     """命令行入口。
 
     Args:

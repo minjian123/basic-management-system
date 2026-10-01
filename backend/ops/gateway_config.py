@@ -16,13 +16,13 @@ from __future__ import annotations
 
 import argparse
 import sys
-from collections.abc import Sequence
 from pathlib import Path
 
 _BACKEND_ROOT = Path(__file__).resolve().parents[1]
 _SRC_ROOT = _BACKEND_ROOT / "libs" / "bms_core" / "src"
 sys.path.insert(0, str(_SRC_ROOT))
 
+from bms_core.core.concurrent import ConcurrentStableList  # noqa: E402
 from bms_core.services.gateway_catalog import (  # noqa: E402
     render_apisix_config,
     render_apisix_yaml,
@@ -103,7 +103,7 @@ def check(root: Path) -> int:
     return 0
 
 
-def main(argv: Sequence[str] | None = None) -> int:
+def main(argv: ConcurrentStableList[str] | None = None) -> int:
     """命令行入口。
 
     Args:

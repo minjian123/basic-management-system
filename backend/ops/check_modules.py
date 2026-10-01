@@ -20,12 +20,11 @@ import argparse
 import ast
 import asyncio
 import sys
-from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.version import contract_major
 from bms_core.services.module_registry import (
     SERVICE_CATALOG,
@@ -74,29 +73,29 @@ def _extract_contract_version(init_path: Path) -> str | None:
     return None
 
 
-def resolve_service_contracts(services_dir: Path = _SERVICES_DIR) -> dict[str, str | None]:
+def resolve_service_contracts(services_dir: Path = _SERVICES_DIR) -> ConcurrentStableDict[str, str | None]:
     """扫描服务工程读各自报契约版本。
 
     Args:
         services_dir: 服务工程根。
 
     Returns:
-        dict[str, str | None]: {服务名: 自报契约版本}；已声明但非字符串字面量为 None。
+        ConcurrentStableDict[str, str | None]: {服务名: 自报契约版本}；已声明但非字符串字面量为 None。
     """
-    declarations: dict[str, str | None] = {}
+    declarations: ConcurrentStableDict[str, str | None] = ConcurrentStableDict()
     for entry in sorted(services_dir.iterdir()):
         if not entry.is_dir() or entry.name.startswith("."):
             continue
         init_path = entry / "src" / f"bms_{entry.name}" / "__init__.py"
         if init_path.is_file():
-            declarations[entry.name] = _extract_contract_version(init_path)
+            declarations.set(entry.name, _extract_contract_version(init_path))
     return declarations
 
 
 def check_service_declarations(
-    catalog: Sequence[ModuleRecord],
-    declarations: Mapping[str, str | None],
-) -> list[str]:
+    catalog: ConcurrentStableList[ModuleRecord],
+    declarations: ConcurrentStableDict[str, str | None],
+) -> ConcurrentStableList[str]:
     """服务工程声明 ↔ 清单双向核对（工程未登记 / 未声明常量 / 主版本不符）。
 
     Args:
@@ -104,54 +103,56 @@ def check_service_declarations(
         declarations: 服务工程自报契约版本映射。
 
     Returns:
-        list[str]: 冲突 / 非法明细。
+        ConcurrentStableList[str]: 冲突 / 非法明细。
     """
-    errors: list[str] = []
+    errors: ConcurrentStableList[str] = ConcurrentStableList()
     expected = {module.service_key for module in catalog if module.service_key}
     for name in sorted(declarations):
         if name not in expected:
-            errors.append(f"服务工程未登记：{name}")
+            errors.add(f"服务工程未登记：{name}")
     for module in catalog:
         if module.service_key is None or module.service_key not in declarations:
             continue
         declared = declarations[module.service_key]
         if declared is None:
-            errors.append(f"{module.service_key}：服务包未声明 CONTRACT_VERSION")
+            errors.add(f"{module.service_key}：服务包未声明 CONTRACT_VERSION")
             continue
         declared_major = contract_major(declared)
         if declared_major is None:
-            errors.append(f"{module.service_key}：服务包契约版本非 semver（{declared}）")
+            errors.add(f"{module.service_key}：服务包契约版本非 semver（{declared}）")
             continue
         if declared_major != contract_major(module.contract_version):
-            errors.append(
+            errors.add(
                 f"{module.service_key}：服务包契约版本与清单主版本不符"
                 f"（服务包 {declared}，清单 {module.contract_version}）"
             )
     return errors
 
 
-def check_offline(services_dir: Path = _SERVICES_DIR) -> list[str]:
+def check_offline(services_dir: Path = _SERVICES_DIR) -> ConcurrentStableList[str]:
     """离线校验：清单自校验 + 服务包声明比对。
 
     Args:
         services_dir: 服务工程根。
 
     Returns:
-        list[str]: 冲突 / 非法明细。
+        ConcurrentStableList[str]: 冲突 / 非法明细。
     """
-    errors = ModuleRegistry().validate()
-    errors.update(check_service_declarations(SERVICE_CATALOG, resolve_service_contracts(services_dir)))
-    return list(errors)
+    errors = ConcurrentStableList(ModuleRegistry().validate())
+    errors.update(
+        check_service_declarations(ConcurrentStableList(SERVICE_CATALOG), resolve_service_contracts(services_dir))
+    )
+    return errors
 
 
-async def _read_catalog(url: str) -> list[ModuleRecord]:
+async def _read_catalog(url: str) -> ConcurrentStableList[ModuleRecord]:
     """只读读取平台库服务目录（未软删行）。
 
     Args:
         url: 平台库连接串。
 
     Returns:
-        list[ModuleRecord]: 登记记录列表。
+        ConcurrentStableList[ModuleRecord]: 登记记录列表。
     """
     engine = create_async_engine(url)
     factory: async_sessionmaker[AsyncSession] = async_sessionmaker(engine, expire_on_commit=False)
@@ -160,28 +161,28 @@ async def _read_catalog(url: str) -> list[ModuleRecord]:
             rows = await ModuleRepository(session).list_catalog()
     finally:
         await engine.dispose()
-    return [ModuleRecord.from_row(row) for row in rows]
+    return ConcurrentStableList(ModuleRecord.from_row(row) for row in rows)
 
 
-def check_catalog_db(url: str) -> list[str]:
+def check_catalog_db(url: str) -> ConcurrentStableList[str]:
     """接库校验：读库查重与格式 + 与清单双向对账（空库判失败）。
 
     Args:
         url: 平台库连接串（迁移 + 种子后）。
 
     Returns:
-        list[str]: 冲突 / 非法明细（含库不可读）。
+        ConcurrentStableList[str]: 冲突 / 非法明细（含库不可读）。
     """
     try:
         records = asyncio.run(_read_catalog(url))
     except Exception as exc:
-        return [f"服务目录库不可读（请先执行平台库迁移）：{exc}"]
+        return ConcurrentStableList([f"服务目录库不可读（请先执行平台库迁移）：{exc}"])
     if not records:
-        return ["库中无登记行（种子未执行？）"]
-    return list(validate_catalog(ConcurrentStableList(SERVICE_CATALOG), ConcurrentStableList(records)))
+        return ConcurrentStableList(["库中无登记行（种子未执行？）"])
+    return ConcurrentStableList(validate_catalog(ConcurrentStableList(SERVICE_CATALOG), ConcurrentStableList(records)))
 
 
-def main(argv: Sequence[str] | None = None) -> int:
+def main(argv: ConcurrentStableList[str] | None = None) -> int:
     """入口：离线校验（默认）+ 可选接库校验。
 
     Args:
@@ -193,7 +194,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     errors = check_offline()
     if args.url:
-        errors.extend(check_catalog_db(args.url))
+        errors.update(check_catalog_db(args.url))
     if errors:
         for error in errors:
             print(f"[服务目录] {error}")
@@ -207,4 +208,4 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main(sys.argv[1:]))
+    raise SystemExit(main(ConcurrentStableList(sys.argv[1:])))

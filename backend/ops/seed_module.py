@@ -19,12 +19,12 @@ uv run python -m ops.seed_module --dry-run
 
 import argparse
 import asyncio
-from collections.abc import Sequence
 
 from sqlalchemy import select
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.db.keys import PLATFORM_SERVICE_KEY
 from bms_core.services.module_registry import SERVICE_CATALOG, ModuleRecord
 from bms_platform.models.catalog import SysModule
@@ -43,30 +43,32 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _fields(seed: ModuleRecord) -> dict[str, object]:
+def _fields(seed: ModuleRecord) -> ConcurrentStableDict[str, object]:
     """取种子的可写字段（与 `sys_module` 列对齐）。
 
     Args:
         seed: 目录记录。
 
     Returns:
-        dict[str, object]: 字段值。
+        ConcurrentStableDict[str, object]: 字段值。
     """
-    return {
-        "module_key": seed.module_key,
-        "service_key": seed.service_key,
-        "name": seed.name,
-        "table_prefix": seed.table_prefix,
-        "business_code": seed.business_code,
-        "errcode_segment": seed.errcode_segment,
-        "event_domain": seed.event_domain,
-        "service_group": seed.service_group,
-        "build_batch": seed.build_batch,
-        "service_version": seed.service_version,
-        "contract_version": seed.contract_version,
-        "product_key": seed.product_key,
-        "status": seed.status,
-    }
+    return ConcurrentStableDict(
+        {
+            "module_key": seed.module_key,
+            "service_key": seed.service_key,
+            "name": seed.name,
+            "table_prefix": seed.table_prefix,
+            "business_code": seed.business_code,
+            "errcode_segment": seed.errcode_segment,
+            "event_domain": seed.event_domain,
+            "service_group": seed.service_group,
+            "build_batch": seed.build_batch,
+            "service_version": seed.service_version,
+            "contract_version": seed.contract_version,
+            "product_key": seed.product_key,
+            "status": seed.status,
+        }
+    )
 
 
 async def seed_modules(url: str) -> tuple[int, int]:
@@ -109,7 +111,7 @@ async def seed_modules(url: str) -> tuple[int, int]:
     return created, updated
 
 
-def main(argv: Sequence[str] | None = None) -> int:
+def main(argv: ConcurrentStableList[str] | None = None) -> int:
     """入口。
 
     Args:

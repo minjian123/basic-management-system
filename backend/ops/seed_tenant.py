@@ -21,7 +21,6 @@ uv run python -m ops.seed_tenant --dry-run
 import argparse
 import asyncio
 import os
-from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -29,6 +28,7 @@ from sqlalchemy import select
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import get_settings
 from bms_core.db.engine import EngineFactory
 from bms_core.db.keys import build_platform_db_key
@@ -141,7 +141,7 @@ async def seed_tenants(url: str) -> int:
     return created
 
 
-def main(argv: Sequence[str] | None = None) -> int:
+def main(argv: ConcurrentStableList[str] | None = None) -> int:
     """入口。
 
     Args:

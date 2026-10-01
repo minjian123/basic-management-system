@@ -35,10 +35,10 @@ uv run python -m ops.test_db drop    --engine mysql --execute
 import argparse
 import asyncio
 import os
-from collections.abc import Sequence
 
 from sqlalchemy.engine import make_url
 
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.exceptions import ConfigError
 from bms_core.db.admin import (
     DatabaseTarget,
@@ -50,47 +50,63 @@ from bms_core.db.admin import (
 )
 from bms_core.db.migration import current_revision, head_revision, resolve_chain, upgrade_chain
 
-TEST_DATABASES: dict[str, dict[str, str]] = {
-    "mysql": {"platform": "bms_test_mysql", "tenant": "bms_test_mysql_t1"},
-    "postgres": {"platform": "bms_test_pg", "tenant": "bms_test_pg_t1"},
-    "dm8": {"platform": "BMS_TEST_DM", "tenant": "BMS_TEST_DM_T1"},
-}
+TEST_DATABASES: ConcurrentStableDict[str, ConcurrentStableDict[str, str]] = ConcurrentStableDict(
+    {
+        "mysql": ConcurrentStableDict({"platform": "bms_test_mysql", "tenant": "bms_test_mysql_t1"}),
+        "postgres": ConcurrentStableDict({"platform": "bms_test_pg", "tenant": "bms_test_pg_t1"}),
+        "dm8": ConcurrentStableDict({"platform": "BMS_TEST_DM", "tenant": "BMS_TEST_DM_T1"}),
+    }
+)
 """测试对象清单（唯一事实源；与 `.gitlab-ci.yml` 的 `BMS_TEST_DB_URL` 系列变量逐字一致）。"""
 
-TEST_URL_ENV: dict[str, str] = {
-    "platform": "BMS_TEST_DB_URL",
-    "tenant": "BMS_TEST_TENANT_DB_URL",
-}
+TEST_URL_ENV: ConcurrentStableDict[str, str] = ConcurrentStableDict(
+    {
+        "platform": "BMS_TEST_DB_URL",
+        "tenant": "BMS_TEST_TENANT_DB_URL",
+    }
+)
 """对象连接串环境变量名（平台 / 租户）。"""
 
-TEST_ACCOUNT: dict[str, str] = {
-    "mysql": "bms_test",
-    "postgres": "bms_test",
-    "dm8": "SYSDBA",
-}
+TEST_ACCOUNT: ConcurrentStableDict[str, str] = ConcurrentStableDict(
+    {
+        "mysql": "bms_test",
+        "postgres": "bms_test",
+        "dm8": "SYSDBA",
+    }
+)
 """测试账号（达梦以 `SYSDBA` 承载，无独立测试账号）。"""
 
-TEST_PASSWORD_ENV: dict[str, str] = {
-    "mysql": "MYSQL_TEST_PASSWORD",
-    "postgres": "POSTGRES_TEST_PASSWORD",
-    "dm8": "DM8_TEST_PASSWORD",
-}
+TEST_PASSWORD_ENV: ConcurrentStableDict[str, str] = ConcurrentStableDict(
+    {
+        "mysql": "MYSQL_TEST_PASSWORD",
+        "postgres": "POSTGRES_TEST_PASSWORD",
+        "dm8": "DM8_TEST_PASSWORD",
+    }
+)
 """测试账号密码环境变量名。"""
 
-ADMIN_PASSWORD_ENV: dict[str, str] = {
-    "mysql": "MYSQL_ROOT_PASSWORD",
-    "postgres": "POSTGRES_PASSWORD",
-    "dm8": "DM8_SYSDBA_PASSWORD",
-}
+ADMIN_PASSWORD_ENV: ConcurrentStableDict[str, str] = ConcurrentStableDict(
+    {
+        "mysql": "MYSQL_ROOT_PASSWORD",
+        "postgres": "POSTGRES_PASSWORD",
+        "dm8": "DM8_SYSDBA_PASSWORD",
+    }
+)
 """管理员密码环境变量名（建号与授权用；达梦管理员即 `SYSDBA`）。"""
 
-ADMIN_USER: dict[str, str] = {"mysql": "root", "postgres": "postgres", "dm8": "SYSDBA"}
+ADMIN_USER: ConcurrentStableDict[str, str] = ConcurrentStableDict(
+    {"mysql": "root", "postgres": "postgres", "dm8": "SYSDBA"}
+)
 """管理员账号名。"""
 
-ADMIN_DATABASE: dict[str, str | None] = {"mysql": None, "postgres": "postgres", "dm8": None}
+ADMIN_DATABASE: ConcurrentStableDict[str, str | None] = ConcurrentStableDict(
+    {"mysql": None, "postgres": "postgres", "dm8": None}
+)
 """管理连接默认库（MySQL 不带库名、PostgreSQL 用 `postgres` 库、达梦回落目标连接串）。"""
 
-CHAIN_BY_SCOPE: dict[str, str] = {"platform": "platform:platform", "tenant": "platform:tenant"}
+CHAIN_BY_SCOPE: ConcurrentStableDict[str, str] = ConcurrentStableDict(
+    {"platform": "platform:platform", "tenant": "platform:tenant"}
+)
 """对象 → 迁移链（06_02 分链：平台对象跑 `platform` 服务的平台服务库链、租户对象跑其租户库链）。"""
 
 FLOW_STEPS: tuple[str, ...] = ("建库", "迁移", "集成用例", "删库清理")
@@ -407,7 +423,7 @@ async def _run(args: argparse.Namespace) -> int:
         int: 退出码（失败 1）。
     """
     engine: str = args.engine
-    failures: list[str] = []
+    failures: ConcurrentStableList[str] = ConcurrentStableList()
 
     if args.command == "plan":
         for scope in ("platform", "tenant"):
@@ -422,7 +438,7 @@ async def _run(args: argparse.Namespace) -> int:
         url = _url_of(args, scope)
         if not url:
             print(f"[test-db] {engine} {scope} → 跳过（未配置 {TEST_URL_ENV[scope]}，可用 --url / --tenant-url 指定）")
-            failures.append(f"{scope}:未配置连接串")
+            failures.add(f"{scope}:未配置连接串")
             continue
         print(f"[test-db] {engine} {scope} {resolve_test_database(engine, scope)} | {_masked(url)}")
         if not args.execute:
@@ -454,10 +470,10 @@ async def _run(args: argparse.Namespace) -> int:
                 print(f"[test-db] {engine} {scope} → 删库：{'已删除' if dropped else '不存在（跳过）'}")
         except ConfigError as exc:
             print(f"[test-db] {engine} {scope} → 失败：{exc}")
-            failures.append(f"{scope}:{exc}")
+            failures.add(f"{scope}:{exc}")
         except Exception as exc:  # 连接 / 权限 / 驱动异常：显式失败并提示，不静默跳过
             print(f"[test-db] {engine} {scope} → 失败：{type(exc).__name__}: {exc}")
-            failures.append(f"{scope}:{type(exc).__name__}")
+            failures.add(f"{scope}:{type(exc).__name__}")
 
     if failures:
         print(f"[test-db] 汇总：失败 {len(failures)} 项（{', '.join(failures)}）")
@@ -465,7 +481,7 @@ async def _run(args: argparse.Namespace) -> int:
     return 0
 
 
-def main(argv: Sequence[str] | None = None) -> int:
+def main(argv: ConcurrentStableList[str] | None = None) -> int:
     """入口。
 
     Args:

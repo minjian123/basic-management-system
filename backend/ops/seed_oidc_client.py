@@ -19,12 +19,12 @@ import argparse
 import asyncio
 import json
 import os
-from collections.abc import Sequence
 
 from sqlalchemy import select
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import get_settings
 from bms_core.security.pbkdf2 import PBKDF2_ITERATIONS, Pbkdf2PasswordHasher
 from bms_identity.models.client import SysClient
@@ -74,8 +74,8 @@ async def seed_client(
     *,
     client_id: str,
     name: str,
-    redirect_uris: list[str],
-    scopes: list[str],
+    redirect_uris: ConcurrentStableList[str],
+    scopes: ConcurrentStableList[str],
     secret: str,
 ) -> tuple[int, int]:
     """建表并按 `client_id` 幂等写入演示客户端。
@@ -104,9 +104,9 @@ async def seed_client(
             existing = (await session.execute(statement)).scalar_one_or_none()
             payload = {
                 "name": name,
-                "redirect_uris": json.dumps(redirect_uris, ensure_ascii=False),
+                "redirect_uris": json.dumps(list(redirect_uris), ensure_ascii=False),
                 "grant_types": json.dumps(["authorization_code"], ensure_ascii=False),
-                "scopes": json.dumps(scopes, ensure_ascii=False),
+                "scopes": json.dumps(list(scopes), ensure_ascii=False),
                 "ip_whitelist": "[]",
                 "status": "enabled",
             }
@@ -129,7 +129,7 @@ async def seed_client(
     return created, updated
 
 
-def main(argv: Sequence[str] | None = None) -> int:
+def main(argv: ConcurrentStableList[str] | None = None) -> int:
     """入口。
 
     Args:
@@ -140,8 +140,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     """
     args = build_parser().parse_args(argv)
     url = _tenant_url(args.url)
-    redirect_uris = list(args.redirect_uri) if args.redirect_uri else [DEFAULT_REDIRECT_URI]
-    scopes = [item for item in args.scope.split() if item]
+    redirect_uris = (
+        ConcurrentStableList(args.redirect_uri) if args.redirect_uri else ConcurrentStableList([DEFAULT_REDIRECT_URI])
+    )
+    scopes = ConcurrentStableList(item for item in args.scope.split() if item)
     secret = os.environ.get("OIDC_DEMO_CLIENT_SECRET", DEFAULT_SECRET)
     if args.dry_run:
         print(f"[seed_oidc_client] 租户库：{make_url(url).render_as_string(hide_password=True)}")

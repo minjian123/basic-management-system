@@ -22,10 +22,10 @@ uv run python -m ops.db_admin drop --url "sqlite+aiosqlite:////tmp/bms_migrcheck
 
 import argparse
 import asyncio
-from collections.abc import Sequence
 
 from sqlalchemy.engine import make_url
 
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.exceptions import ConfigError
 from bms_core.db.admin import (
     DatabaseTarget,
@@ -98,7 +98,7 @@ async def _run(args: argparse.Namespace) -> int:
     return 0
 
 
-def main(argv: Sequence[str] | None = None) -> int:
+def main(argv: ConcurrentStableList[str] | None = None) -> int:
     """入口。
 
     Args:
