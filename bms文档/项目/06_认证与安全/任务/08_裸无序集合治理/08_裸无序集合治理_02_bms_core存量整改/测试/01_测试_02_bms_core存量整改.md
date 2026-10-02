@@ -1,14 +1,14 @@
-# 01 测试 · `bms_core` 存量整改（批次 1 · 基座原型先行）
+# 01 测试 · 裸无序集合存量整改（批次 1~4 · 基座原型先行）
 
 > 认证与安全 · 08 裸无序集合治理 · 子任务 02（需求 08-2，补充需求）· 测试记录
 
-[文档首页](../../../../../../文档首页.md) › [02 `bms_core` 存量整改](../08_裸无序集合治理_02_bms_core存量整改.md) › 测试记录　|　[← 任务](../08_裸无序集合治理_02_bms_core存量整改.md)　[实施记录 →](../实施/01_实施_02_bms_core存量整改.md)
+[文档首页](../../../../../../文档首页.md) › [02 裸无序集合存量整改（批次 1~4）](../08_裸无序集合治理_02_bms_core存量整改.md) › 测试记录　|　[← 任务](../08_裸无序集合治理_02_bms_core存量整改.md)　[实施记录 →](../实施/01_实施_02_bms_core存量整改.md)
 
 ## 1. 测试信息 <a id="meta"></a>
 
 | 项 | 值 |
 | --- | --- |
-| 任务 | [02 `bms_core` 存量整改](../08_裸无序集合治理_02_bms_core存量整改.md) |
+| 任务 | [02 裸无序集合存量整改（批次 1~4）](../08_裸无序集合治理_02_bms_core存量整改.md) |
 | 对应需求 | [08-2](../../../../需求/08_需求_裸无序集合治理.md#r08-2) |
 | 详细设计 | [01 详细设计](../设计/01_详细设计_02_bms_core存量整改.md) |
 | 实施记录 | [01 实施](../实施/01_实施_02_bms_core存量整改.md) |
@@ -105,8 +105,8 @@
 
 ## 7. 遗留 <a id="leftover"></a>
 
-1. 用例 **2224**（存量归零与护栏收紧）：**护栏收紧、`--self-test` 矩阵与基线吸收（548 → 918）本轮已落**；`by_area.libs == 0` 与「基线递减至 324」断言待 594 处存量整改完成后落 `tests/boundary/test_bare_collections_guard.py`。
-2. 本任务尚无运行期全量回归；594 处存量整改完成后按详细设计 §5 用例 4~6 跑门禁与文档一致性核对。
+1. 用例 **2224**（存量归零与护栏收紧）：护栏收紧、`--self-test` 矩阵与基线吸收（548 → 918）已落；全链存量归零回归已落 `tests/boundary/test_bare_collections_guard.py`（见 §9，2026-10-02）。
+2. 全链（批次 1~4）存量整改完成、基线归零；终态回归见 §9。
 
 > 本文档依《[文档生成规范](../../../../../../规范/文档生成规范.md)》编写
 
@@ -125,4 +125,14 @@
 
 **执行记录**：`pytest libs/bms_core/tests/core/{test_collections_chain,test_collections,test_concurrent,test_concurrent_stable,test_object_bases_roots,test_value_object_roots}.py` → **80 passed**；`check-bare-collections.py` 复跑「新增 0 / 残留 0（基线 1711）」；`preflight --fast` 全绿。
 
-**偏差**：用例 2224 的「基线递减至 324」断言口径随口径扩面改为「递减至 **0**（基线 1711 起）」，其余不变；`bms_core` 归零断言续行于存量整改完成后。
+**偏差**：用例 2224 的「基线递减至 324」断言口径随口径扩面改为「递减至 **0**（基线 1711 起）」，其余不变；全链归零断言已于存量整改完成后落 `tests/boundary/test_bare_collections_guard.py`（Kiwi 2224，见 §9）。
+
+## 9. 用例与执行补充 · 存量归零与护栏复跑（2026-10-02） <a id="zero-test"></a>
+
+| # | 用例 | 类型 | 自动化落点 | 断言 | 结果 |
+| --- | --- | --- | --- | --- | --- |
+| 1 | 全链存量归零 | 单测 | `tests/boundary/test_bare_collections_guard.py::test_bare_collections_hits_zero`（Kiwi 2224） | 护栏 `collect` 全链命中 0 处（`libs` / `services` / `ops` / `scripts/tools` 各区域均为 0） | 通过 |
+| 2 | 基线台账归零 | 单测 | 同上 `::test_bare_collections_baseline_zero` | `bare_collections_baseline.json` 条目计数合计 0 | 通过 |
+| 3 | 护栏复跑清零 | 单测 | 同上 `::test_bare_collections_check_clean` | `check` 无问题；新增 0 / 残留 0 / 基线条目 0 | 通过 |
+
+**执行记录**：`pytest libs/bms_core/tests/boundary/test_bare_collections_guard.py` → **3 passed**；`pyright` 0 error、`ruff` 全绿。
