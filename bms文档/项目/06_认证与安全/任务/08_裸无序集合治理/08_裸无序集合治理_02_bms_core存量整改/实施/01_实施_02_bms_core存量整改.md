@@ -362,7 +362,7 @@ flowchart LR
 - **`core/collections.py`**：只留体系根 `BaseCollection` + 有序公共段 `BaseSorted` + 公共常量 `MAX_INDEX`（原 `core/concurrent.py` 的私有 `_MAX_INDEX` 上移为**单一来源**，两模块共用）；顶层**不再**导入 `sortedcontainers`。
 - **`core/concurrent.py`**：只留 `BaseConcurrent` + `ConcurrentStable*`；`ConcurrentStableList.__eq__` 去掉对 `ConcurrentSortedList` 的直接引用（跨形态比较由对侧 `__eq__` **反射**完成，行为不变）。
 - **护栏**：`check-bare-collections.py` 的 `SYSTEM_IMPLEMENTATION_FILES` 与自测矩阵补第 4 个实现文件（`.py` 白名单 + `--self-test` 设「实现文件不属约束对象」样例）。
-- **回写**：《后端基类清单》§3 / §4 表落点、「集合体系」节补「模块拆分与无依赖面」段、护栏段实现文件清单；设计 §3.2 落点表补第 12 行、§3.7 实现文件豁免补拆分说明；续行交接单 §3 补「无依赖面铁律」。
+- **回写**：《后端基类清单》§3 / §4 表落点、「集合体系」节补「模块拆分与无依赖面」段、护栏段实现文件清单；设计 §3.2 落点表补第 12 行、§3.7 实现文件豁免补拆分说明；设计 §3 补「无依赖面铁律」。
 
 **验证**：
 
