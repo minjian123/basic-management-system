@@ -298,11 +298,17 @@ trigger-platform:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
-        paths: [backend/services/platform/**/*]
+        paths:
+          - backend/services/platform/**/*
+          - backend/Dockerfile
+          - backend/uv.lock
     - if: $CI_COMMIT_BRANCH
       changes:
         compare_to: 'refs/heads/main'
-        paths: [backend/services/platform/**/*]
+        paths:
+          - backend/services/platform/**/*
+          - backend/Dockerfile
+          - backend/uv.lock
 
 trigger-identity:
   <<: *trigger-service
@@ -313,11 +319,17 @@ trigger-identity:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
-        paths: [backend/services/identity/**/*]
+        paths:
+          - backend/services/identity/**/*
+          - backend/Dockerfile
+          - backend/uv.lock
     - if: $CI_COMMIT_BRANCH
       changes:
         compare_to: 'refs/heads/main'
-        paths: [backend/services/identity/**/*]
+        paths:
+          - backend/services/identity/**/*
+          - backend/Dockerfile
+          - backend/uv.lock
 
 trigger-tenant:
   <<: *trigger-service
@@ -328,11 +340,17 @@ trigger-tenant:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
-        paths: [backend/services/tenant/**/*]
+        paths:
+          - backend/services/tenant/**/*
+          - backend/Dockerfile
+          - backend/uv.lock
     - if: $CI_COMMIT_BRANCH
       changes:
         compare_to: 'refs/heads/main'
-        paths: [backend/services/tenant/**/*]
+        paths:
+          - backend/services/tenant/**/*
+          - backend/Dockerfile
+          - backend/uv.lock
 
 trigger-org:
   <<: *trigger-service
@@ -343,11 +361,17 @@ trigger-org:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
-        paths: [backend/services/org/**/*]
+        paths:
+          - backend/services/org/**/*
+          - backend/Dockerfile
+          - backend/uv.lock
     - if: $CI_COMMIT_BRANCH
       changes:
         compare_to: 'refs/heads/main'
-        paths: [backend/services/org/**/*]
+        paths:
+          - backend/services/org/**/*
+          - backend/Dockerfile
+          - backend/uv.lock
 
 trigger-file:
   <<: *trigger-service
@@ -358,11 +382,17 @@ trigger-file:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
-        paths: [backend/services/file/**/*]
+        paths:
+          - backend/services/file/**/*
+          - backend/Dockerfile
+          - backend/uv.lock
     - if: $CI_COMMIT_BRANCH
       changes:
         compare_to: 'refs/heads/main'
-        paths: [backend/services/file/**/*]
+        paths:
+          - backend/services/file/**/*
+          - backend/Dockerfile
+          - backend/uv.lock
 
 trigger-notification:
   <<: *trigger-service
@@ -373,11 +403,17 @@ trigger-notification:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
-        paths: [backend/services/notification/**/*]
+        paths:
+          - backend/services/notification/**/*
+          - backend/Dockerfile
+          - backend/uv.lock
     - if: $CI_COMMIT_BRANCH
       changes:
         compare_to: 'refs/heads/main'
-        paths: [backend/services/notification/**/*]
+        paths:
+          - backend/services/notification/**/*
+          - backend/Dockerfile
+          - backend/uv.lock
 
 trigger-search:
   <<: *trigger-service
@@ -388,11 +424,17 @@ trigger-search:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
-        paths: [backend/services/search/**/*]
+        paths:
+          - backend/services/search/**/*
+          - backend/Dockerfile
+          - backend/uv.lock
     - if: $CI_COMMIT_BRANCH
       changes:
         compare_to: 'refs/heads/main'
-        paths: [backend/services/search/**/*]
+        paths:
+          - backend/services/search/**/*
+          - backend/Dockerfile
+          - backend/uv.lock
 
 trigger-ai:
   <<: *trigger-service
@@ -403,11 +445,17 @@ trigger-ai:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
-        paths: [backend/services/ai/**/*]
+        paths:
+          - backend/services/ai/**/*
+          - backend/Dockerfile
+          - backend/uv.lock
     - if: $CI_COMMIT_BRANCH
       changes:
         compare_to: 'refs/heads/main'
-        paths: [backend/services/ai/**/*]
+        paths:
+          - backend/services/ai/**/*
+          - backend/Dockerfile
+          - backend/uv.lock
 
 trigger-report:
   <<: *trigger-service
@@ -418,11 +466,17 @@ trigger-report:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
-        paths: [backend/services/report/**/*]
+        paths:
+          - backend/services/report/**/*
+          - backend/Dockerfile
+          - backend/uv.lock
     - if: $CI_COMMIT_BRANCH
       changes:
         compare_to: 'refs/heads/main'
-        paths: [backend/services/report/**/*]
+        paths:
+          - backend/services/report/**/*
+          - backend/Dockerfile
+          - backend/uv.lock
 
 # ---- 三库测试库流程计划校验（无需真库；脚本占位期的 CI 实证，见 04_02 详细设计 §5.1）----
 integration-plan:
