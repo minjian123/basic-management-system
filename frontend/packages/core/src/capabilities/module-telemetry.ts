@@ -87,10 +87,10 @@ export class ModuleTelemetry extends BaseModuleTelemetry {
     this.reporter.report(record)
   }
 
-  /** 只读快照（按模块聚合；平台错误 / Vitals 归 `platform`）。 */
+  /** 只读快照（按模块聚合；平台错误 / Vitals / 守卫决策归 `platform`）。 */
   snapshot(): ModuleTelemetrySnapshot {
     const modules: ModuleTelemetrySnapshot['modules'] = {}
-    const platform: ModuleTelemetrySnapshot['platform'] = { errors: [], vitals: [] }
+    const platform: ModuleTelemetrySnapshot['platform'] = { errors: [], vitals: [], guards: [] }
     const moduleEntry = (name: string, version: string) => {
       modules[name] ??= { version, load: [], errors: [], vitals: [] }
       if (version !== '') {
@@ -108,6 +108,8 @@ export class ModuleTelemetry extends BaseModuleTelemetry {
         } else {
           moduleEntry(record.name, record.version).errors.push(record as ModuleErrorRecord)
         }
+      } else if (record.kind === 'guard') {
+        platform.guards.push(record)
       } else if (record.name === null) {
         platform.vitals.push(record as ModuleVitalRecord)
       } else {

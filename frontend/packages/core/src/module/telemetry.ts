@@ -1,9 +1,12 @@
 /**
  * 模块遥测记录与观测钩子（框架无关；见任务 03_03 详细设计 §3.1）。
  *
- * 记录三类事实：加载 / 渲染耗时（按阶段）、模块错误（携带模块名与版本）、Web Vitals（按活动模块归属）；
- * 采集侧（宿主）与汇总侧（遥测器）共用本形状，核心不触 DOM、不依赖框架。
+ * 记录四类事实：加载 / 渲染耗时（按阶段）、模块错误（携带模块名与版本）、Web Vitals（按活动模块归属）、
+ * 路由守卫决策（平台级，见域五 `05_03`）；采集侧（宿主）与汇总侧（遥测器）共用本形状，核心不触 DOM、
+ * 不依赖框架。
  */
+
+import type { AuthGuardDecision } from '../domain/route-guard'
 
 /** 模块加载 / 渲染阶段。 */
 export type ModuleTelemetryPhase = 'resolve' | 'setup' | 'mount' | 'render'
@@ -63,8 +66,22 @@ export interface ModuleVitalRecord {
   at: string
 }
 
+/** 路由守卫决策记录（平台级事实：只记路径与原因，不含令牌与查询串）。 */
+export interface ModuleGuardRecord {
+  /** 记录种类。 */
+  kind: 'guard'
+  /** 决策（放行 / 跳登录 / 跳无权限页）。 */
+  decision: AuthGuardDecision
+  /** 目标路径（不含查询串）。 */
+  path: string
+  /** 决策原因（枚举化短句，如 `public` / `no-session` / `perm-denied`）。 */
+  reason: string
+  /** 记录时间（ISO）。 */
+  at: string
+}
+
 /** 遥测记录联合。 */
-export type ModuleTelemetryRecord = ModuleLoadTimingRecord | ModuleErrorRecord | ModuleVitalRecord
+export type ModuleTelemetryRecord = ModuleLoadTimingRecord | ModuleErrorRecord | ModuleVitalRecord | ModuleGuardRecord
 
 /** 单模块遥测聚合（版本 / 加载耗时 / 错误 / Vitals）。 */
 export interface ModuleTelemetryModuleGroup {
@@ -78,12 +95,14 @@ export interface ModuleTelemetryModuleGroup {
   vitals: ModuleVitalRecord[]
 }
 
-/** 非模块（平台页面 / 清单获取失败等）遥测聚合。 */
+/** 非模块（平台页面 / 清单获取失败 / 路由守卫等）遥测聚合。 */
 export interface ModuleTelemetryPlatformGroup {
   /** 平台错误记录。 */
   errors: ModuleErrorRecord[]
   /** 平台 Vitals 记录。 */
   vitals: ModuleVitalRecord[]
+  /** 路由守卫决策记录（时间序）。 */
+  guards: ModuleGuardRecord[]
 }
 
 /** 按模块聚合快照。 */

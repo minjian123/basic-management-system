@@ -1,5 +1,8 @@
 /**
  * 宿主类型声明补充：环境变量（Vite 注入）与 `bpmn-moddle` 构造器声明。
+ *
+ * 路由元信息增强（`meta.public` / `meta.perm`）另见 `src/router/route-meta.d.ts`（该文件为模块，
+ * 以保证 `declare module 'vue-router'` 是**增强**而非覆盖真实模块类型）。
  */
 
 /** 宿主环境变量（Vite 注入）。 */
@@ -8,7 +11,7 @@ interface ImportMetaEnv {
   readonly VITE_API_BASE?: string
   /** dev 代理目标（缺省网关 nginx `http://localhost:8088`）。 */
   readonly VITE_API_PROXY?: string
-  /** 路由守卫强制跳转开关（`on` 启用；缺省关闭，阶段六开启）。 */
+  /** 路由守卫开关（**缺省开启**；显式 `off` 关闭，联调 / 演示临时回退用）。 */
   readonly VITE_AUTH_GUARD?: string
 }
 

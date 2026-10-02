@@ -1,8 +1,11 @@
-/** 路由（骨架）：登录占位 + 首页 + 403 / 404 / 500，未知路径兜底 404；`meta.title` / `meta.keepAlive` 驱动页签与缓存。 */
+/**
+ * 路由（骨架）：登录占位 + 首页 + 403 / 404 / 500，未知路径兜底 404；`meta.title` / `meta.keepAlive`
+ * 驱动页签与缓存。
+ *
+ * 认证守卫（默认开启）改由宿主入口装配（`main.ts`）——守卫依赖会话 store，须在 pinia 就绪后注入。
+ */
 
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
-
-import { installAuthGuard } from './guard'
 
 const routes: RouteRecordRaw[] = [
   { path: '/login', name: 'Login', component: () => import('@/views/LoginView.vue'), meta: { title: '登录' } },
@@ -44,6 +47,3 @@ if (import.meta.env.DEV) {
 
 /** 应用路由。 */
 export const router = createRouter({ history: createWebHistory(), routes })
-
-// 认证守卫接线（默认关闭，`VITE_AUTH_GUARD=on` 启用；阶段六登录链路就绪后改默认开启）。
-installAuthGuard(router)

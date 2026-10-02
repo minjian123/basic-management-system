@@ -4,7 +4,9 @@
  * - **access 仅内存**（`token` + `api/token` 内存模块）；刷新页面后由 `bootstrapSession()` 经
  *   `/auth/refresh` + `/auth/me` 静默续期恢复；
  * - **租户编码**为非敏感持久化项（`api/tenant`），供 refresh / logout 注入 `X-Tenant-ID`；
- * - 用户概要**不落持久化**（避免 PII 与陈旧），登录或首屏续期时写入。
+ * - 用户概要**不落持久化**（避免 PII 与陈旧），登录或首屏续期时写入；
+ * - **会话就绪**：`ready` 标记「就绪判定是否完成」，`ensureReady()` 为**单例**（并发共享一次续期），
+ *   供路由守卫等待（导航挂起，不闪登录页）与应用根骨架屏消费（域五 `05_03`）。
  */
 
 import { defineStore } from 'pinia'
@@ -25,7 +27,12 @@ interface SessionState {
   tenant: string | null
   /** 权限码。 */
   codes: string[]
+  /** 会话就绪判定是否已完成（守卫等待态与首屏骨架屏依据）。 */
+  ready: boolean
 }
+
+/** 会话就绪单例（按 store 实例缓存，避免并发触发多次续期；弱引用不阻回收）。 */
+const readiness = new WeakMap<object, Promise<boolean>>()
 
 /** 登录载荷。 */
 export interface SessionSignIn {
@@ -41,7 +48,7 @@ export interface SessionSignIn {
 
 /** 会话 store。 */
 export const useSessionStore = defineStore('session', {
-  state: (): SessionState => ({ token: null, user: null, tenant: null, codes: [] }),
+  state: (): SessionState => ({ token: null, user: null, tenant: null, codes: [], ready: false }),
   actions: {
     /**
      * 登录：写入令牌、用户概要、租户编码与权限码。
@@ -54,6 +61,7 @@ export const useSessionStore = defineStore('session', {
       this.user = payload.user
       this.tenant = payload.tenant
       this.codes = [...codes]
+      this.ready = true
       setAccessToken(payload.token)
       setTenantCode(payload.tenant)
       setPermissionCodes(codes)
@@ -95,6 +103,29 @@ export const useSessionStore = defineStore('session', {
         this.user = null
       }
       return true
+    },
+    /**
+     * 会话就绪（**单例**）：已持有令牌直接就绪；否则执行一次首屏静默续期，并发调用共享同一次。
+     *
+     * 续期失败**静默**（不提示、不跳转）并置 `ready`——由路由守卫按「未登录」处理（跳登录带 `redirect`）。
+     *
+     * @returns 是否具备可用登录态。
+     */
+    async ensureReady(): Promise<boolean> {
+      if (this.token !== null) {
+        this.ready = true
+        return true
+      }
+      let pending = readiness.get(this)
+      if (pending === undefined) {
+        pending = this.bootstrapSession().finally(() => {
+          this.ready = true
+        })
+        readiness.set(this, pending)
+      }
+      await pending
+      // 续期可能已被并发路径清空（会话失效），以**当次结果**为准。
+      return this.token !== null
     },
     /**
      * 登出：`/auth/logout` **尽力而为**（失败仅上报，不阻断本地清理），随后清空内存态。

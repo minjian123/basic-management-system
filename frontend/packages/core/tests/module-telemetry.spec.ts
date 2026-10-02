@@ -1,5 +1,5 @@
-// kiwi_id: 982
-/** 模块遥测器与上报实现用例（记录 / 按模块聚合 / 可替换上报 / 环形上限）。 */
+// kiwi_id: 982, 2231
+/** 模块遥测器与上报实现用例（记录 / 按模块聚合 / 可替换上报 / 环形上限 / 守卫决策记录）。 */
 
 import { describe, expect, it } from 'vitest'
 
@@ -33,7 +33,7 @@ describe('ModuleTelemetry（Kiwi 982）', () => {
 
     telemetry.reset()
     expect(telemetry.snapshot().modules).toEqual({})
-    expect(telemetry.snapshot().platform).toEqual({ errors: [], vitals: [] })
+    expect(telemetry.snapshot().platform).toEqual({ errors: [], vitals: [], guards: [] })
   })
 
   it('记录转发给可替换上报实现', () => {
@@ -80,5 +80,32 @@ describe('ModuleTelemetry（Kiwi 982）', () => {
     }
 
     expect(telemetry.snapshot().modules.demo.load.map((item) => item.durationMs)).toEqual([1, 2])
+  })
+})
+
+describe('守卫决策记录聚合（Kiwi 2231）', () => {
+  it('归入平台组 guards（不污染模块组），保持时间序', () => {
+    const telemetry = new ModuleTelemetry()
+    telemetry.record({ kind: 'guard', decision: 'login', path: '/org/users', reason: 'no-session', at })
+    telemetry.record({ kind: 'guard', decision: 'allow', path: '/', reason: 'session-ready', at })
+    telemetry.record({ kind: 'load', name: 'demo', version: '0.1.0', phase: 'resolve', durationMs: 1, ok: true, at })
+
+    const snapshot = telemetry.snapshot()
+    expect(snapshot.platform.guards.map((item) => [item.decision, item.path, item.reason])).toEqual([
+      ['login', '/org/users', 'no-session'],
+      ['allow', '/', 'session-ready'],
+    ])
+    expect(Object.keys(snapshot.modules.demo).sort()).toEqual(['errors', 'load', 'version', 'vitals'])
+    expect(snapshot.modules.demo.errors).toEqual([])
+  })
+
+  it('记录转发给可替换上报实现（含守卫决策）', () => {
+    const reporter = new InMemoryModuleReporter()
+    const telemetry = new ModuleTelemetry({ reporter })
+
+    telemetry.record({ kind: 'guard', decision: 'forbidden', path: '/org/users', reason: 'perm-denied', at })
+
+    expect(reporter.records()).toHaveLength(1)
+    expect(reporter.records()[0]?.kind).toBe('guard')
   })
 })

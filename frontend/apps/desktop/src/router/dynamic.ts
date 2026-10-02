@@ -1,4 +1,9 @@
-/** 动态路由接线：占位菜单树 → 路由注册（基于核心 `BaseDynamicRoutes`）。 */
+/**
+ * 动态路由接线：占位菜单树 → 路由注册（基于核心 `BaseDynamicRoutes`）。
+ *
+ * 菜单（按用户上下文）路由经 `ensureMenuRoutes` **幂等装载**、`uninstallMenuRoutesAll` **全量卸载**，
+ * 由宿主在会话就绪 / 会话清理时调用（域五 `05_03`）；产品模块路由另行注册，不随会话清理。
+ */
 
 import { BaseDynamicRoutes, findMenuByPath, flattenMenu, toRouteNodes, type MenuNode, type ModuleRouteDeclaration } from '@bms/core'
 import type { Router } from 'vue-router'
@@ -8,6 +13,9 @@ class MenuRouteRegistry extends BaseDynamicRoutes {}
 
 /** 占位路由名。 */
 const PLACEHOLDER_VIEW = () => import('@/views/PlaceholderView.vue')
+
+/** 本模块装载的菜单占位路由路径（幂等依据与卸载清单）。 */
+let installedMenuPaths: string[] = []
 
 /**
  * 依据菜单树注册占位路由（跳过静态已存在路径与根路径）。
@@ -51,6 +59,30 @@ export function uninstallMenuRoutes(router: Router, paths: readonly string[]): v
       router.removeRoute(path)
     }
   }
+}
+
+/**
+ * 幂等装载菜单动态路由（已装载直接返回，不重复注册）。
+ *
+ * @param router 路由实例。
+ * @param menu 菜单树（会话就绪时的用户上下文菜单；阶段七前为占位菜单）。
+ * @returns 已装载的路径清单。
+ */
+export function ensureMenuRoutes(router: Router, menu: readonly MenuNode[]): string[] {
+  if (installedMenuPaths.length === 0) {
+    installedMenuPaths = installMenuRoutes(router, menu)
+  }
+  return installedMenuPaths
+}
+
+/**
+ * 卸载本模块装载的全部菜单动态路由（会话清理：登出 / 失效）。
+ *
+ * @param router 路由实例。
+ */
+export function uninstallMenuRoutesAll(router: Router): void {
+  uninstallMenuRoutes(router, installedMenuPaths)
+  installedMenuPaths = []
 }
 
 /**
