@@ -15,9 +15,9 @@
 #   - 前端 job 群（desktop / mobile / modules）保持父流水线现状，不套「服务」概念。
 
 # 依赖漏洞扫描（供应链安全）：官方 Dependency Scanning 模板（gemnasium 分析器，覆盖 pnpm-lock.yaml 等）。
-# 依赖升级已停用自动 bot（见 renovate.json），依赖安全靠本扫描告警 + 人工评估按需升级。
-# 注：Python 的 uv.lock 暂不在官方 gemnasium-python 支持范围（仅 requirements / Pipfile / poetry），
-#     该缺口由人工定期审查或后续独立工具补（见《安全开发规范》依赖安全节）。
+# 依赖升级已停用自动 bot（见 renovate.json），依赖安全靠本扫描报告 + 人工评估按需升级。
+# 高危阻断（04_03）：另有 dependency-scan job（Trivy fs，stage test）对锁文件 CRITICAL/HIGH 阻断；
+#   其同时覆盖 Python 的 uv.lock（官方 gemnasium-python 仅支持 requirements / Pipfile / poetry，不含 uv.lock）。
 include:
   - template: Security/Dependency-Scanning.gitlab-ci.yml
 
@@ -130,6 +130,9 @@ base-integrity:
   image: python:3.14-slim
   script:
     - python scripts/tools/base-check/check-base.py
+    # 环境变量模板键位一致性（密钥键位齐备 / 无废弃键 / 无真实密钥；04_03）
+    - python scripts/tools/base-check/check-env-example.py
+    - python scripts/tools/base-check/check-env-example.py --self-test
     # 后端基座合规对账（继承链 / 清单对账 / 错误码段位 / 迁移链；《后端审计规范》附录）
     - python scripts/tools/base-check/check-backend-base.py
     # 护栏自检（fixture 拦截验证；《后端审计规范》§8）
@@ -524,6 +527,36 @@ integration-plan:
     - uv run python -m ops.test_db plan --engine mysql
     - uv run python -m ops.test_db plan --engine postgres
     - uv run python -m ops.test_db plan --engine dm8
+
+# ---- 依赖漏洞高危阻断（04_03；《安全开发规范》「依赖与供应链」节「高危漏洞阻断合入」）----
+# 官方 Dependency Scanning 模板（见文件头 include）仅告警且不覆盖 uv.lock；本 job 以固定 tag Trivy
+# 扫锁文件（uv.lock / pnpm-lock.yaml），CRITICAL / HIGH 即失败；漏洞库走国内镜像 + trivy-cache 持久卷。
+dependency-scan:
+  stage: test
+  image: docker:27-cli
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes:
+        paths:
+          - backend/uv.lock
+          - backend/pyproject.toml
+          - pnpm-lock.yaml
+          - frontend/**/package.json
+          - deploy/**/*
+          - .gitlab-ci.yml
+    - if: $CI_COMMIT_BRANCH
+      changes:
+        compare_to: 'refs/heads/main'
+        paths:
+          - backend/uv.lock
+          - backend/pyproject.toml
+          - pnpm-lock.yaml
+          - frontend/**/package.json
+          - deploy/**/*
+          - .gitlab-ci.yml
+  script:
+    - docker run --rm -v "$CI_PROJECT_DIR:/src:ro" -v trivy-cache:/root/.cache/trivy -e TRIVY_DB_REPOSITORY=ghcr.nju.edu.cn/aquasecurity/trivy-db:2 aquasec/trivy:0.74.0 fs --scanners vuln --severity CRITICAL,HIGH --exit-code 1 --skip-dirs .git --skip-dirs node_modules /src
 
 # ---- 前端：ESLint + Vitest + 双端构建 ----
 desktop-check:

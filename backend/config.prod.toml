@@ -1,5 +1,9 @@
 # prod 环境覆盖（结构化日志、收紧级别，不开放跨域）
 
+[app]
+# 生产关闭 Swagger / ReDoc / OpenAPI 文档端点（契约走 CI 快照 deploy/contracts/；见 04_03）
+docs_enabled = false
+
 [log]
 level = "WARNING"
 format = "json"

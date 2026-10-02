@@ -7,6 +7,8 @@
   → bms-{service}:$CI_COMMIT_SHORT_SHA（--provenance=false：BuildKit attestation 清单推送被 Registry 拒绝，报 blob unknown）
 - 发布：推送 GitLab Registry（5050）+ Trivy 镜像安全扫描（CRITICAL / HIGH 阻断）+ 阶段度量推送
   （bms_release_total{service,result} → Pushgateway，口径见《可观测性栈部署使用说明》「告警与阶段度量」节）
+- SBOM（04_03）：镜像 CycloneDX 清单 artifact（`sbom-{service}.cyclonedx.json`，不阻断发布；
+  完整上报 / 签名 / 分发策略归部署阶段）
 - 不可变标签（09_02）：commit short SHA 主标签 + tag 流水线（Git tag vX.Y.Z）扫描通过后追加语义化标签；
   禁 latest；留存 semver 永久 + SHA 每服务最近 N（scripts/tools/deploy/release.py prune 经 Registry API 清理）
 - 发布清单（09_02）：release job 产出 release-manifest.json artifact（digest / 扫描 / 流水线 URL +

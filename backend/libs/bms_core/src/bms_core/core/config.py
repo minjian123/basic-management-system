@@ -80,6 +80,13 @@ class AppSettings(BaseSettings):
     用于选取按服务的连接池覆盖与租户库 `url_template` 的 `{service}` 占位（见 `core/service.py`）。
     """
 
+    docs_enabled: bool = True
+    """文档端点开关（Swagger `/docs` / ReDoc `/redoc` / OpenAPI `/openapi.json`）。
+
+    基线开（dev / test 便于联调），`config.prod.toml` 置 `false` 关闭（契约唯一来源为 CI 快照
+    `deploy/contracts/`）；`app.openapi()` 方法不受影响，CI 契约生成仍可用。
+    """
+
 
 class ServerSettings(BaseSettings):
     """HTTP 服务。"""

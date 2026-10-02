@@ -14,6 +14,8 @@ worker_id = 0
 # 服务标识（微服务名；空则取服务包声明，启动期回写解析结果）
 # 用于按服务的连接池覆盖与租户库连接串模板的 {service} 占位
 service = ""
+# 文档端点开关（Swagger /docs、ReDoc /redoc、OpenAPI /openapi.json；dev 基线开，生产关闭走 CI 契约快照）
+docs_enabled = true
 
 [server]
 # 监听地址
