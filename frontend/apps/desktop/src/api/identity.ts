@@ -45,3 +45,41 @@ export function logout(): Promise<void> {
 export function fetchCurrentUser(): Promise<UserSummary> {
   return request<UserSummary>({ method: 'GET', url: apiUrl('identity', '/auth/me') })
 }
+
+/** SSO 入口清单项（登录页按此渲染 IdP 入口）。 */
+export type SsoProviderItem = identity.components['schemas']['SsoProviderItem']
+
+/** SSO 入口清单响应体（仅启用项；无启用 IdP 时 `items` 为空）。 */
+export type SsoProviderList = identity.components['schemas']['SsoProviderList']
+
+/**
+ * 取当前租户可用 SSO 入口清单（免登录端点）。
+ *
+ * @param tenant 租户编码（可选；缺省由后端按上下文 / 子域名解析）。
+ * @returns SSO 入口清单。
+ */
+export function fetchSsoProviders(tenant?: string | null): Promise<SsoProviderList> {
+  const params = tenant === undefined || tenant === null || tenant === '' ? undefined : { tenant }
+  return request<SsoProviderList>({
+    method: 'GET',
+    url: apiUrl('identity', '/auth/sso/providers'),
+    params,
+  })
+}
+
+/**
+ * 组装 SSO 授权跳转地址（**顶层地址跳转**、非 XHR：后端 `302` 到外部 IdP）。
+ *
+ * 只拼「站内服务段地址 + 查询参数」，不拼外部地址（防开放重定向）。
+ *
+ * @param idpKey IdP 标识（清单项 `idp_key`）。
+ * @param tenant 租户编码（可选；缺省由后端解析）。
+ * @returns 授权跳转地址。
+ */
+export function ssoAuthorizeUrl(idpKey: string, tenant?: string | null): string {
+  const base = apiUrl('identity', `/auth/sso/${encodeURIComponent(idpKey)}/authorize`)
+  if (tenant === undefined || tenant === null || tenant === '') {
+    return base
+  }
+  return `${base}?tenant=${encodeURIComponent(tenant)}`
+}

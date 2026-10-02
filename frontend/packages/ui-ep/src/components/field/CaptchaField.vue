@@ -1,13 +1,17 @@
 <script setup lang="ts">
 // 验证码字段（06_04 真实实现）：图形 / 滑块 / 短信三类形态分发与统一占位语义；
 // 数据通路经注入式数据源（未注入即占位零请求），保留 06_01 冻结对外契约（仅向后兼容新增）。
+// `submitMode='defer'`（05_01 新增的延迟提交模式）：壳层与子件只渲染与采集，不自行校验，
+// 以 `credential` 事件把凭证交给父页面随业务请求提交（登录在业务请求内一次性校验并消费挑战）。
 import {
   CAPTCHA_PLACEHOLDER_TEXT,
   CAPTCHA_REQUIRED_TEXT,
+  type CaptchaCredential,
   type CaptchaKind as CaptchaKindValue,
   type CaptchaPolicy,
   type CaptchaScene,
   type CaptchaSourceAdapter,
+  type CaptchaSubmitMode,
 } from '@bms/core'
 import { computed, watch } from 'vue'
 
@@ -52,6 +56,8 @@ interface Props {
   required?: boolean
   /** 外部错误文案（优先）。 */
   errorMessage?: string
+  /** 提交模式（缺省 `verify` 自行校验；`defer` 只采集并经 `credential` 上抛凭证）。 */
+  submitMode?: CaptchaSubmitMode
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -71,6 +77,7 @@ const props = withDefaults(defineProps<Props>(), {
   inputLength: 0,
   required: false,
   errorMessage: '',
+  submitMode: 'verify',
 })
 
 const emit = defineEmits<{
@@ -84,6 +91,8 @@ const emit = defineEmits<{
   'rate-limit': [cooldown: number]
   expire: []
   policy: [policy: CaptchaPolicy]
+  loaded: [challengeId: string]
+  credential: [credential: CaptchaCredential]
 }>()
 
 const api = useBaseCaptcha({
@@ -221,7 +230,9 @@ function onRetry(): void {
     data-test="captcha-field"
   >
     <slot v-if="api.degraded.value" name="degrade">
-      <div class="bms-field-placeholder" data-test="placeholder">{{ degradeText }}</div>
+      <div class="bms-field-placeholder" data-test="placeholder">
+        {{ degradeText }}
+      </div>
     </slot>
 
     <slot v-else name="live" :disabled="api.disabled.value">
@@ -237,12 +248,15 @@ function onRetry(): void {
         :placeholder="placeholder"
         :error-message="errorMessage"
         :degrade-text="degradeText"
+        :submit-mode="submitMode"
         @update:model-value="emit('update:modelValue', $event)"
         @change="emit('change', $event)"
         @refresh="emit('refresh')"
         @invalid="emit('invalid', $event)"
         @pass="emit('pass', { kind: 'image' })"
         @fail="emit('fail', $event)"
+        @loaded="emit('loaded', $event)"
+        @credential="emit('credential', $event)"
       />
       <slider-captcha
         v-else-if="api.kind.value === 'slider'"
@@ -252,9 +266,12 @@ function onRetry(): void {
         :scene="scene"
         :disabled="disabled"
         :degrade-text="degradeText"
+        :submit-mode="submitMode"
         @pass="emit('pass', { kind: 'slider' })"
         @fail="emit('fail', $event)"
         @refresh="emit('refresh')"
+        @loaded="emit('loaded', $event)"
+        @credential="emit('credential', $event)"
       />
       <sms-captcha
         v-else
@@ -269,6 +286,7 @@ function onRetry(): void {
         :placeholder="placeholder"
         :error-message="errorMessage"
         :degrade-text="degradeText"
+        :submit-mode="submitMode"
         @update:model-value="emit('update:modelValue', $event)"
         @change="emit('change', $event)"
         @send="emit('send')"
@@ -276,12 +294,22 @@ function onRetry(): void {
         @rate-limit="emit('rate-limit', $event)"
         @pass="emit('pass', { kind: 'sms' })"
         @fail="emit('fail', $event)"
+        @loaded="emit('loaded', $event)"
+        @credential="emit('credential', $event)"
       />
       <slot name="tip" />
     </slot>
 
-    <p v-if="errorText !== ''" class="bms-field-error" data-test="captcha-error">{{ errorText }}</p>
-    <button v-if="api.error.value && errorText === ''" type="button" class="bms-captcha-field__retry" data-test="captcha-retry" @click="onRetry">
+    <p v-if="errorText !== ''" class="bms-field-error" data-test="captcha-error">
+      {{ errorText }}
+    </p>
+    <button
+      v-if="api.error.value && errorText === ''"
+      type="button"
+      class="bms-captcha-field__retry"
+      data-test="captcha-retry"
+      @click="onRetry"
+    >
       重试
     </button>
   </div>
