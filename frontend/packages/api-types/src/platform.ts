@@ -1168,8 +1168,41 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        ApiResponse: unknown;
-        ApiResponse_ConfigResolveResponse_: unknown;
+        /**
+         * ApiResponse
+         * @description 统一响应体：`code=0` 成功，非 0 业务错误码。
+         *
+         *     - `data` 为业务数据（泛型）；失败时为 `null`；分页载荷复用分页契约基类。
+         *     - 雪花 ID 在 JSON 中以字符串输出（`BaseSchema` 统一序列化口径）。
+         */
+        ApiResponse: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            /** Data */
+            data?: unknown | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[ConfigResolveResponse] */
+        ApiResponse_ConfigResolveResponse_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["ConfigResolveResponse"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
         /**
          * ConfigResolveRequest
          * @description 批量取参数请求。
@@ -1181,7 +1214,19 @@ export interface components {
              */
             keys?: string[];
         };
-        ConfigResolveResponse: unknown;
+        /**
+         * ConfigResolveResponse
+         * @description 批量取参数响应（只含存在的键）。
+         */
+        ConfigResolveResponse: {
+            /**
+             * Values
+             * @description 参数键 → 值（仅存在的键）
+             */
+            values?: {
+                [key: string]: string;
+            };
+        };
         /**
          * DemoCreateRequest
          * @description 创建 demo 请求。

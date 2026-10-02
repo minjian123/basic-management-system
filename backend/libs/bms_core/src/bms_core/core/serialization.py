@@ -14,6 +14,21 @@ from typing import cast
 _ID_KEYS = ("id",)
 
 
+def is_id_key(key: object) -> bool:
+    """是否 ID 键（`id` 本身，或以 `_id` 结尾的字符串键）。
+
+    唯一判定来源：运行时 `stringify_ids`（ID 值字符串化）与 JSON Schema 侧（`id` / `*_id`
+    字段的输出类型标为字符串）共用本函数，避免两处规则漂移。
+
+    Args:
+        key: 待判定键（映射键名或字段名）。
+
+    Returns:
+        bool: 是 ID 键 True。
+    """
+    return isinstance(key, str) and (key in _ID_KEYS or key.endswith("_id"))
+
+
 def rebuild_mapping(original: object, items: Iterable[tuple[object, object]]) -> object:
     """按原映射形态重建（内置 `dict` 保内置，基座映射类同型重组）。
 
@@ -64,8 +79,8 @@ def _stringify_entry(key: object, item: object) -> tuple[object, object]:
     Returns:
         tuple[object, object]: 转换后的键值对。
     """
-    is_id_key = isinstance(key, str) and (key in _ID_KEYS or key.endswith("_id"))
-    return key, str(item) if is_id_key and type(item) is int else stringify_ids(item)
+    id_key = is_id_key(key)
+    return key, str(item) if id_key and type(item) is int else stringify_ids(item)
 
 
 def stringify_ids(value: object) -> object:

@@ -1,7 +1,88 @@
 {
   "components": {
     "schemas": {
-      "ApiResponse": {},
+      "ApiResponse": {
+        "description": "统一响应体：`code=0` 成功，非 0 业务错误码。\n\n- `data` 为业务数据（泛型）；失败时为 `null`；分页载荷复用分页契约基类。\n- 雪花 ID 在 JSON 中以字符串输出（`BaseSchema` 统一序列化口径）。",
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data"
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse",
+        "type": "object"
+      },
+      "ApiResponse_ConfigResolveResponse_": {
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ConfigResolveResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[ConfigResolveResponse]",
+        "type": "object"
+      },
+      "ConfigResolveRequest": {
+        "description": "批量取参数请求。",
+        "properties": {
+          "keys": {
+            "description": "参数键序列",
+            "items": {
+              "type": "string"
+            },
+            "title": "Keys",
+            "type": "array"
+          }
+        },
+        "title": "ConfigResolveRequest",
+        "type": "object"
+      },
+      "ConfigResolveResponse": {
+        "description": "批量取参数响应（只含存在的键）。",
+        "properties": {
+          "values": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "参数键 → 值（仅存在的键）",
+            "title": "Values",
+            "type": "object"
+          }
+        },
+        "title": "ConfigResolveResponse",
+        "type": "object"
+      },
       "DemoCreateRequest": {
         "description": "创建 demo 请求。",
         "properties": {
@@ -4175,6 +4256,116 @@
         ]
       }
     },
+    "/api/v1/platform/internal/configs/resolve": {
+      "post": {
+        "description": "批量取系统参数值（仅返回存在的键；缺失由调用方回落默认）。\n\nArgs:\n    config: 系统参数取数实现。\n    req: 批量取参数请求。\n\nReturns:\n    ApiResponse[ConfigResolveResponse]: 统一响应，data 为 `{values}`。",
+        "operationId": "resolve_configs_api_v1_platform_internal_configs_resolve_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfigResolveRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ConfigResolveResponse_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Resolve Configs",
+        "tags": [
+          "config-internal"
+        ]
+      }
+    },
     "/api/v1/plugins": {
       "get": {
         "description": "插件清单（按能力分组，只读）。\n\nArgs:\n    request: 请求对象。\n\nReturns:\n    ApiResponse: 统一响应，data 为能力分组数组（`plugin_key` 升序）。",
@@ -4242,6 +4433,78 @@
           }
         },
         "summary": "List Plugins",
+        "tags": [
+          "plugin"
+        ]
+      }
+    },
+    "/api/v1/plugins/aggregate": {
+      "get": {
+        "description": "跨服务插件聚合视图（触发式接口占位，只读）。\n\n汇总各服务插件清单供平台超管统一查看（需求 01-4）。**当前为触发前占位**：\n恒定返回空聚合与占位标记，不读注册表、不发起任何服务调用；真实实现（经服务间\n公开契约 `service_client` 调用各服务 `GET /api/v1/plugins`）归触发时。**注意**：\n本路由须先于 `/plugins/{plugin_key}` 注册，避免被明细动态路由吞掉。\n\nReturns:\n    ApiResponse: 统一响应，data 为 `{\"placeholder\": true, \"services\": []}`。",
+        "operationId": "aggregate_plugins_api_v1_plugins_aggregate_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Aggregate Plugins",
         "tags": [
           "plugin"
         ]

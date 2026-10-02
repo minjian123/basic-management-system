@@ -1,7 +1,32 @@
 {
   "components": {
     "schemas": {
-      "ApiResponse": {},
+      "ApiResponse": {
+        "description": "统一响应体：`code=0` 成功，非 0 业务错误码。\n\n- `data` 为业务数据（泛型）；失败时为 `null`；分页载荷复用分页契约基类。\n- 雪花 ID 在 JSON 中以字符串输出（`BaseSchema` 统一序列化口径）。",
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data"
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -100,11 +125,11 @@
     },
     "/api/v1/tenant-registry": {
       "get": {
-        "description": "取租户注册快照（按编码或域名二选一）。\n\nArgs:\n    session: 平台服务库只读会话。\n    code: 租户编码。\n    domain: 子域名。\n\nReturns:\n    ApiResponse: 统一响应（data 为注册快照）。\n\nRaises:\n    ParamError: 未提供 code / domain（10001）。\n    TenantNotFoundError: 未知租户（404 / 80001）。\n    TenantSuspendedError: 租户已停用（403 / 80002）。",
+        "description": "取租户注册快照（按编码 / 域名 / 主键三选一）。\n\nArgs:\n    session: 平台服务库只读会话。\n    code: 租户编码。\n    domain: 子域名。\n    tenant_id: 租户主键雪花 id 字符串。\n\nReturns:\n    ApiResponse: 统一响应（data 为注册快照）。\n\nRaises:\n    ParamError: 未提供或多于一个来源（10001）。\n    TenantNotFoundError: 未知租户（404 / 80001）。\n    TenantSuspendedError: 租户已停用（403 / 80002）。",
         "operationId": "get_tenant_registry_api_v1_tenant_registry_get",
         "parameters": [
           {
-            "description": "租户编码（与 domain 二选一）",
+            "description": "租户编码（与 domain / tenant_id 三选一）",
             "in": "query",
             "name": "code",
             "required": false,
@@ -117,12 +142,12 @@
                   "type": "null"
                 }
               ],
-              "description": "租户编码（与 domain 二选一）",
+              "description": "租户编码（与 domain / tenant_id 三选一）",
               "title": "Code"
             }
           },
           {
-            "description": "子域名（与 code 二选一）",
+            "description": "子域名（与 code / tenant_id 三选一）",
             "in": "query",
             "name": "domain",
             "required": false,
@@ -135,8 +160,26 @@
                   "type": "null"
                 }
               ],
-              "description": "子域名（与 code 二选一）",
+              "description": "子域名（与 code / tenant_id 三选一）",
               "title": "Domain"
+            }
+          },
+          {
+            "description": "租户主键雪花 id 字符串（与 code / domain 三选一）",
+            "in": "query",
+            "name": "tenant_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "租户主键雪花 id 字符串（与 code / domain 三选一）",
+              "title": "Tenant Id"
             }
           }
         ],

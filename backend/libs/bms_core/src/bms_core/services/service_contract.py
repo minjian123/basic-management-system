@@ -19,11 +19,14 @@ from bms_core.services.module_registry import SERVICE_CATALOG, ModuleRecord, Mod
 __all__ = [
     "BASELINE_DIR",
     "CONTRACTS_DIR",
+    "EMPTY_SCHEMA_ALLOWLIST",
     "INVISIBLE_ROUTE_WHITELIST",
     "contract_file_name",
+    "empty_schema_entries",
     "enabled_service_records",
     "hidden_route_violations",
     "render_contract_json",
+    "response_schema_gaps",
     "route_coverage_gaps",
     "service_enabled",
     "service_route_sets",
@@ -126,6 +129,136 @@ INVISIBLE_ROUTE_WHITELIST: ConcurrentStableSet[str] = ConcurrentStableSet(
 仅框架内置文档端点（`/docs` / `/redoc` / `/openapi.json` / `/docs/oauth2-redirect`）与平台可观测
 端点（`/metrics`）；**业务端点一律不得加入**——新增白名单项须在设计 / 规范侧说明理由（需求 06-3）。
 """
+
+
+EMPTY_SCHEMA_ALLOWLIST: ConcurrentStableSet[str] = ConcurrentStableSet()
+"""空 schema 白名单：允许在公开契约 `components.schemas` 中为空对象的条目名。
+
+缺省为**空集**——公开契约不得缺失字段信息（响应体 schema 为空即响应契约失真、前端生成类型
+退化为 `unknown`）。新增白名单项须在设计 / 规范侧说明理由；**业务 schema 一律不得入白名单**
+（需求 06-4，与 `INVISIBLE_ROUTE_WHITELIST` 同纪律）。
+"""
+
+
+def _as_mapping(value: object) -> ConcurrentStableDict[str, object]:
+    """把值规整为字符串键插入序映射（非映射时为空映射）。
+
+    Args:
+        value: 待规整值（契约段 / 响应 / 媒体类型等）。
+
+    Returns:
+        ConcurrentStableDict[str, object]: 规整后的映射（键统一字符串化）。
+    """
+    result: ConcurrentStableDict[str, object] = ConcurrentStableDict()
+    if not isinstance(value, Mapping):
+        return result
+    mapping = cast("Mapping[object, object]", value)
+    for key, item in mapping.items():
+        result.set(str(key), item)
+    return result
+
+
+def _component_schemas(openapi: ConcurrentStableDict[str, object]) -> ConcurrentStableDict[str, object]:
+    """取公开契约 `components.schemas`（缺失 / 非映射时为空映射）。
+
+    Args:
+        openapi: 公开契约映射（`app.openapi()` 产物）。
+
+    Returns:
+        ConcurrentStableDict[str, object]: `components.schemas` 映射。
+    """
+    components = _as_mapping(openapi.get("components"))
+    return _as_mapping(components.get("schemas"))
+
+
+def _is_success_status(status: object) -> bool:
+    """是否成功响应状态码（`2xx` 具体码或 `2XX` 通配）。
+
+    Args:
+        status: 响应状态码键。
+
+    Returns:
+        bool: 成功响应 True。
+    """
+    text = str(status).upper()
+    return text == "2XX" or (len(text) == 3 and text.startswith("2"))
+
+
+def _json_schema_gap(response: ConcurrentStableDict[str, object], schemas: ConcurrentStableDict[str, object]) -> str:
+    """取响应体 JSON schema 的**引用**问题描述（非引用型 schema 不判定）。
+
+    只判定 `$ref` 型响应 schema：引用必须可解析到**非空**的 `components.schemas` 条目。
+    内联 schema（含空对象）不判定——它来自「原始 `Response` 端点未声明响应模型」（探针 / OIDC /
+    SSO 回调等），与本域的「模型派生响应 schema 塌陷」是不同缺陷类，登记为后续任务归口。
+
+    Args:
+        response: 单个响应对象。
+        schemas: 公开契约 `components.schemas` 映射。
+
+    Returns:
+        str: 问题描述；空串表示该响应无可判定问题。
+    """
+    content = _as_mapping(response.get("content"))
+    media = _as_mapping(content.get("application/json"))
+    schema_value = media.get("schema")
+    if not isinstance(schema_value, Mapping):
+        return ""
+    ref = cast("Mapping[str, object]", schema_value).get("$ref")
+    if not isinstance(ref, str):
+        return ""
+    name = ref.rsplit("/", 1)[-1]
+    target = schemas.get(name)
+    if not isinstance(target, Mapping):
+        return f"响应 schema 引用未解析（{ref}）"
+    if not target:
+        return f"响应 schema 引用目标为空（{name}）"
+    return ""
+
+
+def empty_schema_entries(openapi: ConcurrentStableDict[str, object]) -> ConcurrentStableList[str]:
+    """断言 C：公开契约 `components.schemas` 中为空对象的条目名。
+
+    空对象即「无任何字段信息」——一旦出现在 `components.schemas`，说明契约丢失了该模型的
+    结构（响应体 schema 失真、前端生成类型退化为 `unknown`）。
+
+    Args:
+        openapi: 公开契约映射（`app.openapi()` 产物）。
+
+    Returns:
+        ConcurrentStableList[str]: 违规条目名（升序，白名单命中者除外）；空列表表示通过。
+    """
+    violations: ConcurrentStableList[str] = ConcurrentStableList()
+    for name, schema in _component_schemas(openapi).items():
+        if isinstance(schema, Mapping) and not schema and name not in EMPTY_SCHEMA_ALLOWLIST:
+            violations.add(name)
+    return ConcurrentStableList(sorted(violations))
+
+
+def response_schema_gaps(openapi: ConcurrentStableDict[str, object]) -> ConcurrentStableList[str]:
+    """断言 D：成功响应（2xx）的**引用型** `application/json` schema 必须可解析且非空。
+
+    配合断言 C（`components.schemas` 无空对象）锁定「模型派生响应 schema 塌陷」缺陷类：
+    模型响应经 `$ref` 引用 `components.schemas`，引用可达且非空即说明模型契约未缺失字段信息。
+
+    Args:
+        openapi: 公开契约映射（`app.openapi()` 产物）。
+
+    Returns:
+        ConcurrentStableList[str]: 违规明细（升序，含方法 / 路径 / 状态码与原因）；空列表表示通过。
+    """
+    schemas = _component_schemas(openapi)
+    gaps: ConcurrentStableList[str] = ConcurrentStableList()
+    paths = _as_mapping(openapi.get("paths"))
+    for path, operations in paths.items():
+        for method, operation in _as_mapping(operations).items():
+            responses = _as_mapping(_as_mapping(operation).get("responses"))
+            for status, response in responses.items():
+                if not _is_success_status(status):
+                    continue
+                reason = _json_schema_gap(_as_mapping(response), schemas)
+                if reason:
+                    gaps.add(f"{method.upper()} {path} [{status}]：{reason}")
+    return ConcurrentStableList(sorted(gaps))
 
 
 def _route_entries(routes: ConcurrentStableList[object]) -> ConcurrentStableList[tuple[str, bool]]:

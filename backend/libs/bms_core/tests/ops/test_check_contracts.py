@@ -1,4 +1,4 @@
-"""契约路由覆盖护栏测试（Kiwi 2227）：覆盖断言 / 不可见白名单 / 防漏检 / CLI 退出码。"""
+"""契约护栏测试（Kiwi 2227 / 2228）：路由覆盖 / 不可见白名单 / 响应 schema 完整性 / CLI 退出码。"""
 
 from types import SimpleNamespace
 
@@ -96,3 +96,67 @@ def test_check_all_aggregates_and_main_exit_codes(monkeypatch: pytest.MonkeyPatc
 
     monkeypatch.setattr(check_contracts, "build_app", lambda service_key: bad)
     assert check_contracts.main(ConcurrentStableList(["--service", "b"])) == 1
+
+
+def _contract_app(contract: ConcurrentStableDict[str, object]) -> SimpleNamespace:
+    """构造桩应用：`openapi()` 返回完整契约样本，实现路由与契约一致。"""
+    return SimpleNamespace(
+        routes=ConcurrentStableList([_leaf("/api/v1/a", include_in_schema=True)]),
+        openapi=lambda: contract,
+    )
+
+
+def _contract(
+    operations: ConcurrentStableDict[str, object],
+    schemas: ConcurrentStableDict[str, object],
+) -> ConcurrentStableDict[str, object]:
+    """构造含单路径与 `components.schemas` 的契约样本。"""
+    return ConcurrentStableDict[str, object](
+        {
+            "paths": ConcurrentStableDict({"/api/v1/a": operations}),
+            "components": ConcurrentStableDict({"schemas": schemas}),
+        }
+    )
+
+
+def _json_operation(schema: object) -> ConcurrentStableDict[str, object]:
+    """构造含 200 `application/json` 响应的 GET 操作。"""
+    media = ConcurrentStableDict[str, object]({"schema": schema})
+    response = ConcurrentStableDict[str, object]({"content": ConcurrentStableDict({"application/json": media})})
+    return ConcurrentStableDict({"get": ConcurrentStableDict({"responses": ConcurrentStableDict({"200": response})})})
+
+
+@pytest.mark.kiwi_id(2228)
+def test_check_service_reports_empty_schema_entry(monkeypatch: pytest.MonkeyPatch) -> None:
+    """公开契约存在空 schema 条目 → 报「空 schema 条目」（断言 C）。"""
+    contract = _contract(
+        ConcurrentStableDict[str, object](),
+        ConcurrentStableDict({"Empty": ConcurrentStableDict[str, object]()}),
+    )
+    monkeypatch.setattr(check_contracts, "build_app", lambda service_key: _contract_app(contract))
+    errors = check_contracts.check_service("stub")
+    assert any("空 schema 条目" in message and "Empty" in message for message in errors)
+
+
+@pytest.mark.kiwi_id(2228)
+def test_check_service_reports_unresolvable_response_schema(monkeypatch: pytest.MonkeyPatch) -> None:
+    """成功响应 schema 引用未解析 → 报「成功响应 schema 不可用」（断言 D）。"""
+    contract = _contract(
+        _json_operation(ConcurrentStableDict({"$ref": "#/components/schemas/Ghost"})),
+        ConcurrentStableDict[str, object](),
+    )
+    monkeypatch.setattr(check_contracts, "build_app", lambda service_key: _contract_app(contract))
+    errors = check_contracts.check_service("stub")
+    assert any("成功响应 schema 不可用" in message and "/api/v1/a" in message for message in errors)
+
+
+@pytest.mark.kiwi_id(2228)
+def test_check_service_passes_when_response_schema_complete(monkeypatch: pytest.MonkeyPatch) -> None:
+    """成功响应引用可解析且非空、无空 schema 条目 → 无违规；`main` 退出码 0。"""
+    contract = _contract(
+        _json_operation(ConcurrentStableDict({"$ref": "#/components/schemas/Ok"})),
+        ConcurrentStableDict({"Ok": ConcurrentStableDict({"properties": ConcurrentStableDict({"x": "s"})})}),
+    )
+    monkeypatch.setattr(check_contracts, "build_app", lambda service_key: _contract_app(contract))
+    assert list(check_contracts.check_service("stub")) == []
+    assert check_contracts.main(ConcurrentStableList(["--service", "stub"])) == 0
