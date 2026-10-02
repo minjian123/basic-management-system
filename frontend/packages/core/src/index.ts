@@ -328,7 +328,12 @@ export {
   type CaptchaSourceOptions,
   type CaptchaVerifyQuery,
 } from './capabilities/captcha-source'
-export { BaseCaptcha, type CaptchaOptions } from './capabilities/captcha'
+export {
+  BaseCaptcha,
+  type CaptchaCredential,
+  type CaptchaOptions,
+  type CaptchaSubmitMode,
+} from './capabilities/captcha'
 export {
   BaseDictSource,
   DictSourceProvider,
@@ -1576,6 +1581,12 @@ export {
   type UploadTaskPhase,
   type UploadTaskSnapshot,
 } from './domain/file'
+export {
+  AUTH_ERROR_TEXTS,
+  DEFAULT_AUTH_ERROR_TEXT,
+  isAuthErrorCode,
+  resolveAuthErrorText,
+} from './domain/auth-error'
 export {
   CAPTCHA_EMPTY_VALUE,
   CAPTCHA_ERROR_TEXTS,

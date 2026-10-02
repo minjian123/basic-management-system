@@ -1,6 +1,8 @@
 <script setup lang="ts">
 // 短信验证码件（06_04）：手机号脱敏展示、发送与 60s 倒计时（限流命中不重置）、
 // 一次性验证码自动填充语义与错误分类提示；数据通路经注入式数据源（未注入即占位零请求）。
+// `submitMode='defer'`（05_01 新增的延迟提交模式）：件层只渲染与采集，不自行校验，
+// 以 `credential` 事件把凭证交给父页面随业务请求提交。
 import {
   CAPTCHA_PASS_TEXT,
   CAPTCHA_PLACEHOLDER_TEXT,
@@ -9,8 +11,10 @@ import {
   CAPTCHA_SMS_COOLDOWN,
   CAPTCHA_SMS_INPUT_PLACEHOLDER,
   checkCaptchaInput,
+  type CaptchaCredential,
   type CaptchaScene,
   type CaptchaSourceAdapter,
+  type CaptchaSubmitMode,
 } from '@bms/core'
 import { computed, watch } from 'vue'
 
@@ -39,6 +43,8 @@ interface Props {
   errorMessage?: string
   /** 降级文案。 */
   degradeText?: string
+  /** 提交模式（缺省 `verify` 自行校验；`defer` 只采集并经 `credential` 上抛凭证）。 */
+  submitMode?: CaptchaSubmitMode
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -53,6 +59,7 @@ const props = withDefaults(defineProps<Props>(), {
   placeholder: CAPTCHA_SMS_INPUT_PLACEHOLDER,
   errorMessage: '',
   degradeText: CAPTCHA_PLACEHOLDER_TEXT,
+  submitMode: 'verify',
 })
 
 const emit = defineEmits<{
@@ -63,6 +70,8 @@ const emit = defineEmits<{
   'rate-limit': [cooldown: number]
   pass: []
   fail: [payload: { code?: number; message: string }]
+  loaded: [challengeId: string]
+  credential: [credential: CaptchaCredential]
 }>()
 
 const api = useBaseCaptcha({
@@ -111,10 +120,23 @@ watch(
   { immediate: true },
 )
 
+/** 上抛凭证（仅延迟提交模式；`verify` 模式不触发）。 */
+function emitCredential(): void {
+  if (props.submitMode !== 'defer') {
+    return
+  }
+  emit('credential', {
+    kind: 'sms',
+    captchaId: api.challengeId.value,
+    code: api.value.value ?? '',
+  })
+}
+
 api.onValueChange((next) => {
   const value = next ?? ''
   emit('update:modelValue', value)
   emit('change', value)
+  emitCredential()
 })
 
 /** 发送按钮文案（倒计时中为「重新发送(ns)」；空闲含配置冷却秒数，兼容 06_01 冻结显示）。 */
@@ -140,6 +162,8 @@ async function onSend(): Promise<void> {
   emit('send')
   const ok = await api.sendSms()
   if (ok) {
+    emit('loaded', api.challengeId.value)
+    emitCredential()
     return
   }
   if (api.errorCode.value === 20103) {
@@ -147,8 +171,12 @@ async function onSend(): Promise<void> {
   }
 }
 
-/** 校验当前输入（通过 / 失败上抛）。 */
+/** 校验当前输入（通过 / 失败上抛）；延迟提交模式只上抛凭证。 */
 async function onSubmit(): Promise<void> {
+  if (props.submitMode === 'defer') {
+    emitCredential()
+    return
+  }
   const precheck = checkCaptchaInput(api.value.value, 'sms', props.inputLength)
   if (!precheck.valid) {
     emit('invalid', precheck.message)
@@ -173,9 +201,16 @@ function onInput(event: Event): void {
 </script>
 
 <template>
-  <div class="bms-sms-captcha" :data-ready="api.ready.value" :data-degraded="api.degraded.value" data-test="sms-captcha">
+  <div
+    class="bms-sms-captcha"
+    :data-ready="api.ready.value"
+    :data-degraded="api.degraded.value"
+    data-test="sms-captcha"
+  >
     <slot v-if="api.degraded.value" name="degrade">
-      <div class="bms-field-placeholder" data-test="placeholder">{{ degradeText }}</div>
+      <div class="bms-field-placeholder" data-test="placeholder">
+        {{ degradeText }}
+      </div>
     </slot>
 
     <template v-else>
@@ -209,8 +244,12 @@ function onInput(event: Event): void {
       <p v-if="api.countdown.value > 0" class="bms-sms-captcha__countdown" data-test="captcha-countdown">
         {{ api.countdown.value }}s
       </p>
-      <p v-if="api.passed.value" class="bms-sms-captcha__pass" data-test="captcha-pass">{{ CAPTCHA_PASS_TEXT }}</p>
-      <p v-if="errorText !== ''" class="bms-field-error" data-test="captcha-error">{{ errorText }}</p>
+      <p v-if="api.passed.value" class="bms-sms-captcha__pass" data-test="captcha-pass">
+        {{ CAPTCHA_PASS_TEXT }}
+      </p>
+      <p v-if="errorText !== ''" class="bms-field-error" data-test="captcha-error">
+        {{ errorText }}
+      </p>
     </template>
   </div>
 </template>

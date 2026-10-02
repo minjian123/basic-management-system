@@ -1,6 +1,8 @@
 <script setup lang="ts">
 // 图形验证码件（06_04）：后端图片（base64 → data URL）展示、点击 / 按钮刷新（一次性失效）、
 // 输入校验与错误反馈；数据通路经注入式数据源（未注入即占位零请求）。
+// `submitMode='defer'`（05_01 新增的延迟提交模式）：件层只渲染与采集，不自行校验，
+// 以 `credential` 事件把凭证交给父页面随业务请求提交。
 import {
   CAPTCHA_IMAGE_EMPTY_TEXT,
   CAPTCHA_INPUT_PLACEHOLDER,
@@ -8,8 +10,10 @@ import {
   CAPTCHA_PLACEHOLDER_TEXT,
   CAPTCHA_REFRESH_TEXT,
   checkCaptchaInput,
+  type CaptchaCredential,
   type CaptchaScene,
   type CaptchaSourceAdapter,
+  type CaptchaSubmitMode,
 } from '@bms/core'
 import { computed, watch } from 'vue'
 
@@ -36,6 +40,8 @@ interface Props {
   errorMessage?: string
   /** 降级文案。 */
   degradeText?: string
+  /** 提交模式（缺省 `verify` 自行校验；`defer` 只采集并经 `credential` 上抛凭证）。 */
+  submitMode?: CaptchaSubmitMode
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -49,6 +55,7 @@ const props = withDefaults(defineProps<Props>(), {
   placeholder: CAPTCHA_INPUT_PLACEHOLDER,
   errorMessage: '',
   degradeText: CAPTCHA_PLACEHOLDER_TEXT,
+  submitMode: 'verify',
 })
 
 const emit = defineEmits<{
@@ -59,6 +66,7 @@ const emit = defineEmits<{
   pass: []
   fail: [payload: { code?: number; message: string }]
   loaded: [challengeId: string]
+  credential: [credential: CaptchaCredential]
 }>()
 
 const api = useBaseCaptcha({
@@ -109,16 +117,34 @@ watch(
   [() => api.ready.value, () => props.imageUrl],
   ([ready, external]) => {
     if (ready && external === '') {
-      void api.loadChallenge()
+      void api.loadChallenge().then((ok) => {
+        if (ok) {
+          emit('loaded', api.challengeId.value)
+          emitCredential()
+        }
+      })
     }
   },
   { immediate: true },
 )
 
+/** 上抛凭证（仅延迟提交模式；`verify` 模式不触发）。 */
+function emitCredential(): void {
+  if (props.submitMode !== 'defer') {
+    return
+  }
+  emit('credential', {
+    kind: 'image',
+    captchaId: api.challengeId.value,
+    code: api.value.value ?? '',
+  })
+}
+
 api.onValueChange((next) => {
   const value = next ?? ''
   emit('update:modelValue', value)
   emit('change', value)
+  emitCredential()
 })
 
 /** 生效错误文案（外部优先）。 */
@@ -133,11 +159,16 @@ async function onRefresh(): Promise<void> {
   const ok = await api.refresh()
   if (ok) {
     emit('loaded', api.challengeId.value)
+    emitCredential()
   }
 }
 
-/** 校验当前输入（通过 / 失败上抛；失败自动刷新图形码）。 */
+/** 校验当前输入（通过 / 失败上抛；失败自动刷新图形码）；延迟提交模式只上抛凭证。 */
 async function onSubmit(): Promise<void> {
+  if (props.submitMode === 'defer') {
+    emitCredential()
+    return
+  }
   const precheck = checkCaptchaInput(api.value.value, 'image', props.inputLength)
   if (!precheck.valid) {
     emit('invalid', precheck.message)
@@ -175,7 +206,9 @@ function onInput(event: Event): void {
     data-test="image-captcha"
   >
     <slot v-if="api.degraded.value" name="degrade">
-      <div class="bms-field-placeholder" data-test="placeholder">{{ degradeText }}</div>
+      <div class="bms-field-placeholder" data-test="placeholder">
+        {{ degradeText }}
+      </div>
     </slot>
 
     <template v-else>
@@ -219,7 +252,9 @@ function onInput(event: Event): void {
       <p v-if="api.passed.value" class="bms-image-captcha__pass" data-test="captcha-pass">
         {{ CAPTCHA_PASS_TEXT }}
       </p>
-      <p v-if="errorText !== ''" class="bms-field-error" data-test="captcha-error">{{ errorText }}</p>
+      <p v-if="errorText !== ''" class="bms-field-error" data-test="captcha-error">
+        {{ errorText }}
+      </p>
     </template>
   </div>
 </template>

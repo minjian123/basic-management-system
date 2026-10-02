@@ -20,3 +20,13 @@ export const SESSION_EXPIRED_MESSAGE = '登录状态已失效，请重新登录'
 export function notifySessionExpired(message: string = SESSION_EXPIRED_MESSAGE): void {
   ElMessage.warning(message)
 }
+
+/** 强制改密提示文案（改密页面归阶段十五）。 */
+export const MUST_CHANGE_PASSWORD_MESSAGE = '请尽快修改初始密码'
+
+/**
+ * 提示强制改密（登录响应携带 `must_change_password` 时调用）。
+ */
+export function notifyMustChangePassword(): void {
+  ElMessage.warning(MUST_CHANGE_PASSWORD_MESSAGE)
+}

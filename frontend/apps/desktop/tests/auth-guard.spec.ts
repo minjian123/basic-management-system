@@ -5,7 +5,8 @@
 // kiwi_id: 2191, 2231
 
 import { DEFAULT_PUBLIC_PATHS, PLACEHOLDER_MENU } from '@bms/core'
-import { mount } from '@vue/test-utils'
+import { flushPromises, mount } from '@vue/test-utils'
+import { createPinia } from 'pinia'
 import { createMemoryHistory, createRouter, type Router } from 'vue-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -266,10 +267,18 @@ describe('菜单动态路由与守卫协同（Kiwi 2231）', () => {
   })
 })
 
-describe('LoginView 占位页（Kiwi 2191）', () => {
-  it('渲染登录占位提示', () => {
-    const wrapper = mount(LoginView)
-    expect(wrapper.text()).toContain('登录')
-    expect(wrapper.text()).toContain('阶段六')
+describe('LoginView 登录页可达（Kiwi 2191）', () => {
+  it('渲染真实登录表单（占位页已由 05_01 替换，登录页自身用例见 Kiwi 2232）', async () => {
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [{ path: '/login', name: 'Login', component: { template: '<div />' } }],
+    })
+    await router.push('/login')
+    const wrapper = mount(LoginView, { global: { plugins: [createPinia(), router] } })
+    await flushPromises()
+    expect(wrapper.find('[data-test="login-view"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="login-form"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="login-account"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="login-password"]').exists()).toBe(true)
   })
 })

@@ -1,6 +1,8 @@
 <script setup lang="ts">
 // 滑块验证码件（06_04，自绘）：拖动到缺口位置并采样轨迹（坐标 + 相对毫秒），松手提交后端判定；
 // 通过 / 失败自动复位、键盘可操作；前端不做真伪判断；无背景时纯轨道降级。
+// `submitMode='defer'`（05_01 新增的延迟提交模式）：松手**不调** `/captcha/verify`（避免先行消费
+// 一次性挑战），改以 `credential` 事件把轨迹交给父页面随业务请求提交。
 import {
   CAPTCHA_PASS_TEXT,
   CAPTCHA_PLACEHOLDER_TEXT,
@@ -8,9 +10,12 @@ import {
   CAPTCHA_SLIDER_HINT,
   CAPTCHA_SLIDER_RETRY_TEXT,
   CAPTCHA_SLIDER_TOLERANCE,
+  CAPTCHA_TRACE_MIN_POINTS,
   parseCaptchaSliderParams,
+  type CaptchaCredential,
   type CaptchaScene,
   type CaptchaSourceAdapter,
+  type CaptchaSubmitMode,
 } from '@bms/core'
 import { computed, onScopeDispose, ref, watch } from 'vue'
 
@@ -36,6 +41,8 @@ interface Props {
   hint?: string
   /** 降级文案。 */
   degradeText?: string
+  /** 提交模式（缺省 `verify` 自行校验；`defer` 只采集并经 `credential` 上抛轨迹）。 */
+  submitMode?: CaptchaSubmitMode
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -48,6 +55,7 @@ const props = withDefaults(defineProps<Props>(), {
   disabled: false,
   hint: CAPTCHA_SLIDER_HINT,
   degradeText: CAPTCHA_PLACEHOLDER_TEXT,
+  submitMode: 'verify',
 })
 
 const emit = defineEmits<{
@@ -55,6 +63,7 @@ const emit = defineEmits<{
   fail: [payload: { code?: number; message: string }]
   refresh: []
   loaded: [challengeId: string]
+  credential: [credential: CaptchaCredential]
 }>()
 
 const api = useBaseCaptcha({
@@ -110,11 +119,31 @@ watch(
   [() => api.ready.value, () => props.imageUrl],
   ([ready, external]) => {
     if (ready && external === '') {
-      void api.loadChallenge()
+      void api.loadChallenge().then((ok) => {
+        if (ok) {
+          emit('loaded', api.challengeId.value)
+          emitCredential()
+        }
+      })
     }
   },
   { immediate: true },
 )
+
+/** 上抛轨迹凭证（仅延迟提交模式；轨迹不足最少点数时不触发）。 */
+function emitCredential(): void {
+  if (props.submitMode !== 'defer') {
+    return
+  }
+  if (api.challengeId.value === '' || api.trace.value.length < CAPTCHA_TRACE_MIN_POINTS) {
+    return
+  }
+  emit('credential', {
+    kind: 'slider',
+    captchaId: api.challengeId.value,
+    trace: [...api.trace.value],
+  })
+}
 
 onScopeDispose(() => {
   cancelDrag?.()
@@ -190,7 +219,11 @@ function onPointerDown(event: PointerEvent): void {
   startPercent = percent.value
   startTime = Date.now()
   api.clearTrace()
-  api.pushTrace({ x: Math.round((percent.value / 100) * imageWidth()), y: 0, t: 0 })
+  api.pushTrace({
+    x: Math.round((percent.value / 100) * imageWidth()),
+    y: 0,
+    t: 0,
+  })
   cancelDrag = startPointerDrag(onPointerMove, onPointerUp)
 }
 
@@ -213,14 +246,19 @@ function onPointerMove(event: PointerEvent): void {
   })
 }
 
-/** 松手提交（位移为 0 视作未拖动）。 */
+/** 松手提交（位移为 0 视作未拖动）；延迟提交模式只上抛轨迹。 */
 function onPointerUp(): void {
   dragging.value = false
   cancelDrag?.()
   cancelDrag = undefined
-  if (percent.value > 0) {
-    void submit()
+  if (percent.value <= 0) {
+    return
   }
+  if (props.submitMode === 'defer') {
+    emitCredential()
+    return
+  }
+  void submit()
 }
 
 /** 提交轨迹交后端判定（失败自动复位并重新出题）。 */
@@ -254,7 +292,11 @@ function onKeydown(event: KeyboardEvent): void {
   if (event.key === 'ArrowRight') {
     event.preventDefault()
     percent.value = Math.min(100, percent.value + 5)
-    api.pushTrace({ x: Math.round((percent.value / 100) * imageWidth()), y: 0, t: api.trace.value.length * 20 })
+    api.pushTrace({
+      x: Math.round((percent.value / 100) * imageWidth()),
+      y: 0,
+      t: api.trace.value.length * 20,
+    })
     return
   }
   if (event.key === 'ArrowLeft') {
@@ -264,9 +306,14 @@ function onKeydown(event: KeyboardEvent): void {
   }
   if (event.key === 'Enter' || event.key === ' ') {
     event.preventDefault()
-    if (percent.value > 0) {
-      void submit()
+    if (percent.value <= 0) {
+      return
     }
+    if (props.submitMode === 'defer') {
+      emitCredential()
+      return
+    }
+    void submit()
   }
 }
 
@@ -284,14 +331,22 @@ async function onRefresh(): Promise<void> {
   const ok = await api.refresh()
   if (ok) {
     emit('loaded', api.challengeId.value)
+    emitCredential()
   }
 }
 </script>
 
 <template>
-  <div class="bms-slider-captcha" :data-ready="api.ready.value" :data-degraded="api.degraded.value" data-test="slider-captcha">
+  <div
+    class="bms-slider-captcha"
+    :data-ready="api.ready.value"
+    :data-degraded="api.degraded.value"
+    data-test="slider-captcha"
+  >
     <slot v-if="api.degraded.value" name="degrade">
-      <div class="bms-field-placeholder" data-test="placeholder">{{ degradeText }}</div>
+      <div class="bms-field-placeholder" data-test="placeholder">
+        {{ degradeText }}
+      </div>
     </slot>
 
     <template v-else>
@@ -307,12 +362,7 @@ async function onRefresh(): Promise<void> {
         />
       </div>
 
-      <div
-        ref="trackRef"
-        class="bms-slider-captcha__track"
-        :data-pass="passed"
-        data-test="captcha-slider-track"
-      >
+      <div ref="trackRef" class="bms-slider-captcha__track" :data-pass="passed" data-test="captcha-slider-track">
         <div class="bms-slider-captcha__fill" :style="{ width: `${percent}%` }" data-test="captcha-slider-fill" />
         <button
           type="button"
@@ -333,7 +383,9 @@ async function onRefresh(): Promise<void> {
       </div>
 
       <p class="bms-slider-captcha__hint">{{ hint }}</p>
-      <p v-if="passed" class="bms-slider-captcha__pass" data-test="captcha-slider-pass">{{ CAPTCHA_PASS_TEXT }}</p>
+      <p v-if="passed" class="bms-slider-captcha__pass" data-test="captcha-slider-pass">
+        {{ CAPTCHA_PASS_TEXT }}
+      </p>
       <p v-else-if="errorText !== ''" class="bms-field-error" data-test="captcha-error">
         {{ errorText }}
         <button type="button" class="bms-slider-captcha__retry" data-test="captcha-slider-retry" @click="onRetry">

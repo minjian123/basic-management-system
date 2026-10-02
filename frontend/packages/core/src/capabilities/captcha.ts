@@ -43,6 +43,29 @@ import {
   type CaptchaTracePoint,
 } from '../domain/captcha'
 
+/**
+ * 验证码提交模式：`verify` 件层自行校验（缺省、向后兼容）/ `defer` 延迟提交
+ * （件层只渲染与采集，凭证经 `credential` 上抛，由父页面随业务请求提交）。
+ */
+export type CaptchaSubmitMode = 'verify' | 'defer'
+
+/**
+ * 验证码凭证（件层「延迟提交」模式上抛给父页面）。
+ *
+ * 用于**凭证随业务请求提交**的场景（如登录在 `POST /auth/login` 内一次性校验并消费挑战）：
+ * 件层只渲染与采集、不自行校验，父页面把本凭证随业务请求提交。
+ */
+export interface CaptchaCredential {
+  /** 挑战形态。 */
+  kind: CaptchaKind
+  /** 挑战编号。 */
+  captchaId: string
+  /** 用户输入的校验码（图形 / 短信）。 */
+  code?: string
+  /** 滑块轨迹点序列（滑块）。 */
+  trace?: readonly CaptchaTracePoint[]
+}
+
 /** 验证码族批量装配选项（件层用；缺省项不覆盖）。 */
 export interface CaptchaOptions {
   /** 数据通路是否就绪。 */
