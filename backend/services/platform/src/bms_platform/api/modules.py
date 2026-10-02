@@ -17,6 +17,7 @@ from fastapi import Depends, Path, Query
 
 from bms_core.api.base import BaseRouter, page_query, require_auth
 from bms_core.api.deps import get_platform_read_db
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.exceptions import NotFoundError
 from bms_core.db.session import DbSession
 from bms_core.schemas.common import ApiResponse
@@ -58,7 +59,7 @@ async def list_modules(
     """
     rows, total = await ModuleRepository(session).page_catalog(query, group=group, status=status)
     page = BasePageResponse[ModuleResponse](
-        list=[ModuleResponse.model_validate(row) for row in rows],
+        list=ConcurrentStableList(ModuleResponse.model_validate(row) for row in rows),
         total=total,
         page=query.page,
         size=query.size,

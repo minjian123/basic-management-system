@@ -13,6 +13,7 @@ from fastapi import Depends
 from bms_core.api.base import BaseRouter, require_service
 from bms_core.api.deps import get_config_source
 from bms_core.config.base import BaseConfigSource
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.schemas.common import ApiResponse
 from bms_core.schemas.config import ConfigResolveRequest, ConfigResolveResponse
 
@@ -38,4 +39,4 @@ async def resolve_configs(config: ConfigDep, req: ConfigResolveRequest) -> ApiRe
         ApiResponse[ConfigResolveResponse]: 统一响应，data 为 `{values}`。
     """
     values = await config.get_many(req.keys)
-    return ApiResponse.ok(ConfigResolveResponse(values=dict(values)))
+    return ApiResponse.ok(ConfigResolveResponse(values=ConcurrentStableDict(values)))

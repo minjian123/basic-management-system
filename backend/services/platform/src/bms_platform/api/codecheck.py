@@ -22,6 +22,7 @@ from bms_core.codecheck.base import (
     SqlValidationResult,
     ValidationIssue,
 )
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.db.tenant import TenantContext
 from bms_core.ratelimit.base import GLOBAL_RATE_SCOPE, BaseRateLimiter, RateLimitRule, build_rate_limit_key
 from bms_core.schemas.codecheck import (
@@ -76,8 +77,10 @@ def _sql_response(result: SqlValidationResult) -> SqlValidationResponse:
     """
     return SqlValidationResponse(
         valid=result.valid,
-        issues=[_issue_response(issue) for issue in result.issues],
-        columns=[ValidationColumnResponse(name=column.name, type=column.type) for column in result.columns],
+        issues=ConcurrentStableList(_issue_response(issue) for issue in result.issues),
+        columns=ConcurrentStableList(
+            ValidationColumnResponse(name=column.name, type=column.type) for column in result.columns
+        ),
         rows=result.rows,
         cost_ms=result.cost_ms,
         truncated=result.truncated,
@@ -95,7 +98,7 @@ def _expression_response(result: ExpressionValidationResult) -> ExpressionValida
     """
     return ExpressionValidationResponse(
         valid=result.valid,
-        issues=[_issue_response(issue) for issue in result.issues],
+        issues=ConcurrentStableList(_issue_response(issue) for issue in result.issues),
     )
 
 

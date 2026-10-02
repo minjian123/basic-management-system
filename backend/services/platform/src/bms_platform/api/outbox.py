@@ -13,6 +13,7 @@ from fastapi import Depends, Path, Query
 
 from bms_core.api.base import BaseRouter, page_query, require_auth
 from bms_core.api.deps import get_db, get_outbox_store
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.exceptions import ConflictError, NotFoundError
 from bms_core.db.session import DbSession
 from bms_core.outbox.base import (
@@ -69,7 +70,7 @@ async def list_dead_letters(
         limit=query.size,
     )
     page = BasePageResponse[DeadLetterResponse](
-        list=[DeadLetterResponse.model_validate(row) for row in rows],
+        list=ConcurrentStableList(DeadLetterResponse.model_validate(row) for row in rows),
         total=total,
         page=query.page,
         size=query.size,
