@@ -42,7 +42,7 @@ class _FakeProvider(BaseQueryProvider):
         return f"测试查询提供者 {self._key}"
 
     async def query(self, params: ConcurrentStableDict[str, object]) -> QueryResult:
-        return QueryResult(rows=({"provider": self._key, "arg": params.get("x")},), total=1)
+        return QueryResult(rows=(ConcurrentStableDict({"provider": self._key, "arg": params.get("x")}),), total=1)
 
 
 class _InMemoryRegistry(BaseQueryProviderRegistry):
@@ -110,7 +110,7 @@ async def test_registry_template_resolution() -> None:
 
     assert registry.keys() == ("p1", "p2")
     result = await registry.query("p2", ConcurrentStableDict({"x": 7}))
-    assert result == QueryResult(rows=({"provider": "p2", "arg": 7},), total=1)
+    assert result == QueryResult(rows=(ConcurrentStableDict({"provider": "p2", "arg": 7}),), total=1)
 
     with pytest.raises(NotFoundError):
         await registry.query("missing", ConcurrentStableDict())

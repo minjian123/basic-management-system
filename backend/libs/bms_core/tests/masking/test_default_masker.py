@@ -273,9 +273,9 @@ def test_options_defaults_and_override() -> None:
     assert default.mask_char == "*"
     assert default.rules == {}
 
-    assert MaskerOptions.from_options({"mask_char": ""}).mask_char == "*"
+    assert MaskerOptions.from_options(ConcurrentStableDict({"mask_char": ""})).mask_char == "*"
 
-    parsed = MaskerOptions.from_options({"mask_char": "#", "rules": {"phone": "phone"}})
+    parsed = MaskerOptions.from_options(ConcurrentStableDict({"mask_char": "#", "rules": {"phone": "phone"}}))
     assert parsed.mask_char == "#"
     assert parsed.rules == {"phone": "phone"}
 

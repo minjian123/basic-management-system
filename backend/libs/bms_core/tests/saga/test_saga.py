@@ -259,7 +259,7 @@ async def test_null_executor_raises_config_error(saga_session: AsyncSession) -> 
                 definition=_DEFINITION,
                 step=_STEP,
                 trigger_event_id="evt-null",
-                action=_action([]),
+                action=_action(ConcurrentStableList([])),
             )
 
 

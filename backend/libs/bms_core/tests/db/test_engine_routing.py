@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 from bms_core.api.deps import get_primary_health
 from bms_core.api.errors import register_exception_handlers
 from bms_core.api.middleware import ReadOnlyMiddleware
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.core.exceptions import ConfigError
 from bms_core.db.engine import EngineFactory
@@ -28,7 +29,7 @@ def _settings() -> Settings:
     """构造 SQLite 内存配置（平台库 + 单副本）。"""
     settings = Settings()
     settings.database.platform.url = _MEMORY
-    settings.database.platform.replicas = [_MEMORY]
+    settings.database.platform.replicas = ConcurrentStableList([_MEMORY])
     return settings
 
 
@@ -45,7 +46,7 @@ def test_four_dialect_names() -> None:
 async def test_write_and_read_binding_round_robin() -> None:
     """写取主引擎并缓存；只读轮询副本；副本列表可读。"""
     settings = _settings()
-    settings.database.platform.replicas = [_MEMORY, _MEMORY]
+    settings.database.platform.replicas = ConcurrentStableList([_MEMORY, _MEMORY])
     factory = EngineFactory(settings)
     write = factory.create("platform")
     assert isinstance(write, AsyncEngine)
@@ -65,7 +66,7 @@ async def test_read_falls_back_to_write_without_replicas() -> None:
     """无副本时只读回落主引擎。"""
     settings = Settings()
     settings.database.platform.url = _MEMORY
-    settings.database.platform.replicas = []
+    settings.database.platform.replicas = ConcurrentStableList([])
     factory = EngineFactory(settings)
     write = factory.create("platform")
     assert factory.create("platform", read_only=True) is write

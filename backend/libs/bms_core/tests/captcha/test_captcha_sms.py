@@ -77,7 +77,7 @@ def _captcha(
     Returns:
         DefaultCaptcha: 验证码实现。
     """
-    sms = CaptchaSmsOptions.from_options(options) if options else None
+    sms = CaptchaSmsOptions.from_options(ConcurrentStableDict(options)) if options else None
     return DefaultCaptcha(
         url=None,
         client=cast("Redis", client),
@@ -335,12 +335,12 @@ async def test_generate_unknown_kind_rejected(redis_client: fakeredis.aioredis.F
 @pytest.mark.kiwi_id(2206)
 def test_sms_options_parse_and_validate() -> None:
     """短信选项：缺省 / 覆盖生效；非整数 / 越界 → PluginError。"""
-    default = CaptchaSmsOptions.from_options({})
+    default = CaptchaSmsOptions.from_options(ConcurrentStableDict[str, object]())
     assert (default.code_length, default.account_limit, default.ip_limit, default.window) == (6, 5, 20, 3600)
     assert default == CaptchaSmsOptions.from_options(None)
 
     custom = CaptchaSmsOptions.from_options(
-        {"sms_code_length": "8", "sms_account_limit": 3, "sms_ip_limit": 50, "sms_window": "600"}
+        ConcurrentStableDict({"sms_code_length": "8", "sms_account_limit": 3, "sms_ip_limit": 50, "sms_window": "600"})
     )
     assert (custom.code_length, custom.account_limit, custom.ip_limit, custom.window) == (8, 3, 50, 600)
 
@@ -362,7 +362,7 @@ def test_sms_factory_injects_dependencies(monkeypatch: pytest.MonkeyPatch) -> No
     """装配工厂：注入通知器 / 限流器 / 短信选项；默认配置解析 DefaultCaptcha；provider 空回落 NullCaptcha。"""
     factory = DefaultCaptchaFactory(
         Settings(
-            captcha=PluginSelection(provider="default", options={"sms_code_length": "7"}),
+            captcha=PluginSelection(provider="default", options=ConcurrentStableDict({"sms_code_length": "7"})),
             config_source=PluginSelection(provider=""),
         )
     )

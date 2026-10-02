@@ -6,6 +6,7 @@ import pytest
 from pydantic import ValidationError
 
 from bms_core.core import config
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import (
     AppSettings,
     BaseSettings,
@@ -337,7 +338,7 @@ def test_data_access_keys_and_effective_pool() -> None:
     assert settings.database.platform.effective_pool("platform") is settings.database.platform.pool
 
     override = DbPoolSettings(pool_size=7, max_overflow=2)
-    settings.database.platform.services = {"svc": override}
+    settings.database.platform.services = ConcurrentStableDict({"svc": override})
     assert settings.database.platform.effective_pool("svc") is override
     assert settings.database.platform.effective_pool("other") is settings.database.platform.pool
 
@@ -354,7 +355,7 @@ def test_tenant_keys_and_url_template() -> None:
     assert settings.database.tenants.url_template == ""
 
     settings.tenant.allow_demo_fallback = False
-    settings.tenant.exempt_paths = ["/healthz"]
+    settings.tenant.exempt_paths = ConcurrentStableList(["/healthz"])
     settings.database.tenants.url_template = "sqlite+aiosqlite:///./bms_tenant_{tenant}.db"
     assert settings.tenant.allow_demo_fallback is False
     assert settings.tenant.exempt_paths == ["/healthz"]

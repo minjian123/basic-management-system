@@ -48,7 +48,7 @@ def _captcha(client: object, **options: object) -> DefaultCaptcha:
     Returns:
         DefaultCaptcha: 验证码实现。
     """
-    slider = CaptchaSliderOptions.from_options(options) if options else None
+    slider = CaptchaSliderOptions.from_options(ConcurrentStableDict(options)) if options else None
     return DefaultCaptcha(url=None, client=cast("Redis", client), slider=slider)
 
 
@@ -261,12 +261,12 @@ async def test_slider_dirty_record_and_empty_trace(redis_client: fakeredis.aiore
 @pytest.mark.kiwi_id(2205)
 async def test_slider_options_parse_and_validate(redis_client: fakeredis.aioredis.FakeRedis) -> None:
     """滑块选项：缺省 / 覆盖 / 小画布块图钳制生效；非法值拒启；渲染尺寸随选项。"""
-    default = CaptchaSliderOptions.from_options({})
+    default = CaptchaSliderOptions.from_options(ConcurrentStableDict[str, object]())
     assert (default.width, default.height, default.piece_size) == (300, 150, 48)
     assert (default.tolerance, default.min_duration_ms, default.min_points) == (10, 300, 2)
     assert default == CaptchaSliderOptions.from_options(None)
 
-    clamped = CaptchaSliderOptions.from_options({"slider_width": 160, "slider_height": 80})
+    clamped = CaptchaSliderOptions.from_options(ConcurrentStableDict({"slider_width": 160, "slider_height": 80}))
     assert clamped.piece_size == 39
     small = DefaultCaptcha(url=None, client=redis_client, slider=clamped)
     small_challenge = await small.generate("login", kind=CaptchaKind.SLIDER)
@@ -274,14 +274,16 @@ async def test_slider_options_parse_and_validate(redis_client: fakeredis.aioredi
     await small.aclose()
 
     custom = CaptchaSliderOptions.from_options(
-        {
-            "slider_width": "200",
-            "slider_height": 100,
-            "slider_piece_size": 30,
-            "slider_tolerance": 5,
-            "slider_min_duration_ms": 0,
-            "slider_min_points": 1,
-        }
+        ConcurrentStableDict(
+            {
+                "slider_width": "200",
+                "slider_height": 100,
+                "slider_piece_size": 30,
+                "slider_tolerance": 5,
+                "slider_min_duration_ms": 0,
+                "slider_min_points": 1,
+            }
+        )
     )
     assert (custom.width, custom.height, custom.piece_size) == (200, 100, 30)
 
@@ -336,7 +338,7 @@ def test_slider_factory_injects_options(monkeypatch: pytest.MonkeyPatch) -> None
     """装配工厂：默认配置解析 DefaultCaptcha 并注入滑块选项；provider 空回落 NullCaptcha。"""
     factory = DefaultCaptchaFactory(
         Settings(
-            captcha=PluginSelection(provider="default", options={"slider_width": "200"}),
+            captcha=PluginSelection(provider="default", options=ConcurrentStableDict({"slider_width": "200"})),
             config_source=PluginSelection(provider=""),
         )
     )

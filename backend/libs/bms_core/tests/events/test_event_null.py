@@ -6,6 +6,7 @@
 
 import pytest
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.events.base import EventConsumer, EventEnvelope, EventPublisher
 from bms_core.events.null import NULL_EVENT_TYPE, NullEventConsumer, NullEventPublisher
 
@@ -14,7 +15,7 @@ from bms_core.events.null import NULL_EVENT_TYPE, NullEventConsumer, NullEventPu
 async def test_null_publisher_publish_is_noop() -> None:
     """占位发布：`publish` / `publish_transactional` 均为空操作，`event_type` 取占位值。"""
     publisher = NullEventPublisher()
-    event = EventEnvelope(event_type="sys.user.created", payload={"id": 1})
+    event = EventEnvelope(event_type="sys.user.created", payload=ConcurrentStableDict({"id": 1}))
     assert publisher.event_type == NULL_EVENT_TYPE
     assert await publisher.publish(event) is None
     assert await publisher.publish_transactional(event) is None
@@ -24,7 +25,7 @@ async def test_null_publisher_publish_is_noop() -> None:
 async def test_null_consumer_consume_is_noop() -> None:
     """占位消费：`consume` 为空操作，`event_type` 取占位值（与发布侧对称）。"""
     consumer = NullEventConsumer()
-    event = EventEnvelope(event_type="sys.user.created", payload={"id": 1})
+    event = EventEnvelope(event_type="sys.user.created", payload=ConcurrentStableDict({"id": 1}))
     assert consumer.event_type == NULL_EVENT_TYPE
     assert await consumer.consume(event) is None
 

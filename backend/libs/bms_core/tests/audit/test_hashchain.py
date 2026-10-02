@@ -22,6 +22,7 @@ from bms_core.audit.hashchain import (
 from bms_core.audit.null import NullHashChain
 from bms_core.core.base import BaseObject
 from bms_core.core.capability import BaseCapability, BaseNullObject
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 
 
 @pytest.mark.kiwi_id(57)
@@ -59,7 +60,7 @@ def test_build_chain_key_partitions_by_service_and_tenant() -> None:
 @pytest.mark.kiwi_id(57)
 def test_data_contracts_defaults_and_frozen() -> None:
     """`HashChainEntry` / `ChainVerifyResult` 默认值与不可变。"""
-    entry = HashChainEntry(prev_hash=GENESIS_HASH, record={"a": 1}, record_hash="h1")
+    entry = HashChainEntry(prev_hash=GENESIS_HASH, record=ConcurrentStableDict({"a": 1}), record_hash="h1")
     assert entry.prev_hash == GENESIS_HASH
     assert ChainVerifyResult(valid=True).broken_index is None
 
@@ -72,16 +73,18 @@ def test_data_contracts_defaults_and_frozen() -> None:
 def test_null_compute_fixed() -> None:
     """占位计算固定返回占位哈希（不计算）。"""
     chain = NullHashChain()
-    assert chain.compute(GENESIS_HASH, {"a": 1}) == "null-record-hash"
+    assert chain.compute(GENESIS_HASH, ConcurrentStableDict({"a": 1})) == "null-record-hash"
 
 
 @pytest.mark.kiwi_id(57)
 def test_null_verify_always_valid() -> None:
     """占位校验恒定通过。"""
     chain = NullHashChain()
-    entries = (HashChainEntry(prev_hash=GENESIS_HASH, record={"a": 1}, record_hash="h1"),)
+    entries = ConcurrentStableList(
+        [HashChainEntry(prev_hash=GENESIS_HASH, record=ConcurrentStableDict({"a": 1}), record_hash="h1")]
+    )
     assert chain.verify(entries) == ChainVerifyResult(valid=True, broken_index=None)
-    assert chain.verify(()) == ChainVerifyResult(valid=True)
+    assert chain.verify(ConcurrentStableList([])) == ChainVerifyResult(valid=True)
 
 
 @pytest.mark.kiwi_id(57)
@@ -95,7 +98,7 @@ async def test_dependency_provider_resolves() -> None:
         async def probe(  # pyright: ignore[reportUnusedFunction]
             chain: Annotated[BaseHashChain, Depends(get_hash_chain)],
         ) -> dict[str, object]:  # bare-collections:allow（FastAPI 端点返回注解）
-            digest = chain.compute(GENESIS_HASH, {"a": 1})
+            digest = chain.compute(GENESIS_HASH, ConcurrentStableDict({"a": 1}))
             return {"key": chain.key, "type": type(chain).__name__, "digest": digest}
 
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:

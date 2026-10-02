@@ -11,6 +11,7 @@ from support_app import ApplicationFactory, lifespan
 from bms_core.api.deps import get_http_client, get_webhook_sender
 from bms_core.core.base import BaseObject
 from bms_core.core.capability import BaseCapability, BaseNullObject
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.outbound.http import DEFAULT_MAX_RETRIES, DEFAULT_TIMEOUT, BaseHttpClient, HttpResponse
 from bms_core.outbound.null import NullHttpClient, NullWebhookSender
 from bms_core.outbound.webhook import BaseWebhookSender, WebhookResult
@@ -45,7 +46,7 @@ def test_constants() -> None:
 @pytest.mark.kiwi_id(52)
 def test_data_contracts_defaults_and_frozen() -> None:
     """`HttpResponse` / `WebhookResult` 默认值正确且不可变。"""
-    response = HttpResponse(status_code=200, headers={}, content=b"")
+    response = HttpResponse(status_code=200, headers=ConcurrentStableDict(), content=b"")
     assert response.status_code == 200
 
     result = WebhookResult(delivered=True)
@@ -62,14 +63,14 @@ async def test_null_http_client_fixed() -> None:
     """占位 HTTP 客户端固定返回成功响应（不外呼）。"""
     client = NullHttpClient()
     response = await client.request("GET", "https://example.com", timeout=5)
-    assert response == HttpResponse(status_code=200, headers={}, content=b"")
+    assert response == HttpResponse(status_code=200, headers=ConcurrentStableDict(), content=b"")
 
 
 @pytest.mark.kiwi_id(52)
 async def test_null_webhook_sender_fixed() -> None:
     """占位 Webhook 发送器固定返回投递成功（不外呼）。"""
     sender = NullWebhookSender()
-    result = await sender.send("https://example.com/hook", {"id": "1"}, secret="s")
+    result = await sender.send("https://example.com/hook", ConcurrentStableDict({"id": "1"}), secret="s")
     assert result == WebhookResult(delivered=True, status_code=200, attempts=1)
     assert result.delivered is True
 
@@ -88,7 +89,7 @@ async def test_dependency_providers_resolve() -> None:
             sender: Annotated[BaseWebhookSender, Depends(get_webhook_sender)],
         ) -> dict[str, object]:  # bare-collections:allow（FastAPI 端点返回注解）
             response = await client.request("GET", "https://example.com")
-            result = await sender.send("https://example.com/hook", {})
+            result = await sender.send("https://example.com/hook", ConcurrentStableDict[str, object]())
             return {
                 "http_key": client.key,
                 "http_status": response.status_code,

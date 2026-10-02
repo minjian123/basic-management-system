@@ -9,6 +9,7 @@ from sqlalchemy.exc import OperationalError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from bms_core.api.errors import register_exception_handlers
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.db.engine import EngineFactory
 from bms_core.db.health import PrimaryHealth
@@ -28,7 +29,7 @@ def _memory_settings() -> Settings:
     """SQLite 内存配置。"""
     settings = Settings()
     settings.database.platform.url = "sqlite+aiosqlite:///:memory:"
-    settings.database.platform.replicas = []
+    settings.database.platform.replicas = ConcurrentStableList([])
     return settings
 
 

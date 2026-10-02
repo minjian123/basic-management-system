@@ -4,6 +4,7 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.core.context import reset_tenant_context, set_tenant_context
 from bms_core.db.engine import EngineFactory
@@ -18,7 +19,7 @@ def _settings() -> Settings:
     """构造 SQLite 内存配置（平台库 / 租户库 / 单副本）。"""
     settings = Settings()
     settings.database.platform.url = _MEMORY
-    settings.database.platform.replicas = [_MEMORY]
+    settings.database.platform.replicas = ConcurrentStableList([_MEMORY])
     settings.database.tenants.url = _MEMORY
     return settings
 

@@ -45,7 +45,7 @@ def _captcha(client: object, **options: object) -> DefaultCaptcha:
     Returns:
         DefaultCaptcha: 图形码实现。
     """
-    image = CaptchaImageOptions.from_options(options) if options else None
+    image = CaptchaImageOptions.from_options(ConcurrentStableDict(options)) if options else None
     return DefaultCaptcha(url=None, client=cast("Redis", client), image=image)
 
 
@@ -211,12 +211,12 @@ async def test_generate_sms_rejected(redis_client: fakeredis.aioredis.FakeRedis)
 @pytest.mark.kiwi_id(2204)
 async def test_image_options_parse_and_validate(redis_client: fakeredis.aioredis.FakeRedis) -> None:
     """出图选项：缺省 / 覆盖生效、非法值拒启、渲染尺寸随选项。"""
-    default = CaptchaImageOptions.from_options({})
+    default = CaptchaImageOptions.from_options(ConcurrentStableDict[str, object]())
     assert (default.width, default.height, default.length, default.font_size) == (160, 60, 4, 36)
     assert default == CaptchaImageOptions.from_options(None)
 
     custom = CaptchaImageOptions.from_options(
-        {"width": "120", "height": 50, "length": 5, "noise_lines": 0, "noise_dots": 0}
+        ConcurrentStableDict({"width": "120", "height": 50, "length": 5, "noise_lines": 0, "noise_dots": 0})
     )
     assert (custom.width, custom.height, custom.length, custom.font_size) == (120, 50, 5, 36)
 

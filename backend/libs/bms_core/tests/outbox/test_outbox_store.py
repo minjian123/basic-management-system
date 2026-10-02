@@ -56,7 +56,9 @@ async def test_enqueue_defaults_and_rollback(session: AsyncSession) -> None:
     """写入缺省补齐 event_id / occurred_at；事务回滚不发事件。"""
     store = SqlOutboxStore()
     async with session.begin():
-        event_id = await store.enqueue(session, EventEnvelope(event_type="order.created", payload={"id": 1}))
+        event_id = await store.enqueue(
+            session, EventEnvelope(event_type="order.created", payload=ConcurrentStableDict({"id": 1}))
+        )
     assert event_id
 
     async with session.begin():
@@ -78,9 +80,15 @@ async def test_claim_pending_order_and_retry_gate(session: AsyncSession) -> None
     """取待投递：同聚合仅队首、未到期队首阻塞同聚合、不同聚合独立。"""
     store = SqlOutboxStore()
     async with session.begin():
-        first = await store.enqueue(session, EventEnvelope(event_type="e.a", aggregate_key="A", payload={"n": 1}))
-        second = await store.enqueue(session, EventEnvelope(event_type="e.a", aggregate_key="A", payload={"n": 2}))
-        third = await store.enqueue(session, EventEnvelope(event_type="e.b", aggregate_key="B", payload={"n": 3}))
+        first = await store.enqueue(
+            session, EventEnvelope(event_type="e.a", aggregate_key="A", payload=ConcurrentStableDict({"n": 1}))
+        )
+        second = await store.enqueue(
+            session, EventEnvelope(event_type="e.a", aggregate_key="A", payload=ConcurrentStableDict({"n": 2}))
+        )
+        third = await store.enqueue(
+            session, EventEnvelope(event_type="e.b", aggregate_key="B", payload=ConcurrentStableDict({"n": 3}))
+        )
     assert third == await _event_id_by_payload(session, 3)
 
     async with session.begin():
@@ -223,8 +231,11 @@ async def test_event_version_defaults_and_persistence(session: AsyncSession) -> 
     """版本缺省补齐（未登记回落 1.0.0）、显式版本落库与投递重建保真。"""
     store = SqlOutboxStore()
     async with session.begin():
-        first = await store.enqueue(session, EventEnvelope(event_type="e.a", payload={"n": 1}))
-        second = await store.enqueue(session, EventEnvelope(event_type="e.a", event_version="2.3.4", payload={"n": 2}))
+        first = await store.enqueue(session, EventEnvelope(event_type="e.a", payload=ConcurrentStableDict({"n": 1})))
+        second = await store.enqueue(
+            session,
+            EventEnvelope(event_type="e.a", event_version="2.3.4", payload=ConcurrentStableDict({"n": 2})),
+        )
     async with session.begin():
         versions = {
             row.event_id: row.event_version for row in (await session.execute(select(SysOutbox))).scalars().all()

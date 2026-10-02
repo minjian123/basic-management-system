@@ -50,8 +50,9 @@ def test_roundtrip_and_claims() -> None:
     assert claims["sub"] == "1"
     assert claims["aud"] == "api"
     assert claims["type"] == "access"
-    assert isinstance(claims["iat"], int)
-    assert claims["exp"] == claims["iat"] + 300
+    issued_at = claims["iat"]
+    assert isinstance(issued_at, int)
+    assert claims["exp"] == issued_at + 300
 
     without_exp = codec.decode(codec.encode(ConcurrentStableDict({"sub": "2"})))
     assert "exp" not in without_exp
@@ -111,7 +112,9 @@ def test_algorithm_whitelist_and_factory() -> None:
     with pytest.raises(ConfigError):
         TokenKey(kid="h1", algorithm="HS256", public_key="x", private_key="y")
 
-    empty = JwtTokenCodecFactory(Settings(security=SecuritySettings(keys={}, active_kid=""))).create()
+    empty = JwtTokenCodecFactory(
+        Settings(security=SecuritySettings(keys=ConcurrentStableDict[str, TokenKeySettings](), active_kid=""))
+    ).create()
     with pytest.raises(ConfigError):
         empty.encode(ConcurrentStableDict({"sub": "1"}))
     with pytest.raises(AuthError):
@@ -122,7 +125,9 @@ def test_algorithm_whitelist_and_factory() -> None:
             Settings(
                 security=SecuritySettings(
                     active_kid="k1",
-                    keys={"k1": TokenKeySettings(algorithm="RS256", public_key="", private_key="")},
+                    keys=ConcurrentStableDict(
+                        {"k1": TokenKeySettings(algorithm="RS256", public_key="", private_key="")}
+                    ),
                 )
             )
         ).create()
@@ -132,13 +137,15 @@ def test_algorithm_whitelist_and_factory() -> None:
         Settings(
             security=SecuritySettings(
                 active_kid="k1",
-                keys={
-                    "k1": TokenKeySettings(
-                        algorithm="RS256",
-                        public_key=key.public_key,
-                        private_key=key.private_key,
-                    )
-                },
+                keys=ConcurrentStableDict(
+                    {
+                        "k1": TokenKeySettings(
+                            algorithm="RS256",
+                            public_key=key.public_key,
+                            private_key=key.private_key,
+                        )
+                    }
+                ),
             )
         )
     ).create()

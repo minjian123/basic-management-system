@@ -3,6 +3,7 @@
 import pytest
 
 from bms_core.core.capability import BaseNullObject
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.exceptions import AuthError, ConfigError
 from bms_core.security.base import BasePasswordHasher, BaseSessionSecurity, BaseTokenCodec
 from bms_core.security.null import NullPasswordHasher, NullSessionSecurity, NullTokenCodec
@@ -38,7 +39,7 @@ def test_token_codec_fail_closed() -> None:
     """令牌编解码：签发即拒、校验一律视为非法令牌。"""
     codec = NullTokenCodec()
     with pytest.raises(ConfigError):
-        codec.encode({"sub": "1"})
+        codec.encode(ConcurrentStableDict({"sub": "1"}))
     with pytest.raises(AuthError):
         codec.decode("token")
 
