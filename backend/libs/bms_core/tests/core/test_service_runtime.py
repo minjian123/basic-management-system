@@ -7,6 +7,7 @@ import structlog
 from fastapi import FastAPI
 from structlog.typing import WrappedLogger
 
+from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.config import Settings
 from bms_core.core.logging import _build_processors  # pyright: ignore[reportPrivateUsage]
 from bms_core.core.service import (
@@ -49,7 +50,7 @@ def test_bind_service_identity_feeds_log_processors() -> None:
     bind_service_identity(ServiceIdentity(name="platform", version="0.1.0"))
     assert structlog.contextvars.get_contextvars()["service"] == "platform"
     assert structlog.contextvars.get_contextvars()["service_version"] == "0.1.0"
-    processors = _build_processors()
+    processors = _build_processors(ConcurrentStableSet[str](), ConcurrentStableList[str]())
     assert structlog.contextvars.merge_contextvars in processors
     event = structlog.contextvars.merge_contextvars(cast(WrappedLogger, None), "info", {"event": "x"})
     assert event["service"] == "platform"

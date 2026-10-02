@@ -32,6 +32,10 @@ level = "INFO"
 format = "json"
 # 慢请求阈值（毫秒）
 slow_request_ms = 1000
+# 追加的敏感日志键名（内置名单恒生效，配置只可追加不可移除）
+redact_keys = []
+# 追加的敏感日志键名后缀（同上，只可追加）
+redact_suffixes = []
 
 [health]
 # 就绪探针单项检查超时（毫秒）

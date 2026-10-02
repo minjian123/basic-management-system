@@ -6,7 +6,8 @@
   `dev` console 与 `test` / `prod` JSON 渲染、stdlib / uvicorn 统一渲染、`uvicorn.access` 关闭
   （访问行由请求日志中间件统一输出，避免重复）。
 - 上下文字段（`trace_id` / `request_id` / `tenant` / `user_id` / `client_ip`）由 `_add_context_fields`
-  从 `core/context.py` 读取；`_redact_sensitive` 对敏感键名与连接串密码统一脱敏（不落原始值）。
+  从 `core/context.py` 读取；脱敏处理器对敏感键名与连接串密码统一脱敏（不落原始值），
+  生效名单＝**内置名单 ∪ `[log].redact_keys` / `[log].redact_suffixes` 追加**（配置只可追加不可移除）。
 """
 
 import logging
@@ -20,7 +21,7 @@ from typing import Any, cast
 import structlog
 from structlog.typing import EventDict, Processor, WrappedLogger
 
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.config import Settings
 from bms_core.core.context import (
     current_user_id,
@@ -88,13 +89,22 @@ def _add_timestamp(_logger: WrappedLogger, _name: str, event_dict: EventDict) ->
     return event_dict
 
 
-def _is_sensitive_key(key: str) -> bool:
-    """判断键名是否命中敏感黑名单（忽略大小写，含后缀形态）。"""
+def _is_sensitive_key(key: str, keys: ConcurrentStableSet[str], suffixes: ConcurrentStableList[str]) -> bool:
+    """判断键名是否命中敏感名单（忽略大小写，含后缀形态）。
+
+    Args:
+        key: 日志键名。
+        keys: 生效键名名单（内置 ∪ 配置追加）。
+        suffixes: 生效键名后缀名单（内置 ∪ 配置追加）。
+
+    Returns:
+        bool: 命中为 True。
+    """
     lowered = key.lower()
-    return lowered in _SENSITIVE_KEYS or lowered.endswith(_SENSITIVE_SUFFIXES)
+    return lowered in keys or any(lowered.endswith(suffix) for suffix in suffixes)
 
 
-def _redact_value(value: Any, depth: int) -> Any:
+def _redact_value(value: Any, depth: int, keys: ConcurrentStableSet[str], suffixes: ConcurrentStableList[str]) -> Any:
     """递归脱敏值中的连接串密码与嵌套敏感键（限深）。"""
     if isinstance(value, str):
         return _CONN_PASSWORD_RE.sub(_replace_conn_password, value)
@@ -103,12 +113,14 @@ def _redact_value(value: Any, depth: int) -> Any:
     if isinstance(value, Mapping):
         mapping = cast("Mapping[object, object]", value)
         return {
-            key: _MASK if isinstance(key, str) and _is_sensitive_key(key) else _redact_value(item, depth + 1)
+            key: _MASK
+            if isinstance(key, str) and _is_sensitive_key(key, keys, suffixes)
+            else _redact_value(item, depth + 1, keys, suffixes)
             for key, item in mapping.items()
         }
     if isinstance(value, (list, tuple)):
         sequence = cast("list[object] | tuple[object, ...]", value)
-        return [_redact_value(item, depth + 1) for item in sequence]
+        return [_redact_value(item, depth + 1, keys, suffixes) for item in sequence]
     return value
 
 
@@ -117,23 +129,36 @@ def _replace_conn_password(match: re.Match[str]) -> str:
     return f"{match.group(1)}{_MASK}{match.group(3)}"
 
 
-def _redact_sensitive(_logger: WrappedLogger, _name: str, event_dict: EventDict) -> EventDict:
-    """敏感键名值替换掩码；其余值扫描连接串密码（含嵌套结构）。
+def _build_redact_processor(keys: ConcurrentStableSet[str], suffixes: ConcurrentStableList[str]) -> Processor:
+    """构建日志脱敏处理器（生效名单闭包捕获；内置名单恒生效、配置只可追加）。
 
     Args:
-        _logger: 下游日志器（未使用）。
-        _name: 日志器名（未使用）。
-        event_dict: 日志事件字典。
+        keys: 生效敏感键名名单。
+        suffixes: 生效敏感键名后缀名单。
 
     Returns:
-        EventDict: 脱敏后的事件字典。
+        Processor: structlog 脱敏处理器。
     """
-    for key in list(event_dict):
-        if _is_sensitive_key(key):
-            event_dict[key] = _MASK
-        else:
-            event_dict[key] = _redact_value(event_dict[key], depth=0)
-    return event_dict
+
+    def _redact(_logger: WrappedLogger, _name: str, event_dict: EventDict) -> EventDict:
+        """敏感键名值替换掩码；其余值扫描连接串密码（含嵌套结构）。
+
+        Args:
+            _logger: 下游日志器（未使用）。
+            _name: 日志器名（未使用）。
+            event_dict: 日志事件字典。
+
+        Returns:
+            EventDict: 脱敏后的事件字典。
+        """
+        for key in list(event_dict):
+            if _is_sensitive_key(key, keys, suffixes):
+                event_dict[key] = _MASK
+            else:
+                event_dict[key] = _redact_value(event_dict[key], depth=0, keys=keys, suffixes=suffixes)
+        return event_dict
+
+    return _redact
 
 
 class BaseLogger(BaseFrameworkObject, ABC):
@@ -218,11 +243,20 @@ class StdoutLogger(BaseLogger):
         self._emit(ConcurrentStableDict(fields)).exception(event)
 
 
-def _build_processors() -> ConcurrentStableList[Processor]:
+def _build_processors(
+    redact_keys: ConcurrentStableSet[str], redact_suffixes: ConcurrentStableList[str]
+) -> ConcurrentStableList[Processor]:
     """组装处理器链（业务日志与第三方 stdlib 日志共用）。
 
     首部 `merge_contextvars` 汇聚 `structlog.contextvars` 的全局绑定（如服务身份
     `service` / `service_version`），使业务日志与第三方 stdlib 日志一并携带。
+
+    Args:
+        redact_keys: 生效敏感键名名单（内置 ∪ 配置追加）。
+        redact_suffixes: 生效敏感键名后缀名单（内置 ∪ 配置追加）。
+
+    Returns:
+        ConcurrentStableList[Processor]: 处理器链。
     """
     return ConcurrentStableList(
         [
@@ -233,7 +267,7 @@ def _build_processors() -> ConcurrentStableList[Processor]:
             _add_timestamp,
             structlog.processors.StackInfoRenderer(),
             structlog.processors.format_exc_info,
-            _redact_sensitive,
+            _build_redact_processor(redact_keys, redact_suffixes),
         ]
     )
 
@@ -249,9 +283,13 @@ def configure_logging(settings: Settings) -> None:
     """初始化结构化日志（幂等；渲染形态由 `[log].format` 控制）。
 
     Args:
-        settings: 应用配置（取 `log.level` / `log.format`）。
+        settings: 应用配置（取 `log.level` / `log.format` 与脱敏追加名单）。
     """
-    processors = _build_processors()
+    # 生效名单＝内置名单 ∪ 配置追加：并集语义使配置**只可追加不可移除**（防误关内置名单）
+    redact_keys = ConcurrentStableSet[str](_SENSITIVE_KEYS)
+    redact_keys.update(settings.log.redact_keys)
+    redact_suffixes = ConcurrentStableList[str]([*_SENSITIVE_SUFFIXES, *settings.log.redact_suffixes])
+    processors = _build_processors(redact_keys=redact_keys, redact_suffixes=redact_suffixes)
     structlog.configure(
         processors=[*processors, structlog.stdlib.ProcessorFormatter.wrap_for_formatter],
         logger_factory=structlog.stdlib.LoggerFactory(),

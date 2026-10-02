@@ -14,7 +14,7 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from typing import cast
 
-from fastapi import APIRouter, FastAPI
+from fastapi import APIRouter, Depends, FastAPI
 from sqlalchemy import select
 
 from bms_core.api import health
@@ -49,6 +49,7 @@ from bms_core.db.tenant_remote import register_remote_tenant_source
 from bms_core.db.tenant_source import build_tenant_lookup
 from bms_core.events.contracts import default_event_contract_registry, validate_event_registry
 from bms_core.lock.base import BaseDistributedLock
+from bms_core.masking.base import get_masker
 from bms_core.metrics.base import BaseMetrics
 from bms_core.models.ownership import SysTableOwnership
 from bms_core.schemas.common import ApiResponse
@@ -290,7 +291,14 @@ class BaseServiceApplicationFactory(BaseApplicationFactory):
         self.prepare_settings(settings)
         configure_logging(settings)
 
-        app = FastAPI(title=self.service_title, version=self.contract_version, lifespan=service_lifespan)
+        # 全局标注依赖 `get_masker`：请求期把掩码器写入 `current_masker`（`BaseSchema` 序列化期取用），
+        # 请求结束复位；一处生效即覆盖全部服务全部路由，无需逐路由挂载（org 路由重复挂载由依赖缓存去重）。
+        app = FastAPI(
+            title=self.service_title,
+            version=self.contract_version,
+            lifespan=service_lifespan,
+            dependencies=[Depends(get_masker)],
+        )
 
         # 服务运行时：解析服务身份（包声明 + 配置覆盖）→ 绑定日志上下文 → 落 app.state（含停机摘流）
         attach_service(

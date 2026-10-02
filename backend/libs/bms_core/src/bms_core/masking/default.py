@@ -1,15 +1,15 @@
 """数据脱敏能力域：真实实现（内置规则分派 + 自定义策略 + 受权限约束的明文揭示）。
 
-- `MaskSpec` / `BUILTIN_MASK_SPECS`：内置策略规格（保留前段位数 / 保留后段位数 / 固定掩码字符数）。
-- `mask_edges` / `mask_email`：掩码纯函数（无 IO、无正则扫描，可并发调用）。
+- `MaskSpec` / `BUILTIN_MASK_SPECS` / `mask_edges` / `mask_email`：内置策略规格与掩码纯函数，定义在
+  `masking/text.py`（**本模块再导出**，既有导入路径 `bms_core.masking.default` 不变）。
 - `MaskerOptions`：`[masking].options` 解析与校验载体（`mask_char` + `rules`）。
 - `DefaultMasker`（`plugin_name = "default"`）：字段 → 策略分派、明文判定 **fail-closed**
   （注入占位权限检查器时一律按「无权限码」处理；RBAC 就绪注入真实检查器后自动按 `data:plain` 放行，
   脱敏侧零改动）。
 
-规则口径：保留首尾类策略使用**固定掩码字符数**（不随被掩码字符数变化，不泄露真实长度）；长度不足时
-退化为「保留可用前段 + 掩码」（不原样回显、不抛错）；未注册字段与 `None` 原样返回；未知策略名兜底
-全掩码。示例与退化表见《后端基类清单》「数据脱敏」条目规则清单与任务详细设计。
+策略解析顺序：`[masking].options.rules` / 显式注册 > Schema 声明（`mask` 的 `strategy` 入参）>
+字段名同名内置策略 > 未命中原样返回（未声明即非敏感）；未知策略名兜底 `custom` 全掩码（不抛错，
+序列化期抛错会中断响应）。规则口径与退化表见《后端基类清单》「数据脱敏」条目与任务详细设计。
 """
 
 from dataclasses import dataclass, field
@@ -18,8 +18,17 @@ from typing import Self
 from bms_core.core.capability import BasePlaceholder
 from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.exceptions import PluginError
-from bms_core.core.objects import BaseOptionsContract, BaseValueObject
-from bms_core.masking.base import BaseMasker
+from bms_core.core.objects import BaseOptionsContract
+from bms_core.masking.base import MASK_STRATEGIES, BaseMasker
+from bms_core.masking.text import (
+    BUILTIN_MASK_SPECS,
+    DEFAULT_MASK_CHAR,
+    EMAIL_MASK_STARS,
+    MaskSpec,
+    apply_builtin_strategy,
+    mask_edges,
+    mask_email,
+)
 from bms_core.permission.base import BasePermissionChecker
 
 __all__ = [
@@ -33,85 +42,11 @@ __all__ = [
     "mask_email",
 ]
 
-DEFAULT_MASK_CHAR = "*"
-"""缺省掩码字符。"""
-
 OPTION_MASK_CHAR = "mask_char"
 """配置选项键：掩码字符。"""
 
 OPTION_RULES = "rules"
 """配置选项键：字段名 → 策略名映射。"""
-
-EMAIL_MASK_STARS = 3
-"""邮箱掩码固定字符数。"""
-
-
-@dataclass(frozen=True)
-class MaskSpec(BaseValueObject):
-    """内置策略规格：保留前段位数 / 保留后段位数 / 固定掩码字符数。"""
-
-    head: int
-    """保留前段字符数。"""
-
-    tail: int
-    """保留后段字符数。"""
-
-    stars: int
-    """固定掩码字符数（不随被掩码字符数变化）。"""
-
-
-BUILTIN_MASK_SPECS: ConcurrentStableDict[str, MaskSpec] = ConcurrentStableDict(
-    {
-        "phone": MaskSpec(head=3, tail=4, stars=4),
-        "id_card": MaskSpec(head=6, tail=4, stars=8),
-        "bank_card": MaskSpec(head=4, tail=4, stars=8),
-        "name": MaskSpec(head=1, tail=0, stars=1),
-        "address": MaskSpec(head=6, tail=0, stars=3),
-        "custom": MaskSpec(head=0, tail=0, stars=3),
-    }
-)
-"""内置策略规格（`email` 为特殊分支，见 `mask_email`）。"""
-
-
-def mask_edges(text: str, spec: MaskSpec, mask_char: str = DEFAULT_MASK_CHAR) -> str:
-    """保留首尾的通用掩码（长度不足退化为保留可用前段，不原样回显、不抛错）。
-
-    Args:
-        text: 待掩码文本。
-        spec: 策略规格（保留前段 / 后段位数与固定掩码字符数）。
-        mask_char: 掩码字符。
-
-    Returns:
-        str: 掩码结果；长度不足 `head + tail + 1` 时保留 `min(head, len - 1)` 个前段字符
-        （空串与单字符退化为纯掩码串，绝不通原值）。
-    """
-    mask = mask_char * spec.stars
-    if len(text) >= spec.head + spec.tail + 1:
-        kept_tail = text[-spec.tail :] if spec.tail else ""
-        return f"{text[: spec.head]}{mask}{kept_tail}"
-    keep = min(spec.head, max(len(text) - 1, 0))
-    return f"{text[:keep]}{mask}"
-
-
-def mask_email(text: str, mask_char: str = DEFAULT_MASK_CHAR) -> str:
-    """邮箱掩码：保留首字符与域名（`zhangsan@example.com` → `z***@example.com`）。
-
-    本地部分为空（`@domain`）→ 仅保留域名；**无 `@`** 时退化为「首字符 + 掩码」
-    （长度不足 2 退化为纯掩码串）。
-
-    Args:
-        text: 待掩码邮箱。
-        mask_char: 掩码字符。
-
-    Returns:
-        str: 掩码结果。
-    """
-    mask = mask_char * EMAIL_MASK_STARS
-    local, sep, domain = text.partition("@")
-    if not sep:
-        keep = min(1, max(len(text) - 1, 0))
-        return f"{text[:keep]}{mask}"
-    return f"{local[:1]}{mask}@{domain}"
 
 
 @dataclass(frozen=True)
@@ -186,26 +121,33 @@ class DefaultMasker(BaseMasker):
             return False
         return super().check_plain()
 
-    def mask(self, field: str, value: object) -> object:
+    def mask(self, field: str, value: object, strategy: str | None = None) -> object:
         """按字段策略掩码。
 
-        未注册字段（未注册即非敏感）与 `None` **原样返回**；持 `data:plain` 时返回原值；
-        否则按策略返回掩码字符串（非字符串值先 `str()`，出参恒为 `str`）。
+        未声明且未注册字段（未声明即非敏感）与 `None` **原样返回**；持 `data:plain` 时返回原值；
+        否则按解析出的策略返回掩码字符串（非字符串值先 `str()`，出参恒为 `str`）。
+
+        策略解析顺序：`[masking].options.rules` / 显式注册 > `strategy` 入参（Schema 声明）>
+        字段名同名内置策略 > 未命中原样返回。
 
         Args:
             field: 字段名。
             value: 原始值。
+            strategy: 字段策略（序列化层按 `BaseSchema.masked_fields` 声明传入；缺省 None）。
 
         Returns:
-            object: 明文（有权限 / 未注册 / `None`）或掩码字符串。
+            object: 明文（有权限 / 未声明 / `None`）或掩码字符串。
         """
-        if field not in self._rules or value is None:
+        if value is None:
+            return value
+        resolved = self._resolve_strategy(field, strategy)
+        if resolved is None:
             return value
         if self.check_plain():
             return value
-        return self._apply(self._rules[field].strategy, str(value))
+        return self._apply(resolved, str(value))
 
-    def reveal(self, field: str, value: object) -> object:
+    def reveal(self, field: str, value: object, strategy: str | None = None) -> object:
         """明文揭示（受权限约束的明文读取路径）。
 
         本期无加密存储字段，故与 `mask` **语义对称**：持 `data:plain` 返回原值，否则返回掩码值
@@ -214,17 +156,37 @@ class DefaultMasker(BaseMasker):
         Args:
             field: 字段名。
             value: 存储值。
+            strategy: 字段策略（同 `mask`）。
 
         Returns:
-            object: 明文（有权限 / 未注册 / `None`）或掩码字符串。
+            object: 明文（有权限 / 未声明 / `None`）或掩码字符串。
         """
-        return self.mask(field, value)
+        return self.mask(field, value, strategy)
+
+    def _resolve_strategy(self, field: str, declared: str | None) -> str | None:
+        """解析字段生效策略（未命中返回 None＝未声明即非敏感，原样返回）。
+
+        Args:
+            field: 字段名。
+            declared: Schema 声明的策略名（`mask` 的 `strategy` 入参；可为 None）。
+
+        Returns:
+            str | None: 生效策略名；未命中为 None。
+        """
+        rule = self._rules.get(field)
+        if rule is not None:
+            return rule.strategy
+        if declared is not None:
+            return declared
+        if field in MASK_STRATEGIES:
+            return field
+        return None
 
     def _apply(self, strategy: str, text: str) -> str:
         """按策略名解析掩码串（自定义策略 → 内置策略 → 兜底全掩码）。
 
         Args:
-            strategy: 策略名（字段注册时登记；未知策略名兜底 `custom` 全掩码）。
+            strategy: 策略名（字段注册 / Schema 声明；未知策略名兜底 `custom` 全掩码）。
             text: 待掩码文本（已 `str()`）。
 
         Returns:
@@ -233,7 +195,4 @@ class DefaultMasker(BaseMasker):
         custom = self._strategies.get(strategy)
         if custom is not None:
             return custom(text, self._mask_char)
-        if strategy == "email":
-            return mask_email(text, self._mask_char)
-        spec = BUILTIN_MASK_SPECS.get(strategy) or BUILTIN_MASK_SPECS["custom"]
-        return mask_edges(text, spec, self._mask_char)
+        return apply_builtin_strategy(strategy, text, self._mask_char)
