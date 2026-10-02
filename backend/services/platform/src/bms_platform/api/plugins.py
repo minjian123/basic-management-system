@@ -80,7 +80,7 @@ async def aggregate_plugins() -> ApiResponse:
     Returns:
         ApiResponse: 统一响应，data 为 `{"placeholder": true, "services": []}`。
     """
-    return ApiResponse.ok(PluginAggregateResponse(placeholder=True, services=[]))
+    return ApiResponse.ok(PluginAggregateResponse(placeholder=True, services=ConcurrentStableList()))
 
 
 @router.get("/{plugin_key}")

@@ -21,6 +21,7 @@ from bms_core.api.deps import (
     get_tenant,
     get_tenant_self_service,
 )
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.db.tenant import TenantContext
 from bms_core.idempotency.base import IDEMPOTENCY_HEADER, IdempotencyStore, build_idempotency_key
 from bms_core.schemas.common import ApiResponse
@@ -79,7 +80,7 @@ def _overview_response(overview: TenantSelfOverview) -> TenantSelfOverviewRespon
         TenantSelfOverviewResponse: 路由响应契约。
     """
     return TenantSelfOverviewResponse(
-        tenants=[_summary_response(item) for item in overview.tenants],
+        tenants=ConcurrentStableList(_summary_response(item) for item in overview.tenants),
         current_code=overview.current_code,
         multi_tenant=overview.multi_tenant,
     )

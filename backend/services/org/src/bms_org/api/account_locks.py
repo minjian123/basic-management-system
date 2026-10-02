@@ -16,6 +16,7 @@ from bms_core.api.base import BaseRouter, page_query, require_auth
 from bms_core.api.deps import get_audit_capturer, get_config_source, get_uow
 from bms_core.audit.base import AuditCapturer
 from bms_core.config.base import BaseConfigSource
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.context import current_user_id
 from bms_core.core.exceptions import ParamError
 from bms_core.db.session import DbSession
@@ -140,7 +141,7 @@ async def list_locks(
     )
     return ApiResponse.ok(
         BasePageResponse[LockItem](
-            list=[_to_item(item) for item in items], total=total, page=query.page, size=query.size
+            list=ConcurrentStableList(_to_item(item) for item in items), total=total, page=query.page, size=query.size
         )
     )
 
@@ -178,7 +179,7 @@ async def lock_account(
     """
     actor = current_user_id.get()
     lock = await _service(uow, config).lock_manual(req.user_id, reason=req.reason, actor=actor)
-    audit.capture(table=_TABLE, model_id=lock.id, changes=[], actor=actor)
+    audit.capture(table=_TABLE, model_id=lock.id, changes=ConcurrentStableList(), actor=actor)
     return ApiResponse.ok(_to_item(lock))
 
 
@@ -197,5 +198,5 @@ async def unlock_account(lock_id: int, uow: UowDep, config: ConfigDep, audit: Au
     """
     actor = current_user_id.get()
     lock = await _service(uow, config).unlock(lock_id, actor=actor)
-    audit.capture(table=_TABLE, model_id=lock.id, changes=[], actor=actor)
+    audit.capture(table=_TABLE, model_id=lock.id, changes=ConcurrentStableList(), actor=actor)
     return ApiResponse.ok(_to_item(lock))

@@ -15,6 +15,7 @@ from fastapi import Depends, Header, Path, Query
 
 from bms_core.api.base import BaseRouter, require_auth
 from bms_core.api.deps import current_tenant_id_of, get_icon_registry, get_idempotency_store, get_tenant
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.exceptions import ParamError
 from bms_core.db.tenant import TenantContext
 from bms_core.icon.base import (
@@ -111,7 +112,7 @@ async def list_icons(
         ApiResponse: 统一响应，data 为图标清单（`IconListResponse`）。
     """
     icons = await registry.list(category=category, status=status, keyword=keyword)
-    return ApiResponse.ok(IconListResponse(icons=[_to_response(item) for item in icons]))
+    return ApiResponse.ok(IconListResponse(icons=ConcurrentStableList(_to_response(item) for item in icons)))
 
 
 @router.get("/{code}")

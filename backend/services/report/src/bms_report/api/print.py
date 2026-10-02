@@ -21,6 +21,7 @@ from bms_core.api.deps import (
     get_print_template_provider,
     get_tenant,
 )
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.db.tenant import TenantContext
 from bms_core.idempotency.base import IDEMPOTENCY_HEADER, IdempotencyStore, build_idempotency_key
 from bms_core.print.base import (
@@ -131,7 +132,7 @@ def _batch_response(result: PrintBatchResult) -> PrintBatchResponse:
         total=result.total,
         succeeded=result.succeeded,
         failed=result.failed,
-        items=[_export_response(item) for item in result.items],
+        items=ConcurrentStableList(_export_response(item) for item in result.items),
         message=result.message,
     )
 
@@ -149,7 +150,9 @@ def _template_response(info: PrintTemplateInfo) -> PrintTemplateInfoResponse:
         key=info.key,
         name=info.name,
         biz_type=info.biz_type,
-        variables=[PrintVariableResponse(key=item.key, label=item.label) for item in info.variables],
+        variables=ConcurrentStableList(
+            PrintVariableResponse(key=item.key, label=item.label) for item in info.variables
+        ),
         status=info.status,
     )
 
@@ -237,7 +240,9 @@ async def list_templates(provider: TemplateDep, biz_type: BizTypeQuery = None) -
         ApiResponse: 统一响应，data 为模板清单（`PrintTemplateListResponse`）。
     """
     templates = await provider.list(biz_type=biz_type)
-    return ApiResponse.ok(PrintTemplateListResponse(templates=[_template_response(item) for item in templates]))
+    return ApiResponse.ok(
+        PrintTemplateListResponse(templates=ConcurrentStableList(_template_response(item) for item in templates))
+    )
 
 
 @router.get("/templates/{template_key}")

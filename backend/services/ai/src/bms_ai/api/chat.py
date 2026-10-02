@@ -47,7 +47,7 @@ async def chat_stream(stream: StreamDep, req: ChatStreamRequest) -> ApiResponse:
     messages = ConcurrentStableList([ChatMessage(content=item.content, role=item.role) for item in req.messages])
     handle = await stream.stream(messages, module=req.module, session_id=req.session_id)
     events = [event async for event in handle.events]
-    return ApiResponse.ok(ChatStreamResponse(stream_id=handle.stream_id, events=events))
+    return ApiResponse.ok(ChatStreamResponse(stream_id=handle.stream_id, events=ConcurrentStableList(events)))
 
 
 @router.post("/stop")
