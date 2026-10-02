@@ -100,7 +100,7 @@ def test_service_jwt_falls_back_to_token_tenant_claim() -> None:
 @pytest.mark.parametrize(
     "headers",
     [
-        ConcurrentStableDict(),
+        ConcurrentStableDict[str, str](),
         ConcurrentStableDict({"Authorization": "Bearer "}),
         ConcurrentStableDict({"Authorization": "Basic abc"}),
         ConcurrentStableDict({"Authorization": "Bearer not.a.jwt"}),

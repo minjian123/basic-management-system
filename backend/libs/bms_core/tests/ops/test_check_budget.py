@@ -2,7 +2,7 @@
 
 import pytest
 
-from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import DbPoolSettings, get_settings
 from ops.check_budget import main
 
@@ -42,10 +42,10 @@ def test_check_budget_active_tenants(capsys: pytest.CaptureFixture[str]) -> None
     """`--active-tenants`：租户库按活跃租户数核算（超限即失败）。"""
     settings = get_settings()
     settings.server.workers = 1
-    settings.server.workers_by_service = {}
+    settings.server.workers_by_service = ConcurrentStableDict()
     settings.database.tenants.max_connections = 30  # 预算上限 21：1 个活跃租户 15 通过、3 个 45 超限
     settings.database.tenants.pool = DbPoolSettings(pool_size=5, max_overflow=10)
-    settings.database.tenants.services = {}
+    settings.database.tenants.services = ConcurrentStableDict()
 
     assert main(ConcurrentStableList(["--service", "ai", "--active-tenants", "1"])) == 0
     capsys.readouterr()

@@ -12,7 +12,7 @@ from fastapi import FastAPI
 from sqlalchemy import func, select
 from starlette.requests import Request
 
-from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.exceptions import OutboxDeliveryError
 from bms_core.db.engine import PLATFORM_DB_KEY
 from bms_core.db.registry import EngineRegistry
@@ -200,7 +200,7 @@ async def test_dispatch_marks_delivered_and_metrics(session: DbSession, registry
     """投递转发 + 标记已投递 + 指标上报。"""
     store = SqlOutboxStore()
     async with session.begin():
-        await store.enqueue(session, EventEnvelope(event_type="order.created", payload={"id": 1}))
+        await store.enqueue(session, EventEnvelope(event_type="order.created", payload=ConcurrentStableDict({"id": 1})))
         await store.enqueue(session, EventEnvelope(event_type="order.paid", tenant_id="1001"))
     publisher = RecordingPublisher()
     metrics = RecordingMetrics()

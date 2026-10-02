@@ -146,9 +146,9 @@ async def test_reused_matches_history_hashes() -> None:
     hasher = _hasher()
     policy = DefaultPasswordPolicy(config=NullConfigSource(), hasher=hasher)
     old = hasher.hash("OldPass1!")
-    assert await policy.reused("OldPass1!", history=[old]) is True
-    assert await policy.reused("NewPass2!", history=[old]) is False
-    assert await policy.reused("OldPass1!", history=[]) is False
+    assert await policy.reused("OldPass1!", history=ConcurrentStableList([old])) is True
+    assert await policy.reused("NewPass2!", history=ConcurrentStableList([old])) is False
+    assert await policy.reused("OldPass1!", history=ConcurrentStableList([])) is False
 
 
 @pytest.mark.kiwi_id(2209)
@@ -185,7 +185,7 @@ async def test_null_policy_contract_and_defaults() -> None:
     null_policy = NullPasswordPolicy()
     assert await null_policy.validate("x") == ()
     assert await null_policy.expired(datetime(2000, 1, 1, tzinfo=None)) is False
-    assert await null_policy.reused("x", history=["h"]) is False
+    assert await null_policy.reused("x", history=ConcurrentStableList(["h"])) is False
     assert await null_policy.history_count() == PASSWORD_HISTORY_COUNT
 
 

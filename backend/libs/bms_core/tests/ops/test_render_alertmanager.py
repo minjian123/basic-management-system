@@ -54,7 +54,7 @@ def test_no_credentials_renders_noop_receivers() -> None:
         ("default", []),
         ("critical", []),
     ]
-    assert "smtp_smarthost" not in config.get("global", {})
+    assert "smtp_smarthost" not in config.get("global", ConcurrentStableDict[str, object]())
     assert config["route"]["receiver"] == "default"
     assert config["route"]["routes"][0]["receiver"] == "critical"
     assert config["inhibit_rules"][0]["equal"] == ["alertname", "service"]

@@ -36,9 +36,9 @@ def test_pool_params_and_service_override(monkeypatch: pytest.MonkeyPatch) -> No
     settings.database.platform.url = "mysql+aiomysql://bms@db:3306/bms_dev"
     settings.database.platform.password = "pw"
     settings.app.service = "svc"
-    settings.database.platform.services = {
-        "svc": DbPoolSettings(pool_size=9, max_overflow=1, pool_timeout=5.0, pool_recycle=60, connect_timeout=3.0)
-    }
+    settings.database.platform.services = ConcurrentStableDict(
+        {"svc": DbPoolSettings(pool_size=9, max_overflow=1, pool_timeout=5.0, pool_recycle=60, connect_timeout=3.0)}
+    )
     EngineFactory(settings).create("platform")
 
     url, kwargs = captured[0]
@@ -88,8 +88,8 @@ def test_pool_budget_rows_service_override() -> None:
     """按服务核算：worker 数与最大连接数均支持按服务覆盖（缺省回落目标级 / 全局）。"""
     settings = Settings()
     settings.server.workers = 2
-    settings.server.workers_by_service = {"org": 8}
-    settings.database.platform.max_connections_by_service = {"org": 200}
+    settings.server.workers_by_service = ConcurrentStableDict({"org": 8})
+    settings.database.platform.max_connections_by_service = ConcurrentStableDict({"org": 200})
     settings.database.platform.pool = DbPoolSettings(pool_size=5, max_overflow=10)
 
     rows = {row.name: row for row in pool_budget_rows(settings, services=ConcurrentStableList(["org"]))}

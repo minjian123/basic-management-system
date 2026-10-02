@@ -103,9 +103,10 @@ def test_branching() -> None:
 @pytest.mark.kiwi_id(2221)
 def test_async_has_no_sync_read_entry() -> None:
     """跨副本形态**无同步读入口**：同步读公共段（`to_list` / `__iter__` / `_json_data`）恒抛 `NotImplementedError`。"""
-    instance = RedisSortedSet(None, "bms:global:demo:set")  # type: ignore[arg-type]
+    instance: RedisSortedSet[str] = RedisSortedSet(None, "bms:global:demo:set")  # type: ignore[arg-type]
+    json_data = instance._json_data  # pyright: ignore[reportPrivateUsage]
     assert inspect.iscoroutinefunction(type(instance).size)
-    for call in (instance.to_list, lambda: iter(instance), instance._json_data):
+    for call in (instance.to_list, lambda: iter(instance), json_data):
         with pytest.raises(NotImplementedError):
             call()
 

@@ -308,14 +308,14 @@ def test_plugin_metadata_declared() -> None:
 def test_validate_service_discovery_flags_hardcoded_ip() -> None:
     """服务发现护栏：正常生成件通过；上游节点 / 限流 redis_host 为 IP 时报违规。"""
     assert gc.validate_service_discovery(gc.render_apisix_config()) == []
-    bad_upstream = ConcurrentStableDict(
+    bad_upstream = ConcurrentStableDict[str, object](
         {
             "upstreams": [{"id": "platform", "type": "roundrobin", "nodes": {"10.0.0.5:8000": 1}}],
             "routes": [],
         }
     )
     assert gc.validate_service_discovery(bad_upstream) == ["上游 platform 节点为硬编码 IP：10.0.0.5:8000"]
-    bad_redis = ConcurrentStableDict(
+    bad_redis = ConcurrentStableDict[str, object](
         {
             "upstreams": [],
             "routes": [
@@ -329,7 +329,7 @@ def test_validate_service_discovery_flags_hardcoded_ip() -> None:
 @pytest.mark.kiwi_id(2167)
 def test_validate_service_discovery_tolerates_malformed_config() -> None:
     """护栏对畸形结构（非映射项 / 非映射 nodes 或 plugins / 无 redis_host）容错放行。"""
-    malformed = ConcurrentStableDict(
+    malformed = ConcurrentStableDict[str, object](
         {
             "upstreams": ["not-a-dict", {"id": "x", "nodes": "not-a-dict"}],
             "routes": [

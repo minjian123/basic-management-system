@@ -170,7 +170,7 @@ async def _store_with(session_id: str, *, tenant_id: str | None = None) -> Memor
 async def test_gateway_identity_builds_context() -> None:
     """网关路径：可信边缘身份组装 `AuthContext`、命中会话标记、写 `current_user_id`。"""
     store = await _store_with("s1")
-    state = ConcurrentStableDict(
+    state = ConcurrentStableDict[str, object](
         {
             "edge_identity": EdgeIdentity(subject="1001", tenant_code="demo", session_id="s1", scopes=("a",)),
             "tenant": _demo_tenant(),
@@ -192,7 +192,7 @@ async def test_gateway_identity_builds_context() -> None:
 async def test_gateway_identity_without_subject_uses_user_id() -> None:
     """网关路径：仅有内部用户 id（无主体）时主体回落为 id 字符串、租户取请求态。"""
     store = await _store_with("s2")
-    state = ConcurrentStableDict(
+    state = ConcurrentStableDict[str, object](
         {
             "edge_identity": EdgeIdentity(user_id=7, session_id="s2"),
             "tenant": _demo_tenant(),
@@ -207,7 +207,7 @@ async def test_gateway_identity_without_subject_uses_user_id() -> None:
 
 async def test_gateway_identity_service_only_rejected() -> None:
     """网关路径：纯服务身份（无用户主体 / id）→ 20001 / 401。"""
-    state = ConcurrentStableDict({"edge_identity": EdgeIdentity(service_identity="svc-a")})
+    state = ConcurrentStableDict[str, object]({"edge_identity": EdgeIdentity(service_identity="svc-a")})
     with pytest.raises(AuthError) as excinfo:
         await require_auth(_request(state=state), verifier=_StubVerifier(), store=MemorySessionStore())
     assert excinfo.value.code == 20001

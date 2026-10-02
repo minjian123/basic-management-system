@@ -50,7 +50,7 @@ def test_validate_contract() -> None:
         {
             "openapi": "3.1.0",
             "info": ConcurrentStableDict({"title": "服务", "version": record.contract_version}),
-            "paths": ConcurrentStableDict({"/api/v1/x": ConcurrentStableDict()}),
+            "paths": ConcurrentStableDict({"/api/v1/x": ConcurrentStableDict[str, object]()}),
         }
     )
     assert validate_contract("platform", good, record) == []
@@ -59,7 +59,7 @@ def test_validate_contract() -> None:
         {
             "openapi": "3.1.0",
             "info": ConcurrentStableDict({"title": "服务", "version": "9.9.9"}),
-            "paths": ConcurrentStableDict({"/api/v1/x": ConcurrentStableDict()}),
+            "paths": ConcurrentStableDict({"/api/v1/x": ConcurrentStableDict[str, object]()}),
         }
     )
     errors = validate_contract("platform", bad_version, record)

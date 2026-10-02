@@ -6,7 +6,7 @@ import pytest
 from sqlalchemy import create_engine
 
 import bms_core.db.migration as migration
-from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.exceptions import ConfigError
 from bms_core.db.migration import (
     MigrationChain,
@@ -47,7 +47,7 @@ def test_chain_metadata_intersects_existing_models() -> None:
         name="platform:tenant",
         service="platform",
         datasource="tenant",
-        tables=frozenset({"sys_dict_type", "sys_ghost"}),
+        tables=ConcurrentStableSet({"sys_dict_type", "sys_ghost"}),
         scope="platform 服务的服务租户库",
     )
     tables = chain_metadata(chain)
@@ -148,7 +148,9 @@ def test_apply_session_schema_dialect_and_fallback() -> None:
 @pytest.mark.kiwi_id(1078)
 def test_has_revisions_missing_directory() -> None:
     """版本目录不存在时视为空链（`False`）。"""
-    ghost = MigrationChain(name="ghost:tenant", service="ghost", datasource="tenant", tables=frozenset(), scope="测试")
+    ghost = MigrationChain(
+        name="ghost:tenant", service="ghost", datasource="tenant", tables=ConcurrentStableSet(), scope="测试"
+    )
     assert migration.has_revisions(ghost) is False  # pyright: ignore[reportPrivateUsage]
 
 

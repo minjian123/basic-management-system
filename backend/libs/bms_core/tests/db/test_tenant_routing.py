@@ -90,7 +90,7 @@ async def test_session_routes_by_tenant_db_key(tmp_path: Path) -> None:
     """`get_db` / `get_read_db` / `get_write_db` / `get_uow` 按请求租户库键取引擎；无租户回落平台库。"""
     settings = _settings(tmp_path)
     settings.tenant.allow_demo_fallback = False
-    settings.tenant.exempt_paths = ["/platform-db"]
+    settings.tenant.exempt_paths = ConcurrentStableList(["/platform-db"])
     registry = EngineRegistry(EngineFactory(settings))
     source = _Source(ConcurrentStableList([TenantContext(code="demo", db_key="tenant_demo", name="演示租户")]))
 

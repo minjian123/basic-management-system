@@ -2,6 +2,7 @@
 
 import pytest
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.config import PluginSelection, Settings
 from bms_core.core.exceptions import ConfigError
 from bms_core.security.pbkdf2 import (
@@ -65,7 +66,11 @@ def test_iterations_lower_bound() -> None:
 def test_factory_reads_options() -> None:
     """工厂读 `[password_hasher].options.iterations`；非法配置即拒。"""
     factory = Pbkdf2PasswordHasherFactory(
-        Settings(password_hasher=PluginSelection(provider="pbkdf2", options={"iterations": _FAST_ITERATIONS}))
+        Settings(
+            password_hasher=PluginSelection(
+                provider="pbkdf2", options=ConcurrentStableDict({"iterations": _FAST_ITERATIONS})
+            )
+        )
     )
     hasher = factory.create()
     assert int(hasher.hash("x").split("$")[1]) == _FAST_ITERATIONS
@@ -74,5 +79,9 @@ def test_factory_reads_options() -> None:
     for bad in ("abc", 0):
         with pytest.raises(ConfigError):
             Pbkdf2PasswordHasherFactory(
-                Settings(password_hasher=PluginSelection(provider="pbkdf2", options={"iterations": bad}))
+                Settings(
+                    password_hasher=PluginSelection(
+                        provider="pbkdf2", options=ConcurrentStableDict({"iterations": bad})
+                    )
+                )
             ).create()

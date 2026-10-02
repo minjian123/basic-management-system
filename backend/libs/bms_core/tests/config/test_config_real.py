@@ -90,7 +90,7 @@ _OPEN_ENGINES: ConcurrentStableList[EngineRegistry] = ConcurrentStableList()
 
 
 @pytest.fixture(autouse=True)
-async def _close_open_engines() -> AsyncIterator[None]:
+async def _close_open_engines() -> AsyncIterator[None]:  # pyright: ignore[reportUnusedFunction]
     """用例结束释放本模块内构造的引擎注册表。
 
     Yields:

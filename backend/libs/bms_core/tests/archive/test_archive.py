@@ -13,7 +13,7 @@ from bms_core.archive.base import ARCHIVE_LOCATIONS, ArchiveResult, BaseArchiveP
 from bms_core.archive.null import NullArchivePolicy, NullArchiveQueryRouter
 from bms_core.core.base import BaseObject
 from bms_core.core.capability import BaseCapability, BaseNullObject
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 
 
 @pytest.mark.kiwi_id(58)
@@ -57,7 +57,9 @@ async def test_null_policy_never_archives() -> None:
     """占位策略恒定不归档（不搬数据）。"""
     policy = NullArchivePolicy()
     assert await policy.matches(ConcurrentStableDict({"id": 1})) is False
-    assert await policy.archive([{"id": 1}]) == ArchiveResult(matched=0, archived=0)
+    assert await policy.archive(ConcurrentStableList([ConcurrentStableDict({"id": 1})])) == ArchiveResult(
+        matched=0, archived=0
+    )
 
 
 @pytest.mark.kiwi_id(58)
@@ -80,7 +82,7 @@ async def test_dependency_providers_resolve() -> None:
             policy: Annotated[BaseArchivePolicy, Depends(get_archive_policy)],
             router: Annotated[BaseArchiveQueryRouter, Depends(get_archive_query_router)],
         ) -> dict[str, object]:  # bare-collections:allow（FastAPI 端点返回注解）
-            result = await policy.archive([])
+            result = await policy.archive(ConcurrentStableList([]))
             return {
                 "policy_key": policy.key,
                 "archived": result.archived,

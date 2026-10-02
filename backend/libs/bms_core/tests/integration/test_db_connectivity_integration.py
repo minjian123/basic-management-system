@@ -11,6 +11,7 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.engine import make_url
 
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.db.engine import EngineFactory
 
@@ -38,7 +39,7 @@ def _factory(url: str) -> EngineFactory:
     """按连接串构造引擎工厂。"""
     settings = Settings()
     settings.database.platform.url = url
-    settings.database.platform.replicas = []
+    settings.database.platform.replicas = ConcurrentStableList([])
     return EngineFactory(settings)
 
 

@@ -70,7 +70,7 @@ async def test_null_importer_empty() -> None:
     """占位导入器：解析空行、校验空结果。"""
     importer = NullImporter()
     assert await importer.parse(b"data", columns=_COLUMNS) == ()
-    rows = ConcurrentStableList([ConcurrentStableDict({"name": "甲"})])
+    rows = ConcurrentStableList([ConcurrentStableDict[str, object]({"name": "甲"})])
     assert await importer.validate(rows, columns=_COLUMNS) == ImportResult(rows=(), errors=())
 
 
@@ -78,7 +78,7 @@ async def test_null_importer_empty() -> None:
 async def test_null_exporter_empty_stream() -> None:
     """占位导出器：空流（无分块）。"""
     exporter = NullExporter()
-    rows = ConcurrentStableList([ConcurrentStableDict({"name": "甲"})])
+    rows = ConcurrentStableList([ConcurrentStableDict[str, object]({"name": "甲"})])
     chunks = [chunk async for chunk in exporter.export(rows, columns=_COLUMNS)]
     assert chunks == []
     assert b"".join(chunks) == b""

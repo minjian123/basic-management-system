@@ -229,7 +229,7 @@ def test_factory_reads_settings_and_requires_server_url() -> None:
             provider="cas",
             cas_server_url=SERVER,
             cas_login_path="/sso/login",
-            attribute_map={"email": ["mail"]},
+            attribute_map=ConcurrentStableDict({"email": ConcurrentStableList(["mail"])}),
         )
     )
     provider = CasIdentityProviderFactory(complete).create(None)

@@ -305,7 +305,7 @@ async def test_lifespan_degrades_when_snapshot_unavailable(
 @pytest.mark.kiwi_id(2163)
 async def test_lifespan_rejects_self_reported_major_mismatch(catalog_db_url: str) -> None:
     """服务自报契约版本主版本不符：自报 1.0.0 vs 登记 0.1.0 拒启。"""
-    await _write_records(catalog_db_url, list(SERVICE_CATALOG))
+    await _write_records(catalog_db_url, ConcurrentStableList(SERVICE_CATALOG))
     app = _create_app(contract="1.0.0")
     with pytest.raises(CatalogError, match="运行服务契约版本主版本不兼容：platform"):
         async with service_lifespan(app):
