@@ -20,6 +20,7 @@ class UserProfileUser(BaseSchema):
     status: str = Field(description="账号状态（enabled / disabled）")
     locale: str | None = Field(default=None, description="语言偏好")
     timezone: str | None = Field(default=None, description="时区偏好")
+    pwd_reset_required: bool = Field(default=False, description="是否需强制改密（密码超有效期）")
 
 
 class UserProfileResult(BaseSchema):

@@ -253,6 +253,8 @@ class FakeOrgClient(BaseServiceClient):
             )
         if action == "reset-target":
             return self._reset_target(str(body.get("identifier", "")))
+        if action == "profile":
+            return self._profile(cast("int", body.get("user_id", 0)))
         if action == "update-password":
             if user is None:
                 return ConcurrentStableDict({"updated": False, "reason": "not_found", "violations": []})
@@ -282,6 +284,33 @@ class FakeOrgClient(BaseServiceClient):
                 )
             return self.last_state
         return ConcurrentStableDict({})
+
+    def _profile(self, user_id: int) -> ConcurrentStableDict[str, object]:
+        """按主键取用户概要（对齐 org `users/profile` 响应形态，含强制改密标记）。
+
+        Args:
+            user_id: 用户主键。
+
+        Returns:
+            ConcurrentStableDict[str, object]: 概要结果 data（不存在 `found=False`）。
+        """
+        for account, item in self.users.items():
+            if item["id"] == user_id:
+                return ConcurrentStableDict(
+                    {
+                        "found": True,
+                        "user": {
+                            "id": user_id,
+                            "username": account,
+                            "name": item["name"],
+                            "status": item["status"],
+                            "locale": item["locale"],
+                            "timezone": item["timezone"],
+                            "pwd_reset_required": bool(item["pwd_reset_required"]),
+                        },
+                    }
+                )
+        return ConcurrentStableDict({"found": False, "user": None})
 
     def _reset_target(self, identifier: str) -> ConcurrentStableDict[str, object]:
         """解析找回密码重置目标（邮箱小写不敏感 / 手机 / 账号）。

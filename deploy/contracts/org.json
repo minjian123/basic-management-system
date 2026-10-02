@@ -920,6 +920,12 @@
             "title": "Name",
             "type": "string"
           },
+          "pwd_reset_required": {
+            "default": false,
+            "description": "是否需强制改密（密码超有效期）",
+            "title": "Pwd Reset Required",
+            "type": "boolean"
+          },
           "status": {
             "description": "账号状态（enabled / disabled）",
             "title": "Status",

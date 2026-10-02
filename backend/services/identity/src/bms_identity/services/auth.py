@@ -381,3 +381,53 @@ class LoginService(BaseFrameworkObject):
             str: 限流键。
         """
         return build_rate_limit_key(dimension=_FAIL_DIMENSION, target=account, tenant=tenant_id)
+
+
+class CurrentUserService(BaseFrameworkObject):
+    """当前用户概要服务：经 org 内部用户接口取概要（首屏静默续期恢复用户上下文）。
+
+    不依赖认证服务租户库会话——用户概要与强制改密标记归属 org 服务，本服务只做**取数与映射**
+    （与登录响应的 `UserSummary` 同字段、同语义）。
+    """
+
+    def __init__(self, org_client: OrgCredentialClient) -> None:
+        """初始化。
+
+        Args:
+            org_client: org 内部接口客户端（复用登录链路同一客户端）。
+        """
+        self._org = org_client
+
+    async def current_user(self, *, user_id: int | None, tenant_id: str | None, tenant_code: str | None) -> UserSummary:
+        """取当前登录用户概要。
+
+        Args:
+            user_id: 当前登录主体用户主键（`AuthContext.user_id`）。
+            tenant_id: 生效租户主键（雪花 id 字符串；跨服务租户位）。
+            tenant_code: 生效租户编码（响应展示）。
+
+        Returns:
+            UserSummary: 用户概要（含 `must_change_password`）。
+
+        Raises:
+            AuthError: 缺少用户标识 / 用户不存在（20001/401，按登录态失效处理）。
+            AccountDisabledError: 账号已停用（20004/401）。
+            ServiceUnavailableError: org 不可达 / 响应契约非法（10007/503，fail-closed）。
+        """
+        if user_id is None:
+            raise AuthError("缺少用户标识")
+        profile = await self._org.user_profile(tenant_id, user_id)
+        if not profile.found or profile.user is None:
+            raise AuthError("用户不存在")
+        user = profile.user
+        if user.status != "enabled":
+            raise AccountDisabledError()
+        return UserSummary(
+            id=user.id,
+            username=user.username,
+            name=user.name,
+            tenant=tenant_code,
+            locale=user.locale,
+            timezone=user.timezone,
+            must_change_password=user.pwd_reset_required,
+        )

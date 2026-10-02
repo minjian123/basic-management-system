@@ -1033,6 +1033,12 @@ export interface components {
              */
             name: string;
             /**
+             * Pwd Reset Required
+             * @description 是否需强制改密（密码超有效期）
+             * @default false
+             */
+            pwd_reset_required: boolean;
+            /**
              * Status
              * @description 账号状态（enabled / disabled）
              */

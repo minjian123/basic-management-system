@@ -489,6 +489,32 @@
         "title": "ApiResponse[SsoProviderList]",
         "type": "object"
       },
+      "ApiResponse_UserSummary_": {
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UserSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[UserSummary]",
+        "type": "object"
+      },
       "ApiResponse_dict_str__object__": {
         "properties": {
           "code": {
@@ -2125,6 +2151,38 @@
           }
         },
         "summary": "Logout",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/me": {
+      "get": {
+        "description": "当前用户概要（首屏静默续期恢复用户上下文）。\n\n字段与登录响应**同字段、同语义**；用户不存在 / 账号停用按登录态失效（401）返回，前端据此走\n统一 401 路径（清会话 + 跳登录）；org 不可达按 `10007` / 503 fail-closed。\n\nArgs:\n    auth: 登录态身份契约（用户主键 / 租户主键与编码）。\n    client: 服务间调用客户端（构造 org 内部接口客户端）。\n\nReturns:\n    ApiResponse: 统一响应，data 为用户概要（`UserSummary`）。",
+        "operationId": "me_api_v1_auth_me_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_UserSummary_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          }
+        },
+        "summary": "Me",
         "tags": [
           "auth"
         ]

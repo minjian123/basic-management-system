@@ -207,4 +207,5 @@ def _summary(row: SysUser) -> UserProfileUser:
         status=row.status or "",
         locale=row.locale,
         timezone=row.timezone,
+        pwd_reset_required=row.pwd_reset_required,
     )

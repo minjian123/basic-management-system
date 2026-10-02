@@ -211,6 +211,36 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Me
+         * @description 当前用户概要（首屏静默续期恢复用户上下文）。
+         *
+         *     字段与登录响应**同字段、同语义**；用户不存在 / 账号停用按登录态失效（401）返回，前端据此走
+         *     统一 401 路径（清会话 + 跳登录）；org 不可达按 `10007` / 503 fail-closed。
+         *
+         *     Args:
+         *         auth: 登录态身份契约（用户主键 / 租户主键与编码）。
+         *         client: 服务间调用客户端（构造 org 内部接口客户端）。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为用户概要（`UserSummary`）。
+         */
+        get: operations["me_api_v1_auth_me_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/refresh": {
         parameters: {
             query?: never;
@@ -1553,6 +1583,20 @@ export interface components {
              */
             message: string;
         };
+        /** ApiResponse[UserSummary] */
+        ApiResponse_UserSummary_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["UserSummary"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
         /** ApiResponse[dict[str, object]] */
         ApiResponse_dict_str__object__: {
             /**
@@ -2659,6 +2703,35 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponse_NoneType_"];
+                };
+            };
+        };
+    };
+    me_api_v1_auth_me_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_UserSummary_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
                 };
             };
         };

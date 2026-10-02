@@ -37,6 +37,7 @@ async def _add_user(
     status: str = "enabled",
     locale: str | None = "zh-cn",
     timezone: str | None = "Asia/Shanghai",
+    pwd_reset_required: bool = False,
 ) -> SysUser:
     """插入一条测试用户。
 
@@ -47,6 +48,7 @@ async def _add_user(
         status: 账号状态。
         locale: 语言偏好。
         timezone: 时区偏好。
+        pwd_reset_required: 是否需强制改密。
 
     Returns:
         SysUser: 持久化后的用户行。
@@ -58,6 +60,7 @@ async def _add_user(
         status=status,
         locale=locale,
         timezone=timezone,
+        pwd_reset_required=pwd_reset_required,
     )
     session.add(user)
     await session.flush()
@@ -99,11 +102,13 @@ def _override_uow(app: FastAPI, session: AsyncSession) -> None:
 
 
 @pytest.mark.kiwi_id(2197)
+@pytest.mark.kiwi_id(2229)
 async def test_service_profile_found_and_missing() -> None:
-    """服务层：命中返回概要字段；未知 / 禁用用户按状态返回。"""
+    """服务层：命中返回概要字段（含强制改密标记）；未知 / 禁用用户按状态返回。"""
     session, engine = await _session()
     repo = UserRepository(session)
     user = await _add_user(session, "admin", name="管理员", locale="zh-cn", timezone="Asia/Shanghai")
+    expired = await _add_user(session, "expired", name="超期用户", pwd_reset_required=True)
     disabled = await _add_user(session, "banned", name="停用用户", status="disabled")
     await session.commit()
 
@@ -117,6 +122,10 @@ async def test_service_profile_found_and_missing() -> None:
     assert found.user.status == "enabled"
     assert found.user.locale == "zh-cn"
     assert found.user.timezone == "Asia/Shanghai"
+    assert found.user.pwd_reset_required is False
+
+    expired_profile = await service.profile(expired.id)
+    assert expired_profile.user is not None and expired_profile.user.pwd_reset_required is True
 
     banned = await service.profile(disabled.id)
     assert banned.found is True and banned.user is not None and banned.user.status == "disabled"
