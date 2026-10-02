@@ -179,16 +179,19 @@ tooling-lint:
         paths:
           - scripts/tools/**/*
           - backend/pyproject.toml
+          - .gitlab-ci.yml
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
         paths:
           - scripts/tools/**/*
           - backend/pyproject.toml
+          - .gitlab-ci.yml
       exists:
         - backend/pyproject.toml
   script:
-    - cd backend && uv run ruff check ../scripts/tools
-    - cd backend && uv run ruff format --check ../scripts/tools
+    - cd backend
+    - uv run ruff check ../scripts/tools
+    - uv run ruff format --check ../scripts/tools
 
 # ---- 后端：pyright 严格类型检查（《测试规范》第 13 节；随 04-1 接入）----
 backend-typecheck:
