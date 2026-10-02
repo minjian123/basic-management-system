@@ -168,7 +168,7 @@ _OPEN_ENGINES: ConcurrentStableList[EngineRegistry] = ConcurrentStableList()
 
 
 @pytest.fixture(autouse=True)
-async def _close_open_engines() -> AsyncIterator[None]:
+async def _close_open_engines() -> AsyncIterator[None]:  # pyright: ignore[reportUnusedFunction]
     """用例结束释放本模块内构造的引擎注册表。
 
     Yields:
@@ -311,8 +311,9 @@ async def test_cache_version_invalidate_and_batch(dict_db_url: str) -> None:
 
         batch = await source.batch(DictBatchQuery(types=("user_status", "user_gender")))
         assert batch.items["user_status"] is not None
-        assert batch.items["user_gender"] is not None
-        assert len(batch.items["user_gender"].items or ()) == 3
+        gender = batch.items["user_gender"]
+        assert gender is not None
+        assert len(gender.items or ()) == 3
         again = await source.batch(DictBatchQuery(types=("user_status", "user_gender"), version=batch.version))
         assert again.items["user_status"] is None
         assert again.items["user_gender"] is None
@@ -385,16 +386,27 @@ async def test_advanced_query_engine_and_provider(dict_db_url: str) -> None:
     assert [attr.attr_key for attr in attrs] == ["level"]
 
     ids = await _find_item_ids(dict_db_url, "region", ("zj", "hz"))
-    await service.update_item(ids["zj"], DictItemPayload(code="zj", label="浙江省", value="zj", attr_json={"level": 1}))
+    await service.update_item(
+        ids["zj"],
+        DictItemPayload(code="zj", label="浙江省", value="zj", attr_json=ConcurrentStableDict({"level": 1})),
+    )
     await service.update_item(
         ids["hz"],
-        DictItemPayload(code="hz", label="杭州市", value="hz", parent_id="zj", attr_json={"level": 2}),
+        DictItemPayload(
+            code="hz",
+            label="杭州市",
+            value="hz",
+            parent_id="zj",
+            attr_json=ConcurrentStableDict({"level": 2}),
+        ),
     )
 
     result = await query_service.advanced_query(
         "region",
         DictAdvQueryPayload(
-            conditions={"logic": "AND", "children": [{"field": "attr.level", "operator": "eq", "value": 1}]},
+            conditions=ConcurrentStableDict(
+                {"logic": "AND", "children": [{"field": "attr.level", "operator": "eq", "value": 1}]}
+            ),
         ),
     )
     assert result.total == 1
@@ -408,12 +420,20 @@ async def test_advanced_query_engine_and_provider(dict_db_url: str) -> None:
     with pytest.raises(ParamError):
         await query_service.advanced_query(
             "region",
-            DictAdvQueryPayload(conditions={"logic": "AND", "children": [{"field": "attr.ghost", "operator": "eq"}]}),
+            DictAdvQueryPayload(
+                conditions=ConcurrentStableDict(
+                    {"logic": "AND", "children": [{"field": "attr.ghost", "operator": "eq"}]}
+                )
+            ),
         )
     with pytest.raises(ParamError):
         await query_service.advanced_query(
             "region",
-            DictAdvQueryPayload(conditions={"logic": "AND", "children": [{"field": "value", "operator": "between"}]}),
+            DictAdvQueryPayload(
+                conditions=ConcurrentStableDict(
+                    {"logic": "AND", "children": [{"field": "value", "operator": "between"}]}
+                )
+            ),
         )
 
 

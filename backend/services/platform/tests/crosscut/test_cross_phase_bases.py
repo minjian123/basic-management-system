@@ -145,7 +145,9 @@ class StubCapturer(AuditCapturer):
         """生成审计事件。"""
         return EventEnvelope(
             event_type="audit_changed",
-            payload={"table": table, "model_id": model_id, "actor": actor, "changes": [c.to_dict() for c in changes]},
+            payload=ConcurrentStableDict(
+                {"table": table, "model_id": model_id, "actor": actor, "changes": [c.to_dict() for c in changes]}
+            ),
         )
 
 
@@ -202,7 +204,7 @@ def test_sharding_router_and_repository_hook() -> None:
 @pytest.mark.kiwi_id(35)
 async def test_event_base() -> None:
     """事件基座：信封字段 / 发布 / 消费契约。"""
-    event = EventEnvelope(event_type="user_created", payload={"id": 1}, trace_id="t1")
+    event = EventEnvelope(event_type="user_created", payload=ConcurrentStableDict({"id": 1}), trace_id="t1")
     assert event.to_dict() == {
         "event_type": "user_created",
         "payload": {"id": "1"},

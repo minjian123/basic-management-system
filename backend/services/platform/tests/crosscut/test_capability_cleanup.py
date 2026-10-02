@@ -6,6 +6,7 @@ import pytest
 
 from bms_core.audit.null import NullAuditCapturer
 from bms_core.cache.null import NullCacheRegion
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import MinioSettings
 from bms_core.core.plugin import resolve_plugin
 from bms_core.events.base import EventEnvelope
@@ -42,7 +43,9 @@ def test_new_capabilities_wired_and_null() -> None:
 
     capturer = NullAuditCapturer()
     assert capturer.is_audited("sys_user") is False
-    assert capturer.capture(table="sys_user", model_id=1, changes=[]) == EventEnvelope(event_type="audit.null")
+    assert capturer.capture(table="sys_user", model_id=1, changes=ConcurrentStableList([])) == EventEnvelope(
+        event_type="audit.null"
+    )
 
     task = NullTask()
     assert task.name == "null_task"

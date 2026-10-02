@@ -261,7 +261,7 @@ async def test_memory_cursor_rejects_invalid_and_mismatched() -> None:
     token = encode_cursor(
         ConcurrentStableList([SortSpec(field="rank", direction=SortDirection.ASC)]), ConcurrentStableList([1]), 1
     )
-    mismatched = BaseCursorQuery(limit=1, order_by="name", order=["asc"], cursor=token)
+    mismatched = BaseCursorQuery(limit=1, order_by="name", order=ConcurrentStableList(["asc"]), cursor=token)
     with pytest.raises(ParamError):
         await repo.list_cursor(mismatched)
 
@@ -284,10 +284,14 @@ async def test_sort_whitelist_default_and_call_override() -> None:
     await repo.create(name="乙", rank=1)
     await repo.create(name="甲", rank=2)
 
-    assert [spec.field for spec in repo.resolve_sort(BasePageQuery(order_by="name", order=["asc"]))] == ["name"]
+    assert [
+        spec.field for spec in repo.resolve_sort(BasePageQuery(order_by="name", order=ConcurrentStableList(["asc"])))
+    ] == ["name"]
     ignored = await repo.list(sort=repo.resolve_sort(BasePageQuery(order_by="id")))
     assert [item.id for item in ignored] == [1, 2]
-    overridden = await repo.list(sort=BasePageQuery(order_by="id", order=["desc"]).specs(ConcurrentStableSet({"id"})))
+    overridden = await repo.list(
+        sort=BasePageQuery(order_by="id", order=ConcurrentStableList(["desc"])).specs(ConcurrentStableSet({"id"}))
+    )
     assert [item.id for item in overridden] == [2, 1]
 
 
@@ -297,8 +301,8 @@ async def test_pagination_queries_carry_sort() -> None:
     repo = SortableRepository()
     await repo.create(name="甲", rank=2)
     await repo.create(name="乙", rank=1)
-    page = await repo.list_page(BasePageQuery(page=1, size=10, order_by="rank", order=["asc"]))
-    cursor = await repo.list_cursor(BaseCursorQuery(limit=1, order_by="rank", order=["desc"]))
+    page = await repo.list_page(BasePageQuery(page=1, size=10, order_by="rank", order=ConcurrentStableList(["asc"])))
+    cursor = await repo.list_cursor(BaseCursorQuery(limit=1, order_by="rank", order=ConcurrentStableList(["desc"])))
     assert [item.name for item in page] == ["乙", "甲"]
     assert [item.name for item in cursor] == ["甲"]
 

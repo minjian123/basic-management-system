@@ -208,7 +208,7 @@ async def test_null_get_not_found() -> None:
 @pytest.mark.kiwi_id(927)
 async def test_null_create_placeholder() -> None:
     """占位图标新增：回显入参、标识由图标键派生、零副作用。"""
-    draft = IconDraft(code="receipt", name="票据", category="menu", tags=["doc"], svg="<svg/>")
+    draft = IconDraft(code="receipt", name="票据", category="menu", tags=ConcurrentStableList(["doc"]), svg="<svg/>")
     registry = NullIconRegistry()
 
     info = await registry.create(draft)
@@ -217,7 +217,7 @@ async def test_null_create_placeholder() -> None:
         code="receipt",
         name="票据",
         category="menu",
-        tags=["doc"],
+        tags=ConcurrentStableList(["doc"]),
         svg="<svg/>",
         status=DEFAULT_ICON_STATUS,
         icon_key="custom:receipt",
@@ -231,7 +231,9 @@ async def test_null_update_placeholder() -> None:
     """占位图标更新：提供字段回显、未提供字段回落占位值。"""
     registry = NullIconRegistry()
 
-    patched = await registry.update("receipt", IconPatch(name="新票据", tags=["doc"], status="disabled"))
+    patched = await registry.update(
+        "receipt", IconPatch(name="新票据", tags=ConcurrentStableList(["doc"]), status="disabled")
+    )
     assert patched.id == f"{NULL_ICON_ID_PREFIX}receipt"
     assert patched.name == "新票据"
     assert patched.category == ""

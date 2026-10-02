@@ -9,6 +9,7 @@ import pytest
 from sqlalchemy import Table
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.schemas.pagination import BasePageQuery
 from bms_platform.models.catalog import SysModule
 from bms_platform.repositories import module_repository
@@ -121,10 +122,14 @@ async def test_page_catalog_filters_and_total(session: AsyncSession) -> None:
     assert [row.module_key for row in rows] == ["pur"]
     assert total == 1
 
-    rows, _ = await repository.page_catalog(BasePageQuery(page=1, size=10, order_by="id", order=["desc"]))
+    rows, _ = await repository.page_catalog(
+        BasePageQuery(page=1, size=10, order_by="id", order=ConcurrentStableList(["desc"]))
+    )
     assert [row.module_key for row in rows] == ["pur", "identity", "sys"]
 
-    rows, _ = await repository.page_catalog(BasePageQuery(page=1, size=10, order_by="module_key", order=["asc"]))
+    rows, _ = await repository.page_catalog(
+        BasePageQuery(page=1, size=10, order_by="module_key", order=ConcurrentStableList(["asc"]))
+    )
     assert [row.module_key for row in rows] == ["sys", "identity", "pur"]
 
 
