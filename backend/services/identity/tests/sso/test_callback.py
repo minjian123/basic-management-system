@@ -8,7 +8,7 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy import delete, select
 
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableSet
 from bms_core.db.tenant import TenantContext
 from bms_identity.models.identity_provider import SysIdentityProvider
 from bms_identity.models.session import SysSession
@@ -263,7 +263,7 @@ async def test_callback_config_and_dependency_failures(client: AsyncClient, sso:
         row = (await session.execute(select(SysIdentityProvider))).scalars().one()
         row.icon = "bump"
         await session.commit()
-    sso.idp.discovery_drop = {"jwks_uri"}
+    sso.idp.discovery_drop = ConcurrentStableSet({"jwks_uri"})
     bad_verify = await _flow_callback(client, sso)
     assert bad_verify.status_code == 503 and bad_verify.json()["code"] == 20053
 

@@ -3,7 +3,7 @@
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.idp.state.base import build_idp_state_key
 
 from .conftest import OidcHarness
@@ -154,7 +154,11 @@ async def test_authorize_response_type_and_grant(client: AsyncClient, oidc: Oidc
     assert wrong_type.status_code == 302
     assert "error=unsupported_response_type" in wrong_type.headers["location"]
 
-    await oidc.seed_client(client_id="cc-only", grant_types=["client_credentials"], redirect_uris=[REDIRECT_URI])
+    await oidc.seed_client(
+        client_id="cc-only",
+        grant_types=ConcurrentStableList(["client_credentials"]),
+        redirect_uris=ConcurrentStableList([REDIRECT_URI]),
+    )
     not_granted = await client.get(_AUTHORIZE, params=_params(client_id="cc-only"), headers=TENANT_HEADERS)
     assert not_granted.status_code == 302
     assert "error=unauthorized_client" in not_granted.headers["location"]

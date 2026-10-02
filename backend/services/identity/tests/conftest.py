@@ -62,22 +62,24 @@ class _SeedTenantSource:
 
     def _tenants(self) -> ConcurrentStableDict[str, TenantContext]:
         """演示 / 示例租户上下文（带雪花主键与固定库键）。"""
-        return {
-            "demo": TenantContext(
-                code="demo",
-                db_key=DEMO_TENANT.db_key,
-                name="演示租户",
-                domain="demo.bms.example.com",
-                tenant_id=int(DEMO_TENANT_ID),
-            ),
-            "acme": TenantContext(
-                code="acme",
-                db_key="tenant_acme",
-                name="示例租户",
-                domain="acme.bms.example.com",
-                tenant_id=int(ACME_TENANT_ID),
-            ),
-        }
+        return ConcurrentStableDict(
+            {
+                "demo": TenantContext(
+                    code="demo",
+                    db_key=DEMO_TENANT.db_key,
+                    name="演示租户",
+                    domain="demo.bms.example.com",
+                    tenant_id=int(DEMO_TENANT_ID),
+                ),
+                "acme": TenantContext(
+                    code="acme",
+                    db_key="tenant_acme",
+                    name="示例租户",
+                    domain="acme.bms.example.com",
+                    tenant_id=int(ACME_TENANT_ID),
+                ),
+            }
+        )
 
 
 @pytest.fixture(autouse=True)

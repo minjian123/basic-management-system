@@ -11,6 +11,7 @@ from bms_core.api.deps import get_password_policy
 from bms_core.application import service_lifespan as lifespan
 from bms_core.core.base import BaseObject
 from bms_core.core.capability import BaseCapability, BaseNullObject
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.password.base import PASSWORD_VIOLATIONS, BasePasswordPolicy
 from bms_core.password.default import DefaultPasswordPolicy
 from bms_core.password.null import NullPasswordPolicy
@@ -58,8 +59,8 @@ async def test_null_policy_always_allows() -> None:
     assert await policy.expired(long_ago) is False
     assert await policy.expired(long_ago, now=datetime.now(UTC)) is False
 
-    assert await policy.reused("whatever", history=("a", "b")) is False
-    assert await policy.reused("whatever", history=()) is False
+    assert await policy.reused("whatever", history=ConcurrentStableList(["a", "b"])) is False
+    assert await policy.reused("whatever", history=ConcurrentStableList()) is False
 
 
 @pytest.mark.kiwi_id(41)

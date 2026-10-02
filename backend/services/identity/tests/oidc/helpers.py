@@ -12,6 +12,7 @@ from httpx import AsyncClient
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.exceptions import ServiceUnavailableError
+from bms_core.core.serialization import normalize_collections
 from bms_core.servicecall.base import BaseServiceClient, ServiceRequest, ServiceResponse
 
 CLIENT_ID = "bms-demo-client"
@@ -92,7 +93,7 @@ class FakeOidcOrgClient(BaseServiceClient):
     def __init__(self) -> None:
         """初始化（默认登记一个启用用户）。"""
         self.users: ConcurrentStableDict[int, ConcurrentStableDict[str, object]] = ConcurrentStableDict(
-            {USER_ID: {"username": "alice", "name": "Alice", "status": "enabled"}}
+            {USER_ID: ConcurrentStableDict({"username": "alice", "name": "Alice", "status": "enabled"})}
         )
         self.fail = False
         self.calls: ConcurrentStableList[str] = ConcurrentStableList()
@@ -144,21 +145,25 @@ class FakeOidcOrgClient(BaseServiceClient):
             user_id = int(cast("int", body.get("user_id", 0)))
             user = self.users.get(user_id)
             if user is None:
-                return _ok({"found": False, "user": None})
+                return _ok(ConcurrentStableDict({"found": False, "user": None}))
             return _ok(
-                {
-                    "found": True,
-                    "user": {
-                        "id": user_id,
-                        "username": user["username"],
-                        "name": user["name"],
-                        "status": user["status"],
-                        "locale": None,
-                        "timezone": None,
-                    },
-                }
+                ConcurrentStableDict(
+                    {
+                        "found": True,
+                        "user": ConcurrentStableDict(
+                            {
+                                "id": user_id,
+                                "username": user["username"],
+                                "name": user["name"],
+                                "status": user["status"],
+                                "locale": None,
+                                "timezone": None,
+                            }
+                        ),
+                    }
+                )
             )
-        return _ok({})
+        return _ok(ConcurrentStableDict())
 
 
 def _ok(data: ConcurrentStableDict[str, object]) -> ServiceResponse:
@@ -170,4 +175,5 @@ def _ok(data: ConcurrentStableDict[str, object]) -> ServiceResponse:
     Returns:
         ServiceResponse: 统一响应。
     """
-    return ServiceResponse(status_code=200, content=json.dumps({"code": 0, "message": "ok", "data": data}).encode())
+    payload = {"code": 0, "message": "ok", "data": normalize_collections(data)}
+    return ServiceResponse(status_code=200, content=json.dumps(payload).encode())
