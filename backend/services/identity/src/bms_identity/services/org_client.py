@@ -61,7 +61,7 @@ class OrgCredentialClient(BaseFrameworkObject):
         Raises:
             ServiceUnavailableError: 下游不可达 / 响应非法（10007/503）。
         """
-        data = await self._post("verify", tenant, {"account": account, "password": password})
+        data = await self._post("verify", tenant, ConcurrentStableDict({"account": account, "password": password}))
         return OrgVerifyResult.model_validate(data)
 
     async def update_password(self, tenant: str | None, account: str, new_password: str) -> bool:
@@ -80,7 +80,9 @@ class OrgCredentialClient(BaseFrameworkObject):
             PasswordReusedError: 命中近 N 次历史密码（30006）。
             ServiceUnavailableError: 下游不可达 / 响应非法（10007/503）。
         """
-        data = await self._post("update-password", tenant, {"account": account, "new_password": new_password})
+        data = await self._post(
+            "update-password", tenant, ConcurrentStableDict({"account": account, "new_password": new_password})
+        )
         outcome = OrgUpdatePasswordResult.model_validate(data)
         if outcome.updated:
             return True
@@ -139,7 +141,7 @@ class OrgCredentialClient(BaseFrameworkObject):
             "/api/v1/org/internal/users/profile",
             _PROFILE_SCOPES,
             tenant,
-            {"user_id": user_id},
+            ConcurrentStableDict({"user_id": user_id}),
             interface=_PROFILE_INTERFACE,
         )
         return OrgProfileResult.model_validate(data)
@@ -161,7 +163,7 @@ class OrgCredentialClient(BaseFrameworkObject):
             "/api/v1/org/internal/users/reset-target",
             _PROFILE_SCOPES,
             tenant,
-            {"identifier": identifier},
+            ConcurrentStableDict({"identifier": identifier}),
             interface=_PROFILE_INTERFACE,
         )
         return OrgResetTargetResult.model_validate(data)
@@ -282,7 +284,7 @@ def _payload(response: ServiceResponse, interface: str) -> ConcurrentStableDict[
     payload = response.payload()
     if not isinstance(payload, dict):
         raise ServiceUnavailableError(f"{interface}返回非法响应")
-    body = cast("dict[str, object]", payload)
+    body = ConcurrentStableDict(cast("dict[str, object]", payload))
     if body.get("code") != 0:
         raise ServiceUnavailableError(f"{interface}返回非法响应")
     return body

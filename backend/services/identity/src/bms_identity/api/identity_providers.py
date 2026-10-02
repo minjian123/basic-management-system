@@ -14,6 +14,7 @@ from fastapi import Depends, Path, Request
 from bms_core.api.base import AuthContext, BaseRouter, page_query, require_auth
 from bms_core.api.deps import get_audit_capturer, get_rate_limiter, get_tenant
 from bms_core.audit.base import AuditCapturer
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.exceptions import AuthError
 from bms_core.db.registry import EngineRegistry
 from bms_core.db.session import DbSession, session_scope
@@ -168,7 +169,11 @@ async def list_providers(
         service = _build(request, session, audit, limiter)
         rows, total = await service.list(query, status=status, type=type, name=name)
         items = [service.item(row) for row in rows]
-    return ApiResponse.ok(BasePageResponse[IdpProviderItem](list=items, total=total, page=query.page, size=query.size))
+    return ApiResponse.ok(
+        BasePageResponse[IdpProviderItem](
+            list=ConcurrentStableList(items), total=total, page=query.page, size=query.size
+        )
+    )
 
 
 @router.post("/test")

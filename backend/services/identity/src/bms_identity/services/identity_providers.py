@@ -315,17 +315,18 @@ class IdentityProviderService(BaseFrameworkObject):
 
         读取侧对存量脏配置（非法 JSON）容错为空对象（不阻断列表 / 详情）。
         """
+        config: ConcurrentStableDict[str, object]
         try:
             config = _row_config(row)
         except IdpConfigInvalidError:
-            config = {}
+            config = ConcurrentStableDict()
         return IdpProviderItem(
             id=row.id,
             name=row.name,
             idp_key=row.idp_key,
             type=row.type,
             icon=row.icon or "",
-            config=dict(mask_provider_config(row.type, ConcurrentStableDict(config))),
+            config=mask_provider_config(row.type, ConcurrentStableDict(config)),
             secret_configured=has_secret(row.type, ConcurrentStableDict(config)),
             status=row.status,
             sort=row.sort,
@@ -394,7 +395,7 @@ class IdentityProviderService(BaseFrameworkObject):
             row: IdP 行。
             actor: 操作者用户 ID（可选）。
         """
-        self._audit.capture(table=_TABLE, model_id=row.id, changes=[], actor=actor)
+        self._audit.capture(table=_TABLE, model_id=row.id, changes=ConcurrentStableList(), actor=actor)
 
     def _record_id(self, provider_id: int, actor: int | None) -> None:
         """软删除审计占位（行已删除，只记主键）。
@@ -403,7 +404,7 @@ class IdentityProviderService(BaseFrameworkObject):
             provider_id: 主键。
             actor: 操作者用户 ID（可选）。
         """
-        self._audit.capture(table=_TABLE, model_id=provider_id, changes=[], actor=actor)
+        self._audit.capture(table=_TABLE, model_id=provider_id, changes=ConcurrentStableList(), actor=actor)
 
 
 def _ensure_status(status: str) -> None:

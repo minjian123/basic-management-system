@@ -134,7 +134,7 @@ async def _run_list(
         service = ClientService(session=session, uow=DbUnitOfWork(session), password_hasher=hasher, audit=audit)
         rows, total = await service.list(query, status=status, name=name)
     return BasePageResponse[ClientItem](
-        list=[_item(row) for row in rows],
+        list=ConcurrentStableList(_item(row) for row in rows),
         total=total,
         page=query.page,
         size=query.size,

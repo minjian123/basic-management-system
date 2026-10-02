@@ -10,6 +10,7 @@ from typing import Annotated
 from fastapi import Depends, Path, Request
 
 from bms_core.api.base import BaseRouter, require_auth
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.db.registry import PLATFORM_DB_KEY, EngineRegistry
 from bms_core.db.session import session_scope
 from bms_core.permission.base import require_permission
@@ -42,7 +43,7 @@ async def list_identities(request: Request, user_id: UserIdPath) -> ApiResponse[
     factory = request.app.state.session_factory
     async with session_scope(registry, db_key=PLATFORM_DB_KEY, read_only=True, factory=factory) as session:
         rows = await UserIdentityRepository(session).list_by_user(user_id)
-    items = [
+    items = ConcurrentStableList(
         SsoIdentityItem(idp_key=row.idp_key, external_id=row.external_id, tenant_id=str(row.tenant_id)) for row in rows
-    ]
+    )
     return ApiResponse.ok(SsoIdentityList(items=items))

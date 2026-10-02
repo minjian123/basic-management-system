@@ -222,7 +222,7 @@ class JitService(BaseFrameworkObject):
                 platform_session,
                 EventEnvelope(
                     event_type=JIT_EVENT_TYPE,
-                    payload={"user_id": str(user.id), "idp_key": mapping_key},
+                    payload=ConcurrentStableDict({"user_id": str(user.id), "idp_key": mapping_key}),
                     tenant_id=tenant_id,
                     aggregate_key=mapping_key,
                 ),

@@ -22,7 +22,7 @@ class CaptchaInput(BaseSchema):
     kind: str = Field(default="image", description="验证码形态（image / slider / sms）")
     code: str = Field(default="", description="校验码（图形 / 短信）")
     trace: Annotated[ConcurrentStableList[tuple[int, int, int]], CONTRACT_COLLECTION] = Field(
-        default_factory=ConcurrentStableList, description="滑块轨迹点（x / y / 相对起点毫秒）"
+        default_factory=CONTRACT_STABLE_LIST, description="滑块轨迹点（x / y / 相对起点毫秒）"
     )
 
 
