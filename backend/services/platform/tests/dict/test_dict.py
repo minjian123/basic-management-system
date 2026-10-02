@@ -69,13 +69,15 @@ class _InMemoryDictSource(BaseDictSource):
     async def batch(self, query: DictBatchQuery) -> DictBatchResult:
         self.last_batch = query
         if query.version == 9:
-            return DictBatchResult(version=9, items={name: None for name in query.types})
+            return DictBatchResult(version=9, items=ConcurrentStableDict({name: None for name in query.types}))
         return DictBatchResult(
             version=9,
-            items={
-                name: DictTypeResult(version=9, items=(DictItem(value=name, label=name),), total=1)
-                for name in query.types
-            },
+            items=ConcurrentStableDict(
+                {
+                    name: DictTypeResult(version=9, items=(DictItem(value=name, label=name),), total=1)
+                    for name in query.types
+                }
+            ),
         )
 
 

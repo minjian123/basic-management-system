@@ -61,11 +61,13 @@ def test_page_query_defaults_and_bounds() -> None:
 @pytest.mark.kiwi_id(13)
 def test_page_and_cursor_response_contracts() -> None:
     """页码 / 游标分页响应组装与序列化；游标请求默认 cursor 为空。"""
-    page = BasePageResponse[DemoResponse](list=[DemoResponse(id=1, name="甲")], total=1, page=1, size=20)
+    page = BasePageResponse[DemoResponse](
+        list=ConcurrentStableList([DemoResponse(id=1, name="甲")]), total=1, page=1, size=20
+    )
     assert page.to_dict()["total"] == 1
     assert page.to_dict()["list"] == [{"id": "1", "name": "甲"}]
 
-    cursor = BaseCursorResponse[DemoResponse](list=[], next_cursor=None, has_more=False)
+    cursor = BaseCursorResponse[DemoResponse](list=ConcurrentStableList([]), next_cursor=None, has_more=False)
     assert cursor.to_dict() == {"list": [], "next_cursor": None, "has_more": False}
 
     query = BaseCursorQuery()
@@ -97,5 +99,5 @@ class _IdListSchema(BaseSchema):
 def test_id_fields_serialized_as_string() -> None:
     """`id` / `*_id` 序列化为字符串；其余整型原样保留（含嵌套）。"""
     assert _IdSchema(id=1, owner_id=2, other=3).model_dump() == {"id": "1", "owner_id": "2", "other": 3}
-    nested = _IdListSchema(items=[_IdSchema(id=4, owner_id=5, other=6)]).model_dump()
+    nested = _IdListSchema(items=ConcurrentStableList([_IdSchema(id=4, owner_id=5, other=6)])).model_dump()
     assert nested == {"items": [{"id": "4", "owner_id": "5", "other": 6}]}

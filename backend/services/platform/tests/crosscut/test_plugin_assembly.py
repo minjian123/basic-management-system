@@ -10,6 +10,7 @@ import bms_core as app_pkg
 from bms_core.application import service_lifespan as lifespan
 from bms_core.core import plugin as plugin_module
 from bms_core.core.base import BaseObject
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.config import LogSettings, PluginSelection, Settings
 from bms_core.core.logging import configure_logging
 from bms_core.core.plugin import BasePluggable, PluginRegistry, resolve_plugin
@@ -138,7 +139,7 @@ async def test_startup_log_excludes_options(
 ) -> None:
     """启动日志：含各能力 provider；`options` 值不出现在输出。"""
     settings = Settings(
-        storage=PluginSelection(provider="", options={"secret_key": "top-secret"}),
+        storage=PluginSelection(provider="", options=ConcurrentStableDict({"secret_key": "top-secret"})),
     )
     monkeypatch.setattr("bms_core.application.get_settings", lambda: settings)
     app = ApplicationFactory().create(None)

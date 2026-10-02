@@ -10,6 +10,7 @@ from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
 from bms_core.application import service_lifespan as lifespan
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.config import PluginSelection, Settings
 from bms_platform.main import ApplicationFactory
 from tests_support.auth import auth_headers
@@ -78,7 +79,9 @@ async def test_unknown_plugin_returns_404(client: AsyncClient) -> None:
 @pytest.mark.kiwi_id(566)
 async def test_response_excludes_options_secrets(monkeypatch: pytest.MonkeyPatch) -> None:
     """响应不含 `options` 密钥：配置中的敏感选项值不出现在响应文本。"""
-    settings = Settings(storage=PluginSelection(provider="", options={"secret_key": "top-secret"}))
+    settings = Settings(
+        storage=PluginSelection(provider="", options=ConcurrentStableDict({"secret_key": "top-secret"}))
+    )
     monkeypatch.setattr("bms_core.application.get_settings", lambda: settings)
     app = ApplicationFactory().create(None)
     async with lifespan(app), AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
@@ -117,7 +120,9 @@ async def test_aggregate_path_in_openapi(service_app: FastAPI) -> None:
 @pytest.mark.kiwi_id(2190)
 async def test_aggregate_excludes_options_secrets(monkeypatch: pytest.MonkeyPatch) -> None:
     """聚合占位响应不含 `options` 密钥。"""
-    settings = Settings(storage=PluginSelection(provider="", options={"secret_key": "top-secret"}))
+    settings = Settings(
+        storage=PluginSelection(provider="", options=ConcurrentStableDict({"secret_key": "top-secret"}))
+    )
     monkeypatch.setattr("bms_core.application.get_settings", lambda: settings)
     app = ApplicationFactory().create(None)
     async with lifespan(app), AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:

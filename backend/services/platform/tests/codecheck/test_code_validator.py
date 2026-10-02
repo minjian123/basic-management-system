@@ -23,7 +23,7 @@ from bms_core.codecheck.base import (
 )
 from bms_core.codecheck.null import NullCodeValidator
 from bms_core.core.capability import BaseCapability, BaseNullObject
-from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.error_codes import ErrorCode
 from bms_core.core.plugin import BasePluggable, resolve_plugin
 from bms_core.ratelimit.base import RateLimitRule
@@ -127,7 +127,11 @@ async def test_null_validate_expression_always_passes() -> None:
 
     result = await validator.validate_expression("dept_id = @current_dept")
     assert result == ExpressionValidationResult()
-    context = ExpressionContext(scope="data_scope", fields=["dept_id"], variables=["@current_dept"])
+    context = ExpressionContext(
+        scope="data_scope",
+        fields=ConcurrentStableList(["dept_id"]),
+        variables=ConcurrentStableList(["@current_dept"]),
+    )
     assert await validator.validate_expression("dept_id = @current_dept", context=context) == result
 
 
@@ -208,9 +212,11 @@ class _StubValidator:
         del sql, datasource
         return SqlValidationResult(
             valid=False,
-            issues=[ValidationIssue(level="warning", kind="whitelist", message="仅支持 SELECT", line=2, column=3)],
-            columns=[ValidationColumn(name="amount", type="decimal")],
-            rows=[{"amount": "1.00"}],
+            issues=ConcurrentStableList(
+                [ValidationIssue(level="warning", kind="whitelist", message="仅支持 SELECT", line=2, column=3)]
+            ),
+            columns=ConcurrentStableList([ValidationColumn(name="amount", type="decimal")]),
+            rows=ConcurrentStableList([ConcurrentStableDict({"amount": "1.00"})]),
             cost_ms=12,
             truncated=True,
         )
@@ -231,7 +237,9 @@ class _StubValidator:
             ExpressionValidationResult: 含单条字段类诊断的结果。
         """
         del expr, context
-        return ExpressionValidationResult(valid=False, issues=[ValidationIssue(kind="field", message="字段不存在：x")])
+        return ExpressionValidationResult(
+            valid=False, issues=ConcurrentStableList([ValidationIssue(kind="field", message="字段不存在：x")])
+        )
 
 
 @pytest.mark.kiwi_id(927)
