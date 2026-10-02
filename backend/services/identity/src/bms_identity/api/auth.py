@@ -9,7 +9,7 @@ from typing import Annotated
 
 from fastapi import Depends, Header, Request, Response
 
-from bms_core.api.base import BaseRouter
+from bms_core.api.base import AuthContext, BaseRouter, require_auth
 from bms_core.api.deps import (
     get_captcha,
     get_rate_limiter,
@@ -48,8 +48,9 @@ from bms_identity.schemas.auth import (
     LoginRequest,
     LoginResult,
     RefreshResult,
+    UserSummary,
 )
-from bms_identity.services.auth import LoginService
+from bms_identity.services.auth import CurrentUserService, LoginService
 from bms_identity.services.org_client import OrgCredentialClient
 
 router = BaseRouter(key="auth", prefix="/auth", tags=["auth"], default_responses=False)
@@ -158,6 +159,7 @@ ClientDep = Annotated[BaseServiceClient, Depends(get_service_client)]
 PublisherDep = Annotated[BaseRealtimePublisher, Depends(get_realtime_publisher)]
 TenantDep = Annotated[TenantContext | None, Depends(get_tenant)]
 TenantSourceDep = Annotated[TenantLookup, Depends(get_tenant_source)]
+AuthDep = Annotated[AuthContext, Depends(require_auth)]
 
 
 def _build_service(
@@ -385,3 +387,23 @@ async def logout(
             await service.logout(token, tenant_id=str(tenant_ctx.tenant_id))
     clear_refresh_cookie(response)
     return ApiResponse.ok(None)
+
+
+@router.get("/me", responses={401: {"model": ApiResponse, "description": "未认证"}})
+async def me(auth: AuthDep, client: ClientDep) -> ApiResponse[UserSummary]:
+    """当前用户概要（首屏静默续期恢复用户上下文）。
+
+    字段与登录响应**同字段、同语义**；用户不存在 / 账号停用按登录态失效（401）返回，前端据此走
+    统一 401 路径（清会话 + 跳登录）；org 不可达按 `10007` / 503 fail-closed。
+
+    Args:
+        auth: 登录态身份契约（用户主键 / 租户主键与编码）。
+        client: 服务间调用客户端（构造 org 内部接口客户端）。
+
+    Returns:
+        ApiResponse: 统一响应，data 为用户概要（`UserSummary`）。
+    """
+    service = CurrentUserService(OrgCredentialClient(client))
+    return ApiResponse.ok(
+        await service.current_user(user_id=auth.user_id, tenant_id=auth.tenant_id, tenant_code=auth.tenant_code)
+    )
