@@ -27,8 +27,10 @@ from bms_core.boundary.exceptions import (
 from bms_core.boundary.null import NullDataOwnershipGuard
 from bms_core.boundary.sql import analyze, extract_tables, operation_of
 from bms_core.boundary.table import TableOwnershipGuard
+from bms_core.core import plugin as plugin_module
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.exceptions import ConfigError, DataOwnershipError
+from bms_core.core.plugin import PluginRegistry
 from bms_core.metrics.null import NullMetrics
 
 
@@ -294,8 +296,17 @@ def test_guard_assess_failure_degrades(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.mark.kiwi_id(2171)
-def test_get_data_ownership_guard_provider() -> None:
-    """依赖注入提供者按配置解析守卫（空 provider → null 缺省）。"""
+def test_get_data_ownership_guard_provider(monkeypatch: pytest.MonkeyPatch) -> None:
+    """依赖注入提供者按配置解析守卫（空 provider → null 缺省）。
+
+    以**隔离注册表**替换进程级默认实例——`resolve_plugin` 会冻结（`build`）默认注册表，
+    直接解析真实默认实例会使后续构建应用（如 `contract_gate`）再登记即抛「运行期只读」，
+    造成用例间顺序耦合（隔离范式同 `tests/core` / `tests/masking` / `tests/permission`）。
+    """
+    registry = PluginRegistry()
+    registry.register("data_ownership_guard", "null", lambda: NullDataOwnershipGuard())
+    monkeypatch.setattr(plugin_module, "_DEFAULT_REGISTRY", registry)
+
     request = SimpleNamespace(
         app=SimpleNamespace(
             state=SimpleNamespace(settings=SimpleNamespace(data_ownership=SimpleNamespace(provider="")))
