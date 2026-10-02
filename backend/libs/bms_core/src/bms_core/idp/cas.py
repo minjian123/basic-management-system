@@ -43,11 +43,11 @@ _DEFAULT_SERVICE_VALIDATE_PATH = "/p3/serviceValidate"
 _MAX_RESPONSE_BYTES = 256 * 1024
 """响应体上限（字节；超限按 IdP 响应非法处理，防超大 / 膨胀响应）。"""
 
-_DEFAULT_ATTRIBUTE_MAP: ConcurrentStableDict[str, tuple[str, ...]] = ConcurrentStableDict(
+_DEFAULT_ATTRIBUTE_MAP: ConcurrentStableDict[str, ConcurrentStableList[str]] = ConcurrentStableDict(
     {
-        "username": ("username", "uid", "userName", "account"),
-        "name": ("displayName", "cn", "name"),
-        "email": ("email", "mail"),
+        "username": ConcurrentStableList(["username", "uid", "userName", "account"]),
+        "name": ConcurrentStableList(["displayName", "cn", "name"]),
+        "email": ConcurrentStableList(["email", "mail"]),
     }
 )
 """属性映射默认候选（行配置 `attribute_map` 同名键覆盖）。"""
@@ -219,7 +219,7 @@ class CasIdentityProvider(BaseIdentityProvider):
         Returns:
             str: 首个非空属性值；无命中返回空串。
         """
-        for candidate in self._attribute_map.get(field, ()):
+        for candidate in self._attribute_map.get(field) or ConcurrentStableList():
             value = attributes.get(candidate, "").strip()
             if value:
                 return value
@@ -265,14 +265,14 @@ class CasIdentityProviderFactory(BasePluginFactory[CasIdentityProvider]):
         )
 
 
-def normalize_attribute_map(raw: object) -> ConcurrentStableDict[str, tuple[str, ...]]:
+def normalize_attribute_map(raw: object) -> ConcurrentStableDict[str, ConcurrentStableList[str]]:
     """归一化行配置属性映射覆盖（校验类型）。
 
     Args:
         raw: 行配置 `attribute_map` 原始值。
 
     Returns:
-        ConcurrentStableDict[str, tuple[str, ...]]: 字段 → 候选属性名（仅含合法字段；空返回空映射）。
+        ConcurrentStableDict[str, ConcurrentStableList[str]]: 字段 → 候选属性名（仅含合法字段；空返回空映射）。
 
     Raises:
         ConfigError: 非对象 / 值非字符串数组（40001）。
@@ -281,14 +281,14 @@ def normalize_attribute_map(raw: object) -> ConcurrentStableDict[str, tuple[str,
         return ConcurrentStableDict()
     if not isinstance(raw, Mapping):
         raise ConfigError("身份源行配置 attribute_map 必须是对象")
-    normalized: ConcurrentStableDict[str, tuple[str, ...]] = ConcurrentStableDict()
+    normalized: ConcurrentStableDict[str, ConcurrentStableList[str]] = ConcurrentStableDict()
     for key, value in cast("Mapping[object, object]", raw).items():
         field = str(key)
         if field not in _FIELDS:
             continue
         if not isinstance(value, (list, tuple)):
             raise ConfigError(f"身份源行配置 attribute_map.{field} 必须是字符串数组")
-        names = tuple(
+        names = ConcurrentStableList(
             str(item).strip() for item in cast("list[object] | tuple[object, ...]", value) if str(item).strip()
         )
         normalized.set(field, names)
@@ -297,23 +297,23 @@ def normalize_attribute_map(raw: object) -> ConcurrentStableDict[str, tuple[str,
 
 def _merge_attribute_map(
     overrides: ConcurrentStableDict[str, ConcurrentStableList[str]] | None,
-) -> ConcurrentStableDict[str, tuple[str, ...]]:
+) -> ConcurrentStableDict[str, ConcurrentStableList[str]]:
     """合并默认映射与覆盖（按字段覆盖）。
 
     Args:
         overrides: 行配置 / 单例配置覆盖。
 
     Returns:
-        ConcurrentStableDict[str, tuple[str, ...]]: 合并后的字段 → 候选属性名。
+        ConcurrentStableDict[str, ConcurrentStableList[str]]: 合并后的字段 → 候选属性名。
     """
-    merged: ConcurrentStableDict[str, tuple[str, ...]] = ConcurrentStableDict(
-        {field: tuple(names) for field, names in _DEFAULT_ATTRIBUTE_MAP.items()}
+    merged: ConcurrentStableDict[str, ConcurrentStableList[str]] = ConcurrentStableDict(
+        {field: ConcurrentStableList(names) for field, names in _DEFAULT_ATTRIBUTE_MAP.items()}
     )
     if overrides:
         for field, names in overrides.items():
             if field not in _FIELDS:
                 continue
-            merged.set(field, tuple(name for name in names if name))
+            merged.set(field, ConcurrentStableList(name for name in names if name))
     return merged
 
 

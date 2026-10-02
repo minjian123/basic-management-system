@@ -175,7 +175,7 @@ def verify_jwt(
         audience=_audience_claim(claims.get("aud")),
         expires_at=_int_claim(claims.get("exp")),
         issued_at=_int_claim(claims.get("iat")),
-        payload=claims,
+        payload=ConcurrentStableDict(claims),
     )
 
 

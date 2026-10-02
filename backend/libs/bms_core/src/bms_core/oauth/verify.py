@@ -218,7 +218,7 @@ def _from_claims(claims: IdentityClaims) -> VerifiedToken:
         expires_at=claims.expires_at,
         issued_at=claims.issued_at,
         token_id=str(payload.get("jti") or ""),
-        payload=payload,
+        payload=ConcurrentStableDict(payload),
     )
 
 
