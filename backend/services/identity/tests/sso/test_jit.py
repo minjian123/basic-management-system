@@ -11,7 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.core.exceptions import (
     ConfigError,
@@ -195,7 +195,7 @@ async def test_provision_disabled_and_whitelist() -> None:
         )
 
     tenant_settings = Settings()
-    tenant_settings.sso.jit_allowed_tenants = ["other"]
+    tenant_settings.sso.jit_allowed_tenants = ConcurrentStableList(["other"])
     with pytest.raises(SsoIdentityUnmatchedError):
         await _service(org, settings=tenant_settings).provision(
             tenant_id=TENANT_ID,

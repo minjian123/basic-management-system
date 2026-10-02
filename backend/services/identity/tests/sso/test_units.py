@@ -7,6 +7,7 @@ from typing import cast
 
 import pytest
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.config import Settings
 from bms_core.core.exceptions import ConfigError, SsoCallbackError, TenantNotFoundError
 from bms_core.db.tenant import TenantLookup
@@ -45,8 +46,11 @@ def test_provider_registry_helper_branches() -> None:
     with pytest.raises(ConfigError):
         _parse_config("[1,2]", "keycloak")
     assert _parse_config(None, "keycloak") == {}
-    assert _resolve_redirect_uri({}, "keycloak", "") == ""
-    assert _resolve_redirect_uri({}, "keycloak", "http://cb.test") == "http://cb.test/api/v1/auth/sso/keycloak/callback"
+    assert _resolve_redirect_uri(ConcurrentStableDict(), "keycloak", "") == ""
+    assert (
+        _resolve_redirect_uri(ConcurrentStableDict(), "keycloak", "http://cb.test")
+        == "http://cb.test/api/v1/auth/sso/keycloak/callback"
+    )
     assert _normalize_updated_at(None) == ""
     moment = datetime(2026, 1, 1, tzinfo=UTC)
     assert _normalize_updated_at(moment) == moment.isoformat()

@@ -78,7 +78,7 @@ class _FailingIssuer(BaseServiceTokenIssuer):
 
     def jwks(self) -> ConcurrentStableDict[str, object]:
         """空 JWKS。"""
-        return {"keys": []}
+        return ConcurrentStableDict({"keys": ConcurrentStableList()})
 
     def verify(self, token: str) -> IdentityClaims:
         """占位不验签（不参与本用例）。"""
@@ -128,7 +128,7 @@ async def _request(
         app.dependency_overrides[get_tenant_source] = lambda: _TenantSource()
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             response = await client.get(_INTROSPECT, headers=headers or {})
-        return response.status_code, dict(response.headers)
+        return response.status_code, ConcurrentStableDict(response.headers)
 
 
 def test_public_path_without_token_passes() -> None:
@@ -137,7 +137,7 @@ def test_public_path_without_token_passes() -> None:
         _request(
             verifier=_StubVerifier(result=VerifiedToken(subject="u-1")),
             issuer=_issuer(),
-            headers={"X-Forwarded-Uri": "/api/identity/v1/auth/login"},
+            headers=ConcurrentStableDict({"X-Forwarded-Uri": "/api/identity/v1/auth/login"}),
         )
     )
     assert status == 200
@@ -151,7 +151,7 @@ def test_public_path_prefix_match_passes() -> None:
         _request(
             verifier=_StubVerifier(result=VerifiedToken(subject="u-1")),
             issuer=_issuer(),
-            headers={"X-Forwarded-Uri": "/api/identity/v1/captcha/abc?reload=1"},
+            headers=ConcurrentStableDict({"X-Forwarded-Uri": "/api/identity/v1/captcha/abc?reload=1"}),
         )
     )
     assert status == 200
@@ -174,7 +174,9 @@ def test_protected_path_with_minimal_claims_omits_optional_headers() -> None:
         _request(
             verifier=_StubVerifier(result=VerifiedToken(subject="u-1")),
             issuer=_issuer(),
-            headers={"Authorization": "Bearer user-token", "X-Forwarded-Uri": "/api/platform/v1/users"},
+            headers=ConcurrentStableDict(
+                {"Authorization": "Bearer user-token", "X-Forwarded-Uri": "/api/platform/v1/users"}
+            ),
         )
     )
     assert status == 200
@@ -195,7 +197,9 @@ def test_protected_path_with_valid_token_issues_gateway_token() -> None:
         _request(
             verifier=verifier,
             issuer=issuer,
-            headers={"Authorization": "Bearer user-token", "X-Forwarded-Uri": "/api/platform/v1/users"},
+            headers=ConcurrentStableDict(
+                {"Authorization": "Bearer user-token", "X-Forwarded-Uri": "/api/platform/v1/users"}
+            ),
         )
     )
     assert status == 200
@@ -215,7 +219,7 @@ def test_protected_path_without_token_is_unauthorized() -> None:
         _request(
             verifier=_StubVerifier(result=VerifiedToken(subject="u-1")),
             issuer=_issuer(),
-            headers={"X-Forwarded-Uri": "/api/platform/v1/users"},
+            headers=ConcurrentStableDict({"X-Forwarded-Uri": "/api/platform/v1/users"}),
         )
     )
     assert status == 401
@@ -228,7 +232,7 @@ def test_protected_path_with_invalid_token_is_unauthorized() -> None:
         _request(
             verifier=_StubVerifier(error=AuthError("bad token")),
             issuer=_issuer(),
-            headers={"Authorization": "Bearer bad", "X-Forwarded-Uri": "/api/platform/v1/users"},
+            headers=ConcurrentStableDict({"Authorization": "Bearer bad", "X-Forwarded-Uri": "/api/platform/v1/users"}),
         )
     )
     assert status == 401
@@ -240,7 +244,7 @@ def test_protected_path_with_idp_unavailable_is_unavailable() -> None:
         _request(
             verifier=_StubVerifier(error=ServiceUnavailableError("jwks down")),
             issuer=_issuer(),
-            headers={"Authorization": "Bearer x", "X-Forwarded-Uri": "/api/platform/v1/users"},
+            headers=ConcurrentStableDict({"Authorization": "Bearer x", "X-Forwarded-Uri": "/api/platform/v1/users"}),
         )
     )
     assert status == 503
@@ -252,7 +256,9 @@ def test_issuance_failure_is_unavailable() -> None:
         _request(
             verifier=_StubVerifier(result=VerifiedToken(subject="u-1")),
             issuer=_FailingIssuer(),
-            headers={"Authorization": "Bearer user-token", "X-Forwarded-Uri": "/api/platform/v1/users"},
+            headers=ConcurrentStableDict(
+                {"Authorization": "Bearer user-token", "X-Forwarded-Uri": "/api/platform/v1/users"}
+            ),
         )
     )
     assert status == 503

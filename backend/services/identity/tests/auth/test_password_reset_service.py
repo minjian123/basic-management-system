@@ -6,6 +6,7 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.config import PasswordResetSettings
 from bms_core.core.exceptions import (
     PasswordPolicyViolationError,
@@ -200,13 +201,18 @@ async def test_reset_password_token_payload_and_not_found() -> None:
         await service.reset_password("ghost-token", "NewSecret1!", tenant_id=TENANT_ID, tenant_code=TENANT)
     assert missing.value.code == 20005 and missing.value.http_status == 400
 
-    await states.save("dirty", {"user_id": "x", "account": 1}, tenant=TENANT_ID, namespace=PASSWORD_RESET_NAMESPACE)
+    await states.save(
+        "dirty",
+        ConcurrentStableDict({"user_id": "x", "account": 1}),
+        tenant=TENANT_ID,
+        namespace=PASSWORD_RESET_NAMESPACE,
+    )
     with pytest.raises(PasswordResetTokenError):
         await service.reset_password("dirty", "NewSecret1!", tenant_id=TENANT_ID, tenant_code=TENANT)
 
     await states.save(
         "ghost",
-        {"user_id": 999, "account": "nobody", "tenant": "demo"},
+        ConcurrentStableDict({"user_id": 999, "account": "nobody", "tenant": "demo"}),
         tenant="demo",
         namespace=PASSWORD_RESET_NAMESPACE,
     )
@@ -226,14 +232,20 @@ async def test_reset_password_policy_and_history_mapping() -> None:
     service = _service(session, org=org, states=states)
 
     await states.save(
-        "weak-token", {"user_id": 1001, "account": "admin"}, tenant=TENANT_ID, namespace=PASSWORD_RESET_NAMESPACE
+        "weak-token",
+        ConcurrentStableDict({"user_id": 1001, "account": "admin"}),
+        tenant=TENANT_ID,
+        namespace=PASSWORD_RESET_NAMESPACE,
     )
     with pytest.raises(PasswordPolicyViolationError) as weak:
         await service.reset_password("weak-token", "weak", tenant_id=TENANT_ID, tenant_code=TENANT)
     assert weak.value.code == 30005 and weak.value.data == {"violations": ["too_short"]}
 
     await states.save(
-        "old-token", {"user_id": 1001, "account": "admin"}, tenant=TENANT_ID, namespace=PASSWORD_RESET_NAMESPACE
+        "old-token",
+        ConcurrentStableDict({"user_id": 1001, "account": "admin"}),
+        tenant=TENANT_ID,
+        namespace=PASSWORD_RESET_NAMESPACE,
     )
     with pytest.raises(PasswordReusedError) as reused:
         await service.reset_password("old-token", "old-pass", tenant_id=TENANT_ID, tenant_code=TENANT)
@@ -264,7 +276,10 @@ async def test_revoke_user_sessions_continues_on_cleanup_failure() -> None:
     states = MemoryIdpStateStore()
     service = _service(session, org=org, states=states, store=_ExplodingStore())
     await states.save(
-        "boom", {"user_id": 1001, "account": "admin"}, tenant=TENANT_ID, namespace=PASSWORD_RESET_NAMESPACE
+        "boom",
+        ConcurrentStableDict({"user_id": 1001, "account": "admin"}),
+        tenant=TENANT_ID,
+        namespace=PASSWORD_RESET_NAMESPACE,
     )
 
     result = await service.reset_password("boom", "NewSecret1!", tenant_id=TENANT_ID, tenant_code=TENANT)

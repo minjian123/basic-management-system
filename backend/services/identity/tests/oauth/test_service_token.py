@@ -12,6 +12,7 @@ from typing import cast
 import pytest
 from joserfc.jwk import ECKey, RSAKey
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.config import ServiceTokenSettings, Settings, TokenKeySettings
 from bms_core.core.exceptions import AuthError, ConfigError
 from bms_core.oauth.base import NULL_ACCESS_TOKEN, OAuthToken
@@ -212,7 +213,9 @@ def test_settings_and_factory() -> None:
             issuer="bms-test",
             ttl_seconds=120,
             active_kid="k1",
-            keys={"k1": TokenKeySettings(algorithm="RS256", public_key=key.public_key, private_key=key.private_key)},
+            keys=ConcurrentStableDict(
+                {"k1": TokenKeySettings(algorithm="RS256", public_key=key.public_key, private_key=key.private_key)}
+            ),
         )
     )
     issuer = JwtServiceTokenIssuerFactory(settings).create(None)

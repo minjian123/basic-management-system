@@ -192,7 +192,7 @@ async def test_issue_pair_claims_and_ttls() -> None:
 @pytest.mark.kiwi_id(2193)
 async def test_issue_pair_ec_algorithm() -> None:
     """ES256 密钥可签发双 token 并通过本地验签。"""
-    issuer = _issuer(keys=[_ec_key()], active_kid="usr-e1")
+    issuer = _issuer(keys=ConcurrentStableList([_ec_key()]), active_kid="usr-e1")
     pair = await issuer.issue_pair(UserTokenSpec(subject="1001", session_id="sess-1"))
     assert issuer.verify(pair.access_token, expected_type=USER_TOKEN_TYPE_ACCESS).subject == "1001"
 
@@ -211,21 +211,21 @@ async def test_issue_pair_rejects_blank_fields() -> None:
 def test_kid_prefix_required() -> None:
     """用户令牌密钥 kid 必须带 `usr-` 前缀（构造即拒，拒绝装配）。"""
     with pytest.raises(ConfigError):
-        _issuer(keys=[_rsa_key("k1")], active_kid="k1")
+        _issuer(keys=ConcurrentStableList([_rsa_key("k1")]), active_kid="k1")
 
 
 @pytest.mark.kiwi_id(2193)
 async def test_type_strict_check() -> None:
     """类型强校验：refresh 不得当 access、access 不得当 refresh、类型缺失 / 非法均拒。"""
     key = _rsa_key()
-    issuer = _issuer(keys=[key], active_kid="usr-k1")
+    issuer = _issuer(keys=ConcurrentStableList([key]), active_kid="usr-k1")
     pair = await issuer.issue_pair(UserTokenSpec(subject="1001", session_id="sess-1"))
     with pytest.raises(AuthError):
         issuer.verify(pair.refresh_token, expected_type=USER_TOKEN_TYPE_ACCESS)
     with pytest.raises(AuthError):
         issuer.verify(pair.access_token, expected_type=USER_TOKEN_TYPE_REFRESH)
 
-    no_type = _craft(key, {k: v for k, v in _claims().items() if k != "type"})
+    no_type = _craft(key, ConcurrentStableDict({k: v for k, v in _claims().items() if k != "type"}))
     with pytest.raises(AuthError):
         issuer.verify(no_type, expected_type=USER_TOKEN_TYPE_ACCESS)
     with pytest.raises(AuthError):
@@ -236,7 +236,7 @@ async def test_type_strict_check() -> None:
 async def test_missing_subject_or_jti_rejected() -> None:
     """`sub` / `jti` 缺失即拒（会话标记与身份头都依赖这两个声明）。"""
     key = _rsa_key()
-    issuer = _issuer(keys=[key], active_kid="usr-k1")
+    issuer = _issuer(keys=ConcurrentStableList([key]), active_kid="usr-k1")
     with pytest.raises(AuthError):
         issuer.verify(_craft(key, _claims(sub="")), expected_type=USER_TOKEN_TYPE_ACCESS)
     with pytest.raises(AuthError):
@@ -247,12 +247,12 @@ async def test_missing_subject_or_jti_rejected() -> None:
 async def test_expired_wrong_aud_wrong_issuer_and_tampered_rejected() -> None:
     """过期 / `aud` / `iss` 不符 / 篡改签名均抛认证错误（伪造分支）。"""
     key = _rsa_key()
-    issuer = _issuer(keys=[key], access_ttl=-3600)
+    issuer = _issuer(keys=ConcurrentStableList([key]), access_ttl=-3600)
     expired = (await issuer.issue_pair(UserTokenSpec(subject="1001", session_id="sess-1"))).access_token
     with pytest.raises(AuthError):
         issuer.verify(expired, expected_type=USER_TOKEN_TYPE_ACCESS)
 
-    fresh = _issuer(keys=[key], access_ttl=_ACCESS_TTL)
+    fresh = _issuer(keys=ConcurrentStableList([key]), access_ttl=_ACCESS_TTL)
     with pytest.raises(AuthError):
         fresh.verify(_craft(key, _claims(aud=TOKEN_AUDIENCE_SERVICE)), expected_type=USER_TOKEN_TYPE_ACCESS)
     with pytest.raises(AuthError):
@@ -267,15 +267,15 @@ async def test_expired_wrong_aud_wrong_issuer_and_tampered_rejected() -> None:
 async def test_key_rotation_parallel_verification() -> None:
     """多密钥并行：新 kid 签发、旧 kid 票据在新密钥集下仍可验，淘汰后拒绝。"""
     old, new = _rsa_key("usr-old"), _rsa_key("usr-new")
-    first = _issuer(keys=[old], active_kid="usr-old")
+    first = _issuer(keys=ConcurrentStableList([old]), active_kid="usr-old")
     old_token = (await first.issue_pair(UserTokenSpec(subject="1001", session_id="sess-1"))).access_token
 
-    rotated = _issuer(keys=[old, new], active_kid="usr-new")
+    rotated = _issuer(keys=ConcurrentStableList([old, new]), active_kid="usr-new")
     new_pair = await rotated.issue_pair(UserTokenSpec(subject="1002", session_id="sess-2"))
     assert rotated.verify(new_pair.access_token, expected_type=USER_TOKEN_TYPE_ACCESS).subject == "1002"
     assert rotated.verify(old_token, expected_type=USER_TOKEN_TYPE_ACCESS).subject == "1001"
 
-    dropped = _issuer(keys=[new], active_kid="usr-new")
+    dropped = _issuer(keys=ConcurrentStableList([new]), active_kid="usr-new")
     with pytest.raises(AuthError):
         dropped.verify(old_token, expected_type=USER_TOKEN_TYPE_ACCESS)
 
@@ -283,7 +283,9 @@ async def test_key_rotation_parallel_verification() -> None:
 @pytest.mark.kiwi_id(2193)
 async def test_signing_key_selection_errors() -> None:
     """签发密钥选择：无签名私钥 / `active_kid` 未命中 / 多密钥未指定均拒；单私钥自动可选。"""
-    public_only = _issuer(keys=[TokenKey(kid="usr-p", public_key=_rsa_key().public_key)], active_kid="")
+    public_only = _issuer(
+        keys=ConcurrentStableList([TokenKey(kid="usr-p", public_key=_rsa_key().public_key)]), active_kid=""
+    )
     with pytest.raises(ConfigError):
         await public_only.issue_pair(UserTokenSpec(subject="1001", session_id="sess-1"))
 
@@ -291,18 +293,18 @@ async def test_signing_key_selection_errors() -> None:
     with pytest.raises(ConfigError):
         await wrong_kid.issue_pair(UserTokenSpec(subject="1001", session_id="sess-1"))
 
-    ambiguous = _issuer(keys=[_rsa_key("usr-k1"), _rsa_key("usr-k2")], active_kid="")
+    ambiguous = _issuer(keys=ConcurrentStableList([_rsa_key("usr-k1"), _rsa_key("usr-k2")]), active_kid="")
     with pytest.raises(ConfigError):
         await ambiguous.issue_pair(UserTokenSpec(subject="1001", session_id="sess-1"))
 
-    single = _issuer(keys=[_rsa_key("usr-only")], active_kid="")
+    single = _issuer(keys=ConcurrentStableList([_rsa_key("usr-only")]), active_kid="")
     assert (await single.issue_pair(UserTokenSpec(subject="1001", session_id="sess-1"))).access_token
 
 
 @pytest.mark.kiwi_id(2193)
 async def test_no_keys_fail_closed_on_use() -> None:
     """密钥集为空：允许构造（校验方只需公钥）、签发 `ConfigError`、验签 `AuthError`。"""
-    issuer = _issuer(keys=[], active_kid="")
+    issuer = _issuer(keys=ConcurrentStableList(), active_kid="")
     assert issuer.jwks() == {"keys": []}
     with pytest.raises(ConfigError):
         await issuer.issue_pair(UserTokenSpec(subject="1001", session_id="sess-1"))
@@ -313,23 +315,29 @@ async def test_no_keys_fail_closed_on_use() -> None:
 @pytest.mark.kiwi_id(2193)
 def test_jwks_public_only_and_merge_conflict() -> None:
     """`jwks` 只含公钥、按 kid 排序；`merge_jwks` 合并两类公钥、kid 冲突 / 结构非法即拒。"""
-    issuer = _issuer(keys=[_rsa_key("usr-k2"), _rsa_key("usr-k1")], active_kid="usr-k1")
+    issuer = _issuer(keys=ConcurrentStableList([_rsa_key("usr-k2"), _rsa_key("usr-k1")]), active_kid="usr-k1")
     entries = cast("list[dict[str, object]]", issuer.jwks()["keys"])
     assert [item["kid"] for item in entries] == ["usr-k1", "usr-k2"]
     assert all("d" not in item for item in entries)
 
-    merged = merge_jwks(issuer.jwks(), {"keys": [{"kid": "svc-k1", "kty": "RSA"}]})
+    merged = merge_jwks(
+        issuer.jwks(),
+        ConcurrentStableDict({"keys": [{"kid": "svc-k1", "kty": "RSA"}]}),
+    )
     merged_entries = cast("list[dict[str, object]]", merged["keys"])
     assert [item["kid"] for item in merged_entries] == ["svc-k1", "usr-k1", "usr-k2"]
 
     with pytest.raises(ConfigError):
-        merge_jwks(issuer.jwks(), {"keys": [{"kid": "usr-k1", "kty": "RSA"}]})
+        merge_jwks(
+            issuer.jwks(),
+            ConcurrentStableDict({"keys": [{"kid": "usr-k1", "kty": "RSA"}]}),
+        )
     with pytest.raises(ConfigError):
-        merge_jwks({"nokeys": []})
+        merge_jwks(ConcurrentStableDict({"nokeys": []}))
     with pytest.raises(ConfigError):
-        merge_jwks({"keys": [{"kty": "RSA"}]})
+        merge_jwks(ConcurrentStableDict({"keys": [{"kty": "RSA"}]}))
     with pytest.raises(ConfigError):
-        merge_jwks({"keys": ["bad"]})
+        merge_jwks(ConcurrentStableDict({"keys": ["bad"]}))
 
 
 @pytest.mark.kiwi_id(2193)
@@ -353,9 +361,9 @@ def test_settings_and_factory() -> None:
             access_token_expire_minutes=30,
             refresh_token_expire_days=14,
             active_kid="usr-k1",
-            keys={
-                "usr-k1": TokenKeySettings(algorithm="RS256", public_key=key.public_key, private_key=key.private_key)
-            },
+            keys=ConcurrentStableDict(
+                {"usr-k1": TokenKeySettings(algorithm="RS256", public_key=key.public_key, private_key=key.private_key)}
+            ),
         ),
     )
     issuer = JwtUserTokenIssuerFactory(settings).create(None)
@@ -375,7 +383,9 @@ def test_settings_and_factory() -> None:
         user_token=UserTokenSettings(provider="jwt"),
         security=SecuritySettings(
             active_kid="k1",
-            keys={"k1": TokenKeySettings(algorithm="RS256", public_key=key.public_key, private_key=key.private_key)},
+            keys=ConcurrentStableDict(
+                {"k1": TokenKeySettings(algorithm="RS256", public_key=key.public_key, private_key=key.private_key)}
+            ),
         ),
     )
     with pytest.raises(ConfigError):

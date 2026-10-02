@@ -9,6 +9,7 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy import select
 
+from bms_core.core.concurrent import ConcurrentStableSet
 from bms_identity.models.user_identity import SysUserIdentity
 
 from .conftest import CAS_REDIRECT_URI, SsoHarness
@@ -51,7 +52,7 @@ async def test_cas_end_to_end_jit_creates_user_and_session(client: AsyncClient, 
     await sso.seed_provider(idp_key=CAS_IDP_KEY, type="cas", config=sso.cas_provider_config(jit_enabled=True))
 
     state = await _start_cas_flow(client, sso)
-    sso.cas.allowed_services = {_expected_service(state)}
+    sso.cas.allowed_services = ConcurrentStableSet({_expected_service(state)})
 
     response = await client.get(f"{CALLBACK}?state={state}&ticket=ST-ok", headers=TENANT_HEADERS)
     assert response.status_code == 200 and response.json()["code"] == 0
@@ -80,7 +81,7 @@ async def test_cas_existing_mapping_logs_in_without_jit(client: AsyncClient, sso
     await sso.seed_mapping(idp_key=CAS_IDP_KEY, external_id="cas-alice", user_id=1001)
 
     state = await _start_cas_flow(client, sso)
-    sso.cas.allowed_services = {_expected_service(state)}
+    sso.cas.allowed_services = ConcurrentStableSet({_expected_service(state)})
     response = await client.get(f"{CALLBACK}?state={state}&ticket=ST-ok", headers=TENANT_HEADERS)
 
     assert response.status_code == 200 and response.json()["data"]["tenant"] == TENANT
@@ -99,7 +100,7 @@ async def test_cas_invalid_ticket_and_service_rejected(client: AsyncClient, sso:
 
     state = await _start_cas_flow(client, sso)
     sso.cas.failure_code = None
-    sso.cas.allowed_services = {"http://other/callback"}  # service 不匹配 → INVALID_SERVICE
+    sso.cas.allowed_services = ConcurrentStableSet({"http://other/callback"})  # service 不匹配 → INVALID_SERVICE
     mismatched = await client.get(f"{CALLBACK}?state={state}&ticket=ST-ok", headers=TENANT_HEADERS)
     assert mismatched.status_code == 400 and mismatched.json()["code"] == 20052
 

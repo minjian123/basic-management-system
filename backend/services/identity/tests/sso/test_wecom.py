@@ -12,6 +12,7 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy import select
 
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_identity.models.user_identity import SysUserIdentity
 
 from .conftest import WECOM_REDIRECT_URI, SsoHarness
@@ -69,7 +70,9 @@ async def test_wecom_authorize_url_and_302_and_end_to_end(client: AsyncClient, s
 @pytest.mark.kiwi_id(2200)
 async def test_wecom_config_missing_returns_20057(client: AsyncClient, sso: SsoHarness) -> None:
     """凭据缺失：行配置无 corp_id / agent_id / secret_ref → 20057（入口不可用、提示明确）。"""
-    await sso.seed_provider(idp_key=WECOM_IDP_KEY, type="wecom", config={"redirect_uri": WECOM_REDIRECT_URI})
+    await sso.seed_provider(
+        idp_key=WECOM_IDP_KEY, type="wecom", config=ConcurrentStableDict({"redirect_uri": WECOM_REDIRECT_URI})
+    )
 
     response = await client.get(AUTHORIZE_URL, headers=TENANT_HEADERS)
     assert response.status_code == 503 and response.json()["code"] == 20057

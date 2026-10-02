@@ -4,12 +4,13 @@ import json
 
 import pytest
 
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.exceptions import (
     PasswordPolicyViolationError,
     PasswordReusedError,
     ServiceUnavailableError,
 )
+from bms_core.core.serialization import normalize_collections
 from bms_core.servicecall.base import BaseServiceClient, ServiceRequest, ServiceResponse
 from bms_identity.services.org_client import OrgCredentialClient
 
@@ -24,7 +25,7 @@ def _resp(status: int, payload: object) -> ServiceResponse:
     Returns:
         ServiceResponse: 响应。
     """
-    return ServiceResponse(status_code=status, content=json.dumps(payload).encode())
+    return ServiceResponse(status_code=status, content=json.dumps(normalize_collections(payload)).encode())
 
 
 class _Scripted(BaseServiceClient):
@@ -106,13 +107,27 @@ async def test_org_client_update_password_policy_mapping() -> None:
         return OrgCredentialClient(_Scripted(_resp(200, {"code": 0, "data": data})))
 
     with pytest.raises(PasswordPolicyViolationError) as weak:
-        await _client({"updated": False, "reason": "policy_violation", "violations": ["too_short"]}).update_password(
-            "demo", "admin", "weak"
-        )
+        await _client(
+            ConcurrentStableDict(
+                {"updated": False, "reason": "policy_violation", "violations": ConcurrentStableList(["too_short"])}
+            )
+        ).update_password("demo", "admin", "weak")
     assert weak.value.data == {"violations": ["too_short"]}
 
     with pytest.raises(PasswordReusedError):
-        await _client({"updated": False, "reason": "history_reused"}).update_password("demo", "admin", "OldPass1!")
+        await _client(ConcurrentStableDict({"updated": False, "reason": "history_reused"})).update_password(
+            "demo", "admin", "OldPass1!"
+        )
 
-    assert await _client({"updated": False, "reason": "not_found"}).update_password("demo", "nobody", "x") is False
-    assert await _client({"updated": True, "reason": ""}).update_password("demo", "admin", "NewSecret1!") is True
+    assert (
+        await _client(ConcurrentStableDict({"updated": False, "reason": "not_found"})).update_password(
+            "demo", "nobody", "x"
+        )
+        is False
+    )
+    assert (
+        await _client(ConcurrentStableDict({"updated": True, "reason": ""})).update_password(
+            "demo", "admin", "NewSecret1!"
+        )
+        is True
+    )

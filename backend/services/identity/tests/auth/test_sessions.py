@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from httpx import AsyncClient
 
 from bms_core.api.deps import get_tenant
+from bms_core.core.concurrent import ConcurrentStableDict
 
 from .session_helpers import API_SESSIONS, TENANT_HEADERS, login, seed_session, utc_now, wire_login
 
@@ -16,7 +17,7 @@ async def test_list_active_sessions_and_pagination(client: AsyncClient, service_
     """列表仅未撤销未过期会话；分页 total / page / size 正确。"""
     issuer, _store, _recorder = await wire_login(service_app)
     assert (await login(client)).status_code == 200
-    assert (await login(client, headers={"user-agent": "UA-2"})).status_code == 200
+    assert (await login(client, headers=ConcurrentStableDict({"user-agent": "UA-2"}))).status_code == 200
     assert (await login(client)).status_code == 200
 
     first = await client.get(API_SESSIONS, params={"size": 2}, headers=TENANT_HEADERS)
@@ -52,7 +53,7 @@ async def test_list_excludes_revoked_and_expired(client: AsyncClient, service_ap
 async def test_list_filter_user_device_and_time(client: AsyncClient, service_app: FastAPI) -> None:
     """列表筛选：user_id 精确、device 模糊、登录时间闭区间。"""
     _issuer, _store, _recorder = await wire_login(service_app)
-    assert (await login(client, headers={"user-agent": "UA-Alpha"})).status_code == 200
+    assert (await login(client, headers=ConcurrentStableDict({"user-agent": "UA-Alpha"}))).status_code == 200
     await seed_session(service_app, session_id="9101", user_id=2002, device="UA-Beta")
 
     by_user = await client.get(API_SESSIONS, params={"user_id": 2002}, headers=TENANT_HEADERS)

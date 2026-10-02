@@ -121,12 +121,14 @@ class ManageHarness:
 
     def _oidc_config(self) -> ConcurrentStableDict[str, object]:
         """OIDC 行配置（指向探测替身）。"""
-        return {
-            "issuer": ISSUER,
-            "client_id": "bms-backend",
-            "client_secret_ref": "env:MANAGE_TEST_SECRET",
-            "redirect_uri": "https://app.example.com/api/v1/auth/sso/keycloak/callback",
-        }
+        return ConcurrentStableDict(
+            {
+                "issuer": ISSUER,
+                "client_id": "bms-backend",
+                "client_secret_ref": "env:MANAGE_TEST_SECRET",
+                "redirect_uri": "https://app.example.com/api/v1/auth/sso/keycloak/callback",
+            }
+        )
 
 
 async def _ensure_schema(app: FastAPI) -> None:

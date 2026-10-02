@@ -6,7 +6,7 @@ import pytest
 from httpx import AsyncClient
 from starlette.datastructures import FormData
 
-from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import OidcProviderSettings
 from bms_core.core.exceptions import AuthError, OidcInvalidGrantError
 from bms_core.db.session import DbSession
@@ -94,7 +94,7 @@ def test_helpers_branches() -> None:
     with pytest.raises(OidcInvalidGrantError):
         code_from_payload(None)
     with pytest.raises(OidcInvalidGrantError):
-        code_from_payload({"client_id": "x"})
+        code_from_payload(ConcurrentStableDict({"client_id": "x"}))
 
     assert load_list('["a", "b"]') == ["a", "b"]
     assert load_list("{not-json") == []
