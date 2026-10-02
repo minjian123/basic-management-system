@@ -94,7 +94,7 @@ class _InMemoryChatSessionStore(BaseChatSessionStore):
         return self._sessions.get(session_id)
 
     async def list_messages(self, session_id: str) -> ConcurrentStableList[ChatSessionMessage]:
-        return self._messages.get(session_id, ConcurrentStableList())
+        return self._messages.get(session_id, ConcurrentStableList[ChatSessionMessage]())
 
     async def delete_session(self, session_id: str) -> bool:
         self._messages.get_and_remove(session_id)
@@ -192,7 +192,7 @@ def test_constants_and_data_contracts() -> None:
 async def test_null_stream_fixed_returns() -> None:
     """占位流式：句柄流标识固定、事件序列单条 done、stop 恒 False。"""
     stream = NullChatStream()
-    handle = await stream.stream([ChatMessage(content="hi")], module="ask")
+    handle = await stream.stream(ConcurrentStableList([ChatMessage(content="hi")]), module="ask")
     assert isinstance(handle, ChatStreamHandle)
     assert handle.stream_id == NULL_CHAT_STREAM_ID
 

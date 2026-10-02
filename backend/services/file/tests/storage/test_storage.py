@@ -105,7 +105,9 @@ async def test_dependency_provider_resolves(monkeypatch: pytest.MonkeyPatch, tmp
     """依赖解析：应用装配缺省对象存储（local）；路由经 get_object_storage 取到同一实例。"""
     monkeypatch.setattr(
         "bms_core.application.get_settings",
-        lambda: Settings(storage=PluginSelection(provider="local", options={"root": str(tmp_path)})),
+        lambda: Settings(
+            storage=PluginSelection(provider="local", options=ConcurrentStableDict({"root": str(tmp_path)}))
+        ),
     )
     _isolated_registry(monkeypatch)
     app = ApplicationFactory().create(None)
@@ -268,7 +270,7 @@ async def test_storage_provider_switch_zero_change(monkeypatch: pytest.MonkeyPat
     monkeypatch.setattr(
         "bms_core.application.get_settings",
         lambda: Settings(
-            storage=PluginSelection(provider="minio", options={"bucket": "switch-bucket"}),
+            storage=PluginSelection(provider="minio", options=ConcurrentStableDict({"bucket": "switch-bucket"})),
             minio=MinioSettings(endpoint="localhost:9000", access_key="ak", secret_key="sk"),
         ),
     )

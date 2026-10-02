@@ -48,7 +48,10 @@ class _InMemoryNotificationCenter(BaseNotificationCenter):
         items = sorted(self._items.values(), key=lambda item: item.id or 0, reverse=True)
         start = (page.page - 1) * page.size
         return BasePageResponse[Notification](
-            list=items[start : start + page.size], total=len(items), page=page.page, size=page.size
+            list=ConcurrentStableList(items[start : start + page.size]),
+            total=len(items),
+            page=page.page,
+            size=page.size,
         )
 
     async def detail(self, notification_id: int, *, mark_read: bool = True) -> Notification | None:

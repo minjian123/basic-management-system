@@ -11,6 +11,7 @@ from bms_core.api.deps import get_search_index
 from bms_core.application import service_lifespan as lifespan
 from bms_core.core.base import BaseObject
 from bms_core.core.capability import BaseCapability, BaseNullObject
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.search.base import (
     DEFAULT_SEARCH_SIZE,
     NULL_SEARCH_HIT_ID,
@@ -65,7 +66,7 @@ def test_data_contracts_defaults_and_frozen() -> None:
 async def test_null_index_and_delete_noop() -> None:
     """占位写入 / 删除为空操作。"""
     index = NullSearchIndex()
-    document = SearchDocument(index="bms-main", doc_id="1", fields={"name": "甲"})
+    document = SearchDocument(index="bms-main", doc_id="1", fields=ConcurrentStableDict({"name": "甲"}))
     assert await index.index(document) is None
     assert await index.delete("bms-main", "1") is None
 

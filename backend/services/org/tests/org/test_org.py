@@ -55,7 +55,7 @@ class _InMemoryOrgDataSource(BaseOrgDataSource):
             }
         )
         item = OrgUser(id=7, username="u7", nickname="研发张三", dept_id=dept_id, status=status or "enabled")
-        return BasePageResponse[OrgUser](list=[item], total=1, page=page, size=size)
+        return BasePageResponse[OrgUser](list=ConcurrentStableList([item]), total=1, page=page, size=size)
 
     async def posts(
         self,
@@ -69,13 +69,16 @@ class _InMemoryOrgDataSource(BaseOrgDataSource):
     ) -> BasePageResponse[OrgPost]:
         del keyword, dept_id, include_children, status, page, size
         return BasePageResponse[OrgPost](
-            list=[OrgPost(id=9, code="dev", name="开发岗", dept_id=1)], total=1, page=1, size=DEFAULT_ORG_PAGE_SIZE
+            list=ConcurrentStableList([OrgPost(id=9, code="dev", name="开发岗", dept_id=1)]),
+            total=1,
+            page=1,
+            size=DEFAULT_ORG_PAGE_SIZE,
         )
 
     async def dept_tree(self, *, status: str | None = None) -> ConcurrentStableList[OrgDept]:
         del status
         child = OrgDept(id=2, parent_id=1, name="子部门")
-        return ConcurrentStableList([OrgDept(id=1, name="根部门", children=[child])])
+        return ConcurrentStableList([OrgDept(id=1, name="根部门", children=ConcurrentStableList([child]))])
 
 
 class _InMemoryOrgNameResolver(BaseOrgNameResolver):
@@ -137,7 +140,7 @@ def test_constants_and_data_contracts() -> None:
     assert ref.exists is True
     assert ref.status == "enabled"
 
-    tree = OrgDept(id=1, name="根", children=[OrgDept(id=2, parent_id=1, name="子")])
+    tree = OrgDept(id=1, name="根", children=ConcurrentStableList([OrgDept(id=2, parent_id=1, name="子")]))
     assert tree.children[0].parent_id == 1
 
 
