@@ -56,7 +56,7 @@ class FilterSpec(BaseSchema):
             return ConcurrentStableDict({f"{self.field}_is_null": "1"})
         if self.operator == "is_not_null":
             return ConcurrentStableDict({f"{self.field}_is_not_null": "1"})
-        return ConcurrentStableDict({self.field: value})
+        return ConcurrentStableDict({self.field: self.value})
 
 
 def serialize_filters(filters: ConcurrentStableList[FilterSpec]) -> ConcurrentStableDict[str, object]:

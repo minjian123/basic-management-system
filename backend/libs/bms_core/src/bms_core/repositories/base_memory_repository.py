@@ -91,7 +91,7 @@ class BaseMemoryRepository[ModelT](BaseScopedRepository[ModelT]):
         """
         item_id = self._next_id
         self._next_id += 1
-        item = self._build(item_id, values)
+        item = self._build(item_id, ConcurrentStableDict(values))
         self._items.set(item_id, item)
         return item
 
@@ -108,7 +108,7 @@ class BaseMemoryRepository[ModelT](BaseScopedRepository[ModelT]):
         item = self._items.get(item_id)
         if item is None or not self._matches_scope(item):
             return None
-        updated = self._apply(item, values)
+        updated = self._apply(item, ConcurrentStableDict(values))
         self._items.set(item_id, updated)
         return updated
 

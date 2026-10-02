@@ -140,7 +140,9 @@ class BaseRepository[ModelT](BaseObject, ABC):
             return None
         last = items[-1]
         sort = self.effective_sort(query)
-        return encode_cursor(sort, [getattr(last, spec.field, None) for spec in sort], self._item_id(last))
+        return encode_cursor(
+            sort, ConcurrentStableList(getattr(last, spec.field, None) for spec in sort), self._item_id(last)
+        )
 
     def _item_id(self, item: ModelT) -> int:
         """取条目主键（键集比较兜底键）。

@@ -201,7 +201,7 @@ class RemoteTenantSource(BaseFrameworkObject):
             service=self._service,
             method="GET",
             path=TENANT_REGISTRY_PATH,
-            query={"tenant_id": value} if kind == "id" else {kind: value},
+            query=ConcurrentStableDict({"tenant_id": value} if kind == "id" else {kind: value}),
         )
         response = await self._client.call(request)
         if response.status_code == _NOT_FOUND:

@@ -117,7 +117,7 @@ class OutboxRecord(BaseEventRecordContract):
         """
         return EventEnvelope(
             event_type=self.event_type,
-            payload=dict(self.payload),
+            payload=ConcurrentStableDict(self.payload),
             tenant_id=self.tenant_id,
             event_id=self.event_id,
             occurred_at=self.occurred_at,

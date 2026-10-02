@@ -18,13 +18,18 @@ BaseCollection（基础集合基类 · 集合体系唯根）
 ```
 """
 
+from __future__ import annotations
+
 import heapq
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterable, Iterator
-from typing import Any, ClassVar, Self, cast
+from typing import TYPE_CHECKING, Any, ClassVar, Self, cast
 
 from bms_core.core.base import BaseObject
 from bms_core.core.serialization import stable_json_dumps
+
+if TYPE_CHECKING:
+    from bms_core.core.concurrent import ConcurrentStableDict
 
 MAX_INDEX = 9223372036854775807
 """`Sequence.index` 的默认上界（与内置序列一致；避免用 `None` 与 `SupportsIndex` 冲突）。"""
@@ -71,7 +76,7 @@ class BaseSorted[ItemT](BaseCollection[ItemT], ABC):
     def __iter__(self) -> Iterator[ItemT]:
         """遍历（按有序顺序，返回快照安全）。"""
 
-    def to_dict(self) -> dict[str, object]:
+    def to_dict(self) -> ConcurrentStableDict[str, object]:
         """序列类不提供内容映射（避免与根基类字段语义混淆）。
 
         Raises:

@@ -63,7 +63,7 @@ class HttpConfigSource(BaseConfigSource):
             method="POST",
             path=CONFIG_RESOLVE_PATH,
             headers=headers,
-            json_body={"keys": unique},
+            json_body=ConcurrentStableDict({"keys": ConcurrentStableList(unique)}),
         )
         try:
             response = await self._client.call(request)

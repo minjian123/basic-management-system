@@ -211,7 +211,7 @@ def build_saga_event(
     """
     return EventEnvelope(
         event_type=step.event_type_of(kind),
-        payload=dict(payload),
+        payload=ConcurrentStableDict(payload),
         tenant_id=tenant_id,
         aggregate_key=saga_id,
     )
