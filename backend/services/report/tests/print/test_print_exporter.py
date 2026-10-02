@@ -54,7 +54,7 @@ _TEMPLATE = PrintTemplateInfo(
     key="order",
     name="销售订单",
     biz_type="sale",
-    variables=[PrintVariable(key="customer", label="客户")],
+    variables=ConcurrentStableList([PrintVariable(key="customer", label="客户")]),
     status="active",
 )
 
@@ -271,7 +271,11 @@ async def test_null_template_get_not_found() -> None:
 async def test_null_export_pdf_placeholder_artifact() -> None:
     """占位单条导出：固定占位产物、零副作用、忽略渲染选项。"""
     exporter = NullPrintExporter()
-    document = PrintDocument(biz_key="SO-001", fields={"customer": "甲"}, rows=[{"item": "A"}])
+    document = PrintDocument(
+        biz_key="SO-001",
+        fields=ConcurrentStableDict({"customer": "甲"}),
+        rows=ConcurrentStableList([ConcurrentStableDict({"item": "A"})]),
+    )
 
     result = await exporter.export_pdf("order", document)
     assert result.object_key == "bms:global:prints:order:SO-001"
@@ -300,7 +304,7 @@ async def test_null_batch_print_modes() -> None:
     """占位批量打印：空键空汇总、逐份逐键明细、合并单条明细。"""
     exporter = NullPrintExporter()
 
-    empty = await exporter.batch_print([], template_key="order")
+    empty = await exporter.batch_print(ConcurrentStableList([]), template_key="order")
     assert empty.task_id is None
     assert empty.total == 0
     assert empty.succeeded == 0
@@ -308,7 +312,7 @@ async def test_null_batch_print_modes() -> None:
     assert empty.items == []
     assert empty.message == PRINT_PLACEHOLDER_MESSAGE
 
-    separate = await exporter.batch_print(["SO-1", "SO-2"], template_key="order")
+    separate = await exporter.batch_print(ConcurrentStableList(["SO-1", "SO-2"]), template_key="order")
     assert separate.total == 2
     assert separate.succeeded == 2
     assert separate.failed == 0
@@ -319,7 +323,7 @@ async def test_null_batch_print_modes() -> None:
         "bms:global:prints:order:SO-2",
     ]
 
-    merged = await exporter.batch_print(["SO-1", "SO-2"], template_key="order", mode="merged")
+    merged = await exporter.batch_print(ConcurrentStableList(["SO-1", "SO-2"]), template_key="order", mode="merged")
     assert merged.total == 2
     assert merged.succeeded == 2
     assert len(merged.items) == 1

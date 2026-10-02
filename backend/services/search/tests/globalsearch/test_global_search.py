@@ -65,7 +65,7 @@ class _InMemoryGlobalSearch(BaseGlobalSearch):
             if doc_type in self._hits
         ]
         total = sum(group.total for group in groups)
-        return GlobalSearchResult(groups=groups, total=total)
+        return GlobalSearchResult(groups=ConcurrentStableList(groups), total=total)
 
 
 class _InMemoryAuditSearch(BaseAuditSearch):
@@ -83,9 +83,9 @@ class _InMemoryAuditSearch(BaseAuditSearch):
     ) -> AuditSearchResult:
         del start_time, end_time, page, size
         if q != "login":
-            return AuditSearchResult(hits=[], total=0)
+            return AuditSearchResult(hits=ConcurrentStableList([]), total=0)
         return AuditSearchResult(
-            hits=[AuditLogHit(log_type=log_type or "login", record_id="r1", title="登录成功")],
+            hits=ConcurrentStableList([AuditLogHit(log_type=log_type or "login", record_id="r1", title="登录成功")]),
             total=1,
         )
 
@@ -103,9 +103,9 @@ class _InMemoryFileContentSearch(BaseFileContentSearch):
     ) -> FileContentSearchResult:
         del file_type, page, size
         if q != "合同":
-            return FileContentSearchResult(hits=[], total=0)
+            return FileContentSearchResult(hits=ConcurrentStableList([]), total=0)
         return FileContentSearchResult(
-            hits=[FileContentHit(file_id="f1", name="合同.pdf", mime_type="application/pdf")],
+            hits=ConcurrentStableList([FileContentHit(file_id="f1", name="合同.pdf", mime_type="application/pdf")]),
             total=1,
         )
 
