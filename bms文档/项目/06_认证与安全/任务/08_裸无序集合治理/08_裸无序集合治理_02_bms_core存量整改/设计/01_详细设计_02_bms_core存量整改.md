@@ -263,7 +263,7 @@ flowchart LR
 | --- | --- | --- | --- |
 | 1 | **插入序形态与并发**：`ConcurrentStable*` 继承链与插入序稳定输出（不可比较元素可入）；`SHARDED` 分段写后读回仍为插入序（多线程并发写用例）；只读 API（索引 / 切片 / `keys` / `items` / 集合运算 / 与内置容器相等）；写入仅走显式方法 | `tests/core/test_concurrent_stable.py`（`@pytest.mark.kiwi_id(2222)`） | 基座新增可用且高并发写正确 |
 | 2 | **契约零漂移与序列化形态**：契约字段 OpenAPI schema 与 `list[X]` / `dict[K, V]` / `frozenset[X]` 逐字节一致；`model_dump()` 输出集合类实例、`model_dump_json()` 输出 `array` / `object`；`stringify_ids` / `stable_json_dumps` 输出内联容器（无 `ConcurrentStableList([...])` 字符串）；前端 `api-types` 零漂移 | `tests/schemas/test_contract_collections.py`（`@pytest.mark.kiwi_id(2223)`） | 契约不漂移、序列化链不损坏 |
-| 3 | **存量归零与护栏收紧**：跑护栏脚本 `--report --json` 断言 `by_area.libs == 0`（含抽象落点）；基线递减至 324 且无 `libs` 条目；复跑「新增 0 / 残留 0」；`--self-test` 覆盖白名单新规则与实现文件豁免 | `tests/boundary/test_bare_collections_guard.py`（`@pytest.mark.kiwi_id(2224)`） | 594 处全部整改、基线递减、护栏强制 |
+| 3 | **存量归零与护栏收紧**：跑护栏脚本 `--report --json` 断言 `by_area.libs == 0`（含抽象落点）；基线递减至 0 且无残留条目；复跑「新增 0 / 残留 0」；`--self-test` 覆盖白名单新规则与实现文件豁免 | `tests/boundary/test_bare_collections_guard.py`（`@pytest.mark.kiwi_id(2224)`） | 594 处全部整改、基线递减、护栏强制 |
 | 4 | 定向回归：`pytest backend/libs/bms_core/tests` 全量全绿；`ruff check` / `ruff format --check` / `pyright`（backend 全量）全绿 | 门禁 | 定向 pytest + ruff + pyright 全绿 |
 | 5 | 基座校验与本地预检：`check-base` / `check-backend-base(+--self-test)` / `check-service-boundaries(+--self-test)` / `boundary_metrics` / `check-status --stage 06_认证与安全` / `preflight --fast` 全绿；`check-links.py` 无断链 | 门禁 | 基座校验与 preflight 全绿 |
 | 6 | 清单与规范一致性：《[后端基类清单](../../../../../../后端基类清单.md)》「集合体系」节（形态表 / 继承链 / 护栏与基线）与《[后端开发规范](../../../../../../规范/后端开发规范.md)》「集合与排序」与代码、基线快照一致；业务面无 `Sorted*` / `ConcurrentSorted*` 新增声明 / 继承 | 文档核对 | 清单 / 规范 / 代码一致 |
