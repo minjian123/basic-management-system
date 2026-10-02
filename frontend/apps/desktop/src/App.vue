@@ -8,9 +8,11 @@ import { useRoute, useRouter } from 'vue-router'
 import ModuleBoundary from '@/components/ModuleBoundary.vue'
 import { moduleMenuGroups } from '@/module/host'
 import { registries, registriesRevision } from '@/module/registries'
+import { useSessionStore } from '@/stores/session'
 
 const router = useRouter()
 const route = useRoute()
+const session = useSessionStore()
 
 // 占位阶段：菜单显隐暂全量放行，真实权限码过滤随认证 / RBAC 接入。
 const sideMenu = useSideMenu({ menu: PLACEHOLDER_MENU, canAccess: () => true })
@@ -64,7 +66,20 @@ async function onTabClose(key: string): Promise<void> {
 </script>
 
 <template>
+  <!-- 会话就绪前（首屏静默续期 / 登录页判定）：骨架屏等待态，不闪登录页、不白屏。 -->
+  <div v-if="!session.ready" class="app-skeleton" data-test="app-skeleton" aria-busy="true">
+    <div class="app-skeleton__header"></div>
+    <div class="app-skeleton__body">
+      <div class="app-skeleton__side"></div>
+      <div class="app-skeleton__content">
+        <div class="app-skeleton__row"></div>
+        <div class="app-skeleton__row app-skeleton__row--short"></div>
+        <div class="app-skeleton__block"></div>
+      </div>
+    </div>
+  </div>
   <main-layout
+    v-else
     :menu="menu"
     :active-path="route.path"
     :tabs="tabNav.tabs.value"
@@ -91,3 +106,73 @@ async function onTabClose(key: string): Promise<void> {
     </module-boundary>
   </main-layout>
 </template>
+
+<style scoped>
+.app-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bms-spacing-lg);
+  box-sizing: border-box;
+  height: 100vh;
+  padding: var(--bms-spacing-lg);
+  background: var(--bms-color-bg);
+}
+
+.app-skeleton__header,
+.app-skeleton__side,
+.app-skeleton__row,
+.app-skeleton__block {
+  border-radius: var(--bms-radius-md);
+  background: var(--bms-color-fill);
+  animation: app-skeleton-pulse 1.4s ease-in-out infinite;
+}
+
+.app-skeleton__header {
+  height: 48px;
+  flex: none;
+}
+
+.app-skeleton__body {
+  display: flex;
+  flex: 1;
+  gap: var(--bms-spacing-lg);
+  min-height: 0;
+}
+
+.app-skeleton__side {
+  width: 200px;
+  flex: none;
+}
+
+.app-skeleton__content {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--bms-spacing-lg);
+  min-width: 0;
+}
+
+.app-skeleton__row {
+  height: 32px;
+  flex: none;
+}
+
+.app-skeleton__row--short {
+  width: 40%;
+}
+
+.app-skeleton__block {
+  flex: 1;
+}
+
+@keyframes app-skeleton-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.55;
+  }
+}
+</style>

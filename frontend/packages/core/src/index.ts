@@ -599,6 +599,7 @@ export {
   MODULE_LOAD_TIMEOUT_MS,
   PLATFORM_MODULE_NAME,
   type ModuleErrorRecord,
+  type ModuleGuardRecord,
   type ModuleLoadObserver,
   type ModuleLoadPhase,
   type ModuleLoadTimingRecord,
@@ -678,10 +679,20 @@ export {
   type ServiceKey,
 } from './contracts/service-endpoint'
 export {
+  DEFAULT_FORBIDDEN_PATH,
+  DEFAULT_HOME_PATH,
   DEFAULT_LOGIN_PATH,
   DEFAULT_PUBLIC_PATHS,
+  REDIRECT_QUERY_KEY,
+  buildLoginLocation,
+  isPublicPath,
+  resolveAuthGuard,
   resolveAuthRedirect,
+  resolveSafeRedirect,
+  type AuthGuardDecision,
   type AuthGuardInput,
+  type AuthRedirectInput,
+  type LoginLocation,
 } from './domain/route-guard'
 export {
   configureRequestAdapter,

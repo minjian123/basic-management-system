@@ -123,3 +123,31 @@ describe('模块路由作用域（Kiwi 982）', () => {
     expect(activeModule()).toBeNull()
   })
 })
+
+// kiwi_id: 2231（05_03 守卫决策记录：观测面板「守卫决策（平台）」区块数据源）
+describe('守卫决策记录（Kiwi 2231）', () => {
+  it('守卫记录进入平台组 guards（面板数据源），reset 后清空', () => {
+    moduleTelemetry.record({
+      kind: 'guard',
+      decision: 'login',
+      path: '/org/users',
+      reason: 'no-session',
+      at: '2026-10-02T00:00:00.000Z',
+    })
+    moduleTelemetry.record({
+      kind: 'guard',
+      decision: 'allow',
+      path: '/',
+      reason: 'session-ready',
+      at: '2026-10-02T00:00:01.000Z',
+    })
+
+    const guards = moduleSnapshot().platform.guards
+    expect(guards).toHaveLength(2)
+    expect(guards[0]).toMatchObject({ decision: 'login', path: '/org/users', reason: 'no-session' })
+    expect(guards[1]).toMatchObject({ decision: 'allow', path: '/', reason: 'session-ready' })
+
+    resetModuleTelemetry()
+    expect(moduleSnapshot().platform.guards).toEqual([])
+  })
+})

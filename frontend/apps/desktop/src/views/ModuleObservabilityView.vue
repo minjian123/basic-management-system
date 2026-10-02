@@ -73,6 +73,14 @@ const vitals = computed(() => {
   return collected.reverse()
 })
 
+const guards = computed(() => {
+  const collected: { decision: string; path: string; reason: string; at: string }[] = []
+  for (const item of snapshot.value.platform.guards) {
+    collected.push({ decision: item.decision, path: item.path, reason: item.reason, at: item.at })
+  }
+  return collected.reverse()
+})
+
 function refresh(): void {
   snapshot.value = moduleSnapshot()
 }
@@ -132,6 +140,17 @@ function ms(value: number | null): string {
       <el-table-column prop="message" label="原因" />
       <el-table-column prop="at" label="时间" width="200" />
     </el-table>
+
+    <h3>守卫决策（平台）</h3>
+    <el-table :data="guards" size="small" data-test="observability-guards">
+      <el-table-column prop="decision" label="决策" width="100" />
+      <el-table-column prop="path" label="路径" />
+      <el-table-column prop="reason" label="原因" width="180" />
+      <el-table-column prop="at" label="时间" width="200" />
+    </el-table>
+    <p class="module-observability__hint">
+      决策记录只含路径与原因（不含令牌与查询串）；放行 / 跳登录 / 跳 403 均记录。
+    </p>
 
     <h3>Web Vitals（按模块）</h3>
     <el-table :data="vitals" size="small" data-test="observability-vitals">
