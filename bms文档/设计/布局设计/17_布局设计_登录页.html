@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>登录页布局</title>
+<link rel="stylesheet" href="../../资源/文档样式.css">
+</head>
+<body>
+
+<div class="topnav">
+  <a href="../../文档首页.md">文档首页</a> ›
+  <a href="../../规划/项目规划说明.md">项目规划说明</a> ›
+  <a href="01_布局设计_总览.html">布局设计</a> ›
+  <span>登录页布局</span>
+  <span class="topnav-side">
+    <a href="16_布局设计_移动端细化.html">← 上一个：移动端细化</a>
+  </span>
+</div>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>登录页布局</h1>
+      <p>PC 独立全屏页 · 居中单卡片 · 本地登录与 SSO 入口</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#purpose">1. 目的与适用范围</a>
+          <ul class="sub">
+            <li><a href="#overview">1.1 形态示意</a></li>
+          </ul>
+        </li>
+        <li><a href="#frame">2. 页面形态与整体布局</a>
+          <ul class="sub">
+            <li><a href="#frame-standalone">2.1 独立全屏页</a></li>
+            <li><a href="#frame-card">2.2 居中单卡片</a></li>
+            <li><a href="#frame-adaptive">2.3 窄屏与暗色</a></li>
+          </ul>
+        </li>
+        <li><a href="#form">3. 表单区</a></li>
+        <li><a href="#captcha">4. 验证码与登录保护</a></li>
+        <li><a href="#sso">5. SSO 与其它入口</a></li>
+        <li><a href="#brand">6. 品牌与主题</a></li>
+        <li><a href="#states">7. 交互与状态</a></li>
+        <li><a href="#boundary">8. 边界与检查清单</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="purpose">1. 目的与适用范围</h2>
+      <p>
+        规范 PC 管理端<strong>登录页</strong>的页面形态、区块划分与交互语义。登录页是未登录用户进入系统的唯一入口，
+        承载本地账号密码登录、租户识别、验证码与外部身份（SSO）入口。
+      </p>
+      <p>
+        登录页是<strong>独立全屏页</strong>——不嵌入主框架（无侧边菜单与 Tab 标签栏），
+        与《<a href="12_布局设计_异常与空状态.html">布局设计-异常与空状态</a>》的错误页同属「全屏独立页」形态；
+        登录成功后的跳转与回跳目标由路由守卫负责（见<a href="../架构设计/08_架构设计_前端架构.md">《架构设计 · 前端架构》</a>「路由守卫」节）。
+      </p>
+      <p>
+        上游依据：<a href="../概要设计/26_概要设计_身份认证SSO.md">《概要设计 · 身份认证（SSO）》</a>「页面清单」节
+        （登录页＝账号密码登录 + 租户配置的 IdP 入口展示）、
+        <a href="../架构设计/14_架构设计_子系统_认证与会话.md">《架构设计 · 认证与会话》</a>（双 token 模型与 SSO 集成）、
+        <a href="../组件设计/06_字段类/10_组件设计_验证码/10_组件设计_验证码.md">《组件设计 · 验证码》</a>（验证码字段与阈值联动）。
+      </p>
+
+      <h3 id="overview">1.1 形态示意</h3>
+      <div class="diagram">
+        <div class="d-box d-title">登录页 · 居中单卡片（独立全屏页，不嵌主框架）</div>
+        <div class="d-flex">
+          <div class="d-box" style="width:100%">
+            <div class="d-box d-body" style="text-align:center;min-height:150px">
+              <div class="d-note">页面背景（平台默认背景；租户可覆盖，见第 6 节）</div>
+              <div style="border:1px solid var(--border);border-radius:8px;max-width:340px;margin:.6rem auto;background:#fff;text-align:left">
+                <div class="d-box d-toolbar" style="text-align:center">
+                  <b>品牌区</b>
+                  <div class="d-note">Logo + 系统名称（按租户替换）</div>
+                </div>
+                <div class="d-box d-body">
+                  <div class="d-note">租户标识（可选；子域名部署可留空）</div>
+                  <div class="d-note">账号</div>
+                  <div class="d-note">密码（含明文切换）</div>
+                  <div class="d-note">验证码（失败后出现；图形 / 滑块 / 短信）</div>
+                  <div class="d-note" style="border:1px solid var(--accent);color:var(--accent);border-radius:4px;padding:.1rem .7rem;display:inline-block;margin-top:.3rem">登 录</div>
+                  <div class="d-note" style="margin-top:.4rem">表单级错误 / 锁定提示</div>
+                </div>
+                <div class="d-box d-note" style="text-align:center">SSO 入口（按租户 IdP 清单渲染；无可用 IdP 时整块隐藏）</div>
+              </div>
+              <div class="d-note">垂直水平居中；卡片宽度固定、内容随表单状态增减</div>
+            </div>
+          </div>
+        </div>
+        <div class="d-box d-note">
+          登录中态：提交按钮内 loading + 表单整体禁用（防重复提交）；首屏会话续期期间由应用根骨架屏承载，登录页不闪烁。
+        </div>
+      </div>
+
+      <h2 id="frame">2. 页面形态与整体布局</h2>
+
+      <h3 id="frame-standalone">2.1 独立全屏页</h3>
+      <ul>
+        <li>独立路由、独立视图，<strong>不套主框架</strong>：无侧边菜单、无 Tab 标签栏、无面包屑。</li>
+        <li>整页一屏，页面背景铺满视口；内容垂直水平居中。</li>
+        <li>与主框架共用设计令牌与主题（亮 / 暗），但不共用主框架的骨架结构。</li>
+        <li>已登录用户访问登录页时由路由守卫直接回跳目标页（本页不负责该判定）。</li>
+      </ul>
+
+      <h3 id="frame-card">2.2 居中单卡片</h3>
+      <table>
+        <tr><th>区块</th><th>内容</th><th>说明</th></tr>
+        <tr><td>品牌区</td><td>Logo + 系统名称</td><td>按租户替换，缺省用平台默认品牌资源（见第 6 节）</td></tr>
+        <tr><td>表单区</td><td>租户标识 / 账号 / 密码 / 验证码 / 提交按钮 / 错误反馈</td><td>见第 3、4 节；字段随状态增减（如验证码仅失败后出现）</td></tr>
+        <tr><td>第三方入口区</td><td>IdP 登录入口</td><td>见第 5 节；无可用 IdP 时整块不渲染</td></tr>
+      </table>
+      <ul>
+        <li>卡片宽度固定、水平居中；高度随内容自适应（验证码出现 / 错误提示出现时向下伸展，不跳动布局锚点）。</li>
+        <li>区块自上而下：品牌区 → 表单区 → 第三方入口区；区块之间用间距令牌分隔，不用分割线堆叠。</li>
+        <li>不展示技术信息（版本号、环境标识、堆栈），遵循《<a href="../../规范/安全开发规范.md">安全开发规范</a>》。</li>
+      </ul>
+
+      <h3 id="frame-adaptive">2.3 窄屏与暗色</h3>
+      <ul>
+        <li><strong>窄屏</strong>：视口小于断点时卡片宽度收敛为「视口宽度 − 安全边距」，不出现横向滚动；字号与间距按断点收敛（断点口径见<a href="11_布局设计_响应式适配.html">《布局设计-响应式适配》</a>）。</li>
+        <li><strong>暗色</strong>：背景与卡片、输入、文本全部走令牌，暗色模式下对比度达标，无硬编码色值。</li>
+        <li><strong>移动端</strong>：移动端登录页为独立体系（见<a href="15_布局设计_移动端.html">《布局设计-移动端》</a>与<a href="16_布局设计_移动端细化.html">《布局设计-移动端细化》</a>），本节点只约束 PC；两端登录口径（错误码、验证码策略、会话链路）同源。</li>
+      </ul>
+
+      <h2 id="form">3. 表单区</h2>
+      <table>
+        <tr><th>字段 / 元素</th><th>形态</th><th>语义与交互</th></tr>
+        <tr><td>租户标识</td><td>文本框（可选）</td><td>缺省回填本机已记住的租户编码，可清空；占位提示「子域名部署可留空」；留空表示由子域名或后端上下文解析租户</td></tr>
+        <tr><td>账号</td><td>文本框（必填）</td><td>支持账号 / 手机 / 邮箱等后端认可口径；去掉首尾空白后再提交</td></tr>
+        <tr><td>密码</td><td>密码框（必填）</td><td>不回填、不写日志与本地存储；提供明文切换（仅组件内存态）；声明一次性密码自动填充语义以抑制浏览器误填</td></tr>
+        <tr><td>验证码</td><td>字段件（按策略）</td><td>见第 4 节；未出现时不占位</td></tr>
+        <tr><td>提交</td><td>主按钮（整宽）</td><td>点击或回车触发；提交中按钮内 loading 且整个表单禁用（防重复提交）</td></tr>
+        <tr><td>错误反馈</td><td>表单级提示 + 字段级提示</td><td>账号 / 密码类错误按「账号或密码错误」等价文案呈现（不泄露账号是否存在）；账号锁定 / 停用 / 限流给出对应引导文案</td></tr>
+      </table>
+      <ul>
+        <li><strong>不提供「记住我」开关</strong>：登录会话的 refresh 有效期由后端统一控制，前端无开关（口径成文；如需「记住我」须先扩展后端登录契约）。</li>
+        <li><strong>不显示密码强度提示</strong>：登录场景输入的是既有密码，强度语义归改密 / 注册场景。</li>
+        <li>字段排列为单列、自上而下；标签与占位文案遵循<a href="../../规范/命名规范.md">《命名规范》</a>与全局语言能力。</li>
+      </ul>
+
+      <h2 id="captcha">4. 验证码与登录保护</h2>
+      <table>
+        <tr><th>项</th><th>设计</th></tr>
+        <tr><td>展示时机</td><td><strong>初始不显示</strong>；首次登录失败后出现并强制；后端返回「需要验证码」时同样触发显示（阈值由按租户下发的场景策略决定）</td></tr>
+        <tr><td>形态选择</td><td>按场景策略下发的<strong>可用渠道序列取首个可用形态</strong>（平台默认滑块 → 图形兜底）；不提供用户切换入口</td></tr>
+        <tr><td>图形码</td><td>展示后端生成的图片，点击图片或刷新按钮重新出题（防缓存）；校验失败或使用后一次性失效并自动刷新</td></tr>
+        <tr><td>滑块</td><td>拖动到缺口位置后提交轨迹由后端判定；失败自动复位并提示可重试；键盘可操作</td></tr>
+        <tr><td>短信</td><td>目标手机号脱敏展示 + 发送按钮 + 倒计时（以服务端冷却为准）；命中发送限流时提示但<strong>不重置倒计时</strong></td></tr>
+        <tr><td>错误提示</td><td>验证码错误 / 已失效 / 发送过于频繁分别提示，文案与后端错误码语义一致</td></tr>
+      </table>
+      <ul>
+        <li>验证码渠道不可用（未注入数据通路 / 策略强制而数据源不可达）时按字段件的降级占位呈现，不静默放行。</li>
+        <li>连续失败驱动的保护联动（失败计数、锁定）以后端判定为准，前端只按返回结果呈现。</li>
+      </ul>
+
+      <h2 id="sso">5. SSO 与其它入口</h2>
+      <ul>
+        <li><strong>IdP 入口</strong>：按后端下发的 IdP 清单（仅启用项）渲染入口按钮（图标 + 名称，按排序值升序）；点击后跳转外部授权端点，回跳由后端回调完成并落地会话。</li>
+        <li><strong>不可用时隐藏</strong>：清单为空或某 IdP 凭据缺失 / 不可用时不渲染该入口（不出现点了没反应的按钮）；SSO 故障不影响本地账号密码登录（超管应急通道口径）。</li>
+        <li><strong>失败回显</strong>：SSO 回调失败时回到登录页并展示错误提示（错误码 → 文案）。</li>
+        <li><strong>扫码登录</strong>：入口与二维码交互由「扫码登录前端」任务交付，本节点预留其位置（与 IdP 入口同区），本期不渲染。</li>
+        <li><strong>忘记密码</strong>：本页暂不放找回密码入口（找回 / 重置页面归后续阶段），后续以次要链接形式加入表单区底部。</li>
+      </ul>
+
+      <h2 id="brand">6. 品牌与主题</h2>
+      <ul>
+        <li>品牌区 Logo、系统名称与页面背景<strong>按租户替换</strong>，缺省用平台默认品牌资源；资源管理口径见<a href="03_布局设计_主题与租户品牌化.html">《布局设计-主题与租户品牌化》</a>。</li>
+        <li>租户主色经令牌覆盖，登录页按钮与链接随主色变化；不硬编码色值。</li>
+        <li>亮 / 暗主题跟随全局偏好；页面背景在暗色下使用令牌语义底色。</li>
+      </ul>
+
+      <h2 id="states">7. 交互与状态</h2>
+      <table>
+        <tr><th>状态</th><th>表现</th></tr>
+        <tr><td>登录提交中</td><td>提交按钮内 loading，表单整体禁用；重复提交被拦截</td></tr>
+        <tr><td>首屏会话续期</td><td>由应用根骨架屏承载等待态；登录页在续期判定完成前不渲染（不闪登录页）</td></tr>
+        <tr><td>登录成功</td><td>写入会话并跳转：有回跳目标则回原页面，否则回首页</td></tr>
+        <tr><td>登录失败</td><td>表单级错误提示；验证码按第 4 节规则出现 / 刷新；密码框内容保留以便用户修正</td></tr>
+        <tr><td>账号锁定 / 停用</td><td>明确提示与引导（联系管理员 / 稍后重试），不暴露内部细节</td></tr>
+        <tr><td>限流命中</td><td>提示频繁并给出重试指引；不重置短信倒计时</td></tr>
+        <tr><td>需强制改密</td><td>登录成功后提示「请尽快修改初始密码」（改密页面归后续阶段）</td></tr>
+      </table>
+      <ul>
+        <li>键盘：Tab 序自上而下、回车提交；明文切换按钮可聚焦并有可访问名称。</li>
+        <li>不写控制台日志、不落 `localStorage` / `sessionStorage`（租户编码除外，见第 3 节与《<a href="../../规范/安全开发规范.md">安全开发规范</a>》「前端密码口径」）。</li>
+      </ul>
+
+      <h2 id="boundary">8. 边界与检查清单</h2>
+      <ul>
+        <li>□ 独立全屏页，不嵌主框架；卡片居中、窄屏收敛无横向滚动</li>
+        <li>□ 品牌区按租户替换；亮 / 暗主题正常</li>
+        <li>□ 租户标识可选并可回填；账号 / 密码 / 验证码齐备</li>
+        <li>□ 验证码初始不显示、失败后出现；渠道按策略取首个、图形兜底；失败刷新与短信倒计时正确</li>
+        <li>□ IdP 入口按清单渲染，不可用即隐藏；SSO 失败回登录页有提示</li>
+        <li>□ 无「记住我」开关、无密码强度提示（口径成文）</li>
+        <li>□ 密码不回填、不明文落存储、明文切换仅内存态</li>
+        <li>□ 登录中态防重复提交；错误 / 锁定 / 限流 / 强制改密提示齐备</li>
+      </ul>
+
+    </main>
+
+    <footer>
+      依《<a href="../../规范/文档生成规范.md">文档生成规范</a>》编写 · 与《<a href="01_布局设计_总览.html">布局设计-总览</a>》《<a href="../架构设计/08_架构设计_前端架构.md">架构设计 · 前端架构</a>》《<a href="../概要设计/26_概要设计_身份认证SSO.md">概要设计 · 身份认证（SSO）</a>》配套
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>
