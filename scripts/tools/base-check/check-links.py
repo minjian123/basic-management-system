@@ -16,15 +16,17 @@
 
 退出码：有问题 1，通过 0。
 """
+
 import os
 import re
 import sys
+from pathlib import Path
 
 ROOT = os.path.abspath(sys.argv[1] if len(sys.argv) > 1 else ".")
 # 本地凭据文档不入库（gitignore）：存在与否不参与链接校验
 LOCAL_ONLY = ("bms文档/用户文档/",)
-LINK_RE = re.compile(r'\]\(([^)\s]+)\)')
-CODE_RE = re.compile(r'`[^`]*`')
+LINK_RE = re.compile(r"\]\(([^)\s]+)\)")
+CODE_RE = re.compile(r"`[^`]*`")
 
 problems = []
 
@@ -42,25 +44,29 @@ def check_links():
                 continue
             p = os.path.join(dp, f)
             rel = os.path.relpath(p, ROOT)
-            for i, line in enumerate(open(p, encoding="utf-8", errors="ignore"), 1):
-                for m in LINK_RE.finditer(strip_code(line)):
-                    t = m.group(1).strip()
-                    if t.startswith(("http", "mailto", "data:")) or not t:
-                        continue
-                    path, _, anc = t.partition("#")
-                    path = path.lstrip("?")
-                    if not path:
-                        continue
-                    tp = os.path.normpath(os.path.join(dp, path))
-                    trel = os.path.relpath(tp, ROOT)
-                    if trel.startswith(LOCAL_ONLY):
-                        continue  # 本地凭据文档不入库（gitignore）：存在与否不参与链接校验
-                    if not os.path.exists(tp):
-                        problems.append(f"[断链] {rel}:{i} -> {t}")
-                        n_file += 1
-                        continue
-                    if anc and tp.endswith(".md"):
-                        if f'id="{anc}"' not in open(tp, encoding="utf-8", errors="ignore").read():
+            with open(p, encoding="utf-8", errors="ignore") as fh:
+                for i, line in enumerate(fh, 1):
+                    for m in LINK_RE.finditer(strip_code(line)):
+                        t = m.group(1).strip()
+                        if t.startswith(("http", "mailto", "data:")) or not t:
+                            continue
+                        path, _, anc = t.partition("#")
+                        path = path.lstrip("?")
+                        if not path:
+                            continue
+                        tp = os.path.normpath(os.path.join(dp, path))
+                        trel = os.path.relpath(tp, ROOT)
+                        if trel.startswith(LOCAL_ONLY):
+                            continue  # 本地凭据文档不入库（gitignore）：存在与否不参与链接校验
+                        if not os.path.exists(tp):
+                            problems.append(f"[断链] {rel}:{i} -> {t}")
+                            n_file += 1
+                            continue
+                        if (
+                            anc
+                            and tp.endswith(".md")
+                            and f'id="{anc}"' not in Path(tp).read_text(encoding="utf-8", errors="ignore")
+                        ):
                             problems.append(f"[失效锚点] {rel}:{i} -> {t}")
                             n_anchor += 1
     print(f"链接自洽：断链 {n_file} 处，失效锚点 {n_anchor} 处（扫描根：{ROOT}）")

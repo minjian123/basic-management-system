@@ -7,6 +7,7 @@
 关机命令：shutdown /s /t 0（优雅关闭，等待应用退出）。关机后再用 wake_mjw.py（WOL）开机。
 依赖 pywinrm（开发机 venv：~/tools/winrm-venv）；凭据从 deploy/.env 读取 MJW_*。
 """
+
 import argparse
 import sys
 from pathlib import Path

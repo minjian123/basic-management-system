@@ -22,7 +22,9 @@
   AI_CLOUD_URL / AI_CLOUD_KEY / AI_CLOUD_MODEL        云端 OpenAI 兼容端点（如可用服务）
   本地模型: LM_STUDIO_URL（默认 http://127.0.0.1:1234/v1）、LM_STUDIO_MODEL（缺省自动取）
 """
+
 import argparse
+import contextlib
 import json
 import os
 import re
@@ -55,9 +57,11 @@ def api(
     url = f"{os.environ['GITLAB_API_URL'].rstrip('/')}/{path.lstrip('/')}"
     data = json.dumps(dict(body)).encode("utf-8") if body is not None else None
     req = urllib.request.Request(
-        url, data=data, method=method,
-        headers={"PRIVATE-TOKEN": os.environ["GITLAB_API_TOKEN"],
-                 "Content-Type": "application/json"})
+        url,
+        data=data,
+        method=method,
+        headers={"PRIVATE-TOKEN": os.environ["GITLAB_API_TOKEN"], "Content-Type": "application/json"},
+    )
     try:
         with urllib.request.urlopen(req) as resp:
             payload = resp.read()
@@ -82,9 +86,11 @@ def chat(
 ) -> str:
     req = urllib.request.Request(
         f"{url.rstrip('/')}/chat/completions",
-        data=json.dumps(normalize_collections({"model": model, "messages": messages,
-                                               "temperature": temperature})).encode("utf-8"),
-        headers={"Content-Type": "application/json"})
+        data=json.dumps(
+            normalize_collections({"model": model, "messages": messages, "temperature": temperature})
+        ).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+    )
     try:
         with urllib.request.urlopen(req, timeout=600) as resp:
             data = json.loads(resp.read())
@@ -129,10 +135,8 @@ def gather_context(issue: ConcurrentStableDict[str, object], repo: Path) -> str:
     test_file = ""
     meta = repro / "repro.json"
     if meta.is_file():
-        try:
+        with contextlib.suppress(json.JSONDecodeError):
             test_file = json.loads(meta.read_text(encoding="utf-8")).get("test_file", "")
-        except json.JSONDecodeError:
-            pass
     if test_file:
         tf = repo / test_file
         if tf.is_file():
@@ -154,12 +158,14 @@ def parse_patch(reply: str) -> ConcurrentStableDict[str, object]:
         return ConcurrentStableDict({"diagnosis": reply[:500], "confidence": 0.0, "patch": ""})
     try:
         data = json.loads(m.group(0))
-        return ConcurrentStableDict({
-            "diagnosis": str(data.get("diagnosis", "")),
-            "confidence": float(data.get("confidence", 0.0)),
-            "patch": str(data.get("patch", "")),
-        })
-    except (json.JSONDecodeError, ValueError):
+        return ConcurrentStableDict(
+            {
+                "diagnosis": str(data.get("diagnosis", "")),
+                "confidence": float(data.get("confidence", 0.0)),
+                "patch": str(data.get("patch", "")),
+            }
+        )
+    except json.JSONDecodeError, ValueError:
         return ConcurrentStableDict({"diagnosis": reply[:500], "confidence": 0.0, "patch": ""})
 
 
@@ -169,9 +175,13 @@ def run(cmd: ConcurrentStableList[str], cwd: Path) -> bool:
 
 
 def create_mr(project_id: str, source: str, issue_iid: int, title: str, description: str) -> str:
-    mr = api(f"projects/{project_id}/merge_requests", "POST", ConcurrentStableDict({
-        "source_branch": source, "target_branch": "main",
-        "title": title, "description": description}))
+    mr = api(
+        f"projects/{project_id}/merge_requests",
+        "POST",
+        ConcurrentStableDict(
+            {"source_branch": source, "target_branch": "main", "title": title, "description": description}
+        ),
+    )
     return mr["web_url"]
 
 
@@ -218,10 +228,12 @@ def main() -> int:
         iid = issue["iid"]
         print(f"\n=== 处理 Issue !{iid} {issue['title']} ===")
         context = gather_context(issue, repo)
-        messages = ConcurrentStableList([
-            ConcurrentStableDict({"role": "system", "content": PROMPT_SYS}),
-            ConcurrentStableDict({"role": "user", "content": context}),
-        ])
+        messages = ConcurrentStableList(
+            [
+                ConcurrentStableDict({"role": "system", "content": PROMPT_SYS}),
+                ConcurrentStableDict({"role": "user", "content": context}),
+            ]
+        )
 
         reply = chat(local_url, local_model, messages) if local_model else ""
         result = parse_patch(reply)
@@ -232,8 +244,9 @@ def main() -> int:
             reply = chat(os.environ["AI_CLOUD_URL"], os.environ["AI_CLOUD_MODEL"], messages)
             result = parse_patch(reply)
             used_cloud = True
-        print(f"[诊断] {result['diagnosis']}（置信度 {result['confidence']}，"
-              f"模型：{'云端' if used_cloud else '本地'}）")
+        print(
+            f"[诊断] {result['diagnosis']}（置信度 {result['confidence']}，模型：{'云端' if used_cloud else '本地'}）"
+        )
 
         if not result["patch"]:
             body = f"AI 未能自动定位修复：{result['diagnosis'][:500]}（需人工处理）"
@@ -252,8 +265,12 @@ def main() -> int:
             continue
         run(ConcurrentStableList(["git", "-C", str(repo), "apply", str(patch_path)]), repo)
         run(ConcurrentStableList(["git", "-C", str(repo), "add", "-A"]), repo)
-        if not run(ConcurrentStableList(["git", "-C", str(repo), "commit", "-m",
-                                         f"fix: AI 修复缺陷 !{iid}（{issue['title'][:60]}）"]), repo):
+        if not run(
+            ConcurrentStableList(
+                ["git", "-C", str(repo), "commit", "-m", f"fix: AI 修复缺陷 !{iid}（{issue['title'][:60]}）"]
+            ),
+            repo,
+        ):
             print("[跳过] 无改动可提交")
             continue
         if args.dry_run:
@@ -264,17 +281,36 @@ def main() -> int:
         project_path = os.environ.get("CI_PROJECT_PATH", "")
         if push_token and project_path:
             host = os.environ["GITLAB_API_URL"].split("/api")[0].split("//")[1]
-            run(ConcurrentStableList(["git", "-C", str(repo), "push", "-u",
-                                      f"http://oauth2:{push_token}@{host}/{project_path}.git", branch]), repo)
+            run(
+                ConcurrentStableList(
+                    [
+                        "git",
+                        "-C",
+                        str(repo),
+                        "push",
+                        "-u",
+                        f"http://oauth2:{push_token}@{host}/{project_path}.git",
+                        branch,
+                    ]
+                ),
+                repo,
+            )
         else:
             run(ConcurrentStableList(["git", "-C", str(repo), "push", "-u", "origin", branch]), repo)
 
-        mr_url = create_mr(project_id, branch, iid,
-                           f"fix: 自动缺陷 !{iid} {issue['title'][:40]}",
-                           f"AI 修复（{result['diagnosis'][:300]}）\n\n"
-                           f"指纹：见 Issue !{iid}\n请人工 review 后合入；CI 回归通过后可关闭 Issue。")
-        api(f"projects/{project_id}/issues/{iid}/notes", "POST",
-            ConcurrentStableDict({"body": f"AI 已提交修复 MR: {mr_url}（置信度 {result['confidence']}）"}))
+        mr_url = create_mr(
+            project_id,
+            branch,
+            iid,
+            f"fix: 自动缺陷 !{iid} {issue['title'][:40]}",
+            f"AI 修复（{result['diagnosis'][:300]}）\n\n"
+            f"指纹：见 Issue !{iid}\n请人工 review 后合入；CI 回归通过后可关闭 Issue。",
+        )
+        api(
+            f"projects/{project_id}/issues/{iid}/notes",
+            "POST",
+            ConcurrentStableDict({"body": f"AI 已提交修复 MR: {mr_url}（置信度 {result['confidence']}）"}),
+        )
         print(f"[完成] MR: {mr_url}")
     return 0
 

@@ -25,6 +25,7 @@
     python reorder-design.py              执行重排
     python reorder-design.py --config path 指定 order.json 路径
 """
+
 import argparse
 import json
 import re
@@ -40,13 +41,14 @@ if str(_SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(_SRC_ROOT))
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList  # noqa: E402
+
 NUM_RE = re.compile(r"^\d{2}_")
 
 
 def get_short_subject(name: str, sys_name: str) -> str:
     s = name
     if s.startswith(f"{sys_name}_"):
-        s = s[len(sys_name) + 1:]
+        s = s[len(sys_name) + 1 :]
     if s.startswith("子系统_"):
         s = s[4:]
     return s
@@ -91,11 +93,16 @@ def build_file_mappings(
                 print(f"      新增界面文件（未创建，按目标编号 {fto} 直接创建即可）: {module_name}/{fname}")
                 continue
             old_no = old.stem.split("_")[0]
-            result.add({
-                "OldNo": old_no, "NewNo": fto, "Name": fname,
-                "OldFile": old, "OldFull": f"{old_no}_{fname}.html",
-                "NewFull": f"{fto}_{fname}.html",
-            })
+            result.add(
+                {
+                    "OldNo": old_no,
+                    "NewNo": fto,
+                    "Name": fname,
+                    "OldFile": old,
+                    "OldFull": f"{old_no}_{fname}.html",
+                    "NewFull": f"{fto}_{fname}.html",
+                }
+            )
         break
     return result
 
@@ -123,7 +130,7 @@ def sort_overview_tables(html: str) -> str:
             html_row = node["Html"]
             lead = re.match(r"<tr>\s*<td[^>]*>\s*\d{2}\s*</td>", html_row, re.S)
             if lead:
-                html_row = f"<tr><td>{node['No']:02d}</td>" + html_row[lead.end():]
+                html_row = f"<tr><td>{node['No']:02d}</td>" + html_row[lead.end() :]
             sorted_rows.append(html_row)
         sep = "\n        "
         return f"<table{attrs}>" + sep + sep.join(header + sorted_rows + others) + "\n      </table>"
@@ -163,11 +170,18 @@ def main() -> int:
                 old_no = old.stem.split("_")[0]
                 suffix = old.suffix
                 short = node.get("short") or get_short_subject(name, sys_name)
-                mappings.append({
-                    "OldNo": old_no, "NewNo": to, "Name": name, "OldFile": old,
-                    "OldFull": f"{old_no}_{name}{suffix}", "NewFull": f"{to}_{name}{suffix}",
-                    "OldShort": f"{old_no}-{short}", "NewShort": f"{to}-{short}",
-                })
+                mappings.append(
+                    {
+                        "OldNo": old_no,
+                        "NewNo": to,
+                        "Name": name,
+                        "OldFile": old,
+                        "OldFull": f"{old_no}_{name}{suffix}",
+                        "NewFull": f"{to}_{name}{suffix}",
+                        "OldShort": f"{old_no}-{short}",
+                        "NewShort": f"{to}-{short}",
+                    }
+                )
             dup = {m["NewNo"] for m in mappings}
             if len(dup) != len(mappings):
                 raise RuntimeError(f"新编号冲突: {sorted(dup)}（{dir_cfg['dir']}）")
@@ -178,7 +192,7 @@ def main() -> int:
             ordered = sorted(mappings, key=lambda m: int(m["OldNo"]), reverse=True)
             print("  重命名计划（旧 → 新）：")
             for m in ordered:
-                mark = "" if m["OldNo"] == m["NewNo"] else ""
+                mark = ""
                 print(f"    {m['OldFile'].relative_to(REPO_ROOT)} -> {m['NewFull']} {mark}")
             if not args.dry_run:
                 tmp_files = []
@@ -186,7 +200,7 @@ def main() -> int:
                     tmp = directory / f"{m['OldNo']}_reorder_{m['Name']}{m['OldFile'].suffix}"
                     m["OldFile"].rename(tmp)
                     tmp_files.append(tmp)
-                for m, tmp in zip(mappings, tmp_files):
+                for m, tmp in zip(mappings, tmp_files, strict=False):
                     tmp.rename(directory / m["NewFull"])
                 print(f"  已重命名 {len(mappings)} 个文件")
             for m in ordered:
@@ -202,7 +216,12 @@ def main() -> int:
                 to = str(mod["to"])
                 old_dir = None
                 for d in directory.iterdir():
-                    if d.is_dir() and NUM_RE.match(d.name) and d.name.endswith(f"_{mname}") and d.name != f"{to}_{mname}":
+                    if (
+                        d.is_dir()
+                        and NUM_RE.match(d.name)
+                        and d.name.endswith(f"_{mname}")
+                        and d.name != f"{to}_{mname}"
+                    ):
                         old_dir = d
                         break
                 if not old_dir:
@@ -210,18 +229,26 @@ def main() -> int:
                         in_place += 1
                         fms = build_file_mappings(ConcurrentStableDict(dir_cfg), mname, directory / f"{to}_{mname}")
                         if fms:
-                            file_only_mappings.append({"No": to, "Name": mname,
-                                                       "Dir": directory / f"{to}_{mname}", "FileMappings": fms})
+                            file_only_mappings.append(
+                                {"No": to, "Name": mname, "Dir": directory / f"{to}_{mname}", "FileMappings": fms}
+                            )
                         continue
                     print(f"  新增模块（文件夹未创建，按目标编号 {to} 直接创建即可）: {mname}")
                     continue
                 old_no = old_dir.name.split("_")[0]
-                module_mappings.append({
-                    "OldNo": old_no, "NewNo": to, "Name": mname, "OldDir": old_dir,
-                    "OldSeg": f"{old_no}_{mname}/", "NewSeg": f"{to}_{mname}/",
-                    "OldTxt": f"{old_no}_{mname}", "NewTxt": f"{to}_{mname}",
-                    "FileMappings": build_file_mappings(ConcurrentStableDict(dir_cfg), mname, old_dir),
-                })
+                module_mappings.append(
+                    {
+                        "OldNo": old_no,
+                        "NewNo": to,
+                        "Name": mname,
+                        "OldDir": old_dir,
+                        "OldSeg": f"{old_no}_{mname}/",
+                        "NewSeg": f"{to}_{mname}/",
+                        "OldTxt": f"{old_no}_{mname}",
+                        "NewTxt": f"{to}_{mname}",
+                        "FileMappings": build_file_mappings(ConcurrentStableDict(dir_cfg), mname, old_dir),
+                    }
+                )
             dup = {m["NewNo"] for m in module_mappings}
             if len(dup) != len(module_mappings):
                 raise RuntimeError(f"模块新编号冲突: {sorted(dup)}（{dir_cfg['dir']}）")
@@ -313,9 +340,12 @@ def main() -> int:
                 print(f"  更新引用: {file.relative_to(REPO_ROOT)}")
         print(f"\n引用替换完成：更新 {updated} / {len(scan_files)} 个文件")
     else:
-        print(f"\n[DryRun] 将扫描 {len(scan_files)} 个 html/md 文件进行引用替换：{len(ordered_pairs)} 对全名/路径段替换（按旧编号从后往前）")
+        print(
+            f"\n[DryRun] 将扫描 {len(scan_files)} 个 html/md 文件进行引用替换："
+            f"{len(ordered_pairs)} 对全名/路径段替换（按旧编号从后往前）"
+        )
         for t in config.get("textReplace", []):
-            print(f"  附加文本: \"{t['from']}\" -> \"{t['to']}\"")
+            print(f'  附加文本: "{t["from"]}" -> "{t["to"]}"')
 
     # ---------- 总览 01 节点表行排序 ----------
     for ov in overview_files:

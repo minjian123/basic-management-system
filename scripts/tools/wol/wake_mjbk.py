@@ -7,6 +7,7 @@
 
 服务器端已配置 /etc/systemd/system/wol.service 固化网卡 WOL 设置。
 """
+
 import argparse
 import socket
 import sys
@@ -73,7 +74,9 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="远程唤醒开发服务器 mjbk（Wake-on-LAN）")
     parser.add_argument("--host", default=default_host, help="服务器 IP（默认取 deploy/.env 的 MJBK_IP）")
     parser.add_argument("--mac", default=default_mac, help=f"服务器网卡 MAC（默认 {default_mac}）")
-    parser.add_argument("--timeout", type=int, default=DEFAULT_TIMEOUT, help=f"等待就绪超时秒数（默认 {DEFAULT_TIMEOUT}）")
+    parser.add_argument(
+        "--timeout", type=int, default=DEFAULT_TIMEOUT, help=f"等待就绪超时秒数（默认 {DEFAULT_TIMEOUT}）"
+    )
     args = parser.parse_args()
     if not args.host:
         parser.error("未指定服务器 IP：请在 deploy/.env 中设置 MJBK_IP（见 .env.example）或使用 --host 参数")

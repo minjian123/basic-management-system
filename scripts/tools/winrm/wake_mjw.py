@@ -8,6 +8,7 @@
 已实测（2026-09-06）：mjw 从 S3 睡眠与 S5 关机状态均可被魔术包唤醒。
 依赖：仅 Python 标准库（UDP 发魔术包 + 轮询端口）。
 """
+
 import argparse
 import socket
 import sys
@@ -72,7 +73,9 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="远程唤醒开发服务器 mjw（Wake-on-LAN）")
     parser.add_argument("--host", default=env.get("MJW_IP", ""), help="服务器 IP（默认取 deploy/.env 的 MJW_IP）")
     parser.add_argument("--mac", default=env.get("MJW_WOL_MAC", DEFAULT_MAC), help="网卡 MAC（默认取 MJW_WOL_MAC）")
-    parser.add_argument("--timeout", type=int, default=DEFAULT_TIMEOUT, help=f"等待 WinRM 就绪超时秒数（默认 {DEFAULT_TIMEOUT}）")
+    parser.add_argument(
+        "--timeout", type=int, default=DEFAULT_TIMEOUT, help=f"等待 WinRM 就绪超时秒数（默认 {DEFAULT_TIMEOUT}）"
+    )
     args = parser.parse_args()
     if not args.host:
         parser.error("未指定服务器 IP：请在 deploy/.env 中设置 MJW_IP（见 .env.example）或使用 --host 参数")
@@ -81,7 +84,7 @@ def main() -> int:
     send_wol(args.mac, args.host)
     print(f"魔术包已发送，等待 WinRM 就绪（最多 {args.timeout} 秒）...")
     if wait_winrm_ready(args.host, args.timeout):
-        print(f"[完成] 开发服务器已就绪，WinRM 端口 5985 可连。")
+        print("[完成] 开发服务器已就绪，WinRM 端口 5985 可连。")
         return 0
     print("[失败] 等待超时，服务器未就绪。请检查：")
     print("    1. 服务器电源线、网线已连接，交换机端口正常")

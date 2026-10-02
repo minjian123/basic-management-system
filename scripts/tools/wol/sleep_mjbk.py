@@ -10,6 +10,7 @@
 凭据从 deploy/.env 读取（MJBK_IP / MJBK_SSH_USER / MJBK_SUDO_PASSWORD），
 SSH 连接走公钥免密，仅 sudo 密码来自 .env。
 """
+
 import argparse
 import subprocess
 import sys
@@ -65,8 +66,7 @@ def main() -> int:
 
     print(f"正在让 {ip} 进入系统睡眠 ...")
     escaped = pwd.replace("'", "'\\''")
-    cmd = ["ssh", "-o", "ConnectTimeout=5", f"{user}@{ip}",
-           f"echo '{escaped}' | sudo -S systemctl suspend"]
+    cmd = ["ssh", "-o", "ConnectTimeout=5", f"{user}@{ip}", f"echo '{escaped}' | sudo -S systemctl suspend"]
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode == 0:
         print("睡眠指令已下发，机器即将休眠（可随后用 wake_mjbk.py 唤醒）。")

@@ -7,7 +7,9 @@
 
 Base 默认 %USERPROFILE%\\.bg，可 --base 覆盖（同一 Base 下按 name 区分任务）。
 """
+
 import argparse
+import contextlib
 import json
 import os
 import subprocess
@@ -30,50 +32,61 @@ def main() -> int:
 
     base = Path(args.base)
     base.mkdir(parents=True, exist_ok=True)
-    safe = args.name.replace("\\", "_").replace("/", "_").replace(":", "_").replace("*", "_").replace("?", "_").replace('"', "_").replace("<", "_").replace(">", "_").replace("|", "_")
+    safe = (
+        args.name.replace("\\", "_")
+        .replace("/", "_")
+        .replace(":", "_")
+        .replace("*", "_")
+        .replace("?", "_")
+        .replace('"', "_")
+        .replace("<", "_")
+        .replace(">", "_")
+        .replace("|", "_")
+    )
     out_file = base / f"{safe}.out.log"
     err_file = base / f"{safe}.err.log"
     state_file = base / f"{safe}.json"
     for f in (out_file, err_file, state_file):
-        try:
+        with contextlib.suppress(FileNotFoundError):
             f.unlink()
-        except FileNotFoundError:
-            pass
 
-    stdout = open(out_file, "w", encoding="utf-8")
-    stderr = open(err_file, "w", encoding="utf-8")
     creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0) if sys.platform.startswith("win") else 0
-    shell_cmd = ["pwsh", "-NoProfile", "-Command", args.command] if sys.platform.startswith("win") else ["bash", "-c", args.command]
-    proc = subprocess.Popen(
-        shell_cmd,
-        cwd=args.workdir,
-        stdout=stdout,
-        stderr=stderr,
-        creationflags=creationflags,
+    shell_cmd = (
+        ["pwsh", "-NoProfile", "-Command", args.command]
+        if sys.platform.startswith("win")
+        else ["bash", "-c", args.command]
     )
+    with open(out_file, "w", encoding="utf-8") as stdout, open(err_file, "w", encoding="utf-8") as stderr:
+        proc = subprocess.Popen(
+            shell_cmd,
+            cwd=args.workdir,
+            stdout=stdout,
+            stderr=stderr,
+            creationflags=creationflags,
+        )
 
-    state = {
-        "name": args.name,
-        "pid": proc.pid,
-        "started": time.strftime("%Y-%m-%d %H:%M:%S"),
-        "started_ts": time.time(),
-        "command": args.command,
-        "out": str(out_file),
-    }
-    state_file.write_text(json.dumps(state, ensure_ascii=False), encoding="utf-8")
+        state = {
+            "name": args.name,
+            "pid": proc.pid,
+            "started": time.strftime("%Y-%m-%d %H:%M:%S"),
+            "started_ts": time.time(),
+            "command": args.command,
+            "out": str(out_file),
+        }
+        state_file.write_text(json.dumps(state, ensure_ascii=False), encoding="utf-8")
 
-    if args.timeout > 0:
-        def _watch():
-            deadline = time.time() + args.timeout
-            while proc.poll() is None and time.time() < deadline:
-                time.sleep(1)
-            if proc.poll() is None:
-                proc.kill()
-                print(f"BG_TIMEOUT name={args.name} 超过 {args.timeout} 秒，已终止", flush=True)
-        threading.Thread(target=_watch, daemon=True).start()
+        if args.timeout > 0:
 
-    stdout.close()
-    stderr.close()
+            def _watch():
+                deadline = time.time() + args.timeout
+                while proc.poll() is None and time.time() < deadline:
+                    time.sleep(1)
+                if proc.poll() is None:
+                    proc.kill()
+                    print(f"BG_TIMEOUT name={args.name} 超过 {args.timeout} 秒，已终止", flush=True)
+
+            threading.Thread(target=_watch, daemon=True).start()
+
     print(f"BG_STARTED name={args.name} pid={proc.pid}", flush=True)
     print(f"状态查询: python {Path(__file__).resolve().parent / 'bg-status.py'} --name '{args.name}'", flush=True)
     print(f"日志: {out_file}", flush=True)

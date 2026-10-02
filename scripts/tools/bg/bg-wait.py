@@ -6,6 +6,7 @@
 配合 bg-run.py 使用：发起任务后需要结果时调用本脚本阻塞等待，
 到终态输出最终状态与日志尾部后退出；超时输出 BG_WAIT_TIMEOUT 并以码 2 退出。
 """
+
 import argparse
 import json
 import os
@@ -47,6 +48,7 @@ def main() -> int:
         # 终态判定：状态文件进程已退出（bg-status 同口径：pid 不存活即结束）
         if sys.platform.startswith("win"):
             import ctypes
+
             handle = ctypes.windll.kernel32.OpenProcess(0x1000, False, state["pid"])
             alive = bool(handle)
             if handle:
@@ -68,7 +70,7 @@ def main() -> int:
     out_text = out_file.read_text(encoding="utf-8", errors="replace") if out_file.exists() else ""
     elapsed = int(time.time() - state.get("started_ts", time.time()))
     print(f"FINISHED name={args.name} 耗时≈{elapsed} 秒 输出行数={len(out_text.splitlines())}")
-    for line in out_text.splitlines()[-args.tail:]:
+    for line in out_text.splitlines()[-args.tail :]:
         print(line)
     if err_file.exists() and err_file.stat().st_size > 0:
         print("--- stderr ---")

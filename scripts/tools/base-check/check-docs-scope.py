@@ -171,7 +171,11 @@ def _self_test() -> int:
     expect("合规正文", bool(scan_text("本任务交付会话管理三端点，用例 Kiwi 2195")), False)
     expect("时长约束非工时", bool(scan_text("恢复：RTO ≤4h、RPO ≤1h")), False)
     expect("小数非工时", bool(scan_text("版本 3.14 与 1.5 倍")), False)
-    expect("豁免标记", bool(scan_text('见《计划文档规范》「排期窗口格式」节 <!-- docs-scope:allow:引用规范原文 -->')), False)
+    expect(
+        "豁免标记",
+        bool(scan_text("见《计划文档规范》「排期窗口格式」节 <!-- docs-scope:allow:引用规范原文 -->")),
+        False,
+    )
     expect("白名单-规范", is_whitelisted("规范/计划文档规范.md"), True)
     expect("白名单-总体规划", is_whitelisted("规划/总体项目规划.md"), True)
     expect("白名单-阶段计划", is_whitelisted("项目/06_认证与安全/计划/01_计划_认证与安全.md"), True)

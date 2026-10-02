@@ -157,9 +157,7 @@ def render(template_text: str, env_file: ConcurrentStableDict[str, str]) -> str:
         global_smtp_block=_smtp_global_block(env_file),
         default_receiver_block=_email_block(env_file, indent="    "),
         critical_receiver_block="\n".join(
-            block
-            for block in (_email_block(env_file, indent="    "), _webhook_block(env_file, indent="    "))
-            if block
+            block for block in (_email_block(env_file, indent="    "), _webhook_block(env_file, indent="    ")) if block
         ),
     )
 
@@ -175,8 +173,12 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
     """
     parser = argparse.ArgumentParser(description="Alertmanager 配置渲染（只读 .env，产物不入库）")
     parser.add_argument("--env-file", default=str(_DEFAULT_ENV), help="凭据文件（默认 deploy/.env）")
-    parser.add_argument("--template", default=str(_DEFAULT_TEMPLATE), help="模板路径（默认 deploy/observability/alertmanager.yml.tmpl）")
-    parser.add_argument("--out", default=str(_DEFAULT_OUT), help="产物路径（默认 deploy/observability/rendered/alertmanager.yml）")
+    parser.add_argument(
+        "--template", default=str(_DEFAULT_TEMPLATE), help="模板路径（默认 deploy/observability/alertmanager.yml.tmpl）"
+    )
+    parser.add_argument(
+        "--out", default=str(_DEFAULT_OUT), help="产物路径（默认 deploy/observability/rendered/alertmanager.yml）"
+    )
     parser.add_argument("--check", action="store_true", help="校验产物是否为最新（不一致退 1，不写文件）")
     args = parser.parse_args(argv)
 

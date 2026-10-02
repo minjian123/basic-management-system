@@ -85,9 +85,9 @@ def scrape_runtime(metrics_url: str | None) -> ConcurrentStableDict[str, object]
     if not metrics_url:
         return ConcurrentStableDict({"available": False, "reason": "未配置 --metrics-url（运行期遥测随 08_01）"})
     try:
-        with urllib.request.urlopen(metrics_url, timeout=10) as resp:  # noqa: S310 - 内网自托管端点
+        with urllib.request.urlopen(metrics_url, timeout=10) as resp:
             text = resp.read().decode("utf-8", errors="ignore")
-    except Exception as exc:  # noqa: BLE001 - 网络 / 鉴权失败按降级处理
+    except Exception as exc:
         return ConcurrentStableDict({"available": False, "reason": f"指标端点不可达：{type(exc).__name__}"})
     matches = [float(value) for value in _METRIC_LINE_RE.findall(text)]
     return ConcurrentStableDict({"available": True, "cross_access_total": sum(matches) if matches else 0.0})
@@ -130,7 +130,9 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
         "summary": {
             "boundary_violations": total_violations,
             "cross_db_access": cross_access,
-            "registered_exceptions": (static.get("counts", {}) or {}).get("registered_exceptions_total") if "error" not in static else None,
+            "registered_exceptions": (
+                (static.get("counts", {}) or {}).get("registered_exceptions_total") if "error" not in static else None
+            ),
         },
     }
 
@@ -158,7 +160,9 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
         print(f"  运行时：未采集（{runtime.get('reason')}）")
 
     if args.out:
-        Path(args.out).write_text(json.dumps(normalize_collections(result), ensure_ascii=False, indent=2), encoding="utf-8")
+        Path(args.out).write_text(
+            json.dumps(normalize_collections(result), ensure_ascii=False, indent=2), encoding="utf-8"
+        )
         print(f"已写入 JSON：{args.out}")
     if args.fail_on_violation and total_violations:
         return 1

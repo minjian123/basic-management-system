@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 # mjw_vision_mcp.py - opencode MCP server：调用 mjw（192.168.0.114）的 qwen3-vl-8b（LM Studio）识图/OCR
 #
 # 注册：.opencode/opencode.json 的 mcp.local
@@ -62,9 +61,7 @@ def env_cfg():
     token = env.get("LMSTUDIO_MJW_API_KEY")
     model = env.get("LMSTUDIO_MJW_MODEL", "qwen3-vl-8b-instruct-abliterated-v2")
     if not base or not token:
-        raise RuntimeError(
-            "mjw 识图服务凭据缺失：请在 deploy/.env 配置 LMSTUDIO_MJW_BASE 与 LMSTUDIO_MJW_API_KEY"
-        )
+        raise RuntimeError("mjw 识图服务凭据缺失：请在 deploy/.env 配置 LMSTUDIO_MJW_BASE 与 LMSTUDIO_MJW_API_KEY")
     return base.rstrip("/"), token, model
 
 
@@ -114,13 +111,15 @@ def ask_vlm(mime, b64, system, user, max_tokens=900):
         with urllib.request.urlopen(req, timeout=180) as r:
             data = json.loads(r.read().decode("utf-8"))
     except urllib.error.HTTPError as e:
-        raise RuntimeError(f"mjw 识图服务返回 HTTP {e.code}: {e.read().decode(errors='replace')[:400]}")
+        raise RuntimeError(f"mjw 识图服务返回 HTTP {e.code}: {e.read().decode(errors='replace')[:400]}") from e
     except urllib.error.URLError as e:
-        raise RuntimeError(f"无法连接 mjw 识图服务({base})：{e.reason}，请确认 mjw 已开机且 LM Studio 已加载模型")
+        raise RuntimeError(
+            f"无法连接 mjw 识图服务({base})：{e.reason}，请确认 mjw 已开机且 LM Studio 已加载模型"
+        ) from e
     try:
         return data["choices"][0]["message"]["content"]
-    except (KeyError, IndexError):
-        raise RuntimeError(f"mjw 响应格式异常: {str(data)[:400]}")
+    except KeyError, IndexError:
+        raise RuntimeError(f"mjw 响应格式异常: {str(data)[:400]}") from None
 
 
 def describe_image(image_path, question):
@@ -148,6 +147,7 @@ def read_text(image_path, focus):
 
 # ---------------- MCP stdio JSON-RPC（NDJSON，每条消息一行，\n 定界） ----------------
 
+
 def read_message():
     """读一条 NDJSON（按 \n 定界）。readline 会阻塞到行尾，仅 EOF 时可能返回不完整行。EOF 返回 None。"""
     buf = b""
@@ -174,35 +174,37 @@ def write_message(obj):
 
 
 def result_meta():
-    return {"tools": [
-        {
-            "name": "describe_image",
-            "description": "识图：调用本地多模态模型（mjw qwen3-vl-8b）详尽描述图片画面，"
-                           "包括内容、构图、风格，以及画面中的对话框/气泡与其内文字。"
-                           "image_path 可为绝对路径或相对当前工作目录的路径。",
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "image_path": {"type": "string", "description": "图片文件路径"},
-                    "question": {"type": "string", "description": "可选：针对图片的具体问题"},
+    return {
+        "tools": [
+            {
+                "name": "describe_image",
+                "description": "识图：调用本地多模态模型（mjw qwen3-vl-8b）详尽描述图片画面，"
+                "包括内容、构图、风格，以及画面中的对话框/气泡与其内文字。"
+                "image_path 可为绝对路径或相对当前工作目录的路径。",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "image_path": {"type": "string", "description": "图片文件路径"},
+                        "question": {"type": "string", "description": "可选：针对图片的具体问题"},
+                    },
+                    "required": ["image_path"],
                 },
-                "required": ["image_path"],
             },
-        },
-        {
-            "name": "read_text",
-            "description": "OCR：调用本地多模态模型（mjw qwen3-vl-8b）识别图片中的文字，"
-                           "默认专注漫画气泡内的对话文字并标注位置；可用 focus 指定识别重点。",
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "image_path": {"type": "string", "description": "图片文件路径"},
-                    "focus": {"type": "string", "description": "可选：识别重点（默认：画面气泡内文字）"},
+            {
+                "name": "read_text",
+                "description": "OCR：调用本地多模态模型（mjw qwen3-vl-8b）识别图片中的文字，"
+                "默认专注漫画气泡内的对话文字并标注位置；可用 focus 指定识别重点。",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "image_path": {"type": "string", "description": "图片文件路径"},
+                        "focus": {"type": "string", "description": "可选：识别重点（默认：画面气泡内文字）"},
+                    },
+                    "required": ["image_path"],
                 },
-                "required": ["image_path"],
             },
-        },
-    ]}
+        ]
+    }
 
 
 def handle(msg):
@@ -211,11 +213,15 @@ def handle(msg):
     params = msg.get("params") or {}
 
     if method == "initialize":
-        return {"jsonrpc": "2.0", "id": msgid, "result": {
-            "protocolVersion": PROTOCOL_VERSION,
-            "capabilities": {"tools": {}},
-            "serverInfo": {"name": SERVER_NAME, "version": SERVER_VERSION},
-        }}
+        return {
+            "jsonrpc": "2.0",
+            "id": msgid,
+            "result": {
+                "protocolVersion": PROTOCOL_VERSION,
+                "capabilities": {"tools": {}},
+                "serverInfo": {"name": SERVER_NAME, "version": SERVER_VERSION},
+            },
+        }
 
     if method == "notifications/initialized" or method.startswith("notifications/"):
         return None
@@ -236,15 +242,23 @@ def handle(msg):
                 text = read_text(args.get("image_path", ""), args.get("focus", ""))
             else:
                 raise RuntimeError(f"未知工具: {name}")
-            return {"jsonrpc": "2.0", "id": msgid, "result": {
-                "content": [{"type": "text", "text": text}],
-                "isError": False,
-            }}
+            return {
+                "jsonrpc": "2.0",
+                "id": msgid,
+                "result": {
+                    "content": [{"type": "text", "text": text}],
+                    "isError": False,
+                },
+            }
         except Exception as e:
-            return {"jsonrpc": "2.0", "id": msgid, "result": {
-                "content": [{"type": "text", "text": f"[识图失败] {e}"}],
-                "isError": True,
-            }}
+            return {
+                "jsonrpc": "2.0",
+                "id": msgid,
+                "result": {
+                    "content": [{"type": "text", "text": f"[识图失败] {e}"}],
+                    "isError": True,
+                },
+            }
 
     return {"jsonrpc": "2.0", "id": msgid, "error": {"code": -32601, "message": f"method not found: {method}"}}
 
