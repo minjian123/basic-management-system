@@ -1,5 +1,7 @@
 <!-- 登录页（需求 05-1）：独立全屏页 + 居中单卡片（品牌区 / 表单区 / 第三方入口区）。
-     布局依据《布局设计 · 登录页》；本地登录成功写会话并按守卫口径回跳，SSO 入口按租户 IdP 清单渲染。 -->
+     布局依据《布局设计 · 登录页》；本地登录成功写会话并按守卫口径回跳，SSO 入口按租户 IdP 清单渲染。
+     表单件**复用组件库**（`TextInput` / `PasswordInput` / `CaptchaField`），按钮走 Element Plus（宿主全量引入样式），
+     本页只做接线与布局，不自绘输入件。 -->
 <script setup lang="ts">
 import {
   CAPTCHA_REQUIRED_TEXT,
@@ -11,7 +13,8 @@ import {
   type CaptchaCredential,
   type CaptchaKind,
 } from '@bms/core'
-import { CaptchaField, createHttpCaptchaSource } from '@bms/ui-ep'
+import { CaptchaField, PasswordInput, TextInput, createHttpCaptchaSource } from '@bms/ui-ep'
+import { ElButton } from 'element-plus'
 import { computed, onMounted, ref, shallowRef } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
@@ -39,8 +42,6 @@ const tenantInput = ref(getTenantCode() ?? '')
 const account = ref('')
 /** 登录口令（不回填、不落任何存储）。 */
 const password = ref('')
-/** 明文切换（仅组件内存态）。 */
-const passwordVisible = ref(false)
 /** 验证码受控值（图形 / 短信）。 */
 const captchaCode = ref('')
 /** 验证码凭证（件层延迟提交模式上抛）。 */
@@ -221,10 +222,9 @@ onMounted(() => {
       <form class="login-view__form" data-test="login-form" @submit.prevent="onSubmit">
         <label class="login-view__field">
           <span class="login-view__label">租户标识</span>
-          <input
+          <text-input
             v-model="tenantInput"
-            class="login-view__input"
-            type="text"
+            clearable
             autocomplete="organization"
             placeholder="子域名部署可留空"
             data-test="login-tenant"
@@ -233,10 +233,8 @@ onMounted(() => {
 
         <label class="login-view__field">
           <span class="login-view__label">账号</span>
-          <input
+          <text-input
             v-model="account"
-            class="login-view__input"
-            type="text"
             autocomplete="username"
             placeholder="请输入账号"
             data-test="login-account"
@@ -245,25 +243,7 @@ onMounted(() => {
 
         <label class="login-view__field">
           <span class="login-view__label">密码</span>
-          <span class="login-view__password">
-            <input
-              v-model="password"
-              class="login-view__input"
-              :type="passwordVisible ? 'text' : 'password'"
-              autocomplete="new-password"
-              placeholder="请输入密码"
-              data-test="login-password"
-            />
-            <button
-              type="button"
-              class="login-view__toggle"
-              :aria-label="passwordVisible ? '隐藏密码' : '显示密码'"
-              data-test="login-password-toggle"
-              @click="passwordVisible = !passwordVisible"
-            >
-              {{ passwordVisible ? '隐藏' : '显示' }}
-            </button>
-          </span>
+          <password-input v-model="password" :strength="false" show-toggle data-test="login-password" />
         </label>
 
         <div v-if="captchaVisible" class="login-view__captcha" data-test="login-captcha">
@@ -284,24 +264,28 @@ onMounted(() => {
           {{ formError }}
         </p>
 
-        <button type="submit" class="login-view__submit" :disabled="submitting" data-test="login-submit">
+        <el-button
+          class="login-view__submit"
+          type="primary"
+          native-type="submit"
+          :loading="submitting"
+          data-test="login-submit"
+        >
           {{ submitText }}
-        </button>
+        </el-button>
       </form>
 
       <footer v-if="ssoProviders.length > 0" class="login-view__sso" data-test="login-sso">
         <p class="login-view__sso-title">其他登录方式</p>
         <div class="login-view__sso-list">
-          <button
+          <el-button
             v-for="provider in ssoProviders"
             :key="provider.idp_key"
-            type="button"
-            class="login-view__sso-item"
             data-test="login-sso-item"
             @click="onSsoLogin(provider)"
           >
             {{ provider.name }}
-          </button>
+          </el-button>
         </div>
       </footer>
     </section>
@@ -366,39 +350,6 @@ onMounted(() => {
   color: var(--bms-color-text-secondary);
 }
 
-.login-view__input {
-  box-sizing: border-box;
-  width: 100%;
-  height: 32px;
-  padding: 0 var(--bms-spacing-md);
-  color: var(--bms-color-text);
-  background: var(--bms-color-bg);
-  border: 1px solid var(--bms-color-border);
-  border-radius: var(--bms-radius-md);
-}
-
-.login-view__password {
-  display: flex;
-  align-items: center;
-  gap: var(--bms-spacing-sm);
-}
-
-.login-view__password .login-view__input {
-  flex: 1;
-  min-width: 0;
-}
-
-.login-view__toggle {
-  flex: none;
-  padding: 0 var(--bms-spacing-sm);
-  height: 32px;
-  color: var(--bms-color-primary);
-  background: transparent;
-  border: 1px solid var(--bms-color-border);
-  border-radius: var(--bms-radius-md);
-  cursor: pointer;
-}
-
 .login-view__captcha {
   display: flex;
   flex-direction: column;
@@ -410,18 +361,9 @@ onMounted(() => {
   color: var(--bms-color-danger);
 }
 
+/* 提交按钮铺满卡片宽度（其余外观由 Element Plus 主题变量 + 令牌映射接管）。 */
 .login-view__submit {
-  height: 36px;
-  color: var(--bms-color-white);
-  background: var(--bms-color-primary);
-  border: none;
-  border-radius: var(--bms-radius-md);
-  cursor: pointer;
-}
-
-.login-view__submit:disabled {
-  cursor: not-allowed;
-  opacity: 0.7;
+  width: 100%;
 }
 
 .login-view__sso {
@@ -442,15 +384,5 @@ onMounted(() => {
   flex-wrap: wrap;
   gap: var(--bms-spacing-sm);
   justify-content: center;
-}
-
-.login-view__sso-item {
-  height: 32px;
-  padding: 0 var(--bms-spacing-md);
-  color: var(--bms-color-text);
-  background: var(--bms-color-bg);
-  border: 1px solid var(--bms-color-border);
-  border-radius: var(--bms-radius-md);
-  cursor: pointer;
 }
 </style>

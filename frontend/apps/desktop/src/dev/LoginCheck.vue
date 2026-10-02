@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// 开发态核对页（05_01 登录页）：三组 15 项自检（错误码文案 / 纯函数与地址 / 页面结构）程序化上屏；
+// 开发态核对页（05_01 登录页）：三组 16 项自检（错误码文案 / 纯函数与地址 / 页面结构）程序化上屏；
 // 页面结构项以真实挂载的登录页 DOM 核对；本页不进构建产物（`vite build` 只构建 `index.html`）。
 import {
   DEFAULT_AUTH_ERROR_TEXT,
@@ -77,6 +77,20 @@ const passed = ref(0)
  */
 function pick(selector: string): HTMLElement | null {
   return host.value === null ? null : host.value.querySelector<HTMLElement>(selector)
+}
+
+/**
+ * 以原生 setter 写入输入值并派发 `input`（模拟用户输入，驱动件层受控值更新）。
+ *
+ * @param input 目标输入元素。
+ * @param value 写入值。
+ */
+function fillInput(input: HTMLInputElement | null, value: string): void {
+  if (input === null) {
+    return
+  }
+  Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(input, value)
+  input.dispatchEvent(new Event('input', { bubbles: true }))
 }
 
 /** 等待挂载期异步（策略 / SSO 清单）落定并重渲染。 */
@@ -170,9 +184,18 @@ onMounted(async () => {
   const root = pick('[data-test="login-view"]')
   const tenantInput = pick('[data-test="login-tenant"]') as HTMLInputElement | null
   const accountInput = pick('[data-test="login-account"]') as HTMLInputElement | null
-  const passwordInput = pick('[data-test="login-password"]') as HTMLInputElement | null
+  // `data-test` 落点差异：`TextInput` 根即 Element Plus 输入框（属性透传到内部原生 input），
+  // `PasswordInput` 根为包装 div（须再取内部 input）。
+  const passwordInput = pick('[data-test="login-password"] input') as HTMLInputElement | null
   const submit = pick('[data-test="login-submit"]')
-  const toggle = pick('[data-test="login-password-toggle"]')
+  const libraryInputs = host.value === null ? [] : [...host.value.querySelectorAll('.bms-text-input, .bms-password-input')]
+  const nakedInputs =
+    host.value === null
+      ? []
+      : [...host.value.querySelectorAll('input')].filter(
+          (input) => input.closest('.bms-text-input, .bms-password-input') === null,
+        )
+  const buttons = host.value === null ? [] : [...host.value.querySelectorAll('button')]
   const ssoItems = host.value === null ? [] : host.value.querySelectorAll('[data-test="login-sso-item"]')
 
   const groupThree: CheckGroup = { title: '三、页面结构', items: [] }
@@ -190,22 +213,34 @@ onMounted(async () => {
   )
   add(
     groupThree,
+    `表单件复用组件库：文本 / 密码件 ${libraryInputs.length} 个，裸原生 input ${nakedInputs.length} 个 / 非 Element Plus 按钮 ${buttons.filter((button) => !button.classList.contains('el-button')).length} 个`,
+    libraryInputs.length === 3 &&
+      nakedInputs.length === 0 &&
+      buttons.length > 0 &&
+      buttons.every((button) => button.classList.contains('el-button')),
+  )
+  add(
+    groupThree,
     `密码安全口径：type=${passwordInput?.type ?? '无'} / 初值${(passwordInput?.value ?? '') === '' ? '为空' : '非空'} / autocomplete=${passwordInput?.getAttribute('autocomplete') ?? '无'}`,
     passwordInput?.type === 'password' &&
       passwordInput.value === '' &&
       passwordInput.getAttribute('autocomplete') === 'new-password',
   )
+  // 明文切换图标（Element Plus `show-password`）仅在有值时渲染，故先填写口令再取图标并切换。
+  fillInput(passwordInput, 'secret')
+  await nextTick()
+  const toggle = pick('[data-test="login-password"] .el-input__password')
   const typeBeforeToggle = passwordInput?.type ?? ''
-  ;(toggle as HTMLButtonElement | null)?.click()
+  toggle?.click()
   await nextTick()
   const typeAfterToggle = passwordInput?.type ?? ''
-  ;(toggle as HTMLButtonElement | null)?.click()
+  toggle?.click()
   await nextTick()
   const typeAfterRestore = passwordInput?.type ?? ''
   add(
     groupThree,
-    `明文切换仅改输入类型（${typeBeforeToggle} → ${typeAfterToggle} → ${typeAfterRestore}）`,
-    typeBeforeToggle === 'password' && typeAfterToggle === 'text' && typeAfterRestore === 'password',
+    `明文切换仅改输入类型（组件库件图标，${typeBeforeToggle} → ${typeAfterToggle} → ${typeAfterRestore}）`,
+    toggle !== null && typeBeforeToggle === 'password' && typeAfterToggle === 'text' && typeAfterRestore === 'password',
   )
   const pageText = host.value?.textContent ?? ''
   add(
@@ -286,6 +321,12 @@ onMounted(async () => {
           SSO 入口按 <code>GET /auth/sso/providers</code> 渲染，点击经顶层地址跳转授权端点；清单为空即整块不渲染。
         </li>
         <li>密码不回填、不落存储，明文切换仅内存态；<strong>不提供「记住我」与密码强度提示</strong>。</li>
+        <li>
+          表单件复用组件库：租户 / 账号走 <code>TextInput</code>、密码走 <code>PasswordInput</code>（<code>:strength="false"</code>
+          关闭强度条 + 明文切换图标复用 Element Plus <code>show-password</code>），按钮走 Element Plus
+          <code>el-button</code>；宿主入口（<code>main.ts</code>）全量引入 Element Plus 样式，主题由令牌
+          <code>--el-*</code> 映射接管。
+        </li>
       </ul>
     </section>
 
