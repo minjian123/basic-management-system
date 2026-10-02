@@ -10,8 +10,8 @@
 
 - **为什么业务只落插入序（2026-09-29 拍板）**：升序集合的写路径必须**比较 + 维护有序结构**，并发天生上不去；插入序形态只需「追加 + 记录插入序号」，可做**分段写 + 序号归并**，是唯一能做到高并发写的形态。排序需求一律走既有**排序契约**（请求侧统一排序参数 + 仓储可排序字段白名单），**不用集合结构排序**。
 - **口径修正（相对前版设计，整体推翻）**：前版以「只读抽象（`Sequence` / `Mapping` / `AbstractSet` / `Mutable*`）+ 运行期零变更」为落点——只读抽象在运行期仍是裸 `list` / `dict` / `frozenset`，**无序问题并未解决**，且该口径把 309 处既有抽象落点漏在护栏之外。新口径**只看声明与运行期是否为继承 `BaseConcurrentSorted` 的集合类**，验收基准为「**形态一致 + 逐处登记**」。
-- **本任务范围**：① 基座能力新增（并发集合**只读 API**、**插入序形态** `ConcurrentStable*`（含分段写）、**Pydantic 契约元数据** `CONTRACT_COLLECTION`、序列化链识别集合类）；② 594 处声明整改（**参数位、类字段、返回值全落**）；③ 调用方适配（含 `bms_core` 内部调用链，`services` 侧报错登记为 `08_03` 前置）；④ 基线吸收口径收紧后的现状并递减；⑤ **护栏收紧**（白名单只留插入序形态 + 实现文件豁免）；⑥ 规范 / 清单 / 需求 / 任务 / 计划回写；⑦ 守卫回归用例（Kiwi 先登记，3 条）。
-- **不在本任务**：`services`（批次 2，`08_03`）、`backend/ops` 与 `scripts/tools`（批次 3，`08_04`）；前端 TS 侧集合契约；跨副本异步链（`BaseAsyncSorted` / `RedisSorted*`）形态。
+- **本任务范围**：① 基座能力新增（并发集合**只读 API**、**插入序形态** `ConcurrentStable*`（含分段写）、**Pydantic 契约元数据** `CONTRACT_COLLECTION`、序列化链识别集合类）；② 594 处声明整改（**参数位、类字段、返回值全落**）；③ 调用方适配（含 `bms_core` 内部调用链，`services` 侧报错登记为批次 2 前置）；④ 基线吸收口径收紧后的现状并递减；⑤ **护栏收紧**（白名单只留插入序形态 + 实现文件豁免）；⑥ 规范 / 清单 / 需求 / 任务 / 计划回写；⑦ 守卫回归用例（Kiwi 先登记，3 条）。
+- **不在本任务**：`services`（批次 2）、`backend/ops` 与 `scripts/tools`（批次 3）；前端 TS 侧集合契约；跨副本异步链（`BaseAsyncSorted` / `RedisSorted*`）形态。
 - **安全影响（SDL）**：本任务不直接处理敏感数据；价值在于把「顺序不可控 → 分页 / 游标 / 导出结果不稳定、脱敏接入面不清」的存量实现收敛为**确定性顺序契约**，与 [04_02 脱敏接入](../../../04_数据脱敏与安全加固/04_数据脱敏与安全加固_02_脱敏接入与明文权限口径/04_数据脱敏与安全加固_02_脱敏接入与明文权限口径.md) 的接入面口径对齐。
 
 ### 1.1 存量实测与分布 <a id="baseline"></a>
@@ -50,7 +50,7 @@
 
 高频文件 TOP 10（裸容器）：`services/gateway_catalog.py` 21、`core/config.py` 20、`services/table_registry.py` 16、`dict/sql.py` 10、`services/module_registry.py` 10、`repositories/base_db_repository.py` 8、`codecheck/base.py` 7、`dict/query.py` 7、`globalsearch/base.py` 7、`print/base.py` 7。
 
-> **基线口径收紧登记**：白名单收紧后，既有 390 处抽象落点对护栏而言是「新增」——按既有机制**先 `--update-baseline` 如实纳入**（**548 → 918**；净额已扣除实现文件豁免 20 处与 `ClassVar` 常量 2 处，台账不手工增删），再按批次递减（`08_02` → 324、`08_03` → 220、`08_04` → 0）。
+> **基线口径收紧登记**：白名单收紧后，既有 390 处抽象落点对护栏而言是「新增」——按既有机制**先 `--update-baseline` 如实纳入**（**548 → 918**；净额已扣除实现文件豁免 20 处与 `ClassVar` 常量 2 处，台账不手工增删），再按批次递减（`08_02` 内逐批：批次 1 → 324、批次 2 → 220、批次 3 → 0）。
 
 > **前置实测（基座现状，2026-09-29）**：① 并发集合**不可替代内置容器**——`ConcurrentSortedList` 无 `[i]` / 切片 / `+` / `== [..]`；`ConcurrentSortedDict` 无 `[k]` / `keys()` / `items()` / `values()` / `**` 解包（`== {...}` 恒 `False`）；`ConcurrentSortedSet` 无集合运算 / `== {..}`；② 元素不可比较（`dict` / Pydantic 模型 / ORM 模型）时升序形态插入即 `TypeError`；③ `ConcurrentSortedList` 的 `key=` 参数**当前不可用**（`sortedcontainers` 要求继承 `SortedKeyList`，实测 `TypeError: inherit SortedKeyList for key argument`，且无用例覆盖；**本批已删除**）——自定义排序不能靠 `key=`，进一步支持「业务只落插入序、排序走排序契约」；④ `ConcurrentSortedList` 的 `SHARDED` 策略被**降级为 `RW`**（写并发不成）；⑤ Pydantic 直接声明集合类报 `PydanticInvalidForJsonSchema`；⑥ `Annotated[...]` + 元数据可生成与 `list[X]` **逐字节一致**的 array schema；⑦ `ConcurrentSorted*` 在 `bms_core` / `services` / `ops` 业务面**零使用**（仅 `core/concurrent.py` 内部 10 处 `Sorted*`），故「升序退为内部」不新增存量。
 
@@ -244,7 +244,7 @@ flowchart LR
 | 契约快照 / 前端类型漂移 | `preflight --fast` 的 `contract_snapshot check` 与前端 `api-types --check` 直接拦截；先查元数据的 schema 是否与内置容器逐字节一致 |
 | 护栏白名单与清单漂移 | 清单新增形态后须同步脚本白名单；`--self-test` + 清单核对把关 |
 | 基线复跑出现「残留」 | 属正常递减提示（不失败）；跑 `--update-baseline` 完成递减后复校 |
-| `services` 侧因参数位收窄报错 | 属 `08_03` 范围：本批按「不越界」处置，仅在 `bms_core` 内部适配，报错登记为 `08_03` 前置输入（量大到阻塞门禁时停下请用户拍板） |
+| `services` 侧因参数位收窄报错 | 属批次 2 范围：本批按「不越界」处置，仅在 `bms_core` 内部适配，报错登记为批次 2 前置输入（量大到阻塞门禁时停下请用户拍板） |
 
 ## 4. 兼容性与影响 <a id="compat"></a>
 
@@ -252,7 +252,7 @@ flowchart LR
 - **契约面零漂移**：Pydantic 字段的 JSON Schema 与 `list[X]` / `dict[K, V]` / `frozenset[X]` 逐字节一致（§3.5）；`model_dump_json()` 输出不变（`array` / `object`）；`model_dump()` 输出集合类实例（口径已定）。`contract_snapshot check` 与前端 `api-types --check` 作为门禁校验。
 - **性能**：`SHARDED` 分段写下写并发 ≈ 段数（序号分配锁临界区为整数自增）；归并在锁外按整数序号合并，复杂度 `O(合并元素数)`；`RW` / `SNAPSHOT` 沿用既有开销。相比升序形态省掉比较与有序插入，写入更快。
 - **分层**：契约元数据落 `schemas/`（Pydantic 依赖只在该层）；`core/` 不引入 Pydantic；序列化链识别集合类**只依赖 `collections.abc` ABC**（不反向 import `core.collections`，规避循环导入）。
-- **下游**：`08_03`（`services`）直接复用 `CONTRACT_COLLECTION`、`ConcurrentStable*` 与本节口径（并把 `bms_core` 参数位收窄导致的调用适配纳入）；`08_04`（`ops` / `scripts/tools`）复用落点映射；`04_02`（脱敏接入）不依赖本任务完成，仅与口径对齐。
+- **下游**：批次 2（`services`）直接复用 `CONTRACT_COLLECTION`、`ConcurrentStable*` 与本节口径（并把 `bms_core` 参数位收窄导致的调用适配纳入）；批次 3（`ops` / `scripts/tools`）复用落点映射；`04_02`（脱敏接入）不依赖本任务完成，仅与口径对齐。
 - **回退**：基座新增与存量整改同批；按 `git revert` 或按文件回退即可；基线快照随代码同提交，回退后重跑 `--update-baseline` 即恢复。
 
 ## 5. 测试设计与验收映射 <a id="test"></a>
@@ -291,7 +291,7 @@ flowchart LR
 - **`__iter__` 语义变更**：`ConcurrentStableDict` / `ConcurrentSortedDict` 的 `__iter__` 由「键值对」改为「键」（Mapping 协议）；调用方改 `.items()` / `to_list()`。实施时全仓核查并登记。
 - **`to_list()` 名称与返回型**：返回 `ConcurrentStableList` 快照（保内部顺序），方法名不改（改名波及全仓，另立子项评估）。
 - **升序形态的维护**：`ConcurrentSorted*` 退为内部实现后业务面零使用，其维护成本与去留另立子项评估（本批保留，避免破坏基座内部与既有用例）。
-- **`services` 侧引用**：本批只改 `bms_core`；参数位收窄会波及 `services` 调用方（`pyright` include 覆盖），属 `08_03` 范围，登记为前置输入。
+- **`services` 侧引用**：本批只改 `bms_core`；参数位收窄会波及 `services` 调用方（`pyright` include 覆盖），属批次 2 范围，登记为前置输入。
 - **`scripts/tools` 不在 CI `ruff` / `pyright` 覆盖范围** → 护栏脚本自身仍以 `--self-test` 保障。
 - **函数体内局部变量注解**不在护栏检测范围内（口径已定），本批不整改。
 - **Kiwi 用例编号**：**2222 / 2223 / 2224**（2026-09-29 已登记取号；随基座原型先行，第 1 条用例 `tests/core/test_concurrent_stable.py` 已落地，测试记录见本目录 `测试/`）。
@@ -314,7 +314,7 @@ flowchart LR
 | 12 | 基线口径 | 收紧后先 `--update-baseline` 如实吸收（548 → 918），批次递减（→ 324 → 220 → 0） |
 | 13 | 验收口径 | 「**形态一致 + 逐处登记**」；原「运行期零变更」作废（加锁 / 顺序为预期） |
 | 14 | 体系根语义 | 扩展为「有序＝升序**或**插入序两形态」；业务面限定插入序 |
-| 15 | 工作量与进度 | 本任务与 `08_03`、`08_04` 一并重估（域 08 一体）；顺延至 **2026-12-04** |
+| 15 | 工作量与进度 | 本任务与批次 2 / 3 一并重估（域 08 一体）；顺延至 **2026-12-04** |
 | 16 | 用例粒度 | **3 条**（插入序形态与并发 / 契约零漂移与序列化 / 存量归零与护栏） |
 | 17 | 存量口径修正 | 整改面 594 处（类字段 128 / 参数 248 / 返回 218），任务与需求文档随实施回写 |
 | 18 | 插入序默认锁策略 | `ConcurrentStable*` **默认 `SHARDED`**（分段写），`RW` / `RLCK` / `SNAPSHOT` 显式选用——落点无需传参即得高并发写（2026-09-29 拍板） |
