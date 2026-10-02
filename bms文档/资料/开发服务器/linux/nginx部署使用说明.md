@@ -1,6 +1,6 @@
 # nginx 部署使用说明
 
-> mjbk 边缘静态托管与 API 分流（容器 bms-gateway-nginx）部署实录 · 2026-09-23
+> mjbk 边缘静态托管与 API 分流（容器 bms-gateway-nginx）部署实录 · 2026-09-23（2026-10-02 更新：04_03 安全响应头模板化）
 
 [文档首页](../../../文档首页.md) › [资料](../../工具/Ubuntu安装部署使用说明.md) › [开发服务器部署使用说明总览](开发服务器部署使用说明总览.md) › nginx 部署使用说明　|　[← 上一个：APISIX](APISIX部署使用说明.md)　|　[总览](开发服务器部署使用说明总览.md)
 
@@ -24,23 +24,27 @@ gateway-nginx:
     - apisix
   environment:
     TZ: Asia/Shanghai
+    NGINX_ENVSUBST_FILTER: "^GATEWAY_"
+    GATEWAY_HSTS_HEADER: ${GATEWAY_HSTS_HEADER:-}
   volumes:
-    - ../gateway/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    - ../gateway/nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
     - ../gateway/static:/usr/share/nginx/html:ro
   ports:
     - "${GATEWAY_HTTP_PORT:-8088}:80"
 ```
 
+> 04_03 起 `nginx.conf` 改为**模板** `nginx.conf.template`：nginx 官方镜像入口脚本 `20-envsubst-on-templates.sh` 渲染到 `/etc/nginx/conf.d/default.conf`，仅替换 `GATEWAY_*` 变量（`NGINX_ENVSUBST_FILTER`），实现安全响应头按环境差异（dev 关 HSTS）。
+
 ## 3. 配置说明 <a id="config"></a>
 
-仓库 `deploy/gateway/nginx.conf`（挂载为容器内 `/etc/nginx/conf.d/default.conf`）：
+仓库 `deploy/gateway/nginx.conf.template`（渲染为容器内 `/etc/nginx/conf.d/default.conf`）：
 
 | 位置 | 行为 |
 | --- | --- |
 | `map $http_upgrade $connection_upgrade` | WebSocket 升级（如 `/socket.io`）；无 `Upgrade` 头时置空，避免误传 `Connection: upgrade` |
 | `location /api/` | `proxy_pass http://apisix:9080`，透传 `Host` / `X-Real-IP` / `X-Forwarded-For` / `X-Forwarded-Proto` 与 `Upgrade` / `Connection` |
 | `location /` | `try_files $uri $uri/ /index.html`（静态托管 + SPA 回退） |
-| 安全响应头 | `X-Content-Type-Options` / `X-Frame-Options` / `Referrer-Policy` / `Permissions-Policy`（CSP / HSTS 占位，生产随 TLS 启用） |
+| 安全响应头 | `X-Content-Type-Options` / `X-Frame-Options` / `Referrer-Policy` / `Permissions-Policy` / `Content-Security-Policy`（基线严格档）；`Strict-Transport-Security` 由 `GATEWAY_HSTS_HEADER` 注入——dev 留空不发送、生产随 TLS 启用（`max-age=31536000; includeSubDomains`） |
 
 - **静态目录** `deploy/gateway/static/`：当前为占位首页；**前端构建产物接入归部署阶段**（平台部署阶段交付）。
 - **分流口径**：静态资源不经过网关；只有 `/api/` 走网关，网关按服务目录路由到各服务。
@@ -58,6 +62,8 @@ tar -cz -C . gateway compose/gateway.yml | ssh <SSH账号>@<mjbk-IP> 'tar -xz -C
 cd ~/deploy/compose
 docker compose -p compose --env-file ../.env -f gateway.yml up -d
 ```
+
+> 04_03 起配置文件由 `nginx.conf` 改名 `nginx.conf.template`；同步后须删除 mjbk 上旧的 `~/deploy/gateway/nginx.conf`，并在 `~/deploy/.env` 增补 `GATEWAY_HSTS_HEADER=`（dev 留空），再重建容器（`docker compose ... up -d`）使模板渲染生效。
 
 ## 5. 验证 <a id="verify"></a>
 
@@ -77,7 +83,7 @@ curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:8088/api/nope/v1/x    
 | API 前缀 | `/api/{service_key}/v1/...`（反代至网关，见 [APISIX 说明](APISIX部署使用说明.md) 第 7 节） |
 | 容器名 | `bms-gateway-nginx` |
 | 静态根 | 容器内 `/usr/share/nginx/html`（挂载 mjbk `~/deploy/gateway/static/`） |
-| 配置文件 | mjbk `~/deploy/gateway/nginx.conf`（仓库 `deploy/gateway/nginx.conf`） |
+| 配置文件 | mjbk `~/deploy/gateway/nginx.conf.template`（仓库 `deploy/gateway/nginx.conf.template`；渲染为容器内 `/etc/nginx/conf.d/default.conf`） |
 | 防火墙 | 端口经 Docker 发布（走 FORWARD 链），已对 `<内网网段>` 可达（见《[防火墙部署使用说明](防火墙部署使用说明.md)》6.1） |
 
 ## 7. 日常运维 <a id="ops"></a>
@@ -87,7 +93,7 @@ curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:8088/api/nope/v1/x    
 | 查看状态 | `docker ps --filter name=bms-gateway-nginx` |
 | 查看日志 | `docker logs -f bms-gateway-nginx` |
 | 重启 | `docker restart bms-gateway-nginx` |
-| 重新加载配置 | `docker exec bms-gateway-nginx nginx -s reload`（改 `nginx.conf` 同步后） |
+| 重新加载配置 | `docker exec bms-gateway-nginx nginx -s reload`（改 `nginx.conf.template` 同步后；改挂载 / 变量需重建容器） |
 | 更新静态产物 | 将前端构建产物放入 `~/deploy/gateway/static/`（或改挂载点），刷新浏览器 |
 | 端口冲突 | 改 `~/deploy/.env` 的 `GATEWAY_HTTP_PORT` 后重建 |
 
@@ -98,7 +104,7 @@ curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:8088/api/nope/v1/x    
 | `/api/` 返回 502 | 反代目标不可达 | 网关容器未起 / 上游服务未就绪；先查 `docker ps --filter name=bms-apisix` 与网关日志 |
 | 静态 404 | 访问某资源返回 404 | 产物未放入 `~/deploy/gateway/static/`（当前为占位页）；前端产物接入归部署阶段 |
 | 端口被占 | 8088 已被占用 | 改 `~/deploy/.env` 的 `GATEWAY_HTTP_PORT` 后重建 |
-| 配置改动不生效 | 改 `nginx.conf` 后行为不变 | 需同步到 mjbk 并 `nginx -s reload`（或重建容器） |
+| 配置改动不生效 | 改 `nginx.conf.template` 后行为不变 | 需同步到 mjbk 并重建容器（模板经 envsubst 渲染；`nginx -s reload` 仅对已渲染 conf 有效） |
 
 ## 9. 关联文档 <a id="related"></a>
 
