@@ -26,12 +26,13 @@
 2. **ID 字段输出口径对齐**：`id` / `*_id` 字段在序列化模式 schema 中标为字符串（与实际输出一致），判定规则与 `stringify_ids` **同源单点**（不重复实现判定）。
 3. **快照与基线重生成**：9 个启用服务的 `deploy/contracts/*.json` 与 `deploy/contracts/baseline/*.json` 按新口径重生成；`contract_snapshot check` 与 `contract_gate` 全绿（无未登记破坏项）。
 4. **前端类型重生成**：`@bms/api-types` 重新生成（`pnpm --filter @bms/api-types run gen`），响应类型不再为 `unknown`；`api-types:gen:check` 零漂移。
-5. **响应契约门禁**：契约校验命令新增断言——`components.schemas` 不得存在空对象条目；每个操作的 2xx（含 `application/json`）响应 schema 必须可解析且非空（`$ref` 悬空即失败）；覆盖全部启用服务，CI 与本地预检同口径，fixture 用例锁定。
-6. **用例**：序列化模式 schema 字段完整与 ID 字符串化口径；空 schema / 悬空 `$ref` 判失败；9 服务门禁全绿。
+5. **响应契约门禁**：契约校验命令新增断言——`components.schemas` 不得存在空对象条目；每个操作的 2xx（含 `application/json`）**引用型**（`$ref`）响应 schema 必须可解析且引用目标非空（悬空即失败）；覆盖全部启用服务，CI 与本地预检同口径，fixture 用例锁定。
+6. **遗留归口**：19 处「原始 `Response` 端点（探针 / OIDC / SSO 回调）内联响应 schema 为空」不判定，登记按 §7 后续待办另立子任务或归后续（不在本任务扩面）。
+7. **用例**：序列化模式 schema 字段完整与 ID 字符串化口径；空 schema / 悬空 `$ref` 判失败；9 服务门禁全绿。
 
 ## 3. 完成标准 <a id="accept"></a>
 
-9 个启用服务响应契约 schema 完整（无空 schema 条目，成功响应 schema 可解析且非空）；`@bms/api-types` 响应类型具字段可用且零漂移校验通过；契约门禁在响应 schema 为空 / `$ref` 悬空时失败（fixture 用例锁定）；`ruff`、`pyright`、定向 `pytest`、基座校验与 `preflight --fast` 全绿。
+9 个启用服务响应契约 schema 完整（无空 schema 条目，引用型成功响应 schema 可解析且目标非空）；`@bms/api-types` 响应类型具字段可用且零漂移校验通过；契约门禁在 `components.schemas` 出现空对象或响应 `$ref` 悬空 / 目标为空时失败（fixture 用例锁定）；`ruff`、`pyright`、定向 `pytest`、基座校验与 `preflight --fast` 全绿。
 
 ## 4. 参考文档 <a id="ref"></a>
 

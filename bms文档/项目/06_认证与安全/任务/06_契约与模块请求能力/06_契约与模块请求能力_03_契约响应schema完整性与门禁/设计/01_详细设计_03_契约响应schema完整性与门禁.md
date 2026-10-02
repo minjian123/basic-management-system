@@ -92,7 +92,9 @@ BaseSchema.__get_pydantic_json_schema__(cls, schema, handler) -> JsonSchemaValue
 | 断言 | 规则 | 违反即失败 |
 | --- | --- | --- |
 | C. 无空 schema 条目 | `components.schemas` 中不存在**空映射**条目（`{}`） | 列明细（服务 + 条目名） |
-| D. 成功响应 schema 可解析且非空 | 每个操作的 2xx（`2xx` 及 `2XX` 通配）`application/json` schema：`$ref` 必须能解析到非空的 `components.schemas` 条目；内联 schema 不得为空 | 列明细（服务 + 方法 + 路径 + 原因） |
+| D. 引用型响应 schema 完整 | 每个操作的 2xx（`2xx` 及 `2XX` 通配）`application/json` schema，**凡为 `$ref` 引用者**必须能解析到非空的 `components.schemas` 条目 | 列明细（服务 + 方法 + 路径 + 原因） |
+
+> **断言 D 的口径收敛（2026-10-02 实施期拍板）**：初版把「内联空 schema」也判失败，实测触发 19 处——`/readyz`（9 服务）与 identity 的 `/oidc/jwks`、`/oidc/.well-known/openid-configuration`、`/oidc/authorize`、`/oidc/token`、`/oidc/userinfo`、`/auth/introspect`、`/auth/sso/{idp_key}/authorize`、`/callback`。根因是这些路由**直接返回 `Response` / `JSONResponse` / `RedirectResponse`**（不返回模型），OpenAPI 无从推导 schema——属**另一缺陷类**（「原始 `Response` 端点未声明响应契约」），与本次修复的「模型派生响应 schema 塌陷」不同。故 D 收敛为**只判引用型**（精确锁定本次缺陷类；模型派生响应必然经 `$ref` 引用 `components.schemas`），内联空 schema 不判定并登记遗留（见 §7）。
 
 - 白名单 `EMPTY_SCHEMA_ALLOWLIST`：**初始为空集**；新增项须在设计 / 规范侧说明理由（与不可见路由白名单同纪律，**业务 schema 一律不得入白名单**）。
 - **纯判定函数**（`bms_core/services/service_contract.py`，与 `route_coverage_gaps` 同处、纯函数可单测）：
@@ -127,8 +129,9 @@ service_contract.py（新增）
 | 基座修复后运行时序列化行为变化 | 由既有序列化 / 脱敏 / 契约集合用例 + 新增不变量用例回归拦截；不通过即回退方案 |
 | 请求体 schema 被意外改动 | 校验模式走原路径（不改），由快照差异复核（仅响应侧变化） |
 | 出现空 schema 条目 | 断言 C 失败，列「服务 + 条目名」，退出码 1 |
-| 成功响应 `$ref` 悬空 / 内联 schema 为空 | 断言 D 失败，列「服务 + 方法 + 路径」，退出码 1 |
-| 响应 schema 因业务合理原因确实为空 | 走 `EMPTY_SCHEMA_ALLOWLIST` 申请，须在设计 / 规范侧说明理由 |
+| 成功响应 `$ref` 悬空 / 引用目标为空 | 断言 D 失败，列「服务 + 方法 + 路径」，退出码 1 |
+| 成功响应为**内联** schema（含空对象） | **不判定**（原始 `Response` 端点，属另一缺陷类）——登记遗留归口后续任务（见 §7），本门禁不对其设白名单 |
+| 响应 schema 因业务合理原因确实为空（模型派生） | 走 `EMPTY_SCHEMA_ALLOWLIST` 申请，须在设计 / 规范侧说明理由 |
 | FastAPI / pydantic 大版本升级后 `handler.mode` 取法变化 | 钩子以 `getattr` 容错读取；升级时复核（登记开放项） |
 | `-Input` / `-Output` 后缀变体出现 | 复核契约差异并在设计侧评估（见 §3.3） |
 | 基线重生成掩盖真实破坏性变更 | 基线更新前后以 oasdiff 复现比对，确认**仅新增**（无删除 / 改类型 / 改必填）；差异逐条复核 |
@@ -152,8 +155,8 @@ service_contract.py（新增）
 | 3 | 同上 | 单元 | **运行时不变量**：`model_dump()` 仍字符串化 ID；`model_dump_json()` 与校验模式 schema 不因修复改变 |
 | 4 | 同上 | 单元 | 参数化泛型包装（`ApiResponse[X]`）序列化模式具 `data` 字段且嵌套模型定义非空 |
 | 5 | `libs/bms_core/tests/services/test_service_contract_schemas.py` | 单元 | 断言 C：含空 schema 条目的契约 → 报明细；白名单命中 → 通过 |
-| 6 | 同上 | 单元 | 断言 D：成功响应 `$ref` 悬空 / 内联空 schema → 报明细；正常契约 → 通过 |
-| 7 | `libs/bms_core/tests/ops/test_check_contracts.py`（扩展） | 单元 | 桩应用含空响应 schema → `check_service` 报违规、`main` 退出码 1 |
+| 6 | 同上 | 单元 | 断言 D：成功响应 `$ref` 悬空 / 引用目标为空 → 报明细；可解析引用与内联 schema（含空对象）→ 通过 |
+| 7 | `libs/bms_core/tests/ops/test_check_contracts.py`（扩展） | 单元 | 桩应用含空 schema 条目 / 悬空响应引用 → `check_service` 报违规、`main` 退出码 1；契约完整 → 0 |
 | 8 | `ops/check_contracts.py` 真跑 | 集成 | 9 服务全绿（空 schema 0、响应 `$ref` 全可解析） |
 | 9 | `ops.contract_snapshot check` / `api-types:gen:check` | 集成 | 快照与生成类型零漂移 |
 | 10 | 既有序列化 / 脱敏 / 契约集合用例 | 回归 | 运行时行为零变化 |
@@ -184,6 +187,8 @@ service_contract.py（新增）
 - **契约版本自动回写**（CI 取 OpenAPI 版本写入服务目录）仍归既有开放项（阶段二 `09_03` 边界），本任务不实施。
 - **基线定期评审**：`deploy/contracts/baseline/*.json` 仅在明确评审节点更新；本任务 9 份一并更新（本次为同一口径变更）。
 - **其他响应形态**：SSE / 文件流等非 `application/json` 响应不纳入断言 D（无 JSON schema 可比）；存在时按需扩展。
+- **原始 `Response` 端点的响应契约缺失（遗留，2026-10-02 实施期发现）**：19 处成功响应为**内联空 schema**——`/readyz`（9 服务）与 identity 的 `/oidc/jwks`、`/oidc/.well-known/openid-configuration`、`/oidc/authorize`、`/oidc/token`、`/oidc/userinfo`、`/auth/introspect`、`/auth/sso/{idp_key}/authorize`、`/callback`；根因是这些路由直接返回 `Response` / `JSONResponse` / `RedirectResponse`。**另立子任务（域六 `06_05`，待立项）或归后续**；本任务不扩面（断言 D 不判定内联 schema，登记计划 §7 后续待办）。
+- **基线现存漂移一并吸收**：8 个服务的 `baseline/*.json` 此前停留在较早评审节点（如 `tenant.json` 缺后续新增的 `tenant_id` 查询参数），本次随同一口径一并重生成；经结构差异核验**零移除键、零值变更**（仅新增），非破坏性。
 
 ## 8. 对齐记录 <a id="align"></a>
 
@@ -205,6 +210,9 @@ service_contract.py（新增）
 | 12 | 登记落点 | 《后端开发规范》§7.4 + 《后端基类清单》§9 |
 | 13 | 工作量大数 | 以详细设计重估为准，数值落阶段计划表（本文件不承载进度） |
 | 14 | CI 触发 | 推送后按需手动触发（不盯守） |
+| 15 | **实施期追加拍板（断言 D 口径）** | 实测 19 处内联空响应 schema（原始 `Response` 端点）→ **D 收敛为「只判引用型」**，内联不判定；不设路径级豁免清单 |
+| 16 | **实施期追加拍板（遗留归口）** | 19 处「原始 `Response` 端点响应契约缺失」**登记计划 §7 后续待办**，另立子任务（域六 `06_05`，待立项）或归后续；本任务不扩面 |
+| 17 | **实施期实测（基线漂移）** | 8 个服务基线此前停留在较早评审节点 → 本次一并重生成；结构差异核验**零移除键、零值变更**（仅新增），并在实施记录登记 |
 
 ### 8.2 复用既有口径 <a id="align-reuse"></a>
 
