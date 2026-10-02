@@ -304,6 +304,18 @@ def main() -> int:
         failures,
     )
     _run(
+        "基座：check-env-example（环境变量模板键位）",
+        ConcurrentStableList([sys.executable, "scripts/tools/base-check/check-env-example.py", str(root)]),
+        root,
+        failures,
+    )
+    _run(
+        "基座：check-env-example --self-test",
+        ConcurrentStableList([sys.executable, "scripts/tools/base-check/check-env-example.py", "--self-test"]),
+        root,
+        failures,
+    )
+    _run(
         "基座：check-backend-base",
         ConcurrentStableList([sys.executable, "scripts/tools/base-check/check-backend-base.py", str(root)]),
         root,

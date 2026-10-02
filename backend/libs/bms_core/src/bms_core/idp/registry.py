@@ -2,7 +2,7 @@
 
 - `IdentityProviderSpec`：行配置视图（id / idp_key / type / config / updated_at），与 ORM 解耦。
 - `resolve_secret_ref`：密钥引用解析——`env:变量名` 取环境变量（缺失抛 `ConfigError`）；`secret:标识`
-  预留（`02_06` 加密存取，当前抛 `ConfigError`）；未知前缀抛 `ConfigError`（零明文入代码 / 入仓）。
+  预留（后续安全强化；当前抛 `ConfigError`）；未知前缀抛 `ConfigError`（零明文入代码 / 入仓）。
 - `IdentityProviderRegistry`：按 `type` 分派构造（`oidc` / `cas`；企微 / 钉钉随对应任务注册），按
   `(id, updated_at, type)` 进程内缓存（行配置变更自动失效，同时保留实例内 Discovery / JWKS 缓存）。
 
@@ -58,7 +58,7 @@ def resolve_secret_ref(ref: str) -> str:
     """解析密钥引用为明文（仅运行期内存持有，零明文入代码 / 入仓）。
 
     Args:
-        ref: 密钥引用（`env:变量名`；`secret:标识` 为 `02_06` 预留）。
+        ref: 密钥引用（`env:变量名`；`secret:标识` 预留）。
 
     Returns:
         str: 密钥明文。
@@ -75,7 +75,7 @@ def resolve_secret_ref(ref: str) -> str:
             raise ConfigError(f"身份源密钥环境变量缺失：{name}")
         return value
     if ref.startswith("secret:"):
-        raise ConfigError("身份源密钥引用 secret: 未实现（02_06 预留）")
+        raise ConfigError("身份源密钥引用 secret: 未实现（后续安全强化）")
     raise ConfigError(f"未知身份源密钥引用前缀：{ref.split(':', 1)[0]}")
 
 

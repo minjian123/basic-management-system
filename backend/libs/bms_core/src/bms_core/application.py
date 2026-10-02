@@ -293,11 +293,16 @@ class BaseServiceApplicationFactory(BaseApplicationFactory):
 
         # 全局标注依赖 `get_masker`：请求期把掩码器写入 `current_masker`（`BaseSchema` 序列化期取用），
         # 请求结束复位；一处生效即覆盖全部服务全部路由，无需逐路由挂载（org 路由重复挂载由依赖缓存去重）。
+        # 文档端点按 `[app].docs_enabled`（基线开、生产关）注册：关闭时三端点 404，契约走 CI 快照。
+        docs_enabled = settings.app.docs_enabled
         app = FastAPI(
             title=self.service_title,
             version=self.contract_version,
             lifespan=service_lifespan,
             dependencies=[Depends(get_masker)],
+            docs_url="/docs" if docs_enabled else None,
+            redoc_url="/redoc" if docs_enabled else None,
+            openapi_url="/openapi.json" if docs_enabled else None,
         )
 
         # 服务运行时：解析服务身份（包声明 + 配置覆盖）→ 绑定日志上下文 → 落 app.state（含停机摘流）

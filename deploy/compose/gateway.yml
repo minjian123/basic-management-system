@@ -52,8 +52,13 @@ services:
       - apisix
     environment:
       TZ: Asia/Shanghai
+      # 安全响应头模板渲染（04_03）：仅替换 GATEWAY_* 变量，模板内 nginx 变量（$host 等）不受影响
+      NGINX_ENVSUBST_FILTER: "^GATEWAY_"
+      # HSTS 指令行：dev 留空不发送；生产注入完整 add_header 指令（见 deploy/.env.example）
+      GATEWAY_HSTS_HEADER: ${GATEWAY_HSTS_HEADER:-}
     volumes:
-      - ../gateway/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      # 模板（而非静态 conf）：入口脚本渲染为 conf.d/default.conf，实现响应头按环境差异
+      - ../gateway/nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
       - ../gateway/static:/usr/share/nginx/html:ro
     ports:
       - "${GATEWAY_HTTP_PORT:-8088}:80"

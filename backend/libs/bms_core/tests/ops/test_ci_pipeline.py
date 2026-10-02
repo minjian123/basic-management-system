@@ -129,6 +129,22 @@ def test_tooling_lint_job_covers_scripts() -> None:
 
 
 @pytest.mark.kiwi_id(2184)
+def test_dependency_scan_job_blocks_high_severity() -> None:
+    """依赖漏洞高危阻断（04_03）：`dependency-scan` 以固定 tag Trivy fs 扫锁文件，CRITICAL / HIGH 阻断。"""
+    ci = _load(_CI_PATH)
+    job = ci["dependency-scan"]
+    assert job["stage"] == "test"
+    script = "\n".join(str(line) for line in job["script"])
+    assert "aquasec/trivy:0.74.0" in script
+    assert "--scanners vuln" in script
+    assert "--severity CRITICAL,HIGH" in script
+    assert "--exit-code 1" in script
+    paths = _rule_paths(ConcurrentStableList(ConcurrentStableDict(rule) for rule in job["rules"]))
+    assert "backend/uv.lock" in paths
+    assert "pnpm-lock.yaml" in paths
+
+
+@pytest.mark.kiwi_id(2184)
 def test_service_template_structure() -> None:
     """子模板：parent_pipeline 来源、三阶段、工程级测试 + 本服务包覆盖率门禁。"""
     template = _load(_TEMPLATE_PATH)
@@ -165,6 +181,10 @@ def test_service_build_and_release_jobs() -> None:
     assert "trivy-cache:/root/.cache/trivy" in release_script
     assert "--provenance=false" in build_script
     assert "--severity CRITICAL,HIGH" in release_script
+    # SBOM 挂点（04_03）
+    assert "--format cyclonedx" in release_script
+    assert "sbom-$SERVICE.cyclonedx.json" in release_script
+    assert release["artifacts"]["paths"] == ["release-manifest.json", "sbom-*.cyclonedx.json"]
     after_script = "\n".join(str(line) for line in release["after_script"])
     assert "CI_JOB_STATUS" in after_script
     assert "bms_release_total" in after_script
@@ -204,4 +224,4 @@ def test_tag_pipeline_builds_semver_images_and_manifest() -> None:
     assert "CI_COMMIT_TAG" in release_script
     assert "bms-$SERVICE:$CI_COMMIT_TAG" in release_script
     assert "release-manifest.json" in release_script
-    assert release["artifacts"]["paths"] == ["release-manifest.json"]
+    assert release["artifacts"]["paths"] == ["release-manifest.json", "sbom-*.cyclonedx.json"]
