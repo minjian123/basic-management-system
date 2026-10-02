@@ -15,7 +15,7 @@ from pydantic import Field
 from sqlalchemy import select
 from sqlalchemy.orm.exc import StaleDataError
 
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.exceptions import ConcurrentConflictError, ConflictError, NotFoundError
 from bms_core.core.objects import BaseFrameworkObject
 from bms_core.db.registry import EngineRegistry
@@ -65,9 +65,11 @@ class DictAttrPayload(BaseSchema):
     attr_key: str = Field(description="属性键")
     name: str = Field(description="属性名（默认语言）")
     data_type: str = Field(description="数据类型（text/number/date/enum/bool）")
-    operators: tuple[str, ...] | None = Field(default=None, description="可用操作符集合")
+    operators: Annotated[ConcurrentStableList[str] | None, CONTRACT_COLLECTION] = Field(
+        default=None, description="可用操作符集合"
+    )
     widget: str | None = Field(default=None, description="值控件")
-    options: tuple[Annotated[ConcurrentStableDict[str, object], CONTRACT_COLLECTION], ...] | None = Field(
+    options: Annotated[ConcurrentStableList[ConcurrentStableDict[str, object]] | None, CONTRACT_COLLECTION] = Field(
         default=None, description="enum 选项集"
     )
     sort: int = Field(default=0, description="排序值")
@@ -229,7 +231,7 @@ class DictService(BaseFrameworkObject):
             row.label = payload.label
             row.value = payload.value
             row.parent_id = payload.parent_id
-            row.attr_json = dict(payload.attr_json) if payload.attr_json is not None else None
+            row.attr_json = payload.attr_json
             row.color = payload.color
             row.sort = payload.sort
             row.status = payload.status
@@ -289,9 +291,9 @@ class DictService(BaseFrameworkObject):
                 session.add(row)
             row.name = payload.name
             row.data_type = payload.data_type
-            row.operators = list(payload.operators) if payload.operators is not None else None
+            row.operators = payload.operators
             row.widget = payload.widget
-            row.options = [dict(item) for item in payload.options] if payload.options is not None else None
+            row.options = payload.options
             row.sort = payload.sort
             row.status = payload.status
             row.scope = payload.scope

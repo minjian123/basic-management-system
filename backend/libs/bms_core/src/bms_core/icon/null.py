@@ -39,9 +39,9 @@ class NullIconRegistry(BaseIconRegistry, BaseNullObject):
             keyword: 关键字（占位忽略）。
 
         Returns:
-            list[IconInfo]: 空清单。
+            ConcurrentStableList[IconInfo]: 空清单。
         """
-        return []
+        return ConcurrentStableList()
 
     async def get(self, code: str) -> IconInfo:
         """取单图标定义（占位恒定未命中）。
@@ -86,7 +86,7 @@ class NullIconRegistry(BaseIconRegistry, BaseNullObject):
             code=code,
             name=patch.name or code,
             category=patch.category or "",
-            tags=list(patch.tags or []),
+            tags=ConcurrentStableList(patch.tags or []),
             svg=patch.svg or "",
             status=patch.status or DEFAULT_ICON_STATUS,
         )

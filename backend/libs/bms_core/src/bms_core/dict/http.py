@@ -308,7 +308,7 @@ class HttpDictSource(BaseDictSource):
             method="POST",
             path=DICT_BATCH_PATH,
             headers=_headers(query.locale),
-            json_body=dict(body),
+            json_body=ConcurrentStableDict(body),
         )
         data = await _call(self._client, request)
         if data is None:

@@ -471,12 +471,14 @@ class DefaultCaptcha(BaseCaptcha):
             }
         )
         payload = _dump(
-            {
-                "background": base64.b64encode(background).decode(),
-                "slider": base64.b64encode(slider).decode(),
-                "width": self._slider.width,
-                "height": self._slider.height,
-            }
+            ConcurrentStableDict(
+                {
+                    "background": base64.b64encode(background).decode(),
+                    "slider": base64.b64encode(slider).decode(),
+                    "width": self._slider.width,
+                    "height": self._slider.height,
+                }
+            )
         )
         try:
             await self.client.set(build_captcha_key(captcha_id), _dump(record), ex=CAPTCHA_TTL)  # pyright: ignore[reportUnknownMemberType]

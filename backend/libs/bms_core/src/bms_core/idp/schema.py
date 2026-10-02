@@ -183,7 +183,7 @@ def has_secret(protocol: str, config: ConcurrentStableDict[str, object]) -> bool
     Returns:
         bool: 含任一非空密钥引用为 True。
     """
-    spec = _PROTOCOL_SPECS.get(protocol, {})
+    spec = _PROTOCOL_SPECS.get(protocol) or ConcurrentStableDict[str, _KeyRule]()
     for key, value in config.items():
         rule = spec.get(str(key))
         if rule is not None and rule.kind == "secret_ref" and isinstance(value, str) and value.strip():
