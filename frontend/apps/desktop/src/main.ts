@@ -26,6 +26,11 @@ import { useSessionStore } from './stores/session'
 import { notifySessionExpired } from './utils/feedback'
 import { applyInitialTheme } from './utils/initialTheme'
 import { getPermissionCodes } from './utils/perm'
+
+// Element Plus 全局样式（宿主全量引入口径，与 `modules/*/src/standalone.ts` 同源做法）：
+// **必须早于令牌文件**——`tokens.scss` 的 `--el-*` 映射（主题变量由设计令牌派生）依赖「同优先级
+// 后声明覆盖」赢过 Element Plus 默认值；顺序颠倒会使主题色回退到 EP 默认蓝。
+import 'element-plus/dist/index.css'
 import './styles/tokens.scss'
 
 // 首屏主题预读：挂载前解析偏好并写根元素 data-theme，避免闪白 / 闪黑。

@@ -2,7 +2,7 @@
 /** 登录页用例（05_01）：表单提交与回跳 / 验证码时机 / SSO 入口 / 错误文案 / 密码安全口径。 */
 
 import { configureRequestAdapter, type RequestConfig } from '@bms/core'
-import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
+import { flushPromises, mount, type DOMWrapper, type VueWrapper } from '@vue/test-utils'
 import { createPinia, setActivePinia, type Pinia } from 'pinia'
 import { createMemoryHistory, createRouter, type Router } from 'vue-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -153,6 +153,20 @@ async function mountLogin(query = ''): Promise<Harness> {
 }
 
 /**
+ * 取密码输入元素。
+ *
+ * `data-test` 落点差异：`TextInput` 根元素即 Element Plus 输入框（非 class/style 属性透传到内部原生
+ * `input`，故 `[data-test="login-account"]` 命中 input）；`PasswordInput` 根元素是包装 div（`data-test`
+ * 落在 div 上，须再取内部 `input`）。
+ *
+ * @param wrapper 组件包装器。
+ * @returns 密码原生 input 包装器。
+ */
+function passwordField(wrapper: VueWrapper): DOMWrapper<Element> {
+  return wrapper.find('[data-test="login-password"] input')
+}
+
+/**
  * 填写账号口令并提交表单。
  *
  * @param wrapper 组件包装器。
@@ -161,7 +175,7 @@ async function mountLogin(query = ''): Promise<Harness> {
  */
 async function submit(wrapper: VueWrapper, account = 'admin', password = 'secret'): Promise<void> {
   await wrapper.find('[data-test="login-account"]').setValue(account)
-  await wrapper.find('[data-test="login-password"]').setValue(password)
+  await passwordField(wrapper).setValue(password)
   await wrapper.find('[data-test="login-form"]').trigger('submit')
   await flushPromises()
 }
@@ -228,7 +242,7 @@ describe('登录页（Kiwi 2232）', () => {
     const { wrapper } = await mountLogin()
 
     await wrapper.find('[data-test="login-account"]').setValue('admin')
-    await wrapper.find('[data-test="login-password"]').setValue('secret')
+    await passwordField(wrapper).setValue('secret')
     const form = wrapper.find('[data-test="login-form"]')
     await form.trigger('submit')
     await form.trigger('submit')
@@ -277,7 +291,7 @@ describe('登录页（Kiwi 2232）', () => {
     const { wrapper } = await mountLogin()
 
     await wrapper.find('[data-test="login-account"]').setValue('admin')
-    await wrapper.find('[data-test="login-password"]').setValue('secret')
+    await passwordField(wrapper).setValue('secret')
     await wrapper.find('[data-test="captcha-input"]').setValue('ab12')
     await wrapper.find('[data-test="login-form"]').trigger('submit')
     await flushPromises()
@@ -347,25 +361,49 @@ describe('登录页（Kiwi 2232）', () => {
 
   it('密码安全口径：类型 / 初值 / 自动填充语义，且无「记住我」与强度提示', async () => {
     const { wrapper } = await mountLogin()
-    const password = wrapper.find('[data-test="login-password"]')
+    const password = passwordField(wrapper)
 
     expect(password.attributes('type')).toBe('password')
     expect((password.element as HTMLInputElement).value).toBe('')
     expect(password.attributes('autocomplete')).toBe('new-password')
+    expect(wrapper.find('[data-test="password-strength"]').exists()).toBe(false)
     expect(wrapper.text()).not.toContain('记住我')
     expect(wrapper.text()).not.toContain('强度')
   })
 
-  it('明文切换只改输入类型（仅内存态、不发请求）', async () => {
+  it('明文切换由组件库件提供：图标仅在填写后出现，切换只改输入类型（仅内存态、不发请求）', async () => {
     const { wrapper } = await mountLogin()
-    const toggle = wrapper.find('[data-test="login-password-toggle"]')
+    const password = passwordField(wrapper)
+    const toggleSelector = '[data-test="login-password"] .el-input__password'
+
+    // Element Plus 明文切换图标仅在有值时渲染（`showPwdVisible` 依赖当前值非空）。
+    expect(wrapper.find(toggleSelector).exists()).toBe(false)
+
+    await password.setValue('secret')
+    const toggle = wrapper.find(toggleSelector)
+    expect(toggle.exists()).toBe(true)
 
     await toggle.trigger('click')
-    expect(wrapper.find('[data-test="login-password"]').attributes('type')).toBe('text')
+    expect(password.attributes('type')).toBe('text')
 
     await toggle.trigger('click')
-    expect(wrapper.find('[data-test="login-password"]').attributes('type')).toBe('password')
+    expect(password.attributes('type')).toBe('password')
     expect(loginCalls()).toHaveLength(0)
+  })
+
+  it('表单件复用口径：输入件为组件库件、按钮为 Element Plus 件（无裸原生件自绘）', async () => {
+    const { wrapper } = await mountLogin()
+
+    expect(wrapper.findAll('.bms-text-input')).toHaveLength(2)
+    expect(wrapper.findAll('.bms-password-input')).toHaveLength(1)
+    expect(wrapper.find('[data-test="login-submit"]').classes()).toContain('el-button')
+
+    const nakedInputs = wrapper
+      .findAll('input')
+      .filter((input) => input.element.closest('.bms-text-input, .bms-password-input') === null)
+    const nakedButtons = wrapper.findAll('button').filter((button) => !button.classes().includes('el-button'))
+    expect(nakedInputs).toHaveLength(0)
+    expect(nakedButtons).toHaveLength(0)
   })
 
   it('强制改密标记为真时提示「请尽快修改初始密码」', async () => {
