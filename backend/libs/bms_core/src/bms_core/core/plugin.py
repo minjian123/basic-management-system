@@ -182,7 +182,7 @@ def _add_entry(
     """
     bucket = registry.get(key)
     if bucket is None:
-        bucket = ConcurrentStableDict()
+        bucket = ConcurrentStableDict[str, PluginImpl]()
         registry.set(key, bucket)
     if name in bucket:
         errors.add(f"({key}, {name}) 重名：{_impl_label(bucket[name])} / {_impl_label(impl)}")

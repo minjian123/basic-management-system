@@ -25,7 +25,7 @@
 每表与字段 COMMENT 必填；逻辑外键（`目标表_id`），不建物理外键。
 """
 
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from datetime import UTC, datetime
 from typing import Any, TypeVar, cast
 
@@ -58,9 +58,11 @@ def to_stable_value(value: object) -> object:
         mapping = cast("Mapping[object, object]", value)
         return ConcurrentStableDict({key: to_stable_value(item) for key, item in mapping.items()})
     if isinstance(value, (list, tuple)):
-        return ConcurrentStableList(to_stable_value(item) for item in value)
+        items = cast("Iterable[object]", value)
+        return ConcurrentStableList(to_stable_value(item) for item in items)
     if isinstance(value, (set, frozenset)):
-        return ConcurrentStableSet(to_stable_value(item) for item in value)
+        members = cast("Iterable[object]", value)
+        return ConcurrentStableSet(to_stable_value(item) for item in members)
     return value
 
 
@@ -78,9 +80,9 @@ class StableJson(TypeDecorator[StableJsonT]):
         """落库：集合类前置规整为内置容器。"""
         return None if value is None else normalize_collections(value)
 
-    def process_result_value(self, value: object, dialect: Dialect) -> object:
+    def process_result_value(self, value: object, dialect: Dialect) -> StableJsonT | None:
         """读回：内置容器递归转为插入序集合类。"""
-        return None if value is None else to_stable_value(value)
+        return None if value is None else cast("StableJsonT", to_stable_value(value))
 
 
 def _utc_now() -> datetime:

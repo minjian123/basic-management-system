@@ -192,7 +192,7 @@ class BaseDbRepository[ModelT: BaseModel](BaseScopedRepository[ModelT], ABC):
         Raises:
             ConfigError: 字段不在白名单 / 租户值与上下文不一致。
         """
-        payload = self._write_values(values, creating=True)
+        payload = self._write_values(ConcurrentStableDict(values), creating=True)
         item = self.model(**payload)
         self._session.add(item)
         await self._session.flush()
@@ -212,7 +212,7 @@ class BaseDbRepository[ModelT: BaseModel](BaseScopedRepository[ModelT], ABC):
             ConfigError: 字段不在白名单 / 尝试修改 `tenant_id`。
             ConcurrentConflictError: 乐观锁冲突（`StaleDataError` 转译）。
         """
-        payload = self._write_values(values, creating=False)
+        payload = self._write_values(ConcurrentStableDict(values), creating=False)
         item = await self.get(item_id)
         if item is None:
             return None

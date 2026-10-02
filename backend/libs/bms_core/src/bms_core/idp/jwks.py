@@ -34,7 +34,7 @@ __all__ = [
     "verify_jwt",
 ]
 
-DEFAULT_ALGORITHMS: tuple[str, ...] = ("RS256", "ES256")
+DEFAULT_ALGORITHMS: ConcurrentStableList[str] = ConcurrentStableList(["RS256", "ES256"])
 """允许的签名算法白名单（仅非对称；对称算法禁用防签名绕过）。"""
 
 DEFAULT_JWKS_TTL = 300.0

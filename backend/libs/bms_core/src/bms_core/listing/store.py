@@ -127,9 +127,9 @@ class SqlQuerySchemeStore(BaseQuerySchemeStore):
                 row.dict_type = scheme.dict_type
                 row.field_key = scheme.field_key
                 row.provider_key = scheme.provider_key
-                row.conditions = dict(scheme.conditions) if scheme.conditions is not None else None
-                row.params = dict(scheme.params) if scheme.params is not None else None
-                row.layout = dict(scheme.layout) if scheme.layout is not None else None
+                row.conditions = scheme.conditions
+                row.params = scheme.params
+                row.layout = scheme.layout
                 row.is_default = scheme.is_default
                 row.shared = scheme.shared
                 row.status = scheme.status

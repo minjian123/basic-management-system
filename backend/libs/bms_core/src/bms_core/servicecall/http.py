@@ -182,7 +182,7 @@ class HttpServiceClient(BaseServiceClient):
         response = await client.request(request.method.upper(), url, **kwargs)  # pyright: ignore[reportArgumentType]
         return ServiceResponse(
             status_code=response.status_code,
-            headers=dict(response.headers),
+            headers=ConcurrentStableDict(response.headers),
             content=response.content,
         )
 
