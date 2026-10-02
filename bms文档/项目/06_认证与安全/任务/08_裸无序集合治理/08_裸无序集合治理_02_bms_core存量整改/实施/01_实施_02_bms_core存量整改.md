@@ -11,11 +11,11 @@
 | 任务 | [02 `bms_core` 存量整改](../08_裸无序集合治理_02_bms_core存量整改.md) |
 | 对应需求 | [08-2](../../../../需求/08_需求_裸无序集合治理.md#r08-2) |
 | 详细设计 | [01 详细设计](../设计/01_详细设计_02_bms_core存量整改.md) |
-| 实施日期 | 2026-09-29（**基座原型先行**；早于计划窗口 2026-10-23 ~ 11-20） |
+| 实施日期 | 2026-09-29 ~ 2026-10-02（**基座原型先行**；早于计划窗口 2026-10-23 ~ 11-20） |
 | 实施人 | minjian |
 | 实施环境 | 本地开发机（Python 3.14；uv 工作区；`uv run` 跑 `ruff` / `pyright` / `pytest`） |
-| 提交 | 未提交（本轮改动未提交，待用户指令） |
-| 结论 | **基座能力与护栏收紧完成**（`core/concurrent.py` 只读 API + `ConcurrentStable*` 分段写；`schemas/base.py` 契约元数据；`core/serialization.py` / `core/base.py` 序列化链；护栏白名单收紧 + 实现文件豁免 + 基线如实吸收 **548 → 918**）；594 处存量整改与调用方适配续行 |
+| 提交 | 分批提交（基座能力 / 各存量子批 / 类型欠账各自提交；类型欠账 8 批见 §46） |
+| 结论 | **完成**：集合体系唯一链收口 + 基座新增（只读 API / `ConcurrentStable*` 分段写 / `CONTRACT_COLLECTION`）+ 护栏收紧（插入序白名单 + 无例外）；全链存量 **1711 → 0**（`libs` / `services` / `scripts/tools` / `ops` 四批）；**pyright 类型欠账 S1~S4 / T1~T4 八批归零**（CI 类型门禁全绿） |
 
 ## 2. 实施概览 <a id="overview"></a>
 
@@ -1219,3 +1219,37 @@ flowchart LR
 **遗留**：**全局基线归零** —— `libs`（§28~§33）、`services`（§34~§36）、`scripts/tools`（§37~§44）、`ops`（§45）四批全部收口，08_02 存量整改完成；`ops/gateway_config.py` 保持**无依赖面**（CI 精简镜像直接执行，仅引标准库依赖链），其余 ops 经完整依赖环境运行。
 
 **已知非门禁项**：`scripts/tools/base-check/check-service-boundaries.py` 在 backend 配置下存 6 条 ruff 提示（import 排序 / 3 处既有超长行 / 1 处未用循环变量），均为既有且 `scripts/tools` 不在 CI ruff 范围（`cd backend && ruff check .`），不属本轮范围。
+
+## 46. 实施过程补充 · pyright 类型欠账分批修复（S1~S4 / T1~T4，2026-10-02） <a id="type-debt"></a>
+
+**背景**：集合体系迁移（集合类落点 `ConcurrentStable*`）后，源侧与测试侧的类型注解未同步对齐，CI pyright job 暴露 **290 项**存量（`reportArgumentType` / `reportReturnType` / `reportAttributeAccessIssue` / `reportUnknown*` 等）。本任务验收标准含「`pyright` 全绿」，故按**源侧（S）/ 测试侧（T）分批**归零；批内口径＝**该批 `pyright` 真实错误归零 + `ruff` 全绿 + 定向 `pytest` 通过 + 独立提交**。
+
+| 批 | 范围 | 提交 | 结果 |
+| --- | --- | --- | --- |
+| S1 | `libs/bms_core` 基座核心与数据层（源码） | `6c3970f9` | 归零 |
+| S2 | `libs` 能力域（源码） | `eb6f970c` | `libs` 源侧归零 |
+| S3 | `identity` 服务源码 | `b4555476` | 归零 |
+| S4 | 各服务源码 | `cb47fa27` | **源侧归零** |
+| T1 | `identity` 测试（含替身 JSON 出口规整） | `bd259843` | 归零 |
+| T2 | `services/platform/tests` | `3f54705f` | 34 → 0 |
+| T3 | `libs/bms_core/tests` | `0530e22e` | 89 → 0 |
+| T4 | `services/{search,report,org,notification,file,ai}/tests` | `cd6ce4bd` | 24 → 0 |
+
+**主要处置口径**：
+
+1. 测试替身处构造契约集合一律显式落集合类：`ConcurrentStableDict` / `ConcurrentStableList` / `ConcurrentStableSet(...)`（替代原内置 `dict` / `list` / `set`）；空集合带类型参数（如 `ConcurrentStableList[ChatSessionMessage]()`）以稳住泛型不变性、避免 `Never` 推断。
+2. 嵌套结构内层同步落集合类（如 `rows=[{...}]` → `ConcurrentStableList([ConcurrentStableDict({...})])`）；`conditions` / `attr_json` 等契约字段内层同样落集合类。
+3. 测试替身的 JSON 出口（`json.dumps` 遇集合类）改 `bms_core.core.serialization.normalize_collections(...)` 递归转内置；`merge_jwks({...})` 等 JWKS 文档入参契约保持内置容器、不改。
+4. `reportOptionalMemberAccess` / `reportAttributeAccessIssue` 处改「局部取变量 + `is not None` 显式收窄」，不改运行语义。
+
+**验证**：
+
+| 项 | 命令 / 事实 | 结果 |
+| --- | --- | --- |
+| 本批 `pyright` | `pyright <本批 paths>`（含 `reportUnknown*` 规则） | 各批真实错误归零；T2 / T3 / T4 本地计数与 CI 一致（34 / 89 / 24） |
+| 合并复核 | 全测试范围 `pyright`（platform + libs `tests` + 六服务 `tests` + identity `tests`） | **0** |
+| lint | `ruff check` / `ruff format --check`（backend 配置） | 全绿 |
+| 定向用例 | 各批 `pytest <本批 tests>` | T2 **350 passed / 1 skipped**、T3 **1099 passed / 37 skipped**、T4 **133 passed** |
+| CI 权威 | 流水线 516 `backend-typecheck` / `backend-test` | 全绿 |
+
+**遗留**：无（集合相关的类型欠账归零；后续新增代码若回退将由 `pyright` 门禁拦截）。
