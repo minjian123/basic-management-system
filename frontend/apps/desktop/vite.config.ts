@@ -38,6 +38,7 @@ export default defineConfig(({ mode }) => {
         '@bms/core': fileURLToPath(new URL('../../packages/core/src/index.ts', import.meta.url)),
         '@bms/vue': fileURLToPath(new URL('../../packages/vue/src/index.ts', import.meta.url)),
         '@bms/ui-ep': fileURLToPath(new URL('../../packages/ui-ep/src/index.ts', import.meta.url)),
+        '@bms/api-types': fileURLToPath(new URL('../../packages/api-types/src/index.ts', import.meta.url)),
       },
     },
     build: {

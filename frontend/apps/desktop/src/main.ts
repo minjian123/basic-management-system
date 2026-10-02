@@ -1,10 +1,16 @@
-/** PC 管理端入口：装配 Pinia / 路由 / 动态菜单路由 / 模块宿主 / 设计令牌。 */
+/**
+ * PC 管理端入口：装配 Pinia / 路由 / 动态菜单路由 / 模块宿主 / 设计令牌 / 请求层会话链路。
+ *
+ * 请求层装配口径：刷新处理器（`/auth/refresh` → 写内存令牌）与失效处理（提示 + 清会话 + 跳登录
+ * 带 `redirect`）均**经宿主入口注入**，请求层不依赖 UI 库与路由（《前端开发规范》§11）。
+ */
 
-import { PLACEHOLDER_MENU } from '@bms/core'
+import { DEFAULT_LOGIN_PATH, DEFAULT_PUBLIC_PATHS, PLACEHOLDER_MENU } from '@bms/core'
 import { createPinia } from 'pinia'
 import { createApp } from 'vue'
 
 import App from './App.vue'
+import { refreshAccessToken } from './api/identity'
 import { installHttpAdapter } from './api/http'
 import { installObservability, installModuleRouteScope } from './observability'
 import { setModuleError } from './module/boundary'
@@ -13,6 +19,7 @@ import { moduleI18n } from './module/i18n'
 import { router } from './router'
 import { installMenuRoutes } from './router/dynamic'
 import { useSessionStore } from './stores/session'
+import { notifySessionExpired } from './utils/feedback'
 import { applyInitialTheme } from './utils/initialTheme'
 import './styles/tokens.scss'
 
@@ -32,12 +39,37 @@ app.use(pinia)
 
 const session = useSessionStore(pinia)
 
-// 请求适配器装配：401 → 清会话 + 跳登录（刷新处理器随阶段六注入；未注入时按会话失效占位）。
+/** 会话失效是否已处理（并发 401 只提示与跳转一次；刷新成功即复位）。 */
+let sessionInvalidHandled = false
+
+/**
+ * 会话失效处理：提示 + 清会话 + 跳登录（受保护路径回带 `redirect`）。
+ *
+ * 用 `clearSession()`（同步、不调服务端）而非 `signOut()`——避免与刷新链互递归。
+ */
+function handleSessionInvalid(): void {
+  if (sessionInvalidHandled) {
+    return
+  }
+  sessionInvalidHandled = true
+  notifySessionExpired()
+  session.clearSession()
+  const current = router.currentRoute.value
+  const fromPublic = DEFAULT_PUBLIC_PATHS.some(
+    (path) => current.path === path || current.path.startsWith(`${path}/`),
+  )
+  void router.push({ path: DEFAULT_LOGIN_PATH, query: fromPublic ? {} : { redirect: current.fullPath } })
+}
+
+// 请求适配器装配：401 → 单例静默刷新并重放（未注入刷新处理器时按会话失效占位）。
 installHttpAdapter({
-  onUnauthorized: () => {
-    session.signOut()
-    void router.push('/login')
+  onRefresh: async () => {
+    const result = await refreshAccessToken()
+    session.applyToken(result.access_token)
+    sessionInvalidHandled = false
+    return result.access_token
   },
+  onUnauthorized: handleSessionInvalid,
 })
 
 /**
