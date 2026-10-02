@@ -122,7 +122,7 @@ python3 -m venv .venv
 1. **检查上游版本**：`git fetch` 比对本地与 `origin/master`，有上游新提交就先 `git pull --rebase` 更新（`requirements.txt` 有变化时再 `pip install` 同步依赖）再启动；取不到远端或已是最新则直接启动（见[第 7 节](#maintain)）；
 2. `GOATGAUGE_CHROME_EXE=/snap/bin/chromium` —— 本机无 Google Chrome，指定 snap Chromium；
 3. `GOATGAUGE_CHROME_PROFILE=~/snap/chromium/common/goat-gauge-profile` —— **专用配置目录必须放在 snap 可写区**（原因见 4.3.1）；
-4. 从 opencode 凭据文件 `~/.local/share/opencode/auth.json` 读取 `commandcode` 的 key，注入环境变量 `COMMAND_CODE_API_KEY` 作为兜底（**不二次落盘明文**）；
+4. 从 opencode 的凭据库读取 `commandcode` 的 key，注入环境变量 `COMMAND_CODE_API_KEY` 作为兜底（**不二次落盘明文**）：opencode v2 起凭据存在 SQLite 库 `~/.local/share/opencode/opencode.db` 的 `credential` 表，脚本读该表（`integration_id='commandcode'`）；读不到时退回 v1 遗留的 `~/.local/share/opencode/auth.json`，该文件 v2 已不再写回，仅作次级兜底；
 5. 首次运行（专用配置目录尚无登录态）时，服务与 CDP 就绪后自动打开 Command Code 登录页；**登录完成后自动把看板窗口切到前台**（登录标签页保留常开，供会话续期，见 2.4）。
 
 > 权限：两个脚本需可执行位（`chmod 755 启动.sh 停止.sh`）。脚本内不使用 `exec` 直接替换进程，而是后台拉起服务、前台等待，以便插入「自动打开登录页 + 登录后切回看板」的辅助逻辑。
@@ -173,7 +173,7 @@ sequenceDiagram
 
     U->>S: 双击「GOAT Gauge 启动」
     S->>S: 设 GOATGAUGE_CHROME_EXE / GOATGAUGE_CHROME_PROFILE
-    S->>S: 从 opencode auth.json 注入 COMMAND_CODE_API_KEY
+    S->>S: 从 opencode 凭据库（opencode.db）注入 COMMAND_CODE_API_KEY
     S->>G: entry.py --chrome（本地服务 127.0.0.1:18927）
     S->>C: 打开看板应用窗口（CDP 端口 9333）
     S->>G: 检查专用配置目录是否已有登录态
@@ -226,7 +226,7 @@ tail -n 5 ~/.local/share/goat-gauge/chrome-mode.log        # server started / ca
 | `GOATGAUGE_CHROME_EXE` | 指定 Chrome/Chromium 可执行文件 | `/snap/bin/chromium` |
 | `GOATGAUGE_CHROME_PROFILE` | 指定专用浏览器配置目录 | `~/snap/chromium/common/goat-gauge-profile` |
 | `GOATGAUGE_CHROME_CDP_PORT` | Chrome 调试端口 | 默认 `9333` |
-| `COMMAND_CODE_API_KEY` / `COMMANDCODE_API_KEY` | API Key（兜底） | 由 `启动.sh` 从 opencode 凭据注入 |
+| `COMMAND_CODE_API_KEY` / `COMMANDCODE_API_KEY` | API Key（兜底） | 由 `启动.sh` 从 opencode 凭据库（`opencode.db`）注入 |
 
 ## 6. 使用说明 <a id="usage"></a>
 
