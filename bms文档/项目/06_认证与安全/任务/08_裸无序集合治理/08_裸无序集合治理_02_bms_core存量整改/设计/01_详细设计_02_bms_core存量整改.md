@@ -292,7 +292,7 @@ flowchart LR
 - **`to_list()` 名称与返回型**：返回 `ConcurrentStableList` 快照（保内部顺序），方法名不改（改名波及全仓，另立子项评估）。
 - **升序形态的维护**：`ConcurrentSorted*` 退为内部实现后业务面零使用，其维护成本与去留另立子项评估（本批保留，避免破坏基座内部与既有用例）。
 - **`services` 侧引用**：本批只改 `bms_core`；参数位收窄会波及 `services` 调用方（`pyright` include 覆盖），属批次 2 范围，登记为前置输入。
-- **`scripts/tools` 不在 CI `ruff` / `pyright` 覆盖范围** → 护栏脚本自身仍以 `--self-test` 保障。
+- **`scripts/tools` 已纳入 CI `ruff`**（2026-10-02；`tooling-lint` job 与 preflight 同口径——`ruff check` + `format --check`）；`pyright` 仍不覆盖（strict 对 `sys.path` 引导脚本不适用），护栏脚本自身质量以 `--self-test` 保障。
 - **函数体内局部变量注解**不在护栏检测范围内（口径已定），本批不整改。
 - **Kiwi 用例编号**：**2222 / 2223 / 2224**（2026-09-29 已登记取号；随基座原型先行，第 1 条用例 `tests/core/test_concurrent_stable.py` 已落地，测试记录见本目录 `测试/`）。
 
