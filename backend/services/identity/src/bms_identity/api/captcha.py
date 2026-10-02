@@ -14,6 +14,7 @@ from fastapi import Depends, Path
 from bms_core.api.base import BaseRouter
 from bms_core.api.deps import get_captcha
 from bms_core.captcha.base import CAPTCHA_SCENES, BaseCaptcha, CaptchaChallenge, CaptchaCredential
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.exceptions import ParamError
 from bms_core.schemas.captcha import (
     CaptchaChallengeRequest,
@@ -140,6 +141,6 @@ async def get_scene_policy(captcha: CaptchaDep, scene: ScenePath) -> ApiResponse
             fail_threshold=policy.fail_threshold,
             ttl=policy.ttl,
             cooldown=policy.cooldown,
-            channels=list(policy.channels),
+            channels=ConcurrentStableList(policy.channels),
         )
     )

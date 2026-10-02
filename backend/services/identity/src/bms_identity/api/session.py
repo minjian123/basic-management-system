@@ -17,6 +17,7 @@ from bms_core.api.deps import (
     get_session_store,
     get_tenant,
 )
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.context import current_user_id
 from bms_core.core.exceptions import AuthError
 from bms_core.db.registry import EngineRegistry
@@ -163,7 +164,7 @@ async def list_sessions(
         )
     return ApiResponse.ok(
         BasePageResponse[SessionItem](
-            list=[_to_item(item) for item in items], total=total, page=query.page, size=query.size
+            list=ConcurrentStableList(_to_item(item) for item in items), total=total, page=query.page, size=query.size
         )
     )
 

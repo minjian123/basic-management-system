@@ -529,10 +529,10 @@ def load_list(raw: str | None) -> ConcurrentStableList[str]:
     try:
         parsed = json.loads(raw or "[]")
     except ValueError:
-        return []
+        return ConcurrentStableList()
     if not isinstance(parsed, list):
-        return []
-    return [str(item) for item in cast("list[object]", parsed)]
+        return ConcurrentStableList()
+    return ConcurrentStableList(str(item) for item in cast("list[object]", parsed))
 
 
 def _code_payload(code: OidcCode) -> ConcurrentStableDict[str, object]:
@@ -544,18 +544,20 @@ def _code_payload(code: OidcCode) -> ConcurrentStableDict[str, object]:
     Returns:
         ConcurrentStableDict[str, object]: payload。
     """
-    return {
-        "client_id": code.client_id,
-        "redirect_uri": code.redirect_uri,
-        "subject": code.subject,
-        "tenant_id": code.tenant_id,
-        "tenant_code": code.tenant_code,
-        "nonce": code.nonce,
-        "code_challenge": code.code_challenge,
-        "code_challenge_method": code.code_challenge_method,
-        "scope": code.scope,
-        "auth_time": code.auth_time,
-    }
+    return ConcurrentStableDict(
+        {
+            "client_id": code.client_id,
+            "redirect_uri": code.redirect_uri,
+            "subject": code.subject,
+            "tenant_id": code.tenant_id,
+            "tenant_code": code.tenant_code,
+            "nonce": code.nonce,
+            "code_challenge": code.code_challenge,
+            "code_challenge_method": code.code_challenge_method,
+            "scope": code.scope,
+            "auth_time": code.auth_time,
+        }
+    )
 
 
 def code_from_payload(raw: ConcurrentStableDict[str, object] | None) -> OidcCode:
