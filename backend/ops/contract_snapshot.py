@@ -62,14 +62,14 @@ def snapshot_path(root: Path, service_key: str) -> Path:
     return contracts_dir(root) / contract_file_name(service_key)
 
 
-def build_openapi(service_key: str) -> ConcurrentStableDict[str, Any]:
-    """内存构建服务应用并取公开契约（OpenAPI）。
+def build_app(service_key: str) -> Any:
+    """内存构建服务应用（不启 lifespan、不连库）。
 
     Args:
         service_key: 服务标识（包名 `bms_<service_key>`）。
 
     Returns:
-        ConcurrentStableDict[str, Any]: OpenAPI 映射。
+        Any: 服务应用对象（`ApplicationFactory().create(None)` 产物）。
 
     Raises:
         RuntimeError: 服务包 / 应用工厂缺失或应用构建失败。
@@ -82,10 +82,25 @@ def build_openapi(service_key: str) -> ConcurrentStableDict[str, Any]:
     if factory_cls is None:
         raise RuntimeError(f"服务缺少 ApplicationFactory：bms_{service_key}.main")
     try:
-        app = factory_cls().create(None)
-        return ConcurrentStableDict(cast("dict[str, Any]", app.openapi()))
+        return factory_cls().create(None)
     except Exception as exc:
         raise RuntimeError(f"服务应用构建失败：{service_key}（{exc!r}）") from exc
+
+
+def build_openapi(service_key: str) -> ConcurrentStableDict[str, Any]:
+    """内存构建服务应用并取公开契约（OpenAPI）。
+
+    Args:
+        service_key: 服务标识（包名 `bms_<service_key>`）。
+
+    Returns:
+        ConcurrentStableDict[str, Any]: OpenAPI 映射。
+
+    Raises:
+        RuntimeError: 服务包 / 应用工厂缺失或应用构建失败。
+    """
+    app = build_app(service_key)
+    return ConcurrentStableDict(cast("dict[str, Any]", app.openapi()))
 
 
 def _validate(record: ModuleRecord, openapi: ConcurrentStableDict[str, Any]) -> ConcurrentStableList[str]:

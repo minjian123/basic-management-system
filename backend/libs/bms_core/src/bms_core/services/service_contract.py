@@ -12,17 +12,21 @@ import json
 from collections.abc import Mapping
 from typing import cast
 
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.serialization import normalize_collections
 from bms_core.services.module_registry import SERVICE_CATALOG, ModuleRecord, ModuleStatus
 
 __all__ = [
     "BASELINE_DIR",
     "CONTRACTS_DIR",
+    "INVISIBLE_ROUTE_WHITELIST",
     "contract_file_name",
     "enabled_service_records",
+    "hidden_route_violations",
     "render_contract_json",
+    "route_coverage_gaps",
     "service_enabled",
+    "service_route_sets",
     "validate_contract",
 ]
 
@@ -112,3 +116,104 @@ def validate_contract(
     if not isinstance(paths, Mapping) or not paths:
         errors.add(f"{service_key}：OpenAPI paths 为空")
     return errors
+
+
+INVISIBLE_ROUTE_WHITELIST: ConcurrentStableSet[str] = ConcurrentStableSet(
+    {"/docs", "/redoc", "/openapi.json", "/docs/oauth2-redirect", "/metrics"}
+)
+"""不可见路由白名单：允许被排除出公开契约的实现路由。
+
+仅框架内置文档端点（`/docs` / `/redoc` / `/openapi.json` / `/docs/oauth2-redirect`）与平台可观测
+端点（`/metrics`）；**业务端点一律不得加入**——新增白名单项须在设计 / 规范侧说明理由（需求 06-3）。
+"""
+
+
+def _route_entries(routes: ConcurrentStableList[object]) -> ConcurrentStableList[tuple[str, bool]]:
+    """递归展开应用路由树，收集 `(path, include_in_schema)` 实现路由条目。
+
+    兼容 FastAPI 惰性路由：具备 `effective_candidates()` 可调用者遍历其返回值；具备 `routes`
+    属性者继续下钻；同时具备 `path`（str）与 `include_in_schema`（bool）者即一条实现路由。
+
+    Args:
+        routes: 路由集合（应用 `routes` 或下钻得到的子集合）。
+
+    Returns:
+        ConcurrentStableList[tuple[str, bool]]: 实现路由条目（顺序稳定，未去重）。
+    """
+    entries: ConcurrentStableList[tuple[str, bool]] = ConcurrentStableList()
+    for route in routes:
+        candidates = getattr(route, "effective_candidates", None)
+        if callable(candidates):
+            entries.update(_route_entries(ConcurrentStableList(candidates())))
+            continue
+        sub_routes = getattr(route, "routes", None)
+        if sub_routes is not None:
+            entries.update(_route_entries(ConcurrentStableList(sub_routes)))
+            continue
+        path = getattr(route, "path", None)
+        in_schema = getattr(route, "include_in_schema", None)
+        if isinstance(path, str) and isinstance(in_schema, bool):
+            entries.add((path, in_schema))
+    return entries
+
+
+def service_route_sets(app: object) -> tuple[ConcurrentStableSet[str], ConcurrentStableSet[str]]:
+    """提取服务的实现路由集合，按是否计入公开契约分为两组。
+
+    Args:
+        app: 服务应用对象（`ApplicationFactory().create(None)` 产物）。
+
+    Returns:
+        tuple[ConcurrentStableSet[str], ConcurrentStableSet[str]]:
+        `(计入契约的实现路由, 被排除出契约的实现路由)`，均为去重集合。
+    """
+    visible: ConcurrentStableSet[str] = ConcurrentStableSet()
+    invisible: ConcurrentStableSet[str] = ConcurrentStableSet()
+    for path, in_schema in _route_entries(ConcurrentStableList(getattr(app, "routes", []))):
+        if in_schema:
+            visible.add(path)
+        else:
+            invisible.add(path)
+    return visible, invisible
+
+
+def route_coverage_gaps(
+    implemented: ConcurrentStableSet[str],
+    paths: ConcurrentStableSet[str],
+) -> ConcurrentStableList[str]:
+    """断言 A：计入契约的实现路由中，未出现在公开契约 `paths` 的路径。
+
+    Args:
+        implemented: 计入契约的实现路由集合。
+        paths: 公开契约 `paths` 键集合。
+
+    Returns:
+        ConcurrentStableList[str]: 缺失路径（升序）；空列表表示无漏登。
+    """
+    gaps: ConcurrentStableList[str] = ConcurrentStableList()
+    for path in sorted(implemented):
+        if path not in paths:
+            gaps.add(path)
+    return gaps
+
+
+def hidden_route_violations(
+    hidden: ConcurrentStableSet[str],
+    *,
+    whitelist: ConcurrentStableSet[str] | None = None,
+) -> ConcurrentStableList[str]:
+    """断言 B：被排除出契约的实现路由中，超出白名单的路径。
+
+    Args:
+        hidden: 被排除出公开契约的实现路由集合。
+        whitelist: 白名单（缺省 `INVISIBLE_ROUTE_WHITELIST`）。
+
+    Returns:
+        ConcurrentStableList[str]: 越界路径（升序）；空列表表示无违规。
+    """
+    allowed = whitelist if whitelist is not None else INVISIBLE_ROUTE_WHITELIST
+    violations: ConcurrentStableList[str] = ConcurrentStableList()
+    for path in sorted(hidden):
+        if path not in allowed:
+            violations.add(path)
+    return violations

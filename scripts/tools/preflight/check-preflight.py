@@ -388,6 +388,12 @@ def main() -> int:
         failures,
     )
     _run(
+        "契约：check_contracts（实现路由 ⊆ 公开契约 paths + 不可见白名单）",
+        ConcurrentStableList(["uv", "run", "python", "-m", "ops.check_contracts"]),
+        backend,
+        failures,
+    )
+    _run(
         "契约：event_contracts check（事件契约零漂移 + 兼容）",
         ConcurrentStableList(["uv", "run", "python", "-m", "ops.event_contracts", "check", "--root", str(root)]),
         backend,
