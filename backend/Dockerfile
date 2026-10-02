@@ -16,10 +16,13 @@ ENV PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple \
     SERVICE=${SERVICE}
 
 # 系统包安全更新（Trivy CRITICAL/HIGH 阻断发版；base 镜像自带包常落后于 Debian 安全更新）；
-# apt 换清华源（官方 Debian 源国内慢，与 deploy/ci/Dockerfile.backend 同口径）
+# apt 换清华源（官方 Debian 源国内慢，与 deploy/ci/Dockerfile.backend 同口径）；
+# 显式升级已知高危包（2026-10 Trivy 命中 libpcre2-8-0 / libssl3t64 / openssl / openssl-provider-legacy，
+# 修复版在 debian-security 的 u3；命令变更同时触发本层缓存重建，避免沿用旧镜像层里的旧安全包）
 RUN sed -i 's|deb.debian.org|mirrors.tuna.tsinghua.edu.cn|g' /etc/apt/sources.list.d/debian.sources \
  && apt-get update \
  && apt-get upgrade -y \
+ && apt-get install -y --only-upgrade libpcre2-8-0 libssl3t64 openssl openssl-provider-legacy \
  && rm -rf /var/lib/apt/lists/*
 
 RUN pip install --no-cache-dir uv
