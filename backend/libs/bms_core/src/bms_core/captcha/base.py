@@ -4,7 +4,8 @@
   统一凭证与场景策略数据契约（挑战值对象只在尾部追加带默认值字段，属**向后兼容扩展**）。
 - `CAPTCHA_SCENES` / `CAPTCHA_SCENE_POLICIES` / `default_scene_policy`：场景枚举与平台默认策略表
   （真实实现读 `sys_config` 按租户覆盖、缺省回落本表）。
-- `mask_phone`：短信目标脱敏唯一入口（保留前 3 后 4）；真实实现改经 02-29 脱敏基座，签名与口径不变。
+- `mask_phone`：短信目标脱敏唯一入口（保留前 3 后 4）；口径委托脱敏基座 `phone` 策略纯函数（04_02 回接），
+  签名与调用口径不变。
 - `build_captcha_key`：验证码存储 key 统一拼接（`bms:global:captcha:{uuid}`，见《架构设计 · 数据架构》
   「key 空间规划」节）；三类渠道**共用同一编号空间**。
 - `BaseCaptcha`：能力域中间层契约（`key = "captcha"`）——出题 `generate` / 短信发送 `send_sms` /
@@ -29,6 +30,7 @@ from bms_core.core.config import Settings
 from bms_core.core.exceptions import CaptchaVerifyError
 from bms_core.core.objects import BaseCaptchaContract, BaseValueObject
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
+from bms_core.masking.default import BUILTIN_MASK_SPECS, mask_edges
 
 CAPTCHA_KEY_PREFIX = "bms"
 """验证码 key 前缀（与缓存 key 同前缀）。"""
@@ -76,8 +78,8 @@ def build_captcha_key(captcha_id: str) -> str:
 def mask_phone(phone: str) -> str:
     """手机号脱敏（保留前 3 后 4，如 `138****5678`）。
 
-    长度不足 8 位时保留前 3 位（不抛错），保证任何输入都不会原样回显；真实实现改经 02-29 脱敏基座，
-    函数签名与调用口径不变。
+    口径委托脱敏基座内置 `phone` 策略纯函数（`mask_edges` + 规格表，单一来源零漂移）；
+    长度不足时退化为「保留可用前段 + 掩码」（不原样回显、不抛错），函数签名与调用口径不变。
 
     Args:
         phone: 手机号。
@@ -85,9 +87,7 @@ def mask_phone(phone: str) -> str:
     Returns:
         str: 脱敏手机号。
     """
-    if len(phone) >= 8:
-        return f"{phone[:3]}****{phone[-4:]}"
-    return f"{phone[:3]}****"
+    return mask_edges(phone, BUILTIN_MASK_SPECS["phone"])
 
 
 class CaptchaKind(StrEnum):

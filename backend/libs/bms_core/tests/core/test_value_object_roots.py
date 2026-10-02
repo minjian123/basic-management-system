@@ -230,7 +230,7 @@ VALUE_OBJECT_BATCH: tuple[tuple[str, str], ...] = (
     ("backend/libs/bms_core/src/bms_core/llm/base.py", "EmbeddingResult"),
     ("backend/libs/bms_core/src/bms_core/llm/base.py", "OcrResult"),
     ("backend/libs/bms_core/src/bms_core/masking/base.py", "MaskRule"),
-    ("backend/libs/bms_core/src/bms_core/masking/default.py", "MaskSpec"),
+    ("backend/libs/bms_core/src/bms_core/masking/text.py", "MaskSpec"),
     ("backend/libs/bms_core/src/bms_core/masking/default.py", "MaskerOptions"),
     ("backend/libs/bms_core/src/bms_core/notify/base.py", "NotificationMessage"),
     ("backend/libs/bms_core/src/bms_core/notify/base.py", "SendResult"),

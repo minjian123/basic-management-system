@@ -131,24 +131,26 @@ class BaseMasker(BasePluggable, ABC):
         return self._checker.check(PLAIN_PERMISSION)
 
     @abstractmethod
-    def mask(self, field: str, value: object) -> object:
+    def mask(self, field: str, value: object, strategy: str | None = None) -> object:
         """掩码字段值。
 
         Args:
-            field: 字段名（未登记字段原样返回）。
+            field: 字段名（未声明且未登记字段原样返回）。
             value: 原始值。
+            strategy: 字段策略（序列化层按 Schema 声明传入；缺省 None，由实现按注册 / 字段名解析）。
 
         Returns:
             object: 持 `data:plain` 时为明文，否则为掩码值。
         """
 
     @abstractmethod
-    def reveal(self, field: str, value: object) -> object:
+    def reveal(self, field: str, value: object, strategy: str | None = None) -> object:
         """还原字段明文（加密字段解密）。
 
         Args:
-            field: 字段名（未登记字段原样返回）。
+            field: 字段名（未声明且未登记字段原样返回）。
             value: 存储值（密文或掩码值）。
+            strategy: 字段策略（同 `mask`）。
 
         Returns:
             object: 持 `data:plain` 时为明文，否则为掩码值。

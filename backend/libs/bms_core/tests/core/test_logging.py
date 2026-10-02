@@ -7,7 +7,7 @@ from typing import Literal
 import pytest
 
 from bms_core.core.base import BaseObject
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.config import LogSettings, Settings
 from bms_core.core.context import (
     current_user_id,
@@ -178,6 +178,36 @@ def test_redaction_sensitive_keys(capsys: pytest.CaptureFixture[str]) -> None:
     assert record["payload"] == {"client_secret": "***", "keep": "ok"}
 
 
+@pytest.mark.kiwi_id(2225)
+def test_redaction_config_extends_builtin_lists(capsys: pytest.CaptureFixture[str]) -> None:
+    """配置追加键名与后缀生效（值整体 `***`）；内置名单恒生效（配置只可追加不可移除）。"""
+    configure_logging(
+        Settings(
+            log=LogSettings(
+                level="INFO",
+                format="json",
+                redact_keys=ConcurrentStableList(["device_sn"]),
+                redact_suffixes=ConcurrentStableList(["__key"]),
+            )
+        )
+    )
+    get_logger("app.test").info(
+        "custom_redact",
+        device_sn="SN-VALUE",
+        api__key="KEY-VALUE",
+        password="PWD-VALUE",
+        keep="ok",
+    )
+    out = capsys.readouterr().out
+    for leaked in ("SN-VALUE", "KEY-VALUE", "PWD-VALUE"):
+        assert leaked not in out
+    record = json.loads(out.strip())
+    assert record["device_sn"] == "***"
+    assert record["api__key"] == "***"
+    assert record["password"] == "***"
+    assert record["keep"] == "ok"
+
+
 @pytest.mark.kiwi_id(63)
 def test_redaction_connection_string(capsys: pytest.CaptureFixture[str]) -> None:
     """脱敏：连接串密码正则（含嵌套值），用户名保留。"""
@@ -198,10 +228,23 @@ def test_redaction_connection_string(capsys: pytest.CaptureFixture[str]) -> None
 @pytest.mark.kiwi_id(63)
 def test_redaction_depth_limit_keeps_value() -> None:
     """超深嵌套（达到限深）原样返回，避免递归放大。"""
-    from bms_core.core.logging import _MAX_REDACT_DEPTH, _redact_value  # pyright: ignore[reportPrivateUsage]
+    from bms_core.core.logging import (  # pyright: ignore[reportPrivateUsage]
+        _MAX_REDACT_DEPTH,
+        _SENSITIVE_KEYS,
+        _SENSITIVE_SUFFIXES,
+        _redact_value,
+    )
 
     payload: ConcurrentStableDict[str, object] = ConcurrentStableDict({"inner": "postgresql://u:p@h/db"})
-    assert _redact_value(payload, depth=_MAX_REDACT_DEPTH) is payload
+    assert (
+        _redact_value(
+            payload,
+            _MAX_REDACT_DEPTH,
+            ConcurrentStableSet(_SENSITIVE_KEYS),
+            ConcurrentStableList(_SENSITIVE_SUFFIXES),
+        )
+        is payload
+    )
 
 
 @pytest.mark.kiwi_id(63)

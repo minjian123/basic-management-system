@@ -110,6 +110,12 @@ class LogSettings(BaseSettings):
     level: str
     format: Literal["console", "json"] = "json"
     slow_request_ms: int = 1000
+    redact_keys: Annotated[ConcurrentStableList[str], CONTRACT_COLLECTION] = Field(default_factory=CONTRACT_STABLE_LIST)
+    """追加的敏感日志键名（内置名单恒生效，配置**只可追加不可移除**）。"""
+    redact_suffixes: Annotated[ConcurrentStableList[str], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_LIST
+    )
+    """追加的敏感日志键名后缀（同上，只可追加）。"""
 
     @field_validator("level")
     @classmethod

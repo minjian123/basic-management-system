@@ -38,17 +38,18 @@ class DenyChecker(BasePermissionChecker):
 class FixedMasker(NullMasker):
     """测试用固定掩码器：所有字段值掩码为 `***`（不区分策略）。"""
 
-    def mask(self, field: str, value: object) -> object:
+    def mask(self, field: str, value: object, strategy: str | None = None) -> object:
         """固定掩码。
 
         Args:
             field: 字段名（本实现不区分）。
             value: 原始值（本实现不使用）。
+            strategy: 字段策略（本实现不区分）。
 
         Returns:
             object: 固定掩码串 `***`。
         """
-        del field, value
+        del field, value, strategy
         return "***"
 
 

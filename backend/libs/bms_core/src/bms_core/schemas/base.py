@@ -3,12 +3,14 @@
 - `CONTRACT_COLLECTION`：把基座并发集合类（`ConcurrentStable*`）接入 Pydantic 校验 / 序列化 / JSON Schema，
   契约字段一律以内联 `Annotated[集合类[X], CONTRACT_COLLECTION]` 声明（禁命名泛型别名，防契约 `$defs` 漂移）；
 - 契约集合 JSON Schema 与 `list[X]` / `frozenset[X]` / `dict[K, V]` **逐字节一致**（契约零漂移为门禁）；
+- `masked_fields`：敏感字段声明（字段 → 策略 映射，或字段名集合兼容写法），序列化时经当前掩码器递归
+  掩码（含嵌套模型与列表；未注入掩码器时直通）；
 - `core/` 不引入 Pydantic（元数据只落本层）。
 """
 
 import types
-from collections.abc import Callable, Mapping, Set
-from typing import Any, ClassVar, Union, cast, get_args, get_origin
+from collections.abc import Callable, Iterable, Mapping, Set
+from typing import Any, ClassVar, Protocol, Union, cast, get_args, get_origin
 
 from pydantic import (
     BaseModel,
@@ -30,6 +32,24 @@ from bms_core.core.concurrent import (
 from bms_core.core.context import get_current_masker
 from bms_core.core.objects import BaseDataContract, BaseFrameworkObject
 from bms_core.core.serialization import stringify_ids
+
+
+class _MaskerProtocol(Protocol):
+    """序列化掩码所需的最小掩码器面（结构化类型，避免 schemas 层反向依赖 masking 域）。"""
+
+    def mask(self, field: str, value: object, strategy: str | None = None) -> object:
+        """掩码字段值（语义见 `BaseMasker.mask`）。
+
+        Args:
+            field: 字段名。
+            value: 原始值。
+            strategy: 字段策略（缺省 None，由实现按注册 / 字段名解析）。
+
+        Returns:
+            object: 明文（有权限 / 未声明）或掩码值。
+        """
+        ...
+
 
 CollectionType = type[BaseCollection[Any]]
 """基座集合类（`BaseCollection` 子类）类型。"""
@@ -175,27 +195,138 @@ CONTRACT_STABLE_SET: Callable[[], ConcurrentStableSet[Any]] = ConcurrentStableSe
 """插入序集合空集合工厂（`Field(default_factory=...)`）。"""
 
 
-def _apply_masking(masked_fields: ConcurrentStableSet[str], data: object) -> object:
-    """按当前掩码器掩码敏感字段。
+MaskedFields = ConcurrentStableDict[str, str] | ConcurrentStableSet[str]
+"""敏感字段声明形态：字段 → 策略 映射，或字段名集合（兼容写法，字段名同时作为策略名）。"""
 
-    未注入掩码器（`current_masker` 为 None）/ 无敏感字段声明 / 序列化结果非字典时**原样返回**
-    （占位期行为与既有完全一致）。
+_MAX_MASK_DEPTH = 5
+"""掩码递归深度上限（防深层 / 循环结构；与日志脱敏同口径）。"""
+
+
+def _normalize_masked_fields(masked_fields: MaskedFields) -> ConcurrentStableDict[str, str]:
+    """把敏感字段声明归一化为「字段 → 策略」映射。
+
+    映射写法原样使用；集合写法把字段名同时作为策略名——「字段名同名内置策略、否则兜底 `custom` 全掩码」
+    由掩码器解析链单点实现（见 `DefaultMasker._resolve_strategy`）。
 
     Args:
-        masked_fields: 需掩码的字段集合。
+        masked_fields: 敏感字段声明（映射或集合）。
+
+    Returns:
+        ConcurrentStableDict[str, str]: 归一化后的字段 → 策略映射。
+    """
+    if isinstance(masked_fields, ConcurrentStableDict):
+        return ConcurrentStableDict[str, str]({str(field): str(strategy) for field, strategy in masked_fields.items()})
+    return ConcurrentStableDict[str, str]({str(field): str(field) for field in masked_fields})
+
+
+def _mask_mapping(
+    masked: ConcurrentStableDict[str, str],
+    data: object,
+    masker: _MaskerProtocol,
+    depth: int,
+) -> object:
+    """递归掩码映射：命中声明字段的标量掩码，容器继续下钻（容器类型保持）。
+
+    Args:
+        masked: 归一化后的字段 → 策略映射。
+        data: 待掩码映射（序列化结果的字典；调用方已按映射判定传入）。
+        masker: 当前掩码器。
+        depth: 当前嵌套深度。
+
+    Returns:
+        object: 掩码后的映射（契约集合类保持原类型，内置字典仍为内置字典）。
+    """
+    if depth >= _MAX_MASK_DEPTH or not isinstance(data, Mapping):
+        return data
+    result = ConcurrentStableDict[str, object]()
+    mapping = cast("ConcurrentStableDict[object, object]", data)
+    for key, value in mapping.items():
+        name = key if isinstance(key, str) else str(key)
+        result.set(name, _mask_value(masked, name, value, masker, depth))
+    if isinstance(data, ConcurrentStableDict):
+        return result
+    return {key: item for key, item in result.items()}
+
+
+def _mask_sequence(
+    masked: ConcurrentStableDict[str, str],
+    field: str,
+    value: Iterable[object],
+    masker: _MaskerProtocol,
+    depth: int,
+) -> object:
+    """按同一字段上下文逐元素掩码序列（保持原容器类型）。
+
+    Args:
+        masked: 归一化后的字段 → 策略映射。
+        field: 元素所属字段名（声明为敏感字段时逐元素掩码）。
+        value: 待掩码序列（列表 / 元组 / 集合 / 基座集合类）。
+        masker: 当前掩码器。
+        depth: 当前嵌套深度。
+
+    Returns:
+        object: 掩码后的序列。
+    """
+    items = [_mask_value(masked, field, item, masker, depth + 1) for item in value]
+    if isinstance(value, ConcurrentStableList):
+        return ConcurrentStableList(items)
+    if isinstance(value, ConcurrentStableSet):
+        return ConcurrentStableSet(items)
+    if isinstance(value, tuple):
+        return tuple(items)
+    if isinstance(value, frozenset):
+        return frozenset(items)
+    if isinstance(value, set):
+        return set(items)
+    return items
+
+
+def _mask_value(
+    masked: ConcurrentStableDict[str, str], field: str, value: object, masker: _MaskerProtocol, depth: int
+) -> object:
+    """掩码单个值：映射递归、序列逐元素、其余按声明字段掩码（未声明原样）。
+
+    Args:
+        masked: 归一化后的字段 → 策略映射。
+        field: 字段名（序列元素沿用所属字段名）。
+        value: 待掩码值。
+        masker: 当前掩码器。
+        depth: 当前嵌套深度。
+
+    Returns:
+        object: 掩码后的值。
+    """
+    if depth >= _MAX_MASK_DEPTH:
+        return value
+    if isinstance(value, Mapping):
+        return _mask_mapping(masked, cast("ConcurrentStableDict[object, object]", value), masker, depth + 1)
+    if isinstance(value, (list, tuple, set, frozenset, BaseCollection)):
+        return _mask_sequence(masked, field, cast("Iterable[object]", value), masker, depth)
+    strategy = masked.get(field)
+    if strategy is None:
+        return value
+    return masker.mask(field, value, strategy=strategy)
+
+
+def _apply_masking(masked_fields: MaskedFields, data: object) -> object:
+    """按当前掩码器掩码敏感字段（含嵌套模型与列表）。
+
+    未注入掩码器（`current_masker` 为 None）/ 无敏感字段声明时**原样返回**（未接入脱敏的行为与既有一致）。
+
+    Args:
+        masked_fields: 敏感字段声明（映射或集合）。
         data: 序列化结果。
 
     Returns:
         object: 掩码后的结果。
     """
     masker = get_current_masker()
-    if masker is None or not masked_fields or not isinstance(data, dict):
+    if masker is None or not masked_fields:
         return data
-    fields = cast("dict[str, object]", data)
-    for field in masked_fields:
-        if field in fields:
-            fields[field] = masker.mask(field, fields[field])
-    return fields
+    masked = _normalize_masked_fields(masked_fields)
+    if not masked:
+        return data
+    return _mask_value(masked, "", data, masker, 0)
 
 
 class BaseSchema(BaseModel, BaseDataContract):
@@ -204,13 +335,19 @@ class BaseSchema(BaseModel, BaseDataContract):
     - from_attributes：允许 ORM/实体对象直接校验（响应模型使用）
     - str_strip_whitespace：字符串字段自动去除首尾空白
     - 序列化：继承 `BaseObject`（声明字段优先）；统一把 `id` / `*_id` 按字符串输出（JS 安全整数）
-    - 敏感字段：类属性 `masked_fields` 声明的字段在序列化时经当前掩码器掩码（未注入掩码器时直通）
+    - 敏感字段：类属性 `masked_fields`（映射或集合）声明的字段在序列化时经当前掩码器**递归掩码**
+      （含嵌套模型与列表；未注入掩码器时直通）
     """
 
     model_config = ConfigDict(from_attributes=True, str_strip_whitespace=True)
 
-    masked_fields: ClassVar[ConcurrentStableSet[str]] = ConcurrentStableSet()
-    """需掩码的敏感字段（默认空集＝不掩码）；真实规则随性能与安全阶段回补。"""
+    masked_fields: ClassVar[MaskedFields] = ConcurrentStableSet[str]()
+    """敏感字段声明（默认空集＝不掩码）。
+
+    映射写法（`{"mobile": "phone"}`）显式指定字段策略；集合写法（`{"phone", "email"}`）以字段名同名
+    内置策略掩码、非内置字段名兜底全掩码。序列化时经当前掩码器递归掩码（含嵌套模型与列表）；
+    未注入掩码器时直通。
+    """
 
     @model_serializer(mode="wrap")
     def _serialize_ids(self, serializer: Callable[..., Any], info: SerializationInfo) -> Any:
