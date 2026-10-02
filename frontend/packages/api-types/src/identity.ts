@@ -1279,29 +1279,330 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        ApiResponse: unknown;
-        ApiResponse_BasePageResponse_ClientItem__: unknown;
-        ApiResponse_BasePageResponse_IdpProviderItem__: unknown;
-        ApiResponse_BasePageResponse_SessionItem__: unknown;
-        ApiResponse_ClientCreated_: unknown;
-        ApiResponse_ClientItem_: unknown;
-        ApiResponse_ClientSecretReset_: unknown;
-        ApiResponse_IdpProviderItem_: unknown;
-        ApiResponse_IdpProviderTestResult_: unknown;
-        ApiResponse_KickResult_: unknown;
-        ApiResponse_LoginResult_: unknown;
-        ApiResponse_NoneType_: unknown;
-        ApiResponse_PasswordForgotResult_: unknown;
-        ApiResponse_PasswordResetResult_: unknown;
-        ApiResponse_RefreshResult_: unknown;
-        ApiResponse_SessionItem_: unknown;
-        ApiResponse_SsoAuthorizeInfo_: unknown;
-        ApiResponse_SsoIdentityList_: unknown;
-        ApiResponse_SsoProviderList_: unknown;
-        ApiResponse_dict_str__object__: unknown;
-        BasePageResponse_ClientItem_: unknown;
-        BasePageResponse_IdpProviderItem_: unknown;
-        BasePageResponse_SessionItem_: unknown;
+        /**
+         * ApiResponse
+         * @description 统一响应体：`code=0` 成功，非 0 业务错误码。
+         *
+         *     - `data` 为业务数据（泛型）；失败时为 `null`；分页载荷复用分页契约基类。
+         *     - 雪花 ID 在 JSON 中以字符串输出（`BaseSchema` 统一序列化口径）。
+         */
+        ApiResponse: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            /** Data */
+            data?: unknown | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[BasePageResponse[ClientItem]] */
+        ApiResponse_BasePageResponse_ClientItem__: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["BasePageResponse_ClientItem_"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[BasePageResponse[IdpProviderItem]] */
+        ApiResponse_BasePageResponse_IdpProviderItem__: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["BasePageResponse_IdpProviderItem_"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[BasePageResponse[SessionItem]] */
+        ApiResponse_BasePageResponse_SessionItem__: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["BasePageResponse_SessionItem_"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[ClientCreated] */
+        ApiResponse_ClientCreated_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["ClientCreated"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[ClientItem] */
+        ApiResponse_ClientItem_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["ClientItem"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[ClientSecretReset] */
+        ApiResponse_ClientSecretReset_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["ClientSecretReset"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[IdpProviderItem] */
+        ApiResponse_IdpProviderItem_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["IdpProviderItem"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[IdpProviderTestResult] */
+        ApiResponse_IdpProviderTestResult_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["IdpProviderTestResult"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[KickResult] */
+        ApiResponse_KickResult_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["KickResult"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[LoginResult] */
+        ApiResponse_LoginResult_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["LoginResult"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[NoneType] */
+        ApiResponse_NoneType_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            /** Data */
+            data?: null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[PasswordForgotResult] */
+        ApiResponse_PasswordForgotResult_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["PasswordForgotResult"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[PasswordResetResult] */
+        ApiResponse_PasswordResetResult_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["PasswordResetResult"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[RefreshResult] */
+        ApiResponse_RefreshResult_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["RefreshResult"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[SessionItem] */
+        ApiResponse_SessionItem_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["SessionItem"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[SsoAuthorizeInfo] */
+        ApiResponse_SsoAuthorizeInfo_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["SsoAuthorizeInfo"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[SsoIdentityList] */
+        ApiResponse_SsoIdentityList_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["SsoIdentityList"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[SsoProviderList] */
+        ApiResponse_SsoProviderList_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["SsoProviderList"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[dict[str, object]] */
+        ApiResponse_dict_str__object__: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            /** Data */
+            data?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** BasePageResponse[ClientItem] */
+        BasePageResponse_ClientItem_: {
+            /** List */
+            list: components["schemas"]["ClientItem"][];
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Total */
+            total: number;
+        };
+        /** BasePageResponse[IdpProviderItem] */
+        BasePageResponse_IdpProviderItem_: {
+            /** List */
+            list: components["schemas"]["IdpProviderItem"][];
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Total */
+            total: number;
+        };
+        /** BasePageResponse[SessionItem] */
+        BasePageResponse_SessionItem_: {
+            /** List */
+            list: components["schemas"]["SessionItem"][];
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Total */
+            total: number;
+        };
         /**
          * CaptchaChallengeRequest
          * @description 验证码出题请求。
@@ -1449,9 +1750,114 @@ export interface components {
              */
             scopes?: string[];
         };
-        ClientCreated: unknown;
-        ClientItem: unknown;
-        ClientSecretReset: unknown;
+        /**
+         * ClientCreated
+         * @description 客户端创建 / 重置凭据响应（`client_secret` 仅本次明文返回）。
+         */
+        ClientCreated: {
+            /**
+             * Client Id
+             * @description 客户端标识
+             */
+            client_id: string;
+            /**
+             * Client Secret
+             * @description 客户端密钥明文（仅本次返回；请妥善保存）
+             */
+            client_secret: string;
+            /**
+             * Grant Types
+             * @description 授权类型
+             */
+            grant_types?: string[];
+            /**
+             * Ip Whitelist
+             * @description IP / CIDR 白名单
+             */
+            ip_whitelist?: string[];
+            /**
+             * Name
+             * @description 应用名称
+             */
+            name: string;
+            /**
+             * Redirect Uris
+             * @description 回调地址白名单
+             */
+            redirect_uris?: string[];
+            /**
+             * Scopes
+             * @description scope 集合
+             */
+            scopes?: string[];
+            /**
+             * Status
+             * @description 状态
+             */
+            status: string;
+        };
+        /**
+         * ClientItem
+         * @description 客户端列表 / 详情项（永不包含 secret 与哈希）。
+         */
+        ClientItem: {
+            /**
+             * Client Id
+             * @description 客户端标识
+             */
+            client_id: string;
+            /**
+             * Grant Types
+             * @description 授权类型
+             */
+            grant_types?: string[];
+            /**
+             * Id
+             * @description 主键
+             */
+            id: string;
+            /**
+             * Ip Whitelist
+             * @description IP / CIDR 白名单
+             */
+            ip_whitelist?: string[];
+            /**
+             * Name
+             * @description 应用名称
+             */
+            name: string;
+            /**
+             * Redirect Uris
+             * @description 回调地址白名单
+             */
+            redirect_uris?: string[];
+            /**
+             * Scopes
+             * @description scope 集合
+             */
+            scopes?: string[];
+            /**
+             * Status
+             * @description 状态（enabled/disabled）
+             */
+            status: string;
+        };
+        /**
+         * ClientSecretReset
+         * @description 客户端密钥重置响应（新明文仅本次返回）。
+         */
+        ClientSecretReset: {
+            /**
+             * Client Id
+             * @description 客户端标识
+             */
+            client_id: string;
+            /**
+             * Client Secret
+             * @description 新密钥明文（仅本次返回；旧密钥即时失效）
+             */
+            client_secret: string;
+        };
         /**
          * ClientStatusRequest
          * @description 客户端启停请求。
@@ -1514,7 +1920,62 @@ export interface components {
              */
             type: string;
         };
-        IdpProviderItem: unknown;
+        /**
+         * IdpProviderItem
+         * @description IdP 配置列表 / 详情项（`config` 已脱敏，密钥引用不返明文）。
+         */
+        IdpProviderItem: {
+            /**
+             * Config
+             * @description 脱敏后的协议配置对象
+             */
+            config?: {
+                [key: string]: unknown;
+            };
+            /**
+             * Icon
+             * @description 图标（可空）
+             * @default
+             */
+            icon: string;
+            /**
+             * Id
+             * @description 主键
+             */
+            id: string;
+            /**
+             * Idp Key
+             * @description 租户内标识 slug
+             */
+            idp_key: string;
+            /**
+             * Name
+             * @description 显示名
+             */
+            name: string;
+            /**
+             * Secret Configured
+             * @description 是否已配置密钥引用
+             * @default false
+             */
+            secret_configured: boolean;
+            /**
+             * Sort
+             * @description 登录页排序
+             * @default 0
+             */
+            sort: number;
+            /**
+             * Status
+             * @description 状态（enabled/disabled）
+             */
+            status: string;
+            /**
+             * Type
+             * @description 协议类型（oidc / cas / wecom / dingtalk）
+             */
+            type: string;
+        };
         /**
          * IdpProviderStatusRequest
          * @description 启停请求。
@@ -1550,7 +2011,34 @@ export interface components {
              */
             type: string;
         };
-        IdpProviderTestResult: unknown;
+        /**
+         * IdpProviderTestResult
+         * @description 连通性测试结果（摘要诊断，不含敏感信息）。
+         */
+        IdpProviderTestResult: {
+            /**
+             * Detail
+             * @description 摘要诊断（不含原始报文 / 密钥）
+             * @default
+             */
+            detail: string;
+            /**
+             * Protocol
+             * @description 协议类型
+             * @default
+             */
+            protocol: string;
+            /**
+             * Reachable
+             * @description 端点是否可达 / 凭据是否有效
+             */
+            reachable: boolean;
+            /**
+             * Status
+             * @description 命中的 HTTP 状态码（可选）
+             */
+            status?: number | null;
+        };
         /**
          * IdpProviderUpdateRequest
          * @description 修改 IdP 配置请求（局部更新；`type` / `idp_key` 不可改）。
@@ -1579,7 +2067,29 @@ export interface components {
              */
             sort?: number | null;
         };
-        KickResult: unknown;
+        /**
+         * KickResult
+         * @description 强制踢出结果。
+         */
+        KickResult: {
+            /**
+             * Reason
+             * @description 撤销原因（kick / max_active / logout）
+             * @default kick
+             */
+            reason: string;
+            /**
+             * Revoked At
+             * Format: date-time
+             * @description 撤销时间（UTC）
+             */
+            revoked_at: string;
+            /**
+             * Session Id
+             * @description 被踢出的会话 id
+             */
+            session_id: string;
+        };
         /**
          * LoginRequest
          * @description 本地登录请求。
@@ -1603,7 +2113,30 @@ export interface components {
              */
             tenant?: string | null;
         };
-        LoginResult: unknown;
+        /**
+         * LoginResult
+         * @description 登录成功响应（access 在响应体；refresh 走 httpOnly cookie）。
+         */
+        LoginResult: {
+            /**
+             * Access Token
+             * @description 访问令牌（BMS 自签 JWT）
+             */
+            access_token: string;
+            /**
+             * Expires In
+             * @description access 有效期（秒）
+             */
+            expires_in: number;
+            /**
+             * Token Type
+             * @description 令牌类型
+             * @default Bearer
+             */
+            token_type: string;
+            /** @description 用户概要 */
+            user: components["schemas"]["UserSummary"];
+        };
         /**
          * PasswordForgotRequest
          * @description 发起找回请求（账号 / 手机 / 邮箱取通道；验证码按场景策略必带）。
@@ -1622,7 +2155,18 @@ export interface components {
              */
             tenant?: string | null;
         };
-        PasswordForgotResult: unknown;
+        /**
+         * PasswordForgotResult
+         * @description 发起找回响应（恒 `sent=true`：账号不存在 / 停用 / 无通道一律同响应，防枚举）。
+         */
+        PasswordForgotResult: {
+            /**
+             * Sent
+             * @description 重置信息是否已受理（恒 true）
+             * @default true
+             */
+            sent: boolean;
+        };
         /**
          * PasswordResetRequest
          * @description 提交重置请求（重置令牌 + 新口令；策略判定在 org 侧）。
@@ -1644,15 +2188,222 @@ export interface components {
              */
             token: string;
         };
-        PasswordResetResult: unknown;
-        RefreshResult: unknown;
-        SessionItem: unknown;
-        SsoAuthorizeInfo: unknown;
-        SsoIdentityItem: unknown;
-        SsoIdentityList: unknown;
-        SsoProviderItem: unknown;
-        SsoProviderList: unknown;
-        UserSummary: unknown;
+        /**
+         * PasswordResetResult
+         * @description 提交重置响应。
+         */
+        PasswordResetResult: {
+            /**
+             * Reset
+             * @description 密码是否已重置（成功恒 true）
+             * @default true
+             */
+            reset: boolean;
+        };
+        /**
+         * RefreshResult
+         * @description 刷新成功响应（新 access 在体；新 refresh 走 httpOnly cookie）。
+         */
+        RefreshResult: {
+            /**
+             * Access Token
+             * @description 新访问令牌
+             */
+            access_token: string;
+            /**
+             * Expires In
+             * @description access 有效期（秒）
+             */
+            expires_in: number;
+            /**
+             * Token Type
+             * @description 令牌类型
+             * @default Bearer
+             */
+            token_type: string;
+        };
+        /**
+         * SessionItem
+         * @description 会话行（用户 / 设备 / IP / 登录与过期时间 / 撤销时间）。
+         */
+        SessionItem: {
+            /**
+             * Device
+             * @description 设备标识（User-Agent 摘要）
+             */
+            device?: string | null;
+            /**
+             * Expires At
+             * Format: date-time
+             * @description refresh 过期时间（UTC）
+             */
+            expires_at: string;
+            /**
+             * Ip
+             * @description 登录 IP
+             */
+            ip?: string | null;
+            /**
+             * Login At
+             * Format: date-time
+             * @description 登录时间（UTC）
+             */
+            login_at: string;
+            /**
+             * Revoked At
+             * @description 撤销时间（UTC；NULL=有效）
+             */
+            revoked_at?: string | null;
+            /**
+             * Session Id
+             * @description 会话 id（= JWT jti）
+             */
+            session_id: string;
+            /**
+             * User Id
+             * @description 用户 ID（用户名由前端经 org 名称接口回显）
+             */
+            user_id: string;
+        };
+        /**
+         * SsoAuthorizeInfo
+         * @description SSO 授权 URL 响应体（前端渲染二维码 / 初始化平台内嵌登录组件用）。
+         */
+        SsoAuthorizeInfo: {
+            /**
+             * Authorize Url
+             * @description 外部授权入口 URL
+             */
+            authorize_url: string;
+            /**
+             * Expires In
+             * @description 流程状态有效期（秒）
+             */
+            expires_in: number;
+            /**
+             * State
+             * @description 流程状态（一次性；回调校验）
+             */
+            state: string;
+        };
+        /**
+         * SsoIdentityItem
+         * @description SSO 身份绑定项（`sso:bind` 只读端点）。
+         */
+        SsoIdentityItem: {
+            /**
+             * External Id
+             * @description 外部身份主体（OIDC 取 sub）
+             */
+            external_id: string;
+            /**
+             * Idp Key
+             * @description 映射键（{tenant_id}:{provider_key}）
+             */
+            idp_key: string;
+            /**
+             * Tenant Id
+             * @description 租户主键（雪花 id 字符串）
+             */
+            tenant_id: string;
+        };
+        /**
+         * SsoIdentityList
+         * @description SSO 身份绑定清单响应体。
+         */
+        SsoIdentityList: {
+            /**
+             * Items
+             * @description 绑定清单
+             */
+            items?: components["schemas"]["SsoIdentityItem"][];
+        };
+        /**
+         * SsoProviderItem
+         * @description SSO 入口清单项（前端按此渲染登录方式）。
+         */
+        SsoProviderItem: {
+            /**
+             * Icon
+             * @description 图标（可空）
+             * @default
+             */
+            icon: string;
+            /**
+             * Idp Key
+             * @description IdP 标识（租户内稳定 slug；路由参数）
+             */
+            idp_key: string;
+            /**
+             * Name
+             * @description 显示名
+             */
+            name: string;
+            /**
+             * Sort
+             * @description 排序值（升序）
+             * @default 0
+             */
+            sort: number;
+            /**
+             * Type
+             * @description 协议类型（oidc / cas / wecom / dingtalk）
+             */
+            type: string;
+        };
+        /**
+         * SsoProviderList
+         * @description SSO 入口清单响应体。
+         */
+        SsoProviderList: {
+            /**
+             * Items
+             * @description 可用 IdP 清单
+             */
+            items?: components["schemas"]["SsoProviderItem"][];
+        };
+        /**
+         * UserSummary
+         * @description 登录成功返回的用户概要（权限 / 菜单概要归阶段七 RBAC）。
+         */
+        UserSummary: {
+            /**
+             * Id
+             * @description 用户 ID
+             */
+            id: string;
+            /**
+             * Locale
+             * @description 语言偏好
+             */
+            locale?: string | null;
+            /**
+             * Must Change Password
+             * @description 是否需强制改密（密码策略归域三）
+             * @default false
+             */
+            must_change_password: boolean;
+            /**
+             * Name
+             * @description 昵称 / 显示名
+             */
+            name: string;
+            /**
+             * Tenant
+             * @description 租户编码
+             */
+            tenant?: string | null;
+            /**
+             * Timezone
+             * @description 时区偏好
+             */
+            timezone?: string | null;
+            /**
+             * Username
+             * @description 登录账号
+             */
+            username: string;
+        };
         /** ValidationError */
         ValidationError: {
             /** Context */

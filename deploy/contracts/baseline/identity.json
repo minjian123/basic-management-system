@@ -1,29 +1,615 @@
 {
   "components": {
     "schemas": {
-      "ApiResponse": {},
-      "ApiResponse_BasePageResponse_ClientItem__": {},
-      "ApiResponse_BasePageResponse_IdpProviderItem__": {},
-      "ApiResponse_BasePageResponse_SessionItem__": {},
-      "ApiResponse_ClientCreated_": {},
-      "ApiResponse_ClientItem_": {},
-      "ApiResponse_ClientSecretReset_": {},
-      "ApiResponse_IdpProviderItem_": {},
-      "ApiResponse_IdpProviderTestResult_": {},
-      "ApiResponse_KickResult_": {},
-      "ApiResponse_LoginResult_": {},
-      "ApiResponse_NoneType_": {},
-      "ApiResponse_PasswordForgotResult_": {},
-      "ApiResponse_PasswordResetResult_": {},
-      "ApiResponse_RefreshResult_": {},
-      "ApiResponse_SessionItem_": {},
-      "ApiResponse_SsoAuthorizeInfo_": {},
-      "ApiResponse_SsoIdentityList_": {},
-      "ApiResponse_SsoProviderList_": {},
-      "ApiResponse_dict_str__object__": {},
-      "BasePageResponse_ClientItem_": {},
-      "BasePageResponse_IdpProviderItem_": {},
-      "BasePageResponse_SessionItem_": {},
+      "ApiResponse": {
+        "description": "统一响应体：`code=0` 成功，非 0 业务错误码。\n\n- `data` 为业务数据（泛型）；失败时为 `null`；分页载荷复用分页契约基类。\n- 雪花 ID 在 JSON 中以字符串输出（`BaseSchema` 统一序列化口径）。",
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data"
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse",
+        "type": "object"
+      },
+      "ApiResponse_BasePageResponse_ClientItem__": {
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BasePageResponse_ClientItem_"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[BasePageResponse[ClientItem]]",
+        "type": "object"
+      },
+      "ApiResponse_BasePageResponse_IdpProviderItem__": {
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BasePageResponse_IdpProviderItem_"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[BasePageResponse[IdpProviderItem]]",
+        "type": "object"
+      },
+      "ApiResponse_BasePageResponse_SessionItem__": {
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BasePageResponse_SessionItem_"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[BasePageResponse[SessionItem]]",
+        "type": "object"
+      },
+      "ApiResponse_ClientCreated_": {
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ClientCreated"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[ClientCreated]",
+        "type": "object"
+      },
+      "ApiResponse_ClientItem_": {
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ClientItem"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[ClientItem]",
+        "type": "object"
+      },
+      "ApiResponse_ClientSecretReset_": {
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ClientSecretReset"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[ClientSecretReset]",
+        "type": "object"
+      },
+      "ApiResponse_IdpProviderItem_": {
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/IdpProviderItem"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[IdpProviderItem]",
+        "type": "object"
+      },
+      "ApiResponse_IdpProviderTestResult_": {
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/IdpProviderTestResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[IdpProviderTestResult]",
+        "type": "object"
+      },
+      "ApiResponse_KickResult_": {
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/KickResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[KickResult]",
+        "type": "object"
+      },
+      "ApiResponse_LoginResult_": {
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LoginResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[LoginResult]",
+        "type": "object"
+      },
+      "ApiResponse_NoneType_": {
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "title": "Data",
+            "type": "null"
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[NoneType]",
+        "type": "object"
+      },
+      "ApiResponse_PasswordForgotResult_": {
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PasswordForgotResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[PasswordForgotResult]",
+        "type": "object"
+      },
+      "ApiResponse_PasswordResetResult_": {
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PasswordResetResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[PasswordResetResult]",
+        "type": "object"
+      },
+      "ApiResponse_RefreshResult_": {
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RefreshResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[RefreshResult]",
+        "type": "object"
+      },
+      "ApiResponse_SessionItem_": {
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SessionItem"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[SessionItem]",
+        "type": "object"
+      },
+      "ApiResponse_SsoAuthorizeInfo_": {
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SsoAuthorizeInfo"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[SsoAuthorizeInfo]",
+        "type": "object"
+      },
+      "ApiResponse_SsoIdentityList_": {
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SsoIdentityList"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[SsoIdentityList]",
+        "type": "object"
+      },
+      "ApiResponse_SsoProviderList_": {
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SsoProviderList"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[SsoProviderList]",
+        "type": "object"
+      },
+      "ApiResponse_dict_str__object__": {
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data"
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[dict[str, object]]",
+        "type": "object"
+      },
+      "BasePageResponse_ClientItem_": {
+        "properties": {
+          "list": {
+            "items": {
+              "$ref": "#/components/schemas/ClientItem"
+            },
+            "title": "List",
+            "type": "array"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "list",
+          "total",
+          "page",
+          "size"
+        ],
+        "title": "BasePageResponse[ClientItem]",
+        "type": "object"
+      },
+      "BasePageResponse_IdpProviderItem_": {
+        "properties": {
+          "list": {
+            "items": {
+              "$ref": "#/components/schemas/IdpProviderItem"
+            },
+            "title": "List",
+            "type": "array"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "list",
+          "total",
+          "page",
+          "size"
+        ],
+        "title": "BasePageResponse[IdpProviderItem]",
+        "type": "object"
+      },
+      "BasePageResponse_SessionItem_": {
+        "properties": {
+          "list": {
+            "items": {
+              "$ref": "#/components/schemas/SessionItem"
+            },
+            "title": "List",
+            "type": "array"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "list",
+          "total",
+          "page",
+          "size"
+        ],
+        "title": "BasePageResponse[SessionItem]",
+        "type": "object"
+      },
       "CaptchaChallengeRequest": {
         "description": "验证码出题请求。",
         "properties": {
@@ -229,9 +815,157 @@
         "title": "ClientCreateRequest",
         "type": "object"
       },
-      "ClientCreated": {},
-      "ClientItem": {},
-      "ClientSecretReset": {},
+      "ClientCreated": {
+        "description": "客户端创建 / 重置凭据响应（`client_secret` 仅本次明文返回）。",
+        "properties": {
+          "client_id": {
+            "description": "客户端标识",
+            "title": "Client Id",
+            "type": "string"
+          },
+          "client_secret": {
+            "description": "客户端密钥明文（仅本次返回；请妥善保存）",
+            "title": "Client Secret",
+            "type": "string"
+          },
+          "grant_types": {
+            "description": "授权类型",
+            "items": {
+              "type": "string"
+            },
+            "title": "Grant Types",
+            "type": "array"
+          },
+          "ip_whitelist": {
+            "description": "IP / CIDR 白名单",
+            "items": {
+              "type": "string"
+            },
+            "title": "Ip Whitelist",
+            "type": "array"
+          },
+          "name": {
+            "description": "应用名称",
+            "title": "Name",
+            "type": "string"
+          },
+          "redirect_uris": {
+            "description": "回调地址白名单",
+            "items": {
+              "type": "string"
+            },
+            "title": "Redirect Uris",
+            "type": "array"
+          },
+          "scopes": {
+            "description": "scope 集合",
+            "items": {
+              "type": "string"
+            },
+            "title": "Scopes",
+            "type": "array"
+          },
+          "status": {
+            "description": "状态",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "client_id",
+          "client_secret",
+          "name",
+          "status"
+        ],
+        "title": "ClientCreated",
+        "type": "object"
+      },
+      "ClientItem": {
+        "description": "客户端列表 / 详情项（永不包含 secret 与哈希）。",
+        "properties": {
+          "client_id": {
+            "description": "客户端标识",
+            "title": "Client Id",
+            "type": "string"
+          },
+          "grant_types": {
+            "description": "授权类型",
+            "items": {
+              "type": "string"
+            },
+            "title": "Grant Types",
+            "type": "array"
+          },
+          "id": {
+            "description": "主键",
+            "title": "Id",
+            "type": "string"
+          },
+          "ip_whitelist": {
+            "description": "IP / CIDR 白名单",
+            "items": {
+              "type": "string"
+            },
+            "title": "Ip Whitelist",
+            "type": "array"
+          },
+          "name": {
+            "description": "应用名称",
+            "title": "Name",
+            "type": "string"
+          },
+          "redirect_uris": {
+            "description": "回调地址白名单",
+            "items": {
+              "type": "string"
+            },
+            "title": "Redirect Uris",
+            "type": "array"
+          },
+          "scopes": {
+            "description": "scope 集合",
+            "items": {
+              "type": "string"
+            },
+            "title": "Scopes",
+            "type": "array"
+          },
+          "status": {
+            "description": "状态（enabled/disabled）",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "client_id",
+          "name",
+          "status"
+        ],
+        "title": "ClientItem",
+        "type": "object"
+      },
+      "ClientSecretReset": {
+        "description": "客户端密钥重置响应（新明文仅本次返回）。",
+        "properties": {
+          "client_id": {
+            "description": "客户端标识",
+            "title": "Client Id",
+            "type": "string"
+          },
+          "client_secret": {
+            "description": "新密钥明文（仅本次返回；旧密钥即时失效）",
+            "title": "Client Secret",
+            "type": "string"
+          }
+        },
+        "required": [
+          "client_id",
+          "client_secret"
+        ],
+        "title": "ClientSecretReset",
+        "type": "object"
+      },
       "ClientStatusRequest": {
         "description": "客户端启停请求。",
         "properties": {
@@ -315,7 +1049,69 @@
         "title": "IdpProviderCreateRequest",
         "type": "object"
       },
-      "IdpProviderItem": {},
+      "IdpProviderItem": {
+        "description": "IdP 配置列表 / 详情项（`config` 已脱敏，密钥引用不返明文）。",
+        "properties": {
+          "config": {
+            "additionalProperties": true,
+            "description": "脱敏后的协议配置对象",
+            "title": "Config",
+            "type": "object"
+          },
+          "icon": {
+            "default": "",
+            "description": "图标（可空）",
+            "title": "Icon",
+            "type": "string"
+          },
+          "id": {
+            "description": "主键",
+            "title": "Id",
+            "type": "string"
+          },
+          "idp_key": {
+            "description": "租户内标识 slug",
+            "title": "Idp Key",
+            "type": "string"
+          },
+          "name": {
+            "description": "显示名",
+            "title": "Name",
+            "type": "string"
+          },
+          "secret_configured": {
+            "default": false,
+            "description": "是否已配置密钥引用",
+            "title": "Secret Configured",
+            "type": "boolean"
+          },
+          "sort": {
+            "default": 0,
+            "description": "登录页排序",
+            "title": "Sort",
+            "type": "integer"
+          },
+          "status": {
+            "description": "状态（enabled/disabled）",
+            "title": "Status",
+            "type": "string"
+          },
+          "type": {
+            "description": "协议类型（oidc / cas / wecom / dingtalk）",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "idp_key",
+          "type",
+          "status"
+        ],
+        "title": "IdpProviderItem",
+        "type": "object"
+      },
       "IdpProviderStatusRequest": {
         "description": "启停请求。",
         "properties": {
@@ -358,7 +1154,45 @@
         "title": "IdpProviderTestRequest",
         "type": "object"
       },
-      "IdpProviderTestResult": {},
+      "IdpProviderTestResult": {
+        "description": "连通性测试结果（摘要诊断，不含敏感信息）。",
+        "properties": {
+          "detail": {
+            "default": "",
+            "description": "摘要诊断（不含原始报文 / 密钥）",
+            "title": "Detail",
+            "type": "string"
+          },
+          "protocol": {
+            "default": "",
+            "description": "协议类型",
+            "title": "Protocol",
+            "type": "string"
+          },
+          "reachable": {
+            "description": "端点是否可达 / 凭据是否有效",
+            "title": "Reachable",
+            "type": "boolean"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "命中的 HTTP 状态码（可选）",
+            "title": "Status"
+          }
+        },
+        "required": [
+          "reachable"
+        ],
+        "title": "IdpProviderTestResult",
+        "type": "object"
+      },
       "IdpProviderUpdateRequest": {
         "description": "修改 IdP 配置请求（局部更新；`type` / `idp_key` 不可改）。",
         "properties": {
@@ -418,7 +1252,34 @@
         "title": "IdpProviderUpdateRequest",
         "type": "object"
       },
-      "KickResult": {},
+      "KickResult": {
+        "description": "强制踢出结果。",
+        "properties": {
+          "reason": {
+            "default": "kick",
+            "description": "撤销原因（kick / max_active / logout）",
+            "title": "Reason",
+            "type": "string"
+          },
+          "revoked_at": {
+            "description": "撤销时间（UTC）",
+            "format": "date-time",
+            "title": "Revoked At",
+            "type": "string"
+          },
+          "session_id": {
+            "description": "被踢出的会话 id",
+            "title": "Session Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "session_id",
+          "revoked_at"
+        ],
+        "title": "KickResult",
+        "type": "object"
+      },
       "LoginRequest": {
         "description": "本地登录请求。",
         "properties": {
@@ -468,7 +1329,38 @@
         "title": "LoginRequest",
         "type": "object"
       },
-      "LoginResult": {},
+      "LoginResult": {
+        "description": "登录成功响应（access 在响应体；refresh 走 httpOnly cookie）。",
+        "properties": {
+          "access_token": {
+            "description": "访问令牌（BMS 自签 JWT）",
+            "title": "Access Token",
+            "type": "string"
+          },
+          "expires_in": {
+            "description": "access 有效期（秒）",
+            "title": "Expires In",
+            "type": "integer"
+          },
+          "token_type": {
+            "default": "Bearer",
+            "description": "令牌类型",
+            "title": "Token Type",
+            "type": "string"
+          },
+          "user": {
+            "$ref": "#/components/schemas/UserSummary",
+            "description": "用户概要"
+          }
+        },
+        "required": [
+          "access_token",
+          "expires_in",
+          "user"
+        ],
+        "title": "LoginResult",
+        "type": "object"
+      },
       "PasswordForgotRequest": {
         "description": "发起找回请求（账号 / 手机 / 邮箱取通道；验证码按场景策略必带）。",
         "properties": {
@@ -510,7 +1402,19 @@
         "title": "PasswordForgotRequest",
         "type": "object"
       },
-      "PasswordForgotResult": {},
+      "PasswordForgotResult": {
+        "description": "发起找回响应（恒 `sent=true`：账号不存在 / 停用 / 无通道一律同响应，防枚举）。",
+        "properties": {
+          "sent": {
+            "default": true,
+            "description": "重置信息是否已受理（恒 true）",
+            "title": "Sent",
+            "type": "boolean"
+          }
+        },
+        "title": "PasswordForgotResult",
+        "type": "object"
+      },
       "PasswordResetRequest": {
         "description": "提交重置请求（重置令牌 + 新口令；策略判定在 org 侧）。",
         "properties": {
@@ -549,15 +1453,310 @@
         "title": "PasswordResetRequest",
         "type": "object"
       },
-      "PasswordResetResult": {},
-      "RefreshResult": {},
-      "SessionItem": {},
-      "SsoAuthorizeInfo": {},
-      "SsoIdentityItem": {},
-      "SsoIdentityList": {},
-      "SsoProviderItem": {},
-      "SsoProviderList": {},
-      "UserSummary": {},
+      "PasswordResetResult": {
+        "description": "提交重置响应。",
+        "properties": {
+          "reset": {
+            "default": true,
+            "description": "密码是否已重置（成功恒 true）",
+            "title": "Reset",
+            "type": "boolean"
+          }
+        },
+        "title": "PasswordResetResult",
+        "type": "object"
+      },
+      "RefreshResult": {
+        "description": "刷新成功响应（新 access 在体；新 refresh 走 httpOnly cookie）。",
+        "properties": {
+          "access_token": {
+            "description": "新访问令牌",
+            "title": "Access Token",
+            "type": "string"
+          },
+          "expires_in": {
+            "description": "access 有效期（秒）",
+            "title": "Expires In",
+            "type": "integer"
+          },
+          "token_type": {
+            "default": "Bearer",
+            "description": "令牌类型",
+            "title": "Token Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "access_token",
+          "expires_in"
+        ],
+        "title": "RefreshResult",
+        "type": "object"
+      },
+      "SessionItem": {
+        "description": "会话行（用户 / 设备 / IP / 登录与过期时间 / 撤销时间）。",
+        "properties": {
+          "device": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "设备标识（User-Agent 摘要）",
+            "title": "Device"
+          },
+          "expires_at": {
+            "description": "refresh 过期时间（UTC）",
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "ip": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "登录 IP",
+            "title": "Ip"
+          },
+          "login_at": {
+            "description": "登录时间（UTC）",
+            "format": "date-time",
+            "title": "Login At",
+            "type": "string"
+          },
+          "revoked_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "撤销时间（UTC；NULL=有效）",
+            "title": "Revoked At"
+          },
+          "session_id": {
+            "description": "会话 id（= JWT jti）",
+            "title": "Session Id",
+            "type": "string"
+          },
+          "user_id": {
+            "description": "用户 ID（用户名由前端经 org 名称接口回显）",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "session_id",
+          "user_id",
+          "login_at",
+          "expires_at"
+        ],
+        "title": "SessionItem",
+        "type": "object"
+      },
+      "SsoAuthorizeInfo": {
+        "description": "SSO 授权 URL 响应体（前端渲染二维码 / 初始化平台内嵌登录组件用）。",
+        "properties": {
+          "authorize_url": {
+            "description": "外部授权入口 URL",
+            "title": "Authorize Url",
+            "type": "string"
+          },
+          "expires_in": {
+            "description": "流程状态有效期（秒）",
+            "title": "Expires In",
+            "type": "integer"
+          },
+          "state": {
+            "description": "流程状态（一次性；回调校验）",
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "authorize_url",
+          "state",
+          "expires_in"
+        ],
+        "title": "SsoAuthorizeInfo",
+        "type": "object"
+      },
+      "SsoIdentityItem": {
+        "description": "SSO 身份绑定项（`sso:bind` 只读端点）。",
+        "properties": {
+          "external_id": {
+            "description": "外部身份主体（OIDC 取 sub）",
+            "title": "External Id",
+            "type": "string"
+          },
+          "idp_key": {
+            "description": "映射键（{tenant_id}:{provider_key}）",
+            "title": "Idp Key",
+            "type": "string"
+          },
+          "tenant_id": {
+            "description": "租户主键（雪花 id 字符串）",
+            "title": "Tenant Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "idp_key",
+          "external_id",
+          "tenant_id"
+        ],
+        "title": "SsoIdentityItem",
+        "type": "object"
+      },
+      "SsoIdentityList": {
+        "description": "SSO 身份绑定清单响应体。",
+        "properties": {
+          "items": {
+            "description": "绑定清单",
+            "items": {
+              "$ref": "#/components/schemas/SsoIdentityItem"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "title": "SsoIdentityList",
+        "type": "object"
+      },
+      "SsoProviderItem": {
+        "description": "SSO 入口清单项（前端按此渲染登录方式）。",
+        "properties": {
+          "icon": {
+            "default": "",
+            "description": "图标（可空）",
+            "title": "Icon",
+            "type": "string"
+          },
+          "idp_key": {
+            "description": "IdP 标识（租户内稳定 slug；路由参数）",
+            "title": "Idp Key",
+            "type": "string"
+          },
+          "name": {
+            "description": "显示名",
+            "title": "Name",
+            "type": "string"
+          },
+          "sort": {
+            "default": 0,
+            "description": "排序值（升序）",
+            "title": "Sort",
+            "type": "integer"
+          },
+          "type": {
+            "description": "协议类型（oidc / cas / wecom / dingtalk）",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "idp_key",
+          "name",
+          "type"
+        ],
+        "title": "SsoProviderItem",
+        "type": "object"
+      },
+      "SsoProviderList": {
+        "description": "SSO 入口清单响应体。",
+        "properties": {
+          "items": {
+            "description": "可用 IdP 清单",
+            "items": {
+              "$ref": "#/components/schemas/SsoProviderItem"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "title": "SsoProviderList",
+        "type": "object"
+      },
+      "UserSummary": {
+        "description": "登录成功返回的用户概要（权限 / 菜单概要归阶段七 RBAC）。",
+        "properties": {
+          "id": {
+            "description": "用户 ID",
+            "title": "Id",
+            "type": "string"
+          },
+          "locale": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "语言偏好",
+            "title": "Locale"
+          },
+          "must_change_password": {
+            "default": false,
+            "description": "是否需强制改密（密码策略归域三）",
+            "title": "Must Change Password",
+            "type": "boolean"
+          },
+          "name": {
+            "description": "昵称 / 显示名",
+            "title": "Name",
+            "type": "string"
+          },
+          "tenant": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "租户编码",
+            "title": "Tenant"
+          },
+          "timezone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "时区偏好",
+            "title": "Timezone"
+          },
+          "username": {
+            "description": "登录账号",
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "username",
+          "name"
+        ],
+        "title": "UserSummary",
+        "type": "object"
+      },
       "ValidationError": {
         "properties": {
           "ctx": {

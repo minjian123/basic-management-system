@@ -504,18 +504,200 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        ApiResponse: unknown;
-        ApiResponse_BasePageResponse_LockItem__: unknown;
-        ApiResponse_CredentialVerifyResult_: unknown;
-        ApiResponse_InactiveScanResult_: unknown;
-        ApiResponse_LockItem_: unknown;
-        ApiResponse_LoginStateResult_: unknown;
-        ApiResponse_UpdatePasswordResult_: unknown;
-        ApiResponse_UserCreateResult_: unknown;
-        ApiResponse_UserProfileResult_: unknown;
-        ApiResponse_UserResetTargetResult_: unknown;
-        BasePageResponse_LockItem_: unknown;
-        CredentialUserSummary: unknown;
+        /**
+         * ApiResponse
+         * @description 统一响应体：`code=0` 成功，非 0 业务错误码。
+         *
+         *     - `data` 为业务数据（泛型）；失败时为 `null`；分页载荷复用分页契约基类。
+         *     - 雪花 ID 在 JSON 中以字符串输出（`BaseSchema` 统一序列化口径）。
+         */
+        ApiResponse: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            /** Data */
+            data?: unknown | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[BasePageResponse[LockItem]] */
+        ApiResponse_BasePageResponse_LockItem__: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["BasePageResponse_LockItem_"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[CredentialVerifyResult] */
+        ApiResponse_CredentialVerifyResult_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["CredentialVerifyResult"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[InactiveScanResult] */
+        ApiResponse_InactiveScanResult_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["InactiveScanResult"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[LockItem] */
+        ApiResponse_LockItem_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["LockItem"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[LoginStateResult] */
+        ApiResponse_LoginStateResult_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["LoginStateResult"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[UpdatePasswordResult] */
+        ApiResponse_UpdatePasswordResult_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["UpdatePasswordResult"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[UserCreateResult] */
+        ApiResponse_UserCreateResult_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["UserCreateResult"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[UserProfileResult] */
+        ApiResponse_UserProfileResult_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["UserProfileResult"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[UserResetTargetResult] */
+        ApiResponse_UserResetTargetResult_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["UserResetTargetResult"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** BasePageResponse[LockItem] */
+        BasePageResponse_LockItem_: {
+            /** List */
+            list: components["schemas"]["LockItem"][];
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Total */
+            total: number;
+        };
+        /**
+         * CredentialUserSummary
+         * @description 登录成功所需的最小用户概要。
+         */
+        CredentialUserSummary: {
+            /**
+             * Id
+             * @description 用户 ID
+             */
+            id: string;
+            /**
+             * Locale
+             * @description 语言偏好
+             */
+            locale?: string | null;
+            /**
+             * Name
+             * @description 昵称 / 显示名
+             */
+            name: string;
+            /**
+             * Pwd Changed At
+             * @description 密码最近变更时间（UTC）
+             */
+            pwd_changed_at?: string | null;
+            /**
+             * Timezone
+             * @description 时区偏好
+             */
+            timezone?: string | null;
+            /**
+             * Username
+             * @description 登录账号
+             */
+            username: string;
+        };
         /**
          * CredentialVerifyRequest
          * @description 凭据校验请求（账号 + 密码明文；租户经服务 JWT `tenant` claim 解析）。
@@ -532,7 +714,46 @@ export interface components {
              */
             password: string;
         };
-        CredentialVerifyResult: unknown;
+        /**
+         * CredentialVerifyResult
+         * @description 凭据校验结果（登录侧统一映射为认证错误码，不直出内部差异）。
+         */
+        CredentialVerifyResult: {
+            /**
+             * Found
+             * @description 账号是否存在
+             */
+            found: boolean;
+            /**
+             * Locked
+             * @description 账号是否处于锁定期
+             */
+            locked: boolean;
+            /**
+             * Pwd Reset Required
+             * @description 是否需强制改密（密码超有效期）
+             * @default false
+             */
+            pwd_reset_required: boolean;
+            /**
+             * Rehashed
+             * @description 是否本次按当前参数重算了哈希
+             * @default false
+             */
+            rehashed: boolean;
+            /**
+             * Status
+             * @description 账号状态（enabled/disabled）
+             */
+            status: string;
+            /** @description 用户概要（命中时） */
+            user?: components["schemas"]["CredentialUserSummary"] | null;
+            /**
+             * Valid
+             * @description 口令是否匹配
+             */
+            valid: boolean;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -543,8 +764,79 @@ export interface components {
          * @description 不活跃账号扫描请求（空体；租户经服务 JWT `tenant` claim 解析）。
          */
         InactiveScanRequest: Record<string, never>;
-        InactiveScanResult: unknown;
-        LockItem: unknown;
+        /**
+         * InactiveScanResult
+         * @description 不活跃账号扫描结果。
+         */
+        InactiveScanResult: {
+            /**
+             * Locked
+             * @description 本次锁定账号数
+             */
+            locked: number;
+            /**
+             * Scanned
+             * @description 扫描候选账号数
+             */
+            scanned: number;
+        };
+        /**
+         * LockItem
+         * @description 锁定记录行契约（列表 / 详情 / 手动锁定 / 解锁统一）。
+         */
+        LockItem: {
+            /**
+             * Expire At
+             * @description 锁定到期时间（UTC；NULL=需手动解锁）
+             */
+            expire_at?: string | null;
+            /**
+             * Id
+             * @description 锁定记录主键
+             */
+            id: string;
+            /**
+             * Lock Type
+             * @description 锁定类型（fail_limit/inactive/manual）
+             */
+            lock_type: string;
+            /**
+             * Locked At
+             * Format: date-time
+             * @description 锁定时间（UTC）
+             */
+            locked_at: string;
+            /**
+             * Locked By
+             * @description 锁定操作人（系统触发为 NULL）
+             */
+            locked_by?: number | null;
+            /**
+             * Reason
+             * @description 锁定原因
+             */
+            reason?: string | null;
+            /**
+             * Unlock At
+             * @description 解锁时间（UTC；NULL=未解锁）
+             */
+            unlock_at?: string | null;
+            /**
+             * Unlock By
+             * @description 解锁操作人（自动解锁为 NULL）
+             */
+            unlock_by?: number | null;
+            /**
+             * Unlock Mode
+             * @description 解锁方式（manual/auto；NULL=未解锁）
+             */
+            unlock_mode?: string | null;
+            /**
+             * User Id
+             * @description 用户主键
+             */
+            user_id: string;
+        };
         /**
          * LoginStateRequest
          * @description 登录态写回请求（成功清零 / 失败计数与锁定）。
@@ -571,7 +863,27 @@ export interface components {
              */
             success: boolean;
         };
-        LoginStateResult: unknown;
+        /**
+         * LoginStateResult
+         * @description 登录态写回结果。
+         */
+        LoginStateResult: {
+            /**
+             * Failed Count
+             * @description 当前失败计数
+             */
+            failed_count: number;
+            /**
+             * Last Login At
+             * @description 最近登录时间（UTC）
+             */
+            last_login_at?: string | null;
+            /**
+             * Locked Until
+             * @description 锁定到期时间（UTC）
+             */
+            locked_until?: string | null;
+        };
         /**
          * ManualLockRequest
          * @description 手动锁定请求（写 `manual` 型；租户经登录态解析）。
@@ -610,7 +922,28 @@ export interface components {
              */
             new_password: string;
         };
-        UpdatePasswordResult: unknown;
+        /**
+         * UpdatePasswordResult
+         * @description 密码更新结果（策略闸门：复杂度 30005 / 历史重复 30006 由调用侧映射）。
+         */
+        UpdatePasswordResult: {
+            /**
+             * Reason
+             * @description 未更新原因（空=成功；not_found / policy_violation / history_reused）
+             * @default
+             */
+            reason: string;
+            /**
+             * Updated
+             * @description 是否更新成功
+             */
+            updated: boolean;
+            /**
+             * Violations
+             * @description 复杂度违规原因码清单（reason=policy_violation 时）
+             */
+            violations?: string[];
+        };
         /**
          * UserCreateRequest
          * @description JIT 建号请求（账号 / 昵称 / 语言时区；租户经服务 JWT `tenant` claim 解析）。
@@ -637,7 +970,24 @@ export interface components {
              */
             username: string;
         };
-        UserCreateResult: unknown;
+        /**
+         * UserCreateResult
+         * @description JIT 建号结果（撞名 `created=false` + `reason=username_conflict`，由调用侧换后缀重试）。
+         */
+        UserCreateResult: {
+            /**
+             * Created
+             * @description 是否建号成功
+             */
+            created: boolean;
+            /**
+             * Reason
+             * @description 未建号原因（username_conflict）
+             */
+            reason?: string | null;
+            /** @description 新建用户概要（created=true 时返回） */
+            user?: components["schemas"]["UserProfileUser"] | null;
+        };
         /**
          * UserProfileRequest
          * @description 用户概要查询请求（按主键；租户经服务 JWT `tenant` claim 解析）。
@@ -649,8 +999,55 @@ export interface components {
              */
             user_id: number;
         };
-        UserProfileResult: unknown;
-        UserProfileUser: unknown;
+        /**
+         * UserProfileResult
+         * @description 用户概要查询结果（不存在时 `found=false`，由调用侧判定错误语义）。
+         */
+        UserProfileResult: {
+            /**
+             * Found
+             * @description 用户是否存在
+             */
+            found: boolean;
+            /** @description 用户概要（found=true 时返回） */
+            user?: components["schemas"]["UserProfileUser"] | null;
+        };
+        /**
+         * UserProfileUser
+         * @description 用户概要（SSO 回调定位用户后取展示信息与状态）。
+         */
+        UserProfileUser: {
+            /**
+             * Id
+             * @description 用户 ID
+             */
+            id: string;
+            /**
+             * Locale
+             * @description 语言偏好
+             */
+            locale?: string | null;
+            /**
+             * Name
+             * @description 昵称 / 显示名
+             */
+            name: string;
+            /**
+             * Status
+             * @description 账号状态（enabled / disabled）
+             */
+            status: string;
+            /**
+             * Timezone
+             * @description 时区偏好
+             */
+            timezone?: string | null;
+            /**
+             * Username
+             * @description 登录账号
+             */
+            username: string;
+        };
         /**
          * UserResetTargetRequest
          * @description 找回密码重置目标查询请求（账号 / 手机 / 邮箱；租户经服务 JWT `tenant` claim 解析）。
@@ -662,7 +1059,47 @@ export interface components {
              */
             identifier: string;
         };
-        UserResetTargetResult: unknown;
+        /**
+         * UserResetTargetResult
+         * @description 重置目标解析结果（通道与目标供 identity 侧通知投递；不可送达以 `deliverable=false` 表达）。
+         */
+        UserResetTargetResult: {
+            /**
+             * Account
+             * @description 登录账号（found=true 时返回）
+             * @default
+             */
+            account: string;
+            /**
+             * Channel
+             * @description 投递通道（email / sms；无可用通道为空串）
+             * @default
+             */
+            channel: string;
+            /**
+             * Deliverable
+             * @description 是否可送达（启用且有可用通道）
+             * @default false
+             */
+            deliverable: boolean;
+            /**
+             * Found
+             * @description 账号是否存在（未软删）
+             * @default false
+             */
+            found: boolean;
+            /**
+             * Target
+             * @description 投递目标（原始邮箱 / 手机号；内部契约，不对外回显）
+             * @default
+             */
+            target: string;
+            /**
+             * User Id
+             * @description 用户主键（found=true 时返回）
+             */
+            user_id?: string | null;
+        };
         /** ValidationError */
         ValidationError: {
             /** Context */

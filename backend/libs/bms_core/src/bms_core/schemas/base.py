@@ -31,7 +31,7 @@ from bms_core.core.concurrent import (
 )
 from bms_core.core.context import get_current_masker
 from bms_core.core.objects import BaseDataContract, BaseFrameworkObject
-from bms_core.core.serialization import stringify_ids
+from bms_core.core.serialization import is_id_key, stringify_ids
 
 
 class _MaskerProtocol(Protocol):
@@ -193,6 +193,50 @@ CONTRACT_STABLE_DICT: Callable[[], ConcurrentStableDict[Any, Any]] = ConcurrentS
 
 CONTRACT_STABLE_SET: Callable[[], ConcurrentStableSet[Any]] = ConcurrentStableSet
 """插入序集合空集合工厂（`Field(default_factory=...)`）。"""
+
+
+def _stringified_value_schema(value: Any) -> Any:
+    """把 ID 字段的值 schema 改写为字符串口径（`anyOf` / `oneOf` 成员递归）。
+
+    Args:
+        value: 字段值 schema（映射或标量）。
+
+    Returns:
+        Any: 改写后的 schema；非映射原样返回。
+    """
+    if not isinstance(value, Mapping):
+        return value
+    mapping = cast("Mapping[str, object]", value)
+    if mapping.get("type") == "integer":
+        return {**mapping, "type": "string"}
+    rewritten = dict(mapping)
+    for key in ("anyOf", "oneOf"):
+        members = mapping.get(key)
+        if isinstance(members, list):
+            rewritten[key] = [_stringified_value_schema(member) for member in members]
+    return rewritten
+
+
+def _stringify_id_properties(json_schema: JsonSchemaValue) -> JsonSchemaValue:
+    """把模型 `properties` 中 ID 字段的 schema 改写为字符串口径（未命中时原样）。
+
+    判定与运行时 `stringify_ids` 同源（`is_id_key`）：`id` / `*_id` 的整型值在序列化输出中
+    一律字符串化，故其契约 schema 也应为字符串。
+
+    Args:
+        json_schema: 模型 JSON Schema（`properties` 就地改写）。
+
+    Returns:
+        JsonSchemaValue: 改写后的 JSON Schema。
+    """
+    properties = json_schema.get("properties")
+    if not isinstance(properties, Mapping):
+        return json_schema
+    typed = cast("dict[str, Any]", properties)
+    for name, value in typed.items():
+        if is_id_key(name):
+            typed[name] = _stringified_value_schema(value)
+    return json_schema
 
 
 MaskedFields = ConcurrentStableDict[str, str] | ConcurrentStableSet[str]
@@ -362,3 +406,28 @@ class BaseSchema(BaseModel, BaseDataContract):
         """
         del info
         return _apply_masking(type(self).masked_fields, stringify_ids(serializer(self)))
+
+    @classmethod
+    def __get_pydantic_json_schema__(cls, schema: CoreSchema, handler: GetJsonSchemaHandler) -> JsonSchemaValue:
+        """JSON Schema 生成：序列化模式按字段口径输出，并把 ID 字段类型对齐实际输出。
+
+        本基类的模型序列化器（`_serialize_ids`，`@model_serializer(mode="wrap")`）在**序列化模式**下
+        会把模型 schema 塌陷为空对象（其 `return_schema` 为 `any`），使**响应契约丢失全部字段信息**
+        （前端生成类型退化为 `unknown`）。此处仅在序列化模式剥离该序列化器、回落到字段口径，再按
+        `stringify_ids` 的**同一判定**（`is_id_key`）把 `id` / `*_id` 标为字符串。
+
+        **校验模式 schema 与运行时序列化行为均不变**——请求体契约、`model_dump()` /
+        `model_dump_json()` 输出与敏感字段掩码照旧。
+
+        Args:
+            schema: 本模型 core schema。
+            handler: JSON Schema 处理器（含生成模式）。
+
+        Returns:
+            JsonSchemaValue: JSON Schema。
+        """
+        if getattr(handler, "mode", None) != "serialization":
+            return handler(schema)
+        fields = cast("Mapping[str, object]", schema)
+        trimmed = {key: value for key, value in fields.items() if key != "serialization"}
+        return _stringify_id_properties(handler(cast("CoreSchema", trimmed)))

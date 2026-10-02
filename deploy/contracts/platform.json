@@ -1,8 +1,58 @@
 {
   "components": {
     "schemas": {
-      "ApiResponse": {},
-      "ApiResponse_ConfigResolveResponse_": {},
+      "ApiResponse": {
+        "description": "统一响应体：`code=0` 成功，非 0 业务错误码。\n\n- `data` 为业务数据（泛型）；失败时为 `null`；分页载荷复用分页契约基类。\n- 雪花 ID 在 JSON 中以字符串输出（`BaseSchema` 统一序列化口径）。",
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data"
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse",
+        "type": "object"
+      },
+      "ApiResponse_ConfigResolveResponse_": {
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ConfigResolveResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[ConfigResolveResponse]",
+        "type": "object"
+      },
       "ConfigResolveRequest": {
         "description": "批量取参数请求。",
         "properties": {
@@ -18,7 +68,21 @@
         "title": "ConfigResolveRequest",
         "type": "object"
       },
-      "ConfigResolveResponse": {},
+      "ConfigResolveResponse": {
+        "description": "批量取参数响应（只含存在的键）。",
+        "properties": {
+          "values": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "参数键 → 值（仅存在的键）",
+            "title": "Values",
+            "type": "object"
+          }
+        },
+        "title": "ConfigResolveResponse",
+        "type": "object"
+      },
       "DemoCreateRequest": {
         "description": "创建 demo 请求。",
         "properties": {

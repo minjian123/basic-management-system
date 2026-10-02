@@ -1,18 +1,361 @@
 {
   "components": {
     "schemas": {
-      "ApiResponse": {},
-      "ApiResponse_BasePageResponse_LockItem__": {},
-      "ApiResponse_CredentialVerifyResult_": {},
-      "ApiResponse_InactiveScanResult_": {},
-      "ApiResponse_LockItem_": {},
-      "ApiResponse_LoginStateResult_": {},
-      "ApiResponse_UpdatePasswordResult_": {},
-      "ApiResponse_UserCreateResult_": {},
-      "ApiResponse_UserProfileResult_": {},
-      "ApiResponse_UserResetTargetResult_": {},
-      "BasePageResponse_LockItem_": {},
-      "CredentialUserSummary": {},
+      "ApiResponse": {
+        "description": "统一响应体：`code=0` 成功，非 0 业务错误码。\n\n- `data` 为业务数据（泛型）；失败时为 `null`；分页载荷复用分页契约基类。\n- 雪花 ID 在 JSON 中以字符串输出（`BaseSchema` 统一序列化口径）。",
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data"
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse",
+        "type": "object"
+      },
+      "ApiResponse_BasePageResponse_LockItem__": {
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BasePageResponse_LockItem_"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[BasePageResponse[LockItem]]",
+        "type": "object"
+      },
+      "ApiResponse_CredentialVerifyResult_": {
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CredentialVerifyResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[CredentialVerifyResult]",
+        "type": "object"
+      },
+      "ApiResponse_InactiveScanResult_": {
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/InactiveScanResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[InactiveScanResult]",
+        "type": "object"
+      },
+      "ApiResponse_LockItem_": {
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LockItem"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[LockItem]",
+        "type": "object"
+      },
+      "ApiResponse_LoginStateResult_": {
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LoginStateResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[LoginStateResult]",
+        "type": "object"
+      },
+      "ApiResponse_UpdatePasswordResult_": {
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UpdatePasswordResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[UpdatePasswordResult]",
+        "type": "object"
+      },
+      "ApiResponse_UserCreateResult_": {
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UserCreateResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[UserCreateResult]",
+        "type": "object"
+      },
+      "ApiResponse_UserProfileResult_": {
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UserProfileResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[UserProfileResult]",
+        "type": "object"
+      },
+      "ApiResponse_UserResetTargetResult_": {
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UserResetTargetResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[UserResetTargetResult]",
+        "type": "object"
+      },
+      "BasePageResponse_LockItem_": {
+        "properties": {
+          "list": {
+            "items": {
+              "$ref": "#/components/schemas/LockItem"
+            },
+            "title": "List",
+            "type": "array"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "list",
+          "total",
+          "page",
+          "size"
+        ],
+        "title": "BasePageResponse[LockItem]",
+        "type": "object"
+      },
+      "CredentialUserSummary": {
+        "description": "登录成功所需的最小用户概要。",
+        "properties": {
+          "id": {
+            "description": "用户 ID",
+            "title": "Id",
+            "type": "string"
+          },
+          "locale": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "语言偏好",
+            "title": "Locale"
+          },
+          "name": {
+            "description": "昵称 / 显示名",
+            "title": "Name",
+            "type": "string"
+          },
+          "pwd_changed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "密码最近变更时间（UTC）",
+            "title": "Pwd Changed At"
+          },
+          "timezone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "时区偏好",
+            "title": "Timezone"
+          },
+          "username": {
+            "description": "登录账号",
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "username",
+          "name"
+        ],
+        "title": "CredentialUserSummary",
+        "type": "object"
+      },
       "CredentialVerifyRequest": {
         "description": "凭据校验请求（账号 + 密码明文；租户经服务 JWT `tenant` claim 解析）。",
         "properties": {
@@ -38,7 +381,62 @@
         "title": "CredentialVerifyRequest",
         "type": "object"
       },
-      "CredentialVerifyResult": {},
+      "CredentialVerifyResult": {
+        "description": "凭据校验结果（登录侧统一映射为认证错误码，不直出内部差异）。",
+        "properties": {
+          "found": {
+            "description": "账号是否存在",
+            "title": "Found",
+            "type": "boolean"
+          },
+          "locked": {
+            "description": "账号是否处于锁定期",
+            "title": "Locked",
+            "type": "boolean"
+          },
+          "pwd_reset_required": {
+            "default": false,
+            "description": "是否需强制改密（密码超有效期）",
+            "title": "Pwd Reset Required",
+            "type": "boolean"
+          },
+          "rehashed": {
+            "default": false,
+            "description": "是否本次按当前参数重算了哈希",
+            "title": "Rehashed",
+            "type": "boolean"
+          },
+          "status": {
+            "description": "账号状态（enabled/disabled）",
+            "title": "Status",
+            "type": "string"
+          },
+          "user": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CredentialUserSummary"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "用户概要（命中时）"
+          },
+          "valid": {
+            "description": "口令是否匹配",
+            "title": "Valid",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "found",
+          "valid",
+          "locked",
+          "status"
+        ],
+        "title": "CredentialVerifyResult",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -58,8 +456,135 @@
         "title": "InactiveScanRequest",
         "type": "object"
       },
-      "InactiveScanResult": {},
-      "LockItem": {},
+      "InactiveScanResult": {
+        "description": "不活跃账号扫描结果。",
+        "properties": {
+          "locked": {
+            "description": "本次锁定账号数",
+            "title": "Locked",
+            "type": "integer"
+          },
+          "scanned": {
+            "description": "扫描候选账号数",
+            "title": "Scanned",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "scanned",
+          "locked"
+        ],
+        "title": "InactiveScanResult",
+        "type": "object"
+      },
+      "LockItem": {
+        "description": "锁定记录行契约（列表 / 详情 / 手动锁定 / 解锁统一）。",
+        "properties": {
+          "expire_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "锁定到期时间（UTC；NULL=需手动解锁）",
+            "title": "Expire At"
+          },
+          "id": {
+            "description": "锁定记录主键",
+            "title": "Id",
+            "type": "string"
+          },
+          "lock_type": {
+            "description": "锁定类型（fail_limit/inactive/manual）",
+            "title": "Lock Type",
+            "type": "string"
+          },
+          "locked_at": {
+            "description": "锁定时间（UTC）",
+            "format": "date-time",
+            "title": "Locked At",
+            "type": "string"
+          },
+          "locked_by": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "锁定操作人（系统触发为 NULL）",
+            "title": "Locked By"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "锁定原因",
+            "title": "Reason"
+          },
+          "unlock_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "解锁时间（UTC；NULL=未解锁）",
+            "title": "Unlock At"
+          },
+          "unlock_by": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "解锁操作人（自动解锁为 NULL）",
+            "title": "Unlock By"
+          },
+          "unlock_mode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "解锁方式（manual/auto；NULL=未解锁）",
+            "title": "Unlock Mode"
+          },
+          "user_id": {
+            "description": "用户主键",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "user_id",
+          "lock_type",
+          "locked_at"
+        ],
+        "title": "LockItem",
+        "type": "object"
+      },
       "LoginStateRequest": {
         "description": "登录态写回请求（成功清零 / 失败计数与锁定）。",
         "properties": {
@@ -109,7 +634,47 @@
         "title": "LoginStateRequest",
         "type": "object"
       },
-      "LoginStateResult": {},
+      "LoginStateResult": {
+        "description": "登录态写回结果。",
+        "properties": {
+          "failed_count": {
+            "description": "当前失败计数",
+            "title": "Failed Count",
+            "type": "integer"
+          },
+          "last_login_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "最近登录时间（UTC）",
+            "title": "Last Login At"
+          },
+          "locked_until": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "锁定到期时间（UTC）",
+            "title": "Locked Until"
+          }
+        },
+        "required": [
+          "failed_count"
+        ],
+        "title": "LoginStateResult",
+        "type": "object"
+      },
       "ManualLockRequest": {
         "description": "手动锁定请求（写 `manual` 型；租户经登录态解析）。",
         "properties": {
@@ -171,7 +736,35 @@
         "title": "UpdatePasswordRequest",
         "type": "object"
       },
-      "UpdatePasswordResult": {},
+      "UpdatePasswordResult": {
+        "description": "密码更新结果（策略闸门：复杂度 30005 / 历史重复 30006 由调用侧映射）。",
+        "properties": {
+          "reason": {
+            "default": "",
+            "description": "未更新原因（空=成功；not_found / policy_violation / history_reused）",
+            "title": "Reason",
+            "type": "string"
+          },
+          "updated": {
+            "description": "是否更新成功",
+            "title": "Updated",
+            "type": "boolean"
+          },
+          "violations": {
+            "description": "复杂度违规原因码清单（reason=policy_violation 时）",
+            "items": {
+              "type": "string"
+            },
+            "title": "Violations",
+            "type": "array"
+          }
+        },
+        "required": [
+          "updated"
+        ],
+        "title": "UpdatePasswordResult",
+        "type": "object"
+      },
       "UserCreateRequest": {
         "description": "JIT 建号请求（账号 / 昵称 / 语言时区；租户经服务 JWT `tenant` claim 解析）。",
         "properties": {
@@ -223,7 +816,44 @@
         "title": "UserCreateRequest",
         "type": "object"
       },
-      "UserCreateResult": {},
+      "UserCreateResult": {
+        "description": "JIT 建号结果（撞名 `created=false` + `reason=username_conflict`，由调用侧换后缀重试）。",
+        "properties": {
+          "created": {
+            "description": "是否建号成功",
+            "title": "Created",
+            "type": "boolean"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "未建号原因（username_conflict）",
+            "title": "Reason"
+          },
+          "user": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UserProfileUser"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "新建用户概要（created=true 时返回）"
+          }
+        },
+        "required": [
+          "created"
+        ],
+        "title": "UserCreateResult",
+        "type": "object"
+      },
       "UserProfileRequest": {
         "description": "用户概要查询请求（按主键；租户经服务 JWT `tenant` claim 解析）。",
         "properties": {
@@ -239,8 +869,89 @@
         "title": "UserProfileRequest",
         "type": "object"
       },
-      "UserProfileResult": {},
-      "UserProfileUser": {},
+      "UserProfileResult": {
+        "description": "用户概要查询结果（不存在时 `found=false`，由调用侧判定错误语义）。",
+        "properties": {
+          "found": {
+            "description": "用户是否存在",
+            "title": "Found",
+            "type": "boolean"
+          },
+          "user": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UserProfileUser"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "用户概要（found=true 时返回）"
+          }
+        },
+        "required": [
+          "found"
+        ],
+        "title": "UserProfileResult",
+        "type": "object"
+      },
+      "UserProfileUser": {
+        "description": "用户概要（SSO 回调定位用户后取展示信息与状态）。",
+        "properties": {
+          "id": {
+            "description": "用户 ID",
+            "title": "Id",
+            "type": "string"
+          },
+          "locale": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "语言偏好",
+            "title": "Locale"
+          },
+          "name": {
+            "description": "昵称 / 显示名",
+            "title": "Name",
+            "type": "string"
+          },
+          "status": {
+            "description": "账号状态（enabled / disabled）",
+            "title": "Status",
+            "type": "string"
+          },
+          "timezone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "时区偏好",
+            "title": "Timezone"
+          },
+          "username": {
+            "description": "登录账号",
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "username",
+          "name",
+          "status"
+        ],
+        "title": "UserProfileUser",
+        "type": "object"
+      },
       "UserResetTargetRequest": {
         "description": "找回密码重置目标查询请求（账号 / 手机 / 邮箱；租户经服务 JWT `tenant` claim 解析）。",
         "properties": {
@@ -258,7 +969,55 @@
         "title": "UserResetTargetRequest",
         "type": "object"
       },
-      "UserResetTargetResult": {},
+      "UserResetTargetResult": {
+        "description": "重置目标解析结果（通道与目标供 identity 侧通知投递；不可送达以 `deliverable=false` 表达）。",
+        "properties": {
+          "account": {
+            "default": "",
+            "description": "登录账号（found=true 时返回）",
+            "title": "Account",
+            "type": "string"
+          },
+          "channel": {
+            "default": "",
+            "description": "投递通道（email / sms；无可用通道为空串）",
+            "title": "Channel",
+            "type": "string"
+          },
+          "deliverable": {
+            "default": false,
+            "description": "是否可送达（启用且有可用通道）",
+            "title": "Deliverable",
+            "type": "boolean"
+          },
+          "found": {
+            "default": false,
+            "description": "账号是否存在（未软删）",
+            "title": "Found",
+            "type": "boolean"
+          },
+          "target": {
+            "default": "",
+            "description": "投递目标（原始邮箱 / 手机号；内部契约，不对外回显）",
+            "title": "Target",
+            "type": "string"
+          },
+          "user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "用户主键（found=true 时返回）",
+            "title": "User Id"
+          }
+        },
+        "title": "UserResetTargetResult",
+        "type": "object"
+      },
       "ValidationError": {
         "properties": {
           "ctx": {
