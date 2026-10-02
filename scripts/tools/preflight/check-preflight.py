@@ -22,7 +22,6 @@
     --no-cov     跳过覆盖率门禁（`--no-cov` 需已装 pytest-cov 时用 `-p no:cov`）
 """
 
-import os
 import re
 import shutil
 import subprocess
@@ -36,8 +35,18 @@ if str(_SRC_ROOT) not in sys.path:
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList  # noqa: E402
 
-_ROOTS = ("libs/bms_core", "services/platform", "services/identity", "services/tenant", "services/org",
-          "services/file", "services/notification", "services/search", "services/ai", "services/report")
+_ROOTS = (
+    "libs/bms_core",
+    "services/platform",
+    "services/identity",
+    "services/tenant",
+    "services/org",
+    "services/file",
+    "services/notification",
+    "services/search",
+    "services/ai",
+    "services/report",
+)
 
 
 def _run(label: str, cmd: ConcurrentStableList[str], cwd: Path, failures: ConcurrentStableList[str]) -> bool:
@@ -86,7 +95,7 @@ def _yaml_parse(root: Path, failures: ConcurrentStableList[str]) -> None:
         try:
             yaml.safe_load(path.read_text(encoding="utf-8"))
             print(f"  通过（{rel}）")
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             print(f"  失败（{rel}）：{exc}")
             failures.add(f"CI YAML 解析（{rel}）")
     # 部署 / 回滚 / 门禁 CLI 结构层存在性（09_02；行为由 Kiwi 2185 护栏用例覆盖）
@@ -180,14 +189,14 @@ def _gitlab_ci_lint(root: Path, failures: ConcurrentStableList[str]) -> None:
         f"{api}/projects/2/ci/lint", data=body, headers={"PRIVATE-TOKEN": token, "Content-Type": "application/json"}
     )
     try:
-        with urllib.request.urlopen(request, timeout=15) as resp:  # noqa: S310
+        with urllib.request.urlopen(request, timeout=15) as resp:
             payload = json.load(resp)
         if payload.get("valid"):
             print("  通过")
         else:
             print(f"  失败：{payload.get('errors')}")
             failures.add("CI Lint API")
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         print(f"  跳过（不可达：{exc}）")
 
 
@@ -241,12 +250,38 @@ def main() -> int:
             failures,
         )
         _run("后端静态：pyright", ConcurrentStableList(["uv", "run", "pyright"]), backend, failures)
+        # 工具脚本静态（scripts/tools；08_01 遗留纳入 CI lint，本地同口径；从 backend/ 取 ruff 配置）
+        _run(
+            "工具静态：ruff check（scripts/tools）",
+            ConcurrentStableList(["uv", "run", "ruff", "check", "../scripts/tools"]),
+            backend,
+            failures,
+        )
+        _run(
+            "工具静态：ruff format --check（scripts/tools）",
+            ConcurrentStableList(["uv", "run", "ruff", "format", "--check", "../scripts/tools"]),
+            backend,
+            failures,
+        )
 
-        cov_args = [] if no_cov else [
-            "--cov=bms_core", "--cov=bms_platform", "--cov=bms_identity", "--cov=bms_tenant", "--cov=bms_org",
-            "--cov=bms_file", "--cov=bms_notification", "--cov=bms_search", "--cov=bms_ai", "--cov=bms_report",
-            "--cov-branch", "--cov-fail-under=70",
-        ]
+        cov_args = (
+            []
+            if no_cov
+            else [
+                "--cov=bms_core",
+                "--cov=bms_platform",
+                "--cov=bms_identity",
+                "--cov=bms_tenant",
+                "--cov=bms_org",
+                "--cov=bms_file",
+                "--cov=bms_notification",
+                "--cov=bms_search",
+                "--cov=bms_ai",
+                "--cov=bms_report",
+                "--cov-branch",
+                "--cov-fail-under=70",
+            ]
+        )
         _run(
             "后端测试：聚合全量",
             ConcurrentStableList(["uv", "run", "pytest", "-q", *cov_args]),
@@ -288,9 +323,7 @@ def main() -> int:
     )
     _run(
         "边界：check-service-boundaries --self-test",
-        ConcurrentStableList(
-            [sys.executable, "scripts/tools/base-check/check-service-boundaries.py", "--self-test"]
-        ),
+        ConcurrentStableList([sys.executable, "scripts/tools/base-check/check-service-boundaries.py", "--self-test"]),
         root,
         failures,
     )
@@ -302,9 +335,7 @@ def main() -> int:
     )
     _run(
         "基座：check-bare-collections --self-test",
-        ConcurrentStableList(
-            [sys.executable, "scripts/tools/base-check/check-bare-collections.py", "--self-test"]
-        ),
+        ConcurrentStableList([sys.executable, "scripts/tools/base-check/check-bare-collections.py", "--self-test"]),
         root,
         failures,
     )

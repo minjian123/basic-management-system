@@ -118,9 +118,7 @@ ASCENDING_FORMS: ConcurrentStableSet[str] = ConcurrentStableSet(
 )
 """升序形态（基座内部实现，业务与契约不得声明 / 继承）。"""
 
-BANNED_FORMS: ConcurrentStableSet[str] = ConcurrentStableSet(
-    BARE_CONTAINERS | READONLY_ABSTRACTIONS | ASCENDING_FORMS
-)
+BANNED_FORMS: ConcurrentStableSet[str] = ConcurrentStableSet(BARE_CONTAINERS | READONLY_ABSTRACTIONS | ASCENDING_FORMS)
 """判违规形态全集（集合声明必须命中插入序白名单）。"""
 
 ALLOW_MARKER = "# bare-collections:allow"
@@ -221,9 +219,7 @@ def _iter_target_files(root: Path) -> ConcurrentStableList[Path]:
         if not base.is_dir():
             continue
         if rel == "backend/services":
-            candidates = [
-                child / sub for child in sorted(base.iterdir()) if child.is_dir() for sub in ("src", "tests")
-            ]
+            candidates = [child / sub for child in sorted(base.iterdir()) if child.is_dir() for sub in ("src", "tests")]
         else:
             candidates = [base]
         for candidate in candidates:
@@ -426,13 +422,10 @@ def check(root: Path) -> None:
     counts["added"] = sum(added.values())
     counts["stale"] = sum(stale.values())
     for (file, line, container), count in sorted(added.items()):
-        problems.add(
-            f"[新增] {file}（{positions.get((file, line, container), '?')} / {container} × {count}）：{line}"
-        )
+        problems.add(f"[新增] {file}（{positions.get((file, line, container), '?')} / {container} × {count}）：{line}")
     if stale and not added:
         print(
-            f"  基线可递减：{sum(stale.values())} 处已修复但仍在基线，"
-            f"跑 `--update-baseline` 同步（不影响本次结论）。"
+            f"  基线可递减：{sum(stale.values())} 处已修复但仍在基线，跑 `--update-baseline` 同步（不影响本次结论）。"
         )
 
 
@@ -491,44 +484,46 @@ def _emit(as_json: bool) -> None:
     )
 
 
-_FIXTURE_FILES: ConcurrentStableDict[str, str] = ConcurrentStableDict({
-    "backend/libs/bms_core/src/demo/mod.py": (
-        "from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence\n"
-        "from typing import AbstractSet, ClassVar\n"
-        "\n"
-        "class Plain:\n"
-        "    tags: list[str] = []\n"
-        "    ordered: ConcurrentStableList[str] = ConcurrentStableList()\n"
-        "    ascending: ConcurrentSortedList[int] = ConcurrentSortedList()\n"
-        "    constant: ClassVar[frozenset[str]] = frozenset()\n"
-        "\n"
-        "class Model(BaseObject):\n"
-        "    payload: dict[str, object] = {}\n"
-        "\n"
-        "class Demo(BaseSettings):\n"
-        "    paths: list[str] = []\n"
-        "\n"
-        "def f(a: dict[str, int], b: Sequence[str], c: Mapping[str, int], d: AbstractSet[str]) -> set[int]:\n"
-        "    return set()\n"
-        "\n"
-        "def g(items: Iterable[int], stream: Iterator[int], cb: Callable[[int], int]) -> None:\n"
-        "    del items, stream, cb\n"
-        "\n"
-        "def h() -> 'list[int]':\n"
-        "    return []\n"
-        "\n"
-        "def inner() -> None:\n"
-        "    local: dict[str, int] = {}\n"
-        "    allowed: dict[str, int] = {}  # bare-collections:allow（框架边界样例）\n"
-        "    del local, allowed\n"
-    ),
-    "backend/libs/bms_core/src/demo/tests/test_local.py": "class X:\n    bad: list[int] = []\n",
-    "backend/libs/bms_core/src/bms_core/core/concurrent.py": "def to_list(self) -> list[int]:\n    return []\n",
-    "backend/libs/bms_core/src/bms_core/core/sorted_collections.py": "class S:\n    data: dict[str, int] = {}\n",
-    "backend/services/svc/src/svc/mod.py": "class A:\n    data: List[int] = []\n",
-    "backend/ops/op.py": "def run(payload: DefaultDict[str, int]) -> None:\n    del payload\n",
-    "scripts/tools/thing.py": "def x() -> frozenset[str]:\n    return frozenset()\n",
-})
+_FIXTURE_FILES: ConcurrentStableDict[str, str] = ConcurrentStableDict(
+    {
+        "backend/libs/bms_core/src/demo/mod.py": (
+            "from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence\n"
+            "from typing import AbstractSet, ClassVar\n"
+            "\n"
+            "class Plain:\n"
+            "    tags: list[str] = []\n"
+            "    ordered: ConcurrentStableList[str] = ConcurrentStableList()\n"
+            "    ascending: ConcurrentSortedList[int] = ConcurrentSortedList()\n"
+            "    constant: ClassVar[frozenset[str]] = frozenset()\n"
+            "\n"
+            "class Model(BaseObject):\n"
+            "    payload: dict[str, object] = {}\n"
+            "\n"
+            "class Demo(BaseSettings):\n"
+            "    paths: list[str] = []\n"
+            "\n"
+            "def f(a: dict[str, int], b: Sequence[str], c: Mapping[str, int], d: AbstractSet[str]) -> set[int]:\n"
+            "    return set()\n"
+            "\n"
+            "def g(items: Iterable[int], stream: Iterator[int], cb: Callable[[int], int]) -> None:\n"
+            "    del items, stream, cb\n"
+            "\n"
+            "def h() -> 'list[int]':\n"
+            "    return []\n"
+            "\n"
+            "def inner() -> None:\n"
+            "    local: dict[str, int] = {}\n"
+            "    allowed: dict[str, int] = {}  # bare-collections:allow（框架边界样例）\n"
+            "    del local, allowed\n"
+        ),
+        "backend/libs/bms_core/src/demo/tests/test_local.py": "class X:\n    bad: list[int] = []\n",
+        "backend/libs/bms_core/src/bms_core/core/concurrent.py": "def to_list(self) -> list[int]:\n    return []\n",
+        "backend/libs/bms_core/src/bms_core/core/sorted_collections.py": "class S:\n    data: dict[str, int] = {}\n",
+        "backend/services/svc/src/svc/mod.py": "class A:\n    data: List[int] = []\n",
+        "backend/ops/op.py": "def run(payload: DefaultDict[str, int]) -> None:\n    del payload\n",
+        "scripts/tools/thing.py": "def x() -> frozenset[str]:\n    return frozenset()\n",
+    }
+)
 
 
 def _self_test() -> int:

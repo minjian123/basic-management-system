@@ -18,9 +18,9 @@
   MYSQL_CLIENT / PG_CLIENT / DM_DISQL   客户端路径（缺省自动探测常见路径）
   DEFECT_ARCHIVE_DIR                     复现包根目录，默认 /mnt/data/backup/defects
 """
+
 import argparse
 import json
-import os
 import subprocess
 import sys
 from pathlib import Path
@@ -51,16 +51,52 @@ def load_repro(issue_repro: str) -> ConcurrentStableDict[str, object]:
 
 def import_dump(args) -> None:
     if args.engine == "mysql":
-        run(ConcurrentStableList([args.mysql_client, "-h", args.db_host, "-P", str(args.db_port),
-                                  "-u", args.db_user, f"-p{args.db_password}", args.dump_target,
-                                  "-e", f"SOURCE {args.dump}"]))
+        run(
+            ConcurrentStableList(
+                [
+                    args.mysql_client,
+                    "-h",
+                    args.db_host,
+                    "-P",
+                    str(args.db_port),
+                    "-u",
+                    args.db_user,
+                    f"-p{args.db_password}",
+                    args.dump_target,
+                    "-e",
+                    f"SOURCE {args.dump}",
+                ]
+            )
+        )
     elif args.engine == "postgres":
-        run(ConcurrentStableList([args.pg_client, "-h", args.db_host, "-p", str(args.db_port),
-                                  "-U", args.db_user, "-d", args.dump_target, "-f", str(args.dump)]))
+        run(
+            ConcurrentStableList(
+                [
+                    args.pg_client,
+                    "-h",
+                    args.db_host,
+                    "-p",
+                    str(args.db_port),
+                    "-U",
+                    args.db_user,
+                    "-d",
+                    args.dump_target,
+                    "-f",
+                    str(args.dump),
+                ]
+            )
+        )
     elif args.engine == "dm8":
-        run(ConcurrentStableList(["/opt/dmdbms/bin/dimp",
-                                  f"SYSDBA/{args.db_password}@{args.db_host}:{args.db_port}",
-                                  f"FILE={args.dump}", f"OWNER={args.dump_target}"]))
+        run(
+            ConcurrentStableList(
+                [
+                    "/opt/dmdbms/bin/dimp",
+                    f"SYSDBA/{args.db_password}@{args.db_host}:{args.db_port}",
+                    f"FILE={args.dump}",
+                    f"OWNER={args.dump_target}",
+                ]
+            )
+        )
     else:
         print(f"[失败] 不支持的引擎: {args.engine}")
         sys.exit(2)

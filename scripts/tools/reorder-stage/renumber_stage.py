@@ -62,10 +62,10 @@ RE_COUNT = re.compile(r"17\s*个开发阶段")
 
 # 单趟替换：范围 > 阶段+名 > 阶段前缀 > 裸数字+阶段名
 RE_ALL = re.compile(
-    rf"阶段({CN_ALT})\s*[~～-]\s*({CN_ALT})"          # 1,2 范围
-    rf"|阶段({CN_ALT})(\s+)({STAGE_NAMES})"           # 3,4,5 阶段+名
-    rf"|阶段({CN_ALT})"                               # 6 阶段前缀
-    rf"|({CN_ALT})(\s+)({STAGE_NAMES})"               # 7,8,9 裸数字+名
+    rf"阶段({CN_ALT})\s*[~～-]\s*({CN_ALT})"  # 1,2 范围
+    rf"|阶段({CN_ALT})(\s+)({STAGE_NAMES})"  # 3,4,5 阶段+名
+    rf"|阶段({CN_ALT})"  # 6 阶段前缀
+    rf"|({CN_ALT})(\s+)({STAGE_NAMES})"  # 7,8,9 裸数字+名
 )
 
 
@@ -133,16 +133,13 @@ def main() -> None:
         dst = convert(src)
         if src == dst:
             continue
-        n = sum(1 for a, b in zip(src.splitlines(), dst.splitlines()) if a != b)
+        n = sum(1 for a, b in zip(src.splitlines(), dst.splitlines(), strict=False) if a != b)
         total += n
         changed += 1
         print(f"{n:>4} 行  {p.as_posix()}")
         if not DRY:
             p.write_text(dst, encoding="utf-8")
-    print(
-        f"\n合计：{changed} 个文件，{total} 行改动"
-        + ("（dry-run，未写入）" if DRY else "")
-    )
+    print(f"\n合计：{changed} 个文件，{total} 行改动" + ("（dry-run，未写入）" if DRY else ""))
 
 
 if __name__ == "__main__":

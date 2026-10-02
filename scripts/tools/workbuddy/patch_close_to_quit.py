@@ -19,6 +19,7 @@
 升级说明：`.deb` 覆盖安装或应用自动更新会替换 app.asar、使补丁丢失，重新执行
           `apply`（或直接跑本脚本）即可；改动前会自动备份为 app.asar.bak。
 """
+
 import argparse
 import os
 import shutil
@@ -34,8 +35,7 @@ ENV_ELEVATED = "_WORKBUDDY_PATCH_ELEVATED"
 
 def app_running() -> bool:
     """WorkBuddy 主进程是否在运行（按进程名精确匹配，避免误伤其它命令）。"""
-    return subprocess.call(["pgrep", "-x", "workbuddy"],
-                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) == 0
+    return subprocess.call(["pgrep", "-x", "workbuddy"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) == 0
 
 
 def state_of(data: bytes) -> str:
@@ -59,10 +59,12 @@ def do_status(asar: Path) -> int:
         return 1
     data = asar.read_bytes()
     st = state_of(data)
-    label = {"patched": "已打补丁（关窗即退出）",
-             "original": "官方原始（关窗进托盘）",
-             "mixed": "异常：目标串与补丁串同时存在",
-             "unknown": "异常：两条特征串都未找到（版本可能已变）"}[st]
+    label = {
+        "patched": "已打补丁（关窗即退出）",
+        "original": "官方原始（关窗进托盘）",
+        "mixed": "异常：目标串与补丁串同时存在",
+        "unknown": "异常：两条特征串都未找到（版本可能已变）",
+    }[st]
     print(f"补丁状态 : {label}（大小 {len(data)} 字节）")
     return 0 if st in ("patched", "original") else 1
 
@@ -102,7 +104,7 @@ def do_apply(asar: Path) -> int:
         print("[失败] 无写入权限，请以 root 运行（脚本会自动 sudo 提权）。")
         return 1
 
-    diff = sum(1 for a, b in zip(new, data) if a != b)
+    diff = sum(1 for a, b in zip(new, data, strict=False) if a != b)
     print(f"[完成] 补丁已写入，差异 {diff} 字节；启动应用后关窗即退出。")
     print("       验证：grep 'System tray initialized' ~/.workbuddy/logs/main.log | tail -1  →  trayActive=false")
     return 0
@@ -128,17 +130,14 @@ def do_restore(asar: Path) -> int:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="重打 WorkBuddy「关窗即退出」补丁")
-    parser.add_argument("action", nargs="?", default="apply",
-                        choices=["apply", "status", "restore"], help="默认 apply")
+    parser.add_argument("action", nargs="?", default="apply", choices=["apply", "status", "restore"], help="默认 apply")
     parser.add_argument("--asar", type=Path, default=DEFAULT_ASAR, help="app.asar 路径")
     args = parser.parse_args()
 
-    if args.action in ("apply", "restore") and os.geteuid() != 0 \
-            and os.environ.get(ENV_ELEVATED) != "1":
+    if args.action in ("apply", "restore") and os.geteuid() != 0 and os.environ.get(ENV_ELEVATED) != "1":
         os.environ[ENV_ELEVATED] = "1"
         print("[提权] 需要 root 修改 /opt/WorkBuddy，改用 sudo 重新执行 ...", flush=True)
-        return subprocess.call(["sudo", sys.executable, os.path.abspath(__file__),
-                                *sys.argv[1:]])
+        return subprocess.call(["sudo", sys.executable, os.path.abspath(__file__), *sys.argv[1:]])
 
     if args.action == "status":
         return do_status(args.asar)

@@ -3,6 +3,7 @@
 用法:
     python bg-status.py --name 任务名
 """
+
 import argparse
 import ctypes
 import json
@@ -39,7 +40,17 @@ def main() -> int:
     args = parser.parse_args()
 
     base = Path(args.base)
-    safe = args.name.replace("\\", "_").replace("/", "_").replace(":", "_").replace("*", "_").replace("?", "_").replace('"', "_").replace("<", "_").replace(">", "_").replace("|", "_")
+    safe = (
+        args.name.replace("\\", "_")
+        .replace("/", "_")
+        .replace(":", "_")
+        .replace("*", "_")
+        .replace("?", "_")
+        .replace('"', "_")
+        .replace("<", "_")
+        .replace(">", "_")
+        .replace("|", "_")
+    )
     state_file = base / f"{safe}.json"
     out_file = base / f"{safe}.out.log"
     err_file = base / f"{safe}.err.log"

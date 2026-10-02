@@ -112,25 +112,30 @@ def collect_defects(root: Path) -> ConcurrentStableDict[str, object]:
         for item in items
     )
     auto = [row for row in rows if "defect-auto" in row["labels"]]
-    manual = [row for row in rows if "defect-auto" not in row["labels"] and any(str(tag).startswith("defect") for tag in row["labels"])]
+    manual = [
+        row
+        for row in rows
+        if "defect-auto" not in row["labels"] and any(str(tag).startswith("defect") for tag in row["labels"])
+    ]
     auto_like = [row for row in rows if any(str(tag).startswith("defect") for tag in row["labels"])]
     high_open = [
         row
         for row in rows
-        if row["state"] == "opened"
-        and any(str(tag).upper() in ("P0", "P1") for tag in row["labels"])
+        if row["state"] == "opened" and any(str(tag).upper() in ("P0", "P1") for tag in row["labels"])
     ]
-    return ConcurrentStableDict({
-        "available": True,
-        "total": len(rows),
-        "open": sum(1 for row in rows if row["state"] == "opened"),
-        "closed": sum(1 for row in rows if row["state"] == "closed"),
-        "defect_auto": len(auto),
-        "defect_manual": len(manual),
-        "defect_labelled": len(auto_like),
-        "p0_p1_open": len(high_open),
-        "items": rows,
-    })
+    return ConcurrentStableDict(
+        {
+            "available": True,
+            "total": len(rows),
+            "open": sum(1 for row in rows if row["state"] == "opened"),
+            "closed": sum(1 for row in rows if row["state"] == "closed"),
+            "defect_auto": len(auto),
+            "defect_manual": len(manual),
+            "defect_labelled": len(auto_like),
+            "p0_p1_open": len(high_open),
+            "items": rows,
+        }
+    )
 
 
 def collect_coverage(root: Path, skip_tests: bool, with_frontend: bool) -> ConcurrentStableDict[str, object]:
@@ -148,16 +153,18 @@ def collect_coverage(root: Path, skip_tests: bool, with_frontend: bool) -> Concu
         precise = PYTEST_COVERAGE_TOTAL_RE.search(out)
         summary = PYTEST_SUMMARY_RE.search(out)
         duration = DURATION_RE.search(out)
-        backend_data = ConcurrentStableDict({
-            "ran": True,
-            "exit_code": code,
-            "passed": int(summary.group(1)) if summary else None,
-            "skipped": int(summary.group(2) or 0) if summary else None,
-            "failed": int(summary.group(3) or 0) if summary else (1 if code else 0),
-            "duration_s": float(duration.group(1)) if duration else None,
-            "branches_enabled": bool(total),
-            "lines_pct": float(precise.group(1)) if precise else (int(total.group("pct")) if total else None),
-        })
+        backend_data = ConcurrentStableDict(
+            {
+                "ran": True,
+                "exit_code": code,
+                "passed": int(summary.group(1)) if summary else None,
+                "skipped": int(summary.group(2) or 0) if summary else None,
+                "failed": int(summary.group(3) or 0) if summary else (1 if code else 0),
+                "duration_s": float(duration.group(1)) if duration else None,
+                "branches_enabled": bool(total),
+                "lines_pct": float(precise.group(1)) if precise else (int(total.group("pct")) if total else None),
+            }
+        )
     frontend: ConcurrentStableDict[str, ConcurrentStableDict[str, object]] = ConcurrentStableDict()
     for name in ("frontend/apps/desktop", "frontend/apps/mobile"):
         project = root / name
@@ -166,12 +173,17 @@ def collect_coverage(root: Path, skip_tests: bool, with_frontend: bool) -> Concu
             out = strip_ansi(raw)
             tests = VITEST_TESTS_RE.search(out)
             files = VITEST_FILES_RE.search(out)
-            frontend.set(name, ConcurrentStableDict({
-                "ran": True,
-                "exit_code": code,
-                "tests_passed": int(tests.group(1)) if tests else None,
-                "files_passed": int(files.group(1)) if files else None,
-            }))
+            frontend.set(
+                name,
+                ConcurrentStableDict(
+                    {
+                        "ran": True,
+                        "exit_code": code,
+                        "tests_passed": int(tests.group(1)) if tests else None,
+                        "files_passed": int(files.group(1)) if files else None,
+                    }
+                ),
+            )
         summary_path = project / "coverage" / "coverage-summary.json"
         entry = frontend.get(name)
         if entry is None:
@@ -234,8 +246,11 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
     backend = coverage["backend"]
     if backend.get("ran"):
         print(
-            f"  后端：行/语句 {backend.get('lines_pct')}%、分支覆盖 {'已启用' if backend.get('branches_enabled') else '未启用'}"
-            f"（用例 {backend.get('passed')} passed / {backend.get('skipped')} skipped / {backend.get('failed')} failed，{backend.get('duration_s')}s）"
+            f"  后端：行/语句 {backend.get('lines_pct')}%、"
+            f"分支覆盖 {'已启用' if backend.get('branches_enabled') else '未启用'}"
+            f"（用例 {backend.get('passed')} passed / "
+            f"{backend.get('skipped')} skipped / {backend.get('failed')} failed，"
+            f"{backend.get('duration_s')}s）"
             f" → 门禁 ≥ 70%：{'达标' if (backend.get('lines_pct') or 0) >= 70 else '不达标'}"
         )
     else:
@@ -243,7 +258,8 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
     for name, data in coverage["frontend"].items():
         pct = data.get("coverage_lines_pct")
         print(
-            f"  {name}：行 {pct}%、分支 {data.get('coverage_branches_pct')}%（产物日期 {data.get('coverage_file_mtime')}）"
+            f"  {name}：行 {pct}%、分支 {data.get('coverage_branches_pct')}%"
+            f"（产物日期 {data.get('coverage_file_mtime')}）"
             f" → 门禁 ≥ 70%：{'达标' if (pct or 0) >= 70 else '待确认'}"
         )
 
@@ -254,7 +270,9 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
     print("  Playwright E2E：本阶段未启用（tests/e2e 待建，重验证层分档开关 deploy/ci/verify/e2e 未开）")
 
     if args.out:
-        Path(args.out).write_text(json.dumps(normalize_collections(result), ensure_ascii=False, indent=2), encoding="utf-8")
+        Path(args.out).write_text(
+            json.dumps(normalize_collections(result), ensure_ascii=False, indent=2), encoding="utf-8"
+        )
         print(f"\n已写入 JSON：{args.out}")
     return 0
 

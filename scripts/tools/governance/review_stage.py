@@ -14,7 +14,8 @@
 6. 报告与 README 就位（报告章节齐备；四份 README 关键命令与导航存在）
 7. 记录齐备（已完成任务目录存在 `实施/`，有嵌套时容许子目录承担）
 8. Kiwi 用例编号引用（任务测试记录均含 Kiwi 字段）
-9. 架构升级触发条件复核（打印微服务 E1~E5 与微前端 F1~F8 供人工判断；档案《微服务 · 10 项目评估》《微前端 · 06 项目评估》）
+9. 架构升级触发条件复核（打印微服务 E1~E5 与微前端 F1~F8 供人工判断；
+   档案《微服务 · 10 项目评估》《微前端 · 06 项目评估》）
 
 用法::
 
@@ -123,7 +124,7 @@ def check_gate_table(stage_dir: Path) -> Check:
             continue
         conclusion = cells[3].split("（")[0].strip()  # 允许括注，如「达标（占位口径）」
         if conclusion in CONCLUSIONS:
-            rows.append(cells + [conclusion])
+            rows.append([*cells, conclusion])
     problems = [f"「{row[0]}」结论 {row[5]} 缺证据索引" for row in rows if row[5] == "达标" and not row[4]]
     ok = len(rows) == 10 and not problems
     detail = f"{len(rows)} 行（期望 10）"

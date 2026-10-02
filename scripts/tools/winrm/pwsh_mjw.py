@@ -10,8 +10,10 @@
 远程执行的语法与能力等价 pwsh7 本机。传输仍为 WinRM（非交互会话，GUI 投递限制不变）。
 依赖 pywinrm（开发机 venv：~/tools/winrm-venv）；凭据从 deploy/.env 读取 MJW_*。
 """
+
 import argparse
 import base64
+import contextlib
 import sys
 import time
 from pathlib import Path
@@ -76,7 +78,6 @@ def main() -> int:
         print(f"[失败] {ENV_FILE} 中未配置 MJW_IP / MJW_WINRM_USER / MJW_WINRM_PASSWORD（键位见 .env.example）。")
         return 1
 
-    op_t = min(args.timeout - 5, args.timeout)
     s = winrm.Session(
         ip,
         auth=(user, pwd),
@@ -88,7 +89,10 @@ def main() -> int:
     # 1) mjw 侧 pwsh7 存在性
     r = s.run_ps(f"[Console]::OutputEncoding=[Text.Encoding]::UTF8; (Test-Path '{PWSH7}')")
     if "True" not in r.std_out.decode("utf-8", "replace"):
-        print(f"[失败] mjw 上未找到 pwsh7（{PWSH7}）。请先在 mjw 安装 PowerShell 7（MSI 静默装，见《开发服务器Windows部署使用说明总览》2.1）。")
+        print(
+            f"[失败] mjw 上未找到 pwsh7（{PWSH7}）。"
+            "请先在 mjw 安装 PowerShell 7（MSI 静默装，见《开发服务器Windows部署使用说明总览》2.1）。"
+        )
         return 1
 
     # 2) 脚本落盘（UTF-16LE 带 BOM，避免 PS 5.1/pwsh 词法错乱）
@@ -105,10 +109,8 @@ def main() -> int:
     try:
         r = s.run_ps(write_cmd)
     except Exception as e:  # 超时等：尽力清理远程文件
-        try:
+        with contextlib.suppress(Exception):
             s.run_ps(f"Remove-Item '{remote}' -Force -ErrorAction SilentlyContinue")
-        except Exception:
-            pass
         print(f"[失败] 远程执行异常: {e}")
         return 1
 
@@ -116,10 +118,8 @@ def main() -> int:
     exit_code = 0
     for line in out.splitlines():
         if line.startswith("PWSHEXIT="):
-            try:
+            with contextlib.suppress(ValueError):
                 exit_code = int(line.split("=", 1)[1])
-            except ValueError:
-                pass
             out = out.replace(line, "")
             break
     if out.strip():

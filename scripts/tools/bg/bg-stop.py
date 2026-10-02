@@ -3,6 +3,7 @@
 用法:
     python bg-stop.py --name 任务名
 """
+
 import argparse
 import json
 import os
@@ -20,7 +21,17 @@ def main() -> int:
     args = parser.parse_args()
 
     base = Path(args.base)
-    safe = args.name.replace("\\", "_").replace("/", "_").replace(":", "_").replace("*", "_").replace("?", "_").replace('"', "_").replace("<", "_").replace(">", "_").replace("|", "_")
+    safe = (
+        args.name.replace("\\", "_")
+        .replace("/", "_")
+        .replace(":", "_")
+        .replace("*", "_")
+        .replace("?", "_")
+        .replace('"', "_")
+        .replace("<", "_")
+        .replace(">", "_")
+        .replace("|", "_")
+    )
     state_file = base / f"{safe}.json"
 
     if not state_file.exists():

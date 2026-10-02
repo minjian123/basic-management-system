@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """migrate-component-structure.py - 组件设计按类别归并 + 每类重排编号 + 链接/引用重指
 
 用户确认的改造：
@@ -19,6 +18,7 @@
     python3 migrate-component-structure.py --dry-run
     python3 migrate-component-structure.py
 """
+
 import argparse
 import os
 import re
@@ -26,44 +26,44 @@ import subprocess
 import urllib.parse
 from pathlib import Path
 
-BMS = Path(__file__).resolve().parents[3]          # bms/
+BMS = Path(__file__).resolve().parents[3]  # bms/
 DOC = BMS / "bms文档"
 CD = DOC / "设计" / "组件设计"
 REPORT = Path("/tmp/opencode/component-migrate-report.txt")
 EXISTING = [
-    (2,  "字典字段",         "01_字段类", 1),
-    (3,  "日期时间字段",     "01_字段类", 2),
-    (4,  "数值与金额字段",   "01_字段类", 3),
-    (5,  "树选择字段",       "01_字段类", 4),
-    (6,  "组织选择字段",     "01_字段类", 5),
-    (7,  "文件上传字段",     "01_字段类", 6),
-    (8,  "富文本字段",       "01_字段类", 7),
-    (9,  "开关与枚举字段",   "01_字段类", 8),
-    (10, "通用表格",         "02_展示类", 1),
-    (11, "查询筛选区",       "02_展示类", 2),
+    (2, "字典字段", "01_字段类", 1),
+    (3, "日期时间字段", "01_字段类", 2),
+    (4, "数值与金额字段", "01_字段类", 3),
+    (5, "树选择字段", "01_字段类", 4),
+    (6, "组织选择字段", "01_字段类", 5),
+    (7, "文件上传字段", "01_字段类", 6),
+    (8, "富文本字段", "01_字段类", 7),
+    (9, "开关与枚举字段", "01_字段类", 8),
+    (10, "通用表格", "02_展示类", 1),
+    (11, "查询筛选区", "02_展示类", 2),
     (12, "状态标签与描述列表", "02_展示类", 3),
-    (13, "图表卡",           "02_展示类", 4),
-    (14, "弹窗抽屉表单",     "03_交互类", 1),
-    (15, "导入导出",         "03_交互类", 2),
-    (16, "审批流展示",       "03_交互类", 3),
-    (17, "图标选择器",       "03_交互类", 4),
+    (13, "图表卡", "02_展示类", 4),
+    (14, "弹窗抽屉表单", "03_交互类", 1),
+    (15, "导入导出", "03_交互类", 2),
+    (16, "审批流展示", "03_交互类", 3),
+    (17, "图标选择器", "03_交互类", 4),
     (18, "代码表达式编辑器", "03_交互类", 5),
-    (19, "请求封装",         "04_基础类", 1),
-    (20, "权限指令",         "04_基础类", 2),
-    (21, "格式化工具",       "04_基础类", 3),
+    (19, "请求封装", "04_基础类", 1),
+    (20, "权限指令", "04_基础类", 2),
+    (21, "格式化工具", "04_基础类", 3),
 ]
 NEW_NODES = [
-    ("异常与空状态",     "02_展示类", 5),
-    ("通知与消息",       "02_展示类", 6),
-    ("全局搜索",         "02_展示类", 7),
-    ("文件预览",         "02_展示类", 8),
-    ("审计差异查看",     "02_展示类", 9),
-    ("表单设计器",       "03_交互类", 6),
-    ("流程建模器",       "03_交互类", 7),
-    ("权限配置",         "03_交互类", 8),
-    ("报表设计器",       "03_交互类", 9),
+    ("异常与空状态", "02_展示类", 5),
+    ("通知与消息", "02_展示类", 6),
+    ("全局搜索", "02_展示类", 7),
+    ("文件预览", "02_展示类", 8),
+    ("审计差异查看", "02_展示类", 9),
+    ("表单设计器", "03_交互类", 6),
+    ("流程建模器", "03_交互类", 7),
+    ("权限配置", "03_交互类", 8),
+    ("报表设计器", "03_交互类", 9),
     ("大屏设计器与播放", "03_交互类", 10),
-    ("AI助手",           "03_交互类", 11),
+    ("AI助手", "03_交互类", 11),
     ("国际化文案编辑器", "03_交互类", 12),
 ]
 CATS = ["01_字段类", "02_展示类", "03_交互类", "04_基础类"]
@@ -81,12 +81,12 @@ def new_abs_dir(c, n, t):
 
 def rename_nn(name, o, n):
     pref = f"{o:02d}_"
-    return f"{n:02d}_" + name[len(pref):] if name.startswith(pref) else name
+    return f"{n:02d}_" + name[len(pref) :] if name.startswith(pref) else name
 
 
 def build_file_map():
     m = {}
-    for (o, t, c, n) in EXISTING:
+    for o, t, c, n in EXISTING:
         old_base = old_abs_dir(o, t)
         new_base = new_abs_dir(c, n, t)
         if not old_base.exists():
@@ -141,11 +141,12 @@ def rewrite(text, src_old_dir, src_new_dir, changes, html=False):
             changes.append((raw, new))
             return m.group(1) + new + m.group(3)
         return m.group(0)
+
     return pat.sub(repl, text)
 
 
 def fix_link_text(text):
-    for o, (t, c, n) in OLD2NEW.items():
+    for o, (t, _c, _n) in OLD2NEW.items():
         text = text.replace(f"[{o:02d} 节点]", f"[{t}]")
         text = text.replace(f"[{o:02d} {t}]", f"[{t}]")
         text = text.replace(f"[← {o:02d}-{t}]", f"[← {t}]")
@@ -157,9 +158,10 @@ def fix_edition(text):
     def repl(m):
         o = int(m.group(2))
         if o in OLD2NEW:
-            t, c, n = OLD2NEW[o]
+            _t, _c, n = OLD2NEW[o]
             return f"组件设计体系{m.group(1)}第 {n:02d} 篇"
         return m.group(0)
+
     return re.sub(r"组件设计体系(字段类|展示类|交互类|基础类)第 ([0-9]{2}) 篇", repl, text)
 
 
@@ -199,14 +201,14 @@ def main():
 
     lines, total_links, planned = [], 0, {}
     lines.append("== 目录移动 ==")
-    for (o, t, c, n) in EXISTING:
+    for o, t, c, n in EXISTING:
         lines.append(f"  {o:02d}_组件设计_{t}  ->  {c}/{n:02d}_组件设计_{t}")
 
     all_files = [p for p in DOC.rglob("*") if p.is_file() and p.suffix.lower() in (".md", ".html", ".htm")]
     lines.append("\n== 内容变更 ==")
     for p in all_files:
         under = None
-        for (o, t, c, n) in EXISTING:
+        for o, t, c, n in EXISTING:
             try:
                 p.relative_to(old_abs_dir(o, t))
                 under = (o, t, c, n)
@@ -224,7 +226,7 @@ def main():
         raw = p.read_text(encoding="utf-8")
         is_html = p.suffix.lower() in (".html", ".htm")
 
-        def transform(t):
+        def transform(t, src_old_dir=src_old_dir, src_new_dir=src_new_dir, changes=changes, is_html=is_html):
             t = rewrite(t, src_old_dir, src_new_dir, changes, html=is_html)
             return fix_edition(fix_link_text(t))
 
@@ -237,7 +239,7 @@ def main():
                 for a, b in changes[:25]:
                     lines.append(f"     {a}  ->  {b}")
                 if len(changes) > 25:
-                    lines.append(f"     ... 另有 {len(changes)-25} 处")
+                    lines.append(f"     ... 另有 {len(changes) - 25} 处")
 
     lines.append(f"\n合计：{len(planned)} 个文件将移动/改写，{total_links} 处链接重写。")
 
@@ -248,11 +250,11 @@ def main():
         return
 
     # 执行：git mv 目录 -> 重命名内部 NN 前缀 -> 写内容
-    for (o, t, c, n) in EXISTING:
+    for o, t, c, n in EXISTING:
         (CD / c).mkdir(exist_ok=True)
         old, new = old_abs_dir(o, t), new_abs_dir(c, n, t)
         subprocess.run(["git", "mv", str(old), str(new)], cwd=BMS, check=True)
-    for (o, t, c, n) in EXISTING:
+    for o, t, c, n in EXISTING:
         base = new_abs_dir(c, n, t)
         targets = sorted(base.rglob("*"), key=lambda x: len(x.parts), reverse=True)
         for p in targets:

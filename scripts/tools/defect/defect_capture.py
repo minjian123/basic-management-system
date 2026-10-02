@@ -29,6 +29,7 @@
   CI_PIPELINE_URL    流水线地址（GitLab 预置变量）
   DEFECT_ARCHIVE_DIR 归档根目录，默认 /mnt/data/backup/defects
 """
+
 import argparse
 import hashlib
 import json
@@ -85,9 +86,25 @@ def run(cmd: ConcurrentStableList[str]) -> subprocess.CompletedProcess | None:
 def dump_mysql(args) -> Path | None:
     out = args.out_dir / f"{args.db_name}-{date.today().isoformat()}.sql"
     # --ssl=0：内网自签证书环境（mariadb 客户端默认尝试 TLS 会握手失败）
-    result = run(ConcurrentStableList(["mysqldump", "--single-transaction", "--ssl=0", "-h", args.db_host,
-                                       "-P", str(args.db_port), "-u", args.db_user,
-                                       f"-p{args.db_password}", args.db_name, "-r", str(out)]))
+    result = run(
+        ConcurrentStableList(
+            [
+                "mysqldump",
+                "--single-transaction",
+                "--ssl=0",
+                "-h",
+                args.db_host,
+                "-P",
+                str(args.db_port),
+                "-u",
+                args.db_user,
+                f"-p{args.db_password}",
+                args.db_name,
+                "-r",
+                str(out),
+            ]
+        )
+    )
     return out if result is not None else None
 
 
@@ -95,8 +112,23 @@ def dump_postgres(args) -> Path | None:
     out = args.out_dir / f"{args.db_name}-{date.today().isoformat()}.dump"
     env = dict(os.environ, PGPASSWORD=args.db_password)
     try:
-        subprocess.run(["pg_dump", "-h", args.db_host, "-p", str(args.db_port), "-U", args.db_user,
-                        "-Fc", args.db_name, "-f", str(out)], env=env, check=True)
+        subprocess.run(
+            [
+                "pg_dump",
+                "-h",
+                args.db_host,
+                "-p",
+                str(args.db_port),
+                "-U",
+                args.db_user,
+                "-Fc",
+                args.db_name,
+                "-f",
+                str(out),
+            ],
+            env=env,
+            check=True,
+        )
     except (subprocess.CalledProcessError, FileNotFoundError) as error:
         print(f"[跳过] pg_dump 不可用: {error}")
         return None
@@ -105,16 +137,24 @@ def dump_postgres(args) -> Path | None:
 
 def dump_dm8(args) -> Path | None:
     out = args.out_dir / f"{args.db_name}-{date.today().isoformat()}.dmp"
-    result = run(ConcurrentStableList(["/opt/dmdbms/bin/dexp",
-                                       f"SYSDBA/{args.db_password}@{args.db_host}:{args.db_port}",
-                                       f"FILE={out.name}", f"DIRECTORY={args.out_dir}",
-                                       f"OWNER={args.db_name}", "LOG=exp.log"]))
+    result = run(
+        ConcurrentStableList(
+            [
+                "/opt/dmdbms/bin/dexp",
+                f"SYSDBA/{args.db_password}@{args.db_host}:{args.db_port}",
+                f"FILE={out.name}",
+                f"DIRECTORY={args.out_dir}",
+                f"OWNER={args.db_name}",
+                "LOG=exp.log",
+            ]
+        )
+    )
     return out if result is not None else None
 
 
 def fingerprint(case_id: str, summary: str) -> str:
     norm = " ".join(summary.split()).lower()
-    return hashlib.sha256(f"{case_id}|{norm}".encode("utf-8")).hexdigest()[:12]
+    return hashlib.sha256(f"{case_id}|{norm}".encode()).hexdigest()[:12]
 
 
 def collect_logs(log_dir: str | None, out_dir: Path) -> ConcurrentStableList[str]:
@@ -156,8 +196,7 @@ def write_repro(args, fp: str, dump_path: Path | None) -> Path:
         "env": args.env,
         "pipeline_url": args.pipeline_url,
     }
-    (args.out_dir / "repro.json").write_text(
-        json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
+    (args.out_dir / "repro.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
 
     md = args.out_dir / "REPRO.md"
     md.write_text(
@@ -180,7 +219,8 @@ def write_repro(args, fp: str, dump_path: Path | None) -> Path:
         f"## 修复指引（AI 代理）\n\n"
         f"- 先读 repro.json 与 stacktrace.txt，定位失败断言与堆栈位置\n"
         f"- 修复后按上述命令回归验证，CI 绿后提 MR 引用本缺陷指纹\n",
-        encoding="utf-8")
+        encoding="utf-8",
+    )
     return md
 
 
@@ -210,9 +250,11 @@ def api(
     url = f"{os.environ['GITLAB_API_URL'].rstrip('/')}/{path.lstrip('/')}"
     data = json.dumps(dict(body)).encode("utf-8") if body is not None else None
     req = urllib.request.Request(
-        url, data=data, method=method,
-        headers={"PRIVATE-TOKEN": os.environ["GITLAB_API_TOKEN"],
-                 "Content-Type": "application/json"})
+        url,
+        data=data,
+        method=method,
+        headers={"PRIVATE-TOKEN": os.environ["GITLAB_API_TOKEN"], "Content-Type": "application/json"},
+    )
     try:
         with urllib.request.urlopen(req) as resp:
             payload = resp.read()
@@ -294,11 +336,17 @@ def main() -> int:
         url = issue["web_url"]
         print(f"[3/3] 已追加评论到现有 Issue: {url}")
     else:
-        issue = api(f"projects/{project_id}/issues", "POST", ConcurrentStableDict({
-            "title": f"[自动缺陷] {args.summary}",
-            "description": build_description(args, fp, dump, repro_md),
-            "labels": LABEL_AUTO,
-        }))
+        issue = api(
+            f"projects/{project_id}/issues",
+            "POST",
+            ConcurrentStableDict(
+                {
+                    "title": f"[自动缺陷] {args.summary}",
+                    "description": build_description(args, fp, dump, repro_md),
+                    "labels": LABEL_AUTO,
+                }
+            ),
+        )
         url = issue["web_url"]
         print(f"[3/3] 已创建自动缺陷 Issue: {url}")
 

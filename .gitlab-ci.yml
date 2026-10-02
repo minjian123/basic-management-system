@@ -168,6 +168,28 @@ backend-lint:
   script:
     - cd backend && uv run ruff check .
 
+# ---- 工具脚本：ruff 检查 + 格式（仓根 scripts/tools；08_01 遗留「scripts/tools 未纳入 CI lint」收口，
+#      2026-10-02）——从 backend/ 运行以取用 backend/pyproject.toml 的 ruff 配置（line-length=120 / py314）----
+tooling-lint:
+  stage: lint
+  image: $REGISTRY_IMAGE_PREFIX/ci-backend:py314
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        paths:
+          - scripts/tools/**/*
+          - backend/pyproject.toml
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes:
+        paths:
+          - scripts/tools/**/*
+          - backend/pyproject.toml
+      exists:
+        - backend/pyproject.toml
+  script:
+    - cd backend && uv run ruff check ../scripts/tools
+    - cd backend && uv run ruff format --check ../scripts/tools
+
 # ---- 后端：pyright 严格类型检查（《测试规范》第 13 节；随 04-1 接入）----
 backend-typecheck:
   stage: lint

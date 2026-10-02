@@ -23,6 +23,7 @@
     python3 scripts/tools/base-check/check-backend-base.py [bms 仓库根]
 """
 
+import itertools
 import json
 import os
 import re
@@ -98,8 +99,7 @@ def parse_chains(raw_line: str) -> ConcurrentStableList[tuple[str, ...]]:
     if not all(len(group) in (1, length) for group in groups):
         return ConcurrentStableList()
     return ConcurrentStableList(
-        tuple(group[0] if len(group) == 1 else group[index] for group in groups)
-        for index in range(length)
+        tuple(group[0] if len(group) == 1 else group[index] for group in groups) for index in range(length)
     )
 
 
@@ -156,7 +156,7 @@ def index_classes() -> ConcurrentStableDict[str, ConcurrentStableList[Concurrent
                 if not name.endswith(".py"):
                     continue
                 path = os.path.join(dp, name)
-                text = open(path, encoding="utf-8", errors="ignore").read()
+                text = Path(path).read_text(encoding="utf-8", errors="ignore")
                 for cls, bases in CLASS_RE.findall(text):
                     parents = ConcurrentStableList(normalize_parent(base) for base in split_bases(bases))
                     definitions = index.get(cls)
@@ -169,11 +169,11 @@ def index_classes() -> ConcurrentStableDict[str, ConcurrentStableList[Concurrent
 
 def check_inheritance(index: ConcurrentStableDict[str, ConcurrentStableList[ConcurrentStableList[str]]]) -> int:
     global checked_chains
-    text = open(MANIFEST, encoding="utf-8").read()
+    text = Path(MANIFEST).read_text(encoding="utf-8")
     section = text[text.index("## 10. 继承链与代码位置") : text.index("## 11.")]
     for raw_line in section.splitlines():
         for chain in parse_chains(raw_line):
-            for parent, child in zip(chain, chain[1:]):
+            for parent, child in itertools.pairwise(chain):
                 checked_chains += 1
                 definitions = index.get(parent)
                 if not definitions:
@@ -189,7 +189,7 @@ def check_inheritance(index: ConcurrentStableDict[str, ConcurrentStableList[Conc
 
 def check_manifest_coverage(index: ConcurrentStableDict[str, ConcurrentStableList[ConcurrentStableList[str]]]) -> int:
     """双向对账（B5 补充）：直接继承 `BaseObject` 的基座类必须出现在《后端基类清单》文本中。"""
-    manifest_text = open(MANIFEST, encoding="utf-8").read()
+    manifest_text = Path(MANIFEST).read_text(encoding="utf-8")
     classes = ConcurrentStableList(
         name
         for name, definitions in index.items()
@@ -207,11 +207,8 @@ def parse_root_bases() -> ConcurrentStableList[str]:
     Returns:
         ConcurrentStableList[str]: 允许直接继承 `BaseObject` 的体系根类名（稳定序；小节缺失时为空）。
     """
-    text = open(MANIFEST, encoding="utf-8").read()
-    if "## 10." in text and "## 11." in text:
-        section = text[text.index("## 10.") : text.index("## 11.")]
-    else:
-        section = text
+    text = Path(MANIFEST).read_text(encoding="utf-8")
+    section = text[text.index("## 10.") : text.index("## 11.")] if "## 10." in text and "## 11." in text else text
     marker_index = section.find(ROOT_BASES_MARKER)
     if marker_index < 0:
         return ConcurrentStableList()
@@ -237,7 +234,7 @@ def load_direct_baseline() -> ConcurrentStableList[tuple[str, str]]:
     if not os.path.isfile(DIRECT_BASELINE):
         return ConcurrentStableList()
     try:
-        payload = json.loads(open(DIRECT_BASELINE, encoding="utf-8").read())
+        payload = json.loads(Path(DIRECT_BASELINE).read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         problems.add(f"[直继承] 基线快照不可解析：{DIRECT_BASELINE}（{exc}）")
         return ConcurrentStableList()
@@ -268,7 +265,7 @@ def scan_direct_base_object() -> ConcurrentStableList[tuple[str, str]]:
                 if not name.endswith(".py"):
                     continue
                 path = os.path.join(dp, name)
-                text = open(path, encoding="utf-8", errors="ignore").read()
+                text = Path(path).read_text(encoding="utf-8", errors="ignore")
                 for cls, bases in CLASS_RE.findall(text):
                     parents = [normalize_parent(base) for base in split_bases(bases)]
                     if "BaseObject" in parents:
@@ -280,18 +277,14 @@ def check_direct_inheritance() -> int:
     """直继承合法性（09_01）：除体系根（清单白名单）与基线存量外，禁止直接继承 `BaseObject`。"""
     roots = parse_root_bases()
     if not roots:
-        problems.add(
-            f"[直继承] 《后端基类清单》§10 未登记「{ROOT_BASES_MARKER}」小节（白名单缺失，按拒绝处理）"
-        )
+        problems.add(f"[直继承] 《后端基类清单》§10 未登记「{ROOT_BASES_MARKER}」小节（白名单缺失，按拒绝处理）")
         return 0
     baseline = load_direct_baseline()
     found = scan_direct_base_object()
     for rel, cls in found:
         if cls in roots or (rel, cls) in baseline:
             continue
-        problems.add(
-            f"[直继承] `{cls}` 直接继承 BaseObject（{rel}）：仅体系根可直继承，请归位到所属体系基类"
-        )
+        problems.add(f"[直继承] `{cls}` 直接继承 BaseObject（{rel}）：仅体系根可直继承，请归位到所属体系基类")
     return len(found)
 
 
@@ -307,8 +300,8 @@ def _iter_class_defs(path: str) -> ConcurrentStableList[object]:
     import ast
 
     try:
-        tree = ast.parse(open(path, encoding="utf-8", errors="ignore").read())
-    except (OSError, SyntaxError):
+        tree = ast.parse(Path(path).read_text(encoding="utf-8", errors="ignore"))
+    except OSError, SyntaxError:
         return ConcurrentStableList()
     return ConcurrentStableList(node for node in ast.walk(tree) if isinstance(node, ast.ClassDef))
 
@@ -425,7 +418,7 @@ def check_data_class_semantics() -> int:
 
 
 def check_error_segments() -> int:
-    text = open(ERROR_CODES, encoding="utf-8").read()
+    text = Path(ERROR_CODES).read_text(encoding="utf-8")
     body = text[text.index("class ErrorCode") :]
     count = 0
     for name, raw in re.findall(r"^\s{4}([A-Z][A-Z0-9_]*)\s*=\s*(\d+)", body, re.M):
@@ -478,9 +471,7 @@ def _iter_chain_dirs() -> ConcurrentStableList[tuple[str, str, str]]:
         service_path = os.path.join(VERSIONS_DIR, service)
         if os.path.isfile(service_path):
             if service.endswith(".py"):
-                problems.add(
-                    f"[迁移链] {service} 位于版本根目录（迁移脚本须按 versions/<服务>/<数据源>/ 两级存放）"
-                )
+                problems.add(f"[迁移链] {service} 位于版本根目录（迁移脚本须按 versions/<服务>/<数据源>/ 两级存放）")
             continue
         if not os.path.isdir(service_path):
             continue
@@ -511,7 +502,7 @@ def _known_services() -> ConcurrentStableSet[str]:
     path = os.path.join(ROOT, "backend/libs/bms_core/src/bms_core/services/module_registry.py")
     if not os.path.isfile(path):
         return ConcurrentStableSet()
-    text = open(path, encoding="utf-8", errors="ignore").read()
+    text = Path(path).read_text(encoding="utf-8", errors="ignore")
     keys = ConcurrentStableSet(re.findall(r'service_key="([a-z0-9_-]+)"', text))
     keys.update(re.findall(r'module_key="([a-z0-9_-]+)"', text))
     keys.add("permission")  # 预留服务标识（表归属登记）
@@ -524,7 +515,7 @@ def check_alembic_chain() -> int:
         problems.add("[迁移链] 未找到 backend/alembic/versions/")
         return 0
     ini_path = os.path.join(ROOT, "backend/alembic.ini")
-    ini_text = open(ini_path, encoding="utf-8", errors="ignore").read() if os.path.isfile(ini_path) else ""
+    ini_text = Path(ini_path).read_text(encoding="utf-8", errors="ignore") if os.path.isfile(ini_path) else ""
     total = 0
     for service, datasource, path in _iter_chain_dirs():
         chain = f"{service}:{datasource}"
@@ -533,7 +524,7 @@ def check_alembic_chain() -> int:
         for name in sorted(os.listdir(path)):
             if not name.endswith(".py"):
                 continue
-            text = open(os.path.join(path, name), encoding="utf-8", errors="ignore").read()
+            text = Path(os.path.join(path, name)).read_text(encoding="utf-8", errors="ignore")
             rev, parent, branch_labels = _revision_fields(text)
             if not rev:
                 problems.add(f"[迁移链] {chain}/{name} 缺少 revision 定义")
@@ -551,7 +542,7 @@ def check_alembic_chain() -> int:
             if parent and parent not in revisions:
                 problems.add(f"[迁移链] {chain}/{rev} 的 down_revision「{parent}」不在本链（断链）")
             if parent is None and chain not in labels[rev]:
-                problems.add(f"[迁移链] 链 {chain} 的链首 {rev} 须声明 branch_labels=(\"{chain}\",)")
+                problems.add(f'[迁移链] 链 {chain} 的链首 {rev} 须声明 branch_labels=("{chain}",)')
             if parent is not None and labels[rev]:
                 problems.add(f"[迁移链] {chain}/{rev} 非链首不应声明 branch_labels")
         section = "[alembic]" if chain == DEFAULT_CHAIN_NAME else f"[alembic:{chain}]"
@@ -577,35 +568,42 @@ def self_test() -> int:
         os.makedirs(os.path.join(tmp, "backend/libs/bms_core/src/bms_core/services"), exist_ok=True)
         os.makedirs(os.path.join(tmp, "backend/alembic/versions/tenant/tenant"), exist_ok=True)
         os.makedirs(os.path.join(tmp, "deploy/boundaries"), exist_ok=True)
-        open(
+        with open(
             os.path.join(tmp, "backend/libs/bms_core/src/bms_core/services/module_registry.py"),
             "w",
             encoding="utf-8",
-        ).write('SERVICE_CATALOG = (\n    dict(module_key="tenant", service_key="tenant"),\n)\n')
-        open(os.path.join(tmp, "backend/libs/bms_core/src/bms_core/core/probe.py"), "w", encoding="utf-8").write(
-            "class BaseObject:\n    pass\n\n\nclass BaseValueObject(BaseObject):\n    pass\n\n\n"
-            "class StrayChild(BaseObject):  # 非体系根直继承样例（应拦截或按基线豁免）\n    pass\n\n\n"
-            "class Orphan:\n    pass\n"
-        )
-        open(os.path.join(tmp, "backend/libs/bms_core/src/bms_core/core/error_codes.py"), "w", encoding="utf-8").write(
-            'class ErrorCode:\n    OK = 10001\n'
-        )
-        open(os.path.join(tmp, "backend/alembic.ini"), "w", encoding="utf-8").write(
-            "[alembic]\nscript_location = x\n\n[alembic:tenant:tenant]\nversion_locations = y\n"
-        )
-        open(
+        ) as handle:
+            handle.write('SERVICE_CATALOG = (\n    dict(module_key="tenant", service_key="tenant"),\n)\n')
+        with open(
+            os.path.join(tmp, "backend/libs/bms_core/src/bms_core/core/probe.py"), "w", encoding="utf-8"
+        ) as handle:
+            handle.write(
+                "class BaseObject:\n    pass\n\n\nclass BaseValueObject(BaseObject):\n    pass\n\n\n"
+                "class StrayChild(BaseObject):  # 非体系根直继承样例（应拦截或按基线豁免）\n    pass\n\n\n"
+                "class Orphan:\n    pass\n"
+            )
+        with open(
+            os.path.join(tmp, "backend/libs/bms_core/src/bms_core/core/error_codes.py"), "w", encoding="utf-8"
+        ) as handle:
+            handle.write("class ErrorCode:\n    OK = 10001\n")
+        with open(os.path.join(tmp, "backend/alembic.ini"), "w", encoding="utf-8") as handle:
+            handle.write("[alembic]\nscript_location = x\n\n[alembic:tenant:tenant]\nversion_locations = y\n")
+        with open(
             os.path.join(tmp, "backend/alembic/versions/tenant/tenant/0001_demo.py"), "w", encoding="utf-8"
-        ).write(
-            'revision: str = "0001_demo"\ndown_revision: str | None = None\n'
-            'branch_labels: tuple[str, ...] | None = ("tenant:tenant",)\n'
-        )
+        ) as handle:
+            handle.write(
+                'revision: str = "0001_demo"\ndown_revision: str | None = None\n'
+                'branch_labels: tuple[str, ...] | None = ("tenant:tenant",)\n'
+            )
 
         def write_manifest(*, chains: str = "", roots: tuple[str, ...] = ("BaseValueObject",)) -> None:
             root_lines = "\n".join(f"- `{name}`：测试体系" for name in roots)
-            open(os.path.join(tmp, "bms文档/后端基类清单.md"), "w", encoding="utf-8").write(
-                "# 清单\n\n## 10. 继承链与代码位置\n\n"
-                f"**{ROOT_BASES_MARKER}（允许直接继承 `BaseObject`）**：\n\n{root_lines}\n\n{chains}\n\n## 11. 扩展\n"
-            )
+            with open(os.path.join(tmp, "bms文档/后端基类清单.md"), "w", encoding="utf-8") as handle:
+                handle.write(
+                    "# 清单\n\n## 10. 继承链与代码位置\n\n"
+                    f"**{ROOT_BASES_MARKER}（允许直接继承 `BaseObject`）**：\n\n"
+                    f"{root_lines}\n\n{chains}\n\n## 11. 扩展\n"
+                )
 
         def write_baseline(entries: ConcurrentStableList[tuple[str, str]]) -> None:
             payload = {
@@ -615,9 +613,10 @@ def self_test() -> int:
                     {"file": rel, "class": cls, "target_system": "value_object", "count": 1} for rel, cls in entries
                 ],
             }
-            open(
+            with open(
                 os.path.join(tmp, "deploy/boundaries/direct_base_object_baseline.json"), "w", encoding="utf-8"
-            ).write(json.dumps(payload, ensure_ascii=False))
+            ) as handle:
+                handle.write(json.dumps(payload, ensure_ascii=False))
 
         def run_case(name: str, expect_fail: bool) -> None:
             nonlocal ok
@@ -631,7 +630,9 @@ def self_test() -> int:
             failed = result.returncode != 0
             passed = failed == expect_fail
             ok = ok and passed
-            print(f"  [self-test] {name}：{'通过' if passed else '不通过'}（期望{'拦截' if expect_fail else '放行'}，实际{'拦截' if failed else '放行'}）")
+            actual = "拦截" if failed else "放行"
+            expected = "拦截" if expect_fail else "放行"
+            print(f"  [self-test] {name}：{'通过' if passed else '不通过'}（期望{expected}，实际{actual}）")
 
         probe = "backend/libs/bms_core/src/bms_core/core/probe.py"
         # 1) 正向：清单链一致 + 体系根放行 + 非体系根直继承入基线 → 放行
@@ -642,9 +643,8 @@ def self_test() -> int:
         write_baseline([])
         run_case("非体系根直继承未入基线", expect_fail=True)
         # 3) 体系根清单小节缺失（白名单为空）→ 拦截
-        open(os.path.join(tmp, "bms文档/后端基类清单.md"), "w", encoding="utf-8").write(
-            "# 清单\n\n## 10. 继承链与代码位置\n\n## 11. 扩展\n"
-        )
+        with open(os.path.join(tmp, "bms文档/后端基类清单.md"), "w", encoding="utf-8") as handle:
+            handle.write("# 清单\n\n## 10. 继承链与代码位置\n\n## 11. 扩展\n")
         run_case("体系根清单缺失", expect_fail=True)
         # 4) 清单登记未存在的类 → 拦截（继承链缺类）
         write_manifest(chains="- `GhostClass → BaseObject`。")
@@ -652,23 +652,26 @@ def self_test() -> int:
         run_case("清单登记未存在的类", expect_fail=True)
         # 5) 错误码越段（100001 / 万位 0）→ 拦截
         write_manifest()
-        open(os.path.join(tmp, "backend/libs/bms_core/src/bms_core/core/error_codes.py"), "w", encoding="utf-8").write(
-            'class ErrorCode:\n    OK = 10001\n    BAD = 100001\n'
-        )
+        with open(
+            os.path.join(tmp, "backend/libs/bms_core/src/bms_core/core/error_codes.py"), "w", encoding="utf-8"
+        ) as handle:
+            handle.write("class ErrorCode:\n    OK = 10001\n    BAD = 100001\n")
         run_case("错误码越段", expect_fail=True)
         # 6) 迁移链分链合规（单 head + 链首分支标签 + 配置段）→ 放行
         write_manifest(chains="- `StrayChild → BaseObject`。")
-        open(os.path.join(tmp, "backend/libs/bms_core/src/bms_core/core/error_codes.py"), "w", encoding="utf-8").write(
-            'class ErrorCode:\n    OK = 10001\n'
-        )
+        with open(
+            os.path.join(tmp, "backend/libs/bms_core/src/bms_core/core/error_codes.py"), "w", encoding="utf-8"
+        ) as handle:
+            handle.write("class ErrorCode:\n    OK = 10001\n")
         run_case("迁移链分链合规", expect_fail=False)
         # 5) 同链双 head → 拦截
-        open(
+        with open(
             os.path.join(tmp, "backend/alembic/versions/tenant/tenant/0002_demo.py"), "w", encoding="utf-8"
-        ).write(
-            'revision: str = "0002_demo"\ndown_revision: str | None = None\n'
-            'branch_labels: tuple[str, ...] | None = ("tenant:tenant",)\n'
-        )
+        ) as handle:
+            handle.write(
+                'revision: str = "0002_demo"\ndown_revision: str | None = None\n'
+                'branch_labels: tuple[str, ...] | None = ("tenant:tenant",)\n'
+            )
         run_case("同链双 head", expect_fail=True)
         # 7) 数据类体系语义：值对象体系子类未声明 frozen dataclass → 拦截
         os.remove(os.path.join(tmp, "backend/alembic/versions/tenant/tenant/0002_demo.py"))
@@ -681,7 +684,8 @@ def self_test() -> int:
         # 8) 数据类体系语义：框架对象体系子类为 dataclass → 拦截
         with open(data_probe, "w", encoding="utf-8") as handle:
             handle.write(
-                "import dataclasses\n\n\n@dataclasses.dataclass\nclass DataFramework(BaseFrameworkObject):\n    x: int = 0\n"
+                "import dataclasses\n\n\n@dataclasses.dataclass\n"
+                "class DataFramework(BaseFrameworkObject):\n    x: int = 0\n"
             )
         run_case("框架对象体系子类为 dataclass", expect_fail=True)
         # 9) 数据类体系语义：值对象 frozen dataclass + 框架对象普通类 → 放行
@@ -699,8 +703,8 @@ def _class_kind(path: str, class_name: str) -> str:
     import ast
 
     try:
-        tree = ast.parse(open(path, encoding="utf-8", errors="ignore").read())
-    except (OSError, SyntaxError):
+        tree = ast.parse(Path(path).read_text(encoding="utf-8", errors="ignore"))
+    except OSError, SyntaxError:
         return "unknown"
     for node in ast.walk(tree):
         if not isinstance(node, ast.ClassDef) or node.name != class_name:
@@ -734,9 +738,8 @@ def update_direct_baseline() -> int:
         )
         payload = ConcurrentStableDict({"version": 1, "generated_at": date.today().isoformat(), "entries": entries})
         os.makedirs(os.path.dirname(DIRECT_BASELINE), exist_ok=True)
-        open(DIRECT_BASELINE, "w", encoding="utf-8").write(
-            json.dumps(normalize_collections(payload), ensure_ascii=False, indent=2) + "\n"
-        )
+        with open(DIRECT_BASELINE, "w", encoding="utf-8") as handle:
+            handle.write(json.dumps(normalize_collections(payload), ensure_ascii=False, indent=2) + "\n")
     print(f"[check-backend-base] 直继承基线已更新：{len(entries)} 条 → {os.path.relpath(DIRECT_BASELINE, ROOT)}")
     return 0
 

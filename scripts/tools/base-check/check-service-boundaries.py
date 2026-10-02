@@ -43,9 +43,11 @@ from bms_core.boundary.assess import OwnershipViolation, assess_table  # noqa: E
 from bms_core.boundary.directory import (  # noqa: E402
     known_prefixes,
     known_services,
-    known_tables as registered_tables,
     table_owner,
     table_prefix_of,
+)
+from bms_core.boundary.directory import (  # noqa: E402
+    known_tables as registered_tables,
 )
 from bms_core.boundary.exceptions import (  # noqa: E402
     DEFAULT_EXCEPTIONS_RELATIVE,
@@ -308,7 +310,9 @@ def _foreign_key_target(node: ast.Call) -> str | None:
     return None
 
 
-def _assess(service: str, table: str, operation: str, exceptions: tuple[OwnershipException, ...]) -> OwnershipViolation | None:
+def _assess(
+    service: str, table: str, operation: str, exceptions: tuple[OwnershipException, ...]
+) -> OwnershipViolation | None:
     """越界判定（含只读例外放行）。
 
     Args:
@@ -413,7 +417,7 @@ def check() -> int:
     counts.set("registered_exceptions_total", len(exceptions))
 
     # 规则 6①：声明越权（`__tablename__` 归属他服务；未登记表名同拦）
-    for package, (root, shared) in packages.items():
+    for package, (root, _shared) in packages.items():
         service = _service_of_package(package)
         for path in sorted(root.rglob("*.py")):
             if "__pycache__" in path.parts or _is_test_path(path, root):
@@ -436,8 +440,7 @@ def check() -> int:
                     continue
                 if _assess(service, value.value, "declare", exceptions) is not None:
                     _record(
-                        f"[跨服务表归属] {rel}:{node.lineno} 声明 {value.value}"
-                        f"（归属 {_owner_of(value.value)}）",
+                        f"[跨服务表归属] {rel}:{node.lineno} 声明 {value.value}（归属 {_owner_of(value.value)}）",
                         "table_ownership_violation",
                     )
 
@@ -457,9 +460,7 @@ def check() -> int:
             violation = _assess(service, table, operation, exceptions)
             if violation is None:
                 if _assess(service, table, operation, ()) is not None:
-                    counts.set(
-                        "registered_exceptions_used", counts.get("registered_exceptions_used", 0) + 1
-                    )
+                    counts.set("registered_exceptions_used", counts.get("registered_exceptions_used", 0) + 1)
                 continue
             _record(
                 f"[跨服务库访问] {rel}:{lineno} {table}（归属 {violation.owner}，操作 {operation}）",
@@ -508,7 +509,9 @@ def _self_test() -> int:
 
         def run(expect_fail: bool, label: str) -> None:
             nonlocal ok
-            result = subprocess.run([sys.executable, os.path.abspath(__file__), str(tmp_path)], capture_output=True, text=True)
+            result = subprocess.run(
+                [sys.executable, os.path.abspath(__file__), str(tmp_path)], capture_output=True, text=True
+            )
             failed = result.returncode != 0
             passed = failed == expect_fail
             ok = ok and passed
@@ -623,12 +626,15 @@ def _emit(as_json: bool) -> None:
         for problem in problems:
             print("  " + problem)
         return
-    print("[check-service-boundaries] 通过：共享库 / 服务边界、分层依赖单向、表 / 表前缀跨服务唯一、跨服务库访问硬校验。")
+    print(
+        "[check-service-boundaries] 通过：共享库 / 服务边界、分层依赖单向、表 / 表前缀跨服务唯一、跨服务库访问硬校验。"
+    )
     for package, tables in sorted(service_tables.items()):
         listing = "、".join(f"{table}（{table_prefix_of(table)}）" for table in tables) or "无表声明"
         print(f"  - {package}：{listing}")
     print(
-        f"  例外白名单：登记 {counts['registered_exceptions_total']} 条、命中 {counts['registered_exceptions_used']} 条。"
+        f"  例外白名单：登记 {counts['registered_exceptions_total']} 条、"
+        f"命中 {counts['registered_exceptions_used']} 条。"
     )
 
 

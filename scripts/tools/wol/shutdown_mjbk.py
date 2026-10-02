@@ -7,6 +7,7 @@
 凭据从 deploy/.env 读取（MJBK_IP / MJBK_SSH_USER / MJBK_SUDO_PASSWORD），
 SSH 连接走公钥免密，仅 sudo 密码来自 .env。
 """
+
 import argparse
 import subprocess
 import sys
@@ -62,8 +63,7 @@ def main() -> int:
 
     print(f"正在远程关机 {ip} ...")
     escaped = pwd.replace("'", "'\\''")
-    cmd = ["ssh", "-o", "ConnectTimeout=5", f"{user}@{ip}",
-           f"echo '{escaped}' | sudo -S shutdown -h now"]
+    cmd = ["ssh", "-o", "ConnectTimeout=5", f"{user}@{ip}", f"echo '{escaped}' | sudo -S shutdown -h now"]
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode == 0:
         print("关机指令已下发。")

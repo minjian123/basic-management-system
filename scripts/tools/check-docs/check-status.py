@@ -202,15 +202,17 @@ def parse_plan(path: Path) -> ConcurrentStableDict[str, object]:
     gantt_ids: ConcurrentStableSet[str] = ConcurrentStableSet(
         m.group("id") for m in (GANTT_NODE_RE.match(line) for line in text.splitlines()) if m
     )
-    return ConcurrentStableDict({
-        "done": done,
-        "todo": todo,
-        "stats": (int(head.group("done")), int(head.group("todo"))) if head else None,
-        "effort": (
-            int(effort.group("done")), int(effort.group("todo")), int(effort.group("total"))
-        ) if effort else None,
-        "gantt": gantt_ids,
-    })
+    return ConcurrentStableDict(
+        {
+            "done": done,
+            "todo": todo,
+            "stats": (int(head.group("done")), int(head.group("todo"))) if head else None,
+            "effort": (int(effort.group("done")), int(effort.group("todo")), int(effort.group("total")))
+            if effort
+            else None,
+            "gantt": gantt_ids,
+        }
+    )
 
 
 def expand_reqs(cell: str) -> ConcurrentStableList[str]:
@@ -382,7 +384,8 @@ def check_stage(stage_dir: Path, report: Report) -> None:
         report.checks += 1
         if stats != (len(done), len(todo)):
             report.fail(
-                "软", "S1",
+                "软",
+                "S1",
                 f"计划头计数与明细不符：头部 {stats[0]}/{stats[1]}，明细 {len(done)}/{len(todo)}",
             )
     effort = plan["effort"]
@@ -392,7 +395,8 @@ def check_stage(stage_dir: Path, report: Report) -> None:
         sum_todo = sum(int(HOURS_RE.match(r["hours"]).group(1)) for r in todo.values() if HOURS_RE.match(r["hours"]))
         if effort != (sum_done, sum_todo, sum_done + sum_todo):
             report.fail(
-                "软", "S1",
+                "软",
+                "S1",
                 f"计划工时统计与明细不符：头部 {effort}，明细 {(sum_done, sum_todo, sum_done + sum_todo)}",
             )
 
@@ -431,11 +435,7 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
     if not project_root.is_dir():
         print(f"未找到阶段目录：{project_root}")
         return 2
-    stages = (
-        sorted(p for p in project_root.iterdir() if p.is_dir())
-        if args.all
-        else [project_root / args.stage]
-    )
+    stages = sorted(p for p in project_root.iterdir() if p.is_dir()) if args.all else [project_root / args.stage]
     if args.all:
         print("提示：--all 含历史阶段（准备期），其文档为早期口径，结果仅供人工参考")
 
@@ -455,9 +455,7 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
         for finding in [*report.hard, *report.soft]:
             print(f"  [{finding.level}] {finding.code} {finding.message}")
 
-    print(
-        f"\n汇总：检查 {total_checks} 项；硬规则不合规 {total_hard}，软提示 {total_soft}"
-    )
+    print(f"\n汇总：检查 {total_checks} 项；硬规则不合规 {total_hard}，软提示 {total_soft}")
     if total_hard or (args.strict and total_soft):
         return 1
     return 0

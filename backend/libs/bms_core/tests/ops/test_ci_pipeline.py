@@ -116,6 +116,19 @@ def test_parent_backend_test_rules_are_shared_paths_only() -> None:
 
 
 @pytest.mark.kiwi_id(2184)
+def test_tooling_lint_job_covers_scripts() -> None:
+    """工具脚本静态：`tooling-lint` 覆盖 `scripts/tools`（ruff check + format），并按 scripts 变更触发。"""
+    ci = _load(_CI_PATH)
+    job = ci["tooling-lint"]
+    assert job["stage"] == "lint"
+    paths = _rule_paths(ConcurrentStableList(ConcurrentStableDict(rule) for rule in job["rules"]))
+    assert "scripts/tools/**/*" in paths
+    script = "\n".join(str(line) for line in job["script"])
+    assert "uv run ruff check ../scripts/tools" in script
+    assert "uv run ruff format --check ../scripts/tools" in script
+
+
+@pytest.mark.kiwi_id(2184)
 def test_service_template_structure() -> None:
     """子模板：parent_pipeline 来源、三阶段、工程级测试 + 本服务包覆盖率门禁。"""
     template = _load(_TEMPLATE_PATH)

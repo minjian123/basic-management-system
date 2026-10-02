@@ -8,6 +8,7 @@
 睡眠命令：rundll32.exe powrprof.dll,SetSuspendState 0,0,0（S3 待机）。
 依赖 pywinrm（开发机 venv：~/tools/winrm-venv）；凭据从 deploy/.env 读取 MJW_*。
 """
+
 import argparse
 import sys
 from pathlib import Path

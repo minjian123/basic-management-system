@@ -6,6 +6,7 @@
 凭据读 deploy/.env 的 GITLAB_API_URL / GITLAB_API_TOKEN。
 配合 bg 工具使用：bg-run 包装本脚本，bg-wait/bg-status 查询结果。
 """
+
 import argparse
 import json
 import sys
@@ -45,9 +46,7 @@ def main() -> int:
     args = parser.parse_args()
 
     env = load_env()
-    env.update(
-        (k, v) for k, v in __import__("os").environ.items() if k.startswith(("GITLAB_API", "CI_PROJECT_ID"))
-    )
+    env.update((k, v) for k, v in __import__("os").environ.items() if k.startswith(("GITLAB_API", "CI_PROJECT_ID")))
     api = env.get("GITLAB_API_URL")
     token = env.get("GITLAB_API_TOKEN")
     if not (api and token):
@@ -71,8 +70,7 @@ def main() -> int:
 
     ref = data.get("ref", "")
     sha = (data.get("sha") or "")[:8]
-    print(f"FINAL: pipeline {args.pipeline_id} [{ref} @{sha}] status={status} "
-          f"web_url={data.get('web_url', '')}")
+    print(f"FINAL: pipeline {args.pipeline_id} [{ref} @{sha}] status={status} web_url={data.get('web_url', '')}")
     return 0 if status == "success" else 1
 
 
