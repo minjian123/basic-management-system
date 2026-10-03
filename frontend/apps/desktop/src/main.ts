@@ -15,6 +15,7 @@ import { createApp } from 'vue'
 import App from './App.vue'
 import { refreshAccessToken } from './api/identity'
 import { installHttpAdapter } from './api/http'
+import { createModuleApi } from './api/module-api'
 import { installObservability, installModuleRouteScope, moduleTelemetry } from './observability'
 import { setModuleError } from './module/boundary'
 import { installModules, installPlatformRegistrations, resolveRouteModule } from './module/host'
@@ -110,7 +111,15 @@ session.$subscribe(() => {
  * 模块装载完成之后，保证「首屏即可命中模块路由」。
  */
 async function bootstrap(): Promise<void> {
-  await installModules({ router, store: pinia, i18n: moduleI18n, user: session.codes, tenant: undefined }).catch(
+  // 宿主请求能力（模块经 `api` 按服务键 + 路径访问后端；凭据与 401 由宿主请求层处理，不注入 token）。
+  await installModules({
+    router,
+    store: pinia,
+    i18n: moduleI18n,
+    user: session.codes,
+    tenant: undefined,
+    api: createModuleApi(),
+  }).catch(
     (error: unknown) => {
       setModuleError({
         module: 'modules.json',

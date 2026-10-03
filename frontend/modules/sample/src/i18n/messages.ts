@@ -30,6 +30,12 @@ export const SAMPLE_MESSAGES_ZH_CN: Readonly<Record<string, string>> = {
   'sample.list.total': '共 {total} 条',
   'sample.list.empty': '暂无数据',
 
+  'sample.host.title': '宿主请求能力',
+  'sample.host.loading': '正在经宿主请求能力取当前用户…',
+  'sample.host.user': '当前用户：{name}（identity GET /auth/me）',
+  'sample.host.absent': '未接入宿主请求能力（独立预览 / 未接线），已降级。',
+  'sample.host.failed': '宿主请求能力调用失败（会话失效或服务不可用），已降级。',
+
   'sample.detail.title': '记录详情',
   'sample.detail.back': '返回列表',
   'sample.detail.edit': '编辑',
@@ -100,6 +106,12 @@ export const SAMPLE_MESSAGES_EN: Readonly<Record<string, string>> = {
   'sample.list.status': 'Status',
   'sample.list.total': '{total} items',
   'sample.list.empty': 'No data',
+
+  'sample.host.title': 'Host request capability',
+  'sample.host.loading': 'Loading current user via host request capability…',
+  'sample.host.user': 'Current user: {name} (identity GET /auth/me)',
+  'sample.host.absent': 'Host request capability not wired (standalone preview), degraded.',
+  'sample.host.failed': 'Host request failed (session expired or service unavailable), degraded.',
 
   'sample.detail.title': 'Record detail',
   'sample.detail.back': 'Back',

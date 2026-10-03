@@ -133,6 +133,7 @@ export { BaseTabs, type TabItem } from './capabilities/tabs'
 export { BaseLocale, type LocaleFormatContext } from './capabilities/locale'
 export { BaseAccess } from './capabilities/access'
 export { BaseModuleContext, type ModuleContextKey } from './capabilities/module-context'
+export { BaseModuleApi } from './capabilities/module-api'
 
 export {
   BaseAsyncTask,
@@ -718,6 +719,7 @@ export {
   type RequestAdapter,
   type RequestConfig,
 } from './contracts/request'
+export { type ModuleApi, type ModuleApiRequest } from './contracts/module-api'
 export { BaseDataObject } from './contracts/data-object'
 export { BaseEntity } from './contracts/entity'
 export { BasePageQuery, type SortOrder } from './contracts/page-query'

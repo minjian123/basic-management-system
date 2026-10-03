@@ -18,7 +18,7 @@ import {
   type SampleRecord,
   type SampleStatus,
 } from '../domain'
-import { sampleRuntime } from '../runtime'
+import { loadHostUserSummary, sampleRuntime } from '../runtime'
 import { sampleService } from '../services/sample-service'
 
 defineOptions({ name: 'SampleList' })
@@ -126,11 +126,33 @@ function openCreate(): void {
   void router.push({ name: 'SampleForm' })
 }
 
+/** 宿主请求能力状态文案（加载中 / 成功 / 未接入 / 失败降级）。 */
+const hostUserText = ref(t('sample.host.loading'))
+
+/**
+ * 经宿主请求能力取当前用户概要（模块**无 401 逻辑**：刷新与重放由宿主请求层处理）。
+ *
+ * 未接入请求能力或调用失败时降级为说明文案（不假定请求能力存在）。
+ */
+async function loadHostUser(): Promise<void> {
+  try {
+    const summary = await loadHostUserSummary()
+    hostUserText.value =
+      summary === undefined ? t('sample.host.absent') : t('sample.host.user', { name: summary.name })
+  } catch {
+    hostUserText.value = t('sample.host.failed')
+  }
+}
+
 onMounted(load)
+onMounted(loadHostUser)
 </script>
 
 <template>
   <page-container :title="t('sample.list.title')" :description="t('sample.list.description')">
+    <section-container :title="t('sample.host.title')">
+      <p class="sample__host" data-test="sample-host-user">{{ hostUserText }}</p>
+    </section-container>
     <section-container>
       <query-filter
         :ready="true"
@@ -180,3 +202,10 @@ onMounted(load)
     </section-container>
   </page-container>
 </template>
+
+<style scoped>
+.sample__host {
+  margin: 0;
+  color: var(--bms-color-text-secondary);
+}
+</style>

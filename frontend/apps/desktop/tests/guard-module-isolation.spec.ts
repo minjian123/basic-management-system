@@ -58,6 +58,28 @@ describe('模块隔离护栏（Kiwi 980）', () => {
     expect(problems.length).toBeGreaterThanOrEqual(5)
   })
 
+  it('自建 HTTP 被拦截（裸 fetch / axios / XMLHttpRequest；合法经 api 调用不误判）', () => {
+    const sourceProblems = scanSourceFiles([
+      { path: 'a.ts', source: 'const response = await fetch("/api/v1/x")' },
+      { path: 'b.ts', source: "import axios from 'axios'" },
+      { path: 'c.ts', source: 'const xhr = new XMLHttpRequest()' },
+      { path: 'd.ts', source: 'axios.get("/api/v1/x")' },
+    ])
+    expect(sourceProblems.filter((problem) => problem.includes('R3')).length).toBeGreaterThanOrEqual(4)
+
+    expect(
+      scanSourceFiles([
+        { path: 'api.ts', source: "const summary = await context.api.get('identity', '/auth/me')" },
+        { path: 'prefetch.ts', source: 'const prefetch = (): void => undefined' },
+      ]),
+    ).toEqual([])
+
+    const productProblems = scanProductFiles({
+      js: [{ path: 'assets/module-x.js', source: 'const response = await fetch("/api/v1/x")' }],
+    })
+    expect(productProblems.some((problem) => problem.includes('R3'))).toBe(true)
+  })
+
   it('豁免不误判（独立预览壳 / 令牌定义源 / 令牌消费 / :deep / 动态色值）', () => {
     const files: IsolationFile[] = [
       { path: 'src/standalone.ts', source: "import 'element-plus/dist/index.css'\ncreateApp({}).mount('#app')" },

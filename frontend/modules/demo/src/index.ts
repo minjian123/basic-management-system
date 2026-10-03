@@ -10,16 +10,17 @@
 
 import { MODULE_CONTRACT_VERSION, WorkbenchCardProvider, defineModule } from '@bms/core'
 
+import { applyHostContext } from './runtime'
+
 /** 演示模块（清单 `name` / `version` 须与宿主 `public/modules.json` 条目严格一致；版本构建期注入）。 */
 export const demoModule = defineModule({
   manifest: { name: 'demo', version: __BMS_MODULE_VERSION__, contractVersion: MODULE_CONTRACT_VERSION },
   setup: (context) => {
-    // 只经注入上下文访问宿主能力（只读快照）：宿主当前以权限码承载 user，缺失项自行降级；
-    // 模块不直连宿主 store / router、不持久化（见任务 03_01 详细设计 §3.5）。
-    const permissionCodes = Array.isArray(context.user) ? context.user : []
-    const greeting = permissionCodes.length > 0 ? `你好，已接入 ${permissionCodes.length} 项权限` : '你好，演示模块'
-    const greetingEn =
-      permissionCodes.length > 0 ? `Hello, ${permissionCodes.length} permissions` : 'Hello, demo module'
+    // 只经注入上下文访问宿主能力（只读快照）：据权限码派生问候、记录宿主请求能力；缺失项自行降级；
+    // 模块不直连宿主 store / router、不持久化、不自建 HTTP（见任务 03_01 / 06_02 详细设计）。
+    const { permissionCount } = applyHostContext(context)
+    const greeting = permissionCount > 0 ? `你好，已接入 ${permissionCount} 项权限` : '你好，演示模块'
+    const greetingEn = permissionCount > 0 ? `Hello, ${permissionCount} permissions` : 'Hello, demo module'
     return {
       routes: [
         {
