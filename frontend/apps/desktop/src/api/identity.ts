@@ -52,6 +52,9 @@ export type SsoProviderItem = identity.components['schemas']['SsoProviderItem']
 /** SSO 入口清单响应体（仅启用项；无启用 IdP 时 `items` 为空）。 */
 export type SsoProviderList = identity.components['schemas']['SsoProviderList']
 
+/** 扫码授权信息（`authorize-url` 端点响应体：授权 URL / 流程状态 / 有效期）。 */
+export type SsoAuthorizeInfo = identity.components['schemas']['SsoAuthorizeInfo']
+
 /**
  * 取当前租户可用 SSO 入口清单（免登录端点）。
  *
@@ -82,4 +85,20 @@ export function ssoAuthorizeUrl(idpKey: string, tenant?: string | null): string 
     return base
   }
   return `${base}?tenant=${encodeURIComponent(tenant)}`
+}
+
+/**
+ * 取扫码授权信息（免登录端点；供渲染二维码 / 初始化平台内嵌组件）。
+ *
+ * @param idpKey IdP 标识。
+ * @param tenant 租户编码（可选；缺省由后端按上下文 / 子域名解析）。
+ * @returns 授权 URL / 流程状态 / 有效期。
+ */
+export function fetchSsoAuthorizeInfo(idpKey: string, tenant?: string | null): Promise<SsoAuthorizeInfo> {
+  const params = tenant === undefined || tenant === null || tenant === '' ? undefined : { tenant }
+  return request<SsoAuthorizeInfo>({
+    method: 'GET',
+    url: apiUrl('identity', `/auth/sso/${encodeURIComponent(idpKey)}/authorize-url`),
+    params,
+  })
 }

@@ -60,6 +60,10 @@ export { default as NoticeMessageItem } from './components/notice/NoticeMessageI
 export { default as NoticeBell } from './components/notice/NoticeBell.vue'
 export { default as NoticeDetail } from './components/notice/NoticeDetail.vue'
 export { default as QrCode, type QrLevel, type QrStatus } from './components/display/QrCode.vue'
+export {
+  default as SsoQrLoginPanel,
+  type SsoQrPanelProvider,
+} from './components/display/SsoQrLoginPanel.vue'
 export { default as QuickEntry, type QuickEntryItem } from './components/display/QuickEntry.vue'
 export { default as UserAvatar, type AvatarSize } from './components/display/UserAvatar.vue'
 export { default as UserInfo } from './components/display/UserInfo.vue'
@@ -295,6 +299,7 @@ export {
   type UseModuleAreaResult,
 } from './composables/useModuleArea'
 export { useBaseDisplay, type UseBaseDisplayResult } from './composables/useBaseDisplay'
+export { useBaseSsoQr, type UseBaseSsoQrOptions, type UseBaseSsoQrResult } from './composables/useBaseSsoQr'
 export { useBaseTable, type UseBaseTableOptions, type UseBaseTableResult } from './composables/useBaseTable'
 export {
   useBaseQueryScheme,

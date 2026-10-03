@@ -86,6 +86,7 @@ export const CAPABILITY_MANIFEST: Readonly<Record<string, readonly string[]>> = 
   'report-designer': ['placeholder-state', 'access', 'notice', 'data-state', 'drag-drop', 'async-task'],
   'screen-designer': ['placeholder-state', 'access', 'notice', 'data-state', 'drag-drop', 'async-task'],
   'screen-player': ['placeholder-state', 'access', 'notice', 'data-state', 'async-task'],
+  'sso-qr': ['placeholder-state'],
 }
 
 /** 校验问题种类。 */
