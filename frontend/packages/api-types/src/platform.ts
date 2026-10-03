@@ -1111,6 +1111,79 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/user-extensions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List User Extensions
+         * @description 按用户列示扩展信息。
+         *
+         *     Args:
+         *         user_id: 用户主键。
+         *         uow: 请求级工作单元。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为扩展信息列表（保序）。
+         */
+        get: operations["list_user_extensions_api_v1_user_extensions_get"];
+        put?: never;
+        /**
+         * Create User Extension
+         * @description 新增一条扩展信息（同用户同标签冲突即拒绝）。
+         *
+         *     Args:
+         *         req: 新增请求（用户主键 + 标签 + 备注）。
+         *         uow: 请求级工作单元。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为扩展信息行。
+         *
+         *     Raises:
+         *         ConflictError: 同用户同标签已存在（10003）。
+         */
+        post: operations["create_user_extension_api_v1_user_extensions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/user-extensions/{extension_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Update User Extension
+         * @description 更新一条扩展信息（整体替换标签与备注）。
+         *
+         *     Args:
+         *         extension_id: 扩展信息主键。
+         *         req: 更新请求（标签 + 备注）。
+         *         uow: 请求级工作单元。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为更新后的扩展信息行。
+         *
+         *     Raises:
+         *         NotFoundError: 记录不存在（10002）。
+         *         ConflictError: 改后与既有行同标签（10003）。
+         */
+        put: operations["update_user_extension_api_v1_user_extensions__extension_id__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/healthz": {
         parameters: {
             query?: never;
@@ -1197,6 +1270,34 @@ export interface components {
              */
             code: number;
             data?: components["schemas"]["ConfigResolveResponse"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[UserExtensionItem] */
+        ApiResponse_UserExtensionItem_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["UserExtensionItem"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[UserExtensionList] */
+        ApiResponse_UserExtensionList_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["UserExtensionList"] | null;
             /**
              * Message
              * @default ok
@@ -1670,6 +1771,92 @@ export interface components {
              * @description SQL 文本（仅只读语句）
              */
             sql: string;
+        };
+        /**
+         * UserExtensionCreateRequest
+         * @description 新增用户扩展信息请求。
+         */
+        UserExtensionCreateRequest: {
+            /**
+             * Label
+             * @description 扩展标签（用户维度内唯一）
+             */
+            label: string;
+            /**
+             * Remark
+             * @description 备注
+             */
+            remark?: string | null;
+            /**
+             * User Id
+             * @description 用户主键
+             */
+            user_id: number;
+        };
+        /**
+         * UserExtensionItem
+         * @description 用户扩展信息行。
+         */
+        UserExtensionItem: {
+            /**
+             * Created At
+             * Format: date-time
+             * @description 创建时间（UTC）
+             */
+            created_at: string;
+            /**
+             * Id
+             * @description 主键（雪花 ID，JSON 以字符串输出）
+             */
+            id: string;
+            /**
+             * Label
+             * @description 扩展标签
+             */
+            label: string;
+            /**
+             * Remark
+             * @description 备注
+             */
+            remark: string | null;
+            /**
+             * Updated At
+             * Format: date-time
+             * @description 更新时间（UTC）
+             */
+            updated_at: string;
+            /**
+             * User Id
+             * @description 用户主键
+             */
+            user_id: string;
+        };
+        /**
+         * UserExtensionList
+         * @description 用户扩展信息列表（按用户列示，保序）。
+         */
+        UserExtensionList: {
+            /**
+             * Items
+             * @description 扩展信息行列表
+             */
+            items: components["schemas"]["UserExtensionItem"][];
+        };
+        /**
+         * UserExtensionUpdateRequest
+         * @description 更新用户扩展信息请求（整体替换：`label` 必填、`remark` 传 null 即清空）。
+         */
+        UserExtensionUpdateRequest: {
+            /**
+             * Label
+             * @description 扩展标签（用户维度内唯一）
+             */
+            label: string;
+            /**
+             * Remark
+             * @description 备注（null 即清空）
+             */
+            remark?: string | null;
         };
         /** ValidationError */
         ValidationError: {
@@ -5150,6 +5337,241 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    list_user_extensions_api_v1_user_extensions_get: {
+        parameters: {
+            query: {
+                /** @description 用户主键（必填） */
+                user_id: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_UserExtensionList_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    create_user_extension_api_v1_user_extensions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserExtensionCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_UserExtensionItem_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    update_user_extension_api_v1_user_extensions__extension_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                extension_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserExtensionUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_UserExtensionItem_"];
                 };
             };
             /** @description 未认证 */
