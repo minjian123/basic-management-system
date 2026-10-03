@@ -5,6 +5,9 @@
   //  - 一律用 shell + 显式 `pnpm` / `node` / `python3` / `uv`（不依赖 IDE 的 npm 任务探测，避免落到 npm）；
   //  - dev / 服务类任务为**后台任务**：以日志关键字为就绪信号（`preLaunchTask` 需据此判断可继续）；
   //    「问题匹配器」正则刻意不匹配任何行，避免把日志灌进「问题」面板；
+  //  - **5173 端口占用自愈**：`vite.config.ts` 为 `strictPort: true`（端口被占即启动失败，不会自动换端口），
+  //    故含 `pnpm dev` 的任务统一 `dependsOn`「dev:清理宿主端口（5173）」——先清理**本项目**旧宿主 dev
+  //    （按进程 cwd 校验；占用者为非本项目进程时中止报错，不误杀）。前端 /api 代理口径见 apps/desktop/.env.local；
   //  - 运行时模块本地联调口径（阶段五 `03_02` §3.7）：宿主按 `public/modules.json` 加载**发布归档**，
   //    入口形如 `http://localhost:5002/<模块名>/<版本>/remoteEntry.js` → 需先「发布:模块产物」再由
   //    `serve-module-releases.mjs` 在 5002 托管 `frontend/releases/**`（带 CORS；`python3 -m http.server`
@@ -12,8 +15,19 @@
   "version": "2.0.0",
   "tasks": [
     {
+      // 端口占用自愈（dev 类后台任务经 dependsOn 复用）：只清理**本项目**占端口的旧宿主 dev，
+      // 判定依据 = 进程 cwd 是否为本项目宿主目录；占用者为非本项目进程时中止报错，不误杀。
+      "label": "dev:清理宿主端口（5173）",
+      "detail": "清理占用 5173 的本项目旧宿主 dev（仅限 cwd 为 frontend/apps/desktop 的 vite 进程；非本项目占用则中止，不误杀）",
+      "type": "shell",
+      "command": "DIR=\"${workspaceFolder}/frontend/apps/desktop\"; rc=0; for pid in $(ss -ltnp 2>/dev/null | awk '$4 ~ /:5173$/ {print}' | grep -oP 'pid=\\K[0-9]+' | sort -u); do cwd=$(readlink -f /proc/$pid/cwd 2>/dev/null); if [ \"$cwd\" = \"$DIR\" ]; then echo \"[bms-vite] 清理本项目旧宿主 dev（pid=$pid）\"; kill -TERM \"$pid\" 2>/dev/null || true; else echo \"[bms-vite] 端口 5173 被非本项目进程占用（pid=$pid cwd=$cwd），中止启动\" >&2; rc=1; fi; done; if [ \"$rc\" -eq 0 ]; then for _ in $(seq 1 20); do ss -ltn 2>/dev/null | awk '$4 ~ /:5173$/ {f=1} END {exit !f}' || break; sleep 0.5; done; echo \"[bms-vite] 端口 5173 已空闲\"; fi; exit \"$rc\"",
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": []
+    },
+    {
       "label": "dev:宿主（5173）",
-      "detail": "BMS 宿主 PC 管理端 Vite 开发服务器（/api 代理默认 http://localhost:8088，可用 VITE_API_PROXY 覆盖）",
+      "detail": "BMS 宿主 PC 管理端 Vite 开发服务器（/api 代理经 VITE_API_PROXY 可配：缺省 http://localhost:8088 网关，本机无网关时经 apps/desktop/.env.local 指向可达网关）",
+      "dependsOn": "dev:清理宿主端口（5173）",
       "type": "shell",
       "command": "pnpm dev",
       "options": { "cwd": "${workspaceFolder}/frontend/apps/desktop" },
@@ -31,7 +45,8 @@
     },
     {
       "label": "dev:宿主 + 模块产物（5002 + 5173）",
-      "detail": "确保 5002 发布存储服务在跑（缺则后台拉起），再起宿主 dev —— 宿主加载运行时模块的前置组合",
+      "detail": "确保 5002 发布存储服务在跑（缺则后台拉起），再起宿主 dev —— 宿主加载运行时模块的前置组合（同样先经 dependsOn 清理 5173 占用）",
+      "dependsOn": "dev:清理宿主端口（5173）",
       "type": "shell",
       "command": "pgrep -f 'serve-module-releases.mjs' >/dev/null || (nohup node frontend/scripts/serve-module-releases.mjs > /tmp/bms-serve-releases.log 2>&1 &); sleep 1; cd \"${workspaceFolder}/frontend/apps/desktop\" && pnpm dev",
       "options": { "cwd": "${workspaceFolder}" },
