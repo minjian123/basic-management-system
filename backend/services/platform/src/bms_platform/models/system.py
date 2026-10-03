@@ -1,4 +1,4 @@
-"""系统平台表模型骨架：任务定义与执行记录（调度入库在阶段六回补落地）、用户偏好 / 自定义图标表声明。"""
+"""系统平台表模型骨架：任务定义与执行记录（调度入库在阶段六回补落地）、用户偏好 / 自定义图标表声明、用户扩展信息表。"""
 
 from datetime import datetime
 
@@ -79,3 +79,20 @@ class SysIconI18n(BaseModel):
     icon_id: Mapped[int] = mapped_column(BigInteger, comment="图标 ID（逻辑外键 → sys_icon.id）")
     locale: Mapped[str] = mapped_column(String(16), comment="语言标识（如 zh-CN）")
     name: Mapped[str] = mapped_column(String(128), comment="图标名称文案")
+
+
+class SysUserExtension(BaseModel):
+    """用户扩展信息（`sys_user_extension`）：同用户同标签唯一（真实建表以《数据库设计》为准）。
+
+    归属平台共享前缀 `sys_`（platform 服务租户库）；为具名插槽样例插件的后端契约资源，
+    读＝按 `user_id` 列示、写＝新增 / 更新一条。表结构以《数据库设计》数据表文件为唯一事实源。
+    """
+
+    __tablename__ = "sys_user_extension"
+    __table_args__ = (
+        UniqueConstraint("user_id", "label", "deleted_at", name="uq_sys_user_extension_user_label_deleted_at"),
+    )
+
+    user_id: Mapped[int] = mapped_column(BigInteger, index=True, comment="用户主键（逻辑外键 → sys_user.id）")
+    label: Mapped[str] = mapped_column(String(64), comment="扩展标签（用户维度内唯一）")
+    remark: Mapped[str | None] = mapped_column(String(255), nullable=True, comment="备注")
