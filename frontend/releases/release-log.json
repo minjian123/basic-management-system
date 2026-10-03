@@ -173,6 +173,23 @@
         "asyncChunkCount": 33
       },
       "sourcemap": true
+    },
+    {
+      "at": "2026-10-03T11:58:18.149Z",
+      "by": "minjian",
+      "action": "publish",
+      "module": "slot-sample",
+      "version": "0.1.0",
+      "previousVersion": null,
+      "entry": "http://localhost:5002/slot-sample/0.1.0/remoteEntry.js",
+      "contractVersion": 2,
+      "size": {
+        "entryFiles": 6,
+        "entryGzipKb": 12.1,
+        "largestGzipKb": 6.2,
+        "asyncChunkCount": 24
+      },
+      "sourcemap": true
     }
   ]
 }
