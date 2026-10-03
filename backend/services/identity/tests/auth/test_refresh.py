@@ -177,9 +177,7 @@ async def test_refresh_preserves_remember_me(client: AsyncClient, service_app: F
 
 
 @pytest.mark.kiwi_id(2234)
-async def test_refresh_legacy_null_remember_me_treated_as_remembered(
-    client: AsyncClient, service_app: FastAPI
-) -> None:
+async def test_refresh_legacy_null_remember_me_treated_as_remembered(client: AsyncClient, service_app: FastAPI) -> None:
     """历史行（`remember_me=NULL`）轮换按记住我处理（14 天），不误降级为会话级。"""
     issuer, org, store, limiter = FakeUserTokenIssuer(), FakeOrgClient(), MemorySessionStore(), MemoryRateLimiter()
     org.set_user("admin", password="secret", user_id=7)

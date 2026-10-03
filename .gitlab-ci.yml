@@ -1,7 +1,8 @@
 # MR 流水线门禁（《开发部署规划》第 7 节）
 # 口径：后端 ruff + pyright + pytest（SQLite，覆盖率整体 ≥ 70%）+ 模块注册清单校验；
 #       前端 ESLint + Vitest（双端，覆盖率整体 ≥ 70%）+ frontend/apps/desktop / frontend/apps/mobile 双端构建。
-# 核心模块（认证/RBAC/工作流/审计/收付款）≥ 80% 子阈值随对应模块落地（认证 / RBAC 阶段）接入。
+# 核心模块（认证/RBAC/工作流/审计/收付款）≥ 80% 子阈值：**认证已接入**（04_04，路径级门禁脚本
+# check-coverage-threshold.py 挂 backend-test）；RBAC / 工作流 / 审计 / 收付款随对应模块落地在脚本路径组追加。
 # backend/ frontend/apps/desktop/ 尚未落地（阶段一骨架），对应 job 以 exists 守卫，
 # 目录与清单文件出现后自动启用。
 #
@@ -300,9 +301,16 @@ backend-test:
   script:
     - cd backend
     - uv sync --frozen
-    - uv run pytest --cov=bms_core --cov=bms_platform --cov=bms_identity --cov=bms_tenant --cov=bms_org --cov=bms_file --cov=bms_notification --cov=bms_search --cov=bms_ai --cov=bms_report --cov-branch --cov-report=term --cov-fail-under=70
+    - uv run pytest --cov=bms_core --cov=bms_platform --cov=bms_identity --cov=bms_tenant --cov=bms_org --cov=bms_file --cov=bms_notification --cov=bms_search --cov=bms_ai --cov=bms_report --cov-branch --cov-report=term --cov-report=json:coverage.json --cov-fail-under=70
+    # 路径级子阈值（04_04）：认证模块（identity 整包 + bms_core 认证横切）行覆盖率 ≥80%
+    # （04_01 详细设计 §6.1 预留位落地；RBAC / 工作流子阈值后续在脚本路径组常量追加）
+    - uv run python ../scripts/tools/base-check/check-coverage-threshold.py ..
   coverage: '/^TOTAL.*?\s+\d+\s+\d+\s+(\d+(?:\.\d+)?%)$/'
-  # 核心模块（认证/RBAC/工作流/审计/收付款）≥ 80% 子阈值随对应模块落地（认证 / RBAC 阶段）接入（见 04_01 详细设计 §6.1）
+  # 覆盖率快照归档（04_04）：coverage.json 供域七阶段测试报告引用（证据留痕）
+  artifacts:
+    when: always
+    paths: [backend/coverage.json]
+    expire_in: 30 days
 
 # ---- 服务子流水线调度（父-子流水线，09_01）----
 # 口径：main 直推按变更路径只拉起受影响服务；MR 流水线全量（恢复 MR 流程后生效）；

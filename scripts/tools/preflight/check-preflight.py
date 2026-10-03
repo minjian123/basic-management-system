@@ -12,6 +12,9 @@
 4. **基座与边界**：`check-base` / `check-backend-base(+--self-test)` /
    `check-service-boundaries(+--self-test)` / `boundary_metrics`（越界 / 跨库 / 例外计数） /
    `check-status` / 网关 `gateway_config check` / 公开契约 `contract_snapshot check`。
+5. **覆盖率门禁**（04_04）：`check-coverage-threshold --self-test` 恒跑；认证模块路径子阈值
+   （identity 整包 + `bms_core` 认证横切 ≥80%）在非 `--fast`（或 `--fast` 且磁盘已有
+   `backend/coverage.json`）时对覆盖率数据校验。
 
 用法::
 
@@ -279,6 +282,7 @@ def main() -> int:
                 "--cov=bms_ai",
                 "--cov=bms_report",
                 "--cov-branch",
+                "--cov-report=json:coverage.json",
                 "--cov-fail-under=70",
             ]
         )
@@ -400,6 +404,27 @@ def main() -> int:
         failures,
     )
     _frontend_api_types(root, failures)
+
+    # 路径级覆盖率门禁（04_04）：`--self-test` 恒跑；真实阈值校验在有覆盖率数据时执行
+    # （非 `--fast` 由上面的聚合全量 pytest 产出 coverage.json；`--fast` 复用磁盘上既有快照）。
+    _run(
+        "覆盖率：check-coverage-threshold --self-test",
+        ConcurrentStableList([sys.executable, "scripts/tools/base-check/check-coverage-threshold.py", "--self-test"]),
+        root,
+        failures,
+    )
+    report = backend / "coverage.json"
+    if not fast and no_cov:
+        print("\n[preflight] 覆盖率：认证模块路径子阈值 — 跳过（--no-cov 未生成覆盖率数据）")
+    elif fast and not report.is_file():
+        print("\n[preflight] 覆盖率：认证模块路径子阈值 — 跳过（--fast 且无 backend/coverage.json）")
+    else:
+        _run(
+            "覆盖率：认证模块路径子阈值（认证 ≥80%）",
+            ConcurrentStableList([sys.executable, "scripts/tools/base-check/check-coverage-threshold.py", str(root)]),
+            root,
+            failures,
+        )
 
     print("\n================ preflight 结论 ================")
     if failures:
