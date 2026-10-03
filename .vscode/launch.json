@@ -4,8 +4,9 @@
   // 说明：
   //  - 工作区为多根（bizs.code-workspace），本文件作用于「BMS 基座/平台」根，调试下拉中显示为
   //    「BMS 基座/平台: <名称>」；「前置任务」为 tasks.json 中的同名任务。
-  //  - 前端：js-debug 内置（Node / Chromium）开箱可用；Chromium 取 PATH 上的 `chromium`
-  //    （本机为 /snap/bin/chromium，已实测支持 --user-data-dir 与远程调试端口，可断点浏览器内代码）。
+  //  - 前端：js-debug 内置（Node / Chromium）开箱可用；浏览器**首选系统 Google Chrome**
+  //    （`google-chrome`，本机 154.x，已实测支持 --user-data-dir 与远程调试端口，可断点浏览器内代码）；
+  //    备用改为系统 Chromium（`chromium`，本机 /snap/bin/chromium）——把上面的 runtimeExecutable 换掉即可。
   //  - 后端：`debugpy`（ms-python.debugpy 已随工作区推荐安装）；服务读 `backend/config.toml`
   //    的 `[server] host/port`（缺省 0.0.0.0:8000）。
   //  - 运行时模块：宿主启动时按 `frontend/apps/desktop/public/modules.json` 加载**发布归档**，
@@ -39,7 +40,7 @@
       "name": "前端：宿主 + Chromium（浏览器断点）",
       "type": "chrome",
       "request": "launch",
-      "runtimeExecutable": "chromium",
+      "runtimeExecutable": "google-chrome",
       "url": "http://localhost:5173/",
       "webRoot": "${workspaceFolder}/frontend/apps/desktop/src",
       "preLaunchTask": "dev:宿主（5173）",
@@ -50,7 +51,7 @@
       "name": "前端：宿主 + 模块 + Chromium（浏览器断点）",
       "type": "chrome",
       "request": "launch",
-      "runtimeExecutable": "chromium",
+      "runtimeExecutable": "google-chrome",
       "url": "http://localhost:5173/",
       "webRoot": "${workspaceFolder}/frontend/apps/desktop/src",
       "preLaunchTask": "dev:宿主 + 模块产物（5002 + 5173）",
@@ -61,7 +62,7 @@
       "name": "前端：核对页 + Chromium（选页）",
       "type": "chrome",
       "request": "launch",
-      "runtimeExecutable": "chromium",
+      "runtimeExecutable": "google-chrome",
       "url": "http://localhost:5173/${input:checkPage}",
       "webRoot": "${workspaceFolder}/frontend/apps/desktop/src",
       "preLaunchTask": "dev:宿主（5173）",
