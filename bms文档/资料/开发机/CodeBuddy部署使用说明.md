@@ -339,7 +339,7 @@ IDE 的「运行和调试」下拉由 `.vscode/launch.json`（启动项）与 `.
 | 后端：单服务（debugpy · 选服务） | 后端单服务断点（下拉选服务；读 `backend/config.toml` 的 `[server] host/port`） | `dev:清理后端端口（8000）` |
 | 后端：单服务（debugpy · **bms_identity**） | 固定默认服务的等价项（免每次手选）——「全套」用它；换服务用上一行或改 `module` | `dev:清理后端端口（8000）` |
 | 后端：当前文件单测（debugpy · pytest） | 打开 `backend/**/tests/test_*.py` 后 F5 | — |
-| 全套：后端单服务 + 宿主 + Chrome | 组合项（后端 + 宿主 + 浏览器一起拉起）；后端用固定项 `bms_identity`，**不再弹选择框** | — |
+| 全套：后端单服务 + 宿主 + Chrome | 组合项（后端 + 宿主 + 浏览器一起拉起）；后端用固定项 `bms_identity`（**不再弹选择框**），前端用「宿主 + 模块」项（**自动确保 5002 在跑**，否则宿主页面会落「模块加载失败」兜底） | — |
 
 浏览器断点项的 `runtimeExecutable` 必须写**绝对路径** `"/usr/bin/google-chrome"`（js-debug 只接受 `stable`/`beta` 等别名或可执行文件绝对路径，写命令名 `google-chrome` 会报「找不到浏览器」）；需改用 snap Chromium 时换成 `"/snap/bin/chromium"`，见《[google-chrome部署使用说明](google-chrome部署使用说明.md)》。
 
@@ -347,14 +347,18 @@ IDE 的「运行和调试」下拉由 `.vscode/launch.json`（启动项）与 `.
 
 | 任务 | 说明 |
 | --- | --- |
-| `dev:宿主（5173）` / `dev:宿主 + 模块产物（5002 + 5173）` | 后台任务：启动前先清理占用 5173 的**本项目**旧宿主 dev，再以 Vite 的 `Local:` 行为就绪信号（供 `preLaunchTask` 判断）；后者会先确保 5002 在跑 |
+| `dev:清理宿主端口（5173）` | 普通任务：跑 `清理宿主端口.sh` 清理占用 5173 的**本项目**旧宿主 dev（含等待端口释放），供 dev 类后台任务作 `dependsOn` 前置 |
+| `dev:确保模块产物服务（5002）` | 普通任务：幂等确保 5002 发布存储服务在跑（缺则后台拉起），供「宿主 + 模块」作 `dependsOn` 前置 |
+| `dev:宿主（5173）` / `dev:宿主 + 模块产物（5002 + 5173）` | 后台任务：命令只有 `pnpm dev`，准备动作全交 `dependsOn` 前置任务（`dependsOrder: sequence`）；以 Vite 的 `Local:` 行为就绪信号（供 `preLaunchTask` 判断） |
 | `dev:清理后端端口（8000）` | 普通任务：清理占用 8000 的本项目旧后端调试进程，供上表两个后端启动项作 `preLaunchTask`（重开「全套」不必先手工停掉上一次调试会话） |
 | `服务:模块产物（5002 · CORS 静态）` | `serve-module-releases.mjs` 托管 `bms/frontend/releases/**`（带 CORS，宿主加载运行时模块的前置） |
 | `发布:模块产物（demo + sample · 构建 + 发布）` | 构建并发布两个运行时模块到 `frontend/releases/`（归档不入库） |
 | `dev:模块 demo / sample 独立开发` | 模块自身 dev（demo 5002 / sample 5003，与「服务:模块产物」的 5002 互斥） |
 | 检查：前端基座三包 / 前端宿主 / 文档基座 / 后端 | 一键跑对应门禁（lint、typecheck、用例、体积预算、文档校验、ruff+pyright） |
 
-> 端口自愈由脚本 `bms/scripts/tools/dev/清理宿主端口.sh` 实现（入参为端口 + 本项目目录），dev 任务在 `command` 开头**内联调用**它、后端由 `preLaunchTask` 调用；判定依据是占用进程的 `cwd` 是否等于给定目录——只清理本项目旧进程，占用者为非本项目进程时**中止启动**并提示，不误杀。
+> 端口自愈由脚本 `bms/scripts/tools/dev/清理宿主端口.sh` 实现（入参为端口 + 本项目目录），判定依据是占用进程的 `cwd` 是否等于给定目录——只清理本项目旧进程，占用者为非本项目进程时**中止启动**并提示，不误杀。
+>
+> **准备动作一律放 `dependsOn` 前置任务，不要写进 `isBackground` 任务的 `command`**：后者的耗时（等端口释放、拉起 5002、`sleep`）会算进 background 的就绪等待窗口，触发「任务尚未退出，并且未定义 problemMatcher」提示；遇到该提示点「仍要调试」可继续跑，但正确做法是拆前置任务（本机两处 `tasks.json` 已如此）。
 
 ### 8.4 排障 <a id="debug-trouble"></a>
 
@@ -366,7 +370,9 @@ IDE 的「运行和调试」下拉由 `.vscode/launch.json`（启动项）与 `.
 | 后端启动项报错 | 需扩展 `ms-python.debugpy`（已装）；解释器 `bms/backend/.venv/bin/python` 须存在（`.venv` 外置口径见 [uv部署使用说明](uv部署使用说明.md)） |
 | 宿主页面显示「模块加载失败」 | 5002 上未托管发布归档：先跑「发布:模块产物」再跑「服务:模块产物（5002 · CORS 静态）」（裸静态服务缺 CORS 头会致跨源 ESM 加载失败） |
 | 点「全套」弹「正在等待 preLaunchTask」，但服务其实已经起来 | background 就绪正则没匹配上：vite 在终端里输出的是带 ANSI 颜色码的 `Local` + `ESC[22m` + `:`，字面 `Local:` 并不存在 → `endsPattern` 必须写成 `Local.*https?://`（两处 `tasks.json` 的 4 个 vite 任务已如此） |
-| 启动即报端口被占（5173 / 8000） | 上一次遗留的 dev / 调试进程未退出：dev 任务会先跑 `清理宿主端口.sh` 自愈 5173，后端由 `dev:清理后端端口（8000）` 自愈；**占用者为非本项目进程时任务会中止并提示**（不误杀，需自行处理占用方） |
+| 启动即报端口被占（5173 / 8000） | 上一次遗留的 dev / 调试进程未退出：5173 由前置任务 `dev:清理宿主端口（5173）` 自愈、8000 由 `dev:清理后端端口（8000）` 自愈；**占用者为非本项目进程时任务会中止并提示**（不误杀，需自行处理占用方） |
+| 点「全套」弹「任务尚未退出，并且未定义 problemMatcher」 | 该 background 任务的 `command` 里混了准备动作，耗时（清理等端口释放 + 拉起 5002 + `sleep`）超出就绪等待窗口：点「仍要调试」可继续；根治是把准备动作拆成 `dependsOn` 前置任务（本机两处 `tasks.json` 已如此） |
+| 页面「整体素」但登录页卡片正常 | 宿主外壳样式缺失——`ui-ep` 的 layout 族组件（`MainLayout` / `SideMenu` / `SideMenuItem` / `TabNavBar` / `ContentTabs` / `LayoutCard` / `PageContainer`）尚无样式实现；**非环境问题**（EP 样式、设计令牌与品牌色均正常）。已登记在阶段七计划的后续待办台账，需按《布局设计》主框架 / 导航补样式 |
 | 后端启动项卡在「正在加载 python 扩展」 | 装了与官方扩展**同命令 ID** 的套壳扩展（`devshub-ai.devshub-python` / `wubzbz.debugpy`）→ 官方 `ms-python.python` 激活抛 `command 'python.configureTests' already exists`；在扩展面板卸载套壳项后重载窗口（见 [7.2](#ext-dirs)） |
 | Python 环境工具（PET）反复超时、6 个 python 工具未注册 | `~/.codebuddycn/extensions/ms-python.python-*/python-env-tools/bin/pet` **缺执行位**（日志 `spawn … EACCES`）：`chmod +x` 该文件即可（本机 2026-10-03 已修，`pet --version` → `pet 0.1.0`） |
 | 后端 `.py` 满屏「无法解析导入 sqlalchemy」 | 分析器没关联到项目解释器：裸目录打开时 `bms/.vscode/settings.json` **不生效**，须在工作区根 `settings.json` 配 `python.defaultInterpreterPath`（`bms/backend/.venv/bin/python`）与 `python.analysis.extraPaths`（`bms/backend`） |
@@ -412,9 +418,9 @@ IDE 的「运行和调试」下拉由 `.vscode/launch.json`（启动项）与 `.
 - □ 首配项齐备：语言 `zh-cn`、崩溃上报关闭、插件与技能市场、MCP 登记位、补全模型与提交信息风格
 - □ 扩展管理口径明确：扩展目录 `~/.codebuddycn/extensions`、市场 open-vsx、安装用应用自带 CLI（全路径 `--install-extension`），与 `~/.vscode/extensions` 区分开
 - □ 文档预览口径明确：html 双击走内置 HTML 预览（`codebuddy.html.previewEditor`）、需要相对引用/实时刷新用 Live Preview、`file://` 不可用改走 http 静态服务；md mermaid 需 `bierner.markdown-mermaid`
-- □ 运行与调试链路口径明确：dev 任务启动前自愈 5173、后端 8000 经 `preLaunchTask` 自愈（脚本按 `cwd` 判定归属，非本项目占用则中止）；background 就绪正则容忍 ANSI（`Local.*https?://`）；Chrome 断点用绝对路径；「全套」用固定后端项免手选
+- □ 运行与调试链路口径明确：dev 类后台任务经 `dependsOn` 前置自愈 5173 与确保 5002、后端 8000 经 `preLaunchTask` 自愈（脚本按 `cwd` 判定归属，非本项目占用则中止）；**准备动作不写进 background 任务的 command**；就绪正则容忍 ANSI（`Local.*https?://`）；Chrome 断点用绝对路径；「全套」用固定后端项 + 含模块的前端项
 - □ Python 侧口径明确：官方 Python 扩展三件（无同命令 ID 的套壳项）、`pet` 有执行位、解释器在**工作区根** `settings.json` 声明、alembic 已由 `[tool.pyright] ignore` 排除
 - □ 排障入口齐备：日志三处、崩溃转储、市场超时与渲染异常的处置办法
 - □ 本机事实均经核实（2026-09-12），未写入账号/令牌等凭据
 
-> 依《[文档生成规范](../../规范/文档生成规范.md)》编写 · 与《[开发机部署使用说明总览](开发机部署使用说明总览.md)》《[opencode部署使用说明](opencode部署使用说明.md)》《[命名规范](../../规范/命名规范.md)》配套 · 记录 2026-09-12 部署核实、2026-09-13 免确认排障、2026-10-03 运行与调试启动项与扩展补齐、2026-10-03「全套」启动链路排障（端口自愈 / ANSI 就绪正则 / Python 扩展与解释器 / pyright 口径 / PET 权限 / Chrome 绝对路径）（mjpc 本机）
+> 依《[文档生成规范](../../规范/文档生成规范.md)》编写 · 与《[开发机部署使用说明总览](开发机部署使用说明总览.md)》《[opencode部署使用说明](opencode部署使用说明.md)》《[命名规范](../../规范/命名规范.md)》配套 · 记录 2026-09-12 部署核实、2026-09-13 免确认排障、2026-10-03 运行与调试启动项与扩展补齐、2026-10-03「全套」启动链路排障（端口自愈与前置任务拆分 / ANSI 就绪正则 / Python 扩展与解释器 / pyright 口径 / PET 权限 / Chrome 绝对路径 / 含模块的前端项）（mjpc 本机）
