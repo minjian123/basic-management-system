@@ -30,16 +30,26 @@ export interface ModuleRouteDeclaration {
   meta?: Record<string, unknown>
 }
 
-/** 模块页面区域声明。 */
+/** 模块页面区域（具名插槽）声明。 */
 export interface ModuleRegionDeclaration {
   /** 命名空间键（`<模块名>:<区域项>`）。 */
   key: string
-  /** 区域标识（点分，如 `layout.header`）。 */
+  /** 区域标识（点分，如 `layout.header`；具名插槽为 `{域}.{页面}.{区域}`）。 */
   area: string
   /** 挂接组件。 */
   component: unknown
   /** 同区域排序提示（缺省 0）。 */
   order?: number
+  /** 展示名（`tabs` 形态页签标题；缺省取键）。 */
+  title?: string
+  /** 图标键（`tabs` 形态页签图标；经图标注册表解析，未登记不渲染）。 */
+  icon?: string
+  /** 权限码（单个或数组；缺省不限制——宿主按已持有权限码判定）。 */
+  perm?: string | readonly string[]
+  /** 权限判定模式（缺省 `any`）。 */
+  permMode?: 'any' | 'all' | 'not'
+  /** 显示条件谓词（同步；求值 `false` 即不渲染；抛错按不渲染处置）。 */
+  when?: () => boolean
 }
 
 /** 模块主题令牌声明。 */

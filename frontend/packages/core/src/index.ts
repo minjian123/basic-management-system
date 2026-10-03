@@ -646,6 +646,7 @@ export {
   IconRegistry,
   ICON_KEY_PATTERN,
   LOCALE_TAG_PATTERN,
+  NAMED_SLOT_ID_PATTERN,
   PAGE_AREA_ID_PATTERN,
   PageAreaProvider,
   PageAreaRegistry,
@@ -664,6 +665,8 @@ export {
   schemaError,
   type FrontendRegistries,
   type IconProviderOptions,
+  type PageAreaProviderOptions,
+  type ResolveAreaOptions,
 } from './registries'
 export {
   PLATFORM_SOURCE,

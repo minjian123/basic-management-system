@@ -5,12 +5,16 @@
  */
 
 import { BaseProvider } from '../mechanisms/provider'
+import type { PermissionMode } from '../domain/permission'
 
 /** 注册项键模式（`<命名空间>:<键>`，命名空间为模块名或平台域）。 */
 export const REGISTRY_KEY_PATTERN = /^[a-z][a-z0-9-]*:[a-z][a-z0-9-]*$/
 
 /** 页面区域标识模式（点分 `<域>.<区域>`，如 `layout.header` / `form.toolbar`）。 */
 export const PAGE_AREA_ID_PATTERN = /^[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*)+$/
+
+/** 具名插槽标识模式（`{域}.{页面}.{区域}`，≥3 段，如 `sys.user.detail.tabs`）。 */
+export const NAMED_SLOT_ID_PATTERN = /^[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*){2,}$/
 
 /** 语言标识模式（小写 BCP-47，如 `zh-cn` / `en`）。 */
 export const LOCALE_TAG_PATTERN = /^[a-z]{2,3}(-[a-z0-9]{2,8})*$/
@@ -155,16 +159,40 @@ export class WorkbenchCardProvider extends BaseProvider {
   }
 }
 
+/** 页面区域（具名插槽）注册项选项（展示与显隐；均可选）。 */
+export interface PageAreaProviderOptions {
+  /** 展示名（`tabs` 形态页签标题；缺省取键）。 */
+  title?: string
+  /** 图标键（`tabs` 形态页签图标；经图标注册表解析，未登记不渲染）。 */
+  icon?: string
+  /** 权限码（单个或数组；缺省不限制）。 */
+  perm?: string | readonly string[]
+  /** 权限判定模式（缺省 `any`）。 */
+  permMode?: PermissionMode
+  /** 显示条件谓词（求值 `false` 即不渲染；抛错按不渲染处置）。 */
+  when?: () => boolean
+}
+
 /** 页面区域注册项。 */
 export class PageAreaProvider extends BaseProvider {
   /** 命名空间键（`<来源>:<区域项>`）。 */
   readonly key: string
-  /** 区域标识（点分，如 `layout.header`）。 */
+  /** 区域标识（点分，如 `layout.header`；具名插槽为 `{域}.{页面}.{区域}`）。 */
   readonly area: string
   /** 挂接组件（异步加载器或组件对象）。 */
   readonly component: unknown
   /** 同区域排序提示（缺省 0；保序仍以登记顺序为准）。 */
   readonly order: number
+  /** 展示名（`tabs` 形态页签标题）。 */
+  readonly title: string | undefined
+  /** 图标键。 */
+  readonly icon: string | undefined
+  /** 权限码（缺省不限制）。 */
+  readonly perm: string | readonly string[] | undefined
+  /** 权限判定模式。 */
+  readonly permMode: PermissionMode
+  /** 显示条件谓词（缺省可见）。 */
+  readonly when: (() => boolean) | undefined
 
   /**
    * 构造页面区域注册项。
@@ -173,13 +201,19 @@ export class PageAreaProvider extends BaseProvider {
    * @param area 区域标识。
    * @param component 挂接组件。
    * @param order 排序提示。
+   * @param options 展示与显隐选项（展示名 / 图标 / 权限码 / 权限模式 / 显示条件）。
    */
-  constructor(key: string, area: string, component: unknown, order = 0) {
+  constructor(key: string, area: string, component: unknown, order = 0, options: PageAreaProviderOptions = {}) {
     super()
     this.key = key
     this.area = area
     this.component = component
     this.order = order
+    this.title = options.title
+    this.icon = options.icon
+    this.perm = options.perm
+    this.permMode = options.permMode ?? 'any'
+    this.when = options.when
   }
 }
 

@@ -10,6 +10,8 @@ import {
   FieldRendererProvider,
   I18nPackProvider,
   IconProvider,
+  NAMED_SLOT_ID_PATTERN,
+  PAGE_AREA_ID_PATTERN,
   PageAreaProvider,
   RouteMenuProvider,
   ThemeTokenProvider,
@@ -192,6 +194,83 @@ describe('PageAreaRegistry', () => {
     expect(() => registries.pageArea.register(new PageAreaProvider('demo:hero', 'Layout.Header', {}))).toThrow(
       BaseError,
     )
+  })
+
+  // kiwi_id: 2238
+  it('具名插槽命名口径：{域}.{页面}.{区域} 至少 3 段（注册期校验仍按 ≥2 段，不破坏既有区域）', () => {
+    expect(NAMED_SLOT_ID_PATTERN.test('sys.user.detail.tabs')).toBe(true)
+    expect(NAMED_SLOT_ID_PATTERN.test('sys.user.tabs')).toBe(true)
+    expect(NAMED_SLOT_ID_PATTERN.test('layout.header')).toBe(false)
+    expect(PAGE_AREA_ID_PATTERN.test('layout.header')).toBe(true)
+
+    const registries = createRegistries()
+    registries.pageArea.register(new PageAreaProvider('demo:basic', 'sys.user.detail.tabs', {}))
+    expect(registries.pageArea.resolveByArea('sys.user.detail.tabs').map((item) => item.key)).toEqual(['demo:basic'])
+  })
+
+  it('权限显隐：perm 缺省放行；any / all / not 三模式按已持有权限码判定', () => {
+    const registries = createRegistries()
+    registries.pageArea.register(new PageAreaProvider('demo:open', 'sys.user.detail.tabs', {}))
+    registries.pageArea.register(new PageAreaProvider('demo:any', 'sys.user.detail.tabs', {}, 10, { perm: ['a', 'b'] }))
+    registries.pageArea.register(
+      new PageAreaProvider('demo:all', 'sys.user.detail.tabs', {}, 20, { perm: ['a', 'b'], permMode: 'all' }),
+    )
+    registries.pageArea.register(
+      new PageAreaProvider('demo:not', 'sys.user.detail.tabs', {}, 30, { perm: 'c', permMode: 'not' }),
+    )
+
+    const keysOf = (codes: string[]): string[] =>
+      registries.pageArea.resolveByArea('sys.user.detail.tabs', { permissionCodes: codes }).map((item) => item.key)
+
+    expect(keysOf([])).toEqual(['demo:open', 'demo:not'])
+    expect(keysOf(['a'])).toEqual(['demo:open', 'demo:any', 'demo:not'])
+    expect(keysOf(['a', 'b'])).toEqual(['demo:open', 'demo:any', 'demo:all', 'demo:not'])
+    expect(keysOf(['c'])).toEqual(['demo:open'])
+  })
+
+  it('显示条件：when 求值 false 剔除；谓词抛错按不渲染处置且不影响同区其余项', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    const registries = createRegistries()
+    registries.pageArea.register(new PageAreaProvider('demo:first', 'sys.user.detail.tabs', {}, 10))
+    registries.pageArea.register(
+      new PageAreaProvider('demo:hidden', 'sys.user.detail.tabs', {}, 20, { when: () => false }),
+    )
+    registries.pageArea.register(
+      new PageAreaProvider('demo:boom', 'sys.user.detail.tabs', {}, 30, {
+        when: () => {
+          throw new Error('when boom')
+        },
+      }),
+    )
+    registries.pageArea.register(new PageAreaProvider('demo:last', 'sys.user.detail.tabs', {}, 40))
+
+    expect(registries.pageArea.resolveByArea('sys.user.detail.tabs').map((item) => item.key)).toEqual([
+      'demo:first',
+      'demo:last',
+    ])
+    warn.mockRestore()
+  })
+
+  it('展示与显隐声明字段同名持有（title / icon / perm / permMode / when）', () => {
+    const registries = createRegistries()
+    const when = (): boolean => true
+    registries.pageArea.register(
+      new PageAreaProvider('demo:hero', 'sys.user.detail.tabs', {}, 7, {
+        title: '用户扩展示例',
+        icon: 'demo:record',
+        perm: 'demo:edit',
+        permMode: 'not',
+        when,
+      }),
+    )
+
+    const provider = registries.pageArea.get('demo:hero')
+    expect(provider?.order).toBe(7)
+    expect(provider?.title).toBe('用户扩展示例')
+    expect(provider?.icon).toBe('demo:record')
+    expect(provider?.perm).toBe('demo:edit')
+    expect(provider?.permMode).toBe('not')
+    expect(provider?.when).toBe(when)
   })
 })
 
