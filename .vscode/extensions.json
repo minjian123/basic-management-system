@@ -5,6 +5,8 @@
     "Vue.volar",
     // Python：解释器管理与调试
     "ms-python.python",
+    // Python：调试适配器（`launch.json` 里 type=debugpy 的后端调试项依赖它）
+    "ms-python.debugpy",
     // Python：语言服务（跳转 / 补全 / 类型检查，后端跳转依赖它）
     "ms-python.vscode-pylance",
     // 前端 ESLint 与 Prettier（frontend/apps/desktop / frontend/apps/mobile + frontend/packages/*）
