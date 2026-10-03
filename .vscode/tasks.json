@@ -5,10 +5,12 @@
   //  - 一律用 shell + 显式 `pnpm` / `node` / `python3` / `uv`（不依赖 IDE 的 npm 任务探测，避免落到 npm）；
   //  - dev / 服务类任务为**后台任务**：以日志关键字为就绪信号（`preLaunchTask` 需据此判断可继续）；
   //    「问题匹配器」正则刻意不匹配任何行，避免把日志灌进「问题」面板；
-  //  - **5173 端口占用自愈**：`vite.config.ts` 为 `strictPort: true`（端口被占即启动失败，不会自动换端口），
-  //    故含 `pnpm dev` 的任务在 command 开头内联调用 `scripts/tools/dev/清理宿主端口.sh`——先清理
-  //    **本项目**旧宿主 dev（按进程 cwd 校验；占用者为非本项目进程时中止，不误杀）。前端 /api 代理口径
-  //    见 apps/desktop/.env.local；
+  //  - **端口自愈与前置准备**：`vite.config.ts` 为 `strictPort: true`（端口被占即启动失败），故 dev 类
+  //    后台任务把准备动作拆成 `dependsOn` 前置任务（`dev:清理宿主端口（5173）` 调
+  //    `scripts/tools/dev/清理宿主端口.sh`；`dev:确保模块产物服务（5002）` 幂等拉起 5002），自身命令
+  //    只留 `pnpm dev`——**准备动作不要写进 background 任务的 command**，其耗时会算进就绪等待窗口，
+  //    触发「任务尚未退出，并且未定义 problemMatcher」提示。脚本按进程 cwd 判定归属，非本项目占用则中止。
+  //    前端 /api 代理口径见 apps/desktop/.env.local；
   //  - **background 就绪正则必须容忍 ANSI 颜色码**：vite 在 TTY 下输出的 `Local:` 实为
   //    `Local` + `ESC[22m` + `:`（字面 `Local:` 不存在），故 `endsPattern` 必须写 `Local.*https?://`；
   //    否则 `activeOnStart` 之后再无就绪信号 → `preLaunchTask` 弹「正在等待 preLaunchTask」，
@@ -22,13 +24,32 @@
   "version": "2.0.0",
   "tasks": [
     {
-      // 端口占用自愈：启动前先经脚本清理**本项目**占 5173 的旧宿主 dev（脚本按进程 cwd 校验，
-      // 非本项目占用则中止）。background 就绪正则须容忍 ANSI 颜色码，见文件头说明。
-      "label": "dev:宿主（5173）",
-      "detail": "BMS 宿主 PC 管理端 Vite 开发服务器（启动前清理本项目旧宿主 dev；/api 代理经 VITE_API_PROXY 可配：缺省 http://localhost:8088 网关，本机无网关时经 apps/desktop/.env.local 指向可达网关）",
+      // 供 dev 类后台任务作 dependsOn 前置：清理本项目占 5173 的旧宿主 dev（含等待端口释放），
+      // 占用者为非本项目进程时退出非 0（不误杀）。**准备动作不放进 background 任务的命令里**，
+      // 否则其耗时会计入 background 的就绪等待窗口，触发「尚未退出，并且未定义 problemMatcher」提示。
+      "label": "dev:清理宿主端口（5173）",
       "type": "shell",
-      "command": "bash \"${workspaceFolder}/scripts/tools/dev/清理宿主端口.sh\" 5173 \"${workspaceFolder}/frontend/apps/desktop\" || exit 1; cd \"${workspaceFolder}/frontend/apps/desktop\" && pnpm dev",
+      "command": "bash \"${workspaceFolder}/scripts/tools/dev/清理宿主端口.sh\" 5173 \"${workspaceFolder}/frontend/apps/desktop\"",
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": []
+    },
+    {
+      // 供「宿主 + 模块」作 dependsOn 前置：确保 5002 发布存储服务在跑（缺则后台拉起，幂等）
+      "label": "dev:确保模块产物服务（5002）",
+      "type": "shell",
+      "command": "pgrep -f 'serve-module-releases.mjs' >/dev/null || (nohup node frontend/scripts/serve-module-releases.mjs > /tmp/bms-serve-releases.log 2>&1 &); sleep 1",
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": []
+    },
+    {
+      // 端口自愈与 5002 由前置任务负责；本任务只跑 vite —— background 就绪检测面对纯 vite 输出
+      "label": "dev:宿主（5173）",
+      "detail": "BMS 宿主 PC 管理端 Vite 开发服务器（前置任务清理本项目旧宿主 dev；/api 代理经 VITE_API_PROXY 可配：缺省 http://localhost:8088 网关，本机无网关时经 apps/desktop/.env.local 指向可达网关）",
+      "type": "shell",
+      "command": "pnpm dev",
       "options": { "cwd": "${workspaceFolder}/frontend/apps/desktop" },
+      "dependsOn": "dev:清理宿主端口（5173）",
+      "dependsOrder": "sequence",
       "isBackground": true,
       "presentation": { "reveal": "always", "panel": "dedicated" },
       "problemMatcher": {
@@ -43,10 +64,12 @@
     },
     {
       "label": "dev:宿主 + 模块产物（5002 + 5173）",
-      "detail": "确保 5002 发布存储服务在跑（缺则后台拉起），再起宿主 dev —— 宿主加载运行时模块的前置组合（同样先清理本项目旧宿主 dev）",
+      "detail": "宿主加载运行时模块的前置组合：先经 dependsOn 清理 5173 并确保 5002 在跑，再起宿主 dev",
       "type": "shell",
-      "command": "bash \"${workspaceFolder}/scripts/tools/dev/清理宿主端口.sh\" 5173 \"${workspaceFolder}/frontend/apps/desktop\" || exit 1; pgrep -f 'serve-module-releases.mjs' >/dev/null || (nohup node frontend/scripts/serve-module-releases.mjs > /tmp/bms-serve-releases.log 2>&1 &); sleep 1; cd \"${workspaceFolder}/frontend/apps/desktop\" && pnpm dev",
-      "options": { "cwd": "${workspaceFolder}" },
+      "command": "pnpm dev",
+      "options": { "cwd": "${workspaceFolder}/frontend/apps/desktop" },
+      "dependsOn": ["dev:清理宿主端口（5173）", "dev:确保模块产物服务（5002）"],
+      "dependsOrder": "sequence",
       "isBackground": true,
       "presentation": { "reveal": "always", "panel": "dedicated" },
       "problemMatcher": {
