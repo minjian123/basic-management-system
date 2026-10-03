@@ -87,11 +87,12 @@ service-release:
     - IMAGE="$REGISTRY_IMAGE_PREFIX/bms-$SERVICE:$CI_COMMIT_SHORT_SHA"
     - docker push "$IMAGE"
     # 镜像安全扫描（架构「main 分支镜像构建 + 扫描」口径；CRITICAL / HIGH 阻断发布）
-    # - trivy 固定 tag；-v trivy-cache 持久化漏洞库（免每次重下）；DB 走国内镜像
+    # - trivy 固定 tag；`trivy-cache-$SERVICE` **按服务隔离**持久化漏洞库（免每次重下）——共享单卷会
+    #   跨服务争抢缓存 / 漏洞库锁超时（2026-10-03 修复，见阶段六计划 §7）；DB 走国内镜像
     #   （默认 mirror.gcr.io 在 mjbk 不可达，实测 ghcr.nju.edu.cn 可用）
-    - docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v trivy-cache:/root/.cache/trivy -e TRIVY_DB_REPOSITORY=ghcr.nju.edu.cn/aquasecurity/trivy-db:2 aquasec/trivy:0.74.0 image --exit-code 1 --severity CRITICAL,HIGH --ignore-unfixed "$IMAGE"
+    - docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v trivy-cache-$SERVICE:/root/.cache/trivy -e TRIVY_DB_REPOSITORY=ghcr.nju.edu.cn/aquasecurity/trivy-db:2 aquasec/trivy:0.74.0 image --exit-code 1 --severity CRITICAL,HIGH --ignore-unfixed "$IMAGE"
     # SBOM 挂点（04_03）：镜像 CycloneDX 清单（完整上报 / 签名 / 分发策略归部署阶段；不阻断发布）
-    - docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$CI_PROJECT_DIR:/out" -v trivy-cache:/root/.cache/trivy -e TRIVY_DB_REPOSITORY=ghcr.nju.edu.cn/aquasecurity/trivy-db:2 aquasec/trivy:0.74.0 image --format cyclonedx --output "/out/sbom-$SERVICE.cyclonedx.json" "$IMAGE"
+    - docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$CI_PROJECT_DIR:/out" -v trivy-cache-$SERVICE:/root/.cache/trivy -e TRIVY_DB_REPOSITORY=ghcr.nju.edu.cn/aquasecurity/trivy-db:2 aquasec/trivy:0.74.0 image --format cyclonedx --output "/out/sbom-$SERVICE.cyclonedx.json" "$IMAGE"
     # 语义化标签（tag 流水线）：扫描通过后对同一镜像追加持久 vX.Y.Z 标签（不可变；禁 latest）
     - |
       if [ -n "$CI_COMMIT_TAG" ]; then

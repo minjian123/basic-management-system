@@ -178,7 +178,7 @@ def test_service_build_and_release_jobs() -> None:
     assert "aquasec/trivy:0.74.0" in release_script
     assert ":latest" not in release_script
     assert "TRIVY_DB_REPOSITORY=ghcr.nju.edu.cn/aquasecurity/trivy-db:2" in release_script
-    assert "trivy-cache:/root/.cache/trivy" in release_script
+    assert "trivy-cache-$SERVICE:/root/.cache/trivy" in release_script
     assert "--provenance=false" in build_script
     assert "--severity CRITICAL,HIGH" in release_script
     # SBOM 挂点（04_03）
