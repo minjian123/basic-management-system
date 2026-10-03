@@ -20,7 +20,8 @@
 阶段度量地址经模板变量 PUSHGATEWAY_URL（默认宿主 9092，可被项目变量覆盖，未配置则跳过推送）。
 trivy 镜像固定 tag `aquasec/trivy:0.74.0`，需在 mjbk 预拉缓存（runner pull_policy = if-not-present；
 拉取见 scripts/tools/docker/镜像清单.txt）；漏洞库走 `TRIVY_DB_REPOSITORY=ghcr.nju.edu.cn/aquasecurity/trivy-db:2`
-（默认 mirror.gcr.io 在 mjbk 不可达）+ `trivy-cache` 卷持久化（免每次重下）。
+（默认 mirror.gcr.io 在 mjbk 不可达）+ `trivy-cache-$SERVICE` 卷**按服务隔离**持久化（免每次重下；
+共享单卷会跨服务争抢缓存 / 漏洞库锁超时，2026-10-03 修复，见阶段六计划 §7）。
 
 删除本文件即关闭本档（子流水线只保留 test，前端镜像 job 亦不出现）；
 分档语义与激活路线见 .gitlab-ci.yml 文件头注释与《项目骨架计划》§3.1。
