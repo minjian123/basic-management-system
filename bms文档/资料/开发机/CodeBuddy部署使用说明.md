@@ -1,12 +1,12 @@
 # CodeBuddy 部署使用说明
 
-> mjpc 开发机 CodeBuddy（腾讯云代码助手 IDE，codebuddy-cn 4.12.0 / 应用 1.106.1）部署、配置、扩展管理、文档预览、权限与排障实录 · 2026-09-12 部署 / 2026-09-13 免确认排障
+> mjpc 开发机 CodeBuddy（腾讯云代码助手 IDE，codebuddy-cn 4.12.0 / 应用 1.106.1）部署、配置、扩展管理、文档预览、权限与排障实录 · 2026-09-12 部署 / 2026-09-13 免确认排障 / 2026-10-03 运行与调试链路排障
 
 [文档首页](../../文档首页.md) › 资料 › 开发机 › CodeBuddy 部署使用说明　|　[同级：开发机部署使用说明总览](开发机部署使用说明总览.md)　[google-chrome部署使用说明 →](google-chrome部署使用说明.md)　[playwright部署使用说明 →](playwright部署使用说明.md)　[opencode部署使用说明 →](opencode部署使用说明.md)
 
 ## 1. 目的与适用范围 <a id="purpose"></a>
 
-记录开发机 **mjpc**（Ubuntu 26.04.1 LTS，GNOME，Wayland，NVIDIA RTX 4090）上 **CodeBuddy** 的部署与使用：安装来源与版本、四个用户数据目录的作用、首次配置项（登录/语言/插件/技能/MCP）、**权限与免确认设置**（自动运行命令、文件自动修改、安全检查类别、黑名单、安全删除；含**免确认失效的排查：安全类别的真正存储与生效链路**，见[6.3](#permission-security)）、**扩展管理（扩展目录 / open-vsx 市场 / 应用自带 CLI）与 HTML 文档预览**（内置 HTML 预览、Live Preview、Simple Browser；bms 文档资产与 md mermaid 的预览办法）、**运行与调试启动项**（`.vscode/launch.json` / `tasks.json` 的两处落点与「VS Code 不读子目录 `.vscode`」口径、启动项与任务清单、排障，见[第 8 节](#debug)）、常用设置与排障入口。
+记录开发机 **mjpc**（Ubuntu 26.04.1 LTS，GNOME，Wayland，NVIDIA RTX 4090）上 **CodeBuddy** 的部署与使用：安装来源与版本、四个用户数据目录的作用、首次配置项（登录/语言/插件/技能/MCP）、**权限与免确认设置**（自动运行命令、文件自动修改、安全检查类别、黑名单、安全删除；含**免确认失效的排查：安全类别的真正存储与生效链路**，见[6.3](#permission-security)）、**扩展管理（扩展目录 / open-vsx 市场 / 应用自带 CLI）与 HTML 文档预览**（内置 HTML 预览、Live Preview、Simple Browser；bms 文档资产与 md mermaid 的预览办法）、**运行与调试启动项**（`.vscode/launch.json` / `tasks.json` 的两处落点与「VS Code 不读子目录 `.vscode`」口径、启动项与任务清单、**端口自愈 / 就绪正则 / Python 解释器与 pyright 口径 / Chrome 绝对路径**排障，见[第 8 节](#debug)）、常用设置与排障入口。
 
 本文档与《[开发机部署使用说明总览](开发机部署使用说明总览.md)》「开发设施清单」节与「桌面快捷方式设置（通用）」节配套；CodeBuddy 与 [opencode](opencode部署使用说明.md)、[deepseek-harness](../AI/deepseek_harness部署使用说明.md) 同属本机 AI 编码工具，三者互不干扰、各自独立部署。
 
@@ -262,10 +262,11 @@ CLI=/usr/share/buddycn/bin/buddycn
 
 本机已装扩展（2026-09-12 快照，除标注外均为先前安装；2026-10-03 补装见末条）：
 
-- `ms-python.python` / `ms-python.debugpy` / `ms-python.vscode-python-envs` / `wubzbz.debugpy`、`detachhead.basedpyright`（Python 与类型检查）
+- `ms-python.python` / `ms-python.debugpy` / `ms-python.vscode-python-envs`、`detachhead.basedpyright`（Python 与类型检查）
 - `cweijan.vscode-office`（Office 文件查看）、`donjayamanne.githistory`（Git 历史）、`sst-dev.opencode`、`fengze233.dsh-vscode-panel`
 - `ms-vscode.live-server` 0.4.16（Live Preview，HTML 预览用）
 - **2026-10-03 补装（对应工作区 `extensions.json` 推荐项）**：`dbaeumer.vscode-eslint` 3.0.34、`esbenp.prettier-vscode` 12.4.0、`bierner.markdown-mermaid` 1.32.1；`ms-python.debugpy` 与 `vue.volar` 本已安装
+- **2026-10-03 卸载（同命令 ID 冲突，见 [8.4](#debug-trouble)）**：`wubzbz.debugpy`、`devshub-ai.devshub-python` —— 两者是官方扩展的「套壳发行版」，与 `ms-python.debugpy` / `ms-python.python` **注册同一批命令 ID**，导致官方扩展激活抛 `command 'python.configureTests' already exists`，`type: debugpy` 启动项卡在「正在加载 python 扩展」。卸载后只保留官方三件。
 
 ### 7.3 HTML 预览的三条路 <a id="html-preview"></a>
 
@@ -335,21 +336,25 @@ IDE 的「运行和调试」下拉由 `.vscode/launch.json`（启动项）与 `.
 | 前端：核对页 + Chrome（选页） | 开发态核对页实测（下拉选页，默认 `login-check.html`） | `dev:宿主（5173）` |
 | 前端：当前文件单测（Node · Vitest） | 打开某个 `tests/*.spec.ts` 后 F5 调试该文件 | — |
 | 模块：demo / sample 独立开发（5002 / 5003） | 模块自身 `pnpm dev`（与宿主联调无关） | — |
-| 后端：单服务（debugpy · 选服务） | 后端单服务断点（读 `backend/config.toml` 的 `[server] host/port`） | — |
+| 后端：单服务（debugpy · 选服务） | 后端单服务断点（下拉选服务；读 `backend/config.toml` 的 `[server] host/port`） | `dev:清理后端端口（8000）` |
+| 后端：单服务（debugpy · **bms_identity**） | 固定默认服务的等价项（免每次手选）——「全套」用它；换服务用上一行或改 `module` | `dev:清理后端端口（8000）` |
 | 后端：当前文件单测（debugpy · pytest） | 打开 `backend/**/tests/test_*.py` 后 F5 | — |
-| 全套：后端单服务 + 宿主 + Chrome | 组合项（后端 + 宿主 + 浏览器一起拉起） | — |
+| 全套：后端单服务 + 宿主 + Chrome | 组合项（后端 + 宿主 + 浏览器一起拉起）；后端用固定项 `bms_identity`，**不再弹选择框** | — |
 
-浏览器用 `runtimeExecutable: "google-chrome"`（首选）；需改用 snap Chromium 时把它换成 `"chromium"`，见《[google-chrome部署使用说明](google-chrome部署使用说明.md)》。
+浏览器断点项的 `runtimeExecutable` 必须写**绝对路径** `"/usr/bin/google-chrome"`（js-debug 只接受 `stable`/`beta` 等别名或可执行文件绝对路径，写命令名 `google-chrome` 会报「找不到浏览器」）；需改用 snap Chromium 时换成 `"/snap/bin/chromium"`，见《[google-chrome部署使用说明](google-chrome部署使用说明.md)》。
 
 ### 8.3 任务清单 <a id="debug-tasks"></a>
 
 | 任务 | 说明 |
 | --- | --- |
-| `dev:宿主（5173）` / `dev:宿主 + 模块产物（5002 + 5173）` | 后台任务：以 Vite 的 `Local:` 行为就绪信号（供 `preLaunchTask` 判断）；后者会先确保 5002 在跑 |
+| `dev:宿主（5173）` / `dev:宿主 + 模块产物（5002 + 5173）` | 后台任务：启动前先清理占用 5173 的**本项目**旧宿主 dev，再以 Vite 的 `Local:` 行为就绪信号（供 `preLaunchTask` 判断）；后者会先确保 5002 在跑 |
+| `dev:清理后端端口（8000）` | 普通任务：清理占用 8000 的本项目旧后端调试进程，供上表两个后端启动项作 `preLaunchTask`（重开「全套」不必先手工停掉上一次调试会话） |
 | `服务:模块产物（5002 · CORS 静态）` | `serve-module-releases.mjs` 托管 `bms/frontend/releases/**`（带 CORS，宿主加载运行时模块的前置） |
 | `发布:模块产物（demo + sample · 构建 + 发布）` | 构建并发布两个运行时模块到 `frontend/releases/`（归档不入库） |
 | `dev:模块 demo / sample 独立开发` | 模块自身 dev（demo 5002 / sample 5003，与「服务:模块产物」的 5002 互斥） |
 | 检查：前端基座三包 / 前端宿主 / 文档基座 / 后端 | 一键跑对应门禁（lint、typecheck、用例、体积预算、文档校验、ruff+pyright） |
+
+> 端口自愈由脚本 `bms/scripts/tools/dev/清理宿主端口.sh` 实现（入参为端口 + 本项目目录），dev 任务在 `command` 开头**内联调用**它、后端由 `preLaunchTask` 调用；判定依据是占用进程的 `cwd` 是否等于给定目录——只清理本项目旧进程，占用者为非本项目进程时**中止启动**并提示，不误杀。
 
 ### 8.4 排障 <a id="debug-trouble"></a>
 
@@ -360,6 +365,12 @@ IDE 的「运行和调试」下拉由 `.vscode/launch.json`（启动项）与 `.
 | 浏览器断点不生效 | `runtimeExecutable` 须是本机存在的可执行文件（`google-chrome` 或备用 `chromium`）；确认 Chrome 已装（[google-chrome部署使用说明](google-chrome部署使用说明.md)） |
 | 后端启动项报错 | 需扩展 `ms-python.debugpy`（已装）；解释器 `bms/backend/.venv/bin/python` 须存在（`.venv` 外置口径见 [uv部署使用说明](uv部署使用说明.md)） |
 | 宿主页面显示「模块加载失败」 | 5002 上未托管发布归档：先跑「发布:模块产物」再跑「服务:模块产物（5002 · CORS 静态）」（裸静态服务缺 CORS 头会致跨源 ESM 加载失败） |
+| 点「全套」弹「正在等待 preLaunchTask」，但服务其实已经起来 | background 就绪正则没匹配上：vite 在终端里输出的是带 ANSI 颜色码的 `Local` + `ESC[22m` + `:`，字面 `Local:` 并不存在 → `endsPattern` 必须写成 `Local.*https?://`（两处 `tasks.json` 的 4 个 vite 任务已如此） |
+| 启动即报端口被占（5173 / 8000） | 上一次遗留的 dev / 调试进程未退出：dev 任务会先跑 `清理宿主端口.sh` 自愈 5173，后端由 `dev:清理后端端口（8000）` 自愈；**占用者为非本项目进程时任务会中止并提示**（不误杀，需自行处理占用方） |
+| 后端启动项卡在「正在加载 python 扩展」 | 装了与官方扩展**同命令 ID** 的套壳扩展（`devshub-ai.devshub-python` / `wubzbz.debugpy`）→ 官方 `ms-python.python` 激活抛 `command 'python.configureTests' already exists`；在扩展面板卸载套壳项后重载窗口（见 [7.2](#ext-dirs)） |
+| Python 环境工具（PET）反复超时、6 个 python 工具未注册 | `~/.codebuddycn/extensions/ms-python.python-*/python-env-tools/bin/pet` **缺执行位**（日志 `spawn … EACCES`）：`chmod +x` 该文件即可（本机 2026-10-03 已修，`pet --version` → `pet 0.1.0`） |
+| 后端 `.py` 满屏「无法解析导入 sqlalchemy」 | 分析器没关联到项目解释器：裸目录打开时 `bms/.vscode/settings.json` **不生效**，须在工作区根 `settings.json` 配 `python.defaultInterpreterPath`（`bms/backend/.venv/bin/python`）与 `python.analysis.extraPaths`（`bms/backend`） |
+| `alembic/versions/**` 满屏类型报错（如 `Column` 泛型缺参数） | 该目录**本就不在门禁范围**（`bms/backend/pyproject.toml` 的 `[tool.pyright] include` 只含 `libs`/`services`），是 IDE 侧 `basedpyright` 默认 `recommended` 档在报：已在项目 `[tool.pyright]` 加 `ignore = ["alembic"]`，并让 `basedpyright.analysis.configFilePath` 指向该 `pyproject.toml`（IDE 与门禁同口径；`uv run pyright` 实测 905 文件 / 0 错） |
 
 ## 9. 常用设置与排障 <a id="trouble"></a>
 
@@ -401,7 +412,9 @@ IDE 的「运行和调试」下拉由 `.vscode/launch.json`（启动项）与 `.
 - □ 首配项齐备：语言 `zh-cn`、崩溃上报关闭、插件与技能市场、MCP 登记位、补全模型与提交信息风格
 - □ 扩展管理口径明确：扩展目录 `~/.codebuddycn/extensions`、市场 open-vsx、安装用应用自带 CLI（全路径 `--install-extension`），与 `~/.vscode/extensions` 区分开
 - □ 文档预览口径明确：html 双击走内置 HTML 预览（`codebuddy.html.previewEditor`）、需要相对引用/实时刷新用 Live Preview、`file://` 不可用改走 http 静态服务；md mermaid 需 `bierner.markdown-mermaid`
+- □ 运行与调试链路口径明确：dev 任务启动前自愈 5173、后端 8000 经 `preLaunchTask` 自愈（脚本按 `cwd` 判定归属，非本项目占用则中止）；background 就绪正则容忍 ANSI（`Local.*https?://`）；Chrome 断点用绝对路径；「全套」用固定后端项免手选
+- □ Python 侧口径明确：官方 Python 扩展三件（无同命令 ID 的套壳项）、`pet` 有执行位、解释器在**工作区根** `settings.json` 声明、alembic 已由 `[tool.pyright] ignore` 排除
 - □ 排障入口齐备：日志三处、崩溃转储、市场超时与渲染异常的处置办法
 - □ 本机事实均经核实（2026-09-12），未写入账号/令牌等凭据
 
-> 依《[文档生成规范](../../规范/文档生成规范.md)》编写 · 与《[开发机部署使用说明总览](开发机部署使用说明总览.md)》《[opencode部署使用说明](opencode部署使用说明.md)》《[命名规范](../../规范/命名规范.md)》配套 · 记录 2026-09-12 部署核实、2026-09-13 免确认排障、2026-10-03 运行与调试启动项与扩展补齐（mjpc 本机）
+> 依《[文档生成规范](../../规范/文档生成规范.md)》编写 · 与《[开发机部署使用说明总览](开发机部署使用说明总览.md)》《[opencode部署使用说明](opencode部署使用说明.md)》《[命名规范](../../规范/命名规范.md)》配套 · 记录 2026-09-12 部署核实、2026-09-13 免确认排障、2026-10-03 运行与调试启动项与扩展补齐、2026-10-03「全套」启动链路排障（端口自愈 / ANSI 就绪正则 / Python 扩展与解释器 / pyright 口径 / PET 权限 / Chrome 绝对路径）（mjpc 本机）
