@@ -2,11 +2,11 @@
 
 > mjpc 开发机 CodeBuddy（腾讯云代码助手 IDE，codebuddy-cn 4.12.0 / 应用 1.106.1）部署、配置、扩展管理、文档预览、权限与排障实录 · 2026-09-12 部署 / 2026-09-13 免确认排障
 
-[文档首页](../../文档首页.md) › 资料 › 开发机 › CodeBuddy 部署使用说明　|　[同级：开发机部署使用说明总览](开发机部署使用说明总览.md)　[opencode部署使用说明 →](opencode部署使用说明.md)
+[文档首页](../../文档首页.md) › 资料 › 开发机 › CodeBuddy 部署使用说明　|　[同级：开发机部署使用说明总览](开发机部署使用说明总览.md)　[google-chrome部署使用说明 →](google-chrome部署使用说明.md)　[playwright部署使用说明 →](playwright部署使用说明.md)　[opencode部署使用说明 →](opencode部署使用说明.md)
 
 ## 1. 目的与适用范围 <a id="purpose"></a>
 
-记录开发机 **mjpc**（Ubuntu 26.04.1 LTS，GNOME，Wayland，NVIDIA RTX 4090）上 **CodeBuddy** 的部署与使用：安装来源与版本、四个用户数据目录的作用、首次配置项（登录/语言/插件/技能/MCP）、**权限与免确认设置**（自动运行命令、文件自动修改、安全检查类别、黑名单、安全删除；含**免确认失效的排查：安全类别的真正存储与生效链路**，见[6.3](#permission-security)）、**扩展管理（扩展目录 / open-vsx 市场 / 应用自带 CLI）与 HTML 文档预览**（内置 HTML 预览、Live Preview、Simple Browser；bms 文档资产与 md mermaid 的预览办法）、常用设置与排障入口。
+记录开发机 **mjpc**（Ubuntu 26.04.1 LTS，GNOME，Wayland，NVIDIA RTX 4090）上 **CodeBuddy** 的部署与使用：安装来源与版本、四个用户数据目录的作用、首次配置项（登录/语言/插件/技能/MCP）、**权限与免确认设置**（自动运行命令、文件自动修改、安全检查类别、黑名单、安全删除；含**免确认失效的排查：安全类别的真正存储与生效链路**，见[6.3](#permission-security)）、**扩展管理（扩展目录 / open-vsx 市场 / 应用自带 CLI）与 HTML 文档预览**（内置 HTML 预览、Live Preview、Simple Browser；bms 文档资产与 md mermaid 的预览办法）、**运行与调试启动项**（`.vscode/launch.json` / `tasks.json` 的两处落点与「VS Code 不读子目录 `.vscode`」口径、启动项与任务清单、排障，见[第 8 节](#debug)）、常用设置与排障入口。
 
 本文档与《[开发机部署使用说明总览](开发机部署使用说明总览.md)》「开发设施清单」节与「桌面快捷方式设置（通用）」节配套；CodeBuddy 与 [opencode](opencode部署使用说明.md)、[deepseek-harness](../AI/deepseek_harness部署使用说明.md) 同属本机 AI 编码工具，三者互不干扰、各自独立部署。
 
@@ -28,7 +28,7 @@
 | CLI | PATH 中**无** `codebuddy` / `cbc`；但应用自带桌面 CLI **`/usr/share/buddycn/bin/buddycn`**（VS Code 同款，支持 `--install-extension` / `--list-extensions` 等，扩展管理即用它，见第 7 节）；如需独立 CLI 另按其官方文档部署 |
 | Electron 版本 | 37.7.0（由进程启动参数核实） |
 
-> 本机 **无 GPU/Wayland 崩溃**：CodeBuddy 日志中未见 GPU 进程段错误（与 [opencode](opencode部署使用说明.md) 在本机 NVIDIA + Wayland 下的 GPU 崩溃不是一类问题），因此**无需** `--disable-gpu`；若日后出现渲染异常，排障方式见[第 8 节](#trouble)。
+> 本机 **无 GPU/Wayland 崩溃**：CodeBuddy 日志中未见 GPU 进程段错误（与 [opencode](opencode部署使用说明.md) 在本机 NVIDIA + Wayland 下的 GPU 崩溃不是一类问题），因此**无需** `--disable-gpu`；若日后出现渲染异常，排障方式见[第 9 节](#trouble)。
 
 ## 3. 安装与升级 <a id="install"></a>
 
@@ -260,11 +260,12 @@ CLI=/usr/share/buddycn/bin/buddycn
 - 中断/卡死可能残留 `sh /usr/share/buddycn/bin/buddycn --install-extension …` 进程（`pgrep -af install-extension` 查看），`kill <pid>` 后重试；
 - 安装前可先确认市场可达：`curl -I https://open-vsx.org/api/<发布者>/<名称>`（本机 2026-09-12 实测直连正常，秒级响应）。
 
-本机已装扩展（2026-09-12 快照，除标注外均为先前安装）：
+本机已装扩展（2026-09-12 快照，除标注外均为先前安装；2026-10-03 补装见末条）：
 
 - `ms-python.python` / `ms-python.debugpy` / `ms-python.vscode-python-envs` / `wubzbz.debugpy`、`detachhead.basedpyright`（Python 与类型检查）
 - `cweijan.vscode-office`（Office 文件查看）、`donjayamanne.githistory`（Git 历史）、`sst-dev.opencode`、`fengze233.dsh-vscode-panel`
-- **`ms-vscode.live-server` 0.4.16（Live Preview，本次为 HTML 预览新装）**
+- `ms-vscode.live-server` 0.4.16（Live Preview，HTML 预览用）
+- **2026-10-03 补装（对应工作区 `extensions.json` 推荐项）**：`dbaeumer.vscode-eslint` 3.0.34、`esbenp.prettier-vscode` 12.4.0、`bierner.markdown-mermaid` 1.32.1；`ms-python.debugpy` 与 `vue.volar` 本已安装
 
 ### 7.3 HTML 预览的三条路 <a id="html-preview"></a>
 
@@ -309,9 +310,60 @@ pkill -f "http.server 8765"                         # 用完关闭
 | 预览页无样式、mermaid 不渲染 | 走 http：Live Preview 或 7.4 的静态服务，别用 `file://` |
 | md 里 mermaid 是代码块 | 未装 `bierner.markdown-mermaid`（或装后未重载窗口） |
 
-## 8. 常用设置与排障 <a id="trouble"></a>
+## 8. 运行与调试启动项 <a id="debug"></a>
 
-### 8.1 常用设置 <a id="settings"></a>
+IDE 的「运行和调试」下拉由 `.vscode/launch.json`（启动项）与 `.vscode/tasks.json`（任务 / 前置任务）驱动；bizs / bms 两处配置均已入库（根仓库白名单 `!/.vscode/`）。
+
+### 8.1 位置口径（先看这条） <a id="debug-location"></a>
+
+**VS Code 只读取「被打开的那个根」下的 `.vscode/`，不读取子目录的配置。** 本机曾出现「运行和调试面板为空」，原因就是把 `bizs` 当根打开、而启动项只放在 `bms/.vscode/`。故同一套启动项有两份，**改动须同步两处**（与工作区根 `settings.json` 的「双保险：裸目录打开 / 工作区文件打开均生效」同口径）：
+
+| 落点 | 生效场景 | 路径写法 |
+| --- | --- | --- |
+| `~/develop/bizs/.vscode/`（**工作区根**） | 裸目录打开 `bizs`；或打开工作区文件 `bizs.code-workspace` 的「工作区（配置）」根 | 带 `bms/` 前缀；「当前文件」类用 `${file}` |
+| `~/develop/bizs/bms/.vscode/` | 单独打开 `bms` 时 | 不带前缀；用 `${relativeFile}` |
+
+改完需 `Ctrl+Shift+P` → 「重新加载窗口」才会刷新下拉。
+
+### 8.2 启动项清单 <a id="debug-list"></a>
+
+| 启动项 | 用途 | 前置任务 |
+| --- | --- | --- |
+| 前端：宿主 dev（Node · Vite） | 调试 Vite dev server 本体（`vite.config` / 插件），起好后自动用外部浏览器打开 | — |
+| 前端：宿主 + Chrome（浏览器断点） | 宿主页面 JS / Vue 源码断点 | `dev:宿主（5173）` |
+| 前端：宿主 + 模块 + Chrome | 含运行时模块的完整宿主（前置任务确保 5002 发布存储服务在跑） | `dev:宿主 + 模块产物（5002 + 5173）` |
+| 前端：核对页 + Chrome（选页） | 开发态核对页实测（下拉选页，默认 `login-check.html`） | `dev:宿主（5173）` |
+| 前端：当前文件单测（Node · Vitest） | 打开某个 `tests/*.spec.ts` 后 F5 调试该文件 | — |
+| 模块：demo / sample 独立开发（5002 / 5003） | 模块自身 `pnpm dev`（与宿主联调无关） | — |
+| 后端：单服务（debugpy · 选服务） | 后端单服务断点（读 `backend/config.toml` 的 `[server] host/port`） | — |
+| 后端：当前文件单测（debugpy · pytest） | 打开 `backend/**/tests/test_*.py` 后 F5 | — |
+| 全套：后端单服务 + 宿主 + Chrome | 组合项（后端 + 宿主 + 浏览器一起拉起） | — |
+
+浏览器用 `runtimeExecutable: "google-chrome"`（首选）；需改用 snap Chromium 时把它换成 `"chromium"`，见《[google-chrome部署使用说明](google-chrome部署使用说明.md)》。
+
+### 8.3 任务清单 <a id="debug-tasks"></a>
+
+| 任务 | 说明 |
+| --- | --- |
+| `dev:宿主（5173）` / `dev:宿主 + 模块产物（5002 + 5173）` | 后台任务：以 Vite 的 `Local:` 行为就绪信号（供 `preLaunchTask` 判断）；后者会先确保 5002 在跑 |
+| `服务:模块产物（5002 · CORS 静态）` | `serve-module-releases.mjs` 托管 `bms/frontend/releases/**`（带 CORS，宿主加载运行时模块的前置） |
+| `发布:模块产物（demo + sample · 构建 + 发布）` | 构建并发布两个运行时模块到 `frontend/releases/`（归档不入库） |
+| `dev:模块 demo / sample 独立开发` | 模块自身 dev（demo 5002 / sample 5003，与「服务:模块产物」的 5002 互斥） |
+| 检查：前端基座三包 / 前端宿主 / 文档基座 / 后端 | 一键跑对应门禁（lint、typecheck、用例、体积预算、文档校验、ruff+pyright） |
+
+### 8.4 排障 <a id="debug-trouble"></a>
+
+| 现象 | 处理 |
+| --- | --- |
+| 调试下拉为空 | 打开的是错误的根（见 [8.1](#debug-location)）；或改配置后未「重新加载窗口」；或该 json 有语法错误（打开文件看波浪线，注释为 JSONC 允许） |
+| 启动即报找不到任务 | `preLaunchTask` 名与 `tasks.json` 的 `label` 不一致（两处文件须同步，见 [8.1](#debug-location)） |
+| 浏览器断点不生效 | `runtimeExecutable` 须是本机存在的可执行文件（`google-chrome` 或备用 `chromium`）；确认 Chrome 已装（[google-chrome部署使用说明](google-chrome部署使用说明.md)） |
+| 后端启动项报错 | 需扩展 `ms-python.debugpy`（已装）；解释器 `bms/backend/.venv/bin/python` 须存在（`.venv` 外置口径见 [uv部署使用说明](uv部署使用说明.md)） |
+| 宿主页面显示「模块加载失败」 | 5002 上未托管发布归档：先跑「发布:模块产物」再跑「服务:模块产物（5002 · CORS 静态）」（裸静态服务缺 CORS 头会致跨源 ESM 加载失败） |
+
+## 9. 常用设置与排障 <a id="trouble"></a>
+
+### 9.1 常用设置 <a id="settings"></a>
 
 | 设置项 | 说明 |
 | --- | --- |
@@ -326,7 +378,7 @@ pkill -f "http.server 8765"                         # 用完关闭
 | `codingcopilot.autoUpdateThirdPartyMarketplaces` | 每天检查一次第三方（Git 类型）插件市场并后台静默更新（默认关） |
 | `codingcopilot.enableModelOptimization` | 允许使用对话数据做模型优化（默认关，按需开启） |
 
-### 8.2 排障入口 <a id="trouble-entry"></a>
+### 9.2 排障入口 <a id="trouble-entry"></a>
 
 | 现象 | 处理 |
 | --- | --- |
@@ -339,7 +391,7 @@ pkill -f "http.server 8765"                         # 用完关闭
 | 崩溃排查 | `~/.config/CodeBuddy CN/CrashReport/`（崩溃转储）与 `~/.codebuddy/diagnostics/` |
 | 网络代理问题 | 核对 `HttpProxyMode`（系统/手动）与 `HTTPProxy`；与系统代理设置保持一致 |
 
-## 9. 检查清单 <a id="checklist"></a>
+## 10. 检查清单 <a id="checklist"></a>
 
 - □ 版本已核实：包 `codebuddy-cn` 与应用版本分别取自 `dpkg -l` 与 `product.json`
 - □ 明确无 apt 源 → 升级靠手工 `.deb` 覆盖安装，卸载不删用户数据
@@ -352,4 +404,4 @@ pkill -f "http.server 8765"                         # 用完关闭
 - □ 排障入口齐备：日志三处、崩溃转储、市场超时与渲染异常的处置办法
 - □ 本机事实均经核实（2026-09-12），未写入账号/令牌等凭据
 
-> 依《[文档生成规范](../../规范/文档生成规范.md)》编写 · 与《[开发机部署使用说明总览](开发机部署使用说明总览.md)》《[opencode部署使用说明](opencode部署使用说明.md)》《[命名规范](../../规范/命名规范.md)》配套 · 记录 2026-09-12 部署核实与 2026-09-13 免确认排障（mjpc 本机）
+> 依《[文档生成规范](../../规范/文档生成规范.md)》编写 · 与《[开发机部署使用说明总览](开发机部署使用说明总览.md)》《[opencode部署使用说明](opencode部署使用说明.md)》《[命名规范](../../规范/命名规范.md)》配套 · 记录 2026-09-12 部署核实、2026-09-13 免确认排障、2026-10-03 运行与调试启动项与扩展补齐（mjpc 本机）
