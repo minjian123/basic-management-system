@@ -40,12 +40,18 @@ _SENSITIVE_KEYS = frozenset(
         "access_token",
         "api_key",
         "authorization",
+        "bank_card",
         "captcha",
         "captcha_code",
         "client_secret",
         "cookie",
+        "email",
+        "id_card",
+        "idcard",
+        "mobile",
         "password",
         "passwd",
+        "phone",
         "private_key",
         "pwd",
         "refresh_token",
@@ -54,6 +60,8 @@ _SENSITIVE_KEYS = frozenset(
         "token",
     }
 )
+"""内置敏感键名名单（04_04 补 PII 键名：`phone` / `mobile` / `email` / `id_card` / `idcard` / `bank_card`；
+不含 `name`，避免误掩服务名等人名）。名单只可追加不可移除（配置追加走 `[log]`）。"""
 _SENSITIVE_SUFFIXES = ("_password", "_passwd", "_secret", "_token")
 _CONN_PASSWORD_RE = re.compile(r"([A-Za-z][A-Za-z0-9+.\-]*://[^:/@\s]+:)([^@/\s]+)(@)")
 _MAX_REDACT_DEPTH = 5
