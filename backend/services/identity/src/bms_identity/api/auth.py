@@ -205,14 +205,14 @@ def _build_service(
     )
 
 
-def _set_refresh_cookie(response: Response, request: Request, token: str, max_age: int) -> None:
+def _set_refresh_cookie(response: Response, request: Request, token: str, max_age: int | None) -> None:
     """下发 refresh cookie（转发至 `api.cookies`，保留调用点兼容）。
 
     Args:
         response: 响应对象。
         request: 请求对象（取 cookie 安全开关）。
         token: refresh token 紧凑串。
-        max_age: 有效期（秒）。
+        max_age: 有效期（秒）；`None` 为会话 Cookie（浏览器会话结束即失效）。
     """
     set_refresh_cookie(response, request, token, max_age)
 
@@ -274,7 +274,9 @@ async def login(
             ip=current_client_ip.get(),
             user_agent=request.headers.get("user-agent"),
         )
-    _set_refresh_cookie(response, request, outcome.refresh_token, outcome.refresh_expires_in)
+    _set_refresh_cookie(
+        response, request, outcome.refresh_token, outcome.refresh_expires_in if outcome.remember_me else None
+    )
     return ApiResponse.ok(outcome.result)
 
 
@@ -335,7 +337,9 @@ async def refresh(
             ip=current_client_ip.get(),
             user_agent=request.headers.get("user-agent"),
         )
-    _set_refresh_cookie(response, request, outcome.refresh_token, outcome.refresh_expires_in)
+    _set_refresh_cookie(
+        response, request, outcome.refresh_token, outcome.refresh_expires_in if outcome.remember_me else None
+    )
     return ApiResponse.ok(outcome.result)
 
 

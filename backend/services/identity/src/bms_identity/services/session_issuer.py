@@ -81,6 +81,9 @@ class IssuedSession(BaseRefreshableTokenContract):
     session_id: str
     """会话 id（= 双 token `jti`）。"""
 
+    remember_me: bool = True
+    """是否记住我（决定 Cookie 是否持久；refresh 保留时长选项）。"""
+
     token_type: str = TOKEN_TYPE_BEARER
     """令牌类型（响应口径）。"""
 
@@ -126,6 +129,7 @@ class SessionIssuer(BaseFrameworkObject):
         tenant_code: str,
         ip: str | None,
         user_agent: str | None,
+        remember_me: bool = True,
     ) -> IssuedSession:
         """签发会话：双 token 同会话 id + 会话落库 + Redis 标记。
 
@@ -135,13 +139,16 @@ class SessionIssuer(BaseFrameworkObject):
             tenant_code: 租户编码（会话记录 / 展示用）。
             ip: 客户端 IP（可选）。
             user_agent: 客户端 User-Agent（可选）。
+            remember_me: 是否记住我（true=14 天持久；false=会话级；SSO / 扫码缺省 true）。
 
         Returns:
             IssuedSession: 会话签发结果（含 refresh 原始票据）。
         """
         session_id = self._security.new_session_id()
         pair = await self._issuer.issue_pair(
-            UserTokenSpec(subject=str(user_id), session_id=session_id, tenant_id=tenant_id)
+            UserTokenSpec(
+                subject=str(user_id), session_id=session_id, tenant_id=tenant_id, remember_me=remember_me
+            )
         )
         await self._session_service.enforce_max_active(user_id, tenant=tenant_id, max_active=self._settings.max_active)
         await self._persist(
@@ -152,6 +159,7 @@ class SessionIssuer(BaseFrameworkObject):
             tenant_id=tenant_id,
             ip=ip,
             user_agent=user_agent,
+            remember_me=remember_me,
         )
         return IssuedSession(
             access_token=pair.access_token,
@@ -159,6 +167,7 @@ class SessionIssuer(BaseFrameworkObject):
             access_expires_in=pair.expires_in,
             refresh_expires_in=pair.refresh_expires_in,
             session_id=session_id,
+            remember_me=remember_me,
             token_type=pair.token_type,
         )
 
@@ -172,6 +181,7 @@ class SessionIssuer(BaseFrameworkObject):
         tenant_id: str,
         ip: str | None,
         user_agent: str | None,
+        remember_me: bool,
     ) -> None:
         """写入会话记录与 Redis 标记（同会话 id）。
 
@@ -183,6 +193,7 @@ class SessionIssuer(BaseFrameworkObject):
             tenant_id: 租户主键（雪花 id 字符串；会话标记租户位）。
             ip: 客户端 IP（可选）。
             user_agent: 客户端 User-Agent（可选）。
+            remember_me: 是否记住我（写会话记录，供轮换判定）。
         """
         now = datetime.now(UTC).replace(tzinfo=None)
         async with self._uow.begin():
@@ -194,6 +205,7 @@ class SessionIssuer(BaseFrameworkObject):
                 expires_at=now + timedelta(seconds=refresh_expires_in),
                 device=truncate_field(user_agent, 255),
                 ip=truncate_field(ip, 64),
+                remember_me=remember_me,
             )
         await self._store.save(
             session_id,

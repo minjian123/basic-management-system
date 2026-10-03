@@ -33,6 +33,7 @@ class LoginRequest(BaseSchema):
     password: str = Field(min_length=1, max_length=512, description="口令明文")
     tenant: str | None = Field(default=None, max_length=64, description="租户编码（可选；携带则以之为准）")
     captcha: CaptchaInput | None = Field(default=None, description="验证码凭证（策略强制或已出题时携带）")
+    remember_me: bool = Field(default=False, description="记住我（true=14 天；false=会话级，浏览器关闭即失效）")
 
 
 class UserSummary(BaseSchema):

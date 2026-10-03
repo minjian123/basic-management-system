@@ -8,7 +8,7 @@
 
 from datetime import datetime
 
-from sqlalchemy import BigInteger, DateTime, Index, String, UniqueConstraint
+from sqlalchemy import BigInteger, Boolean, DateTime, Index, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from bms_core.models.base import BaseModel
@@ -32,4 +32,7 @@ class SysSession(BaseModel):
     ip: Mapped[str | None] = mapped_column(String(64), nullable=True, comment="登录 IP")
     login_at: Mapped[datetime] = mapped_column(DateTime, comment="登录时间（UTC）")
     expires_at: Mapped[datetime] = mapped_column(DateTime, comment="refresh 过期时间（UTC）")
+    remember_me: Mapped[bool | None] = mapped_column(
+        Boolean, nullable=True, comment="是否记住我（true=14 天；false=会话级；NULL=历史行，按 14 天处理）"
+    )
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, comment="撤销时间（UTC；NULL=有效）")

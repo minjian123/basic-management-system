@@ -35,12 +35,12 @@ describe('登录页核对页（Kiwi 2232）', () => {
     expect(wrapper.findAll('[data-check-group]')).toHaveLength(3)
 
     const items = wrapper.findAll('[data-check]')
-    expect(items).toHaveLength(16)
+    expect(items).toHaveLength(17)
 
     const failed = wrapper.findAll('[data-ok="false"]')
     expect(failed.map((item) => item.text())).toEqual([])
 
-    expect(wrapper.find('[data-check-passed]').text()).toBe('16')
+    expect(wrapper.find('[data-check-passed]').text()).toBe('17')
   })
 
   it('含验证码延迟提交与登录接线口径说明', async () => {

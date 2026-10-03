@@ -11,6 +11,42 @@ import type { LoginRequest } from '@/api/identity'
 /** 登录请求体中的验证码字段（契约生成类型，不手写重复定义）。 */
 export type LoginCaptchaInput = NonNullable<LoginRequest['captcha']>
 
+/** 登录表单值（登录页提交归一入参）。 */
+export interface LoginFormValues {
+  /** 登录账号（已去首尾空白）。 */
+  account: string
+  /** 登录口令明文。 */
+  password: string
+  /** 租户编码（归一后；空为 `null`）。 */
+  tenant?: string | null
+  /** 验证码凭证（可见且完备时携带）。 */
+  captcha?: LoginCaptchaInput
+  /** 记住我（缺省 `false`）。 */
+  rememberMe?: boolean
+}
+
+/**
+ * 组装登录请求体（契约 `LoginRequest`）。
+ *
+ * `remember_me` **恒显式携带**（缺省 `false`）；`tenant` 缺省归一为 `null`（由后端上下文解析）；
+ * `captcha` 仅在提供时携带。密码不落任何存储。
+ *
+ * @param values 登录表单值。
+ * @returns 契约登录请求体。
+ */
+export function buildLoginRequest(values: LoginFormValues): LoginRequest {
+  const body: LoginRequest = {
+    account: values.account,
+    password: values.password,
+    tenant: values.tenant ?? null,
+    remember_me: values.rememberMe === true,
+  }
+  if (values.captcha !== undefined) {
+    body.captcha = values.captcha
+  }
+  return body
+}
+
 /** 登录场景可渲染的验证码形态（登录无手机号来源，短信渠道不渲染）。 */
 const LOGIN_RENDERABLE_KINDS: readonly CaptchaKind[] = ['slider', 'image']
 

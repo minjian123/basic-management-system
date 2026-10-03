@@ -215,6 +215,7 @@ describe('登录页（Kiwi 2232）', () => {
       account: 'admin',
       password: 'secret',
       tenant: 'acme',
+      remember_me: false,
     })
 
     const session = useSessionStore(pinia)
@@ -380,7 +381,7 @@ describe('登录页（Kiwi 2232）', () => {
     expect(wrapper.find('[data-test="login-qr-entry"]').exists()).toBe(false)
   })
 
-  it('密码安全口径：类型 / 初值 / 自动填充语义，且无「记住我」与强度提示', async () => {
+  it('密码安全口径：类型 / 初值 / 自动填充语义，且无强度提示', async () => {
     const { wrapper } = await mountLogin()
     const password = passwordField(wrapper)
 
@@ -388,8 +389,23 @@ describe('登录页（Kiwi 2232）', () => {
     expect((password.element as HTMLInputElement).value).toBe('')
     expect(password.attributes('autocomplete')).toBe('new-password')
     expect(wrapper.find('[data-test="password-strength"]').exists()).toBe(false)
-    expect(wrapper.text()).not.toContain('记住我')
     expect(wrapper.text()).not.toContain('强度')
+  })
+
+  it('记住我勾选项：缺省不勾选；勾选后提交载荷 remember_me=true', async () => {
+    stubRequests({ login: () => LOGIN_SUCCESS })
+    const { wrapper } = await mountLogin()
+
+    const checkbox = wrapper.find('[data-test="login-remember"] input')
+    expect(wrapper.find('[data-test="login-remember"]').exists()).toBe(true)
+    expect((checkbox.element as HTMLInputElement).checked).toBe(false)
+
+    await submit(wrapper)
+    expect(loginCalls()[0]?.data).toMatchObject({ remember_me: false })
+
+    await checkbox.setValue(true)
+    await submit(wrapper)
+    expect(loginCalls()[1]?.data).toMatchObject({ remember_me: true })
   })
 
   it('明文切换由组件库件提供：图标仅在填写后出现，切换只改输入类型（仅内存态、不发请求）', async () => {
@@ -417,11 +433,14 @@ describe('登录页（Kiwi 2232）', () => {
 
     expect(wrapper.findAll('.bms-text-input')).toHaveLength(2)
     expect(wrapper.findAll('.bms-password-input')).toHaveLength(1)
+    expect(wrapper.findAll('.bms-boolean-checkbox')).toHaveLength(1)
     expect(wrapper.find('[data-test="login-submit"]').classes()).toContain('el-button')
 
     const nakedInputs = wrapper
       .findAll('input')
-      .filter((input) => input.element.closest('.bms-text-input, .bms-password-input') === null)
+      .filter(
+        (input) => input.element.closest('.bms-text-input, .bms-password-input, .bms-boolean-checkbox') === null,
+      )
     const nakedButtons = wrapper.findAll('button').filter((button) => !button.classes().includes('el-button'))
     expect(nakedInputs).toHaveLength(0)
     expect(nakedButtons).toHaveLength(0)

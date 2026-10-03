@@ -2152,6 +2152,12 @@ export interface components {
              */
             password: string;
             /**
+             * Remember Me
+             * @description 记住我（true=14 天；false=会话级，浏览器关闭即失效）
+             * @default false
+             */
+            remember_me: boolean;
+            /**
              * Tenant
              * @description 租户编码（可选；携带则以之为准）
              */

@@ -70,6 +70,9 @@ class UserTokenSpec(BaseValueObject):
     scopes: tuple[str, ...] = ()
     """授权范围（claims `scope`，空格分隔；可选，缺省不写）。"""
 
+    remember_me: bool = True
+    """是否「记住我」：`true`（缺省）取 refresh 常规有效期（14 天）；`false` 取会话级有效期。"""
+
 
 @dataclass(frozen=True)
 class UserTokenPair(BaseRefreshableTokenContract):

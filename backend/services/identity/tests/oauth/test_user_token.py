@@ -77,6 +77,7 @@ def _issuer(
     issuer: str = DEFAULT_USER_TOKEN_ISSUER,
     access_ttl: int = _ACCESS_TTL,
     refresh_ttl: int = _REFRESH_TTL,
+    session_refresh_ttl: int | None = None,
 ) -> JwtUserTokenIssuer:
     """构造用户令牌签发者。
 
@@ -85,7 +86,8 @@ def _issuer(
         active_kid: 当前签名密钥 kid。
         issuer: 签发方。
         access_ttl: access 有效期（秒）。
-        refresh_ttl: refresh 有效期（秒）。
+        refresh_ttl: refresh 常规有效期（秒）。
+        session_refresh_ttl: refresh 会话级有效期（秒）。
 
     Returns:
         JwtUserTokenIssuer: 签发者。
@@ -96,6 +98,7 @@ def _issuer(
         active_kid=active_kid,
         access_ttl=access_ttl,
         refresh_ttl=refresh_ttl,
+        session_refresh_ttl=session_refresh_ttl,
     )
 
 
@@ -187,6 +190,28 @@ async def test_issue_pair_claims_and_ttls() -> None:
     minimal_payload = dict(issuer.verify(minimal.access_token, expected_type=USER_TOKEN_TYPE_ACCESS).payload)
     assert "tenant_id" not in minimal_payload
     assert "scope" not in minimal_payload
+
+
+@pytest.mark.kiwi_id(2234)
+async def test_issue_pair_remember_me_branches() -> None:
+    """记住我选项：缺省 / true 取常规 TTL；false 取会话级 TTL（缺省未配置时回落常规）。"""
+    session_ttl = 86400
+    issuer = _issuer(session_refresh_ttl=session_ttl)
+
+    remembered = await issuer.issue_pair(UserTokenSpec(subject="1001", session_id="s1", remember_me=True))
+    assert remembered.refresh_expires_in == _REFRESH_TTL
+    refresh = issuer.verify(remembered.refresh_token, expected_type=USER_TOKEN_TYPE_REFRESH)
+    assert refresh.expires_at - refresh.issued_at == _REFRESH_TTL
+
+    session_level = await issuer.issue_pair(UserTokenSpec(subject="1001", session_id="s2", remember_me=False))
+    assert session_level.refresh_expires_in == session_ttl
+    session_refresh = issuer.verify(session_level.refresh_token, expected_type=USER_TOKEN_TYPE_REFRESH)
+    assert session_refresh.expires_at - session_refresh.issued_at == session_ttl
+
+    # 未配置会话级 TTL 时回落常规 TTL（向后兼容）
+    fallback = _issuer()
+    degraded = await fallback.issue_pair(UserTokenSpec(subject="1001", session_id="s3", remember_me=False))
+    assert degraded.refresh_expires_in == _REFRESH_TTL
 
 
 @pytest.mark.kiwi_id(2193)

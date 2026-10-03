@@ -3,7 +3,7 @@
 
 import { describe, expect, it, vi } from 'vitest'
 
-import { normalizeLoginTenant, pickLoginCaptchaKind, toLoginCaptcha } from '@/utils/login'
+import { normalizeLoginTenant, pickLoginCaptchaKind, toLoginCaptcha, buildLoginRequest } from '@/utils/login'
 import { redirectTo } from '@/utils/navigation'
 
 describe('登录页纯函数（Kiwi 2232）', () => {
@@ -76,5 +76,32 @@ describe('登录页纯函数（Kiwi 2232）', () => {
 
     expect(assign).toHaveBeenCalledWith('/api/identity/v1/auth/sso/keycloak/authorize')
     vi.unstubAllGlobals()
+  })
+
+  it('buildLoginRequest 恒显式携带 remember_me（缺省 false），租户缺省归一 null', () => {
+    expect(buildLoginRequest({ account: 'admin', password: 'secret' })).toEqual({
+      account: 'admin',
+      password: 'secret',
+      tenant: null,
+      remember_me: false,
+    })
+  })
+
+  it('buildLoginRequest 勾选记住我与指定租户 / 验证码', () => {
+    expect(
+      buildLoginRequest({
+        account: 'admin',
+        password: 'secret',
+        tenant: 'acme',
+        rememberMe: true,
+        captcha: { captcha_id: 'c1', kind: 'image', code: 'ab12' },
+      }),
+    ).toEqual({
+      account: 'admin',
+      password: 'secret',
+      tenant: 'acme',
+      remember_me: true,
+      captcha: { captcha_id: 'c1', kind: 'image', code: 'ab12' },
+    })
   })
 })

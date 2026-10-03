@@ -3,12 +3,14 @@
 import pytest
 from fastapi import FastAPI
 from httpx import AsyncClient, Response
+from sqlalchemy import select
 
 from bms_core.api.deps import get_tenant_source
 from bms_core.db.tenant import TenantNotFoundError
 from bms_core.ratelimit.memory import MemoryRateLimiter
 from bms_core.session.memory import MemorySessionStore
 from bms_identity.api.tenancy import resolve_request_tenant
+from bms_identity.models.session import SysSession
 from bms_identity.services.session_issuer import truncate_field  # pyright: ignore[reportPrivateUsage]
 
 from .helpers import (
@@ -19,6 +21,7 @@ from .helpers import (
     FakeUserTokenIssuer,
     wire_auth,
 )
+from .session_helpers import tenant_scope, utc_now
 
 API_LOGIN = "/api/v1/auth/login"
 
@@ -242,3 +245,39 @@ async def test_login_captcha_failure_not_counted(client: AsyncClient, service_ap
     for _ in range(3):
         resp = await _login(client, "admin", "bad")
         assert resp.json()["code"] == 20002
+
+
+@pytest.mark.kiwi_id(2234)
+async def test_login_remember_me_branches(client: AsyncClient, service_app: FastAPI) -> None:
+    """记住我两分支：未携带=会话级（会话 Cookie + 24h）；true=14 天持久（Max-Age + 14 天）。"""
+    issuer, org, store, limiter = FakeUserTokenIssuer(), FakeOrgClient(), MemorySessionStore(), MemoryRateLimiter()
+    org.set_user("admin", password="secret", user_id=1001)
+    wire_auth(service_app, issuer=issuer, org=org, store=store, limiter=limiter)
+
+    # 会话级（缺省）：Cookie 无 Max-Age；会话记录 remember_me=False、expires_at ≈ now+24h
+    session_level = await _login(client, "admin", "secret")
+    assert session_level.status_code == 200
+    cookie = session_level.headers.get("set-cookie", "").lower()
+    assert "bms_refresh_token=" in cookie and "max-age" not in cookie
+    session_id = issuer.specs[-1].session_id
+    assert issuer.specs[-1].remember_me is False
+    async with tenant_scope(service_app) as db:
+        row = (await db.execute(select(SysSession).where(SysSession.session_id == session_id))).scalar_one()
+        assert row.remember_me is False
+        assert 86000 <= (row.expires_at - utc_now()).total_seconds() <= 86460
+
+    # 记住我：Cookie 含 Max-Age=1209600；会话记录 remember_me=True、expires_at ≈ now+14 天
+    remembered = await _login(client, "admin", "secret", remember_me=True)
+    assert remembered.status_code == 200
+    cookie = remembered.headers.get("set-cookie", "").lower()
+    assert "max-age=1209600" in cookie
+    session_id = issuer.specs[-1].session_id
+    assert issuer.specs[-1].remember_me is True
+    async with tenant_scope(service_app) as db:
+        row = (await db.execute(select(SysSession).where(SysSession.session_id == session_id))).scalar_one()
+        assert row.remember_me is True
+        assert 1209500 <= (row.expires_at - utc_now()).total_seconds() <= 1209660
+
+    # 会话标记 TTL 与会话记录一致（会话级=24h）
+    marker = await store.load(issuer.specs[0].session_id, tenant=TENANT_ID)
+    assert marker is not None
