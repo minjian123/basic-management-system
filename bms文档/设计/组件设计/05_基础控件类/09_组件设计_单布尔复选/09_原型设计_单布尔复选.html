@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 单布尔复选</title>
+<link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .dp-code { font-family:Consolas,"Cascadia Mono",monospace; color:#57606a; }
+  .dp-state { font-family:Consolas,monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; }
+  .dp-row { display:flex; align-items:center; gap:16px; margin:10px 0; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="09_组件设计_单布尔复选.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 单布尔复选 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="09_组件设计_单布尔复选.md">《组件设计 · 单布尔复选》</a>：演示<strong>单一布尔</strong>勾选、缺省未设置、禁用、不确定态（仅视觉）与文案；继承输入组件基类（输入组件基类；继承链见《前端基类清单》§2，全系统唯一一份）。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-bar">
+        <el-checkbox v-model="disabled" size="small">禁用</el-checkbox>
+        <el-checkbox v-model="indeterminate" size="small">不确定态（仅视觉）</el-checkbox>
+        <el-button size="small" @click="unset">重置为「未设置」</el-button>
+      </div>
+
+      <div class="dp-row">
+        <span class="dp-code">记住我（缺省未设置）</span>
+        <el-checkbox :model-value="value === true" :disabled="disabled" :indeterminate="indeterminate" @update:model-value="onUpdate">记住我</el-checkbox>
+      </div>
+
+      <div class="dp-row">
+        <span class="dp-code">需设置（初值 true）</span>
+        <el-checkbox v-model="agreed" :disabled="disabled" :indeterminate="indeterminate">我已阅读并同意</el-checkbox>
+      </div>
+
+      <div class="dp-state" style="margin-top:14px">值 = {{ render(value) }}　（三态：未设置 / true / false；不确定态仅视觉、不回写值）
+禁用 = {{ disabled }}；不确定态 = {{ indeterminate }}
+继承链（全系统唯一一份，见《前端基类清单》§2）：单布尔复选 → 输入组件基类 → 字段能力基类 → 值能力基类 → 组件根 → 总基类。</div>
+    </div>
+  </div>
+</div>
+
+<script src="../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref } = Vue;
+  var app = createApp({
+    setup: function () {
+      var value = ref(undefined), agreed = ref(true);
+      var disabled = ref(false), indeterminate = ref(false);
+      function onUpdate(next) { value.value = next === true; }
+      function unset() { value.value = undefined; }
+      function render(v) { return v === undefined ? '未设置' : String(v); }
+      return { value: value, agreed: agreed, disabled: disabled, indeterminate: indeterminate, onUpdate: onUpdate, unset: unset, render: render };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>
