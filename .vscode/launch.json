@@ -153,7 +153,7 @@
   "compounds": [
     {
       "name": "全套：后端单服务 + 宿主 + Chromium",
-      "configurations": ["后端：单服务（debugpy · bms_identity）", "前端：宿主 + Chromium（浏览器断点）"]
+      "configurations": ["后端：单服务（debugpy · bms_identity）", "前端：宿主 + 模块 + Chromium（浏览器断点）"]
     }
   ],
   "inputs": [
