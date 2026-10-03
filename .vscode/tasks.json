@@ -2,9 +2,13 @@
   // BMS 基座 · 任务（供「运行任务」与 launch.json 的 preLaunchTask 使用）
   //
   // 说明：
-  //  - 一律用 shell + 显式 `pnpm` / `uv` / `python3`（不依赖 IDE 的 npm 任务探测，避免落到 npm）；
-  //  - dev 类任务为**后台任务**：以 Vite 的 `Local:` 行为就绪信号（preLaunchTask 需据此判断可继续）；
-  //    「问题匹配器」正则刻意不匹配任何行，避免把 dev 日志灌进「问题」面板。
+  //  - 一律用 shell + 显式 `pnpm` / `node` / `python3` / `uv`（不依赖 IDE 的 npm 任务探测，避免落到 npm）；
+  //  - dev / 服务类任务为**后台任务**：以日志关键字为就绪信号（`preLaunchTask` 需据此判断可继续）；
+  //    「问题匹配器」正则刻意不匹配任何行，避免把日志灌进「问题」面板；
+  //  - 运行时模块本地联调口径（阶段五 `03_02` §3.7）：宿主按 `public/modules.json` 加载**发布归档**，
+  //    入口形如 `http://localhost:5002/<模块名>/<版本>/remoteEntry.js` → 需先「发布:模块产物」再由
+  //    `serve-module-releases.mjs` 在 5002 托管 `frontend/releases/**`（带 CORS；`python3 -m http.server`
+  //    等裸静态服务因缺 CORS 头会导致跨源 ESM 加载失败）。
   "version": "2.0.0",
   "tasks": [
     {
@@ -26,8 +30,52 @@
       }
     },
     {
-      "label": "dev:模块 demo（5002）",
-      "detail": "运行时模块 demo 的 Vite dev（宿主 modules.json 声明的远端源为 localhost:5002）",
+      "label": "dev:宿主 + 模块产物（5002 + 5173）",
+      "detail": "确保 5002 发布存储服务在跑（缺则后台拉起），再起宿主 dev —— 宿主加载运行时模块的前置组合",
+      "type": "shell",
+      "command": "pgrep -f 'serve-module-releases.mjs' >/dev/null || (nohup node frontend/scripts/serve-module-releases.mjs > /tmp/bms-serve-releases.log 2>&1 &); sleep 1; cd \"${workspaceFolder}/frontend/apps/desktop\" && pnpm dev",
+      "options": { "cwd": "${workspaceFolder}" },
+      "isBackground": true,
+      "presentation": { "reveal": "always", "panel": "dedicated" },
+      "problemMatcher": {
+        "owner": "bms-vite-desktop-with-modules",
+        "pattern": [{ "regexp": "^\\[bms-vite\\]\\s(.*)$", "file": 1, "message": 1 }],
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "VITE v",
+          "endsPattern": "Local:\\s+https?://"
+        }
+      }
+    },
+    {
+      "label": "服务:模块产物（5002 · CORS 静态）",
+      "detail": "托管 frontend/releases/**（URL 即 /<模块名>/<版本>/remoteEntry.js，与清单同构，带 CORS）",
+      "type": "shell",
+      "command": "node frontend/scripts/serve-module-releases.mjs",
+      "options": { "cwd": "${workspaceFolder}" },
+      "isBackground": true,
+      "presentation": { "reveal": "always", "panel": "dedicated" },
+      "problemMatcher": {
+        "owner": "bms-module-releases",
+        "pattern": [{ "regexp": "^\\[bms-mreleases\\]\\s(.*)$", "file": 1, "message": 1 }],
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "module-releases",
+          "endsPattern": "模块入口形如"
+        }
+      }
+    },
+    {
+      "label": "发布:模块产物（demo + sample · 构建 + 发布）",
+      "detail": "构建并发布两个运行时模块到 frontend/releases/（归档不入库；同版本重发用 --force）",
+      "type": "shell",
+      "command": "pnpm --filter @bms/module-demo run build && pnpm --filter @bms/module-sample run build && node frontend/scripts/release-module.mjs publish --module demo --force && node frontend/scripts/release-module.mjs publish --module sample --force",
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": []
+    },
+    {
+      "label": "dev:模块 demo 独立开发（5002）",
+      "detail": "demo 模块自身 Vite dev（与「服务:模块产物（5002）」互斥——两者都占 5002，且 dev 只服务 /remoteEntry.js）",
       "type": "shell",
       "command": "pnpm dev",
       "options": { "cwd": "${workspaceFolder}/frontend/modules/demo" },
@@ -44,8 +92,8 @@
       }
     },
     {
-      "label": "dev:模块 sample（5003）",
-      "detail": "运行时模块 sample 的 Vite dev（注意：宿主清单声明其远端为 5002，两者不一致时宿主落模块加载失败兜底页）",
+      "label": "dev:模块 sample 独立开发（5003）",
+      "detail": "sample 模块自身 Vite dev（独立开发用；宿主加载的是 5002 上的发布归档，不是本服务）",
       "type": "shell",
       "command": "pnpm dev",
       "options": { "cwd": "${workspaceFolder}/frontend/modules/sample" },
@@ -72,7 +120,7 @@
     },
     {
       "label": "检查：前端宿主（lint + vue-tsc + 用例 + 体积预算）",
-      "detail": "apps/desktop：ESLint + vue-tsc -b + Vitest + 构建体积预算（build 后跑 budget）",
+      "detail": "apps/desktop：ESLint + vue-tsc -b + Vitest + 构建体积预算",
       "type": "shell",
       "command": "pnpm run lint && pnpm exec vue-tsc -b && pnpm run test && pnpm run build && pnpm run budget",
       "options": { "cwd": "${workspaceFolder}/frontend/apps/desktop" },
