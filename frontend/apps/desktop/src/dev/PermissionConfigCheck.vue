@@ -10,6 +10,7 @@ import {
   type PermissionTab,
 } from '@bms/core'
 import { DataScopePanel, FieldPermMatrix, PermissionConfig, PermissionTree, SubjectBinding } from '@bms/ui-ep'
+import { ElButton } from 'element-plus'
 import { nextTick, onMounted, ref } from 'vue'
 
 /** 权限上下文（保存成功后经取码处理函数刷新）。 */
@@ -361,7 +362,7 @@ onMounted(async () => {
 
     <section class="perm-check__section">
       <h2>自检（12 项）</h2>
-      <button type="button" data-test="rerun" @click="runChecks">重新自检</button>
+      <el-button data-test="rerun" @click="runChecks">重新自检</el-button>
       <ol class="perm-check__list">
         <li v-for="item in checks" :key="item.label" :data-pass="item.pass ? 'true' : 'false'" :data-check="item.label">
           {{ item.pass ? '通过' : '未通过' }} · {{ item.label }}

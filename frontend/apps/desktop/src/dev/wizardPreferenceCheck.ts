@@ -3,6 +3,6 @@
 import { createApp } from 'vue'
 
 import WizardPreferenceCheck from './WizardPreferenceCheck.vue'
-import '../styles/tokens.scss'
+import '../styles/index'
 
 createApp(WizardPreferenceCheck).mount('#app')

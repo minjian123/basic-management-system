@@ -3,6 +3,6 @@
 import { createApp } from 'vue'
 
 import AuthGuardCheck from './AuthGuardCheck.vue'
-import '../styles/tokens.scss'
+import '../styles/index'
 
 createApp(AuthGuardCheck).mount('#app')

@@ -19,6 +19,7 @@ import {
   registerOrgSource,
   useBaseOrgSelect,
 } from '@bms/ui-ep'
+import { ElButton } from 'element-plus'
 import { nextTick, ref } from 'vue'
 
 /** 桩数据：用户（含停用）/ 岗位 / 部门树 / 回显命中（u9 未命中）。 */
@@ -223,7 +224,7 @@ void runChecks()
     </section>
     <section style="margin-bottom: 16px">
       <p data-test="placeholder">{{ ORG_PLACEHOLDER_TEXT }}</p>
-      <button type="button" @click="api.setReady(!api.ready.value)">切换就绪 / 降级</button>
+      <el-button @click="api.setReady(!api.ready.value)">切换就绪 / 降级</el-button>
     </section>
     <section style="margin-top: 16px">
       <h2>自检结果</h2>

@@ -2,6 +2,7 @@
 // 开发态核对页（08_10）：AI 助手实例 + 12 项自检上屏（本页不进构建产物）。
 import type { AiMessage, AiStreamAdapter, AiStreamHandlers } from '@bms/core'
 import { AiAssistant, useBaseAiAssistant } from '@bms/ui-ep'
+import { ElButton } from 'element-plus'
 import { nextTick, onMounted, ref } from 'vue'
 
 /** 种子会话。 */
@@ -338,7 +339,7 @@ onMounted(() => {
     </section>
 
     <section style="margin-top: 16px">
-      <button type="button" @click="api.setReady(!api.ready.value)">切换就绪 / 降级</button>
+      <el-button @click="api.setReady(!api.ready.value)">切换就绪 / 降级</el-button>
     </section>
 
     <section style="margin-top: 16px">

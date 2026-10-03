@@ -3,6 +3,6 @@
 import { createApp } from 'vue'
 
 import FormRenderCheck from './FormRenderCheck.vue'
-import '../styles/tokens.scss'
+import '../styles/index'
 
 createApp(FormRenderCheck).mount('#app')

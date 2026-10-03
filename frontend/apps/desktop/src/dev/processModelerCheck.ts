@@ -2,6 +2,6 @@
 import { createApp } from 'vue'
 
 import ProcessModelerCheck from './ProcessModelerCheck.vue'
-import '../styles/tokens.scss'
+import '../styles/index'
 
 createApp(ProcessModelerCheck).mount('#app')

@@ -1,7 +1,16 @@
 <script setup lang="ts">
 // 开发态核对页（08_03_02）：批量操作栏 / 主题切换 / 品牌应用器 / 租户列表与租户切换 + 自检上屏（本页不进构建产物）。
 import type { BulkActionDef, TenantSummary, TenantSwitchSteps } from '@bms/core'
-import { BrandProvider, BulkActionBar, TenantList, TenantSwitcher, ThemeSwitch, useBaseTheme } from '@bms/ui-ep'
+import {
+  BrandProvider,
+  BulkActionBar,
+  TenantList,
+  TenantSwitcher,
+  TextInput,
+  ThemeSwitch,
+  useBaseTheme,
+} from '@bms/ui-ep'
+import { ElButton } from 'element-plus'
 import { nextTick, ref } from 'vue'
 
 /** 选中集合。 */
@@ -190,8 +199,8 @@ async function runChecks(): Promise<void> {
         <h2>主题与品牌</h2>
         <ThemeSwitch v-model="mode" variant="segment" show-accent />
         <p>当前模式：{{ mode }}（根元素 data-theme：{{ mode }}）</p>
-        <p>品牌名称：<input v-model="brand.name" data-test="check-brand-name" /></p>
-        <p>品牌主色：<input v-model="brand.primaryColor" data-test="check-brand-primary" /></p>
+        <p>品牌名称：<text-input v-model="brand.name" data-test="check-brand-name" /></p>
+        <p>品牌主色：<text-input v-model="brand.primaryColor" data-test="check-brand-primary" /></p>
       </section>
 
       <section class="check-page__block">
@@ -208,7 +217,7 @@ async function runChecks(): Promise<void> {
 
       <section class="check-page__block">
         <h2>自检</h2>
-        <button type="button" data-test="check-run" @click="runChecks">运行自检</button>
+        <el-button data-test="check-run" @click="runChecks">运行自检</el-button>
         <ul class="check-page__checks">
           <li
             v-for="item in checks"

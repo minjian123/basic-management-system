@@ -3,6 +3,6 @@
 import { createApp } from 'vue'
 
 import PermissionConfigCheck from './PermissionConfigCheck.vue'
-import '../styles/tokens.scss'
+import '../styles/index'
 
 createApp(PermissionConfigCheck).mount('#app')

@@ -3,6 +3,6 @@
 import { createApp } from 'vue'
 
 import ScreenDesignCheck from './ScreenDesignCheck.vue'
-import '../styles/tokens.scss'
+import '../styles/index'
 
 createApp(ScreenDesignCheck).mount('#app')

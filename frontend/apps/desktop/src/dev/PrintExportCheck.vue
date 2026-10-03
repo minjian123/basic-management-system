@@ -2,6 +2,7 @@
 // 开发态核对页（08_03_03）：打印预览壳 / 单页纸 / 打印入口件 + 12 项自检上屏（本页不进构建产物）。
 import { BaseWatermark, type PrintJobs, type PrintTemplateDef } from '@bms/core'
 import { PrintButton, PrintPreview, PrintSheet } from '@bms/ui-ep'
+import { ElButton } from 'element-plus'
 import { computed, nextTick, onMounted, ref } from 'vue'
 
 /** 水印能力（用户 / 租户信息真源；件层消费其文案）。 */
@@ -329,7 +330,7 @@ onMounted(async () => {
 
     <section class="print-check__section">
       <h2>自检（12 项）</h2>
-      <button type="button" data-test="rerun" @click="runChecks">重新自检</button>
+      <el-button data-test="rerun" @click="runChecks">重新自检</el-button>
       <ol class="print-check__list">
         <li v-for="item in checks" :key="item.label" :data-pass="item.pass ? 'true' : 'false'" :data-check="item.label">
           {{ item.pass ? '通过' : '未通过' }} · {{ item.label }}

@@ -3,6 +3,6 @@
 import { createApp } from 'vue'
 
 import PrintExportCheck from './PrintExportCheck.vue'
-import '../styles/tokens.scss'
+import '../styles/index'
 
 createApp(PrintExportCheck).mount('#app')

@@ -3,6 +3,6 @@
 import { createApp } from 'vue'
 
 import AiCheck from './AiCheck.vue'
-import '../styles/tokens.scss'
+import '../styles/index'
 
 createApp(AiCheck).mount('#app')

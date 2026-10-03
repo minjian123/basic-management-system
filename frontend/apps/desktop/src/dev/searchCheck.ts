@@ -3,6 +3,6 @@
 import { createApp } from 'vue'
 
 import SearchCheck from './SearchCheck.vue'
-import '../styles/tokens.scss'
+import '../styles/index'
 
 createApp(SearchCheck).mount('#app')

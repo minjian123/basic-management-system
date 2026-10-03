@@ -9,6 +9,7 @@ import {
   type ApprovalJobs,
 } from '@bms/core'
 import { ApprovalFlow } from '@bms/ui-ep'
+import { ElButton } from 'element-plus'
 import { nextTick, onMounted, ref } from 'vue'
 
 /** 权限上下文（含审批权限）。 */
@@ -379,7 +380,7 @@ onMounted(async () => {
 
     <section class="approval-flow-check__section">
       <h2>自检（12 项）</h2>
-      <button type="button" data-test="rerun" @click="runChecks">重新自检</button>
+      <el-button data-test="rerun" @click="runChecks">重新自检</el-button>
       <ol class="approval-flow-check__list">
         <li v-for="item in checks" :key="item.label" :data-pass="item.pass ? 'true' : 'false'" :data-check="item.label">
           {{ item.pass ? '通过' : '未通过' }} · {{ item.label }}

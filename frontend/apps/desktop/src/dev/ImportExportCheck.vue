@@ -2,6 +2,7 @@
 // 开发态核对页（08_05_02）：导入对话框（三步 + 错误行报告 + 分页 + 幂等键）与导出触发件（同步 / 异步 / 失败重试 / 权限过滤）实例 + 10 项自检上屏（本页不进构建产物）。
 import { BaseAccess, BaseAsyncTask, type ExportJobs, type ExportResult, type ImportJobs } from '@bms/core'
 import { ExportButton, ImportDialog } from '@bms/ui-ep'
+import { ElButton } from 'element-plus'
 import { computed, nextTick, onMounted, ref } from 'vue'
 
 /** 权限上下文（导出权限 / 明文权限 / 导入权限）。 */
@@ -350,7 +351,7 @@ onMounted(async () => {
 
     <section class="import-export-check__section">
       <h2>自检（12 项）</h2>
-      <button type="button" data-test="rerun" @click="runChecks">重新自检</button>
+      <el-button data-test="rerun" @click="runChecks">重新自检</el-button>
       <ol class="import-export-check__list">
         <li v-for="item in checks" :key="item.label" :data-pass="item.pass ? 'true' : 'false'" :data-check="item.label">
           {{ item.pass ? '通过' : '未通过' }} · {{ item.label }}
