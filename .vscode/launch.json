@@ -19,8 +19,9 @@
   //    `VITE_API_PROXY`（缺省 `http://localhost:8088` 网关），二进**并不直连**（前端经网关按 `service_key`
   //    绕行）。本机无 8088 网关时，须在 `frontend/apps/desktop/.env.local` 把代理指向可达网关（本地覆盖
   //    文件不入库），否则前端起来后 `/api` 全 502。后端单服务监听 8000。
-  //  - 5173 端口占用自愈：`vite.config.ts` 为 `strictPort: true`，故 dev 类任务统一 `dependsOn`
-  //    「dev:清理宿主端口（5173）」——先清理**本项目**旧宿主 dev（cwd 校验，非本项目占用则中止）。
+  //  - 端口自愈：dev 任务在 command 开头**内联**调用 `scripts/tools/dev/清理宿主端口.sh` 清理 5173
+  //    （宿主 vite 为 `strictPort: true`；非本项目占用则中止）；后端 8000 由 `dev:清理后端端口（8000）`
+  //    经 `preLaunchTask` 清理 —— 重开「全套」不必先手动停上一次调试会话。
   "version": "0.2.0",
   "configurations": [
     // ── 前端 ────────────────────────────────────────────────────────────────
@@ -117,6 +118,7 @@
       "module": "${input:backendService}",
       "cwd": "${workspaceFolder}/backend",
       "python": "${workspaceFolder}/backend/.venv/bin/python",
+      "preLaunchTask": "dev:清理后端端口（8000）",
       "console": "integratedTerminal",
       "justMyCode": false,
       "env": { "PYTHONUNBUFFERED": "1" }
