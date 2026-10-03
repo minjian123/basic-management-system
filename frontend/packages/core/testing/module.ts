@@ -2,9 +2,9 @@
  * 模块契约用例工厂（`@bms/core/testing`）：模块与平台之间的契约「同一套断言」。
  *
  * 各模块工程（`frontend/modules/*`）在自己的 spec 中调用本工厂并传入本模块实现，
- * 跑同一套断言——覆盖注入上下文（只读快照）、注册声明（八类通道键规则）、
- * 共享依赖与样式约束（由平台护栏纯函数产出的事实，零违规）；「全部注册实现」的
- * 齐备性由平台护栏（`check-module-manifest.mjs`）保证（见任务 03_02 详细设计 §3.9）。
+ * 跑同一套断言——覆盖注入上下文（只读快照）、请求能力（`api` 契约，契约版本 2 起）、
+ * 注册声明（八类通道键规则）、共享依赖与样式约束（由平台护栏纯函数产出的事实，零违规）；
+ * 「全部注册实现」的齐备性由平台护栏（`check-module-manifest.mjs`）保证（见任务 03_02 详细设计 §3.9）。
  *
  * 核心包不触文件系统：共享 / 隔离事实由调用方（模块用例）经平台脚本取得后传入。
  */
@@ -15,7 +15,30 @@ import { MODULE_CONTRACT_VERSION } from '../src/module/contract'
 import { MODULE_NAME_PATTERN } from '../src/module/define'
 import { LOAD_MODES, REMOTE_ENTRY_PATTERN } from '../src/module/manifest'
 import type { ModuleManifestEntry } from '../src/module/manifest'
+import type { ModuleApi } from '../src/contracts/module-api'
 import type { ModuleDefinition, ModuleRegistration } from '../src/module/types'
+
+/** 请求能力契约方法（契约面完整性断言口径）。 */
+const MODULE_API_METHODS = ['get', 'post', 'put', 'del', 'request'] as const
+
+/**
+ * 构造请求能力契约探针（五法齐备；**不发起真实请求**）。
+ *
+ * 供契约工厂断言「注入 `api` 后模块 `setup` 不得抛错」；探针调用即拒绝，避免契约用例产生网络副作用。
+ *
+ * @returns 探针实现。
+ */
+export function createModuleApiProbe(): ModuleApi {
+  const reject = (): Promise<never> => Promise.reject(new Error('契约探针：setup 期不应发起请求'))
+  const probe: ModuleApi = {
+    get: reject,
+    post: reject,
+    put: reject,
+    del: reject,
+    request: reject,
+  }
+  return probe
+}
 
 /** 模块契约事实断言（由平台护栏纯函数产出；提供时断言零违规）。 */
 export interface ModuleContractFacts {
@@ -75,6 +98,16 @@ export function describeModuleContract(name: string, target: ModuleContractTarge
 
     it('注入上下文：只读快照可消费、缺失项自行降级（不抛错、不假定存在）', async () => {
       const registration = await target.definition.setup(Object.freeze({}))
+      expect(typeof registration).toBe('object')
+      expect(registration).not.toBeNull()
+    })
+
+    it('请求能力契约：注入 api 时冻结上下文可消费、探针五法齐备（契约版本 ≥2）', async () => {
+      const api = createModuleApiProbe()
+      for (const method of MODULE_API_METHODS) {
+        expect(typeof api[method]).toBe('function')
+      }
+      const registration = await target.definition.setup(Object.freeze({ api }))
       expect(typeof registration).toBe('object')
       expect(registration).not.toBeNull()
     })

@@ -139,6 +139,40 @@
         "asyncChunkCount": 33
       },
       "sourcemap": true
+    },
+    {
+      "at": "2026-10-03T06:29:16.241Z",
+      "by": "minjian",
+      "action": "publish",
+      "module": "demo",
+      "version": "0.2.0",
+      "previousVersion": null,
+      "entry": "http://localhost:5002/demo/0.2.0/remoteEntry.js",
+      "contractVersion": 2,
+      "size": {
+        "entryFiles": 6,
+        "entryGzipKb": 11.7,
+        "largestGzipKb": 6.2,
+        "asyncChunkCount": 22
+      },
+      "sourcemap": true
+    },
+    {
+      "at": "2026-10-03T06:29:16.331Z",
+      "by": "minjian",
+      "action": "publish",
+      "module": "sample",
+      "version": "0.2.0",
+      "previousVersion": null,
+      "entry": "http://localhost:5002/sample/0.2.0/remoteEntry.js",
+      "contractVersion": 2,
+      "size": {
+        "entryFiles": 6,
+        "entryGzipKb": 13.6,
+        "largestGzipKb": 6.2,
+        "asyncChunkCount": 33
+      },
+      "sourcemap": true
     }
   ]
 }

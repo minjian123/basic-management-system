@@ -1,7 +1,8 @@
 /**
- * 上下文能力基类：宿主注入 router / store / i18n / 用户 / 租户（只读约束）。
+ * 上下文能力基类：宿主注入 router / store / i18n / 用户 / 租户 / 请求能力（只读约束）。
  *
  * 消费**单一上下文契约**（模块契约的 `ModuleHostContext`）——模块与宿主同一形状，避免两处定义漂移。
+ * 请求能力项的消费入口为 `BaseModuleApi`（能力基类），未注入时模块自行降级。
  */
 
 import { BaseComponent } from '../base/BaseComponent'

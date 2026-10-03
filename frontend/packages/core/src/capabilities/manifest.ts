@@ -65,6 +65,7 @@ export const CAPABILITY_MANIFEST: Readonly<Record<string, readonly string[]>> = 
   locale: [],
   access: [],
   'module-context': [],
+  'module-api': ['placeholder-state'],
   'async-task': [],
   'upload-engine': ['placeholder-state', 'presigned-url'],
   'file-upload': ['input', 'upload-engine', 'presigned-url', 'file-download'],

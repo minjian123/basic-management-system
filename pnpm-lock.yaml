@@ -138,6 +138,9 @@ importers:
 
   frontend/modules/demo:
     dependencies:
+      '@bms/api-types':
+        specifier: workspace:*
+        version: link:../../packages/api-types
       '@bms/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -214,6 +217,9 @@ importers:
 
   frontend/modules/sample:
     dependencies:
+      '@bms/api-types':
+        specifier: workspace:*
+        version: link:../../packages/api-types
       '@bms/core':
         specifier: workspace:*
         version: link:../../packages/core

@@ -1,7 +1,7 @@
 {
   "name": "@bms/module-sample",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "description": "BMS 首个模块样例（Module Federation remote：真实形态页面 · 独立构建 / 独立发布 / 宿主运行时加载）",
   "scripts": {
@@ -18,6 +18,7 @@
     "typecheck": "vue-tsc -b"
   },
   "dependencies": {
+    "@bms/api-types": "workspace:*",
     "@bms/core": "workspace:*",
     "@bms/ui-ep": "workspace:*",
     "element-plus": "^2.14.5",

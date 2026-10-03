@@ -7,4 +7,4 @@
  */
 
 /** 当前模块契约版本（平台支持的唯一版本）。 */
-export const MODULE_CONTRACT_VERSION = 1
+export const MODULE_CONTRACT_VERSION = 2

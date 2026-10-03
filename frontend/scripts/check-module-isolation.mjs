@@ -7,8 +7,10 @@
  *     `frontend/apps/desktop/src/modules/**`——样式作用域 / 令牌消费 / 全局污染五类 / 运行时约束；
  *     独立预览壳（`standalone.ts`）与令牌定义源（`tokens.scss`）豁免；
  *   - **产物面**：模块远端产物 `frontend/modules/<模块名>/dist/**`——全部 CSS（选择器须作用域化、
- *     禁全局选择器、禁硬编码色值）与**模块自有 JS 块**（暴露块 + 页面块；全局污染与持久化特征）；
- *     MF 运行时 / 平台辅助块 / 第三方依赖块不在扫描面（避免误报）。
+ *     禁全局选择器、禁硬编码色值）与**模块自有 JS 块**（暴露块 + 页面块；全局污染 / 持久化 /
+ *     自建 HTTP 特征）；MF 运行时 / 平台辅助块 / 第三方依赖块不在扫描面（避免误报）。
+ *   - **自建 HTTP（R3，阶段六 06_02 增）**：模块发请求一律经宿主注入的请求能力 `api`，
+ *     禁裸 `fetch` / `axios` / `XMLHttpRequest`（源码面 + 产物面同判据）。
  *
  * 用法：
  *     node frontend/scripts/check-module-isolation.mjs                    # 源码面（缺省）
@@ -55,6 +57,8 @@ const PATTERNS = {
   hostInstance: /\b(createPinia|createRouter)\s*\(/,
   /** R2 持久化 API。 */
   persist: /\b(localStorage|sessionStorage)\b|document\s*\.\s*cookie\b/,
+  /** R3 自建 HTTP 客户端 / 裸请求（一律经宿主注入的请求能力 `api`）。 */
+  bareHttp: /\bfetch\s*\(|\bnew\s+XMLHttpRequest\s*\(|\baxios\s*[.(]|['"]axios['"]/,
   /** S2 `:global`。 */
   globalFlag: /:global/,
   /** S3 全局选择器（选择器段以 `:root` / `html` / `body` / `*` 起始）。 */
@@ -238,6 +242,7 @@ export function scanSourceFiles(files) {
       if (PATTERNS.documentRoot.test(source)) problems.push(`${file.path}：直控根节点（G4）`)
       if (PATTERNS.hostInstance.test(source)) problems.push(`${file.path}：自建宿主级实例（R1）`)
       if (PATTERNS.persist.test(source)) problems.push(`${file.path}：使用持久化 API（R2）`)
+      if (PATTERNS.bareHttp.test(source)) problems.push(`${file.path}：自建 HTTP 客户端 / 裸请求（R3）`)
       if (hasStyleImport(source)) problems.push(`${file.path}：脚本引全局样式（S4）`)
     }
   }
@@ -314,6 +319,7 @@ export function scanProductFiles({ css = [], js = [] }) {
     if (PATTERNS.globalAssign.test(source)) problems.push(`${file.path}：改全局变量（P4/G3）`)
     if (PATTERNS.documentRoot.test(source)) problems.push(`${file.path}：直控根节点（P4/G4）`)
     if (PATTERNS.persist.test(source)) problems.push(`${file.path}：使用持久化 API（P4/R2）`)
+    if (PATTERNS.bareHttp.test(source)) problems.push(`${file.path}：自建 HTTP 客户端 / 裸请求（P5/R3）`)
   }
   return problems
 }

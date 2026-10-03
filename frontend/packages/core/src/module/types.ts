@@ -4,6 +4,8 @@
  * 框架无关；模块（含阶段五远端模块）与平台自身注册共用本契约。
  */
 
+import type { ModuleApi } from '../contracts/module-api'
+
 /** 模块清单。 */
 export interface ModuleManifest {
   /** 模块名（小写字母开头，可含数字与连字符）。 */
@@ -100,6 +102,12 @@ export interface ModuleHostContext {
   user?: unknown
   /** 当前租户。 */
   tenant?: unknown
+  /**
+   * 请求能力（模块经宿主请求层访问后端；服务前缀 / 令牌 / 错误解包 / 401 由宿主处理）。
+   *
+   * 模块**禁自建 HTTP 客户端 / 裸请求**；缺失时自行降级（不假定存在）。
+   */
+  api?: ModuleApi
 }
 
 /** 模块定义。 */
