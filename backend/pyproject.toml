@@ -56,6 +56,9 @@ known-first-party = [
 typeCheckingMode = "strict"
 pythonVersion = "3.14"
 include = ["libs", "services"]
+# alembic 迁移脚本不纳入类型检查（含大量动态写法）；ignore 同时抑制 IDE（basedpyright）
+# 打开该目录文件时的诊断，避免「项目门禁不管、编辑器却满屏报错」的口径分裂
+ignore = ["alembic"]
 # src 布局：把各工程源码根加入解析路径，供跨工程导入与严格类型检查
 extraPaths = [
     "libs/bms_core/src",
