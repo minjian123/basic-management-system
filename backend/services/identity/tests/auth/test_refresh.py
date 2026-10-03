@@ -3,13 +3,17 @@
 import pytest
 from fastapi import FastAPI
 from httpx import AsyncClient, Response
+from sqlalchemy import select
 
 from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.ratelimit.memory import MemoryRateLimiter
 from bms_core.security.session import DefaultSessionSecurity
 from bms_core.session.memory import MemorySessionStore
+from bms_identity.models.session import SysSession
+from bms_identity.services.session_issuer import hash_refresh_token
 
-from .helpers import FakeOrgClient, FakeUserTokenIssuer, wire_auth
+from .helpers import TENANT_ID, FakeOrgClient, FakeUserTokenIssuer, wire_auth
+from .session_helpers import seed_session, tenant_scope, utc_now
 
 API_LOGIN = "/api/v1/auth/login"
 API_REFRESH = "/api/v1/auth/refresh"
@@ -138,3 +142,55 @@ async def test_refresh_without_tenant_context(client: AsyncClient, service_app: 
         assert resp.status_code == 401 and resp.json()["code"] == 20001
     finally:
         service_app.dependency_overrides.pop(get_tenant, None)
+
+
+@pytest.mark.kiwi_id(2234)
+async def test_refresh_preserves_remember_me(client: AsyncClient, service_app: FastAPI) -> None:
+    """轮换按原选项续期：记住我仍持久（Max-Age + expires_at 14 天）；会话级仍会话 Cookie（+ 24h）。"""
+    issuer, org, store, limiter = FakeUserTokenIssuer(), FakeOrgClient(), MemorySessionStore(), MemoryRateLimiter()
+    org.set_user("admin", password="secret", user_id=7)
+    wire_auth(service_app, issuer=issuer, org=org, store=store, limiter=limiter)
+
+    remembered = await client.post(API_LOGIN, json={"account": "admin", "password": "secret", "remember_me": True})
+    assert remembered.status_code == 200
+    sid = issuer.specs[-1].session_id
+    rotated = await client.post(API_REFRESH)
+    assert rotated.status_code == 200
+    assert "max-age=1209600" in rotated.headers.get("set-cookie", "").lower()
+    assert issuer.specs[-1].session_id == sid
+    async with tenant_scope(service_app) as db:
+        row = (await db.execute(select(SysSession).where(SysSession.session_id == sid))).scalar_one()
+        assert row.remember_me is True
+        assert 1209500 <= (row.expires_at - utc_now()).total_seconds() <= 1209660
+
+    session_level = await client.post(API_LOGIN, json={"account": "admin", "password": "secret"})
+    assert session_level.status_code == 200
+    sid2 = issuer.specs[-1].session_id
+    rotated2 = await client.post(API_REFRESH)
+    assert rotated2.status_code == 200
+    cookie = rotated2.headers.get("set-cookie", "").lower()
+    assert "bms_refresh_token=" in cookie and "max-age" not in cookie
+    async with tenant_scope(service_app) as db:
+        row = (await db.execute(select(SysSession).where(SysSession.session_id == sid2))).scalar_one()
+        assert row.remember_me is False
+        assert 86000 <= (row.expires_at - utc_now()).total_seconds() <= 86460
+
+
+@pytest.mark.kiwi_id(2234)
+async def test_refresh_legacy_null_remember_me_treated_as_remembered(
+    client: AsyncClient, service_app: FastAPI
+) -> None:
+    """历史行（`remember_me=NULL`）轮换按记住我处理（14 天），不误降级为会话级。"""
+    issuer, org, store, limiter = FakeUserTokenIssuer(), FakeOrgClient(), MemorySessionStore(), MemoryRateLimiter()
+    org.set_user("admin", password="secret", user_id=7)
+    wire_auth(service_app, issuer=issuer, org=org, store=store, limiter=limiter)
+
+    issuer.mint("ref-hist", sub="7", jti="8001", tenant_id=TENANT_ID)
+    await seed_session(
+        service_app, session_id="8001", refresh_token_hash=hash_refresh_token("ref-hist"), remember_me=None
+    )
+    await store.save("8001", ConcurrentStableDict({"user_id": 7, "tenant": TENANT_ID}), tenant=TENANT_ID, ttl=600)
+    client.cookies.clear()
+    resp = await client.post(API_REFRESH, headers={"Cookie": f"{COOKIE}=ref-hist"})
+    assert resp.status_code == 200
+    assert "max-age=1209600" in resp.headers.get("set-cookie", "").lower()

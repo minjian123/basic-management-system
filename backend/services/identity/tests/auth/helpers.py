@@ -32,6 +32,10 @@ from bms_core.ws.base import BaseRealtimePublisher, RealtimeEvent
 
 _ACCESS = "access"
 _REFRESH = "refresh"
+_REFRESH_TTL = 1209600
+"""refresh 常规有效期（秒；14 天，与 `[security].refresh_token_expire_days` 缺省一致）。"""
+_SESSION_REFRESH_TTL = 86400
+"""refresh 会话级有效期（秒；24 小时，与 `[security].session_refresh_expire_hours` 缺省一致）。"""
 
 TENANT = "demo"
 """演示租户编码（对外 / 请求头口径）。"""
@@ -85,11 +89,12 @@ class FakeUserTokenIssuer(BaseUserTokenIssuer):
         self._by_token.set(access, ConcurrentStableDict({**base, "type": _ACCESS}))
         self._by_token.set(refresh, ConcurrentStableDict({**base, "type": _REFRESH}))
         self.specs.add(spec)
+        refresh_ttl = _REFRESH_TTL if spec.remember_me else _SESSION_REFRESH_TTL
         return UserTokenPair(
             access_token=access,
             refresh_token=refresh,
             expires_in=1800,
-            refresh_expires_in=1209600,
+            refresh_expires_in=refresh_ttl,
             session_id=spec.session_id,
         )
 

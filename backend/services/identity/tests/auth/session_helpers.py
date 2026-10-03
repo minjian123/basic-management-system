@@ -114,6 +114,8 @@ async def seed_session(
     device: str | None = None,
     ip: str | None = None,
     login_at: datetime | None = None,
+    refresh_token_hash: str = "hash",
+    remember_me: bool | None = None,
 ) -> None:
     """直连租户库播种一条会话记录（覆盖过期 / 已撤销等分支）。
 
@@ -126,6 +128,8 @@ async def seed_session(
         device: 设备标识。
         ip: 登录 IP。
         login_at: 登录时间（None 取当前）。
+        refresh_token_hash: refresh 哈希（轮换比对用；缺省占位 `hash`）。
+        remember_me: 是否记住我（None=历史行）。
     """
     now = utc_now()
     async with tenant_scope(app) as session:
@@ -134,11 +138,12 @@ async def seed_session(
                 id=int(session_id),
                 session_id=session_id,
                 user_id=user_id,
-                refresh_token_hash="hash",
+                refresh_token_hash=refresh_token_hash,
                 device=device,
                 ip=ip,
                 login_at=login_at or now,
                 expires_at=expires_at or (now + timedelta(days=14)),
+                remember_me=remember_me,
                 revoked_at=revoked_at,
             )
         )

@@ -14,7 +14,7 @@ import {
   type CaptchaCredential,
   type CaptchaKind,
 } from '@bms/core'
-import { CaptchaField, PasswordInput, TextInput, createHttpCaptchaSource } from '@bms/ui-ep'
+import { CaptchaField, PasswordInput, TextInput, BooleanCheckbox, createHttpCaptchaSource } from '@bms/ui-ep'
 import { ElButton } from 'element-plus'
 import { computed, onMounted, ref, shallowRef } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -25,7 +25,7 @@ import { captchaSourceOptions } from '@/api/endpoints'
 import { getTenantCode } from '@/api/tenant'
 import { useSessionStore } from '@/stores/session'
 import { notifyMustChangePassword } from '@/utils/feedback'
-import { normalizeLoginTenant, pickLoginCaptchaKind, toLoginCaptcha, type LoginCaptchaInput } from '@/utils/login'
+import { normalizeLoginTenant, pickLoginCaptchaKind, toLoginCaptcha, buildLoginRequest, type LoginCaptchaInput } from '@/utils/login'
 import { redirectTo } from '@/utils/navigation'
 
 defineOptions({ name: 'LoginView' })
@@ -43,6 +43,8 @@ const tenantInput = ref(getTenantCode() ?? '')
 const account = ref('')
 /** 登录口令（不回填、不落任何存储）。 */
 const password = ref('')
+/** 记住我（缺省不勾选；随登录请求显式提交）。 */
+const rememberMe = ref(false)
 /** 验证码受控值（图形 / 短信）。 */
 const captchaCode = ref('')
 /** 验证码凭证（件层延迟提交模式上抛）。 */
@@ -181,12 +183,15 @@ async function onSubmit(): Promise<void> {
 
   submitting.value = true
   try {
-    const result = await login({
-      account: accountValue,
-      password: password.value,
-      tenant: tenant.value,
-      ...(captcha === undefined ? {} : { captcha }),
-    })
+    const result = await login(
+      buildLoginRequest({
+        account: accountValue,
+        password: password.value,
+        tenant: tenant.value,
+        rememberMe: rememberMe.value,
+        ...(captcha === undefined ? {} : { captcha }),
+      }),
+    )
     session.signIn({ token: result.access_token, user: result.user, tenant: result.user.tenant ?? tenant.value })
     if (result.user.must_change_password) {
       notifyMustChangePassword()
@@ -254,6 +259,8 @@ onMounted(() => {
           <span class="login-view__label">密码</span>
           <password-input v-model="password" :strength="false" show-toggle data-test="login-password" />
         </label>
+
+        <boolean-checkbox v-model="rememberMe" label="记住我" data-test="login-remember" />
 
         <div v-if="captchaVisible" class="login-view__captcha" data-test="login-captcha">
           <captcha-field

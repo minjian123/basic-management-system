@@ -40,6 +40,7 @@ class SessionRepository(BaseDbRepository[SysSession]):
         expires_at: datetime,
         device: str | None = None,
         ip: str | None = None,
+        remember_me: bool | None = None,
     ) -> SysSession:
         """创建会话记录（`id` 与 `session_id` 同值 = 雪花会话 id）。
 
@@ -51,6 +52,7 @@ class SessionRepository(BaseDbRepository[SysSession]):
             expires_at: refresh 过期时间（UTC）。
             device: 设备标识（可选）。
             ip: 登录 IP（可选）。
+            remember_me: 是否记住我（true=14 天 / false=会话级；缺省 None 表示未知）。
 
         Returns:
             SysSession: 新建会话记录。
@@ -64,6 +66,7 @@ class SessionRepository(BaseDbRepository[SysSession]):
             ip=ip,
             login_at=login_at,
             expires_at=expires_at,
+            remember_me=remember_me,
         )
         self._session.add(item)
         await self._session.flush()
@@ -83,6 +86,24 @@ class SessionRepository(BaseDbRepository[SysSession]):
         if item is None:
             return None
         return await self.update(item.id, refresh_token_hash=refresh_token_hash)
+
+    async def rotate(
+        self, session_id: str, *, refresh_token_hash: str, expires_at: datetime
+    ) -> SysSession | None:
+        """刷新轮换：更新 refresh 哈希与过期时间（会话 id 稳定，`expires_at` 滚动续期）。
+
+        Args:
+            session_id: 会话 id。
+            refresh_token_hash: 新 refresh token 哈希。
+            expires_at: 新的 refresh 过期时间（UTC；随保留时长选项滚动）。
+
+        Returns:
+            SysSession | None: 更新后的记录；不存在返回 None。
+        """
+        item = await self.get_by_session_id(session_id)
+        if item is None:
+            return None
+        return await self.update(item.id, refresh_token_hash=refresh_token_hash, expires_at=expires_at)
 
     async def revoke(self, session_id: str, *, revoked_at: datetime) -> bool:
         """撤销会话（置 `revoked_at`；幂等）。

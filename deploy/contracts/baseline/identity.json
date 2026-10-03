@@ -1334,6 +1334,12 @@
             "title": "Password",
             "type": "string"
           },
+          "remember_me": {
+            "default": false,
+            "description": "记住我（true=14 天；false=会话级，浏览器关闭即失效）",
+            "title": "Remember Me",
+            "type": "boolean"
+          },
           "tenant": {
             "anyOf": [
               {

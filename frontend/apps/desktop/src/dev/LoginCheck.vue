@@ -188,12 +188,13 @@ onMounted(async () => {
   // `PasswordInput` 根为包装 div（须再取内部 input）。
   const passwordInput = pick('[data-test="login-password"] input') as HTMLInputElement | null
   const submit = pick('[data-test="login-submit"]')
-  const libraryInputs = host.value === null ? [] : [...host.value.querySelectorAll('.bms-text-input, .bms-password-input')]
+  const libraryInputs =
+    host.value === null ? [] : [...host.value.querySelectorAll('.bms-text-input, .bms-password-input, .bms-boolean-checkbox')]
   const nakedInputs =
     host.value === null
       ? []
       : [...host.value.querySelectorAll('input')].filter(
-          (input) => input.closest('.bms-text-input, .bms-password-input') === null,
+          (input) => input.closest('.bms-text-input, .bms-password-input, .bms-boolean-checkbox') === null,
         )
   const buttons = host.value === null ? [] : [...host.value.querySelectorAll('button')]
   const ssoItems = host.value === null ? [] : host.value.querySelectorAll('[data-test="login-sso-item"]')
@@ -208,13 +209,13 @@ onMounted(async () => {
   )
   add(
     groupThree,
-    '表单要素齐备：租户标识 / 账号 / 密码 / 提交按钮',
+    '表单要素齐备：租户标识 / 账号 / 密码 / 记住我 / 提交按钮',
     tenantInput !== null && accountInput !== null && passwordInput !== null && submit !== null,
   )
   add(
     groupThree,
-    `表单件复用组件库：文本 / 密码件 ${libraryInputs.length} 个，裸原生 input ${nakedInputs.length} 个 / 非 Element Plus 按钮 ${buttons.filter((button) => !button.classList.contains('el-button')).length} 个`,
-    libraryInputs.length === 3 &&
+    `表单件复用组件库：文本 / 密码 / 复选件 ${libraryInputs.length} 个，裸原生 input ${nakedInputs.length} 个 / 非 Element Plus 按钮 ${buttons.filter((button) => !button.classList.contains('el-button')).length} 个`,
+    libraryInputs.length === 4 &&
       nakedInputs.length === 0 &&
       buttons.length > 0 &&
       buttons.every((button) => button.classList.contains('el-button')),
@@ -245,8 +246,14 @@ onMounted(async () => {
   const pageText = host.value?.textContent ?? ''
   add(
     groupThree,
-    '无「记住我」开关、无密码强度提示（口径成文，归 05-5 / 改密场景）',
-    !pageText.includes('记住我') && !pageText.includes('强度'),
+    '无密码强度提示（登录场景无强度语义，归改密 / 注册）',
+    !pageText.includes('强度'),
+  )
+  const rememberCheckbox = pick('[data-test="login-remember"] input') as HTMLInputElement | null
+  add(
+    groupThree,
+    '「记住我」勾选项存在且缺省不勾选（随登录请求显式提交，05-5）',
+    rememberCheckbox !== null && rememberCheckbox.checked === false,
   )
   add(
     groupThree,
@@ -320,7 +327,11 @@ onMounted(async () => {
         <li>
           SSO 入口按 <code>GET /auth/sso/providers</code> 渲染，点击经顶层地址跳转授权端点；清单为空即整块不渲染。
         </li>
-        <li>密码不回填、不落存储，明文切换仅内存态；<strong>不提供「记住我」与密码强度提示</strong>。</li>
+        <li>密码不回填、不落存储，明文切换仅内存态；<strong>不显示密码强度提示</strong>。</li>
+        <li>
+          「记住我」勾选项（组件库 <code>BooleanCheckbox</code>，05-5）：缺省不勾选，随登录请求
+          <strong>恒显式携带</strong> <code>remember_me</code>（勾选=14 天持久 / 不勾选=会话级）。
+        </li>
         <li>
           表单件复用组件库：租户 / 账号走 <code>TextInput</code>、密码走 <code>PasswordInput</code>（<code>:strength="false"</code>
           关闭强度条 + 明文切换图标复用 Element Plus <code>show-password</code>），按钮走 Element Plus

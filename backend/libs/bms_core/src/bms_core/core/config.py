@@ -317,6 +317,13 @@ class SecuritySettings(BaseSettings):
     refresh_token_expire_days: int = Field(default=14, ge=1)
     """refresh token 有效期（天；架构 14 定为 14 天滚动轮换）。"""
 
+    session_refresh_expire_hours: int = Field(default=24, ge=1)
+    """会话级 refresh 有效期（小时；`remember_me=false` 未勾选「记住我」时取此值）。
+
+    会话级登录同时下发**会话 Cookie**（浏览器关闭即失效）；本值为其有界安全上限
+    （refresh JWT `exp` / `sys_session.expires_at` / Redis 会话标记 TTL 三者对齐）。
+    """
+
     active_kid: str = ""
     """当前签名密钥 kid（用户令牌多把签名私钥时必填）。"""
 

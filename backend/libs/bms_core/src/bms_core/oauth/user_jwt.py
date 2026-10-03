@@ -42,6 +42,7 @@ __all__ = [
 
 _SECONDS_PER_MINUTE = 60
 _SECONDS_PER_DAY = 86400
+_SECONDS_PER_HOUR = 3600
 
 
 class JwtUserTokenIssuer(BaseUserTokenIssuer):
@@ -57,6 +58,7 @@ class JwtUserTokenIssuer(BaseUserTokenIssuer):
         active_kid: str = "",
         access_ttl: int,
         refresh_ttl: int,
+        session_refresh_ttl: int | None = None,
         algorithms: ConcurrentStableList[str] | None = None,
         leeway: int = DEFAULT_LEEWAY,
     ) -> None:
@@ -67,7 +69,8 @@ class JwtUserTokenIssuer(BaseUserTokenIssuer):
             keys: 密钥集（kid → 密钥材料；kid 必须带 `usr-` 前缀）。
             active_kid: 当前签名密钥 kid（多把签名私钥时必填）。
             access_ttl: access 有效期（秒）。
-            refresh_ttl: refresh 有效期（秒）。
+            refresh_ttl: refresh 常规有效期（秒；「记住我」）。
+            session_refresh_ttl: refresh 会话级有效期（秒；`remember_me=false`；None 回落 `refresh_ttl`）。
             algorithms: 允许算法白名单；None 取默认（仅 RS256 / ES256）。
             leeway: 时间声明容差（秒）。
 
@@ -77,6 +80,7 @@ class JwtUserTokenIssuer(BaseUserTokenIssuer):
         self._issuer = issuer
         self._access_ttl = access_ttl
         self._refresh_ttl = refresh_ttl
+        self._session_refresh_ttl = session_refresh_ttl
         self._active_kid = active_kid
         self._algorithms = tuple(DEFAULT_ALGORITHMS if algorithms is None else algorithms)
         self._leeway = leeway
@@ -112,6 +116,7 @@ class JwtUserTokenIssuer(BaseUserTokenIssuer):
             raise ParamError("用户令牌签发缺少主体或会话 id")
         kid, key = self._signing_key()
         now = int(time.time())
+        refresh_ttl = self._effective_refresh_ttl(spec.remember_me)
         header = {"alg": self._signing_algorithms[kid], "kid": kid}
         access = jwt.encode(
             header,
@@ -135,7 +140,7 @@ class JwtUserTokenIssuer(BaseUserTokenIssuer):
                     subject=subject,
                     session_id=session_id,
                     token_type=USER_TOKEN_TYPE_REFRESH,
-                    ttl=self._refresh_ttl,
+                    ttl=refresh_ttl,
                     tenant_id=spec.tenant_id,
                     scopes=ConcurrentStableList(spec.scopes),
                     now=now,
@@ -147,7 +152,7 @@ class JwtUserTokenIssuer(BaseUserTokenIssuer):
             access_token=access,
             refresh_token=refresh,
             expires_in=self._access_ttl,
-            refresh_expires_in=self._refresh_ttl,
+            refresh_expires_in=refresh_ttl,
             session_id=session_id,
             scopes=spec.scopes,
         )
@@ -230,6 +235,19 @@ class JwtUserTokenIssuer(BaseUserTokenIssuer):
             claims.set("scope", " ".join(scopes))
         return claims
 
+    def _effective_refresh_ttl(self, remember_me: bool) -> int:
+        """按「记住我」选项取 refresh 有效期（秒）。
+
+        Args:
+            remember_me: 是否记住我；`false` 取会话级有效期（未配置则回落常规有效期）。
+
+        Returns:
+            int: refresh 有效期（秒）。
+        """
+        if remember_me or self._session_refresh_ttl is None:
+            return self._refresh_ttl
+        return self._session_refresh_ttl
+
     def _signing_key(self) -> tuple[str, RSAKey | ECKey]:
         """解析当前签名密钥（active_kid 优先，单密钥自动）。
 
@@ -291,4 +309,5 @@ class JwtUserTokenIssuerFactory(BasePluginFactory[JwtUserTokenIssuer]):
             active_kid=security.active_kid,
             access_ttl=security.access_token_expire_minutes * _SECONDS_PER_MINUTE,
             refresh_ttl=security.refresh_token_expire_days * _SECONDS_PER_DAY,
+            session_refresh_ttl=security.session_refresh_expire_hours * _SECONDS_PER_HOUR,
         )

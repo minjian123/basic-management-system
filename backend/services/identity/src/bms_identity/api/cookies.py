@@ -9,14 +9,14 @@ from fastapi import Request, Response
 from bms_identity.schemas.auth import REFRESH_COOKIE_NAME, REFRESH_COOKIE_PATH
 
 
-def set_refresh_cookie(response: Response, request: Request, token: str, max_age: int) -> None:
+def set_refresh_cookie(response: Response, request: Request, token: str, max_age: int | None) -> None:
     """下发 refresh cookie。
 
     Args:
         response: 响应对象。
         request: 请求对象（取 cookie 安全开关）。
         token: refresh token 紧凑串。
-        max_age: 有效期（秒）。
+        max_age: 有效期（秒）；`None` 下发**会话 Cookie**（浏览器会话结束即失效）。
     """
     response.set_cookie(
         key=REFRESH_COOKIE_NAME,

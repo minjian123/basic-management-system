@@ -10,7 +10,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from bms_core.captcha.base import BaseCaptcha, CaptchaCredential, CaptchaKind
 from bms_core.core.concurrent import ConcurrentStableDict
@@ -72,6 +72,7 @@ class LoginOutcome(BaseLoginResultContract):
     result: LoginResult
     refresh_token: str
     refresh_expires_in: int
+    remember_me: bool = True
 
 
 @dataclass(frozen=True)
@@ -81,6 +82,7 @@ class RefreshOutcome(BaseLoginResultContract):
     result: RefreshResult
     refresh_token: str
     refresh_expires_in: int
+    remember_me: bool = True
 
 
 class LoginService(BaseFrameworkObject):
@@ -188,7 +190,12 @@ class LoginService(BaseFrameworkObject):
             raise AuthError("凭据校验结果缺少用户概要")
 
         issued = await self._session_issuer.issue(
-            user_id=user.id, tenant_id=tenant_id, tenant_code=tenant_code, ip=ip, user_agent=user_agent
+            user_id=user.id,
+            tenant_id=tenant_id,
+            tenant_code=tenant_code,
+            ip=ip,
+            user_agent=user_agent,
+            remember_me=req.remember_me,
         )
         await self._limiter.reset(self._fail_key(tenant_id, req.account))
         await self._org.login_state(tenant_id, req.account, success=True)
@@ -209,6 +216,7 @@ class LoginService(BaseFrameworkObject):
             ),
             refresh_token=issued.refresh_token,
             refresh_expires_in=issued.refresh_expires_in,
+            remember_me=issued.remember_me,
         )
 
     async def refresh(
@@ -252,10 +260,20 @@ class LoginService(BaseFrameworkObject):
                 raise AuthError("会话已失效")
             if record.refresh_token_hash != hash_refresh_token(refresh_token):
                 raise AuthError("刷新令牌已失效")
+            remembered = record.remember_me is not False
             pair = await self._issuer.issue_pair(
-                UserTokenSpec(subject=str(record.user_id), session_id=session_id, tenant_id=tenant_id)
+                UserTokenSpec(
+                    subject=str(record.user_id),
+                    session_id=session_id,
+                    tenant_id=tenant_id,
+                    remember_me=remembered,
+                )
             )
-            await self._sessions.update_refresh_hash(session_id, hash_refresh_token(pair.refresh_token))
+            await self._sessions.rotate(
+                session_id,
+                refresh_token_hash=hash_refresh_token(pair.refresh_token),
+                expires_at=_utc_now() + timedelta(seconds=pair.refresh_expires_in),
+            )
         await self._store.save(
             session_id,
             ConcurrentStableDict({"user_id": record.user_id, "tenant": tenant_id, "ip": ip, "ua": user_agent}),
@@ -270,6 +288,7 @@ class LoginService(BaseFrameworkObject):
             ),
             refresh_token=pair.refresh_token,
             refresh_expires_in=pair.refresh_expires_in,
+            remember_me=remembered,
         )
 
     async def logout(self, refresh_token: str | None, *, tenant_id: str | None) -> None:

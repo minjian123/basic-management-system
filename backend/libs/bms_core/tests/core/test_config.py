@@ -110,6 +110,7 @@ def test_defaults_and_sections(monkeypatch: pytest.MonkeyPatch) -> None:
     assert settings.security.secret_key == ""
     assert settings.security.access_token_expire_minutes == 30
     assert settings.security.refresh_token_expire_days == 14
+    assert settings.security.session_refresh_expire_hours == 24
     assert settings.security.active_kid == ""
     assert settings.security.keys == {}
     assert settings.user_token.provider == "jwt"  # 01_02：用户令牌自签真实实现
