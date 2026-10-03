@@ -1,0 +1,101 @@
+{
+  // BMS 基座 · 任务（供「运行任务」与 launch.json 的 preLaunchTask 使用）
+  //
+  // 说明：
+  //  - 一律用 shell + 显式 `pnpm` / `uv` / `python3`（不依赖 IDE 的 npm 任务探测，避免落到 npm）；
+  //  - dev 类任务为**后台任务**：以 Vite 的 `Local:` 行为就绪信号（preLaunchTask 需据此判断可继续）；
+  //    「问题匹配器」正则刻意不匹配任何行，避免把 dev 日志灌进「问题」面板。
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "dev:宿主（5173）",
+      "detail": "BMS 宿主 PC 管理端 Vite 开发服务器（/api 代理默认 http://localhost:8088，可用 VITE_API_PROXY 覆盖）",
+      "type": "shell",
+      "command": "pnpm dev",
+      "options": { "cwd": "${workspaceFolder}/frontend/apps/desktop" },
+      "isBackground": true,
+      "presentation": { "reveal": "always", "panel": "dedicated" },
+      "problemMatcher": {
+        "owner": "bms-vite-desktop",
+        "pattern": [{ "regexp": "^\\[bms-vite\\]\\s(.*)$", "file": 1, "message": 1 }],
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "VITE v",
+          "endsPattern": "Local:\\s+https?://"
+        }
+      }
+    },
+    {
+      "label": "dev:模块 demo（5002）",
+      "detail": "运行时模块 demo 的 Vite dev（宿主 modules.json 声明的远端源为 localhost:5002）",
+      "type": "shell",
+      "command": "pnpm dev",
+      "options": { "cwd": "${workspaceFolder}/frontend/modules/demo" },
+      "isBackground": true,
+      "presentation": { "reveal": "always", "panel": "dedicated" },
+      "problemMatcher": {
+        "owner": "bms-vite-module-demo",
+        "pattern": [{ "regexp": "^\\[bms-vite\\]\\s(.*)$", "file": 1, "message": 1 }],
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "VITE v",
+          "endsPattern": "Local:\\s+https?://"
+        }
+      }
+    },
+    {
+      "label": "dev:模块 sample（5003）",
+      "detail": "运行时模块 sample 的 Vite dev（注意：宿主清单声明其远端为 5002，两者不一致时宿主落模块加载失败兜底页）",
+      "type": "shell",
+      "command": "pnpm dev",
+      "options": { "cwd": "${workspaceFolder}/frontend/modules/sample" },
+      "isBackground": true,
+      "presentation": { "reveal": "always", "panel": "dedicated" },
+      "problemMatcher": {
+        "owner": "bms-vite-module-sample",
+        "pattern": [{ "regexp": "^\\[bms-vite\\]\\s(.*)$", "file": 1, "message": 1 }],
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "VITE v",
+          "endsPattern": "Local:\\s+https?://"
+        }
+      }
+    },
+    {
+      "label": "检查：前端基座三包（lint + typecheck + 用例）",
+      "detail": "core / api-types / vue / ui-ep 四包检查（bms 根：pnpm run check）",
+      "type": "shell",
+      "command": "pnpm run check",
+      "options": { "cwd": "${workspaceFolder}" },
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "检查：前端宿主（lint + vue-tsc + 用例 + 体积预算）",
+      "detail": "apps/desktop：ESLint + vue-tsc -b + Vitest + 构建体积预算（build 后跑 budget）",
+      "type": "shell",
+      "command": "pnpm run lint && pnpm exec vue-tsc -b && pnpm run test && pnpm run build && pnpm run budget",
+      "options": { "cwd": "${workspaceFolder}/frontend/apps/desktop" },
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "检查：文档基座（断链 / 越界 / 阶段状态）",
+      "detail": "check-links + check-docs-scope + check-status --stage 06_认证与安全 --strict",
+      "type": "shell",
+      "command": "python3 scripts/tools/base-check/check-links.py && python3 scripts/tools/base-check/check-docs-scope.py && python3 scripts/tools/check-docs/check-status.py --stage 06_认证与安全 --strict",
+      "options": { "cwd": "${workspaceFolder}" },
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "检查：后端（ruff + 格式 + pyright）",
+      "detail": "backend：uv run ruff check / ruff format --check / pyright（本地 pyright 依赖外置时可能不可用，CI 兜底）",
+      "type": "shell",
+      "command": "uv run ruff check . && uv run ruff format --check . && uv run pyright",
+      "options": { "cwd": "${workspaceFolder}/backend" },
+      "group": "test",
+      "problemMatcher": []
+    }
+  ]
+}
