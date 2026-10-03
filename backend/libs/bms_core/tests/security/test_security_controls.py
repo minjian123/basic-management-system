@@ -20,9 +20,9 @@ from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList,
 from bms_core.core.context import reset_current_masker, set_current_masker
 from bms_core.core.exceptions import RateLimitError
 from bms_core.core.logging import (  # pyright: ignore[reportPrivateUsage]
-    _SENSITIVE_KEYS,
-    _SENSITIVE_SUFFIXES,
-    _build_redact_processor,
+    _SENSITIVE_KEYS,  # pyright: ignore[reportPrivateUsage]
+    _SENSITIVE_SUFFIXES,  # pyright: ignore[reportPrivateUsage]
+    _build_redact_processor,  # pyright: ignore[reportPrivateUsage]
 )
 from bms_core.masking.default import DefaultMasker
 from bms_core.permission.null import NullPermissionChecker
@@ -65,7 +65,7 @@ def _masker() -> DefaultMasker:
 @pytest.mark.kiwi_id(2235)
 def test_masking_leak_export_rows_masked_and_others_untouched() -> None:
     """脱敏泄露（导出）：声明列按策略掩码、未声明列原样、不改入参。"""
-    rows = ConcurrentStableList(
+    rows: ConcurrentStableList[ConcurrentStableDict[str, object]] = ConcurrentStableList(
         [ConcurrentStableDict({"phone": "13812345678", "mail": "zhangsan@example.com", "note": "ok"})]
     )
     fields = ConcurrentStableDict({"phone": "phone", "mail": "email"})
@@ -84,7 +84,9 @@ def test_masking_leak_export_rows_masked_and_others_untouched() -> None:
 @pytest.mark.kiwi_id(2235)
 def test_masking_leak_export_empty_fields_short_circuits() -> None:
     """脱敏泄露（导出）：未声明任何掩码列时原样返回入参（不复制、不改写）。"""
-    rows = ConcurrentStableList([ConcurrentStableDict({"phone": "13812345678"})])
+    rows: ConcurrentStableList[ConcurrentStableDict[str, object]] = ConcurrentStableList(
+        [ConcurrentStableDict({"phone": "13812345678"})]
+    )
     assert mask_rows(rows, ConcurrentStableDict(), _masker()) is rows
 
 

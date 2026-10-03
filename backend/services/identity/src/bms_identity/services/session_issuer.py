@@ -146,9 +146,7 @@ class SessionIssuer(BaseFrameworkObject):
         """
         session_id = self._security.new_session_id()
         pair = await self._issuer.issue_pair(
-            UserTokenSpec(
-                subject=str(user_id), session_id=session_id, tenant_id=tenant_id, remember_me=remember_me
-            )
+            UserTokenSpec(subject=str(user_id), session_id=session_id, tenant_id=tenant_id, remember_me=remember_me)
         )
         await self._session_service.enforce_max_active(user_id, tenant=tenant_id, max_active=self._settings.max_active)
         await self._persist(

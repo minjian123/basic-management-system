@@ -9,7 +9,7 @@
 """
 
 import json
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from typing import cast
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
@@ -277,7 +277,8 @@ def _route_entries(routes: ConcurrentStableList[object]) -> ConcurrentStableList
     for route in routes:
         candidates = getattr(route, "effective_candidates", None)
         if callable(candidates):
-            entries.update(_route_entries(ConcurrentStableList(candidates())))
+            effective = cast("Callable[[], ConcurrentStableList[object]]", candidates)
+            entries.update(_route_entries(effective()))
             continue
         sub_routes = getattr(route, "routes", None)
         if sub_routes is not None:

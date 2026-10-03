@@ -14,7 +14,7 @@ import logging
 import re
 import sys
 from abc import ABC, abstractmethod
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from datetime import datetime
 from typing import Any, cast
 
@@ -137,7 +137,9 @@ def _replace_conn_password(match: re.Match[str]) -> str:
     return f"{match.group(1)}{_MASK}{match.group(3)}"
 
 
-def _build_redact_processor(keys: ConcurrentStableSet[str], suffixes: ConcurrentStableList[str]) -> Processor:
+def _build_redact_processor(
+    keys: ConcurrentStableSet[str], suffixes: ConcurrentStableList[str]
+) -> Callable[[WrappedLogger, str, EventDict], EventDict]:
     """构建日志脱敏处理器（生效名单闭包捕获；内置名单恒生效、配置只可追加）。
 
     Args:
@@ -145,7 +147,8 @@ def _build_redact_processor(keys: ConcurrentStableSet[str], suffixes: Concurrent
         suffixes: 生效敏感键名后缀名单。
 
     Returns:
-        Processor: structlog 脱敏处理器。
+        Callable[[WrappedLogger, str, EventDict], EventDict]: 脱敏处理器（`Processor` 兼容）；
+        返回类型精确到 `EventDict`，避免调用方按 structlog 26 的宽联合返回类型（含 `str` / `tuple`）索引失败。
     """
 
     def _redact(_logger: WrappedLogger, _name: str, event_dict: EventDict) -> EventDict:

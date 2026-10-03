@@ -87,9 +87,7 @@ class SessionRepository(BaseDbRepository[SysSession]):
             return None
         return await self.update(item.id, refresh_token_hash=refresh_token_hash)
 
-    async def rotate(
-        self, session_id: str, *, refresh_token_hash: str, expires_at: datetime
-    ) -> SysSession | None:
+    async def rotate(self, session_id: str, *, refresh_token_hash: str, expires_at: datetime) -> SysSession | None:
         """刷新轮换：更新 refresh 哈希与过期时间（会话 id 稳定，`expires_at` 滚动续期）。
 
         Args:

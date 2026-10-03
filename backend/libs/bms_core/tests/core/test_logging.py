@@ -229,10 +229,10 @@ def test_redaction_connection_string(capsys: pytest.CaptureFixture[str]) -> None
 def test_redaction_depth_limit_keeps_value() -> None:
     """超深嵌套（达到限深）原样返回，避免递归放大。"""
     from bms_core.core.logging import (  # pyright: ignore[reportPrivateUsage]
-        _MAX_REDACT_DEPTH,
-        _SENSITIVE_KEYS,
-        _SENSITIVE_SUFFIXES,
-        _redact_value,
+        _MAX_REDACT_DEPTH,  # pyright: ignore[reportPrivateUsage]
+        _SENSITIVE_KEYS,  # pyright: ignore[reportPrivateUsage]
+        _SENSITIVE_SUFFIXES,  # pyright: ignore[reportPrivateUsage]
+        _redact_value,  # pyright: ignore[reportPrivateUsage]
     )
 
     payload: ConcurrentStableDict[str, object] = ConcurrentStableDict({"inner": "postgresql://u:p@h/db"})

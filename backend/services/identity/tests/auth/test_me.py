@@ -58,7 +58,7 @@ async def _wire(
     issuer: FakeUserTokenIssuer = FakeUserTokenIssuer()
     client = org if org is not None else FakeOrgClient()
     store = MemorySessionStore()
-    if isinstance(client, FakeOrgClient) and not isinstance(client, _DownOrgClient):
+    if not isinstance(client, _DownOrgClient):
         client.set_user(
             "admin",
             password="secret",

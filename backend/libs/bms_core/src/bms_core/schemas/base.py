@@ -213,7 +213,7 @@ def _stringified_value_schema(value: Any) -> Any:
     for key in ("anyOf", "oneOf"):
         members = mapping.get(key)
         if isinstance(members, list):
-            rewritten[key] = [_stringified_value_schema(member) for member in members]
+            rewritten[key] = [_stringified_value_schema(member) for member in cast("list[object]", members)]
     return rewritten
 
 

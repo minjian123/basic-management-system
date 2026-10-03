@@ -17,7 +17,7 @@ from bms_core.masking.base import MASK_STRATEGIES, BaseMasker, MaskRule, get_mas
 from bms_core.masking.null import NullMasker
 from bms_core.permission.base import BasePermissionChecker
 from bms_core.permission.null import NullPermissionChecker
-from bms_core.schemas.base import BaseSchema
+from bms_core.schemas.base import BaseSchema, MaskedFields
 
 
 class DenyChecker(BasePermissionChecker):
@@ -56,7 +56,7 @@ class FixedMasker(NullMasker):
 class UserResponse(BaseSchema):
     """测试用响应模型：手机号声明为敏感字段。"""
 
-    masked_fields: ClassVar[ConcurrentStableSet[str]] = ConcurrentStableSet({"phone"})
+    masked_fields: ClassVar[MaskedFields] = ConcurrentStableSet[str]({"phone"})
 
     id: int
     name: str
