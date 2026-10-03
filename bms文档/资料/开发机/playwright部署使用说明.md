@@ -8,7 +8,7 @@
 
 记录开发机 **mjpc** 上 **Playwright CLI** 的部署与使用：CLI 从哪来、内核怎么装（**官方 CDN 被拦 → 走国内镜像**）、为什么 Playwright 自带的 Chromium 一直装不上、以及改用**系统 Chrome**（`--browser=chrome`）后的最终口径；另含常用命令与排障。
 
-定位说明：本机 Playwright 用于**开发态真实浏览器核验**（开发态核对页、宿主页面的渲染 / 样式 / 交互实测，作为 jsdom 用例之外的补充证据）。**CI 侧 E2E 归《[main 流水线](../../项目/00_准备期/任务/02_仓库与CI/02_仓库与CI_04_main流水线/02_仓库与CI_04_main流水线.md)》**（Playwright E2E job，服务容器内起后端与前端产物），两者相互独立。
+定位说明：本机 Playwright 用于**开发态真实浏览器核验**（开发态核对页、宿主页面的渲染 / 样式 / 交互实测，作为 jsdom 用例之外的补充证据）。**CI 侧 E2E 归平台《main 流水线》**（Playwright E2E job，服务容器内起后端与前端产物），两者相互独立。
 
 > **取值说明**：路径统一用 `~` 表示（开发用户 `minjian`）；凭据类信息不在本文记录。
 
@@ -107,7 +107,7 @@ playwright-cli close                                                          # 
 - 《[google-chrome部署使用说明](google-chrome部署使用说明.md)》：系统 Chrome（Playwright 首选内核）的安装与验证
 - 《[CodeBuddy部署使用说明](CodeBuddy部署使用说明.md)》：IDE 内 `playwright-cli` 插件、运行与调试启动项
 - 《[开发机部署使用说明总览](开发机部署使用说明总览.md)》：mjpc 开发设施汇总
-- 《[main 流水线](../../项目/00_准备期/任务/02_仓库与CI/02_仓库与CI_04_main流水线/02_仓库与CI_04_main流水线.md)》：CI 侧 Playwright E2E job（与本文的本地核验用途区分）
+- 平台《main 流水线》：CI 侧 Playwright E2E job（与本文的本地核验用途区分）
 - 《[前端开发规范](../../规范/前端开发规范.md)》：前端门禁与核对页口径
 
 > 依《[文档生成规范](../../规范/文档生成规范.md)》编写 · 记录 2026-10-03 mjpc 内核安装与口径定稿
