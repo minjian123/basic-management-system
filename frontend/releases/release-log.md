@@ -4,6 +4,7 @@
 
 | 时间（UTC） | 操作者 | 动作 | 模块 | 版本 | 前版本 | 入口 gzip（KB） | 入口 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
+| 2026-10-03T11:58:18.149Z | minjian | publish | slot-sample | 0.1.0 | — | 12.1 | http://localhost:5002/slot-sample/0.1.0/remoteEntry.js |
 | 2026-10-03T06:29:16.331Z | minjian | publish | sample | 0.2.0 | — | 13.6 | http://localhost:5002/sample/0.2.0/remoteEntry.js |
 | 2026-10-03T06:29:16.241Z | minjian | publish | demo | 0.2.0 | — | 11.7 | http://localhost:5002/demo/0.2.0/remoteEntry.js |
 | 2026-10-03T02:46:36.081Z | minjian | publish | sample | 0.1.0 | — | 13.2 | http://localhost:5002/sample/0.1.0/remoteEntry.js |
