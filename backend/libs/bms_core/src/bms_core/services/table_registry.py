@@ -311,6 +311,12 @@ TABLE_OWNERSHIP: tuple[TableRecord, ...] = (
         status=TableStatus.PLANNED,
         note="平台服务五层示例表（无表前缀；未定稿，不进链）",
     ),
+    TableRecord(
+        table_name="sys_user_extension",
+        owner="platform",
+        datasource=Datasource.TENANT,
+        note="用户扩展信息（具名插槽样例插件后端契约资源）",
+    ),
 )
 """表归属登记（单一来源）。
 

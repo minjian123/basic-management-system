@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
-"""认证模块路径级覆盖率门禁（04_04）。
+"""模块路径级覆盖率门禁（04_04 / 05_06_01）。
 
-口径：核心模块（认证）行覆盖率 ≥80%，按**路径子阈值**校验——既有的整体 / 服务级
-`--cov-fail-under=70` 保持不动，本门禁在其之上对认证相关路径集合单独设 80% 阈值：
+口径：核心模块行覆盖率 ≥80%，按**路径子阈值**校验——既有的整体 / 服务级
+`--cov-fail-under=70` 保持不动，本门禁在其之上对下列路径集合单独设 80% 阈值：
 
 1. 认证（identity 服务）：`services/identity/src/bms_identity/`；
 2. 认证（bms_core 横切）：`api/base.py`（登录态依赖）、`session`、`security`、`captcha`、
-   `ratelimit`、`permission`、`masking`、`idp`、`oauth`。
+   `ratelimit`、`permission`、`masking`、`idp`、`oauth`；
+3. 平台用户扩展契约（具名插槽样例插件的后端契约）：`bms_platform` 的
+   `api/user_extensions.py`、`services/user_extension.py`、`repositories/user_extension.py`、
+   `schemas/user_extension.py`、`models/system.py`。
 
 数据源为 coverage.py JSON 报告（`pytest --cov-report=json:coverage.json`；文件键以 `backend/`
 为基准，脚本按后缀匹配归一）。新增模块（RBAC / 工作流）接入时，在 `_COVERAGE_GROUPS` 追加条目
@@ -40,6 +43,17 @@ _COVERAGE_GROUPS = (
             "libs/bms_core/src/bms_core/masking/",
             "libs/bms_core/src/bms_core/idp/",
             "libs/bms_core/src/bms_core/oauth/",
+        ),
+    ),
+    (
+        "平台用户扩展契约（具名插槽样例插件后端）",
+        80,
+        (
+            "services/platform/src/bms_platform/api/user_extensions.py",
+            "services/platform/src/bms_platform/services/user_extension.py",
+            "services/platform/src/bms_platform/repositories/user_extension.py",
+            "services/platform/src/bms_platform/schemas/user_extension.py",
+            "services/platform/src/bms_platform/models/system.py",
         ),
     ),
 )
@@ -145,13 +159,19 @@ def _self_test():
     """
     identity_file = ("services/identity/src/bms_identity/api/auth.py", 90, 100)
     core_file = ("libs/bms_core/src/bms_core/api/base.py", 85, 100)
+    platform_file = ("services/platform/src/bms_platform/api/user_extensions.py", 85, 100)
     irrelevant = ("services/file/src/bms_file/api/file.py", 10, 10)
     cases = [
-        ("正常达标", [identity_file, core_file], 0),
-        ("identity 低于阈值", [("services/identity/src/bms_identity/api/auth.py", 70, 100), core_file], 1),
-        ("无匹配文件", [irrelevant], 2),
-        ("语句数为 0", [("services/identity/src/bms_identity/api/auth.py", 0, 0), core_file], 1),
-        ("横切组缺失", [identity_file], 1),
+        ("正常达标", [identity_file, core_file, platform_file], 0),
+        (
+            "identity 低于阈值",
+            [("services/identity/src/bms_identity/api/auth.py", 70, 100), core_file, platform_file],
+            1,
+        ),
+        ("无匹配文件", [irrelevant], 3),
+        ("语句数为 0", [("services/identity/src/bms_identity/api/auth.py", 0, 0), core_file, platform_file], 1),
+        ("横切组缺失", [identity_file, platform_file], 1),
+        ("用户扩展契约组缺失", [identity_file, core_file], 1),
     ]
     bad = 0
     for title, summary, expect in cases:

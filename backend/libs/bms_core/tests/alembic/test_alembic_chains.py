@@ -187,7 +187,7 @@ def test_chain_revisions_integrity() -> None:
     platform_head = ScriptDirectory.from_config(_config(resolve_chain("platform:platform"))).get_current_head()
     assert platform_head == "0006_sys_outbox_tenant_bigint"
     tenant_service_head = ScriptDirectory.from_config(_config(default_chain())).get_current_head()
-    assert tenant_service_head == "0005_sys_outbox_tenant_bigint"
+    assert tenant_service_head == "0006_sys_user_extension"
 
     for name in (
         "platform:platform",
