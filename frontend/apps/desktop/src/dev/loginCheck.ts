@@ -5,7 +5,7 @@ import { createApp } from 'vue'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
 import LoginCheck from './LoginCheck.vue'
-import '../styles/tokens.scss'
+import '../styles/index'
 
 /** 核对页最小路由（登录成功后回跳目标只作落点，不做真实导航）。 */
 const router = createRouter({

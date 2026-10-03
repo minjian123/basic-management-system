@@ -3,6 +3,6 @@
 import { createApp } from 'vue'
 
 import ReportDesignCheck from './ReportDesignCheck.vue'
-import '../styles/tokens.scss'
+import '../styles/index'
 
 createApp(ReportDesignCheck).mount('#app')

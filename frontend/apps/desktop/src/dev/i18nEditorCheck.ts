@@ -2,6 +2,6 @@
 import { createApp } from 'vue'
 
 import I18nEditorCheck from './I18nEditorCheck.vue'
-import '../styles/tokens.scss'
+import '../styles/index'
 
 createApp(I18nEditorCheck).mount('#app')

@@ -2,6 +2,7 @@
 // 开发态核对页（07_06）：图表卡（类型集 / 数据映射 / 风格 / 视图切换 / 四态 / 令牌主题 / 脚注）实例 + 12 项自检上屏（本页不进构建产物）。
 import type { ChartConfig, ChartDatasetResult } from '@bms/core'
 import { ChartCard } from '@bms/ui-ep'
+import { ElButton } from 'element-plus'
 import { nextTick, onMounted, ref } from 'vue'
 
 /** 演示数据集结果。 */
@@ -180,8 +181,8 @@ onMounted(() => {
     </section>
 
     <section style="margin-top: 16px">
-      <button type="button" @click="ready = !ready">切换就绪 / 降级</button>
-      <button type="button" @click="toggleDark">切换深浅</button>
+      <el-button @click="ready = !ready">切换就绪 / 降级</el-button>
+      <el-button @click="toggleDark">切换深浅</el-button>
     </section>
 
     <section style="margin-top: 16px">

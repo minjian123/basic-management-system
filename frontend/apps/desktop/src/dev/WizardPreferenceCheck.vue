@@ -4,7 +4,7 @@ import type { PreferenceValues } from '@bms/core'
 import { ElAlert, ElButton, ElCard, ElRadioButton, ElRadioGroup } from 'element-plus'
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 
-import { PreferencePanel, StepWizard, useBasePersistedState } from '@bms/ui-ep'
+import { PreferencePanel, SelectInput, StepWizard, TextInput, useBasePersistedState } from '@bms/ui-ep'
 
 /** 自检项定义。 */
 interface CheckItem {
@@ -34,6 +34,11 @@ const DRAFT_KEY = 'bms_wizard_draft_demo'
 const draftPersisted = useBasePersistedState({ stateKey: DRAFT_KEY, storage: 'local' }).persisted
 /** 向导数据（校验与提交共用；与向导壳插槽表单同源）。 */
 const formState = reactive({ name: '', type: '企业', plan: '', account: '' })
+/** 主体类型选项（下拉框件静态选项）。 */
+const TYPE_OPTIONS = [
+  { label: '企业（含套餐步）', value: '企业' },
+  { label: '个人（跳过套餐）', value: '个人' },
+]
 /** 向导壳引用（调用对外能力）。 */
 const wizardRef = ref<{
   next: () => Promise<void>
@@ -262,22 +267,19 @@ const allPassed = computed(() => CHECK_ITEMS.every((item) => checks.value[item.i
           <div class="check-page-form">
             <label>
               租户名称
-              <input v-model="formState.name" data-test="check-name" />
+              <text-input v-model="formState.name" data-test="check-name" />
             </label>
             <label>
               类型
-              <select v-model="formState.type" data-test="check-type">
-                <option value="企业">企业（含套餐步）</option>
-                <option value="个人">个人（跳过套餐）</option>
-              </select>
+              <select-input v-model="formState.type" :options="TYPE_OPTIONS" data-test="check-type" />
             </label>
             <label>
               套餐
-              <input v-model="formState.plan" data-test="check-plan" />
+              <text-input v-model="formState.plan" data-test="check-plan" />
             </label>
             <label>
               管理员账号
-              <input v-model="formState.account" data-test="check-account" />
+              <text-input v-model="formState.account" data-test="check-account" />
             </label>
           </div>
         </step-wizard>

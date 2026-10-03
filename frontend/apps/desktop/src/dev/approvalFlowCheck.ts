@@ -2,6 +2,6 @@
 import { createApp } from 'vue'
 
 import ApprovalFlowCheck from './ApprovalFlowCheck.vue'
-import '../styles/tokens.scss'
+import '../styles/index'
 
 createApp(ApprovalFlowCheck).mount('#app')

@@ -2,6 +2,7 @@
 // 开发态核对页（08_07_02）：国际化文案编辑器（语言清单 / 文案网格 / 缺失筛选 / 批量保存与缓存失效 / 导入导出）实例 + 12 项自检上屏（本页不进构建产物）。
 import { BaseAccess, BaseMessageCatalog, BaseNotice, type I18nLocaleItem, type I18nMessageItem, type MessageJobs } from '@bms/core'
 import { I18nMessageEditor } from '@bms/ui-ep'
+import { ElButton } from 'element-plus'
 import { nextTick, onMounted, ref } from 'vue'
 
 /** 权限上下文（含语言包维护权限）。 */
@@ -280,7 +281,7 @@ onMounted(async () => {
 
     <section class="i18n-editor-check__section">
       <h2>自检（12 项）</h2>
-      <button type="button" data-test="rerun" @click="runChecks">重新自检</button>
+      <el-button data-test="rerun" @click="runChecks">重新自检</el-button>
       <ol class="i18n-editor-check__list">
         <li v-for="item in checks" :key="item.label" :data-pass="item.pass ? 'true' : 'false'" :data-check="item.label">
           {{ item.pass ? '通过' : '未通过' }} · {{ item.label }}

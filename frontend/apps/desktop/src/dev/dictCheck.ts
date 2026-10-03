@@ -3,6 +3,6 @@
 import { createApp } from 'vue'
 
 import DictCheck from './DictCheck.vue'
-import '../styles/tokens.scss'
+import '../styles/index'
 
 createApp(DictCheck).mount('#app')

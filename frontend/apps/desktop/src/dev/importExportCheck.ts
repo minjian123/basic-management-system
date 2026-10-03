@@ -3,6 +3,6 @@
 import { createApp } from 'vue'
 
 import ImportExportCheck from './ImportExportCheck.vue'
-import '../styles/tokens.scss'
+import '../styles/index'
 
 createApp(ImportExportCheck).mount('#app')

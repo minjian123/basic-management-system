@@ -12,6 +12,7 @@ import {
   sanitizeHighlight,
   useBaseSearch,
 } from '@bms/ui-ep'
+import { ElButton } from 'element-plus'
 import { ref } from 'vue'
 
 /** 权限上下文。 */
@@ -219,7 +220,7 @@ void runChecks()
       <SearchFileTab :ready="api.ready.value" :items="api.fileItems.value" :total="api.fileTotal.value" />
     </section>
     <section style="margin-top: 16px">
-      <button type="button" @click="api.setReady(!api.ready.value)">切换就绪 / 降级</button>
+      <el-button @click="api.setReady(!api.ready.value)">切换就绪 / 降级</el-button>
     </section>
     <section style="margin-top: 16px">
       <h2>自检结果</h2>

@@ -3,6 +3,6 @@
 import { createApp } from 'vue'
 
 import CaptchaCheck from './CaptchaCheck.vue'
-import '../styles/tokens.scss'
+import '../styles/index'
 
 createApp(CaptchaCheck).mount('#app')

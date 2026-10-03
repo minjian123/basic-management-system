@@ -3,6 +3,6 @@
 import { createApp } from 'vue'
 
 import BulkThemeTenantCheck from './BulkThemeTenantCheck.vue'
-import '../styles/tokens.scss'
+import '../styles/index'
 
 createApp(BulkThemeTenantCheck).mount('#app')

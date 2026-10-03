@@ -16,6 +16,7 @@ import {
   uploadTransportRegistry,
   useBaseFileUpload,
 } from '@bms/ui-ep'
+import { ElButton } from 'element-plus'
 import { nextTick, ref } from 'vue'
 
 /** 桩通路调用轨迹。 */
@@ -325,7 +326,7 @@ void runChecks()
     </section>
     <section style="margin-bottom: 16px">
       <p data-test="placeholder">文件上传未就绪（占位）</p>
-      <button type="button" @click="cropVisible = !cropVisible">切换裁剪弹窗</button>
+      <el-button @click="cropVisible = !cropVisible">切换裁剪弹窗</el-button>
     </section>
     <section style="margin-top: 16px">
       <h2>自检结果</h2>

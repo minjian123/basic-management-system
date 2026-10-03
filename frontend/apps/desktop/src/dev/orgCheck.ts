@@ -3,6 +3,6 @@
 import { createApp } from 'vue'
 
 import OrgCheck from './OrgCheck.vue'
-import '../styles/tokens.scss'
+import '../styles/index'
 
 createApp(OrgCheck).mount('#app')

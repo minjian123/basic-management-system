@@ -3,6 +3,6 @@
 import { createApp } from 'vue'
 
 import ChartCheck from './ChartCheck.vue'
-import '../styles/tokens.scss'
+import '../styles/index'
 
 createApp(ChartCheck).mount('#app')

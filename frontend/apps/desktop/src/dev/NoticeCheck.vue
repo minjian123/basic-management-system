@@ -10,6 +10,7 @@ import {
   startUnreadPolling,
   useBaseNotification,
 } from '@bms/ui-ep'
+import { ElButton } from 'element-plus'
 import { computed, nextTick, onMounted, ref } from 'vue'
 
 /** 初始消息。 */
@@ -365,7 +366,7 @@ onMounted(() => {
     </section>
 
     <section style="margin-top: 16px">
-      <button type="button" @click="api.setReady(!api.ready.value)">切换就绪 / 降级</button>
+      <el-button @click="api.setReady(!api.ready.value)">切换就绪 / 降级</el-button>
     </section>
 
     <section style="margin-top: 16px">

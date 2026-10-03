@@ -3,6 +3,6 @@
 import { createApp } from 'vue'
 
 import NoticeCheck from './NoticeCheck.vue'
-import '../styles/tokens.scss'
+import '../styles/index'
 
 createApp(NoticeCheck).mount('#app')

@@ -3,6 +3,6 @@
 import { createApp } from 'vue'
 
 import DataDisplayCheck from './DataDisplayCheck.vue'
-import '../styles/tokens.scss'
+import '../styles/index'
 
 createApp(DataDisplayCheck).mount('#app')
