@@ -30,9 +30,15 @@ afterEach(() => {
 })
 
 describe('统一装配通道（Kiwi 976）', () => {
-  it('平台自身注册走同一入口（空声明不产生登记）', () => {
-    expect(installPlatformRegistrations()).toEqual([])
+  it('平台自身注册走同一入口（平台来源打标；登记键可逆序清理）', () => {
+    const keys = installPlatformRegistrations()
+
+    expect(keys).toEqual(['region:sys:user-detail-basic'])
+    expect(registries.pageArea.get('sys:user-detail-basic')?.registrationSource).toBe(PLATFORM_SOURCE)
     expect(PLATFORM_SOURCE).toBe('platform')
+
+    releaseRegistrations(registries, keys)
+    expect(registries.pageArea.get('sys:user-detail-basic')).toBeUndefined()
   })
 
   it('装配前不可解析、装配后可用、卸载后回到不可解析（八类声明全通道）', async () => {
@@ -96,5 +102,32 @@ describe('统一装配通道（Kiwi 976）', () => {
     expect(registries.routeMenu.get('DemoHome')?.path).toBe('/demo')
     expect(registries.routeMenu.get('DemoRaw')).toBeUndefined()
     releaseRegistrations(registries, keys)
+  })
+
+  // kiwi_id: 2238
+  it('具名插槽：平台项与模块项同槽、按顺序提示排序、按权限显隐；释放后无残留', () => {
+    const platformKeys = installPlatformRegistrations()
+    const moduleKeys = assembleRegistrations(registries, 'demo', {
+      regions: [
+        { key: 'demo:ext', area: 'sys.user.detail.tabs', component: {}, order: 20, title: '用户扩展示例' },
+        { key: 'demo:gated', area: 'sys.user.detail.tabs', component: {}, order: 30, title: '受限', perm: 'demo:edit' },
+      ],
+    })
+
+    const keysOf = (codes: string[]): string[] =>
+      registries.pageArea.resolveByArea('sys.user.detail.tabs', { permissionCodes: codes }).map((item) => item.key)
+
+    expect(keysOf([])).toEqual(['sys:user-detail-basic', 'demo:ext'])
+    expect(keysOf(['demo:edit'])).toEqual(['sys:user-detail-basic', 'demo:ext', 'demo:gated'])
+    expect(registries.pageArea.get('demo:ext')?.title).toBe('用户扩展示例')
+    expect(registries.pageArea.get('demo:ext')?.registrationSource).toBe('demo')
+
+    releaseRegistrations(registries, moduleKeys)
+    releaseRegistrations(registries, platformKeys)
+
+    expect(registries.pageArea.resolveByArea('sys.user.detail.tabs')).toEqual([])
+    expect(registries.pageArea.get('sys:user-detail-basic')).toBeUndefined()
+    expect(registries.pageArea.get('demo:ext')).toBeUndefined()
+    expect(registries.pageArea.get('demo:gated')).toBeUndefined()
   })
 })
