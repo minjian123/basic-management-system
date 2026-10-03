@@ -14,5 +14,6 @@ declare module 'vue' {
     ModuleBoundary: typeof import('./src/components/ModuleBoundary.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
+    UserDetailBasicTab: typeof import('./src/components/UserDetailBasicTab.vue')['default']
   }
 }
