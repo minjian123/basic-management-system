@@ -10,6 +10,7 @@ import {
   normalizeCaptchaPolicy,
   resolveAuthErrorText,
   resolveSafeRedirect,
+  selectScannableProviders,
   type CaptchaCredential,
   type CaptchaKind,
 } from '@bms/core'
@@ -60,6 +61,9 @@ const submitting = ref(false)
 const formError = ref('')
 /** SSO 入口清单（空则不渲染第三方入口区）。 */
 const ssoProviders = ref<SsoProviderItem[]>([])
+
+/** 是否存在可扫码登录入口（企微 / 钉钉）。 */
+const hasScannable = computed(() => selectScannableProviders(ssoProviders.value).length > 0)
 
 /** 生效租户编码（输入归一；空表示由子域名或后端上下文解析）。 */
 const tenant = computed(() => normalizeLoginTenant(tenantInput.value))
@@ -204,6 +208,11 @@ function onSsoLogin(provider: SsoProviderItem): void {
   redirectTo(ssoAuthorizeUrl(provider.idp_key, tenant.value))
 }
 
+/** 进入扫码登录页（携带回跳目标）。 */
+function onQrLogin(): void {
+  void router.push({ path: '/login/qr', query: route.query })
+}
+
 onMounted(() => {
   showSsoFailure()
   void loadCaptchaPolicy()
@@ -278,6 +287,7 @@ onMounted(() => {
       <footer v-if="ssoProviders.length > 0" class="login-view__sso" data-test="login-sso">
         <p class="login-view__sso-title">其他登录方式</p>
         <div class="login-view__sso-list">
+          <el-button v-if="hasScannable" data-test="login-qr-entry" @click="onQrLogin"> 扫码登录 </el-button>
           <el-button
             v-for="provider in ssoProviders"
             :key="provider.idp_key"

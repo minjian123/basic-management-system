@@ -359,6 +359,27 @@ describe('登录页（Kiwi 2232）', () => {
     expect(vi.mocked(redirectTo)).toHaveBeenCalledWith('/api/identity/v1/auth/sso/keycloak/authorize')
   })
 
+  it('扫码入口：含可扫码 provider 时渲染并跳 /login/qr（携带回跳目标）', async () => {
+    stubRequests({ providers: SSO_PROVIDERS })
+    const { wrapper, router } = await mountLogin('redirect=%2Forg%2Fusers')
+
+    const entry = wrapper.find('[data-test="login-qr-entry"]')
+    expect(entry.exists()).toBe(true)
+
+    await entry.trigger('click')
+    await flushPromises()
+    expect(router.currentRoute.value.path).toBe('/login/qr')
+    expect(router.currentRoute.value.query.redirect).toBe('/org/users')
+  })
+
+  it('扫码入口：无可扫码 provider 时不渲染', async () => {
+    stubRequests({
+      providers: { items: [{ idp_key: 'keycloak', name: 'Keycloak', icon: '', type: 'oidc', sort: 1 }] },
+    })
+    const { wrapper } = await mountLogin()
+    expect(wrapper.find('[data-test="login-qr-entry"]').exists()).toBe(false)
+  })
+
   it('密码安全口径：类型 / 初值 / 自动填充语义，且无「记住我」与强度提示', async () => {
     const { wrapper } = await mountLogin()
     const password = passwordField(wrapper)

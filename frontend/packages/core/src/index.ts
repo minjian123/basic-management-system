@@ -335,6 +335,16 @@ export {
   type CaptchaSubmitMode,
 } from './capabilities/captcha'
 export {
+  BaseSsoQrSource,
+  SsoQrSourceProvider,
+  SsoQrSourceRegistry,
+  type SsoQrInitQuery,
+  type SsoQrLoginSourceAdapter,
+  type SsoQrPollQuery,
+  type SsoQrSourceOptions,
+} from './capabilities/sso-qr-source'
+export { BaseSsoQr, type SsoQrOptions, type SsoQrPhaseListener } from './capabilities/sso-qr'
+export {
   BaseDictSource,
   DictSourceProvider,
   DictSourceRegistry,
@@ -1649,6 +1659,40 @@ export {
   type CaptchaSliderParams,
   type CaptchaTracePoint,
 } from './domain/captcha'
+export {
+  isScannableIdpType,
+  isSsoQrTerminal,
+  nextSsoQrPollDelay,
+  normalizeSsoQrAuthorizeInfo,
+  normalizeSsoQrPollResult,
+  resolveSsoQrStatusText,
+  selectScannableProviders,
+  SSO_QR_BACK_TEXT,
+  SSO_QR_CONFIRMED_TEXT,
+  SSO_QR_EMPTY_TEXT,
+  SSO_QR_EXPIRED_TEXT,
+  SSO_QR_FAILED_TEXT,
+  SSO_QR_IDP_TYPES,
+  SSO_QR_INIT_ERROR_REASON,
+  SSO_QR_MAX_FAILURES,
+  SSO_QR_PENDING_TEXT,
+  SSO_QR_PHASES,
+  SSO_QR_POLL_BASE,
+  SSO_QR_POLL_ERROR_REASON,
+  SSO_QR_POLL_MAX,
+  SSO_QR_REFRESH_TEXT,
+  SSO_QR_SCANNED_TEXT,
+  SSO_QR_STATUSES,
+  SSO_QR_SWITCH_TEXT,
+  SSO_QR_TITLE_TEXT,
+  type SsoQrAuthorizeInfo,
+  type SsoQrBackoffOptions,
+  type SsoQrIdpType,
+  type SsoQrPhase,
+  type SsoQrPollResult,
+  type SsoQrProviderLike,
+  type SsoQrStatus,
+} from './domain/sso-qr'
 export {
   SEARCH_DEGRADE_FALLBACK_TEXT,
   SEARCH_DEGRADE_REASONS,

@@ -10,6 +10,12 @@ import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 const routes: RouteRecordRaw[] = [
   { path: '/login', name: 'Login', component: () => import('@/views/LoginView.vue'), meta: { title: '登录' } },
   {
+    path: '/login/qr',
+    name: 'QrLogin',
+    component: () => import('@/views/QrLoginView.vue'),
+    meta: { title: '扫码登录', public: true },
+  },
+  {
     path: '/',
     name: 'HomeView',
     component: () => import('@/views/HomeView.vue'),
