@@ -254,6 +254,8 @@ dist-standalone/
 frontend/releases/*
 !frontend/releases/release-log.json
 !frontend/releases/release-log.md
+# Module Federation 消费端类型产物（宿主加载远端时生成，不入库与模块产物同口径）
+frontend/apps/desktop/@mf-types/
 
 # 本地覆盖文件（如 .env.local、*.local）
 *.local
