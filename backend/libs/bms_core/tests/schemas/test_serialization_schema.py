@@ -4,7 +4,11 @@ import json
 
 import pytest
 
-from bms_core.schemas.base import BaseSchema, _stringified_value_schema, _stringify_id_properties
+from bms_core.schemas.base import (  # pyright: ignore[reportPrivateUsage]
+    BaseSchema,
+    _stringified_value_schema,  # pyright: ignore[reportPrivateUsage]
+    _stringify_id_properties,  # pyright: ignore[reportPrivateUsage]
+)
 
 
 class _Item(BaseSchema):

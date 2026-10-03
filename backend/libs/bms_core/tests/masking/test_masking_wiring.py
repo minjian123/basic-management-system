@@ -4,6 +4,7 @@
 覆盖范围见 Kiwi 用例 text；既有 Kiwi 39（契约）与 2212（基座实现）断言不变，仅按需同步替身签名。
 """
 
+from contextvars import Token
 from typing import Annotated, cast
 
 import pytest
@@ -14,6 +15,7 @@ from support_app import ApplicationFactory
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.context import get_current_masker, reset_current_masker, set_current_masker
+from bms_core.masking.base import BaseMasker
 from bms_core.masking.default import DefaultMasker
 from bms_core.masking.text import mask_text
 from bms_core.permission.base import BasePermissionChecker
@@ -134,14 +136,14 @@ def _nested(depth: int) -> ConcurrentStableDict[str, object]:
     return current
 
 
-def _use(masker: DefaultMasker) -> object:
+def _use(masker: DefaultMasker) -> Token[BaseMasker | None]:
     """把掩码器写入请求上下文（返回复位令牌）。
 
     Args:
         masker: 掩码器实例。
 
     Returns:
-        object: 上下文复位令牌。
+        Token[BaseMasker | None]: 上下文复位令牌。
     """
     return set_current_masker(masker)
 

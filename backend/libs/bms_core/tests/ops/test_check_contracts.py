@@ -1,5 +1,6 @@
 """契约护栏测试（Kiwi 2227 / 2228）：路由覆盖 / 不可见白名单 / 响应 schema 完整性 / CLI 退出码。"""
 
+from collections.abc import Callable
 from types import SimpleNamespace
 
 import pytest
@@ -24,6 +25,23 @@ def _stub_app(paths: ConcurrentStableList[str], routes: ConcurrentStableList[obj
     return SimpleNamespace(routes=routes, openapi=openapi)
 
 
+def _app_builder(app: object) -> Callable[[str], object]:
+    """构造 `build_app` 替身（显式参数 / 返回类型，避免 lambda 参数类型未知）。
+
+    Args:
+        app: 固定返回的应用桩。
+
+    Returns:
+        Callable[[str], object]: 忽略服务键、固定返回该应用的构建函数。
+    """
+
+    def _build(service_key: str) -> object:
+        del service_key
+        return app
+
+    return _build
+
+
 @pytest.mark.kiwi_id(2227)
 def test_check_service_passes_when_covered(monkeypatch: pytest.MonkeyPatch) -> None:
     """实现路由全部在契约、不可见路由全在白名单 → 无违规。"""
@@ -31,7 +49,7 @@ def test_check_service_passes_when_covered(monkeypatch: pytest.MonkeyPatch) -> N
         ConcurrentStableList(["/api/v1/a"]),
         ConcurrentStableList([_leaf("/api/v1/a", include_in_schema=True), _leaf("/metrics", include_in_schema=False)]),
     )
-    monkeypatch.setattr(check_contracts, "build_app", lambda service_key: app)
+    monkeypatch.setattr(check_contracts, "build_app", _app_builder(app))
     assert list(check_contracts.check_service("stub")) == []
 
 
@@ -42,7 +60,7 @@ def test_check_service_reports_missing_contract_route(monkeypatch: pytest.Monkey
         ConcurrentStableList(["/api/v1/a"]),
         ConcurrentStableList([_leaf("/api/v1/a", include_in_schema=True), _leaf("/api/v1/b", include_in_schema=True)]),
     )
-    monkeypatch.setattr(check_contracts, "build_app", lambda service_key: app)
+    monkeypatch.setattr(check_contracts, "build_app", _app_builder(app))
     errors = check_contracts.check_service("stub")
     assert any("未进入公开契约" in message and "/api/v1/b" in message for message in errors)
 
@@ -54,7 +72,7 @@ def test_check_service_reports_hidden_business_route(monkeypatch: pytest.MonkeyP
         ConcurrentStableList([]),
         ConcurrentStableList([_leaf("/api/v1/secret", include_in_schema=False)]),
     )
-    monkeypatch.setattr(check_contracts, "build_app", lambda service_key: app)
+    monkeypatch.setattr(check_contracts, "build_app", _app_builder(app))
     errors = check_contracts.check_service("stub")
     assert any("不在白名单" in message and "/api/v1/secret" in message for message in errors)
 
@@ -63,7 +81,7 @@ def test_check_service_reports_hidden_business_route(monkeypatch: pytest.MonkeyP
 def test_check_service_reports_empty_routes(monkeypatch: pytest.MonkeyPatch) -> None:
     """未提取到任何实现路由 → 判失败（防漏检）。"""
     empty = _stub_app(ConcurrentStableList(), ConcurrentStableList())
-    monkeypatch.setattr(check_contracts, "build_app", lambda service_key: empty)
+    monkeypatch.setattr(check_contracts, "build_app", _app_builder(empty))
     errors = check_contracts.check_service("stub")
     assert any("未提取到任何实现路由" in message for message in errors)
 
@@ -89,12 +107,12 @@ def test_check_all_aggregates_and_main_exit_codes(monkeypatch: pytest.MonkeyPatc
     )
     bad = _stub_app(ConcurrentStableList(), ConcurrentStableList([_leaf("/api/v1/b", include_in_schema=True)]))
 
-    monkeypatch.setattr(check_contracts, "build_app", lambda service_key: good)
+    monkeypatch.setattr(check_contracts, "build_app", _app_builder(good))
     monkeypatch.setattr(check_contracts, "enabled_service_keys", lambda: ("a", "b"))
     assert len(check_contracts.check_all(ConcurrentStableList(["a", "b"]))) == 0
     assert check_contracts.main(ConcurrentStableList(["--service", "a"])) == 0
 
-    monkeypatch.setattr(check_contracts, "build_app", lambda service_key: bad)
+    monkeypatch.setattr(check_contracts, "build_app", _app_builder(bad))
     assert check_contracts.main(ConcurrentStableList(["--service", "b"])) == 1
 
 
@@ -133,7 +151,7 @@ def test_check_service_reports_empty_schema_entry(monkeypatch: pytest.MonkeyPatc
         ConcurrentStableDict[str, object](),
         ConcurrentStableDict({"Empty": ConcurrentStableDict[str, object]()}),
     )
-    monkeypatch.setattr(check_contracts, "build_app", lambda service_key: _contract_app(contract))
+    monkeypatch.setattr(check_contracts, "build_app", _app_builder(_contract_app(contract)))
     errors = check_contracts.check_service("stub")
     assert any("空 schema 条目" in message and "Empty" in message for message in errors)
 
@@ -145,7 +163,7 @@ def test_check_service_reports_unresolvable_response_schema(monkeypatch: pytest.
         _json_operation(ConcurrentStableDict({"$ref": "#/components/schemas/Ghost"})),
         ConcurrentStableDict[str, object](),
     )
-    monkeypatch.setattr(check_contracts, "build_app", lambda service_key: _contract_app(contract))
+    monkeypatch.setattr(check_contracts, "build_app", _app_builder(_contract_app(contract)))
     errors = check_contracts.check_service("stub")
     assert any("成功响应 schema 不可用" in message and "/api/v1/a" in message for message in errors)
 
@@ -157,6 +175,6 @@ def test_check_service_passes_when_response_schema_complete(monkeypatch: pytest.
         _json_operation(ConcurrentStableDict({"$ref": "#/components/schemas/Ok"})),
         ConcurrentStableDict({"Ok": ConcurrentStableDict({"properties": ConcurrentStableDict({"x": "s"})})}),
     )
-    monkeypatch.setattr(check_contracts, "build_app", lambda service_key: _contract_app(contract))
+    monkeypatch.setattr(check_contracts, "build_app", _app_builder(_contract_app(contract)))
     assert list(check_contracts.check_service("stub")) == []
     assert check_contracts.main(ConcurrentStableList(["--service", "stub"])) == 0
