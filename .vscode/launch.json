@@ -47,7 +47,7 @@
       "name": "前端：宿主 + Chromium（浏览器断点）",
       "type": "chrome",
       "request": "launch",
-      "runtimeExecutable": "google-chrome",
+      "runtimeExecutable": "/usr/bin/google-chrome",
       "url": "http://localhost:5173/",
       "webRoot": "${workspaceFolder}/frontend/apps/desktop/src",
       "preLaunchTask": "dev:宿主（5173）",
@@ -58,7 +58,7 @@
       "name": "前端：宿主 + 模块 + Chromium（浏览器断点）",
       "type": "chrome",
       "request": "launch",
-      "runtimeExecutable": "google-chrome",
+      "runtimeExecutable": "/usr/bin/google-chrome",
       "url": "http://localhost:5173/",
       "webRoot": "${workspaceFolder}/frontend/apps/desktop/src",
       "preLaunchTask": "dev:宿主 + 模块产物（5002 + 5173）",
@@ -69,7 +69,7 @@
       "name": "前端：核对页 + Chromium（选页）",
       "type": "chrome",
       "request": "launch",
-      "runtimeExecutable": "google-chrome",
+      "runtimeExecutable": "/usr/bin/google-chrome",
       "url": "http://localhost:5173/${input:checkPage}",
       "webRoot": "${workspaceFolder}/frontend/apps/desktop/src",
       "preLaunchTask": "dev:宿主（5173）",
@@ -124,6 +124,20 @@
       "env": { "PYTHONUNBUFFERED": "1" }
     },
     {
+      // 固定后端服务（默认 bms_identity）：专供「全套」使用 ——「选服务」用的 pickString 不记忆上次
+      // 选择、每次启动都要手选一次；换服务时用上面的「选服务」项，或直接改这里的 module。
+      "name": "后端：单服务（debugpy · bms_identity）",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "bms_identity",
+      "cwd": "${workspaceFolder}/backend",
+      "python": "${workspaceFolder}/backend/.venv/bin/python",
+      "preLaunchTask": "dev:清理后端端口（8000）",
+      "console": "integratedTerminal",
+      "justMyCode": false,
+      "env": { "PYTHONUNBUFFERED": "1" }
+    },
+    {
       // 调试当前打开的后端用例（在编辑器里打开 backend/**/tests/test_*.py 后 F5）
       "name": "后端：当前文件单测（debugpy · pytest）",
       "type": "debugpy",
@@ -139,7 +153,7 @@
   "compounds": [
     {
       "name": "全套：后端单服务 + 宿主 + Chromium",
-      "configurations": ["后端：单服务（debugpy · 选服务）", "前端：宿主 + Chromium（浏览器断点）"]
+      "configurations": ["后端：单服务（debugpy · bms_identity）", "前端：宿主 + Chromium（浏览器断点）"]
     }
   ],
   "inputs": [
