@@ -3,14 +3,17 @@
   //
   // 说明：
   //  - 工作区为多根（bizs.code-workspace），本文件作用于「BMS 基座/平台」根，调试下拉中显示为
-  //    「BMS 基座/平台: <名称>」；「前置任务」在 tasks.json（同名任务）。
+  //    「BMS 基座/平台: <名称>」；「前置任务」为 tasks.json 中的同名任务。
   //  - 前端：js-debug 内置（Node / Chromium）开箱可用；Chromium 取 PATH 上的 `chromium`
-  //    （本机为 /snap/bin/chromium，已实测支持 --user-data-dir 与远程调试端口）。
-  //  - 后端：`debugpy` 需安装扩展「Python Debugger」（ms-python.debugpy，见 extensions.json 推荐）。
-  //  - 运行时模块：宿主启动时按 `frontend/apps/desktop/public/modules.json` 载入远端，清单口径为
-  //    `http://localhost:5002/<name>/<version>/remoteEntry.js`；模块自身 dev 端口为 demo 5002 /
-  //    sample 5003——两者不一致时宿主会落「模块加载失败」兜底页（本地核验登录页等宿主路由时，
-  //    优先用「前端：核对页 + Chromium」：核对页不加载运行时模块）。
+  //    （本机为 /snap/bin/chromium，已实测支持 --user-data-dir 与远程调试端口，可断点浏览器内代码）。
+  //  - 后端：`debugpy`（ms-python.debugpy 已随工作区推荐安装）；服务读 `backend/config.toml`
+  //    的 `[server] host/port`（缺省 0.0.0.0:8000）。
+  //  - 运行时模块：宿主启动时按 `frontend/apps/desktop/public/modules.json` 加载**发布归档**，
+  //    入口形如 `http://localhost:5002/<模块名>/<版本>/remoteEntry.js`。故本地要看完整宿主页面（含模块）
+  //    须先「发布:模块产物」（tasks.json）——由 `serve-module-releases.mjs` 在 5002 托管 `releases/**`；
+  //    未起 5002 时宿主会落「模块加载失败」兜底页。模块自身的 `pnpm dev`（demo 5002 / sample 5003）只服务
+  //    自身独立开发（入口在根路径 `/remoteEntry.js`），与宿主联调无关。
+  //  - 只想核验宿主页面本身（如登录页）时，用「前端：核对页 + Chromium」——核对页不加载运行时模块。
   "version": "0.2.0",
   "configurations": [
     // ── 前端 ────────────────────────────────────────────────────────────────
@@ -43,6 +46,17 @@
       "sourceMaps": true
     },
     {
+      // 含运行时模块的完整宿主：前置任务会确保 5002 发布存储服务在跑再起宿主 dev
+      "name": "前端：宿主 + 模块 + Chromium（浏览器断点）",
+      "type": "chrome",
+      "request": "launch",
+      "runtimeExecutable": "chromium",
+      "url": "http://localhost:5173/",
+      "webRoot": "${workspaceFolder}/frontend/apps/desktop/src",
+      "preLaunchTask": "dev:宿主 + 模块产物（5002 + 5173）",
+      "sourceMaps": true
+    },
+    {
       // 开发态核对页断点（选页）：核对页不加载运行时模块，宿主路由被模块兜底页遮蔽时用它做页面级核验
       "name": "前端：核对页 + Chromium（选页）",
       "type": "chrome",
@@ -65,9 +79,9 @@
       "skipFiles": ["<node_internals>/**"],
       "autoAttachChildProcesses": true
     },
-    // ── 运行时模块（Module Federation 远端）─────────────────────────────────
+    // ── 运行时模块（自身独立开发；宿主联调走 5002 发布归档，见文件头说明）────
     {
-      "name": "模块：demo dev（5002 · Node）",
+      "name": "模块：demo 独立开发（5002 · Node）",
       "type": "node",
       "request": "launch",
       "runtimeExecutable": "pnpm",
@@ -78,7 +92,7 @@
       "skipFiles": ["<node_internals>/**"]
     },
     {
-      "name": "模块：sample dev（5003 · Node）",
+      "name": "模块：sample 独立开发（5003 · Node）",
       "type": "node",
       "request": "launch",
       "runtimeExecutable": "pnpm",
@@ -88,9 +102,8 @@
       "autoAttachChildProcesses": true,
       "skipFiles": ["<node_internals>/**"]
     },
-    // ── 后端（需 ms-python.debugpy）─────────────────────────────────────────
+    // ── 后端（debugpy）──────────────────────────────────────────────────────
     {
-      // 单服务调试（读 backend/config.toml 的 [server] host/port，缺省 8000）
       "name": "后端：单服务（debugpy · 选服务）",
       "type": "debugpy",
       "request": "launch",
@@ -115,11 +128,6 @@
     }
   ],
   "compounds": [
-    {
-      // 模块 demo（5002）+ 宿主 + 浏览器；sample 清单口径为 5002 而其 dev 为 5003，仍需按需另起或校正清单
-      "name": "全套：模块 demo + 宿主 + Chromium",
-      "configurations": ["模块：demo dev（5002 · Node）", "前端：宿主 + Chromium（浏览器断点）"]
-    },
     {
       "name": "全套：后端单服务 + 宿主 + Chromium",
       "configurations": ["后端：单服务（debugpy · 选服务）", "前端：宿主 + Chromium（浏览器断点）"]
