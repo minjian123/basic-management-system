@@ -24,16 +24,22 @@ export interface ModuleAreaItem {
   order: number
   /** 挂接组件（组件对象或异步加载器）。 */
   component: unknown
+  /** 展示名（`tabs` 形态页签标题；缺省取键）。 */
+  title: string | undefined
+  /** 图标键（`tabs` 形态页签图标；未登记不渲染）。 */
+  icon: string | undefined
 }
 
 /** 选项。 */
 export interface UseModuleAreaOptions {
-  /** 区域标识（点分，如 `layout.header`）。 */
+  /** 区域 / 具名插槽标识（点分，如 `sys.user.detail.tabs`）。 */
   area: MaybeRefOrGetter<string>
   /** 宿主注册表集合。 */
   registries: FrontendRegistries
   /** 装配版本号（装配 / 释放后自增，用于重算；注册表实例本身非响应式）。 */
   revision?: MaybeRefOrGetter<number>
+  /** 已持有权限码（按权限显隐；缺省空集合＝带权限约束的项不渲染）。 */
+  permissionCodes?: MaybeRefOrGetter<readonly string[]>
 }
 
 /** `useModuleArea` 返回面。 */
@@ -70,21 +76,28 @@ export function useModuleArea(options: UseModuleAreaOptions): UseModuleAreaResul
   const layout = useBaseLayout()
   const container = useBaseContainer()
   const revision = computed(() => toValue(options.revision ?? 0))
+  const permissionCodes = computed(() => toValue(options.permissionCodes ?? []))
   /** 已解析挂接组件（按函数标识复用，避免重复创建异步组件）。 */
   const resolved = new WeakMap<object, unknown>()
 
-  /** 读取当前区域项（保序）。 */
+  /** 读取当前区域项（按显示条件与权限过滤后保序）。 */
   function readItems(): ModuleAreaItem[] {
     const area = toValue(options.area)
     return options.registries.pageArea
-      .resolveByArea(area)
-      .map((record) => ({ key: record.key, order: record.order, component: record.component }))
+      .resolveByArea(area, { permissionCodes: permissionCodes.value })
+      .map((record) => ({
+        key: record.key,
+        order: record.order,
+        component: record.component,
+        title: record.title,
+        icon: record.icon,
+      }))
       .sort(compareItems)
   }
 
   const items = ref<ModuleAreaItem[]>(readItems())
 
-  watch([() => toValue(options.area), revision], () => {
+  watch([() => toValue(options.area), revision, permissionCodes], () => {
     items.value = readItems()
   })
 

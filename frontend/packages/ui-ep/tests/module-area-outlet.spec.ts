@@ -66,4 +66,72 @@ describe('ModuleAreaOutlet（Kiwi 977）', () => {
 
     expect(wrapper.findAll('span')).toEqual([])
   })
+
+  // kiwi_id: 2238
+  it('tabs 形态：每项一个页签（标题取展示名、缺省取键），按顺序提示稳定排序', () => {
+    const registries = createRegistries()
+    registries.pageArea.register(
+      new PageAreaProvider('demo:extension', 'sys.user.detail.tabs', textComponent('ext', '扩展示例内容'), 20, {
+        title: '用户扩展示例',
+      }),
+    )
+    registries.pageArea.register(
+      new PageAreaProvider('demo:basic', 'sys.user.detail.tabs', textComponent('basic', '基本信息内容'), 10, {
+        title: '基本信息',
+      }),
+    )
+    registries.pageArea.register(
+      new PageAreaProvider('demo:raw', 'sys.user.detail.tabs', textComponent('raw', '无名内容'), 30),
+    )
+
+    const wrapper = mount(ModuleAreaOutlet, {
+      props: { area: 'sys.user.detail.tabs', registries, variant: 'tabs' },
+    })
+
+    expect(wrapper.attributes('data-variant')).toBe('tabs')
+    expect(wrapper.findAll('.el-tabs__item').map((item) => item.text())).toEqual([
+      '基本信息',
+      '用户扩展示例',
+      'demo:raw',
+    ])
+    expect(wrapper.find('.el-tabs__item').classes()).toContain('is-active')
+  })
+
+  it('tabs 形态：权限码不满足的项不渲染；未知插槽渲染为空', () => {
+    const registries = createRegistries()
+    registries.pageArea.register(
+      new PageAreaProvider('demo:open', 'sys.user.detail.tabs', textComponent('open', '公开'), 10, { title: '公开' }),
+    )
+    registries.pageArea.register(
+      new PageAreaProvider('demo:gated', 'sys.user.detail.tabs', textComponent('gated', '受限'), 20, {
+        title: '受限',
+        perm: 'sys:user-extension:update',
+      }),
+    )
+
+    const wrapper = mount(ModuleAreaOutlet, {
+      props: { area: 'sys.user.detail.tabs', registries, variant: 'tabs', permissionCodes: [] },
+    })
+    expect(wrapper.findAll('.el-tabs__item').map((item) => item.text())).toEqual(['公开'])
+
+    const empty = mount(ModuleAreaOutlet, { props: { area: 'unknown.area', registries, variant: 'tabs' } })
+    expect(empty.findAll('.el-tabs__item')).toEqual([])
+  })
+
+  it('权限码变化后重算（inline 形态按权限显隐）', async () => {
+    const registries = createRegistries()
+    registries.pageArea.register(
+      new PageAreaProvider('demo:gated', 'layout.header', textComponent('gated', '受限项'), 10, {
+        perm: 'demo:edit',
+      }),
+    )
+
+    const wrapper = mount(ModuleAreaOutlet, {
+      props: { area: 'layout.header', registries, permissionCodes: [] },
+    })
+    expect(wrapper.findAll('span')).toEqual([])
+
+    await wrapper.setProps({ permissionCodes: ['demo:edit'] })
+    expect(wrapper.findAll('span').map((item) => item.text())).toEqual(['受限项'])
+  })
 })

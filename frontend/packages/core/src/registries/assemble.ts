@@ -87,7 +87,13 @@ function buildPlan(source: RegistrationSource, registration: RegistryRegistratio
     plan.push({
       group: 'region',
       key: declaration.key,
-      provider: new PageAreaProvider(declaration.key, declaration.area, declaration.component, declaration.order ?? 0),
+      provider: new PageAreaProvider(declaration.key, declaration.area, declaration.component, declaration.order ?? 0, {
+        title: declaration.title,
+        icon: declaration.icon,
+        perm: declaration.perm,
+        permMode: declaration.permMode,
+        when: declaration.when,
+      }),
     })
   }
   for (const declaration of registration.themeTokens ?? []) {

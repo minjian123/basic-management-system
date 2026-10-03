@@ -10,6 +10,7 @@ import { schemaError } from './validate'
 import { BaseProviderRegistry } from '../mechanisms/registry'
 import { BaseError } from '../mechanisms/error'
 import { ErrorCodes } from '../mechanisms/error-codes'
+import { evaluatePermission } from '../domain/permission'
 
 import {
   ComponentProvider,
@@ -263,6 +264,12 @@ export class WorkbenchCardRegistry extends BaseProviderRegistry<WorkbenchCardPro
   }
 }
 
+/** 页面区域解析选项。 */
+export interface ResolveAreaOptions {
+  /** 已持有权限码（缺省空集合——带权限约束的项一律不满足）。 */
+  permissionCodes?: readonly string[]
+}
+
 /** 页面区域注册表。 */
 export class PageAreaRegistry extends BaseProviderRegistry<PageAreaProvider> {
   /** 插件键。 */
@@ -291,12 +298,44 @@ export class PageAreaRegistry extends BaseProviderRegistry<PageAreaProvider> {
   }
 
   /**
-   * 按区域标识解析（保序；未命中返回空数组，不替调用方兜底）。
+   * 按区域标识解析（保序；按显示条件与权限过滤；未命中返回空数组，不替调用方兜底）。
    *
-   * @param area 区域标识。
+   * @param area 区域 / 具名插槽标识。
+   * @param options 解析选项（已持有权限码）。
    */
-  resolveByArea(area: string): PageAreaProvider[] {
-    return this.values().filter((provider) => provider.area === area)
+  resolveByArea(area: string, options: ResolveAreaOptions = {}): PageAreaProvider[] {
+    const codes = options.permissionCodes ?? []
+    return this.values().filter((provider) => provider.area === area && this.visible(provider, codes))
+  }
+
+  /**
+   * 区域项本轮是否可见（显示条件 → 权限码；任一不满足即不渲染）。
+   *
+   * 显示条件谓词抛错按「不渲染」处置并上报，**不影响同区其余项**。
+   *
+   * @param provider 注册项。
+   * @param codes 已持有权限码。
+   */
+  private visible(provider: PageAreaProvider, codes: readonly string[]): boolean {
+    if (provider.when !== undefined) {
+      try {
+        if (!provider.when()) {
+          return false
+        }
+      } catch (error) {
+        this.reportError(error, { key: provider.key, area: provider.area, stage: 'region-when' })
+        return false
+      }
+    }
+    const perm = provider.perm
+    if (perm === undefined) {
+      return true
+    }
+    const required = typeof perm === 'string' ? [perm] : [...perm]
+    if (required.length === 0) {
+      return true
+    }
+    return evaluatePermission(codes, required, provider.permMode)
   }
 
   /** 已登记区域标识（登记序、去重）。 */

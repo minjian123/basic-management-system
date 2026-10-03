@@ -206,4 +206,39 @@ describe('releaseRegistrations', () => {
     const registries = createRegistries()
     expect(() => releaseRegistrations(registries, ['unknown:demo:x', 'component:demo:missing'])).not.toThrow()
   })
+
+  // kiwi_id: 2238
+  it('具名插槽区域项：展示与显隐声明字段随装配透传', () => {
+    const registries = createRegistries()
+    const when = (): boolean => true
+    assembleRegistrations(registries, PLATFORM_SOURCE, {
+      regions: [
+        {
+          key: 'sys:user-detail-basic',
+          area: 'sys.user.detail.tabs',
+          component: {},
+          order: 10,
+          title: '基本信息',
+          icon: 'el:User',
+          perm: ['sys:user-extension:update'],
+          permMode: 'any',
+          when,
+        },
+      ],
+    })
+
+    const provider = registries.pageArea.get('sys:user-detail-basic')
+    expect(provider?.title).toBe('基本信息')
+    expect(provider?.icon).toBe('el:User')
+    expect(provider?.perm).toEqual(['sys:user-extension:update'])
+    expect(provider?.permMode).toBe('any')
+    expect(provider?.when).toBe(when)
+    expect(provider?.registrationSource).toBe(PLATFORM_SOURCE)
+    expect(registries.pageArea.resolveByArea('sys.user.detail.tabs', { permissionCodes: [] })).toEqual([])
+    expect(
+      registries.pageArea
+        .resolveByArea('sys.user.detail.tabs', { permissionCodes: ['sys:user-extension:update'] })
+        .map((item) => item.key),
+    ).toEqual(['sys:user-detail-basic'])
+  })
 })
