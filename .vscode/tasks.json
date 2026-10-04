@@ -17,6 +17,12 @@
   //    而 dev server 其实已经跑起来了；
   //  - **后端 8000 自愈**：`dev:清理后端端口（8000）`（普通任务，非 background）供 `后端：单服务（debugpy ·
   //    选服务）` 的 `preLaunchTask` 复用——重开「全套」不必先手动停上一次调试会话（否则 Address already in use）；
+  //  - **本地裸跑后端＝本机开发主形态**：`dev:后端本地全套（四服务）` 调 `scripts/tools/dev/本地全套.sh up`，
+  //    起 tenant / org / platform / identity 四服务（**同一 8000 端口 + loopback 别名**，与服务基址模板
+  //    `http://{service}:8000` 同形；SQLite 本地库 + 内存缓存，自愈 `/etc/hosts` 别名与 `backend/.dev-keys.local`）。
+  //    **容器 / mjbk 只在发布验证时用**（开发机部署说明）；停服务用 `dev:后端本地全套·停（四服务）`
+  //    （TERM → 5s → KILL，仍不死则报错交人工）。注意：`清理后端端口.sh 8000 backend` 会连**四服务**一并清掉，
+  //    故起四服务请用上述任务，别再用旧的 `后端：单服务` 项（它只起 1 个服务、且不加载密钥与别名）；
   //  - 运行时模块本地联调口径（阶段五 `03_02` §3.7）：宿主按 `public/modules.json` 加载**发布归档**，
   //    入口形如 `http://localhost:5002/<模块名>/<版本>/remoteEntry.js` → 需先「发布:模块产物」再由
   //    `serve-module-releases.mjs` 在 5002 托管 `frontend/releases/**`（带 CORS；`python3 -m http.server`
@@ -151,6 +157,25 @@
       "detail": "清理占用 8000 的本项目旧后端调试进程（仅限 cwd 为 backend 者；非本项目占用则中止，不误杀）",
       "type": "shell",
       "command": "bash \"${workspaceFolder}/scripts/tools/dev/清理宿主端口.sh\" 8000 \"${workspaceFolder}/backend\"",
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": []
+    },
+    {
+      // 本机开发主形态：本地裸跑四服务（无需 Docker / mjbk）。脚本幂等（已在监听则跳过），并自愈
+      // /etc/hosts 别名与开发密钥；Redis 缺省指远端开发机 DB5，可用 `BMS_LOCAL_REDIS=...` 覆盖，
+      // 库结构变更后用 `本地全套.sh up --reset-db`（会先备份移走 backend/bms_*.db）。
+      "label": "dev:后端本地全套（四服务）",
+      "detail": "scripts/tools/dev/本地全套.sh up —— tenant/org/platform/identity（127.0.0.2~5:8000，同一端口 + 别名）",
+      "type": "shell",
+      "command": "bash \"${workspaceFolder}/scripts/tools/dev/本地全套.sh\" up",
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": []
+    },
+    {
+      "label": "dev:后端本地全套·停（四服务）",
+      "detail": "scripts/tools/dev/本地全套.sh down（TERM → 5s → KILL；仍不死则报错交人工，绝不无限等）",
+      "type": "shell",
+      "command": "bash \"${workspaceFolder}/scripts/tools/dev/本地全套.sh\" down",
       "options": { "cwd": "${workspaceFolder}" },
       "problemMatcher": []
     },

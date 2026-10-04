@@ -16,6 +16,14 @@ uv sync
 uv run python -m bms_platform          # 各服务启动入口（读 config 的 [server] host/port；SIGTERM 先摘流再优雅收尾）
 # 其他服务：python -m bms_identity / bms_tenant / bms_org / bms_file / bms_notification / bms_search / bms_ai / bms_report
 # 本地并行多服务时用 BMS_SERVER__PORT 覆盖端口（每服务独立配置归 06_需求）
+# 本地「全套」一键起停（推荐；四服务各绑 loopback 别名 127.0.0.2~5 + **同一 8000 端口**，与服务间
+# 基址模板 http://{service}:8000 同形；自愈 /etc/hosts 别名与 backend/.dev-keys.local 开发密钥）：
+#   bash scripts/tools/dev/本地全套.sh up       # 幂等起 tenant/org/platform/identity（已在跑则跳过）
+#   bash scripts/tools/dev/本地全套.sh seed     # 租户注册库 + 菜单元数据 + 建号（**首次起栈后跑一次**）
+#   bash scripts/tools/dev/本地全套.sh status   # 进程与 /healthz、/readyz 一览
+#   bash scripts/tools/dev/本地全套.sh down     # 有界停（TERM → 5s → KILL；仍不死则报错交人工）
+#   # 库结构变更后：up --reset-db（先把 backend/bms_*.db 备份移走）；前端映射：env 子命令
+# 容器 / 开发服务器（mjbk）**只在发布验证时**使用；开发态一律本机裸跑。
 # 或：uv run uvicorn bms_platform.asgi:app --port 8000
 # 验证：/healthz 返回 {"status":"ok","service":"platform","version":"..."}；/readyz 就绪（依赖不可达为 503）；/docs Swagger
 uv run pytest   # 全量用例（工作区根；含 Kiwi TCMS 用例 ID 标注）

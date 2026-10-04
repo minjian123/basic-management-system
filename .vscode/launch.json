@@ -148,12 +148,30 @@
       "python": "${workspaceFolder}/backend/.venv/bin/python",
       "console": "integratedTerminal",
       "justMyCode": false
+    },
+    {
+      // 「全套」的后端成员（本地开发主形态）：由 `scripts/tools/dev/本地全套.sh up` 起**四个**服务
+      // （tenant/org/platform/identity；同一 8000 + loopback 别名，与服务基址模板 http://{service}:8000 同形，
+      // 并加载 `backend/.dev-keys.local` 的开发密钥）。服务是 nohup 后台进程——本终端只承载会话，
+      // 关掉不影响服务；停服务请用任务 `dev:后端本地全套·停（四服务）`。
+      "name": "后端：本地全套（四服务 · 脚本）",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "bash \"${workspaceFolder}/scripts/tools/dev/本地全套.sh\" up && exec bash -i",
+      "cwd": "${workspaceFolder}"
     }
   ],
   "compounds": [
     {
+      // 旧口径（单后端服务）：后端**只起 identity 一个**，且不加载 `.dev-keys.local`、不绑 loopback 别名
+      // → 本机四服务形态下不足以登录（服务间 http://org:8000 亦不通）。本地开发请用下面的「本地四服务」项；
+      // 本项保留用于「只调 identity 单服务」的场景。
       "name": "全套：后端单服务 + 宿主 + Chromium",
       "configurations": ["后端：单服务（debugpy · bms_identity）", "前端：宿主 + 模块 + Chromium（浏览器断点）"]
+    },
+    {
+      "name": "全套（本地四服务 + 宿主 + Chromium）",
+      "configurations": ["后端：本地全套（四服务 · 脚本）", "前端：宿主 + 模块 + Chromium（浏览器断点）"]
     }
   ],
   "inputs": [
