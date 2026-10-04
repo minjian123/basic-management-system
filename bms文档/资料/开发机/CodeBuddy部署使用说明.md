@@ -14,19 +14,19 @@
 
 ## 2. 环境概览 <a id="env"></a>
 
-| 项 | 取值 |
-| --- | --- |
-| 系统 / 桌面 | Ubuntu 26.04.1 LTS（x86_64）；GNOME（`XDG_SESSION_TYPE=wayland`） |
-| 应用名称 | CodeBuddy CN（`applicationName = buddycn`，`urlProtocol = codebuddycn`） |
-| 应用版本 | **1.106.1**（stable；commit `b4c35ed0`，构建日期 2026-09-04） |
-| deb 包 | `codebuddy-cn` **4.12.0**（amd64；Maintainer `CodeBuddy Team <codebuddy@tencent.com>`，Homepage `https://www.codebuddy.ai`） |
-| 同源桌面包 | `workbuddy` 5.5.6（腾讯 WorkBuddy，与 CodeBuddy 同一官网分发） |
-| 安装形态 | **手工 `.deb` 安装，无 apt 源**（`/etc/apt/sources.list*` 中无相关仓库）→ **不随 `apt upgrade` 升级**，需下载新包覆盖安装 |
-| 应用目录 | `/usr/share/buddycn/`（二进制 `/usr/share/buddycn/bin/buddycn`） |
-| 启动器 | `/usr/share/applications/buddycn.desktop` → `Exec=/usr/share/buddycn/bin/buddycn %F`（另有 `buddycn-url-handler.desktop` 处理 `codebuddycn://` 链接） |
-| 服务端组件名 | `codebuddy-server-cn`（远程/SSH 场景使用，本机未部署） |
-| CLI | PATH 中**无** `codebuddy` / `cbc`；但应用自带桌面 CLI **`/usr/share/buddycn/bin/buddycn`**（VS Code 同款，支持 `--install-extension` / `--list-extensions` 等，扩展管理即用它，见第 7 节）；如需独立 CLI 另按其官方文档部署 |
-| Electron 版本 | 37.7.0（由进程启动参数核实） |
+| 项            | 取值                                                                                                                                                                                                                                              |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 系统 / 桌面   | Ubuntu 26.04.1 LTS（x86_64）；GNOME（`XDG_SESSION_TYPE=wayland`）                                                                                                                                                                               |
+| 应用名称      | CodeBuddy CN（`applicationName = buddycn`，`urlProtocol = codebuddycn`）                                                                                                                                                                      |
+| 应用版本      | **1.106.1**（stable；commit `b4c35ed0`，构建日期 2026-09-04）                                                                                                                                                                             |
+| deb 包        | `codebuddy-cn` **4.12.0**（amd64；Maintainer `CodeBuddy Team <codebuddy@tencent.com>`，Homepage `https://www.codebuddy.ai`）                                                                                                          |
+| 同源桌面包    | `workbuddy` 5.5.6（腾讯 WorkBuddy，与 CodeBuddy 同一官网分发）                                                                                                                                                                                  |
+| 安装形态      | **手工 `.deb` 安装，无 apt 源**（`/etc/apt/sources.list*` 中无相关仓库）→ **不随 `apt upgrade` 升级**，需下载新包覆盖安装                                                                                                      |
+| 应用目录      | `/usr/share/buddycn/`（二进制 `/usr/share/buddycn/bin/buddycn`）                                                                                                                                                                              |
+| 启动器        | `/usr/share/applications/buddycn.desktop` → `Exec=/usr/share/buddycn/bin/buddycn %F`（另有 `buddycn-url-handler.desktop` 处理 `codebuddycn://` 链接）                                                                                    |
+| 服务端组件名  | `codebuddy-server-cn`（远程/SSH 场景使用，本机未部署）                                                                                                                                                                                          |
+| CLI           | PATH 中**无** `codebuddy` / `cbc`；但应用自带桌面 CLI **`/usr/share/buddycn/bin/buddycn`**（VS Code 同款，支持 `--install-extension` / `--list-extensions` 等，扩展管理即用它，见第 7 节）；如需独立 CLI 另按其官方文档部署 |
+| Electron 版本 | 37.7.0（由进程启动参数核实）                                                                                                                                                                                                                      |
 
 > 本机 **无 GPU/Wayland 崩溃**：CodeBuddy 日志中未见 GPU 进程段错误（与 [opencode](opencode部署使用说明.md) 在本机 NVIDIA + Wayland 下的 GPU 崩溃不是一类问题），因此**无需** `--disable-gpu`；若日后出现渲染异常，排障方式见[第 9 节](#trouble)。
 
@@ -62,27 +62,27 @@ python3 -c "import json;print(json.load(open('/usr/share/buddycn/resources/app/p
 
 CodeBuddy 的用户数据分散在 **四个目录**（实测体积为 2026-09-12 本机快照，仅作量级参考）。此外工作区根还会有一个 `.codebuddy/`（工作记忆），见[第 10 节](#workspace-ai)：
 
-| 目录 | 体积 | 内容 | 说明 |
-| --- | --- | --- | --- |
-| `~/.config/CodeBuddy CN/` | 131 MB | `User/settings.json`（**IDE 设置，含本文的权限开关**）、`History/`、`workspaceStorage/`、`logs/<时间戳>/`、`CrashReport/` | 与 VS Code 一致的用户数据布局 |
-| `~/.codebuddycn/` | 200 MB | `extensions/`（已装扩展 + `extensions.json`）、`argv.json`（持久启动参数） | 扩展宿主目录 |
-| `~/.codebuddy/` | 141 MB | `settings.json`（**插件启用登记**）、`mcp.json`（MCP server 登记）、`skills/`（AI 技能）、`plugins/`（插件市场）、`skills-marketplace/`（技能市场）、`inspiration/`、`logs/`、`diagnostics/` | CodeBuddy AI 侧配置（与 IDE 设置分开） |
-| `~/.local/share/CodeBuddyExtension/` | 71 MB | `Logs/CodeBuddyIDE/<日期>/<工作区>__<hash>.log`、会话与工作区缓存 | **对话与扩展运行日志**，排障首选 |
+| 目录                                   | 体积   | 内容                                                                                                                                                                                                               | 说明                                   |
+| -------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------- |
+| `~/.config/CodeBuddy CN/`            | 131 MB | `User/settings.json`（**IDE 设置，含本文的权限开关**）、`History/`、`workspaceStorage/`、`logs/<时间戳>/`、`CrashReport/`                                                                          | 与 VS Code 一致的用户数据布局          |
+| `~/.codebuddycn/`                    | 200 MB | `extensions/`（已装扩展 + `extensions.json`）、`argv.json`（持久启动参数）                                                                                                                                   | 扩展宿主目录                           |
+| `~/.codebuddy/`                      | 141 MB | `settings.json`（**插件启用登记**）、`mcp.json`（MCP server 登记）、`skills/`（AI 技能）、`plugins/`（插件市场）、`skills-marketplace/`（技能市场）、`inspiration/`、`logs/`、`diagnostics/` | CodeBuddy AI 侧配置（与 IDE 设置分开） |
+| `~/.local/share/CodeBuddyExtension/` | 71 MB  | `Logs/CodeBuddyIDE/<日期>/<工作区>__<hash>.log`、会话与工作区缓存                                                                                                                                                | **对话与扩展运行日志**，排障首选 |
 
 清理建议：`History/`、`logs/`、`Logs/` 属可清缓存；`User/settings.json`、`~/.codebuddy/settings.json`、`argv.json` 属配置，勿随意删。
 
 ## 5. 首次配置 <a id="setup"></a>
 
-| 项 | 位置 / 键 | 本机现状（2026-09-12 核实） |
-| --- | --- | --- |
-| 界面语言 | `~/.codebuddycn/argv.json` → `locale` | `zh-cn` |
-| 崩溃上报 | `~/.codebuddycn/argv.json` → `enable-crash-reporter` | `false`（关闭上报） |
-| 硬件加速 | `~/.codebuddycn/argv.json` → `disable-hardware-acceleration` | 注释态（未启用软件渲染） |
-| 插件启用 | `~/.codebuddy/settings.json` → `enabledPlugins` | 已启用官方插件：`pptx`、`pdf`、`docx`、`xlsx`、`agent-browser`、`playwright-cli`、`skills-sec-audit`、`find-skills` |
-| 插件/技能市场 | `~/.codebuddy/plugins/`、`~/.codebuddy/skills-marketplace/` | 已拉取官方市场；技能市场版本号见 `~/.codebuddy/.skills-marketplace-version` |
-| MCP server | `~/.codebuddy/mcp.json` | 按需登记 MCP server（登记与用法见《[deepseek_harness部署使用说明](../AI/deepseek_harness部署使用说明.md)》MCP 相关节与工具自身文档） |
-| 补全模型 | 设置 `codingcopilot.selectedCompletionModel` | 空值 = 使用默认模型；可在补全状态栏菜单切换 |
-| 提交信息风格 | `codingcopilot.commitMessageStyle` / `commitMessageLanguage` | `Auto` / `zh_CN` |
+| 项                     | 位置 / 键                                                                         | 本机现状（2026-09-12 核实）                                                                                                                                                                  |
+| ---------------------- | --------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 界面语言               | `~/.codebuddycn/argv.json` → `locale`                                        | `zh-cn`                                                                                                                                                                                    |
+| 崩溃上报               | `~/.codebuddycn/argv.json` → `enable-crash-reporter`                         | `false`（关闭上报）                                                                                                                                                                        |
+| 硬件加速               | `~/.codebuddycn/argv.json` → `disable-hardware-acceleration`                 | 注释态（未启用软件渲染）                                                                                                                                                                     |
+| 插件启用               | `~/.codebuddy/settings.json` → `enabledPlugins`                              | 已启用官方插件：`pptx`、`pdf`、`docx`、`xlsx`、`agent-browser`、`playwright-cli`、`skills-sec-audit`、`find-skills`                                                          |
+| 插件/技能市场          | `~/.codebuddy/plugins/`、`~/.codebuddy/skills-marketplace/`                   | 已拉取官方市场；技能市场版本号见`~/.codebuddy/.skills-marketplace-version`                                                                                                                 |
+| MCP server             | `~/.codebuddy/mcp.json`                                                         | 按需登记 MCP server（登记与用法见《[deepseek_harness部署使用说明](../AI/deepseek_harness部署使用说明.md)》MCP 相关节与工具自身文档）                                                          |
+| 补全模型               | 设置`codingcopilot.selectedCompletionModel`                                     | 空值 = 使用默认模型；可在补全状态栏菜单切换                                                                                                                                                  |
+| 提交信息风格           | `codingcopilot.commitMessageStyle` / `commitMessageLanguage`                  | `Auto` / `zh_CN`                                                                                                                                                                         |
 | 编辑器关联（双击行为） | `~/.config/CodeBuddy CN/User/settings.json` → `workbench.editorAssociations` | `*.html` / `*.htm` → 内置 HTML 预览 `codebuddy.html.previewEditor`；`*.md` / `*.markdown` → 内置 Markdown 预览 `vscode.markdown.preview.editor`（详见[第 7 节](#html-preview)） |
 
 > 登录与账号：以 IDE 内登录态为准（本机已登录），凭据不入文档；退出登录后插件市场与技能市场会重新校验。
@@ -93,16 +93,16 @@ CodeBuddy 的权限开关都在 **IDE 用户设置** `~/.config/CodeBuddy CN/Use
 
 ### 6.1 本机当前取值 <a id="permission-current"></a>
 
-| 设置项 | 本机值 | 含义 |
-| --- | --- | --- |
-| `codingcopilot.autoRunMode` | `runEverything` | **代理运行工具的总体模式**：`askEveryTime`（每次都询问）/ `runEverything`（运行所有内容，含命令执行、MCP 与文件写入）。本机设为「运行所有内容」= 全部通过 |
-| `codingcopilot.autoRun` | `true` | 大模型自动运行命令，无需手动确认（开关级） |
-| `codingcopilot.autoModifyFile` | `true` | 大模型自动修改文件，无需手动确认（开关级） |
-| `codingcopilot.autoAcceptWebSearch` | `true`（默认） | 自动接受网络搜索结果 |
-| `codingcopilot.customBlacklistCommands` | `[]` | 自定义危险命令黑名单：每项为对整条命令匹配的正则，命中的命令会被拦截或需确认（在内置安全规则之上生效） |
+| 设置项                                       | 本机值                                                           | 含义                                                                                                                                                                                                                                                                                                                                                              |
+| -------------------------------------------- | ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `codingcopilot.autoRunMode`                | `runEverything`                                                | **代理运行工具的总体模式**：`askEveryTime`（每次都询问）/ `runEverything`（运行所有内容，含命令执行、MCP 与文件写入）。本机设为「运行所有内容」= 全部通过                                                                                                                                                                                               |
+| `codingcopilot.autoRun`                    | `true`                                                         | 大模型自动运行命令，无需手动确认（开关级）                                                                                                                                                                                                                                                                                                                        |
+| `codingcopilot.autoModifyFile`             | `true`                                                         | 大模型自动修改文件，无需手动确认（开关级）                                                                                                                                                                                                                                                                                                                        |
+| `codingcopilot.autoAcceptWebSearch`        | `true`（默认）                                                 | 自动接受网络搜索结果                                                                                                                                                                                                                                                                                                                                              |
+| `codingcopilot.customBlacklistCommands`    | `[]`                                                           | 自定义危险命令黑名单：每项为对整条命令匹配的正则，命中的命令会被拦截或需确认（在内置安全规则之上生效）                                                                                                                                                                                                                                                            |
 | `codingcopilot.disabledSecurityCategories` | 全部 13 类（本机 2026-09-13 取值，见[6.3](#permission-security)） | 禁用的内置安全检查类别：被禁用类别下的检查全部跳过。可选值：`diskOps`、`windowsSystem`、`network`、`systemServices`、`userManagement`、`fileDelete`、`permissions`、`processControl`、`gitOps`、`injection`、`scriptExec`、`powershell`、`custom`。**该设置的真正存储不是本文件**，手改会被回写，改法见[6.3](#permission-security) |
-| `codingcopilot.safeDeleteEnabled` | 默认 `true` | 删除操作（`rm`/`unlink`/`rmdir`/`del`/`delete_file` 等）先移入回收站；批量删除达阈值仍需确认。**建议保留默认** |
-| `codingcopilot.safeDeleteBulkThreshold` | 默认 `500` | 单次删除文件数达该值触发批量删除确认；值越大提示越少 |
+| `codingcopilot.safeDeleteEnabled`          | 默认`true`                                                     | 删除操作（`rm`/`unlink`/`rmdir`/`del`/`delete_file` 等）先移入回收站；批量删除达阈值仍需确认。**建议保留默认**                                                                                                                                                                                                                                    |
+| `codingcopilot.safeDeleteBulkThreshold`    | 默认`500`                                                      | 单次删除文件数达该值触发批量删除确认；值越大提示越少                                                                                                                                                                                                                                                                                                              |
 
 > 安全边界：`autoRunMode = runEverything` 等于允许 AI 不经确认执行本机命令与写文件。若临时收紧，改回 `askEveryTime` 并重载窗口即可；删除类操作另有回收站与批量阈值兜底（上表后两行）。
 >
@@ -150,27 +150,27 @@ PY
 
 由此得出三个坑（本机逐条实测）：
 
-| 做法 | 结果 | 原因 |
-| --- | --- | --- |
-| 手改 `settings.json` 后重载窗口 | 无效，值被还原 | 启动/重载时用权威存储回写 `settings.json` |
-| 只「重新加载窗口」 | 无效 | 重载不重读权威存储（进程没重启，用的还是内存里的旧值） |
-| 写 `~/.codebuddy/settings.json` | 无效 | 那是插件/技能/MCP 登记，不参与安全检查 |
+| 做法                             | 结果           | 原因                                                   |
+| -------------------------------- | -------------- | ------------------------------------------------------ |
+| 手改`settings.json` 后重载窗口 | 无效，值被还原 | 启动/重载时用权威存储回写`settings.json`             |
+| 只「重新加载窗口」               | 无效           | 重载不重读权威存储（进程没重启，用的还是内存里的旧值） |
+| 写`~/.codebuddy/settings.json` | 无效           | 那是插件/技能/MCP 登记，不参与安全检查                 |
 
 内置类别与对应命令（扩展内置表，判断该放开哪一类时查这里）：
 
-| 类别 | 命令 |
-| --- | --- |
-| `fileDelete` | `rm` / `rmdir` / `del` / `erase` / `find` / `locate` |
-| `permissions` | `chmod` / `chown` / `chgrp` / `attrib` / `icacls` |
-| `processControl` | `kill` / `killall` / `pkill` / `taskkill` |
-| `gitOps` | `git` |
-| `injection` | `open` / `start` / `xdg-open` 及下载执行类正则 |
-| `diskOps` | `dd` / `mkfs` / `fdisk` / `parted` / `cfdisk` / `sfdisk` / `format` / `diskpart` |
-| `network` | `nc` / `ncat` / `netcat` / `socat` / `iptables` / `ufw` / `firewall-cmd` |
-| `systemServices` | `systemctl` / `service` / `chkconfig` / `crontab` / `at` |
-| `userManagement` | `passwd` / `usermod` / `useradd` / `userdel` |
-| `windowsSystem` | `wmic` / `takeown` / `cipher` |
-| `scriptExec` / `powershell` / `custom` | 脚本执行类正则 / PowerShell 专属 / 自定义黑名单（即 `customBlacklistCommands`） |
+| 类别                                         | 命令                                                                                             |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `fileDelete`                               | `rm` / `rmdir` / `del` / `erase` / `find` / `locate`                                 |
+| `permissions`                              | `chmod` / `chown` / `chgrp` / `attrib` / `icacls`                                      |
+| `processControl`                           | `kill` / `killall` / `pkill` / `taskkill`                                                |
+| `gitOps`                                   | `git`                                                                                          |
+| `injection`                                | `open` / `start` / `xdg-open` 及下载执行类正则                                             |
+| `diskOps`                                  | `dd` / `mkfs` / `fdisk` / `parted` / `cfdisk` / `sfdisk` / `format` / `diskpart` |
+| `network`                                  | `nc` / `ncat` / `netcat` / `socat` / `iptables` / `ufw` / `firewall-cmd`           |
+| `systemServices`                           | `systemctl` / `service` / `chkconfig` / `crontab` / `at`                               |
+| `userManagement`                           | `passwd` / `usermod` / `useradd` / `userdel`                                             |
+| `windowsSystem`                            | `wmic` / `takeown` / `cipher`                                                              |
+| `scriptExec` / `powershell` / `custom` | 脚本执行类正则 / PowerShell 专属 / 自定义黑名单（即`customBlacklistCommands`）                 |
 
 **改法 A（推荐，一次到位）：完全退出 → 改权威存储 → 冷启动**
 
@@ -233,13 +233,13 @@ grep -rhoa "Permission decision: source=[a-z_]*, allowed=[a-z]*, needConfirm=[a-
 
 ### 7.1 扩展目录与市场 <a id="ext-dirs"></a>
 
-| 项 | 取值 |
-| --- | --- |
-| 扩展宿主目录 | `~/.codebuddycn/extensions/`（**不是 `~/.vscode/extensions`**——本机该目录存在但属其他编辑器，装到那儿 CodeBuddy 不加载） |
-| 扩展登记文件 | `~/.codebuddycn/extensions/extensions.json` |
-| 扩展市场 | **open-vsx.org**（`product.json` → `extensionsGallery.serviceUrl = https://open-vsx.org/vscode/gallery`），非微软市场 → 只收录在 open-vsx 发布过的扩展 |
-| 内置扩展 | `/usr/share/buddycn/resources/app/extensions/`（101 个，含 `simple-browser`、`html`、`html-language-features`、`media-preview`、`markdown-language-features` 等，随应用发布不占用户目录） |
-| AI 侧插件 | 与 IDE 扩展分开：`~/.codebuddy/settings.json` → `enabledPlugins`（见第 5 节） |
+| 项           | 取值                                                                                                                                                                                                  |
+| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 扩展宿主目录 | `~/.codebuddycn/extensions/`（**不是 `~/.vscode/extensions`**——本机该目录存在但属其他编辑器，装到那儿 CodeBuddy 不加载）                                                                  |
+| 扩展登记文件 | `~/.codebuddycn/extensions/extensions.json`                                                                                                                                                         |
+| 扩展市场     | **open-vsx.org**（`product.json` → `extensionsGallery.serviceUrl = https://open-vsx.org/vscode/gallery`），非微软市场 → 只收录在 open-vsx 发布过的扩展                                    |
+| 内置扩展     | `/usr/share/buddycn/resources/app/extensions/`（101 个，含 `simple-browser`、`html`、`html-language-features`、`media-preview`、`markdown-language-features` 等，随应用发布不占用户目录） |
+| AI 侧插件    | 与 IDE 扩展分开：`~/.codebuddy/settings.json` → `enabledPlugins`（见第 5 节）                                                                                                                    |
 
 ### 7.2 安装与卸载扩展（应用自带 CLI） <a id="ext-install"></a>
 
@@ -270,11 +270,11 @@ CLI=/usr/share/buddycn/bin/buddycn
 
 ### 7.3 HTML 预览的三条路 <a id="html-preview"></a>
 
-| 方式 | 触发 | 适用与限制 |
-| --- | --- | --- |
-| **内置 HTML 预览编辑器**（默认可用，零配置） | 资源管理器**双击 html 文件**；命令面板 `codebuddyPreview.toggleMode`（预览 ↔ 源码切换）、`codebuddyPreview.openHtmlSource`（打开源码）、`codebuddyPreview.openPreview`（打开预览） | CodeBuddy 内建扩展 `vscode.markdown-language-features`（v1.0.0，随应用发布）在 `customEditors` 里注册了 `codebuddy.html.previewEditor`（displayName **HTML Preview**，selector `*.html`/`*.htm`），本机已用 `workbench.editorAssociations` 关联；同扩展还提供 `vscode.markdown.preview.editor`（Markdown Preview，`codebuddyPreview.openMarkdownSource` 打开源码） |
-| **Live Preview 扩展**（本次已装） | 右键 html → **Show Preview**（命令 `livePreview.start.internalPreview.atFile`） | 按文件所在目录起 http 服务，相对链接跳转与实时刷新更好；结束用 `Live Preview: Stop Server` |
-| **Simple Browser**（内置命令） | `Ctrl/Cmd+Shift+P` → `Simple Browser: Show` → 填 URL | 内置浏览器面板，**只支持 http/https，`file://` 打不开**，需先有静态服务（见 7.4） |
+| 方式                                               | 触发                                                                                                                                                                                            | 适用与限制                                                                                                                                                                                                                                                                                                                                                                              |
+| -------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **内置 HTML 预览编辑器**（默认可用，零配置） | 资源管理器**双击 html 文件**；命令面板 `codebuddyPreview.toggleMode`（预览 ↔ 源码切换）、`codebuddyPreview.openHtmlSource`（打开源码）、`codebuddyPreview.openPreview`（打开预览） | CodeBuddy 内建扩展`vscode.markdown-language-features`（v1.0.0，随应用发布）在 `customEditors` 里注册了 `codebuddy.html.previewEditor`（displayName **HTML Preview**，selector `*.html`/`*.htm`），本机已用 `workbench.editorAssociations` 关联；同扩展还提供 `vscode.markdown.preview.editor`（Markdown Preview，`codebuddyPreview.openMarkdownSource` 打开源码） |
+| **Live Preview 扩展**（本次已装）            | 右键 html →**Show Preview**（命令 `livePreview.start.internalPreview.atFile`）                                                                                                         | 按文件所在目录起 http 服务，相对链接跳转与实时刷新更好；结束用`Live Preview: Stop Server`                                                                                                                                                                                                                                                                                             |
+| **Simple Browser**（内置命令）               | `Ctrl/Cmd+Shift+P` → `Simple Browser: Show` → 填 URL                                                                                                                                      | 内置浏览器面板，**只支持 http/https，`file://` 打不开**，需先有静态服务（见 7.4）                                                                                                                                                                                                                                                                                               |
 
 本机用户设置 `~/.config/CodeBuddy CN/User/settings.json` 的现有关联（决定了双击行为）：
 
@@ -302,14 +302,14 @@ pkill -f "http.server 8765"                         # 用完关闭
 
 ### 7.5 扩展与预览排障 <a id="ext-trouble"></a>
 
-| 现象 | 处理 |
-| --- | --- |
-| 装扩展报 `Extension '…' not found.` | ID 或市场问题：ID 必须 `发布者.名称`；用 `curl -I https://open-vsx.org/api/<发布者>/<名称>` 确认 open-vsx 是否收录、网络是否可达 |
-| 装了扩展但不生效 | 未重载窗口；或装错目录（应为 `~/.codebuddycn/extensions/`，不是 `~/.vscode/extensions`） |
-| 安装命令长时间无回显 | 属正常（无进度输出）；查 `~/.codebuddycn/extensions/` 是否出现新目录；长时间卡死则 `kill` 残留进程后重试 |
-| 双击 html 打开了源码 | `workbench.editorAssociations` 被改动；恢复 `*.html` / `*.htm` → `codebuddy.html.previewEditor` |
-| 预览页无样式、mermaid 不渲染 | 走 http：Live Preview 或 7.4 的静态服务，别用 `file://` |
-| md 里 mermaid 是代码块 | 未装 `bierner.markdown-mermaid`（或装后未重载窗口） |
+| 现象                                  | 处理                                                                                                                                |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| 装扩展报`Extension '…' not found.` | ID 或市场问题：ID 必须`发布者.名称`；用 `curl -I https://open-vsx.org/api/<发布者>/<名称>` 确认 open-vsx 是否收录、网络是否可达 |
+| 装了扩展但不生效                      | 未重载窗口；或装错目录（应为`~/.codebuddycn/extensions/`，不是 `~/.vscode/extensions`）                                         |
+| 安装命令长时间无回显                  | 属正常（无进度输出）；查`~/.codebuddycn/extensions/` 是否出现新目录；长时间卡死则 `kill` 残留进程后重试                         |
+| 双击 html 打开了源码                  | `workbench.editorAssociations` 被改动；恢复 `*.html` / `*.htm` → `codebuddy.html.previewEditor`                            |
+| 预览页无样式、mermaid 不渲染          | 走 http：Live Preview 或 7.4 的静态服务，别用`file://`                                                                            |
+| md 里 mermaid 是代码块                | 未装`bierner.markdown-mermaid`（或装后未重载窗口）                                                                                |
 
 ## 8. 运行与调试启动项 <a id="debug"></a>
 
@@ -319,47 +319,47 @@ IDE 的「运行和调试」下拉由 `.vscode/launch.json`（启动项）与 `.
 
 **VS Code 只读取「被打开的那个根」下的 `.vscode/`，不读取子目录的配置。** 本机曾出现「运行和调试面板为空」，原因就是把 `bizs` 当根打开、而启动项只放在 `bms/.vscode/`。故同一套启动项有两份，**改动须同步两处**（与工作区根 `settings.json` 的「双保险：裸目录打开 / 工作区文件打开均生效」同口径）：
 
-| 落点 | 生效场景 | 路径写法 |
-| --- | --- | --- |
-| `~/develop/bizs/.vscode/`（**工作区根**） | 裸目录打开 `bizs`；或打开工作区文件 `bizs.code-workspace` 的「工作区（配置）」根 | 带 `bms/` 前缀；「当前文件」类用 `${file}` |
-| `~/develop/bizs/bms/.vscode/` | 单独打开 `bms` 时 | 不带前缀；用 `${relativeFile}` |
+| 落点                                              | 生效场景                                                                            | 路径写法                                      |
+| ------------------------------------------------- | ----------------------------------------------------------------------------------- | --------------------------------------------- |
+| `~/develop/bizs/.vscode/`（**工作区根**） | 裸目录打开`bizs`；或打开工作区文件 `bizs.code-workspace` 的「工作区（配置）」根 | 带`bms/` 前缀；「当前文件」类用 `${file}` |
+| `~/develop/bizs/bms/.vscode/`                   | 单独打开`bms` 时                                                                  | 不带前缀；用`${relativeFile}`               |
 
 改完需 `Ctrl+Shift+P` → 「重新加载窗口」才会刷新下拉。
 
 ### 8.2 启动项清单 <a id="debug-list"></a>
 
-| 启动项 | 用途 | 前置任务 |
-| --- | --- | --- |
-| 前端：宿主 dev（Node · Vite） | 调试 Vite dev server 本体（`vite.config` / 插件），起好后自动用外部浏览器打开 | — |
-| 前端：宿主 + Chrome（浏览器断点） | 宿主页面 JS / Vue 源码断点 | `dev:宿主（5173）` |
-| 前端：宿主 + 模块 + Chrome | 含运行时模块的完整宿主（前置任务确保 5002 发布存储服务在跑） | `dev:宿主 + 模块产物（5002 + 5173）` |
-| 前端：核对页 + Chrome（选页） | 开发态核对页实测（下拉选页，默认 `login-check.html`） | `dev:宿主（5173）` |
-| 前端：当前文件单测（Node · Vitest） | 打开某个 `tests/*.spec.ts` 后 F5 调试该文件 | — |
-| 模块：demo / sample 独立开发（5002 / 5003） | 模块自身 `pnpm dev`（与宿主联调无关） | — |
-| 后端：单服务（debugpy · 选服务） | 后端单服务断点（下拉选服务；读 `backend/config.toml` 的 `[server] host/port`） | `dev:清理后端端口（8000）` |
-| 后端：单服务（debugpy · **bms_identity**） | 固定默认服务的等价项（免每次手选）——旧「全套」用它；换服务用上一行或改 `module`；**不加载开发密钥与 loopback 别名**，本机四服务形态下请在下面两项里选 | `dev:清理后端端口（8000）` |
-| 后端：当前文件单测（debugpy · pytest） | 打开 `backend/**/tests/test_*.py` 后 F5 | — |
-| **后端：本地全套（四服务 · 脚本）** | **本机裸跑四服务**（`bms/scripts/tools/dev/本地全套.sh up`；同一 8000 + loopback 别名 + 开发密钥）——「全套（本地四服务）」的后端成员（脚本起的服务是**后台进程，不带调试器**） | — |
-| **后端：单服务（debugpy · 本机四服务）** | **后端断点**用（下拉选服务）：经 `bms/backend/ops/dev_run.py` 注入别名 / 8000 / Redis / 开发密钥后进服务入口 ⇒ 断点、变量、调用栈齐备；**先 `本地全套.sh stop <服务>` 腾位**，调试完 `up` 补回（见 [8.5](#local-stack)） | — |
-| 全套：后端单服务 + 宿主 + Chrome | 组合项（后端 + 宿主 + 浏览器一起拉起）；后端用固定项 `bms_identity`（**不再弹选择框**），前端用「宿主 + 模块」项（**自动确保 5002 在跑**）——**本地四服务形态下别用**（见 [8.5](#local-stack)） | — |
-| **全套（本地四服务 + 宿主 + Chrome）** | **一键全套（推荐）**：脚本起四服务 + 宿主 + 模块产物 + Chrome（**前端断点即用**） | — |
+| 启动项                                           | 用途                                                                                                                                                                                                                                       | 前置任务                               |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------- |
+| 前端：宿主 dev（Node · Vite）                   | 调试 Vite dev server 本体（`vite.config` / 插件），起好后自动用外部浏览器打开                                                                                                                                                            | —                                     |
+| 前端：宿主 + Chrome（浏览器断点）                | 宿主页面 JS / Vue 源码断点                                                                                                                                                                                                                 | `dev:宿主（5173）`                   |
+| 前端：宿主 + 模块 + Chrome                       | 含运行时模块的完整宿主（前置任务确保 5002 发布存储服务在跑）                                                                                                                                                                               | `dev:宿主 + 模块产物（5002 + 5173）` |
+| 前端：核对页 + Chrome（选页）                    | 开发态核对页实测（下拉选页，默认`login-check.html`）                                                                                                                                                                                     | `dev:宿主（5173）`                   |
+| 前端：当前文件单测（Node · Vitest）             | 打开某个`tests/*.spec.ts` 后 F5 调试该文件                                                                                                                                                                                               | —                                     |
+| 模块：demo / sample 独立开发（5002 / 5003）      | 模块自身`pnpm dev`（与宿主联调无关）                                                                                                                                                                                                     | —                                     |
+| 后端：单服务（debugpy · 选服务）                | 后端单服务断点（下拉选服务；读`backend/config.toml` 的 `[server] host/port`）                                                                                                                                                          | `dev:清理后端端口（8000）`           |
+| 后端：单服务（debugpy ·**bms_identity**） | 固定默认服务的等价项（免每次手选）——旧「全套」用它；换服务用上一行或改`module`；**不加载开发密钥与 loopback 别名**，本机四服务形态下请在下面两项里选                                                                             | `dev:清理后端端口（8000）`           |
+| 后端：当前文件单测（debugpy · pytest）          | 打开`backend/**/tests/test_*.py` 后 F5                                                                                                                                                                                                   | —                                     |
+| **后端：本地全套（四服务 · 脚本）**       | **本机裸跑四服务**（`bms/scripts/tools/dev/本地全套.sh up`；同一 8000 + loopback 别名 + 开发密钥）——「全套（本地四服务）」的后端成员（脚本起的服务是**后台进程，不带调试器**）                                             | —                                     |
+| **后端：单服务（debugpy · 本机四服务）**  | **后端断点**用（下拉选服务）：经 `bms/backend/ops/dev_run.py` 注入别名 / 8000 / Redis / 开发密钥后进服务入口 ⇒ 断点、变量、调用栈齐备；**先 `本地全套.sh stop <服务>` 腾位**，调试完 `up` 补回（见 [8.5](#local-stack)） | —                                     |
+| 全套：后端单服务 + 宿主 + Chrome                 | 组合项（后端 + 宿主 + 浏览器一起拉起）；后端用固定项`bms_identity`（**不再弹选择框**），前端用「宿主 + 模块」项（**自动确保 5002 在跑**）——**本地四服务形态下别用**（见 [8.5](#local-stack)）                         | —                                     |
+| **全套（本地四服务 + 宿主 + Chrome）**     | **一键全套（推荐）**：脚本起四服务 + 宿主 + 模块产物 + Chrome（**前端断点即用**）                                                                                                                                              | —                                     |
 
 浏览器断点项的 `runtimeExecutable` 必须写**绝对路径** `"/usr/bin/google-chrome"`（js-debug 只接受 `stable`/`beta` 等别名或可执行文件绝对路径，写命令名 `google-chrome` 会报「找不到浏览器」）；需改用 snap Chromium 时换成 `"/snap/bin/chromium"`，见《[google-chrome部署使用说明](google-chrome部署使用说明.md)》。
 
 ### 8.3 任务清单 <a id="debug-tasks"></a>
 
-| 任务 | 说明 |
-| --- | --- |
-| `dev:清理宿主端口（5173）` | 普通任务：跑 `清理宿主端口.sh` 清理占用 5173 的**本项目**旧宿主 dev（含等待端口释放），供 dev 类后台任务作 `dependsOn` 前置 |
-| `dev:确保模块产物服务（5002）` | 普通任务：幂等确保 5002 发布存储服务在跑（缺则后台拉起），供「宿主 + 模块」作 `dependsOn` 前置 |
-| `dev:宿主（5173）` / `dev:宿主 + 模块产物（5002 + 5173）` | 后台任务：命令只有 `pnpm dev`，准备动作全交 `dependsOn` 前置任务（`dependsOrder: sequence`）；以 Vite 的 `Local:` 行为就绪信号（供 `preLaunchTask` 判断） |
-| `dev:清理后端端口（8000）` | 普通任务：清理占用 8000 的本项目旧后端调试进程，供上表两个后端启动项作 `preLaunchTask`（重开「全套」不必先手工停掉上一次调试会话）；**注意它按端口清理，会把本地全套的四服务一起清掉**——起四服务请用下面两条任务 |
-| `dev:后端本地全套（四服务）` | 普通任务：调 `bms/scripts/tools/dev/本地全套.sh up`——幂等起 tenant/org/platform/identity（已在监听则跳过）+ 自愈 `/etc/hosts` 别名与 `bms/backend/.dev-keys.local` + 等健康 |
-| `dev:后端本地全套·停（四服务）` | 普通任务：`本地全套.sh down`——`TERM` → 5s → `KILL`，仍不死**报错交人工**（不无限等待）；单个服务用 `本地全套.sh stop <服务>` |
-| `服务:模块产物（5002 · CORS 静态）` | `serve-module-releases.mjs` 托管 `bms/frontend/releases/**`（带 CORS，宿主加载运行时模块的前置） |
-| `发布:模块产物（demo + sample · 构建 + 发布）` | 构建并发布两个运行时模块到 `frontend/releases/`（归档不入库） |
-| `dev:模块 demo / sample 独立开发` | 模块自身 dev（demo 5002 / sample 5003，与「服务:模块产物」的 5002 互斥） |
-| 检查：前端基座三包 / 前端宿主 / 文档基座 / 后端 | 一键跑对应门禁（lint、typecheck、用例、体积预算、文档校验、ruff+pyright） |
+| 任务                                                          | 说明                                                                                                                                                                                                                      |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `dev:清理宿主端口（5173）`                                  | 普通任务：跑`清理宿主端口.sh` 清理占用 5173 的**本项目**旧宿主 dev（含等待端口释放），供 dev 类后台任务作 `dependsOn` 前置                                                                                      |
+| `dev:确保模块产物服务（5002）`                              | 普通任务：幂等确保 5002 发布存储服务在跑（缺则后台拉起），供「宿主 + 模块」作`dependsOn` 前置                                                                                                                           |
+| `dev:宿主（5173）` / `dev:宿主 + 模块产物（5002 + 5173）` | 后台任务：命令只有`pnpm dev`，准备动作全交 `dependsOn` 前置任务（`dependsOrder: sequence`）；以 Vite 的 `Local:` 行为就绪信号（供 `preLaunchTask` 判断）                                                        |
+| `dev:清理后端端口（8000）`                                  | 普通任务：清理占用 8000 的本项目旧后端调试进程，供上表两个后端启动项作`preLaunchTask`（重开「全套」不必先手工停掉上一次调试会话）；**注意它按端口清理，会把本地全套的四服务一起清掉**——起四服务请用下面两条任务 |
+| `dev:后端本地全套（四服务）`                                | 普通任务：调`bms/scripts/tools/dev/本地全套.sh up`——幂等起 tenant/org/platform/identity（已在监听则跳过）+ 自愈 `/etc/hosts` 别名与 `bms/backend/.dev-keys.local` + 等健康                                        |
+| `dev:后端本地全套·停（四服务）`                            | 普通任务：`本地全套.sh down`——`TERM` → 5s → `KILL`，仍不死**报错交人工**（不无限等待）；单个服务用 `本地全套.sh stop <服务>`                                                                            |
+| `服务:模块产物（5002 · CORS 静态）`                        | `serve-module-releases.mjs` 托管 `bms/frontend/releases/**`（带 CORS，宿主加载运行时模块的前置）                                                                                                                      |
+| `发布:模块产物（demo + sample · 构建 + 发布）`             | 构建并发布两个运行时模块到`frontend/releases/`（归档不入库）                                                                                                                                                            |
+| `dev:模块 demo / sample 独立开发`                           | 模块自身 dev（demo 5002 / sample 5003，与「服务:模块产物」的 5002 互斥）                                                                                                                                                  |
+| 检查：前端基座三包 / 前端宿主 / 文档基座 / 后端               | 一键跑对应门禁（lint、typecheck、用例、体积预算、文档校验、ruff+pyright）                                                                                                                                                 |
 
 > 端口自愈由脚本 `bms/scripts/tools/dev/清理宿主端口.sh` 实现（入参为端口 + 本项目目录），判定依据是占用进程的 `cwd` 是否等于给定目录——只清理本项目旧进程，占用者为非本项目进程时**中止启动**并提示，不误杀。
 >
@@ -367,37 +367,37 @@ IDE 的「运行和调试」下拉由 `.vscode/launch.json`（启动项）与 `.
 
 ### 8.4 排障 <a id="debug-trouble"></a>
 
-| 现象 | 处理 |
-| --- | --- |
-| 调试下拉为空 | 打开的是错误的根（见 [8.1](#debug-location)）；或改配置后未「重新加载窗口」；或该 json 有语法错误（打开文件看波浪线，注释为 JSONC 允许） |
-| 启动即报找不到任务 | `preLaunchTask` 名与 `tasks.json` 的 `label` 不一致（两处文件须同步，见 [8.1](#debug-location)） |
-| 浏览器断点不生效 | `runtimeExecutable` 须是本机存在的可执行文件（`google-chrome` 或备用 `chromium`）；确认 Chrome 已装（[google-chrome部署使用说明](google-chrome部署使用说明.md)） |
-| 后端启动项报错 | 需扩展 `ms-python.debugpy`（已装）；解释器 `bms/backend/.venv/bin/python` 须存在（`.venv` 外置口径见 [uv部署使用说明](uv部署使用说明.md)） |
-| 宿主页面显示「模块加载失败」 | 5002 上未托管发布归档：先跑「发布:模块产物」再跑「服务:模块产物（5002 · CORS 静态）」（裸静态服务缺 CORS 头会致跨源 ESM 加载失败） |
-| 点「全套」弹「正在等待 preLaunchTask」，但服务其实已经起来 | background 就绪正则没匹配上：vite 在终端里输出的是带 ANSI 颜色码的 `Local` + `ESC[22m` + `:`，字面 `Local:` 并不存在 → `endsPattern` 必须写成 `Local.*https?://`（两处 `tasks.json` 的 4 个 vite 任务已如此） |
-| 启动即报端口被占（5173 / 8000） | 上一次遗留的 dev / 调试进程未退出：5173 由前置任务 `dev:清理宿主端口（5173）` 自愈、8000 由 `dev:清理后端端口（8000）` 自愈；**占用者为非本项目进程时任务会中止并提示**（不误杀，需自行处理占用方） |
-| 点「全套」弹「任务尚未退出，并且未定义 problemMatcher」 | 该 background 任务的 `command` 里混了准备动作，耗时（清理等端口释放 + 拉起 5002 + `sleep`）超出就绪等待窗口：点「仍要调试」可继续；根治是把准备动作拆成 `dependsOn` 前置任务（本机两处 `tasks.json` 已如此） |
-| 页面「整体素」但登录页卡片正常 | 宿主外壳样式缺失——`ui-ep` 的 layout 族组件（`MainLayout` / `SideMenu` / `SideMenuItem` / `TabNavBar` / `ContentTabs` / `LayoutCard` / `PageContainer`）尚无样式实现；**非环境问题**（EP 样式、设计令牌与品牌色均正常）。已登记在阶段七计划的后续待办台账，需按《布局设计》主框架 / 导航补样式 |
-| 后端启动项卡在「正在加载 python 扩展」 | 装了与官方扩展**同命令 ID** 的套壳扩展（`devshub-ai.devshub-python` / `wubzbz.debugpy`）→ 官方 `ms-python.python` 激活抛 `command 'python.configureTests' already exists`；在扩展面板卸载套壳项后重载窗口（见 [7.2](#ext-dirs)） |
-| Python 环境工具（PET）反复超时、6 个 python 工具未注册 | `~/.codebuddycn/extensions/ms-python.python-*/python-env-tools/bin/pet` **缺执行位**（日志 `spawn … EACCES`）：`chmod +x` 该文件即可（本机 2026-10-03 已修，`pet --version` → `pet 0.1.0`） |
-| 后端 `.py` 满屏「无法解析导入 sqlalchemy」 | 分析器没关联到项目解释器：裸目录打开时 `bms/.vscode/settings.json` **不生效**，须在工作区根 `settings.json` 配 `python.defaultInterpreterPath`（`bms/backend/.venv/bin/python`）与 `python.analysis.extraPaths`（`bms/backend`） |
-| `alembic/versions/**` 满屏类型报错（如 `Column` 泛型缺参数） | 该目录**本就不在门禁范围**（`bms/backend/pyproject.toml` 的 `[tool.pyright] include` 只含 `libs`/`services`），是 IDE 侧 `basedpyright` 默认 `recommended` 档在报：已在项目 `[tool.pyright]` 加 `ignore = ["alembic"]`，并让 `basedpyright.analysis.configFilePath` 指向该 `pyproject.toml`（IDE 与门禁同口径；`uv run pyright --outputjson` 实测 `filesAnalyzed=916` / 0 错，2026-10-04 复核） |
-| 本地登录**恒 401**，但四服务 `/healthz`、`/readyz` 都 200 | 本地库里**没有可用账号**（多为 `本地全套.sh up --reset-db` 重建库后未建号——现象易误判为「登录链路不通」）：跑 `bash scripts/tools/dev/本地全套.sh seed`（租户 + 菜单 + 建号 `admin`），或 `ops.seed_user` 指定 `--username/--password`（见 [8.5](#local-stack)） |
-| 点了「全套」后登录反而不通、先前跑着的后端被杀 | 用的是旧「全套：后端单服务 + 宿主 + Chrome」：其前置任务 `清理后端端口（8000）` 按端口清理，会把本地全套的**四服务全部清掉**，且只起 `bms_identity` 一个（无密钥 / 无别名）→ 本地开发改用「全套（本地四服务 + 宿主 + Chrome）」（见 [8.5](#local-stack)） |
+| 现象                                                                | 处理                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| ------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 调试下拉为空                                                        | 打开的是错误的根（见[8.1](#debug-location)）；或改配置后未「重新加载窗口」；或该 json 有语法错误（打开文件看波浪线，注释为 JSONC 允许）                                                                                                                                                                                                                                                                                        |
+| 启动即报找不到任务                                                  | `preLaunchTask` 名与 `tasks.json` 的 `label` 不一致（两处文件须同步，见 [8.1](#debug-location)）                                                                                                                                                                                                                                                                                                                         |
+| 浏览器断点不生效                                                    | `runtimeExecutable` 须是本机存在的可执行文件（`google-chrome` 或备用 `chromium`）；确认 Chrome 已装（[google-chrome部署使用说明](google-chrome部署使用说明.md)）                                                                                                                                                                                                                                                         |
+| 后端启动项报错                                                      | 需扩展`ms-python.debugpy`（已装）；解释器 `bms/backend/.venv/bin/python` 须存在（`.venv` 外置口径见 [uv部署使用说明](uv部署使用说明.md)）                                                                                                                                                                                                                                                                                |
+| 宿主页面显示「模块加载失败」                                        | 5002 上未托管发布归档：先跑「发布:模块产物」再跑「服务:模块产物（5002 · CORS 静态）」（裸静态服务缺 CORS 头会致跨源 ESM 加载失败）                                                                                                                                                                                                                                                                                           |
+| 点「全套」弹「正在等待 preLaunchTask」，但服务其实已经起来          | background 就绪正则没匹配上：vite 在终端里输出的是带 ANSI 颜色码的`Local` + `ESC[22m` + `:`，字面 `Local:` 并不存在 → `endsPattern` 必须写成 `Local.*https?://`（两处 `tasks.json` 的 4 个 vite 任务已如此）                                                                                                                                                                                                   |
+| 启动即报端口被占（5173 / 8000）                                     | 上一次遗留的 dev / 调试进程未退出：5173 由前置任务`dev:清理宿主端口（5173）` 自愈、8000 由 `dev:清理后端端口（8000）` 自愈；**占用者为非本项目进程时任务会中止并提示**（不误杀，需自行处理占用方）                                                                                                                                                                                                                  |
+| 点「全套」弹「任务尚未退出，并且未定义 problemMatcher」             | 该 background 任务的`command` 里混了准备动作，耗时（清理等端口释放 + 拉起 5002 + `sleep`）超出就绪等待窗口：点「仍要调试」可继续；根治是把准备动作拆成 `dependsOn` 前置任务（本机两处 `tasks.json` 已如此）                                                                                                                                                                                                           |
+| 页面「整体素」但登录页卡片正常                                      | 宿主外壳样式缺失——`ui-ep` 的 layout 族组件（`MainLayout` / `SideMenu` / `SideMenuItem` / `TabNavBar` / `ContentTabs` / `LayoutCard` / `PageContainer`）尚无样式实现；**非环境问题**（EP 样式、设计令牌与品牌色均正常）。已登记在阶段七计划的后续待办台账，需按《布局设计》主框架 / 导航补样式                                                                                                         |
+| 后端启动项卡在「正在加载 python 扩展」                              | 装了与官方扩展**同命令 ID** 的套壳扩展（`devshub-ai.devshub-python` / `wubzbz.debugpy`）→ 官方 `ms-python.python` 激活抛 `command 'python.configureTests' already exists`；在扩展面板卸载套壳项后重载窗口（见 [7.2](#ext-dirs)）                                                                                                                                                                                |
+| Python 环境工具（PET）反复超时、6 个 python 工具未注册              | `~/.codebuddycn/extensions/ms-python.python-*/python-env-tools/bin/pet` **缺执行位**（日志 `spawn … EACCES`）：`chmod +x` 该文件即可（本机 2026-10-03 已修，`pet --version` → `pet 0.1.0`）                                                                                                                                                                                                                 |
+| 后端`.py` 满屏「无法解析导入 sqlalchemy」                         | 分析器没关联到项目解释器：裸目录打开时`bms/.vscode/settings.json` **不生效**，须在工作区根 `settings.json` 配 `python.defaultInterpreterPath`（`bms/backend/.venv/bin/python`）与 `python.analysis.extraPaths`（`bms/backend`）                                                                                                                                                                             |
+| `alembic/versions/**` 满屏类型报错（如 `Column` 泛型缺参数）    | 该目录**本就不在门禁范围**（`bms/backend/pyproject.toml` 的 `[tool.pyright] include` 只含 `libs`/`services`），是 IDE 侧 `basedpyright` 默认 `recommended` 档在报：已在项目 `[tool.pyright]` 加 `ignore = ["alembic"]`，并让 `basedpyright.analysis.configFilePath` 指向该 `pyproject.toml`（IDE 与门禁同口径；`uv run pyright --outputjson` 实测 `filesAnalyzed=916` / 0 错，2026-10-04 复核） |
+| 本地登录**恒 401**，但四服务 `/healthz`、`/readyz` 都 200 | 本地库里**没有可用账号**（多为 `本地全套.sh up --reset-db` 重建库后未建号——现象易误判为「登录链路不通」）：跑 `bash scripts/tools/dev/本地全套.sh seed`（租户 + 菜单 + 建号 `admin`），或 `ops.seed_user` 指定 `--username/--password`（见 [8.5](#local-stack)）                                                                                                                                             |
+| 点了「全套」后登录反而不通、先前跑着的后端被杀                      | 用的是旧「全套：后端单服务 + 宿主 + Chrome」：其前置任务`清理后端端口（8000）` 按端口清理，会把本地全套的**四服务全部清掉**，且只起 `bms_identity` 一个（无密钥 / 无别名）→ 本地开发改用「全套（本地四服务 + 宿主 + Chrome）」（见 [8.5](#local-stack)）                                                                                                                                                            |
 
 ### 8.5 本机裸跑后端「全套」（本地开发主形态） <a id="local-stack"></a>
 
 **口径**：开发态**一律本机裸跑**——`bms/backend/config.dev.toml` 本就是 SQLite 本地库 + 内存缓存 + 字典/参数走 SQL，**不需要 Docker，也不需要在 mjbk（开发服务器）上部署**；容器 / 开发服务器**只在发布时**用于发布验证。四个服务各绑一个 loopback 别名并**共用 8000 端口**，与服务间基址模板 `http://{service}:8000` 同形（故服务间调用、网关内路径与容器形态一致）。
 
-| 项 | 取值 / 做法 |
-| --- | --- |
-| 脚本 | `bms/scripts/tools/dev/本地全套.sh`（子命令 `up` / `down` / `stop <服务…>` / `status` / `seed` / `env` / `logs`） |
-| 别名 | `127.0.0.2 tenant`、`127.0.0.3 org`、`127.0.0.4 platform`、`127.0.0.5 identity`（`up` 自愈写入 `/etc/hosts`，sudo 免密） |
-| 开发密钥 | `bms/backend/.dev-keys.local`（`up` 缺则用 `joserfc` 生成：`usr-` 用户令牌 + `svc-` 服务令牌两组；不入库） |
-| Redis | 缺省 `redis://192.168.0.107:6379/5`（本机无 Redis，指向开发机 DB5 隔离；`BMS_LOCAL_REDIS` 或 `--redis` 覆盖） |
-| 前端映射 | `bms/frontend/apps/desktop/.env.local` 的 `VITE_LOCAL_API`（`本地全套.sh env` 写入；未列出的服务仍走远端网关） |
-| 账号 | `admin` / `***REDACTED***`（`ops/seed_user.py` 建号）——**首次起栈后必须跑一次 `seed`**，否则本地库无账号、登录恒 401 |
-| 库重建 | `本地全套.sh up --reset-db`（先把 `bms/backend/bms_*.db` 备份移走，服务按当前表结构重建；**重建后须重新 `seed`**） |
+| 项       | 取值 / 做法                                                                                                                          |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| 脚本     | `bms/scripts/tools/dev/本地全套.sh`（子命令 `up` / `down` / `stop <服务…>` / `status` / `seed` / `env` / `logs`）   |
+| 别名     | `127.0.0.2 tenant`、`127.0.0.3 org`、`127.0.0.4 platform`、`127.0.0.5 identity`（`up` 自愈写入 `/etc/hosts`，sudo 免密） |
+| 开发密钥 | `bms/backend/.dev-keys.local`（`up` 缺则用 `joserfc` 生成：`usr-` 用户令牌 + `svc-` 服务令牌两组；不入库）                 |
+| Redis    | 缺省`redis://192.168.0.107:6379/5`（本机无 Redis，指向开发机 DB5 隔离；`BMS_LOCAL_REDIS` 或 `--redis` 覆盖）                   |
+| 前端映射 | `bms/frontend/apps/desktop/.env.local` 的 `VITE_LOCAL_API`（`本地全套.sh env` 写入；未列出的服务仍走远端网关）                 |
+| 账号     | `ops/seed_user.py` 建号（缺省账号 `admin`，口令随机生成并仅打印一次）——**首次起栈后必须跑一次 `seed`**，否则本地库无账号、登录恒 401；账号 / 口令**只登记在《[本地资源](../../用户文档/本地资源.md)》（gitignore，凭据不入库）**     |
+| 库重建   | `本地全套.sh up --reset-db`（先把 `bms/backend/bms_*.db` 备份移走，服务按当前表结构重建；**重建后须重新 `seed`**）       |
 
 常用流程：
 
@@ -412,11 +412,11 @@ bash scripts/tools/dev/本地全套.sh down            # 停全部：TERM → 5s
 
 **断点口径**（脚本起的服务是 `nohup` 后台进程，**不带调试器**）：
 
-| 目标 | 做法 |
-| --- | --- |
-| 前端（Vue / TS） | 用「全套（本地四服务 + 宿主 + Chrome）」里的 Chrome 调试会话，或单项「前端：宿主 + 模块 + Chrome（浏览器断点）」——**断点直接可用** |
-| 后端（Python） | ① `本地全套.sh stop <服务>` 腾出该服务；② 启动「后端：单服务（debugpy · 本机四服务）」——`bms/backend/ops/dev_run.py` 在**导入服务前**注入 `BMS_SERVER__HOST=<别名>` / `PORT=8000` / `BMS_REDIS__URL` 与开发密钥，再 `runpy` 进服务入口 ⇒ 断点 / 变量 / 调用栈与 `python -m bms_<服务>` 一致（`justMyCode: false` 可步入框架与基座）；③ 调试完 `本地全套.sh up` 补回 |
-| 旧「全套：后端单服务 + 宿主 + Chrome」 | **本地四服务形态下别用**：它只起 `bms_identity` 一个、不加载密钥与别名，且前置任务 `清理后端端口（8000）` 会把四服务**全部清掉**（该口径已就地标注在两处 `launch.json`） |
+| 目标                                   | 做法                                                                                                                                                                                                                                                                                                                                                                                              |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 前端（Vue / TS）                       | 用「全套（本地四服务 + 宿主 + Chrome）」里的 Chrome 调试会话，或单项「前端：宿主 + 模块 + Chrome（浏览器断点）」——**断点直接可用**                                                                                                                                                                                                                                                        |
+| 后端（Python）                         | ①`本地全套.sh stop <服务>` 腾出该服务；② 启动「后端：单服务（debugpy · 本机四服务）」——`bms/backend/ops/dev_run.py` 在**导入服务前**注入 `BMS_SERVER__HOST=<别名>` / `PORT=8000` / `BMS_REDIS__URL` 与开发密钥，再 `runpy` 进服务入口 ⇒ 断点 / 变量 / 调用栈与 `python -m bms_<服务>` 一致（`justMyCode: false` 可步入框架与基座）；③ 调试完 `本地全套.sh up` 补回 |
+| 旧「全套：后端单服务 + 宿主 + Chrome」 | **本地四服务形态下别用**：它只起 `bms_identity` 一个、不加载密钥与别名，且前置任务 `清理后端端口（8000）` 会把四服务**全部清掉**（该口径已就地标注在两处 `launch.json`）                                                                                                                                                                                                        |
 
 > 运维细节：脚本的 pid 记录的是**真服务进程**（不是 bash 包装进程），停服务时连带 `TERM`/`KILL` 其子进程；起服务阶段若进程退出会**立刻报错并打印日志尾部**，不会把健康等待超时耗满；诊断入口 `本地全套.sh logs [服务]`（日志在 `/tmp/bms-local-stack/`）。
 
@@ -424,31 +424,31 @@ bash scripts/tools/dev/本地全套.sh down            # 停全部：TERM → 5s
 
 ### 9.1 常用设置 <a id="settings"></a>
 
-| 设置项 | 说明 |
-| --- | --- |
-| `codingcopilot.submitMessageShortcut` | 发送快捷键：`Enter`（发送=Enter，换行=Ctrl/Cmd+Enter）或 `CtrlOrCmdAndEnter` |
-| `codingcopilot.enableAutoCompletions` | 自动触发代码补全（回车、停顿触发）；关闭后可用快捷键手动触发 |
-| `codingcopilot.enableCraftCodeBase` | Craft 模式启用代码库检索 |
-| `codingcopilot.enableInlineChat` / `toolbarOnSelection` | 内联聊天与选中悬浮工具栏 |
-| `codingcopilot.enableNextEditSuggestions` | 下一处编辑预测 |
-| `codingcopilot.enabledWebSearch` | 联网搜索总开关 |
-| `codingcopilot.HttpProxyMode` / `codingcopilot.HTTPProxy` | 网络代理：`system`（跟随系统）/ `manual`（手动，仅手动模式读 `HTTPProxy`） |
-| `codingcopilot.disableBuiltInMarketplace` | 无法访问内置插件市场（`download.codebuddy.cn`）时开启，**跳过市场安装与定期更新检查**，避免对话请求被反复的市场拉取超时阻塞；等效于设置环境变量 `CODEBUDDY_SKIP_BUILTIN_...` |
-| `codingcopilot.autoUpdateThirdPartyMarketplaces` | 每天检查一次第三方（Git 类型）插件市场并后台静默更新（默认关） |
-| `codingcopilot.enableModelOptimization` | 允许使用对话数据做模型优化（默认关，按需开启） |
+| 设置项                                                        | 说明                                                                                                                                                                                   |
+| ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `codingcopilot.submitMessageShortcut`                       | 发送快捷键：`Enter`（发送=Enter，换行=Ctrl/Cmd+Enter）或 `CtrlOrCmdAndEnter`                                                                                                       |
+| `codingcopilot.enableAutoCompletions`                       | 自动触发代码补全（回车、停顿触发）；关闭后可用快捷键手动触发                                                                                                                           |
+| `codingcopilot.enableCraftCodeBase`                         | Craft 模式启用代码库检索                                                                                                                                                               |
+| `codingcopilot.enableInlineChat` / `toolbarOnSelection`   | 内联聊天与选中悬浮工具栏                                                                                                                                                               |
+| `codingcopilot.enableNextEditSuggestions`                   | 下一处编辑预测                                                                                                                                                                         |
+| `codingcopilot.enabledWebSearch`                            | 联网搜索总开关                                                                                                                                                                         |
+| `codingcopilot.HttpProxyMode` / `codingcopilot.HTTPProxy` | 网络代理：`system`（跟随系统）/ `manual`（手动，仅手动模式读 `HTTPProxy`）                                                                                                       |
+| `codingcopilot.disableBuiltInMarketplace`                   | 无法访问内置插件市场（`download.codebuddy.cn`）时开启，**跳过市场安装与定期更新检查**，避免对话请求被反复的市场拉取超时阻塞；等效于设置环境变量 `CODEBUDDY_SKIP_BUILTIN_...` |
+| `codingcopilot.autoUpdateThirdPartyMarketplaces`            | 每天检查一次第三方（Git 类型）插件市场并后台静默更新（默认关）                                                                                                                         |
+| `codingcopilot.enableModelOptimization`                     | 允许使用对话数据做模型优化（默认关，按需开启）                                                                                                                                         |
 
 ### 9.2 排障入口 <a id="trouble-entry"></a>
 
-| 现象 | 处理 |
-| --- | --- |
-| 对话卡住/反复超时（市场拉取阻塞） | 开启 `codingcopilot.disableBuiltInMarketplace`（或设等效环境变量）后重载窗口 |
-| 界面白屏/花屏等渲染异常 | 在 `~/.codebuddycn/argv.json` 打开 `"disable-hardware-acceleration": true`，重启 IDE（本机当前未启用） |
-| 命令被拦截或反复确认 | 检查 `codingcopilot.customBlacklistCommands`（命中正则会拦截）与 `codingcopilot.autoRunMode` 取值 |
-| 改了 `disabledSecurityCategories` 仍在弹确认 | 见[6.3](#permission-security)：权威存储在 `state.vscdb` → `CodeBuddy.settings.autoApprovalSettings`，需完全退出后改并**冷启动**；重载窗口与手改 `settings.json` 均无效 |
-| 删除的文件想找回 | `safeDeleteEnabled` 默认开启时删除先进回收站；关闭后为永久删除 |
-| 需要看运行日志 | 对话/扩展日志 `~/.local/share/CodeBuddyExtension/Logs/CodeBuddyIDE/<日期>/<工作区>__<hash>.log`；IDE 日志 `~/.config/CodeBuddy CN/logs/<时间戳>/` |
-| 崩溃排查 | `~/.config/CodeBuddy CN/CrashReport/`（崩溃转储）与 `~/.codebuddy/diagnostics/` |
-| 网络代理问题 | 核对 `HttpProxyMode`（系统/手动）与 `HTTPProxy`；与系统代理设置保持一致 |
+| 现象                                          | 处理                                                                                                                                                                               |
+| --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 对话卡住/反复超时（市场拉取阻塞）             | 开启`codingcopilot.disableBuiltInMarketplace`（或设等效环境变量）后重载窗口                                                                                                      |
+| 界面白屏/花屏等渲染异常                       | 在`~/.codebuddycn/argv.json` 打开 `"disable-hardware-acceleration": true`，重启 IDE（本机当前未启用）                                                                          |
+| 命令被拦截或反复确认                          | 检查`codingcopilot.customBlacklistCommands`（命中正则会拦截）与 `codingcopilot.autoRunMode` 取值                                                                               |
+| 改了`disabledSecurityCategories` 仍在弹确认 | 见[6.3](#permission-security)：权威存储在 `state.vscdb` → `CodeBuddy.settings.autoApprovalSettings`，需完全退出后改并**冷启动**；重载窗口与手改 `settings.json` 均无效 |
+| 删除的文件想找回                              | `safeDeleteEnabled` 默认开启时删除先进回收站；关闭后为永久删除                                                                                                                   |
+| 需要看运行日志                                | 对话/扩展日志`~/.local/share/CodeBuddyExtension/Logs/CodeBuddyIDE/<日期>/<工作区>__<hash>.log`；IDE 日志 `~/.config/CodeBuddy CN/logs/<时间戳>/`                               |
+| 崩溃排查                                      | `~/.config/CodeBuddy CN/CrashReport/`（崩溃转储）与 `~/.codebuddy/diagnostics/`                                                                                                |
+| 网络代理问题                                  | 核对`HttpProxyMode`（系统/手动）与 `HTTPProxy`；与系统代理设置保持一致                                                                                                         |
 
 ## 10. 工作区级 `.codebuddy/` 与 AI 协作口径 <a id="workspace-ai"></a>
 
@@ -456,21 +456,21 @@ bash scripts/tools/dev/本地全套.sh down            # 停全部：TERM → 5s
 
 ### 10.1 目录现状与入库口径 <a id="workspace-ai-dirs"></a>
 
-| 路径（相对工作区根） | 现状（2026-10-04 核实） | 作用 |
-| --- | --- | --- |
-| `.codebuddy/memory/` | **存在**：20 个文件 = 日报 `YYYY-MM-DD.md`（2026-09-13 起）+ 长期记忆 `MEMORY.md` + `技术坑清单.md` | 跨会话工作记忆（见 [10.2](#workspace-ai-memory)） |
-| `.codebuddy/teams/` | 本机**未创建**（启用团队协作时由工具生成 `<团队名>/`，含各成员历史） | 多代理协作 |
-| `.codebuddy/` 其余生成物 | 按需生成 | 技能 / 自动化等 |
+| 路径（相对工作区根）       | 现状（2026-10-04 核实）                                                                                         | 作用                                            |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| `.codebuddy/memory/`     | **存在**：20 个文件 = 日报 `YYYY-MM-DD.md`（2026-09-13 起）+ 长期记忆 `MEMORY.md` + `技术坑清单.md` | 跨会话工作记忆（见[10.2](#workspace-ai-memory)） |
+| `.codebuddy/teams/`      | 本机**未创建**（启用团队协作时由工具生成 `<团队名>/`，含各成员历史）                                    | 多代理协作                                      |
+| `.codebuddy/` 其余生成物 | 按需生成                                                                                                        | 技能 / 自动化等                                 |
 
 入库口径：工作区根仓库的 `.gitignore` 是 `/*` + 白名单（`!/.gitignore`、`!/.opencode/`、`!/.vscode/`、`!/AGENTS.md`、`!/README.md`、`!/LICENSE`、`!/scripts/`、`!/*.code-workspace`），**`.codebuddy/` 不在白名单 → 工作记忆不入库**（与 `用户文档/本地资源.md`、`deploy/.env` 同属本机私有数据；公开文档红线见《[AI开发规范](../../规范/AI开发规范.md)》「资料与资源」节）。`bms/` 下**无** `.codebuddy/`。
 
 ### 10.2 工作记忆三件套的读写口径 <a id="workspace-ai-memory"></a>
 
-| 文件 | 写入口径 |
-| --- | --- |
-| 日报 `memory/YYYY-MM-DD.md` | 当日**追加**（replace 而非整文件覆盖）：任务级过程、本轮拍板与探查结论；不写中间检索结果等临时信息 |
-| `memory/MEMORY.md` | **原地更新**并保持精简：只留协作口径 / 架构铁律 / 仓库与命令 / 文档硬约束 / 进度 / 踩坑索引；**能指向文档的不复述** |
-| `memory/技术坑清单.md` | 踩坑细节**只增不改口径**：新坑先落日报、再并入本文件（`MEMORY.md` 只留索引） |
+| 文件                         | 写入口径                                                                                                                        |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| 日报`memory/YYYY-MM-DD.md` | 当日**追加**（replace 而非整文件覆盖）：任务级过程、本轮拍板与探查结论；不写中间检索结果等临时信息                        |
+| `memory/MEMORY.md`         | **原地更新**并保持精简：只留协作口径 / 架构铁律 / 仓库与命令 / 文档硬约束 / 进度 / 踩坑索引；**能指向文档的不复述** |
+| `memory/技术坑清单.md`     | 踩坑细节**只增不改口径**：新坑先落日报、再并入本文件（`MEMORY.md` 只留索引）                                            |
 
 补充纪律：
 

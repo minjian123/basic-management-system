@@ -6,7 +6,7 @@
 cd backend
 uv run python -m ops.seed_user --tenant demo --username admin --dry-run         # 计划预演（不建连）
 uv run python -m ops.seed_user --tenant demo --username admin                    # 建号（口令随机生成并一次性打印）
-uv run python -m ops.seed_user --tenant demo --username admin --password '***REDACTED***'
+uv run python -m ops.seed_user --tenant demo --username admin --password "$DEV_PASSWORD"
 uv run python -m ops.seed_user --tenant demo --username admin --reset-password   # 重置既有账号口令
 uv run python -m ops.seed_user --url "sqlite+aiosqlite:///./bms_org_demo.db" --username admin
 ```

@@ -87,13 +87,13 @@ async def test_seed_user_reset_password(tmp_path: Path) -> None:
         await engine.dispose()
 
     outcome = await seed_user.seed_user(
-        url=url, username="admin", name="管理员", password="***REDACTED***78", reset_password=True
+        url=url, username="admin", name="管理员", password="Fixture-Only-Pa55w0rd", reset_password=True
     )
     assert (outcome.created, outcome.reset, outcome.skipped) == (0, 1, 0)
 
     after = await _load(url, "admin")
     assert after.password_hash != before.password_hash
-    assert _verify("***REDACTED***78", after.password_hash) is True
+    assert _verify("Fixture-Only-Pa55w0rd", after.password_hash) is True
     assert after.failed_count == 0
     assert after.locked_until is None
     assert after.status == "disabled"

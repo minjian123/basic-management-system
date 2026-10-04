@@ -20,8 +20,8 @@ uv run python -m bms_platform          # 各服务启动入口（读 config 的 
 # 基址模板 http://{service}:8000 同形；自愈 /etc/hosts 别名与 backend/.dev-keys.local 开发密钥）：
 #   bash scripts/tools/dev/本地全套.sh up       # 幂等起 tenant/org/platform/identity（已在跑则跳过）
 #   bash scripts/tools/dev/本地全套.sh seed     # 租户注册库 + 菜单元数据 + 建号（**首次起栈后跑一次**）
-#     └ 缺省账号 **admin** / 口令 *****REDACTED*****（口令仅执行时打印一次；`--username` / `--password` 可覆盖；
-#       凭据登记见《bms文档/用户文档/本地资源.md》「BMS 应用账号」节，未入库）
+#     └ 缺省账号 `admin`；**口令缺省随机生成并仅打印一次**——凭据**只登记在《bms文档/用户文档/本地资源.md》
+#       「BMS 应用账号」节**（凭据不入库、不写入其他文档；可 `--username` / `--password` 覆盖）
 #   bash scripts/tools/dev/本地全套.sh status   # 进程与 /healthz、/readyz 一览
 #   bash scripts/tools/dev/本地全套.sh down     # 有界停（TERM → 5s → KILL；仍不死则报错交人工）
 #   # 库结构变更后：up --reset-db（先把 backend/bms_*.db 备份移走）；前端映射：env 子命令

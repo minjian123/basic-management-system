@@ -13,7 +13,7 @@
 #   down              停本脚本起的服务（仅按 pid 文件；`--force` 才连带清理 IDE 起的同名进程）
 #   stop <服务名...>  只停指定服务（其余保持纳管）——供「用 debugpy 调试某服务」时腾出该服务
 #   status            进程与 /healthz、/readyz 一览
-#   seed              幂等种子：租户注册库 + 菜单元数据 + 建号（缺省 admin/***REDACTED***）
+#   seed              幂等种子：租户注册库 + 菜单元数据 + 建号（缺省账号 admin；口令随机生成并打印一次）
 #   env               确保 `frontend/apps/desktop/.env.local` 含 `VITE_LOCAL_API` 本地服务映射
 #   logs [服务名]     打印日志尾部（缺省全部服务；追看用 tail -f）
 #
@@ -22,12 +22,13 @@
 #   --redis URL          Redis 连接串（缺省远端开发机 DB5：redis://192.168.0.107:6379/5）
 #   --reset-db           起服务前把 `backend/bms_*.db` 备份移走（库结构/表归属变更后必须，否则 catalog 校验失败）
 #   --username NAME      建号账号（缺省 admin）
-#   --password PASS      建号口令（缺省 ***REDACTED***）
+#   --password PASS      建号口令（缺省**随机生成并仅打印一次**）
 #   --reset-password     建号时重置既有账号口令
 #   --force              down 时连带清理本机全部 `python -m bms_*` 进程
 #
-# 账号: `seed` 缺省建 `admin` / 口令 `***REDACTED***`（口令仅执行时打印一次；可 `--username` / `--password` 覆盖；
-#       凭据登记见《bms文档/用户文档/本地资源.md》「BMS 应用账号」节）；起栈后若登录 401，先看是否漏跑 seed。
+# 账号: `seed` 缺省建 `admin`，口令缺省随机生成并**仅打印一次**——**凭据只登记在
+#       《bms文档/用户文档/本地资源.md》「BMS 应用账号」节（凭据不入库、不写入其他文档，见《AI开发规范》）**；
+#       起栈后若登录 401，先看是否漏跑 seed。
 #
 # 状态目录: ${BMS_LOCAL_STATE_DIR:-/tmp/bms-local-stack}（pid 与日志）
 # 退出码: 0 = 成功；1 = 失败（含健康等待超时）；2 = 参数错误
@@ -45,7 +46,7 @@ SERVICES="$SERVICES_DEFAULT"
 REDIS_URL="${BMS_LOCAL_REDIS:-redis://192.168.0.107:6379/5}"
 RESET_DB=0
 USERNAME="admin"
-PASSWORD="***REDACTED***"
+PASSWORD=""
 RESET_PASSWORD=0
 FORCE=0
 HEALTH_TIMEOUT="${BMS_LOCAL_HEALTH_TIMEOUT:-45}"
@@ -329,11 +330,13 @@ cmd_seed() {
   ( cd "$BACKEND" && "$PY" -m ops.seed_tenant --url "sqlite+aiosqlite:///./bms_tenant.db" ) || rc=1
   log "种子：菜单元数据（bms_platform.db）"
   ( cd "$BACKEND" && "$PY" -m ops.seed_menu --url "sqlite+aiosqlite:///./bms_platform.db" ) || rc=1
-  log "建号：$USERNAME（demo 租户 org 库；口令只打印这一次）"
+  log "建号：$USERNAME（demo 租户 org 库；口令只打印这一次——请登记到《本地资源》「BMS 应用账号」节）"
   local extra=()
   [ "$RESET_PASSWORD" -eq 1 ] && extra+=(--reset-password)
+  # 口令不入库：未显式给 `--password` 时由建号脚本随机生成并打印一次（凭据只落《本地资源》）。
+  [ -n "$PASSWORD" ] && extra+=(--password "$PASSWORD")
   ( cd "$BACKEND" && "$PY" -m ops.seed_user --url "sqlite+aiosqlite:///./bms_org_demo.db" \
-      --username "$USERNAME" --password "$PASSWORD" "${extra[@]}" ) || rc=1
+      --username "$USERNAME" "${extra[@]}" ) || rc=1
   [ "$rc" -eq 0 ] && log "种子完成（幂等：重复执行新增为 0）"
   return "$rc"
 }
