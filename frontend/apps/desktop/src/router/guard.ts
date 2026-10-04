@@ -43,8 +43,8 @@ export interface AuthGuardRecord {
 export interface AuthGuardDeps {
   /** 会话就绪（单例静默续期；返回是否具备可用登录态）。 */
   ensureSession: () => Promise<boolean>
-  /** 会话就绪后幂等装载动态（菜单）路由。 */
-  ensureRoutes: () => void
+  /** 会话就绪后幂等装载动态（菜单）路由（可异步：动态菜单需先取数）。 */
+  ensureRoutes: () => void | Promise<void>
   /** 当前权限码与「是否已装载」（RBAC 就绪前 `loaded` 恒假 → 占位放行）。 */
   permissions: () => { codes: readonly string[]; loaded: boolean }
   /** 判定观测记录（缺省不记录）。 */
@@ -117,7 +117,7 @@ export function installAuthGuard(router: Router, deps: AuthGuardDeps): boolean {
 
     // 动态路由：会话就绪后幂等装载；装载后若当前地址可解析则按新路由表重解析。
     const matchedBefore = router.hasRoute(to.path)
-    deps.ensureRoutes()
+    await deps.ensureRoutes()
     if (!matchedBefore && router.hasRoute(to.path)) {
       record('allow', 'routes-installed')
       return { path: to.path, query: to.query, hash: to.hash, replace: true }

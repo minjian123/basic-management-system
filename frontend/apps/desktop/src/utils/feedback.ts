@@ -30,3 +30,15 @@ export const MUST_CHANGE_PASSWORD_MESSAGE = '请尽快修改初始密码'
 export function notifyMustChangePassword(): void {
   ElMessage.warning(MUST_CHANGE_PASSWORD_MESSAGE)
 }
+
+/** 动态菜单装载失败提示文案。 */
+export const MENU_LOAD_ERROR_MESSAGE = '菜单加载失败，请稍后重试'
+
+/**
+ * 提示一般错误（宿主统一提示单点；状态层不直接依赖 UI 库）。
+ *
+ * @param message 提示文案。
+ */
+export function notifyError(message: string): void {
+  ElMessage.error(message)
+}

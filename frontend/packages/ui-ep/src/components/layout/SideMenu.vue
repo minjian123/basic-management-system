@@ -16,6 +16,8 @@ interface Props {
   collapsed?: boolean
   /** 多级展开互斥。 */
   uniqueOpened?: boolean
+  /** 默认展开的子菜单路径（初始展开；后续展开态由 `open` / `close` 事件回传）。 */
+  defaultOpeneds?: string[]
   /** 是否显示搜索框。 */
   searchable?: boolean
   /** 搜索占位。 */
@@ -27,12 +29,19 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
   collapsed: false,
   uniqueOpened: true,
+  defaultOpeneds: undefined,
   searchable: true,
   searchPlaceholder: '搜索菜单',
   showBadge: true,
 })
 
-const emit = defineEmits<{ select: [path: string]; 'update:collapsed': [value: boolean]; search: [keyword: string] }>()
+const emit = defineEmits<{
+  select: [path: string]
+  'update:collapsed': [value: boolean]
+  search: [keyword: string]
+  open: [index: string]
+  close: [index: string]
+}>()
 
 const { hidden } = useBaseLayout()
 const keyword = ref('')
@@ -56,7 +65,10 @@ function onSearch(): void {
       :default-active="activePath"
       :collapse="collapsed"
       :unique-opened="uniqueOpened"
+      :default-openeds="defaultOpeneds"
       @select="emit('select', $event)"
+      @open="emit('open', $event)"
+      @close="emit('close', $event)"
     >
       <side-menu-item v-for="node in filteredMenu" :key="node.path" :node="node" :show-badge="showBadge" />
     </el-menu>

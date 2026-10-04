@@ -2,6 +2,7 @@
 
 import type { MenuNode } from '@bms/core'
 import { mount } from '@vue/test-utils'
+import { ref } from 'vue'
 import { describe, expect, it } from 'vitest'
 
 import { SideMenu, useSideMenu } from '../src'
@@ -20,8 +21,8 @@ const menu: MenuNode[] = [
 
 const ElMenu = {
   name: 'ElMenu',
-  props: ['defaultActive', 'collapse', 'uniqueOpened'],
-  emits: ['select'],
+  props: ['defaultActive', 'collapse', 'uniqueOpened', 'defaultOpeneds'],
+  emits: ['select', 'open', 'close'],
   template: '<div class="el-menu"><slot /></div>',
 }
 const ElSubMenu = {
@@ -71,6 +72,17 @@ describe('useSideMenu', () => {
     side.unregister()
     expect(side.routes.value).toEqual([])
   })
+
+  it('响应式菜单源（异步装载）：源更新后自动重算菜单与路径', () => {
+    const source = ref<MenuNode[]>([])
+    const side = useSideMenu({ menu: source })
+    expect(side.menu.value).toEqual([])
+    expect(side.routePaths).toEqual([])
+
+    source.value = menu
+    expect(side.menu.value.map((node) => node.path)).toEqual(['/', '/system'])
+    expect(side.routePaths).toEqual(['/', '/system', '/system/user', '/system/notice'])
+  })
 })
 
 describe('SideMenu', () => {
@@ -111,5 +123,19 @@ describe('SideMenu', () => {
     const wrapper = mount(SideMenu, { props: { menu, activePath: '/' }, global: { stubs } })
     wrapper.findComponent(ElMenu).vm.$emit('select', '/system/user')
     expect(wrapper.emitted('select')?.[0]).toEqual(['/system/user'])
+  })
+
+  it('默认展开透传与 open / close 事件冒泡（展开态持久化配套）', () => {
+    const wrapper = mount(SideMenu, {
+      props: { menu, activePath: '/', defaultOpeneds: ['/system'] },
+      global: { stubs },
+    })
+    const elMenu = wrapper.findComponent(ElMenu)
+    expect(elMenu.props('defaultOpeneds')).toEqual(['/system'])
+
+    elMenu.vm.$emit('open', '/system')
+    elMenu.vm.$emit('close', '/system')
+    expect(wrapper.emitted('open')?.[0]).toEqual(['/system'])
+    expect(wrapper.emitted('close')?.[0]).toEqual(['/system'])
   })
 })

@@ -1,22 +1,26 @@
 <script setup lang="ts">
 // 应用根组件：主框架装配（侧栏菜单 + 多标签 + 路由出口 keep-alive）+ 模块边界兜底 + 模块区域插槽。
-import { PLACEHOLDER_MENU } from '@bms/core'
 import { MainLayout, ModuleAreaOutlet, useSideMenu, useTabNav } from '@bms/ui-ep'
 import { computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import ModuleBoundary from '@/components/ModuleBoundary.vue'
+import { useMenuExpanded } from '@/composables/useMenuExpanded'
 import { moduleMenuGroups } from '@/module/host'
 import { registries, registriesRevision } from '@/module/registries'
+import { useMenuStore } from '@/stores/menu'
 import { useSessionStore } from '@/stores/session'
+import { canAccess } from '@/utils/perm'
 
 const router = useRouter()
 const route = useRoute()
 const session = useSessionStore()
+const menuStore = useMenuStore()
 
-// 占位阶段：菜单显隐暂全量放行，真实权限码过滤随认证 / RBAC 接入。
-const sideMenu = useSideMenu({ menu: PLACEHOLDER_MENU, canAccess: () => true })
+// 菜单源为动态菜单 store（响应式：装载完成后侧栏与权限过滤自动更新）。
+const sideMenu = useSideMenu({ menu: computed(() => menuStore.tree), canAccess })
 const tabNav = useTabNav({ storageKey: 'bms:desktop:tabs' })
+const menuExpanded = useMenuExpanded()
 
 // 模块菜单装配泛化：模块经路由 meta 声明菜单（title / icon / group / groupIcon / devOnly），
 // 宿主从注册表快照按来源分组装配（不再硬编码 demo 分组）；`devOnly` 项生产态隐藏。
@@ -86,6 +90,9 @@ async function onTabClose(key: string): Promise<void> {
     :active-tab-key="tabNav.activeKey.value"
     app-title="BMS"
     storage-key="bms:desktop:layout"
+    :default-openeds="menuExpanded.expandedKeys.value"
+    @menu-open="menuExpanded.toggleOpen($event, true)"
+    @menu-close="menuExpanded.toggleOpen($event, false)"
     @menu-select="onMenuSelect"
     @tab-select="onTabSelect"
     @tab-close="onTabClose"

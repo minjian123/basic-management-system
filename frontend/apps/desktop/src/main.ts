@@ -8,7 +8,7 @@
  * 依赖（会话就绪 / 动态路由 / 权限占位 / 决策观测）经此注入；菜单动态路由随令牌变化装载 / 卸载。
  */
 
-import { PLACEHOLDER_MENU, buildLoginLocation } from '@bms/core'
+import { buildLoginLocation } from '@bms/core'
 import { createPinia } from 'pinia'
 import { createApp } from 'vue'
 
@@ -16,6 +16,7 @@ import App from './App.vue'
 import { refreshAccessToken } from './api/identity'
 import { installHttpAdapter } from './api/http'
 import { createModuleApi } from './api/module-api'
+import { vPerm } from './directives/perm'
 import { installObservability, installModuleRouteScope, moduleTelemetry } from './observability'
 import { setModuleError } from './module/boundary'
 import { installModules, installPlatformRegistrations, resolveRouteModule } from './module/host'
@@ -23,6 +24,7 @@ import { moduleI18n } from './module/i18n'
 import { router } from './router'
 import { ensureMenuRoutes, uninstallMenuRoutesAll } from './router/dynamic'
 import { installAuthGuard, resolvePublicPaths } from './router/guard'
+import { useMenuStore } from './stores/menu'
 import { useSessionStore } from './stores/session'
 import { notifySessionExpired } from './utils/feedback'
 import { applyInitialTheme } from './utils/initialTheme'
@@ -43,7 +45,11 @@ const app = createApp(App)
 const pinia = createPinia()
 app.use(pinia)
 
+// 权限指令全局注册（按钮按动作权限显隐；权限码集合由动态菜单 store 回填）。
+app.directive('perm', vPerm)
+
 const session = useSessionStore(pinia)
+const menu = useMenuStore(pinia)
 
 /** 会话失效是否已处理（并发 401 只提示与跳转一次；刷新成功即复位）。 */
 let sessionInvalidHandled = false
@@ -81,13 +87,14 @@ installHttpAdapter({
 // 认证守卫装配（默认开启；`VITE_AUTH_GUARD=off` 关闭）：会话就绪 / 动态路由 / 权限占位 / 决策观测。
 installAuthGuard(router, {
   ensureSession: () => session.ensureReady(),
-  ensureRoutes: () => {
-    ensureMenuRoutes(router, PLACEHOLDER_MENU)
+  ensureRoutes: async () => {
+    await menu.load()
+    ensureMenuRoutes(router, menu.tree)
   },
   permissions: () => {
     const codes = getPermissionCodes()
-    // RBAC 就绪前无权限码装载（阶段七换装载来源）；`loaded` 为假时守卫占位放行并记录原因。
-    return { codes, loaded: codes.length > 0 }
+    // 权限码来源为动态菜单接口（登录即可下发）；装载失败时 `loaded` 为假 → 守卫占位放行并记录原因。
+    return { codes, loaded: menu.loaded }
   },
   record: (record) => {
     moduleTelemetry.record({ kind: 'guard', ...record, at: new Date().toISOString() })
@@ -97,10 +104,13 @@ installAuthGuard(router, {
 // 会话联动动态路由：令牌变化统一在此处理（登录 / 登出 / 失效共用一条路径）。
 session.$subscribe(() => {
   if (session.token === null) {
+    menu.reset()
     uninstallMenuRoutesAll(router)
-  } else {
-    ensureMenuRoutes(router, PLACEHOLDER_MENU)
+    return
   }
+  void menu.load().then(() => {
+    ensureMenuRoutes(router, menu.tree)
+  })
 })
 
 /**

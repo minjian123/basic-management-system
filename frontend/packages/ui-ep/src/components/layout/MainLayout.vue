@@ -33,6 +33,10 @@ interface Props {
   storageKey?: string
   /** 应用标题。 */
   appTitle?: string
+  /** 侧栏多级展开互斥。 */
+  uniqueOpened?: boolean
+  /** 侧栏默认展开的子菜单路径（展开态持久化用）。 */
+  defaultOpeneds?: string[]
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -44,12 +48,16 @@ const props = withDefaults(defineProps<Props>(), {
   breakpoints: undefined,
   storageKey: '',
   appTitle: '',
+  uniqueOpened: true,
+  defaultOpeneds: undefined,
 })
 
 const emit = defineEmits<{
   'update:collapsed': [value: boolean]
   'update:showTabs': [value: boolean]
   'menu-select': [path: string]
+  'menu-open': [index: string]
+  'menu-close': [index: string]
   'tab-select': [key: string]
   'tab-close': [key: string]
   'tab-close-others': [key: string]
@@ -129,11 +137,29 @@ function onTabSelect(key: string): void {
       <div class="bms-main-layout__logo">
         <slot name="logo">{{ appTitle }}</slot>
       </div>
-      <side-menu :menu="menu" :active-path="activePath" :collapsed="collapsedState" @select="emit('menu-select', $event)" />
+      <side-menu
+        :menu="menu"
+        :active-path="activePath"
+        :collapsed="collapsedState"
+        :unique-opened="uniqueOpened"
+        :default-openeds="defaultOpeneds"
+        @select="emit('menu-select', $event)"
+        @open="emit('menu-open', $event)"
+        @close="emit('menu-close', $event)"
+      />
     </aside>
 
     <el-drawer v-if="showSidebar && isMobile" v-model="drawerOpen" direction="ltr" size="240px" :with-header="false">
-      <side-menu :menu="menu" :active-path="activePath" :searchable="false" @select="emit('menu-select', $event)" />
+      <side-menu
+        :menu="menu"
+        :active-path="activePath"
+        :searchable="false"
+        :unique-opened="uniqueOpened"
+        :default-openeds="defaultOpeneds"
+        @select="emit('menu-select', $event)"
+        @open="emit('menu-open', $event)"
+        @close="emit('menu-close', $event)"
+      />
     </el-drawer>
 
     <div class="bms-main-layout__main">
