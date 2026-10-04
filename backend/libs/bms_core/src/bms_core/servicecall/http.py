@@ -16,6 +16,7 @@ import httpx
 from bms_core.circuit.base import BaseCircuitBreaker
 from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.exceptions import ServiceUnavailableError
+from bms_core.core.serialization import normalize_collections
 from bms_core.fallback.base import BaseFallbackPolicy, FallbackAction
 from bms_core.oauth.token import BaseServiceTokenIssuer, ServiceTokenSpec
 from bms_core.ratelimit.base import BaseRateLimiter
@@ -176,7 +177,9 @@ class HttpServiceClient(BaseServiceClient):
         if headers:
             kwargs.set("headers", dict(headers))
         if request.json_body is not None:
-            kwargs.set("json", request.json_body)
+            # 请求体常为集合体系对象（`ConcurrentStableDict` 等），标准 `json.dumps` 不认（非 `dict` 子类）
+            # → 出站前归一为内建容器（2026-10-04 本地链路实测修复）。
+            kwargs.set("json", normalize_collections(request.json_body))
         elif request.content is not None:
             kwargs.set("content", request.content)
         response = await client.request(request.method.upper(), url, **kwargs)  # pyright: ignore[reportArgumentType]

@@ -85,9 +85,31 @@ class TenantSnapshot(BaseTenantViewContract):
             domain=cast("str | None", payload.get("domain")),
             status=str(payload.get("status") or ACTIVE_STATUS),
             expire_at=cast("str | None", payload.get("expire_at")),
-            tenant_id=int(tenant_id) if isinstance(tenant_id, int) else None,
+            tenant_id=_tenant_id(tenant_id),
             db_basis=str(db_basis) if isinstance(db_basis, str) and db_basis else code,
         )
+
+
+def _tenant_id(value: object) -> int | None:
+    """归一租户主键（**字符串 id 必须接受**）。
+
+    契约响应经 JSON 传输时雪花 id 会序列化为**十进制字符串**（大整数安全），而缓存载荷（`to_payload`）
+    写的是 `int`——故两者都要接受；只认 `int` 会让「边界 code → id 解析」全部丢主键标识（登录 / 刷新 /
+    SSO 等按 code 解析租户的链路随即失败）。
+
+    Args:
+        value: 载荷中的 `tenant_id`。
+
+    Returns:
+        int | None: 雪花 id；缺失 / 形态非法为 None。
+    """
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str) and value.isdigit():
+        return int(value)
+    return None
 
 
 def snapshot_cache_key(kind: str, value: str) -> str:

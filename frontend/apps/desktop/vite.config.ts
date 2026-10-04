@@ -4,7 +4,7 @@ import { federation } from '@module-federation/vite'
 import vue from '@vitejs/plugin-vue'
 import Components from 'unplugin-vue-components/vite'
 import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
-import { defineConfig, loadEnv } from 'vite'
+import { defineConfig, loadEnv, type ProxyOptions } from 'vite'
 
 import { loadSharedDependencies } from '../../scripts/shared-deps.mjs'
 
@@ -22,9 +22,36 @@ const { shared: SHARED_DEPENDENCIES } = loadSharedDependencies({ role: 'host' })
 // 与生产同形——外部路径 `/api/{service_key}/v1/...` 原样透传，不经前端重写）。
 // Module Federation：仅作**纯 host**（`name` + `shared`）——远端地址来自模块清单，运行期经
 // `registerRemotes` + `loadRemote` 注册与加载，改清单不必重构建（见任务 02_01 详细设计 §3.3）。
+/**
+ * 本地直连服务代理（`VITE_LOCAL_API=identity=127.0.0.5:8000,platform=127.0.0.4:8000,...`）。
+ *
+ * 用途：**本机裸跑后端**（`python -m bms_<service>`，SQLite + 内存缓存）时的多服务寻址——按服务前缀
+ * `/api/<service>` 就近代理到本机地址，并把外部路径重写为服务内路径（`/api/<service>/v1` → `/api/v1`）；
+ * 未列出的服务仍走 `VITE_API_PROXY`（缺省远端网关，与生产同形）。留空即完全沿用原行为。
+ *
+ * @param spec 形如 `identity=127.0.0.5:8000,platform=127.0.0.4:8000`（端口缺省 8000）。
+ */
+function localServiceProxy(spec: string): Record<string, ProxyOptions> {
+  const proxy: Record<string, ProxyOptions> = {}
+  for (const item of spec.split(',')) {
+    const [service, address] = item.split('=').map((part) => part.trim())
+    if (!service || !address) {
+      continue
+    }
+    const target = address.includes(':') ? address : `${address}:8000`
+    proxy[`/api/${service}`] = {
+      target: `http://${target}`,
+      changeOrigin: true,
+      rewrite: (path: string) => path.replace(`/api/${service}/v1`, '/api/v1'),
+    }
+  }
+  return proxy
+}
+
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   const apiProxy = env.VITE_API_PROXY || 'http://localhost:8088'
+  const localProxy = localServiceProxy(env.VITE_LOCAL_API || '')
   return {
     plugins: [
       vue(),
@@ -80,6 +107,8 @@ export default defineConfig(({ mode }) => {
       port: 5173,
       strictPort: true,
       proxy: {
+        // 本机直连服务优先（精确前缀先匹配），其余服务回落远端网关
+        ...localProxy,
         '/api': { target: apiProxy, changeOrigin: true },
         '/healthz': { target: apiProxy, changeOrigin: true },
         '/info': { target: apiProxy, changeOrigin: true, rewrite: () => '/' },
