@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 扫码登录页</title>
+<link rel="stylesheet" href="../资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../资源/原型样式.css">
+<style>
+  /* 独立全屏页（与登录页同形态族）：页面背景 + 居中单卡片 */
+  .qr-stage { display: flex; align-items: center; justify-content: center; box-sizing: border-box; min-height: calc(100vh - 120px); padding: 24px; background: #f6f8fa; border: 1px solid #eaeef2; border-radius: 8px; }
+  .qr-card { box-sizing: border-box; width: 360px; padding: 28px 24px; text-align: center; background: #fff; border: 1px solid #d0d7de; border-radius: 8px; box-shadow: 0 6px 24px rgba(31,35,40,.10); }
+  .qr-brand { margin-bottom: 16px; }
+  .qr-brand .qb-logo { display: block; margin: 0 auto 10px; }
+  .qr-brand h1 { margin: 0; font-size: 19px; color: #1f2328; }
+  .qr-brand .qb-sub { margin: 4px 0 0; font-size: 12px; color: #8c959f; }
+  .qr-switch { margin-bottom: 14px; }
+  .qr-box { position: relative; display: inline-block; box-sizing: border-box; padding: 10px; border: 1px solid #d0d7de; border-radius: 8px; background: #fff; }
+  .qr-box .qb-img { width: 200px; height: 200px; line-height: 0; }
+  .qr-box .qb-img svg { width: 200px; height: 200px; }
+  .qr-mask { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; border-radius: 8px; background: rgba(255,255,255,.94); }
+  .qr-mask .qm-text { font-size: 13px; color: #57606a; }
+  .qr-phase { margin: 14px 0 0; font-size: 14px; color: #1f2328; }
+  .qr-hint { margin: 6px 0 0; font-size: 12px; line-height: 1.6; color: #8c959f; }
+  .qr-foot { margin-top: 16px; padding-top: 14px; border-top: 1px solid #eaeef2; }
+  /* 演示控制面板（仅原型用，非页面内容） */
+  .demo-panel { position: fixed; right: 16px; bottom: 16px; z-index: 200; box-sizing: border-box; width: 244px; padding: 12px 14px; background: #fff; border: 1px solid #d0d7de; border-radius: 8px; box-shadow: 0 6px 24px rgba(31,35,40,.16); }
+  .demo-panel h4 { margin: 0 0 10px; font-size: 12px; font-weight: 600; color: #8c959f; }
+  .demo-panel .dp-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; font-size: 12px; color: #57606a; }
+  .demo-panel .dp-actions { display: flex; gap: 8px; }
+  .demo-panel .dp-actions .el-button { flex: 1; margin-left: 0; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="01_设计说明.html">← 返回设计说明</a></span>
+  <span class="pb-name">通用骨架 · 扫码登录页（独立全屏页 · 居中单卡片）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    独立全屏页（不嵌主框架），与登录页同形态族：品牌区 + 二维码面板 + 返回账号登录。
+    体验：① 二维码四态流转：<b>待扫 → 已扫待确认 → 已确认</b>（点「模拟扫码确认」逐态推进）；有效期倒计时到点转<b>过期</b>（遮罩 + 刷新，自动重取一次）② 多入口时上方分段切换（企业微信 / 钉钉）③ 「可扫码入口」切为 0 → 整块空态并返回账号登录。
+  </div>
+
+  <div id="app">
+    <div class="qr-stage">
+      <div class="qr-card">
+        <!-- 品牌区：与登录页同源 -->
+        <div class="qr-brand">
+          <svg class="qb-logo" width="44" height="44" viewBox="0 0 44 44" aria-hidden="true">
+            <rect width="44" height="44" rx="11" fill="#0969da"></rect>
+            <text x="22" y="28" text-anchor="middle" font-size="15" font-weight="700" fill="#fff">BMS</text>
+          </svg>
+          <h1>BMS 基础管理系统</h1>
+          <p class="qb-sub">扫码登录</p>
+        </div>
+
+        <template v-if="providers.length">
+          <!-- 多入口切换：可扫码入口 > 1 时显示（分段 / 标签） -->
+          <div v-if="providers.length > 1" class="qr-switch">
+            <el-radio-group v-model="activeKey" size="small" @change="onSwitch">
+              <el-radio-button v-for="p in providers" :key="p.key" :value="p.key">{{ p.name }}</el-radio-button>
+            </el-radio-group>
+          </div>
+
+          <!-- 二维码 + 过期 / 失败遮罩 -->
+          <div class="qr-box">
+            <div class="qb-img" v-html="qrSvg"></div>
+            <div v-if="maskVisible" class="qr-mask">
+              <span class="qm-text">{{ maskText }}</span>
+              <el-button size="small" type="primary" @click="refresh">刷新二维码</el-button>
+            </div>
+          </div>
+
+          <p class="qr-phase">{{ phaseText }}</p>
+          <p class="qr-hint">{{ hintText }}</p>
+        </template>
+
+        <!-- 无可扫码入口：整块空态并返回账号登录 -->
+        <el-empty v-else description="当前租户未配置可扫码登录方式" :image-size="72"></el-empty>
+
+        <div class="qr-foot">
+          <el-button text @click="backToLogin">← 返回账号登录</el-button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 演示控制面板（仅原型用，非页面内容） -->
+    <div class="demo-panel">
+      <h4>演示控制（非页面内容）</h4>
+      <div class="dp-row">
+        <span>可扫码入口</span>
+        <el-select v-model="providerCount" size="small" style="width:92px">
+          <el-option :value="0" label="0 个"></el-option>
+          <el-option :value="1" label="1 个"></el-option>
+          <el-option :value="2" label="2 个"></el-option>
+        </el-select>
+      </div>
+      <div class="dp-row">
+        <span>有效期倒计时</span>
+        <el-switch v-model="autoCountdown" size="small"></el-switch>
+      </div>
+      <div class="dp-row">
+        <span>相位</span>
+        <el-select v-model="phase" size="small" style="width:92px" @change="onPhaseChange">
+          <el-option value="pending" label="待扫"></el-option>
+          <el-option value="scanning" label="已扫待确认"></el-option>
+          <el-option value="confirmed" label="已确认"></el-option>
+          <el-option value="expired" label="过期"></el-option>
+          <el-option value="failed" label="失败"></el-option>
+        </el-select>
+      </div>
+      <div class="dp-actions">
+        <el-button size="small" @click="simulateScan">模拟扫码确认</el-button>
+        <el-button size="small" @click="refresh">刷新</el-button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="../资源/vendor/vue.global.prod.js"></script>
+<script src="../资源/vendor/element-plus.min.js"></script>
+<script src="../资源/vendor/zh-cn.js"></script>
+<script src="../资源/vendor/qrcode.js"></script>
+<script>
+  var { createApp, ref, computed, watch, onMounted, onBeforeUnmount } = Vue;
+  var { ElMessage } = ElementPlus;
+
+  var QR_TTL = 60;
+
+  /** 前端生成二维码（离线；容错级别 M，内容不含账号 / 口令 / 令牌明文）。 */
+  function genSvg(text, size, fg, bg) {
+    if (!text) return '';
+    try {
+      var q = qrcode(0, 'M');
+      q.addData(text); q.make();
+      var n = q.getModuleCount();
+      var margin = 2;
+      var cell = Math.max(1, Math.floor(size / (n + margin * 2)));
+      var svg = q.createSvgTag(cell, margin);
+      return svg.replace(/fill="white"/g, 'fill="' + bg + '"').replace(/fill="black"/g, 'fill="' + fg + '"');
+    } catch (e) {
+      return '<div style="padding:20px;color:#cf222e;font-size:12px">生成失败：' + e.message + '</div>';
+    }
+  }
+
+  var app = createApp({
+    template: document.getElementById('app').outerHTML.replace(/<div id="app">/, '<div>').replace(/<\/div>\s*$/, ''),
+    setup: function () {
+      // 状态：相位（待扫 / 已扫待确认 / 已确认 / 过期 / 失败）+ 有效期 + 自动重取次数
+      var phase = ref('pending');
+      var remaining = ref(QR_TTL);
+      var autoRefreshed = ref(false);
+      var attempt = ref(0);
+      var providerCount = ref(2);
+      var activeKey = ref('wecom');
+      var autoCountdown = ref(true);
+      var timer = null;
+
+      // 可扫码入口（模拟后端按 IdP 清单过滤后的可扫码项，按 sort 升序）
+      var allProviders = [
+        { key: 'wecom', name: '企业微信' },
+        { key: 'dingtalk', name: '钉钉' }
+      ];
+      var providers = computed(function () { return allProviders.slice(0, providerCount.value); });
+
+      // 授权二维码内容：站内服务段取回的授权 URL（原型以演示地址代替；不含敏感明文）
+      var authorizeUrl = computed(function () {
+        return 'https://open.example.com/connect/qr?state=proto-' + attempt.value + '-' + activeKey.value;
+      });
+      var qrSvg = computed(function () { return genSvg(authorizeUrl.value, 200, '#1f2328', '#ffffff'); });
+
+      var maskVisible = computed(function () { return phase.value === 'expired' || phase.value === 'failed'; });
+      var maskText = computed(function () { return phase.value === 'expired' ? '二维码已过期' : '二维码加载失败'; });
+      var phaseText = computed(function () {
+        return {
+          pending: '等待扫码',
+          scanning: '已扫描，请在手机上确认登录',
+          confirmed: '已确认，正在进入系统…',
+          expired: '二维码已过期',
+          failed: '二维码加载失败'
+        }[phase.value];
+      });
+      var hintText = computed(function () {
+        if (phase.value === 'expired') return '过期后自动重取一次，再次过期请手动刷新。';
+        if (phase.value === 'failed') return '请检查网络后刷新重试，或改用账号密码登录。';
+        return '打开' + activeName.value + '「扫一扫」扫描二维码登录（有效期 ' + remaining.value + ' 秒）。';
+      });
+      var activeName = computed(function () {
+        var hit = providers.value.filter(function (p) { return p.key === activeKey.value; })[0];
+        return hit ? hit.name : '企业微信';
+      });
+
+      function stopTimer() { if (timer) { clearInterval(timer); timer = null; } }
+      function startTimer() {
+        stopTimer();
+        timer = setInterval(function () {
+          if (!autoCountdown.value) return;
+          if (phase.value !== 'pending' && phase.value !== 'scanning') return;
+          remaining.value -= 1;
+          if (remaining.value > 0) return;
+          expire();
+        }, 1000);
+      }
+
+      // 过期：停轮询 → 自动重取一次 → 再过期仅遮罩 + 手动刷新
+      function expire() {
+        phase.value = 'expired';
+        stopTimer();
+        if (autoRefreshed.value) return;
+        autoRefreshed.value = true;
+        setTimeout(function () { if (phase.value === 'expired') refresh(); }, 1200);
+      }
+
+      function refresh() {
+        attempt.value += 1;
+        remaining.value = QR_TTL;
+        phase.value = 'pending';
+        startTimer();
+      }
+
+      function onSwitch() { ElMessage.info('已切换登录方式：' + activeName.value + '（重新获取二维码）'); refresh(); }
+
+      function simulateScan() {
+        if (phase.value === 'pending') { phase.value = 'scanning'; return; }
+        if (phase.value === 'scanning') {
+          phase.value = 'confirmed';
+          stopTimer();
+          setTimeout(function () {
+            ElMessage.success('扫码登录成功，进入首页工作台');
+            setTimeout(function () { ElMessage.warning('请尽快修改初始密码（原型演示：强制改密提示）'); }, 900);
+          }, 300);
+          return;
+        }
+        ElMessage.info('请先刷新二维码（当前：' + phaseText.value + '）');
+      }
+
+      function onPhaseChange() { if (phase.value === 'pending') { remaining.value = QR_TTL; startTimer(); } else { stopTimer(); } }
+      function backToLogin() { ElMessage.info('返回账号登录页（原型演示：保留回跳目标）'); }
+
+      // 可扫码入口数变化：入口归零 / 切换后重建二维码与状态
+      watch(providerCount, function (n) {
+        if (n === 0) { stopTimer(); return; }
+        if (providers.value.every(function (p) { return p.key !== activeKey.value; })) activeKey.value = providers.value[0].key;
+        refresh();
+      });
+
+      onMounted(startTimer);
+      onBeforeUnmount(stopTimer);
+
+      return {
+        phase, remaining, autoRefreshed, providerCount, activeKey, autoCountdown,
+        providers, qrSvg, maskVisible, maskText, phaseText, hintText,
+        refresh, onSwitch, simulateScan, onPhaseChange, backToLogin
+      };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+<script>if (location.search.indexOf("embed=1") >= 0) { var pb = document.querySelector(".proto-bar"); if (pb) pb.style.display = "none"; }</script>
+</body>
+</html>

@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 用户注册页</title>
+<link rel="stylesheet" href="../资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../资源/原型样式.css">
+<style>
+  /* 独立全屏页（与登录页同形态族）：页面背景 + 居中单卡片 */
+  .reg-stage { display: flex; align-items: center; justify-content: center; box-sizing: border-box; min-height: calc(100vh - 120px); padding: 24px; background: #f6f8fa; border: 1px solid #eaeef2; border-radius: 8px; }
+  .reg-card { box-sizing: border-box; width: 360px; padding: 28px 24px; background: #fff; border: 1px solid #d0d7de; border-radius: 8px; box-shadow: 0 6px 24px rgba(31,35,40,.10); }
+  .reg-brand { margin-bottom: 20px; text-align: center; }
+  .reg-brand .rb-logo { display: block; margin: 0 auto 10px; }
+  .reg-brand h1 { margin: 0; font-size: 19px; color: #1f2328; }
+  .reg-brand .rb-sub { margin: 4px 0 0; font-size: 12px; color: #8c959f; }
+  .reg-card .el-form-item { margin-bottom: 16px; }
+  .reg-card .el-form-item__label { padding-bottom: 4px; }
+  .reg-error { margin: 0 0 12px; font-size: 12px; line-height: 1.6; color: #cf222e; }
+  .reg-notice { margin: 0 0 12px; font-size: 12px; line-height: 1.6; color: #0969da; }
+  .reg-submit { width: 100%; }
+  .reg-foot { margin-top: 14px; padding-top: 12px; border-top: 1px solid #eaeef2; text-align: center; }
+  /* 密码强度 */
+  .pw-bars { display: flex; gap: 4px; width: 100%; margin-top: 8px; }
+  .pw-bars i { flex: 1; height: 4px; border-radius: 2px; background: #eaeef2; }
+  .pw-bars i.on-weak { background: #cf222e; }
+  .pw-bars i.on-mid { background: #d28e00; }
+  .pw-bars i.on-strong { background: #2da44e; }
+  .pw-text { margin: 6px 0 0; font-size: 12px; line-height: 1.6; color: #8c959f; }
+  .cap-row { display: flex; align-items: center; width: 100%; gap: 8px; }
+  /* 演示控制面板（仅原型用，非页面内容） */
+  .demo-panel { position: fixed; right: 16px; bottom: 16px; z-index: 200; box-sizing: border-box; width: 244px; padding: 12px 14px; background: #fff; border: 1px solid #d0d7de; border-radius: 8px; box-shadow: 0 6px 24px rgba(31,35,40,.16); }
+  .demo-panel h4 { margin: 0 0 10px; font-size: 12px; font-weight: 600; color: #8c959f; }
+  .demo-panel .dp-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; font-size: 12px; color: #57606a; }
+  .demo-panel .dp-actions { display: flex; gap: 8px; }
+  .demo-panel .dp-actions .el-button { flex: 1; margin-left: 0; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="01_设计说明.html">← 返回设计说明</a></span>
+  <span class="pb-name">通用骨架 · 用户注册页（独立全屏页 · 居中单卡片）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    独立全屏页（与登录页同形态族）：品牌区 + 注册表单 + 已有账号去登录。注册为<strong>平台身份能力</strong>，是否开放由<strong>产品启用开关</strong>决定——<b>biz 产品不启用</b>（无注册入口）、<b>cw 产品启用</b>（自助注册到租户）。
+    体验：① 直接提交 → 注册成功并引导登录 ② 点「模拟账号已存在」→ 表单级错误 ③ 产品启用开关关掉 → 整块空态（本产品未开放注册）④ 打开「模拟无法解析租户」→ 留空提交后后端返回 `20007`：<b>租户标识输入框展开</b>（**默认隐藏**，此时才出现并聚焦）⑤ 密码强度实时提示。
+  </div>
+
+  <div id="app">
+    <div class="reg-stage">
+      <div class="reg-card">
+        <!-- 品牌区：平台默认 Logo + 系统名称（正式版按租户替换品牌资源） -->
+        <div class="reg-brand">
+          <svg class="rb-logo" width="44" height="44" viewBox="0 0 44 44" aria-hidden="true">
+            <rect width="44" height="44" rx="11" fill="#0969da"></rect>
+            <text x="22" y="28" text-anchor="middle" font-size="15" font-weight="700" fill="#fff">BMS</text>
+          </svg>
+          <h1>BMS 基础管理系统</h1>
+          <p class="rb-sub">注册账号</p>
+        </div>
+
+        <template v-if="productEnabled">
+          <el-form label-position="top" @submit.prevent="onSubmit">
+            <!-- 租户标识：默认隐藏；后端无法唯一解析租户返回 20007 时才展开（本机已记住的编码静默带上） -->
+            <el-form-item v-if="tenantVisible" label="租户标识">
+              <el-input ref="tenantInputRef" v-model="tenant" clearable placeholder="请输入租户标识（编码）"></el-input>
+              <div class="proto-hint" style="line-height:1.6">后端无法唯一解析租户时才展开；留空表示由子域名或后端上下文解析；本机已记住的租户编码会自动带上（不显示该项）。注册成功后该租户编码会记在本机。</div>
+            </el-form-item>
+
+            <el-form-item label="账号">
+              <el-input v-model="account" clearable placeholder="4–20 位，字母开头，可含数字与下划线"></el-input>
+            </el-form-item>
+
+            <el-form-item label="邮箱">
+              <el-input v-model="email" clearable placeholder="用于验证与找回密码（邮箱 / 手机至少填一项）"></el-input>
+            </el-form-item>
+
+            <el-form-item label="手机号">
+              <el-input v-model="phone" clearable placeholder="用于验证与找回密码（邮箱 / 手机至少填一项）"></el-input>
+            </el-form-item>
+
+            <el-form-item label="验证码">
+              <div class="cap-row">
+                <el-input v-model="captchaCode" maxlength="6" placeholder="6 位验证码"></el-input>
+                <el-button :disabled="!canSendCaptcha" @click="sendCaptcha">{{ countdown > 0 ? countdown + 's 后重发' : '获取验证码' }}</el-button>
+              </div>
+              <div class="proto-hint" style="line-height:1.6">{{ captchaHint }}</div>
+            </el-form-item>
+
+            <el-form-item label="密码">
+              <el-input v-model="password" type="password" show-password placeholder="至少 8 位，含大小写字母与数字"></el-input>
+              <div class="pw-bars">
+                <i :class="strengthScore >= 1 ? 'on-' + strengthLevel : ''"></i>
+                <i :class="strengthScore >= 2 ? 'on-' + strengthLevel : ''"></i>
+                <i :class="strengthScore >= 3 ? 'on-' + strengthLevel : ''"></i>
+              </div>
+              <p class="pw-text">{{ strengthText }}</p>
+            </el-form-item>
+
+            <el-form-item>
+              <el-checkbox v-model="agreed">我已阅读并同意<el-link type="primary" :underline="false" @click="openDoc('服务协议')">《服务协议》</el-link>与<el-link type="primary" :underline="false" @click="openDoc('隐私政策')">《隐私政策》</el-link></el-checkbox>
+            </el-form-item>
+
+            <p v-if="needTenant" class="reg-notice">请填写租户标识（当前部署存在多个租户）后再次提交。</p>
+            <p v-if="formError !== ''" class="reg-error" role="alert">{{ formError }}</p>
+            <p v-if="formNotice !== ''" class="reg-notice">{{ formNotice }}</p>
+
+            <el-button class="reg-submit" type="primary" size="large" :loading="submitting" @click="onSubmit">{{ submitting ? '注册中…' : '注 册' }}</el-button>
+          </el-form>
+
+          <div class="reg-foot">
+            <el-button text @click="toLogin">已有账号？去登录</el-button>
+          </div>
+        </template>
+
+        <!-- 产品未开放注册：整块空态（biz 产品口径） -->
+        <template v-else>
+          <el-empty description="本产品未开放注册，请通过邀请或联系管理员开通" :image-size="72"></el-empty>
+          <div class="reg-foot">
+            <el-button text @click="toLogin">返回登录</el-button>
+          </div>
+        </template>
+      </div>
+    </div>
+
+    <!-- 演示控制面板（仅原型用，非页面内容） -->
+    <div class="demo-panel">
+      <h4>演示控制（非页面内容）</h4>
+      <div class="dp-row">
+        <span>产品启用注册</span>
+        <el-switch v-model="productEnabled" size="small"></el-switch>
+      </div>
+      <div class="dp-row">
+        <span>模拟无法解析租户</span>
+        <el-switch v-model="demoNeedsTenant" size="small"></el-switch>
+      </div>
+      <div class="dp-row">
+        <span>验证码通道</span>
+        <el-select v-model="captchaChannel" size="small" style="width:92px" @change="onChannelChange">
+          <el-option value="phone" label="短信"></el-option>
+          <el-option value="email" label="邮箱"></el-option>
+        </el-select>
+      </div>
+      <div class="dp-actions">
+        <el-button size="small" @click="simulateExists">模拟账号已存在</el-button>
+        <el-button size="small" @click="fillDemo">填充示例</el-button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="../资源/vendor/vue.global.prod.js"></script>
+<script src="../资源/vendor/element-plus.min.js"></script>
+<script src="../资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref, computed, nextTick, onBeforeUnmount } = Vue;
+  var { ElMessage } = ElementPlus;
+
+  /** 手机号脱敏（前 3 + **** + 后 4）。 */
+  function maskPhone(value) {
+    var v = (value || '').replace(/\s/g, '');
+    if (v.length < 7) return v;
+    return v.slice(0, 3) + '****' + v.slice(-4);
+  }
+
+  var app = createApp({
+    template: document.getElementById('app').outerHTML.replace(/<div id="app">/, '<div>').replace(/<\/div>\s*$/, ''),
+    setup: function () {
+      // 表单数据（口径：自助注册到租户 / 邮箱或手机至少一项 / 密码含强度 / 协议必勾）
+      var tenant = ref('');
+      var account = ref('');
+      var email = ref('');
+      var phone = ref('');
+      var captchaCode = ref('');
+      var password = ref('');
+      var agreed = ref(false);
+      var captchaChannel = ref('phone');
+      var countdown = ref(0);
+      var sent = ref(false);
+      var submitting = ref(false);
+      var formError = ref('');
+      var formNotice = ref('');
+      var timer = null;
+
+      // 演示开关
+      var productEnabled = ref(true);     // biz 不启用 / cw 启用
+      var tenantVisible = ref(false);     // 租户标识：默认隐藏，后端 20007 触发展开
+      var needTenant = ref(false);        // 是否处于「需填写租户标识」态
+      var demoNeedsTenant = ref(false);   // 演示：后端无法唯一解析租户
+      var tenantInputRef = ref();         // 租户标识输入框（展开后聚焦）
+
+      /** 密码规则命中数（长度 ≥8 / 小写 / 大写 / 数字 / 符号）。 */
+      var strengthScore = computed(function () {
+        var p = password.value;
+        var s = 0;
+        if (p.length >= 8) s += 1;
+        if (/[a-z]/.test(p)) s += 1;
+        if (/[A-Z]/.test(p)) s += 1;
+        if (/\d/.test(p)) s += 1;
+        if (/[^A-Za-z0-9]/.test(p)) s += 1;
+        return s;
+      });
+      /** 强度等级：弱 / 中 / 强（提交要求 ≥ 中）。 */
+      var strengthLevel = computed(function () {
+        if (strengthScore.value >= 5) return 'strong';
+        if (strengthScore.value >= 3) return 'mid';
+        return 'weak';
+      });
+      var strengthText = computed(function () {
+        if (password.value === '') return '长度 ≥8 位，含小写、大写、数字（建议加符号）';
+        var missing = [];
+        if (password.value.length < 8) missing.push('长度 ≥8 位');
+        if (!/[a-z]/.test(password.value)) missing.push('小写字母');
+        if (!/[A-Z]/.test(password.value)) missing.push('大写字母');
+        if (!/\d/.test(password.value)) missing.push('数字');
+        var label = { weak: '弱', mid: '中', strong: '强' }[strengthLevel.value];
+        return '强度：' + label + (missing.length ? '；还需：' + missing.join('、') : '');
+      });
+
+      /** 验证码发送目标（已填手机优先短信，否则邮箱）。 */
+      var captchaTarget = computed(function () {
+        if (captchaChannel.value === 'phone' && phone.value.trim() !== '') return maskPhone(phone.value) + '（短信）';
+        if (captchaChannel.value === 'email' && email.value.trim() !== '') return email.value.trim() + '（邮箱）';
+        return '';
+      });
+      var canSendCaptcha = computed(function () { return countdown.value === 0 && captchaTarget.value !== ''; });
+      var captchaHint = computed(function () {
+        if (captchaTarget.value !== '') return '验证码将发送至 ' + captchaTarget.value + '（有效期 5 分钟，一次性使用）。';
+        return '请先填写' + (captchaChannel.value === 'phone' ? '手机号' : '邮箱') + '，验证码将发送至该' + (captchaChannel.value === 'phone' ? '手机' : '邮箱') + '。';
+      });
+
+      function stopTimer() { if (timer) { clearInterval(timer); timer = null; } }
+      function sendCaptcha() {
+        if (!canSendCaptcha.value) return;
+        sent.value = true;
+        countdown.value = 60;
+        stopTimer();
+        timer = setInterval(function () {
+          countdown.value -= 1;
+          if (countdown.value <= 0) stopTimer();
+        }, 1000);
+        ElMessage.success('验证码已发送至 ' + captchaTarget.value + '（原型演示：任意 6 位数字可通过）');
+      }
+      function onChannelChange() { sent.value = false; captchaCode.value = ''; }
+
+      function onSubmit() {
+        if (submitting.value) return;
+        formError.value = '';
+        formNotice.value = '';
+        // 后端无法唯一解析租户（20007）：展开租户标识输入框并聚焦
+        if (demoNeedsTenant.value && !tenantVisible.value) {
+          needTenant.value = true;
+          tenantVisible.value = true;
+          nextTick(function () { var el = tenantInputRef.value; if (el && el.focus) el.focus(); });
+          ElMessage.info('后端无法唯一解析租户（20007）：请填写租户标识（原型演示）');
+          return;
+        }
+        if (tenantVisible.value && tenant.value.trim() === '') { formError.value = '请填写租户标识（当前部署存在多个租户）'; return; }
+        var acc = account.value.trim();
+        if (acc === '') { formError.value = '请填写账号'; return; }
+        if (!/^[A-Za-z][A-Za-z0-9_]{3,19}$/.test(acc)) { formError.value = '账号格式：4–20 位，字母开头，可含数字与下划线'; return; }
+        if (email.value.trim() === '' && phone.value.trim() === '') { formError.value = '邮箱与手机号至少填写一项'; return; }
+        if (email.value.trim() !== '' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value.trim())) { formError.value = '邮箱格式不正确'; return; }
+        if (phone.value.trim() !== '' && !/^1\d{10}$/.test(phone.value.trim())) { formError.value = '手机号格式不正确（11 位）'; return; }
+        if (captchaCode.value.trim() === '') { formError.value = '请填写验证码'; return; }
+        if (!/^\d{6}$/.test(captchaCode.value.trim())) { formError.value = '验证码为 6 位数字'; return; }
+        if (strengthScore.value < 3) { formError.value = '密码强度不足（需至少 8 位并含大小写字母与数字）'; return; }
+        if (!agreed.value) { formError.value = '请先阅读并同意《服务协议》与《隐私政策》'; return; }
+
+        submitting.value = true;
+        setTimeout(function () {
+          submitting.value = false;
+          formNotice.value = '注册成功，请使用新账号登录。';
+          ElMessage.success('注册成功（原型演示：已引导至登录页）');
+        }, 800);
+      }
+
+      function simulateExists() { formError.value = '该账号已被注册，请更换账号或直接登录'; formNotice.value = ''; }
+      function fillDemo() {
+        account.value = 'cwuser01';
+        email.value = 'cwuser01@example.com';
+        phone.value = '13800001234';
+        password.value = 'Cw#2026pass';
+        captchaCode.value = '123456';
+        agreed.value = true;
+        formError.value = '';
+      }
+      function openDoc(name) { ElMessage.info('打开《' + name + '》（原型演示）'); }
+      function toLogin() { ElMessage.info('前往登录页（原型演示：保留回跳目标）'); }
+
+      onBeforeUnmount(stopTimer);
+
+      return {
+        tenant, account, email, phone, captchaCode, password, agreed, captchaChannel,
+        countdown, submitting, formError, formNotice, productEnabled, tenantVisible, needTenant, demoNeedsTenant, tenantInputRef,
+        strengthScore, strengthLevel, strengthText, captchaTarget, canSendCaptcha, captchaHint,
+        sendCaptcha, onChannelChange, onSubmit, simulateExists, fillDemo, openDoc, toLogin
+      };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+<script>if (location.search.indexOf("embed=1") >= 0) { var pb = document.querySelector(".proto-bar"); if (pb) pb.style.display = "none"; }</script>
+</body>
+</html>

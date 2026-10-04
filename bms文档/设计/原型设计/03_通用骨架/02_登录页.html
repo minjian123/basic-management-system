@@ -7,98 +7,262 @@
 <link rel="stylesheet" href="../资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../资源/原型样式.css">
 <style>
-  .login-wrap { min-height: 86vh; display: flex; align-items: center; justify-content: center; background: linear-gradient(160deg,#f6f8fa 0%, #ddf4ff 100%); padding: 24px; }
-  .login-card { width: 380px; background: #fff; border-radius: 12px; box-shadow: 0 10px 40px rgba(31,35,40,.12); padding: 32px 28px; }
-  .login-card h1 { font-size: 20px; margin: 0 0 4px; }
-  .login-card .sub { color: #8c959f; font-size: 13px; margin-bottom: 20px; }
-  .cap-wrap { display: flex; gap: 8px; }
-  .cap-box { flex: 1; text-align: center; border: 1px solid #d0d7de; border-radius: 6px; line-height: 34px; font-size: 15px; letter-spacing: 4px; background: #eaeef2; color: #1f2328; cursor: pointer; user-select: none; font-style: italic; }
-  .foot-line { display: flex; justify-content: space-between; align-items: center; margin-top: 4px; font-size: 13px; }
-  .sso-line { border-top: 1px solid #eaeef2; margin-top: 18px; padding-top: 14px; text-align: center; }
-  .sso-line .sso-hint { color: #8c959f; font-size: 12px; margin-bottom: 8px; }
+  /* 独立全屏页：页面背景 + 居中单卡片（品牌区 / 表单区 / 第三方入口区） */
+  .login-stage { display: flex; align-items: center; justify-content: center; box-sizing: border-box; min-height: calc(100vh - 120px); padding: 24px; background: #f6f8fa; border: 1px solid #eaeef2; border-radius: 8px; }
+  .login-card { box-sizing: border-box; width: 360px; padding: 28px 24px; background: #fff; border: 1px solid #d0d7de; border-radius: 8px; box-shadow: 0 6px 24px rgba(31,35,40,.10); }
+  .login-brand { margin-bottom: 20px; text-align: center; }
+  .login-brand .lb-logo { display: block; margin: 0 auto 10px; }
+  .login-brand h1 { margin: 0; font-size: 19px; color: #1f2328; }
+  .login-brand .lb-sub { margin: 4px 0 0; font-size: 12px; color: #8c959f; }
+  .login-card .el-form-item { margin-bottom: 16px; }
+  .login-card .el-form-item__label { padding-bottom: 4px; }
+  .login-error { margin: 0 0 12px; font-size: 12px; line-height: 1.6; color: #cf222e; }
+  .login-notice { margin: 0 0 12px; font-size: 12px; line-height: 1.6; color: #0969da; }
+  .login-submit { width: 100%; }
+  .cap-row { display: flex; align-items: center; width: 100%; gap: 8px; }
+  .cap-img { flex: none; width: 104px; height: 36px; line-height: 36px; font-style: italic; letter-spacing: 4px; text-align: center; color: #1f2328; background: #eaeef2; border: 1px solid #d0d7de; border-radius: 6px; cursor: pointer; user-select: none; }
+  .login-sso { margin-top: 18px; padding-top: 14px; border-top: 1px solid #eaeef2; }
+  .login-sso .ls-title { margin: 0 0 10px; font-size: 12px; text-align: center; color: #8c959f; }
+  .login-sso .ls-list { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+  /* 演示控制面板（仅原型用，非页面内容） */
+  .demo-panel { position: fixed; right: 16px; bottom: 16px; z-index: 200; box-sizing: border-box; width: 244px; padding: 12px 14px; background: #fff; border: 1px solid #d0d7de; border-radius: 8px; box-shadow: 0 6px 24px rgba(31,35,40,.16); }
+  .demo-panel h4 { margin: 0 0 10px; font-size: 12px; font-weight: 600; color: #8c959f; }
+  .demo-panel .dp-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; font-size: 12px; color: #57606a; }
+  .demo-panel .dp-actions { display: flex; gap: 8px; }
+  .demo-panel .dp-actions .el-button { flex: 1; margin-left: 0; }
 </style>
 </head>
 <body>
 
 <div class="proto-bar">
   <span class="pb-crumb"><a href="01_设计说明.html">← 返回设计说明</a></span>
-  <span class="pb-name">通用骨架 · 登录页</span>
+  <span class="pb-name">通用骨架 · 登录页（独立全屏页 · 居中单卡片）</span>
 </div>
 
-<div class="login-wrap">
+<div class="proto-frame">
+  <div class="proto-note">
+    独立全屏页（不嵌主框架）：品牌区 + 表单区 + 第三方入口区。
+    体验：① 填账号密码直接提交 → 登录成功（提示「请尽快修改初始密码」）② 点「模拟登录失败」→ 验证码出现（初始不显示，失败后出现）③ 打开「策略强制验证码」→ 初始即显示 ④ 打开「模拟无法唯一解析租户」→ 留空提交后后端返回 `20007`：<b>租户标识输入框展开</b>（默认隐藏，此时才出现并聚焦），填写后再次提交登录成功 ⑤ 账号输入 <b>locked</b> / <b>disabled</b> 演示锁定 / 停用 ⑥ 打开「隐藏 SSO 入口」→ 第三方入口区整块隐藏。
+  </div>
+
   <div id="app">
-    <div class="login-card">
-      <h1>BMS 基础管理系统</h1>
-      <div class="sub">登录你的账户</div>
-
-      <el-form :model="form" label-width="72px" size="large" @submit.prevent="doLogin">
-        <el-form-item label="用户名">
-          <el-input v-model="form.user" placeholder="请输入用户名" clearable></el-input>
-        </el-form-item>
-        <el-form-item label="密码">
-          <el-input v-model="form.pwd" type="password" show-password placeholder="请输入密码"></el-input>
-        </el-form-item>
-        <el-form-item label="验证码">
-          <div class="cap-wrap">
-            <el-input v-model="form.cap" placeholder="4 位验证码" style="max-width:150px" @keyup.enter="doLogin"></el-input>
-            <div class="cap-box" title="点击刷新" @click="refreshCap">{{ capCode }}</div>
-          </div>
-          <div style="width:100%"><span class="proto-hint">点击图片刷新</span></div>
-        </el-form-item>
-
-        <el-button type="primary" style="width:100%;padding:8px 0" size="large" :loading="loading" @click="doLogin">登 录</el-button>
-
-        <div class="foot-line">
-          <el-checkbox v-model="form.remember">记住我</el-checkbox>
-          <el-link type="primary" :underline="false" @click="forgetPwd">忘记密码？</el-link>
+    <div class="login-stage">
+      <div class="login-card">
+        <!-- 品牌区：平台默认 Logo + 系统名称（正式版按租户替换品牌资源） -->
+        <div class="login-brand">
+          <svg class="lb-logo" width="44" height="44" viewBox="0 0 44 44" aria-hidden="true">
+            <rect width="44" height="44" rx="11" fill="#0969da"></rect>
+            <text x="22" y="28" text-anchor="middle" font-size="15" font-weight="700" fill="#fff">BMS</text>
+          </svg>
+          <h1>BMS 基础管理系统</h1>
+          <p class="lb-sub">统一认证入口</p>
         </div>
-      </el-form>
 
-      <div class="sso-line">
-        <div class="sso-hint">企业微信 / 钉钉 一键登录</div>
-        <el-button size="small" @click="sso('企微 OAuth 免登')">企微登录</el-button>
-        <el-button size="small" @click="sso('钉钉 OAuth 免登')">钉钉登录</el-button>
+        <!-- 表单区 -->
+        <el-form label-position="top" @submit.prevent="onSubmit">
+          <!-- 租户标识：默认隐藏；后端无法唯一解析租户返回 20007 时才展开（输入框；本机已记住的编码静默带上） -->
+          <el-form-item v-if="tenantVisible" label="租户标识">
+            <el-input ref="tenantInputRef" v-model="tenant" clearable placeholder="请输入租户标识（编码）"></el-input>
+            <div class="proto-hint" style="line-height:1.6">后端无法唯一解析租户时才展开；留空表示由子域名或后端上下文解析；本机已记住的租户编码会自动带上（不显示该项）。</div>
+          </el-form-item>
+
+          <el-form-item label="账号">
+            <el-input v-model="account" placeholder="请输入账号"></el-input>
+          </el-form-item>
+
+          <el-form-item label="密码">
+            <el-input v-model="password" type="password" show-password placeholder="请输入密码"></el-input>
+            <div class="proto-hint" style="line-height:1.6">不回填、不落本地存储；明文切换仅内存态。</div>
+          </el-form-item>
+
+          <el-form-item>
+            <el-checkbox v-model="remember">记住我</el-checkbox>
+            <div class="proto-hint" style="line-height:1.6">缺省不勾选；勾选延长登录有效期为 14 天，不勾选为会话级（关闭浏览器失效）。</div>
+          </el-form-item>
+
+          <!-- 验证码块：初始不显示，策略强制或首次失败后出现；形态按策略渠道取首个可渲染形态 -->
+          <el-form-item v-if="captchaVisible" label="验证码">
+            <!-- 滑块（平台默认形态） -->
+            <template v-if="captchaKind === 'slider'">
+              <el-slider v-model="sliderPos" :show-tooltip="false"></el-slider>
+              <div class="proto-hint" style="line-height:1.6">{{ sliderPassed ? '验证通过' : '拖动滑块到最右完成校验（原型演示）' }}</div>
+            </template>
+            <!-- 图形（兜底形态） -->
+            <template v-else>
+              <div class="cap-row">
+                <el-input v-model="imageCodeInput" maxlength="4" placeholder="请输入验证码"></el-input>
+                <div class="cap-img" title="点击刷新" @click="refreshImage">{{ imageCode }}</div>
+              </div>
+              <div class="proto-hint" style="line-height:1.6">点击图片刷新；凭证随登录请求一次性提交（校验失败自动刷新）。</div>
+            </template>
+          </el-form-item>
+
+          <p v-if="needTenant" class="login-notice">请填写租户标识（当前部署存在多个租户）后再次提交。</p>
+          <p v-if="formError !== ''" class="login-error" role="alert">{{ formError }}</p>
+
+          <el-button class="login-submit" type="primary" size="large" :loading="submitting" @click="onSubmit">{{ submitting ? '登录中…' : '登 录' }}</el-button>
+        </el-form>
+
+        <!-- 第三方入口区：按 IdP 清单渲染；清单为空整块不渲染 -->
+        <div v-if="providers.length" class="login-sso">
+          <p class="ls-title">其他登录方式</p>
+          <div class="ls-list">
+            <el-button v-if="hasScannable" @click="onQrLogin">扫码登录</el-button>
+            <el-button v-for="p in providers" :key="p.key" @click="onSso(p)">{{ p.name }}</el-button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 演示控制面板（仅原型用，非页面内容） -->
+    <div class="demo-panel">
+      <h4>演示控制（非页面内容）</h4>
+      <div class="dp-row">
+        <span>策略强制验证码</span>
+        <el-switch v-model="demoForced" size="small" @change="onForcedChange"></el-switch>
+      </div>
+      <div class="dp-row">
+        <span>模拟无法解析租户</span>
+        <el-switch v-model="demoMultiTenant" size="small"></el-switch>
+      </div>
+      <div class="dp-row">
+        <span>隐藏 SSO 入口</span>
+        <el-switch v-model="hideSso" size="small"></el-switch>
+      </div>
+      <div class="dp-row">
+        <span>验证码形态</span>
+        <el-select v-model="captchaKind" size="small" style="width:92px" @change="resetCaptcha">
+          <el-option label="滑块" value="slider"></el-option>
+          <el-option label="图形" value="image"></el-option>
+        </el-select>
+      </div>
+      <div class="dp-actions">
+        <el-button size="small" @click="simulateFail">模拟登录失败</el-button>
+        <el-button size="small" @click="simulateSsoFail">模拟 SSO 失败</el-button>
       </div>
     </div>
   </div>
 </div>
 
 <script src="../资源/vendor/vue.global.prod.js"></script>
-
 <script src="../资源/vendor/element-plus.min.js"></script>
 <script src="../资源/vendor/zh-cn.js"></script>
 <script>
-  var { createApp, ref, reactive } = Vue;
+  var { createApp, ref, computed, nextTick } = Vue;
   var { ElMessage } = ElementPlus;
+
+  function randomCode() {
+    var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    var s = '';
+    for (var i = 0; i < 4; i++) s += chars.charAt(Math.floor(Math.random() * chars.length));
+    return s;
+  }
+
   var app = createApp({
     template: document.getElementById('app').outerHTML.replace(/<div id="app">/, '<div>').replace(/<\/div>\s*$/, ''),
     setup: function () {
-      var codes = ['8F2K', '3H7Q', '5M9Z', '2K6X', '7P4B'];
-      var form = reactive({ user: '', pwd: '', cap: '', remember: true });
-      var capCode = ref(codes[Math.floor(Math.random() * codes.length)]);
-      var loading = ref(false);
-      var tries = 0;
-      function refreshCap() { capCode.value = codes[Math.floor(Math.random() * codes.length)]; }
-      function doLogin() {
-        var u = form.user.trim(), p = form.pwd, c = form.cap.trim();
-        if (!u || !p) { ElMessage.error('请输入用户名和密码'); return; }
-        if (!c) { ElMessage.error('请输入验证码'); return; }
-        if (c.toUpperCase() !== capCode.value) {
-          ElMessage.error('验证码错误，已刷新');
-          refreshCap(); tries++; if (tries >= 3) { form.cap = ''; }
+      // 表单数据（口径对齐登录页真实实现：记住我默认不勾选、验证码初始不显示）
+      var tenant = ref('');             // 本机已记住的租户编码（原型从简：默认无记忆值；有记忆值时静默带上、不显示该项）
+      var tenantInputRef = ref();       // 租户标识输入框（20007 展开后聚焦）
+      var tenantVisible = ref(false);   // 租户标识：默认隐藏，后端 20007 触发展开
+      var needTenant = ref(false);      // 是否处于「需填写租户标识」态（后端无法唯一解析租户）
+      var account = ref('');
+      var password = ref('');
+      var remember = ref(false);
+      var sliderPos = ref(0);
+      var imageCodeInput = ref('');
+      var imageCode = ref(randomCode());
+      var captchaKind = ref('slider');
+      var demoForced = ref(false);      // 演示：策略 required = true
+      var demoMultiTenant = ref(false); // 演示：该账号属于多个租户（提交后由后端判定）
+      var hideSso = ref(false);         // 演示：IdP 清单为空
+      var failCount = ref(0);
+      var submitting = ref(false);
+      var formError = ref('');
+
+      // SSO 入口清单（模拟后端下发，按 sort 升序；企微 / 钉钉可扫码）
+      var allProviders = [
+        { key: 'wecom', name: '企业微信', scannable: true },
+        { key: 'dingtalk', name: '钉钉', scannable: true },
+        { key: 'oidc', name: 'OIDC', scannable: false }
+      ];
+      var providers = computed(function () { return hideSso.value ? [] : allProviders; });
+      var hasScannable = computed(function () {
+        return providers.value.some(function (p) { return p.scannable; });
+      });
+
+      // 验证码可见性：策略强制 或 首次失败后（初始不显示）
+      var captchaVisible = computed(function () { return demoForced.value || failCount.value > 0; });
+      var sliderPassed = computed(function () { return sliderPos.value >= 100; });
+
+      function captchaReady() {
+        if (captchaKind.value === 'slider') return sliderPassed.value;
+        return imageCodeInput.value.trim().toUpperCase() === imageCode.value;
+      }
+      function refreshImage() { imageCode.value = randomCode(); imageCodeInput.value = ''; }
+      function resetCaptcha() { sliderPos.value = 0; imageCodeInput.value = ''; imageCode.value = randomCode(); }
+      function onForcedChange() { resetCaptcha(); }
+
+      // 失败处置：错误文案 + 验证码出现并刷新挑战
+      function fail(message) {
+        failCount.value += 1;
+        formError.value = message;
+        resetCaptcha();
+      }
+
+      function loginSuccess() {
+        ElMessage.success('登录成功，进入首页工作台');
+        setTimeout(function () { ElMessage.warning('请尽快修改初始密码（原型演示：强制改密提示）'); }, 900);
+      }
+
+      // 后端无法唯一解析租户（20007）：展开租户标识输入框并聚焦
+      function enterTenantSelect() {
+        needTenant.value = true;
+        tenantVisible.value = true;
+        nextTick(function () {
+          var el = tenantInputRef.value;
+          if (el && el.focus) el.focus();
+        });
+        ElMessage.info('后端无法唯一解析租户（20007）：请填写租户标识（原型演示）');
+      }
+
+      function onSubmit() {
+        if (submitting.value) return;
+        formError.value = '';
+
+        // 二次提交：已处于「需选择租户」态，带所选租户（或留空）提交
+        if (needTenant.value) {
+          submitting.value = true;
+          setTimeout(function () { submitting.value = false; loginSuccess(); }, 600);
           return;
         }
-        if (u !== 'admin' && u !== 'zhangsan') { ElMessage.error('用户不存在或密码错误（原型演示：输入 admin / 任意密码）'); return; }
-        loading.value = true;
+
+        var acc = account.value.trim();
+        if (!acc || !password.value) { formError.value = '请填写账号与密码'; return; }
+        if (acc === 'locked') { formError.value = '账号已锁定，请联系管理员或稍后重试'; return; }
+        if (acc === 'disabled') { formError.value = '账号已停用，请联系管理员'; return; }
+        if (captchaVisible.value && !captchaReady()) { formError.value = '请完成验证码校验'; return; }
+
+        submitting.value = true;
         setTimeout(function () {
-          loading.value = false;
-          ElMessage.success('登录成功，进入首页工作台');
-          setTimeout(function () { ElMessage.info('原型演示：登录后跳转「首页工作台」界面'); }, 1200);
-        }, 800);
+          submitting.value = false;
+          if (demoMultiTenant.value && !tenantVisible.value) { enterTenantSelect(); return; }
+          loginSuccess();
+        }, 700);
       }
-      function forgetPwd() { ElMessage.info('原型演示：找回密码走邮箱/企微双通道'); }
-      function sso(kind) { ElMessage.success('原型演示：跳转' + kind); }
-      return { form, capCode, loading, refreshCap, doLogin, forgetPwd, sso };
+
+      function simulateFail() { fail('账号或密码错误（原型演示：验证码已出现）'); }
+      function simulateSsoFail() { formError.value = '外部登录服务不可用，请改用账号密码登录（原型演示：SSO 回调失败 20053）'; }
+      function onSso(p) { ElMessage.success('跳转外部授权端点（原型演示：' + p.name + '）'); }
+      function onQrLogin() { ElMessage.info('进入扫码登录独立页（原型演示）'); }
+
+      return {
+        tenant, tenantInputRef, tenantVisible, needTenant, account, password, remember, sliderPos, imageCodeInput, imageCode,
+        captchaKind, demoForced, demoMultiTenant, hideSso, submitting, formError,
+        providers, hasScannable, captchaVisible, sliderPassed,
+        refreshImage, resetCaptcha, onForcedChange,
+        onSubmit, simulateFail, simulateSsoFail, onSso, onQrLogin
+      };
     }
   });
   app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
