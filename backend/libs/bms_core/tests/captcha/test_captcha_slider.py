@@ -181,14 +181,16 @@ async def test_verify_slider_mismatch_counts_and_retry(redis_client: fakeredis.a
 
 @pytest.mark.kiwi_id(2205)
 async def test_verify_slider_machine_traces_rejected(redis_client: fakeredis.aioredis.FakeRedis) -> None:
-    """机器轨迹被拒：点数不足、时长过短、时间回退、负时间。"""
+    """机器轨迹被拒：点数不足、**瞬移且像素级对准**、时间回退、负时间。"""
     captcha = _captcha(redis_client)
     challenge = await captcha.generate("login", kind=CaptchaKind.SLIDER)
     gap_x = (await _record(redis_client, challenge.captcha_id))["gap_x"]
 
     cases: tuple[tuple[tuple[int, int, int], ...], ...] = (
         ((gap_x, 0, 300),),
+        # 瞬移 + 像素级对准（偏差 0 ≤ exact_tolerance）：脚本特征，拒。
         ((0, 0, 0), (gap_x, 0, 40)),
+        ((0, 0, 0), (gap_x, 0, 150)),
         ((0, 0, 500), (gap_x, 0, 100)),
         ((0, 0, -1), (gap_x, 0, 300)),
     )
@@ -200,16 +202,40 @@ async def test_verify_slider_machine_traces_rejected(redis_client: fakeredis.aio
 
 
 @pytest.mark.kiwi_id(2205)
-async def test_verify_slider_fast_human_trace_accepted(redis_client: fakeredis.aioredis.FakeRedis) -> None:
-    """人类「快速甩动」也能通过：150ms 的准确拖拽必须被接受（回归：下限曾为 300ms，正常手速被判为机器轨迹）。"""
-    captcha = _captcha(redis_client)
-    challenge = await captcha.generate("login", kind=CaptchaKind.SLIDER)
-    gap_x = (await _record(redis_client, challenge.captcha_id))["gap_x"]
+async def test_verify_slider_human_traces_accepted(redis_client: fakeredis.aioredis.FakeRedis) -> None:
+    """人类形态放行（回归）：快速但**略偏**、慢速略偏、慢速对准 —— 只要在落点容差内即通过；
+    只有「瞬移 + 像素级对准」才判机器。
 
-    trace = ((0, 0, 0), (gap_x // 2, 0, 80), (gap_x, 0, 150))
-    assert await captcha.verify_credential(
-        CaptchaCredential(captcha_id=challenge.captcha_id, kind=CaptchaKind.SLIDER, trace=trace)
+    （用户口径 2026-10-04：瞬时对准是机器人；慢慢对、不太准的反而可能是人。）
+    """
+    captcha = _captcha(redis_client)
+    defaults = CaptchaSliderOptions.from_options(ConcurrentStableDict())
+    allowed = defaults.tolerance
+    exact = defaults.exact_tolerance
+
+    # (时长, 落点偏差) —— 均应在容差内通过
+    accepted: tuple[tuple[int, int], ...] = (
+        (150, exact + 4),  # 快速但略偏（非像素级对准）
+        (600, exact + 4),  # 慢速略偏（最像人）
+        (600, 0),  # 慢速对准（人也能对准）
+        (4000, 2),  # 更慢、更准
     )
+    for duration, offset in accepted:
+        challenge = await captcha.generate("login", kind=CaptchaKind.SLIDER)
+        gap_x = (await _record(redis_client, challenge.captcha_id))["gap_x"]
+        trace = ((0, 0, 0), (gap_x + offset, 0, duration))
+        assert await captcha.verify_credential(
+            CaptchaCredential(captcha_id=challenge.captcha_id, kind=CaptchaKind.SLIDER, trace=trace)
+        ), f"人类形态应放行：duration={duration} offset={offset}"
+
+    # 落点超差（无论快慢）仍拒：超出 tolerance 即机器/乱拖
+    for duration in (150, 600):
+        challenge = await captcha.generate("login", kind=CaptchaKind.SLIDER)
+        gap_x = (await _record(redis_client, challenge.captcha_id))["gap_x"]
+        trace = ((0, 0, 0), (gap_x + allowed + 3, 0, duration))
+        assert not await captcha.verify_credential(
+            CaptchaCredential(captcha_id=challenge.captcha_id, kind=CaptchaKind.SLIDER, trace=trace)
+        ), f"落点超差应拒：duration={duration}"
     await captcha.aclose()
 
 
@@ -280,8 +306,19 @@ async def test_slider_options_parse_and_validate(redis_client: fakeredis.aioredi
     """滑块选项：缺省 / 覆盖 / 小画布块图钳制生效；非法值拒启；渲染尺寸随选项。"""
     default = CaptchaSliderOptions.from_options(ConcurrentStableDict[str, object]())
     assert (default.width, default.height, default.piece_size) == (300, 150, 48)
-    assert (default.tolerance, default.min_duration_ms, default.min_points) == (10, 100, 2)
+    assert (default.tolerance, default.min_duration_ms, default.min_points) == (10, 300, 2)
+    assert default.exact_tolerance == 4
     assert default == CaptchaSliderOptions.from_options(None)
+
+    # 「像素级对准」上限可配，且**不超过落点容差**（超过容差按容差收敛；越界类型/范围仍拒启）
+    assert CaptchaSliderOptions.from_options(ConcurrentStableDict({"slider_exact_tolerance": 6})).exact_tolerance == 6
+    assert CaptchaSliderOptions.from_options(ConcurrentStableDict({"slider_exact_tolerance": 40})).exact_tolerance == 10
+    assert (
+        CaptchaSliderOptions.from_options(
+            ConcurrentStableDict({"slider_tolerance": 6, "slider_exact_tolerance": 8})
+        ).exact_tolerance
+        == 6
+    )
 
     clamped = CaptchaSliderOptions.from_options(ConcurrentStableDict({"slider_width": 160, "slider_height": 80}))
     assert clamped.piece_size == 39

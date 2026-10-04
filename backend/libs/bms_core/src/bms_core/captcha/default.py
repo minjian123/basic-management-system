@@ -38,6 +38,8 @@ from bms_core.captcha.base import (
     CAPTCHA_SCENE_CHANNELS,
     CAPTCHA_TTL,
     NULL_CAPTCHA_PAYLOAD,
+    SLIDER_EXACT_TOLERANCE,
+    SLIDER_MIN_DURATION_MS,
     SLIDER_TOLERANCE,
     SMS_CAPTCHA_LENGTH,
     BaseCaptcha,
@@ -286,9 +288,13 @@ class CaptchaSliderOptions(BaseOptionsContract):
     tolerance: int = SLIDER_TOLERANCE
     """落点容差（像素；末点 `x` 与缺口 `gap_x` 的最大允许偏差）。"""
 
-    min_duration_ms: int = 100
-    """轨迹总时长下限（毫秒；0 表示不校验）。缺省 100ms——人类「快速甩动」到位也要能被接受（实测 150ms
-    的准确拖拽必须通过）；脚本瞬移（含 0 延迟的单点/微秒级轨迹）仍被拦截。"""
+    min_duration_ms: int = SLIDER_MIN_DURATION_MS
+    """轨迹总时长下限（毫秒；0 表示不校验）。**仅与 `exact_tolerance` 组合生效**：时长低于下限**且**
+    落点像素级对准（偏差 ≤ `exact_tolerance`）才判为机器人——人类无法「瞬间且精准对准」；「快速但略偏」、
+    「慢速略偏」、「慢速对准」均为人类形态，放行。"""
+
+    exact_tolerance: int = SLIDER_EXACT_TOLERANCE
+    """「像素级对准」上限（像素；需 ≤ `tolerance`，超上限按 `tolerance` 收敛）。"""
 
     min_points: int = 2
     """轨迹最少点数。"""
@@ -310,12 +316,16 @@ class CaptchaSliderOptions(BaseOptionsContract):
         width = cls._int_option(values, "slider_width", 300, 160, 600)
         height = cls._int_option(values, "slider_height", 150, 80, 300)
         max_piece = (min(width, height) - 1) // 2
+        tolerance = cls._int_option(values, "slider_tolerance", SLIDER_TOLERANCE, 0, 50)
         return cls(
             width=width,
             height=height,
             piece_size=cls._int_option(values, "slider_piece_size", min(48, max_piece), 16, max_piece),
-            tolerance=cls._int_option(values, "slider_tolerance", SLIDER_TOLERANCE, 0, 50),
-            min_duration_ms=cls._int_option(values, "slider_min_duration_ms", 100, 0, 10000),
+            tolerance=tolerance,
+            min_duration_ms=cls._int_option(values, "slider_min_duration_ms", SLIDER_MIN_DURATION_MS, 0, 10000),
+            exact_tolerance=min(
+                cls._int_option(values, "slider_exact_tolerance", SLIDER_EXACT_TOLERANCE, 0, 50), tolerance
+            ),
             min_points=cls._int_option(values, "slider_min_points", 2, 1, 100),
         )
 
@@ -863,7 +873,7 @@ class DefaultCaptcha(BaseCaptcha):
             credential: 用户凭证（轨迹点序列 `(x, y, 相对起点毫秒)`）。
 
         Returns:
-            bool: 轨迹通过为 True；缺口缺失 / 非法、点数不足、时间回退、时长过短或落点超差均为 False。
+            bool: 轨迹通过为 True；缺口缺失 / 非法、点数不足、时间回退、**瞬移且像素级对准**、落点超差均为 False。
         """
         gap_x = record.get("gap_x")
         if isinstance(gap_x, bool) or not isinstance(gap_x, int):
@@ -877,9 +887,14 @@ class DefaultCaptcha(BaseCaptcha):
             if point_t < 0 or point_t < previous_t:
                 return False
             previous_t = point_t
-        if opts.min_duration_ms > 0 and trace[-1][2] - trace[0][2] < opts.min_duration_ms:
+        deviation = abs(trace[-1][0] - gap_x)
+        duration = trace[-1][2] - trace[0][2]
+        instant = opts.min_duration_ms > 0 and duration < opts.min_duration_ms
+        # 组合判据（2026-10-04 用户口径）：**瞬移 + 像素级对准 = 机器人**——人类无法「瞬间且精准对准」；
+        # 反之「快速但略偏」「慢速略偏」「慢速对准」都是人类形态（慢速略偏恰恰更像人），只要在落点容差内即放行。
+        if instant and deviation <= opts.exact_tolerance:
             return False
-        return abs(trace[-1][0] - gap_x) <= opts.tolerance
+        return deviation <= opts.tolerance
 
     async def _register_failure(self, captcha_id: str, record: ConcurrentStableDict[str, object], ttl_ms: int) -> None:
         """回写失败挑战（保留剩余 TTL）并累计失败次数（失败可重试）。
