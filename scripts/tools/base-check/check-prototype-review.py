@@ -44,9 +44,12 @@ from bms_core.core.concurrent import ConcurrentStableList  # noqa: E402
 
 DOCS_DIR = "bms文档"
 PROTOTYPE_DIR = f"{DOCS_DIR}/设计/原型设计"
+COMPONENT_PROTOTYPE_DIR = f"{DOCS_DIR}/设计/组件设计"
 RECORD_RE = re.compile(rf"^{DOCS_DIR}/项目/[^/]+/任务/.+/测试/[^/]+\.md$")
 CONTEXT_RE = re.compile(rf"^{DOCS_DIR}/项目/[^/]+/任务/.+/(设计|实施|测试)/[^/]+\.md$")
-PROTO_REF_RE = re.compile(r"原型设计/([^\s()\[\]\"'`<>|]+\.html)")
+#: 原型依据引用：**页面原型**（`设计/原型设计/**.html`）或**组件设计自带原型**（`设计/组件设计/**/*.html`，
+#: 如 `10_组件设计_验证码/10_原型设计_验证码.html`）——件族任务的原型依据落在后者。
+PROTO_REF_RE = re.compile(r"设计/((?:原型设计|组件设计)/[^\s()\[\]\"'`<>|]*\.html)")
 PNG_RE = re.compile(r"\]\(([^)\s]+\.png)\)")
 UNFINISHED_RE = re.compile(r"待补|待对照|待核|未核对|未核|待定|TODO|待办")
 NOT_APPLICABLE_RE = re.compile(r"不适用")
@@ -139,10 +142,14 @@ def prototype_basis_problems(root: Path, texts: ConcurrentStableList[tuple[str, 
     for source, text in texts:
         for match in PROTO_REF_RE.finditer(text):
             found_ref = True
-            if not (root / PROTOTYPE_DIR / match.group(1)).is_file():
-                problems.add(f"{source}：原型引用文件不存在 → {PROTOTYPE_DIR}/{match.group(1)}")
+            target = root / DOCS_DIR / "设计" / match.group(1)
+            if not target.is_file():
+                problems.add(f"{source}：原型引用文件不存在 → {DOCS_DIR}/设计/{match.group(1)}")
     if not found_ref:
-        problems.add("未登记原型依据：需在（设计 / 实施 / 测试）记录中出现 `设计/原型设计/**.html` 引用")
+        problems.add(
+            "未登记原型依据：需在（设计 / 实施 / 测试）记录中引用**页面原型** `设计/原型设计/**.html` "
+            "或**组件设计原型** `设计/组件设计/**/*.html`"
+        )
     return problems
 
 
