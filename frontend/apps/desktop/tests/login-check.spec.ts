@@ -1,5 +1,5 @@
-// kiwi_id: 2232
-/** 登录页核对页用例（05_01）：三组自检程序化跑通、页面渲染无失败项。 */
+// kiwi_id: 2232, 2240
+/** 登录页核对页用例（05_01 / 05_06）：三组自检程序化跑通、页面渲染无失败项。 */
 
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia } from 'pinia'
@@ -31,16 +31,17 @@ describe('登录页核对页（Kiwi 2232）', () => {
     const wrapper = mount(LoginCheck, { global: { plugins: [createPinia(), router] } })
     await flushPromises()
     await flushPromises()
+    await flushPromises()
 
     expect(wrapper.findAll('[data-check-group]')).toHaveLength(3)
 
     const items = wrapper.findAll('[data-check]')
-    expect(items).toHaveLength(17)
+    expect(items).toHaveLength(20)
 
     const failed = wrapper.findAll('[data-ok="false"]')
     expect(failed.map((item) => item.text())).toEqual([])
 
-    expect(wrapper.find('[data-check-passed]').text()).toBe('17')
+    expect(wrapper.find('[data-check-passed]').text()).toBe('20')
   })
 
   it('含验证码延迟提交与登录接线口径说明', async () => {

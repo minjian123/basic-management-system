@@ -1,5 +1,5 @@
-// kiwi_id: 2232
-/** 登录页用例（05_01）：表单提交与回跳 / 验证码时机 / SSO 入口 / 错误文案 / 密码安全口径。 */
+// kiwi_id: 2232, 2240
+/** 登录页用例（05_01 / 05_06）：表单提交与回跳 / 验证码时机 / SSO 入口 / 错误文案 / 密码安全口径 / 租户标识默认隐藏与 20007。 */
 
 import { configureRequestAdapter, type RequestConfig } from '@bms/core'
 import { flushPromises, mount, type DOMWrapper, type VueWrapper } from '@vue/test-utils'
@@ -203,18 +203,18 @@ afterEach(() => {
 })
 
 describe('登录页（Kiwi 2232）', () => {
-  it('提交成功：载荷含归一租户、写入会话并按 redirect 回跳', async () => {
+  it('提交成功：租户标识默认隐藏、载荷 tenant 为空、写入会话并按 redirect 回跳', async () => {
     stubRequests({ login: () => LOGIN_SUCCESS })
     const { wrapper, router, pinia } = await mountLogin(`redirect=${encodeURIComponent('/org/users?page=2')}`)
 
-    await wrapper.find('[data-test="login-tenant"]').setValue(' acme ')
+    expect(wrapper.find('[data-test="login-tenant"]').exists()).toBe(false)
     await submit(wrapper)
 
     expect(loginCalls()).toHaveLength(1)
     expect(loginCalls()[0]?.data).toEqual({
       account: 'admin',
       password: 'secret',
-      tenant: 'acme',
+      tenant: null,
       remember_me: false,
     })
 
@@ -223,6 +223,63 @@ describe('登录页（Kiwi 2232）', () => {
     expect(session.user?.name).toBe('管理员')
     expect(session.tenant).toBe('acme')
     expect(router.currentRoute.value.fullPath).toBe('/org/users?page=2')
+  })
+
+  it('本机已记住租户：默认隐藏该项但静默随请求携带', async () => {
+    setTenantCode('acme')
+    stubRequests({ login: () => LOGIN_SUCCESS })
+    const { wrapper } = await mountLogin()
+
+    expect(wrapper.find('[data-test="login-tenant"]').exists()).toBe(false)
+    await submit(wrapper)
+
+    expect(loginCalls()).toHaveLength(1)
+    expect(loginCalls()[0]?.data).toMatchObject({ tenant: 'acme' })
+  })
+
+  it('收到 20007：展开租户标识并聚焦、提示补充；不刷新验证码、不计失败', async () => {
+    const focusSpy = vi.spyOn(HTMLElement.prototype, 'focus')
+    stubRequests({
+      login: () => {
+        throw new ApiError(20007, 'need tenant')
+      },
+    })
+    const { wrapper } = await mountLogin()
+
+    expect(wrapper.find('[data-test="login-tenant"]').exists()).toBe(false)
+    await submit(wrapper)
+
+    // 触发展开 + 聚焦 + 表单级提示。
+    expect(wrapper.find('[data-test="login-tenant"]').exists()).toBe(true)
+    expect(focusSpy).toHaveBeenCalled()
+    expect(wrapper.find('[data-test="login-error"]').text()).toContain('请填写租户标识')
+    // 未消费验证码、不计失败：验证码块不出现（策略未强制）。
+    expect(wrapper.find('[data-test="login-captcha"]').exists()).toBe(false)
+    // 仅一次请求（未重复提交）。
+    expect(loginCalls()).toHaveLength(1)
+    focusSpy.mockRestore()
+  })
+
+  it('展开并填写租户后重拉 SSO 清单', async () => {
+    let providersCalls = 0
+    requestMock.mockImplementation((config: RequestConfig) => {
+      if (config.url.includes('/auth/sso/providers')) {
+        providersCalls += 1
+        return Promise.resolve(SSO_PROVIDERS)
+      }
+      if (config.url.includes('/auth/login')) {
+        return Promise.reject(new ApiError(20007, 'need tenant'))
+      }
+      return Promise.resolve(undefined)
+    })
+    const { wrapper } = await mountLogin()
+    expect(providersCalls).toBe(1)
+
+    await submit(wrapper)
+    await wrapper.find('[data-test="login-tenant"]').setValue('acme')
+    await flushPromises()
+
+    expect(providersCalls).toBe(2)
   })
 
   it('非法 redirect 回落首页（站内校验沿用核心单一来源）', async () => {
@@ -431,7 +488,7 @@ describe('登录页（Kiwi 2232）', () => {
   it('表单件复用口径：输入件为组件库件、按钮为 Element Plus 件（无裸原生件自绘）', async () => {
     const { wrapper } = await mountLogin()
 
-    expect(wrapper.findAll('.bms-text-input')).toHaveLength(2)
+    expect(wrapper.findAll('.bms-text-input')).toHaveLength(1)
     expect(wrapper.findAll('.bms-password-input')).toHaveLength(1)
     expect(wrapper.findAll('.bms-boolean-checkbox')).toHaveLength(1)
     expect(wrapper.find('[data-test="login-submit"]').classes()).toContain('el-button')

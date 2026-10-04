@@ -16,7 +16,7 @@ import {
 } from '@bms/core'
 import { CaptchaField, PasswordInput, TextInput, BooleanCheckbox, createHttpCaptchaSource } from '@bms/ui-ep'
 import { ElButton } from 'element-plus'
-import { computed, onMounted, ref, shallowRef } from 'vue'
+import { computed, nextTick, onMounted, ref, shallowRef, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { ApiError } from '@/api/error'
@@ -37,8 +37,12 @@ const session = useSessionStore()
 /** 验证码数据源（HTTP 内建实现；未注入即占位零请求）。 */
 const captchaSource = createHttpCaptchaSource(captchaSourceOptions())
 
-/** 租户标识（可选；缺省回填已持久化值，可清空表示不携带）。 */
+/** 租户标识输入值（缺省回填已持久化值；默认隐藏时仍静默随请求提交）。 */
 const tenantInput = ref(getTenantCode() ?? '')
+/** 租户标识是否可见（默认隐藏；收到 `20007` 才展开）。 */
+const tenantVisible = ref(false)
+/** 租户标识字段容器（展开后聚焦用）。 */
+const tenantField = ref<HTMLElement | null>(null)
 /** 登录账号。 */
 const account = ref('')
 /** 登录口令（不回填、不落任何存储）。 */
@@ -145,12 +149,29 @@ function currentCaptcha(): LoginCaptchaInput | undefined {
 }
 
 /**
- * 登录失败处置：文案映射 + 验证码块出现 / 刷新。
+ * 「需要选择租户」处置（`20007`）：展开租户标识并聚焦，仅提示补充后重提。
+ *
+ * 与登录失败口径不同：**不刷新验证码、不计失败**（`20007` 在解析租户阶段返回，早于验证码与
+ * 凭据校验，未消费挑战），保留验证码块状态与用户输入。
+ */
+async function handleNeedTenant(): Promise<void> {
+  formError.value = resolveAuthErrorText(20007)
+  tenantVisible.value = true
+  await nextTick()
+  tenantField.value?.querySelector<HTMLInputElement>('[data-test="login-tenant"] input, [data-test="login-tenant"]')?.focus()
+}
+
+/**
+ * 登录失败处置：文案映射 + 验证码块出现 / 刷新；`20007` 单独走「展开租户标识」分支。
  *
  * @param error 登录异常。
  */
 function handleLoginFailure(error: unknown): void {
   const code = error instanceof ApiError ? error.code : undefined
+  if (code === 20007) {
+    void handleNeedTenant()
+    return
+  }
   formError.value = resolveAuthErrorText(code)
   if (code === 20101 || code === 20102) {
     // 后端要求验证码 / 验证码已失效：确保验证码块出现（策略未加载时回落图形码兜底）。
@@ -218,6 +239,13 @@ function onQrLogin(): void {
   void router.push({ path: '/login/qr', query: route.query })
 }
 
+// 租户标识展开且值变化后重拉 SSO 清单（挂载期已按本机记忆 / 后端唯一启用租户回落拉取一次）。
+watch(tenant, () => {
+  if (tenantVisible.value) {
+    void loadSsoProviders()
+  }
+})
+
 onMounted(() => {
   showSsoFailure()
   void loadCaptchaPolicy()
@@ -234,13 +262,13 @@ onMounted(() => {
       </header>
 
       <form class="login-view__form" data-test="login-form" @submit.prevent="onSubmit">
-        <label class="login-view__field">
+        <label v-if="tenantVisible" ref="tenantField" class="login-view__field">
           <span class="login-view__label">租户标识</span>
           <text-input
             v-model="tenantInput"
             clearable
             autocomplete="organization"
-            placeholder="子域名部署可留空"
+            placeholder="请输入租户标识（编码）"
             data-test="login-tenant"
           />
         </label>

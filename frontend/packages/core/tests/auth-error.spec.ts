@@ -1,5 +1,5 @@
-// kiwi_id: 2232
-/** 认证错误码文案用例（05_01）：文案表命中 / 验证码子段复用 / 通用回落与判定。 */
+// kiwi_id: 2232, 2240
+/** 认证错误码文案用例（05_01 / 05_06）：文案表命中 / 验证码子段复用 / 通用回落与判定。 */
 
 import { describe, expect, it } from 'vitest'
 
@@ -11,6 +11,7 @@ describe('认证错误码文案（Kiwi 2232）', () => {
     expect(resolveAuthErrorText(20003)).toBe('账号已锁定，请联系管理员或稍后重试')
     expect(resolveAuthErrorText(20004)).toBe('账号已停用，请联系管理员')
     expect(resolveAuthErrorText(20001)).toBe('登录状态已失效，请重新登录')
+    expect(resolveAuthErrorText(20007)).toBe('请填写租户标识（当前部署存在多个租户）')
     expect(resolveAuthErrorText(20012)).toBe('登录状态已失效，请重新登录')
     expect(resolveAuthErrorText(20053)).toBe('外部登录服务不可用，请改用账号密码登录')
     expect(resolveAuthErrorText(20057)).toBe('企业微信配置缺失或非法')

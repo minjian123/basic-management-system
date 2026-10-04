@@ -10,6 +10,7 @@ import {
 } from '@bms/core'
 import { nextTick, onMounted, ref } from 'vue'
 
+import { ApiError } from '@/api/error'
 import { ssoAuthorizeUrl } from '@/api/identity'
 import { apiUrl } from '@/api/request'
 import LoginView from '@/views/LoginView.vue'
@@ -123,6 +124,12 @@ onMounted(async () => {
     lockedText.includes('锁定') && ssoDownText.includes('外部登录服务不可用'),
   )
   add(groupOne, `验证码子段回落（20101 → ${captchaText}，复用验证码文案表）`, captchaText === '验证码错误')
+  const needTenantText = resolveAuthErrorText(20007)
+  add(
+    groupOne,
+    `需选择租户文案（20007 → ${needTenantText}）`,
+    needTenantText === '请填写租户标识（当前部署存在多个租户）' && isAuthErrorCode(20007),
+  )
   add(
     groupOne,
     `未登记码 / 非数字回落通用文案（${unknownText} / ${nonNumberText}）；判定 20002=${String(isAuthErrorCode(20002))}、99999=${String(isAuthErrorCode(99999))}`,
@@ -209,13 +216,18 @@ onMounted(async () => {
   )
   add(
     groupThree,
-    '表单要素齐备：租户标识 / 账号 / 密码 / 记住我 / 提交按钮',
-    tenantInput !== null && accountInput !== null && passwordInput !== null && submit !== null,
+    '租户标识默认隐藏（单租户 / 子域名部署下永不出现；本机记忆值仍静默随请求提交）',
+    tenantInput === null,
+  )
+  add(
+    groupThree,
+    '表单要素齐备：账号 / 密码 / 提交按钮',
+    accountInput !== null && passwordInput !== null && submit !== null,
   )
   add(
     groupThree,
     `表单件复用组件库：文本 / 密码 / 复选件 ${libraryInputs.length} 个，裸原生 input ${nakedInputs.length} 个 / 非 Element Plus 按钮 ${buttons.filter((button) => !button.classList.contains('el-button')).length} 个`,
-    libraryInputs.length === 4 &&
+    libraryInputs.length === 3 &&
       nakedInputs.length === 0 &&
       buttons.length > 0 &&
       buttons.every((button) => button.classList.contains('el-button')),
@@ -264,6 +276,25 @@ onMounted(async () => {
     groupThree,
     '验证码块初始不渲染（策略未强制 / 未失败；时机分支由 tests/login-view.spec.ts 锁定）',
     pick('[data-test="login-captcha"]') === null,
+  )
+  // `20007` 触发展开：桩登录失败返回 `20007` → 租户标识展开并提示（不刷新验证码 / 不计失败）。
+  configureRequestAdapter({
+    request<T>(config: RequestConfig): Promise<T> {
+      if (config.url.includes('/auth/login')) {
+        return Promise.reject(new ApiError(20007, 'need tenant'))
+      }
+      return respond<T>(undefined)
+    },
+  })
+  fillInput(accountInput, 'admin')
+  fillInput(passwordInput, 'secret')
+  pick('[data-test="login-form"]')?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+  await flush()
+  const tenantExpanded = pick('[data-test="login-tenant"]') as HTMLInputElement | null
+  add(
+    groupThree,
+    '收到 20007 展开租户标识输入框并提示「请填写租户标识」',
+    tenantExpanded !== null && (host.value?.textContent ?? '').includes('请填写租户标识'),
   )
   collected.push(groupThree)
 
