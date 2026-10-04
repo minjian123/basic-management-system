@@ -3,8 +3,9 @@
 - 取数：关系数据源（`app.state.tenant_membership`）→ 可访问目标租户集合；租户源
   （`app.state.tenant_source`）→ 目标租户元信息（编码 / 名称 / 库键）。
 - 越权校验：`switch` 的目标租户必须 ∈ 当前用户可访问集合，否则 `TenantAccessDeniedError`（80003 / 403）。
-- 读路径自愈：`my_tenants` 在「自有租户行不存在（无行或已软删）」时幂等补建自有关系
-  （来源 `self_heal`）；专属行已存在（含 `disabled`）则不自愈——回收优先。
+- 读路径自愈：`my_tenants` 与 `switch` 共用同一出口，在「自有租户行不存在（无行或已软删）」时幂等补建
+  自有关系（来源 `self_heal`）；专属行已存在（含 `disabled`）则不自愈——回收优先。自愈**只补自有租户行**，
+  故未接线用户直接 `switch` 自有租户命中、切他人租户仍被拒（不构成越权放宽）。
 - 品牌：本任务不做品牌取数（维持平台默认；品牌来源归品牌来源 / 租户管理阶段）。
 - **不读请求上下文**：当前租户编码 / 主键与用户主键一律由调用方经入参传入（解析链为唯一权威）。
 """
@@ -85,7 +86,7 @@ class DbTenantSelfService(BaseTenantSelfService):
     async def switch(
         self, code: str, *, tenant_id: int | None = None, user_id: int | None = None
     ) -> TenantSwitchResult:
-        """切换到目标租户（越权校验 + 生效语义返回）。
+        """切换到目标租户（越权校验 + 生效语义返回；含读路径自愈）。
 
         Args:
             code: 目标租户编码。
@@ -103,6 +104,7 @@ class DbTenantSelfService(BaseTenantSelfService):
         target = await self._tenants.by_code(code)
         if tenant_id is None or user_id is None:
             raise TenantAccessDeniedError("缺少登录主体，无法校验目标租户可访问性")
+        await self._ensure_self_membership(tenant_id=tenant_id, user_id=user_id)
         targets = await self._membership.list_targets(tenant_id=tenant_id, user_id=user_id)
         if not any(item.tenant_id == target.tenant_id for item in targets):
             raise TenantAccessDeniedError(f"目标租户不可访问：{code}")

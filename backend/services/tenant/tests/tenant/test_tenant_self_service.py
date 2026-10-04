@@ -52,6 +52,9 @@ _OTHER_USER = "9101"
 _ORPHAN_USER = "9201"
 """专用用户主体（「未建立关系」用例；不被其他用例自愈，避免跨用例状态耦合）。"""
 
+_ORPHAN_DENIED_USER = "9301"
+"""专用用户主体（「自愈后仍越权」用例；与 `_ORPHAN_USER` 分离，避免跨用例自愈状态耦合）。"""
+
 
 class _RecordingIdempotency:
     """幂等基座测试替身：内存首次结果表。
@@ -310,12 +313,33 @@ async def test_route_switch_hit_and_denied(client: AsyncClient) -> None:
 
 
 @pytest.mark.kiwi_id(891)
-async def test_route_switch_denied_without_membership(client: AsyncClient) -> None:
-    """真实路由：未建立关系（未走读路径自愈）时切换自有租户亦被拒（越权口径）。"""
+async def test_route_switch_self_heals_without_prior_my_tenants(client: AsyncClient, platform_db_url: str) -> None:
+    """真实路由：未先经 `my_tenants` 时直接切自有租户——`switch` 同出口自愈后命中（200）。"""
     client.headers.update(auth_headers(subject=_ORPHAN_USER))
-    denied = await client.post(f"{API}/switch", json={"code": DEMO_CODE})
-    assert denied.status_code == 403
+    hit = await client.post(f"{API}/switch", json={"code": DEMO_CODE})
+    assert hit.status_code == 200, hit.text
+    data = hit.json()["data"]
+    assert data["tenant_code"] == DEMO_CODE
+    assert data["db_key"] == "tenant_demo"
+    assert data["applied"] is True
+    assert data["reissue_token"] is True
+    # 自愈补建的是自有租户行（来源 self_heal），无需先调 my_tenants
+    assert await membership_source(platform_db_url, tenant_id=1001, user_id=int(_ORPHAN_USER)) == (
+        f"active|{TENANT_MEMBERSHIP_SELF_HEAL_SOURCE}"
+    )
+
+
+@pytest.mark.kiwi_id(891)
+async def test_route_switch_denied_after_self_heal(client: AsyncClient, platform_db_url: str) -> None:
+    """真实路由：自愈只补自有租户行——未接线用户直接切他人租户仍被拒（403 / 80003）。"""
+    client.headers.update(auth_headers(subject=_ORPHAN_DENIED_USER))
+    denied = await client.post(f"{API}/switch", json={"code": ACME_CODE})
+    assert denied.status_code == 403, denied.text
     assert denied.json()["code"] == 80003
+    # 自愈不构成越权放宽：自有租户行已建立，他人租户仍不可达
+    assert await membership_source(platform_db_url, tenant_id=1001, user_id=int(_ORPHAN_DENIED_USER)) == (
+        f"active|{TENANT_MEMBERSHIP_SELF_HEAL_SOURCE}"
+    )
 
 
 @pytest.mark.kiwi_id(891)
