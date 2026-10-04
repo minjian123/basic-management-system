@@ -23,6 +23,9 @@
   //    **容器 / mjbk 只在发布验证时用**（开发机部署说明）；停服务用 `dev:后端本地全套·停（四服务）`
   //    （TERM → 5s → KILL，仍不死则报错交人工）。注意：`清理后端端口.sh 8000 backend` 会连**四服务**一并清掉，
   //    故起四服务请用上述任务，别再用旧的 `后端：单服务` 项（它只起 1 个服务、且不加载密钥与别名）；
+  //  - **后端断点**：上述任务起的是**后台进程（不带调试器）**——要断点用 launch 的
+  //    「后端：单服务（debugpy · 本机四服务）」（经 `ops/dev_run.py` 注入别名 / 密钥 / Redis）；
+  //    先 `本地全套.sh stop <服务>` 腾出该服务，调试完 `up` 一键补回（**前端断点**用新 compound 即可）；
   //  - 运行时模块本地联调口径（阶段五 `03_02` §3.7）：宿主按 `public/modules.json` 加载**发布归档**，
   //    入口形如 `http://localhost:5002/<模块名>/<版本>/remoteEntry.js` → 需先「发布:模块产物」再由
   //    `serve-module-releases.mjs` 在 5002 托管 `frontend/releases/**`（带 CORS；`python3 -m http.server`

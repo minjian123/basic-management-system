@@ -24,6 +24,11 @@ uv run python -m bms_platform          # 各服务启动入口（读 config 的 
 #   bash scripts/tools/dev/本地全套.sh down     # 有界停（TERM → 5s → KILL；仍不死则报错交人工）
 #   # 库结构变更后：up --reset-db（先把 backend/bms_*.db 备份移走）；前端映射：env 子命令
 # 容器 / 开发服务器（mjbk）**只在发布验证时**使用；开发态一律本机裸跑。
+# 后端**断点调试**单个服务（四服务形态）：脚本 up 起的是后台进程（无调试器），故先腾出该服务：
+#   bash scripts/tools/dev/本地全套.sh stop identity      # 停脚本纳管的 identity（其余三个保持）
+#   uv run python -m ops.dev_run --service identity       # 等价命令行；IDE 用 launch 项
+#   # 「后端：单服务（debugpy · 本机四服务）」（即以上为 module）→ 断点 / 变量 / 调用栈齐备
+#   bash scripts/tools/dev/本地全套.sh up                 # 调试完补回四服务
 # 或：uv run uvicorn bms_platform.asgi:app --port 8000
 # 验证：/healthz 返回 {"status":"ok","service":"platform","version":"..."}；/readyz 就绪（依赖不可达为 503）；/docs Swagger
 uv run pytest   # 全量用例（工作区根；含 Kiwi TCMS 用例 ID 标注）

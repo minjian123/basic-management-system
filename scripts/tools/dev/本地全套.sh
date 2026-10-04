@@ -8,9 +8,10 @@
 # - `require_auth` 支持「本地 Bearer 用户令牌」路径、`[edge].require_gateway_identity = false`
 #   ⇒ 不经网关直连服务可行；前端由 `VITE_LOCAL_API`（见 `env` 子命令）按服务就近代理。
 #
-# 用法: 本地全套.sh <up|down|status|seed|env|logs> [选项]
+# 用法: 本地全套.sh <up|down|stop|status|seed|env|logs> [选项]
 #   up                起服务（幂等；已在跑则跳过）+ 自愈 hosts 别名 / 开发密钥，并等待健康
 #   down              停本脚本起的服务（仅按 pid 文件；`--force` 才连带清理 IDE 起的同名进程）
+#   stop <服务名...>  只停指定服务（其余保持纳管）——供「用 debugpy 调试某服务」时腾出该服务
 #   status            进程与 /healthz、/readyz 一览
 #   seed              幂等种子：租户注册库 + 菜单元数据 + 建号（缺省 admin/***REDACTED***）
 #   env               确保 `frontend/apps/desktop/.env.local` 含 `VITE_LOCAL_API` 本地服务映射
@@ -50,7 +51,8 @@ log() { echo "[本地全套] $*"; }
 err() { echo "[本地全套] $*" >&2; }
 
 usage() {
-  sed -n '2,40p' "$0" | sed 's/^# \{0,1\}//'
+  # 打印文件头注释块（锚定到 `set -uo pipefail` 前，避免头部增删行后范围漫进代码）
+  sed -n '2,/^set -uo pipefail/p' "$0" | sed '$d' | sed 's/^# \{0,1\}//'
 }
 
 # 服务 → loopback 别名（与服务基址模板 http://{service}:8000 同形）
@@ -271,6 +273,38 @@ cmd_down() {
   return "$rc"
 }
 
+cmd_stop() {
+  ensure_dirs
+  if [ "$#" -eq 0 ]; then
+    err "用法：本地全套.sh stop <服务名...>（如 stop identity）"
+    return 2
+  fi
+  local svc pid rc=0 stopped=0
+  for svc in "$@"; do
+    svc="${svc#bms_}"
+    if [ -z "$(ip_of "$svc")" ]; then
+      err "未知服务：$svc（可选 tenant / org / platform / identity）"
+      rc=2
+      continue
+    fi
+    if [ ! -f "$STATE_DIR/$svc.pid" ]; then
+      err "$svc 未被本脚本纳管（无 pid 文件）——若它由 IDE 调试启动，请在 IDE 里停止"
+      rc=1
+      continue
+    fi
+    pid="$(cat "$STATE_DIR/$svc.pid")"
+    if kill -0 "$pid" 2>/dev/null; then
+      stop_pid "$svc" "$pid" || rc=1
+    else
+      log "$svc 已不在跑（清理残留 pid 文件）"
+    fi
+    rm -f "$STATE_DIR/$svc.pid"
+    stopped=$((stopped + 1))
+  done
+  [ "$stopped" -gt 0 ] && log "已停 $stopped 个服务（其余仍纳管）；调试完用 up 一键补回"
+  return "$rc"
+}
+
 cmd_status() {
   ensure_dirs
   local svc ip pid health ready
@@ -336,6 +370,7 @@ cmd_logs() {
 
 CMD="${1:-}"
 [ -n "$CMD" ] && shift
+POSITIONAL=()
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --services) SERVICES="${2:-}"; shift 2 ;;
@@ -346,17 +381,19 @@ while [ "$#" -gt 0 ]; do
     --reset-password) RESET_PASSWORD=1; shift ;;
     --force) FORCE=1; shift ;;
     -h|--help) usage; exit 0 ;;
-    *) err "未知参数：$1"; usage >&2; exit 2 ;;
+    -*) err "未知参数：$1"; usage >&2; exit 2 ;;
+    *) POSITIONAL+=("$1"); shift ;;
   esac
 done
 
 case "$CMD" in
   up) cmd_up ;;
   down) cmd_down ;;
+  stop) cmd_stop "${POSITIONAL[@]}" ;;
   status) cmd_status ;;
   seed) cmd_seed ;;
   env) cmd_env ;;
-  logs) cmd_logs "$@" ;;
+  logs) cmd_logs "${POSITIONAL[@]}" ;;
   ""|-h|--help|help) usage ;;
   *) err "未知子命令：$CMD"; usage >&2; exit 2 ;;
 esac

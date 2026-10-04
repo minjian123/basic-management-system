@@ -159,6 +159,26 @@
       "request": "launch",
       "command": "bash \"${workspaceFolder}/scripts/tools/dev/本地全套.sh\" up && exec bash -i",
       "cwd": "${workspaceFolder}"
+    },
+    {
+      // **后端断点**用本项（「后端：本地全套（四服务 · 脚本）」是脚本起的后台进程，不带调试器）。
+      // 步骤：① 脚本起的四个服务里先腾出要调试的那个：
+      //   `bash scripts/tools/dev/本地全套.sh stop identity`（或任务「dev:后端本地全套·停（四服务）」后
+      //   用任务 up 只起其余——`本地全套.sh up --services "tenant org platform"`）；
+      // ② 启动本项（选服务）→ 由 `ops/dev_run.py` 注入 loopback 别名（127.0.0.2~5）+ 同一 8000 端口
+      //   + `backend/.dev-keys.local` 开发密钥 + Redis，再 runpy 进服务入口 ⇒ 断点 / 变量 / 调用栈与
+      //   `python -m bms_<服务>` 一致（`justMyCode: false`：可步入框架与基座代码）；
+      // ③ 调试会话停止即服务结束，之后 `本地全套.sh up` 一键补回。
+      "name": "后端：单服务（debugpy · 本机四服务）",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "ops.dev_run",
+      "args": ["--service", "${input:backendService}"],
+      "cwd": "${workspaceFolder}/backend",
+      "python": "${workspaceFolder}/backend/.venv/bin/python",
+      "console": "integratedTerminal",
+      "justMyCode": false,
+      "env": { "PYTHONUNBUFFERED": "1" }
     }
   ],
   "compounds": [
@@ -170,6 +190,8 @@
       "configurations": ["后端：单服务（debugpy · bms_identity）", "前端：宿主 + 模块 + Chromium（浏览器断点）"]
     },
     {
+      // 一键：四服务（脚本，后台进程）+ 宿主 + 模块产物 + Chromium。**前端断点可直接用**（Chromium 调试会话）；
+      // **后端断点**请改用「后端：单服务（debugpy · 本机四服务）」单项（先 `本地全套.sh stop <服务>` 腾位）。
       "name": "全套（本地四服务 + 宿主 + Chromium）",
       "configurations": ["后端：本地全套（四服务 · 脚本）", "前端：宿主 + 模块 + Chromium（浏览器断点）"]
     }
