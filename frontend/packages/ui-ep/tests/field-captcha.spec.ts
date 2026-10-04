@@ -333,6 +333,39 @@ describe('SliderCaptcha（服务端合成滑块件）', () => {
     expect(piece.exists()).toBe(true)
     expect(piece.attributes('src')).toBe('data:image/png;base64,BBBB')
     expect(wrapper.find('[data-test="captcha-slider-gap"]').exists()).toBe(false)
+    // 缺块图几何（旧载荷）：按块图自然边长（未加载时 48）与画布 150 回退 ⇒ 高 32%、垂直居中 34%；不再全高钉左上。
+    expect(piece.attributes('style')).toContain('top: 34%')
+    expect(piece.attributes('style')).toContain('height: 32%')
+    wrapper.unmount()
+  })
+
+  it('按载荷块图几何定位（piece_size / piece_y → 顶部与高度按画布比例）', async () => {
+    const payload = JSON.stringify({
+      background: 'AAAA',
+      slider: 'BBBB',
+      width: 300,
+      height: 150,
+      piece_size: 48,
+      piece_y: 75,
+    })
+    const source = createCaptchaSourceStub({
+      challenge: async (query) => ({
+        captcha_id: 'c1',
+        kind: query.kind,
+        image: '',
+        expires_in: 300,
+        scene: query.scene,
+        payload,
+        target: '',
+        cooldown: 0,
+      }),
+    })
+    const wrapper = mount(SliderCaptcha, { props: { ready: true, source: source.source } })
+    await flushPromises()
+    const style = wrapper.find('[data-test="captcha-slider-piece"]').attributes('style') ?? ''
+    expect(style).toContain('left: 0%')
+    expect(style).toContain('top: 50%') // 75 / 150
+    expect(style).toContain('height: 32%') // 48 / 150
     wrapper.unmount()
   })
 

@@ -177,6 +177,24 @@ describe('滑块参数与轨迹', () => {
     })
   })
 
+  it('解析服务端块图几何（piece_size / piece_y；横坐标恒不下发）', () => {
+    expect(
+      parseCaptchaSliderParams('{"slider":"BBBB","width":300,"height":150,"piece_size":48,"piece_y":77}'),
+    ).toEqual({
+      slider: 'data:image/png;base64,BBBB',
+      width: 300,
+      height: 150,
+      pieceSize: 48,
+      pieceY: 77,
+    })
+    // 旧载荷（无块图几何）：不产生字段，件侧回退块图自然尺寸与垂直居中。
+    expect(parseCaptchaSliderParams('{"slider":"BBBB","width":300,"height":150}')).toEqual({
+      slider: 'data:image/png;base64,BBBB',
+      width: 300,
+      height: 150,
+    })
+  })
+
   it('轨迹归一兼容数组与对象、剔除非法点；提交形态为 [x, y, t]', () => {
     expect(normalizeCaptchaTrace([[0, 0, 0], { x: 10.4, y: 2, t: 50 }, ['bad'], null])).toEqual([
       { x: 0, y: 0, t: 0 },

@@ -113,6 +113,10 @@ export interface CaptchaSliderParams {
   width?: number
   /** 画布高度（像素）。 */
   height?: number
+  /** 块图边长（像素；随载荷下发 `piece_size`，缺省按块图自然尺寸回退）。 */
+  pieceSize?: number
+  /** 块图纵向位置（像素；随载荷下发 `piece_y`，缺省垂直居中）。 */
+  pieceY?: number
 }
 /** 场景策略（与后端 `CaptchaScenePolicy` 同源）。 */
 export interface CaptchaPolicy {
@@ -304,6 +308,15 @@ export function parseCaptchaSliderParams(payload: unknown): CaptchaSliderParams 
   const height = readNonNegative(record.height ?? record.h)
   if (height !== undefined) {
     params.height = height
+  }
+  // 块图几何：服务端下发块边长与纵向位置（横坐标 `gap_x` 保密，恒不下发）。
+  const pieceSize = readNonNegative(record.piece_size ?? record.pieceSize)
+  if (pieceSize !== undefined) {
+    params.pieceSize = pieceSize
+  }
+  const pieceY = readNonNegative(record.piece_y ?? record.pieceY)
+  if (pieceY !== undefined) {
+    params.pieceY = pieceY
   }
   return params
 }

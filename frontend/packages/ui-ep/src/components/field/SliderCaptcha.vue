@@ -205,6 +205,40 @@ function imageWidth(): number {
   return params.width !== undefined && params.width > 0 ? params.width : trackWidth()
 }
 
+/** 百分比钳制（0–100；块图几何换算用）。 */
+function clampPercent(value: number): number {
+  return Math.min(100, Math.max(0, value))
+}
+
+/** 块图自然边长（载荷未给 `piece_size` 时按块图自身尺寸回退；缺省 48）。 */
+const pieceNatural = ref(0)
+
+/** 块图几何：按画布宽高把缺口高度与块边长换算为百分比（横坐标随拖动位移 `percent`）。 */
+const pieceStyle = computed(() => {
+  const params = sliderParams.value
+  const height = params.height !== undefined && params.height > 0 ? params.height : 150
+  const natural = pieceNatural.value > 0 ? pieceNatural.value : 48
+  const size = params.pieceSize !== undefined && params.pieceSize > 0 ? params.pieceSize : natural
+  const top = params.pieceY !== undefined && params.pieceY >= 0 ? params.pieceY : (height - size) / 2
+  return {
+    left: `${percent.value}%`,
+    top: `${clampPercent((top / height) * 100)}%`,
+    height: `${clampPercent((size / height) * 100)}%`,
+  }
+})
+
+/**
+ * 记录块图自然边长（载荷未带 `piece_size` 时的回退依据）。
+ *
+ * @param event 图片加载事件。
+ */
+function onPieceLoad(event: Event): void {
+  const image = event.target as HTMLImageElement | null
+  if (image !== null) {
+    pieceNatural.value = image.naturalWidth
+  }
+}
+
 /**
  * 开始拖动（记录起点 + 采样首点）。
  *
@@ -356,9 +390,10 @@ async function onRefresh(): Promise<void> {
           v-if="sliderUrl !== ''"
           class="bms-slider-captcha__piece"
           :src="sliderUrl"
-          :style="{ left: `${percent}%` }"
+          :style="pieceStyle"
           alt=""
           data-test="captcha-slider-piece"
+          @load="onPieceLoad"
         />
       </div>
 
@@ -419,12 +454,18 @@ async function onRefresh(): Promise<void> {
   height: 100%;
   object-fit: contain;
 }
+/* 块图几何由 `pieceStyle` 内联给出（left 随拖动；top / height 按画布比例与缺口高度）；
+   此处只保留定位与宽高自适应的默认值，不再固定 `top: 0; height: 100%`（否则块图被拉成全高方块）。 */
 .bms-slider-captcha__piece {
   position: absolute;
   top: 0;
-  height: 100%;
+  height: auto;
+  width: auto;
   object-fit: contain;
   pointer-events: none;
+  /* 块图为缺口原像素切片（与背景同纹理）：加描边与投影以便辨识与对齐 */
+  outline: 1px solid var(--bms-captcha-border);
+  box-shadow: var(--bms-shadow-md);
 }
 .bms-slider-captcha__track {
   position: relative;

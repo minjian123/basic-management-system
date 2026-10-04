@@ -112,11 +112,14 @@ async def test_generate_slider_image_payload_and_record(redis_client: fakeredis.
     assert challenge.cooldown == 0
 
     raw = json.loads(challenge.payload)
-    assert set(raw) == {"background", "slider", "width", "height"}
+    assert set(raw) == {"background", "slider", "width", "height", "piece_size", "piece_y"}
+    # 横坐标 `gap_x` 为判定依据，**不得下发**；块图尺寸与纵坐标必须下发（客户端据此把块图绘到缺口高度）。
     assert "gap_x" not in challenge.payload
-    assert "gap_y" not in challenge.payload
     assert raw["width"] == 240
     assert raw["height"] == 120
+    assert raw["piece_size"] == 40
+    assert isinstance(raw["piece_y"], int)
+    assert 40 <= raw["piece_y"] < 120 - 40
 
     background = base64.b64decode(raw["background"])
     slider = base64.b64decode(raw["slider"])

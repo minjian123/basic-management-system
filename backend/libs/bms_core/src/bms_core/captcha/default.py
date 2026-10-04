@@ -448,7 +448,7 @@ class DefaultCaptcha(BaseCaptcha):
         )
 
     async def _generate_slider(self, scene: str) -> CaptchaChallenge:
-        """生成滑块挑战（合成带缺口背景 + 滑块块图；缺口坐标只存 Redis 不下发）。
+        """生成滑块挑战（合成带缺口背景 + 滑块块图；缺口**横坐标**只存 Redis 不下发，纵坐标随载荷下发）。
 
         Args:
             scene: 使用场景。
@@ -477,6 +477,10 @@ class DefaultCaptcha(BaseCaptcha):
                     "slider": base64.b64encode(slider).decode(),
                     "width": self._slider.width,
                     "height": self._slider.height,
+                    # 块图尺寸与**纵坐标**随载荷下发：客户端据此把块图绘到缺口所在高度（横坐标 `gap_x` 保密，
+                    # 判定仍是「末点 x 与 `gap_x` 的偏差 ≤ `slider_tolerance`」）。
+                    "piece_size": self._slider.piece_size,
+                    "piece_y": gap_y,
                 }
             )
         )
