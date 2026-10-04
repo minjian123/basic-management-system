@@ -269,6 +269,25 @@
         <li>组件库映射：PC 端映射 Element Plus（五语义色 + 全色阶经 <code>color-mix()</code> 运行时派生 + 圆角 + 字体族与基础字号）；移动端映射 Vant 四语义色；租户品牌覆盖（动态主色与色阶跟随）归《<a href="03_布局设计_主题与租户品牌化.html">主题与租户品牌化</a>》。</li>
       </ul>
 
+      <h3 id="layout-token">布局与阶梯令牌补全（2026-10-04 登记，阶段七 06_01）</h3>
+      <p>阶段七补齐前端主框架布局族样式时，按需补全下列基础阶梯令牌与布局结构令牌（<strong>新增令牌先登记后使用</strong>；既有 <code>--bms-spacing-*</code> 保留不动，存量组件继续消费）。</p>
+      <table>
+        <tr><th>令牌</th><th>值</th><th>用途</th></tr>
+        <tr><td><code>--bms-space-1/2/3/4/6/8</code></td><td>4 / 8 / 12 / 16 / 24 / 32 px</td><td>间距阶梯（4px 基准数字步进）；布局族新样式消费</td></tr>
+        <tr><td><code>--bms-radius-lg</code></td><td><code>8px</code></td><td>大卡片 / 抽屉圆角（既有 <code>--bms-radius-sm(2)</code> / <code>--bms-radius-md(4)</code> 保留）</td></tr>
+        <tr><td><code>--bms-font-size-xs / -sm / -lg</code></td><td>12 / 13 / 16 px</td><td>字号阶梯（页面标题 16 / 次要说明 13 / 辅助 12）；<code>--bms-font-size</code> 为档位跟随的基准字号</td></tr>
+        <tr><td><code>--bms-color-bg-page</code></td><td>亮 <code>#f5f7fa</code> / 暗 <code>#18191a</code></td><td>页面 / 内容区底色（与浮层底 <code>--bms-color-bg</code> 分层）</td></tr>
+        <tr><td><code>--bms-layout-sidebar-width</code> / <code>-collapsed-width</code></td><td>220px / 64px</td><td>侧栏展开 / 折叠宽</td></tr>
+        <tr><td><code>--bms-layout-header-height</code></td><td>56px</td><td>顶栏高</td></tr>
+        <tr><td><code>--bms-layout-content-padding</code></td><td>24px（宽屏）/ 16px（<code>≤992px</code> 媒体查询覆盖）</td><td>内容区边距</td></tr>
+      </table>
+      <ul>
+        <li>落点：<code>frontend/apps/desktop/src/styles/tokens.scss</code>（亮 / 暗两套 + 媒体查询覆盖）；存在性由宿主 <code>tests/tokens.spec.ts</code> 断言、硬编码色值由 <code>ui-ep/tests/guard-tokens.spec.ts</code> 拦截。</li>
+        <li><strong>6px 圆角档说明</strong>：设计语义圆角阶梯为 4 / 6 / 8px，工程既有为 <code>sm(2)</code> / <code>md(4)</code> / 新增 <code>lg(8)</code>；6px 档在工程以 <code>--bms-radius-md</code> 就近取用（库内一致优先，随品牌化任务统一评估）。</li>
+        <li>消费口径：布局族与新增件一律消费新阶梯，<strong>不硬编码色值与尺寸</strong>；组件样式入件 <code>&lt;style scoped&gt;</code>，类名 kebab-case（BEM 简化）。</li>
+      </ul>
+      <p><strong>组件库变量映射补全（2026-10-04 登记，阶段七 06_01）</strong>：为让布局族内嵌的 Element Plus 件（侧栏菜单 / 搜索输入 / 树 / 折叠 / 卡片 / 页签）随亮暗主题经令牌切换，<code>tokens.scss</code> 的 EP 映射节在既有 5 个色变量之外补全 <code>--el-bg-color*</code> / <code>--el-fill-color*</code> / <code>--el-text-color-*</code> / <code>--el-border-color*</code> / <code>--el-color-primary-light-9</code> 至令牌（<strong>单一来源</strong>，映射值只引用令牌）。亮色下个别 EP 默认灰阶被令牌值替代（如 <code>--el-text-color-regular</code> #606266 → <code>--bms-color-text</code> #303133），色阶影响随品牌化任务统一评估；EP 组件<strong>完整</strong>深色适配（按钮 / 表格 / 弹窗等未映射变量与色阶派生）仍归品牌化任务。</p>
+
       <h3 id="component-token">组件令牌（size / density，2026-09-16 登记）</h3>
       <pre><code>/* frontend/apps/{desktop,mobile}/src/styles/tokens.scss —— 组件根属性协议（两端各自导入） */
 :root {
