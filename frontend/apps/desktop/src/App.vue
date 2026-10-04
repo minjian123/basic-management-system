@@ -8,6 +8,7 @@ import ModuleBoundary from '@/components/ModuleBoundary.vue'
 import { useMenuExpanded } from '@/composables/useMenuExpanded'
 import { moduleMenuGroups } from '@/module/host'
 import { registries, registriesRevision } from '@/module/registries'
+import { isStandalonePath } from '@/router/layout-scope'
 import { useMenuStore } from '@/stores/menu'
 import { useSessionStore } from '@/stores/session'
 import { canAccess } from '@/utils/perm'
@@ -22,6 +23,10 @@ const sideMenu = useSideMenu({ menu: computed(() => menuStore.tree), canAccess }
 const tabNav = useTabNav({ storageKey: 'bms:desktop:tabs' })
 const menuExpanded = useMenuExpanded()
 
+// 独立全屏页（登录族：`/login`、`/login/qr`）：只渲染 `router-view`，**不套主框架外壳**、不入页签
+// （需求 05-1「独立全屏页 + 居中单卡片」；判定见 `@/router/layout-scope`）。
+const standalone = computed(() => isStandalonePath(route.path))
+
 // 模块菜单装配泛化：模块经路由 meta 声明菜单（title / icon / group / groupIcon / devOnly），
 // 宿主从注册表快照按来源分组装配（不再硬编码 demo 分组）；`devOnly` 项生产态隐藏。
 const menu = computed(() => {
@@ -32,6 +37,11 @@ const menu = computed(() => {
 watch(
   () => route.fullPath,
   () => {
+    if (standalone.value) {
+      // 独立全屏页不入页签：既无外壳展示，也顺手清掉历史残留的登录页签
+      void tabNav.close(route.fullPath)
+      return
+    }
     tabNav.open({
       key: route.fullPath,
       title: String(route.meta.title ?? route.name ?? route.path),
@@ -82,6 +92,8 @@ async function onTabClose(key: string): Promise<void> {
       </div>
     </div>
   </div>
+  <!-- 独立全屏页（登录族）：只渲染路由内容，不套主框架外壳 -->
+  <router-view v-else-if="standalone" />
   <main-layout
     v-else
     :menu="menu"
