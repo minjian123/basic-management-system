@@ -23,7 +23,10 @@ uv run python -m bms_platform          # 各服务启动入口（读 config 的 
 #     └ 缺省账号 `admin`；**口令缺省随机生成并仅打印一次**——凭据**只登记在《bms文档/用户文档/本地资源.md》
 #       「BMS 应用账号」节**（凭据不入库、不写入其他文档；可 `--username` / `--password` 覆盖）
 #   bash scripts/tools/dev/本地全套.sh status   # 进程与 /healthz、/readyz 一览
+#   bash scripts/tools/dev/本地全套.sh unlock   # 解锁账号（清失败计数 / 锁定时间 + Redis 计数键）
 #   bash scripts/tools/dev/本地全套.sh down     # 有界停（TERM → 5s → KILL；仍不死则报错交人工）
+#   # 登录防爆破：5 次失败锁 15 分钟（20003「账号已锁定」）——**验验证码请用不存在的账号试错口令**，
+#   # 别拿真账号连试错密码；真被锁了跑上面的 unlock。
 #   # 库结构变更后：up --reset-db（先把 backend/bms_*.db 备份移走）；前端映射：env 子命令
 # 容器 / 开发服务器（mjbk）**只在发布验证时**使用；开发态一律本机裸跑。
 # 后端**断点调试**单个服务（四服务形态）：脚本 up 起的是后台进程（无调试器），故先腾出该服务：

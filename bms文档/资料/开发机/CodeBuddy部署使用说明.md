@@ -385,13 +385,15 @@ IDE 的「运行和调试」下拉由 `.vscode/launch.json`（启动项）与 `.
 | 本地登录**恒 401**，但四服务 `/healthz`、`/readyz` 都 200 | 本地库里**没有可用账号**（多为 `本地全套.sh up --reset-db` 重建库后未建号——现象易误判为「登录链路不通」）：跑 `bash scripts/tools/dev/本地全套.sh seed`（租户 + 菜单 + 建号 `admin`），或 `ops.seed_user` 指定 `--username/--password`（见 [8.5](#local-stack)）                                                                                                                                             |
 | 点了「全套」后登录反而不通、先前跑着的后端被杀                      | 用的是旧「全套：后端单服务 + 宿主 + Chrome」：其前置任务`清理后端端口（8000）` 按端口清理，会把本地全套的**四服务全部清掉**，且只起 `bms_identity` 一个（无密钥 / 无别名）→ 本地开发改用「全套（本地四服务 + 宿主 + Chrome）」（见 [8.5](#local-stack)）                                                                                                                                                            |
 
+| 登录报 `20003`「**账号已锁定，请联系管理员或稍后重试**」                      | 触发登录防爆破：**连续 5 次失败锁 15 分钟**（`[security].login.max_failures` / `lock_seconds`；失败计数在 Redis、锁定时间记 `sys_user.locked_until`）。多为**拿真账号反复试错口令**所致（**验验证码请改用不存在的账号试错口令**）：当场解锁跑 `bash scripts/tools/dev/本地全套.sh unlock`（清 `failed_count` / `locked_until` + 删 Redis 计数键），或等锁定到期 |
+
 ### 8.5 本机裸跑后端「全套」（本地开发主形态） <a id="local-stack"></a>
 
 **口径**：开发态**一律本机裸跑**——`bms/backend/config.dev.toml` 本就是 SQLite 本地库 + 内存缓存 + 字典/参数走 SQL，**不需要 Docker，也不需要在 mjbk（开发服务器）上部署**；容器 / 开发服务器**只在发布时**用于发布验证。四个服务各绑一个 loopback 别名并**共用 8000 端口**，与服务间基址模板 `http://{service}:8000` 同形（故服务间调用、网关内路径与容器形态一致）。
 
 | 项       | 取值 / 做法                                                                                                                          |
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| 脚本     | `bms/scripts/tools/dev/本地全套.sh`（子命令 `up` / `down` / `stop <服务…>` / `status` / `seed` / `env` / `logs`）   |
+| 脚本     | `bms/scripts/tools/dev/本地全套.sh`（子命令 `up` / `down` / `stop <服务…>` / `status` / `seed` / `env` / `logs` / `unlock [账号]`）   |
 | 别名     | `127.0.0.2 tenant`、`127.0.0.3 org`、`127.0.0.4 platform`、`127.0.0.5 identity`（`up` 自愈写入 `/etc/hosts`，sudo 免密） |
 | 开发密钥 | `bms/backend/.dev-keys.local`（`up` 缺则用 `joserfc` 生成：`usr-` 用户令牌 + `svc-` 服务令牌两组；不入库）                 |
 | Redis    | 缺省`redis://192.168.0.107:6379/5`（本机无 Redis，指向开发机 DB5 隔离；`BMS_LOCAL_REDIS` 或 `--redis` 覆盖）                   |
@@ -407,6 +409,7 @@ bash scripts/tools/dev/本地全套.sh up              # 起四服务（幂等�
 bash scripts/tools/dev/本地全套.sh seed            # 租户注册库 + 菜单元数据 + 建号 admin（幂等）
 bash scripts/tools/dev/本地全套.sh status          # 进程与 /healthz、/readyz 一览
 bash scripts/tools/dev/本地全套.sh stop identity   # 只停一个（供后端断点腾位）
+bash scripts/tools/dev/本地全套.sh unlock          # 解锁账号（清失败计数 / 锁定时间 + Redis 计数键）
 bash scripts/tools/dev/本地全套.sh down            # 停全部：TERM → 5s → KILL；仍不死则报错交人工
 ```
 

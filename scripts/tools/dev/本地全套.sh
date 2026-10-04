@@ -8,7 +8,7 @@
 # - `require_auth` 支持「本地 Bearer 用户令牌」路径、`[edge].require_gateway_identity = false`
 #   ⇒ 不经网关直连服务可行；前端由 `VITE_LOCAL_API`（见 `env` 子命令）按服务就近代理。
 #
-# 用法: 本地全套.sh <up|down|stop|status|seed|env|logs> [选项]
+# 用法: 本地全套.sh <up|down|stop|status|seed|env|logs|unlock> [选项]
 #   up                起服务（幂等；已在跑则跳过）+ 自愈 hosts 别名 / 开发密钥，并等待健康
 #   down              停本脚本起的服务（仅按 pid 文件；`--force` 才连带清理 IDE 起的同名进程）
 #   stop <服务名...>  只停指定服务（其余保持纳管）——供「用 debugpy 调试某服务」时腾出该服务
@@ -16,6 +16,9 @@
 #   seed              幂等种子：租户注册库 + 菜单元数据 + 建号（缺省账号 admin；口令随机生成并打印一次）
 #   env               确保 `frontend/apps/desktop/.env.local` 含 `VITE_LOCAL_API` 本地服务映射
 #   logs [服务名]     打印日志尾部（缺省全部服务；追看用 tail -f）
+#   unlock [账号]     解锁账号：清 `sys_user.failed_count` / `locked_until` + 删 Redis 登录失败计数键
+#                     （登录阈值 5 次 / 锁 15 分钟：**验验证码请用不存在的账号试错口令**，
+#                      别拿真账号连试错密码，否则真账号被锁 20003「账号已锁定」）
 #
 # 选项:
 #   --services "a b c"   要起的服务（缺省 tenant org platform identity）
@@ -341,6 +344,36 @@ cmd_seed() {
   return "$rc"
 }
 
+cmd_unlock() {
+  [ -x "$PY" ] || { err "缺后端虚拟环境：$PY"; return 1; }
+  local account="$USERNAME"
+  log "解锁：$account（清 org 库失败计数 / 锁 + Redis 登录失败计数键）"
+  ( cd "$BACKEND" && BMS_UNLOCK_ACCOUNT="$account" BMS_UNLOCK_REDIS="$REDIS_URL" "$PY" - <<'PY'
+import os
+import sqlite3
+
+import redis
+
+account = os.environ["BMS_UNLOCK_ACCOUNT"]
+org = sqlite3.connect("bms_org_demo.db")
+rows = list(org.execute("select failed_count, locked_until from sys_user where username = ?", (account,)))
+if not rows:
+    print(f"[unlock] 未找到账号：{account}（bms_org_demo.db 的 sys_user）")
+    raise SystemExit(2)
+org.execute("update sys_user set failed_count = 0, locked_until = NULL where username = ?", (account,))
+org.commit()
+print(f"[unlock] {account}：failed_count / locked_until {rows[0]} → (0, None)")
+
+tenants = list(sqlite3.connect("bms_tenant.db").execute("select id from sys_tenant where code = 'demo'"))
+client = redis.from_url(os.environ["BMS_UNLOCK_REDIS"], socket_timeout=5)
+keys = [key for key in client.scan_iter("bms:*:rate:login*") if account.encode() in key]
+print(f"[unlock] Redis 登录失败计数键：{keys or '（无）'}")
+if keys:
+    print(f"[unlock] 已删 {client.delete(*keys)} 个键（租户主键 {tenants[0][0] if tenants else '?'}）")
+PY
+  )
+}
+
 cmd_env() {
   local mapping="" svc
   for svc in tenant org platform identity; do
@@ -400,6 +433,7 @@ case "$CMD" in
   seed) cmd_seed ;;
   env) cmd_env ;;
   logs) cmd_logs "${POSITIONAL[@]}" ;;
+  unlock) cmd_unlock ;;
   ""|-h|--help|help) usage ;;
   *) err "未知子命令：$CMD"; usage >&2; exit 2 ;;
 esac
