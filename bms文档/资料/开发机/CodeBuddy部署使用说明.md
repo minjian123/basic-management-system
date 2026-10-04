@@ -388,6 +388,8 @@ IDE 的「运行和调试」下拉由 `.vscode/launch.json`（启动项）与 `.
 | 登录报 `20002`「**账号或密码错误**」                                          | 服务端与账号状态正常时多为**口令不对**：口令**以《[本地资源](../../用户文档/本地资源.md)》「BMS 应用账号」节的当前登记为准**（**历史对话 / 旧文档里出现过的口令一律视为已失效**——口令轮换后旧值即不可用；凭据只登记在该节，见《AI开发规范》）；另注意浏览器**自动填充**了旧口令（点密码框清空后重输）。连续失败 5 次会触发锁号（见下一行） |
 | 登录报 `20003`「**账号已锁定，请联系管理员或稍后重试**」                      | 触发登录防爆破：**连续 5 次失败锁 15 分钟**（`[security].login.max_failures` / `lock_seconds`；失败计数在 Redis、锁定时间记 `sys_user.locked_until`）。多为**拿真账号反复试错口令**所致（**验验证码请改用不存在的账号试错口令**）：当场解锁跑 `bash scripts/tools/dev/本地全套.sh unlock`（清 `failed_count` / `locked_until` + 删 Redis 计数键），或等锁定到期 |
 
+| ESLint 扩展报 `Parsing error: No tsconfigRootDir was set, and multiple candidate TSConfigRootDirs are present`（打开 `frontend/{modules,packages,apps}/*` 下文件时） | monorepo 里**每个包各一份 `eslint.config.js`**（宿主 / 组件库 / 运行时模块），而扩展**未指定工作目录** ⇒ 默认启发式把 `apps/desktop` 的配置套到别的包的文件上，解析器看到**多个候选 tsconfig 根**即报错（**与文件内容无关**：`startLineNumber=1` 空范围 = 解析期；`pnpm --filter <包> lint` 本身是通过的）。**修法（已落地）**：① 两处 `.vscode/settings.json` 加 `eslint.useFlatConfig` / `eslint.workingDirectories: [{ "mode": "auto" }]`（按文件就近取配置）/ `eslint.validate`；② 各包 `eslint.config.js` 加 `parserOptions.tsconfigRootDir: import.meta.dirname` 锚定自身（双保险）。**改完需「Developer: Reload Window」重载才生效** |
+
 ### 8.5 本机裸跑后端「全套」（本地开发主形态） <a id="local-stack"></a>
 
 **口径**：开发态**一律本机裸跑**——`bms/backend/config.dev.toml` 本就是 SQLite 本地库 + 内存缓存 + 字典/参数走 SQL，**不需要 Docker，也不需要在 mjbk（开发服务器）上部署**；容器 / 开发服务器**只在发布时**用于发布验证。四个服务各绑一个 loopback 别名并**共用 8000 端口**，与服务间基址模板 `http://{service}:8000` 同形（故服务间调用、网关内路径与容器形态一致）。

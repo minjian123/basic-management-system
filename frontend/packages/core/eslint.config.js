@@ -5,6 +5,12 @@ import tseslint from 'typescript-eslint'
 export default tseslint.config(
   { name: 'core/files-to-lint', files: ['**/*.{ts,mts}'] },
   { name: 'core/files-to-ignore', ignores: ['**/coverage/**', '**/node_modules/**'] },
+  {
+    // 显式锚定 TS 配置根（monorepo 多包各一份配置，工具工作目录不确定时会报「多个候选 TSConfigRootDirs」）
+    name: 'core/tsconfig-root',
+    files: ['**/*.{ts,mts}'],
+    languageOptions: { parserOptions: { tsconfigRootDir: import.meta.dirname } },
+  },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   skipFormatting,

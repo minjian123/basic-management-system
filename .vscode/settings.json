@@ -12,5 +12,12 @@
     "backend/alembic",
     "**/alembic/**"
   ],
-  "basedpyright.analysis.exclude": ["alembic", "backend/alembic", "**/alembic/**"]
+  "basedpyright.analysis.exclude": ["alembic", "backend/alembic", "**/alembic/**"],
+  // ESLint（flat config）：monorepo 下**每个包各一份** `eslint.config.js`（`frontend/{apps,packages,modules}/*`），
+  // 必须让扩展「按被检查文件就近取配置」——否则它会把 `apps/desktop` 的配置套到 `modules/*` 的文件上，
+  // 解析器随即报「No tsconfigRootDir was set, and multiple candidate TSConfigRootDirs are present」。
+  // 双保险：各包 `eslint.config.js` 亦已把 `parserOptions.tsconfigRootDir` 锚到自身目录。
+  "eslint.useFlatConfig": true,
+  "eslint.workingDirectories": [{ "mode": "auto" }],
+  "eslint.validate": ["javascript", "typescript", "vue"]
 }
