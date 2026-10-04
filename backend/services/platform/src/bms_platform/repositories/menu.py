@@ -76,7 +76,7 @@ async def _replace_i18n(
     key_attr = getattr(model, key_column)
     existing = (await session.execute(select(model).where(key_attr == owner_id, model.deleted_at.is_(None)))).scalars()
     for row in existing.all():
-        cast("Any", row).soft_delete()
+        row.soft_delete()
     for locale, name in names.items():
         session.add(model(**{key_column: owner_id, "locale": locale, "name": name}))
     await session.flush()

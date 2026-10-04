@@ -5,9 +5,8 @@
 """
 
 import os
-from typing import cast
+from typing import Any, cast
 
-import pytest_asyncio
 from sqlalchemy import Table, delete, select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
@@ -26,7 +25,7 @@ from bms_platform.models.menu import (
     SysMenuI18n,
 )
 
-MENU_MODELS: tuple[type[object], ...] = (
+MENU_MODELS: tuple[Any, ...] = (
     SysMenuI18n,
     SysMenu,
     SysButton,
@@ -163,14 +162,12 @@ async def outbox_types(aggregate_key: str) -> list[str]:
         await engine.dispose()
 
 
-@pytest_asyncio.fixture(autouse=True)
-async def clean_menu_tables(platform_db: None) -> None:
-    """菜单元数据表逐用例清场（会话级平台库共享）。
+async def reset_menu_tables() -> None:
+    """菜单元数据十表建表（缺则建）并清空（会话级平台库共享，逐用例调用于隔离数据）。
 
-    Args:
-        platform_db: 平台库夹具（确保平台库连接串已注入）。
+    用例侧以 autouse 夹具调用本函数（`tests_support` 只导出普通函数，夹具就地声明）。
     """
-    tables = [cast("Table", model.__table__) for model in MENU_MODELS]  # type: ignore[attr-defined]
+    tables = [cast("Table", model.__table__) for model in MENU_MODELS]
     engine = create_async_engine(platform_url())
     try:
         async with engine.begin() as connection:

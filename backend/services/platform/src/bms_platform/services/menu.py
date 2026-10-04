@@ -10,7 +10,6 @@
 写路径统一「单次 `uow.begin()` 包住探测 + 写 + 发件箱」，避免会话重复开启事务。
 """
 
-from datetime import datetime
 from typing import Annotated, cast
 
 from pydantic import Field
@@ -438,8 +437,8 @@ class MenuMetadataService(BaseFrameworkObject):
                 business_id=row.business_id,
                 component=row.component,
                 status=row.status,
-                created_at=cast("datetime", row.created_at),
-                updated_at=cast("datetime", row.updated_at),
+                created_at=row.created_at,
+                updated_at=row.updated_at,
             )
             for row in rows
             if menu_id is None or row.menu_id == menu_id

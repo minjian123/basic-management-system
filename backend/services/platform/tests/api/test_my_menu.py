@@ -7,15 +7,27 @@
 from typing import Any
 
 import pytest
+import pytest_asyncio
 from httpx import AsyncClient
 
 from tests_support.menu_metadata import (
-    clean_menu_tables,  # noqa: F401  （pytest 夹具：逐用例清场）
     insert_form,
+    reset_menu_tables,
     seed_action,
     seed_business,
     set_business_status,
 )
+
+
+@pytest_asyncio.fixture(autouse=True)
+async def clean_menu_tables(platform_db: None) -> None:
+    """菜单元数据表逐用例清场（会话级平台库共享）。
+
+    Args:
+        platform_db: 平台库夹具（确保平台库连接串已注入）。
+    """
+    await reset_menu_tables()
+
 
 _MENUS = "/api/v1/menus"
 _FORMS = "/api/v1/forms"

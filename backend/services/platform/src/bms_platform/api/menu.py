@@ -9,7 +9,6 @@
 - **动态菜单**：`GET /api/v1/menus/my` 登录即可访问，按当前用户权限过滤菜单树并下发表单元数据。
 """
 
-from datetime import datetime
 from typing import Annotated, cast
 
 from fastapi import Depends, Query, Request
@@ -224,8 +223,8 @@ def _form_item(row: SysForm) -> FormItem:
         business_id=row.business_id,
         component=row.component,
         status=row.status,
-        created_at=cast("datetime", row.created_at),
-        updated_at=cast("datetime", row.updated_at),
+        created_at=row.created_at,
+        updated_at=row.updated_at,
     )
 
 

@@ -20,9 +20,9 @@ uv run python -m ops.seed_menu --dry-run
 
 import argparse
 import asyncio
-from typing import Any
+from typing import Any, cast
 
-from sqlalchemy import select
+from sqlalchemy import Table, select
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
@@ -229,7 +229,22 @@ FIELD_SEEDS: tuple[tuple[str, str, str, str, str, int], ...] = (
 )
 
 
-async def _exists(session: AsyncSession, model: Any, *conditions: object) -> bool:
+_MENU_TABLES: tuple[Table, ...] = (
+    cast("Table", SysBusiness.__table__),
+    cast("Table", SysBusinessI18n.__table__),
+    cast("Table", SysAction.__table__),
+    cast("Table", SysActionI18n.__table__),
+    cast("Table", SysMenu.__table__),
+    cast("Table", SysMenuI18n.__table__),
+    cast("Table", SysForm.__table__),
+    cast("Table", SysButton.__table__),
+    cast("Table", SysField.__table__),
+    cast("Table", SysFieldI18n.__table__),
+)
+"""菜单元数据十表（建表用；显式取 `Table` 以避免混合模型元组的联合类型推导）。"""
+
+
+async def _exists(session: AsyncSession, model: Any, *conditions: Any) -> bool:
     """判存（按条件 + 未软删除）。
 
     Args:
@@ -282,22 +297,10 @@ async def seed_menu(url: str) -> tuple[int, int]:
     factory: async_sessionmaker[AsyncSession] = async_sessionmaker(engine, expire_on_commit=False)
     created = 0
     skipped = 0
-    tables = (
-        SysBusiness,
-        SysBusinessI18n,
-        SysAction,
-        SysActionI18n,
-        SysMenu,
-        SysMenuI18n,
-        SysForm,
-        SysButton,
-        SysField,
-        SysFieldI18n,
-    )
     try:
         async with engine.begin() as connection:
-            for model in tables:
-                await connection.run_sync(model.__table__.create, checkfirst=True)
+            for table in _MENU_TABLES:
+                await connection.run_sync(table.create, checkfirst=True)
         async with factory() as session:
             business_ids = ConcurrentStableDict[str, int]()
             for code, zh, en in BUSINESS_SEEDS:
