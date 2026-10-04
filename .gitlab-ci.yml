@@ -147,6 +147,10 @@ base-integrity:
     # 排期与工时落点护栏：只允许出现在《总体项目规划》与各阶段计划文档（《计划文档规范》「排期唯一落点与边界」）
     - python scripts/tools/base-check/check-docs-scope.py
     - python scripts/tools/base-check/check-docs-scope.py --self-test
+    # 界面交付原型对照护栏：本次改动含界面源码（frontend 视图 / 组件 / ui-ep / *.vue）时，变更集内必须有
+    # 「原型对照结论」（原型依据 + 逐页表 + 结论 + 截图；《原型审查规范》§4.9）。基准不可解析时脚本自行跳过。
+    - python scripts/tools/base-check/check-prototype-review.py . --changed "${CI_MERGE_REQUEST_DIFF_BASE_SHA:-${CI_COMMIT_BEFORE_SHA:-origin/main}}"
+    - python scripts/tools/base-check/check-prototype-review.py --self-test
     # 服务边界与跨库访问度量（S7；静态越界 / 跨库访问 / 例外数，报告步）
     - python scripts/tools/governance/boundary_metrics.py
     # 项目文档状态一致性（需求编号集合 + 计划表内部一致；规则见《计划文档规范》§6 与《需求文档规范》§5）

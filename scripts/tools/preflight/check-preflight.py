@@ -368,6 +368,26 @@ def main() -> int:
         failures,
     )
     _run(
+        "界面：check-prototype-review（本次改动含界面源码须有原型对照；《原型审查规范》§4.9）",
+        ConcurrentStableList(
+            [
+                sys.executable,
+                "scripts/tools/base-check/check-prototype-review.py",
+                str(root),
+                "--changed",
+                "origin/main",
+            ]
+        ),
+        root,
+        failures,
+    )
+    _run(
+        "界面：check-prototype-review --self-test",
+        ConcurrentStableList([sys.executable, "scripts/tools/base-check/check-prototype-review.py", "--self-test"]),
+        root,
+        failures,
+    )
+    _run(
         "边界：boundary_metrics（越界 / 跨库 / 例外计数）",
         ConcurrentStableList([sys.executable, "scripts/tools/governance/boundary_metrics.py", "--root", str(root)]),
         root,
