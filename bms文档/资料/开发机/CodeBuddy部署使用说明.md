@@ -1,12 +1,12 @@
 # CodeBuddy 部署使用说明
 
-> mjpc 开发机 CodeBuddy（腾讯云代码助手 IDE，codebuddy-cn 4.12.0 / 应用 1.106.1）部署、配置、扩展管理、文档预览、权限与排障实录 · 2026-09-12 部署 / 2026-09-13 免确认排障 / 2026-10-03 运行与调试链路排障
+> mjpc 开发机 CodeBuddy（腾讯云代码助手 IDE，codebuddy-cn 4.12.0 / 应用 1.106.1）部署、配置、扩展管理、文档预览、权限与排障实录 · 2026-09-12 部署 / 2026-09-13 免确认排障 / 2026-10-03 运行与调试链路排障 / 2026-10-04 事实同步
 
 [文档首页](../../文档首页.md) › 资料 › 开发机 › CodeBuddy 部署使用说明　|　[同级：开发机部署使用说明总览](开发机部署使用说明总览.md)　[google-chrome部署使用说明 →](google-chrome部署使用说明.md)　[playwright部署使用说明 →](playwright部署使用说明.md)　[opencode部署使用说明 →](opencode部署使用说明.md)
 
 ## 1. 目的与适用范围 <a id="purpose"></a>
 
-记录开发机 **mjpc**（Ubuntu 26.04.1 LTS，GNOME，Wayland，NVIDIA RTX 4090）上 **CodeBuddy** 的部署与使用：安装来源与版本、四个用户数据目录的作用、首次配置项（登录/语言/插件/技能/MCP）、**权限与免确认设置**（自动运行命令、文件自动修改、安全检查类别、黑名单、安全删除；含**免确认失效的排查：安全类别的真正存储与生效链路**，见[6.3](#permission-security)）、**扩展管理（扩展目录 / open-vsx 市场 / 应用自带 CLI）与 HTML 文档预览**（内置 HTML 预览、Live Preview、Simple Browser；bms 文档资产与 md mermaid 的预览办法）、**运行与调试启动项**（`.vscode/launch.json` / `tasks.json` 的两处落点与「VS Code 不读子目录 `.vscode`」口径、启动项与任务清单、**端口自愈 / 就绪正则 / Python 解释器与 pyright 口径 / Chrome 绝对路径**排障，见[第 8 节](#debug)）、常用设置与排障入口。
+记录开发机 **mjpc**（Ubuntu 26.04.1 LTS，GNOME，Wayland，NVIDIA RTX 4090）上 **CodeBuddy** 的部署与使用：安装来源与版本、四个用户数据目录的作用、首次配置项（登录/语言/插件/技能/MCP）、**权限与免确认设置**（自动运行命令、文件自动修改、安全检查类别、黑名单、安全删除；含**免确认失效的排查：安全类别的真正存储与生效链路**，见[6.3](#permission-security)）、**扩展管理（扩展目录 / open-vsx 市场 / 应用自带 CLI）与 HTML 文档预览**（内置 HTML 预览、Live Preview、Simple Browser；bms 文档资产与 md mermaid 的预览办法）、**运行与调试启动项**（`.vscode/launch.json` / `tasks.json` 的两处落点与「VS Code 不读子目录 `.vscode`」口径、启动项与任务清单、**端口自愈 / 就绪正则 / Python 解释器与 pyright 口径 / Chrome 绝对路径**排障，见[第 8 节](#debug)）、**工作区级 `.codebuddy/`（工作记忆三件套）与 AI 协作口径**（见[第 10 节](#workspace-ai)）、常用设置与排障入口。
 
 本文档与《[开发机部署使用说明总览](开发机部署使用说明总览.md)》「开发设施清单」节与「桌面快捷方式设置（通用）」节配套；CodeBuddy 与 [opencode](opencode部署使用说明.md)、[deepseek-harness](../AI/deepseek_harness部署使用说明.md) 同属本机 AI 编码工具，三者互不干扰、各自独立部署。
 
@@ -60,7 +60,7 @@ python3 -c "import json;print(json.load(open('/usr/share/buddycn/resources/app/p
 
 ## 4. 用户数据目录 <a id="dirs"></a>
 
-CodeBuddy 的用户数据分散在 **四个目录**（实测体积为 2026-09-12 本机快照，仅作量级参考）：
+CodeBuddy 的用户数据分散在 **四个目录**（实测体积为 2026-09-12 本机快照，仅作量级参考）。此外工作区根还会有一个 `.codebuddy/`（工作记忆），见[第 10 节](#workspace-ai)：
 
 | 目录 | 体积 | 内容 | 说明 |
 | --- | --- | --- | --- |
@@ -289,7 +289,7 @@ CLI=/usr/share/buddycn/bin/buddycn
 
 ### 7.4 本仓库（bms 文档）预览 <a id="bms-docs"></a>
 
-- `bms文档/**/*.html` 布局线框图 / 原型 / 组件原型资产（167 个）引用同目录的 `文档样式.css`、`mermaid.min.js`：用**内置预览**或 **Live Preview** 打开单个文件即可。
+- `bms文档/**/*.html` 布局线框图 / 原型 / 组件原型资产（**200 个**，2026-10-04 复核；均在 `bms文档/设计/` 下——`原型设计/` 各域 + `布局设计/`）引用同目录的 `文档样式.css`、`mermaid.min.js`：用**内置预览**或 **Live Preview** 打开单个文件即可。
 - 若预览出现「样式/脚本没加载、mermaid 不渲染」，改用 http 方式（起静态服务后用 Simple Browser 或外部浏览器打开），避免 `file://` 限制。
 - md 正文里的 mermaid 需另装 **`bierner.markdown-mermaid`**（open-vsx 有收录，装法见 7.2）：`*.md` 已关联内置 Markdown 预览，装完扩展重载窗口后预览即渲染。
 - 起静态文档服务（等价 Live Preview 的底座，可手动控制端口与生命周期）：
@@ -376,7 +376,7 @@ IDE 的「运行和调试」下拉由 `.vscode/launch.json`（启动项）与 `.
 | 后端启动项卡在「正在加载 python 扩展」 | 装了与官方扩展**同命令 ID** 的套壳扩展（`devshub-ai.devshub-python` / `wubzbz.debugpy`）→ 官方 `ms-python.python` 激活抛 `command 'python.configureTests' already exists`；在扩展面板卸载套壳项后重载窗口（见 [7.2](#ext-dirs)） |
 | Python 环境工具（PET）反复超时、6 个 python 工具未注册 | `~/.codebuddycn/extensions/ms-python.python-*/python-env-tools/bin/pet` **缺执行位**（日志 `spawn … EACCES`）：`chmod +x` 该文件即可（本机 2026-10-03 已修，`pet --version` → `pet 0.1.0`） |
 | 后端 `.py` 满屏「无法解析导入 sqlalchemy」 | 分析器没关联到项目解释器：裸目录打开时 `bms/.vscode/settings.json` **不生效**，须在工作区根 `settings.json` 配 `python.defaultInterpreterPath`（`bms/backend/.venv/bin/python`）与 `python.analysis.extraPaths`（`bms/backend`） |
-| `alembic/versions/**` 满屏类型报错（如 `Column` 泛型缺参数） | 该目录**本就不在门禁范围**（`bms/backend/pyproject.toml` 的 `[tool.pyright] include` 只含 `libs`/`services`），是 IDE 侧 `basedpyright` 默认 `recommended` 档在报：已在项目 `[tool.pyright]` 加 `ignore = ["alembic"]`，并让 `basedpyright.analysis.configFilePath` 指向该 `pyproject.toml`（IDE 与门禁同口径；`uv run pyright` 实测 905 文件 / 0 错） |
+| `alembic/versions/**` 满屏类型报错（如 `Column` 泛型缺参数） | 该目录**本就不在门禁范围**（`bms/backend/pyproject.toml` 的 `[tool.pyright] include` 只含 `libs`/`services`），是 IDE 侧 `basedpyright` 默认 `recommended` 档在报：已在项目 `[tool.pyright]` 加 `ignore = ["alembic"]`，并让 `basedpyright.analysis.configFilePath` 指向该 `pyproject.toml`（IDE 与门禁同口径；`uv run pyright --outputjson` 实测 `filesAnalyzed=916` / 0 错，2026-10-04 复核） |
 
 ## 9. 常用设置与排障 <a id="trouble"></a>
 
@@ -408,7 +408,73 @@ IDE 的「运行和调试」下拉由 `.vscode/launch.json`（启动项）与 `.
 | 崩溃排查 | `~/.config/CodeBuddy CN/CrashReport/`（崩溃转储）与 `~/.codebuddy/diagnostics/` |
 | 网络代理问题 | 核对 `HttpProxyMode`（系统/手动）与 `HTTPProxy`；与系统代理设置保持一致 |
 
-## 10. 检查清单 <a id="checklist"></a>
+## 10. 工作区级 `.codebuddy/` 与 AI 协作口径 <a id="workspace-ai"></a>
+
+第 4 节记的是**用户级**四个数据目录；CodeBuddy 还会在**工作区根**读写 `.codebuddy/`（本机工作区根为 `~/develop/bizs/`，其下 `bms/` 为 bms 仓库），用于**跨会话工作记忆**与协作产物。
+
+### 10.1 目录现状与入库口径 <a id="workspace-ai-dirs"></a>
+
+| 路径（相对工作区根） | 现状（2026-10-04 核实） | 作用 |
+| --- | --- | --- |
+| `.codebuddy/memory/` | **存在**：20 个文件 = 日报 `YYYY-MM-DD.md`（2026-09-13 起）+ 长期记忆 `MEMORY.md` + `技术坑清单.md` | 跨会话工作记忆（见 [10.2](#workspace-ai-memory)） |
+| `.codebuddy/teams/` | 本机**未创建**（启用团队协作时由工具生成 `<团队名>/`，含各成员历史） | 多代理协作 |
+| `.codebuddy/` 其余生成物 | 按需生成 | 技能 / 自动化等 |
+
+入库口径：工作区根仓库的 `.gitignore` 是 `/*` + 白名单（`!/.gitignore`、`!/.opencode/`、`!/.vscode/`、`!/AGENTS.md`、`!/README.md`、`!/LICENSE`、`!/scripts/`、`!/*.code-workspace`），**`.codebuddy/` 不在白名单 → 工作记忆不入库**（与 `用户文档/本地资源.md`、`deploy/.env` 同属本机私有数据；公开文档红线见《[AI开发规范](../../规范/AI开发规范.md)》「资料与资源」节）。`bms/` 下**无** `.codebuddy/`。
+
+### 10.2 工作记忆三件套的读写口径 <a id="workspace-ai-memory"></a>
+
+| 文件 | 写入口径 |
+| --- | --- |
+| 日报 `memory/YYYY-MM-DD.md` | 当日**追加**（replace 而非整文件覆盖）：任务级过程、本轮拍板与探查结论；不写中间检索结果等临时信息 |
+| `memory/MEMORY.md` | **原地更新**并保持精简：只留协作口径 / 架构铁律 / 仓库与命令 / 文档硬约束 / 进度 / 踩坑索引；**能指向文档的不复述** |
+| `memory/技术坑清单.md` | 踩坑细节**只增不改口径**：新坑先落日报、再并入本文件（`MEMORY.md` 只留索引） |
+
+补充纪律：
+
+- **会话开场**：先读 `MEMORY.md` + 当日 / 前一日日报（可能涉及既有决策与偏好时）；**会话结束**：完成实质工作后立即追加日报，口径类事实进 `MEMORY.md`。
+- **记忆不是交付物**：不得以「已写入记忆」替代设计 / 代码 / 记录 / 计划等交付物；用户要的结论仍须落到对应文档或回复正文。
+- **冲突处理**：日报追加更正条；`MEMORY.md` 原地改并注明原因与日期；30 天以上日报按主题蒸馏进 `MEMORY.md` 后删除。
+
+### 10.3 单任务交付「一条龙」（引自《[AI开发规范](../../规范/AI开发规范.md)》「单任务交付『一条龙』」节） <a id="workspace-ai-chain"></a>
+
+链条：上下文 → 决策确认 → 详细设计 → 实施 → 测试 → 验证 → 登记回写 → 记录 → 提交 → 处理偏差与遗留 → 收尾。要点：
+
+- **先设计后编码**；详细设计中的待拍板事项**逐项确认**（推荐项在前、附差异说明），设计定稿即提交并自动续行后续各步；
+- **随时可停**：凡遇不清楚或需用户拍板之处即停下确认，不以推荐值 / 默认值擅自越过；
+- **编号对齐**：Kiwi 用例**先在平台登记取得编号**，再回填代码标注与任务记录（既有编号不复用、不改派）；
+- **提交与推送**：链内各次提交（设计 / 代码 / 文档 / 偏差遗留闭环）自动执行；**仅推送远程需两级独立确认**——说「提交」只做 commit、说「推送」才 push；
+- **闭环才算完成**：偏差与遗留未登记去向、下游消费方未标注，不算任务完成。
+
+> 会话提示词可对该口径加**临时约束**（本机出现过「本轮不提交 git，除非明确要求」这类会话级纪律）——**以会话提示词为准**。
+
+### 10.4 核心模块的 AI 交叉评审（引自《[代码评审规范](../../规范/代码评审规范.md)》《[Git协作规范](../../规范/Git协作规范.md)》「分支模型」节） <a id="workspace-ai-review"></a>
+
+- 单人开发期以 **AI 交叉评审**替代人工指派：核心模块（认证、RBAC、工作流、审计、收付款）改动**提交前**由 AI 按《代码评审规范》「通用评审清单」「后端重点」「前端重点」「数据库变更重点」节逐项核对，**评审结论随提交说明或任务记录留痕**；
+- 多人协作期恢复人工评审与 MR 流程（当前不启用分支与 MR 流转）。
+- 外部服务类操作（Kiwi 登记、服务部署重建、备份恢复、数据库、远程开关机等）**先读 `bms文档/资料/开发服务器/` 下对应说明再动手**（《AI开发规范》「资料与资源」节）。
+
+### 10.5 常用门禁命令（本机口径） <a id="workspace-ai-gates"></a>
+
+```bash
+# 文档基座（bms 仓根）
+python3 scripts/tools/base-check/check-base.py
+python3 scripts/tools/base-check/check-links.py
+python3 scripts/tools/base-check/check-docs-scope.py
+python3 scripts/tools/check-docs/check-status.py --stage <阶段> --strict
+python3 scripts/tools/preflight/check-preflight.py --fast        # 推送前快速预检（不跑全量）
+
+# 后端（bms/backend 下，uv run；只跑受变更影响的定向用例）
+uv run pytest -q ; uv run ruff check . ; uv run ruff format --check . ; uv run pyright
+
+# 前端（bms 工作区根下；apps/desktop 与 modules/* 需 --filter 单独跑）
+pnpm --filter @bms/desktop run test ; pnpm --filter @bms/desktop run lint
+pnpm --filter @bms/desktop exec vue-tsc -b ; pnpm run api-types:gen:check
+```
+
+> [8.3](#debug-tasks) 的「检查：前端基座三包 / 前端宿主 / 文档基座 / 后端」四个任务即上述门禁的一键入口；口径细则归《[测试规范](../../规范/测试规范.md)》与各工程说明，本节只作速查。
+
+## 11. 检查清单 <a id="checklist"></a>
 
 - □ 版本已核实：包 `codebuddy-cn` 与应用版本分别取自 `dpkg -l` 与 `product.json`
 - □ 明确无 apt 源 → 升级靠手工 `.deb` 覆盖安装，卸载不删用户数据
@@ -421,6 +487,7 @@ IDE 的「运行和调试」下拉由 `.vscode/launch.json`（启动项）与 `.
 - □ 运行与调试链路口径明确：dev 类后台任务经 `dependsOn` 前置自愈 5173 与确保 5002、后端 8000 经 `preLaunchTask` 自愈（脚本按 `cwd` 判定归属，非本项目占用则中止）；**准备动作不写进 background 任务的 command**；就绪正则容忍 ANSI（`Local.*https?://`）；Chrome 断点用绝对路径；「全套」用固定后端项 + 含模块的前端项
 - □ Python 侧口径明确：官方 Python 扩展三件（无同命令 ID 的套壳项）、`pet` 有执行位、解释器在**工作区根** `settings.json` 声明、alembic 已由 `[tool.pyright] ignore` 排除
 - □ 排障入口齐备：日志三处、崩溃转储、市场超时与渲染异常的处置办法
-- □ 本机事实均经核实（2026-09-12），未写入账号/令牌等凭据
+- □ 工作区级 `.codebuddy/` 口径清晰：工作记忆三件套职责分明（日报追加 / `MEMORY.md` 原地精简 / 技术坑清单只增）、**不入库**；记忆不得替代交付物；「一条龙」与 AI 交叉评审口径以《AI开发规范》《代码评审规范》为准（见[第 10 节](#workspace-ai)）
+- □ 本机事实均经核实（2026-09-12 首次核实；数量类事实 2026-10-04 复核），未写入账号/令牌等凭据
 
-> 依《[文档生成规范](../../规范/文档生成规范.md)》编写 · 与《[开发机部署使用说明总览](开发机部署使用说明总览.md)》《[opencode部署使用说明](opencode部署使用说明.md)》《[命名规范](../../规范/命名规范.md)》配套 · 记录 2026-09-12 部署核实、2026-09-13 免确认排障、2026-10-03 运行与调试启动项与扩展补齐、2026-10-03「全套」启动链路排障（端口自愈与前置任务拆分 / ANSI 就绪正则 / Python 扩展与解释器 / pyright 口径 / PET 权限 / Chrome 绝对路径 / 含模块的前端项）（mjpc 本机）
+> 依《[文档生成规范](../../规范/文档生成规范.md)》编写 · 与《[开发机部署使用说明总览](开发机部署使用说明总览.md)》《[opencode部署使用说明](opencode部署使用说明.md)》《[命名规范](../../规范/命名规范.md)》配套 · 记录 2026-09-12 部署核实、2026-09-13 免确认排障、2026-10-03 运行与调试启动项与扩展补齐、2026-10-03「全套」启动链路排障（端口自愈与前置任务拆分 / ANSI 就绪正则 / Python 扩展与解释器 / pyright 口径 / PET 权限 / Chrome 绝对路径 / 含模块的前端项）、2026-10-04 数量类事实同步（原型与布局 HTML 200 个 / `pyright --outputjson` `filesAnalyzed=916`）与新增[第 10 节](#workspace-ai)（工作区级 `.codebuddy/`：工作记忆三件套 + 「一条龙」/ AI 交叉评审 / 门禁速查）（mjpc 本机）
