@@ -101,6 +101,23 @@ describe('createAxiosAdapter（Kiwi 2191）', () => {
     expect(onUnauthorized).toHaveBeenCalledTimes(1)
   })
 
+  it('401 带业务码 → 抛 ApiError(业务码)（登录失败不再被误报为会话失效）', async () => {
+    requestMock.mockRejectedValueOnce({
+      isAxiosError: true,
+      response: { status: 401, data: { code: 20002, message: 'error.20002', data: null } },
+    })
+    const onUnauthorized = vi.fn()
+    const adapter = createAxiosAdapter({ onUnauthorized })
+    const error: unknown = await adapter
+      .request({ method: 'POST', url: '/api/identity/v1/auth/login' })
+      .then(() => undefined)
+      .catch((caught: unknown) => caught)
+    expect(error).toBeInstanceOf(ApiError)
+    expect(error).not.toBeInstanceOf(SessionExpiredError)
+    expect((error as ApiError).code).toBe(20002)
+    expect(onUnauthorized).toHaveBeenCalledTimes(1)
+  })
+
   it('非 axios 错误 → onError + ApiError(10001)', async () => {
     requestMock.mockRejectedValueOnce(new Error('boom'))
     const onError = vi.fn()

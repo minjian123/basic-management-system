@@ -363,6 +363,28 @@ describe('登录页（Kiwi 2232）', () => {
     await submit(bare.wrapper)
     expect(bare.wrapper.find('[data-test="login-error"]').text()).toContain('操作失败，请稍后重试')
     bare.wrapper.unmount()
+
+    // 服务端 401 常带 i18n 键文案（如 `error.20002`）：键名不可直接展示（文案单一来源在错误码表）
+    stubRequests({
+      login: () => {
+        throw new ApiError(20002, 'error.20002', { userMessage: 'error.20002' })
+      },
+    })
+    const mapped = await mountLogin()
+    await submit(mapped.wrapper)
+    expect(mapped.wrapper.find('[data-test="login-error"]').text()).toContain('账号或密码错误')
+    mapped.wrapper.unmount()
+
+    stubRequests({
+      login: () => {
+        throw new ApiError(99999, 'error.99999', { userMessage: 'error.99999' })
+      },
+    })
+    const keyed = await mountLogin()
+    await submit(keyed.wrapper)
+    expect(keyed.wrapper.find('[data-test="login-error"]').text()).toContain('操作失败，请稍后重试')
+    expect(keyed.wrapper.find('[data-test="login-error"]').text()).not.toContain('error.99999')
+    keyed.wrapper.unmount()
   })
 
   it('验证码强制后：图形码凭证随登录请求一次性提交（延迟提交模式）', async () => {

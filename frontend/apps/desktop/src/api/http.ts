@@ -7,7 +7,9 @@
  *   一律不触发刷新（**防刷新循环**）；
  * - **凭据口径**：仅认证端点（`/auth/refresh`、`/auth/logout`）开启 `withCredentials` 并注入
  *   `X-Tenant-ID`，其余请求不带 cookie；
- * - **未注入刷新处理器时**按会话失效占位（清会话 + 跳登录、不发刷新请求）。
+ * - **未注入刷新处理器时**按会话失效占位（清会话 + 跳登录、不发刷新请求）；
+ * - **401 优先保留业务码**：统一响应体带 `code`（如登录失败 `20002`、会话失效 `20001` / `20012`）时按业务码上抛
+ *   `ApiError`（交调用方走文案表）；仅当无业务码（网关 / 空体 401）才上抛 `SessionExpiredError`。
  */
 
 import {
@@ -55,6 +57,24 @@ function matchesIdentityPaths(url: string, paths: readonly string[]): boolean {
 
 /** 模块级单例刷新（并发 401 共享同一次刷新；完成后清空以便后续再次刷新）。 */
 let refreshPromise: Promise<boolean> | null = null
+
+/**
+ * 从 401 响应体读取业务错误（统一响应 `{ code, message }`）。
+ *
+ * @param body 响应体（可能为空 / 非统一响应）。
+ * @returns 业务码与文案；无有效业务码返回 `undefined`。
+ */
+function readBusinessError(body: unknown): { code: number; message: string } | undefined {
+  if (typeof body !== 'object' || body === null) {
+    return undefined
+  }
+  const record = body as Record<string, unknown>
+  const code = record['code']
+  if (typeof code !== 'number' || code === 0) {
+    return undefined
+  }
+  return { code, message: typeof record['message'] === 'string' ? record['message'] : '' }
+}
 
 /**
  * 创建 Axios 请求适配器。
@@ -123,7 +143,12 @@ export function createAxiosAdapter(hooks: HttpHooks = {}): RequestAdapter {
           return execute<T>(request, true)
         }
         hooks.onUnauthorized?.()
-        throw new SessionExpiredError()
+        // **401 优先按业务码上抛**：登录失败（`20002`「账号或密码错误」）、验证码（`20101`）等一律走文案表；
+        // 旧口径把 401 全量转 `SessionExpiredError`，会把「密码错误」显示成「会话已失效」。
+        const business = readBusinessError(error.response.data)
+        throw business === undefined
+          ? new SessionExpiredError()
+          : new ApiError(business.code, business.message, { userMessage: business.message })
       }
       hooks.onError?.(error)
       if (error instanceof ApiError) {

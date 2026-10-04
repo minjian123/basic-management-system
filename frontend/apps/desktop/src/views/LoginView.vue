@@ -162,8 +162,11 @@ async function handleNeedTenant(): Promise<void> {
   tenantField.value?.querySelector<HTMLInputElement>('[data-test="login-tenant"] input, [data-test="login-tenant"]')?.focus()
 }
 
+/** 服务端文案为 i18n 键（如 `error.20002`）时不可直接展示——文案单一来源在前端错误码表。 */
+const I18N_KEY_PATTERN = /^[a-z][a-z0-9_.]*$/
+
 /**
- * 服务端错误原文（`ApiError.userMessage` → `message`；都没有返回空串）。
+ * 服务端错误原文（`ApiError.userMessage` → `message`；i18n 键与空串一律返回空串）。
  *
  * @param error 登录异常。
  * @returns 可回显的原文（无则空串）。
@@ -173,7 +176,8 @@ function serverMessage(error: unknown): string {
     return ''
   }
   const user = typeof error.userMessage === 'string' ? error.userMessage.trim() : ''
-  return user !== '' ? user : error.message.trim()
+  const text = user !== '' ? user : error.message.trim()
+  return I18N_KEY_PATTERN.test(text) ? '' : text
 }
 
 /**
