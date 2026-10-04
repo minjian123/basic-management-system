@@ -8,6 +8,7 @@ import {
   defaultCaptchaPolicy,
   isAuthErrorCode,
   normalizeCaptchaPolicy,
+  normalizeErrorCode,
   resolveAuthErrorText,
   resolveSafeRedirect,
   selectScannableProviders,
@@ -162,17 +163,33 @@ async function handleNeedTenant(): Promise<void> {
 }
 
 /**
+ * 服务端错误原文（`ApiError.userMessage` → `message`；都没有返回空串）。
+ *
+ * @param error 登录异常。
+ * @returns 可回显的原文（无则空串）。
+ */
+function serverMessage(error: unknown): string {
+  if (!(error instanceof ApiError)) {
+    return ''
+  }
+  const user = typeof error.userMessage === 'string' ? error.userMessage.trim() : ''
+  return user !== '' ? user : error.message.trim()
+}
+
+/**
  * 登录失败处置：文案映射 + 验证码块出现 / 刷新；`20007` 单独走「展开租户标识」分支。
  *
  * @param error 登录异常。
  */
 function handleLoginFailure(error: unknown): void {
-  const code = error instanceof ApiError ? error.code : undefined
+  const code = normalizeErrorCode(error instanceof ApiError ? error.code : undefined)
   if (code === 20007) {
     void handleNeedTenant()
     return
   }
-  formError.value = resolveAuthErrorText(code)
+  // 已登记码走文案表；**未登记码 / 非 `ApiError` 链路**优先回显服务端原文（`userMessage` → `message`）——
+  // 否则一律落到「操作失败，请稍后重试」，把「验证码校验不通过」「服务暂不可用」这类可行动信息吞掉。
+  formError.value = isAuthErrorCode(code) ? resolveAuthErrorText(code) : serverMessage(error) || resolveAuthErrorText(code)
   if (code === 20101 || code === 20102) {
     // 后端要求验证码 / 验证码已失效：确保验证码块出现（策略未加载时回落图形码兜底）。
     captchaKind.value ??= 'image'

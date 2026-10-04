@@ -17,6 +17,7 @@ describe('认证错误码文案（Kiwi 2232）', () => {
     expect(resolveAuthErrorText(20057)).toBe('企业微信配置缺失或非法')
     expect(resolveAuthErrorText(20062)).toBe('钉钉接口不可达')
     expect(resolveAuthErrorText(10005)).toBe('请求过于频繁，请稍后重试')
+    expect(resolveAuthErrorText(10007)).toBe('服务暂不可用，请稍后重试')
   })
 
   it('验证码子段（20101 ~ 20103）回落验证码文案表，不重复维护', () => {
@@ -29,8 +30,16 @@ describe('认证错误码文案（Kiwi 2232）', () => {
     expect(resolveAuthErrorText(99999)).toBe(DEFAULT_AUTH_ERROR_TEXT)
     expect(resolveAuthErrorText(0)).toBe(DEFAULT_AUTH_ERROR_TEXT)
     expect(resolveAuthErrorText(undefined)).toBe(DEFAULT_AUTH_ERROR_TEXT)
-    expect(resolveAuthErrorText('20002')).toBe(DEFAULT_AUTH_ERROR_TEXT)
     expect(resolveAuthErrorText(null)).toBe(DEFAULT_AUTH_ERROR_TEXT)
+  })
+
+  it('数字字符串码同样命中（异常经字符串化链路到达时不再丢文案）', () => {
+    expect(resolveAuthErrorText('20002')).toBe('账号或密码错误')
+    expect(resolveAuthErrorText('20101')).toBe('验证码错误')
+    expect(resolveAuthErrorText(' 10007 ')).toBe('服务暂不可用，请稍后重试')
+    expect(isAuthErrorCode('20103')).toBe(true)
+    expect(resolveAuthErrorText('abc')).toBe(DEFAULT_AUTH_ERROR_TEXT)
+    expect(resolveAuthErrorText('')).toBe(DEFAULT_AUTH_ERROR_TEXT)
   })
 
   it('isAuthErrorCode 覆盖本表与验证码子段', () => {
@@ -38,13 +47,16 @@ describe('认证错误码文案（Kiwi 2232）', () => {
     expect(isAuthErrorCode(20101)).toBe(true)
     expect(isAuthErrorCode(10005)).toBe(true)
     expect(isAuthErrorCode(99999)).toBe(false)
-    expect(isAuthErrorCode('20002')).toBe(false)
+    // 数字字符串同样命中（异常经字符串化链路到达时不丢文案）。
+    expect(isAuthErrorCode('20002')).toBe(true)
+    expect(isAuthErrorCode('20101')).toBe(true)
+    expect(isAuthErrorCode('abc')).toBe(false)
     expect(isAuthErrorCode(undefined)).toBe(false)
   })
 
   it('文案表键位均为认证段 / 限流码（无越界条目）', () => {
     const keys = Object.keys(AUTH_ERROR_TEXTS).map(Number)
-    expect(keys.every((code) => code === 10005 || (code >= 20001 && code <= 29999))).toBe(true)
+    expect(keys.every((code) => code === 10005 || code === 10007 || (code >= 20001 && code <= 29999))).toBe(true)
     expect(keys.every((code) => (AUTH_ERROR_TEXTS[code] as string).length > 0)).toBe(true)
   })
 })

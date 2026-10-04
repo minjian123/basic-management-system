@@ -188,7 +188,7 @@ async def test_verify_slider_machine_traces_rejected(redis_client: fakeredis.aio
 
     cases: tuple[tuple[tuple[int, int, int], ...], ...] = (
         ((gap_x, 0, 300),),
-        ((0, 0, 0), (gap_x, 0, 10)),
+        ((0, 0, 0), (gap_x, 0, 40)),
         ((0, 0, 500), (gap_x, 0, 100)),
         ((0, 0, -1), (gap_x, 0, 300)),
     )
@@ -196,6 +196,20 @@ async def test_verify_slider_machine_traces_rejected(redis_client: fakeredis.aio
         assert not await captcha.verify_credential(
             CaptchaCredential(captcha_id=challenge.captcha_id, kind=CaptchaKind.SLIDER, trace=trace)
         )
+    await captcha.aclose()
+
+
+@pytest.mark.kiwi_id(2205)
+async def test_verify_slider_fast_human_trace_accepted(redis_client: fakeredis.aioredis.FakeRedis) -> None:
+    """人类「快速甩动」也能通过：150ms 的准确拖拽必须被接受（回归：下限曾为 300ms，正常手速被判为机器轨迹）。"""
+    captcha = _captcha(redis_client)
+    challenge = await captcha.generate("login", kind=CaptchaKind.SLIDER)
+    gap_x = (await _record(redis_client, challenge.captcha_id))["gap_x"]
+
+    trace = ((0, 0, 0), (gap_x // 2, 0, 80), (gap_x, 0, 150))
+    assert await captcha.verify_credential(
+        CaptchaCredential(captcha_id=challenge.captcha_id, kind=CaptchaKind.SLIDER, trace=trace)
+    )
     await captcha.aclose()
 
 
@@ -266,7 +280,7 @@ async def test_slider_options_parse_and_validate(redis_client: fakeredis.aioredi
     """滑块选项：缺省 / 覆盖 / 小画布块图钳制生效；非法值拒启；渲染尺寸随选项。"""
     default = CaptchaSliderOptions.from_options(ConcurrentStableDict[str, object]())
     assert (default.width, default.height, default.piece_size) == (300, 150, 48)
-    assert (default.tolerance, default.min_duration_ms, default.min_points) == (10, 300, 2)
+    assert (default.tolerance, default.min_duration_ms, default.min_points) == (10, 100, 2)
     assert default == CaptchaSliderOptions.from_options(None)
 
     clamped = CaptchaSliderOptions.from_options(ConcurrentStableDict({"slider_width": 160, "slider_height": 80}))

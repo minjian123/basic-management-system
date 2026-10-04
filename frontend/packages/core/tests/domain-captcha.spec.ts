@@ -33,6 +33,7 @@ import {
   normalizeCaptchaPolicy,
   normalizeCaptchaScene,
   normalizeCaptchaTrace,
+  normalizeErrorCode,
   parseCaptchaSliderParams,
   resolveCaptchaErrorText,
   shouldRequireCaptcha,
@@ -195,6 +196,14 @@ describe('滑块参数与轨迹', () => {
     })
   })
 
+  it('错误码归一：数字字符串同样命中验证码文案（其他回落校验失败文案）', () => {
+    expect(normalizeErrorCode('20102')).toBe(20102)
+    expect(normalizeErrorCode(20102)).toBe(20102)
+    expect(normalizeErrorCode(' x ')).toBeUndefined()
+    expect(normalizeErrorCode('')).toBeUndefined()
+    expect(resolveCaptchaErrorText('20101')).toBe('验证码错误')
+  })
+
   it('轨迹归一兼容数组与对象、剔除非法点；提交形态为 [x, y, t]', () => {
     expect(normalizeCaptchaTrace([[0, 0, 0], { x: 10.4, y: 2, t: 50 }, ['bad'], null])).toEqual([
       { x: 0, y: 0, t: 0 },
@@ -239,7 +248,9 @@ describe('错误码与策略', () => {
     expect(isCaptchaErrorCode(20101)).toBe(true)
     expect(isCaptchaErrorCode(20103)).toBe(true)
     expect(isCaptchaErrorCode(40001)).toBe(false)
-    expect(isCaptchaErrorCode('20101')).toBe(false)
+    // 数字字符串同样命中（异常经字符串化链路到达时不再回落通用文案）。
+    expect(isCaptchaErrorCode('20101')).toBe(true)
+    expect(isCaptchaErrorCode('abc')).toBe(false)
     expect(resolveCaptchaErrorText(20102)).toBe('验证码已失效，请重新获取')
     expect(resolveCaptchaErrorText(99999)).toBe('验证码校验失败，请重试')
   })

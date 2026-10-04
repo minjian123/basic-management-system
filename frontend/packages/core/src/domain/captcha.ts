@@ -566,7 +566,30 @@ export function buildCaptchaVerifyQuery(input: {
  * @returns 是否命中子段。
  */
 export function isCaptchaErrorCode(code: unknown): boolean {
-  return typeof code === 'number' && code in CAPTCHA_ERROR_TEXTS
+  const normalized = normalizeErrorCode(code)
+  return normalized !== undefined && normalized in CAPTCHA_ERROR_TEXTS
+}
+
+/**
+ * 归一错误码（数字 / 数字字符串；其他返回 `undefined`）。
+ *
+ * 后端经 JSON 传数字码；但异常经不同链路（队列 / 字符串化 / 查询串）到达时可能是数字字符串——
+ * 不归一就会落到通用兜底文案（「操作失败，请稍后重试」），把「验证码校验不通过」这类**可行动**信息丢掉。
+ *
+ * @param code 原始错误码。
+ * @returns 归一后的数字码；不可解析返回 `undefined`。
+ */
+export function normalizeErrorCode(code: unknown): number | undefined {
+  if (typeof code === 'number' && Number.isFinite(code)) {
+    return code
+  }
+  if (typeof code === 'string' && code.trim() !== '') {
+    const parsed = Number(code)
+    if (Number.isFinite(parsed)) {
+      return parsed
+    }
+  }
+  return undefined
 }
 
 /**
@@ -576,8 +599,9 @@ export function isCaptchaErrorCode(code: unknown): boolean {
  * @returns 中文文案。
  */
 export function resolveCaptchaErrorText(code: unknown): string {
-  return typeof code === 'number' && code in CAPTCHA_ERROR_TEXTS
-    ? (CAPTCHA_ERROR_TEXTS[code] as string)
+  const normalized = normalizeErrorCode(code)
+  return normalized !== undefined && normalized in CAPTCHA_ERROR_TEXTS
+    ? (CAPTCHA_ERROR_TEXTS[normalized] as string)
     : CAPTCHA_VERIFY_ERROR_TEXT
 }
 

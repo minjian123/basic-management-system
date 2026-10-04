@@ -343,6 +343,28 @@ describe('登录页（Kiwi 2232）', () => {
     expect(wrapper.find('[data-test="login-error"]').text()).toContain('请完成验证码校验')
   })
 
+  it('未登记错误码回显服务端原文（不再一律「操作失败，请稍后重试」）', async () => {
+    stubRequests({
+      login: () => {
+        throw new ApiError(99999, 'internal', { userMessage: '验证码校验不通过' })
+      },
+    })
+    const withMessage = await mountLogin()
+    await submit(withMessage.wrapper)
+    expect(withMessage.wrapper.find('[data-test="login-error"]').text()).toContain('验证码校验不通过')
+    withMessage.wrapper.unmount()
+
+    stubRequests({
+      login: () => {
+        throw new ApiError(99999, '')
+      },
+    })
+    const bare = await mountLogin()
+    await submit(bare.wrapper)
+    expect(bare.wrapper.find('[data-test="login-error"]').text()).toContain('操作失败，请稍后重试')
+    bare.wrapper.unmount()
+  })
+
   it('验证码强制后：图形码凭证随登录请求一次性提交（延迟提交模式）', async () => {
     stubCaptchaFetch({ required: true, channels: ['image'] })
     stubRequests({ login: () => LOGIN_SUCCESS })

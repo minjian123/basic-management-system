@@ -6,7 +6,7 @@
  * 验证码子段（`20101`~`20103`）复用 `CAPTCHA_ERROR_TEXTS`，不重复维护。
  */
 
-import { CAPTCHA_ERROR_TEXTS } from './captcha'
+import { CAPTCHA_ERROR_TEXTS, normalizeErrorCode } from './captcha'
 
 /** 未登记错误码的通用回落文案。 */
 export const DEFAULT_AUTH_ERROR_TEXT = '操作失败，请稍后重试'
@@ -14,6 +14,7 @@ export const DEFAULT_AUTH_ERROR_TEXT = '操作失败，请稍后重试'
 /** 认证错误码文案表（`2xxxx` 认证段 + `10005` 限流；键为后端错误码）。 */
 export const AUTH_ERROR_TEXTS: Readonly<Record<number, string>> = {
   10005: '请求过于频繁，请稍后重试',
+  10007: '服务暂不可用，请稍后重试',
   20001: '登录状态已失效，请重新登录',
   20002: '账号或密码错误',
   20003: '账号已锁定，请联系管理员或稍后重试',
@@ -43,7 +44,8 @@ export const AUTH_ERROR_TEXTS: Readonly<Record<number, string>> = {
  * @returns 是否属认证段文案覆盖范围。
  */
 export function isAuthErrorCode(code: unknown): boolean {
-  return typeof code === 'number' && (code in AUTH_ERROR_TEXTS || code in CAPTCHA_ERROR_TEXTS)
+  const normalized = normalizeErrorCode(code)
+  return normalized !== undefined && (normalized in AUTH_ERROR_TEXTS || normalized in CAPTCHA_ERROR_TEXTS)
 }
 
 /**
@@ -53,14 +55,15 @@ export function isAuthErrorCode(code: unknown): boolean {
  * @returns 中文文案。
  */
 export function resolveAuthErrorText(code: unknown): string {
-  if (typeof code !== 'number') {
+  const normalized = normalizeErrorCode(code)
+  if (normalized === undefined) {
     return DEFAULT_AUTH_ERROR_TEXT
   }
-  if (code in AUTH_ERROR_TEXTS) {
-    return AUTH_ERROR_TEXTS[code] as string
+  if (normalized in AUTH_ERROR_TEXTS) {
+    return AUTH_ERROR_TEXTS[normalized] as string
   }
-  if (code in CAPTCHA_ERROR_TEXTS) {
-    return CAPTCHA_ERROR_TEXTS[code] as string
+  if (normalized in CAPTCHA_ERROR_TEXTS) {
+    return CAPTCHA_ERROR_TEXTS[normalized] as string
   }
   return DEFAULT_AUTH_ERROR_TEXT
 }

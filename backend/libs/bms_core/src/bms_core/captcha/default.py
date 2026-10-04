@@ -286,8 +286,9 @@ class CaptchaSliderOptions(BaseOptionsContract):
     tolerance: int = SLIDER_TOLERANCE
     """落点容差（像素；末点 `x` 与缺口 `gap_x` 的最大允许偏差）。"""
 
-    min_duration_ms: int = 300
-    """轨迹总时长下限（毫秒；0 表示不校验）。"""
+    min_duration_ms: int = 100
+    """轨迹总时长下限（毫秒；0 表示不校验）。缺省 100ms——人类「快速甩动」到位也要能被接受（实测 150ms
+    的准确拖拽必须通过）；脚本瞬移（含 0 延迟的单点/微秒级轨迹）仍被拦截。"""
 
     min_points: int = 2
     """轨迹最少点数。"""
@@ -314,7 +315,7 @@ class CaptchaSliderOptions(BaseOptionsContract):
             height=height,
             piece_size=cls._int_option(values, "slider_piece_size", min(48, max_piece), 16, max_piece),
             tolerance=cls._int_option(values, "slider_tolerance", SLIDER_TOLERANCE, 0, 50),
-            min_duration_ms=cls._int_option(values, "slider_min_duration_ms", 300, 0, 10000),
+            min_duration_ms=cls._int_option(values, "slider_min_duration_ms", 100, 0, 10000),
             min_points=cls._int_option(values, "slider_min_points", 2, 1, 100),
         )
 

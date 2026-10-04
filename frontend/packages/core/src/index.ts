@@ -1652,6 +1652,7 @@ export {
   normalizeCaptchaPolicy,
   normalizeCaptchaScene,
   normalizeCaptchaTrace,
+  normalizeErrorCode,
   parseCaptchaSliderParams,
   resolveCaptchaErrorText,
   shouldRequireCaptcha,
