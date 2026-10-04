@@ -36,6 +36,8 @@ __all__ = [
     "SessionFactory",
     "get_db",
     "get_platform_read_db",
+    "get_platform_uow",
+    "get_platform_write_db",
     "get_read_db",
     "get_uow",
     "get_write_db",
@@ -211,6 +213,36 @@ async def get_uow(session: Annotated[DbSession, Depends(get_write_db)]) -> DbUni
 
     Returns:
         DbUnitOfWork: 数据库工作单元。
+    """
+    return DbUnitOfWork(session)
+
+
+async def get_platform_write_db(request: Request) -> AsyncIterator[DbSession]:
+    """平台库主库会话依赖（强制 `PLATFORM_DB_KEY`）。
+
+    平台服务库表（平台链 `sys_module` / 菜单元数据等）的**写路径**专用——`get_write_db` 带租户
+    上下文时按请求租户库键选引擎会误连租户库；本依赖固定平台库主库，供平台库写接口取会话。
+
+    Args:
+        request: 当前请求。
+
+    Yields:
+        DbSession: 平台库主库会话（异步会话或同步方言下的同步门面）。
+    """
+    async for session in _open_session(request, read_only=False, db_key=PLATFORM_DB_KEY):
+        yield session
+
+
+async def get_platform_uow(
+    session: Annotated[DbSession, Depends(get_platform_write_db)],
+) -> DbUnitOfWork:
+    """平台库请求级工作单元（平台服务库表的写路径 / 事务）。
+
+    Args:
+        session: 平台库主库会话。
+
+    Returns:
+        DbUnitOfWork: 绑定平台库会话的工作单元。
     """
     return DbUnitOfWork(session)
 

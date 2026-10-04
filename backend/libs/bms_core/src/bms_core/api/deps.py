@@ -22,7 +22,16 @@ from bms_core.config.service import ConfigService
 from bms_core.dashboard.base import get_dashboard_card_registry
 from bms_core.db.health import PrimaryHealth
 from bms_core.db.registry import EngineRegistry
-from bms_core.db.session import SessionFactory, get_db, get_platform_read_db, get_read_db, get_uow, get_write_db
+from bms_core.db.session import (
+    SessionFactory,
+    get_db,
+    get_platform_read_db,
+    get_platform_uow,
+    get_platform_write_db,
+    get_read_db,
+    get_uow,
+    get_write_db,
+)
 from bms_core.db.tenant import TenantContext, TenantLookup, get_tenant
 from bms_core.dict.base import get_dict_cache_region, get_dict_source, get_dict_translator
 from bms_core.dict.query import DictQueryService
@@ -133,6 +142,8 @@ __all__ = [
     "get_password_policy",
     "get_permission_checker",
     "get_platform_read_db",
+    "get_platform_uow",
+    "get_platform_write_db",
     "get_preference_store",
     "get_primary_health",
     "get_print_exporter",

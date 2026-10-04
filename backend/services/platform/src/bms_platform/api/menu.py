@@ -3,7 +3,8 @@
 - **鉴权**：模块级 `require_auth`；读挂 `menu:query` / `business:query` / `action:query`，
   写挂 `menu:create` / `menu:update` / `menu:delete`（当前 `NullPermissionChecker` 恒放行，
   `02_04` 注入真实权限检查器后自动收口，路由声明无需回改）；
-- **租户**：由登录态解析租户，`get_uow` 取 platform 服务平台库会话（元数据落平台库）；
+- **库**：菜单元数据落**平台服务库**（`platform:platform` 链），故取 `get_platform_uow`（固定平台库主库）；
+  带租户上下文的 `get_uow` 会按请求租户库选引擎、误连租户库；
 - **契约**：计入 platform 公开契约（`deploy/contracts/platform.json`）；新增端点属非破坏性变更；
 - **动态菜单**：`GET /api/v1/menus/my` 登录即可访问，按当前用户权限过滤菜单树并下发表单元数据。
 """
@@ -14,7 +15,13 @@ from typing import Annotated, cast
 from fastapi import Depends, Query, Request
 
 from bms_core.api.base import BaseRouter, require_auth
-from bms_core.api.deps import get_cache_region, get_config_source, get_outbox_store, get_permission_checker, get_uow
+from bms_core.api.deps import (
+    get_cache_region,
+    get_config_source,
+    get_outbox_store,
+    get_permission_checker,
+    get_platform_uow,
+)
 from bms_core.cache.base import CacheRegion
 from bms_core.config.base import BaseConfigSource
 from bms_core.core.concurrent import ConcurrentStableDict
@@ -96,7 +103,7 @@ action_router = BaseRouter(
     dependencies=[Depends(require_auth)],
 )
 
-UowDep = Annotated[UnitOfWork, Depends(get_uow)]
+UowDep = Annotated[UnitOfWork, Depends(get_platform_uow)]
 OutboxDep = Annotated[BaseOutboxStore, Depends(get_outbox_store)]
 CacheDep = Annotated[CacheRegion, Depends(get_cache_region)]
 ConfigDep = Annotated[BaseConfigSource, Depends(get_config_source)]
