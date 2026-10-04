@@ -1,6 +1,6 @@
 {
   "distDir": "dist",
-  "totalGzipKb": 280,
+  "totalGzipKb": 330,
   "largestGzipKb": 150,
-  "note": "2026-09-19 口径调整：首屏预算只统计 index.html 静态引用的入口块（js/css），路由级 / 组件级异步块（vendor-echarts 等）不计入首屏；@bms/core + @bms/vue + @bms/ui-ep 源码直出合入 bms-base 入口块，Element Plus 独立 vendor chunk。2026-10-02 上限放宽（260 → 280，经用户拍板）：宿主 main.ts 全量引入 element-plus/dist/index.css（05_01 登录页改用组件库输入件与 ElButton 的前置），首屏 CSS 增加约 45 KB（gzip），实测首屏合计 259.6 KB——原上限余量仅 0.4 KB，任一小改动即会红灯。回收路径（后续按需引入）：逐件 element-plus/es/components/<x>/style/css 或引入构建插件按需注入样式。"
+  "note": "2026-09-19 口径调整：首屏预算只统计 index.html 静态引用的入口块（js/css），路由级 / 组件级异步块（vendor-echarts 等）不计入首屏；@bms/core + @bms/vue + @bms/ui-ep 源码直出合入 bms-base 入口块，Element Plus 独立 vendor chunk。2026-10-02 上限放宽（260 → 280，经用户拍板）：宿主 main.ts 全量引入 element-plus/dist/index.css（05_01 登录页改用组件库输入件与 ElButton 的前置），首屏 CSS 增加约 45 KB（gzip），实测首屏合计 259.6 KB——原上限余量仅 0.4 KB，任一小改动即会红灯。回收路径（后续按需引入）：逐件 element-plus/es/components/<x>/style/css 或引入构建插件按需注入样式。2026-10-04 上限再放宽（280 → 330，经用户拍板）：阶段六收尾（05_05 记住我 / 05_06 登录页租户标识 / 06_02 模块能力）与阶段七 03_01 动态菜单前端消费累积增长，本次实测首屏合计 323.9 KB（gzip，入口块 17 个、最大单块 103.08 KB）；该超限**在本批推送前即为存量红**（main 流水线 595 / SHA 4a80f3ee 首屏 321.4 KB），故按机制放宽上限并沿用同一回收路径（按需引入 element-plus 样式，后续前端性能任务回收）。"
 }

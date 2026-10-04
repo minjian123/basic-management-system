@@ -73,7 +73,7 @@ def upgrade() -> None:
         *_base_columns(),
         sa.Column("code", sa.String(length=64), nullable=False, comment="动作码（如 query/create/manage）"),
         sa.Column("name", sa.String(length=128), nullable=False, comment="名称（默认文案）"),
-        sa.Column("business_id", sa.BigInteger(), nullable=False, comment="归属业务码 ID（逻辑外键 → sys_business.id）"),
+        sa.Column("business_id", sa.BigInteger(), nullable=False, comment="归属业务码 ID（外键 → sys_business.id）"),
         sa.Column("status", sa.String(length=16), nullable=False, comment="状态（enabled/disabled）"),
         sa.UniqueConstraint("business_id", "code", "deleted_at", name="uq_sys_action_business_code_deleted_at"),
     )
@@ -86,9 +86,7 @@ def upgrade() -> None:
         sa.Column("action_id", sa.BigInteger(), nullable=False, comment="动作码 ID（逻辑外键 → sys_action.id）"),
         sa.Column("locale", sa.String(length=16), nullable=False, comment="语言标识（如 zh-CN）"),
         sa.Column("name", sa.String(length=128), nullable=False, comment="动作名的该语言文案"),
-        sa.UniqueConstraint(
-            "action_id", "locale", "deleted_at", name="uq_sys_action_i18n_action_locale_deleted_at"
-        ),
+        sa.UniqueConstraint("action_id", "locale", "deleted_at", name="uq_sys_action_i18n_action_locale_deleted_at"),
     )
     op.create_index("idx_sys_action_i18n_deleted_at", "sys_action_i18n", ["deleted_at"])
 
@@ -124,7 +122,7 @@ def upgrade() -> None:
         "sys_form",
         *_base_columns(),
         sa.Column("menu_id", sa.BigInteger(), nullable=False, comment="所属菜单 ID（逻辑外键 → sys_menu.id）"),
-        sa.Column("business_id", sa.BigInteger(), nullable=False, comment="所属业务码 ID（逻辑外键 → sys_business.id）"),
+        sa.Column("business_id", sa.BigInteger(), nullable=False, comment="所属业务码 ID（外键 → sys_business.id）"),
         sa.Column("component", sa.String(length=255), nullable=True, comment="表单视图组件标识"),
         sa.Column("status", sa.String(length=16), nullable=False, comment="状态（enabled/disabled）"),
         sa.UniqueConstraint("menu_id", "deleted_at", name="uq_sys_form_menu_id_deleted_at"),
