@@ -20,6 +20,7 @@ from bms_core.core.context import (
     current_trace_id,
     current_user_id,
 )
+from bms_core.core.exceptions import MultipleActiveTenantsError
 from bms_core.db.tenant import DEMO_TENANT, TenantContext, TenantNotFoundError
 from bms_identity.main import ApplicationFactory
 from ops.seed_tenant import seed_tenants
@@ -59,6 +60,10 @@ class _SeedTenantSource:
             if tenant.tenant_id is not None and str(tenant.tenant_id) == tenant_id:
                 return tenant
         raise TenantNotFoundError(f"未知租户主键：{tenant_id}")
+
+    async def single_active(self) -> TenantContext | None:
+        """唯一启用租户解析（本替身含 2 个租户 → 恒多启用）。"""
+        raise MultipleActiveTenantsError("测试替身：多个启用租户")
 
     def _tenants(self) -> ConcurrentStableDict[str, TenantContext]:
         """演示 / 示例租户上下文（带雪花主键与固定库键）。"""

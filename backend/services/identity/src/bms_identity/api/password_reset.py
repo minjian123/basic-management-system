@@ -160,6 +160,9 @@ async def forgot_password(
 
     Returns:
         ApiResponse: 统一响应，data 为发起结果（`PasswordForgotResult`）。
+
+    Raises:
+        NeedTenantError: 未提供租户且存在多个启用租户、无法唯一解析（20007/200；data 为空）。
     """
     tenant = await resolve_request_tenant(req.tenant, tenant_ctx, tenant_source)
     registry: EngineRegistry = request.app.state.engine_registry
@@ -220,6 +223,9 @@ async def reset_password(
 
     Returns:
         ApiResponse: 统一响应，data 为重置结果（`PasswordResetResult`）。
+
+    Raises:
+        NeedTenantError: 未提供租户且存在多个启用租户、无法唯一解析（20007/200；data 为空）。
     """
     tenant = await resolve_request_tenant(req.tenant, tenant_ctx, tenant_source)
     registry: EngineRegistry = request.app.state.engine_registry

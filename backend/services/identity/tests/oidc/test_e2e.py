@@ -155,6 +155,14 @@ class _FakeTenantSource:
         tenant_id = 1001 if code == "demo" else 2002
         return TenantContext(code=code, db_key=f"tenant_{code}", name=code, tenant_id=tenant_id)
 
+    async def single_active(self) -> TenantContext | None:
+        """唯一启用租户解析（本替身恒返回演示租户）。
+
+        Returns:
+            TenantContext: 演示租户上下文。
+        """
+        return TenantContext(code="demo", db_key="tenant_demo", name="demo", tenant_id=1001)
+
 
 @pytest.mark.kiwi_id(2202)
 async def test_resolve_tenant_branches() -> None:

@@ -15,7 +15,13 @@ from typing import cast
 from bms_core.cache.base import CacheRegion
 from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.config import Settings
-from bms_core.core.exceptions import ServiceUnavailableError, TenantNotFoundError, TenantSuspendedError
+from bms_core.core.error_codes import ErrorCode
+from bms_core.core.exceptions import (
+    MultipleActiveTenantsError,
+    ServiceUnavailableError,
+    TenantNotFoundError,
+    TenantSuspendedError,
+)
 from bms_core.core.logging import get_logger
 from bms_core.core.objects import BaseFrameworkObject
 from bms_core.core.plugin import resolve_plugin
@@ -36,6 +42,9 @@ __all__ = ["TENANT_REGISTRY_PATH", "RemoteTenantSource"]
 
 TENANT_REGISTRY_PATH = "/api/v1/tenant-registry"
 """租户注册只读契约路径（租户服务提供）。"""
+
+SINGLE_ACTIVE_PATH = "/api/v1/tenant-registry/active-single"
+"""唯一启用租户只读契约路径（租户服务提供；免登录链路兜底）。"""
 
 _TENANT_SERVICE = "tenant"
 """契约提供方服务标识。"""
@@ -128,6 +137,31 @@ class RemoteTenantSource(BaseFrameworkObject):
         """
         return await self._resolve("id", tenant_id)
 
+    async def single_active(self) -> TenantContext | None:
+        """解析唯一启用租户（免登录链路无来源时兜底）。
+
+        缓存键 `default:active`（版本键失效）；恰 1 个启用租户 → 其上下文，0 个 → `None`。
+
+        Returns:
+            TenantContext | None: 唯一启用租户上下文；无启用租户返回 `None`。
+
+        Raises:
+            MultipleActiveTenantsError: ≥ 2 个启用租户（内部契约 80004 / 409）。
+            ServiceUnavailableError: 契约不可达或响应非法。
+        """
+        key = snapshot_cache_key("default", "active")
+        snapshot = self._cache_get(key)
+        if snapshot is None:
+            snapshot = await self._fetch_single_active()
+            if snapshot is None:
+                return None
+            self._cache_set(key, snapshot)
+        if snapshot.status != ACTIVE_STATUS:
+            if self._release is not None:
+                await self._release(snapshot.db_basis or snapshot.code)
+            raise TenantSuspendedError(f"租户已停用：{snapshot.code}")
+        return to_tenant_context(snapshot)
+
     async def invalidate(
         self, code: str | None = None, *, domain: str | None = None, tenant_id: str | None = None
     ) -> None:
@@ -215,6 +249,31 @@ class RemoteTenantSource(BaseFrameworkObject):
             return TenantSnapshot.from_payload(payload)
         except KeyError as exc:
             raise ServiceUnavailableError(f"租户注册契约响应非法：{exc}") from exc
+
+    async def _fetch_single_active(self) -> TenantSnapshot | None:
+        """经契约取「唯一启用租户」快照（按业务码归一失败分支）。
+
+        Returns:
+            TenantSnapshot | None: 唯一启用租户快照；无启用租户（80001）返回 `None`。
+
+        Raises:
+            MultipleActiveTenantsError: 多启用租户（业务码 80004）。
+            ServiceUnavailableError: 其余非 2xx / 响应体非法（含泛 404 等非业务码响应）。
+        """
+        request = ServiceRequest(service=self._service, method="GET", path=SINGLE_ACTIVE_PATH)
+        response = await self._client.call(request)
+        if 200 <= response.status_code < 300:
+            payload = _payload_data(response)
+            try:
+                return TenantSnapshot.from_payload(payload)
+            except KeyError as exc:
+                raise ServiceUnavailableError(f"租户注册契约响应非法：{exc}") from exc
+        code = _payload_code(response)
+        if code == int(ErrorCode.TENANT_NOT_FOUND):
+            return None
+        if code == int(ErrorCode.TENANT_SCOPE_AMBIGUOUS):
+            raise MultipleActiveTenantsError("多个启用租户，无法唯一解析")
+        raise ServiceUnavailableError(f"租户注册契约调用失败（{response.status_code}）")
 
     def _cache_get(self, key: str) -> TenantSnapshot | None:
         """读缓存（版本不符视为未命中）。
@@ -313,6 +372,21 @@ def _payload_data(response: ServiceResponse) -> ConcurrentStableDict[str, object
     if not isinstance(data, Mapping):
         raise ServiceUnavailableError("租户注册契约响应缺少 data")
     return ConcurrentStableDict(cast("Mapping[str, object]", data))
+
+
+def _payload_code(response: ServiceResponse) -> int | None:
+    """取统一响应包裹的业务码（缺失 / 非整数返回 `None`）。
+
+    Args:
+        response: 契约响应。
+
+    Returns:
+        int | None: 业务码；缺失或非整数为 `None`。
+    """
+    raw = response.payload()
+    body = cast("Mapping[str, object]", raw) if isinstance(raw, Mapping) else None
+    code: object = body.get("code") if body is not None else None
+    return int(code) if isinstance(code, int) else None
 
 
 register_remote_tenant_source()

@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 from bms_core.cache.base import CacheRegion
+from bms_core.core.exceptions import MultipleActiveTenantsError
 from bms_core.db.keys import build_tenant_db_key
 from bms_core.db.tenant import TenantContext, TenantNotFoundError
 
@@ -103,6 +104,17 @@ class FakeTenantSource:
             if tenant.tenant_id is not None and str(tenant.tenant_id) == tenant_id:
                 return tenant
         raise TenantNotFoundError(f"未知租户主键：{tenant_id}")
+
+    async def single_active(self) -> TenantContext | None:
+        """唯一启用租户解析（本替身含 2 个启用租户 → 恒多启用）。
+
+        Returns:
+            TenantContext | None: 永不为单（本替身固定 2 个租户）。
+
+        Raises:
+            MultipleActiveTenantsError: 恒抛出（2 个启用租户）。
+        """
+        raise MultipleActiveTenantsError("测试替身：多个启用租户")
 
 
 def install_fake_tenant_source(monkeypatch: object) -> None:

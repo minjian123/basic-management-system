@@ -14,7 +14,12 @@ from fastapi import Depends, Query
 from bms_core.api.base import BaseRouter
 from bms_core.api.deps import get_platform_read_db
 from bms_core.core.concurrent import ConcurrentStableDict
-from bms_core.core.exceptions import ParamError, TenantNotFoundError, TenantSuspendedError
+from bms_core.core.exceptions import (
+    MultipleActiveTenantsError,
+    ParamError,
+    TenantNotFoundError,
+    TenantSuspendedError,
+)
 from bms_core.core.logging import get_logger
 from bms_core.db.session import DbSession
 from bms_core.schemas.common import ApiResponse
@@ -72,6 +77,36 @@ async def get_tenant_registry(
         raise TenantNotFoundError(f"未知租户：{code or domain or tenant_id}")
     if row.status != _ACTIVE_STATUS:
         raise TenantSuspendedError(f"租户已停用：{row.code}")
+    db_basis = await repository.db_basis(int(row.id))
+    if not db_basis:
+        _LOGGER.warning("tenant_db_basis_missing", tenant_id=int(row.id), code=row.code)
+    return ApiResponse.ok(dict(_snapshot(row, db_basis)))
+
+
+@router.get("/active-single")
+async def get_single_active_tenant(session: SessionDep) -> ApiResponse:
+    """取唯一启用租户注册快照（免登录链路兜底；不返回租户清单）。
+
+    恰 1 个启用租户（`status == active` 且未软删）→ 注册快照；0 个 → `80001` / 404；
+    ≥ 2 个 → `80004` / 409（`MultipleActiveTenantsError`）。
+
+    Args:
+        session: 平台服务库只读会话。
+
+    Returns:
+        ApiResponse: 统一响应（data 为注册快照）。
+
+    Raises:
+        TenantNotFoundError: 无启用租户（404 / 80001）。
+        MultipleActiveTenantsError: 多启用租户（409 / 80004）。
+    """
+    repository = TenantRegistryRepository(session)
+    rows = await repository.active_rows()
+    if not rows:
+        raise TenantNotFoundError("未提供租户标识（无启用租户）")
+    if len(rows) > 1:
+        raise MultipleActiveTenantsError("当前部署存在多个启用租户")
+    row = rows[0]
     db_basis = await repository.db_basis(int(row.id))
     if not db_basis:
         _LOGGER.warning("tenant_db_basis_missing", tenant_id=int(row.id), code=row.code)

@@ -34,6 +34,7 @@ from bms_core.db.keys import (
 )
 
 __all__ = [
+    "DEFAULT_DEFERRED_PATHS",
     "DEFAULT_EXEMPT_PATHS",
     "DEMO_TENANT",
     "TENANT_DB_KEY_PREFIX",
@@ -43,6 +44,7 @@ __all__ = [
     "current_tenant_context",
     "current_tenant_id_str",
     "get_tenant",
+    "is_deferred_path",
     "is_exempt_path",
     "is_local_hostname",
     "is_tenant_code",
@@ -64,6 +66,19 @@ DEFAULT_EXEMPT_PATHS: tuple[str, ...] = (
     "/.well-known/jwks.json",
 )
 """租户解析豁免路径缺省集（正式取值见 `[tenant].exempt_paths`）。"""
+
+DEFAULT_DEFERRED_PATHS: tuple[str, ...] = (
+    "/api/v1/auth/login",
+    "/api/v1/auth/forgot-password",
+    "/api/v1/auth/reset-password",
+    "/api/v1/captcha",
+    "/api/v1/auth/sso",
+)
+"""免登录链路延迟解析路径缺省集（正式取值见 `[tenant].deferred_paths`）。
+
+这些路径**有来源则正常解析上下文、无来源则不硬拒**（置空放行），由端点层按请求体 / 唯一启用租户
+决定后续语义（如认证段 `20007`）。生产 `allow_demo_fallback=false` 时，若无延迟解析，登录等端点会
+被中间件先行拒绝、无从返回可操作引导。匹配语义见 `is_deferred_path`。"""
 
 _TENANT_CODE_PATTERN = re.compile(r"[A-Za-z][A-Za-z0-9_]{0,63}")
 """租户编码形态（与 `sys_tenant.code` 字段口径一致：字母开头、字母数字下划线、长度 ≤ 64）。"""
@@ -134,6 +149,19 @@ class TenantLookup(Protocol):
 
         Returns:
             TenantContext: 租户上下文。
+        """
+        ...
+
+    async def single_active(self) -> TenantContext | None:
+        """解析唯一启用租户（免登录链路无来源时兜底）。
+
+        启用租户判定与既有解析链一致：`status == active` 且未软删（**不判到期时间**）。
+
+        Returns:
+            TenantContext | None: 恰 1 个启用租户 → 其上下文；0 个 → `None`。
+
+        Raises:
+            MultipleActiveTenantsError: ≥ 2 个启用租户（`80004` / 409；不携带租户清单）。
         """
         ...
 
@@ -255,6 +283,22 @@ def is_exempt_path(path: str, exempt_paths: Iterable[str] = DEFAULT_EXEMPT_PATHS
     return path in frozenset(exempt_paths)
 
 
+def is_deferred_path(path: str, deferred_paths: Iterable[str] = DEFAULT_DEFERRED_PATHS) -> bool:
+    """是否为免登录链路延迟解析路径（前缀匹配）。
+
+    命中延迟路径时无租户来源不硬拒（置空放行），由端点层再解析。匹配语义：与清单项**相等**或
+    以「清单项 + `/`」为前缀（如清单项 `/api/v1/captcha` 命中 `/api/v1/captcha/scenes/login/policy`）。
+
+    Args:
+        path: 请求路径。
+        deferred_paths: 延迟路径集合（`[tenant].deferred_paths`；缺省取内置集）。
+
+    Returns:
+        bool: 延迟解析 True。
+    """
+    return any(path == item or path.startswith(f"{item}/") for item in deferred_paths)
+
+
 def current_tenant_context() -> TenantContext:
     """取当前请求上下文租户（服务 / 仓储在请求外调用时的统一入口）。
 
@@ -321,6 +365,7 @@ async def resolve_request_tenant(
     token_tenant_id: str | None = None,
     source: TenantLookup | None = None,
     exempt_paths: Iterable[str] = DEFAULT_EXEMPT_PATHS,
+    deferred_paths: Iterable[str] = DEFAULT_DEFERRED_PATHS,
     allow_demo_fallback: bool = True,
 ) -> TenantContext | None:
     """按解析链解析请求租户（子域名 → 请求头 → 令牌租户位）。
@@ -336,10 +381,11 @@ async def resolve_request_tenant(
         token_tenant_id: 令牌内租户主键（雪花 id 字符串；认证阶段写入请求态）。
         source: 租户源（真实查库）；None 时仅内置演示租户可用（未经中间件装配的场景）。
         exempt_paths: 豁免路径集合。
+        deferred_paths: 免登录链路延迟解析路径集合（无来源时置空放行，不做演示回落、不硬拒）。
         allow_demo_fallback: 无来源时是否回落演示租户。
 
     Returns:
-        TenantContext | None: 租户上下文；豁免路径为 None。
+        TenantContext | None: 租户上下文；豁免路径为 None；延迟路径无来源且不回落演示租户时为 None。
 
     Raises:
         TenantNotFoundError: 来源命中但未知租户 / 无来源且不允许回落。
@@ -364,6 +410,10 @@ async def resolve_request_tenant(
         if kind == "id":
             return await source.by_id(value)
         return await source.by_code(value)
+    if is_deferred_path(path, deferred_paths) and not allow_demo_fallback:
+        # 免登录链路（生产）：无来源不硬拒，置空放行由端点层按请求体 / 唯一启用租户解析。
+        # 开发 / 测试（allow_demo_fallback=true）沿用演示回落，保持既有本地登录便利。
+        return None
     if not allow_demo_fallback:
         raise TenantNotFoundError("未提供租户标识（子域名 / X-Tenant-ID / 令牌）")
     if source is None:
@@ -416,5 +466,6 @@ async def get_tenant(request: Request) -> TenantContext | None:
         token_tenant_id=state.get("tenant_id"),  # type: ignore[arg-type]
         source=source,
         exempt_paths=settings.tenant.exempt_paths if settings is not None else DEFAULT_EXEMPT_PATHS,
+        deferred_paths=settings.tenant.deferred_paths if settings is not None else DEFAULT_DEFERRED_PATHS,
         allow_demo_fallback=settings.tenant.allow_demo_fallback if settings is not None else True,
     )

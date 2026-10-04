@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from bms_core.cache.base import CacheRegion
 from bms_core.cache.memory import MemoryCacheRegion
 from bms_core.core.config import Settings
-from bms_core.core.exceptions import TenantNotFoundError, TenantSuspendedError
+from bms_core.core.exceptions import MultipleActiveTenantsError, TenantNotFoundError, TenantSuspendedError
 from bms_core.db.engine import EngineFactory
 from bms_core.db.registry import EngineRegistry
 from bms_core.db.tenant_registry import snapshot_cache_key
@@ -166,6 +166,59 @@ async def test_cache_hit_and_invalidate(platform_url: str) -> None:
         await source.invalidate(code="demo")
         with pytest.raises(TenantNotFoundError):
             await source.by_code("demo")
+    finally:
+        await registry.aclose()
+
+
+async def _soft_delete(url: str, *codes: str) -> None:
+    """软删除指定编码的租户行（唯一启用租户解析用例用）。
+
+    Args:
+        url: 平台库连接串。
+        codes: 待软删除的租户编码。
+    """
+    engine = create_async_engine(url)
+    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(engine, expire_on_commit=False)
+    async with factory() as session:
+        for code in codes:
+            row = (await session.execute(select(SysTenant).where(SysTenant.code == code))).scalar_one()
+            row.soft_delete()
+        await session.commit()
+    await engine.dispose()
+
+
+@pytest.mark.kiwi_id(2239)
+async def test_single_active_multiple_raises(platform_url: str) -> None:
+    """唯一启用租户：≥ 2 个启用租户 → `80004`（不返回清单）。"""
+    source, registry = _source(platform_url)
+    try:
+        with pytest.raises(MultipleActiveTenantsError) as exc:
+            await source.single_active()
+        assert exc.value.code == 80004 and exc.value.http_status == 409
+    finally:
+        await registry.aclose()
+
+
+@pytest.mark.kiwi_id(2239)
+async def test_single_active_exactly_one(platform_url: str) -> None:
+    """唯一启用租户：恰 1 个启用租户 → 其上下文（含库名基 / 主键）；停用 / 软删不计入。"""
+    await _soft_delete(platform_url, "acme", "renamed")
+    source, registry = _source(platform_url)
+    try:
+        single = await source.single_active()
+        assert single is not None
+        assert single.code == "demo" and single.db_key == "tenant_demo" and single.tenant_id is not None
+    finally:
+        await registry.aclose()
+
+
+@pytest.mark.kiwi_id(2239)
+async def test_single_active_none(platform_url: str) -> None:
+    """唯一启用租户：0 个启用租户 → `None`（沿用既有失败语义由调用方映射）。"""
+    await _soft_delete(platform_url, "demo", "acme", "renamed")
+    source, registry = _source(platform_url)
+    try:
+        assert await source.single_active() is None
     finally:
         await registry.aclose()
 

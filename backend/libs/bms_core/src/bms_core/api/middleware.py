@@ -54,7 +54,12 @@ from bms_core.core.exceptions import AuthError, BizError
 from bms_core.core.logging import get_logger
 from bms_core.core.objects import BaseFrameworkObject
 from bms_core.db.routing import is_read_method
-from bms_core.db.tenant import DEFAULT_EXEMPT_PATHS, is_exempt_path, resolve_request_tenant
+from bms_core.db.tenant import (
+    DEFAULT_DEFERRED_PATHS,
+    DEFAULT_EXEMPT_PATHS,
+    is_exempt_path,
+    resolve_request_tenant,
+)
 from bms_core.edge.base import BaseEdgeTrust, EdgeIdentity
 from bms_core.edge.headers import (
     DEFAULT_EDGE_EXEMPT_PATHS,
@@ -185,6 +190,7 @@ class TenantMiddleware(BaseMiddleware):
                 token_tenant_id=cast("str | None", state.get("tenant_id")),
                 source=source,
                 exempt_paths=settings.tenant.exempt_paths if settings is not None else DEFAULT_EXEMPT_PATHS,
+                deferred_paths=settings.tenant.deferred_paths if settings is not None else DEFAULT_DEFERRED_PATHS,
                 allow_demo_fallback=settings.tenant.allow_demo_fallback if settings is not None else True,
             )
         except BizError as exc:

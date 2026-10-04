@@ -18,7 +18,7 @@ from bms_core.api.deps import (
 )
 from bms_core.captcha.base import BaseCaptcha, CaptchaChallenge, CaptchaCredential, CaptchaKind, CaptchaScenePolicy
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
-from bms_core.core.exceptions import AuthError
+from bms_core.core.exceptions import AuthError, MultipleActiveTenantsError
 from bms_core.core.serialization import stable_json_dumps
 from bms_core.db.tenant import TenantContext, TenantNotFoundError
 from bms_core.idp.base import IdentityClaims
@@ -557,6 +557,38 @@ class FakeTenantSource:
         if tenant_id == ACME_ID:
             return acme_tenant()
         raise TenantNotFoundError(f"未知租户主键：{tenant_id}")
+
+    async def single_active(self) -> TenantContext | None:
+        """唯一启用租户解析（本替身含 2 个租户 → 恒多启用）。
+
+        Raises:
+            MultipleActiveTenantsError: 恒抛出（2 个启用租户）。
+        """
+        raise MultipleActiveTenantsError("测试替身：多个启用租户")
+
+
+class FakeSingleActiveTenantSource(FakeTenantSource):
+    """测试替身：唯一启用租户 = 演示租户（单租户部署口径）。"""
+
+    async def single_active(self) -> TenantContext | None:
+        """唯一启用租户解析（恒返回演示租户）。
+
+        Returns:
+            TenantContext: 演示租户上下文。
+        """
+        return demo_tenant()
+
+
+class FakeEmptyActiveTenantSource(FakeTenantSource):
+    """测试替身：无启用租户（0 个租户部署口径）。"""
+
+    async def single_active(self) -> TenantContext | None:
+        """唯一启用租户解析（恒返回 `None`）。
+
+        Returns:
+            TenantContext | None: `None`（无启用租户）。
+        """
+        return None
 
 
 def wire_auth(

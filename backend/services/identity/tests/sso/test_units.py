@@ -9,13 +9,22 @@ import pytest
 
 from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.config import Settings
-from bms_core.core.exceptions import ConfigError, SsoCallbackError, TenantNotFoundError
+from bms_core.core.exceptions import (
+    ConfigError,
+    MultipleActiveTenantsError,
+    SsoCallbackError,
+    SsoProviderNotFoundError,
+    TenantNotFoundError,
+)
 from bms_core.db.tenant import TenantLookup
 from bms_core.idp.state.memory import MemoryIdpStateStore
 from bms_core.lock.null import NullDistributedLock
 from bms_core.outbox.null import NullOutboxStore
 from bms_core.ratelimit.memory import MemoryRateLimiter
-from bms_identity.api.sso import _resolve_sso_tenant  # pyright: ignore[reportPrivateUsage]
+from bms_identity.api.sso import (
+    _resolve_sso_tenant,  # pyright: ignore[reportPrivateUsage]
+    _resolve_sso_tenant_required,  # pyright: ignore[reportPrivateUsage]
+)
 from bms_identity.services.org_client import OrgCredentialClient
 from bms_identity.services.provider_registry import (
     ProviderRegistry,
@@ -83,8 +92,38 @@ def test_flow_payload_invalid_structure() -> None:
         _flow_from_payload({"tenant": "demo"})
 
 
+class _EmptyActiveSource:
+    """无启用租户的租户源替身（仅 `single_active`）。"""
+
+    async def single_active(self) -> None:
+        """无启用租户。
+
+        Returns:
+            None: 0 个启用租户。
+        """
+        return None
+
+
+class _MultiActiveSource:
+    """多启用租户的租户源替身（仅 `single_active`）。"""
+
+    async def single_active(self) -> None:
+        """多启用租户。
+
+        Raises:
+            MultipleActiveTenantsError: 恒抛出。
+        """
+        raise MultipleActiveTenantsError("多启用租户")
+
+
 @pytest.mark.kiwi_id(2197)
+@pytest.mark.kiwi_id(2239)
 async def test_resolve_sso_tenant_requires_any_source() -> None:
-    """无租户参数且无上下文时 80001（端点内防御分支）。"""
+    """无租户参数且无上下文：0 个启用租户 → 80001；≥ 2 个启用租户 → 80004（端点内防御分支）。"""
     with pytest.raises(TenantNotFoundError):
-        await _resolve_sso_tenant(None, None, cast("TenantLookup", object()))
+        await _resolve_sso_tenant(None, None, cast("TenantLookup", _EmptyActiveSource()))
+    with pytest.raises(MultipleActiveTenantsError):
+        await _resolve_sso_tenant(None, None, cast("TenantLookup", _MultiActiveSource()))
+    # 授权端点（必带租户）：多启用租户转 20051，不向授权面暴露租户段码。
+    with pytest.raises(SsoProviderNotFoundError):
+        await _resolve_sso_tenant_required(None, None, cast("TenantLookup", _MultiActiveSource()))

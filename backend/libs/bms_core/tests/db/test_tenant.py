@@ -9,7 +9,7 @@ from bms_core.core.context import (
     set_current_tenant,
     set_tenant_context,
 )
-from bms_core.core.exceptions import ConfigError, TenantNotFoundError
+from bms_core.core.exceptions import ConfigError, MultipleActiveTenantsError, TenantNotFoundError
 from bms_core.db.tenant import (
     DEMO_TENANT,
     TenantContext,
@@ -57,6 +57,15 @@ class _RecordingSource:
             if tenant.tenant_id is not None and str(tenant.tenant_id) == tenant_id:
                 return tenant
         raise TenantNotFoundError(f"未知租户主键：{tenant_id}")
+
+    async def single_active(self) -> TenantContext | None:
+        """唯一启用租户解析（按记账租户集合判定：0 → None；1 → 该租户；≥2 → 多启用）。"""
+        self.calls.add(("single", "active"))
+        if not self.tenants:
+            return None
+        if len(self.tenants) > 1:
+            raise MultipleActiveTenantsError("测试替身：多个启用租户")
+        return next(iter(self.tenants.values()))
 
 
 @pytest.mark.kiwi_id(1019)

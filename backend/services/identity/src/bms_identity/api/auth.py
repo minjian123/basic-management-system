@@ -249,6 +249,9 @@ async def login(
 
     Returns:
         ApiResponse: 统一响应，data 为登录结果（`LoginResult`）。
+
+    Raises:
+        NeedTenantError: 未提供租户且存在多个启用租户、无法唯一解析（20007/200；data 为空）。
     """
     tenant = await resolve_request_tenant(req.tenant, tenant_ctx, tenant_source)
     if tenant.tenant_id is None:

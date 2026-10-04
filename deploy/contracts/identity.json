@@ -1882,7 +1882,7 @@
     },
     "/api/v1/auth/forgot-password": {
       "post": {
-        "description": "发起找回：验证码 / 限流 / 重置目标解析 → 生成令牌并占位发送（恒 `{sent: true}`）。\n\nArgs:\n    request: 请求对象（取应用配置与引擎注册表）。\n    req: 发起找回请求（标识 / 验证码 / 租户）。\n    captcha: 验证码基座。\n    limiter: 限流基座。\n    client: 服务间调用客户端。\n    state_store: 流程状态存储。\n    notifier: 通知基座。\n    security: 会话安全原语。\n    store: 会话标记存储。\n    publisher: 实时推送器。\n    tenant_ctx: 请求上下文租户。\n    tenant_source: 租户源。\n\nReturns:\n    ApiResponse: 统一响应，data 为发起结果（`PasswordForgotResult`）。",
+        "description": "发起找回：验证码 / 限流 / 重置目标解析 → 生成令牌并占位发送（恒 `{sent: true}`）。\n\nArgs:\n    request: 请求对象（取应用配置与引擎注册表）。\n    req: 发起找回请求（标识 / 验证码 / 租户）。\n    captcha: 验证码基座。\n    limiter: 限流基座。\n    client: 服务间调用客户端。\n    state_store: 流程状态存储。\n    notifier: 通知基座。\n    security: 会话安全原语。\n    store: 会话标记存储。\n    publisher: 实时推送器。\n    tenant_ctx: 请求上下文租户。\n    tenant_source: 租户源。\n\nReturns:\n    ApiResponse: 统一响应，data 为发起结果（`PasswordForgotResult`）。\n\nRaises:\n    NeedTenantError: 未提供租户且存在多个启用租户、无法唯一解析（20007/200；data 为空）。",
         "operationId": "forgot_password_api_v1_auth_forgot_password_post",
         "requestBody": {
           "content": {
@@ -2100,7 +2100,7 @@
     },
     "/api/v1/auth/login": {
       "post": {
-        "description": "本地账号密码登录：验证码 / 限流 / org 凭据校验 → 签发双 token 并建会话。\n\nArgs:\n    request: 请求对象。\n    req: 登录请求。\n    response: 响应对象（下发 refresh cookie）。\n    issuer: 用户双 token 签发者。\n    security: 会话安全原语。\n    store: 会话标记存储。\n    captcha: 验证码基座。\n    limiter: 限流基座。\n    client: 服务间调用客户端。\n    tenant_ctx: 请求上下文租户。\n    tenant_source: 租户源。\n\nReturns:\n    ApiResponse: 统一响应，data 为登录结果（`LoginResult`）。",
+        "description": "本地账号密码登录：验证码 / 限流 / org 凭据校验 → 签发双 token 并建会话。\n\nArgs:\n    request: 请求对象。\n    req: 登录请求。\n    response: 响应对象（下发 refresh cookie）。\n    issuer: 用户双 token 签发者。\n    security: 会话安全原语。\n    store: 会话标记存储。\n    captcha: 验证码基座。\n    limiter: 限流基座。\n    client: 服务间调用客户端。\n    tenant_ctx: 请求上下文租户。\n    tenant_source: 租户源。\n\nReturns:\n    ApiResponse: 统一响应，data 为登录结果（`LoginResult`）。\n\nRaises:\n    NeedTenantError: 未提供租户且存在多个启用租户、无法唯一解析（20007/200；data 为空）。",
         "operationId": "login_api_v1_auth_login_post",
         "requestBody": {
           "content": {
@@ -2218,7 +2218,7 @@
     },
     "/api/v1/auth/reset-password": {
       "post": {
-        "description": "提交重置：一次性消费令牌 → 改密（强制过策略）→ 该账号全部会话失效。\n\nArgs:\n    request: 请求对象（取应用配置与引擎注册表）。\n    req: 提交重置请求（令牌 / 新口令 / 租户）。\n    captcha: 验证码基座（未使用，保持服务构造一致）。\n    limiter: 限流基座（未使用）。\n    client: 服务间调用客户端。\n    state_store: 流程状态存储（一次性消费令牌）。\n    notifier: 通知基座（未使用）。\n    security: 会话安全原语。\n    store: 会话标记存储。\n    publisher: 实时推送器。\n    tenant_ctx: 请求上下文租户。\n    tenant_source: 租户源。\n\nReturns:\n    ApiResponse: 统一响应，data 为重置结果（`PasswordResetResult`）。",
+        "description": "提交重置：一次性消费令牌 → 改密（强制过策略）→ 该账号全部会话失效。\n\nArgs:\n    request: 请求对象（取应用配置与引擎注册表）。\n    req: 提交重置请求（令牌 / 新口令 / 租户）。\n    captcha: 验证码基座（未使用，保持服务构造一致）。\n    limiter: 限流基座（未使用）。\n    client: 服务间调用客户端。\n    state_store: 流程状态存储（一次性消费令牌）。\n    notifier: 通知基座（未使用）。\n    security: 会话安全原语。\n    store: 会话标记存储。\n    publisher: 实时推送器。\n    tenant_ctx: 请求上下文租户。\n    tenant_source: 租户源。\n\nReturns:\n    ApiResponse: 统一响应，data 为重置结果（`PasswordResetResult`）。\n\nRaises:\n    NeedTenantError: 未提供租户且存在多个启用租户、无法唯一解析（20007/200；data 为空）。",
         "operationId": "reset_password_api_v1_auth_reset_password_post",
         "requestBody": {
           "content": {
@@ -2310,7 +2310,7 @@
     },
     "/api/v1/auth/sso/providers": {
       "get": {
-        "description": "可用 IdP 入口清单（仅 `enabled`；无启用 IdP 返回空列表）。\n\nArgs:\n    request: 请求对象。\n    tenant_ctx: 请求上下文租户。\n    tenant_source: 租户源。\n    state_store: 流程状态存储（保持服务构造一致）。\n    limiter: 限流基座（保持服务构造一致）。\n    lock: 分布式锁（保持服务构造一致）。\n    outbox_store: 事务性发件箱（保持服务构造一致）。\n    client: 服务间调用客户端（保持服务构造一致）。\n    tenant: 租户编码（可选）。\n\nReturns:\n    ApiResponse: 统一响应，data 为 `SsoProviderList`。",
+        "description": "可用 IdP 入口清单（仅 `enabled`；无启用 IdP 返回空列表）。\n\nArgs:\n    request: 请求对象。\n    tenant_ctx: 请求上下文租户。\n    tenant_source: 租户源。\n    state_store: 流程状态存储（保持服务构造一致）。\n    limiter: 限流基座（保持服务构造一致）。\n    lock: 分布式锁（保持服务构造一致）。\n    outbox_store: 事务性发件箱（保持服务构造一致）。\n    client: 服务间调用客户端（保持服务构造一致）。\n    tenant: 租户编码（可选）。\n\nReturns:\n    ApiResponse: 统一响应，data 为 `SsoProviderList`（无租户可解析 / 多启用租户时为空清单）。",
         "operationId": "providers_api_v1_auth_sso_providers_get",
         "parameters": [
           {

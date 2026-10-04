@@ -194,6 +194,18 @@ class TenantSettings(BaseSettings):
         )
     )
     """租户解析豁免路径（精确匹配；这些路径不解析租户、不设置租户上下文）。"""
+    deferred_paths: Annotated[ConcurrentStableList[str], CONTRACT_COLLECTION] = Field(
+        default_factory=lambda: ConcurrentStableList(
+            [
+                "/api/v1/auth/login",
+                "/api/v1/auth/forgot-password",
+                "/api/v1/auth/reset-password",
+                "/api/v1/captcha",
+                "/api/v1/auth/sso",
+            ]
+        )
+    )
+    """免登录链路延迟解析路径（前缀匹配；有来源则解析、无来源置空放行，由端点层再解析）。"""
     dev_tenants: Annotated[ConcurrentStableList[str], CONTRACT_COLLECTION] = Field(
         default_factory=lambda: ConcurrentStableList(["demo"])
     )

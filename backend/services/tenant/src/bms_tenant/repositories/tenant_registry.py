@@ -10,12 +10,16 @@ from datetime import datetime
 
 from sqlalchemy import select
 
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.objects import BaseFrameworkObject
 from bms_core.db.session import DbSession
 from bms_tenant.models.tenant import SysTenant
 from bms_tenant.models.tenant_database import SysTenantDatabase
 
 __all__ = ["TenantRegistryRepository"]
+
+_ACTIVE_STATUS = "active"
+"""启用租户状态取值（与 `sys_tenant.status` 口径一致）。"""
 
 
 class TenantRegistryRepository(BaseFrameworkObject):
@@ -61,6 +65,25 @@ class TenantRegistryRepository(BaseFrameworkObject):
             SysTenant | None: 注册行；未命中返回 None。
         """
         return await self._one(SysTenant.id == tenant_id)
+
+    async def active_rows(self, limit: int = 2) -> ConcurrentStableList[SysTenant]:
+        """取启用租户注册行（`status == active` 且未软删；按主键升序、上限 `limit` 条）。
+
+        供免登录链路「唯一启用租户」判个数（上限 2 即可判定唯一 / 不唯一），不取全量。
+
+        Args:
+            limit: 返回上限（缺省 2）。
+
+        Returns:
+            ConcurrentStableList[SysTenant]: 启用租户注册行（至多 `limit` 条，保持主键升序）。
+        """
+        statement = (
+            select(SysTenant)
+            .where(SysTenant.status == _ACTIVE_STATUS, SysTenant.deleted_at.is_(None))
+            .order_by(SysTenant.id)
+            .limit(limit)
+        )
+        return ConcurrentStableList((await self._session.execute(statement)).scalars().all())
 
     async def db_basis(self, tenant_id: int) -> str | None:
         """取租户库名基（对照表 `sys_tenant_database`；未软删）。

@@ -15,6 +15,7 @@ from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.core.exceptions import (
     ConfigError,
+    MultipleActiveTenantsError,
     ServiceUnavailableError,
     TenantAccessDeniedError,
     TenantNotFoundError,
@@ -375,6 +376,10 @@ class _FakeTenants:
         if tenant_id == str(DEMO_ID):
             return TenantContext(code="demo", db_key="tenant_demo", name="演示租户", tenant_id=DEMO_ID)
         raise TenantNotFoundError(f"未知租户主键：{tenant_id}")
+
+    async def single_active(self) -> TenantContext | None:
+        """唯一启用租户解析（本替身含演示 / 示例两个租户 → 恒多启用）。"""
+        raise MultipleActiveTenantsError("测试替身：多个启用租户")
 
 
 def _service(store: _FakeStore) -> DbTenantSelfService:

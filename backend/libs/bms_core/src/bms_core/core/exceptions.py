@@ -143,6 +143,23 @@ class AccountDisabledError(AuthError):
         BizError.__init__(self, ErrorCode.ACCOUNT_DISABLED, message, http_status=401, data=data)
 
 
+class NeedTenantError(AuthError):
+    """需要选择租户（`20007` / HTTP 200；免登录链路无法唯一解析租户，需用户补充租户标识）。
+
+    业务失败统一 HTTP 200（与 `20012` 同口径）——前端请求层仅在 2xx 解包业务码；响应 `data` 为
+    空（不携带租户清单，避免暴露租户目录）。
+    """
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化「需要选择租户」异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选；本异常不使用）。
+        """
+        BizError.__init__(self, ErrorCode.TENANT_REQUIRED, message, data=data)
+
+
 class PasswordResetError(AuthError):
     """找回密码段（认证段内自助找回子段）异常基类；子类在构造时预置码位与 HTTP 状态。"""
 
@@ -731,6 +748,23 @@ class TenantAccessDeniedError(OpenTenantError):
 
     def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
         super().__init__(ErrorCode.TENANT_ACCESS_DENIED, message, http_status=403, data=data)
+
+
+class MultipleActiveTenantsError(OpenTenantError):
+    """启用租户不唯一（免登录链路无法默认定位租户；`80004` / 409）。
+
+    内部租户注册契约信号：远端租户源据内部端点响应映射为本异常，identity 免登录链路捕获后转
+    认证段 `20007`（需要选择租户）。`data` 为空（不携带租户清单）。
+    """
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化「启用租户不唯一」异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        super().__init__(ErrorCode.TENANT_SCOPE_AMBIGUOUS, message, http_status=409, data=data)
 
 
 class OidcError(OpenTenantError):

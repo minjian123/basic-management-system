@@ -6,9 +6,19 @@ import pytest
 
 from bms_core.cache.memory import MemoryCacheRegion
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
-from bms_core.core.exceptions import ServiceUnavailableError, TenantNotFoundError, TenantSuspendedError
+from bms_core.core.exceptions import (
+    MultipleActiveTenantsError,
+    ServiceUnavailableError,
+    TenantNotFoundError,
+    TenantSuspendedError,
+)
 from bms_core.db.tenant_registry import snapshot_cache_key
-from bms_core.db.tenant_remote import TENANT_REGISTRY_PATH, RemoteTenantSource, register_remote_tenant_source
+from bms_core.db.tenant_remote import (
+    SINGLE_ACTIVE_PATH,
+    TENANT_REGISTRY_PATH,
+    RemoteTenantSource,
+    register_remote_tenant_source,
+)
 from bms_core.db.tenant_source import registered_tenant_sources
 from bms_core.servicecall.base import BaseServiceClient, ServiceRequest, ServiceResponse
 
@@ -36,6 +46,12 @@ class _StubClient(BaseServiceClient):
 def _ok(payload: ConcurrentStableDict[str, object], status_code: int = 200) -> ServiceResponse:
     """构造统一响应包裹的成功响应。"""
     body = json.dumps({"code": 0, "message": "ok", "data": dict(payload)}).encode("utf-8")
+    return ServiceResponse(status_code=status_code, content=body)
+
+
+def _err(code: int, status_code: int) -> ServiceResponse:
+    """构造统一响应包裹的业务错误响应。"""
+    body = json.dumps({"code": code, "message": "err", "data": None}).encode("utf-8")
     return ServiceResponse(status_code=status_code, content=body)
 
 
@@ -104,6 +120,58 @@ async def test_remote_source_failure_branches() -> None:
     source = RemoteTenantSource(client=_client(ServiceUnavailableError("契约不可达")))
     with pytest.raises(ServiceUnavailableError):
         await source.by_code("demo")
+
+
+@pytest.mark.kiwi_id(2239)
+async def test_remote_single_active_branches() -> None:
+    """唯一启用租户远端解析：200 取快照 / 80001 无租户 / 80004 多租户 / 非业务非 2xx 不可达。"""
+    source = RemoteTenantSource(client=_client(_ok(_payload())))
+    context = await source.single_active()
+    assert context is not None and context.code == "demo" and context.tenant_id == 7
+
+    assert await RemoteTenantSource(client=_client(_err(80001, 404))).single_active() is None
+
+    with pytest.raises(MultipleActiveTenantsError):
+        await RemoteTenantSource(client=_client(_err(80004, 409))).single_active()
+
+    with pytest.raises(ServiceUnavailableError):
+        await RemoteTenantSource(client=_client(ServiceResponse(status_code=500))).single_active()
+
+    # 防御分支：契约返回停用快照 → 回收引擎并抛停用；200 但响应非法 → 契约不可达。
+    released: ConcurrentStableList[str] = ConcurrentStableList()
+
+    async def _release(code: str) -> None:
+        released.add(code)
+
+    with pytest.raises(TenantSuspendedError):
+        await RemoteTenantSource(
+            client=_client(_ok(_payload("sosp", status="suspended"))), release=_release
+        ).single_active()
+    assert released == ["sosp"]
+
+    with pytest.raises(ServiceUnavailableError):
+        await RemoteTenantSource(client=_client(_ok(ConcurrentStableDict()))).single_active()
+
+    single_client = _client(_ok(_payload()))
+    await RemoteTenantSource(client=single_client).single_active()
+    assert single_client.calls[0].path == SINGLE_ACTIVE_PATH
+
+
+@pytest.mark.kiwi_id(2239)
+async def test_remote_single_active_cache() -> None:
+    """唯一启用租户缓存：命中不重复回源；版本递增后重载。"""
+    cache = MemoryCacheRegion(domain="tenant")
+    client = _client(_ok(_payload()), _ok(_payload()))
+    source = RemoteTenantSource(client=client, cache=cache, cache_ttl=60)
+
+    await source.single_active()
+    await source.single_active()
+    assert len(client.calls) == 1
+    assert cache.get(snapshot_cache_key("default", "active")) is not None
+
+    cache.bump_version()
+    await source.single_active()
+    assert len(client.calls) == 2
 
 
 @pytest.mark.kiwi_id(2176)

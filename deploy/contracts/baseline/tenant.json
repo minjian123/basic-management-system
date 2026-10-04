@@ -387,6 +387,78 @@
         ]
       }
     },
+    "/api/v1/tenant-registry/active-single": {
+      "get": {
+        "description": "取唯一启用租户注册快照（免登录链路兜底；不返回租户清单）。\n\n恰 1 个启用租户（`status == active` 且未软删）→ 注册快照；0 个 → `80001` / 404；\n≥ 2 个 → `80004` / 409（`MultipleActiveTenantsError`）。\n\nArgs:\n    session: 平台服务库只读会话。\n\nReturns:\n    ApiResponse: 统一响应（data 为注册快照）。\n\nRaises:\n    TenantNotFoundError: 无启用租户（404 / 80001）。\n    MultipleActiveTenantsError: 多启用租户（409 / 80004）。",
+        "operationId": "get_single_active_tenant_api_v1_tenant_registry_active_single_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Get Single Active Tenant",
+        "tags": [
+          "tenant"
+        ]
+      }
+    },
     "/api/v1/tenant/internal/memberships": {
       "delete": {
         "description": "回收关系（置 `disabled`，幂等；省略目标租户则回收该用户全部）。\n\nArgs:\n    service: 关系服务。\n    owner_tenant_id: 归属租户主键。\n    user_id: 用户主键。\n    target_tenant_id: 目标租户主键（省略＝回收全部）。\n\nReturns:\n    ApiResponse: 统一响应，data 为操作后该用户有效目标集合。",

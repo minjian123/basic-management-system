@@ -13,7 +13,7 @@ from sqlalchemy import select
 from bms_core.cache.base import CacheRegion
 from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.config import Settings
-from bms_core.core.exceptions import TenantNotFoundError, TenantSuspendedError
+from bms_core.core.exceptions import MultipleActiveTenantsError, TenantNotFoundError, TenantSuspendedError
 from bms_core.core.logging import get_logger
 from bms_core.core.objects import BaseFrameworkObject
 from bms_core.db.registry import PLATFORM_DB_KEY, EngineRegistry
@@ -29,6 +29,7 @@ from bms_core.db.tenant_registry import (
 from bms_core.db.tenant_source import register_tenant_lookup
 from bms_tenant.models.tenant import SysTenant
 from bms_tenant.models.tenant_database import SysTenantDatabase
+from bms_tenant.repositories.tenant_registry import TenantRegistryRepository
 
 __all__ = ["LOCAL_TENANT_SOURCE", "LocalTenantSource", "register_local_tenant_source"]
 
@@ -106,6 +107,27 @@ class LocalTenantSource(BaseFrameworkObject):
             TenantSuspendedError: 租户已停用（403 / 80002）。
         """
         return await self._resolve("id", tenant_id)
+
+    async def single_active(self) -> TenantContext | None:
+        """解析唯一启用租户（直查本服务平台库，不经缓存；免登录链路无来源时兜底）。
+
+        恰 1 个启用租户 → 其上下文；0 个 → `None`；≥ 2 个 → `MultipleActiveTenantsError`。
+
+        Returns:
+            TenantContext | None: 唯一启用租户上下文；无启用租户返回 `None`。
+
+        Raises:
+            MultipleActiveTenantsError: ≥ 2 个启用租户（`80004` / 409）。
+        """
+        async with session_scope(self._registry, db_key=PLATFORM_DB_KEY, factory=self._session_factory) as session:
+            repository = TenantRegistryRepository(session)
+            rows = await repository.active_rows()
+            if not rows:
+                return None
+            if len(rows) > 1:
+                raise MultipleActiveTenantsError("当前部署存在多个启用租户")
+            basis = await repository.db_basis(int(rows[0].id))
+        return to_tenant_context(_snapshot(rows[0], basis))
 
     async def invalidate(self, code: str | None = None, *, domain: str | None = None) -> None:
         """失效缓存（开通 / 停用 / 改名后调用）。

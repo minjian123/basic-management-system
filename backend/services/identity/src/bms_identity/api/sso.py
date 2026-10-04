@@ -30,8 +30,9 @@ from bms_core.api.deps import (
     get_tenant_source,
     get_user_token_issuer,
 )
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.context import current_client_ip
-from bms_core.core.exceptions import BizError, SsoProviderNotFoundError
+from bms_core.core.exceptions import BizError, MultipleActiveTenantsError, SsoProviderNotFoundError
 from bms_core.db.registry import PLATFORM_DB_KEY, EngineRegistry
 from bms_core.db.session import session_scope
 from bms_core.db.tenant import TenantContext, TenantLookup, TenantNotFoundError
@@ -75,17 +76,21 @@ async def _resolve_sso_tenant(
 ) -> TenantContext:
     """解析 SSO 端点生效租户：上下文与参数不一致即 20051。
 
+    无租户来源时按「唯一启用租户」兜底（与免登录登录链路同口径）：恰 1 个启用租户 → 用之；
+    0 个 → `TenantNotFoundError`；≥ 2 个 → `MultipleActiveTenantsError`（`providers` 端点据此返回空清单）。
+
     Args:
         tenant: 查询参数租户编码（可选）。
         context: 请求上下文（子域名 / `X-Tenant-ID`）租户。
-        source: 租户源（按编码校验存在）。
+        source: 租户源（按编码校验存在、解析唯一启用租户）。
 
     Returns:
         TenantContext: 生效租户上下文。
 
     Raises:
         SsoProviderNotFoundError: 参数与上下文租户不一致（20051/404）。
-        TenantNotFoundError: 无任何租户来源（既有，与 refresh 同口径）。
+        TenantNotFoundError: 无任何租户来源且无启用租户（既有，与 refresh 同口径）。
+        MultipleActiveTenantsError: 多启用租户、无法唯一解析（80004/409）。
     """
     if tenant and context is not None and tenant != context.code:
         raise SsoProviderNotFoundError()
@@ -94,10 +99,37 @@ async def _resolve_sso_tenant(
     elif context is not None:
         resolved = context
     else:
-        raise TenantNotFoundError("未提供租户标识")
+        single = await source.single_active()
+        if single is None:
+            raise TenantNotFoundError("未提供租户标识")
+        resolved = single
     if resolved.tenant_id is None:
         raise TenantNotFoundError("租户缺少主键标识")
     return resolved
+
+
+async def _resolve_sso_tenant_required(
+    tenant: str | None,
+    context: TenantContext | None,
+    source: TenantLookup,
+) -> TenantContext:
+    """解析 SSO 授权端点生效租户（多启用租户转 20051，不向授权面暴露租户段码）。
+
+    Args:
+        tenant: 查询参数租户编码（可选）。
+        context: 请求上下文租户。
+        source: 租户源。
+
+    Returns:
+        TenantContext: 生效租户上下文。
+
+    Raises:
+        SsoProviderNotFoundError: 多启用租户、无法唯一解析（20051/404）。
+    """
+    try:
+        return await _resolve_sso_tenant(tenant, context, source)
+    except MultipleActiveTenantsError as exc:
+        raise SsoProviderNotFoundError() from exc
 
 
 def _build_service(
@@ -160,9 +192,13 @@ async def providers(
         tenant: 租户编码（可选）。
 
     Returns:
-        ApiResponse: 统一响应，data 为 `SsoProviderList`。
+        ApiResponse: 统一响应，data 为 `SsoProviderList`（无租户可解析 / 多启用租户时为空清单）。
     """
-    context = await _resolve_sso_tenant(tenant, tenant_ctx, tenant_source)
+    try:
+        context = await _resolve_sso_tenant(tenant, tenant_ctx, tenant_source)
+    except TenantNotFoundError, MultipleActiveTenantsError:
+        # 免登录入口清单：无租户可解析（含多启用租户）不报错，返回空清单由前端整块不渲染。
+        return ApiResponse.ok(SsoProviderList(items=ConcurrentStableList()))
     registry: EngineRegistry = request.app.state.engine_registry
     factory = request.app.state.session_factory
     async with session_scope(registry, db_key=context.db_key, factory=factory) as session:
@@ -213,7 +249,7 @@ async def authorize(
         SsoProviderUnavailableError: IdP 配置缺失 / 发现失败（20053/503）。
         RateLimitError: 限流命中（10005/429）。
     """
-    context = await _resolve_sso_tenant(tenant, tenant_ctx, tenant_source)
+    context = await _resolve_sso_tenant_required(tenant, tenant_ctx, tenant_source)
     registry: EngineRegistry = request.app.state.engine_registry
     factory = request.app.state.session_factory
     async with session_scope(registry, db_key=context.db_key, factory=factory) as session:
@@ -271,7 +307,7 @@ async def authorize_url(
         EnterpriseIdpError: 企微 / 钉钉专用失败（20057~20062）。
         RateLimitError: 限流命中（10005/429）。
     """
-    context = await _resolve_sso_tenant(tenant, tenant_ctx, tenant_source)
+    context = await _resolve_sso_tenant_required(tenant, tenant_ctx, tenant_source)
     registry: EngineRegistry = request.app.state.engine_registry
     factory = request.app.state.session_factory
     async with session_scope(registry, db_key=context.db_key, factory=factory) as session:

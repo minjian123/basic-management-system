@@ -63,6 +63,39 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/tenant-registry/active-single": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Single Active Tenant
+         * @description 取唯一启用租户注册快照（免登录链路兜底；不返回租户清单）。
+         *
+         *     恰 1 个启用租户（`status == active` 且未软删）→ 注册快照；0 个 → `80001` / 404；
+         *     ≥ 2 个 → `80004` / 409（`MultipleActiveTenantsError`）。
+         *
+         *     Args:
+         *         session: 平台服务库只读会话。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应（data 为注册快照）。
+         *
+         *     Raises:
+         *         TenantNotFoundError: 无启用租户（404 / 80001）。
+         *         MultipleActiveTenantsError: 多启用租户（409 / 80004）。
+         */
+        get: operations["get_single_active_tenant_api_v1_tenant_registry_active_single_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/tenant/internal/memberships": {
         parameters: {
             query?: never;
@@ -486,6 +519,71 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    get_single_active_tenant_api_v1_tenant_registry_active_single_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
                 };
             };
             /** @description 限流 */

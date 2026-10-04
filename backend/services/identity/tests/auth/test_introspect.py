@@ -104,6 +104,14 @@ class _TenantSource:
             return TenantContext(code="acme", db_key="tenant_acme", name="示例租户", tenant_id=2002)
         raise TenantNotFoundError(f"未知租户主键：{tenant_id}")
 
+    async def single_active(self) -> TenantContext | None:
+        """唯一启用租户解析（本替身恒返回示例租户）。
+
+        Returns:
+            TenantContext: 示例租户上下文。
+        """
+        return TenantContext(code="acme", db_key="tenant_acme", name="示例租户", tenant_id=2002)
+
 
 async def _request(
     *,

@@ -30,12 +30,31 @@ async def test_list_providers_sorted_and_disabled_filtered(client: AsyncClient, 
 
 
 @pytest.mark.kiwi_id(2197)
-async def test_list_providers_requires_tenant(client: AsyncClient, sso: SsoHarness) -> None:
-    """租户解析：无请求头、无 tenant 参数且关闭演示回落 → 404（租户未提供）。"""
+async def test_list_providers_no_tenant_returns_empty(client: AsyncClient, sso: SsoHarness) -> None:
+    """租户解析：无请求头、无 tenant 参数且多启用租户 → 空清单（不报错，不暴露目录）。"""
     sso.app.state.settings.tenant.allow_demo_fallback = False
     response = await client.get(API)
-    assert response.status_code == 404
-    assert response.json()["code"] == 80001
+    assert response.status_code == 200
+    assert response.json()["data"]["items"] == []
+
+
+@pytest.mark.kiwi_id(2239)
+async def test_list_providers_single_active_fallback(
+    client: AsyncClient, sso: SsoHarness, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """租户解析：无请求头且唯一启用租户 → 按该租户返回入口清单（免登录首访可见）。"""
+    sso.app.state.settings.tenant.allow_demo_fallback = False
+    await sso.seed_provider(idp_key="a", sort=1, name="A 身份源")
+    source = sso.app.state.tenant_source
+
+    async def fake_single_active() -> TenantContext:
+        return await source.by_code("demo")
+
+    monkeypatch.setattr(source, "single_active", fake_single_active)
+
+    response = await client.get(API)
+    assert response.status_code == 200
+    assert [item["idp_key"] for item in response.json()["data"]["items"]] == ["a"]
 
 
 @pytest.mark.kiwi_id(2197)

@@ -60,6 +60,8 @@ engine_idle_timeout = 1800.0
 allow_demo_fallback = true
 # 租户解析豁免路径（精确匹配）
 exempt_paths = ["/", "/docs", "/redoc", "/openapi.json", "/healthz", "/readyz", "/metrics", "/.well-known/jwks.json", "/api/v1/auth/introspect"]
+# 免登录链路延迟解析路径（前缀匹配；有来源则解析、无来源置空放行，由端点层再解析）
+deferred_paths = ["/api/v1/auth/login", "/api/v1/auth/forgot-password", "/api/v1/auth/reset-password", "/api/v1/captcha", "/api/v1/auth/sso"]
 # 开发库自动建表覆盖的租户编码（仅 SQLite auto_create 生效；每服务按 tenant_{code} 相对键建表）
 dev_tenants = ["demo"]
 

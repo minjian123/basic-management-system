@@ -6,6 +6,7 @@ from httpx import AsyncClient, Response
 from sqlalchemy import select
 
 from bms_core.api.deps import get_tenant_source
+from bms_core.core.exceptions import NeedTenantError
 from bms_core.db.tenant import TenantNotFoundError
 from bms_core.ratelimit.memory import MemoryRateLimiter
 from bms_core.session.memory import MemorySessionStore
@@ -16,9 +17,12 @@ from bms_identity.services.session_issuer import truncate_field  # pyright: igno
 from .helpers import (
     TENANT_ID,
     FakeCaptcha,
+    FakeEmptyActiveTenantSource,
     FakeOrgClient,
+    FakeSingleActiveTenantSource,
     FakeTenantSource,
     FakeUserTokenIssuer,
+    demo_tenant,
     wire_auth,
 )
 from .session_helpers import tenant_scope, utc_now
@@ -175,7 +179,7 @@ async def test_login_rate_limited(client: AsyncClient, service_app: FastAPI) -> 
 
 @pytest.mark.kiwi_id(2194)
 async def test_login_body_tenant_override(client: AsyncClient, service_app: FastAPI) -> None:
-    """body 指定租户时经租户源校验后生效（覆盖 body 分支）。"""
+    """body 指定租户经租户源校验后生效；未知 body 租户宽松视为未提供（回落上下文租户）。"""
     issuer, org, store, limiter = FakeUserTokenIssuer(), FakeOrgClient(), MemorySessionStore(), MemoryRateLimiter()
     org.set_user("admin", password="secret")
     wire_auth(service_app, issuer=issuer, org=org, store=store, limiter=limiter)
@@ -184,8 +188,9 @@ async def test_login_body_tenant_override(client: AsyncClient, service_app: Fast
     ok = await _login(client, "admin", "secret", tenant="demo")
     assert ok.status_code == 200 and ok.json()["data"]["user"]["tenant"] == "demo"
 
+    # 宽松：未知 body 租户不报 404、不揭示存在性，回落到请求上下文（演示租户）。
     unknown = await _login(client, "admin", "secret", tenant="ghost")
-    assert unknown.status_code == 404
+    assert unknown.status_code == 200 and unknown.json()["data"]["user"]["tenant"] == "demo"
 
 
 @pytest.mark.kiwi_id(2194)
@@ -197,11 +202,67 @@ def test_truncate_none_and_limit() -> None:
 
 @pytest.mark.kiwi_id(2194)
 async def test_resolve_login_tenant_branches() -> None:
-    """登录租户解析：body 指定经租户源生效；无任何来源抛 404。"""
-    ctx = await resolve_request_tenant("demo", None, FakeTenantSource())
-    assert ctx.code == "demo"
-    with pytest.raises(TenantNotFoundError):
+    """登录租户解析：body / 上下文 / 唯一启用租户三级；未知 body 宽松；多启用租户抛 20007。"""
+    assert (await resolve_request_tenant("demo", None, FakeTenantSource())).code == "demo"
+    # 宽松：未知 body 视为未提供，回落到上下文租户。
+    assert (await resolve_request_tenant("ghost", demo_tenant(), FakeTenantSource())).code == "demo"
+    # 上下文优先于唯一启用租户。
+    assert (await resolve_request_tenant(None, demo_tenant(), FakeTenantSource())).code == "demo"
+    # 无来源 + 恰 1 个启用租户 → 采用该租户。
+    assert (await resolve_request_tenant(None, None, FakeSingleActiveTenantSource())).code == "demo"
+    # 无来源 + ≥ 2 个启用租户 → 需要选择租户（20007）。
+    with pytest.raises(NeedTenantError):
         await resolve_request_tenant(None, None, FakeTenantSource())
+    # 无来源 + 0 个启用租户 → 沿用既有失败语义（404 / 80001）。
+    with pytest.raises(TenantNotFoundError):
+        await resolve_request_tenant(None, None, FakeEmptyActiveTenantSource())
+
+
+@pytest.mark.kiwi_id(2239)
+async def test_login_single_active_tenant_blank(client: AsyncClient, service_app: FastAPI) -> None:
+    """单启用租户：无租户 / 无 body 时按唯一启用租户继续登录（生产不回落演示租户）。"""
+    issuer, org, store, limiter = FakeUserTokenIssuer(), FakeOrgClient(), MemorySessionStore(), MemoryRateLimiter()
+    org.set_user("admin", password="secret", user_id=1001)
+    wire_auth(service_app, issuer=issuer, org=org, store=store, limiter=limiter)
+    service_app.dependency_overrides[get_tenant_source] = lambda: FakeSingleActiveTenantSource()
+    service_app.state.settings.tenant.allow_demo_fallback = False
+
+    resp = await _login(client, "admin", "secret")
+    assert resp.status_code == 200
+    assert resp.json()["data"]["user"]["tenant"] == "demo"
+
+
+@pytest.mark.kiwi_id(2239)
+async def test_login_multi_active_tenant_requires_selection(client: AsyncClient, service_app: FastAPI) -> None:
+    """多启用租户：无租户 / 无 body → `20007`（HTTP 200、data 为空），且不消费验证码、不计失败。"""
+    issuer, org, store, limiter = FakeUserTokenIssuer(), FakeOrgClient(), MemorySessionStore(), MemoryRateLimiter()
+    captcha = FakeCaptcha(required=True, verified=True)
+    org.set_user("admin", password="secret", user_id=1001)
+    wire_auth(service_app, issuer=issuer, org=org, store=store, limiter=limiter, captcha=captcha)
+    service_app.dependency_overrides[get_tenant_source] = lambda: FakeTenantSource()
+    service_app.state.settings.tenant.allow_demo_fallback = False
+
+    resp = await _login(client, "admin", "secret")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["code"] == 20007 and body["data"] is None
+    # 解析租户阶段早于验证码 / 凭据校验：不消费挑战、不计失败、不触达 org。
+    assert len(captcha.seen) == 0
+    assert len(org.calls) == 0
+
+
+@pytest.mark.kiwi_id(2239)
+async def test_login_no_active_tenant_not_found(client: AsyncClient, service_app: FastAPI) -> None:
+    """0 个启用租户：沿用既有失败语义（`80001` / 404），不新增面。"""
+    issuer, org, store, limiter = FakeUserTokenIssuer(), FakeOrgClient(), MemorySessionStore(), MemoryRateLimiter()
+    org.set_user("admin", password="secret")
+    wire_auth(service_app, issuer=issuer, org=org, store=store, limiter=limiter)
+    service_app.dependency_overrides[get_tenant_source] = lambda: FakeEmptyActiveTenantSource()
+    service_app.state.settings.tenant.allow_demo_fallback = False
+
+    resp = await _login(client, "admin", "secret")
+    assert resp.status_code == 404
+    assert resp.json()["code"] == 80001
 
 
 @pytest.mark.kiwi_id(2208)

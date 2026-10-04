@@ -191,6 +191,44 @@ async def test_no_fallback_and_no_source() -> None:
     assert status == 404
 
 
+@pytest.mark.kiwi_id(2239)
+async def test_deferred_path_allows_missing_source() -> None:
+    """免登录延迟路径：生产（关闭回落）无来源不硬拒、置空放行；有来源仍解析；非延迟路径仍拒。"""
+    acme = TenantContext(code="acme", db_key="tenant_acme", name="示例租户", domain="acme.bms.example.com")
+    demo = TenantContext(code="demo", db_key="tenant_demo", name="演示租户")
+    app = _app(_Source(ConcurrentStableList([acme, demo])), allow_demo_fallback=False)
+
+    @app.get("/api/v1/auth/login")
+    # bare-collections:allow（FastAPI 端点返回注解）
+    async def login_probe(request: Request) -> dict[str, str | None]:  # pyright: ignore[reportUnusedFunction]
+        state = request.scope.get("state", {})
+        tenant = state.get("tenant")
+        return {"state": getattr(tenant, "code", None), "context": get_current_tenant()}
+
+    # 生产：延迟路径无来源 → 置空放行（不 404）。
+    status, body = await _get(app, "/api/v1/auth/login")
+    assert (status, body) == (200, {"state": None, "context": None})
+    # 延迟路径有来源 → 正常解析。
+    status, body = await _get(app, "/api/v1/auth/login", ConcurrentStableDict({"X-Tenant-ID": "acme"}))
+    assert (status, body) == (200, {"state": "acme", "context": "acme"})
+    # 非延迟路径生产无来源仍拒。
+    status, body = await _get(app, API_PATH)
+    assert status == 404 and body["code"] == 80001
+
+    # 开发（回落演示租户）：延迟路径延续演示回落。
+    dev_app = _app(_Source(ConcurrentStableList([demo])))
+
+    @dev_app.get("/api/v1/auth/login")
+    # bare-collections:allow（FastAPI 端点返回注解）
+    async def dev_probe(request: Request) -> dict[str, str | None]:  # pyright: ignore[reportUnusedFunction]
+        state = request.scope.get("state", {})
+        tenant = state.get("tenant")
+        return {"state": getattr(tenant, "code", None), "context": get_current_tenant()}
+
+    status, body = await _get(dev_app, "/api/v1/auth/login")
+    assert (status, body) == (200, {"state": "demo", "context": "demo"})
+
+
 @pytest.mark.kiwi_id(1019)
 async def test_tenant_dependency_reads_state() -> None:
     """`get_tenant` 依赖读请求态（中间件解析结果），豁免路径返回 None。"""

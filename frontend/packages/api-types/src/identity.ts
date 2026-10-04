@@ -87,6 +87,9 @@ export interface paths {
          *
          *     Returns:
          *         ApiResponse: 统一响应，data 为发起结果（`PasswordForgotResult`）。
+         *
+         *     Raises:
+         *         NeedTenantError: 未提供租户且存在多个启用租户、无法唯一解析（20007/200；data 为空）。
          */
         post: operations["forgot_password_api_v1_auth_forgot_password_post"];
         delete?: never;
@@ -169,6 +172,9 @@ export interface paths {
          *
          *     Returns:
          *         ApiResponse: 统一响应，data 为登录结果（`LoginResult`）。
+         *
+         *     Raises:
+         *         NeedTenantError: 未提供租户且存在多个启用租户、无法唯一解析（20007/200；data 为空）。
          */
         post: operations["login_api_v1_auth_login_post"];
         delete?: never;
@@ -307,6 +313,9 @@ export interface paths {
          *
          *     Returns:
          *         ApiResponse: 统一响应，data 为重置结果（`PasswordResetResult`）。
+         *
+         *     Raises:
+         *         NeedTenantError: 未提供租户且存在多个启用租户、无法唯一解析（20007/200；data 为空）。
          */
         post: operations["reset_password_api_v1_auth_reset_password_post"];
         delete?: never;
@@ -338,7 +347,7 @@ export interface paths {
          *         tenant: 租户编码（可选）。
          *
          *     Returns:
-         *         ApiResponse: 统一响应，data 为 `SsoProviderList`。
+         *         ApiResponse: 统一响应，data 为 `SsoProviderList`（无租户可解析 / 多启用租户时为空清单）。
          */
         get: operations["providers_api_v1_auth_sso_providers_get"];
         put?: never;
