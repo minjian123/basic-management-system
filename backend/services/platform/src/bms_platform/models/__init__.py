@@ -8,6 +8,7 @@
 MODEL_MODULES: tuple[str, ...] = (
     "bms_platform.models.catalog",
     "bms_platform.models.system",
+    "bms_platform.models.menu",
     "bms_platform.models.demo",
 )
 """本服务模型模块清单（迁移链按服务解析模型用）。"""

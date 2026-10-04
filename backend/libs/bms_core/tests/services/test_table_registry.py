@@ -78,6 +78,16 @@ def test_owned_tables_and_chain_derivation() -> None:
         "sys_module",
         "sys_module_i18n",
         "sys_table_ownership",
+        "sys_business",
+        "sys_business_i18n",
+        "sys_action",
+        "sys_action_i18n",
+        "sys_menu",
+        "sys_menu_i18n",
+        "sys_form",
+        "sys_button",
+        "sys_field",
+        "sys_field_i18n",
     }
 
     tenant_chain = chain_tables("platform", Datasource.TENANT)

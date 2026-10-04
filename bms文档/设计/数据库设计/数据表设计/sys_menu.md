@@ -1,0 +1,62 @@
+# sys_menu（菜单树）
+
+> BMS · 数据库设计 · 数据表设计
+
+[文档首页](../../../文档首页.md) › [数据库设计总览](../01_数据库设计_总览.md) › [已设计数据表登记](../01_数据库设计_总览.md#tables-registry) › sys_menu
+
+## 1. 归属与依据 <a id="meta"></a>
+
+| 项 | 值 |
+| --- | --- |
+| 归属库 | 平台库 `bms_platform`（归属服务 `platform`） |
+| 覆盖模块 | 08-菜单管理（菜单树维护，动态路由依据） |
+| 上游依据 | 《[概要设计 · 菜单管理](../../概要设计/07_概要设计_菜单管理.md)》、《[架构设计 · 前端架构](../../架构设计/08_架构设计_前端架构.md)》「动态菜单与权限渲染」节、《[需求 07-5](../../../项目/07_RBAC基础模块/需求/03_需求_菜单与权限.md#r07-5)》 |
+| ORM 模型 | `bms_platform/models/menu.py::SysMenu`（继承 `BaseModel`） |
+| 状态 | 待落库（表文件与平台链迁移 `0007_menu_metadata` 就绪；真库随部署窗口） |
+| 相关节点 | [数据库设计总览](../01_数据库设计_总览.md)「核心表清单总表 · 平台库」、[sys_menu_i18n](sys_menu_i18n.md)、[sys_form](sys_form.md) |
+
+## 2. 字段 <a id="fields"></a>
+
+公共字段继承 `BaseModel`（雪花 ID / 审计 / 软删除 / 乐观锁），下表不再重复说明其语义。
+
+| 字段 | 类型 | 可空 | 约束 / 默认 | 说明 |
+| --- | --- | --- | --- | --- |
+| `id` | BIGINT | 否 | 主键，雪花 ID | 主键 |
+| `parent_id` | BIGINT | 否 | 默认 `0`；建索引 | 父菜单 ID（逻辑外键 → `sys_menu.id`；`0` 为根） |
+| `name` | VARCHAR(128) | 否 | — | 菜单名（默认文案；多语言见 `sys_menu_i18n`） |
+| `path` | VARCHAR(255) | 否 | 与 `deleted_at` 复合唯一 | 前端路由路径（`/` 开头；动态路由注册依据） |
+| `component` | VARCHAR(255) | 是 | — | 视图组件标识（前端按标识解析视图；可空 = 仅目录节点） |
+| `icon` | VARCHAR(64) | 是 | — | 完整 icon key（`el:` / `biz:` / `custom:` / `van:`） |
+| `sort` | INT | 否 | 默认 `0` | 同级排序（升序） |
+| `hidden` | BOOLEAN | 否 | 默认 `false` | 仅隐藏侧栏入口（权限仍生效，路由可直达） |
+| `status` | VARCHAR(16) | 否 | 默认 `enabled` | 状态：`enabled` / `disabled` |
+| `created_at` | DATETIME | 否 | 审计 | 创建时间（UTC） |
+| `created_by` | BIGINT | 是 | 审计 | 创建人 |
+| `updated_at` | DATETIME | 否 | 审计 | 更新时间（UTC） |
+| `updated_by` | BIGINT | 是 | 审计 | 更新人 |
+| `deleted_at` | DATETIME | 是 | 软删除（NULL=未删） | 软删除时间（NULL=未删） |
+| `version` | INT | 否 | 默认 1 | 乐观锁版本 |
+
+## 3. 索引与约束 <a id="index"></a>
+
+| 名称 | 类型 | 列 | 说明 |
+| --- | --- | --- | --- |
+| `uq_sys_menu_path_deleted_at` | 唯一 | `(path, deleted_at)` | 路由路径唯一（软删除后可复用；避免动态路由注册冲突） |
+| `idx_sys_menu_parent_id` | 普通 | `parent_id` | 按父节点取子菜单（树装载） |
+
+- 无物理外键；`parent_id` 为逻辑外键（`sys_menu.id`），同库。
+- `path` / `component` 变更影响前端动态路由注册；`path` 冲突在保存时前置校验（40203）。
+
+## 4. 分片 / 归档 / 迁移 <a id="storage"></a>
+
+- **分片**：不分片（平台库常驻）。
+- **归档**：不归档（权限元数据）。
+- **迁移**：随**平台链**迁移落地（`0007_menu_metadata`）。
+
+## 5. 变更记录 <a id="revlog"></a>
+
+| 日期 | 版本 | 变更 | 作者 |
+| --- | --- | --- | --- |
+| 2026-10-04 | v1 | 新建表结构（平台库；随平台链 `0007_menu_metadata` 迁移落地） | minjian |
+
+> 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套

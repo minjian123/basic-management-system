@@ -678,6 +678,122 @@ class CatalogError(ConfigError):
         BizError.__init__(self, ErrorCode.CATALOG, message, http_status=500, data=data)
 
 
+class MenuError(BizError):
+    """菜单与权限元数据子段（系统配置段内 `402xx`）异常基类：权限元数据校验失败（运行期业务错误）。
+
+    码位与概要《菜单管理》「错误码与异常处理」节对应；实体不存在按 404，其余业务校验按 200。
+    """
+
+    def __init__(
+        self,
+        code: ErrorCode,
+        message: str | None = None,
+        *,
+        http_status: int = 200,
+        data: object | None = None,
+    ) -> None:
+        """初始化菜单域异常。
+
+        Args:
+            code: 错误码（`402xx` 段）。
+            message: 提示信息。
+            http_status: HTTP 状态码（缺省 200）。
+            data: 随附数据（可选）。
+        """
+        BizError.__init__(self, code, message, http_status=http_status, data=data)
+
+
+class MenuNotFoundError(MenuError):
+    """菜单 / 表单 / 按钮 / 字段实体不存在（`40201` / 404）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化实体不存在异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        MenuError.__init__(self, ErrorCode.MENU_NOT_FOUND, message, http_status=404, data=data)
+
+
+class MenuLinkBrokenError(MenuError):
+    """挂接链断裂：表单未挂业务 / 菜单未挂表单 / 按钮未挂动作（`40202`）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化挂接链断裂异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        MenuError.__init__(self, ErrorCode.MENU_LINK_BROKEN, message, data=data)
+
+
+class MenuPathConflictError(MenuError):
+    """路由路径冲突或格式非法（`40203`）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化路径冲突异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        MenuError.__init__(self, ErrorCode.MENU_PATH_CONFLICT, message, data=data)
+
+
+class MenuPlatformReadonlyError(MenuError):
+    """业务 / 动作码为平台维护，租户侧不可增删改（`40204` / 403）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化平台码只读异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        MenuError.__init__(self, ErrorCode.MENU_PLATFORM_READONLY, message, http_status=403, data=data)
+
+
+class MenuFieldKeyConflictError(MenuError):
+    """字段键在表单内重复（`40205`）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化字段键重复异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        MenuError.__init__(self, ErrorCode.MENU_FIELD_KEY_CONFLICT, message, data=data)
+
+
+class MenuReferencedError(MenuError):
+    """菜单 / 表单 / 按钮 / 字段 / 业务码 / 动作码被引用，禁止停用或删除（`40206`）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化被引用禁用异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        MenuError.__init__(self, ErrorCode.MENU_REFERENCED, message, data=data)
+
+
+class MenuFieldPermissionMismatchError(MenuError):
+    """字段权限配置与字段实体不匹配（表单变更后未同步，`40207`）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化字段权限不匹配异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        MenuError.__init__(self, ErrorCode.MENU_FIELD_PERMISSION_MISMATCH, message, data=data)
+
+
 class FileError(BizError):
     """文件段（`5xxxx`）异常基类：上传 / 下载 / 分片 / 导入导出与打印导出。"""
 

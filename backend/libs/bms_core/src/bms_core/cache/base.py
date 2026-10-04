@@ -84,6 +84,54 @@ class CacheRegion(BasePluggable, ABC):
         """
         return version != self.get_global_version()
 
+    async def aget(self, key: str) -> object | None:
+        """读缓存（异步默认实现：委托同步 `get`；Redis Region 覆写为真异步）。
+
+        Args:
+            key: 缓存 key。
+
+        Returns:
+            object | None: 缓存值；未命中返回 None。
+        """
+        return self.get(key)
+
+    async def aset(self, key: str, value: object, ttl: int | None = None) -> None:
+        """写缓存（异步默认实现：委托同步 `set`；Redis Region 覆写为真异步）。
+
+        Args:
+            key: 缓存 key。
+            value: 缓存值。
+            ttl: 有效期（秒）；None 用 `default_ttl`。
+        """
+        self.set(key, value, ttl)
+
+    async def adelete(self, key: str) -> bool:
+        """删缓存（异步默认实现：委托同步 `delete`；Redis Region 覆写为真异步）。
+
+        Args:
+            key: 缓存 key。
+
+        Returns:
+            bool: 删到为 True。
+        """
+        return self.delete(key)
+
+    async def aincrease(self, key: str) -> int:
+        """原子自增（异步默认实现：读改写；Redis Region 覆写为原子 `INCR`）。
+
+        版本号键**不设过期**（`ttl=0`），避免计数器到期回退导致旧键被复用。
+
+        Args:
+            key: 计数器 key。
+
+        Returns:
+            int: 自增后的值。
+        """
+        current = self.get(key)
+        value = current + 1 if isinstance(current, int) else 1
+        self.set(key, value, 0)
+        return value
+
 
 def get_cache_region(request: Request) -> CacheRegion:
     """依赖注入提供者（应用级单例；公共依赖经 `app/api/deps.py` 统一导出）。

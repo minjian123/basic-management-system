@@ -10,6 +10,7 @@ from bms_platform.api import (
     demo,
     icon,
     internal_config,
+    menu,
     modules,
     outbox,
     plugins,
@@ -33,6 +34,12 @@ api_router = mount_service_routers(
             outbox.router,
             internal_config.router,
             user_extensions.router,
+            menu.menu_router,
+            menu.form_router,
+            menu.button_router,
+            menu.field_router,
+            menu.business_router,
+            menu.action_router,
         ]
     )
 )

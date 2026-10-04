@@ -29,6 +29,148 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/actions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Actions
+         * @description 动作权限码清单（租户侧可见、只读）。
+         *
+         *     Args:
+         *         uow: 请求级工作单元。
+         *         outbox: 发件箱存储。
+         *         cache: 缓存 Region。
+         *         business_id: 业务码主键（可空 = 全部）。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为动作码清单。
+         */
+        get: operations["list_actions_api_v1_actions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/businesses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Businesses
+         * @description 业务权限码清单（租户侧可见、只读）。
+         *
+         *     Args:
+         *         uow: 请求级工作单元。
+         *         outbox: 发件箱存储。
+         *         cache: 缓存 Region。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为业务码清单。
+         */
+        get: operations["list_businesses_api_v1_businesses_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/buttons": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Buttons
+         * @description 按钮清单（按表单过滤）。
+         *
+         *     Args:
+         *         uow: 请求级工作单元。
+         *         outbox: 发件箱存储。
+         *         cache: 缓存 Region。
+         *         form_id: 表单主键（可空 = 全部）。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为按钮清单。
+         */
+        get: operations["list_buttons_api_v1_buttons_get"];
+        put?: never;
+        /**
+         * Create Button
+         * @description 新增按钮（表单 + 动作 1:1）。
+         *
+         *     Args:
+         *         req: 新增请求。
+         *         uow: 请求级工作单元。
+         *         outbox: 发件箱存储。
+         *         cache: 缓存 Region。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为按钮行。
+         */
+        post: operations["create_button_api_v1_buttons_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/buttons/{button_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Update Button
+         * @description 更新按钮。
+         *
+         *     Args:
+         *         button_id: 按钮主键。
+         *         req: 更新请求。
+         *         uow: 请求级工作单元。
+         *         outbox: 发件箱存储。
+         *         cache: 缓存 Region。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为更新后的按钮行。
+         */
+        put: operations["update_button_api_v1_buttons__button_id__put"];
+        post?: never;
+        /**
+         * Delete Button
+         * @description 删除按钮（软删除）。
+         *
+         *     Args:
+         *         button_id: 按钮主键。
+         *         uow: 请求级工作单元。
+         *         outbox: 发件箱存储。
+         *         cache: 缓存 Region。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应（data 为空）。
+         */
+        delete: operations["delete_button_api_v1_buttons__button_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/code/validate-expression": {
         parameters: {
             query?: never;
@@ -506,6 +648,176 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/fields": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Fields
+         * @description 字段清单（按表单过滤）。
+         *
+         *     Args:
+         *         uow: 请求级工作单元。
+         *         outbox: 发件箱存储。
+         *         cache: 缓存 Region。
+         *         form_id: 表单主键（可空 = 全部）。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为字段清单。
+         */
+        get: operations["list_fields_api_v1_fields_get"];
+        put?: never;
+        /**
+         * Create Field
+         * @description 新增字段（表单内字段键唯一）。
+         *
+         *     Args:
+         *         req: 新增请求。
+         *         uow: 请求级工作单元。
+         *         outbox: 发件箱存储。
+         *         cache: 缓存 Region。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为字段行。
+         */
+        post: operations["create_field_api_v1_fields_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/fields/{field_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Update Field
+         * @description 更新字段。
+         *
+         *     Args:
+         *         field_id: 字段主键。
+         *         req: 更新请求。
+         *         uow: 请求级工作单元。
+         *         outbox: 发件箱存储。
+         *         cache: 缓存 Region。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为更新后的字段行。
+         */
+        put: operations["update_field_api_v1_fields__field_id__put"];
+        post?: never;
+        /**
+         * Delete Field
+         * @description 删除字段（软删除）。
+         *
+         *     Args:
+         *         field_id: 字段主键。
+         *         uow: 请求级工作单元。
+         *         outbox: 发件箱存储。
+         *         cache: 缓存 Region。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应（data 为空）。
+         */
+        delete: operations["delete_field_api_v1_fields__field_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/forms": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Forms
+         * @description 表单清单（按菜单过滤）。
+         *
+         *     Args:
+         *         uow: 请求级工作单元。
+         *         outbox: 发件箱存储。
+         *         cache: 缓存 Region。
+         *         menu_id: 菜单主键（可空 = 全部）。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为表单清单。
+         */
+        get: operations["list_forms_api_v1_forms_get"];
+        put?: never;
+        /**
+         * Create Form
+         * @description 新增表单（菜单 1:1 / 业务 1:1）。
+         *
+         *     Args:
+         *         req: 新增请求。
+         *         uow: 请求级工作单元。
+         *         outbox: 发件箱存储。
+         *         cache: 缓存 Region。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为表单行。
+         */
+        post: operations["create_form_api_v1_forms_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/forms/{form_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Update Form
+         * @description 更新表单。
+         *
+         *     Args:
+         *         form_id: 表单主键。
+         *         req: 更新请求。
+         *         uow: 请求级工作单元。
+         *         outbox: 发件箱存储。
+         *         cache: 缓存 Region。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为更新后的表单行。
+         */
+        put: operations["update_form_api_v1_forms__form_id__put"];
+        post?: never;
+        /**
+         * Delete Form
+         * @description 删除表单（软删除）。
+         *
+         *     Args:
+         *         form_id: 表单主键。
+         *         uow: 请求级工作单元。
+         *         outbox: 发件箱存储。
+         *         cache: 缓存 Region。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应（data 为空）。
+         */
+        delete: operations["delete_form_api_v1_forms__form_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/icons": {
         parameters: {
             query?: never;
@@ -612,6 +924,121 @@ export interface paths {
          *         ParamError: 图标键格式非法（10001）。
          */
         delete: operations["delete_icon_api_v1_icons__code__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/menus": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Menus
+         * @description 菜单树（平台维护视图，含 hidden 与 disabled）。
+         *
+         *     Args:
+         *         uow: 请求级工作单元。
+         *         outbox: 发件箱存储。
+         *         cache: 缓存 Region。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为菜单树。
+         */
+        get: operations["list_menus_api_v1_menus_get"];
+        put?: never;
+        /**
+         * Create Menu
+         * @description 新增菜单。
+         *
+         *     Args:
+         *         req: 新增请求。
+         *         uow: 请求级工作单元。
+         *         outbox: 发件箱存储。
+         *         cache: 缓存 Region。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为菜单行。
+         */
+        post: operations["create_menu_api_v1_menus_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/menus/my": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * My Menus
+         * @description 当前用户动态菜单树 + 表单元数据 + 权限码集合。
+         *
+         *     Args:
+         *         request: 请求对象（解析语言）。
+         *         uow: 请求级工作单元。
+         *         outbox: 发件箱存储。
+         *         cache: 缓存 Region。
+         *         config: 系统参数读取基座（缓存 TTL）。
+         *         checker: 权限检查器。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为动态菜单。
+         */
+        get: operations["my_menus_api_v1_menus_my_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/menus/{menu_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Update Menu
+         * @description 更新菜单。
+         *
+         *     Args:
+         *         menu_id: 菜单主键。
+         *         req: 更新请求。
+         *         uow: 请求级工作单元。
+         *         outbox: 发件箱存储。
+         *         cache: 缓存 Region。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为更新后的菜单行。
+         */
+        put: operations["update_menu_api_v1_menus__menu_id__put"];
+        post?: never;
+        /**
+         * Delete Menu
+         * @description 删除菜单（软删除）。
+         *
+         *     Args:
+         *         menu_id: 菜单主键。
+         *         uow: 请求级工作单元。
+         *         outbox: 发件箱存储。
+         *         cache: 缓存 Region。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应（data 为空）。
+         */
+        delete: operations["delete_menu_api_v1_menus__menu_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1242,6 +1669,55 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         /**
+         * ActionItem
+         * @description 动作权限码行。
+         */
+        ActionItem: {
+            /**
+             * Business Id
+             * @description 归属业务码 ID
+             */
+            business_id: string;
+            /**
+             * Code
+             * @description 动作码
+             */
+            code: string;
+            /**
+             * I18N
+             * @description 多语言名称（locale → 文案）
+             */
+            i18n: {
+                [key: string]: string;
+            };
+            /**
+             * Id
+             * @description 动作码主键
+             */
+            id: string;
+            /**
+             * Name
+             * @description 名称（默认文案）
+             */
+            name: string;
+            /**
+             * Status
+             * @description 状态（enabled/disabled）
+             */
+            status: string;
+        };
+        /**
+         * ActionList
+         * @description 动作权限码清单。
+         */
+        ActionList: {
+            /**
+             * Items
+             * @description 动作码行列表
+             */
+            items?: components["schemas"]["ActionItem"][];
+        };
+        /**
          * ApiResponse
          * @description 统一响应体：`code=0` 成功，非 0 业务错误码。
          *
@@ -1262,6 +1738,62 @@ export interface components {
              */
             message: string;
         };
+        /** ApiResponse[ActionList] */
+        ApiResponse_ActionList_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["ActionList"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[BusinessList] */
+        ApiResponse_BusinessList_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["BusinessList"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[ButtonItem] */
+        ApiResponse_ButtonItem_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["ButtonItem"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[ButtonList] */
+        ApiResponse_ButtonList_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["ButtonList"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
         /** ApiResponse[ConfigResolveResponse] */
         ApiResponse_ConfigResolveResponse_: {
             /**
@@ -1270,6 +1802,119 @@ export interface components {
              */
             code: number;
             data?: components["schemas"]["ConfigResolveResponse"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[FieldItem] */
+        ApiResponse_FieldItem_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["FieldItem"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[FieldList] */
+        ApiResponse_FieldList_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["FieldList"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[FormItem] */
+        ApiResponse_FormItem_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["FormItem"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[FormList] */
+        ApiResponse_FormList_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["FormList"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[MenuItem] */
+        ApiResponse_MenuItem_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["MenuItem"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[MenuTree] */
+        ApiResponse_MenuTree_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["MenuTree"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[MyMenuResponse] */
+        ApiResponse_MyMenuResponse_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["MyMenuResponse"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[NoneType] */
+        ApiResponse_NoneType_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            /** Data */
+            data?: null;
             /**
              * Message
              * @default ok
@@ -1303,6 +1948,179 @@ export interface components {
              * @default ok
              */
             message: string;
+        };
+        /**
+         * BusinessItem
+         * @description 业务权限码行。
+         */
+        BusinessItem: {
+            /**
+             * Code
+             * @description 业务权限码
+             */
+            code: string;
+            /**
+             * I18N
+             * @description 多语言名称（locale → 文案）
+             */
+            i18n: {
+                [key: string]: string;
+            };
+            /**
+             * Id
+             * @description 业务码主键
+             */
+            id: string;
+            /**
+             * Name
+             * @description 名称（默认文案）
+             */
+            name: string;
+            /**
+             * Status
+             * @description 状态（enabled/disabled）
+             */
+            status: string;
+        };
+        /**
+         * BusinessList
+         * @description 业务权限码清单。
+         */
+        BusinessList: {
+            /**
+             * Items
+             * @description 业务码行列表
+             */
+            items?: components["schemas"]["BusinessItem"][];
+        };
+        /**
+         * ButtonCreateRequest
+         * @description 新增按钮请求（挂表单 / 挂动作）。
+         */
+        ButtonCreateRequest: {
+            /**
+             * Action Id
+             * @description 挂接动作码 ID
+             */
+            action_id: number;
+            /**
+             * Form Id
+             * @description 所属表单 ID
+             */
+            form_id: number;
+            /**
+             * Name
+             * @description 按钮名（界面可见文本）
+             */
+            name: string;
+            /**
+             * Sort
+             * @description 同表内排序（升序）
+             * @default 0
+             */
+            sort: number;
+            /**
+             * Status
+             * @description 状态（enabled/disabled）
+             * @default enabled
+             * @enum {string}
+             */
+            status: "enabled" | "disabled";
+            /**
+             * Type
+             * @description 按钮形态（toolbar/interface）
+             * @default toolbar
+             * @enum {string}
+             */
+            type: "toolbar" | "interface";
+        };
+        /**
+         * ButtonItem
+         * @description 按钮行。
+         */
+        ButtonItem: {
+            /**
+             * Action Id
+             * @description 挂接动作码 ID
+             */
+            action_id: string;
+            /**
+             * Form Id
+             * @description 所属表单 ID
+             */
+            form_id: string;
+            /**
+             * Id
+             * @description 按钮主键
+             */
+            id: string;
+            /**
+             * Name
+             * @description 按钮名
+             */
+            name: string;
+            /**
+             * Sort
+             * @description 同表内排序
+             */
+            sort: number;
+            /**
+             * Status
+             * @description 状态（enabled/disabled）
+             */
+            status: string;
+            /**
+             * Type
+             * @description 按钮形态（toolbar/interface）
+             */
+            type: string;
+        };
+        /**
+         * ButtonList
+         * @description 按钮清单。
+         */
+        ButtonList: {
+            /**
+             * Items
+             * @description 按钮行列表
+             */
+            items?: components["schemas"]["ButtonItem"][];
+        };
+        /**
+         * ButtonUpdateRequest
+         * @description 更新按钮请求。
+         */
+        ButtonUpdateRequest: {
+            /**
+             * Action Id
+             * @description 挂接动作码 ID
+             */
+            action_id: number;
+            /**
+             * Name
+             * @description 按钮名
+             */
+            name: string;
+            /**
+             * Sort
+             * @description 同表内排序（升序）
+             * @default 0
+             */
+            sort: number;
+            /**
+             * Status
+             * @description 状态（enabled/disabled）
+             * @default enabled
+             * @enum {string}
+             */
+            status: "enabled" | "disabled";
+            /**
+             * Type
+             * @description 按钮形态（toolbar/interface）
+             * @default toolbar
+             * @enum {string}
+             */
+            type: "toolbar" | "interface";
         };
         /**
          * ConfigResolveRequest
@@ -1584,6 +2402,252 @@ export interface components {
              */
             expr: string;
         };
+        /**
+         * FieldCreateRequest
+         * @description 新增字段请求。
+         */
+        FieldCreateRequest: {
+            /**
+             * Field Key
+             * @description 字段键（表单内唯一）
+             */
+            field_key: string;
+            /**
+             * Form Id
+             * @description 所属表单 ID
+             */
+            form_id: number;
+            /**
+             * I18N
+             * @description 多语言名称（locale → 文案）
+             */
+            i18n?: {
+                [key: string]: string;
+            };
+            /**
+             * Name
+             * @description 字段名（默认文案）
+             */
+            name: string;
+            /**
+             * Sort
+             * @description 同表内排序（升序）
+             * @default 0
+             */
+            sort: number;
+            /**
+             * Status
+             * @description 状态（enabled/disabled）
+             * @default enabled
+             * @enum {string}
+             */
+            status: "enabled" | "disabled";
+            /**
+             * Type
+             * @description 字段类型（组件语义键）
+             */
+            type: string;
+        };
+        /**
+         * FieldItem
+         * @description 字段行。
+         */
+        FieldItem: {
+            /**
+             * Field Key
+             * @description 字段键（表单内唯一）
+             */
+            field_key: string;
+            /**
+             * Form Id
+             * @description 所属表单 ID
+             */
+            form_id: string;
+            /**
+             * I18N
+             * @description 多语言名称（locale → 文案）
+             */
+            i18n: {
+                [key: string]: string;
+            };
+            /**
+             * Id
+             * @description 字段主键
+             */
+            id: string;
+            /**
+             * Name
+             * @description 字段名（默认文案）
+             */
+            name: string;
+            /**
+             * Sort
+             * @description 同表内排序
+             */
+            sort: number;
+            /**
+             * Status
+             * @description 状态（enabled/disabled）
+             */
+            status: string;
+            /**
+             * Type
+             * @description 字段类型（组件语义键）
+             */
+            type: string;
+        };
+        /**
+         * FieldList
+         * @description 字段清单。
+         */
+        FieldList: {
+            /**
+             * Items
+             * @description 字段行列表
+             */
+            items?: components["schemas"]["FieldItem"][];
+        };
+        /**
+         * FieldUpdateRequest
+         * @description 更新字段请求。
+         */
+        FieldUpdateRequest: {
+            /**
+             * I18N
+             * @description 多语言名称（locale → 文案）
+             */
+            i18n?: {
+                [key: string]: string;
+            };
+            /**
+             * Name
+             * @description 字段名（默认文案）
+             */
+            name: string;
+            /**
+             * Sort
+             * @description 同表内排序（升序）
+             * @default 0
+             */
+            sort: number;
+            /**
+             * Status
+             * @description 状态（enabled/disabled）
+             * @default enabled
+             * @enum {string}
+             */
+            status: "enabled" | "disabled";
+            /**
+             * Type
+             * @description 字段类型（组件语义键）
+             */
+            type: string;
+        };
+        /**
+         * FormCreateRequest
+         * @description 新增表单请求（挂菜单 / 挂业务）。
+         */
+        FormCreateRequest: {
+            /**
+             * Business Id
+             * @description 所属业务码 ID
+             */
+            business_id: number;
+            /**
+             * Component
+             * @description 表单视图组件标识
+             */
+            component?: string | null;
+            /**
+             * Menu Id
+             * @description 所属菜单 ID
+             */
+            menu_id: number;
+            /**
+             * Status
+             * @description 状态（enabled/disabled）
+             * @default enabled
+             * @enum {string}
+             */
+            status: "enabled" | "disabled";
+        };
+        /**
+         * FormItem
+         * @description 表单行。
+         */
+        FormItem: {
+            /**
+             * Business Id
+             * @description 所属业务码 ID
+             */
+            business_id: string;
+            /**
+             * Component
+             * @description 表单视图组件标识
+             */
+            component: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             * @description 创建时间（UTC）
+             */
+            created_at: string;
+            /**
+             * Id
+             * @description 表单主键
+             */
+            id: string;
+            /**
+             * Menu Id
+             * @description 所属菜单 ID
+             */
+            menu_id: string;
+            /**
+             * Status
+             * @description 状态（enabled/disabled）
+             */
+            status: string;
+            /**
+             * Updated At
+             * Format: date-time
+             * @description 更新时间（UTC）
+             */
+            updated_at: string;
+        };
+        /**
+         * FormList
+         * @description 表单清单。
+         */
+        FormList: {
+            /**
+             * Items
+             * @description 表单行列表
+             */
+            items?: components["schemas"]["FormItem"][];
+        };
+        /**
+         * FormUpdateRequest
+         * @description 更新表单请求。
+         */
+        FormUpdateRequest: {
+            /**
+             * Business Id
+             * @description 所属业务码 ID
+             */
+            business_id: number;
+            /**
+             * Component
+             * @description 表单视图组件标识
+             */
+            component?: string | null;
+            /**
+             * Status
+             * @description 状态（enabled/disabled）
+             * @default enabled
+             * @enum {string}
+             */
+            status: "enabled" | "disabled";
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -1650,6 +2714,397 @@ export interface components {
              * @description 标签（搜索用）
              */
             tags?: string[] | null;
+        };
+        /**
+         * MenuCreateRequest
+         * @description 新增菜单请求（含 i18n 名称）。
+         */
+        MenuCreateRequest: {
+            /**
+             * Component
+             * @description 视图组件标识（可空 = 目录节点）
+             */
+            component?: string | null;
+            /**
+             * Hidden
+             * @description 仅隐藏侧栏入口（权限仍生效）
+             * @default false
+             */
+            hidden: boolean;
+            /**
+             * I18N
+             * @description 多语言名称（locale → 文案）
+             */
+            i18n?: {
+                [key: string]: string;
+            };
+            /**
+             * Icon
+             * @description 完整 icon key
+             */
+            icon?: string | null;
+            /**
+             * Name
+             * @description 菜单名（默认文案）
+             */
+            name: string;
+            /**
+             * Parent Id
+             * @description 父菜单 ID（0 为根）
+             * @default 0
+             */
+            parent_id: number;
+            /**
+             * Path
+             * @description 前端路由路径（/ 开头）
+             */
+            path: string;
+            /**
+             * Sort
+             * @description 同级排序（升序）
+             * @default 0
+             */
+            sort: number;
+            /**
+             * Status
+             * @description 状态（enabled/disabled）
+             * @default enabled
+             * @enum {string}
+             */
+            status: "enabled" | "disabled";
+        };
+        /**
+         * MenuItem
+         * @description 菜单节点（平台维护视图，树形嵌套）。
+         */
+        MenuItem: {
+            /**
+             * Children
+             * @description 子菜单（树形）
+             */
+            children?: components["schemas"]["MenuItem"][];
+            /**
+             * Component
+             * @description 视图组件标识
+             */
+            component: string | null;
+            /**
+             * Hidden
+             * @description 仅隐藏侧栏入口
+             */
+            hidden: boolean;
+            /**
+             * I18N
+             * @description 多语言名称（locale → 文案）
+             */
+            i18n: {
+                [key: string]: string;
+            };
+            /**
+             * Icon
+             * @description 完整 icon key
+             */
+            icon: string | null;
+            /**
+             * Id
+             * @description 菜单主键（雪花 ID，JSON 以字符串输出）
+             */
+            id: string;
+            /**
+             * Name
+             * @description 菜单名（默认文案）
+             */
+            name: string;
+            /**
+             * Parent Id
+             * @description 父菜单 ID（0 为根）
+             */
+            parent_id: string;
+            /**
+             * Path
+             * @description 前端路由路径
+             */
+            path: string;
+            /**
+             * Sort
+             * @description 同级排序
+             */
+            sort: number;
+            /**
+             * Status
+             * @description 状态（enabled/disabled）
+             */
+            status: string;
+        };
+        /**
+         * MenuTree
+         * @description 菜单树（平台维护视图）。
+         */
+        MenuTree: {
+            /**
+             * Items
+             * @description 根级菜单（子节点嵌套）
+             */
+            items?: components["schemas"]["MenuItem"][];
+        };
+        /**
+         * MenuUpdateRequest
+         * @description 更新菜单请求（整体替换）。
+         */
+        MenuUpdateRequest: {
+            /**
+             * Component
+             * @description 视图组件标识
+             */
+            component?: string | null;
+            /**
+             * Hidden
+             * @description 仅隐藏侧栏入口
+             * @default false
+             */
+            hidden: boolean;
+            /**
+             * I18N
+             * @description 多语言名称（locale → 文案）
+             */
+            i18n?: {
+                [key: string]: string;
+            };
+            /**
+             * Icon
+             * @description 完整 icon key
+             */
+            icon?: string | null;
+            /**
+             * Name
+             * @description 菜单名（默认文案）
+             */
+            name: string;
+            /**
+             * Parent Id
+             * @description 父菜单 ID（0 为根）
+             */
+            parent_id: number;
+            /**
+             * Path
+             * @description 前端路由路径（/ 开头）
+             */
+            path: string;
+            /**
+             * Sort
+             * @description 同级排序（升序）
+             * @default 0
+             */
+            sort: number;
+            /**
+             * Status
+             * @description 状态（enabled/disabled）
+             * @default enabled
+             * @enum {string}
+             */
+            status: "enabled" | "disabled";
+        };
+        /**
+         * MyMenuButton
+         * @description 动态菜单下的按钮元数据（按动作权限标记可见）。
+         */
+        MyMenuButton: {
+            /**
+             * Action Code
+             * @description 动作权限码（{业务码}:{动作码}）
+             */
+            action_code: string;
+            /**
+             * Action Id
+             * @description 挂接动作码 ID
+             */
+            action_id: string;
+            /**
+             * Id
+             * @description 按钮主键
+             */
+            id: string;
+            /**
+             * Name
+             * @description 按钮名
+             */
+            name: string;
+            /**
+             * Sort
+             * @description 同表内排序
+             */
+            sort: number;
+            /**
+             * Type
+             * @description 按钮形态（toolbar/interface）
+             */
+            type: string;
+            /**
+             * Visible
+             * @description 当前用户是否持有该动作权限
+             */
+            visible: boolean;
+        };
+        /**
+         * MyMenuField
+         * @description 动态菜单下的字段元数据（按字段权限标记可见 / 可编辑）。
+         */
+        MyMenuField: {
+            /**
+             * Editable
+             * @description 字段是否可编辑
+             */
+            editable: boolean;
+            /**
+             * Field Key
+             * @description 字段键
+             */
+            field_key: string;
+            /**
+             * Id
+             * @description 字段主键
+             */
+            id: string;
+            /**
+             * Name
+             * @description 字段名（按 locale 本地化，缺省回退默认文案）
+             */
+            name: string;
+            /**
+             * Sort
+             * @description 同表内排序
+             */
+            sort: number;
+            /**
+             * Type
+             * @description 字段类型（组件语义键）
+             */
+            type: string;
+            /**
+             * Visible
+             * @description 字段是否可见
+             */
+            visible: boolean;
+        };
+        /**
+         * MyMenuForm
+         * @description 动态菜单下的表单元数据。
+         */
+        MyMenuForm: {
+            /**
+             * Business Code
+             * @description 业务权限码
+             */
+            business_code: string;
+            /**
+             * Business Id
+             * @description 所属业务码 ID
+             */
+            business_id: string;
+            /**
+             * Buttons
+             * @description 按钮元数据（按动作权限标记）
+             */
+            buttons?: components["schemas"]["MyMenuButton"][];
+            /**
+             * Component
+             * @description 表单视图组件标识
+             */
+            component: string | null;
+            /**
+             * Fields
+             * @description 字段元数据（按字段权限标记）
+             */
+            fields?: components["schemas"]["MyMenuField"][];
+            /**
+             * Id
+             * @description 表单主键
+             */
+            id: string;
+            /**
+             * Menu Id
+             * @description 所属菜单 ID
+             */
+            menu_id: string;
+        };
+        /**
+         * MyMenuNode
+         * @description 动态菜单节点（过滤后菜单树，含表单元数据）。
+         */
+        MyMenuNode: {
+            /**
+             * Children
+             * @description 子菜单（树形）
+             */
+            children?: components["schemas"]["MyMenuNode"][];
+            /**
+             * Component
+             * @description 视图组件标识
+             */
+            component: string | null;
+            /** @description 表单元数据（挂接链完整时非空） */
+            form: components["schemas"]["MyMenuForm"] | null;
+            /**
+             * Hidden
+             * @description 仅隐藏侧栏入口（路由可直达）
+             */
+            hidden: boolean;
+            /**
+             * Icon
+             * @description 完整 icon key
+             */
+            icon: string | null;
+            /**
+             * Id
+             * @description 菜单主键
+             */
+            id: string;
+            /**
+             * Name
+             * @description 菜单名（按 locale 本地化，缺省回退默认文案）
+             */
+            name: string;
+            /**
+             * Parent Id
+             * @description 父菜单 ID（0 为根）
+             */
+            parent_id: string;
+            /**
+             * Path
+             * @description 前端路由路径
+             */
+            path: string;
+            /**
+             * Sort
+             * @description 同级排序
+             */
+            sort: number;
+        };
+        /**
+         * MyMenuResponse
+         * @description 动态菜单响应：菜单树 + 表单元数据 + 当前用户权限码集合。
+         */
+        MyMenuResponse: {
+            /**
+             * Locale
+             * @description 解析后的语言标识
+             */
+            locale: string;
+            /**
+             * Menus
+             * @description 过滤后的菜单树（子节点嵌套）
+             */
+            menus?: components["schemas"]["MyMenuNode"][];
+            /**
+             * Permissions
+             * @description 当前用户权限码集合（业务码 + 动作码）
+             */
+            permissions?: string[];
+            /**
+             * Version
+             * @description 元数据版本号（缓存版本）
+             */
+            version: number;
         };
         /**
          * PreferenceValueRequest
@@ -1891,6 +3346,459 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    list_actions_api_v1_actions_get: {
+        parameters: {
+            query?: {
+                /** @description 业务码主键（可空 = 全部） */
+                business_id?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_ActionList_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    list_businesses_api_v1_businesses_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_BusinessList_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    list_buttons_api_v1_buttons_get: {
+        parameters: {
+            query?: {
+                /** @description 表单主键（可空 = 全部） */
+                form_id?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_ButtonList_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    create_button_api_v1_buttons_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ButtonCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_ButtonItem_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    update_button_api_v1_buttons__button_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                button_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ButtonUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_ButtonItem_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    delete_button_api_v1_buttons__button_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                button_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_NoneType_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -3455,6 +5363,628 @@ export interface operations {
             };
         };
     };
+    list_fields_api_v1_fields_get: {
+        parameters: {
+            query?: {
+                /** @description 表单主键（可空 = 全部） */
+                form_id?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_FieldList_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    create_field_api_v1_fields_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FieldCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_FieldItem_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    update_field_api_v1_fields__field_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                field_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FieldUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_FieldItem_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    delete_field_api_v1_fields__field_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                field_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_NoneType_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    list_forms_api_v1_forms_get: {
+        parameters: {
+            query?: {
+                /** @description 菜单主键（可空 = 全部） */
+                menu_id?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_FormList_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    create_form_api_v1_forms_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FormCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_FormItem_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    update_form_api_v1_forms__form_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                form_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FormUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_FormItem_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    delete_form_api_v1_forms__form_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                form_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_NoneType_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
     list_icons_api_v1_icons_get: {
         parameters: {
             query?: {
@@ -3800,6 +6330,370 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    list_menus_api_v1_menus_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_MenuTree_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    create_menu_api_v1_menus_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MenuCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_MenuItem_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    my_menus_api_v1_menus_my_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_MyMenuResponse_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    update_menu_api_v1_menus__menu_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                menu_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MenuUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_MenuItem_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    delete_menu_api_v1_menus__menu_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                menu_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_NoneType_"];
                 };
             };
             /** @description 未认证 */

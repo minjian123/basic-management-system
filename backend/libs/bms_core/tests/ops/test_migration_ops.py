@@ -99,7 +99,7 @@ def test_migrate_tenants_idempotent_and_single_targets(
         )
         == 0
     )
-    assert _revisions(tmp_path / "platform.db") == ["0006_sys_outbox_tenant_bigint"]
+    assert _revisions(tmp_path / "platform.db") == ["0007_menu_metadata"]
     assert "汇总：成功 1、跳过 0、失败 0" in capsys.readouterr().out
 
     assert migrate_tenants.main(ConcurrentStableList(["--target", "archive"])) == 0
