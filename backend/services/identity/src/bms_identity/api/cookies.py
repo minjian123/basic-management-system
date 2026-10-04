@@ -1,12 +1,15 @@
 """认证与身份服务端点：refresh cookie 下发 / 清理（本地登录与 SSO 共用）。
 
-- 口径：HttpOnly + Secure（`[login].cookie_secure`）+ SameSite=Lax + `Path=/api/v1/auth`；
-  本地登录 / 刷新与 SSO 回调成功都经本模块下发，登出 / 失败路径清理。
+- 口径：HttpOnly + Secure（`[login].cookie_secure`）+ SameSite=Lax + `Path=/`（**浏览器按 `Path`
+  前缀匹配回传**，服务内路径与前端外部地址 `/api/{service_key}/v1/...` 不匹配 → 取 `/`，见
+  `schemas/auth.py::REFRESH_COOKIE_PATH`）；
+- 本地登录 / 刷新与 SSO 回调成功都经本模块下发；登出 / 失败路径清理（含历史路径，见
+  `REFRESH_COOKIE_LEGACY_PATHS`）。
 """
 
 from fastapi import Request, Response
 
-from bms_identity.schemas.auth import REFRESH_COOKIE_NAME, REFRESH_COOKIE_PATH
+from bms_identity.schemas.auth import REFRESH_COOKIE_LEGACY_PATHS, REFRESH_COOKIE_NAME, REFRESH_COOKIE_PATH
 
 
 def set_refresh_cookie(response: Response, request: Request, token: str, max_age: int | None) -> None:
@@ -30,9 +33,13 @@ def set_refresh_cookie(response: Response, request: Request, token: str, max_age
 
 
 def clear_refresh_cookie(response: Response) -> None:
-    """清理 refresh cookie（登出 / 失败路径）。
+    """清理 refresh cookie（登出 / 失败路径）：**新路径与历史路径各下发一次删除**。
+
+    浏览器按 `Path` 隔离 cookie，只删当前路径无法清掉历史作用域（`/api/v1/auth`）的残留项，
+    故按 `REFRESH_COOKIE_PATH` + `REFRESH_COOKIE_LEGACY_PATHS` 逐个下发删除（同键不同路径）。
 
     Args:
         response: 响应对象。
     """
-    response.delete_cookie(REFRESH_COOKIE_NAME, path=REFRESH_COOKIE_PATH)
+    for path in (REFRESH_COOKIE_PATH, *REFRESH_COOKIE_LEGACY_PATHS):
+        response.delete_cookie(REFRESH_COOKIE_NAME, path=path)

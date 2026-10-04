@@ -65,7 +65,7 @@ async def test_callback_success_issues_session_and_cookie(client: AsyncClient, s
     cookie = response.cookies["bms_refresh_token"]
     assert cookie.startswith("ref-")
     set_cookie = response.headers["set-cookie"]
-    assert "HttpOnly" in set_cookie and "Path=/api/v1/auth" in set_cookie and "SameSite=lax" in set_cookie
+    assert "HttpOnly" in set_cookie and "Path=/" in set_cookie and "SameSite=lax" in set_cookie
 
     assert "code_verifier=" in sso.idp.token_forms[-1]
     assert "code=code-1" in sso.idp.token_forms[-1]

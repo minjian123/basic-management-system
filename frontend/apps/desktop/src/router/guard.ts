@@ -79,6 +79,9 @@ export function resolvePublicPaths(dev: boolean = import.meta.env.DEV): readonly
  */
 export function installAuthGuard(router: Router, deps: AuthGuardDeps): boolean {
   if (!isAuthGuardEnabled()) {
+    // 守卫关闭时**仍触发一次会话就绪**：应用根以 `session.ready` 渲染骨架屏，若无人触发会永久停在
+    // 骨架屏（计划 §7 第 29 项）；失败静默（与守卫开启路径同口径：不提示、不跳转）。
+    void deps.ensureSession()
     return false
   }
   router.beforeEach(async (to) => {

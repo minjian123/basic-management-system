@@ -1,8 +1,9 @@
 /**
  * 路由守卫接线用例：04-1-1 / Kiwi 2191（骨架：开关 / 令牌判定 / 登录占位页）、
- * 05_03 / Kiwi 2231（默认开启 / 公开页 / 会话就绪不闪登录页 / 回跳 / 权限占位 / 重解析 / 观测）。
+ * 05_03 / Kiwi 2231（默认开启 / 公开页 / 会话就绪不闪登录页 / 回跳 / 权限占位 / 重解析 / 观测）、
+ * 01_07 / Kiwi 2243（守卫关闭仍触发一次会话就绪，避免停在骨架屏）。
  */
-// kiwi_id: 2191, 2231
+// kiwi_id: 2191, 2231, 2243
 
 import { DEFAULT_PUBLIC_PATHS, PLACEHOLDER_MENU } from '@bms/core'
 import { flushPromises, mount } from '@vue/test-utils'
@@ -127,10 +128,12 @@ describe('resolvePublicPaths（Kiwi 2231）', () => {
 })
 
 describe('installAuthGuard 开关（Kiwi 2191 / 2231）', () => {
-  it('开关关闭时不注册钩子', () => {
+  it('开关关闭时不注册钩子，但仍触发一次会话就绪（计划 §7 第 29 项）', () => {
     vi.stubEnv('VITE_AUTH_GUARD', 'off')
-    const { installed } = install()
+    const ensureSession = vi.fn().mockResolvedValue(false)
+    const { installed } = install({ ensureSession })
     expect(installed).toBe(false)
+    expect(ensureSession).toHaveBeenCalledTimes(1)
   })
 
   it('默认开启时注册钩子', () => {

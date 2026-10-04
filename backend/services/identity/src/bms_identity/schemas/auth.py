@@ -11,8 +11,21 @@ from bms_core.schemas.service import ServiceDto
 REFRESH_COOKIE_NAME = "bms_refresh_token"
 """refresh token cookie 名（httpOnly + Secure + SameSite=Lax，`Path` 见 `REFRESH_COOKIE_PATH`）。"""
 
-REFRESH_COOKIE_PATH = "/api/v1/auth"
-"""refresh token cookie 作用路径（仅认证端点可见，收敛暴露面）。"""
+REFRESH_COOKIE_PATH = "/"
+"""refresh token cookie 作用路径。
+
+浏览器按 `Path` **前缀匹配**回传 cookie，而浏览器地址是网关**外部**路径
+`/api/{service_key}/v1/...`（如 `/api/identity/v1/auth/refresh`）——服务内路径 `/api/v1/auth`
+与之不构成前缀关系 ⇒ cookie 永不回传、静默续期恒 401。故取 `/`（只依赖同源，与外部路径形态 /
+网关 shape / 部署形态解耦，dev 与生产同形）；`HttpOnly` / `Secure` / `SameSite=Lax` 口径不变。
+"""
+
+REFRESH_COOKIE_LEGACY_PATHS: tuple[str, ...] = ("/api/v1/auth",)
+"""历史 cookie 作用路径（**仅登出清理用**）。
+
+`/api/v1/auth` 为改造前的服务内路径；浏览器中可能残留该作用域的旧 cookie（已惰性不可用——
+永不回传），登出时一并清除，避免清理面不干净。
+"""
 
 
 class CaptchaInput(BaseSchema):
