@@ -766,7 +766,7 @@
         "type": "object"
       },
       "UserCreateRequest": {
-        "description": "JIT 建号请求（账号 / 昵称 / 语言时区；租户经服务 JWT `tenant` claim 解析）。",
+        "description": "建号请求（账号 / 昵称 / 语言时区 / 来源；租户经服务 JWT `tenant` claim 解析）。",
         "properties": {
           "locale": {
             "anyOf": [
@@ -786,6 +786,14 @@
             "maxLength": 128,
             "minLength": 1,
             "title": "Name",
+            "type": "string"
+          },
+          "source": {
+            "default": "sso_jit",
+            "description": "建号来源（缺省 sso_jit；其余建号路径显式传 admin_create / import / self_register / super_admin）",
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Source",
             "type": "string"
           },
           "timezone": {
@@ -1635,7 +1643,7 @@
     },
     "/api/v1/org/internal/users/create": {
       "post": {
-        "description": "JIT 建号（用户名空闲即建；撞名 `created=false`，由调用侧换后缀重试）。\n\nArgs:\n    req: 建号请求（账号 / 昵称 / 语言时区）。\n    uow: 请求级工作单元。\n\nReturns:\n    ApiResponse: 统一响应，data 为建号结果（`UserCreateResult`）。",
+        "description": "统一建号入口（用户名空闲即建；撞名 `created=false`，由调用侧换后缀重试）。\n\n建号成功后经关系数据源维护「用户↔归属租户」可达关系（失败不阻断建号）。\n\nArgs:\n    req: 建号请求（账号 / 昵称 / 语言时区 / 来源）。\n    uow: 请求级工作单元。\n    tenant: 解析链租户上下文（归属租户）。\n    membership: 关系数据源（服务间调用；本服务为远端实现）。\n\nReturns:\n    ApiResponse: 统一响应，data 为建号结果（`UserCreateResult`）。",
         "operationId": "create_user_api_v1_org_internal_users_create_post",
         "parameters": [
           {

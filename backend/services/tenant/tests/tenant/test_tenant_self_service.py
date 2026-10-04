@@ -1,4 +1,9 @@
-"""租户自助与品牌基座契约测试（Kiwi 891）：契约 / 常量 / 数据契约 / 占位语义 / 依赖解析 / 占位路由。"""
+"""租户自助与品牌基座契约测试（Kiwi 891）：契约 / 常量 / 数据契约 / 占位语义 / 真实实现 / 路由。
+
+11_01 起租户服务装配**真实实现**（`DbTenantSelfService`，provider `sql`）：`my_tenants` / `switch`
+经关系数据源（本服务为 `local`：直读平台服务库 `sys_user_tenant`）取数并做越权校验；占位语义
+（`NullTenantSelfService`）单独保留为契约基线用例。
+"""
 
 import pytest
 from fastapi.routing import APIRoute
@@ -13,6 +18,10 @@ from bms_core.db.tenant import DEMO_TENANT
 from bms_core.idempotency.base import IDEMPOTENCY_PAYLOAD_TYPE
 from bms_core.tenant.base import (
     DEFAULT_BRAND_PRIMARY_COLOR,
+    TENANT_MEMBERSHIP_SELF_HEAL_SOURCE,
+    TENANT_MEMBERSHIP_SOURCES,
+    TENANT_MEMBERSHIP_STATUSES,
+    TENANT_SELF_SERVICE_DB_PROVIDER,
     TENANT_STATUSES,
     TENANT_SWITCH_MODES,
     THEME_MODES,
@@ -23,16 +32,25 @@ from bms_core.tenant.base import (
     TenantSwitchResult,
     build_tenant_db_key,
 )
+from bms_core.tenant.db import DbTenantSelfService
 from bms_core.tenant.null import NullTenantSelfService
 from bms_tenant.api.tenant import router as tenant_router
 from bms_tenant.main import ApplicationFactory
 from tests_support.auth import auth_headers
 from tests_support.tenant_source import DEMO_TENANT_ID
+from tests_support.tenant_sql import grant_membership, membership_source
 
 API = "/api/v1/tenants"
 
 DEMO_CODE = "demo"
 DEMO_NAME = "演示租户"
+ACME_CODE = "acme"
+
+_OTHER_USER = "9101"
+"""与默认测试用户不同的用户主体（多租户用例，避免跨用例状态耦合）。"""
+
+_ORPHAN_USER = "9201"
+"""专用用户主体（「未建立关系」用例；不被其他用例自愈，避免跨用例状态耦合）。"""
 
 
 class _RecordingIdempotency:
@@ -83,13 +101,15 @@ class _RecordingIdempotency:
 
 @pytest.mark.kiwi_id(891)
 def test_contract_inheritance_and_identity() -> None:
-    """契约继承链与能力域标识。"""
+    """契约继承链与能力域标识（含真实实现继承位）。"""
     assert issubclass(BaseTenantSelfService, BasePluggable)
     assert issubclass(BaseTenantSelfService, BaseCapability)
     assert issubclass(NullTenantSelfService, BaseTenantSelfService)
     assert issubclass(NullTenantSelfService, BaseNullObject)
+    assert issubclass(DbTenantSelfService, BaseTenantSelfService)
     assert BaseTenantSelfService.key == "tenant_self_service"
     assert BaseTenantSelfService.plugin_key == "tenant_self_service"
+    assert DbTenantSelfService.plugin_name == TENANT_SELF_SERVICE_DB_PROVIDER
 
     service = NullTenantSelfService()
     assert service.placeholder is True
@@ -103,6 +123,17 @@ def test_constants_and_db_key() -> None:
     assert TENANT_STATUSES == ("active", "suspended")
     assert TENANT_SWITCH_MODES == ("token", "session")
     assert DEFAULT_BRAND_PRIMARY_COLOR == "#1677ff"
+    assert TENANT_MEMBERSHIP_SOURCES == (
+        "super_admin",
+        "admin_create",
+        "import",
+        "sso_jit",
+        "self_register",
+        "self_heal",
+    )
+    assert TENANT_MEMBERSHIP_SELF_HEAL_SOURCE == "self_heal"
+    assert TENANT_MEMBERSHIP_STATUSES == ("active", "disabled")
+    assert TENANT_SELF_SERVICE_DB_PROVIDER == "sql"
 
     assert build_tenant_db_key("demo") == "tenant_demo"
     assert build_tenant_db_key("acme") == "tenant_acme"
@@ -151,7 +182,7 @@ async def test_null_my_tenants_fixed_single_tenant() -> None:
     assert overview.tenants[0].code == DEMO_CODE
     assert overview.tenants[0].name == DEMO_NAME
 
-    other = await service.my_tenants(current_code="acme")
+    other = await service.my_tenants(current_code="acme", tenant_id=2002, user_id=2)
     assert other.current_code == DEMO_CODE
 
 
@@ -168,7 +199,7 @@ async def test_null_switch_echoes_without_side_effect() -> None:
     assert result.reissue_token is False
     assert result.token is None
 
-    unknown = await service.switch("no-such-tenant")
+    unknown = await service.switch("no-such-tenant", tenant_id=1, user_id=1)
     assert unknown.applied is True
     assert unknown.db_key == "tenant_no-such-tenant"
     assert unknown == await service.switch("no-such-tenant")
@@ -191,13 +222,14 @@ async def test_null_brand_platform_default() -> None:
 
 @pytest.mark.kiwi_id(891)
 async def test_dependency_provider_resolves() -> None:
-    """依赖解析：应用装配占位服务；提供者解析到同一实例。"""
+    """依赖解析：租户服务装配真实实现（provider `sql`）；提供者解析到同一实例。"""
     app = ApplicationFactory().create(None)
     async with lifespan(app):
         service = app.state.tenant_self_service
-        assert isinstance(service, NullTenantSelfService)
-        assert resolve_plugin("tenant_self_service", None) is service
-        assert app.state.plugin_providers["tenant_self_service"] == "null"
+        assert isinstance(service, DbTenantSelfService)
+        assert resolve_plugin("tenant_self_service", TENANT_SELF_SERVICE_DB_PROVIDER) is service
+        assert app.state.plugin_providers["tenant_self_service"] == TENANT_SELF_SERVICE_DB_PROVIDER
+        assert app.state.tenant_membership is not None
 
 
 @pytest.mark.kiwi_id(891)
@@ -216,32 +248,74 @@ def test_route_auth_scope() -> None:
 
 
 @pytest.mark.kiwi_id(891)
-async def test_placeholder_route_my_tenants(client: AsyncClient) -> None:
-    """占位路由：我的租户概览（当前租户取自解析链上下文）。"""
+async def test_route_my_tenants_self_heals(client: AsyncClient, platform_db_url: str) -> None:
+    """真实路由：我的租户——无可访问行时读路径自愈补建自有租户行（来源 `self_heal`）。"""
     resp = await client.get(f"{API}/mine")
-    assert resp.status_code == 200
+    assert resp.status_code == 200, resp.text
     data = resp.json()["data"]
-    assert data["multi_tenant"] is False
     assert data["current_code"] == DEMO_CODE
-    assert [item["id"] for item in data["tenants"]] == [DEMO_CODE]
+    assert data["multi_tenant"] is False
+    assert [item["code"] for item in data["tenants"]] == [DEMO_CODE]
+    assert data["tenants"][0]["id"] == DEMO_TENANT_ID
     assert data["tenants"][0]["name"] == DEMO_NAME
+
+    # 自愈补建行来源为 self_heal（幂等：重复调用不新增）
+    assert await membership_source(platform_db_url, tenant_id=1001, user_id=1001) == (
+        f"active|{TENANT_MEMBERSHIP_SELF_HEAL_SOURCE}"
+    )
+    again = await client.get(f"{API}/mine")
+    assert [item["code"] for item in again.json()["data"]["tenants"]] == [DEMO_CODE]
 
 
 @pytest.mark.kiwi_id(891)
-async def test_placeholder_route_switch(client: AsyncClient) -> None:
-    """占位路由：切换结果回显、空编码 10001、无幂等键亦可用。"""
-    resp = await client.post(f"{API}/switch", json={"code": "acme"})
+async def test_route_my_tenants_multi_tenant(client: AsyncClient, platform_db_url: str) -> None:
+    """真实路由：多租户——列出全部可访问租户且 `multi_tenant=true`。"""
+    await grant_membership(
+        platform_db_url, tenant_id=1001, user_id=int(_OTHER_USER), target_tenant_id=2002, source="admin_create"
+    )
+    client.headers.update(auth_headers(subject=_OTHER_USER))
+    resp = await client.get(f"{API}/mine")
     assert resp.status_code == 200
     data = resp.json()["data"]
-    assert data["tenant_code"] == "acme"
-    assert data["db_key"] == "tenant_acme"
+    assert data["multi_tenant"] is True
+    assert sorted(item["code"] for item in data["tenants"]) == [ACME_CODE, DEMO_CODE]
+    assert data["current_code"] == DEMO_CODE
+
+
+@pytest.mark.kiwi_id(891)
+async def test_route_switch_hit_and_denied(client: AsyncClient) -> None:
+    """真实路由：切换命中（自有租户）/ 越权（未加入租户）/ 目标不存在 / 空编码。"""
+    await client.get(f"{API}/mine")  # 读路径自愈：先建立自有租户关系
+
+    hit = await client.post(f"{API}/switch", json={"code": DEMO_CODE})
+    assert hit.status_code == 200
+    data = hit.json()["data"]
+    assert data["tenant_code"] == DEMO_CODE
+    assert data["db_key"] == "tenant_demo"
     assert data["applied"] is True
     assert data["mode"] == "token"
-    assert data["reissue_token"] is False
+    assert data["reissue_token"] is True
     assert data["token"] is None
+
+    denied = await client.post(f"{API}/switch", json={"code": ACME_CODE})
+    assert denied.status_code == 403
+    assert denied.json()["code"] == 80003
+
+    unknown = await client.post(f"{API}/switch", json={"code": "no-such-tenant"})
+    assert unknown.status_code == 404
+    assert unknown.json()["code"] == 80001
 
     invalid = await client.post(f"{API}/switch", json={"code": "   "})
     assert invalid.json()["code"] == 10001
+
+
+@pytest.mark.kiwi_id(891)
+async def test_route_switch_denied_without_membership(client: AsyncClient) -> None:
+    """真实路由：未建立关系（未走读路径自愈）时切换自有租户亦被拒（越权口径）。"""
+    client.headers.update(auth_headers(subject=_ORPHAN_USER))
+    denied = await client.post(f"{API}/switch", json={"code": DEMO_CODE})
+    assert denied.status_code == 403
+    assert denied.json()["code"] == 80003
 
 
 @pytest.mark.kiwi_id(891)
@@ -253,17 +327,18 @@ async def test_switch_idempotency_reuses_first_result() -> None:
     app.dependency_overrides[get_idempotency_store] = lambda: double
     async with lifespan(app), AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         client.headers.update(auth_headers())
-        first = await client.post(f"{API}/switch", json={"code": "acme"}, headers={"Idempotency-Key": "k-1"})
-        second = await client.post(f"{API}/switch", json={"code": "other"}, headers={"Idempotency-Key": "k-1"})
+        await client.get(f"{API}/mine")  # 自愈：建立自有租户关系
+        first = await client.post(f"{API}/switch", json={"code": DEMO_CODE}, headers={"Idempotency-Key": "k-1"})
+        second = await client.post(f"{API}/switch", json={"code": ACME_CODE}, headers={"Idempotency-Key": "k-1"})
 
-    assert first.json()["data"]["tenant_code"] == "acme"
+    assert first.json()["data"]["tenant_code"] == DEMO_CODE
     assert second.json()["data"] == first.json()["data"]
     assert double.keys == [f"bms:{DEMO_TENANT_ID}:idem:k-1", f"bms:{DEMO_TENANT_ID}:idem:k-1"]
 
 
 @pytest.mark.kiwi_id(891)
-async def test_placeholder_route_brand_without_auth(client: AsyncClient) -> None:
-    """占位路由：品牌信息登录前可用（免登录），带 / 不带编码结果一致。"""
+async def test_route_brand_without_auth(client: AsyncClient) -> None:
+    """真实路由：品牌信息登录前可用（免登录），带 / 不带编码结果一致（本任务不做品牌取数）。"""
     resp = await client.get(f"{API}/brand")
     assert resp.status_code == 200
     data = resp.json()["data"]
@@ -273,5 +348,5 @@ async def test_placeholder_route_brand_without_auth(client: AsyncClient) -> None
     assert data["allow_user_accent"] is True
     assert data["disable_dark"] is False
 
-    with_code = await client.get(f"{API}/brand", params={"code": "acme"})
+    with_code = await client.get(f"{API}/brand", params={"code": ACME_CODE})
     assert with_code.json()["data"] == data

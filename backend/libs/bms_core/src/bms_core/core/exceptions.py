@@ -726,6 +726,13 @@ class TenantSuspendedError(OpenTenantError):
         super().__init__(ErrorCode.TENANT_SUSPENDED, message, http_status=403, data=data)
 
 
+class TenantAccessDeniedError(OpenTenantError):
+    """目标租户不可访问（不在当前用户可访问集合；`80003` / 403）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        super().__init__(ErrorCode.TENANT_ACCESS_DENIED, message, http_status=403, data=data)
+
+
 class OidcError(OpenTenantError):
     """OIDC Provider 子段（开放 / 租户 / SSO 段内 `8010x`）异常基类。
 

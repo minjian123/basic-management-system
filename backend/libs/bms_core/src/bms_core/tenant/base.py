@@ -31,6 +31,10 @@ from bms_core.schemas.base import CONTRACT_COLLECTION, CONTRACT_STABLE_LIST, Bas
 
 __all__ = [
     "DEFAULT_BRAND_PRIMARY_COLOR",
+    "TENANT_MEMBERSHIP_SELF_HEAL_SOURCE",
+    "TENANT_MEMBERSHIP_SOURCES",
+    "TENANT_MEMBERSHIP_STATUSES",
+    "TENANT_SELF_SERVICE_DB_PROVIDER",
     "TENANT_STATUSES",
     "TENANT_SWITCH_MODES",
     "THEME_MODES",
@@ -54,6 +58,25 @@ TENANT_SWITCH_MODES: tuple[str, ...] = ("token", "session")
 
 DEFAULT_BRAND_PRIMARY_COLOR = "#1677ff"
 """平台默认品牌主色（未配置品牌时回退；与前端未配置时的回退主色一致）。"""
+
+TENANT_MEMBERSHIP_SOURCES: tuple[str, ...] = (
+    "super_admin",
+    "admin_create",
+    "import",
+    "sso_jit",
+    "self_register",
+    "self_heal",
+)
+"""用户↔租户可达关系的写入来源取值（前五＝建号路径，`self_heal`＝读路径兜底自愈补建）。"""
+
+TENANT_MEMBERSHIP_STATUSES: tuple[str, ...] = ("active", "disabled")
+"""用户↔租户可达关系状态取值（回收置 `disabled`，彻底移除才软删）。"""
+
+TENANT_MEMBERSHIP_SELF_HEAL_SOURCE = "self_heal"
+"""读路径兜底自愈补建自有租户关系时的来源取值（`TENANT_MEMBERSHIP_SOURCES` 末值）。"""
+
+TENANT_SELF_SERVICE_DB_PROVIDER = "sql"
+"""租户自助能力域的真实实现 provider 名（落库取数；由租户服务按本服务身份选定）。"""
 
 
 class TenantSummary(BaseSchema):
@@ -109,22 +132,34 @@ class BaseTenantSelfService(BasePluggable, ABC):
     contract_version: str = DEFAULT_CONTRACT_VERSION
 
     @abstractmethod
-    async def my_tenants(self, *, current_code: str | None = None) -> TenantSelfOverview:
+    async def my_tenants(
+        self,
+        *,
+        current_code: str | None = None,
+        tenant_id: int | None = None,
+        user_id: int | None = None,
+    ) -> TenantSelfOverview:
         """取「我加入的租户」概览。
 
         Args:
             current_code: 当前租户编码（调用方从解析链上下文传入；实现负责标注）。
+            tenant_id: 当前租户主键（雪花 id；即用户**归属租户**，可访问关系取数键）。
+            user_id: 当前登录用户主键（org 服务 `sys_user.id`）。
 
         Returns:
             TenantSelfOverview: 租户列表 + 当前租户编码 + 是否多租户。
         """
 
     @abstractmethod
-    async def switch(self, code: str) -> TenantSwitchResult:
+    async def switch(
+        self, code: str, *, tenant_id: int | None = None, user_id: int | None = None
+    ) -> TenantSwitchResult:
         """切换到目标租户（结果经令牌 / 会话生效，解析链优先级不变）。
 
         Args:
             code: 目标租户编码。
+            tenant_id: 当前租户主键（雪花 id；即用户**归属租户**）。
+            user_id: 当前登录用户主键（org 服务 `sys_user.id`）。
 
         Returns:
             TenantSwitchResult: 切换结果（生效方式 / 是否需重发令牌 / 令牌）。

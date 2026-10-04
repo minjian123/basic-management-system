@@ -13,7 +13,7 @@ from typing import Annotated
 
 from fastapi import Depends, Header, Query
 
-from bms_core.api.base import BaseRouter, require_auth
+from bms_core.api.base import AuthContext, BaseRouter, require_auth
 from bms_core.api.deps import (
     current_code_of,
     current_tenant_id_of,
@@ -45,11 +45,25 @@ router = BaseRouter(key="tenant", prefix="/tenants", tags=["tenant"])
 ServiceDep = Annotated[BaseTenantSelfService, Depends(get_tenant_self_service)]
 IdempotencyDep = Annotated[IdempotencyStore, Depends(get_idempotency_store)]
 TenantDep = Annotated[TenantContext | None, Depends(get_tenant)]
+AuthDep = Annotated[AuthContext, Depends(require_auth)]
 CodeQuery = Annotated[str | None, Query(description="租户编码（缺省当前租户）")]
 IdempotencyKeyHeader = Annotated[
     str | None,
     Header(alias=IDEMPOTENCY_HEADER, description="幂等键（可选；重复切换复用首次结果）"),
 ]
+
+
+def _actor(auth: AuthContext) -> tuple[int | None, int | None]:
+    """取登录主体（当前租户主键 / 用户主键）。
+
+    Args:
+        auth: 登录态身份。
+
+    Returns:
+        tuple[int | None, int | None]: (当前租户主键, 用户主键)。
+    """
+    tenant_id = int(auth.tenant_id) if auth.tenant_id else None
+    return tenant_id, auth.user_id
 
 
 def _summary_response(item: TenantSummary) -> TenantSummaryResponse:
@@ -127,17 +141,19 @@ def _brand_response(brand: TenantBrand) -> TenantBrandResponse:
 
 
 @router.get("/mine", dependencies=[Depends(require_auth)])
-async def my_tenants(service: ServiceDep, tenant: TenantDep) -> ApiResponse:
-    """取「我加入的租户」概览（当前租户取自解析链上下文）。
+async def my_tenants(service: ServiceDep, tenant: TenantDep, auth: AuthDep) -> ApiResponse:
+    """取「我加入的租户」概览（当前租户取自解析链上下文；主体取自登录态）。
 
     Args:
         service: 租户自助基座。
         tenant: 解析链租户上下文。
+        auth: 登录态身份（当前租户主键 / 用户主键）。
 
     Returns:
         ApiResponse: 统一响应，data 为自助概览（`TenantSelfOverviewResponse`）。
     """
-    overview = await service.my_tenants(current_code=current_code_of(tenant))
+    tenant_id, user_id = _actor(auth)
+    overview = await service.my_tenants(current_code=current_code_of(tenant), tenant_id=tenant_id, user_id=user_id)
     return ApiResponse.ok(_overview_response(overview))
 
 
@@ -146,15 +162,17 @@ async def switch_tenant(
     service: ServiceDep,
     idempotency: IdempotencyDep,
     tenant: TenantDep,
+    auth: AuthDep,
     req: TenantSwitchRequest,
     idempotency_key: IdempotencyKeyHeader = None,
 ) -> ApiResponse:
-    """切换到目标租户（可按幂等键复用首次结果）。
+    """切换到目标租户（越权校验；可按幂等键复用首次结果）。
 
     Args:
         service: 租户自助基座。
         idempotency: 幂等基座（首次结果复用）。
         tenant: 解析链租户上下文（幂等键作用域位）。
+        auth: 登录态身份（当前租户主键 / 用户主键）。
         req: 切换请求。
         idempotency_key: 幂等键请求头（可选）。
 
@@ -162,14 +180,15 @@ async def switch_tenant(
         ApiResponse: 统一响应，data 为切换结果（`TenantSwitchResponse`）。
     """
     code = req.code
+    tenant_id, user_id = _actor(auth)
     if not idempotency_key:
-        return ApiResponse.ok(_switch_response(await service.switch(code)))
+        return ApiResponse.ok(_switch_response(await service.switch(code, tenant_id=tenant_id, user_id=user_id)))
     key = build_idempotency_key(key=idempotency_key, tenant=current_tenant_id_of(tenant))
     if not await idempotency.begin(key):
         payload = await idempotency.load(key)
         if payload is not None:
             return ApiResponse.ok(TenantSwitchResponse.model_validate(payload))
-    result = await service.switch(code)
+    result = await service.switch(code, tenant_id=tenant_id, user_id=user_id)
     await idempotency.save(key, result.model_dump(mode="json"))
     return ApiResponse.ok(_switch_response(result))
 

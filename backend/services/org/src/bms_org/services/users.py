@@ -1,4 +1,4 @@
-"""组织主数据服务 services 层：用户概要查询与 JIT 建号（服务间内部接口）。"""
+"""组织主数据服务 services 层：用户概要查询与统一建号入口（服务间内部接口）。"""
 
 from __future__ import annotations
 
@@ -6,9 +6,12 @@ import re
 
 from sqlalchemy.exc import IntegrityError
 
+from bms_core.core.exceptions import ServiceUnavailableError
+from bms_core.core.logging import get_logger
 from bms_core.core.objects import BaseFrameworkObject
 from bms_core.db.unit_of_work import UnitOfWork
 from bms_core.services.base_service import BaseService
+from bms_core.tenant.membership import TenantMembershipStore
 from bms_org.models.user import SysUser
 from bms_org.repositories.user import UserRepository
 from bms_org.schemas.users import (
@@ -21,8 +24,13 @@ from bms_org.schemas.users import (
 SSO_PASSWORD_PLACEHOLDER = "!sso"
 """SSO JIT 建号的口令占位（非 PBKDF2 自描述串 → 本地登录校验恒 False，禁止本地口令登录）。"""
 
+DEFAULT_CREATE_SOURCE = "sso_jit"
+"""建号缺省来源（当前唯一调用方为 SSO JIT；其余建号路径功能落地时显式传参）。"""
+
 _USERNAME_CONFLICT = "username_conflict"
 """用户名撞名原因码（调用侧据此换后缀重试）。"""
+
+_LOGGER = get_logger("bms.org.users")
 
 CHANNEL_EMAIL = "email"
 """找回密码投递通道：邮件。"""
@@ -116,17 +124,29 @@ class UserResetTargetService(BaseFrameworkObject):
 
 
 class UserCreateService(BaseService[SysUser]):
-    """JIT 建号服务：单次「用户名空闲即建号」（撞名返回 `created=false`，不抛错）。"""
+    """统一建号入口：单次「用户名空闲即建号」（撞名返回 `created=false`，不抛错）。
 
-    def __init__(self, repository: UserRepository, uow: UnitOfWork) -> None:
+    建号成功后经**关系数据源**维护「用户↔归属租户」可达关系（`source` 标注来源）；
+    关系写入失败**不阻断建号**（记 WARNING，交对账巡检补齐）。
+    """
+
+    def __init__(
+        self,
+        repository: UserRepository,
+        uow: UnitOfWork,
+        *,
+        membership: TenantMembershipStore | None = None,
+    ) -> None:
         """初始化。
 
         Args:
             repository: 用户仓储（租户库 `sys_user`）。
             uow: 工作单元（写事务边界）。
+            membership: 关系数据源（缺省 None＝不维护关系；服务间调用侧注入）。
         """
         super().__init__(repository)
         self._uow = uow
+        self._membership = membership
 
     async def create_user(
         self,
@@ -135,14 +155,18 @@ class UserCreateService(BaseService[SysUser]):
         name: str,
         locale: str | None = None,
         timezone: str | None = None,
+        source: str = DEFAULT_CREATE_SOURCE,
+        owner_tenant_id: int | None = None,
     ) -> UserCreateResult:
-        """创建 SSO 最小用户（占位口令 + 启用状态）。
+        """创建最小用户（占位口令 + 启用状态）并按来源维护归属租户关系。
 
         Args:
             username: 登录账号（调用侧已清洗）。
             name: 昵称 / 显示名。
             locale: 语言偏好（可空）。
             timezone: 时区偏好（可空）。
+            source: 建号来源（缺省 `sso_jit`；其余路径功能落地时显式传参）。
+            owner_tenant_id: 归属租户主键（缺省 None＝不维护关系）。
 
         Returns:
             UserCreateResult: 建号结果（撞名 `created=false` + `reason=username_conflict`）。
@@ -162,7 +186,28 @@ class UserCreateService(BaseService[SysUser]):
                 )
         except IntegrityError:
             return UserCreateResult(created=False, reason=_USERNAME_CONFLICT)
+        await self._ensure_membership(user_id=int(row.id), tenant_id=owner_tenant_id, source=source)
         return UserCreateResult(created=True, user=_summary(row))
+
+    async def _ensure_membership(self, *, user_id: int, tenant_id: int | None, source: str) -> None:
+        """建号后维护「用户↔归属租户」可达关系（失败不阻断建号）。
+
+        Args:
+            user_id: 新建用户主键。
+            tenant_id: 归属租户主键（None＝不维护）。
+            source: 建号来源。
+        """
+        if self._membership is None or tenant_id is None:
+            return
+        try:
+            await self._membership.ensure(
+                tenant_id=tenant_id,
+                user_id=user_id,
+                target_tenant_id=tenant_id,
+                source=source,
+            )
+        except ServiceUnavailableError as exc:
+            _LOGGER.warning("user_membership_write_degraded", user_id=user_id, tenant_id=tenant_id, error=repr(exc))
 
     def _repo(self) -> UserRepository:
         """取用户仓储（泛型收窄）。

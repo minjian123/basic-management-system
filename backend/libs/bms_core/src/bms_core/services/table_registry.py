@@ -119,6 +119,12 @@ TABLE_OWNERSHIP: tuple[TableRecord, ...] = (
         datasource=Datasource.PLATFORM,
         note="租户库名对照（tenant_id ↔ db_basis）",
     ),
+    TableRecord(
+        table_name="sys_user_tenant",
+        owner="tenant",
+        datasource=Datasource.PLATFORM,
+        note="用户↔租户可达关系（租户自助：我加入的租户 / 切换）",
+    ),
     TableRecord(table_name="sys_module", owner="platform", datasource=Datasource.PLATFORM, note="服务目录登记"),
     TableRecord(table_name="sys_module_i18n", owner="platform", datasource=Datasource.PLATFORM, note="服务目录多语言"),
     TableRecord(

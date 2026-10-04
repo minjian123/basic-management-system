@@ -63,6 +63,59 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/tenant/internal/memberships": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Memberships
+         * @description 读某用户可访问目标租户集合（可选含 `disabled` 行，供读路径自愈判据）。
+         *
+         *     Args:
+         *         service: 关系服务。
+         *         owner_tenant_id: 归属租户主键。
+         *         user_id: 用户主键。
+         *         include_disabled: 是否含 `disabled` 行。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为目标集合。
+         */
+        get: operations["list_memberships_api_v1_tenant_internal_memberships_get"];
+        put?: never;
+        /**
+         * Ensure Membership
+         * @description 建立 / 复活关系（幂等）。
+         *
+         *     Args:
+         *         req: 写入请求（归属租户 / 用户 / 目标租户 / 来源）。
+         *         service: 关系服务。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为操作后该用户有效目标集合。
+         */
+        post: operations["ensure_membership_api_v1_tenant_internal_memberships_post"];
+        /**
+         * Revoke Membership
+         * @description 回收关系（置 `disabled`，幂等；省略目标租户则回收该用户全部）。
+         *
+         *     Args:
+         *         service: 关系服务。
+         *         owner_tenant_id: 归属租户主键。
+         *         user_id: 用户主键。
+         *         target_tenant_id: 目标租户主键（省略＝回收全部）。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为操作后该用户有效目标集合。
+         */
+        delete: operations["revoke_membership_api_v1_tenant_internal_memberships_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/tenants/brand": {
         parameters: {
             query?: never;
@@ -99,11 +152,12 @@ export interface paths {
         };
         /**
          * My Tenants
-         * @description 取「我加入的租户」概览（当前租户取自解析链上下文）。
+         * @description 取「我加入的租户」概览（当前租户取自解析链上下文；主体取自登录态）。
          *
          *     Args:
          *         service: 租户自助基座。
          *         tenant: 解析链租户上下文。
+         *         auth: 登录态身份（当前租户主键 / 用户主键）。
          *
          *     Returns:
          *         ApiResponse: 统一响应，data 为自助概览（`TenantSelfOverviewResponse`）。
@@ -128,12 +182,13 @@ export interface paths {
         put?: never;
         /**
          * Switch Tenant
-         * @description 切换到目标租户（可按幂等键复用首次结果）。
+         * @description 切换到目标租户（越权校验；可按幂等键复用首次结果）。
          *
          *     Args:
          *         service: 租户自助基座。
          *         idempotency: 幂等基座（首次结果复用）。
          *         tenant: 解析链租户上下文（幂等键作用域位）。
+         *         auth: 登录态身份（当前租户主键 / 用户主键）。
          *         req: 切换请求。
          *         idempotency_key: 幂等键请求头（可选）。
          *
@@ -225,10 +280,99 @@ export interface components {
              */
             message: string;
         };
+        /** ApiResponse[TenantMembershipListResponse] */
+        ApiResponse_TenantMembershipListResponse_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["TenantMembershipListResponse"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /**
+         * TenantMembershipGrantRequest
+         * @description 建立 / 复活关系入参（全字段显式；`owner_tenant_id` 为用户归属租户）。
+         */
+        TenantMembershipGrantRequest: {
+            /**
+             * Owner Tenant Id
+             * @description 归属租户主键（用户建号 / 登录所在租户）
+             */
+            owner_tenant_id: number;
+            /**
+             * Source
+             * @description 写入来源（super_admin / admin_create / import / sso_jit / …）
+             */
+            source: string;
+            /**
+             * Target Tenant Id
+             * @description 目标租户主键
+             */
+            target_tenant_id: number;
+            /**
+             * User Id
+             * @description 用户主键（org 服务 sys_user.id）
+             */
+            user_id: number;
+        };
+        /**
+         * TenantMembershipListResponse
+         * @description 某用户当前有效可访问租户集合（内部端点统一响应）。
+         */
+        TenantMembershipListResponse: {
+            /**
+             * Targets
+             * @description 有效可访问目标租户（status=active）
+             */
+            targets?: components["schemas"]["TenantMembershipTarget"][];
+        };
+        /**
+         * TenantMembershipTarget
+         * @description 可访问目标租户条目（关系 + 租户元信息）。
+         */
+        TenantMembershipTarget: {
+            /**
+             * Code
+             * @description 目标租户编码
+             */
+            code: string;
+            /**
+             * Domain
+             * @description 目标租户子域名
+             */
+            domain?: string | null;
+            /**
+             * Name
+             * @description 目标租户名称
+             */
+            name: string;
+            /**
+             * Source
+             * @description 写入来源
+             * @default
+             */
+            source: string;
+            /**
+             * Status
+             * @description 关系状态（active / disabled）
+             * @default active
+             */
+            status: string;
+            /**
+             * Tenant Id
+             * @description 目标租户主键（雪花 id）
+             */
+            tenant_id: string;
         };
         /**
          * TenantSwitchRequest
@@ -306,6 +450,252 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    list_memberships_api_v1_tenant_internal_memberships_get: {
+        parameters: {
+            query: {
+                /** @description 归属租户主键（用户建号 / 登录所在租户） */
+                owner_tenant_id: number;
+                /** @description 用户主键（org 服务 sys_user.id） */
+                user_id: number;
+                /** @description 是否含 disabled 行（缺省只取有效行） */
+                include_disabled?: boolean;
+            };
+            header?: {
+                Authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_TenantMembershipListResponse_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    ensure_membership_api_v1_tenant_internal_memberships_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TenantMembershipGrantRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_TenantMembershipListResponse_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    revoke_membership_api_v1_tenant_internal_memberships_delete: {
+        parameters: {
+            query: {
+                /** @description 归属租户主键（用户建号 / 登录所在租户） */
+                owner_tenant_id: number;
+                /** @description 用户主键（org 服务 sys_user.id） */
+                user_id: number;
+                /** @description 目标租户主键（省略＝回收该用户全部） */
+                target_tenant_id?: number | null;
+            };
+            header?: {
+                Authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_TenantMembershipListResponse_"];
                 };
             };
             /** @description 未认证 */

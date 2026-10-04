@@ -158,6 +158,13 @@ class PaginationSettings(BaseSettings):
     """页码分页最大深度（`BasePageQuery.page` 上限；超限按参数非法 10001）。"""
 
 
+class TenantMembershipSettings(BaseSettings):
+    """用户↔租户可达关系数据源（段 `[tenant_membership]`；11_01）。"""
+
+    source: str = ""
+    """关系数据源实现（`local` / `remote`；空串 = 自动：租户服务用 `local`、其余服务用 `remote`）。"""
+
+
 class TenantSettings(BaseSettings):
     """多租户解析与引擎生命周期（租户注册表缓存 / 引擎上限与阈值 / 豁免路径 / 回落策略）。"""
 
@@ -905,6 +912,7 @@ class Settings(PydanticBaseSettings, BaseSettings):  # pyright: ignore[reportInc
     sso: SsoSettings = Field(default_factory=SsoSettings)
     storage: PluginSelection = Field(default_factory=PluginSelection)
     task: PluginSelection = Field(default_factory=PluginSelection)
+    tenant_membership: TenantMembershipSettings = Field(default_factory=TenantMembershipSettings)
     tenant_self_service: PluginSelection = Field(default_factory=PluginSelection)
     token_codec: PluginSelection = Field(default_factory=PluginSelection)
     token_verifier: PluginSelection = Field(default_factory=PluginSelection)

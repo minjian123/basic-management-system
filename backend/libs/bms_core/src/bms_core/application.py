@@ -53,6 +53,7 @@ from bms_core.masking.base import get_masker
 from bms_core.metrics.base import BaseMetrics
 from bms_core.models.ownership import SysTableOwnership
 from bms_core.schemas.common import ApiResponse
+from bms_core.servicecall.base import BaseServiceClient
 from bms_core.services.module_registry import (
     SERVICE_CATALOG,
     ModuleRegistry,
@@ -66,6 +67,9 @@ from bms_core.services.table_registry import (
     TableRecord,
     validate_table_ownership,
 )
+from bms_core.tenant.db import register_db_tenant_self_service
+from bms_core.tenant.membership import build_tenant_membership_store
+from bms_core.tenant.membership_remote import register_remote_tenant_membership_store
 from bms_core.tracing.setup import setup_observability
 
 __all__ = ["BaseServiceApplicationFactory", "service_lifespan"]
@@ -335,6 +339,7 @@ class BaseServiceApplicationFactory(BaseApplicationFactory):
 
         # 工厂 / 插件装配前置：平台实现登记 → 注册表构建 → 关键工厂解析（可替换，配置选择）
         register_platform_plugins(settings, app, app.state.resources)
+        register_db_tenant_self_service(app)  # 登记 / 按应用刷新租户自助真实实现工厂（11_01）
         build_plugin_registry()
         register_factory("engine_factory", "default", EngineFactory)
         register_factory("session_factory", "default", SessionFactory)
@@ -379,11 +384,27 @@ class BaseServiceApplicationFactory(BaseApplicationFactory):
             ),
             session_factory=session_factory,
         )
+        register_remote_tenant_membership_store()  # 登记 `remote` 关系数据源实现（配置可切 `local`）
+        tenant_membership = build_tenant_membership_store(
+            settings.tenant_membership.source,
+            settings=settings,
+            registry=engine_registry,
+            session_factory=session_factory,
+            service_client=cast(
+                "BaseServiceClient",
+                resolve_plugin(
+                    "service_client",
+                    settings.service_client.provider,
+                    expected_version=BaseServiceClient.contract_version,
+                ),
+            ),
+        )
         app.state.engine_factory = engine_factory
         app.state.engine_registry = engine_registry
         app.state.session_factory = session_factory
         app.state.primary_health = primary_health
         app.state.tenant_source = tenant_source
+        app.state.tenant_membership = tenant_membership
         app.state.metrics = metrics
         app.state.resources.register(engine_registry)
         app.state.resources.register(primary_health)

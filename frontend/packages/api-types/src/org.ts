@@ -182,11 +182,15 @@ export interface paths {
         put?: never;
         /**
          * Create User
-         * @description JIT 建号（用户名空闲即建；撞名 `created=false`，由调用侧换后缀重试）。
+         * @description 统一建号入口（用户名空闲即建；撞名 `created=false`，由调用侧换后缀重试）。
+         *
+         *     建号成功后经关系数据源维护「用户↔归属租户」可达关系（失败不阻断建号）。
          *
          *     Args:
-         *         req: 建号请求（账号 / 昵称 / 语言时区）。
+         *         req: 建号请求（账号 / 昵称 / 语言时区 / 来源）。
          *         uow: 请求级工作单元。
+         *         tenant: 解析链租户上下文（归属租户）。
+         *         membership: 关系数据源（服务间调用；本服务为远端实现）。
          *
          *     Returns:
          *         ApiResponse: 统一响应，data 为建号结果（`UserCreateResult`）。
@@ -946,7 +950,7 @@ export interface components {
         };
         /**
          * UserCreateRequest
-         * @description JIT 建号请求（账号 / 昵称 / 语言时区；租户经服务 JWT `tenant` claim 解析）。
+         * @description 建号请求（账号 / 昵称 / 语言时区 / 来源；租户经服务 JWT `tenant` claim 解析）。
          */
         UserCreateRequest: {
             /**
@@ -959,6 +963,12 @@ export interface components {
              * @description 昵称 / 显示名
              */
             name: string;
+            /**
+             * Source
+             * @description 建号来源（缺省 sso_jit；其余建号路径显式传 admin_create / import / self_register / super_admin）
+             * @default sso_jit
+             */
+            source: string;
             /**
              * Timezone
              * @description 时区偏好（可空）

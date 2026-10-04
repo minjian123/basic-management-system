@@ -31,12 +31,18 @@ class UserProfileResult(BaseSchema):
 
 
 class UserCreateRequest(BaseSchema):
-    """JIT 建号请求（账号 / 昵称 / 语言时区；租户经服务 JWT `tenant` claim 解析）。"""
+    """建号请求（账号 / 昵称 / 语言时区 / 来源；租户经服务 JWT `tenant` claim 解析）。"""
 
     username: str = Field(min_length=1, max_length=64, description="登录账号（调用侧已清洗）")
     name: str = Field(min_length=1, max_length=128, description="昵称 / 显示名")
     locale: str | None = Field(default=None, max_length=16, description="语言偏好（可空）")
     timezone: str | None = Field(default=None, max_length=64, description="时区偏好（可空）")
+    source: str = Field(
+        default="sso_jit",
+        min_length=1,
+        max_length=32,
+        description="建号来源（缺省 sso_jit；其余建号路径显式传 admin_create / import / self_register / super_admin）",
+    )
 
 
 class UserCreateResult(BaseSchema):

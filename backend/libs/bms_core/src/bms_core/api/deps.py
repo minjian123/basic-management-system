@@ -69,6 +69,7 @@ from bms_core.session.base import get_session_store
 from bms_core.storage.base import get_multipart_upload, get_object_storage
 from bms_core.tasks.base import get_task
 from bms_core.tenant.base import get_tenant_self_service
+from bms_core.tenant.membership import TenantMembershipStore
 from bms_core.tracing.base import get_tracer
 from bms_core.transfer.exporter import get_exporter
 from bms_core.transfer.importer import get_importer
@@ -151,6 +152,7 @@ __all__ = [
     "get_session_store",
     "get_task",
     "get_tenant",
+    "get_tenant_membership_store",
     "get_tenant_self_service",
     "get_tenant_source",
     "get_token_verifier",
@@ -214,6 +216,18 @@ def get_primary_health(request: Request) -> PrimaryHealth:
         PrimaryHealth: 主库可用性实例。
     """
     return cast("PrimaryHealth", request.app.state.primary_health)
+
+
+def get_tenant_membership_store(request: Request) -> TenantMembershipStore:
+    """取应用级关系数据源（用户↔租户可达关系读写；依赖注入提供者）。
+
+    Args:
+        request: 请求对象。
+
+    Returns:
+        TenantMembershipStore: 应用装配的关系数据源实例（租户服务为 `local`、其余为 `remote`）。
+    """
+    return cast("TenantMembershipStore", request.app.state.tenant_membership)
 
 
 def get_tenant_source(request: Request) -> TenantLookup:

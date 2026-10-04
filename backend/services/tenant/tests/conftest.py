@@ -7,6 +7,8 @@ from collections.abc import AsyncIterator, Iterator
 import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import create_async_engine
 
 from bms_core.cache.memory import MemoryCacheRegion
 from bms_core.core.config import Settings, get_settings
@@ -65,12 +67,40 @@ def isolate_settings(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
 def platform_db_url(tmp_path_factory: pytest.TempPathFactory) -> str:
     """会话级平台库：临时 `sys_tenant` 种子库（建库 / 播种整个测试会话只做一次）。
 
+    播种后把演示 / 示例租户主键对齐到测试租户源口径（`demo ↔ 1001` / `acme ↔ 2002`）——11_01 起
+    用户↔租户可达关系表 `sys_user_tenant` 按雪花租户主键与 `sys_tenant` **同库 join**，主键须与
+    令牌租户位（测试租户源口径）一致才能命中。
+
     Returns:
         str: 会话级平台库连接串。
     """
     platform_url = f"sqlite+aiosqlite:///{tmp_path_factory.mktemp('platform') / 'app.db'}"
     asyncio.run(seed_tenants(platform_url))
+    asyncio.run(_align_tenant_ids(platform_url))
     return platform_url
+
+
+async def _align_tenant_ids(platform_url: str) -> None:
+    """把种子租户主键对齐到测试租户源口径（`demo → 1001` / `acme → 2002`；含库名对照行）。
+
+    Args:
+        platform_url: 平台库连接串。
+    """
+    for code, tenant_id in (("demo", 1001), ("acme", 2002)):
+        engine = create_async_engine(platform_url)
+        async with engine.begin() as connection:
+            await connection.execute(
+                text(
+                    "UPDATE sys_tenant_database SET tenant_id = :new WHERE tenant_id = "
+                    "(SELECT id FROM sys_tenant WHERE code = :code AND deleted_at IS NULL)"
+                ),
+                {"new": tenant_id, "code": code},
+            )
+            await connection.execute(
+                text("UPDATE sys_tenant SET id = :new WHERE code = :code AND deleted_at IS NULL"),
+                {"new": tenant_id, "code": code},
+            )
+        await engine.dispose()
 
 
 @pytest.fixture(autouse=True)
