@@ -26,6 +26,9 @@
 #   --reset-password     建号时重置既有账号口令
 #   --force              down 时连带清理本机全部 `python -m bms_*` 进程
 #
+# 账号: `seed` 缺省建 `admin` / 口令 `***REDACTED***`（口令仅执行时打印一次；可 `--username` / `--password` 覆盖；
+#       凭据登记见《bms文档/用户文档/本地资源.md》「BMS 应用账号」节）；起栈后若登录 401，先看是否漏跑 seed。
+#
 # 状态目录: ${BMS_LOCAL_STATE_DIR:-/tmp/bms-local-stack}（pid 与日志）
 # 退出码: 0 = 成功；1 = 失败（含健康等待超时）；2 = 参数错误
 set -uo pipefail

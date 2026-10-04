@@ -17,8 +17,9 @@
 
 用法::
 
-    python3 scripts/tools/base-check/check-prototype-review.py [bms 仓库根]      # 全仓巡检（软提示，不阻断）
+    python3 scripts/tools/base-check/check-prototype-review.py [bms 仓库根]           # 全仓巡检（软提示，不阻断）
     python3 scripts/tools/base-check/check-prototype-review.py [root] --changed [base]
+    python3 scripts/tools/base-check/check-prototype-review.py [root] --task <任务目录>  # 单任务硬校验（逐域收口）
     python3 scripts/tools/base-check/check-prototype-review.py --self-test
 
 `--changed` 的 `[base]` 缺省 `origin/main`；基准不可解析（CI / 浅克隆）时脚本自行跳过，不误拦。
@@ -45,7 +46,7 @@ DOCS_DIR = "bms文档"
 PROTOTYPE_DIR = f"{DOCS_DIR}/设计/原型设计"
 RECORD_RE = re.compile(rf"^{DOCS_DIR}/项目/[^/]+/任务/.+/测试/[^/]+\.md$")
 CONTEXT_RE = re.compile(rf"^{DOCS_DIR}/项目/[^/]+/任务/.+/(设计|实施|测试)/[^/]+\.md$")
-PROTO_REF_RE = re.compile(r"原型设计/([^\s)\"'`<>|]+\.html)")
+PROTO_REF_RE = re.compile(r"原型设计/([^\s()\[\]\"'`<>|]+\.html)")
 PNG_RE = re.compile(r"\]\(([^)\s]+\.png)\)")
 UNFINISHED_RE = re.compile(r"待补|待对照|待核|未核对|未核|待定|TODO|待办")
 NOT_APPLICABLE_RE = re.compile(r"不适用")
@@ -104,6 +105,23 @@ def read_section(text: str, heading_re: str) -> str:
         if start is not None and line.startswith("## "):
             return "\n".join(lines[start:index])
     return "" if start is None else "\n".join(lines[start:])
+
+
+def task_texts(root: Path, task_dir: Path) -> ConcurrentStableList[tuple[str, str]]:
+    """取某任务目录下「设计 / 实施 / 测试」记录文本（原型依据常登记在详细设计里）。
+
+    Args:
+        root: 仓库根。
+        task_dir: 任务目录（其下含 `设计/` `实施/` `测试/`）。
+
+    Returns:
+        (来源说明, 文本) 列表。
+    """
+    texts: ConcurrentStableList[tuple[str, str]] = ConcurrentStableList()
+    for sub in ("设计", "实施", "测试"):
+        for path in sorted((task_dir / sub).glob("*.md")):
+            texts.add((str(path.relative_to(root)), path.read_text(encoding="utf-8")))
+    return texts
 
 
 def prototype_basis_problems(root: Path, texts: ConcurrentStableList[tuple[str, str]]) -> ConcurrentStableList[str]:
@@ -230,6 +248,8 @@ def changed_mode(root: Path, base: str) -> int:
             path = root / name
             if path.is_file():
                 records.add(path)
+                # 原型依据常登记在详细设计（可能不在本次 diff 内）：把该任务目录下的「设计/实施/测试」一并纳入。
+                texts.update(task_texts(root, path.parent.parent))
 
     if not ui_files:
         print(f"[check-prototype-review] 通过：本次改动无界面源码（{base}...HEAD 共 {len(changed)} 个文件）")
@@ -247,6 +267,33 @@ def changed_mode(root: Path, base: str) -> int:
             print(f"[check-prototype-review] ✗ {item}")
         return 1
     print(f"[check-prototype-review] 通过：原型依据 + 对照结论齐备（{records[0]}）")
+    return 0
+
+
+def task_mode(root: Path, task_dir: Path) -> int:
+    """单任务校验（硬）：逐域收口时按任务目录核对。
+
+    Args:
+        root: 仓库根。
+        task_dir: 任务目录。
+
+    Returns:
+        退出码。
+    """
+    if not task_dir.is_dir():
+        print(f"[check-prototype-review] 目录不存在：{task_dir}", file=sys.stderr)
+        return 2
+    records: ConcurrentStableList[Path] = ConcurrentStableList()
+    records.update(sorted((task_dir / "测试").glob("*.md")))
+    if not records:
+        print(f"[check-prototype-review] {task_dir} 下无测试记录（非界面交付可忽略）")
+        return 0
+    problems = check_records(root, records, task_texts(root, task_dir))
+    if problems:
+        for item in problems:
+            print(f"[check-prototype-review] ✗ {item}")
+        return 1
+    print(f"[check-prototype-review] 通过：{task_dir.relative_to(root)}（原型依据 + 对照结论齐备）")
     return 0
 
 
@@ -343,6 +390,19 @@ def self_test() -> int:
         if not check_records(root, one_record, bad_ref_texts):
             failures.add("样例 F（原型引用文件不存在）应被拦")
 
+        # 样例 G：原型依据登记在「详细设计」（不在测试记录内）——同任务目录文本一并纳入时应通过。
+        design_dir = record_dir.parent / "设计"
+        design_dir.mkdir(parents=True, exist_ok=True)
+        (design_dir / "01_详细设计_x.md").write_text(
+            "原型依据：[登录页原型](../../../../../../../设计/原型设计/03_通用骨架/02_登录页.html)\n",
+            encoding="utf-8",
+        )
+        record.write_text(
+            "\n".join(line for line in good.splitlines() if "基准：" not in line) + "\n", encoding="utf-8"
+        )
+        if check_records(root, one_record, task_texts(root, record_dir.parent)):
+            failures.add("样例 G（依据在详细设计 + 对照表 + 截图）应通过")
+
     if failures:
         for item in failures:
             print(f"[check-prototype-review self-test] ✗ {item}", file=sys.stderr)
@@ -361,18 +421,31 @@ def main() -> int:
     if "--self-test" in argv:
         return self_test()
     base = "origin/main"
+    task_arg = ""
+    consumed: ConcurrentStableList[str] = ConcurrentStableList()
     if "--changed" in argv:
         index = argv.index("--changed")
         if index + 1 < len(argv) and not argv[index + 1].startswith("-"):
             base = argv[index + 1]
+            consumed.add(base)
+    if "--task" in argv:
+        index = argv.index("--task")
+        if index + 1 >= len(argv):
+            print("[check-prototype-review] --task 需给任务目录", file=sys.stderr)
+            return 2
+        task_arg = argv[index + 1]
+        consumed.add(task_arg)
     root_arg = ""
     for item in argv:
-        if not item.startswith("-") and item != base:
-            root_arg = item
-            break
+        if item.startswith("-") or item in consumed:
+            continue
+        root_arg = item
+        break
     root = Path(root_arg).resolve() if root_arg else Path(".").resolve()
     if "--changed" in argv:
         return changed_mode(root, base)
+    if task_arg:
+        return task_mode(root, Path(task_arg).resolve())
     return inspect_mode(root)
 
 
