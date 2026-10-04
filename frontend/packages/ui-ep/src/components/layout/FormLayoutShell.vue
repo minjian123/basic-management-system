@@ -50,3 +50,26 @@ function onSelect(level: 'primary' | 'secondary', key: string): void {
     </div>
   </div>
 </template>
+
+<style scoped>
+.bms-form-shell {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  height: 100%;
+  min-height: 0;
+  background: var(--bms-color-bg);
+}
+
+.bms-form-shell__tabs {
+  flex: none;
+}
+
+.bms-form-shell__body {
+  flex: 1;
+  min-height: 0;
+  padding: var(--bms-space-4);
+  overflow: auto;
+  background: var(--bms-color-bg);
+}
+</style>

@@ -83,7 +83,7 @@ function tabTitle(item: ModuleAreaItem): string {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: var(--bms-spacing-sm, 4px);
+  gap: var(--bms-space-1);
   min-width: 0;
 }
 
@@ -99,6 +99,6 @@ function tabTitle(item: ModuleAreaItem): string {
 .bms-module-area-tab-label {
   display: inline-flex;
   align-items: center;
-  gap: var(--bms-spacing-xs, 4px);
+  gap: var(--bms-space-1);
 }
 </style>

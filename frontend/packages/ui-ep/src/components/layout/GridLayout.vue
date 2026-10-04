@@ -28,3 +28,11 @@ const { hidden } = useBaseLayout({ columns: 24, gap: props.gutter })
     <slot />
   </el-row>
 </template>
+
+<style scoped>
+/* 薄封装件：盒子模型约束（宽度自适应、栅格盒模型一致） */
+.bms-grid-layout {
+  box-sizing: border-box;
+  width: 100%;
+}
+</style>

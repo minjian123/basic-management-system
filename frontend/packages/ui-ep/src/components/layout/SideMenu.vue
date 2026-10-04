@@ -65,3 +65,48 @@ function onSearch(): void {
     </div>
   </div>
 </template>
+
+<style scoped>
+.bms-side-menu {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--bms-color-bg);
+}
+
+.bms-side-menu__logo {
+  display: flex;
+  flex: none;
+  align-items: center;
+  height: var(--bms-layout-header-height);
+  padding: 0 var(--bms-space-4);
+  font-weight: 600;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--bms-color-border);
+}
+
+.bms-side-menu__search {
+  flex: none;
+  padding: var(--bms-space-2) var(--bms-space-3);
+}
+
+.bms-side-menu__menu {
+  flex: 1;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  border-right: none;
+}
+
+.bms-side-menu.is-collapsed .bms-side-menu__search {
+  display: none;
+}
+
+.bms-side-menu__footer {
+  flex: none;
+  padding: var(--bms-space-2) var(--bms-space-3);
+  border-top: 1px solid var(--bms-color-border);
+}
+</style>

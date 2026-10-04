@@ -63,3 +63,18 @@ function onChange(name: TabPaneName): void {
     </el-tab-pane>
   </el-tabs>
 </template>
+
+<style scoped>
+/* 薄封装件：只对齐令牌（头部间距 / 标签字号），不重写 Element Plus 外观 */
+.bms-content-tabs {
+  width: 100%;
+}
+
+.bms-content-tabs :deep(.el-tabs__header) {
+  margin-bottom: var(--bms-space-4);
+}
+
+.bms-content-tabs :deep(.el-tabs__item) {
+  font-size: var(--bms-font-size);
+}
+</style>

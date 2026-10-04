@@ -29,3 +29,11 @@ function onChange(value: CollapseModelValue): void {
     <slot />
   </el-collapse>
 </template>
+
+<style scoped>
+/* 薄封装件：只对齐令牌（组上下分隔线色） */
+.bms-collapse-panel-group {
+  border-top-color: var(--bms-color-border);
+  border-bottom-color: var(--bms-color-border);
+}
+</style>

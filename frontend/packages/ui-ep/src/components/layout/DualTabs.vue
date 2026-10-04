@@ -43,3 +43,21 @@ const emit = defineEmits<{
     />
   </div>
 </template>
+
+<style scoped>
+.bms-dual-tabs {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* 两层页签的层次区分（覆盖 `TabNavBar` 默认底色，双类选择器提高优先级） */
+.bms-dual-tabs .bms-dual-tabs__primary {
+  background: var(--bms-color-bg);
+}
+
+.bms-dual-tabs .bms-dual-tabs__secondary {
+  font-size: var(--bms-font-size-sm);
+  background: var(--bms-color-fill);
+}
+</style>

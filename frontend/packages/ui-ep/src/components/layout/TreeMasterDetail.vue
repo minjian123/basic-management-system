@@ -119,3 +119,25 @@ function onNodeClick(node: MasterTreeNode): void {
     <slot v-else />
   </split-pane>
 </template>
+
+<style scoped>
+.bms-tree-master-detail {
+  height: 100%;
+  min-width: 0;
+}
+
+.bms-tree-master-detail__tree {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  height: 100%;
+  min-width: 0;
+  padding: var(--bms-space-3);
+  background: var(--bms-color-bg);
+}
+
+.bms-tree-master-detail__tree-header {
+  flex: none;
+  padding-bottom: var(--bms-space-2);
+}
+</style>

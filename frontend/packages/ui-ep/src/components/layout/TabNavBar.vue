@@ -119,3 +119,121 @@ function onMoreSelect(key: string): void {
     />
   </div>
 </template>
+
+<style scoped>
+/* 页签容器不设 overflow（避免裁剪「更多」下拉与右键菜单浮层）；页签按需收缩并省略标题 */
+.bms-tab-nav {
+  display: flex;
+  flex: none;
+  align-items: stretch;
+  box-sizing: border-box;
+  min-width: 0;
+  background: var(--bms-color-fill);
+  border-bottom: 1px solid var(--bms-color-border);
+}
+
+.bms-tab-nav__item {
+  display: inline-flex;
+  flex: 0 1 auto;
+  align-items: center;
+  min-width: 64px;
+  max-width: 180px;
+  height: 36px;
+  padding: 0 var(--bms-space-3);
+  font-size: var(--bms-font-size-sm);
+  color: var(--bms-color-text-secondary);
+  cursor: pointer;
+  user-select: none;
+  background: var(--bms-color-fill);
+  border-right: 1px solid var(--bms-color-border);
+  border-bottom: 2px solid transparent;
+  gap: var(--bms-space-2);
+}
+
+.bms-tab-nav__item:hover {
+  color: var(--bms-color-text);
+  background: var(--bms-color-bg);
+}
+
+.bms-tab-nav__item.is-active {
+  color: var(--bms-color-primary);
+  background: var(--bms-color-bg);
+  border-bottom-color: var(--bms-color-primary);
+}
+
+.bms-tab-nav__title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bms-tab-nav__close {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  line-height: 1;
+  color: inherit;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  border-radius: var(--bms-radius-sm);
+}
+
+.bms-tab-nav__close:hover {
+  color: var(--bms-color-white);
+  background: var(--bms-color-text-secondary);
+}
+
+.bms-tab-nav__more {
+  position: relative;
+  display: flex;
+  flex: none;
+  align-items: center;
+  margin-left: auto;
+  padding: 0 var(--bms-space-2);
+  border-left: 1px solid var(--bms-color-border);
+}
+
+.bms-tab-nav__more button {
+  height: 28px;
+  padding: 0 var(--bms-space-2);
+  font-size: var(--bms-font-size-sm);
+  color: var(--bms-color-text-secondary);
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  border-radius: var(--bms-radius-sm);
+}
+
+.bms-tab-nav__more button:hover {
+  color: var(--bms-color-primary);
+  background: var(--bms-color-bg);
+}
+
+.bms-tab-nav__more-list {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  min-width: 160px;
+  max-height: 280px;
+  padding: var(--bms-space-1);
+  overflow-y: auto;
+  background: var(--bms-color-bg);
+  border: 1px solid var(--bms-color-border);
+  border-radius: var(--bms-radius-md);
+  box-shadow: var(--bms-shadow-sm);
+}
+
+.bms-tab-nav__more-list button {
+  width: 100%;
+  text-align: left;
+}
+</style>

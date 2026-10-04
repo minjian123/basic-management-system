@@ -98,7 +98,11 @@ watch(
   },
 )
 
-const sidebarWidth = computed(() => (collapsedState.value ? '64px' : '220px'))
+const sidebarWidth = computed(() =>
+  collapsedState.value
+    ? 'var(--bms-layout-sidebar-collapsed-width, 64px)'
+    : 'var(--bms-layout-sidebar-width, 220px)',
+)
 
 function onToggle(): void {
   if (isMobile.value) {
@@ -164,3 +168,113 @@ function onTabSelect(key: string): void {
     </div>
   </div>
 </template>
+
+<style scoped>
+.bms-main-layout {
+  display: flex;
+  box-sizing: border-box;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  color: var(--bms-color-text);
+  background: var(--bms-color-bg-page);
+}
+
+.bms-main-layout__sidebar {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--bms-color-bg);
+  border-right: 1px solid var(--bms-color-border);
+  transition: width 0.2s ease;
+}
+
+.bms-main-layout__logo {
+  display: flex;
+  flex: none;
+  align-items: center;
+  height: var(--bms-layout-header-height);
+  padding: 0 var(--bms-space-4);
+  font-size: var(--bms-font-size-lg);
+  font-weight: 600;
+  color: var(--bms-color-text);
+  white-space: nowrap;
+  border-bottom: 1px solid var(--bms-color-border);
+}
+
+.bms-main-layout.is-collapsed .bms-main-layout__logo {
+  justify-content: center;
+  padding: 0;
+}
+
+.bms-main-layout__main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.bms-main-layout__header {
+  display: flex;
+  flex: none;
+  align-items: center;
+  height: var(--bms-layout-header-height);
+  padding: 0 var(--bms-space-4);
+  gap: var(--bms-space-4);
+  background: var(--bms-color-bg);
+  border-bottom: 1px solid var(--bms-color-border);
+}
+
+.bms-main-layout__header-left,
+.bms-main-layout__header-right {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: var(--bms-space-3);
+}
+
+.bms-main-layout__header-right {
+  margin-left: auto;
+}
+
+.bms-main-layout__toggle {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--bms-control-height);
+  height: var(--bms-control-height);
+  padding: 0;
+  font-size: var(--bms-font-size-lg);
+  color: var(--bms-color-text-secondary);
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  border-radius: var(--bms-radius-md);
+}
+
+.bms-main-layout__toggle:hover {
+  color: var(--bms-color-primary);
+  background: var(--bms-color-fill);
+}
+
+.bms-main-layout__toggle:focus-visible {
+  outline: 2px solid var(--bms-color-focus-ring);
+  outline-offset: 1px;
+}
+
+.bms-main-layout__tabs {
+  flex: none;
+}
+
+.bms-main-layout__content {
+  flex: 1;
+  min-height: 0;
+  padding: var(--bms-layout-content-padding, 24px);
+  overflow: auto;
+  background: var(--bms-color-bg-page);
+}
+</style>

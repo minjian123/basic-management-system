@@ -66,3 +66,48 @@ function toggle(): void {
     </template>
   </el-card>
 </template>
+
+<style scoped>
+.bms-layout-card {
+  overflow: hidden;
+  background: var(--bms-color-bg);
+  border-radius: var(--bms-radius-md);
+}
+
+.bms-layout-card.is-bordered {
+  border: 1px solid var(--bms-color-border);
+}
+
+.bms-layout-card__header {
+  display: flex;
+  align-items: center;
+  gap: var(--bms-space-3);
+}
+
+.bms-layout-card__header.is-collapsible {
+  cursor: pointer;
+  user-select: none;
+}
+
+.bms-layout-card__title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--bms-font-size);
+  font-weight: 600;
+  color: var(--bms-color-text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bms-layout-card__extra {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--bms-space-2);
+}
+
+.bms-layout-card__body {
+  color: var(--bms-color-text);
+}
+</style>

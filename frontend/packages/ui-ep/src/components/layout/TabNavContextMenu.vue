@@ -52,3 +52,40 @@ function style(): CSSProperties {
     </button>
   </div>
 </template>
+
+<style scoped>
+.bms-tab-nav-context {
+  position: fixed;
+  z-index: 3000;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  min-width: 140px;
+  padding: var(--bms-space-1);
+  background: var(--bms-color-bg);
+  border: 1px solid var(--bms-color-border);
+  border-radius: var(--bms-radius-md);
+  box-shadow: var(--bms-shadow-md);
+}
+
+.bms-tab-nav-context__item {
+  padding: var(--bms-space-2) var(--bms-space-3);
+  font-size: var(--bms-font-size-sm);
+  color: var(--bms-color-text);
+  text-align: left;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  border-radius: var(--bms-radius-sm);
+}
+
+.bms-tab-nav-context__item:hover:not(:disabled) {
+  color: var(--bms-color-primary);
+  background: var(--bms-color-fill);
+}
+
+.bms-tab-nav-context__item:disabled {
+  color: var(--bms-color-text-secondary);
+  cursor: not-allowed;
+}
+</style>

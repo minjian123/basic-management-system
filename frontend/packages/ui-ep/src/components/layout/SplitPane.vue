@@ -154,3 +154,67 @@ onBeforeUnmount(() => {
     </div>
   </div>
 </template>
+
+<style scoped>
+.bms-split-pane {
+  display: flex;
+  box-sizing: border-box;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+.bms-split-pane[data-direction='vertical'] {
+  flex-direction: column;
+}
+
+.bms-split-pane__first {
+  flex: none;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+}
+
+.bms-split-pane__second {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+}
+
+.bms-split-pane__handle {
+  flex: none;
+  background: var(--bms-color-border);
+  transition: background 0.15s ease;
+}
+
+.bms-split-pane[data-direction='horizontal'] > .bms-split-pane__handle {
+  width: var(--bms-space-1);
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.bms-split-pane[data-direction='vertical'] > .bms-split-pane__handle {
+  height: var(--bms-space-1);
+  cursor: row-resize;
+  touch-action: none;
+}
+
+.bms-split-pane__handle:hover,
+.bms-split-pane__handle:focus-visible {
+  background: var(--bms-color-primary);
+}
+
+.bms-split-pane__handle:focus-visible {
+  outline: 2px solid var(--bms-color-focus-ring);
+  outline-offset: 1px;
+}
+
+.bms-split-pane.is-dragging {
+  user-select: none;
+}
+
+.bms-split-pane.is-dragging .bms-split-pane__handle {
+  background: var(--bms-color-primary);
+}
+</style>

@@ -39,3 +39,11 @@ const { hidden } = useBaseLayout()
     <slot />
   </el-col>
 </template>
+
+<style scoped>
+/* 薄封装件：盒子模型约束（列内容不撑破栅格） */
+.bms-grid-item {
+  box-sizing: border-box;
+  min-width: 0;
+}
+</style>

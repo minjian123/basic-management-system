@@ -29,3 +29,24 @@ const { hidden } = useBaseLayout()
     </template>
   </el-collapse-item>
 </template>
+
+<style scoped>
+/* 薄封装件：只对齐令牌（标题 / 内容字号与分隔线色） */
+.bms-collapse-panel :deep(.el-collapse-item__header) {
+  font-size: var(--bms-font-size);
+  font-weight: 600;
+  color: var(--bms-color-text);
+  background: transparent;
+  border-bottom-color: var(--bms-color-border);
+}
+
+.bms-collapse-panel :deep(.el-collapse-item__wrap) {
+  background: transparent;
+}
+
+.bms-collapse-panel :deep(.el-collapse-item__content) {
+  padding-bottom: var(--bms-space-3);
+  font-size: var(--bms-font-size-sm);
+  color: var(--bms-color-text-secondary);
+}
+</style>

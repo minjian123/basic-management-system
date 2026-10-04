@@ -47,3 +47,16 @@ const style = computed<CSSProperties>(() =>
     <slot />
   </el-divider>
 </template>
+
+<style scoped>
+/* 薄封装件：只对齐令牌（文案位字号 / 字色 / 底与分隔线色） */
+.bms-spacing-divider {
+  box-sizing: border-box;
+}
+
+.bms-spacing-divider :deep(.el-divider__text) {
+  font-size: var(--bms-font-size-sm);
+  color: var(--bms-color-text-secondary);
+  background: var(--bms-color-bg);
+}
+</style>

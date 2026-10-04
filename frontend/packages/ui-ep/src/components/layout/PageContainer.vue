@@ -80,3 +80,75 @@ const hasHeader = computed(
     </footer>
   </section>
 </template>
+
+<style scoped>
+.bms-page-container {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  height: 100%;
+  min-height: 0;
+  color: var(--bms-color-text);
+}
+
+.bms-page-container__header {
+  display: flex;
+  flex: none;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding-bottom: var(--bms-space-4);
+  gap: var(--bms-space-4);
+  border-bottom: 1px solid var(--bms-color-border);
+}
+
+.bms-page-container.is-sticky .bms-page-container__header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  padding-top: var(--bms-space-1);
+  background: var(--bms-color-bg-page);
+}
+
+.bms-page-container__heading {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: var(--bms-space-1);
+}
+
+.bms-page-container__title {
+  margin: 0;
+  font-size: var(--bms-font-size-lg);
+  font-weight: 600;
+  line-height: var(--bms-line-height);
+}
+
+.bms-page-container__description {
+  margin: 0;
+  font-size: var(--bms-font-size-sm);
+  color: var(--bms-color-text-secondary);
+}
+
+.bms-page-container__extra {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--bms-space-2);
+}
+
+.bms-page-container__content {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.bms-page-container__footer {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: flex-end;
+  padding-top: var(--bms-space-4);
+  gap: var(--bms-space-2);
+  border-top: 1px solid var(--bms-color-border);
+}
+</style>
