@@ -22,9 +22,31 @@ export interface DemoRuntimeState {
 let state: DemoRuntimeState = { permissionCount: 0 }
 /** 宿主注入的请求能力（未注入为 `undefined`）。 */
 let hostApi: ModuleApi | undefined
+/** 宿主注入的导航能力（未注入为 `undefined`；**只取 `push`**，不持有宿主 router 实例）。 */
+let hostRouter: DemoHostRouter | undefined
+
+/** 宿主导航能力的最小面（只用 `push`；`context.router` 为 `unknown`，须收窄后使用）。 */
+export interface DemoHostRouter {
+  /** 跳转。 */
+  push?: (to: string) => unknown
+}
 
 /**
- * 依据宿主上下文计算并缓存运行期状态（同时记录宿主请求能力）。
+ * 收窄宿主注入的路由对象（只认 `push` 函数；其余形态视为未注入，由调用方降级）。
+ *
+ * @param router 宿主注入的路由对象（`unknown`）。
+ * @returns 最小导航面；不可用时返回 `undefined`。
+ */
+function narrowRouter(router: unknown): DemoHostRouter | undefined {
+  if (typeof router !== 'object' || router === null) {
+    return undefined
+  }
+  const push = (router as { push?: unknown }).push
+  return typeof push === 'function' ? { push: push as (to: string) => unknown } : undefined
+}
+
+/**
+ * 依据宿主上下文计算并缓存运行期状态（同时记录宿主请求与导航能力）。
  *
  * @param context 宿主注入上下文（只读快照）。
  * @returns 计算后的状态。
@@ -33,7 +55,13 @@ export function applyHostContext(context: ModuleHostContext): DemoRuntimeState {
   const codes = Array.isArray(context.user) ? context.user.filter((item): item is string => typeof item === 'string') : []
   state = { permissionCount: codes.length }
   hostApi = context.api
+  hostRouter = narrowRouter(context.router)
   return state
+}
+
+/** 宿主导航能力（未注入返回 `undefined`）。 */
+export function hostRouterOf(): DemoHostRouter | undefined {
+  return hostRouter
 }
 
 /** 读取当前运行期状态（只读）。 */

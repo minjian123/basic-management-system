@@ -41,7 +41,14 @@ export const demoModule = defineModule({
       icons: { 'demo:sparkles': 'sparkles' },
       cards: [new WorkbenchCardProvider('demo:summary', () => import('./views/DemoHome.vue'), '模块概览')],
       regions: [
-        { key: 'demo:hero', area: 'layout.header', component: () => import('./views/DemoToolbox.vue'), order: 10 },
+        // 顶栏区域（`layout.header`）**只注册紧凑件**：入口按钮 → 进整页 `/demo/toolbox`。
+        // 勿把整页（`DemoToolbox.vue`）注册进顶栏——顶栏是一行高容器，整页会溢出并污染框架页。
+        {
+          key: 'demo:toolbox-entry',
+          area: 'layout.header',
+          component: () => import('./components/DemoToolboxEntry.vue'),
+          order: 10,
+        },
       ],
       themeTokens: [{ key: 'demo:brand', tokens: { '--bms-color-primary': '#3a7bd5' }, mode: 'brand' }],
       i18nPacks: [

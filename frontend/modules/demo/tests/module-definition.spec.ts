@@ -21,7 +21,9 @@ describe('演示模块定义（Kiwi 978）', () => {
     expect(registration.fieldRenderers?.map((item) => item.key)).toEqual(['demo:amount'])
     expect(Object.keys(registration.icons ?? {})).toEqual(['demo:sparkles'])
     expect(registration.cards?.length).toBe(1)
-    expect(registration.regions?.map((item) => item.key)).toEqual(['demo:hero'])
+    expect(registration.regions?.map((item) => item.key)).toEqual(['demo:toolbox-entry'])
+    // 顶栏区域只注册**紧凑件**（入口按钮）；整页 `DemoToolbox.vue` 只服务菜单路由 `/demo/toolbox`
+    expect(registration.regions?.every((item) => item.area === 'layout.header')).toBe(true)
     expect(registration.themeTokens?.map((item) => item.key)).toEqual(['demo:brand'])
     expect(registration.i18nPacks?.map((item) => item.key)).toEqual(['demo:zh-cn', 'demo:en'])
   })

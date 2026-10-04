@@ -1,6 +1,11 @@
 <script setup lang="ts">
 // 模块区域插槽：按区域标识渲染注册表中该区域的模块项（只读消费；空区域渲染为空，不兜底）。
 // 形态：`inline`（缺省）容器内逐项渲染；`tabs` 每项一个页签（标题取展示名，图标经图标注册表解析）。
+//
+// **条目契约（`inline` 形态）**：区域是**一行高的窄容器**（如 `layout.header`），注册项必须是**紧凑件**
+// （徽标 / 按钮 / 状态标签）——**整页/大面板请走页面路由，勿注册进区域**。即使误注册，`inline` 形态亦
+// 施加尺寸约束（`max-height: 100%` + `overflow: hidden`）把超出部分裁掉，不再外溢污染宿主布局。
+// （回归：演示模块曾把整页 `DemoToolbox` 注册进 `layout.header`，页面 DOM 溢出到顶栏之上、残留在框架页。）
 import type { FrontendRegistries } from '@bms/core'
 import { ElTabPane, ElTabs } from 'element-plus'
 
@@ -85,6 +90,12 @@ function tabTitle(item: ModuleAreaItem): string {
   flex-wrap: wrap;
   gap: var(--bms-space-1);
   min-width: 0;
+}
+
+.bms-module-area-outlet[data-variant='inline'] {
+  /* 一行高区域的尺寸约束：条目超大（误注册整页）时裁掉，不外溢污染宿主布局 */
+  max-height: 100%;
+  overflow: hidden;
 }
 
 .bms-module-area-outlet[data-variant='tabs'] {

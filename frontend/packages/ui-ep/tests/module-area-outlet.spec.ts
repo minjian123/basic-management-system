@@ -3,6 +3,8 @@
 
 import { createRegistries, PageAreaProvider } from '@bms/core'
 import { flushPromises, mount } from '@vue/test-utils'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { h, ref } from 'vue'
 
@@ -36,6 +38,21 @@ describe('ModuleAreaOutlet（Kiwi 977）', () => {
     registries.pageArea.register(new PageAreaProvider('demo:hero', 'layout.header', textComponent('hero', '顶栏')))
     const unknown = mount(ModuleAreaOutlet, { props: { area: 'unknown.area', registries } })
     expect(unknown.findAll('span')).toEqual([])
+  })
+
+  it('inline 形态约束尺寸：区域只容纳紧凑件，超出被裁不外溢（回归：整页注册曾污染框架页）', () => {
+    const registries = createRegistries()
+    registries.pageArea.register(new PageAreaProvider('demo:entry', 'layout.header', textComponent('entry', '入口'), 10))
+
+    const wrapper = mount(ModuleAreaOutlet, { props: { area: 'layout.header', registries } })
+    expect(wrapper.attributes('data-variant')).toBe('inline')
+    expect(wrapper.findAll('span').map((item) => item.text())).toEqual(['入口'])
+
+    // 样式契约（jsdom 不算布局，故断言样式块）：`inline` 形态声明 `max-height` + `overflow: hidden`
+    const source = readFileSync(resolve(process.cwd(), 'src/components/layout/ModuleAreaOutlet.vue'), 'utf8')
+    const inlineRule = /\.bms-module-area-outlet\[data-variant='inline'\]\s*\{([\s\S]*?)\}/.exec(source)?.[1] ?? ''
+    expect(inlineRule).toContain('max-height: 100%')
+    expect(inlineRule).toContain('overflow: hidden')
   })
 
   it('异步加载的挂接组件按需解析并渲染', async () => {
