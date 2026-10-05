@@ -19,51 +19,35 @@
 
 <div class="proto-bar">
   <span class="pb-crumb"><a href="01_设计说明.html">← 返回设计说明</a></span>
-  <span class="pb-name">角色管理 · 角色列表页</span>
+  <span class="pb-name">角色管理 · 列表页（表单框架 · 列表 Tab）</span>
 </div>
 
 <div class="proto-frame">
+  <div class="proto-note">
+    本页为「角色管理」表单框架的<b>列表 Tab</b>（固定页签，不可关闭）；双击数据行或点「新增」打开<b>角色记录 Tab</b>
+    （见 <a href="03_角色表单页.html">角色表单页</a>，授权配置在其「权限配置」页签内）。列表页三段式：工具栏 → 筛选区 → 表格；
+    <b>无操作列</b>，双击行开表单。
+  </div>
+
   <div id="app">
     <div class="ep-page">
-      <!-- ① 工具栏：新增 primary + 刷新/关闭 + 删除/主体绑定/权限配置（batch）+ 导出 -->
+      <!-- ① 工具栏：左侧 新增/刷新/关闭 + 批量操作（随选中态启用）；右侧 导出 -->
       <div class="ep-toolbar">
-        <el-button type="primary" @click="openEdit(null)">新增</el-button>
-        <el-button @click="toastMsg('已刷新')">刷新</el-button>
-        <el-button @click="toastMsg('原型演示：关闭当前模块页面（返回）')">关闭</el-button>
+        <el-button type="primary" @click="openForm(null)">新增</el-button>
+        <el-button @click="reload">刷新</el-button>
+        <el-button @click="closePage">关闭</el-button>
         <el-button type="danger" plain :disabled="!selRows.length" @click="delSel">删除</el-button>
-        <el-button :disabled="!selRows.length" @click="openBind">主体绑定</el-button>
-        <el-button :disabled="!selRows.length" @click="openPerm">权限配置</el-button>
         <span class="ep-side">
-          <el-button @click="toastMsg('原型演示：导出当前筛选结果')">导出</el-button>
-          <span class="proto-hint" style="margin-left:10px">双击行打开角色表单页</span>
+          <el-button @click="exportMsg">导出</el-button>
         </span>
       </div>
 
-      <!-- ② 筛选区：label 上方，一行最多 3 个条件，查询/重置/展开在条件第一行行末 -->
+      <!-- ② 筛选区：关键字框 240px 起（placeholder 注明搜索范围）+ 状态；查询/重置在条件行末 -->
       <el-form class="ep-filter" label-position="top" @submit.prevent>
         <el-row :gutter="16">
           <el-col :span="8">
             <el-form-item label="关键字">
-              <el-input v-model="query.kw" placeholder="关键字：角色码/名称" clearable style="width:100%"></el-input>
-            </el-form-item>
-          </el-col>
-          <el-col :span="8">
-            <el-form-item style="margin-top:30px">
-              <el-button type="primary" @click="applyFilter">查询</el-button>
-              <el-button @click="resetFilter">重置</el-button>
-              <el-button link type="primary" @click="more = !more">{{ more ? '收起 ▴' : '展开 ▾' }}</el-button>
-            </el-form-item>
-          </el-col>
-        </el-row>
-        <el-row v-show="more" :gutter="16">
-          <el-col :span="8">
-            <el-form-item>
-              <el-input v-model="query.code" placeholder="角色码" clearable style="width:100%"></el-input>
-            </el-form-item>
-          </el-col>
-          <el-col :span="8">
-            <el-form-item>
-              <el-input v-model="query.name" placeholder="名称" clearable style="width:100%"></el-input>
+              <el-input v-model="query.kw" placeholder="关键字：角色码/名称" clearable style="width:240px"></el-input>
             </el-form-item>
           </el-col>
           <el-col :span="8">
@@ -74,161 +58,52 @@
               </el-select>
             </el-form-item>
           </el-col>
+          <el-col :span="8">
+            <el-form-item style="margin-top:30px">
+              <el-button type="primary" @click="applyFilter">查询</el-button>
+              <el-button @click="resetFilter">重置</el-button>
+            </el-form-item>
+          </el-col>
         </el-row>
       </el-form>
 
-      <!-- ③ 表格：多选 + 状态 tag；双击行编辑角色 -->
+      <!-- ③ 表格：多选 + 数据列（无操作列）；双击行打开角色记录 Tab；内置角色带「内置」标记 -->
       <el-table :data="pageRows" border stripe @selection-change="onSel" @row-dblclick="openForm" style="width:100%">
         <el-table-column type="selection" width="48"></el-table-column>
-        <el-table-column prop="code" label="角色码" min-width="110"></el-table-column>
-        <el-table-column prop="name" label="名称" min-width="140"></el-table-column>
+        <el-table-column prop="code" label="角色码" min-width="130"></el-table-column>
+        <el-table-column label="角色名称" min-width="180">
+          <template #default="{ row }">
+            <span>{{ row.name }}</span>
+            <el-tag v-if="row.builtin" size="small" type="warning" style="margin-left:6px">内置</el-tag>
+          </template>
+        </el-table-column>
         <el-table-column prop="subjectCount" label="主体数" width="90" align="center"></el-table-column>
-        <el-table-column label="状态" width="90">
+        <el-table-column label="状态" width="100">
           <template #default="{ row }">
             <el-tag :type="row.status === 'enabled' ? 'success' : 'info'">{{ row.status === 'enabled' ? '启用' : '停用' }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="140" fixed="right">
-          <template #default="{ row }">
-            <el-button link type="primary" @click="openBind(row)">主体绑定</el-button>
-            <el-button link type="primary" @click="openPerm(row)">权限配置</el-button>
-          </template>
-        </el-table-column>
         <template #empty>
           <div>
-            <div style="font-size:14px;color:#57606a">未找到相关内容</div>
-            <el-button style="margin-top:10px" @click="resetFilter">重置</el-button>
+            <div style="font-size:14px;color:#57606a">暂无数据</div>
+            <el-button style="margin-top:10px" type="primary" @click="openForm(null)">去创建</el-button>
           </div>
         </template>
       </el-table>
 
-      <!-- ④ 表格下方一行：左下明细工具栏（新增对话框/删除/上移下移 + 通用工具）+ 右下分页 -->
+      <!-- ④ 表格下方一行：左下明细工具栏（通用工具）+ 右下分页（默认 20 条/页） -->
       <div class="ep-bar">
         <div>
-          <el-button size="small" @click="toastMsg('原型演示：自动列宽')" title="自动列宽">⟷</el-button>
-          <el-button size="small" @click="toastMsg('原型演示：自定义列')" title="自定义列">☰</el-button>
-          <el-button size="small" @click="toastMsg('已刷新')" title="刷新">⟳</el-button>
-          <el-button size="small" @click="toastMsg('原型演示：全屏')" title="全屏">⛶</el-button>
+          <el-button size="small" @click="toast('原型演示：自动列宽')" title="自动列宽">⟷</el-button>
+          <el-button size="small" @click="toast('原型演示：自定义列')" title="自定义列">☰</el-button>
+          <el-button size="small" @click="reload" title="刷新">⟳</el-button>
+          <el-button size="small" @click="toast('原型演示：全屏')" title="全屏">⛶</el-button>
         </div>
         <el-pagination background layout="total, sizes, jumper, prev, pager, next" :total="filtered.length"
           :page-size="query.size" :current-page="query.page"
           @current-change="onPage" @size-change="onSize"></el-pagination>
       </div>
     </div>
-
-    <!-- ⑤ 新增/编辑角色：480px 对话框 -->
-    <el-dialog v-model="edit.visible" :title="edit.title" width="480" align-center>
-      <el-form label-position="top">
-        <el-form-item label="角色码" required><el-input v-model="edit.form.code" :disabled="!edit.isNew" placeholder="角色码"></el-input></el-form-item>
-        <el-form-item label="名称" required><el-input v-model="edit.form.name"></el-input></el-form-item>
-        <el-form-item label="类型">
-          <el-select v-model="edit.form.type" style="width:100%">
-            <el-option label="普通角色" value="普通角色"></el-option>
-            <el-option label="系统管理员" value="系统管理员"></el-option>
-            <el-option label="安全管理员" value="安全管理员"></el-option>
-            <el-option label="审计管理员" value="审计管理员"></el-option>
-          </el-select>
-          <div class="proto-hint" style="line-height:1.6">类型受三权分立校验约束</div>
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="edit.visible = false">取消</el-button>
-        <el-button type="primary" @click="saveRole">保存</el-button>
-      </template>
-    </el-dialog>
-
-    <!-- ⑥ 主体绑定：抽屉 w640（3 个 Tab + 勾选表格） -->
-    <el-drawer v-model="bind.visible" :title="'主体绑定' + (bind.role ? '（' + bind.role.name + '）' : '')" size="640px">
-      <el-tabs v-model="bind.tab">
-        <el-tab-pane label="用户" name="u">
-          <div class="proto-hint" style="margin-bottom:8px">勾选用户</div>
-          <el-table ref="bindTbl" :data="bindUsers" border row-key="id" @selection-change="onSelUsers">
-            <el-table-column type="selection" width="48"></el-table-column>
-            <el-table-column prop="username" label="用户名" min-width="110"></el-table-column>
-            <el-table-column prop="name" label="姓名" min-width="90"></el-table-column>
-            <el-table-column prop="dept" label="部门" min-width="90"></el-table-column>
-          </el-table>
-        </el-tab-pane>
-        <el-tab-pane label="岗位" name="p">
-          <el-table :data="bindPosts" border @selection-change="onSelPosts">
-            <el-table-column type="selection" width="48"></el-table-column>
-            <el-table-column prop="code" label="岗位码" min-width="110"></el-table-column>
-            <el-table-column prop="name" label="名称" min-width="110"></el-table-column>
-            <el-table-column prop="dept" label="部门" min-width="90"></el-table-column>
-          </el-table>
-        </el-tab-pane>
-        <el-tab-pane label="部门" name="d">
-          <el-table :data="bindDepts" border @selection-change="onSelDepts">
-            <el-table-column type="selection" width="48"></el-table-column>
-            <el-table-column prop="name" label="部门" min-width="140"></el-table-column>
-            <el-table-column prop="count" label="成员数" width="90" align="center"></el-table-column>
-          </el-table>
-        </el-tab-pane>
-      </el-tabs>
-      <template #footer>
-        <el-button @click="bind.visible = false">取消</el-button>
-        <el-button type="primary" @click="saveBind">保存</el-button>
-      </template>
-    </el-drawer>
-
-    <!-- ⑦ 权限配置：抽屉 w640（4 个 Tab） -->
-    <el-drawer v-model="perm.visible" :title="'权限配置' + (perm.role ? '（' + perm.role.name + '）' : '')" size="640px">
-      <el-tabs v-model="perm.tab">
-        <el-tab-pane label="菜单/表单权限" name="menu">
-          <el-row :gutter="12">
-            <el-col :span="10">
-              <b style="font-size:13px">菜单树（勾选授予）</b>
-              <el-tree :data="menuTree" show-checkbox node-key="id" :default-checked-keys="menuChecked" style="margin-top:8px;font-size:13px"></el-tree>
-            </el-col>
-            <el-col :span="14">
-              <b style="font-size:13px">已授予业务权限</b>
-              <div style="margin-top:8px">
-                <el-tag v-for="t in bizTags" :key="t.name" :type="t.granted ? 'primary' : 'info'" style="margin:0 4px 4px 0">{{ t.name }}</el-tag>
-              </div>
-            </el-col>
-          </el-row>
-        </el-tab-pane>
-        <el-tab-pane label="按钮权限" name="btn">
-          <el-table :data="btnPerms" border style="margin-top:4px">
-            <el-table-column prop="form" label="表单" min-width="110"></el-table-column>
-            <el-table-column label="按钮（挂动作）" min-width="180">
-              <template #default="{ row }">{{ row.btn }} {{ row.code }}</template>
-            </el-table-column>
-            <el-table-column label="授予" width="70" align="center">
-              <template #default="{ row }"><el-checkbox v-model="row.granted"></el-checkbox></template>
-            </el-table-column>
-          </el-table>
-        </el-tab-pane>
-        <el-tab-pane label="数据范围" name="scope">
-          <div class="proto-hint" style="margin-bottom:8px">动作级数据范围</div>
-          <el-table :data="scopes" border>
-            <el-table-column prop="action" label="动作" min-width="160"></el-table-column>
-            <el-table-column label="数据范围" min-width="180">
-              <template #default="{ row }">
-                <el-select v-model="row.scope" style="width:100%">
-                  <el-option v-for="o in scopeOptions" :key="o" :label="o" :value="o"></el-option>
-                </el-select>
-              </template>
-            </el-table-column>
-          </el-table>
-        </el-tab-pane>
-        <el-tab-pane label="字段权限" name="field">
-          <el-table :data="fields" border style="margin-top:4px">
-            <el-table-column prop="field" label="字段" min-width="140"></el-table-column>
-            <el-table-column label="可见" width="80" align="center">
-              <template #default="{ row }"><el-checkbox v-model="row.visible"></el-checkbox></template>
-            </el-table-column>
-            <el-table-column label="可编辑" width="80" align="center">
-              <template #default="{ row }"><el-checkbox v-model="row.editable"></el-checkbox></template>
-            </el-table-column>
-          </el-table>
-        </el-tab-pane>
-      </el-tabs>
-      <template #footer>
-        <el-button @click="perm.visible = false">取消</el-button>
-        <el-button type="primary" @click="savePerm">保存（权限版本 +1）</el-button>
-      </template>
-    </el-drawer>
   </div>
 </div>
 
@@ -237,163 +112,76 @@
 <script src="../资源/vendor/element-plus.min.js"></script>
 <script src="../资源/vendor/zh-cn.js"></script>
 <script>
-  var { createApp, ref, reactive, computed, nextTick } = Vue;
+  var { createApp, ref, reactive, computed } = Vue;
   var ElMessage = ElementPlus.ElMessage;
   var ElMessageBox = ElementPlus.ElMessageBox;
   var app = createApp({
     template: document.getElementById('app').outerHTML.replace(/<div id="app">/, '<div>').replace(/<\/div>\s*$/, ''),
     setup: function () {
+      // 内置角色（code 取系统/安全/审计管理员，见《概要设计-角色管理》6.3 role.protected_codes）
+      var BUILTIN_CODES = ['system_admin', 'security_admin', 'audit_admin'];
       var rows = ref([
-        { id: 1, code: 'admin', name: '系统管理员', subjectCount: 2, status: 'enabled' },
-        { id: 2, code: 'secadmin', name: '安全管理员', subjectCount: 1, status: 'enabled' },
-        { id: 3, code: 'role_user', name: '普通角色', subjectCount: 45, status: 'enabled' }
+        { id: 1, code: 'system_admin', name: '系统管理员', subjectCount: 2, status: 'enabled' },
+        { id: 2, code: 'security_admin', name: '安全管理员', subjectCount: 1, status: 'enabled' },
+        { id: 3, code: 'audit_admin', name: '审计管理员', subjectCount: 0, status: 'enabled' },
+        { id: 4, code: 'role_user', name: '普通角色', subjectCount: 45, status: 'enabled' },
+        { id: 5, code: 'role_viewer', name: '只读角色', subjectCount: 0, status: 'disabled' }
       ]);
-      var query = reactive({ kw: '', code: '', name: '', status: '', page: 1, size: 10 });
-      var more = ref(false);
+      rows.value.forEach(function (r) { r.builtin = BUILTIN_CODES.indexOf(r.code) >= 0; });
+
+      var query = reactive({ kw: '', status: '', page: 1, size: 20 });
       var selRows = ref([]);
-      var edit = reactive({ visible: false, title: '新增角色', isNew: true, form: { code: '', name: '', type: '普通角色' } });
-      var bind = reactive({ visible: false, tab: 'u', role: null });
-      var bindTbl = ref(null);
-      var perm = reactive({ visible: false, tab: 'menu', role: null });
-      var bindUsers = ref([
-        { id: 1, username: 'zhangsan', name: '张三', dept: '技术部' },
-        { id: 2, username: 'lisi', name: '李四', dept: '财务部' },
-        { id: 3, username: 'wangwu', name: '王五', dept: '技术部' }
-      ]);
-      var bindPosts = ref([
-        { id: 1, code: 'engineer', name: '工程师', dept: '技术部' },
-        { id: 2, code: 'accountant', name: '会计', dept: '财务部' }
-      ]);
-      var bindDepts = ref([
-        { id: 1, name: '技术部', count: 12 },
-        { id: 2, name: '财务部', count: 8 }
-      ]);
-      var selUsers = ref([]); var selPosts = ref([]); var selDepts = ref([]);
-      var menuTree = [
-        { id: 'd1', label: '首页工作台' },
-        { id: 'o1', label: '组织与权限', children: [
-          { id: 'u1', label: '用户管理' },
-          { id: 'r1', label: '角色管理' },
-          { id: 'm1', label: '菜单管理' },
-          { id: 'f1', label: '表单定制' }
-        ]},
-        { id: 'g1', label: '治理' },
-        { id: 'b1', label: '业务（示例）', children: [
-          { id: 'p1', label: '业务单据 A' },
-          { id: 'p2', label: '业务单据 B' }
-        ]}
-      ];
-      var menuChecked = ['d1', 'o1', 'u1', 'r1', 'b1', 'p1'];
-      var bizTags = [
-        { name: 'user', granted: true }, { name: 'role', granted: true }, { name: 'wf', granted: true },
-        { name: 'pur_biz', granted: true }, { name: 'dashboard', granted: false }, { name: 'notice', granted: false }
-      ];
-      var btnPerms = ref([
-        { form: '用户管理', btn: '查询', code: 'user:query', granted: true },
-        { form: '用户管理', btn: '新增', code: 'user:create', granted: false },
-        { form: '用户管理', btn: '修改', code: 'user:update', granted: false },
-        { form: '用户管理', btn: '删除', code: 'user:delete', granted: false },
-        { form: '用户管理', btn: '重置密码', code: 'user:reset_pwd', granted: false }
-      ]);
-      var scopes = ref([
-        { action: '用户管理 · 查询', scope: '自定义表达式' },
-        { action: '业务单据示例 · 查询', scope: '本部门及以下' }
-      ]);
-      var scopeOptions = ['全部数据', '本部门及以下', '仅本人', '自定义表达式'];
-      var fields = ref([
-        { field: '用户名', visible: true, editable: true },
-        { field: '手机号', visible: true, editable: false },
-        { field: '部门', visible: true, editable: true }
-      ]);
 
       var filtered = computed(function () {
         return rows.value.filter(function (r) {
           var text = (r.code + r.name).toLowerCase();
           var k = (query.kw || '').toLowerCase();
-          return (!k || text.indexOf(k) >= 0) &&
-            (!query.code || (r.code || '').indexOf(query.code) >= 0) &&
-            (!query.name || (r.name || '').indexOf(query.name) >= 0) &&
-            (!query.status || r.status === query.status);
+          return (!k || text.indexOf(k) >= 0) && (!query.status || r.status === query.status);
         });
       });
       var pageRows = computed(function () {
         var s = (query.page - 1) * query.size;
         return filtered.value.slice(s, s + query.size);
       });
-      function applyFilter() { query.page = 1; toastMsg('命中 ' + filtered.value.length + ' 条'); }
-      function resetFilter() { query.kw = ''; query.code = ''; query.name = ''; query.status = ''; query.page = 1; }
+
+      function applyFilter() { query.page = 1; toast('命中 ' + filtered.value.length + ' 条'); }
+      function resetFilter() { query.kw = ''; query.status = ''; query.page = 1; }
       function onSel(sel) { selRows.value = sel; }
       function onPage(n) { query.page = n; }
       function onSize(s) { query.size = s; query.page = 1; }
-      function onSelUsers(sel) { selUsers.value = sel; }
-      function onSelPosts(sel) { selPosts.value = sel; }
-      function onSelDepts(sel) { selDepts.value = sel; }
+      function reload() { toast('已刷新列表（保留筛选/排序/分页）'); }
 
-      function openEdit(row) {
-        edit.isNew = !row;
-        edit.title = row ? '编辑角色' : '新增角色';
-        edit.form = row ? { code: row.code, name: row.name, type: '普通角色' } : { code: '', name: '', type: '普通角色' };
-        edit.visible = true;
-      }
-      // 双击行：embed 时打开角色表单页（三级回退：openDetail → openTab → location.href）；独立时保持原编辑弹窗
+      // 双击行 / 新增：打开角色记录 Tab（列表页无操作列，交互见《布局设计-表单框架》）
       function openForm(row) {
-        if (location.search.indexOf('embed=1') >= 0) {
-          try { parent.openDetail('角色列表', row.code, row.name); return; } catch (e) {}
-          try { parent.openTab('角色表单', '../09_角色管理/04_角色表单页.html'); return; } catch (e) {}
-          location.href = '../09_角色管理/04_角色表单页.html?id=' + row.code + '&name=' + encodeURIComponent(row.name);
-        }
-        openEdit(row);
-      }
-      function saveRole() {
-        if (!edit.form.code.trim() || !edit.form.name.trim()) { ElMessage.error('角色码与名称必填'); return; }
-        if (edit.isNew) {
-          rows.value.unshift({ id: Date.now(), code: edit.form.code.trim(), name: edit.form.name.trim(), subjectCount: 0, status: 'enabled' });
-          toastMsg('角色已保存（role.updated）');
+        if (row && row.builtin) {
+          toast('打开内置角色记录：' + row.name + '（内置角色不可删除/停用/变更归属）');
+        } else if (row) {
+          toast('打开角色记录：' + row.name);
         } else {
-          var r = rows.value.find(function (x) { return x.code === edit.form.code; });
-          if (r) r.name = edit.form.name;
-          toastMsg('角色已保存（role.updated）');
+          toast('新建角色（打开空白记录 Tab，直接进入编辑态）');
         }
-        edit.visible = false;
       }
+
       function delSel() {
-        if (!selRows.value.length) { ElMessage.error('请先选择角色'); return; }
-        if (rows.value.length - selRows.value.length < 1) { ElMessage.error('至少保留一行'); return; }
-        ElMessageBox.confirm('删除角色？角色绑定关系将一并解除。', '提示', { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' })
-          .then(function () {
-            var ids = selRows.value.map(function (r) { return r.id; });
-            rows.value = rows.value.filter(function (r) { return ids.indexOf(r.id) < 0; });
-            selRows.value = [];
-            toastMsg('已删除');
-          })
-          .catch(function () {});
+        if (!selRows.value.length) { toast('请先选择角色', 'warning'); return; }
+        if (selRows.value.some(function (r) { return r.builtin; })) {
+          toast('内置角色不可删除/停用/变更归属（30043）', 'error'); return;
+        }
+        ElMessageBox.confirm('删除选中的 ' + selRows.value.length + ' 个角色？存在主体绑定或有效授权引用的角色将被拒绝（30044），删除后不可恢复。', '提示', {
+          type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消', confirmButtonClass: 'el-button--danger'
+        }).then(function () {
+          var ids = selRows.value.map(function (r) { return r.id; });
+          rows.value = rows.value.filter(function (r) { return ids.indexOf(r.id) < 0; });
+          selRows.value = [];
+          toast('已删除并刷新列表');
+        }).catch(function () {});
       }
-      // 明细工具栏行操作：上移下移选中行（多选时取第一行）
-      function moveRow(dir) {
-        if (!selRows.value.length) { ElMessage.error('请先选择一行'); return; }
-        var r = selRows.value[0];
-        var i = rows.value.indexOf(r), t = i + dir;
-        if (t < 0 || t >= rows.value.length) { ElMessage.error(dir < 0 ? '已是第一行' : '已是最后一行'); return; }
-        var tmp = rows.value[i]; rows.value[i] = rows.value[t]; rows.value[t] = tmp;
-        toastMsg('行顺序已调整');
-      }
-      function openBind(row) {
-        bind.role = row || selRows.value[0] || null;
-        bind.visible = true;
-        // 用户 Tab 首行（zhangsan）初始默认勾选
-        nextTick(function () {
-          if (bindTbl.value && bindUsers.value.length) bindTbl.value.toggleRowSelection(bindUsers.value[0], true);
-        });
-      }
-      function saveBind() {
-        bind.visible = false;
-        var n = selUsers.value.length + selPosts.value.length + selDepts.value.length;
-        toastMsg('主体绑定已保存（权限版本 +1，动态菜单刷新后生效）共 ' + n + ' 项');
-      }
-      function openPerm(row) { perm.role = row || selRows.value[0] || null; perm.visible = true; }
-      function savePerm() { perm.visible = false; toastMsg('权限已保存（权限版本 +1，动态菜单刷新生效）'); }
-      function toastMsg(m) { ElMessage({ message: m, type: 'success' }); }
-      return { rows, query, more, selRows, edit, bind, bindTbl, perm, bindUsers, bindPosts, bindDepts, menuTree, menuChecked, bizTags, btnPerms, scopes, scopeOptions, fields, filtered, pageRows, applyFilter, resetFilter, onSel, onPage, onSize, onSelUsers, onSelPosts, onSelDepts, openEdit, openForm, saveRole, delSel, moveRow, openBind, saveBind, openPerm, savePerm, toastMsg };
+
+      function exportMsg() { toast('按当前筛选与排序导出（受 export:download 权限约束）'); }
+      function closePage() { toast('关闭角色管理模块页（返回）'); }
+      function toast(m, type) { ElMessage({ message: m, type: type || 'success' }); }
+
+      return { rows, query, selRows, filtered, pageRows, applyFilter, resetFilter, onSel, onPage, onSize, reload, openForm, delSel, exportMsg, closePage, toast };
     }
   });
   app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
