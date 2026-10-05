@@ -133,64 +133,70 @@ function onTabSelect(key: string): void {
     :class="{ 'is-collapsed': collapsedState, 'is-mobile': isMobile }"
     :data-breakpoint="breakpoint"
   >
-    <aside v-if="showSidebar && !isMobile" class="bms-main-layout__sidebar" :style="{ width: sidebarWidth }">
-      <div class="bms-main-layout__logo">
-        <slot name="logo">{{ appTitle }}</slot>
+    <!-- 顶栏：56px 全宽横条（跨侧栏，随侧栏折叠联动；《布局设计 · 导航》§1.1 / §3） -->
+    <header class="bms-main-layout__header">
+      <div class="bms-main-layout__header-left">
+        <button class="bms-main-layout__toggle" data-test="layout-toggle" aria-label="折叠/展开侧边栏" @click="onToggle">
+          ☰
+        </button>
+        <slot name="header-left" />
       </div>
-      <side-menu
-        :menu="menu"
-        :active-path="activePath"
-        :collapsed="collapsedState"
-        :unique-opened="uniqueOpened"
-        :default-openeds="defaultOpeneds"
-        @select="emit('menu-select', $event)"
-        @open="emit('menu-open', $event)"
-        @close="emit('menu-close', $event)"
-      />
-    </aside>
+      <div class="bms-main-layout__header-right">
+        <slot name="header-right" />
+      </div>
+    </header>
 
-    <el-drawer v-if="showSidebar && isMobile" v-model="drawerOpen" direction="ltr" size="240px" :with-header="false">
-      <side-menu
-        :menu="menu"
-        :active-path="activePath"
-        :searchable="false"
-        :unique-opened="uniqueOpened"
-        :default-openeds="defaultOpeneds"
-        @select="emit('menu-select', $event)"
-        @open="emit('menu-open', $event)"
-        @close="emit('menu-close', $event)"
-      />
-    </el-drawer>
-
-    <div class="bms-main-layout__main">
-      <header class="bms-main-layout__header">
-        <div class="bms-main-layout__header-left">
-          <button class="bms-main-layout__toggle" data-test="layout-toggle" @click="onToggle">
-            {{ collapsedState ? '»' : '«' }}
-          </button>
-          <slot name="header-left" />
+    <div class="bms-main-layout__body">
+      <aside v-if="showSidebar && !isMobile" class="bms-main-layout__sidebar" :style="{ width: sidebarWidth }">
+        <div class="bms-main-layout__logo">
+          <slot name="logo">
+            <span class="bms-main-layout__logo-mark" aria-hidden="true">☰</span>
+            <span class="bms-main-layout__logo-title">{{ appTitle }}</span>
+          </slot>
         </div>
-        <div class="bms-main-layout__header-right">
-          <slot name="header-right" />
-        </div>
-      </header>
+        <side-menu
+          :menu="menu"
+          :active-path="activePath"
+          :collapsed="collapsedState"
+          :unique-opened="uniqueOpened"
+          :default-openeds="defaultOpeneds"
+          @select="emit('menu-select', $event)"
+          @open="emit('menu-open', $event)"
+          @close="emit('menu-close', $event)"
+        />
+      </aside>
 
-      <tab-nav-bar
-        v-if="showTabs"
-        class="bms-main-layout__tabs"
-        :tabs="tabs"
-        :active-key="activeTabKey"
-        @select="onTabSelect"
-        @close="emit('tab-close', $event)"
-        @close-others="emit('tab-close-others', $event)"
-        @close-right="emit('tab-close-right', $event)"
-        @close-all="emit('tab-close-all')"
-        @refresh="emit('tab-refresh', $event)"
-      />
+      <el-drawer v-if="showSidebar && isMobile" v-model="drawerOpen" direction="ltr" size="240px" :with-header="false">
+        <side-menu
+          :menu="menu"
+          :active-path="activePath"
+          :searchable="false"
+          :unique-opened="uniqueOpened"
+          :default-openeds="defaultOpeneds"
+          @select="emit('menu-select', $event)"
+          @open="emit('menu-open', $event)"
+          @close="emit('menu-close', $event)"
+        />
+      </el-drawer>
 
-      <main class="bms-main-layout__content">
-        <slot />
-      </main>
+      <div class="bms-main-layout__main">
+        <tab-nav-bar
+          v-if="showTabs"
+          class="bms-main-layout__tabs"
+          :tabs="tabs"
+          :active-key="activeTabKey"
+          @select="onTabSelect"
+          @close="emit('tab-close', $event)"
+          @close-others="emit('tab-close-others', $event)"
+          @close-right="emit('tab-close-right', $event)"
+          @close-all="emit('tab-close-all')"
+          @refresh="emit('tab-refresh', $event)"
+        />
+
+        <main class="bms-main-layout__content">
+          <slot />
+        </main>
+      </div>
     </div>
   </div>
 </template>
@@ -198,12 +204,20 @@ function onTabSelect(key: string): void {
 <style scoped>
 .bms-main-layout {
   display: flex;
+  flex-direction: column;
   box-sizing: border-box;
   height: 100%;
   min-height: 0;
   overflow: hidden;
   color: var(--bms-color-text);
   background: var(--bms-color-bg-page);
+}
+
+/* 顶栏以下的双栏区（侧栏 + 内容栏）；顶栏为全宽横条，不在此容器内。 */
+.bms-main-layout__body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
 }
 
 .bms-main-layout__sidebar {
@@ -221,18 +235,31 @@ function onTabSelect(key: string): void {
   display: flex;
   flex: none;
   align-items: center;
-  height: var(--bms-layout-header-height);
-  padding: 0 var(--bms-space-4);
-  font-size: var(--bms-font-size-lg);
+  gap: var(--bms-space-2);
+  padding: var(--bms-space-3) var(--bms-space-4);
   font-weight: 600;
   color: var(--bms-color-text);
   white-space: nowrap;
   border-bottom: 1px solid var(--bms-color-border);
 }
 
+.bms-main-layout__logo-mark {
+  flex: none;
+  color: var(--bms-color-text-secondary);
+}
+
+.bms-main-layout__logo-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .bms-main-layout.is-collapsed .bms-main-layout__logo {
   justify-content: center;
-  padding: 0;
+  padding: var(--bms-space-3) 0;
+}
+
+.bms-main-layout.is-collapsed .bms-main-layout__logo-title {
+  display: none;
 }
 
 .bms-main-layout__main {

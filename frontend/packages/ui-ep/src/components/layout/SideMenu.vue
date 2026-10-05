@@ -58,7 +58,7 @@ function onSearch(): void {
       <slot name="logo" />
     </div>
     <div v-if="searchable" class="bms-side-menu__search">
-      <el-input v-model="keyword" :placeholder="searchPlaceholder" clearable @input="onSearch" />
+      <el-input v-model="keyword" size="small" :placeholder="searchPlaceholder" clearable @input="onSearch" />
     </div>
     <el-menu
       class="bms-side-menu__menu"

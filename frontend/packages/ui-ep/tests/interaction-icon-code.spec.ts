@@ -101,6 +101,22 @@ describe('IconRenderer 只读渲染', () => {
     const empty = mount(IconRenderer, { props: { name: '', registry } })
     expect(empty.find('[data-test="icon-renderer"]').exists()).toBe(false)
   })
+
+  it('el: 键名归一：小写 / kebab-case 解析到 PascalCase 官方键', async () => {
+    const registry = new IconRegistry()
+    registry.register(new IconProvider('el:OfficeBuilding', DummyIcon, { name: 'OfficeBuilding' }))
+    registry.register(new IconProvider('el:Setting', DummyIcon, { name: 'Setting' }))
+
+    const kebab = mount(IconRenderer, { props: { name: 'el:office-building', registry } })
+    await flushPromises()
+    expect(kebab.find('[data-test="dummy"]').exists()).toBe(true)
+    expect(kebab.attributes('data-resolved')).toBe('el:office-building')
+
+    const lower = mount(IconRenderer, { props: { name: 'el:setting', registry } })
+    await flushPromises()
+    expect(lower.find('[data-test="dummy"]').exists()).toBe(true)
+    expect(lower.attributes('data-resolved')).toBe('el:setting')
+  })
 })
 
 describe('IconPicker 图标选择', () => {

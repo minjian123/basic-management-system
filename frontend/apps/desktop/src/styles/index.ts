@@ -14,3 +14,4 @@
 
 import 'element-plus/dist/index.css'
 import './tokens.scss'
+import './base.scss'

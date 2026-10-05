@@ -64,11 +64,14 @@ let notified = false
  * @returns 核心菜单节点。
  */
 function toMenuNode(node: MyMenuNode): MenuNode {
+  // 叶子节点**不带 `children` 键**（`undefined` 而非 `[]`）：核心 `filterMenuByPermission` 以
+  // 「`children` 为 `undefined`」判定叶子；写成空数组会被当作空子树整链丢弃（侧栏菜单为空的真因）。
+  const children = (node.children ?? []).map(toMenuNode)
   return {
     path: node.path,
     title: node.name,
     icon: node.icon ?? undefined,
-    children: (node.children ?? []).map(toMenuNode),
+    ...(children.length > 0 ? { children } : {}),
   }
 }
 

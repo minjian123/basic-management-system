@@ -1,0 +1,20 @@
+/* 全局基础样式：根元素满屏（主框架 `height: 100%` 的前提）+ 基础排版。
+ *
+ * 顺序口径见 `styles/index.ts`（Element Plus 样式 → 设计令牌 → 基础样式）：基础样式消费令牌变量，
+ * 必须排在令牌之后；缺失本文件会使 `html/body/#app` 无高度，主框架壳高度塌陷为内容高度。
+ */
+
+html,
+body,
+#app {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--bms-font-family);
+  font-size: var(--bms-font-size);
+  line-height: var(--bms-line-height);
+  color: var(--bms-color-text);
+  background: var(--bms-color-bg-page);
+}

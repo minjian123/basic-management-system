@@ -4,6 +4,8 @@ import { MainLayout, ModuleAreaOutlet, useSideMenu, useTabNav } from '@bms/ui-ep
 import { computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
+import AppHeaderBar from '@/components/AppHeaderBar.vue'
+import AppHeaderSearch from '@/components/AppHeaderSearch.vue'
 import ModuleBoundary from '@/components/ModuleBoundary.vue'
 import { useMenuExpanded } from '@/composables/useMenuExpanded'
 import { moduleMenuGroups } from '@/module/host'
@@ -12,6 +14,7 @@ import { isStandalonePath } from '@/router/layout-scope'
 import { useMenuStore } from '@/stores/menu'
 import { useSessionStore } from '@/stores/session'
 import { canAccess } from '@/utils/perm'
+import { resolveTabTitle } from '@/utils/tab-title'
 
 const router = useRouter()
 const route = useRoute()
@@ -34,25 +37,25 @@ const menu = computed(() => {
   return [...sideMenu.menu.value, ...moduleMenuGroups(import.meta.env.DEV)]
 })
 
-watch(
-  () => route.fullPath,
-  () => {
-    if (standalone.value) {
-      // 独立全屏页不入页签：既无外壳展示，也顺手清掉历史残留的登录页签
-      void tabNav.close(route.fullPath)
-      return
-    }
-    tabNav.open({
-      key: route.fullPath,
-      title: String(route.meta.title ?? route.name ?? route.path),
-      path: route.fullPath,
-      name: typeof route.name === 'string' ? route.name : '',
-      keepAlive: route.meta.keepAlive === true,
-      closable: route.path !== '/',
-    })
-  },
-  { immediate: true },
-)
+/** 同步当前路由为页签：独立全屏页不入页签（并清掉历史残留的登录页签）。 */
+function syncTab(): void {
+  if (standalone.value) {
+    void tabNav.close(route.fullPath)
+    return
+  }
+  tabNav.open({
+    key: route.fullPath,
+    title: resolveTabTitle(menu.value, route.meta.title, route.path),
+    path: route.fullPath,
+    name: typeof route.name === 'string' ? route.name : '',
+    keepAlive: route.meta.keepAlive === true,
+    closable: route.path !== '/',
+  })
+}
+
+watch(() => route.fullPath, syncTab)
+// 首开须待路由就绪：`watch(..., { immediate: true })` 早于路由解析完成，`meta` 尚未就绪会把标题落回路径（曾显示 `/`）。
+void router.isReady().then(syncTab)
 
 // keep-alive 名单：`meta.keepAlive`（页签 keepAlive）∩ 已打开页签，按组件名缓存。
 const keepAliveNames = computed(() =>
@@ -113,7 +116,11 @@ async function onTabClose(key: string): Promise<void> {
     @tab-close-all="tabNav.closeAll"
     @tab-refresh="tabNav.refresh"
   >
+    <template #header-left>
+      <app-header-search />
+    </template>
     <template #header-right>
+      <app-header-bar />
       <module-area-outlet area="layout.header" :registries="registries" :revision="registriesRevision" />
     </template>
     <module-boundary>

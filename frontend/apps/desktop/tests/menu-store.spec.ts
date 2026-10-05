@@ -110,6 +110,20 @@ describe('useMenuStore（03_01）', () => {
     expect(getPermissionCodes()).toEqual(['user', 'user:create'])
   })
 
+  it('叶子节点不带 children 键（核心权限过滤按叶子保留，避免整链丢弃）', async () => {
+    fetchMock.mockResolvedValue(RESPONSE)
+    const store = useMenuStore()
+
+    await store.load()
+
+    const group = store.tree[0]
+    const leaf = group?.children?.[0]
+    expect(leaf?.path).toBe('/sys/users')
+    // 契约侧叶子 `children: []` → 映射后必须**无** `children` 键，否则 `filterMenuByPermission` 视作空子树整链丢弃。
+    expect(leaf !== undefined && 'children' in leaf).toBe(false)
+    expect(group !== undefined && 'children' in group).toBe(true)
+  })
+
   it('幂等：已装载 / 已尝试均不再拉取；reload 可强制重取', async () => {
     fetchMock.mockResolvedValue(RESPONSE)
     const store = useMenuStore()

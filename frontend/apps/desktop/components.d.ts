@@ -11,6 +11,8 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
+    AppHeaderBar: typeof import('./src/components/AppHeaderBar.vue')['default']
+    AppHeaderSearch: typeof import('./src/components/AppHeaderSearch.vue')['default']
     ElButton: typeof import('element-plus/es')['ElButton']
     ElTable: typeof import('element-plus/es')['ElTable']
     ElTableColumn: typeof import('element-plus/es')['ElTableColumn']

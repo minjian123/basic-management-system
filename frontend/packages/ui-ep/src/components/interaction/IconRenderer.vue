@@ -50,6 +50,23 @@ function parseKey(key: string): { prefix: string; raw: string } {
   return { prefix: key.slice(0, index), raw: key.slice(index + 1) }
 }
 
+/**
+ * `el:` 键名归一为 PascalCase（兼容 `setting` / `office-building` / `Setting` 三种写法）。
+ *
+ * 官方图标注册表键为 `el:{PascalCase}`（`@element-plus/icons-vue` 组件名）；菜单种子等数据源
+ * 可能写全小写或 kebab-case，此处统一归一，避免图标静默缺失（消费面只见降级兜底图标）。
+ *
+ * @param raw 前缀后的原始名。
+ * @returns PascalCase 名称。
+ */
+function toPascalCase(raw: string): string {
+  return raw
+    .split(/[-_\s]+/)
+    .filter((part) => part !== '')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join('')
+}
+
 /** 解析并渲染图标。 */
 async function resolveIcon(key: string): Promise<void> {
   resolvedKey.value = ''
@@ -60,7 +77,7 @@ async function resolveIcon(key: string): Promise<void> {
   await ensureOfficialIcons(registry)
   const parsed = parseKey(key)
   iconSource.value =
-    parsed.prefix === 'el' ? registry.get(`el:${parsed.raw}`)?.source : registry.resolve(key)
+    parsed.prefix === 'el' ? registry.get(`el:${toPascalCase(parsed.raw)}`)?.source : registry.resolve(key)
   if (iconSource.value === undefined) {
     if (!warned.has(key)) {
       warned.add(key)
@@ -127,3 +144,21 @@ const activeComponent = computed<Component | undefined>(() => componentSource.va
     <span v-else-if="svgHtml" data-test="icon-svg" v-html="svgHtml" />
   </span>
 </template>
+
+<style scoped>
+.bms-icon-renderer {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  line-height: 1;
+}
+
+/* 官方图标组件的 `<svg>` 无内联尺寸（依赖 `.el-icon` 包裹的 CSS）；此处统一按 1em 约束，
+   否则 svg 会以浏览器默认尺寸溢出容器（表现为图标被裁切 / 与相邻元素重叠）。 */
+.bms-icon-renderer :deep(svg) {
+  width: 1em;
+  height: 1em;
+  fill: currentColor;
+}
+</style>
