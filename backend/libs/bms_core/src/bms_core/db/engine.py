@@ -227,10 +227,10 @@ class EngineFactory(BaseDbFactory[str | None, AsyncEngine]):
             ConfigError: 模板占位非法或需服务标识而未提供。
         """
         if key.kind == DB_KIND_ARCHIVE:
-            return target.url
+            return self._settings.database.apply_sqlite_dir(target.url)
         template = target.url_template
         if not template:
-            return target.url
+            return self._settings.database.apply_sqlite_dir(target.url)
         effective = key.service or self._settings.app.service
         needs_service = "{service}" in template or "{database}" in template
         if needs_service and not effective:
@@ -240,9 +240,10 @@ class EngineFactory(BaseDbFactory[str | None, AsyncEngine]):
             )
         database = database_name(key, service=effective) if needs_service else ""
         try:
-            return template.format(service=effective, tenant=key.tenant_code or "", database=database)
+            value = template.format(service=effective, tenant=key.tenant_code or "", database=database)
         except (KeyError, IndexError, ValueError) as exc:
             raise ConfigError(f"数据库连接串模板占位非法：{template}（{exc}）") from exc
+        return self._settings.database.apply_sqlite_dir(value)
 
     def _resolve_url_role(self, key: DbKey, target: DatabaseTargetSettings, *, read_only: bool) -> tuple[str, str]:
         """解析连接串与角色键（写主库；只读有副本则轮询，无副本回落主库）。

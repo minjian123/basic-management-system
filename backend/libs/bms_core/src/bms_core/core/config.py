@@ -279,18 +279,68 @@ class DatabaseTargetSettings(BaseSettings):
         return self.services.get(service, self.pool)
 
 
+_SQLITE_BACKEND = "sqlite"
+
+
+def resolve_sqlite_dir(url: str, sqlite_dir: str) -> str:
+    """按 `sqlite_dir` 基址归一 SQLite 连接串的相对文件路径。
+
+    - `sqlite_dir` 为空、连接串非 SQLite、内存库（`:memory:`）或无文件名时原样返回；
+    - 文件路径为绝对路径时原样返回；
+    - 相对 `sqlite_dir` 以配置目录（`backend/`）为锚，避免随进程 CWD 漂移；
+    - 基址非空时自动创建目录（新克隆 / CI 首次运行无需预建）。
+
+    Args:
+        url: 数据库连接串（不含或含密码均可，仅改写文件路径部分）。
+        sqlite_dir: SQLite 相对路径基址（空串表示不介入）。
+
+    Returns:
+        str: 可能改写文件路径后的连接串（方言与其余部分不变）。
+    """
+    if not sqlite_dir:
+        return url
+    parsed = make_url(url)
+    if parsed.get_backend_name() != _SQLITE_BACKEND:
+        return url
+    database = parsed.database
+    if not database or database == ":memory:":
+        return url
+    path = Path(database)
+    if path.is_absolute():
+        return url
+    base = Path(sqlite_dir)
+    if not base.is_absolute():
+        base = _CONFIG_DIR / base
+    base = base.resolve()
+    base.mkdir(parents=True, exist_ok=True)
+    target = (base / path).resolve()
+    return parsed.set(database=str(target)).render_as_string(hide_password=False)
+
+
 class DatabaseSettings(BaseSettings):
     """三库目标（平台 / 租户 / 归档；dev 默认多 SQLite 文件）。"""
 
     auto_create: bool = True
     """SQLite 开发库自动建表开关（仅当方言为 SQLite 时生效；prod 置 false，建表统一走 Alembic）。"""
+    sqlite_dir: str = ""
+    """SQLite 相对文件路径统一基址（env `BMS_DATABASE__SQLITE_DIR`）。
+
+    空串表示不介入，相对路径沿用「当前工作目录」语义；非空时仅对 SQLite 方言的相对文件路径生效，
+    相对基址以配置目录（`backend/`）为锚（不随进程 CWD 漂移），首次解析自动建目录。"""
     platform: DatabaseTargetSettings
-    tenants: DatabaseTargetSettings = Field(
-        default_factory=lambda: DatabaseTargetSettings(url="sqlite+aiosqlite:///./bms_tenant_demo.db")
-    )
-    archive: DatabaseTargetSettings = Field(
-        default_factory=lambda: DatabaseTargetSettings(url="sqlite+aiosqlite:///./bms_archive.db")
-    )
+    tenants: DatabaseTargetSettings
+    archive: DatabaseTargetSettings
+
+    def apply_sqlite_dir(self, url: str) -> str:
+        """按 `sqlite_dir` 基址归一相对 SQLite 路径（引擎 / 迁移解析连接串时统一调用）。
+
+        Args:
+            url: 数据库连接串（不含或含密码均可，仅改写文件路径部分）。
+
+        Returns:
+            str: 归一后的连接串（`sqlite_dir` 为空或非适用连接串时原样返回）。
+        """
+        return resolve_sqlite_dir(url, self.sqlite_dir)
 
 
 class RedisSettings(BaseSettings):

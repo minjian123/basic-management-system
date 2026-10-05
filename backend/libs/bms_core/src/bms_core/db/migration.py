@@ -397,14 +397,14 @@ def chain_url(
         return EngineFactory(resolved, allow_cross_service=allow_cross_service).resolved_url(db_key)
     database = resolved.database
     if chain.datasource == DATASOURCE_ARCHIVE:
-        return database.archive.resolved_url()
+        return database.apply_sqlite_dir(database.archive.resolved_url())
     if chain.datasource == DATASOURCE_PLATFORM:
         from bms_core.db.engine import EngineFactory
 
         # 链自带服务：按服务派生全限定键（运维通道，不受运行服务限制）
         key = build_platform_db_key(chain.service)
         return EngineFactory(resolved, allow_cross_service=True).resolved_url(key)
-    return database.tenants.resolved_url()
+    return database.apply_sqlite_dir(database.tenants.resolved_url())
 
 
 def has_revisions(chain: MigrationChain) -> bool:

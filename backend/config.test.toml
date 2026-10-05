@@ -1,5 +1,9 @@
 # test 环境覆盖（结构化日志，不开放跨域）
 
+[database]
+# CI 测试库统一落工作区根 database/bms/test（相对 backend/ 上两级；仅改此处即可切库）
+sqlite_dir = "../../database/bms/test"
+
 [log]
 level = "INFO"
 format = "json"

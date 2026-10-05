@@ -32,6 +32,12 @@ level = "INFO"
 
 [database.platform]
 url = "sqlite+aiosqlite:///./app.db"
+
+[database.tenants]
+url = "sqlite+aiosqlite:///./app.db"
+
+[database.archive]
+url = "sqlite+aiosqlite:///./app.db"
 """
 
 _MISSING_URL_BASE = """
@@ -47,6 +53,12 @@ port = 8000
 level = "INFO"
 
 [database.platform]
+
+[database.tenants]
+url = "sqlite+aiosqlite:///./app.db"
+
+[database.archive]
+url = "sqlite+aiosqlite:///./app.db"
 """
 
 _UNKNOWN_KEY_BASE = """
@@ -63,6 +75,12 @@ level = "INFO"
 levle = "X"
 
 [database.platform]
+url = "sqlite+aiosqlite:///./app.db"
+
+[database.tenants]
+url = "sqlite+aiosqlite:///./app.db"
+
+[database.archive]
 url = "sqlite+aiosqlite:///./app.db"
 """
 
@@ -361,3 +379,45 @@ def test_tenant_keys_and_url_template() -> None:
     assert settings.tenant.allow_demo_fallback is False
     assert settings.tenant.exempt_paths == ["/healthz"]
     assert "{tenant}" in settings.database.tenants.url_template
+
+
+# ===== Kiwi 2244：数据库连接配置唯一来源与本地库落点 =====
+
+
+@pytest.mark.kiwi_id(2244)
+def test_sqlite_dir_env_values() -> None:
+    """dev / test 的 sqlite_dir 取值（切库唯一旋钮）。"""
+    assert Settings().database.sqlite_dir == "../../database/bms"
+
+
+@pytest.mark.kiwi_id(2244)
+def test_sqlite_dir_test_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """BMS_ENV=test 时 sqlite_dir 指向测试库目录。"""
+    monkeypatch.setenv("BMS_ENV", "test")
+    assert Settings().database.sqlite_dir == "../../database/bms/test"
+
+
+@pytest.mark.kiwi_id(2244)
+def test_database_targets_required(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """移除代码兜底默认后，缺租户 / 归档目标即启动失败并指出键路径。"""
+    body = """
+[app]
+name = "BMS 基础管理系统"
+env = "dev"
+
+[server]
+host = "0.0.0.0"
+port = 8000
+
+[log]
+level = "INFO"
+
+[database.platform]
+url = "sqlite+aiosqlite:///./app.db"
+"""
+    _use_config_dir(monkeypatch, tmp_path, body)
+    monkeypatch.delenv("BMS_DATABASE__PLATFORM__URL", raising=False)
+    _clear_db_template_env(monkeypatch)
+    with pytest.raises(ConfigError) as excinfo:
+        load_settings()
+    assert "database.tenants" in str(excinfo.value)

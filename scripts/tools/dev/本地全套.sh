@@ -23,7 +23,7 @@
 # 选项:
 #   --services "a b c"   要起的服务（缺省 tenant org platform identity）
 #   --redis URL          Redis 连接串（缺省远端开发机 DB5：redis://192.168.0.107:6379/5）
-#   --reset-db           起服务前把 `backend/bms_*.db` 备份移走（库结构/表归属变更后必须，否则 catalog 校验失败）
+#   --reset-db           起服务前把 `database/bms/bms_*.db` 备份移走（库结构/表归属变更后必须，否则 catalog 校验失败）
 #   --username NAME      建号账号（缺省 admin）
 #   --password PASS      建号口令（缺省**随机生成并仅打印一次**）
 #   --reset-password     建号时重置既有账号口令
@@ -39,6 +39,7 @@ set -uo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 BACKEND="$ROOT/backend"
+DB_DIR="$ROOT/../database/bms"
 FRONTEND_ENV="$ROOT/frontend/apps/desktop/.env.local"
 STATE_DIR="${BMS_LOCAL_STATE_DIR:-/tmp/bms-local-stack}"
 KEYS_FILE="$BACKEND/.dev-keys.local"
@@ -216,10 +217,10 @@ PY
 reset_db() {
   local stamp backup
   stamp="$(date +%Y%m%d-%H%M%S)"
-  backup="$BACKEND/.db-backup-$stamp"
+  backup="$DB_DIR/.db-backup-$stamp"
   mkdir -p "$backup"
   local moved=0
-  for f in "$BACKEND"/bms_*.db; do
+  for f in "$DB_DIR"/bms_*.db; do
     [ -e "$f" ] || continue
     mv "$f" "$backup/" && moved=$((moved + 1))
   done
@@ -329,16 +330,17 @@ cmd_status() {
 cmd_seed() {
   [ -x "$PY" ] || { err "缺后端虚拟环境：$PY"; return 1; }
   local rc=0
-  log "种子：租户注册库（bms_tenant.db）"
-  ( cd "$BACKEND" && "$PY" -m ops.seed_tenant --url "sqlite+aiosqlite:///./bms_tenant.db" ) || rc=1
-  log "种子：菜单元数据（bms_platform.db）"
-  ( cd "$BACKEND" && "$PY" -m ops.seed_menu --url "sqlite+aiosqlite:///./bms_platform.db" ) || rc=1
+  # 库路径与连接串统一由配置解析（config.dev.toml 的 [database].sqlite_dir）；不再写死 --url
+  log "种子：租户注册库（配置解析 bms_tenant.db）"
+  ( cd "$BACKEND" && "$PY" -m ops.seed_tenant ) || rc=1
+  log "种子：菜单元数据（配置解析 bms_platform.db）"
+  ( cd "$BACKEND" && "$PY" -m ops.seed_menu ) || rc=1
   log "建号：$USERNAME（demo 租户 org 库；口令只打印这一次——请登记到《本地资源》「BMS 应用账号」节）"
   local extra=()
   [ "$RESET_PASSWORD" -eq 1 ] && extra+=(--reset-password)
   # 口令不入库：未显式给 `--password` 时由建号脚本随机生成并打印一次（凭据只落《本地资源》）。
   [ -n "$PASSWORD" ] && extra+=(--password "$PASSWORD")
-  ( cd "$BACKEND" && "$PY" -m ops.seed_user --url "sqlite+aiosqlite:///./bms_org_demo.db" \
+  ( cd "$BACKEND" && "$PY" -m ops.seed_user \
       --username "$USERNAME" "${extra[@]}" ) || rc=1
   [ "$rc" -eq 0 ] && log "种子完成（幂等：重复执行新增为 0）"
   return "$rc"
@@ -353,18 +355,27 @@ import os
 import sqlite3
 
 import redis
+from sqlalchemy.engine import make_url
+
+from bms_core.core.config import get_settings
+from bms_core.db.engine import EngineFactory
+from bms_core.db.keys import build_platform_db_key, build_tenant_db_key
 
 account = os.environ["BMS_UNLOCK_ACCOUNT"]
-org = sqlite3.connect("bms_org_demo.db")
+# 库路径统一由配置解析（sqlite_dir 基址），不写死相对路径
+factory = EngineFactory(get_settings(), allow_cross_service=True)
+org_path = make_url(factory.resolved_url(build_tenant_db_key("demo", service="org"))).database
+tenant_path = make_url(factory.resolved_url(build_platform_db_key("tenant"))).database
+org = sqlite3.connect(org_path)
 rows = list(org.execute("select failed_count, locked_until from sys_user where username = ?", (account,)))
 if not rows:
-    print(f"[unlock] 未找到账号：{account}（bms_org_demo.db 的 sys_user）")
+    print(f"[unlock] 未找到账号：{account}（{org_path} 的 sys_user）")
     raise SystemExit(2)
 org.execute("update sys_user set failed_count = 0, locked_until = NULL where username = ?", (account,))
 org.commit()
 print(f"[unlock] {account}：failed_count / locked_until {rows[0]} → (0, None)")
 
-tenants = list(sqlite3.connect("bms_tenant.db").execute("select id from sys_tenant where code = 'demo'"))
+tenants = list(sqlite3.connect(tenant_path).execute("select id from sys_tenant where code = 'demo'"))
 client = redis.from_url(os.environ["BMS_UNLOCK_REDIS"], socket_timeout=5)
 keys = [key for key in client.scan_iter("bms:*:rate:login*") if account.encode() in key]
 print(f"[unlock] Redis 登录失败计数键：{keys or '（无）'}")

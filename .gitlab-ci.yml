@@ -243,6 +243,8 @@ backend-plugins:
 backend-modules:
   stage: lint
   image: $REGISTRY_IMAGE_PREFIX/ci-backend:py314
+  variables:
+    BMS_ENV: test
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       exists:
@@ -257,11 +259,11 @@ backend-modules:
   script:
     - cd backend
     - uv sync --frozen
+    - uv run python -m ops.check_modules --offline
+    # 迁移后查重：SQLite 测试库（config.test.toml 的 sqlite_dir 解析到 database/bms/test）→ 平台链迁移 → 种子 → 接库校验（只读）
+    - uv run alembic -n alembic:platform:platform upgrade head
+    - uv run python -m ops.seed_module
     - uv run python -m ops.check_modules
-    # 迁移后查重：SQLite 临时库（命中 .gitignore 的 backend/bms_*.db）→ 平台链迁移 → 种子 → 接库校验（只读）
-    - uv run alembic -n alembic:platform:platform -x url="sqlite+aiosqlite:///./bms_ci_catalog.db" upgrade head
-    - uv run python -m ops.seed_module --url "sqlite+aiosqlite:///./bms_ci_catalog.db"
-    - uv run python -m ops.check_modules --url "sqlite+aiosqlite:///./bms_ci_catalog.db"
 
 backend-test:
   stage: test

@@ -7,6 +7,7 @@ import pytest
 from sqlalchemy import create_engine, text
 
 from bms_core.core.concurrent import ConcurrentStableList
+from ops import check_tables
 from ops.check_tables import check_offline, check_table_db, main
 from ops.seed_tables import seed_tables
 
@@ -70,7 +71,21 @@ def test_check_table_db_roundtrip_and_conflicts(tmp_path: Path) -> None:
 
 
 @pytest.mark.kiwi_id(2178)
-def test_check_tables_cli(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    """CLI：离线通过（未给 `--url`）退出码 0 且输出校验范围。"""
+def test_check_tables_default_reads_config(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """缺省（无 `--url`）读配置解析后接库对账；通过退出码 0。"""
+    url = _url(tmp_path)
+    asyncio.run(seed_tables(url))
+
+    def _fake_url(_url: str = "", *, service: str = "") -> str:
+        """测试替身：固定返回临时库 URL。"""
+        return url
+
+    monkeypatch.setattr(check_tables, "resolve_url", _fake_url)
     assert main(ConcurrentStableList([])) == 0
+
+
+@pytest.mark.kiwi_id(2178)
+def test_check_tables_cli(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """CLI：`--offline` 离线通过退出码 0 且输出校验范围。"""
+    assert main(ConcurrentStableList(["--offline"])) == 0
     assert "校验通过" in capsys.readouterr().out

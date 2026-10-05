@@ -5,7 +5,6 @@
 ```bash
 cd backend
 uv run python -m ops.seed_tenant
-uv run python -m ops.seed_tenant --url sqlite+aiosqlite:///./app.db
 uv run python -m ops.seed_tenant --dry-run
 ```
 

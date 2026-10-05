@@ -4,8 +4,8 @@
 
 ```bash
 cd backend
-uv run python -m ops.check_tables
-uv run python -m ops.check_tables --url sqlite+aiosqlite:///./bms_platform.db
+uv run python -m ops.check_tables              # 离线断言 + 接库对账（URL 读配置解析）
+uv run python -m ops.check_tables --offline    # 仅离线断言（无库场景）
 ```
 
 离线断言（不连库，零依赖）：
@@ -36,6 +36,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.pool import NullPool
 
 from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
+from bms_core.db.keys import PLATFORM_SERVICE_KEY
 from bms_core.db.migration import (
     COMMON_MODEL_MODULES,
     DATASOURCES,
@@ -58,6 +59,7 @@ from bms_core.services.table_registry import (
     table_names,
     validate_table_ownership,
 )
+from ops.seed_tenant import resolve_url
 
 _CREATE_TABLE_RE = re.compile(r"op\.create_table\(\s*[\"']([a-z0-9_]+)[\"']")
 _BATCH_TABLE_RE = re.compile(r"op\.batch_alter_table\(\s*[\"']([a-z0-9_]+)[\"']")
@@ -71,7 +73,8 @@ def build_parser() -> argparse.ArgumentParser:
         argparse.ArgumentParser: 解析器。
     """
     parser = argparse.ArgumentParser(description="表归属登记校验（离线断言 + 可选接库对账）")
-    parser.add_argument("--url", default="", help="平台服务库连接串（给定后追加接库对账；迁移 + 种子后执行）")
+    parser.add_argument("--url", default="", help="平台服务库连接串（显式覆盖；缺省按配置解析）")
+    parser.add_argument("--offline", action="store_true", help="仅离线断言，不接库")
     parser.add_argument("--schema", default="", help="目标模式名（达梦等同步方言必填，如 BMS_TEST_DM）")
     return parser
 
@@ -242,15 +245,16 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
     """
     args = build_parser().parse_args(argv)
     errors = check_offline()
-    if args.url:
-        errors.update(check_table_db(args.url, schema=args.schema))
+    url = "" if args.offline else (args.url or resolve_url(service=PLATFORM_SERVICE_KEY))
+    if url:
+        errors.update(check_table_db(url, schema=args.schema))
     if errors:
         for error in errors:
             print(f"[表归属] {error}")
         print(f"[表归属] 校验失败（{len(errors)} 项）")
         return 1
     scope = f"清单 {len(TABLE_OWNERSHIP)} 项 + 模型表对账 + 脚本表集"
-    if args.url:
+    if url:
         scope += " + 接库对账"
     print(f"[表归属] 校验通过（{scope}）")
     return 0

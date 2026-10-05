@@ -19,20 +19,35 @@ from bms_platform.models.catalog import SysModule
 
 @pytest.mark.kiwi_id(28)
 def test_check_modules_passes() -> None:
-    """服务目录清单 + 服务包声明：校验通过、退出码 0。"""
-    assert check_modules.main(ConcurrentStableList([])) == 0
+    """服务目录清单 + 服务包声明：离线校验通过、退出码 0。"""
+    assert check_modules.main(ConcurrentStableList(["--offline"])) == 0
 
 
 @pytest.mark.kiwi_id(2163)
 def test_check_modules_cli_entrypoint(monkeypatch: pytest.MonkeyPatch) -> None:
     """`__main__` 入口：以模块名运行走 `main`、离线校验通过退出码 0（覆盖入口守卫）。"""
-    monkeypatch.setattr(sys, "argv", ["ops.check_modules"])
+    monkeypatch.setattr(sys, "argv", ["ops.check_modules", "--offline"])
     with (
         pytest.warns(RuntimeWarning, match="found in sys.modules"),
         pytest.raises(SystemExit) as excinfo,
     ):
         runpy.run_module("ops.check_modules", run_name="__main__")
     assert excinfo.value.code == 0
+
+
+@pytest.mark.kiwi_id(28)
+def test_check_modules_default_reads_config(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """缺省（无 `--url`）读配置解析后接库校验；接库通过退出码 0。"""
+    url = f"sqlite+aiosqlite:///{tmp_path / 'cfg_catalog.db'}"
+    asyncio.run(_create_table(url))
+    asyncio.run(seed_module.seed_modules(url))
+
+    def _fake_url(_url: str = "", *, service: str = "") -> str:
+        """测试替身：固定返回临时库 URL。"""
+        return url
+
+    monkeypatch.setattr(check_modules, "resolve_url", _fake_url)
+    assert check_modules.main(ConcurrentStableList([])) == 0
 
 
 @pytest.mark.kiwi_id(28)

@@ -69,6 +69,9 @@ backend/bms_*.db-journal
 backend/**/bms_*.db
 backend/**/bms_*.db-journal
 
+# 本地数据库目录（库文件统一工作区根 database/<仓库>/，未入库；此处兜底防误提交）
+database/
+
 # Flask stuff:
 instance/
 .webassets-cache

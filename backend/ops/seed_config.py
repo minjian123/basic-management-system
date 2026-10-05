@@ -4,10 +4,10 @@
 
 ```bash
 cd backend
-# 先迁移（首次）：
-BMS_MIGRATION_URL="sqlite+aiosqlite:///./bms_platform_demo.db" uv run alembic -n alembic:platform:tenant upgrade head
+# 先迁移（首次；读配置解析租户库）：
+uv run alembic -n alembic:platform:tenant upgrade head
 # 再种子（可重复执行）：
-BMS_MIGRATION_URL="sqlite+aiosqlite:///./bms_platform_demo.db" uv run python -m ops.seed_config
+uv run python -m ops.seed_config
 ```
 
 - URL 解析：`BMS_MIGRATION_URL` 环境变量 > 配置租户库模板（`database.tenants.url`）；

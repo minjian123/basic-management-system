@@ -8,7 +8,6 @@ uv run python -m ops.seed_user --tenant demo --username admin --dry-run         
 uv run python -m ops.seed_user --tenant demo --username admin                    # 建号（口令随机生成并一次性打印）
 uv run python -m ops.seed_user --tenant demo --username admin --password "$DEV_PASSWORD"
 uv run python -m ops.seed_user --tenant demo --username admin --reset-password   # 重置既有账号口令
-uv run python -m ops.seed_user --url "sqlite+aiosqlite:///./bms_org_demo.db" --username admin
 ```
 
 - **库定位**：`--url` > 按「租户注册库对照表 `sys_tenant_database` 取库名基 → 库键

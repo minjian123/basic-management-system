@@ -4,11 +4,9 @@
 
 ```bash
 cd backend
-# IdP 行（identity 租户库；先迁移/建表）：
-BMS_MIGRATION_URL="sqlite+aiosqlite:///./bms_identity_demo.db" uv run python -m ops.seed_sso
+# IdP 行（identity 租户库；先迁移/建表，读配置解析）：
+uv run python -m ops.seed_sso
 # 追加用户映射（identity 平台库；02_02 起由管理面写入，本期仅联调用）：
-BMS_MIGRATION_URL="sqlite+aiosqlite:///./bms_identity_demo.db" \
-BMS_PLATFORM_MIGRATION_URL="sqlite+aiosqlite:///./bms_identity.db" \
 uv run python -m ops.seed_sso --map-user-id 1 --map-external-id <Keycloak 用户 UUID>
 ```
 

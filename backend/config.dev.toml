@@ -21,6 +21,10 @@ cookie_secure = false
 # 首次使用：uv run python -m ops.provision_tenant --code demo --code acme（建库）
 #           → 各库迁移（分链批量编排归 06_02；当前可按库键单库执行）
 #           → uv run python -m ops.seed_tenant / seed_module / seed_dict（种子）
+[database]
+# 本地 SQLite 库统一落工作区根 database/bms（相对 backend/ 上两级；仅改此处即可切库）
+sqlite_dir = "../../database/bms"
+
 [database.platform]
 url_template = "sqlite+aiosqlite:///./bms_{service}.db"
 

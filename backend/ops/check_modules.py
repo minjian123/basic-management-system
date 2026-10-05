@@ -1,18 +1,18 @@
-"""CI 服务目录校验：离线清单 / 服务包契约声明 + 可选接库（迁移与种子后）查重与对账。
+"""CI 服务目录校验：离线清单 / 服务包契约声明 + 接库（迁移与种子后）查重与对账。
 
 用法：
 
 ```bash
 cd backend
-uv run python -m ops.check_modules
-uv run python -m ops.check_modules --url sqlite+aiosqlite:///./bms_ci_catalog.db
+uv run python -m ops.check_modules              # 离线断言 + 接库（URL 读配置解析）
+uv run python -m ops.check_modules --offline    # 仅离线断言（无库场景）
 ```
 
 - **离线**：复用 `ModuleRegistry.validate()` 校验清单（四要素唯一 / 格式 / 维度），并比对
   服务工程自报契约版本（`CONTRACT_VERSION`）与清单登记值的主版本；服务工程 ↔ 清单双向核对
   （工程存在但未登记即失败；planned 且无工程目录跳过）。服务包常量经 AST 静态读取，不导入服务包。
-- **接库**（`--url`）：读平台库 `sys_module`（未软删行）查重与格式校验 + 与清单双向对账，
-  **只读不写**；空库判失败（种子未执行）。
+- **接库**（缺省读配置解析，`--url` 显式覆盖）：读平台库 `sys_module`（未软删行）查重与格式校验 +
+  与清单双向对账，**只读不写**；空库判失败（种子未执行）。`--offline` 强制跳过接库。
 - 冲突 / 非法 → 打印明细并退出码 1；通过 → 退出码 0。
 """
 
@@ -26,6 +26,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.version import contract_major
+from bms_core.db.keys import PLATFORM_SERVICE_KEY
 from bms_core.services.module_registry import (
     SERVICE_CATALOG,
     ModuleRecord,
@@ -33,6 +34,7 @@ from bms_core.services.module_registry import (
     validate_catalog,
 )
 from bms_platform.repositories.module_repository import ModuleRepository
+from ops.seed_tenant import resolve_url
 
 _SERVICES_DIR = Path(__file__).resolve().parents[1] / "services"
 """服务工程根（`backend/services`）。"""
@@ -47,8 +49,9 @@ def build_parser() -> argparse.ArgumentParser:
     Returns:
         argparse.ArgumentParser: 解析器。
     """
-    parser = argparse.ArgumentParser(description="服务目录校验（离线清单 + 服务包声明；--url 接库查重与对账）")
-    parser.add_argument("--url", default="", help="平台库连接串（给定后追加接库校验；迁移 + 种子后执行）")
+    parser = argparse.ArgumentParser(description="服务目录校验（离线清单 + 服务包声明；缺省接库查重与对账）")
+    parser.add_argument("--url", default="", help="平台库连接串（显式覆盖；缺省按配置解析）")
+    parser.add_argument("--offline", action="store_true", help="仅离线断言，不接库")
     return parser
 
 
@@ -193,15 +196,16 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
     """
     args = build_parser().parse_args(argv)
     errors = check_offline()
-    if args.url:
-        errors.update(check_catalog_db(args.url))
+    url = "" if args.offline else (args.url or resolve_url(service=PLATFORM_SERVICE_KEY))
+    if url:
+        errors.update(check_catalog_db(url))
     if errors:
         for error in errors:
             print(f"[服务目录] {error}")
         print(f"[服务目录] 校验失败（{len(errors)} 项）")
         return 1
     scope = f"清单 {len(SERVICE_CATALOG)} 项 + 服务包声明"
-    if args.url:
+    if url:
         scope += " + 接库对账"
     print(f"[服务目录] 校验通过（{scope}）")
     return 0
