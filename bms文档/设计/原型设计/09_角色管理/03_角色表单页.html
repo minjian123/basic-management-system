@@ -11,15 +11,17 @@
   .ep-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
   .ep-toolbar .ep-side { margin-left: auto; }
   .sys-frame { display: block; width: 100%; border: none; background: #fff; }
-  /* 权限配置：菜单树 + 表单操作权限（对齐组件设计《权限配置》） */
+  /* 权限配置：菜单权限 / 表单权限（菜单树或表单列表 + 操作权限·字段权限两 Tab） */
   .perm-pane { border: 1px solid #eaeef2; border-radius: 8px; }
   .perm-pane-hd { padding: 8px 12px; border-bottom: 1px solid #eaeef2; font-size: 13px; font-weight: 600; }
   .perm-pane-bd { padding: 10px; }
+  .form-list { list-style: none; margin: 0; padding: 0; }
+  .form-list li { display: flex; align-items: center; gap: 6px; padding: 8px 10px; border-bottom: 1px solid #f0f2f4; cursor: pointer; font-size: 13px; }
+  .form-list li:last-child { border-bottom: none; }
+  .form-list li.active { background: #f0f7ff; }
+  .form-list li .orphan { font-size: 11px; color: #8c959f; margin-left: auto; }
   .op-row { display: flex; align-items: center; gap: 8px; padding: 5px 0; font-size: 13px; }
-  .op-row .proto-hint { margin-left: 2px; }
   .op-tag { font-size: 11px; color: #b26a00; background: #fff4e5; border: 1px solid #ffe0b2; border-radius: 4px; padding: 0 6px; }
-  .perm-group { margin-bottom: 10px; }
-  .perm-group-hd { font-size: 13px; font-weight: 600; margin: 6px 0; }
   .scope-list { list-style: none; margin: 0; padding: 0; }
   .scope-list li { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-bottom: 1px solid #f0f2f4; cursor: pointer; font-size: 13px; }
   .scope-list li:last-child { border-bottom: none; }
@@ -39,10 +41,10 @@
 
 <div class="proto-frame">
   <div class="proto-note">
-    本页为「角色管理」表单框架的<b>角色记录 Tab</b>（双击列表行 / 点「新增」打开）。
-    信息栏三个子页签：<b>详细信息</b>（角色基本信息）· <b>权限配置</b>（菜单权限 / 字段权限 / 数据范围 / 主体绑定，
-    全量覆盖提交、脏数据拦截）· <b>系统信息</b>（只读审计字段）。
-    <b>保存只在页面工具栏一处</b>：详细信息页签保存基本信息，权限配置页签保存授权，不再重复。
+    本页为「角色管理」表单框架的<b>角色记录 Tab</b>。信息栏三个子页签：<b>详细信息</b> · <b>权限配置</b> · <b>系统信息</b>。
+    权限配置四页签：<b>菜单权限</b>（菜单树 → 该入口的操作权限 / 字段权限）· <b>表单权限</b>（所有表单列表 → 操作权限 / 字段权限）·
+    <b>数据范围</b> · <b>主体绑定</b>。菜单与表单为<b>多对多</b>（不同菜单入口可指向同一表单、表单也可无入口）；权限按<b>来源</b>区分——
+    本入口连带生成的可改，非本入口来源只读。保存只在页面工具栏一处。
   </div>
 
   <div id="app">
@@ -106,10 +108,10 @@
         <!-- 权限配置 -->
         <el-tab-pane label="权限配置" name="perm">
           <el-tabs v-model="permTab" type="card">
-            <!-- 菜单权限 + 表单操作权限 -->
-            <el-tab-pane label="菜单权限" name="tree">
+            <!-- 菜单权限：菜单树 → 该入口的操作权限 / 字段权限 -->
+            <el-tab-pane label="菜单权限" name="menu">
               <el-row :gutter="12">
-                <el-col :span="9">
+                <el-col :span="8">
                   <div class="perm-pane">
                     <div class="perm-pane-hd">菜单权限 <span class="proto-hint">勾选 = 菜单入口对用户显示</span></div>
                     <div class="perm-pane-bd">
@@ -122,7 +124,6 @@
                         <template #default="{ data }">
                           <span @click.stop="onMenuSelect(data)">
                             {{ data.label }}
-                            <span v-if="data.formLabel" class="proto-hint">· {{ data.formLabel }}</span>
                             <span v-if="data.detached" class="op-tag">未挂接</span>
                           </span>
                         </template>
@@ -130,66 +131,109 @@
                     </div>
                   </div>
                 </el-col>
-                <el-col :span="15">
+                <el-col :span="16">
                   <div class="perm-pane">
                     <div class="perm-pane-hd">
-                      表单操作权限
-                      <span v-if="activeMenu" class="proto-hint">· {{ activeMenu.label }}<template v-if="activeMenu.formLabel"> · {{ activeMenu.formLabel }}</template></span>
+                      菜单入口权限
+                      <span v-if="activeMenu" class="proto-hint">· {{ activeMenu.label }}<template v-if="menuForms.length"> · {{ menuForms.map(f => f.label).join('、') }}</template></span>
                     </div>
                     <div class="perm-pane-bd">
-                      <template v-if="activeMenu && activeMenu.form">
-                        <div v-if="!menuGranted(activeMenu)" class="proto-hint">
-                          该菜单入口未授予权限，其表单操作权限不显示；勾选左侧菜单后即可配置。
+                      <template v-if="activeMenu && menuForms.length">
+                        <div v-if="!menuGranted(activeMenu)" class="proto-hint" style="margin-bottom:8px">
+                          该菜单入口未授予权限；仍可查看其表单权限来源，勾选菜单后本入口权限方可编辑。
                         </div>
-                        <template v-else>
-                          <el-input v-model="opKw" size="small" placeholder="查询定位操作" clearable style="width:240px;margin-bottom:8px"></el-input>
-                          <div class="op-row">
-                            <el-checkbox v-model="activeMenu.formView" :disabled="activeMenu.formViewReadonly" @change="permDirty = true">
-                              表单查看（进入该表单，列表页可见）
-                            </el-checkbox>
-                            <span v-if="activeMenu.formViewReadonly" class="op-tag">来自其它入口，只读</span>
-                            <span v-else class="proto-hint">勾选菜单入口连带授予</span>
-                          </div>
-                          <div v-for="op in filteredOps" :key="op.code" class="op-row">
-                            <el-checkbox v-model="op.granted" :disabled="op.readonly" @change="permDirty = true">
-                              {{ op.label }} <span class="proto-hint">{{ activeMenu.business }}:{{ op.code }}</span>
-                            </el-checkbox>
-                            <span v-if="op.readonly" class="op-tag">来自其它入口，只读</span>
-                          </div>
-                          <div v-if="!filteredOps.length" class="proto-hint">无匹配操作权限</div>
-                          <div class="proto-hint" style="margin-top:8px">操作权限默认无；勾选菜单入口连带生成的表单查看权限可改（取消勾选菜单则一并撤销），非本入口生成的权限只读不可改。</div>
-                        </template>
+                        <el-tabs v-model="menuPermTab">
+                          <el-tab-pane label="操作权限" name="op">
+                            <div class="proto-hint" style="margin-bottom:6px">{{ menuFormLabel }} · 默认无；本入口连带生成的可改，非本入口来源只读。</div>
+                            <div v-for="op in menuOps" :key="op.code" class="op-row">
+                              <el-checkbox v-model="op.granted" :disabled="!op.editable" @change="permDirty = true">
+                                {{ op.label }} <span class="proto-hint">{{ activeMenuBusiness }}:{{ op.code }}</span>
+                              </el-checkbox>
+                              <span v-if="!op.editable" class="op-tag">{{ op.sourceText }}</span>
+                            </div>
+                            <div v-if="!menuOps.length" class="proto-hint">该表单无操作权限</div>
+                          </el-tab-pane>
+                          <el-tab-pane label="字段权限" name="field">
+                            <div class="proto-hint" style="margin-bottom:6px">{{ menuFormLabel }} · 默认全部可见可编辑、授予后收窄；本入口连带生成的可改，非本入口来源只读。</div>
+                            <el-table :data="menuFields" size="small" border>
+                              <el-table-column prop="label" label="字段" min-width="150"></el-table-column>
+                              <el-table-column label="可见" width="90" align="center">
+                                <template #default="{ row }"><el-switch v-model="row.visible" size="small" :disabled="!row.editable" @change="permDirty = true"></el-switch></template>
+                              </el-table-column>
+                              <el-table-column label="可编辑" width="90" align="center">
+                                <template #default="{ row }"><el-switch v-model="row.editableFlag" size="small" :disabled="!row.editable || !row.visible" @change="permDirty = true"></el-switch></template>
+                              </el-table-column>
+                              <el-table-column label="来源" width="150">
+                                <template #default="{ row }"><span v-if="!row.editable" class="op-tag">{{ row.sourceText }}</span><span v-else class="proto-hint">本入口</span></template>
+                              </el-table-column>
+                            </el-table>
+                          </el-tab-pane>
+                        </el-tabs>
                       </template>
-                      <div v-else class="proto-hint">请选择左侧菜单入口；目录节点无表单、未挂接表单的菜单入口留空。</div>
+                      <div v-else class="proto-hint">请选择左侧菜单入口；未挂接表单的菜单入口不显示权限。</div>
                     </div>
                   </div>
                 </el-col>
               </el-row>
             </el-tab-pane>
 
-            <!-- 字段权限（表单 × 字段） -->
-            <el-tab-pane label="字段权限" name="field">
-              <div class="op-row" style="flex-wrap:wrap">
-                <el-button size="small" @click="batchField('visible', true)">全选可见</el-button>
-                <el-button size="small" @click="batchField('visible', false)">全选不可见</el-button>
-                <el-button size="small" @click="batchField('editable', true)">全选可编辑</el-button>
-                <el-checkbox v-model="onlyNarrowed" style="margin-left:8px">仅显示已收窄字段</el-checkbox>
-                <el-input v-model="fieldKw" size="small" placeholder="搜索字段" clearable style="width:200px;margin-left:auto"></el-input>
-              </div>
-              <div class="proto-hint" style="margin-bottom:8px">未配置字段默认全部可见可编辑；授予后收窄（不可见字段读时不返回、不可编辑字段写时拒绝）。共 {{ fieldCount }} 个字段。</div>
-              <div v-for="group in fieldGroups" :key="group.form" class="perm-group">
-                <div class="perm-group-hd">{{ group.form }}</div>
-                <el-table :data="group.fields" size="small" border>
-                  <el-table-column prop="label" label="字段" min-width="160"></el-table-column>
-                  <el-table-column label="可见" width="90" align="center">
-                    <template #default="{ row }"><el-switch v-model="row.visible" size="small" @change="permDirty = true"></el-switch></template>
-                  </el-table-column>
-                  <el-table-column label="可编辑" width="90" align="center">
-                    <template #default="{ row }"><el-switch v-model="row.editable" size="small" :disabled="!row.visible" @change="permDirty = true"></el-switch></template>
-                  </el-table-column>
-                </el-table>
-              </div>
-              <div v-if="!fieldGroups.length" class="proto-hint">无匹配字段</div>
+            <!-- 表单权限：所有表单列表 → 操作权限 / 字段权限（补充权限） -->
+            <el-tab-pane label="表单权限" name="form">
+              <el-row :gutter="12">
+                <el-col :span="8">
+                  <div class="perm-pane">
+                    <div class="perm-pane-hd">所有表单 <span class="proto-hint">含无菜单入口的表单</span></div>
+                    <div class="perm-pane-bd">
+                      <el-input v-model="formKw" size="small" placeholder="搜索表单" clearable style="margin-bottom:8px"></el-input>
+                      <ul class="form-list">
+                        <li v-for="f in filteredForms" :key="f.key" :class="{ active: f.key === activeFormKey }" @click="activeFormKey = f.key">
+                          <span>{{ f.label }}</span>
+                          <span v-if="!f.menus.length" class="orphan">无菜单入口</span>
+                          <span v-else class="orphan">{{ f.business }}</span>
+                        </li>
+                        <li v-if="!filteredForms.length" class="proto-hint">无匹配表单</li>
+                      </ul>
+                    </div>
+                  </div>
+                </el-col>
+                <el-col :span="16">
+                  <div class="perm-pane">
+                    <div class="perm-pane-hd">表单权限 <span v-if="activeForm" class="proto-hint">· {{ activeForm.label }}<template v-if="activeForm.menus.length">（入口：{{ menuLabels(activeForm.menus) }}）</template><template v-else>（无菜单入口）</template></span></div>
+                    <div class="perm-pane-bd">
+                      <template v-if="activeForm">
+                        <el-tabs v-model="formPermTab">
+                          <el-tab-pane label="操作权限" name="op">
+                            <div class="proto-hint" style="margin-bottom:6px">表单级补充权限：直接授予的可改，来自菜单入口的只读。</div>
+                            <div v-for="op in formOps" :key="op.code" class="op-row">
+                              <el-checkbox v-model="op.granted" :disabled="!op.editable" @change="permDirty = true">
+                                {{ op.label }} <span class="proto-hint">{{ activeForm.business }}:{{ op.code }}</span>
+                              </el-checkbox>
+                              <span v-if="!op.editable" class="op-tag">{{ op.sourceText }}</span>
+                            </div>
+                            <div v-if="!formOps.length" class="proto-hint">该表单无操作权限</div>
+                          </el-tab-pane>
+                          <el-tab-pane label="字段权限" name="field">
+                            <div class="proto-hint" style="margin-bottom:6px">默认全部可见可编辑、授予后收窄；直接授予的可改，来自菜单入口的只读。</div>
+                            <el-table :data="formFields" size="small" border>
+                              <el-table-column prop="label" label="字段" min-width="150"></el-table-column>
+                              <el-table-column label="可见" width="90" align="center">
+                                <template #default="{ row }"><el-switch v-model="row.visible" size="small" :disabled="!row.editable" @change="permDirty = true"></el-switch></template>
+                              </el-table-column>
+                              <el-table-column label="可编辑" width="90" align="center">
+                                <template #default="{ row }"><el-switch v-model="row.editableFlag" size="small" :disabled="!row.editable || !row.visible" @change="permDirty = true"></el-switch></template>
+                              </el-table-column>
+                              <el-table-column label="来源" width="150">
+                                <template #default="{ row }"><span v-if="!row.editable" class="op-tag">{{ row.sourceText }}</span><span v-else class="proto-hint">直接授予</span></template>
+                              </el-table-column>
+                            </el-table>
+                          </el-tab-pane>
+                        </el-tabs>
+                      </template>
+                      <div v-else class="proto-hint">请选择左侧表单。</div>
+                    </div>
+                  </div>
+                </el-col>
+              </el-row>
             </el-tab-pane>
 
             <!-- 数据范围（动作 → 规则表达式） -->
@@ -231,7 +275,7 @@
               </el-row>
             </el-tab-pane>
 
-            <!-- 主体绑定（用户 / 岗位 / 部门任意主体链） -->
+            <!-- 主体绑定 -->
             <el-tab-pane label="主体绑定" name="subject">
               <div class="op-row">
                 <el-radio-group v-model="subjectType" size="small">
@@ -288,7 +332,6 @@
     var m = location.search.match(new RegExp('[?&]' + k + '=([^&]*)'));
     return m ? decodeURIComponent(m[1]) : null;
   }
-
   var BUILTIN_CODES = ['system_admin', 'security_admin', 'audit_admin'];
   var ADMIN_NAMES = { system_admin: '系统管理员', security_admin: '安全管理员', audit_admin: '审计管理员' };
 
@@ -300,7 +343,7 @@
       var initialName = qp('name') || ADMIN_NAMES[initialId] || '';
       var isNew = initialId === '';
       var builtin = BUILTIN_CODES.indexOf(initialId) >= 0;
-      var editing = ref(isNew); // 新增 Tab 打开即编辑态
+      var editing = ref(isNew);
       var section = ref('detail');
       var form = reactive({ code: initialId, name: initialName, enabled: true });
 
@@ -308,8 +351,7 @@
       function cancelEdit() {
         if (form.name !== initialName) {
           ElMessageBox.confirm('放弃未保存的修改？', '提示', { type: 'warning', confirmButtonText: '放弃', cancelButtonText: '继续编辑' })
-            .then(function () { form.name = initialName; editing.value = false; toast('已取消修改'); })
-            .catch(function () {});
+            .then(function () { form.name = initialName; editing.value = false; toast('已取消修改'); }).catch(function () {});
         } else { editing.value = false; toast('已取消修改'); }
       }
       function saveForm() {
@@ -330,123 +372,130 @@
             .then(function () { toast('已关闭记录 Tab'); }).catch(function () {});
         } else { toast('已关闭记录 Tab（回到列表 Tab）'); }
       }
-      function onSectionChange() { /* 页签切换；脏数据保留，工具栏随页签分态 */ }
+      function onSectionChange() {}
 
-      // ---------------- 权限配置：菜单权限 + 表单操作权限 ----------------
-      var permTab = ref('tree');
+      // ---------------- 权限配置：数据（菜单 ↔ 表单 多对多；权限带来源） ----------------
+      var permTab = ref('menu');
       var permDirty = ref(false);
       var treeRef = ref(null);
       var treeKw = ref('');
       var menuTree = [
         { key: 'sys', label: '系统管理', children: [
-          { key: 'sys.user', label: '用户管理', formLabel: '用户管理', form: true, business: 'user',
-            formView: true, formViewReadonly: false, ops: [
-              { code: 'create', label: '新增', granted: true, readonly: true },
-              { code: 'update', label: '编辑', granted: true, readonly: false },
-              { code: 'delete', label: '删除', granted: false, readonly: false },
-              { code: 'lock', label: '账号锁定', granted: false, readonly: false },
-              { code: 'unlock', label: '账号解锁', granted: false, readonly: false },
-              { code: 'reset_pwd', label: '重置密码', granted: false, readonly: false }
-            ] },
-          { key: 'sys.role', label: '角色管理', formLabel: '角色管理', form: true, business: 'role',
-            formView: true, formViewReadonly: false, ops: [
-              { code: 'create', label: '新增', granted: false, readonly: false },
-              { code: 'update', label: '编辑', granted: false, readonly: false },
-              { code: 'delete', label: '删除', granted: false, readonly: false },
-              { code: 'grant', label: '授权', granted: true, readonly: false }
-            ] },
-          { key: 'sys.account-locks', label: '账号锁定', formLabel: '账号锁定', form: true, business: 'user',
-            formView: false, formViewReadonly: false, ops: [
-              { code: 'unlock', label: '解锁', granted: false, readonly: false }
-            ] },
+          { key: 'sys.user', label: '用户管理' },
+          { key: 'sys.role', label: '角色管理' },
+          { key: 'sys.account-locks', label: '账号锁定' },
           { key: 'sys.menu', label: '菜单管理', detached: true, disabled: true }
         ] },
         { key: 'biz', label: '业务管理', children: [
-          { key: 'biz.purchase', label: '采购申请', formLabel: '采购申请', form: true, business: 'pur',
-            formView: true, formViewReadonly: false, ops: [
-              { code: 'query', label: '查询', granted: false, readonly: false },
-              { code: 'create', label: '提交', granted: false, readonly: false }
-            ] }
+          { key: 'biz.purchase', label: '采购申请' }
         ] }
       ];
       var checkedMenuKeys = ref(['sys.user', 'sys.role', 'biz.purchase']);
       var activeMenuKey = ref('sys.user');
 
+      // 所有表单（含无菜单入口的表单）；menus 为菜单入口数组；ops/fields 带 source（菜单 key 或 null=直接授予）
+      var forms = reactive([
+        { key: 'user_form', label: '用户管理', business: 'user', menus: ['sys.user'], ops: [
+          { code: 'create', label: '新增', granted: true, source: 'sys.role' },
+          { code: 'update', label: '编辑', granted: true, source: 'sys.user' },
+          { code: 'delete', label: '删除', granted: false, source: null },
+          { code: 'reset_pwd', label: '重置密码', granted: false, source: null }
+        ], fields: [
+          { key: 'username', label: '用户名', visible: true, editableFlag: true, source: null },
+          { key: 'phone', label: '手机号', visible: true, editableFlag: false, source: 'sys.user' },
+          { key: 'dept_id', label: '部门', visible: true, editableFlag: true, source: null },
+          { key: 'password', label: '密码', visible: false, editableFlag: false, source: null }
+        ] },
+        { key: 'role_form', label: '角色管理', business: 'role', menus: ['sys.role'], ops: [
+          { code: 'create', label: '新增', granted: false, source: null },
+          { code: 'grant', label: '授权', granted: true, source: 'sys.role' }
+        ], fields: [
+          { key: 'code', label: '角色码', visible: true, editableFlag: true, source: null },
+          { key: 'name', label: '角色名', visible: true, editableFlag: true, source: null },
+          { key: 'status', label: '状态', visible: true, editableFlag: true, source: null }
+        ] },
+        { key: 'lock_form', label: '账号锁定', business: 'user', menus: ['sys.account-locks'], ops: [
+          { code: 'unlock', label: '解锁', granted: false, source: null }
+        ], fields: [
+          { key: 'username', label: '用户名', visible: true, editableFlag: true, source: null },
+          { key: 'lock_type', label: '锁定类型', visible: true, editableFlag: true, source: null }
+        ] },
+        { key: 'report_form', label: '报表配置', business: 'rpt', menus: [], ops: [
+          { code: 'query', label: '查询', granted: false, source: null },
+          { code: 'design', label: '设计', granted: false, source: null }
+        ], fields: [
+          { key: 'title', label: '报表名称', visible: true, editableFlag: true, source: null },
+          { key: 'dataset', label: '数据集', visible: true, editableFlag: true, source: null }
+        ] }
+      ]);
+
       function walkMenu(nodes, cb) { nodes.forEach(function (n) { cb(n); if (n.children) walkMenu(n.children, cb); }); }
-      function findMenu(key) { var found = null; walkMenu(menuTree, function (n) { if (n.key === key) found = n; }); return found; }
+      function findMenu(key) { var f = null; walkMenu(menuTree, function (n) { if (n.key === key) f = n; }); return f; }
       var activeMenu = computed(function () { return findMenu(activeMenuKey.value); });
-      var opKw = ref('');
-      var filteredOps = computed(function () {
-        var m = activeMenu.value;
-        if (!m || !m.ops) return [];
-        var kw = (opKw.value || '').trim();
-        return m.ops.filter(function (o) { return !kw || o.label.indexOf(kw) >= 0 || o.code.indexOf(kw) >= 0; });
-      });
+      var menuForms = computed(function () { return forms.filter(function (f) { return f.menus.indexOf(activeMenuKey.value) >= 0; }); });
+      var menuFormLabel = computed(function () { return menuForms.value.length ? menuForms.value.map(function (f) { return f.label; }).join('、') : '—'; });
+      var activeMenuBusiness = computed(function () { return menuForms.value.length ? menuForms.value[0].business : ''; });
       function menuGranted(m) {
-        if (!m) return false;
-        var checked = treeRef.value ? treeRef.value.getCheckedKeys() : [];
-        return checked.indexOf(m.key) >= 0;
+        var keys = treeRef.value ? treeRef.value.getCheckedKeys() : [];
+        return !!m && keys.indexOf(m.key) >= 0;
       }
       function onMenuSelect(data) { if (data && data.key) activeMenuKey.value = data.key; }
-      function onMenuCheck(data) {
-        permDirty.value = true;
-        var checked = treeRef.value ? treeRef.value.getCheckedKeys() : [];
-        var isChecked = checked.indexOf(data.key) >= 0;
-        if (data.form) {
-          if (isChecked) {
-            // 勾选菜单入口 → 连带授予表单查看（非别处来源时）
-            if (!data.formViewReadonly) data.formView = true;
-          } else {
-            // 取消菜单入口 → 仅撤销本入口连带授予的查看；别处设置的查看保留（只是不显示）
-            if (!data.formViewReadonly) data.formView = false;
-          }
-        }
-        activeMenuKey.value = data.key;
-      }
+      function onMenuCheck(data) { permDirty.value = true; activeMenuKey.value = data.key; }
       function filterNode(value, data) { return !value || data.label.indexOf(value) >= 0; }
       watch(treeKw, function (v) { if (treeRef.value) treeRef.value.filter(v); });
 
-      // ---------------- 权限配置：字段权限 ----------------
-      var onlyNarrowed = ref(false);
-      var fieldKw = ref('');
-      var fieldGroupsData = reactive([
-        { form: '用户管理', fields: [
-          { label: '用户名', key: 'username', visible: true, editable: true },
-          { label: '姓名', key: 'name', visible: true, editable: true },
-          { label: '手机号', key: 'phone', visible: true, editable: false },
-          { label: '部门', key: 'dept_id', visible: true, editable: true },
-          { label: '密码', key: 'password', visible: false, editable: false }
-        ] },
-        { form: '角色管理', fields: [
-          { label: '角色码', key: 'code', visible: true, editable: true },
-          { label: '角色名称', key: 'name', visible: true, editable: true },
-          { label: '状态', key: 'status', visible: true, editable: true }
-        ] }
-      ]);
-      var fieldGroups = computed(function () {
-        var kw = (fieldKw.value || '').trim();
-        return fieldGroupsData.map(function (g) {
-          return { form: g.form, fields: g.fields.filter(function (f) {
-            if (onlyNarrowed.value && f.visible && f.editable) { return false; }
-            return !kw || f.label.indexOf(kw) >= 0 || f.key.indexOf(kw) >= 0;
-          }) };
-        }).filter(function (g) { return g.fields.length; });
+      // 菜单入口视图：行可改 = 来源为当前菜单入口；其余只读
+      var menuPermTab = ref('op');
+      var menuOps = computed(function () {
+        var f = menuForms.value[0]; if (!f) return [];
+        return f.ops.map(function (o) {
+          var editable = o.source === activeMenuKey.value;
+          return { code: o.code, label: o.label, granted: o.granted, editable: editable,
+                   sourceText: o.source === null ? '表单级直接授予，只读' : ('来自「' + (findMenu(o.source) ? findMenu(o.source).label : o.source) + '」，只读') };
+        });
       });
-      var fieldCount = computed(function () {
-        return fieldGroups.value.reduce(function (n, g) { return n + g.fields.length; }, 0);
+      var menuFields = computed(function () {
+        var f = menuForms.value[0]; if (!f) return [];
+        return f.fields.map(function (x) {
+          var editable = x.source === activeMenuKey.value;
+          return { key: x.key, label: x.label, visible: x.visible, editableFlag: x.editableFlag, editable: editable,
+                   sourceText: x.source === null ? '表单级直接授予，只读' : ('来自「' + (findMenu(x.source) ? findMenu(x.source).label : x.source) + '」，只读') };
+        });
       });
-      function batchField(key, value) {
-        fieldGroupsData.forEach(function (g) { g.fields.forEach(function (f) { f[key] = value; if (key === 'visible' && !value) f.editable = false; }); });
-        permDirty.value = true;
-        toast('已批量设置（' + (key === 'visible' ? '可见' : '可编辑') + '）');
-      }
+
+      // 表单权限视图：行可改 = 直接授予（source 为空）；来自菜单入口的只读
+      var formKw = ref('');
+      var activeFormKey = ref('user_form');
+      var formPermTab = ref('op');
+      var filteredForms = computed(function () {
+        var kw = (formKw.value || '').trim();
+        return forms.filter(function (f) { return !kw || f.label.indexOf(kw) >= 0 || f.key.indexOf(kw) >= 0; });
+      });
+      var activeForm = computed(function () { return forms.find(function (f) { return f.key === activeFormKey.value; }) || null; });
+      function menuLabels(keys) { return keys.map(function (k) { var m = findMenu(k); return m ? m.label : k; }).join('、'); }
+      var formOps = computed(function () {
+        var f = activeForm.value; if (!f) return [];
+        return f.ops.map(function (o) {
+          var editable = o.source === null;
+          return { code: o.code, label: o.label, granted: o.granted, editable: editable,
+                   sourceText: o.source === null ? '' : ('来自「' + (findMenu(o.source) ? findMenu(o.source).label : o.source) + '」，只读') };
+        });
+      });
+      var formFields = computed(function () {
+        var f = activeForm.value; if (!f) return [];
+        return f.fields.map(function (x) {
+          var editable = x.source === null;
+          return { key: x.key, label: x.label, visible: x.visible, editableFlag: x.editableFlag, editable: editable,
+                   sourceText: x.source === null ? '' : ('来自「' + (findMenu(x.source) ? findMenu(x.source).label : x.source) + '」，只读') };
+        });
+      });
 
       // ---------------- 权限配置：数据范围 ----------------
       var scopes = ref([
         { key: 'user:query', label: '用户查询', expr: 'dept_id = @current_dept' },
         { key: 'user:update', label: '用户编辑', expr: '' },
         { key: 'role:query', label: '角色查询', expr: '' },
-        { key: 'pur:query', label: '采购查询', expr: 'dept_id IN @current_dept_tree' }
+        { key: 'rpt:query', label: '报表查询', expr: 'dept_id IN @current_dept_tree' }
       ]);
       var activeScope = ref('user:query');
       var scopeVars = ['@current_user', '@current_dept', '@current_dept_tree', '@tenant'];
@@ -486,13 +535,11 @@
       function bind(c) {
         if (subjects.value.length >= 20) { toast('已达单主体可绑定角色数上限（20）', 'error'); return; }
         subjects.value.push({ id: c.id, type: c.type, name: c.name, desc: c.desc });
-        permDirty.value = true;
-        toast('已绑定：' + c.name);
+        permDirty.value = true; toast('已绑定：' + c.name);
       }
       function unbind(s) {
         subjects.value = subjects.value.filter(function (x) { return !(x.id === s.id && x.type === s.type); });
-        permDirty.value = true;
-        toast('已解绑：' + s.name);
+        permDirty.value = true; toast('已解绑：' + s.name);
       }
 
       // ---------------- 权限配置：提交 / 撤销（工具栏唯一保存） ----------------
@@ -502,7 +549,7 @@
       }
       function savePerm() {
         permDirty.value = false;
-        toast('授权已保存：全量覆盖提交（先删后插、单事务、幂等键），权限版本 +1 即时生效');
+        toast('授权已保存：全量覆盖提交（先删后插、单事务、幂等键，携带来源），权限版本 +1 即时生效');
       }
 
       // ---------------- 系统信息（iframe） ----------------
@@ -523,14 +570,11 @@
 
       function toast(m, type) { ElMessage({ message: m, type: type || 'success' }); }
 
-      nextTick(function () {
-        if (treeRef.value) { activeMenuKey.value = 'sys.user'; }
-      });
       return {
         editing, section, form, builtin, isNew, startEdit, cancelEdit, saveForm, delForm, reload, closePage, onSectionChange,
-        permTab, permDirty, treeRef, treeKw, menuTree, checkedMenuKeys, activeMenu, activeMenuKey, opKw, filteredOps, menuGranted,
-        onMenuCheck, onMenuSelect, filterNode,
-        onlyNarrowed, fieldKw, fieldGroups, fieldCount, batchField,
+        permTab, permDirty, treeRef, treeKw, menuTree, checkedMenuKeys, activeMenu, activeMenuKey, menuForms, menuFormLabel, activeMenuBusiness, menuGranted, onMenuCheck, onMenuSelect, filterNode,
+        menuPermTab, menuOps, menuFields,
+        formKw, activeFormKey, formPermTab, filteredForms, activeForm, menuLabels, formOps, formFields,
         scopes, activeScope, scopeVars, activeExpr, insertVar, setExpr, validateScope,
         subjectType, subjectKw, subjects, boundOfType, candidatesOfType, bind, unbind,
         discardPerm, savePerm, sysFrame, sysH, pushSys, toast
@@ -539,7 +583,6 @@
   });
   app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
   app.mount('#app');
-  // 嵌入主框架时隐藏顶部原型条
   if (location.search.indexOf('embed=1') >= 0) { var pb = document.querySelector('.proto-bar'); if (pb) pb.style.display = 'none'; }
 </script>
 
