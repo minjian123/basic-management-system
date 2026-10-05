@@ -42,6 +42,8 @@ const captchaSource = createHttpCaptchaSource(captchaSourceOptions())
 const tenantInput = ref(getTenantCode() ?? '')
 /** 租户标识是否可见（默认隐藏；收到 `20007` 才展开）。 */
 const tenantVisible = ref(false)
+/** 是否处于「需填写租户标识」态（`20007` 后显示蓝色提示，补充租户后重提）。 */
+const needTenant = ref(false)
 /** 租户标识字段容器（展开后聚焦用）。 */
 const tenantField = ref<HTMLElement | null>(null)
 /** 登录账号。 */
@@ -156,7 +158,8 @@ function currentCaptcha(): LoginCaptchaInput | undefined {
  * 凭据校验，未消费挑战），保留验证码块状态与用户输入。
  */
 async function handleNeedTenant(): Promise<void> {
-  formError.value = resolveAuthErrorText(20007)
+  needTenant.value = true
+  formError.value = ''
   tenantVisible.value = true
   await nextTick()
   tenantField.value?.querySelector<HTMLInputElement>('[data-test="login-tenant"] input, [data-test="login-tenant"]')?.focus()
@@ -191,6 +194,8 @@ function handleLoginFailure(error: unknown): void {
     void handleNeedTenant()
     return
   }
+  // 非「需选择租户」失败即退出该态（提示随新错误清退）。
+  needTenant.value = false
   // 已登记码走文案表；**未登记码 / 非 `ApiError` 链路**优先回显服务端原文（`userMessage` → `message`）——
   // 否则一律落到「操作失败，请稍后重试」，把「验证码校验不通过」「服务暂不可用」这类可行动信息吞掉。
   formError.value = isAuthErrorCode(code) ? resolveAuthErrorText(code) : serverMessage(error) || resolveAuthErrorText(code)
@@ -278,6 +283,12 @@ onMounted(() => {
   <main class="login-view" data-test="login-view">
     <section class="login-view__card">
       <header class="login-view__brand">
+        <svg class="login-view__logo" width="44" height="44" viewBox="0 0 44 44" aria-hidden="true">
+          <rect class="login-view__logo-bg" width="44" height="44" rx="11" />
+          <text class="login-view__logo-text" x="22" y="28" text-anchor="middle" font-size="15" font-weight="700">
+            BMS
+          </text>
+        </svg>
         <h1 class="login-view__title">BMS 基础管理系统</h1>
         <p class="login-view__subtitle">统一认证入口</p>
       </header>
@@ -292,6 +303,9 @@ onMounted(() => {
             placeholder="请输入租户标识（编码）"
             data-test="login-tenant"
           />
+          <span class="login-view__hint">
+            后端无法唯一解析租户时才展开；留空表示由子域名或后端上下文解析；本机已记住的租户编码会自动带上（不显示该项）。
+          </span>
         </label>
 
         <label class="login-view__field">
@@ -306,10 +320,22 @@ onMounted(() => {
 
         <label class="login-view__field">
           <span class="login-view__label">密码</span>
-          <password-input v-model="password" :strength="false" show-toggle data-test="login-password" />
+          <password-input
+            v-model="password"
+            :strength="false"
+            show-toggle
+            placeholder="请输入密码"
+            data-test="login-password"
+          />
+          <span class="login-view__hint">不回填、不落本地存储；明文切换仅内存态。</span>
         </label>
 
-        <boolean-checkbox v-model="rememberMe" label="记住我" data-test="login-remember" />
+        <div class="login-view__remember">
+          <boolean-checkbox v-model="rememberMe" label="记住我" data-test="login-remember" />
+          <span class="login-view__hint">
+            缺省不勾选；勾选延长登录有效期为 14 天，不勾选为会话级（关闭浏览器失效）。
+          </span>
+        </div>
 
         <div v-if="captchaVisible" class="login-view__captcha" data-test="login-captcha">
           <captcha-field
@@ -322,8 +348,16 @@ onMounted(() => {
             submit-mode="defer"
             @credential="onCaptchaCredential"
             @refresh="refreshCaptcha"
-          />
+          >
+            <template #tip>
+              <span class="login-view__hint">点击图片刷新；凭证随登录请求一次性提交（校验失败自动刷新）。</span>
+            </template>
+          </captcha-field>
         </div>
+
+        <p v-if="needTenant" class="login-view__notice" data-test="login-notice">
+          {{ resolveAuthErrorText(20007) }}
+        </p>
 
         <p v-if="formError !== ''" class="login-view__error" role="alert" data-test="login-error">
           {{ formError }}
@@ -332,6 +366,7 @@ onMounted(() => {
         <el-button
           class="login-view__submit"
           type="primary"
+          size="large"
           native-type="submit"
           :loading="submitting"
           data-test="login-submit"
@@ -372,29 +407,42 @@ onMounted(() => {
 .login-view__card {
   display: flex;
   flex-direction: column;
-  gap: var(--bms-spacing-lg);
   box-sizing: border-box;
-  width: 100%;
-  max-width: 360px;
-  padding: var(--bms-spacing-xl);
+  width: 360px;
+  max-width: 100%;
+  padding: var(--bms-space-6);
   background: var(--bms-color-bg);
   border: 1px solid var(--bms-color-border);
   border-radius: var(--bms-radius-lg);
-  box-shadow: var(--bms-shadow-1);
+  box-shadow: var(--bms-shadow-sm);
 }
 
 .login-view__brand {
+  margin-bottom: var(--bms-space-6);
   text-align: center;
+}
+
+.login-view__logo {
+  display: block;
+  margin: 0 auto var(--bms-spacing-sm);
+}
+
+.login-view__logo-bg {
+  fill: var(--bms-color-primary);
+}
+
+.login-view__logo-text {
+  fill: var(--bms-color-white);
 }
 
 .login-view__title {
   margin: 0;
-  font-size: 20px;
+  font-size: 19px;
   color: var(--bms-color-text);
 }
 
 .login-view__subtitle {
-  margin: var(--bms-spacing-xs) 0 0;
+  margin: var(--bms-spacing-sm) 0 0;
   font-size: 12px;
   color: var(--bms-color-text-secondary);
 }
@@ -402,18 +450,30 @@ onMounted(() => {
 .login-view__form {
   display: flex;
   flex-direction: column;
-  gap: var(--bms-spacing-md);
+  gap: var(--bms-space-4);
 }
 
 .login-view__field {
   display: flex;
   flex-direction: column;
-  gap: var(--bms-spacing-xs);
+  gap: var(--bms-spacing-sm);
 }
 
 .login-view__label {
   font-size: 12px;
+  color: var(--bms-color-text);
+}
+
+.login-view__hint {
+  font-size: 12px;
+  line-height: 1.6;
   color: var(--bms-color-text-secondary);
+}
+
+.login-view__remember {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bms-spacing-sm);
 }
 
 .login-view__captcha {
@@ -421,9 +481,17 @@ onMounted(() => {
   flex-direction: column;
 }
 
+.login-view__notice {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--bms-color-primary);
+}
+
 .login-view__error {
   margin: 0;
   font-size: 12px;
+  line-height: 1.6;
   color: var(--bms-color-danger);
 }
 
@@ -436,6 +504,9 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: var(--bms-spacing-sm);
+  margin-top: var(--bms-space-6);
+  padding-top: var(--bms-space-4);
+  border-top: 1px solid var(--bms-color-border);
 }
 
 .login-view__sso-title {
@@ -448,7 +519,7 @@ onMounted(() => {
 .login-view__sso-list {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--bms-spacing-sm);
+  gap: var(--bms-spacing-md);
   justify-content: center;
 }
 </style>

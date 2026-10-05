@@ -249,10 +249,11 @@ describe('登录页（Kiwi 2232）', () => {
     expect(wrapper.find('[data-test="login-tenant"]').exists()).toBe(false)
     await submit(wrapper)
 
-    // 触发展开 + 聚焦 + 表单级提示。
+    // 触发展开 + 聚焦 + 蓝色提示（与登录失败红字提示分开，原型口径）。
     expect(wrapper.find('[data-test="login-tenant"]').exists()).toBe(true)
     expect(focusSpy).toHaveBeenCalled()
-    expect(wrapper.find('[data-test="login-error"]').text()).toContain('请填写租户标识')
+    expect(wrapper.find('[data-test="login-notice"]').text()).toContain('请填写租户标识')
+    expect(wrapper.find('[data-test="login-error"]').exists()).toBe(false)
     // 未消费验证码、不计失败：验证码块不出现（策略未强制）。
     expect(wrapper.find('[data-test="login-captcha"]').exists()).toBe(false)
     // 仅一次请求（未重复提交）。
