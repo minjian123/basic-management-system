@@ -10,11 +10,14 @@
 
 | 链 | 配置段 | 版本目录 | 库 | 表集（派生） |
 | --- | --- | --- | --- | --- |
-| `platform:tenant`（缺省链） | `[alembic]` | `versions/platform/tenant/` | `bms_platform_{tenant}` | 字典六表 + `sys_query_scheme` + 发件箱三表 |
+| `platform:tenant`（缺省链） | `[alembic]` | `versions/platform/tenant/` | `bms_platform_{tenant}` | 字典六表 + `sys_query_scheme` / `sys_config` / `sys_user_extension` + 发件箱三表 |
 | `platform:platform` | `[alembic:platform:platform]` | `versions/platform/platform/` | `bms_platform` | `sys_module` / `sys_module_i18n` / `sys_table_ownership` + 发件箱三表 |
-| `tenant:platform` | `[alembic:tenant:platform]` | `versions/tenant/platform/` | `bms_tenant` | `sys_tenant` + 发件箱三表 |
+| `tenant:platform` | `[alembic:tenant:platform]` | `versions/tenant/platform/` | `bms_tenant` | `sys_tenant` / `sys_tenant_database` / `sys_user_tenant` + 发件箱三表 |
 | `tenant:tenant` | `[alembic:tenant:tenant]` | `versions/tenant/tenant/` | `bms_tenant_{tenant}` | 发件箱三表 |
-| 其余服务 | 首次迁移时补段 | `versions/{service}/{platform,tenant}/`（空目录） | `bms_{service}` / `bms_{service}_{tenant}` | 基础设施表脚本随该服务首个需要补（见计划「后续阶段待办」） |
+| `identity:platform` | `[alembic:identity:platform]` | `versions/identity/platform/` | `bms_identity` | `sys_user_identity` + 发件箱三表 |
+| `identity:tenant` | `[alembic:identity:tenant]` | `versions/identity/tenant/` | `bms_identity_{tenant}` | `sys_session` / `sys_identity_provider` / `sys_client` + 发件箱三表 |
+| `org:tenant` | `[alembic:org:tenant]` | `versions/org/tenant/` | `bms_org_{tenant}` | `sys_user` + 口令策略 / 账号锁定相关表 + 发件箱三表 |
+| 其余服务（file / notification / search / ai / report） | 首次迁移时补段 | `versions/{service}/{platform,tenant}/`（目录已建，空） | `bms_{service}` / `bms_{service}_{tenant}` | 表集由 `chain_tables` 派生，脚本随该服务首个需要补 |
 
 段名规则：`[alembic]` = 缺省链 `platform:tenant`；其余链 = `[alembic:{service}:{datasource}]`。
 **只登记有迁移脚本的链**；新增服务首次迁移时须补段，否则 `alembic_config` 快速失败并给出提示。
@@ -53,3 +56,9 @@ uv run alembic -n alembic:tenant:platform -x db_key=platform_tenant upgrade head
 - **建库 / 删库**：不在迁移脚本内，走 `ops/db_admin.py`（`bms_core/db/admin.py` 能力）；
 - **库重建**：分链形态变更（链名 / 目录 / revision 归属调整）后，既有开发库 / CI 临时库 / 演练库
   须**重建**（`alembic_version` 存量取值在新链中不存在，迁移会报「找不到 revision」）。
+
+## 文档导航
+
+- 上层 [backend 工程说明](../README.md) · 仓库根 [README](../../README.md)
+- 《[数据库开发规范](../../bms文档/规范/数据库开发规范.md)》·《[命名规范](../../bms文档/规范/命名规范.md)》
+- 《[数据库设计总览](../../bms文档/设计/数据库设计/01_数据库设计_总览.md)》

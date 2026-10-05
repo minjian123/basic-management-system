@@ -1,10 +1,16 @@
 # BMS 后端（backend）
 
-> FastAPI 后端工程（**阶段一已交付**：分层目录 + 后端基座（接口占位）+ 配置 / 日志 / 健康检查真实落地）
+> FastAPI 后端工作区（uv workspace）：共享基座库 `bms_core` + 9 个服务工程；阶段一 ~ 阶段六已收口，当前阶段七（RBAC 基础模块）在途。
 
 ## 项目简介
 
-BMS 平台后端服务：Python 3.14 + FastAPI + uvicorn + Pydantic v2 + SQLAlchemy 2.0（异步）+ Alembic。阶段一交付：monorepo 分层目录、L0 根基类与集合体系、模块基类（仓储 / 服务 / 请求响应 / ORM）、core 横切基座（异常体系 + 配置 / 安全 / 日志）、跨阶段基座与能力域基座**接口占位**（应用可启动、依赖注入可解析、占位可断言）、配置管理 / 日志体系 / 健康检查（`/healthz` `/readyz`）真实实现。机制类真实实现随首个落库阶段（认证 / RBAC）回补，待办见《[项目骨架计划](../bms文档/项目/01_项目骨架/计划/01_计划_项目骨架.md)》「后续阶段待办」节。
+BMS 平台后端服务：Python 3.14 + FastAPI + uvicorn + Pydantic v2 + SQLAlchemy 2.0（异步）+ Alembic，**一服务一工程一库**（`services/` 下 9 个服务，共享基座库 `libs/bms_core`）。
+
+- **已交付**：monorepo 分层目录、L0 根基类与集合体系、模块基类（仓储 / 服务 / 请求响应 / ORM）、core 横切基座（配置 / 异常 / 安全 / 日志 / 序列化 / 锁 / 雪花 ID）、数据访问底座（引擎 / 会话 / 读写路由 / 租户 / 工作单元 / 迁移链）、配置管理 / 日志体系 / 健康检查（`/healthz` `/readyz`）、认证与会话、验证码与账号治理、数据脱敏、动态菜单与权限元数据。
+- **在途**：阶段七 RBAC 基础模块（角色管理 / 权限计算 / 用户完整域 / 租户治理）。
+- **仍为占位契约**（Null 实现）：跨阶段与能力域基座中尚未落地的部分，真实实现随对应阶段回补。
+
+分层职责、依赖方向与目录登记见《[后端开发规范](../bms文档/规范/后端开发规范.md)》；基类权威清单见《[后端基类清单](../bms文档/后端基类清单.md)》。
 
 ## 快速启动
 
@@ -94,6 +100,7 @@ python3 scripts/tools/preflight/check-preflight.py            # 一键本地预�
 
 ```text
 backend/
+├── Dockerfile        # 服务运行镜像（按服务参数化：--build-arg SERVICE=<服务>）
 ├── .python-version   # 固定 Python 3.14
 ├── pyproject.toml    # 工作区根（[tool.uv.workspace] 成员 + dev 依赖 + ruff / pyright / pytest 配置）
 ├── uv.lock           # 依赖锁定（必须提交）
@@ -102,13 +109,14 @@ backend/
 ├── config.test.toml  # test 环境覆盖（日志 json/INFO、CORS 空）
 ├── config.prod.toml  # prod 环境覆盖（日志 json/WARNING、CORS 空）
 ├── .env.example      # 全部 BMS_ 应用键模板（复制为 .env 使用，密钥留空）
-├── alembic.ini       # 迁移配置（三链，分链版本目录）
-├── alembic/          # 迁移脚本（按数据源分链：platform / tenant / archive）
+├── alembic.ini       # 迁移配置（按「服务 × 数据源」分链的配置段）
+├── alembic/          # 迁移脚本（服务 × 数据源分链；详见 alembic/README.md）
 ├── scripts/          # 开发期脚本（new_service.py 服务脚手架）
 ├── README.md         # 本文件
 ├── typings/          # 局部类型存根（sortedcontainers / fakeredis，pyright stubPath）
 ├── benchmarks/       # 微基准（bench_collections.py，手动执行、CI 不跑）
-├── ops/              # 运维脚本：check_modules / check_plugins / migrate_tenants / init_tenant / test_db / db_admin / seed_*
+├── tests_support/    # 测试共享脚手架（认证 / 菜单元数据 / 租户来源与 SQL 辅助）
+├── ops/              # 运维脚本：check_{modules,plugins,tables,contracts,budget} · contract_{snapshot,gate,smoke} · event_contracts · gateway_config · db_admin · init_tenant · migrate_tenants · provision_tenant · dev_run · seed_*.py · test_db
 ├── libs/bms_core/    # 共享基座库（各服务复用；包 bms_core，src 布局）
 │   ├── pyproject.toml
 │   ├── src/bms_core/
@@ -117,30 +125,33 @@ backend/
 │   │   ├── api/      # 接口层基座（路由基类 / 依赖 / 中间件 / 异常处理器 / 探针）
 │   │   ├── db/       # 数据访问底座（引擎 / 会话 / 读写路由 / 租户 / 引擎注册表 / 工作单元 / 迁移链）
 │   │   ├── repositories/  # 仓储基类（契约 / 内存 / 作用域 / DB 实现）
-│   │   ├── services/ # 服务基类（含事务扩展）+ 模块注册表
+│   │   ├── services/ # 服务基类（含事务扩展）+ 模块 / 表归属注册表
 │   │   ├── schemas/  # 契约基类 BaseSchema + 分页 / 排序 / 游标 / 统一响应
 │   │   ├── models/   # ORM 基类 BaseModel + 平台基础模型（sys_tenant / sys_module）
 │   │   └── <能力域>/ # 横切能力域（cache / lock / health / storage / tracing / … 契约与实现）
 │   └── tests/        # 基座库测试（不依赖具体服务应用）
-└── services/         # 9 个服务工程（一服务一工程一库；02_03 拆分）
-    ├── platform/       # 平台地基 / 配置服务（服务目录 / 插件 / 字典 / 图标 / 偏好 / 查询方案 / 代码校验 + demo 样板）
-    ├── identity/       # 认证与身份服务（验证码）
-    ├── tenant/         # 租户与配置服务
-    ├── org/            # 组织主数据服务
-    ├── file/           # 文件服务
-    ├── notification/   # 通知服务
-    ├── search/         # 检索服务
-    ├── ai/             # AI 服务
-    └── report/         # 报表打印服务
-        └── <各服务>/   # pyproject.toml + src/bms_<服务>/（main / asgi + api / services / repositories / models / schemas）+ tests/
+└── services/         # 9 个服务工程（一服务一工程一库）
+    ├── platform/     # 平台地基 / 配置服务（服务目录 / 插件 / 字典 / 图标 / 菜单权限元数据 / 查询方案 + demo 样板）
+    ├── identity/     # 认证与身份服务（会话 / 验证码）
+    ├── tenant/       # 租户与配置服务
+    ├── org/          # 组织主数据服务
+    ├── file/         # 文件服务
+    ├── notification/ # 通知服务
+    ├── search/       # 检索服务
+    ├── ai/           # AI 服务
+    └── report/       # 报表打印服务
 ```
 
-> 新增服务用 `python scripts/new_service.py <服务名>` 生成同构骨架；分层职责、依赖方向（服务只依赖共享库与自身、共享库不依赖服务、服务之间不互相 import）与目录登记见《[后端开发规范](../bms文档/规范/后端开发规范.md)》。
+> 各服务工程同构：`pyproject.toml` + `src/bms_<服务>/`（`main` / `asgi` + `api` / `services` / `repositories` / `models` / `schemas`）+ `tests/`；新增服务用 `python scripts/new_service.py <服务名>` 生成骨架。
+>
+> 分层职责、依赖方向（服务只依赖共享库与自身、共享库不依赖服务、服务之间不互相 import）与目录登记见《[后端开发规范](../bms文档/规范/后端开发规范.md)》。
 
 ## 文档导航
 
 - 仓库根 [README](../README.md)
 - 《[后端开发规范](../bms文档/规范/后端开发规范.md)》·《[后端基类清单](../bms文档/后端基类清单.md)》
 - 《[架构设计 · 后端基础类体系](../bms文档/设计/架构设计/04_架构设计_后端基础类体系.md)》
-- 阶段一：[需求总览](../bms文档/项目/01_项目骨架/需求/00_需求_项目骨架.md) · [任务基线](../bms文档/项目/01_项目骨架/任务/04_CI与阶段验收/04_CI与阶段验收.md) · [排期计划](../bms文档/项目/01_项目骨架/计划/01_计划_项目骨架.md) · [阶段测试报告](../bms文档/项目/01_项目骨架/01_测试报告_项目骨架.md)
+- 《[测试规范](../bms文档/规范/测试规范.md)》
+- 阶段一（骨架）：[需求总览](../bms文档/项目/01_项目骨架/需求/00_需求_项目骨架.md) · [任务基线](../bms文档/项目/01_项目骨架/任务/04_CI与阶段验收/04_CI与阶段验收.md) · [排期计划](../bms文档/项目/01_项目骨架/计划/01_计划_项目骨架.md) · [阶段测试报告](../bms文档/项目/01_项目骨架/01_测试报告_项目骨架.md)
+- 阶段七（RBAC 基础模块）：[需求总览](../bms文档/项目/07_RBAC基础模块/需求/00_需求_RBAC基础模块.md) · [任务基线](../bms文档/项目/07_RBAC基础模块/任务/01_插件化挂接/01_插件化挂接.md) · [排期计划](../bms文档/项目/07_RBAC基础模块/计划/01_计划_RBAC基础模块.md)
 - 《[项目规划说明](../bms文档/规划/项目规划说明.md)》

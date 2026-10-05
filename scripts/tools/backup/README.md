@@ -1,6 +1,6 @@
 # scripts/tools/backup — 开发服务器备份脚本（版本管理源）
 
-脚本实际运行于 mjbk `~/deploy/backup/`；修改流程：改本目录 → scp 同步至 mjbk。
+> 上层：[scripts 工具链说明](../README.md)。脚本实际运行于 mjbk `~/deploy/backup/`；修改流程：改本目录 → scp 同步至 mjbk。
 
 | 脚本 | 覆盖 | cron |
 | --- | --- | --- |

@@ -123,7 +123,7 @@ bms/
 │   ├── alembic/                 # 数据库迁移（按「服务 × 数据源」分链）
 │   └── ops/                     # 运维脚本（模块检查 / 租户库初始化 / 批量迁移 / 测试库流程）
 ├── frontend/                    # 前端单仓多包（pnpm workspace）
-│   ├── packages/                # 基座多包：core / vue / ui-ep / ui-vant
+│   ├── packages/                # 基座多包：core / vue / ui-ep / api-types（ui-vant 随阶段十七）
 │   ├── apps/                    # 宿主应用：desktop（PC 管理端）/ mobile（随阶段十七交付）
 │   ├── modules/                 # 运行时模块（demo / sample / slot-sample 等）
 │   ├── scripts/                 # 模块产物发布与托管脚本（release-module / serve-module-releases）
