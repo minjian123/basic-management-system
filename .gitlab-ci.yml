@@ -128,7 +128,8 @@ gate-smoke:
 # 其约束过强会逼着文档少写导航链接、损害阅读，故不作 CI 强制项。
 base-integrity:
   stage: lint
-  image: python:3.14-slim
+  # 用 ci-backend 镜像：其已固化 git（check-prototype-review --changed 需调用）；见 deploy/ci/Dockerfile.backend
+  image: $REGISTRY_IMAGE_PREFIX/ci-backend:py314
   script:
     - python scripts/tools/base-check/check-base.py
     # 环境变量模板键位一致性（密钥键位齐备 / 无废弃键 / 无真实密钥；04_03）
