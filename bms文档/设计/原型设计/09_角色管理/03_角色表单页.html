@@ -43,8 +43,8 @@
   <div class="proto-note">
     本页为「角色管理」表单框架的<b>角色记录 Tab</b>。信息栏三个子页签：<b>详细信息</b> · <b>权限配置</b> · <b>系统信息</b>。
     权限配置四页签：<b>菜单权限</b>（菜单树 → 该入口的操作权限 / 字段权限）· <b>表单权限</b>（所有表单列表 → 操作权限 / 字段权限）·
-    <b>数据范围</b> · <b>主体绑定</b>。菜单与表单为<b>多对多</b>（不同菜单入口可指向同一表单、表单也可无入口）；权限按<b>来源</b>区分——
-    本入口连带生成的可改，非本入口来源只读。保存只在页面工具栏一处。
+    <b>数据权限</b>（基础数据字典 → 数据选择 / 数据区域 / 数据匹配 / 扩展权限，只选不编）· <b>主体绑定</b>。
+    菜单与表单为<b>多对多</b>（不同菜单入口可指向同一表单、表单也可无入口）；权限按<b>来源</b>区分——本入口连带生成的可改，非本入口来源只读。保存只在页面工具栏一处。
   </div>
 
   <div id="app">
@@ -236,39 +236,118 @@
               </el-row>
             </el-tab-pane>
 
-            <!-- 数据范围（动作 → 规则表达式） -->
-            <el-tab-pane label="数据范围" name="scope">
+            <!-- 数据权限（基础数据字典 → 数据选择 / 数据区域 / 数据匹配 / 扩展权限） -->
+            <el-tab-pane label="数据权限" name="data">
               <el-row :gutter="12">
-                <el-col :span="9">
+                <el-col :span="8">
                   <div class="perm-pane">
-                    <div class="perm-pane-hd">动作</div>
-                    <ul class="scope-list">
-                      <li v-for="s in scopes" :key="s.key" :class="{ active: s.key === activeScope }" @click="activeScope = s.key">
-                        <span>{{ s.label }}</span>
-                        <code class="proto-hint">{{ s.expr || '无数据权限' }}</code>
-                      </li>
-                    </ul>
+                    <div class="perm-pane-hd">基础数据字典 <span class="proto-hint">按字典配置数据权限</span></div>
+                    <div class="perm-pane-bd">
+                      <el-input v-model="dictKw" size="small" placeholder="搜索字典" clearable style="margin-bottom:8px"></el-input>
+                      <ul class="form-list">
+                        <li v-for="d in filteredDicts" :key="d.key" :class="{ active: d.key === activeDictKey }" @click="activeDictKey = d.key">
+                          <span>{{ d.label }}</span><span class="side">{{ d.code }}</span>
+                        </li>
+                        <li v-if="!filteredDicts.length" class="proto-hint">无匹配字典</li>
+                      </ul>
+                    </div>
                   </div>
                 </el-col>
-                <el-col :span="15">
+                <el-col :span="16">
                   <div class="perm-pane">
-                    <div class="perm-pane-hd">规则表达式 <span class="proto-hint">字段 + 运算符 + 预置变量；留空 = 无数据权限</span></div>
+                    <div class="perm-pane-hd">数据权限 <span v-if="activeDict" class="proto-hint">· {{ activeDict.label }}（{{ activeDict.code }}）</span></div>
                     <div class="perm-pane-bd">
-                      <el-input v-model="activeExpr" type="textarea" :rows="3" placeholder="留空 = 无数据权限"></el-input>
-                      <div style="margin-top:8px">
-                        <span class="proto-hint">预置变量：</span>
-                        <el-tag v-for="v in scopeVars" :key="v" size="small" class="var-chip" @click="insertVar(v)">{{ v }}</el-tag>
-                      </div>
-                      <div style="margin-top:8px">
-                        <span class="proto-hint">模板：</span>
-                        <el-button size="small" @click="setExpr('created_by = @current_user')">本人</el-button>
-                        <el-button size="small" @click="setExpr('dept_id = @current_dept')">本部门</el-button>
-                        <el-button size="small" @click="setExpr('dept_id IN @current_dept_tree')">本部门及下级</el-button>
-                        <el-button size="small" @click="setExpr('tenant_id = @tenant')">本租户</el-button>
-                        <el-button size="small" @click="validateScope">校验</el-button>
-                        <el-button size="small" @click="setExpr('')">清除</el-button>
-                      </div>
-                      <div class="proto-hint" style="margin-top:8px">规则结果强制叠加租户过滤，任何规则不得跨租户。</div>
+                      <template v-if="activeDict">
+                        <el-tabs v-model="dataTab">
+                          <el-tab-pane label="数据选择" name="select">
+                            <div class="proto-hint" style="margin-bottom:6px">直接勾选该字典的数据（分页；选中即授权）。</div>
+                            <el-table ref="dictTable" :data="dictPageItems" size="small" border @selection-change="onDictSelect">
+                              <el-table-column type="selection" width="48"></el-table-column>
+                              <el-table-column prop="code" label="代码" min-width="120"></el-table-column>
+                              <el-table-column prop="label" label="名称" min-width="160"></el-table-column>
+                            </el-table>
+                            <div style="margin-top:8px;text-align:right">
+                              <el-pagination background layout="total, prev, pager, next" :total="activeDict.items.length" :page-size="dictPageSize" :current-page="dictPage" @current-change="dictPage = $event"></el-pagination>
+                            </div>
+                          </el-tab-pane>
+
+                          <el-tab-pane label="数据区域" name="region">
+                            <div class="proto-hint" style="margin-bottom:6px">按「开始值 / 结束值」划分数据区域（用动态字典组件选择字典数据）。</div>
+                            <el-table :data="policy.regions" size="small" border>
+                              <el-table-column label="开始值" min-width="180">
+                                <template #default="{ row }">
+                                  <el-select v-model="row.start" size="small" placeholder="开始值" style="width:100%">
+                                    <el-option v-for="it in activeDict.items" :key="it.code" :label="it.label + '（' + it.code + '）'" :value="it.code"></el-option>
+                                  </el-select>
+                                </template>
+                              </el-table-column>
+                              <el-table-column label="结束值" min-width="180">
+                                <template #default="{ row }">
+                                  <el-select v-model="row.end" size="small" placeholder="结束值" style="width:100%">
+                                    <el-option v-for="it in activeDict.items" :key="it.code" :label="it.label + '（' + it.code + '）'" :value="it.code"></el-option>
+                                  </el-select>
+                                </template>
+                              </el-table-column>
+                              <el-table-column label="操作" width="90" align="center">
+                                <template #default="{ $index }"><el-button link type="danger" @click="policy.regions.splice($index, 1); permDirty = true">删除</el-button></template>
+                              </el-table-column>
+                            </el-table>
+                            <el-button size="small" style="margin-top:8px" @click="policy.regions.push({ start: '', end: '' }); permDirty = true">新增区域</el-button>
+                          </el-tab-pane>
+
+                          <el-tab-pane label="数据匹配" name="match">
+                            <div class="proto-hint" style="margin-bottom:6px">按「字段 + 通配符值」匹配数据内容（默认代码字段）。仅允许通配符 <code>*</code> <code>?</code> 与中英文、数字、下划线；含其它字符报错（只选不编）。</div>
+                            <el-table :data="policy.matches" size="small" border>
+                              <el-table-column label="字段" width="160">
+                                <template #default="{ row }">
+                                  <el-select v-model="row.field" size="small" style="width:100%">
+                                    <el-option label="代码" value="code"></el-option>
+                                    <el-option label="名称" value="name"></el-option>
+                                    <el-option label="备注" value="remark"></el-option>
+                                  </el-select>
+                                </template>
+                              </el-table-column>
+                              <el-table-column label="匹配值（通配符）" min-width="200">
+                                <template #default="{ row }"><el-input v-model="row.pattern" size="small" placeholder="如 user_* / *_admin" @input="row.error = ''"></el-input></template>
+                              </el-table-column>
+                              <el-table-column label="校验" width="120">
+                                <template #default="{ row }"><span v-if="row.error" class="op-tag">{{ row.error }}</span><span v-else class="proto-hint">—</span></template>
+                              </el-table-column>
+                              <el-table-column label="操作" width="90" align="center">
+                                <template #default="{ $index }"><el-button link type="danger" @click="policy.matches.splice($index, 1); permDirty = true">删除</el-button></template>
+                              </el-table-column>
+                            </el-table>
+                            <div style="margin-top:8px">
+                              <el-button size="small" @click="policy.matches.push({ field: 'code', pattern: '', error: '' }); permDirty = true">新增匹配</el-button>
+                              <el-button size="small" @click="validateMatches">校验</el-button>
+                            </div>
+                          </el-tab-pane>
+
+                          <el-tab-pane v-if="extensions.length" label="扩展权限" name="ext">
+                            <div class="proto-hint" style="margin-bottom:6px">明细表：每行选择一条扩展权限；<b>参数</b>由该扩展权限自带的选择界面提供（存 JSON，交扩展权限自行解析）；未提供参数界面则提示「无需设置参数」。</div>
+                            <el-table :data="policy.extensions" size="small" border>
+                              <el-table-column label="扩展权限" min-width="200">
+                                <template #default="{ row }">
+                                  <el-select v-model="row.key" size="small" style="width:100%" placeholder="选择扩展权限" @change="row.params = ''">
+                                    <el-option v-for="ex in extensions" :key="ex.key" :label="ex.label" :value="ex.key"></el-option>
+                                  </el-select>
+                                </template>
+                              </el-table-column>
+                              <el-table-column label="参数" min-width="220">
+                                <template #default="{ row }">
+                                  <el-button size="small" text type="primary" @click="openExtParams(row)">设置参数</el-button>
+                                  <code class="proto-hint" style="margin-left:8px">{{ row.params || '未设置' }}</code>
+                                </template>
+                              </el-table-column>
+                              <el-table-column label="操作" width="90" align="center">
+                                <template #default="{ $index }"><el-button link type="danger" @click="policy.extensions.splice($index, 1); permDirty = true">删除</el-button></template>
+                              </el-table-column>
+                            </el-table>
+                            <el-button size="small" style="margin-top:8px" @click="policy.extensions.push({ key: '', params: '' }); permDirty = true">新增扩展权限</el-button>
+                          </el-tab-pane>
+                        </el-tabs>
+                      </template>
+                      <div v-else class="proto-hint">请选择左侧字典。</div>
                     </div>
                   </div>
                 </el-col>
@@ -315,6 +394,25 @@
             src="../02_公共原型/04_系统信息组件.html" @load="pushSys"></iframe>
         </el-tab-pane>
       </el-tabs>
+
+      <!-- 扩展权限 · 参数选择对话框（由对应扩展权限功能自带界面提供） -->
+      <el-dialog v-model="extDlg.visible" :title="extDlg.title" width="480" align-center>
+        <template v-if="extDlg.hasParams">
+          <el-form label-position="top">
+            <el-form-item :label="extDlg.fieldLabel">
+              <el-input v-model="extDlg.fieldValue" placeholder="由扩展权限自带界面填写"></el-input>
+            </el-form-item>
+          </el-form>
+          <div class="proto-hint">参数界面由「{{ extDlg.title }}」功能提供；填写内容存为 JSON，传入该扩展权限自行解析。</div>
+        </template>
+        <template v-else>
+          <div class="proto-hint">该扩展权限不需要设置参数。</div>
+        </template>
+        <template #footer>
+          <el-button @click="extDlg.visible = false">取消</el-button>
+          <el-button v-if="extDlg.hasParams" type="primary" @click="saveExtParams">确定</el-button>
+        </template>
+      </el-dialog>
     </div>
   </div>
 </div>
@@ -490,26 +588,86 @@
         });
       });
 
-      // ---------------- 权限配置：数据范围 ----------------
-      var scopes = ref([
-        { key: 'user:query', label: '用户查询', expr: 'dept_id = @current_dept' },
-        { key: 'user:update', label: '用户编辑', expr: '' },
-        { key: 'role:query', label: '角色查询', expr: '' },
-        { key: 'rpt:query', label: '报表查询', expr: 'dept_id IN @current_dept_tree' }
+      // ---------------- 权限配置：数据权限（基础数据字典 → 数据选择 / 区域 / 匹配 / 扩展） ----------------
+      var dictKw = ref('');
+      var activeDictKey = ref('user_status');
+      var dataTab = ref('select');
+      var dictPage = ref(1);
+      var dictPageSize = 6;
+      var dictTable = ref(null);
+      var dicts = [
+        { key: 'user_status', code: 'sys_user_status', label: '用户状态', items: [
+          { code: 'enabled', label: '启用' }, { code: 'disabled', label: '停用' }, { code: 'locked', label: '锁定' },
+          { code: 'pending', label: '待激活' }, { code: 'expired', label: '已过期' }, { code: 'resigned', label: '离职' }
+        ] },
+        { key: 'gender', code: 'sys_gender', label: '性别', items: [
+          { code: 'M', label: '男' }, { code: 'F', label: '女' }, { code: 'U', label: '未知' }
+        ] },
+        { key: 'dept', code: 'org_dept', label: '部门', items: [
+          { code: 'd01', label: '研发部' }, { code: 'd02', label: '财务部' }, { code: 'd03', label: '市场部' }, { code: 'd04', label: '人事部' }
+        ] },
+        { key: 'post', code: 'org_post', label: '岗位', items: [
+          { code: 'p01', label: '工程师' }, { code: 'p02', label: '会计' }, { code: 'p03', label: '主管' }
+        ] },
+        { key: 'doc_type', code: 'biz_doc_type', label: '单据类型', items: [
+          { code: 'pur', label: '采购单' }, { code: 'pay', label: '付款单' }, { code: 'sale', label: '销售单' }
+        ] }
+      ];
+      // 扩展权限：预设 / 二次开发注册的后端筛选能力（注册即有、未注册不显示）
+      var extensions = ref([
+        { key: 'dept_subtree', label: '本部门及下级部门' },
+        { key: 'my_created', label: '我创建的数据' }
       ]);
-      var activeScope = ref('user:query');
-      var scopeVars = ['@current_user', '@current_dept', '@current_dept_tree', '@tenant'];
-      var activeExpr = computed({
-        get: function () { var s = scopes.value.find(function (x) { return x.key === activeScope.value; }); return s ? s.expr : ''; },
-        set: function (v) { var s = scopes.value.find(function (x) { return x.key === activeScope.value; }); if (s) { s.expr = v; permDirty.value = true; } }
+      // 扩展权限参数提供者（由各扩展权限功能自带界面；未提供则无参）
+      var extProviders = {
+        dept_subtree: { hasParams: true, fieldLabel: '部门范围（示例参数）' },
+        my_created: { hasParams: false }
+      };
+      var extDlg = reactive({ visible: false, row: null, title: '', hasParams: true, fieldLabel: '参数', fieldValue: '' });
+      function openExtParams(row) {
+        if (!row.key) { toast('请先选择扩展权限', 'warning'); return; }
+        var ex = extensions.value.find(function (e) { return e.key === row.key; });
+        var provider = extProviders[row.key] || { hasParams: false };
+        extDlg.row = row;
+        extDlg.title = ex ? ex.label : row.key;
+        extDlg.hasParams = !!provider.hasParams;
+        extDlg.fieldLabel = provider.fieldLabel || '参数';
+        extDlg.fieldValue = row.params || '';
+        extDlg.visible = true;
+      }
+      function saveExtParams() {
+        if (extDlg.row) { extDlg.row.params = JSON.stringify({ value: extDlg.fieldValue }); permDirty.value = true; }
+        extDlg.visible = false;
+        toast('参数已保存（JSON）');
+      }
+      var policies = reactive({});
+      function ensurePolicy(key) {
+        if (!policies[key]) { policies[key] = { selection: [], regions: [], matches: [], extensions: [] }; }
+        return policies[key];
+      }
+      var filteredDicts = computed(function () {
+        var k = (dictKw.value || '').trim();
+        return dicts.filter(function (d) { return !k || d.label.indexOf(k) >= 0 || d.code.indexOf(k) >= 0; });
       });
-      function insertVar(v) { activeExpr.value = (activeExpr.value ? activeExpr.value + ' ' : '') + v; }
-      function setExpr(v) { activeExpr.value = v; }
-      function validateScope() {
-        var e = activeExpr.value.trim();
-        if (!e) { toast('空表达式 = 无数据权限'); return; }
-        if (/[^=<>!\s\w.@:'()-]/.test(e)) { toast('30047 规则表达式非法或引用未注册字段', 'error'); return; }
-        toast('表达式校验通过');
+      var activeDict = computed(function () { return dicts.find(function (d) { return d.key === activeDictKey.value; }) || null; });
+      var policy = computed(function () {
+        return activeDict.value ? ensurePolicy(activeDict.value.key) : { selection: [], regions: [], matches: [], extensions: [] };
+      });
+      var dictPageItems = computed(function () {
+        var d = activeDict.value; if (!d) return [];
+        var s = (dictPage.value - 1) * dictPageSize;
+        return d.items.slice(s, s + dictPageSize);
+      });
+      watch(activeDictKey, function () { dictPage.value = 1; });
+      function onDictSelect(sel) { policy.value.selection = sel.map(function (i) { return i.code; }); permDirty.value = true; }
+      function validateMatches() {
+        var ok = true;
+        policy.value.matches.forEach(function (m) {
+          if (!m.pattern) { m.error = '不能为空'; ok = false; return; }
+          if (!/^[A-Za-z0-9_\u4e00-\u9fa5*?]+$/.test(m.pattern)) { m.error = '含非法字符'; ok = false; return; }
+          m.error = '';
+        });
+        toast(ok ? '匹配值校验通过' : '存在非法匹配值（30047）', ok ? 'success' : 'error');
       }
 
       // ---------------- 权限配置：主体绑定 ----------------
@@ -575,7 +733,8 @@
         permTab, permDirty, treeRef, treeKw, menuTree, checkedMenuKeys, activeMenu, activeMenuKey, menuForms, menuFormLabel, activeMenuBusiness, menuGranted, onMenuCheck, onMenuSelect, filterNode,
         menuPermTab, menuOps, menuFields,
         formKw, activeFormKey, formPermTab, filteredForms, activeForm, menuLabels, formOps, formFields,
-        scopes, activeScope, scopeVars, activeExpr, insertVar, setExpr, validateScope,
+        dictKw, activeDictKey, dataTab, dicts, filteredDicts, activeDict, policy, dictPageItems, dictPage, dictPageSize, dictTable, onDictSelect, extensions, validateMatches,
+        extDlg, openExtParams, saveExtParams,
         subjectType, subjectKw, subjects, boundOfType, candidatesOfType, bind, unbind,
         discardPerm, savePerm, sysFrame, sysH, pushSys, toast
       };
