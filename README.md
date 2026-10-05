@@ -26,7 +26,7 @@
 
 后端基于 FastAPI + SQLAlchemy，前端基于 Vue 3 + Vite（PC 管理端 + 移动端 H5 双工程）。
 
-BMS 作为平台支撑独立业务产品按"平台扩展"复用（产品仓库：biz 企业运营管理、CW 创作系统），业务不入平台，机制见《[平台可扩展性规划](bms文档/规划/平台可扩展性规划.md)》；平台内部模块与产品以**微服务为目标架构**（从一开始分布式构建、每服务独立库），见《[微服务演进规划](bms文档/规划/微服务演进规划.md)》。
+BMS 作为平台支撑独立业务产品按"平台扩展"复用（产品仓库：biz 企业运营管理、mdm 主数据管理、CW 创作系统等），业务不入平台，机制见《[平台可扩展性规划](bms文档/规划/平台可扩展性规划.md)》；平台内部模块与产品以**微服务为目标架构**（从一开始分布式构建、每服务独立库），见《[微服务演进规划](bms文档/规划/微服务演进规划.md)》。
 
 **技术栈概览**
 
@@ -42,142 +42,118 @@ BMS 作为平台支撑独立业务产品按"平台扩展"复用（产品仓库�
 
 > 阶段内容与完成标准见《[总体项目规划](bms文档/规划/总体项目规划.md)》，范围与验收口径见《[项目规划说明](bms文档/规划/项目规划说明.md)》；各阶段文档入口见《[文档首页](bms文档/文档首页.md)》「项目文档」节。
 
+- **当前阶段**：**阶段七 RBAC 基础模块**（进行中；阶段一 ~ 阶段六已收口）。进度明细以**各阶段计划表为唯一落点**（见下），本文件不承载进度。
 - **阶段进度与交付**：各阶段需求 / 任务 / 计划基线见《[文档首页](bms文档/文档首页.md)》「项目文档」节；阶段内容与完成标准见《[总体项目规划](bms文档/规划/总体项目规划.md)》。
-- **阶段计划（进度唯一落点）**：阶段一《[项目骨架计划](bms文档/项目/01_项目骨架/计划/01_计划_项目骨架.md)》· 阶段二《[后端基座与服务化地基计划](bms文档/项目/02_后端基座与服务化地基/计划/01_计划_后端基座与服务化地基.md)》· 阶段三《[后端插件化计划](bms文档/项目/03_后端插件化/计划/01_计划_后端插件化.md)》· 阶段四《[前端组件库计划](bms文档/项目/04_前端组件库/计划/01_计划_前端组件库.md)》· 阶段五《[前端插件化计划](bms文档/项目/05_前端插件化/计划/01_计划_前端插件化.md)》· 阶段六《[认证与安全计划](bms文档/项目/06_认证与安全/计划/01_计划_认证与安全.md)》。
+- **阶段计划（进度唯一落点）**：阶段一《[项目骨架计划](bms文档/项目/01_项目骨架/计划/01_计划_项目骨架.md)》· 阶段二《[后端基座与服务化地基计划](bms文档/项目/02_后端基座与服务化地基/计划/01_计划_后端基座与服务化地基.md)》· 阶段三《[后端插件化计划](bms文档/项目/03_后端插件化/计划/01_计划_后端插件化.md)》· 阶段四《[前端组件库计划](bms文档/项目/04_前端组件库/计划/01_计划_前端组件库.md)》· 阶段五《[前端插件化计划](bms文档/项目/05_前端插件化/计划/01_计划_前端插件化.md)》· 阶段六《[认证与安全计划](bms文档/项目/06_认证与安全/计划/01_计划_认证与安全.md)》· 阶段七《[RBAC 基础模块计划](bms文档/项目/07_RBAC基础模块/计划/01_计划_RBAC基础模块.md)》。
 
 - 移动端 H5 宿主与渲染插件（阶段十七）、前端全页面（阶段十五）、平台自身页面迁移为模块与生产模块部署形态随后续阶段交付。
 - 后端基座与机制类的交付形态与遗留归口见《[项目骨架计划](bms文档/项目/01_项目骨架/计划/01_计划_项目骨架.md)》「后续阶段待办」节。
-- 可本地起服务：后端 `/healthz`（存活）与 `/readyz`（就绪）+ PC 前端页面（`frontend/apps/desktop`）；文档入口见《[文档首页](bms文档/文档首页.md)》「项目文档」节。
+- **可本地起服务**：本机裸跑全套（后端四服务 + PC 前端宿主），见「快速启动」节；后端 `/healthz`（存活）与 `/readyz`（就绪）。
 
 ## 快速启动
 
-> 前置：Python 3.14（uv 管理）、Node 22（nvm 管理）。
+> 前置：Python 3.14（uv 管理）、Node 22（nvm 管理）。依赖**不进仓库树**：前端 node_modules 与后端 .venv 均外置到本地依赖仓（口径见《[开发机部署使用说明总览](bms文档/资料/开发机/开发机部署使用说明总览.md)》）。
+
+**推荐：本机裸跑全套（后端四服务 + PC 宿主；无需 Docker / 无需开发服务器）**
 
 ```bash
-# 后端（端口 8000；默认 dev 环境，可用 BMS_ENV 切换 test / prod）
+# 后端四服务（identity / org / tenant / platform，各绑 127.0.0.2~5，统一端口 8000）
+bash scripts/tools/dev/本地全套.sh up        # 启动（幂等 + 有界起停；自愈 hosts 别名与开发密钥）
+bash scripts/tools/dev/本地全套.sh seed      # 建演示租户与管理员账号（口令见《本地资源》，不写入本文件）
+bash scripts/tools/dev/本地全套.sh status    # 进程与 /healthz、/readyz 一览
+bash scripts/tools/dev/本地全套.sh logs      # 打印日志尾部（追看用 tail -f）
+bash scripts/tools/dev/本地全套.sh down      # 停止（或 stop <服务> 单独腾位给调试）
+# 验证：GET http://127.0.0.1:8000/healthz 返回 {"status":"ok"}；/readyz 为就绪检查
+
+# PC 前端宿主（端口 5173）
+pnpm install --frozen-lockfile               # 前端依赖在工作区根（bms/）统一安装
+pnpm --filter @bms/desktop dev
+```
+
+**底线：单服务启动**
+
+```bash
 cd backend
 uv sync
 uv run uvicorn bms_platform.asgi:app --port 8000
-# 验证：GET http://127.0.0.1:8000/healthz 返回 {"status":"ok"}；/readyz 为就绪检查
 uv run pytest          # 全量用例（含 Kiwi TCMS 用例编号标注）
-
-# PC 前端（端口 5173；依赖在仓库根安装：pnpm install --frozen-lockfile）
-cd frontend/apps/desktop
-pnpm run dev
-pnpm run test           # Vitest 冒烟
-
-# 移动端 H5（端口 5174）—— 随阶段十七交付，当前工程未建（命令预留）
-# cd frontend/apps/mobile && pnpm run dev && pnpm run test
 ```
+
+**依赖外置维护**（`pnpm install` 前必须先还原，装完恢复外置态）：
+
+```bash
+bash scripts/tools/deps/还原依赖.sh          # 外置态 → 还原为可安装态
+bash scripts/tools/deps/外置依赖.sh          # 安装完成后恢复外置态（推荐常驻）
+```
+
+**移动端 H5**（端口 5174）—— 随阶段十七交付，当前工程未建（命令预留）：`cd frontend/apps/mobile && pnpm run dev`。
 
 本地门禁（与 CI 同口径；先 `cd backend`）：
 
 ```bash
-uv run ruff check . && uv run ruff format --check . && uv run pyright
+uv run ruff check . && uv run ruff format --check . && uv run pyright   # 依赖外置态下 pyright 可能不可用，交 CI 兜底
 uv run pytest -q --cov=bms_core --cov=bms_platform --cov-branch --cov-fail-under=70    # 覆盖率门禁 ≥ 70%
 uv run python -m ops.check_modules                             # 模块注册清单校验
-cd ../frontend/apps/desktop && pnpm run lint && pnpm run test:cov && pnpm run build && pnpm run budget   # 移动端：cd ../frontend/apps/mobile（覆盖率 ≥ 70%、体积预算门禁）
-cd .. && python3 scripts/tools/base-check/check-base.py        # 基座自检（须在仓库根）
+cd ../frontend/apps/desktop && pnpm run lint && pnpm run test:cov && pnpm run build && pnpm run budget   # 宿主（覆盖率 ≥ 70%、体积预算门禁）
+cd ../../.. && python3 scripts/tools/base-check/check-base.py  # 基座自检（须在仓库根）
 python3 scripts/tools/base-check/check-links.py                # 链接自洽校验（本地手工跑，不挂 CI）
-python3 scripts/tools/check-docs/check-status.py              # 需求 / 任务 / 计划状态一致性
+python3 scripts/tools/check-docs/check-status.py --stage <阶段> --strict   # 需求 / 任务 / 计划状态一致性
+python3 scripts/tools/preflight/check-preflight.py --fast      # 推送前预检（秒级；只跑 --fast，不跑全量）
 python3 scripts/tools/governance/collect_metrics.py           # 阶段度量与用例统计（阶段末）
 python3 scripts/tools/governance/review_stage.py              # 阶段末复盘清单
 ```
 
+> 本地测试只跑**受变更影响的定向用例**；全量与集成验证交 CI 按需触发（口径见《[AI开发规范](bms文档/规范/AI开发规范.md)》）。
+
 ## 目录结构
+
+> 只列顶层与关键文件；各工程内部细节见其自带 `README.md`，文档入口见《[文档首页](bms文档/文档首页.md)》。
 
 ```text
 bms/
-├── README.md                 # 本文件
-├── LICENSE                   # MIT 许可
-├── .gitignore                # Python / Node / 环境与凭据 / 编辑器 / 图谱产物
-├── .editorconfig             # 编辑器统一配置（UTF-8 / LF / 缩进）
-├── .gitlab-ci.yml            # CI 流水线定义（GitLab CE）
-├── renovate.json             # Renovate 配置（已置 enabled:false，停用自动升级）
-├── .vscode/                  # 编辑器共享配置（Python 解释器 / 推荐扩展）
-├── backend/                  # FastAPI 后端工作区（uv workspace：共享基座库 + 各服务工程）
-│   ├── .python-version       # 固定 Python 版本（3.14）
-│   ├── .env.example          # BMS_ 应用键模板（复制为 .env 填值，密钥留空）
-│   ├── pyproject.toml        # 工作区根（成员 + dev 依赖 + ruff / pyright / pytest 配置）
-│   ├── uv.lock               # 依赖锁定（必须提交）
-│   ├── config.toml           # 配置基线（分区与关键键，不含密钥）
-│   ├── config.dev.toml       # dev 环境覆盖（日志 console / CORS 放行）
-│   ├── config.test.toml      # test 环境覆盖（日志 json / CORS 空）
-│   ├── config.prod.toml      # prod 环境覆盖（日志 json / CORS 空）
-│   ├── alembic.ini           # 迁移配置（三链）
-│   ├── alembic/              # 迁移目录（按数据源分链）
-│   ├── scripts/              # 开发期脚本（new_service.py 服务脚手架）
-│   ├── README.md             # 工程说明
-│   ├── typings/              # 局部类型存根（sortedcontainers / fakeredis）
-│   ├── benchmarks/           # 微基准（手动执行、CI 不跑）
-│   ├── ops/                  # 运维脚本（模块 / 插件检查 · 租户库初始化 · 批量迁移 · 测试库流程）
-│   ├── libs/bms_core/        # 共享基座库（各服务复用；包 bms_core）
-│   │   └── src/bms_core/     # core / api / db / repositories / services / schemas / models + 各横切能力域
-│   └── services/platform/    # 平台地基服务（首个服务；包 bms_platform）
-│       └── src/bms_platform/ # api / services / repositories / models / schemas + main / asgi
-├── frontend/                     # 前端单仓多包（与 backend/ 对称：apps 宿主 + packages 基座）
-│   ├── pnpm-lock.yaml            # 单一锁文件（必须提交；packages / apps / modules 全收敛于根 workspace）
-│   ├── apps/desktop/                 # Vue 3 + Vite PC 管理端（Element Plus + Router + Pinia + i18n；消费 @bms/* 新体系）
-│   │   ├── .npmrc                # npmmirror 源（pnpm 读取）
-│   │   ├── .nvmrc                # 固定 Node 版本（22）
-│   │   ├── .env.development      # VITE_API_BASE=/api
-│   │   ├── eslint.config.js      # ESLint flat config
-│   │   ├── .prettierrc.json
-│   │   ├── vitest.config.ts
-│   │   ├── package.json
-│   │   ├── vite.config.ts        # 固定开发端口 5173 + @ / @bms/* 别名 + 分包 + 代理
-│   │   ├── tsconfig.json         # 及 tsconfig.app.json / tsconfig.node.json（@bms/* paths）
-│   │   ├── index.html
-│   │   ├── README.md             # 工程说明
-│   │   ├── public/favicon.svg
-│   │   ├── src/
-│   │   │   ├── main.ts           # 挂载 router / pinia / i18n + ui-ep 装配 + v-perm
-│   │   │   ├── App.vue           # 路由出口
-│   │   │   ├── adapters/         # ui-ep 注入接线 / 标签桥接 / 宿主根系出口（host-base）
-│   │   │   ├── api/              # 契约类型 / BaseApi / Axios 基线 / OpenAPI 生成类型
-│   │   │   ├── router/           # 静态路由 + 菜单 → 动态路由（@bms/vue useDynamicRoutes）
-│   │   │   ├── stores/           # Pinia：createCrudStore / permission / menu / user
-│   │   │   ├── layouts/          # BasicLayout 基础壳
-│   │   │   ├── views/            # HomeView 默认页
-│   │   │   ├── i18n/             # vue-i18n（zh-CN / en-US）
-│   │   │   ├── styles/           # 设计令牌 tokens.scss（size / density）
-│   │   │   └── utils/            # useRequest / useListPage / useTabs / validators / status / serialize
-│   │   └── tests/                # Vitest：宿主用例（base / http / request / permission / layout / menu / tabs / modal / home / utils 等）
-│   ├── apps/mobile/                  # 移动端 H5 宿主（**随阶段十七交付，当前未建**；端口预留 5174）
-│   └── packages/                 # 前端基座多包（源码头，宿主经 vite alias / tsconfig paths 消费）
-│       ├── core/                     # 框架无关核心（纯 TS：固定三段 / 组件根 / 能力基类族 / 组件基类族 / 机制 / 领域 / 契约；`@bms/core/testing` 契约用例工厂；护栏用例含基类清单对账）
-│       ├── vue/                      # Vue 绑定插件（组合式投影：useValue / useField / useAccess / useVirtualRange …）
-│       ├── ui-ep/                    # PC 实现插件（Element Plus，按族组织的组件 + 基类投影 composables + 注入点 + 单一落点 utils）
-│       └── ui-vant/                  # 移动端实现插件（**随阶段十七交付，当前未建**；与 ui-ep 同契约）
-├── deploy/                   # 部署配置
-│   │   ├── .env.example          # 开发服务器与服务凭据模板（复制为 .env）
-│   │   ├── ci/                   # CI 构建（后端 / 前端 Dockerfile + 基础镜像构建脚本）
-│   │   ├── compose/              # Docker Compose（base / gitlab / kiwi）
-│       └── setup/                # 环境安装脚本（install-all.sh）
-├── scripts/                  # 开发期工具链
-│       └── tools/                # backup / base-check / bg / check-docs / defect / dsh / gitlab / governance / reorder-design / reorder-stage / vision / winrm / wol / workbuddy
-├── ops/                      # 产品运维脚本（种子数据、备份恢复、租户库迁移，后续阶段填充）
-│       └── README.md             # 目录说明
-├── test文档 -> ../test/test文档  # 测试资产仓软链（工作区并置，不入库）
-└── bms文档/                  # 项目文档
-    ├── 基座文档清单.md        # 通用基座权威清单（产品不复制）
-    ├── 后端基类清单.md        # 后端基类权威清单（分层 / 代码位置 / 状态）
-    ├── 前端基类清单.md        # 前端基类权威清单（L0-L4 / 代码位置 / 状态）
-    ├── 文档首页.md            # 全量导航
-    ├── 规划/                  # 5 篇：项目规划说明、总体项目规划、开发部署规划、平台可扩展性规划、微服务演进规划
-    ├── 规范/                  # 20 篇：文档、命名、英文简称、前后端、数据库、API、安全、测试、日志、评审、国际化、Git、部署发布、原型审查、项目管理、需求/计划/任务文档、AI 开发
-    ├── 设计/                  # 架构设计 / 概要设计 / 数据库设计 / 布局设计 / 原型设计 / 组件设计
-    ├── 项目/                  # 按阶段的项目基线：需求 / 计划 / 任务（00_准备期、01_项目骨架、03_后端插件化、04_前端组件库、05_前端插件化）
-    ├── 资料/                  # 共享基础设施资料（开发服务器 / 开发机 / 工具 / AI / 知识档案）
-    ├── 用户文档/              # 本地资源（机器凭据等，已 gitignore）
-    └── 资源/                  # 文档共享样式与 mermaid 资产
+├── README.md                    # 本文件
+├── LICENSE                      # MIT 许可
+├── .editorconfig                # 编辑器统一配置（UTF-8 / LF / 缩进）
+├── .gitignore                   # Python / Node / 环境与凭据 / 编辑器 / 产物
+├── .gitlab-ci.yml               # CI 流水线定义（GitLab CE）
+├── renovate.json                # Renovate 配置（已置 enabled:false，停用自动升级）
+├── backend/                     # FastAPI 后端工作区（uv workspace）
+│   ├── libs/bms_core/           # 共享基座库（包 bms_core：core / api / db / 各横切能力域）
+│   ├── services/                # 各服务工程（identity / org / tenant / platform / notification / file / search / report / ai）
+│   ├── alembic/                 # 数据库迁移（按「服务 × 数据源」分链）
+│   └── ops/                     # 运维脚本（模块检查 / 租户库初始化 / 批量迁移 / 测试库流程）
+├── frontend/                    # 前端单仓多包（pnpm workspace）
+│   ├── packages/                # 基座多包：core / vue / ui-ep / ui-vant
+│   ├── apps/                    # 宿主应用：desktop（PC 管理端）/ mobile（随阶段十七交付）
+│   ├── modules/                 # 运行时模块（demo / sample / slot-sample 等）
+│   ├── scripts/                 # 模块产物发布与托管脚本（release-module / serve-module-releases）
+│   └── releases/                # 模块产物归档（不入库；仅 release-log.{json,md} 入库）
+├── deploy/                      # 部署配置（ci / compose / contracts / gateway / observability / setup 等）
+├── scripts/tools/               # 开发期工具链（base-check / check-docs / deps / dev / preflight / governance 等）
+├── ops/                         # 产品运维脚本（种子数据 / 备份恢复 / 租户库迁移，后续阶段填充）
+├── package.json                 # 前端根脚本（core:check / vue:check / ui-ep:check / api-types:gen 等）
+├── pnpm-workspace.yaml          # 前端 workspace 收敛（frontend/{packages,apps,modules}/*）
+├── pnpm-lock.yaml               # 单一锁文件（必须提交）
+├── tsconfig.base.json           # 前端 TypeScript 基线
+├── bms文档/                     # 项目文档
+│   ├── 基座文档清单.md           # 通用基座权威清单（产品不复制）
+│   ├── 后端基类清单.md           # 后端基类权威清单
+│   ├── 前端基类清单.md           # 前端基类权威清单
+│   ├── 文档首页.md               # 全量导航
+│   ├── 规划/ · 规范/ · 设计/     # 规划（5 篇）/ 规范（22 篇）/ 架构 · 概要 · 数据库 · 布局 · 原型 · 组件设计
+│   ├── 项目/                    # 按阶段的项目基线（00_准备期 ~ 07_RBAC基础模块）：需求 / 计划 / 任务
+│   ├── 资料/                    # 共享基础设施资料（开发服务器 / 开发机 / 工具 / AI / 知识档案）
+│   ├── 用户文档/                # 本地资源（机器凭据等，已 gitignore）
+│   └── 资源/                    # 文档共享样式与 mermaid 资产
+├── test文档 -> ../test/test文档   # 测试资产仓软链（工作区并置，不入库）
+└── mdm文档 -> ../mdm/mdm文档      # 主数据文档软链（工作区并置，不入库）
 ```
 
 > 凭据统一存 `deploy/.env`（已 gitignore，模板见 `deploy/.env.example`）。
 >
-> `AGENTS.md` 与 `.opencode` 位于**工作区根**（工作区模型见《[平台可扩展性规划](bms文档/规划/平台可扩展性规划.md)》4.3），不在本仓库内。
+> `AGENTS.md` 与 `.opencode/` 位于**工作区根**（工作区模型见《[平台可扩展性规划](bms文档/规划/平台可扩展性规划.md)》4.3），不在本仓库内。
 >
-> `app/` 下除 core / api / models / repositories / schemas / services / db 外，跨阶段基座与能力域基座（cache ~ ws，如缓存、事件、能力域横切）当前均为**占位契约**（Null 实现），真实实现随对应阶段回补；分层、职责与状态以《[后端基类清单](bms文档/后端基类清单.md)》为准。
+> 后端跨阶段基座与能力域基座（cache ~ ws 等）当前多为**占位契约**（Null 实现），真实实现随对应阶段回补；分层、职责与状态以《[后端基类清单](bms文档/后端基类清单.md)》为准（前端对应《[前端基类清单](bms文档/前端基类清单.md)》）。
 
 ## 文档导航
 
@@ -204,6 +180,11 @@ bms/
 | **阶段测试报告（阶段四）** | [项目/04_前端组件库/01_测试报告_前端组件库](bms文档/项目/04_前端组件库/01_测试报告_前端组件库.md) |
 | 阶段四 合规审计（首审 / 复审） | [审计（首审）](bms文档/项目/04_前端组件库/审计/01_审计_前端合规审计（首审）.md) · [审计（复审）](bms文档/项目/04_前端组件库/审计/02_审计_前端合规审计（复审）.md) |
 | 阶段五 需求 / 任务 / 计划基线 | [需求总览](bms文档/项目/05_前端插件化/需求/00_需求_前端插件化.md) · [任务基线](bms文档/项目/05_前端插件化/任务/01_扩展点与装配/01_扩展点与装配.md) · [计划](bms文档/项目/05_前端插件化/计划/01_计划_前端插件化.md) |
+| **阶段测试报告（阶段五）** | [项目/05_前端插件化/01_测试报告_前端插件化](bms文档/项目/05_前端插件化/01_测试报告_前端插件化.md) |
+| 阶段六 需求基线（认证与安全） | [项目/06_认证与安全/需求/00_需求_认证与安全](bms文档/项目/06_认证与安全/需求/00_需求_认证与安全.md) |
+| 阶段六 任务与计划基线 | [任务/01 认证与会话](bms文档/项目/06_认证与安全/任务/01_认证与会话/01_认证与会话.md) · [计划](bms文档/项目/06_认证与安全/计划/01_计划_认证与安全.md) |
+| **阶段测试报告（阶段六）** | [项目/06_认证与安全/01_测试报告_认证与安全](bms文档/项目/06_认证与安全/01_测试报告_认证与安全.md) |
+| 阶段七 需求 / 任务 / 计划基线 | [需求总览](bms文档/项目/07_RBAC基础模块/需求/00_需求_RBAC基础模块.md) · [任务基线](bms文档/项目/07_RBAC基础模块/任务/01_插件化挂接/01_插件化挂接.md) · [计划](bms文档/项目/07_RBAC基础模块/计划/01_计划_RBAC基础模块.md) |
 | 全量文档导航 | [文档首页](bms文档/文档首页.md) |
 | 通用基座文件权威清单（产品引用口径） | [基座文档清单](bms文档/基座文档清单.md) |
 | 后端基类体系（基类清单 + 强制用法） | [后端基类清单](bms文档/后端基类清单.md) · [规范/后端开发规范](bms文档/规范/后端开发规范.md) |
