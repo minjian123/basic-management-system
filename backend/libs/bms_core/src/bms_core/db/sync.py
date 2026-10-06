@@ -1,7 +1,8 @@
-"""达梦同步门面：无异步方言的库（`dm`）以阻塞驱动 + 线程池接入异步应用。
+"""达梦同步门面：无异步方言的库（`dm` / `dmxa`）以阻塞驱动 + 线程池接入异步应用。
 
 - **方言判定**：`SYNC_ONLY_DIALECTS` 与 `is_sync_only_url` 是「哪些方言只能走同步路径」的
-  唯一来源（`app/db/engine.py` 复用该常量，避免两处漂移）。
+  唯一来源（`app/db/engine.py` 复用该常量，避免两处漂移）。达梦 `dm`（原生）与 `dmxa`
+  （自定义 XA 方言，见 `dialects/dm_xa.py`）均属同步方言。
 - **`SyncSession`**：阻塞 `sqlalchemy.orm.Session` 的异步门面——除纯内存调用（`add` /
   `delete` / `get_bind` 不产生 IO）外，全部经 `asyncio.to_thread` 执行，协程语义与
   `AsyncSession` 对齐，使达梦在异步应用内可跑（会话入口 `session_scope` 按方言分流）。
@@ -24,8 +25,8 @@ from sqlalchemy.sql.base import Executable
 from bms_core.core.concurrent import ConcurrentStableSet
 from bms_core.core.objects import BaseFrameworkObject
 
-SYNC_ONLY_DIALECTS: ConcurrentStableSet[str] = ConcurrentStableSet({"dm"})
-"""无异步方言、仅同步驱动的方言（达梦）。"""
+SYNC_ONLY_DIALECTS: ConcurrentStableSet[str] = ConcurrentStableSet({"dm", "dmxa"})
+"""无异步方言、仅同步驱动的方言（达梦 `dm` / `dmxa`）。"""
 
 
 def is_sync_only_url(url: str) -> bool:
@@ -35,7 +36,7 @@ def is_sync_only_url(url: str) -> bool:
         url: 数据库连接串。
 
     Returns:
-        bool: 仅同步方言 True（`dm`）。
+        bool: 仅同步方言 True（`dm` / `dmxa`）。
     """
     return make_url(url).get_backend_name() in SYNC_ONLY_DIALECTS
 

@@ -1,7 +1,7 @@
 """异步引擎工厂：按数据源与读写角色创建 / 缓存引擎。
 
 - 方言：SQLite `sqlite+aiosqlite`（开发 / 测试）、MySQL `mysql+aiomysql`、
-  PostgreSQL `postgresql+psycopg`、达梦 `dm+dmPython`（**同步驱动**，见下）。
+  PostgreSQL `postgresql+psycopg`、达梦 `dmxa+dmPython`（**自定义 XA 同步方言**，见下）。
 - 主 / 副本多绑定：写走主引擎；只读有副本时按进程内轮询选副本，无副本回落主引擎。
 - 库键与库名经 `bms_core/db/keys.py` 单一来源派生：**相对键**（`platform` / `tenant_{code}`）按当前
   服务解析为 `bms_{service}` / `bms_{service}_{code}`；**全限定键**（`platform_{service}` /
@@ -10,7 +10,8 @@
 - **越界拒绝**：取键入口先经 `validate_key` 校验服务归属，全限定键越界抛 `DataOwnershipError`（10008）；
   运维侧（`ops`）经 `allow_cross_service=True` 显式豁免（仅运维通道）。
 - 建引擎**不建连**；URL 经配置基座读取；连接池参数按服务（`[app].service`）取覆盖。
-- 达梦为同步驱动、无异步方言：`create` 对其抛 `ConfigError`（运行期经 `app/db/sync.py` 的
+- 达梦为同步驱动、无异步方言（原生 `dm` 与自定义 XA 方言 `dmxa`）：`create` 对其抛 `ConfigError`
+  （运行期经 `app/db/sync.py` 的
   同步门面 `SyncSession` 接入，见《后端基类清单》）；`create_sync` 提供同步引擎
   （达梦运行期与四库连通性验证），支持与异步路径同源的副本路由。
 - 工厂链：`EngineFactory → BaseDbFactory → BaseFactory → BasePluggable`（02-54）；实现可替换
@@ -43,7 +44,7 @@ _CONNECT_TIMEOUT_DIALECTS = frozenset({"mysql", "postgresql"})
 
 
 def _dialect_name(url: str) -> str:
-    """取连接串方言名（`+` 前段，如 `mysql` / `postgresql` / `dm` / `sqlite`）。
+    """取连接串方言名（`+` 前段，如 `mysql` / `postgresql` / `dm` / `dmxa` / `sqlite`）。
 
     Args:
         url: 数据库连接串。
@@ -52,6 +53,24 @@ def _dialect_name(url: str) -> str:
         str: 后端方言名。
     """
     return make_url(url).get_backend_name()
+
+
+def _normalize_dialect_url(url: str) -> str:
+    """把达梦连接串方言归一为自定义 XA 方言 `dmxa`。
+
+    存量配置可能仍写 `dm+dmPython`；平台**全部达梦连接统一改走 `dmxa`**（两阶段经 `DBMS_XA`，
+    见 `dialects/dm_xa.py`），非达梦串原样返回。
+
+    Args:
+        url: 数据库连接串。
+
+    Returns:
+        str: 归一后的连接串（达梦 → `dmxa+dmPython`）。
+    """
+    parsed = make_url(url)
+    if parsed.get_backend_name() == "dm":
+        return parsed.set(drivername="dmxa+dmPython").render_as_string(hide_password=False)
+    return url
 
 
 def _with_password(url: str, target: DatabaseTargetSettings) -> str:
@@ -227,10 +246,10 @@ class EngineFactory(BaseDbFactory[str | None, AsyncEngine]):
             ConfigError: 模板占位非法或需服务标识而未提供。
         """
         if key.kind == DB_KIND_ARCHIVE:
-            return self._settings.database.apply_sqlite_dir(target.url)
+            return _normalize_dialect_url(self._settings.database.apply_sqlite_dir(target.url))
         template = target.url_template
         if not template:
-            return self._settings.database.apply_sqlite_dir(target.url)
+            return _normalize_dialect_url(self._settings.database.apply_sqlite_dir(target.url))
         effective = key.service or self._settings.app.service
         needs_service = "{service}" in template or "{database}" in template
         if needs_service and not effective:
@@ -243,7 +262,7 @@ class EngineFactory(BaseDbFactory[str | None, AsyncEngine]):
             value = template.format(service=effective, tenant=key.tenant_code or "", database=database)
         except (KeyError, IndexError, ValueError) as exc:
             raise ConfigError(f"数据库连接串模板占位非法：{template}（{exc}）") from exc
-        return self._settings.database.apply_sqlite_dir(value)
+        return _normalize_dialect_url(self._settings.database.apply_sqlite_dir(value))
 
     def _resolve_url_role(self, key: DbKey, target: DatabaseTargetSettings, *, read_only: bool) -> tuple[str, str]:
         """解析连接串与角色键（写主库；只读有副本则轮询，无副本回落主库）。
@@ -260,7 +279,7 @@ class EngineFactory(BaseDbFactory[str | None, AsyncEngine]):
             return _with_password(self._target_url(key, target), target), "write"
         index = self._round_robin.get(key.raw, 0)
         self._round_robin.set(key.raw, (index + 1) % len(target.replicas))
-        return _with_password(target.replicas[index], target), f"read:{index}"
+        return _with_password(_normalize_dialect_url(target.replicas[index]), target), f"read:{index}"
 
     def _engine_kwargs(self, target: DatabaseTargetSettings, dialect: str) -> ConcurrentStableDict[str, object]:
         """构造引擎参数（SQLite 无池参数；余下附池参数与建连超时）。

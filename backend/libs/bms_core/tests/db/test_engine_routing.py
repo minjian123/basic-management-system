@@ -83,7 +83,8 @@ async def test_dm_sync_only_dialect() -> None:
         factory.create("platform")
     sync_engine = factory.create_sync("platform")
     assert isinstance(sync_engine, Engine)
-    assert sync_engine.dialect.name == "dm"
+    # 达梦连接串方言归一为自定义 XA 方言 `dmxa`（全部达梦连接改走，见 db/dialects/dm_xa.py）
+    assert sync_engine.dialect.name == "dmxa"
     assert factory.create_sync("platform") is sync_engine
     await factory.drop("platform")
     assert factory.create_sync("platform") is not sync_engine
