@@ -41,7 +41,7 @@
 <div class="proto-frame">
   <div class="proto-note">
     本原型对应当前目录 <a href="07_组件设计_权限配置.md">《组件设计 · 权限配置》</a>：<b>菜单权限</b>（菜单树 → 该入口的操作权限 / 字段权限）、
-    <b>表单权限</b>（所有表单列表 → 操作权限 / 字段权限，补充授权）、<b>数据权限</b>（基础数据字典 → 数据选择 / 数据区域 / 数据匹配 / 扩展权限，只选不编）、<b>主体绑定</b>。
+    <b>表单权限</b>（所有表单列表 → 操作权限 / 字段权限，补充授权）、<b>数据权限</b>（基础数据字典 → 数据选择 / 数据区域 / 数据匹配 / 扩展权限，只选不编）、<b>角色分配</b>。
     菜单 ↔ 表单多对多、权限按<b>来源</b>区分（本入口连带可改 / 非本入口只读）；<b>保存由宿主页面工具栏触发</b>（顶部示意）。
   </div>
 
@@ -229,26 +229,30 @@
           </el-row>
         </el-tab-pane>
 
-        <!-- 主体绑定 -->
-        <el-tab-pane label="主体绑定" name="subject">
-          <div class="dp-bar"><span class="dp-hint">任意主体链：用户/岗位/部门；勾选即绑定，变更版本 +1 实时生效</span></div>
-          <el-tabs v-model="subjectTab" type="card" style="max-width:720px">
-            <el-tab-pane label="用户" name="user">
-              <el-select v-model="subjects.user" multiple filterable placeholder="搜索用户" style="width:100%" @change="touch">
+        <!-- 角色分配：用户分配内建 + 岗位分配 / 部门分配（mdm 插件页签） -->
+        <el-tab-pane label="角色分配" name="assign">
+          <div class="dp-bar"><span class="dp-hint">用户分配写入 <code>sys_user_role</code>（与用户管理页「用户分配角色」同一张表）；岗位 / 部门分配由 mdm 插件插入（未注册即隐藏）；用户分配随宿主保存，插件页签即时提交</span></div>
+          <el-tabs v-model="assignTab" type="card" style="max-width:720px">
+            <el-tab-pane label="用户分配" name="user">
+              <el-select v-model="assignUsers" multiple filterable placeholder="搜索用户" style="width:100%" @change="touch">
                 <el-option v-for="u in userOptions" :key="u.id" :label="u.name" :value="u.id"></el-option>
               </el-select>
             </el-tab-pane>
-            <el-tab-pane label="岗位" name="position">
-              <el-select v-model="subjects.position" multiple filterable placeholder="搜索岗位" style="width:100%" @change="touch">
+            <el-tab-pane v-if="mdmLoaded" label="岗位分配" name="post">
+              <el-select v-model="assignPosts" multiple filterable placeholder="搜索岗位（mdm 插件）" style="width:100%" @change="touch">
                 <el-option v-for="p in positionOptions" :key="p.id" :label="p.name" :value="p.id"></el-option>
               </el-select>
             </el-tab-pane>
-            <el-tab-pane label="部门" name="dept">
-              <el-select v-model="subjects.dept" multiple filterable placeholder="搜索部门" style="width:100%" @change="touch">
+            <el-tab-pane v-if="mdmLoaded" label="部门分配" name="dept">
+              <el-select v-model="assignDepts" multiple filterable placeholder="搜索部门（mdm 插件）" style="width:100%" @change="touch">
                 <el-option v-for="d in deptOptions" :key="d.id" :label="d.name" :value="d.id"></el-option>
               </el-select>
             </el-tab-pane>
           </el-tabs>
+          <div class="dp-bar" style="margin-top:8px">
+            <el-switch v-model="mdmLoaded" size="small" active-text="模拟 mdm 插件：已加载" inactive-text="模拟 mdm 插件：未加载"></el-switch>
+            <span class="dp-hint" style="margin-left:8px">bms 单独运行无「岗位分配 / 部门分配」Tab（插件缺失即隐藏）</span>
+          </div>
         </el-tab-pane>
       </el-tabs>
 
@@ -444,8 +448,11 @@
         ElMessage.success('参数已保存（JSON）');
       }
 
-      var subjectTab = ref('user');
-      var subjects = reactive({ user: ['1001'], position: [], dept: ['d1'] });
+      var assignTab = ref('user');
+      var assignUsers = ref(['1001']);
+      var assignPosts = ref([]);
+      var assignDepts = ref(['d1']);
+      var mdmLoaded = ref(false);
       var userOptions = [{ id: '1001', name: '张三' }, { id: '1002', name: '李四' }];
       var positionOptions = [{ id: 'p1', name: '财务主管' }, { id: 'p2', name: '部门经理' }];
       var deptOptions = [{ id: 'd1', name: '研发中心' }, { id: 'd2', name: '财务部' }];
@@ -472,7 +479,7 @@
         menuSub, menuOps, menuFields,
         formKw, activeFormKey, formSub, filteredForms, activeForm, menuLabels, formOps, formFields,
         dictKw, activeDictKey, dataTab, filteredDicts, activeDict, policy, dictPageItems, extensions, validateMatches, extDlg, openExtParams, saveExtParams,
-        subjectTab, subjects, userOptions, positionOptions, deptOptions, touch, reset, save
+        assignTab, assignUsers, assignPosts, assignDepts, mdmLoaded, userOptions, positionOptions, deptOptions, touch, reset, save
       };
     }
   });

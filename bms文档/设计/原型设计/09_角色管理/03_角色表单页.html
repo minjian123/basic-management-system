@@ -43,8 +43,8 @@
   <div class="proto-note">
     本页为「角色管理」表单框架的<b>角色记录 Tab</b>。信息栏三个子页签：<b>详细信息</b> · <b>权限配置</b> · <b>系统信息</b>。
     权限配置四页签：<b>菜单权限</b>（菜单树 → 该入口的操作权限 / 字段权限）· <b>表单权限</b>（所有表单列表 → 操作权限 / 字段权限）·
-    <b>数据权限</b>（基础数据字典 → 数据选择 / 数据区域 / 数据匹配 / 扩展权限，只选不编）· <b>主体绑定</b>。
-    菜单与表单为<b>多对多</b>（不同菜单入口可指向同一表单、表单也可无入口）；权限按<b>来源</b>区分——本入口连带生成的可改，非本入口来源只读。保存只在页面工具栏一处。
+    <b>数据权限</b>（基础数据字典 → 数据选择 / 数据区域 / 数据匹配 / 扩展权限，只选不编）· <b>角色分配</b>（<b>用户分配</b>内建；<b>岗位分配 / 部门分配</b>由 mdm 插件插入）。
+    菜单与表单为<b>多对多</b>（不同菜单入口可指向同一表单、表单也可无入口）；权限按<b>来源</b>区分——本入口连带生成的可改，非本入口来源只读。保存只在页面工具栏一处（用户分配随宿主保存，插件页签即时提交）。
   </div>
 
   <div id="app">
@@ -354,35 +354,67 @@
               </el-row>
             </el-tab-pane>
 
-            <!-- 主体绑定 -->
-            <el-tab-pane label="主体绑定" name="subject">
-              <div class="op-row">
-                <el-radio-group v-model="subjectType" size="small">
-                  <el-radio-button label="user">用户</el-radio-button>
-                  <el-radio-button label="position">岗位</el-radio-button>
-                  <el-radio-button label="dept">部门</el-radio-button>
-                </el-radio-group>
-                <el-input v-model="subjectKw" size="small" placeholder="搜索主体名称" clearable style="width:200px;margin-left:8px"></el-input>
-                <span class="proto-hint" style="margin-left:auto">{{ subjects.length }} / 20</span>
-              </div>
-              <div class="proto-hint">任意主体链：用户 / 岗位 / 部门；勾选即绑定、移除即解绑；变更后权限版本 +1 实时生效。</div>
-              <div style="margin-top:10px">
-                <div class="proto-hint">已绑定（{{ boundOfType.length }}）</div>
-                <div style="margin-top:6px">
-                  <el-tag v-for="s in boundOfType" :key="s.type + ':' + s.id" closable style="margin:0 6px 6px 0" @close="unbind(s)">{{ s.name }}</el-tag>
-                  <span v-if="!boundOfType.length" class="proto-hint">暂无主体绑定</span>
-                </div>
-              </div>
-              <div style="margin-top:12px">
-                <div class="proto-hint">候选（点击绑定）</div>
-                <ul class="candidate-list">
-                  <li v-for="c in candidatesOfType" :key="c.id">
-                    <el-button size="small" text type="primary" @click="bind(c)">绑定</el-button>
-                    <span>{{ c.name }}</span>
-                    <span class="proto-hint" style="margin-left:8px">{{ c.desc }}</span>
-                  </li>
-                  <li v-if="!candidatesOfType.length" class="proto-hint">无匹配候选</li>
-                </ul>
+            <!-- 角色分配：用户分配（bms 内建）+ 岗位分配 / 部门分配（mdm 插件页签） -->
+            <el-tab-pane label="角色分配" name="assign">
+              <el-tabs v-model="assignTab" type="card">
+                <!-- 用户分配（bms 内建，写 sys_user_role） -->
+                <el-tab-pane label="用户分配" name="user">
+                  <div class="op-row">
+                    <el-input v-model="userKw" size="small" placeholder="搜索已分配用户" clearable style="width:200px"></el-input>
+                    <el-button size="small" type="primary" @click="openUserPicker">选择用户</el-button>
+                    <span class="proto-hint" style="margin-left:auto">已分配 {{ assignedUsers.length }}</span>
+                  </div>
+                  <div class="proto-hint" style="margin-bottom:6px">
+                    将该角色分配给用户（写入 <code>sys_user_role</code>，与用户管理页「用户分配角色」<b>同一张关系表</b>）；<b>不设数量上限</b>，保存只在页面工具栏一处。
+                  </div>
+                  <el-table :data="filteredAssignedUsers" size="small" border>
+                    <el-table-column prop="name" label="姓名" min-width="110"></el-table-column>
+                    <el-table-column prop="username" label="账号" min-width="120"></el-table-column>
+                    <el-table-column label="状态" width="90">
+                      <template #default="{ row }"><el-tag size="small" :type="row.enabled ? 'success' : 'info'">{{ row.enabled ? '启用' : '停用' }}</el-tag></template>
+                    </el-table-column>
+                    <el-table-column label="操作" width="80" align="center">
+                      <template #default="{ row }"><el-button link type="danger" @click="unassignUser(row)">移除</el-button></template>
+                    </el-table-column>
+                    <template #empty><span class="proto-hint">暂无已分配用户</span></template>
+                  </el-table>
+                </el-tab-pane>
+
+                <!-- 岗位分配 / 部门分配：由 mdm 组织域插件插入（未注册即隐藏） -->
+                <el-tab-pane v-if="mdmPluginLoaded" label="岗位分配" name="post">
+                  <div class="op-row">
+                    <el-button size="small" @click="pluginPick('post')">选择岗位</el-button>
+                    <span class="proto-hint" style="margin-left:8px">由 mdm「岗位分配」插件渲染 · 即时提交</span>
+                  </div>
+                  <el-table :data="assignedPosts" size="small" border>
+                    <el-table-column prop="name" label="岗位" min-width="150"></el-table-column>
+                    <el-table-column prop="dept" label="所属部门" min-width="150"></el-table-column>
+                    <el-table-column label="操作" width="80" align="center">
+                      <template #default="{ row }"><el-button link type="danger" @click="pluginUnbind('post', row)">移除</el-button></template>
+                    </el-table-column>
+                  </el-table>
+                  <div class="proto-hint" style="margin-top:6px">数据与契约整体归 mdm 组织域（<code>org_role_post</code>）；bms 仅经具名插槽呈现，插件缺失即隐藏。</div>
+                </el-tab-pane>
+                <el-tab-pane v-if="mdmPluginLoaded" label="部门分配" name="dept">
+                  <div class="op-row">
+                    <el-button size="small" @click="pluginPick('dept')">选择部门</el-button>
+                    <span class="proto-hint" style="margin-left:8px">由 mdm「部门分配」插件渲染 · 即时提交</span>
+                  </div>
+                  <el-table :data="assignedDepts" size="small" border>
+                    <el-table-column prop="name" label="部门" min-width="180"></el-table-column>
+                    <el-table-column label="操作" width="80" align="center">
+                      <template #default="{ row }"><el-button link type="danger" @click="pluginUnbind('dept', row)">移除</el-button></template>
+                    </el-table-column>
+                  </el-table>
+                  <div class="proto-hint" style="margin-top:6px">数据与契约整体归 mdm 组织域（<code>org_role_dept</code>）；bms 仅经具名插槽呈现，插件缺失即隐藏。</div>
+                </el-tab-pane>
+              </el-tabs>
+
+              <!-- 演示：模拟 mdm 插件加载 / 卸载（具名插槽同槽多来源 + 未注册即隐藏） -->
+              <div class="op-row" style="margin-top:8px;border-top:1px dashed #eaeef2;padding-top:8px">
+                <el-switch v-model="mdmPluginLoaded" size="small" @change="onPluginToggle"
+                  active-text="模拟 mdm 插件：已加载" inactive-text="模拟 mdm 插件：未加载"></el-switch>
+                <span class="proto-hint" style="margin-left:10px">bms 单独运行<b>无</b>「岗位分配 / 部门分配」Tab（插件缺失即隐藏，不报错、不阻塞）</span>
               </div>
             </el-tab-pane>
           </el-tabs>
@@ -411,6 +443,23 @@
         <template #footer>
           <el-button @click="extDlg.visible = false">取消</el-button>
           <el-button v-if="extDlg.hasParams" type="primary" @click="saveExtParams">确定</el-button>
+        </template>
+      </el-dialog>
+
+      <!-- 选择用户对话框（用户分配；从用户主数据多选，已分配不可选） -->
+      <el-dialog v-model="userPick.visible" title="选择用户" width="660" align-center>
+        <div class="op-row">
+          <el-input v-model="userPick.kw" size="small" placeholder="搜索用户（姓名 / 账号）" clearable style="width:220px"></el-input>
+          <span class="proto-hint" style="margin-left:auto">从用户主数据选择，可多选</span>
+        </div>
+        <el-table ref="userPickTable" :data="pickerCandidates" size="small" border height="300" @selection-change="onPickerSelect">
+          <el-table-column type="selection" width="48" :selectable="pickerSelectable"></el-table-column>
+          <el-table-column prop="name" label="姓名" min-width="110"></el-table-column>
+          <el-table-column prop="username" label="账号" min-width="120"></el-table-column>
+        </el-table>
+        <template #footer>
+          <el-button @click="userPick.visible = false">取消</el-button>
+          <el-button type="primary" @click="confirmUserPick">添加所选用户</el-button>
         </template>
       </el-dialog>
     </div>
@@ -459,7 +508,7 @@
       }
       function delForm() {
         if (builtin) { toast('内置角色不可删除（30043）', 'error'); return; }
-        ElMessageBox.confirm('删除该角色？存在主体绑定或有效授权引用的角色将被拒绝（30044），删除后不可恢复。', '提示', {
+        ElMessageBox.confirm('删除该角色？存在角色分配或有效授权引用的角色将被拒绝（30044），删除后不可恢复。', '提示', {
           type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消', confirmButtonClass: 'el-button--danger'
         }).then(function () { toast('已删除并关闭记录 Tab，列表已刷新'); }).catch(function () {});
       }
@@ -670,34 +719,69 @@
         toast(ok ? '匹配值校验通过' : '存在非法匹配值（30047）', ok ? 'success' : 'error');
       }
 
-      // ---------------- 权限配置：主体绑定 ----------------
-      var subjectType = ref('user');
-      var subjectKw = ref('');
-      var subjects = ref([
-        { id: '1001', type: 'user', name: '张三', desc: '技术部' },
-        { id: 'd1', type: 'dept', name: '研发中心', desc: '部门' }
+      // ---------------- 权限配置：角色分配（用户分配内建 + 岗位/部门分配 mdm 插件） ----------------
+      var assignTab = ref('user');
+      var userKw = ref('');
+      var assignedUsers = ref([
+        { id: '1001', name: '张三', username: 'zhangsan', dept: '技术部', enabled: true },
+        { id: '1002', name: '李四', username: 'lisi', dept: '财务部', enabled: true }
       ]);
-      var candidateData = {
-        user: [ { id: '1001', type: 'user', name: '张三', desc: '技术部' }, { id: '1002', type: 'user', name: '李四', desc: '财务部' }, { id: '1003', type: 'user', name: '王五', desc: '技术部' } ],
-        position: [ { id: 'p1', type: 'position', name: '工程师', desc: '技术部' }, { id: 'p2', type: 'position', name: '会计', desc: '财务部' } ],
-        dept: [ { id: 'd1', type: 'dept', name: '研发中心', desc: '部门' }, { id: 'd2', type: 'dept', name: '财务部', desc: '部门' } ]
-      };
-      var boundOfType = computed(function () { return subjects.value.filter(function (s) { return s.type === subjectType.value; }); });
-      var candidatesOfType = computed(function () {
-        var bound = subjects.value.map(function (s) { return s.type + ':' + s.id; });
-        var kw = (subjectKw.value || '').trim();
-        return (candidateData[subjectType.value] || []).filter(function (c) {
-          return bound.indexOf(c.type + ':' + c.id) < 0 && (!kw || c.name.indexOf(kw) >= 0);
+      var userPool = [
+        { id: '1001', name: '张三', username: 'zhangsan', dept: '技术部', enabled: true },
+        { id: '1002', name: '李四', username: 'lisi', dept: '财务部', enabled: true },
+        { id: '1003', name: '王五', username: 'wangwu', dept: '技术部', enabled: true },
+        { id: '1004', name: '赵六', username: 'zhaoliu', dept: '人事部', enabled: false },
+        { id: '1005', name: '钱七', username: 'qianqi', dept: '市场部', enabled: true }
+      ];
+      var filteredAssignedUsers = computed(function () {
+        var kw = (userKw.value || '').trim();
+        return assignedUsers.value.filter(function (u) { return !kw || u.name.indexOf(kw) >= 0 || u.username.indexOf(kw) >= 0; });
+      });
+      function isAssigned(row) {
+        return assignedUsers.value.some(function (u) { return u.id === row.id; });
+      }
+      function unassignUser(row) {
+        assignedUsers.value = assignedUsers.value.filter(function (u) { return u.id !== row.id; });
+        permDirty.value = true; toast('已移除：' + row.name);
+      }
+      // 选择用户对话框（从用户主数据多选；已分配不可选）
+      var userPick = reactive({ visible: false, kw: '' });
+      var userPickTable = ref(null);
+      var pickerSelected = ref([]);
+      var pickerCandidates = computed(function () {
+        var kw = (userPick.kw || '').trim();
+        return userPool.filter(function (u) {
+          return !isAssigned(u) && (!kw || u.name.indexOf(kw) >= 0 || u.username.indexOf(kw) >= 0);
         });
       });
-      function bind(c) {
-        if (subjects.value.length >= 20) { toast('已达单主体可绑定角色数上限（20）', 'error'); return; }
-        subjects.value.push({ id: c.id, type: c.type, name: c.name, desc: c.desc });
-        permDirty.value = true; toast('已绑定：' + c.name);
+      function pickerSelectable(row) { return !isAssigned(row); }
+      function openUserPicker() {
+        userPick.kw = ''; pickerSelected.value = []; userPick.visible = true;
       }
-      function unbind(s) {
-        subjects.value = subjects.value.filter(function (x) { return !(x.id === s.id && x.type === s.type); });
-        permDirty.value = true; toast('已解绑：' + s.name);
+      function onPickerSelect(sel) { pickerSelected.value = sel; }
+      function confirmUserPick() {
+        if (!pickerSelected.value.length) { toast('请先选择用户', 'warning'); return; }
+        pickerSelected.value.forEach(function (u) {
+          if (!isAssigned(u)) { assignedUsers.value.push({ id: u.id, name: u.name, username: u.username, dept: u.dept, enabled: u.enabled }); }
+        });
+        permDirty.value = true;
+        toast('已添加 ' + pickerSelected.value.length + ' 名用户（保存后生效）');
+        userPick.visible = false;
+      }
+      // 岗位分配 / 部门分配：mdm 组织域插件页签（即时提交，与宿主保存解耦）
+      var mdmPluginLoaded = ref(false);
+      var assignedPosts = ref([{ id: 'p1', name: '工程师', dept: '研发中心' }]);
+      var assignedDepts = ref([{ id: 'd1', name: '研发中心' }]);
+      function onPluginToggle(v) {
+        toast(v ? 'mdm 插件已加载：插入「岗位分配 / 部门分配」页签（同槽多来源）' : 'mdm 插件已卸载：页签移除（未注册即隐藏）');
+      }
+      function pluginPick(kind) {
+        toast('由 mdm「' + (kind === 'post' ? '岗位分配' : '部门分配') + '」插件提供的选择界面（演示占位）', 'warning');
+      }
+      function pluginUnbind(kind, row) {
+        if (kind === 'post') { assignedPosts.value = assignedPosts.value.filter(function (x) { return x.id !== row.id; }); }
+        else { assignedDepts.value = assignedDepts.value.filter(function (x) { return x.id !== row.id; }); }
+        toast('已移除：' + row.name + '（mdm 侧即时提交，不随宿主保存）');
       }
 
       // ---------------- 权限配置：提交 / 撤销（工具栏唯一保存） ----------------
@@ -735,7 +819,7 @@
         formKw, activeFormKey, formPermTab, filteredForms, activeForm, menuLabels, formOps, formFields,
         dictKw, activeDictKey, dataTab, dicts, filteredDicts, activeDict, policy, dictPageItems, dictPage, dictPageSize, dictTable, onDictSelect, extensions, validateMatches,
         extDlg, openExtParams, saveExtParams,
-        subjectType, subjectKw, subjects, boundOfType, candidatesOfType, bind, unbind,
+        assignTab, userKw, assignedUsers, filteredAssignedUsers, unassignUser, isAssigned, userPick, userPickTable, pickerCandidates, pickerSelectable, openUserPicker, onPickerSelect, confirmUserPick, mdmPluginLoaded, assignedPosts, assignedDepts, onPluginToggle, pluginPick, pluginUnbind,
         discardPerm, savePerm, sysFrame, sysH, pushSys, toast
       };
     }

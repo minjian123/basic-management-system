@@ -167,7 +167,7 @@
         if (selRows.value.some(function (r) { return r.builtin; })) {
           toast('内置角色不可删除/停用/变更归属（30043）', 'error'); return;
         }
-        ElMessageBox.confirm('删除选中的 ' + selRows.value.length + ' 个角色？存在主体绑定或有效授权引用的角色将被拒绝（30044），删除后不可恢复。', '提示', {
+        ElMessageBox.confirm('删除选中的 ' + selRows.value.length + ' 个角色？存在角色分配或有效授权引用的角色将被拒绝（30044），删除后不可恢复。', '提示', {
           type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消', confirmButtonClass: 'el-button--danger'
         }).then(function () {
           var ids = selRows.value.map(function (r) { return r.id; });
