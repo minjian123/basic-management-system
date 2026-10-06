@@ -38,6 +38,8 @@ from bms_core.config.base import BaseConfigSource, ConfigCacheRegion
 from bms_core.config.cache import MemoryConfigCacheRegion, RedisConfigCacheRegion
 from bms_core.config.http import HttpConfigSource
 from bms_core.config.sql import SqlConfigSource
+from bms_core.consistency.base import BaseConsistencyBarrier
+from bms_core.consistency.redis import RedisConsistencyBarrier
 from bms_core.core.capability import BaseAsyncResource
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import PluginSelection, Settings
@@ -176,6 +178,7 @@ _NULL_MODULES: tuple[str, ...] = (
     "bms_core.circuit.null",
     "bms_core.codecheck.null",
     "bms_core.config.null",
+    "bms_core.consistency.null",
     "bms_core.dashboard.null",
     "bms_core.db.null",
     "bms_core.dict.null",
@@ -260,6 +263,7 @@ PLUGIN_WIRINGS: tuple[PluginWiring, ...] = (
     PluginWiring("rate_limiter", BaseRateLimiter, "rate_limiter", "rate_limiter"),
     PluginWiring("idempotency", IdempotencyStore, "idempotency", "idempotency_store"),
     PluginWiring("replay_guard", BaseReplayGuard, "replay_guard", "replay_guard"),
+    PluginWiring("consistency_barrier", BaseConsistencyBarrier, "consistency_barrier", "consistency_barrier"),
     PluginWiring("metrics", BaseMetrics, "metrics", "metrics"),
     PluginWiring("tracer", BaseTracer, "tracer", "tracer"),
     PluginWiring("health_check_registry", BaseHealthCheckRegistry, "health_check_registry", "health_check_registry"),
@@ -394,6 +398,7 @@ def register_platform_plugins(settings: Settings, app: FastAPI, resources: Resou
     register_plugin("outbox_dispatcher", "poll", PollOutboxDispatcherFactory(settings, app))
     register_plugin("saga_executor", "choreography", ChoreographySagaExecutorFactory(settings))
     register_plugin("idempotency", "redis", RedisIdempotencyStoreFactory(settings))
+    register_plugin("consistency_barrier", "redis", RedisConsistencyBarrierFactory(settings))
     register_plugin("metrics", "prometheus", PrometheusMetricsFactory(settings))
     _PREPARED_REGISTRIES.add(registry)
 
@@ -1111,6 +1116,37 @@ class RedisIdempotencyStoreFactory(BasePluginFactory[RedisIdempotencyStore]):
             RedisIdempotencyStore: 幂等存储实例。
         """
         return RedisIdempotencyStore(self._settings.redis.url)
+
+
+class RedisConsistencyBarrierFactory(BasePluginFactory[RedisConsistencyBarrier]):
+    """Redis 一致性屏障工厂（`redis`：注入 Redis 连接串与等待 / 轮询缺省）。"""
+
+    plugin_key: str = "consistency_barrier"
+    plugin_name: str = "redis"
+
+    def __init__(self, settings: Settings) -> None:
+        """初始化。
+
+        Args:
+            settings: 应用配置（Redis 连接串与 `[consistency_barrier]`）。
+        """
+        self._settings = settings
+
+    def create(self, options: None = None) -> RedisConsistencyBarrier:
+        """构造 Redis 一致性屏障。
+
+        Args:
+            options: 未使用（零参口径）。
+
+        Returns:
+            RedisConsistencyBarrier: 一致性屏障实例。
+        """
+        section = self._settings.consistency_barrier
+        return RedisConsistencyBarrier(
+            self._settings.redis.url,
+            default_timeout_ms=section.default_timeout_ms,
+            default_poll_ms=section.default_poll_ms,
+        )
 
 
 async def assemble_plugins(

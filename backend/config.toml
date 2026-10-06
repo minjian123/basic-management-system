@@ -177,6 +177,15 @@ options = {}
 provider = "choreography"
 options = {}
 
+[consistency_barrier]
+# 一致性屏障实现选择（插件化配置；空串解析到 null 占位 = 不启用屏障；redis = 版本标记 + 有界轮询等待）
+provider = ""
+# 默认等待超时（毫秒；超时抛 ConsistencyBarrierTimeout 10011 / 409）
+default_timeout_ms = 3000
+# 默认轮询间隔（毫秒）
+default_poll_ms = 100
+options = {}
+
 [event_consumer]
 # 事件消费实现选择（插件化配置；空串解析到 null 占位实现；真实消费随阶段十 M10 集成消息可用）
 provider = ""

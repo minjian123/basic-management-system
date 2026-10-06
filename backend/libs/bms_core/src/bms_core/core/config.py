@@ -783,6 +783,16 @@ class OutboxSettings(PluginSelection):
     """后台轮询库键；空 = 平台库 + 引擎注册表活跃租户库键。"""
 
 
+class ConsistencyBarrierSettings(PluginSelection):
+    """一致性屏障配置（`[consistency_barrier]`；在能力选择之外追加等待 / 轮询参数）。"""
+
+    default_timeout_ms: int = Field(default=3000, ge=1)
+    """默认等待超时（毫秒）；超时抛 `ConsistencyBarrierTimeout`。"""
+
+    default_poll_ms: int = Field(default=100, ge=1)
+    """默认轮询间隔（毫秒）。"""
+
+
 class EventSettings(PluginSelection):
     """事件配置（`[event]`；在能力选择之外追加签发契约校验模式）。"""
 
@@ -912,6 +922,7 @@ class Settings(PydanticBaseSettings, BaseSettings):  # pyright: ignore[reportInc
     code_validator: PluginSelection = Field(default_factory=PluginSelection)
     config_cache_region: PluginSelection = Field(default_factory=PluginSelection)
     config_source: PluginSelection = Field(default_factory=PluginSelection)
+    consistency_barrier: ConsistencyBarrierSettings = Field(default_factory=ConsistencyBarrierSettings)
     dashboard_card_registry: PluginSelection = Field(default_factory=PluginSelection)
     data_ownership: DataOwnershipSettings = Field(default_factory=DataOwnershipSettings)
     data_scope: PluginSelection = Field(default_factory=PluginSelection)

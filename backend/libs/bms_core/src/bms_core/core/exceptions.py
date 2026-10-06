@@ -580,6 +580,17 @@ class EventContractError(GeneralError):
         super().__init__(ErrorCode.EVENT_CONTRACT, message, http_status=500, data=data)
 
 
+class ConsistencyBarrierTimeout(GeneralError):
+    """一致性屏障超时（`10011` / 409）。
+
+    执行方经一致性屏障等待「目标变更已应用」超时（变更尚未收敛）时抛出；
+    调用方按可重试错误处理（提示稍后重试），**不静默放行旧值**。
+    """
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        super().__init__(ErrorCode.CONSISTENCY_BARRIER, message, http_status=409, data=data)
+
+
 class UserOrgError(BizError):
     """用户与组织段（`3xxxx`）异常基类。"""
 
