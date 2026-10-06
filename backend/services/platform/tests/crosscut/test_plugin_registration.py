@@ -39,6 +39,7 @@ _EXPECTED_PLUGIN_KEYS = frozenset(
         "code_validator",
         "config_cache_region",
         "config_source",
+        "consistency_barrier",
         "dashboard_card_registry",
         "data_ownership_guard",
         "data_scope",
