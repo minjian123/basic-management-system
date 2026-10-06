@@ -244,29 +244,29 @@ def main() -> int:
     _pytest_flags_from_ci(root, backend, failures)
     _gitlab_ci_lint(root, failures)
 
-    if not fast:
-        _run("后端静态：ruff check", ConcurrentStableList(["uv", "run", "ruff", "check", "."]), backend, failures)
-        _run(
-            "后端静态：ruff format --check",
-            ConcurrentStableList(["uv", "run", "ruff", "format", "--check", "."]),
-            backend,
-            failures,
-        )
-        _run("后端静态：pyright", ConcurrentStableList(["uv", "run", "pyright"]), backend, failures)
-        # 工具脚本静态（scripts/tools；08_01 遗留纳入 CI lint，本地同口径；从 backend/ 取 ruff 配置）
-        _run(
-            "工具静态：ruff check（scripts/tools）",
-            ConcurrentStableList(["uv", "run", "ruff", "check", "../scripts/tools"]),
-            backend,
-            failures,
-        )
-        _run(
-            "工具静态：ruff format --check（scripts/tools）",
-            ConcurrentStableList(["uv", "run", "ruff", "format", "--check", "../scripts/tools"]),
-            backend,
-            failures,
-        )
+    _run("后端静态：ruff check", ConcurrentStableList(["uv", "run", "ruff", "check", "."]), backend, failures)
+    _run(
+        "后端静态：ruff format --check",
+        ConcurrentStableList(["uv", "run", "ruff", "format", "--check", "."]),
+        backend,
+        failures,
+    )
+    _run("后端静态：pyright", ConcurrentStableList(["uv", "run", "pyright"]), backend, failures)
+    # 工具脚本静态（scripts/tools；08_01 遗留纳入 CI lint，本地同口径；从 backend/ 取 ruff 配置）
+    _run(
+        "工具静态：ruff check（scripts/tools）",
+        ConcurrentStableList(["uv", "run", "ruff", "check", "../scripts/tools"]),
+        backend,
+        failures,
+    )
+    _run(
+        "工具静态：ruff format --check（scripts/tools）",
+        ConcurrentStableList(["uv", "run", "ruff", "format", "--check", "../scripts/tools"]),
+        backend,
+        failures,
+    )
 
+    if not fast:
         cov_args = (
             []
             if no_cov
