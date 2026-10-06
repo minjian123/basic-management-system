@@ -5,4 +5,4 @@
 """
 
 # 注册自定义方言（`dmxa` 达梦 XA 等）：导入 db 层即生效（进程级）。
-from bms_core.db import dialects as _dialects  # noqa: F401
+from bms_core.db import dialects as _dialects  # noqa: F401  # pyright: ignore[reportUnusedImport]
