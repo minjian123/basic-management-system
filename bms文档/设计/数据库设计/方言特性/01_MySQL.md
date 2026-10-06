@@ -78,6 +78,7 @@
 | 慢查询日志 | 开启（开发联调） | 实测（已配置） |
 | 主从（只读副本） | 支持；读写绑定见《[架构设计 · 数据访问与分片](../../架构设计/13_架构设计_子系统_数据访问与分片.md)》「读写分离」节 | 未启用（**待验**；真库仅验证「配置副本后只读请求命中副本引擎」的路由决策） |
 | 认证插件与驱动依赖 | MySQL 8.4 默认 `caching_sha2_password`；`aiomysql` 在非 TLS 连接下**冷缓存首连**需 `cryptography` 完成 RSA 公钥取回，缺它报 `cryptography package is required for sha256_password or caching_sha2_password auth methods`（**实测**） | 后端依赖固定含 `cryptography`；CI 基础镜像随锁文件哈希重建（缺失即真库首连失败） |
+| 两阶段事务（XA / 2PC） | 同步引擎（`pymysql`）`begin_twophase` → `prepare` → `commit` / `rollback` 可用（InnoDB XA）；**SQLAlchemy 异步 API（`AsyncConnection`）不提供两阶段入口** | 实测（2026-10-06）：单库两阶段通过；**异步栈不可用** |
 
 - 应用侧经引擎注册表与会话入口取连接（不自行 `create_engine`）；事务边界由服务层上下文管理器声明。
 
@@ -92,6 +93,7 @@
 | 2026-09-22 | 认证插件与驱动依赖 | 测试账号（`bms_test`，`caching_sha2_password`）冷缓存首连报 `cryptography package is required…`，补齐 `cryptography` 后连通 | 01_05 实施记录「问题与处置」 |
 | 2026-09-22 | JSON 值读写 | 写入读回一致（真库集成用例「类型落库往返」） | 01_05 集成用例 |
 | 2026-09-29 | 列类型变更 `VARCHAR(64)` → `BIGINT`（带存量行） | 增量迁移通过（存量数字串值保真）；revision 标识须 ≤ 32 字符（过长报 `Data too long for column 'version_num'`） | 10_04 真库实测（发件箱 / 对照表 / 身份映射三链） |
-| 待验 | 字符集与 emoji 写入、`lower_case_table_names` 变更影响、前缀索引选择性、主从只读路由、JSON 检索 | — | — |
+| 2026-10-06 | 两阶段事务（XA） | 单库 `prepare→commit` 生效、`rollback`（未 prepare）与 `prepare→rollback` 均未落库；**异步 API 无 `begin_twophase`** | 分布式事务能力实测（探针库 `xa_probe`，跑完已清理） |
+| 待验 | 字符集与 emoji 写入、`lower_case_table_names` 变更影响、前缀索引选择性、主从只读路由、JSON 检索、XA 崩溃恢复（`XA RECOVER`） | — | — |
 
 > 数据库设计 · 与《[数据库开发规范](../../../规范/数据库开发规范.md)》「表与字段口径」至「数据库设计文档体系」各节配套

@@ -78,6 +78,7 @@
 | 连接池 | `pool_size` / `max_overflow` / `pool_timeout` / `pool_recycle` / `connect_timeout` 取配置 `[database.*.pool]` | 实测（配置项生效） |
 | 慢查询日志 | 开启（`log_min_duration_statement`，开发联调） | 实测（已配置） |
 | 主从（只读副本） | 支持；读写绑定见《[架构设计 · 数据访问与分片](../../架构设计/13_架构设计_子系统_数据访问与分片.md)》「读写分离」节 | 未启用（**待验**） |
+| 两阶段事务（PREPARE TRANSACTION / 2PC） | 默认 `max_prepared_transactions=0`（**禁用**）；置 `>0`（实测 `100`）并重启后，同步引擎（`psycopg`）`begin_twophase` 可用；**SQLAlchemy 异步 API 不提供两阶段** | 实测（2026-10-06）：需开参数 + 重启；异步栈不可用 |
 
 - 应用侧经引擎注册表与会话入口取连接（不自行 `create_engine`）；异步会话不得跨请求 / 跨事件循环复用。
 
@@ -92,6 +93,7 @@
 | 2026-09-22 | 建库属主与 `public` 权限 | 管理员建库后应用账号迁移报 `permission denied for schema public`，转属主后通过 | 01_05 实施记录「问题与处置」 |
 | 2026-09-22 | JSON 值读写 | 写入读回一致（真库集成用例「类型落库往返」） | 01_05 集成用例 |
 | 2026-09-29 | 列类型变更 `VARCHAR(64)` → `BIGINT`（带存量行） | 经 `postgresql_using="tenant_id::bigint"` 增量迁移通过（存量数字串值保真） | 10_04 真库实测（发件箱 / 对照表 / 身份映射三链） |
+| 2026-10-06 | 两阶段事务（PREPARE TRANSACTION） | `max_prepared_transactions=0` 时 `PREPARE` 失效（提交报 prepared transaction 不存在）；置 `100` 重启后单库 `prepare→commit` / `rollback` / `prepare→rollback` 均通过；与 MySQL 的**单进程跨库 2PC**（两库同提交 / 同回滚）通过 | 分布式事务能力实测（探针库 `xa_probe`，跑完已清理） |
 | 待验 | 部分唯一索引优化、`CREATE INDEX CONCURRENTLY` 在线加索引、JSON 检索、主从只读路由 | — | — |
 
 > 数据库设计 · 与《[数据库开发规范](../../../规范/数据库开发规范.md)》「表与字段口径」至「数据库设计文档体系」各节配套
