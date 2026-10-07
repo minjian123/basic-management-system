@@ -10,9 +10,9 @@
 | --- | --- |
 | 归属库 | 平台库 `bms_platform` |
 | 覆盖模块 | 03-模块注册（产品级注册 / R4.1） |
-| 上游依据 | 《[架构设计 · 模块注册](../../架构设计/11_架构设计_子系统_模块注册.md)》「模块契约与产品下线」节、《[平台可扩展性规划](../../规划/平台可扩展性规划.md)》落地路线图 R4.1、[需求 12-1](../../../项目/02_后端基座与服务化地基/需求/12_需求_产品服务接入.md#r12-1) |
-| ORM 模型 | `bms_core/models/platform.py::SysProduct`（继承 `BaseModel`） |
-| 状态 | 已设计（实现在任务 `12_01`） |
+| 上游依据 | 《[架构设计 · 模块注册](../../架构设计/11_架构设计_子系统_模块注册.md)》「模块契约与产品下线」节、《[平台可扩展性规划](../../../规划/平台可扩展性规划.md)》落地路线图 R4.1、[需求 12-1](../../../项目/02_后端基座与服务化地基/需求/12_需求_产品服务接入.md#r12-1) |
+| ORM 模型 | `bms_platform/models/catalog.py::SysProduct`（继承 `BaseModel`；与 `SysModule` 同文件，06_02「模型归服务」口径） |
+| 状态 | 已落库（平台链迁移 `0009_sys_product` 建表，2026-10-07；产品档案三行种子见 `ops/seed_module.py` 幂等 upsert） |
 | 相关节点 | [数据库设计总览](../01_数据库设计_总览.md)「核心表清单总表 · 平台库」、[sys_module](sys_module.md)（`product_key` 逻辑引用本表） |
 
 ## 2. 字段 <a id="fields"></a>
@@ -25,7 +25,7 @@
 | `product_key` | VARCHAR(32) | 否 | 与 `deleted_at` 复合唯一 | 产品标识（如 `mdm` / `biz` / `cw`） |
 | `name` | VARCHAR(128) | 否 | — | 产品名称（默认文案） |
 | `frontend_package_source` | VARCHAR(255) | 是 | — | 前端包来源（产品前端模块产物的获取来源；如仓库 / 包标识） |
-| `status` | VARCHAR(16) | 否 | 默认 `enabled` | 状态：`enabled` / `disabled` / `retired`（下线保留登记，不物理删除） |
+| `status` | VARCHAR(16) | 否 | 默认 `enabled` | 状态：`enabled` / `disabled` / `planned`（已注册未建代码 / 建表，先注册后建表的预登记态）/ `retired`（下线保留登记，不物理删除） |
 | `created_at` | DATETIME | 否 | 审计 | 创建时间（UTC） |
 | `created_by` | BIGINT | 是 | 审计 | 创建人 |
 | `updated_at` | DATETIME | 否 | 审计 | 更新时间（UTC） |
@@ -46,12 +46,14 @@
 
 - **分片**：不分片（平台库常驻）。
 - **归档**：不归档（产品档案为契约元数据，注销态保留）。
-- **迁移**：随**平台链** Alembic 迁移落地（实现在任务 `12_01`；平台库单库执行）。
+- **迁移**：随**平台链** Alembic 迁移 `alembic/versions/platform/platform/0009_sys_product.py` 落地（2026-10-07；平台库单库执行，SQLite 经 `batch_alter_table` 兼容）；种子走 `ops/seed_module.py` 幂等 upsert（`PRODUCT_CATALOG` 单一来源）。
 
 ## 5. 变更记录 <a id="revlog"></a>
 
 | 日期 | 版本 | 变更 | 作者 |
 | --- | --- | --- | --- |
 | 2026-10-07 | v1 | 新建表结构（平台库；产品级注册档案，`sys_module.product_key` 逻辑引用） | minjian |
+| 2026-10-07 | v2 | 迁移落地：随平台链 `0009_sys_product` 建表 + 表归属登记（`platform` / 平台服务库）+ 产品档案种子三行（`biz` / `cw` / `mdm`）；ORM 落点按 06_02 口径修正为 `bms_platform/models/catalog.py::SysProduct` | minjian |
+| 2026-10-07 | v3 | `status` 取值补 `planned`（已注册未建代码 / 建表：`mdm` 先注册后建表的预登记态，与 `sys_module.status` 口径一致） | minjian |
 
 > 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套

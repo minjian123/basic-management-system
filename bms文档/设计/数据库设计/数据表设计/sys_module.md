@@ -11,7 +11,7 @@
 | 归属库 | 平台库 `bms_platform` |
 | 覆盖模块 | 03-模块注册（服务目录与契约登记） |
 | 上游依据 | 《架构设计 · 模块注册》「注册表结构与数据」「服务目录与契约登记」节、《命名规范》「数据库命名」节、[需求 02-16](../../../项目/01_项目骨架/需求/02_需求_后端基座.md#r02-16)、[需求 03-1](../../../项目/02_后端基座与服务化地基/需求/03_需求_服务目录与契约登记.md#r03-1) |
-| ORM 模型 | `bms_core/models/platform.py::SysModule`（继承 `BaseModel`） |
+| ORM 模型 | `bms_platform/models/catalog.py::SysModule`（继承 `BaseModel`；06_02 分链后随服务迁出） |
 | 状态 | 已落库（平台链迁移 `0001_sys_tenant_module` 建表、`0002_sys_module_catalog` 升格服务目录，2026-09-22；服务目录 16 行种子见 `ops/seed_module.py` 幂等 upsert） |
 | 相关节点 | [数据库设计总览](../01_数据库设计_总览.md)「核心表清单总表 · 平台库」、[架构 11-模块注册](../../架构设计/11_架构设计_子系统_模块注册.md)、[sys_module_i18n](sys_module_i18n.md) |
 
@@ -58,7 +58,7 @@
 
 - **分片**：不分片（平台库常驻）。
 - **归档**：不归档（注册契约元数据，注销态保留）。
-- **迁移**：随**平台链** Alembic 迁移落地（脚本 `alembic/versions/platform/0001_sys_tenant_module.py` 建表（2026-09-22）、`0002_sys_module_catalog.py` 升格服务目录（2026-09-22）；命令 `alembic -n alembic:platform upgrade head`）；新增模块 = 一个 revision（建表 + 种子）原子落地，平台库单库执行，运行时不提供增删改。种子走 `ops/seed_module.py` 幂等 upsert 脚本（复用 `SERVICE_CATALOG` 单一来源）；SQLite 开发库由启动期自动建表（按迁移链表集）覆盖。
+- **迁移**：随**平台链** Alembic 迁移落地（脚本 `alembic/versions/platform/platform/0001_sys_module.py` 建表（2026-09-23 按表归属自 `0001_sys_tenant_module` 拆分）、`0002_sys_module_catalog.py` 升格服务目录（2026-09-22）；命令 `alembic -n alembic:platform:platform upgrade head`）；新增模块 = 一个 revision（建表 + 种子）原子落地，平台库单库执行，运行时不提供增删改。种子走 `ops/seed_module.py` 幂等 upsert 脚本（复用 `SERVICE_CATALOG` 单一来源）；SQLite 开发库由启动期自动建表（按迁移链表集）覆盖。
 
 ## 5. 变更记录 <a id="revlog"></a>
 

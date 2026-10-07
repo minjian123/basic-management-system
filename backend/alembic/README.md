@@ -10,13 +10,13 @@
 
 | 链 | 配置段 | 版本目录 | 库 | 表集（派生） |
 | --- | --- | --- | --- | --- |
-| `platform:tenant`（缺省链） | `[alembic]` | `versions/platform/tenant/` | `bms_platform_{tenant}` | 字典六表 + `sys_query_scheme` / `sys_config` / `sys_user_extension` + 发件箱三表 |
-| `platform:platform` | `[alembic:platform:platform]` | `versions/platform/platform/` | `bms_platform` | `sys_module` / `sys_module_i18n` / `sys_table_ownership` + 发件箱三表 |
+| `platform:tenant`（缺省链） | `[alembic]` | `versions/platform/tenant/` | `bms_platform_{tenant}` | 字典六表（`sys_dict_*`）+ `sys_query_scheme` / `sys_config` / `sys_user_extension` + 用户与账号锁定（`sys_user` / `sys_account_lock`）+ 角色域五表（`sys_role` / `sys_user_role` / `sys_role_permission` / `sys_role_field` / `sys_data_scope`）+ 发件箱三表 |
+| `platform:platform` | `[alembic:platform:platform]` | `versions/platform/platform/` | `bms_platform` | 服务目录与产品注册（`sys_module` / `sys_module_i18n` / `sys_product`）+ `sys_table_ownership` + 菜单族元数据（`sys_menu` / `sys_menu_i18n` / `sys_form` / `sys_menu_form` / `sys_field` / `sys_field_i18n` / `sys_button` / `sys_business` / `sys_business_i18n` / `sys_action` / `sys_action_i18n`）+ 发件箱三表 |
 | `tenant:platform` | `[alembic:tenant:platform]` | `versions/tenant/platform/` | `bms_tenant` | `sys_tenant` / `sys_tenant_database` / `sys_user_tenant` + 发件箱三表 |
 | `tenant:tenant` | `[alembic:tenant:tenant]` | `versions/tenant/tenant/` | `bms_tenant_{tenant}` | 发件箱三表 |
 | `identity:platform` | `[alembic:identity:platform]` | `versions/identity/platform/` | `bms_identity` | `sys_user_identity` + 发件箱三表 |
 | `identity:tenant` | `[alembic:identity:tenant]` | `versions/identity/tenant/` | `bms_identity_{tenant}` | `sys_session` / `sys_identity_provider` / `sys_client` + 发件箱三表 |
-| `org:tenant` | `[alembic:org:tenant]` | `versions/org/tenant/` | `bms_org_{tenant}` | `sys_user` + 口令策略 / 账号锁定相关表 + 发件箱三表 |
+| `org:tenant`（待退役） | `[alembic:org:tenant]` | `versions/org/tenant/` | `bms_org_{tenant}` | 发件箱三表（用户 / 账号锁定两表已随 `02_05` 归口 platform；`org` 服务随域十一退役） |
 | 其余服务（file / notification / search / ai / report） | 首次迁移时补段 | `versions/{service}/{platform,tenant}/`（目录已建，空） | `bms_{service}` / `bms_{service}_{tenant}` | 表集由 `chain_tables` 派生，脚本随该服务首个需要补 |
 
 段名规则：`[alembic]` = 缺省链 `platform:tenant`；其余链 = `[alembic:{service}:{datasource}]`。
