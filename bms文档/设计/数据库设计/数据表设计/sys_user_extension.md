@@ -23,7 +23,7 @@
 | 字段 | 类型 | 可空 | 约束 / 默认 | 说明 |
 | --- | --- | --- | --- | --- |
 | `id` | BIGINT | 否 | 主键，雪花 ID | 主键 |
-| `user_id` | BIGINT | 否 | — | 用户主键（逻辑外键 `sys_user.id`；跨服务只持值、不建物理外键） |
+| `user_id` | BIGINT | 否 | — | 用户主键（逻辑外键 `sys_user.id`；**同库**（platform 服务租户库）只持值、不建物理外键） |
 | `label` | VARCHAR(64) | 否 | — | 扩展标签（用户维度内唯一） |
 | `remark` | VARCHAR(255) | 是 | — | 备注 |
 | `created_at` | DATETIME | 否 | 审计 | 创建时间（UTC） |

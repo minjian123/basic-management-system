@@ -28,7 +28,7 @@
 | --- | --- | --- | --- | --- |
 | `id` | BIGINT | 否 | 主键，雪花 ID | 主键 |
 | `tenant_id` | BIGINT | 否 | 与 `user_id`、`target_tenant_id`、`deleted_at` 复合唯一 | 归属租户主键（同库逻辑外键 → `sys_tenant.id`，只持值） |
-| `user_id` | BIGINT | 否 | 同上 | 用户主键（跨服务逻辑外键 → org 服务 `sys_user.id`，只持值） |
+| `user_id` | BIGINT | 否 | 同上 | 用户主键（跨服务逻辑外键 → platform 服务租户库 `sys_user.id`，只持值） |
 | `target_tenant_id` | BIGINT | 否 | 同上 | 可访问目标租户主键（同库逻辑外键 → `sys_tenant.id`，只持值） |
 | `source` | VARCHAR(32) | 否 | — | 写入来源（`super_admin` / `admin_create` / `import` / `sso_jit` / `self_register` / `self_heal`；末值＝读路径兜底自愈补建） |
 | `status` | VARCHAR(16) | 否 | 默认 `active` | 状态（`active` / `disabled`）；回收置 `disabled`（保留行、可再启），彻底移除才软删 |
@@ -45,7 +45,7 @@
 | --- | --- | --- | --- |
 | `uq_sys_user_tenant_tenant_user_target_deleted_at` | 唯一 | `(tenant_id, user_id, target_tenant_id, deleted_at)` | 同一用户对同一目标租户唯一（软删除后可重挂） |
 
-- 无物理外键；`tenant_id` / `target_tenant_id` 指向同库 `sys_tenant.id`，`user_id` 指向 org 服务 `sys_user.id`（均只持值、不建物理外键）。
+- 无物理外键；`tenant_id` / `target_tenant_id` 指向同库 `sys_tenant.id`，`user_id` 指向 platform 服务租户库 `sys_user.id`（均只持值、不建物理外键）。
 - **不另建普通索引**：读路径主查询 `WHERE tenant_id = ? AND user_id = ? AND status = 'active' AND deleted_at IS NULL` 由上述复合唯一索引的前缀 `(tenant_id, user_id)` 覆盖（《数据库开发规范》§4「禁止冗余索引」）。
 
 ## 4. 分片 / 归档 / 迁移 <a id="storage"></a>

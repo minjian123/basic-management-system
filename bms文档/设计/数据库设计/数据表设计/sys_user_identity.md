@@ -28,7 +28,7 @@
 | `idp_key` | VARCHAR(160) | 否 | 与 `external_id`、`deleted_at` 复合唯一 | 映射键 = `{tenant_id}:{provider_key}`（雪花租户主键前缀；跨租户共享 IdP 不冲突、issuer 变更不破坏映射） |
 | `external_id` | VARCHAR(255) | 否 | 同上 | 外部身份主体（OIDC 取 `sub`；CAS / 企微 / 钉钉取各自主体标识） |
 | `tenant_id` | BIGINT | 否 | — | 租户主键（雪花 id；与 `sys_tenant.id` 值传递） |
-| `user_id` | BIGINT | 否 | — | 用户 ID（跨服务逻辑外键 → org 服务 `sys_user.id`，只持值） |
+| `user_id` | BIGINT | 否 | — | 用户 ID（跨服务逻辑外键 → platform 服务租户库 `sys_user.id`，只持值） |
 | `created_at` | DATETIME | 否 | 审计 | 创建时间（UTC） |
 | `created_by` | BIGINT | 是 | 审计 | 创建人 |
 | `updated_at` | DATETIME | 否 | 审计 | 更新时间（UTC） |
@@ -46,7 +46,7 @@
 | `uq_sys_user_identity_idp_external_deleted_at` | 唯一 | `(idp_key, external_id, deleted_at)` | 外部身份全局唯一（防并发重复建号；软删除后可重绑） |
 | `idx_sys_user_identity_user_id` | 普通 | `(user_id)` | 按本地用户反查绑定（`sso:bind` 只读端点 / 解绑，归 02_02） |
 
-- 无物理外键；`user_id` 指向 org 服务 `sys_user.id`（跨服务逻辑外键，只持值）。
+- 无物理外键；`user_id` 指向 platform 服务租户库 `sys_user.id`（跨服务逻辑外键，只持值）。
 
 ## 4. 分片 / 归档 / 迁移 <a id="storage"></a>
 

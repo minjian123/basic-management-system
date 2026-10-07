@@ -23,7 +23,7 @@
 | --- | --- | --- | --- | --- |
 | `id` | BIGINT | 否 | 主键，雪花 ID | 主键（= 会话 id） |
 | `session_id` | VARCHAR(64) | 否 | 与 `deleted_at` 复合唯一 | 会话 id（= JWT `jti`；与 `id` 同值；Redis 标记键名依据） |
-| `user_id` | BIGINT | 否 | — | 用户 ID（跨服务逻辑外键 → org 服务 `sys_user.id`） |
+| `user_id` | BIGINT | 否 | — | 用户 ID（跨服务逻辑外键 → platform 服务租户库 `sys_user.id`） |
 | `refresh_token_hash` | VARCHAR(128) | 否 | — | refresh token 哈希（SHA-256 hex；不落原始值） |
 | `device` | VARCHAR(255) | 是 | — | 设备标识（User-Agent 摘要） |
 | `ip` | VARCHAR(64) | 是 | — | 登录 IP |
@@ -45,7 +45,7 @@
 | `uq_sys_session_session_id_deleted_at` | 唯一 | `(session_id, deleted_at)` | 会话 id 唯一（软删除后可复用） |
 | `idx_sys_session_user_id` | 普通 | `(user_id)` | 在线会话查询主路径（`user_id + revoked_at IS NULL`；01_04） |
 
-- 无物理外键；`user_id` 指向 org 服务 `sys_user.id`（跨服务逻辑外键，只持值）。
+- 无物理外键；`user_id` 指向 platform 服务租户库 `sys_user.id`（跨服务逻辑外键，只持值）。
 - 运行时活跃标记另落 Redis `bms:{租户}:sess:{session_id}`（TTL 与 refresh 对齐）；本表为持久事实源。
 
 ## 4. 分片 / 归档 / 迁移 <a id="storage"></a>
