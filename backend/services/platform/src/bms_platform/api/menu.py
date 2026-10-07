@@ -23,7 +23,7 @@ from bms_core.api.deps import (
 )
 from bms_core.cache.base import CacheRegion
 from bms_core.config.base import BaseConfigSource
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.db.session import DbSession
 from bms_core.db.tenant import current_tenant_id_str
 from bms_core.db.unit_of_work import UnitOfWork
@@ -39,6 +39,7 @@ from bms_platform.repositories.menu import (
     ButtonRepository,
     FieldRepository,
     FormRepository,
+    MenuFormRepository,
     MenuRepository,
 )
 from bms_platform.schemas.menu import (
@@ -138,6 +139,7 @@ def _service(uow: UnitOfWork, outbox: BaseOutboxStore, cache: CacheRegion) -> Me
         actions=ActionRepository(session),
         menus=MenuRepository(session),
         forms=FormRepository(session),
+        menu_forms=MenuFormRepository(session),
         buttons=ButtonRepository(session),
         fields=FieldRepository(session),
         outbox=outbox,
@@ -208,18 +210,19 @@ def _menu_item(row: SysMenu) -> MenuItem:
     )
 
 
-def _form_item(row: SysForm) -> FormItem:
+def _form_item(row: SysForm, menu_ids: ConcurrentStableList[int]) -> FormItem:
     """表单记录 → 契约行。
 
     Args:
         row: 表单记录。
+        menu_ids: 关联菜单入口 ID 清单。
 
     Returns:
         FormItem: 表单契约行。
     """
     return FormItem(
         id=row.id,
-        menu_id=row.menu_id,
+        menu_ids=menu_ids,
         business_id=row.business_id,
         component=row.component,
         status=row.status,
@@ -377,13 +380,13 @@ async def delete_menu(menu_id: int, uow: UowDep, outbox: OutboxDep, cache: Cache
 async def list_forms(
     uow: UowDep, outbox: OutboxDep, cache: CacheDep, menu_id: MenuIdQuery = None
 ) -> ApiResponse[FormList]:
-    """表单清单（按菜单过滤）。
+    """表单清单（`menu_id` 非空时按菜单关联过滤；可空 = 全量，含无入口表单）。
 
     Args:
         uow: 请求级工作单元。
         outbox: 发件箱存储。
         cache: 缓存 Region。
-        menu_id: 菜单主键（可空 = 全部）。
+        menu_id: 菜单主键（可空 = 全量）。
 
     Returns:
         ApiResponse: 统一响应，data 为表单清单。
@@ -393,10 +396,10 @@ async def list_forms(
 
 @form_router.post("", dependencies=[_REQUIRE_MENU_CREATE])
 async def create_form(req: FormCreateRequest, uow: UowDep, outbox: OutboxDep, cache: CacheDep) -> ApiResponse[FormItem]:
-    """新增表单（菜单 1:1 / 业务 1:1）。
+    """新增表单（业务 1:1；菜单入口多对多）。
 
     Args:
-        req: 新增请求。
+        req: 新增请求（关联菜单入口清单 / 业务码 / 组件 / 状态）。
         uow: 请求级工作单元。
         outbox: 发件箱存储。
         cache: 缓存 Region。
@@ -405,20 +408,20 @@ async def create_form(req: FormCreateRequest, uow: UowDep, outbox: OutboxDep, ca
         ApiResponse: 统一响应，data 为表单行。
     """
     row = await _service(uow, outbox, cache).create_form(
-        menu_id=req.menu_id, business_id=req.business_id, component=req.component, status=req.status
+        menu_ids=req.menu_ids, business_id=req.business_id, component=req.component, status=req.status
     )
-    return ApiResponse.ok(_form_item(row))
+    return ApiResponse.ok(_form_item(row, req.menu_ids))
 
 
 @form_router.put("/{form_id}", dependencies=[_REQUIRE_MENU_UPDATE])
 async def update_form(
     form_id: int, req: FormUpdateRequest, uow: UowDep, outbox: OutboxDep, cache: CacheDep
 ) -> ApiResponse[FormItem]:
-    """更新表单。
+    """更新表单（菜单入口关联全量替换）。
 
     Args:
         form_id: 表单主键。
-        req: 更新请求。
+        req: 更新请求（关联菜单入口清单 / 业务码 / 组件 / 状态）。
         uow: 请求级工作单元。
         outbox: 发件箱存储。
         cache: 缓存 Region。
@@ -427,9 +430,9 @@ async def update_form(
         ApiResponse: 统一响应，data 为更新后的表单行。
     """
     row = await _service(uow, outbox, cache).update_form(
-        form_id, business_id=req.business_id, component=req.component, status=req.status
+        form_id, menu_ids=req.menu_ids, business_id=req.business_id, component=req.component, status=req.status
     )
-    return ApiResponse.ok(_form_item(row))
+    return ApiResponse.ok(_form_item(row, req.menu_ids))
 
 
 @form_router.delete("/{form_id}", dependencies=[_REQUIRE_MENU_DELETE])

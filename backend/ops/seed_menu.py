@@ -9,8 +9,10 @@ uv run python -m ops.seed_menu --dry-run
 ```
 
 - URL 解析复用 `ops.seed_tenant.resolve_url(service="platform")`（`sys_menu` 等归属平台服务库）；
-- 幂等：业务码按 `code`、动作码按 `(business_id, code)`、菜单按 `path`、按钮按 `(form_id, action_id)`、
-  字段按 `(form_id, field_key)` 判存（`deleted_at IS NULL`），不存在插入、存在跳过；
+- 幂等：业务码按 `code`、动作码按 `(business_id, code)`、表单按 `business_id`、菜单按 `path`、
+  菜单 ↔ 表单关联按 `(menu_id, form_id)`、按钮按 `(form_id, action_id)`、字段按 `(form_id, field_key)`
+  判存（`deleted_at IS NULL`），不存在插入、存在跳过；
+- 菜单 ↔ 表单为**多对多**（02_03 返工）：表单先按 `business_id` upsert，再经 `sys_menu_form` 关联入口；
 - 业务码清单取自《架构设计 · 权限计算引擎》「业务与动作权限码清单」节；动作码归属按
   《英文简称规范》「动作码简称」节的典型权限码落地；
 - 建表分支兼容保留（Alembic 落库后由 `alembic -n alembic:platform:platform upgrade head` 建表；
@@ -37,6 +39,7 @@ from bms_platform.models.menu import (
     SysFieldI18n,
     SysForm,
     SysMenu,
+    SysMenuForm,
     SysMenuI18n,
 )
 from ops.seed_tenant import resolve_url
@@ -53,7 +56,7 @@ BUSINESS_SEEDS: tuple[tuple[str, str, str], ...] = (
     ("user", "用户管理", "User management"),
     ("post", "岗位管理", "Position management"),
     ("dept", "部门管理", "Department management"),
-    ("role", "角色管理与主体绑定", "Role management"),
+    ("role", "角色管理", "Role management"),
     ("dict", "字典管理", "Dictionary management"),
     ("config", "系统参数", "System configuration"),
     ("dashboard", "首页工作台", "Dashboard"),
@@ -236,11 +239,12 @@ _MENU_TABLES: tuple[Table, ...] = (
     cast("Table", SysMenu.__table__),
     cast("Table", SysMenuI18n.__table__),
     cast("Table", SysForm.__table__),
+    cast("Table", SysMenuForm.__table__),
     cast("Table", SysButton.__table__),
     cast("Table", SysField.__table__),
     cast("Table", SysFieldI18n.__table__),
 )
-"""菜单元数据十表（建表用；显式取 `Table` 以避免混合模型元组的联合类型推导）。"""
+"""菜单元数据十一表（含 `sys_menu_form` 关联；建表用；显式取 `Table` 以避免联合类型推导）。"""
 
 
 async def _exists(session: AsyncSession, model: Any, *conditions: Any) -> bool:
@@ -349,6 +353,7 @@ async def seed_menu(url: str) -> tuple[int, int]:
                 created += await _add_i18n(session, SysActionI18n, "action_id", existing_action.id, zh, en)
 
             menu_ids = ConcurrentStableDict[str, int]()
+            form_ids_by_menu = ConcurrentStableDict[int, int]()
             for parent_index, path, zh, en, component, icon, sort, hidden, business_code in MENU_SEEDS:
                 parent_id = 0
                 if parent_index:
@@ -377,49 +382,55 @@ async def seed_menu(url: str) -> tuple[int, int]:
                 menu_ids.set(path, existing_menu.id)
                 created += await _add_i18n(session, SysMenuI18n, "menu_id", existing_menu.id, zh, en)
                 if business_code is not None:
+                    business_id = business_ids[business_code]
                     form = (
                         (
                             await session.execute(
-                                select(SysForm).where(SysForm.menu_id == existing_menu.id, SysForm.deleted_at.is_(None))
+                                select(SysForm).where(SysForm.business_id == business_id, SysForm.deleted_at.is_(None))
                             )
                         )
                         .scalars()
                         .first()
                     )
                     if form is None:
-                        session.add(
-                            SysForm(
-                                menu_id=existing_menu.id,
-                                business_id=business_ids[business_code],
-                                component=component,
-                                status="enabled",
+                        form = SysForm(business_id=business_id, component=component, status="enabled")
+                        session.add(form)
+                        await session.flush()
+                        created += 1
+                    else:
+                        skipped += 1
+                    form_ids_by_menu.set(existing_menu.id, form.id)
+                    link = (
+                        (
+                            await session.execute(
+                                select(SysMenuForm).where(
+                                    SysMenuForm.menu_id == existing_menu.id,
+                                    SysMenuForm.form_id == form.id,
+                                    SysMenuForm.deleted_at.is_(None),
+                                )
                             )
                         )
+                        .scalars()
+                        .first()
+                    )
+                    if link is None:
+                        session.add(SysMenuForm(menu_id=existing_menu.id, form_id=form.id))
                         created += 1
                     else:
                         skipped += 1
 
             for path, zh, action_code, button_type, sort in BUTTON_SEEDS:
-                menu_id = menu_ids.get(path, 0)
-                form = (
-                    (
-                        await session.execute(
-                            select(SysForm).where(SysForm.menu_id == menu_id, SysForm.deleted_at.is_(None))
-                        )
-                    )
-                    .scalars()
-                    .first()
-                )
-                if form is None:
+                form_id = form_ids_by_menu.get(menu_ids.get(path, 0), 0)
+                if not form_id:
                     continue
                 business_code = next(seed[8] for seed in MENU_SEEDS if seed[1] == path and seed[8] is not None)
                 action_id = action_ids.get((business_code, action_code), 0)
-                if await _exists(session, SysButton, SysButton.form_id == form.id, SysButton.action_id == action_id):
+                if await _exists(session, SysButton, SysButton.form_id == form_id, SysButton.action_id == action_id):
                     skipped += 1
                     continue
                 session.add(
                     SysButton(
-                        form_id=form.id,
+                        form_id=form_id,
                         action_id=action_id,
                         name=zh,
                         type=button_type,
@@ -430,23 +441,14 @@ async def seed_menu(url: str) -> tuple[int, int]:
                 created += 1
 
             for path, field_key, zh, en, field_type, sort in FIELD_SEEDS:
-                menu_id = menu_ids.get(path, 0)
-                form = (
-                    (
-                        await session.execute(
-                            select(SysForm).where(SysForm.menu_id == menu_id, SysForm.deleted_at.is_(None))
-                        )
-                    )
-                    .scalars()
-                    .first()
-                )
-                if form is None:
+                form_id = form_ids_by_menu.get(menu_ids.get(path, 0), 0)
+                if not form_id:
                     continue
                 existing_field = (
                     (
                         await session.execute(
                             select(SysField).where(
-                                SysField.form_id == form.id,
+                                SysField.form_id == form_id,
                                 SysField.field_key == field_key,
                                 SysField.deleted_at.is_(None),
                             )
@@ -457,7 +459,7 @@ async def seed_menu(url: str) -> tuple[int, int]:
                 )
                 if existing_field is None:
                     existing_field = SysField(
-                        form_id=form.id,
+                        form_id=form_id,
                         field_key=field_key,
                         name=zh,
                         type=field_type,

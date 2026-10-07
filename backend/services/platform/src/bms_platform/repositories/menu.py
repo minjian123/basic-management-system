@@ -5,8 +5,10 @@
 - 树与表单元数据一次装载（元数据量级小），聚合与过滤归服务层。
 """
 
+from datetime import UTC, datetime
 from typing import Any, cast
 
+import sqlalchemy as sa
 from sqlalchemy import select
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
@@ -22,6 +24,7 @@ from bms_platform.models.menu import (
     SysFieldI18n,
     SysForm,
     SysMenu,
+    SysMenuForm,
     SysMenuI18n,
 )
 
@@ -191,7 +194,7 @@ class MenuRepository(BaseDbRepository[SysMenu]):
 
 
 class FormRepository(BaseDbRepository[SysForm]):
-    """表单仓储（`sys_form`）：1:1 挂接探测。"""
+    """表单仓储（`sys_form`）：业务 1:1 挂接探测（菜单入口经 `sys_menu_form`）。"""
 
     model = SysForm
 
@@ -204,18 +207,6 @@ class FormRepository(BaseDbRepository[SysForm]):
         statement = self._select().order_by(self._column("id"))
         return ConcurrentStableList((await self._session.execute(statement)).scalars().all())
 
-    async def get_by_menu(self, menu_id: int) -> SysForm | None:
-        """按菜单探测表单（1:1）。
-
-        Args:
-            menu_id: 菜单 ID。
-
-        Returns:
-            SysForm | None: 既有表单；无则 None。
-        """
-        statement = self._select().where(self._column("menu_id") == menu_id).limit(1)
-        return (await self._session.execute(statement)).scalars().first()
-
     async def get_by_business(self, business_id: int) -> SysForm | None:
         """按业务码探测表单（1:1）。
 
@@ -227,6 +218,106 @@ class FormRepository(BaseDbRepository[SysForm]):
         """
         statement = self._select().where(self._column("business_id") == business_id).limit(1)
         return (await self._session.execute(statement)).scalars().first()
+
+
+class MenuFormRepository(BaseDbRepository[SysMenuForm]):
+    """菜单 ↔ 表单关联仓储（`sys_menu_form`）：多对多装载、探测与批量软删。"""
+
+    model = SysMenuForm
+
+    async def list_all(self) -> ConcurrentStableList[SysMenuForm]:
+        """列示全部关联（主键升序）。
+
+        Returns:
+            ConcurrentStableList[SysMenuForm]: 关联行列表（插入序）。
+        """
+        statement = self._select().order_by(self._column("id"))
+        return ConcurrentStableList((await self._session.execute(statement)).scalars().all())
+
+    async def list_by_menu(self, menu_id: int) -> ConcurrentStableList[SysMenuForm]:
+        """按菜单列示关联（主键升序）。
+
+        Args:
+            menu_id: 菜单 ID。
+
+        Returns:
+            ConcurrentStableList[SysMenuForm]: 关联行列表（插入序）。
+        """
+        statement = self._select().where(self._column("menu_id") == menu_id).order_by(self._column("id"))
+        return ConcurrentStableList((await self._session.execute(statement)).scalars().all())
+
+    async def list_form_ids_by_menu(self, menu_id: int) -> ConcurrentStableList[int]:
+        """按菜单取关联的表单主键清单（主键升序）。
+
+        Args:
+            menu_id: 菜单 ID。
+
+        Returns:
+            ConcurrentStableList[int]: 表单主键清单。
+        """
+        statement = (
+            select(self._column("form_id"))
+            .where(*self._scope_where(), self._column("menu_id") == menu_id)
+            .order_by(self._column("id"))
+        )
+        return ConcurrentStableList((await self._session.execute(statement)).scalars().all())
+
+    async def list_by_form(self, form_id: int) -> ConcurrentStableList[SysMenuForm]:
+        """按表单列示关联（主键升序）。
+
+        Args:
+            form_id: 表单 ID。
+
+        Returns:
+            ConcurrentStableList[SysMenuForm]: 关联行列表（插入序）。
+        """
+        statement = self._select().where(self._column("form_id") == form_id).order_by(self._column("id"))
+        return ConcurrentStableList((await self._session.execute(statement)).scalars().all())
+
+    async def get_by_menu_form(self, menu_id: int, form_id: int) -> SysMenuForm | None:
+        """按「菜单 + 表单」探测生效关联。
+
+        Args:
+            menu_id: 菜单 ID。
+            form_id: 表单 ID。
+
+        Returns:
+            SysMenuForm | None: 既有生效关联；无则 None。
+        """
+        statement = (
+            self._select().where(self._column("menu_id") == menu_id, self._column("form_id") == form_id).limit(1)
+        )
+        return (await self._session.execute(statement)).scalars().first()
+
+    async def delete_by_form(self, form_id: int, *, now: datetime | None = None) -> None:
+        """批量软删表单的全部关联（表单删除时解除挂接）。
+
+        Args:
+            form_id: 表单 ID。
+            now: 当前时间（UTC naive；None 取当前 UTC）。
+        """
+        current = now or datetime.now(UTC).replace(tzinfo=None)
+        statement = (
+            sa.update(self.model)
+            .where(self._column("form_id") == form_id, self._column("deleted_at").is_(None))
+            .values(deleted_at=current, updated_at=current)
+        )
+        await self._session.execute(statement)
+
+    async def delete_by_menu(self, menu_id: int, *, now: datetime | None = None) -> None:
+        """批量软删菜单的全部关联（菜单删除时解除挂接）。
+
+        Args:
+            menu_id: 菜单 ID。
+            now: 当前时间（UTC naive；None 取当前 UTC）。
+        """
+        current = now or datetime.now(UTC).replace(tzinfo=None)
+        statement = (
+            sa.update(self.model)
+            .where(self._column("menu_id") == menu_id, self._column("deleted_at").is_(None))
+            .values(deleted_at=current, updated_at=current)
+        )
+        await self._session.execute(statement)
 
 
 class ButtonRepository(BaseDbRepository[SysButton]):

@@ -15,7 +15,7 @@ from typing import Annotated, cast
 from pydantic import Field
 
 from bms_core.cache.base import CacheRegion
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.exceptions import (
     ConflictError,
     MenuFieldKeyConflictError,
@@ -48,6 +48,7 @@ from bms_platform.repositories.menu import (
     ButtonRepository,
     FieldRepository,
     FormRepository,
+    MenuFormRepository,
     MenuRepository,
 )
 from bms_platform.schemas.menu import (
@@ -113,7 +114,7 @@ class SnapshotForm(BaseSchema):
 
 
 class SnapshotMenu(BaseSchema):
-    """缓存快照：菜单节点（含表单元数据）。"""
+    """缓存快照：菜单节点（含挂接的表单元数据，多对多）。"""
 
     id: int = Field(description="菜单主键")
     parent_id: int = Field(description="父菜单 ID（0 为根）")
@@ -123,7 +124,9 @@ class SnapshotMenu(BaseSchema):
     icon: str | None = Field(description="完整 icon key")
     sort: int = Field(description="排序")
     hidden: bool = Field(description="仅隐藏侧栏入口")
-    form: SnapshotForm | None = Field(description="表单元数据（挂接链完整时非空）")
+    forms: Annotated[ConcurrentStableList[SnapshotForm], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_LIST, description="该入口关联的表单元数据（挂接链完整时非空）"
+    )
 
 
 class MenuSnapshot(BaseSchema):
@@ -139,6 +142,58 @@ class MenuSnapshot(BaseSchema):
     )
     menus: Annotated[ConcurrentStableList[SnapshotMenu], CONTRACT_COLLECTION] = Field(
         default_factory=CONTRACT_STABLE_LIST, description="菜单元数据（保持 sort 顺序）"
+    )
+
+
+def _snapshot_form(
+    form: SysForm,
+    business: SysBusiness,
+    *,
+    action_by_id: ConcurrentStableDict[int, SysAction],
+    buttons_by_form: ConcurrentStableDict[int, ConcurrentStableList[SysButton]],
+    fields_by_form: ConcurrentStableDict[int, ConcurrentStableList[SysField]],
+    field_i18n: ConcurrentStableDict[int, str],
+) -> SnapshotForm:
+    """表单实体 → 快照（含按钮与字段元数据）。
+
+    Args:
+        form: 表单记录。
+        business: 表单挂接的业务码记录。
+        action_by_id: 动作码 ID → 记录（仅启用态）。
+        buttons_by_form: 表单 ID → 按钮列表。
+        fields_by_form: 表单 ID → 字段列表。
+        field_i18n: 字段 ID → 本地化文案。
+
+    Returns:
+        SnapshotForm: 表单元数据快照。
+    """
+    return SnapshotForm(
+        id=form.id,
+        business_id=business.id,
+        business_code=business.code,
+        component=form.component,
+        buttons=ConcurrentStableList(
+            SnapshotButton(
+                id=button.id,
+                action_id=button.action_id,
+                action_code=f"{business.code}:{action_by_id[button.action_id].code}",
+                name=button.name,
+                type=button.type,
+                sort=button.sort,
+            )
+            for button in (buttons_by_form.get(form.id) or ())
+            if button.action_id in action_by_id
+        ),
+        fields=ConcurrentStableList(
+            SnapshotField(
+                id=field.id,
+                field_key=field.field_key,
+                name=field_i18n.get(field.id, field.name),
+                type=field.type,
+                sort=field.sort,
+            )
+            for field in (fields_by_form.get(form.id) or ())
+        ),
     )
 
 
@@ -180,6 +235,7 @@ class MenuMetadataService(BaseFrameworkObject):
         actions: ActionRepository,
         menus: MenuRepository,
         forms: FormRepository,
+        menu_forms: MenuFormRepository,
         buttons: ButtonRepository,
         fields: FieldRepository,
         outbox: BaseOutboxStore,
@@ -193,6 +249,7 @@ class MenuMetadataService(BaseFrameworkObject):
             actions: 动作权限码仓储。
             menus: 菜单仓储。
             forms: 表单仓储。
+            menu_forms: 菜单 ↔ 表单关联仓储（多对多）。
             buttons: 按钮仓储。
             fields: 字段仓储。
             outbox: 发件箱存储（事件发布）。
@@ -203,6 +260,7 @@ class MenuMetadataService(BaseFrameworkObject):
         self._actions = actions
         self._menus = menus
         self._forms = forms
+        self._menu_forms = menu_forms
         self._buttons = buttons
         self._fields = fields
         self._outbox = outbox
@@ -274,6 +332,7 @@ class MenuMetadataService(BaseFrameworkObject):
         actions = await self._actions.list_by_business()
         menus = await self._menus.list_all()
         forms = await self._forms.list_all()
+        menu_forms = await self._menu_forms.list_all()
         buttons = await self._buttons.list_all()
         fields = await self._fields.list_all()
 
@@ -284,9 +343,17 @@ class MenuMetadataService(BaseFrameworkObject):
             {row.id: row for row in businesses if row.status == "enabled"}
         )
         action_by_id = ConcurrentStableDict[int, SysAction]({row.id: row for row in actions if row.status == "enabled"})
-        form_by_menu = ConcurrentStableDict[int, SysForm](
-            {row.menu_id: row for row in forms if row.status == "enabled"}
-        )
+        form_by_id = ConcurrentStableDict[int, SysForm]({row.id: row for row in forms if row.status == "enabled"})
+        forms_by_menu = ConcurrentStableDict[int, ConcurrentStableList[SysForm]]()
+        for link in menu_forms:
+            form = form_by_id.get(link.form_id)
+            if form is None:
+                continue
+            form_bucket = forms_by_menu.get(link.menu_id)
+            if form_bucket is None:
+                form_bucket = ConcurrentStableList[SysForm]()
+                forms_by_menu.set(link.menu_id, form_bucket)
+            form_bucket.add(form)
 
         buttons_by_form = ConcurrentStableDict[int, ConcurrentStableList[SysButton]]()
         for button in buttons:
@@ -318,37 +385,20 @@ class MenuMetadataService(BaseFrameworkObject):
         for menu in menus:
             if menu.status != "enabled":
                 continue
-            form = form_by_menu.get(menu.id)
-            business = business_by_id.get(form.business_id) if form is not None else None
-            form_meta: SnapshotForm | None = None
-            if form is not None and business is not None:
-                form_meta = SnapshotForm(
-                    id=form.id,
-                    business_id=business.id,
-                    business_code=business.code,
-                    component=form.component,
-                    buttons=ConcurrentStableList(
-                        SnapshotButton(
-                            id=button.id,
-                            action_id=button.action_id,
-                            action_code=f"{business.code}:{action_by_id[button.action_id].code}",
-                            name=button.name,
-                            type=button.type,
-                            sort=button.sort,
-                        )
-                        for button in (buttons_by_form.get(form.id) or ())
-                        if button.action_id in action_by_id
-                    ),
-                    fields=ConcurrentStableList(
-                        SnapshotField(
-                            id=field.id,
-                            field_key=field.field_key,
-                            name=field_i18n.get(field.id, field.name),
-                            type=field.type,
-                            sort=field.sort,
-                        )
-                        for field in (fields_by_form.get(form.id) or ())
-                    ),
+            form_metas = ConcurrentStableList[SnapshotForm]()
+            for form in forms_by_menu.get(menu.id) or ():
+                business = business_by_id.get(form.business_id)
+                if business is None:
+                    continue
+                form_metas.add(
+                    _snapshot_form(
+                        form,
+                        business,
+                        action_by_id=action_by_id,
+                        buttons_by_form=buttons_by_form,
+                        fields_by_form=fields_by_form,
+                        field_i18n=field_i18n,
+                    )
                 )
             snapshots.add(
                 SnapshotMenu(
@@ -360,7 +410,7 @@ class MenuMetadataService(BaseFrameworkObject):
                     icon=menu.icon,
                     sort=menu.sort,
                     hidden=menu.hidden,
-                    form=form_meta,
+                    forms=form_metas,
                 )
             )
         return MenuSnapshot(
@@ -421,19 +471,27 @@ class MenuMetadataService(BaseFrameworkObject):
         return MenuTree(items=roots)
 
     async def list_forms(self, menu_id: int | None) -> FormList:
-        """表单清单（按菜单过滤，可空 = 全部）。
+        """表单清单（`menu_id` 非空时**按菜单关联过滤**；None 为全量，含无入口表单）。
 
         Args:
-            menu_id: 菜单 ID；None 表示全部。
+            menu_id: 菜单 ID；None 表示全量。
 
         Returns:
-            FormList: 表单清单。
+            FormList: 表单清单（每行带关联菜单入口清单 `menu_ids`）。
         """
+        associations = await self._menu_forms.list_all()
+        menu_ids_by_form = ConcurrentStableDict[int, ConcurrentStableList[int]]()
+        for link in associations:
+            entry = menu_ids_by_form.get(link.form_id)
+            if entry is None:
+                entry = ConcurrentStableList[int]()
+                menu_ids_by_form.set(link.form_id, entry)
+            entry.add(link.menu_id)
         rows = await self._forms.list_all()
         items = ConcurrentStableList(
             FormItem(
                 id=row.id,
-                menu_id=row.menu_id,
+                menu_ids=ConcurrentStableList(menu_ids_by_form.get(row.id) or ()),
                 business_id=row.business_id,
                 component=row.component,
                 status=row.status,
@@ -441,7 +499,7 @@ class MenuMetadataService(BaseFrameworkObject):
                 updated_at=row.updated_at,
             )
             for row in rows
-            if menu_id is None or row.menu_id == menu_id
+            if menu_id is None or menu_id in (menu_ids_by_form.get(row.id) or ())
         )
         return FormList(items=items)
 
@@ -627,8 +685,7 @@ class MenuMetadataService(BaseFrameworkObject):
         async with self._uow.begin():
             if await self._menus.get(menu_id) is None:
                 raise MenuNotFoundError(f"菜单不存在：{menu_id}")
-            form = await self._forms.get_by_menu(menu_id)
-            if form is not None:
+            if await self._menu_forms.list_by_menu(menu_id):
                 raise MenuReferencedError(f"菜单已挂表单，先解除挂接：{menu_id}")
             children = await self._menus.list_all()
             if any(row.parent_id == menu_id for row in children):
@@ -653,11 +710,18 @@ class MenuMetadataService(BaseFrameworkObject):
 
     # ------------------------------------------------------------------ 写（表单）
 
-    async def create_form(self, *, menu_id: int, business_id: int, component: str | None, status: str) -> SysForm:
-        """新增表单（菜单 1:1 / 业务 1:1）。
+    async def create_form(
+        self,
+        *,
+        menu_ids: ConcurrentStableList[int],
+        business_id: int,
+        component: str | None,
+        status: str,
+    ) -> SysForm:
+        """新增表单（业务 1:1；菜单入口多对多，可空 = 孤儿表单）。
 
         Args:
-            menu_id: 菜单 ID。
+            menu_ids: 关联菜单 ID 清单（去重；空 = 不关联任何入口）。
             business_id: 业务码 ID。
             component: 表单视图组件标识。
             status: 状态。
@@ -667,29 +731,38 @@ class MenuMetadataService(BaseFrameworkObject):
 
         Raises:
             MenuNotFoundError: 菜单或业务码不存在（40201）。
-            ConflictError: 菜单 / 业务码已被其它表单挂接（1:1）。
+            ConflictError: 业务码已被其它表单挂接（1:1）。
         """
         async with self._uow.begin():
-            if await self._menus.get(menu_id) is None:
-                raise MenuNotFoundError(f"菜单不存在：{menu_id}")
+            normalized = self._dedupe(menu_ids)
+            await self._ensure_menus(normalized)
             if await self._businesses.get(business_id) is None:
                 raise MenuNotFoundError(f"业务码不存在：{business_id}")
-            if await self._forms.get_by_menu(menu_id) is not None:
-                raise ConflictError(f"菜单已挂表单：{menu_id}")
             if await self._forms.get_by_business(business_id) is not None:
                 raise ConflictError(f"业务码已挂表单：{business_id}")
-            row = await self._forms.create(menu_id=menu_id, business_id=business_id, component=component, status=status)
+            row = await self._forms.create(business_id=business_id, component=component, status=status)
+            for menu_id in normalized:
+                await self._menu_forms.create(menu_id=menu_id, form_id=row.id)
             await self._publish_form_updated(
-                form_id=row.id, menu_id=menu_id, business_id=business_id, changed_type=CHANGED_FORM
+                form_id=row.id, menu_id=None, business_id=business_id, changed_type=CHANGED_FORM
             )
         await self.invalidate()
         return row
 
-    async def update_form(self, form_id: int, *, business_id: int, component: str | None, status: str) -> SysForm:
-        """更新表单。
+    async def update_form(
+        self,
+        form_id: int,
+        *,
+        menu_ids: ConcurrentStableList[int],
+        business_id: int,
+        component: str | None,
+        status: str,
+    ) -> SysForm:
+        """更新表单（菜单入口关联**全量替换**）。
 
         Args:
             form_id: 表单主键。
+            menu_ids: 关联菜单 ID 清单（全量；空 = 解除全部入口）。
             business_id: 业务码 ID。
             component: 表单视图组件标识。
             status: 状态。
@@ -698,13 +771,15 @@ class MenuMetadataService(BaseFrameworkObject):
             SysForm: 更新后表单。
 
         Raises:
-            MenuNotFoundError: 表单或业务码不存在（40201）。
+            MenuNotFoundError: 表单 / 菜单 / 业务码不存在（40201）。
             ConflictError: 业务码已被其它表单挂接（1:1）。
         """
         async with self._uow.begin():
             current = await self._forms.get(form_id)
             if current is None:
                 raise MenuNotFoundError(f"表单不存在：{form_id}")
+            normalized = self._dedupe(menu_ids)
+            await self._ensure_menus(normalized)
             if await self._businesses.get(business_id) is None:
                 raise MenuNotFoundError(f"业务码不存在：{business_id}")
             existing = await self._forms.get_by_business(business_id)
@@ -713,14 +788,46 @@ class MenuMetadataService(BaseFrameworkObject):
             updated = await self._forms.update(form_id, business_id=business_id, component=component, status=status)
             if updated is None:
                 raise MenuNotFoundError(f"表单不存在：{form_id}")
+            await self._menu_forms.delete_by_form(form_id)
+            for menu_id in normalized:
+                await self._menu_forms.create(menu_id=menu_id, form_id=form_id)
             await self._publish_form_updated(
-                form_id=form_id,
-                menu_id=updated.menu_id,
-                business_id=business_id,
-                changed_type=CHANGED_FORM,
+                form_id=form_id, menu_id=None, business_id=business_id, changed_type=CHANGED_FORM
             )
         await self.invalidate()
         return updated
+
+    @staticmethod
+    def _dedupe(menu_ids: ConcurrentStableList[int]) -> ConcurrentStableList[int]:
+        """菜单入口清单去重（保持首次出现序）。
+
+        Args:
+            menu_ids: 原始菜单 ID 清单。
+
+        Returns:
+            ConcurrentStableList[int]: 去重后的菜单 ID 清单。
+        """
+        seen: ConcurrentStableSet[int] = ConcurrentStableSet()
+        result: ConcurrentStableList[int] = ConcurrentStableList()
+        for menu_id in menu_ids:
+            if menu_id in seen:
+                continue
+            seen.add(menu_id)
+            result.add(menu_id)
+        return result
+
+    async def _ensure_menus(self, menu_ids: ConcurrentStableList[int]) -> None:
+        """菜单入口存在性校验。
+
+        Args:
+            menu_ids: 菜单 ID 清单。
+
+        Raises:
+            MenuNotFoundError: 存在不存在的菜单（40201）。
+        """
+        for menu_id in menu_ids:
+            if await self._menus.get(menu_id) is None:
+                raise MenuNotFoundError(f"菜单不存在：{menu_id}")
 
     async def delete_form(self, form_id: int) -> None:
         """删除表单（软删除；存在按钮 / 字段时拒绝）。
@@ -739,9 +846,10 @@ class MenuMetadataService(BaseFrameworkObject):
             if await self._buttons.list_by_form(form_id) or await self._fields.list_by_form(form_id):
                 raise MenuReferencedError(f"表单存在按钮 / 字段，先删除：{form_id}")
             await self._forms.soft_delete(form_id)
+            await self._menu_forms.delete_by_form(form_id)
             await self._publish_form_updated(
                 form_id=form_id,
-                menu_id=current.menu_id,
+                menu_id=None,
                 business_id=current.business_id,
                 changed_type=CHANGED_FORM,
             )
@@ -781,7 +889,7 @@ class MenuMetadataService(BaseFrameworkObject):
                 form_id=form_id, action_id=action_id, name=name, type=type, sort=sort, status=status
             )
             await self._publish_form_updated(
-                form_id=form_id, menu_id=form.menu_id, business_id=form.business_id, changed_type=CHANGED_BUTTON
+                form_id=form_id, menu_id=None, business_id=form.business_id, changed_type=CHANGED_BUTTON
             )
         await self.invalidate()
         return row
@@ -823,7 +931,7 @@ class MenuMetadataService(BaseFrameworkObject):
             form = await self._forms.get(current.form_id)
             await self._publish_form_updated(
                 form_id=current.form_id,
-                menu_id=form.menu_id if form is not None else None,
+                menu_id=None,
                 business_id=form.business_id if form is not None else None,
                 changed_type=CHANGED_BUTTON,
             )
@@ -847,7 +955,7 @@ class MenuMetadataService(BaseFrameworkObject):
             form = await self._forms.get(current.form_id)
             await self._publish_form_updated(
                 form_id=current.form_id,
-                menu_id=form.menu_id if form is not None else None,
+                menu_id=None,
                 business_id=form.business_id if form is not None else None,
                 changed_type=CHANGED_BUTTON,
             )
@@ -895,7 +1003,7 @@ class MenuMetadataService(BaseFrameworkObject):
             )
             await self._fields.replace_i18n(row.id, i18n)
             await self._publish_form_updated(
-                form_id=form_id, menu_id=form.menu_id, business_id=form.business_id, changed_type=CHANGED_FIELD
+                form_id=form_id, menu_id=None, business_id=form.business_id, changed_type=CHANGED_FIELD
             )
         await self.invalidate()
         return row
@@ -937,7 +1045,7 @@ class MenuMetadataService(BaseFrameworkObject):
             form = await self._forms.get(current.form_id)
             await self._publish_form_updated(
                 form_id=current.form_id,
-                menu_id=form.menu_id if form is not None else None,
+                menu_id=None,
                 business_id=form.business_id if form is not None else None,
                 changed_type=CHANGED_FIELD,
             )
@@ -961,7 +1069,7 @@ class MenuMetadataService(BaseFrameworkObject):
             form = await self._forms.get(current.form_id)
             await self._publish_form_updated(
                 form_id=current.form_id,
-                menu_id=form.menu_id if form is not None else None,
+                menu_id=None,
                 business_id=form.business_id if form is not None else None,
                 changed_type=CHANGED_FIELD,
             )

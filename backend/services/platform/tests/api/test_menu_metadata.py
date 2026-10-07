@@ -1,8 +1,8 @@
 """菜单与权限元数据端点测试（Kiwi 2242）：菜单 / 表单 / 按钮 / 字段维护与挂接链校验。
 
-覆盖：菜单增改删与路径冲突（40203）、父菜单不存在（40201）、表单 1:1 挂接冲突（10003）、
-按钮同动作冲突（10003）与形态校验（10001）、字段键重复（40205）、被引用禁删（40206）、
-业务 / 动作码只读列示，以及元数据变更发布 `sys.form.updated` 事件。
+覆盖：菜单增改删与路径冲突（40203）、父菜单不存在（40201）、表单业务 1:1 挂接冲突（10003）、
+**菜单 ↔ 表单多对多（含孤儿表单与按菜单关联过滤）**、按钮同动作冲突（10003）与形态校验（10001）、
+字段键重复（40205）、被引用禁删（40206）、业务 / 动作码只读列示，以及元数据变更发布 `sys.form.updated` 事件。
 """
 
 import pytest
@@ -86,7 +86,7 @@ async def test_menu_create_update_delete_and_conflicts(client: AsyncClient) -> N
     assert missing.json()["code"] == 40201
 
     business_id = await seed_business("t_menu")
-    linked = await client.post(_FORMS, json={"menu_id": menu_id, "business_id": business_id, "status": "enabled"})
+    linked = await client.post(_FORMS, json={"menu_ids": [menu_id], "business_id": business_id, "status": "enabled"})
     assert linked.json()["code"] == 0
 
     referenced = await client.delete(f"{_MENUS}/{menu_id}")
@@ -109,19 +109,48 @@ async def test_form_button_field_link_rules(client: AsyncClient) -> None:
     menu_id = int(menu.json()["data"]["id"])
 
     unknown_business = await client.post(
-        _FORMS, json={"menu_id": menu_id, "business_id": 999999999, "status": "enabled"}
+        _FORMS, json={"menu_ids": [menu_id], "business_id": 999999999, "status": "enabled"}
     )
     assert unknown_business.status_code == 404
     assert unknown_business.json()["code"] == 40201
 
-    form = await client.post(_FORMS, json={"menu_id": menu_id, "business_id": business_id, "status": "enabled"})
+    unknown_menu = await client.post(
+        _FORMS, json={"menu_ids": [999999999], "business_id": business_id, "status": "enabled"}
+    )
+    assert unknown_menu.status_code == 404
+    assert unknown_menu.json()["code"] == 40201
+
+    # 多对多：同一表单关联两个菜单入口
+    second_menu = await client.post(
+        _MENUS, json={"parent_id": 0, "name": "挂接页二", "path": "/t-link-2", "status": "enabled"}
+    )
+    second_menu_id = int(second_menu.json()["data"]["id"])
+    form = await client.post(
+        _FORMS,
+        json={"menu_ids": [menu_id, second_menu_id], "business_id": business_id, "status": "enabled"},
+    )
     assert form.json()["code"] == 0
     form_id = int(form.json()["data"]["id"])
+    assert sorted(int(item) for item in form.json()["data"]["menu_ids"]) == sorted([menu_id, second_menu_id])
+    by_menu = (await client.get(_FORMS, params={"menu_id": second_menu_id})).json()["data"]["items"]
+    assert {int(item["id"]) for item in by_menu} == {form_id}
 
     duplicate_form = await client.post(
-        _FORMS, json={"menu_id": menu_id, "business_id": business_id, "status": "enabled"}
+        _FORMS, json={"menu_ids": [menu_id], "business_id": business_id, "status": "enabled"}
     )
     assert duplicate_form.json()["code"] == 10003
+
+    # 孤儿表单：无菜单入口，仅出现在全量列表
+    orphan_business = await seed_business("t_link_orphan")
+    orphan = await client.post(_FORMS, json={"menu_ids": [], "business_id": orphan_business, "status": "enabled"})
+    assert orphan.json()["code"] == 0
+    assert orphan.json()["data"]["menu_ids"] == []
+    orphan_id = int(orphan.json()["data"]["id"])
+    all_forms = (await client.get(_FORMS)).json()["data"]["items"]
+    assert orphan_id in {int(item["id"]) for item in all_forms}
+    assert orphan_id not in {
+        int(item["id"]) for item in (await client.get(_FORMS, params={"menu_id": menu_id})).json()["data"]["items"]
+    }
 
     button = await client.post(
         _BUTTONS,

@@ -22,6 +22,7 @@ from bms_platform.models.menu import (
     SysFieldI18n,
     SysForm,
     SysMenu,
+    SysMenuForm,
     SysMenuI18n,
 )
 
@@ -31,13 +32,14 @@ MENU_MODELS: tuple[Any, ...] = (
     SysButton,
     SysFieldI18n,
     SysField,
+    SysMenuForm,
     SysForm,
     SysActionI18n,
     SysAction,
     SysBusinessI18n,
     SysBusiness,
 )
-"""菜单元数据十表（清场顺序：先子后父）。"""
+"""菜单元数据十一表（清场顺序：先子后父；含 `sys_menu_form` 关联）。"""
 
 
 def platform_url() -> str:
@@ -118,7 +120,7 @@ async def seed_action(business_id: int, code: str, name: str = "查询") -> int:
 
 
 async def insert_form(menu_id: int, business_id: int, status: str = "enabled") -> int:
-    """直插表单（绕过接口校验，用于构造断裂 / 停用场景）。
+    """直插表单并关联菜单入口（绕过接口校验，用于构造断裂 / 停用场景）。
 
     Args:
         menu_id: 菜单主键。
@@ -132,10 +134,12 @@ async def insert_form(menu_id: int, business_id: int, status: str = "enabled") -
     factory = async_sessionmaker(engine, expire_on_commit=False)
     try:
         async with factory() as session:
-            row = SysForm(menu_id=menu_id, business_id=business_id, component=None, status=status)
+            row = SysForm(business_id=business_id, component=None, status=status)
             session.add(row)
             await session.flush()
             form_id = row.id
+            session.add(SysMenuForm(menu_id=menu_id, form_id=form_id))
+            await session.flush()
             await session.commit()
         return form_id
     finally:

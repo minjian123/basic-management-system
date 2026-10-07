@@ -181,7 +181,13 @@ TABLE_OWNERSHIP: tuple[TableRecord, ...] = (
         table_name="sys_form",
         owner="platform",
         datasource=Datasource.PLATFORM,
-        note="平台表单（菜单 1:1 挂业务；03_01 落库）",
+        note="平台表单（1:1 挂业务；菜单经 sys_menu_form 多对多；02_03 返工）",
+    ),
+    TableRecord(
+        table_name="sys_menu_form",
+        owner="platform",
+        datasource=Datasource.PLATFORM,
+        note="菜单 ↔ 表单关联（多对多；02_03 返工落库）",
     ),
     TableRecord(
         table_name="sys_field",

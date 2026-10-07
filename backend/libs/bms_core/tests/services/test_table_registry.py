@@ -86,6 +86,7 @@ def test_owned_tables_and_chain_derivation() -> None:
         "sys_menu",
         "sys_menu_i18n",
         "sys_form",
+        "sys_menu_form",
         "sys_button",
         "sys_field",
         "sys_field_i18n",

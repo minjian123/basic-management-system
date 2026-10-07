@@ -5,7 +5,7 @@
 - 本模块由平台服务在 `models/__init__.py::MODEL_MODULES` 声明，迁移链按服务解析模型时导入；
 - 表结构以《数据库设计》数据表文件为唯一事实源（`sys_menu.md` 等十张表文件）。
 
-挂接链：菜单 1:1 表单、表单 1:1 业务、按钮 1:1 动作、字段挂表单。
+挂接链：菜单 ↔ 表单**多对多**（经关联表 `sys_menu_form`）、表单 1:1 业务、按钮 1:1 动作、字段挂表单。
 """
 
 from sqlalchemy import BigInteger, Boolean, Integer, String, UniqueConstraint
@@ -97,18 +97,26 @@ class SysMenuI18n(BaseModel):
 
 
 class SysForm(BaseModel):
-    """表单（`sys_form`）：菜单 1:1 挂业务权限。"""
+    """表单（`sys_form`）：1:1 挂业务权限；菜单入口经关联表 `sys_menu_form` **多对多**。"""
 
     __tablename__ = "sys_form"
-    __table_args__ = (
-        UniqueConstraint("menu_id", "deleted_at", name="uq_sys_form_menu_id_deleted_at"),
-        UniqueConstraint("business_id", "deleted_at", name="uq_sys_form_business_id_deleted_at"),
-    )
+    __table_args__ = (UniqueConstraint("business_id", "deleted_at", name="uq_sys_form_business_id_deleted_at"),)
 
-    menu_id: Mapped[int] = mapped_column(BigInteger, comment="所属菜单 ID（逻辑外键 → sys_menu.id；1:1）")
     business_id: Mapped[int] = mapped_column(BigInteger, comment="所属业务码 ID（逻辑外键 → sys_business.id；1:1）")
     component: Mapped[str | None] = mapped_column(String(255), nullable=True, comment="表单视图组件标识")
     status: Mapped[str] = mapped_column(String(16), default="enabled", comment="状态（enabled/disabled）")
+
+
+class SysMenuForm(BaseModel):
+    """菜单 ↔ 表单关联（`sys_menu_form`）：多对多（多入口指向同一表单；表单可无入口）。"""
+
+    __tablename__ = "sys_menu_form"
+    __table_args__ = (
+        UniqueConstraint("menu_id", "form_id", "deleted_at", name="uq_sys_menu_form_menu_form_deleted_at"),
+    )
+
+    menu_id: Mapped[int] = mapped_column(BigInteger, index=True, comment="菜单 ID（逻辑外键 → sys_menu.id；多对多）")
+    form_id: Mapped[int] = mapped_column(BigInteger, index=True, comment="表单 ID（逻辑外键 → sys_form.id；多对多）")
 
 
 class SysButton(BaseModel):

@@ -2,8 +2,9 @@
 
 按当前用户权限过滤菜单树并下发表单元数据：
 
-- **菜单可见**＝其表单 → 业务的**业务码**被授予（`BasePermissionChecker`；当前 provider 为占位实现，
-  真实权限计算随 `02_04` 注入，接口与前端零改动）；目录节点（无表单）在其存在可见子节点时保留；
+- **菜单可见**＝其关联表单 → 业务的**业务码**被授予（多表单时任一命中即保留；`BasePermissionChecker`；
+  当前 provider 为占位实现，真实权限计算随 `02_04` 注入，接口与前端零改动）；
+  目录节点（无表单）在其存在可见子节点时保留；
 - **按钮**按动作权限码 `{业务码}:{动作码}` 标记 `visible`；
 - **字段**按字段权限标记 `visible` / `editable`——字段权限授予存 `sys_role_field`（归角色管理 `02_03`），
   占位阶段按「默认全部可见可编辑」，真实收窄随 `02_04`；
@@ -22,7 +23,7 @@ from bms_platform.schemas.menu import (
     MyMenuNode,
     MyMenuResponse,
 )
-from bms_platform.services.menu import MenuMetadataService, SnapshotMenu
+from bms_platform.services.menu import MenuMetadataService, SnapshotForm, SnapshotMenu
 
 
 class MyMenuService(BaseFrameworkObject):
@@ -82,15 +83,17 @@ class MyMenuService(BaseFrameworkObject):
     def _is_link_visible(self, menu: SnapshotMenu) -> bool:
         """挂接链与业务权限判定（目录节点由「存在可见子节点」决定）。
 
+        关联多个表单时：任一表单挂接的业务码被授予即保留该入口。
+
         Args:
             menu: 菜单快照。
 
         Returns:
             bool: 是否保留该节点。
         """
-        if menu.form is None:
+        if not menu.forms:
             return True
-        return self._checker.check(menu.form.business_code)
+        return any(self._checker.check(form.business_code) for form in menu.forms)
 
     def _to_node(self, menu: SnapshotMenu) -> MyMenuNode:
         """菜单快照 → 动态菜单节点（含表单 / 按钮 / 字段标记）。
@@ -101,39 +104,6 @@ class MyMenuService(BaseFrameworkObject):
         Returns:
             MyMenuNode: 动态菜单节点。
         """
-        form: MyMenuForm | None = None
-        if menu.form is not None:
-            form = MyMenuForm(
-                id=menu.form.id,
-                menu_id=menu.id,
-                business_id=menu.form.business_id,
-                business_code=menu.form.business_code,
-                component=menu.form.component,
-                buttons=ConcurrentStableList(
-                    MyMenuButton(
-                        id=button.id,
-                        action_id=button.action_id,
-                        action_code=button.action_code,
-                        name=button.name,
-                        type=button.type,
-                        sort=button.sort,
-                        visible=self._checker.check(button.action_code),
-                    )
-                    for button in menu.form.buttons
-                ),
-                fields=ConcurrentStableList(
-                    MyMenuField(
-                        id=field.id,
-                        field_key=field.field_key,
-                        name=field.name,
-                        type=field.type,
-                        sort=field.sort,
-                        visible=True,
-                        editable=True,
-                    )
-                    for field in menu.form.fields
-                ),
-            )
         return MyMenuNode(
             id=menu.id,
             parent_id=menu.parent_id,
@@ -143,8 +113,50 @@ class MyMenuService(BaseFrameworkObject):
             icon=menu.icon,
             sort=menu.sort,
             hidden=menu.hidden,
-            form=form,
+            forms=ConcurrentStableList(self._to_form(menu.id, form) for form in menu.forms),
             children=ConcurrentStableList(),
+        )
+
+    def _to_form(self, menu_id: int, form: SnapshotForm) -> MyMenuForm:
+        """表单快照 → 动态菜单表单元数据（按动作 / 字段权限标记）。
+
+        Args:
+            menu_id: 关联的菜单入口 ID。
+            form: 表单快照。
+
+        Returns:
+            MyMenuForm: 表单元数据。
+        """
+        return MyMenuForm(
+            id=form.id,
+            menu_id=menu_id,
+            business_id=form.business_id,
+            business_code=form.business_code,
+            component=form.component,
+            buttons=ConcurrentStableList(
+                MyMenuButton(
+                    id=button.id,
+                    action_id=button.action_id,
+                    action_code=button.action_code,
+                    name=button.name,
+                    type=button.type,
+                    sort=button.sort,
+                    visible=self._checker.check(button.action_code),
+                )
+                for button in form.buttons
+            ),
+            fields=ConcurrentStableList(
+                MyMenuField(
+                    id=field.id,
+                    field_key=field.field_key,
+                    name=field.name,
+                    type=field.type,
+                    sort=field.sort,
+                    visible=True,
+                    editable=True,
+                )
+                for field in form.fields
+            ),
         )
 
     @staticmethod
@@ -160,6 +172,6 @@ class MyMenuService(BaseFrameworkObject):
         kept = ConcurrentStableList[MyMenuNode]()
         for node in nodes:
             node.children = MyMenuService._prune_empty(node.children)
-            if node.form is not None or node.children:
+            if node.forms or node.children:
                 kept.add(node)
         return kept

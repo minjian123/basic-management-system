@@ -197,7 +197,7 @@ def test_chain_url_resolution(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -
 def test_chain_revisions_integrity() -> None:
     """链完整性：有脚本链单 head、分支标签与链名一致、链内 revision 唯一（跨链允许同名）。"""
     platform_head = ScriptDirectory.from_config(_config(resolve_chain("platform:platform"))).get_current_head()
-    assert platform_head == "0007_menu_metadata"
+    assert platform_head == "0008_menu_form_multi"
     tenant_service_head = ScriptDirectory.from_config(_config(default_chain())).get_current_head()
     assert tenant_service_head == "0008_user_tables"
     org_head = ScriptDirectory.from_config(_config(resolve_chain("org:tenant"))).get_current_head()

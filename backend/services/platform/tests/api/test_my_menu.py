@@ -87,7 +87,7 @@ async def _create_page(client: AsyncClient, path: str, name: str, en: str, busin
         },
     )
     menu_id = int(menu.json()["data"]["id"])
-    form = await client.post(_FORMS, json={"menu_id": menu_id, "business_id": int(business_id), "status": "enabled"})
+    form = await client.post(_FORMS, json={"menu_ids": [menu_id], "business_id": int(business_id), "status": "enabled"})
     assert form.json()["code"] == 0
     return menu.json()["data"]
 
@@ -128,18 +128,20 @@ async def test_my_menu_filters_marks_and_locale(client: AsyncClient) -> None:
     node = _find(data["menus"], "/t-my")
     assert node is not None
     assert node["name"] == "我的页面"
-    assert node["form"]["business_code"] == "t_my"
-    assert node["form"]["buttons"][0]["action_code"] == "t_my:create"
-    assert node["form"]["buttons"][0]["visible"] is True
-    assert node["form"]["fields"][0]["name"] == "用户名"
-    assert node["form"]["fields"][0]["visible"] is True
-    assert node["form"]["fields"][0]["editable"] is True
+    assert len(node["forms"]) == 1
+    assert node["forms"][0]["business_code"] == "t_my"
+    assert int(node["forms"][0]["menu_id"]) == menu_id
+    assert node["forms"][0]["buttons"][0]["action_code"] == "t_my:create"
+    assert node["forms"][0]["buttons"][0]["visible"] is True
+    assert node["forms"][0]["fields"][0]["name"] == "用户名"
+    assert node["forms"][0]["fields"][0]["visible"] is True
+    assert node["forms"][0]["fields"][0]["editable"] is True
 
     english = await client.get(_MY, headers={"accept-language": "en-US"})
     english_node = _find(english.json()["data"]["menus"], "/t-my")
     assert english_node is not None
     assert english_node["name"] == "My page"
-    assert english_node["form"]["fields"][0]["name"] == "Username"
+    assert english_node["forms"][0]["fields"][0]["name"] == "Username"
 
 
 @pytest.mark.kiwi_id(2242)
@@ -160,7 +162,7 @@ async def test_my_menu_hides_broken_disabled_keeps_hidden(client: AsyncClient) -
         },
     )
     hidden_id = int(hidden_menu.json()["data"]["id"])
-    await client.post(_FORMS, json={"menu_id": hidden_id, "business_id": business_id, "status": "enabled"})
+    await client.post(_FORMS, json={"menu_ids": [hidden_id], "business_id": business_id, "status": "enabled"})
 
     disabled_business = await seed_business("t_disabled", "停用业务")
     await _create_page(client, "/t-disabled", "停用页", "Disabled page", "t_disabled")

@@ -61,17 +61,22 @@ class MenuUpdateRequest(BaseSchema):
 
 
 class FormCreateRequest(BaseSchema):
-    """新增表单请求（挂菜单 / 挂业务）。"""
+    """新增表单请求（挂业务；菜单入口多对多，可空 = 孤儿表单）。"""
 
-    menu_id: int = Field(gt=0, description="所属菜单 ID")
+    menu_ids: Annotated[ConcurrentStableList[int], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_LIST, description="关联菜单入口 ID 清单（可空）"
+    )
     business_id: int = Field(gt=0, description="所属业务码 ID")
     component: str | None = Field(default=None, max_length=255, description="表单视图组件标识")
     status: EnabledStatus = Field(default="enabled", description="状态（enabled/disabled）")
 
 
 class FormUpdateRequest(BaseSchema):
-    """更新表单请求。"""
+    """更新表单请求（菜单入口关联全量替换）。"""
 
+    menu_ids: Annotated[ConcurrentStableList[int], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_LIST, description="关联菜单入口 ID 清单（全量；空 = 解除全部入口）"
+    )
     business_id: int = Field(gt=0, description="所属业务码 ID")
     component: str | None = Field(default=None, max_length=255, description="表单视图组件标识")
     status: EnabledStatus = Field(default="enabled", description="状态（enabled/disabled）")
@@ -150,10 +155,12 @@ class MenuTree(BaseSchema):
 
 
 class FormItem(BaseSchema):
-    """表单行。"""
+    """表单行（菜单入口多对多）。"""
 
     id: int = Field(description="表单主键")
-    menu_id: int = Field(description="所属菜单 ID")
+    menu_ids: Annotated[ConcurrentStableList[int], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_LIST, description="关联菜单入口 ID 清单（空 = 无入口表单）"
+    )
     business_id: int = Field(description="所属业务码 ID")
     component: str | None = Field(description="表单视图组件标识")
     status: str = Field(description="状态（enabled/disabled）")
@@ -275,10 +282,10 @@ class MyMenuField(BaseSchema):
 
 
 class MyMenuForm(BaseSchema):
-    """动态菜单下的表单元数据。"""
+    """动态菜单下的表单元数据（一个菜单入口可关联多个表单）。"""
 
     id: int = Field(description="表单主键")
-    menu_id: int = Field(description="所属菜单 ID")
+    menu_id: int = Field(description="关联菜单入口 ID（即当前节点 ID）")
     business_id: int = Field(description="所属业务码 ID")
     business_code: str = Field(description="业务权限码")
     component: str | None = Field(description="表单视图组件标识")
@@ -291,7 +298,7 @@ class MyMenuForm(BaseSchema):
 
 
 class MyMenuNode(BaseSchema):
-    """动态菜单节点（过滤后菜单树，含表单元数据）。"""
+    """动态菜单节点（过滤后菜单树，含表单元数据，多对多）。"""
 
     id: int = Field(description="菜单主键")
     parent_id: int = Field(description="父菜单 ID（0 为根）")
@@ -301,7 +308,9 @@ class MyMenuNode(BaseSchema):
     icon: str | None = Field(description="完整 icon key")
     sort: int = Field(description="同级排序")
     hidden: bool = Field(description="仅隐藏侧栏入口（路由可直达）")
-    form: MyMenuForm | None = Field(description="表单元数据（挂接链完整时非空）")
+    forms: Annotated[ConcurrentStableList[MyMenuForm], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_LIST, description="该入口关联的表单元数据（挂接链完整时非空）"
+    )
     children: Annotated[ConcurrentStableList[MyMenuNode], CONTRACT_COLLECTION] = Field(
         default_factory=CONTRACT_STABLE_LIST, description="子菜单（树形）"
     )
