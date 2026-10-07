@@ -1,4 +1,4 @@
-"""认证链路测试替身：用户令牌签发者与 org 凭据客户端（Kiwi 2194）。"""
+"""认证链路测试替身：用户令牌签发者与 platform 凭据客户端（Kiwi 2194）。"""
 
 from __future__ import annotations
 
@@ -147,8 +147,8 @@ class FakeUserTokenIssuer(BaseUserTokenIssuer):
         )
 
 
-class FakeOrgClient(BaseServiceClient):
-    """测试替身：内存 org 凭据服务（verify / update-password / login-state）。"""
+class FakePlatformClient(BaseServiceClient):
+    """测试替身：内存 platform 凭据服务（verify / update-password / login-state）。"""
 
     plugin_name = "fake"
 
@@ -291,7 +291,7 @@ class FakeOrgClient(BaseServiceClient):
         return ConcurrentStableDict({})
 
     def _profile(self, user_id: int) -> ConcurrentStableDict[str, object]:
-        """按主键取用户概要（对齐 org `users/profile` 响应形态，含强制改密标记）。
+        """按主键取用户概要（对齐 platform_client `users/profile` 响应形态，含强制改密标记）。
 
         Args:
             user_id: 用户主键。
@@ -595,7 +595,7 @@ def wire_auth(
     app: FastAPI,
     *,
     issuer: BaseUserTokenIssuer,
-    org: BaseServiceClient,
+    platform_client: BaseServiceClient,
     store: MemorySessionStore,
     limiter: MemoryRateLimiter,
     captcha: BaseCaptcha | None = None,
@@ -605,13 +605,13 @@ def wire_auth(
     Args:
         app: 应用实例。
         issuer: 用户令牌签发者替身。
-        org: org 客户端替身。
+        platform_client: platform 客户端替身。
         store: 会话存储替身。
         limiter: 限流器替身。
         captcha: 验证码替身（None 用默认 Null）。
     """
     app.dependency_overrides[get_user_token_issuer] = lambda: issuer
-    app.dependency_overrides[get_service_client] = lambda: org
+    app.dependency_overrides[get_service_client] = lambda: platform_client
     app.dependency_overrides[get_session_store] = lambda: store
     app.dependency_overrides[get_rate_limiter] = lambda: limiter
     if captcha is not None:

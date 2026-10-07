@@ -41,8 +41,8 @@ class SsoCallbackResult(BaseSchema):
     tenant: str = Field(description="登录生效租户编码")
 
 
-class OrgProfileUser(ServiceDto):
-    """org 内部用户概要（按 id 取数）。"""
+class PlatformProfileUser(ServiceDto):
+    """platform 内部用户概要（按 id 取数）。"""
 
     id: int = Field(description="用户 ID")
     username: str = Field(description="登录账号")
@@ -53,19 +53,19 @@ class OrgProfileUser(ServiceDto):
     pwd_reset_required: bool = Field(default=False, description="是否需强制改密（密码超有效期）")
 
 
-class OrgProfileResult(ServiceDto):
-    """org 内部用户概要查询契约 DTO。"""
+class PlatformProfileResult(ServiceDto):
+    """platform 内部用户概要查询契约 DTO。"""
 
     found: bool = Field(default=False, description="用户是否存在")
-    user: OrgProfileUser | None = Field(default=None, description="用户概要（found=true 时返回）")
+    user: PlatformProfileUser | None = Field(default=None, description="用户概要（found=true 时返回）")
 
 
-class OrgUserCreateResult(ServiceDto):
-    """org 内部 JIT 建号结果契约 DTO（撞名 `created=false`）。"""
+class PlatformUserCreateResult(ServiceDto):
+    """platform 内部 JIT 建号结果契约 DTO（撞名 `created=false`）。"""
 
     created: bool = Field(default=False, description="是否建号成功")
     reason: str | None = Field(default=None, description="未建号原因（username_conflict）")
-    user: OrgProfileUser | None = Field(default=None, description="新建用户概要（created=true 时返回）")
+    user: PlatformProfileUser | None = Field(default=None, description="新建用户概要（created=true 时返回）")
 
 
 class SsoIdentityItem(BaseSchema):

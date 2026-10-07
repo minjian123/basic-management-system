@@ -230,9 +230,9 @@ TABLE_OWNERSHIP: tuple[TableRecord, ...] = (
     ),
     TableRecord(
         table_name="sys_user",
-        owner="org",
+        owner="platform",
         datasource=Datasource.TENANT,
-        note="用户最小模型（本地登录凭据 / 状态 / 锁定字段）",
+        note="用户（系统账号）最小模型（本地登录凭据 / 状态 / 锁定字段）；02_05 由 org 租户库迁入",
     ),
     TableRecord(
         table_name="sys_session",
@@ -242,9 +242,9 @@ TABLE_OWNERSHIP: tuple[TableRecord, ...] = (
     ),
     TableRecord(
         table_name="sys_account_lock",
-        owner="org",
+        owner="platform",
         datasource=Datasource.TENANT,
-        note="账号锁定记录（与 sys_user 同库；三型锁定 / 解锁归 03_07，inactive 扫描归 03_05）",
+        note="账号锁定记录（与 sys_user 同库；02_05 由 org 租户库迁入）",
     ),
     TableRecord(
         table_name="sys_role",
@@ -256,7 +256,7 @@ TABLE_OWNERSHIP: tuple[TableRecord, ...] = (
         table_name="sys_user_role",
         owner="platform",
         datasource=Datasource.TENANT,
-        note="角色 × 用户分配（与用户管理页「用户分配角色」同一张表；user_id 跨服务指向 org 租户库）",
+        note="角色 × 用户分配（与用户管理页「用户分配角色」同一张表；user_id 同库指向 sys_user.id）",
     ),
     TableRecord(
         table_name="sys_role_permission",

@@ -11,7 +11,7 @@ uv run python -m ops.seed_user --tenant demo --username admin --reset-password  
 ```
 
 - **库定位**：`--url` > 按「租户注册库对照表 `sys_tenant_database` 取库名基 → 库键
-  `tenant_org_{db_basis}`」经 `url_template` 解析（与 `ops/init_tenant.py` 同源口径；
+  `tenant_platform_{db_basis}`」经 `url_template` 解析（与 `ops/init_tenant.py` 同源口径；
   注册库不可读时回落 `--tenant` 作库名基，离线 / 演练可用）；
 - **幂等**：按 `username` + 未软删除判存——存在且未传 `--reset-password` → 跳过；存在且传 → 重置；
   不存在 → 新建；重复执行全为「跳过」；
@@ -39,7 +39,7 @@ from bms_core.db.engine import EngineFactory
 from bms_core.db.keys import build_platform_db_key, build_tenant_db_key
 from bms_core.db.tenant_source import TENANT_SERVICE_KEY
 from bms_core.security.pbkdf2 import Pbkdf2PasswordHasherFactory
-from bms_org.models.user import SysUser
+from bms_platform.models.user import SysUser
 from ops.migrate_tenants import tenant_refs
 
 DEFAULT_TENANT = "demo"
@@ -51,8 +51,8 @@ DEFAULT_USERNAME = "admin"
 DEFAULT_NAME = "管理员"
 """缺省显示名。"""
 
-DEFAULT_SERVICE = "org"
-"""账号主数据归属服务（`sys_user` 落 org 租户库）。"""
+DEFAULT_SERVICE = "platform"
+"""账号主数据归属服务（`sys_user` 落 platform 服务租户库；02_05 由 org 租户库迁入）。"""
 
 MIN_PASSWORD_LENGTH = 8
 """脚本侧口令最小长度防护（复杂度与强度口径归《安全开发规范》）。"""
@@ -82,7 +82,7 @@ def build_parser() -> argparse.ArgumentParser:
         argparse.ArgumentParser: 解析器。
     """
     parser = argparse.ArgumentParser(description="租户账号种子（sys_user 建 / 重置，幂等；需求 01-7）")
-    parser.add_argument("--url", default="", help="org 租户库连接串（缺省按租户注册库对照表解析）")
+    parser.add_argument("--url", default="", help="platform 租户库连接串（缺省按租户注册库对照表解析）")
     parser.add_argument("--tenant", default=DEFAULT_TENANT, help=f"租户编码（缺省 {DEFAULT_TENANT}）")
     parser.add_argument("--username", default=DEFAULT_USERNAME, help=f"账号名（缺省 {DEFAULT_USERNAME}）")
     parser.add_argument("--name", default=DEFAULT_NAME, help="显示名")

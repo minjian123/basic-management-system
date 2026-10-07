@@ -1,6 +1,6 @@
 """认证与身份服务 services 层：本地登录 / 刷新 / 登出编排。
 
-- 登录：限流 → 验证码（按场景策略）→ org 凭据校验 → 签发双 token → 建会话（`sys_session` + Redis 标记）
+- 登录：限流 → 验证码（按场景策略）→ platform 凭据校验 → 签发双 token → 建会话（`sys_session` + Redis 标记）
   → 写回登录态；失败计数经限流基座（Redis 后端）累计，达阈值联动 `sys_user.locked_until`。
 - 刷新：验签（`type=refresh`）→ 租户交叉校验 → 黑名单 → 会话标记 → 记录有效性 → `refresh_token_hash` 比对
   → 轮换（同会话 id，更新哈希）→ 重设 cookie。
@@ -44,7 +44,7 @@ from bms_identity.schemas.auth import (
     RefreshResult,
     UserSummary,
 )
-from bms_identity.services.org_client import OrgCredentialClient
+from bms_identity.services.platform_client import PlatformCredentialClient
 from bms_identity.services.session import REASON_LOGOUT, SessionService
 from bms_identity.services.session_issuer import SessionIssuer, hash_refresh_token
 
@@ -98,7 +98,7 @@ class LoginService(BaseFrameworkObject):
         session_store: BaseSessionStore,
         captcha: BaseCaptcha,
         rate_limiter: BaseRateLimiter,
-        org_client: OrgCredentialClient,
+        platform_client: PlatformCredentialClient,
         login_settings: LoginSettings,
         session_settings: SessionSettings,
         realtime_publisher: BaseRealtimePublisher,
@@ -113,7 +113,7 @@ class LoginService(BaseFrameworkObject):
             session_store: 会话标记存储。
             captcha: 验证码基座。
             rate_limiter: 限流基座（失败计数）。
-            org_client: org 凭据接口客户端。
+            platform_client: platform 凭据接口客户端。
             login_settings: 登录防爆破配置。
             session_settings: 会话治理配置（多端上限）。
             realtime_publisher: 实时推送器（`session.revoked` 广播占位）。
@@ -126,7 +126,7 @@ class LoginService(BaseFrameworkObject):
         self._store = session_store
         self._captcha = captcha
         self._limiter = rate_limiter
-        self._org = org_client
+        self._platform = platform_client
         self._login = login_settings
         self._session_settings = session_settings
         self._session_service = SessionService(
@@ -173,12 +173,12 @@ class LoginService(BaseFrameworkObject):
             AccountLockedError: 账号锁定（20003/401）。
             AccountDisabledError: 账号停用（20004/401）。
             LoginFailedError: 账号或密码错误（20002/401）。
-            ServiceUnavailableError: org 凭据接口不可用（10007/503）。
+            ServiceUnavailableError: platform 凭据接口不可用（10007/503）。
         """
         await self._enforce_rate_limit(tenant_id, req.account, ip)
         await self._enforce_captcha(req.captcha, tenant_id=tenant_id, account=req.account)
 
-        verified = await self._org.verify(tenant_id, req.account, req.password)
+        verified = await self._platform.verify(tenant_id, req.account, req.password)
         if verified.locked:
             raise AccountLockedError()
         if not verified.found or not verified.valid:
@@ -198,7 +198,7 @@ class LoginService(BaseFrameworkObject):
             remember_me=req.remember_me,
         )
         await self._limiter.reset(self._fail_key(tenant_id, req.account))
-        await self._org.login_state(tenant_id, req.account, success=True)
+        await self._platform.login_state(tenant_id, req.account, success=True)
         return LoginOutcome(
             result=LoginResult(
                 access_token=issued.access_token,
@@ -369,7 +369,7 @@ class LoginService(BaseFrameworkObject):
         """记录登录失败：Redis 计数递增，达阈值联动锁定并抛 20003。
 
         Args:
-            tenant_id: 租户主键（失败计数键作用域；org 登录态经服务 JWT 租户位）。
+            tenant_id: 租户主键（失败计数键作用域；platform 登录态经服务 JWT 租户位）。
             account: 登录账号。
 
         Raises:
@@ -382,11 +382,11 @@ class LoginService(BaseFrameworkObject):
         )
         count = max(0, self._login.max_failures - decision.remaining)
         if decision.remaining == 0:
-            await self._org.login_state(
+            await self._platform.login_state(
                 tenant_id, account, success=False, failed_count=count, lock_seconds=self._login.lock_seconds
             )
             raise AccountLockedError()
-        await self._org.login_state(tenant_id, account, success=False, failed_count=count)
+        await self._platform.login_state(tenant_id, account, success=False, failed_count=count)
         raise LoginFailedError()
 
     def _fail_key(self, tenant_id: str, account: str) -> str:
@@ -403,19 +403,19 @@ class LoginService(BaseFrameworkObject):
 
 
 class CurrentUserService(BaseFrameworkObject):
-    """当前用户概要服务：经 org 内部用户接口取概要（首屏静默续期恢复用户上下文）。
+    """当前用户概要服务：经 platform 内部用户接口取概要（首屏静默续期恢复用户上下文）。
 
-    不依赖认证服务租户库会话——用户概要与强制改密标记归属 org 服务，本服务只做**取数与映射**
+    不依赖认证服务租户库会话——用户概要与强制改密标记归属 platform 服务，本服务只做**取数与映射**
     （与登录响应的 `UserSummary` 同字段、同语义）。
     """
 
-    def __init__(self, org_client: OrgCredentialClient) -> None:
+    def __init__(self, platform_client: PlatformCredentialClient) -> None:
         """初始化。
 
         Args:
-            org_client: org 内部接口客户端（复用登录链路同一客户端）。
+            platform_client: platform 内部接口客户端（复用登录链路同一客户端）。
         """
-        self._org = org_client
+        self._platform = platform_client
 
     async def current_user(self, *, user_id: int | None, tenant_id: str | None, tenant_code: str | None) -> UserSummary:
         """取当前登录用户概要。
@@ -431,11 +431,11 @@ class CurrentUserService(BaseFrameworkObject):
         Raises:
             AuthError: 缺少用户标识 / 用户不存在（20001/401，按登录态失效处理）。
             AccountDisabledError: 账号已停用（20004/401）。
-            ServiceUnavailableError: org 不可达 / 响应契约非法（10007/503，fail-closed）。
+            ServiceUnavailableError: platform 不可达 / 响应契约非法（10007/503，fail-closed）。
         """
         if user_id is None:
             raise AuthError("缺少用户标识")
-        profile = await self._org.user_profile(tenant_id, user_id)
+        profile = await self._platform.user_profile(tenant_id, user_id)
         if not profile.found or profile.user is None:
             raise AuthError("用户不存在")
         user = profile.user

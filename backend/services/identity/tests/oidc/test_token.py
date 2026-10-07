@@ -201,7 +201,7 @@ async def test_token_missing_params_and_user_missing(client: AsyncClient, oidc: 
     assert missing.json()["error"] == "invalid_grant"
 
     code, verifier = await _issue_code(client)
-    oidc.org.remove_user(1001)
+    oidc.platform_client.remove_user(1001)
     gone = await client.post(
         _TOKEN,
         data={

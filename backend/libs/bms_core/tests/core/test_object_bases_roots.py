@@ -101,7 +101,11 @@ OBJECT_BATCH: tuple[tuple[str, str, str], ...] = (
         "OidcProviderService",
         "BaseFrameworkObject",
     ),
-    ("backend/services/identity/src/bms_identity/services/org_client.py", "OrgCredentialClient", "BaseFrameworkObject"),
+    (
+        "backend/services/identity/src/bms_identity/services/platform_client.py",
+        "PlatformCredentialClient",
+        "BaseFrameworkObject",
+    ),
     (
         "backend/services/identity/src/bms_identity/services/password_reset.py",
         "PasswordResetService",
@@ -115,9 +119,13 @@ OBJECT_BATCH: tuple[tuple[str, str, str], ...] = (
     ("backend/services/identity/src/bms_identity/services/session.py", "SessionService", "BaseFrameworkObject"),
     ("backend/services/identity/src/bms_identity/services/session_issuer.py", "SessionIssuer", "BaseFrameworkObject"),
     ("backend/services/identity/src/bms_identity/services/sso.py", "SsoService", "BaseFrameworkObject"),
-    ("backend/services/org/src/bms_org/services/account_lock.py", "AccountLockService", "BaseFrameworkObject"),
-    ("backend/services/org/src/bms_org/services/users.py", "UserProfileService", "BaseFrameworkObject"),
-    ("backend/services/org/src/bms_org/services/users.py", "UserResetTargetService", "BaseFrameworkObject"),
+    (
+        "backend/services/platform/src/bms_platform/services/account_lock.py",
+        "AccountLockService",
+        "BaseFrameworkObject",
+    ),
+    ("backend/services/platform/src/bms_platform/services/users.py", "UserProfileService", "BaseFrameworkObject"),
+    ("backend/services/platform/src/bms_platform/services/users.py", "UserResetTargetService", "BaseFrameworkObject"),
     (
         "backend/services/tenant/src/bms_tenant/repositories/tenant_registry.py",
         "TenantRegistryRepository",

@@ -61,6 +61,7 @@ def test_table_owner_lookup() -> None:
 
 
 @pytest.mark.kiwi_id(2176)
+@pytest.mark.kiwi_id(2247)
 def test_owned_tables_and_chain_derivation() -> None:
     """服务表集与链派生：本服务表 + 基础设施三表；库类别过滤生效。"""
     tenant_platform_tables = owned_tables_for("tenant", datasource=Datasource.PLATFORM)
@@ -92,13 +93,15 @@ def test_owned_tables_and_chain_derivation() -> None:
 
     tenant_chain = chain_tables("platform", Datasource.TENANT)
     assert {"sys_dict_type", "sys_dict_item", "sys_query_scheme"} <= tenant_chain
-    # 角色域 5 表（02_03）落 platform 服务租户库
+    # 角色域 5 表（02_03）与用户 / 账号锁定两表（02_05）落 platform 服务租户库
     assert {
         "sys_role",
         "sys_user_role",
         "sys_role_permission",
         "sys_role_field",
         "sys_data_scope",
+        "sys_user",
+        "sys_account_lock",
     } <= tenant_chain
     assert infrastructure_tables() <= tenant_chain
     # 未定稿表（骨架表 / 演示表）不进链（06_02 状态收口）
@@ -107,9 +110,8 @@ def test_owned_tables_and_chain_derivation() -> None:
     assert chain_tables("tenant", Datasource.PLATFORM) == frozenset(
         {"sys_tenant", "sys_tenant_database", "sys_user_tenant", *infrastructure_tables()}
     )
-    assert chain_tables("org", Datasource.TENANT) == frozenset(
-        {"sys_user", "sys_account_lock", *infrastructure_tables()}
-    )
+    # org 服务用户 / 账号锁定两表随 02_05 迁 platform → 该链只余基础设施三表
+    assert chain_tables("org", Datasource.TENANT) == frozenset(infrastructure_tables())
     assert chain_tables("identity", Datasource.TENANT) == frozenset(
         {"sys_session", "sys_identity_provider", "sys_client", *infrastructure_tables()}
     )

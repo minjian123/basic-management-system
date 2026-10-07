@@ -88,18 +88,18 @@ async def test_userinfo_cross_tenant_rejected(client: AsyncClient, oidc: OidcHar
 
 @pytest.mark.kiwi_id(2202)
 async def test_userinfo_user_missing_and_org_down(client: AsyncClient, oidc: OidcHarness) -> None:
-    """用户不存在 / 停用 → 401；org 不可达 → 503。"""
+    """用户不存在 / 停用 → 401；platform 不可达 → 503。"""
     await oidc.seed_client()
     token = await _access_token(client)
-    oidc.org.remove_user(1001)
+    oidc.platform_client.remove_user(1001)
     gone = await client.get(_USERINFO, headers={**TENANT_HEADERS, "Authorization": f"Bearer {token}"})
     assert gone.status_code == 401
 
-    oidc.org.set_user(1001, status="disabled")
+    oidc.platform_client.set_user(1001, status="disabled")
     disabled = await client.get(_USERINFO, headers={**TENANT_HEADERS, "Authorization": f"Bearer {token}"})
     assert disabled.status_code == 401
 
-    oidc.org.set_user(1001, status="enabled")
-    oidc.org.fail = True
+    oidc.platform_client.set_user(1001, status="enabled")
+    oidc.platform_client.fail = True
     down = await client.get(_USERINFO, headers={**TENANT_HEADERS, "Authorization": f"Bearer {token}"})
     assert down.status_code == 503

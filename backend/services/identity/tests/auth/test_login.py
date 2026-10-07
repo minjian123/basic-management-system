@@ -18,7 +18,7 @@ from .helpers import (
     TENANT_ID,
     FakeCaptcha,
     FakeEmptyActiveTenantSource,
-    FakeOrgClient,
+    FakePlatformClient,
     FakeSingleActiveTenantSource,
     FakeTenantSource,
     FakeUserTokenIssuer,
@@ -50,9 +50,14 @@ async def _login(client: AsyncClient, account: str, password: str, **extra: obje
 @pytest.mark.kiwi_id(2217)
 async def test_login_success_creates_session(client: AsyncClient, service_app: FastAPI) -> None:
     """登录成功：返回 access + 用户概要、下发 refresh cookie、落会话标记、清零失败计数。"""
-    issuer, org, store, limiter = FakeUserTokenIssuer(), FakeOrgClient(), MemorySessionStore(), MemoryRateLimiter()
-    org.set_user("admin", password="secret", user_id=1001, name="管理员", locale="zh-cn")
-    wire_auth(service_app, issuer=issuer, org=org, store=store, limiter=limiter)
+    issuer, platform_client, store, limiter = (
+        FakeUserTokenIssuer(),
+        FakePlatformClient(),
+        MemorySessionStore(),
+        MemoryRateLimiter(),
+    )
+    platform_client.set_user("admin", password="secret", user_id=1001, name="管理员", locale="zh-cn")
+    wire_auth(service_app, issuer=issuer, platform_client=platform_client, store=store, limiter=limiter)
 
     resp = await _login(client, "admin", "secret")
     assert resp.status_code == 200
@@ -71,15 +76,20 @@ async def test_login_success_creates_session(client: AsyncClient, service_app: F
     assert cookie
     session_id = issuer.specs[-1].session_id
     assert await store.load(session_id, tenant=TENANT_ID) is not None
-    assert org.last_state.get("failed_count") == 0
+    assert platform_client.last_state.get("failed_count") == 0
 
 
 @pytest.mark.kiwi_id(2209)
 async def test_login_must_change_password_mapping(client: AsyncClient, service_app: FastAPI) -> None:
-    """登录成功但密码超期：`must_change_password=true`（映射自 org `pwd_reset_required`）。"""
-    issuer, org, store, limiter = FakeUserTokenIssuer(), FakeOrgClient(), MemorySessionStore(), MemoryRateLimiter()
-    org.set_user("admin", password="secret", pwd_reset_required=True)
-    wire_auth(service_app, issuer=issuer, org=org, store=store, limiter=limiter)
+    """登录成功但密码超期：`must_change_password=true`（映射自 platform_client `pwd_reset_required`）。"""
+    issuer, platform_client, store, limiter = (
+        FakeUserTokenIssuer(),
+        FakePlatformClient(),
+        MemorySessionStore(),
+        MemoryRateLimiter(),
+    )
+    platform_client.set_user("admin", password="secret", pwd_reset_required=True)
+    wire_auth(service_app, issuer=issuer, platform_client=platform_client, store=store, limiter=limiter)
 
     resp = await _login(client, "admin", "secret")
     assert resp.status_code == 200
@@ -89,9 +99,14 @@ async def test_login_must_change_password_mapping(client: AsyncClient, service_a
 @pytest.mark.kiwi_id(2194)
 async def test_login_wrong_or_unknown_account(client: AsyncClient, service_app: FastAPI) -> None:
     """账号不存在与密码错误同码 20002（防枚举）。"""
-    issuer, org, store, limiter = FakeUserTokenIssuer(), FakeOrgClient(), MemorySessionStore(), MemoryRateLimiter()
-    org.set_user("admin", password="secret")
-    wire_auth(service_app, issuer=issuer, org=org, store=store, limiter=limiter)
+    issuer, platform_client, store, limiter = (
+        FakeUserTokenIssuer(),
+        FakePlatformClient(),
+        MemorySessionStore(),
+        MemoryRateLimiter(),
+    )
+    platform_client.set_user("admin", password="secret")
+    wire_auth(service_app, issuer=issuer, platform_client=platform_client, store=store, limiter=limiter)
 
     wrong = await _login(client, "admin", "bad")
     assert wrong.status_code == 401 and wrong.json()["code"] == 20002
@@ -102,10 +117,15 @@ async def test_login_wrong_or_unknown_account(client: AsyncClient, service_app: 
 @pytest.mark.kiwi_id(2194)
 async def test_login_locked_and_disabled(client: AsyncClient, service_app: FastAPI) -> None:
     """账号锁定 20003、停用 20004。"""
-    issuer, org, store, limiter = FakeUserTokenIssuer(), FakeOrgClient(), MemorySessionStore(), MemoryRateLimiter()
-    org.set_user("locked", password="p", locked=True)
-    org.set_user("disabled", password="p", status="disabled")
-    wire_auth(service_app, issuer=issuer, org=org, store=store, limiter=limiter)
+    issuer, platform_client, store, limiter = (
+        FakeUserTokenIssuer(),
+        FakePlatformClient(),
+        MemorySessionStore(),
+        MemoryRateLimiter(),
+    )
+    platform_client.set_user("locked", password="p", locked=True)
+    platform_client.set_user("disabled", password="p", status="disabled")
+    wire_auth(service_app, issuer=issuer, platform_client=platform_client, store=store, limiter=limiter)
 
     locked = await _login(client, "locked", "p")
     assert locked.status_code == 401 and locked.json()["code"] == 20003
@@ -116,26 +136,45 @@ async def test_login_locked_and_disabled(client: AsyncClient, service_app: FastA
 @pytest.mark.kiwi_id(2194)
 async def test_login_failure_lock_threshold(client: AsyncClient, service_app: FastAPI) -> None:
     """连续失败达阈值后返回 20003（失败计数经限流基座累计）。"""
-    issuer, org, store, limiter = FakeUserTokenIssuer(), FakeOrgClient(), MemorySessionStore(), MemoryRateLimiter()
-    org.set_user("admin", password="secret")
+    issuer, platform_client, store, limiter = (
+        FakeUserTokenIssuer(),
+        FakePlatformClient(),
+        MemorySessionStore(),
+        MemoryRateLimiter(),
+    )
+    platform_client.set_user("admin", password="secret")
     # 本用例隔离密码锁定分支：验证码阈值设高，避免连续失败达阈值后转强制验证码（03_04）
-    wire_auth(service_app, issuer=issuer, org=org, store=store, limiter=limiter, captcha=FakeCaptcha(fail_threshold=99))
+    wire_auth(
+        service_app,
+        issuer=issuer,
+        platform_client=platform_client,
+        store=store,
+        limiter=limiter,
+        captcha=FakeCaptcha(fail_threshold=99),
+    )
 
     for _ in range(4):
         resp = await _login(client, "admin", "bad")
         assert resp.json()["code"] == 20002
     fifth = await _login(client, "admin", "bad")
     assert fifth.status_code == 401 and fifth.json()["code"] == 20003
-    assert org.last_state.get("locked_until") == "locked"
+    assert platform_client.last_state.get("locked_until") == "locked"
 
 
 @pytest.mark.kiwi_id(2194)
 async def test_login_captcha_required_and_failed(client: AsyncClient, service_app: FastAPI) -> None:
     """策略强制验证码：缺失 20101；凭证校验通过放行。"""
-    issuer, org, store, limiter = FakeUserTokenIssuer(), FakeOrgClient(), MemorySessionStore(), MemoryRateLimiter()
-    org.set_user("admin", password="secret")
+    issuer, platform_client, store, limiter = (
+        FakeUserTokenIssuer(),
+        FakePlatformClient(),
+        MemorySessionStore(),
+        MemoryRateLimiter(),
+    )
+    platform_client.set_user("admin", password="secret")
     captcha = FakeCaptcha(required=True, verified=False)
-    wire_auth(service_app, issuer=issuer, org=org, store=store, limiter=limiter, captcha=captcha)
+    wire_auth(
+        service_app, issuer=issuer, platform_client=platform_client, store=store, limiter=limiter, captcha=captcha
+    )
 
     missing = await _login(client, "admin", "secret")
     assert missing.status_code == 400 or missing.json()["code"] == 20101
@@ -147,10 +186,17 @@ async def test_login_captcha_required_and_failed(client: AsyncClient, service_ap
 @pytest.mark.kiwi_id(2194)
 async def test_login_captcha_verified_ok(client: AsyncClient, service_app: FastAPI) -> None:
     """携带有效验证码凭证时放行登录。"""
-    issuer, org, store, limiter = FakeUserTokenIssuer(), FakeOrgClient(), MemorySessionStore(), MemoryRateLimiter()
-    org.set_user("admin", password="secret")
+    issuer, platform_client, store, limiter = (
+        FakeUserTokenIssuer(),
+        FakePlatformClient(),
+        MemorySessionStore(),
+        MemoryRateLimiter(),
+    )
+    platform_client.set_user("admin", password="secret")
     captcha = FakeCaptcha(required=True, verified=True)
-    wire_auth(service_app, issuer=issuer, org=org, store=store, limiter=limiter, captcha=captcha)
+    wire_auth(
+        service_app, issuer=issuer, platform_client=platform_client, store=store, limiter=limiter, captcha=captcha
+    )
 
     ok = await _login(client, "admin", "secret", captcha={"captcha_id": "c", "kind": "image", "code": "x"})
     assert ok.status_code == 200 and captcha.seen[-1].code == "x"
@@ -163,9 +209,14 @@ async def test_login_captcha_verified_ok(client: AsyncClient, service_app: FastA
 @pytest.mark.kiwi_id(2218)
 async def test_login_rate_limited(client: AsyncClient, service_app: FastAPI) -> None:
     """账号维度限流命中返回 10005（429）；限流键租户位为雪花 id。"""
-    issuer, org, store, limiter = FakeUserTokenIssuer(), FakeOrgClient(), MemorySessionStore(), MemoryRateLimiter()
-    org.set_user("admin", password="secret")
-    wire_auth(service_app, issuer=issuer, org=org, store=store, limiter=limiter)
+    issuer, platform_client, store, limiter = (
+        FakeUserTokenIssuer(),
+        FakePlatformClient(),
+        MemorySessionStore(),
+        MemoryRateLimiter(),
+    )
+    platform_client.set_user("admin", password="secret")
+    wire_auth(service_app, issuer=issuer, platform_client=platform_client, store=store, limiter=limiter)
     service_app.state.settings.login.account_rate_limit = 1
     try:
         assert (await _login(client, "admin", "secret")).status_code == 200
@@ -180,9 +231,14 @@ async def test_login_rate_limited(client: AsyncClient, service_app: FastAPI) -> 
 @pytest.mark.kiwi_id(2194)
 async def test_login_body_tenant_override(client: AsyncClient, service_app: FastAPI) -> None:
     """body 指定租户经租户源校验后生效；未知 body 租户宽松视为未提供（回落上下文租户）。"""
-    issuer, org, store, limiter = FakeUserTokenIssuer(), FakeOrgClient(), MemorySessionStore(), MemoryRateLimiter()
-    org.set_user("admin", password="secret")
-    wire_auth(service_app, issuer=issuer, org=org, store=store, limiter=limiter)
+    issuer, platform_client, store, limiter = (
+        FakeUserTokenIssuer(),
+        FakePlatformClient(),
+        MemorySessionStore(),
+        MemoryRateLimiter(),
+    )
+    platform_client.set_user("admin", password="secret")
+    wire_auth(service_app, issuer=issuer, platform_client=platform_client, store=store, limiter=limiter)
     service_app.dependency_overrides[get_tenant_source] = lambda: FakeTenantSource()
 
     ok = await _login(client, "admin", "secret", tenant="demo")
@@ -221,9 +277,14 @@ async def test_resolve_login_tenant_branches() -> None:
 @pytest.mark.kiwi_id(2239)
 async def test_login_single_active_tenant_blank(client: AsyncClient, service_app: FastAPI) -> None:
     """单启用租户：无租户 / 无 body 时按唯一启用租户继续登录（生产不回落演示租户）。"""
-    issuer, org, store, limiter = FakeUserTokenIssuer(), FakeOrgClient(), MemorySessionStore(), MemoryRateLimiter()
-    org.set_user("admin", password="secret", user_id=1001)
-    wire_auth(service_app, issuer=issuer, org=org, store=store, limiter=limiter)
+    issuer, platform_client, store, limiter = (
+        FakeUserTokenIssuer(),
+        FakePlatformClient(),
+        MemorySessionStore(),
+        MemoryRateLimiter(),
+    )
+    platform_client.set_user("admin", password="secret", user_id=1001)
+    wire_auth(service_app, issuer=issuer, platform_client=platform_client, store=store, limiter=limiter)
     service_app.dependency_overrides[get_tenant_source] = lambda: FakeSingleActiveTenantSource()
     service_app.state.settings.tenant.allow_demo_fallback = False
 
@@ -235,10 +296,17 @@ async def test_login_single_active_tenant_blank(client: AsyncClient, service_app
 @pytest.mark.kiwi_id(2239)
 async def test_login_multi_active_tenant_requires_selection(client: AsyncClient, service_app: FastAPI) -> None:
     """多启用租户：无租户 / 无 body → `20007`（HTTP 200、data 为空），且不消费验证码、不计失败。"""
-    issuer, org, store, limiter = FakeUserTokenIssuer(), FakeOrgClient(), MemorySessionStore(), MemoryRateLimiter()
+    issuer, platform_client, store, limiter = (
+        FakeUserTokenIssuer(),
+        FakePlatformClient(),
+        MemorySessionStore(),
+        MemoryRateLimiter(),
+    )
     captcha = FakeCaptcha(required=True, verified=True)
-    org.set_user("admin", password="secret", user_id=1001)
-    wire_auth(service_app, issuer=issuer, org=org, store=store, limiter=limiter, captcha=captcha)
+    platform_client.set_user("admin", password="secret", user_id=1001)
+    wire_auth(
+        service_app, issuer=issuer, platform_client=platform_client, store=store, limiter=limiter, captcha=captcha
+    )
     service_app.dependency_overrides[get_tenant_source] = lambda: FakeTenantSource()
     service_app.state.settings.tenant.allow_demo_fallback = False
 
@@ -246,17 +314,22 @@ async def test_login_multi_active_tenant_requires_selection(client: AsyncClient,
     assert resp.status_code == 200
     body = resp.json()
     assert body["code"] == 20007 and body["data"] is None
-    # 解析租户阶段早于验证码 / 凭据校验：不消费挑战、不计失败、不触达 org。
+    # 解析租户阶段早于验证码 / 凭据校验：不消费挑战、不计失败、不触达 platform_client。
     assert len(captcha.seen) == 0
-    assert len(org.calls) == 0
+    assert len(platform_client.calls) == 0
 
 
 @pytest.mark.kiwi_id(2239)
 async def test_login_no_active_tenant_not_found(client: AsyncClient, service_app: FastAPI) -> None:
     """0 个启用租户：沿用既有失败语义（`80001` / 404），不新增面。"""
-    issuer, org, store, limiter = FakeUserTokenIssuer(), FakeOrgClient(), MemorySessionStore(), MemoryRateLimiter()
-    org.set_user("admin", password="secret")
-    wire_auth(service_app, issuer=issuer, org=org, store=store, limiter=limiter)
+    issuer, platform_client, store, limiter = (
+        FakeUserTokenIssuer(),
+        FakePlatformClient(),
+        MemorySessionStore(),
+        MemoryRateLimiter(),
+    )
+    platform_client.set_user("admin", password="secret")
+    wire_auth(service_app, issuer=issuer, platform_client=platform_client, store=store, limiter=limiter)
     service_app.dependency_overrides[get_tenant_source] = lambda: FakeEmptyActiveTenantSource()
     service_app.state.settings.tenant.allow_demo_fallback = False
 
@@ -268,10 +341,17 @@ async def test_login_no_active_tenant_not_found(client: AsyncClient, service_app
 @pytest.mark.kiwi_id(2208)
 async def test_login_continuous_failure_forces_captcha(client: AsyncClient, service_app: FastAPI) -> None:
     """连续失败达阈值后强制验证码；成功登录清零（窗口与清零，03_04）。"""
-    issuer, org, store, limiter = FakeUserTokenIssuer(), FakeOrgClient(), MemorySessionStore(), MemoryRateLimiter()
-    org.set_user("admin", password="secret")
+    issuer, platform_client, store, limiter = (
+        FakeUserTokenIssuer(),
+        FakePlatformClient(),
+        MemorySessionStore(),
+        MemoryRateLimiter(),
+    )
+    platform_client.set_user("admin", password="secret")
     captcha = FakeCaptcha(required=False, verified=True, fail_threshold=3)
-    wire_auth(service_app, issuer=issuer, org=org, store=store, limiter=limiter, captcha=captcha)
+    wire_auth(
+        service_app, issuer=issuer, platform_client=platform_client, store=store, limiter=limiter, captcha=captcha
+    )
 
     for _ in range(3):
         resp = await _login(client, "admin", "bad")
@@ -293,10 +373,17 @@ async def test_login_continuous_failure_forces_captcha(client: AsyncClient, serv
 @pytest.mark.kiwi_id(2208)
 async def test_login_captcha_failure_not_counted(client: AsyncClient, service_app: FastAPI) -> None:
     """验证码校验失败不计入登录失败计数（避免双重惩罚）。"""
-    issuer, org, store, limiter = FakeUserTokenIssuer(), FakeOrgClient(), MemorySessionStore(), MemoryRateLimiter()
-    org.set_user("admin", password="secret")
+    issuer, platform_client, store, limiter = (
+        FakeUserTokenIssuer(),
+        FakePlatformClient(),
+        MemorySessionStore(),
+        MemoryRateLimiter(),
+    )
+    platform_client.set_user("admin", password="secret")
     captcha = FakeCaptcha(required=False, verified=False, fail_threshold=3)
-    wire_auth(service_app, issuer=issuer, org=org, store=store, limiter=limiter, captcha=captcha)
+    wire_auth(
+        service_app, issuer=issuer, platform_client=platform_client, store=store, limiter=limiter, captcha=captcha
+    )
 
     # 携带（校验不通过）触发 20101，但不应自增登录失败计数
     failed = await _login(client, "admin", "secret", captcha={"captcha_id": "c", "kind": "image", "code": "x"})
@@ -311,9 +398,14 @@ async def test_login_captcha_failure_not_counted(client: AsyncClient, service_ap
 @pytest.mark.kiwi_id(2234)
 async def test_login_remember_me_branches(client: AsyncClient, service_app: FastAPI) -> None:
     """记住我两分支：未携带=会话级（会话 Cookie + 24h）；true=14 天持久（Max-Age + 14 天）。"""
-    issuer, org, store, limiter = FakeUserTokenIssuer(), FakeOrgClient(), MemorySessionStore(), MemoryRateLimiter()
-    org.set_user("admin", password="secret", user_id=1001)
-    wire_auth(service_app, issuer=issuer, org=org, store=store, limiter=limiter)
+    issuer, platform_client, store, limiter = (
+        FakeUserTokenIssuer(),
+        FakePlatformClient(),
+        MemorySessionStore(),
+        MemoryRateLimiter(),
+    )
+    platform_client.set_user("admin", password="secret", user_id=1001)
+    wire_auth(service_app, issuer=issuer, platform_client=platform_client, store=store, limiter=limiter)
 
     # 会话级（缺省）：Cookie 无 Max-Age；会话记录 remember_me=False、expires_at ≈ now+24h
     session_level = await _login(client, "admin", "secret")

@@ -134,7 +134,7 @@ class SessionIssuer(BaseFrameworkObject):
         """签发会话：双 token 同会话 id + 会话落库 + Redis 标记。
 
         Args:
-            user_id: 用户 ID（org 库 `sys_user.id`）。
+            user_id: 用户 ID（platform 库 `sys_user.id`）。
             tenant_id: 租户主键（雪花 id 字符串；令牌 / 会话标记租户位）。
             tenant_code: 租户编码（会话记录 / 展示用）。
             ip: 客户端 IP（可选）。

@@ -6,9 +6,9 @@
   一律抛 `OidcInvalidRequestError`，不回跳）。
 - token：客户端认证（basic / post）→ 一次性消费授权码 → 校验归属 / `redirect_uri` / PKCE →
   签发 ID Token（`aud=client_id`）与 access token（`aud=userinfo`）。
-- userinfo：校验 access token → 经 org 内部接口取用户概要 → 标准声明。
+- userinfo：校验 access token → 经 platform 内部接口取用户概要 → 标准声明。
 
-错误语义：校验类失败抛 `OidcError` 子段（端点边界转标准错误 JSON / 回跳）；org 不可达抛
+错误语义：校验类失败抛 `OidcError` 子段（端点边界转标准错误 JSON / 回跳）；platform 不可达抛
 `ServiceUnavailableError`（10007/503，fail-closed）。
 """
 
@@ -53,7 +53,7 @@ from bms_core.oauth.oidc_provider import (
 from bms_core.security.base import BasePasswordHasher
 from bms_identity.models.client import SysClient
 from bms_identity.repositories.client import SysClientRepository
-from bms_identity.services.org_client import OrgCredentialClient
+from bms_identity.services.platform_client import PlatformCredentialClient
 
 __all__ = [
     "AuthorizeResult",
@@ -119,7 +119,7 @@ class UserInfoResult(BaseValueObject):
 
 
 class OidcProviderService(BaseFrameworkObject):
-    """OIDC Provider 编排服务（每请求装配：会话 / 状态存储 / Provider / org 客户端 / 哈希器）。"""
+    """OIDC Provider 编排服务（每请求装配：会话 / 状态存储 / Provider / platform 客户端 / 哈希器）。"""
 
     def __init__(
         self,
@@ -127,7 +127,7 @@ class OidcProviderService(BaseFrameworkObject):
         session: DbSession,
         provider: BaseOidcProvider,
         state_store: BaseIdpStateStore,
-        org_client: OrgCredentialClient,
+        platform_client: PlatformCredentialClient,
         password_hasher: BasePasswordHasher,
         settings: OidcProviderSettings,
     ) -> None:
@@ -137,14 +137,14 @@ class OidcProviderService(BaseFrameworkObject):
             session: identity 服务租户库会话（读取客户端）。
             provider: OIDC Provider 能力域实例。
             state_store: 流程状态存储（授权码一次性）。
-            org_client: org 内部接口客户端（用户概要）。
+            platform_client: platform 内部接口客户端（用户概要）。
             password_hasher: 口令哈希实现（客户端密钥校验）。
             settings: `[oidc_provider]` 配置。
         """
         self._repo = SysClientRepository(session)
         self._provider = provider
         self._state = state_store
-        self._org = org_client
+        self._platform = platform_client
         self._hasher = password_hasher
         self._settings = settings
 
@@ -297,7 +297,7 @@ class OidcProviderService(BaseFrameworkObject):
         if record.code_challenge and not verify_pkce(record.code_challenge, code_verifier):
             raise OidcInvalidGrantError("PKCE 校验失败")
         issuer = self.issuer_for(tenant_code)
-        profile = await self._org.user_profile(record.tenant_id, int(record.subject))
+        profile = await self._platform.user_profile(record.tenant_id, int(record.subject))
         if not profile.found or profile.user is None or profile.user.status != "enabled":
             raise OidcInvalidGrantError("用户不存在或不可用")
         id_token = await self._provider.issue_id_token(
@@ -333,7 +333,7 @@ class OidcProviderService(BaseFrameworkObject):
         """用户信息端点：校验 access token 并取用户概要。
 
         Args:
-            tenant_id: 生效租户主键（雪花 id 字符串；令牌租户比对与 org 调用依据）。
+            tenant_id: 生效租户主键（雪花 id 字符串；令牌租户比对与 platform 调用依据）。
             tenant_code: 生效租户编码（issuer 派生）。
             access_token: Bearer access token。
 
@@ -342,13 +342,13 @@ class OidcProviderService(BaseFrameworkObject):
 
         Raises:
             AuthError: 令牌非法 / 跨租户 / 用户不可用（20001/401）。
-            ServiceUnavailableError: org 接口不可达（10007/503）。
+            ServiceUnavailableError: platform 接口不可达（10007/503）。
         """
         issuer = self.issuer_for(tenant_code)
         claims = self._provider.verify_access_token(access_token, issuer=issuer)
         if claims.tenant_id and claims.tenant_id != tenant_id:
             raise AuthError("令牌租户与请求租户不符")
-        profile = await self._org.user_profile(tenant_id, int(claims.subject))
+        profile = await self._platform.user_profile(tenant_id, int(claims.subject))
         if not profile.found or profile.user is None or profile.user.status != "enabled":
             raise AuthError("用户不存在或不可用")
         return UserInfoResult(

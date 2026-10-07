@@ -1,6 +1,6 @@
 """会话记录模型：`sys_session`（认证与身份服务租户库 `bms_identity_{code}`）。
 
-- 数据所有权：**认证与身份服务**（会话与身份映射表归 identity；`sys_user` 凭据主数据归 org）。
+- 数据所有权：**认证与身份服务**（会话与身份映射表归 identity；`sys_user` 凭据主数据归 platform）。
 - 每条会话一行的登录态载体：登录写、刷新轮换更新 `refresh_token_hash`、登出 / 踢出置 `revoked_at`；
   运行时活跃标记另落 Redis（`bms:{租户}:sess:{session_id}`，TTL 与 refresh 对齐）。
 - 表结构以《数据库设计》数据表文件为唯一事实源（`sys_session`）。
@@ -24,7 +24,7 @@ class SysSession(BaseModel):
     )
 
     session_id: Mapped[str] = mapped_column(String(64), comment="会话 id（= JWT jti；与 id 同值）")
-    user_id: Mapped[int] = mapped_column(BigInteger, comment="用户 ID（逻辑外键 → org 服务 sys_user.id）")
+    user_id: Mapped[int] = mapped_column(BigInteger, comment="用户 ID（逻辑外键 → platform 服务 sys_user.id）")
     refresh_token_hash: Mapped[str] = mapped_column(
         String(128), comment="refresh token 哈希（SHA-256 hex；不落原始值）"
     )

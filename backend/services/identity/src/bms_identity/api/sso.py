@@ -49,7 +49,7 @@ from bms_core.session.base import BaseSessionStore
 from bms_core.ws.base import BaseRealtimePublisher
 from bms_identity.api.cookies import set_refresh_cookie
 from bms_identity.schemas.sso import SsoAuthorizeInfo, SsoCallbackResult, SsoProviderList
-from bms_identity.services.org_client import OrgCredentialClient
+from bms_identity.services.platform_client import PlatformCredentialClient
 from bms_identity.services.provider_registry import ProviderRegistry
 from bms_identity.services.session_issuer import build_session_issuer
 from bms_identity.services.sso import SsoLoginResult, SsoService
@@ -158,7 +158,7 @@ def _build_service(
     return SsoService(
         state_store=state_store,
         rate_limiter=limiter,
-        org_client=OrgCredentialClient(client),
+        platform_client=PlatformCredentialClient(client),
         provider_registry=ProviderRegistry(callback_base_url=settings.sso.callback_base_url),
         sso_settings=settings.sso,
         lock=lock,

@@ -25,4 +25,4 @@ class SysUserIdentity(BaseModel):
     idp_key: Mapped[str] = mapped_column(String(160), comment="映射键（{tenant_id}:{provider_key}）")
     external_id: Mapped[str] = mapped_column(String(255), comment="外部身份主体（OIDC 取 sub）")
     tenant_id: Mapped[int] = mapped_column(BigInteger, comment="租户主键（雪花 id）")
-    user_id: Mapped[int] = mapped_column(BigInteger, comment="用户 ID（逻辑外键 → org 服务 sys_user.id）")
+    user_id: Mapped[int] = mapped_column(BigInteger, comment="用户 ID（逻辑外键 → platform 服务 sys_user.id）")

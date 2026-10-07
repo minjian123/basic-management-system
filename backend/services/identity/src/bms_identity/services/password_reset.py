@@ -1,12 +1,12 @@
 """认证与身份服务 services 层：自助找回密码编排（发起 / 重置）。
 
-- 发起：IP 限流 → 验证码（场景 `reset_password`，一次性消费）→ 标识 / 用户限流 → org 解析投递目标
+- 发起：IP 限流 → 验证码（场景 `reset_password`，一次性消费）→ 标识 / 用户限流 → platform 解析投递目标
   （账号 / 手机 / 邮箱取通道）→ 生成高熵重置 token 落流程状态存储（命名空间 `pwdreset`，TTL 15 分钟）
   → 经 `BaseNotifier` 占位发送（邮件 / 短信；真实渠道归阶段八）。成功路径**恒同响应**（防枚举），
   账号不存在 / 停用 / 无通道一律不发送。
-- 重置：流程状态**先一次性消费**（`GETDEL`）→ org 改密（强制过密码策略，消费 03_05 语义）→
+- 重置：流程状态**先一次性消费**（`GETDEL`）→ platform 改密（强制过密码策略，消费 03_05 语义）→
   按用户批量撤销全部在线会话（refresh 黑名单 + Redis 标记清理 + `session.revoked` 广播）。
-- 安全口径：token / 密码明文不落日志、不回显响应；Redis / 通知 / org 不可用一律 fail-closed（10007）。
+- 安全口径：token / 密码明文不落日志、不回显响应；Redis / 通知 / platform 不可用一律 fail-closed（10007）。
 """
 
 from __future__ import annotations
@@ -30,11 +30,11 @@ from bms_core.notify.base import BaseNotifier, NotificationMessage, NotifyChanne
 from bms_core.ratelimit.base import BaseRateLimiter, RateLimitRule, build_rate_limit_key
 from bms_identity.schemas.auth import CaptchaInput
 from bms_identity.schemas.password_reset import (
-    OrgResetTargetResult,
     PasswordForgotResult,
     PasswordResetResult,
+    PlatformResetTargetResult,
 )
-from bms_identity.services.org_client import OrgCredentialClient
+from bms_identity.services.platform_client import PlatformCredentialClient
 from bms_identity.services.session import REASON_PASSWORD_RESET, SessionService
 
 PASSWORD_RESET_NAMESPACE = "pwdreset"
@@ -61,7 +61,7 @@ class PasswordResetService(BaseFrameworkObject):
     def __init__(
         self,
         *,
-        org_client: OrgCredentialClient,
+        platform_client: PlatformCredentialClient,
         captcha: BaseCaptcha,
         rate_limiter: BaseRateLimiter,
         state_store: BaseIdpStateStore,
@@ -72,7 +72,7 @@ class PasswordResetService(BaseFrameworkObject):
         """初始化。
 
         Args:
-            org_client: org 凭据接口客户端（解析投递目标 / 改密）。
+            platform_client: platform 凭据接口客户端（解析投递目标 / 改密）。
             captcha: 验证码基座（场景策略与凭证校验）。
             rate_limiter: 限流基座（账号 / IP / 用户维度）。
             state_store: 流程状态存储（重置 token 一次性存取）。
@@ -80,7 +80,7 @@ class PasswordResetService(BaseFrameworkObject):
             session_service: 会话服务（按用户批量撤销）。
             settings: 找回密码配置（token TTL / 限流阈值 / 重置链接基址）。
         """
-        self._org = org_client
+        self._platform = platform_client
         self._captcha = captcha
         self._limiter = rate_limiter
         self._state = state_store
@@ -102,7 +102,7 @@ class PasswordResetService(BaseFrameworkObject):
         Args:
             identifier: 账号 / 手机号 / 邮箱。
             captcha: 验证码凭证（可选；场景策略强制时必带）。
-            tenant_id: 租户主键（雪花 id 字符串；限流键 / token 存储键与 org 调用依据）。
+            tenant_id: 租户主键（雪花 id 字符串；限流键 / token 存储键与 platform 调用依据）。
             tenant_code: 租户编码（重置链接 / 展示）。
             ip: 客户端 IP（可选；缺失跳过 IP 维度限流）。
 
@@ -113,7 +113,7 @@ class PasswordResetService(BaseFrameworkObject):
             PasswordResetTooFrequentError: 限流命中（20006/429）。
             CaptchaVerifyError: 验证码需要 / 校验不通过（20101）。
             ParamError: 验证码形态非法（10001）。
-            ServiceUnavailableError: org / Redis / 通知渠道不可用（10007/503）。
+            ServiceUnavailableError: platform / Redis / 通知渠道不可用（10007/503）。
         """
         await self._enforce_ip_limit(tenant_id, ip)
         await self._enforce_captcha(captcha)
@@ -125,7 +125,7 @@ class PasswordResetService(BaseFrameworkObject):
             window=self._settings.account_rate_window,
         )
 
-        target = await self._org.reset_target(tenant_id, identifier)
+        target = await self._platform.reset_target(tenant_id, identifier)
         if not target.deliverable or target.user_id is None or not target.target:
             _LOGGER.info("找回密码未送达", tenant=tenant_code, found=target.found, deliverable=target.deliverable)
             return PasswordForgotResult(sent=True)
@@ -150,8 +150,8 @@ class PasswordResetService(BaseFrameworkObject):
 
         Args:
             token: 重置令牌（单次有效）。
-            new_password: 新口令明文（策略判定在 org 侧）。
-            tenant_id: 租户主键（雪花 id 字符串；token 存储键 / org 调用 / 会话键依据）。
+            new_password: 新口令明文（策略判定在 platform 侧）。
+            tenant_id: 租户主键（雪花 id 字符串；token 存储键 / platform 调用 / 会话键依据）。
             tenant_code: 租户编码（展示）。
 
         Returns:
@@ -161,11 +161,11 @@ class PasswordResetService(BaseFrameworkObject):
             PasswordResetTokenError: 令牌无效 / 过期 / 已用 / 账号已不存在（20005/400）。
             PasswordPolicyViolationError: 新密码不合规（30005）。
             PasswordReusedError: 命中历史密码（30006）。
-            ServiceUnavailableError: org 不可用（10007/503）。
+            ServiceUnavailableError: platform 不可用（10007/503）。
         """
         payload = await self._state.consume(token, tenant=tenant_id, namespace=PASSWORD_RESET_NAMESPACE)
         user_id, account = _parse_token_payload(payload)
-        updated = await self._org.update_password(tenant_id, account, new_password)
+        updated = await self._platform.update_password(tenant_id, account, new_password)
         if not updated:
             raise PasswordResetTokenError("重置令牌无效或已过期")
         revoked = await self._sessions.revoke_user_sessions(user_id, tenant=tenant_id, reason=REASON_PASSWORD_RESET)
@@ -242,7 +242,7 @@ class PasswordResetService(BaseFrameworkObject):
         if not decision.allowed:
             raise PasswordResetTooFrequentError("找回密码请求过于频繁，请稍后再试")
 
-    async def _save_token(self, token: str, target: OrgResetTargetResult, *, tenant: str) -> None:
+    async def _save_token(self, token: str, target: PlatformResetTargetResult, *, tenant: str) -> None:
         """写入重置 token（流程状态存储；失败按服务不可用，不假报已发送）。
 
         Args:
@@ -271,7 +271,7 @@ class PasswordResetService(BaseFrameworkObject):
         except Exception as exc:
             raise ServiceUnavailableError("重置令牌写入失败") from exc
 
-    async def _send_token(self, token: str, target: OrgResetTargetResult, *, tenant_code: str) -> None:
+    async def _send_token(self, token: str, target: PlatformResetTargetResult, *, tenant_code: str) -> None:
         """经通知基座占位发送重置信息（渠道异常 / 未送达按服务不可用）。
 
         Args:
@@ -290,7 +290,7 @@ class PasswordResetService(BaseFrameworkObject):
         if not result.delivered:
             raise ServiceUnavailableError("重置通知发送失败")
 
-    def _build_message(self, token: str, target: OrgResetTargetResult, *, tenant_code: str) -> NotificationMessage:
+    def _build_message(self, token: str, target: PlatformResetTargetResult, *, tenant_code: str) -> NotificationMessage:
         """构造通知消息（邮件 / 短信；内容已渲染，模板与真实渠道归阶段八）。
 
         Args:

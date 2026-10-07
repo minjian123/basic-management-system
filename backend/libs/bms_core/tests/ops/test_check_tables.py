@@ -43,6 +43,22 @@ def test_check_offline_rejects_script_table_outside_chain(tmp_path: Path) -> Non
     assert any("zzz_ghost" in error and "不在该链派生表集内" in error for error in errors)
 
 
+@pytest.mark.kiwi_id(2247)
+def test_check_offline_allows_created_then_dropped(tmp_path: Path) -> None:
+    """净新建口径：同链先建后删相抵 → 放行（表迁出场景：历史建表脚本 + 补删表迁移）。"""
+    location = tmp_path / "platform" / "platform"
+    location.mkdir(parents=True)
+    (location / "0001_legacy.py").write_text(
+        'revision = "0001_legacy"\n\n\ndef upgrade() -> None:\n    op.create_table("sys_tenant")\n',
+        encoding="utf-8",
+    )
+    (location / "0002_drop.py").write_text(
+        'revision = "0002_drop"\n\n\ndef upgrade() -> None:\n    op.drop_table("sys_tenant")\n',
+        encoding="utf-8",
+    )
+    assert check_offline(versions_root=tmp_path) == []
+
+
 @pytest.mark.kiwi_id(2178)
 def test_check_table_db_roundtrip_and_conflicts(tmp_path: Path) -> None:
     """接库对账：库不可读 / 空库 / 种子后往返通过 / 字段不符逐项检出（同步入口，内部自建事件循环）。"""

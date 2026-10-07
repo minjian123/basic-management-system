@@ -15,7 +15,9 @@ uv run python -m ops.check_tables --offline    # 仅离线断言（无库场景�
    必须已登记（未登记即失败——防「模型落地却未进归属登记」）；
 3. **enabled 表必入链**：`status = enabled` 的归属表必须出现在其归属服务 + 库类别对应链的
    `chain_tables` 中（派生自证 + 防漏；`*` 基础设施表跳过）；
-4. **脚本表集不越界**：每条**有脚本**的链，其迁移脚本建表 / 改表的表名集合 ⊆ 该链 `chain_tables`。
+4. **脚本表集不越界（净新建口径）**：每条**有脚本**的链，按**整链汇总**后
+   `（建表 ∪ 批量改表）− 删表 ⊆ 该链 chain_tables`——同一链内先建后删的表**净零**放行
+   （表迁出后历史建表脚本 + 补删表迁移即属此类，如 `org:tenant` 的 `sys_user`）。
 
 接库（`--url`）：读平台服务库 `sys_table_ownership`（未软删行）与清单**双向对账**（缺行 / 清单外行 /
 字段不符），只读不写；空库判失败（种子未执行）。
@@ -35,7 +37,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import NullPool
 
-from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
 from bms_core.db.keys import PLATFORM_SERVICE_KEY
 from bms_core.db.migration import (
     COMMON_MODEL_MODULES,
@@ -133,7 +135,10 @@ def check_offline(*, versions_root: Path = VERSIONS_ROOT) -> ConcurrentStableLis
 
 
 def _check_script_tables(versions_root: Path) -> ConcurrentStableList[str]:
-    """校验各链迁移脚本建表 / 改表的表名 ⊆ 该链派生表集（防脚本越界建表）。
+    """校验各链迁移脚本的**净新建**表集 ⊆ 该链派生表集（防脚本越界建表）。
+
+    口径：按**整链汇总**计算 `（建表 ∪ 批量改表）− 删表`——同一链内先建后删的表净零放行
+    （表迁出场景：历史建表脚本保留 + 补删表迁移，二者相抵）。
 
     Args:
         versions_root: 版本目录根（`alembic/versions`）。
@@ -152,16 +157,40 @@ def _check_script_tables(versions_root: Path) -> ConcurrentStableList[str]:
             if not location.is_dir():
                 continue
             chain = resolve_chain(f"{service_dir.name}:{datasource}")
-            for script in sorted(location.glob("*.py")):
-                text = script.read_text(encoding="utf-8")
-                names = set(_CREATE_TABLE_RE.findall(text))
-                names |= set(_BATCH_TABLE_RE.findall(text)) - set(_DROP_TABLE_RE.findall(text))
-                for name in sorted(names):
-                    if name not in chain.tables:
-                        errors.add(
-                            f"{chain.name}/{script.name}：建表 / 改表 {name} 不在该链派生表集内"
-                            "（须先登记归属并置 enabled）"
-                        )
+            scripts = ConcurrentStableList(sorted(location.glob("*.py")))
+            errors.update(_chain_script_errors(chain.name, chain.tables, scripts))
+    return errors
+
+
+def _chain_script_errors(
+    chain_name: str, chain_tables_set: ConcurrentStableSet[str], scripts: ConcurrentStableList[Path]
+) -> ConcurrentStableList[str]:
+    """单条链的脚本净新建表集校验（先建后删相抵）。
+
+    Args:
+        chain_name: 链名（错误提示用）。
+        chain_tables_set: 该链派生表集。
+        scripts: 该链版本目录下的脚本（按名排序）。
+
+    Returns:
+        ConcurrentStableList[str]: 违规明细。
+    """
+    origins: ConcurrentStableDict[str, str] = ConcurrentStableDict()
+    dropped: ConcurrentStableSet[str] = ConcurrentStableSet()
+    for script in scripts:
+        text = script.read_text(encoding="utf-8")
+        for name in sorted(set(_CREATE_TABLE_RE.findall(text)) | set(_BATCH_TABLE_RE.findall(text))):
+            if name not in origins:
+                origins.set(name, script.name)
+        dropped.update(_DROP_TABLE_RE.findall(text))
+    errors: ConcurrentStableList[str] = ConcurrentStableList()
+    for name in sorted(origins.keys()):
+        if name in dropped or name in chain_tables_set:
+            continue
+        errors.add(
+            f"{chain_name}/{origins.get(name) or '?'}：建表 / 改表 {name} 不在该链派生表集内"
+            "（须先登记归属并置 enabled；同链先建后删的表净零放行）"
+        )
     return errors
 
 

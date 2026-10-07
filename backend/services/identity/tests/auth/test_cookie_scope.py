@@ -15,7 +15,7 @@ from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.ratelimit.memory import MemoryRateLimiter
 from bms_core.session.memory import MemorySessionStore
 
-from .helpers import FakeOrgClient, FakeUserTokenIssuer, wire_auth
+from .helpers import FakePlatformClient, FakeUserTokenIssuer, wire_auth
 
 API_LOGIN = "/api/v1/auth/login"
 API_LOGOUT = "/api/v1/auth/logout"
@@ -32,9 +32,14 @@ async def _prepare(client: AsyncClient, service_app: FastAPI, *, remember_me: bo
         service_app: 应用实例。
         remember_me: 是否勾选「记住我」（true 时 cookie 带持久 `Max-Age`）。
     """
-    issuer, org, store, limiter = FakeUserTokenIssuer(), FakeOrgClient(), MemorySessionStore(), MemoryRateLimiter()
-    org.set_user("admin", password="secret", user_id=1001)
-    wire_auth(service_app, issuer=issuer, org=org, store=store, limiter=limiter)
+    issuer, platform_client, store, limiter = (
+        FakeUserTokenIssuer(),
+        FakePlatformClient(),
+        MemorySessionStore(),
+        MemoryRateLimiter(),
+    )
+    platform_client.set_user("admin", password="secret", user_id=1001)
+    wire_auth(service_app, issuer=issuer, platform_client=platform_client, store=store, limiter=limiter)
     resp = await client.post(API_LOGIN, json={"account": "admin", "password": "secret", "remember_me": remember_me})
     assert resp.status_code == 200
 

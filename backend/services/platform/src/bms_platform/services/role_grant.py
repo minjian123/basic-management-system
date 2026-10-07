@@ -29,7 +29,7 @@ from bms_core.core.exceptions import (
     RoleScopeValueInvalidError,
     RoleTargetInvalidError,
 )
-from bms_core.core.objects import BaseFrameworkObject
+from bms_core.core.objects import BaseFrameworkObject, BaseValueObject
 from bms_core.db.session import DbSession
 from bms_core.db.unit_of_work import UnitOfWork
 from bms_core.dict.models import SysDictAttr, SysDictType
@@ -64,7 +64,7 @@ MATCH_PATTERN = re.compile(r"^[A-Za-z0-9_\u4e00-\u9fa5*?]+$")
 
 
 @dataclass(frozen=True)
-class PermissionGrantEntry:
+class PermissionGrantEntry(BaseValueObject):
     """一条授权条目（菜单 / 表单 / 操作）。"""
 
     perm_type: str
@@ -73,7 +73,7 @@ class PermissionGrantEntry:
 
 
 @dataclass(frozen=True)
-class FieldGrantEntry:
+class FieldGrantEntry(BaseValueObject):
     """一条字段权限条目（只落收窄项）。"""
 
     form_id: int
@@ -84,7 +84,7 @@ class FieldGrantEntry:
 
 
 @dataclass(frozen=True)
-class DataScopeGrantEntry:
+class DataScopeGrantEntry(BaseValueObject):
     """一条数据权限条目（角色 × 字典 × 策略 → 结构化配置）。"""
 
     dict_type_id: int

@@ -6,10 +6,14 @@
 from bms_core.api.base import mount_service_routers
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_platform.api import (
+    account_locks,
     codecheck,
     demo,
     icon,
+    internal_account_locks,
     internal_config,
+    internal_credentials,
+    internal_users,
     menu,
     modules,
     outbox,
@@ -34,6 +38,10 @@ api_router = mount_service_routers(
             outbox.router,
             internal_config.router,
             user_extensions.router,
+            internal_credentials.router,
+            internal_users.router,
+            internal_account_locks.router,
+            account_locks.router,
             menu.menu_router,
             menu.form_router,
             menu.button_router,

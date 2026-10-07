@@ -19,7 +19,7 @@ from bms_core.db.tenant import DEMO_TENANT
 from bms_core.idp.state.memory import MemoryIdpStateStore
 from bms_identity.models.client import SysClient
 
-from .helpers import CLIENT_ID, CLIENT_SECRET, REDIRECT_URI, FakeOidcOrgClient
+from .helpers import CLIENT_ID, CLIENT_SECRET, REDIRECT_URI, FakeOidcPlatformClient
 
 
 @dataclass
@@ -28,7 +28,7 @@ class OidcHarness:
 
     app: FastAPI
     states: MemoryIdpStateStore
-    org: FakeOidcOrgClient
+    platform_client: FakeOidcPlatformClient
 
     def tenant_scope(self) -> AbstractAsyncContextManager[DbSession]:
         """演示租户库会话上下文。
@@ -141,7 +141,7 @@ async def clean_oidc(service_app: FastAPI) -> AsyncIterator[None]:
 
 @pytest.fixture
 def oidc(service_app: FastAPI) -> OidcHarness:
-    """装配 OIDC 测试替身（流程状态存储 + org 概要客户端）。
+    """装配 OIDC 测试替身（流程状态存储 + platform 概要客户端）。
 
     Args:
         service_app: 应用实例。
@@ -150,7 +150,7 @@ def oidc(service_app: FastAPI) -> OidcHarness:
         OidcHarness: 装配套件。
     """
     states = MemoryIdpStateStore()
-    org = FakeOidcOrgClient()
+    platform_client = FakeOidcPlatformClient()
     service_app.dependency_overrides[get_idp_state_store] = lambda: states
-    service_app.dependency_overrides[get_service_client] = lambda: org
-    return OidcHarness(app=service_app, states=states, org=org)
+    service_app.dependency_overrides[get_service_client] = lambda: platform_client
+    return OidcHarness(app=service_app, states=states, platform_client=platform_client)

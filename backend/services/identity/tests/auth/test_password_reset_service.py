@@ -21,11 +21,11 @@ from bms_core.ratelimit.memory import MemoryRateLimiter
 from bms_core.security.session import DefaultSessionSecurity
 from bms_core.session.memory import MemorySessionStore
 from bms_identity.models.session import SysSession
-from bms_identity.services.org_client import OrgCredentialClient
 from bms_identity.services.password_reset import PASSWORD_RESET_NAMESPACE, PasswordResetService
+from bms_identity.services.platform_client import PlatformCredentialClient
 from bms_identity.services.session import SessionService
 
-from .helpers import TENANT, TENANT_ID, FakeCaptcha, FakeOrgClient, RecordingNotifier, RecordingRealtimePublisher
+from .helpers import TENANT, TENANT_ID, FakeCaptcha, FakePlatformClient, RecordingNotifier, RecordingRealtimePublisher
 
 
 class _FailingStore(BaseIdpStateStore):
@@ -99,7 +99,7 @@ async def _session() -> tuple[AsyncSession, AsyncEngine]:
 def _service(
     session: AsyncSession,
     *,
-    org: FakeOrgClient | None = None,
+    platform_client: FakePlatformClient | None = None,
     states: BaseIdpStateStore | None = None,
     notifier: RecordingNotifier | None = None,
     captcha: FakeCaptcha | None = None,
@@ -110,7 +110,7 @@ def _service(
 
     Args:
         session: 临时租户库会话。
-        org: org 客户端替身。
+        platform_client: platform 客户端替身。
         states: 流程状态存储替身。
         notifier: 通知基座替身。
         captcha: 验证码替身。
@@ -128,7 +128,7 @@ def _service(
         publisher=RecordingRealtimePublisher(),
     )
     return PasswordResetService(
-        org_client=OrgCredentialClient(org or FakeOrgClient()),
+        platform_client=PlatformCredentialClient(platform_client or FakePlatformClient()),
         captcha=captcha or FakeCaptcha(required=False),
         rate_limiter=MemoryRateLimiter(),
         state_store=states or MemoryIdpStateStore(),
@@ -142,11 +142,11 @@ def _service(
 async def test_request_reset_optional_captcha_without_ip_uses_token_text() -> None:
     """可选验证码 + 无 IP：发起成功；无重置链接时通知内容回退令牌文案且载荷可消费。"""
     session, engine = await _session()
-    org = FakeOrgClient()
-    org.set_user("admin", password="secret", user_id=1001, email="admin@example.com")
+    platform_client = FakePlatformClient()
+    platform_client.set_user("admin", password="secret", user_id=1001, email="admin@example.com")
     notifier = RecordingNotifier()
     states = MemoryIdpStateStore()
-    service = _service(session, org=org, states=states, notifier=notifier)
+    service = _service(session, platform_client=platform_client, states=states, notifier=notifier)
 
     result = await service.request_reset("admin", None, tenant_id=TENANT_ID, tenant_code=TENANT, ip=None)
     assert result.sent is True
@@ -166,24 +166,24 @@ async def test_request_reset_optional_captcha_without_ip_uses_token_text() -> No
 async def test_request_reset_fail_closed_on_store_and_notify() -> None:
     """存储写入失败 / 通知抛异常 / 未送达：一律 10007，不假报已发送。"""
     session, engine = await _session()
-    org = FakeOrgClient()
-    org.set_user("admin", password="secret", user_id=1001, email="admin@example.com")
+    platform_client = FakePlatformClient()
+    platform_client.set_user("admin", password="secret", user_id=1001, email="admin@example.com")
 
     with pytest.raises(ServiceUnavailableError) as save_failed:
-        await _service(session, org=org, states=_FailingStore()).request_reset(
+        await _service(session, platform_client=platform_client, states=_FailingStore()).request_reset(
             "admin", None, tenant_id=TENANT_ID, tenant_code=TENANT, ip=None
         )
     assert save_failed.value.code == 10007
 
     with pytest.raises(ServiceUnavailableError):
-        await _service(session, org=org, notifier=RecordingNotifier(raises=True)).request_reset(
+        await _service(session, platform_client=platform_client, notifier=RecordingNotifier(raises=True)).request_reset(
             "admin", None, tenant_id=TENANT_ID, tenant_code=TENANT, ip=None
         )
 
     with pytest.raises(ServiceUnavailableError):
-        await _service(session, org=org, notifier=RecordingNotifier(delivered=False)).request_reset(
-            "admin", None, tenant_id=TENANT_ID, tenant_code=TENANT, ip=None
-        )
+        await _service(
+            session, platform_client=platform_client, notifier=RecordingNotifier(delivered=False)
+        ).request_reset("admin", None, tenant_id=TENANT_ID, tenant_code=TENANT, ip=None)
     await session.close()
     await engine.dispose()
 
@@ -192,10 +192,10 @@ async def test_request_reset_fail_closed_on_store_and_notify() -> None:
 async def test_reset_password_token_payload_and_not_found() -> None:
     """载荷脏值 / 未命中 / 账号不存在：统一 20005（不泄露细节）。"""
     session, engine = await _session()
-    org = FakeOrgClient()
-    org.set_user("admin", password="secret", user_id=1001, email="admin@example.com")
+    platform_client = FakePlatformClient()
+    platform_client.set_user("admin", password="secret", user_id=1001, email="admin@example.com")
     states = MemoryIdpStateStore()
-    service = _service(session, org=org, states=states)
+    service = _service(session, platform_client=platform_client, states=states)
 
     with pytest.raises(PasswordResetTokenError) as missing:
         await service.reset_password("ghost-token", "NewSecret1!", tenant_id=TENANT_ID, tenant_code=TENANT)
@@ -226,10 +226,10 @@ async def test_reset_password_token_payload_and_not_found() -> None:
 async def test_reset_password_policy_and_history_mapping() -> None:
     """改密策略闸门：复杂度违规 30005（带 violations）/ 历史重复 30006。"""
     session, engine = await _session()
-    org = FakeOrgClient()
-    org.set_user("admin", password="secret", user_id=1001, email="admin@example.com")
+    platform_client = FakePlatformClient()
+    platform_client.set_user("admin", password="secret", user_id=1001, email="admin@example.com")
     states = MemoryIdpStateStore()
-    service = _service(session, org=org, states=states)
+    service = _service(session, platform_client=platform_client, states=states)
 
     await states.save(
         "weak-token",
@@ -271,10 +271,10 @@ async def test_revoke_user_sessions_continues_on_cleanup_failure() -> None:
     )
     await session.commit()
 
-    org = FakeOrgClient()
-    org.set_user("admin", password="secret", user_id=1001, email="admin@example.com")
+    platform_client = FakePlatformClient()
+    platform_client.set_user("admin", password="secret", user_id=1001, email="admin@example.com")
     states = MemoryIdpStateStore()
-    service = _service(session, org=org, states=states, store=_ExplodingStore())
+    service = _service(session, platform_client=platform_client, states=states, store=_ExplodingStore())
     await states.save(
         "boom",
         ConcurrentStableDict({"user_id": 1001, "account": "admin"}),

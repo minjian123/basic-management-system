@@ -25,7 +25,7 @@ from bms_identity.services.session_issuer import hash_refresh_token
 from .helpers import (
     TENANT_ID,
     FakeCaptcha,
-    FakeOrgClient,
+    FakePlatformClient,
     FakeUserTokenIssuer,
     wire_auth,
 )
@@ -39,10 +39,15 @@ COOKIE = "bms_refresh_token"
 @pytest.mark.kiwi_id(2235)
 async def test_login_rate_limit_ip_and_account_dimensions(client: AsyncClient, service_app: FastAPI) -> None:
     """限流爆破：IP 维度超限 10005（换账号不绕过）、账号维度超限 10005（换 IP 不绕过）。"""
-    issuer, org, store, limiter = FakeUserTokenIssuer(), FakeOrgClient(), MemorySessionStore(), MemoryRateLimiter()
-    org.set_user("admin", password="secret")
-    org.set_user("other", password="secret")
-    wire_auth(service_app, issuer=issuer, org=org, store=store, limiter=limiter)
+    issuer, platform_client, store, limiter = (
+        FakeUserTokenIssuer(),
+        FakePlatformClient(),
+        MemorySessionStore(),
+        MemoryRateLimiter(),
+    )
+    platform_client.set_user("admin", password="secret")
+    platform_client.set_user("other", password="secret")
+    wire_auth(service_app, issuer=issuer, platform_client=platform_client, store=store, limiter=limiter)
     service_app.state.settings.login.ip_rate_limit = 1
     service_app.state.settings.login.account_rate_limit = 20
     try:
@@ -71,10 +76,17 @@ async def test_login_rate_limit_ip_and_account_dimensions(client: AsyncClient, s
 @pytest.mark.kiwi_id(2235)
 async def test_login_failure_escalates_to_captcha_within_ip_window(client: AsyncClient, service_app: FastAPI) -> None:
     """限流爆破：IP 窗口内连续失败达阈值即强制验证码（20101），携带有效凭证后放行并清零。"""
-    issuer, org, store, limiter = FakeUserTokenIssuer(), FakeOrgClient(), MemorySessionStore(), MemoryRateLimiter()
-    org.set_user("admin", password="secret")
+    issuer, platform_client, store, limiter = (
+        FakeUserTokenIssuer(),
+        FakePlatformClient(),
+        MemorySessionStore(),
+        MemoryRateLimiter(),
+    )
+    platform_client.set_user("admin", password="secret")
     captcha = FakeCaptcha(required=False, verified=True, fail_threshold=1)
-    wire_auth(service_app, issuer=issuer, org=org, store=store, limiter=limiter, captcha=captcha)
+    wire_auth(
+        service_app, issuer=issuer, platform_client=platform_client, store=store, limiter=limiter, captcha=captcha
+    )
 
     failed = await login(client, password="bad")
     assert failed.status_code == 401 and failed.json()["code"] == 20002
@@ -91,9 +103,14 @@ async def test_login_failure_escalates_to_captcha_within_ip_window(client: Async
 @pytest.mark.kiwi_id(2235)
 async def test_session_hijack_forged_and_expired_refresh_rejected(client: AsyncClient, service_app: FastAPI) -> None:
     """会话劫持：伪造 refresh 串与过期会话记录均 401/20001（不是仅靠前端拦截）。"""
-    issuer, org, store, limiter = FakeUserTokenIssuer(), FakeOrgClient(), MemorySessionStore(), MemoryRateLimiter()
-    org.set_user("admin", password="secret", user_id=7)
-    wire_auth(service_app, issuer=issuer, org=org, store=store, limiter=limiter)
+    issuer, platform_client, store, limiter = (
+        FakeUserTokenIssuer(),
+        FakePlatformClient(),
+        MemorySessionStore(),
+        MemoryRateLimiter(),
+    )
+    platform_client.set_user("admin", password="secret", user_id=7)
+    wire_auth(service_app, issuer=issuer, platform_client=platform_client, store=store, limiter=limiter)
 
     client.cookies.clear()
     forged = await client.post(API_REFRESH, headers={"Cookie": f"{COOKIE}=ref-forged"})
@@ -160,9 +177,14 @@ async def test_cross_user_session_scope_is_platform_admin_pre_rbac(client: Async
 @pytest.mark.kiwi_id(2235)
 async def test_login_contract_injection_boundaries(client: AsyncClient, service_app: FastAPI) -> None:
     """认证注入：契约层边界（空 / 超长）拦为 10001（不 5xx）；注入样本按字面透传 → 20002。"""
-    issuer, org, store, limiter = FakeUserTokenIssuer(), FakeOrgClient(), MemorySessionStore(), MemoryRateLimiter()
-    org.set_user("admin", password="secret")
-    wire_auth(service_app, issuer=issuer, org=org, store=store, limiter=limiter)
+    issuer, platform_client, store, limiter = (
+        FakeUserTokenIssuer(),
+        FakePlatformClient(),
+        MemorySessionStore(),
+        MemoryRateLimiter(),
+    )
+    platform_client.set_user("admin", password="secret")
+    wire_auth(service_app, issuer=issuer, platform_client=platform_client, store=store, limiter=limiter)
 
     blank = await client.post(API_LOGIN, json={"account": "   ", "password": "x"})
     assert blank.json()["code"] == 10001

@@ -1,7 +1,7 @@
 """当前用户概要端点测试（Kiwi 2229）：成功、改密标记、三类失败分支与下游不可达。
 
-以 `/api/v1/auth/me`（`require_auth` + org 内部用户概要）为受测面；令牌用测试夹具真实签名
-（`aud=api`），会话标记用内存替身，org 用户概要经 `FakeOrgClient` 的 `profile` 动作提供。
+以 `/api/v1/auth/me`（`require_auth` + platform 内部用户概要）为受测面；令牌用测试夹具真实签名
+（`aud=api`），会话标记用内存替身，platform 用户概要经 `FakePlatformClient` 的 `profile` 动作提供。
 """
 
 import pytest
@@ -14,7 +14,7 @@ from bms_core.servicecall.base import ServiceRequest, ServiceResponse
 from bms_core.session.memory import MemorySessionStore
 from tests_support.auth import TEST_SESSION_ID
 
-from .helpers import TENANT_ID, FakeOrgClient, FakeUserTokenIssuer, wire_auth
+from .helpers import TENANT_ID, FakePlatformClient, FakeUserTokenIssuer, wire_auth
 from .session_helpers import TENANT_HEADERS
 
 pytestmark = pytest.mark.kiwi_id(2229)
@@ -22,11 +22,11 @@ pytestmark = pytest.mark.kiwi_id(2229)
 API_ME = "/api/v1/auth/me"
 
 
-class _DownOrgClient(FakeOrgClient):
-    """测试替身：下游不可达（非 2xx）的 org 客户端。"""
+class _DownPlatformClient(FakePlatformClient):
+    """测试替身：下游不可达（非 2xx）的 platform 客户端。"""
 
     async def call(self, request: ServiceRequest) -> ServiceResponse:
-        """一律返回 503（模拟 org 不可达）。
+        """一律返回 503（模拟 platform 不可达）。
 
         Args:
             request: 服务间调用请求（未使用）。
@@ -44,21 +44,21 @@ async def _wire(
     user_id: int = 1001,
     status: str = "enabled",
     pwd_reset_required: bool = False,
-    org: FakeOrgClient | None = None,
+    platform_client: FakePlatformClient | None = None,
 ) -> None:
-    """装配认证链路替身（签发者 / org / 会话标记 / 限流）。
+    """装配认证链路替身（签发者 / platform_client / 会话标记 / 限流）。
 
     Args:
         app: 应用实例。
-        user_id: org 侧登记的用户主键（与令牌 `sub` 不一致即覆盖「用户不存在」分支）。
+        user_id: platform 侧登记的用户主键（与令牌 `sub` 不一致即覆盖「用户不存在」分支）。
         status: 账号状态。
         pwd_reset_required: 是否需强制改密。
-        org: org 客户端替身（None 用标准替身）。
+        platform_client: platform 客户端替身（None 用标准替身）。
     """
     issuer: FakeUserTokenIssuer = FakeUserTokenIssuer()
-    client = org if org is not None else FakeOrgClient()
+    client = platform_client if platform_client is not None else FakePlatformClient()
     store = MemorySessionStore()
-    if not isinstance(client, _DownOrgClient):
+    if not isinstance(client, _DownPlatformClient):
         client.set_user(
             "admin",
             password="secret",
@@ -68,7 +68,7 @@ async def _wire(
             pwd_reset_required=pwd_reset_required,
         )
     await store.save(TEST_SESSION_ID, ConcurrentStableDict({"user_id": 1001, "tenant": TENANT_ID}), tenant=TENANT_ID)
-    wire_auth(app, issuer=issuer, org=client, store=store, limiter=MemoryRateLimiter())
+    wire_auth(app, issuer=issuer, platform_client=client, store=store, limiter=MemoryRateLimiter())
 
 
 async def test_me_returns_summary_consistent_with_login(client: AsyncClient, service_app: FastAPI) -> None:
@@ -89,7 +89,7 @@ async def test_me_returns_summary_consistent_with_login(client: AsyncClient, ser
 
 
 async def test_me_maps_password_reset_required(client: AsyncClient, service_app: FastAPI) -> None:
-    """强制改密标记与 org 概要同源：超期用户返回真值。"""
+    """强制改密标记与 platform 概要同源：超期用户返回真值。"""
     await _wire(service_app, pwd_reset_required=True)
 
     resp = await client.get(API_ME, headers=TENANT_HEADERS)
@@ -120,8 +120,8 @@ async def test_me_rejects_invalid_token(client: AsyncClient, service_app: FastAP
 
 
 async def test_me_fails_closed_when_org_unavailable(client: AsyncClient, service_app: FastAPI) -> None:
-    """org 不可达 → 503（10007，fail-closed，不降级为 401）。"""
-    await _wire(service_app, org=_DownOrgClient())
+    """platform 不可达 → 503（10007，fail-closed，不降级为 401）。"""
+    await _wire(service_app, platform_client=_DownPlatformClient())
 
     resp = await client.get(API_ME, headers=TENANT_HEADERS)
     assert resp.status_code == 503

@@ -78,8 +78,8 @@ class RefreshResult(BaseSchema):
     expires_in: int = Field(description="access 有效期（秒）")
 
 
-class OrgUserSummary(ServiceDto):
-    """org 内部凭据校验返回的最小用户概要。"""
+class PlatformUserSummary(ServiceDto):
+    """platform 内部凭据校验返回的最小用户概要。"""
 
     id: int = Field(description="用户 ID")
     username: str = Field(description="登录账号")
@@ -89,8 +89,8 @@ class OrgUserSummary(ServiceDto):
     pwd_changed_at: str | None = Field(default=None, description="密码最近变更时间（ISO 8601）")
 
 
-class OrgVerifyResult(ServiceDto):
-    """org 内部凭据校验契约 DTO（消费 `sys_user` 凭据校验结果）。"""
+class PlatformVerifyResult(ServiceDto):
+    """platform 内部凭据校验契约 DTO（消费 `sys_user` 凭据校验结果）。"""
 
     found: bool = Field(default=False, description="账号是否存在")
     valid: bool = Field(default=False, description="口令是否匹配")
@@ -98,11 +98,11 @@ class OrgVerifyResult(ServiceDto):
     status: str = Field(default="", description="账号状态（enabled/disabled）")
     rehashed: bool = Field(default=False, description="是否本次重哈希")
     pwd_reset_required: bool = Field(default=False, description="是否需强制改密（密码超有效期）")
-    user: OrgUserSummary | None = Field(default=None, description="用户概要")
+    user: PlatformUserSummary | None = Field(default=None, description="用户概要")
 
 
-class OrgUpdatePasswordResult(ServiceDto):
-    """org 内部改密契约 DTO（策略闸门结果；调用侧映射 30005 / 30006）。"""
+class PlatformUpdatePasswordResult(ServiceDto):
+    """platform 内部改密契约 DTO（策略闸门结果；调用侧映射 30005 / 30006）。"""
 
     updated: bool = Field(default=False, description="是否更新成功")
     reason: str = Field(default="", description="未更新原因（空=成功；not_found / policy_violation / history_reused）")
@@ -111,8 +111,8 @@ class OrgUpdatePasswordResult(ServiceDto):
     )
 
 
-class OrgLoginState(ServiceDto):
-    """org 内部登录态写回契约 DTO。"""
+class PlatformLoginState(ServiceDto):
+    """platform 内部登录态写回契约 DTO。"""
 
     failed_count: int = Field(default=0, description="当前失败计数")
     locked_until: str | None = Field(default=None, description="锁定到期时间（ISO 8601）")

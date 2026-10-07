@@ -43,7 +43,7 @@ from bms_core.servicecall.base import BaseServiceClient
 from bms_core.session.base import BaseSessionStore
 from bms_identity.schemas.oidc import TokenResponse, UserInfoResponse
 from bms_identity.services.oidc_provider import OidcProviderService
-from bms_identity.services.org_client import OrgCredentialClient
+from bms_identity.services.platform_client import PlatformCredentialClient
 
 router = BaseRouter(key="oidc", prefix="/oidc", tags=["oidc"], default_responses=False)
 
@@ -135,7 +135,7 @@ def _build_service(
         session=session,
         provider=provider,
         state_store=state_store,
-        org_client=OrgCredentialClient(client),
+        platform_client=PlatformCredentialClient(client),
         password_hasher=hasher,
         settings=request.app.state.settings.oidc_provider,
     )
@@ -312,7 +312,7 @@ async def token(
         request: 请求对象。
         provider: OIDC Provider。
         state_store: 流程状态存储（授权码一次性消费）。
-        client: 服务间调用客户端（org 用户概要）。
+        client: 服务间调用客户端（platform 用户概要）。
         hasher: 口令哈希（客户端密钥比对）。
         tenant_ctx: 请求上下文租户。
         tenant_source: 租户源。
@@ -377,7 +377,7 @@ async def userinfo(
         request: 请求对象。
         provider: OIDC Provider。
         state_store: 流程状态存储（保持服务构造一致）。
-        client: 服务间调用客户端（org 用户概要）。
+        client: 服务间调用客户端（platform 用户概要）。
         hasher: 口令哈希（保持服务构造一致）。
         tenant_ctx: 请求上下文租户。
         tenant_source: 租户源。

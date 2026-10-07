@@ -58,7 +58,7 @@ from .helpers import (
     WECOM_IDP_KEY,
     CasMock,
     DingtalkMock,
-    FakeSsoOrgClient,
+    FakeSsoPlatformClient,
     FakeUserTokenIssuer,
     IdpMock,
     RecordingOutboxStore,
@@ -81,7 +81,7 @@ class SsoHarness:
 
     app: FastAPI
     issuer: FakeUserTokenIssuer
-    org: FakeSsoOrgClient
+    platform_client: FakeSsoPlatformClient
     store: MemorySessionStore
     limiter: MemoryRateLimiter
     states: MemoryIdpStateStore
@@ -407,9 +407,9 @@ def sso(service_app: FastAPI, monkeypatch: pytest.MonkeyPatch, idp: IdpMock) -> 
     Returns:
         SsoHarness: 装配套件。
     """
-    issuer, org, store, limiter, states = (
+    issuer, platform_client, store, limiter, states = (
         FakeUserTokenIssuer(),
-        FakeSsoOrgClient(),
+        FakeSsoPlatformClient(),
         MemorySessionStore(),
         MemoryRateLimiter(),
         MemoryIdpStateStore(),
@@ -419,7 +419,7 @@ def sso(service_app: FastAPI, monkeypatch: pytest.MonkeyPatch, idp: IdpMock) -> 
     wecom = WecomMock()
     dingtalk = DingtalkMock()
     service_app.dependency_overrides[get_user_token_issuer] = lambda: issuer
-    service_app.dependency_overrides[get_service_client] = lambda: org
+    service_app.dependency_overrides[get_service_client] = lambda: platform_client
     service_app.dependency_overrides[get_session_store] = lambda: store
     service_app.dependency_overrides[get_rate_limiter] = lambda: limiter
     service_app.dependency_overrides[get_idp_state_store] = lambda: states
@@ -456,7 +456,7 @@ def sso(service_app: FastAPI, monkeypatch: pytest.MonkeyPatch, idp: IdpMock) -> 
     return SsoHarness(
         app=service_app,
         issuer=issuer,
-        org=org,
+        platform_client=platform_client,
         store=store,
         limiter=limiter,
         states=states,

@@ -55,7 +55,7 @@ async def _flow_callback(
 @pytest.mark.kiwi_id(2197)
 async def test_callback_success_issues_session_and_cookie(client: AsyncClient, sso: SsoHarness) -> None:
     """成功闭环：200 + 租户回执 + refresh cookie + 租户库会话落库 + PKCE 换码。"""
-    sso.org.set_user(1001)
+    sso.platform_client.set_user(1001)
     await sso.seed_provider()
     await sso.seed_mapping()
 
@@ -76,8 +76,8 @@ async def test_callback_success_issues_session_and_cookie(client: AsyncClient, s
     assert row.user_id == 1001
     assert row.refresh_token_hash == hashlib.sha256(cookie.encode()).hexdigest()
     assert sso.issuer.specs[-1].tenant_id == TENANT_ID
-    assert sso.org.login_states[-1]["success"] is True
-    assert "profile" in sso.org.calls and "login-state" in sso.org.calls
+    assert sso.platform_client.login_states[-1]["success"] is True
+    assert "profile" in sso.platform_client.calls and "login-state" in sso.platform_client.calls
 
     replay = await client.get(
         f"{CALLBACK}?state=consumed-state&code=code-1",
@@ -89,7 +89,7 @@ async def test_callback_success_issues_session_and_cookie(client: AsyncClient, s
 @pytest.mark.kiwi_id(2197)
 async def test_callback_success_without_id_token_uses_userinfo(client: AsyncClient, sso: SsoHarness) -> None:
     """回退分支：IdP 未返 ID Token 时以 userinfo subject 定位映射并签发。"""
-    sso.org.set_user(1001)
+    sso.platform_client.set_user(1001)
     await sso.seed_provider()
     await sso.seed_mapping()
     response = await _flow_callback(client, sso, sign_nonce=None)
@@ -99,7 +99,7 @@ async def test_callback_success_without_id_token_uses_userinfo(client: AsyncClie
 @pytest.mark.kiwi_id(2197)
 async def test_callback_redirect_responses(client: AsyncClient, sso: SsoHarness) -> None:
     """可配跳转：成功 / 失败均 302（带参数），失败含错误码与提示。"""
-    sso.org.set_user(1001)
+    sso.platform_client.set_user(1001)
     await sso.seed_provider()
     await sso.seed_mapping()
     sso.app.state.settings.sso.success_redirect = "http://app.test/sso/ok"
@@ -162,7 +162,7 @@ async def test_callback_state_failures(client: AsyncClient, sso: SsoHarness, mon
 @pytest.mark.kiwi_id(2197)
 async def test_callback_provider_and_idp_failures(client: AsyncClient, sso: SsoHarness) -> None:
     """提供方 / IdP 失败分支：回调期停用 20051；换码 500 → 20053；nonce 与过期 → 20052。"""
-    sso.org.set_user(1001)
+    sso.platform_client.set_user(1001)
     await sso.seed_provider()
     await sso.seed_mapping()
 
@@ -193,9 +193,9 @@ async def test_callback_provider_and_idp_failures(client: AsyncClient, sso: SsoH
 
 @pytest.mark.kiwi_id(2197)
 async def test_callback_identity_mapping_and_org_failures(client: AsyncClient, sso: SsoHarness) -> None:
-    """映射与 org 失败分支：未命中 / 租户不符 20054；双行冲突 20055；禁用 20004；org 不可达 10007。"""
+    """映射与 platform_client 失败分支：未命中 / 租户不符 20054；双行冲突 20055；禁用 20004；platform 不可达 10007。"""
     await sso.seed_provider()
-    sso.org.set_user(1001)
+    sso.platform_client.set_user(1001)
 
     unmatched = await _flow_callback(client, sso)
     assert unmatched.status_code == 403 and unmatched.json()["code"] == 20054
@@ -219,16 +219,16 @@ async def test_callback_identity_mapping_and_org_failures(client: AsyncClient, s
         await session.commit()
 
     await sso.seed_mapping()
-    sso.org.users = ConcurrentStableDict()
+    sso.platform_client.users = ConcurrentStableDict()
     org_missing = await _flow_callback(client, sso)
     assert org_missing.status_code == 403 and org_missing.json()["code"] == 20054
 
-    sso.org.set_user(1001, status="disabled")
+    sso.platform_client.set_user(1001, status="disabled")
     disabled = await _flow_callback(client, sso)
     assert disabled.status_code == 401 and disabled.json()["code"] == 20004
 
-    sso.org.set_user(1001)
-    sso.org.fail_profile = True
+    sso.platform_client.set_user(1001)
+    sso.platform_client.fail_profile = True
     unavailable = await _flow_callback(client, sso)
     assert unavailable.status_code == 503 and unavailable.json()["code"] == 10007
 
@@ -236,7 +236,7 @@ async def test_callback_identity_mapping_and_org_failures(client: AsyncClient, s
 @pytest.mark.kiwi_id(2197)
 async def test_callback_config_and_dependency_failures(client: AsyncClient, sso: SsoHarness) -> None:
     """回调期配置 / 依赖失败：行配置非法 / 换码契约非法 / 验签配置缺失 / userinfo 不可达（20053）。"""
-    sso.org.set_user(1001)
+    sso.platform_client.set_user(1001)
     await sso.seed_provider()
     await sso.seed_mapping()
 

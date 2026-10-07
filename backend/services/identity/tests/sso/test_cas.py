@@ -76,7 +76,7 @@ async def test_cas_end_to_end_jit_creates_user_and_session(client: AsyncClient, 
 @pytest.mark.kiwi_id(2199)
 async def test_cas_existing_mapping_logs_in_without_jit(client: AsyncClient, sso: SsoHarness) -> None:
     """已绑定身份：命中映射直接登录，不建号、不发事件（复用 02_01 路径）。"""
-    sso.org.set_user(1001, username="cas-alice")
+    sso.platform_client.set_user(1001, username="cas-alice")
     await sso.seed_provider(idp_key=CAS_IDP_KEY, type="cas")
     await sso.seed_mapping(idp_key=CAS_IDP_KEY, external_id="cas-alice", user_id=1001)
 

@@ -19,7 +19,7 @@ class SessionItem(BaseSchema):
     """会话行（用户 / 设备 / IP / 登录与过期时间 / 撤销时间）。"""
 
     session_id: str = Field(description="会话 id（= JWT jti）")
-    user_id: int = Field(description="用户 ID（用户名由前端经 org 名称接口回显）")
+    user_id: int = Field(description="用户 ID（用户名由前端经 platform 名称接口回显）")
     device: str | None = Field(default=None, description="设备标识（User-Agent 摘要）")
     ip: str | None = Field(default=None, description="登录 IP")
     login_at: datetime = Field(description="登录时间（UTC）")

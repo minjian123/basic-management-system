@@ -86,8 +86,8 @@ def test_migrate_tenants_idempotent_and_single_targets(
     assert migrate_tenants.main(ConcurrentStableList(args)) == 0
     out = capsys.readouterr().out
     assert "汇总：成功 2、跳过 0、失败 0" in out
-    assert _revisions(tmp_path / "bms_platform_demo.db") == ["0007_role_tables"]
-    assert _revisions(tmp_path / "bms_platform_acme.db") == ["0007_role_tables"]
+    assert _revisions(tmp_path / "bms_platform_demo.db") == ["0008_user_tables"]
+    assert _revisions(tmp_path / "bms_platform_acme.db") == ["0008_user_tables"]
 
     assert migrate_tenants.main(ConcurrentStableList(args)) == 0
     assert "汇总：成功 0、跳过 2、失败 0" in capsys.readouterr().out
@@ -149,7 +149,7 @@ def test_init_tenant_three_steps_and_idempotent(tmp_path: Path, capsys: pytest.C
     assert "建库 → 新建" in out
     assert "platform:tenant 链 → 完成" in out
     assert "种子 → 新增" in out and "新增 0 行" not in out
-    assert _revisions(tmp_path / "tenant_acme.db") == ["0007_role_tables"]
+    assert _revisions(tmp_path / "tenant_acme.db") == ["0008_user_tables"]
 
     assert init_tenant.main(ConcurrentStableList(args)) == 0
     again = capsys.readouterr().out

@@ -85,8 +85,8 @@ async def authorize_code(
     return query.get("code", [""])[0], location
 
 
-class FakeOidcOrgClient(BaseServiceClient):
-    """测试替身：内存 org 用户概要接口（`/org/internal/users/profile`）。"""
+class FakeOidcPlatformClient(BaseServiceClient):
+    """测试替身：内存 platform 用户概要接口（`/platform_client/internal/users/profile`）。"""
 
     plugin_name = "oidc_fake"
 
@@ -140,7 +140,7 @@ class FakeOidcOrgClient(BaseServiceClient):
         self.calls.add(action)
         if action == "profile":
             if self.fail:
-                raise ServiceUnavailableError("org 用户接口不可用")
+                raise ServiceUnavailableError("platform 用户接口不可用")
             body = request.json_body or ConcurrentStableDict()
             user_id = int(cast("int", body.get("user_id", 0)))
             user = self.users.get(user_id)

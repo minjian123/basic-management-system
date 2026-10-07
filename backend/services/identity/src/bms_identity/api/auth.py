@@ -51,7 +51,7 @@ from bms_identity.schemas.auth import (
     UserSummary,
 )
 from bms_identity.services.auth import CurrentUserService, LoginService
-from bms_identity.services.org_client import OrgCredentialClient
+from bms_identity.services.platform_client import PlatformCredentialClient
 
 router = BaseRouter(key="auth", prefix="/auth", tags=["auth"], default_responses=False)
 
@@ -198,7 +198,7 @@ def _build_service(
         session_store=store,
         captcha=captcha,
         rate_limiter=limiter,
-        org_client=OrgCredentialClient(client),
+        platform_client=PlatformCredentialClient(client),
         login_settings=request.app.state.settings.login,
         session_settings=request.app.state.settings.session,
         realtime_publisher=publisher,
@@ -232,7 +232,7 @@ async def login(
     tenant_ctx: TenantDep,
     tenant_source: TenantSourceDep,
 ) -> ApiResponse[LoginResult]:
-    """本地账号密码登录：验证码 / 限流 / org 凭据校验 → 签发双 token 并建会话。
+    """本地账号密码登录：验证码 / 限流 / platform 凭据校验 → 签发双 token 并建会话。
 
     Args:
         request: 请求对象。
@@ -401,16 +401,16 @@ async def me(auth: AuthDep, client: ClientDep) -> ApiResponse[UserSummary]:
     """当前用户概要（首屏静默续期恢复用户上下文）。
 
     字段与登录响应**同字段、同语义**；用户不存在 / 账号停用按登录态失效（401）返回，前端据此走
-    统一 401 路径（清会话 + 跳登录）；org 不可达按 `10007` / 503 fail-closed。
+    统一 401 路径（清会话 + 跳登录）；platform 不可达按 `10007` / 503 fail-closed。
 
     Args:
         auth: 登录态身份契约（用户主键 / 租户主键与编码）。
-        client: 服务间调用客户端（构造 org 内部接口客户端）。
+        client: 服务间调用客户端（构造 platform 内部接口客户端）。
 
     Returns:
         ApiResponse: 统一响应，data 为用户概要（`UserSummary`）。
     """
-    service = CurrentUserService(OrgCredentialClient(client))
+    service = CurrentUserService(PlatformCredentialClient(client))
     return ApiResponse.ok(
         await service.current_user(user_id=auth.user_id, tenant_id=auth.tenant_id, tenant_code=auth.tenant_code)
     )

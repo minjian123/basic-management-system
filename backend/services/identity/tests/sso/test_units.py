@@ -25,7 +25,7 @@ from bms_identity.api.sso import (
     _resolve_sso_tenant,  # pyright: ignore[reportPrivateUsage]
     _resolve_sso_tenant_required,  # pyright: ignore[reportPrivateUsage]
 )
-from bms_identity.services.org_client import OrgCredentialClient
+from bms_identity.services.platform_client import PlatformCredentialClient
 from bms_identity.services.provider_registry import (
     ProviderRegistry,
     _normalize_updated_at,  # pyright: ignore[reportPrivateUsage]
@@ -73,7 +73,7 @@ async def test_sso_service_rate_limit_skip_without_ip() -> None:
     service = SsoService(
         state_store=MemoryIdpStateStore(),
         rate_limiter=MemoryRateLimiter(),
-        org_client=cast("OrgCredentialClient", object()),
+        platform_client=cast("PlatformCredentialClient", object()),
         provider_registry=ProviderRegistry(),
         sso_settings=Settings().sso,
         lock=NullDistributedLock(),

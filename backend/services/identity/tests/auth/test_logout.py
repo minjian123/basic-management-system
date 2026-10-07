@@ -8,7 +8,7 @@ from bms_core.ratelimit.memory import MemoryRateLimiter
 from bms_core.security.session import DefaultSessionSecurity
 from bms_core.session.memory import MemorySessionStore
 
-from .helpers import FakeOrgClient, FakeUserTokenIssuer, wire_auth
+from .helpers import FakePlatformClient, FakeUserTokenIssuer, wire_auth
 
 API_LOGIN = "/api/v1/auth/login"
 API_LOGOUT = "/api/v1/auth/logout"
@@ -26,9 +26,14 @@ async def _prepare(client: AsyncClient, service_app: FastAPI) -> tuple[FakeUserT
     Returns:
         tuple[FakeUserTokenIssuer, MemorySessionStore]: (签发者替身, 会话存储替身)。
     """
-    issuer, org, store, limiter = FakeUserTokenIssuer(), FakeOrgClient(), MemorySessionStore(), MemoryRateLimiter()
-    org.set_user("admin", password="secret", user_id=9)
-    wire_auth(service_app, issuer=issuer, org=org, store=store, limiter=limiter)
+    issuer, platform_client, store, limiter = (
+        FakeUserTokenIssuer(),
+        FakePlatformClient(),
+        MemorySessionStore(),
+        MemoryRateLimiter(),
+    )
+    platform_client.set_user("admin", password="secret", user_id=9)
+    wire_auth(service_app, issuer=issuer, platform_client=platform_client, store=store, limiter=limiter)
     resp = await client.post(API_LOGIN, json={"account": "admin", "password": "secret"})
     assert resp.status_code == 200
     return issuer, store

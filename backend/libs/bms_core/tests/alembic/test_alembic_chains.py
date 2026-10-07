@@ -102,6 +102,7 @@ def test_chain_tables_derived_from_ownership() -> None:
 
 
 @pytest.mark.kiwi_id(1078)
+@pytest.mark.kiwi_id(2247)
 def test_chain_metadata_is_subset() -> None:
     """链元数据子集 = 派生表集 ∩ 已有模型（骨架表既不入链、也不被自动建表创建）。"""
     platform = chain_metadata(resolve_chain("platform:platform"))
@@ -112,20 +113,22 @@ def test_chain_metadata_is_subset() -> None:
     assert "sys_notification" not in tenant.tables
     assert chain_metadata(resolve_chain("platform:archive")).tables == {}
     # 服务链：共享基础设施表（发件箱三表）+ 本服务自有模型表
+    # org 服务用户 / 账号锁定两表已随 02_05 归口 platform → org:tenant 只余基础设施三表
     assert set(chain_metadata(resolve_chain("org:tenant")).tables) == {
         "sys_outbox",
         "sys_event_consumed",
         "sys_event_dead_letter",
-        "sys_user",
-        "sys_account_lock",
     }
-    # 角色域 5 表归 platform 服务租户库（02_03：与平台元数据同服务，授权校验不跨服务）
+    # 角色域 5 表 + 用户 / 账号锁定两表归 platform 服务租户库
+    # （02_03：与平台元数据同服务；02_05：用户（账号）归口 platform，消除跨服务引用）
     assert {
         "sys_role",
         "sys_user_role",
         "sys_role_permission",
         "sys_role_field",
         "sys_data_scope",
+        "sys_user",
+        "sys_account_lock",
     } <= set(chain_metadata(resolve_chain("platform:tenant")).tables)
     assert set(chain_metadata(resolve_chain("identity:tenant")).tables) == {
         "sys_outbox",
@@ -190,12 +193,15 @@ def test_chain_url_resolution(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -
 
 
 @pytest.mark.kiwi_id(1078)
+@pytest.mark.kiwi_id(2247)
 def test_chain_revisions_integrity() -> None:
     """链完整性：有脚本链单 head、分支标签与链名一致、链内 revision 唯一（跨链允许同名）。"""
     platform_head = ScriptDirectory.from_config(_config(resolve_chain("platform:platform"))).get_current_head()
     assert platform_head == "0007_menu_metadata"
     tenant_service_head = ScriptDirectory.from_config(_config(default_chain())).get_current_head()
-    assert tenant_service_head == "0007_role_tables"
+    assert tenant_service_head == "0008_user_tables"
+    org_head = ScriptDirectory.from_config(_config(resolve_chain("org:tenant"))).get_current_head()
+    assert org_head == "0006_drop_user_tables"
 
     for name in (
         "platform:platform",

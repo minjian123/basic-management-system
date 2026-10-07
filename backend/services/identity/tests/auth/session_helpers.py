@@ -18,7 +18,7 @@ from tests_support.auth import TEST_SESSION_ID
 
 from .helpers import (
     TENANT_ID,
-    FakeOrgClient,
+    FakePlatformClient,
     FakeUserTokenIssuer,
     RecordingRealtimePublisher,
     wire_auth,
@@ -60,14 +60,19 @@ async def wire_login(
     Returns:
         tuple: (签发者替身, 会话存储替身, 广播记录替身)。
     """
-    issuer, org, store, limiter = FakeUserTokenIssuer(), FakeOrgClient(), MemorySessionStore(), MemoryRateLimiter()
-    org.set_user("admin", password="secret", user_id=user_id, name="管理员")
+    issuer, platform_client, store, limiter = (
+        FakeUserTokenIssuer(),
+        FakePlatformClient(),
+        MemorySessionStore(),
+        MemoryRateLimiter(),
+    )
+    platform_client.set_user("admin", password="secret", user_id=user_id, name="管理员")
     await store.save(
         TEST_SESSION_ID,
         ConcurrentStableDict({"user_id": user_id, "tenant": TENANT_ID}),
         tenant=TENANT_ID,
     )
-    wire_auth(app, issuer=issuer, org=org, store=store, limiter=limiter)
+    wire_auth(app, issuer=issuer, platform_client=platform_client, store=store, limiter=limiter)
     recorder = publisher or RecordingRealtimePublisher()
     wire_publisher(app, recorder)
     if max_active is not None:

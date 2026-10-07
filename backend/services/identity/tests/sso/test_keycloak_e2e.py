@@ -231,7 +231,7 @@ async def test_keycloak_end_to_end_login(
     monkeypatch.setenv("KEYCLOAK_CLIENT_SECRET", _CLIENT_SECRET)
     monkeypatch.setattr(sso_api, "ProviderRegistry", ProviderRegistry)
 
-    sso.org.set_user(_USER_ID, username=_USERNAME)
+    sso.platform_client.set_user(_USER_ID, username=_USERNAME)
     await sso.seed_provider(
         config=sso.provider_config(
             issuer=f"{_BASE}/realms/bms",

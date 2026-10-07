@@ -12,7 +12,7 @@ from bms_core.session.memory import MemorySessionStore
 from bms_identity.models.session import SysSession
 from bms_identity.services.session_issuer import hash_refresh_token
 
-from .helpers import TENANT_ID, FakeOrgClient, FakeUserTokenIssuer, wire_auth
+from .helpers import TENANT_ID, FakePlatformClient, FakeUserTokenIssuer, wire_auth
 from .session_helpers import seed_session, tenant_scope, utc_now
 
 API_LOGIN = "/api/v1/auth/login"
@@ -30,9 +30,14 @@ async def _prepare(client: AsyncClient, service_app: FastAPI) -> tuple[FakeUserT
     Returns:
         tuple[FakeUserTokenIssuer, MemorySessionStore]: (令牌签发者替身, 会话存储替身)。
     """
-    issuer, org, store, limiter = FakeUserTokenIssuer(), FakeOrgClient(), MemorySessionStore(), MemoryRateLimiter()
-    org.set_user("admin", password="secret", user_id=7)
-    wire_auth(service_app, issuer=issuer, org=org, store=store, limiter=limiter)
+    issuer, platform_client, store, limiter = (
+        FakeUserTokenIssuer(),
+        FakePlatformClient(),
+        MemorySessionStore(),
+        MemoryRateLimiter(),
+    )
+    platform_client.set_user("admin", password="secret", user_id=7)
+    wire_auth(service_app, issuer=issuer, platform_client=platform_client, store=store, limiter=limiter)
     resp = await client.post(API_LOGIN, json={"account": "admin", "password": "secret"})
     assert resp.status_code == 200
     return issuer, store
@@ -147,9 +152,14 @@ async def test_refresh_without_tenant_context(client: AsyncClient, service_app: 
 @pytest.mark.kiwi_id(2234)
 async def test_refresh_preserves_remember_me(client: AsyncClient, service_app: FastAPI) -> None:
     """轮换按原选项续期：记住我仍持久（Max-Age + expires_at 14 天）；会话级仍会话 Cookie（+ 24h）。"""
-    issuer, org, store, limiter = FakeUserTokenIssuer(), FakeOrgClient(), MemorySessionStore(), MemoryRateLimiter()
-    org.set_user("admin", password="secret", user_id=7)
-    wire_auth(service_app, issuer=issuer, org=org, store=store, limiter=limiter)
+    issuer, platform_client, store, limiter = (
+        FakeUserTokenIssuer(),
+        FakePlatformClient(),
+        MemorySessionStore(),
+        MemoryRateLimiter(),
+    )
+    platform_client.set_user("admin", password="secret", user_id=7)
+    wire_auth(service_app, issuer=issuer, platform_client=platform_client, store=store, limiter=limiter)
 
     remembered = await client.post(API_LOGIN, json={"account": "admin", "password": "secret", "remember_me": True})
     assert remembered.status_code == 200
@@ -179,9 +189,14 @@ async def test_refresh_preserves_remember_me(client: AsyncClient, service_app: F
 @pytest.mark.kiwi_id(2234)
 async def test_refresh_legacy_null_remember_me_treated_as_remembered(client: AsyncClient, service_app: FastAPI) -> None:
     """历史行（`remember_me=NULL`）轮换按记住我处理（14 天），不误降级为会话级。"""
-    issuer, org, store, limiter = FakeUserTokenIssuer(), FakeOrgClient(), MemorySessionStore(), MemoryRateLimiter()
-    org.set_user("admin", password="secret", user_id=7)
-    wire_auth(service_app, issuer=issuer, org=org, store=store, limiter=limiter)
+    issuer, platform_client, store, limiter = (
+        FakeUserTokenIssuer(),
+        FakePlatformClient(),
+        MemorySessionStore(),
+        MemoryRateLimiter(),
+    )
+    platform_client.set_user("admin", password="secret", user_id=7)
+    wire_auth(service_app, issuer=issuer, platform_client=platform_client, store=store, limiter=limiter)
 
     issuer.mint("ref-hist", sub="7", jti="8001", tenant_id=TENANT_ID)
     await seed_session(

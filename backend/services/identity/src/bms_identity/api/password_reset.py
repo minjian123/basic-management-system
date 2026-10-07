@@ -44,8 +44,8 @@ from bms_identity.schemas.password_reset import (
     PasswordResetRequest,
     PasswordResetResult,
 )
-from bms_identity.services.org_client import OrgCredentialClient
 from bms_identity.services.password_reset import PasswordResetService
+from bms_identity.services.platform_client import PlatformCredentialClient
 from bms_identity.services.session import SessionService
 
 router = BaseRouter(key="identity_password_reset", prefix="/auth", tags=["auth"])
@@ -63,7 +63,7 @@ TenantSourceDep = Annotated[TenantLookup, Depends(get_tenant_source)]
 
 
 def _require_tenant_id(tenant: TenantContext) -> str:
-    """取租户主键字符串（缺失抛认证错误；内部键 / org 调用依据）。
+    """取租户主键字符串（缺失抛认证错误；内部键 / platform 调用依据）。
 
     Args:
         tenant: 生效租户上下文。
@@ -111,7 +111,7 @@ def _build_service(
     """
     uow = DbUnitOfWork(session)
     return PasswordResetService(
-        org_client=OrgCredentialClient(client),
+        platform_client=PlatformCredentialClient(client),
         captcha=captcha,
         rate_limiter=limiter,
         state_store=state_store,

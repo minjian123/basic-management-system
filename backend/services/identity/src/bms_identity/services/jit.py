@@ -6,9 +6,9 @@
 - **并发**：`distributed_lock` 按映射键（`{tenant}:{provider_key}:{subject}`）串行化；锁内二次查映射命中即复用；
   映射 `(idp_key, external_id)` 唯一约束作跨进程兜底（冲突回读复用）。
 - **建号**：用户名来源 `preferred_username → email 本地部分 → sub` 并清洗；撞名加后缀 `_2.._5`（超出拒绝）；
-  经 org 内部接口建号（占位口令，不可本地登录）。
+  经 platform 内部接口建号（占位口令，不可本地登录）。
 - **事件**：首次建号在平台库与映射插入**同事务**写 `identity.user.jit_created`（Outbox，仅首登发）。
-- 错误语义：未启用 / 白名单拒绝 / 用尽后缀 → `20054`；锁或映射冲突 → `20055`；org 建号不可达 → `20053`。
+- 错误语义：未启用 / 白名单拒绝 / 用尽后缀 → `20054`；锁或映射冲突 → `20055`；platform 建号不可达 → `20053`。
 """
 
 from __future__ import annotations
@@ -37,8 +37,8 @@ from bms_core.events.base import EventEnvelope
 from bms_core.lock.base import BaseDistributedLock, build_lock_key
 from bms_core.outbox.base import BaseOutboxStore
 from bms_identity.repositories.user_identity import UserIdentityRepository
-from bms_identity.schemas.sso import OrgProfileUser
-from bms_identity.services.org_client import OrgCredentialClient
+from bms_identity.schemas.sso import PlatformProfileUser
+from bms_identity.services.platform_client import PlatformCredentialClient
 
 __all__ = [
     "ExternalIdentity",
@@ -103,7 +103,7 @@ class JitService(BaseFrameworkObject):
         self,
         *,
         lock: BaseDistributedLock,
-        org_client: OrgCredentialClient,
+        platform_client: PlatformCredentialClient,
         outbox_store: BaseOutboxStore,
         sso_settings: SsoSettings,
     ) -> None:
@@ -111,12 +111,12 @@ class JitService(BaseFrameworkObject):
 
         Args:
             lock: 分布式锁（JIT 临界区串行化）。
-            org_client: org 内部接口客户端（建号）。
+            platform_client: platform 内部接口客户端（建号）。
             outbox_store: 事务性发件箱（首登建号事件）。
             sso_settings: SSO 配置（全局开关 / 白名单 / 锁参数）。
         """
         self._lock = lock
-        self._org = org_client
+        self._platform = platform_client
         self._outbox = outbox_store
         self._sso = sso_settings
 
@@ -144,7 +144,7 @@ class JitService(BaseFrameworkObject):
         """首登建号 + 映射写入（锁内二次查；唯一约束兜底）。
 
         Args:
-            tenant_id: 生效租户主键（雪花 id 字符串；映射 / 锁键 / org 调用依据）。
+            tenant_id: 生效租户主键（雪花 id 字符串；映射 / 锁键 / platform 调用依据）。
             tenant_code: 生效租户编码（全局白名单比对）。
             idp_key: 租户内 IdP 标识（协议行 `idp_key`）。
             config: IdP 行配置 JSON 原文（开关 / 白名单来源）。
@@ -157,7 +157,7 @@ class JitService(BaseFrameworkObject):
         Raises:
             SsoIdentityUnmatchedError: JIT 未启用 / 白名单拒绝 / 用尽用户名后缀（20054/403）。
             SsoIdentityConflictError: 锁未取到或映射冲突回读未命中（20055/409）。
-            SsoProviderUnavailableError: org 建号接口不可达（20053/503）。
+            SsoProviderUnavailableError: platform 建号接口不可达（20053/503）。
         """
         if not self.enabled(config):
             raise SsoIdentityUnmatchedError()
@@ -188,7 +188,7 @@ class JitService(BaseFrameworkObject):
         identity: ExternalIdentity,
         platform_session: DbSession,
     ) -> JitResult:
-        """锁内建号：二次查映射 → org 建号 → 映射 + 事件同事务。
+        """锁内建号：二次查映射 → platform 建号 → 映射 + 事件同事务。
 
         Args:
             tenant_id: 租户主键（雪花 id 字符串）。
@@ -202,7 +202,7 @@ class JitService(BaseFrameworkObject):
         Raises:
             SsoIdentityUnmatchedError: 用尽用户名后缀（20054/403）。
             SsoIdentityConflictError: 映射冲突回读未命中（20055/409）。
-            SsoProviderUnavailableError: org 建号接口不可达（20053/503）。
+            SsoProviderUnavailableError: platform 建号接口不可达（20053/503）。
         """
         mapping_key = f"{tenant_id}:{idp_key}"
         repo = UserIdentityRepository(platform_session)
@@ -238,26 +238,26 @@ class JitService(BaseFrameworkObject):
         _LOGGER.info("JIT 建号成功", tenant=tenant_id, idp_key=idp_key, user_id=user.id)
         return JitResult(user_id=user.id, created=True)
 
-    async def _create_org_user(self, tenant_id: str, identity: ExternalIdentity) -> OrgProfileUser:
-        """经 org 建号（用户名撞名换后缀，最多 `USERNAME_MAX_ATTEMPTS` 次）。
+    async def _create_org_user(self, tenant_id: str, identity: ExternalIdentity) -> PlatformProfileUser:
+        """经 platform 建号（用户名撞名换后缀，最多 `USERNAME_MAX_ATTEMPTS` 次）。
 
         Args:
             tenant_id: 租户主键（雪花 id 字符串）。
             identity: 外部身份声明。
 
         Returns:
-            OrgProfileUser: 新建用户概要。
+            PlatformProfileUser: 新建用户概要。
 
         Raises:
             SsoIdentityUnmatchedError: 用尽后缀仍撞名（20054/403）。
-            SsoProviderUnavailableError: org 建号接口不可达（20053/503）。
+            SsoProviderUnavailableError: platform 建号接口不可达（20053/503）。
         """
         base = derive_username(identity)
         name = identity.name or identity.username or base
         for attempt in range(USERNAME_MAX_ATTEMPTS):
             candidate = base if attempt == 0 else f"{base}_{attempt + 1}"
             try:
-                result = await self._org.create_user(
+                result = await self._platform.create_user(
                     tenant_id,
                     username=candidate,
                     name=name,
@@ -266,7 +266,7 @@ class JitService(BaseFrameworkObject):
                 )
             except ServiceUnavailableError as exc:
                 _LOGGER.warning("JIT 建号接口不可用", tenant=tenant_id, error=str(exc))
-                raise SsoProviderUnavailableError("org 建号接口不可用") from exc
+                raise SsoProviderUnavailableError("platform 建号接口不可用") from exc
             if result.created and result.user is not None:
                 return result.user
         _LOGGER.warning("JIT 用尽用户名后缀", tenant=tenant_id, base=base)

@@ -1,4 +1,4 @@
-"""账号种子脚本测试（Kiwi 2243：`sys_user` 建 / 重置，幂等；需求 01-7）。"""
+"""账号种子脚本测试（Kiwi 2243：`sys_user` 建 / 重置，幂等；需求 01-7；02_05 后落 platform 租户库）。"""
 
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -11,7 +11,7 @@ import ops.seed_user as seed_user
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import get_settings
 from bms_core.security.pbkdf2 import Pbkdf2PasswordHasherFactory
-from bms_org.models.user import SysUser
+from bms_platform.models.user import SysUser
 
 
 def _verify(password: str, hashed: str) -> bool:
@@ -50,7 +50,7 @@ async def _load(url: str, username: str) -> SysUser:
 @pytest.mark.kiwi_id(2243)
 async def test_seed_user_create_is_idempotent(tmp_path: Path) -> None:
     """首次建号（一次性口令可校验、账号为启用态）、重复执行跳过；哈希为 PBKDF2 自描述串。"""
-    url = f"sqlite+aiosqlite:///{tmp_path / 'org.db'}"
+    url = f"sqlite+aiosqlite:///{tmp_path / 'platform.db'}"
     first = await seed_user.seed_user(url=url, username="admin", name="管理员")
     assert (first.created, first.reset, first.skipped) == (1, 0, 0)
     assert first.password.startswith("Bms1@")
@@ -70,7 +70,7 @@ async def test_seed_user_create_is_idempotent(tmp_path: Path) -> None:
 @pytest.mark.kiwi_id(2243)
 async def test_seed_user_reset_password(tmp_path: Path) -> None:
     """重置口令：哈希更新且新口令可校验、失败计数与锁定清零；**不改变账号状态**（停用账号不被启用）。"""
-    url = f"sqlite+aiosqlite:///{tmp_path / 'org.db'}"
+    url = f"sqlite+aiosqlite:///{tmp_path / 'platform.db'}"
     await seed_user.seed_user(url=url, username="admin", name="管理员")
     before = await _load(url, "admin")
 
@@ -102,7 +102,7 @@ async def test_seed_user_reset_password(tmp_path: Path) -> None:
 @pytest.mark.kiwi_id(2243)
 def test_seed_user_cli(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     """CLI：dry-run 只打印目标库与计划（不建库）；正式执行打印新增行数；过短口令拒绝（退出码 2）。"""
-    db_path = tmp_path / "org.db"
+    db_path = tmp_path / "platform.db"
     url = f"sqlite+aiosqlite:///{db_path}"
     assert seed_user.main(ConcurrentStableList(["--url", url, "--username", "admin", "--dry-run"])) == 0
     out = capsys.readouterr().out

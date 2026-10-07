@@ -4,8 +4,8 @@
 - 授权跳转：生成 `state / nonce / code_verifier`（PKCE S256）落流程状态存储（短 TTL、一次性），
   构造外部授权 URL；IdP 发现失败翻译为 `20053`。
 - 回调闭环：`state` 一次性消费（记录租户为权威）→ 换码 → ID Token 验签 / `nonce` 校验
-  （无 `id_token` 回退 userinfo）→ `sys_user_identity` 映射 → org 用户概要 → `SessionIssuer`
-  签发同构会话 → org `login-state(success=True)`。
+  （无 `id_token` 回退 userinfo）→ `sys_user_identity` 映射 → platform 用户概要 → `SessionIssuer`
+  签发同构会话 → platform `login-state(success=True)`。
 - 错误翻译：`bms_core` 出站失败（`ServiceUnavailableError`）在服务边界翻译为
   `SsoProviderUnavailableError`（`20053`）；`state` / `nonce` / PKCE / 令牌校验失败为 `20052`；
   映射未命中为 `20054`；账号停用复用 `20004`。
@@ -49,7 +49,7 @@ from bms_identity.repositories.identity_provider import IdentityProviderReposito
 from bms_identity.repositories.user_identity import UserIdentityRepository
 from bms_identity.schemas.sso import SsoProviderItem
 from bms_identity.services.jit import ExternalIdentity, JitService
-from bms_identity.services.org_client import OrgCredentialClient
+from bms_identity.services.platform_client import PlatformCredentialClient
 from bms_identity.services.provider_registry import ProviderRegistry
 from bms_identity.services.session_issuer import IssuedSession, SessionIssuer
 
@@ -90,14 +90,14 @@ class SsoAuthorizeResult(BaseAuthorizeUrlResultContract):
 
 
 class SsoService(BaseFrameworkObject):
-    """SSO 编排服务（流程状态 / 限流 / IdP 实例 / org 概要）。"""
+    """SSO 编排服务（流程状态 / 限流 / IdP 实例 / platform 概要）。"""
 
     def __init__(
         self,
         *,
         state_store: BaseIdpStateStore,
         rate_limiter: BaseRateLimiter,
-        org_client: OrgCredentialClient,
+        platform_client: PlatformCredentialClient,
         provider_registry: ProviderRegistry,
         sso_settings: SsoSettings,
         lock: BaseDistributedLock,
@@ -108,7 +108,7 @@ class SsoService(BaseFrameworkObject):
         Args:
             state_store: 流程状态存储（state / nonce / PKCE 一次性）。
             rate_limiter: 限流基座（authorize / callback）。
-            org_client: org 内部接口客户端（用户概要 / 登录态写回 / 建号）。
+            platform_client: platform 内部接口客户端（用户概要 / 登录态写回 / 建号）。
             provider_registry: IdP 行实例化桥接。
             sso_settings: SSO 配置（TTL / 限流阈值 / PKCE 开关 / JIT）。
             lock: 分布式锁（JIT 临界区串行化）。
@@ -116,12 +116,12 @@ class SsoService(BaseFrameworkObject):
         """
         self._state = state_store
         self._limiter = rate_limiter
-        self._org = org_client
+        self._platform = platform_client
         self._providers = provider_registry
         self._sso = sso_settings
         self._jit = JitService(
             lock=lock,
-            org_client=org_client,
+            platform_client=platform_client,
             outbox_store=outbox_store,
             sso_settings=sso_settings,
         )
@@ -330,7 +330,7 @@ class SsoService(BaseFrameworkObject):
             SsoIdentityUnmatchedError: 映射未命中或本地用户不存在（20054/403）。
             SsoIdentityConflictError: 身份映射冲突（20055/409）。
             AccountDisabledError: 本地账号停用（20004/401）。
-            ServiceUnavailableError: org 概要 / 登录态接口不可用（10007/503）。
+            ServiceUnavailableError: platform 概要 / 登录态接口不可用（10007/503）。
         """
         if error:
             _LOGGER.warning("SSO 回调被 IdP 拒绝", idp_key=idp_key, tenant=flow.tenant_code, error=error)
@@ -363,7 +363,7 @@ class SsoService(BaseFrameworkObject):
             identity=identity,
             platform_session=platform_session,
         )
-        profile = await self._org.user_profile(flow.tenant_id, user_id)
+        profile = await self._platform.user_profile(flow.tenant_id, user_id)
         if not profile.found or profile.user is None:
             _LOGGER.warning("SSO 本地用户不存在", idp_key=idp_key, tenant=flow.tenant_code, user_id=user_id)
             raise SsoIdentityUnmatchedError()
@@ -377,7 +377,7 @@ class SsoService(BaseFrameworkObject):
             ip=ip,
             user_agent=user_agent,
         )
-        await self._org.login_state(flow.tenant_id, profile.user.username, success=True)
+        await self._platform.login_state(flow.tenant_id, profile.user.username, success=True)
         _LOGGER.info("SSO 登录成功", idp_key=idp_key, tenant=flow.tenant_code, user_id=user_id)
         return SsoLoginResult(tenant_code=flow.tenant_code, issued=issued)
 
@@ -405,7 +405,7 @@ class SsoService(BaseFrameworkObject):
         Raises:
             SsoIdentityUnmatchedError: 未匹配且 JIT 未启用 / 被拒（20054/403）。
             SsoIdentityConflictError: JIT 锁或映射冲突（20055/409）。
-            SsoProviderUnavailableError: org 建号接口不可达（20053/503）。
+            SsoProviderUnavailableError: platform 建号接口不可达（20053/503）。
         """
         mapping = await UserIdentityRepository(platform_session).get_by_key_external(
             f"{flow.tenant_id}:{idp_key}", identity.subject

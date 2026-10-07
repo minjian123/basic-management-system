@@ -38,10 +38,10 @@ from bms_identity.services.jit import (
     derive_username,
     jit_enabled_for,
 )
-from bms_identity.services.org_client import OrgCredentialClient
+from bms_identity.services.platform_client import PlatformCredentialClient
 
 from .conftest import SsoHarness
-from .helpers import IDP_KEY, TENANT, TENANT_HEADERS, TENANT_ID, FakeSsoOrgClient
+from .helpers import IDP_KEY, TENANT, TENANT_HEADERS, TENANT_ID, FakeSsoPlatformClient
 
 CALLBACK = f"/api/v1/auth/sso/{IDP_KEY}/callback"
 IDENTITY = ExternalIdentity(
@@ -69,16 +69,16 @@ async def _platform_session() -> tuple[AsyncSession, object]:
 
 
 def _service(
-    org: FakeSsoOrgClient,
+    platform_client: FakeSsoPlatformClient,
     *,
     lock: MemoryDistributedLock | None = None,
     outbox: BaseOutboxStore | None = None,
     settings: Settings | None = None,
 ) -> JitService:
-    """构造 JIT 服务（真实锁 + 替身 org + 可控发件箱）。
+    """构造 JIT 服务（真实锁 + 替身 platform + 可控发件箱）。
 
     Args:
-        org: org 内部接口替身。
+        platform_client: platform 内部接口替身。
         lock: 分布式锁（缺省新建）。
         outbox: 发件箱存储（缺省 Null）。
         settings: 配置（缺省默认）。
@@ -88,7 +88,7 @@ def _service(
     """
     return JitService(
         lock=lock if lock is not None else MemoryDistributedLock(),
-        org_client=OrgCredentialClient(org),
+        platform_client=PlatformCredentialClient(platform_client),
         outbox_store=outbox if outbox is not None else NullOutboxStore(),
         sso_settings=(settings or Settings()).sso,
     )
@@ -123,9 +123,9 @@ async def test_provision_creates_user_mapping_and_event() -> None:
     """首登：建号 + 写映射 + 同事务入发件箱（事件契约校验通过）。"""
     register_platform_event_contracts()
     session, engine = await _platform_session()
-    org = FakeSsoOrgClient()
+    platform_client = FakeSsoPlatformClient()
     outbox = SqlOutboxStore(contract_mode="enforce")
-    service = _service(org, outbox=outbox)
+    service = _service(platform_client, outbox=outbox)
 
     result = await service.provision(
         tenant_id=TENANT_ID,
@@ -136,7 +136,7 @@ async def test_provision_creates_user_mapping_and_event() -> None:
         platform_session=cast("AsyncSession", session),  # type: ignore[arg-type]
     )
     assert result.created is True
-    assert org.users[result.user_id]["username"] == "alice.admin"
+    assert platform_client.users[result.user_id]["username"] == "alice.admin"
 
     rows = (await session.execute(select(SysUserIdentity))).scalars().all()
     assert len(rows) == 1
@@ -162,8 +162,8 @@ async def test_provision_reuses_existing_mapping() -> None:
         SysUserIdentity(idp_key=f"{TENANT_ID}:{IDP_KEY}", external_id="sub-1", tenant_id=int(TENANT_ID), user_id=88)
     )
     await session.commit()
-    org = FakeSsoOrgClient()
-    service = _service(org)
+    platform_client = FakeSsoPlatformClient()
+    service = _service(platform_client)
 
     result = await service.provision(
         tenant_id=TENANT_ID,
@@ -174,7 +174,7 @@ async def test_provision_reuses_existing_mapping() -> None:
         platform_session=cast("AsyncSession", session),  # type: ignore[arg-type]
     )
     assert result.user_id == 88 and result.created is False
-    assert org.calls == []
+    assert platform_client.calls == []
     await engine.dispose()  # type: ignore[attr-defined]
 
 
@@ -182,8 +182,8 @@ async def test_provision_reuses_existing_mapping() -> None:
 async def test_provision_disabled_and_whitelist() -> None:
     """开关关闭 20054；租户 / 域名白名单外 20054。"""
     session, engine = await _platform_session()
-    org = FakeSsoOrgClient()
-    serviceless = _service(org)
+    platform_client = FakeSsoPlatformClient()
+    serviceless = _service(platform_client)
     with pytest.raises(SsoIdentityUnmatchedError):
         await serviceless.provision(
             tenant_id=TENANT_ID,
@@ -197,7 +197,7 @@ async def test_provision_disabled_and_whitelist() -> None:
     tenant_settings = Settings()
     tenant_settings.sso.jit_allowed_tenants = ConcurrentStableList(["other"])
     with pytest.raises(SsoIdentityUnmatchedError):
-        await _service(org, settings=tenant_settings).provision(
+        await _service(platform_client, settings=tenant_settings).provision(
             tenant_id=TENANT_ID,
             tenant_code=TENANT,
             idp_key=IDP_KEY,
@@ -207,7 +207,7 @@ async def test_provision_disabled_and_whitelist() -> None:
         )
 
     with pytest.raises(SsoIdentityUnmatchedError):
-        await _service(org).provision(
+        await _service(platform_client).provision(
             tenant_id=TENANT_ID,
             tenant_code=TENANT,
             idp_key=IDP_KEY,
@@ -216,7 +216,7 @@ async def test_provision_disabled_and_whitelist() -> None:
             platform_session=cast("AsyncSession", session),  # type: ignore[arg-type]
         )
     with pytest.raises(SsoIdentityUnmatchedError):
-        await _service(org).provision(
+        await _service(platform_client).provision(
             tenant_id=TENANT_ID,
             tenant_code=TENANT,
             idp_key=IDP_KEY,
@@ -231,18 +231,18 @@ async def test_provision_disabled_and_whitelist() -> None:
 async def test_provision_username_suffix_and_exhaustion() -> None:
     """撞名换后缀 `_2.._5`；用尽仍冲突 → 20054。"""
     session, engine = await _platform_session()
-    org = FakeSsoOrgClient()
-    org.users.set(
+    platform_client = FakeSsoPlatformClient()
+    platform_client.users.set(
         1,
         ConcurrentStableDict({"username": "alice", "name": "a", "status": "enabled", "locale": None, "timezone": None}),
     )
-    org.users.set(
+    platform_client.users.set(
         2,
         ConcurrentStableDict(
             {"username": "alice_2", "name": "a", "status": "enabled", "locale": None, "timezone": None}
         ),
     )
-    service = _service(org)
+    service = _service(platform_client)
     result = await service.provision(
         tenant_id=TENANT_ID,
         tenant_code=TENANT,
@@ -252,11 +252,11 @@ async def test_provision_username_suffix_and_exhaustion() -> None:
         platform_session=cast("AsyncSession", session),  # type: ignore[arg-type]
     )
     assert result.created is True
-    assert org.users[result.user_id]["username"] == "alice_3"
+    assert platform_client.users[result.user_id]["username"] == "alice_3"
 
     for index in range(1, 6):
         name = "bob" if index == 1 else f"bob_{index}"
-        org.users.set(
+        platform_client.users.set(
             100 + index,
             ConcurrentStableDict(
                 {"username": name, "name": "b", "status": "enabled", "locale": None, "timezone": None}
@@ -276,14 +276,14 @@ async def test_provision_username_suffix_and_exhaustion() -> None:
 
 @pytest.mark.kiwi_id(2198)
 async def test_provision_lock_conflict_and_org_unavailable() -> None:
-    """锁未取到 → 20055；org 建号不可达 → 20053。"""
+    """锁未取到 → 20055；platform 建号不可达 → 20053。"""
     session, engine = await _platform_session()
     lock = MemoryDistributedLock()
     settings = Settings()
     settings.sso.jit_lock_wait_seconds = 0
     await lock.acquire(build_lock_key(tenant=TENANT_ID, resource=f"jit:{IDP_KEY}:sub-1"))
     with pytest.raises(SsoIdentityConflictError):
-        await _service(FakeSsoOrgClient(), lock=lock, settings=settings).provision(
+        await _service(FakeSsoPlatformClient(), lock=lock, settings=settings).provision(
             tenant_id=TENANT_ID,
             tenant_code=TENANT,
             idp_key=IDP_KEY,
@@ -292,10 +292,10 @@ async def test_provision_lock_conflict_and_org_unavailable() -> None:
             platform_session=cast("AsyncSession", session),  # type: ignore[arg-type]
         )
 
-    org = FakeSsoOrgClient()
-    org.fail_create = True
+    platform_client = FakeSsoPlatformClient()
+    platform_client.fail_create = True
     with pytest.raises(SsoProviderUnavailableError):
-        await _service(org).provision(
+        await _service(platform_client).provision(
             tenant_id=TENANT_ID,
             tenant_code=TENANT,
             idp_key=IDP_KEY,
@@ -324,7 +324,7 @@ async def test_provision_mapping_integrity_conflict(
     monkeypatch.setattr(UserIdentityRepository, "get_by_key_external", fake_get)
     monkeypatch.setattr(UserIdentityRepository, "create", fake_create)
 
-    result = await _service(FakeSsoOrgClient()).provision(
+    result = await _service(FakeSsoPlatformClient()).provision(
         tenant_id=TENANT_ID,
         tenant_code=TENANT,
         idp_key=IDP_KEY,
@@ -341,7 +341,7 @@ async def test_provision_mapping_integrity_conflict(
 
     monkeypatch.setattr(UserIdentityRepository, "get_by_key_external", always_none)
     with pytest.raises(SsoIdentityConflictError):
-        await _service(FakeSsoOrgClient()).provision(
+        await _service(FakeSsoPlatformClient()).provision(
             tenant_id=TENANT_ID,
             tenant_code=TENANT,
             idp_key=IDP_KEY,

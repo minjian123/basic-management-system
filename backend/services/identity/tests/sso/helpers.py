@@ -1,7 +1,7 @@
 """SSO 测试替身与 OIDC IdP Mock（Kiwi 2197）。
 
 自包含实现（不复用 `tests.auth.helpers` 的跨包导入）：内存用户令牌签发者、
-org 内部接口客户端（含 profile）与可控 OIDC IdP（Discovery / JWKS / token / userinfo）。
+platform 内部接口客户端（含 profile）与可控 OIDC IdP（Discovery / JWKS / token / userinfo）。
 """
 
 from __future__ import annotations
@@ -103,8 +103,8 @@ class FakeUserTokenIssuer(BaseUserTokenIssuer):
         return ConcurrentStableDict({"keys": ConcurrentStableList()})
 
 
-class FakeSsoOrgClient(BaseServiceClient):
-    """测试替身：内存 org 内部接口（profile / login-state / credential 兜底）。"""
+class FakeSsoPlatformClient(BaseServiceClient):
+    """测试替身：内存 platform 内部接口（profile / login-state / credential 兜底）。"""
 
     plugin_name = "sso_fake"
 
@@ -163,11 +163,11 @@ class FakeSsoOrgClient(BaseServiceClient):
         self.calls.add(action)
         if action == "profile":
             if self.fail_profile:
-                raise ServiceUnavailableError("org 用户接口不可用")
+                raise ServiceUnavailableError("platform 用户接口不可用")
             return _ok(self._profile(body))
         if action == "create":
             if self.fail_create:
-                raise ServiceUnavailableError("org 建号接口不可用")
+                raise ServiceUnavailableError("platform 建号接口不可用")
             return _ok(self._create(body))
         if action == "login-state":
             self.login_states.add(body)

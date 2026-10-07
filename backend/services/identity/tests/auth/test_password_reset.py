@@ -17,7 +17,7 @@ from tests_support.auth import issue_access_token
 from .helpers import (
     TENANT_ID,
     FakeCaptcha,
-    FakeOrgClient,
+    FakePlatformClient,
     FakeUserTokenIssuer,
     RecordingNotifier,
     RecordingRealtimePublisher,
@@ -41,7 +41,7 @@ async def _wire_reset(
     verified: bool = True,
 ) -> tuple[
     FakeUserTokenIssuer,
-    FakeOrgClient,
+    FakePlatformClient,
     MemorySessionStore,
     MemoryIdpStateStore,
     RecordingNotifier,
@@ -56,18 +56,23 @@ async def _wire_reset(
         verified: 验证码凭证是否通过。
 
     Returns:
-        tuple: (签发者, org 替身, 会话存储, 流程状态存储, 通知记录, 验证码替身, 广播记录)。
+        tuple: (签发者, platform_client 替身, 会话存储, 流程状态存储, 通知记录, 验证码替身, 广播记录)。
     """
-    issuer, org, store, limiter = FakeUserTokenIssuer(), FakeOrgClient(), MemorySessionStore(), MemoryRateLimiter()
-    org.set_user("admin", password="secret", user_id=1001, name="管理员", email="Admin@Example.com")
-    wire_auth(app, issuer=issuer, org=org, store=store, limiter=limiter)
+    issuer, platform_client, store, limiter = (
+        FakeUserTokenIssuer(),
+        FakePlatformClient(),
+        MemorySessionStore(),
+        MemoryRateLimiter(),
+    )
+    platform_client.set_user("admin", password="secret", user_id=1001, name="管理员", email="Admin@Example.com")
+    wire_auth(app, issuer=issuer, platform_client=platform_client, store=store, limiter=limiter)
     states, notifier = MemoryIdpStateStore(), RecordingNotifier()
     captcha = FakeCaptcha(required=required, verified=verified, required_scene="reset_password")
     wire_password_reset(app, states=states, notifier=notifier, captcha=captcha)
     publisher = RecordingRealtimePublisher()
     wire_publisher(app, publisher)
     app.state.settings.password_reset.reset_url = "https://app.test/reset"
-    return issuer, org, store, states, notifier, captcha, publisher
+    return issuer, platform_client, store, states, notifier, captcha, publisher
 
 
 def _token(notifier: RecordingNotifier) -> str:
@@ -87,7 +92,7 @@ def _token(notifier: RecordingNotifier) -> str:
 @pytest.mark.kiwi_id(2210)
 async def test_forgot_success_sends_link(client: AsyncClient, service_app: FastAPI) -> None:
     """发起成功：恒 `{sent: true}`、邮件通道送达登记邮箱、通知内容含一次性令牌链接。"""
-    _issuer, _org, _store, states, notifier, _captcha, _publisher = await _wire_reset(service_app)
+    _issuer, _platform_client, _store, states, notifier, _captcha, _publisher = await _wire_reset(service_app)
 
     resp = await client.post(
         API_FORGOT, json={"identifier": "admin@example.com", "captcha": CAPTCHA}, headers=TENANT_HEADERS
@@ -110,9 +115,9 @@ async def test_forgot_success_sends_link(client: AsyncClient, service_app: FastA
 @pytest.mark.kiwi_id(2210)
 async def test_forgot_anti_enumeration_constant_response(client: AsyncClient, service_app: FastAPI) -> None:
     """防枚举：不存在 / 停用 / 无联系方式一律同响应且不发送。"""
-    _issuer, org, _store, _states, notifier, _captcha, _publisher = await _wire_reset(service_app)
-    org.set_user("nocontact", password="x", user_id=2002)
-    org.set_user("banned", password="x", user_id=2003, status="disabled", email="banned@example.com")
+    _issuer, platform_client, _store, _states, notifier, _captcha, _publisher = await _wire_reset(service_app)
+    platform_client.set_user("nocontact", password="x", user_id=2002)
+    platform_client.set_user("banned", password="x", user_id=2003, status="disabled", email="banned@example.com")
 
     for identifier in ("ghost", "nocontact", "banned"):
         resp = await client.post(
@@ -125,7 +130,7 @@ async def test_forgot_anti_enumeration_constant_response(client: AsyncClient, se
 @pytest.mark.kiwi_id(2210)
 async def test_forgot_captcha_enforced(client: AsyncClient, service_app: FastAPI) -> None:
     """验证码：策略强制未携带 / 凭证不通过 20101；形态非法 10001；失败不发送。"""
-    _issuer, _org, _store, _states, notifier, _captcha, _publisher = await _wire_reset(
+    _issuer, _platform_client, _store, _states, notifier, _captcha, _publisher = await _wire_reset(
         service_app, required=True, verified=False
     )
 
@@ -179,7 +184,7 @@ async def test_forgot_ip_rate_limited(client: AsyncClient, service_app: FastAPI)
 @pytest.mark.kiwi_id(2210)
 async def test_reset_revokes_all_sessions_and_next_request_401(client: AsyncClient, service_app: FastAPI) -> None:
     """重置全链路：令牌一次性消费 → 改密 → 全部会话失效（黑名单 / 标记 / 广播）→ 原 access 下一请求 401。"""
-    issuer, org, store, _states, notifier, _captcha, publisher = await _wire_reset(service_app)
+    issuer, platform_client, store, _states, notifier, _captcha, publisher = await _wire_reset(service_app)
     assert (await login(client, headers=TENANT_HEADERS)).status_code == 200
     session_id = issuer.specs[-1].session_id
     await seed_session(service_app, session_id="2002", user_id=1001)
@@ -191,7 +196,7 @@ async def test_reset_revokes_all_sessions_and_next_request_401(client: AsyncClie
 
     reset = await client.post(API_RESET, json={"token": token, "new_password": "NewSecret1!"}, headers=TENANT_HEADERS)
     assert reset.status_code == 200 and reset.json()["data"] == {"reset": True}
-    assert org.users["admin"]["password"] == "NewSecret1!"
+    assert platform_client.users["admin"]["password"] == "NewSecret1!"
 
     async with tenant_scope(service_app) as session:
         rows = (

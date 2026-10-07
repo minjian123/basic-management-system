@@ -25,7 +25,7 @@ from bms_identity.services.oidc_provider import (
     verify_pkce,
     with_query,
 )
-from bms_identity.services.org_client import OrgCredentialClient
+from bms_identity.services.platform_client import PlatformCredentialClient
 
 from .conftest import OidcHarness
 from .helpers import CLIENT_ID, CLIENT_SECRET, REDIRECT_URI, TENANT_HEADERS, authorize_code, pkce
@@ -64,7 +64,7 @@ def test_issuer_placeholder() -> None:
         session=cast("DbSession", None),
         provider=cast("BaseOidcProvider", None),
         state_store=cast("BaseIdpStateStore", None),
-        org_client=cast("OrgCredentialClient", None),
+        platform_client=cast("PlatformCredentialClient", None),
         password_hasher=cast("BasePasswordHasher", None),
         settings=OidcProviderSettings(issuer="http://gw.test/api/v1/oidc/{tenant}"),
     )
@@ -73,7 +73,7 @@ def test_issuer_placeholder() -> None:
         session=cast("DbSession", None),
         provider=cast("BaseOidcProvider", None),
         state_store=cast("BaseIdpStateStore", None),
-        org_client=cast("OrgCredentialClient", None),
+        platform_client=cast("PlatformCredentialClient", None),
         password_hasher=cast("BasePasswordHasher", None),
         settings=OidcProviderSettings(issuer="http://gw.test/api/v1/oidc"),
     )
@@ -112,7 +112,7 @@ def test_issuer_invalid_template_falls_back() -> None:
         session=cast("DbSession", None),
         provider=cast("BaseOidcProvider", None),
         state_store=cast("BaseIdpStateStore", None),
-        org_client=cast("OrgCredentialClient", None),
+        platform_client=cast("PlatformCredentialClient", None),
         password_hasher=cast("BasePasswordHasher", None),
         settings=OidcProviderSettings(issuer="{tenant"),
     )
