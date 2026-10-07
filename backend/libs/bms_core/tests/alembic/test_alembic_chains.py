@@ -118,12 +118,15 @@ def test_chain_metadata_is_subset() -> None:
         "sys_event_dead_letter",
         "sys_user",
         "sys_account_lock",
+    }
+    # 角色域 5 表归 platform 服务租户库（02_03：与平台元数据同服务，授权校验不跨服务）
+    assert {
         "sys_role",
         "sys_user_role",
         "sys_role_permission",
         "sys_role_field",
         "sys_data_scope",
-    }
+    } <= set(chain_metadata(resolve_chain("platform:tenant")).tables)
     assert set(chain_metadata(resolve_chain("identity:tenant")).tables) == {
         "sys_outbox",
         "sys_event_consumed",
@@ -192,7 +195,7 @@ def test_chain_revisions_integrity() -> None:
     platform_head = ScriptDirectory.from_config(_config(resolve_chain("platform:platform"))).get_current_head()
     assert platform_head == "0007_menu_metadata"
     tenant_service_head = ScriptDirectory.from_config(_config(default_chain())).get_current_head()
-    assert tenant_service_head == "0006_sys_user_extension"
+    assert tenant_service_head == "0007_role_tables"
 
     for name in (
         "platform:platform",

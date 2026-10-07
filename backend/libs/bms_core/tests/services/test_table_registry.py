@@ -92,6 +92,14 @@ def test_owned_tables_and_chain_derivation() -> None:
 
     tenant_chain = chain_tables("platform", Datasource.TENANT)
     assert {"sys_dict_type", "sys_dict_item", "sys_query_scheme"} <= tenant_chain
+    # 角色域 5 表（02_03）落 platform 服务租户库
+    assert {
+        "sys_role",
+        "sys_user_role",
+        "sys_role_permission",
+        "sys_role_field",
+        "sys_data_scope",
+    } <= tenant_chain
     assert infrastructure_tables() <= tenant_chain
     # 未定稿表（骨架表 / 演示表）不进链（06_02 状态收口）
     assert {"sys_task", "sys_task_log", "sys_icon", "demo"}.isdisjoint(tenant_chain)
@@ -100,16 +108,7 @@ def test_owned_tables_and_chain_derivation() -> None:
         {"sys_tenant", "sys_tenant_database", "sys_user_tenant", *infrastructure_tables()}
     )
     assert chain_tables("org", Datasource.TENANT) == frozenset(
-        {
-            "sys_user",
-            "sys_account_lock",
-            "sys_role",
-            "sys_user_role",
-            "sys_role_permission",
-            "sys_role_field",
-            "sys_data_scope",
-            *infrastructure_tables(),
-        }
+        {"sys_user", "sys_account_lock", *infrastructure_tables()}
     )
     assert chain_tables("identity", Datasource.TENANT) == frozenset(
         {"sys_session", "sys_identity_provider", "sys_client", *infrastructure_tables()}

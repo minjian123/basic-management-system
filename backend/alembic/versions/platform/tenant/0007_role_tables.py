@@ -1,12 +1,12 @@
-"""角色域 5 表（`org:tenant` 链，02_03）。
+"""角色域 5 表（`platform:tenant` 链，02_03）。
 
-Revision ID: 0006_role_tables
-Revises: 0005_sys_outbox
-Create Date: 2026-10-06
+Revision ID: 0007_role_tables
+Revises: 0006_sys_user_extension
+Create Date: 2026-10-07
 
-- 归属链：`org:tenant`（`org` 服务的租户库 `bms_org_{code}`）；
+- 归属链：`platform:tenant`（platform 服务租户库 `bms_platform_{code}`，与字典 / 系统参数同库）；
 - 新建 `sys_role` / `sys_user_role` / `sys_role_permission` / `sys_role_field` / `sys_data_scope`；
-- 字段 / 索引口径与 ORM 模型（`bms_org/models/role.py`）逐项一致；
+- 字段 / 索引口径与 ORM 模型（`bms_platform/models/role.py`）逐项一致；
 - `source_menu_id` 以 `0` 表示「表单级直接授予」（非 NULL，规避唯一约束在 NULL 上的跨库语义差异）；
 - `config` 为 JSON 列，空数组初始值由应用层提供（MySQL 8 不支持 JSON 列服务器默认值）；
 - 公共字段对齐 `BaseModel`；各表软删除索引显式建；
@@ -20,8 +20,8 @@ import sqlalchemy as sa
 
 from alembic import op
 
-revision: str = "0006_role_tables"
-down_revision: str | None = "0005_sys_outbox"
+revision: str = "0007_role_tables"
+down_revision: str | None = "0006_sys_user_extension"
 branch_labels: Sequence[str] | None = None
 depends_on: Sequence[str] | None = None
 
@@ -62,7 +62,12 @@ def upgrade() -> None:
         "sys_user_role",
         *_common_columns(),
         sa.Column("role_id", sa.BigInteger(), nullable=False, comment="角色主键（逻辑外键 sys_role.id；同库）"),
-        sa.Column("user_id", sa.BigInteger(), nullable=False, comment="用户主键（逻辑外键 sys_user.id；同库）"),
+        sa.Column(
+            "user_id",
+            sa.BigInteger(),
+            nullable=False,
+            comment="用户主键（跨服务逻辑外键 sys_user.id；org 服务租户库）",
+        ),
         sa.UniqueConstraint("role_id", "user_id", "deleted_at", name="uq_sys_user_role_role_user_deleted_at"),
     )
     op.create_index("idx_sys_user_role_deleted_at", "sys_user_role", ["deleted_at"])
@@ -78,7 +83,7 @@ def upgrade() -> None:
             "target_id",
             sa.BigInteger(),
             nullable=False,
-            comment="授权目标 ID（平台实体雪花 ID；跨库逻辑外键）",
+            comment="授权目标 ID（平台实体雪花 ID；platform 平台库跨库逻辑外键）",
         ),
         sa.Column(
             "source_menu_id",
@@ -139,7 +144,7 @@ def upgrade() -> None:
             "dict_type_id",
             sa.BigInteger(),
             nullable=False,
-            comment="字典类型 ID（platform 服务租户库；跨库逻辑外键）",
+            comment="字典类型 ID（platform 服务租户库；同库逻辑外键）",
         ),
         sa.Column(
             "policy_type", sa.String(length=16), nullable=False, comment="策略类型（select/region/match/extension）"

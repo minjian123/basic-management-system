@@ -2,10 +2,11 @@
 
 from datetime import datetime
 
-from sqlalchemy import and_, func, or_
+from sqlalchemy import ColumnElement, and_, func, or_, select
 
 from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
 from bms_core.repositories.base_db_repository import BaseDbRepository
+from bms_core.schemas.pagination import BasePageQuery
 from bms_org.models.user import SysUser
 
 
@@ -66,6 +67,73 @@ class UserRepository(BaseDbRepository[SysUser]):
         """
         statement = self._select().where(self._column("phone") == phone).order_by(self._column("id").asc()).limit(1)
         return (await self._session.execute(statement)).scalars().first()
+
+    async def list_filtered(
+        self,
+        query: BasePageQuery,
+        *,
+        keyword: str | None = None,
+        status: str | None = None,
+    ) -> ConcurrentStableList[SysUser]:
+        """按筛选条件分页查询用户（页码分页；排序经白名单）。
+
+        Args:
+            query: 页码分页请求（含排序参数）。
+            keyword: 关键字（匹配账号 / 姓名，大小写不敏感）。
+            status: 状态（精确）。
+
+        Returns:
+            ConcurrentStableList[SysUser]: 当前页记录。
+        """
+        statement = (
+            self._apply_sort(self._select(), self._resolve_sort(query))
+            .where(*self._filter_conditions(keyword=keyword, status=status))
+            .limit(query.size)
+            .offset((query.page - 1) * query.size)
+        )
+        return ConcurrentStableList((await self._session.execute(statement)).scalars().all())
+
+    async def count_filtered(self, *, keyword: str | None = None, status: str | None = None) -> int:
+        """按筛选条件统计用户数（与 `list_filtered` 同口径）。
+
+        Args:
+            keyword: 关键字（匹配账号 / 姓名）。
+            status: 状态（精确）。
+
+        Returns:
+            int: 记录条数。
+        """
+        statement = (
+            select(func.count())
+            .select_from(self.model)
+            .where(*self._scope_where(), *self._filter_conditions(keyword=keyword, status=status))
+        )
+        return int((await self._session.execute(statement)).scalar_one())
+
+    def _filter_conditions(
+        self, *, keyword: str | None, status: str | None
+    ) -> ConcurrentStableList[ColumnElement[bool]]:
+        """组装列表 / 统计筛选条件。
+
+        Args:
+            keyword: 关键字（账号 / 姓名模糊）。
+            status: 状态（精确）。
+
+        Returns:
+            ConcurrentStableList[ColumnElement[bool]]: SQL 条件列表。
+        """
+        conditions: ConcurrentStableList[ColumnElement[bool]] = ConcurrentStableList()
+        if keyword:
+            pattern = f"%{keyword.lower()}%"
+            conditions.add(
+                or_(
+                    func.lower(self._column("username")).like(pattern),
+                    func.lower(self._column("name")).like(pattern),
+                )
+            )
+        if status is not None:
+            conditions.add(self._column("status") == status)
+        return conditions
 
     async def list_inactive(self, threshold: datetime, *, now: datetime) -> ConcurrentStableList[SysUser]:
         """列出不活跃待锁定候选：启用、未锁定、最近登录（或建号）早于阈值。

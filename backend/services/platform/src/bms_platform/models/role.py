@@ -1,8 +1,10 @@
 """角色域模型：`sys_role` / `sys_user_role` / `sys_role_permission` / `sys_role_field` / `sys_data_scope`。
 
-- 数据所有权：**组织主数据服务**（org 服务租户库 `bms_org_{code}`，与 `sys_user` 同库）。
-- 跨库逻辑引用：平台实体（`sys_menu` / `sys_form` / `sys_action`）与字典类型（`sys_dict_type`）**只存 ID**，
-  不 join、不建物理外键；回显经平台只读契约 / 统一读出口。
+- 数据所有权：**平台服务**（platform 服务租户库 `bms_platform_{code}`，与 `sys_config` / `sys_user_extension` 同库）。
+- 域内引用：角色域表之间以 `role_id` 逻辑引用（同库）。
+- 跨库 / 跨服务逻辑引用（只存 ID，不 join、不建物理外键）：
+  - 授权目标 `sys_menu` / `sys_form` / `sys_action` 在 **platform 平台库**（同服务、不同库）→ 校验经平台侧元数据完成；
+  - `sys_user_role.user_id` 指向 **org 服务租户库**的 `sys_user`（跨服务）→ 有效性经 org 只读接口核验。
 - 来源标记：`source_menu_id = 0` 表示「表单级直接授予」（不用 NULL，规避唯一约束在 NULL 上的跨库语义差异）。
 - 表结构以《数据库设计》数据表文件为唯一事实源（`sys_role` 等 5 表）。
 """
@@ -70,7 +72,7 @@ class SysUserRole(BaseModel):
     )
 
     role_id: Mapped[int] = mapped_column(BigInteger, comment="角色主键（逻辑外键 sys_role.id，同库）")
-    user_id: Mapped[int] = mapped_column(BigInteger, comment="用户主键（逻辑外键 sys_user.id，同库）")
+    user_id: Mapped[int] = mapped_column(BigInteger, comment="用户主键（跨服务逻辑外键 sys_user.id，org 服务租户库）")
 
 
 class SysRolePermission(BaseModel):
@@ -93,7 +95,8 @@ class SysRolePermission(BaseModel):
     role_id: Mapped[int] = mapped_column(BigInteger, comment="角色主键（逻辑外键 sys_role.id，同库）")
     perm_type: Mapped[str] = mapped_column(String(16), comment="授权类型（menu/form/action）")
     target_id: Mapped[int] = mapped_column(
-        BigInteger, comment="授权目标 ID（平台实体雪花 ID：sys_menu/sys_form/sys_action；跨库逻辑外键）"
+        BigInteger,
+        comment="授权目标 ID（平台实体雪花 ID：sys_menu/sys_form/sys_action；platform 平台库跨库逻辑外键）",
     )
     source_menu_id: Mapped[int] = mapped_column(
         BigInteger, default=NO_SOURCE_MENU_ID, comment="来源菜单入口 ID（0 = 表单级直接授予）"
@@ -117,8 +120,12 @@ class SysRoleField(BaseModel):
     )
 
     role_id: Mapped[int] = mapped_column(BigInteger, comment="角色主键（逻辑外键 sys_role.id，同库）")
-    form_id: Mapped[int] = mapped_column(BigInteger, comment="表单 ID（平台实体，跨库逻辑外键 sys_form.id）")
-    field_id: Mapped[int] = mapped_column(BigInteger, comment="字段 ID（平台实体，跨库逻辑外键 sys_field.id）")
+    form_id: Mapped[int] = mapped_column(
+        BigInteger, comment="表单 ID（平台实体，platform 平台库跨库逻辑外键 sys_form.id）"
+    )
+    field_id: Mapped[int] = mapped_column(
+        BigInteger, comment="字段 ID（平台实体，platform 平台库跨库逻辑外键 sys_field.id）"
+    )
     visible: Mapped[bool] = mapped_column(Boolean, default=True, comment="是否可见（false = 读时过滤）")
     editable: Mapped[bool] = mapped_column(Boolean, default=True, comment="是否可编辑（false = 写时拒绝）")
     source_menu_id: Mapped[int] = mapped_column(
@@ -139,7 +146,7 @@ class SysDataScope(BaseModel):
 
     role_id: Mapped[int] = mapped_column(BigInteger, comment="角色主键（逻辑外键 sys_role.id，同库）")
     dict_type_id: Mapped[int] = mapped_column(
-        BigInteger, comment="字典类型 ID（platform 服务租户库，跨库逻辑外键 sys_dict_type.id）"
+        BigInteger, comment="字典类型 ID（platform 服务租户库实体，同服务同库逻辑外键 sys_dict_type.id）"
     )
     policy_type: Mapped[str] = mapped_column(String(16), comment="策略类型（select/region/match/extension）")
     config: Mapped[Any] = mapped_column(JSON, default=list, comment="结构化策略配置（只选不编，按策略分结构）")
