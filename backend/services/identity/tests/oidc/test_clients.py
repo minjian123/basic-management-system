@@ -260,3 +260,35 @@ async def test_create_invalid_scopes(client: AsyncClient, oidc: OidcHarness) -> 
     )
     assert no_openid.status_code == 400
     assert no_openid.json()["code"] == 80112
+
+
+@pytest.mark.kiwi_id(2250)
+async def test_create_scope_outside_registry_rejected(client: AsyncClient, oidc: OidcHarness) -> None:
+    """scope 登记集合校验（R4.2）：未登记 scope 拒绝（80112）；登记集合内产品域 scope 放行。"""
+    unknown = await client.post(
+        _CLIENTS,
+        json={
+            "name": "X",
+            "redirect_uris": [],
+            "grant_types": ["client_credentials"],
+            "scopes": ["ghost:read"],
+        },
+        headers=TENANT_HEADERS,
+    )
+    assert unknown.status_code == 400
+    assert unknown.json()["code"] == 80112
+    assert "scope 未登记" in unknown.json()["message"]
+
+    product_scope = await client.post(
+        _CLIENTS,
+        json={
+            "name": "外部系统",
+            "redirect_uris": [],
+            "grant_types": ["client_credentials"],
+            "scopes": ["mdm:read", "open:read"],
+        },
+        headers=TENANT_HEADERS,
+    )
+    assert product_scope.status_code == 200
+    created = product_scope.json()["data"]
+    assert created["scopes"] == ["mdm:read", "open:read"]

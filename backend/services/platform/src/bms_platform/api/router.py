@@ -19,6 +19,7 @@ from bms_platform.api import (
     outbox,
     plugins,
     preference,
+    products,
     query_scheme,
     role,
     user_extensions,
@@ -31,6 +32,7 @@ api_router = mount_service_routers(
         [
             demo.router,
             modules.router,
+            products.router,
             plugins.router,
             preference.router,
             query_scheme.router,

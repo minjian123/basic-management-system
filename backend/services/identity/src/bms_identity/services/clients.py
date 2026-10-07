@@ -1,7 +1,8 @@
 """认证与身份服务 services 层：客户端注册与管理（`sys_client` 最小接口）。
 
-- create：字段校验 → 服务端生成 `client_id`（`bms_` 前缀）与 `client_secret`（公共客户端不生成）→
-  `password_hasher.hash` 落库 → 返回明文一次。
+- create：字段校验（含 **scope 登记集合校验**，见 `bms_core/oauth/scopes.py`）→ 服务端生成
+  `client_id`（`bms_` 前缀）与 `client_secret`（公共客户端不生成）→ `password_hasher.hash` 落库 →
+  返回明文一次。
 - reset_secret：重生成密钥并更新哈希（旧值即时失效），新明文仅本次返回。
 - set_status：启停（写操作审计占位）。
 - list / get：只读（永不返回 secret 与哈希）。
@@ -20,6 +21,7 @@ from bms_core.db.session import DbSession
 from bms_core.db.unit_of_work import UnitOfWork
 from bms_core.oauth.base import GRANT_TYPES
 from bms_core.oauth.oidc_provider import OIDC_GRANT_AUTHORIZATION_CODE, OIDC_SCOPE_OPENID
+from bms_core.oauth.scopes import validate_scopes
 from bms_core.schemas.pagination import BasePageQuery
 from bms_core.security.base import BasePasswordHasher
 from bms_identity.models.client import SysClient
@@ -243,7 +245,7 @@ def _validate(
         tuple: (授权类型, 回调地址, scope, IP 白名单) 归一化结果。
 
     Raises:
-        ClientInvalidError: 任一字段非法（80112/400）。
+        ClientInvalidError: 任一字段非法（80112/400），含 scope 不在开放接口登记集合。
     """
     grants = _dedupe(grant_types)
     if not grants or any(item not in GRANT_TYPES for item in grants):
@@ -259,6 +261,9 @@ def _validate(
         raise ClientInvalidError("scope 集合非法")
     if OIDC_GRANT_AUTHORIZATION_CODE in grants and OIDC_SCOPE_OPENID not in allowed_scopes:
         raise ClientInvalidError("授权码客户端 scope 须含 openid")
+    unknown_scopes = validate_scopes(allowed_scopes)
+    if unknown_scopes:
+        raise ClientInvalidError("scope 未登记：" + "、".join(unknown_scopes))
     ips = _dedupe(ip_whitelist)
     return grants, redirects, allowed_scopes, ips
 

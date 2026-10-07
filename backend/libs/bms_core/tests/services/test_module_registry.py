@@ -1,6 +1,6 @@
-"""服务目录与产品档案清单校验测试（Kiwi 28 / 2162 / 2163 / 2249）。
+"""服务目录与产品档案清单校验测试（Kiwi 28 / 2162 / 2163 / 2249 / 2250）。
 
-覆盖清单结构 / 分组 / 唯一性与格式校验 / 产品归属与对账 / 模型落库 / 接库校验。
+覆盖清单结构 / 分组 / 唯一性与格式校验 / 产品归属与对账 / 产品级路由映射校验 / 模型落库 / 接库校验。
 """
 
 from dataclasses import replace
@@ -16,16 +16,19 @@ from bms_core.models.base import Base
 from bms_core.services.module_registry import (
     PLATFORM_MODULES,
     PRODUCT_CATALOG,
+    PRODUCT_ROUTES,
     SERVICE_CATALOG,
     ModuleRecord,
     ModuleRegistry,
     ModuleStatus,
     ProductRecord,
     ProductRegistry,
+    ProductRouteRecord,
     ProductStatus,
     ServiceGroup,
     product_keys,
     validate_catalog,
+    validate_product_routes,
     validate_products,
 )
 from bms_platform.models.catalog import SysModule, SysModuleI18n, SysProduct
@@ -414,3 +417,120 @@ def test_sys_product_model_declared_and_persistable(tmp_path: Path) -> None:
         assert len(rows) == 2
         assert sorted(row.deleted_at is None for row in rows) == [False, True]
     engine.dispose()
+
+
+def _route(
+    domain: str = "org",
+    *,
+    service_key: str = "mdm-org",
+    product_key: str = "biz",
+) -> ProductRouteRecord:
+    """构造产品级路由映射记录。
+
+    Args:
+        domain: 外部域段。
+        service_key: 上游服务标识。
+        product_key: 归属产品标识。
+
+    Returns:
+        ProductRouteRecord: 路由映射记录。
+    """
+    return ProductRouteRecord(product_key=product_key, domain=domain, service_key=service_key)
+
+
+def _route_modules(*records: ModuleRecord) -> ConcurrentStableList[ModuleRecord]:
+    """路由校验用模块清单（默认一条产品分组服务行）。
+
+    Args:
+        *records: 自定义模块记录；缺省取 `mdm_org` 服务行。
+
+    Returns:
+        ConcurrentStableList[ModuleRecord]: 模块清单。
+    """
+    if records:
+        return ConcurrentStableList(records)
+    return ConcurrentStableList([_record("mdm_org", service_key="mdm-org", product_key="biz")])
+
+
+@pytest.mark.kiwi_id(2250)
+def test_product_routes_default_empty_and_registry_passthrough() -> None:
+    """默认产品级路由映射为空清单（随产品接入补登）；空清单不改动既有模块校验结果。"""
+    assert PRODUCT_ROUTES == ()
+    errors = ModuleRegistry().validate()
+    assert not any("产品级路由" in error for error in errors)
+    assert (
+        validate_product_routes(ConcurrentStableList(), _route_modules(), ConcurrentStableList(PRODUCT_CATALOG)) == []
+    )
+
+
+@pytest.mark.kiwi_id(2250)
+def test_validate_product_routes_accepts_registered_product_service() -> None:
+    """合法映射通过：产品已登记、目标服务为产品分组且产品归属一致；`planned`（先注册后建表）放行。"""
+    products = ConcurrentStableList(PRODUCT_CATALOG)
+    assert validate_product_routes(ConcurrentStableList([_route()]), _route_modules(), products) == []
+    planned = _route_modules(_record("mdm_org", service_key="mdm-org", product_key="biz", status=ModuleStatus.PLANNED))
+    assert validate_product_routes(ConcurrentStableList([_route()]), planned, products) == []
+
+
+@pytest.mark.kiwi_id(2250)
+def test_validate_product_routes_conflicts_detected() -> None:
+    """冲突逐项检出：域段 / 服务键格式、产品未登记、目标服务未登记 / 非产品分组 / 归属不一致 / 已停用、重复项。"""
+    products = ConcurrentStableList(PRODUCT_CATALOG)
+    modules = _route_modules(
+        _record("mdm_org", service_key="mdm-org", product_key="biz"),
+        _record("sysx", service_key="sys-svc", product_key="biz", service_group=ServiceGroup.FOUNDATION),
+        _record("cwx", service_key="cw-svc", product_key="cw"),
+        _record("old", service_key="old-svc", product_key="biz", status=ModuleStatus.DISABLED),
+    )
+    joined = "；".join(
+        validate_product_routes(
+            ConcurrentStableList(
+                [
+                    _route(domain="Org"),
+                    _route("bad-svc", service_key="_bad"),
+                    _route("ghost-product", product_key="ghost"),
+                    _route("missing-svc", service_key="ghost-svc"),
+                    _route("foundation-svc", service_key="sys-svc"),
+                    _route("cw-mismatch", service_key="cw-svc"),
+                    _route("old-svc", service_key="old-svc"),
+                ]
+            ),
+            modules,
+            products,
+        )
+    )
+    assert "域段非法（Org）" in joined
+    assert "service_key 非法（_bad）" in joined
+    assert "product_key 未登记（ghost）" in joined
+    assert "目标服务未登记（ghost-svc）" in joined
+    assert "目标服务非产品分组（foundation）" in joined
+    assert "目标服务产品归属不一致（cw）" in joined
+    assert "目标服务已停用（disabled）" in joined
+
+    duplicated = validate_product_routes(
+        ConcurrentStableList([_route("org"), _route("org")]),
+        _route_modules(),
+        products,
+    )
+    assert any("产品级路由 domain 重复：org" in error for error in duplicated)
+
+
+@pytest.mark.kiwi_id(2250)
+def test_module_registry_validates_product_routes_via_injection() -> None:
+    """映射随 `ModuleRegistry.validate()` 一并校验（离线对清单 / 接库对库中行，同一实现）。"""
+    products = ConcurrentStableList(PRODUCT_CATALOG)
+    modules = _route_modules(_record("cwx", service_key="cw-svc", product_key="cw"))
+    routes = ConcurrentStableList([_route("org", service_key="cw-svc")])
+    assert ModuleRegistry(modules, products, routes).validate()  # product_key 不一致 → 检出
+    assert any(
+        "目标服务产品归属不一致（cw）" in error for error in ModuleRegistry(modules, products, routes).validate()
+    )
+    ok_routes = ConcurrentStableList([_route("org", service_key="cw-svc", product_key="cw")])
+    assert ModuleRegistry(modules, products, ok_routes).validate() == []
+
+
+@pytest.mark.kiwi_id(2250)
+def test_validate_catalog_unaffected_by_route_validation() -> None:
+    """接库校验入口（`validate_catalog`）在映射为空清单时不引入新失败（启动 / CI 口径不变）。"""
+    catalog = ConcurrentStableList(SERVICE_CATALOG)
+    assert validate_catalog(catalog, catalog) == []

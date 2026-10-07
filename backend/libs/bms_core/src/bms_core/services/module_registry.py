@@ -7,6 +7,9 @@
   运行服务登记行与契约版本主版本兼容（需求 03-2）。
 - `PRODUCT_CATALOG` 是**产品档案**（`sys_product`）的种子与产品级注册校验**单一来源**（需求 12-1）；
   离线校验 `ProductRegistry.validate()`，接库对账 `validate_products()`（CI `ops.check_modules`）。
+- `PRODUCT_ROUTES` 是**产品级路由映射**（产品命名空间 `/api/{product_key}/v1/{domain}/...` 的
+  「域段 → 服务」显式登记）**单一来源**（需求 12-2）；校验 `validate_product_routes()` 随
+  `ModuleRegistry.validate()` 一并执行（离线对清单、接库对库中行，防映射与服务目录漂移）。
 - `known_event_domains()`：已登记事件域集合（事件契约命名校验的域来源，需求 05-4）。
 """
 
@@ -17,7 +20,7 @@ from enum import StrEnum
 from typing import Any, cast
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
-from bms_core.core.objects import BaseFrameworkObject, BaseRegistryRecordContract
+from bms_core.core.objects import BaseFrameworkObject, BaseRegistryRecordContract, BaseValueObject
 from bms_core.core.version import CONTRACT_VERSION_RE, contract_major
 
 _PREFIX_RE = re.compile(r"^[a-z][a-z0-9]*_$")
@@ -341,6 +344,85 @@ def product_keys() -> ConcurrentStableSet[str]:
     return ConcurrentStableSet(record.product_key for record in PRODUCT_CATALOG)
 
 
+@dataclass(frozen=True)
+class ProductRouteRecord(BaseValueObject):
+    """产品级路由映射记录（产品命名空间「域段 → 服务」显式登记，需求 12-2）。
+
+    **域段与上游服务解耦**：`domain` 为对外路径首段（`/api/{product_key}/v1/{domain}/...`），
+    `service_key` 为上游服务标识；两者由本记录显式绑定，避免路径语义与工程命名强耦合。
+    """
+
+    product_key: str
+    """归属产品标识（须在 `PRODUCT_CATALOG` 登记）。"""
+
+    domain: str
+    """外部域段（产品命名空间首段，如 `org`；全局唯一、小写标识符）。"""
+
+    service_key: str
+    """上游服务标识（须在 `SERVICE_CATALOG` 登记为产品分组行且 `product_key` 一致）。"""
+
+    description: str = ""
+    """说明（中文用途）。"""
+
+
+PRODUCT_ROUTES: tuple[ProductRouteRecord, ...] = ()
+"""产品级路由映射登记（产品命名空间的「域段 → 服务」**单一来源**）。
+
+- **先注册后建表**：映射可先于服务接入登记——目标服务行 `status = planned` 放行
+  （网关不生成路由，服务不可达不暴露）；`disabled` 即拒（模块级注销态在 `sys_module` 取值中尚未建模）。
+- **防漂移**：映射的 `product_key` 须与目标服务登记行的 `product_key` 一致（同一实现校验）。
+- 本期为空清单——产品服务行与映射随产品接入补登（不提前登记，避免与产品侧清单未定稿漂移）。
+"""
+
+
+def validate_product_routes(
+    routes: ConcurrentStableList[ProductRouteRecord],
+    modules: ConcurrentStableList[ModuleRecord],
+    products: ConcurrentStableList[ProductRecord],
+) -> ConcurrentStableList[str]:
+    """校验产品级路由映射（离线对清单 / 接库对库中行，同一实现）。
+
+    规则：域段与服务键格式合法且**全局唯一**；`product_key` 已登记；目标服务在产品分组登记、
+    且其 `product_key` 与本记录一致（防漂移）；目标服务状态不得为 `disabled`（模块级注销态尚未建模）。
+
+    Args:
+        routes: 产品级路由映射（插入序）。
+        modules: 模块 / 服务登记记录（插入序；离线传 `SERVICE_CATALOG`，接库传库中未软删行）。
+        products: 产品档案记录（插入序；`product_key` 登记基准）。
+
+    Returns:
+        ConcurrentStableList[str]: 冲突 / 非法明细；空列表表示通过。
+    """
+    errors: ConcurrentStableList[str] = ConcurrentStableList()
+    product_keys = ConcurrentStableSet(record.product_key for record in products)
+    by_service_key = ConcurrentStableDict(
+        (record.service_key, record) for record in modules if record.service_key is not None
+    )
+    for route in routes:
+        label = f"{route.product_key}/{route.domain} → {route.service_key}"
+        if not _KEY_RE.match(route.domain):
+            errors.add(f"{label}：域段非法（{route.domain}）")
+        if not _SERVICE_KEY_RE.match(route.service_key):
+            errors.add(f"{label}：service_key 非法（{route.service_key}）")
+        if route.product_key not in product_keys:
+            errors.add(f"{label}：product_key 未登记（{route.product_key}）")
+        module = by_service_key.get(route.service_key)
+        if module is None:
+            errors.add(f"{label}：目标服务未登记（{route.service_key}）")
+            continue
+        if module.service_group != ServiceGroup.PRODUCT:
+            errors.add(f"{label}：目标服务非产品分组（{module.service_group}）")
+        elif module.product_key != route.product_key:
+            errors.add(f"{label}：目标服务产品归属不一致（{module.product_key}）")
+        if module.status == ModuleStatus.DISABLED:
+            errors.add(f"{label}：目标服务已停用（{module.status}）")
+    for field in ("domain", "service_key"):
+        values = ConcurrentStableList(str(getattr(route, field)) for route in routes)
+        for duplicate in _duplicates(values):
+            errors.add(f"产品级路由 {field} 重复：{duplicate}")
+    return errors
+
+
 _PLATFORM_DOMAIN_KEYS: tuple[str, ...] = ("sys", "wf", "rpt", "ai")
 """既有平台域模块标识（段位 01~04 的平台域）。"""
 
@@ -401,18 +483,26 @@ class ModuleRegistry(BaseFrameworkObject):
         self,
         modules: ConcurrentStableList[ModuleRecord] | None = None,
         products: ConcurrentStableList[ProductRecord] | None = None,
+        routes: ConcurrentStableList[ProductRouteRecord] | None = None,
     ) -> None:
         """初始化。
 
         Args:
             modules: 注册清单（插入序）；默认全量服务目录 `SERVICE_CATALOG`。
             products: 产品档案清单（插入序）；默认 `PRODUCT_CATALOG`（产品归属校验基准）。
+            routes: 产品级路由映射清单（插入序）；默认 `PRODUCT_ROUTES`（产品命名空间校验基准）。
         """
         self._modules: ConcurrentStableList[ModuleRecord] = (
             ConcurrentStableList(SERVICE_CATALOG) if modules is None else ConcurrentStableList(modules)
         )
+        self._products: ConcurrentStableList[ProductRecord] = (
+            ConcurrentStableList(PRODUCT_CATALOG) if products is None else ConcurrentStableList(products)
+        )
         self._product_keys: ConcurrentStableSet[str] = ConcurrentStableSet(
-            record.product_key for record in (PRODUCT_CATALOG if products is None else products)
+            record.product_key for record in self._products
+        )
+        self._routes: ConcurrentStableList[ProductRouteRecord] = (
+            ConcurrentStableList(PRODUCT_ROUTES) if routes is None else ConcurrentStableList(routes)
         )
 
     def list_modules(
@@ -435,7 +525,7 @@ class ModuleRegistry(BaseFrameworkObject):
         return ConcurrentStableList(result)
 
     def validate(self) -> ConcurrentStableList[str]:
-        """校验注册清单：注册要素唯一 + 格式 + 分组 / 版本 / 产品维度一致。
+        """校验注册清单：注册要素唯一 + 格式 + 分组 / 版本 / 产品维度一致 + 产品级路由映射。
 
         Returns:
             ConcurrentStableList[str]: 冲突 / 非法明细；空列表表示通过。
@@ -444,6 +534,7 @@ class ModuleRegistry(BaseFrameworkObject):
         for module in self._modules:
             errors.update(self._validate_record(module))
         errors.update(self._validate_duplicates())
+        errors.update(validate_product_routes(self._routes, self._modules, self._products))
         return errors
 
     def _validate_record(self, module: ModuleRecord) -> ConcurrentStableList[str]:

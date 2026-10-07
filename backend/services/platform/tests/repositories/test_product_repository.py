@@ -1,4 +1,4 @@
-"""产品档案仓储测试（Kiwi 2249）：只读查询、状态筛选、软删过滤与只读护栏。"""
+"""产品档案仓储测试（Kiwi 2249 / 2250）：只读查询、状态筛选、分页、软删过滤与只读护栏。"""
 
 import ast
 from collections.abc import AsyncIterator
@@ -9,6 +9,8 @@ import pytest
 from sqlalchemy import Table
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
+from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.schemas.pagination import BasePageQuery
 from bms_platform.models.catalog import SysProduct
 from bms_platform.repositories import product_repository
 from bms_platform.repositories.product_repository import ProductRepository
@@ -71,13 +73,43 @@ async def test_get_by_key_and_soft_delete(session: AsyncSession) -> None:
     assert {item.product_key for item in await repository.list_products()} == {"biz", "cw"}
 
 
+@pytest.mark.kiwi_id(2250)
+async def test_page_products_filters_and_total(session: AsyncSession) -> None:
+    """分页查询：筛选 + 当前页 + 筛选后总数；排序白名单仅 `id`（非法字段忽略、命中排序生效）。"""
+    await _seed(session)
+    repository = ProductRepository(session)
+
+    first, total = await repository.page_products(BasePageQuery(page=1, size=2))
+    assert [row.product_key for row in first] == ["biz", "cw"]
+    assert total == 3
+
+    last, total = await repository.page_products(BasePageQuery(page=2, size=2))
+    assert [row.product_key for row in last] == ["mdm"]
+    assert total == 3
+
+    planned, filtered_total = await repository.page_products(BasePageQuery(page=1, size=20), status="planned")
+    assert [row.product_key for row in planned] == ["mdm"]
+    assert filtered_total == 1
+
+    ignored, _ = await repository.page_products(BasePageQuery(page=1, size=20, order_by="product_key"))
+    assert [row.product_key for row in ignored] == ["biz", "cw", "mdm"]
+
+    descending, _ = await repository.page_products(
+        BasePageQuery(page=1, size=20, order_by="id", order=ConcurrentStableList(["desc"]))
+    )
+    assert [row.product_key for row in descending] == ["mdm", "cw", "biz"]
+
+    beyond, _ = await repository.page_products(BasePageQuery(page=5, size=2))
+    assert beyond == []
+
+
 @pytest.mark.kiwi_id(2249)
 def test_repository_read_only_surface() -> None:
     """只读护栏：仓储自有方法无写动词、无会话写调用，且只提供读方法（注册运行时只读边界）。"""
     source = Path(product_repository.__file__).read_text(encoding="utf-8")
     tree = ast.parse(source)
     methods = {node.name for node in ast.walk(tree) if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef)}
-    assert {"list_products", "get_by_key"} <= methods
+    assert {"list_products", "page_products", "get_by_key"} <= methods
     assert not {name for name in methods if name.lstrip("_") in _WRITE_VERBS}
     session_writes = [
         node.func.attr

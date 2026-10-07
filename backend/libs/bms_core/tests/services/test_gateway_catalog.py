@@ -8,6 +8,7 @@ import yaml
 
 from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.services import gateway_catalog as gc
+from bms_core.services.module_registry import ProductRouteRecord
 
 _EXPECTED_SERVICES = (
     "platform",
@@ -348,3 +349,78 @@ def test_login_route_absent_when_service_disabled(monkeypatch: pytest.MonkeyPatc
     """认证服务未启用时不生成登录限流路由（避免悬空上游）。"""
     monkeypatch.setattr(gc, "LOGIN_SERVICE_KEY", "wf")
     assert gc.render_login_routes() == []
+
+
+def _product_route(
+    *,
+    product_key: str = "biz",
+    domain: str = "org",
+    service_key: str = "tenant",
+) -> ProductRouteRecord:
+    """构造产品级路由映射记录（默认指向已启用服务，供网关生成用例）。
+
+    Args:
+        product_key: 产品标识。
+        domain: 外部域段。
+        service_key: 上游服务标识。
+
+    Returns:
+        ProductRouteRecord: 路由映射记录。
+    """
+    return ProductRouteRecord(product_key=product_key, domain=domain, service_key=service_key)
+
+
+@pytest.mark.kiwi_id(2250)
+def test_product_routes_empty_by_default() -> None:
+    """产品级路由映射为空清单时：不生成产品路由，完整配置与既有服务路由一致。"""
+    assert gc.product_gateway_routes() == ()
+    assert gc.render_product_routes() == []
+    ids = [item["id"] for item in cast("list[Any]", gc.render_apisix_config()["routes"])]
+    assert ids == [f"route-{key}" for key in _EXPECTED_SERVICES] + [gc.LOGIN_ROUTE_ID]
+
+
+@pytest.mark.kiwi_id(2250)
+def test_render_product_routes_shape_and_rewrite() -> None:
+    """产品级路由：产品命名空间 /api/{product_key}/v1/{domain}；上游=映射服务；重写剥离产品前缀（域段保留）。"""
+    routes = gc.render_product_routes((_product_route(),))
+    assert len(routes) == 1
+    route = routes[0]
+    prefix = "/api/biz/v1/org"
+    assert route["id"] == "route-biz-org"
+    assert route["uris"] == [prefix, f"{prefix}/*"]
+    assert route["upstream_id"] == "tenant"
+    plugins = cast("dict[str, Any]", route["plugins"])
+    assert plugins[gc.FORWARD_AUTH_PLUGIN] == gc.forward_auth_plugin()
+    assert plugins["limit-count"]["count"] == gc.DEFAULT_RATE_LIMIT_COUNT
+    assert plugins["prometheus"] == {}
+    rewrite = cast("dict[str, Any]", plugins["proxy-rewrite"])
+    pattern, replacement = cast("list[str]", rewrite["regex_uri"])
+    assert (pattern, replacement) == ("^/api/biz/v1(.*)$", "/api/v1$1")
+    # 域段保留为服务内路径首段：/api/biz/v1/org/users → /api/v1/org/users
+    for subject, expected in (("/api/biz/v1/org/users", "/api/v1/org/users"), (prefix, "/api/v1/org")):
+        matched = re.fullmatch(pattern, subject)
+        assert matched is not None
+        assert f"/api/v1{matched.group(1)}" == expected
+    assert gc.product_route_prefix("biz", "org") == prefix
+
+
+@pytest.mark.kiwi_id(2250)
+def test_product_routes_skip_unreachable_target(monkeypatch: pytest.MonkeyPatch) -> None:
+    """目标服务未启用（planned / 纯模块行）时不生成产品路由（服务不可达不暴露）。"""
+    monkeypatch.setattr(
+        gc,
+        "PRODUCT_ROUTES",
+        (_product_route(domain="wf", service_key="wf"), _product_route(domain="pur", service_key="pur")),
+    )
+    assert gc.product_gateway_routes() == ()
+    assert gc.render_product_routes() == []
+
+
+@pytest.mark.kiwi_id(2250)
+def test_product_routes_merged_into_full_config(monkeypatch: pytest.MonkeyPatch) -> None:
+    """产品路由并入完整配置的路由段，且生成件保持确定性（供 Git 比对与零漂移）。"""
+    monkeypatch.setattr(gc, "PRODUCT_ROUTES", (_product_route(),))
+    ids = [item["id"] for item in cast("list[Any]", gc.render_apisix_config()["routes"])]
+    assert ids == [f"route-{key}" for key in _EXPECTED_SERVICES] + [gc.LOGIN_ROUTE_ID, "route-biz-org"]
+    assert gc.render_apisix_yaml() == gc.render_apisix_yaml()
+    assert gc.validate_service_discovery(gc.render_apisix_config()) == []

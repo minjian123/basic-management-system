@@ -4,6 +4,9 @@
   配置的 `upstreams` / `routes` 段：仅**启用**且带服务标识的行参与（服务 / 模块同源登记）。
 - 外部路径 `/api/{service_key}/v1/...` 经 `proxy-rewrite` 还原为服务内 `/api/v1/...`
   （服务内前缀 `API_PREFIX` 不变；网关只做前缀剥离）。
+- **产品命名空间（R4.2）**：产品服务经**产品级**路由暴露——`/api/{product_key}/v1/{domain}/...`
+  由产品级路由映射登记（`PRODUCT_ROUTES`，显式「域段 → 服务」）驱动，剥离 `/api/{product_key}/v1`
+  还原为 `/api/v1/...`（域段保留为服务内路径首段）；仅目标服务已启用时生成路由，映射为空即无产品路由。
 - 上游按服务标识经 Compose DNS 寻址（`{service_key}:{SERVICE_PORT}`），迁 K8s 平移为 Service 名。
 - 认证插件按服务附加（07_03）：每条服务路由与认证敏感登录路由挂 `forward-auth`，转调认证服务
   内部校验端点（`{GATEWAY_AUTH_HOST}:8000/api/v1/auth/introspect`）——用户 JWT 由认证服务按 `aud=api`
@@ -43,7 +46,13 @@ from bms_core.edge.headers import (
     USER_SCOPES_HEADER,
     USER_SUBJECT_HEADER,
 )
-from bms_core.services.module_registry import SERVICE_CATALOG, ModuleRecord, ModuleStatus
+from bms_core.services.module_registry import (
+    PRODUCT_ROUTES,
+    SERVICE_CATALOG,
+    ModuleRecord,
+    ModuleStatus,
+    ProductRouteRecord,
+)
 
 __all__ = [
     "API_PREFIX",
@@ -73,12 +82,15 @@ __all__ = [
     "env_var",
     "forward_auth_plugin",
     "gateway_services",
+    "product_gateway_routes",
+    "product_route_prefix",
     "rate_limit_plugin",
     "render_apisix_config",
     "render_apisix_yaml",
     "render_global_rules",
     "render_login_routes",
     "render_plugin_metadata",
+    "render_product_routes",
     "render_routes",
     "render_upstreams",
     "route_prefix",
@@ -465,6 +477,88 @@ def render_routes() -> ConcurrentStableList[ConcurrentStableDict[str, object]]:
     return routes
 
 
+def product_route_prefix(product_key: str, domain: str) -> str:
+    """产品级路由的外部路径前缀（`/api/{product_key}/v1/{domain}`）。
+
+    Args:
+        product_key: 产品标识。
+        domain: 域段（产品命名空间首段）。
+
+    Returns:
+        str: 外部路径前缀。
+    """
+    return f"{GATEWAY_PATH_PREFIX}/{product_key}/v1/{domain}"
+
+
+def product_gateway_routes(routes: tuple[ProductRouteRecord, ...] | None = None) -> tuple[ProductRouteRecord, ...]:
+    """参与网关产品级路由的映射记录（目标服务已启用）。
+
+    映射可先于服务接入登记（`planned` 放行），但**只有目标服务已启用才生成路由**——服务不可达不暴露。
+
+    Args:
+        routes: 产品级路由映射（缺省 `PRODUCT_ROUTES`）。
+
+    Returns:
+        tuple[ProductRouteRecord, ...]: 参与路由的映射记录（保持登记顺序）。
+    """
+    source = PRODUCT_ROUTES if routes is None else routes
+    enabled = _enabled_service_keys()
+    return tuple(record for record in source if record.service_key in enabled)
+
+
+def render_product_routes(
+    routes: tuple[ProductRouteRecord, ...] | None = None,
+) -> ConcurrentStableList[ConcurrentStableDict[str, object]]:
+    """产品级路由段（每映射一条；产品命名空间 + 前缀剥离 + 同平台服务插件口径）。
+
+    外部 `^/api/{product_key}/v1(.*)$` → 服务内 `/api/v1$1`（域段保留，作为服务内路径首段）。
+
+    Args:
+        routes: 产品级路由映射（缺省 `PRODUCT_ROUTES`）。
+
+    Returns:
+        ConcurrentStableList[ConcurrentStableDict[str, object]]: APISIX `routes` 列表。
+    """
+    rendered: ConcurrentStableList[ConcurrentStableDict[str, object]] = ConcurrentStableList()
+    for record in product_gateway_routes(routes):
+        service_key = record.service_key
+        prefix = product_route_prefix(record.product_key, record.domain)
+        headers_set: ConcurrentStableDict[str, str] = ConcurrentStableDict(
+            {GATEWAY_IDENTITY_HEADER: GATEWAY_IDENTITY_VALUE}
+        )
+        headers_set.update((ROUTE_HEADERS_SET.get(service_key) or ConcurrentStableDict()).items())
+        rewrite: ConcurrentStableDict[str, object] = ConcurrentStableDict(
+            {
+                "regex_uri": [f"^{GATEWAY_PATH_PREFIX}/{record.product_key}/v1(.*)$", f"{API_PREFIX}{_REWRITE_SUFFIX}"],
+                "headers": {"set": headers_set},
+            }
+        )
+        plugins: ConcurrentStableDict[str, object] = ConcurrentStableDict(
+            {
+                "proxy-rewrite": rewrite,
+                FORWARD_AUTH_PLUGIN: forward_auth_plugin(),
+                _LIMIT_COUNT_PLUGIN: rate_limit_plugin(
+                    count=DEFAULT_RATE_LIMIT_COUNT,
+                    window=DEFAULT_RATE_LIMIT_WINDOW,
+                ),
+                _PROMETHEUS_PLUGIN: {},
+            }
+        )
+        plugins.update(_gray_plugins(service_key).items())
+        plugins.update((ROUTE_PLUGINS.get(service_key) or ConcurrentStableDict()).items())
+        rendered.add(
+            ConcurrentStableDict(
+                {
+                    "id": f"{_ROUTE_ID_PREFIX}{record.product_key}-{record.domain}",
+                    "uris": [prefix, f"{prefix}/*"],
+                    "upstream_id": service_key,
+                    "plugins": plugins,
+                }
+            )
+        )
+    return rendered
+
+
 def render_login_routes() -> ConcurrentStableList[ConcurrentStableDict[str, object]]:
     """认证敏感路径的独立限流路由（登录限流优先，04_03）。
 
@@ -576,7 +670,7 @@ def render_apisix_config() -> ConcurrentStableDict[str, object]:
     return ConcurrentStableDict(
         {
             "upstreams": render_upstreams(),
-            "routes": ConcurrentStableList([*render_routes(), *render_login_routes()]),
+            "routes": ConcurrentStableList([*render_routes(), *render_login_routes(), *render_product_routes()]),
             "global_rules": render_global_rules(),
             "plugin_metadata": render_plugin_metadata(),
         }
