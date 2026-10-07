@@ -200,10 +200,10 @@ class RoleGrantService(BaseFrameworkObject):
             ParamError: 授权类型非法或条目重复。
             RoleTargetInvalidError: 授权目标不存在，或来源菜单未在本次授权内。
         """
-        await self._require_role(role_id)
-        normalized = self._validate_perm_entries(entries)
-        await self._ensure_targets_exist(normalized)
         async with self._uow.begin():
+            await self._require_role(role_id)
+            normalized = self._validate_perm_entries(entries)
+            await self._ensure_targets_exist(normalized)
             await self._permissions.delete_by_role(role_id)
             created: ConcurrentStableList[SysRolePermission] = ConcurrentStableList()
             for entry in normalized:
@@ -252,10 +252,10 @@ class RoleGrantService(BaseFrameworkObject):
             ParamError: 条目非法（不可见即不可编辑、重复）。
             RoleFieldMismatchError: 字段不属于该表单。
         """
-        await self._require_role(role_id)
-        self._validate_field_entries(entries)
-        await self._ensure_fields_exist(entries)
         async with self._uow.begin():
+            await self._require_role(role_id)
+            self._validate_field_entries(entries)
+            await self._ensure_fields_exist(entries)
             await self._fields.delete_by_role(role_id)
             created: ConcurrentStableList[SysRoleField] = ConcurrentStableList()
             for entry in entries:
@@ -305,9 +305,9 @@ class RoleGrantService(BaseFrameworkObject):
             RoleNotFoundError: 角色不存在。
             RoleScopeValueInvalidError: 策略 / 匹配值 / 扩展权限非法。
         """
-        await self._require_role(role_id)
-        await self._validate_data_scopes(entries)
         async with self._uow.begin():
+            await self._require_role(role_id)
+            await self._validate_data_scopes(entries)
             await self._data_scopes.delete_by_role(role_id)
             created: ConcurrentStableList[SysDataScope] = ConcurrentStableList()
             for entry in entries:
@@ -444,6 +444,8 @@ class RoleGrantService(BaseFrameworkObject):
         for entry in entries:
             if entry.policy_type not in POLICY_TYPES:
                 raise RoleScopeValueInvalidError(f"数据权限策略非法：{entry.policy_type}")
+            if not await self._dict_type_exists(entry.dict_type_id):
+                raise RoleScopeValueInvalidError(f"字典类型不存在：{entry.dict_type_id}")
             key = (entry.dict_type_id, entry.policy_type)
             if key in seen:
                 raise RoleScopeValueInvalidError("同一字典同一策略只允许一条")
@@ -462,6 +464,19 @@ class RoleGrantService(BaseFrameworkObject):
                     extension_key = item.get("key")
                     if not isinstance(extension_key, str) or extension_key not in registered_keys:
                         raise RoleScopeValueInvalidError(f"扩展权限未注册：{extension_key}")
+
+    async def _dict_type_exists(self, dict_type_id: int) -> bool:
+        """字典类型是否存在（未软删）。
+
+        Args:
+            dict_type_id: 字典类型主键。
+
+        Returns:
+            bool: 存在 True。
+        """
+        session = cast("DbSession", self._uow.session)
+        statement = select(SysDictType.id).where(SysDictType.id == dict_type_id, SysDictType.deleted_at.is_(None))
+        return (await session.execute(statement)).scalar_one_or_none() is not None
 
     async def _match_field_whitelist(self, dict_type_id: int) -> ConcurrentStableSet[str]:
         """取某字典类型的可匹配字段白名单（内置三字段 + 已启用扩展属性）。

@@ -20,7 +20,9 @@ from bms_platform.api import (
     plugins,
     preference,
     query_scheme,
+    role,
     user_extensions,
+    users,
 )
 from bms_platform.api import dict as dict_api
 
@@ -42,6 +44,8 @@ api_router = mount_service_routers(
             internal_users.router,
             internal_account_locks.router,
             account_locks.router,
+            role.router,
+            users.router,
             menu.menu_router,
             menu.form_router,
             menu.button_router,

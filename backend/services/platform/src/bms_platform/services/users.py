@@ -6,10 +6,12 @@ import re
 
 from sqlalchemy.exc import IntegrityError
 
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.exceptions import ServiceUnavailableError
 from bms_core.core.logging import get_logger
 from bms_core.core.objects import BaseFrameworkObject
 from bms_core.db.unit_of_work import UnitOfWork
+from bms_core.schemas.pagination import BasePageQuery
 from bms_core.services.base_service import BaseService
 from bms_core.tenant.membership import TenantMembershipStore
 from bms_platform.models.user import SysUser
@@ -20,6 +22,9 @@ from bms_platform.schemas.users import (
     UserProfileUser,
     UserResetTargetResult,
 )
+
+USER_STATUSES: tuple[str, ...] = ("enabled", "disabled")
+"""用户账号状态取值（最小只读查询筛选）。"""
 
 SSO_PASSWORD_PLACEHOLDER = "!sso"
 """SSO JIT 建号的口令占位（非 PBKDF2 自描述串 → 本地登录校验恒 False，禁止本地口令登录）。"""
@@ -40,6 +45,43 @@ CHANNEL_SMS = "sms"
 
 _PHONE_RE = re.compile(r"^\+?\d{6,20}$")
 """手机号形态（可选国际前缀 + 6~20 位数字；仅用于标识分类，非格式校验）。"""
+
+
+class UserQueryService(BaseFrameworkObject):
+    """最小用户只读查询服务：分页 + 关键字 / 状态筛选（供选择用户弹窗与已分配列表回显）。
+
+    只返回最小字段（`id` / `username` / `name` / `status`），**不返回**口令哈希与联系方式；
+    完整用户域 CRUD 归 `02_01`，本服务接口按终态设计、可被复用。
+    """
+
+    def __init__(self, users: UserRepository) -> None:
+        """初始化。
+
+        Args:
+            users: 用户仓储（租户库 `sys_user`）。
+        """
+        self._users = users
+
+    async def list_users(
+        self,
+        query: BasePageQuery,
+        *,
+        keyword: str | None = None,
+        status: str | None = None,
+    ) -> tuple[ConcurrentStableList[SysUser], int]:
+        """分页查询用户（账号 / 姓名关键字与状态筛选）。
+
+        Args:
+            query: 页码分页请求。
+            keyword: 关键字（账号 / 姓名）。
+            status: 状态（enabled/disabled）。
+
+        Returns:
+            tuple[ConcurrentStableList[SysUser], int]: 当前页用户与总条数。
+        """
+        rows = await self._users.list_filtered(query, keyword=keyword, status=status)
+        total = await self._users.count_filtered(keyword=keyword, status=status)
+        return rows, total
 
 
 class UserProfileService(BaseFrameworkObject):

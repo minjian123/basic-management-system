@@ -1,8 +1,21 @@
-"""平台服务 schemas 层：内部用户概要接口请求 / 响应契约（服务间调用，不经网关）。"""
+"""平台服务 schemas 层：用户相关请求 / 响应契约。
+
+- 内部契约（服务间调用，不经网关）：概要 / 重置目标 / 统一建号；
+- 管理面契约（`/api/v1/users`，登录 + `user:query`）：最小用户只读查询行。
+"""
 
 from pydantic import Field
 
 from bms_core.schemas.base import BaseSchema
+
+
+class UserItem(BaseSchema):
+    """最小用户只读查询行（选择用户弹窗 / 已分配列表回显；不含口令哈希与联系方式）。"""
+
+    id: int = Field(description="用户主键")
+    username: str = Field(description="登录账号")
+    name: str = Field(description="用户昵称 / 显示名")
+    status: str = Field(description="账号状态（enabled/disabled）")
 
 
 class UserProfileRequest(BaseSchema):

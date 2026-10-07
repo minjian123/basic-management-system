@@ -13,6 +13,7 @@ from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
 from bms_core.repositories.base_db_repository import BaseDbRepository
 from bms_core.schemas.pagination import BasePageQuery
 from bms_platform.models.role import SysDataScope, SysRole, SysRoleField, SysRolePermission, SysUserRole
+from bms_platform.models.user import SysUser
 
 
 def _utc_now() -> datetime:
@@ -189,6 +190,139 @@ class UserRoleRepository(BaseDbRepository[SysUserRole]):
             .values(deleted_at=current, updated_at=current)
         )
         await self._session.execute(statement)
+
+    async def get_deleted_by_role_user(self, role_id: int, user_id: int) -> SysUserRole | None:
+        """按角色 + 用户取**已软删**的分配行（解绑后再分配时恢复原行用）。
+
+        Args:
+            role_id: 角色主键。
+            user_id: 用户主键。
+
+        Returns:
+            SysUserRole | None: 最近一条已软删分配行；不存在返回 None。
+        """
+        statement = (
+            self._select(include_soft_delete=False)
+            .where(
+                self._column("role_id") == role_id,
+                self._column("user_id") == user_id,
+                self._column("deleted_at").is_not(None),
+            )
+            .order_by(self._column("id").desc())
+            .limit(1)
+        )
+        return (await self._session.execute(statement)).scalars().first()
+
+    async def restore(self, item_id: int) -> bool:
+        """恢复软删除的分配行（清 `deleted_at`；不校验作用域外记录）。
+
+        Args:
+            item_id: 分配行主键。
+
+        Returns:
+            bool: 恢复成功 True；记录不存在 False。
+        """
+        statement = self._select(include_soft_delete=False).where(self._column("id") == item_id)
+        item = (await self._session.execute(statement)).scalar_one_or_none()
+        if item is None:
+            return False
+        item.restore()
+        await self._session.flush()
+        return True
+
+    async def soft_delete_by_role_user(self, role_id: int, user_id: int) -> bool:
+        """按角色 + 用户软删**生效中**的分配行（解绑）。
+
+        Args:
+            role_id: 角色主键。
+            user_id: 用户主键。
+
+        Returns:
+            bool: 命中并软删 True；无生效行 False。
+        """
+        item = await self.get_by_role_user(role_id, user_id)
+        if item is None:
+            return False
+        item.soft_delete()
+        await self._session.flush()
+        return True
+
+    async def list_filtered_by_role(
+        self,
+        role_id: int,
+        query: BasePageQuery,
+        *,
+        keyword: str | None = None,
+        status: str | None = None,
+    ) -> ConcurrentStableList[SysUserRole]:
+        """按筛选条件分页查询角色的分配行（用户属性经同库子查询过滤）。
+
+        Args:
+            role_id: 角色主键。
+            query: 页码分页请求（含排序参数）。
+            keyword: 关键字（匹配用户账号 / 姓名，大小写不敏感）。
+            status: 用户状态（精确）。
+
+        Returns:
+            ConcurrentStableList[SysUserRole]: 当前页分配行。
+        """
+        statement = (
+            self._apply_sort(self._select(), self._resolve_sort(query))
+            .where(*self._assignment_conditions(role_id, keyword=keyword, status=status))
+            .limit(query.size)
+            .offset((query.page - 1) * query.size)
+        )
+        return ConcurrentStableList((await self._session.execute(statement)).scalars().all())
+
+    async def count_filtered_by_role(
+        self, role_id: int, *, keyword: str | None = None, status: str | None = None
+    ) -> int:
+        """按筛选条件统计角色的分配行数（与 `list_filtered_by_role` 同口径）。
+
+        Args:
+            role_id: 角色主键。
+            keyword: 关键字（匹配用户账号 / 姓名）。
+            status: 用户状态（精确）。
+
+        Returns:
+            int: 记录条数。
+        """
+        statement = (
+            select(func.count())
+            .select_from(self.model)
+            .where(*self._scope_where(), *self._assignment_conditions(role_id, keyword=keyword, status=status))
+        )
+        return int((await self._session.execute(statement)).scalar_one())
+
+    def _assignment_conditions(
+        self, role_id: int, *, keyword: str | None, status: str | None
+    ) -> ConcurrentStableList[ColumnElement[bool]]:
+        """组装「按角色取分配行」的筛选条件（用户属性经 `sys_user` 同库子查询）。
+
+        Args:
+            role_id: 角色主键。
+            keyword: 关键字（用户账号 / 姓名模糊）。
+            status: 用户状态（精确）。
+
+        Returns:
+            ConcurrentStableList[ColumnElement[bool]]: SQL 条件列表。
+        """
+        conditions: ConcurrentStableList[ColumnElement[bool]] = ConcurrentStableList()
+        conditions.add(self._column("role_id") == role_id)
+        if keyword or status is not None:
+            user_scope = select(SysUser.id).where(SysUser.deleted_at.is_(None))
+            if keyword:
+                pattern = f"%{keyword.lower()}%"
+                user_scope = user_scope.where(
+                    or_(
+                        func.lower(SysUser.username).like(pattern),
+                        func.lower(SysUser.name).like(pattern),
+                    )
+                )
+            if status is not None:
+                user_scope = user_scope.where(SysUser.status == status)
+            conditions.add(self._column("user_id").in_(user_scope))
+        return conditions
 
 
 class RolePermissionRepository(BaseDbRepository[SysRolePermission]):

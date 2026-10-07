@@ -157,17 +157,17 @@ class RoleService(BaseFrameworkObject):
             RoleCodeExistsError: 角色码已存在。
         """
         normalized = code.strip()
-        pattern = await resolve_role_code_pattern(self._config)
-        if not re.fullmatch(pattern, normalized):
-            raise ParamError("角色码格式非法（小写字母开头，2~32 位字母 / 数字 / 下划线 / 连字符）")
-        resolved_status = status or ROLE_STATUSES[0]
-        if resolved_status not in ROLE_STATUSES:
-            raise ParamError("角色状态非法")
-        if normalized in await resolve_protected_role_codes(self._config):
-            raise RoleProtectedError("内置角色码不可自行创建")
-        if await self._roles.get_by_code(normalized) is not None:
-            raise RoleCodeExistsError()
         async with self._uow.begin():
+            pattern = await resolve_role_code_pattern(self._config)
+            if not re.fullmatch(pattern, normalized):
+                raise ParamError("角色码格式非法（小写字母开头，2~32 位字母 / 数字 / 下划线 / 连字符）")
+            resolved_status = status or ROLE_STATUSES[0]
+            if resolved_status not in ROLE_STATUSES:
+                raise ParamError("角色状态非法")
+            if normalized in await resolve_protected_role_codes(self._config):
+                raise RoleProtectedError("内置角色码不可自行创建")
+            if await self._roles.get_by_code(normalized) is not None:
+                raise RoleCodeExistsError()
             return await self._roles.create(code=normalized, name=name.strip(), status=resolved_status)
 
     async def update_role(
@@ -195,18 +195,18 @@ class RoleService(BaseFrameworkObject):
             ParamError: 状态非法。
             ConcurrentConflictError: 乐观锁冲突。
         """
-        role = await self._require(role_id)
-        if version != role.version:
-            raise ConcurrentConflictError("角色已被他人修改，请刷新后重试")
-        if status is not None:
-            if status not in ROLE_STATUSES:
-                raise ParamError("角色状态非法")
-            if status != role.status and role.code in await resolve_protected_role_codes(self._config):
-                raise RoleProtectedError("内置角色不可停用 / 启用")
-            role.status = status
-        if name is not None:
-            role.name = name.strip()
         async with self._uow.begin():
+            role = await self._require(role_id)
+            if version != role.version:
+                raise ConcurrentConflictError("角色已被他人修改，请刷新后重试")
+            if status is not None:
+                if status not in ROLE_STATUSES:
+                    raise ParamError("角色状态非法")
+                if status != role.status and role.code in await resolve_protected_role_codes(self._config):
+                    raise RoleProtectedError("内置角色不可停用 / 启用")
+                role.status = status
+            if name is not None:
+                role.name = name.strip()
             await self._roles.flush()
         return role
 
@@ -221,12 +221,12 @@ class RoleService(BaseFrameworkObject):
             RoleProtectedError: 内置角色不可删除。
             RoleAssignedError: 角色仍存在用户分配。
         """
-        role = await self._require(role_id)
-        if role.code in await resolve_protected_role_codes(self._config):
-            raise RoleProtectedError("内置角色不可删除")
-        if await self._user_roles.count_by_role(role_id) > 0:
-            raise RoleAssignedError("角色仍存在用户分配，禁止删除")
         async with self._uow.begin():
+            role = await self._require(role_id)
+            if role.code in await resolve_protected_role_codes(self._config):
+                raise RoleProtectedError("内置角色不可删除")
+            if await self._user_roles.count_by_role(role_id) > 0:
+                raise RoleAssignedError("角色仍存在用户分配，禁止删除")
             await self._roles.soft_delete(role_id)
 
     async def protected_codes(self) -> tuple[str, ...]:

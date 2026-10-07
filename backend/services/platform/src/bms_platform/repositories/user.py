@@ -39,6 +39,20 @@ class UserRepository(BaseDbRepository[SysUser]):
         statement = self._select().where(self._column("username") == username)
         return (await self._session.execute(statement)).scalar_one_or_none()
 
+    async def list_by_ids(self, user_ids: ConcurrentStableList[int]) -> ConcurrentStableList[SysUser]:
+        """按主键集合批量取用户（不含软删除）。
+
+        Args:
+            user_ids: 用户主键清单。
+
+        Returns:
+            ConcurrentStableList[SysUser]: 用户列表（库返回序）。
+        """
+        if not user_ids:
+            return ConcurrentStableList()
+        statement = self._select().where(self._column("id").in_(tuple(user_ids)))
+        return ConcurrentStableList((await self._session.execute(statement)).scalars().all())
+
     async def get_by_email(self, email: str) -> SysUser | None:
         """按邮箱查询单条记录（小写不敏感；多命中取最早一条）。
 
