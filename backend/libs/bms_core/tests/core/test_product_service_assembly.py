@@ -10,6 +10,7 @@
 - 平台服务（不覆写钩子 / 不声明产品维度）视图与校验口径不变。
 """
 
+from dataclasses import replace
 from typing import cast
 
 import pytest
@@ -29,6 +30,7 @@ from bms_core.services.module_registry import (
     ModuleStatus,
     ServiceGroup,
     known_event_domains,
+    merge_service_records,
     validate_product_service_records,
 )
 
@@ -44,7 +46,7 @@ _PRODUCT_RECORDS: tuple[ModuleRecord, ...] = (
         service_key=_SERVICE_KEY,
         name="mdm 组织主数据服务",
         table_prefix="mdorg_",
-        errcode_segment="33",
+        errcode_segment="34",
         event_domain="mdorg",
         service_group=ServiceGroup.PRODUCT,
         build_batch=3,
@@ -163,6 +165,7 @@ def test_catalog_view_accessors_and_filters_unchanged() -> None:
     assert "mdorg" in domains
     assert "mdorg" not in known_event_domains()
     assert [record.module_key for record in registry.list_modules(group=ServiceGroup.PRODUCT)] == [
+        "org",
         "pur",
         "pay",
         "sale",
@@ -318,7 +321,7 @@ async def test_catalog_reconciliation_uses_merged_records(monkeypatch: pytest.Mo
             service_key=_SERVICE_KEY,
             name="改过的名字",
             table_prefix="mdorg_",
-            errcode_segment="33",
+            errcode_segment="34",
             event_domain="mdorg",
             service_group=ServiceGroup.PRODUCT,
             build_batch=3,
@@ -350,3 +353,20 @@ def test_event_contract_domains_follow_merged_view(monkeypatch: pytest.MonkeyPat
     application._validate_event_contracts(_ProductFactory().create(None))  # pyright: ignore[reportPrivateUsage]
     assert "mdorg" in captured
     assert "mdorg" not in known_event_domains()
+
+
+@pytest.mark.kiwi_id(2252)
+def test_merge_service_records_dedupes_identical_platform_row() -> None:
+    """合并去重（2026-10-07 R 架构）：平台侧登记行 + 产品侧**同值**注入 → 去重后清单唯一且校验通过；
+    任一字段差异（异值）则保留为独立记录，由唯一性校验以 `module_key 重复` 拒启（fail-closed）。"""
+    platform_row = next(record for record in SERVICE_CATALOG if record.module_key == "org")
+    identical = ConcurrentStableList([platform_row])
+    merged = merge_service_records(SERVICE_CATALOG, identical)
+    assert len(merged) == len(SERVICE_CATALOG)
+    assert ModuleRegistry(merged).validate() == []
+
+    drifted = ConcurrentStableList([replace(platform_row, build_batch=2)])
+    conflicted = merge_service_records(SERVICE_CATALOG, drifted)
+    assert len(conflicted) == len(SERVICE_CATALOG) + 1
+    errors = ModuleRegistry(conflicted).validate()
+    assert any("module_key 重复：org" in error for error in errors)

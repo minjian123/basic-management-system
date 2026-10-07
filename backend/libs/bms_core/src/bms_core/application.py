@@ -65,6 +65,7 @@ from bms_core.services.module_registry import (
     ModuleRecord,
     ModuleRegistry,
     enabled_service_keys,
+    merge_service_records,
     validate_catalog,
     validate_product_service_records,
 )
@@ -392,9 +393,10 @@ class BaseServiceApplicationFactory(BaseApplicationFactory):
         register_exception_handlers(app)
 
         app.state.resources = ResourceManager()
-        # 服务目录为**应用级视图**：平台清单 + 本服务注入记录（产品服务经 `service_records()` 提供）
+        # 服务目录为**应用级视图**：平台清单 + 本服务注入记录（产品服务经 `service_records()` 提供）；
+        # 合并按「同 module_key 同值去重、异值即拒」（平台侧已登记 + 产品侧自报同值时并存不冲突；12_03 扩展）
         injected = ConcurrentStableList(self.service_records())
-        app.state.module_registry = ModuleRegistry(ConcurrentStableList([*SERVICE_CATALOG, *injected]))
+        app.state.module_registry = ModuleRegistry(merge_service_records(SERVICE_CATALOG, injected))
         app.state.service_product_key = self.product_key
         app.state.service_injected_records = injected
         app.state.settings = settings

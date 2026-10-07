@@ -53,7 +53,6 @@ scrape_configs:
           - platform:8000
           - identity:8000
           - tenant:8000
-          - org:8000
           - file:8000
           - notification:8000
           - search:8000
@@ -73,8 +72,6 @@ scrape_configs:
           - http://identity:8000/readyz
           - http://tenant:8000/healthz
           - http://tenant:8000/readyz
-          - http://org:8000/healthz
-          - http://org:8000/readyz
           - http://file:8000/healthz
           - http://file:8000/readyz
           - http://notification:8000/healthz

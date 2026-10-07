@@ -73,11 +73,6 @@ services:
     image: ${REGISTRY_IMAGE_PREFIX:?REGISTRY_IMAGE_PREFIX required}/bms-tenant:${BMS_TAG_TENANT:?BMS_TAG_TENANT required}
     container_name: bms-tenant
 
-  org:
-    <<: *service-base
-    image: ${REGISTRY_IMAGE_PREFIX:?REGISTRY_IMAGE_PREFIX required}/bms-org:${BMS_TAG_ORG:?BMS_TAG_ORG required}
-    container_name: bms-org
-
   file:
     <<: *service-base
     image: ${REGISTRY_IMAGE_PREFIX:?REGISTRY_IMAGE_PREFIX required}/bms-file:${BMS_TAG_FILE:?BMS_TAG_FILE required}

@@ -257,7 +257,9 @@ class EngineFactory(BaseDbFactory[str | None, AsyncEngine]):
                 f"数据源键 {key.raw} 的连接串模板需要服务标识（{{service}} / {{database}}）："
                 "请配置 [app].service 或改用全限定键 platform_{service} / tenant_{service}_{code}"
             )
-        database = database_name(key, service=effective) if needs_service else ""
+        database = (
+            database_name(key, service=effective, prefix=self._settings.database.name_prefix) if needs_service else ""
+        )
         try:
             value = template.format(service=effective, tenant=key.tenant_code or "", database=database)
         except (KeyError, IndexError, ValueError) as exc:

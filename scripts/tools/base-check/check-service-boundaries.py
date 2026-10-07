@@ -492,7 +492,7 @@ def _self_test() -> int:
         tmp_path = Path(tmp)
         core = tmp_path / "backend/libs/bms_core/src/bms_core"
         svc = tmp_path / "backend/services/platform/src/bms_platform"
-        org = tmp_path / "backend/services/org/src/bms_org"
+        report = tmp_path / "backend/services/report/src/bms_report"
         ai = tmp_path / "backend/services/ai/src/bms_ai"
         (core / "core").mkdir(parents=True)
         (core / "__init__.py").write_text("", encoding="utf-8")
@@ -500,9 +500,9 @@ def _self_test() -> int:
         (svc / "api").mkdir(parents=True)
         (svc / "__init__.py").write_text("", encoding="utf-8")
         (svc / "api/__init__.py").write_text("", encoding="utf-8")
-        (org / "models").mkdir(parents=True)
-        (org / "__init__.py").write_text("", encoding="utf-8")
-        (org / "models/__init__.py").write_text("", encoding="utf-8")
+        (report / "models").mkdir(parents=True)
+        (report / "__init__.py").write_text("", encoding="utf-8")
+        (report / "models/__init__.py").write_text("", encoding="utf-8")
         (ai / "models").mkdir(parents=True)
         (ai / "__init__.py").write_text("", encoding="utf-8")
         (ai / "models/__init__.py").write_text("", encoding="utf-8")

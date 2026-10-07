@@ -46,9 +46,9 @@ def test_dry_run_lists_full_service_matrix(
     services = enabled_service_keys()
     assert f"待建库 {len(services) * 2} 个目标" in out
     assert "platform_platform" in out
-    assert "tenant_org_demo" in out
+    assert "tenant_file_demo" in out
     assert "dry-run：不建连、不建库" in out
-    assert not (tmp_path / "bms_org.db").exists()
+    assert not (tmp_path / "bms_file.db").exists()
 
 
 def test_provision_creates_service_dbs_and_is_idempotent(
@@ -56,12 +56,12 @@ def test_provision_creates_service_dbs_and_is_idempotent(
 ) -> None:
     """建库：平台服务库 + 服务租户库落盘；重复执行全为「已存在（跳过）」。"""
     _use_templates(tmp_path, monkeypatch)
-    assert provision_tenant.main(ConcurrentStableList(["--code", "demo", "--service", "org"])) == 0
-    assert (tmp_path / "bms_org.db").exists()
-    assert (tmp_path / "bms_org_demo.db").exists()
+    assert provision_tenant.main(ConcurrentStableList(["--code", "demo", "--service", "file"])) == 0
+    assert (tmp_path / "bms_file.db").exists()
+    assert (tmp_path / "bms_file_demo.db").exists()
     assert "新建 2" in capsys.readouterr().out
 
-    assert provision_tenant.main(ConcurrentStableList(["--code", "demo", "--service", "org"])) == 0
+    assert provision_tenant.main(ConcurrentStableList(["--code", "demo", "--service", "file"])) == 0
     assert "已存在 2" in capsys.readouterr().out
 
 
@@ -70,9 +70,9 @@ def test_skip_tenants_builds_platform_only(
 ) -> None:
     """`--skip-tenants`：只建平台服务库，无需租户维度。"""
     _use_templates(tmp_path, monkeypatch)
-    assert provision_tenant.main(ConcurrentStableList(["--service", "org", "--skip-tenants"])) == 0
-    assert (tmp_path / "bms_org.db").exists()
-    assert not (tmp_path / "bms_org_demo.db").exists()
+    assert provision_tenant.main(ConcurrentStableList(["--service", "file", "--skip-tenants"])) == 0
+    assert (tmp_path / "bms_file.db").exists()
+    assert not (tmp_path / "bms_file_demo.db").exists()
     assert "新建 1" in capsys.readouterr().out
 
 
@@ -81,9 +81,9 @@ def test_skip_platform_builds_tenant_only(
 ) -> None:
     """`--skip-platform`：只建服务租户库。"""
     _use_templates(tmp_path, monkeypatch)
-    assert provision_tenant.main(ConcurrentStableList(["--code", "demo", "--service", "org", "--skip-platform"])) == 0
-    assert (tmp_path / "bms_org_demo.db").exists()
-    assert not (tmp_path / "bms_org.db").exists()
+    assert provision_tenant.main(ConcurrentStableList(["--code", "demo", "--service", "file", "--skip-platform"])) == 0
+    assert (tmp_path / "bms_file_demo.db").exists()
+    assert not (tmp_path / "bms_file.db").exists()
     assert "新建 1" in capsys.readouterr().out
 
 
@@ -92,7 +92,7 @@ def test_requires_tenant_dimension(
 ) -> None:
     """缺租户维度（既无 `--code` 也无 `--all-tenants`）：失败退出并提示。"""
     _use_templates(tmp_path, monkeypatch)
-    assert provision_tenant.main(ConcurrentStableList(["--service", "org"])) == 1
+    assert provision_tenant.main(ConcurrentStableList(["--service", "file"])) == 1
     assert "需 --code" in capsys.readouterr().out
 
 
@@ -111,10 +111,10 @@ def test_all_tenants_reads_registry(
     """`--all-tenants`：从租户注册库（键 `platform_tenant`）读编码并逐租户建库。"""
     _use_templates(tmp_path, monkeypatch)
     asyncio.run(seed_tenants(f"sqlite+aiosqlite:///{tmp_path}/bms_tenant.db"))
-    assert provision_tenant.main(ConcurrentStableList(["--all-tenants", "--service", "org"])) == 0
-    assert (tmp_path / "bms_org.db").exists()
-    assert (tmp_path / "bms_org_demo.db").exists()
-    assert (tmp_path / "bms_org_acme.db").exists()
+    assert provision_tenant.main(ConcurrentStableList(["--all-tenants", "--service", "file"])) == 0
+    assert (tmp_path / "bms_file.db").exists()
+    assert (tmp_path / "bms_file_demo.db").exists()
+    assert (tmp_path / "bms_file_acme.db").exists()
     assert "新建 3" in capsys.readouterr().out
 
 
@@ -123,5 +123,5 @@ def test_all_tenants_requires_registry(
 ) -> None:
     """租户注册库不可读：失败退出并提示先建库 + 迁移 + 种子。"""
     _use_templates(tmp_path, monkeypatch)
-    assert provision_tenant.main(ConcurrentStableList(["--all-tenants", "--service", "org"])) == 1
+    assert provision_tenant.main(ConcurrentStableList(["--all-tenants", "--service", "file"])) == 1
     assert "租户注册库不可读" in capsys.readouterr().out

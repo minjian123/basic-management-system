@@ -72,11 +72,11 @@ describe('模块请求能力宿主实现（06_02 · Kiwi 2236）', () => {
     requestMock.mockResolvedValueOnce(ok(null))
     configureRequestAdapter(createAxiosAdapter())
 
-    await createModuleApi().post('org', '/users', { name: '李四' })
+    await createModuleApi().post('file', '/users', { name: '李四' })
 
     const call = requestMock.mock.calls[0]?.[0] as { headers: Record<string, string>; url: string }
-    expect(call.url).toBe('/api/org/v1/users')
-    expect(call.headers['Idempotency-Key']).toContain('org:/users:')
+    expect(call.url).toBe('/api/file/v1/users')
+    expect(call.headers['Idempotency-Key']).toContain('file:/users:')
   })
 
   it('401 对模块透明：宿主单例刷新后重放，模块拿到数据（模块无任何 401 逻辑）', async () => {

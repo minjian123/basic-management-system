@@ -16,7 +16,7 @@
 | `tenant:tenant` | `[alembic:tenant:tenant]` | `versions/tenant/tenant/` | `bms_tenant_{tenant}` | 发件箱三表 |
 | `identity:platform` | `[alembic:identity:platform]` | `versions/identity/platform/` | `bms_identity` | `sys_user_identity` + 发件箱三表 |
 | `identity:tenant` | `[alembic:identity:tenant]` | `versions/identity/tenant/` | `bms_identity_{tenant}` | `sys_session` / `sys_identity_provider` / `sys_client` + 发件箱三表 |
-| `org:tenant`（待退役） | `[alembic:org:tenant]` | `versions/org/tenant/` | `bms_org_{tenant}` | 发件箱三表（用户 / 账号锁定两表已随 `02_05` 归口 platform；`org` 服务随域十一退役） |
+| `org`（已退役，2026-10-07） | — | — | — | 组织主数据归 mdm 产品服务（`org` 标识易主为 mdm 产品行，其库 / 迁移链由 mdm 仓库维护）；原 `bms_org_{tenant}` 库由运维清理 |
 | 其余服务（file / notification / search / ai / report） | 首次迁移时补段 | `versions/{service}/{platform,tenant}/`（目录已建，空） | `bms_{service}` / `bms_{service}_{tenant}` | 表集由 `chain_tables` 派生，脚本随该服务首个需要补 |
 
 段名规则：`[alembic]` = 缺省链 `platform:tenant`；其余链 = `[alembic:{service}:{datasource}]`。

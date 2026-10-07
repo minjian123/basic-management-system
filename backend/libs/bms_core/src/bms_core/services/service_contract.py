@@ -14,7 +14,7 @@ from typing import cast
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.serialization import normalize_collections
-from bms_core.services.module_registry import SERVICE_CATALOG, ModuleRecord, ModuleStatus
+from bms_core.services.module_registry import SERVICE_CATALOG, ModuleRecord, ModuleStatus, ServiceGroup
 
 __all__ = [
     "BASELINE_DIR",
@@ -53,13 +53,20 @@ def contract_file_name(service_key: str) -> str:
 
 
 def enabled_service_records() -> tuple[ModuleRecord, ...]:
-    """启用的服务登记行（`service_key` 非空且状态启用）。
+    """启用的**平台服务**登记行（`service_key` 非空 + 状态启用 + **非产品分组**）。
+
+    产品分组服务（如 `org` 归 mdm）的公开契约**由产品侧自持**（不在 bms `deploy/contracts/`，
+    也不参与 bms 的快照导出与 oasdiff 门禁，见 12_02 §3），故本视图排除之。
 
     Returns:
-        tuple[ModuleRecord, ...]: 按服务目录原始顺序排列的启用服务行。
+        tuple[ModuleRecord, ...]: 按服务目录原始顺序排列的启用平台服务行。
     """
     return tuple(
-        record for record in SERVICE_CATALOG if record.service_key is not None and record.status == ModuleStatus.ENABLED
+        record
+        for record in SERVICE_CATALOG
+        if record.service_key is not None
+        and record.status == ModuleStatus.ENABLED
+        and record.service_group != ServiceGroup.PRODUCT
     )
 
 

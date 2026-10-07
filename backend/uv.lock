@@ -9,7 +9,6 @@ members = [
     "bms-file",
     "bms-identity",
     "bms-notification",
-    "bms-org",
     "bms-platform",
     "bms-report",
     "bms-search",
@@ -335,23 +334,6 @@ requires-dist = [
 name = "bms-notification"
 version = "0.1.0"
 source = { editable = "services/notification" }
-dependencies = [
-    { name = "bms-core" },
-    { name = "fastapi" },
-    { name = "uvicorn", extra = ["standard"] },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "bms-core", editable = "libs/bms_core" },
-    { name = "fastapi", specifier = ">=0.115" },
-    { name = "uvicorn", extras = ["standard"], specifier = ">=0.30" },
-]
-
-[[package]]
-name = "bms-org"
-version = "0.1.0"
-source = { editable = "services/org" }
 dependencies = [
     { name = "bms-core" },
     { name = "fastapi" },

@@ -322,6 +322,12 @@ class DatabaseSettings(BaseSettings):
 
     auto_create: bool = True
     """SQLite 开发库自动建表开关（仅当方言为 SQLite 时生效；prod 置 false，建表统一走 Alembic）。"""
+    name_prefix: str = "bms"
+    """库名前缀（env `BMS_DATABASE__NAME_PREFIX`）——平台库 `{prefix}_{service}`、服务租户库
+    `{prefix}_{service}_{code}`、归档库 `{prefix}_archive` 的统一来源（`db/keys.py` 派生）。
+
+    默认 `bms`（基座既有口径，现有部署零影响）；产品部署可配自有前缀（如 mdm 配 `mdm`），
+    使库名体现产品标识而仍经基座统一派生（禁止业务侧自拼库名，见《后端开发规范》）。"""
     sqlite_dir: str = ""
     """SQLite 相对文件路径统一基址（env `BMS_DATABASE__SQLITE_DIR`）。
 

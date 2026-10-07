@@ -8,7 +8,7 @@ uv run python -m ops.dev_run --service identity                 # 起 identity�
 uv run python -m ops.dev_run --service bms_identity --dry-run    # 只看解析结果（不启动）
 ```
 
-- **为何需要**：本机四服务要求每个服务绑各自 loopback 别名（`127.0.0.2 tenant` / `.3 org` /
+- **为何需要**：本机多服务要求每个服务绑各自 loopback 别名（`127.0.0.2 tenant` /
   `.4 platform` / `.5 identity`）且**同一 8000 端口**（服务间基址模板 `http://{service}:8000`），
   并加载 `backend/.dev-keys.local` 的开发密钥；IDE 的 `后端：单服务（debugpy）` 只设
   `PYTHONUNBUFFERED` ⇒ 起来的是 `127.0.0.1:8000` 且**无密钥**，登录链路必断。
@@ -34,14 +34,16 @@ from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 HOST_BY_SERVICE: ConcurrentStableDict[str, str] = ConcurrentStableDict(
     {
         "tenant": "127.0.0.2",
-        "org": "127.0.0.3",
         "platform": "127.0.0.4",
         "identity": "127.0.0.5",
     }
 )
-"""服务 → loopback 别名（与 `scripts/tools/dev/本地全套.sh`、服务基址模板 `http://{service}:8000` 同形）。"""
+"""服务 → loopback 别名（与 `scripts/tools/dev/本地全套.sh`、服务基址模板 `http://{service}:8000` 同形）。
 
-KNOWN_SERVICES = "tenant / org / platform / identity"
+`org` 已随组织主数据归 mdm 产品服务（2026-10-07）退出平台服务清单，本机全套不再纳管。
+"""
+
+KNOWN_SERVICES = "tenant / platform / identity"
 """本机全套包含的服务（其余服务需显式 `--host`）。"""
 
 DEFAULT_PORT = "8000"

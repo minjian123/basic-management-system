@@ -36,9 +36,18 @@ export function dictSourceOptions(): SourceEndpointOptions {
   return sourceEndpoint('platform')
 }
 
-/** 组织主数据源选项（`org`）。 */
+/**
+ * 组织主数据源选项（mdm 组织域**产品命名空间** `/api/mdm/v1/org`）。
+ *
+ * 组织主数据已归 mdm 产品服务（2026-10-07，bms 11_01），平台不再有 `org` 服务级路由；
+ * 产品服务对外只经产品命名空间（`/api/{product_key}/v1/{domain}`），故此处不经 `ServiceKey`
+ * 组装服务前缀。真实出口（契约与类型）随 mdm 需求 01-03 交付，前端 adapter 切换归 bms 11_02 前段。
+ */
+const ORG_PRODUCT_ENDPOINT = '/api/mdm/v1/org'
+
+/** 组织主数据源选项（mdm 组织域产品命名空间）。 */
 export function orgSourceOptions(): SourceEndpointOptions {
-  return sourceEndpoint('org')
+  return { endpoint: ORG_PRODUCT_ENDPOINT, headers: authHeaders }
 }
 
 /** 验证码数据源选项（`identity`）。 */

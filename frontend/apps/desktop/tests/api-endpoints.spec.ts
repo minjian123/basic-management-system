@@ -22,7 +22,7 @@ afterEach(() => {
 describe('能力源端点按服务分流（Kiwi 2191）', () => {
   it('各能力源 endpoint 指向对应服务', () => {
     expect(dictSourceOptions().endpoint).toBe('/api/platform/v1')
-    expect(orgSourceOptions().endpoint).toBe('/api/org/v1')
+    expect(orgSourceOptions().endpoint).toBe('/api/mdm/v1/org')
     expect(captchaSourceOptions().endpoint).toBe('/api/identity/v1')
     expect(uploadTransportOptions().endpoint).toBe('/api/file/v1')
     expect(searchEngineOptions().endpoint).toBe('/api/search/v1')

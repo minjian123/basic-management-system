@@ -31,10 +31,10 @@ async def test_list_products_contract() -> None:
         assert data["list"][0]["frontend_package_source"] is None
 
         planned = await client.get("/api/v1/products", params={"status": "planned"})
-        assert [item["product_key"] for item in planned.json()["data"]["list"]] == ["mdm"]
+        assert planned.json()["data"]["list"] == []
 
         enabled = await client.get("/api/v1/products", params={"status": "enabled"})
-        assert enabled.json()["data"]["total"] == 2
+        assert [item["product_key"] for item in enabled.json()["data"]["list"]] == _EXPECTED_KEYS
 
         retired = await client.get("/api/v1/products", params={"status": "retired"})
         assert retired.json()["data"] == {"list": [], "total": 0, "page": 1, "size": 20}
@@ -79,7 +79,7 @@ async def test_get_product_detail_and_not_found(client: AsyncClient) -> None:
     assert data["status"] == "enabled"
 
     mdm = await client.get("/api/v1/products/mdm")
-    assert mdm.json()["data"]["status"] == "planned"
+    assert mdm.json()["data"]["status"] == "enabled"
 
     missing = await client.get("/api/v1/products/ghost")
     assert missing.status_code == 404

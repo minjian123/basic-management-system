@@ -53,12 +53,12 @@ describe('请求入口', () => {
       },
     })
     await get('platform', '/a', { q: 1 })
-    await post('org', '/b', { x: 1 })
+    await post('file', '/b', { x: 1 })
     await put('file', '/c')
     await del('search', '/d', { id: 1 })
 
     expect(calls[0]).toMatchObject({ method: 'GET', url: '/api/platform/v1/a', params: { q: 1 } })
-    expect(calls[1]).toMatchObject({ method: 'POST', url: '/api/org/v1/b' })
+    expect(calls[1]).toMatchObject({ method: 'POST', url: '/api/file/v1/b' })
     expect(calls[1]?.idempotencyKey).toBeTruthy()
     expect(calls[2]).toMatchObject({ method: 'PUT', url: '/api/file/v1/c' })
     expect(calls[3]).toMatchObject({ method: 'DELETE', url: '/api/search/v1/d' })

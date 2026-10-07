@@ -7,7 +7,7 @@
 # 目录与清单文件出现后自动启用。
 #
 # 父-子流水线（阶段二 09_01，《架构设计 · 测试与质量》「CI 流水线」节）：
-#   - 后端 9 个启用服务（服务目录 enabled_service_keys）各一个 trigger job（stage trigger），
+#   - 后端 8 个启用平台服务（服务目录 enabled_service_keys）各一个 trigger job（stage trigger），
 #     按变更路径拉起服务子流水线（公共模板 deploy/ci/templates/backend-service.yml，只测 / 构建 /
 #     发布该服务；镜像与版本按服务独立）；
 #   - backend/services/** 变更只拉起对应服务；共享 / 工作区路径（backend/libs、backend/ops、
@@ -308,7 +308,7 @@ backend-test:
   script:
     - cd backend
     - uv sync --frozen
-    - uv run pytest --cov=bms_core --cov=bms_platform --cov=bms_identity --cov=bms_tenant --cov=bms_org --cov=bms_file --cov=bms_notification --cov=bms_search --cov=bms_ai --cov=bms_report --cov-branch --cov-report=term --cov-report=json:coverage.json --cov-fail-under=70
+    - uv run pytest --cov=bms_core --cov=bms_platform --cov=bms_identity --cov=bms_tenant --cov=bms_file --cov=bms_notification --cov=bms_search --cov=bms_ai --cov=bms_report --cov-branch --cov-report=term --cov-report=json:coverage.json --cov-fail-under=70
     # 路径级子阈值（04_04）：认证模块（identity 整包 + bms_core 认证横切）行覆盖率 ≥80%
     # （04_01 详细设计 §6.1 预留位落地；RBAC / 工作流子阈值后续在脚本路径组常量追加）
     - uv run python ../scripts/tools/base-check/check-coverage-threshold.py ..
@@ -392,27 +392,6 @@ trigger-tenant:
         compare_to: 'refs/heads/main'
         paths:
           - backend/services/tenant/**/*
-          - backend/Dockerfile
-          - backend/uv.lock
-
-trigger-org:
-  <<: *trigger-service
-  variables:
-    SERVICE: org
-  rules:
-    - if: $CI_COMMIT_TAG =~ /^v/
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-      changes:
-        paths:
-          - backend/services/org/**/*
-          - backend/Dockerfile
-          - backend/uv.lock
-    - if: $CI_COMMIT_BRANCH
-      changes:
-        compare_to: 'refs/heads/main'
-        paths:
-          - backend/services/org/**/*
           - backend/Dockerfile
           - backend/uv.lock
 
@@ -1112,20 +1091,6 @@ contract-smoke-tenant:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
         paths: [backend/services/tenant/**/*]
-      exists: [deploy/ci/verify/contract-gate]
-
-contract-smoke-org:
-  <<: *contract-smoke-service
-  needs: [{job: trigger-org, optional: true}]
-  variables: {SERVICE: org}
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-      changes:
-        paths: [backend/services/org/**/*]
-      exists: [deploy/ci/verify/contract-gate]
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-      changes:
-        paths: [backend/services/org/**/*]
       exists: [deploy/ci/verify/contract-gate]
 
 contract-smoke-file:

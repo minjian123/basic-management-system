@@ -141,14 +141,13 @@ def test_resolve_service_contracts_and_declarations(tmp_path: Path) -> None:
 
 @pytest.mark.kiwi_id(2163)
 def test_resolve_service_contracts_real_workspace() -> None:
-    """真实工作区：已建 9 个服务工程均自报 CONTRACT_VERSION 且与清单主版本一致。"""
+    """真实工作区：已建 8 个平台服务工程均自报 CONTRACT_VERSION 且与清单主版本一致。"""
     declarations = check_modules.resolve_service_contracts()
     assert set(declarations) == {
         "ai",
         "file",
         "identity",
         "notification",
-        "org",
         "platform",
         "report",
         "search",
@@ -254,7 +253,7 @@ def test_check_catalog_db_products(tmp_path: Path) -> None:
     assert check_modules.check_catalog_db(url) == []
     assert check_modules.main(ConcurrentStableList(["--url", url])) == 0
 
-    asyncio.run(_set_product_status(url, "mdm", "enabled"))
+    asyncio.run(_set_product_status(url, "mdm", "planned"))
     errors = check_modules.check_catalog_db(url)
     assert any("产品档案 mdm：status 与清单不一致" in error for error in errors)
     assert check_modules.main(ConcurrentStableList(["--url", url])) == 1

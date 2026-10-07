@@ -169,49 +169,6 @@ routes:
         allow_degradation: true
         show_limit_quota_header: true
       prometheus: {}
-  - id: route-org
-    uris:
-      - '/api/org/v1'
-      - '/api/org/v1/*'
-    upstream_id: org
-    plugins:
-      proxy-rewrite:
-        regex_uri:
-          - '^/api/org/v1(.*)$'
-          - '/api/v1$1'
-        headers:
-          set:
-            X-Gateway-Identity: bms-edge
-      forward-auth:
-        uri: 'http://${{GATEWAY_AUTH_HOST:=identity}}:8000/api/v1/auth/introspect'
-        request_method: GET
-        request_headers:
-          - Authorization
-        upstream_headers:
-          - Authorization
-          - X-User-Subject
-          - X-User-Id
-          - X-Tenant-Id
-          - X-User-Scopes
-          - X-Session-Id
-        client_headers:
-          - WWW-Authenticate
-        timeout: 3000
-        status_on_error: 503
-      limit-count:
-        count: 300
-        time_window: 60
-        key_type: var_combination
-        key: '$remote_addr $http_x_tenant_id $http_x_user_subject'
-        policy: redis
-        redis_host: '${{GATEWAY_REDIS_HOST:=redis}}'
-        redis_port: 6379
-        redis_database: 0
-        redis_password: '${{GATEWAY_REDIS_PASSWORD:=}}'
-        rejected_code: 429
-        allow_degradation: true
-        show_limit_quota_header: true
-      prometheus: {}
   - id: route-file
     uris:
       - '/api/file/v1'
@@ -461,6 +418,49 @@ routes:
         status_on_error: 503
       limit-count:
         count: 10
+        time_window: 60
+        key_type: var_combination
+        key: '$remote_addr $http_x_tenant_id $http_x_user_subject'
+        policy: redis
+        redis_host: '${{GATEWAY_REDIS_HOST:=redis}}'
+        redis_port: 6379
+        redis_database: 0
+        redis_password: '${{GATEWAY_REDIS_PASSWORD:=}}'
+        rejected_code: 429
+        allow_degradation: true
+        show_limit_quota_header: true
+      prometheus: {}
+  - id: route-mdm-org
+    uris:
+      - '/api/mdm/v1/org'
+      - '/api/mdm/v1/org/*'
+    upstream_id: org
+    plugins:
+      proxy-rewrite:
+        regex_uri:
+          - '^/api/mdm/v1(.*)$'
+          - '/api/v1$1'
+        headers:
+          set:
+            X-Gateway-Identity: bms-edge
+      forward-auth:
+        uri: 'http://${{GATEWAY_AUTH_HOST:=identity}}:8000/api/v1/auth/introspect'
+        request_method: GET
+        request_headers:
+          - Authorization
+        upstream_headers:
+          - Authorization
+          - X-User-Subject
+          - X-User-Id
+          - X-Tenant-Id
+          - X-User-Scopes
+          - X-Session-Id
+        client_headers:
+          - WWW-Authenticate
+        timeout: 3000
+        status_on_error: 503
+      limit-count:
+        count: 300
         time_window: 60
         key_type: var_combination
         key: '$remote_addr $http_x_tenant_id $http_x_user_subject'

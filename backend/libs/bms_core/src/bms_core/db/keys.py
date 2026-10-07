@@ -7,8 +7,9 @@
 - **反解歧义消解**：`tenant_` 之后按 `_` 切分，**首段命中已知服务标识即视为全限定键**（服务段 = 首段、
   其余为租户编码）；否则整体为租户编码（相对键）。服务标识集合取自归属登记（`known_service_keys`，
   懒导入避免 db ← services 的导入期耦合）。
-- **库名单一来源**：平台服务库 `bms_{service}`、服务租户库 `bms_{service}_{code}`、归档库 `bms_archive`
-  （生成连接串的 `{database}` 占位与 `ops` 建库目标均经此派生）。
+- **库名单一来源（前缀参数化）**：平台服务库 `{prefix}_{service}`、服务租户库 `{prefix}_{service}_{code}`、
+  归档库 `{prefix}_archive`（`prefix` 取 `[database].name_prefix`，缺省 `bms`；生成连接串的 `{database}`
+  占位与 `ops` 建库目标均经此派生——产品部署可配自有前缀，库名仍不允许业务代码自拼）。
 - **归属校验**：`resolve_db_key` 在语法解析之上判定服务归属——全限定键服务段非当前服务且未豁免时抛
   `DataOwnershipError`（10008，数据所有权）；**相对键恒属当前服务**。运维侧（`ops`）经
   `allow_cross_service=True` 显式豁免（仅放宽归属，不放宽键形态合法性）。
@@ -30,11 +31,13 @@ __all__ = [
     "DB_KIND_ARCHIVE",
     "DB_KIND_PLATFORM",
     "DB_KIND_TENANT",
+    "DEFAULT_DATABASE_NAME_PREFIX",
     "PLATFORM_DB_KEY",
     "PLATFORM_DB_KEY_PREFIX",
     "PLATFORM_SERVICE_KEY",
     "TENANT_DB_KEY_PREFIX",
     "DbKey",
+    "archive_database_name",
     "build_platform_db_key",
     "build_tenant_db_key",
     "database_name",
@@ -59,8 +62,16 @@ TENANT_DB_KEY_PREFIX = "tenant_"
 ARCHIVE_DB_KEY = "archive"
 """归档库键（不服务化，架构定统一收存）。"""
 
-ARCHIVE_DATABASE = "bms_archive"
-"""归档库名。"""
+DEFAULT_DATABASE_NAME_PREFIX = "bms"
+"""库名默认前缀（`[database].name_prefix` 缺省值）。
+
+平台库 `{prefix}_{service}`、服务租户库 `{prefix}_{service}_{code}`、归档库 `{prefix}_archive` 统一由
+本前缀派生；产品部署可配自有前缀（如 mdm → `mdm_org` / `mdm_org_{code}` / `mdm_archive`），
+**库名不得由业务代码自拼**（见《后端开发规范》「模块边界与数据所有权」节与《架构设计 · 多租户路由》）。
+"""
+
+ARCHIVE_DATABASE = f"{DEFAULT_DATABASE_NAME_PREFIX}_archive"
+"""归档库名（**默认前缀**下的取值；运行时经 `archive_database_name(prefix=...)` 按配置前缀派生）。"""
 
 DB_KIND_PLATFORM = "platform"
 """库类别：平台服务库。"""
@@ -187,11 +198,12 @@ def parse_db_key(db_key: str) -> DbKey:
     )
 
 
-def platform_database_name(service: str) -> str:
-    """平台服务库名（`bms_{service}`）。
+def platform_database_name(service: str, *, prefix: str = DEFAULT_DATABASE_NAME_PREFIX) -> str:
+    """平台服务库名（`{prefix}_{service}`，缺省前缀 `bms`）。
 
     Args:
         service: 服务标识。
+        prefix: 库名前缀（`[database].name_prefix`）。
 
     Returns:
         str: 平台服务库名。
@@ -199,15 +211,16 @@ def platform_database_name(service: str) -> str:
     Raises:
         ConfigError: 服务标识为空或库名形态非法。
     """
-    return _checked_database_name(f"bms_{service}", service=service)
+    return _checked_database_name(f"{prefix}_{service}", service=service)
 
 
-def tenant_database_name(service: str, db_basis: str) -> str:
-    """服务租户库名（`bms_{service}_{db_basis}`）。
+def tenant_database_name(service: str, db_basis: str, *, prefix: str = DEFAULT_DATABASE_NAME_PREFIX) -> str:
+    """服务租户库名（`{prefix}_{service}_{db_basis}`，缺省前缀 `bms`）。
 
     Args:
         service: 服务标识。
         db_basis: 库名基（创建时冻结的租户编码）。
+        prefix: 库名前缀（`[database].name_prefix`）。
 
     Returns:
         str: 服务租户库名。
@@ -216,25 +229,38 @@ def tenant_database_name(service: str, db_basis: str) -> str:
         ConfigError: 服务标识 / 库名基为空或库名形态非法。
     """
     if not db_basis:
-        raise ConfigError("库名基不得为空（服务租户库名形如 bms_{service}_{tenant}）")
-    return _checked_database_name(f"bms_{service}_{db_basis}", service=service)
+        raise ConfigError(f"库名基不得为空（服务租户库名形如 {prefix}_{{service}}_{{tenant}}）")
+    return _checked_database_name(f"{prefix}_{service}_{db_basis}", service=service)
 
 
-def database_name(key: DbKey, *, service: str) -> str:
-    """按库键取库名（相对键用传入的当前服务补全服务段）。
+def archive_database_name(*, prefix: str = DEFAULT_DATABASE_NAME_PREFIX) -> str:
+    """归档库名（`{prefix}_archive`，缺省前缀 `bms`）。
+
+    Args:
+        prefix: 库名前缀（`[database].name_prefix`）。
+
+    Returns:
+        str: 归档库名。
+    """
+    return f"{prefix}_archive"
+
+
+def database_name(key: DbKey, *, service: str, prefix: str = DEFAULT_DATABASE_NAME_PREFIX) -> str:
+    """按库键取库名（相对键用传入的当前服务补全服务段；前缀经配置）。
 
     Args:
         key: 库键解析结果。
         service: 当前服务标识（相对键补全用）。
+        prefix: 库名前缀（`[database].name_prefix`）。
 
     Returns:
-        str: 库名（`bms_{service}` / `bms_{service}_{code}` / `bms_archive`）。
+        str: 库名（`{prefix}_{service}` / `{prefix}_{service}_{code}` / `{prefix}_archive`）。
 
     Raises:
         ConfigError: 相对键缺当前服务标识或库名形态非法。
     """
     if key.kind == DB_KIND_ARCHIVE:
-        return ARCHIVE_DATABASE
+        return archive_database_name(prefix=prefix)
     effective = key.service or service
     if not effective:
         raise ConfigError(
@@ -242,8 +268,8 @@ def database_name(key: DbKey, *, service: str) -> str:
             "请配置 [app].service（服务包声明回写）或改用全限定键 platform_{service} / tenant_{service}_{code}"
         )
     if key.kind == DB_KIND_PLATFORM:
-        return platform_database_name(effective)
-    return tenant_database_name(effective, key.tenant_code or "")
+        return platform_database_name(effective, prefix=prefix)
+    return tenant_database_name(effective, key.tenant_code or "", prefix=prefix)
 
 
 def resolve_db_key(db_key: str, *, service: str, allow_cross_service: bool = False) -> DbKey:

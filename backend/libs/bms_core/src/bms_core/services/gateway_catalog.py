@@ -52,6 +52,7 @@ from bms_core.services.module_registry import (
     ModuleRecord,
     ModuleStatus,
     ProductRouteRecord,
+    ServiceGroup,
 )
 
 __all__ = [
@@ -82,6 +83,7 @@ __all__ = [
     "env_var",
     "forward_auth_plugin",
     "gateway_services",
+    "platform_route_services",
     "product_gateway_routes",
     "product_route_prefix",
     "rate_limit_plugin",
@@ -366,7 +368,10 @@ _HEADER = (
 
 
 def gateway_services() -> tuple[ModuleRecord, ...]:
-    """参与网关路由的服务行（`service_key` 非空且 `status=enabled`）。
+    """参与网关的服务行（`service_key` 非空且 `status=enabled`）——upstream 与产品级路由的目标集。
+
+    含产品分组服务：产品级路由的 `upstream_id` 即产品服务标识，需要其 upstream（如 `org:8000`）；
+    **服务级路由另取 `platform_route_services()`**（排除产品分组，见其说明）。
 
     Returns:
         tuple[ModuleRecord, ...]: 按服务目录原始顺序排列的服务登记行。
@@ -376,13 +381,41 @@ def gateway_services() -> tuple[ModuleRecord, ...]:
     )
 
 
+def platform_route_services() -> tuple[ModuleRecord, ...]:
+    """参与**服务级路由**（`/api/{service_key}/v1`）的服务行（enabled 且**非产品分组**）。
+
+    产品服务的对外入口只经产品命名空间 `/api/{product_key}/v1/{domain}/...`（架构 09「独立服务接入
+    骨架」节、12_02 §5）；故服务级命名空间不为产品服务生成路由——避免同一服务出现
+    `/api/org/v1`（服务级）与 `/api/mdm/v1/org`（产品级）双路径并存、对外契约口径混乱。
+
+    Returns:
+        tuple[ModuleRecord, ...]: 按服务目录原始顺序排列的服务登记行。
+    """
+    return tuple(
+        record
+        for record in SERVICE_CATALOG
+        if record.service_key is not None
+        and record.status == ModuleStatus.ENABLED
+        and record.service_group != ServiceGroup.PRODUCT
+    )
+
+
 def _enabled_service_keys() -> ConcurrentStableList[str]:
-    """启用服务的标识列表（顺序与目录一致）。
+    """启用服务的标识列表（顺序与目录一致；upstream 与产品级路由目标集）。
 
     Returns:
         ConcurrentStableList[str]: 服务标识（`service_key`）。
     """
     return ConcurrentStableList(cast("str", record.service_key) for record in gateway_services())
+
+
+def _platform_route_service_keys() -> ConcurrentStableList[str]:
+    """服务级路由的服务标识列表（顺序与目录一致；排除产品分组）。
+
+    Returns:
+        ConcurrentStableList[str]: 服务标识（`service_key`）。
+    """
+    return ConcurrentStableList(cast("str", record.service_key) for record in platform_route_services())
 
 
 def route_prefix(service_key: str) -> str:
@@ -433,13 +466,16 @@ def render_upstreams() -> ConcurrentStableList[ConcurrentStableDict[str, object]
 
 
 def render_routes() -> ConcurrentStableList[ConcurrentStableDict[str, object]]:
-    """路由段（每启用服务一条，含前缀重写、限流、观测与插件钩子合并）。
+    """服务级路由段（每**平台服务**一条，含前缀重写、限流、观测与插件钩子合并）。
+
+    **产品分组服务不生成服务级路由**（其对外入口只经产品命名空间 `/api/{product_key}/v1/{domain}/...`，
+    见 `platform_route_services()`）；产品服务的 upstream 仍由 `render_upstreams()` 生成。
 
     Returns:
         ConcurrentStableList[ConcurrentStableDict[str, object]]: APISIX `routes` 列表。
     """
     routes: ConcurrentStableList[ConcurrentStableDict[str, object]] = ConcurrentStableList()
-    for service_key in _enabled_service_keys():
+    for service_key in _platform_route_service_keys():
         headers_set: ConcurrentStableDict[str, str] = ConcurrentStableDict(
             {GATEWAY_IDENTITY_HEADER: GATEWAY_IDENTITY_VALUE}
         )

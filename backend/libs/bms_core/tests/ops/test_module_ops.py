@@ -70,12 +70,12 @@ async def test_seed_module_products_upsert(tmp_path: Path) -> None:
 
         async with factory() as session:
             row = (await session.execute(select(SysProduct).where(SysProduct.product_key == "mdm"))).scalar_one()
-            row.status = "enabled"
+            row.status = "planned"
             await session.commit()
         assert await seed_module.seed_modules(url) == (0, 1)
         async with factory() as session:
             refreshed = (await session.execute(select(SysProduct).where(SysProduct.product_key == "mdm"))).scalar_one()
-            assert refreshed.status == "planned"
+            assert refreshed.status == "enabled"
     finally:
         await engine.dispose()
 

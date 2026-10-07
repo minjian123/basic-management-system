@@ -8,7 +8,7 @@ import pytest
 import bms_core
 
 _BACKEND = Path(__file__).resolve().parents[4]
-_SERVICES = ("platform", "identity", "tenant", "org", "file", "notification", "search", "ai", "report")
+_SERVICES = ("platform", "identity", "tenant", "file", "notification", "search", "ai", "report")
 
 
 @pytest.mark.kiwi_id(1204)
@@ -21,7 +21,10 @@ def test_workspace_members_importable() -> None:
 
 @pytest.mark.kiwi_id(1204)
 def test_workspace_layout_present() -> None:
-    """工作区骨架就位：libs/bms_core + 9 服务工程（入口 / 路由）+ 服务脚手架。"""
+    """工作区骨架就位：libs/bms_core + 8 服务工程（入口 / 路由）+ 服务脚手架。
+
+    `org` 已随组织主数据归 mdm 产品服务（2026-10-07，bms 11_01）退出本工作区。
+    """
     assert (_BACKEND / "libs" / "bms_core" / "src" / "bms_core" / "core").is_dir()
     assert (_BACKEND / "libs" / "bms_core" / "src" / "bms_core" / "api").is_dir()
     assert (_BACKEND / "libs" / "bms_core" / "src" / "bms_core" / "application.py").is_file()

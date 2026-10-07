@@ -3,30 +3,32 @@
  *
  * 网关按服务目录生成外部路由 `/api/{service_key}/v1`（重写为服务内 `/api/v1`）；前端请求
  * 一律经本模块组装地址，**禁止各模块 / 页面自拼服务前缀**。服务键与后端服务目录
- * `SERVICE_CATALOG`（`service_key`）同源，顺序保持一致（9 个已启用服务）。
+ * `SERVICE_CATALOG`（`service_key`）中的**非产品分组平台服务**同源，顺序保持一致（8 个已启用服务）。
+ *
+ * 说明：产品服务（如 mdm）对外只经产品命名空间 `/api/{product_key}/v1/{domain}/...`（网关不为
+ * 产品服务生成服务级路由），故不由本模块组装；`org` 随组织主数据归 mdm 产品服务后退出本清单
+ * （2026-10-07，bms 11_01）。
  */
 
 import { BaseError } from '../mechanisms/error'
 import { ErrorCodes } from '../mechanisms/error-codes'
 
-/** 服务键（与后端服务目录 `service_key` 同源）。 */
+/** 服务键（与后端服务目录 `service_key` 同源，非产品分组平台服务）。 */
 export type ServiceKey =
   | 'platform'
   | 'identity'
   | 'tenant'
-  | 'org'
   | 'file'
   | 'notification'
   | 'search'
   | 'ai'
   | 'report'
 
-/** 服务键清单（顺序与服务目录一致：9 个已启用服务）。 */
+/** 服务键清单（顺序与服务目录一致：8 个已启用平台服务）。 */
 export const SERVICE_KEYS: readonly ServiceKey[] = [
   'platform',
   'identity',
   'tenant',
-  'org',
   'file',
   'notification',
   'search',

@@ -178,12 +178,13 @@ SERVICE_CATALOG: tuple[ModuleRecord, ...] = (
     ModuleRecord(
         module_key="org",
         service_key="org",
-        name="组织主数据服务",
+        name="mdm 组织主数据服务",
         table_prefix="org_",
-        errcode_segment=None,
+        errcode_segment="33",
         event_domain="org",
-        service_group=ServiceGroup.CAPABILITY,
-        build_batch=2,
+        service_group=ServiceGroup.PRODUCT,
+        build_batch=3,
+        product_key="mdm",
         status=ModuleStatus.ENABLED,
     ),
     ModuleRecord(
@@ -325,16 +326,21 @@ SERVICE_CATALOG: tuple[ModuleRecord, ...] = (
         status=ModuleStatus.PLANNED,
     ),
 )
-"""服务目录与注册要素（单一来源，16 行：平台服务 10 + 业务模块 6）。"""
+"""服务目录与注册要素（单一来源，16 行：平台服务 9 + 产品服务 7）。
+
+`org` 行随组织服务退役**易主**为 mdm 产品服务（四要素 `org` / `org` / `org_` / `org` 不变，
+仅分组 / 产品归属 / 错误码段 / 批次 / 名称变更）——见 `mdm文档` 与 bms 11_01 详细设计。
+"""
 
 PRODUCT_CATALOG: tuple[ProductRecord, ...] = (
     ProductRecord(product_key="biz", name="企业运营管理", status=ProductStatus.ENABLED),
     ProductRecord(product_key="cw", name="创作系统", status=ProductStatus.ENABLED),
-    ProductRecord(product_key="mdm", name="主数据管理", status=ProductStatus.PLANNED),
+    ProductRecord(product_key="mdm", name="主数据管理", status=ProductStatus.ENABLED),
 )
-"""产品档案（单一来源，3 行：`biz` / `cw` 已建 + `mdm` 预登记）。
+"""产品档案（单一来源，3 行：`biz` / `cw` / `mdm` 均已接入）。
 
-- **先注册后建表**：产品可先于其模块登记（`mdm` 随产品接入补登记各域模块行），不要求产品必有模块；
+- **先注册后建表**：产品可先于其模块登记，不要求产品必有模块；`mdm` 随 01_01 工程骨架落地由
+  `planned` 升 `enabled`（其组织域模块行 `org` 同批次置位为产品服务）；
 - `frontend_package_source` 本期留空——产品前端产物来源随 R4.3 前端多包合并定稿后回填（详设 12_01 §9）；
 - 注册要素（表前缀 / 业务码 / 错误码段 / 事件域）仍只在 `SERVICE_CATALOG`，本清单只承载产品级属性。
 """
@@ -372,13 +378,22 @@ class ProductRouteRecord(BaseValueObject):
     """说明（中文用途）。"""
 
 
-PRODUCT_ROUTES: tuple[ProductRouteRecord, ...] = ()
+PRODUCT_ROUTES: tuple[ProductRouteRecord, ...] = (
+    ProductRouteRecord(
+        product_key="mdm",
+        domain="org",
+        service_key="org",
+        description="mdm 组织主数据域（对外 /api/mdm/v1/org/...）",
+    ),
+)
 """产品级路由映射登记（产品命名空间的「域段 → 服务」**单一来源**）。
 
 - **先注册后建表**：映射可先于服务接入登记——目标服务行 `status = planned` 放行
   （网关不生成路由，服务不可达不暴露）；`disabled` 即拒（模块级注销态在 `sys_module` 取值中尚未建模）。
 - **防漂移**：映射的 `product_key` 须与目标服务登记行的 `product_key` 一致（同一实现校验）。
-- 本期为空清单——产品服务行与映射随产品接入补登（不提前登记，避免与产品侧清单未定稿漂移）。
+- **mdm 组织域（2026-10-07）**：`mdm/org → org`——**域段 `org` 与上游服务显式绑定**（域段与上游服务
+  解耦登记，见《架构设计 · 模块注册》「服务目录与契约登记」节）；目标服务行为产品分组且 `product_key = mdm`。
+  域段与 service_key 同名（均为 `org`）不构成冲突——二者是两个字段维度的登记。
 """
 
 
@@ -472,6 +487,34 @@ def validate_product_service_records(
     return errors
 
 
+def merge_service_records(
+    platform_records: tuple[ModuleRecord, ...] | ConcurrentStableList[ModuleRecord],
+    injected_records: ConcurrentStableList[ModuleRecord],
+) -> ConcurrentStableList[ModuleRecord]:
+    """合并平台服务清单与服务注入记录（**同 `module_key` 同值去重、异值即拒**；12_03 扩展）。
+
+    产品服务在**平台侧已登记**（如 mdm 的 `org` 行——供网关、迁移链、库键与表归属派生）**且产品侧
+    自报同值清单**注入时，直接拼接会因 `module_key` 重复被唯一性校验拒绝；本函数对「与平台清单中同
+    `module_key` 且**逐字段同值**」的注入记录去重，其余原样保留——异值记录仍以 `module_key` 重复被
+    `ModuleRegistry.validate()` 拒绝（fail-closed，不静默取一侧，见《后端开发规范》产品服务装配条）。
+
+    Args:
+        platform_records: 平台服务清单（`SERVICE_CATALOG`）。
+        injected_records: 本服务注入记录（应用工厂 `service_records()` 返回值）。
+
+    Returns:
+        ConcurrentStableList[ModuleRecord]: 合并清单（平台清单顺序在前，未命中的注入记录顺延）。
+    """
+    platform_by_key = ConcurrentStableDict((record.module_key, record) for record in platform_records)
+    merged: ConcurrentStableList[ModuleRecord] = ConcurrentStableList(platform_records)
+    for record in injected_records:
+        existing = platform_by_key.get(record.module_key)
+        if existing is not None and existing == record:
+            continue
+        merged.add(record)
+    return merged
+
+
 _PLATFORM_DOMAIN_KEYS: tuple[str, ...] = ("sys", "wf", "rpt", "ai")
 """既有平台域模块标识（段位 01~04 的平台域）。"""
 
@@ -493,16 +536,19 @@ def known_event_domains() -> ConcurrentStableSet[str]:
 
 
 def enabled_service_keys() -> tuple[str, ...]:
-    """已启用服务标识集合（`service_key` 非空且 `status = enabled`，保持目录顺序）。
+    """已启用**平台服务**标识集合（`service_key` 非空 + `status = enabled` + **非产品分组**，保持目录顺序）。
 
-    用于「按服务×租户建库」的服务维度（06_01）：只对已建设服务建库，`planned` 服务与
-    无 `service_key` 的产品模块不建库（产品模块随产品仓库接入）。
+    用于「按服务×租户建库」的服务维度（06_01）与平台侧按服务扫描（契约快照 / 表归属 / 发布编排）：
+    `planned` 服务、无 `service_key` 的产品模块**以及产品分组服务**（如 `org` 归 mdm）均不纳入——
+    产品服务的库、契约与工程随产品仓库（网关侧其 upstream 由 `gateway_catalog.gateway_services()` 覆盖）。
 
     Returns:
-        tuple[str, ...]: 服务标识元组。
+        tuple[str, ...]: 平台服务标识元组。
     """
     return tuple(
-        record.service_key for record in SERVICE_CATALOG if record.service_key and record.status == ModuleStatus.ENABLED
+        record.service_key
+        for record in SERVICE_CATALOG
+        if record.service_key and record.status == ModuleStatus.ENABLED and record.service_group != ServiceGroup.PRODUCT
     )
 
 

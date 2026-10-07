@@ -72,25 +72,25 @@ describe('模块请求能力基类（06_02）', () => {
     configureRequestAdapter(adapter)
     const api = new ProbeModuleApi()
 
-    await api.post('org', '/users', { name: '张三' })
-    await api.put('org', '/users/u1', { name: '李四' })
+    await api.post('file', '/files', { name: '张三' })
+    await api.put('file', '/files/f1', { name: '李四' })
 
     expect(configs[0]).toMatchObject({
       method: 'POST',
-      url: serviceUrl('org', '/users'),
+      url: serviceUrl('file', '/files'),
       data: { name: '张三' },
-      idempotencyKey: 'probe:org:/users',
+      idempotencyKey: 'probe:file:/files',
     })
-    expect(configs[1]).toMatchObject({ method: 'PUT', idempotencyKey: 'probe:org:/users/u1' })
+    expect(configs[1]).toMatchObject({ method: 'PUT', idempotencyKey: 'probe:file:/files/f1' })
   })
 
   it('del 带查询参数、无幂等键', async () => {
     const { configs, adapter } = recordingAdapter()
     configureRequestAdapter(adapter)
 
-    await new ProbeModuleApi().del('org', '/users/u1', { force: true })
+    await new ProbeModuleApi().del('file', '/files/f1', { force: true })
 
-    expect(configs[0]).toMatchObject({ method: 'DELETE', url: serviceUrl('org', '/users/u1'), params: { force: true } })
+    expect(configs[0]).toMatchObject({ method: 'DELETE', url: serviceUrl('file', '/files/f1'), params: { force: true } })
     expect(configs[0]?.idempotencyKey).toBeUndefined()
   })
 

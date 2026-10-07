@@ -36,7 +36,6 @@ COPY libs/bms_core/pyproject.toml libs/bms_core/pyproject.toml
 COPY services/platform/pyproject.toml services/platform/pyproject.toml
 COPY services/identity/pyproject.toml services/identity/pyproject.toml
 COPY services/tenant/pyproject.toml services/tenant/pyproject.toml
-COPY services/org/pyproject.toml services/org/pyproject.toml
 COPY services/file/pyproject.toml services/file/pyproject.toml
 COPY services/notification/pyproject.toml services/notification/pyproject.toml
 COPY services/search/pyproject.toml services/search/pyproject.toml

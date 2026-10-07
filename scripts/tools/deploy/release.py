@@ -84,14 +84,17 @@ SERVICES: tuple[str, ...] = (
     "platform",
     "identity",
     "tenant",
-    "org",
     "file",
     "notification",
     "search",
     "ai",
     "report",
 )
-"""已启用服务（与 `enabled_service_keys()` 一致；护栏用例断言，防漂移）。"""
+"""已启用**平台服务**（与 `enabled_service_keys()` 一致；护栏用例断言，防漂移）。
+
+`org` 随组织主数据归 mdm 产品服务（2026-10-07，bms 11_01）：退出平台服务清单、改由
+`SERVICE_CATALOG` 的产品分组承载（网关 upstream 仍生成、对外只经产品命名空间）。
+"""
 
 COMPOSE_FILE = "compose/bms.yml"
 GATEWAY_SMOKE_PATH = "/api/{service}/v1/__gate__"

@@ -228,9 +228,10 @@ async def run(args: argparse.Namespace) -> int:
         f"[provision_tenant] 待建库 {len(tasks)} 个目标"
         f"（服务 {len(_resolve_services(ConcurrentStableList(args.service)))} 个）"
     )
+    prefix = get_settings().database.name_prefix
     for task in tasks:
         key = parse_db_key(task.db_key)
-        name = database_name(key, service=task.service)
+        name = database_name(key, service=task.service, prefix=prefix)
         print(f"[provision_tenant] {task.kind:<8} {task.service:<12} {task.db_key:<28} {name:<28} {_masked(task.url)}")
     if args.dry_run:
         if args.migrate:

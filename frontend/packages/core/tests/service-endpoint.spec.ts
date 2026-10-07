@@ -6,12 +6,11 @@ import { describe, expect, it } from 'vitest'
 import { BaseError, SERVICE_KEYS, isServiceKey, servicePrefix, serviceUrl } from '../src'
 
 describe('服务键与「域 → 服务前缀」映射（Kiwi 2191）', () => {
-  it('服务键为 9 个已启用服务且顺序与目录一致', () => {
+  it('服务键为 8 个已启用平台服务且顺序与目录一致', () => {
     expect(SERVICE_KEYS).toEqual([
       'platform',
       'identity',
       'tenant',
-      'org',
       'file',
       'notification',
       'search',
@@ -51,8 +50,8 @@ describe('serviceUrl 组装与路径归一（Kiwi 2191）', () => {
   })
 
   it('带 / 与不带 / 的首部斜杠等价', () => {
-    expect(serviceUrl('org', '/users')).toBe('/api/org/v1/users')
-    expect(serviceUrl('org', 'users')).toBe('/api/org/v1/users')
+    expect(serviceUrl('file', '/files')).toBe('/api/file/v1/files')
+    expect(serviceUrl('file', 'files')).toBe('/api/file/v1/files')
   })
 
   it('折叠重复斜杠', () => {

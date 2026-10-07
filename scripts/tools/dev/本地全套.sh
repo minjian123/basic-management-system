@@ -21,7 +21,7 @@
 #                      别拿真账号连试错密码，否则真账号被锁 20003「账号已锁定」）
 #
 # 选项:
-#   --services "a b c"   要起的服务（缺省 tenant org platform identity）
+#   --services "a b c"   要起的服务（缺省 tenant platform identity）
 #   --redis URL          Redis 连接串（缺省远端开发机 DB5：redis://192.168.0.107:6379/5）
 #   --reset-db           起服务前把 `database/bms/bms_*.db` 备份移走（库结构/表归属变更后必须，否则 catalog 校验失败）
 #   --username NAME      建号账号（缺省 admin）
@@ -45,7 +45,9 @@ STATE_DIR="${BMS_LOCAL_STATE_DIR:-/tmp/bms-local-stack}"
 KEYS_FILE="$BACKEND/.dev-keys.local"
 PY="$BACKEND/.venv/bin/python"
 PORT="${BMS_LOCAL_PORT:-8000}"
-SERVICES_DEFAULT="tenant org platform identity"
+SERVICES_DEFAULT="tenant platform identity"
+# 说明：`org` 已随组织主数据归 mdm 产品服务（2026-10-07，bms 11_01）退出平台服务清单，
+# 本机全套不再纳管（mdm 组织域服务在本机跑法随 mdm 仓工程骨架另定）。
 SERVICES="$SERVICES_DEFAULT"
 REDIS_URL="${BMS_LOCAL_REDIS:-redis://192.168.0.107:6379/5}"
 RESET_DB=0
@@ -67,7 +69,6 @@ usage() {
 ip_of() {
   case "$1" in
     tenant) echo "127.0.0.2" ;;
-    org) echo "127.0.0.3" ;;
     platform) echo "127.0.0.4" ;;
     identity) echo "127.0.0.5" ;;
     *) echo "" ;;
@@ -161,7 +162,7 @@ ensure_hosts() {
   for svc in $SERVICES; do
     ip="$(ip_of "$svc")"
     if [ -z "$ip" ]; then
-      err "未知服务：$svc（可选 tenant / org / platform / identity）"
+      err "未知服务：$svc（可选 tenant / platform / identity）"
       return 2
     fi
     getent hosts "$svc" >/dev/null 2>&1 || missing=1
@@ -291,7 +292,7 @@ cmd_stop() {
   for svc in "$@"; do
     svc="${svc#bms_}"
     if [ -z "$(ip_of "$svc")" ]; then
-      err "未知服务：$svc（可选 tenant / org / platform / identity）"
+      err "未知服务：$svc（可选 tenant / platform / identity）"
       rc=2
       continue
     fi
@@ -335,7 +336,7 @@ cmd_seed() {
   ( cd "$BACKEND" && "$PY" -m ops.seed_tenant ) || rc=1
   log "种子：菜单元数据（配置解析 bms_platform.db）"
   ( cd "$BACKEND" && "$PY" -m ops.seed_menu ) || rc=1
-  log "建号：$USERNAME（demo 租户 org 库；口令只打印这一次——请登记到《本地资源》「BMS 应用账号」节）"
+  log "建号：$USERNAME（demo 租户 platform 库；口令只打印这一次——请登记到《本地资源》「BMS 应用账号」节）"
   local extra=()
   [ "$RESET_PASSWORD" -eq 1 ] && extra+=(--reset-password)
   # 口令不入库：未显式给 `--password` 时由建号脚本随机生成并打印一次（凭据只落《本地资源》）。
@@ -349,7 +350,7 @@ cmd_seed() {
 cmd_unlock() {
   [ -x "$PY" ] || { err "缺后端虚拟环境：$PY"; return 1; }
   local account="$USERNAME"
-  log "解锁：$account（清 org 库失败计数 / 锁 + Redis 登录失败计数键）"
+  log "解锁：$account（清 platform 租户库失败计数 / 锁 + Redis 登录失败计数键）"
   ( cd "$BACKEND" && BMS_UNLOCK_ACCOUNT="$account" BMS_UNLOCK_REDIS="$REDIS_URL" "$PY" - <<'PY'
 import os
 import sqlite3
@@ -364,15 +365,15 @@ from bms_core.db.keys import build_platform_db_key, build_tenant_db_key
 account = os.environ["BMS_UNLOCK_ACCOUNT"]
 # 库路径统一由配置解析（sqlite_dir 基址），不写死相对路径
 factory = EngineFactory(get_settings(), allow_cross_service=True)
-org_path = make_url(factory.resolved_url(build_tenant_db_key("demo", service="org"))).database
+user_path = make_url(factory.resolved_url(build_tenant_db_key("demo", service="platform"))).database
 tenant_path = make_url(factory.resolved_url(build_platform_db_key("tenant"))).database
-org = sqlite3.connect(org_path)
-rows = list(org.execute("select failed_count, locked_until from sys_user where username = ?", (account,)))
+conn = sqlite3.connect(user_path)
+rows = list(conn.execute("select failed_count, locked_until from sys_user where username = ?", (account,)))
 if not rows:
-    print(f"[unlock] 未找到账号：{account}（{org_path} 的 sys_user）")
+    print(f"[unlock] 未找到账号：{account}（{user_path} 的 sys_user）")
     raise SystemExit(2)
-org.execute("update sys_user set failed_count = 0, locked_until = NULL where username = ?", (account,))
-org.commit()
+conn.execute("update sys_user set failed_count = 0, locked_until = NULL where username = ?", (account,))
+conn.commit()
 print(f"[unlock] {account}：failed_count / locked_until {rows[0]} → (0, None)")
 
 tenants = list(sqlite3.connect(tenant_path).execute("select id from sys_tenant where code = 'demo'"))
@@ -387,7 +388,7 @@ PY
 
 cmd_env() {
   local mapping="" svc
-  for svc in tenant org platform identity; do
+  for svc in tenant platform identity; do
     mapping="$mapping${mapping:+,}$svc=$(ip_of "$svc")"
   done
   if [ -f "$FRONTEND_ENV" ] && grep -q '^VITE_LOCAL_API=' "$FRONTEND_ENV"; then

@@ -63,7 +63,7 @@ def test_chain_name_parsing() -> None:
 def test_chain_registry_shape() -> None:
     """链注册表：服务 × 数据源组合、版本目录两级、分支标签 = 链名。"""
     names = chain_names()
-    assert "platform:platform" in names and "platform:tenant" in names and "org:tenant" in names
+    assert "platform:platform" in names and "platform:tenant" in names and "file:tenant" in names
     assert len(names) == len(set(names))
     assert [chain.datasource for chain in service_chains("platform")] == list(DATASOURCES)
 
@@ -113,12 +113,8 @@ def test_chain_metadata_is_subset() -> None:
     assert "sys_notification" not in tenant.tables
     assert chain_metadata(resolve_chain("platform:archive")).tables == {}
     # 服务链：共享基础设施表（发件箱三表）+ 本服务自有模型表
-    # org 服务用户 / 账号锁定两表已随 02_05 归口 platform → org:tenant 只余基础设施三表
-    assert set(chain_metadata(resolve_chain("org:tenant")).tables) == {
-        "sys_outbox",
-        "sys_event_consumed",
-        "sys_event_dead_letter",
-    }
+    # `org` 的迁移链随组织主数据归 mdm 产品服务（2026-10-07，bms 11_01）：bms 侧已无该服务工程与链脚本，
+    # 其链与表由 mdm 仓库维护；本用例只对 bms 内已建服务成立。
     # 角色域 5 表 + 用户 / 账号锁定两表归 platform 服务租户库
     # （02_03：与平台元数据同服务；02_05：用户（账号）归口 platform，消除跨服务引用）
     assert {
@@ -200,8 +196,6 @@ def test_chain_revisions_integrity() -> None:
     assert platform_head == "0009_sys_product"
     tenant_service_head = ScriptDirectory.from_config(_config(default_chain())).get_current_head()
     assert tenant_service_head == "0008_user_tables"
-    org_head = ScriptDirectory.from_config(_config(resolve_chain("org:tenant"))).get_current_head()
-    assert org_head == "0006_drop_user_tables"
 
     for name in (
         "platform:platform",
@@ -210,7 +204,6 @@ def test_chain_revisions_integrity() -> None:
         "tenant:tenant",
         "identity:tenant",
         "identity:platform",
-        "org:tenant",
     ):
         heads = ScriptDirectory.from_config(_config(resolve_chain(name))).get_heads()
         assert len(heads) == 1, f"{name} 应恰好一个 head，实际 {heads}"

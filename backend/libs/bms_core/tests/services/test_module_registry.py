@@ -59,7 +59,7 @@ def _record(module_key: str = "pur", **overrides: object) -> ModuleRecord:
 
 @pytest.mark.kiwi_id(2162)
 def test_service_catalog_shape() -> None:
-    """服务目录清单：16 行（平台服务 10 + 业务模块 6），分组 / 批次 / 版本齐备。"""
+    """服务目录清单：16 行（平台服务 9 + 产品服务 7，`org` 归 mdm），分组 / 批次 / 版本齐备。"""
     keys = [module.module_key for module in SERVICE_CATALOG]
     assert len(SERVICE_CATALOG) == 16
     assert keys == [
@@ -96,6 +96,7 @@ def test_service_catalog_shape() -> None:
     }
     assert [module.module_key for module in PLATFORM_MODULES] == ["sys", "wf", "rpt", "ai"]
     assert [module.module_key for module in ModuleRegistry().list_modules(group=ServiceGroup.PRODUCT)] == [
+        "org",
         "pur",
         "pay",
         "sale",
@@ -120,9 +121,15 @@ def test_service_catalog_shape() -> None:
 
 @pytest.mark.kiwi_id(28)
 def test_validate_accepts_legal_registry() -> None:
-    """合法清单：服务目录与业务模块均通过。"""
+    """合法清单：服务目录与业务模块均通过（自定义小清单显式给空路由映射，隔离产品路由校验）。"""
     assert ModuleRegistry().validate() == []
-    assert ModuleRegistry(ConcurrentStableList([_record(), _record("sale", errcode_segment="12")])).validate() == []
+    assert (
+        ModuleRegistry(
+            ConcurrentStableList([_record(), _record("sale", errcode_segment="12")]),
+            routes=ConcurrentStableList(),
+        ).validate()
+        == []
+    )
 
 
 @pytest.mark.kiwi_id(28)
@@ -312,19 +319,19 @@ def test_validate_catalog_running_service_rules() -> None:
 
 @pytest.mark.kiwi_id(2249)
 def test_product_catalog_shape() -> None:
-    """产品档案清单：三行（biz / cw 已建 + mdm 预登记），状态齐备；模块产品归属均落在清单内。"""
+    """产品档案清单：三行（biz / cw / mdm 均已接入），状态齐备；模块产品归属均落在清单内。"""
     assert [product.product_key for product in PRODUCT_CATALOG] == ["biz", "cw", "mdm"]
     assert product_keys() == {"biz", "cw", "mdm"}
     assert {product.product_key: product.status for product in PRODUCT_CATALOG} == {
         "biz": ProductStatus.ENABLED,
         "cw": ProductStatus.ENABLED,
-        "mdm": ProductStatus.PLANNED,
+        "mdm": ProductStatus.ENABLED,
     }
     # 前端包来源本期留空（详设 12_01 §9：随 R4.3 前端多包合并回填）
     assert all(product.frontend_package_source is None for product in PRODUCT_CATALOG)
     assert len(ProductRegistry().list_products()) == 3
-    assert [product.product_key for product in ProductRegistry().list_products(status=ProductStatus.PLANNED)] == ["mdm"]
-    # 服务目录中产品模块的 product_key 均须已登记（先注册后建表：mdm 暂无模块行属正常）
+    assert ProductRegistry().list_products(status=ProductStatus.PLANNED) == []
+    # 服务目录中产品模块的 product_key 均须已登记（`mdm` 随 01_01 工程骨架接入，其 `org` 行已登记）
     assert {module.product_key for module in SERVICE_CATALOG if module.product_key} <= product_keys()
 
 
@@ -355,14 +362,24 @@ def test_product_registry_validate_and_conflicts() -> None:
 @pytest.mark.kiwi_id(2249)
 def test_module_product_ownership_rules() -> None:
     """产品归属：产品分组模块的 `product_key` 须在产品清单登记；未登记即拒（可注入自定义清单）。"""
-    assert ModuleRegistry(ConcurrentStableList([_record("pur", product_key="biz")])).validate() == []
-    errors = ModuleRegistry(ConcurrentStableList([_record("pur", product_key="ghost")])).validate()
+    assert (
+        ModuleRegistry(
+            ConcurrentStableList([_record("pur", product_key="biz")]),
+            routes=ConcurrentStableList(),
+        ).validate()
+        == []
+    )
+    errors = ModuleRegistry(
+        ConcurrentStableList([_record("pur", product_key="ghost")]),
+        routes=ConcurrentStableList(),
+    ).validate()
     assert any("product_key 未登记（ghost）" in error for error in errors)
 
     # 产品服务装配（12_03）注入自定义产品清单时，归属基准随之收窄
     errors = ModuleRegistry(
         ConcurrentStableList([_record("pur", product_key="biz")]),
         ConcurrentStableList([ProductRecord(product_key="mdm", name="主数据管理")]),
+        routes=ConcurrentStableList(),
     ).validate()
     assert any("product_key 未登记（biz）" in error for error in errors)
 
@@ -382,7 +399,7 @@ def test_validate_products_roundtrip_and_drift() -> None:
     assert any("产品档案库中登记行不在清单：ghost" in error for error in validate_products(products, records))
 
     records = ConcurrentStableList(
-        replace(record, status=ProductStatus.ENABLED) if record.product_key == "mdm" else record
+        replace(record, status=ProductStatus.PLANNED) if record.product_key == "mdm" else record
         for record in PRODUCT_CATALOG
     )
     assert any("status 与清单不一致" in error for error in validate_products(products, records))
@@ -453,9 +470,11 @@ def _route_modules(*records: ModuleRecord) -> ConcurrentStableList[ModuleRecord]
 
 
 @pytest.mark.kiwi_id(2250)
-def test_product_routes_default_empty_and_registry_passthrough() -> None:
-    """默认产品级路由映射为空清单（随产品接入补登）；空清单不改动既有模块校验结果。"""
-    assert PRODUCT_ROUTES == ()
+def test_product_routes_default_registered_mdm_org() -> None:
+    """默认产品级路由映射：`mdm/org → org` 一条（随产品接入登记完成）；默认清单校验无路由违规。"""
+    assert [(record.product_key, record.domain, record.service_key) for record in PRODUCT_ROUTES] == [
+        ("mdm", "org", "org")
+    ]
     errors = ModuleRegistry().validate()
     assert not any("产品级路由" in error for error in errors)
     assert (
