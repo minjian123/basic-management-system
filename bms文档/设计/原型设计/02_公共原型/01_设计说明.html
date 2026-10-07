@@ -79,7 +79,7 @@
         <li><strong>嵌入方式</strong>：各表单页系统信息 Tab 内放 <code>&lt;iframe class="sys-frame" src="../02_公共原型/04_系统信息组件.html"&gt;</code>（样式 <code>.sys-frame</code> 在 <code>原型样式.css</code>）；改组件一处，全站表单生效。</li>
         <li><strong>数据协议</strong>：父页在 iframe <code>@load</code> 时 <code>postMessage({type:'sys-info', data:{id,version,createdAt,createdBy,updatedAt,updatedBy,formKey,formLabel}})</code> 传入当前记录数据（表单标识传英文标识 formKey + 中文名 formLabel）。</li>
         <li><strong>高度自适应</strong>：组件渲染完成后回传 <code>{type:'sys-info-height', height}</code>，父页据此调整 iframe 高度。</li>
-        <li>已接入页面：表单框架骨架（03_通用骨架/04）、用户表单页（08_用户管理/03）、部门管理页/岗位表单页/部门表单页（11_部门与岗位/02/04/05）；产品业务表单页（采购申请表单等）在 biz 仓库原型中接入。</li>
+        <li>已接入页面：表单框架骨架（03_通用骨架/04）、用户表单页（08_用户管理/03）；部门管理页 / 岗位表单页 / 部门表单页已随组织主数据承接迁 mdm 产品原型（纯文本路径 mdm/mdm文档/设计/原型设计/，跨仓不设链接）；产品业务表单页（采购申请表单等）在 biz 仓库原型中接入。</li>
       </ul>
 
       <h2 id="usage">3. 引用方式</h2>
