@@ -30,7 +30,7 @@ const RESPONSE: MyMenuResponse = {
       icon: 'el:setting',
       sort: 10,
       hidden: false,
-      form: null,
+      forms: [],
       children: [
         {
           id: '2',
@@ -41,35 +41,46 @@ const RESPONSE: MyMenuResponse = {
           icon: null,
           sort: 1,
           hidden: false,
-          form: {
-            id: '10',
-            menu_id: '2',
-            business_id: '1',
-            business_code: 'user',
-            component: 'sys/users',
-            buttons: [
-              {
-                id: '20',
-                action_id: '30',
-                action_code: 'user:create',
-                name: '新增',
-                type: 'toolbar',
-                sort: 1,
-                visible: true,
-              },
-            ],
-            fields: [
-              {
-                id: '40',
-                field_key: 'username',
-                name: '用户名',
-                type: 'input',
-                sort: 1,
-                visible: true,
-                editable: false,
-              },
-            ],
-          },
+          forms: [
+            {
+              id: '10',
+              menu_id: '2',
+              business_id: '1',
+              business_code: 'user',
+              component: 'sys/users',
+              buttons: [
+                {
+                  id: '20',
+                  action_id: '30',
+                  action_code: 'user:create',
+                  name: '新增',
+                  type: 'toolbar',
+                  sort: 1,
+                  visible: true,
+                },
+              ],
+              fields: [
+                {
+                  id: '40',
+                  field_key: 'username',
+                  name: '用户名',
+                  type: 'input',
+                  sort: 1,
+                  visible: true,
+                  editable: false,
+                },
+              ],
+            },
+            {
+              id: '11',
+              menu_id: '2',
+              business_id: '2',
+              business_code: 'user_extra',
+              component: null,
+              buttons: [],
+              fields: [],
+            },
+          ],
           children: [],
         },
       ],
@@ -106,6 +117,9 @@ describe('useMenuStore（03_01）', () => {
     expect(store.formOf('/sys/users')?.visibleButtonCodes).toEqual(['user:create'])
     expect(store.formOf('/sys')).toBeUndefined()
     expect(store.fieldPermissions('10')).toEqual({ username: { visible: true, editable: false } })
+    // 多对多（02_03）：同一入口的多个表单全部进索引，按路径取首个为主表单
+    expect(Object.keys(store.forms).sort()).toEqual(['10', '11'])
+    expect(store.formOf('/sys/users')?.id).toBe('10')
     expect(store.permissions).toEqual(['user', 'user:create'])
     expect(getPermissionCodes()).toEqual(['user', 'user:create'])
   })

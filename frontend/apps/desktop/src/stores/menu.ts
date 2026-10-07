@@ -19,7 +19,7 @@ import { setPermissionCodes } from '@/utils/perm'
 export interface FormMeta {
   /** 表单主键。 */
   id: string
-  /** 所属菜单主键。 */
+  /** 关联菜单入口主键。 */
   menuId: string
   /** 业务权限码。 */
   businessCode: string
@@ -100,9 +100,12 @@ function toFormMeta(form: MyMenuForm): FormMeta {
 /**
  * 递归收集表单元数据（表单主键索引 + 菜单路径索引）。
  *
+ * 菜单 ↔ 表单为**多对多**（02_03 返工）：一个菜单入口可关联多个表单，全部进表单主键索引；
+ * 「菜单路径 → 表单主键」取该入口的**首个**关联作为主表单（既有按路径取表单元数据的消费口径）。
+ *
  * @param nodes 契约菜单节点（树）。
  * @param forms 输出：表单主键 → 元数据。
- * @param byPath 输出：菜单路径 → 表单主键。
+ * @param byPath 输出：菜单路径 → 主表单主键。
  */
 function collectForms(
   nodes: readonly MyMenuNode[],
@@ -110,9 +113,13 @@ function collectForms(
   byPath: Record<string, string>,
 ): void {
   for (const node of nodes) {
-    if (node.form !== null) {
-      forms[node.form.id] = toFormMeta(node.form)
-      byPath[node.path] = node.form.id
+    const nodeForms = node.forms ?? []
+    for (const form of nodeForms) {
+      forms[form.id] = toFormMeta(form)
+    }
+    const primary = nodeForms[0]
+    if (primary !== undefined) {
+      byPath[node.path] = primary.id
     }
     collectForms(node.children ?? [], forms, byPath)
   }

@@ -6,8 +6,13 @@
 
 __version__ = "0.1.0"
 
-CONTRACT_VERSION = "0.1.0"
-"""公开契约（OpenAPI）版本（服务自报；启动与 CI 校验主版本兼容，破坏性变更升主版本）。"""
+CONTRACT_VERSION = "0.2.0"
+"""公开契约（OpenAPI）版本（服务自报；启动与 CI 校验主版本兼容，破坏性变更升主版本）。
+
+**2026-10-07（02_03 角色管理）**：`sys_form` 去 `menu_id` 改经 `sys_menu_form` 多对多，
+`FormItem.menu_id` → `menu_ids`、`MyMenuNode.form` → `forms`、`FormCreateRequest` 改 `menu_ids`
+均属**破坏性变更**（只加不删口径违约），故升 `0.1.0` → `0.2.0`（详设 N8）。
+"""
 
 SERVICE_NAME = "platform"
 """服务名（`[app].service` 为空时取本声明；用于日志 `service`、探针响应与按服务配置）。"""

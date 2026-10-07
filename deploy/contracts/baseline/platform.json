@@ -116,6 +116,32 @@
         "title": "ApiResponse[ActionList]",
         "type": "object"
       },
+      "ApiResponse_BasePageResponse_AssignedUserItem__": {
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BasePageResponse_AssignedUserItem_"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[BasePageResponse[AssignedUserItem]]",
+        "type": "object"
+      },
       "ApiResponse_BasePageResponse_LockItem__": {
         "properties": {
           "code": {
@@ -140,6 +166,58 @@
           }
         },
         "title": "ApiResponse[BasePageResponse[LockItem]]",
+        "type": "object"
+      },
+      "ApiResponse_BasePageResponse_RoleItem__": {
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BasePageResponse_RoleItem_"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[BasePageResponse[RoleItem]]",
+        "type": "object"
+      },
+      "ApiResponse_BasePageResponse_UserItem__": {
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BasePageResponse_UserItem_"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[BasePageResponse[UserItem]]",
         "type": "object"
       },
       "ApiResponse_BusinessList_": {
@@ -552,6 +630,136 @@
         "title": "ApiResponse[NoneType]",
         "type": "object"
       },
+      "ApiResponse_RoleAssignedUsers_": {
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RoleAssignedUsers"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[RoleAssignedUsers]",
+        "type": "object"
+      },
+      "ApiResponse_RoleDataScopes_": {
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RoleDataScopes"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[RoleDataScopes]",
+        "type": "object"
+      },
+      "ApiResponse_RoleDetail_": {
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RoleDetail"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[RoleDetail]",
+        "type": "object"
+      },
+      "ApiResponse_RoleFields_": {
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RoleFields"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[RoleFields]",
+        "type": "object"
+      },
+      "ApiResponse_RolePermissions_": {
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RolePermissions"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[RolePermissions]",
+        "type": "object"
+      },
       "ApiResponse_UpdatePasswordResult_": {
         "properties": {
           "code": {
@@ -708,6 +916,70 @@
         "title": "ApiResponse[UserResetTargetResult]",
         "type": "object"
       },
+      "AssignedUserItem": {
+        "description": "角色已分配用户行（最小字段，同库取 `sys_user`）。",
+        "properties": {
+          "name": {
+            "description": "用户昵称 / 显示名",
+            "title": "Name",
+            "type": "string"
+          },
+          "status": {
+            "description": "账号状态（enabled/disabled）",
+            "title": "Status",
+            "type": "string"
+          },
+          "user_id": {
+            "description": "用户主键",
+            "title": "User Id",
+            "type": "string"
+          },
+          "username": {
+            "description": "登录账号",
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "username",
+          "name",
+          "status"
+        ],
+        "title": "AssignedUserItem",
+        "type": "object"
+      },
+      "BasePageResponse_AssignedUserItem_": {
+        "properties": {
+          "list": {
+            "items": {
+              "$ref": "#/components/schemas/AssignedUserItem"
+            },
+            "title": "List",
+            "type": "array"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "list",
+          "total",
+          "page",
+          "size"
+        ],
+        "title": "BasePageResponse[AssignedUserItem]",
+        "type": "object"
+      },
       "BasePageResponse_LockItem_": {
         "properties": {
           "list": {
@@ -737,6 +1009,68 @@
           "size"
         ],
         "title": "BasePageResponse[LockItem]",
+        "type": "object"
+      },
+      "BasePageResponse_RoleItem_": {
+        "properties": {
+          "list": {
+            "items": {
+              "$ref": "#/components/schemas/RoleItem"
+            },
+            "title": "List",
+            "type": "array"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "list",
+          "total",
+          "page",
+          "size"
+        ],
+        "title": "BasePageResponse[RoleItem]",
+        "type": "object"
+      },
+      "BasePageResponse_UserItem_": {
+        "properties": {
+          "list": {
+            "items": {
+              "$ref": "#/components/schemas/UserItem"
+            },
+            "title": "List",
+            "type": "array"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "list",
+          "total",
+          "page",
+          "size"
+        ],
+        "title": "BasePageResponse[UserItem]",
         "type": "object"
       },
       "BusinessItem": {
@@ -1719,7 +2053,7 @@
         "type": "object"
       },
       "FormCreateRequest": {
-        "description": "新增表单请求（挂菜单 / 挂业务）。",
+        "description": "新增表单请求（挂业务；菜单入口多对多，可空 = 孤儿表单）。",
         "properties": {
           "business_id": {
             "description": "所属业务码 ID",
@@ -1740,11 +2074,13 @@
             "description": "表单视图组件标识",
             "title": "Component"
           },
-          "menu_id": {
-            "description": "所属菜单 ID",
-            "exclusiveMinimum": 0.0,
-            "title": "Menu Id",
-            "type": "integer"
+          "menu_ids": {
+            "description": "关联菜单入口 ID 清单（可空）",
+            "items": {
+              "type": "integer"
+            },
+            "title": "Menu Ids",
+            "type": "array"
           },
           "status": {
             "default": "enabled",
@@ -1758,14 +2094,13 @@
           }
         },
         "required": [
-          "menu_id",
           "business_id"
         ],
         "title": "FormCreateRequest",
         "type": "object"
       },
       "FormItem": {
-        "description": "表单行。",
+        "description": "表单行（菜单入口多对多）。",
         "properties": {
           "business_id": {
             "description": "所属业务码 ID",
@@ -1795,10 +2130,13 @@
             "title": "Id",
             "type": "string"
           },
-          "menu_id": {
-            "description": "所属菜单 ID",
-            "title": "Menu Id",
-            "type": "string"
+          "menu_ids": {
+            "description": "关联菜单入口 ID 清单（空 = 无入口表单）",
+            "items": {
+              "type": "integer"
+            },
+            "title": "Menu Ids",
+            "type": "array"
           },
           "status": {
             "description": "状态（enabled/disabled）",
@@ -1814,7 +2152,6 @@
         },
         "required": [
           "id",
-          "menu_id",
           "business_id",
           "component",
           "status",
@@ -1840,7 +2177,7 @@
         "type": "object"
       },
       "FormUpdateRequest": {
-        "description": "更新表单请求。",
+        "description": "更新表单请求（菜单入口关联全量替换）。",
         "properties": {
           "business_id": {
             "description": "所属业务码 ID",
@@ -1860,6 +2197,14 @@
             ],
             "description": "表单视图组件标识",
             "title": "Component"
+          },
+          "menu_ids": {
+            "description": "关联菜单入口 ID 清单（全量；空 = 解除全部入口）",
+            "items": {
+              "type": "integer"
+            },
+            "title": "Menu Ids",
+            "type": "array"
           },
           "status": {
             "default": "enabled",
@@ -2644,7 +2989,7 @@
         "type": "object"
       },
       "MyMenuForm": {
-        "description": "动态菜单下的表单元数据。",
+        "description": "动态菜单下的表单元数据（一个菜单入口可关联多个表单）。",
         "properties": {
           "business_code": {
             "description": "业务权限码",
@@ -2690,7 +3035,7 @@
             "type": "string"
           },
           "menu_id": {
-            "description": "所属菜单 ID",
+            "description": "关联菜单入口 ID（即当前节点 ID）",
             "title": "Menu Id",
             "type": "string"
           }
@@ -2706,7 +3051,7 @@
         "type": "object"
       },
       "MyMenuNode": {
-        "description": "动态菜单节点（过滤后菜单树，含表单元数据）。",
+        "description": "动态菜单节点（过滤后菜单树，含表单元数据，多对多）。",
         "properties": {
           "children": {
             "description": "子菜单（树形）",
@@ -2728,16 +3073,13 @@
             "description": "视图组件标识",
             "title": "Component"
           },
-          "form": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/MyMenuForm"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "表单元数据（挂接链完整时非空）"
+          "forms": {
+            "description": "该入口关联的表单元数据（挂接链完整时非空）",
+            "items": {
+              "$ref": "#/components/schemas/MyMenuForm"
+            },
+            "title": "Forms",
+            "type": "array"
           },
           "hidden": {
             "description": "仅隐藏侧栏入口（路由可直达）",
@@ -2790,8 +3132,7 @@
           "component",
           "icon",
           "sort",
-          "hidden",
-          "form"
+          "hidden"
         ],
         "title": "MyMenuNode",
         "type": "object"
@@ -3004,6 +3345,558 @@
         ],
         "title": "QuerySchemeTarget",
         "type": "string"
+      },
+      "RoleAssignRequest": {
+        "description": "批量分配用户请求（幂等 upsert）。",
+        "properties": {
+          "user_ids": {
+            "description": "用户主键清单",
+            "items": {
+              "type": "integer"
+            },
+            "title": "User Ids",
+            "type": "array"
+          }
+        },
+        "title": "RoleAssignRequest",
+        "type": "object"
+      },
+      "RoleAssignedUsers": {
+        "description": "批量分配结果（分配后的用户清单）。",
+        "properties": {
+          "items": {
+            "description": "分配后的用户清单",
+            "items": {
+              "$ref": "#/components/schemas/AssignedUserItem"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "title": "RoleAssignedUsers",
+        "type": "object"
+      },
+      "RoleCreateRequest": {
+        "description": "新增角色请求（角色码创建后不可修改）。",
+        "properties": {
+          "code": {
+            "description": "角色码（租户内唯一，格式受 role.code_pattern 约束）",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Code",
+            "type": "string"
+          },
+          "name": {
+            "description": "角色名称",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "status": {
+            "default": "enabled",
+            "description": "状态（enabled/disabled）",
+            "enum": [
+              "enabled",
+              "disabled"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "name"
+        ],
+        "title": "RoleCreateRequest",
+        "type": "object"
+      },
+      "RoleDataScopeEntryItem": {
+        "description": "数据权限条目行（响应）。",
+        "properties": {
+          "config": {
+            "description": "结构化策略配置",
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Config",
+            "type": "array"
+          },
+          "dict_type_id": {
+            "description": "字典类型 ID",
+            "title": "Dict Type Id",
+            "type": "string"
+          },
+          "id": {
+            "description": "数据权限行主键",
+            "title": "Id",
+            "type": "string"
+          },
+          "policy_type": {
+            "description": "策略类型（select/region/match/extension）",
+            "title": "Policy Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "dict_type_id",
+          "policy_type"
+        ],
+        "title": "RoleDataScopeEntryItem",
+        "type": "object"
+      },
+      "RoleDataScopeEntryRequest": {
+        "description": "一条数据权限条目（角色 × 字典 × 策略 → 结构化配置，只选不编）。",
+        "properties": {
+          "config": {
+            "description": "结构化策略配置（按策略分结构）",
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Config",
+            "type": "array"
+          },
+          "dict_type_id": {
+            "description": "字典类型 ID",
+            "exclusiveMinimum": 0.0,
+            "title": "Dict Type Id",
+            "type": "integer"
+          },
+          "policy_type": {
+            "description": "策略类型（select/region/match/extension）",
+            "enum": [
+              "select",
+              "region",
+              "match",
+              "extension"
+            ],
+            "title": "Policy Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "dict_type_id",
+          "policy_type"
+        ],
+        "title": "RoleDataScopeEntryRequest",
+        "type": "object"
+      },
+      "RoleDataScopeRequest": {
+        "description": "数据权限全量覆盖请求。",
+        "properties": {
+          "entries": {
+            "description": "数据权限条目清单（全量）",
+            "items": {
+              "$ref": "#/components/schemas/RoleDataScopeEntryRequest"
+            },
+            "title": "Entries",
+            "type": "array"
+          }
+        },
+        "title": "RoleDataScopeRequest",
+        "type": "object"
+      },
+      "RoleDataScopes": {
+        "description": "角色数据权限条目清单（按字典 × 策略）。",
+        "properties": {
+          "items": {
+            "description": "数据权限条目清单",
+            "items": {
+              "$ref": "#/components/schemas/RoleDataScopeEntryItem"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "title": "RoleDataScopes",
+        "type": "object"
+      },
+      "RoleDetail": {
+        "description": "角色详情（含乐观锁版本与审计字段，供记录页「系统信息」）。",
+        "properties": {
+          "builtin": {
+            "description": "是否内置角色",
+            "title": "Builtin",
+            "type": "boolean"
+          },
+          "code": {
+            "description": "角色码",
+            "title": "Code",
+            "type": "string"
+          },
+          "created_at": {
+            "description": "创建时间（UTC）",
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "created_by": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "创建人",
+            "title": "Created By"
+          },
+          "id": {
+            "description": "角色主键",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "description": "角色名称",
+            "title": "Name",
+            "type": "string"
+          },
+          "status": {
+            "description": "状态（enabled/disabled）",
+            "title": "Status",
+            "type": "string"
+          },
+          "subject_count": {
+            "description": "已分配用户数",
+            "title": "Subject Count",
+            "type": "integer"
+          },
+          "updated_at": {
+            "description": "更新时间（UTC）",
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "updated_by": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "更新人",
+            "title": "Updated By"
+          },
+          "version": {
+            "description": "乐观锁版本",
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "name",
+          "status",
+          "builtin",
+          "subject_count",
+          "version",
+          "created_at",
+          "created_by",
+          "updated_at",
+          "updated_by"
+        ],
+        "title": "RoleDetail",
+        "type": "object"
+      },
+      "RoleFieldEntryItem": {
+        "description": "字段权限条目行（响应）。",
+        "properties": {
+          "editable": {
+            "description": "是否可编辑",
+            "title": "Editable",
+            "type": "boolean"
+          },
+          "field_id": {
+            "description": "字段 ID",
+            "title": "Field Id",
+            "type": "string"
+          },
+          "form_id": {
+            "description": "表单 ID",
+            "title": "Form Id",
+            "type": "string"
+          },
+          "id": {
+            "description": "字段权限行主键",
+            "title": "Id",
+            "type": "string"
+          },
+          "source_menu_id": {
+            "description": "来源菜单入口 ID（0 = 表单级直接授予）",
+            "title": "Source Menu Id",
+            "type": "string"
+          },
+          "visible": {
+            "description": "是否可见",
+            "title": "Visible",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "form_id",
+          "field_id",
+          "visible",
+          "editable",
+          "source_menu_id"
+        ],
+        "title": "RoleFieldEntryItem",
+        "type": "object"
+      },
+      "RoleFieldEntryRequest": {
+        "description": "一条字段权限条目（只落收窄项）。",
+        "properties": {
+          "editable": {
+            "default": true,
+            "description": "是否可编辑（不可见即不可编辑）",
+            "title": "Editable",
+            "type": "boolean"
+          },
+          "field_id": {
+            "description": "字段 ID",
+            "exclusiveMinimum": 0.0,
+            "title": "Field Id",
+            "type": "integer"
+          },
+          "form_id": {
+            "description": "表单 ID",
+            "exclusiveMinimum": 0.0,
+            "title": "Form Id",
+            "type": "integer"
+          },
+          "source_menu_id": {
+            "default": 0,
+            "description": "来源菜单入口 ID（0 = 表单级直接授予）",
+            "minimum": 0.0,
+            "title": "Source Menu Id",
+            "type": "integer"
+          },
+          "visible": {
+            "default": true,
+            "description": "是否可见",
+            "title": "Visible",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "form_id",
+          "field_id"
+        ],
+        "title": "RoleFieldEntryRequest",
+        "type": "object"
+      },
+      "RoleFieldRequest": {
+        "description": "字段权限全量覆盖请求。",
+        "properties": {
+          "entries": {
+            "description": "字段权限条目清单（全量）",
+            "items": {
+              "$ref": "#/components/schemas/RoleFieldEntryRequest"
+            },
+            "title": "Entries",
+            "type": "array"
+          }
+        },
+        "title": "RoleFieldRequest",
+        "type": "object"
+      },
+      "RoleFields": {
+        "description": "角色字段权限条目清单（仅收窄项）。",
+        "properties": {
+          "items": {
+            "description": "字段权限条目清单",
+            "items": {
+              "$ref": "#/components/schemas/RoleFieldEntryItem"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "title": "RoleFields",
+        "type": "object"
+      },
+      "RoleItem": {
+        "description": "角色列表行。",
+        "properties": {
+          "builtin": {
+            "description": "是否内置角色（按 role.protected_codes 判定）",
+            "title": "Builtin",
+            "type": "boolean"
+          },
+          "code": {
+            "description": "角色码",
+            "title": "Code",
+            "type": "string"
+          },
+          "id": {
+            "description": "角色主键",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "description": "角色名称",
+            "title": "Name",
+            "type": "string"
+          },
+          "status": {
+            "description": "状态（enabled/disabled）",
+            "title": "Status",
+            "type": "string"
+          },
+          "subject_count": {
+            "description": "已分配用户数",
+            "title": "Subject Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "name",
+          "status",
+          "builtin",
+          "subject_count"
+        ],
+        "title": "RoleItem",
+        "type": "object"
+      },
+      "RolePermissionEntryItem": {
+        "description": "授权条目行（响应）。",
+        "properties": {
+          "id": {
+            "description": "授权行主键",
+            "title": "Id",
+            "type": "string"
+          },
+          "perm_type": {
+            "description": "授权类型（menu/form/action）",
+            "title": "Perm Type",
+            "type": "string"
+          },
+          "source_menu_id": {
+            "description": "来源菜单入口 ID（0 = 表单级直接授予）",
+            "title": "Source Menu Id",
+            "type": "string"
+          },
+          "target_id": {
+            "description": "授权目标 ID",
+            "title": "Target Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "perm_type",
+          "target_id",
+          "source_menu_id"
+        ],
+        "title": "RolePermissionEntryItem",
+        "type": "object"
+      },
+      "RolePermissionEntryRequest": {
+        "description": "一条授权条目（菜单 / 表单 / 操作）。",
+        "properties": {
+          "perm_type": {
+            "description": "授权类型（menu/form/action）",
+            "enum": [
+              "menu",
+              "form",
+              "action"
+            ],
+            "title": "Perm Type",
+            "type": "string"
+          },
+          "source_menu_id": {
+            "default": 0,
+            "description": "来源菜单入口 ID（0 = 表单级直接授予）",
+            "minimum": 0.0,
+            "title": "Source Menu Id",
+            "type": "integer"
+          },
+          "target_id": {
+            "description": "授权目标 ID",
+            "exclusiveMinimum": 0.0,
+            "title": "Target Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "perm_type",
+          "target_id"
+        ],
+        "title": "RolePermissionEntryRequest",
+        "type": "object"
+      },
+      "RolePermissionRequest": {
+        "description": "授权全量覆盖请求（单事务先删后插）。",
+        "properties": {
+          "entries": {
+            "description": "授权条目清单（全量）",
+            "items": {
+              "$ref": "#/components/schemas/RolePermissionEntryRequest"
+            },
+            "title": "Entries",
+            "type": "array"
+          }
+        },
+        "title": "RolePermissionRequest",
+        "type": "object"
+      },
+      "RolePermissions": {
+        "description": "角色授权条目清单（含来源）。",
+        "properties": {
+          "items": {
+            "description": "授权条目清单",
+            "items": {
+              "$ref": "#/components/schemas/RolePermissionEntryItem"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "title": "RolePermissions",
+        "type": "object"
+      },
+      "RoleUpdateRequest": {
+        "description": "修改角色请求（名称 / 状态；乐观锁）；角色码不可改。",
+        "properties": {
+          "name": {
+            "description": "角色名称",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "status": {
+            "default": "enabled",
+            "description": "状态（enabled/disabled）",
+            "enum": [
+              "enabled",
+              "disabled"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "version": {
+            "description": "客户端版本（乐观锁比对）",
+            "minimum": 1.0,
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name",
+          "version"
+        ],
+        "title": "RoleUpdateRequest",
+        "type": "object"
       },
       "SqlValidateRequest": {
         "description": "SQL 校验请求：`{sql, datasource?}`。",
@@ -3337,6 +4230,39 @@
         "title": "UserExtensionUpdateRequest",
         "type": "object"
       },
+      "UserItem": {
+        "description": "最小用户只读查询行（选择用户弹窗 / 已分配列表回显；不含口令哈希与联系方式）。",
+        "properties": {
+          "id": {
+            "description": "用户主键",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "description": "用户昵称 / 显示名",
+            "title": "Name",
+            "type": "string"
+          },
+          "status": {
+            "description": "账号状态（enabled/disabled）",
+            "title": "Status",
+            "type": "string"
+          },
+          "username": {
+            "description": "登录账号",
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "username",
+          "name",
+          "status"
+        ],
+        "title": "UserItem",
+        "type": "object"
+      },
       "UserProfileRequest": {
         "description": "用户概要查询请求（按主键；租户经服务 JWT `tenant` claim 解析）。",
         "properties": {
@@ -3551,7 +4477,7 @@
   },
   "info": {
     "title": "BMS 基础管理系统",
-    "version": "0.1.0"
+    "version": "0.2.0"
   },
   "openapi": "3.1.0",
   "paths": {
@@ -7027,7 +7953,7 @@
     },
     "/api/v1/forms": {
       "get": {
-        "description": "表单清单（按菜单过滤）。\n\nArgs:\n    uow: 请求级工作单元。\n    outbox: 发件箱存储。\n    cache: 缓存 Region。\n    menu_id: 菜单主键（可空 = 全部）。\n\nReturns:\n    ApiResponse: 统一响应，data 为表单清单。",
+        "description": "表单清单（`menu_id` 非空时按菜单关联过滤；可空 = 全量，含无入口表单）。\n\nArgs:\n    uow: 请求级工作单元。\n    outbox: 发件箱存储。\n    cache: 缓存 Region。\n    menu_id: 菜单主键（可空 = 全量）。\n\nReturns:\n    ApiResponse: 统一响应，data 为表单清单。",
         "operationId": "list_forms_api_v1_forms_get",
         "parameters": [
           {
@@ -7128,7 +8054,7 @@
         ]
       },
       "post": {
-        "description": "新增表单（菜单 1:1 / 业务 1:1）。\n\nArgs:\n    req: 新增请求。\n    uow: 请求级工作单元。\n    outbox: 发件箱存储。\n    cache: 缓存 Region。\n\nReturns:\n    ApiResponse: 统一响应，data 为表单行。",
+        "description": "新增表单（业务 1:1；菜单入口多对多）。\n\nArgs:\n    req: 新增请求（关联菜单入口清单 / 业务码 / 组件 / 状态）。\n    uow: 请求级工作单元。\n    outbox: 发件箱存储。\n    cache: 缓存 Region。\n\nReturns:\n    ApiResponse: 统一响应，data 为表单行。",
         "operationId": "create_form_api_v1_forms_post",
         "requestBody": {
           "content": {
@@ -7311,7 +8237,7 @@
         ]
       },
       "put": {
-        "description": "更新表单。\n\nArgs:\n    form_id: 表单主键。\n    req: 更新请求。\n    uow: 请求级工作单元。\n    outbox: 发件箱存储。\n    cache: 缓存 Region。\n\nReturns:\n    ApiResponse: 统一响应，data 为更新后的表单行。",
+        "description": "更新表单（菜单入口关联全量替换）。\n\nArgs:\n    form_id: 表单主键。\n    req: 更新请求（关联菜单入口清单 / 业务码 / 组件 / 状态）。\n    uow: 请求级工作单元。\n    outbox: 发件箱存储。\n    cache: 缓存 Region。\n\nReturns:\n    ApiResponse: 统一响应，data 为更新后的表单行。",
         "operationId": "update_form_api_v1_forms__form_id__put",
         "parameters": [
           {
@@ -11254,6 +12180,1583 @@
         ]
       }
     },
+    "/api/v1/roles": {
+      "get": {
+        "description": "角色列表（关键字 / 状态筛选 + 分页；含内置标记与主体数）。\n\nArgs:\n    query: 分页与排序参数。\n    uow: 请求级工作单元。\n    config: 系统参数取数。\n    kw: 关键字（角色码 / 名称）。\n    status: 状态（enabled/disabled）。\n\nReturns:\n    ApiResponse: 统一响应，data 为分页角色列表。",
+        "operationId": "list_roles_api_v1_roles_get",
+        "parameters": [
+          {
+            "description": "关键字（角色码 / 名称；用户账号 / 姓名）",
+            "in": "query",
+            "name": "kw",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "关键字（角色码 / 名称；用户账号 / 姓名）",
+              "title": "Kw"
+            }
+          },
+          {
+            "description": "状态（enabled/disabled）",
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "状态（enabled/disabled）",
+              "title": "Status"
+            }
+          },
+          {
+            "description": "页码（从 1 起）",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "页码（从 1 起）",
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "每页条数（默认 20，上限 200）",
+            "in": "query",
+            "name": "size",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "description": "每页条数（默认 20，上限 200）",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Size",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "排序字段，逗号分隔多值（如 status,created_at）",
+            "in": "query",
+            "name": "order_by",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序字段，逗号分隔多值（如 status,created_at）",
+              "title": "Order By"
+            }
+          },
+          {
+            "description": "排序方向数组，与 order_by 位置一一对应",
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序方向数组，与 order_by 位置一一对应",
+              "title": "Order"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_BasePageResponse_RoleItem__"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "List Roles",
+        "tags": [
+          "roles"
+        ]
+      },
+      "post": {
+        "description": "新增角色（角色码唯一 + 格式校验；内置角色码不可自建）。\n\nArgs:\n    req: 新增请求（角色码 / 名称 / 状态）。\n    uow: 请求级工作单元。\n    config: 系统参数取数。\n\nReturns:\n    ApiResponse: 统一响应，data 为角色详情。",
+        "operationId": "create_role_api_v1_roles_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoleCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_RoleDetail_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Create Role",
+        "tags": [
+          "roles"
+        ]
+      }
+    },
+    "/api/v1/roles/{role_id}": {
+      "delete": {
+        "description": "删除角色（内置保护 + 用户分配保护）。\n\nArgs:\n    role_id: 角色主键。\n    uow: 请求级工作单元。\n    config: 系统参数取数。\n\nReturns:\n    ApiResponse: 统一响应（data 为空）。",
+        "operationId": "delete_role_api_v1_roles__role_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "role_id",
+            "required": true,
+            "schema": {
+              "title": "Role Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Delete Role",
+        "tags": [
+          "roles"
+        ]
+      },
+      "get": {
+        "description": "角色详情（含乐观锁版本与审计字段）。\n\nArgs:\n    role_id: 角色主键。\n    uow: 请求级工作单元。\n    config: 系统参数取数。\n\nReturns:\n    ApiResponse: 统一响应，data 为角色详情。",
+        "operationId": "get_role_api_v1_roles__role_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "role_id",
+            "required": true,
+            "schema": {
+              "title": "Role Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_RoleDetail_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Get Role",
+        "tags": [
+          "roles"
+        ]
+      },
+      "put": {
+        "description": "修改角色（名称 / 状态；乐观锁 + 内置角色保护）；角色码不可改。\n\nArgs:\n    role_id: 角色主键。\n    req: 修改请求（名称 / 状态 / 版本）。\n    uow: 请求级工作单元。\n    config: 系统参数取数。\n\nReturns:\n    ApiResponse: 统一响应，data 为角色详情。",
+        "operationId": "update_role_api_v1_roles__role_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "role_id",
+            "required": true,
+            "schema": {
+              "title": "Role Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoleUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_RoleDetail_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Update Role",
+        "tags": [
+          "roles"
+        ]
+      }
+    },
+    "/api/v1/roles/{role_id}/data-permissions": {
+      "get": {
+        "description": "角色数据权限条目（按字典 × 策略）。\n\nArgs:\n    role_id: 角色主键。\n    uow: 请求级工作单元。\n    platform_uow: 平台库工作单元（元数据校验器构造，本端点只读）。\n    cache: 缓存能力域。\n\nReturns:\n    ApiResponse: 统一响应，data 为数据权限条目清单。",
+        "operationId": "list_data_scopes_api_v1_roles__role_id__data_permissions_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "role_id",
+            "required": true,
+            "schema": {
+              "title": "Role Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_RoleDataScopes_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "List Data Scopes",
+        "tags": [
+          "roles"
+        ]
+      },
+      "put": {
+        "description": "全量覆盖角色数据权限（单事务先删后插）。\n\nArgs:\n    role_id: 角色主键。\n    req: 数据权限全量请求。\n    uow: 请求级工作单元。\n    platform_uow: 平台库工作单元（元数据校验器构造）。\n    cache: 缓存能力域（权限版本 +1）。\n\nReturns:\n    ApiResponse: 统一响应，data 为重建后的数据权限条目清单。",
+        "operationId": "replace_data_scopes_api_v1_roles__role_id__data_permissions_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "role_id",
+            "required": true,
+            "schema": {
+              "title": "Role Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoleDataScopeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_RoleDataScopes_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Replace Data Scopes",
+        "tags": [
+          "roles"
+        ]
+      }
+    },
+    "/api/v1/roles/{role_id}/fields": {
+      "get": {
+        "description": "角色字段权限条目（仅收窄项）。\n\nArgs:\n    role_id: 角色主键。\n    uow: 请求级工作单元。\n    platform_uow: 平台库工作单元（元数据校验器构造，本端点只读）。\n    cache: 缓存能力域。\n\nReturns:\n    ApiResponse: 统一响应，data 为字段权限条目清单。",
+        "operationId": "list_fields_api_v1_roles__role_id__fields_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "role_id",
+            "required": true,
+            "schema": {
+              "title": "Role Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_RoleFields_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "List Fields",
+        "tags": [
+          "roles"
+        ]
+      },
+      "put": {
+        "description": "全量覆盖角色字段权限（单事务先删后插）。\n\nArgs:\n    role_id: 角色主键。\n    req: 字段权限全量请求。\n    uow: 请求级工作单元。\n    platform_uow: 平台库工作单元（字段归属校验）。\n    cache: 缓存能力域（权限版本 +1）。\n\nReturns:\n    ApiResponse: 统一响应，data 为重建后的字段权限条目清单。",
+        "operationId": "replace_fields_api_v1_roles__role_id__fields_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "role_id",
+            "required": true,
+            "schema": {
+              "title": "Role Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoleFieldRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_RoleFields_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Replace Fields",
+        "tags": [
+          "roles"
+        ]
+      }
+    },
+    "/api/v1/roles/{role_id}/permissions": {
+      "get": {
+        "description": "角色授权条目（菜单 / 表单 / 操作，含来源）。\n\nArgs:\n    role_id: 角色主键。\n    uow: 请求级工作单元。\n    platform_uow: 平台库工作单元（元数据校验器构造，本端点只读）。\n    cache: 缓存能力域。\n\nReturns:\n    ApiResponse: 统一响应，data 为授权条目清单。",
+        "operationId": "list_permissions_api_v1_roles__role_id__permissions_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "role_id",
+            "required": true,
+            "schema": {
+              "title": "Role Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_RolePermissions_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "List Permissions",
+        "tags": [
+          "roles"
+        ]
+      },
+      "put": {
+        "description": "全量覆盖角色授权（单事务先删后插；可按幂等键复用首次结果）。\n\nArgs:\n    role_id: 角色主键。\n    req: 授权全量请求（条目清单）。\n    uow: 请求级工作单元。\n    platform_uow: 平台库工作单元（授权目标校验）。\n    cache: 缓存能力域（权限版本 +1）。\n    idempotency: 幂等基座（首次结果复用）。\n    idempotency_key: 幂等键请求头（可选）。\n\nReturns:\n    ApiResponse: 统一响应，data 为重建后的授权条目清单。",
+        "operationId": "replace_permissions_api_v1_roles__role_id__permissions_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "role_id",
+            "required": true,
+            "schema": {
+              "title": "Role Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "幂等键（可选；重复提交复用首次结果）",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "幂等键（可选；重复提交复用首次结果）",
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RolePermissionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_RolePermissions_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Replace Permissions",
+        "tags": [
+          "roles"
+        ]
+      }
+    },
+    "/api/v1/roles/{role_id}/users": {
+      "get": {
+        "description": "角色已分配用户列表（同库取用户账号 / 姓名 / 状态）。\n\nArgs:\n    role_id: 角色主键。\n    query: 分页与排序参数。\n    uow: 请求级工作单元。\n    cache: 缓存能力域（依赖注入占位）。\n    kw: 关键字（用户账号 / 姓名）。\n    status: 用户状态（enabled/disabled）。\n\nReturns:\n    ApiResponse: 统一响应，data 为分页用户列表。",
+        "operationId": "list_assigned_users_api_v1_roles__role_id__users_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "role_id",
+            "required": true,
+            "schema": {
+              "title": "Role Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "关键字（角色码 / 名称；用户账号 / 姓名）",
+            "in": "query",
+            "name": "kw",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "关键字（角色码 / 名称；用户账号 / 姓名）",
+              "title": "Kw"
+            }
+          },
+          {
+            "description": "状态（enabled/disabled）",
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "状态（enabled/disabled）",
+              "title": "Status"
+            }
+          },
+          {
+            "description": "页码（从 1 起）",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "页码（从 1 起）",
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "每页条数（默认 20，上限 200）",
+            "in": "query",
+            "name": "size",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "description": "每页条数（默认 20，上限 200）",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Size",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "排序字段，逗号分隔多值（如 status,created_at）",
+            "in": "query",
+            "name": "order_by",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序字段，逗号分隔多值（如 status,created_at）",
+              "title": "Order By"
+            }
+          },
+          {
+            "description": "排序方向数组，与 order_by 位置一一对应",
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序方向数组，与 order_by 位置一一对应",
+              "title": "Order"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_BasePageResponse_AssignedUserItem__"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "List Assigned Users",
+        "tags": [
+          "roles"
+        ]
+      },
+      "post": {
+        "description": "批量分配用户（幂等 upsert；可按幂等键复用首次结果）。\n\nArgs:\n    role_id: 角色主键。\n    req: 分配请求（用户主键清单）。\n    uow: 请求级工作单元。\n    cache: 缓存能力域（权限版本 +1）。\n    idempotency: 幂等基座（首次结果复用）。\n    tenant: 解析链租户上下文（幂等键作用域位）。\n    idempotency_key: 幂等键请求头（可选）。\n\nReturns:\n    ApiResponse: 统一响应，data 为分配后的用户清单。",
+        "operationId": "assign_users_api_v1_roles__role_id__users_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "role_id",
+            "required": true,
+            "schema": {
+              "title": "Role Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "幂等键（可选；重复提交复用首次结果）",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "幂等键（可选；重复提交复用首次结果）",
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoleAssignRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_RoleAssignedUsers_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Assign Users",
+        "tags": [
+          "roles"
+        ]
+      }
+    },
+    "/api/v1/roles/{role_id}/users/{user_id}": {
+      "delete": {
+        "description": "解绑用户（软删分配行；未分配时幂等无操作）。\n\nArgs:\n    role_id: 角色主键。\n    user_id: 用户主键。\n    uow: 请求级工作单元。\n    cache: 缓存能力域（权限版本 +1）。\n\nReturns:\n    ApiResponse: 统一响应（data 为空）。",
+        "operationId": "unassign_user_api_v1_roles__role_id__users__user_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "role_id",
+            "required": true,
+            "schema": {
+              "title": "Role Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Unassign User",
+        "tags": [
+          "roles"
+        ]
+      }
+    },
     "/api/v1/user-extensions": {
       "get": {
         "description": "按用户列示扩展信息。\n\nArgs:\n    user_id: 用户主键。\n    uow: 请求级工作单元。\n\nReturns:\n    ApiResponse: 统一响应，data 为扩展信息列表（保序）。",
@@ -11540,6 +14043,192 @@
         "summary": "Update User Extension",
         "tags": [
           "user-extensions"
+        ]
+      }
+    },
+    "/api/v1/users": {
+      "get": {
+        "description": "用户最小字段列表（账号 / 姓名关键字与状态筛选 + 分页）。\n\nArgs:\n    query: 分页与排序参数。\n    uow: 请求级工作单元。\n    kw: 关键字（账号 / 姓名）。\n    status: 账号状态（enabled/disabled）。\n\nReturns:\n    ApiResponse: 统一响应，data 为分页用户列表（最小字段）。",
+        "operationId": "list_users_api_v1_users_get",
+        "parameters": [
+          {
+            "description": "关键字（账号 / 姓名）",
+            "in": "query",
+            "name": "kw",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "关键字（账号 / 姓名）",
+              "title": "Kw"
+            }
+          },
+          {
+            "description": "账号状态（enabled/disabled）",
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "账号状态（enabled/disabled）",
+              "title": "Status"
+            }
+          },
+          {
+            "description": "页码（从 1 起）",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "页码（从 1 起）",
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "每页条数（默认 20，上限 200）",
+            "in": "query",
+            "name": "size",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "description": "每页条数（默认 20，上限 200）",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Size",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "排序字段，逗号分隔多值（如 status,created_at）",
+            "in": "query",
+            "name": "order_by",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序字段，逗号分隔多值（如 status,created_at）",
+              "title": "Order By"
+            }
+          },
+          {
+            "description": "排序方向数组，与 order_by 位置一一对应",
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序方向数组，与 order_by 位置一一对应",
+              "title": "Order"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_BasePageResponse_UserItem__"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "List Users",
+        "tags": [
+          "users"
         ]
       }
     },

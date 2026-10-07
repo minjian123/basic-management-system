@@ -845,13 +845,13 @@ export interface paths {
         };
         /**
          * List Forms
-         * @description 表单清单（按菜单过滤）。
+         * @description 表单清单（`menu_id` 非空时按菜单关联过滤；可空 = 全量，含无入口表单）。
          *
          *     Args:
          *         uow: 请求级工作单元。
          *         outbox: 发件箱存储。
          *         cache: 缓存 Region。
-         *         menu_id: 菜单主键（可空 = 全部）。
+         *         menu_id: 菜单主键（可空 = 全量）。
          *
          *     Returns:
          *         ApiResponse: 统一响应，data 为表单清单。
@@ -860,10 +860,10 @@ export interface paths {
         put?: never;
         /**
          * Create Form
-         * @description 新增表单（菜单 1:1 / 业务 1:1）。
+         * @description 新增表单（业务 1:1；菜单入口多对多）。
          *
          *     Args:
-         *         req: 新增请求。
+         *         req: 新增请求（关联菜单入口清单 / 业务码 / 组件 / 状态）。
          *         uow: 请求级工作单元。
          *         outbox: 发件箱存储。
          *         cache: 缓存 Region。
@@ -888,11 +888,11 @@ export interface paths {
         get?: never;
         /**
          * Update Form
-         * @description 更新表单。
+         * @description 更新表单（菜单入口关联全量替换）。
          *
          *     Args:
          *         form_id: 表单主键。
-         *         req: 更新请求。
+         *         req: 更新请求（关联菜单入口清单 / 业务码 / 组件 / 状态）。
          *         uow: 请求级工作单元。
          *         outbox: 发件箱存储。
          *         cache: 缓存 Region。
@@ -1841,6 +1841,308 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/roles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Roles
+         * @description 角色列表（关键字 / 状态筛选 + 分页；含内置标记与主体数）。
+         *
+         *     Args:
+         *         query: 分页与排序参数。
+         *         uow: 请求级工作单元。
+         *         config: 系统参数取数。
+         *         kw: 关键字（角色码 / 名称）。
+         *         status: 状态（enabled/disabled）。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为分页角色列表。
+         */
+        get: operations["list_roles_api_v1_roles_get"];
+        put?: never;
+        /**
+         * Create Role
+         * @description 新增角色（角色码唯一 + 格式校验；内置角色码不可自建）。
+         *
+         *     Args:
+         *         req: 新增请求（角色码 / 名称 / 状态）。
+         *         uow: 请求级工作单元。
+         *         config: 系统参数取数。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为角色详情。
+         */
+        post: operations["create_role_api_v1_roles_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/roles/{role_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Role
+         * @description 角色详情（含乐观锁版本与审计字段）。
+         *
+         *     Args:
+         *         role_id: 角色主键。
+         *         uow: 请求级工作单元。
+         *         config: 系统参数取数。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为角色详情。
+         */
+        get: operations["get_role_api_v1_roles__role_id__get"];
+        /**
+         * Update Role
+         * @description 修改角色（名称 / 状态；乐观锁 + 内置角色保护）；角色码不可改。
+         *
+         *     Args:
+         *         role_id: 角色主键。
+         *         req: 修改请求（名称 / 状态 / 版本）。
+         *         uow: 请求级工作单元。
+         *         config: 系统参数取数。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为角色详情。
+         */
+        put: operations["update_role_api_v1_roles__role_id__put"];
+        post?: never;
+        /**
+         * Delete Role
+         * @description 删除角色（内置保护 + 用户分配保护）。
+         *
+         *     Args:
+         *         role_id: 角色主键。
+         *         uow: 请求级工作单元。
+         *         config: 系统参数取数。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应（data 为空）。
+         */
+        delete: operations["delete_role_api_v1_roles__role_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/roles/{role_id}/data-permissions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Data Scopes
+         * @description 角色数据权限条目（按字典 × 策略）。
+         *
+         *     Args:
+         *         role_id: 角色主键。
+         *         uow: 请求级工作单元。
+         *         platform_uow: 平台库工作单元（元数据校验器构造，本端点只读）。
+         *         cache: 缓存能力域。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为数据权限条目清单。
+         */
+        get: operations["list_data_scopes_api_v1_roles__role_id__data_permissions_get"];
+        /**
+         * Replace Data Scopes
+         * @description 全量覆盖角色数据权限（单事务先删后插）。
+         *
+         *     Args:
+         *         role_id: 角色主键。
+         *         req: 数据权限全量请求。
+         *         uow: 请求级工作单元。
+         *         platform_uow: 平台库工作单元（元数据校验器构造）。
+         *         cache: 缓存能力域（权限版本 +1）。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为重建后的数据权限条目清单。
+         */
+        put: operations["replace_data_scopes_api_v1_roles__role_id__data_permissions_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/roles/{role_id}/fields": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Fields
+         * @description 角色字段权限条目（仅收窄项）。
+         *
+         *     Args:
+         *         role_id: 角色主键。
+         *         uow: 请求级工作单元。
+         *         platform_uow: 平台库工作单元（元数据校验器构造，本端点只读）。
+         *         cache: 缓存能力域。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为字段权限条目清单。
+         */
+        get: operations["list_fields_api_v1_roles__role_id__fields_get"];
+        /**
+         * Replace Fields
+         * @description 全量覆盖角色字段权限（单事务先删后插）。
+         *
+         *     Args:
+         *         role_id: 角色主键。
+         *         req: 字段权限全量请求。
+         *         uow: 请求级工作单元。
+         *         platform_uow: 平台库工作单元（字段归属校验）。
+         *         cache: 缓存能力域（权限版本 +1）。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为重建后的字段权限条目清单。
+         */
+        put: operations["replace_fields_api_v1_roles__role_id__fields_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/roles/{role_id}/permissions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Permissions
+         * @description 角色授权条目（菜单 / 表单 / 操作，含来源）。
+         *
+         *     Args:
+         *         role_id: 角色主键。
+         *         uow: 请求级工作单元。
+         *         platform_uow: 平台库工作单元（元数据校验器构造，本端点只读）。
+         *         cache: 缓存能力域。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为授权条目清单。
+         */
+        get: operations["list_permissions_api_v1_roles__role_id__permissions_get"];
+        /**
+         * Replace Permissions
+         * @description 全量覆盖角色授权（单事务先删后插；可按幂等键复用首次结果）。
+         *
+         *     Args:
+         *         role_id: 角色主键。
+         *         req: 授权全量请求（条目清单）。
+         *         uow: 请求级工作单元。
+         *         platform_uow: 平台库工作单元（授权目标校验）。
+         *         cache: 缓存能力域（权限版本 +1）。
+         *         idempotency: 幂等基座（首次结果复用）。
+         *         idempotency_key: 幂等键请求头（可选）。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为重建后的授权条目清单。
+         */
+        put: operations["replace_permissions_api_v1_roles__role_id__permissions_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/roles/{role_id}/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Assigned Users
+         * @description 角色已分配用户列表（同库取用户账号 / 姓名 / 状态）。
+         *
+         *     Args:
+         *         role_id: 角色主键。
+         *         query: 分页与排序参数。
+         *         uow: 请求级工作单元。
+         *         cache: 缓存能力域（依赖注入占位）。
+         *         kw: 关键字（用户账号 / 姓名）。
+         *         status: 用户状态（enabled/disabled）。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为分页用户列表。
+         */
+        get: operations["list_assigned_users_api_v1_roles__role_id__users_get"];
+        put?: never;
+        /**
+         * Assign Users
+         * @description 批量分配用户（幂等 upsert；可按幂等键复用首次结果）。
+         *
+         *     Args:
+         *         role_id: 角色主键。
+         *         req: 分配请求（用户主键清单）。
+         *         uow: 请求级工作单元。
+         *         cache: 缓存能力域（权限版本 +1）。
+         *         idempotency: 幂等基座（首次结果复用）。
+         *         tenant: 解析链租户上下文（幂等键作用域位）。
+         *         idempotency_key: 幂等键请求头（可选）。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为分配后的用户清单。
+         */
+        post: operations["assign_users_api_v1_roles__role_id__users_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/roles/{role_id}/users/{user_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Unassign User
+         * @description 解绑用户（软删分配行；未分配时幂等无操作）。
+         *
+         *     Args:
+         *         role_id: 角色主键。
+         *         user_id: 用户主键。
+         *         uow: 请求级工作单元。
+         *         cache: 缓存能力域（权限版本 +1）。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应（data 为空）。
+         */
+        delete: operations["unassign_user_api_v1_roles__role_id__users__user_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/user-extensions": {
         parameters: {
             query?: never;
@@ -1907,6 +2209,35 @@ export interface paths {
          *         ConflictError: 改后与既有行同标签（10003）。
          */
         put: operations["update_user_extension_api_v1_user_extensions__extension_id__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Users
+         * @description 用户最小字段列表（账号 / 姓名关键字与状态筛选 + 分页）。
+         *
+         *     Args:
+         *         query: 分页与排序参数。
+         *         uow: 请求级工作单元。
+         *         kw: 关键字（账号 / 姓名）。
+         *         status: 账号状态（enabled/disabled）。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为分页用户列表（最小字段）。
+         */
+        get: operations["list_users_api_v1_users_get"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -2055,6 +2386,20 @@ export interface components {
              */
             message: string;
         };
+        /** ApiResponse[BasePageResponse[AssignedUserItem]] */
+        ApiResponse_BasePageResponse_AssignedUserItem__: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["BasePageResponse_AssignedUserItem_"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
         /** ApiResponse[BasePageResponse[LockItem]] */
         ApiResponse_BasePageResponse_LockItem__: {
             /**
@@ -2063,6 +2408,34 @@ export interface components {
              */
             code: number;
             data?: components["schemas"]["BasePageResponse_LockItem_"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[BasePageResponse[RoleItem]] */
+        ApiResponse_BasePageResponse_RoleItem__: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["BasePageResponse_RoleItem_"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[BasePageResponse[UserItem]] */
+        ApiResponse_BasePageResponse_UserItem__: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["BasePageResponse_UserItem_"] | null;
             /**
              * Message
              * @default ok
@@ -2294,6 +2667,76 @@ export interface components {
              */
             message: string;
         };
+        /** ApiResponse[RoleAssignedUsers] */
+        ApiResponse_RoleAssignedUsers_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["RoleAssignedUsers"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[RoleDataScopes] */
+        ApiResponse_RoleDataScopes_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["RoleDataScopes"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[RoleDetail] */
+        ApiResponse_RoleDetail_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["RoleDetail"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[RoleFields] */
+        ApiResponse_RoleFields_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["RoleFields"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[RolePermissions] */
+        ApiResponse_RolePermissions_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["RolePermissions"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
         /** ApiResponse[UpdatePasswordResult] */
         ApiResponse_UpdatePasswordResult_: {
             /**
@@ -2378,10 +2821,69 @@ export interface components {
              */
             message: string;
         };
+        /**
+         * AssignedUserItem
+         * @description 角色已分配用户行（最小字段，同库取 `sys_user`）。
+         */
+        AssignedUserItem: {
+            /**
+             * Name
+             * @description 用户昵称 / 显示名
+             */
+            name: string;
+            /**
+             * Status
+             * @description 账号状态（enabled/disabled）
+             */
+            status: string;
+            /**
+             * User Id
+             * @description 用户主键
+             */
+            user_id: string;
+            /**
+             * Username
+             * @description 登录账号
+             */
+            username: string;
+        };
+        /** BasePageResponse[AssignedUserItem] */
+        BasePageResponse_AssignedUserItem_: {
+            /** List */
+            list: components["schemas"]["AssignedUserItem"][];
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Total */
+            total: number;
+        };
         /** BasePageResponse[LockItem] */
         BasePageResponse_LockItem_: {
             /** List */
             list: components["schemas"]["LockItem"][];
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Total */
+            total: number;
+        };
+        /** BasePageResponse[RoleItem] */
+        BasePageResponse_RoleItem_: {
+            /** List */
+            list: components["schemas"]["RoleItem"][];
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Total */
+            total: number;
+        };
+        /** BasePageResponse[UserItem] */
+        BasePageResponse_UserItem_: {
+            /** List */
+            list: components["schemas"]["UserItem"][];
             /** Page */
             page: number;
             /** Size */
@@ -3077,7 +3579,7 @@ export interface components {
         };
         /**
          * FormCreateRequest
-         * @description 新增表单请求（挂菜单 / 挂业务）。
+         * @description 新增表单请求（挂业务；菜单入口多对多，可空 = 孤儿表单）。
          */
         FormCreateRequest: {
             /**
@@ -3091,10 +3593,10 @@ export interface components {
              */
             component?: string | null;
             /**
-             * Menu Id
-             * @description 所属菜单 ID
+             * Menu Ids
+             * @description 关联菜单入口 ID 清单（可空）
              */
-            menu_id: number;
+            menu_ids?: number[];
             /**
              * Status
              * @description 状态（enabled/disabled）
@@ -3105,7 +3607,7 @@ export interface components {
         };
         /**
          * FormItem
-         * @description 表单行。
+         * @description 表单行（菜单入口多对多）。
          */
         FormItem: {
             /**
@@ -3130,10 +3632,10 @@ export interface components {
              */
             id: string;
             /**
-             * Menu Id
-             * @description 所属菜单 ID
+             * Menu Ids
+             * @description 关联菜单入口 ID 清单（空 = 无入口表单）
              */
-            menu_id: string;
+            menu_ids?: number[];
             /**
              * Status
              * @description 状态（enabled/disabled）
@@ -3159,7 +3661,7 @@ export interface components {
         };
         /**
          * FormUpdateRequest
-         * @description 更新表单请求。
+         * @description 更新表单请求（菜单入口关联全量替换）。
          */
         FormUpdateRequest: {
             /**
@@ -3172,6 +3674,11 @@ export interface components {
              * @description 表单视图组件标识
              */
             component?: string | null;
+            /**
+             * Menu Ids
+             * @description 关联菜单入口 ID 清单（全量；空 = 解除全部入口）
+             */
+            menu_ids?: number[];
             /**
              * Status
              * @description 状态（enabled/disabled）
@@ -3662,7 +4169,7 @@ export interface components {
         };
         /**
          * MyMenuForm
-         * @description 动态菜单下的表单元数据。
+         * @description 动态菜单下的表单元数据（一个菜单入口可关联多个表单）。
          */
         MyMenuForm: {
             /**
@@ -3697,13 +4204,13 @@ export interface components {
             id: string;
             /**
              * Menu Id
-             * @description 所属菜单 ID
+             * @description 关联菜单入口 ID（即当前节点 ID）
              */
             menu_id: string;
         };
         /**
          * MyMenuNode
-         * @description 动态菜单节点（过滤后菜单树，含表单元数据）。
+         * @description 动态菜单节点（过滤后菜单树，含表单元数据，多对多）。
          */
         MyMenuNode: {
             /**
@@ -3716,8 +4223,11 @@ export interface components {
              * @description 视图组件标识
              */
             component: string | null;
-            /** @description 表单元数据（挂接链完整时非空） */
-            form: components["schemas"]["MyMenuForm"] | null;
+            /**
+             * Forms
+             * @description 该入口关联的表单元数据（挂接链完整时非空）
+             */
+            forms?: components["schemas"]["MyMenuForm"][];
             /**
              * Hidden
              * @description 仅隐藏侧栏入口（路由可直达）
@@ -3885,6 +4395,410 @@ export interface components {
          * @enum {string}
          */
         QuerySchemeTarget: "items" | "business";
+        /**
+         * RoleAssignRequest
+         * @description 批量分配用户请求（幂等 upsert）。
+         */
+        RoleAssignRequest: {
+            /**
+             * User Ids
+             * @description 用户主键清单
+             */
+            user_ids?: number[];
+        };
+        /**
+         * RoleAssignedUsers
+         * @description 批量分配结果（分配后的用户清单）。
+         */
+        RoleAssignedUsers: {
+            /**
+             * Items
+             * @description 分配后的用户清单
+             */
+            items?: components["schemas"]["AssignedUserItem"][];
+        };
+        /**
+         * RoleCreateRequest
+         * @description 新增角色请求（角色码创建后不可修改）。
+         */
+        RoleCreateRequest: {
+            /**
+             * Code
+             * @description 角色码（租户内唯一，格式受 role.code_pattern 约束）
+             */
+            code: string;
+            /**
+             * Name
+             * @description 角色名称
+             */
+            name: string;
+            /**
+             * Status
+             * @description 状态（enabled/disabled）
+             * @default enabled
+             * @enum {string}
+             */
+            status: "enabled" | "disabled";
+        };
+        /**
+         * RoleDataScopeEntryItem
+         * @description 数据权限条目行（响应）。
+         */
+        RoleDataScopeEntryItem: {
+            /**
+             * Config
+             * @description 结构化策略配置
+             */
+            config?: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Dict Type Id
+             * @description 字典类型 ID
+             */
+            dict_type_id: string;
+            /**
+             * Id
+             * @description 数据权限行主键
+             */
+            id: string;
+            /**
+             * Policy Type
+             * @description 策略类型（select/region/match/extension）
+             */
+            policy_type: string;
+        };
+        /**
+         * RoleDataScopeEntryRequest
+         * @description 一条数据权限条目（角色 × 字典 × 策略 → 结构化配置，只选不编）。
+         */
+        RoleDataScopeEntryRequest: {
+            /**
+             * Config
+             * @description 结构化策略配置（按策略分结构）
+             */
+            config?: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Dict Type Id
+             * @description 字典类型 ID
+             */
+            dict_type_id: number;
+            /**
+             * Policy Type
+             * @description 策略类型（select/region/match/extension）
+             * @enum {string}
+             */
+            policy_type: "select" | "region" | "match" | "extension";
+        };
+        /**
+         * RoleDataScopeRequest
+         * @description 数据权限全量覆盖请求。
+         */
+        RoleDataScopeRequest: {
+            /**
+             * Entries
+             * @description 数据权限条目清单（全量）
+             */
+            entries?: components["schemas"]["RoleDataScopeEntryRequest"][];
+        };
+        /**
+         * RoleDataScopes
+         * @description 角色数据权限条目清单（按字典 × 策略）。
+         */
+        RoleDataScopes: {
+            /**
+             * Items
+             * @description 数据权限条目清单
+             */
+            items?: components["schemas"]["RoleDataScopeEntryItem"][];
+        };
+        /**
+         * RoleDetail
+         * @description 角色详情（含乐观锁版本与审计字段，供记录页「系统信息」）。
+         */
+        RoleDetail: {
+            /**
+             * Builtin
+             * @description 是否内置角色
+             */
+            builtin: boolean;
+            /**
+             * Code
+             * @description 角色码
+             */
+            code: string;
+            /**
+             * Created At
+             * Format: date-time
+             * @description 创建时间（UTC）
+             */
+            created_at: string;
+            /**
+             * Created By
+             * @description 创建人
+             */
+            created_by: number | null;
+            /**
+             * Id
+             * @description 角色主键
+             */
+            id: string;
+            /**
+             * Name
+             * @description 角色名称
+             */
+            name: string;
+            /**
+             * Status
+             * @description 状态（enabled/disabled）
+             */
+            status: string;
+            /**
+             * Subject Count
+             * @description 已分配用户数
+             */
+            subject_count: number;
+            /**
+             * Updated At
+             * Format: date-time
+             * @description 更新时间（UTC）
+             */
+            updated_at: string;
+            /**
+             * Updated By
+             * @description 更新人
+             */
+            updated_by: number | null;
+            /**
+             * Version
+             * @description 乐观锁版本
+             */
+            version: number;
+        };
+        /**
+         * RoleFieldEntryItem
+         * @description 字段权限条目行（响应）。
+         */
+        RoleFieldEntryItem: {
+            /**
+             * Editable
+             * @description 是否可编辑
+             */
+            editable: boolean;
+            /**
+             * Field Id
+             * @description 字段 ID
+             */
+            field_id: string;
+            /**
+             * Form Id
+             * @description 表单 ID
+             */
+            form_id: string;
+            /**
+             * Id
+             * @description 字段权限行主键
+             */
+            id: string;
+            /**
+             * Source Menu Id
+             * @description 来源菜单入口 ID（0 = 表单级直接授予）
+             */
+            source_menu_id: string;
+            /**
+             * Visible
+             * @description 是否可见
+             */
+            visible: boolean;
+        };
+        /**
+         * RoleFieldEntryRequest
+         * @description 一条字段权限条目（只落收窄项）。
+         */
+        RoleFieldEntryRequest: {
+            /**
+             * Editable
+             * @description 是否可编辑（不可见即不可编辑）
+             * @default true
+             */
+            editable: boolean;
+            /**
+             * Field Id
+             * @description 字段 ID
+             */
+            field_id: number;
+            /**
+             * Form Id
+             * @description 表单 ID
+             */
+            form_id: number;
+            /**
+             * Source Menu Id
+             * @description 来源菜单入口 ID（0 = 表单级直接授予）
+             * @default 0
+             */
+            source_menu_id: number;
+            /**
+             * Visible
+             * @description 是否可见
+             * @default true
+             */
+            visible: boolean;
+        };
+        /**
+         * RoleFieldRequest
+         * @description 字段权限全量覆盖请求。
+         */
+        RoleFieldRequest: {
+            /**
+             * Entries
+             * @description 字段权限条目清单（全量）
+             */
+            entries?: components["schemas"]["RoleFieldEntryRequest"][];
+        };
+        /**
+         * RoleFields
+         * @description 角色字段权限条目清单（仅收窄项）。
+         */
+        RoleFields: {
+            /**
+             * Items
+             * @description 字段权限条目清单
+             */
+            items?: components["schemas"]["RoleFieldEntryItem"][];
+        };
+        /**
+         * RoleItem
+         * @description 角色列表行。
+         */
+        RoleItem: {
+            /**
+             * Builtin
+             * @description 是否内置角色（按 role.protected_codes 判定）
+             */
+            builtin: boolean;
+            /**
+             * Code
+             * @description 角色码
+             */
+            code: string;
+            /**
+             * Id
+             * @description 角色主键
+             */
+            id: string;
+            /**
+             * Name
+             * @description 角色名称
+             */
+            name: string;
+            /**
+             * Status
+             * @description 状态（enabled/disabled）
+             */
+            status: string;
+            /**
+             * Subject Count
+             * @description 已分配用户数
+             */
+            subject_count: number;
+        };
+        /**
+         * RolePermissionEntryItem
+         * @description 授权条目行（响应）。
+         */
+        RolePermissionEntryItem: {
+            /**
+             * Id
+             * @description 授权行主键
+             */
+            id: string;
+            /**
+             * Perm Type
+             * @description 授权类型（menu/form/action）
+             */
+            perm_type: string;
+            /**
+             * Source Menu Id
+             * @description 来源菜单入口 ID（0 = 表单级直接授予）
+             */
+            source_menu_id: string;
+            /**
+             * Target Id
+             * @description 授权目标 ID
+             */
+            target_id: string;
+        };
+        /**
+         * RolePermissionEntryRequest
+         * @description 一条授权条目（菜单 / 表单 / 操作）。
+         */
+        RolePermissionEntryRequest: {
+            /**
+             * Perm Type
+             * @description 授权类型（menu/form/action）
+             * @enum {string}
+             */
+            perm_type: "menu" | "form" | "action";
+            /**
+             * Source Menu Id
+             * @description 来源菜单入口 ID（0 = 表单级直接授予）
+             * @default 0
+             */
+            source_menu_id: number;
+            /**
+             * Target Id
+             * @description 授权目标 ID
+             */
+            target_id: number;
+        };
+        /**
+         * RolePermissionRequest
+         * @description 授权全量覆盖请求（单事务先删后插）。
+         */
+        RolePermissionRequest: {
+            /**
+             * Entries
+             * @description 授权条目清单（全量）
+             */
+            entries?: components["schemas"]["RolePermissionEntryRequest"][];
+        };
+        /**
+         * RolePermissions
+         * @description 角色授权条目清单（含来源）。
+         */
+        RolePermissions: {
+            /**
+             * Items
+             * @description 授权条目清单
+             */
+            items?: components["schemas"]["RolePermissionEntryItem"][];
+        };
+        /**
+         * RoleUpdateRequest
+         * @description 修改角色请求（名称 / 状态；乐观锁）；角色码不可改。
+         */
+        RoleUpdateRequest: {
+            /**
+             * Name
+             * @description 角色名称
+             */
+            name: string;
+            /**
+             * Status
+             * @description 状态（enabled/disabled）
+             * @default enabled
+             * @enum {string}
+             */
+            status: "enabled" | "disabled";
+            /**
+             * Version
+             * @description 客户端版本（乐观锁比对）
+             */
+            version: number;
+        };
         /**
          * SqlValidateRequest
          * @description SQL 校验请求：`{sql, datasource?}`。
@@ -4079,6 +4993,32 @@ export interface components {
              * @description 备注（null 即清空）
              */
             remark?: string | null;
+        };
+        /**
+         * UserItem
+         * @description 最小用户只读查询行（选择用户弹窗 / 已分配列表回显；不含口令哈希与联系方式）。
+         */
+        UserItem: {
+            /**
+             * Id
+             * @description 用户主键
+             */
+            id: string;
+            /**
+             * Name
+             * @description 用户昵称 / 显示名
+             */
+            name: string;
+            /**
+             * Status
+             * @description 账号状态（enabled/disabled）
+             */
+            status: string;
+            /**
+             * Username
+             * @description 登录账号
+             */
+            username: string;
         };
         /**
          * UserProfileRequest
@@ -10057,6 +10997,1123 @@ export interface operations {
             };
         };
     };
+    list_roles_api_v1_roles_get: {
+        parameters: {
+            query?: {
+                /** @description 关键字（角色码 / 名称；用户账号 / 姓名） */
+                kw?: string | null;
+                /** @description 状态（enabled/disabled） */
+                status?: string | null;
+                /** @description 页码（从 1 起） */
+                page?: number;
+                /** @description 每页条数（默认 20，上限 200） */
+                size?: number;
+                /** @description 排序字段，逗号分隔多值（如 status,created_at） */
+                order_by?: string | null;
+                /** @description 排序方向数组，与 order_by 位置一一对应 */
+                order?: string[] | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_BasePageResponse_RoleItem__"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    create_role_api_v1_roles_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoleCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_RoleDetail_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    get_role_api_v1_roles__role_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                role_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_RoleDetail_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    update_role_api_v1_roles__role_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                role_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoleUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_RoleDetail_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    delete_role_api_v1_roles__role_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                role_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_NoneType_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    list_data_scopes_api_v1_roles__role_id__data_permissions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                role_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_RoleDataScopes_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    replace_data_scopes_api_v1_roles__role_id__data_permissions_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                role_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoleDataScopeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_RoleDataScopes_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    list_fields_api_v1_roles__role_id__fields_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                role_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_RoleFields_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    replace_fields_api_v1_roles__role_id__fields_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                role_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoleFieldRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_RoleFields_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    list_permissions_api_v1_roles__role_id__permissions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                role_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_RolePermissions_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    replace_permissions_api_v1_roles__role_id__permissions_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description 幂等键（可选；重复提交复用首次结果） */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                role_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RolePermissionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_RolePermissions_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    list_assigned_users_api_v1_roles__role_id__users_get: {
+        parameters: {
+            query?: {
+                /** @description 关键字（角色码 / 名称；用户账号 / 姓名） */
+                kw?: string | null;
+                /** @description 状态（enabled/disabled） */
+                status?: string | null;
+                /** @description 页码（从 1 起） */
+                page?: number;
+                /** @description 每页条数（默认 20，上限 200） */
+                size?: number;
+                /** @description 排序字段，逗号分隔多值（如 status,created_at） */
+                order_by?: string | null;
+                /** @description 排序方向数组，与 order_by 位置一一对应 */
+                order?: string[] | null;
+            };
+            header?: never;
+            path: {
+                role_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_BasePageResponse_AssignedUserItem__"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    assign_users_api_v1_roles__role_id__users_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description 幂等键（可选；重复提交复用首次结果） */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                role_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoleAssignRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_RoleAssignedUsers_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    unassign_user_api_v1_roles__role_id__users__user_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                role_id: number;
+                user_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_NoneType_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
     list_user_extensions_api_v1_user_extensions_get: {
         parameters: {
             query: {
@@ -10234,6 +12291,93 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponse_UserExtensionItem_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    list_users_api_v1_users_get: {
+        parameters: {
+            query?: {
+                /** @description 关键字（账号 / 姓名） */
+                kw?: string | null;
+                /** @description 账号状态（enabled/disabled） */
+                status?: string | null;
+                /** @description 页码（从 1 起） */
+                page?: number;
+                /** @description 每页条数（默认 20，上限 200） */
+                size?: number;
+                /** @description 排序字段，逗号分隔多值（如 status,created_at） */
+                order_by?: string | null;
+                /** @description 排序方向数组，与 order_by 位置一一对应 */
+                order?: string[] | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_BasePageResponse_UserItem__"];
                 };
             };
             /** @description 未认证 */
