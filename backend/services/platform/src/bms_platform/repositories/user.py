@@ -88,6 +88,7 @@ class UserRepository(BaseDbRepository[SysUser]):
         *,
         keyword: str | None = None,
         status: str | None = None,
+        ids: ConcurrentStableList[int] | None = None,
     ) -> ConcurrentStableList[SysUser]:
         """按筛选条件分页查询用户（页码分页；排序经白名单）。
 
@@ -95,24 +96,32 @@ class UserRepository(BaseDbRepository[SysUser]):
             query: 页码分页请求（含排序参数）。
             keyword: 关键字（匹配账号 / 姓名，大小写不敏感）。
             status: 状态（精确）。
+            ids: 限定集合（非空时只在该集合内筛选）。
 
         Returns:
             ConcurrentStableList[SysUser]: 当前页记录。
         """
         statement = (
             self._apply_sort(self._select(), self._resolve_sort(query))
-            .where(*self._filter_conditions(keyword=keyword, status=status))
+            .where(*self._filter_conditions(keyword=keyword, status=status, ids=ids))
             .limit(query.size)
             .offset((query.page - 1) * query.size)
         )
         return ConcurrentStableList((await self._session.execute(statement)).scalars().all())
 
-    async def count_filtered(self, *, keyword: str | None = None, status: str | None = None) -> int:
+    async def count_filtered(
+        self,
+        *,
+        keyword: str | None = None,
+        status: str | None = None,
+        ids: ConcurrentStableList[int] | None = None,
+    ) -> int:
         """按筛选条件统计用户数（与 `list_filtered` 同口径）。
 
         Args:
             keyword: 关键字（匹配账号 / 姓名）。
             status: 状态（精确）。
+            ids: 限定集合（非空时只在该集合内筛选）。
 
         Returns:
             int: 记录条数。
@@ -120,18 +129,23 @@ class UserRepository(BaseDbRepository[SysUser]):
         statement = (
             select(func.count())
             .select_from(self.model)
-            .where(*self._scope_where(), *self._filter_conditions(keyword=keyword, status=status))
+            .where(*self._scope_where(), *self._filter_conditions(keyword=keyword, status=status, ids=ids))
         )
         return int((await self._session.execute(statement)).scalar_one())
 
     def _filter_conditions(
-        self, *, keyword: str | None, status: str | None
+        self,
+        *,
+        keyword: str | None,
+        status: str | None,
+        ids: ConcurrentStableList[int] | None = None,
     ) -> ConcurrentStableList[ColumnElement[bool]]:
         """组装列表 / 统计筛选条件。
 
         Args:
             keyword: 关键字（账号 / 姓名模糊）。
             status: 状态（精确）。
+            ids: 限定集合（非空时只在该集合内筛选；空 / None 不限定）。
 
         Returns:
             ConcurrentStableList[ColumnElement[bool]]: SQL 条件列表。
@@ -147,6 +161,8 @@ class UserRepository(BaseDbRepository[SysUser]):
             )
         if status is not None:
             conditions.add(self._column("status") == status)
+        if ids:
+            conditions.add(self._column("id").in_(tuple(ids)))
         return conditions
 
     async def list_inactive(self, threshold: datetime, *, now: datetime) -> ConcurrentStableList[SysUser]:

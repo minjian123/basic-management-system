@@ -142,6 +142,32 @@
         "title": "ApiResponse[BasePageResponse[AssignedUserItem]]",
         "type": "object"
       },
+      "ApiResponse_BasePageResponse_InternalUserItem__": {
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BasePageResponse_InternalUserItem_"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[BasePageResponse[InternalUserItem]]",
+        "type": "object"
+      },
       "ApiResponse_BasePageResponse_LockItem__": {
         "properties": {
           "code": {
@@ -978,6 +1004,37 @@
           "size"
         ],
         "title": "BasePageResponse[AssignedUserItem]",
+        "type": "object"
+      },
+      "BasePageResponse_InternalUserItem_": {
+        "properties": {
+          "list": {
+            "items": {
+              "$ref": "#/components/schemas/InternalUserItem"
+            },
+            "title": "List",
+            "type": "array"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "list",
+          "total",
+          "page",
+          "size"
+        ],
+        "title": "BasePageResponse[InternalUserItem]",
         "type": "object"
       },
       "BasePageResponse_LockItem_": {
@@ -2379,6 +2436,131 @@
           "locked"
         ],
         "title": "InactiveScanResult",
+        "type": "object"
+      },
+      "InternalUserItem": {
+        "description": "内部用户只读行（服务间出口）：联系方式**原样返回**（脱敏归消费方），不含口令与锁定字段。",
+        "properties": {
+          "dept_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "归属部门 id（字段未落地时恒为 null）",
+            "title": "Dept Id"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "邮箱（原样返回，脱敏归消费方）",
+            "title": "Email"
+          },
+          "id": {
+            "description": "用户主键",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "description": "昵称 / 显示名",
+            "title": "Name",
+            "type": "string"
+          },
+          "phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "手机号（原样返回，脱敏归消费方）",
+            "title": "Phone"
+          },
+          "status": {
+            "description": "账号状态（enabled / disabled）",
+            "title": "Status",
+            "type": "string"
+          },
+          "username": {
+            "description": "登录账号",
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "username",
+          "name",
+          "status"
+        ],
+        "title": "InternalUserItem",
+        "type": "object"
+      },
+      "InternalUserQueryRequest": {
+        "description": "内部用户只读查询请求（服务间调用；租户经服务 JWT `tenant` claim 解析）。",
+        "properties": {
+          "ids": {
+            "description": "限定集合（空 = 不限定；非空时只在该集合内筛选）",
+            "items": {
+              "type": "integer"
+            },
+            "title": "Ids",
+            "type": "array"
+          },
+          "keyword": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "关键字（账号 / 姓名，大小写不敏感）",
+            "title": "Keyword"
+          },
+          "page": {
+            "default": 1,
+            "description": "页码（从 1 起）",
+            "minimum": 1.0,
+            "title": "Page",
+            "type": "integer"
+          },
+          "size": {
+            "default": 20,
+            "description": "每页条数（上限 200）",
+            "maximum": 200.0,
+            "minimum": 1.0,
+            "title": "Size",
+            "type": "integer"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "maxLength": 16,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "账号状态（enabled / disabled）",
+            "title": "Status"
+          }
+        },
+        "title": "InternalUserQueryRequest",
         "type": "object"
       },
       "LockItem": {
@@ -10936,6 +11118,116 @@
           }
         },
         "summary": "User Profile",
+        "tags": [
+          "platform-internal"
+        ]
+      }
+    },
+    "/api/v1/platform/internal/users/query": {
+      "post": {
+        "description": "按关键字 / 状态 / 限定集合分页查询用户（**服务间只读出口**）。\n\n供 mdm 组织域只读出口（组织数据源 `users` / 名称回显 `resolve_names(user)` / 按用户解析角色）\n取用户明细——**不跨库读** `sys_user`。仅接受 `sub=org` 服务票据；只读、不写库、不产事件；\n联系方式**原样返回**（脱敏归消费方 mdm 出口）。\n\nArgs:\n    req: 查询请求（关键字 / 状态 / 限定集合 / 分页）。\n    uow: 请求级工作单元。\n\nReturns:\n    ApiResponse: 统一响应，data 为分页用户只读行（主键升序）。",
+        "operationId": "query_users_api_v1_platform_internal_users_query_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InternalUserQueryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_BasePageResponse_InternalUserItem__"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Query Users",
         "tags": [
           "platform-internal"
         ]

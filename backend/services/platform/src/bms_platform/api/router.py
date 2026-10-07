@@ -44,6 +44,7 @@ api_router = mount_service_routers(
             user_extensions.router,
             internal_credentials.router,
             internal_users.router,
+            internal_users.query_router,
             internal_account_locks.router,
             account_locks.router,
             role.router,

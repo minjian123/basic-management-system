@@ -84,6 +84,51 @@ class UserQueryService(BaseFrameworkObject):
         return rows, total
 
 
+class InternalUserQueryService(BaseFrameworkObject):
+    """内部用户只读查询服务（**服务间出口**）：关键字 / 状态 / 限定集合 + 分页。
+
+    供 mdm 组织域只读出口（组织数据源 `users` / 名称回显 `resolve_names(user)` / 按用户解析角色）
+    取用户明细——**不跨库读** `sys_user`。字段含联系方式（**原样返回**，脱敏归消费方按其
+    `masked_fields` 接入）与 `dept_id`（字段未落地时恒 `None`）；**不返回**口令哈希与锁定字段。
+    只读：不写库、不开写事务、不产事件；完整用户域 CRUD 归 `02_01`。
+    """
+
+    def __init__(self, users: UserRepository) -> None:
+        """初始化。
+
+        Args:
+            users: 用户仓储（租户库 `sys_user`）。
+        """
+        self._users = users
+
+    async def query(
+        self,
+        *,
+        keyword: str | None = None,
+        status: str | None = None,
+        ids: ConcurrentStableList[int] | None = None,
+        page: int = 1,
+        size: int = 20,
+    ) -> tuple[ConcurrentStableList[SysUser], int]:
+        """按筛选条件分页查询用户（列表与总数同口径）。
+
+        Args:
+            keyword: 关键字（账号 / 姓名，大小写不敏感）；None 不过滤。
+            status: 状态（enabled / disabled）；None 不过滤。
+            ids: 限定集合（非空时只在该集合内筛选；空 / None 不限定）。
+            page: 页码（从 1 起）。
+            size: 每页条数。
+
+        Returns:
+            tuple[ConcurrentStableList[SysUser], int]: 当前页用户与总条数（主键升序）。
+        """
+        scoped_ids = ids if ids else None
+        query = BasePageQuery(page=page, size=size)
+        rows = await self._users.list_filtered(query, keyword=keyword, status=status, ids=scoped_ids)
+        total = await self._users.count_filtered(keyword=keyword, status=status, ids=scoped_ids)
+        return rows, total
+
+
 class UserProfileService(BaseFrameworkObject):
     """用户概要服务：按主键取最小概要（不存在返回 `found=false`）。"""
 

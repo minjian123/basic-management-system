@@ -1,12 +1,16 @@
 """平台服务 schemas 层：用户相关请求 / 响应契约。
 
-- 内部契约（服务间调用，不经网关）：概要 / 重置目标 / 统一建号；
+- 内部契约（服务间调用，不经网关）：概要 / 重置目标 / 统一建号；**只读查询出口**（`/query`，
+  供 mdm 组织域只读出口取用户明细——组织主数据归 mdm、用户（账号）归 platform，跨服务只经契约）；
 - 管理面契约（`/api/v1/users`，登录 + `user:query`）：最小用户只读查询行。
 """
 
+from typing import Annotated
+
 from pydantic import Field
 
-from bms_core.schemas.base import BaseSchema
+from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.schemas.base import CONTRACT_COLLECTION, CONTRACT_STABLE_LIST, BaseSchema
 
 
 class UserItem(BaseSchema):
@@ -16,6 +20,30 @@ class UserItem(BaseSchema):
     username: str = Field(description="登录账号")
     name: str = Field(description="用户昵称 / 显示名")
     status: str = Field(description="账号状态（enabled/disabled）")
+
+
+class InternalUserQueryRequest(BaseSchema):
+    """内部用户只读查询请求（服务间调用；租户经服务 JWT `tenant` claim 解析）。"""
+
+    keyword: str | None = Field(default=None, max_length=64, description="关键字（账号 / 姓名，大小写不敏感）")
+    status: str | None = Field(default=None, max_length=16, description="账号状态（enabled / disabled）")
+    ids: Annotated[ConcurrentStableList[int], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_LIST, description="限定集合（空 = 不限定；非空时只在该集合内筛选）"
+    )
+    page: int = Field(default=1, ge=1, description="页码（从 1 起）")
+    size: int = Field(default=20, ge=1, le=200, description="每页条数（上限 200）")
+
+
+class InternalUserItem(BaseSchema):
+    """内部用户只读行（服务间出口）：联系方式**原样返回**（脱敏归消费方），不含口令与锁定字段。"""
+
+    id: int = Field(description="用户主键")
+    username: str = Field(description="登录账号")
+    name: str = Field(description="昵称 / 显示名")
+    status: str = Field(description="账号状态（enabled / disabled）")
+    phone: str | None = Field(default=None, description="手机号（原样返回，脱敏归消费方）")
+    email: str | None = Field(default=None, description="邮箱（原样返回，脱敏归消费方）")
+    dept_id: int | None = Field(default=None, description="归属部门 id（字段未落地时恒为 null）")
 
 
 class UserProfileRequest(BaseSchema):

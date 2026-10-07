@@ -1560,6 +1560,37 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/platform/internal/users/query": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Query Users
+         * @description 按关键字 / 状态 / 限定集合分页查询用户（**服务间只读出口**）。
+         *
+         *     供 mdm 组织域只读出口（组织数据源 `users` / 名称回显 `resolve_names(user)` / 按用户解析角色）
+         *     取用户明细——**不跨库读** `sys_user`。仅接受 `sub=org` 服务票据；只读、不写库、不产事件；
+         *     联系方式**原样返回**（脱敏归消费方 mdm 出口）。
+         *
+         *     Args:
+         *         req: 查询请求（关键字 / 状态 / 限定集合 / 分页）。
+         *         uow: 请求级工作单元。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为分页用户只读行（主键升序）。
+         */
+        post: operations["query_users_api_v1_platform_internal_users_query_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/platform/internal/users/reset-target": {
         parameters: {
             query?: never;
@@ -2458,6 +2489,20 @@ export interface components {
              */
             message: string;
         };
+        /** ApiResponse[BasePageResponse[InternalUserItem]] */
+        ApiResponse_BasePageResponse_InternalUserItem__: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["BasePageResponse_InternalUserItem_"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
         /** ApiResponse[BasePageResponse[LockItem]] */
         ApiResponse_BasePageResponse_LockItem__: {
             /**
@@ -2909,6 +2954,17 @@ export interface components {
         BasePageResponse_AssignedUserItem_: {
             /** List */
             list: components["schemas"]["AssignedUserItem"][];
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Total */
+            total: number;
+        };
+        /** BasePageResponse[InternalUserItem] */
+        BasePageResponse_InternalUserItem_: {
+            /** List */
+            list: components["schemas"]["InternalUserItem"][];
             /** Page */
             page: number;
             /** Size */
@@ -3832,6 +3888,80 @@ export interface components {
              * @description 扫描候选账号数
              */
             scanned: number;
+        };
+        /**
+         * InternalUserItem
+         * @description 内部用户只读行（服务间出口）：联系方式**原样返回**（脱敏归消费方），不含口令与锁定字段。
+         */
+        InternalUserItem: {
+            /**
+             * Dept Id
+             * @description 归属部门 id（字段未落地时恒为 null）
+             */
+            dept_id?: string | null;
+            /**
+             * Email
+             * @description 邮箱（原样返回，脱敏归消费方）
+             */
+            email?: string | null;
+            /**
+             * Id
+             * @description 用户主键
+             */
+            id: string;
+            /**
+             * Name
+             * @description 昵称 / 显示名
+             */
+            name: string;
+            /**
+             * Phone
+             * @description 手机号（原样返回，脱敏归消费方）
+             */
+            phone?: string | null;
+            /**
+             * Status
+             * @description 账号状态（enabled / disabled）
+             */
+            status: string;
+            /**
+             * Username
+             * @description 登录账号
+             */
+            username: string;
+        };
+        /**
+         * InternalUserQueryRequest
+         * @description 内部用户只读查询请求（服务间调用；租户经服务 JWT `tenant` claim 解析）。
+         */
+        InternalUserQueryRequest: {
+            /**
+             * Ids
+             * @description 限定集合（空 = 不限定；非空时只在该集合内筛选）
+             */
+            ids?: number[];
+            /**
+             * Keyword
+             * @description 关键字（账号 / 姓名，大小写不敏感）
+             */
+            keyword?: string | null;
+            /**
+             * Page
+             * @description 页码（从 1 起）
+             * @default 1
+             */
+            page: number;
+            /**
+             * Size
+             * @description 每页条数（上限 200）
+             * @default 20
+             */
+            size: number;
+            /**
+             * Status
+             * @description 账号状态（enabled / disabled）
+             */
+            status?: string | null;
         };
         /**
          * LockItem
@@ -10007,6 +10137,86 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponse_UserProfileResult_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    query_users_api_v1_platform_internal_users_query_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InternalUserQueryRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_BasePageResponse_InternalUserItem__"];
                 };
             };
             /** @description 未认证 */
