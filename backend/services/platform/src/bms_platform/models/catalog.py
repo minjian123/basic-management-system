@@ -1,10 +1,10 @@
-"""服务目录模型（`sys_module` / `sys_module_i18n`）：平台服务自有（06_02 迁入）。
+"""服务目录与产品注册模型（`sys_module` / `sys_module_i18n` / `sys_product`）：平台服务自有（06_02 迁入）。
 
-- 归属：两表归 `platform` 服务、库类别 `platform`（链 `platform:platform`，库 `bms_platform`）——
+- 归属：三表归 `platform` 服务、库类别 `platform`（链 `platform:platform`，库 `bms_platform`）——
   由 `bms_core/services/table_registry.py::TABLE_OWNERSHIP` 单一来源登记；
 - 本模块由平台服务在 `models/__init__.py::MODEL_MODULES` 声明，迁移链按服务解析模型时导入
   （见 `bms_core/db/migration.py`）；
-- 表结构以《数据库设计》数据表文件为唯一事实源（`sys_module.md` / `sys_module_i18n.md`）。
+- 表结构以《数据库设计》数据表文件为唯一事实源（`sys_module.md` / `sys_module_i18n.md` / `sys_product.md`）。
 """
 
 from sqlalchemy import BigInteger, Integer, String, UniqueConstraint
@@ -67,3 +67,25 @@ class SysModuleI18n(BaseModel):
     module_id: Mapped[int] = mapped_column(BigInteger, comment="模块 ID（逻辑外键 → sys_module.id）")
     locale: Mapped[str] = mapped_column(String(16), comment="语言标识（如 zh-CN）")
     name: Mapped[str] = mapped_column(String(128), comment="模块名文案")
+
+
+class SysProduct(BaseModel):
+    """产品档案表（`sys_product`）：产品级注册（R4.1）。
+
+    - **产品级属性只存本表**（名称 / 前端包来源 / 状态），`sys_module` 模块行不重复；
+    - `sys_module.product_key` **逻辑引用**本表 `product_key`（不开物理外键）；
+    - **先注册后建表**：产品可先于其模块登记（模块归属一致性由启动 / CI 校验承担）；
+    - 产品下线 `status = retired` 保留登记（不物理删除、不回收注册段位）。
+    """
+
+    __tablename__ = "sys_product"
+    __table_args__ = (UniqueConstraint("product_key", "deleted_at", name="uq_sys_product_key_deleted_at"),)
+
+    product_key: Mapped[str] = mapped_column(String(32), comment="产品标识（如 mdm / biz / cw）")
+    name: Mapped[str] = mapped_column(String(128), comment="产品名称（默认文案）")
+    frontend_package_source: Mapped[str | None] = mapped_column(
+        String(255), nullable=True, comment="前端包来源（产品前端模块产物的获取来源；本期留空）"
+    )
+    status: Mapped[str] = mapped_column(
+        String(16), default="enabled", comment="状态（enabled/disabled/planned/retired）"
+    )

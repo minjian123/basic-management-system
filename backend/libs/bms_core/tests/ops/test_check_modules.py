@@ -1,4 +1,4 @@
-"""CI 服务目录校验脚本测试（Kiwi 28 / 2163）：离线清单 + 服务包声明 + 接库查重与对账 / 退出码。"""
+"""CI 服务目录与产品档案校验脚本测试（Kiwi 28 / 2163 / 2249）：离线清单 + 服务包声明 + 接库查重与对账 / 退出码。"""
 
 import asyncio
 import runpy
@@ -7,14 +7,14 @@ from pathlib import Path
 from typing import cast
 
 import pytest
-from sqlalchemy import Table, select
+from sqlalchemy import Table, select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 import ops.check_modules as check_modules
 import ops.seed_module as seed_module
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.services.module_registry import SERVICE_CATALOG, ModuleRecord
-from bms_platform.models.catalog import SysModule
+from bms_platform.models.catalog import SysModule, SysProduct
 
 
 @pytest.mark.kiwi_id(28)
@@ -209,3 +209,61 @@ def test_check_catalog_db_modes(tmp_path: Path) -> None:
     errors = check_modules.check_catalog_db(url)
     assert any("契约版本主版本不兼容" in error for error in errors)
     assert check_modules.main(ConcurrentStableList(["--url", url])) == 1
+
+
+async def _exec_sql(url: str, statement: str) -> None:
+    """在平台库执行一条 SQL（构造库侧产品档案异常场景）。
+
+    Args:
+        url: 平台库连接串。
+        statement: 待执行 SQL。
+    """
+    engine = create_async_engine(url)
+    try:
+        async with engine.begin() as connection:
+            await connection.execute(text(statement))
+    finally:
+        await engine.dispose()
+
+
+async def _set_product_status(url: str, product_key: str, status: str) -> None:
+    """改写指定产品档案行的状态（构造库侧漂移）。
+
+    Args:
+        url: 平台库连接串。
+        product_key: 产品标识。
+        status: 状态。
+    """
+    engine = create_async_engine(url)
+    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(engine, expire_on_commit=False)
+    try:
+        async with factory() as session:
+            statement = select(SysProduct).where(SysProduct.product_key == product_key)
+            row = (await session.execute(statement)).scalar_one()
+            row.status = status
+            await session.commit()
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.kiwi_id(2249)
+def test_check_catalog_db_products(tmp_path: Path) -> None:
+    """接库产品档案对账：种子后通过；状态漂移 / 缺行 / 空表 / 表缺失逐项检出且退出码 1。"""
+    url = f"sqlite+aiosqlite:///{tmp_path / 'ci_products.db'}"
+    asyncio.run(seed_module.seed_modules(url))
+    assert check_modules.check_catalog_db(url) == []
+    assert check_modules.main(ConcurrentStableList(["--url", url])) == 0
+
+    asyncio.run(_set_product_status(url, "mdm", "enabled"))
+    errors = check_modules.check_catalog_db(url)
+    assert any("产品档案 mdm：status 与清单不一致" in error for error in errors)
+    assert check_modules.main(ConcurrentStableList(["--url", url])) == 1
+
+    asyncio.run(_exec_sql(url, "DELETE FROM sys_product WHERE product_key = 'cw'"))
+    assert any("产品档案库中缺登记行：cw" in error for error in check_modules.check_catalog_db(url))
+
+    asyncio.run(_exec_sql(url, "DELETE FROM sys_product"))
+    assert any("产品档案库中无登记行" in error for error in check_modules.check_catalog_db(url))
+
+    asyncio.run(_exec_sql(url, "DROP TABLE sys_product"))
+    assert any("产品档案库不可读" in error for error in check_modules.check_catalog_db(url))

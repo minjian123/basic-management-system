@@ -81,7 +81,7 @@ def test_chain_registry_shape() -> None:
 def test_chain_tables_derived_from_ownership() -> None:
     """表集由归属登记派生：平台链取平台层表 + 基础设施表；归档链为空；`planned` 表不进链。"""
     platform = resolve_chain("platform:platform").tables
-    assert {"sys_module", "sys_module_i18n", "sys_table_ownership"} <= platform
+    assert {"sys_module", "sys_module_i18n", "sys_product", "sys_table_ownership"} <= platform
     assert {"sys_outbox", "sys_event_consumed", "sys_event_dead_letter"} <= platform
     assert "sys_tenant" not in platform  # 租户注册归 tenant 服务
 
@@ -197,7 +197,7 @@ def test_chain_url_resolution(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -
 def test_chain_revisions_integrity() -> None:
     """链完整性：有脚本链单 head、分支标签与链名一致、链内 revision 唯一（跨链允许同名）。"""
     platform_head = ScriptDirectory.from_config(_config(resolve_chain("platform:platform"))).get_current_head()
-    assert platform_head == "0008_menu_form_multi"
+    assert platform_head == "0009_sys_product"
     tenant_service_head = ScriptDirectory.from_config(_config(default_chain())).get_current_head()
     assert tenant_service_head == "0008_user_tables"
     org_head = ScriptDirectory.from_config(_config(resolve_chain("org:tenant"))).get_current_head()

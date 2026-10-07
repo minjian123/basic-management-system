@@ -1,9 +1,12 @@
 """服务目录与契约登记：服务清单（单一来源）与注册要素唯一性 / 格式校验。
 
 - `SERVICE_CATALOG` 是种子、启动 / CI 校验与只读接口的**单一来源**（服务与模块同源登记）。
-- 离线校验：`ModuleRegistry.validate()`（清单四要素唯一与格式、分组 / 批次 / 版本 / 产品维度）。
+- 离线校验：`ModuleRegistry.validate()`（清单四要素唯一与格式、分组 / 批次 / 版本 / 产品维度
+  ——含**产品归属**：产品分组模块的 `product_key` 须在 `PRODUCT_CATALOG` 登记）。
 - 接库校验：`validate_catalog()`（启动 / CI 共用）——库内查重与格式 + 与清单双向对账 +
   运行服务登记行与契约版本主版本兼容（需求 03-2）。
+- `PRODUCT_CATALOG` 是**产品档案**（`sys_product`）的种子与产品级注册校验**单一来源**（需求 12-1）；
+  离线校验 `ProductRegistry.validate()`，接库对账 `validate_products()`（CI `ops.check_modules`）。
 - `known_event_domains()`：已登记事件域集合（事件契约命名校验的域来源，需求 05-4）。
 """
 
@@ -38,6 +41,18 @@ class ServiceGroup(StrEnum):
     FOUNDATION = "foundation"
     CAPABILITY = "capability"
     PRODUCT = "product"
+
+
+class ProductStatus(StrEnum):
+    """产品状态（`sys_product.status`）。"""
+
+    ENABLED = "enabled"
+    DISABLED = "disabled"
+    PLANNED = "planned"
+    """已注册、尚未建代码 / 建表（先注册后建表的预登记态）。"""
+
+    RETIRED = "retired"
+    """下线保留登记（不物理删除、不回收注册段位，架构 11「模块契约与产品下线」节）。"""
 
 
 @dataclass(frozen=True)
@@ -82,6 +97,34 @@ class ModuleRecord(BaseRegistryRecordContract):
             service_version=cast("str", data.service_version),
             contract_version=cast("str", data.contract_version),
             product_key=cast("str | None", data.product_key),
+            status=cast("str", data.status),
+        )
+
+
+@dataclass(frozen=True)
+class ProductRecord(BaseRegistryRecordContract):
+    """产品档案登记记录（字段与 `sys_product` 对齐）。"""
+
+    product_key: str
+    name: str
+    frontend_package_source: str | None = None
+    status: str = ProductStatus.ENABLED
+
+    @classmethod
+    def from_row(cls, row: object) -> ProductRecord:
+        """按档案字段从 ORM 行（或任意同构对象）构造记录（接库对账用）。
+
+        Args:
+            row: 具备档案字段的对象（如 `SysProduct` 行）。
+
+        Returns:
+            ProductRecord: 产品档案记录。
+        """
+        data = cast("Any", row)
+        return cls(
+            product_key=cast("str", data.product_key),
+            name=cast("str", data.name),
+            frontend_package_source=cast("str | None", data.frontend_package_source),
             status=cast("str", data.status),
         )
 
@@ -274,6 +317,30 @@ SERVICE_CATALOG: tuple[ModuleRecord, ...] = (
 )
 """服务目录与注册要素（单一来源，16 行：平台服务 10 + 业务模块 6）。"""
 
+PRODUCT_CATALOG: tuple[ProductRecord, ...] = (
+    ProductRecord(product_key="biz", name="企业运营管理", status=ProductStatus.ENABLED),
+    ProductRecord(product_key="cw", name="创作系统", status=ProductStatus.ENABLED),
+    ProductRecord(product_key="mdm", name="主数据管理", status=ProductStatus.PLANNED),
+)
+"""产品档案（单一来源，3 行：`biz` / `cw` 已建 + `mdm` 预登记）。
+
+- **先注册后建表**：产品可先于其模块登记（`mdm` 随产品接入补登记各域模块行），不要求产品必有模块；
+- `frontend_package_source` 本期留空——产品前端产物来源随 R4.3 前端多包合并定稿后回填（详设 12_01 §9）；
+- 注册要素（表前缀 / 业务码 / 错误码段 / 事件域）仍只在 `SERVICE_CATALOG`，本清单只承载产品级属性。
+"""
+
+
+def product_keys() -> ConcurrentStableSet[str]:
+    """已登记产品标识集合（`PRODUCT_CATALOG`，插入序）。
+
+    供模块产品归属校验使用（产品分组模块的 `product_key` 必须在本集合内）。
+
+    Returns:
+        ConcurrentStableSet[str]: 产品标识集合。
+    """
+    return ConcurrentStableSet(record.product_key for record in PRODUCT_CATALOG)
+
+
 _PLATFORM_DOMAIN_KEYS: tuple[str, ...] = ("sys", "wf", "rpt", "ai")
 """既有平台域模块标识（段位 01~04 的平台域）。"""
 
@@ -330,14 +397,22 @@ def _duplicates(values: ConcurrentStableList[str]) -> ConcurrentStableList[str]:
 class ModuleRegistry(BaseFrameworkObject):
     """服务目录与注册要素校验 / 清单查询（离线）。"""
 
-    def __init__(self, modules: ConcurrentStableList[ModuleRecord] | None = None) -> None:
+    def __init__(
+        self,
+        modules: ConcurrentStableList[ModuleRecord] | None = None,
+        products: ConcurrentStableList[ProductRecord] | None = None,
+    ) -> None:
         """初始化。
 
         Args:
             modules: 注册清单（插入序）；默认全量服务目录 `SERVICE_CATALOG`。
+            products: 产品档案清单（插入序）；默认 `PRODUCT_CATALOG`（产品归属校验基准）。
         """
         self._modules: ConcurrentStableList[ModuleRecord] = (
             ConcurrentStableList(SERVICE_CATALOG) if modules is None else ConcurrentStableList(modules)
+        )
+        self._product_keys: ConcurrentStableSet[str] = ConcurrentStableSet(
+            record.product_key for record in (PRODUCT_CATALOG if products is None else products)
         )
 
     def list_modules(
@@ -408,7 +483,9 @@ class ModuleRegistry(BaseFrameworkObject):
                 errors.add(f"{key}：{field} 非 semver（{value}）")
         if module.service_group == ServiceGroup.PRODUCT and not module.product_key:
             errors.add(f"{key}：产品分组缺 product_key")
-        if module.service_group != ServiceGroup.PRODUCT and module.product_key:
+        elif module.service_group == ServiceGroup.PRODUCT and module.product_key not in self._product_keys:
+            errors.add(f"{key}：product_key 未登记（{module.product_key}）")
+        elif module.service_group != ServiceGroup.PRODUCT and module.product_key:
             errors.add(f"{key}：非产品分组不应有 product_key（{module.product_key}）")
         return errors
 
@@ -430,6 +507,121 @@ class ModuleRegistry(BaseFrameworkObject):
             for duplicate in _duplicates(optional_values):
                 errors.add(f"{optional} 重复：{duplicate}")
         return errors
+
+
+class ProductRegistry(BaseFrameworkObject):
+    """产品档案校验 / 清单查询（离线，与服务目录校验同源模式）。"""
+
+    def __init__(self, products: ConcurrentStableList[ProductRecord] | None = None) -> None:
+        """初始化。
+
+        Args:
+            products: 产品档案清单（插入序）；默认全量 `PRODUCT_CATALOG`。
+        """
+        self._products: ConcurrentStableList[ProductRecord] = (
+            ConcurrentStableList(PRODUCT_CATALOG) if products is None else ConcurrentStableList(products)
+        )
+
+    def list_products(self, *, status: str | None = None) -> ConcurrentStableList[ProductRecord]:
+        """返回产品档案清单（可按状态筛选）。
+
+        Args:
+            status: 状态筛选（`enabled` / `disabled` / `planned` / `retired`）；None 返回全部。
+
+        Returns:
+            ConcurrentStableList[ProductRecord]: 产品档案记录列表（插入序）。
+        """
+        if status is None:
+            return ConcurrentStableList(self._products)
+        return ConcurrentStableList(record for record in self._products if record.status == status)
+
+    def validate(self) -> ConcurrentStableList[str]:
+        """校验产品档案清单：标识 / 名称 / 来源 / 状态合法 + 产品标识唯一。
+
+        Returns:
+            ConcurrentStableList[str]: 非法明细；空列表表示通过。
+        """
+        errors: ConcurrentStableList[str] = ConcurrentStableList()
+        for record in self._products:
+            errors.update(self._validate_record(record))
+        keys = ConcurrentStableList(record.product_key for record in self._products)
+        for duplicate in _duplicates(keys):
+            errors.add(f"product_key 重复：{duplicate}")
+        return errors
+
+    def _validate_record(self, record: ProductRecord) -> ConcurrentStableList[str]:
+        """校验单条产品档案（标识 / 名称 / 来源 / 状态）。
+
+        Args:
+            record: 产品档案记录。
+
+        Returns:
+            ConcurrentStableList[str]: 非法明细。
+        """
+        errors: ConcurrentStableList[str] = ConcurrentStableList()
+        key = record.product_key
+        if not _KEY_RE.match(key):
+            errors.add(f"{key}：product_key 非法")
+        if not record.name.strip():
+            errors.add(f"{key}：name 为空")
+        if record.status not in tuple(ProductStatus):
+            errors.add(f"{key}：status 非法（{record.status}）")
+        source = record.frontend_package_source
+        if source is not None and not source.strip():
+            errors.add(f"{key}：frontend_package_source 为空串（须留空或填产品前端来源）")
+        return errors
+
+
+_PRODUCT_COMPARE_FIELDS: tuple[str, ...] = ("name", "frontend_package_source", "status")
+"""产品档案双向对账的严格一致字段。"""
+
+
+def validate_products(
+    products: ConcurrentStableList[ProductRecord],
+    records: ConcurrentStableList[ProductRecord],
+) -> ConcurrentStableList[str]:
+    """接库产品档案校验（CI 共用）：库内查重与格式 + 与清单双向对账。
+
+    Args:
+        products: 产品档案清单（`PRODUCT_CATALOG`）。
+        records: 库中未软删行转换结果（`ProductRecord.from_row`）。
+
+    Returns:
+        ConcurrentStableList[str]: 冲突 / 漂移明细；空列表表示通过。
+    """
+    errors = ProductRegistry(records).validate()
+    errors.update(_diff_products(products, records))
+    return errors
+
+
+def _diff_products(
+    products: ConcurrentStableList[ProductRecord], records: ConcurrentStableList[ProductRecord]
+) -> ConcurrentStableList[str]:
+    """产品清单与库记录双向对账（缺行 / 清单外行 / 字段不符）。
+
+    Args:
+        products: 产品档案清单（插入序）。
+        records: 库中未软删行转换结果（插入序）。
+
+    Returns:
+        ConcurrentStableList[str]: 对账明细。
+    """
+    errors: ConcurrentStableList[str] = ConcurrentStableList()
+    expected_by_key = ConcurrentStableDict((record.product_key, record) for record in products)
+    actual_by_key = ConcurrentStableDict((record.product_key, record) for record in records)
+    for key in sorted(actual_by_key.keys() - expected_by_key.keys()):
+        errors.add(f"产品档案库中登记行不在清单：{key}")
+    for key in sorted(expected_by_key.keys() - actual_by_key.keys()):
+        errors.add(f"产品档案库中缺登记行：{key}")
+    for key in sorted(expected_by_key.keys() & actual_by_key.keys()):
+        expected = expected_by_key[key]
+        actual = actual_by_key[key]
+        for field in _PRODUCT_COMPARE_FIELDS:
+            expected_value = getattr(expected, field)
+            actual_value = getattr(actual, field)
+            if expected_value != actual_value:
+                errors.add(f"产品档案 {key}：{field} 与清单不一致（库 {actual_value!r}，清单 {expected_value!r}）")
+    return errors
 
 
 _COMPARE_FIELDS: tuple[str, ...] = (

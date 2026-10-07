@@ -128,6 +128,12 @@ TABLE_OWNERSHIP: tuple[TableRecord, ...] = (
     TableRecord(table_name="sys_module", owner="platform", datasource=Datasource.PLATFORM, note="服务目录登记"),
     TableRecord(table_name="sys_module_i18n", owner="platform", datasource=Datasource.PLATFORM, note="服务目录多语言"),
     TableRecord(
+        table_name="sys_product",
+        owner="platform",
+        datasource=Datasource.PLATFORM,
+        note="产品档案（产品级注册 / R4.1；`sys_module.product_key` 逻辑引用）",
+    ),
+    TableRecord(
         table_name="sys_tenant_quota",
         owner="tenant",
         datasource=Datasource.PLATFORM,

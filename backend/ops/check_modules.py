@@ -1,4 +1,4 @@
-"""CI 服务目录校验：离线清单 / 服务包契约声明 + 接库（迁移与种子后）查重与对账。
+"""CI 服务目录与产品档案校验：离线清单 / 服务包契约声明 + 接库（迁移与种子后）查重与对账。
 
 用法：
 
@@ -8,11 +8,12 @@ uv run python -m ops.check_modules              # 离线断言 + 接库（URL �
 uv run python -m ops.check_modules --offline    # 仅离线断言（无库场景）
 ```
 
-- **离线**：复用 `ModuleRegistry.validate()` 校验清单（四要素唯一 / 格式 / 维度），并比对
+- **离线**：复用 `ModuleRegistry.validate()` / `ProductRegistry.validate()` 校验清单
+  （服务目录四要素唯一 / 格式 / 维度 / 产品归属；产品档案标识唯一 / 格式 / 状态），并比对
   服务工程自报契约版本（`CONTRACT_VERSION`）与清单登记值的主版本；服务工程 ↔ 清单双向核对
   （工程存在但未登记即失败；planned 且无工程目录跳过）。服务包常量经 AST 静态读取，不导入服务包。
-- **接库**（缺省读配置解析，`--url` 显式覆盖）：读平台库 `sys_module`（未软删行）查重与格式校验 +
-  与清单双向对账，**只读不写**；空库判失败（种子未执行）。`--offline` 强制跳过接库。
+- **接库**（缺省读配置解析，`--url` 显式覆盖）：读平台库 `sys_module` / `sys_product`（未软删行）
+  查重与格式校验 + 与清单双向对账，**只读不写**；空库判失败（种子未执行）。`--offline` 强制跳过接库。
 - 冲突 / 非法 → 打印明细并退出码 1；通过 → 退出码 0。
 """
 
@@ -28,12 +29,17 @@ from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.version import contract_major
 from bms_core.db.keys import PLATFORM_SERVICE_KEY
 from bms_core.services.module_registry import (
+    PRODUCT_CATALOG,
     SERVICE_CATALOG,
     ModuleRecord,
     ModuleRegistry,
+    ProductRecord,
+    ProductRegistry,
     validate_catalog,
+    validate_products,
 )
 from bms_platform.repositories.module_repository import ModuleRepository
+from bms_platform.repositories.product_repository import ProductRepository
 from ops.seed_tenant import resolve_url
 
 _SERVICES_DIR = Path(__file__).resolve().parents[1] / "services"
@@ -133,7 +139,7 @@ def check_service_declarations(
 
 
 def check_offline(services_dir: Path = _SERVICES_DIR) -> ConcurrentStableList[str]:
-    """离线校验：清单自校验 + 服务包声明比对。
+    """离线校验：服务目录 / 产品档案清单自校验 + 服务包声明比对。
 
     Args:
         services_dir: 服务工程根。
@@ -142,6 +148,7 @@ def check_offline(services_dir: Path = _SERVICES_DIR) -> ConcurrentStableList[st
         ConcurrentStableList[str]: 冲突 / 非法明细。
     """
     errors = ConcurrentStableList(ModuleRegistry().validate())
+    errors.update(ProductRegistry().validate())
     errors.update(
         check_service_declarations(ConcurrentStableList(SERVICE_CATALOG), resolve_service_contracts(services_dir))
     )
@@ -167,8 +174,27 @@ async def _read_catalog(url: str) -> ConcurrentStableList[ModuleRecord]:
     return ConcurrentStableList(ModuleRecord.from_row(row) for row in rows)
 
 
+async def _read_products(url: str) -> ConcurrentStableList[ProductRecord]:
+    """只读读取平台库产品档案（未软删行）。
+
+    Args:
+        url: 平台库连接串。
+
+    Returns:
+        ConcurrentStableList[ProductRecord]: 产品档案记录列表。
+    """
+    engine = create_async_engine(url)
+    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(engine, expire_on_commit=False)
+    try:
+        async with factory() as session:
+            rows = await ProductRepository(session).list_products()
+    finally:
+        await engine.dispose()
+    return ConcurrentStableList(ProductRecord.from_row(row) for row in rows)
+
+
 def check_catalog_db(url: str) -> ConcurrentStableList[str]:
-    """接库校验：读库查重与格式 + 与清单双向对账（空库判失败）。
+    """接库校验：读库查重与格式 + 服务目录 / 产品档案双向对账（空库判失败）。
 
     Args:
         url: 平台库连接串（迁移 + 种子后）。
@@ -182,7 +208,19 @@ def check_catalog_db(url: str) -> ConcurrentStableList[str]:
         return ConcurrentStableList([f"服务目录库不可读（请先执行平台库迁移）：{exc}"])
     if not records:
         return ConcurrentStableList(["库中无登记行（种子未执行？）"])
-    return ConcurrentStableList(validate_catalog(ConcurrentStableList(SERVICE_CATALOG), ConcurrentStableList(records)))
+    errors = ConcurrentStableList(
+        validate_catalog(ConcurrentStableList(SERVICE_CATALOG), ConcurrentStableList(records))
+    )
+    try:
+        products = asyncio.run(_read_products(url))
+    except Exception as exc:
+        errors.add(f"产品档案库不可读（请先执行平台库迁移）：{exc}")
+        return errors
+    if not products:
+        errors.add("产品档案库中无登记行（种子未执行？）")
+        return errors
+    errors.update(validate_products(ConcurrentStableList(PRODUCT_CATALOG), ConcurrentStableList(products)))
+    return errors
 
 
 def main(argv: ConcurrentStableList[str] | None = None) -> int:
@@ -204,7 +242,7 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
             print(f"[服务目录] {error}")
         print(f"[服务目录] 校验失败（{len(errors)} 项）")
         return 1
-    scope = f"清单 {len(SERVICE_CATALOG)} 项 + 服务包声明"
+    scope = f"清单 {len(SERVICE_CATALOG)} 项 + 产品档案 {len(PRODUCT_CATALOG)} 项 + 服务包声明"
     if url:
         scope += " + 接库对账"
     print(f"[服务目录] 校验通过（{scope}）")

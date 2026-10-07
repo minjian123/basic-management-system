@@ -49,6 +49,7 @@ def test_table_owner_lookup() -> None:
     """表级归属查询：归属命中 / 基础设施哨兵 / 未登记 None。"""
     assert table_owner("sys_tenant") == "tenant"
     assert table_owner("sys_module") == "platform"
+    assert table_owner("sys_product") == "platform"
     assert table_owner("sys_notification") == "notification"
     assert table_owner("ai_chat_log") == "ai"
     assert table_owner("sys_outbox") == OWNER_EVERY_SERVICE
@@ -62,6 +63,7 @@ def test_table_owner_lookup() -> None:
 
 @pytest.mark.kiwi_id(2176)
 @pytest.mark.kiwi_id(2247)
+@pytest.mark.kiwi_id(2249)
 def test_owned_tables_and_chain_derivation() -> None:
     """服务表集与链派生：本服务表 + 基础设施三表；库类别过滤生效。"""
     tenant_platform_tables = owned_tables_for("tenant", datasource=Datasource.PLATFORM)
@@ -72,12 +74,13 @@ def test_owned_tables_and_chain_derivation() -> None:
     )
 
     platform_chain = chain_tables("platform", Datasource.PLATFORM)
-    assert {"sys_module", "sys_module_i18n", "sys_table_ownership"} <= platform_chain
+    assert {"sys_module", "sys_module_i18n", "sys_product", "sys_table_ownership"} <= platform_chain
     assert "sys_tenant" not in platform_chain
     assert infrastructure_tables() <= platform_chain
     assert {table for table in platform_chain if table not in infrastructure_tables()} == {
         "sys_module",
         "sys_module_i18n",
+        "sys_product",
         "sys_table_ownership",
         "sys_business",
         "sys_business_i18n",
