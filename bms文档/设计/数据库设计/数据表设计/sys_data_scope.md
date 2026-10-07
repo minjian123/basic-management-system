@@ -11,8 +11,8 @@
 | 归属库 | platform 服务租户库 `bms_platform_{code}`（归属服务 `platform`） |
 | 覆盖模块 | 07-角色管理（数据权限配置） |
 | 上游依据 | 《[概要设计 · 角色管理](../../概要设计/06_概要设计_角色管理.md)》「核心表」节、《[架构设计 · 权限计算引擎](../../架构设计/15_架构设计_子系统_权限计算引擎.md)》「数据权限」节、《[组件设计 · 权限配置](../../组件设计/08_交互类/07_组件设计_权限配置/07_组件设计_权限配置.md)》「数据权限」节、《[需求 07-3](../../../项目/07_RBAC基础模块/需求/02_需求_用户与角色.md#r07-3)》 |
-| ORM 模型 | `bms_platform/models/role.py::SysDataScope`（继承 `BaseModel`；待落地） |
-| 状态 | 待落库（表文件就绪；模型 / 迁移随本任务落地） |
+| ORM 模型 | `bms_platform/models/role.py::SysDataScope`（继承 `BaseModel`） |
+| 状态 | 已落库（`platform:tenant` 链 `0007_role_tables` 建表；`config` 列为 JSON 语义，ORM 侧经 `StableJson` 写入规整 / 读回转插入序集合类） |
 | 相关节点 | [数据库设计总览](../01_数据库设计_总览.md)「核心表清单总表 · 租户库」、[sys_role](sys_role.md)、[sys_dict_type](sys_dict_type.md)、[sys_dict_attr](sys_dict_attr.md) |
 
 ## 2. 字段 <a id="fields"></a>
@@ -61,5 +61,6 @@
 | 日期 | 版本 | 变更 | 作者 |
 | --- | --- | --- | --- |
 | 2026-10-06 | v1 | 新建表结构（org 服务租户库；按字典类型结构化、`config` JSON、只选不编） | minjian |
+| 2026-10-07 | v2 | 归属改 **platform 服务租户库**（`platform:tenant` 链 `0007_role_tables` 建表，随 02_03 落点改定）；`config` 列 JSON 语义不变，ORM 侧改 `StableJson`（写前集合类规整 / 读回转插入序集合类）——集合类直接落裸 `JSON` 会报「非 JSON 序列化」 | minjian |
 
 > 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套

@@ -11,8 +11,8 @@
 | 归属库 | platform 服务租户库 `bms_platform_{code}`（归属服务 `platform`） |
 | 覆盖模块 | 07-角色管理（菜单 / 表单 / 操作授权） |
 | 上游依据 | 《[概要设计 · 角色管理](../../概要设计/06_概要设计_角色管理.md)》「核心表」节、《[架构设计 · 权限计算引擎](../../架构设计/15_架构设计_子系统_权限计算引擎.md)》「权限模型」节、《[组件设计 · 权限配置](../../组件设计/08_交互类/07_组件设计_权限配置/07_组件设计_权限配置.md)》、《[需求 07-3](../../../项目/07_RBAC基础模块/需求/02_需求_用户与角色.md#r07-3)》 |
-| ORM 模型 | `bms_platform/models/role.py::SysRolePermission`（继承 `BaseModel`；待落地） |
-| 状态 | 待落库（表文件就绪；模型 / 迁移随本任务落地） |
+| ORM 模型 | `bms_platform/models/role.py::SysRolePermission`（继承 `BaseModel`） |
+| 状态 | 已落库（`platform:tenant` 链 `0007_role_tables` 建表；模型 / 仓储 / 服务 / API 随 `02_03` 落地） |
 | 相关节点 | [数据库设计总览](../01_数据库设计_总览.md)「核心表清单总表 · 租户库」、[sys_role](sys_role.md)、[sys_menu_form](sys_menu_form.md)、[sys_menu](sys_menu.md)、[sys_form](sys_form.md)、[sys_action](sys_action.md) |
 
 ## 2. 字段 <a id="fields"></a>

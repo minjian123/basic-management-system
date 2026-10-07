@@ -11,8 +11,8 @@
 | 归属库 | 平台库 `bms_platform`（归属服务 `platform`） |
 | 覆盖模块 | 08-菜单管理（菜单 ↔ 表单挂接） |
 | 上游依据 | 《[概要设计 · 菜单管理](../../概要设计/07_概要设计_菜单管理.md)》、《[架构设计 · 权限计算引擎](../../架构设计/15_架构设计_子系统_权限计算引擎.md)》「权限模型」节、《[需求 07-5](../../../项目/07_RBAC基础模块/需求/03_需求_菜单与权限.md#r07-5)》 |
-| ORM 模型 | `bms_platform/models/menu.py::SysMenuForm`（继承 `BaseModel`；待落地） |
-| 状态 | 待落库（表文件就绪；模型 / 迁移与 `03_01` 已交付实现返工随后端任务落地） |
+| ORM 模型 | `bms_platform/models/menu.py::SysMenuForm`（继承 `BaseModel`） |
+| 状态 | 已落库（`platform:platform` 链 `0008_menu_form_multi` 建表，并把既有 `sys_form.menu_id` 幂等搬迁入本表；模型 / 仓储 / 服务 / 契约随 `02_03` 返工落地） |
 | 相关节点 | [数据库设计总览](../01_数据库设计_总览.md)「核心表清单总表 · 平台库」、[sys_menu](sys_menu.md)、[sys_form](sys_form.md) |
 
 ## 2. 字段 <a id="fields"></a>
@@ -46,12 +46,13 @@
 
 - **分片**：不分片（平台库常驻）。
 - **归档**：不归档（权限元数据）。
-- **迁移**：随**平台链**迁移落地（新增变更，随后端返工任务；`0007_menu_metadata` 建表 + 本表）。
+- **迁移**：随**平台链**迁移落地（`alembic/versions/platform/platform/0008_menu_form_multi.py`，`02_03` 返工）：建本表 → 按 `sys_form.menu_id` 幂等搬迁（软删表单随其 `deleted_at` 一并落软删）→ 删 `sys_form.menu_id` 与唯一约束；`downgrade` 加回可空列并回填后删本表。
 
 ## 5. 变更记录 <a id="revlog"></a>
 
 | 日期 | 版本 | 变更 | 作者 |
 | --- | --- | --- | --- |
 | 2026-10-05 | v1 | 新建表结构（平台库；菜单 ↔ 表单多对多关联；随后端返工任务落地） | minjian |
+| 2026-10-07 | v2 | 随 `02_03` 返工**落库**：`0008_menu_form_multi` 建表并搬迁既有 `sys_form.menu_id`（软删表单随其 `deleted_at` 一并落软删）；`sys_form` 去 `menu_id` 与唯一约束 | minjian |
 
 > 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套

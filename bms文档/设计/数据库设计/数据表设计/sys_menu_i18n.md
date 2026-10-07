@@ -12,7 +12,7 @@
 | 覆盖模块 | 08-菜单管理 |
 | 上游依据 | 《[数据库设计 · 数据规范](../02_数据库设计_数据规范.md)》「多语言与 i18n 附表」节、《[需求 07-5](../../../项目/07_RBAC基础模块/需求/03_需求_菜单与权限.md#r07-5)》「多语言」项 |
 | ORM 模型 | `bms_platform/models/menu.py::SysMenuI18n`（继承 `BaseModel`） |
-| 状态 | 待落库（随主表 `sys_menu` 迁移 `0007_menu_metadata`） |
+| 状态 | 已落库（随主表 `sys_menu` 迁移 `0007_menu_metadata`） |
 | 相关节点 | [数据库设计总览](../01_数据库设计_总览.md)「核心表清单总表 · 平台库」、[sys_menu](sys_menu.md) |
 
 ## 2. 字段 <a id="fields"></a>
