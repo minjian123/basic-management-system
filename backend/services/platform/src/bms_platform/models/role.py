@@ -9,12 +9,11 @@
 - 表结构以《数据库设计》数据表文件为唯一事实源（`sys_role` 等 5 表）。
 """
 
-from typing import Any
-
-from sqlalchemy import JSON, BigInteger, Boolean, Index, String, UniqueConstraint
+from sqlalchemy import BigInteger, Boolean, Index, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
-from bms_core.models.base import BaseModel
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.models.base import BaseModel, StableJson
 
 PERM_TYPE_MENU = "menu"
 """授权类型：菜单入口（仅菜单入口；勾选连带授予其表单查看权限）。"""
@@ -149,4 +148,6 @@ class SysDataScope(BaseModel):
         BigInteger, comment="字典类型 ID（platform 服务租户库实体，同服务同库逻辑外键 sys_dict_type.id）"
     )
     policy_type: Mapped[str] = mapped_column(String(16), comment="策略类型（select/region/match/extension）")
-    config: Mapped[Any] = mapped_column(JSON, default=list, comment="结构化策略配置（只选不编，按策略分结构）")
+    config: Mapped[ConcurrentStableList[ConcurrentStableDict[str, object]]] = mapped_column(
+        StableJson, default=list, comment="结构化策略配置（只选不编，按策略分结构）"
+    )
