@@ -45,8 +45,8 @@ from bms_core.db.migration import (
     VERSIONS_ROOT,
     apply_session_schema,
     import_models,
+    require_service_model_modules,
     resolve_chain,
-    service_model_modules,
 )
 from bms_core.db.sync import is_sync_only_url
 from bms_core.models.base import Base
@@ -54,11 +54,11 @@ from bms_core.models.ownership import SysTableOwnership
 from bms_core.services.module_registry import enabled_service_keys
 from bms_core.services.table_registry import (
     OWNER_EVERY_SERVICE,
-    TABLE_OWNERSHIP,
     TableOwnershipRegistry,
     TableRecord,
     chain_tables,
     table_names,
+    table_ownership_view,
     validate_table_ownership,
 )
 from ops.seed_tenant import resolve_url
@@ -92,8 +92,9 @@ def imported_model_tables() -> ConcurrentStableSet[str]:
     """
     declared: ConcurrentStableSet[str] = ConcurrentStableSet(COMMON_MODEL_MODULES)
     for service in enabled_service_keys():
+        # 严格入口：已启用服务必有服务包（包名前缀经 `[app].package_prefix`），缺失即报错（12_04）
+        declared.update(require_service_model_modules(service))
         import_models(service)
-        declared.update(service_model_modules(service))
 
     tables: ConcurrentStableSet[str] = ConcurrentStableSet()
     for mapper in Base.registry.mappers:
@@ -121,9 +122,9 @@ def check_offline(*, versions_root: Path = VERSIONS_ROOT) -> ConcurrentStableLis
     modeled = imported_model_tables()
 
     for table in sorted(modeled - registered):
-        errors.add(f"模型表未登记归属：{table}（须在 TABLE_OWNERSHIP 登记）")
+        errors.add(f"模型表未登记归属：{table}（须在表归属登记【平台清单 + 产品注入】登记）")
 
-    for record in TABLE_OWNERSHIP:
+    for record in table_ownership_view():
         if record.owner == OWNER_EVERY_SERVICE or record.status != "enabled":
             continue
         owned_chain = chain_tables(record.owner, record.datasource)
@@ -258,9 +259,7 @@ def check_table_db(url: str, *, schema: str = "") -> ConcurrentStableList[str]:
         return ConcurrentStableList([f"表归属登记库不可读（请先执行平台服务链迁移）：{exc}"])
     if not records:
         return ConcurrentStableList(["库中无登记行（种子未执行？）"])
-    return ConcurrentStableList(
-        validate_table_ownership(ConcurrentStableList(TABLE_OWNERSHIP), ConcurrentStableList(records))
-    )
+    return ConcurrentStableList(validate_table_ownership(table_ownership_view(), ConcurrentStableList(records)))
 
 
 def main(argv: ConcurrentStableList[str] | None = None) -> int:
@@ -282,7 +281,7 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
             print(f"[表归属] {error}")
         print(f"[表归属] 校验失败（{len(errors)} 项）")
         return 1
-    scope = f"清单 {len(TABLE_OWNERSHIP)} 项 + 模型表对账 + 脚本表集"
+    scope = f"清单 {len(table_ownership_view())} 项 + 模型表对账 + 脚本表集"
     if url:
         scope += " + 接库对账"
     print(f"[表归属] 校验通过（{scope}）")

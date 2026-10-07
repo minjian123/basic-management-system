@@ -9,9 +9,11 @@
   `status = enabled` 的归属表 + 基础设施表）∩ 已有模型（`Base.metadata.tables`）——
   `planned` 表与尚无模型的登记表自然不参与，随所属阶段补模型与表文件后**自动进链**。
 - **模型模块按服务解析**：公共模型模块 `COMMON_MODEL_MODULES` + 服务包自声明
-  `bms_{service}/models/__init__.py::MODEL_MODULES`（无模型的服务声明空元组）；服务包不存在
-  （`planned` / 预留服务）跳过。**动态导入**（`importlib`）而非静态 import——迁移 / 运维期按链的
-  服务取模型，`bms_core` 不静态依赖任何服务包（依赖方向不变，见《后端开发规范》）。
+  `{package_prefix}_{service}/models/__init__.py::MODEL_MODULES`（无模型的服务声明空元组；包名前缀经
+  `[app].package_prefix` 配置，平台默认 `bms`、产品配自有前缀如 `mdm`）；服务包不存在
+  （`planned` / 预留服务）跳过，**严格入口** `require_service_model_modules()` 则缺失即报错（12_04）。
+  **动态导入**（`importlib`）而非静态 import——迁移 / 运维期按链的服务取模型，`bms_core` 不静态
+  依赖任何服务包（依赖方向不变，见《后端开发规范》）。
 - **连接串取法**：显式 `db_key` 优先（运维通道）；缺省按链的数据源解析——平台链取该服务的平台
   服务库（全限定键 `platform_{service}`）、租户链回落 `[database.tenants].url`（真库批量迁移一律
   经库键）、归档链取 `[database.archive].url`（归档库不服务化）。
@@ -78,7 +80,7 @@ COMMON_MODEL_MODULES: tuple[str, ...] = (
 """公共模型模块清单（跨服务共享的基座模型；各链均需注册其元数据）。"""
 
 SERVICE_MODEL_MODULES_ENTRY = "MODEL_MODULES"
-"""服务包自声明模型模块清单的常量名（`bms_{service}/models/__init__.py`）。"""
+"""服务包自声明模型模块清单的常量名（`{package_prefix}_{service}/models/__init__.py`）。"""
 
 _SCOPE_SUFFIX: ConcurrentStableDict[str, str] = ConcurrentStableDict(
     {
@@ -313,11 +315,50 @@ def resolve_chain_from_section(section: str) -> MigrationChain:
     )
 
 
-def service_model_modules(service: str) -> tuple[str, ...]:
-    """取服务包自声明的模型模块清单（服务包不存在返回空元组）。
+def _package_exists(package: str) -> bool:
+    """判定点分包是否可导入（父包缺失 / 命名非法 / 导入期异常一律视为不存在）。
+
+    `importlib.util.find_spec()` 在**父包不存在**时抛 `ModuleNotFoundError`（而非返回 None），
+    故此处统一收敛为布尔判定（服务包不存在属正常情形：跨仓产品服务 / 预留服务）。
+
+    Args:
+        package: 点分包名。
+
+    Returns:
+        bool: 存在为 True。
+    """
+    try:
+        return importlib.util.find_spec(package) is not None
+    except ImportError, ValueError:
+        return False
+
+
+def service_package(service: str, *, settings: Settings | None = None) -> str:
+    """取服务包名（`{package_prefix}_{service}`；包名前缀经 `[app].package_prefix` 配置）。
+
+    平台默认前缀 `bms`（如 `bms_platform`）；产品配自有前缀（如 mdm 配 `mdm` → `mdm_org`），
+    使模型解析、迁移与开发库自动建表按产品包名取模型（12_04）。
 
     Args:
         service: 服务标识。
+        settings: 应用配置；None 取全局配置单例。
+
+    Returns:
+        str: 服务包名（不含 `.models` 后缀）。
+    """
+    prefix = (settings or get_settings()).app.package_prefix
+    return f"{prefix}_{service}"
+
+
+def service_model_modules(service: str, *, settings: Settings | None = None) -> tuple[str, ...]:
+    """取服务包自声明的模型模块清单（服务包不存在返回空元组）。
+
+    **宽松语义**：服务包不存在（跨仓产品服务、`planned` / 预留服务）返回空元组——需要「已启用服务
+    包缺失即失败」的调用方改用严格入口 `require_service_model_modules()`（12_04）。
+
+    Args:
+        service: 服务标识。
+        settings: 应用配置；None 取全局配置单例。
 
     Returns:
         tuple[str, ...]: 模型模块清单。
@@ -325,8 +366,8 @@ def service_model_modules(service: str) -> tuple[str, ...]:
     Raises:
         ConfigError: 服务包存在但未声明 `MODEL_MODULES`。
     """
-    package = f"bms_{service}.models"
-    if importlib.util.find_spec(package) is None:
+    package = f"{service_package(service, settings=settings)}.models"
+    if not _package_exists(package):
         return ()
     module = importlib.import_module(package)
     declared = getattr(module, SERVICE_MODEL_MODULES_ENTRY, None)
@@ -335,6 +376,33 @@ def service_model_modules(service: str) -> tuple[str, ...]:
             f"服务包 {package} 未声明 {SERVICE_MODEL_MODULES_ENTRY}（模型模块清单；无模型的服务请声明空元组）"
         )
     return tuple(str(name) for name in declared)
+
+
+def require_service_model_modules(service: str, *, settings: Settings | None = None) -> tuple[str, ...]:
+    """取服务包自声明的模型模块清单；**服务包不存在即 `ConfigError`**（严格入口；12_04）。
+
+    用于「服务已启用但服务包缺失」的快速失败——免静默空清单导致迁移与开发库自动建表不建表。
+    由消费方显式调用（平台侧 `ops.check_tables` 对已启用服务、产品侧对本服务 / 迁移目标）；
+    `service_model_modules()` 维持宽松语义（预留 / 跨仓服务返回空元组不误伤）。
+
+    Args:
+        service: 服务标识。
+        settings: 应用配置；None 取全局配置单例。
+
+    Returns:
+        tuple[str, ...]: 模型模块清单。
+
+    Raises:
+        ConfigError: 服务包不存在（包名前缀配置错误或工程未就位）。
+    """
+    package = f"{service_package(service, settings=settings)}.models"
+    if not _package_exists(package):
+        prefix = (settings or get_settings()).app.package_prefix
+        raise ConfigError(
+            f"服务包不存在：{package}（当前包名前缀 [app].package_prefix={prefix}）；"
+            "请确认前缀配置与服务工程包名一致（如产品 mdm 配 mdm → mdm_org）"
+        )
+    return service_model_modules(service, settings=settings)
 
 
 def import_models(service: str) -> None:

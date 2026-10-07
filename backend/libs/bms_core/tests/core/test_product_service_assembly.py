@@ -10,6 +10,7 @@
 - 平台服务（不覆写钩子 / 不声明产品维度）视图与校验口径不变。
 """
 
+from collections.abc import Iterator
 from dataclasses import replace
 from typing import cast
 
@@ -33,6 +34,14 @@ from bms_core.services.module_registry import (
     merge_service_records,
     validate_product_service_records,
 )
+from bms_core.services.table_registry import (
+    TABLE_OWNERSHIP,
+    Datasource,
+    TableOwnershipRegistry,
+    TableRecord,
+    chain_tables,
+    reset_table_records,
+)
 
 _PRODUCT_KEY = "mdm"
 """测试用产品标识（已在 `PRODUCT_CATALOG` 预登记——先注册后建表）。"""
@@ -55,6 +64,19 @@ _PRODUCT_RECORDS: tuple[ModuleRecord, ...] = (
     ),
 )
 """产品服务自报清单（与 `bms_core` 同口径；产品服务在自身仓库维护并经钩子注入）。"""
+
+_ORG_TABLE_RECORDS: tuple[TableRecord, ...] = (
+    TableRecord(table_name="org_dept", owner="org", datasource=Datasource.TENANT, note="产品注入样例"),
+)
+"""产品表归属自报记录（12_04；`org` 服务键已登记、前缀 `org_` 已登记）。"""
+
+
+@pytest.fixture(autouse=True)
+def _reset_injected_table_records() -> Iterator[None]:  # pyright: ignore[reportUnusedFunction]
+    """每个用例前后清空产品表归属注入记录（进程级注册表隔离，避免用例间串扰）。"""
+    reset_table_records()
+    yield
+    reset_table_records()
 
 
 class _ProductFactory(BaseServiceApplicationFactory):
@@ -370,3 +392,39 @@ def test_merge_service_records_dedupes_identical_platform_row() -> None:
     assert len(conflicted) == len(SERVICE_CATALOG) + 1
     errors = ModuleRegistry(conflicted).validate()
     assert any("module_key 重复：org" in error for error in errors)
+
+
+class _TableInjectFactory(BaseServiceApplicationFactory):
+    """测试用产品侧服务工厂：注入本产品表归属记录（12_04）。"""
+
+    key: str = "application_factory"
+    service_name: str = "org"
+    service_title: str = "mdm 组织主数据服务（表归属注入测试）"
+    version: str = "0.1.0"
+    contract_version: str = "0.1.0"
+
+    def table_records(self) -> tuple[TableRecord, ...]:
+        """本产品表归属记录。
+
+        Returns:
+            tuple[TableRecord, ...]: 注入记录（插入序）。
+        """
+        return _ORG_TABLE_RECORDS
+
+
+@pytest.mark.kiwi_id(2254)
+def test_table_records_hook_registers_and_merges() -> None:
+    """表归属钩子：不覆写 → 视图等于平台清单；覆写 → 装配期登记 + 合并视图 + 注入表进链。"""
+    platform_view = cast(
+        "TableOwnershipRegistry", _PlatformishFactory().create(None).state.table_ownership
+    ).list_tables()
+    assert platform_view == ConcurrentStableList(TABLE_OWNERSHIP)
+
+    app = _TableInjectFactory().create(None)
+    view = cast("TableOwnershipRegistry", app.state.table_ownership).list_tables()
+    assert [record.table_name for record in view] == [
+        *[record.table_name for record in TABLE_OWNERSHIP],
+        "org_dept",
+    ]
+    assert app.state.table_injected_records == ConcurrentStableList(_ORG_TABLE_RECORDS)
+    assert "org_dept" in chain_tables("org", Datasource.TENANT)

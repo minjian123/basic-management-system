@@ -7,6 +7,7 @@ import pytest
 from sqlalchemy import create_engine, text
 
 from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.core.exceptions import ConfigError
 from ops import check_tables
 from ops.check_tables import check_offline, check_table_db, main
 from ops.seed_tables import seed_tables
@@ -105,3 +106,12 @@ def test_check_tables_cli(tmp_path: Path, capsys: pytest.CaptureFixture[str]) ->
     """CLI：`--offline` 离线通过退出码 0 且输出校验范围。"""
     assert main(ConcurrentStableList(["--offline"])) == 0
     assert "校验通过" in capsys.readouterr().out
+
+
+@pytest.mark.kiwi_id(2254)
+def test_enabled_service_missing_package_fails(monkeypatch: pytest.MonkeyPatch) -> None:
+    """已启用服务缺服务包 → 严格入口报错（免静默空清单导致迁移与自动建表不建表）。"""
+    monkeypatch.setattr(check_tables, "enabled_service_keys", lambda: ("zzz_ghost",))
+    with pytest.raises(ConfigError) as excinfo:
+        check_tables.imported_model_tables()
+    assert "bms_zzz_ghost.models" in str(excinfo.value)

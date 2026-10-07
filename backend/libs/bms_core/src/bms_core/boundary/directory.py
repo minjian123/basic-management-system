@@ -13,11 +13,11 @@ from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableSet
 from bms_core.services.module_registry import SERVICE_CATALOG
 from bms_core.services.table_registry import (
     OWNER_EVERY_SERVICE,
-    TABLE_OWNERSHIP,
     TableRecord,
     infrastructure_tables,
     known_service_keys,
     table_names,
+    table_ownership_view,
     table_record,
 )
 from bms_core.services.table_registry import (
@@ -72,7 +72,7 @@ def table_owners_map() -> ConcurrentStableDict[str, str]:
     Returns:
         ConcurrentStableDict[str, str]: 表名到归属标签。
     """
-    return ConcurrentStableDict({record.table_name: record.owner for record in TABLE_OWNERSHIP})
+    return ConcurrentStableDict({record.table_name: record.owner for record in table_ownership_view()})
 
 
 def table_records() -> tuple[TableRecord, ...]:
@@ -81,7 +81,7 @@ def table_records() -> tuple[TableRecord, ...]:
     Returns:
         tuple[TableRecord, ...]: 归属记录。
     """
-    return TABLE_OWNERSHIP
+    return tuple(table_ownership_view())
 
 
 def is_infrastructure(table: str) -> bool:
@@ -128,7 +128,7 @@ def known_prefixes() -> ConcurrentStableSet[str]:
         ConcurrentStableSet[str]: 前缀集合。
     """
     catalog_prefixes = {record.table_prefix for record in SERVICE_CATALOG}
-    owned_prefixes = {table_prefix_of(record.table_name) for record in TABLE_OWNERSHIP}
+    owned_prefixes = {table_prefix_of(record.table_name) for record in table_ownership_view()}
     return ConcurrentStableSet(catalog_prefixes | owned_prefixes)
 
 

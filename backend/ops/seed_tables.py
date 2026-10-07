@@ -10,7 +10,8 @@ uv run python -m ops.seed_tables --dry-run
 
 - URL 解析复用 `ops.seed_tenant.resolve_url(service="platform")`（`--url` > `BMS_MIGRATION_URL` >
   按库键 `platform_platform` 解析：`sys_table_ownership` 归 `platform` 服务）；
-- 单一来源取 `bms_core/services/table_registry.py::TABLE_OWNERSHIP`（与启动 / CI 对账清单同源，避免漂移）；
+- 单一来源取表归属**合并视图**（`bms_core/services/table_registry.py::table_ownership_view()`——平台清单 +
+  产品注入记录；与启动 / CI 对账清单同源，避免漂移）；
 - 幂等：按 `table_name` + 未软删除判存——不存在插入、存在则更新清单字段（归属 / 库类别 / 状态 / 说明）；
 - 建表分支兼容保留（Alembic 落库后由 `alembic -n alembic:platform:platform upgrade head` 建表；
   SQLite 开发库由启动期自动建表）。
@@ -32,7 +33,7 @@ from bms_core.db.keys import PLATFORM_SERVICE_KEY
 from bms_core.db.migration import apply_session_schema
 from bms_core.db.sync import is_sync_only_url
 from bms_core.models.ownership import SysTableOwnership
-from bms_core.services.table_registry import TABLE_OWNERSHIP, TableRecord
+from bms_core.services.table_registry import TableRecord, table_ownership_view
 from ops.seed_tenant import resolve_url
 
 
@@ -87,7 +88,7 @@ def _seed_tables_sync(url: str, schema: str) -> tuple[int, int]:
             apply_session_schema(connection, schema)
             cast("Table", SysTableOwnership.__table__).create(connection, checkfirst=True)
         with Session(engine) as session:
-            for seed in TABLE_OWNERSHIP:
+            for seed in table_ownership_view():
                 statement = select(SysTableOwnership).where(
                     SysTableOwnership.table_name == seed.table_name,
                     SysTableOwnership.deleted_at.is_(None),
@@ -132,7 +133,7 @@ async def seed_tables(url: str, *, schema: str = "") -> tuple[int, int]:
             table = cast("Table", SysTableOwnership.__table__)
             await connection.run_sync(table.create, checkfirst=True)
         async with factory() as session:
-            for seed in TABLE_OWNERSHIP:
+            for seed in table_ownership_view():
                 statement = select(SysTableOwnership).where(
                     SysTableOwnership.table_name == seed.table_name,
                     SysTableOwnership.deleted_at.is_(None),
@@ -170,7 +171,7 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
     if args.dry_run:
         target = make_url(url).render_as_string(hide_password=True)
         print(f"[seed_tables] 目标库：{target}")
-        for seed in TABLE_OWNERSHIP:
+        for seed in table_ownership_view():
             print(f"[seed_tables] 种子：{seed.table_name} → {seed.owner} / {seed.datasource}（dry-run）")
         return 0
     created, updated = asyncio.run(seed_tables(url, schema=args.schema))

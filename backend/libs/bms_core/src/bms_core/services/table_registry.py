@@ -1,7 +1,9 @@
 """表归属登记：表 → 「归属服务 + 库类别」单一来源（06_03）。
 
 - `TABLE_OWNERSHIP` 是种子（`ops/seed_tables.py`）、启动 / CI 双向对账（`ops/check_tables.py`）、
-  静态硬校验与运行时守卫、迁移链表集派生的**单一来源**（与服务目录 `SERVICE_CATALOG` 同源模式）。
+  静态硬校验与运行时守卫、迁移链表集派生的**单一来源**（与服务目录 `SERVICE_CATALOG` 同源模式）；
+  **产品表归属经 `register_table_records()` 在装载期注入**，派生与校验统一取合并视图
+  `table_ownership_view()`（12_04，机制与 12_03 服务目录注入同构）。
 - 归属语义：每张表有唯一归属服务；`sys_` 为平台共享前缀，按**表级归属**判定（不再整前缀放行）。
 - 基础设施表（发件箱三表）归「每服务自有」（`OWNER_EVERY_SERVICE`），不参与跨服务归属判定，
   每条链（平台 / 租户）各含三表。
@@ -389,8 +391,78 @@ TABLE_OWNERSHIP: tuple[TableRecord, ...] = (
 - `TableStatus.ENABLED`：归属已定案且进入迁移链（`chain_tables`）；
 - `TableStatus.PLANNED`：归属已定但**未定稿 / 未落库**（骨架表与演示表），不进链，
   随所属阶段补表文件与模型并转 `enabled` 时自动进链（见《数据库开发规范》「迁移与建表口径」）；
-- `sys_` 为平台共享前缀，按**表级归属**判定（不再整前缀放行）。
+- `sys_` 为平台共享前缀，按**表级归属**判定（不再整前缀放行）；
+- **产品表归属注入（12_04）**：本常量为**平台侧**清单；产品表由产品仓在**装载期**经
+  `register_table_records()` 注入，派生（`chain_tables` / `table_owner` / …）与校验一律取
+  **合并视图** `table_ownership_view()`（平台清单 + 注入记录，同 `table_name` 同值去重、异值即拒）。
 """
+
+_INJECTED_TABLE_RECORDS: ConcurrentStableList[TableRecord] = ConcurrentStableList()
+"""产品侧注入的表归属记录（装载期经 `register_table_records()` 登记；插入序）。"""
+
+
+def merge_table_records(
+    platform_records: tuple[TableRecord, ...] | ConcurrentStableList[TableRecord],
+    injected_records: ConcurrentStableList[TableRecord],
+) -> ConcurrentStableList[TableRecord]:
+    """合并平台表归属清单与产品注入记录（**同 `table_name` 同值去重、异值即拒**；12_04）。
+
+    产品表为**产品自持**（平台侧清单不登记）时按注入登记；若某表同时存在于平台侧清单且
+    **逐字段同值**，则去重（保留平台侧一条，避免「表名重复登记」误拒）；**任一字段不同即两条并存**
+    ——由 `TableOwnershipRegistry.validate()` 以「表名重复登记」拒绝（fail-closed，不静默取一侧）。
+
+    Args:
+        platform_records: 平台侧表归属清单（`TABLE_OWNERSHIP`）。
+        injected_records: 产品侧注入记录（应用工厂 `table_records()` 返回值）。
+
+    Returns:
+        ConcurrentStableList[TableRecord]: 合并清单（平台清单顺序在前，未命中的注入记录顺延）。
+    """
+    platform_by_name = ConcurrentStableDict((record.table_name, record) for record in platform_records)
+    merged: ConcurrentStableList[TableRecord] = ConcurrentStableList(platform_records)
+    for record in injected_records:
+        existing = platform_by_name.get(record.table_name)
+        if existing is not None and existing == record:
+            continue
+        merged.add(record)
+    return merged
+
+
+def register_table_records(records: Iterable[TableRecord]) -> None:
+    """登记产品侧表归属记录（**装载期**调用；**同值重复登记无操作**，幂等）。
+
+    产品服务在应用装配（`BaseServiceApplicationFactory.table_records()`）与 ops / alembic 装载入口
+    调用本函数；登记后 `chain_tables` / `table_owner` 等派生与归属校验即可见产品表。
+
+    Args:
+        records: 产品表归属记录（插入序）。
+    """
+    for record in records:
+        if record not in _INJECTED_TABLE_RECORDS:
+            _INJECTED_TABLE_RECORDS.add(record)
+
+
+def injected_table_records() -> ConcurrentStableList[TableRecord]:
+    """取已注入的产品表归属记录（插入序）。
+
+    Returns:
+        ConcurrentStableList[TableRecord]: 注入记录快照。
+    """
+    return ConcurrentStableList(_INJECTED_TABLE_RECORDS)
+
+
+def reset_table_records() -> None:
+    """清空已注入的产品表归属记录（**测试隔离用**；不影响 `TABLE_OWNERSHIP`）。"""
+    _INJECTED_TABLE_RECORDS.clear()
+
+
+def table_ownership_view() -> ConcurrentStableList[TableRecord]:
+    """取表归属**合并视图**（平台清单 + 产品注入记录）——派生与校验的唯一入口。
+
+    Returns:
+        ConcurrentStableList[TableRecord]: 合并清单（平台清单顺序在前）。
+    """
+    return merge_table_records(TABLE_OWNERSHIP, injected_table_records())
 
 
 def _owner_label(record: ModuleRecord) -> str:
@@ -441,7 +513,7 @@ def table_owner(table_name: str) -> str | None:
     Returns:
         str | None: 归属服务标识；基础设施表返回 `*`；未登记返回 None。
     """
-    for record in TABLE_OWNERSHIP:
+    for record in table_ownership_view():
         if record.table_name == table_name:
             return record.owner
     return None
@@ -456,7 +528,7 @@ def table_record(table_name: str) -> TableRecord | None:
     Returns:
         TableRecord | None: 登记记录。
     """
-    return next((record for record in TABLE_OWNERSHIP if record.table_name == table_name), None)
+    return next((record for record in table_ownership_view() if record.table_name == table_name), None)
 
 
 def owned_tables_for(
@@ -474,7 +546,7 @@ def owned_tables_for(
     """
     return ConcurrentStableSet(
         record.table_name
-        for record in TABLE_OWNERSHIP
+        for record in table_ownership_view()
         if record.owner == service
         and (datasource is None or record.datasource == datasource)
         and (include_planned or record.status == TableStatus.ENABLED)
@@ -489,7 +561,7 @@ def infrastructure_tables() -> ConcurrentStableSet[str]:
     """
     return ConcurrentStableSet(
         record.table_name
-        for record in TABLE_OWNERSHIP
+        for record in table_ownership_view()
         if record.owner == OWNER_EVERY_SERVICE and record.datasource == Datasource.BOTH
     )
 
@@ -512,14 +584,14 @@ def chain_tables(service: str, datasource: str) -> ConcurrentStableSet[str]:
     """
     owned = ConcurrentStableSet(
         record.table_name
-        for record in TABLE_OWNERSHIP
+        for record in table_ownership_view()
         if record.owner == service and record.datasource == datasource and record.status == TableStatus.ENABLED
     )
     if datasource == Datasource.ARCHIVE:
         return ConcurrentStableSet(owned)
     infra = ConcurrentStableSet(
         record.table_name
-        for record in TABLE_OWNERSHIP
+        for record in table_ownership_view()
         if record.owner == OWNER_EVERY_SERVICE
         and record.datasource in (datasource, Datasource.BOTH)
         and record.status == TableStatus.ENABLED
@@ -533,7 +605,7 @@ def table_names() -> ConcurrentStableSet[str]:
     Returns:
         ConcurrentStableSet[str]: 表名集合（插入序）。
     """
-    return ConcurrentStableSet(record.table_name for record in TABLE_OWNERSHIP)
+    return ConcurrentStableSet(record.table_name for record in table_ownership_view())
 
 
 def registered_services() -> ConcurrentStableSet[str]:
@@ -542,7 +614,7 @@ def registered_services() -> ConcurrentStableSet[str]:
     Returns:
         ConcurrentStableSet[str]: 服务标识集合（插入序）。
     """
-    return ConcurrentStableSet(record.owner for record in TABLE_OWNERSHIP if record.owner != OWNER_EVERY_SERVICE)
+    return ConcurrentStableSet(record.owner for record in table_ownership_view() if record.owner != OWNER_EVERY_SERVICE)
 
 
 def _duplicates(values: ConcurrentStableList[str]) -> ConcurrentStableList[str]:
@@ -571,10 +643,10 @@ class TableOwnershipRegistry(BaseFrameworkObject):
         """初始化。
 
         Args:
-            tables: 归属清单（插入序）；默认全量 `TABLE_OWNERSHIP`。
+            tables: 归属清单（插入序）；默认取**合并视图**（平台清单 + 产品注入记录）。
         """
         self._tables: ConcurrentStableList[TableRecord] = (
-            ConcurrentStableList(TABLE_OWNERSHIP) if tables is None else ConcurrentStableList(tables)
+            table_ownership_view() if tables is None else ConcurrentStableList(tables)
         )
 
     def list_tables(

@@ -70,9 +70,10 @@ from bms_core.services.module_registry import (
     validate_product_service_records,
 )
 from bms_core.services.table_registry import (
-    TABLE_OWNERSHIP,
     TableOwnershipRegistry,
     TableRecord,
+    register_table_records,
+    table_ownership_view,
     validate_table_ownership,
 )
 from bms_core.tenant.db import register_db_tenant_self_service
@@ -166,7 +167,7 @@ async def _validate_table_ownership(app: FastAPI) -> None:
     if not records:
         logger.warning("table_ownership_empty", hint="表归属登记无登记行，跳过接库对账（先执行 ops.seed_tables）")
         return
-    errors = validate_table_ownership(ConcurrentStableList(TABLE_OWNERSHIP), ConcurrentStableList(records))
+    errors = validate_table_ownership(table_ownership_view(), ConcurrentStableList(records))
     if errors:
         logger.critical("table_ownership_invalid", scope="database", errors=errors)
         raise CatalogError("表归属登记校验失败（接库）：" + "；".join(errors))
@@ -321,6 +322,20 @@ class BaseServiceApplicationFactory(BaseApplicationFactory):
         """
         return ()
 
+    def table_records(self) -> tuple[TableRecord, ...]:
+        """本服务补充的表归属记录（子类覆写；缺省空元组）。
+
+        **产品服务**在此返回本产品表归属清单（`bms_core.services.table_registry.TableRecord`；跨仓库
+        直接 `import` 自身清单返回）：基座在装配期**登记**这些记录并把「平台清单 + 注入记录」的
+        **合并视图**置为 `app.state.table_ownership`，派生（`chain_tables` / 自动建表）与归属校验
+        一律以该视图为准；合并按「同 `table_name` 同值去重、异值即拒」（12_04）。
+        平台服务不覆写——合并视图严格等于 `TABLE_OWNERSHIP`，装配与校验行为不变。
+
+        Returns:
+            tuple[TableRecord, ...]: 补充的表归属记录（插入序）。
+        """
+        return ()
+
     def service_routers(self) -> ConcurrentStableList[APIRouter]:
         """业务路由清单（子类覆写；探针路由由基座统一挂载，无需返回）。
 
@@ -399,6 +414,13 @@ class BaseServiceApplicationFactory(BaseApplicationFactory):
         app.state.module_registry = ModuleRegistry(merge_service_records(SERVICE_CATALOG, injected))
         app.state.service_product_key = self.product_key
         app.state.service_injected_records = injected
+        # 表归属为**合并视图**：平台清单 + 本服务注入记录（产品服务经 `table_records()` 提供）；
+        # 装配期登记（`register_table_records`）后，开发库自动建表与迁移等**装载期派生**即可见产品表；
+        # 合并按「同 table_name 同值去重、异值即拒」（12_04）
+        injected_tables = ConcurrentStableList(self.table_records())
+        register_table_records(injected_tables)
+        app.state.table_ownership = TableOwnershipRegistry(table_ownership_view())
+        app.state.table_injected_records = injected_tables
         app.state.settings = settings
         app.state.startup_complete = False
         app.state.catalog_degraded = False

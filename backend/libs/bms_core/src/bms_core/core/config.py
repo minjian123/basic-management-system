@@ -9,6 +9,7 @@
 """
 
 import os
+import re
 import tomllib
 from functools import lru_cache
 from pathlib import Path
@@ -35,6 +36,9 @@ from bms_core.schemas.base import (
     CONTRACT_STABLE_LIST,
     BaseSchema,
 )
+
+_PACKAGE_PREFIX_RE = re.compile(r"^[a-z][a-z0-9_]*$")
+"""服务包名前缀格式（`[app].package_prefix`）：小写字母起、仅小写字母 / 数字 / 下划线。"""
 
 _ENVIRONMENTS = ("dev", "test", "prod")
 _ENV_SELECTOR = "BMS_ENV"
@@ -86,6 +90,32 @@ class AppSettings(BaseSettings):
     基线开（dev / test 便于联调），`config.prod.toml` 置 `false` 关闭（契约唯一来源为 CI 快照
     `deploy/contracts/`）；`app.openapi()` 方法不受影响，CI 契约生成仍可用。
     """
+
+    package_prefix: str = "bms"
+    """服务包名前缀（env `BMS_APP__PACKAGE_PREFIX`）——链的服务模型模块按
+    `{package_prefix}_{service}.models` 解析（见 `db/migration.py::service_model_modules`）。
+
+    默认 `bms`（平台既有口径，现有部署零影响）；**产品部署配自有前缀**（如 mdm 配 `mdm`，服务包
+    `mdm_org`），使模型解析、迁移与开发库自动建表按产品包名取模型（12_04）。
+    """
+
+    @field_validator("package_prefix")
+    @classmethod
+    def _validate_package_prefix(cls, value: str) -> str:
+        """校验包名前缀（小写字母起、仅小写字母 / 数字 / 下划线）。
+
+        Args:
+            value: 配置值。
+
+        Returns:
+            str: 校验后的值。
+
+        Raises:
+            ValueError: 取值非法。
+        """
+        if not _PACKAGE_PREFIX_RE.match(value):
+            raise ValueError(f"app.package_prefix 取值非法：{value}（须为小写字母起、仅小写字母 / 数字 / 下划线）")
+        return value
 
 
 class ServerSettings(BaseSettings):

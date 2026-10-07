@@ -1,5 +1,6 @@
 """表归属登记测试（Kiwi 2176）：单一来源校验 / 表级归属查询 / 链派生 / 双向对账 / 模型声明。"""
 
+from collections.abc import Iterator
 from dataclasses import replace
 
 import pytest
@@ -17,13 +18,26 @@ from bms_core.services.table_registry import (
     TableStatus,
     chain_tables,
     infrastructure_tables,
+    injected_table_records,
     known_service_keys,
     owned_tables_for,
+    register_table_records,
+    reset_table_records,
     table_names,
     table_owner,
+    table_ownership_view,
     table_record,
     validate_table_ownership,
 )
+
+
+@pytest.fixture(autouse=True)
+def _reset_injected_table_records() -> Iterator[None]:  # pyright: ignore[reportUnusedFunction]
+    """每个用例前后清空产品注入记录（进程级注册表隔离，避免用例间串扰）。"""
+    reset_table_records()
+    yield
+    reset_table_records()
+
 
 _BASE_RECORD = TableRecord(table_name="zzz_item", owner="platform", datasource=Datasource.TENANT)
 
@@ -208,3 +222,54 @@ def test_ownership_model_declared() -> None:
     }
     assert unique_names == {"uq_sys_table_ownership_name_deleted_at"}
     assert SysTableOwnership.__table__.columns["status"].default.arg == TableStatus.ENABLED
+
+
+def _org_records() -> ConcurrentStableList[TableRecord]:
+    """构造产品侧（mdm 组织域）注入记录。
+
+    Returns:
+        ConcurrentStableList[TableRecord]: 归属记录（插入序）。
+    """
+    return ConcurrentStableList(
+        [
+            TableRecord(table_name="org_dept", owner="org", datasource=Datasource.TENANT, note="部门"),
+            TableRecord(table_name="org_post", owner="org", datasource=Datasource.TENANT, note="岗位"),
+        ]
+    )
+
+
+@pytest.mark.kiwi_id(2254)
+def test_product_table_injection_enters_chain() -> None:
+    """产品表装载期注入 → 视图 / 归属查询 / 链派生均可见；清空后回到平台清单。"""
+    assert "org_dept" not in chain_tables("org", Datasource.TENANT)
+    assert table_owner("org_dept") is None
+
+    register_table_records(_org_records())
+
+    assert len(injected_table_records()) == 2
+    assert table_owner("org_dept") == "org"
+    assert "org_post" in table_names()
+    assert len(table_ownership_view()) == len(TABLE_OWNERSHIP) + 2
+    tenant_chain = chain_tables("org", Datasource.TENANT)
+    assert {"org_dept", "org_post"} <= tenant_chain
+    assert infrastructure_tables() <= tenant_chain
+    assert not chain_tables("org", Datasource.ARCHIVE), "租户层产品表不进归档链"
+    assert TableOwnershipRegistry().validate() == []
+
+    reset_table_records()
+    assert "org_dept" not in chain_tables("org", Datasource.TENANT)
+
+
+@pytest.mark.kiwi_id(2254)
+def test_injection_dedupe_and_conflict() -> None:
+    """同 `table_name` 同值 → 去重（视图条目数不变）；异值 → 报「表名重复登记」（fail-closed）。"""
+    platform_record = table_record("sys_notification")
+    assert platform_record is not None
+
+    register_table_records(ConcurrentStableList([platform_record]))
+    assert len(table_ownership_view()) == len(TABLE_OWNERSHIP)
+    assert TableOwnershipRegistry().validate() == []
+
+    register_table_records(ConcurrentStableList([replace(platform_record, note="冲突登记")]))
+    errors = TableOwnershipRegistry().validate()
+    assert any("表名重复登记" in error and "sys_notification" in error for error in errors)
