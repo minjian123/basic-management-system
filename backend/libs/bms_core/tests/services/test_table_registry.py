@@ -100,7 +100,16 @@ def test_owned_tables_and_chain_derivation() -> None:
         {"sys_tenant", "sys_tenant_database", "sys_user_tenant", *infrastructure_tables()}
     )
     assert chain_tables("org", Datasource.TENANT) == frozenset(
-        {"sys_user", "sys_account_lock", *infrastructure_tables()}
+        {
+            "sys_user",
+            "sys_account_lock",
+            "sys_role",
+            "sys_user_role",
+            "sys_role_permission",
+            "sys_role_field",
+            "sys_data_scope",
+            *infrastructure_tables(),
+        }
     )
     assert chain_tables("identity", Datasource.TENANT) == frozenset(
         {"sys_session", "sys_identity_provider", "sys_client", *infrastructure_tables()}

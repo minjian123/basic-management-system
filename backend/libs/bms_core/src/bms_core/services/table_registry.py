@@ -247,6 +247,36 @@ TABLE_OWNERSHIP: tuple[TableRecord, ...] = (
         note="账号锁定记录（与 sys_user 同库；三型锁定 / 解锁归 03_07，inactive 扫描归 03_05）",
     ),
     TableRecord(
+        table_name="sys_role",
+        owner="org",
+        datasource=Datasource.TENANT,
+        note="角色（租户内角色定义；内置角色按配置常量判定）",
+    ),
+    TableRecord(
+        table_name="sys_user_role",
+        owner="org",
+        datasource=Datasource.TENANT,
+        note="角色 × 用户分配（与用户管理页「用户分配角色」同一张表）",
+    ),
+    TableRecord(
+        table_name="sys_role_permission",
+        owner="org",
+        datasource=Datasource.TENANT,
+        note="角色授权（菜单 / 表单 / 操作；带来源 source_menu_id）",
+    ),
+    TableRecord(
+        table_name="sys_role_field",
+        owner="org",
+        datasource=Datasource.TENANT,
+        note="角色字段权限（visible/editable；默认全开、只存收窄项）",
+    ),
+    TableRecord(
+        table_name="sys_data_scope",
+        owner="org",
+        datasource=Datasource.TENANT,
+        note="角色数据权限（角色 × 字典 × 策略 → config；只选不编）",
+    ),
+    TableRecord(
         table_name="sys_identity_provider",
         owner="identity",
         datasource=Datasource.TENANT,
