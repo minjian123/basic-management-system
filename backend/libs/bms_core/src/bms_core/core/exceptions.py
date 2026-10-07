@@ -653,6 +653,127 @@ class AccountLockNotFoundError(AccountLockError):
         super().__init__(ErrorCode.ACCOUNT_LOCK_NOT_FOUND, message, data=data)
 
 
+class RoleError(UserOrgError):
+    """角色段（用户与组织段内子段）异常基类；子类在构造时预置码位与 HTTP 状态。"""
+
+
+class RoleNotFoundError(RoleError):
+    """角色不存在（`30041` / 404）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化角色不存在异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        super().__init__(ErrorCode.ROLE_NOT_FOUND, message, http_status=404, data=data)
+
+
+class RoleCodeExistsError(RoleError):
+    """角色码已存在（`30042`；租户内唯一）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化角色码重复异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        super().__init__(ErrorCode.ROLE_CODE_EXISTS, message, data=data)
+
+
+class RoleProtectedError(RoleError):
+    """内置角色受保护（`30043`；不可删除 / 停用 / 变更归属）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化内置角色保护异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        super().__init__(ErrorCode.ROLE_PROTECTED, message, data=data)
+
+
+class RoleAssignedError(RoleError):
+    """角色仍存在分配（`30044`；用户分配或经 mdm 只读契约核验的岗位 / 部门分配），禁止删除。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化角色仍被分配异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        super().__init__(ErrorCode.ROLE_ASSIGNED, message, data=data)
+
+
+class RoleSubjectInvalidError(RoleError):
+    """分配主体（用户）不存在或已停用（`30045`）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化主体无效异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        super().__init__(ErrorCode.ROLE_SUBJECT_INVALID, message, data=data)
+
+
+class RoleTargetInvalidError(RoleError):
+    """授权目标不存在或挂接链断裂（`30046`；菜单缺表单 / 表单缺业务 / 来源不匹配）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化授权目标无效异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        super().__init__(ErrorCode.ROLE_TARGET_INVALID, message, data=data)
+
+
+class RoleScopeValueInvalidError(RoleError):
+    """数据匹配通配符值非法或扩展权限参数不合法（`30047` / 400）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化数据权限取值非法异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        super().__init__(ErrorCode.ROLE_SCOPE_VALUE_INVALID, message, http_status=400, data=data)
+
+
+class RoleSeparationConflictError(RoleError):
+    """三权分立冲突（`30048`；授予将造成管理员职责互斥或兼任）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化三权冲突异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        super().__init__(ErrorCode.ROLE_SEPARATION_CONFLICT, message, http_status=403, data=data)
+
+
+class RoleFieldMismatchError(RoleError):
+    """字段权限配置与表单字段实体不匹配（`30049` / 400）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化字段不匹配异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        super().__init__(ErrorCode.ROLE_FIELD_MISMATCH, message, http_status=400, data=data)
+
+
 class ConfigError(BizError):
     """系统配置段（`4xxxx`）异常基类：配置加载 / 校验失败（启动期致命，走启动失败路径）。"""
 
