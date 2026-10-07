@@ -5,9 +5,15 @@
 - `BaseServiceApplicationFactory`：服务应用工厂基座（继承 `BaseApplicationFactory`）——承载通用装配
   编排（服务身份 / 中间件 / 异常处理 / 状态与前缀工厂 / 引擎注册表 / 租户源 / 插件装配 / 探针），
   各服务只声明身份、业务路由与可选钩子，装配行为不改。
+- **产品服务装配（12_03）**：服务目录为**应用级视图**——工厂经 `service_records()` 注入本服务补充记录
+  （产品服务清单）与 `SERVICE_CATALOG` 拼接，落 `app.state.module_registry`；启动校验（离线清单 /
+  接库对账 / 事件契约域）一律以该视图为准，产品服务不再隐式依赖平台固定服务集；声明 `product_key`
+  的产品服务另做产品维度 fail-closed 校验（`validate_product_service_records()`）。平台服务不覆写钩子
+  / 不声明 `product_key`，视图与校验口径与既有完全一致。
 
 服务侧用法：声明 `service_name` / `service_title` / `version` / `contract_version`，覆写 `service_routers()`
-返回业务路由；服务专属 state 覆写 `configure_service()`，创建前调整配置覆写 `prepare_settings()`。
+返回业务路由；服务专属 state 覆写 `configure_service()`，创建前调整配置覆写 `prepare_settings()`；
+产品服务另声明 `product_key` 并覆写 `service_records()` 返回本产品服务清单。
 """
 
 from collections.abc import AsyncGenerator
@@ -30,7 +36,7 @@ from bms_core.api.middleware import (
 from bms_core.cache.base import CacheRegion
 from bms_core.catalog.loader import load_catalog_snapshot
 from bms_core.core.assembly import assemble_plugins, register_platform_plugins
-from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import Settings, get_settings, validate_startup
 from bms_core.core.exceptions import CatalogError, EventContractError
 from bms_core.core.factory import BaseApplicationFactory, register_factory, resolve_factory
@@ -56,10 +62,11 @@ from bms_core.schemas.common import ApiResponse
 from bms_core.servicecall.base import BaseServiceClient
 from bms_core.services.module_registry import (
     SERVICE_CATALOG,
+    ModuleRecord,
     ModuleRegistry,
     enabled_service_keys,
-    known_event_domains,
     validate_catalog,
+    validate_product_service_records,
 )
 from bms_core.services.table_registry import (
     TABLE_OWNERSHIP,
@@ -86,8 +93,12 @@ async def _validate_service_catalog(app: FastAPI) -> None:
     - 其余服务：经 `service_client` 调 `GET /api/v1/modules/snapshot`；**不可达 / 响应非法时告警放行**
       并置 `app.state.catalog_degraded = True`（`/readyz` 的 `catalog` 非必需项可见降级，不产生 503）。
 
+    对账清单取**应用级视图**（`app.state.module_registry.catalog_records()`；平台服务等于
+    `SERVICE_CATALOG`，产品服务为「平台清单 + `service_records()` 注入记录」）——产品行随注入进入
+    对账，产品服务不因平台固定清单产生隐式依赖（12_03）。
+
     Args:
-        app: 应用实例（取引擎注册表 / 会话工厂 / 服务身份）。
+        app: 应用实例（取引擎注册表 / 会话工厂 / 服务身份 / 服务目录视图）。
 
     Raises:
         CatalogError: 权威服务目录不可读（表缺失 / 连接失败）或校验冲突（唯一 / 对账 / 契约版本）。
@@ -106,8 +117,8 @@ async def _validate_service_catalog(app: FastAPI) -> None:
         logger.warning("service_catalog_empty", hint="服务目录无登记行，跳过接库校验")
         return
     errors = validate_catalog(
-        ConcurrentStableList(SERVICE_CATALOG),
-        ConcurrentStableList(records),
+        cast("ModuleRegistry", app.state.module_registry).catalog_records(),
+        records,
         service_key=identity.name,
         contract_version=identity.contract_version,
     )
@@ -182,14 +193,33 @@ async def _record_db_inventory(app: FastAPI, settings: Settings) -> None:
     await cast("EngineRegistry", app.state.engine_registry).record_db_counts()
 
 
-def _validate_event_contracts() -> None:
+def _injected_service_records(app: FastAPI) -> ConcurrentStableList[ModuleRecord]:
+    """取本服务注入的服务目录记录（应用工厂 `service_records()` 产物；未注入返回空清单）。
+
+    Args:
+        app: 应用实例。
+
+    Returns:
+        ConcurrentStableList[ModuleRecord]: 注入记录（插入序）。
+    """
+    return cast("ConcurrentStableList[ModuleRecord]", app.state.service_injected_records)
+
+
+def _validate_event_contracts(app: FastAPI) -> None:
     """离线事件契约校验：登记契约与订阅（命名 / 事件域 / 版本 / 字段）违规即拒启。
+
+    事件域取**应用级视图**（`app.state.module_registry.event_domains()`）——产品服务注入记录的
+    自有事件域随之生效，不再受平台固定清单限制（12_03）。
+
+    Args:
+        app: 应用实例（取服务目录视图）。
 
     Raises:
         EventContractError: 契约或订阅校验失败（含事件域未登记、订阅未覆盖当前主版本）。
     """
     errors = validate_event_registry(
-        default_event_contract_registry(), domains=ConcurrentStableSet(known_event_domains())
+        default_event_contract_registry(),
+        domains=cast("ModuleRegistry", app.state.module_registry).event_domains(),
     )
     if errors:
         get_logger("bms").critical("event_contract_invalid", errors=errors)
@@ -200,6 +230,9 @@ def _validate_event_contracts() -> None:
 async def service_lifespan(app: FastAPI) -> AsyncGenerator[None]:
     """服务生命周期：启动校验（离线 + 接库）+ 工厂 / 插件装配（完成后标记就绪），关闭时统一释放异步资源。
 
+    离线阶段另执行**产品维度校验**（应用工厂声明 `product_key` 时）：注入的服务目录记录须非空、
+    均为产品分组、产品归属与声明一致、且含运行服务登记行（不通过即拒启；12_03）。
+
     Args:
         app: 应用实例。
 
@@ -207,7 +240,7 @@ async def service_lifespan(app: FastAPI) -> AsyncGenerator[None]:
         None: 应用运行期。
 
     Raises:
-        CatalogError: 服务目录校验失败（离线清单冲突 / 接库冲突 / 库不可读）。
+        CatalogError: 服务目录校验失败（离线清单冲突 / 产品维度不合规 / 接库冲突 / 库不可读）。
         EventContractError: 事件契约或订阅校验失败。
         PluginError: 工厂 / 插件装配失败（非法 provider / 重名 / 契约版本不符 / 依赖不可用）。
     """
@@ -218,11 +251,20 @@ async def service_lifespan(app: FastAPI) -> AsyncGenerator[None]:
     for message in tenant_pool_budget_warnings(settings, settings.tenant.engine_max_active):
         get_logger("bms_core.db").warning("tenant_pool_budget_exceeded", detail=message)
     try:
-        errors = cast("ModuleRegistry", app.state.module_registry).validate()
+        registry = cast("ModuleRegistry", app.state.module_registry)
+        identity = cast("ServiceIdentity", app.state.service_identity)
+        errors = registry.validate()
+        product_key = cast("str | None", app.state.service_product_key)
+        if product_key is not None:
+            errors.update(
+                validate_product_service_records(
+                    _injected_service_records(app), service_key=identity.name, product_key=product_key
+                )
+            )
         if errors:
             get_logger("bms").critical("service_catalog_invalid", scope="offline", errors=errors)
             raise CatalogError("服务目录校验失败（清单）：" + "；".join(errors))
-        _validate_event_contracts()
+        _validate_event_contracts(app)
         created = await ensure_development_schema(
             cast("EngineRegistry", app.state.engine_registry),
             settings,
@@ -258,6 +300,25 @@ class BaseServiceApplicationFactory(BaseApplicationFactory):
     """服务版本（取服务包 `__version__`）。"""
     contract_version: str = "0.1.0"
     """公开契约（OpenAPI）版本（取服务包 `CONTRACT_VERSION`；启动接库校验主版本兼容）。"""
+    product_key: str | None = None
+    """产品标识（**产品服务**声明；平台服务保持 `None`）。
+
+    声明后进入产品维度 fail-closed 校验（`service_records()` 注入记录非空 / 均为产品分组 / 产品归属
+    与本值一致 / 含本服务登记行），应用级清单视图为「平台清单 + 注入记录」（12_03）。
+    """
+
+    def service_records(self) -> tuple[ModuleRecord, ...]:
+        """本服务补充的服务目录记录（子类覆写；缺省空元组）。
+
+        **产品服务**在此返回本产品服务清单（与 `bms_core` 同口径 `ModuleRecord`；跨仓库直接
+        `import` 自身清单返回）：基座把它与 `SERVICE_CATALOG` 拼接为应用级视图
+        （`app.state.module_registry`），启动离线校验 / 接库对账 / 事件契约域一律以该视图为准。
+        平台服务不覆写——视图严格等于 `SERVICE_CATALOG`，装配与校验行为不变。
+
+        Returns:
+            tuple[ModuleRecord, ...]: 补充的服务目录记录（插入序）。
+        """
+        return ()
 
     def service_routers(self) -> ConcurrentStableList[APIRouter]:
         """业务路由清单（子类覆写；探针路由由基座统一挂载，无需返回）。
@@ -331,7 +392,11 @@ class BaseServiceApplicationFactory(BaseApplicationFactory):
         register_exception_handlers(app)
 
         app.state.resources = ResourceManager()
-        app.state.module_registry = ModuleRegistry()
+        # 服务目录为**应用级视图**：平台清单 + 本服务注入记录（产品服务经 `service_records()` 提供）
+        injected = ConcurrentStableList(self.service_records())
+        app.state.module_registry = ModuleRegistry(ConcurrentStableList([*SERVICE_CATALOG, *injected]))
+        app.state.service_product_key = self.product_key
+        app.state.service_injected_records = injected
         app.state.settings = settings
         app.state.startup_complete = False
         app.state.catalog_degraded = False

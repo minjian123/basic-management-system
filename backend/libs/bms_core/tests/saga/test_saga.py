@@ -296,8 +296,9 @@ def test_event_contract_validation_failure_rejected(monkeypatch: pytest.MonkeyPa
         return ("事件域未登记：ghost",)
 
     monkeypatch.setattr(application, "validate_event_registry", _fake_validate)
+    app = ApplicationFactory().create(None)
     with pytest.raises(EventContractError):
-        application._validate_event_contracts()  # pyright: ignore[reportPrivateUsage]
+        application._validate_event_contracts(app)  # pyright: ignore[reportPrivateUsage]
 
 
 def test_saga_event_envelope_defaults() -> None:

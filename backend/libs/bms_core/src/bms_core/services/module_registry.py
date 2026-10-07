@@ -10,7 +10,14 @@
 - `PRODUCT_ROUTES` 是**产品级路由映射**（产品命名空间 `/api/{product_key}/v1/{domain}/...` 的
   「域段 → 服务」显式登记）**单一来源**（需求 12-2）；校验 `validate_product_routes()` 随
   `ModuleRegistry.validate()` 一并执行（离线对清单、接库对库中行，防映射与服务目录漂移）。
-- `known_event_domains()`：已登记事件域集合（事件契约命名校验的域来源，需求 05-4）。
+- **装配期本地清单注入**（需求 12-3）：`ModuleRegistry` 为**应用级视图**——应用工厂经
+  `service_records()` 注入本服务补充记录（产品服务清单）与 `SERVICE_CATALOG` 拼接，构造入参
+  进入注册表（**无进程级注册表、不改常量**）；`catalog_records()` / `event_domains()` 是启动校验
+  （离线清单 / 接库对账 / 事件契约域）取清单的**单一入口**；产品维度经
+  `validate_product_service_records()` fail-closed 校验（记录非空 / 均为产品分组 / 产品归属一致 /
+  含运行服务登记行）。
+- `known_event_domains()`：已登记事件域集合（事件契约命名校验的域来源，需求 05-4；**平台清单视图**，
+  应用装配期请改取 `ModuleRegistry.event_domains()`）。
 """
 
 import re
@@ -423,6 +430,48 @@ def validate_product_routes(
     return errors
 
 
+def validate_product_service_records(
+    records: ConcurrentStableList[ModuleRecord],
+    *,
+    service_key: str,
+    product_key: str,
+) -> ConcurrentStableList[str]:
+    """校验产品服务装配注入的服务目录记录（产品维度，fail-closed；需求 12-3）。
+
+    规则（应用工厂声明 `product_key` 时执行）：
+
+    1. 注入记录非空——产品服务必须自报本产品服务清单（缺清单属配置级错误，不放行）；
+    2. 每条记录为**产品分组**（`service_group = product`）；
+    3. 每条记录的 `product_key` 与声明值一致（防串产品 / 误配）；
+    4. 含**运行服务**（`service_key`）的登记行——运行服务须在自报清单内登记。
+
+    记录格式 / 唯一性 / 产品归属已在 `PRODUCT_CATALOG` 登记等规则归 `ModuleRegistry.validate()`，
+    本函数不重复；接入后与库中行的对账归 `validate_catalog()`。
+
+    Args:
+        records: 注入的服务目录记录（应用工厂 `service_records()` 返回值）。
+        service_key: 运行服务标识（`ServiceIdentity.name`）。
+        product_key: 声明的产品标识（应用工厂 `product_key`）。
+
+    Returns:
+        ConcurrentStableList[str]: 违规明细；空列表表示通过。
+    """
+    errors: ConcurrentStableList[str] = ConcurrentStableList()
+    if not records:
+        errors.add(f"产品服务装配未声明服务目录记录：service_records() 返回空清单（产品 {product_key}）")
+        return errors
+    for record in records:
+        if record.service_group != ServiceGroup.PRODUCT:
+            errors.add(f"{record.module_key}：产品服务注入记录须为产品分组（现 {record.service_group}）")
+        if record.product_key != product_key:
+            errors.add(
+                f"{record.module_key}：注入记录产品归属与声明不一致（记录 {record.product_key}，声明 {product_key}）"
+            )
+    if not any(record.service_key == service_key for record in records):
+        errors.add(f"运行服务未在注入清单登记：{service_key}")
+    return errors
+
+
 _PLATFORM_DOMAIN_KEYS: tuple[str, ...] = ("sys", "wf", "rpt", "ai")
 """既有平台域模块标识（段位 01~04 的平台域）。"""
 
@@ -504,6 +553,25 @@ class ModuleRegistry(BaseFrameworkObject):
         self._routes: ConcurrentStableList[ProductRouteRecord] = (
             ConcurrentStableList(PRODUCT_ROUTES) if routes is None else ConcurrentStableList(routes)
         )
+
+    def catalog_records(self) -> ConcurrentStableList[ModuleRecord]:
+        """返回全量清单记录（**应用装配视图**：启动离线校验与接库对账取清单的单一入口）。
+
+        平台服务视图等于 `SERVICE_CATALOG`；产品服务视图等于「平台清单 + 注入记录」（应用工厂
+        `service_records()` 拼接）。
+
+        Returns:
+            ConcurrentStableList[ModuleRecord]: 注册记录副本（插入序）。
+        """
+        return ConcurrentStableList(self._modules)
+
+    def event_domains(self) -> ConcurrentStableSet[str]:
+        """返回清单已登记事件域集合（**应用装配视图**：事件契约命名校验的域来源）。
+
+        Returns:
+            ConcurrentStableSet[str]: 去重事件域集合（插入序）。
+        """
+        return ConcurrentStableSet(record.event_domain for record in self._modules)
 
     def list_modules(
         self, *, status: str | None = None, group: str | None = None
