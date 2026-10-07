@@ -81,7 +81,7 @@ GET /api/v4/projects/2/protected_branches   # main: push=Maintainers merge=Maint
 
 ## 2.6 GitHub 归档同步的相关设置 <a id="mirror-setup"></a>
 
-> 本节为通用操作说明（bms / biz / bizs 三个仓库一致）：GitLab push mirror 单向同步 main 至 GitHub 归档仓库。机制与验证同第 2.4、3 节。
+> 本节为通用操作说明（bms / biz / bizs / mdm / test 五个仓库一致）：GitLab push mirror 单向同步 main 至 GitHub 归档仓库。机制与验证同第 2.4、3 节。
 
 ### 2.6.1 操作流程（全流程） <a id="mirror-steps"></a>
 
@@ -125,6 +125,16 @@ curl -s -H "Authorization: token <GitHub PAT>" \
 
 > 工作区配置仓库公开归档前需做「公开文档红线」审查：AGENTS.md 等随推文件中的服务器名/内网 IP/路径一律泛化为占位或指向本地文档（本地资源细节仅存 gitignore 的《本地资源》与 deploy/.env，见《[AI开发规范](../../规范/AI开发规范.md)》红线条款）。
 
+### 2.6.3 mdm 新增实录（2026-10-07） <a id="mirror-log-mdm"></a>
+
+主数据产品 mdm（与 biz 同属 GitLab `mjs` 组，组 id=46）按 2.6.1 流程接入 GitHub 归档（描述沿用 biz 句式「mdm 主数据管理产品（GitLab push mirror 只读归档）」）：
+
+| 仓库 | GitLab 项目 id | GitLab 路径 | GitHub 归档仓库 | mirror id | 状态 |
+| --- | --- | --- | --- | --- | --- |
+| mdm 产品 | 15 | mjs/mdm | `master-data-management` | 6 | enabled，已验证同步 |
+
+> 本次 mirror 经 GitLab API `POST /projects/15/remote_mirrors` 创建（HTTP 201，GitLab 18 该端点可用），再以 rails runner `Project.find(15).remote_mirrors.find(6).sync` 触发首次同步；验证 GitHub main sha 与 GitLab main 一致（`507a450`）。mdm 随推文件经红线检查，无服务器名/内网 IP/凭据等本地资源信息。
+
 ## 3. 验证结果 <a id="verify"></a>
 
 | 项目 | 结果 |
@@ -133,7 +143,7 @@ curl -s -H "Authorization: token <GitHub PAT>" \
 | GitHub 同步 | 最新提交 `1d4681a` 已镜像（GitHub API 确认） |
 | main 保护 | push=Maintainers、merge=Maintainers |
 | 本地 remote | gitlab=GitLab（唯一远端），origin（GitHub）已删除 |
-| 延伸归档（biz / bizs） | 见第 2.6.2 节实录，mirror enabled 且已验证同步 |
+| 延伸归档（biz / bizs / mdm） | 见第 2.6.2、2.6.3 节实录，mirror enabled 且已验证同步 |
 
 ## 4. 日常使用流程 <a id="workflow"></a>
 
