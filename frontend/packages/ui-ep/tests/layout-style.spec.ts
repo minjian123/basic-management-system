@@ -1,5 +1,5 @@
-// kiwi_id: 2241
-/** 布局族样式齐备护栏（06_01）：18 件均有非空 `<style scoped>`，且样式无硬编码色值（一律消费令牌）。 */
+// kiwi_id: 2241, 2248
+/** 布局族样式齐备护栏（06_01 / 02_03）：19 件均有非空 `<style scoped>`，且样式无硬编码色值（一律消费令牌）。 */
 
 import { readFileSync, readdirSync } from 'node:fs'
 import { basename, join, resolve } from 'node:path'
@@ -8,7 +8,12 @@ import { describe, expect, it } from 'vitest'
 
 const LAYOUT_DIR = resolve(process.cwd(), 'src/components/layout')
 
-/** 布局族 18 件（需求 07-9 冻结范围）。 */
+/**
+ * 布局族 19 件（需求 07-9 冻结 18 件 + 02_03 新增 `FormFrame`）。
+ *
+ * `FormFrame`（表单框架：列表 Tab + 记录 Tab）随 02_03 角色管理落地，属布局族**新增件**，
+ * 一并纳入本护栏（样式齐备 + 无硬编码色值）。
+ */
 const LAYOUT_COMPONENTS = [
   'MainLayout',
   'SideMenu',
@@ -26,6 +31,7 @@ const LAYOUT_COMPONENTS = [
   'TreeMasterDetail',
   'DualTabs',
   'FormLayoutShell',
+  'FormFrame',
   'SpacingDivider',
   'ModuleAreaOutlet',
 ]
@@ -70,7 +76,7 @@ function scanColorLiterals(files: { path: string; source: string }[]): string[] 
 }
 
 describe('布局族样式齐备护栏', () => {
-  it('布局族 18 件齐备（与需求冻结范围一致）', () => {
+  it('布局族 19 件齐备（需求冻结 18 件 + 02_03 新增 FormFrame）', () => {
     const names = layoutSources().map((file) => file.name)
     expect([...names].sort()).toEqual([...LAYOUT_COMPONENTS].sort())
   })

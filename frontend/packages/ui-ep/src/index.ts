@@ -60,6 +60,7 @@ export { default as NoticeMessageItem } from './components/notice/NoticeMessageI
 export { default as NoticeBell } from './components/notice/NoticeBell.vue'
 export { default as NoticeDetail } from './components/notice/NoticeDetail.vue'
 export { default as QrCode, type QrLevel, type QrStatus } from './components/display/QrCode.vue'
+export { default as SysInfoPanel, type SysInfoData } from './components/display/SysInfoPanel.vue'
 export {
   default as SsoQrLoginPanel,
   type SsoQrPanelProvider,
@@ -266,6 +267,7 @@ export { default as TextareaInput } from './components/input/TextareaInput.vue'
 export { default as TextInput } from './components/input/TextInput.vue'
 export { default as CollapsePanel } from './components/layout/CollapsePanel.vue'
 export { default as DualTabs } from './components/layout/DualTabs.vue'
+export { default as FormFrame, type FormFrameTab } from './components/layout/FormFrame.vue'
 export { default as FormLayoutShell } from './components/layout/FormLayoutShell.vue'
 export { default as MainLayout } from './components/layout/MainLayout.vue'
 export { default as PageContainer, type BreadcrumbItem } from './components/layout/PageContainer.vue'

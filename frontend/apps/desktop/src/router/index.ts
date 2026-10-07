@@ -41,6 +41,14 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/views/SysUserDetailView.vue'),
     meta: { title: '用户详情' },
   },
+  // 角色管理（平台内建页）：菜单 `/sys/roles` 由 `seed_menu.py` 下发并经动态菜单装载；
+  // 此处静态注册真实路由（`installMenuRoutes` 对已存在路径跳过，占位路由不顶替）。
+  {
+    path: '/sys/roles',
+    name: 'SystemRole',
+    component: () => import('@/views/system/RoleView.vue'),
+    meta: { title: '角色管理', keepAlive: true },
+  },
   {
     path: '/:pathMatch(.*)*',
     name: 'NotFound',

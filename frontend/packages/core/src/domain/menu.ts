@@ -139,7 +139,6 @@ export const PLACEHOLDER_MENU: MenuNode[] = [
     icon: 'setting',
     children: [
       { path: '/system/user', title: '用户管理', name: 'SystemUser', permission: 'system:user:list' },
-      { path: '/system/role', title: '角色管理', name: 'SystemRole', permission: 'system:role:list' },
       {
         path: '/system/dict',
         title: '字典管理',
