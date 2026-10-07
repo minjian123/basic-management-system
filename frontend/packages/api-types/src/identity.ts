@@ -155,7 +155,7 @@ export interface paths {
         put?: never;
         /**
          * Login
-         * @description 本地账号密码登录：验证码 / 限流 / org 凭据校验 → 签发双 token 并建会话。
+         * @description 本地账号密码登录：验证码 / 限流 / platform 凭据校验 → 签发双 token 并建会话。
          *
          *     Args:
          *         request: 请求对象。
@@ -229,11 +229,11 @@ export interface paths {
          * @description 当前用户概要（首屏静默续期恢复用户上下文）。
          *
          *     字段与登录响应**同字段、同语义**；用户不存在 / 账号停用按登录态失效（401）返回，前端据此走
-         *     统一 401 路径（清会话 + 跳登录）；org 不可达按 `10007` / 503 fail-closed。
+         *     统一 401 路径（清会话 + 跳登录）；platform 不可达按 `10007` / 503 fail-closed。
          *
          *     Args:
          *         auth: 登录态身份契约（用户主键 / 租户主键与编码）。
-         *         client: 服务间调用客户端（构造 org 内部接口客户端）。
+         *         client: 服务间调用客户端（构造 platform 内部接口客户端）。
          *
          *     Returns:
          *         ApiResponse: 统一响应，data 为用户概要（`UserSummary`）。
@@ -933,7 +933,7 @@ export interface paths {
          *         request: 请求对象。
          *         provider: OIDC Provider。
          *         state_store: 流程状态存储（授权码一次性消费）。
-         *         client: 服务间调用客户端（org 用户概要）。
+         *         client: 服务间调用客户端（platform 用户概要）。
          *         hasher: 口令哈希（客户端密钥比对）。
          *         tenant_ctx: 请求上下文租户。
          *         tenant_source: 租户源。
@@ -964,7 +964,7 @@ export interface paths {
          *         request: 请求对象。
          *         provider: OIDC Provider。
          *         state_store: 流程状态存储（保持服务构造一致）。
-         *         client: 服务间调用客户端（org 用户概要）。
+         *         client: 服务间调用客户端（platform 用户概要）。
          *         hasher: 口令哈希（保持服务构造一致）。
          *         tenant_ctx: 请求上下文租户。
          *         tenant_source: 租户源。
@@ -983,7 +983,7 @@ export interface paths {
          *         request: 请求对象。
          *         provider: OIDC Provider。
          *         state_store: 流程状态存储（保持服务构造一致）。
-         *         client: 服务间调用客户端（org 用户概要）。
+         *         client: 服务间调用客户端（platform 用户概要）。
          *         hasher: 口令哈希（保持服务构造一致）。
          *         tenant_ctx: 请求上下文租户。
          *         tenant_source: 租户源。
@@ -2228,7 +2228,7 @@ export interface components {
         };
         /**
          * PasswordResetRequest
-         * @description 提交重置请求（重置令牌 + 新口令；策略判定在 org 侧）。
+         * @description 提交重置请求（重置令牌 + 新口令；策略判定在 platform 侧）。
          */
         PasswordResetRequest: {
             /**
@@ -2320,7 +2320,7 @@ export interface components {
             session_id: string;
             /**
              * User Id
-             * @description 用户 ID（用户名由前端经 org 名称接口回显）
+             * @description 用户 ID（用户名由前端经 platform 名称接口回显）
              */
             user_id: string;
         };

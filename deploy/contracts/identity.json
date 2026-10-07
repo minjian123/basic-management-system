@@ -1448,7 +1448,7 @@
         "type": "object"
       },
       "PasswordResetRequest": {
-        "description": "提交重置请求（重置令牌 + 新口令；策略判定在 org 侧）。",
+        "description": "提交重置请求（重置令牌 + 新口令；策略判定在 platform 侧）。",
         "properties": {
           "new_password": {
             "description": "新口令明文",
@@ -1583,7 +1583,7 @@
             "type": "string"
           },
           "user_id": {
-            "description": "用户 ID（用户名由前端经 org 名称接口回显）",
+            "description": "用户 ID（用户名由前端经 platform 名称接口回显）",
             "title": "User Id",
             "type": "string"
           }
@@ -2100,7 +2100,7 @@
     },
     "/api/v1/auth/login": {
       "post": {
-        "description": "本地账号密码登录：验证码 / 限流 / org 凭据校验 → 签发双 token 并建会话。\n\nArgs:\n    request: 请求对象。\n    req: 登录请求。\n    response: 响应对象（下发 refresh cookie）。\n    issuer: 用户双 token 签发者。\n    security: 会话安全原语。\n    store: 会话标记存储。\n    captcha: 验证码基座。\n    limiter: 限流基座。\n    client: 服务间调用客户端。\n    tenant_ctx: 请求上下文租户。\n    tenant_source: 租户源。\n\nReturns:\n    ApiResponse: 统一响应，data 为登录结果（`LoginResult`）。\n\nRaises:\n    NeedTenantError: 未提供租户且存在多个启用租户、无法唯一解析（20007/200；data 为空）。",
+        "description": "本地账号密码登录：验证码 / 限流 / platform 凭据校验 → 签发双 token 并建会话。\n\nArgs:\n    request: 请求对象。\n    req: 登录请求。\n    response: 响应对象（下发 refresh cookie）。\n    issuer: 用户双 token 签发者。\n    security: 会话安全原语。\n    store: 会话标记存储。\n    captcha: 验证码基座。\n    limiter: 限流基座。\n    client: 服务间调用客户端。\n    tenant_ctx: 请求上下文租户。\n    tenant_source: 租户源。\n\nReturns:\n    ApiResponse: 统一响应，data 为登录结果（`LoginResult`）。\n\nRaises:\n    NeedTenantError: 未提供租户且存在多个启用租户、无法唯一解析（20007/200；data 为空）。",
         "operationId": "login_api_v1_auth_login_post",
         "requestBody": {
           "content": {
@@ -2164,7 +2164,7 @@
     },
     "/api/v1/auth/me": {
       "get": {
-        "description": "当前用户概要（首屏静默续期恢复用户上下文）。\n\n字段与登录响应**同字段、同语义**；用户不存在 / 账号停用按登录态失效（401）返回，前端据此走\n统一 401 路径（清会话 + 跳登录）；org 不可达按 `10007` / 503 fail-closed。\n\nArgs:\n    auth: 登录态身份契约（用户主键 / 租户主键与编码）。\n    client: 服务间调用客户端（构造 org 内部接口客户端）。\n\nReturns:\n    ApiResponse: 统一响应，data 为用户概要（`UserSummary`）。",
+        "description": "当前用户概要（首屏静默续期恢复用户上下文）。\n\n字段与登录响应**同字段、同语义**；用户不存在 / 账号停用按登录态失效（401）返回，前端据此走\n统一 401 路径（清会话 + 跳登录）；platform 不可达按 `10007` / 503 fail-closed。\n\nArgs:\n    auth: 登录态身份契约（用户主键 / 租户主键与编码）。\n    client: 服务间调用客户端（构造 platform 内部接口客户端）。\n\nReturns:\n    ApiResponse: 统一响应，data 为用户概要（`UserSummary`）。",
         "operationId": "me_api_v1_auth_me_get",
         "responses": {
           "200": {
@@ -4115,7 +4115,7 @@
     },
     "/api/v1/oidc/token": {
       "post": {
-        "description": "令牌端点：客户端认证 + 授权码换 ID Token / access token（标准 OAuth2 JSON）。\n\nArgs:\n    request: 请求对象。\n    provider: OIDC Provider。\n    state_store: 流程状态存储（授权码一次性消费）。\n    client: 服务间调用客户端（org 用户概要）。\n    hasher: 口令哈希（客户端密钥比对）。\n    tenant_ctx: 请求上下文租户。\n    tenant_source: 租户源。\n    tenant: 租户编码（可选）。\n\nReturns:\n    Response: 标准令牌 JSON 或标准错误 JSON。",
+        "description": "令牌端点：客户端认证 + 授权码换 ID Token / access token（标准 OAuth2 JSON）。\n\nArgs:\n    request: 请求对象。\n    provider: OIDC Provider。\n    state_store: 流程状态存储（授权码一次性消费）。\n    client: 服务间调用客户端（platform 用户概要）。\n    hasher: 口令哈希（客户端密钥比对）。\n    tenant_ctx: 请求上下文租户。\n    tenant_source: 租户源。\n    tenant: 租户编码（可选）。\n\nReturns:\n    Response: 标准令牌 JSON 或标准错误 JSON。",
         "operationId": "token_api_v1_oidc_token_post",
         "parameters": [
           {
@@ -4165,7 +4165,7 @@
     },
     "/api/v1/oidc/userinfo": {
       "get": {
-        "description": "用户信息端点：Bearer access token → 标准 userinfo JSON。\n\nArgs:\n    request: 请求对象。\n    provider: OIDC Provider。\n    state_store: 流程状态存储（保持服务构造一致）。\n    client: 服务间调用客户端（org 用户概要）。\n    hasher: 口令哈希（保持服务构造一致）。\n    tenant_ctx: 请求上下文租户。\n    tenant_source: 租户源。\n    tenant: 租户编码（可选）。\n\nReturns:\n    Response: 标准 userinfo JSON 或 401。",
+        "description": "用户信息端点：Bearer access token → 标准 userinfo JSON。\n\nArgs:\n    request: 请求对象。\n    provider: OIDC Provider。\n    state_store: 流程状态存储（保持服务构造一致）。\n    client: 服务间调用客户端（platform 用户概要）。\n    hasher: 口令哈希（保持服务构造一致）。\n    tenant_ctx: 请求上下文租户。\n    tenant_source: 租户源。\n    tenant: 租户编码（可选）。\n\nReturns:\n    Response: 标准 userinfo JSON 或 401。",
         "operationId": "userinfo_api_v1_oidc_userinfo_get",
         "parameters": [
           {
@@ -4213,7 +4213,7 @@
         ]
       },
       "post": {
-        "description": "用户信息端点：Bearer access token → 标准 userinfo JSON。\n\nArgs:\n    request: 请求对象。\n    provider: OIDC Provider。\n    state_store: 流程状态存储（保持服务构造一致）。\n    client: 服务间调用客户端（org 用户概要）。\n    hasher: 口令哈希（保持服务构造一致）。\n    tenant_ctx: 请求上下文租户。\n    tenant_source: 租户源。\n    tenant: 租户编码（可选）。\n\nReturns:\n    Response: 标准 userinfo JSON 或 401。",
+        "description": "用户信息端点：Bearer access token → 标准 userinfo JSON。\n\nArgs:\n    request: 请求对象。\n    provider: OIDC Provider。\n    state_store: 流程状态存储（保持服务构造一致）。\n    client: 服务间调用客户端（platform 用户概要）。\n    hasher: 口令哈希（保持服务构造一致）。\n    tenant_ctx: 请求上下文租户。\n    tenant_source: 租户源。\n    tenant: 租户编码（可选）。\n\nReturns:\n    Response: 标准 userinfo JSON 或 401。",
         "operationId": "userinfo_api_v1_oidc_userinfo_post",
         "parameters": [
           {
