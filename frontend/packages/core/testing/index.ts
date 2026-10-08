@@ -1257,95 +1257,150 @@ export function describeTenantContract(name: string, create: () => TenantContrac
   })
 }
 
-/** 权限配置契约节点（最小面）。 */
-export interface PermissionContractNode {
-  /** 节点键。 */
-  key: string
-  /** 节点名称。 */
-  label: string
-  /** 节点类型（`menu` / `form` / `business` / `action`）。 */
-  type: string
-  /** 挂接缺失（不可授予）。 */
-  detached?: boolean
-  /** 是否已勾选。 */
-  checked?: boolean
-  /** 子节点。 */
-  children?: PermissionContractNode[]
-}
-
-/** 权限配置契约字段权限行（最小面）。 */
-export interface PermissionContractFieldRow {
-  /** 表单键。 */
-  formKey: string
-  /** 表单名称。 */
-  formLabel: string
-  /** 字段（缺省可见可编辑）。 */
-  fields: { key: string; label: string; visible?: boolean; editable?: boolean }[]
-}
-
-/** 权限配置契约数据范围行（最小面）。 */
-export interface PermissionContractScopeRow {
-  /** 动作键。 */
-  actionKey: string
-  /** 动作名称。 */
-  actionLabel: string
-  /** 规则表达式（空 = 无数据权限）。 */
-  expression?: string
-  /** 是否预置模板行。 */
-  builtin?: boolean
-}
-
-/** 权限配置契约主体项（最小面）。 */
-export interface PermissionContractSubject {
-  /** 主体标识。 */
+/** 权限配置契约菜单（最小面）。 */
+export interface PermissionContractMenu {
+  /** 菜单 id。 */
   id: string
-  /** 主体类型（`user` / `position` / `dept`）。 */
-  type: string
-  /** 主体名称。 */
+  /** 菜单名称。 */
+  name: string
+  /** 子菜单。 */
+  children?: PermissionContractMenu[]
+}
+
+/** 权限配置契约表单（最小面）。 */
+export interface PermissionContractForm {
+  /** 表单 id。 */
+  id: string
+  /** 表单名称。 */
+  name: string
+  /** 关联菜单入口 id 清单。 */
+  menuIds: string[]
+}
+
+/** 权限配置契约动作（最小面）。 */
+export interface PermissionContractAction {
+  /** 动作 id。 */
+  id: string
+  /** 动作名称。 */
   name: string
 }
 
-/** 权限配置契约快照（最小面）。 */
+/** 权限配置契约字段（最小面）。 */
+export interface PermissionContractField {
+  /** 字段 id。 */
+  id: string
+  /** 字段名称。 */
+  name: string
+}
+
+/** 权限配置契约元数据（最小面）。 */
+export interface PermissionContractMetadata {
+  /** 菜单树。 */
+  menus: PermissionContractMenu[]
+  /** 表单清单。 */
+  forms: PermissionContractForm[]
+  /** 动作清单。 */
+  actions: PermissionContractAction[]
+  /** 字段清单。 */
+  fields: PermissionContractField[]
+  /** 表单 → 动作 id。 */
+  formActions: Record<string, string[]>
+  /** 表单 → 字段 id。 */
+  formFields: Record<string, string[]>
+  /** 字典类型清单。 */
+  dictTypes: { id: string; code: string; name: string }[]
+  /** 扩展权限清单。 */
+  extensions: { key: string; name: string; hasParams: boolean }[]
+}
+
+/** 权限配置契约授权条目（最小面）。 */
+export interface PermissionContractEntry {
+  /** 条目类型。 */
+  permType: string
+  /** 目标 id。 */
+  targetId: string
+  /** 来源菜单 id。 */
+  sourceMenuId: string
+}
+
+/** 权限配置契约字段权限条目（最小面）。 */
+export interface PermissionContractFieldEntry {
+  /** 表单 id。 */
+  formId: string
+  /** 字段 id。 */
+  fieldId: string
+  /** 是否可见。 */
+  visible: boolean
+  /** 是否可编辑。 */
+  editable: boolean
+  /** 来源菜单 id。 */
+  sourceMenuId: string
+}
+
+/** 权限配置契约数据权限条目（最小面）。 */
+export interface PermissionContractDataScopeEntry {
+  /** 字典类型 id。 */
+  dictTypeId: string
+  /** 策略类型。 */
+  policyType: string
+  /** 结构化配置。 */
+  config: readonly unknown[]
+}
+
+/** 权限配置契约用户（最小面）。 */
+export interface PermissionContractUser {
+  /** 用户 id。 */
+  id: string
+  /** 账号。 */
+  username: string
+  /** 姓名。 */
+  name: string
+  /** 状态。 */
+  status: string
+}
+
+/** 权限配置契约快照（最小面，新口径）。 */
 export interface PermissionContractSnapshot {
   /** 角色标识。 */
   roleId?: string | number
-  /** 权限树。 */
-  nodes: PermissionContractNode[]
-  /** 字段权限矩阵。 */
-  fieldPerms?: PermissionContractFieldRow[]
-  /** 动作数据范围。 */
-  dataScopes?: PermissionContractScopeRow[]
-  /** 主体绑定。 */
-  subjects?: PermissionContractSubject[]
+  /** 授权条目。 */
+  entries?: PermissionContractEntry[]
+  /** 字段权限条目。 */
+  fieldEntries?: PermissionContractFieldEntry[]
+  /** 数据权限条目。 */
+  dataScopeEntries?: PermissionContractDataScopeEntry[]
+  /** 已分配用户。 */
+  users?: PermissionContractUser[]
 }
 
 /** 权限配置契约处理函数集（未注入即占位）。 */
 export interface PermissionContractHandlers {
-  /** 取数。 */
-  load?: (input: { roleId?: string | number }) => Promise<PermissionContractSnapshot>
-  /** 全量覆盖提交。 */
-  submit?: (input: { payload: unknown; idempotencyKey: string }) => Promise<{ recordVersion?: number }>
+  /** 元数据取数。 */
+  loadMetadata?: (input: { roleId?: string | number }) => Promise<PermissionContractMetadata>
+  /** 授权取数。 */
+  loadGrants?: (input: { roleId?: string | number }) => Promise<PermissionContractSnapshot>
+  /** 授权条目提交。 */
+  submitPermissions?: (input: {
+    payload: { entries: PermissionContractEntry[] }
+    idempotencyKey: string
+  }) => Promise<{ version?: number }>
+  /** 字段权限提交。 */
+  submitFields?: (input: {
+    payload: { entries: PermissionContractFieldEntry[] }
+    idempotencyKey: string
+  }) => Promise<{ version?: number }>
+  /** 数据权限提交。 */
+  submitDataScopes?: (input: {
+    payload: { entries: PermissionContractDataScopeEntry[] }
+    idempotencyKey: string
+  }) => Promise<{ version?: number }>
+  /** 用户差量提交。 */
+  saveUsers?: (input: { added: string[]; removed: string[] }) => Promise<{ version?: number }>
   /** 权限码取数。 */
   loadPermissionCodes?: () => Promise<readonly string[]>
 }
 
-/** 权限配置契约载荷（断言用最小面）。 */
-export interface PermissionContractPayload {
-  /** 菜单键集合。 */
-  menus: string[]
-  /** 表单键集合。 */
-  forms: string[]
-  /** 动作键集合。 */
-  actions: string[]
-  /** 字段收窄项集合。 */
-  fields: { formKey: string; fieldKey: string; visible: boolean; editable: boolean }[]
-  /** 数据范围项集合。 */
-  dataScopes: { actionKey: string; expression: string }[]
-  /** 主体绑定集合。 */
-  subjects: { id: string; type: string; name: string }[]
-}
-
-/** 权限配置契约面（授权编排）。 */
+/** 权限配置契约面（授权编排，新口径）。 */
 export interface PermissionConfigContractTarget {
   /** 数据通路是否就绪。 */
   readonly ready: boolean
@@ -1373,29 +1428,40 @@ export interface PermissionConfigContractTarget {
   setHandlers(handlers: PermissionContractHandlers): void
   /** 取数（未就绪 / 未注入不请求）。 */
   load(): Promise<unknown>
-  /** 勾选 / 取消勾选节点。 */
-  toggleNode(key: string, checked?: boolean): boolean
-  /** 查询勾选三态。 */
-  checkState(key: string): string | undefined
-  /** 勾选集合。 */
-  granted(): { menus: string[]; forms: string[]; actions: string[]; implied: string[] }
-  /** 字段权限项。 */
-  fieldPerm(formKey: string, fieldKey: string): { visible: boolean; editable: boolean } | undefined
+  /** 勾选 / 取消勾选菜单入口。 */
+  toggleMenu(id: string, checked?: boolean): boolean
+  /** 查询菜单勾选三态。 */
+  menuCheckState(id: string): string | undefined
+  /** 查询表单授权来源。 */
+  formSourceMenuIds(formId: string): string[]
+  /** 勾选 / 取消勾选操作权限。 */
+  toggleAction(actionId: string, sourceMenuId: string, checked?: boolean): boolean
+  /** 查询操作授权来源。 */
+  actionSourceMenuIds(actionId: string): string[]
+  /** 字段权限项（未收窄返回 `undefined`）。 */
+  fieldPerm(formId: string, fieldId: string): { visible: boolean; editable: boolean } | undefined
   /** 设置字段权限。 */
-  setFieldPerm(formKey: string, fieldKey: string, patch: { visible?: boolean; editable?: boolean }): boolean
-  /** 动作数据范围表达式。 */
-  scopeExpression(actionKey: string): string
-  /** 设置动作数据范围。 */
-  setDataScope(actionKey: string, expression: string): boolean
-  /** 已绑主体标识。 */
-  subjectIds(): string[]
-  /** 绑定主体。 */
-  bindSubject(subject: { id: string; type: string; name: string }): boolean
-  /** 全量覆盖提交载荷。 */
-  payload(): PermissionContractPayload
-  /** 幂等键。 */
-  idempotencyKey(): string
-  /** 全量覆盖提交。 */
+  setFieldPerm(
+    formId: string,
+    fieldId: string,
+    patch: { visible?: boolean; editable?: boolean },
+    sourceMenuId?: string,
+  ): boolean
+  /** 设置数据权限。 */
+  setDataScope(dictTypeId: string, policyType: string, config: unknown[]): boolean
+  /** 授权条目载荷。 */
+  payloadPermissions(): PermissionContractEntry[]
+  /** 字段权限载荷。 */
+  payloadFields(): PermissionContractFieldEntry[]
+  /** 数据权限载荷。 */
+  payloadDataScopes(): PermissionContractDataScopeEntry[]
+  /** 指定类别幂等键。 */
+  idempotencyKey(kind: string): string
+  /** 绑定用户。 */
+  bindUsers(users: PermissionContractUser[]): boolean
+  /** 已分配用户 id。 */
+  userIds(): string[]
+  /** 提交。 */
   save(): Promise<unknown>
   /** 重试上次失败提交。 */
   retry(): Promise<unknown>
@@ -1407,59 +1473,50 @@ export interface PermissionConfigContractTarget {
   errorTargetTab(): string | undefined
 }
 
-/** 契约目标约定快照（角色 `r1`；含挂接缺失菜单）。 */
-const PERMISSION_CONTRACT_SNAPSHOT: PermissionContractSnapshot = {
-  roleId: 'r1',
-  nodes: [
-    {
-      key: 'menu:user',
-      label: '用户管理',
-      type: 'menu',
-      children: [
-        {
-          key: 'form:user',
-          label: '用户表单',
-          type: 'form',
-          children: [
-            { key: 'biz:user', label: '用户业务', type: 'business' },
-            { key: 'act:user:create', label: '新增用户', type: 'action' },
-          ],
-        },
-      ],
-    },
-    { key: 'menu:orphan', label: '未挂接菜单', type: 'menu', detached: true },
+/** 契约目标约定元数据（菜单含挂接缺失项；表单含无入口项）。 */
+const PERMISSION_CONTRACT_METADATA: PermissionContractMetadata = {
+  menus: [
+    { id: 'menu:user', name: '用户管理', children: [{ id: 'menu:user:list', name: '用户列表' }] },
+    { id: 'menu:orphan', name: '未挂接菜单' },
   ],
-  fieldPerms: [
-    {
-      formKey: 'form:user',
-      formLabel: '用户表单',
-      fields: [
-        { key: 'name', label: '姓名' },
-        { key: 'salary', label: '薪资' },
-      ],
-    },
+  forms: [
+    { id: 'form:user', name: '用户表单', menuIds: ['menu:user', 'menu:user:list'] },
+    { id: 'form:free', name: '无入口表单', menuIds: [] },
   ],
-  dataScopes: [{ actionKey: 'act:user:list', actionLabel: '查询' }],
-  subjects: [],
+  actions: [{ id: 'act:user:create', name: '新增用户' }],
+  fields: [
+    { id: 'field:name', name: '姓名' },
+    { id: 'field:salary', name: '薪资' },
+  ],
+  formActions: { 'form:user': ['act:user:create'] },
+  formFields: { 'form:user': ['field:name', 'field:salary'] },
+  dictTypes: [{ id: 'dict:user', code: 'user', name: '用户字典' }],
+  extensions: [],
 }
 
 /**
- * 授权编排契约（`BasePermissionConfig` / `useBasePermissionConfig` 投影；`08-4-1` 首次落地，后续移动端复用同一套断言）。
+ * 授权编排契约（`BasePermissionConfig` / `useBasePermissionConfig` 投影；新口径）。
  *
- * 目标约定：角色 `r1`；权限树含菜单 `menu:user`（表单 `form:user` → 业务 `biz:user`，动作 `act:user:create` 默认无）
- * 与挂接缺失菜单 `menu:orphan`；字段矩阵含表单 `form:user` 的字段 `name` / `salary`；
- * 数据范围含动作 `act:user:list`（表达式初始为空）；主体初始为空、单主体上限取缺省 20；初始未注入处理函数。
+ * 目标约定：角色 `r1`；菜单 `menu:user`（子菜单 `menu:user:list`，关联表单 `form:user`）与挂接缺失菜单 `menu:orphan`；
+ * 表单 `form:user` 含动作 `act:user:create`（默认无）与字段 `field:name` / `field:salary`（默认全开）；
+ * 字典 `dict:user`；用户初始为空；初始未注入处理函数。
  *
  * @param name 契约名。
  * @param create 目标工厂。
  */
-export function describePermissionConfigContract(name: string, create: () => PermissionConfigContractTarget): void {
+export function describePermissionConfigContract(
+  name: string,
+  create: () => PermissionConfigContractTarget,
+): void {
   /** 构造「已就绪且已装载」的目标。 */
   const readyTarget = async (
-    snapshot: PermissionContractSnapshot = PERMISSION_CONTRACT_SNAPSHOT,
+    grants: PermissionContractSnapshot = { roleId: 'r1' },
   ): Promise<PermissionConfigContractTarget> => {
     const target = create()
-    target.setHandlers({ load: async () => snapshot })
+    target.setHandlers({
+      loadMetadata: async () => PERMISSION_CONTRACT_METADATA,
+      loadGrants: async () => grants,
+    })
     target.setReady(true)
     await target.load()
     return target
@@ -1468,7 +1525,10 @@ export function describePermissionConfigContract(name: string, create: () => Per
   describeContract(name, () => {
     it('未就绪时降级且禁用，不产生请求', async () => {
       const target = create()
-      target.setHandlers({ load: async () => PERMISSION_CONTRACT_SNAPSHOT })
+      target.setHandlers({
+        loadMetadata: async () => PERMISSION_CONTRACT_METADATA,
+        loadGrants: async () => ({ roleId: 'r1' }),
+      })
       expect(target.ready).toBe(false)
       expect(target.degraded).toBe(true)
       expect(target.disabled).toBe(true)
@@ -1485,140 +1545,145 @@ export function describePermissionConfigContract(name: string, create: () => Per
       expect(target.requestCount).toBe(0)
     })
 
-    it('就绪且注入取数后装载快照（初始不脏）', async () => {
+    it('就绪且注入取数后装载（初始不脏、菜单未勾选）', async () => {
       const target = await readyTarget()
-      expect(target.requestCount).toBe(1)
+      expect(target.requestCount).toBe(2)
       expect(target.dirty).toBe(false)
-      expect(target.granted()).toEqual({ menus: [], forms: [], actions: [], implied: [] })
+      expect(target.menuCheckState('menu:user')).toBe('unchecked')
+      expect(target.formSourceMenuIds('form:user')).toEqual([])
     })
 
-    it('隐含推导：勾选菜单隐含表单与业务，业务只读', async () => {
+    it('菜单勾选：级联子树并连带关联表单（按来源）', async () => {
       const target = await readyTarget()
-      expect(target.toggleNode('menu:user')).toBe(true)
-      expect(target.granted()).toEqual({
-        menus: ['menu:user'],
-        forms: ['form:user'],
-        actions: [],
-        implied: ['biz:user'],
+      expect(target.toggleMenu('menu:user')).toBe(true)
+      expect(target.menuCheckState('menu:user')).toBe('checked')
+      expect(target.menuCheckState('menu:user:list')).toBe('checked')
+      expect(target.formSourceMenuIds('form:user')).toEqual(['menu:user', 'menu:user:list'])
+    })
+
+    it('取消菜单仅撤销本来源（其它来源保留）', async () => {
+      const target = await readyTarget({
+        roleId: 'r1',
+        entries: [{ permType: 'form', targetId: 'form:user', sourceMenuId: '0' }],
       })
-      expect(target.toggleNode('biz:user')).toBe(false)
-      expect(target.granted().implied).toEqual(['biz:user'])
+      target.toggleMenu('menu:user')
+      expect(target.formSourceMenuIds('form:user')).toEqual(['0', 'menu:user', 'menu:user:list'])
+      target.toggleMenu('menu:user', false)
+      expect(target.formSourceMenuIds('form:user')).toEqual(['0'])
+      expect(target.menuCheckState('menu:user')).toBe('unchecked')
     })
 
-    it('动作默认全无：菜单勾选不联动动作，动作须显式勾选', async () => {
+    it('挂接缺失菜单不可授予', async () => {
       const target = await readyTarget()
-      target.toggleNode('menu:user')
-      expect(target.granted().actions).toEqual([])
-      expect(target.toggleNode('act:user:create')).toBe(true)
-      expect(target.granted().actions).toEqual(['act:user:create'])
+      expect(target.toggleMenu('menu:orphan')).toBe(false)
+      expect(target.menuCheckState('menu:orphan')).toBe('unchecked')
     })
 
-    it('取消菜单连带取消表单与动作；挂接缺失不可授予', async () => {
+    it('三态：勾选子级父级半选，全勾则已选', async () => {
       const target = await readyTarget()
-      target.toggleNode('menu:user')
-      target.toggleNode('act:user:create')
-      expect(target.toggleNode('menu:orphan')).toBe(false)
-      expect(target.checkState('menu:orphan')).toBe('unchecked')
-
-      expect(target.toggleNode('menu:user', false)).toBe(true)
-      expect(target.granted()).toEqual({ menus: [], forms: [], actions: [], implied: [] })
-      expect(target.checkState('form:user')).toBe('unchecked')
+      target.toggleMenu('menu:user:list')
+      expect(target.menuCheckState('menu:user')).toBe('indeterminate')
+      target.toggleMenu('menu:user')
+      expect(target.menuCheckState('menu:user')).toBe('checked')
     })
 
-    it('三态：直接勾选子级时父级半选，全勾则已选', async () => {
+    it('操作权限默认无、按来源写入与撤销', async () => {
       const target = await readyTarget()
-      target.toggleNode('form:user')
-      expect(target.checkState('form:user')).toBe('checked')
-      expect(target.checkState('menu:user')).toBe('indeterminate')
-
-      target.toggleNode('menu:user')
-      expect(target.checkState('menu:user')).toBe('checked')
+      expect(target.actionSourceMenuIds('act:user:create')).toEqual([])
+      expect(target.toggleAction('act:user:create', '0')).toBe(true)
+      expect(target.toggleAction('act:user:create', 'menu:user')).toBe(true)
+      expect(target.actionSourceMenuIds('act:user:create')).toEqual(['0', 'menu:user'])
+      expect(target.toggleAction('act:user:create', '0', false)).toBe(true)
+      expect(target.actionSourceMenuIds('act:user:create')).toEqual(['menu:user'])
     })
 
-    it('字段权限：默认全开、只提交收窄项、字段不存在不动作', async () => {
+    it('字段权限：默认全开、只提交收窄项、editable=false 强制不可见', async () => {
       const target = await readyTarget()
-      expect(target.fieldPerm('form:user', 'name')).toEqual({ visible: true, editable: true })
-      expect(target.payload().fields).toEqual([])
-
-      expect(target.setFieldPerm('form:user', 'name', { visible: false })).toBe(true)
-      expect(target.fieldPerm('form:user', 'name')).toEqual({ visible: false, editable: true })
-      expect(target.payload().fields).toEqual([
-        { formKey: 'form:user', fieldKey: 'name', visible: false, editable: true },
+      expect(target.fieldPerm('form:user', 'field:name')).toBeUndefined()
+      expect(target.payloadFields()).toEqual([])
+      expect(target.setFieldPerm('form:user', 'field:name', { visible: false })).toBe(true)
+      expect(target.payloadFields()).toEqual([
+        { formId: 'form:user', fieldId: 'field:name', visible: false, editable: true, sourceMenuId: '0' },
       ])
-      expect(target.setFieldPerm('form:user', 'absent', { visible: false })).toBe(false)
+      expect(target.setFieldPerm('form:user', 'field:salary', { editable: false }, 'menu:user')).toBe(true)
+      expect(target.payloadFields().find((item) => item.fieldId === 'field:salary')).toEqual({
+        formId: 'form:user',
+        fieldId: 'field:salary',
+        visible: false,
+        editable: false,
+        sourceMenuId: 'menu:user',
+      })
+      expect(target.setFieldPerm('form:user', 'field:absent', { visible: false })).toBe(false)
     })
 
-    it('数据范围：默认无、仅非空表达式入载荷', async () => {
+    it('数据权限：按字典 × 策略覆盖、空配置即无', async () => {
       const target = await readyTarget()
-      expect(target.scopeExpression('act:user:list')).toBe('')
-      expect(target.payload().dataScopes).toEqual([])
-
-      expect(target.setDataScope('act:user:list', 'dept_id = @current_dept')).toBe(true)
-      expect(target.payload().dataScopes).toEqual([
-        { actionKey: 'act:user:list', expression: 'dept_id = @current_dept' },
+      expect(target.payloadDataScopes()).toEqual([])
+      expect(target.setDataScope('dict:user', 'select', [{ itemCode: 'enabled' }])).toBe(true)
+      expect(target.payloadDataScopes()).toEqual([
+        { dictTypeId: 'dict:user', policyType: 'select', config: [{ itemCode: 'enabled' }] },
       ])
-      expect(target.setDataScope('act:absent', 'x = 1')).toBe(false)
-
-      target.setDataScope('act:user:list', '   ')
-      expect(target.payload().dataScopes).toEqual([])
+      target.setDataScope('dict:user', 'select', [])
+      expect(target.payloadDataScopes()).toEqual([])
     })
 
-    it('主体绑定：重复绑定幂等、超上限不写入', async () => {
+    it('用户分配：去重、不设上限', async () => {
       const target = await readyTarget()
-      expect(target.bindSubject({ id: 'u1', type: 'user', name: '张三' })).toBe(true)
-      expect(target.bindSubject({ id: 'u1', type: 'user', name: '张三' })).toBe(false)
-      expect(target.subjectIds()).toEqual(['u1'])
-
-      for (let index = 2; index <= 20; index += 1) {
-        expect(target.bindSubject({ id: `u${index}`, type: 'user', name: `用户${index}` })).toBe(true)
-      }
-      expect(target.subjectIds()).toHaveLength(20)
-      expect(target.bindSubject({ id: 'u21', type: 'user', name: '用户21' })).toBe(false)
-      expect(target.subjectIds()).toHaveLength(20)
+      expect(target.bindUsers([{ id: 'u1', username: 'zhang', name: '张三', status: 'enabled' }])).toBe(true)
+      expect(target.bindUsers([{ id: 'u1', username: 'zhang', name: '张三', status: 'enabled' }])).toBe(false)
+      expect(target.userIds()).toEqual(['u1'])
+      const many = Array.from({ length: 30 }, (_, index) => ({
+        id: `u${index + 2}`,
+        username: `x${index + 2}`,
+        name: `用户${index + 2}`,
+        status: 'enabled',
+      }))
+      target.bindUsers(many)
+      expect(target.userIds()).toHaveLength(31)
     })
 
     it('脏基线与撤销：变更置脏，撤销回滚且不再脏', async () => {
       const target = await readyTarget()
       expect(target.dirty).toBe(false)
-
-      target.toggleNode('menu:user')
+      target.toggleMenu('menu:user')
       expect(target.dirty).toBe(true)
       target.discard()
       expect(target.dirty).toBe(false)
-      expect(target.granted().menus).toEqual([])
+      expect(target.menuCheckState('menu:user')).toBe('unchecked')
     })
 
-    it('幂等键：同内容同键、重复提交结果一致、内容变更换键', async () => {
+    it('三类载荷幂等键：同内容同键、重复提交结果一致、变更换键', async () => {
       const target = await readyTarget()
       const keys: string[] = []
       target.setHandlers({
-        submit: async (input) => {
+        submitPermissions: async (input) => {
           keys.push(input.idempotencyKey)
-          return { recordVersion: keys.length }
+          return { version: keys.length }
         },
+        submitFields: async () => ({ version: 0 }),
+        submitDataScopes: async () => ({ version: 0 }),
       })
-      target.toggleNode('menu:user')
-
-      await expect(target.save()).resolves.toEqual({ recordVersion: 1 })
-      await expect(target.save()).resolves.toEqual({ recordVersion: 2 })
+      target.toggleMenu('menu:user')
+      await target.save()
+      await target.save()
       expect(keys).toHaveLength(2)
       expect(keys[0]).toBe(keys[1])
-
-      target.toggleNode('act:user:create')
-      expect(target.idempotencyKey()).not.toBe(keys[1])
+      target.toggleAction('act:user:create', '0')
+      expect(target.idempotencyKey('perm')).not.toBe(keys[1])
     })
 
     it('提交阶段推进与权限上下文刷新（注入取码）', async () => {
       const target = await readyTarget()
       target.setAccess(['role:grant'])
       target.setHandlers({
-        submit: async () => ({ recordVersion: 7 }),
+        submitPermissions: async () => ({ version: 7 }),
+        submitFields: async () => ({}),
+        submitDataScopes: async () => ({}),
         loadPermissionCodes: async () => ['role:grant', 'user:create'],
       })
-      target.toggleNode('menu:user')
+      target.toggleMenu('menu:user')
       expect(target.canSave).toBe(true)
-
-      await expect(target.save()).resolves.toEqual({ recordVersion: 7 })
+      await target.save()
       expect(target.phase).toBe('done')
       expect(target.pendingAccessRefresh).toBe(false)
       expect([...target.accessCodes]).toContain('user:create')
@@ -1627,21 +1692,23 @@ export function describePermissionConfigContract(name: string, create: () => Per
     it('未注入取码处理时不发请求，仅置待刷新标记', async () => {
       const target = await readyTarget()
       target.setAccess(['role:grant'])
-      target.setHandlers({ submit: async () => ({ recordVersion: 1 }) })
+      target.setHandlers({
+        submitPermissions: async () => ({ version: 1 }),
+        submitFields: async () => ({}),
+        submitDataScopes: async () => ({}),
+      })
       const before = target.requestCount
-      target.toggleNode('menu:user')
-
+      target.toggleMenu('menu:user')
       await target.save()
       expect(target.phase).toBe('done')
       expect(target.pendingAccessRefresh).toBe(true)
-      expect(target.requestCount).toBe(before + 1)
+      expect(target.requestCount).toBe(before + 3)
     })
 
     it('未注入提交处理时不请求，且保留本地变更', async () => {
       const target = await readyTarget()
       const before = target.requestCount
-      target.toggleNode('menu:user')
-
+      target.toggleMenu('menu:user')
       await expect(target.save()).resolves.toBeUndefined()
       expect(target.requestCount).toBe(before)
       expect(target.dirty).toBe(true)
@@ -1651,22 +1718,22 @@ export function describePermissionConfigContract(name: string, create: () => Per
       const target = await readyTarget()
       let fail = true
       target.setHandlers({
-        submit: async () => {
+        submitPermissions: async () => ({ version: 1 }),
+        submitFields: async () => {
           if (fail) {
-            throw Object.assign(new Error('规则表达式非法'), { code: 30047 })
+            throw Object.assign(new Error('字段不匹配'), { code: 30049 })
           }
-          return { recordVersion: 2 }
+          return {}
         },
+        submitDataScopes: async () => ({}),
       })
-      target.toggleNode('menu:user')
-
+      target.toggleMenu('menu:user')
       await expect(target.save()).resolves.toBeUndefined()
       expect(target.phase).toBe('failed')
-      expect(target.errorTargetTab()).toBe('scope')
+      expect(target.errorTargetTab()).toBe('form')
       expect(target.dirty).toBe(true)
-
       fail = false
-      await expect(target.retry()).resolves.toEqual({ recordVersion: 2 })
+      await target.retry()
       expect(target.phase).toBe('done')
       expect(target.dirty).toBe(false)
     })
@@ -1679,19 +1746,20 @@ export function describePermissionConfigContract(name: string, create: () => Per
       })
       let calls = 0
       target.setHandlers({
-        submit: async () => {
+        submitPermissions: async () => {
           calls += 1
           await gate
-          return { recordVersion: 3 }
+          return { version: 3 }
         },
+        submitFields: async () => ({}),
+        submitDataScopes: async () => ({}),
       })
-      target.toggleNode('menu:user')
-
+      target.toggleMenu('menu:user')
       const pending = target.save()
       expect(target.phase).toBe('saving')
       await expect(target.save()).resolves.toBeUndefined()
       release()
-      await expect(pending).resolves.toEqual({ recordVersion: 3 })
+      await pending
       expect(calls).toBe(1)
     })
 
@@ -1699,12 +1767,10 @@ export function describePermissionConfigContract(name: string, create: () => Per
       const target = await readyTarget()
       target.setAccess([])
       expect(target.canSave).toBe(false)
-      expect(target.toggleNode('menu:user')).toBe(false)
-      expect(target.setFieldPerm('form:user', 'name', { visible: false })).toBe(false)
-
+      expect(target.toggleMenu('menu:user')).toBe(false)
+      expect(target.setFieldPerm('form:user', 'field:name', { visible: false })).toBe(false)
       target.setAccess(['role:grant'])
-      expect(target.canSave).toBe(true)
-      expect(target.toggleNode('menu:user')).toBe(true)
+      expect(target.toggleMenu('menu:user')).toBe(true)
     })
   })
 }

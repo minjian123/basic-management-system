@@ -1,23 +1,26 @@
-/** 授权编排投影：把核心能力基类 `BasePermissionConfig` 投影为组合式（四类授权 / 阶段机 / 提交与上下文刷新）。 */
+/** 授权编排投影（新口径）：把核心能力基类 `BasePermissionConfig` 投影为组合式（四页签 / 来源判定 / 三类提交与用户差量）。 */
 
 import {
   BasePermissionConfig,
   PERMISSION_GRANT_CODE,
-  PERMISSION_SUBJECT_LIMIT,
+  type AssignedUser,
   type BaseAccess,
   type BaseNotice,
-  type DataScopeRow,
-  type FieldPermRow,
+  type DataScopeEntry,
+  type DataScopePolicyItem,
+  type DataScopePolicyType,
+  type FieldPermEntry,
+  type FieldPermPatch,
   type PermissionCheckState,
+  type PermissionEntry,
   type PermissionErrorTarget,
-  type PermissionGranted,
+  type PermissionIdempotencyKind,
   type PermissionJobs,
-  type PermissionNode,
+  type PermissionMetadata,
   type PermissionPhase,
   type PermissionSnapshot,
-  type PermissionSubject,
-  type PermissionSubjectType,
   type PermissionSubmitResult,
+  type PermissionSubTab,
   type PermissionTab,
 } from '@bms/core'
 import { markRaw, onScopeDispose, ref, toRaw, type Ref } from 'vue'
@@ -31,14 +34,10 @@ export interface UseBasePermissionConfigOptions {
   ready?: boolean
   /** 角色标识。 */
   roleId?: string | number
-  /** 当前页签（缺省 `tree`）。 */
+  /** 当前页签（缺省 `menu`）。 */
   tab?: PermissionTab
-  /** 初始授权快照（装载并记基线）。 */
-  snapshot?: PermissionSnapshot
   /** 授权写权限码（缺省 `role:grant`）。 */
   grantPerm?: string
-  /** 单主体可绑定角色数上限（缺省 20）。 */
-  subjectLimit?: number
   /** 注入的处理函数集（未注入即占位）。 */
   jobs?: PermissionJobs
   /** 权限上下文（刷新目标）。 */
@@ -59,16 +58,28 @@ export interface UseBasePermissionConfigResult {
   disabled: Ref<boolean>
   /** 当前页签（响应式）。 */
   tab: Ref<PermissionTab>
-  /** 权限树（响应式）。 */
-  nodes: Ref<PermissionNode[]>
-  /** 字段权限矩阵（响应式）。 */
-  fieldPerms: Ref<FieldPermRow[]>
-  /** 动作数据范围（响应式）。 */
-  dataScopes: Ref<DataScopeRow[]>
-  /** 主体绑定（响应式）。 */
-  subjects: Ref<PermissionSubject[]>
-  /** 勾选集合（响应式）。 */
-  granted: Ref<PermissionGranted>
+  /** 元数据（响应式）。 */
+  metadata: Ref<PermissionMetadata>
+  /** 授权条目（响应式）。 */
+  entries: Ref<PermissionEntry[]>
+  /** 字段权限条目（响应式）。 */
+  fieldEntries: Ref<FieldPermEntry[]>
+  /** 数据权限条目（响应式）。 */
+  dataScopeEntries: Ref<DataScopeEntry[]>
+  /** 已分配用户（响应式）。 */
+  users: Ref<AssignedUser[]>
+  /** 菜单页签选中入口（响应式）。 */
+  selectedMenuId: Ref<string>
+  /** 菜单页签子页签（响应式）。 */
+  menuSubTab: Ref<PermissionSubTab>
+  /** 表单页签选中表单（响应式）。 */
+  selectedFormId: Ref<string>
+  /** 表单页签子页签（响应式）。 */
+  formSubTab: Ref<PermissionSubTab>
+  /** 数据页签选中字典（响应式）。 */
+  selectedDictTypeId: Ref<string>
+  /** 数据页签策略子页签（响应式）。 */
+  dataScopePolicy: Ref<DataScopePolicyType>
   /** 是否存在未保存变更（响应式）。 */
   dirty: Ref<boolean>
   /** 编排阶段（响应式）。 */
@@ -105,23 +116,45 @@ export interface UseBasePermissionConfigResult {
   setJobs: (jobs: PermissionJobs) => void
   /** 注入权限上下文（刷新目标；`undefined` 表示不校验、不刷新）。 */
   setAccess: (access: BaseAccess | undefined) => void
+  /** 装载元数据。 */
+  applyMetadata: (metadata: PermissionMetadata) => void
   /** 装载授权快照（整体替换并记基线）。 */
   applySnapshot: (snapshot: PermissionSnapshot) => void
-  /** 勾选 / 取消勾选节点。 */
-  toggleNode: (key: string, checked?: boolean) => boolean
-  /** 查询节点勾选三态。 */
-  checkState: (key: string) => PermissionCheckState | undefined
+  /** 选中菜单入口。 */
+  selectMenu: (id: string) => void
+  /** 切换菜单页签子页签。 */
+  setMenuSubTab: (tab: PermissionSubTab) => void
+  /** 选中表单。 */
+  selectForm: (id: string) => void
+  /** 切换表单页签子页签。 */
+  setFormSubTab: (tab: PermissionSubTab) => void
+  /** 选中字典类型。 */
+  selectDictType: (id: string) => void
+  /** 切换数据页签策略子页签。 */
+  setDataScopePolicy: (policy: DataScopePolicyType) => void
+  /** 勾选 / 取消勾选菜单入口。 */
+  toggleMenu: (id: string, checked?: boolean) => boolean
+  /** 勾选 / 取消勾选操作权限。 */
+  toggleAction: (actionId: string, sourceMenuId: string, checked?: boolean) => boolean
+  /** 查询菜单勾选三态。 */
+  checkMenuState: (id: string) => PermissionCheckState
+  /** 查询表单授权来源。 */
+  formSources: (formId: string) => string[]
+  /** 查询操作授权来源。 */
+  actionSources: (actionId: string) => string[]
   /** 设置字段权限。 */
-  setFieldPerm: (formKey: string, fieldKey: string, patch: { visible?: boolean; editable?: boolean }) => boolean
-  /** 设置动作数据范围。 */
-  setDataScope: (actionKey: string, expression: string) => boolean
-  /** 绑定主体。 */
-  bindSubject: (subject: PermissionSubject) => boolean
-  /** 解绑主体。 */
-  unbindSubject: (id: string, type?: PermissionSubjectType) => boolean
+  setFieldPerm: (formId: string, fieldId: string, patch: FieldPermPatch, sourceMenuId?: string) => boolean
+  /** 设置数据权限。 */
+  setDataScope: (dictTypeId: string, policyType: DataScopePolicyType, config: readonly DataScopePolicyItem[]) => boolean
+  /** 绑定用户。 */
+  bindUsers: (users: readonly AssignedUser[]) => boolean
+  /** 解绑用户。 */
+  unbindUser: (id: string) => boolean
+  /** 指定类别幂等键。 */
+  idempotencyKey: (kind: PermissionIdempotencyKind) => string
   /** 取数。 */
-  load: () => Promise<PermissionSnapshot | undefined>
-  /** 全量覆盖提交。 */
+  load: () => Promise<void>
+  /** 全量覆盖提交（三类 + 用户差量）。 */
   save: () => Promise<PermissionSubmitResult | undefined>
   /** 刷新权限上下文。 */
   refreshAccess: () => Promise<boolean>
@@ -142,7 +175,6 @@ export interface UseBasePermissionConfigResult {
 export function useBasePermissionConfig(options: UseBasePermissionConfigOptions = {}): UseBasePermissionConfigResult {
   const config = new PermissionConfigState()
   config.grantPerm = options.grantPerm ?? PERMISSION_GRANT_CODE
-  config.subjectLimit = options.subjectLimit ?? PERMISSION_SUBJECT_LIMIT
   if (options.jobs !== undefined) {
     config.jobs = options.jobs
   }
@@ -158,20 +190,23 @@ export function useBasePermissionConfig(options: UseBasePermissionConfigOptions 
   if (options.roleId !== undefined) {
     config.setRole(options.roleId)
   }
-  if (options.snapshot !== undefined) {
-    config.applySnapshot(options.snapshot)
-  }
   config.setReady(options.ready ?? false)
 
   const ready = ref(config.ready)
   const degraded = ref(config.degraded)
   const disabled = ref(config.disabled)
   const tab = ref<PermissionTab>(config.tab)
-  const nodes = ref<PermissionNode[]>(config.nodes)
-  const fieldPerms = ref<FieldPermRow[]>(config.fieldPerms)
-  const dataScopes = ref<DataScopeRow[]>(config.dataScopes)
-  const subjects = ref<PermissionSubject[]>(config.subjects)
-  const granted = ref<PermissionGranted>(config.granted)
+  const metadata = ref<PermissionMetadata>(config.metadata)
+  const entries = ref<PermissionEntry[]>(config.entries)
+  const fieldEntries = ref<FieldPermEntry[]>(config.fieldEntries)
+  const dataScopeEntries = ref<DataScopeEntry[]>(config.dataScopeEntries)
+  const users = ref<AssignedUser[]>(config.users)
+  const selectedMenuId = ref(config.selectedMenuId)
+  const menuSubTab = ref<PermissionSubTab>(config.menuSubTab)
+  const selectedFormId = ref(config.selectedFormId)
+  const formSubTab = ref<PermissionSubTab>(config.formSubTab)
+  const selectedDictTypeId = ref(config.selectedDictTypeId)
+  const dataScopePolicy = ref<DataScopePolicyType>(config.dataScopePolicy)
   const dirty = ref(config.dirty)
   const phase = ref<PermissionPhase>(config.phase)
   const busy = ref(config.busy)
@@ -192,11 +227,17 @@ export function useBasePermissionConfig(options: UseBasePermissionConfigOptions 
     degraded.value = config.degraded
     disabled.value = config.disabled
     tab.value = config.tab
-    nodes.value = config.nodes
-    fieldPerms.value = config.fieldPerms
-    dataScopes.value = config.dataScopes
-    subjects.value = config.subjects
-    granted.value = config.granted
+    metadata.value = config.metadata
+    entries.value = config.entries
+    fieldEntries.value = config.fieldEntries
+    dataScopeEntries.value = config.dataScopeEntries
+    users.value = config.users
+    selectedMenuId.value = config.selectedMenuId
+    menuSubTab.value = config.menuSubTab
+    selectedFormId.value = config.selectedFormId
+    formSubTab.value = config.formSubTab
+    selectedDictTypeId.value = config.selectedDictTypeId
+    dataScopePolicy.value = config.dataScopePolicy
     dirty.value = config.dirty
     phase.value = config.phase
     busy.value = config.busy
@@ -219,17 +260,29 @@ export function useBasePermissionConfig(options: UseBasePermissionConfigOptions 
   })
   onScopeDispose(off)
 
+  /** 包裹「写入后同步」。 */
+  const wrap = (action: () => void): void => {
+    action()
+    sync()
+  }
+
   return {
     config,
     ready,
     degraded,
     disabled,
     tab,
-    nodes,
-    fieldPerms,
-    dataScopes,
-    subjects,
-    granted,
+    metadata,
+    entries,
+    fieldEntries,
+    dataScopeEntries,
+    users,
+    selectedMenuId,
+    menuSubTab,
+    selectedFormId,
+    formSubTab,
+    selectedDictTypeId,
+    dataScopePolicy,
     dirty,
     phase,
     busy,
@@ -243,60 +296,59 @@ export function useBasePermissionConfig(options: UseBasePermissionConfigOptions 
     loadReady,
     submitReady,
     refreshReady,
-    setReady: (value) => {
-      config.setReady(value)
-      sync()
-    },
-    setTab: (next) => {
-      config.setTab(next)
-      sync()
-    },
-    setRole: (roleId) => {
-      config.setRole(roleId)
-      sync()
-    },
-    setJobs: (jobs) => {
-      config.setJobs(jobs)
-      sync()
-    },
-    setAccess: (access) => {
-      config.access = access === undefined ? undefined : markRaw(toRaw(access))
-      sync()
-    },
-    applySnapshot: (snapshot) => {
-      config.applySnapshot(snapshot)
-      sync()
-    },
-    toggleNode: (key, checked) => {
-      const applied = config.toggleNode(key, checked)
+    setReady: (value) => wrap(() => config.setReady(value)),
+    setTab: (next) => wrap(() => config.setTab(next)),
+    setRole: (roleId) => wrap(() => config.setRole(roleId)),
+    setJobs: (jobs) => wrap(() => config.setJobs(jobs)),
+    setAccess: (access) =>
+      wrap(() => {
+        config.access = access === undefined ? undefined : markRaw(toRaw(access))
+      }),
+    applyMetadata: (next) => wrap(() => config.applyMetadata(next)),
+    applySnapshot: (snapshot) => wrap(() => config.applySnapshot(snapshot)),
+    selectMenu: (id) => wrap(() => config.selectMenu(id)),
+    setMenuSubTab: (sub) => wrap(() => config.setMenuSubTab(sub)),
+    selectForm: (id) => wrap(() => config.selectForm(id)),
+    setFormSubTab: (sub) => wrap(() => config.setFormSubTab(sub)),
+    selectDictType: (id) => wrap(() => config.selectDictType(id)),
+    setDataScopePolicy: (policy) => wrap(() => config.setDataScopePolicy(policy)),
+    toggleMenu: (id, checked) => {
+      const applied = config.toggleMenu(id, checked)
       sync()
       return applied
     },
-    checkState: (key) => config.checkState(key),
-    setFieldPerm: (formKey, fieldKey, patch) => {
-      const applied = config.setFieldPerm(formKey, fieldKey, patch)
+    toggleAction: (actionId, sourceMenuId, checked) => {
+      const applied = config.toggleAction(actionId, sourceMenuId, checked)
       sync()
       return applied
     },
-    setDataScope: (actionKey, expression) => {
-      const applied = config.setDataScope(actionKey, expression)
+    checkMenuState: (id) => config.checkMenuState(id),
+    formSources: (formId) => config.formSources(formId),
+    actionSources: (actionId) => config.actionSources(actionId),
+    setFieldPerm: (formId, fieldId, patch, sourceMenuId) => {
+      const applied = config.setFieldPerm(formId, fieldId, patch, sourceMenuId)
       sync()
       return applied
     },
-    bindSubject: (subject) => {
-      const applied = config.bindSubject(subject)
+    setDataScope: (dictTypeId, policyType, scopeConfig) => {
+      const applied = config.setDataScope(dictTypeId, policyType, scopeConfig)
       sync()
       return applied
     },
-    unbindSubject: (id, type) => {
-      const applied = config.unbindSubject(id, type)
+    bindUsers: (assigned) => {
+      const applied = config.bindUsers(assigned)
       sync()
       return applied
     },
+    unbindUser: (id) => {
+      const applied = config.unbindUser(id)
+      sync()
+      return applied
+    },
+    idempotencyKey: (kind) => config.idempotencyKey(kind),
     load: async () => {
-      const result = await config.load()
+      await config.load()
       sync()
-      return result
     },
     save: async () => {
       const result = await config.save()
@@ -313,13 +365,7 @@ export function useBasePermissionConfig(options: UseBasePermissionConfigOptions 
       sync()
       return result
     },
-    reset: () => {
-      config.reset()
-      sync()
-    },
-    discard: () => {
-      config.discard()
-      sync()
-    },
+    reset: () => wrap(() => config.reset()),
+    discard: () => wrap(() => config.discard()),
   }
 }

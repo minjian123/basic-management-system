@@ -1,392 +1,356 @@
 <script setup lang="ts">
-// 授权总容器件（08_04_02）：四类授权页签装配 + 全量覆盖提交 + 脏数据与占位语义。
-// 对外契约沿用 08_01_01 冻结形状（既有 Props / 事件 / 插槽不变，仅向后兼容扩展），数据通路改由 jobs 注入。
-import type {
-  BaseAccess,
-  DataScopeRow,
-  FieldPermRow,
-  PermissionErrorTarget,
-  PermissionJobs,
-  PermissionNode,
-  PermissionSubject,
-  PermissionSubmitResult,
-  PermissionTab,
+// 授权总容器件（08-4-4，新口径）：四页签装配（菜单 / 表单 / 数据 / 角色分配）+ 三类顺序提交 + 用户差量 + 脏数据；保存入口归宿主工具栏。
+import {
+  PERMISSION_TABS,
+  type AssignedUser,
+  type BaseAccess,
+  type BaseNotice,
+  type DataScopePolicyItem,
+  type DataScopePolicyType,
+  type FieldPermPatch,
+  type PermissionErrorTarget,
+  type PermissionJobs,
+  type PermissionSubTab,
+  type PermissionSubmitResult,
+  type PermissionTab,
 } from '@bms/core'
-import { computed, onMounted, ref, watch } from 'vue'
+import { onMounted, watch } from 'vue'
 
 import { useBasePermissionConfig } from '../../composables/useBasePermissionConfig'
-import type { ExpressionTemplate, ExpressionToken } from './ExpressionEditor.vue'
 import DataScopePanel from './DataScopePanel.vue'
-import FieldPermMatrix from './FieldPermMatrix.vue'
-import PermissionTree from './PermissionTree.vue'
-import SubjectBinding from './SubjectBinding.vue'
+import FormPermissionPanel from './FormPermissionPanel.vue'
+import MenuPermissionPanel from './MenuPermissionPanel.vue'
+import RoleAssignPanel from './RoleAssignPanel.vue'
 
-/** 页签顺序（与核心口径一致）。 */
-const TABS: PermissionTab[] = ['tree', 'field', 'scope', 'subject']
-
-interface Props {
-  /** 数据通路是否就绪（占位语义开关，缺省 `false`）。 */
-  ready?: boolean
-  /** 当前角色标识。 */
-  roleId?: string | number
-  /** 当前页签（受控：由调用方经 `v-model:tab` 维护，缺省 `tree`）。 */
-  tab?: PermissionTab
-  /** 权限树（受控覆盖：提供则装载）。 */
-  treeNodes?: PermissionNode[]
-  /** 字段权限矩阵（受控覆盖：提供则装载）。 */
-  fieldPerms?: FieldPermRow[]
-  /** 动作数据范围（受控覆盖：提供则装载）。 */
-  dataScopes?: DataScopeRow[]
-  /** 主体绑定（受控覆盖：提供则装载）。 */
-  subjects?: PermissionSubject[]
-  /** 加载态（受控覆盖：缺省按内部进行中态）。 */
-  loading?: boolean
-  /** 未保存变更（受控覆盖：缺省按内部脏基线判定）。 */
-  dirty?: boolean
-  /** 降级文案。 */
-  degradeText?: string
-  /** 取数 / 提交 / 权限码取数处理函数（未注入即占位）。 */
-  jobs?: PermissionJobs
-  /** 权限上下文（刷新目标；未注入不校验、不刷新）。 */
-  access?: BaseAccess
-  /** 授权写权限码。 */
-  grantPerm?: string
-  /** 单主体可绑定角色数上限。 */
-  subjectLimit?: number
-  /** 就绪后是否自动取数（缺省 `true`）。 */
-  autoLoad?: boolean
-  /** 主体候选。 */
-  subjectCandidates?: PermissionSubject[]
-  /** 数据范围预置变量令牌。 */
-  scopeVariables?: ExpressionToken[]
-  /** 数据范围已注册字段令牌。 */
-  scopeFields?: ExpressionToken[]
-  /** 数据范围常用模板。 */
-  scopeTemplates?: ExpressionTemplate[]
-}
-
-const props = withDefaults(defineProps<Props>(), {
-  ready: false,
-  roleId: undefined,
-  tab: undefined,
-  treeNodes: undefined,
-  fieldPerms: undefined,
-  dataScopes: undefined,
-  subjects: undefined,
-  loading: undefined,
-  dirty: undefined,
-  degradeText: '权限配置未就绪（占位）',
-  jobs: undefined,
-  access: undefined,
-  grantPerm: undefined,
-  subjectLimit: undefined,
-  autoLoad: true,
-  subjectCandidates: () => [],
-  scopeVariables: () => [],
-  scopeFields: () => [],
-  scopeTemplates: () => [],
-})
+const props = withDefaults(
+  defineProps<{
+    /** 数据通路是否就绪（占位语义开关，缺省 `false`）。 */
+    ready?: boolean
+    /** 当前角色标识。 */
+    roleId?: string | number
+    /** 当前页签（`v-model:tab`，缺省 `menu`）。 */
+    tab?: PermissionTab
+    /** 注入的处理函数集（未注入即占位）。 */
+    jobs?: PermissionJobs
+    /** 权限上下文（刷新目标）。 */
+    access?: BaseAccess
+    /** 提示通知协作者。 */
+    notice?: BaseNotice
+    /** 授权写权限码。 */
+    grantPerm?: string
+    /** 就绪后是否自动取数（缺省 `true`）。 */
+    autoLoad?: boolean
+    /** 只读。 */
+    readonly?: boolean
+    /** 降级文案。 */
+    degradeText?: string
+  }>(),
+  {
+    ready: false,
+    roleId: undefined,
+    tab: 'menu',
+    jobs: undefined,
+    access: undefined,
+    notice: undefined,
+    grantPerm: undefined,
+    autoLoad: true,
+    readonly: false,
+    degradeText: '权限数据通路未就绪（占位）',
+  },
+)
 
 const emit = defineEmits<{
   'update:tab': [tab: PermissionTab]
-  change: [payload: { kind: PermissionTab; value: unknown }]
-  save: []
-  reset: []
-  retry: []
-  saved: [result: PermissionSubmitResult]
+  change: [payload: { kind: string; value: unknown }]
+  saved: [result: PermissionSubmitResult | undefined]
   failed: [payload: { message: string; target?: PermissionErrorTarget }]
+  dirty: [dirty: boolean]
 }>()
 
-const api = useBasePermissionConfig({
+const {
+  ready,
+  degraded,
+  disabled,
+  tab,
+  metadata,
+  entries,
+  fieldEntries,
+  dataScopeEntries,
+  users,
+  selectedMenuId,
+  menuSubTab,
+  selectedFormId,
+  formSubTab,
+  selectedDictTypeId,
+  dataScopePolicy,
+  dirty,
+  busy,
+  errorMessage,
+  errorTarget,
+  canSave,
+  setReady,
+  setTab,
+  setRole,
+  setJobs,
+  setAccess,
+  selectMenu,
+  setMenuSubTab,
+  selectForm,
+  setFormSubTab,
+  selectDictType,
+  setDataScopePolicy,
+  toggleMenu,
+  toggleAction,
+  setFieldPerm,
+  setDataScope,
+  bindUsers,
+  unbindUser,
+  load,
+  save,
+  refreshAccess,
+  retry,
+  reset,
+  discard,
+} = useBasePermissionConfig({
   ready: props.ready,
-  roleId: typeof props.roleId === 'string' || typeof props.roleId === 'number' ? props.roleId : undefined,
+  roleId: props.roleId,
   tab: props.tab,
-  grantPerm: props.grantPerm,
-  subjectLimit: props.subjectLimit,
   jobs: props.jobs,
   access: props.access,
+  notice: props.notice,
+  grantPerm: props.grantPerm,
 })
-
-/** 树件搜索词。 */
-const treeKeyword = ref('')
 
 watch(
   () => props.ready,
-  (value) => api.setReady(value),
+  (value) => setReady(value),
+  { immediate: true },
+)
+
+watch(
+  () => props.roleId,
+  (value) => {
+    if (value !== undefined) {
+      setRole(value)
+    }
+  },
+)
+
+watch(
+  () => props.jobs,
+  (value) => {
+    if (value !== undefined) {
+      setJobs(value)
+    }
+  },
+  { immediate: true },
+)
+
+watch(
+  () => props.access,
+  (value) => {
+    if (value !== undefined) {
+      setAccess(value)
+    }
+  },
+  { immediate: true },
 )
 
 watch(
   () => props.tab,
   (value) => {
-    if (value !== undefined) {
-      api.setTab(value)
+    if (value !== tab.value) {
+      setTab(value)
     }
   },
 )
 
-watch(
-  () => props.roleId,
-  (value) => api.setRole(typeof value === 'string' || typeof value === 'number' ? value : undefined),
-)
-
-watch(
-  () => props.jobs,
-  (value) => api.setJobs(value ?? {}),
-)
-
-watch(
-  () => props.grantPerm,
-  (value) => {
-    api.config.grantPerm = value ?? ''
-  },
-)
-
-watch(
-  () => props.subjectLimit,
-  (value) => {
-    api.config.subjectLimit = value ?? api.config.subjectLimit
-  },
-)
-
-watch(
-  [() => props.treeNodes, () => props.fieldPerms, () => props.dataScopes, () => props.subjects],
-  () => {
-    const provided =
-      props.treeNodes !== undefined ||
-      props.fieldPerms !== undefined ||
-      props.dataScopes !== undefined ||
-      props.subjects !== undefined
-    if (!provided) {
-      return
-    }
-    api.applySnapshot({
-      roleId: typeof props.roleId === 'string' || typeof props.roleId === 'number' ? props.roleId : undefined,
-      nodes: props.treeNodes ?? [],
-      fieldPerms: props.fieldPerms ?? [],
-      dataScopes: props.dataScopes ?? [],
-      subjects: props.subjects ?? [],
-    })
-  },
-  { immediate: true },
-)
+watch(tab, (value) => emit('update:tab', value))
+watch(dirty, (value) => emit('dirty', value))
 
 onMounted(() => {
-  if (props.ready && props.autoLoad && api.loadReady.value) {
-    void api.load()
+  if (props.autoLoad && props.ready) {
+    void load()
   }
 })
 
-/** 生效加载态（受控覆盖优先）。 */
-const loading = computed(() => (props.loading === true ? true : api.busy.value))
-
-/** 生效未保存变更（受控覆盖优先）。 */
-const dirty = computed(() => (props.dirty !== undefined ? props.dirty : api.dirty.value))
-
-/** 只读（占位态或无权时禁用操作）。 */
-const readonly = computed(() => api.disabled.value || !api.canGrant.value)
-
-/** 保存入口是否可用。 */
-const canSubmit = computed(() => !readonly.value && api.canSave.value)
-
-/** 生效页签（受控口径：由 `tab` 决定，缺省 `tree`；切换经 `update:tab` 回写）。 */
-const activeTab = computed<PermissionTab>(() => props.tab ?? 'tree')
-
-/** 切换页签（受控口径：只上抛，由调用方经 `tab` / `v-model:tab` 回写）。 */
-function switchTab(tab: PermissionTab): void {
-  emit('update:tab', tab)
+/** 面板是否禁用（只读 / 占位 / 无权 / 进行中）。 */
+function panelDisabled(): boolean {
+  return props.readonly || disabled.value || busy.value
 }
 
-/** 权限树勾选。 */
-function onTreeCheck(payload: { key: string; checked: boolean }): void {
-  if (api.toggleNode(payload.key, payload.checked)) {
-    emit('change', { kind: 'tree', value: { key: payload.key, checked: payload.checked } })
+/** 菜单勾选。 */
+function onToggleMenu(payload: { id: string; checked: boolean }): void {
+  if (toggleMenu(payload.id, payload.checked)) {
+    emit('change', { kind: 'menu', value: payload })
   }
 }
 
-/** 字段权限变更。 */
-function onFieldChange(payload: {
-  formKey: string
-  fieldKey: string
-  key: 'visible' | 'editable'
-  value: boolean
-}): void {
-  const patch = payload.key === 'visible' ? { visible: payload.value } : { editable: payload.value }
-  if (api.setFieldPerm(payload.formKey, payload.fieldKey, patch)) {
-    emit('change', { kind: 'field', value: { ...payload } })
+/** 操作勾选。 */
+function onToggleAction(payload: { actionId: string; sourceMenuId?: string; checked: boolean }, sourceMenuId?: string): void {
+  if (toggleAction(payload.actionId, payload.sourceMenuId ?? sourceMenuId ?? '0', payload.checked)) {
+    emit('change', { kind: 'action', value: payload })
   }
 }
 
-/** 字段权限批量设置。 */
-function onFieldBatch(payload: { key: 'visible' | 'editable'; value: boolean; formKey?: string }): void {
-  const rows = api.fieldPerms.value.filter((row) => payload.formKey === undefined || row.formKey === payload.formKey)
-  const patch = payload.key === 'visible' ? { visible: payload.value } : { editable: payload.value }
-  for (const row of rows) {
-    for (const field of row.fields) {
-      api.setFieldPerm(row.formKey, field.key, patch)
-    }
-  }
-  emit('change', { kind: 'field', value: { batch: true, ...payload } })
-}
-
-/** 数据范围表达式变更。 */
-function onScopeChange(payload: { actionKey: string; expression: string }): void {
-  if (api.setDataScope(payload.actionKey, payload.expression)) {
-    emit('change', { kind: 'scope', value: { ...payload } })
+/** 字段权限。 */
+function onSetFieldPerm(payload: { formId: string; fieldId: string; patch: FieldPermPatch; sourceMenuId?: string }): void {
+  if (setFieldPerm(payload.formId, payload.fieldId, payload.patch, payload.sourceMenuId ?? '0')) {
+    emit('change', { kind: 'field', value: payload })
   }
 }
 
-/** 绑定主体。 */
-function onSubjectBind(subject: PermissionSubject): void {
-  if (api.bindSubject(subject)) {
-    emit('change', { kind: 'subject', value: { action: 'bind', subject } })
+/** 数据权限。 */
+function onSetScope(payload: { dictTypeId: string; policyType: DataScopePolicyType; config: DataScopePolicyItem[] }): void {
+  if (setDataScope(payload.dictTypeId, payload.policyType, payload.config)) {
+    emit('change', { kind: 'scope', value: payload })
   }
 }
 
-/** 解绑主体。 */
-function onSubjectUnbind(payload: { id: string; type: PermissionSubject['type'] }): void {
-  if (api.unbindSubject(payload.id, payload.type)) {
-    emit('change', { kind: 'subject', value: { action: 'unbind', ...payload } })
+/** 用户绑定。 */
+function onBind(assigned: AssignedUser[]): void {
+  if (bindUsers(assigned)) {
+    emit('change', { kind: 'user', value: assigned })
   }
 }
 
-/** 保存（全量覆盖提交）；成功上抛 `saved`、失败上抛 `failed`。 */
-async function submit(): Promise<void> {
-  emit('save')
-  const result = await api.save()
+/** 用户解绑。 */
+function onUnbind(payload: { id: string }): void {
+  if (unbindUser(payload.id)) {
+    emit('change', { kind: 'user', value: payload })
+  }
+}
+
+/**
+ * 提交（宿主工具栏调用）。
+ *
+ * @returns 提交结果。
+ */
+async function submit(): Promise<PermissionSubmitResult | undefined> {
+  const result = await save()
   if (result !== undefined) {
     emit('saved', result)
-    return
+  } else if (errorMessage.value !== '') {
+    emit('failed', { message: errorMessage.value, target: errorTarget.value })
   }
-  if (api.phase.value === 'failed') {
-    emit('failed', { message: api.errorMessage.value, target: api.errorTarget.value })
-  }
-}
-
-/** 撤销未保存变更。 */
-function reset(): void {
-  emit('reset')
-  api.discard()
-}
-
-/** 重试失败提交。 */
-async function retry(): Promise<void> {
-  emit('retry')
-  const result = await api.retry()
-  if (result !== undefined) {
-    emit('saved', result)
-  }
-}
-
-/** 刷新权限上下文。 */
-async function refresh(): Promise<boolean> {
-  return api.refreshAccess()
-}
-
-/** 取数。 */
-async function load(): Promise<void> {
-  await api.load()
+  return result
 }
 
 defineExpose({
   load,
   save: submit,
-  reset: reset,
+  discard,
+  refreshAccess,
   retry,
-  refreshAccess: refresh,
-  setRole: (roleId: string | number | undefined) => api.setRole(roleId),
+  reset,
+  setRole,
+  canSave,
+  dirty,
 })
 </script>
 
 <template>
-  <div
-    class="bms-permission-config"
-    :data-ready="api.ready.value"
-    :data-degraded="api.degraded.value"
-    :data-phase="api.phase.value"
-    :data-dirty="dirty || undefined"
-  >
-    <slot v-if="api.degraded.value" name="degrade">
-      <div class="bms-interaction-placeholder" data-test="placeholder">{{ degradeText }}</div>
-    </slot>
+  <div class="bms-permission-config" data-test="permission-config" :data-degraded="degraded || undefined">
+    <div v-if="degraded" class="bms-permission-config__degrade" data-test="permission-degrade">
+      <slot name="degrade">{{ degradeText }}</slot>
+    </div>
 
     <template v-else>
-      <slot name="live">
-        <div class="bms-permission-config__tabs" data-test="tabs">
-          <button
-            v-for="item in TABS"
-            :key="item"
-            type="button"
-            :data-test="`tab-${item}`"
-            :data-active="activeTab === item || undefined"
-            @click="switchTab(item)"
-          >
-            {{ item }}
-          </button>
-        </div>
+      <div class="bms-permission-config__tabs" data-test="permission-tabs">
+        <button
+          v-for="item in PERMISSION_TABS"
+          :key="item"
+          type="button"
+          :data-test="`permission-tab-${item}`"
+          :data-active="tab === item || undefined"
+          :disabled="readonly"
+          @click="!readonly && setTab(item)"
+        >
+          {{ item }}
+        </button>
+      </div>
 
-        <div v-if="loading" class="bms-permission-config__loading" data-test="loading">加载中…</div>
+      <p v-if="errorMessage !== ''" data-test="permission-error" :data-tab="errorTarget?.tab">
+        {{ errorMessage }}
+      </p>
 
-        <div class="bms-permission-config__panel" data-test="panel">
-          <div v-if="activeTab === 'tree'" data-test="panel-tree">
-            <PermissionTree
-              :nodes="api.nodes.value"
-              :disabled="readonly"
-              :keyword="treeKeyword"
-              @check="onTreeCheck"
-              @update:keyword="treeKeyword = $event"
+      <div class="bms-permission-config__body">
+        <template v-if="tab === 'menu'">
+          <slot name="menu-panel">
+            <menu-permission-panel
+              :menus="metadata.menus"
+              :forms="metadata.forms"
+              :actions="metadata.actions"
+              :fields="metadata.fields"
+              :form-actions="metadata.formActions"
+              :form-fields="metadata.formFields"
+              :entries="entries"
+              :field-entries="fieldEntries"
+              :selected-menu-id="selectedMenuId"
+              :sub-tab="menuSubTab"
+              :disabled="panelDisabled()"
+              @select-menu="(id) => selectMenu(id)"
+              @update:sub-tab="(next: PermissionSubTab) => setMenuSubTab(next)"
+              @toggle-menu="onToggleMenu"
+              @toggle-action="(payload) => onToggleAction(payload)"
+              @set-field-perm="(payload) => onSetFieldPerm({ ...payload, sourceMenuId: selectedMenuId })"
+              @batch-field="() => undefined"
             />
-          </div>
+          </slot>
+        </template>
 
-          <div v-else-if="activeTab === 'field'" data-test="panel-field">
-            <FieldPermMatrix
-              :rows="api.fieldPerms.value"
-              :disabled="readonly"
-              @change="onFieldChange"
-              @batch="onFieldBatch"
+        <template v-else-if="tab === 'form'">
+          <slot name="form-panel">
+            <form-permission-panel
+              :forms="metadata.forms"
+              :actions="metadata.actions"
+              :fields="metadata.fields"
+              :form-actions="metadata.formActions"
+              :form-fields="metadata.formFields"
+              :entries="entries"
+              :field-entries="fieldEntries"
+              :selected-form-id="selectedFormId"
+              :sub-tab="formSubTab"
+              :disabled="panelDisabled()"
+              @select-form="(id) => selectForm(id)"
+              @update:sub-tab="(next: PermissionSubTab) => setFormSubTab(next)"
+              @toggle-action="(payload) => onToggleAction(payload, '0')"
+              @set-field-perm="(payload) => onSetFieldPerm({ ...payload, sourceMenuId: '0' })"
+              @batch-field="() => undefined"
             />
-          </div>
+          </slot>
+        </template>
 
-          <div v-else-if="activeTab === 'scope'" data-test="panel-scope">
-            <DataScopePanel
-              :rows="api.dataScopes.value"
-              :disabled="readonly"
-              :variables="scopeVariables"
-              :fields="scopeFields"
-              :templates="scopeTemplates"
-              @change="onScopeChange"
+        <template v-else-if="tab === 'data'">
+          <slot name="data-panel">
+            <data-scope-panel
+              :dict-types="metadata.dictTypes"
+              :extensions="metadata.extensions"
+              :entries="dataScopeEntries"
+              :selected-dict-type-id="selectedDictTypeId"
+              :policy="dataScopePolicy"
+              :ready="ready"
+              :disabled="panelDisabled()"
+              @select-dict="(id) => selectDictType(id)"
+              @update:policy="(next: DataScopePolicyType) => setDataScopePolicy(next)"
+              @set-scope="onSetScope"
+              @validate="(payload) => emit('failed', { message: payload.message })"
             />
-          </div>
+          </slot>
+        </template>
 
-          <div v-else data-test="panel-subject">
-            <SubjectBinding
-              :subjects="api.subjects.value"
-              :candidates="subjectCandidates"
-              :disabled="readonly"
-              :limit="api.config.subjectLimit"
-              @bind="onSubjectBind"
-              @unbind="onSubjectUnbind"
+        <template v-else>
+          <slot name="assign-panel">
+            <role-assign-panel
+              :users="users"
+              :disabled="panelDisabled()"
+              @bind="onBind"
+              @unbind="onUnbind"
+              @search="() => undefined"
             />
-          </div>
-        </div>
-
-        <div class="bms-permission-config__actions">
-          <button type="button" data-test="save" :disabled="!canSubmit" @click="submit">保存</button>
-          <button type="button" data-test="reset" :disabled="api.disabled.value" @click="reset">撤销</button>
-          <button v-if="api.phase.value === 'failed'" type="button" data-test="retry" @click="retry">重试</button>
-          <span v-if="dirty" data-test="dirty">未保存</span>
-        </div>
-
-        <div v-if="api.errorMessage.value" class="bms-permission-config__error" data-test="error">
-          {{ api.errorMessage.value }}
-          <span v-if="api.errorTarget.value" data-test="error-target">
-            {{ api.errorTarget.value.tab ?? '整体' }}
-          </span>
-        </div>
-
-        <div v-if="api.pendingAccessRefresh.value" class="bms-permission-config__notice" data-test="refresh-pending">
-          权限上下文待刷新
-        </div>
-      </slot>
+          </slot>
+        </template>
+      </div>
     </template>
   </div>
 </template>

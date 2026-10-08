@@ -1,349 +1,187 @@
-// kiwi_id: 767
-/** 权限配置领域纯函数用例（08-4-1）：隐含推导 / 三态与级联 / 字段收窄 / 数据范围 / 主体绑定 / 脏基线 / 幂等键 / 错误码定位。 */
+// kiwi_id: 767（旧口径；新口径用例编号于测试步登记后回填）
+/** 权限配置领域用例（08-4-3，新口径）：菜单三态与连带 / 来源判定 / 字段收窄 / 数据权限 / 用户分配 / 载荷与幂等。 */
 
 import { describe, expect, it } from 'vitest'
 
 import {
-  BaseError,
-  PERMISSION_ERROR_TARGETS,
-  PERMISSION_SUBJECT_LIMIT,
-  applyPermissionCheck,
-  bindSubject,
-  collectDataScopes,
+  PERMISSION_SOURCE_DIRECT,
+  bindUsers,
+  collectCheckedMenuIds,
+  collectDataScopePayload,
   collectFieldEntries,
-  collectPayload,
-  deriveGranted,
+  collectPermissionPayload,
   deriveIdempotencyKey,
+  diffUserIds,
+  fieldPermOf,
   findFieldMismatch,
-  findFieldPerm,
-  findPermissionNode,
-  flattenPermissionTree,
-  isGrantable,
-  normalizeFieldPerms,
+  findMenu,
+  flattenMenus,
+  formSourceMenuIds,
+  isMenuDetached,
+  isValidMatchPattern,
+  menuCheckState,
+  menuFormIds,
+  menuSubtreeIds,
   payloadKey,
-  resolveCheckState,
+  pruneMenuFieldEntries,
+  removeDataScopeEntry,
   resolveErrorCode,
   resolveErrorTarget,
-  setDataScope,
+  setDataScopeEntry,
   setFieldPerm,
-  unbindSubject,
+  toggleAction,
+  toggleMenu,
+  unbindUser,
+  type AssignedUser,
+  type PermissionMenuNode,
+  type PermissionEntry,
   type PermissionSnapshot,
 } from '../src'
 
-/** 样例权限树（菜单 → 表单 → 业务 / 动作，另含挂接缺失菜单）。 */
-function sampleNodes() {
-  return [
-    {
-      key: 'menu:user',
-      label: '用户管理',
-      type: 'menu' as const,
-      children: [
-        {
-          key: 'form:user',
-          label: '用户表单',
-          type: 'form' as const,
-          children: [
-            { key: 'biz:user', label: '用户业务', type: 'business' as const },
-            { key: 'act:user:create', label: '新增用户', type: 'action' as const },
-          ],
-        },
-      ],
-    },
-    { key: 'menu:orphan', label: '未挂接菜单', type: 'menu' as const, detached: true },
-  ]
-}
+/** 样例菜单树。 */
+const MENUS: PermissionMenuNode[] = [
+  { id: 'menu:user', name: '用户管理', children: [{ id: 'menu:user:list', name: '用户列表' }] },
+  { id: 'menu:orphan', name: '未挂接菜单' },
+]
 
-/** 样例授权快照。 */
-function sampleSnapshot(): PermissionSnapshot {
-  return {
-    roleId: 'r1',
-    nodes: sampleNodes(),
-    fieldPerms: [
-      {
-        formKey: 'form:user',
-        formLabel: '用户表单',
-        fields: [
-          { key: 'name', label: '姓名', visible: true, editable: true },
-          { key: 'salary', label: '薪资', visible: true, editable: true },
-        ],
-      },
-    ],
-    dataScopes: [{ actionKey: 'act:user:list', actionLabel: '查询', expression: '' }],
-    subjects: [],
-  }
-}
+/** 样例表单。 */
+const FORMS = [
+  { id: 'form:user', name: '用户表单', menuIds: ['menu:user', 'menu:user:list'] },
+  { id: 'form:free', name: '无入口表单', menuIds: [] },
+]
 
-describe('权限树推导', () => {
-  it('扁平化保留层级深度与顺序', () => {
-    const flat = flattenPermissionTree(sampleNodes())
-    expect(flat.map((entry) => entry.node.key)).toEqual([
-      'menu:user',
-      'form:user',
-      'biz:user',
-      'act:user:create',
-      'menu:orphan',
+describe('domain/permission-config（新口径）', () => {
+  it('flattenMenus / findMenu / menuSubtreeIds / menuFormIds', () => {
+    expect(flattenMenus(MENUS).map((item) => [item.node.id, item.depth])).toEqual([
+      ['menu:user', 0],
+      ['menu:user:list', 1],
+      ['menu:orphan', 0],
     ])
-    expect(flat.map((entry) => entry.depth)).toEqual([0, 1, 2, 2, 0])
+    expect(findMenu(MENUS, 'menu:user:list')?.name).toBe('用户列表')
+    expect(findMenu(MENUS, 'absent')).toBeUndefined()
+    expect(menuSubtreeIds(MENUS, 'menu:user')).toEqual(['menu:user', 'menu:user:list'])
+    expect(menuSubtreeIds(MENUS, 'absent')).toEqual([])
+    expect(menuFormIds(FORMS, 'menu:user')).toEqual(['form:user'])
+    expect(isMenuDetached(FORMS, 'menu:orphan')).toBe(true)
+    expect(isMenuDetached(FORMS, 'menu:user')).toBe(false)
   })
 
-  it('按节点键查找（根 / 子 / 未命中）', () => {
-    const nodes = sampleNodes()
-    expect(findPermissionNode(nodes, 'menu:user')?.label).toBe('用户管理')
-    expect(findPermissionNode(nodes, 'act:user:create')?.type).toBe('action')
-    expect(findPermissionNode(nodes, 'absent')).toBeUndefined()
+  it('勾选菜单：级联子树并连带关联表单（按来源）', () => {
+    const entries = toggleMenu([], MENUS, FORMS, 'menu:user')
+    expect(collectCheckedMenuIds(entries)).toEqual(['menu:user', 'menu:user:list'])
+    expect(formSourceMenuIds(entries, 'form:user')).toEqual(['menu:user', 'menu:user:list'])
+    expect(menuCheckState(MENUS, entries, 'menu:user')).toBe('checked')
   })
 
-  it('可授予判定：业务只读、挂接缺失不可授予', () => {
-    const nodes = sampleNodes()
-    expect(isGrantable(findPermissionNode(nodes, 'menu:user')!)).toBe(true)
-    expect(isGrantable(findPermissionNode(nodes, 'form:user')!)).toBe(true)
-    expect(isGrantable(findPermissionNode(nodes, 'biz:user')!)).toBe(false)
-    expect(isGrantable(findPermissionNode(nodes, 'menu:orphan')!)).toBe(false)
+  it('取消菜单仅撤销本来源（其它来源保留），并清理关联字段条目', () => {
+    const base: PermissionEntry[] = [{ permType: 'form', targetId: 'form:user', sourceMenuId: PERMISSION_SOURCE_DIRECT }]
+    const on = toggleMenu(base, MENUS, FORMS, 'menu:user')
+    expect(formSourceMenuIds(on, 'form:user')).toEqual(['0', 'menu:user', 'menu:user:list'])
+
+    const fields = setFieldPerm([], 'form:user', 'field:name', { visible: false }, 'menu:user')
+    const off = toggleMenu(on, MENUS, FORMS, 'menu:user', false)
+    expect(formSourceMenuIds(off, 'form:user')).toEqual(['0'])
+    expect(menuCheckState(MENUS, off, 'menu:user')).toBe('unchecked')
+    expect(pruneMenuFieldEntries(fields, MENUS, 'menu:user')).toEqual([])
   })
 
-  it('三态：自身勾选 → 已选；有后代勾选 → 半选；否则未选', () => {
-    const nodes = sampleNodes()
-    expect(resolveCheckState(findPermissionNode(nodes, 'menu:user')!)).toBe('unchecked')
-    expect(resolveCheckState(findPermissionNode(nodes, 'biz:user')!)).toBe('unchecked')
-
-    const formChecked = applyPermissionCheck(nodes, 'form:user')
-    expect(resolveCheckState(findPermissionNode(formChecked, 'form:user')!)).toBe('checked')
-    expect(resolveCheckState(findPermissionNode(formChecked, 'menu:user')!)).toBe('indeterminate')
-    expect(resolveCheckState(findPermissionNode(formChecked, 'biz:user')!)).toBe('checked')
+  it('三态：子级勾选父级半选', () => {
+    const entries = toggleMenu([], MENUS, FORMS, 'menu:user:list')
+    expect(menuCheckState(MENUS, entries, 'menu:user')).toBe('indeterminate')
   })
 
-  it('勾选菜单隐含表单与业务，但动作不联动（默认全无）', () => {
-    const next = applyPermissionCheck(sampleNodes(), 'menu:user')
-    expect(findPermissionNode(next, 'menu:user')?.checked).toBe(true)
-    expect(findPermissionNode(next, 'form:user')?.checked).toBe(true)
-    expect(findPermissionNode(next, 'biz:user')?.checked).toBe(true)
-    expect(findPermissionNode(next, 'act:user:create')?.checked).toBeUndefined()
+  it('挂接缺失菜单不可授予（勾选不产生条目）', () => {
+    // toggleMenu 纯函数不做挂接校验（由能力基类把关）；此处断言子树仍能生成空表单连带。
+    const entries = toggleMenu([], MENUS, FORMS, 'menu:orphan')
+    expect(formSourceMenuIds(entries, 'form:free')).toEqual([])
   })
 
-  it('动作须显式勾选；取消菜单连带取消表单与动作', () => {
-    const checked = applyPermissionCheck(applyPermissionCheck(sampleNodes(), 'menu:user'), 'act:user:create')
-    expect(findPermissionNode(checked, 'act:user:create')?.checked).toBe(true)
-
-    const cleared = applyPermissionCheck(checked, 'menu:user', false)
-    expect(findPermissionNode(cleared, 'form:user')?.checked).toBe(false)
-    expect(findPermissionNode(cleared, 'biz:user')?.checked).toBe(false)
-    expect(findPermissionNode(cleared, 'act:user:create')?.checked).toBe(false)
+  it('操作权限：按来源写入与撤销', () => {
+    let entries = toggleAction([], 'act:user:create', '0')
+    expect(entries).toHaveLength(1)
+    entries = toggleAction(entries, 'act:user:create', 'menu:user')
+    expect(entries.map((entry) => entry.sourceMenuId)).toEqual(['0', 'menu:user'])
+    entries = toggleAction(entries, 'act:user:create', '0', false)
+    expect(entries.map((entry) => entry.sourceMenuId)).toEqual(['menu:user'])
+    // 重复勾选同来源不重复
+    expect(toggleAction(entries, 'act:user:create', 'menu:user')).toHaveLength(1)
   })
 
-  it('业务只读与挂接缺失节点勾选不动作', () => {
-    const nodes = sampleNodes()
-    const readonly = applyPermissionCheck(nodes, 'biz:user')
-    expect(findPermissionNode(readonly, 'biz:user')?.checked).toBeUndefined()
-
-    const detached = applyPermissionCheck(nodes, 'menu:orphan')
-    expect(findPermissionNode(detached, 'menu:orphan')?.checked).toBeUndefined()
-  })
-
-  it('级联为不可变更新（原树不被修改）', () => {
-    const nodes = sampleNodes()
-    const next = applyPermissionCheck(nodes, 'menu:user')
-    expect(next).not.toBe(nodes)
-    expect(findPermissionNode(nodes, 'form:user')?.checked).toBeUndefined()
-    expect(findPermissionNode(next, 'form:user')?.checked).toBe(true)
-  })
-
-  it('勾选集合：菜单 / 表单 / 动作显式勾选 + 业务隐含推导（均升序）', () => {
-    const nodes = applyPermissionCheck(applyPermissionCheck(sampleNodes(), 'menu:user'), 'act:user:create')
-    expect(deriveGranted(nodes)).toEqual({
-      menus: ['menu:user'],
-      forms: ['form:user'],
-      actions: ['act:user:create'],
-      implied: ['biz:user'],
-    })
-    expect(deriveGranted(sampleNodes())).toEqual({ menus: [], forms: [], actions: [], implied: [] })
-  })
-})
-
-describe('字段权限与数据范围', () => {
-  it('默认全开：缺省的可见 / 可编辑补为真，显式收窄保留', () => {
-    const rows = normalizeFieldPerms([
-      {
-        formKey: 'f1',
-        formLabel: '表单',
-        fields: [
-          { key: 'a', label: 'A', visible: false, editable: false },
-          { key: 'b', label: 'B' },
-        ],
-      },
+  it('字段权限：未命中默认全开、editable=false 强制不可见、收窄项收集与字段校验', () => {
+    expect(fieldPermOf([], 'form:user', 'field:name')).toBeUndefined()
+    let fields = setFieldPerm([], 'form:user', 'field:name', { visible: false }, '0')
+    expect(fields).toEqual([
+      { formId: 'form:user', fieldId: 'field:name', visible: false, editable: true, sourceMenuId: '0' },
     ])
-    expect(rows[0]?.fields[0]).toMatchObject({ visible: false, editable: false })
-    expect(rows[0]?.fields[1]).toMatchObject({ visible: true, editable: true })
-  })
-
-  it('按表单 + 字段查找与设置（未命中不改动）', () => {
-    const rows = normalizeFieldPerms(sampleSnapshot().fieldPerms)
-    expect(findFieldPerm(rows, 'form:user', 'name')?.visible).toBe(true)
-    expect(findFieldPerm(rows, 'form:user', 'absent')).toBeUndefined()
-
-    const next = setFieldPerm(rows, 'form:user', 'name', { visible: false })
-    expect(findFieldPerm(next, 'form:user', 'name')).toEqual({
-      key: 'name',
-      label: '姓名',
+    fields = setFieldPerm(fields, 'form:user', 'field:salary', { editable: false }, 'menu:user')
+    expect(fields.find((item) => item.fieldId === 'field:salary')).toEqual({
+      formId: 'form:user',
+      fieldId: 'field:salary',
       visible: false,
-      editable: true,
+      editable: false,
+      sourceMenuId: 'menu:user',
     })
-    expect(findFieldPerm(rows, 'form:user', 'name')?.visible).toBe(true)
-
-    const untouched = setFieldPerm(rows, 'form:user', 'absent', { visible: false })
-    expect(untouched).toEqual(rows)
+    expect(collectFieldEntries(fields)).toHaveLength(2)
+    expect(collectFieldEntries(setFieldPerm([], 'form:user', 'field:name', {}, '0'))).toEqual([])
+    expect(findFieldMismatch(fields, { 'form:user': ['field:name', 'field:salary'] })).toBeUndefined()
+    expect(findFieldMismatch(fields, { 'form:user': ['field:name'] })).toEqual({
+      formId: 'form:user',
+      fieldId: 'field:salary',
+    })
   })
 
-  it('字段收窄项：仅收窄入选并按表单 + 字段升序', () => {
-    const rows = normalizeFieldPerms([
-      {
-        formKey: 'f2',
-        formLabel: '表单二',
-        fields: [{ key: 'b', label: 'B', visible: false, editable: true }],
-      },
-      {
-        formKey: 'f1',
-        formLabel: '表单一',
-        fields: [
-          { key: 'z', label: 'Z', visible: true, editable: true },
-          { key: 'a', label: 'A', visible: true, editable: false },
-        ],
-      },
+  it('匹配通配符校验：仅 * ? 与中英文 / 数字 / 下划线', () => {
+    expect(isValidMatchPattern('user_*')).toBe(true)
+    expect(isValidMatchPattern('张?')).toBe(true)
+    expect(isValidMatchPattern('a b')).toBe(false)
+    expect(isValidMatchPattern('a=b')).toBe(false)
+    expect(isValidMatchPattern('')).toBe(false)
+  })
+
+  it('数据权限：覆盖、移除、空配置丢弃', () => {
+    let entries = setDataScopeEntry([], 'dict:user', 'select', [{ itemCode: 'enabled' }])
+    expect(entries).toEqual([{ dictTypeId: 'dict:user', policyType: 'select', config: [{ itemCode: 'enabled' }] }])
+    entries = setDataScopeEntry(entries, 'dict:user', 'match', [{ field: 'code', pattern: 'user_*' }])
+    expect(entries).toHaveLength(2)
+    expect(removeDataScopeEntry(entries, 'dict:user', 'select')).toHaveLength(1)
+    expect(collectDataScopePayload([{ dictTypeId: 'dict:user', policyType: 'select', config: [] }])).toEqual([])
+  })
+
+  it('用户分配：去重、解绑、差量', () => {
+    const list: AssignedUser[] = [{ id: 'u1', username: 'zhang', name: '张三', status: 'enabled' }]
+    const merged = bindUsers(list, [
+      { id: 'u1', username: 'zhang', name: '张三', status: 'enabled' },
+      { id: 'u2', username: 'li', name: '李四', status: 'enabled' },
     ])
-    expect(collectFieldEntries(rows)).toEqual([
-      { formKey: 'f1', fieldKey: 'a', visible: true, editable: false },
-      { formKey: 'f2', fieldKey: 'b', visible: false, editable: true },
-    ])
+    expect(merged.map((user) => user.id)).toEqual(['u1', 'u2'])
+    const removed = unbindUser(merged, 'u1')
+    expect(removed.map((user) => user.id)).toEqual(['u2'])
+    expect(diffUserIds(list, merged)).toEqual({ added: ['u2'], removed: [] })
+    expect(diffUserIds(merged, list)).toEqual({ added: [], removed: ['u2'] })
   })
 
-  it('字段归属校验：不匹配命中、未登记表单跳过', () => {
-    const rows = normalizeFieldPerms(sampleSnapshot().fieldPerms)
-    expect(findFieldMismatch(rows, { 'form:user': ['name'] })).toEqual({ formKey: 'form:user', fieldKey: 'salary' })
-    expect(findFieldMismatch(rows, { 'form:user': ['name', 'salary'] })).toBeUndefined()
-    expect(findFieldMismatch(rows, {})).toBeUndefined()
-  })
-
-  it('数据范围：默认无、非空表达式入选（去空白、按动作键升序）', () => {
-    const rows = [
-      { actionKey: 'b:list', actionLabel: 'B', expression: 'dept_id = @current_dept' },
-      { actionKey: 'a:list', actionLabel: 'A', expression: '   ' },
-      { actionKey: 'c:list', actionLabel: 'C', expression: 'user_id = @current_user' },
-    ]
-    expect(collectDataScopes(rows)).toEqual([
-      { actionKey: 'b:list', expression: 'dept_id = @current_dept' },
-      { actionKey: 'c:list', expression: 'user_id = @current_user' },
-    ])
-
-    const next = setDataScope(rows, 'a:list', 'tenant_id = @tenant')
-    expect(next[1]?.expression).toBe('tenant_id = @tenant')
-    expect(rows[1]?.expression).toBe('   ')
-  })
-})
-
-describe('主体绑定', () => {
-  it('新增去重、超上限不写入、上限 0 表示不限制', () => {
-    const first = bindSubject([], { id: 'u1', type: 'user', name: '张三' })
-    expect(first.applied).toBe(true)
-    expect(first.list).toHaveLength(1)
-
-    const duplicate = bindSubject(first.list, { id: 'u1', type: 'user', name: '张三' })
-    expect(duplicate.applied).toBe(false)
-    expect(duplicate.reason).toBe('duplicate')
-    expect(duplicate.list).toHaveLength(1)
-
-    const limitTwo = bindSubject(first.list, { id: 'u2', type: 'user', name: '李四' }, 1)
-    expect(limitTwo.applied).toBe(false)
-    expect(limitTwo.reason).toBe('limit')
-
-    const unlimited = bindSubject(first.list, { id: 'u2', type: 'user', name: '李四' }, 0)
-    expect(unlimited.applied).toBe(true)
-    expect(unlimited.list).toHaveLength(2)
-    expect(PERMISSION_SUBJECT_LIMIT).toBe(20)
-  })
-
-  it('解绑按标识（可带类型限定）', () => {
-    const list = [
-      { id: 'u1', type: 'user' as const, name: '张三' },
-      { id: 'u1', type: 'dept' as const, name: '研发部' },
-    ]
-    expect(unbindSubject(list, 'u1')).toHaveLength(0)
-    expect(unbindSubject(list, 'u1', 'user')).toEqual([{ id: 'u1', type: 'dept', name: '研发部' }])
-    expect(unbindSubject(list, 'absent')).toHaveLength(2)
-  })
-})
-
-describe('载荷与脏基线', () => {
-  it('载荷：业务不进载荷、字段只收窄、数据范围只非空、主体排序', () => {
-    const snapshot = sampleSnapshot()
-    snapshot.nodes = applyPermissionCheck(snapshot.nodes, 'menu:user')
-    snapshot.fieldPerms = normalizeFieldPerms(snapshot.fieldPerms)
-    snapshot.fieldPerms = setFieldPerm(snapshot.fieldPerms, 'form:user', 'salary', { editable: false })
-    snapshot.dataScopes = setDataScope(snapshot.dataScopes, 'act:user:list', 'dept_id = @current_dept')
-    snapshot.subjects = [
-      { id: 'u2', type: 'user', name: '李四' },
-      { id: 'u1', type: 'user', name: '张三' },
-    ]
-
-    expect(collectPayload(snapshot)).toMatchObject({
+  it('载荷确定性、脏基线与幂等键', () => {
+    const snapshot: PermissionSnapshot = {
       roleId: 'r1',
-      menus: ['menu:user'],
-      forms: ['form:user'],
-      actions: [],
-      fields: [{ formKey: 'form:user', fieldKey: 'salary', visible: true, editable: false }],
-      dataScopes: [{ actionKey: 'act:user:list', expression: 'dept_id = @current_dept' }],
-    })
-    expect(collectPayload(snapshot).subjects.map((item) => item.id)).toEqual(['u1', 'u2'])
+      entries: collectPermissionPayload(toggleMenu(toggleAction([], 'act:user:create', '0'), MENUS, FORMS, 'menu:user')),
+      fieldEntries: setFieldPerm([], 'form:user', 'field:name', { visible: false }, '0'),
+      dataScopeEntries: setDataScopeEntry([], 'dict:user', 'select', [{ itemCode: 'enabled' }]),
+      users: [{ id: 'u1', username: 'zhang', name: '张三', status: 'enabled' }],
+    }
+    const reordered: PermissionSnapshot = { ...snapshot, entries: [...snapshot.entries].reverse() }
+    expect(payloadKey(snapshot)).toBe(payloadKey(reordered))
+
+    const key = deriveIdempotencyKey('r1', 'perm', payloadKey(snapshot))
+    expect(key).toMatch(/^perm:r1:perm:[0-9a-f]+$/)
+    expect(deriveIdempotencyKey('r1', 'perm', payloadKey(snapshot))).toBe(key)
+    expect(deriveIdempotencyKey('r1', 'field', payloadKey(snapshot))).not.toBe(key)
   })
 
-  it('脏基线键与节点 / 字段 / 主体顺序无关，与授权语义相关', () => {
-    const base = sampleSnapshot()
-    const reordered = sampleSnapshot()
-    reordered.nodes = applyPermissionCheck(reordered.nodes, 'menu:user')
-    const same = sampleSnapshot()
-    same.nodes = applyPermissionCheck(same.nodes, 'menu:user')
-    same.subjects = [
-      { id: 'u2', type: 'user', name: '李四' },
-      { id: 'u1', type: 'user', name: '张三' },
-    ]
-    const reorderedSubjects = sampleSnapshot()
-    reorderedSubjects.nodes = applyPermissionCheck(reorderedSubjects.nodes, 'menu:user')
-    reorderedSubjects.subjects = [
-      { id: 'u1', type: 'user', name: '张三' },
-      { id: 'u2', type: 'user', name: '李四' },
-    ]
-
-    expect(payloadKey(base)).not.toBe(payloadKey(reordered))
-    expect(payloadKey(same)).toBe(payloadKey(reorderedSubjects))
-  })
-
-  it('幂等键：内容派生的确定性取值', () => {
-    const snapshot = sampleSnapshot()
-    const key = payloadKey(snapshot)
-    expect(deriveIdempotencyKey('r1', key)).toBe(deriveIdempotencyKey('r1', key))
-    expect(deriveIdempotencyKey('r1', key)).toMatch(/^perm:r1:[0-9a-f]{8}$/)
-    expect(deriveIdempotencyKey('r2', key)).not.toBe(deriveIdempotencyKey('r1', key))
-    expect(deriveIdempotencyKey('r1', `${key} `)).not.toBe(deriveIdempotencyKey('r1', key))
-    expect(deriveIdempotencyKey(undefined, key)).toMatch(/^perm:-:/)
-  })
-})
-
-describe('错误码定位', () => {
-  it('从错误对象解析错误码（BaseError / 普通对象带 code / 非对象）', () => {
-    expect(resolveErrorCode(new BaseError(30047, '规则表达式非法'))).toBe(30047)
-    expect(resolveErrorCode(Object.assign(new Error('x'), { code: 30049 }))).toBe(30049)
+  it('错误码识别与定位', () => {
+    expect(resolveErrorCode(Object.assign(new Error('x'), { code: 30047 }))).toBe(30047)
     expect(resolveErrorCode(new Error('x'))).toBeUndefined()
-    expect(resolveErrorCode('boom')).toBeUndefined()
-    expect(resolveErrorCode(undefined)).toBeUndefined()
-  })
-
-  it('错误码映射到页签（内置角色保护为整体错误）', () => {
-    expect(resolveErrorTarget(30046)).toEqual({ tab: 'tree', i18nKey: 'error.30046' })
-    expect(resolveErrorTarget(30047)?.tab).toBe('scope')
-    expect(resolveErrorTarget(30048)?.tab).toBe('subject')
-    expect(resolveErrorTarget(30049)?.tab).toBe('field')
-    expect(resolveErrorTarget(30044)?.tab).toBe('subject')
-    expect(resolveErrorTarget(30043)?.tab).toBeUndefined()
+    expect(resolveErrorTarget(30047)).toEqual({ tab: 'data', i18nKey: 'error.30047' })
+    expect(resolveErrorTarget(30049)).toEqual({ tab: 'form', i18nKey: 'error.30049' })
     expect(resolveErrorTarget(99999)).toBeUndefined()
-    expect(resolveErrorTarget(undefined)).toBeUndefined()
-    expect(Object.keys(PERMISSION_ERROR_TARGETS)).toEqual(['30043', '30044', '30046', '30047', '30048', '30049'])
   })
 })

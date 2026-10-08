@@ -1,11 +1,24 @@
 <script setup lang="ts">
-// 权限配置容器（角色记录 Tab 第二子页签）：四页签结构（菜单权限 / 表单权限 / 数据权限 / 角色分配）。
-// 前三页签的内容件属 ui-ep 授权组件**新口径返工件**（组件库「08 交互类 04 权限配置」子任务），
-// 未就绪期间渲染「待返工」空态（不接旧口径件，避免与新设计混淆）；接入位经统一 props 预留：
-// 返工件落地后直接替换空态，不改本页结构与页签顺序。
-import { EmptyState } from '@bms/ui-ep'
-import { ref } from 'vue'
+// 权限配置容器（08-4-4，新口径）：消费 ui-ep 授权总容器件（菜单 / 表单 / 数据三页签经 jobs 落 platform 授权接口）。
+// 「角色分配」页签沿用宿主内建 RoleAssignTab（用户分配 + mdm 岗位 / 部门分配插件挂接位），经容器 `assign-panel` 插槽覆写。
+import { BaseAccess, type DataScopePolicyItem, type PermissionJobs } from '@bms/core'
+import { PermissionConfig } from '@bms/ui-ep'
+import { computed, ref, watch } from 'vue'
 
+import {
+  assignRoleUsers,
+  getRoleDataScopes,
+  getRoleFields,
+  getRolePermissions,
+  listRoleUsers,
+  replaceRoleDataScopes,
+  replaceRoleFields,
+  replaceRolePermissions,
+  unassignRoleUser,
+} from '@/api/role'
+import { fetchPermissionMetadata } from '@/api/permissionMeta'
+import { fetchMyMenus } from '@/api/menu'
+import { useSessionStore } from '@/stores/session'
 import RoleAssignTab from './RoleAssignTab.vue'
 
 const props = defineProps<{
@@ -15,31 +28,134 @@ const props = defineProps<{
 
 const emit = defineEmits<{ dirty: [dirty: boolean] }>()
 
-/** 当前页签。 */
-const section = ref<'menu' | 'form' | 'data' | 'assign'>('menu')
+const session = useSessionStore()
 
-/** 角色分配页签（本任务内建）引用。 */
+/** 授权写权限码上下文（未注入权限码时视为有权，后端兜底）。 */
+class PermissionAccess extends BaseAccess {}
+const access = new PermissionAccess()
+access.setCodes(session.codes)
+watch(
+  () => session.codes,
+  (codes) => access.setCodes(codes),
+)
+
+/** 授权总容器件引用。 */
+const configRef = ref<InstanceType<typeof PermissionConfig> | null>(null)
+/** 角色分配页签引用。 */
 const assignRef = ref<InstanceType<typeof RoleAssignTab> | null>(null)
+/** 权限配置区脏态。 */
+const configDirty = ref(false)
+/** 角色分配页签脏态。 */
+const assignDirty = ref(false)
+
+watch([configDirty, assignDirty], ([left, right]) => emit('dirty', left || right))
+
+/** 当前角色主键（字符串口径）。 */
+const currentId = computed(() => props.roleId)
+
+/** 注入的数据通路（元数据 + 三类授权 + 用户差量 + 取码）。 */
+const jobs: PermissionJobs = {
+  loadMetadata: fetchPermissionMetadata,
+  loadGrants: async ({ roleId }) => {
+    const id = String(roleId ?? currentId.value)
+    const [permissions, fields, scopes, users] = await Promise.all([
+      getRolePermissions(id),
+      getRoleFields(id),
+      getRoleDataScopes(id),
+      listRoleUsers(id, { page: 1, size: 200 }),
+    ])
+    return {
+      roleId: id,
+      entries: (permissions.items ?? []).map((entry) => ({
+        permType: entry.perm_type as 'menu' | 'form' | 'action',
+        targetId: String(entry.target_id),
+        sourceMenuId: String(entry.source_menu_id ?? '0'),
+      })),
+      fieldEntries: (fields.items ?? []).map((entry) => ({
+        formId: String(entry.form_id),
+        fieldId: String(entry.field_id),
+        visible: entry.visible,
+        editable: entry.editable,
+        sourceMenuId: String(entry.source_menu_id ?? '0'),
+      })),
+      dataScopeEntries: (scopes.items ?? []).map((entry) => ({
+        dictTypeId: String(entry.dict_type_id),
+        policyType: entry.policy_type as 'select' | 'region' | 'match' | 'extension',
+        config: (entry.config ?? []).map((item) => ({ ...item })) as unknown as DataScopePolicyItem[],
+      })),
+      users: (users.list ?? []).map((user) => ({
+        id: String(user.user_id),
+        username: user.username,
+        name: user.name,
+        status: user.status,
+      })),
+    }
+  },
+  submitPermissions: async ({ roleId, payload }) => {
+    const result = await replaceRolePermissions(String(roleId ?? currentId.value), {
+      entries: payload.entries.map((entry) => ({
+        perm_type: entry.permType,
+        target_id: entry.targetId,
+        source_menu_id: entry.sourceMenuId,
+      })),
+    })
+    return { version: result.items?.length }
+  },
+  submitFields: async ({ roleId, payload }) => {
+    await replaceRoleFields(String(roleId ?? currentId.value), {
+      entries: payload.entries.map((entry) => ({
+        form_id: entry.formId,
+        field_id: entry.fieldId,
+        visible: entry.visible,
+        editable: entry.editable,
+        source_menu_id: entry.sourceMenuId,
+      })),
+    })
+    return {}
+  },
+  submitDataScopes: async ({ roleId, payload }) => {
+    await replaceRoleDataScopes(String(roleId ?? currentId.value), {
+      entries: payload.entries.map((entry) => ({
+        dict_type_id: entry.dictTypeId,
+        policy_type: entry.policyType,
+        config: entry.config as unknown as Record<string, unknown>[],
+      })),
+    })
+    return {}
+  },
+  saveUsers: async ({ roleId, added, removed }) => {
+    const id = String(roleId ?? currentId.value)
+    if (added.length > 0) {
+      await assignRoleUsers(id, { user_ids: [...added] })
+    }
+    for (const userId of removed) {
+      await unassignRoleUser(id, userId)
+    }
+    return {}
+  },
+  loadPermissionCodes: async () => {
+    const data = await fetchMyMenus()
+    return data.permissions ?? []
+  },
+}
 
 /**
- * 提交当前页签的挂起变更（宿主工具栏「保存」调用；返工件就绪后在此分派到各页签件）。
+ * 提交权限配置（记录页工具栏「保存」调用）：授权总容器三类接口 + 角色分配页签。
  *
  * @returns 是否提交成功。
  */
 async function save(): Promise<boolean> {
-  if (section.value === 'assign') {
-    return (await assignRef.value?.save()) ?? true
-  }
-  return true
+  const configured = await configRef.value?.save()
+  const assigned = (await assignRef.value?.save()) ?? true
+  return configured !== undefined && assigned
 }
 
 /**
- * 撤销当前页签的挂起变更（返工件就绪后在此分派到各页签件）。
+ * 撤销未保存变更。
  */
 function revert(): void {
-  if (section.value === 'assign') {
-    assignRef.value?.revert()
-  }
+  configRef.value?.discard()
+  assignRef.value?.revert()
 }
 
 defineExpose({ save, revert })
@@ -47,40 +163,23 @@ defineExpose({ save, revert })
 
 <template>
   <div class="role-perm" data-test="role-permission-config">
-    <el-tabs v-model="section" data-test="role-perm-tabs">
-      <el-tab-pane label="菜单权限" name="menu">
-        <empty-state
-          type="unselected"
-          title="权限配置组件待组件库 08_04 返工"
-          description="菜单权限树按新口径返工中；接入位（roleId / readonly / 元数据）已预留。"
-          data-test="role-perm-menu-placeholder"
-        />
-      </el-tab-pane>
-      <el-tab-pane label="表单权限" name="form">
-        <empty-state
-          type="unselected"
-          title="权限配置组件待组件库 08_04 返工"
-          description="表单权限面板（含无入口表单补充授权）按新口径返工中。"
-          data-test="role-perm-form-placeholder"
-        />
-      </el-tab-pane>
-      <el-tab-pane label="数据权限" name="data">
-        <empty-state
-          type="unselected"
-          title="权限配置组件待组件库 08_04 返工"
-          description="数据权限（字典 → 选择 / 区域 / 匹配 / 扩展，只选不编）按新口径返工中。"
-          data-test="role-perm-data-placeholder"
-        />
-      </el-tab-pane>
-      <el-tab-pane label="角色分配" name="assign">
+    <permission-config
+      ref="configRef"
+      :ready="props.roleId !== '' && props.roleId !== 'new'"
+      :role-id="props.roleId"
+      :jobs="jobs"
+      :access="access"
+      @dirty="(value: boolean) => (configDirty = value)"
+    >
+      <!-- 角色分配页签：宿主内建（用户分配 + mdm 岗位 / 部门分配插件挂接位） -->
+      <template #assign-panel>
         <role-assign-tab
           ref="assignRef"
           :role-id="props.roleId"
-          @dirty="(value: boolean) => emit('dirty', value)"
+          @dirty="(value: boolean) => (assignDirty = value)"
         />
-        <!-- 岗位分配 / 部门分配：由 mdm 组织域插件经具名插槽插入；插件缺失即隐藏（不渲染、不报错） -->
-      </el-tab-pane>
-    </el-tabs>
+      </template>
+    </permission-config>
   </div>
 </template>
 

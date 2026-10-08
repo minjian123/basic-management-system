@@ -70,12 +70,11 @@ export { default as UserAvatar, type AvatarSize } from './components/display/Use
 export { default as UserInfo } from './components/display/UserInfo.vue'
 export { default as WatermarkOverlay } from './components/display/WatermarkOverlay.vue'
 export { default as PermissionConfig } from './components/interaction/PermissionConfig.vue'
-// 权限配置对外类型经核心领域模块统一导出（`SubjectItem` 为既有公开名，映射到核心 `PermissionSubject`）。
+// 权限配置对外类型经核心领域模块统一导出（新口径）。
 export {
-  type DataScopeRow,
-  type FieldPermRow,
-  type PermissionNode,
-  type PermissionSubject as SubjectItem,
+  type AssignedUser,
+  type PermissionEntry,
+  type PermissionMetadata,
   type PermissionTab,
 } from '@bms/core'
 export { default as ApprovalFlow } from './components/approval/ApprovalFlow.vue'
@@ -570,10 +569,13 @@ export {
 export { useBasePrint, type UseBasePrintOptions, type UseBasePrintResult } from './composables/useBasePrint'
 export { invokeBrowserPrint } from './utils/printWindow'
 export { default as PermissionTree } from './components/interaction/PermissionTree.vue'
-export { default as FieldPermMatrix } from './components/interaction/FieldPermMatrix.vue'
-export { default as FieldPermCell } from './components/interaction/FieldPermCell.vue'
+export { default as MenuPermissionPanel } from './components/interaction/MenuPermissionPanel.vue'
+export { default as FormPermissionPanel } from './components/interaction/FormPermissionPanel.vue'
+export { default as ActionPermissionPanel } from './components/interaction/ActionPermissionPanel.vue'
+export { default as FieldPermissionPanel } from './components/interaction/FieldPermissionPanel.vue'
 export { default as DataScopePanel } from './components/interaction/DataScopePanel.vue'
-export { default as SubjectBinding } from './components/interaction/SubjectBinding.vue'
+export { default as DynamicDictPicker } from './components/interaction/DynamicDictPicker.vue'
+export { default as RoleAssignPanel } from './components/interaction/RoleAssignPanel.vue'
 export {
   useBasePermissionConfig,
   type UseBasePermissionConfigOptions,

@@ -87,75 +87,21 @@ describe('交互占位组合式', () => {
   })
 })
 
-describe('PermissionConfig 权限配置', () => {
-  const treeNodes = [
-    {
-      key: 'menu1',
-      label: '用户管理',
-      type: 'menu' as const,
-      children: [
-        { key: 'business1', label: '用户列表', type: 'business' as const },
-        { key: 'action1', label: '新增用户', type: 'action' as const },
-      ],
-    },
-  ]
-
+describe('PermissionConfig 权限配置（新口径）', () => {
   it('占位态降级且不渲染页签', () => {
     const wrapper = mount(PermissionConfig, { props: {} })
     expect(wrapper.attributes('data-degraded')).toBe('true')
-    expect(wrapper.find('[data-test="placeholder"]').text()).toContain('权限配置未就绪')
-    expect(wrapper.find('[data-test="tabs"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="permission-degrade"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="permission-tabs"]').exists()).toBe(false)
   })
 
-  it('就绪态渲染权限树、推导只读与提交事件', async () => {
-    const wrapper = mount(PermissionConfig, { props: { ready: true, treeNodes, dirty: true } })
-    expect(wrapper.attributes('data-degraded')).toBe('false')
-    expect(wrapper.find('[data-test="node-menu1"]').text()).toContain('用户管理')
-    expect(wrapper.find('[data-test="node-business1"] [data-test="derived"]').text()).toBe('推导')
-    expect(wrapper.find('[data-test="dirty"]').text()).toBe('未保存')
-
-    await wrapper.find('[data-test="tab-field"]').trigger('click')
-    expect(wrapper.emitted('update:tab')?.[0]).toEqual(['field'])
-
-    await wrapper.find('[data-test="node-check-menu1"]').trigger('change')
-    expect(wrapper.emitted('change')?.[0]).toEqual([
-      { kind: 'tree', value: { key: 'menu1', checked: true } },
-    ])
-
-    await wrapper.find('[data-test="save"]').trigger('click')
-    expect(wrapper.emitted('save')).toHaveLength(1)
-    await wrapper.find('[data-test="reset"]').trigger('click')
-    expect(wrapper.emitted('reset')).toHaveLength(1)
-  })
-
-  it('字段矩阵 / 数据范围 / 主体绑定页签渲染与编辑事件', async () => {
-    const fieldPerms = [
-      {
-        formKey: 'f1',
-        formLabel: '用户表单',
-        fields: [{ key: 'name', label: '姓名', visible: true, editable: true }],
-      },
-    ]
-    const field = mount(PermissionConfig, { props: { ready: true, tab: 'field', fieldPerms } })
-    expect(field.find('[data-test="form-f1"]').text()).toContain('用户表单')
-    await field.find('[data-test="field-f1-name"] input').trigger('change')
-    expect(field.emitted('change')?.[0]).toEqual([
-      { kind: 'field', value: { formKey: 'f1', fieldKey: 'name', key: 'visible', value: false } },
-    ])
-
-    const scope = mount(PermissionConfig, {
-      props: {
-        ready: true,
-        tab: 'scope',
-        dataScopes: [{ actionKey: 'act1', actionLabel: '查询', expression: 'dept_id = @current_dept' }],
-      },
-    })
-    expect(scope.find('[data-test="scope-act1"]').text()).toContain('dept_id = @current_dept')
-
-    const subject = mount(PermissionConfig, {
-      props: { ready: true, tab: 'subject', subjects: [{ id: 'u1', type: 'user', name: '张三' }] },
-    })
-    expect(subject.find('[data-test="subject-u1"]').text()).toBe('张三')
+  it('就绪态渲染四页签并在切换时上抛 update:tab', async () => {
+    const wrapper = mount(PermissionConfig, { props: { ready: true, autoLoad: false } })
+    expect(wrapper.attributes('data-degraded')).toBeUndefined()
+    expect(wrapper.find('[data-test="permission-tabs"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="permission-tab-menu"]').exists()).toBe(true)
+    await wrapper.find('[data-test="permission-tab-form"]').trigger('click')
+    expect(wrapper.emitted('update:tab')?.[0]).toEqual(['form'])
   })
 })
 
