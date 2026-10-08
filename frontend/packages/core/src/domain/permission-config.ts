@@ -32,8 +32,8 @@ export const PERMISSION_TABS: readonly PermissionTab[] = ['menu', 'form', 'data'
 /** 数据权限子页签顺序。 */
 export const DATA_SCOPE_POLICIES: readonly DataScopePolicyType[] = ['select', 'region', 'match', 'extension']
 
-/** 占位文案（数据通路未就绪）。 */
-export const PERMISSION_PLACEHOLDER_TEXT = '权限数据通路未就绪（占位）'
+/** 占位文案（功能数据未就绪；面向用户，避免“占位”等实现术语）。 */
+export const PERMISSION_PLACEHOLDER_TEXT = '功能数据未就绪，暂不可用（请稍后重试）'
 
 /** 匹配通配符允许字符（`*` `?` 与中英文 / 数字 / 下划线；整体非空）。 */
 export const MATCH_PATTERN_ALLOWED = /^[*?A-Za-z0-9_\u4e00-\u9fff]+$/u

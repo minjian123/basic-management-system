@@ -53,6 +53,11 @@ watch([configDirty, assignDirty], ([left, right]) => emit('dirty', left || right
 /** 当前角色主键（字符串口径）。 */
 const currentId = computed(() => props.roleId)
 
+/** 占位文案：新增（未保存）角色提示先保存再配置；其余场景用组件默认文案。 */
+const degradeText = computed(() =>
+  props.roleId === 'new' ? '新增角色尚未保存，保存后即可配置权限' : undefined,
+)
+
 /** 注入的数据通路（元数据 + 三类授权 + 用户差量 + 取码）。 */
 const jobs: PermissionJobs = {
   loadMetadata: fetchPermissionMetadata,
@@ -169,6 +174,7 @@ defineExpose({ save, revert })
       :role-id="props.roleId"
       :jobs="jobs"
       :access="access"
+      :degrade-text="degradeText"
       @dirty="(value: boolean) => (configDirty = value)"
     >
       <!-- 角色分配页签：宿主内建（用户分配 + mdm 岗位 / 部门分配插件挂接位） -->

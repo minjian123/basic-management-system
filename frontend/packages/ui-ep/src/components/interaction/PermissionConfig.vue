@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // 授权总容器件（08-4-4，新口径）：四页签装配（菜单 / 表单 / 数据 / 角色分配）+ 三类顺序提交 + 用户差量 + 脏数据；保存入口归宿主工具栏。
 import {
+  PERMISSION_PLACEHOLDER_TEXT,
   PERMISSION_TABS,
   type AssignedUser,
   type BaseAccess,
@@ -55,7 +56,7 @@ const props = withDefaults(
     grantPerm: undefined,
     autoLoad: true,
     readonly: false,
-    degradeText: '权限数据通路未就绪（占位）',
+    degradeText: PERMISSION_PLACEHOLDER_TEXT,
   },
 )
 
