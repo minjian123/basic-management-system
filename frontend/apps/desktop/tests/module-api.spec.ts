@@ -1,7 +1,8 @@
 // kiwi_id: 2236
+// kiwi_id: 2259
 /**
- * 模块请求能力宿主实现用例（06_02）：模块 → `context.api` → 宿主请求层 → 适配器整链；
- * 401 单例静默刷新与重放对模块**透明**；刷新失败模块收到会话失效。
+ * 模块请求能力宿主实现用例（06_02；产品域通道 05-13）：模块 → `context.api` → 宿主请求层 → 适配器整链；
+ * 401 单例静默刷新与重放对模块**透明**；刷新失败模块收到会话失效；产品服务经产品命名空间取数。
  */
 
 import { ErrorCodes, configureRequestAdapter } from '@bms/core'
@@ -114,6 +115,40 @@ describe('模块请求能力宿主实现（06_02 · Kiwi 2236）', () => {
     configureRequestAdapter(createAxiosAdapter())
 
     await expect(createModuleApi().get('nope' as never)).rejects.toMatchObject({ code: ErrorCodes.CAPABILITY_VIOLATION })
+    expect(requestMock).not.toHaveBeenCalled()
+  })
+
+  it('产品域通道：模块经 api.product 访问产品命名空间（产品前缀 + 统一解包）', async () => {
+    requestMock.mockResolvedValueOnce(ok({ items: [] }))
+    configureRequestAdapter(createAxiosAdapter())
+
+    const result = await createModuleApi().product('mdm', 'org').get('/data-source/dept-tree')
+
+    expect(result).toEqual({ items: [] })
+    expect(requestMock).toHaveBeenCalledWith({
+      method: 'GET',
+      url: '/api/mdm/v1/org/data-source/dept-tree',
+      params: undefined,
+      data: undefined,
+      headers: {},
+    })
+  })
+
+  it('产品域写方法带幂等键头（口径含「产品键:域」）', async () => {
+    requestMock.mockResolvedValueOnce(ok(null))
+    configureRequestAdapter(createAxiosAdapter())
+
+    await createModuleApi().product('mdm', 'org').post('/user-posts', { userId: 'u1', postIds: ['p1'] })
+
+    const call = requestMock.mock.calls[0]?.[0] as { headers: Record<string, string>; url: string }
+    expect(call.url).toBe('/api/mdm/v1/org/user-posts')
+    expect(call.headers['Idempotency-Key']).toContain('mdm:org:/user-posts:')
+  })
+
+  it('未登记产品键：抛 CAPABILITY_VIOLATION 且不发请求', () => {
+    configureRequestAdapter(createAxiosAdapter())
+
+    expect(() => createModuleApi().product('biz' as never, 'org')).toThrowError()
     expect(requestMock).not.toHaveBeenCalled()
   })
 })

@@ -1,9 +1,13 @@
 // kiwi_id: 2236
-/** 模块请求能力基类与契约面用例（06_02）：服务键 + 路径寻址 / 幂等键实现点 / 未注入占位 / 非法服务键。 */
+// kiwi_id: 2259
+/**
+ * 模块请求能力基类与契约面用例（06_02；产品域通道 05-13）：
+ * 服务键 + 路径寻址 / 产品键 + 域寻址 / 幂等键实现点 / 未注入占位 / 非法服务键与产品键。
+ */
 
 import { describe, expect, it } from 'vitest'
 
-import { BaseModuleApi, ErrorCodes, configureRequestAdapter, serviceUrl } from '../src'
+import { BaseModuleApi, ErrorCodes, configureRequestAdapter, productUrl, serviceUrl } from '../src'
 
 import type { RequestAdapter, RequestConfig, ServiceKey } from '../src'
 
@@ -12,11 +16,11 @@ class ProbeModuleApi extends BaseModuleApi {
   /**
    * 幂等键（探针口径）。
    *
-   * @param service 服务键。
+   * @param target 寻址主体（服务键或 `产品键:域`）。
    * @param path 资源子路径。
    */
-  createIdempotencyKey(service: ServiceKey, path: string): string {
-    return `probe:${service}:${path}`
+  createIdempotencyKey(target: string, path: string): string {
+    return `probe:${target}:${path}`
   }
 }
 
@@ -123,6 +127,94 @@ describe('模块请求能力基类（06_02）', () => {
     await expect(new ProbeModuleApi().get('unknown' as ServiceKey)).rejects.toMatchObject({
       code: ErrorCodes.CAPABILITY_VIOLATION,
     })
+    expect(configs).toEqual([])
+  })
+})
+
+describe('模块请求能力 · 产品域通道（05-13 · Kiwi 2259）', () => {
+  it('产品域取数：地址经寻址契约组装（模块不自拼前缀），无幂等键', async () => {
+    const { configs, adapter } = recordingAdapter()
+    configureRequestAdapter(adapter)
+
+    const result = await new ProbeModuleApi().product('mdm', 'org').get('/posts', { deptId: '1' })
+
+    expect(result).toEqual({ ok: true })
+    expect(configs).toEqual([
+      {
+        method: 'GET',
+        url: productUrl('mdm', 'org', '/posts'),
+        params: { deptId: '1' },
+        data: undefined,
+        headers: undefined,
+        idempotencyKey: undefined,
+      },
+    ])
+  })
+
+  it('产品域写方法自动带幂等键（口径含「产品键:域」，与平台通道不冲突）', async () => {
+    const { configs, adapter } = recordingAdapter()
+    configureRequestAdapter(adapter)
+    const scope = new ProbeModuleApi().product('mdm', 'org')
+
+    await scope.post('/user-posts', { userId: '1' })
+    await scope.put('/posts/p1', { name: '组长' })
+    await scope.patch('/posts/p1', { enabled: false })
+
+    expect(configs[0]).toMatchObject({
+      method: 'POST',
+      url: productUrl('mdm', 'org', '/user-posts'),
+      data: { userId: '1' },
+      idempotencyKey: 'probe:mdm:org:/user-posts',
+    })
+    expect(configs[1]).toMatchObject({ method: 'PUT', idempotencyKey: 'probe:mdm:org:/posts/p1' })
+    expect(configs[2]).toMatchObject({ method: 'PATCH', idempotencyKey: 'probe:mdm:org:/posts/p1' })
+  })
+
+  it('产品域 del / request 逃生口口径与服务通道一致', async () => {
+    const { configs, adapter } = recordingAdapter()
+    configureRequestAdapter(adapter)
+    const scope = new ProbeModuleApi().product('mdm', 'org')
+
+    await scope.del('/role-depts', { roleId: 'r1' })
+    await scope.request({ method: 'POST', path: '/role-depts', headers: { 'X-Trace': 't1' }, idempotencyKey: 'k1' })
+
+    expect(configs[0]).toMatchObject({
+      method: 'DELETE',
+      url: productUrl('mdm', 'org', '/role-depts'),
+      params: { roleId: 'r1' },
+    })
+    expect(configs[0]?.idempotencyKey).toBeUndefined()
+    expect(configs[1]).toMatchObject({
+      method: 'POST',
+      url: productUrl('mdm', 'org', '/role-depts'),
+      headers: { 'X-Trace': 't1' },
+      idempotencyKey: 'k1',
+    })
+  })
+
+  it('缺省路径取产品域前缀本身', async () => {
+    const { configs, adapter } = recordingAdapter()
+    configureRequestAdapter(adapter)
+
+    await new ProbeModuleApi().product('mdm', 'org').get()
+
+    expect(configs[0]?.url).toBe('/api/mdm/v1/org')
+  })
+
+  it('未登记产品键 / 非法域段：立即抛 CAPABILITY_VIOLATION 且零请求', () => {
+    const { configs, adapter } = recordingAdapter()
+    configureRequestAdapter(adapter)
+    const api = new ProbeModuleApi()
+    const calls = [() => api.product('biz' as never, 'org'), () => api.product('mdm', 'ORG'), () => api.product('mdm', '')]
+
+    for (const call of calls) {
+      expect(call).toThrowError()
+      try {
+        call()
+      } catch (error) {
+        expect((error as { code?: number }).code).toBe(ErrorCodes.CAPABILITY_VIOLATION)
+      }
+    }
     expect(configs).toEqual([])
   })
 })

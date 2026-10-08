@@ -11,6 +11,9 @@
  *     自建 HTTP 特征）；MF 运行时 / 平台辅助块 / 第三方依赖块不在扫描面（避免误报）。
  *   - **自建 HTTP（R3，阶段六 06_02 增）**：模块发请求一律经宿主注入的请求能力 `api`，
  *     禁裸 `fetch` / `axios` / `XMLHttpRequest`（源码面 + 产物面同判据）。
+ *   - **自拼服务 / 产品前缀（R4，阶段五 06_02 增）**：模块**不得自拼** `/api/...` 前缀
+ *     （平台服务经 `api.get('服务键', 路径)`、产品服务经 `api.product('产品键', '域')`，
+ *     前缀一律由寻址契约组装）；源码面 + 产物面同判据。
  *
  * 用法：
  *     node frontend/scripts/check-module-isolation.mjs                    # 源码面（缺省）
@@ -59,6 +62,9 @@ const PATTERNS = {
   persist: /\b(localStorage|sessionStorage)\b|document\s*\.\s*cookie\b/,
   /** R3 自建 HTTP 客户端 / 裸请求（一律经宿主注入的请求能力 `api`）。 */
   bareHttp: /\bfetch\s*\(|\bnew\s+XMLHttpRequest\s*\(|\baxios\s*[.(]|['"]axios['"]/,
+  /** R4 自拼服务 / 产品前缀（引号后直跟 `/api/` 的字面量 / 模板串；一律经寻址契约组装）。 */
+  apiLiteral: /['"`]\/api\//,
+
   /** S2 `:global`。 */
   globalFlag: /:global/,
   /** S3 全局选择器（选择器段以 `:root` / `html` / `body` / `*` 起始）。 */
@@ -243,6 +249,7 @@ export function scanSourceFiles(files) {
       if (PATTERNS.hostInstance.test(source)) problems.push(`${file.path}：自建宿主级实例（R1）`)
       if (PATTERNS.persist.test(source)) problems.push(`${file.path}：使用持久化 API（R2）`)
       if (PATTERNS.bareHttp.test(source)) problems.push(`${file.path}：自建 HTTP 客户端 / 裸请求（R3）`)
+      if (PATTERNS.apiLiteral.test(source)) problems.push(`${file.path}：自拼服务 / 产品前缀（R4）`)
       if (hasStyleImport(source)) problems.push(`${file.path}：脚本引全局样式（S4）`)
     }
   }
@@ -320,6 +327,7 @@ export function scanProductFiles({ css = [], js = [] }) {
     if (PATTERNS.documentRoot.test(source)) problems.push(`${file.path}：直控根节点（P4/G4）`)
     if (PATTERNS.persist.test(source)) problems.push(`${file.path}：使用持久化 API（P4/R2）`)
     if (PATTERNS.bareHttp.test(source)) problems.push(`${file.path}：自建 HTTP 客户端 / 裸请求（P5/R3）`)
+    if (PATTERNS.apiLiteral.test(source)) problems.push(`${file.path}：自拼服务 / 产品前缀（P6/R4）`)
   }
   return problems
 }

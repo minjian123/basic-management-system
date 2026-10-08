@@ -15,14 +15,17 @@ import { MODULE_CONTRACT_VERSION } from '../src/module/contract'
 import { MODULE_NAME_PATTERN } from '../src/module/define'
 import { LOAD_MODES, REMOTE_ENTRY_PATTERN } from '../src/module/manifest'
 import type { ModuleManifestEntry } from '../src/module/manifest'
-import type { ModuleApi } from '../src/contracts/module-api'
+import type { ModuleApi, ModuleApiScope } from '../src/contracts/module-api'
 import type { ModuleDefinition, ModuleRegistration } from '../src/module/types'
 
-/** 请求能力契约方法（契约面完整性断言口径）。 */
-const MODULE_API_METHODS = ['get', 'post', 'put', 'del', 'request'] as const
+/** 请求能力契约方法（契约面完整性断言口径；`product` 为产品域作用域入口）。 */
+const MODULE_API_METHODS = ['get', 'post', 'put', 'del', 'request', 'product'] as const
+
+/** 产品域作用域方法（产品通道契约面完整性断言口径）。 */
+const MODULE_API_SCOPE_METHODS = ['get', 'post', 'put', 'patch', 'del', 'request'] as const
 
 /**
- * 构造请求能力契约探针（五法齐备；**不发起真实请求**）。
+ * 构造请求能力契约探针（平台五法 + 产品域作用域齐备；**不发起真实请求**）。
  *
  * 供契约工厂断言「注入 `api` 后模块 `setup` 不得抛错」；探针调用即拒绝，避免契约用例产生网络副作用。
  *
@@ -30,12 +33,21 @@ const MODULE_API_METHODS = ['get', 'post', 'put', 'del', 'request'] as const
  */
 export function createModuleApiProbe(): ModuleApi {
   const reject = (): Promise<never> => Promise.reject(new Error('契约探针：setup 期不应发起请求'))
+  const scope: ModuleApiScope = {
+    get: reject,
+    post: reject,
+    put: reject,
+    patch: reject,
+    del: reject,
+    request: reject,
+  }
   const probe: ModuleApi = {
     get: reject,
     post: reject,
     put: reject,
     del: reject,
     request: reject,
+    product: () => scope,
   }
   return probe
 }
@@ -102,10 +114,14 @@ export function describeModuleContract(name: string, target: ModuleContractTarge
       expect(registration).not.toBeNull()
     })
 
-    it('请求能力契约：注入 api 时冻结上下文可消费、探针五法齐备（契约版本 ≥2）', async () => {
+    it('请求能力契约：注入 api 时冻结上下文可消费、探针平台五法 + 产品域作用域齐备（契约版本 ≥2）', async () => {
       const api = createModuleApiProbe()
       for (const method of MODULE_API_METHODS) {
         expect(typeof api[method]).toBe('function')
+      }
+      const scope = api.product('mdm', 'org')
+      for (const method of MODULE_API_SCOPE_METHODS) {
+        expect(typeof scope[method]).toBe('function')
       }
       const registration = await target.definition.setup(Object.freeze({ api }))
       expect(typeof registration).toBe('object')

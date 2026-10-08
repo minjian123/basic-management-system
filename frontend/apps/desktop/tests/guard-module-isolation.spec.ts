@@ -1,5 +1,6 @@
 // kiwi_id: 980
-/** 护栏：模块隔离（样式作用域与令牌 / 全局污染五类 / 运行时约束；源码面与产物面双扫描，含 fixture 拦截）。 */
+// kiwi_id: 2259
+/** 护栏：模块隔离（样式作用域与令牌 / 全局污染五类 / 运行时约束 / 自建 HTTP / 自拼前缀；源码面与产物面双扫描，含 fixture 拦截）。 */
 
 import { existsSync } from 'node:fs'
 import { resolve } from 'node:path'
@@ -78,6 +79,29 @@ describe('模块隔离护栏（Kiwi 980）', () => {
       js: [{ path: 'assets/module-x.js', source: 'const response = await fetch("/api/v1/x")' }],
     })
     expect(productProblems.some((problem) => problem.includes('R3'))).toBe(true)
+  })
+
+  it('自拼服务 / 产品前缀被拦截（`/api/...` 字面量与模板串；经寻址契约组装不误判）', () => {
+    const sourceProblems = scanSourceFiles([
+      { path: 'a.ts', source: "const url = '/api/mdm/v1/org/posts'" },
+      { path: 'b.ts', source: 'const url = `/api/platform/v1/tenants`' },
+      { path: 'c.vue', source: "const url = '/api/identity/v1/auth/me'" },
+      { path: 'd.ts', source: 'const url = `/api/mdm/v1/${domain}/x`' },
+    ])
+    expect(sourceProblems.filter((problem) => problem.includes('R4')).length).toBeGreaterThanOrEqual(4)
+
+    expect(
+      scanSourceFiles([
+        { path: 'api.ts', source: "const rows = await context.api.product('mdm', 'org').get('/posts')" },
+        { path: 'svc.ts', source: "const me = await api.get('identity', '/auth/me')" },
+        { path: 'link.ts', source: "const docs = 'https://example.com/api/guide'" },
+      ]),
+    ).toEqual([])
+
+    const productProblems = scanProductFiles({
+      js: [{ path: 'assets/module-x.js', source: 'const url="/api/mdm/v1/org/posts"' }],
+    })
+    expect(productProblems.some((problem) => problem.includes('R4'))).toBe(true)
   })
 
   it('豁免不误判（独立预览壳 / 令牌定义源 / 令牌消费 / :deep / 动态色值）', () => {

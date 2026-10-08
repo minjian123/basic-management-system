@@ -691,10 +691,16 @@ export {
 export { BaseApi, type HttpMethod } from './contracts/api'
 export {
   API_VERSION_SEGMENT,
+  PRODUCT_KEYS,
   SERVICE_KEYS,
+  isProductKey,
   isServiceKey,
+  productDomain,
+  productPrefix,
+  productUrl,
   servicePrefix,
   serviceUrl,
+  type ProductKey,
   type ServiceKey,
 } from './contracts/service-endpoint'
 export {
@@ -722,7 +728,12 @@ export {
   type RequestAdapter,
   type RequestConfig,
 } from './contracts/request'
-export { type ModuleApi, type ModuleApiRequest } from './contracts/module-api'
+export {
+  type ModuleApi,
+  type ModuleApiRequest,
+  type ModuleApiScope,
+  type ModuleApiScopeRequest,
+} from './contracts/module-api'
 export { BaseDataObject } from './contracts/data-object'
 export { BaseEntity } from './contracts/entity'
 export { BasePageQuery, type SortOrder } from './contracts/page-query'

@@ -6,7 +6,7 @@
  * 也不感知服务寻址（《架构设计 · 前端模块契约》「请求能力」节）。宿主只提供**幂等键口径**这一实现点。
  */
 
-import { BaseModuleApi, type ModuleApi, type ServiceKey } from '@bms/core'
+import { BaseModuleApi, type ModuleApi } from '@bms/core'
 
 import { newKey } from './request'
 
@@ -15,11 +15,11 @@ export class HostModuleApi extends BaseModuleApi {
   /**
    * 生成写方法幂等键（宿主口径：`<前缀>:<时间戳>:<随机>`）。
    *
-   * @param service 服务键。
+   * @param target 寻址主体（平台服务为服务键；产品服务为 `产品键:域`）。
    * @param path 资源子路径。
    */
-  createIdempotencyKey(service: ServiceKey, path: string): string {
-    return newKey(`${service}:${path}`)
+  createIdempotencyKey(target: string, path: string): string {
+    return newKey(`${target}:${path}`)
   }
 }
 
