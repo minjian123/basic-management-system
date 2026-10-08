@@ -29,6 +29,7 @@ from bms_platform.models.role import SysDataScope, SysRole, SysRoleField, SysRol
 from bms_platform.models.user import SysUser
 from tests_support.auth import auth_headers
 from tests_support.menu_metadata import reset_menu_tables, seed_action, seed_business
+from tests_support.permission_admin import assign_system_admin
 
 _ROLES = "/api/v1/roles"
 _USERS = "/api/v1/users"
@@ -114,6 +115,16 @@ async def tenant_schema(tmp_path_factory: pytest.TempPathFactory, monkeypatch: p
     await engine.dispose()
     await reset_menu_tables()
     get_settings.cache_clear()
+
+
+@pytest_asyncio.fixture(autouse=True)
+async def system_admin(tenant_schema: None) -> None:
+    """测试主体置内置系统管理员（真实权限校验下的豁免层级）。
+
+    Args:
+        tenant_schema: 临时租户库夹具（先建表并注入连接串）。
+    """
+    await assign_system_admin()
 
 
 @pytest_asyncio.fixture

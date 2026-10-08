@@ -232,6 +232,8 @@ class PermissionService(BaseFrameworkObject):
             ConcurrentStableList[ConcurrentStableDict[str, object]]: 规则列表（字典 / 策略 / 配置）。
         """
         rules: ConcurrentStableList[ConcurrentStableDict[str, object]] = ConcurrentStableList()
+        if not role_ids:
+            return rules
         for row in await self._data_scopes.list_by_roles(role_ids):
             item: ConcurrentStableDict[str, object] = ConcurrentStableDict()
             item.set("dict_type_id", row.dict_type_id)

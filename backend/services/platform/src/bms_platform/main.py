@@ -13,6 +13,7 @@ from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_platform import CONTRACT_VERSION, SERVICE_NAME, SERVICE_TITLE, __version__
 from bms_platform.api.router import api_router
+from bms_platform.permission.checker import RBAC_PROVIDER_NAME, register_rbac_permission
 from bms_platform.repositories.demo_repository import DemoRepository
 from bms_platform.services.demo_service import DemoService
 from bms_platform.sources.catalog_source import read_catalog
@@ -27,10 +28,21 @@ class ApplicationFactory(BaseServiceApplicationFactory):
     version: str = __version__
     contract_version: str = CONTRACT_VERSION
 
-    # 说明（`02_04`）：真实权限校验器（`rbac`）的实现登记与 `[permission].provider` 切换需在
-    # **插件注册表构建之前**完成——服务侧唯一早期钩子是 `prepare_settings()`（`configure_service`
-    # 已晚于注册表冻结）。激活动作与既有「默认装配为 null 实现」用例集的同步更新一并进行，
-    # 见 `02_04` 实施记录「剩余工作」。
+    def prepare_settings(self, settings: Settings) -> None:
+        """启用真实权限校验（`02_04`；仅本服务持有 RBAC 实现与角色域数据）。
+
+        `[permission].provider` 未显式配置时置为 `rbac`（真实主体链校验）；显式配置（含 `null`）
+        一律尊重——便于联调期临时回退占位实现。
+
+        登记放在本钩子而非 `configure_service`：插件注册表在应用构造中段即构建并冻结，而
+        `configure_service` 晚于该时点（会报「运行期只读」）；本钩子是服务侧**建表前**唯一早期钩子。
+
+        Args:
+            settings: 应用配置（可变）。
+        """
+        if not settings.permission.provider:
+            settings.permission.provider = RBAC_PROVIDER_NAME
+        register_rbac_permission(settings)
 
     def service_routers(self) -> ConcurrentStableList[APIRouter]:
         """平台业务路由。

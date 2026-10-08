@@ -21,9 +21,11 @@ from typing import Any, cast
 from fastapi import Request
 
 from bms_core.cache.base import CacheRegion
+from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.core.config import Settings
 from bms_core.core.context import current_tenant_id, current_user_id
 from bms_core.core.factory import BasePluginFactory
-from bms_core.core.plugin import register_plugin
+from bms_core.core.plugin import default_plugin_registry, register_plugin
 from bms_core.db.keys import PLATFORM_DB_KEY
 from bms_core.db.session import session_scope
 from bms_core.permission.base import BasePermissionChecker
@@ -57,8 +59,8 @@ current_permission_snapshot: ContextVar[PermissionSnapshot | None] = ContextVar(
 _PREPARED_STATE_ATTR = "permission_prepared"
 """请求标记属性：同一请求内只预加载一次（多权限码端点复用）。"""
 
-_registered_once = False
-"""进程内登记标记（插件注册表构建后运行期只读，重复登记跳过）。"""
+_REGISTERED_REGISTRIES: ConcurrentStableList[object] = ConcurrentStableList()
+"""已登记 `rbac` 的注册表实例清单（按实例幂等；注册表重置后需重新登记）。"""
 
 
 class RbacPermissionChecker(BasePermissionChecker):
@@ -162,15 +164,19 @@ class RbacPermissionCheckerFactory(BasePluginFactory[RbacPermissionChecker]):
     plugin_key: str = "permission"
     plugin_name: str = RBAC_PROVIDER_NAME
 
-    def __init__(self, *, profile: str = DEFAULT_PROFILE, options: object = None) -> None:
+    def __init__(self, settings: Settings) -> None:
         """初始化。
 
+        必填 `settings`（非零参）：`BaseFactory` 同为 `BasePluggable`，零参可实例化的工厂类会被
+        **自动登记**为能力实现（登记的 `impl` 是工厂类本身，注册表调用它产出的是工厂实例而非
+        产出物）——必填构造参数是「工厂只经显式登记生效」的既有约定。
+
         Args:
-            profile: 引擎档位（`[permission].profile`；缺省 `smb`）。
-            options: 非敏感选项（`[permission].options`；缺省取实现缺省值）。
+            settings: 应用配置（读 `[permission]` 的档位与选项）。
         """
-        self._profile = profile
-        self._options: Any = options if isinstance(options, dict) else {}
+        self._profile = settings.permission.profile or DEFAULT_PROFILE
+        raw_options: Any = settings.permission.options
+        self._options: Any = raw_options if isinstance(raw_options, dict) else {}
 
     def create(self, options: object = None) -> RbacPermissionChecker:
         """构造真实校验器（选项缺省回落实现缺省值）。
@@ -198,23 +204,17 @@ class RbacPermissionCheckerFactory(BasePluginFactory[RbacPermissionChecker]):
         )
 
 
-def register_rbac_permission(*, profile: str = DEFAULT_PROFILE, options: object = None) -> None:
+def register_rbac_permission(settings: Settings) -> None:
     """登记真实校验器工厂（服务装配期调用，**须在建注册表之前**）。
 
-    进程内幂等：插件注册表构建后运行期只读，同一进程多次构造应用时重复登记会被跳过
-    （档位 / 选项以首次登记为准）。
+    **按注册表实例幂等**（插件注册表是进程级、且可被测试重置）：同一注册表只登记一次；
+    换个注册表实例（重置 / 替换）则重新登记，避免重置后 `rbac` 丢失。
 
     Args:
-        profile: 引擎档位（`[permission].profile`）。
-        options: 非敏感选项（`[permission].options`：`snapshot_ttl_seconds` / `exempt_role_types` /
-            `require_org_roles`）。
+        settings: 应用配置（读 `[permission]` 的档位与选项）。
     """
-    global _registered_once
-    if _registered_once:
+    registry = default_plugin_registry()
+    if any(item is registry for item in _REGISTERED_REGISTRIES):
         return
-    register_plugin(
-        RBAC_PROVIDER_NAME,
-        RBAC_PROVIDER_NAME,
-        RbacPermissionCheckerFactory(profile=profile, options=options),
-    )
-    _registered_once = True
+    register_plugin("permission", RBAC_PROVIDER_NAME, RbacPermissionCheckerFactory(settings))
+    _REGISTERED_REGISTRIES.add(registry)

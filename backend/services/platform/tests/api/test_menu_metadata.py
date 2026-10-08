@@ -10,6 +10,7 @@ import pytest_asyncio
 from httpx import AsyncClient
 
 from tests_support.menu_metadata import outbox_types, reset_menu_tables, seed_action, seed_business
+from tests_support.permission_admin import setup_min_tenant
 
 
 @pytest_asyncio.fixture(autouse=True)
@@ -20,6 +21,17 @@ async def clean_menu_tables(platform_db: None) -> None:
         platform_db: 平台库夹具（确保平台库连接串已注入）。
     """
     await reset_menu_tables()
+
+
+@pytest_asyncio.fixture(autouse=True)
+async def permission_engine(tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch) -> None:
+    """真实权限校验所需的最小租户库（权限引擎读表）+ 内置系统管理员主体。
+
+    Args:
+        tmp_path_factory: pytest 临时目录工厂。
+        monkeypatch: pytest 环境变量覆盖夹具。
+    """
+    await setup_min_tenant(tmp_path_factory, monkeypatch)
 
 
 _MENUS = "/api/v1/menus"

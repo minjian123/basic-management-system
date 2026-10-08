@@ -15,9 +15,17 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import get_settings
 from bms_core.models.base import Base
+from bms_platform.models.role import SysRole, SysUserRole
 from bms_platform.models.system import SysUserExtension
+from tests_support.permission_admin import assign_system_admin
 
-_TABLES: ConcurrentStableList[Table] = ConcurrentStableList([cast("Table", SysUserExtension.__table__)])
+_TABLES: ConcurrentStableList[Table] = ConcurrentStableList(
+    [
+        cast("Table", SysUserExtension.__table__),
+        cast("Table", SysRole.__table__),
+        cast("Table", SysUserRole.__table__),
+    ]
+)
 
 _API = "/api/v1/user-extensions"
 _USER_ID = 1001
@@ -40,6 +48,16 @@ async def tenant_schema(tmp_path_factory: pytest.TempPathFactory, monkeypatch: p
     async with engine.begin() as connection:
         await connection.run_sync(lambda conn: Base.metadata.create_all(conn, tables=list(_TABLES)))
     await engine.dispose()
+
+
+@pytest_asyncio.fixture(autouse=True)
+async def system_admin(tenant_schema: None) -> None:
+    """测试主体置内置系统管理员（真实权限校验下的豁免层级）。
+
+    Args:
+        tenant_schema: 临时租户库夹具（先建表并注入连接串）。
+    """
+    await assign_system_admin()
 
 
 @pytest.mark.kiwi_id(2238)

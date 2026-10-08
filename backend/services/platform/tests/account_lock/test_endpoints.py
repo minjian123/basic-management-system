@@ -8,6 +8,7 @@
 from pathlib import Path
 
 import pytest
+import pytest_asyncio
 from fastapi import FastAPI
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
@@ -18,8 +19,20 @@ from bms_core.core.exceptions import AccountLockNotFoundError
 from bms_core.db.unit_of_work import DbUnitOfWork
 from bms_platform.models.user import SysUser
 from bms_platform.repositories.user import UserRepository
+from tests_support.permission_admin import setup_min_tenant
 
 API = "/api/v1/account-locks"
+
+
+@pytest_asyncio.fixture(autouse=True)
+async def permission_engine(tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch) -> None:
+    """真实权限校验所需的最小租户库（权限引擎读表）+ 内置系统管理员主体。
+
+    Args:
+        tmp_path_factory: pytest 临时目录工厂。
+        monkeypatch: pytest 环境变量覆盖夹具。
+    """
+    await setup_min_tenant(tmp_path_factory, monkeypatch)
 
 
 def test_lock_error_code_registered() -> None:

@@ -17,9 +17,9 @@ from bms_core.core.plugin import BasePluggable, PluginRegistry, resolve_plugin
 from bms_core.health.registry import HealthCheckRegistry
 from bms_core.masking.null import NullMasker
 from bms_core.permission.base import BasePermissionChecker
-from bms_core.permission.null import NullPermissionChecker
 from bms_core.storage.local import LocalObjectStorage
 from bms_platform.main import ApplicationFactory
+from bms_platform.permission.checker import RbacPermissionChecker
 
 
 def _isolated_registry(monkeypatch: pytest.MonkeyPatch) -> PluginRegistry:
@@ -48,12 +48,16 @@ def _isolated_registry(monkeypatch: pytest.MonkeyPatch) -> PluginRegistry:
 
 @pytest.mark.kiwi_id(533)
 async def test_default_assembly_wires_null_implementations() -> None:
-    """默认装配：lifespan 后各能力 `app.state` 为配置实现（对象存储缺省 local，其余占位）。"""
+    """默认装配：lifespan 后各能力 `app.state` 为配置实现（对象存储缺省 local，权限为真实校验）。
+
+    平台服务为权限引擎所有者（`02_04`）：`[permission].provider` 未显式配置时由
+    `prepare_settings()` 置为 `rbac`，故默认装配的权限实现是真实校验器而非占位。
+    """
     app = ApplicationFactory().create(None)
     async with lifespan(app):
         assert isinstance(app.state.object_storage, LocalObjectStorage)
         assert isinstance(app.state.masker, NullMasker)
-        assert isinstance(app.state.permission_checker, NullPermissionChecker)
+        assert isinstance(app.state.permission_checker, RbacPermissionChecker)
         assert isinstance(app.state.health_check_registry, HealthCheckRegistry)
         assert resolve_plugin("object_storage", "local") is app.state.object_storage
 
