@@ -19,6 +19,7 @@ from dataclasses import dataclass, field
 from typing import Any, cast
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
+from bms_core.core.exceptions import PermissionError
 from bms_core.core.objects import BaseDataContract
 from bms_core.permission.field import FieldPermission
 from bms_core.permission.profile import DEFAULT_PROFILE
@@ -232,6 +233,32 @@ current_permission_snapshot: ContextVar[PermissionSnapshot | None] = ContextVar(
 放基座而非某服务的校验器内：字段权限标记 / 数据范围注入 / 权限概要等**消费方**都要读它，
 它们不该依赖某个具体 provider 服务的内部模块。
 """
+
+
+def assert_fields_writable(*, form_id: int, values: ConcurrentStableDict[str, object]) -> None:
+    """写时字段校验（**服务层写入口显式调用**的接缝）。
+
+    口径（《02_04 详细设计》§4 / §5.5）：默认全开、只登记收窄项；含**不可编辑**字段即拒
+    （`30001`）。豁免层级与未预加载（无快照）放行——写入口的登录态与权限码由认证链与
+    `require_permission` 承担，本函数只管字段粒度。
+
+    Args:
+        form_id: 目标表单 id。
+        values: 待写入字段值（字段键 → 值）。
+
+    Raises:
+        PermissionError: 含不可编辑字段（30001 / 403）。
+    """
+    snapshot = get_current_permission_snapshot()
+    if snapshot is None or snapshot.exempt:
+        return
+    blocked: ConcurrentStableList[str] = ConcurrentStableList()
+    for field_key in values:
+        state = snapshot.field_state(form_id, field_key)
+        if state is not None and not state[1]:
+            blocked.add(field_key)
+    if blocked:
+        raise PermissionError(f"字段不可编辑：{', '.join(blocked)}")
 
 
 def set_current_permission_snapshot(snapshot: PermissionSnapshot | None) -> None:

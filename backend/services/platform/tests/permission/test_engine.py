@@ -127,9 +127,7 @@ def test_check_uses_snapshot_codes() -> None:
     codes.add("menu")
     actions: ConcurrentStableSet[str] = ConcurrentStableSet()
     actions.add("role:grant")
-    set_current_permission_snapshot(
-        PermissionSnapshot(tier=TIER_STANDARD, business_codes=codes, action_codes=actions)
-    )
+    set_current_permission_snapshot(PermissionSnapshot(tier=TIER_STANDARD, business_codes=codes, action_codes=actions))
     assert checker.check("menu") is True
     assert checker.check("role:grant") is True
     assert checker.check("role:delete") is False

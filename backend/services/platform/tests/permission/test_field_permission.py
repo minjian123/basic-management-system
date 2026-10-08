@@ -7,9 +7,11 @@
 
 from collections.abc import AsyncIterator
 from pathlib import Path
+from typing import cast
 
 import pytest
 import pytest_asyncio
+from sqlalchemy import Table
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
@@ -41,7 +43,7 @@ async def session(tmp_path: Path) -> AsyncIterator[AsyncSession]:
         AsyncSession: 会话（用例内直插种子数据）。
     """
     engine = create_async_engine(f"sqlite+aiosqlite:///{tmp_path / 'field.db'}")
-    tables = [SysField.__table__, SysRoleField.__table__]
+    tables = [cast("Table", SysField.__table__), cast("Table", SysRoleField.__table__)]
     async with engine.begin() as connection:
         await connection.run_sync(lambda conn: Base.metadata.create_all(conn, tables=tables))
     factory = async_sessionmaker(engine, expire_on_commit=False)

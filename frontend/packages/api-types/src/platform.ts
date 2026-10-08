@@ -1502,6 +1502,34 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/platform/internal/permissions/invalidate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 失效权限快照
+         * @description 失效当前租户的权限快照（版本 +1；可指定用户）。
+         *
+         *     Args:
+         *         payload: 失效请求（`user_ids` 空 = 全租户）。
+         *         tenant: 请求级租户上下文（由服务 JWT 的 tenant claim 解析）。
+         *         cache: 缓存能力域。
+         *
+         *     Returns:
+         *         ApiResponse[PermissionInvalidateResult]: 递增后的权限版本号。
+         */
+        post: operations["invalidate_permissions_api_v1_platform_internal_permissions_invalidate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/platform/internal/users/create": {
         parameters: {
             query?: never;
@@ -2764,6 +2792,20 @@ export interface components {
             code: number;
             /** Data */
             data?: null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[PermissionInvalidateResult] */
+        ApiResponse_PermissionInvalidateResult_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["PermissionInvalidateResult"] | null;
             /**
              * Message
              * @default ok
@@ -4475,6 +4517,28 @@ export interface components {
             /**
              * Version
              * @description 元数据版本号（缓存版本）
+             */
+            version: number;
+        };
+        /**
+         * PermissionInvalidateRequest
+         * @description 权限快照失效请求（服务间内部契约）。
+         */
+        PermissionInvalidateRequest: {
+            /**
+             * User Ids
+             * @description 受影响用户主键（空 = 全租户版本 +1）
+             */
+            user_ids?: number[];
+        };
+        /**
+         * PermissionInvalidateResult
+         * @description 权限快照失效结果（服务间内部契约）。
+         */
+        PermissionInvalidateResult: {
+            /**
+             * Version
+             * @description 递增后的租户权限版本号
              */
             version: number;
         };
@@ -9994,6 +10058,86 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponse_CredentialVerifyResult_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    invalidate_permissions_api_v1_platform_internal_permissions_invalidate_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PermissionInvalidateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_PermissionInvalidateResult_"];
                 };
             };
             /** @description 未认证 */

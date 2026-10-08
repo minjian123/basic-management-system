@@ -79,9 +79,7 @@ async def assign_system_admin() -> None:
     await grant_system_admin(int(TEST_SUBJECT))
 
 
-async def setup_min_tenant(
-    tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch
-) -> None:
+async def setup_min_tenant(tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch) -> None:
     """建最小临时租户库（权限引擎读表）并把测试主体置内置系统管理员。
 
     供**只测平台库**、原本不建租户库的用例文件调用（真实权限校验会读租户库角色表）。

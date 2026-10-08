@@ -6,6 +6,7 @@
 """
 
 from collections.abc import Iterator
+from typing import Any, cast
 
 import pytest
 
@@ -161,7 +162,7 @@ def test_same_field_in_conditions_merge_as_union() -> None:
     conditions = _as_conditions(_provider().read_predicate())
     assert len(conditions) == 1
     assert conditions[0].operator == "in"
-    assert sorted(conditions[0].value) == ["13", "14", "15"]
+    assert sorted(cast("Any", conditions[0].value)) == ["13", "14", "15"]
 
 
 @pytest.mark.kiwi_id(2269)
@@ -237,7 +238,7 @@ def _as_conditions(predicate: object) -> ConcurrentStableList[ScopeCondition]:
     """
     result: ConcurrentStableList[ScopeCondition] = ConcurrentStableList()
     if isinstance(predicate, ConcurrentStableList):
-        for item in predicate:
+        for item in cast("Any", predicate):
             if isinstance(item, ScopeCondition):
                 result.add(item)
     if isinstance(predicate, ScopeCondition):

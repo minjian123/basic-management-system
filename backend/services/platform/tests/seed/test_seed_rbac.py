@@ -6,10 +6,11 @@
 
 from collections.abc import AsyncIterator
 from pathlib import Path
+from typing import cast
 
 import pytest
 import pytest_asyncio
-from sqlalchemy import select
+from sqlalchemy import Table, select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from bms_core.core.concurrent import ConcurrentStableDict
@@ -43,12 +44,12 @@ async def urls(tmp_path: Path) -> AsyncIterator[tuple[str, str]]:
     tenant_url = f"sqlite+aiosqlite:///{tmp_path / 'tenant.db'}"
     platform_url = f"sqlite+aiosqlite:///{tmp_path / 'platform.db'}"
     tenant_engine = create_async_engine(tenant_url)
-    tenant_tables = [SysRole.__table__, SysRolePermission.__table__]
+    tenant_tables = [cast("Table", SysRole.__table__), cast("Table", SysRolePermission.__table__)]
     async with tenant_engine.begin() as connection:
         await connection.run_sync(lambda conn: Base.metadata.create_all(conn, tables=tenant_tables))
     await tenant_engine.dispose()
     platform_engine = create_async_engine(platform_url)
-    platform_tables = [SysBusiness.__table__, SysAction.__table__]
+    platform_tables = [cast("Table", SysBusiness.__table__), cast("Table", SysAction.__table__)]
     async with platform_engine.begin() as connection:
         await connection.run_sync(lambda conn: Base.metadata.create_all(conn, tables=platform_tables))
     factory = async_sessionmaker(platform_engine, expire_on_commit=False)
