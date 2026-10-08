@@ -8,6 +8,7 @@
 from collections.abc import AsyncIterator
 from pathlib import Path
 
+import pytest
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
@@ -75,6 +76,7 @@ async def _seed(session: AsyncSession) -> ConcurrentStableDict[str, int]:
     return keys
 
 
+@pytest.mark.kiwi_id(2269)
 async def test_static_provider_merges_narrowing_strictly(session: AsyncSession) -> None:
     """多角色从严合并：任一角色不可见即不可见、任一不可编辑即不可编辑；未收窄字段不进结果。"""
     keys = await _seed(session)
@@ -92,6 +94,7 @@ async def test_static_provider_merges_narrowing_strictly(session: AsyncSession) 
     assert provider.key == DEFAULT_FIELD_PERMISSION_PROVIDER_KEY
 
 
+@pytest.mark.kiwi_id(2269)
 async def test_static_provider_form_filter_and_empty_roles(session: AsyncSession) -> None:
     """表单过滤与空角色短路：不匹配表单不收窄项，无角色直接返回空。"""
     await _seed(session)
@@ -104,6 +107,7 @@ async def test_static_provider_form_filter_and_empty_roles(session: AsyncSession
     assert list(await provider.resolve(role_ids=ConcurrentStableSet[int](), form_ids=other_form)) == []
 
 
+@pytest.mark.kiwi_id(2269)
 async def test_field_provider_factory_registry_supports_override(session: AsyncSession) -> None:
     """工厂注册表：登记后可按会话构造，末位登记生效（后代档位覆盖口径）。"""
     reset_field_permission_provider_factories()
@@ -116,6 +120,7 @@ async def test_field_provider_factory_registry_supports_override(session: AsyncS
     assert current_field_permission_provider_factory() is None
 
 
+@pytest.mark.kiwi_id(2269)
 def test_snapshot_field_state_defaults_and_exempt() -> None:
     """快照字段态：未收窄返回 None（默认全开）；豁免层级不参与收窄。"""
     perms: ConcurrentStableList[FieldPermission] = ConcurrentStableList()

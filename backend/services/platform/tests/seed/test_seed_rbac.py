@@ -7,6 +7,7 @@
 from collections.abc import AsyncIterator
 from pathlib import Path
 
+import pytest
 import pytest_asyncio
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
@@ -88,6 +89,7 @@ async def _roles_and_grants(url: str) -> tuple[ConcurrentStableDict[str, int], i
         await engine.dispose()
 
 
+@pytest.mark.kiwi_id(2269)
 async def test_seed_creates_builtin_roles_and_grants_idempotently(urls: tuple[str, str]) -> None:
     """首次播种建三类内置角色与在册授权；重复执行全跳过（幂等）。"""
     tenant_url, platform_url = urls
@@ -110,6 +112,7 @@ async def test_seed_creates_builtin_roles_and_grants_idempotently(urls: tuple[st
     assert grants_after == 4
 
 
+@pytest.mark.kiwi_id(2269)
 async def test_seed_dry_run_does_not_write(urls: tuple[str, str]) -> None:
     """预演模式只报计划、不落库。"""
     tenant_url, platform_url = urls

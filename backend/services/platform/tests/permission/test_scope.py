@@ -125,6 +125,7 @@ def _snapshot(*rules: ConcurrentStableDict[str, object], tier: str = TIER_STANDA
     return PermissionSnapshot(tier=tier, data_scopes=collected)
 
 
+@pytest.mark.kiwi_id(2269)
 def test_four_policies_generate_conditions() -> None:
     """四策略条件生成：`select` → `in`、`region` → `between`、`match` → `like`（`*`→`%`）。"""
     match_rows = _rows(_config(field="code", pattern="BJ*"))
@@ -151,6 +152,7 @@ def test_four_policies_generate_conditions() -> None:
     assert conditions[3].field == "dept_id"
 
 
+@pytest.mark.kiwi_id(2269)
 def test_same_field_in_conditions_merge_as_union() -> None:
     """并集兜底：同字典类型同字段的多个 `IN` 合并为一条（真并集）。"""
     first = _rows(_config(field="area_code", values=["13", "14"]))
@@ -162,6 +164,7 @@ def test_same_field_in_conditions_merge_as_union() -> None:
     assert sorted(conditions[0].value) == ["13", "14", "15"]
 
 
+@pytest.mark.kiwi_id(2269)
 def test_illegal_and_unregistered_rules_deny_all() -> None:
     """越界 / 未注册规则退化为永假：region 起大于止、match 通配符越界、策略未注册、扩展未注册。"""
     bad_region = _rows(_config(field="area_code", start="119999", end="110000"))
@@ -176,6 +179,7 @@ def test_illegal_and_unregistered_rules_deny_all() -> None:
     assert _as_conditions(_provider().read_predicate()) == [DENY_ALL_CONDITION]
 
 
+@pytest.mark.kiwi_id(2269)
 def test_allow_write_rejects_out_of_scope_values() -> None:
     """写校验：范围内的值放行、越界值拒、未涉及字段跳过。"""
     rows = _rows(_config(field="area_code", values=["13"]))
@@ -192,6 +196,7 @@ def test_allow_write_rejects_out_of_scope_values() -> None:
     assert provider.allow_write(untouched) is True
 
 
+@pytest.mark.kiwi_id(2269)
 def test_exempt_and_absent_snapshot_do_not_filter() -> None:
     """豁免层级与未预加载：不过滤、恒允许（由认证链与上层承担）。"""
     rows = _rows(_config(field="area_code", values=["13"]))
