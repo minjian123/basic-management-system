@@ -10,6 +10,7 @@ import { deleteRole, listRoles, type RoleItem } from '@/api/role'
 import { recordTabKey, useTabsStore } from '@/stores/tabs'
 
 import RoleRecordTab from './RoleRecordTab.vue'
+import { roleTypeLabel } from './role/labels'
 
 defineOptions({ name: 'SystemRole' })
 
@@ -216,6 +217,11 @@ onMounted(() => {
         >
           <el-table-column type="selection" width="46" />
           <el-table-column prop="code" label="角色码" min-width="140" />
+          <el-table-column label="类型" width="110">
+            <template #default="{ row }">
+              <span data-test="role-type-label">{{ roleTypeLabel(row.role_type) }}</span>
+            </template>
+          </el-table-column>
           <el-table-column prop="name" label="角色名" min-width="160" />
           <el-table-column label="内置" width="90">
             <template #default="{ row }">

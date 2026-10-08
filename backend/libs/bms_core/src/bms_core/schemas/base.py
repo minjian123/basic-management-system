@@ -383,7 +383,7 @@ class BaseSchema(BaseModel, BaseDataContract):
       （含嵌套模型与列表；未注入掩码器时直通）
     """
 
-    model_config = ConfigDict(from_attributes=True, str_strip_whitespace=True)
+    model_config = ConfigDict(from_attributes=True, str_strip_whitespace=True, extra="forbid")
 
     masked_fields: ClassVar[MaskedFields] = ConcurrentStableSet[str]()
     """敏感字段声明（默认空集＝不掩码）。

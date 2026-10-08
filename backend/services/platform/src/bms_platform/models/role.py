@@ -45,9 +45,24 @@ POLICY_TYPES: tuple[str, ...] = (POLICY_TYPE_SELECT, POLICY_TYPE_REGION, POLICY_
 NO_SOURCE_MENU_ID = 0
 """来源占位：表单级直接授予（非任何菜单入口连带）。"""
 
+ROLE_TYPE_CUSTOM = "custom"
+"""角色类型：自定义角色（缺省；角色码可改 / 可停用 / 可删除）。"""
+
+ROLE_TYPE_SYSTEM = "system"
+"""角色类型：系统管理员（内置；`03_02` 三权互斥参与方）。"""
+
+ROLE_TYPE_SECURITY = "security"
+"""角色类型：安全管理员（内置；`03_02` 三权互斥参与方）。"""
+
+ROLE_TYPE_AUDIT = "audit"
+"""角色类型：审计管理员（内置；`03_02` 三权互斥参与方）。"""
+
+ROLE_TYPES: tuple[str, ...] = (ROLE_TYPE_CUSTOM, ROLE_TYPE_SYSTEM, ROLE_TYPE_SECURITY, ROLE_TYPE_AUDIT)
+"""角色类型取值清单。"""
+
 
 class SysRole(BaseModel):
-    """角色（`sys_role`）：角色码 / 名称 / 状态；内置角色按配置常量判定（不设库列）。"""
+    """角色（`sys_role`）：角色码 / 名称 / 状态 / 类型；内置角色按 `role_type` 判定（≠ custom 即内置）。"""
 
     __tablename__ = "sys_role"
     __table_args__ = (
@@ -55,9 +70,12 @@ class SysRole(BaseModel):
         Index("idx_sys_role_status", "status"),
     )
 
-    code: Mapped[str] = mapped_column(String(64), comment="角色码（租户内唯一；创建后不可修改）")
+    code: Mapped[str] = mapped_column(String(64), comment="角色码（租户内唯一；可修改）")
     name: Mapped[str] = mapped_column(String(128), comment="角色名称")
     status: Mapped[str] = mapped_column(String(16), default="enabled", comment="状态（enabled/disabled）")
+    role_type: Mapped[str] = mapped_column(
+        String(16), default=ROLE_TYPE_CUSTOM, comment="角色类型（custom/system/security/audit；内置判定，不可修改）"
+    )
 
 
 class SysUserRole(BaseModel):

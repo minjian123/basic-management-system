@@ -71,6 +71,9 @@
       <el-table :data="pageRows" border stripe @selection-change="onSel" @row-dblclick="openForm" style="width:100%">
         <el-table-column type="selection" width="48"></el-table-column>
         <el-table-column prop="code" label="角色码" min-width="130"></el-table-column>
+        <el-table-column label="类型" width="110">
+          <template #default="{ row }"><span>{{ ROLE_TYPE_LABELS[row.roleType] }}</span></template>
+        </el-table-column>
         <el-table-column label="角色名称" min-width="180">
           <template #default="{ row }">
             <span>{{ row.name }}</span>
@@ -118,16 +121,16 @@
   var app = createApp({
     template: document.getElementById('app').outerHTML.replace(/<div id="app">/, '<div>').replace(/<\/div>\s*$/, ''),
     setup: function () {
-      // 内置角色（code 取系统/安全/审计管理员，见《概要设计-角色管理》6.3 role.protected_codes）
-      var BUILTIN_CODES = ['system_admin', 'security_admin', 'audit_admin'];
+      // 角色类型文案（role_type；内置角色按类型判定，见《概要设计-角色管理》6.3）
+      var ROLE_TYPE_LABELS = { custom: '自定义', system: '系统管理员', security: '安全管理员', audit: '审计管理员' };
       var rows = ref([
-        { id: 1, code: 'system_admin', name: '系统管理员', subjectCount: 2, status: 'enabled' },
-        { id: 2, code: 'security_admin', name: '安全管理员', subjectCount: 1, status: 'enabled' },
-        { id: 3, code: 'audit_admin', name: '审计管理员', subjectCount: 0, status: 'enabled' },
-        { id: 4, code: 'role_user', name: '普通角色', subjectCount: 45, status: 'enabled' },
-        { id: 5, code: 'role_viewer', name: '只读角色', subjectCount: 0, status: 'disabled' }
+        { id: 1, code: 'system_admin', name: '系统管理员', roleType: 'system', subjectCount: 2, status: 'enabled' },
+        { id: 2, code: 'security_admin', name: '安全管理员', roleType: 'security', subjectCount: 1, status: 'enabled' },
+        { id: 3, code: 'audit_admin', name: '审计管理员', roleType: 'audit', subjectCount: 0, status: 'enabled' },
+        { id: 4, code: 'role_user', name: '普通角色', roleType: 'custom', subjectCount: 45, status: 'enabled' },
+        { id: 5, code: 'role_viewer', name: '只读角色', roleType: 'custom', subjectCount: 0, status: 'disabled' }
       ]);
-      rows.value.forEach(function (r) { r.builtin = BUILTIN_CODES.indexOf(r.code) >= 0; });
+      rows.value.forEach(function (r) { r.builtin = r.roleType !== 'custom'; });
 
       var query = reactive({ kw: '', status: '', page: 1, size: 20 });
       var selRows = ref([]);
@@ -154,7 +157,7 @@
       // 双击行 / 新增：打开角色记录 Tab（列表页无操作列，交互见《布局设计-表单框架》）
       function openForm(row) {
         if (row && row.builtin) {
-          toast('打开内置角色记录：' + row.name + '（内置角色不可删除/停用/变更归属）');
+          toast('打开内置角色记录：' + row.name + '（内置角色不可删除/停用/变更类型；角色码与名称可改）');
         } else if (row) {
           toast('打开角色记录：' + row.name);
         } else {
@@ -165,7 +168,7 @@
       function delSel() {
         if (!selRows.value.length) { toast('请先选择角色', 'warning'); return; }
         if (selRows.value.some(function (r) { return r.builtin; })) {
-          toast('内置角色不可删除/停用/变更归属（30043）', 'error'); return;
+          toast('内置角色不可删除/停用/变更类型（30043）', 'error'); return;
         }
         ElMessageBox.confirm('删除选中的 ' + selRows.value.length + ' 个角色？存在角色分配或有效授权引用的角色将被拒绝（30044），删除后不可恢复。', '提示', {
           type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消', confirmButtonClass: 'el-button--danger'
@@ -181,7 +184,7 @@
       function closePage() { toast('关闭角色管理模块页（返回）'); }
       function toast(m, type) { ElMessage({ message: m, type: type || 'success' }); }
 
-      return { rows, query, selRows, filtered, pageRows, applyFilter, resetFilter, onSel, onPage, onSize, reload, openForm, delSel, exportMsg, closePage, toast };
+      return { ROLE_TYPE_LABELS, rows, query, selRows, filtered, pageRows, applyFilter, resetFilter, onSel, onPage, onSize, reload, openForm, delSel, exportMsg, closePage, toast };
     }
   });
   app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });

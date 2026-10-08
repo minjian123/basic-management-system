@@ -2,6 +2,7 @@
   "components": {
     "schemas": {
       "ApiResponse": {
+        "additionalProperties": false,
         "description": "统一响应体：`code=0` 成功，非 0 业务错误码。\n\n- `data` 为业务数据（泛型）；失败时为 `null`；分页载荷复用分页契约基类。\n- 雪花 ID 在 JSON 中以字符串输出（`BaseSchema` 统一序列化口径）。",
         "properties": {
           "code": {
@@ -28,6 +29,7 @@
         "type": "object"
       },
       "ApiResponse_TenantMembershipListResponse_": {
+        "additionalProperties": false,
         "properties": {
           "code": {
             "default": 0,
@@ -67,6 +69,7 @@
         "type": "object"
       },
       "TenantMembershipGrantRequest": {
+        "additionalProperties": false,
         "description": "建立 / 复活关系入参（全字段显式；`owner_tenant_id` 为用户归属租户）。",
         "properties": {
           "owner_tenant_id": {
@@ -101,6 +104,7 @@
         "type": "object"
       },
       "TenantMembershipListResponse": {
+        "additionalProperties": false,
         "description": "某用户当前有效可访问租户集合（内部端点统一响应）。",
         "properties": {
           "targets": {
@@ -116,6 +120,7 @@
         "type": "object"
       },
       "TenantMembershipTarget": {
+        "additionalProperties": false,
         "description": "可访问目标租户条目（关系 + 租户元信息）。",
         "properties": {
           "code": {
@@ -167,6 +172,7 @@
         "type": "object"
       },
       "TenantSwitchRequest": {
+        "additionalProperties": false,
         "description": "切换租户请求：`{code}`。",
         "properties": {
           "code": {

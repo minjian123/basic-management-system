@@ -194,8 +194,15 @@ async def test_role_crud_assign_and_grant_flow(role_client: AsyncClient) -> None
     duplicated = await client.post(_ROLES, json={"code": "ops_admin", "name": "重复"})
     assert duplicated.json()["code"] == 30042
 
-    builtin = await client.post(_ROLES, json={"code": "system_admin", "name": "系统管理员"})
-    assert builtin.json()["code"] == 30043
+    # 内置判定改按 role_type：自建同名角色为自定义类型（允许；不再按角色码禁建）
+    self_made = await client.post(_ROLES, json={"code": "system_admin", "name": "同名自定义"})
+    assert self_made.json()["code"] == 0
+    assert self_made.json()["data"]["role_type"] == "custom"
+    assert self_made.json()["data"]["builtin"] is False
+
+    # 请求体未知字段即拒（全局严格模式；`role_type` 不可改）
+    strict = await client.put(f"{_ROLES}/{role_id}", json={"name": "系统", "version": 1, "role_type": "system"})
+    assert strict.status_code == 422 or strict.json()["code"] == 10001
 
     listed = await client.get(_ROLES, params={"kw": "运维"})
     assert listed.json()["data"]["total"] == 1
@@ -208,6 +215,14 @@ async def test_role_crud_assign_and_grant_flow(role_client: AsyncClient) -> None
 
     stale = await client.put(f"{_ROLES}/{role_id}", json={"name": "过期", "status": "enabled", "version": 1})
     assert stale.status_code == 409
+
+    # 角色码可改（契约新增 code；带 code 更新生效）
+    renamed = await client.put(
+        f"{_ROLES}/{role_id}",
+        json={"code": "ops_admin_v2", "name": "运维负责人", "status": "enabled", "version": 2},
+    )
+    assert renamed.json()["code"] == 0
+    assert renamed.json()["data"]["code"] == "ops_admin_v2"
 
     user_a = await _seed_user("alice", "爱丽丝")
     user_b = await _seed_user("bob", "鲍勃")

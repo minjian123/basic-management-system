@@ -8,6 +8,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { createRole, getRole, updateRole, type RoleDetail, type RoleStatus } from '@/api/role'
 
 import RolePermissionConfig from './role/RolePermissionConfig.vue'
+import { roleTypeLabel } from './role/labels'
 
 const props = defineProps<{
   /** 角色主键（新增态为 `new`）。 */
@@ -31,7 +32,7 @@ const detail = ref<RoleDetail | null>(null)
 const loading = ref(false)
 /** 保存中。 */
 const saving = ref(false)
-/** 表单（角色码创建后只读）。 */
+/** 表单（角色码可改；角色类型只读展示、不入表单）。 */
 const form = ref<{ code: string; name: string; status: RoleStatus; version: number }>({
   code: '',
   name: '',
@@ -45,8 +46,10 @@ const detailDirty = ref(false)
 /** 权限配置容器引用（工具栏保存分派）。 */
 const permissionRef = ref<InstanceType<typeof RolePermissionConfig> | null>(null)
 
-/** 是否内置角色（不可删除 / 停用 / 变更归属）。 */
+/** 是否内置角色（不可删除 / 停用；角色码与名称可改）。 */
 const builtin = computed(() => detail.value?.builtin === true)
+/** 角色类型文案（只读展示；新增态恒为自定义）。 */
+const roleTypeText = computed(() => roleTypeLabel(isNew.value ? 'custom' : detail.value?.role_type))
 /** 是否存在未保存变更（任一子页签）。 */
 const dirty = computed(() => detailDirty.value || permissionDirty.value)
 /** 系统信息（记录页「系统信息」子页签数据）。 */
@@ -141,6 +144,7 @@ async function save(): Promise<void> {
       return
     }
     const updated = await updateRole(props.roleId, {
+      code: form.value.code,
       name: form.value.name,
       status: form.value.status,
       version: form.value.version,
@@ -201,7 +205,7 @@ defineExpose({ save, isDirty: (): boolean => dirty.value })
         <span v-if="loading" class="role-record__hint" data-test="role-record-loading">载入中…</span>
         <span v-if="dirty" class="role-record__dirty" data-test="role-record-dirty">● 有未保存变更</span>
         <span v-else-if="builtin" class="role-record__hint" data-test="role-record-builtin">
-          内置角色：不可删除 / 停用 / 变更归属（30043）
+          内置角色：不可删除 / 停用 / 变更类型（角色码与名称可改）
         </span>
       </span>
     </div>
@@ -212,7 +216,7 @@ defineExpose({ save, isDirty: (): boolean => dirty.value })
           <el-row :gutter="16">
             <el-col :span="8">
               <el-form-item label="角色码" required>
-                <el-input v-model="form.code" :disabled="!isNew" placeholder="角色码（创建后不可修改）" data-test="role-record-code" />
+                <el-input v-model="form.code" placeholder="角色码（租户内唯一，可修改）" data-test="role-record-code" />
               </el-form-item>
             </el-col>
             <el-col :span="8">
@@ -226,6 +230,13 @@ defineExpose({ save, isDirty: (): boolean => dirty.value })
                   <el-option label="启用" value="enabled" />
                   <el-option label="停用" value="disabled" />
                 </el-select>
+              </el-form-item>
+            </el-col>
+          </el-row>
+          <el-row :gutter="16">
+            <el-col :span="8">
+              <el-form-item label="角色类型">
+                <el-input :model-value="roleTypeText" disabled data-test="role-record-type" />
               </el-form-item>
             </el-col>
           </el-row>

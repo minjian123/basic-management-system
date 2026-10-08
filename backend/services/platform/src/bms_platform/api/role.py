@@ -37,7 +37,7 @@ from bms_core.idempotency.base import IDEMPOTENCY_HEADER, IdempotencyStore, buil
 from bms_core.permission.base import require_permission
 from bms_core.schemas.common import ApiResponse
 from bms_core.schemas.pagination import BasePageQuery, BasePageResponse
-from bms_platform.models.role import SysDataScope, SysRole, SysRoleField, SysRolePermission
+from bms_platform.models.role import ROLE_TYPE_CUSTOM, SysDataScope, SysRole, SysRoleField, SysRolePermission
 from bms_platform.models.user import SysUser
 from bms_platform.repositories.role import (
     DataScopeRepository,
@@ -63,6 +63,7 @@ from bms_platform.schemas.role import (
     RolePermissionEntryItem,
     RolePermissionRequest,
     RolePermissions,
+    RoleType,
     RoleUpdateRequest,
 )
 from bms_platform.services.role import ROLE_STATUSES, RoleService
@@ -167,6 +168,18 @@ def _require_status(status: str | None) -> None:
         raise ParamError(f"角色状态非法：{status}")
 
 
+def _is_builtin(role: SysRole) -> bool:
+    """是否内置角色（按 `role_type` 判定，非 `custom` 即内置）。
+
+    Args:
+        role: 角色记录。
+
+    Returns:
+        bool: 内置为 True。
+    """
+    return role.role_type != ROLE_TYPE_CUSTOM
+
+
 def _role_item(role: SysRole, *, builtin: bool, subject_count: int) -> RoleItem:
     """角色记录 → 列表行。
 
@@ -183,6 +196,7 @@ def _role_item(role: SysRole, *, builtin: bool, subject_count: int) -> RoleItem:
         code=role.code,
         name=role.name,
         status=role.status,
+        role_type=cast("RoleType", role.role_type),
         builtin=builtin,
         subject_count=subject_count,
     )
@@ -204,6 +218,7 @@ def _role_detail(role: SysRole, *, builtin: bool, subject_count: int) -> RoleDet
         code=role.code,
         name=role.name,
         status=role.status,
+        role_type=cast("RoleType", role.role_type),
         builtin=builtin,
         subject_count=subject_count,
         version=role.version,
@@ -302,10 +317,9 @@ async def list_roles(
     _require_status(status)
     service = _role_service(uow, config)
     rows, total = await service.list_roles(query, keyword=kw, status=status)
-    builtin = await service.protected_codes()
     counts = await service.subject_counts(ConcurrentStableList(row.id for row in rows))
     items = ConcurrentStableList(
-        _role_item(row, builtin=row.code in builtin, subject_count=counts.get(row.id) or 0) for row in rows
+        _role_item(row, builtin=_is_builtin(row), subject_count=counts.get(row.id) or 0) for row in rows
     )
     return ApiResponse.ok(BasePageResponse[RoleItem](list=items, total=total, page=query.page, size=query.size))
 
@@ -324,8 +338,7 @@ async def create_role(req: RoleCreateRequest, uow: UowDep, config: ConfigDep) ->
     """
     service = _role_service(uow, config)
     role = await service.create_role(code=req.code, name=req.name, status=req.status)
-    builtin = await service.protected_codes()
-    return ApiResponse.ok(_role_detail(role, builtin=role.code in builtin, subject_count=0))
+    return ApiResponse.ok(_role_detail(role, builtin=_is_builtin(role), subject_count=0))
 
 
 @router.get("/{role_id}", dependencies=[_REQUIRE_QUERY])
@@ -342,18 +355,17 @@ async def get_role(role_id: int, uow: UowDep, config: ConfigDep) -> ApiResponse[
     """
     service = _role_service(uow, config)
     role = await service.detail(role_id)
-    builtin = await service.protected_codes()
     counts = await service.subject_counts(ConcurrentStableList((role_id,)))
-    return ApiResponse.ok(_role_detail(role, builtin=role.code in builtin, subject_count=counts.get(role_id) or 0))
+    return ApiResponse.ok(_role_detail(role, builtin=_is_builtin(role), subject_count=counts.get(role_id) or 0))
 
 
 @router.put("/{role_id}", dependencies=[_REQUIRE_UPDATE])
 async def update_role(role_id: int, req: RoleUpdateRequest, uow: UowDep, config: ConfigDep) -> ApiResponse[RoleDetail]:
-    """修改角色（名称 / 状态；乐观锁 + 内置角色保护）；角色码不可改。
+    """修改角色（角色码 / 名称 / 状态；乐观锁 + 内置角色保护）。
 
     Args:
         role_id: 角色主键。
-        req: 修改请求（名称 / 状态 / 版本）。
+        req: 修改请求（角色码 / 名称 / 状态 / 版本）。
         uow: 请求级工作单元。
         config: 系统参数取数。
 
@@ -361,10 +373,9 @@ async def update_role(role_id: int, req: RoleUpdateRequest, uow: UowDep, config:
         ApiResponse: 统一响应，data 为角色详情。
     """
     service = _role_service(uow, config)
-    role = await service.update_role(role_id, name=req.name, status=req.status, version=req.version)
-    builtin = await service.protected_codes()
+    role = await service.update_role(role_id, code=req.code, name=req.name, status=req.status, version=req.version)
     counts = await service.subject_counts(ConcurrentStableList((role_id,)))
-    return ApiResponse.ok(_role_detail(role, builtin=role.code in builtin, subject_count=counts.get(role_id) or 0))
+    return ApiResponse.ok(_role_detail(role, builtin=_is_builtin(role), subject_count=counts.get(role_id) or 0))
 
 
 @router.delete("/{role_id}", dependencies=[_REQUIRE_DELETE])

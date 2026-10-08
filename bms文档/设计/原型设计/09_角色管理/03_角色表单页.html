@@ -69,7 +69,7 @@
         <el-button @click="closePage">关闭</el-button>
         <span class="ep-side">
           <span v-if="permDirty" class="proto-hint" style="color:#cf222e">● 有未保存授权变更</span>
-          <span v-else-if="builtin" class="proto-hint">内置角色：不可删除 / 停用 / 变更归属（30043）</span>
+          <span v-else-if="builtin" class="proto-hint">内置角色：不可删除 / 停用 / 变更类型（角色码与名称可改）</span>
         </span>
       </div>
 
@@ -81,7 +81,7 @@
             <el-row :gutter="16">
               <el-col :span="8">
                 <el-form-item label="角色码" required>
-                  <el-input v-model="form.code" :disabled="!isNew" placeholder="角色码（创建后不可修改）"></el-input>
+                  <el-input v-model="form.code" placeholder="角色码（租户内唯一，可修改）"></el-input>
                 </el-form-item>
               </el-col>
               <el-col :span="8">
@@ -96,9 +96,16 @@
               </el-col>
             </el-row>
             <el-row :gutter="16">
+              <el-col :span="8">
+                <el-form-item label="角色类型">
+                  <el-input :model-value="roleTypeLabel" disabled></el-input>
+                </el-form-item>
+              </el-col>
+            </el-row>
+            <el-row :gutter="16">
               <el-col :span="24">
                 <el-form-item label="说明">
-                  <span class="proto-hint">角色码租户内唯一；内置角色（系统 / 安全 / 审计管理员）不可删除 / 停用 / 变更归属；三权互斥由后端校验（30048）。</span>
+                  <span class="proto-hint">角色码租户内唯一、创建后可修改；内置角色（系统 / 安全 / 审计管理员，按角色类型判定）不可删除 / 停用 / 变更类型；三权互斥由后端校验（30048）。</span>
                 </el-form-item>
               </el-col>
             </el-row>
@@ -489,7 +496,12 @@
       var initialId = qp('id') || '';
       var initialName = qp('name') || ADMIN_NAMES[initialId] || '';
       var isNew = initialId === '';
-      var builtin = BUILTIN_CODES.indexOf(initialId) >= 0;
+      // 内置判定按角色类型（role_type；内置三类管理员见《概要设计-角色管理》6.3）
+      var ROLE_TYPE_BY_ID = { system_admin: 'system', security_admin: 'security', audit_admin: 'audit' };
+      var ROLE_TYPE_LABELS = { custom: '自定义', system: '系统管理员', security: '安全管理员', audit: '审计管理员' };
+      var roleType = ROLE_TYPE_BY_ID[initialId] || 'custom';
+      var builtin = roleType !== 'custom';
+      var roleTypeLabel = ROLE_TYPE_LABELS[roleType] || '自定义';
       var editing = ref(isNew);
       var section = ref('detail');
       var form = reactive({ code: initialId, name: initialName, enabled: true });
@@ -813,7 +825,7 @@
       function toast(m, type) { ElMessage({ message: m, type: type || 'success' }); }
 
       return {
-        editing, section, form, builtin, isNew, startEdit, cancelEdit, saveForm, delForm, reload, closePage, onSectionChange,
+        editing, section, form, builtin, isNew, roleTypeLabel, startEdit, cancelEdit, saveForm, delForm, reload, closePage, onSectionChange,
         permTab, permDirty, treeRef, treeKw, menuTree, checkedMenuKeys, activeMenu, activeMenuKey, menuForms, menuFormLabel, activeMenuBusiness, menuGranted, onMenuCheck, onMenuSelect, filterNode,
         menuPermTab, menuOps, menuFields,
         formKw, activeFormKey, formPermTab, filteredForms, activeForm, menuLabels, formOps, formFields,

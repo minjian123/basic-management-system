@@ -24,12 +24,15 @@ PermType = Literal["menu", "form", "action"]
 PolicyType = Literal["select", "region", "match", "extension"]
 """数据权限策略取值。"""
 
+RoleType = Literal["custom", "system", "security", "audit"]
+"""角色类型取值（`custom` 自定义；`system` / `security` / `audit` 内置三类管理员）。"""
+
 
 # --------------------------------------------------------------------------- 角色
 
 
 class RoleCreateRequest(BaseSchema):
-    """新增角色请求（角色码创建后不可修改）。"""
+    """新增角色请求（角色码租户内唯一；新角色类型恒为 `custom`，契约不透出）。"""
 
     code: str = Field(min_length=1, max_length=64, description="角色码（租户内唯一，格式受 role.code_pattern 约束）")
     name: str = Field(min_length=1, max_length=128, description="角色名称")
@@ -37,8 +40,14 @@ class RoleCreateRequest(BaseSchema):
 
 
 class RoleUpdateRequest(BaseSchema):
-    """修改角色请求（名称 / 状态；乐观锁）；角色码不可改。"""
+    """修改角色请求（角色码 / 名称 / 状态；乐观锁）；角色类型不可改。"""
 
+    code: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=64,
+        description="角色码（None 表示不改；格式受 role.code_pattern 约束，租户内唯一）",
+    )
     name: str = Field(min_length=1, max_length=128, description="角色名称")
     status: RoleStatus = Field(default="enabled", description="状态（enabled/disabled）")
     version: int = Field(ge=1, description="客户端版本（乐观锁比对）")
@@ -51,7 +60,8 @@ class RoleItem(BaseSchema):
     code: str = Field(description="角色码")
     name: str = Field(description="角色名称")
     status: str = Field(description="状态（enabled/disabled）")
-    builtin: bool = Field(description="是否内置角色（按 role.protected_codes 判定）")
+    role_type: RoleType = Field(description="角色类型（custom/system/security/audit）")
+    builtin: bool = Field(description="是否内置角色（按 role_type 判定，非 custom 即内置）")
     subject_count: int = Field(description="已分配用户数")
 
 
@@ -62,7 +72,8 @@ class RoleDetail(BaseSchema):
     code: str = Field(description="角色码")
     name: str = Field(description="角色名称")
     status: str = Field(description="状态（enabled/disabled）")
-    builtin: bool = Field(description="是否内置角色")
+    role_type: RoleType = Field(description="角色类型（custom/system/security/audit）")
+    builtin: bool = Field(description="是否内置角色（按 role_type 判定）")
     subject_count: int = Field(description="已分配用户数")
     version: int = Field(description="乐观锁版本")
     created_at: datetime = Field(description="创建时间（UTC）")

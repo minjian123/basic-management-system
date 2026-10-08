@@ -2,6 +2,7 @@
   "components": {
     "schemas": {
       "ApiResponse": {
+        "additionalProperties": false,
         "description": "统一响应体：`code=0` 成功，非 0 业务错误码。\n\n- `data` 为业务数据（泛型）；失败时为 `null`；分页载荷复用分页契约基类。\n- 雪花 ID 在 JSON 中以字符串输出（`BaseSchema` 统一序列化口径）。",
         "properties": {
           "code": {
@@ -28,6 +29,7 @@
         "type": "object"
       },
       "ApiResponse_BasePageResponse_ClientItem__": {
+        "additionalProperties": false,
         "properties": {
           "code": {
             "default": 0,
@@ -54,6 +56,7 @@
         "type": "object"
       },
       "ApiResponse_BasePageResponse_IdpProviderItem__": {
+        "additionalProperties": false,
         "properties": {
           "code": {
             "default": 0,
@@ -80,6 +83,7 @@
         "type": "object"
       },
       "ApiResponse_BasePageResponse_SessionItem__": {
+        "additionalProperties": false,
         "properties": {
           "code": {
             "default": 0,
@@ -106,6 +110,7 @@
         "type": "object"
       },
       "ApiResponse_ClientCreated_": {
+        "additionalProperties": false,
         "properties": {
           "code": {
             "default": 0,
@@ -132,6 +137,7 @@
         "type": "object"
       },
       "ApiResponse_ClientItem_": {
+        "additionalProperties": false,
         "properties": {
           "code": {
             "default": 0,
@@ -158,6 +164,7 @@
         "type": "object"
       },
       "ApiResponse_ClientSecretReset_": {
+        "additionalProperties": false,
         "properties": {
           "code": {
             "default": 0,
@@ -184,6 +191,7 @@
         "type": "object"
       },
       "ApiResponse_IdpProviderItem_": {
+        "additionalProperties": false,
         "properties": {
           "code": {
             "default": 0,
@@ -210,6 +218,7 @@
         "type": "object"
       },
       "ApiResponse_IdpProviderTestResult_": {
+        "additionalProperties": false,
         "properties": {
           "code": {
             "default": 0,
@@ -236,6 +245,7 @@
         "type": "object"
       },
       "ApiResponse_KickResult_": {
+        "additionalProperties": false,
         "properties": {
           "code": {
             "default": 0,
@@ -262,6 +272,7 @@
         "type": "object"
       },
       "ApiResponse_LoginResult_": {
+        "additionalProperties": false,
         "properties": {
           "code": {
             "default": 0,
@@ -288,6 +299,7 @@
         "type": "object"
       },
       "ApiResponse_NoneType_": {
+        "additionalProperties": false,
         "properties": {
           "code": {
             "default": 0,
@@ -308,6 +320,7 @@
         "type": "object"
       },
       "ApiResponse_PasswordForgotResult_": {
+        "additionalProperties": false,
         "properties": {
           "code": {
             "default": 0,
@@ -334,6 +347,7 @@
         "type": "object"
       },
       "ApiResponse_PasswordResetResult_": {
+        "additionalProperties": false,
         "properties": {
           "code": {
             "default": 0,
@@ -360,6 +374,7 @@
         "type": "object"
       },
       "ApiResponse_RefreshResult_": {
+        "additionalProperties": false,
         "properties": {
           "code": {
             "default": 0,
@@ -386,6 +401,7 @@
         "type": "object"
       },
       "ApiResponse_SessionItem_": {
+        "additionalProperties": false,
         "properties": {
           "code": {
             "default": 0,
@@ -412,6 +428,7 @@
         "type": "object"
       },
       "ApiResponse_SsoAuthorizeInfo_": {
+        "additionalProperties": false,
         "properties": {
           "code": {
             "default": 0,
@@ -438,6 +455,7 @@
         "type": "object"
       },
       "ApiResponse_SsoIdentityList_": {
+        "additionalProperties": false,
         "properties": {
           "code": {
             "default": 0,
@@ -464,6 +482,7 @@
         "type": "object"
       },
       "ApiResponse_SsoProviderList_": {
+        "additionalProperties": false,
         "properties": {
           "code": {
             "default": 0,
@@ -490,6 +509,7 @@
         "type": "object"
       },
       "ApiResponse_UserSummary_": {
+        "additionalProperties": false,
         "properties": {
           "code": {
             "default": 0,
@@ -516,6 +536,7 @@
         "type": "object"
       },
       "ApiResponse_dict_str__object__": {
+        "additionalProperties": false,
         "properties": {
           "code": {
             "default": 0,
@@ -544,6 +565,7 @@
         "type": "object"
       },
       "BasePageResponse_ClientItem_": {
+        "additionalProperties": false,
         "properties": {
           "list": {
             "items": {
@@ -575,6 +597,7 @@
         "type": "object"
       },
       "BasePageResponse_IdpProviderItem_": {
+        "additionalProperties": false,
         "properties": {
           "list": {
             "items": {
@@ -606,6 +629,7 @@
         "type": "object"
       },
       "BasePageResponse_SessionItem_": {
+        "additionalProperties": false,
         "properties": {
           "list": {
             "items": {
@@ -637,6 +661,7 @@
         "type": "object"
       },
       "CaptchaChallengeRequest": {
+        "additionalProperties": false,
         "description": "验证码出题请求。",
         "properties": {
           "kind": {
@@ -655,6 +680,7 @@
         "type": "object"
       },
       "CaptchaInput": {
+        "additionalProperties": false,
         "description": "登录验证码凭证（图形 / 滑块 / 短信；与验证码基座 `CaptchaCredential` 字段对应）。",
         "properties": {
           "captcha_id": {
@@ -711,6 +737,7 @@
         "type": "string"
       },
       "CaptchaSmsRequest": {
+        "additionalProperties": false,
         "description": "短信验证码发送请求。",
         "properties": {
           "phone": {
@@ -733,6 +760,7 @@
         "type": "object"
       },
       "CaptchaVerifyRequest": {
+        "additionalProperties": false,
         "description": "验证码凭证校验请求。",
         "properties": {
           "captcha_id": {
@@ -787,6 +815,7 @@
         "type": "object"
       },
       "ClientCreateRequest": {
+        "additionalProperties": false,
         "description": "客户端注册请求。",
         "properties": {
           "grant_types": {
@@ -842,6 +871,7 @@
         "type": "object"
       },
       "ClientCreated": {
+        "additionalProperties": false,
         "description": "客户端创建 / 重置凭据响应（`client_secret` 仅本次明文返回）。",
         "properties": {
           "client_id": {
@@ -907,6 +937,7 @@
         "type": "object"
       },
       "ClientItem": {
+        "additionalProperties": false,
         "description": "客户端列表 / 详情项（永不包含 secret 与哈希）。",
         "properties": {
           "client_id": {
@@ -972,6 +1003,7 @@
         "type": "object"
       },
       "ClientSecretReset": {
+        "additionalProperties": false,
         "description": "客户端密钥重置响应（新明文仅本次返回）。",
         "properties": {
           "client_id": {
@@ -993,6 +1025,7 @@
         "type": "object"
       },
       "ClientStatusRequest": {
+        "additionalProperties": false,
         "description": "客户端启停请求。",
         "properties": {
           "status": {
@@ -1021,6 +1054,7 @@
         "type": "object"
       },
       "IdpProviderCreateRequest": {
+        "additionalProperties": false,
         "description": "新建 IdP 配置请求。",
         "properties": {
           "config": {
@@ -1076,6 +1110,7 @@
         "type": "object"
       },
       "IdpProviderItem": {
+        "additionalProperties": false,
         "description": "IdP 配置列表 / 详情项（`config` 已脱敏，密钥引用不返明文）。",
         "properties": {
           "config": {
@@ -1139,6 +1174,7 @@
         "type": "object"
       },
       "IdpProviderStatusRequest": {
+        "additionalProperties": false,
         "description": "启停请求。",
         "properties": {
           "status": {
@@ -1154,6 +1190,7 @@
         "type": "object"
       },
       "IdpProviderTestRequest": {
+        "additionalProperties": false,
         "description": "草稿连通性测试请求（不落库）。",
         "properties": {
           "config": {
@@ -1181,6 +1218,7 @@
         "type": "object"
       },
       "IdpProviderTestResult": {
+        "additionalProperties": false,
         "description": "连通性测试结果（摘要诊断，不含敏感信息）。",
         "properties": {
           "detail": {
@@ -1220,6 +1258,7 @@
         "type": "object"
       },
       "IdpProviderUpdateRequest": {
+        "additionalProperties": false,
         "description": "修改 IdP 配置请求（局部更新；`type` / `idp_key` 不可改）。",
         "properties": {
           "config": {
@@ -1279,6 +1318,7 @@
         "type": "object"
       },
       "KickResult": {
+        "additionalProperties": false,
         "description": "强制踢出结果。",
         "properties": {
           "reason": {
@@ -1307,6 +1347,7 @@
         "type": "object"
       },
       "LoginRequest": {
+        "additionalProperties": false,
         "description": "本地登录请求。",
         "properties": {
           "account": {
@@ -1362,6 +1403,7 @@
         "type": "object"
       },
       "LoginResult": {
+        "additionalProperties": false,
         "description": "登录成功响应（access 在响应体；refresh 走 httpOnly cookie）。",
         "properties": {
           "access_token": {
@@ -1394,6 +1436,7 @@
         "type": "object"
       },
       "PasswordForgotRequest": {
+        "additionalProperties": false,
         "description": "发起找回请求（账号 / 手机 / 邮箱取通道；验证码按场景策略必带）。",
         "properties": {
           "captcha": {
@@ -1435,6 +1478,7 @@
         "type": "object"
       },
       "PasswordForgotResult": {
+        "additionalProperties": false,
         "description": "发起找回响应（恒 `sent=true`：账号不存在 / 停用 / 无通道一律同响应，防枚举）。",
         "properties": {
           "sent": {
@@ -1448,6 +1492,7 @@
         "type": "object"
       },
       "PasswordResetRequest": {
+        "additionalProperties": false,
         "description": "提交重置请求（重置令牌 + 新口令；策略判定在 platform 侧）。",
         "properties": {
           "new_password": {
@@ -1486,6 +1531,7 @@
         "type": "object"
       },
       "PasswordResetResult": {
+        "additionalProperties": false,
         "description": "提交重置响应。",
         "properties": {
           "reset": {
@@ -1499,6 +1545,7 @@
         "type": "object"
       },
       "RefreshResult": {
+        "additionalProperties": false,
         "description": "刷新成功响应（新 access 在体；新 refresh 走 httpOnly cookie）。",
         "properties": {
           "access_token": {
@@ -1526,6 +1573,7 @@
         "type": "object"
       },
       "SessionItem": {
+        "additionalProperties": false,
         "description": "会话行（用户 / 设备 / IP / 登录与过期时间 / 撤销时间）。",
         "properties": {
           "device": {
@@ -1598,6 +1646,7 @@
         "type": "object"
       },
       "SsoAuthorizeInfo": {
+        "additionalProperties": false,
         "description": "SSO 授权 URL 响应体（前端渲染二维码 / 初始化平台内嵌登录组件用）。",
         "properties": {
           "authorize_url": {
@@ -1625,6 +1674,7 @@
         "type": "object"
       },
       "SsoIdentityItem": {
+        "additionalProperties": false,
         "description": "SSO 身份绑定项（`sso:bind` 只读端点）。",
         "properties": {
           "external_id": {
@@ -1652,6 +1702,7 @@
         "type": "object"
       },
       "SsoIdentityList": {
+        "additionalProperties": false,
         "description": "SSO 身份绑定清单响应体。",
         "properties": {
           "items": {
@@ -1667,6 +1718,7 @@
         "type": "object"
       },
       "SsoProviderItem": {
+        "additionalProperties": false,
         "description": "SSO 入口清单项（前端按此渲染登录方式）。",
         "properties": {
           "icon": {
@@ -1706,6 +1758,7 @@
         "type": "object"
       },
       "SsoProviderList": {
+        "additionalProperties": false,
         "description": "SSO 入口清单响应体。",
         "properties": {
           "items": {
@@ -1721,6 +1774,7 @@
         "type": "object"
       },
       "UserSummary": {
+        "additionalProperties": false,
         "description": "登录成功返回的用户概要（权限 / 菜单概要归阶段七 RBAC）。",
         "properties": {
           "id": {

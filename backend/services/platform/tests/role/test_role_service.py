@@ -1,6 +1,6 @@
 """角色 CRUD 与保护用例（Kiwi 2248，02_03）。
 
-覆盖：角色码唯一（30042）/ 格式校验（10001）、内置角色禁建禁停禁删（30043）、
+覆盖：角色码唯一（30042）/ 格式校验（10001）、角色码可改（含内置角色）、内置角色（按 `role_type`）禁停禁删（30043）、
 用户分配删除保护（30044）、乐观锁冲突、列表筛选与主体数、软删除后不可见（30041）。
 
 注：服务写方法经 `uow.begin()` 自开事务；测试侧的读断言会使会话自动开事务，
@@ -40,9 +40,9 @@ async def test_role_crud_and_protection() -> None:
     with pytest.raises(ParamError):
         await service.create_role(code="Bad Code", name="非法码")
 
-    with pytest.raises(RoleProtectedError) as builtin_create:
-        await service.create_role(code="system_admin", name="系统管理员")
-    assert builtin_create.value.code == 30043
+    # 内置判定改按 role_type：自建同名角色为自定义类型（允许；不再按角色码禁建）
+    self_made = await service.create_role(code="system_admin", name="同名自定义")
+    assert self_made.role_type == "custom"
 
     created = await service.create_role(code="readonly", name="只读角色")
     created_id = created.id
@@ -50,7 +50,7 @@ async def test_role_crud_and_protection() -> None:
     rows, total = await service.list_roles(helpers.page(), keyword="角色")
     assert total == 1 and rows[0].id == created_id
     all_rows, all_total = await service.list_roles(helpers.page(), status="enabled")
-    assert all_total == 2 and len(all_rows) == 2
+    assert all_total == 3 and len(all_rows) == 3
     await helpers.commit(target)
 
     detail = await service.detail(role_id)
@@ -64,13 +64,18 @@ async def test_role_crud_and_protection() -> None:
     with pytest.raises(ConcurrentConflictError):
         await service.update_role(role_id, name="过期写入", version=detail_version)
 
-    protected = await RoleRepository(target).create(code="audit_admin", name="审计管理员")
+    protected = await RoleRepository(target).create(code="audit_admin", name="审计管理员", role_type="audit")
     protected_id = protected.id
     protected_version = protected.version
     await helpers.commit(target)
+    # 内置角色（role_type=audit）角色码可改（本次放开）
+    renamed = await service.update_role(protected_id, code="audit_admin_v2", version=protected_version)
+    assert renamed.code == "audit_admin_v2"
+    protected_version = renamed.version
+    await helpers.commit(target)
+
     with pytest.raises(RoleProtectedError):
         await service.update_role(protected_id, status="disabled", version=protected_version)
-    assert "audit_admin" in await service.protected_codes()
     await helpers.commit(target)
 
     with pytest.raises(RoleProtectedError):

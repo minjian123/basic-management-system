@@ -1994,11 +1994,11 @@ export interface paths {
         get: operations["get_role_api_v1_roles__role_id__get"];
         /**
          * Update Role
-         * @description 修改角色（名称 / 状态；乐观锁 + 内置角色保护）；角色码不可改。
+         * @description 修改角色（角色码 / 名称 / 状态；乐观锁 + 内置角色保护）。
          *
          *     Args:
          *         role_id: 角色主键。
-         *         req: 修改请求（名称 / 状态 / 版本）。
+         *         req: 修改请求（角色码 / 名称 / 状态 / 版本）。
          *         uow: 请求级工作单元。
          *         config: 系统参数取数。
          *
@@ -4607,7 +4607,7 @@ export interface components {
         };
         /**
          * RoleCreateRequest
-         * @description 新增角色请求（角色码创建后不可修改）。
+         * @description 新增角色请求（角色码租户内唯一；新角色类型恒为 `custom`，契约不透出）。
          */
         RoleCreateRequest: {
             /**
@@ -4709,7 +4709,7 @@ export interface components {
         RoleDetail: {
             /**
              * Builtin
-             * @description 是否内置角色
+             * @description 是否内置角色（按 role_type 判定）
              */
             builtin: boolean;
             /**
@@ -4738,6 +4738,12 @@ export interface components {
              * @description 角色名称
              */
             name: string;
+            /**
+             * Role Type
+             * @description 角色类型（custom/system/security/audit）
+             * @enum {string}
+             */
+            role_type: "custom" | "system" | "security" | "audit";
             /**
              * Status
              * @description 状态（enabled/disabled）
@@ -4864,7 +4870,7 @@ export interface components {
         RoleItem: {
             /**
              * Builtin
-             * @description 是否内置角色（按 role.protected_codes 判定）
+             * @description 是否内置角色（按 role_type 判定，非 custom 即内置）
              */
             builtin: boolean;
             /**
@@ -4882,6 +4888,12 @@ export interface components {
              * @description 角色名称
              */
             name: string;
+            /**
+             * Role Type
+             * @description 角色类型（custom/system/security/audit）
+             * @enum {string}
+             */
+            role_type: "custom" | "system" | "security" | "audit";
             /**
              * Status
              * @description 状态（enabled/disabled）
@@ -4966,9 +4978,14 @@ export interface components {
         };
         /**
          * RoleUpdateRequest
-         * @description 修改角色请求（名称 / 状态；乐观锁）；角色码不可改。
+         * @description 修改角色请求（角色码 / 名称 / 状态；乐观锁）；角色类型不可改。
          */
         RoleUpdateRequest: {
+            /**
+             * Code
+             * @description 角色码（None 表示不改；格式受 role.code_pattern 约束，租户内唯一）
+             */
+            code?: string | null;
             /**
              * Name
              * @description 角色名称
