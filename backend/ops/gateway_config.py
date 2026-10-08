@@ -7,6 +7,9 @@
     uv run python -m ops.gateway_config check           # 零漂移校验（CI / 预检用）
     uv run python -m ops.gateway_config check --root .  # 指定仓库根
 
+`check` 同时校验**请求体上限三方一致**（04-1-2）：边缘 nginx 模板（变量化声明）↔ 网关编排缺省值
+↔ APISIX 启动配置，且该值 ≥ 文件上传整包上限（`file.upload.max_size` = 20MB，超限走分片）。
+
 薄入口：真正的生成逻辑在 `bms_core/services/gateway_catalog.py`（可单测）。
 为在无后端依赖的精简环境（CI `base-integrity` 的 python:3.14-slim）下也可运行，
 本脚本仅依赖标准库 + `bms_core` 的 stdlib 导入链，并自行把共享库源码根加入 `sys.path`。
@@ -15,6 +18,7 @@
 from __future__ import annotations
 
 import argparse
+import re
 import sys
 from pathlib import Path
 
@@ -34,6 +38,128 @@ REPO_ROOT = _BACKEND_ROOT.parent
 
 CONFIG_RELATIVE = Path("deploy/gateway/apisix.yaml")
 """生成件相对仓库根的路径。"""
+
+NGINX_TEMPLATE_RELATIVE = Path("deploy/gateway/nginx.conf.template")
+"""边缘 nginx 模板（请求体上限声明落点，04-1-2）。"""
+
+APISIX_CONFIG_RELATIVE = Path("deploy/gateway/config.yaml")
+"""APISIX 启动配置（请求体上限纵深防御落点，04-1-2）。"""
+
+COMPOSE_GATEWAY_RELATIVE = Path("deploy/compose/gateway.yml")
+"""网关编排（请求体上限环境变量缺省落点，04-1-2）。"""
+
+ENV_EXAMPLE_RELATIVE = Path("deploy/.env.example")
+"""环境变量模板（请求体上限键位登记落点，04-1-2）。"""
+
+BODY_SIZE_VARIABLE = "GATEWAY_MAX_BODY_SIZE"
+"""请求体上限环境变量名（缺省 32m）。"""
+
+UPLOAD_MAX_SIZE_BYTES = 20 * 1024 * 1024
+"""文件上传整包上限（`file.upload.max_size` = 20MB = 20971520）；网关请求体上限须 ≥ 此值。"""
+
+_NGINX_VARIABLE_PATTERN = re.compile(r"client_max_body_size\s+\$\{GATEWAY_MAX_BODY_SIZE\}\s*;")
+_NGINX_ANY_PATTERN = re.compile(r"client_max_body_size\s+([^;]+);")
+_COMPOSE_DEFAULT_PATTERN = re.compile(r"GATEWAY_MAX_BODY_SIZE:\s*\$\{GATEWAY_MAX_BODY_SIZE:-([^}]+)\}")
+_ENV_EXAMPLE_PATTERN = re.compile(r"^GATEWAY_MAX_BODY_SIZE=(.*)$", re.MULTILINE)
+_APISIX_BODY_SIZE_PATTERN = re.compile(r"client_max_body_size:\s*[\"']?([0-9]+\s*[kKmMgG]?)[\"']?")
+_SIZE_UNITS = {"": 1, "k": 1024, "m": 1024 * 1024, "g": 1024 * 1024 * 1024}
+
+
+def parse_size(text: str) -> int | None:
+    """解析 nginx 风格体积字面量（`32m` / `1024k` / 纯字节数）。
+
+    Args:
+        text: 体积字面量。
+
+    Returns:
+        int | None: 字节数；不可解析为 None。
+    """
+    match = re.fullmatch(r"\s*(\d+)\s*([kKmMgG]?)\s*", text or "")
+    if match is None:
+        return None
+    return int(match.group(1)) * _SIZE_UNITS[match.group(2).lower()]
+
+
+def validate_body_size(root: Path) -> ConcurrentStableList[str]:
+    """校验请求体上限三方一致且与文件上传口径对齐（04-1-2）。
+
+    Args:
+        root: 仓库根。
+
+    Returns:
+        ConcurrentStableList[str]: 违规说明（空列表即通过）。
+    """
+    problems: ConcurrentStableList[str] = ConcurrentStableList()
+    default_text: str | None = None
+    default_bytes: int | None = None
+
+    template = root / NGINX_TEMPLATE_RELATIVE
+    if not template.is_file():
+        problems.add(f"缺少边缘 nginx 模板：{NGINX_TEMPLATE_RELATIVE}")
+    else:
+        text = template.read_text(encoding="utf-8")
+        if _NGINX_VARIABLE_PATTERN.search(text) is None:
+            problems.add(
+                f"边缘 nginx 模板须以 ${{{BODY_SIZE_VARIABLE}}} 变量化声明请求体上限：{NGINX_TEMPLATE_RELATIVE}"
+            )
+        literal = _NGINX_ANY_PATTERN.search(text)
+        if literal is not None and _NGINX_VARIABLE_PATTERN.search(text) is None:
+            problems.add(
+                f"边缘 nginx 模板请求体上限不得硬编码（须经 ${{{BODY_SIZE_VARIABLE}}} 注入）：{NGINX_TEMPLATE_RELATIVE}"
+            )
+
+    compose = root / COMPOSE_GATEWAY_RELATIVE
+    if not compose.is_file():
+        problems.add(f"缺少网关编排：{COMPOSE_GATEWAY_RELATIVE}")
+    else:
+        match = _COMPOSE_DEFAULT_PATTERN.search(compose.read_text(encoding="utf-8"))
+        if match is None:
+            problems.add(
+                f"网关编排须为 {BODY_SIZE_VARIABLE} 提供缺省值"
+                f"（形如 ${{{BODY_SIZE_VARIABLE}:-32m}}）：{COMPOSE_GATEWAY_RELATIVE}"
+            )
+        else:
+            default_text = match.group(1).strip()
+            default_bytes = parse_size(default_text)
+            if default_bytes is None:
+                problems.add(f"网关编排 {BODY_SIZE_VARIABLE} 缺省值不可解析：{default_text!r}")
+
+    apisix = root / APISIX_CONFIG_RELATIVE
+    if not apisix.is_file():
+        problems.add(f"缺少 APISIX 启动配置：{APISIX_CONFIG_RELATIVE}")
+    else:
+        match = _APISIX_BODY_SIZE_PATTERN.search(apisix.read_text(encoding="utf-8"))
+        if match is None:
+            problems.add(f"APISIX 启动配置缺请求体上限（client_max_body_size）：{APISIX_CONFIG_RELATIVE}")
+        else:
+            apisix_bytes = parse_size(match.group(1))
+            if apisix_bytes is None:
+                problems.add(f"APISIX 请求体上限不可解析：{match.group(1)!r}")
+            elif default_bytes is not None and apisix_bytes != default_bytes:
+                problems.add(
+                    f"APISIX 请求体上限（{match.group(1)}）与边缘缺省值（{default_text}）不一致："
+                    f"{APISIX_CONFIG_RELATIVE}"
+                )
+
+    env_example = root / ENV_EXAMPLE_RELATIVE
+    if not env_example.is_file():
+        problems.add(f"缺少环境变量模板：{ENV_EXAMPLE_RELATIVE}")
+    else:
+        match = _ENV_EXAMPLE_PATTERN.search(env_example.read_text(encoding="utf-8"))
+        if match is None:
+            problems.add(f"环境变量模板缺 {BODY_SIZE_VARIABLE} 键位：{ENV_EXAMPLE_RELATIVE}")
+        elif default_bytes is not None and parse_size(match.group(1).strip()) != default_bytes:
+            problems.add(
+                f"环境变量模板 {BODY_SIZE_VARIABLE}（{match.group(1).strip()}）与编排缺省值（{default_text}）不一致："
+                f"{ENV_EXAMPLE_RELATIVE}"
+            )
+
+    if default_bytes is not None and default_bytes < UPLOAD_MAX_SIZE_BYTES:
+        problems.add(
+            f"网关请求体上限（{default_text}）小于文件上传整包上限 20MB（{UPLOAD_MAX_SIZE_BYTES} 字节）："
+            "整包直传将被网关先拒，须上调或改走更小整包上限"
+        )
+    return problems
 
 
 def config_path(root: Path) -> Path:
@@ -70,13 +196,13 @@ def render(root: Path, *, to_stdout: bool = False) -> int:
 
 
 def check(root: Path) -> int:
-    """校验仓库内生成件与服务目录零漂移、且服务发现无硬编码 IP。
+    """校验仓库内生成件与服务目录零漂移、服务发现无硬编码 IP、请求体上限三方一致。
 
     Args:
         root: 仓库根。
 
     Returns:
-        int: 退出码（0 一致；1 缺失 / 漂移 / 硬编码 IP）。
+        int: 退出码（0 一致；1 缺失 / 漂移 / 硬编码 IP / 请求体上限口径不一致）。
     """
     target = config_path(root)
     if not target.is_file():
@@ -99,7 +225,18 @@ def check(root: Path) -> int:
         for violation in violations:
             print(f"  - {violation}", file=sys.stderr)
         return 1
-    print(f"[gateway_config] 通过：{target} 与服务目录一致、服务发现无硬编码 IP")
+    body_size_problems = validate_body_size(root)
+    if body_size_problems:
+        print(
+            f"[gateway_config] 请求体上限校验失败（三方一致 + 文件上传口径对齐）：{target}",
+            file=sys.stderr,
+        )
+        for problem in body_size_problems:
+            print(f"  - {problem}", file=sys.stderr)
+        return 1
+    print(
+        f"[gateway_config] 通过：{target} 与服务目录一致、服务发现无硬编码 IP、请求体上限三方一致且 ≥ 文件上传整包上限"
+    )
     return 0
 
 

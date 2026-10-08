@@ -30,6 +30,12 @@ nginx_config:
   # 错误日志级别（信息足够且不刷屏）
   error_log_level: warn
   http:
+    # 请求体上限（04-1-2）：与边缘 nginx（deploy/gateway/nginx.conf.template，经 GATEWAY_MAX_BODY_SIZE
+    #   注入、缺省 32m）**同值**——边缘先拒（413），此处为纵深防御（直连 APISIX 时同样受限）。
+    #   口径：≥ 文件上传整包上限 20MB（file.upload.max_size），分片单片不超过整包上限时不受影响；
+    #   三方一致（模板 / compose 缺省 / 本值）由 `ops.gateway_config check` 断言。
+    #   注：APISIX 3.9+ 该配置节更名为 `http_config`（本文件沿用 `http` 键名，与既有访问日志配置同节）。
+    client_max_body_size: "32m"
     # 访问日志出口（输出到 stdout，随 docker logs 可见，供 08 日志栈采集）；
     # 结构化 JSON 格式随 08 可观测性栈按 Loki 口径细化（本任务只交付出口）。
     enable_access_log: true

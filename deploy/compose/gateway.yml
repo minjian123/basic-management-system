@@ -56,6 +56,10 @@ services:
       NGINX_ENVSUBST_FILTER: "^GATEWAY_"
       # HSTS 指令行：dev 留空不发送；生产注入完整 add_header 指令（见 deploy/.env.example）
       GATEWAY_HSTS_HEADER: ${GATEWAY_HSTS_HEADER:-}
+      # 请求体上限（04-1-2）：与文件上传口径对齐（≤20MB 整包直传 / >20MB 分片）；
+      #   缺省 32m（20MB + multipart 表单开销 + 一片余量），生产可下调但不得低于整包上限 + 开销；
+      #   与 APISIX 侧同值（deploy/gateway/config.yaml 的 nginx_config），由网关配置校验断言三方一致。
+      GATEWAY_MAX_BODY_SIZE: ${GATEWAY_MAX_BODY_SIZE:-32m}
     volumes:
       # 模板（而非静态 conf）：入口脚本渲染为 conf.d/default.conf，实现响应头按环境差异
       - ../gateway/nginx.conf.template:/etc/nginx/templates/default.conf.template:ro

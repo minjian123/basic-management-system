@@ -34,6 +34,13 @@ server {
 
     # API 流量统一反代网关（网关按服务目录路由到各服务）
     location /api/ {
+        # 请求体上限（04-1-2）：与文件上传口径对齐——≤20MB（file.upload.max_size）整包直传、
+        #   >20MB 走分片（单片不超过整包上限）；超限在此层先拒（413 Request Entity Too Large）。
+        #   取值经 GATEWAY_MAX_BODY_SIZE 注入（缺省 32m，见 deploy/compose/gateway.yml），
+        #   按环境可调（生产可下调，但不得低于整包上限 + multipart 表单开销）；APISIX 侧同值配置
+        #   作纵深防御（见 deploy/gateway/config.yaml 的 nginx_config）。
+        client_max_body_size ${GATEWAY_MAX_BODY_SIZE};
+
         proxy_pass http://apisix:9080;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
