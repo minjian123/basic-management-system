@@ -114,7 +114,7 @@ def _hash_password(password: str) -> str:
     return Pbkdf2PasswordHasherFactory(get_settings()).create().hash(password)
 
 
-async def _resolve_basis(code: str) -> str:
+async def resolve_tenant_basis(code: str) -> str:
     """取租户库名基（对照表；注册库不可读 / 未注册回落当前编码，离线可用）。
 
     Args:
@@ -137,7 +137,7 @@ async def _resolve_basis(code: str) -> str:
     return code
 
 
-def _resolve_url(basis: str, override: str, service: str) -> str:
+def resolve_tenant_url(basis: str, override: str, service: str) -> str:
     """取服务租户库连接串（显式覆盖优先，否则按库键经模板解析）。
 
     Args:
@@ -234,8 +234,8 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
     if args.url:
         basis, url = code, args.url
     else:
-        basis = asyncio.run(_resolve_basis(code))
-        url = _resolve_url(basis, "", args.service)
+        basis = asyncio.run(resolve_tenant_basis(code))
+        url = resolve_tenant_url(basis, "", args.service)
     if args.dry_run:
         print(f"[seed_user] 目标库：{make_url(url).render_as_string(hide_password=True)}")
         print(
