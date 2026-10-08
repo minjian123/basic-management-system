@@ -1,7 +1,17 @@
 // kiwi_id: 962
 /** 组织选择族组件基类用例（06_05）：契约同实现（核心 + 投影）+ 身份依赖 + 部门树缓存 + 用户展示汇入。 */
 
-import { BaseField, BaseOptionSource, BaseOrgSelect, BaseUserDisplay, normalizeOrgKind, type OrgSourceAdapter } from '@bms/core'
+import {
+  BaseField,
+  BaseOptionSource,
+  BaseOrgSelect,
+  BaseUserDisplay,
+  normalizeOrgDeptTree,
+  normalizeOrgKind,
+  orgItemLabel,
+  toOrgTreeNodes,
+  type OrgSourceAdapter,
+} from '@bms/core'
 import {
   createOrgSourceStub,
   describeOrgSelectContract,
@@ -209,5 +219,44 @@ describe('BaseOrgSelect 用户展示与部门路径', () => {
     base.setKind('post')
     await base.load()
     expect(display.users).toEqual([])
+  })
+})
+
+describe('部门编码展示（mdm 出口 code）', () => {
+  it('归一保留部门编码；未返回 code 的旧出口回落为无编码', () => {
+    const tree = normalizeOrgDeptTree([
+      {
+        id: 'd1',
+        code: 'DEPT0001',
+        name: '总部',
+        status: 'enabled',
+        children: [{ id: 'd2', name: '研发部', status: 'enabled' }],
+      },
+    ])
+    expect(tree[0]?.code).toBe('DEPT0001')
+    expect(tree[0]?.children?.[0]?.code).toBeUndefined()
+  })
+
+  it('树件 label 附部门编码（标记在编码之后）；无编码时只显名称', () => {
+    const nodes = toOrgTreeNodes([
+      { id: 'd1', code: 'DEPT0001', name: '总部', status: 'enabled', deleted: false },
+      { id: 'd2', code: 'DEPT0002', name: '研发部', status: 'disabled', deleted: false },
+      { id: 'd3', name: '无编码部门', status: 'enabled', deleted: false },
+    ])
+    expect(nodes[0]?.label).toBe('总部 (DEPT0001)')
+    expect(nodes[1]?.label).toBe('研发部 (DEPT0002)（停用）')
+    expect(nodes[2]?.label).toBe('无编码部门')
+  })
+
+  it('非部门类型的编码不拼进 label（岗位编码仍单独展示）', () => {
+    const label = orgItemLabel({
+      id: 'p1',
+      name: '研发经理',
+      kind: 'post',
+      status: 'enabled',
+      deleted: false,
+      code: 'RD-MGR',
+    })
+    expect(label).toBe('研发经理')
   })
 })

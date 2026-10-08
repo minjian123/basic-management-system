@@ -66,7 +66,7 @@ export interface OrgSourceAdapter {
   searchUsers?(query: OrgUserQuery): Promise<unknown>
   /** 岗位查询。 */
   searchPosts?(query: OrgPostQuery): Promise<unknown>
-  /** 部门树（一次性返回）。 */
+  /** 部门树（一次性返回；节点含 `code` 部门编码）。 */
   loadDeptTree?(query: OrgDeptTreeQuery): Promise<unknown>
   /** 按 id 批量回显名称。 */
   resolveNames?(query: OrgResolveQuery): Promise<unknown>

@@ -23,7 +23,7 @@ export const ORG_CONTRACT_POSTS: readonly Record<string, unknown>[] = [
 
 /** 契约部门树（嵌套）。 */
 export const ORG_CONTRACT_DEPTS: readonly Record<string, unknown>[] = [
-  { id: 'd1', name: '总部', status: 'enabled', children: [{ id: 'd2', name: '研发部', status: 'enabled' }] },
+  { id: 'd1', code: 'DEPT0001', name: '总部', status: 'enabled', children: [{ id: 'd2', code: 'DEPT0002', name: '研发部', status: 'enabled' }] },
 ]
 
 /** 契约回显引用（`u2` 停用；未列出的 id 视为已删除）。 */

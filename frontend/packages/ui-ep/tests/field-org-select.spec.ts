@@ -376,6 +376,9 @@ describe('DeptTreeSelectField', () => {
     const tree = wrapper.findComponent(TreeSelectField)
     expect(tree.exists()).toBe(true)
     expect(tree.props('data')).toHaveLength(1)
+    // 部门编码源自 mdm 出口 `code`，树节点标签为「名称 (编码)」
+    const nodes = tree.props('data') as { label: string }[]
+    expect(nodes[0]?.label).toBe('总部 (DEPT0001)')
 
     await wrapper.find('[data-test="dept-include-children"]').setValue(true)
     expect(wrapper.emitted('update:includeChildren')?.[0]).toEqual([true])

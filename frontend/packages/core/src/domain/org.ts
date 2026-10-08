@@ -103,6 +103,8 @@ export interface OrgDeptNode {
   id: string
   /** 名称。 */
   name: string
+  /** 部门编码（出口 `code`；缺省兼容未返回编码的旧出口）。 */
+  code?: string
   /** 父节点标识（根为空）。 */
   parentId?: string
   /** 状态。 */
@@ -326,6 +328,10 @@ export function normalizeOrgDeptTree(raw: unknown): OrgDeptNode[] {
       status: normalizeOrgStatus(record.status),
       deleted: record.exists === false || readBool(record.deleted),
     }
+    const code = readText(record.code)
+    if (code !== '') {
+      node.code = code
+    }
     const parentId = readText(record.parentId) || readText(record.parent_id)
     if (parentId !== '') {
       node.parentId = parentId
@@ -460,18 +466,22 @@ export function findOrgItem(items: readonly OrgOptionItem[], id: string): OrgOpt
 /**
  * 选项展示文案（已删除 / 停用带标记，名称缺失回退标识）。
  *
+ * 部门的 `code` 非空时以 `名称 (编码)` 呈现（其余类型的编码各自单独展示，不拼进文案）。
+ *
  * @param item 选项。
  * @returns 展示文案。
  */
 export function orgItemLabel(item: OrgOptionItem): string {
   const name = item.name === '' ? item.id : item.name
+  const hasDeptCode = item.kind === 'dept' && item.code !== undefined && item.code !== ''
+  const withCode = hasDeptCode ? `${name} (${item.code})` : name
   if (item.deleted) {
-    return `${name}（${ORG_DELETED_MARK}）`
+    return `${withCode}（${ORG_DELETED_MARK}）`
   }
   if (item.status === 'disabled') {
-    return `${name}（${ORG_DISABLED_MARK}）`
+    return `${withCode}（${ORG_DISABLED_MARK}）`
   }
-  return name
+  return withCode
 }
 
 /**
@@ -647,7 +657,14 @@ export function findOrgDeptPath(nodes: readonly OrgDeptNode[], id: string): stri
  */
 export function toOrgTreeNodes(nodes: readonly OrgDeptNode[]): OrgTreeNode[] {
   return nodes.map((node) => {
-    const label = orgItemLabel({ id: node.id, name: node.name, kind: 'dept', status: node.status, deleted: node.deleted })
+    const label = orgItemLabel({
+      id: node.id,
+      name: node.name,
+      kind: 'dept',
+      status: node.status,
+      deleted: node.deleted,
+      ...(node.code === undefined ? {} : { code: node.code }),
+    })
     const children = toOrgTreeNodes(node.children ?? [])
     const treeNode: OrgTreeNode = {
       key: node.id,
