@@ -1,7 +1,10 @@
 /**
  * 组织数据源：HTTP 内建实现 + 注册表默认实例（`fetch` 单一落点）。
  *
- * 端点与后端组织主数据出口同源（`/api/v1/org/users|posts|dept-tree|resolve-names`）；
+ * 端点与**组织主数据出口**同源——组织主数据归 mdm 产品，故默认端点经**寻址契约**组装为
+ * **mdm 产品命名空间**（`productPrefix('mdm', 'org')` = `/api/mdm/v1/org`；见阶段二 `11_02`），
+ * 路径为出口口径 `/data-source/{users,posts,dept-tree}` 与 `/resolve-names`
+ * （**查询与批量回显分列两个出口**、**部门树一次性返回**）。
  * 宿主可经 `registerOrgSource` 登记定制实现（如组织 store 版）或覆盖内建键。
  */
 
@@ -12,6 +15,7 @@ import {
   OrgSourceRegistry,
   buildOrgResolveQuery,
   buildOrgSearchQuery,
+  productPrefix,
   type OrgDeptTreeQuery,
   type OrgKind,
   type OrgPostQuery,
@@ -60,7 +64,7 @@ class HttpOrgSource extends BaseOrgSource {
    * @returns 原始结果。
    */
   override async searchUsers(query: OrgUserQuery): Promise<unknown> {
-    return this.#get('/org/users', this.#searchParams('user', query))
+    return this.#get('/data-source/users', this.#searchParams('user', query))
   }
 
   /**
@@ -70,7 +74,7 @@ class HttpOrgSource extends BaseOrgSource {
    * @returns 原始结果。
    */
   override async searchPosts(query: OrgPostQuery): Promise<unknown> {
-    return this.#get('/org/posts', this.#searchParams('post', query))
+    return this.#get('/data-source/posts', this.#searchParams('post', query))
   }
 
   /**
@@ -80,7 +84,10 @@ class HttpOrgSource extends BaseOrgSource {
    * @returns 原始结果。
    */
   override async loadDeptTree(query: OrgDeptTreeQuery): Promise<unknown> {
-    return this.#get('/org/dept-tree', query.status === undefined || query.status === '' ? {} : { status: query.status })
+    return this.#get(
+      '/data-source/dept-tree',
+      query.status === undefined || query.status === '' ? {} : { status: query.status },
+    )
   }
 
   /**
@@ -90,7 +97,7 @@ class HttpOrgSource extends BaseOrgSource {
    * @returns 原始结果。
    */
   override async resolveNames(query: OrgResolveQuery): Promise<unknown> {
-    return this.#get('/org/resolve-names', buildOrgResolveQuery(query.target, query.ids))
+    return this.#get('/resolve-names', buildOrgResolveQuery(query.target, query.ids))
   }
 
   /**
@@ -123,7 +130,8 @@ class HttpOrgSource extends BaseOrgSource {
     if (typeof fetchFn !== 'function') {
       return undefined
     }
-    const endpoint = (this.#options.endpoint ?? '/api/v1').replace(/\/+$/, '')
+    // 默认端点＝mdm 产品命名空间（**经寻址契约组装**，不自拼前缀）；宿主可传 `endpoint` 覆盖
+    const endpoint = (this.#options.endpoint ?? orgSourceEndpoint()).replace(/\/+$/, '')
     const search = new URLSearchParams()
     for (const [key, value] of Object.entries(params)) {
       if (value === undefined || value === null || value === '' || value === false) {
@@ -142,9 +150,21 @@ class HttpOrgSource extends BaseOrgSource {
 }
 
 /**
+ * 组织数据源默认端点（**组织主数据归 mdm 产品**）。
+ *
+ * 经寻址契约组装 **mdm 产品命名空间**（`/api/mdm/v1/org`）——产品服务只经产品命名空间对外暴露，
+ * 页面 / 插件**不得自拼** `/api/...` 前缀（前端架构 §9 治理表）。
+ *
+ * @returns 端点前缀。
+ */
+export function orgSourceEndpoint(): string {
+  return productPrefix('mdm', 'org')
+}
+
+/**
  * 创建 HTTP 内建组织数据源。
  *
- * @param options 装载选项。
+ * @param options 装载选项（`endpoint` 缺省＝mdm 产品命名空间，见 `orgSourceEndpoint`）。
  * @returns 数据源实例。
  */
 export function createHttpOrgSource(options: OrgSourceOptions = {}): BaseOrgSource {

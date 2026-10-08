@@ -1,7 +1,11 @@
 // kiwi_id: 962
-/** 组织选择字段用例（06_05）：契约套件（核心 + 投影）+ 五件 + 工具（防抖 / HTTP 数据源）+ 占位契约复用。 */
+// kiwi_id: 2262
+/**
+ * 组织选择字段用例（06_05；出口切址 11_02）：契约套件（核心 + 投影）+ 五件 + 工具（防抖 / HTTP 数据源）
+ * + 占位契约复用；HTTP 数据源端点经寻址契约组装为 **mdm 产品命名空间**（`/api/mdm/v1/org`）。
+ */
 
-import { BaseUserDisplay, ORG_SEARCH_DEBOUNCE, type OrgSourceAdapter } from '@bms/core'
+import { BaseUserDisplay, ORG_SEARCH_DEBOUNCE, productPrefix, type OrgSourceAdapter } from '@bms/core'
 import {
   createOrgSourceStub,
   describeOrgSelectContract,
@@ -22,6 +26,7 @@ import {
   UserSelectField,
   createHttpOrgSource,
   debounce,
+  orgSourceEndpoint,
   orgSourceRegistry,
   registerOrgSource,
   useBaseOrgSelect,
@@ -435,7 +440,12 @@ describe('工具：防抖与组织数据源', () => {
     expect(calls).toEqual(['b'])
   })
 
-  it('HTTP 数据源：查询参数与响应解包', async () => {
+  it('HTTP 数据源：默认端点为 mdm 产品命名空间（经寻址契约组装，不自拼前缀）', () => {
+    expect(orgSourceEndpoint()).toBe(productPrefix('mdm', 'org'))
+    expect(orgSourceEndpoint()).toBe('/api/mdm/v1/org')
+  })
+
+  it('HTTP 数据源：查询参数与响应解包（mdm 出口路径）', async () => {
     const fetchMock = vi.fn(async (input: unknown) => {
       void input
       return {
@@ -444,17 +454,34 @@ describe('工具：防抖与组织数据源', () => {
       }
     })
     vi.stubGlobal('fetch', fetchMock)
-    const source = createHttpOrgSource({ endpoint: '/api/v1', headers: { Authorization: 'Bearer x' } })
+    const source = createHttpOrgSource({ endpoint: '/api/mdm/v1/org', headers: { Authorization: 'Bearer x' } })
     const result = await source.searchUsers({ keyword: '张', deptId: 'd1', includeChildren: true, status: 'enabled', page: 1, pageSize: 20 })
     expect(result).toMatchObject({ total: 1 })
     const url = String(fetchMock.mock.calls[0]?.[0])
-    expect(url).toContain('/api/v1/org/users?')
+    expect(url).toContain('/api/mdm/v1/org/data-source/users?')
     expect(url).toContain('keyword=%E5%BC%A0')
     expect(url).toContain('dept_id=d1')
     expect(url).toContain('include_children=true')
     expect(url).toContain('status=enabled')
     expect(url).toContain('page=1')
     expect(url).toContain('size=20')
+  })
+
+  it('HTTP 数据源：岗位查询走出口路径（缺省端点即 mdm 命名空间）', async () => {
+    const fetchMock = vi.fn(async (input: unknown) => {
+      void input
+      return { ok: true, json: async () => ({ code: 0, data: { items: [{ id: 'p1', name: '研发经理' }] } }) }
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const result = await createHttpOrgSource().searchPosts({ deptId: 'd1', includeChildren: true })
+
+    // 集合字段名差异（`items`）不影响解包（分页形态兼容）
+    expect(result).toMatchObject({ items: [{ id: 'p1' }] })
+    const url = String(fetchMock.mock.calls[0]?.[0])
+    expect(url).toContain('/api/mdm/v1/org/data-source/posts?')
+    expect(url).toContain('dept_id=d1')
+    expect(url).toContain('include_children=true')
   })
 
   it('HTTP 数据源：批量回显与部门树', async () => {
@@ -468,9 +495,9 @@ describe('工具：防抖与组织数据源', () => {
     vi.stubGlobal('fetch', fetchMock)
     const source = createHttpOrgSource()
     await source.resolveNames({ target: 'user', ids: ['u1', 'u2'] })
-    expect(String(fetchMock.mock.calls[0]?.[0])).toContain('/org/resolve-names?target=user&id_in=u1%2Cu2')
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain('/api/mdm/v1/org/resolve-names?target=user&id_in=u1%2Cu2')
     await source.loadDeptTree({ status: 'enabled' })
-    expect(String(fetchMock.mock.calls[1]?.[0])).toContain('/org/dept-tree?status=enabled')
+    expect(String(fetchMock.mock.calls[1]?.[0])).toContain('/api/mdm/v1/org/data-source/dept-tree?status=enabled')
   })
 
   it('HTTP 数据源：不可用降级与错误码', async () => {

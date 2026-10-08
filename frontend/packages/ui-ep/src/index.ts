@@ -398,7 +398,7 @@ export {
   type UseBaseOrgSelectResult,
 } from './composables/useBaseOrgSelect'
 export { debounce, type DebouncedFunction } from './utils/debounce'
-export { createHttpOrgSource, orgSourceRegistry, registerOrgSource } from './utils/orgSource'
+export { createHttpOrgSource, orgSourceEndpoint, orgSourceRegistry, registerOrgSource } from './utils/orgSource'
 export {
   useBaseCaptcha,
   type UseBaseCaptchaOptions,

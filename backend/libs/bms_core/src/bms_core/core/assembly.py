@@ -111,7 +111,6 @@ from bms_core.oauth.token import BaseServiceTokenIssuer
 from bms_core.oauth.user_jwt import JwtUserTokenIssuerFactory
 from bms_core.oauth.user_token import BaseUserTokenIssuer
 from bms_core.oauth.verify import BaseTokenVerifier, UnifiedTokenVerifierFactory
-from bms_core.org.base import BaseOrgDataSource, BaseOrgNameResolver
 from bms_core.outbound.http import BaseHttpClient
 from bms_core.outbound.webhook import BaseWebhookSender
 from bms_core.outbox.base import BaseOutboxDispatcher, BaseOutboxStore
@@ -201,7 +200,6 @@ _NULL_MODULES: tuple[str, ...] = (
     "bms_core.notification.null",
     "bms_core.notify.null",
     "bms_core.oauth.null",
-    "bms_core.org.null",
     "bms_core.outbound.null",
     "bms_core.outbox.null",
     "bms_core.saga.null",
@@ -276,8 +274,6 @@ PLUGIN_WIRINGS: tuple[PluginWiring, ...] = (
     PluginWiring("password_hasher", BasePasswordHasher, "password_hasher", "password_hasher"),
     PluginWiring("token_codec", BaseTokenCodec, "token_codec", "token_codec"),
     PluginWiring("session_security", BaseSessionSecurity, "session_security", "session_security"),
-    PluginWiring("org_data_source", BaseOrgDataSource, "org_data_source", "org_data_source"),
-    PluginWiring("org_name_resolver", BaseOrgNameResolver, "org_name_resolver", "org_name_resolver"),
     PluginWiring("dict_cache_region", DictCacheRegion, "dict_cache_region", "dict_cache_region"),
     PluginWiring("dict_source", BaseDictSource, "dict_source", "dict_source"),
     PluginWiring("dict_translator", BaseDictTranslator, "dict_translator", "dict_translator"),

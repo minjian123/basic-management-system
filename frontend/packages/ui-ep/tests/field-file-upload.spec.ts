@@ -225,9 +225,14 @@ describe('ImageUploadField 件', () => {
     const file = new File(['img'], 'a.png', { type: 'image/png' })
     Object.defineProperty(input.element, 'files', { value: [file], configurable: true })
     await input.trigger('change')
-    await vi.waitFor(() => {
-      expect(wrapper.emitted('update:modelValue')?.at(-1)?.[0]).toBe('img-1')
-    })
+    // jsdom 无 `createImageBitmap` 且 `Image` 解码不触发 → 尺寸探测走**超时兜底**（3000ms）后直传，
+    // 故等待窗口须大于探测上限（非实现缺陷：探测失败即按「无尺寸能力」直传）。
+    await vi.waitFor(
+      () => {
+        expect(wrapper.emitted('update:modelValue')?.at(-1)?.[0]).toBe('img-1')
+      },
+      { timeout: 5000 },
+    )
   })
 
   it('多图排序与移除同步受控值', async () => {

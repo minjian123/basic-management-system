@@ -1,10 +1,12 @@
 <script setup lang="ts">
-// 开发态核对页（06_05）：组织选择字段族（统一件 / 人员 / 岗位 / 部门树 / 复合弹窗）实例 + 12 项自检上屏（本页不进构建产物）。
+// 开发态核对页（06_05 / 出口切址 11_02）：组织选择字段族（统一件 / 人员 / 岗位 / 部门树 / 复合弹窗）
+// 实例 + 13 项自检上屏（本页不进构建产物）。
 import {
   BaseOrgSource,
   ORG_PLACEHOLDER_TEXT,
   ORG_SEARCH_DEBOUNCE,
   orgTagSummary,
+  productPrefix,
   toOrgTreeNodes,
   type OrgSourceAdapter,
 } from '@bms/core'
@@ -15,6 +17,7 @@ import {
   PostSelectField,
   UserSelectField,
   debounce,
+  orgSourceEndpoint,
   orgSourceRegistry,
   registerOrgSource,
   useBaseOrgSelect,
@@ -194,6 +197,12 @@ async function runChecks(): Promise<void> {
 
   // 12. 数据源可替换（注册表登记与默认键）
   add('数据源可替换（默认键 http + 自定义登记）', orgSourceRegistry.get('http') !== undefined && orgSourceRegistry.get('check-store') !== undefined)
+
+  // 13. 出口切址（11_02）：组织主数据归 mdm 产品——默认端点经寻址契约组装为 mdm 产品命名空间
+  add(
+    '组织数据源默认端点为 mdm 产品命名空间（/api/mdm/v1/org）',
+    orgSourceEndpoint() === productPrefix('mdm', 'org') && orgSourceEndpoint() === '/api/mdm/v1/org',
+  )
 
   checks.value = result
 }
