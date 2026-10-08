@@ -95,6 +95,9 @@ describe('模块隔离护栏（Kiwi 980）', () => {
         { path: 'api.ts', source: "const rows = await context.api.product('mdm', 'org').get('/posts')" },
         { path: 'svc.ts', source: "const me = await api.get('identity', '/auth/me')" },
         { path: 'link.ts', source: "const docs = 'https://example.com/api/guide'" },
+        // 寻址契约组装 / 基座默认基址（随 core 打包）不误判
+        { path: 'core-endpoint.ts', source: 'const url = `/api/${service}/${segment}${path}`' },
+        { path: 'core-base.ts', source: 'const base = this.endpoint ?? `/api/v1`' },
       ]),
     ).toEqual([])
 
