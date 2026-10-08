@@ -13,7 +13,8 @@ import { join } from 'node:path'
 import { parseModuleManifest } from '@bms/core'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
-import { checkModuleManifest } from '../../../scripts/check-module-manifest.mjs'
+import { checkModuleManifest, classifyManifestEntries } from '../../../scripts/check-module-manifest.mjs'
+import { checkSharedDeps } from '../../../scripts/check-shared-deps.mjs'
 import {
   ReleaseError,
   parseManifest,
@@ -367,6 +368,201 @@ describe('清单 / 版本发现 / 契约用例齐备护栏（Kiwi 981）', () =>
 
     expect(markdown).toContain('| 时间（UTC） | 操作者 | 动作 | 模块 | 版本 | 前版本 | 入口 gzip（KB） | 入口 |')
     expect(markdown).toContain('| 2026-09-22T00:00:00.000Z | a | publish | demo | 0.1.0 | — | — |')
+  })
+})
+
+describe('跨仓模块产物接入（Kiwi 2258）', () => {
+  /** 仓外模块工程目录（`root` 之外的独立工程，形态与仓内同构）。 */
+  let externalDir = ''
+
+  /**
+   * 构造仓外模块工程（可选带源码面）。
+   *
+   * @param name 模块名（= MF 容器名 = 清单 name）。
+   * @param options 选项：`withSource`（建 `src/index.ts`）、`version`（版本）。
+   */
+  function createExternalProject(name: string, options: { withSource?: boolean; version?: string } = {}): void {
+    const version = options.version ?? '0.1.0'
+    writeJson(join(externalDir, 'package.json'), { name: `@mdm/module-${name}`, version })
+    writeText(join(externalDir, 'vite.config.ts'), "loadSharedDependencies({ role: 'remote' })\n")
+    writeJson(join(externalDir, 'budget.json'), { pageChunkHints: ['OrgHome'] })
+    writeText(join(externalDir, 'dist/remoteEntry.js'), 'export {}\n')
+    writeText(join(externalDir, 'dist/remoteEntry.js.map'), '{}\n')
+    writeJson(join(externalDir, 'dist/module.meta.json'), { name, version, contractVersion: 1 })
+    if (options.withSource === true) writeText(join(externalDir, 'src/index.ts'), 'export const ok = true\n')
+  }
+
+  beforeEach(() => {
+    externalDir = mkdtempSync(join(tmpdir(), 'bms-external-module-'))
+  })
+
+  afterEach(() => {
+    rmSync(externalDir, { recursive: true, force: true })
+  })
+
+  it('仓外工程目录发布：四关校验通过 → 归档 → 清单登记 → 留痕来源 external', () => {
+    createExternalProject('mdm-org')
+
+    const result = publishModule({ root, name: 'mdm-org', moduleDir: externalDir, by: 'tester' })
+
+    expect(result.action).toBe('publish')
+    expect(result.source).toBe('external')
+    expect(result.version).toBe('0.1.0')
+    expect(result.entry).toBe('http://localhost:5002/mdm-org/0.1.0/remoteEntry.js')
+    expect(existsSync(join(root, 'releases/mdm-org/0.1.0/remoteEntry.js'))).toBe(true)
+    expect(existsSync(join(root, 'releases/mdm-org/0.1.0/module.meta.json'))).toBe(true)
+    expect(readManifest(root).entries).toEqual([
+      {
+        name: 'mdm-org',
+        entry: 'http://localhost:5002/mdm-org/0.1.0/remoteEntry.js',
+        version: '0.1.0',
+        mode: 'remote',
+        enabled: true,
+      },
+    ])
+    expect(readReleaseLog(root).records[0]).toMatchObject({
+      module: 'mdm-org',
+      action: 'publish',
+      source: 'external',
+    })
+    const markdown = readFileSync(join(root, 'releases/release-log.md'), 'utf8')
+    expect(markdown).toContain('| 来源 |')
+    expect(markdown).toContain('| external |')
+  })
+
+  it('仓内发布仍标 local（来源口径与跨仓并存）', () => {
+    const result = publishModule({ root, name: 'demo', by: 'tester' })
+
+    expect(result.source).toBe('local')
+    expect(readReleaseLog(root).records[0]).toMatchObject({ module: 'demo', source: 'local' })
+    expect(readFileSync(join(root, 'releases/release-log.md'), 'utf8')).toContain('| local |')
+  })
+
+  it('失败矩阵：目录不存在 / 缺工程清单 / 缺产物入口 / 版本不一致 / 缺 sourcemap / 缺预算提示', () => {
+    expect(() => publishModule({ root, name: 'mdm-org', moduleDir: join(externalDir, 'missing') })).toThrow(
+      /模块工程目录不存在/,
+    )
+
+    mkdirSync(join(externalDir, 'dist'), { recursive: true })
+    expect(() => publishModule({ root, name: 'mdm-org', moduleDir: externalDir })).toThrow(/缺少 package\.json/)
+
+    rmSync(join(externalDir, 'dist'), { recursive: true, force: true })
+    createExternalProject('mdm-org')
+    writeJson(join(externalDir, 'dist/module.meta.json'), { name: 'mdm-org', version: '9.9.9', contractVersion: 1 })
+    expect(() => publishModule({ root, name: 'mdm-org', moduleDir: externalDir })).toThrow(
+      /产物元数据版本与 package.json 不一致/,
+    )
+
+    createExternalProject('mdm-org')
+    rmSync(join(externalDir, 'dist/remoteEntry.js.map'))
+    expect(() => publishModule({ root, name: 'mdm-org', moduleDir: externalDir })).toThrow(/sourcemap/)
+
+    createExternalProject('mdm-org')
+    rmSync(join(externalDir, 'budget.json'))
+    expect(() => publishModule({ root, name: 'mdm-org', moduleDir: externalDir })).toThrow(/budget\.json/)
+    expect(existsSync(join(root, 'releases/mdm-org'))).toBe(false)
+  })
+
+  it('隔离关：仓外工程无 src 只跑产物面；带 src 违规按同口径拦截', () => {
+    createExternalProject('mdm-org')
+    expect(() => publishModule({ root, name: 'mdm-org', moduleDir: externalDir })).not.toThrow()
+
+    createExternalProject('mdm-org', { withSource: true })
+    writeText(join(externalDir, 'src/index.ts'), 'Object.prototype.hacked = true\n')
+    expect(() => publishModule({ root, name: 'mdm-org', moduleDir: externalDir })).toThrow(/隔离|G1|全局原型/)
+  })
+
+  it('共享关：仓外工程依赖未登记白名单即拒（同一白名单口径）', () => {
+    createExternalProject('mdm-org')
+    writeJson(join(externalDir, 'package.json'), {
+      name: '@mdm/module-mdm-org',
+      version: '0.1.0',
+      dependencies: { lodash: '^4.17.21' },
+    })
+
+    expect(() => publishModule({ root, name: 'mdm-org', moduleDir: externalDir })).toThrow(/lodash 未登记/)
+  })
+
+  it('清单护栏：跨仓远端条目放行并分类；mode: local 缺本地工程仍拒', () => {
+    createExternalProject('mdm-org')
+    publishModule({ root, name: 'mdm-org', moduleDir: externalDir })
+
+    expect(checkModuleManifest({ frontendDir: root })).toEqual([])
+    expect(classifyManifestEntries(root)).toEqual({ local: [], external: ['mdm-org'] })
+
+    writeJson(join(root, 'apps/desktop/public/modules.json'), [
+      { name: 'legacy', entry: 'legacy', version: '1.0.0', mode: 'local' },
+    ])
+    expect(checkModuleManifest({ frontendDir: root }).join('；')).toContain('本地条目缺模块工程')
+  })
+})
+
+describe('共享依赖产物级断言：多模块遍历（Kiwi 2258）', () => {
+  /** 宿主侧共享声明块文本（形态与 Module Federation 产物一致）。 */
+  const HOST_DECLARATION =
+    'var a=1;var m={vue:{name:`vue`,version:`3.5.43`,shareConfig:{singleton:!0,requiredVersion:`^3.5.41`}}};'
+
+  /** 模块侧共享声明块文本（消费方形态：`import:!1` + `strictVersion:!0` + 宿主提供语义）。 */
+  const REMOTE_DECLARATION =
+    'var cfg={import:!1};vue:t(`vue`,`3.5.43`,`default`,!0,{singleton:!0,requiredVersion:`^3.5.41`,strictVersion:!0,eager:!1});' +
+    'var f=()=>{throw new Error("must be provided by host")};'
+
+  /**
+   * 写入某产物目录的共享声明块（文件名与 MF 生成物同前缀）。
+   *
+   * @param distDir 产物目录。
+   * @param text 声明块文本。
+   */
+  function writeDeclaration(distDir: string, text: string): void {
+    writeText(join(distDir, 'assets/_virtual_mf-localSharedImportMap-abc.js'), text)
+  }
+
+  /**
+   * 构造共享依赖断言夹具（宿主产物 + 指定模块产物 + 单一来源共享面）。
+   *
+   * @param moduleNames 模块名清单。
+   * @param declarations 模块名 → 声明块文本（缺省用消费方标准文本）。
+   */
+  function createSharedFixture(moduleNames: string[], declarations: Record<string, string> = {}): void {
+    writeJson(join(root, 'shared-dependencies.json'), { shared: { vue: { requiredVersion: '^3.5.41' } }, notShared: {} })
+    writeDeclaration(join(root, 'apps/desktop/dist'), HOST_DECLARATION)
+    for (const name of moduleNames) {
+      const moduleDir = join(root, 'modules', name)
+      writeJson(join(moduleDir, 'package.json'), { name: `@bms/module-${name}`, version: '0.1.0' })
+      writeText(join(moduleDir, 'vite.config.ts'), "loadSharedDependencies({ role: 'remote' })\n")
+      writeDeclaration(join(moduleDir, 'dist'), declarations[name] ?? REMOTE_DECLARATION)
+    }
+  }
+
+  it('逐模块断言：全部达标即通过，模块名清单可见', () => {
+    createSharedFixture(['demo', 'sample'])
+
+    const result = checkSharedDeps({ frontendDir: root })
+
+    expect(result.problems).toEqual([])
+    expect(result.sharedNames).toEqual(['vue'])
+    expect(result.moduleNames).toEqual(['demo', 'sample'])
+  })
+
+  it('任一模块不达标即失败，且失败信息带模块名', () => {
+    createSharedFixture(['demo', 'sample'], {
+      sample: 'var cfg={import:!1};vue:t(`vue`,`3.5.43`,`default`,!0,{requiredVersion:`^3.5.41`,eager:!1});var f=()=>{throw new Error("must be provided by host")};',
+    })
+
+    const { problems } = checkSharedDeps({ frontendDir: root })
+
+    expect(problems.join('；')).toContain('模块 sample')
+    expect(problems.join('；')).toContain('strictVersion')
+  })
+
+  it('产物缺失即报错（宿主 / 模块两侧均不静默跳过）', () => {
+    createSharedFixture(['demo'])
+    rmSync(join(root, 'apps/desktop/dist'), { recursive: true, force: true })
+    expect(checkSharedDeps({ frontendDir: root }).problems.join('；')).toContain('宿主产物目录不存在')
+
+    createSharedFixture(['demo'])
+    rmSync(join(root, 'modules'), { recursive: true, force: true })
+    expect(checkSharedDeps({ frontendDir: root }).problems.join('；')).toContain('未找到任何模块产物目录')
   })
 })
 

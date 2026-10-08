@@ -42,6 +42,8 @@ export interface ReleaseRecord {
   entry: string
   /** 契约版本（停用 / 启用为 null）。 */
   contractVersion: number | null
+  /** 产物来源（`local` 仓内发布 / `external` 跨仓发布；历史记录缺省按 `local` 读取）。 */
+  source?: 'local' | 'external'
 }
 
 /** 发布记录文件结构。 */
@@ -60,10 +62,12 @@ export interface ReleaseGuardResult {
   meta: { name: string; version: string; contractVersion: number } | undefined
   /** 模块工程 package.json。 */
   pkg: { name: string; version: string } | undefined
-  /** 模块工程目录。 */
+  /** 模块工程目录（实际取数目录）。 */
   moduleDir: string
   /** 产物目录。 */
   distDir: string
+  /** 是否仓外（跨仓接入）模块工程。 */
+  external: boolean
 }
 
 /** 清单文件（相对 frontend/）。 */
@@ -121,16 +125,17 @@ export function originOf(url: string): string | undefined
 /** 取缺省操作者（git config user.name > USER）。 */
 export function defaultOperator(root?: string): string
 
-/** 发布前强校验三关（版本 / 隔离 / 共享）。 */
-export function checkReleaseGuards(options: { root?: string; name: string }): ReleaseGuardResult
+/** 发布前强校验四关（版本 / 隔离 / 共享 / sourcemap）；`moduleDir` 传仓外工程目录即跨仓。 */
+export function checkReleaseGuards(options: { root?: string; name: string; moduleDir?: string }): ReleaseGuardResult
 
 /** 取发布记录中该模块的上一个版本。 */
 export function previousVersionOf(log: ReleaseLog, name: string, currentVersion: string): string | undefined
 
-/** 发布模块（三关校验 → 归档 → 清单更新 → 发布记录）。 */
+/** 发布模块（四关校验 → 归档 → 清单更新 → 发布记录）；`moduleDir` 传仓外工程目录即跨仓。 */
 export function publishModule(options: {
   root?: string
   name: string
+  moduleDir?: string
   origin?: string
   by?: string
   force?: boolean
@@ -143,6 +148,11 @@ export function publishModule(options: {
   previousVersion: string | null
   dryRun?: boolean
   pkgVersion?: string
+  size?: { entryFiles: number; entryGzipKb: number; largestGzipKb: number; asyncChunkCount: number }
+  /** 产物来源（`local` 仓内 / `external` 跨仓）。 */
+  source: 'local' | 'external'
+  /** 实际产物目录。 */
+  moduleDir?: string
 }
 
 /** 回滚模块（清单版本回退；模块产物保留）。 */

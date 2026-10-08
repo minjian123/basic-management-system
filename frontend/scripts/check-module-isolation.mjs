@@ -351,6 +351,34 @@ export function scanModuleProducts(frontendDir = FRONTEND_DIR) {
 }
 
 /**
+ * 扫描**仓外**模块工程的源码面（跨仓接入）。
+ *
+ * 与仓内模块同口径；外部工程可不带源码（`src/` 缺失即无源码面，返回空数组，不视为失败）。
+ *
+ * @param moduleDir 仓外模块工程目录。
+ * @returns 违规项（空数组为通过）。
+ */
+export function scanExternalModuleSources(moduleDir) {
+  const srcDir = join(moduleDir, 'src')
+  if (!existsSync(srcDir)) return []
+  return scanSourceFiles(sourceFilesOf(srcDir, moduleDir))
+}
+
+/**
+ * 扫描**单个**模块工程的产物面（缺产物目录即抛错，不静默跳过）。
+ *
+ * @param moduleDir 模块工程目录（仓内或仓外）。
+ * @returns 违规项（空数组为通过）。
+ */
+export function scanModuleProductDir(moduleDir) {
+  const distDir = join(moduleDir, 'dist')
+  if (!existsSync(distDir)) {
+    throw new Error(`模块产物目录不存在：${distDir}（请先构建：pnpm run build）`)
+  }
+  return scanProductFiles(collectProductTargets(moduleDir))
+}
+
+/**
  * 源码面扫描（CLI）。
  *
  * @param moduleDir 指定模块工程目录（缺省扫全部）。

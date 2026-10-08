@@ -13,6 +13,11 @@
  *      （「全部注册实现跑同一套断言」的发现性保证）；
  *   6. **留痕一致**：发布记录存在且有该模块记录时，最近一条记录的版本 = 清单当前版本。
  *
+ * **跨仓条目口径（2026-10-08，任务 03_04）**：无本地工程（`frontend/modules/<名>/`）的**远端**条目
+ * 视为「跨仓（产品独立仓库）产物」——本仓护栏只校清单契约（字段 / 入口版本目录 / 留痕一致），
+ * 其版本发现与产物校验在**发布时**由发布链路执行（平台 CI 不访问仓外产物）；口径见知识档案
+ * 《微前端 · 业务模块接入指南》「跨仓接入」节。
+ *
  * 用法：
  *     node frontend/scripts/check-module-manifest.mjs [--root <frontend 目录>]
  */
@@ -93,7 +98,7 @@ export function checkModuleManifest(options = {}) {
       }
     }
 
-    // 4 版本发现
+    // 4 版本发现（仓内工程）；跨仓条目（本地无工程的远端形态）只校清单契约与留痕一致
     const moduleDir = join(frontendDir, 'modules', entry.name)
     if (existsSync(join(moduleDir, 'package.json'))) {
       const pkg = loadModulePackage(moduleDir)
@@ -117,6 +122,8 @@ export function checkModuleManifest(options = {}) {
           )
         }
       }
+    } else if (entry.mode !== 'remote') {
+      problems.push(`本地条目缺模块工程：${entry.name}（mode: local 须有 frontend/modules/${entry.name}/package.json）`)
     }
 
     // 6 留痕一致
@@ -140,6 +147,26 @@ export function checkModuleManifest(options = {}) {
   }
 
   return problems
+}
+
+/**
+ * 清单条目按产物来源分类（仓内工程存在 / 跨仓远端条目）。
+ *
+ * 跨仓条目的版本发现与产物校验在**发布时**执行（平台 CI 不访问仓外产物）；本函数供口径输出。
+ *
+ * @param frontendDir `frontend/` 目录（缺省按脚本位置推断）。
+ * @returns `{ local, external }`（模块名清单，按清单顺序）。
+ */
+export function classifyManifestEntries(frontendDir = FRONTEND_DIR) {
+  const dir = resolve(frontendDir)
+  const { entries } = readManifest(dir)
+  const local = []
+  const external = []
+  for (const entry of entries) {
+    if (existsSync(join(dir, 'modules', entry.name, 'package.json'))) local.push(entry.name)
+    else if (entry.mode === 'remote') external.push(entry.name)
+  }
+  return { local, external }
 }
 
 /**
@@ -174,6 +201,12 @@ function main(argv) {
     console.log(
       `[module-manifest] 通过：清单可解析、远端条目版本化、版本发现一致、sourcemap 就位、契约用例齐备（清单 ${MANIFEST_PATH}、发布记录 ${RELEASES_DIR}/${RELEASE_LOG_FILE}）`,
     )
+    const { local, external } = classifyManifestEntries(frontendDir ?? FRONTEND_DIR)
+    const externalNote =
+      external.length === 0
+        ? ''
+        : `（跨仓条目：${external.join('、')}——版本发现与产物校验在发布时执行）`
+    console.log(`[module-manifest] 在册模块：仓内 ${local.length} 项 / 跨仓 ${external.length} 项${externalNote}`)
     for (const { name, size } of moduleSizeSummary({ frontendDir })) {
       if (size === undefined) continue
       console.log(

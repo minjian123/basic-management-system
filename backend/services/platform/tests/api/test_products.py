@@ -28,7 +28,12 @@ async def test_list_products_contract() -> None:
         data = body["data"]
         assert (data["total"], data["page"], data["size"]) == (3, 1, 20)
         assert [item["product_key"] for item in data["list"]] == _EXPECTED_KEYS
-        assert data["list"][0]["frontend_package_source"] is None
+        # 前端包来源：产品前端工程标识（已接入产品回填、未接入留空；2026-10-08 随 03_04 定稿）
+        assert {item["product_key"]: item["frontend_package_source"] for item in data["list"]} == {
+            "biz": None,
+            "cw": None,
+            "mdm": "mdm#frontend",
+        }
 
         planned = await client.get("/api/v1/products", params={"status": "planned"})
         assert planned.json()["data"]["list"] == []

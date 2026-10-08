@@ -11,6 +11,9 @@ export const MODULE_CONTRACT_FACTORY: string
 /** 清单 / 版本发现 / sourcemap / 契约用例齐备护栏（纯函数）。 */
 export function checkModuleManifest(options?: { frontendDir?: string }): string[]
 
+/** 清单条目按产物来源分类（仓内工程存在 / 跨仓远端条目）。 */
+export function classifyManifestEntries(frontendDir?: string): { local: string[]; external: string[] }
+
 /** 模块产物体积（入口闭包口径）。 */
 export interface ModuleSizeSummaryEntry {
   /** 模块名。 */

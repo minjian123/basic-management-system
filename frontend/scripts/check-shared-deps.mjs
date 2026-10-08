@@ -12,26 +12,34 @@
  *      且本地取值函数直接抛「must be provided by host」——**产物中不存在第二份实现**；
  *   5. **依赖实例数 = 1**：按上述口径统计每个共享依赖的**提供方份数**（宿主 1 + 模块 0），恒等于 1。
  *
- * 用法（需先构建两侧产物）：
+ * **遍历口径（2026-10-08，任务 03_04）**：宿主 × **每个在册仓内模块**（`frontend/modules/＜模块名＞/dist`），
+ * 逐模块断言并在失败信息中带模块名；跨仓（产品独立仓库）模块的共享断言在**发布时**经同一强校验执行
+ * （平台 CI 不访问仓外产物），不在本护栏范围。
+ *
+ * 用法（需先构建产物）：
  *     cd frontend/apps/desktop && pnpm run build
- *     cd frontend/modules/demo && pnpm run build
+ *     cd frontend/modules/<模块名> && pnpm run build
  *     node frontend/scripts/check-shared-deps.mjs
  */
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
-import { join } from 'node:path'
+import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { exit } from 'node:process'
 
+import { listModuleDirs } from './check-module-isolation.mjs'
 import { readSharedSource } from './shared-deps.mjs'
 
-/** `frontend/` 目录（本文件位于 `frontend/scripts/`）。 */
-const FRONTEND_DIR = fileURLToPath(new URL('..', import.meta.url))
-
-/** 两侧产物目录（角色 → 目录）。 */
-const DIST_DIRS = {
-  host: join(FRONTEND_DIR, 'apps/desktop/dist'),
-  remote: join(FRONTEND_DIR, 'modules/demo/dist'),
-}
+/**
+ * `frontend/` 目录（本文件位于 `frontend/scripts/`）。
+ *
+ * Node 直跑按脚本位置推断；经 Vite / Vitest 载入时 `import.meta.url` 非 `file:` 协议，
+ * 回退按测试工程目录（`apps/desktop` / `modules/<模块名>` 均为 `frontend/` 下两级）推断；
+ * 调用方亦可显式传入目录（导出函数选项）。
+ */
+const FRONTEND_DIR = (() => {
+  if (import.meta.url.startsWith('file:')) return resolve(fileURLToPath(import.meta.url), '..', '..')
+  return resolve(process.cwd(), '..', '..')
+})()
 
 /** 模块侧「必须由宿主提供」的本地取值函数特征（Module Federation 生成）。 */
 const HOST_REQUIRED_MARKER = 'must be provided by host'
@@ -98,85 +106,139 @@ function parseRemoteDeclarations(text, names) {
   return result
 }
 
-/** 断言失败清单。 */
-const problems = []
-for (const [role, distDir] of Object.entries(DIST_DIRS)) {
-  if (!existsSync(distDir)) {
-    problems.push(`${role} 产物目录不存在：${distDir}（请先构建）`)
-  }
-}
-if (problems.length > 0) {
-  console.error(`[shared-deps] 不通过：${problems.join('；')}`)
-  exit(1)
+/**
+ * 模块产物目录清单（`frontend/modules/＜模块名＞/dist`，仅含已构建者）。
+ *
+ * @param frontendDir `frontend/` 目录。
+ * @returns 产物目录清单。
+ */
+function moduleDistDirs(frontendDir) {
+  return listModuleDirs(frontendDir)
+    .map((dir) => join(dir, 'dist'))
+    .filter((dir) => existsSync(dir))
 }
 
-const source = readSharedSource()
-const sharedNames = Object.keys(source.shared).sort()
-const hostText = readDeclarationText(DIST_DIRS.host)
-const remoteText = readDeclarationText(DIST_DIRS.remote)
-if (hostText === undefined || remoteText === undefined) {
-  console.error(
-    '[shared-deps] 不通过：产物中未找到共享声明块（_virtual_mf-localSharedImportMap*），请确认 Module Federation 插件已参与构建',
+/**
+ * 共享依赖产物级断言（纯函数，供 CLI 与用例复用）。
+ *
+ * @param options 选项：`frontendDir`（`frontend/` 目录；缺省按脚本位置推断）。
+ * @returns `{ problems, sharedNames, moduleNames }`（`problems` 空数组即通过）。
+ */
+export function checkSharedDeps(options = {}) {
+  const frontendDir = resolve(options.frontendDir ?? FRONTEND_DIR)
+  const hostDist = join(frontendDir, 'apps/desktop/dist')
+  const problems = []
+
+  if (!existsSync(hostDist)) {
+    problems.push(`宿主产物目录不存在：${hostDist}（请先构建：cd frontend/apps/desktop && pnpm run build）`)
+  }
+  const moduleDists = moduleDistDirs(frontendDir)
+  if (moduleDists.length === 0) {
+    problems.push(
+      `未找到任何模块产物目录：${join(frontendDir, 'modules')}/*/dist（请先构建模块；跨仓模块由发布时强校验承担，不在本护栏范围）`,
+    )
+  }
+  if (problems.length > 0) {
+    return { problems, sharedNames: [], moduleNames: [] }
+  }
+
+  const source = readSharedSource({ root: frontendDir })
+  const sharedNames = Object.keys(source.shared ?? {}).sort()
+  const hostText = readDeclarationText(hostDist)
+  if (hostText === undefined) {
+    problems.push('宿主产物中未找到共享声明块（_virtual_mf-localSharedImportMap*），请确认 Module Federation 插件已参与构建')
+    return { problems, sharedNames, moduleNames: moduleDists.map((dir) => basename(dirname(dir))) }
+  }
+  const hostDeclared = parseHostDeclarations(hostText)
+
+  // 1 宿主共享面一致
+  const hostNames = Object.keys(hostDeclared).sort()
+  if (hostNames.join(',') !== sharedNames.join(',')) {
+    problems.push(`宿主共享面与单一来源不一致：产物 [${hostNames.join(', ')}] ≠ 单一来源 [${sharedNames.join(', ')}]`)
+  }
+
+  // 2 宿主侧版本要求一致 + 3 宿主为提供方
+  for (const name of sharedNames) {
+    const expected = source.shared[name].requiredVersion
+    const host = hostDeclared[name]
+    if (host !== undefined && host.requiredVersion !== expected) {
+      problems.push(`宿主 ${name} 的 requiredVersion 与单一来源不一致：${String(host.requiredVersion)} ≠ ${expected}`)
+    }
+    if (host !== undefined && !host.providesLocal) {
+      problems.push(`宿主 ${name} 被声明为 import:false（宿主是提供方，须打包并提供实例）`)
+    }
+  }
+
+  // 4 / 5 逐模块断言（共享面 / 版本要求 / 消费方形态 / 本地回退 / 实例数）
+  const moduleNames = []
+  for (const distDir of moduleDists) {
+    const moduleName = basename(dirname(distDir))
+    moduleNames.push(moduleName)
+    const label = `模块 ${moduleName}`
+    const remoteText = readDeclarationText(distDir)
+    if (remoteText === undefined) {
+      problems.push(`${label}：产物中未找到共享声明块（_virtual_mf-localSharedImportMap*）`)
+      continue
+    }
+    const remoteDeclared = parseRemoteDeclarations(remoteText, sharedNames)
+    const remoteNames = Object.keys(remoteDeclared).sort()
+    if (remoteNames.join(',') !== sharedNames.join(',')) {
+      problems.push(
+        `${label} 共享面与单一来源不一致：产物 [${remoteNames.join(', ')}] ≠ 单一来源 [${sharedNames.join(', ')}]`,
+      )
+    }
+    for (const name of sharedNames) {
+      const expected = source.shared[name].requiredVersion
+      const remote = remoteDeclared[name]
+      if (remote !== undefined && remote.requiredVersion !== expected) {
+        problems.push(
+          `${label} ${name} 的 requiredVersion 与单一来源不一致：${String(remote.requiredVersion)} ≠ ${expected}`,
+        )
+      }
+      if (remote !== undefined && !remote.strictVersion) {
+        problems.push(`${label} ${name} 未声明 strictVersion（版本不满足须拒绝加载）`)
+      }
+      const hostProvides = hostDeclared[name]?.providesLocal === true ? 1 : 0
+      const remoteProvides = remoteDeclared[name]?.noLocalImport === true ? 0 : 1
+      const providers = hostProvides + remoteProvides
+      if (providers !== 1) {
+        problems.push(`${label}：共享依赖 ${name} 的提供方份数为 ${providers}（应为 1：宿主提供、模块不提供）`)
+      }
+    }
+    if (!remoteText.includes(HOST_REQUIRED_MARKER)) {
+      problems.push(`${label}：产物未体现「共享依赖必须由宿主提供」的取值语义（本地回退可能仍存在）`)
+    }
+    if (!/import:!1/.test(remoteText)) {
+      problems.push(`${label}：产物未声明 import:false（存在打包本地回退副本的风险）`)
+    }
+  }
+
+  return { problems, sharedNames, moduleNames }
+}
+
+/**
+ * CLI 入口。
+ *
+ * @param argv 进程参数。
+ */
+function main(argv) {
+  const rootIndex = argv.indexOf('--root')
+  const frontendDir = rootIndex >= 0 ? resolve(argv[rootIndex + 1]) : undefined
+  const { problems, sharedNames, moduleNames } = checkSharedDeps({ frontendDir })
+  if (problems.length > 0) {
+    console.error(`[shared-deps] 不通过：${problems.join('；')}`)
+    exit(1)
+  }
+  console.log(
+    `[shared-deps] 通过：共享面 ${sharedNames.join(' / ')}；宿主为提供方、模块 ${moduleNames.join(' / ')} import:false + strictVersion；` +
+      `依赖实例数 = 1（提供方份数：宿主 1 / 模块 0）`,
   )
-  exit(1)
 }
 
-const hostDeclared = parseHostDeclarations(hostText)
-const remoteDeclared = parseRemoteDeclarations(remoteText, sharedNames)
-
-// 1 共享面一致
-const hostNames = Object.keys(hostDeclared).sort()
-const remoteNames = Object.keys(remoteDeclared).sort()
-if (hostNames.join(',') !== sharedNames.join(',')) {
-  problems.push(`宿主共享面与单一来源不一致：产物 [${hostNames.join(', ')}] ≠ 单一来源 [${sharedNames.join(', ')}]`)
+if (
+  import.meta.url.startsWith('file:') &&
+  process.argv[1] !== undefined &&
+  resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+) {
+  main(process.argv)
 }
-if (remoteNames.join(',') !== sharedNames.join(',')) {
-  problems.push(`模块共享面与单一来源不一致：产物 [${remoteNames.join(', ')}] ≠ 单一来源 [${sharedNames.join(', ')}]`)
-}
-
-// 2 版本要求一致 + 3 / 4 角色形态
-for (const name of sharedNames) {
-  const expected = source.shared[name].requiredVersion
-  const host = hostDeclared[name]
-  const remote = remoteDeclared[name]
-  if (host !== undefined && host.requiredVersion !== expected) {
-    problems.push(`宿主 ${name} 的 requiredVersion 与单一来源不一致：${String(host.requiredVersion)} ≠ ${expected}`)
-  }
-  if (remote !== undefined && remote.requiredVersion !== expected) {
-    problems.push(`模块 ${name} 的 requiredVersion 与单一来源不一致：${String(remote.requiredVersion)} ≠ ${expected}`)
-  }
-  if (host !== undefined && !host.providesLocal) {
-    problems.push(`宿主 ${name} 被声明为 import:false（宿主是提供方，须打包并提供实例）`)
-  }
-  if (remote !== undefined && !remote.strictVersion) {
-    problems.push(`模块 ${name} 未声明 strictVersion（版本不满足须拒绝加载）`)
-  }
-}
-
-// 4 模块侧本地回退已消失（产物中无本地实现，取值即抛「必须由宿主提供」）
-if (!remoteText.includes(HOST_REQUIRED_MARKER)) {
-  problems.push('模块产物未体现「共享依赖必须由宿主提供」的取值语义（本地回退可能仍存在）')
-}
-const remoteImportFalse = /import:!1/.test(remoteText)
-if (!remoteImportFalse) {
-  problems.push('模块产物未声明 import:false（存在打包本地回退副本的风险）')
-}
-
-// 5 依赖实例数 = 1（提供方份数：宿主 1 + 模块 0）
-for (const name of sharedNames) {
-  const hostProvides = hostDeclared[name]?.providesLocal === true ? 1 : 0
-  const remoteProvides = remoteDeclared[name]?.noLocalImport === true ? 0 : 1
-  const providers = hostProvides + remoteProvides
-  if (providers !== 1) {
-    problems.push(`共享依赖 ${name} 的提供方份数为 ${providers}（应为 1：宿主提供、模块不提供）`)
-  }
-}
-
-if (problems.length > 0) {
-  console.error(`[shared-deps] 不通过：${problems.join('；')}`)
-  exit(1)
-}
-console.log(
-  `[shared-deps] 通过：共享面 ${sharedNames.join(' / ')}；两侧声明一致、宿主为提供方、模块 import:false + strictVersion；` +
-    `依赖实例数 = 1（提供方份数：宿主 1 / 模块 0）`,
-)

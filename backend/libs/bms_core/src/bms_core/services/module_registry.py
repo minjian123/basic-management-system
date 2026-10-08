@@ -335,13 +335,21 @@ SERVICE_CATALOG: tuple[ModuleRecord, ...] = (
 PRODUCT_CATALOG: tuple[ProductRecord, ...] = (
     ProductRecord(product_key="biz", name="企业运营管理", status=ProductStatus.ENABLED),
     ProductRecord(product_key="cw", name="创作系统", status=ProductStatus.ENABLED),
-    ProductRecord(product_key="mdm", name="主数据管理", status=ProductStatus.ENABLED),
+    ProductRecord(
+        product_key="mdm",
+        name="主数据管理",
+        frontend_package_source="mdm#frontend",
+        status=ProductStatus.ENABLED,
+    ),
 )
 """产品档案（单一来源，3 行：`biz` / `cw` / `mdm` 均已接入）。
 
 - **先注册后建表**：产品可先于其模块登记，不要求产品必有模块；`mdm` 随 01_01 工程骨架落地由
   `planned` 升 `enabled`（其组织域模块行 `org` 同批次置位为产品服务）；
-- `frontend_package_source` 本期留空——产品前端产物来源随 R4.3 前端多包合并定稿后回填（详设 12_01 §9）；
+- `frontend_package_source` 取值＝**产品前端工程标识**（`{仓库名}#{前端根}`，如 `mdm#frontend`）：
+  只记「从哪里取」，主机 / 凭据 / 访问地址由部署环境配置注入、**不入库**；已接入产品按其前端工程回填、
+  未接入产品留空（口径来源：bms 任务 `03_04` 详细设计与知识档案《微前端 · 业务模块接入指南》
+  「跨仓接入」节）；
 - 注册要素（表前缀 / 业务码 / 错误码段 / 事件域）仍只在 `SERVICE_CATALOG`，本清单只承载产品级属性。
 """
 

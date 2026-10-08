@@ -30,3 +30,9 @@ export function scanModuleSources(frontendDir?: string): string[]
 
 /** 收集并扫描全部模块远端产物（无任何产物目录即抛错）。 */
 export function scanModuleProducts(frontendDir?: string): string[]
+
+/** 扫描仓外模块工程的源码面（`src/` 缺失即无源码面，返回空数组）。 */
+export function scanExternalModuleSources(moduleDir: string): string[]
+
+/** 扫描单个模块工程的产物面（缺产物目录即抛错）。 */
+export function scanModuleProductDir(moduleDir: string): string[]

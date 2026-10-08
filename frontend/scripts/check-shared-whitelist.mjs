@@ -113,7 +113,8 @@ function measureGzip(dir) {
  * 共享面白名单与体积护栏（纯函数，供 CLI / 发布前强校验 / 模块契约用例复用）。
  *
  * @param options 选项：`frontendDir`（`frontend/` 目录；缺省按脚本位置推断）、
- *   `requireArtifacts`（为真时要求模块产物已构建；缺省真——发布前强校验与 CI 均已有产物）。
+ *   `requireArtifacts`（为真时要求模块产物已构建；缺省真——发布前强校验与 CI 均已有产物）、
+ *   `moduleDirs`（显式模块工程目录清单；缺省遍历 `frontend/modules/*`——跨仓发布传**仓外工程目录**，口径与仓内一致）。
  * @returns 违规清单（空数组即通过）。
  */
 export function checkSharedWhitelist(options = {}) {
@@ -124,10 +125,11 @@ export function checkSharedWhitelist(options = {}) {
   const sharedEntries = source.shared ?? {}
   const notSharedEntries = source.notShared ?? {}
   const whitelist = new Set([...Object.keys(sharedEntries), ...Object.keys(notSharedEntries)])
+  const moduleDirs = options.moduleDirs ?? listModuleDirs(frontendDir)
 
   const projects = [
     { role: '宿主', dir: join(frontendDir, 'apps/desktop') },
-    ...listModuleDirs(frontendDir).map((dir) => ({ role: '模块', dir })),
+    ...moduleDirs.map((dir) => ({ role: '模块', dir })),
   ]
 
   // 1 构建配置取自单一来源
@@ -172,7 +174,7 @@ export function checkSharedWhitelist(options = {}) {
   }
 
   // 4 非共享项体积阈值（模块产物）
-  for (const moduleDir of listModuleDirs(frontendDir)) {
+  for (const moduleDir of moduleDirs) {
     const dist = join(moduleDir, 'dist')
     for (const [name, entry] of Object.entries(notSharedEntries)) {
       const limit = entry.maxModuleGzipKb

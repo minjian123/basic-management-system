@@ -327,8 +327,13 @@ def test_product_catalog_shape() -> None:
         "cw": ProductStatus.ENABLED,
         "mdm": ProductStatus.ENABLED,
     }
-    # 前端包来源本期留空（详设 12_01 §9：随 R4.3 前端多包合并回填）
-    assert all(product.frontend_package_source is None for product in PRODUCT_CATALOG)
+    # 前端包来源＝产品前端工程标识（`{仓库名}#{前端根}`）；已接入产品回填、未接入留空
+    # （2026-10-08 随 bms 03_04 定稿口径并回填 `mdm`，详见设计数据库 sys_product 节点）
+    assert {product.product_key: product.frontend_package_source for product in PRODUCT_CATALOG} == {
+        "biz": None,
+        "cw": None,
+        "mdm": "mdm#frontend",
+    }
     assert len(ProductRegistry().list_products()) == 3
     assert ProductRegistry().list_products(status=ProductStatus.PLANNED) == []
     # 服务目录中产品模块的 product_key 均须已登记（`mdm` 随 01_01 工程骨架接入，其 `org` 行已登记）

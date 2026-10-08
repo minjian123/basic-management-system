@@ -3,7 +3,7 @@
  * 模块发布 / 回滚工具（零依赖 ESM；本地与 CI 同口径；见任务 03_02 详细设计 §3.5）。
  *
  * 职责：把「模块独立发布」落为可复现流程——**清单是模块加载与回滚的唯一来源**：
- *   publish   三关强校验（版本 / 隔离 / 共享）→ 归档产物到 `releases/<模块名>/<版本>/`
+ *   publish   四关强校验（版本 / 隔离 / 共享 / sourcemap）→ 归档产物到 `releases/<模块名>/<版本>/`
  *             → 更新清单条目（`entry` 指向版本目录、写入产物版本、`mode` 置 remote）→ 追加发布记录
  *   rollback  清单版本回退到上一版本（`--to` 或发布记录中上一个版本）；模块产物保留是回滚前提
  *   disable   清单内停用（`enabled: false`：不加载、不挂载、不进菜单；保留入口与版本）
@@ -13,8 +13,12 @@
  * 版本不可变：同版本产物已归档即拒绝发布（回滚依赖旧产物不被覆盖）；`--force` 仅限本地开发重发
  * （记录动作 `republish`；生产禁用）。`--root <frontend 目录>` 供演练 / 测试在临时工作区跑全流程。
  *
+ * **跨仓（产品独立仓库）发布**：`publish --module-dir <仓外模块工程目录>` 即按该目录取产物
+ * （版本 / 隔离 / 共享 / sourcemap 四关同口径），产物归档仍落平台 `releases/`；本链路**不持跨仓凭据**
+ * （拉仓与构建由调用方 / CI / 人工承担），发布记录以 `source: external` 留痕（不记目录）。
+ *
  * 用法：
- *     node frontend/scripts/release-module.mjs publish  --module demo [--origin http://localhost:5002] [--by 名] [--force] [--dry-run]
+ *     node frontend/scripts/release-module.mjs publish  --module demo [--module-dir <仓外工程目录>] [--origin http://localhost:5002] [--by 名] [--force] [--dry-run]
  *     node frontend/scripts/release-module.mjs rollback --module demo [--to 0.1.0] [--by 名]
  *     node frontend/scripts/release-module.mjs disable  --module demo [--by 名]
  *     node frontend/scripts/release-module.mjs enable   --module demo [--by 名]
@@ -26,7 +30,7 @@ import { fileURLToPath } from 'node:url'
 import { execFileSync } from 'node:child_process'
 import { exit } from 'node:process'
 
-import { scanModuleProducts, scanModuleSources } from './check-module-isolation.mjs'
+import { scanExternalModuleSources, scanModuleProductDir, scanModuleProducts, scanModuleSources } from './check-module-isolation.mjs'
 import { checkSharedWhitelist } from './check-shared-whitelist.mjs'
 import { measureModuleDist } from './module-metrics.mjs'
 import { MODULE_META_FILE, loadModuleContractVersion, loadModulePackage } from './module-meta.mjs'
@@ -216,12 +220,12 @@ export function renderReleaseLogMarkdown(log) {
     '',
     '> 由 `frontend/scripts/release-module.mjs` 从 `release-log.json` 生成；请勿手工编辑。',
     '',
-    '| 时间（UTC） | 操作者 | 动作 | 模块 | 版本 | 前版本 | 入口 gzip（KB） | 入口 |',
-    '| --- | --- | --- | --- | --- | --- | --- | --- |',
+    '| 时间（UTC） | 操作者 | 动作 | 模块 | 版本 | 前版本 | 入口 gzip（KB） | 入口 | 来源 |',
+    '| --- | --- | --- | --- | --- | --- | --- | --- | --- |',
   ]
   for (const record of [...log.records].reverse()) {
     lines.push(
-      `| ${record.at} | ${record.by} | ${record.action} | ${record.module} | ${record.version} | ${record.previousVersion ?? '—'} | ${record.size?.entryGzipKb ?? '—'} | ${record.entry} |`,
+      `| ${record.at} | ${record.by} | ${record.action} | ${record.module} | ${record.version} | ${record.previousVersion ?? '—'} | ${record.size?.entryGzipKb ?? '—'} | ${record.entry} | ${record.source ?? 'local'} |`,
     )
   }
   lines.push('')
@@ -289,23 +293,37 @@ export function defaultOperator(root) {
 /**
  * 发布前强校验四关（版本 / 隔离 / 共享 / sourcemap）。
  *
- * @param options `{ root, name }`。
- * @returns `{ violations, meta, pkg, moduleDir, distDir }`。
+ * 产物来源可为**仓内**模块工程（缺省 `frontend/modules/<name>`）或**仓外**模块工程目录
+ * （`moduleDir` 显式传入，跨仓接入）：仓外工程与仓内模块同口径校验，区别仅在源码面
+ * （外部工程可不带 `src/`）与遍历范围（只扫该工程本身）。
+ *
+ * @param options `{ root, name, moduleDir? }`。
+ * @returns `{ violations, meta, pkg, moduleDir, distDir, external }`。
  */
-export function checkReleaseGuards({ root, name }) {
+export function checkReleaseGuards({ root, name, moduleDir }) {
   const frontendDir = resolveRoot(root)
-  const moduleDir = join(frontendDir, 'modules', name)
-  const distDir = join(moduleDir, 'dist')
+  const localModuleDir = join(frontendDir, 'modules', name)
+  const resolvedModuleDir = moduleDir === undefined ? localModuleDir : resolve(moduleDir)
+  const external = resolvedModuleDir !== localModuleDir
+  const distDir = join(resolvedModuleDir, 'dist')
   const violations = []
 
-  if (!existsSync(moduleDir)) {
-    violations.push(`模块工程不存在：${moduleDir}`)
-    return { violations, meta: undefined, pkg: undefined, moduleDir, distDir }
+  if (!existsSync(resolvedModuleDir)) {
+    violations.push(
+      external
+        ? `模块工程目录不存在：${resolvedModuleDir}（--module-dir 指向的仓外工程目录）`
+        : `模块工程不存在：${resolvedModuleDir}`,
+    )
+    return { violations, meta: undefined, pkg: undefined, moduleDir: resolvedModuleDir, distDir, external }
+  }
+  if (!existsSync(join(resolvedModuleDir, 'package.json'))) {
+    violations.push(`模块工程缺少 package.json：${resolvedModuleDir}（共享白名单关无法执行）`)
+    return { violations, meta: undefined, pkg: undefined, moduleDir: resolvedModuleDir, distDir, external }
   }
 
   // ① 版本关
-  const pkg = loadModulePackage(moduleDir)
-  const meta = readModuleMeta(moduleDir)
+  const pkg = loadModulePackage(resolvedModuleDir)
+  const meta = readModuleMeta(resolvedModuleDir)
   const contractVersion = loadModuleContractVersion(frontendDir)
   if (!existsSync(join(distDir, REMOTE_ENTRY_FILE))) {
     violations.push(`产物入口不存在：${join(distDir, REMOTE_ENTRY_FILE)}（请先 pnpm run build）`)
@@ -326,16 +344,27 @@ export function checkReleaseGuards({ root, name }) {
     )
   }
 
-  // ② 隔离关（源码面 + 产物面）
-  violations.push(...scanModuleSources(frontendDir))
-  if (existsSync(distDir)) {
-    violations.push(...scanModuleProducts(frontendDir))
+  // ② 隔离关（源码面 + 产物面）：仓外工程只扫自身（无 src/ 即无源码面）
+  if (external) {
+    violations.push(...scanExternalModuleSources(resolvedModuleDir))
+    if (existsSync(distDir)) {
+      try {
+        violations.push(...scanModuleProductDir(resolvedModuleDir))
+      } catch (error) {
+        violations.push(error instanceof Error ? error.message : String(error))
+      }
+    }
+  } else {
+    violations.push(...scanModuleSources(frontendDir))
+    if (existsSync(distDir)) {
+      violations.push(...scanModuleProducts(frontendDir))
+    }
   }
 
-  // ③ 共享关（白名单 / 版本要求 / 非共享项体积）
-  violations.push(...checkSharedWhitelist({ frontendDir }))
+  // ③ 共享关（白名单 / 版本要求 / 非共享项体积）：仓外工程按该工程单一目录校验
+  violations.push(...checkSharedWhitelist({ frontendDir, moduleDirs: external ? [resolvedModuleDir] : undefined }))
 
-  return { violations, meta, pkg, moduleDir, distDir }
+  return { violations, meta, pkg, moduleDir: resolvedModuleDir, distDir, external }
 }
 
 /**
@@ -355,9 +384,10 @@ export function previousVersionOf(log, name, currentVersion) {
 }
 
 /**
- * 发布模块（三关校验 → 归档 → 清单更新 → 发布记录）。
+ * 发布模块（四关校验 → 归档 → 清单更新 → 发布记录）。
  *
- * @param options `{ root?, name, origin?, by?, force?, dryRun? }`。
+ * @param options `{ root?, name, moduleDir?, origin?, by?, force?, dryRun? }`；
+ *   `moduleDir` 传**仓外模块工程目录**即跨仓发布（缺省取 `frontend/modules/<name>`）。
  * @returns 发布结果。
  * @throws ReleaseError 校验未通过 / 版本不可变 / 形态冲突。
  */
@@ -367,8 +397,13 @@ export function publishModule(options) {
   const by = options.by ?? defaultOperator(root)
   const force = options.force ?? false
   const dryRun = options.dryRun ?? false
+  const requestedModuleDir = options.moduleDir === undefined ? undefined : resolve(options.moduleDir)
 
-  const { violations, meta, pkg } = checkReleaseGuards({ root, name })
+  const { violations, meta, pkg, moduleDir: resolvedModuleDir, external } = checkReleaseGuards({
+    root,
+    name,
+    moduleDir: requestedModuleDir,
+  })
   if (violations.length > 0) {
     throw new ReleaseError(`发布前强校验未通过（${violations.length} 项）：\n  - ${violations.join('\n  - ')}`)
   }
@@ -395,10 +430,12 @@ export function publishModule(options) {
   // 前版本 = 版本发生变化时的清单版本（首次发布 / 同版本重发为 null）
   const previousVersion = existing !== undefined && existing.version !== version ? existing.version : null
   // 产物体积按模块计量（入口闭包口径；随发布记录留痕）
-  const size = measureModuleDist(join(root, 'modules', name))
+  const size = measureModuleDist(resolvedModuleDir)
+  // 产物来源标注（跨仓接入留痕；不记目录 / 主机 / 凭据）
+  const source = external ? 'external' : 'local'
 
   if (dryRun) {
-    return { action, version, entry: entryUrl, archiveDir, previousVersion, size, dryRun: true }
+    return { action, version, entry: entryUrl, archiveDir, previousVersion, size, dryRun: true, moduleDir: resolvedModuleDir, source }
   }
 
   // 归档（版本不可变：force 才允许覆盖；非 force 时已归档即拒绝）
@@ -406,7 +443,7 @@ export function publishModule(options) {
     rmSync(archiveDir, { recursive: true, force: true })
   }
   mkdirSync(archiveDir, { recursive: true })
-  cpSync(join(root, 'modules', name, 'dist'), archiveDir, { recursive: true })
+  cpSync(join(resolvedModuleDir, 'dist'), archiveDir, { recursive: true })
 
   // 清单更新（只改目标条目、其余原样保留；新条目按远端形态写入，不写 enabled——缺省可见）
   const nextRaw = patchRawEntries(raw, name, { entry: entryUrl, version, mode: 'remote' })
@@ -427,8 +464,9 @@ export function publishModule(options) {
     contractVersion: meta.contractVersion,
     size,
     sourcemap: true,
+    source,
   })
-  return { action, version, entry: entryUrl, archiveDir, previousVersion, pkgVersion: pkg.version, size }
+  return { action, version, entry: entryUrl, archiveDir, previousVersion, pkgVersion: pkg.version, size, moduleDir: resolvedModuleDir, source }
 }
 
 /**
@@ -557,6 +595,7 @@ function parseOptions(argv) {
   }
   return {
     module: valueOf('--module'),
+    moduleDir: valueOf('--module-dir'),
     root: valueOf('--root'),
     origin: valueOf('--origin'),
     to: valueOf('--to'),
@@ -568,7 +607,7 @@ function parseOptions(argv) {
 
 /** CLI 用法。 */
 const USAGE = `用法：
-  node frontend/scripts/release-module.mjs publish  --module <模块名> [--origin <基址>] [--by <操作者>] [--force] [--dry-run]
+  node frontend/scripts/release-module.mjs publish  --module <模块名> [--module-dir <仓外模块工程目录>] [--origin <基址>] [--by <操作者>] [--force] [--dry-run]
   node frontend/scripts/release-module.mjs rollback --module <模块名> [--to <版本>] [--by <操作者>]
   node frontend/scripts/release-module.mjs disable  --module <模块名> [--by <操作者>]
   node frontend/scripts/release-module.mjs enable   --module <模块名> [--by <操作者>]
@@ -605,11 +644,17 @@ function main(argv) {
     }
     const common = { root: options.root, by: options.by, name: options.module }
     if (command === 'publish') {
-      const result = publishModule({ ...common, origin: options.origin, force: options.force, dryRun: options.dryRun })
+      const result = publishModule({
+        ...common,
+        moduleDir: options.moduleDir,
+        origin: options.origin,
+        force: options.force,
+        dryRun: options.dryRun,
+      })
       const sizeText =
         result.size === undefined ? '' : `（入口 gzip ${result.size.entryGzipKb} KB / ${result.size.entryFiles} 块）`
       console.log(
-        `[release-module] ${result.dryRun ? '（dry-run）' : ''}${result.action}：${options.module}@${result.version} → ${result.entry}${sizeText}`,
+        `[release-module] ${result.dryRun ? '（dry-run）' : ''}${result.action}：${options.module}@${result.version} → ${result.entry}${sizeText}（来源 ${String(result.source)}，产物 ${String(result.moduleDir)}）`,
       )
       return
     }
