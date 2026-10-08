@@ -1,14 +1,21 @@
-/** 模块区域插槽投影：承接布局与容器组件基类投影，并按区域标识解析已登记区域项（只读消费）。 */
+/**
+ * 模块区域插槽投影：承接布局与容器组件基类投影，并按区域标识解析已登记区域项（只读消费）；
+ * 并承载**具名插槽显式上下文通道**（宿主页提供 → 区域项只读取得，需求 `05-11`）。
+ */
 
-import type { FrontendRegistries } from '@bms/core'
+import type { FrontendRegistries, ModuleSlotContext } from '@bms/core'
 import {
   computed,
   defineAsyncComponent,
+  inject,
+  provide,
+  readonly,
   ref,
   toValue,
   watch,
   type AsyncComponentLoader,
   type ComputedRef,
+  type InjectionKey,
   type MaybeRefOrGetter,
   type Ref,
 } from 'vue'
@@ -127,4 +134,49 @@ export function useModuleArea(options: UseModuleAreaOptions): UseModuleAreaResul
     isEmpty: computed(() => items.value.length === 0),
     resolve,
   }
+}
+
+/** 具名插槽上下文注入键（宿主页与插件均不直接使用）。 */
+export const MODULE_SLOT_CONTEXT_KEY: InjectionKey<Readonly<Ref<ModuleSlotContext | undefined>>> = Symbol(
+  'bms.module-slot-context',
+)
+
+/**
+ * 提供具名插槽上下文（**区域插槽件内部使用**）。
+ *
+ * 上下文以**冻结浅拷贝**提供：区域项（插件）侧改动不生效；未声明即为 `undefined`（插件自行降级）。
+ *
+ * @param context 上下文来源（响应式；宿主页声明的作用实体标识等）。
+ */
+export function provideModuleSlotContext(
+  context: MaybeRefOrGetter<Record<string, unknown> | undefined>,
+): void {
+  const source = computed<ModuleSlotContext | undefined>(() => {
+    const value = toValue(context)
+    return value === undefined ? undefined : Object.freeze({ ...value })
+  })
+  provide(MODULE_SLOT_CONTEXT_KEY, readonly(source))
+}
+
+/**
+ * 读取具名插槽上下文（**区域项组件消费**）。
+ *
+ * 非路由承载宿主页（表单框架记录页签等）的作用实体标识经此取得；未注入时为 `undefined`。
+ *
+ * @returns 只读上下文（调用方自行降级：不假定存在、不发起请求）。
+ */
+export function useModuleSlotContext(): ComputedRef<ModuleSlotContext | undefined> {
+  const source = inject(MODULE_SLOT_CONTEXT_KEY, undefined)
+  return computed(() => source?.value)
+}
+
+/**
+ * 读取具名插槽上下文的单个字段（**区域项组件消费**）。
+ *
+ * @param key 字段名。
+ * @returns 字段值（未注入或键缺失时为 `undefined`）。
+ */
+export function useModuleSlotField<T = unknown>(key: string): ComputedRef<T | undefined> {
+  const context = useModuleSlotContext()
+  return computed(() => context.value?.[key] as T | undefined)
 }

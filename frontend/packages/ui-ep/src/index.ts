@@ -296,7 +296,11 @@ export {
 } from './composables/useBaseContainer'
 export { useBaseLayout, type UseBaseLayoutOptions, type UseBaseLayoutResult } from './composables/useBaseLayout'
 export {
+  MODULE_SLOT_CONTEXT_KEY,
+  provideModuleSlotContext,
   useModuleArea,
+  useModuleSlotContext,
+  useModuleSlotField,
   type ModuleAreaItem,
   type UseModuleAreaOptions,
   type UseModuleAreaResult,

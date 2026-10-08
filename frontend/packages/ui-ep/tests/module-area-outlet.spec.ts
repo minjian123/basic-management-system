@@ -1,5 +1,9 @@
 // kiwi_id: 977
-/** 模块区域插槽用例（按区域标识只读消费区域项：保序渲染、空区域为空、装配变化重算）。 */
+// kiwi_id: 2260
+/**
+ * 模块区域插槽用例（按区域标识只读消费区域项：保序渲染、空区域为空、装配变化重算）；
+ * 显式上下文通道（需求 05-11）：只读注入 / 未注入即降级。
+ */
 
 import { createRegistries, PageAreaProvider } from '@bms/core'
 import { flushPromises, mount } from '@vue/test-utils'
@@ -8,7 +12,7 @@ import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { h, ref } from 'vue'
 
-import { ModuleAreaOutlet } from '../src'
+import { ModuleAreaOutlet, useModuleSlotContext, useModuleSlotField } from '../src'
 
 /** 具名文本组件（渲染期渲染自身标题）。 */
 function textComponent(name: string, text: string): { name: string; setup: () => () => unknown } {
@@ -133,6 +137,104 @@ describe('ModuleAreaOutlet（Kiwi 977）', () => {
 
     const empty = mount(ModuleAreaOutlet, { props: { area: 'unknown.area', registries, variant: 'tabs' } })
     expect(empty.findAll('.el-tabs__item')).toEqual([])
+  })
+
+  it('显式上下文：宿主页经 context 注入，区域项经注入通道只读取得（非路由承载页）', () => {
+    const registries = createRegistries()
+    /** 消费上下文的探针插件项。 */
+    const probe = {
+      name: 'ctx-probe',
+      setup: () => {
+        const roleId = useModuleSlotField<string>('roleId')
+        const context = useModuleSlotContext()
+        return () => h('span', { class: 'probe-ctx' }, `${String(roleId.value ?? 'none')}|${String(context.value?.site ?? 'none')}`)
+      },
+    }
+    registries.pageArea.register(
+      new PageAreaProvider('mdm-org:role-posts', 'sys.role.detail.assign', probe, 20, { title: '岗位分配' }),
+    )
+
+    const wrapper = mount(ModuleAreaOutlet, {
+      props: {
+        area: 'sys.role.detail.assign',
+        registries,
+        variant: 'tabs',
+        context: { roleId: 'r-1', site: 'ops' },
+      },
+    })
+
+    expect(wrapper.find('.probe-ctx').text()).toBe('r-1|ops')
+    expect(wrapper.findAll('.el-tabs__item').map((item) => item.text())).toEqual(['岗位分配'])
+  })
+
+  it('显式上下文：未注入时区域项取得 undefined（插件自行降级，不报错）', () => {
+    const registries = createRegistries()
+    /** 消费上下文的探针插件项。 */
+    const probe = {
+      name: 'ctx-probe',
+      setup: () => {
+        const roleId = useModuleSlotField<string>('roleId')
+        return () => h('span', { class: 'probe-ctx' }, String(roleId.value ?? 'none'))
+      },
+    }
+    registries.pageArea.register(
+      new PageAreaProvider('mdm-org:role-depts', 'sys.role.detail.assign', probe, 30, { title: '部门分配' }),
+    )
+
+    const wrapper = mount(ModuleAreaOutlet, { props: { area: 'sys.role.detail.assign', registries, variant: 'tabs' } })
+
+    expect(wrapper.find('.probe-ctx').text()).toBe('none')
+  })
+
+  it('显式上下文为只读（冻结浅拷贝）：区域项改动不生效', () => {
+    const registries = createRegistries()
+    /** 试图篡改上下文的探针插件项。 */
+    const probe = {
+      name: 'ctx-writer',
+      setup: () => {
+        const context = useModuleSlotContext()
+        return () => {
+          if (context.value !== undefined) {
+            try {
+              ;(context.value as Record<string, unknown>)['roleId'] = 'tampered'
+            } catch {
+              // 冻结对象在严格模式下抛错即视为只读生效（不阻断渲染）
+            }
+          }
+          return h('span', { class: 'probe-ro' }, String(context.value?.roleId))
+        }
+      },
+    }
+    registries.pageArea.register(
+      new PageAreaProvider('demo:writer', 'sys.role.detail.assign', probe, 10, { title: '写入探针' }),
+    )
+
+    const wrapper = mount(ModuleAreaOutlet, {
+      props: { area: 'sys.role.detail.assign', registries, variant: 'tabs', context: { roleId: 'r-7' } },
+    })
+
+    expect(wrapper.find('.probe-ro').text()).toBe('r-7')
+  })
+
+  it('上下文与路由通道并存：未声明 context 的宿主页行为不变（inline 形态一致）', () => {
+    const registries = createRegistries()
+    /** 消费上下文的探针插件项。 */
+    const probe = {
+      name: 'ctx-probe-inline',
+      setup: () => {
+        const roleId = useModuleSlotField<string>('roleId')
+        return () => h('span', { class: 'probe-inline' }, String(roleId.value ?? 'none'))
+      },
+    }
+    registries.pageArea.register(new PageAreaProvider('demo:inline', 'layout.header', probe, 10))
+
+    const without = mount(ModuleAreaOutlet, { props: { area: 'layout.header', registries } })
+    expect(without.find('.probe-inline').text()).toBe('none')
+
+    const withContext = mount(ModuleAreaOutlet, {
+      props: { area: 'layout.header', registries, context: { roleId: 'r-3' } },
+    })
+    expect(withContext.find('.probe-inline').text()).toBe('r-3')
   })
 
   it('权限码变化后重算（inline 形态按权限显隐）', async () => {

@@ -1,5 +1,6 @@
 // kiwi_id: 2238
-/** 护栏：宿主页不直连具体插件（宿主只经模块清单 + 具名插槽注册表接入；入口懒加载表为唯一例外）。 */
+// kiwi_id: 2260
+/** 护栏：宿主页不直连具体插件（宿主只经模块清单 + 具名插槽注册表接入；入口懒加载表为唯一例外）；含显式上下文注入宿主页。 */
 
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join, resolve } from 'node:path'
@@ -69,6 +70,16 @@ describe('具名插槽宿主隔离护栏（Kiwi 2238）', () => {
 
     expect(source).toContain('module-area-outlet')
     expect(source).toContain('sys.user.detail.tabs')
+    expect(source).not.toMatch(/@bms\/module-/)
+  })
+
+  it('角色分配页签经区域插槽件声明挂接位并注入只读上下文（roleId，非路由承载页）', () => {
+    const source = readFileSync(join(SRC, 'views', 'system', 'role', 'RoleAssignTab.vue'), 'utf8')
+
+    expect(source).toContain('module-area-outlet')
+    expect(source).toContain('sys.role.detail.assign')
+    expect(source).toContain(':context="slotContext"')
+    expect(source).toContain('roleId: props.roleId')
     expect(source).not.toMatch(/@bms\/module-/)
   })
 

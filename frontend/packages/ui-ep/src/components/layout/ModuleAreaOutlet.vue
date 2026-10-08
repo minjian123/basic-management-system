@@ -11,7 +11,7 @@ import { ElTabPane, ElTabs } from 'element-plus'
 
 import { ref, watch } from 'vue'
 
-import { useModuleArea, type ModuleAreaItem } from '../../composables/useModuleArea'
+import { provideModuleSlotContext, useModuleArea, type ModuleAreaItem } from '../../composables/useModuleArea'
 import IconRenderer from '../interaction/IconRenderer.vue'
 
 interface Props {
@@ -25,13 +25,23 @@ interface Props {
   variant?: 'inline' | 'tabs'
   /** 已持有权限码（按权限显隐；缺省空集合）。 */
   permissionCodes?: string[]
+  /**
+   * 显式上下文（宿主页注入；区域项经 `useModuleSlotContext()` 只读取得）。
+   *
+   * 用于**非路由承载**的宿主页（表单框架记录页签等）；未声明即不注入（插件自行降级）。
+   */
+  context?: Record<string, unknown>
 }
 
 const props = withDefaults(defineProps<Props>(), {
   revision: 0,
   variant: 'inline',
   permissionCodes: () => [],
+  context: undefined,
 })
+
+// 显式上下文（只读注入；未声明即不注入——区域项经 `useModuleSlotContext()` 取得 `undefined` 并自行降级）
+provideModuleSlotContext(() => props.context)
 
 const { hidden, items, resolve } = useModuleArea({
   area: () => props.area,

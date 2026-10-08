@@ -1,7 +1,11 @@
 <script setup lang="ts">
 // 角色分配（权限配置第四页签）：用户分配内建（岗位 / 部门分配由 mdm 插件插入，缺失即隐藏）。
 // 变更**随宿主保存**（原型口径：保存只在页面工具栏一处）——页签内只记挂起变更，`save()` 统一提交。
-import { EmptyState } from '@bms/ui-ep'
+//
+// **具名插槽宿主（非路由承载）**：本页签非独立路由（无 `:id` 路由参数），故当前角色标识经
+// **显式上下文注入通道**（`ModuleAreaOutlet` 的 `context`，需求 `05-11`）交给区域项插件——
+// 宿主页**只声明挂接位与上下文**，不 import 任何具体插件。
+import { EmptyState, ModuleAreaOutlet } from '@bms/ui-ep'
 import { ElMessage } from 'element-plus'
 import { computed, onMounted, ref, watch } from 'vue'
 
@@ -12,11 +16,28 @@ import {
   type AssignedUserItem,
 } from '@/api/role'
 import { listUsers, type UserItem } from '@/api/user'
+import { registries, registriesRevision } from '@/module/registries'
+import { useSessionStore } from '@/stores/session'
 
 const props = defineProps<{
   /** 角色主键。 */
   roleId: string
 }>()
+
+/** 具名插槽标识（`{域}.{页面}.{区域}`）：角色表单「角色分配」页签的插件挂接位。 */
+const ROLE_ASSIGN_SLOT = 'sys.role.detail.assign'
+
+const session = useSessionStore()
+
+/** 已持有权限码（插槽项按权限显隐；随会话变化刷新）。 */
+const permissionCodes = computed(() => session.codes)
+
+/**
+ * 具名插槽显式上下文（只读；非路由承载页的作用实体标识经此通道给区域项）。
+ *
+ * 插件经 `useModuleSlotContext()` / `useModuleSlotField('roleId')` 只读取得；缺失即自行降级（不请求）。
+ */
+const slotContext = computed<Record<string, unknown>>(() => ({ roleId: props.roleId }))
 
 const emit = defineEmits<{ dirty: [dirty: boolean] }>()
 
@@ -264,6 +285,18 @@ defineExpose({ save, revert })
       />
     </div>
 
+    <!-- 具名插槽：岗位 / 部门分配由 mdm 插件插入（缺失 / 未启用 / 无权限即隐藏，不报错、不阻塞本页其余） -->
+    <div class="role-assign__slots">
+      <module-area-outlet
+        :area="ROLE_ASSIGN_SLOT"
+        variant="tabs"
+        :registries="registries"
+        :revision="registriesRevision"
+        :permission-codes="permissionCodes"
+        :context="slotContext"
+      />
+    </div>
+
     <el-dialog v-model="pickerVisible" title="选择用户" width="560" align-center>
       <div class="role-assign__picker">
         <el-input
@@ -326,6 +359,10 @@ defineExpose({ save, revert })
 .role-assign__dirty {
   font-size: var(--bms-font-size-sm);
   color: var(--bms-color-danger);
+}
+
+.role-assign__slots {
+  margin-top: var(--bms-space-4);
 }
 
 .role-assign__picker {

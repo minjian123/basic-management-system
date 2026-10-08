@@ -587,6 +587,7 @@ export {
   type ModuleRegionDeclaration,
   type ModuleRegistration,
   type ModuleRouteDeclaration,
+  type ModuleSlotContext,
   type ModuleThemeTokenDeclaration,
 } from './module/types'
 export { MODULE_NAME_PATTERN, defineModule } from './module/define'

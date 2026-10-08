@@ -52,6 +52,15 @@ export interface ModuleRegionDeclaration {
   when?: () => boolean
 }
 
+/**
+ * 具名插槽上下文（宿主页注入；**只读**）。
+ *
+ * 非路由承载的宿主页（如表单框架的记录页签：角色表单「角色分配」页签）把作用实体标识等经
+ * 区域插槽件的 `context` 传入，区域项组件经 `useModuleSlotContext()`（`@bms/ui-ep`）**只读取得**——
+ * 宿主页与插件之间**不新增直接依赖**；未提供的键以 `undefined` 呈现，插件**自行降级**（不假定存在、不发起请求）。
+ */
+export type ModuleSlotContext = Readonly<Record<string, unknown>>
+
 /** 模块主题令牌声明。 */
 export interface ModuleThemeTokenDeclaration {
   /** 命名空间键（`<模块名>:<主题标识>`）。 */
