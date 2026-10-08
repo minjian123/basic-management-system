@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any, Literal, cast
 
 from dotenv import dotenv_values
-from pydantic import ConfigDict, Field, ValidationError, field_validator
+from pydantic import ConfigDict, Field, ValidationError, field_validator, model_validator
 from pydantic.fields import FieldInfo
 from pydantic_settings import (
     BaseSettings as PydanticBaseSettings,
@@ -30,6 +30,7 @@ from sqlalchemy.engine import make_url
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.exceptions import ConfigError
+from bms_core.permission.profile import DEFAULT_PROFILE, ensure_profile_supported, normalize_profile
 from bms_core.schemas.base import (
     CONTRACT_COLLECTION,
     CONTRACT_STABLE_DICT,
@@ -463,6 +464,32 @@ class PluginSelection(BaseSettings):
         default_factory=CONTRACT_STABLE_DICT
     )
     """非敏感选项（键位由各实现解读；密钥不入配置 / 不入日志）。"""
+
+
+class PermissionSettings(PluginSelection):
+    """权限引擎配置（`[permission]`；在能力选择之外追加引擎档位）。
+
+    档位（`profile`）决定引擎能力集合：`smb`（中小企业基础版，当前已实现）/ `enterprise`（大型企业精细化）/
+    `enterprise_hr`（大型企业人事结构化）；未实现的档位在启动期报错（fail-closed），不静默降级为 `smb`。
+
+    `provider` 由 `null`（恒放行占位）切为 `rbac` 即启用真实校验；`options` 承载快照 TTL、豁免角色等实现参数。
+    """
+
+    profile: str = DEFAULT_PROFILE
+    """引擎档位（缺省 `smb`；取值与含义见 `bms_core.permission.profile`）。"""
+
+    @model_validator(mode="after")
+    def _validate_profile(self) -> PermissionSettings:
+        """校验档位合法且已实现（未实现即启动失败，不静默降级）。
+
+        Returns:
+            PermissionSettings: 自身。
+
+        Raises:
+            ConfigError: 档位非法或尚未实现。
+        """
+        ensure_profile_supported(normalize_profile(self.profile))
+        return self
 
 
 class TracerSettings(PluginSelection):
@@ -998,7 +1025,7 @@ class Settings(PydanticBaseSettings, BaseSettings):  # pyright: ignore[reportInc
     password_policy: PluginSelection = Field(default_factory=PluginSelection)
     password_hasher: PluginSelection = Field(default_factory=PluginSelection)
     password_reset: PasswordResetSettings = Field(default_factory=PasswordResetSettings)
-    permission: PluginSelection = Field(default_factory=PluginSelection)
+    permission: PermissionSettings = Field(default_factory=PermissionSettings)
     preference: PluginSelection = Field(default_factory=PluginSelection)
     print_exporter: PluginSelection = Field(default_factory=PluginSelection)
     print_template: PluginSelection = Field(default_factory=PluginSelection)

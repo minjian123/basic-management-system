@@ -149,6 +149,22 @@ class UserRoleRepository(BaseDbRepository[SysUserRole]):
         )
         return ConcurrentStableList((await self._session.execute(statement)).scalars().all())
 
+    async def list_role_ids_by_user(self, user_id: int) -> ConcurrentStableList[int]:
+        """取用户已分配的角色主键清单（不含软删除；主体链解析用）。
+
+        Args:
+            user_id: 用户主键。
+
+        Returns:
+            ConcurrentStableList[int]: 角色主键清单（按主键升序）。
+        """
+        statement = (
+            select(self._column("role_id"))
+            .where(*self._scope_where(), self._column("user_id") == user_id)
+            .order_by(self._column("id").asc())
+        )
+        return ConcurrentStableList((await self._session.execute(statement)).scalars().all())
+
     async def count_by_role(self, role_id: int) -> int:
         """统计角色已分配用户数（不含软删除）。
 
@@ -343,6 +359,22 @@ class RolePermissionRepository(BaseDbRepository[SysRolePermission]):
         statement = self._select().where(self._column("role_id") == role_id).order_by(self._column("id").asc())
         return ConcurrentStableList((await self._session.execute(statement)).scalars().all())
 
+    async def list_by_roles(self, role_ids: ConcurrentStableSet[int]) -> ConcurrentStableList[SysRolePermission]:
+        """取一组角色的全部授权行（不含软删除；权限聚合一批取，避免 N 次查询）。
+
+        Args:
+            role_ids: 角色主键集合（空集返回空列表）。
+
+        Returns:
+            ConcurrentStableList[SysRolePermission]: 授权行列表（按主键升序）。
+        """
+        if not role_ids:
+            return ConcurrentStableList()
+        statement = (
+            self._select().where(self._column("role_id").in_(tuple(role_ids))).order_by(self._column("id").asc())
+        )
+        return ConcurrentStableList((await self._session.execute(statement)).scalars().all())
+
     async def delete_by_role(self, role_id: int, *, now: datetime | None = None) -> None:
         """批量软删角色的全部授权行（全量覆盖提交的先删步骤）。
 
@@ -377,6 +409,22 @@ class RoleFieldRepository(BaseDbRepository[SysRoleField]):
         statement = self._select().where(self._column("role_id") == role_id).order_by(self._column("id").asc())
         return ConcurrentStableList((await self._session.execute(statement)).scalars().all())
 
+    async def list_by_roles(self, role_ids: ConcurrentStableSet[int]) -> ConcurrentStableList[SysRoleField]:
+        """取一组角色的全部字段权限行（不含软删除；字段权限聚合一批取，避免 N 次查询）。
+
+        Args:
+            role_ids: 角色主键集合（空集返回空列表）。
+
+        Returns:
+            ConcurrentStableList[SysRoleField]: 字段权限行列表（按主键升序）。
+        """
+        if not role_ids:
+            return ConcurrentStableList()
+        statement = (
+            self._select().where(self._column("role_id").in_(tuple(role_ids))).order_by(self._column("id").asc())
+        )
+        return ConcurrentStableList((await self._session.execute(statement)).scalars().all())
+
     async def delete_by_role(self, role_id: int, *, now: datetime | None = None) -> None:
         """批量软删角色的全部字段权限行（全量覆盖提交的先删步骤）。
 
@@ -409,6 +457,22 @@ class DataScopeRepository(BaseDbRepository[SysDataScope]):
             ConcurrentStableList[SysDataScope]: 数据权限行列表（按主键升序）。
         """
         statement = self._select().where(self._column("role_id") == role_id).order_by(self._column("id").asc())
+        return ConcurrentStableList((await self._session.execute(statement)).scalars().all())
+
+    async def list_by_roles(self, role_ids: ConcurrentStableSet[int]) -> ConcurrentStableList[SysDataScope]:
+        """取一组角色的全部数据权限行（不含软删除；快照聚合一批取，避免 N 次查询）。
+
+        Args:
+            role_ids: 角色主键集合（空集返回空列表）。
+
+        Returns:
+            ConcurrentStableList[SysDataScope]: 数据权限行列表（按主键升序）。
+        """
+        if not role_ids:
+            return ConcurrentStableList()
+        statement = (
+            self._select().where(self._column("role_id").in_(tuple(role_ids))).order_by(self._column("id").asc())
+        )
         return ConcurrentStableList((await self._session.execute(statement)).scalars().all())
 
     async def delete_by_role(self, role_id: int, *, now: datetime | None = None) -> None:
