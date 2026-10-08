@@ -24,7 +24,7 @@
 | `id` | BIGINT | 否 | 主键，雪花 ID | 主键 |
 | `product_key` | VARCHAR(32) | 否 | 与 `deleted_at` 复合唯一 | 产品标识（如 `mdm` / `biz` / `cw`） |
 | `name` | VARCHAR(128) | 否 | — | 产品名称（默认文案） |
-| `frontend_package_source` | VARCHAR(255) | 是 | — | 前端包来源（产品前端模块产物的获取来源；如仓库 / 包标识） |
+| `frontend_package_source` | VARCHAR(255) | 是 | — | 前端包来源：**产品前端工程标识** `{仓库名}#{前端根}`（如 `mdm#frontend`）——只记「从哪里取」；主机 / 凭据 / 访问地址由部署环境配置注入，不入库。已接入产品回填、未接入留空 |
 | `status` | VARCHAR(16) | 否 | 默认 `enabled` | 状态：`enabled` / `disabled` / `planned`（已注册未建代码 / 建表，先注册后建表的预登记态）/ `retired`（下线保留登记，不物理删除） |
 | `created_at` | DATETIME | 否 | 审计 | 创建时间（UTC） |
 | `created_by` | BIGINT | 是 | 审计 | 创建人 |
@@ -55,5 +55,6 @@
 | 2026-10-07 | v1 | 新建表结构（平台库；产品级注册档案，`sys_module.product_key` 逻辑引用） | minjian |
 | 2026-10-07 | v2 | 迁移落地：随平台链 `0009_sys_product` 建表 + 表归属登记（`platform` / 平台服务库）+ 产品档案种子三行（`biz` / `cw` / `mdm`）；ORM 落点按 06_02 口径修正为 `bms_platform/models/catalog.py::SysProduct` | minjian |
 | 2026-10-07 | v3 | `status` 取值补 `planned`（已注册未建代码 / 建表：`mdm` 先注册后建表的预登记态，与 `sys_module.status` 口径一致） | minjian |
+| 2026-10-08 | v4 | `frontend_package_source` 取值口径定稿（产品前端工程标识 `{仓库名}#{前端根}`，不含主机与凭据）并回填已接入产品 `mdm`（`mdm#frontend`）；随 bms 任务 `03_04`（R4.3 跨仓模块产物接入）交付 | minjian |
 
 > 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套
