@@ -14,6 +14,7 @@
 `profile` 是**引擎档位**（能力集合，见 `permission/profile.py`）。
 """
 
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 from typing import Any, cast
 
@@ -221,3 +222,31 @@ def _as_field_permission(value: object) -> FieldPermission:
         visible=bool(row.get("visible", True)),
         editable=bool(row.get("editable", True)),
     )
+
+
+current_permission_snapshot: ContextVar[PermissionSnapshot | None] = ContextVar(
+    "current_permission_snapshot", default=None
+)
+"""当前请求的用户权限快照（**引擎契约位**：真实校验器在请求级预加载时写入；请求间隔离）。
+
+放基座而非某服务的校验器内：字段权限标记 / 数据范围注入 / 权限概要等**消费方**都要读它，
+它们不该依赖某个具体 provider 服务的内部模块。
+"""
+
+
+def set_current_permission_snapshot(snapshot: PermissionSnapshot | None) -> None:
+    """写入当前请求的用户权限快照。
+
+    Args:
+        snapshot: 权限快照；None 表示清空（无用户上下文 / 用例隔离）。
+    """
+    current_permission_snapshot.set(snapshot)
+
+
+def get_current_permission_snapshot() -> PermissionSnapshot | None:
+    """取当前请求的用户权限快照。
+
+    Returns:
+        PermissionSnapshot | None: 快照；未预加载为 None（消费方自行决定从严或放宽）。
+    """
+    return current_permission_snapshot.get()

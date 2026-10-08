@@ -16,6 +16,7 @@
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.objects import BaseFrameworkObject
 from bms_core.permission.base import BasePermissionChecker
+from bms_core.permission.snapshot import get_current_permission_snapshot
 from bms_platform.schemas.menu import (
     MyMenuButton,
     MyMenuField,
@@ -145,19 +146,43 @@ class MyMenuService(BaseFrameworkObject):
                 )
                 for button in form.buttons
             ),
-            fields=ConcurrentStableList(
+            fields=self._to_fields(form),
+        )
+
+    @staticmethod
+    def _to_fields(form: SnapshotForm) -> ConcurrentStableList[MyMenuField]:
+        """表单元数据字段（按**权限快照**的字段收窄标记 `visible` / `editable`）。
+
+        字段权限口径见 `bms_core.permission.field`：默认全开、只登记收窄项、多角色从严
+        （快照内的合并结果）。快照未预加载（占位实现 / 服务身份）时按全开处置。
+
+        Args:
+            form: 表单快照。
+
+        Returns:
+            ConcurrentStableList[MyMenuField]: 字段元数据列表。
+        """
+        snapshot = get_current_permission_snapshot()
+        result: ConcurrentStableList[MyMenuField] = ConcurrentStableList()
+        for field in form.fields:
+            visible = True
+            editable = True
+            if snapshot is not None and not snapshot.exempt:
+                state = snapshot.field_state(form.id, field.field_key)
+                if state is not None:
+                    visible, editable = state
+            result.add(
                 MyMenuField(
                     id=field.id,
                     field_key=field.field_key,
                     name=field.name,
                     type=field.type,
                     sort=field.sort,
-                    visible=True,
-                    editable=True,
+                    visible=visible,
+                    editable=editable,
                 )
-                for field in form.fields
-            ),
-        )
+            )
+        return result
 
     @staticmethod
     def _prune_empty(nodes: ConcurrentStableList[MyMenuNode]) -> ConcurrentStableList[MyMenuNode]:

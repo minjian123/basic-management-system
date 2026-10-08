@@ -6,13 +6,18 @@
 - **基础版**（`smb`）默认实现：`StaticFieldPermissionProvider`（platform 侧，静态收窄两态）；
 - **后代**（`enterprise` / `enterprise_hr`）可换「条件化 / 按值域」求值器——**同一协议**，引擎主流程不改
   （见《02_04 详细设计》§11.2 接缝 2）。
+
+**登记的是工厂而非实例**：求值需要库会话（租户库角色收窄项 + 元数据库字段键），而会话是请求级的；
+工厂签名 `(租户库会话, 元数据库会话) → provider`，引擎在请求内按当前会话构造。
 """
 
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from dataclasses import dataclass
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.objects import BaseDataContract, BaseFrameworkObject
+from bms_core.db.session import DbSession
 
 DEFAULT_FIELD_PERMISSION_PROVIDER_KEY = "static_field_permission"
 """基础版字段权限 provider 标识（platform 侧静态收窄实现）。"""
@@ -53,32 +58,37 @@ class BaseFieldPermissionProvider(BaseFrameworkObject, ABC):
         """
 
 
-_PROVIDERS: ConcurrentStableDict[str, BaseFieldPermissionProvider] = ConcurrentStableDict()
-"""字段权限 provider 注册表（key → 实例；登记顺序即输出顺序）。"""
+FieldPermissionProviderFactory = Callable[[DbSession, DbSession], BaseFieldPermissionProvider]
+"""字段权限 provider 工厂：`(租户库会话, 元数据库会话) → provider`。"""
 
 
-def register_field_permission_provider(provider: BaseFieldPermissionProvider) -> None:
-    """登记字段权限 provider（同 key 覆盖；装配期调用）。
+_FACTORIES: ConcurrentStableDict[str, FieldPermissionProviderFactory] = ConcurrentStableDict()
+"""字段权限 provider 工厂注册表（key → 工厂；登记顺序即输出顺序）。"""
+
+
+def register_field_permission_provider_factory(key: str, factory: FieldPermissionProviderFactory) -> None:
+    """登记字段权限 provider 工厂（同 key 覆盖；装配期调用）。
 
     Args:
-        provider: provider 实例。
+        key: provider 标识（缺省实现用 `DEFAULT_FIELD_PERMISSION_PROVIDER_KEY`）。
+        factory: 工厂 `(租户库会话, 元数据库会话) → provider`。
     """
-    _PROVIDERS.set(provider.key, provider)
+    _FACTORIES.set(key, factory)
 
 
-def current_field_permission_provider() -> BaseFieldPermissionProvider | None:
-    """取当前生效的字段权限 provider（未登记返回 `None`，引擎按「全开」处置）。
+def current_field_permission_provider_factory() -> FieldPermissionProviderFactory | None:
+    """取当前生效的字段权限 provider 工厂（未登记返回 `None`，引擎按「全开」处置）。
 
     Returns:
-        BaseFieldPermissionProvider | None: 最后登记的 provider；无登记为 None。
+        FieldPermissionProviderFactory | None: 最后登记的工厂；无登记为 None。
     """
-    latest: BaseFieldPermissionProvider | None = None
-    for key in _PROVIDERS:
-        latest = _PROVIDERS.get(key)
+    latest: FieldPermissionProviderFactory | None = None
+    for key in _FACTORIES:
+        latest = _FACTORIES.get(key)
     return latest
 
 
-def reset_field_permission_providers() -> None:
-    """清空 provider 注册表（用例隔离用）。"""
-    for key in tuple(_PROVIDERS):
-        _PROVIDERS.delete(key)
+def reset_field_permission_provider_factories() -> None:
+    """清空工厂注册表（用例隔离用）。"""
+    for key in tuple(_FACTORIES):
+        _FACTORIES.delete(key)

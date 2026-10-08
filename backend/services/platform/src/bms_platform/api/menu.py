@@ -30,7 +30,7 @@ from bms_core.db.unit_of_work import UnitOfWork
 from bms_core.i18n.base import DEFAULT_LOCALE, SUPPORTED_LOCALES
 from bms_core.menu import DEFAULT_MENU_TREE_CACHE_TTL, MENU_TREE_CACHE_TTL_KEY
 from bms_core.outbox.base import BaseOutboxStore
-from bms_core.permission.base import BasePermissionChecker, require_permission
+from bms_core.permission.base import BasePermissionChecker, prepare_permission_dependency, require_permission
 from bms_core.schemas.common import ApiResponse
 from bms_platform.models.menu import SysButton, SysField, SysForm, SysMenu
 from bms_platform.repositories.menu import (
@@ -275,7 +275,7 @@ def _field_item(row: SysField) -> FieldItem:
 # ------------------------------------------------------------------ 动态菜单（登录即可）
 
 
-@menu_router.get("/my")
+@menu_router.get("/my", dependencies=[Depends(prepare_permission_dependency())])
 async def my_menus(
     request: Request,
     uow: UowDep,

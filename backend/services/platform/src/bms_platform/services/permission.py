@@ -25,6 +25,7 @@ from bms_core.cache.base import CacheRegion
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.objects import BaseFrameworkObject
 from bms_core.i18n.base import DEFAULT_LOCALE
+from bms_core.permission.field import BaseFieldPermissionProvider, FieldPermission
 from bms_core.permission.profile import DEFAULT_PROFILE
 from bms_core.permission.snapshot import (
     TIER_PLATFORM_ADMIN,
@@ -80,6 +81,7 @@ class PermissionService(BaseFrameworkObject):
         metadata: MenuMetadataService,
         subject: PermissionSubjectService,
         cache: CacheRegion,
+        field_provider: BaseFieldPermissionProvider | None = None,
         profile: str = DEFAULT_PROFILE,
         ttl: int = DEFAULT_SNAPSHOT_TTL,
         exempt_role_types: tuple[str, ...] = (ROLE_TYPE_SYSTEM,),
@@ -93,6 +95,7 @@ class PermissionService(BaseFrameworkObject):
             metadata: 菜单与权限元数据服务（平台库；业务码 / 动作码解析源，自带缓存与版本失效）。
             subject: 主体链收敛服务（解析器链）。
             cache: 缓存能力域（快照缓存 + 权限版本）。
+            field_provider: 字段权限求值器（None 表示无字段收窄，字段全开）。
             profile: 引擎档位（缺省 `smb`）。
             ttl: 快照缓存有效期（秒）。
             exempt_role_types: 豁免层级判定的角色类型（缺省 `system`，即系统管理员）。
@@ -103,6 +106,7 @@ class PermissionService(BaseFrameworkObject):
         self._metadata = metadata
         self._subject = subject
         self._cache = cache
+        self._field_provider = field_provider
         self._profile = profile
         self._ttl = ttl
         self._exempt_role_types = exempt_role_types
@@ -161,7 +165,21 @@ class PermissionService(BaseFrameworkObject):
             business_codes=business,
             action_codes=actions,
             data_scopes=await self._data_scope_rules(role_ids),
+            field_perms=await self._field_perms(role_ids),
         )
+
+    async def _field_perms(self, role_ids: ConcurrentStableSet[int]) -> ConcurrentStableList[FieldPermission]:
+        """求值字段权限收窄项（无 provider / 无角色即全开，返回空列表）。
+
+        Args:
+            role_ids: 角色主键集合。
+
+        Returns:
+            ConcurrentStableList[FieldPermission]: 收窄项列表（空表示全开）。
+        """
+        if self._field_provider is None or not role_ids:
+            return ConcurrentStableList()
+        return await self._field_provider.resolve(role_ids=role_ids, form_ids=ConcurrentStableSet[int]())
 
     async def invalidate(self, *, tenant_id: str | None, user_ids: tuple[int, ...] | None = None) -> int:
         """失效权限快照：租户权限版本 +1；给定用户时顺带删除其旧版本键。

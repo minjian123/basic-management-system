@@ -116,7 +116,7 @@ def require_permission(code: str) -> Callable[..., Awaitable[None]]:
         checker = get_permission_checker(request)
         prepare = getattr(checker, "aprepare", None)
         if callable(prepare):
-            await prepare(request=request)
+            await cast("Callable[..., Awaitable[None]]", prepare)(request=request)
         checker.require(code)
 
     return _dependency

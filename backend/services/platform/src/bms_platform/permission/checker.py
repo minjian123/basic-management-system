@@ -15,7 +15,6 @@
 
 from __future__ import annotations
 
-from contextvars import ContextVar
 from typing import Any, cast
 
 from fastapi import Request
@@ -27,13 +26,23 @@ from bms_core.core.context import current_tenant_id, current_user_id
 from bms_core.core.factory import BasePluginFactory
 from bms_core.core.plugin import default_plugin_registry, register_plugin
 from bms_core.db.keys import PLATFORM_DB_KEY
-from bms_core.db.session import session_scope
+from bms_core.db.session import DbSession, session_scope
 from bms_core.permission.base import BasePermissionChecker
+from bms_core.permission.field import (
+    BaseFieldPermissionProvider,
+    current_field_permission_provider_factory,
+)
 from bms_core.permission.guard import PermissionGuardContext, guards_allow
 from bms_core.permission.profile import DEFAULT_PROFILE
-from bms_core.permission.snapshot import TIER_PLATFORM_ADMIN, PermissionSnapshot
+from bms_core.permission.snapshot import (
+    TIER_PLATFORM_ADMIN,
+    PermissionSnapshot,
+    get_current_permission_snapshot,
+    set_current_permission_snapshot,
+)
 from bms_core.servicecall.base import BaseServiceClient
 from bms_platform.models.role import ROLE_TYPE_SYSTEM
+from bms_platform.permission.field_provider import register_static_field_provider
 from bms_platform.permission.metadata import build_menu_metadata_service
 from bms_platform.repositories.role import (
     DataScopeRepository,
@@ -51,10 +60,9 @@ from bms_platform.services.permission_subject import (
 RBAC_PROVIDER_NAME = "rbac"
 """真实权限校验器实现名（`[permission].provider`）。"""
 
-current_permission_snapshot: ContextVar[PermissionSnapshot | None] = ContextVar(
-    "current_permission_snapshot", default=None
-)
-"""当前请求的用户权限快照（`aprepare` 写入、`check` 只读；请求间隔离）。"""
+"""当前请求的用户权限快照由**基座契约位**承载（`bms_core.permission.snapshot.current_permission_snapshot`）：
+`aprepare` 写入、`check` 与各消费方（字段权限标记 / 数据范围注入 / 权限概要）只读，请求间隔离。
+"""
 
 _PREPARED_STATE_ATTR = "permission_prepared"
 """请求标记属性：同一请求内只预加载一次（多权限码端点复用）。"""
@@ -100,7 +108,7 @@ class RbacPermissionChecker(BasePermissionChecker):
         Returns:
             bool: 允许为 True（未预加载时从严拒绝，提示依赖漏挂）。
         """
-        snapshot = current_permission_snapshot.get()
+        snapshot = get_current_permission_snapshot()
         if snapshot is None:
             return False
         if snapshot.exempt:
@@ -129,7 +137,7 @@ class RbacPermissionChecker(BasePermissionChecker):
         setattr(request.state, _PREPARED_STATE_ATTR, True)
         user_id = current_user_id.get()
         if user_id is None:
-            current_permission_snapshot.set(PermissionSnapshot(profile=self._profile, tier=TIER_PLATFORM_ADMIN))
+            set_current_permission_snapshot(PermissionSnapshot(profile=self._profile, tier=TIER_PLATFORM_ADMIN))
             return
         tenant_id = current_tenant_id.get()
         registry: Any = request.app.state.engine_registry
@@ -150,12 +158,29 @@ class RbacPermissionChecker(BasePermissionChecker):
                 metadata=build_menu_metadata_service(platform_session, cache),
                 subject=PermissionSubjectService(resolvers),
                 cache=cache,
+                field_provider=self._build_field_provider(session, platform_session),
                 profile=self._profile,
                 ttl=self._ttl,
                 exempt_role_types=self._exempt_role_types,
             )
             snapshot = await service.snapshot_for(user_id=user_id, tenant_id=tenant_id)
-        current_permission_snapshot.set(snapshot)
+        set_current_permission_snapshot(snapshot)
+
+    @staticmethod
+    def _build_field_provider(tenant_session: DbSession, meta_session: DbSession) -> BaseFieldPermissionProvider | None:
+        """按登记的工厂构造字段权限求值器（未登记 → None，字段全开）。
+
+        Args:
+            tenant_session: 租户库会话。
+            meta_session: 平台库会话。
+
+        Returns:
+            BaseFieldPermissionProvider | None: 求值器；未登记工厂为 None。
+        """
+        factory = current_field_permission_provider_factory()
+        if factory is None:
+            return None
+        return factory(tenant_session, meta_session)
 
 
 class RbacPermissionCheckerFactory(BasePluginFactory[RbacPermissionChecker]):
@@ -217,4 +242,6 @@ def register_rbac_permission(settings: Settings) -> None:
     if any(item is registry for item in _REGISTERED_REGISTRIES):
         return
     register_plugin("permission", RBAC_PROVIDER_NAME, RbacPermissionCheckerFactory(settings))
+    # 基础版字段权限 provider（后代档位登记同名工厂即可覆盖；与注册表同生命周期需重置）
+    register_static_field_provider()
     _REGISTERED_REGISTRIES.add(registry)
