@@ -15,6 +15,7 @@ from bms_platform import CONTRACT_VERSION, SERVICE_NAME, SERVICE_TITLE, __versio
 from bms_platform.api.router import api_router
 from bms_platform.permission.checker import RBAC_PROVIDER_NAME, register_rbac_permission
 from bms_platform.repositories.demo_repository import DemoRepository
+from bms_platform.scope.rbac import RBAC_DATA_SCOPE_NAME, register_rbac_data_scope
 from bms_platform.services.demo_service import DemoService
 from bms_platform.sources.catalog_source import read_catalog
 
@@ -42,7 +43,10 @@ class ApplicationFactory(BaseServiceApplicationFactory):
         """
         if not settings.permission.provider:
             settings.permission.provider = RBAC_PROVIDER_NAME
+        if not settings.data_scope.provider:
+            settings.data_scope.provider = RBAC_DATA_SCOPE_NAME
         register_rbac_permission(settings)
+        register_rbac_data_scope(settings)
 
     def service_routers(self) -> ConcurrentStableList[APIRouter]:
         """平台业务路由。

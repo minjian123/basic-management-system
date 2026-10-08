@@ -7,6 +7,7 @@
 """
 
 import operator
+import re
 from abc import ABC
 from collections.abc import Callable, Iterable
 from typing import Any, cast
@@ -64,6 +65,46 @@ def _between(value: object, target: object) -> bool:
     return _compare(value, sequence[0], "gte") and _compare(value, sequence[1], "lte")
 
 
+def _like_regex(pattern: str) -> str:
+    """SQL LIKE 模式转正则（`%` → `.*`、`_` → `.`；其余字符转义）。
+
+    Args:
+        pattern: LIKE 模式（含 `%` / `_`）。
+
+    Returns:
+        str: 等价正则（用于 `fullmatch`）。
+    """
+    parts: ConcurrentStableList[str] = ConcurrentStableList()
+    for char in pattern:
+        if char == "%":
+            parts.add(".*")
+        elif char == "_":
+            parts.add(".")
+        else:
+            parts.add(re.escape(char))
+    return "".join(parts)
+
+
+def _like(value: object, target: object) -> bool:
+    """LIKE 判定：模式含通配符（`%` / `_`）时按通配匹配，否则按子串（向后兼容）。
+
+    通配模式与数据库实现的 SQL `LIKE` 同义（`%` 任意串、`_` 单字符），故内存基线与库实现
+    对同一 `ScopeCondition` 得出一致结果；不含通配符的模式保持既有「子串包含」语义。
+
+    Args:
+        value: 实体字段值。
+        target: LIKE 模式（`ScopeCondition.value`）。
+
+    Returns:
+        bool: 命中 True。
+    """
+    if not isinstance(target, str) or not isinstance(value, str):
+        return False
+    if "%" not in target and "_" not in target:
+        return target in value
+    return re.fullmatch(_like_regex(target), value) is not None
+
+
 def _match(item: object, condition: ScopeCondition) -> bool:
     """判断实体是否满足单个作用域条件。
 
@@ -90,7 +131,7 @@ def _match(item: object, condition: ScopeCondition) -> bool:
             return any(value == member for member in cast("Iterable[object]", target))
         return False
     if op == "like":
-        return isinstance(target, str) and isinstance(value, str) and target in value
+        return _like(value, target)
     if op == "between":
         return _between(value, target)
     return _compare(value, target, op)
