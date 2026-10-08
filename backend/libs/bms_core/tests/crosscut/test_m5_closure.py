@@ -72,28 +72,29 @@ def test_gate_table_has_conclusions_and_evidence() -> None:
 
 @pytest.mark.kiwi_id(2189)
 def test_plan_closure_state() -> None:
-    """计划收口状态：头部计数与已完成表一致且剩余 0、剩余表清空、甘特里程碑、工时行可校验。
+    """计划收口状态：头部计数与已完成 / 剩余表行数一致、工时行自洽、甘特里程碑、报告引用齐备。
 
-    头部项数不写死（防后续阶段回写漂移），改为校验结构自洽：
-    「已完成 N 项，剩余 0 项」且 N 等于「已完成任务」表数据行数。
-    工时行按**收口后形态**校验（口径同 check-status S1）：写明已完成工时与阶段合计、无剩余工时
-    ——含「回补任务已完成」的阶段可在已完成文案内追加回补工时（阶段五 2026-10-03 回补 `06_01`）。
+    头部项数不写死（防后续阶段回写漂移 / 重开追加任务），改为校验结构自洽：
+    「已完成 N 项，剩余 M 项」且 N / M 分别等于「已完成任务 / 剩余任务排期」表数据行数；
+    工时行校验「已完成 + 剩余 = 阶段合计」（口径同 check-status S1，见《计划文档规范》）。
     """
     text = _PLAN.read_text(encoding="utf-8")
     match = re.search(r"已完成\s*(\d+)\s*项，剩余\s*(\d+)\s*项", text)
     assert match, "计划头部应写明「已完成 N 项，剩余 M 项」"
-    assert match.group(2) == "0", "阶段收口后剩余项应为 0"
     done_section = text.split("## 2. 已完成任务", 1)[1].split("## 3.", 1)[0]
     done_rows = _table_rows(done_section)
     assert int(match.group(1)) == len(done_rows), "头部已完成项数应与已完成任务表行数一致"
     todo_section = text.split("## 3. 剩余任务排期", 1)[1].split("## 4.", 1)[0]
-    assert _table_rows(todo_section) == [], "阶段收口后剩余排期表应为空"
+    todo_rows = _table_rows(todo_section)
+    assert int(match.group(2)) == len(todo_rows), "头部剩余项数应与剩余任务排期表行数一致"
     assert "M5" in text and "milestone" in text
-    done_hours = re.search(r"已完成\s*\*{0,2}(\d+)h\*{0,2}", text)
-    total_hours = re.search(r"阶段合计\s*\*{0,2}(\d+)h\*{0,2}", text)
-    assert done_hours is not None and total_hours is not None, "计划工时行应为 check-status S1 可校验形态"
-    assert int(done_hours.group(1)) <= int(total_hours.group(1)), "阶段合计不应小于已完成工时"
-    assert re.search(r"剩余\s*\*{0,2}[1-9]\d*h", text) is None, "阶段收口后不应有剩余工时"
+    hours = re.search(
+        r"已完成\s*\*{0,2}(\d+)h\*{0,2}；剩余\s*\*{0,2}(\d+)h\*{0,2}.*?阶段合计\s*\*{0,2}(\d+)h\*{0,2}",
+        text,
+        re.S,
+    )
+    assert hours, "计划工时行应为 check-status S1 可校验形态"
+    assert int(hours.group(1)) + int(hours.group(2)) == int(hours.group(3)), "工时：已完成 + 剩余 应等于阶段合计"
     assert "## 7. 后续阶段待办" in text
     assert "01_测试报告_前端插件化.md" in text
 
