@@ -248,6 +248,21 @@ def test_redaction_depth_limit_keeps_value() -> None:
 
 
 @pytest.mark.kiwi_id(63)
+def test_render_switch_not_sticky_for_used_logger(capsys: pytest.CaptureFixture[str]) -> None:
+    """重配渲染形态**即时生效**：已使用过的 logger 不得粘滞旧形态（首用缓存回归）。
+
+    `cache_logger_on_first_use=True` 会把首次使用时的配置粘在 logger 上——先 `console` 用一次、
+    再改 `json`，后续日志仍按 console 渲染；本用例锁定「关缓存」口径（顺序敏感的偶发失败根因）。
+    """
+    configure_logging(_settings("console"))
+    get_logger("sticky_render").info("first")
+    configure_logging(_settings("json"))
+    get_logger("sticky_render").info("second")
+    lines = capsys.readouterr().out.splitlines()
+    assert any(line.lstrip().startswith("{") for line in lines), lines
+
+
+@pytest.mark.kiwi_id(63)
 def test_stdlib_logger_rendered_and_access_disabled(capsys: pytest.CaptureFixture[str]) -> None:
     """stdlib 日志统一渲染；uvicorn.access 关闭。"""
     configure_logging(_settings("json"))

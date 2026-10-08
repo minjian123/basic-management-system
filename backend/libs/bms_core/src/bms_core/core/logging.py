@@ -305,7 +305,11 @@ def configure_logging(settings: Settings) -> None:
         processors=[*processors, structlog.stdlib.ProcessorFormatter.wrap_for_formatter],
         logger_factory=structlog.stdlib.LoggerFactory(),
         wrapper_class=structlog.stdlib.BoundLogger,
-        cache_logger_on_first_use=True,
+        # **不得缓存首用配置**：`cache_logger_on_first_use=True` 会把「首次使用时的配置」粘在
+        # 该 logger 上——若某 logger 在 `configure_logging` 之前就被使用（导入期 / 前置用例），
+        # 后续重配（如从 `console` 改 `json`）对它永久失效，表现为「渲染形态随机粘滞」
+        # （用例读 stdout 里的 JSON 行时找不到 → 顺序敏感的偶发失败）。关缓存即每次按当前配置解析。
+        cache_logger_on_first_use=False,
     )
 
     formatter = structlog.stdlib.ProcessorFormatter(
