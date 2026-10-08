@@ -35,6 +35,20 @@ class RoleRepository(BaseDbRepository[SysRole]):
         """落库当前会话变更（服务层在同一事务内直接改 ORM 属性后调用）。"""
         await self._session.flush()
 
+    async def list_by_ids(self, role_ids: ConcurrentStableSet[int]) -> ConcurrentStableList[SysRole]:
+        """按主键集合取角色（不含软删除；豁免层级判定用）。
+
+        Args:
+            role_ids: 角色主键集合（空集返回空列表）。
+
+        Returns:
+            ConcurrentStableList[SysRole]: 角色列表（按主键升序）。
+        """
+        if not role_ids:
+            return ConcurrentStableList()
+        statement = self._select().where(self._column("id").in_(tuple(role_ids))).order_by(self._column("id").asc())
+        return ConcurrentStableList((await self._session.execute(statement)).scalars().all())
+
     async def get_by_code(self, code: str) -> SysRole | None:
         """按角色码查询单条记录（软删除后不可见）。
 

@@ -27,6 +27,11 @@ class ApplicationFactory(BaseServiceApplicationFactory):
     version: str = __version__
     contract_version: str = CONTRACT_VERSION
 
+    # 说明（`02_04`）：真实权限校验器（`rbac`）的实现登记与 `[permission].provider` 切换需在
+    # **插件注册表构建之前**完成——服务侧唯一早期钩子是 `prepare_settings()`（`configure_service`
+    # 已晚于注册表冻结）。激活动作与既有「默认装配为 null 实现」用例集的同步更新一并进行，
+    # 见 `02_04` 实施记录「剩余工作」。
+
     def service_routers(self) -> ConcurrentStableList[APIRouter]:
         """平台业务路由。
 
@@ -36,13 +41,12 @@ class ApplicationFactory(BaseServiceApplicationFactory):
         return ConcurrentStableList([api_router])
 
     def configure_service(self, app: FastAPI, settings: Settings) -> None:
-        """注入平台专属 state（demo 服务）并登记本地权威读取器（服务目录）。
+        """注入平台专属 state（demo 服务）并登记本地权威读取器（服务目录）与权限实现。
 
         Args:
             app: 应用实例。
-            settings: 应用配置（未使用）。
+            settings: 应用配置（权限选项：档位 / 快照 TTL / 豁免角色类型）。
         """
-        del settings
         app.state.demo_service = DemoService(DemoRepository())
         # 服务目录权威本地读取器（本服务即 `sys_module` 所有者；共享基座库不静态依赖服务包）
         register_catalog_reader(SERVICE_NAME, read_catalog)

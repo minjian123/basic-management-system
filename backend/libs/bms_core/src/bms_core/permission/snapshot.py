@@ -130,30 +130,31 @@ class PermissionSnapshot(BaseDataContract):
         return payload
 
     @classmethod
-    def from_payload(cls, payload: ConcurrentStableDict[str, object]) -> PermissionSnapshot:
+    def from_payload(cls, payload: object) -> PermissionSnapshot:
         """缓存反序列化（缺字段 / 类型异常容错：回落默认，不抛错）。
 
         Args:
-            payload: 缓存载荷（`to_payload` 产物；调用方按保序映射构造）。
+            payload: 缓存载荷（`to_payload` 产物或等价映射 / 任意缓存值）。
 
         Returns:
             PermissionSnapshot: 快照。
         """
+        row = _as_stable(payload)
         business = ConcurrentStableSet[str]()
-        business.update(item for item in _as_list(payload.get("business_codes")) if isinstance(item, str))
+        business.update(item for item in _as_list(row.get("business_codes")) if isinstance(item, str))
         actions = ConcurrentStableSet[str]()
-        actions.update(item for item in _as_list(payload.get("action_codes")) if isinstance(item, str))
+        actions.update(item for item in _as_list(row.get("action_codes")) if isinstance(item, str))
         scopes: ConcurrentStableList[ConcurrentStableDict[str, object]] = ConcurrentStableList()
-        for row in _as_list(payload.get("data_scopes")):
-            scopes.add(_as_stable(row))
+        for item in _as_list(row.get("data_scopes")):
+            scopes.add(_as_stable(item))
         fields: ConcurrentStableList[FieldPermission] = ConcurrentStableList()
-        for row in _as_list(payload.get("field_perms")):
-            fields.add(_as_field_permission(row))
-        raw_version = payload.get("version")
+        for item in _as_list(row.get("field_perms")):
+            fields.add(_as_field_permission(item))
+        raw_version = row.get("version")
         version = raw_version if isinstance(raw_version, int) and not isinstance(raw_version, bool) else 0
-        raw_profile = payload.get("profile")
+        raw_profile = row.get("profile")
         profile = raw_profile if isinstance(raw_profile, str) else DEFAULT_PROFILE
-        raw_tier = payload.get("tier")
+        raw_tier = row.get("tier")
         tier = raw_tier if isinstance(raw_tier, str) else TIER_STANDARD
         return cls(
             version=version,
@@ -163,7 +164,7 @@ class PermissionSnapshot(BaseDataContract):
             action_codes=actions,
             data_scopes=scopes,
             field_perms=fields,
-            extensions=_as_stable(payload.get("extensions")),
+            extensions=_as_stable(row.get("extensions")),
         )
 
 

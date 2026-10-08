@@ -10,7 +10,7 @@
 """
 
 from abc import ABC, abstractmethod
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from typing import cast
 
 from fastapi import Request
@@ -21,12 +21,31 @@ from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, Bas
 
 
 class BasePermissionChecker(BasePluggable, ABC):
-    """权限校验契约：权限码判定 + 强制校验。"""
+    """权限校验契约：权限码判定 + 强制校验 + 请求级预加载。
+
+    实现为**应用级单例**（`resolve_plugin` 复用唯一实例），故请求态（用户 / 租户 / 快照）一律经
+    `core/context.py` 的 contextvar 承载；`aprepare` 为**请求级预加载钩子**：真实实现（如 RBAC）
+    在此按请求计算并缓存「用户权限快照」，随后同步 `check` 只读快照。
+    """
 
     key: str = "permission"
     plugin_key: str = "permission"
     plugin_name: str = NULL_PLUGIN_NAME
     contract_version: str = DEFAULT_CONTRACT_VERSION
+
+    async def aprepare(self, *, request: Request) -> None:
+        """请求级预加载钩子（缺省空实现）。
+
+        真实实现（`rbac`）在此加载「当前用户权限快照」并落 contextvar，供同一请求内同步 `check`
+        逐码判定复用（避免 N 次取快照）；占位实现无需任何准备。
+
+        实现所需的会话 / 缓存等依赖由实现自行从 `request.app.state` 与会话作用域获取——
+        基座不向本钩子注入依赖，避免给未接库的调用方增加装配负担。
+
+        Args:
+            request: 当前请求（可读 `request.state` 与应用装配状态）。
+        """
+        return None
 
     @abstractmethod
     def check(self, code: str) -> bool:
@@ -72,18 +91,21 @@ def get_permission_checker(request: Request) -> BasePermissionChecker:
     )
 
 
-def require_permission(code: str) -> Callable[..., None]:
-    """构造权限校验依赖（FastAPI 依赖工厂）。
+def require_permission(code: str) -> Callable[..., Awaitable[None]]:
+    """构造权限校验依赖（FastAPI 依赖工厂；含请求级预加载）。
+
+    依赖先 `await checker.aprepare(...)`（真实实现加载权限快照、占位实现空操作），再同步 `require`；
+    同一请求内 FastAPI 复用 `uow` / `cache` 依赖，且检查器把快照落入 contextvar 供逐码判定复用。
 
     Args:
         code: 权限码（`业务:动作`）。
 
     Returns:
-        Callable[[Request], None]: 可直接用于 `Depends(...)` 的依赖函数。
+        Callable[..., Awaitable[None]]: 可直接用于 `Depends(...)` 的异步依赖函数。
     """
 
-    def _dependency(request: Request) -> None:
-        """校验当前请求是否持权限码。
+    async def _dependency(request: Request) -> None:
+        """预加载请求态并校验权限码。
 
         Args:
             request: 请求对象。
@@ -91,6 +113,28 @@ def require_permission(code: str) -> Callable[..., None]:
         Raises:
             PermissionError: 不持该权限码（30001 / 403）。
         """
-        get_permission_checker(request).require(code)
+        checker = get_permission_checker(request)
+        prepare = getattr(checker, "aprepare", None)
+        if callable(prepare):
+            await prepare(request=request)
+        checker.require(code)
+
+    return _dependency
+
+
+def prepare_permission_dependency() -> Callable[..., Awaitable[None]]:
+    """构造「仅预加载、不校验」的依赖（供逐码自行判定的端点复用，如 `/api/v1/menus/my`）。
+
+    Returns:
+        Callable[..., Awaitable[None]]: 可直接用于 `Depends(...)` 的异步依赖函数。
+    """
+
+    async def _dependency(request: Request) -> None:
+        """预加载当前请求的权限快照。
+
+        Args:
+            request: 请求对象。
+        """
+        await get_permission_checker(request).aprepare(request=request)
 
     return _dependency

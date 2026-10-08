@@ -681,6 +681,33 @@
         "title": "ApiResponse[NoneType]",
         "type": "object"
       },
+      "ApiResponse_PermissionInvalidateResult_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PermissionInvalidateResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[PermissionInvalidateResult]",
+        "type": "object"
+      },
       "ApiResponse_RoleAssignedUsers_": {
         "additionalProperties": false,
         "properties": {
@@ -3443,6 +3470,38 @@
           "version"
         ],
         "title": "MyMenuResponse",
+        "type": "object"
+      },
+      "PermissionInvalidateRequest": {
+        "additionalProperties": false,
+        "description": "权限快照失效请求（服务间内部契约）。",
+        "properties": {
+          "user_ids": {
+            "description": "受影响用户主键（空 = 全租户版本 +1）",
+            "items": {
+              "type": "integer"
+            },
+            "title": "User Ids",
+            "type": "array"
+          }
+        },
+        "title": "PermissionInvalidateRequest",
+        "type": "object"
+      },
+      "PermissionInvalidateResult": {
+        "additionalProperties": false,
+        "description": "权限快照失效结果（服务间内部契约）。",
+        "properties": {
+          "version": {
+            "description": "递增后的租户权限版本号",
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version"
+        ],
+        "title": "PermissionInvalidateResult",
         "type": "object"
       },
       "PreferenceValueRequest": {
@@ -11060,6 +11119,116 @@
           }
         },
         "summary": "Verify Credential",
+        "tags": [
+          "platform-internal"
+        ]
+      }
+    },
+    "/api/v1/platform/internal/permissions/invalidate": {
+      "post": {
+        "description": "失效当前租户的权限快照（版本 +1；可指定用户）。\n\nArgs:\n    payload: 失效请求（`user_ids` 空 = 全租户）。\n    tenant: 请求级租户上下文（由服务 JWT 的 tenant claim 解析）。\n    cache: 缓存能力域。\n\nReturns:\n    ApiResponse[PermissionInvalidateResult]: 递增后的权限版本号。",
+        "operationId": "invalidate_permissions_api_v1_platform_internal_permissions_invalidate_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PermissionInvalidateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_PermissionInvalidateResult_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "失效权限快照",
         "tags": [
           "platform-internal"
         ]
