@@ -145,25 +145,46 @@ const jobs: PermissionJobs = {
 }
 
 /**
- * 提交权限配置（记录页工具栏「保存」调用）：授权总容器三类接口 + 角色分配页签。
+ * 提交授权（记录页工具栏「保存」调用）：授权总容器件三类接口（菜单 / 字段 / 数据权限）。
+ *
+ * 「角色分配」页签（用户分配 + mdm 岗位 / 部门插件）的草稿**不在此提交**——由记录页统一经
+ * 角色保存编排端点（`PUT /roles/{id}/assignments`）与角色本体一次原子提交（见 `02_03/_02` 详设）。
  *
  * @returns 是否提交成功。
  */
 async function save(): Promise<boolean> {
   const configured = await configRef.value?.save()
-  const assigned = (await assignRef.value?.save()) ?? true
-  return configured !== undefined && assigned
+  return configured !== undefined
 }
 
 /**
- * 撤销未保存变更。
+ * 收集「角色分配」页签的插件草稿分段（记录页编排用）。
+ *
+ * @returns 分段名 → 段值（无改动 / 无插件的段不出现）。
+ */
+function buildAssignSegments(): Record<string, Record<string, unknown>> {
+  return assignRef.value?.buildSegments() ?? {}
+}
+
+/** 「角色分配」页签是否存在未提交草稿。 */
+function isAssignDirty(): boolean {
+  return assignRef.value?.isDirty() ?? false
+}
+
+/** 授权总容器件（菜单 / 字段 / 数据权限）是否存在未提交变更。 */
+function isConfigDirty(): boolean {
+  return configDirty.value
+}
+
+/**
+ * 撤销未保存变更（授权总容器丢弃 + 角色分配草稿复位）。
  */
 function revert(): void {
   configRef.value?.discard()
-  assignRef.value?.revert()
+  void assignRef.value?.revert()
 }
 
-defineExpose({ save, revert })
+defineExpose({ save, buildAssignSegments, isAssignDirty, isConfigDirty, revert })
 </script>
 
 <template>

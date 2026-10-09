@@ -78,6 +78,21 @@ export interface RoleDataScopePayload {
   entries: RoleDataScopeEntryPayload[]
 }
 
+/** 角色保存编排请求（分段全量覆盖；`null` = 不参与该段）。 */
+export interface RoleAssignmentsPayload {
+  /** 角色本体分段（`null` = 不改；非空时 `version` 乐观锁）。 */
+  role: { code?: string; name?: string; status?: RoleStatus; version: number } | null
+  /** 角色直接用户全量集合（`null` = 不改；`[]` = 清空）。 */
+  user_ids: SnowflakeId[] | null
+  /** 角色-岗位全量覆盖（`null` = 不改；角色侧无主要项）。 */
+  role_posts: { post_ids: SnowflakeId[] } | null
+  /** 角色-部门全量覆盖（`null` = 不改；角色侧无主要项）。 */
+  role_depts: { dept_ids: SnowflakeId[] } | null
+}
+
+/** 角色保存编排结果。 */
+export type RoleAssignmentsResult = Schemas['RoleAssignmentsResult']
+
 /** 角色列表行。 */
 export type RoleItem = Schemas['RoleItem']
 /** 角色详情（含版本与审计字段）。 */
@@ -149,6 +164,22 @@ export function listRoles(params: RoleListParams = {}): Promise<RolePage> {
  */
 export function getRole(roleId: string): Promise<RoleDetail> {
   return get<RoleDetail>('platform', `/roles/${roleId}`)
+}
+
+/**
+ * 角色保存编排（分段全量覆盖；跨服务原子）。
+ *
+ * 一次请求提交角色本体 + 用户分配 + mdm 岗位 / 部门分配；`provider=xa` 走 TM 全局事务、
+ * `provider=null`（dev / test）走顺序提交（见 `02_03/_02` 详设）。
+ *
+ * @param roleId 角色主键。
+ * @param body 分段全量覆盖载荷（`null` = 该段不参与）。
+ */
+export function applyRoleAssignments(
+  roleId: string,
+  body: RoleAssignmentsPayload,
+): Promise<RoleAssignmentsResult> {
+  return put<RoleAssignmentsResult>('platform', `/roles/${roleId}/assignments`, body)
 }
 
 /**

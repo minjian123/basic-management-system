@@ -2053,6 +2053,51 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/roles/{role_id}/assignments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Apply Role Assignments
+         * @description 角色保存编排（分段全量覆盖；跨服务原子）。
+         *
+         *     `provider = "xa"` 时经 TM 全局事务（platform 分支进程内 + 组织域分支经参与端点）；
+         *     `provider = null`（dev / test）时顺序提交（platform 本地事务 → 组织域内部写通道）。
+         *     权限码**分段校验**：`role` 段另需 `role:update`（端点级挂 `role:grant`）。
+         *
+         *     Args:
+         *         role_id: 角色主键。
+         *         req: 分段全量覆盖请求。
+         *         uow: 请求级工作单元。
+         *         config: 系统参数取数（角色码格式）。
+         *         cache: 缓存能力域（角色 / 分配变更后权限版本递增）。
+         *         client: 服务间调用客户端（组织域分支执行 / 内部写通道）。
+         *         manager: 事务管理器（`provider=null` 时为 Null 实现）。
+         *         participant: 事务参与方（platform 自身分支进程内执行）。
+         *         checker: 权限校验器（`role` 段命令式复校 `role:update`）。
+         *         idem_key: 幂等键请求头（透传给组织域内部写通道）。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为角色详情、生效后用户清单与本次参与分段名。
+         *
+         *     Raises:
+         *         PermissionError: 缺少 `role:update`（30001）。
+         *         ParamError: 未提供任何分段（10001）。
+         *         TransactionUnavailableError: 分支未达 `PREPARED`（10013）。
+         *         ServiceUnavailableError: 跨服务调用失败（10007）。
+         */
+        put: operations["apply_role_assignments_api_v1_roles__role_id__assignments_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/roles/{role_id}/data-permissions": {
         parameters: {
             query?: never;
@@ -3201,6 +3246,20 @@ export interface components {
              */
             code: number;
             data?: components["schemas"]["RoleAssignedUsers"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[RoleAssignmentsResult] */
+        ApiResponse_RoleAssignmentsResult_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["RoleAssignmentsResult"] | null;
             /**
              * Message
              * @default ok
@@ -5213,6 +5272,93 @@ export interface components {
              * @description 分配后的用户清单
              */
             items?: components["schemas"]["AssignedUserItem"][];
+        };
+        /**
+         * RoleAssignmentDepts
+         * @description 分配编排请求的角色-部门分段（全量覆盖；角色侧无主要项）。
+         */
+        RoleAssignmentDepts: {
+            /**
+             * Dept Ids
+             * @description 部门主键集合（全量覆盖；空集 = 清空）
+             */
+            dept_ids?: number[];
+        };
+        /**
+         * RoleAssignmentPosts
+         * @description 分配编排请求的角色-岗位分段（全量覆盖；角色侧无主要项）。
+         */
+        RoleAssignmentPosts: {
+            /**
+             * Post Ids
+             * @description 岗位主键集合（全量覆盖；空集 = 清空）
+             */
+            post_ids?: number[];
+        };
+        /**
+         * RoleAssignmentProfile
+         * @description 分配编排请求的角色本体分段（字段语义同 `RoleUpdateRequest`；`None` 表示不改）。
+         */
+        RoleAssignmentProfile: {
+            /**
+             * Code
+             * @description 角色码（None = 不改；格式受 role.code_pattern 约束，租户内唯一）
+             */
+            code?: string | null;
+            /**
+             * Name
+             * @description 角色名称（None = 不改）
+             */
+            name?: string | null;
+            /**
+             * Status
+             * @description 状态（None = 不改；内置角色改状态被拒）
+             */
+            status?: ("enabled" | "disabled") | null;
+            /**
+             * Version
+             * @description 客户端版本（乐观锁比对）
+             */
+            version: number;
+        };
+        /**
+         * RoleAssignmentsRequest
+         * @description 角色保存编排请求（分段全量覆盖；未出现的分段不参与，不写）。
+         *
+         *     分段语义：`role` / `user_ids` / `role_posts` / `role_depts` 为 `None` 表示**不改该段**；
+         *     `user_ids` 为空集表示清空该角色全部用户分配。权限码**分段校验**（`role` → `role:update`，
+         *     其余段 → `role:grant`）。
+         */
+        RoleAssignmentsRequest: {
+            /** @description 角色本体分段（None = 不改） */
+            role?: components["schemas"]["RoleAssignmentProfile"] | null;
+            /** @description 角色-部门分段（None = 不改） */
+            role_depts?: components["schemas"]["RoleAssignmentDepts"] | null;
+            /** @description 角色-岗位分段（None = 不改） */
+            role_posts?: components["schemas"]["RoleAssignmentPosts"] | null;
+            /**
+             * User Ids
+             * @description 角色直接用户全量集合（None = 不改；空集 = 清空）
+             */
+            user_ids?: number[] | null;
+        };
+        /**
+         * RoleAssignmentsResult
+         * @description 角色保存编排结果（回带 platform 侧生效后集合）。
+         *
+         *     组织分配段（岗位 / 部门）的生效后集合由调用方（前端）在保存成功后经 mdm 读契约取回——
+         *     XA 分支执行端点契约只回分支状态、不回业务集合。
+         */
+        RoleAssignmentsResult: {
+            /**
+             * Applied
+             * @description 本次参与的分段名（role / user_ids / role_posts / role_depts）
+             */
+            applied?: string[];
+            /** @description 生效后角色详情 */
+            role: components["schemas"]["RoleDetail"];
+            /** @description 生效后已分配用户清单 */
+            users: components["schemas"]["RoleAssignedUsers"];
         };
         /**
          * RoleCreateRequest
@@ -12833,6 +12979,89 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponse_NoneType_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    apply_role_assignments_api_v1_roles__role_id__assignments_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description 幂等键（可选；重复提交复用首次结果） */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                role_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoleAssignmentsRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_RoleAssignmentsResult_"];
                 };
             };
             /** @description 未认证 */

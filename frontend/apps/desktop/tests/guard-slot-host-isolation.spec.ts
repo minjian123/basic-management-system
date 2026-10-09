@@ -79,7 +79,8 @@ describe('具名插槽宿主隔离护栏（Kiwi 2238）', () => {
     expect(source).toContain('module-area-outlet')
     expect(source).toContain('sys.role.detail.assign')
     expect(source).toContain(':context="slotContext"')
-    expect(source).toContain('roleId: props.roleId')
+    expect(source).toContain('props.roleId')
+    expect(source).toContain('registerSubmitter')
     expect(source).not.toMatch(/@bms\/module-/)
   })
 

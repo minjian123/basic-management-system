@@ -224,3 +224,70 @@ class RoleDataScopes(BaseSchema):
     items: Annotated[ConcurrentStableList[RoleDataScopeEntryItem], CONTRACT_COLLECTION] = Field(
         default_factory=CONTRACT_STABLE_LIST, description="数据权限条目清单"
     )
+
+
+# --------------------------------------------------------------------------- 分配编排（角色保存编排端点）
+# 一次请求分段**全量覆盖**角色本体 / 用户分配（角色 × 用户）/ 组织分配（岗位、部门）；跨服务写入由
+# TM 全局事务保证原子（`provider=xa`；`provider=null` 走顺序提交，仅 dev / test）。需求 07-11 §5。
+# 与用户侧 `UserAssignments*`（schemas/users.py）对称；角色侧无「主要项」语义。
+
+
+class RoleAssignmentProfile(BaseSchema):
+    """分配编排请求的角色本体分段（字段语义同 `RoleUpdateRequest`；`None` 表示不改）。"""
+
+    code: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=64,
+        description="角色码（None = 不改；格式受 role.code_pattern 约束，租户内唯一）",
+    )
+    name: str | None = Field(default=None, min_length=1, max_length=128, description="角色名称（None = 不改）")
+    status: RoleStatus | None = Field(default=None, description="状态（None = 不改；内置角色改状态被拒）")
+    version: int = Field(ge=1, description="客户端版本（乐观锁比对）")
+
+
+class RoleAssignmentPosts(BaseSchema):
+    """分配编排请求的角色-岗位分段（全量覆盖；角色侧无主要项）。"""
+
+    post_ids: Annotated[ConcurrentStableList[int], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_LIST, description="岗位主键集合（全量覆盖；空集 = 清空）"
+    )
+
+
+class RoleAssignmentDepts(BaseSchema):
+    """分配编排请求的角色-部门分段（全量覆盖；角色侧无主要项）。"""
+
+    dept_ids: Annotated[ConcurrentStableList[int], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_LIST, description="部门主键集合（全量覆盖；空集 = 清空）"
+    )
+
+
+class RoleAssignmentsRequest(BaseSchema):
+    """角色保存编排请求（分段全量覆盖；未出现的分段不参与，不写）。
+
+    分段语义：`role` / `user_ids` / `role_posts` / `role_depts` 为 `None` 表示**不改该段**；
+    `user_ids` 为空集表示清空该角色全部用户分配。权限码**分段校验**（`role` → `role:update`，
+    其余段 → `role:grant`）。
+    """
+
+    role: RoleAssignmentProfile | None = Field(default=None, description="角色本体分段（None = 不改）")
+    user_ids: Annotated[ConcurrentStableList[int], CONTRACT_COLLECTION] | None = Field(
+        default=None, description="角色直接用户全量集合（None = 不改；空集 = 清空）"
+    )
+    role_posts: RoleAssignmentPosts | None = Field(default=None, description="角色-岗位分段（None = 不改）")
+    role_depts: RoleAssignmentDepts | None = Field(default=None, description="角色-部门分段（None = 不改）")
+
+
+class RoleAssignmentsResult(BaseSchema):
+    """角色保存编排结果（回带 platform 侧生效后集合）。
+
+    组织分配段（岗位 / 部门）的生效后集合由调用方（前端）在保存成功后经 mdm 读契约取回——
+    XA 分支执行端点契约只回分支状态、不回业务集合。
+    """
+
+    role: RoleDetail = Field(description="生效后角色详情")
+    users: RoleAssignedUsers = Field(description="生效后已分配用户清单")
+    applied: Annotated[ConcurrentStableList[str], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_LIST,
+        description="本次参与的分段名（role / user_ids / role_posts / role_depts）",
+    )

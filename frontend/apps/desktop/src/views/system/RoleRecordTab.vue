@@ -5,7 +5,15 @@ import { SysInfoPanel, type SysInfoData } from '@bms/ui-ep'
 import { ElMessage } from 'element-plus'
 import { computed, onMounted, ref, watch } from 'vue'
 
-import { createRole, getRole, updateRole, type RoleDetail, type RoleStatus } from '@/api/role'
+import {
+  applyRoleAssignments,
+  createRole,
+  getRole,
+  updateRole,
+  type RoleAssignmentsPayload,
+  type RoleDetail,
+  type RoleStatus,
+} from '@/api/role'
 
 import RolePermissionConfig from './role/RolePermissionConfig.vue'
 import { roleTypeLabel } from './role/labels'
@@ -122,37 +130,82 @@ function toggleEditing(): void {
 }
 
 /**
- * 提交保存（工具栏唯一入口，按当前子页签分派）。
+ * 组装角色分配编排载荷（草稿段；`null` = 不参与）。
+ *
+ * @param hasRole 角色本体是否参与（乐观锁版本随附）。
+ */
+function buildAssignmentsPayload(hasRole: boolean): RoleAssignmentsPayload {
+  const segments = permissionRef.value?.buildAssignSegments() ?? {}
+  const userIds = segments.user_ids?.user_ids as string[] | undefined
+  const postIds = segments.role_posts?.post_ids as string[] | undefined
+  const deptIds = segments.role_depts?.dept_ids as string[] | undefined
+  return {
+    role: hasRole
+      ? { code: form.value.code, name: form.value.name, status: form.value.status, version: form.value.version }
+      : null,
+    user_ids: userIds !== undefined ? userIds : null,
+    role_posts: postIds !== undefined ? { post_ids: postIds } : null,
+    role_depts: deptIds !== undefined ? { dept_ids: deptIds } : null,
+  }
+}
+
+/**
+ * 提交保存（工具栏唯一入口，全局一次保存）。
+ *
+ * 角色本体 + 「角色分配」页签（用户分配 + mdm 岗位 / 部门插件草稿）经**角色保存编排端点**
+ * 一次原子提交（`PUT /roles/{id}/assignments`）；仅本体改动时走既有 `PUT /roles/{id}`；
+ * 授权（菜单 / 字段 / 数据权限）各自既有端点单独提交（见 `02_03/_02` 详设 §6.3）。
  */
 async function save(): Promise<void> {
-  saving.value = true
-  try {
-    if (section.value === 'permission') {
-      const saved = (await permissionRef.value?.save()) ?? true
-      if (saved) {
-        permissionDirty.value = false
-      }
-      return
-    }
-    if (isNew.value) {
+  if (isNew.value) {
+    saving.value = true
+    try {
       const created = await createRole({ code: form.value.code, name: form.value.name, status: form.value.status })
       detail.value = created
       form.value.version = created.version ?? 1
       detailDirty.value = false
       emit('saved', created)
       ElMessage.success('角色已创建')
-      return
+    } catch (error: unknown) {
+      ElMessage.error(error instanceof Error ? error.message : '保存失败')
+    } finally {
+      saving.value = false
     }
-    const updated = await updateRole(props.roleId, {
-      code: form.value.code,
-      name: form.value.name,
-      status: form.value.status,
-      version: form.value.version,
-    })
-    detail.value = updated
-    form.value.version = updated.version ?? form.value.version
+    return
+  }
+
+  const segments = permissionRef.value?.buildAssignSegments() ?? {}
+  const hasAssignments = Object.keys(segments).length > 0
+  const configDirty = permissionRef.value?.isConfigDirty() ?? false
+  const roleChanged = detailDirty.value
+  if (!hasAssignments && !configDirty && !roleChanged) {
+    editing.value = false
+    return
+  }
+
+  saving.value = true
+  try {
+    if (hasAssignments) {
+      const result = await applyRoleAssignments(props.roleId, buildAssignmentsPayload(roleChanged))
+      detail.value = result.role
+      form.value.version = result.role.version ?? form.value.version
+    } else if (roleChanged) {
+      await updateRole(props.roleId, {
+        code: form.value.code,
+        name: form.value.name,
+        status: form.value.status,
+        version: form.value.version,
+      })
+    }
+    if (configDirty) {
+      await permissionRef.value?.save()
+    }
+    await load()
+    permissionRef.value?.revert()
     detailDirty.value = false
-    emit('saved', updated)
+    permissionDirty.value = false
+    editing.value = false
+    emit('saved', detail.value as RoleDetail)
     ElMessage.success('角色已保存')
   } catch (error: unknown) {
     ElMessage.error(error instanceof Error ? error.message : '保存失败')
@@ -162,15 +215,16 @@ async function save(): Promise<void> {
 }
 
 /**
- * 撤销当前子页签的未保存变更。
+ * 撤销未保存变更（授权 / 角色分配草稿与基本信息按需复位）。
  */
 function revert(): void {
-  if (section.value === 'permission') {
+  if (permissionDirty.value) {
     permissionRef.value?.revert()
     permissionDirty.value = false
-    return
   }
-  toggleEditing()
+  if (detailDirty.value) {
+    toggleEditing()
+  }
 }
 
 watch(
@@ -194,11 +248,17 @@ defineExpose({ save, isDirty: (): boolean => dirty.value })
         保存
       </el-button>
       <template v-else>
-        <el-button v-if="editing" type="primary" :loading="saving" data-test="role-record-save" @click="save">
+        <el-button
+          v-if="editing || dirty"
+          type="primary"
+          :loading="saving"
+          data-test="role-record-save"
+          @click="save"
+        >
           保存
         </el-button>
         <el-button v-if="dirty" data-test="role-record-revert" @click="revert">撤销</el-button>
-        <el-button v-else data-test="role-record-edit" @click="toggleEditing">编辑</el-button>
+        <el-button v-else-if="!editing" data-test="role-record-edit" @click="toggleEditing">编辑</el-button>
       </template>
       <el-button data-test="role-record-close" @click="emit('close')">关闭</el-button>
       <span class="role-record__side">

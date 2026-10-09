@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, cast
 
+from bms_core.config.base import BaseConfigSource
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.core.exceptions import ParamError
@@ -23,7 +24,9 @@ from bms_core.outbox.base import BaseOutboxStore
 from bms_core.transaction.base import BranchHandlerRegistry
 from bms_platform.repositories.role import RoleRepository, UserRoleRepository
 from bms_platform.repositories.user import UserRepository
+from bms_platform.schemas.role import RoleAssignmentProfile
 from bms_platform.schemas.users import UserAssignmentProfile
+from bms_platform.services.role_assignments import ROLE_ASSIGNMENTS_OP, RoleAssignmentWriter
 from bms_platform.services.user_assignments import USER_ASSIGNMENTS_OP, UserAssignmentWriter
 
 if TYPE_CHECKING:
@@ -31,7 +34,7 @@ if TYPE_CHECKING:
 
 __all__ = ["BRANCH_OPS", "build_branch_handlers"]
 
-BRANCH_OPS = (USER_ASSIGNMENTS_OP,)
+BRANCH_OPS = (USER_ASSIGNMENTS_OP, ROLE_ASSIGNMENTS_OP)
 """本服务登记的全部分支操作名（顺序稳定，供用例断言）。"""
 
 
@@ -130,6 +133,34 @@ def _profile_arg(args: ConcurrentStableDict[str, object]) -> UserAssignmentProfi
     )
 
 
+def _role_profile_arg(args: ConcurrentStableDict[str, object]) -> RoleAssignmentProfile | None:
+    """解包角色本体分段（缺失 → `None` = 不改）。
+
+    Args:
+        args: 分支载荷。
+
+    Returns:
+        RoleAssignmentProfile | None: 角色本体分段。
+
+    Raises:
+        ParamError: 载荷形态非法（10001）。
+    """
+    value = args.get("role")
+    if value is None:
+        return None
+    if not isinstance(value, dict):
+        raise ParamError("分支参数非法：role")
+    raw = cast("ConcurrentStableDict[str, object]", value)
+    status = _optional_str_arg(raw, "status")
+    version = _int_arg(raw, "version")
+    return RoleAssignmentProfile(
+        code=_optional_str_arg(raw, "code"),
+        name=_optional_str_arg(raw, "name"),
+        status=cast("object", status),  # type: ignore[arg-type] - 取值由 pydantic 复核
+        version=version,
+    )
+
+
 def _outbox_of(app: FastAPI) -> BaseOutboxStore:
     """取应用装配的发件箱存储（与 `get_outbox_store` 同源解析）。
 
@@ -148,11 +179,29 @@ def _outbox_of(app: FastAPI) -> BaseOutboxStore:
     )
 
 
+def _config_of(app: FastAPI) -> BaseConfigSource:
+    """取应用装配的系统参数取数（与 `get_config_source` 同源解析）。
+
+    Args:
+        app: 应用实例。
+
+    Returns:
+        BaseConfigSource: 参数取数实例。
+    """
+    settings = cast("Settings", app.state.settings)
+    return cast(
+        "BaseConfigSource",
+        resolve_plugin(
+            "config_source", settings.config_source.provider, expected_version=BaseConfigSource.contract_version
+        ),
+    )
+
+
 def build_branch_handlers(app: FastAPI) -> BranchHandlerRegistry:
     """构造并登记本服务的分支处理器（**只调已有服务层**）。
 
     Args:
-        app: 应用实例（取发件箱存储；分支事务由执行器持有）。
+        app: 应用实例（取发件箱存储 / 参数取数；分支事务由执行器持有）。
 
     Returns:
         BranchHandlerRegistry: 分支处理器注册表。
@@ -173,6 +222,22 @@ def build_branch_handlers(app: FastAPI) -> BranchHandlerRegistry:
         )
         await writer.write(user_id=user_id, profile=profile, role_ids=role_ids)
 
+    async def apply_role_assignments(session: DbSession, args: ConcurrentStableDict[str, object]) -> None:
+        """角色保存编排：platform 侧分段写入（角色本体 + 角色 × 用户全量覆盖）。"""
+        role_id = _int_arg(args, "role_id")
+        profile = _role_profile_arg(args)
+        user_ids = _ids_arg(args, "user_ids") if args.get("user_ids") is not None else None
+        writer = RoleAssignmentWriter(
+            session,
+            DbUnitOfWork(session),
+            RoleRepository(session),
+            UserRoleRepository(session),
+            UserRepository(session),
+            _config_of(app),
+        )
+        await writer.write(role_id=role_id, profile=profile, user_ids=user_ids)
+
     registry = BranchHandlerRegistry()
     registry.register(USER_ASSIGNMENTS_OP, apply_user_assignments)
+    registry.register(ROLE_ASSIGNMENTS_OP, apply_role_assignments)
     return registry

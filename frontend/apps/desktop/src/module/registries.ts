@@ -20,6 +20,16 @@ export const PLATFORM_REGISTRATION: RegistryRegistration = {
       title: '角色分配',
       perm: 'user:assign_role',
     },
+    // 角色记录页「角色分配」页签内的平台内建「用户分配」子页签：与 mdm 岗位 / 部门插件同槽、按 order 排在最前
+    // （见 `02_03/_02` 详设 §6：机制零改动，单个 outlet 三子页签并列）。
+    {
+      key: 'sys:role-detail-users',
+      area: 'sys.role.detail.assign',
+      component: () => import('@/views/system/role/RoleUsersPanel.vue'),
+      order: 10,
+      title: '用户分配',
+      perm: 'role:grant',
+    },
   ],
 }
 

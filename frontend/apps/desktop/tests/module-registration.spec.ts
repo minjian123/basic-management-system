@@ -33,12 +33,14 @@ describe('统一装配通道（Kiwi 976）', () => {
   it('平台自身注册走同一入口（平台来源打标；登记键可逆序清理）', () => {
     const keys = installPlatformRegistrations()
 
-    expect(keys).toEqual(['region:sys:user-detail-roles'])
+    expect(keys).toEqual(['region:sys:user-detail-roles', 'region:sys:role-detail-users'])
     expect(registries.pageArea.get('sys:user-detail-roles')?.registrationSource).toBe(PLATFORM_SOURCE)
+    expect(registries.pageArea.get('sys:role-detail-users')?.registrationSource).toBe(PLATFORM_SOURCE)
     expect(PLATFORM_SOURCE).toBe('platform')
 
     releaseRegistrations(registries, keys)
     expect(registries.pageArea.get('sys:user-detail-roles')).toBeUndefined()
+    expect(registries.pageArea.get('sys:role-detail-users')).toBeUndefined()
   })
 
   it('装配前不可解析、装配后可用、卸载后回到不可解析（八类声明全通道）', async () => {

@@ -23,6 +23,7 @@ from bms_core.api.deps import (
     get_config_source,
     get_idempotency_store,
     get_platform_uow,
+    get_service_client,
     get_tenant,
     get_uow,
 )
@@ -34,9 +35,16 @@ from bms_core.db.session import DbSession
 from bms_core.db.tenant import TenantContext, current_tenant_id_str
 from bms_core.db.unit_of_work import UnitOfWork
 from bms_core.idempotency.base import IDEMPOTENCY_HEADER, IdempotencyStore, build_idempotency_key
-from bms_core.permission.base import require_permission
+from bms_core.permission.base import BasePermissionChecker, get_permission_checker, require_permission
 from bms_core.schemas.common import ApiResponse
 from bms_core.schemas.pagination import BasePageQuery, BasePageResponse
+from bms_core.servicecall.base import BaseServiceClient
+from bms_core.transaction.base import (
+    BaseTransactionManager,
+    BaseTransactionParticipant,
+    get_transaction_manager,
+    get_transaction_participant,
+)
 from bms_platform.models.role import ROLE_TYPE_CUSTOM, SysDataScope, SysRole, SysRoleField, SysRolePermission
 from bms_platform.models.user import SysUser
 from bms_platform.repositories.role import (
@@ -50,6 +58,8 @@ from bms_platform.repositories.user import UserRepository
 from bms_platform.schemas.role import (
     AssignedUserItem,
     RoleAssignedUsers,
+    RoleAssignmentsRequest,
+    RoleAssignmentsResult,
     RoleAssignRequest,
     RoleCreateRequest,
     RoleDataScopeEntryItem,
@@ -68,6 +78,7 @@ from bms_platform.schemas.role import (
 )
 from bms_platform.services.role import ROLE_STATUSES, RoleService
 from bms_platform.services.role_assign import RoleAssignService
+from bms_platform.services.role_assignments import RoleAssignmentsService, RoleAssignmentWriter
 from bms_platform.services.role_grant import (
     DataScopeGrantEntry,
     FieldGrantEntry,
@@ -90,6 +101,10 @@ CacheDep = Annotated[CacheRegion, Depends(get_cache_region)]
 IdempotencyDep = Annotated[IdempotencyStore, Depends(get_idempotency_store)]
 TenantDep = Annotated[TenantContext | None, Depends(get_tenant)]
 PageDep = Annotated[BasePageQuery, Depends(page_query)]
+ServiceClientDep = Annotated[BaseServiceClient, Depends(get_service_client)]
+ManagerDep = Annotated[BaseTransactionManager, Depends(get_transaction_manager)]
+ParticipantDep = Annotated[BaseTransactionParticipant, Depends(get_transaction_participant)]
+CheckerDep = Annotated[BasePermissionChecker, Depends(get_permission_checker)]
 KeywordQuery = Annotated[str | None, Query(description="关键字（角色码 / 名称；用户账号 / 姓名）")]
 StatusQuery = Annotated[str | None, Query(description="状态（enabled/disabled）")]
 IdempotencyKeyHeader = Annotated[
@@ -643,3 +658,74 @@ async def replace_data_scopes(
         role_id, entries, tenant_id=current_tenant_id_str()
     )
     return ApiResponse.ok(RoleDataScopes(items=ConcurrentStableList(_data_scope_item(row) for row in rows)))
+
+
+# ------------------------------------------------------------------ 保存编排（角色本体 + 分配）
+
+
+@router.put("/{role_id}/assignments", dependencies=[_REQUIRE_GRANT])
+async def apply_role_assignments(
+    role_id: int,
+    req: RoleAssignmentsRequest,
+    uow: UowDep,
+    config: ConfigDep,
+    cache: CacheDep,
+    client: ServiceClientDep,
+    manager: ManagerDep,
+    participant: ParticipantDep,
+    checker: CheckerDep,
+    idem_key: IdempotencyKeyHeader = None,
+) -> ApiResponse[RoleAssignmentsResult]:
+    """角色保存编排（分段全量覆盖；跨服务原子）。
+
+    `provider = "xa"` 时经 TM 全局事务（platform 分支进程内 + 组织域分支经参与端点）；
+    `provider = null`（dev / test）时顺序提交（platform 本地事务 → 组织域内部写通道）。
+    权限码**分段校验**：`role` 段另需 `role:update`（端点级挂 `role:grant`）。
+
+    Args:
+        role_id: 角色主键。
+        req: 分段全量覆盖请求。
+        uow: 请求级工作单元。
+        config: 系统参数取数（角色码格式）。
+        cache: 缓存能力域（角色 / 分配变更后权限版本递增）。
+        client: 服务间调用客户端（组织域分支执行 / 内部写通道）。
+        manager: 事务管理器（`provider=null` 时为 Null 实现）。
+        participant: 事务参与方（platform 自身分支进程内执行）。
+        checker: 权限校验器（`role` 段命令式复校 `role:update`）。
+        idem_key: 幂等键请求头（透传给组织域内部写通道）。
+
+    Returns:
+        ApiResponse: 统一响应，data 为角色详情、生效后用户清单与本次参与分段名。
+
+    Raises:
+        PermissionError: 缺少 `role:update`（30001）。
+        ParamError: 未提供任何分段（10001）。
+        TransactionUnavailableError: 分支未达 `PREPARED`（10013）。
+        ServiceUnavailableError: 跨服务调用失败（10007）。
+    """
+    if req.role is not None:
+        checker.require("role:update")
+    session = cast("DbSession", uow.session)
+    service = RoleAssignmentsService(
+        writer=RoleAssignmentWriter(
+            session,
+            uow,
+            RoleRepository(session),
+            UserRoleRepository(session),
+            UserRepository(session),
+            config,
+        ),
+        roles=RoleRepository(session),
+        users=UserRepository(session),
+        user_roles=UserRoleRepository(session),
+        cache=cache,
+        manager=manager,
+        participant=participant,
+        client=client,
+        tenant_id=current_tenant_id_str(),
+    )
+    role, users, applied = await service.apply(role_id=role_id, req=req, idempotency_key=idem_key)
+    counts = await _role_service(uow, config).subject_counts(ConcurrentStableList((role_id,)))
+    detail = _role_detail(role, builtin=_is_builtin(role), subject_count=counts.get(role_id) or 0)
+    items = ConcurrentStableList(_assigned_user(row) for row in users)
+    return ApiResponse.ok(RoleAssignmentsResult(role=detail, users=RoleAssignedUsers(items=items), applied=applied))

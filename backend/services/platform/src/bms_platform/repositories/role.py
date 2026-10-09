@@ -242,6 +242,32 @@ class UserRoleRepository(BaseDbRepository[SysUserRole]):
             statement = statement.where(self._column("role_id").not_in(tuple(keep_role_ids)))
         await self._session.execute(statement.values(deleted_at=current, updated_at=current))
 
+    async def soft_delete_by_role_except(
+        self,
+        role_id: int,
+        keep_user_ids: ConcurrentStableSet[int],
+        *,
+        now: datetime | None = None,
+    ) -> None:
+        """按角色批量软删「保留集合之外」的分配行（全量覆盖的先删步骤）。
+
+        与 `soft_delete_by_user_except` 对称；角色分配编排端点（`PUT /roles/{id}/assignments`）
+        的 `user_ids` 全量覆盖语义。
+
+        Args:
+            role_id: 角色主键。
+            keep_user_ids: 需保留的用户主键集合（空集 = 全部软删）。
+            now: 当前时间（UTC naive；None 取当前 UTC）。
+        """
+        current = now or _utc_now()
+        statement = sa.update(self.model).where(
+            self._column("role_id") == role_id,
+            self._column("deleted_at").is_(None),
+        )
+        if keep_user_ids:
+            statement = statement.where(self._column("user_id").not_in(tuple(keep_user_ids)))
+        await self._session.execute(statement.values(deleted_at=current, updated_at=current))
+
     async def get_by_role_user(self, role_id: int, user_id: int) -> SysUserRole | None:
         """按角色 + 用户取分配行（不含软删除）。
 
