@@ -89,6 +89,7 @@ SERVICES: tuple[str, ...] = (
     "search",
     "ai",
     "report",
+    "txn",
 )
 """已启用**平台服务**（与 `enabled_service_keys()` 一致；护栏用例断言，防漂移）。
 

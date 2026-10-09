@@ -12,6 +12,7 @@
 - 结论与登记见《数据库设计 · 方言特性 · 达梦》「事务与连接」与《后端基类清单》数据访问基座。
 """
 
+from dataclasses import dataclass
 from hashlib import blake2b
 from typing import Any
 
@@ -19,6 +20,7 @@ from dmSQLAlchemy.dmpython import DMDialect_dmPython  # pyright: ignore[reportMi
 from sqlalchemy import text
 
 from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.core.objects import BaseValueObject
 
 TMNOFLAGS = 0
 """`XA_START` 标志：新分支（`DBMS_XA.TMNOFLAGS`）。"""
@@ -30,42 +32,28 @@ RECOVER_SQL = "SELECT RAWTOHEX(gtrid) AS gtrid, RAWTOHEX(bqual) AS bqual FROM TA
 """悬挂分支列举 SQL（返回 `RAW` 的十六进制串，供 `HEXTORAW` 原样还原）。"""
 
 
-class DMXARecoveredXid:
+@dataclass(frozen=True)
+class DMXARecoveredXid(BaseValueObject):
     """**可回放的**达梦悬挂分支标识（`gtrid` / `bqual` 为 `RAWTOHEX` 还原出的十六进制串）。
 
     `do_recover_twophase` 返回本类型而非派生摘要——恢复驱动时 `_xid_raw` 识别本类型并**直接使用**
-    （不再 `blake2b` 派生），保证「列举 → 驱动 `commit` / `rollback`」闭环。
+    （不再 `blake2b` 派生），保证「列举 → 驱动 `commit` / `rollback`」闭环；值对象语义（不可变 / 按值相等）。
     """
 
-    __slots__ = ("bqual", "gtrid")
+    gtrid: str
+    """全局事务标识的十六进制串（`RAWTOHEX` 结果）。"""
 
-    def __init__(self, gtrid: str, bqual: str) -> None:
-        """记录规范化（小写）后的十六进制串。
+    bqual: str
+    """分支限定符的十六进制串（`RAWTOHEX` 结果）。"""
 
-        Args:
-            gtrid: 全局事务标识的十六进制串（`RAWTOHEX` 结果）。
-            bqual: 分支限定符的十六进制串（`RAWTOHEX` 结果）。
-        """
-        self.gtrid = gtrid.lower()
-        self.bqual = bqual.lower()
+    def __post_init__(self) -> None:
+        """规范化（小写）。"""
+        object.__setattr__(self, "gtrid", self.gtrid.lower())
+        object.__setattr__(self, "bqual", self.bqual.lower())
 
     def __str__(self) -> str:
         """文本形态（`gtrid|bqual`，便于日志与排障）。"""
         return f"{self.gtrid}|{self.bqual}"
-
-    def __repr__(self) -> str:
-        """排障用表示。"""
-        return f"DMXARecoveredXid({self.gtrid!r}, {self.bqual!r})"
-
-    def __eq__(self, other: object) -> bool:
-        """按 `(gtrid, bqual)` 判定相等（同一悬挂分支的重复列举结果可比对）。"""
-        if not isinstance(other, DMXARecoveredXid):
-            return NotImplemented
-        return self.gtrid == other.gtrid and self.bqual == other.bqual
-
-    def __hash__(self) -> int:
-        """按 `(gtrid, bqual)` 取散列（可入集合去重）。"""
-        return hash((self.gtrid, self.bqual))
 
 
 class DMXADialect(DMDialect_dmPython):

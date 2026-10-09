@@ -325,8 +325,20 @@ SERVICE_CATALOG: tuple[ModuleRecord, ...] = (
         product_key="cw",
         status=ModuleStatus.PLANNED,
     ),
+    ModuleRecord(
+        module_key="txn",
+        service_key="txn",
+        name="跨服务事务管理器服务",
+        table_prefix="txn_",
+        errcode_segment="05",
+        event_domain="txn",
+        service_group=ServiceGroup.FOUNDATION,
+        build_batch=0,
+        contract_version="0.1.0",
+        status=ModuleStatus.ENABLED,
+    ),
 )
-"""服务目录与注册要素（单一来源，16 行：平台服务 9 + 产品服务 7）。
+"""服务目录与注册要素（单一来源，17 行：平台服务 10 + 产品服务 7）。
 
 `org` 行随组织服务退役**易主**为 mdm 产品服务（四要素 `org` / `org` / `org_` / `org` 不变，
 仅分组 / 产品归属 / 错误码段 / 批次 / 名称变更）——见 `mdm文档` 与 bms 11_01 详细设计。

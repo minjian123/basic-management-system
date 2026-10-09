@@ -31,12 +31,13 @@ _EXPECTED_KEYS = [
     "wh",
     "sup",
     "cw",
+    "txn",
 ]
 
 
 @pytest.mark.kiwi_id(28)
 async def test_list_modules_contract() -> None:
-    """GET /api/v1/modules 分页结构（16 行）；status / group 筛选；POST/PUT/DELETE 405。"""
+    """GET /api/v1/modules 分页结构（17 行）；status / group 筛选；POST/PUT/DELETE 405。"""
     app = ApplicationFactory().create(None)
     async with lifespan(app), AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         client.headers.update(auth_headers())
@@ -45,7 +46,7 @@ async def test_list_modules_contract() -> None:
         body = resp.json()
         assert body["code"] == 0
         data = body["data"]
-        assert (data["total"], data["page"], data["size"]) == (16, 1, 20)
+        assert (data["total"], data["page"], data["size"]) == (17, 1, 20)
         assert [item["module_key"] for item in data["list"]] == _EXPECTED_KEYS
 
         filtered = await client.get("/api/v1/modules", params={"status": "planned"})
@@ -60,7 +61,12 @@ async def test_list_modules_contract() -> None:
         ]
 
         foundation = await client.get("/api/v1/modules", params={"group": "foundation"})
-        assert [item["module_key"] for item in foundation.json()["data"]["list"]] == ["sys", "identity", "tenant"]
+        assert [item["module_key"] for item in foundation.json()["data"]["list"]] == [
+            "sys",
+            "identity",
+            "tenant",
+            "txn",
+        ]
 
         products = await client.get("/api/v1/modules", params={"group": "product", "status": "planned"})
         assert products.json()["data"]["total"] == 6
@@ -78,13 +84,13 @@ async def test_list_modules_pagination_and_sort(client: AsyncClient) -> None:
     """分页生效（size / 末页）；排序白名单（命中排序、非法字段忽略回落 id 升序）；页码限深 10001。"""
     first = await client.get("/api/v1/modules", params={"page": 1, "size": 5})
     assert len(first.json()["data"]["list"]) == 5
-    assert first.json()["data"]["total"] == 16
+    assert first.json()["data"]["total"] == 17
 
     last = await client.get("/api/v1/modules", params={"page": 4, "size": 5})
-    assert [item["module_key"] for item in last.json()["data"]["list"]] == ["cw"]
+    assert [item["module_key"] for item in last.json()["data"]["list"]] == ["cw", "txn"]
 
     sorted_by_id = await client.get("/api/v1/modules", params={"order_by": "id", "order": "desc"})
-    assert sorted_by_id.json()["data"]["list"][0]["module_key"] == "cw"
+    assert sorted_by_id.json()["data"]["list"][0]["module_key"] == "txn"
 
     ignored = await client.get("/api/v1/modules", params={"order_by": "module_key"})
     assert ignored.json()["data"]["list"][0]["module_key"] == "sys"

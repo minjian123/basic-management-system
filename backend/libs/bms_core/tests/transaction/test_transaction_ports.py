@@ -5,6 +5,8 @@
 `[transaction_manager]` 分区）；⑤ 配置分区缺省值；⑥ 错误码登记。
 """
 
+from datetime import UTC, datetime
+
 import pytest
 
 import bms_core.transaction.null  # noqa: F401  # pyright: ignore[reportUnusedImport]  导入即登记缺省实现
@@ -127,8 +129,9 @@ def test_txn_state_vocabulary() -> None:
 
 def test_global_transaction_terminal_flag() -> None:
     """全局事务快照：`is_terminal` 依状态判定。"""
-    running = GlobalTransaction(global_txn_id="t1", caller_service="platform", state="committing")
-    done = GlobalTransaction(global_txn_id="t1", caller_service="platform", state="committed")
+    moment = datetime.now(UTC)
+    running = GlobalTransaction(global_txn_id="t1", caller_service="platform", state="committing", deadline_at=moment)
+    done = GlobalTransaction(global_txn_id="t1", caller_service="platform", state="committed", deadline_at=moment)
 
     assert running.is_terminal is False
     assert done.is_terminal is True

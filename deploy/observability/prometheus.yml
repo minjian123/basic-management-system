@@ -58,6 +58,7 @@ scrape_configs:
           - search:8000
           - ai:8000
           - report:8000
+          - txn:8000
 
   - job_name: bms-probe
     # blackbox 主动探测每服务探针（/healthz /readyz；仅 200 成功）；目标与 bms-services 同口径
@@ -82,6 +83,8 @@ scrape_configs:
           - http://ai:8000/readyz
           - http://report:8000/healthz
           - http://report:8000/readyz
+          - http://txn:8000/healthz
+          - http://txn:8000/readyz
     relabel_configs:
       - source_labels: [__address__]
         target_label: __param_target

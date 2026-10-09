@@ -1,0 +1,789 @@
+{
+  "components": {
+    "schemas": {
+      "ApiResponse": {
+        "additionalProperties": false,
+        "description": "统一响应体：`code=0` 成功，非 0 业务错误码。\n\n- `data` 为业务数据（泛型）；失败时为 `null`；分页载荷复用分页契约基类。\n- 雪花 ID 在 JSON 中以字符串输出（`BaseSchema` 统一序列化口径）。",
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data"
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse",
+        "type": "object"
+      },
+      "ApiResponse_GlobalTxnView_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GlobalTxnView"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[GlobalTxnView]",
+        "type": "object"
+      },
+      "BeginGlobalTxnRequest": {
+        "additionalProperties": false,
+        "description": "开启全局事务请求（`caller_service` 取自服务身份，不由请求体声明）。",
+        "properties": {
+          "branches": {
+            "description": "分支声明清单（非空）",
+            "items": {
+              "$ref": "#/components/schemas/BranchSpecRequest"
+            },
+            "title": "Branches",
+            "type": "array"
+          },
+          "timeout_seconds": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "全局提交截止（秒）；缺省取 `[transaction_manager].deadline_seconds`",
+            "title": "Timeout Seconds"
+          }
+        },
+        "title": "BeginGlobalTxnRequest",
+        "type": "object"
+      },
+      "BranchSpecRequest": {
+        "additionalProperties": false,
+        "description": "分支声明（调用方给出；TM 只作寻址）。",
+        "properties": {
+          "branch_id": {
+            "description": "分支标识（同一全局事务内唯一；同时作为 XA `bqual`）",
+            "maxLength": 16,
+            "minLength": 1,
+            "title": "Branch Id",
+            "type": "string"
+          },
+          "db_key": {
+            "description": "**不透明库键**（平台 / 租户 / 归档库均可）",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Db Key",
+            "type": "string"
+          },
+          "service": {
+            "description": "参与方服务键（分支执行端点的服务身份）",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Service",
+            "type": "string"
+          }
+        },
+        "required": [
+          "branch_id",
+          "service",
+          "db_key"
+        ],
+        "title": "BranchSpecRequest",
+        "type": "object"
+      },
+      "BranchView": {
+        "additionalProperties": false,
+        "description": "分支视图（含 `xid` 与驱动痕迹）。",
+        "properties": {
+          "branch_id": {
+            "description": "分支标识",
+            "title": "Branch Id",
+            "type": "string"
+          },
+          "db_key": {
+            "description": "不透明库键",
+            "title": "Db Key",
+            "type": "string"
+          },
+          "last_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "最近一次驱动失败原因",
+            "title": "Last Error"
+          },
+          "retry_count": {
+            "description": "TM 驱动重试次数",
+            "title": "Retry Count",
+            "type": "integer"
+          },
+          "service": {
+            "description": "参与方服务键",
+            "title": "Service",
+            "type": "string"
+          },
+          "state": {
+            "description": "分支状态（active / prepared / committed / rolled_back / rejected）",
+            "title": "State",
+            "type": "string"
+          },
+          "xid": {
+            "description": "XA 事务标识（由 TM 生成）",
+            "title": "Xid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "branch_id",
+          "service",
+          "db_key",
+          "xid",
+          "state",
+          "retry_count"
+        ],
+        "title": "BranchView",
+        "type": "object"
+      },
+      "GlobalTxnView": {
+        "additionalProperties": false,
+        "description": "全局事务视图（`begin` / `commit` / `rollback` / `status` 统一返回）。",
+        "properties": {
+          "branches": {
+            "description": "分支清单",
+            "items": {
+              "$ref": "#/components/schemas/BranchView"
+            },
+            "title": "Branches",
+            "type": "array"
+          },
+          "caller_service": {
+            "description": "发起方服务键",
+            "title": "Caller Service",
+            "type": "string"
+          },
+          "deadline_at": {
+            "description": "提交决定截止时间（UTC）",
+            "format": "date-time",
+            "title": "Deadline At",
+            "type": "string"
+          },
+          "decided_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "提交决定点时间（UTC；非空即已过决定点）",
+            "title": "Decided At"
+          },
+          "global_txn_id": {
+            "description": "全局事务标识（同时作为 XA `gtrid`）",
+            "title": "Global Txn Id",
+            "type": "string"
+          },
+          "state": {
+            "description": "全局事务状态（TXN_*）",
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "global_txn_id",
+          "caller_service",
+          "state",
+          "deadline_at"
+        ],
+        "title": "GlobalTxnView",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "title": "BMS 跨服务事务管理器服务",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/": {
+      "get": {
+        "description": "应用信息。\n\nReturns:\n    ApiResponse: {code, message, data:{name, version}}。",
+        "operationId": "root__get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Root"
+      }
+    },
+    "/api/v1/txn/global": {
+      "post": {
+        "description": "开启全局事务并分配各分支 `xid`。\n\nArgs:\n    req: 开启请求（分支声明清单 + 可选超时）。\n    uow: 请求级工作单元。\n    token: 服务身份（`caller_service` 来源）。\n    request: 请求对象（取分支驱动）。\n\nReturns:\n    ApiResponse: 统一响应，data 为全局事务视图。",
+        "operationId": "begin_global_txn_api_v1_txn_global_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BeginGlobalTxnRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_GlobalTxnView_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Begin Global Txn",
+        "tags": [
+          "txn"
+        ]
+      }
+    },
+    "/api/v1/txn/global/{global_txn_id}": {
+      "delete": {
+        "description": "请求回滚（决定点之前有效；之后由 TM 幂等吸收）。\n\nArgs:\n    global_txn_id: 全局事务标识。\n    uow: 请求级工作单元。\n    token: 服务身份（占位）。\n    request: 请求对象（取分支驱动）。\n\nReturns:\n    ApiResponse: 统一响应，data 为全局事务视图。",
+        "operationId": "rollback_global_txn_api_v1_txn_global__global_txn_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "global_txn_id",
+            "required": true,
+            "schema": {
+              "title": "Global Txn Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_GlobalTxnView_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Rollback Global Txn",
+        "tags": [
+          "txn"
+        ]
+      },
+      "get": {
+        "description": "查询全局事务状态。\n\nArgs:\n    global_txn_id: 全局事务标识。\n    uow: 请求级工作单元。\n    token: 服务身份（占位）。\n    request: 请求对象（取分支驱动）。\n\nReturns:\n    ApiResponse: 统一响应，data 为全局事务视图。",
+        "operationId": "get_global_txn_api_v1_txn_global__global_txn_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "global_txn_id",
+            "required": true,
+            "schema": {
+              "title": "Global Txn Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_GlobalTxnView_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Get Global Txn",
+        "tags": [
+          "txn"
+        ]
+      }
+    },
+    "/api/v1/txn/global/{global_txn_id}/commit": {
+      "post": {
+        "description": "请求提交（TM 核验全部分支 `prepared` 后落决定点并逐分支提交）。\n\nArgs:\n    global_txn_id: 全局事务标识。\n    uow: 请求级工作单元。\n    token: 服务身份（占位：TM 不校验发起方一致性，由服务身份通道保证）。\n    request: 请求对象（取分支驱动）。\n\nReturns:\n    ApiResponse: 统一响应，data 为全局事务视图。",
+        "operationId": "commit_global_txn_api_v1_txn_global__global_txn_id__commit_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "global_txn_id",
+            "required": true,
+            "schema": {
+              "title": "Global Txn Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_GlobalTxnView_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Commit Global Txn",
+        "tags": [
+          "txn"
+        ]
+      }
+    },
+    "/healthz": {
+      "get": {
+        "description": "存活检查端点。\n\nArgs:\n    request: 当前请求（取服务身份）。\n\nReturns:\n    dict: 服务状态与身份，固定返回 {\"status\": \"ok\", \"service\": 名, \"version\": 版}。",
+        "operationId": "healthz_healthz_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Healthz Healthz Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Healthz"
+      }
+    },
+    "/readyz": {
+      "get": {
+        "description": "就绪检查端点（启动完成态 + 停机摘流 + 注册表聚合）。\n\nArgs:\n    request: 当前请求（取应用启动完成态 / 停机摘流标记 / 服务身份）。\n    registry: 健康检查项注册表（依赖注入）。\n\nReturns:\n    JSONResponse: 全部就绪 200；未就绪、启动未完成或停机中 503。",
+        "operationId": "readyz_readyz_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Readyz"
+      }
+    }
+  }
+}

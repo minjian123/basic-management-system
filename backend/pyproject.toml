@@ -38,6 +38,7 @@ ignore = ["RUF001", "RUF002", "RUF003"]
 # 工作区自有包与脚本区视为第一方（与第三方依赖分组稳定，避免归类漂移）
 known-first-party = [
     "bms_core",
+    "bms_txn",
     "bms_platform",
     "bms_identity",
     "bms_tenant",
@@ -61,6 +62,7 @@ ignore = ["alembic"]
 # src 布局：把各工程源码根加入解析路径，供跨工程导入与严格类型检查
 extraPaths = [
     "libs/bms_core/src",
+    "services/txn/src",
     "services/platform/src",
     "services/identity/src",
     "services/tenant/src",

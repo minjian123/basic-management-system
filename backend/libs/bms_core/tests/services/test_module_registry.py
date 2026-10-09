@@ -59,9 +59,9 @@ def _record(module_key: str = "pur", **overrides: object) -> ModuleRecord:
 
 @pytest.mark.kiwi_id(2162)
 def test_service_catalog_shape() -> None:
-    """服务目录清单：16 行（平台服务 9 + 产品服务 7，`org` 归 mdm），分组 / 批次 / 版本齐备。"""
+    """服务目录清单：17 行（平台服务 10 + 产品服务 7，`org` 归 mdm），分组 / 批次 / 版本齐备。"""
     keys = [module.module_key for module in SERVICE_CATALOG]
-    assert len(SERVICE_CATALOG) == 16
+    assert len(SERVICE_CATALOG) == 17
     assert keys == [
         "sys",
         "identity",
@@ -79,9 +79,10 @@ def test_service_catalog_shape() -> None:
         "wh",
         "sup",
         "cw",
+        "txn",
     ]
     services = [module for module in SERVICE_CATALOG if module.service_key]
-    assert len(services) == 10
+    assert len(services) == 11
     assert {module.service_key for module in services} == {
         "platform",
         "identity",
@@ -93,6 +94,7 @@ def test_service_catalog_shape() -> None:
         "ai",
         "report",
         "workflow",
+        "txn",
     }
     assert [module.module_key for module in PLATFORM_MODULES] == ["sys", "wf", "rpt", "ai"]
     assert [module.module_key for module in ModuleRegistry().list_modules(group=ServiceGroup.PRODUCT)] == [

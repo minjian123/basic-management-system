@@ -13,6 +13,7 @@ members = [
     "bms-report",
     "bms-search",
     "bms-tenant",
+    "bms-txn",
 ]
 
 [manifest.dependency-groups]
@@ -402,6 +403,23 @@ requires-dist = [
 name = "bms-tenant"
 version = "0.1.0"
 source = { editable = "services/tenant" }
+dependencies = [
+    { name = "bms-core" },
+    { name = "fastapi" },
+    { name = "uvicorn", extra = ["standard"] },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "bms-core", editable = "libs/bms_core" },
+    { name = "fastapi", specifier = ">=0.115" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.30" },
+]
+
+[[package]]
+name = "bms-txn"
+version = "0.1.0"
+source = { editable = "services/txn" }
 dependencies = [
     { name = "bms-core" },
     { name = "fastapi" },

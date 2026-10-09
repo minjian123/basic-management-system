@@ -14,12 +14,14 @@
 from abc import ABC, abstractmethod
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
+from datetime import datetime
 from typing import cast
 
 from fastapi import Request
 
 from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.config import Settings
+from bms_core.core.exceptions import ParamError
 from bms_core.core.objects import BaseFrameworkObject, BaseValueObject
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 from bms_core.db.session import DbSession
@@ -98,6 +100,40 @@ BRANCH_STATES: tuple[str, ...] = (BRANCH_ACTIVE, BRANCH_PREPARED, BRANCH_COMMITT
 """分支状态取值全集。"""
 
 
+XA_XID_SEPARATOR = "|"
+"""XA `xid` 内部分隔符（`gtrid|bqual`）。"""
+
+MAX_XA_XID_BYTES = 64
+"""XA `xid` 最严上限（MySQL `XA` 要求 `xid` ≤ 64 字节；三库按最严口径统一）。"""
+
+MAX_BRANCH_ID_LENGTH = 16
+"""分支标识最大长度（预留 `gtrid` 与分隔符后仍满足 `MAX_XA_XID_BYTES`）。"""
+
+
+def build_branch_xid(global_txn_id: str, branch_id: str) -> str:
+    """构建分支 `xid`（`gtrid|bqual` 文本形态；TM 生成、参与方原样透传）。
+
+    形态满足三库最严约束：`gtrid = global_txn_id`、`bqual = branch_id`、
+    `formatID = 1`（由方言实现承载）——总长不超过 `MAX_XA_XID_BYTES`。
+
+    Args:
+        global_txn_id: 全局事务标识。
+        branch_id: 分支标识。
+
+    Returns:
+        str: 分支 `xid`。
+
+    Raises:
+        ParamError: 长度超限（`10001`）。
+    """
+    if len(branch_id) > MAX_BRANCH_ID_LENGTH:
+        raise ParamError(f"分支标识过长（上限 {MAX_BRANCH_ID_LENGTH}）：{branch_id}")
+    xid = f"{global_txn_id}{XA_XID_SEPARATOR}{branch_id}"
+    if len(xid.encode("utf-8")) > MAX_XA_XID_BYTES:
+        raise ParamError(f"分支 xid 超过 XA 上限（{MAX_XA_XID_BYTES} 字节）：{xid}")
+    return xid
+
+
 @dataclass(frozen=True)
 class BranchSpec(BaseValueObject):
     """分支声明（调用方 `begin` 时给出；TM 只作寻址，不解释业务语义）。"""
@@ -119,6 +155,12 @@ class BranchRef(BranchSpec):
     xid: str
     """XA 事务标识（由 TM 生成，满足三库最严约束）。"""
 
+    state: str = ""
+    """分支状态（`BRANCH_*`）。"""
+
+    retry_count: int = 0
+    """TM 驱动重试次数。"""
+
 
 @dataclass(frozen=True)
 class GlobalTransaction(BaseValueObject):
@@ -132,6 +174,12 @@ class GlobalTransaction(BaseValueObject):
 
     state: str
     """全局事务状态（`TXN_*`）。"""
+
+    deadline_at: datetime
+    """提交决定截止时间（UTC）。"""
+
+    decided_at: datetime | None = None
+    """提交决定点时间（UTC；非空即已过决定点）。"""
 
     branches: tuple[BranchRef, ...] = ()
     """分支清单（含 `xid`）。"""
@@ -371,6 +419,8 @@ __all__ = [
     "BRANCH_REJECTED",
     "BRANCH_ROLLED_BACK",
     "BRANCH_STATES",
+    "MAX_BRANCH_ID_LENGTH",
+    "MAX_XA_XID_BYTES",
     "TRANSACTION_MANAGER_KEY",
     "TRANSACTION_PARTICIPANT_KEY",
     "TXN_ACTIVE",
@@ -384,6 +434,7 @@ __all__ = [
     "TXN_ROLLING_BACK",
     "TXN_STATES",
     "TXN_TERMINAL_STATES",
+    "XA_XID_SEPARATOR",
     "BaseTransactionManager",
     "BaseTransactionParticipant",
     "BranchHandler",
@@ -391,6 +442,7 @@ __all__ = [
     "BranchRef",
     "BranchSpec",
     "GlobalTransaction",
+    "build_branch_xid",
     "get_transaction_manager",
     "get_transaction_participant",
 ]

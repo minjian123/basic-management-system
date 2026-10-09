@@ -2,7 +2,7 @@
 管控 job：服务子流水线 service-build / service-release（deploy/ci/templates/backend-service.yml，父流水线 trigger 拉起）
           + 前端镜像 frontend-image（本档同守；Dockerfile 未就绪时脚本内判定跳过，不空跑失败）
 
-后端（按服务，9 个启用服务）：
+后端（按服务，10 个启用服务）：
 - 构建：docker build --provenance=false --build-arg SERVICE=<服务> -f backend/Dockerfile backend/
   → bms-{service}:$CI_COMMIT_SHORT_SHA（--provenance=false：BuildKit attestation 清单推送被 Registry 拒绝，报 blob unknown）
 - 发布：推送 GitLab Registry（5050）+ Trivy 镜像安全扫描（CRITICAL / HIGH 阻断）+ 阶段度量推送

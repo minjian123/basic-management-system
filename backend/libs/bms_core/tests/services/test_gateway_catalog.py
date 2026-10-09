@@ -20,6 +20,7 @@ _EXPECTED_SERVICES = (
     "search",
     "ai",
     "report",
+    "txn",
 )
 """参与网关的服务（enabled + 有 `service_key`）——**含产品服务**（上游与产品级路由目标集）。"""
 
@@ -32,6 +33,7 @@ _EXPECTED_PLATFORM_ROUTE_SERVICES = (
     "search",
     "ai",
     "report",
+    "txn",
 )
 """参与**服务级路由**的服务（enabled + 非产品分组）——`org` 归 mdm 产品服务后不含它。"""
 

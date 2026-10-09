@@ -40,6 +40,7 @@ from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList 
 
 _ROOTS = (
     "libs/bms_core",
+    "services/txn",
     "services/platform",
     "services/identity",
     "services/tenant",

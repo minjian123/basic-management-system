@@ -113,6 +113,25 @@ TABLE_OWNERSHIP: tuple[TableRecord, ...] = (
         datasource=Datasource.BOTH,
         note="死信（每服务每链各一）",
     ),
+    # ---- 跨服务事务账本（TM 专属：平台侧独立基础设施库 `bms_txn`；去租户、与业务库物理分离）----
+    TableRecord(
+        table_name="txn_global",
+        owner="txn",
+        datasource=Datasource.PLATFORM,
+        note="全局事务主记录（提交决定点唯一权威）",
+    ),
+    TableRecord(
+        table_name="txn_global_branch",
+        owner="txn",
+        datasource=Datasource.PLATFORM,
+        note="全局事务分支（`db_key` 为不透明库键）",
+    ),
+    TableRecord(
+        table_name="txn_global_recovery",
+        owner="txn",
+        datasource=Datasource.PLATFORM,
+        note="恢复 / 对账台账（只驱动协议，禁止改业务数据）",
+    ),
     # ---- 平台层表（库类别 platform）----
     TableRecord(table_name="sys_tenant", owner="tenant", datasource=Datasource.PLATFORM, note="租户注册"),
     TableRecord(

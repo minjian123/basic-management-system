@@ -1,4 +1,4 @@
-# BMS 服务编排（9 个已启用后端服务；阶段二 09_02 不可变镜像与回滚）
+# BMS 服务编排（10 个已启用后端服务；阶段二 09_02 不可变镜像与回滚）
 #
 # 组合拉起（在 deploy/ 目录，.env 提供变量）：
 #   docker compose -f compose/bms.yml --env-file .env up -d
@@ -97,3 +97,8 @@ services:
     <<: *service-base
     image: ${REGISTRY_IMAGE_PREFIX:?REGISTRY_IMAGE_PREFIX required}/bms-report:${BMS_TAG_REPORT:?BMS_TAG_REPORT required}
     container_name: bms-report
+
+  txn:
+    <<: *service-base
+    image: ${REGISTRY_IMAGE_PREFIX:?REGISTRY_IMAGE_PREFIX required}/bms-txn:${BMS_TAG_TXN:?BMS_TAG_TXN required}
+    container_name: bms-txn

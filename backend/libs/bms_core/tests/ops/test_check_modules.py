@@ -141,7 +141,7 @@ def test_resolve_service_contracts_and_declarations(tmp_path: Path) -> None:
 
 @pytest.mark.kiwi_id(2163)
 def test_resolve_service_contracts_real_workspace() -> None:
-    """真实工作区：已建 8 个平台服务工程均自报 CONTRACT_VERSION 且与清单主版本一致。"""
+    """真实工作区：已建 9 个平台服务工程均自报 CONTRACT_VERSION 且与清单主版本一致。"""
     declarations = check_modules.resolve_service_contracts()
     assert set(declarations) == {
         "ai",
@@ -152,6 +152,7 @@ def test_resolve_service_contracts_real_workspace() -> None:
         "report",
         "search",
         "tenant",
+        "txn",
     }
     assert all(version is not None for version in declarations.values())
     assert check_modules.check_service_declarations(ConcurrentStableList(SERVICE_CATALOG), declarations) == []
