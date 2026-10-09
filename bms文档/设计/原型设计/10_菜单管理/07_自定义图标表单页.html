@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 权限码表单页</title>
+<title>原型 · 自定义图标表单页</title>
 <link rel="stylesheet" href="../资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../资源/原型样式.css">
 <style>
@@ -11,20 +11,22 @@
   .ep-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
   .ep-toolbar .ep-side { margin-left: auto; }
   .sys-frame { display: block; width: 100%; border: none; background: #fff; }
+  .svg-box { display: flex; align-items: center; gap: 12px; }
+  .svg-preview { display: inline-flex; align-items: center; justify-content: center; width: 64px; height: 64px; border: 1px dashed #d0d7de; border-radius: 6px; font-size: 28px; background: #f6f8fa; }
 </style>
 </head>
 <body>
 
 <div class="proto-bar">
   <span class="pb-crumb"><a href="01_设计说明.html">← 返回设计说明</a></span>
-  <span class="pb-name">菜单管理 · 权限码表单页（表单框架 · 权限码记录 Tab）</span>
+  <span class="pb-name">菜单管理 · 自定义图标表单页（表单框架 · 自定义图标记录 Tab）</span>
 </div>
 
 <div class="proto-frame">
   <div class="proto-note">
-    本页为「权限码管理」表单框架的<b>权限码记录 Tab</b>。信息栏两个子页签：<b>详细信息</b> · <b>系统信息</b>。
-    权限码类型分<b>业务权限码</b>（<code>sys_business</code>）与<b>动作权限码</b>（<code>sys_action</code>，归属业务）；
-    权限码存平台库、<b>平台统一维护，租户侧只读</b>（40204）；业务 / 动作码一经发布稳定不变，<b>停用代替删除</b>（被引用时禁停用 / 删除，40206）。
+    本页为「自定义图标管理」表单框架的<b>自定义图标记录 Tab</b>。信息栏两个子页签：<b>详细信息</b> · <b>系统信息</b>。
+    图标为<b>租户自定义</b>（<code>sys_icon</code>，租户库）：图标键 kebab-case 唯一、创建后不可修改，前端 icon key = <code>custom:{图标键}</code>（后端派生，业务与前端不得自拼前缀）；
+    上传<b>仅 SVG</b>（类型白名单 + 大小上限），内容清洗（移除脚本 / 事件属性 / 外链）由后端兜底；需 <code>icon:manage</code>；删除前置<b>引用检查</b>（被引用先解除或用停用代替，40206）。
   </div>
 
   <div id="app">
@@ -43,7 +45,7 @@
         <el-button @click="closePage">关闭</el-button>
         <span class="ep-side">
           <span v-if="dirty" class="proto-hint" style="color:#cf222e">● 有未保存变更</span>
-          <span v-else class="proto-hint">平台码由平台统一维护，租户视角编辑 / 删除均被拦截（40204）</span>
+          <span v-else class="proto-hint">租户自定义图标 · 需 icon:manage</span>
         </span>
       </div>
 
@@ -51,53 +53,34 @@
       <el-tabs v-model="section" :before-leave="beforeTabLeave">
         <el-tab-pane label="详细信息" name="detail">
           <el-form label-position="top" :disabled="!editing">
-            <el-form-item label="权限码类型">
-              <el-radio-group v-model="form.permType">
-                <el-radio value="biz">业务权限码</el-radio>
-                <el-radio value="act">动作权限码</el-radio>
-              </el-radio-group>
-            </el-form-item>
-
-            <!-- 业务权限码：业务码 + 中英文名称 -->
-            <template v-if="form.permType === 'biz'">
-              <el-row :gutter="16">
-                <el-col :span="8">
-                  <el-form-item label="业务码" required><el-input v-model="form.code" placeholder="如 user"></el-input></el-form-item>
-                </el-col>
-                <el-col :span="8">
-                  <el-form-item label="中文名称" required><el-input v-model="form.zh" placeholder="中文名称"></el-input></el-form-item>
-                </el-col>
-                <el-col :span="8">
-                  <el-form-item label="英文名称" required><el-input v-model="form.en" placeholder="English Name"></el-input></el-form-item>
-                </el-col>
-              </el-row>
-            </template>
-
-            <!-- 动作权限码：动作码 + 归属业务 + 中英文名称 -->
-            <template v-else>
-              <el-row :gutter="16">
-                <el-col :span="8">
-                  <el-form-item label="动作码" required><el-input v-model="form.code" placeholder="如 create"></el-input></el-form-item>
-                </el-col>
-                <el-col :span="8">
-                  <el-form-item label="归属业务" required>
-                    <el-select v-model="form.biz" style="width:100%">
-                      <el-option v-for="b in bizOptions" :key="b" :label="b" :value="b"></el-option>
-                    </el-select>
-                  </el-form-item>
-                </el-col>
-                <el-col :span="8">
-                  <el-form-item label="中文名称" required><el-input v-model="form.zh" placeholder="中文名称"></el-input></el-form-item>
-                </el-col>
-              </el-row>
-              <el-row :gutter="16">
-                <el-col :span="8">
-                  <el-form-item label="英文名称" required><el-input v-model="form.en" placeholder="English Name"></el-input></el-form-item>
-                </el-col>
-              </el-row>
-            </template>
-
             <el-row :gutter="16">
+              <el-col :span="8">
+                <el-form-item label="图标键" required>
+                  <el-input v-model="form.code" :disabled="!form.isNew" placeholder="kebab-case，如 receipt"></el-input>
+                  <div class="proto-hint" style="line-height:1.6">icon key = <code>custom:{{ form.code || '…' }}</code>；kebab-case 唯一，创建后不可修改</div>
+                </el-form-item>
+              </el-col>
+              <el-col :span="8">
+                <el-form-item label="中文名称" required><el-input v-model="form.zh" placeholder="中文名称，如 票据"></el-input></el-form-item>
+              </el-col>
+              <el-col :span="8">
+                <el-form-item label="英文名称"><el-input v-model="form.en" placeholder="English Name"></el-input></el-form-item>
+              </el-col>
+            </el-row>
+            <el-row :gutter="16">
+              <el-col :span="8">
+                <el-form-item label="分组">
+                  <el-select v-model="form.category" style="width:100%">
+                    <el-option v-for="c in categories" :key="c" :label="c" :value="c"></el-option>
+                  </el-select>
+                </el-form-item>
+              </el-col>
+              <el-col :span="8">
+                <el-form-item label="标签">
+                  <el-input v-model="form.tags" placeholder="逗号分隔，如 票据,报销"></el-input>
+                  <div class="proto-hint" style="line-height:1.6">标签用于图标选择器搜索（支持中文别名）</div>
+                </el-form-item>
+              </el-col>
               <el-col :span="8">
                 <el-form-item label="状态">
                   <el-switch v-model="form.enabled" active-text="启用" inactive-text="停用"></el-switch>
@@ -106,8 +89,22 @@
             </el-row>
             <el-row :gutter="16">
               <el-col :span="24">
+                <el-form-item label="图标内容（SVG）">
+                  <div class="svg-box">
+                    <span class="svg-preview">{{ form.glyph || '？' }}</span>
+                    <div>
+                      <el-button :disabled="!editing" @click="uploadSvg">上传 SVG</el-button>
+                      <span class="proto-hint" style="margin-left:8px">当前：{{ form.svgName || '未上传' }}</span>
+                      <div class="proto-hint" style="line-height:1.6">仅 SVG（类型白名单）、大小上限（如 100KB）；内容清洗（移除脚本 / 事件属性 / 外链）由后端兜底，前端内联渲染前再清洗</div>
+                    </div>
+                  </div>
+                </el-form-item>
+              </el-col>
+            </el-row>
+            <el-row :gutter="16">
+              <el-col :span="24">
                 <el-form-item label="说明">
-                  <span class="proto-hint">权限码经平台库维护、租户侧只读引用（40204）；业务 / 动作码一经发布稳定不变，停用代替删除；名称按 locale 存多语言附表，缺省回退主表默认文案。</span>
+                  <span class="proto-hint">平台官方图标（<code>el:</code>）与业务自绘图标（<code>biz:</code>）随代码发布、不落表，本页仅维护租户自定义图标；停用后不在图标选择器候选与渲染清单中出现，已引用处按降级处理。</span>
                 </el-form-item>
               </el-col>
             </el-row>
@@ -135,22 +132,20 @@
     template: document.getElementById('app').outerHTML.replace(/<div id="app">/, '<div>').replace(/<\/div>\s*$/, ''),
     setup: function () {
       function qp(k) { var m = location.search.match(new RegExp('[?&]' + k + '=([^&]*)')); return m ? decodeURIComponent(m[1]) : null; }
-      var initKind = qp('kind') === 'act' ? 'act' : 'biz';
       var isNew = qp('new') === '1';
       var editing = ref(isNew);
       var section = ref('detail');
       var dirty = ref(false);
-      var bizOptions = ['（多业务共用）', 'user', 'role', 'menu', 'business', 'action', 'icon', 'export'];
+      var categories = ['菜单', '通用', '媒体', '财务', '其他'];
       var form = reactive({
-        permType: initKind, code: initKind === 'act' ? 'create' : 'user',
-        biz: '（多业务共用）', zh: initKind === 'act' ? '新增' : '用户管理（含账号锁定/解锁）',
-        en: initKind === 'act' ? 'Create' : 'User Management', enabled: true
+        isNew: isNew, code: 'receipt', zh: '票据', en: 'Receipt', category: '财务',
+        tags: '票据,报销', enabled: true, glyph: '🎫', svgName: 'receipt.svg'
       });
       var sys = reactive({
-        id: '1902880099887766554', version: 2,
-        createdAt: '2026-07-01 10:00:00', createdBy: 'admin',
+        id: '1902880055667788990', version: 1,
+        createdAt: '2026-10-01 10:00:00', createdBy: 'admin',
         updatedAt: '2026-10-09 09:20:00', updatedBy: 'admin',
-        formKey: 'business', formLabel: '业务权限码表单'
+        formKey: 'icon', formLabel: '自定义图标表单'
       });
 
       var sysH = ref(236);
@@ -175,18 +170,20 @@
             .then(function () { dirty.value = false; editing.value = false; toast('已取消修改'); }).catch(function () {});
         } else { editing.value = false; toast('已取消修改'); }
       }
+      function uploadSvg() { form.svgName = (form.code || 'icon') + '.svg'; markDirty(); toast('已选择 SVG（类型白名单校验通过，内容清洗由后端兜底）'); }
+      function markDirty() { if (editing.value) dirty.value = true; }
       function saveForm() {
-        var label = form.permType === 'biz' ? '业务码' : '动作码';
-        if (!(form.code || '').trim() || !(form.zh || '').trim() || !(form.en || '').trim()) { toast(label + '与中英文名称必填', 'error'); return; }
-        if (form.permType === 'act' && !form.biz) { toast('动作码需选择归属业务', 'error'); return; }
+        if (!(form.code || '').trim() || !(form.zh || '').trim()) { toast('图标键与中文名称必填', 'error'); return; }
+        if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(form.code)) { toast('图标键须为 kebab-case（小写字母 / 数字，短横线分隔）', 'error'); return; }
+        if (!form.svgName) { toast('请上传 SVG 图标内容', 'error'); return; }
         editing.value = false;
         dirty.value = false;
-        toast('权限码已保存（sys.form.updated 已发布，授权选项即时生效）');
+        toast('自定义图标已保存（icon key：custom:' + form.code + '）');
       }
       function delForm() {
-        ElMessageBox.confirm('删除当前权限码？平台码稳定不变、以「停用」代替删除；被角色引用时先解除授权（40206），删除后不可恢复。', '提示', {
+        ElMessageBox.confirm('删除当前自定义图标？被菜单 / 卡片引用时先解除引用或用「停用」代替（40206），删除后不可恢复。', '提示', {
           type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消', confirmButtonClass: 'el-button--danger'
-        }).then(function () { toast('已删除（软删除，sys.form.updated 已发布）'); }).catch(function () {});
+        }).then(function () { toast('已删除并关闭记录 Tab，列表已刷新'); }).catch(function () {});
       }
       function reload() { toast('已重新加载当前记录'); }
       function closePage() {
@@ -198,13 +195,13 @@
 
       (function () {
         var id = qp('id'), name = qp('name');
-        if (isNew) { form.code = ''; form.zh = ''; form.en = ''; return; }
-        if (id) form.code = id;
+        if (isNew) { form.code = ''; form.zh = ''; form.en = ''; form.tags = ''; form.glyph = ''; form.svgName = ''; return; }
+        if (id) { form.code = id; form.glyph = '🎫'; }
         if (name) form.zh = name;
       })();
       function toast(m, type) { ElMessage({ message: m, type: type || 'success' }); }
 
-      return { editing, section, dirty, bizOptions, form, sys, sysH, pushSys, beforeTabLeave, editForm, cancelEdit, saveForm, delForm, reload, closePage, toast };
+      return { editing, section, dirty, categories, form, sys, sysH, pushSys, beforeTabLeave, editForm, cancelEdit, uploadSvg, saveForm, delForm, reload, closePage, toast };
     }
   });
   app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });

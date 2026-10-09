@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 自定义图标管理</title>
+<link rel="stylesheet" href="../资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../资源/原型样式.css">
+<style>
+  .ep-page { background: #fff; border: 1px solid #d0d7de; border-radius: 6px; padding: 16px; }
+  .ep-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+  .ep-toolbar .ep-side { margin-left: auto; }
+  .ep-filter { margin-bottom: 12px; }
+  /* 表格下方一行：左下明细工具栏（图标按钮）+ 右下分页（《布局设计-表格明细》2.4） */
+  .ep-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+  .ico-box { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border: 1px solid #d0d7de; border-radius: 4px; font-size: 14px; background: #f6f8fa; }
+  .key-cell { display: inline-flex; align-items: center; gap: 6px; }
+  .key-cell code { font-size: 12px; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="01_设计说明.html">← 返回设计说明</a></span>
+  <span class="pb-name">菜单管理 · 自定义图标管理（表单框架 · 列表 Tab）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本页为「自定义图标管理」表单框架的<b>列表 Tab</b>（固定页签，不可关闭）；双击数据行或点「新增」打开<b>自定义图标记录 Tab</b>
+    （见 <a href="07_自定义图标表单页.html">自定义图标表单页</a>）。列表页三段式：工具栏 → 筛选区 → 表格；<b>无操作列</b>，双击行开记录 Tab。
+    仅管理<b>租户自定义图标</b>（<code>sys_icon</code>，租户库）；平台官方图标（<code>el:</code>）与业务自绘图标（<code>biz:</code>）随代码发布、<b>不落表</b>，不在本页管理。
+    图标键为 kebab-case 唯一，后端按 <code>custom:{图标键}</code> 统一派生 icon key；清单浏览登录即可，新增 / 编辑 / 启停 / 删除需 <code>icon:manage</code>；
+    <b>引用检查</b>：被菜单 / 卡片引用时先解除引用或用「停用」代替（40206）。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <!-- ① 工具栏：左侧 新增/刷新/关闭 + 批量操作（随选中态启用）；右侧 导出 -->
+      <div class="ep-toolbar">
+        <el-button type="primary" @click="openForm(null)">新增</el-button>
+        <el-button @click="reload">刷新</el-button>
+        <el-button @click="closePage">关闭</el-button>
+        <el-button type="danger" plain :disabled="!selRows.length" @click="delSel">删除</el-button>
+        <el-button :disabled="!selRows.length" @click="batchToggle">停用/启用</el-button>
+        <span class="ep-side">
+          <el-button @click="exportMsg">导出</el-button>
+          <span class="proto-hint" style="margin-left:10px">需 icon:manage（默认归属系统管理员）</span>
+        </span>
+      </div>
+
+      <!-- ② 筛选区：关键字框 240px + 分组 + 状态；查询/重置在条件行末 -->
+      <el-form class="ep-filter" label-position="top" @submit.prevent>
+        <el-row :gutter="16">
+          <el-col :span="8">
+            <el-form-item label="关键字">
+              <el-input v-model="query.kw" placeholder="关键字：图标键/名称/标签" clearable style="width:240px"></el-input>
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item label="分组">
+              <el-select v-model="query.category" placeholder="全部" clearable style="width:100%">
+                <el-option v-for="c in categories" :key="c" :label="c" :value="c"></el-option>
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item label="状态">
+              <el-select v-model="query.status" placeholder="全部" clearable style="width:100%">
+                <el-option label="启用" value="enabled"></el-option>
+                <el-option label="停用" value="disabled"></el-option>
+              </el-select>
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-row :gutter="16">
+          <el-col :span="8" :offset="16">
+            <el-form-item>
+              <el-button type="primary" @click="applyFilter">查询</el-button>
+              <el-button @click="resetFilter">重置</el-button>
+            </el-form-item>
+          </el-col>
+        </el-row>
+      </el-form>
+
+      <!-- ③ 表格：多选 + 数据列（无操作列）；图标键带「复制」；双击行打开记录 Tab -->
+      <el-table :data="pageRows" border stripe @selection-change="onSel" @row-dblclick="openForm" style="width:100%">
+        <el-table-column type="selection" width="48"></el-table-column>
+        <el-table-column label="图标" width="80" align="center">
+          <template #default="{ row }"><span class="ico-box">{{ row.glyph }}</span></template>
+        </el-table-column>
+        <el-table-column label="图标键" min-width="200">
+          <template #default="{ row }">
+            <span class="key-cell"><code>custom:{{ row.code }}</code>
+              <el-button link type="primary" size="small" @click.stop="copyKey(row)">复制</el-button>
+            </span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="name" label="名称" min-width="150"></el-table-column>
+        <el-table-column prop="category" label="分组" width="110"></el-table-column>
+        <el-table-column label="引用计数" width="110" align="center">
+          <template #default="{ row }">
+            <el-button link type="primary" size="small" @click.stop="viewRefs(row)">{{ row.refCount }}</el-button>
+          </template>
+        </el-table-column>
+        <el-table-column label="状态" width="100">
+          <template #default="{ row }">
+            <el-tag :type="row.status === 'enabled' ? 'success' : 'info'">{{ row.status === 'enabled' ? '启用' : '停用' }}</el-tag>
+          </template>
+        </el-table-column>
+        <template #empty>
+          <div>
+            <div style="font-size:14px;color:#57606a">暂无数据</div>
+            <el-button style="margin-top:10px" type="primary" @click="openForm(null)">去创建</el-button>
+          </div>
+        </template>
+      </el-table>
+
+      <!-- ④ 表格下方一行：左下明细工具栏（通用工具）+ 右下分页（默认 20 条/页） -->
+      <div class="ep-bar">
+        <div>
+          <el-button size="small" @click="toast('原型演示：自动列宽')" title="自动列宽">⟷</el-button>
+          <el-button size="small" @click="toast('原型演示：自定义列')" title="自定义列">☰</el-button>
+          <el-button size="small" @click="reload" title="刷新">⟳</el-button>
+          <el-button size="small" @click="toast('原型演示：全屏')" title="全屏">⛶</el-button>
+        </div>
+        <el-pagination background layout="total, sizes, jumper, prev, pager, next" :total="filtered.length"
+          :page-size="query.size" :current-page="query.page"
+          @current-change="onPage" @size-change="onSize"></el-pagination>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="../资源/vendor/vue.global.prod.js"></script>
+
+<script src="../资源/vendor/element-plus.min.js"></script>
+<script src="../资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref, reactive, computed } = Vue;
+  var ElMessage = ElementPlus.ElMessage;
+  var ElMessageBox = ElementPlus.ElMessageBox;
+  var app = createApp({
+    template: document.getElementById('app').outerHTML.replace(/<div id="app">/, '<div>').replace(/<\/div>\s*$/, ''),
+    setup: function () {
+      var categories = ['菜单', '通用', '媒体', '财务', '其他'];
+      var rows = ref([
+        { id: 'receipt', code: 'receipt', name: '票据', category: '财务', tags: '票据,报销', refCount: 2, status: 'enabled', glyph: '🎫' },
+        { id: 'contract', code: 'contract', name: '合同', category: '通用', tags: '合同,签约', refCount: 1, status: 'enabled', glyph: '📄' },
+        { id: 'warehouse', code: 'warehouse', name: '仓库', category: '其他', tags: '仓库,库存', refCount: 0, status: 'enabled', glyph: '🏬' },
+        { id: 'dashboard', code: 'dashboard', name: '看板', category: '菜单', tags: '看板,首页', refCount: 3, status: 'disabled', glyph: '📊' }
+      ]);
+      var query = reactive({ kw: '', category: '', status: '', page: 1, size: 20 });
+      var selRows = ref([]);
+
+      var filtered = computed(function () {
+        return rows.value.filter(function (r) {
+          var k = (query.kw || '').toLowerCase();
+          var text = (r.code + r.name + r.tags).toLowerCase();
+          return (!k || text.indexOf(k) >= 0) && (!query.category || r.category === query.category) && (!query.status || r.status === query.status);
+        });
+      });
+      var pageRows = computed(function () { var s = (query.page - 1) * query.size; return filtered.value.slice(s, s + query.size); });
+      function applyFilter() { query.page = 1; toast('命中 ' + filtered.value.length + ' 条'); }
+      function resetFilter() { query.kw = ''; query.category = ''; query.status = ''; query.page = 1; }
+      function onSel(sel) { selRows.value = sel; }
+      function onPage(n) { query.page = n; }
+      function onSize(s) { query.size = s; query.page = 1; }
+      function reload() { toast('已刷新列表（保留筛选与分页）'); }
+
+      function copyKey(row) {
+        var key = 'custom:' + row.code;
+        try { if (navigator.clipboard) navigator.clipboard.writeText(key); } catch (e) {}
+        toast('已复制 icon key：' + key);
+      }
+      function viewRefs(row) {
+        if (!row.refCount) { toast('该图标未被引用'); return; }
+        toast('引用明细：' + row.refCount + ' 处（如菜单「财务票据」、卡片「票据统计」）');
+      }
+      function delSel() {
+        if (!selRows.value.length) { toast('请先选择图标', 'warning'); return; }
+        ElMessageBox.confirm('确认删除选中的 ' + selRows.value.length + ' 个自定义图标？被菜单 / 卡片引用时先解除引用或用「停用」代替（40206），删除后不可恢复。', '提示', {
+          type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消', confirmButtonClass: 'el-button--danger'
+        }).then(function () {
+          var ids = selRows.value.map(function (r) { return r.id; });
+          rows.value = rows.value.filter(function (r) { return ids.indexOf(r.id) < 0; });
+          selRows.value = [];
+          toast('已删除并刷新列表');
+        }).catch(function () {});
+      }
+      function batchToggle() {
+        if (!selRows.value.length) { toast('请先选择图标', 'warning'); return; }
+        var toDisabled = selRows.value.some(function (r) { return r.status === 'enabled'; });
+        var text = toDisabled ? '停用' : '启用';
+        ElMessageBox.confirm('确认' + text + '选中的 ' + selRows.value.length + ' 个自定义图标？' + (toDisabled ? '停用后不在图标选择器候选与渲染清单中出现，已引用处按降级处理。' : ''),
+          '提示', { type: 'warning', confirmButtonText: text, cancelButtonText: '取消' })
+          .then(function () {
+            selRows.value.forEach(function (r) { r.status = toDisabled ? 'disabled' : 'enabled'; });
+            selRows.value = [];
+            toast('已批量' + text);
+          }).catch(function () {});
+      }
+      // 双击行 / 新增：打开自定义图标记录 Tab（列表页无操作列）
+      function openForm(row) {
+        var url = '07_自定义图标表单页.html' + (row ? '?id=' + encodeURIComponent(row.code) + '&name=' + encodeURIComponent(row.name) : '?new=1');
+        if (location.search.indexOf('embed=1') >= 0) {
+          try { parent.openDetail('自定义图标', row ? row.name : '新建自定义图标', row ? row.code : ''); return; } catch (e) {}
+          try { parent.openTab('自定义图标表单', '../10_菜单管理/' + url); return; } catch (e) {}
+        }
+        if (row) { toast('打开自定义图标记录：' + row.name); location.href = url; return; }
+        toast('新建自定义图标（打开空白记录 Tab，直接进入编辑态）');
+        location.href = url;
+      }
+      function exportMsg() { toast('按当前筛选导出（受 export:download 权限约束）'); }
+      function closePage() { toast('关闭自定义图标管理模块页（返回）'); }
+      function toast(m, type) { ElMessage({ message: m, type: type || 'success' }); }
+
+      return { categories, rows, query, selRows, filtered, pageRows, applyFilter, resetFilter, onSel, onPage, onSize, reload,
+        copyKey, viewRefs, delSel, batchToggle, openForm, exportMsg, closePage, toast };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+  // 嵌入主框架时隐藏顶部原型条
+  if (location.search.indexOf('embed=1') >= 0) { var pb = document.querySelector('.proto-bar'); if (pb) pb.style.display = 'none'; }
+</script>
+
+</body>
+</html>

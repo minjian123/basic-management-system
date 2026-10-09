@@ -187,12 +187,15 @@
         <el-tab-pane label="④ 树形表格" name="tree">
           <div class="dp-bar">
             <span class="proto-hint">部门/菜单类树形数据（<b>树形不分页</b>，一次返回）；<code>row-key</code> + <code>children</code>；树形模式不与虚拟表格叠加</span>
-            <el-button size="small" @click="expandAllTree">展开全部</el-button>
+            <el-input v-model="treeKw" size="small" placeholder="搜索部门名称" clearable style="width:200px" @input="onTreeSearch"></el-input>
+            <el-button size="small" @click="toggleExpandAllTree">{{ treeAllExpanded ? '全部折叠' : '全部展开' }}</el-button>
           </div>
 
-          <el-table :data="deptTree" row-key="id" :tree-props="{ children: 'children' }" default-expand-all
-            :size="prefs.density" border style="width:100%">
-            <el-table-column prop="name" label="部门名称" min-width="220"></el-table-column>
+          <el-table ref="treeTable" :key="treeKey" :data="treeFiltered" row-key="id" :tree-props="{ children: 'children' }"
+            :size="prefs.density" border style="width:100%" @expand-change="onTreeExpandChange">
+            <el-table-column label="部门名称" min-width="220">
+              <template #default="{ row }"><span v-html="treeHl(row.name)"></span></template>
+            </el-table-column>
             <el-table-column prop="code" label="编码" width="140"></el-table-column>
             <el-table-column prop="userCount" label="人数" width="100" align="right"></el-table-column>
             <el-table-column prop="status" label="状态" width="120">
@@ -203,7 +206,7 @@
             <el-table-column prop="ancestors" label="ancestors（路径）" min-width="180" show-overflow-tooltip></el-table-column>
           </el-table>
           <el-alert style="margin-top:10px" type="info" :closable="false" show-icon
-            title="树形数据量级小（部门树最大深度 10 / 单节点子部门 ≤ 500），一次返回不分页；深度与子节点数由业务侧约束，前端只展示"></el-alert>
+            title="树形默认行为（组件自带）：① 按规模自适应展开（节点 ≤ 阈值〔默认 50〕全展开，超过只展第一层）② 展开态按表格维度本地记忆（bms_tree_expanded:{pageKey}，不写服务端偏好）③ 搜索命中路径自动展开 + 高亮 ④ 工具栏「全部展开 / 全部折叠」。本演示树 7 节点 ≤ 50，故默认全展开；搜索「前端」可见命中路径自动展开与高亮"></el-alert>
         </el-tab-pane>
 
         <!-- ⑤ 列设置与密度 -->
@@ -246,7 +249,7 @@
           <div class="ep-section">当前生效偏好（list.user_form）</div>
           <div class="dp-out">{{ prefsJson }}</div>
           <el-alert style="margin-top:10px" type="info" :closable="false" show-icon
-            title="单 key ≤ 64KB；列配置仅作用于展示层；排序列、页码、展开与选中为会话态，不写入偏好"></el-alert>
+            title="单 key ≤ 64KB；列配置仅作用于展示层；排序列、页码、选中为会话态，不写入服务端偏好；**树形展开态**仅按表格维度本地记忆（bms_tree_expanded:{pageKey}，见树形表格演示）"></el-alert>
         </el-tab-pane>
 
         <!-- ⑥ 行内编辑 -->
@@ -485,7 +488,9 @@
         ElMessage.success('已批量启用（模拟）');
       }
 
-      // ---------- 树形 ----------
+      // ---------- 树形（默认行为：自适应展开 + 本地记忆 + 搜索展开高亮 + 全部展开/折叠） ----------
+      var TREE_EXPAND_KEY = 'bms_tree_expanded:tbl_component_demo';
+      var TREE_THRESHOLD = 50;
       var deptTree = ref([
         { id: '1', name: '集团总部', code: 'HQ', userCount: 12, status: 'enabled', ancestors: '/', children: [
           { id: '5', name: '研发中心', code: 'RD', userCount: 48, status: 'enabled', ancestors: '/1/', children: [
@@ -497,7 +502,46 @@
           { id: '7', name: '人力资源部', code: 'HR', userCount: 6, status: 'enabled', ancestors: '/1/' }
         ] }
       ]);
-      function expandAllTree() { ElMessage.info('树形表格：展开/收起由首列缩进箭头控制（default-expand-all 可展开全部）'); }
+      var treeKw = ref('');
+      var treeTable = ref(null);
+      var treeKey = ref(0);
+      function twalk(nodes, cb) { nodes.forEach(function (n) { cb(n); if (n.children) twalk(n.children, cb); }); }
+      function tcount(nodes) { var c = 0; twalk(nodes, function () { c++; }); return c; }
+      function tparents(nodes, out) { nodes.forEach(function (n) { if (n.children && n.children.length) { out.push(n.id); tparents(n.children, out); } }); return out; }
+      function tdesc(nodes, out) { nodes.forEach(function (n) { out.push(n.id); if (n.children) tdesc(n.children, out); }); return out; }
+      function tdefaults() { return tcount(deptTree.value) <= TREE_THRESHOLD ? tparents(deptTree.value, []) : deptTree.value.filter(function (n) { return n.children && n.children.length; }).map(function (n) { return n.id; }); }
+      function tload() { try { var s = localStorage.getItem(TREE_EXPAND_KEY); if (s) { var a = JSON.parse(s); if (Array.isArray(a)) return a; } } catch (e) {} return tdefaults(); }
+      var treeExpanded = ref(tload());
+      var treeRenderKeys = ref([]);
+      var applyingTree = false;   // 程序化展开应用标记：期内的 expand-change 不写入记忆
+      function tpersist() { try { localStorage.setItem(TREE_EXPAND_KEY, JSON.stringify(treeExpanded.value)); } catch (e) {} }
+      var treeFiltered = computed(function () {
+        var k = (treeKw.value || '').trim().toLowerCase();
+        function ft(nodes) { var out = []; nodes.forEach(function (n) { var ch = n.children ? ft(n.children) : []; if (!k || n.name.toLowerCase().indexOf(k) >= 0 || ch.length) { var c = Object.assign({}, n); if (n.children) c.children = ch; out.push(c); } }); return out; }
+        return ft(deptTree.value);
+      });
+      function tfiltering() { return !!(treeKw.value || '').trim(); }
+      function trefresh() { treeRenderKeys.value = tfiltering() ? tparents(treeFiltered.value, []) : treeExpanded.value.slice(); }
+      var treeAllExpanded = computed(function () { var all = tparents(deptTree.value, []); return all.length > 0 && all.every(function (id) { return treeRenderKeys.value.indexOf(id) >= 0; }); });
+      function tapply() { applyingTree = true; nextTick(function () { var tb = treeTable.value; if (tb && tb.toggleRowExpansion) { twalk(treeFiltered.value, function (n) { if (n.children && n.children.length) tb.toggleRowExpansion(n, treeRenderKeys.value.indexOf(n.id) >= 0); }); } applyingTree = false; }); }
+      function onTreeExpandChange(row, expanded) {
+        if (applyingTree) return;        // 程序化展开不写入
+        if (tfiltering()) return;        // 搜索态下的临时展开不写入本地记忆
+        var set = treeExpanded.value.slice();
+        if (expanded) { if (set.indexOf(row.id) < 0) set.push(row.id); }
+        else { var rm = [row.id]; if (row.children) tdesc(row.children, rm); set = set.filter(function (k) { return rm.indexOf(k) < 0; }); }
+        treeExpanded.value = set; treeRenderKeys.value = set.slice(); tpersist();
+      }
+      function toggleExpandAllTree() {
+        var wasAll = treeAllExpanded.value;
+        treeExpanded.value = wasAll ? [] : tparents(deptTree.value, []);
+        tpersist(); treeRenderKeys.value = treeExpanded.value.slice(); treeKey.value++; tapply();
+        ElMessage.success(wasAll ? '已全部折叠（已记入本地）' : '已全部展开（已记入本地）');
+      }
+      function onTreeSearch() { trefresh(); treeKey.value++; tapply(); }
+      function tesc(s) { return String(s).replace(/[&<>"]/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]; }); }
+      function treeHl(text) { var k = (treeKw.value || '').trim(); if (!k) return tesc(text); var i = text.toLowerCase().indexOf(k.toLowerCase()); if (i < 0) return tesc(text); return tesc(text.slice(0, i)) + '<mark>' + tesc(text.slice(i, i + k.length)) + '</mark>' + tesc(text.slice(i + k.length)); }
+      watch(tab, function (v) { if (v === 'tree') { trefresh(); tapply(); } });
 
       // ---------- 行内编辑 ----------
       var editable = ref(true);
@@ -575,7 +619,7 @@
         prefs, prefLog, prefsJson, scheduleSave, moveCol, resetColWidth, resetPrefs, onSizeChange,
         rows, pagedRows, sortState, sortIndexOf, sortDir, toggleSort, clearSort, sortParamText,
         onSelectionChange, openForm, batchDelete, batchEnable,
-        deptTree, expandAllTree,
+        deptTree, treeKw, treeTable, treeKey, treeFiltered, treeAllExpanded, treeHl, onTreeSearch, onTreeExpandChange, toggleExpandAllTree,
         editable, editRows, unitOptions, onEdit, removeRow, toggleEditValidate, editRowClass,
         filledCount, emptyCount, editPayload, saveAll, validateState, validateInfo,
         dictLabel, statusLabel, statusColor, formatAmount, formatDateTime, maskPhone

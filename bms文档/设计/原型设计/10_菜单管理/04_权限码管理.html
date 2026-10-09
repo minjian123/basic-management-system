@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 权限码管理</title>
+<link rel="stylesheet" href="../资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../资源/原型样式.css">
+<style>
+  .ep-page { background: #fff; border: 1px solid #d0d7de; border-radius: 6px; padding: 16px; }
+  .ep-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+  .ep-toolbar .ep-side { margin-left: auto; }
+  .ep-filter { margin-bottom: 12px; }
+  /* 表格下方一行：左下明细工具栏（图标按钮）+ 右下分页（《布局设计-表格明细》2.4） */
+  .ep-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="01_设计说明.html">← 返回设计说明</a></span>
+  <span class="pb-name">菜单管理 · 权限码管理（表单框架 · 列表 Tab）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本页为「权限码管理」表单框架的<b>列表 Tab</b>（固定页签，不可关闭）；双击数据行或点「新增」打开<b>权限码记录 Tab</b>
+    （见 <a href="05_权限码表单页.html">权限码表单页</a>）。三个子页签承载两个清单：<b>业务权限码</b>（<code>sys_business</code>）与
+    <b>动作权限码</b>（<code>sys_action</code>，归属业务）。列表页三段式：工具栏 → 筛选区 → 表格；<b>无操作列</b>，双击行开记录 Tab；
+    权限码存平台库、平台超管统一维护，<b>租户侧可见、可分配、不可增删</b>（40204）；业务 / 动作码一经发布稳定不变，<b>停用代替删除</b>。
+  </div>
+
+  <div id="app">
+    <el-tabs v-model="tab">
+      <!-- ① 业务权限码 -->
+      <el-tab-pane label="业务权限码" name="biz">
+        <div class="ep-page">
+          <div class="ep-toolbar">
+            <el-button type="primary" @click="openForm(null, 'biz')">新增</el-button>
+            <el-button @click="reload('biz')">刷新</el-button>
+            <el-button @click="closePage">关闭</el-button>
+            <el-button type="danger" plain :disabled="!selBiz.length" @click="delSel('biz')">删除</el-button>
+            <el-button :disabled="!selBiz.length" @click="batchToggle('biz')">停用/启用</el-button>
+            <span class="ep-side">
+              <el-button @click="exportMsg('业务权限码')">导出</el-button>
+              <span class="proto-hint" style="margin-left:10px">平台超管维护 · 租户只读（40204）</span>
+            </span>
+          </div>
+          <el-form class="ep-filter" label-position="top" @submit.prevent>
+            <el-row :gutter="16">
+              <el-col :span="8">
+                <el-form-item label="关键字">
+                  <el-input v-model="queryBiz.kw" placeholder="关键字：业务码/名称" clearable style="width:240px"></el-input>
+                </el-form-item>
+              </el-col>
+              <el-col :span="8">
+                <el-form-item label="状态">
+                  <el-select v-model="queryBiz.status" placeholder="全部" clearable style="width:100%">
+                    <el-option label="启用" value="enabled"></el-option>
+                    <el-option label="停用" value="disabled"></el-option>
+                  </el-select>
+                </el-form-item>
+              </el-col>
+              <el-col :span="8">
+                <el-form-item style="margin-top:30px">
+                  <el-button type="primary" @click="applyFilter('biz')">查询</el-button>
+                  <el-button @click="resetFilter('biz')">重置</el-button>
+                </el-form-item>
+              </el-col>
+            </el-row>
+          </el-form>
+          <el-table :data="pageBiz" border stripe @selection-change="onSelBiz" @row-dblclick="openForm" style="width:100%">
+            <el-table-column type="selection" width="48"></el-table-column>
+            <el-table-column prop="code" label="业务码" min-width="140"></el-table-column>
+            <el-table-column prop="name" label="名称" min-width="200"></el-table-column>
+            <el-table-column label="状态" width="100">
+              <template #default="{ row }"><el-tag :type="row.status === 'enabled' ? 'success' : 'info'">{{ row.status === 'enabled' ? '启用' : '停用' }}</el-tag></template>
+            </el-table-column>
+            <template #empty>
+              <div>
+                <div style="font-size:14px;color:#57606a">暂无数据</div>
+                <el-button style="margin-top:10px" type="primary" @click="openForm(null, 'biz')">去创建</el-button>
+              </div>
+            </template>
+          </el-table>
+          <div class="ep-bar">
+            <div>
+              <el-button size="small" @click="toast('原型演示：自动列宽')" title="自动列宽">⟷</el-button>
+              <el-button size="small" @click="toast('原型演示：自定义列')" title="自定义列">☰</el-button>
+              <el-button size="small" @click="reload('biz')" title="刷新">⟳</el-button>
+              <el-button size="small" @click="toast('原型演示：全屏')" title="全屏">⛶</el-button>
+            </div>
+            <el-pagination background layout="total, sizes, jumper, prev, pager, next" :total="filteredBiz.length"
+              :page-size="queryBiz.size" :current-page="queryBiz.page"
+              @current-change="function (n) { queryBiz.page = n; }" @size-change="function (s) { queryBiz.size = s; queryBiz.page = 1; }"></el-pagination>
+          </div>
+        </div>
+      </el-tab-pane>
+
+      <!-- ② 动作权限码 -->
+      <el-tab-pane label="动作权限码" name="act">
+        <div class="ep-page">
+          <div class="ep-toolbar">
+            <el-button type="primary" @click="openForm(null, 'act')">新增</el-button>
+            <el-button @click="reload('act')">刷新</el-button>
+            <el-button @click="closePage">关闭</el-button>
+            <el-button type="danger" plain :disabled="!selAct.length" @click="delSel('act')">删除</el-button>
+            <el-button :disabled="!selAct.length" @click="batchToggle('act')">停用/启用</el-button>
+            <span class="ep-side">
+              <el-button @click="exportMsg('动作权限码')">导出</el-button>
+              <span class="proto-hint" style="margin-left:10px">按归属业务维护 · 平台统一（40204）</span>
+            </span>
+          </div>
+          <el-form class="ep-filter" label-position="top" @submit.prevent>
+            <el-row :gutter="16">
+              <el-col :span="8">
+                <el-form-item label="关键字">
+                  <el-input v-model="queryAct.kw" placeholder="关键字：动作码/名称" clearable style="width:240px"></el-input>
+                </el-form-item>
+              </el-col>
+              <el-col :span="8">
+                <el-form-item label="归属业务">
+                  <el-select v-model="queryAct.biz" placeholder="全部" clearable style="width:100%">
+                    <el-option v-for="b in bizOptions" :key="b" :label="b" :value="b"></el-option>
+                  </el-select>
+                </el-form-item>
+              </el-col>
+              <el-col :span="8">
+                <el-form-item label="状态">
+                  <el-select v-model="queryAct.status" placeholder="全部" clearable style="width:100%">
+                    <el-option label="启用" value="enabled"></el-option>
+                    <el-option label="停用" value="disabled"></el-option>
+                  </el-select>
+                </el-form-item>
+              </el-col>
+            </el-row>
+            <el-row :gutter="16">
+              <el-col :span="8" :offset="16">
+                <el-form-item>
+                  <el-button type="primary" @click="applyFilter('act')">查询</el-button>
+                  <el-button @click="resetFilter('act')">重置</el-button>
+                </el-form-item>
+              </el-col>
+            </el-row>
+          </el-form>
+          <el-table :data="pageAct" border stripe @selection-change="onSelAct" @row-dblclick="openForm" style="width:100%">
+            <el-table-column type="selection" width="48"></el-table-column>
+            <el-table-column prop="code" label="动作码" min-width="130"></el-table-column>
+            <el-table-column prop="name" label="名称" min-width="170"></el-table-column>
+            <el-table-column prop="biz" label="归属业务" min-width="160"></el-table-column>
+            <el-table-column label="状态" width="100">
+              <template #default="{ row }"><el-tag :type="row.status === 'enabled' ? 'success' : 'info'">{{ row.status === 'enabled' ? '启用' : '停用' }}</el-tag></template>
+            </el-table-column>
+            <template #empty>
+              <div>
+                <div style="font-size:14px;color:#57606a">暂无数据</div>
+                <el-button style="margin-top:10px" type="primary" @click="openForm(null, 'act')">去创建</el-button>
+              </div>
+            </template>
+          </el-table>
+          <div class="ep-bar">
+            <div>
+              <el-button size="small" @click="toast('原型演示：自动列宽')" title="自动列宽">⟷</el-button>
+              <el-button size="small" @click="toast('原型演示：自定义列')" title="自定义列">☰</el-button>
+              <el-button size="small" @click="reload('act')" title="刷新">⟳</el-button>
+              <el-button size="small" @click="toast('原型演示：全屏')" title="全屏">⛶</el-button>
+            </div>
+            <el-pagination background layout="total, sizes, jumper, prev, pager, next" :total="filteredAct.length"
+              :page-size="queryAct.size" :current-page="queryAct.page"
+              @current-change="function (n) { queryAct.page = n; }" @size-change="function (s) { queryAct.size = s; queryAct.page = 1; }"></el-pagination>
+          </div>
+        </div>
+      </el-tab-pane>
+    </el-tabs>
+  </div>
+</div>
+
+<script src="../资源/vendor/vue.global.prod.js"></script>
+
+<script src="../资源/vendor/element-plus.min.js"></script>
+<script src="../资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref, reactive, computed } = Vue;
+  var ElMessage = ElementPlus.ElMessage;
+  var ElMessageBox = ElementPlus.ElMessageBox;
+  var app = createApp({
+    template: document.getElementById('app').outerHTML.replace(/<div id="app">/, '<div>').replace(/<\/div>\s*$/, ''),
+    setup: function () {
+      var tab = ref('biz');
+      var bizRows = ref([
+        { id: 'user', code: 'user', name: '用户管理（含账号锁定/解锁）', status: 'enabled' },
+        { id: 'role', code: 'role', name: '角色与授权', status: 'enabled' },
+        { id: 'menu', code: 'menu', name: '菜单/表单/按钮/字段维护', status: 'enabled' },
+        { id: 'business', code: 'business', name: '业务权限码维护', status: 'enabled' },
+        { id: 'action', code: 'action', name: '动作权限码维护', status: 'enabled' },
+        { id: 'icon', code: 'icon', name: '自定义图标维护', status: 'enabled' },
+        { id: 'biz_example', code: 'biz_example', name: '业务示例模块（产品仓库登记）', status: 'disabled' }
+      ]);
+      var actRows = ref([
+        { id: 'query', code: 'query', name: '查询', biz: '（多业务共用）', status: 'enabled' },
+        { id: 'create', code: 'create', name: '新增', biz: '（多业务共用）', status: 'enabled' },
+        { id: 'update', code: 'update', name: '编辑', biz: '（多业务共用）', status: 'enabled' },
+        { id: 'delete', code: 'delete', name: '删除', biz: '（多业务共用）', status: 'enabled' },
+        { id: 'grant', code: 'grant', name: '授权', biz: 'role', status: 'enabled' },
+        { id: 'manage', code: 'manage', name: '维护', biz: 'icon', status: 'enabled' },
+        { id: 'download', code: 'download', name: '导出下载', biz: 'export', status: 'enabled' }
+      ]);
+      var bizOptions = ['user', 'role', 'menu', 'business', 'action', 'icon', 'export'];
+      var queryBiz = reactive({ kw: '', status: '', page: 1, size: 20 });
+      var queryAct = reactive({ kw: '', biz: '', status: '', page: 1, size: 20 });
+      var selBiz = ref([]);
+      var selAct = ref([]);
+
+      var filteredBiz = computed(function () {
+        return bizRows.value.filter(function (r) {
+          var k = (queryBiz.kw || '').toLowerCase();
+          return (!k || (r.code + r.name).toLowerCase().indexOf(k) >= 0) && (!queryBiz.status || r.status === queryBiz.status);
+        });
+      });
+      var pageBiz = computed(function () { var s = (queryBiz.page - 1) * queryBiz.size; return filteredBiz.value.slice(s, s + queryBiz.size); });
+      var filteredAct = computed(function () {
+        return actRows.value.filter(function (r) {
+          var k = (queryAct.kw || '').toLowerCase();
+          return (!k || (r.code + r.name).toLowerCase().indexOf(k) >= 0) && (!queryAct.biz || r.biz === queryAct.biz) && (!queryAct.status || r.status === queryAct.status);
+        });
+      });
+      var pageAct = computed(function () { var s = (queryAct.page - 1) * queryAct.size; return filteredAct.value.slice(s, s + queryAct.size); });
+
+      function applyFilter(kind) { if (kind === 'biz') queryBiz.page = 1; else queryAct.page = 1; }
+      function resetFilter(kind) {
+        if (kind === 'biz') { queryBiz.kw = ''; queryBiz.status = ''; queryBiz.page = 1; }
+        else { queryAct.kw = ''; queryAct.biz = ''; queryAct.status = ''; queryAct.page = 1; }
+      }
+      function onSelBiz(sel) { selBiz.value = sel; }
+      function onSelAct(sel) { selAct.value = sel; }
+      function reload(kind) { toast('已刷新' + (kind === 'biz' ? '业务权限码' : '动作权限码') + '（保留筛选与分页）'); }
+
+      function delSel(kind) {
+        var sel = kind === 'biz' ? selBiz : selAct;
+        var label = kind === 'biz' ? '业务码' : '动作码';
+        if (!sel.value.length) { ElMessage.warning('请先选择一行'); return; }
+        ElMessageBox.confirm('确认删除选中的 ' + sel.value.length + ' 个' + label + '？业务 / 动作码一经发布稳定不变，平台库以「停用」代替删除，被角色引用时先解除授权（40206）。',
+          '提示', { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消', confirmButtonClass: 'el-button--danger' })
+          .then(function () {
+            var ids = sel.value.map(function (r) { return r.id; });
+            if (kind === 'biz') { bizRows.value = bizRows.value.filter(function (r) { return ids.indexOf(r.id) < 0; }); selBiz.value = []; }
+            else { actRows.value = actRows.value.filter(function (r) { return ids.indexOf(r.id) < 0; }); selAct.value = []; }
+            toast('已删除（软删除，sys.form.updated 已发布）');
+          }).catch(function () {});
+      }
+      function batchToggle(kind) {
+        var sel = kind === 'biz' ? selBiz : selAct;
+        if (!sel.value.length) { ElMessage.warning('请先选择一行'); return; }
+        var toDisabled = sel.value.some(function (r) { return r.status === 'enabled'; });
+        var text = toDisabled ? '停用' : '启用';
+        ElMessageBox.confirm('确认' + text + '选中的 ' + sel.value.length + ' 个权限码？' + (toDisabled ? '停用后角色授予选项即时不可选（已授权者保留）。' : ''),
+          '提示', { type: 'warning', confirmButtonText: text, cancelButtonText: '取消' })
+          .then(function () {
+            sel.value.forEach(function (r) { r.status = toDisabled ? 'disabled' : 'enabled'; });
+            sel.value = [];
+            toast('已批量' + text + '（sys.form.updated 已发布）');
+          }).catch(function () {});
+      }
+      // 双击行 / 新增：打开权限码记录 Tab（列表页无操作列）
+      function openForm(row, explicitKind) {
+        var kind = (typeof explicitKind === 'string' && explicitKind) ? explicitKind : (tab.value === 'act' ? 'act' : 'biz');
+        var url = '05_权限码表单页.html' + (row ? '?kind=' + kind + '&id=' + encodeURIComponent(row.code) + '&name=' + encodeURIComponent(row.name) : '?kind=' + kind + '&new=1');
+        if (location.search.indexOf('embed=1') >= 0) {
+          try { parent.openDetail('权限码记录', row ? row.name : '新建权限码', row ? row.code : ''); return; } catch (e) {}
+          try { parent.openTab('权限码表单', '../10_菜单管理/' + url); return; } catch (e) {}
+        }
+        if (row) { toast('打开权限码记录：' + row.code); location.href = url; return; }
+        toast('新建权限码（打开空白记录 Tab，直接进入编辑态）');
+        location.href = url;
+      }
+      function exportMsg(label) { toast('按当前筛选导出' + label + '（受 export:download 权限约束）'); }
+      function closePage() { toast('关闭权限码管理模块页（返回）'); }
+      function toast(m, type) { ElMessage({ message: m, type: type || 'success' }); }
+
+      return { tab, bizRows, actRows, bizOptions, queryBiz, queryAct, selBiz, selAct, filteredBiz, pageBiz, filteredAct, pageAct,
+        applyFilter, resetFilter, onSelBiz, onSelAct, reload, delSel, batchToggle, openForm, exportMsg, closePage, toast };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+  // 嵌入主框架时隐藏顶部原型条
+  if (location.search.indexOf('embed=1') >= 0) { var pb = document.querySelector('.proto-bar'); if (pb) pb.style.display = 'none'; }
+</script>
+
+</body>
+</html>

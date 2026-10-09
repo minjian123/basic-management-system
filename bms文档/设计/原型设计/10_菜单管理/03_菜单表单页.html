@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 菜单表单页</title>
+<link rel="stylesheet" href="../资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../资源/原型样式.css">
+<style>
+  .ep-page { background: #fff; border: 1px solid #d0d7de; border-radius: 6px; padding: 16px; }
+  .ep-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+  .ep-toolbar .ep-side { margin-left: auto; }
+  .sys-frame { display: block; width: 100%; border: none; background: #fff; }
+  .op-row { display: flex; align-items: center; gap: 8px; padding: 5px 0; font-size: 13px; }
+  .ep-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+  .ico-cell { display: inline-flex; align-items: center; gap: 6px; }
+  .ico-box { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border: 1px solid #d0d7de; border-radius: 4px; font-size: 13px; background: #f6f8fa; }
+  .icon-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 8px; }
+  .icon-grid .gi { display: flex; align-items: center; justify-content: center; height: 40px; border: 1px solid #d0d7de; border-radius: 6px; cursor: pointer; }
+  .icon-grid .gi.active { border-color: #0969da; background: #ddf4ff; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="01_设计说明.html">← 返回设计说明</a></span>
+  <span class="pb-name">菜单管理 · 菜单表单页（表单框架 · 菜单记录 Tab）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本页为「菜单管理」表单框架的<b>菜单记录 Tab</b>。信息栏三个子页签：<b>详细信息</b> · <b>挂接配置</b> · <b>系统信息</b>。
+    <b>挂接配置</b>内含三个子页签：<b>表单挂接</b>（菜单 ↔ 表单<b>多对多</b>，关联表 <code>sys_menu_form</code>）·
+    <b>按钮维护</b>（按钮 1:1 挂动作）· <b>字段维护</b>（字段挂表单），按钮 / 字段为<b>页内内联明细表</b>（行内编辑），
+    改动随页面工具栏「保存」统一提交；<b>字段权限</b>授予归角色管理（<code>role:grant</code>），本页只提供入口。
+    挂接链断裂（菜单无表单 / 表单无业务）在保存时校验并提示（<b>40202</b>）。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <!-- ① 工具栏分态：只读 修改/删除/刷新/关闭 ↔ 编辑 保存/取消；保存全局唯一 -->
+      <div class="ep-toolbar">
+        <template v-if="!editing">
+          <el-button type="primary" @click="editForm">修改</el-button>
+          <el-button type="danger" plain @click="delForm">删除</el-button>
+          <el-button @click="reload">刷新</el-button>
+        </template>
+        <template v-else>
+          <el-button type="primary" @click="saveForm">保存</el-button>
+          <el-button @click="cancelEdit">取消</el-button>
+        </template>
+        <el-button @click="closePage">关闭</el-button>
+        <span class="ep-side">
+          <span v-if="dirty" class="proto-hint" style="color:#cf222e">● 有未保存变更</span>
+          <span v-else class="proto-hint">编辑后关闭 / 切换页签将触发未保存拦截</span>
+        </span>
+      </div>
+
+      <!-- ② 信息栏：详细信息 / 挂接配置 / 系统信息 -->
+      <el-tabs v-model="section" :before-leave="beforeTabLeave">
+        <!-- 详细信息 -->
+        <el-tab-pane label="详细信息" name="detail">
+          <el-form label-position="top" :disabled="!editing">
+            <el-row :gutter="16">
+              <el-col :span="8">
+                <el-form-item label="父级菜单">
+                  <el-tree-select v-model="form.parent" :data="parentTree" node-key="id" check-strictly :render-after-expand="false" style="width:100%"></el-tree-select>
+                </el-form-item>
+              </el-col>
+              <el-col :span="8">
+                <el-form-item label="菜单类型">
+                  <el-select v-model="form.menuType" style="width:100%">
+                    <el-option label="目录" value="目录"></el-option>
+                    <el-option label="菜单" value="菜单"></el-option>
+                  </el-select>
+                  <div class="proto-hint" style="line-height:1.6">菜单树只有目录 / 菜单两类；按钮为独立实体（挂表单 / 挂动作），在「挂接配置 · 按钮维护」中维护</div>
+                </el-form-item>
+              </el-col>
+              <el-col :span="8">
+                <el-form-item label="中文名称" required><el-input v-model="form.zh" placeholder="中文名称（如 用户管理）"></el-input></el-form-item>
+              </el-col>
+            </el-row>
+            <el-row :gutter="16">
+              <el-col :span="8">
+                <el-form-item label="英文名称" required><el-input v-model="form.en" placeholder="English Name"></el-input></el-form-item>
+              </el-col>
+              <el-col :span="8">
+                <el-form-item label="路由路径" required><el-input v-model="form.path" placeholder="/users"></el-input></el-form-item>
+              </el-col>
+              <el-col :span="8">
+                <el-form-item label="视图组件"><el-input v-model="form.component" placeholder="用户表单"></el-input></el-form-item>
+              </el-col>
+            </el-row>
+            <el-row :gutter="16">
+              <el-col :span="8">
+                <el-form-item label="图标">
+                  <div class="ico-cell" style="width:100%">
+                    <el-input v-model="form.icon" placeholder="未选择" readonly style="flex:1"></el-input>
+                    <el-button @click="iconPick.visible = true">选择图标</el-button>
+                  </div>
+                  <div class="proto-hint" style="line-height:1.6">图标键口径：<code>el:</code> 平台官方 / <code>biz:</code> 业务自绘 / <code>custom:</code> 租户自定义</div>
+                </el-form-item>
+              </el-col>
+              <el-col :span="8">
+                <el-form-item label="排序"><el-input-number v-model="form.sort" :min="0" style="width:100%"></el-input-number></el-form-item>
+              </el-col>
+              <el-col :span="8">
+                <el-form-item label="侧边栏显示">
+                  <el-switch v-model="form.show" active-text="显示" inactive-text="隐藏"></el-switch>
+                  <div class="proto-hint" style="line-height:1.6">隐藏仅隐藏侧边栏入口，权限仍生效（路由可直达）</div>
+                </el-form-item>
+              </el-col>
+            </el-row>
+            <el-row :gutter="16">
+              <el-col :span="8">
+                <el-form-item label="状态">
+                  <el-switch v-model="form.enabled" active-text="启用" inactive-text="停用"></el-switch>
+                </el-form-item>
+              </el-col>
+              <el-col :span="16">
+                <el-form-item label="说明">
+                  <span class="proto-hint">路径 / 组件冲突或格式非法将拒绝保存（40203）；名称按 locale 存多语言附表，缺省回退主表默认文案。</span>
+                </el-form-item>
+              </el-col>
+            </el-row>
+          </el-form>
+        </el-tab-pane>
+
+        <!-- 挂接配置 -->
+        <el-tab-pane label="挂接配置" name="attach">
+          <el-tabs v-model="attachTab" type="card">
+            <!-- 表单挂接：菜单 ↔ 表单多对多 -->
+            <el-tab-pane label="表单挂接" name="form">
+              <div class="op-row">
+                <el-button size="small" type="primary" :disabled="!editing" @click="openFormPicker">选择表单</el-button>
+                <span class="proto-hint" style="margin-left:8px">菜单 ↔ 表单<b>多对多</b>（关联表 <code>sys_menu_form</code>）——同一表单可被多入口引用，表单也可无入口；取消关联经「选择表单」弹窗取消勾选</span>
+                <span class="proto-hint" style="margin-left:auto">已关联 {{ associatedForms.length }}</span>
+              </div>
+              <el-table :data="associatedForms" size="small" border>
+                <el-table-column prop="name" label="表单名称" min-width="160"></el-table-column>
+                <el-table-column prop="business" label="归属业务" min-width="140"></el-table-column>
+                <el-table-column prop="component" label="视图组件" min-width="160"></el-table-column>
+                <el-table-column label="状态" width="90">
+                  <template #default="{ row }"><el-tag size="small" :type="row.status === 'enabled' ? 'success' : 'info'">{{ row.status === 'enabled' ? '启用' : '停用' }}</el-tag></template>
+                </el-table-column>
+                <template #empty><span class="proto-hint">暂未关联表单</span></template>
+              </el-table>
+              <div class="proto-note" :style="chainOk ? '' : 'border-left-color:#cf222e;background:#ffebe9;color:#1f2328'">{{ chainText }}</div>
+            </el-tab-pane>
+
+            <!-- 按钮维护：按钮 1:1 挂动作（页内内联明细表） -->
+            <el-tab-pane label="按钮维护" name="button">
+              <div class="op-row">
+                <span class="proto-hint">关联表单</span>
+                <el-select v-model="selFormKey" size="small" style="width:220px" placeholder="请选择关联表单">
+                  <el-option v-for="f in associatedForms" :key="f.id" :label="f.name" :value="f.id"></el-option>
+                </el-select>
+                <span class="proto-hint" style="margin-left:8px">按钮 1:1 挂接动作权限码；默认无任何按钮权限，角色授予动作后方显隐</span>
+              </div>
+              <el-table :data="buttonRows" size="small" border highlight-current-row @current-change="selButton = $event" style="width:100%">
+                <el-table-column label="按钮名称" min-width="160">
+                  <template #default="{ row }"><el-input v-model="row.name" size="small" :disabled="!editing" placeholder="按钮名称"></el-input></template>
+                </el-table-column>
+                <el-table-column label="类型" width="130">
+                  <template #default="{ row }">
+                    <el-select v-model="row.type" size="small" :disabled="!editing" style="width:100%">
+                      <el-option label="工具栏按钮" value="toolbar"></el-option>
+                      <el-option label="界面内按钮" value="interface"></el-option>
+                    </el-select>
+                  </template>
+                </el-table-column>
+                <el-table-column label="挂接动作" min-width="180">
+                  <template #default="{ row }">
+                    <el-select v-model="row.action" size="small" :disabled="!editing" placeholder="选择动作权限码" style="width:100%">
+                      <el-option v-for="a in actionOptions" :key="a" :label="a" :value="a"></el-option>
+                    </el-select>
+                  </template>
+                </el-table-column>
+                <el-table-column label="排序" width="110">
+                  <template #default="{ row }"><el-input-number v-model="row.sort" size="small" :min="0" :disabled="!editing" controls-position="right" style="width:100%"></el-input-number></template>
+                </el-table-column>
+                <el-table-column label="状态" width="120">
+                  <template #default="{ row }">
+                    <el-select v-model="row.status" size="small" :disabled="!editing" style="width:100%">
+                      <el-option label="启用" value="enabled"></el-option>
+                      <el-option label="停用" value="disabled"></el-option>
+                    </el-select>
+                  </template>
+                </el-table-column>
+                <template #empty><span class="proto-hint">该表单暂无按钮</span></template>
+              </el-table>
+              <div class="ep-bar">
+                <div>
+                  <el-button :disabled="!editing" size="small" @click="addButtonRow" title="新增行">＋</el-button>
+                  <el-button :disabled="!editing" size="small" type="danger" plain @click="delButtonRow" title="删除行">🗑</el-button>
+                  <el-button :disabled="!editing" size="small" @click="moveButton(-1)" title="上移行">↑</el-button>
+                  <el-button :disabled="!editing" size="small" @click="moveButton(1)" title="下移行">↓</el-button>
+                </div>
+                <span class="proto-hint">内联明细行内编辑，随宿主工具栏「保存」统一提交</span>
+              </div>
+            </el-tab-pane>
+
+            <!-- 字段维护：字段挂表单（页内内联明细表） -->
+            <el-tab-pane label="字段维护" name="field">
+              <div class="op-row">
+                <span class="proto-hint">关联表单</span>
+                <el-select v-model="selFormKey" size="small" style="width:220px" placeholder="请选择关联表单">
+                  <el-option v-for="f in associatedForms" :key="f.id" :label="f.name" :value="f.id"></el-option>
+                </el-select>
+                <span class="proto-hint" style="margin-left:8px">字段标识在表单内唯一（重复报 40205）；字段权限默认全部可见可编辑，授予后收窄</span>
+              </div>
+              <el-table :data="fieldRows" size="small" border highlight-current-row @current-change="selField = $event" style="width:100%">
+                <el-table-column label="字段标识" min-width="160">
+                  <template #default="{ row }"><el-input v-model="row.key" size="small" :disabled="!editing" placeholder="如 username"></el-input></template>
+                </el-table-column>
+                <el-table-column label="字段名称" min-width="160">
+                  <template #default="{ row }"><el-input v-model="row.name" size="small" :disabled="!editing" placeholder="字段名称"></el-input></template>
+                </el-table-column>
+                <el-table-column label="类型" width="130">
+                  <template #default="{ row }">
+                    <el-select v-model="row.type" size="small" :disabled="!editing" style="width:100%">
+                      <el-option label="文本" value="string"></el-option>
+                      <el-option label="数字" value="number"></el-option>
+                      <el-option label="日期" value="date"></el-option>
+                      <el-option label="枚举" value="enum"></el-option>
+                    </el-select>
+                  </template>
+                </el-table-column>
+                <el-table-column label="排序" width="110">
+                  <template #default="{ row }"><el-input-number v-model="row.sort" size="small" :min="0" :disabled="!editing" controls-position="right" style="width:100%"></el-input-number></template>
+                </el-table-column>
+                <el-table-column label="状态" width="120">
+                  <template #default="{ row }">
+                    <el-select v-model="row.status" size="small" :disabled="!editing" style="width:100%">
+                      <el-option label="启用" value="enabled"></el-option>
+                      <el-option label="停用" value="disabled"></el-option>
+                    </el-select>
+                  </template>
+                </el-table-column>
+                <template #empty><span class="proto-hint">该表单暂无字段</span></template>
+              </el-table>
+              <div class="ep-bar">
+                <div>
+                  <el-button :disabled="!editing" size="small" @click="addFieldRow" title="新增行">＋</el-button>
+                  <el-button :disabled="!editing" size="small" type="danger" plain @click="delFieldRow" title="删除行">🗑</el-button>
+                  <el-button :disabled="!editing" size="small" @click="moveField(-1)" title="上移行">↑</el-button>
+                  <el-button :disabled="!editing" size="small" @click="moveField(1)" title="下移行">↓</el-button>
+                </div>
+                <span class="proto-hint">内联明细行内编辑，随宿主工具栏「保存」统一提交</span>
+              </div>
+              <div class="op-row" style="margin-top:8px;border-top:1px dashed #eaeef2;padding-top:8px">
+                <el-button size="small" @click="toRoleGrant">前往角色管理配置字段权限</el-button>
+                <span class="proto-hint">字段权限（可见 / 可编辑）写入 <code>sys_role_field</code>，授予归角色管理（需 <code>role:grant</code>）；本页仅提供配置入口</span>
+              </div>
+            </el-tab-pane>
+          </el-tabs>
+        </el-tab-pane>
+
+        <!-- 系统信息 -->
+        <el-tab-pane label="系统信息" name="sys">
+          <iframe class="sys-frame" src="../02_公共原型/04_系统信息组件.html" :style="{ height: sysH + 'px' }" @load="pushSys($event, sys)"></iframe>
+        </el-tab-pane>
+      </el-tabs>
+    </div>
+
+    <!-- 选择表单（菜单 ↔ 表单 多对多；取消关联＝取消勾选） -->
+    <el-dialog v-model="formPick.visible" title="选择表单" width="660" align-center>
+      <div class="op-row">
+        <el-input v-model="formPick.kw" size="small" placeholder="搜索表单（名称 / 归属业务）" clearable style="width:220px"></el-input>
+        <span class="proto-hint" style="margin-left:auto">可多选；同一表单可被多入口引用（多对多）</span>
+      </div>
+      <el-table :data="filteredFormPool" size="small" border height="300" ref="formPickTable" @selection-change="onFormPickSelect">
+        <el-table-column type="selection" width="48"></el-table-column>
+        <el-table-column prop="name" label="表单名称" min-width="160"></el-table-column>
+        <el-table-column prop="business" label="归属业务" min-width="140"></el-table-column>
+        <el-table-column prop="component" label="视图组件" min-width="160"></el-table-column>
+      </el-table>
+      <template #footer>
+        <el-button @click="formPick.visible = false">取消</el-button>
+        <el-button type="primary" @click="confirmFormPick">确定</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 选择图标（图标选择件：搜索 / 分类 / 网格 / 已选预览） -->
+    <el-dialog v-model="iconPick.visible" title="选择图标" width="660" align-center>
+      <div class="op-row">
+        <el-input v-model="iconPick.kw" size="small" placeholder="搜索 icon key / 名称" clearable style="width:240px"></el-input>
+        <span class="proto-hint" style="margin-left:auto">已选：<span class="ico-cell"><span class="ico-box">{{ glyph(form.icon) }}</span><code>{{ form.icon || '（未选）' }}</code></span></span>
+      </div>
+      <div class="icon-grid">
+        <div v-for="ic in filteredIcons" :key="ic.value" class="gi" :class="{ active: form.icon === ic.value }"
+          :title="ic.value + ' · ' + ic.label" @click="pickIcon(ic.value)">{{ ic.glyph }}</div>
+      </div>
+      <div v-if="!filteredIcons.length" class="proto-hint" style="padding:12px 0">无匹配图标</div>
+      <template #footer>
+        <el-button @click="form.icon = ''">清除</el-button>
+        <el-button type="primary" @click="iconPick.visible = false">完成</el-button>
+      </template>
+    </el-dialog>
+  </div>
+</div>
+
+<script src="../资源/vendor/vue.global.prod.js"></script>
+
+<script src="../资源/vendor/element-plus.min.js"></script>
+<script src="../资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref, reactive, computed, watch, nextTick } = Vue;
+  var ElMessage = ElementPlus.ElMessage;
+  var ElMessageBox = ElementPlus.ElMessageBox;
+  var app = createApp({
+    template: document.getElementById('app').outerHTML.replace(/<div id="app">/, '<div>').replace(/<\/div>\s*$/, ''),
+    setup: function () {
+      var editing = ref(false);
+      var section = ref('detail');
+      var attachTab = ref('form');
+      var dirty = ref(false);
+      var syncing = false;
+
+      var parentTree = [
+        { id: '0', label: '（根级）' },
+        { id: 'sys', label: '系统管理', children: [
+          { id: 'sys.user', label: '用户管理' },
+          { id: 'sys.role', label: '角色管理' },
+          { id: 'sys.lock', label: '账号锁定' },
+          { id: 'sys.menu', label: '菜单管理' },
+          { id: 'sys.perm', label: '权限码管理' },
+          { id: 'sys.icon', label: '自定义图标' }
+        ] }
+      ];
+      var form = reactive({
+        menuType: '菜单', parent: 'sys', zh: '用户管理', en: 'User Management',
+        path: '/users', component: '用户表单', icon: 'el:User', sort: 1, show: true, enabled: true
+      });
+      var sys = reactive({
+        id: '1902880011223344556', version: 3,
+        createdAt: '2026-07-01 10:00:00', createdBy: 'admin',
+        updatedAt: '2026-10-09 09:20:00', updatedBy: 'admin',
+        formKey: 'menu', formLabel: '菜单表单'
+      });
+
+      // 关联表单（多对多）
+      var formsPool = [
+        { id: 'user_form', name: '用户表单', business: 'user', component: '用户表单', status: 'enabled' },
+        { id: 'role_form', name: '角色表单', business: 'role', component: '角色表单', status: 'enabled' },
+        { id: 'menu_form', name: '菜单表单', business: 'menu', component: '菜单表单', status: 'enabled' },
+        { id: 'lock_form', name: '账号锁定表单', business: 'user', component: '账号锁定表单', status: 'enabled' },
+        { id: 'perm_form', name: '权限码表单', business: 'business', component: '权限码表单', status: 'enabled' },
+        { id: 'icon_form', name: '图标表单', business: 'icon', component: '图标表单', status: 'enabled' }
+      ];
+      var associatedForms = ref([formsPool[0], formsPool[3]]);
+      var formPick = reactive({ visible: false, kw: '' });
+      var formPickTable = ref(null);
+      var formPickSel = ref([]);
+      var filteredFormPool = computed(function () {
+        var k = (formPick.kw || '').toLowerCase();
+        return formsPool.filter(function (f) { return !k || (f.name + f.business).toLowerCase().indexOf(k) >= 0; });
+      });
+      function openFormPicker() {
+        formPick.kw = '';
+        formPickSel.value = [];
+        formPick.visible = true;
+        nextTick(function () {
+          var t = formPickTable.value;
+          if (t) associatedForms.value.forEach(function (f) { t.toggleRowSelection(f, true); });
+        });
+      }
+      function onFormPickSelect(sel) { formPickSel.value = sel; }
+      function confirmFormPick() {
+        // 全量覆盖（先删后插语义）：勾选结果即新关联集合，取消勾选＝取消关联
+        associatedForms.value = formsPool.filter(function (f) { return formPickSel.value.indexOf(f) >= 0; });
+        if (selFormKey.value && !associatedForms.value.some(function (f) { return f.id === selFormKey.value; })) {
+          selFormKey.value = associatedForms.value.length ? associatedForms.value[0].id : '';
+        }
+        formPick.visible = false;
+        markDirty();
+        toast('关联表单已更新（随工具栏「保存」提交）');
+      }
+
+      // 按钮 / 字段（页内内联明细表）
+      var selFormKey = ref('user_form');
+      var actionOptions = ['user:create', 'user:update', 'user:delete', 'reset_pwd', 'role:grant', 'menu:update', 'export:download'];
+      var buttonMap = reactive({
+        user_form: [
+          { name: '新增', type: 'toolbar', action: 'user:create', sort: 1, status: 'enabled' },
+          { name: '删除', type: 'toolbar', action: 'user:delete', sort: 2, status: 'enabled' },
+          { name: '重置密码', type: 'interface', action: 'reset_pwd', sort: 3, status: 'disabled' }
+        ],
+        lock_form: [
+          { name: '解锁', type: 'toolbar', action: 'user:update', sort: 1, status: 'enabled' }
+        ]
+      });
+      var fieldMap = reactive({
+        user_form: [
+          { key: 'username', name: '用户名', type: 'string', sort: 1, status: 'enabled' },
+          { key: 'name', name: '姓名', type: 'string', sort: 2, status: 'enabled' },
+          { key: 'phone', name: '手机号', type: 'string', sort: 3, status: 'enabled' }
+        ],
+        lock_form: [
+          { key: 'username', name: '用户名', type: 'string', sort: 1, status: 'enabled' },
+          { key: 'lock_type', name: '锁定类型', type: 'enum', sort: 2, status: 'enabled' }
+        ]
+      });
+      function ensureMap(map, key) { if (!map[key]) map[key] = []; return map[key]; }
+      var buttonRows = computed(function () { return selFormKey.value ? ensureMap(buttonMap, selFormKey.value) : []; });
+      var fieldRows = computed(function () { return selFormKey.value ? ensureMap(fieldMap, selFormKey.value) : []; });
+      var selButton = ref(null);
+      var selField = ref(null);
+      function addButtonRow() { buttonRows.value.push({ name: '', type: 'toolbar', action: '', sort: buttonRows.value.length + 1, status: 'enabled' }); markDirty(); }
+      function delButtonRow() { if (!selButton.value) { ElMessage.warning('请先选择一行'); return; } delRow(buttonRows.value, selButton.value); selButton.value = null; }
+      function moveButton(dir) { if (!selButton.value) { ElMessage.warning('请先选择一行'); return; } moveRow(buttonRows.value, selButton.value, dir); }
+      function addFieldRow() { fieldRows.value.push({ key: '', name: '', type: 'string', sort: fieldRows.value.length + 1, status: 'enabled' }); markDirty(); }
+      function delFieldRow() { if (!selField.value) { ElMessage.warning('请先选择一行'); return; } delRow(fieldRows.value, selField.value); selField.value = null; }
+      function moveField(dir) { if (!selField.value) { ElMessage.warning('请先选择一行'); return; } moveRow(fieldRows.value, selField.value, dir); }
+      function delRow(arr, row) { var i = arr.indexOf(row); if (i >= 0) { arr.splice(i, 1); markDirty(); toast('已删除该行（随工具栏保存提交）'); } }
+      function moveRow(arr, row, dir) {
+        var i = arr.indexOf(row), j = i + dir;
+        if (j < 0 || j >= arr.length) { ElMessage.warning(dir < 0 ? '已是第一行' : '已是最后一行'); return; }
+        var t = arr[i]; arr[i] = arr[j]; arr[j] = t; markDirty();
+      }
+
+      // 挂接链完整性（40202）：至少关联一个表单且其归属业务非空
+      var chainOk = computed(function () {
+        return associatedForms.value.length > 0 && associatedForms.value.every(function (f) { return !!f.business; });
+      });
+      var chainText = computed(function () {
+        if (!associatedForms.value.length) return '⚠ 挂接链断裂：菜单未关联任何表单（40202）——角色授予时校验并提示';
+        if (!chainOk.value) return '⚠ 挂接链断裂：存在关联表单未挂业务（40202）——角色授予时校验并提示';
+        return '挂接链完整：菜单 ↔ 表单（多对多）→ 业务（1:1），角色可正常授予';
+      });
+
+      // 图标选择件
+      var iconList = [
+        { value: 'el:User', label: '用户', glyph: '👤' },
+        { value: 'el:Setting', label: '设置', glyph: '⚙' },
+        { value: 'el:Menu', label: '菜单', glyph: '📋' },
+        { value: 'el:OfficeBuilding', label: '组织', glyph: '🏢' },
+        { value: 'el:Lock', label: '锁定', glyph: '🔒' },
+        { value: 'el:Picture', label: '图标', glyph: '🖼' },
+        { value: 'biz:purchase-order', label: '采购单', glyph: '🧾' },
+        { value: 'custom:receipt', label: '自定义·票据', glyph: '🎫' }
+      ];
+      var iconPick = reactive({ visible: false, kw: '' });
+      var filteredIcons = computed(function () {
+        var k = (iconPick.kw || '').toLowerCase();
+        return iconList.filter(function (ic) { return !k || (ic.value + ic.label).toLowerCase().indexOf(k) >= 0; });
+      });
+      function glyph(key) { var ic = iconList.filter(function (x) { return x.value === key; })[0]; return ic ? ic.glyph : '？'; }
+      function pickIcon(key) { form.icon = key; markDirty(); }
+
+      // 系统信息 iframe
+      var sysH = ref(236);
+      function pushSys(ev, data) {
+        var f = ev.currentTarget;
+        if (f && f.contentWindow) {
+          f.contentWindow.postMessage({ type: 'sys-info', data: JSON.parse(JSON.stringify(data || {})) }, '*');
+        }
+      }
+      window.addEventListener('message', function (e) {
+        if (e.data && e.data.type === 'sys-info-height' && e.data.height > 0) sysH.value = e.data.height;
+      });
+
+      watch(form, function () { if (editing.value) dirty.value = true; }, { deep: true });
+      function markDirty() { if (editing.value) dirty.value = true; }
+
+      function beforeTabLeave() {
+        if (!dirty.value || section.value === 'sys') return true;
+        return ElMessageBox.confirm('当前修改尚未保存，切换页签将丢失修改，确定切换？', '提示', { type: 'warning' })
+          .then(function () { dirty.value = false; return true; })
+          .catch(function () { return false; });
+      }
+      function editForm() { dirty.value = false; editing.value = true; toast('已进入编辑态（字段启用）'); }
+      function cancelEdit() {
+        if (dirty.value) {
+          ElMessageBox.confirm('放弃未保存的修改？', '提示', { type: 'warning', confirmButtonText: '放弃', cancelButtonText: '继续编辑' })
+            .then(function () { dirty.value = false; editing.value = false; toast('已取消修改'); }).catch(function () {});
+        } else { editing.value = false; toast('已取消修改'); }
+      }
+      function saveForm() {
+        if (!(form.zh || '').trim() || !(form.en || '').trim()) { toast('中文名称与英文名称必填', 'error'); return; }
+        if (!(form.path || '').trim()) { toast('路由路径必填', 'error'); return; }
+        editing.value = false;
+        dirty.value = false;
+        if (!chainOk.value) { toast('已保存，但挂接链不完整（40202）：角色授予时将校验拦截', 'warning'); return; }
+        toast('菜单已保存（sys.form.updated 已发布，动态菜单刷新生效）');
+      }
+      function delForm() {
+        ElMessageBox.confirm('删除当前菜单？平台库以「停用」代替删除，删除为软删除，被表单/卡片引用的节点先解除引用（40206），删除后不可恢复。', '提示', {
+          type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消', confirmButtonClass: 'el-button--danger'
+        }).then(function () { toast('已删除（软删除，sys.form.updated 已发布）'); }).catch(function () {});
+      }
+      function reload() { toast('已重新加载当前记录'); }
+      function closePage() {
+        if (dirty.value) {
+          ElMessageBox.confirm('当前修改尚未保存，关闭将丢失修改，确定关闭？', '提示', { type: 'warning', confirmButtonText: '关闭', cancelButtonText: '取消' })
+            .then(function () { dirty.value = false; toast('已关闭'); }).catch(function () {});
+        } else { toast('已关闭'); }
+      }
+      function toRoleGrant() { toast('前往角色管理页配置字段权限（需 role:grant）', 'warning'); }
+
+      // 由列表页双击（?id=&name=）/ 新增（?new=1）打开时回填；直接打开默认展示一条已存在记录（只读态）
+      (function () {
+        function qp(k) { var m = location.search.match(new RegExp('[?&]' + k + '=([^&]*)')); return m ? decodeURIComponent(m[1]) : null; }
+        var id = qp('id'), name = qp('name'), isNew = qp('new');
+        if (isNew === '1') {
+          editing.value = true;
+          form.zh = ''; form.en = ''; form.path = ''; form.component = ''; form.icon = ''; form.parent = 'sys'; form.menuType = '菜单';
+          associatedForms.value = [];
+          section.value = 'detail';
+        } else {
+          if (name) form.zh = name;
+          if (id) { sys.id = id; form.path = '/' + id; }
+        }
+      })();
+      function toast(m, type) { ElMessage({ message: m, type: type || 'success' }); }
+
+      return {
+        editing, section, attachTab, dirty, parentTree, form, sys,
+        associatedForms, formPick, formPickTable, filteredFormPool,
+        selFormKey, actionOptions, buttonRows, fieldRows, selButton, selField,
+        chainOk, chainText, iconPick, filteredIcons,
+        sysH, pushSys, beforeTabLeave, editForm, cancelEdit, saveForm, delForm, reload, closePage,
+        openFormPicker, onFormPickSelect, confirmFormPick,
+        addButtonRow, delButtonRow, moveButton, addFieldRow, delFieldRow, moveField,
+        glyph, pickIcon, toRoleGrant, toast
+      };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+  // 嵌入主框架时隐藏顶部原型条
+  if (location.search.indexOf('embed=1') >= 0) { var pb = document.querySelector('.proto-bar'); if (pb) pb.style.display = 'none'; }
+</script>
+
+</body>
+</html>

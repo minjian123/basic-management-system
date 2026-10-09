@@ -9,113 +9,118 @@
 <style>
   .ep-page { background: #fff; border: 1px solid #d0d7de; border-radius: 6px; padding: 16px; }
   .ep-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
-  .ep-side-card { background: #fff; border: 1px solid #d0d7de; border-radius: 8px; padding: 10px; }
-  .ep-main-card { background: #fff; border: 1px solid #d0d7de; border-radius: 8px; padding: 14px; min-height: 300px; }
-  .ep-section { font-weight: 600; margin: 0 0 12px; padding-bottom: 8px; border-bottom: 1px solid #eaeef2; font-size: 14px; }
+  .ep-toolbar .ep-side { margin-left: auto; }
+  .ep-filter { margin-bottom: 12px; }
+  /* 表格下方一行：左下明细工具栏（图标按钮）+ 右下提示（树形元数据不分页） */
+  .ep-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+  mark { background: #fff3b0; color: #1f2328; padding: 0 1px; border-radius: 2px; }
 </style>
 </head>
 <body>
 
 <div class="proto-bar">
   <span class="pb-crumb"><a href="01_设计说明.html">← 返回设计说明</a></span>
-  <span class="pb-name">菜单管理 · 菜单维护页</span>
+  <span class="pb-name">菜单管理 · 菜单维护页（表单框架 · 列表 Tab）</span>
 </div>
 
 <div class="proto-frame">
+  <div class="proto-note">
+    本页为「菜单管理」表单框架的<b>列表 Tab</b>（固定页签，不可关闭）；双击数据行或点「新增」打开<b>菜单记录 Tab</b>
+    （见 <a href="03_菜单表单页.html">菜单表单页</a>，表单/按钮/字段挂接在其「挂接配置」页签内）。列表页三段式：工具栏 → 筛选区 → 表格；
+    菜单为<b>树形结构</b>，用树形表格承载（<b>无操作列</b>，双击行开记录 Tab，元数据不分页）。
+    <b>展开策略</b>：按规模自适应（节点少时默认全展开、多时只展开第一层），<b>展开状态本地记忆</b>，搜索时<b>自动展开命中路径</b>并高亮，工具栏可「全部展开 / 全部折叠」。
+    菜单存平台库、平台超管统一维护，租户侧只读引用。
+  </div>
+
   <div id="app">
     <div class="ep-page">
-      <!-- ① 工具栏 -->
+      <!-- ① 工具栏：左侧 新增/刷新/关闭 + 批量操作（随选中态启用）+ 展开控制；右侧 导出 -->
       <div class="ep-toolbar">
-        <el-button type="primary" @click="openNew">新增菜单</el-button>
-        <el-button @click="openEdit">编辑</el-button>
-        <el-button @click="toggleMenu">停用/启用</el-button>
-        <el-button @click="toastMsg('已刷新')">刷新</el-button>
-        <el-button @click="toastMsg('原型演示：关闭当前模块页面（返回）')">关闭</el-button>
+        <el-button type="primary" @click="openForm(null)">新增</el-button>
+        <el-button @click="reload">刷新</el-button>
+        <el-button @click="closePage">关闭</el-button>
+        <el-button type="danger" plain :disabled="!selRows.length" @click="delSel">删除</el-button>
+        <el-button :disabled="!selRows.length" @click="batchToggle">停用/启用</el-button>
+        <el-button @click="toggleExpandAll">{{ isAllExpanded ? '全部折叠' : '全部展开' }}</el-button>
+        <span class="ep-side">
+          <el-button @click="exportMsg">导出</el-button>
+          <span class="proto-hint" style="margin-left:10px">平台超管维护 · 租户只读</span>
+        </span>
       </div>
 
-      <!-- ② 左侧菜单树 + 右侧详情 -->
-      <el-row :gutter="12">
-        <el-col :span="6">
-          <div class="ep-side-card">
-            <b style="font-size:13px">菜单树</b>
-            <span class="proto-hint" style="margin-left:6px;font-size:12px">embed 模式点选节点打开菜单表单页</span>
-            <el-tree :data="treeData" node-key="id" highlight-current :current-node-key="detail.id"
-              default-expand-all :expand-on-click-node="false" @node-click="onNode" style="margin-top:8px;font-size:13px"></el-tree>
+      <!-- ② 筛选区：关键字框 240px + 菜单类型 + 状态；查询/重置在条件行末（3 条件 + 按钮同处一行） -->
+      <el-form class="ep-filter" label-position="top" @submit.prevent>
+        <el-row :gutter="16">
+          <el-col :span="6">
+            <el-form-item label="关键字">
+              <el-input v-model="query.kw" placeholder="关键字：菜单名称/路由路径" clearable style="width:240px"></el-input>
+            </el-form-item>
+          </el-col>
+          <el-col :span="6">
+            <el-form-item label="菜单类型">
+              <el-select v-model="query.type" placeholder="全部" clearable style="width:100%">
+                <el-option label="目录" value="目录"></el-option>
+                <el-option label="菜单" value="菜单"></el-option>
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="6">
+            <el-form-item label="状态">
+              <el-select v-model="query.status" placeholder="全部" clearable style="width:100%">
+                <el-option label="启用" value="enabled"></el-option>
+                <el-option label="停用" value="disabled"></el-option>
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="6">
+            <el-form-item style="margin-top:30px">
+              <el-button type="primary" @click="applyFilter">查询</el-button>
+              <el-button @click="resetFilter">重置</el-button>
+            </el-form-item>
+          </el-col>
+        </el-row>
+      </el-form>
+
+      <!-- ③ 表格：树形表格（多选 + 数据列，无操作列）；双击行打开菜单记录 Tab；搜索命中高亮 -->
+      <el-table ref="treeTable" :key="tableKey" :data="filteredTree" border stripe row-key="id"
+        :tree-props="{ children: 'children' }" @selection-change="onSel" @row-dblclick="openForm"
+        @expand-change="onExpandChange" style="width:100%">
+        <el-table-column type="selection" width="48"></el-table-column>
+        <el-table-column label="菜单名称" min-width="220" show-overflow-tooltip>
+          <template #default="{ row }"><span v-html="hl(row.name)"></span></template>
+        </el-table-column>
+        <el-table-column label="类型" width="90">
+          <template #default="{ row }">
+            <el-tag size="small" :type="row.type === '目录' ? 'info' : 'primary'">{{ row.type }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="path" label="路由路径" min-width="150" show-overflow-tooltip></el-table-column>
+        <el-table-column prop="component" label="视图组件" min-width="160" show-overflow-tooltip></el-table-column>
+        <el-table-column prop="sort" label="排序" width="80" align="center"></el-table-column>
+        <el-table-column label="状态" width="100">
+          <template #default="{ row }">
+            <el-tag :type="row.status === 'enabled' ? 'success' : 'info'">{{ row.status === 'enabled' ? '启用' : '停用' }}</el-tag>
+          </template>
+        </el-table-column>
+        <template #empty>
+          <div>
+            <div style="font-size:14px;color:#57606a">暂无数据</div>
+            <el-button style="margin-top:10px" type="primary" @click="openForm(null)">去创建</el-button>
           </div>
-        </el-col>
-        <el-col :span="18">
-          <div class="ep-main-card">
-            <div class="ep-section">菜单详情</div>
-            <el-form label-position="top">
-              <el-row :gutter="16">
-                <el-col :span="8"><el-form-item label="path"><el-input v-model="detail.path" disabled></el-input></el-form-item></el-col>
-                <el-col :span="8"><el-form-item label="component"><el-input v-model="detail.component" disabled></el-input></el-form-item></el-col>
-                <el-col :span="8"><el-form-item label="图标 / 排序"><el-input v-model="detail.icon"></el-input></el-form-item></el-col>
-              </el-row>
-              <el-row :gutter="16">
-                <el-col :span="8">
-                  <el-form-item label="隐藏">
-                    <el-checkbox v-model="detail.hidden" style="margin-top:6px"></el-checkbox>
-                  </el-form-item>
-                </el-col>
-                <el-col :span="8"><el-form-item label="挂接表单"><el-input v-model="detail.form" disabled></el-input></el-form-item></el-col>
-                <el-col :span="8"><el-form-item label="挂接业务"><el-input v-model="detail.biz" disabled></el-input></el-form-item></el-col>
-              </el-row>
-              <el-form-item label="多语言名称">
-                <div style="display:flex;gap:8px;width:100%">
-                  <el-input v-model="detail.zh" placeholder="zh-CN"></el-input>
-                  <el-input v-model="detail.en" placeholder="en"></el-input>
-                  <el-button @click="toastMsg('i18n 已保存（sys_menu_i18n）')">保存</el-button>
-                </div>
-              </el-form-item>
-            </el-form>
-            <div class="proto-note" :style="detail.chainOk ? '' : 'border-left-color:#cf222e;background:#ffebe9;color:#1f2328'">
-              {{ chainText }}
-            </div>
-          </div>
-        </el-col>
-      </el-row>
+        </template>
+      </el-table>
+
+      <!-- ④ 表格下方一行：左下明细工具栏（通用工具）——菜单为树形元数据，不分页 -->
+      <div class="ep-bar">
+        <div>
+          <el-button size="small" @click="toast('原型演示：自动列宽')" title="自动列宽">⟷</el-button>
+          <el-button size="small" @click="toast('原型演示：自定义列')" title="自定义列">☰</el-button>
+          <el-button size="small" @click="reload" title="刷新">⟳</el-button>
+          <el-button size="small" @click="toast('原型演示：全屏')" title="全屏">⛶</el-button>
+        </div>
+        <span class="proto-hint">树形元数据一次性返回，不分页（《概要设计 · 菜单管理》5.2）</span>
+      </div>
     </div>
-
-    <!-- ③ 新增菜单：480px 对话框 -->
-    <el-dialog v-model="dlgNew.visible" title="新增菜单" width="480" align-center>
-      <el-form label-position="top">
-        <el-form-item label="父级">
-          <el-select v-model="dlgNew.form.parent" style="width:100%">
-            <el-option label="组织与权限" value="组织与权限"></el-option>
-            <el-option label="（根级）" value="根级"></el-option>
-          </el-select>
-        </el-form-item>
-        <el-form-item label="名称（zh）" required><el-input v-model="dlgNew.form.name" placeholder="名称"></el-input></el-form-item>
-        <el-form-item label="path" required><el-input v-model="dlgNew.form.path" placeholder="/xxx"></el-input></el-form-item>
-        <el-form-item label="component"><el-input v-model="dlgNew.form.component"></el-input></el-form-item>
-        <div class="proto-hint">保存后将要求补挂表单与业务，并发布更新</div>
-      </el-form>
-      <template #footer>
-        <el-button @click="dlgNew.visible = false">取消</el-button>
-        <el-button type="primary" @click="saveMenu">保存</el-button>
-      </template>
-    </el-dialog>
-
-    <!-- ④ 编辑菜单：480px 对话框（预填当前值） -->
-    <el-dialog v-model="dlgEdit.visible" title="编辑菜单" width="480" align-center>
-      <el-form label-position="top">
-        <el-form-item label="父级">
-          <el-select v-model="dlgEdit.form.parent" style="width:100%">
-            <el-option label="组织与权限" value="组织与权限"></el-option>
-            <el-option label="（根级）" value="根级"></el-option>
-          </el-select>
-        </el-form-item>
-        <el-form-item label="名称（zh）" required><el-input v-model="dlgEdit.form.name"></el-input></el-form-item>
-        <el-form-item label="path" required><el-input v-model="dlgEdit.form.path"></el-input></el-form-item>
-        <el-form-item label="component"><el-input v-model="dlgEdit.form.component"></el-input></el-form-item>
-        <div class="proto-hint">保存后将发布更新，动态菜单刷新生效</div>
-      </el-form>
-      <template #footer>
-        <el-button @click="dlgEdit.visible = false">取消</el-button>
-        <el-button type="primary" @click="saveMenuEdit">保存</el-button>
-      </template>
-    </el-dialog>
   </div>
 </div>
 
@@ -124,74 +129,199 @@
 <script src="../资源/vendor/element-plus.min.js"></script>
 <script src="../资源/vendor/zh-cn.js"></script>
 <script>
-  var { createApp, ref, reactive } = Vue;
+  var { createApp, ref, reactive, computed, nextTick, onMounted } = Vue;
   var ElMessage = ElementPlus.ElMessage;
   var ElMessageBox = ElementPlus.ElMessageBox;
+  var EXPAND_STORE_KEY = 'bms_menu_expanded';
   var app = createApp({
     template: document.getElementById('app').outerHTML.replace(/<div id="app">/, '<div>').replace(/<\/div>\s*$/, ''),
     setup: function () {
-      var treeData = [
-        { id: 'home', label: '首页', children: [{ id: 'wb', label: '工作台' }] },
-        { id: 'org', label: '组织与权限', children: [
-          { id: 'user', label: '用户管理' },
-          { id: 'role', label: '角色管理' },
-          { id: 'menu', label: '菜单管理' }
-        ]}
-      ];
-      // 节点详情映射（演示：仅 user 节点挂接链完整）
-      var nodeInfo = {
-        user: { id: 'user', path: '/users', component: 'FormFrame', icon: 'icon-user · sort 1', hidden: false, form: 'user_form（1:1）', biz: 'user（1:1）', zh: '用户管理', en: 'User Management', chainOk: true },
-        home: { id: 'home', path: '/home', component: 'Home', icon: 'icon-home · sort 0', hidden: false, form: '—（未挂）', biz: '—（未挂）', zh: '首页', en: 'Home', chainOk: false },
-        wb: { id: 'wb', path: '/workbench', component: 'Workbench', icon: 'icon-wb · sort 1', hidden: false, form: '—（未挂）', biz: '—（未挂）', zh: '工作台', en: 'Workbench', chainOk: false },
-        org: { id: 'org', path: '/org', component: 'FormFrame', icon: 'icon-org · sort 1', hidden: false, form: '—（未挂）', biz: '—（未挂）', zh: '组织与权限', en: 'Organization', chainOk: false },
-        role: { id: 'role', path: '/roles', component: 'FormFrame', icon: 'icon-role · sort 2', hidden: false, form: '—（未挂）', biz: '—（未挂）', zh: '角色管理', en: 'Role Management', chainOk: false },
-        menu: { id: 'menu', path: '/menus', component: 'FormFrame', icon: 'icon-menu · sort 3', hidden: false, form: '—（未挂）', biz: '—（未挂）', zh: '菜单管理', en: 'Menu Management', chainOk: false }
-      };
-      var detail = reactive(JSON.parse(JSON.stringify(nodeInfo.user)));
-      var chainText = ref('挂接链完整：菜单 user → 表单 user_form → 业务 user（角色可正常授予）');
-      var dlgNew = reactive({ visible: false, form: { parent: '组织与权限', name: '', path: '', component: 'FormFrame' } });
-      var dlgEdit = reactive({ visible: false, form: { parent: '组织与权限', name: '', path: '', component: 'FormFrame' } });
+      var treeData = ref([
+        { id: 'sys', name: '系统管理', type: '目录', path: '/system', component: '—', sort: 10, status: 'enabled', children: [
+          { id: 'sys.user', name: '用户管理', type: '菜单', path: '/users', component: '用户表单', sort: 1, status: 'enabled' },
+          { id: 'sys.role', name: '角色管理', type: '菜单', path: '/roles', component: '角色表单', sort: 2, status: 'enabled' },
+          { id: 'sys.lock', name: '账号锁定', type: '菜单', path: '/account-locks', component: '账号锁定表单', sort: 3, status: 'enabled' },
+          { id: 'sys.menu', name: '菜单管理', type: '菜单', path: '/menus', component: '菜单表单', sort: 4, status: 'enabled' },
+          { id: 'sys.perm', name: '权限码管理', type: '菜单', path: '/permissions', component: '权限码表单', sort: 5, status: 'enabled' },
+          { id: 'sys.icon', name: '自定义图标', type: '菜单', path: '/icons', component: '图标表单', sort: 6, status: 'disabled' }
+        ] },
+        { id: 'home', name: '首页工作台', type: '菜单', path: '/home', component: '工作台', sort: 1, status: 'enabled' }
+      ]);
+      var query = reactive({ kw: '', type: '', status: '' });
+      var selRows = ref([]);
+      var treeTable = ref(null);
+      var tableKey = ref(0);
+      // 规模阈值：≤ 50 节点默认全展开，否则只展开第一层
+      var EXPAND_THRESHOLD = 50;
 
-      // 树节点点选：embed 时打开菜单表单页（openDetail → 独立跳转 fallback）；非 embed 保持页内详情
-      function onNode(node) {
-        if (location.search.indexOf('embed=1') >= 0) {
-          try { parent.openDetail('菜单维护', node.id, node.label); return; } catch (e) {}
-          location.href = '../10_菜单管理/04_菜单表单页.html?id=' + encodeURIComponent(node.id) + '&name=' + encodeURIComponent(node.label);
-          return;
+      // ---------- 树工具 ----------
+      function walk(nodes, cb) { nodes.forEach(function (n) { cb(n); if (n.children) walk(n.children, cb); }); }
+      function countNodes(nodes) { var c = 0; walk(nodes, function () { c++; }); return c; }
+      function parentIdsOf(nodes, out) {
+        nodes.forEach(function (n) { if (n.children && n.children.length) { out.push(n.id); parentIdsOf(n.children, out); } });
+        return out;
+      }
+      function allParentIds() { return parentIdsOf(treeData.value, []); }
+      function firstLevelParentIds() {
+        return treeData.value.filter(function (n) { return n.children && n.children.length; }).map(function (n) { return n.id; });
+      }
+      function descendantIds(nodes, out) { nodes.forEach(function (n) { out.push(n.id); if (n.children) descendantIds(n.children, out); }); return out; }
+
+      // ---------- 展开状态：记忆 + 渲染集合 ----------
+      function defaultKeys() {
+        return countNodes(treeData.value) <= EXPAND_THRESHOLD ? allParentIds() : firstLevelParentIds();
+      }
+      function loadKeys() {
+        try { var s = localStorage.getItem(EXPAND_STORE_KEY); if (s) { var a = JSON.parse(s); if (Array.isArray(a)) return a; } } catch (e) {}
+        return defaultKeys();
+      }
+      var expandedKeys = ref(loadKeys());   // 用户偏好（localStorage 记忆）
+      var renderKeys = ref([]);             // 当前实际应用的展开集合
+      var applyingExpand = false;           // 程序化展开应用标记：期内的 expand-change 不写入记忆
+      function persistKeys() { try { localStorage.setItem(EXPAND_STORE_KEY, JSON.stringify(expandedKeys.value)); } catch (e) {} }
+      function refreshRenderKeys() {
+        var filtered = !!(query.kw || '').trim() || !!query.type || !!query.status;
+        if (filtered) { renderKeys.value = parentIdsOf(filteredTree.value, []); }
+        else { renderKeys.value = expandedKeys.value.slice(); }
+      }
+      function hasActiveFilter() { return !!(query.kw || '').trim() || !!query.type || !!query.status; }
+      var isAllExpanded = computed(function () {
+        var all = allParentIds();
+        return all.length > 0 && all.every(function (id) { return renderKeys.value.indexOf(id) >= 0; });
+      });
+      function applyExpansion() {
+        applyingExpand = true;
+        nextTick(function () {
+          var tb = treeTable.value;
+          if (tb && tb.toggleRowExpansion) {
+            walk(filteredTree.value, function (n) {
+              if (n.children && n.children.length) tb.toggleRowExpansion(n, renderKeys.value.indexOf(n.id) >= 0);
+            });
+          }
+          applyingExpand = false;
+        });
+      }
+      function onExpandChange(row, expanded) {
+        if (applyingExpand) return;      // 程序化展开不写入
+        if (hasActiveFilter()) return;   // 筛选态下的临时展开不写入偏好
+        var set = expandedKeys.value.slice();
+        if (expanded) { if (set.indexOf(row.id) < 0) set.push(row.id); }
+        else {
+          var rm = [row.id]; if (row.children) descendantIds(row.children, rm);
+          set = set.filter(function (k) { return rm.indexOf(k) < 0; });
         }
-        var info = nodeInfo[node.id] || nodeInfo.user;
-        Object.keys(info).forEach(function (k) { detail[k] = info[k]; });
-        chainText.value = info.chainOk
-          ? '挂接链完整：菜单 ' + info.biz.replace('（1:1）', '') + ' → 表单 ' + info.form.replace('（1:1）', '') + ' → 业务 ' + info.biz.replace('（1:1）', '') + '（角色可正常授予）'
-          : '⚠ 挂接链断裂：菜单「' + info.zh + '」未挂表单（40002）——角色授予时校验并提示';
+        expandedKeys.value = set;
+        renderKeys.value = set.slice();
+        persistKeys();
       }
-      function openNew() { dlgNew.form = { parent: '组织与权限', name: '', path: '', component: 'FormFrame' }; dlgNew.visible = true; }
-      function openEdit() {
-        dlgEdit.form = { parent: detail.id === 'org' || detail.id === 'home' ? '（根级）' : '组织与权限', name: detail.zh, path: detail.path, component: detail.component };
-        dlgEdit.visible = true;
+      function toggleExpandAll() {
+        var wasAll = isAllExpanded.value;
+        expandedKeys.value = wasAll ? [] : allParentIds();
+        persistKeys();
+        renderKeys.value = expandedKeys.value.slice();
+        tableKey.value++;
+        applyExpansion();
+        toast(wasAll ? '已全部折叠' : '已全部展开');
       }
-      function saveMenu() {
-        if (!dlgNew.form.name.trim() || !dlgNew.form.path.trim()) { ElMessage.error('名称与 path 必填'); return; }
-        dlgNew.visible = false;
-        toastMsg('菜单已创建，请继续补挂表单与业务（form.updated 已发布）');
+
+      // ---------- 树形筛选（命中自身或任一后代即保留，父级随命中后代保留） ----------
+      function matchNode(n) {
+        var k = (query.kw || '').toLowerCase();
+        var text = (n.name + n.path).toLowerCase();
+        return (!k || text.indexOf(k) >= 0) && (!query.type || n.type === query.type) && (!query.status || n.status === query.status);
       }
-      function saveMenuEdit() {
-        if (!dlgEdit.form.name.trim() || !dlgEdit.form.path.trim()) { ElMessage.error('名称与 path 必填'); return; }
-        dlgEdit.visible = false;
-        toastMsg('菜单已更新（menu.updated 已发布，动态菜单刷新生效）');
+      function filterTree(nodes) {
+        var out = [];
+        nodes.forEach(function (n) {
+          var children = n.children ? filterTree(n.children) : [];
+          if (matchNode(n) || children.length) {
+            var copy = Object.assign({}, n);
+            if (n.children) copy.children = children;
+            out.push(copy);
+          }
+        });
+        return out;
       }
-      function toggleMenu() {
-        ElMessageBox.confirm('停用菜单「' + detail.zh + '」？停用后角色不可见，数据保留。', '提示', { type: 'warning', confirmButtonText: '停用', cancelButtonText: '取消' })
-          .then(function () { toastMsg('已停用'); })
-          .catch(function () {});
+      var filteredTree = computed(function () { return filterTree(treeData.value); });
+
+      // 搜索命中高亮
+      function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]; }); }
+      function hl(text) {
+        var k = (query.kw || '').trim();
+        if (!k) return esc(text);
+        var i = text.toLowerCase().indexOf(k.toLowerCase());
+        if (i < 0) return esc(text);
+        return esc(text.slice(0, i)) + '<mark>' + esc(text.slice(i, i + k.length)) + '</mark>' + esc(text.slice(i + k.length));
       }
-      function toastMsg(m) { ElMessage({ message: m, type: 'success' }); }
-      return { treeData, detail, chainText, dlgNew, dlgEdit, onNode, openNew, openEdit, saveMenu, saveMenuEdit, toggleMenu, toastMsg };
+
+      function applyFilter() {
+        refreshRenderKeys();
+        tableKey.value++;
+        applyExpansion();
+        toast('命中 ' + countNodes(filteredTree.value) + ' 个节点' + (hasActiveFilter() ? '（已展开命中路径）' : ''));
+      }
+      function resetFilter() { query.kw = ''; query.type = ''; query.status = ''; refreshRenderKeys(); tableKey.value++; applyExpansion(); }
+      function onSel(sel) { selRows.value = sel; }
+      function reload() { toast('已刷新菜单树（保留筛选与展开状态）'); }
+
+      function removeByIds(nodes, ids) {
+        return nodes.filter(function (n) { return ids.indexOf(n.id) < 0; }).map(function (n) {
+          if (n.children) { var c = Object.assign({}, n); c.children = removeByIds(n.children, ids); return c; }
+          return n;
+        });
+      }
+      function toggleByIds(nodes, ids) {
+        nodes.forEach(function (n) {
+          if (ids.indexOf(n.id) >= 0) n.status = n.status === 'enabled' ? 'disabled' : 'enabled';
+          if (n.children) toggleByIds(n.children, ids);
+        });
+      }
+      function delSel() {
+        if (!selRows.value.length) { ElMessage.error('请先选择菜单'); return; }
+        ElMessageBox.confirm('确认删除选中的 ' + selRows.value.length + ' 个菜单？平台库以「停用」代替删除，删除为软删除，被表单/卡片引用的节点先解除引用（40206）。',
+          '提示', { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消', confirmButtonClass: 'el-button--danger' })
+          .then(function () {
+            var ids = selRows.value.map(function (r) { return r.id; });
+            treeData.value = removeByIds(treeData.value, ids);
+            selRows.value = [];
+            toast('已删除（软删除，sys.form.updated 已发布）');
+          }).catch(function () {});
+      }
+      function batchToggle() {
+        if (!selRows.value.length) { ElMessage.error('请先选择菜单'); return; }
+        var toDisabled = selRows.value.some(function (r) { return r.status === 'enabled'; });
+        var text = toDisabled ? '停用' : '启用';
+        ElMessageBox.confirm('确认' + text + '选中的 ' + selRows.value.length + ' 个菜单？' + (toDisabled ? '停用后侧边栏不可见（权限仍生效，路由可直达）。' : ''),
+          '提示', { type: 'warning', confirmButtonText: text, cancelButtonText: '取消' })
+          .then(function () {
+            var ids = selRows.value.map(function (r) { return r.id; });
+            toggleByIds(treeData.value, ids);
+            selRows.value = [];
+            toast('已批量' + text + '（sys.form.updated 已发布）');
+          }).catch(function () {});
+      }
+      function openForm(row) {
+        var url = '03_菜单表单页.html' + (row ? '?id=' + encodeURIComponent(row.id) + '&name=' + encodeURIComponent(row.name) : '?new=1');
+        if (location.search.indexOf('embed=1') >= 0) {
+          try { parent.openDetail('菜单记录', row ? row.name : '新建菜单', row ? row.name : ''); return; } catch (e) {}
+          try { parent.openTab('菜单表单', '../10_菜单管理/' + url); return; } catch (e) {}
+        }
+        if (row) { toast('打开菜单记录：' + row.name); location.href = url; return; }
+        toast('新建菜单（打开空白记录 Tab，直接进入编辑态）');
+        location.href = url;
+      }
+      function exportMsg() { toast('按当前筛选导出（受 export:download 权限约束）'); }
+      function closePage() { toast('关闭菜单管理模块页（返回）'); }
+      function toast(m, type) { ElMessage({ message: m, type: type || 'success' }); }
+
+      onMounted(function () { refreshRenderKeys(); applyExpansion(); });
+
+      return { treeData, query, selRows, treeTable, tableKey, filteredTree, isAllExpanded, applyFilter, resetFilter, onSel, reload,
+        onExpandChange, toggleExpandAll, delSel, batchToggle, openForm, exportMsg, closePage, hl, toast };
     }
   });
   app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
   app.mount('#app');
-  // 嵌入主框架时隐藏顶部原型条
   if (location.search.indexOf('embed=1') >= 0) { var pb = document.querySelector('.proto-bar'); if (pb) pb.style.display = 'none'; }
 </script>
 
