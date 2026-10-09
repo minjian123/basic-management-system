@@ -85,11 +85,74 @@ variables:
   npm_config_store_dir: /cache/pnpm/store
   npm_config_state_dir: /cache/pnpm/state
   REGISTRY_IMAGE_PREFIX: 192.168.0.107:5050/bms/bms
+  # 流水线级串行闸门（2026-10-09）：跨项目互斥锁落 runner 持久卷 `/cache`（bms / mdm 两仓同键）；
+  # 持有者每条作业启动刷新 `at`，超 CI_QUEUE_STALE_SECONDS 无刷新视为陈旧锁（硬取消 / runner 崩溃）可接管。
+  CI_QUEUE_LOCK_DIR: /cache/.ci-queue-lock
+  CI_QUEUE_STALE_SECONDS: "900"
 
 default:
   tags: [bms]
   # 默认允许被同分支新推送取消（配合 workflow.auto_cancel；镜像构建 / 测试 / 文档校验均可安全取消重跑）
   interruptible: true
+  # 流水线级串行闸门：本流水线持锁期间，每次作业启动刷新锁（否则长流水线会被等待方误判为陈旧）
+  before_script:
+    - |
+      LOCK="${CI_QUEUE_LOCK_DIR:-/cache/.ci-queue-lock}"
+      if [ -f "$LOCK/owner" ] && [ "$(cat "$LOCK/owner" 2>/dev/null)" = "${CI_PROJECT_PATH}#${CI_PIPELINE_ID}" ]; then
+        touch "$LOCK/at" 2>/dev/null || true
+      fi
+
+# ---- 流水线级串行闸门（2026-10-09，用户要求「一条一条执行」）----
+# 背景：mjbk 上仅一台 runner（实例级 id 2），bms 与 mdm 两仓共用，默认两仓流水线并行会互相抢资源。
+# GitLab 原生无「整条流水线互斥」开关（`resource_group` 是**作业级**且**不跨项目**），故用两仓**共用**的
+# runner 持久卷 `/cache` 作跨项目互斥锁：
+#   - `ci-queue-acquire`（`.pre`，最先跑）：取锁成功即放行；被占用则轮询等待 ⇒ **整条流水线**排在持有者
+#     （可能是另一项目的流水线）之后；等待方在持有者锁陈旧（无刷新 ≥ CI_QUEUE_STALE_SECONDS）时接管；
+#   - `ci-queue-release`（`.post`，`when: always` + `interruptible: false`）：流水线结束（含失败、被同分支
+#     新推送自动取消）时释放，避免锁泄漏；
+#   - `ci-queue-acquire` 保持 `interruptible: true`：等待期间被新推送取消时干净退出，不会残留僵尸锁。
+# 口径：**只串行流水线**，流水线内作业仍按 runner 并发（4）并行；纯文档推送也排队（闸门无条件执行）。
+ci-queue-acquire:
+  stage: .pre
+  script:
+    - |
+      LOCK="${CI_QUEUE_LOCK_DIR:-/cache/.ci-queue-lock}"
+      STALE="${CI_QUEUE_STALE_SECONDS:-900}"
+      ME="${CI_PROJECT_PATH}#${CI_PIPELINE_ID}"
+      WAITED=0
+      until mkdir "$LOCK" 2>/dev/null; do
+        OWNER="$(cat "$LOCK/owner" 2>/dev/null || echo '未知')"
+        AT="$(cat "$LOCK/at" 2>/dev/null || echo 0)"
+        AGE=$(( $(date +%s) - ${AT:-0} ))
+        if [ "$AGE" -ge "$STALE" ]; then
+          echo "[ci-queue] 锁陈旧（owner=${OWNER}，${AGE}s ≥ ${STALE}s 无刷新）⇒ 接管"
+          rm -rf "$LOCK"
+          continue
+        fi
+        if [ $(( WAITED % 60 )) -eq 0 ]; then
+          echo "[ci-queue] 等待上一条流水线结束：owner=${OWNER}，其持锁 ${AGE}s，本流水线已等 ${WAITED}s"
+        fi
+        WAITED=$(( WAITED + 15 ))
+        sleep 15
+      done
+      printf '%s' "$ME" > "$LOCK/owner"
+      date +%s > "$LOCK/at"
+      echo "[ci-queue] 已获得流水线锁：$ME"
+
+ci-queue-release:
+  stage: .post
+  when: always
+  interruptible: false
+  script:
+    - |
+      LOCK="${CI_QUEUE_LOCK_DIR:-/cache/.ci-queue-lock}"
+      ME="${CI_PROJECT_PATH}#${CI_PIPELINE_ID}"
+      if [ "$(cat "$LOCK/owner" 2>/dev/null)" = "$ME" ]; then
+        rm -rf "$LOCK"
+        echo "[ci-queue] 已释放流水线锁：$ME"
+      else
+        echo "[ci-queue] 锁不属于本流水线（owner=$(cat "$LOCK/owner" 2>/dev/null || echo '无')），跳过释放"
+      fi
 
 # ---- CI 基础镜像：按锁文件哈希自动重建（prepare 阶段先于业务 job；同宿主 daemon 本流水线即用）----
 ci-base-build:
@@ -945,6 +1008,12 @@ integration-dm8:
   image: docker:27-cli
   before_script:
     - echo "$GITLAB_API_TOKEN" | docker login 192.168.0.107:5050 -u root --password-stdin
+    # 流水线级串行闸门：本锚点覆盖了 default.before_script，故同样刷新锁（见 ci-queue-acquire）
+    - |
+      LOCK="${CI_QUEUE_LOCK_DIR:-/cache/.ci-queue-lock}"
+      if [ -f "$LOCK/owner" ] && [ "$(cat "$LOCK/owner" 2>/dev/null)" = "${CI_PROJECT_PATH}#${CI_PIPELINE_ID}" ]; then
+        touch "$LOCK/at" 2>/dev/null || true
+      fi
 
 frontend-image:
   <<: *build-push-base
