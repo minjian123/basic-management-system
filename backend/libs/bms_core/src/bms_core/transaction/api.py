@@ -26,17 +26,39 @@ from bms_core.schemas.common import ApiResponse
 from bms_core.transaction.base import (
     TM_SERVICE_NAME,
     BaseTransactionParticipant,
+    BranchOp,
     get_transaction_participant,
 )
 
-__all__ = ["BranchExecuteRequest", "BranchRecoverView", "BranchStateView", "build_branch_router"]
+__all__ = [
+    "BranchExecuteRequest",
+    "BranchOpRequest",
+    "BranchRecoverView",
+    "BranchStateView",
+    "build_branch_router",
+]
 
 ParticipantDep = Annotated[BaseTransactionParticipant, Depends(get_transaction_participant)]
 DbKeyQuery = Annotated[str, Query(description="目标库键（不透明库键）")]
 
 
+class BranchOpRequest(BaseSchema):
+    """分支内的单个业务操作（`op` 映射参与方**已有服务层方法**）。"""
+
+    op: str
+    """操作名（参与方分支处理器注册表键；未登记即**整体否决**）。"""
+
+    args: Annotated[ConcurrentStableDict[str, object], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_DICT, description="业务载荷（交给参与方已有服务层）"
+    )
+
+
 class BranchExecuteRequest(BaseSchema):
-    """分支执行请求（由发起方给出；`op` 映射参与方**已有服务层方法**）。"""
+    """分支执行请求（由发起方给出；`ops` 按序在**同一分支**内执行）。
+
+    一个分支＝一条 XA 事务＝一条数据库连接，故分支内的全部操作必须一次请求提交；
+    调用方可把同库的多个写入合并进同一分支（如「用户-岗位 + 用户-部门」）。
+    """
 
     xid: str
     """分支事务标识（TM 分配）。"""
@@ -44,11 +66,8 @@ class BranchExecuteRequest(BaseSchema):
     db_key: str
     """目标库键（不透明库键）。"""
 
-    op: str
-    """操作名（参与方分支处理器注册表键；未登记即否决）。"""
-
-    args: Annotated[ConcurrentStableDict[str, object], CONTRACT_COLLECTION] = Field(
-        default_factory=CONTRACT_STABLE_DICT, description="业务载荷（交给参与方已有服务层）"
+    ops: Annotated[ConcurrentStableList[BranchOpRequest], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_LIST, description="分支操作清单（按序执行；非空）"
     )
 
 
@@ -98,7 +117,10 @@ def build_branch_router(*, key: str = "txn_branches", prefix: str = "/txn/branch
         Returns:
             ApiResponse: 统一响应，data 为分支状态。
         """
-        state = await participant.execute_branch(xid=req.xid, db_key=req.db_key, op=req.op, args=req.args)
+        ops: ConcurrentStableList[BranchOp] = ConcurrentStableList()
+        for item in req.ops:
+            ops.add(BranchOp(op=item.op, args=item.args))
+        state = await participant.execute_branch(xid=req.xid, db_key=req.db_key, ops=tuple(ops))
         return ApiResponse.ok(BranchStateView(xid=req.xid, state=state))
 
     @router.post("/{xid}/commit", dependencies=[Depends(require_service(TM_SERVICE_NAME))])

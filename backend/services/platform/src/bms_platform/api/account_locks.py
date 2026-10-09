@@ -16,7 +16,7 @@ from bms_core.api.base import BaseRouter, page_query, require_auth
 from bms_core.api.deps import get_audit_capturer, get_config_source, get_uow
 from bms_core.audit.base import AuditCapturer
 from bms_core.config.base import BaseConfigSource
-from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.context import current_user_id
 from bms_core.core.exceptions import ParamError
 from bms_core.db.session import DbSession
@@ -24,7 +24,7 @@ from bms_core.db.unit_of_work import UnitOfWork
 from bms_core.permission.base import require_permission
 from bms_core.schemas.common import ApiResponse
 from bms_core.schemas.pagination import BasePageQuery, BasePageResponse
-from bms_platform.models.user import LOCK_TYPES, SysAccountLock
+from bms_platform.models.user import LOCK_TYPES, SysAccountLock, SysUser
 from bms_platform.repositories.account_lock import AccountLockRepository
 from bms_platform.repositories.user import UserRepository
 from bms_platform.schemas.account_lock import LockItem, ManualLockRequest
@@ -68,11 +68,12 @@ def _service(uow: UowDep, config: ConfigDep) -> AccountLockService:
     return AccountLockService(UserRepository(session), AccountLockRepository(session), uow, config)
 
 
-def _to_item(lock: SysAccountLock) -> LockItem:
-    """锁定记录 → 契约。
+def _to_item(lock: SysAccountLock, user: SysUser | None = None) -> LockItem:
+    """锁定记录 → 契约（含 `sys_user` 同库回显的账号与姓名）。
 
     Args:
         lock: 锁定记录。
+        user: 对应用户记录（已不存在时为 None）。
 
     Returns:
         LockItem: 锁定记录行契约。
@@ -80,6 +81,8 @@ def _to_item(lock: SysAccountLock) -> LockItem:
     return LockItem(
         id=lock.id,
         user_id=lock.user_id,
+        username=user.username if user is not None else "",
+        name=user.name if user is not None else "",
         lock_type=lock.lock_type,
         reason=lock.reason,
         locked_at=lock.locked_at,
@@ -89,6 +92,28 @@ def _to_item(lock: SysAccountLock) -> LockItem:
         unlock_by=lock.unlock_by,
         unlock_mode=lock.unlock_mode,
     )
+
+
+async def _users_of(uow: UowDep, user_ids: ConcurrentStableList[int]) -> ConcurrentStableDict[int, SysUser]:
+    """按主键批量取用户（同库回显账号 / 姓名）。
+
+    Args:
+        uow: 请求级工作单元。
+        user_ids: 用户主键清单（重复项自动去重）。
+
+    Returns:
+        ConcurrentStableDict[int, SysUser]: 用户主键 → 用户记录（不存在的键缺省）。
+    """
+    unique: ConcurrentStableSet[int] = ConcurrentStableSet()
+    for item in user_ids:
+        unique.add(item)
+    if not unique:
+        return ConcurrentStableDict()
+    rows = await UserRepository(cast("DbSession", uow.session)).list_by_ids(ConcurrentStableList(unique))
+    result: ConcurrentStableDict[int, SysUser] = ConcurrentStableDict()
+    for row in rows:
+        result.set(row.id, row)
+    return result
 
 
 def _require_lock_type(lock_type: str | None) -> None:
@@ -139,9 +164,13 @@ async def list_locks(
         locked_from=locked_from,
         locked_to=locked_to,
     )
+    users = await _users_of(uow, ConcurrentStableList(item.user_id for item in items))
     return ApiResponse.ok(
         BasePageResponse[LockItem](
-            list=ConcurrentStableList(_to_item(item) for item in items), total=total, page=query.page, size=query.size
+            list=ConcurrentStableList(_to_item(item, users.get(item.user_id)) for item in items),
+            total=total,
+            page=query.page,
+            size=query.size,
         )
     )
 
@@ -159,7 +188,8 @@ async def get_lock(lock_id: int, uow: UowDep, config: ConfigDep) -> ApiResponse[
         ApiResponse: 统一响应，data 为锁定记录行。
     """
     record = await _service(uow, config).detail(lock_id)
-    return ApiResponse.ok(_to_item(record))
+    users = await _users_of(uow, ConcurrentStableList([record.user_id]))
+    return ApiResponse.ok(_to_item(record, users.get(record.user_id)))
 
 
 @router.post("", dependencies=[_REQUIRE_LOCK])
@@ -180,7 +210,8 @@ async def lock_account(
     actor = current_user_id.get()
     lock = await _service(uow, config).lock_manual(req.user_id, reason=req.reason, actor=actor)
     audit.capture(table=_TABLE, model_id=lock.id, changes=ConcurrentStableList(), actor=actor)
-    return ApiResponse.ok(_to_item(lock))
+    users = await _users_of(uow, ConcurrentStableList([lock.user_id]))
+    return ApiResponse.ok(_to_item(lock, users.get(lock.user_id)))
 
 
 @router.put("/{lock_id}/unlock", dependencies=[_REQUIRE_UNLOCK])
@@ -199,4 +230,5 @@ async def unlock_account(lock_id: int, uow: UowDep, config: ConfigDep, audit: Au
     actor = current_user_id.get()
     lock = await _service(uow, config).unlock(lock_id, actor=actor)
     audit.capture(table=_TABLE, model_id=lock.id, changes=ConcurrentStableList(), actor=actor)
-    return ApiResponse.ok(_to_item(lock))
+    users = await _users_of(uow, ConcurrentStableList([lock.user_id]))
+    return ApiResponse.ok(_to_item(lock, users.get(lock.user_id)))

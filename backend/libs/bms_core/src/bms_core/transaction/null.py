@@ -10,11 +10,11 @@
 """
 
 from bms_core.core.capability import BaseNullObject
-from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.exceptions import TransactionUnavailableError
 from bms_core.transaction.base import (
     BaseTransactionManager,
     BaseTransactionParticipant,
+    BranchOp,
     BranchSpec,
     GlobalTransaction,
 )
@@ -93,14 +93,13 @@ class NullTransactionParticipant(BaseTransactionParticipant, BaseNullObject):
         """恒定假（不具备两阶段能力）。"""
         return False
 
-    async def execute_branch(self, *, xid: str, db_key: str, op: str, args: ConcurrentStableDict[str, object]) -> str:
+    async def execute_branch(self, *, xid: str, db_key: str, ops: tuple[BranchOp, ...]) -> str:
         """拒绝执行分支（未启用强一致）。
 
         Args:
             xid: 分支事务标识（占位忽略）。
             db_key: 目标库键（占位忽略）。
-            op: 操作名（占位忽略）。
-            args: 业务载荷（占位忽略）。
+            ops: 分支操作清单（占位忽略）。
 
         Raises:
             TransactionUnavailableError: 恒定抛出（`10013` / 503）。

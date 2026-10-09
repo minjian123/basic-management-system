@@ -207,6 +207,41 @@ class UserRoleRepository(BaseDbRepository[SysUserRole]):
         )
         return int((await self._session.execute(statement)).scalar_one())
 
+    async def list_by_user(self, user_id: int) -> ConcurrentStableList[SysUserRole]:
+        """取用户的全部生效分配行（不含软删除；编排全量覆盖用）。
+
+        Args:
+            user_id: 用户主键。
+
+        Returns:
+            ConcurrentStableList[SysUserRole]: 分配行列表（按主键升序）。
+        """
+        statement = self._select().where(self._column("user_id") == user_id).order_by(self._column("id").asc())
+        return ConcurrentStableList((await self._session.execute(statement)).scalars().all())
+
+    async def soft_delete_by_user_except(
+        self,
+        user_id: int,
+        keep_role_ids: ConcurrentStableSet[int],
+        *,
+        now: datetime | None = None,
+    ) -> None:
+        """按用户批量软删「保留集合之外」的分配行（全量覆盖的先删步骤）。
+
+        Args:
+            user_id: 用户主键。
+            keep_role_ids: 需保留的角色主键集合（空集 = 全部软删）。
+            now: 当前时间（UTC naive；None 取当前 UTC）。
+        """
+        current = now or _utc_now()
+        statement = sa.update(self.model).where(
+            self._column("user_id") == user_id,
+            self._column("deleted_at").is_(None),
+        )
+        if keep_role_ids:
+            statement = statement.where(self._column("role_id").not_in(tuple(keep_role_ids)))
+        await self._session.execute(statement.values(deleted_at=current, updated_at=current))
+
     async def get_by_role_user(self, role_id: int, user_id: int) -> SysUserRole | None:
         """按角色 + 用户取分配行（不含软删除）。
 

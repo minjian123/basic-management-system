@@ -951,6 +951,33 @@
         "title": "ApiResponse[UserAdminCreateResult]",
         "type": "object"
       },
+      "ApiResponse_UserAssignmentsResult_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UserAssignmentsResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[UserAssignmentsResult]",
+        "type": "object"
+      },
       "ApiResponse_UserCreateResult_": {
         "additionalProperties": false,
         "properties": {
@@ -1417,21 +1444,19 @@
       },
       "BranchExecuteRequest": {
         "additionalProperties": false,
-        "description": "分支执行请求（由发起方给出；`op` 映射参与方**已有服务层方法**）。",
+        "description": "分支执行请求（由发起方给出；`ops` 按序在**同一分支**内执行）。\n\n一个分支＝一条 XA 事务＝一条数据库连接，故分支内的全部操作必须一次请求提交；\n调用方可把同库的多个写入合并进同一分支（如「用户-岗位 + 用户-部门」）。",
         "properties": {
-          "args": {
-            "additionalProperties": true,
-            "description": "业务载荷（交给参与方已有服务层）",
-            "title": "Args",
-            "type": "object"
-          },
           "db_key": {
             "title": "Db Key",
             "type": "string"
           },
-          "op": {
-            "title": "Op",
-            "type": "string"
+          "ops": {
+            "description": "分支操作清单（按序执行；非空）",
+            "items": {
+              "$ref": "#/components/schemas/BranchOpRequest"
+            },
+            "title": "Ops",
+            "type": "array"
           },
           "xid": {
             "title": "Xid",
@@ -1440,10 +1465,30 @@
         },
         "required": [
           "xid",
-          "db_key",
-          "op"
+          "db_key"
         ],
         "title": "BranchExecuteRequest",
+        "type": "object"
+      },
+      "BranchOpRequest": {
+        "additionalProperties": false,
+        "description": "分支内的单个业务操作（`op` 映射参与方**已有服务层方法**）。",
+        "properties": {
+          "args": {
+            "additionalProperties": true,
+            "description": "业务载荷（交给参与方已有服务层）",
+            "title": "Args",
+            "type": "object"
+          },
+          "op": {
+            "title": "Op",
+            "type": "string"
+          }
+        },
+        "required": [
+          "op"
+        ],
+        "title": "BranchOpRequest",
         "type": "object"
       },
       "BranchRecoverView": {
@@ -2989,6 +3034,12 @@
             "description": "锁定操作人（系统触发为 NULL）",
             "title": "Locked By"
           },
+          "name": {
+            "default": "",
+            "description": "用户昵称 / 显示名（同库回显；用户已不存在为空串）",
+            "title": "Name",
+            "type": "string"
+          },
           "reason": {
             "anyOf": [
               {
@@ -3041,6 +3092,12 @@
           "user_id": {
             "description": "用户主键",
             "title": "User Id",
+            "type": "string"
+          },
+          "username": {
+            "default": "",
+            "description": "用户登录账号（`sys_user` 同库回显；用户已不存在为空串）",
+            "title": "Username",
             "type": "string"
           }
         },
@@ -4773,6 +4830,219 @@
           "user"
         ],
         "title": "UserAdminCreateResult",
+        "type": "object"
+      },
+      "UserAssignmentDepts": {
+        "additionalProperties": false,
+        "description": "分配编排请求的用户-部门分段（全量覆盖 + 至多一个主要部门）。",
+        "properties": {
+          "dept_ids": {
+            "description": "部门主键集合（全量覆盖；空集 = 清空）",
+            "items": {
+              "type": "integer"
+            },
+            "title": "Dept Ids",
+            "type": "array"
+          },
+          "primary_dept_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "主要部门主键（须在 dept_ids 内；None = 不设）",
+            "title": "Primary Dept Id"
+          }
+        },
+        "title": "UserAssignmentDepts",
+        "type": "object"
+      },
+      "UserAssignmentPosts": {
+        "additionalProperties": false,
+        "description": "分配编排请求的用户-岗位分段（全量覆盖 + 至多一个主要岗位）。",
+        "properties": {
+          "post_ids": {
+            "description": "岗位主键集合（全量覆盖；空集 = 清空）",
+            "items": {
+              "type": "integer"
+            },
+            "title": "Post Ids",
+            "type": "array"
+          },
+          "primary_post_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "主要岗位主键（须在 post_ids 内；None = 不设）",
+            "title": "Primary Post Id"
+          }
+        },
+        "title": "UserAssignmentPosts",
+        "type": "object"
+      },
+      "UserAssignmentProfile": {
+        "additionalProperties": false,
+        "description": "分配编排请求的用户基础资料分段（字段语义同 `UserUpdateRequest`；`status` 为 `None` 表示不改）。",
+        "properties": {
+          "email": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "邮箱（None = 不改；空串 = 清空）",
+            "title": "Email"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "昵称 / 显示名（None = 不改）",
+            "title": "Name"
+          },
+          "phone": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "手机号（None = 不改；空串 = 清空）",
+            "title": "Phone"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "enum": [
+                  "enabled",
+                  "disabled"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "账号状态（None = 不改；停用即失效会话）",
+            "title": "Status"
+          },
+          "version": {
+            "description": "客户端版本（乐观锁比对）",
+            "minimum": 1.0,
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version"
+        ],
+        "title": "UserAssignmentProfile",
+        "type": "object"
+      },
+      "UserAssignmentsRequest": {
+        "additionalProperties": false,
+        "description": "用户保存编排请求（分段全量覆盖；未出现的分段不参与，不写）。\n\n分段语义：`profile` / `role_ids` / `user_posts` / `user_depts` 为 `None` 表示**不改该段**；\n`role_ids` 为空集表示清空该用户全部直接角色。权限码**分段校验**（`profile` → `user:update`，\n其余段 → `user:assign_role`）。",
+        "properties": {
+          "profile": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UserAssignmentProfile"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "用户基础资料分段（None = 不改）"
+          },
+          "role_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "用户直接角色全量集合（None = 不改；空集 = 清空）",
+            "title": "Role Ids"
+          },
+          "user_depts": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UserAssignmentDepts"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "用户-部门分段（None = 不改）"
+          },
+          "user_posts": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UserAssignmentPosts"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "用户-岗位分段（None = 不改）"
+          }
+        },
+        "title": "UserAssignmentsRequest",
+        "type": "object"
+      },
+      "UserAssignmentsResult": {
+        "additionalProperties": false,
+        "description": "用户保存编排结果（回带 platform 侧生效后集合）。\n\n组织分配段（岗位 / 部门）的生效后集合由调用方（前端）在保存成功后经 mdm 读契约取回——\nXA 分支执行端点契约只回分支状态、不回业务集合。",
+        "properties": {
+          "applied": {
+            "description": "本次参与的分段名（profile / role_ids / user_posts / user_depts）",
+            "items": {
+              "type": "string"
+            },
+            "title": "Applied",
+            "type": "array"
+          },
+          "roles": {
+            "$ref": "#/components/schemas/UserRoleList",
+            "description": "生效后用户直接角色清单"
+          },
+          "user": {
+            "$ref": "#/components/schemas/UserDetail",
+            "description": "生效后用户详情"
+          }
+        },
+        "required": [
+          "user",
+          "roles"
+        ],
+        "title": "UserAssignmentsResult",
         "type": "object"
       },
       "UserCreateRequest": {
@@ -16803,6 +17073,125 @@
           }
         },
         "summary": "Update User",
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/api/v1/users/{user_id}/assignments": {
+      "put": {
+        "description": "用户保存编排（分段全量覆盖；跨服务原子）。\n\n`provider = \"xa\"` 时经 TM 全局事务（platform 分支进程内 + 组织域分支经参与端点）；\n`provider = null`（dev / test）时顺序提交（platform 本地事务 → 组织域内部写通道）。\n权限码**分段校验**：`profile` 段另需 `user:update`。\n\nArgs:\n    user_id: 用户主键。\n    req: 分段全量覆盖请求。\n    uow: 请求级工作单元。\n    hasher: 口令哈希器（占位：保持构造口径一致）。\n    policy: 密码策略（占位）。\n    outbox: 事务性发件箱存储。\n    client: 服务间调用客户端（组织域分支执行 / 内部写通道；提交后会话失效）。\n    cache: 缓存能力域（角色分配变更后权限版本递增）。\n    manager: 事务管理器（`provider=null` 时为 Null 实现）。\n    participant: 事务参与方（platform 自身分支进程内执行）。\n    checker: 权限校验器（`profile` 段命令式复校）。\n    audit: 审计捕获（占位）。\n    idem_key: 幂等键请求头（透传给组织域内部写通道）。\n\nReturns:\n    ApiResponse: 统一响应，data 为用户详情、生效后角色清单与本次参与分段名。\n\nRaises:\n    PermissionError: 缺少 `user:update`（30001）。\n    ParamError: 未提供任何分段 / 主要项不在集合内（10001）。\n    TransactionUnavailableError: 分支未达 `PREPARED`（10013）。\n    ServiceUnavailableError: 跨服务调用失败（10007）。",
+        "operationId": "apply_user_assignments_api_v1_users__user_id__assignments_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserAssignmentsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_UserAssignmentsResult_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Apply User Assignments",
         "tags": [
           "users"
         ]

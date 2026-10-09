@@ -2570,6 +2570,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/users/{user_id}/assignments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Apply User Assignments
+         * @description 用户保存编排（分段全量覆盖；跨服务原子）。
+         *
+         *     `provider = "xa"` 时经 TM 全局事务（platform 分支进程内 + 组织域分支经参与端点）；
+         *     `provider = null`（dev / test）时顺序提交（platform 本地事务 → 组织域内部写通道）。
+         *     权限码**分段校验**：`profile` 段另需 `user:update`。
+         *
+         *     Args:
+         *         user_id: 用户主键。
+         *         req: 分段全量覆盖请求。
+         *         uow: 请求级工作单元。
+         *         hasher: 口令哈希器（占位：保持构造口径一致）。
+         *         policy: 密码策略（占位）。
+         *         outbox: 事务性发件箱存储。
+         *         client: 服务间调用客户端（组织域分支执行 / 内部写通道；提交后会话失效）。
+         *         cache: 缓存能力域（角色分配变更后权限版本递增）。
+         *         manager: 事务管理器（`provider=null` 时为 Null 实现）。
+         *         participant: 事务参与方（platform 自身分支进程内执行）。
+         *         checker: 权限校验器（`profile` 段命令式复校）。
+         *         audit: 审计捕获（占位）。
+         *         idem_key: 幂等键请求头（透传给组织域内部写通道）。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为用户详情、生效后角色清单与本次参与分段名。
+         *
+         *     Raises:
+         *         PermissionError: 缺少 `user:update`（30001）。
+         *         ParamError: 未提供任何分段 / 主要项不在集合内（10001）。
+         *         TransactionUnavailableError: 分支未达 `PREPARED`（10013）。
+         *         ServiceUnavailableError: 跨服务调用失败（10007）。
+         */
+        put: operations["apply_user_assignments_api_v1_users__user_id__assignments_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/users/{user_id}/password": {
         parameters: {
             query?: never;
@@ -3243,6 +3291,20 @@ export interface components {
              */
             message: string;
         };
+        /** ApiResponse[UserAssignmentsResult] */
+        ApiResponse_UserAssignmentsResult_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["UserAssignmentsResult"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
         /** ApiResponse[UserCreateResult] */
         ApiResponse_UserCreateResult_: {
             /**
@@ -3466,9 +3528,27 @@ export interface components {
         };
         /**
          * BranchExecuteRequest
-         * @description 分支执行请求（由发起方给出；`op` 映射参与方**已有服务层方法**）。
+         * @description 分支执行请求（由发起方给出；`ops` 按序在**同一分支**内执行）。
+         *
+         *     一个分支＝一条 XA 事务＝一条数据库连接，故分支内的全部操作必须一次请求提交；
+         *     调用方可把同库的多个写入合并进同一分支（如「用户-岗位 + 用户-部门」）。
          */
         BranchExecuteRequest: {
+            /** Db Key */
+            db_key: string;
+            /**
+             * Ops
+             * @description 分支操作清单（按序执行；非空）
+             */
+            ops?: components["schemas"]["BranchOpRequest"][];
+            /** Xid */
+            xid: string;
+        };
+        /**
+         * BranchOpRequest
+         * @description 分支内的单个业务操作（`op` 映射参与方**已有服务层方法**）。
+         */
+        BranchOpRequest: {
             /**
              * Args
              * @description 业务载荷（交给参与方已有服务层）
@@ -3476,12 +3556,8 @@ export interface components {
             args?: {
                 [key: string]: unknown;
             };
-            /** Db Key */
-            db_key: string;
             /** Op */
             op: string;
-            /** Xid */
-            xid: string;
         };
         /**
          * BranchRecoverView
@@ -4494,6 +4570,12 @@ export interface components {
              */
             locked_by?: number | null;
             /**
+             * Name
+             * @description 用户昵称 / 显示名（同库回显；用户已不存在为空串）
+             * @default
+             */
+            name: string;
+            /**
              * Reason
              * @description 锁定原因
              */
@@ -4518,6 +4600,12 @@ export interface components {
              * @description 用户主键
              */
             user_id: string;
+            /**
+             * Username
+             * @description 用户登录账号（`sys_user` 同库回显；用户已不存在为空串）
+             * @default
+             */
+            username: string;
         };
         /**
          * LoginStateRequest
@@ -5639,6 +5727,108 @@ export interface components {
              */
             initial_password?: string | null;
             /** @description 新建用户详情 */
+            user: components["schemas"]["UserDetail"];
+        };
+        /**
+         * UserAssignmentDepts
+         * @description 分配编排请求的用户-部门分段（全量覆盖 + 至多一个主要部门）。
+         */
+        UserAssignmentDepts: {
+            /**
+             * Dept Ids
+             * @description 部门主键集合（全量覆盖；空集 = 清空）
+             */
+            dept_ids?: number[];
+            /**
+             * Primary Dept Id
+             * @description 主要部门主键（须在 dept_ids 内；None = 不设）
+             */
+            primary_dept_id?: number | null;
+        };
+        /**
+         * UserAssignmentPosts
+         * @description 分配编排请求的用户-岗位分段（全量覆盖 + 至多一个主要岗位）。
+         */
+        UserAssignmentPosts: {
+            /**
+             * Post Ids
+             * @description 岗位主键集合（全量覆盖；空集 = 清空）
+             */
+            post_ids?: number[];
+            /**
+             * Primary Post Id
+             * @description 主要岗位主键（须在 post_ids 内；None = 不设）
+             */
+            primary_post_id?: number | null;
+        };
+        /**
+         * UserAssignmentProfile
+         * @description 分配编排请求的用户基础资料分段（字段语义同 `UserUpdateRequest`；`status` 为 `None` 表示不改）。
+         */
+        UserAssignmentProfile: {
+            /**
+             * Email
+             * @description 邮箱（None = 不改；空串 = 清空）
+             */
+            email?: string | null;
+            /**
+             * Name
+             * @description 昵称 / 显示名（None = 不改）
+             */
+            name?: string | null;
+            /**
+             * Phone
+             * @description 手机号（None = 不改；空串 = 清空）
+             */
+            phone?: string | null;
+            /**
+             * Status
+             * @description 账号状态（None = 不改；停用即失效会话）
+             */
+            status?: ("enabled" | "disabled") | null;
+            /**
+             * Version
+             * @description 客户端版本（乐观锁比对）
+             */
+            version: number;
+        };
+        /**
+         * UserAssignmentsRequest
+         * @description 用户保存编排请求（分段全量覆盖；未出现的分段不参与，不写）。
+         *
+         *     分段语义：`profile` / `role_ids` / `user_posts` / `user_depts` 为 `None` 表示**不改该段**；
+         *     `role_ids` 为空集表示清空该用户全部直接角色。权限码**分段校验**（`profile` → `user:update`，
+         *     其余段 → `user:assign_role`）。
+         */
+        UserAssignmentsRequest: {
+            /** @description 用户基础资料分段（None = 不改） */
+            profile?: components["schemas"]["UserAssignmentProfile"] | null;
+            /**
+             * Role Ids
+             * @description 用户直接角色全量集合（None = 不改；空集 = 清空）
+             */
+            role_ids?: number[] | null;
+            /** @description 用户-部门分段（None = 不改） */
+            user_depts?: components["schemas"]["UserAssignmentDepts"] | null;
+            /** @description 用户-岗位分段（None = 不改） */
+            user_posts?: components["schemas"]["UserAssignmentPosts"] | null;
+        };
+        /**
+         * UserAssignmentsResult
+         * @description 用户保存编排结果（回带 platform 侧生效后集合）。
+         *
+         *     组织分配段（岗位 / 部门）的生效后集合由调用方（前端）在保存成功后经 mdm 读契约取回——
+         *     XA 分支执行端点契约只回分支状态、不回业务集合。
+         */
+        UserAssignmentsResult: {
+            /**
+             * Applied
+             * @description 本次参与的分段名（profile / role_ids / user_posts / user_depts）
+             */
+            applied?: string[];
+            /** @description 生效后用户直接角色清单 */
+            roles: components["schemas"]["UserRoleList"];
+            /** @description 生效后用户详情 */
             user: components["schemas"]["UserDetail"];
         };
         /**
@@ -14399,6 +14589,88 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponse_UserDeleteResult_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    apply_user_assignments_api_v1_users__user_id__assignments_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                user_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserAssignmentsRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_UserAssignmentsResult_"];
                 };
             };
             /** @description 未认证 */

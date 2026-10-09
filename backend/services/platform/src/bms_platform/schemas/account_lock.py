@@ -30,6 +30,8 @@ class LockItem(BaseSchema):
 
     id: int = Field(description="锁定记录主键")
     user_id: int = Field(description="用户主键")
+    username: str = Field(default="", description="用户登录账号（`sys_user` 同库回显；用户已不存在为空串）")
+    name: str = Field(default="", description="用户昵称 / 显示名（同库回显；用户已不存在为空串）")
     lock_type: str = Field(description="锁定类型（fail_limit/inactive/manual）")
     reason: str | None = Field(default=None, description="锁定原因")
     locked_at: datetime = Field(description="锁定时间（UTC）")

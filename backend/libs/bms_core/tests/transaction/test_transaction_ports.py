@@ -24,6 +24,7 @@ from bms_core.transaction.base import (
     BaseTransactionManager,
     BaseTransactionParticipant,
     BranchHandlerRegistry,
+    BranchOp,
     BranchSpec,
     GlobalTransaction,
 )
@@ -60,7 +61,9 @@ async def test_null_participant_rejects(method: str) -> None:
 
     with pytest.raises(TransactionUnavailableError):
         if method == "execute_branch":
-            await participant.execute_branch(xid="x1", db_key="platform", op="noop", args=ConcurrentStableDict())
+            await participant.execute_branch(
+                xid="x1", db_key="platform", ops=(BranchOp(op="noop", args=ConcurrentStableDict()),)
+            )
         else:
             await getattr(participant, method)(xid="x1", db_key="platform")
 

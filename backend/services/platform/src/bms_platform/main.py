@@ -11,12 +11,12 @@ from bms_core.application import BaseServiceApplicationFactory
 from bms_core.catalog.loader import register_catalog_reader
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import Settings
-from bms_core.transaction.base import BranchHandlerRegistry
 from bms_platform import CONTRACT_VERSION, SERVICE_NAME, SERVICE_TITLE, __version__
 from bms_platform.api.router import api_router
 from bms_platform.permission.checker import RBAC_PROVIDER_NAME, register_rbac_permission
 from bms_platform.repositories.demo_repository import DemoRepository
 from bms_platform.scope.rbac import RBAC_DATA_SCOPE_NAME, register_rbac_data_scope
+from bms_platform.services.branch_handlers import build_branch_handlers
 from bms_platform.services.demo_service import DemoService
 from bms_platform.sources.catalog_source import read_catalog
 
@@ -65,7 +65,7 @@ class ApplicationFactory(BaseServiceApplicationFactory):
             settings: 应用配置（权限选项：档位 / 快照 TTL / 豁免角色类型）。
         """
         app.state.demo_service = DemoService(DemoRepository())
-        # 分支业务处理器注册表（`op` → 本服务已有服务层方法；具体 op 由消费方任务在装配期登记）
-        app.state.branch_handlers = BranchHandlerRegistry()
+        # 分支业务处理器注册表（`op` → 本服务已有服务层方法；用户保存编排 op 于 `02_02/_02` 登记）
+        app.state.branch_handlers = build_branch_handlers(app)
         # 服务目录权威本地读取器（本服务即 `sys_module` 所有者；共享基座库不静态依赖服务包）
         register_catalog_reader(SERVICE_NAME, read_catalog)

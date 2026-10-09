@@ -219,7 +219,6 @@ FIELD_SEEDS: tuple[tuple[str, str, str, str, str, int], ...] = (
     ("/sys/users", "username", "用户名", "Username", "input", 1),
     ("/sys/users", "display_name", "姓名", "Display name", "input", 2),
     ("/sys/users", "status", "状态", "Status", "select", 3),
-    ("/sys/users", "dept_id", "部门", "Department", "org-select", 4),
     ("/sys/roles", "code", "角色标识", "Role code", "input", 1),
     ("/sys/roles", "name", "角色名", "Role name", "input", 2),
     ("/sys/roles", "status", "状态", "Status", "select", 3),

@@ -300,6 +300,21 @@ class BaseTransactionManager(BasePluggable, ABC):
         """
 
 
+@dataclass(frozen=True)
+class BranchOp(BaseValueObject):
+    """分支内的单个业务操作（`op` 映射参与方**已有服务层方法**；一个分支可含多个操作）。
+
+    一个分支＝一条 XA 事务＝一条数据库连接，故同一分支内的多个操作**必须一次请求执行**；
+    调用方可按需把同库的多个写入合并进同一分支（如「用户-岗位 + 用户-部门」）。
+    """
+
+    op: str
+    """操作名（参与方分支处理器注册表键）。"""
+
+    args: ConcurrentStableDict[str, object]
+    """业务载荷（交给参与方已有服务层）。"""
+
+
 class BaseTransactionParticipant(BasePluggable, ABC):
     """跨服务事务参与方（**分支执行**）：协议执行 + 本服务已有服务层调用。"""
 
@@ -314,7 +329,7 @@ class BaseTransactionParticipant(BasePluggable, ABC):
         """是否具备两阶段能力（`null` 提供者为假——参与端点据此明确拒绝）。"""
 
     @abstractmethod
-    async def execute_branch(self, *, xid: str, db_key: str, op: str, args: ConcurrentStableDict[str, object]) -> str:
+    async def execute_branch(self, *, xid: str, db_key: str, ops: tuple[BranchOp, ...]) -> str:
         """执行分支：`XA_START → 业务写 → XA_END → XA_PREPARE`（单请求内完成、连接随请求释放）。
 
         Args:
@@ -443,6 +458,7 @@ __all__ = [
     "BaseTransactionParticipant",
     "BranchHandler",
     "BranchHandlerRegistry",
+    "BranchOp",
     "BranchRef",
     "BranchSpec",
     "GlobalTransaction",

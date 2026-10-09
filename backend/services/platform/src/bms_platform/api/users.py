@@ -17,6 +17,7 @@ from fastapi import Depends, Header, Query
 from bms_core.api.base import BaseRouter, page_query, require_auth
 from bms_core.api.deps import (
     get_audit_capturer,
+    get_cache_region,
     get_idempotency_store,
     get_outbox_store,
     get_password_hasher,
@@ -25,6 +26,7 @@ from bms_core.api.deps import (
     get_uow,
 )
 from bms_core.audit.base import AuditCapturer
+from bms_core.cache.base import CacheRegion
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.context import current_user_id
 from bms_core.core.exceptions import ConflictError, ParamError
@@ -34,11 +36,17 @@ from bms_core.db.unit_of_work import UnitOfWork
 from bms_core.idempotency.base import IDEMPOTENCY_HEADER, IdempotencyStore, build_idempotency_key
 from bms_core.outbox.base import BaseOutboxStore
 from bms_core.password.base import BasePasswordPolicy
-from bms_core.permission.base import require_permission
+from bms_core.permission.base import BasePermissionChecker, get_permission_checker, require_permission
 from bms_core.schemas.common import ApiResponse
 from bms_core.schemas.pagination import BasePageQuery, BasePageResponse
 from bms_core.security.base import BasePasswordHasher
 from bms_core.servicecall.base import BaseServiceClient
+from bms_core.transaction.base import (
+    BaseTransactionManager,
+    BaseTransactionParticipant,
+    get_transaction_manager,
+    get_transaction_participant,
+)
 from bms_platform.models.role import SysRole
 from bms_platform.models.user import SysUser
 from bms_platform.repositories.account_lock import AccountLockRepository
@@ -47,6 +55,8 @@ from bms_platform.repositories.user import UserRepository
 from bms_platform.schemas.users import (
     UserAdminCreateRequest,
     UserAdminCreateResult,
+    UserAssignmentsRequest,
+    UserAssignmentsResult,
     UserDeleteResult,
     UserDetail,
     UserItem,
@@ -59,6 +69,7 @@ from bms_platform.schemas.users import (
     UserStatusUpdateRequest,
     UserUpdateRequest,
 )
+from bms_platform.services.user_assignments import UserAssignmentsService, UserAssignmentWriter
 from bms_platform.services.user_sessions import UserSessionClient
 from bms_platform.services.users import USER_STATUSES, UserQueryService
 from bms_platform.services.users_admin import UserAdminService
@@ -78,6 +89,10 @@ OutboxDep = Annotated[BaseOutboxStore, Depends(get_outbox_store)]
 ServiceClientDep = Annotated[BaseServiceClient, Depends(get_service_client)]
 IdempotencyDep = Annotated[IdempotencyStore, Depends(get_idempotency_store)]
 AuditDep = Annotated[AuditCapturer, Depends(get_audit_capturer)]
+CacheDep = Annotated[CacheRegion, Depends(get_cache_region)]
+ManagerDep = Annotated[BaseTransactionManager, Depends(get_transaction_manager)]
+ParticipantDep = Annotated[BaseTransactionParticipant, Depends(get_transaction_participant)]
+CheckerDep = Annotated[BasePermissionChecker, Depends(get_permission_checker)]
 IdempotencyKeyHeader = Annotated[str | None, Header(alias=IDEMPOTENCY_HEADER)]
 KeywordQuery = Annotated[str | None, Query(description="关键字（用户名/姓名/邮箱/手机号，大小写不敏感）")]
 StatusQuery = Annotated[str | None, Query(description="账号状态（enabled/disabled）")]
@@ -89,6 +104,7 @@ _REQUIRE_CREATE = Depends(require_permission("user:create"))
 _REQUIRE_UPDATE = Depends(require_permission("user:update"))
 _REQUIRE_DELETE = Depends(require_permission("user:delete"))
 _REQUIRE_RESET_PWD = Depends(require_permission("user:reset_pwd"))
+_REQUIRE_ASSIGN_ROLE = Depends(require_permission("user:assign_role"))
 
 
 def _build_service(
@@ -468,3 +484,74 @@ async def list_user_roles(
     roles = await _build_service(uow, hasher, policy, outbox, client).list_user_roles(user_id)
     items = ConcurrentStableList(_to_role_item(role) for role in roles)
     return ApiResponse.ok(UserRoleList(items=items))
+
+
+@router.put("/{user_id}/assignments", dependencies=[_REQUIRE_ASSIGN_ROLE])
+async def apply_user_assignments(
+    user_id: int,
+    req: UserAssignmentsRequest,
+    uow: UowDep,
+    hasher: HasherDep,
+    policy: PolicyDep,
+    outbox: OutboxDep,
+    client: ServiceClientDep,
+    cache: CacheDep,
+    manager: ManagerDep,
+    participant: ParticipantDep,
+    checker: CheckerDep,
+    audit: AuditDep,
+    idem_key: IdempotencyKeyHeader = None,
+) -> ApiResponse[UserAssignmentsResult]:
+    """用户保存编排（分段全量覆盖；跨服务原子）。
+
+    `provider = "xa"` 时经 TM 全局事务（platform 分支进程内 + 组织域分支经参与端点）；
+    `provider = null`（dev / test）时顺序提交（platform 本地事务 → 组织域内部写通道）。
+    权限码**分段校验**：`profile` 段另需 `user:update`。
+
+    Args:
+        user_id: 用户主键。
+        req: 分段全量覆盖请求。
+        uow: 请求级工作单元。
+        hasher: 口令哈希器（占位：保持构造口径一致）。
+        policy: 密码策略（占位）。
+        outbox: 事务性发件箱存储。
+        client: 服务间调用客户端（组织域分支执行 / 内部写通道；提交后会话失效）。
+        cache: 缓存能力域（角色分配变更后权限版本递增）。
+        manager: 事务管理器（`provider=null` 时为 Null 实现）。
+        participant: 事务参与方（platform 自身分支进程内执行）。
+        checker: 权限校验器（`profile` 段命令式复校）。
+        audit: 审计捕获（占位）。
+        idem_key: 幂等键请求头（透传给组织域内部写通道）。
+
+    Returns:
+        ApiResponse: 统一响应，data 为用户详情、生效后角色清单与本次参与分段名。
+
+    Raises:
+        PermissionError: 缺少 `user:update`（30001）。
+        ParamError: 未提供任何分段 / 主要项不在集合内（10001）。
+        TransactionUnavailableError: 分支未达 `PREPARED`（10013）。
+        ServiceUnavailableError: 跨服务调用失败（10007）。
+    """
+    if req.profile is not None:
+        checker.require("user:update")
+    session = cast("DbSession", uow.session)
+    service = UserAssignmentsService(
+        writer=UserAssignmentWriter(
+            session, uow, UserRepository(session), UserRoleRepository(session), RoleRepository(session), outbox
+        ),
+        user_roles=UserRoleRepository(session),
+        roles=RoleRepository(session),
+        users=UserRepository(session),
+        sessions=UserSessionClient(client),
+        cache=cache,
+        manager=manager,
+        participant=participant,
+        client=client,
+        tenant_id=current_tenant_id_str(),
+    )
+    user, roles, applied = await service.apply(user_id=user_id, req=req, idempotency_key=idem_key)
+    audit.capture(table=_TABLE, model_id=user.id, changes=ConcurrentStableList(), actor=current_user_id.get())
+    items = ConcurrentStableList(_to_role_item(role) for role in roles)
+    return ApiResponse.ok(
+        UserAssignmentsResult(user=_to_detail(user), roles=UserRoleList(items=items), applied=applied)
+    )

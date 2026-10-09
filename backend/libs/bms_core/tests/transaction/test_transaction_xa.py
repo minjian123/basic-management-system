@@ -19,6 +19,7 @@ from bms_core.transaction.base import (
     TRANSACTION_MANAGER_KEY,
     TRANSACTION_PARTICIPANT_KEY,
     BranchHandlerRegistry,
+    BranchOp,
     BranchSpec,
 )
 from bms_core.transaction.xa import XA_PLUGIN_NAME, XaTransactionManager, XaTransactionParticipant
@@ -132,7 +133,9 @@ async def test_participant_rejects_unregistered_op() -> None:
     participant = XaTransactionParticipant(_UnusedEngines(), BranchHandlerRegistry())  # type: ignore[arg-type]
 
     state = await participant.execute_branch(
-        xid="1001|b1", db_key="platform", op="unknown.op", args=ConcurrentStableDict[str, object]()
+        xid="1001|b1",
+        db_key="platform",
+        ops=(BranchOp(op="unknown.op", args=ConcurrentStableDict[str, object]()),),
     )
 
     assert state == "rejected"

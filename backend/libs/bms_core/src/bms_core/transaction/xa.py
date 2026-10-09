@@ -35,7 +35,9 @@ from bms_core.transaction.base import (
     TM_SERVICE_NAME,
     BaseTransactionManager,
     BaseTransactionParticipant,
+    BranchHandler,
     BranchHandlerRegistry,
+    BranchOp,
     BranchRef,
     BranchSpec,
     GlobalTransaction,
@@ -244,28 +246,31 @@ class XaTransactionParticipant(BaseTransactionParticipant):
         """恒定真（本服务具备两阶段能力）。"""
         return True
 
-    async def execute_branch(self, *, xid: str, db_key: str, op: str, args: ConcurrentStableDict[str, object]) -> str:
-        """执行分支：`XA_START → 业务写 → XA_END → XA_PREPARE`（单请求内、连接随请求释放）。
+    async def execute_branch(self, *, xid: str, db_key: str, ops: tuple[BranchOp, ...]) -> str:
+        """执行分支：`XA_START → 业务写（按序多个 op）→ XA_END → XA_PREPARE`（单请求内、连接随请求释放）。
 
         Args:
             xid: 分支事务标识（TM 分配）。
             db_key: 目标库键（不透明；按本服务引擎注册表解析）。
-            op: 操作名（处理器注册表键；未登记即否决）。
-            args: 业务载荷。
+            ops: 分支操作清单（按序执行；任一 `op` 未登记即**整体否决**，不触碰引擎）。
 
         Returns:
             str: 分支状态（`prepared` / `rejected`）。
         """
-        handler = self._handlers.resolve(op)
-        if handler is None:
-            return BRANCH_REJECTED
+        resolved: ConcurrentStableList[BranchHandler] = ConcurrentStableList()
+        for item in ops:
+            handler = self._handlers.resolve(item.op)
+            if handler is None:
+                return BRANCH_REJECTED
+            resolved.add(handler)
         engine = await self._engines.get_sync(db_key)
         connection = await asyncio.to_thread(engine.connect)
         try:
             txn = await asyncio.to_thread(connection.begin_twophase, xid)
             session = SyncSession(engine, bind=connection)
             try:
-                await handler(session, args)
+                for handler, item in zip(resolved, ops, strict=True):
+                    await handler(session, item.args)
             finally:
                 await session.close()
             await asyncio.to_thread(txn.prepare)
