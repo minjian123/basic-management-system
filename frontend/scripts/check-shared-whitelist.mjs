@@ -96,6 +96,33 @@ function satisfies(version, range) {
  * @param dir 目录。
  * @returns gzip 字节数。
  */
+/**
+ * 解析受控依赖在工程内的**实装版本**。
+ *
+ * 工作区 / 本地链接依赖（`workspace:` / `file:` / `link:`）的声明是协议而非版本，
+ * 须读目标包自身 `package.json` 的 `version`；普通版本范围声明则剥离前导非数字字符沿用原口径。
+ *
+ * @param projectDir 工程目录。
+ * @param name 包名。
+ * @param spec 依赖声明。
+ * @returns 实装版本；无法解析时 `undefined`。
+ */
+function resolveInstalledVersion(projectDir, name, spec) {
+  const protocol = ['workspace:', 'file:', 'link:'].find((prefix) => spec.startsWith(prefix))
+  if (protocol === undefined) return spec.replace(/^[^0-9]*/, '')
+  const target = spec.slice(protocol.length)
+  const candidates =
+    protocol === 'workspace:'
+      ? [join(projectDir, 'node_modules', name, 'package.json')]
+      : [join(projectDir, target, 'package.json'), join(projectDir, 'node_modules', name, 'package.json')]
+  for (const candidate of candidates) {
+    if (!existsSync(candidate)) continue
+    const version = JSON.parse(readFileSync(candidate, 'utf8')).version
+    if (typeof version === 'string' && version !== '') return version
+  }
+  return undefined
+}
+
 function measureGzip(dir) {
   let total = 0
   const walk = (current) => {
@@ -146,6 +173,10 @@ export function checkSharedWhitelist(options = {}) {
   }
 
   // 2 模块依赖落白名单 + 3 实装版本满足版本要求
+  //   实装版本口径（2026-10-09，需求 05-14）：工作区 / 本地链接依赖的声明是「协议」而非版本
+  //   （`workspace:*` / `file:` / `link:`），须解析**目标包自身 package.json 的 version** 再比对
+  //   `requiredVersion`；普通版本范围声明沿用原口径。
+
   for (const project of projects) {
     const file = join(project.dir, 'package.json')
     if (!existsSync(file)) {
@@ -166,9 +197,15 @@ export function checkSharedWhitelist(options = {}) {
       if (range === undefined) continue
       const version = installed[name]
       if (version === undefined) continue
-      const normalized = String(version).replace(/^[^0-9]*/, '')
-      if (!satisfies(normalized, range)) {
-        problems.push(`${project.role} ${name} 实装版本 ${String(version)} 不满足单一来源要求 ${range}`)
+      const resolved = resolveInstalledVersion(project.dir, name, String(version))
+      if (resolved === undefined) {
+        problems.push(`${project.role} ${name} 无法解析实装版本（声明 ${String(version)}）：请确认工作区依赖已安装`)
+        continue
+      }
+      if (!satisfies(resolved, range)) {
+        problems.push(
+          `${project.role} ${name} 实装版本 ${resolved}（声明 ${String(version)}）不满足单一来源要求 ${range}`,
+        )
       }
     }
   }
