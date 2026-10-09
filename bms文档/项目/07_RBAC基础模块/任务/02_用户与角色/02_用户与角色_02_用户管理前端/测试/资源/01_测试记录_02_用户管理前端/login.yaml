@@ -1,0 +1,24 @@
+- main [ref=f1e3]:
+  - generic [ref=f1e4]:
+    - generic [ref=f1e5]:
+      - img [aria-hidden] [ref=f1e6]:
+        - generic [ref=f1e8]: BMS
+      - heading "BMS 基础管理系统" [level=1] [ref=f1e9]
+      - paragraph [ref=f1e10]: 统一认证入口
+    - generic [ref=f1e11]:
+      - generic [ref=f1e12]:
+        - generic [ref=f1e13]: 账号
+        - textbox "账号" [ref=f1e16]:
+          - /placeholder: 请输入账号
+      - generic [ref=f1e17]:
+        - generic [ref=f1e18]: 密码
+        - textbox "密码 不回填、不落本地存储；明文切换仅内存态。" [ref=f1e22]:
+          - /placeholder: 请输入密码
+        - generic [ref=f1e23]: 不回填、不落本地存储；明文切换仅内存态。
+      - generic [ref=f1e24]:
+        - generic [ref=f1e25] [cursor=pointer]:
+          - generic [ref=f1e26]:
+            - checkbox "记住我"
+          - generic [ref=f1e28]: 记住我
+        - generic [ref=f1e29]: 缺省不勾选；勾选延长登录有效期为 14 天，不勾选为会话级（关闭浏览器失效）。
+      - button "登 录" [ref=f1e30] [cursor=pointer]
