@@ -421,7 +421,7 @@ class UserAssignmentsService(BaseFrameworkObject):
             TransactionUnavailableError: 分支未达 `PREPARED`（10013）。
             ServiceUnavailableError: 跨服务调用失败（10007）。
         """
-        applied = self._collect_segments(req)
+        applied = collect_segments(req)
         if not applied:
             raise ParamError("至少需提供一段（profile / role_ids / user_posts / user_depts）")
         if self._manager.enabled:
@@ -431,57 +431,6 @@ class UserAssignmentsService(BaseFrameworkObject):
         await self._after_commit(user_id=user_id, req=req, applied=applied)
         user = await self._require_user(user_id)
         return user, await self._read_roles(user_id), applied
-
-    def _collect_segments(self, req: UserAssignmentsRequest) -> ConcurrentStableList[str]:
-        """收集本次参与的分段名（并校验主要项落在集合内）。
-
-        Args:
-            req: 分段全量覆盖请求。
-
-        Returns:
-            ConcurrentStableList[str]: 分段名清单（登记序）。
-
-        Raises:
-            ParamError: 主要项不在集合内（10001）。
-        """
-        applied: ConcurrentStableList[str] = ConcurrentStableList()
-        if req.profile is not None:
-            applied.add(SEGMENT_PROFILE)
-        if req.role_ids is not None:
-            applied.add(SEGMENT_ROLES)
-        if req.user_posts is not None:
-            self._assert_primary(req.user_posts)
-            applied.add(SEGMENT_POSTS)
-        if req.user_depts is not None:
-            self._assert_primary_dept(req.user_depts)
-            applied.add(SEGMENT_DEPTS)
-        return applied
-
-    @staticmethod
-    def _assert_primary(posts: UserAssignmentPosts) -> None:
-        """校验主要岗位落在岗位集合内。
-
-        Args:
-            posts: 岗位分段。
-
-        Raises:
-            ParamError: 主要岗位不在集合内（10001）。
-        """
-        if posts.primary_post_id is not None and posts.primary_post_id not in tuple(posts.post_ids):
-            raise ParamError("主要岗位须在岗位集合内")
-
-    @staticmethod
-    def _assert_primary_dept(depts: UserAssignmentDepts) -> None:
-        """校验主要部门落在部门集合内。
-
-        Args:
-            depts: 部门分段。
-
-        Raises:
-            ParamError: 主要部门不在集合内（10001）。
-        """
-        if depts.primary_dept_id is not None and depts.primary_dept_id not in tuple(depts.dept_ids):
-            raise ParamError("主要部门须在部门集合内")
 
     async def _apply_via_global_txn(
         self,
@@ -559,7 +508,7 @@ class UserAssignmentsService(BaseFrameworkObject):
         Raises:
             TransactionUnavailableError: 分支未达 `PREPARED`（10013）。
         """
-        branch_ops = self._org_ops(user_id=user_id, req=req, idempotency_key=idempotency_key)
+        branch_ops = build_org_ops(user_id=user_id, req=req, idempotency_key=idempotency_key)
         if not branch_ops:
             return
         payload: ConcurrentStableList[ConcurrentStableDict[str, object]] = ConcurrentStableList()
@@ -603,13 +552,13 @@ class UserAssignmentsService(BaseFrameworkObject):
         if req.user_posts is not None:
             await self._call_org_internal(
                 path=ORG_INTERNAL_USER_POSTS_PATH.format(user_id=user_id),
-                body=self._posts_args(req.user_posts),
+                body=_posts_args(req.user_posts),
                 idempotency_key=idempotency_key,
             )
         if req.user_depts is not None:
             await self._call_org_internal(
                 path=ORG_INTERNAL_USER_DEPTS_PATH.format(user_id=user_id),
-                body=self._depts_args(req.user_depts),
+                body=_depts_args(req.user_depts),
                 idempotency_key=idempotency_key,
             )
 
@@ -693,88 +642,6 @@ class UserAssignmentsService(BaseFrameworkObject):
             args.set("idempotency_key", idempotency_key)
         return args
 
-    @staticmethod
-    def _org_ops(
-        *,
-        user_id: int,
-        req: UserAssignmentsRequest,
-        idempotency_key: str | None,
-    ) -> ConcurrentStableList[tuple[str, ConcurrentStableDict[str, object]]]:
-        """构造组织域分支操作清单（岗位 / 部门各一 op；同一分支内顺序执行）。
-
-        Args:
-            user_id: 用户主键。
-            req: 分段全量覆盖请求。
-            idempotency_key: 业务幂等键。
-
-        Returns:
-            ConcurrentStableList[tuple[str, ConcurrentStableDict[str, object]]]: (op, 载荷) 清单。
-        """
-        ops: ConcurrentStableList[tuple[str, ConcurrentStableDict[str, object]]] = ConcurrentStableList()
-        if req.user_posts is not None:
-            posts_args = UserAssignmentsService._posts_args(
-                req.user_posts, user_id=user_id, idempotency_key=idempotency_key
-            )
-            ops.add((ORG_USER_POSTS_OP, posts_args))
-        if req.user_depts is not None:
-            depts_args = UserAssignmentsService._depts_args(
-                req.user_depts, user_id=user_id, idempotency_key=idempotency_key
-            )
-            ops.add((ORG_USER_DEPTS_OP, depts_args))
-        return ops
-
-    @staticmethod
-    def _posts_args(
-        posts: UserAssignmentPosts,
-        *,
-        user_id: int | None = None,
-        idempotency_key: str | None = None,
-    ) -> ConcurrentStableDict[str, object]:
-        """构造岗位段载荷（分支 op 与内部写通道共用）。
-
-        Args:
-            posts: 岗位分段。
-            user_id: 用户主键（分支载荷用；内部写通道经路径承载时为空）。
-            idempotency_key: 业务幂等键（可空）。
-
-        Returns:
-            ConcurrentStableDict[str, object]: 载荷。
-        """
-        args: ConcurrentStableDict[str, object] = ConcurrentStableDict()
-        if user_id is not None:
-            args.set("user_id", user_id)
-        args.set("post_ids", list(posts.post_ids))
-        args.set("primary_post_id", posts.primary_post_id)
-        if idempotency_key:
-            args.set("idempotency_key", idempotency_key)
-        return args
-
-    @staticmethod
-    def _depts_args(
-        depts: UserAssignmentDepts,
-        *,
-        user_id: int | None = None,
-        idempotency_key: str | None = None,
-    ) -> ConcurrentStableDict[str, object]:
-        """构造部门段载荷（分支 op 与内部写通道共用）。
-
-        Args:
-            depts: 部门分段。
-            user_id: 用户主键（分支载荷用；内部写通道经路径承载时为空）。
-            idempotency_key: 业务幂等键（可空）。
-
-        Returns:
-            ConcurrentStableDict[str, object]: 载荷。
-        """
-        args: ConcurrentStableDict[str, object] = ConcurrentStableDict()
-        if user_id is not None:
-            args.set("user_id", user_id)
-        args.set("dept_ids", list(depts.dept_ids))
-        args.set("primary_dept_id", depts.primary_dept_id)
-        if idempotency_key:
-            args.set("idempotency_key", idempotency_key)
-        return args
-
     async def _after_commit(
         self,
         *,
@@ -826,6 +693,136 @@ class UserAssignmentsService(BaseFrameworkObject):
         if not role_ids:
             return ConcurrentStableList()
         return await self._roles.list_by_ids(ConcurrentStableSet(role_ids))
+
+
+def _posts_args(
+    posts: UserAssignmentPosts,
+    *,
+    user_id: int | None = None,
+    idempotency_key: str | None = None,
+) -> ConcurrentStableDict[str, object]:
+    """构造岗位段载荷（分支 op 与内部写通道共用）。
+
+    Args:
+        posts: 岗位分段。
+        user_id: 用户主键（分支载荷用；内部写通道经路径承载时为空）。
+        idempotency_key: 业务幂等键（可空）。
+
+    Returns:
+        ConcurrentStableDict[str, object]: 载荷。
+    """
+    args: ConcurrentStableDict[str, object] = ConcurrentStableDict()
+    if user_id is not None:
+        args.set("user_id", user_id)
+    args.set("post_ids", list(posts.post_ids))
+    args.set("primary_post_id", posts.primary_post_id)
+    if idempotency_key:
+        args.set("idempotency_key", idempotency_key)
+    return args
+
+
+def _depts_args(
+    depts: UserAssignmentDepts,
+    *,
+    user_id: int | None = None,
+    idempotency_key: str | None = None,
+) -> ConcurrentStableDict[str, object]:
+    """构造部门段载荷（分支 op 与内部写通道共用）。
+
+    Args:
+        depts: 部门分段。
+        user_id: 用户主键（分支载荷用；内部写通道经路径承载时为空）。
+        idempotency_key: 业务幂等键（可空）。
+
+    Returns:
+        ConcurrentStableDict[str, object]: 载荷。
+    """
+    args: ConcurrentStableDict[str, object] = ConcurrentStableDict()
+    if user_id is not None:
+        args.set("user_id", user_id)
+    args.set("dept_ids", list(depts.dept_ids))
+    args.set("primary_dept_id", depts.primary_dept_id)
+    if idempotency_key:
+        args.set("idempotency_key", idempotency_key)
+    return args
+
+
+def _assert_primary(posts: UserAssignmentPosts) -> None:
+    """校验主要岗位落在岗位集合内。
+
+    Args:
+        posts: 岗位分段。
+
+    Raises:
+        ParamError: 主要岗位不在集合内（10001）。
+    """
+    if posts.primary_post_id is not None and posts.primary_post_id not in tuple(posts.post_ids):
+        raise ParamError("主要岗位须在岗位集合内")
+
+
+def _assert_primary_dept(depts: UserAssignmentDepts) -> None:
+    """校验主要部门落在部门集合内。
+
+    Args:
+        depts: 部门分段。
+
+    Raises:
+        ParamError: 主要部门不在集合内（10001）。
+    """
+    if depts.primary_dept_id is not None and depts.primary_dept_id not in tuple(depts.dept_ids):
+        raise ParamError("主要部门须在部门集合内")
+
+
+def collect_segments(req: UserAssignmentsRequest) -> ConcurrentStableList[str]:
+    """收集本次参与的分段名（并校验主要项落在集合内）。
+
+    Args:
+        req: 分段全量覆盖请求。
+
+    Returns:
+        ConcurrentStableList[str]: 分段名清单（登记序）。
+
+    Raises:
+        ParamError: 主要项不在集合内（10001）。
+    """
+    applied: ConcurrentStableList[str] = ConcurrentStableList()
+    if req.profile is not None:
+        applied.add(SEGMENT_PROFILE)
+    if req.role_ids is not None:
+        applied.add(SEGMENT_ROLES)
+    if req.user_posts is not None:
+        _assert_primary(req.user_posts)
+        applied.add(SEGMENT_POSTS)
+    if req.user_depts is not None:
+        _assert_primary_dept(req.user_depts)
+        applied.add(SEGMENT_DEPTS)
+    return applied
+
+
+def build_org_ops(
+    *,
+    user_id: int,
+    req: UserAssignmentsRequest,
+    idempotency_key: str | None,
+) -> ConcurrentStableList[tuple[str, ConcurrentStableDict[str, object]]]:
+    """构造组织域**分支**操作清单（岗位 / 部门各一 op；同一分支内按序执行）。
+
+    Args:
+        user_id: 用户主键。
+        req: 分段全量覆盖请求。
+        idempotency_key: 业务幂等键。
+
+    Returns:
+        ConcurrentStableList[tuple[str, ConcurrentStableDict[str, object]]]: (op, 载荷) 清单。
+    """
+    ops: ConcurrentStableList[tuple[str, ConcurrentStableDict[str, object]]] = ConcurrentStableList()
+    if req.user_posts is not None:
+        posts_args = _posts_args(req.user_posts, user_id=user_id, idempotency_key=idempotency_key)
+        ops.add((ORG_USER_POSTS_OP, posts_args))
+    if req.user_depts is not None:
+        depts_args = _depts_args(req.user_depts, user_id=user_id, idempotency_key=idempotency_key)
+        ops.add((ORG_USER_DEPTS_OP, depts_args))
+    return ops
 
 
 def _branch_state(response: object) -> str:
