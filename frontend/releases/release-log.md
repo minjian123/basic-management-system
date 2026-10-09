@@ -4,6 +4,7 @@
 
 | 时间（UTC） | 操作者 | 动作 | 模块 | 版本 | 前版本 | 入口 gzip（KB） | 入口 | 来源 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 2026-10-09T10:14:31.886Z | minjian | republish | mdm-org | 0.1.0 | — | 12.2 | http://localhost:5002/mdm-org/0.1.0/remoteEntry.js | external |
 | 2026-10-09T09:58:56.079Z | minjian | republish | mdm-org | 0.1.0 | — | 14.6 | http://localhost:5002/mdm-org/0.1.0/remoteEntry.js | external |
 | 2026-10-04T14:04:25.057Z | minjian | republish | demo | 0.2.0 | — | 11.9 | http://localhost:5002/demo/0.2.0/remoteEntry.js | local |
 | 2026-10-04T14:02:01.660Z | minjian | republish | demo | 0.2.0 | — | 11.9 | http://localhost:5002/demo/0.2.0/remoteEntry.js | local |

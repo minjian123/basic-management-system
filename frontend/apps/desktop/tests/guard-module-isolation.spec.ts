@@ -153,6 +153,27 @@ describe('模块隔离护栏（Kiwi 980）', () => {
     expect(scanModuleProducts(FRONTEND_DIR)).toEqual([])
   })
 
+  it('原型**只读引用**不误报、写入仍拦截（2026-10-09 判据收窄回归，需求 05-14）', () => {
+    // 只读引用（MF 运行时共享域解析惯用写法）不属「改全局原型」
+    expect(
+      scanSourceFiles([
+        { path: 'a.ts', source: 'Object.prototype.hasOwnProperty.call(target, key)' },
+        { path: 'b.ts', source: 'Object.prototype.toString.call(value)' },
+        { path: 'c.ts', source: 'if (value instanceof Array.prototype.constructor) return' },
+      ]),
+    ).toEqual([])
+    // 写入 / 定义 / 设原型仍拦截
+    expect(
+      scanSourceFiles([
+        { path: 'd.ts', source: 'Object.prototype.polluted = true' },
+        { path: 'e.ts', source: 'Array.prototype.last = function () {}' },
+        { path: 'f.ts', source: 'Object.defineProperty(String.prototype, "pad", {})' },
+        { path: 'g.ts', source: 'Object.setPrototypeOf(Function.prototype, null)' },
+        { path: 'h.ts', source: 'target.__proto__ = null' },
+      ]).length,
+    ).toBe(5)
+  })
+
   it('产物目标识别含暴露块与页面块（dist 存在时执行）', () => {
     const moduleDir = resolve(FRONTEND_DIR, 'modules/demo')
     if (!existsSync(resolve(moduleDir, 'dist'))) return

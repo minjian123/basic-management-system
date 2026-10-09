@@ -48,8 +48,14 @@ const SOURCE_EXEMPT_FILES = ['standalone.ts', 'tokens.scss']
 
 /** 规则判据（去注释后匹配）。 */
 const PATTERNS = {
-  /** G1 全局原型改写（含 `__proto__`）。 */
-  prototype: /(Object|Array|String|Number|Boolean|Function|Symbol)\s*\.\s*prototype|__proto__/,
+  /**
+   * G1 全局原型**改写**（写入 / 定义 / 设原型）；只读引用（如 `Object.prototype.hasOwnProperty.call`）不在此列。
+   *
+   * 2026-10-09（需求 `05-14`）：原判据匹配一切 `X.prototype` 引用，致 MF 运行时共享域代码
+   * （`Object.prototype.hasOwnProperty.call`）被误报为改写；收窄为写入形态后放行。
+   */
+  prototype:
+    /(Object|Array|String|Number|Boolean|Function|Symbol)\s*\.\s*prototype\s*(\.\s*[\w$]+\s*=(?!=)|\[[^\]]+\]\s*=(?!=))|Object\s*\.\s*(definePropert(y|ies)|setPrototypeOf)\s*\(\s*(Object|Array|String|Number|Boolean|Function|Symbol)\s*\.\s*prototype|__proto__\s*=(?!=)/,
   /** G2 全局事件挂接。 */
   globalEvent: /\b(window|document|globalThis|self)\s*\.\s*addEventListener\s*\(/,
   /** G3 全局变量赋值（属性链赋值如 `window.location.href =` 不在此列）。 */
