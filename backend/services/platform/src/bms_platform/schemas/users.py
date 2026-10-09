@@ -45,7 +45,11 @@ class InternalUserQueryRequest(BaseSchema):
 
 
 class InternalUserItem(BaseSchema):
-    """内部用户只读行（服务间出口）：联系方式**原样返回**（脱敏归消费方），不含口令与锁定字段。"""
+    """内部用户只读行（服务间出口）：联系方式**原样返回**（脱敏归消费方），不含口令与锁定字段。
+
+    用户＝系统账号，**不含组织字段**（部门 / 岗位关系归 mdm，需求 07-11）——用户-部门关系由
+    mdm 自持（`org_user_dept`），不需 platform 回传。
+    """
 
     id: int = Field(description="用户主键")
     username: str = Field(description="登录账号")
@@ -53,7 +57,6 @@ class InternalUserItem(BaseSchema):
     status: str = Field(description="账号状态（enabled / disabled）")
     phone: str | None = Field(default=None, description="手机号（原样返回，脱敏归消费方）")
     email: str | None = Field(default=None, description="邮箱（原样返回，脱敏归消费方）")
-    dept_id: int | None = Field(default=None, description="归属部门 id（字段未落地时恒为 null）")
 
 
 class UserProfileRequest(BaseSchema):

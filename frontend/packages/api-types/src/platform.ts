@@ -4393,13 +4393,11 @@ export interface components {
         /**
          * InternalUserItem
          * @description 内部用户只读行（服务间出口）：联系方式**原样返回**（脱敏归消费方），不含口令与锁定字段。
+         *
+         *     用户＝系统账号，**不含组织字段**（部门 / 岗位关系归 mdm，需求 07-11）——用户-部门关系由
+         *     mdm 自持（`org_user_dept`），不需 platform 回传。
          */
         InternalUserItem: {
-            /**
-             * Dept Id
-             * @description 归属部门 id（字段未落地时恒为 null）
-             */
-            dept_id?: string | null;
             /**
              * Email
              * @description 邮箱（原样返回，脱敏归消费方）

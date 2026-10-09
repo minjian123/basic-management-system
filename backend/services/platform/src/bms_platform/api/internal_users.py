@@ -149,7 +149,7 @@ def _require_status(status: str | None) -> None:
 def _internal_item(row: SysUser) -> InternalUserItem:
     """用户记录 → 内部只读行。
 
-    不含口令哈希 / 失败计数 / 锁定字段 / 策略字段；`dept_id` 字段未落地时恒 `None`。
+    不含口令哈希 / 失败计数 / 锁定字段 / 策略字段；**不含组织字段**（部门关系归 mdm，需求 07-11）。
 
     Args:
         row: 用户记录。
@@ -164,7 +164,6 @@ def _internal_item(row: SysUser) -> InternalUserItem:
         status=row.status or "",
         phone=row.phone,
         email=row.email,
-        dept_id=None,
     )
 
 
