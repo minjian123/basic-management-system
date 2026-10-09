@@ -1,6 +1,6 @@
 {
   "name": "@bms/ui-ep",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "description": "BMS 前端 PC 渲染插件（Element Plus 组件实现）",

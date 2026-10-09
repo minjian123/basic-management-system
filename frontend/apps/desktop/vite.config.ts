@@ -61,10 +61,8 @@ export default defineConfig(({ mode }) => {
     resolve: {
       alias: {
         '@': fileURLToPath(new URL('./src', import.meta.url)),
-        // 基座（源码直出包）：与包 exports 设定一致
-        '@bms/core': fileURLToPath(new URL('../../packages/core/src/index.ts', import.meta.url)),
+        // 基座包 `@bms/core` / `@bms/ui-ep` 不设别名：经工作区包解析，使 MF 探测到共享域请求（需求 05-14）
         '@bms/vue': fileURLToPath(new URL('../../packages/vue/src/index.ts', import.meta.url)),
-        '@bms/ui-ep': fileURLToPath(new URL('../../packages/ui-ep/src/index.ts', import.meta.url)),
         '@bms/api-types': fileURLToPath(new URL('../../packages/api-types/src/index.ts', import.meta.url)),
       },
     },
