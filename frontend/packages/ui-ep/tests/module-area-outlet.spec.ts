@@ -118,6 +118,25 @@ describe('ModuleAreaOutlet（Kiwi 977）', () => {
     expect(wrapper.find('.el-tabs__item').classes()).toContain('is-active')
   })
 
+  it('tabs 形态：tabType 透传到 el-tabs（未给则用默认形态）', () => {
+    const registries = createRegistries()
+    registries.pageArea.register(
+      new PageAreaProvider('demo:basic', 'sys.user.detail.tabs', textComponent('basic', '基本信息内容'), 10, {
+        title: '基本信息',
+      }),
+    )
+
+    const carded = mount(ModuleAreaOutlet, {
+      props: { area: 'sys.user.detail.tabs', registries, variant: 'tabs', tabType: 'card' },
+    })
+    expect(carded.find('.el-tabs').classes()).toContain('el-tabs--card')
+
+    const plain = mount(ModuleAreaOutlet, {
+      props: { area: 'sys.user.detail.tabs', registries, variant: 'tabs' },
+    })
+    expect(plain.find('.el-tabs').classes()).not.toContain('el-tabs--card')
+  })
+
   it('tabs 形态：权限码不满足的项不渲染；未知插槽渲染为空', () => {
     const registries = createRegistries()
     registries.pageArea.register(
