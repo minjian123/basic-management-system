@@ -10,102 +10,212 @@
   .ep-page { background: #fff; border: 1px solid #d0d7de; border-radius: 6px; padding: 16px; }
   .ep-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
   .ep-toolbar .ep-side { margin-left: auto; }
-  .ep-section { font-weight: 600; margin: 16px 0 12px; padding-bottom: 8px; border-bottom: 1px solid #eaeef2; font-size: 14px; }
-  .ep-section:first-of-type { margin-top: 0; }
+  .sys-frame { display: block; width: 100%; border: none; background: #fff; }
+  .op-row { display: flex; align-items: center; gap: 8px; padding: 5px 0; font-size: 13px; }
 </style>
 </head>
 <body>
 
 <div class="proto-bar">
   <span class="pb-crumb"><a href="01_设计说明.html">← 返回设计说明</a></span>
-  <span class="pb-name">用户管理 · 用户表单页（FormDetailPanel）</span>
+  <span class="pb-name">用户管理 · 用户表单页（表单框架 · 用户记录 Tab）</span>
 </div>
 
 <div class="proto-frame">
+  <div class="proto-note">
+    本页为「用户管理」表单框架的<b>用户记录 Tab</b>。信息栏三个子页签：<b>详细信息</b> · <b>用户分配</b> · <b>系统信息</b>。
+    <b>用户分配</b>内含三个子页签：<b>角色分配</b>（bms 内建，写 <code>sys_user_role</code>，随宿主工具栏保存）·
+    <b>岗位分配</b>（mdm「岗位分配」插件，含<b>主要岗位</b>标记）· <b>部门分配</b>（mdm「用户分配部门」插件，含<b>主要部门</b>标记）；
+    岗位 / 部门数据与契约整体归 mdm 组织域，<b>插件缺失即隐藏</b>（bms 单独运行、cw 工作区无 mdm 时只剩「角色分配」）。
+    用户＝系统账号：<b>不含部门 / 岗位 / 语言时区字段</b>（语言与时区归个人中心）。
+  </div>
+
   <div id="app">
     <div class="ep-page">
-      <!-- ① 表单页工具栏分态：只读态 修改/删除/刷新/关闭 ↔ 编辑态 保存/关闭 -->
+      <!-- ① 工具栏：按当前页签分态；保存只在工具栏一处 -->
       <div class="ep-toolbar">
-        <el-button v-if="!editing" type="primary" @click="editForm">修改</el-button>
-        <el-button v-if="!editing" type="danger" plain @click="delForm">删除</el-button>
-        <el-button v-if="!editing" @click="toastMsg('已重新加载当前记录')">刷新</el-button>
-        <el-button v-if="editing" type="primary" @click="saveForm">保存</el-button>
+        <template v-if="!editing">
+          <el-button type="primary" @click="editForm">修改</el-button>
+          <el-button type="danger" plain :disabled="form.builtin" @click="delForm">删除</el-button>
+          <el-button @click="reload">刷新</el-button>
+        </template>
+        <template v-else>
+          <el-button type="primary" @click="saveForm">保存</el-button>
+          <el-button @click="cancelEdit">取消</el-button>
+        </template>
         <el-button @click="tryClose">关闭</el-button>
         <span class="ep-side">
-          <span class="proto-hint">编辑后关闭/切换 Tab 将触发未保存拦截</span>
+          <span v-if="dirty" class="proto-hint" style="color:#cf222e">● 有未保存变更</span>
+          <span v-else-if="form.builtin" class="proto-hint">内置管理员：不可停用 / 删除（30009）</span>
+          <span v-else class="proto-hint">编辑后关闭 / 切换页签将触发未保存拦截</span>
         </span>
       </div>
 
-      <!-- ② 详细信息 / 系统信息 Tab -->
-      <el-tabs v-model="tab" :before-leave="beforeTabLeave">
-        <el-tab-pane label="详细信息" name="info">
+      <!-- ② 信息栏：详细信息 / 用户分配 / 系统信息 -->
+      <el-tabs v-model="section" :before-leave="beforeTabLeave">
+        <!-- 详细信息 -->
+        <el-tab-pane label="详细信息" name="detail">
           <el-form label-position="top" :disabled="!editing">
-            <div class="ep-section">基本信息</div>
-            <el-row :gutter="16">
-              <el-col :span="8"><el-form-item label="用户名" required><el-input v-model="form.username" disabled></el-input></el-form-item></el-col>
-              <el-col :span="8"><el-form-item label="姓名" required><el-input v-model="form.name"></el-input></el-form-item></el-col>
-              <el-col :span="8">
-                <el-form-item label="部门">
-                  <el-select v-model="form.dept" style="width:100%">
-                    <el-option label="技术部" value="技术部"></el-option>
-                    <el-option label="财务部" value="财务部"></el-option>
-                  </el-select>
-                </el-form-item>
-              </el-col>
-              <el-col :span="8">
-                <el-form-item label="岗位">
-                  <el-select v-model="form.post" style="width:100%">
-                    <el-option label="工程师" value="工程师"></el-option>
-                    <el-option label="会计" value="会计"></el-option>
-                  </el-select>
-                </el-form-item>
-              </el-col>
-              <el-col :span="8">
-                <el-form-item label="手机号">
-                  <el-input v-model="form.phone" :disabled="!editing">
-                    <template #suffix>
-                      <a href="#" style="font-size:12px" @click.prevent="toastMsg('需 data:plain 权限码方可查看明文', 'error')">☝ 明文</a>
-                    </template>
-                  </el-input>
-                </el-form-item>
-              </el-col>
-              <el-col :span="8"><el-form-item label="邮箱"><el-input v-model="form.email"></el-input></el-form-item></el-col>
-            </el-row>
-            <div class="ep-section">角色与状态</div>
             <el-row :gutter="16">
               <el-col :span="8">
-                <el-form-item label="角色绑定">
-                  <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-                    <el-tag v-for="r in form.roles" :key="r" type="primary">{{ r }}</el-tag>
-                    <el-button size="small" :disabled="!editing" @click="openRole">✚ 绑定</el-button>
-                  </div>
+                <el-form-item label="用户名" required>
+                  <el-input v-model="form.username" :disabled="!form.isNew" placeholder="登录账号（创建后不可修改）"></el-input>
                 </el-form-item>
+              </el-col>
+              <el-col :span="8">
+                <el-form-item label="姓名" required><el-input v-model="form.name"></el-input></el-form-item>
               </el-col>
               <el-col :span="8">
                 <el-form-item label="状态">
-                  <el-select v-model="form.status" style="width:100%">
-                    <el-option label="启用" value="enabled"></el-option>
-                    <el-option label="停用" value="disabled"></el-option>
-                  </el-select>
+                  <el-switch v-model="form.enabled" active-text="启用" inactive-text="停用" :disabled="form.builtin"></el-switch>
+                </el-form-item>
+              </el-col>
+            </el-row>
+            <el-row :gutter="16">
+              <el-col :span="8">
+                <el-form-item label="手机号">
+                  <el-input v-model="form.phone">
+                    <template #suffix>
+                      <a href="#" style="font-size:12px" @click.prevent="toast('需 data:plain 权限码方可查看明文', 'error')">☝ 明文</a>
+                    </template>
+                  </el-input>
+                  <div class="proto-hint" style="line-height:1.6">脱敏展示（138****5678）；明文需 <code>data:plain</code> 权限码</div>
+                </el-form-item>
+              </el-col>
+              <el-col :span="8">
+                <el-form-item label="邮箱"><el-input v-model="form.email"></el-input></el-form-item>
+              </el-col>
+              <el-col :span="8" v-if="form.isNew">
+                <el-form-item label="初始密码">
+                  <el-input model-value="（系统生成 / 手工指定）" disabled></el-input>
+                  <div class="proto-hint" style="line-height:1.6">
+                    密码复杂度与历史校验由后端强制执行；创建后可勾选强制首登改密
+                  </div>
+                </el-form-item>
+              </el-col>
+            </el-row>
+            <el-row :gutter="16" v-if="form.isNew">
+              <el-col :span="8">
+                <el-form-item label="首登改密">
+                  <el-checkbox v-model="form.pwdResetRequired">强制下次登录修改密码</el-checkbox>
                 </el-form-item>
               </el-col>
             </el-row>
           </el-form>
         </el-tab-pane>
+
+        <!-- 用户分配：角色分配（bms 内建）+ 岗位分配 / 部门分配（mdm 插件子页签） -->
+        <el-tab-pane label="用户分配" name="assign">
+          <el-tabs v-model="assignTab" type="card">
+            <!-- 角色分配（bms 内建，写 sys_user_role） -->
+            <el-tab-pane label="角色分配" name="role">
+              <div class="op-row">
+                <el-button size="small" type="primary" :disabled="!editing" @click="openRolePicker">选择角色</el-button>
+                <span class="proto-hint" style="margin-left:8px">与角色管理页「角色分配 — 用户分配」<b>同一张关系表</b>（<code>sys_user_role</code>）；随宿主工具栏保存</span>
+                <span class="proto-hint" style="margin-left:auto">已分配 {{ assignedRoles.length }}</span>
+              </div>
+              <el-table :data="assignedRoles" size="small" border>
+                <el-table-column prop="name" label="角色名称" min-width="160"></el-table-column>
+                <el-table-column prop="code" label="角色码" min-width="140"></el-table-column>
+                <el-table-column label="类型" width="110">
+                  <template #default="{ row }">{{ roleTypeText(row.roleType) }}</template>
+                </el-table-column>
+                <el-table-column label="操作" width="80" align="center">
+                  <template #default="{ row }"><el-button link type="danger" :disabled="!editing" @click="unassignRole(row)">移除</el-button></template>
+                </el-table-column>
+                <template #empty><span class="proto-hint">暂未分配角色</span></template>
+              </el-table>
+              <div class="proto-hint" style="margin-top:8px">
+                角色分配变更后权限版本 +1 并清理该用户权限缓存，<b>即时生效</b>；本页签随工具栏「保存」提交。
+              </div>
+            </el-tab-pane>
+
+            <!-- 岗位分配 / 部门分配：由 mdm 组织域插件插入（未注册即隐藏） -->
+            <el-tab-pane v-if="mdmPluginLoaded" label="岗位分配" name="post">
+              <div class="op-row">
+                <el-button size="small" @click="openPostPicker">选择岗位</el-button>
+                <span class="proto-hint" style="margin-left:8px">由 mdm「岗位分配」插件渲染 · <b>即时提交</b>（不随宿主工具栏保存）</span>
+              </div>
+              <el-table :data="assignedPosts" size="small" border>
+                <el-table-column prop="name" label="岗位" min-width="150"></el-table-column>
+                <el-table-column prop="dept" label="所属部门" min-width="150"></el-table-column>
+                <el-table-column label="主要岗位" width="110" align="center">
+                  <template #default="{ row }">
+                    <el-tag v-if="row.primary" size="small" type="success">主要</el-tag>
+                    <el-button v-else link type="primary" @click="setPrimaryPost(row)">设为主要</el-button>
+                  </template>
+                </el-table-column>
+                <el-table-column label="操作" width="80" align="center">
+                  <template #default="{ row }"><el-button link type="danger" @click="unbindPost(row)">移除</el-button></template>
+                </el-table-column>
+                <template #empty><span class="proto-hint">暂未分配岗位</span></template>
+              </el-table>
+              <div class="proto-hint" style="margin-top:8px">
+                一个用户可有多个岗位，其中<b>至多一个主要岗位</b>（用户所属岗位以主要岗位为准）；数据与契约整体归 mdm 组织域。
+              </div>
+            </el-tab-pane>
+            <el-tab-pane v-if="mdmPluginLoaded" label="部门分配" name="dept">
+              <div class="op-row">
+                <el-button size="small" @click="openDeptPicker">选择部门</el-button>
+                <span class="proto-hint" style="margin-left:8px">由 mdm「用户分配部门」插件渲染 · <b>即时提交</b></span>
+              </div>
+              <el-table :data="assignedDepts" size="small" border>
+                <el-table-column prop="name" label="部门" min-width="200"></el-table-column>
+                <el-table-column label="主要部门" width="110" align="center">
+                  <template #default="{ row }">
+                    <el-tag v-if="row.primary" size="small" type="success">主要</el-tag>
+                    <el-button v-else link type="primary" @click="setPrimaryDept(row)">设为主要</el-button>
+                  </template>
+                </el-table-column>
+                <el-table-column label="操作" width="80" align="center">
+                  <template #default="{ row }"><el-button link type="danger" @click="unbindDept(row)">移除</el-button></template>
+                </el-table-column>
+                <template #empty><span class="proto-hint">暂未分配部门</span></template>
+              </el-table>
+              <div class="proto-hint" style="margin-top:8px">
+                一个用户可有多个部门，其中<b>至多一个主要部门</b>（用户所属部门以主要部门为准）；数据与契约整体归 mdm 组织域。
+              </div>
+            </el-tab-pane>
+          </el-tabs>
+
+          <!-- 演示：模拟 mdm 插件加载 / 卸载（具名插槽同槽多来源 + 未注册即隐藏） -->
+          <div class="op-row" style="margin-top:8px;border-top:1px dashed #eaeef2;padding-top:8px">
+            <el-switch v-model="mdmPluginLoaded" size="small"
+              active-text="模拟 mdm 插件：已加载" inactive-text="模拟 mdm 插件：未加载"></el-switch>
+            <span class="proto-hint" style="margin-left:10px">bms 单独运行 / cw 工作区（无 mdm）时<b>没有</b>「岗位分配 / 部门分配」子页签（插件缺失即隐藏，不报错、不阻塞）</span>
+          </div>
+        </el-tab-pane>
+
+        <!-- 系统信息 -->
         <el-tab-pane label="系统信息" name="sys">
           <iframe class="sys-frame" src="../02_公共原型/04_系统信息组件.html" :style="{height: sysH + 'px'}" @load="pushSys($event, sys)"></iframe>
         </el-tab-pane>
       </el-tabs>
     </div>
 
-    <!-- ③ 角色绑定 -->
-    <el-dialog v-model="role.visible" title="角色绑定" width="420" align-center>
-      <el-checkbox-group v-model="role.checked" style="display:block">
-        <el-checkbox v-for="r in allRoles" :key="r" :value="r" style="display:flex;padding:6px 0">{{ r }}</el-checkbox>
+    <!-- ③ 选择角色（bms 内建） -->
+    <el-dialog v-model="rolePicker.visible" title="选择角色" width="480" align-center>
+      <el-input v-model="rolePicker.kw" size="small" placeholder="搜索角色码 / 名称" clearable style="margin-bottom:8px"></el-input>
+      <el-checkbox-group v-model="rolePicker.checked" style="display:block">
+        <el-checkbox v-for="r in filteredCandidateRoles" :key="r.id" :value="r.id" style="display:flex;padding:6px 0">
+          {{ r.name }} <span class="proto-hint" style="margin-left:6px">{{ r.code }}</span>
+        </el-checkbox>
       </el-checkbox-group>
       <template #footer>
-        <el-button @click="role.visible = false">取消</el-button>
-        <el-button type="primary" @click="saveRole">保存</el-button>
+        <el-button @click="rolePicker.visible = false">取消</el-button>
+        <el-button type="primary" @click="saveRolePick">确定</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- ④ 选择岗位 / 选择部门（mdm 插件自带界面，原型模拟） -->
+    <el-dialog v-model="pluginPicker.visible" :title="pluginPicker.title" width="480" align-center>
+      <el-checkbox-group v-model="pluginPicker.checked" style="display:block">
+        <el-checkbox v-for="c in pluginPicker.options" :key="c.id" :value="c.id" style="display:flex;padding:6px 0">{{ c.name }}</el-checkbox>
+      </el-checkbox-group>
+      <div class="proto-hint" style="margin-top:6px">全量覆盖提交（先删后插、单事务）；插件页签即时提交</div>
+      <template #footer>
+        <el-button @click="pluginPicker.visible = false">取消</el-button>
+        <el-button type="primary" @click="savePluginPick">保存并提交</el-button>
       </template>
     </el-dialog>
   </div>
@@ -116,35 +226,62 @@
 <script src="../资源/vendor/element-plus.min.js"></script>
 <script src="../资源/vendor/zh-cn.js"></script>
 <script>
-  var { createApp, ref, reactive, watch } = Vue;
+  var { createApp, ref, reactive, computed, watch } = Vue;
   var ElMessage = ElementPlus.ElMessage;
   var ElMessageBox = ElementPlus.ElMessageBox;
   var app = createApp({
     template: document.getElementById('app').outerHTML.replace(/<div id="app">/, '<div>').replace(/<\/div>\s*$/, ''),
     setup: function () {
       var editing = ref(false);
-      var tab = ref('info');
+      var section = ref('detail');
+      var assignTab = ref('role');
       var dirty = ref(false);
+      var mdmPluginLoaded = ref(true);
       window._saveRound = 0;
       var form = reactive({
-        username: 'zhangsan', name: '张三', dept: '技术部', post: '工程师',
-        phone: '138****5678', email: 'zhangsan@example.com',
-        roles: ['普通角色'], status: 'enabled'
+        isNew: false, builtin: false, username: 'zhangsan', name: '张三',
+        phone: '138****5678', email: 'zhangsan@example.com', enabled: true, pwdResetRequired: true
       });
       var sys = reactive({
-        id: '1902876345762181120',
-        version: 1,
-        createdAt: '2026-07-01 10:00:00',
-        createdBy: 'admin',
-        updatedAt: '2026-08-12 09:30:00',
-        updatedBy: 'admin',
-        formKey: 'user',
-        formLabel: '用户表单'
+        id: '1902876345762181120', version: 1,
+        createdAt: '2026-07-01 10:00:00', createdBy: 'admin',
+        updatedAt: '2026-10-08 09:30:00', updatedBy: 'admin',
+        formKey: 'user', formLabel: '用户表单'
       });
-      var role = reactive({ visible: false, checked: ['普通角色'] });
-      var allRoles = ['普通角色', '审批角色'];
+      var assignedRoles = ref([
+        { id: 4, code: 'role_user', name: '普通角色', roleType: 'custom' }
+      ]);
+      var candidateRoles = ref([
+        { id: 4, code: 'role_user', name: '普通角色', roleType: 'custom' },
+        { id: 5, code: 'role_viewer', name: '只读角色', roleType: 'custom' },
+        { id: 1, code: 'system_admin', name: '系统管理员', roleType: 'system' }
+      ]);
+      var rolePicker = reactive({ visible: false, kw: '', checked: [] });
+      var assignedPosts = ref([
+        { id: 11, name: '工程师', dept: '技术部', primary: true },
+        { id: 12, name: '测试', dept: '技术部', primary: false }
+      ]);
+      var assignedDepts = ref([
+        { id: 21, name: '技术部', primary: true }
+      ]);
+      var postOptions = [
+        { id: 11, name: '工程师（技术部）' }, { id: 12, name: '测试（技术部）' }, { id: 13, name: '会计（财务部）' }
+      ];
+      var deptOptions = [
+        { id: 21, name: '技术部' }, { id: 22, name: '财务部' }, { id: 23, name: '人事部' }
+      ];
+      var pluginPicker = reactive({ visible: false, kind: 'post', title: '选择岗位', options: [], checked: [] });
 
-      // 系统信息组件（iframe）通信：load 后发送数据；高度按组件内容自适应（组件上报，不撑满）
+      var roleTypeLabels = { custom: '自定义', system: '系统管理员', security: '安全管理员', audit: '审计管理员' };
+      function roleTypeText(t) { return roleTypeLabels[t] || t; }
+      var filteredCandidateRoles = computed(function () {
+        var k = (rolePicker.kw || '').toLowerCase();
+        return candidateRoles.value.filter(function (r) {
+          return !k || (r.code + r.name).toLowerCase().indexOf(k) >= 0;
+        });
+      });
+
+      // 系统信息组件（iframe）通信：load 后发送数据；高度按组件内容自适应
       var sysH = ref(236);
       function pushSys(ev, data) {
         var f = ev.currentTarget;
@@ -157,47 +294,127 @@
         if (e.data && e.data.type === 'sys-info-height' && e.data.height > 0) sysH.value = e.data.height;
       });
 
-      // dirty 拦截：编辑字段后关闭/切换 Tab 需确认（《布局设计-表单页》编辑态）
+      // dirty 拦截：编辑字段后关闭 / 切换页签需确认
       watch(form, function () { if (editing.value) dirty.value = true; }, { deep: true });
 
       function beforeTabLeave(newName) {
-        if (!dirty.value || tab.value === 'sys') return true;
-        return ElMessageBox.confirm('当前修改尚未保存，切换 Tab 将丢失修改，确定切换？', '提示', { type: 'warning' })
+        if (!dirty.value || section.value === 'sys') return true;
+        return ElMessageBox.confirm('当前修改尚未保存，切换页签将丢失修改，确定切换？', '提示', { type: 'warning' })
           .then(function () { dirty.value = false; return true; })
           .catch(function () { return false; });
       }
-      function editForm() { dirty.value = false; editing.value = true; toastMsg('已进入编辑态（字段启用）'); }
+      function editForm() { dirty.value = false; editing.value = true; toast('已进入编辑态（字段启用）'); }
+      function cancelEdit() { dirty.value = false; editing.value = false; toast('已放弃修改'); }
       function saveForm() {
         dirty.value = false;
         editing.value = false;
         // 演示：每两次保存模拟一次乐观锁 version 冲突（真实场景由后端 409 触发）
-        if (window._saveRound % 2 === 1) { window._saveRound++; toastMsg('记录已被修改，已重新加载最新数据', 'error'); return; }
+        if (window._saveRound % 2 === 1) { window._saveRound++; toast('记录已被修改，已重新加载最新数据', 'error'); return; }
         window._saveRound++;
-        toastMsg('保存成功，列表已自动刷新');
+        toast('保存成功（角色分配随本次提交，权限版本 +1），列表已自动刷新');
       }
       function delForm() {
-        ElMessageBox.confirm('确认删除该用户（软删除）？', '提示', { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' })
-          .then(function () { toastMsg('已删除'); })
-          .catch(function () {});
+        ElMessageBox.confirm('确认删除该用户（软删除，删除后用户名可复用）？', '提示', {
+          type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消', confirmButtonClass: 'el-button--danger'
+        }).then(function () { toast('已删除（user.deleted 已发布）'); }).catch(function () {});
       }
+      function reload() { toast('已重新加载当前记录'); }
       function tryClose() {
         if (dirty.value) {
           ElMessageBox.confirm('当前修改尚未保存，关闭将丢失修改，确定关闭？', '提示', { type: 'warning', confirmButtonText: '关闭', cancelButtonText: '取消' })
-            .then(function () { dirty.value = false; toastMsg('已关闭'); })
-            .catch(function () {});
-        } else { toastMsg('已关闭'); }
+            .then(function () { dirty.value = false; toast('已关闭'); }).catch(function () {});
+        } else { toast('已关闭'); }
       }
-      function openRole() { role.checked = form.roles.slice(); role.visible = true; }
-      function saveRole() { form.roles = role.checked.slice(); role.visible = false; toastMsg('角色绑定已更新'); }
-      // 由列表页双击打开时（?id=&name=）回填显示
+      // 角色分配
+      function openRolePicker() {
+        rolePicker.checked = assignedRoles.value.map(function (r) { return r.id; });
+        rolePicker.kw = '';
+        rolePicker.visible = true;
+      }
+      function saveRolePick() {
+        assignedRoles.value = candidateRoles.value.filter(function (r) { return rolePicker.checked.indexOf(r.id) >= 0; });
+        rolePicker.visible = false;
+        dirty.value = true;
+        toast('角色分配已更新（随工具栏「保存」提交）');
+      }
+      function unassignRole(row) {
+        ElMessageBox.confirm('解除「' + row.name + '」角色分配？权限版本 +1，即时生效。', '提示', { type: 'warning', confirmButtonText: '移除', cancelButtonText: '取消' })
+          .then(function () {
+            assignedRoles.value = assignedRoles.value.filter(function (r) { return r.id !== row.id; });
+            dirty.value = true;
+            toast('已移除（随工具栏「保存」提交）');
+          }).catch(function () {});
+      }
+      // 岗位分配（mdm 插件）
+      function openPostPicker() {
+        pluginPicker.kind = 'post';
+        pluginPicker.title = '选择岗位';
+        pluginPicker.options = postOptions;
+        pluginPicker.checked = assignedPosts.value.map(function (p) { return p.id; });
+        pluginPicker.visible = true;
+      }
+      function setPrimaryPost(row) {
+        assignedPosts.value.forEach(function (p) { p.primary = p.id === row.id; });
+        toast('已设为主要岗位（即时提交）');
+      }
+      function unbindPost(row) {
+        ElMessageBox.confirm('解除岗位「' + row.name + '」绑定？即时提交（全量覆盖）。', '提示', { type: 'warning', confirmButtonText: '移除', cancelButtonText: '取消' })
+          .then(function () {
+            assignedPosts.value = assignedPosts.value.filter(function (p) { return p.id !== row.id; });
+            if (assignedPosts.value.length && !assignedPosts.value.some(function (p) { return p.primary; })) assignedPosts.value[0].primary = true;
+            toast('已移除（mdm 侧即时提交）');
+          }).catch(function () {});
+      }
+      // 部门分配（mdm 插件）
+      function openDeptPicker() {
+        pluginPicker.kind = 'dept';
+        pluginPicker.title = '选择部门';
+        pluginPicker.options = deptOptions;
+        pluginPicker.checked = assignedDepts.value.map(function (d) { return d.id; });
+        pluginPicker.visible = true;
+      }
+      function setPrimaryDept(row) {
+        assignedDepts.value.forEach(function (d) { d.primary = d.id === row.id; });
+        toast('已设为主要部门（即时提交）');
+      }
+      function unbindDept(row) {
+        ElMessageBox.confirm('解除部门「' + row.name + '」绑定？即时提交（全量覆盖）。', '提示', { type: 'warning', confirmButtonText: '移除', cancelButtonText: '取消' })
+          .then(function () {
+            assignedDepts.value = assignedDepts.value.filter(function (d) { return d.id !== row.id; });
+            if (assignedDepts.value.length && !assignedDepts.value.some(function (d) { return d.primary; })) assignedDepts.value[0].primary = true;
+            toast('已移除（mdm 侧即时提交）');
+          }).catch(function () {});
+      }
+      function savePluginPick() {
+        if (pluginPicker.kind === 'post') {
+          assignedPosts.value = postOptions.filter(function (p) { return pluginPicker.checked.indexOf(p.id) >= 0; })
+            .map(function (p) { var m = assignedPosts.value.filter(function (x) { return x.id === p.id; })[0]; return { id: p.id, name: p.name.replace(/（.*）$/, ''), dept: (p.name.match(/（(.*)）/) || [])[1] || '—', primary: m ? m.primary : false }; });
+          if (assignedPosts.value.length && !assignedPosts.value.some(function (p) { return p.primary; })) assignedPosts.value[0].primary = true;
+        } else {
+          assignedDepts.value = deptOptions.filter(function (d) { return pluginPicker.checked.indexOf(d.id) >= 0; })
+            .map(function (d) { var m = assignedDepts.value.filter(function (x) { return x.id === d.id; })[0]; return { id: d.id, name: d.name, primary: m ? m.primary : false }; });
+          if (assignedDepts.value.length && !assignedDepts.value.some(function (d) { return d.primary; })) assignedDepts.value[0].primary = true;
+        }
+        pluginPicker.visible = false;
+        toast('已保存并提交（mdm 组织域 · 全量覆盖）');
+      }
+      // 由列表页双击（?id=&name=）/ 新增（?new=1）打开时回填显示；直接打开本页默认展示一条已存在记录（只读态）
       (function () {
         function qp(k) { var m = location.search.match(new RegExp('[?&]' + k + '=([^&]*)')); return m ? decodeURIComponent(m[1]) : null; }
-        var id = qp('id'), name = qp('name');
-        if (name) { form.username = name.toLowerCase(); form.name = name; }
-        if (id) sys.id = id;
+        var id = qp('id'), name = qp('name'), isNew = qp('new');
+        if (isNew === '1') {
+          form.isNew = true;
+          editing.value = true;
+          form.username = ''; form.name = ''; form.phone = ''; form.email = ''; form.enabled = true;
+          assignedRoles.value = []; assignedPosts.value = []; assignedDepts.value = [];
+          section.value = 'detail';
+        } else {
+          if (name) form.name = name;
+          if (id) sys.id = id;
+        }
       })();
-      function toastMsg(m, type) { ElMessage({ message: m, type: type || 'success' }); }
-      return { editing, tab, form, sys, role, allRoles, sysH, pushSys, beforeTabLeave, editForm, saveForm, delForm, tryClose, openRole, saveRole, toastMsg };
+      function toast(m, type) { ElMessage({ message: m, type: type || 'success' }); }
+      return { editing, section, assignTab, dirty, mdmPluginLoaded, form, sys, assignedRoles, candidateRoles, rolePicker, assignedPosts, assignedDepts, pluginPicker, filteredCandidateRoles, sysH, pushSys, beforeTabLeave, editForm, cancelEdit, saveForm, delForm, reload, tryClose, roleTypeText, openRolePicker, saveRolePick, unassignRole, openPostPicker, setPrimaryPost, unbindPost, openDeptPicker, setPrimaryDept, unbindDept, savePluginPick, toast };
     }
   });
   app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });

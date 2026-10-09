@@ -19,59 +19,39 @@
 
 <div class="proto-bar">
   <span class="pb-crumb"><a href="01_设计说明.html">← 返回设计说明</a></span>
-  <span class="pb-name">用户管理 · 用户列表页</span>
+  <span class="pb-name">用户管理 · 用户列表页（表单框架 · 列表 Tab）</span>
 </div>
 
 <div class="proto-frame">
+  <div class="proto-note">
+    本页为「用户管理」表单框架的<b>列表 Tab</b>（固定页签，不可关闭）；双击数据行或点「新增」打开<b>用户记录 Tab</b>
+    （见 <a href="03_用户表单页.html">用户表单页</a>，角色 / 岗位 / 部门分配在其「用户分配」页签内）。列表页三段式：工具栏 → 筛选区 → 表格；
+    <b>无操作列</b>，双击行开表单。<b>用户＝系统账号</b>：不含部门 / 岗位 / 角色列——组织与岗位关系归 mdm，仅在 mdm 在场时经插件在记录 Tab 内呈现
+    （bms 单独运行 / cw 工作区无 mdm 时该能力隐藏，页面其余正常）。
+  </div>
+
   <div id="app">
     <div class="ep-page">
-      <!-- ① 工具栏：新增 primary + batch 批量按钮（勾选行后才可用）+ 右侧导入/导出 -->
+      <!-- ① 工具栏：左侧 新增/刷新/关闭 + 批量操作（随选中态启用）；右侧 导入/导出 -->
       <div class="ep-toolbar">
-        <el-button type="primary" @click="openEdit(null)">新增</el-button>
+        <el-button type="primary" @click="openForm(null)">新增</el-button>
+        <el-button @click="reload">刷新</el-button>
+        <el-button @click="closePage">关闭</el-button>
         <el-button type="danger" plain :disabled="!selRows.length" @click="delSel">删除</el-button>
-        <el-button :disabled="!selRows.length" @click="batchToggle">停用/启用</el-button>
-        <el-button :disabled="!selRows.length" @click="openPwd">重置密码</el-button>
-        <el-button :disabled="!selRows.length" @click="openRole">角色绑定</el-button>
+        <el-button :disabled="!selRows.length" @click="batchToggle">启用/停用</el-button>
+        <el-button :disabled="selRows.length !== 1" @click="openPwd">重置密码</el-button>
         <span class="ep-side">
-          <el-button @click="toastMsg('原型演示：Excel 批量导入用户')">导入</el-button>
-          <el-button @click="toastMsg('原型演示：导出当前筛选结果')">导出</el-button>
-          <span class="proto-hint" style="margin-left:10px">双击行打开用户表单页</span>
+          <el-button @click="toast('原型演示：Excel 批量导入用户（导入导出阶段）')">导入</el-button>
+          <el-button @click="toast('导出当前筛选结果（受 export:download 权限约束）')">导出</el-button>
         </span>
       </div>
 
-      <!-- ② 筛选区：label 上方，一行最多 3 个条件，查询/重置/展开在条件第一行行末 -->
+      <!-- ② 筛选区：关键字框 240px 起（placeholder 注明搜索范围）+ 状态；查询/重置在条件行末 -->
       <el-form class="ep-filter" label-position="top" @submit.prevent>
         <el-row :gutter="16">
           <el-col :span="8">
             <el-form-item label="关键字">
-              <el-input v-model="query.kw" placeholder="关键字：用户名/姓名/手机号" clearable style="width:100%"></el-input>
-            </el-form-item>
-          </el-col>
-          <el-col :span="8">
-            <el-form-item label="部门">
-              <el-select v-model="query.dept" placeholder="全部" clearable style="width:100%">
-                <el-option label="技术部" value="技术部"></el-option>
-                <el-option label="财务部" value="财务部"></el-option>
-              </el-select>
-            </el-form-item>
-          </el-col>
-          <el-col :span="8">
-            <el-form-item style="margin-top:30px">
-              <el-button type="primary" @click="applyFilter">查询</el-button>
-              <el-button @click="resetFilter">重置</el-button>
-              <el-button link type="primary" @click="more = !more">{{ more ? '收起 ▴' : '展开 ▾' }}</el-button>
-            </el-form-item>
-          </el-col>
-        </el-row>
-        <el-row v-show="more" :gutter="16">
-          <el-col :span="8">
-            <el-form-item>
-              <el-input v-model="query.username" placeholder="用户名" clearable style="width:100%"></el-input>
-            </el-form-item>
-          </el-col>
-          <el-col :span="8">
-            <el-form-item>
-              <el-input v-model="query.name" placeholder="姓名" clearable style="width:100%"></el-input>
+              <el-input v-model="query.kw" placeholder="关键字：用户名/姓名/手机号/邮箱" clearable style="width:240px"></el-input>
             </el-form-item>
           </el-col>
           <el-col :span="8">
@@ -82,43 +62,47 @@
               </el-select>
             </el-form-item>
           </el-col>
+          <el-col :span="8">
+            <el-form-item style="margin-top:30px">
+              <el-button type="primary" @click="applyFilter">查询</el-button>
+              <el-button @click="resetFilter">重置</el-button>
+            </el-form-item>
+          </el-col>
         </el-row>
       </el-form>
 
-      <!-- ③ 表格：多选 + 状态 tag + 操作列；空状态「未找到相关内容 + 重置」 -->
+      <!-- ③ 表格：多选 + 数据列（无操作列）；状态列内联开关（停用为危险操作，二次确认）；双击行打开用户记录 Tab -->
       <el-table :data="pageRows" border stripe @selection-change="onSel" @row-dblclick="openForm" style="width:100%">
         <el-table-column type="selection" width="48"></el-table-column>
-        <el-table-column prop="username" label="用户名" min-width="110"></el-table-column>
-        <el-table-column prop="name" label="姓名" min-width="90"></el-table-column>
-        <el-table-column prop="dept" label="部门" width="90"></el-table-column>
-        <el-table-column prop="post" label="岗位" width="90"></el-table-column>
-        <el-table-column prop="role" label="角色" width="100"></el-table-column>
-        <el-table-column label="状态" width="90">
+        <el-table-column prop="username" label="用户名" min-width="130"></el-table-column>
+        <el-table-column label="姓名" min-width="150">
           <template #default="{ row }">
-            <el-tag :type="row.status === 'enabled' ? 'success' : (row.status === 'locked' ? 'warning' : 'info')">{{ statusText(row.status) }}</el-tag>
+            <span>{{ row.name }}</span>
+            <el-tag v-if="row.builtin" size="small" type="warning" style="margin-left:6px">内置</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="lastLogin" label="最近登录" width="150"></el-table-column>
-        <el-table-column label="操作" width="80" fixed="right">
+        <el-table-column label="状态" width="110">
           <template #default="{ row }">
-            <el-button link type="primary" @click="openEdit(row)">编辑</el-button>
+            <el-switch :model-value="row.status === 'enabled'" size="small" :disabled="row.builtin"
+              @change="toggleStatus(row)"></el-switch>
           </template>
         </el-table-column>
+        <el-table-column prop="lastLogin" label="最近登录" width="170"></el-table-column>
         <template #empty>
           <div>
-            <div style="font-size:14px;color:#57606a">未找到相关内容</div>
-            <el-button style="margin-top:10px" @click="resetFilter">重置</el-button>
+            <div style="font-size:14px;color:#57606a">暂无数据</div>
+            <el-button style="margin-top:10px" type="primary" @click="openForm(null)">去创建</el-button>
           </div>
         </template>
       </el-table>
 
-      <!-- ④ 表格下方一行：左下明细工具栏（新增/上移下移 + 通用工具；删除由页面工具栏批量删除承载，不重复）+ 右下分页 -->
+      <!-- ④ 表格下方一行：左下明细工具栏（通用工具）+ 右下分页（默认 20 条/页） -->
       <div class="ep-bar">
         <div>
-          <el-button size="small" @click="toastMsg('原型演示：自动列宽')" title="自动列宽">⟷</el-button>
-          <el-button size="small" @click="toastMsg('原型演示：自定义列')" title="自定义列">☰</el-button>
-          <el-button size="small" @click="toastMsg('已刷新')" title="刷新">⟳</el-button>
-          <el-button size="small" @click="toastMsg('原型演示：全屏')" title="全屏">⛶</el-button>
+          <el-button size="small" @click="toast('原型演示：自动列宽')" title="自动列宽">⟷</el-button>
+          <el-button size="small" @click="toast('原型演示：自定义列')" title="自定义列">☰</el-button>
+          <el-button size="small" @click="reload" title="刷新">⟳</el-button>
+          <el-button size="small" @click="toast('原型演示：全屏')" title="全屏">⛶</el-button>
         </div>
         <el-pagination background layout="total, sizes, jumper, prev, pager, next" :total="filtered.length"
           :page-size="query.size" :current-page="query.page"
@@ -126,45 +110,10 @@
       </div>
     </div>
 
-    <!-- ⑤ 新增/编辑用户：抽屉（_布局设计-弹窗_表单编辑首选，w480） -->
-    <el-drawer v-model="edit.visible" :title="edit.title" size="480px">
-      <el-form label-position="top">
-        <el-form-item label="用户名" required><el-input v-model="edit.form.username" :disabled="!edit.isNew" placeholder="用户名"></el-input></el-form-item>
-        <el-form-item label="姓名" required><el-input v-model="edit.form.name"></el-input></el-form-item>
-        <el-form-item label="部门">
-          <el-select v-model="edit.form.dept" style="width:100%">
-            <el-option label="技术部" value="技术部"></el-option>
-            <el-option label="财务部" value="财务部"></el-option>
-            <el-option label="人事部" value="人事部"></el-option>
-          </el-select>
-        </el-form-item>
-        <el-form-item label="岗位">
-          <el-select v-model="edit.form.post" style="width:100%">
-            <el-option label="工程师" value="工程师"></el-option>
-            <el-option label="会计" value="会计"></el-option>
-            <el-option label="测试" value="测试"></el-option>
-          </el-select>
-        </el-form-item>
-        <el-form-item label="手机号"><el-input v-model="edit.form.phone" disabled></el-input><div class="proto-hint" style="line-height:1.6">脱敏展示，需 data:plain 权限码查看明文</div></el-form-item>
-        <el-form-item label="邮箱"><el-input v-model="edit.form.email"></el-input></el-form-item>
-        <el-form-item label="初始密码"><el-input v-if="edit.isNew" model-value="（系统生成）" disabled></el-input></el-form-item>
-        <el-form-item label="状态">
-          <el-select v-model="edit.form.status" style="width:100%">
-            <el-option label="启用" value="enabled"></el-option>
-            <el-option label="停用" value="disabled"></el-option>
-          </el-select>
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="edit.visible = false">取消</el-button>
-        <el-button type="primary" @click="saveUser">保存</el-button>
-      </template>
-    </el-drawer>
-
-    <!-- ⑥ 重置密码：确认类，正文说明后果、确定按钮 danger -->
+    <!-- ⑤ 重置密码：确认类，正文说明后果、确定按钮 danger；仅单行选中可用 -->
     <el-dialog v-model="pwd.visible" :title="'重置密码' + (pwd.user ? '（' + pwd.user.name + '）' : '')" width="480" align-center>
       <el-alert type="warning" :closable="false" show-icon style="margin-bottom:12px"
-        title="重置后原密码失效，用户所有会话将退出。"></el-alert>
+        title="重置后原密码失效，用户所有会话将退出（会话即时失效）。"></el-alert>
       <el-form label-position="top" @submit.prevent>
         <el-form-item label="新密码">
           <el-input v-model="pwd.newPwd" type="password" show-password placeholder="8-32 位，含字母数字"></el-input>
@@ -176,18 +125,6 @@
       <template #footer>
         <el-button @click="pwd.visible = false">取消</el-button>
         <el-button type="danger" @click="doResetPwd">确认重置</el-button>
-      </template>
-    </el-dialog>
-
-    <!-- ⑦ 角色绑定：多选角色 -->
-    <el-dialog v-model="role.visible" :title="'角色绑定' + (role.user ? '（' + role.user.name + '）' : '')" width="420" align-center>
-      <div class="proto-hint" style="margin-bottom:8px">多选角色</div>
-      <el-checkbox-group v-model="role.checked" style="display:block">
-        <el-checkbox v-for="r in allRoles" :key="r" :value="r" style="display:flex;padding:6px 0">{{ r }}</el-checkbox>
-      </el-checkbox-group>
-      <template #footer>
-        <el-button @click="role.visible = false">取消</el-button>
-        <el-button type="primary" @click="saveRole">保存</el-button>
       </template>
     </el-dialog>
   </div>
@@ -205,91 +142,75 @@
     template: document.getElementById('app').outerHTML.replace(/<div id="app">/, '<div>').replace(/<\/div>\s*$/, ''),
     setup: function () {
       var rows = ref([
-        { id: 1, username: 'zhangsan', name: '张三', dept: '技术部', post: '工程师', role: '普通角色', status: 'enabled', lastLogin: '2026-08-12 09:30', phone: '138****5678', email: 'zhangsan@example.com' },
-        { id: 2, username: 'lisi', name: '李四', dept: '财务部', post: '会计', role: '普通角色', status: 'locked', lastLogin: '2026-08-01 18:02', phone: '', email: '' },
-        { id: 3, username: 'wangwu', name: '王五', dept: '技术部', post: '测试', role: '审批角色', status: 'disabled', lastLogin: '2026-07-30 11:00', phone: '', email: '' }
+        { id: 1, username: 'admin', name: '系统管理员', status: 'enabled', lastLogin: '2026-10-09 08:12', builtin: true },
+        { id: 2, username: 'zhangsan', name: '张三', status: 'enabled', lastLogin: '2026-10-08 09:30', builtin: false },
+        { id: 3, username: 'lisi', name: '李四', status: 'disabled', lastLogin: '2026-10-01 18:02', builtin: false },
+        { id: 4, username: 'wangwu', name: '王五', status: 'enabled', lastLogin: '2026-09-30 11:00', builtin: false }
       ]);
-      var query = reactive({ kw: '', username: '', name: '', dept: '', status: '', page: 1, size: 10 });
-      var more = ref(false);
+      var query = reactive({ kw: '', status: '', page: 1, size: 20 });
       var selRows = ref([]);
-      var edit = reactive({ visible: false, title: '新建用户', isNew: true, targetId: null, form: {} });
       var pwd = reactive({ visible: false, user: null, newPwd: '', force: true });
-      var role = reactive({ visible: false, user: null, checked: [] });
-      var allRoles = ['普通角色', '审批角色', '报表查看角色'];
 
       var filtered = computed(function () {
         return rows.value.filter(function (r) {
-          var text = (r.username + r.name + (r.phone || '') + (r.email || '')).toLowerCase();
           var k = (query.kw || '').toLowerCase();
-          return (!k || text.indexOf(k) >= 0) &&
-            (!query.username || (r.username || '').indexOf(query.username) >= 0) &&
-            (!query.name || (r.name || '').indexOf(query.name) >= 0) &&
-            (!query.dept || r.dept === query.dept) &&
-            (!query.status || r.status === query.status);
+          var text = (r.username + r.name).toLowerCase();
+          return (!k || text.indexOf(k) >= 0) && (!query.status || r.status === query.status);
         });
       });
       var pageRows = computed(function () {
         var s = (query.page - 1) * query.size;
         return filtered.value.slice(s, s + query.size);
       });
-      function statusText(s) { return s === 'enabled' ? '启用' : (s === 'locked' ? '锁定' : '停用'); }
-      function applyFilter() { query.page = 1; toastMsg('命中 ' + filtered.value.length + ' 条'); }
-      function resetFilter() { query.kw = ''; query.username = ''; query.name = ''; query.dept = ''; query.status = ''; query.page = 1; }
+      function applyFilter() { query.page = 1; toast('命中 ' + filtered.value.length + ' 条'); }
+      function resetFilter() { query.kw = ''; query.status = ''; query.page = 1; }
       function onSel(sel) { selRows.value = sel; }
       function onPage(n) { query.page = n; }
       function onSize(s) { query.size = s; query.page = 1; }
+      function reload() { toast('已刷新列表（保留筛选/排序/分页）'); }
 
-      function blankForm() { return { username: '', name: '', dept: '技术部', post: '工程师', phone: '', email: '', status: 'enabled' }; }
-      function openEdit(row) {
-        edit.isNew = !row;
-        edit.title = row ? '编辑用户' : '新建用户';
-        edit.targetId = row ? row.id : null;
-        edit.form = row ? { username: row.username, name: row.name, dept: row.dept, post: row.post, phone: row.phone || '', email: row.email || '', status: row.status === 'disabled' ? 'disabled' : 'enabled' } : blankForm();
-        edit.visible = true;
-      }
-      function saveUser() {
-        if (!edit.form.username.trim() || !edit.form.name.trim()) { ElMessage.error('用户名与姓名必填'); return; }
-        if (edit.isNew) {
-          rows.value.unshift({ id: Date.now(), username: edit.form.username.trim(), name: edit.form.name.trim(), dept: edit.form.dept, post: edit.form.post, role: '未绑定', status: edit.form.status, lastLogin: '—', phone: edit.form.phone, email: edit.form.email });
-          toastMsg('用户已保存（创建发送 user.created 事件）');
+      // 状态列内联开关：停用为危险操作（二次确认；取消即回滚显示，不改数据）
+      function toggleStatus(row) {
+        if (row.status === 'enabled') {
+          ElMessageBox.confirm('停用「' + row.name + '」将立即失效该用户全部会话（踢出），确认停用？', '提示', {
+            type: 'warning', confirmButtonText: '停用', cancelButtonText: '取消', confirmButtonClass: 'el-button--danger'
+          }).then(function () {
+            row.status = 'disabled';
+            toast('已停用（会话即时失效，user.updated 已发布）');
+          }).catch(function () { /* 回滚：model-value 未变更，开关自动复位 */ });
         } else {
-          var r = rows.value.find(function (x) { return x.id === edit.targetId; });
-          if (r) Object.assign(r, { name: edit.form.name, dept: edit.form.dept, post: edit.form.post, phone: edit.form.phone, email: edit.form.email, status: edit.form.status });
-          toastMsg('用户已保存（user.updated 已发布）');
+          row.status = 'enabled';
+          toast('已启用（user.updated 已发布）');
         }
-        edit.visible = false;
       }
-      // 批量停用/启用（原行内高频动作收敛到工具栏）
       function batchToggle() {
         if (!selRows.value.length) { ElMessage.error('请先选择用户'); return; }
-        var action = '';
-        selRows.value.forEach(function (r) {
-          if (r.status === 'enabled') { r.status = 'disabled'; action = '停用'; }
-          else { r.status = 'enabled'; action = '启用'; }
-        });
-        toastMsg('已' + action + ' ' + selRows.value.length + ' 个用户');
+        if (selRows.value.some(function (r) { return r.builtin; })) { ElMessage.error('内置管理员不可停用（30009）'); return; }
+        var toDisabled = selRows.value.some(function (r) { return r.status === 'enabled'; });
+        var text = toDisabled ? '停用' : '启用';
+        ElMessageBox.confirm('确认' + text + '选中的 ' + selRows.value.length + ' 个用户？停用将即时失效其全部会话。', '提示', {
+          type: 'warning', confirmButtonText: text, cancelButtonText: '取消'
+        }).then(function () {
+          selRows.value.forEach(function (r) { r.status = toDisabled ? 'disabled' : 'enabled'; });
+          selRows.value = [];
+          toast('已批量' + text + '（user.updated 已发布）');
+        }).catch(function () {});
       }
       function delSel() {
         if (!selRows.value.length) { ElMessage.error('请先选择用户'); return; }
-        if (rows.value.length - selRows.value.length < 1) { ElMessage.error('至少保留一行'); return; }
-        ElMessageBox.confirm('确认删除选中用户（软删除，进回收站）？', '提示', { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' }).then(function () {
+        if (selRows.value.some(function (r) { return r.builtin; })) { ElMessage.error('内置管理员不可删除（30009）'); return; }
+        ElMessageBox.confirm('确认删除选中的 ' + selRows.value.length + ' 个用户？软删除（deleted_at），删除后用户名可复用。', '提示', {
+          type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消', confirmButtonClass: 'el-button--danger'
+        }).then(function () {
           var ids = selRows.value.map(function (r) { return r.id; });
           rows.value = rows.value.filter(function (r) { return ids.indexOf(r.id) < 0; });
           selRows.value = [];
-          toastMsg('已删除（软删除，进回收站）');
+          toast('已删除（软删除，user.deleted 已发布）');
         }).catch(function () {});
       }
-      // 明细工具栏行操作：上移下移选中行（多选时取第一行）
-      function moveRow(dir) {
-        if (!selRows.value.length) { ElMessage.error('请先选择一行'); return; }
-        var r = selRows.value[0];
-        var i = rows.value.indexOf(r), t = i + dir;
-        if (t < 0 || t >= rows.value.length) { ElMessage.error(dir < 0 ? '已是第一行' : '已是最后一行'); return; }
-        var tmp = rows.value[i]; rows.value[i] = rows.value[t]; rows.value[t] = tmp;
-        toastMsg('行顺序已调整');
-      }
       function openPwd() {
-        pwd.user = selRows.value[0] || null;
+        if (selRows.value.length !== 1) { ElMessage.error('请选择一行（重置密码不支持批量）'); return; }
+        pwd.user = selRows.value[0];
         pwd.newPwd = '';
         pwd.force = true;
         pwd.visible = true;
@@ -299,28 +220,22 @@
         if (!p) { ElMessage.error('请输入新密码'); return; }
         if (!(p.length >= 8 && p.length <= 32 && /[A-Za-z]/.test(p) && /\d/.test(p))) { ElMessage.error('密码复杂度不满足（8-32 位，含字母数字）'); return; }
         pwd.visible = false;
-        toastMsg('密码已重置' + (pwd.force ? '（强制下次改密）' : ''));
+        toast('密码已重置（写密码历史，近 5 次不可重复；全部会话已失效' + (pwd.force ? '；强制下次登录改密' : '') + '）');
       }
-      function openRole() {
-        role.user = selRows.value[0] || null;
-        role.checked = role.user && role.user.role && role.user.role !== '未绑定' ? [role.user.role] : ['普通角色'];
-        role.visible = true;
-      }
-      function saveRole() {
-        role.visible = false;
-        if (role.user) role.user.role = role.checked.join('、') || '未绑定';
-        toastMsg('角色绑定已保存（权限版本 +1）');
-      }
-      // 双击行打开用户表单页（embed 时回退父框架 / 独立跳转）
+      // 双击行 / 新增：打开用户记录 Tab（列表页无操作列，交互见《布局设计 · 表单框架》）
       function openForm(row) {
+        var url = '03_用户表单页.html' + (row ? '?id=' + row.id + '&name=' + encodeURIComponent(row.name) : '?new=1');
         if (location.search.indexOf('embed=1') >= 0) {
-          try { parent.openDetail('用户列表', row.id, row.name); return; } catch (e) {}
-          try { parent.openTab('用户表单', '../08_用户管理/03_用户表单页.html'); return; } catch (e) {}
+          try { parent.openDetail('用户记录', row ? row.name : '新建用户', row ? row.name : ''); return; } catch (e) {}
+          try { parent.openTab('用户表单', '../08_用户管理/' + url); return; } catch (e) {}
         }
-        location.href = '03_用户表单页.html?id=' + row.id + '&name=' + encodeURIComponent(row.name);
+        if (row) { toast('打开用户记录：' + row.name); location.href = url; return; }
+        toast('新建用户（打开空白记录 Tab，直接进入编辑态）');
+        location.href = url;
       }
-      function toastMsg(m) { ElMessage({ message: m, type: 'success' }); }
-      return { rows, query, more, selRows, edit, pwd, role, allRoles, filtered, pageRows, statusText, applyFilter, resetFilter, onSel, onPage, onSize, openEdit, saveUser, batchToggle, delSel, moveRow, openPwd, doResetPwd, openRole, saveRole, openForm, toastMsg };
+      function closePage() { toast('关闭用户管理模块页（返回）'); }
+      function toast(m, type) { ElMessage({ message: m, type: type || 'success' }); }
+      return { rows, query, selRows, filtered, pageRows, applyFilter, resetFilter, onSel, onPage, onSize, reload, toggleStatus, batchToggle, delSel, pwd, openPwd, doResetPwd, openForm, closePage, toast };
     }
   });
   app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });

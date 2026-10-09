@@ -19,73 +19,125 @@
 
 <div class="proto-bar">
   <span class="pb-crumb"><a href="01_设计说明.html">← 返回设计说明</a></span>
-  <span class="pb-name">用户管理 · 账号锁定</span>
+  <span class="pb-name">用户管理 · 账号锁定（表单框架 · 列表 Tab）</span>
 </div>
 
 <div class="proto-frame">
+  <div class="proto-note">
+    本页为「账号锁定」表单框架的<b>列表 Tab</b>（固定页签，不可关闭）；双击数据行打开<b>账号锁定记录 Tab</b>。
+    锁定记录归 platform 服务租户库（<code>sys_account_lock</code>）：<b>失败超限</b>（登录失败触发，到期自动解锁）·
+    <b>长期未登录</b>（任务写入，须手动解锁）· <b>手动</b>（管理员锁定，须手动解锁）。本页提供锁定列表与<b>手动锁定 / 手动解锁</b>；
+    解锁落 <code>unlock_at / unlock_by</code> 并写操作日志与审计。
+  </div>
+
   <div id="app">
     <div class="ep-page">
-      <!-- ① 工具栏：解锁（批量，勾选行后才可用）+ 刷新/关闭 + 导出 -->
+      <!-- ① 工具栏：手动锁定（primary，等同本页「新增」）+ 解锁（批量，勾选行后才可用）+ 刷新/关闭 + 导出 -->
       <div class="ep-toolbar">
-        <el-button type="primary" :disabled="!selRows.length" @click="batchUnlock">解锁</el-button>
-        <el-button @click="toastMsg('已刷新')">刷新</el-button>
-        <el-button @click="toastMsg('原型演示：关闭当前模块页面（返回）')">关闭</el-button>
+        <el-button type="primary" @click="openLockDlg">手动锁定</el-button>
+        <el-button :disabled="!selRows.length" @click="batchUnlock">解锁</el-button>
+        <el-button @click="reload">刷新</el-button>
+        <el-button @click="closePage">关闭</el-button>
         <span class="ep-side">
-          <el-button @click="toastMsg('原型演示：导出当前筛选结果')">导出</el-button>
-          <span class="proto-hint" style="margin-left:10px">双击行打开账号锁定表单页</span>
+          <el-button @click="toast('导出当前筛选结果（受 export:download 权限约束）')">导出</el-button>
         </span>
       </div>
 
-      <!-- ② 筛选区：label 上方，一行最多 3 个条件，查询/重置/展开在条件第一行行末 -->
+      <!-- ② 筛选区：关键字框 240px 起 + 锁定类型 + 解锁状态；查询/重置在条件行末 -->
       <el-form class="ep-filter" label-position="top" @submit.prevent>
         <el-row :gutter="16">
           <el-col :span="8">
             <el-form-item label="关键字">
-              <el-input v-model="query.kw" placeholder="关键字：用户名" clearable style="width:100%"></el-input>
+              <el-input v-model="query.kw" placeholder="关键字：用户名" clearable style="width:240px"></el-input>
             </el-form-item>
           </el-col>
           <el-col :span="8">
-            <el-form-item style="margin-top:30px">
+            <el-form-item label="锁定类型">
+              <el-select v-model="query.type" placeholder="全部" clearable style="width:100%">
+                <el-option label="登录失败超限" value="fail_limit"></el-option>
+                <el-option label="长期未登录" value="inactive"></el-option>
+                <el-option label="手动锁定" value="manual"></el-option>
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item label="解锁状态">
+              <el-select v-model="query.unlocked" placeholder="全部" clearable style="width:100%">
+                <el-option label="未解锁" value="open"></el-option>
+                <el-option label="已解锁" value="done"></el-option>
+              </el-select>
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-row :gutter="16">
+          <el-col :span="8">
+            <el-form-item>
               <el-button type="primary" @click="applyFilter">查询</el-button>
               <el-button @click="resetFilter">重置</el-button>
-              <el-button link type="primary" @click="more = !more">{{ more ? '收起 ▴' : '展开 ▾' }}</el-button>
             </el-form-item>
           </el-col>
         </el-row>
       </el-form>
 
-      <!-- ③ 表格：多选 + 锁定类型 tag；双击行解锁 -->
+      <!-- ③ 表格：多选 + 锁定类型 / 解锁状态 tag（无操作列）；双击行打开账号锁定记录 Tab -->
       <el-table :data="pageRows" border stripe @selection-change="onSel" @row-dblclick="openDetail" style="width:100%">
-        <el-table-column type="selection" width="48"></el-table-column>
-        <el-table-column prop="username" label="用户名" min-width="120"></el-table-column>
-        <el-table-column label="锁定类型" width="130">
+        <el-table-column type="selection" width="48" :selectable="rowSelectable"></el-table-column>
+        <el-table-column prop="username" label="用户名" min-width="130"></el-table-column>
+        <el-table-column prop="name" label="姓名" min-width="120"></el-table-column>
+        <el-table-column label="锁定类型" width="140">
           <template #default="{ row }">
-            <el-tag :type="tagType(row.type)" effect="plain">{{ row.type }}</el-tag>
+            <el-tag :type="tagType(row.type)" effect="plain">{{ typeText(row.type) }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="lockTime" label="锁定时间" width="170"></el-table-column>
-        <el-table-column prop="unlockTime" label="自动解锁时间" min-width="160"></el-table-column>
+        <el-table-column prop="autoUnlockTime" label="自动解锁时间" min-width="170"></el-table-column>
+        <el-table-column label="解锁状态" width="150">
+          <template #default="{ row }">
+            <el-tag v-if="row.unlocked" type="success" effect="plain">已解锁（{{ row.unlockedBy }}）</el-tag>
+            <el-tag v-else type="danger" effect="plain">未解锁</el-tag>
+          </template>
+        </el-table-column>
         <template #empty>
           <div>
-            <div style="font-size:14px;color:#57606a">未找到相关内容</div>
-            <el-button style="margin-top:10px" @click="resetFilter">重置</el-button>
+            <div style="font-size:14px;color:#57606a">暂无数据</div>
+            <el-button style="margin-top:10px" @click="resetFilter">重置筛选</el-button>
           </div>
         </template>
       </el-table>
 
-      <!-- ④ 表格下方一行：左下明细工具栏（无新增/上下移语义：删除演示 + 通用工具）+ 右下分页 -->
+      <!-- ④ 表格下方一行：左下明细工具栏（通用工具）+ 右下分页（默认 20 条/页） -->
       <div class="ep-bar">
         <div>
-          <el-button size="small" @click="toastMsg('原型演示：自动列宽')" title="自动列宽">⟷</el-button>
-          <el-button size="small" @click="toastMsg('原型演示：自定义列')" title="自定义列">☰</el-button>
-          <el-button size="small" @click="toastMsg('已刷新')" title="刷新">⟳</el-button>
-          <el-button size="small" @click="toastMsg('原型演示：全屏')" title="全屏">⛶</el-button>
+          <el-button size="small" @click="toast('原型演示：自动列宽')" title="自动列宽">⟷</el-button>
+          <el-button size="small" @click="toast('原型演示：自定义列')" title="自定义列">☰</el-button>
+          <el-button size="small" @click="reload" title="刷新">⟳</el-button>
+          <el-button size="small" @click="toast('原型演示：全屏')" title="全屏">⛶</el-button>
         </div>
         <el-pagination background layout="total, sizes, jumper, prev, pager, next" :total="filtered.length"
           :page-size="query.size" :current-page="query.page"
           @current-change="onPage" @size-change="onSize"></el-pagination>
       </div>
     </div>
+
+    <!-- ⑤ 手动锁定：选择用户 + 锁定原因（必填）；确认类，确定按钮 danger -->
+    <el-dialog v-model="lockDlg.visible" title="手动锁定账号" width="480" align-center>
+      <el-alert type="warning" :closable="false" show-icon style="margin-bottom:12px"
+        title="手动锁定为无期限锁定（manual 型），须手动解锁；锁定后该用户无法登录。"></el-alert>
+      <el-form label-position="top" @submit.prevent>
+        <el-form-item label="用户" required>
+          <el-select v-model="lockDlg.username" filterable placeholder="选择用户" style="width:100%">
+            <el-option v-for="u in lockCandidates" :key="u.username" :label="u.name + '（' + u.username + '）'" :value="u.username"></el-option>
+          </el-select>
+        </el-form-item>
+        <el-form-item label="锁定原因" required>
+          <el-input v-model="lockDlg.reason" type="textarea" :rows="3" placeholder="请填写锁定原因（写入锁定记录并落审计）"></el-input>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="lockDlg.visible = false">取消</el-button>
+        <el-button type="danger" @click="doLock">确认锁定</el-button>
+      </template>
+    </el-dialog>
   </div>
 </div>
 
@@ -97,83 +149,92 @@
   var { createApp, ref, reactive, computed } = Vue;
   var ElMessage = ElementPlus.ElMessage;
   var ElMessageBox = ElementPlus.ElMessageBox;
+  var TYPES = {
+    fail_limit: { text: '登录失败超限', tag: 'warning' },
+    inactive: { text: '长期未登录', tag: 'danger' },
+    manual: { text: '手动锁定', tag: 'info' }
+  };
   var app = createApp({
     template: document.getElementById('app').outerHTML.replace(/<div id="app">/, '<div>').replace(/<\/div>\s*$/, ''),
     setup: function () {
       var rows = ref([
-        { id: 1, username: 'lisi', type: '失败超限', lockTime: '2026-08-01 18:02', unlockTime: '2026-08-01 18:17' },
-        { id: 2, username: 'wangwu', type: '手动', lockTime: '2026-08-05 10:00', unlockTime: '—' },
-        { id: 3, username: 'zhaoliu', type: '长期未登录', lockTime: '2026-08-10 00:00', unlockTime: '—（需手动解锁）' }
+        { id: 1, username: 'lisi', name: '李四', type: 'fail_limit', lockTime: '2026-10-08 18:02', autoUnlockTime: '2026-10-08 18:17', unlocked: false, unlockedBy: '' },
+        { id: 2, username: 'wangwu', name: '王五', type: 'manual', lockTime: '2026-10-05 10:00', autoUnlockTime: '—', unlocked: false, unlockedBy: '' },
+        { id: 3, username: 'zhaoliu', name: '赵六', type: 'inactive', lockTime: '2026-10-01 00:00', autoUnlockTime: '—（须手动解锁）', unlocked: false, unlockedBy: '' },
+        { id: 4, username: 'qianqi', name: '钱七', type: 'fail_limit', lockTime: '2026-09-28 09:10', autoUnlockTime: '2026-09-28 09:25', unlocked: true, unlockedBy: 'admin' }
       ]);
-      var query = reactive({ kw: '', page: 1, size: 10 });
-      var more = ref(false);
+      var query = reactive({ kw: '', type: '', unlocked: '', page: 1, size: 20 });
       var selRows = ref([]);
+      var lockDlg = reactive({ visible: false, username: '', reason: '' });
+      var lockCandidates = [
+        { username: 'zhangsan', name: '张三' }, { username: 'qianqi', name: '钱七' }
+      ];
+
       var filtered = computed(function () {
         return rows.value.filter(function (r) {
           var k = (query.kw || '').toLowerCase();
-          return !k || (r.username || '').toLowerCase().indexOf(k) >= 0;
+          var hitKw = !k || (r.username + r.name).toLowerCase().indexOf(k) >= 0;
+          var hitType = !query.type || r.type === query.type;
+          var hitUnlock = !query.unlocked || (query.unlocked === 'done' ? r.unlocked : !r.unlocked);
+          return hitKw && hitType && hitUnlock;
         });
       });
       var pageRows = computed(function () {
         var s = (query.page - 1) * query.size;
         return filtered.value.slice(s, s + query.size);
       });
-      function tagType(t) {
-        if (t === '失败超限') return 'warning';
-        if (t === '长期未登录') return 'danger';
-        return 'info';
-      }
-      function applyFilter() { query.page = 1; toastMsg('命中 ' + filtered.value.length + ' 条'); }
-      function resetFilter() { query.kw = ''; query.page = 1; }
+      function typeText(t) { return TYPES[t] ? TYPES[t].text : t; }
+      function tagType(t) { return TYPES[t] ? TYPES[t].tag : 'info'; }
+      function rowSelectable(row) { return !row.unlocked; }
+      function applyFilter() { query.page = 1; toast('命中 ' + filtered.value.length + ' 条'); }
+      function resetFilter() { query.kw = ''; query.type = ''; query.unlocked = ''; query.page = 1; }
       function onSel(sel) { selRows.value = sel; }
       function onPage(n) { query.page = n; }
       function onSize(s) { query.size = s; query.page = 1; }
-      // 批量解锁（行内高频动作收敛到工具栏）
-      function batchUnlock() {
-        if (!selRows.value.length) { ElMessage.error('请先选择用户'); return; }
-        ElMessageBox.confirm('确认解锁选中 ' + selRows.value.length + ' 个账号？解锁记录将写入 sys_account_lock 并落操作日志与审计。', '提示', { type: 'warning', confirmButtonText: '解锁', cancelButtonText: '取消' })
-          .then(function () {
-            var ids = selRows.value.map(function (r) { return r.id; });
-            rows.value = rows.value.filter(function (r) { return ids.indexOf(r.id) < 0; });
-            selRows.value = [];
-            toastMsg('已解锁 ' + ids.length + ' 个账号（解锁记录审计）');
-          })
-          .catch(function () {});
+      function reload() { toast('已刷新列表（保留筛选/排序/分页）'); }
+      function toast(m, type) { ElMessage({ message: m, type: type || 'success' }); }
+
+      // 手动锁定：写 manual 型锁定记录（无期限，须手动解锁）
+      function openLockDlg() { lockDlg.username = ''; lockDlg.reason = ''; lockDlg.visible = true; }
+      function doLock() {
+        if (!lockDlg.username) { ElMessage.error('请选择用户'); return; }
+        if (!lockDlg.reason.trim()) { ElMessage.error('请填写锁定原因'); return; }
+        var u = lockCandidates.filter(function (x) { return x.username === lockDlg.username; })[0] || { name: lockDlg.username };
+        rows.value.unshift({
+          id: Date.now(), username: lockDlg.username, name: u.name, type: 'manual',
+          lockTime: '2026-10-09 09:00', autoUnlockTime: '—', unlocked: false, unlockedBy: ''
+        });
+        lockDlg.visible = false;
+        toast('已手动锁定（manual 型，写锁定记录并落操作日志与审计）');
       }
-      // 双击行打开账号锁定表单页（embed 时三级回退：父框架详情 Tab → 父框架新 Tab → 独立跳转；非 embed 保留原解锁弹窗）
+
+      // 手动解锁（批量）：记录 unlock_by / unlock_at，写 sys_account_lock，落审计
+      function batchUnlock() {
+        var targets = selRows.value.filter(function (r) { return !r.unlocked; });
+        if (!targets.length) { ElMessage.error('请选择未解锁的锁定记录'); return; }
+        ElMessageBox.confirm('确认解锁选中的 ' + targets.length + ' 个账号？解锁记录将写入 sys_account_lock（unlock_by / unlock_at）并落操作日志与审计。', '提示', {
+          type: 'warning', confirmButtonText: '解锁', cancelButtonText: '取消'
+        }).then(function () {
+          targets.forEach(function (r) { r.unlocked = true; r.unlockedBy = 'admin'; });
+          selRows.value = [];
+          toast('已解锁 ' + targets.length + ' 个账号（解锁记录审计）');
+        }).catch(function () {});
+      }
+
+      // 双击行打开账号锁定记录 Tab（embed 时回退父框架 / 独立跳转）
       function openDetail(row) {
+        var url = '05_账号锁定表单页.html?id=' + row.id + '&username=' + encodeURIComponent(row.username)
+          + '&name=' + encodeURIComponent(row.name) + '&type=' + row.type;
         if (location.search.indexOf('embed=1') >= 0) {
           try { parent.openDetail('账号锁定', row.username, row.username); return; } catch (e) {}
-          try { parent.openTab('账号锁定表单', '../08_用户管理/05_账号锁定表单页.html'); return; } catch (e) {}
-          location.href = '../08_用户管理/05_账号锁定表单页.html?id=' + row.username + '&name=' + encodeURIComponent(row.username);
-          return;
+          try { parent.openTab('账号锁定表单', '../08_用户管理/' + url); return; } catch (e) {}
         }
-        unlockRow(row);
+        toast('打开账号锁定记录：' + row.username);
+        location.href = url;
       }
-      // 双击行解锁
-      function unlockRow(row) {
-        ElMessageBox.confirm('手动解锁「' + row.username + '」？解锁记录将写入 sys_account_lock 并落操作日志与审计。', '提示', { type: 'warning', confirmButtonText: '解锁', cancelButtonText: '取消' })
-          .then(function () {
-            rows.value = rows.value.filter(function (r) { return r.id !== row.id; });
-            toastMsg('已解锁（解锁记录审计）');
-          })
-          .catch(function () {});
-      }
-      // 明细工具栏行操作：删除选中锁定记录（二次确认，仅演示）
-      function delSel() {
-        if (!selRows.value.length) { ElMessage.error('请先选择一行'); return; }
-        if (rows.value.length - selRows.value.length < 1) { ElMessage.error('至少保留一行'); return; }
-        ElMessageBox.confirm('确认删除选中 ' + selRows.value.length + ' 条锁定记录？（原型演示，仅移除列表行）', '提示', { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' })
-          .then(function () {
-            var ids = selRows.value.map(function (r) { return r.id; });
-            rows.value = rows.value.filter(function (r) { return ids.indexOf(r.id) < 0; });
-            selRows.value = [];
-            toastMsg('已删除 ' + ids.length + ' 条（演示）');
-          })
-          .catch(function () {});
-      }
-      function toastMsg(m) { ElMessage({ message: m, type: 'success' }); }
-      return { rows, query, more, selRows, filtered, pageRows, tagType, applyFilter, resetFilter, onSel, onPage, onSize, batchUnlock, openDetail, unlockRow, delSel, toastMsg };
+      function closePage() { toast('关闭账号锁定模块页（返回）'); }
+
+      return { rows, query, selRows, lockDlg, lockCandidates, filtered, pageRows, typeText, tagType, rowSelectable, applyFilter, resetFilter, onSel, onPage, onSize, reload, openLockDlg, doLock, batchUnlock, openDetail, closePage, toast };
     }
   });
   app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
