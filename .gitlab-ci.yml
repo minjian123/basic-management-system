@@ -861,8 +861,13 @@ e2e-playwright:
 .integration-base: &integration-base
   stage: verify
   image: $REGISTRY_IMAGE_PREFIX/ci-backend:py314
+  # Redis 基础能力（03_04）：集成档注入 Redis service，使 Redis 集成用例由 skip 转执行
+  services:
+    - name: redis:8
+      alias: redis
   variables:
     BMS_ENV: test
+    BMS_TEST_REDIS_URL: redis://redis:6379/0
   rules:
     # 重验证层分档开关：deploy/ci/verify/db（P4，2026-09-22 激活）
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
