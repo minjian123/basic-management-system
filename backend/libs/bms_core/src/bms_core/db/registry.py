@@ -4,7 +4,9 @@
 - 读写角色：写路径返回主引擎；`read_only=True` 经工厂取副本（轮询 / 回退主），
   注册表仍按 `db_key` 跟踪使用时间与逐出（一次释放该库主 + 副本引擎）。
 - 并发保护：创建窗口「进程内 `asyncio.Lock` + 跨实例分布式锁」双重互斥（锁经分布式锁
-  能力域，缺省 null 实现不连 Redis）；创建失败快速失败。
+  能力域，缺省 null 实现不连 Redis）；**SQLite（dev 单机文件 / 内存库）免跨实例锁**
+  （无跨实例并发建引擎 / 建表场景；且 dev 建表引导早于插件装配，取 Redis 锁必因共享客户端
+  未登记而失败，2026-10-09 契约冒烟门禁暴露）；创建失败快速失败。
 - 连接预算：`pool_budget_rows`（**按服务 × 库类别**核算内核）+ `pool_budget_warnings` /
   `tenant_pool_budget_warnings`（启动期告警；离线核对见 `ops/check_budget.py`）。
 - 同步方言（达梦）：`get_sync` 提供同步引擎取用，与异步路径同一套清扫 / 记账 / 逐出口径，
@@ -19,6 +21,7 @@ from dataclasses import dataclass
 from typing import cast
 
 from sqlalchemy import Engine
+from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from bms_core.core.capability import BaseAsyncResource
@@ -36,6 +39,18 @@ from bms_core.services.module_registry import enabled_service_keys
 _MAX_ACTIVE_DEFAULT = 32
 _IDLE_TIMEOUT_DEFAULT = 1800.0
 _CONNECTION_BUDGET_RATIO = 0.7
+
+
+def _is_sqlite_url(url: str) -> bool:
+    """连接串是否 SQLite 方言（dev 单机文件库 / 内存库）。
+
+    Args:
+        url: 数据库连接串。
+
+    Returns:
+        bool: SQLite True。
+    """
+    return make_url(url).get_backend_name() == "sqlite"
 
 
 def _db_kind(db_key: str) -> str | None:
@@ -259,12 +274,19 @@ class EngineRegistry(BaseAsyncResource):
 
     @asynccontextmanager
     async def _cross_instance_guard(self, db_key: str) -> AsyncGenerator[None]:
-        """跨实例创建锁（分布式锁缺省 null 实现时为空操作）。
+        """跨实例创建锁（分布式锁缺省 null 实现 / SQLite 数据源时为空操作）。
+
+        豁免 SQLite（dev 单机文件库 / 内存库）的两条理由：
+
+        - **语义**：跨实例锁防的是多实例并发建引擎 / 建表，SQLite 单机文件库不存在该场景；
+        - **启动**：dev 建表引导（`ensure_development_schema`）早于插件装配（`assemble_plugins`），
+          彼时共享 Redis 客户端尚未登记，取锁必然失败（2026-10-09 契约冒烟门禁暴露：
+          platform / identity / tenant 冒烟容器启动即退）。
 
         Raises:
             ConcurrentConflictError: 锁未取到（不等待）。
         """
-        if self._lock is None:
+        if self._lock is None or _is_sqlite_url(self._factory.resolve_url(db_key)):
             yield
             return
         async with self._lock.hold(self.redis_lock_key(db_key), ttl=DEFAULT_LOCK_TTL, wait=0):

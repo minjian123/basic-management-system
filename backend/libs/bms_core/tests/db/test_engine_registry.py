@@ -11,11 +11,11 @@ from bms_core.lock.base import DEFAULT_LOCK_TTL, DEFAULT_WAIT, BaseDistributedLo
 from bms_core.services.module_registry import enabled_service_keys
 
 
-def _factory() -> EngineFactory:
-    """构造 SQLite 内存引擎工厂。"""
+def _factory(url: str = "sqlite+aiosqlite:///:memory:") -> EngineFactory:
+    """构造引擎工厂（缺省 SQLite 内存库；跨实例锁用例传真库方言连接串，不建连）。"""
     settings = Settings()
-    settings.database.platform.url = "sqlite+aiosqlite:///:memory:"
-    settings.database.tenants.url = "sqlite+aiosqlite:///:memory:"
+    settings.database.platform.url = url
+    settings.database.tenants.url = url
     return EngineFactory(settings)
 
 
@@ -86,14 +86,26 @@ async def test_release_and_lock_reuse() -> None:
 
 @pytest.mark.kiwi_id(1019)
 async def test_cross_instance_lock_used_on_creation() -> None:
-    """引擎创建窗口经跨实例锁（分布式锁基座）；锁键按库键构造。"""
+    """引擎创建窗口经跨实例锁（分布式锁基座）；锁键按库键构造（真库方言；SQLite 豁免见下例）。"""
     lock = _RecordingLock()
-    registry = EngineRegistry(_factory(), lock=lock)
+    registry = EngineRegistry(_factory("postgresql+psycopg://bms:bms@localhost:5432/bms"), lock=lock)
     platform = await registry.get(PLATFORM_DB_KEY)
     assert await registry.get(PLATFORM_DB_KEY) is platform
     await registry.get("tenant_a")
     assert lock.acquired == ["bms:global:lock:engine:platform", "bms:global:lock:engine:tenant_a"]
     assert lock.released == lock.acquired
+    await registry.aclose()
+
+
+@pytest.mark.kiwi_id(1019)
+async def test_sqlite_creation_skips_cross_instance_lock() -> None:
+    """SQLite（dev 单机文件 / 内存库）免跨实例锁：无跨实例并发建表场景，且避免装配前取 Redis 锁。"""
+    lock = _RecordingLock()
+    registry = EngineRegistry(_factory(), lock=lock)
+    await registry.get(PLATFORM_DB_KEY)
+    await registry.get("tenant_a")
+    assert lock.acquired == []
+    assert lock.released == []
     await registry.aclose()
 
 
