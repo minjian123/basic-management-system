@@ -89,9 +89,16 @@ async def test_load_deserialization_edges() -> None:
 
 
 @pytest.mark.kiwi_id(2173)
-async def test_unavailable_degrades() -> None:
-    """Redis 不可用：放行（唯一约束兜底）、结果不缓存，不抛错。"""
+async def test_unavailable_fails_closed() -> None:
+    """Redis 不可用：fail-closed（抛 `RedisUnavailableError` 10012 / 503），不静默放行（03_04）。"""
+    from bms_core.core.exceptions import RedisUnavailableError
+
     store = RedisIdempotencyStore(_REDIS_URL, client=cast("Redis", _BrokenClient()))
-    assert await store.begin("bms:global:idem:k") is True
-    assert await store.load("bms:global:idem:k") is None
-    await store.save("bms:global:idem:k", {"ok": True})  # 不抛错
+    with pytest.raises(RedisUnavailableError) as exc_info:
+        await store.begin("bms:global:idem:k")
+    assert exc_info.value.code == 10012
+    assert exc_info.value.http_status == 503
+    with pytest.raises(RedisUnavailableError):
+        await store.load("bms:global:idem:k")
+    with pytest.raises(RedisUnavailableError):
+        await store.save("bms:global:idem:k", {"ok": True})

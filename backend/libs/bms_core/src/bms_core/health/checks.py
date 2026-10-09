@@ -1,7 +1,7 @@
 """健康检查能力域：真实依赖检查项（03-3）。
 
-- `RedisHealthCheck`：`redis` 检查项——懒建 `redis.asyncio` 客户端并 `PING`；实现 `BaseAsyncResource`，
-  经 `ResourceManager` 随应用生命周期统一释放（连接跨探测复用，不做每次新建）。
+- `RedisHealthCheck`：`redis` 检查项——**经统一 Redis 客户端能力域（`bms_core.redis`）`ping`**
+  （连接池由该能力域统一持有与释放）；未启用（`provider=null`）时抛 `RedisUnavailableError` → 503。
 - `DatabaseHealthCheck`：`database` 检查项——经 `EngineRegistry` 取平台引擎（本服务平台库）执行 `SELECT 1`。
 - `CatalogHealthCheck`：`catalog` 检查项——服务目录快照可达性（`platform` 本地权威 / 其余服务经契约）；
   **非必需项**（`required=False`）：失败只标记降级可见，不产生 503（06_01）。
@@ -26,14 +26,15 @@ CATALOG_CHECK_KEY = "catalog"
 class RedisHealthCheck(BaseHealthCheck, BaseAsyncResource):
     """`redis` 检查项：客户端 `PING`，连接对象随应用生命周期释放。"""
 
-    def __init__(self, url: str) -> None:
+    def __init__(self, url: str, *, client: Redis | None = None) -> None:
         """初始化。
 
         Args:
-            url: Redis 连接串（装配侧取 `settings.redis.url`，含 `BMS_` 覆盖后的生效值）。
+            url: Redis 连接串（保留兼容；连接参数统一取 `[redis]` 与共享客户端）。
+            client: 注入的异步客户端（测试用）；None 则取进程共享客户端。
         """
         self._url = url
-        self._client: Redis | None = None
+        self._client: Redis | None = client
 
     @property
     def key(self) -> str:
@@ -54,18 +55,20 @@ class RedisHealthCheck(BaseHealthCheck, BaseAsyncResource):
         Returns:
             HealthCheckResult: 就绪结果；异常由聚合层兜底为异常类名。
         """
-        client = self._client
-        if client is None:
-            client = Redis.from_url(self._url)  # pyright: ignore[reportUnknownMemberType]
-            self._client = client
-        await client.ping()  # pyright: ignore[reportUnknownMemberType]
+        injected = self._client
+        if injected is not None:
+            await injected.ping()  # pyright: ignore[reportUnknownMemberType]
+            return HealthCheckResult(name=self.key, ok=True)
+        from bms_core.redis.base import shared_redis_client
+
+        await shared_redis_client().ping()
         return HealthCheckResult(name=self.key, ok=True)
 
     async def aclose(self) -> None:
-        """关闭 Redis 客户端（幂等，随应用生命周期调用）。"""
+        """关闭注入的 Redis 客户端（幂等；共享客户端由能力域统一释放）。"""
         client, self._client = self._client, None
         if client is not None:
-            await client.aclose()
+            await client.aclose()  # pyright: ignore[reportUnknownMemberType]
 
 
 class DatabaseHealthCheck(BaseHealthCheck):

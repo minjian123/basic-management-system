@@ -3,8 +3,10 @@
 - `applied_version` / `mark_applied`：键 `bms:{租户|global}:consistency:{scope}` 存整数版本；
   `mark_applied` 经 Lua 脚本**单调前推**（`max(旧值, 新值)`），防乱序消费回退。
 - `await_applied`：有界轮询至「已应用版本 ≥ 目标版本」；超时抛 `ConsistencyBarrierTimeout`（`10011` / 409）。
-- **降级口径**：Redis 不可用（连接 / 命令异常）时 `await_applied` **放行**（degrade-open）、
-  `mark_applied` 忽略并记 warning——屏障自身不做单点（与幂等域同口径）。
+- **客户端**：统一取进程共享客户端（`bms_core.redis`；禁止各自 `from_url`）。
+- **不可用口径（fail-closed，03_04 / 需求 03-5）**：Redis 不可用（未启用 / 连接 / 命令异常）时
+  **抛 `RedisUnavailableError`（`10012` / 503）**，**不再放行（degrade-open 作废）**——
+  宁可明确报错可重试，也不静默按旧值 / 半套状态放行。
 """
 
 import asyncio
@@ -18,7 +20,7 @@ from bms_core.consistency.base import (
     BaseConsistencyBarrier,
     build_consistency_key,
 )
-from bms_core.core.exceptions import ConsistencyBarrierTimeout
+from bms_core.core.exceptions import ConsistencyBarrierTimeout, RedisUnavailableError
 from bms_core.core.logging import get_logger
 
 __all__ = ["RedisConsistencyBarrier"]
@@ -51,30 +53,49 @@ class RedisConsistencyBarrier(BaseConsistencyBarrier):
 
         Args:
             url: Redis 连接串。
-            client: 注入的 Redis 客户端（测试用）；None 则按 url 新建。
+            client: 注入的 Redis 客户端（测试用）；None 则取进程共享客户端。
             default_timeout_ms: 默认等待超时（毫秒）。
             default_poll_ms: 默认轮询间隔（毫秒）。
         """
-        self._client = (
-            client if client is not None else Redis.from_url(url, decode_responses=True)  # pyright: ignore[reportUnknownMemberType]
-        )
+        self._client = client
         self._timeout_ms = default_timeout_ms
         self._poll_ms = max(1, default_poll_ms)
 
-    async def _read(self, key: str) -> int | None:
-        """读键值（不可用返回 None，与「版本 0」区分）。
+    @property
+    def client(self) -> Redis:
+        """取异步客户端（显式注入优先，否则取进程共享客户端）。
+
+        Returns:
+            Redis: 异步客户端实例。
+
+        Raises:
+            RedisUnavailableError: Redis 未启用 / 不可用（fail-closed）。
+        """
+        if self._client is None:
+            from bms_core.redis.base import shared_async_client
+
+            self._client = shared_async_client()
+        return self._client
+
+    async def _read(self, key: str) -> int:
+        """读键值（不可用即报错，不返回「伪 0」）。
 
         Args:
             key: 一致性屏障键。
 
         Returns:
-            int | None: 已应用版本；无记录为 0；存储不可用为 None。
+            int: 已应用版本；无记录为 0。
+
+        Raises:
+            RedisUnavailableError: Redis 不可用（fail-closed）。
         """
         try:
-            raw = await self._client.get(key)
-        except Exception as exc:  # Redis 不可用：交由调用方决定放行 / 忽略
-            _LOGGER.warning("consistency_barrier_redis_unavailable", op="read", error=repr(exc))
-            return None
+            raw = await self.client.get(key)
+        except RedisUnavailableError:
+            raise
+        except Exception as exc:  # Redis 不可用：fail-closed（不放行）
+            _LOGGER.warning("redis_unavailable", op="consistency_barrier_read", error=repr(exc))
+            raise RedisUnavailableError("一致性屏障读取失败：Redis 不可用", data={"op": "read"}) from exc
         if raw is None:
             return 0
         try:
@@ -83,31 +104,39 @@ class RedisConsistencyBarrier(BaseConsistencyBarrier):
             return 0
 
     async def applied_version(self, *, scope: str, tenant: str | None = None) -> int:
-        """读当前已应用版本（存储不可用回落 0）。
+        """读当前已应用版本（存储不可用即报错，不回落伪 0）。
 
         Args:
             scope: 收敛域键。
             tenant: 租户标识；None 表示全局。
 
         Returns:
-            int: 已应用版本；无记录 / 不可用返回 0。
+            int: 已应用版本；无记录返回 0。
+
+        Raises:
+            RedisUnavailableError: Redis 不可用（fail-closed）。
         """
-        value = await self._read(build_consistency_key(scope=scope, tenant=tenant))
-        return 0 if value is None else value
+        return await self._read(build_consistency_key(scope=scope, tenant=tenant))
 
     async def mark_applied(self, *, scope: str, version: int, tenant: str | None = None) -> None:
-        """单调前推已应用版本（存储不可用忽略、不抛错）。
+        """单调前推已应用版本（存储不可用即报错）。
 
         Args:
             scope: 收敛域键。
             version: 本次已应用的版本。
             tenant: 租户标识；None 表示全局。
+
+        Raises:
+            RedisUnavailableError: Redis 不可用（fail-closed）。
         """
         key = build_consistency_key(scope=scope, tenant=tenant)
         try:
-            await self._client.eval(_MARK_APPLIED_SCRIPT, 1, key, str(version))
-        except Exception as exc:  # Redis 不可用：忽略（版本不可用不阻断主路径）
-            _LOGGER.warning("consistency_barrier_redis_unavailable", op="mark", error=repr(exc))
+            await self.client.eval(_MARK_APPLIED_SCRIPT, 1, key, str(version))
+        except RedisUnavailableError:
+            raise
+        except Exception as exc:  # Redis 不可用：fail-closed（标记不落库即报错）
+            _LOGGER.warning("redis_unavailable", op="consistency_barrier_mark", error=repr(exc))
+            raise RedisUnavailableError("一致性屏障版本推进失败：Redis 不可用", data={"op": "mark"}) from exc
 
     async def await_applied(
         self,
@@ -136,9 +165,6 @@ class RedisConsistencyBarrier(BaseConsistencyBarrier):
         deadline = time.monotonic() + effective_timeout / 1000
         while True:
             current = await self._read(key)
-            if current is None:
-                # 存储不可用：放行（degrade-open），不使屏障自身成为单点
-                return
             if current >= target_version:
                 return
             if time.monotonic() >= deadline:

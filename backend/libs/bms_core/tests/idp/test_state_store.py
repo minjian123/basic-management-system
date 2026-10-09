@@ -9,7 +9,6 @@ import pytest
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.idp.state import base as state_base
-from bms_core.idp.state import redis as redis_module
 from bms_core.idp.state.base import DEFAULT_IDP_STATE_TTL, build_idp_state_key, get_idp_state_store
 from bms_core.idp.state.memory import MemoryIdpStateStore
 from bms_core.idp.state.null import NullIdpStateStore
@@ -155,16 +154,10 @@ async def test_redis_store_dirty_raw_and_lazy_client(monkeypatch: pytest.MonkeyP
     weird = RedisIdpStateStore(client=cast("object", _Weird()))  # type: ignore[arg-type]
     assert await weird.consume("x") is None
 
-    client = fakeredis.aioredis.FakeRedis(decode_responses=True)
-    urls: ConcurrentStableList[str] = ConcurrentStableList()
+    from tests_support.redis import install_fake_redis_client
 
-    def _from_url(url: str, **kwargs: object) -> object:
-        urls.add(url)
-        return client
-
-    monkeypatch.setattr(redis_module.AsyncRedis, "from_url", staticmethod(_from_url))
-    lazy = RedisIdpStateStore(url="redis://fake:6379/0")
-    await lazy.save("lazy", ConcurrentStableDict({"x": 1}), ttl=60)
-    assert await lazy.consume("lazy") == {"x": 1}
-    assert urls == ["redis://fake:6379/0"]
-    await lazy.aclose()
+    with install_fake_redis_client() as fake:
+        shared = RedisIdpStateStore(url="redis://fake:6379/0")
+        await shared.save("lazy", ConcurrentStableDict({"x": 1}), ttl=60)
+        assert await shared.consume("lazy") == {"x": 1}
+        assert shared.client is fake.async_client()

@@ -591,6 +591,17 @@ class ConsistencyBarrierTimeout(GeneralError):
         super().__init__(ErrorCode.CONSISTENCY_BARRIER, message, http_status=409, data=data)
 
 
+class RedisUnavailableError(GeneralError):
+    """Redis 基础能力不可用（`10012` / 503）。
+
+    Redis 为基础（必需）能力：未启用（`provider=null`）或连接 / 命令失败时抛出，
+    调用方按可重试错误处理（提示稍后重试），**不静默降级**（可降级域自行兜底）。
+    """
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        super().__init__(ErrorCode.REDIS_UNAVAILABLE, message, http_status=503, data=data)
+
+
 class UserOrgError(BizError):
     """用户与组织段（`3xxxx`）异常基类。"""
 

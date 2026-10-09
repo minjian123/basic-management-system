@@ -43,15 +43,18 @@ async def test_redis_lock_acquire_release_extend() -> None:
 
 
 @pytest.mark.kiwi_id(2198)
-async def test_redis_lock_degrades_to_memory() -> None:
-    """Redis 异常降级 memory：acquire 仍返回令牌，release 走降级链。"""
+async def test_redis_lock_fails_closed() -> None:
+    """Redis 异常 fail-closed：不降级进程内锁（多副本会失去互斥），抛 10012 / 503（03_04）。"""
+    from bms_core.core.exceptions import RedisUnavailableError
+
     lock = RedisDistributedLock(client=cast("Redis", cast("object", _BrokenClient())))
     key = build_lock_key(tenant="demo", resource="jit")
 
-    token = await lock.acquire(key)
-    assert token is not None
-    assert await lock.extend(key, token, ttl=5) is True
-    assert await lock.release(key, token) is True
-
-    lazy = RedisDistributedLock(url="redis://localhost:6379/0")
-    assert lazy.client is not None
+    with pytest.raises(RedisUnavailableError) as exc_info:
+        await lock.acquire(key)
+    assert exc_info.value.code == 10012
+    assert exc_info.value.http_status == 503
+    with pytest.raises(RedisUnavailableError):
+        await lock.release(key, "token")
+    with pytest.raises(RedisUnavailableError):
+        await lock.extend(key, "token", ttl=5)

@@ -53,16 +53,6 @@ def _as_registry(stub: _StubEngineRegistry) -> EngineRegistry:
     return cast("EngineRegistry", stub)
 
 
-def _patch_redis(monkeypatch: pytest.MonkeyPatch, client: _FakeRedisClient) -> None:
-    """替换 `Redis.from_url` 为返回指定客户端的桩。
-
-    Args:
-        monkeypatch: pytest monkeypatch 夹具。
-        client: 假客户端。
-    """
-    monkeypatch.setattr("bms_core.health.checks.Redis.from_url", lambda url: client)  # pyright: ignore[reportUnknownArgumentType, reportUnknownLambdaType]
-
-
 @pytest.mark.kiwi_id(65)
 def test_check_names_from_dependencies() -> None:
     """检查项名称取 `DEPENDENCIES`（与降级 / 熔断 / 指标同源）。"""
@@ -76,10 +66,9 @@ def test_check_names_from_dependencies() -> None:
 
 @pytest.mark.kiwi_id(65)
 async def test_redis_check_success_and_release(monkeypatch: pytest.MonkeyPatch) -> None:
-    """redis 检查项：`PING` 通过返回就绪；`aclose` 关闭客户端（幂等）。"""
+    """redis 检查项：`PING` 通过返回就绪；`aclose` 关闭注入客户端（幂等）。"""
     fake = _FakeRedisClient()
-    _patch_redis(monkeypatch, fake)
-    check = RedisHealthCheck("redis://localhost:6379/0")
+    check = RedisHealthCheck("redis://localhost:6379/0", client=cast("object", fake))  # type: ignore[arg-type]
 
     result = await check.check()
     assert result.ok is True
@@ -93,8 +82,7 @@ async def test_redis_check_success_and_release(monkeypatch: pytest.MonkeyPatch) 
 async def test_redis_check_failure_maps_to_class_name(monkeypatch: pytest.MonkeyPatch) -> None:
     """redis 检查项：连接失败异常经聚合兜底为异常类名（不泄露连接串）。"""
     fake = _FakeRedisClient(error=ConnectionError("redis://bms:secret@127.0.0.1:6379/0"))
-    _patch_redis(monkeypatch, fake)
-    check = RedisHealthCheck("redis://bms:secret@127.0.0.1:6379/0")
+    check = RedisHealthCheck("redis://bms:secret@127.0.0.1:6379/0", client=cast("object", fake))  # type: ignore[arg-type]
 
     with pytest.raises(ConnectionError):
         await check.check()

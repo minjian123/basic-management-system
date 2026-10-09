@@ -125,6 +125,12 @@ def test_defaults_and_sections(monkeypatch: pytest.MonkeyPatch) -> None:
     assert settings.log.level == "DEBUG"
     assert settings.database.platform.url.endswith("app.db")
     assert settings.redis.url.startswith("redis://")
+    # Redis 基础能力（03_04）：类缺省启用 + 短超时 + 必需标志（单测夹具显式关闭 provider，故断言类缺省）
+    from bms_core.core.config import RedisSettings
+
+    assert RedisSettings().provider == "redis"
+    assert settings.redis.socket_timeout_ms == 500
+    assert RedisSettings().required is True
     assert settings.security.secret_key == ""
     assert settings.security.access_token_expire_minutes == 30
     assert settings.security.refresh_token_expire_days == 14
@@ -135,7 +141,7 @@ def test_defaults_and_sections(monkeypatch: pytest.MonkeyPatch) -> None:
     assert settings.user_token.issuer == "bms"
     assert settings.token_verifier.provider == "unified"
     assert settings.cors.allow_credentials is True
-    assert settings.cache.provider == "memory"  # dev 覆盖启用进程内缓存（租户解析缓存）
+    assert settings.cache.provider == "memory"  # dev 覆盖启用进程内缓存（03_04：缓存三域 dev 保留进程内实现）
     assert settings.audit.provider == ""
     assert settings.task.provider == ""
     assert settings.event.provider == ""

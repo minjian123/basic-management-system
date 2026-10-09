@@ -113,6 +113,16 @@ def isolate_settings(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     monkeypatch.setenv("BMS_SERVICE_CLIENT__PROVIDER", "")
     monkeypatch.setenv("BMS_SESSION_STORE__PROVIDER", "")
     monkeypatch.setenv("BMS_RATE_LIMITER__PROVIDER", "")
+    # Redis 基础能力（03_04）：单测零外部依赖——关闭统一客户端与三个缺省启用域，
+    # 并以 fakeredis 承载的假共享客户端顶替（供健康检查与直接构造的 Redis 实现使用）。
+    monkeypatch.setenv("BMS_REDIS__PROVIDER", "")
+    monkeypatch.setenv("BMS_REDIS__REQUIRED", "false")
+    monkeypatch.setenv("BMS_IDEMPOTENCY__PROVIDER", "")
+    monkeypatch.setenv("BMS_CONSISTENCY_BARRIER__PROVIDER", "")
+    monkeypatch.setenv("BMS_CACHE__PROVIDER", "memory")
+    from tests_support.redis import install_process_fake_redis_client
+
+    install_process_fake_redis_client()
     # 验证码真实实现关闭（03_01）：单测不连 Redis，回落 Null
     monkeypatch.setenv("BMS_CAPTCHA__PROVIDER", "")
     # 脱敏真实实现关闭（04_01）：单测回落 null 占位（真实实现用例显式开启）

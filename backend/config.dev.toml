@@ -35,7 +35,7 @@ url_template = "sqlite+aiosqlite:///./bms_{service}_{tenant}.db"
 # 开发库自动建表覆盖的租户（SQLite auto_create 生效）
 dev_tenants = ["demo", "acme"]
 
-# 租户解析缓存（dev 启用进程内缓存；租户管理阶段可切 redis 共享失效）
+# 租户解析缓存（dev 保留进程内实现：本地无 Redis 亦可跑；该域属「可降级」类，语义不受影响，03_04）
 [cache]
 provider = "memory"
 

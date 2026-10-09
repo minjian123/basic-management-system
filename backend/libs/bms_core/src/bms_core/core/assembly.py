@@ -42,7 +42,7 @@ from bms_core.consistency.base import BaseConsistencyBarrier
 from bms_core.consistency.redis import RedisConsistencyBarrier
 from bms_core.core.capability import BaseAsyncResource
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
-from bms_core.core.config import PluginSelection, Settings
+from bms_core.core.config import Settings
 from bms_core.core.exceptions import PluginError
 from bms_core.core.factory import BasePluginFactory
 from bms_core.core.logging import get_logger
@@ -126,6 +126,8 @@ from bms_core.query.local import LocalQueryProviderRegistry
 from bms_core.ratelimit.base import BaseRateLimiter
 from bms_core.ratelimit.memory import MemoryRateLimiter
 from bms_core.ratelimit.redis import RedisRateLimiter
+from bms_core.redis.base import BaseRedisClient
+from bms_core.redis.redis import RedisRedisClient
 from bms_core.replay.base import BaseReplayGuard
 from bms_core.saga.base import BaseSagaExecutor
 from bms_core.saga.choreography import ChoreographySagaExecutor
@@ -209,6 +211,7 @@ _NULL_MODULES: tuple[str, ...] = (
     "bms_core.print.null",
     "bms_core.query.null",
     "bms_core.ratelimit.null",
+    "bms_core.redis.null",
     "bms_core.replay.null",
     "bms_core.scope.null",
     "bms_core.search.null",
@@ -248,6 +251,7 @@ PLUGIN_WIRINGS: tuple[PluginWiring, ...] = (
     PluginWiring("permission", BasePermissionChecker, "permission", "permission_checker"),
     PluginWiring("preference", BasePreferenceStore, "preference", "preference_store"),
     PluginWiring("masking", BaseMasker, "masking", "masker"),
+    PluginWiring("redis_client", BaseRedisClient, "redis", "redis_client"),  # 基础能力：先于各 Redis 消费域装配
     PluginWiring("distributed_lock", BaseDistributedLock, "distributed_lock", "distributed_lock"),
     PluginWiring("edge", BaseEdgeTrust, "edge", "edge"),
     PluginWiring("data_ownership_guard", BaseDataOwnershipGuard, "data_ownership", "data_ownership_guard"),
@@ -349,6 +353,7 @@ def register_platform_plugins(settings: Settings, app: FastAPI, resources: Resou
     register_plugin("health_check_registry", "local", HealthCheckRegistryFactory(settings, app, resources))
     register_plugin("object_storage", "local", LocalObjectStorageFactory(settings))
     register_plugin("object_storage", "minio", MinioObjectStorageFactory(settings))
+    register_plugin("redis_client", "redis", RedisRedisClientFactory(settings))
     register_plugin("cache", "memory", MemoryCacheRegionFactory())
     register_plugin("cache", "redis", RedisCacheRegionFactory(settings))
     register_plugin("rate_limiter", "memory", MemoryRateLimiterFactory())
@@ -397,6 +402,41 @@ def register_platform_plugins(settings: Settings, app: FastAPI, resources: Resou
     register_plugin("consistency_barrier", "redis", RedisConsistencyBarrierFactory(settings))
     register_plugin("metrics", "prometheus", PrometheusMetricsFactory(settings))
     _PREPARED_REGISTRIES.add(registry)
+
+
+class RedisRedisClientFactory(BasePluginFactory[RedisRedisClient]):
+    """Redis 统一客户端工厂（`redis`：连接参数全取 `[redis]`，不建连）。"""
+
+    plugin_key: str = "redis_client"
+    plugin_name: str = "redis"
+
+    def __init__(self, settings: Settings) -> None:
+        """初始化。
+
+        Args:
+            settings: 应用配置（`[redis]` 分区）。
+        """
+        self._settings = settings
+
+    def create(self, options: None = None) -> RedisRedisClient:
+        """构造统一客户端（惰性建连；装配 `setup()` 时登记为进程共享实例）。
+
+        Args:
+            options: 未使用（零参口径）。
+
+        Returns:
+            RedisRedisClient: 统一客户端实例。
+        """
+        section = self._settings.redis
+        return RedisRedisClient(
+            section.url,
+            db=section.db,
+            pool_size=section.pool_size,
+            socket_timeout_ms=section.socket_timeout_ms,
+            socket_connect_timeout_ms=section.socket_connect_timeout_ms,
+            health_check_interval_s=section.health_check_interval_s,
+            key_prefix=section.key_prefix,
+        )
 
 
 class PrometheusMetricsFactory(BasePluginFactory[PrometheusMetrics]):
@@ -1162,9 +1202,17 @@ async def assemble_plugins(
         PluginError: 存在性 / 契约版本校验失败，或实例化 / `setup()` 失败（拒启）。
     """
     providers: ConcurrentStableDict[str, str] = ConcurrentStableDict()
+    redis_section = settings.redis
+    if redis_section.required and not (redis_section.provider or "").strip():
+        raise PluginError(
+            "Redis 为基础能力（`[redis].required=true`），provider 不得为空；"
+            "如确需应急旁路，请显式置 `[redis].required=false`（届时依赖 Redis 的能力将报 10012）"
+        )
     for wiring in PLUGIN_WIRINGS:
         selection = getattr(settings, wiring.settings_section, None)
-        provider = selection.provider if isinstance(selection, PluginSelection) else ""
+        # 能力选择分区约定为 `PluginSelection`；「连接参数 + 实现选择」同区的分区（如 `[redis]`）
+        # 直接携带 `provider` 字段（鸭子类型读取，缺省空串 → 解析到 `null`）。
+        provider = getattr(selection, "provider", "") if selection is not None else ""
         instance = _resolve_or_reject(wiring, provider)
         await _setup_or_reject(wiring, provider, instance)
         if isinstance(instance, BaseAsyncResource):

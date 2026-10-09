@@ -78,6 +78,7 @@ _EXPECTED_PLUGIN_KEYS = frozenset(
         "password_hasher",
         "permission",
         "preference",
+        "redis_client",
         "print_exporter",
         "print_template",
         "query_provider_registry",

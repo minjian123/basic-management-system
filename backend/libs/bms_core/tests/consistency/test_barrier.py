@@ -123,9 +123,16 @@ async def test_redis_mark_monotonic() -> None:
 
 
 @pytest.mark.kiwi_id(2246)
-async def test_redis_unavailable_degrades() -> None:
-    """Redis 不可用：`await_applied` 放行、`mark_applied` 不抛错、`applied_version` 回落 0。"""
+async def test_redis_unavailable_fails_closed() -> None:
+    """Redis 不可用：fail-closed（抛 `RedisUnavailableError` 10012 / 503），不再放行（03_04）。"""
+    from bms_core.core.exceptions import RedisUnavailableError
+
     barrier = RedisConsistencyBarrier(_REDIS_URL, client=cast("Redis", _BrokenClient()))
-    await barrier.await_applied(scope="perm", target_version=99, tenant="t1", timeout_ms=50, poll_ms=10)
-    await barrier.mark_applied(scope="perm", version=1, tenant="t1")
-    assert await barrier.applied_version(scope="perm", tenant="t1") == 0
+    with pytest.raises(RedisUnavailableError) as exc_info:
+        await barrier.await_applied(scope="perm", target_version=99, tenant="t1", timeout_ms=50, poll_ms=10)
+    assert exc_info.value.code == 10012
+    assert exc_info.value.http_status == 503
+    with pytest.raises(RedisUnavailableError):
+        await barrier.mark_applied(scope="perm", version=1, tenant="t1")
+    with pytest.raises(RedisUnavailableError):
+        await barrier.applied_version(scope="perm", tenant="t1")

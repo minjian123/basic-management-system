@@ -1,8 +1,10 @@
 """限流能力域：Redis 固定窗口限流实现（多副本一致；异常降级 memory）。
 
 - `RedisRateLimiter`（插件名 `redis`）：`INCR` + 首次 `EXPIRE` 的固定窗口计数；TTL 即窗口。
-- 降级：Redis 不可用（连接 / 命令异常）时委托 `fallback`（缺省 `MemoryRateLimiter`）判定并记日志——
-  保证限流不因 Redis 故障而整体失效（进程内单副本口径）。
+- **客户端**：统一取进程共享客户端（`bms_core.redis`；禁止各自 `from_url`）。
+- **降级口径（03_04 / 需求 03-5 定稿）**：Redis 不可用（连接 / 命令异常）时**保留**委托 `fallback`
+  （缺省 `MemoryRateLimiter`，单机计数仍有保护）并记「降级」日志与 `is_degraded` 状态（供指标 / 告警）——
+  判据＝「**降级后语义仍正确才允许降级**」；限流若 fail-closed，Redis 抖动会把受保护入口整体拒客。
 """
 
 from __future__ import annotations
@@ -42,14 +44,28 @@ class RedisRateLimiter(BaseRateLimiter, BaseAsyncResource):
         self._degraded = False
 
     @property
+    def is_degraded(self) -> bool:
+        """是否处于降级态（Redis 不可用已回落进程内实现；供指标 / 告警消费）。
+
+        Returns:
+            bool: 降级中 True。
+        """
+        return self._degraded
+
+    @property
     def client(self) -> AsyncRedis:
-        """取异步客户端（懒建）。
+        """取异步客户端（显式注入优先，否则取进程共享客户端）。
 
         Returns:
             AsyncRedis: 异步客户端实例。
+
+        Raises:
+            RedisUnavailableError: Redis 未启用 / 不可用（本域据此降级 fallback）。
         """
         if self._client is None:
-            self._client = AsyncRedis.from_url(self._url or "", decode_responses=True)  # pyright: ignore[reportUnknownMemberType]
+            from bms_core.redis.base import shared_async_client
+
+            self._client = shared_async_client()
         return self._client
 
     async def check(self, key: str, rule: RateLimitRule) -> RateLimitDecision:
@@ -60,7 +76,7 @@ class RedisRateLimiter(BaseRateLimiter, BaseAsyncResource):
             rule: 限流规则（次数 / 窗口）。
 
         Returns:
-            RateLimitDecision: 判定结果。
+            RateLimitDecision: 判定结果（Redis 不可用时回落进程内实现，单机计数仍有保护）。
         """
         window = max(1, rule.window)
         try:
@@ -71,7 +87,7 @@ class RedisRateLimiter(BaseRateLimiter, BaseAsyncResource):
             ttl = int(await client.ttl(key))  # pyright: ignore[reportUnknownMemberType]
             if self._degraded:
                 self._degraded = False
-                _LOGGER.info("限流 Redis 恢复")
+                _LOGGER.info("ratelimit_redis_recovered")
             return RateLimitDecision(
                 allowed=count <= rule.limit,
                 limit=rule.limit,
@@ -81,7 +97,7 @@ class RedisRateLimiter(BaseRateLimiter, BaseAsyncResource):
         except Exception as exc:
             if not self._degraded:
                 self._degraded = True
-                _LOGGER.warning("限流 Redis 降级", key=key, error=str(exc))
+                _LOGGER.warning("ratelimit_redis_degraded", key=key, error=str(exc))
             return await self._fallback.check(key, rule)
 
     async def reset(self, key: str) -> None:

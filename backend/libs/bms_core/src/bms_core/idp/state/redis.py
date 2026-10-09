@@ -85,7 +85,9 @@ class RedisIdpStateStore(BaseIdpStateStore, BaseAsyncResource):
             AsyncRedis: 异步客户端实例。
         """
         if self._client is None:
-            self._client = AsyncRedis.from_url(self._url or "", decode_responses=True)  # pyright: ignore[reportUnknownMemberType]
+            from bms_core.redis.base import shared_async_client
+
+            self._client = shared_async_client()
         return self._client
 
     async def save(

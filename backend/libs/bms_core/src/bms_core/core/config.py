@@ -381,9 +381,41 @@ class DatabaseSettings(BaseSettings):
 
 
 class RedisSettings(BaseSettings):
-    """Redis。"""
+    """Redis 基础能力（`[redis]`）：连接参数 + 客户端实现选择（03_04 / 需求 03-5）。
+
+    - 连接参数一处集中，经统一客户端能力域（`redis_client`）共享给各能力域使用
+      （单进程同步 / 异步各一个连接池，禁止各域自建连）。
+    - `required=true`（缺省）表示 Redis 为**基础（必需）能力**：`provider` 不得为空，
+      取客户端失败即报 `RedisUnavailableError`（`10012` / 503），不静默降级；
+      `provider=null` 仅作应急旁路，须同时置 `required=false`（启动期校验拦截）。
+    """
+
+    provider: str = "redis"
+    """客户端实现名（缺省 `redis` 即启用；`null` 仅应急旁路）。"""
 
     url: str = "redis://localhost:6379/0"
+    """连接串（`BMS_REDIS__URL`）。"""
+
+    db: int | None = None
+    """库号覆盖（非空时覆盖 url 中的库号）。"""
+
+    pool_size: int = Field(default=0, ge=0)
+    """单进程连接池上限（0 = 客户端默认）。"""
+
+    socket_timeout_ms: int = Field(default=500, ge=1)
+    """命令超时（毫秒）——架构要求「Redis 操作短超时快速失败」。"""
+
+    socket_connect_timeout_ms: int = Field(default=500, ge=1)
+    """建连超时（毫秒）。"""
+
+    health_check_interval_s: int = Field(default=30, ge=0)
+    """连接健康探测间隔（秒）。"""
+
+    key_prefix: str = "bms"
+    """统一键前缀（键口径 `{前缀}:{租户|global}:{域}:{业务键}`）。"""
+
+    required: bool = True
+    """必需标志：为真时 `provider` 不得为空（启动期校验），缺省实现取客户端即报 `10012`。"""
 
 
 class MinioSettings(BaseSettings):

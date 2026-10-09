@@ -133,8 +133,25 @@ pool_recycle = 1800
 connect_timeout = 10.0
 
 [redis]
-# Redis 连接串（密钥经 BMS_REDIS__URL 注入）
+# Redis 基础能力（03_04）：连接参数 + 实现选择一处集中；各能力域经统一客户端共享（禁止各自建连）
+# provider：redis = 统一客户端真实实现（缺省启用）、空串 = null（仅应急旁路，须同时置 required=false）
+provider = "redis"
+# 连接串（密钥经 BMS_REDIS__URL 注入）
 url = "redis://localhost:6379/0"
+# 库号覆盖（非空时覆盖 url 中的库号；空 = 沿用 url）
+db = 0
+# 单进程连接池上限（0 = 客户端默认）
+pool_size = 0
+# 命令超时（毫秒）——短超时快速失败，避免 Redis 抖动拖垮请求
+socket_timeout_ms = 500
+# 建连超时（毫秒）
+socket_connect_timeout_ms = 500
+# 连接健康探测间隔（秒）
+health_check_interval_s = 30
+# 统一键前缀（键口径 {前缀}:{租户|global}:{域}:{业务键}）
+key_prefix = "bms"
+# 必需标志：为真时 provider 不得为空（启动期校验），缺省实现取客户端即报 10012
+required = true
 
 [minio]
 # 对象存储端点 / 凭据（密钥经 BMS_MINIO__* 环境变量注入；桶名统一取 [storage].options.bucket）
@@ -156,8 +173,8 @@ provider = ""
 options = {}
 
 [cache]
-# 缓存实现选择（插件化配置；空串解析到 null 占位实现；真实实现随通用能力阶段）
-provider = ""
+# 缓存实现选择（插件化配置；redis = Redis Region（缺省，03_04 起 Redis 为基础能力）、memory = 进程内、空串 = null）
+provider = "redis"
 options = {}
 
 [captcha]
@@ -181,12 +198,18 @@ provider = "choreography"
 options = {}
 
 [consistency_barrier]
-# 一致性屏障实现选择（插件化配置；空串解析到 null 占位 = 不启用屏障；redis = 版本标记 + 有界轮询等待）
-provider = ""
+# 一致性屏障实现选择（插件化配置；redis = 版本标记 + 有界轮询等待（缺省，03_04 起 Redis 为基础能力）、空串 = null 不启用）
+provider = "redis"
 # 默认等待超时（毫秒；超时抛 ConsistencyBarrierTimeout 10011 / 409）
 default_timeout_ms = 3000
 # 默认轮询间隔（毫秒）
 default_poll_ms = 100
+options = {}
+
+[idempotency]
+# 幂等实现选择（插件化配置；redis = SETNX 前置去重 + 首结果复用（缺省，03_04 起 Redis 为基础能力）、空串 = null）
+# 不可用口径：fail-closed（Redis 不可用抛 10012 / 503），不静默放行
+provider = "redis"
 options = {}
 
 [event_consumer]

@@ -5,7 +5,9 @@
 - `save`：`SET key <json> EX ttl` —— 写首次结果供重复请求复用。
 - 键空间经 `build_idempotency_key` 统一拼接（`bms:{租户|global}:idem:{键}`）；唯一约束兜底由
   各业务表 `idempotency_key` 唯一索引承担（本实现不改 `IdempotencyStore` 契约）。
-- Redis 不可用（连接 / 命令异常）时按未命中 / 放行处理并记日志，由业务表唯一约束兜底。
+- **客户端**：统一取进程共享客户端（`bms_core.redis`；禁止各自 `from_url`）。
+- **不可用口径（fail-closed，03_04 / 需求 03-5）**：Redis 不可用（未启用 / 连接 / 命令异常）时
+  **抛 `RedisUnavailableError`（`10012` / 503）**，不再「放行 + 唯一约束兜底」——避免「以为去了重」。
 """
 
 import json
@@ -14,6 +16,7 @@ from typing import cast
 from redis.asyncio import Redis
 
 from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.exceptions import RedisUnavailableError
 from bms_core.core.logging import get_logger
 from bms_core.idempotency.base import (
     DEFAULT_IDEMPOTENCY_TTL,
@@ -68,15 +71,29 @@ class RedisIdempotencyStore(IdempotencyStore):
     plugin_name = "redis"
 
     def __init__(self, url: str, *, client: Redis | None = None) -> None:
-        """初始化（惰性建连，不校验连通性）。
+        """初始化（客户端惰性取用：显式注入优先，否则取进程共享客户端）。
 
         Args:
-            url: Redis 连接串。
-            client: 注入的 Redis 客户端（测试用）；None 则按 url 新建。
+            url: Redis 连接串（保留兼容；连接参数统一取 `[redis]` 与共享客户端）。
+            client: 注入的 Redis 客户端（测试用）；None 则取进程共享客户端。
         """
-        self._client = (
-            client if client is not None else Redis.from_url(url, decode_responses=True)  # pyright: ignore[reportUnknownMemberType]
-        )
+        self._client = client
+
+    @property
+    def client(self) -> Redis:
+        """取异步客户端（显式注入优先，否则取进程共享客户端）。
+
+        Returns:
+            Redis: 异步客户端实例。
+
+        Raises:
+            RedisUnavailableError: Redis 未启用 / 不可用（fail-closed）。
+        """
+        if self._client is None:
+            from bms_core.redis.base import shared_async_client
+
+            self._client = shared_async_client()
+        return self._client
 
     async def begin(self, key: str, *, ttl: int = DEFAULT_IDEMPOTENCY_TTL) -> bool:
         """前置去重（SETNX 首次占用）。
@@ -87,12 +104,17 @@ class RedisIdempotencyStore(IdempotencyStore):
 
         Returns:
             bool: 首次 True；重复 False。
+
+        Raises:
+            RedisUnavailableError: Redis 不可用（fail-closed）。
         """
         try:
-            stored = await self._client.set(key, _dump(dict(_PROCESSING_MARKER)), nx=True, ex=ttl)
-        except Exception as exc:  # Redis 不可用：放行（唯一约束兜底），不阻断写路径
-            _LOGGER.warning("idempotency_redis_unavailable", op="begin", error=repr(exc))
-            return True
+            stored = await self.client.set(key, _dump(dict(_PROCESSING_MARKER)), nx=True, ex=ttl)
+        except RedisUnavailableError:
+            raise
+        except Exception as exc:  # Redis 不可用：fail-closed（不静默放行）
+            _LOGGER.warning("redis_unavailable", op="idempotency_begin", error=repr(exc))
+            raise RedisUnavailableError("幂等去重失败：Redis 不可用", data={"op": "begin"}) from exc
         return bool(stored)
 
     async def load(self, key: str) -> IDEMPOTENCY_PAYLOAD_TYPE | None:
@@ -103,12 +125,17 @@ class RedisIdempotencyStore(IdempotencyStore):
 
         Returns:
             IDEMPOTENCY_PAYLOAD_TYPE | None: 首次结果；处理中 / 未缓存返回 None。
+
+        Raises:
+            RedisUnavailableError: Redis 不可用（fail-closed）。
         """
         try:
-            value = _load(await self._client.get(key))
-        except Exception as exc:  # Redis 不可用：按未命中处理
-            _LOGGER.warning("idempotency_redis_unavailable", op="load", error=repr(exc))
-            return None
+            value = _load(await self.client.get(key))
+        except RedisUnavailableError:
+            raise
+        except Exception as exc:  # Redis 不可用：fail-closed（不按未命中放行）
+            _LOGGER.warning("redis_unavailable", op="idempotency_load", error=repr(exc))
+            raise RedisUnavailableError("幂等结果读取失败：Redis 不可用", data={"op": "load"}) from exc
         if value == dict(_PROCESSING_MARKER):
             return None
         if isinstance(value, dict):
@@ -122,8 +149,14 @@ class RedisIdempotencyStore(IdempotencyStore):
             key: 幂等 key。
             payload: 首次结果载荷。
             ttl: 键有效期（秒）。
+
+        Raises:
+            RedisUnavailableError: Redis 不可用（fail-closed）。
         """
         try:
-            await self._client.set(key, _dump(payload), ex=ttl)
-        except Exception as exc:  # Redis 不可用：结果不缓存（唯一约束兜底）
-            _LOGGER.warning("idempotency_redis_unavailable", op="save", error=repr(exc))
+            await self.client.set(key, _dump(payload), ex=ttl)
+        except RedisUnavailableError:
+            raise
+        except Exception as exc:  # Redis 不可用：fail-closed（结果不落缓存即报错）
+            _LOGGER.warning("redis_unavailable", op="idempotency_save", error=repr(exc))
+            raise RedisUnavailableError("幂等结果写入失败：Redis 不可用", data={"op": "save"}) from exc

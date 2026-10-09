@@ -107,7 +107,9 @@ class RedisCacheRegion(CacheRegion):
             Redis: 同步客户端实例。
         """
         if self._sync is None:
-            self._sync = Redis.from_url(self._url or "", decode_responses=True)  # pyright: ignore[reportUnknownMemberType]
+            from bms_core.redis.base import shared_sync_client
+
+            self._sync = shared_sync_client()
         return self._sync
 
     @property
@@ -118,7 +120,9 @@ class RedisCacheRegion(CacheRegion):
             AsyncRedis: 异步客户端实例。
         """
         if self._async is None:
-            self._async = AsyncRedis.from_url(self._url or "", decode_responses=True)  # pyright: ignore[reportUnknownMemberType]
+            from bms_core.redis.base import shared_async_client
+
+            self._async = shared_async_client()
         return self._async
 
     def ttl_with_jitter(self, ttl: int | None = None) -> int:
