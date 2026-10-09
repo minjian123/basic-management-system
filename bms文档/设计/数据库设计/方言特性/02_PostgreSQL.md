@@ -78,7 +78,7 @@
 | 连接池 | `pool_size` / `max_overflow` / `pool_timeout` / `pool_recycle` / `connect_timeout` 取配置 `[database.*.pool]` | 实测（配置项生效） |
 | 慢查询日志 | 开启（`log_min_duration_statement`，开发联调） | 实测（已配置） |
 | 主从（只读副本） | 支持；读写绑定见《[架构设计 · 数据访问与分片](../../架构设计/13_架构设计_子系统_数据访问与分片.md)》「读写分离」节 | 未启用（**待验**） |
-| 两阶段事务（PREPARE TRANSACTION / 2PC） | 默认 `max_prepared_transactions=0`（**禁用**）；置 `>0`（实测 `100`）并重启后，同步引擎（`psycopg`）`begin_twophase` 可用；**SQLAlchemy 异步 API 不提供两阶段** | 实测（2026-10-06）：需开参数 + 重启；异步栈不可用 |
+| 两阶段事务（PREPARE TRANSACTION / 2PC） | **支持且已实测可用**：同步引擎（`psycopg`）`begin_twophase` 可用（**SQLAlchemy 异步 API 不提供两阶段**——属驱动层限制，非 PG 能力缺失）；**实例侧参数见《[PostgreSQL 部署使用说明](../../../资料/开发服务器/linux/PostgreSQL部署使用说明.md#twophase)》** | 实测（2026-10-06）：实例参数置 `100` 后，单库三态与跨库 2PC 全部通过 |
 
 - 应用侧经引擎注册表与会话入口取连接（不自行 `create_engine`）；异步会话不得跨请求 / 跨事件循环复用。
 

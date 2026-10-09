@@ -40,6 +40,24 @@ docker compose -f compose/base.yml --env-file .env up -d postgres
 
 > 同样必须带 `--env-file .env`（见《[MySQL部署使用说明](MySQL部署使用说明.md)》「部署步骤」节坑点）。
 
+### 3.1 两阶段事务参数（`max_prepared_transactions`） <a id="twophase"></a>
+
+平台「跨服务强一致专项」（bms 任务 `05_07`）使用 PG 的 `PREPARE TRANSACTION` 时需启用该参数——**默认 `0`（关闭）**，本次部署**实测已置 `100`**。设置方式任选其一（改后**重启容器**生效）：
+
+```yaml
+# deploy/compose/base.yml（postgres 服务）
+  command: postgres -c max_prepared_transactions=100
+```
+
+```sql
+-- 或在线设置
+ALTER SYSTEM SET max_prepared_transactions = 100;
+-- 核查
+SHOW max_prepared_transactions;
+```
+
+> 应用侧**无需关心**该参数（同步引擎与连接串由基座处理）；**启用强一致时，平台启动期自检会校验该参数，未满足即快速失败并提示本文件**。
+
 ## 4. 验证 <a id="verify"></a>
 
 ```bash

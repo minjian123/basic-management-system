@@ -4,8 +4,7 @@
   XA_ROLLBACK / XA_RECOVER`），但 `dmSQLAlchemy` **同步**方言未接 `DBMS_XA`、`dmPython` DBAPI
   未暴露 TPC → 默认 `Connection.begin_twophase()` 抛 `NotImplementedError`。本方言以**纯 Python**
   补齐（**不改编译驱动**），等价 Java JDBC 的 XA RM 语义。
-- **前置**：达梦 `XA_COMPATIBLE_MODE ≠ 2`（否则 `DBMS_XA` 不可用）；系统包 `DBMS_XA` 须已创建
-  （缺失时经 `SP_CREATE_SYSTEM_PACKAGES(1,'DBMS_XA')`）。
+- **部署**：实例侧条件与参数见《达梦 DM8 部署使用说明》「两阶段事务（XA）实例条件」（应用侧无需配置）。
 - 两阶段走**同步引擎**（SQLAlchemy 异步 API 不暴露两阶段）；达梦运行期本就经同步门面接入。
 - 结论与登记见《数据库设计 · 方言特性 · 达梦》「事务与连接」与《后端基类清单》数据访问基座。
 """

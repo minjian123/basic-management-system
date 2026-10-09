@@ -84,6 +84,23 @@ sudo /opt/dmdbms/script/root/dm_service_installer.sh -t dmserver -p DMSERVER -dm
 sudo systemctl enable --now DmServiceDMSERVER
 ```
 
+### 4.1 两阶段事务（XA）实例条件 <a id="xa"></a>
+
+平台「跨服务强一致专项」（bms 任务 `05_07`）在需要**跨库 / 跨服务原子写**时，经达梦 **XA**（`DBMS_XA` 包）实现两阶段提交。达梦 XA **可用**，实例侧需满足以下条件：
+
+| 条件 | 值 | 说明 |
+| --- | --- | --- |
+| 实例参数 `XA_COMPATIBLE_MODE` | `≠ 2`（本次部署实测为 `0`） | `= 2` 时达梦自身的 `DBMS_XA` 包不可用（实例级开关）。可经 `dm.ini` 或 `SP_SET_PARA_VALUE` 调整，**改后需重启 `DmServiceDMSERVER`**（具体参数与视图以达梦官方手册为准） |
+| 系统包 `DBMS_XA` | 已创建 | 缺失时执行 `SP_CREATE_SYSTEM_PACKAGES(1,'DBMS_XA')` |
+
+```sql
+-- 核查（disql / JDBC；具体视图名以达梦手册为准）
+SELECT PARA_NAME, PARA_VALUE FROM V$DM_INI WHERE PARA_NAME = 'XA_COMPATIBLE_MODE';
+SELECT COUNT(*) FROM ALL_OBJECTS WHERE OBJECT_NAME = 'DBMS_XA';
+```
+
+> 应用侧**无需关心**上述参数（`dmxa` 方言与连接串归一由基座完成）；**启用强一致时，平台启动期自检会校验这些条件，未满足即快速失败并提示本文件**。
+
 ## 5. 开发库（schema） <a id="schema"></a>
 
 达梦以「模式（schema）」承载库语义（规划 4.4），开发联调库即 `bms_dev` schema：
