@@ -27,7 +27,7 @@
     本页为「用户管理」表单框架的<b>列表 Tab</b>（固定页签，不可关闭）；双击数据行或点「新增」打开<b>用户记录 Tab</b>
     （见 <a href="03_用户表单页.html">用户表单页</a>，角色 / 岗位 / 部门分配在其「用户分配」页签内）。列表页三段式：工具栏 → 筛选区 → 表格；
     <b>无操作列</b>，双击行开表单。<b>用户＝系统账号</b>：不含部门 / 岗位 / 角色列——组织与岗位关系归 mdm，仅在 mdm 在场时经插件在记录 Tab 内呈现
-    （bms 单独运行 / cw 工作区无 mdm 时该能力隐藏，页面其余正常）。
+    （bms 单独运行 / cw 工作区无 mdm 时该能力隐藏，页面其余正常）。工具栏<b>不提供导入 / 导出</b>（分别归导入导出阶段与平台业务页面阶段）。
   </div>
 
   <div id="app">
@@ -41,8 +41,7 @@
         <el-button :disabled="!selRows.length" @click="batchToggle">启用/停用</el-button>
         <el-button :disabled="selRows.length !== 1" @click="openPwd">重置密码</el-button>
         <span class="ep-side">
-          <el-button @click="toast('原型演示：Excel 批量导入用户（导入导出阶段）')">导入</el-button>
-          <el-button @click="toast('导出当前筛选结果（受 export:download 权限约束）')">导出</el-button>
+          <span class="proto-hint">导入归导入导出阶段、导出归平台业务页面阶段，本页不提供该两按钮</span>
         </span>
       </div>
 

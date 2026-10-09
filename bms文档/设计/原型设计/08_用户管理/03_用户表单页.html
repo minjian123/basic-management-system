@@ -24,10 +24,12 @@
 <div class="proto-frame">
   <div class="proto-note">
     本页为「用户管理」表单框架的<b>用户记录 Tab</b>。信息栏三个子页签：<b>详细信息</b> · <b>用户分配</b> · <b>系统信息</b>。
-    <b>用户分配</b>内含三个子页签：<b>角色分配</b>（bms 内建，写 <code>sys_user_role</code>，随宿主工具栏保存）·
-    <b>岗位分配</b>（mdm「岗位分配」插件，含<b>主要岗位</b>标记）· <b>部门分配</b>（mdm「用户分配部门」插件，含<b>主要部门</b>标记）；
+    <b>用户分配</b>内含三个子页签：<b>角色分配</b>（bms 内建，写 <code>sys_user_role</code>）·
+    <b>岗位分配</b>（mdm 插件，含<b>主要岗位</b>标记）· <b>部门分配</b>（mdm 插件，含<b>主要部门</b>标记）；
+    三者<b>改动均只进草稿</b>，由宿主工具栏「保存」一次统一提交（「取消」即放弃草稿、不留半成品）。
     岗位 / 部门数据与契约整体归 mdm 组织域，<b>插件缺失即隐藏</b>（bms 单独运行、cw 工作区无 mdm 时只剩「角色分配」）。
-    用户＝系统账号：<b>不含部门 / 岗位 / 语言时区字段</b>（语言与时区归个人中心）。
+    账号<b>停用</b>时分配只读（仅启用账号可持有角色 / 岗位 / 部门分配）；<b>新增</b>用户创建后方可分配。
+    用户＝系统账号：<b>不含部门 / 岗位 / 语言时区字段</b>（语言与时区归个人中心）；「系统信息」内含 <b>SSO 身份绑定</b>只读区块。
   </div>
 
   <div id="app">
@@ -106,6 +108,12 @@
 
         <!-- 用户分配：角色分配（bms 内建）+ 岗位分配 / 部门分配（mdm 插件子页签） -->
         <el-tab-pane label="用户分配" name="assign">
+          <div v-if="form.isNew" class="proto-hint" style="margin-bottom:8px">
+            新增用户：创建成功后可在此分配角色 / 岗位 / 部门（本次保存先建号）。
+          </div>
+          <div v-else-if="!form.enabled" class="proto-hint" style="margin-bottom:8px">
+            账号已停用：分配只读（仅启用账号可持有角色 / 岗位 / 部门分配），请先启用后再分配。
+          </div>
           <el-tabs v-model="assignTab" type="card">
             <!-- 角色分配（bms 内建，写 sys_user_role） -->
             <el-tab-pane label="角色分配" name="role">
@@ -134,7 +142,7 @@
             <el-tab-pane v-if="mdmPluginLoaded" label="岗位分配" name="post">
               <div class="op-row">
                 <el-button size="small" @click="openPostPicker">选择岗位</el-button>
-                <span class="proto-hint" style="margin-left:8px">由 mdm「岗位分配」插件渲染 · <b>即时提交</b>（不随宿主工具栏保存）</span>
+                <span class="proto-hint" style="margin-left:8px">由 mdm 插件渲染 · 改动进草稿，随宿主工具栏「保存」提交</span>
               </div>
               <el-table :data="assignedPosts" size="small" border>
                 <el-table-column prop="name" label="岗位" min-width="150"></el-table-column>
@@ -145,19 +153,17 @@
                     <el-button v-else link type="primary" @click="setPrimaryPost(row)">设为主要</el-button>
                   </template>
                 </el-table-column>
-                <el-table-column label="操作" width="80" align="center">
-                  <template #default="{ row }"><el-button link type="danger" @click="unbindPost(row)">移除</el-button></template>
-                </el-table-column>
                 <template #empty><span class="proto-hint">暂未分配岗位</span></template>
               </el-table>
               <div class="proto-hint" style="margin-top:8px">
                 一个用户可有多个岗位，其中<b>至多一个主要岗位</b>（用户所属岗位以主要岗位为准）；数据与契约整体归 mdm 组织域。
+                取消分配经「选择岗位」弹窗取消勾选（全量覆盖语义），列表不设「操作」列。
               </div>
             </el-tab-pane>
             <el-tab-pane v-if="mdmPluginLoaded" label="部门分配" name="dept">
               <div class="op-row">
                 <el-button size="small" @click="openDeptPicker">选择部门</el-button>
-                <span class="proto-hint" style="margin-left:8px">由 mdm「用户分配部门」插件渲染 · <b>即时提交</b></span>
+                <span class="proto-hint" style="margin-left:8px">由 mdm 插件渲染 · 改动进草稿，随宿主工具栏「保存」提交</span>
               </div>
               <el-table :data="assignedDepts" size="small" border>
                 <el-table-column prop="name" label="部门" min-width="200"></el-table-column>
@@ -167,13 +173,11 @@
                     <el-button v-else link type="primary" @click="setPrimaryDept(row)">设为主要</el-button>
                   </template>
                 </el-table-column>
-                <el-table-column label="操作" width="80" align="center">
-                  <template #default="{ row }"><el-button link type="danger" @click="unbindDept(row)">移除</el-button></template>
-                </el-table-column>
                 <template #empty><span class="proto-hint">暂未分配部门</span></template>
               </el-table>
               <div class="proto-hint" style="margin-top:8px">
                 一个用户可有多个部门，其中<b>至多一个主要部门</b>（用户所属部门以主要部门为准）；数据与契约整体归 mdm 组织域。
+                取消分配经「选择部门」弹窗取消勾选（全量覆盖语义），列表不设「操作」列。
               </div>
             </el-tab-pane>
           </el-tabs>
@@ -186,9 +190,18 @@
           </div>
         </el-tab-pane>
 
-        <!-- 系统信息 -->
+        <!-- 系统信息：系统字段（iframe 组件）+ SSO 身份绑定只读区块 -->
         <el-tab-pane label="系统信息" name="sys">
           <iframe class="sys-frame" src="../02_公共原型/04_系统信息组件.html" :style="{height: sysH + 'px'}" @load="pushSys($event, sys)"></iframe>
+
+          <div style="font-weight:600;margin:16px 0 8px;padding-bottom:8px;border-bottom:1px solid #eaeef2;font-size:14px">SSO 身份绑定</div>
+          <div class="proto-hint" style="margin-bottom:8px">只读展示，绑定管理归 SSO 业务；需 <code>sso:bind</code> 权限码。</div>
+          <el-table :data="ssoIdentities" size="small" border>
+            <el-table-column prop="idpKey" label="身份提供方" min-width="220"></el-table-column>
+            <el-table-column prop="externalId" label="外部账号（sub）" min-width="220"></el-table-column>
+            <el-table-column prop="tenantId" label="租户" min-width="200"></el-table-column>
+            <template #empty><span class="proto-hint">该用户未绑定任何 SSO 身份</span></template>
+          </el-table>
         </el-tab-pane>
       </el-tabs>
     </div>
@@ -212,7 +225,9 @@
       <el-checkbox-group v-model="pluginPicker.checked" style="display:block">
         <el-checkbox v-for="c in pluginPicker.options" :key="c.id" :value="c.id" style="display:flex;padding:6px 0">{{ c.name }}</el-checkbox>
       </el-checkbox-group>
-      <div class="proto-hint" style="margin-top:6px">全量覆盖提交（先删后插、单事务）；插件页签即时提交</div>
+      <div class="proto-hint" style="margin-top:6px">
+        全量覆盖（先删后插、单事务）；勾选结果只进草稿，由记录页工具栏「保存」一次统一提交（取消分配＝取消勾选）
+      </div>
       <template #footer>
         <el-button @click="pluginPicker.visible = false">取消</el-button>
         <el-button type="primary" @click="savePluginPick">保存并提交</el-button>
@@ -250,6 +265,10 @@
       });
       var assignedRoles = ref([
         { id: 4, code: 'role_user', name: '普通角色', roleType: 'custom' }
+      ]);
+      // SSO 身份绑定（只读；绑定管理归 SSO 业务）
+      var ssoIdentities = ref([
+        { idpKey: 'demo-tenant:corp-oidc', externalId: 'a1b2c3d4-8f21-4e77-9c0a-77e1b2c3d4e5', tenantId: '1902876345762181120' }
       ]);
       var candidateRoles = ref([
         { id: 4, code: 'role_user', name: '普通角色', roleType: 'custom' },
@@ -355,7 +374,7 @@
       }
       function setPrimaryPost(row) {
         assignedPosts.value.forEach(function (p) { p.primary = p.id === row.id; });
-        toast('已设为主要岗位（即时提交）');
+        toast('已设为主要岗位（随宿主「保存」提交）');
       }
       function unbindPost(row) {
         ElMessageBox.confirm('解除岗位「' + row.name + '」绑定？即时提交（全量覆盖）。', '提示', { type: 'warning', confirmButtonText: '移除', cancelButtonText: '取消' })
@@ -375,7 +394,7 @@
       }
       function setPrimaryDept(row) {
         assignedDepts.value.forEach(function (d) { d.primary = d.id === row.id; });
-        toast('已设为主要部门（即时提交）');
+        toast('已设为主要部门（随宿主「保存」提交）');
       }
       function unbindDept(row) {
         ElMessageBox.confirm('解除部门「' + row.name + '」绑定？即时提交（全量覆盖）。', '提示', { type: 'warning', confirmButtonText: '移除', cancelButtonText: '取消' })
@@ -396,7 +415,7 @@
           if (assignedDepts.value.length && !assignedDepts.value.some(function (d) { return d.primary; })) assignedDepts.value[0].primary = true;
         }
         pluginPicker.visible = false;
-        toast('已保存并提交（mdm 组织域 · 全量覆盖）');
+        toast('已记入草稿（随记录页工具栏「保存」统一提交）');
       }
       // 由列表页双击（?id=&name=）/ 新增（?new=1）打开时回填显示；直接打开本页默认展示一条已存在记录（只读态）
       (function () {
@@ -414,7 +433,7 @@
         }
       })();
       function toast(m, type) { ElMessage({ message: m, type: type || 'success' }); }
-      return { editing, section, assignTab, dirty, mdmPluginLoaded, form, sys, assignedRoles, candidateRoles, rolePicker, assignedPosts, assignedDepts, pluginPicker, filteredCandidateRoles, sysH, pushSys, beforeTabLeave, editForm, cancelEdit, saveForm, delForm, reload, tryClose, roleTypeText, openRolePicker, saveRolePick, unassignRole, openPostPicker, setPrimaryPost, unbindPost, openDeptPicker, setPrimaryDept, unbindDept, savePluginPick, toast };
+      return { editing, section, assignTab, dirty, mdmPluginLoaded, form, sys, ssoIdentities, assignedRoles, candidateRoles, rolePicker, assignedPosts, assignedDepts, pluginPicker, filteredCandidateRoles, sysH, pushSys, beforeTabLeave, editForm, cancelEdit, saveForm, delForm, reload, tryClose, roleTypeText, openRolePicker, saveRolePick, unassignRole, openPostPicker, setPrimaryPost, unbindPost, openDeptPicker, setPrimaryDept, unbindDept, savePluginPick, toast };
     }
   });
   app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
