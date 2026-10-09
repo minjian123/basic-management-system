@@ -991,6 +991,34 @@ e2e-playwright:
       uv run python -m ops.test_db drop --engine "$DB_DIALECT" --execute || true
       exit 1
 
+# ---- 跨库两阶段提交真库（强一致专项 05_07）：MySQL × PostgreSQL 双库同进程 2PC ----
+# 与 integration-* 同档开关（deploy/ci/verify/db）；`BMS_TEST_{MYSQL,PG}_URL` 为 2PC 用例专用变量
+# （sync 引擎：`mysql+pymysql` / `postgresql+psycopg`）；用例自建 / 自删探针表。
+txn-2pc:
+  stage: verify
+  image: $REGISTRY_IMAGE_PREFIX/ci-backend:py314
+  variables:
+    BMS_ENV: test
+    BMS_TEST_MYSQL_URL: mysql+pymysql://bms_test:$MYSQL_TEST_PASSWORD@192.168.0.107:3306/bms_test_mysql
+    BMS_TEST_PG_URL: postgresql+psycopg://bms_test:$POSTGRES_TEST_PASSWORD@192.168.0.107:5432/bms_test_pg
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes:
+        paths:
+          - backend/libs/bms_core/src/bms_core/transaction/**/*
+          - backend/libs/bms_core/src/bms_core/db/**/*
+          - backend/libs/bms_core/tests/integration/**/*
+          - backend/services/txn/**/*
+          - backend/ops/txn_recovery.py
+      exists:
+        - deploy/ci/verify/db
+  script:
+    - cd backend
+    - uv sync --frozen
+    - BMS_TEST_DB_URL="$BMS_TEST_MYSQL_URL" uv run python -m ops.test_db create --engine mysql --execute
+    - BMS_TEST_DB_URL="$BMS_TEST_PG_URL" uv run python -m ops.test_db create --engine postgres --execute
+    - uv run pytest libs/bms_core/tests/integration/test_cross_db_2pc.py -v
+
 integration-mysql:
   <<: *integration-base
   variables:
