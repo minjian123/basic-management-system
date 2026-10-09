@@ -13,7 +13,10 @@ declare module 'vue' {
   export interface GlobalComponents {
     AppHeaderBar: typeof import('./src/components/AppHeaderBar.vue')['default']
     AppHeaderSearch: typeof import('./src/components/AppHeaderSearch.vue')['default']
+    ElAlert: typeof import('element-plus/es')['ElAlert']
     ElButton: typeof import('element-plus/es')['ElButton']
+    ElCheckbox: typeof import('element-plus/es')['ElCheckbox']
+    ElCheckboxGroup: typeof import('element-plus/es')['ElCheckboxGroup']
     ElCol: typeof import('element-plus/es')['ElCol']
     ElDialog: typeof import('element-plus/es')['ElDialog']
     ElForm: typeof import('element-plus/es')['ElForm']
