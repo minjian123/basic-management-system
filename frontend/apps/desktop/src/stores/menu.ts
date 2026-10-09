@@ -13,7 +13,7 @@ import { defineStore } from 'pinia'
 
 import { fetchMyMenus, type MyMenuForm, type MyMenuNode, type MyMenuResponse } from '@/api/menu'
 import { MENU_LOAD_ERROR_MESSAGE, notifyError } from '@/utils/feedback'
-import { setPermissionCodes } from '@/utils/perm'
+import { useSessionStore } from '@/stores/session'
 
 /** 表单元数据：字段权限（字段键 → 可见 / 可编辑）与可见按钮的动作权限码。 */
 export interface FormMeta {
@@ -184,7 +184,7 @@ export const useMenuStore = defineStore('menu', {
       this.attempted = false
       this.error = null
       notified = false
-      setPermissionCodes([])
+      useSessionStore().setCodes([])
     },
     /** 拉取动态菜单并按成功 / 失败分支落地。 */
     async fetchMenus(): Promise<void> {
@@ -215,7 +215,8 @@ export const useMenuStore = defineStore('menu', {
       this.attempted = true
       this.error = null
       notified = false
-      setPermissionCodes(permissions)
+      // 权限码单一来源＝动态菜单装载结果：同时回填会话 store（宿主页 / 指令按 `session.codes` 显隐）。
+      useSessionStore().setCodes(permissions)
     },
     /**
      * 落地装载失败（生产置空 + 一次提示；开发态回退占位菜单）。
@@ -227,7 +228,7 @@ export const useMenuStore = defineStore('menu', {
       this.loaded = false
       this.error = error instanceof Error ? error.message : String(error)
       this.permissions = []
-      setPermissionCodes([])
+      useSessionStore().setCodes([])
       if (import.meta.env.DEV) {
         this.tree = PLACEHOLDER_MENU
         return

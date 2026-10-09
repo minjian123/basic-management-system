@@ -101,9 +101,15 @@ installAuthGuard(router, {
   },
 })
 
-// 会话联动动态路由：令牌变化统一在此处理（登录 / 登出 / 失效共用一条路径）。
-session.$subscribe(() => {
-  if (session.token === null) {
+// 会话联动动态路由：**令牌变化**统一在此处理（登录 / 登出 / 失效共用一条路径）。
+// 仅在 token 变化时联动——菜单装载会回填 `session.codes`（`setCodes`），若随之再次触发会形成装载回环。
+let lastToken: string | null = session.token
+session.$subscribe((_mutation, state) => {
+  if (state.token === lastToken) {
+    return
+  }
+  lastToken = state.token
+  if (state.token === null) {
     menu.reset()
     uninstallMenuRoutesAll(router)
     return

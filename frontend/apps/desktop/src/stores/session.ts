@@ -60,10 +60,21 @@ export const useSessionStore = defineStore('session', {
       this.token = payload.token
       this.user = payload.user
       this.tenant = payload.tenant
-      this.codes = [...codes]
       this.ready = true
       setAccessToken(payload.token)
       setTenantCode(payload.tenant)
+      this.setCodes(codes)
+    },
+    /**
+     * 写入权限码（**单一来源**：登录载荷 / 动态菜单装载结果）。
+     *
+     * 交互登录时登录载荷不含权限码，真实权限码由动态菜单接口（`/menus/my`）下发；菜单装载落地后
+     * 经本动作回填 `codes`（`stores/menu.ts`），使「按权限显隐」的宿主页与指令口径一致。
+     *
+     * @param codes 权限码集合。
+     */
+    setCodes(codes: readonly string[]): void {
+      this.codes = [...codes]
       setPermissionCodes(codes)
     },
     /**
@@ -144,10 +155,9 @@ export const useSessionStore = defineStore('session', {
       this.token = null
       this.user = null
       this.tenant = null
-      this.codes = []
       setAccessToken(null)
       setTenantCode(null)
-      setPermissionCodes([])
+      this.setCodes([])
     },
   },
 })

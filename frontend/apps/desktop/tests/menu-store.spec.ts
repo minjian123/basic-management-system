@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { fetchMyMenus, type MyMenuResponse } from '@/api/menu'
 import { useMenuStore } from '@/stores/menu'
+import { useSessionStore } from '@/stores/session'
 import { MENU_LOAD_ERROR_MESSAGE, notifyError } from '@/utils/feedback'
 import { getPermissionCodes } from '@/utils/perm'
 
@@ -122,6 +123,8 @@ describe('useMenuStore（03_01）', () => {
     expect(store.formOf('/sys/users')?.id).toBe('10')
     expect(store.permissions).toEqual(['user', 'user:create'])
     expect(getPermissionCodes()).toEqual(['user', 'user:create'])
+    // 回填会话 store（宿主页 / 区域项按 `session.codes` 显隐的单一来源；02_03/_02 根因修复）
+    expect(useSessionStore().codes).toEqual(['user', 'user:create'])
   })
 
   it('叶子节点不带 children 键（核心权限过滤按叶子保留，避免整链丢弃）', async () => {
@@ -189,5 +192,6 @@ describe('useMenuStore（03_01）', () => {
     expect(store.formOf('/sys/users')).toBeUndefined()
     expect(store.loaded).toBe(false)
     expect(getPermissionCodes()).toEqual([])
+    expect(useSessionStore().codes).toEqual([])
   })
 })
