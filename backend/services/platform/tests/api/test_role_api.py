@@ -353,7 +353,7 @@ async def test_minimal_user_query_filters_and_fields(role_client: AsyncClient) -
     by_keyword = await client.get(_USERS, params={"kw": "dav"})
     assert by_keyword.json()["data"]["total"] == 1
     item: Any = by_keyword.json()["data"]["list"][0]
-    assert set(item.keys()) == {"id", "username", "name", "status"}
+    assert set(item.keys()) == {"id", "username", "name", "status", "last_login_at"}
 
     by_status = await client.get(_USERS, params={"status": "disabled"})
     assert by_status.json()["data"]["total"] == 1

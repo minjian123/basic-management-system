@@ -16,6 +16,10 @@ class UserRepository(BaseDbRepository[SysUser]):
     model = SysUser
     sortable_fields = ConcurrentStableSet({"id", "username"})
 
+    async def flush(self) -> None:
+        """落库当前会话变更（服务层在同一事务内直接改 ORM 属性后调用）。"""
+        await self._session.flush()
+
     async def get_by_id(self, user_id: int) -> SysUser | None:
         """按主键查询单条记录（作用域过滤；不存在返回 None）。
 
@@ -94,7 +98,7 @@ class UserRepository(BaseDbRepository[SysUser]):
 
         Args:
             query: 页码分页请求（含排序参数）。
-            keyword: 关键字（匹配账号 / 姓名，大小写不敏感）。
+            keyword: 关键字（匹配账号 / 姓名 / 邮箱 / 手机号，大小写不敏感）。
             status: 状态（精确）。
             ids: 限定集合（非空时只在该集合内筛选）。
 
@@ -143,7 +147,7 @@ class UserRepository(BaseDbRepository[SysUser]):
         """组装列表 / 统计筛选条件。
 
         Args:
-            keyword: 关键字（账号 / 姓名模糊）。
+            keyword: 关键字（账号 / 姓名 / 邮箱 / 手机号模糊，大小写不敏感）。
             status: 状态（精确）。
             ids: 限定集合（非空时只在该集合内筛选；空 / None 不限定）。
 
@@ -157,6 +161,8 @@ class UserRepository(BaseDbRepository[SysUser]):
                 or_(
                     func.lower(self._column("username")).like(pattern),
                     func.lower(self._column("name")).like(pattern),
+                    func.lower(self._column("email")).like(pattern),
+                    func.lower(self._column("phone")).like(pattern),
                 )
             )
         if status is not None:

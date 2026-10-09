@@ -47,10 +47,13 @@ _USER_PAYLOAD: ConcurrentStableDict[str, EventFieldSpec] = ConcurrentStableDict(
     {
         "user_id": _STRING_REQUIRED,
         "username": _STRING_REQUIRED,
-        "dept_id": _STRING_OPTIONAL,
         "status": _STRING_REQUIRED,
     }
 )
+"""用户事件载荷：**不含 `dept_id`**（用户＝系统账号不落组织字段，组织关系归 mdm，需求 `07-11`）。"""
+
+_USER_EVENT_VERSION = "2.0.0"
+"""用户事件契约版本：载荷删除 `dept_id`（破坏性变更，升主版本；随需求 `07-11`）。"""
 
 _HELP_ARTICLE_PAYLOAD: ConcurrentStableDict[str, EventFieldSpec] = ConcurrentStableDict(
     {
@@ -69,9 +72,24 @@ _TENANT_PAYLOAD: ConcurrentStableDict[str, EventFieldSpec] = ConcurrentStableDic
 )
 
 PLATFORM_EVENT_CONTRACTS: tuple[EventContract, ...] = (
-    EventContract(event_type="sys.user.created", description="用户创建后", fields=ConcurrentStableDict(_USER_PAYLOAD)),
-    EventContract(event_type="sys.user.updated", description="用户修改后", fields=ConcurrentStableDict(_USER_PAYLOAD)),
-    EventContract(event_type="sys.user.deleted", description="用户删除后", fields=ConcurrentStableDict(_USER_PAYLOAD)),
+    EventContract(
+        event_type="sys.user.created",
+        description="用户创建后",
+        fields=ConcurrentStableDict(_USER_PAYLOAD),
+        version=_USER_EVENT_VERSION,
+    ),
+    EventContract(
+        event_type="sys.user.updated",
+        description="用户修改后",
+        fields=ConcurrentStableDict(_USER_PAYLOAD),
+        version=_USER_EVENT_VERSION,
+    ),
+    EventContract(
+        event_type="sys.user.deleted",
+        description="用户删除后",
+        fields=ConcurrentStableDict(_USER_PAYLOAD),
+        version=_USER_EVENT_VERSION,
+    ),
     EventContract(
         event_type="sys.user.password_reset",
         description="管理员重置密码或自助找回后",

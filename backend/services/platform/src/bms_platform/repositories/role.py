@@ -193,6 +193,20 @@ class UserRoleRepository(BaseDbRepository[SysUserRole]):
         )
         return int((await self._session.execute(statement)).scalar_one())
 
+    async def count_by_user(self, user_id: int) -> int:
+        """统计用户已分配角色数（不含软删除；用户删除前的引用校验用）。
+
+        Args:
+            user_id: 用户主键。
+
+        Returns:
+            int: 已分配角色数。
+        """
+        statement = (
+            select(func.count()).select_from(self.model).where(*self._scope_where(), self._column("user_id") == user_id)
+        )
+        return int((await self._session.execute(statement)).scalar_one())
+
     async def get_by_role_user(self, role_id: int, user_id: int) -> SysUserRole | None:
         """按角色 + 用户取分配行（不含软删除）。
 

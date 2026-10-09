@@ -33,3 +33,20 @@ class KickResult(BaseSchema):
     session_id: str = Field(description="被踢出的会话 id")
     revoked_at: datetime = Field(description="撤销时间（UTC）")
     reason: str = Field(default="kick", description="撤销原因（kick / max_active / logout）")
+
+
+class RevokeUserSessionsRequest(BaseSchema):
+    """按用户撤销全部会话请求（服务间内部端点；platform 用户管理调用）。"""
+
+    user_id: int = Field(description="用户 ID")
+    reason: str = Field(
+        min_length=1,
+        max_length=32,
+        description="撤销原因（user_disabled / user_deleted / password_reset）",
+    )
+
+
+class RevokeUserSessionsResult(BaseSchema):
+    """按用户撤销全部会话结果。"""
+
+    revoked: int = Field(description="被撤销的在线会话数（无在线会话为 0）")

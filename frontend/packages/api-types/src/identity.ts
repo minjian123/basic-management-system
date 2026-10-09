@@ -590,6 +590,37 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/identity/internal/sessions/revoke-user": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Revoke User Sessions
+         * @description 按用户撤销其全部在线会话（即时失效）。
+         *
+         *     Args:
+         *         request: 请求对象（取引擎注册表与会话工厂）。
+         *         req: 撤销请求（用户 ID + 原因）。
+         *         security: 会话安全原语。
+         *         store: 会话标记存储。
+         *         publisher: 实时推送器。
+         *         tenant_ctx: 请求上下文租户。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为被撤销的在线会话数。
+         */
+        post: operations["revoke_user_sessions_api_v1_identity_internal_sessions_revoke_user_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/idp/providers": {
         parameters: {
             query?: never;
@@ -1536,6 +1567,20 @@ export interface components {
              */
             message: string;
         };
+        /** ApiResponse[RevokeUserSessionsResult] */
+        ApiResponse_RevokeUserSessionsResult_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["RevokeUserSessionsResult"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
         /** ApiResponse[SessionItem] */
         ApiResponse_SessionItem_: {
             /**
@@ -2280,6 +2325,33 @@ export interface components {
              * @default Bearer
              */
             token_type: string;
+        };
+        /**
+         * RevokeUserSessionsRequest
+         * @description 按用户撤销全部会话请求（服务间内部端点；platform 用户管理调用）。
+         */
+        RevokeUserSessionsRequest: {
+            /**
+             * Reason
+             * @description 撤销原因（user_disabled / user_deleted / password_reset）
+             */
+            reason: string;
+            /**
+             * User Id
+             * @description 用户 ID
+             */
+            user_id: number;
+        };
+        /**
+         * RevokeUserSessionsResult
+         * @description 按用户撤销全部会话结果。
+         */
+        RevokeUserSessionsResult: {
+            /**
+             * Revoked
+             * @description 被撤销的在线会话数（无在线会话为 0）
+             */
+            revoked: number;
         };
         /**
          * SessionItem
@@ -3242,6 +3314,86 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    revoke_user_sessions_api_v1_identity_internal_sessions_revoke_user_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RevokeUserSessionsRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_RevokeUserSessionsResult_"];
                 };
             };
             /** @description 未认证 */

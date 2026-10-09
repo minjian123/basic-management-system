@@ -104,6 +104,14 @@ async def test_seed_creates_builtin_roles_and_grants_idempotently(urls: tuple[st
     assert first.missing_codes  # 其余在册码平台库未登记 → 上报且不产生授权
     assert set(SECURITY_ADMIN_CODES).issubset(set(SYSTEM_ADMIN_CODES) | set(SECURITY_ADMIN_CODES))
     assert set(AUDIT_ADMIN_CODES) == set()
+    # `02_01` 用户完整域：系统管理员持全部用户域码（防新端点 403 自锁）
+    assert {
+        "user:create",
+        "user:update",
+        "user:delete",
+        "user:reset_pwd",
+        "user:assign_role",
+    } <= set(SYSTEM_ADMIN_CODES)
 
     second = await seed_rbac(tenant_url=tenant_url, platform_url=platform_url)
     assert (second.roles_created, second.grants_created) == (0, 0)
@@ -111,6 +119,15 @@ async def test_seed_creates_builtin_roles_and_grants_idempotently(urls: tuple[st
     assert second.grants_skipped == 4
     _, grants_after = await _roles_and_grants(tenant_url)
     assert grants_after == 4
+
+
+@pytest.mark.kiwi_id(2270)
+def test_seed_menu_registers_assign_role() -> None:
+    """`user:assign_role` 动作码与「用户管理」页按钮挂接已在菜单元数据种子登记（`02_01`）。"""
+    from ops.seed_menu import ACTION_SEEDS, BUTTON_SEEDS
+
+    assert ("user", "assign_role", "分配角色", "Assign role") in ACTION_SEEDS
+    assert ("/sys/users", "分配角色", "assign_role", "interface", 7) in BUTTON_SEEDS
 
 
 @pytest.mark.kiwi_id(2269)

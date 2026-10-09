@@ -38,6 +38,12 @@ REASON_LOGOUT = "logout"
 REASON_PASSWORD_RESET = "password_reset"
 """撤销原因：自助找回 / 重置密码后全部会话失效。"""
 
+REASON_USER_DISABLED = "user_disabled"
+"""撤销原因：管理员停用账号（platform 用户管理调用内部端点）。"""
+
+REASON_USER_DELETED = "user_deleted"
+"""撤销原因：管理员删除（软删）账号（platform 用户管理调用内部端点）。"""
+
 _LOGGER = get_logger("bms")
 
 

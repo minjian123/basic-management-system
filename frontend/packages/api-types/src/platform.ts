@@ -2342,19 +2342,202 @@ export interface paths {
         };
         /**
          * List Users
-         * @description 用户最小字段列表（账号 / 姓名关键字与状态筛选 + 分页）。
+         * @description 用户列表（关键字「用户名 / 姓名 / 邮箱 / 手机号」+ 状态筛选 + 分页）。
          *
          *     Args:
          *         query: 分页与排序参数。
          *         uow: 请求级工作单元。
-         *         kw: 关键字（账号 / 姓名）。
+         *         kw: 关键字（四字段模糊，大小写不敏感）。
          *         status: 账号状态（enabled/disabled）。
          *
          *     Returns:
-         *         ApiResponse: 统一响应，data 为分页用户列表（最小字段）。
+         *         ApiResponse: 统一响应，data 为分页用户列表。
          */
         get: operations["list_users_api_v1_users_get"];
         put?: never;
+        /**
+         * Create User
+         * @description 新建用户（初始密码可选；支持 `Idempotency-Key` 幂等）。
+         *
+         *     Args:
+         *         req: 新建用户请求。
+         *         uow: 请求级工作单元。
+         *         hasher: 口令哈希器。
+         *         policy: 密码策略。
+         *         outbox: 事务性发件箱存储。
+         *         client: 服务间调用客户端。
+         *         idempotency: 幂等存储。
+         *         audit: 审计捕获（占位）。
+         *         idem_key: 幂等键请求头。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为新建用户详情与（后端生成的）初始密码。
+         *
+         *     Raises:
+         *         ConflictError: 同一幂等键的首个请求仍在处理中（10003）。
+         *         UsernameExistsError: 用户名已存在（30003）。
+         */
+        post: operations["create_user_api_v1_users_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/{user_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get User Detail
+         * @description 用户详情（含联系方式与乐观锁版本）。
+         *
+         *     Args:
+         *         user_id: 用户主键。
+         *         uow: 请求级工作单元。
+         *         hasher: 口令哈希器（服务构造用）。
+         *         policy: 密码策略（服务构造用）。
+         *         outbox: 发件箱（服务构造用）。
+         *         client: 服务间调用客户端（服务构造用）。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为用户详情。
+         */
+        get: operations["get_user_detail_api_v1_users__user_id__get"];
+        /**
+         * Update User
+         * @description 修改用户基本资料（昵称 / 邮箱 / 手机；乐观锁）。
+         *
+         *     Args:
+         *         user_id: 用户主键。
+         *         req: 修改请求。
+         *         uow: 请求级工作单元。
+         *         hasher: 口令哈希器（服务构造用）。
+         *         policy: 密码策略（服务构造用）。
+         *         outbox: 发件箱（服务构造用）。
+         *         client: 服务间调用客户端（服务构造用）。
+         *         audit: 审计捕获（占位）。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为更新后的用户详情。
+         */
+        put: operations["update_user_api_v1_users__user_id__put"];
+        post?: never;
+        /**
+         * Delete User
+         * @description 软删除用户（引用校验 + 关闭未解锁锁定记录 + 失效全部会话）。
+         *
+         *     Args:
+         *         user_id: 用户主键。
+         *         uow: 请求级工作单元。
+         *         hasher: 口令哈希器（服务构造用）。
+         *         policy: 密码策略（服务构造用）。
+         *         outbox: 发件箱（服务构造用）。
+         *         client: 服务间调用客户端（会话失效）。
+         *         audit: 审计捕获（占位）。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为删除与会话撤销结果。
+         */
+        delete: operations["delete_user_api_v1_users__user_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/{user_id}/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Reset User Password
+         * @description 重置密码（策略校验 + 强制首登改密 + 失效全部会话）。
+         *
+         *     Args:
+         *         user_id: 用户主键。
+         *         req: 重置密码请求。
+         *         uow: 请求级工作单元。
+         *         hasher: 口令哈希器。
+         *         policy: 密码策略。
+         *         outbox: 发件箱（服务构造用）。
+         *         client: 服务间调用客户端（会话失效）。
+         *         audit: 审计捕获（占位）。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为重置与会话撤销结果。
+         */
+        put: operations["reset_user_password_api_v1_users__user_id__password_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/{user_id}/roles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List User Roles
+         * @description 查看该用户直接绑定的角色（只读；维护归角色管理）。
+         *
+         *     Args:
+         *         user_id: 用户主键。
+         *         uow: 请求级工作单元。
+         *         hasher: 口令哈希器（服务构造用）。
+         *         policy: 密码策略（服务构造用）。
+         *         outbox: 发件箱（服务构造用）。
+         *         client: 服务间调用客户端（服务构造用）。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为直接角色清单。
+         */
+        get: operations["list_user_roles_api_v1_users__user_id__roles_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/{user_id}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Update User Status
+         * @description 启用 / 停用账号（停用即时失效该用户全部会话）。
+         *
+         *     Args:
+         *         user_id: 用户主键。
+         *         req: 状态请求。
+         *         uow: 请求级工作单元。
+         *         hasher: 口令哈希器（服务构造用）。
+         *         policy: 密码策略（服务构造用）。
+         *         outbox: 发件箱（服务构造用）。
+         *         client: 服务间调用客户端（会话失效）。
+         *         audit: 审计捕获（占位）。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为更新后的用户详情与会话撤销结果。
+         */
+        put: operations["update_user_status_api_v1_users__user_id__status_put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -2896,6 +3079,20 @@ export interface components {
              */
             message: string;
         };
+        /** ApiResponse[UserAdminCreateResult] */
+        ApiResponse_UserAdminCreateResult_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["UserAdminCreateResult"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
         /** ApiResponse[UserCreateResult] */
         ApiResponse_UserCreateResult_: {
             /**
@@ -2904,6 +3101,34 @@ export interface components {
              */
             code: number;
             data?: components["schemas"]["UserCreateResult"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[UserDeleteResult] */
+        ApiResponse_UserDeleteResult_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["UserDeleteResult"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[UserDetail] */
+        ApiResponse_UserDetail_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["UserDetail"] | null;
             /**
              * Message
              * @default ok
@@ -2938,6 +3163,20 @@ export interface components {
              */
             message: string;
         };
+        /** ApiResponse[UserPasswordResetResult] */
+        ApiResponse_UserPasswordResetResult_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["UserPasswordResetResult"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
         /** ApiResponse[UserProfileResult] */
         ApiResponse_UserProfileResult_: {
             /**
@@ -2960,6 +3199,34 @@ export interface components {
              */
             code: number;
             data?: components["schemas"]["UserResetTargetResult"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[UserRoleList] */
+        ApiResponse_UserRoleList_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["UserRoleList"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[UserStatusResult] */
+        ApiResponse_UserStatusResult_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["UserStatusResult"] | null;
             /**
              * Message
              * @default ok
@@ -5128,6 +5395,63 @@ export interface components {
             violations?: string[];
         };
         /**
+         * UserAdminCreateRequest
+         * @description 新建用户请求（初始密码可选；缺省后端随机生成并一次性回显）。
+         */
+        UserAdminCreateRequest: {
+            /**
+             * Email
+             * @description 邮箱（可空）
+             */
+            email?: string | null;
+            /**
+             * Name
+             * @description 昵称 / 显示名
+             */
+            name: string;
+            /**
+             * Password
+             * @description 初始密码（不传则由后端随机生成并在响应中一次性返回）
+             */
+            password?: string | null;
+            /**
+             * Phone
+             * @description 手机号（可空）
+             */
+            phone?: string | null;
+            /**
+             * Pwd Reset Required
+             * @description 是否强制下次登录改密
+             * @default true
+             */
+            pwd_reset_required: boolean;
+            /**
+             * Status
+             * @description 初始状态（enabled/disabled）
+             * @default enabled
+             * @enum {string}
+             */
+            status: "enabled" | "disabled";
+            /**
+             * Username
+             * @description 登录账号（租户内唯一；软删除后原账号可复用）
+             */
+            username: string;
+        };
+        /**
+         * UserAdminCreateResult
+         * @description 新建用户结果（后端生成的初始密码仅本次返回）。
+         */
+        UserAdminCreateResult: {
+            /**
+             * Initial Password
+             * @description 后端生成的初始密码（仅本次返回；调用方自行指定密码时为 null）
+             */
+            initial_password?: string | null;
+            /** @description 新建用户详情 */
+            user: components["schemas"]["UserDetail"];
+        };
+        /**
          * UserCreateRequest
          * @description 建号请求（账号 / 昵称 / 语言时区 / 来源；租户经服务 JWT `tenant` claim 解析）。
          */
@@ -5176,6 +5500,81 @@ export interface components {
             reason?: string | null;
             /** @description 新建用户概要（created=true 时返回） */
             user?: components["schemas"]["UserProfileUser"] | null;
+        };
+        /**
+         * UserDeleteResult
+         * @description 软删除结果（`session_revoked` 表示会话撤销是否成功）。
+         */
+        UserDeleteResult: {
+            /**
+             * Deleted
+             * @description 是否删除成功
+             */
+            deleted: boolean;
+            /**
+             * Session Revoked
+             * @description 是否已失效该用户全部会话
+             */
+            session_revoked: boolean;
+        };
+        /**
+         * UserDetail
+         * @description 用户详情（含联系方式与乐观锁版本；联系方式按脱敏标记掩码，`data:plain` 权限见明文）。
+         */
+        UserDetail: {
+            /**
+             * Created At
+             * Format: date-time
+             * @description 创建时间（UTC）
+             */
+            created_at: string;
+            /**
+             * Email
+             * @description 邮箱（按脱敏标记掩码）
+             */
+            email?: string | null;
+            /**
+             * Id
+             * @description 用户主键
+             */
+            id: string;
+            /**
+             * Last Login At
+             * @description 最近登录时间（UTC；从未登录为 null）
+             */
+            last_login_at?: string | null;
+            /**
+             * Name
+             * @description 昵称 / 显示名
+             */
+            name: string;
+            /**
+             * Phone
+             * @description 手机号（按脱敏标记掩码）
+             */
+            phone?: string | null;
+            /**
+             * Status
+             * @description 账号状态（enabled/disabled）
+             * @enum {string}
+             */
+            status: "enabled" | "disabled";
+            /**
+             * Updated At
+             * Format: date-time
+             * @description 更新时间（UTC）
+             */
+            updated_at: string;
+            /**
+             * Username
+             * @description 登录账号
+             */
+            username: string;
+            /**
+             * Version
+             * @description 乐观锁版本
+             */
+            version: number;
         };
         /**
          * UserExtensionCreateRequest
@@ -5265,7 +5664,7 @@ export interface components {
         };
         /**
          * UserItem
-         * @description 最小用户只读查询行（选择用户弹窗 / 已分配列表回显；不含口令哈希与联系方式）。
+         * @description 用户列表行（管理面；选择用户弹窗 / 已分配列表回显 / 用户列表共用；不含联系方式）。
          */
         UserItem: {
             /**
@@ -5274,6 +5673,11 @@ export interface components {
              */
             id: string;
             /**
+             * Last Login At
+             * @description 最近登录时间（UTC；从未登录为 null）
+             */
+            last_login_at?: string | null;
+            /**
              * Name
              * @description 用户昵称 / 显示名
              */
@@ -5281,13 +5685,47 @@ export interface components {
             /**
              * Status
              * @description 账号状态（enabled/disabled）
+             * @enum {string}
              */
-            status: string;
+            status: "enabled" | "disabled";
             /**
              * Username
              * @description 登录账号
              */
             username: string;
+        };
+        /**
+         * UserPasswordResetRequest
+         * @description 重置密码请求（复杂度与历史策略校验 + 强制首登改密 + 失效全部会话）。
+         */
+        UserPasswordResetRequest: {
+            /**
+             * Force Change
+             * @description 是否强制下次登录改密
+             * @default true
+             */
+            force_change: boolean;
+            /**
+             * New Password
+             * @description 新密码（复杂度 30005 / 历史重复 30006）
+             */
+            new_password: string;
+        };
+        /**
+         * UserPasswordResetResult
+         * @description 重置密码结果（不回显新密码）。
+         */
+        UserPasswordResetResult: {
+            /**
+             * Reset
+             * @description 是否重置成功
+             */
+            reset: boolean;
+            /**
+             * Session Revoked
+             * @description 是否已失效该用户全部会话
+             */
+            session_revoked: boolean;
         };
         /**
          * UserProfileRequest
@@ -5406,6 +5844,94 @@ export interface components {
              * @description 用户主键（found=true 时返回）
              */
             user_id?: string | null;
+        };
+        /**
+         * UserRoleItem
+         * @description 用户直接角色行（同库 `sys_user_role` ⋈ `sys_role`；只读，维护归角色管理）。
+         */
+        UserRoleItem: {
+            /**
+             * Role Code
+             * @description 角色码
+             */
+            role_code: string;
+            /**
+             * Role Id
+             * @description 角色主键
+             */
+            role_id: string;
+            /**
+             * Role Name
+             * @description 角色名称
+             */
+            role_name: string;
+            /**
+             * Role Type
+             * @description 角色类型（custom/system/security/audit）
+             */
+            role_type: string;
+        };
+        /**
+         * UserRoleList
+         * @description 用户直接角色清单。
+         */
+        UserRoleList: {
+            /**
+             * Items
+             * @description 直接角色清单
+             */
+            items?: components["schemas"]["UserRoleItem"][];
+        };
+        /**
+         * UserStatusResult
+         * @description 启用 / 停用结果（停用时 `session_revoked` 有意义）。
+         */
+        UserStatusResult: {
+            /**
+             * Session Revoked
+             * @description 是否已失效该用户全部会话
+             */
+            session_revoked: boolean;
+            /** @description 更新后的用户详情 */
+            user: components["schemas"]["UserDetail"];
+        };
+        /**
+         * UserStatusUpdateRequest
+         * @description 启用 / 停用请求（停用即失效该用户全部会话）。
+         */
+        UserStatusUpdateRequest: {
+            /**
+             * Status
+             * @description 目标状态（enabled / disabled）
+             * @enum {string}
+             */
+            status: "enabled" | "disabled";
+        };
+        /**
+         * UserUpdateRequest
+         * @description 修改用户请求（昵称 / 邮箱 / 手机；乐观锁比对版本）。
+         */
+        UserUpdateRequest: {
+            /**
+             * Email
+             * @description 邮箱（None = 不改；空串 = 清空）
+             */
+            email?: string | null;
+            /**
+             * Name
+             * @description 昵称 / 显示名（None = 不改）
+             */
+            name?: string | null;
+            /**
+             * Phone
+             * @description 手机号（None = 不改；空串 = 清空）
+             */
+            phone?: string | null;
+            /**
+             * Version
+             * @description 客户端版本（乐观锁比对）
+             */
+            version: number;
         };
         /** ValidationError */
         ValidationError: {
@@ -12943,7 +13469,7 @@ export interface operations {
     list_users_api_v1_users_get: {
         parameters: {
             query?: {
-                /** @description 关键字（账号 / 姓名） */
+                /** @description 关键字（用户名/姓名/邮箱/手机号，大小写不敏感） */
                 kw?: string | null;
                 /** @description 账号状态（enabled/disabled） */
                 status?: string | null;
@@ -12969,6 +13495,554 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponse_BasePageResponse_UserItem__"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    create_user_api_v1_users_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserAdminCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_UserAdminCreateResult_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    get_user_detail_api_v1_users__user_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_UserDetail_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    update_user_api_v1_users__user_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_UserDetail_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    delete_user_api_v1_users__user_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_UserDeleteResult_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    reset_user_password_api_v1_users__user_id__password_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserPasswordResetRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_UserPasswordResetResult_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    list_user_roles_api_v1_users__user_id__roles_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_UserRoleList_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    update_user_status_api_v1_users__user_id__status_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserStatusUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_UserStatusResult_"];
                 };
             };
             /** @description 未认证 */

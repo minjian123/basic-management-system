@@ -217,10 +217,6 @@
       "description": "用户创建后",
       "event_type": "sys.user.created",
       "fields": {
-        "dept_id": {
-          "required": false,
-          "type": "string"
-        },
         "status": {
           "required": true,
           "type": "string"
@@ -234,17 +230,13 @@
           "type": "string"
         }
       },
-      "version": "1.0.0"
+      "version": "2.0.0"
     },
     {
       "deprecated": false,
       "description": "用户删除后",
       "event_type": "sys.user.deleted",
       "fields": {
-        "dept_id": {
-          "required": false,
-          "type": "string"
-        },
         "status": {
           "required": true,
           "type": "string"
@@ -258,7 +250,7 @@
           "type": "string"
         }
       },
-      "version": "1.0.0"
+      "version": "2.0.0"
     },
     {
       "deprecated": false,
@@ -277,10 +269,6 @@
       "description": "用户修改后",
       "event_type": "sys.user.updated",
       "fields": {
-        "dept_id": {
-          "required": false,
-          "type": "string"
-        },
         "status": {
           "required": true,
           "type": "string"
@@ -294,7 +282,7 @@
           "type": "string"
         }
       },
-      "version": "1.0.0"
+      "version": "2.0.0"
     },
     {
       "deprecated": false,

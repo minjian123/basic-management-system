@@ -5,21 +5,31 @@
 - 管理面契约（`/api/v1/users`，登录 + `user:query`）：最小用户只读查询行。
 """
 
-from typing import Annotated
+from datetime import datetime
+from typing import Annotated, ClassVar, Literal
 
 from pydantic import Field
 
-from bms_core.core.concurrent import ConcurrentStableList
-from bms_core.schemas.base import CONTRACT_COLLECTION, CONTRACT_STABLE_LIST, BaseSchema
+from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
+from bms_core.schemas.base import CONTRACT_COLLECTION, CONTRACT_STABLE_LIST, BaseSchema, MaskedFields
+
+UserStatus = Literal["enabled", "disabled"]
+"""账号状态取值（`enabled` / `disabled`）。"""
+
+# 账号 / 联系方式校验（服务侧另有去空白与唯一性校验；此处只做形态约束）
+_USERNAME_PATTERN = r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$"
+_EMAIL_PATTERN = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
+_PHONE_PATTERN = r"^[+]?[0-9][0-9\-\s]{5,31}$"
 
 
 class UserItem(BaseSchema):
-    """最小用户只读查询行（选择用户弹窗 / 已分配列表回显；不含口令哈希与联系方式）。"""
+    """用户列表行（管理面；选择用户弹窗 / 已分配列表回显 / 用户列表共用；不含联系方式）。"""
 
     id: int = Field(description="用户主键")
     username: str = Field(description="登录账号")
     name: str = Field(description="用户昵称 / 显示名")
-    status: str = Field(description="账号状态（enabled/disabled）")
+    status: UserStatus = Field(description="账号状态（enabled/disabled）")
+    last_login_at: datetime | None = Field(default=None, description="最近登录时间（UTC；从未登录为 null）")
 
 
 class InternalUserQueryRequest(BaseSchema):
@@ -109,3 +119,116 @@ class UserResetTargetResult(BaseSchema):
     deliverable: bool = Field(default=False, description="是否可送达（启用且有可用通道）")
     channel: str = Field(default="", description="投递通道（email / sms；无可用通道为空串）")
     target: str = Field(default="", description="投递目标（原始邮箱 / 手机号；内部契约，不对外回显）")
+
+
+# --------------------------------------------------------------------------- 管理面（用户完整域）
+# 用户 CRUD / 启停 / 重置密码 / 角色查看（需求 07-2）。组织字段（部门 / 岗位）不在本模块：
+# 用户＝系统账号，组织关系归 mdm（需求 07-11）。
+
+
+class UserAdminCreateRequest(BaseSchema):
+    """新建用户请求（初始密码可选；缺省后端随机生成并一次性回显）。"""
+
+    username: str = Field(
+        min_length=1,
+        max_length=64,
+        pattern=_USERNAME_PATTERN,
+        description="登录账号（租户内唯一；软删除后原账号可复用）",
+    )
+    name: str = Field(min_length=1, max_length=128, description="昵称 / 显示名")
+    password: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=128,
+        description="初始密码（不传则由后端随机生成并在响应中一次性返回）",
+    )
+    pwd_reset_required: bool = Field(default=True, description="是否强制下次登录改密")
+    email: str | None = Field(default=None, max_length=255, pattern=_EMAIL_PATTERN, description="邮箱（可空）")
+    phone: str | None = Field(default=None, max_length=32, pattern=_PHONE_PATTERN, description="手机号（可空）")
+    status: UserStatus = Field(default="enabled", description="初始状态（enabled/disabled）")
+
+
+class UserUpdateRequest(BaseSchema):
+    """修改用户请求（昵称 / 邮箱 / 手机；乐观锁比对版本）。"""
+
+    name: str | None = Field(default=None, min_length=1, max_length=128, description="昵称 / 显示名（None = 不改）")
+    email: str | None = Field(default=None, max_length=255, description="邮箱（None = 不改；空串 = 清空）")
+    phone: str | None = Field(default=None, max_length=32, description="手机号（None = 不改；空串 = 清空）")
+    version: int = Field(ge=1, description="客户端版本（乐观锁比对）")
+
+
+class UserStatusUpdateRequest(BaseSchema):
+    """启用 / 停用请求（停用即失效该用户全部会话）。"""
+
+    status: UserStatus = Field(description="目标状态（enabled / disabled）")
+
+
+class UserPasswordResetRequest(BaseSchema):
+    """重置密码请求（复杂度与历史策略校验 + 强制首登改密 + 失效全部会话）。"""
+
+    new_password: str = Field(min_length=1, max_length=128, description="新密码（复杂度 30005 / 历史重复 30006）")
+    force_change: bool = Field(default=True, description="是否强制下次登录改密")
+
+
+class UserDetail(BaseSchema):
+    """用户详情（含联系方式与乐观锁版本；联系方式按脱敏标记掩码，`data:plain` 权限见明文）。"""
+
+    masked_fields: ClassVar[MaskedFields] = ConcurrentStableSet({"phone", "email"})
+
+    id: int = Field(description="用户主键")
+    username: str = Field(description="登录账号")
+    name: str = Field(description="昵称 / 显示名")
+    status: UserStatus = Field(description="账号状态（enabled/disabled）")
+    email: str | None = Field(default=None, description="邮箱（按脱敏标记掩码）")
+    phone: str | None = Field(default=None, description="手机号（按脱敏标记掩码）")
+    last_login_at: datetime | None = Field(default=None, description="最近登录时间（UTC；从未登录为 null）")
+    version: int = Field(description="乐观锁版本")
+    created_at: datetime = Field(description="创建时间（UTC）")
+    updated_at: datetime = Field(description="更新时间（UTC）")
+
+
+class UserAdminCreateResult(BaseSchema):
+    """新建用户结果（后端生成的初始密码仅本次返回）。"""
+
+    user: UserDetail = Field(description="新建用户详情")
+    initial_password: str | None = Field(
+        default=None, description="后端生成的初始密码（仅本次返回；调用方自行指定密码时为 null）"
+    )
+
+
+class UserDeleteResult(BaseSchema):
+    """软删除结果（`session_revoked` 表示会话撤销是否成功）。"""
+
+    deleted: bool = Field(description="是否删除成功")
+    session_revoked: bool = Field(description="是否已失效该用户全部会话")
+
+
+class UserStatusResult(BaseSchema):
+    """启用 / 停用结果（停用时 `session_revoked` 有意义）。"""
+
+    user: UserDetail = Field(description="更新后的用户详情")
+    session_revoked: bool = Field(description="是否已失效该用户全部会话")
+
+
+class UserPasswordResetResult(BaseSchema):
+    """重置密码结果（不回显新密码）。"""
+
+    reset: bool = Field(description="是否重置成功")
+    session_revoked: bool = Field(description="是否已失效该用户全部会话")
+
+
+class UserRoleItem(BaseSchema):
+    """用户直接角色行（同库 `sys_user_role` ⋈ `sys_role`；只读，维护归角色管理）。"""
+
+    role_id: int = Field(description="角色主键")
+    role_code: str = Field(description="角色码")
+    role_name: str = Field(description="角色名称")
+    role_type: str = Field(description="角色类型（custom/system/security/audit）")
+
+
+class UserRoleList(BaseSchema):
+    """用户直接角色清单。"""
+
+    items: Annotated[ConcurrentStableList[UserRoleItem], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_LIST, description="直接角色清单"
+    )

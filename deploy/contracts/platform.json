@@ -870,6 +870,33 @@
         "title": "ApiResponse[UpdatePasswordResult]",
         "type": "object"
       },
+      "ApiResponse_UserAdminCreateResult_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UserAdminCreateResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[UserAdminCreateResult]",
+        "type": "object"
+      },
       "ApiResponse_UserCreateResult_": {
         "additionalProperties": false,
         "properties": {
@@ -895,6 +922,60 @@
           }
         },
         "title": "ApiResponse[UserCreateResult]",
+        "type": "object"
+      },
+      "ApiResponse_UserDeleteResult_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UserDeleteResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[UserDeleteResult]",
+        "type": "object"
+      },
+      "ApiResponse_UserDetail_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UserDetail"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[UserDetail]",
         "type": "object"
       },
       "ApiResponse_UserExtensionItem_": {
@@ -951,6 +1032,33 @@
         "title": "ApiResponse[UserExtensionList]",
         "type": "object"
       },
+      "ApiResponse_UserPasswordResetResult_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UserPasswordResetResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[UserPasswordResetResult]",
+        "type": "object"
+      },
       "ApiResponse_UserProfileResult_": {
         "additionalProperties": false,
         "properties": {
@@ -1003,6 +1111,60 @@
           }
         },
         "title": "ApiResponse[UserResetTargetResult]",
+        "type": "object"
+      },
+      "ApiResponse_UserRoleList_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UserRoleList"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[UserRoleList]",
+        "type": "object"
+      },
+      "ApiResponse_UserStatusResult_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UserStatusResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[UserStatusResult]",
         "type": "object"
       },
       "AssignedUserItem": {
@@ -4385,6 +4547,118 @@
         "title": "UpdatePasswordResult",
         "type": "object"
       },
+      "UserAdminCreateRequest": {
+        "additionalProperties": false,
+        "description": "新建用户请求（初始密码可选；缺省后端随机生成并一次性回显）。",
+        "properties": {
+          "email": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "pattern": "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "邮箱（可空）",
+            "title": "Email"
+          },
+          "name": {
+            "description": "昵称 / 显示名",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "password": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "初始密码（不传则由后端随机生成并在响应中一次性返回）",
+            "title": "Password"
+          },
+          "phone": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "pattern": "^[+]?[0-9][0-9\\-\\s]{5,31}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "手机号（可空）",
+            "title": "Phone"
+          },
+          "pwd_reset_required": {
+            "default": true,
+            "description": "是否强制下次登录改密",
+            "title": "Pwd Reset Required",
+            "type": "boolean"
+          },
+          "status": {
+            "default": "enabled",
+            "description": "初始状态（enabled/disabled）",
+            "enum": [
+              "enabled",
+              "disabled"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "username": {
+            "description": "登录账号（租户内唯一；软删除后原账号可复用）",
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$",
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "username",
+          "name"
+        ],
+        "title": "UserAdminCreateRequest",
+        "type": "object"
+      },
+      "UserAdminCreateResult": {
+        "additionalProperties": false,
+        "description": "新建用户结果（后端生成的初始密码仅本次返回）。",
+        "properties": {
+          "initial_password": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "后端生成的初始密码（仅本次返回；调用方自行指定密码时为 null）",
+            "title": "Initial Password"
+          },
+          "user": {
+            "$ref": "#/components/schemas/UserDetail",
+            "description": "新建用户详情"
+          }
+        },
+        "required": [
+          "user"
+        ],
+        "title": "UserAdminCreateResult",
+        "type": "object"
+      },
       "UserCreateRequest": {
         "additionalProperties": false,
         "description": "建号请求（账号 / 昵称 / 语言时区 / 来源；租户经服务 JWT `tenant` claim 解析）。",
@@ -4482,6 +4756,123 @@
           "created"
         ],
         "title": "UserCreateResult",
+        "type": "object"
+      },
+      "UserDeleteResult": {
+        "additionalProperties": false,
+        "description": "软删除结果（`session_revoked` 表示会话撤销是否成功）。",
+        "properties": {
+          "deleted": {
+            "description": "是否删除成功",
+            "title": "Deleted",
+            "type": "boolean"
+          },
+          "session_revoked": {
+            "description": "是否已失效该用户全部会话",
+            "title": "Session Revoked",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "deleted",
+          "session_revoked"
+        ],
+        "title": "UserDeleteResult",
+        "type": "object"
+      },
+      "UserDetail": {
+        "additionalProperties": false,
+        "description": "用户详情（含联系方式与乐观锁版本；联系方式按脱敏标记掩码，`data:plain` 权限见明文）。",
+        "properties": {
+          "created_at": {
+            "description": "创建时间（UTC）",
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "邮箱（按脱敏标记掩码）",
+            "title": "Email"
+          },
+          "id": {
+            "description": "用户主键",
+            "title": "Id",
+            "type": "string"
+          },
+          "last_login_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "最近登录时间（UTC；从未登录为 null）",
+            "title": "Last Login At"
+          },
+          "name": {
+            "description": "昵称 / 显示名",
+            "title": "Name",
+            "type": "string"
+          },
+          "phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "手机号（按脱敏标记掩码）",
+            "title": "Phone"
+          },
+          "status": {
+            "description": "账号状态（enabled/disabled）",
+            "enum": [
+              "enabled",
+              "disabled"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "updated_at": {
+            "description": "更新时间（UTC）",
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "username": {
+            "description": "登录账号",
+            "title": "Username",
+            "type": "string"
+          },
+          "version": {
+            "description": "乐观锁版本",
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "username",
+          "name",
+          "status",
+          "version",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "UserDetail",
         "type": "object"
       },
       "UserExtensionCreateRequest": {
@@ -4629,12 +5020,25 @@
       },
       "UserItem": {
         "additionalProperties": false,
-        "description": "最小用户只读查询行（选择用户弹窗 / 已分配列表回显；不含口令哈希与联系方式）。",
+        "description": "用户列表行（管理面；选择用户弹窗 / 已分配列表回显 / 用户列表共用；不含联系方式）。",
         "properties": {
           "id": {
             "description": "用户主键",
             "title": "Id",
             "type": "string"
+          },
+          "last_login_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "最近登录时间（UTC；从未登录为 null）",
+            "title": "Last Login At"
           },
           "name": {
             "description": "用户昵称 / 显示名",
@@ -4643,6 +5047,10 @@
           },
           "status": {
             "description": "账号状态（enabled/disabled）",
+            "enum": [
+              "enabled",
+              "disabled"
+            ],
             "title": "Status",
             "type": "string"
           },
@@ -4659,6 +5067,52 @@
           "status"
         ],
         "title": "UserItem",
+        "type": "object"
+      },
+      "UserPasswordResetRequest": {
+        "additionalProperties": false,
+        "description": "重置密码请求（复杂度与历史策略校验 + 强制首登改密 + 失效全部会话）。",
+        "properties": {
+          "force_change": {
+            "default": true,
+            "description": "是否强制下次登录改密",
+            "title": "Force Change",
+            "type": "boolean"
+          },
+          "new_password": {
+            "description": "新密码（复杂度 30005 / 历史重复 30006）",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "New Password",
+            "type": "string"
+          }
+        },
+        "required": [
+          "new_password"
+        ],
+        "title": "UserPasswordResetRequest",
+        "type": "object"
+      },
+      "UserPasswordResetResult": {
+        "additionalProperties": false,
+        "description": "重置密码结果（不回显新密码）。",
+        "properties": {
+          "reset": {
+            "description": "是否重置成功",
+            "title": "Reset",
+            "type": "boolean"
+          },
+          "session_revoked": {
+            "description": "是否已失效该用户全部会话",
+            "title": "Session Revoked",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "reset",
+          "session_revoked"
+        ],
+        "title": "UserPasswordResetResult",
         "type": "object"
       },
       "UserProfileRequest": {
@@ -4834,6 +5288,154 @@
           }
         },
         "title": "UserResetTargetResult",
+        "type": "object"
+      },
+      "UserRoleItem": {
+        "additionalProperties": false,
+        "description": "用户直接角色行（同库 `sys_user_role` ⋈ `sys_role`；只读，维护归角色管理）。",
+        "properties": {
+          "role_code": {
+            "description": "角色码",
+            "title": "Role Code",
+            "type": "string"
+          },
+          "role_id": {
+            "description": "角色主键",
+            "title": "Role Id",
+            "type": "string"
+          },
+          "role_name": {
+            "description": "角色名称",
+            "title": "Role Name",
+            "type": "string"
+          },
+          "role_type": {
+            "description": "角色类型（custom/system/security/audit）",
+            "title": "Role Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "role_id",
+          "role_code",
+          "role_name",
+          "role_type"
+        ],
+        "title": "UserRoleItem",
+        "type": "object"
+      },
+      "UserRoleList": {
+        "additionalProperties": false,
+        "description": "用户直接角色清单。",
+        "properties": {
+          "items": {
+            "description": "直接角色清单",
+            "items": {
+              "$ref": "#/components/schemas/UserRoleItem"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "title": "UserRoleList",
+        "type": "object"
+      },
+      "UserStatusResult": {
+        "additionalProperties": false,
+        "description": "启用 / 停用结果（停用时 `session_revoked` 有意义）。",
+        "properties": {
+          "session_revoked": {
+            "description": "是否已失效该用户全部会话",
+            "title": "Session Revoked",
+            "type": "boolean"
+          },
+          "user": {
+            "$ref": "#/components/schemas/UserDetail",
+            "description": "更新后的用户详情"
+          }
+        },
+        "required": [
+          "user",
+          "session_revoked"
+        ],
+        "title": "UserStatusResult",
+        "type": "object"
+      },
+      "UserStatusUpdateRequest": {
+        "additionalProperties": false,
+        "description": "启用 / 停用请求（停用即失效该用户全部会话）。",
+        "properties": {
+          "status": {
+            "description": "目标状态（enabled / disabled）",
+            "enum": [
+              "enabled",
+              "disabled"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "UserStatusUpdateRequest",
+        "type": "object"
+      },
+      "UserUpdateRequest": {
+        "additionalProperties": false,
+        "description": "修改用户请求（昵称 / 邮箱 / 手机；乐观锁比对版本）。",
+        "properties": {
+          "email": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "邮箱（None = 不改；空串 = 清空）",
+            "title": "Email"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "昵称 / 显示名（None = 不改）",
+            "title": "Name"
+          },
+          "phone": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "手机号（None = 不改；空串 = 清空）",
+            "title": "Phone"
+          },
+          "version": {
+            "description": "客户端版本（乐观锁比对）",
+            "minimum": 1.0,
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version"
+        ],
+        "title": "UserUpdateRequest",
         "type": "object"
       },
       "ValidationError": {
@@ -14934,11 +15536,11 @@
     },
     "/api/v1/users": {
       "get": {
-        "description": "用户最小字段列表（账号 / 姓名关键字与状态筛选 + 分页）。\n\nArgs:\n    query: 分页与排序参数。\n    uow: 请求级工作单元。\n    kw: 关键字（账号 / 姓名）。\n    status: 账号状态（enabled/disabled）。\n\nReturns:\n    ApiResponse: 统一响应，data 为分页用户列表（最小字段）。",
+        "description": "用户列表（关键字「用户名 / 姓名 / 邮箱 / 手机号」+ 状态筛选 + 分页）。\n\nArgs:\n    query: 分页与排序参数。\n    uow: 请求级工作单元。\n    kw: 关键字（四字段模糊，大小写不敏感）。\n    status: 账号状态（enabled/disabled）。\n\nReturns:\n    ApiResponse: 统一响应，data 为分页用户列表。",
         "operationId": "list_users_api_v1_users_get",
         "parameters": [
           {
-            "description": "关键字（账号 / 姓名）",
+            "description": "关键字（用户名/姓名/邮箱/手机号，大小写不敏感）",
             "in": "query",
             "name": "kw",
             "required": false,
@@ -14951,7 +15553,7 @@
                   "type": "null"
                 }
               ],
-              "description": "关键字（账号 / 姓名）",
+              "description": "关键字（用户名/姓名/邮箱/手机号，大小写不敏感）",
               "title": "Kw"
             }
           },
@@ -15113,6 +15715,698 @@
           }
         },
         "summary": "List Users",
+        "tags": [
+          "users"
+        ]
+      },
+      "post": {
+        "description": "新建用户（初始密码可选；支持 `Idempotency-Key` 幂等）。\n\nArgs:\n    req: 新建用户请求。\n    uow: 请求级工作单元。\n    hasher: 口令哈希器。\n    policy: 密码策略。\n    outbox: 事务性发件箱存储。\n    client: 服务间调用客户端。\n    idempotency: 幂等存储。\n    audit: 审计捕获（占位）。\n    idem_key: 幂等键请求头。\n\nReturns:\n    ApiResponse: 统一响应，data 为新建用户详情与（后端生成的）初始密码。\n\nRaises:\n    ConflictError: 同一幂等键的首个请求仍在处理中（10003）。\n    UsernameExistsError: 用户名已存在（30003）。",
+        "operationId": "create_user_api_v1_users_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserAdminCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_UserAdminCreateResult_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Create User",
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/api/v1/users/{user_id}": {
+      "delete": {
+        "description": "软删除用户（引用校验 + 关闭未解锁锁定记录 + 失效全部会话）。\n\nArgs:\n    user_id: 用户主键。\n    uow: 请求级工作单元。\n    hasher: 口令哈希器（服务构造用）。\n    policy: 密码策略（服务构造用）。\n    outbox: 发件箱（服务构造用）。\n    client: 服务间调用客户端（会话失效）。\n    audit: 审计捕获（占位）。\n\nReturns:\n    ApiResponse: 统一响应，data 为删除与会话撤销结果。",
+        "operationId": "delete_user_api_v1_users__user_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_UserDeleteResult_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Delete User",
+        "tags": [
+          "users"
+        ]
+      },
+      "get": {
+        "description": "用户详情（含联系方式与乐观锁版本）。\n\nArgs:\n    user_id: 用户主键。\n    uow: 请求级工作单元。\n    hasher: 口令哈希器（服务构造用）。\n    policy: 密码策略（服务构造用）。\n    outbox: 发件箱（服务构造用）。\n    client: 服务间调用客户端（服务构造用）。\n\nReturns:\n    ApiResponse: 统一响应，data 为用户详情。",
+        "operationId": "get_user_detail_api_v1_users__user_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_UserDetail_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Get User Detail",
+        "tags": [
+          "users"
+        ]
+      },
+      "put": {
+        "description": "修改用户基本资料（昵称 / 邮箱 / 手机；乐观锁）。\n\nArgs:\n    user_id: 用户主键。\n    req: 修改请求。\n    uow: 请求级工作单元。\n    hasher: 口令哈希器（服务构造用）。\n    policy: 密码策略（服务构造用）。\n    outbox: 发件箱（服务构造用）。\n    client: 服务间调用客户端（服务构造用）。\n    audit: 审计捕获（占位）。\n\nReturns:\n    ApiResponse: 统一响应，data 为更新后的用户详情。",
+        "operationId": "update_user_api_v1_users__user_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_UserDetail_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Update User",
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/api/v1/users/{user_id}/password": {
+      "put": {
+        "description": "重置密码（策略校验 + 强制首登改密 + 失效全部会话）。\n\nArgs:\n    user_id: 用户主键。\n    req: 重置密码请求。\n    uow: 请求级工作单元。\n    hasher: 口令哈希器。\n    policy: 密码策略。\n    outbox: 发件箱（服务构造用）。\n    client: 服务间调用客户端（会话失效）。\n    audit: 审计捕获（占位）。\n\nReturns:\n    ApiResponse: 统一响应，data 为重置与会话撤销结果。",
+        "operationId": "reset_user_password_api_v1_users__user_id__password_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserPasswordResetRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_UserPasswordResetResult_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Reset User Password",
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/api/v1/users/{user_id}/roles": {
+      "get": {
+        "description": "查看该用户直接绑定的角色（只读；维护归角色管理）。\n\nArgs:\n    user_id: 用户主键。\n    uow: 请求级工作单元。\n    hasher: 口令哈希器（服务构造用）。\n    policy: 密码策略（服务构造用）。\n    outbox: 发件箱（服务构造用）。\n    client: 服务间调用客户端（服务构造用）。\n\nReturns:\n    ApiResponse: 统一响应，data 为直接角色清单。",
+        "operationId": "list_user_roles_api_v1_users__user_id__roles_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_UserRoleList_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "List User Roles",
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/api/v1/users/{user_id}/status": {
+      "put": {
+        "description": "启用 / 停用账号（停用即时失效该用户全部会话）。\n\nArgs:\n    user_id: 用户主键。\n    req: 状态请求。\n    uow: 请求级工作单元。\n    hasher: 口令哈希器（服务构造用）。\n    policy: 密码策略（服务构造用）。\n    outbox: 发件箱（服务构造用）。\n    client: 服务间调用客户端（会话失效）。\n    audit: 审计捕获（占位）。\n\nReturns:\n    ApiResponse: 统一响应，data 为更新后的用户详情与会话撤销结果。",
+        "operationId": "update_user_status_api_v1_users__user_id__status_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserStatusUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_UserStatusResult_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Update User Status",
         "tags": [
           "users"
         ]

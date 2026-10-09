@@ -636,6 +636,58 @@ class PasswordReusedError(UserOrgError):
         super().__init__(ErrorCode.PASSWORD_REUSED, message, http_status=400, data=data)
 
 
+class UserNotFoundError(UserOrgError):
+    """用户不存在或已软删除（`30002` / 404）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化用户不存在异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        super().__init__(ErrorCode.USER_NOT_FOUND, message, http_status=404, data=data)
+
+
+class UsernameExistsError(UserOrgError):
+    """用户名已被占用（`30003` / 409；软删除后原账号可复用）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化用户名已存在异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        super().__init__(ErrorCode.USERNAME_EXISTS, message, http_status=409, data=data)
+
+
+class UserProtectedError(UserOrgError):
+    """内置管理员不可停用 / 删除，或操作人不得操作自身（`30009` / 403）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化用户受保护异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        super().__init__(ErrorCode.USER_PROTECTED, message, http_status=403, data=data)
+
+
+class UserReferencedError(UserOrgError):
+    """用户仍被角色 / 流程引用，禁止删除（`30011` / 409）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化用户仍被引用异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        super().__init__(ErrorCode.USER_REFERENCED, message, http_status=409, data=data)
+
+
 class AccountLockError(UserOrgError):
     """账号锁定记录段（用户与组织段内子段）异常基类；子类在构造时预置码位与 HTTP 状态。"""
 

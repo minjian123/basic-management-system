@@ -64,6 +64,22 @@ class AccountLockRepository(BaseDbRepository[SysAccountLock]):
         statement = self._select().where(*conditions).order_by(self._column("locked_at").desc()).limit(1)
         return (await self._session.execute(statement)).scalars().first()
 
+    async def list_open_by_user(self, user_id: int) -> ConcurrentStableList[SysAccountLock]:
+        """列出用户全部**未解锁**锁定记录（`unlock_at IS NULL`；含已到期未闭锁行）。
+
+        Args:
+            user_id: 用户主键。
+
+        Returns:
+            ConcurrentStableList[SysAccountLock]: 未解锁锁定记录（按主键升序）。
+        """
+        statement = (
+            self._select()
+            .where(self._column("user_id") == user_id, self._column("unlock_at").is_(None))
+            .order_by(self._column("id").asc())
+        )
+        return ConcurrentStableList((await self._session.execute(statement)).scalars().all())
+
     async def list_filtered(
         self,
         query: BasePageQuery,
