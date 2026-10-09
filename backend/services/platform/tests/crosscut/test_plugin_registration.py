@@ -99,6 +99,8 @@ _EXPECTED_PLUGIN_KEYS = frozenset(
         "token_codec",
         "token_verifier",
         "tracer",
+        "transaction_manager",
+        "transaction_participant",
         "translator",
         "user_token",
         "webhook_sender",

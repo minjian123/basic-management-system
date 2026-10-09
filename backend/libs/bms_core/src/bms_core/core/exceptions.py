@@ -580,6 +580,17 @@ class EventContractError(GeneralError):
         super().__init__(ErrorCode.EVENT_CONTRACT, message, http_status=500, data=data)
 
 
+class TransactionUnavailableError(GeneralError):
+    """跨服务事务能力不可用（`10013` / 503）。
+
+    `[transaction_manager].provider` 为 `null`（未启用强一致）或分支执行环境不具备两阶段能力
+    时抛出——参与端点**明确拒绝**，**不静默降级**为最终一致（避免回到「一侧已改、另一侧未改」）。
+    """
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        super().__init__(ErrorCode.TRANSACTION_UNAVAILABLE, message, http_status=503, data=data)
+
+
 class ConsistencyBarrierTimeout(GeneralError):
     """一致性屏障超时（`10011` / 409）。
 

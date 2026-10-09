@@ -895,6 +895,32 @@ class EventSettings(PluginSelection):
     """签发契约校验模式：`off` 不校验 / `warn` 记录告警放行 / `enforce` 未登记即拒发（10010）。"""
 
 
+class TransactionManagerSettings(PluginSelection):
+    """跨服务事务管理器配置（`[transaction_manager]`；在能力选择之外追加协调参数）。
+
+    缺省 `provider` 为空 / `null` ⇒ **不启用强一致**（调用方走既有基线路径，参与端点明确拒绝）；
+    改 `provider = "xa"` 即启用（业务调用面不变）。TM 是**纯跨库协调基础设施**（与租户 / 业务无关）。
+    """
+
+    branch_timeout_seconds: float = Field(default=30.0, gt=0)
+    """单分支执行超时（秒）。"""
+
+    prepare_timeout_seconds: float = Field(default=60.0, gt=0)
+    """准备阶段超时（秒）；超时按失败处理（回滚全部分支）。"""
+
+    deadline_seconds: float = Field(default=300.0, gt=0)
+    """全局事务提交截止（秒）；到期仍未提交 ⇒ TM 置回滚。"""
+
+    recovery_interval_seconds: float = Field(default=30.0, gt=0)
+    """恢复器扫描间隔（秒；**仅 leader 驱动**）。"""
+
+    leader_lock_ttl_seconds: int = Field(default=30, ge=5)
+    """领导者选举锁 TTL（秒）。"""
+
+    leader_lock_key: str = "bms:global:lock:txn:leader"
+    """领导者选举锁键（复用 `[distributed_lock]` 基座）。"""
+
+
 def _config_dir() -> Path:
     """配置目录（默认 backend/ 根；测试可 monkeypatch）。
 
@@ -1083,6 +1109,7 @@ class Settings(PydanticBaseSettings, BaseSettings):  # pyright: ignore[reportInc
     token_codec: PluginSelection = Field(default_factory=PluginSelection)
     token_verifier: PluginSelection = Field(default_factory=PluginSelection)
     tracer: TracerSettings = Field(default_factory=TracerSettings)
+    transaction_manager: TransactionManagerSettings = Field(default_factory=TransactionManagerSettings)
     translator: PluginSelection = Field(default_factory=PluginSelection)
     user_token: UserTokenSettings = Field(default_factory=UserTokenSettings)
     webhook_sender: PluginSelection = Field(default_factory=PluginSelection)

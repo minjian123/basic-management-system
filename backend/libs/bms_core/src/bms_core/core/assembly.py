@@ -152,6 +152,12 @@ from bms_core.storage.base import BaseMultipartUpload, BaseObjectStorage
 from bms_core.tasks.base import BaseTask
 from bms_core.tenant.base import BaseTenantSelfService
 from bms_core.tracing.base import BaseTracer
+from bms_core.transaction.base import (
+    TRANSACTION_MANAGER_KEY,
+    TRANSACTION_PARTICIPANT_KEY,
+    BaseTransactionManager,
+    BaseTransactionParticipant,
+)
 from bms_core.transfer.exporter import BaseExporter
 from bms_core.transfer.importer import BaseImporter
 from bms_core.workflow.base import BaseWorkflowEngine
@@ -223,6 +229,7 @@ _NULL_MODULES: tuple[str, ...] = (
     "bms_core.tasks.null",
     "bms_core.tenant.null",
     "bms_core.tracing.null",
+    "bms_core.transaction.null",
     "bms_core.transfer.null",
     "bms_core.workflow.null",
     "bms_core.ws.null",
@@ -329,6 +336,11 @@ PLUGIN_WIRINGS: tuple[PluginWiring, ...] = (
     PluginWiring("config_source", BaseConfigSource, "config_source", "config_source"),
     PluginWiring("event", EventPublisher, "event", "event_publisher"),
     PluginWiring("event_consumer", BaseEventConsumer, "event_consumer", None),  # 消费轨：仅预热，无 app.state 落点
+    # 强一致专项（05_07）：管理器与参与方共用 `[transaction_manager]` 分区（缺省 `null` ⇒ 不启用）
+    PluginWiring(TRANSACTION_MANAGER_KEY, BaseTransactionManager, "transaction_manager", "transaction_manager"),
+    PluginWiring(
+        TRANSACTION_PARTICIPANT_KEY, BaseTransactionParticipant, "transaction_manager", "transaction_participant"
+    ),
 )
 
 

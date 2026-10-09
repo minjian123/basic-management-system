@@ -1,0 +1,62 @@
+"""跨服务事务能力域（强一致专项 05_07）：`BaseTransactionManager` + `BaseTransactionParticipant`。
+
+- 契约：`bms_core.transaction.base`（状态常量、值对象、端口、分支处理器注册表、依赖提供者）；
+- 缺省实现：`bms_core.transaction.null`（未启用强一致：管理器 `enabled=False`、参与方明确拒绝）；
+- 真实实现：`bms_core.transaction.xa`（管理器经 TM 契约、参与方走**分支专用同步引擎** + XA）。
+"""
+
+from bms_core.transaction.base import (
+    BRANCH_ACTIVE,
+    BRANCH_COMMITTED,
+    BRANCH_PREPARED,
+    BRANCH_REJECTED,
+    BRANCH_ROLLED_BACK,
+    BRANCH_STATES,
+    TRANSACTION_MANAGER_KEY,
+    TRANSACTION_PARTICIPANT_KEY,
+    TXN_ACTIVE,
+    TXN_COMMITTED,
+    TXN_COMMITTING,
+    TXN_PREPARING,
+    TXN_ROLLED_BACK,
+    TXN_ROLLING_BACK,
+    TXN_STATES,
+    TXN_TERMINAL_STATES,
+    BaseTransactionManager,
+    BaseTransactionParticipant,
+    BranchHandler,
+    BranchHandlerRegistry,
+    BranchRef,
+    BranchSpec,
+    GlobalTransaction,
+    get_transaction_manager,
+    get_transaction_participant,
+)
+
+__all__ = [
+    "BRANCH_ACTIVE",
+    "BRANCH_COMMITTED",
+    "BRANCH_PREPARED",
+    "BRANCH_REJECTED",
+    "BRANCH_ROLLED_BACK",
+    "BRANCH_STATES",
+    "TRANSACTION_MANAGER_KEY",
+    "TRANSACTION_PARTICIPANT_KEY",
+    "TXN_ACTIVE",
+    "TXN_COMMITTED",
+    "TXN_COMMITTING",
+    "TXN_PREPARING",
+    "TXN_ROLLED_BACK",
+    "TXN_ROLLING_BACK",
+    "TXN_STATES",
+    "TXN_TERMINAL_STATES",
+    "BaseTransactionManager",
+    "BaseTransactionParticipant",
+    "BranchHandler",
+    "BranchHandlerRegistry",
+    "BranchRef",
+    "BranchSpec",
+    "GlobalTransaction",
+    "get_transaction_manager",
+    "get_transaction_participant",
+]
