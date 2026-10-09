@@ -6,7 +6,8 @@
  *    area 为 `sys.user.detail.tabs`——平台内建「角色分配」与 mdm 岗位 / 部门插件同槽并列；
  * ② 账号停用时给出只读提示（分配子页签不可写，后端 `30045` 兜底）；
  * ③ 新增态不渲染插件挂接位（提示创建后可分配）；
- * ④ 空区域不渲染不报错（缺失即隐藏）。
+ * ④ 空区域不渲染不报错（缺失即隐藏）；
+ * ⑤ 权限缺省（区域项全被过滤）时不留空白，给出空态文案。
  */
 
 import { ModuleAreaOutlet } from '@bms/ui-ep'
@@ -111,6 +112,21 @@ describe('用户记录页「用户分配」页签挂接（02_02/_01）', () => {
     })
 
     expect(wrapper.find('[data-test="user-assign-disabled-hint"]').exists()).toBe(true)
+  })
+
+  it('权限缺省：区域项全被过滤时不留空白，给出空态文案', async () => {
+    useSessionStore().codes = []
+    const wrapper = await mountRecord({
+      id: '7',
+      username: 'wangwu',
+      name: '王五',
+      status: 'enabled',
+      version: 1,
+      created_at: '2026-10-09T00:00:00',
+      updated_at: '2026-10-09T00:00:00',
+    })
+
+    expect(wrapper.find('[data-test="module-area-empty"]').exists()).toBe(true)
   })
 
   it('新增态：不渲染插件挂接位，提示创建后可分配', async () => {

@@ -448,6 +448,7 @@ defineExpose({ save, isDirty: (): boolean => dirty.value })
             :area="USER_ASSIGN_SLOT"
             variant="tabs"
             tab-type="card"
+            empty-text="暂无可用的分配项：无「用户分配」权限或分配插件未加载"
             :registries="registries"
             :revision="registriesRevision"
             :permission-codes="session.codes"

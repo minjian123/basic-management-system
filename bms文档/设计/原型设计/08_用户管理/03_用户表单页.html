@@ -114,7 +114,10 @@
           <div v-else-if="!form.enabled" class="proto-hint" style="margin-bottom:8px">
             账号已停用：分配只读（仅启用账号可持有角色 / 岗位 / 部门分配），请先启用后再分配。
           </div>
-          <el-tabs v-model="assignTab" type="card">
+          <div v-else-if="!assignHasItems" class="proto-hint" style="margin-bottom:8px">
+            暂无可用的分配项：无「用户分配」权限或分配插件未加载（不留空白，给出本提示）。
+          </div>
+          <el-tabs v-else v-model="assignTab" type="card">
             <!-- 角色分配（bms 内建，写 sys_user_role） -->
             <el-tab-pane label="角色分配" name="role">
               <div class="op-row">
@@ -263,6 +266,8 @@
         updatedAt: '2026-10-08 09:30:00', updatedBy: 'admin',
         formKey: 'user', formLabel: '用户表单'
       });
+      // 子页签可用性：无权限或插件未加载时为 false（页面显示空态提示，不留空白）
+      var assignHasItems = ref(true);
       var assignedRoles = ref([
         { id: 4, code: 'role_user', name: '普通角色', roleType: 'custom' }
       ]);
@@ -433,7 +438,7 @@
         }
       })();
       function toast(m, type) { ElMessage({ message: m, type: type || 'success' }); }
-      return { editing, section, assignTab, dirty, mdmPluginLoaded, form, sys, ssoIdentities, assignedRoles, candidateRoles, rolePicker, assignedPosts, assignedDepts, pluginPicker, filteredCandidateRoles, sysH, pushSys, beforeTabLeave, editForm, cancelEdit, saveForm, delForm, reload, tryClose, roleTypeText, openRolePicker, saveRolePick, unassignRole, openPostPicker, setPrimaryPost, unbindPost, openDeptPicker, setPrimaryDept, unbindDept, savePluginPick, toast };
+      return { editing, section, assignTab, dirty, mdmPluginLoaded, form, sys, ssoIdentities, assignHasItems, assignedRoles, candidateRoles, rolePicker, assignedPosts, assignedDepts, pluginPicker, filteredCandidateRoles, sysH, pushSys, beforeTabLeave, editForm, cancelEdit, saveForm, delForm, reload, tryClose, roleTypeText, openRolePicker, saveRolePick, unassignRole, openPostPicker, setPrimaryPost, unbindPost, openDeptPicker, setPrimaryDept, unbindDept, savePluginPick, toast };
     }
   });
   app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });

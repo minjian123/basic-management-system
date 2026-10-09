@@ -29,6 +29,12 @@ interface Props {
    * 属**展现层透传**，不涉注册 / 解析 / 降级 / 上下文机制；供宿主按原型呈现卡片式页签。
    */
   tabType?: '' | 'card' | 'border-card'
+  /**
+   * `tabs` 形态在**区域项全部被过滤**（无权限 / 无来源）时展示的空态文案；缺省 `''`＝保持原行为（渲染空页签带）。
+   *
+   * 属**展现层补白**，不涉注册 / 解析 / 降级机制；仅 `tabs` 形态生效（`inline` 为一行高区域，空即不渲染）。
+   */
+  emptyText?: string
   /** 已持有权限码（按权限显隐；缺省空集合）。 */
   permissionCodes?: string[]
   /**
@@ -43,6 +49,7 @@ const props = withDefaults(defineProps<Props>(), {
   revision: 0,
   variant: 'inline',
   tabType: '',
+  emptyText: '',
   permissionCodes: () => [],
   context: undefined,
 })
@@ -50,7 +57,7 @@ const props = withDefaults(defineProps<Props>(), {
 // 显式上下文（只读注入；未声明即不注入——区域项经 `useModuleSlotContext()` 取得 `undefined` 并自行降级）
 provideModuleSlotContext(() => props.context)
 
-const { hidden, items, resolve } = useModuleArea({
+const { hidden, isEmpty, items, resolve } = useModuleArea({
   area: () => props.area,
   registries: props.registries,
   revision: () => props.revision,
@@ -82,7 +89,15 @@ function tabTitle(item: ModuleAreaItem): string {
 
 <template>
   <div v-show="!hidden" class="bms-module-area-outlet" :data-area="area" :data-variant="variant">
-    <el-tabs v-if="variant === 'tabs'" v-model="activeTab" :type="tabType" class="bms-module-area-tabs">
+    <!-- 空态补白：区域项全被过滤（无权限 / 无来源）时给出文案，避免「整块空白」被误判为缺陷 -->
+    <p
+      v-if="variant === 'tabs' && isEmpty && emptyText"
+      class="bms-module-area-empty"
+      data-test="module-area-empty"
+    >
+      {{ emptyText }}
+    </p>
+    <el-tabs v-else-if="variant === 'tabs'" v-model="activeTab" :type="tabType" class="bms-module-area-tabs">
       <el-tab-pane v-for="item in items" :key="item.key" :name="item.key">
         <template #label>
           <span class="bms-module-area-tab-label">
@@ -122,6 +137,12 @@ function tabTitle(item: ModuleAreaItem): string {
 
 .bms-module-area-tabs {
   width: 100%;
+}
+
+.bms-module-area-empty {
+  margin: 0;
+  color: var(--bms-color-text-secondary);
+  font-size: var(--bms-font-size-sm);
 }
 
 .bms-module-area-tab-label {

@@ -137,6 +137,34 @@ describe('ModuleAreaOutlet（Kiwi 977）', () => {
     expect(plain.find('.el-tabs').classes()).not.toContain('el-tabs--card')
   })
 
+  it('tabs 形态：区域项全被过滤（无权限）时按 emptyText 展示空态；未给 emptyText 保持空页签带', () => {
+    const registries = createRegistries()
+    registries.pageArea.register(
+      new PageAreaProvider('demo:roles', 'sys.user.detail.tabs', textComponent('roles', '角色分配'), 10, {
+        title: '角色分配',
+        perm: 'user:assign_role',
+      }),
+    )
+
+    const withEmpty = mount(ModuleAreaOutlet, {
+      props: {
+        area: 'sys.user.detail.tabs',
+        registries,
+        variant: 'tabs',
+        permissionCodes: [],
+        emptyText: '暂无可用的分配项',
+      },
+    })
+    expect(withEmpty.find('[data-test="module-area-empty"]').text()).toBe('暂无可用的分配项')
+    expect(withEmpty.find('.el-tabs').exists()).toBe(false)
+
+    const withoutEmpty = mount(ModuleAreaOutlet, {
+      props: { area: 'sys.user.detail.tabs', registries, variant: 'tabs', permissionCodes: [] },
+    })
+    expect(withoutEmpty.find('[data-test="module-area-empty"]').exists()).toBe(false)
+    expect(withoutEmpty.find('.el-tabs').exists()).toBe(true)
+  })
+
   it('tabs 形态：权限码不满足的项不渲染；未知插槽渲染为空', () => {
     const registries = createRegistries()
     registries.pageArea.register(
