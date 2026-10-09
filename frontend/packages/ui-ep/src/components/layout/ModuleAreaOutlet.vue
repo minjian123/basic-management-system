@@ -23,6 +23,12 @@ interface Props {
   revision?: number
   /** 形态（缺省 `inline`）。 */
   variant?: 'inline' | 'tabs'
+  /**
+   * `tabs` 形态的页签类型（透传给 `el-tabs`；缺省 `''`＝默认 `line`）。
+   *
+   * 属**展现层透传**，不涉注册 / 解析 / 降级 / 上下文机制；供宿主按原型呈现卡片式页签。
+   */
+  tabType?: '' | 'card' | 'border-card'
   /** 已持有权限码（按权限显隐；缺省空集合）。 */
   permissionCodes?: string[]
   /**
@@ -36,6 +42,7 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
   revision: 0,
   variant: 'inline',
+  tabType: '',
   permissionCodes: () => [],
   context: undefined,
 })
@@ -75,7 +82,7 @@ function tabTitle(item: ModuleAreaItem): string {
 
 <template>
   <div v-show="!hidden" class="bms-module-area-outlet" :data-area="area" :data-variant="variant">
-    <el-tabs v-if="variant === 'tabs'" v-model="activeTab" class="bms-module-area-tabs">
+    <el-tabs v-if="variant === 'tabs'" v-model="activeTab" :type="tabType" class="bms-module-area-tabs">
       <el-tab-pane v-for="item in items" :key="item.key" :name="item.key">
         <template #label>
           <span class="bms-module-area-tab-label">

@@ -49,6 +49,20 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/views/system/RoleView.vue'),
     meta: { title: '角色管理', keepAlive: true },
   },
+  // 用户管理 / 账号锁定（平台内建页）：菜单 `/sys/users`、`/sys/account-locks` 由 `seed_menu.py` 下发
+  // 并经动态菜单装载；此处静态注册真实路由（`installMenuRoutes` 对已存在路径跳过）。
+  {
+    path: '/sys/users',
+    name: 'SystemUser',
+    component: () => import('@/views/system/user/UserView.vue'),
+    meta: { title: '用户管理', keepAlive: true },
+  },
+  {
+    path: '/sys/account-locks',
+    name: 'SystemAccountLock',
+    component: () => import('@/views/system/user/AccountLockView.vue'),
+    meta: { title: '账号锁定', keepAlive: true },
+  },
   {
     path: '/:pathMatch(.*)*',
     name: 'NotFound',

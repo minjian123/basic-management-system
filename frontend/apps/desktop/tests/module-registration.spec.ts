@@ -33,12 +33,12 @@ describe('统一装配通道（Kiwi 976）', () => {
   it('平台自身注册走同一入口（平台来源打标；登记键可逆序清理）', () => {
     const keys = installPlatformRegistrations()
 
-    expect(keys).toEqual(['region:sys:user-detail-basic'])
-    expect(registries.pageArea.get('sys:user-detail-basic')?.registrationSource).toBe(PLATFORM_SOURCE)
+    expect(keys).toEqual(['region:sys:user-detail-roles'])
+    expect(registries.pageArea.get('sys:user-detail-roles')?.registrationSource).toBe(PLATFORM_SOURCE)
     expect(PLATFORM_SOURCE).toBe('platform')
 
     releaseRegistrations(registries, keys)
-    expect(registries.pageArea.get('sys:user-detail-basic')).toBeUndefined()
+    expect(registries.pageArea.get('sys:user-detail-roles')).toBeUndefined()
   })
 
   it('装配前不可解析、装配后可用、卸载后回到不可解析（八类声明全通道）', async () => {
@@ -117,8 +117,9 @@ describe('统一装配通道（Kiwi 976）', () => {
     const keysOf = (codes: string[]): string[] =>
       registries.pageArea.resolveByArea('sys.user.detail.tabs', { permissionCodes: codes }).map((item) => item.key)
 
-    expect(keysOf([])).toEqual(['sys:user-detail-basic', 'demo:ext'])
-    expect(keysOf(['demo:edit'])).toEqual(['sys:user-detail-basic', 'demo:ext', 'demo:gated'])
+    // 平台内建「角色分配」项带权限码（`user:assign_role`）：无权限码不渲染，与模块项同槽同排序
+    expect(keysOf([])).toEqual(['demo:ext'])
+    expect(keysOf(['demo:edit', 'user:assign_role'])).toEqual(['sys:user-detail-roles', 'demo:ext', 'demo:gated'])
     expect(registries.pageArea.get('demo:ext')?.title).toBe('用户扩展示例')
     expect(registries.pageArea.get('demo:ext')?.registrationSource).toBe('demo')
 
@@ -126,7 +127,7 @@ describe('统一装配通道（Kiwi 976）', () => {
     releaseRegistrations(registries, platformKeys)
 
     expect(registries.pageArea.resolveByArea('sys.user.detail.tabs')).toEqual([])
-    expect(registries.pageArea.get('sys:user-detail-basic')).toBeUndefined()
+    expect(registries.pageArea.get('sys:user-detail-roles')).toBeUndefined()
     expect(registries.pageArea.get('demo:ext')).toBeUndefined()
     expect(registries.pageArea.get('demo:gated')).toBeUndefined()
   })

@@ -136,6 +136,27 @@ export function useModuleArea(options: UseModuleAreaOptions): UseModuleAreaResul
   }
 }
 
+/** 分配段载荷（宿主收草稿：段名 + 全量值；宿主按段名装配进编排请求）。 */
+export interface HostSubmitterSegment {
+  /** 段名（与宿主编排端点字段一致，如 `role_ids` / `user_posts` / `user_depts`）。 */
+  key: string
+  /** 段值（全量覆盖语义：集合 + 主要项）。 */
+  value: Record<string, unknown>
+}
+
+/** 宿主提交器登记入参（区域项挂载时登记；宿主工具栏「保存」时收集草稿并统一提交）。 */
+export interface HostSubmitterEntry {
+  /** 是否含未提交改动（宿主脏标记 / 离开拦截）。 */
+  isDirty: () => boolean
+  /** 构建本区域项的分配段（**无改动返回 `null`**）。 */
+  buildSegment: () => HostSubmitterSegment | null
+  /** 提交成功后刷新（宿主在编排成功后调用）。 */
+  reload: () => Promise<void>
+}
+
+/** 宿主提交器注册通道（插槽上下文字段 `registerSubmitter` 的**值即该函数本身**）。 */
+export type HostSubmitterRegistrar = (entry: HostSubmitterEntry) => void
+
 /** 具名插槽上下文注入键（宿主页与插件均不直接使用）。 */
 export const MODULE_SLOT_CONTEXT_KEY: InjectionKey<Readonly<Ref<ModuleSlotContext | undefined>>> = Symbol(
   'bms.module-slot-context',
