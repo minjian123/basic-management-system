@@ -194,10 +194,17 @@
             "type": "string"
           },
           "deadline_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "description": "提交决定截止时间（UTC）",
-            "format": "date-time",
-            "title": "Deadline At",
-            "type": "string"
+            "title": "Deadline At"
           },
           "decided_at": {
             "anyOf": [
@@ -226,8 +233,7 @@
         "required": [
           "global_txn_id",
           "caller_service",
-          "state",
-          "deadline_at"
+          "state"
         ],
         "title": "GlobalTxnView",
         "type": "object"

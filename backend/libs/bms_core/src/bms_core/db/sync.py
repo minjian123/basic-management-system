@@ -16,7 +16,7 @@ from collections.abc import AsyncGenerator
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from typing import Any
 
-from sqlalchemy import Engine, Result
+from sqlalchemy import Connection, Engine, Result
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
@@ -72,13 +72,14 @@ class _SyncTransaction(BaseFrameworkObject):
 class SyncSession(BaseFrameworkObject):
     """阻塞会话的异步门面（达梦等无异步方言）：阻塞调用统一在线程池执行。"""
 
-    def __init__(self, engine: Engine) -> None:
+    def __init__(self, engine: Engine, *, bind: Connection | None = None) -> None:
         """初始化（建阻塞会话，不建连）。
 
         Args:
             engine: 同步引擎。
+            bind: 指定连接（同连接承载外层两阶段事务，如 XA 分支执行；None = 会话自取引擎连接）。
         """
-        self._session = Session(engine, expire_on_commit=False)
+        self._session = Session(bind if bind is not None else engine, expire_on_commit=False)
 
     @property
     def raw(self) -> Session:

@@ -158,6 +158,7 @@ from bms_core.transaction.base import (
     BaseTransactionManager,
     BaseTransactionParticipant,
 )
+from bms_core.transaction.xa import XA_PLUGIN_NAME, XaTransactionManagerFactory, XaTransactionParticipantFactory
 from bms_core.transfer.exporter import BaseExporter
 from bms_core.transfer.importer import BaseImporter
 from bms_core.workflow.base import BaseWorkflowEngine
@@ -412,6 +413,9 @@ def register_platform_plugins(settings: Settings, app: FastAPI, resources: Resou
     register_plugin("saga_executor", "choreography", ChoreographySagaExecutorFactory(settings))
     register_plugin("idempotency", "redis", RedisIdempotencyStoreFactory(settings))
     register_plugin("consistency_barrier", "redis", RedisConsistencyBarrierFactory(settings))
+    # 强一致专项（05_07）：真实提供者 `xa`（管理器经 TM 契约 / 参与方走分支专用同步引擎）
+    register_plugin(TRANSACTION_MANAGER_KEY, XA_PLUGIN_NAME, XaTransactionManagerFactory(settings, app))
+    register_plugin(TRANSACTION_PARTICIPANT_KEY, XA_PLUGIN_NAME, XaTransactionParticipantFactory(settings, app))
     register_plugin("metrics", "prometheus", PrometheusMetricsFactory(settings))
     _PREPARED_REGISTRIES.add(registry)
 

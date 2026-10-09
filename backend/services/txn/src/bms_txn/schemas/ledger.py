@@ -55,7 +55,7 @@ class GlobalTxnView(BaseSchema):
     global_txn_id: str = Field(description="全局事务标识（同时作为 XA `gtrid`）")
     caller_service: str = Field(description="发起方服务键")
     state: str = Field(description="全局事务状态（TXN_*）")
-    deadline_at: datetime = Field(description="提交决定截止时间（UTC）")
+    deadline_at: datetime | None = Field(default=None, description="提交决定截止时间（UTC）")
     decided_at: datetime | None = Field(default=None, description="提交决定点时间（UTC；非空即已过决定点）")
     branches: Annotated[ConcurrentStableList[BranchView], CONTRACT_COLLECTION] = Field(
         default_factory=CONTRACT_STABLE_LIST, description="分支清单"

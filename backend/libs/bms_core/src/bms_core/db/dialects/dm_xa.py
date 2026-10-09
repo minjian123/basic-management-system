@@ -103,6 +103,19 @@ class DMXADialect(DMDialect_dmPython):
             )
         )
 
+    def matches_recovered_xid(self, xid: Any, recovered: Any) -> bool:
+        """判定悬挂分支列举项是否对应给定 `xid`（按 `_xid_raw` 派生后的 `gtrid|bqual` 比对）。
+
+        Args:
+            xid: 目标分支标识（TM 分配的 `xid` 文本）。
+            recovered: `do_recover_twophase` 返回项（`DMXARecoveredXid`）。
+
+        Returns:
+            bool: 对应同一分支为 True。
+        """
+        gtrid, bqual = self._xid_raw(xid)
+        return str(recovered) == f"{gtrid}|{bqual}"
+
     def do_begin_twophase(self, connection: Any, xid: Any) -> None:
         """开启两阶段分支（`XA_START`）。"""
         self._xa(connection, xid, f"r := DBMS_XA.XA_START(x, {TMNOFLAGS});")

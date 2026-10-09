@@ -7,7 +7,7 @@ from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_txn import CONTRACT_VERSION, SERVICE_NAME, SERVICE_TITLE, __version__
 from bms_txn.api.router import api_router
-from bms_txn.services.driver import BranchDriver, UnavailableBranchDriver
+from bms_txn.services.driver import BranchDriver, HttpBranchDriver
 
 
 class ApplicationFactory(BaseServiceApplicationFactory):
@@ -40,19 +40,22 @@ class ApplicationFactory(BaseServiceApplicationFactory):
         return ConcurrentStableList([api_router])
 
     def configure_service(self, app: FastAPI, settings: Settings) -> None:
-        """装配分支驱动（参与端点未接入期间为**明确失败**实现；接入后换 HTTP 驱动）。
+        """装配分支驱动（经参与端点 HTTP 驱动；服务间客户端装配后即可用）。
 
         Args:
             app: 应用实例。
             settings: 应用配置（TM 协调参数）。
         """
-        app.state.branch_driver = _initial_driver()
+        app.state.branch_driver = _initial_driver(app)
 
 
-def _initial_driver() -> BranchDriver:
-    """初始分支驱动：参与端点尚未接入 ⇒ `UnavailableBranchDriver`（明确失败、不静默成功）。
+def _initial_driver(app: FastAPI) -> BranchDriver:
+    """分支驱动：经参与端点 HTTP 驱动（参与方未挂端点即明确失败，由恢复器退避重驱动）。
+
+    Args:
+        app: 应用实例（取服务间调用客户端）。
 
     Returns:
         BranchDriver: 分支驱动实现。
     """
-    return UnavailableBranchDriver()
+    return HttpBranchDriver(app)

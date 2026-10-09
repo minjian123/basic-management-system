@@ -11,6 +11,8 @@ from bms_core.application import BaseServiceApplicationFactory
 from bms_core.catalog.loader import register_catalog_reader
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import Settings
+from bms_core.transaction.api import build_branch_router
+from bms_core.transaction.base import BranchHandlerRegistry
 from bms_platform import CONTRACT_VERSION, SERVICE_NAME, SERVICE_TITLE, __version__
 from bms_platform.api.router import api_router
 from bms_platform.permission.checker import RBAC_PROVIDER_NAME, register_rbac_permission
@@ -18,6 +20,9 @@ from bms_platform.repositories.demo_repository import DemoRepository
 from bms_platform.scope.rbac import RBAC_DATA_SCOPE_NAME, register_rbac_data_scope
 from bms_platform.services.demo_service import DemoService
 from bms_platform.sources.catalog_source import read_catalog
+
+_BRANCH_ROUTER = build_branch_router()
+"""跨服务事务参与端点（`/api/v1/txn/branches*`；强一致专项 05_07）。"""
 
 
 class ApplicationFactory(BaseServiceApplicationFactory):
@@ -54,7 +59,8 @@ class ApplicationFactory(BaseServiceApplicationFactory):
         Returns:
             ConcurrentStableList[APIRouter]: 业务聚合路由（探针由基座统一挂载）。
         """
-        return ConcurrentStableList([api_router])
+        # 强一致专项（05_07）：平台挂「参与端点」即成为可远程驱动的参与方（谁挂端点谁参与）
+        return ConcurrentStableList([api_router, _BRANCH_ROUTER])
 
     def configure_service(self, app: FastAPI, settings: Settings) -> None:
         """注入平台专属 state（demo 服务）并登记本地权威读取器（服务目录）与权限实现。
@@ -64,5 +70,7 @@ class ApplicationFactory(BaseServiceApplicationFactory):
             settings: 应用配置（权限选项：档位 / 快照 TTL / 豁免角色类型）。
         """
         app.state.demo_service = DemoService(DemoRepository())
+        # 分支业务处理器注册表（`op` → 本服务已有服务层方法；具体 op 由消费方任务在装配期登记）
+        app.state.branch_handlers = BranchHandlerRegistry()
         # 服务目录权威本地读取器（本服务即 `sys_module` 所有者；共享基座库不静态依赖服务包）
         register_catalog_reader(SERVICE_NAME, read_catalog)

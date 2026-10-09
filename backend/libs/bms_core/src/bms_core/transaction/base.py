@@ -30,6 +30,9 @@ TRANSACTION_MANAGER_KEY = "transaction_manager"
 """能力域键：跨服务事务管理器（调用方门面）。"""
 
 TRANSACTION_PARTICIPANT_KEY = "transaction_participant"
+
+TM_SERVICE_NAME = "txn"
+"""TM 服务键（账本与协调器所在服务；参与端点 `commit` / `rollback` / 状态查询仅接受该服务身份）。"""
 """能力域键：跨服务事务参与方（分支执行）。"""
 
 TXN_ACTIVE = "active"
@@ -175,8 +178,8 @@ class GlobalTransaction(BaseValueObject):
     state: str
     """全局事务状态（`TXN_*`）。"""
 
-    deadline_at: datetime
-    """提交决定截止时间（UTC）。"""
+    deadline_at: datetime | None = None
+    """提交决定截止时间（UTC）；调用方门面经远端快照构造时可能缺省。"""
 
     decided_at: datetime | None = None
     """提交决定点时间（UTC；非空即已过决定点）。"""
@@ -421,6 +424,7 @@ __all__ = [
     "BRANCH_STATES",
     "MAX_BRANCH_ID_LENGTH",
     "MAX_XA_XID_BYTES",
+    "TM_SERVICE_NAME",
     "TRANSACTION_MANAGER_KEY",
     "TRANSACTION_PARTICIPANT_KEY",
     "TXN_ACTIVE",

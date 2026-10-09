@@ -57,6 +57,23 @@ class GlobalTxnRepository(BaseDbRepository[GlobalTxn]):
         )
         return ConcurrentStableList((await self._session.execute(statement)).scalars().all())
 
+    async def list_heuristic(self, *, limit: int = 200) -> ConcurrentStableList[GlobalTxn]:
+        """取启发式完成事务（参与方单方面提交 / 回滚形成的异常终态；对账对象）。
+
+        Args:
+            limit: 单轮上限。
+
+        Returns:
+            ConcurrentStableList[GlobalTxn]: 启发式终态事务清单。
+        """
+        statement = (
+            self._select()
+            .where(self._column("state").in_(("heuristic_commit", "heuristic_rollback", "heuristic_mixed")))
+            .order_by(self._column("id").asc())
+            .limit(limit)
+        )
+        return ConcurrentStableList((await self._session.execute(statement)).scalars().all())
+
     async def list_expired_active(self, *, now: datetime, limit: int = 200) -> ConcurrentStableList[GlobalTxn]:
         """取**已过截止**的 `active` 事务（全部分支就绪但调用方不再提交 ⇒ 置回滚）。
 

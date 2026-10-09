@@ -316,10 +316,9 @@ export interface components {
             caller_service: string;
             /**
              * Deadline At
-             * Format: date-time
              * @description 提交决定截止时间（UTC）
              */
-            deadline_at: string;
+            deadline_at?: string | null;
             /**
              * Decided At
              * @description 提交决定点时间（UTC；非空即已过决定点）
