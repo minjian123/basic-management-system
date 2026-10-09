@@ -44,7 +44,7 @@
     本页为「角色管理」表单框架的<b>角色记录 Tab</b>。信息栏三个子页签：<b>详细信息</b> · <b>权限配置</b> · <b>系统信息</b>。
     权限配置四页签：<b>菜单权限</b>（菜单树 → 该入口的操作权限 / 字段权限）· <b>表单权限</b>（所有表单列表 → 操作权限 / 字段权限）·
     <b>数据权限</b>（基础数据字典 → 数据选择 / 数据区域 / 数据匹配 / 扩展权限，只选不编）· <b>角色分配</b>（<b>用户分配</b>内建；<b>岗位分配 / 部门分配</b>由 mdm 插件插入）。
-    菜单与表单为<b>多对多</b>（不同菜单入口可指向同一表单、表单也可无入口）；权限按<b>来源</b>区分——本入口连带生成的可改，非本入口来源只读。保存只在页面工具栏一处（用户分配随宿主保存，插件页签即时提交）。
+    菜单与表单为<b>多对多</b>（不同菜单入口可指向同一表单、表单也可无入口）；权限按<b>来源</b>区分——本入口连带生成的可改，非本入口来源只读。保存只在页面工具栏一处（<b>角色分配整体随宿主保存</b>：用户分配内建 + 岗位 / 部门分配插件均进草稿一并提交；跨服务部分由宿主编排）。
   </div>
 
   <div id="app">
@@ -391,29 +391,23 @@
                 <el-tab-pane v-if="mdmPluginLoaded" label="岗位分配" name="post">
                   <div class="op-row">
                     <el-button size="small" @click="pluginPick('post')">选择岗位</el-button>
-                    <span class="proto-hint" style="margin-left:8px">由 mdm「岗位分配」插件渲染 · 即时提交</span>
+                    <span class="proto-hint" style="margin-left:8px">由 mdm「岗位分配」插件渲染 · 改动进草稿，随宿主「保存」提交</span>
                   </div>
                   <el-table :data="assignedPosts" size="small" border>
                     <el-table-column prop="name" label="岗位" min-width="150"></el-table-column>
                     <el-table-column prop="dept" label="所属部门" min-width="150"></el-table-column>
-                    <el-table-column label="操作" width="80" align="center">
-                      <template #default="{ row }"><el-button link type="danger" @click="pluginUnbind('post', row)">移除</el-button></template>
-                    </el-table-column>
                   </el-table>
-                  <div class="proto-hint" style="margin-top:6px">数据与契约整体归 mdm 组织域（<code>org_role_post</code>）；bms 仅经具名插槽呈现，插件缺失即隐藏。</div>
+                  <div class="proto-hint" style="margin-top:6px">数据与契约整体归 mdm 组织域（<code>org_role_post</code>）；bms 仅经具名插槽呈现，插件缺失即隐藏；取消分配在「选择岗位」弹窗取消勾选（列表零操作列）。</div>
                 </el-tab-pane>
                 <el-tab-pane v-if="mdmPluginLoaded" label="部门分配" name="dept">
                   <div class="op-row">
                     <el-button size="small" @click="pluginPick('dept')">选择部门</el-button>
-                    <span class="proto-hint" style="margin-left:8px">由 mdm「部门分配」插件渲染 · 即时提交</span>
+                    <span class="proto-hint" style="margin-left:8px">由 mdm「部门分配」插件渲染 · 改动进草稿，随宿主「保存」提交</span>
                   </div>
                   <el-table :data="assignedDepts" size="small" border>
                     <el-table-column prop="name" label="部门" min-width="180"></el-table-column>
-                    <el-table-column label="操作" width="80" align="center">
-                      <template #default="{ row }"><el-button link type="danger" @click="pluginUnbind('dept', row)">移除</el-button></template>
-                    </el-table-column>
                   </el-table>
-                  <div class="proto-hint" style="margin-top:6px">数据与契约整体归 mdm 组织域（<code>org_role_dept</code>）；bms 仅经具名插槽呈现，插件缺失即隐藏。</div>
+                  <div class="proto-hint" style="margin-top:6px">数据与契约整体归 mdm 组织域（<code>org_role_dept</code>）；bms 仅经具名插槽呈现，插件缺失即隐藏；取消分配在「选择部门」弹窗取消勾选（列表零操作列）。</div>
                 </el-tab-pane>
               </el-tabs>
 
@@ -780,7 +774,7 @@
         toast('已添加 ' + pickerSelected.value.length + ' 名用户（保存后生效）');
         userPick.visible = false;
       }
-      // 岗位分配 / 部门分配：mdm 组织域插件页签（即时提交，与宿主保存解耦）
+      // 岗位分配 / 部门分配：mdm 组织域插件页签（改动进草稿，随宿主「保存」统一提交）
       var mdmPluginLoaded = ref(false);
       var assignedPosts = ref([{ id: 'p1', name: '工程师', dept: '研发中心' }]);
       var assignedDepts = ref([{ id: 'd1', name: '研发中心' }]);
@@ -793,7 +787,7 @@
       function pluginUnbind(kind, row) {
         if (kind === 'post') { assignedPosts.value = assignedPosts.value.filter(function (x) { return x.id !== row.id; }); }
         else { assignedDepts.value = assignedDepts.value.filter(function (x) { return x.id !== row.id; }); }
-        toast('已移除：' + row.name + '（mdm 侧即时提交，不随宿主保存）');
+        toast('草稿已更新：移除 ' + row.name + '（随宿主「保存」提交）');
       }
 
       // ---------------- 权限配置：提交 / 撤销（工具栏唯一保存） ----------------

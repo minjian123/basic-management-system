@@ -231,7 +231,7 @@
 
         <!-- 角色分配：用户分配内建 + 岗位分配 / 部门分配（mdm 插件页签） -->
         <el-tab-pane label="角色分配" name="assign">
-          <div class="dp-bar"><span class="dp-hint">用户分配写入 <code>sys_user_role</code>（与用户管理页「用户分配角色」同一张表）；岗位 / 部门分配由 mdm 插件插入（未注册即隐藏）；用户分配随宿主保存，插件页签即时提交</span></div>
+          <div class="dp-bar"><span class="dp-hint">用户分配写入 <code>sys_user_role</code>（与用户管理页「用户分配角色」同一张表）；岗位 / 部门分配由 mdm 插件插入（未注册即隐藏）；角色分配整体随宿主保存提交（插件改动进草稿，跨服务由宿主编排）</span></div>
           <el-tabs v-model="assignTab" type="card" style="max-width:720px">
             <el-tab-pane label="用户分配" name="user">
               <el-select v-model="assignUsers" multiple filterable placeholder="搜索用户" style="width:100%" @change="touch">
