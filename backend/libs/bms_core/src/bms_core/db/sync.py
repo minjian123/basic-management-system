@@ -79,7 +79,13 @@ class SyncSession(BaseFrameworkObject):
             engine: 同步引擎。
             bind: 指定连接（同连接承载外层两阶段事务，如 XA 分支执行；None = 会话自取引擎连接）。
         """
-        self._session = Session(bind if bind is not None else engine, expire_on_commit=False)
+        if bind is None:
+            self._session = Session(engine, expire_on_commit=False)
+            return
+        # 绑定既有连接（XA 分支执行）：外层已持有两阶段事务，服务层自开事务须收敛为 SAVEPOINT，
+        # 否则 `Session.begin()` 抛「A transaction is already begun on this Session」，
+        # 且提交会连带结束外层分支使其无法 `prepare`。
+        self._session = Session(bind=bind, expire_on_commit=False, join_transaction_mode="create_savepoint")
 
     @property
     def raw(self) -> Session:
