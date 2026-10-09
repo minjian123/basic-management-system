@@ -163,3 +163,43 @@ def test_run_success_and_failure() -> None:
     assert (
         contract_smoke.run(Path("/repo"), service="platform", image="img", run_cmd=fake_run, sleep=lambda _s: None) == 1
     )
+
+
+@pytest.mark.kiwi_id(2186)
+def test_container_diagnostics_reports_state_and_logs() -> None:
+    """就绪失败诊断：回显 `docker inspect` 状态与 `docker logs --tail` 尾部（stdout / stderr 均取）。"""
+    calls: ConcurrentStableList[ConcurrentStableList[str]] = ConcurrentStableList()
+
+    def fake_run(command: Any) -> subprocess.CompletedProcess[str]:
+        calls.add(ConcurrentStableList(command))
+        if command[1] == "inspect":
+            return _completed(command, 0, "status=exited exit=1 oom=false health=n/a")
+        if command[1] == "logs":
+            return _completed(command, 0, "", "RuntimeError: redis unavailable")
+        return _completed(command, 0)
+
+    text = contract_smoke.container_diagnostics("platform", run=fake_run)
+    assert "容器诊断 bms-smoke-platform" in text
+    assert "status=exited exit=1" in text
+    assert "redis unavailable" in text
+    assert any(call[1] == "inspect" for call in calls)
+    assert any(call[1] == "logs" for call in calls)
+
+
+@pytest.mark.kiwi_id(2186)
+def test_run_dumps_diagnostics_before_cleanup() -> None:
+    """就绪失败：run 先回显诊断（inspect / logs）再 `rm -f` 清理（顺序不可倒）。"""
+    verbs: ConcurrentStableList[str] = ConcurrentStableList()
+
+    def fake_run(command: Any) -> subprocess.CompletedProcess[str]:
+        verbs.add(command[1])
+        if command[1] == "run":
+            return _completed(command, 1, "", "cannot start")
+        return _completed(command, 0, "x")
+
+    assert (
+        contract_smoke.run(Path("/repo"), service="platform", image="img", run_cmd=fake_run, sleep=lambda _s: None) == 1
+    )
+    assert "inspect" in verbs and "logs" in verbs
+    last_rm = max(index for index, verb in enumerate(verbs) if verb == "rm")
+    assert verbs.index("logs") < last_rm

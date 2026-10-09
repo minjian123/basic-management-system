@@ -11,6 +11,9 @@
   在无部署密钥的冒烟环境可优雅降级），按其镜像 `HEALTHCHECK`（`/healthz`）就绪后开打；
   **不由本 CLI 源码起进程 / 不重复构建**；
 - 每次只针对**本次变更的服务**（父流水线按服务 `rules:changes` 调度，未变更服务不跑）；
+- **就绪失败可诊断**：服务容器就绪失败时**自动回显** `docker inspect` 状态（`status` / `exit` / `oom` / `health`）
+  与 `docker logs --tail` 尾部（容器自身输出）——容器随后即被清理，故先回显再 `rm -f`；
+  **仅回显诊断，不改变判定与退出码**（免在 CI 上只能看到一行通用错误）；
 - Schemathesis 走固定 tag 镜像 `schemathesis/schemathesis:4.28.0`，以 `--network container:<服务容器>`
   与服务容器共享网络命名空间，经 `127.0.0.1:8000` 打真实服务；
 - 只读方法（GET / HEAD）+ 每操作 1 例（冒烟）+ 仅 `not_a_server_error`（无 5xx）；
@@ -58,6 +61,15 @@ SERVICE_PORT = 8000
 
 HEALTH_ATTEMPTS = 60
 """服务容器就绪轮询次数（1s 一次，镜像 HEALTHCHECK `/healthz`）。"""
+
+DIAGNOSTICS_STATE_FORMAT = (
+    "status={{.State.Status}} exit={{.State.ExitCode}} oom={{.State.OOMKilled}} "
+    "health={{if .State.Health}}{{.State.Health.Status}}{{else}}n/a{{end}}"
+)
+"""就绪失败诊断的容器状态格式（`docker inspect -f`；无 Healthcheck 时以 `n/a` 兜底）。"""
+
+DIAGNOSTICS_LOG_LINES = 80
+"""就绪失败诊断回显的容器日志尾行数上限（`docker logs --tail`）。"""
 
 Runner = Callable[[ConcurrentStableList[str]], "subprocess.CompletedProcess[str]"]
 """子进程执行器类型（默认 docker；单测注入桩，不真联）。"""
@@ -208,6 +220,38 @@ def service_down(service_key: str, *, run: Runner = _run_command) -> None:
     run(ConcurrentStableList([CONTAINER_COMMAND, "rm", "-f", service_container_name(service_key)]))
 
 
+def container_diagnostics(service_key: str, *, run: Runner = _run_command) -> str:
+    """收集服务容器状态与日志（**仅就绪失败时调用**，供 CI 直接看到根因）。
+
+    服务容器以 `docker run -d` 起，其就绪失败原因（进程退出 / 依赖不可达 / 健康检查未过）
+    只体现在容器自身的状态与日志里；容器随后会被 `service_down` 删除，故须**先回显再清理**。
+    本函数只读，不影响任何判定逻辑与退出码。
+
+    Args:
+        service_key: 服务标识。
+        run: 子进程执行器（单测注入桩）。
+
+    Returns:
+        str: 诊断文本（状态行 + 日志尾部；命令无输出时给占位说明）。
+    """
+    name = service_container_name(service_key)
+    state = run(ConcurrentStableList([CONTAINER_COMMAND, "inspect", "-f", DIAGNOSTICS_STATE_FORMAT, name]))
+    state_text = (state.stdout or "").strip() or (state.stderr or "").strip() or "（inspect 无输出）"
+    logs = run(ConcurrentStableList([CONTAINER_COMMAND, "logs", "--tail", str(DIAGNOSTICS_LOG_LINES), name]))
+    logs_text = _tail((logs.stdout or "") + (logs.stderr or ""), limit=DIAGNOSTICS_LOG_LINES) or "（日志为空）"
+    return "\n".join(
+        ConcurrentStableList(
+            [
+                f"[contract_smoke] 容器诊断 {name}（就绪失败）",
+                f"$ docker inspect -f '{DIAGNOSTICS_STATE_FORMAT}' {name}",
+                state_text,
+                f"$ docker logs --tail {DIAGNOSTICS_LOG_LINES} {name}",
+                logs_text,
+            ]
+        )
+    )
+
+
 def docker_schemathesis(
     service_key: str,
     schema_path: Path,
@@ -307,6 +351,8 @@ def run(
     schema_path = root / CONTRACTS_DIR / contract_file_name(service)
     if not service_up(service, image, run=run_cmd, sleep=sleep):
         print(f"[contract_smoke] 服务 {service}：容器启动 / 就绪失败（镜像 {image}）", file=sys.stderr)
+        # 先回显容器状态与日志（容器即将被清理），便于在 CI 上直接定位根因
+        print(container_diagnostics(service, run=run_cmd), file=sys.stderr)
         service_down(service, run=run_cmd)
         return 1
     try:
