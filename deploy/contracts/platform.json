@@ -15373,6 +15373,585 @@
         ]
       }
     },
+    "/api/v1/txn/branches": {
+      "get": {
+        "description": "列举悬挂分支（对账）。\n\nArgs:\n    participant: 应用装配的参与方。\n    db_key: 目标库键。\n\nReturns:\n    ApiResponse: 统一响应，data 为悬挂分支清单。",
+        "operationId": "recover_branches_api_v1_txn_branches_get",
+        "parameters": [
+          {
+            "description": "目标库键（不透明库键）",
+            "in": "query",
+            "name": "db_key",
+            "required": true,
+            "schema": {
+              "description": "目标库键（不透明库键）",
+              "title": "Db Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_BranchRecoverView_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Recover Branches",
+        "tags": [
+          "txn"
+        ]
+      },
+      "post": {
+        "description": "执行分支（单请求内 `XA_START → 业务写 → XA_END → XA_PREPARE`）。\n\nArgs:\n    req: 分支执行请求。\n    participant: 应用装配的参与方。\n\nReturns:\n    ApiResponse: 统一响应，data 为分支状态。",
+        "operationId": "execute_branch_api_v1_txn_branches_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BranchExecuteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_BranchStateView_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Execute Branch",
+        "tags": [
+          "txn"
+        ]
+      }
+    },
+    "/api/v1/txn/branches/{xid}": {
+      "get": {
+        "description": "查询分支状态（TM 决定点前核验）。\n\nArgs:\n    xid: 分支事务标识。\n    participant: 应用装配的参与方。\n    db_key: 目标库键。\n\nReturns:\n    ApiResponse: 统一响应，data 为分支状态。",
+        "operationId": "branch_state_api_v1_txn_branches__xid__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "xid",
+            "required": true,
+            "schema": {
+              "title": "Xid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "目标库键（不透明库键）",
+            "in": "query",
+            "name": "db_key",
+            "required": true,
+            "schema": {
+              "description": "目标库键（不透明库键）",
+              "title": "Db Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_BranchStateView_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Branch State",
+        "tags": [
+          "txn"
+        ]
+      }
+    },
+    "/api/v1/txn/branches/{xid}/commit": {
+      "post": {
+        "description": "提交分支（TM 驱动）。\n\nArgs:\n    xid: 分支事务标识。\n    participant: 应用装配的参与方。\n    db_key: 目标库键。\n\nReturns:\n    ApiResponse: 统一响应，data 为分支状态。",
+        "operationId": "commit_branch_api_v1_txn_branches__xid__commit_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "xid",
+            "required": true,
+            "schema": {
+              "title": "Xid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "目标库键（不透明库键）",
+            "in": "query",
+            "name": "db_key",
+            "required": true,
+            "schema": {
+              "description": "目标库键（不透明库键）",
+              "title": "Db Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_BranchStateView_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Commit Branch",
+        "tags": [
+          "txn"
+        ]
+      }
+    },
+    "/api/v1/txn/branches/{xid}/rollback": {
+      "post": {
+        "description": "回滚分支（TM 驱动）。\n\nArgs:\n    xid: 分支事务标识。\n    participant: 应用装配的参与方。\n    db_key: 目标库键。\n\nReturns:\n    ApiResponse: 统一响应，data 为分支状态。",
+        "operationId": "rollback_branch_api_v1_txn_branches__xid__rollback_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "xid",
+            "required": true,
+            "schema": {
+              "title": "Xid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "目标库键（不透明库键）",
+            "in": "query",
+            "name": "db_key",
+            "required": true,
+            "schema": {
+              "description": "目标库键（不透明库键）",
+              "title": "Db Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_BranchStateView_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Rollback Branch",
+        "tags": [
+          "txn"
+        ]
+      }
+    },
     "/api/v1/user-extensions": {
       "get": {
         "description": "按用户列示扩展信息。\n\nArgs:\n    user_id: 用户主键。\n    uow: 请求级工作单元。\n\nReturns:\n    ApiResponse: 统一响应，data 为扩展信息列表（保序）。",
@@ -16576,585 +17155,6 @@
           }
         },
         "summary": "Readyz"
-      }
-    },
-    "/txn/branches": {
-      "get": {
-        "description": "列举悬挂分支（对账）。\n\nArgs:\n    participant: 应用装配的参与方。\n    db_key: 目标库键。\n\nReturns:\n    ApiResponse: 统一响应，data 为悬挂分支清单。",
-        "operationId": "recover_branches_txn_branches_get",
-        "parameters": [
-          {
-            "description": "目标库键（不透明库键）",
-            "in": "query",
-            "name": "db_key",
-            "required": true,
-            "schema": {
-              "description": "目标库键（不透明库键）",
-              "title": "Db Key",
-              "type": "string"
-            }
-          },
-          {
-            "in": "header",
-            "name": "Authorization",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse_BranchRecoverView_"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            },
-            "description": "未认证"
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            },
-            "description": "无权限"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            },
-            "description": "资源不存在"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          },
-          "429": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            },
-            "description": "限流"
-          },
-          "500": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            },
-            "description": "服务异常"
-          }
-        },
-        "summary": "Recover Branches",
-        "tags": [
-          "txn"
-        ]
-      },
-      "post": {
-        "description": "执行分支（单请求内 `XA_START → 业务写 → XA_END → XA_PREPARE`）。\n\nArgs:\n    req: 分支执行请求。\n    participant: 应用装配的参与方。\n\nReturns:\n    ApiResponse: 统一响应，data 为分支状态。",
-        "operationId": "execute_branch_txn_branches_post",
-        "parameters": [
-          {
-            "in": "header",
-            "name": "Authorization",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/BranchExecuteRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse_BranchStateView_"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            },
-            "description": "未认证"
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            },
-            "description": "无权限"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            },
-            "description": "资源不存在"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          },
-          "429": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            },
-            "description": "限流"
-          },
-          "500": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            },
-            "description": "服务异常"
-          }
-        },
-        "summary": "Execute Branch",
-        "tags": [
-          "txn"
-        ]
-      }
-    },
-    "/txn/branches/{xid}": {
-      "get": {
-        "description": "查询分支状态（TM 决定点前核验）。\n\nArgs:\n    xid: 分支事务标识。\n    participant: 应用装配的参与方。\n    db_key: 目标库键。\n\nReturns:\n    ApiResponse: 统一响应，data 为分支状态。",
-        "operationId": "branch_state_txn_branches__xid__get",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "xid",
-            "required": true,
-            "schema": {
-              "title": "Xid",
-              "type": "string"
-            }
-          },
-          {
-            "description": "目标库键（不透明库键）",
-            "in": "query",
-            "name": "db_key",
-            "required": true,
-            "schema": {
-              "description": "目标库键（不透明库键）",
-              "title": "Db Key",
-              "type": "string"
-            }
-          },
-          {
-            "in": "header",
-            "name": "Authorization",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse_BranchStateView_"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            },
-            "description": "未认证"
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            },
-            "description": "无权限"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            },
-            "description": "资源不存在"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          },
-          "429": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            },
-            "description": "限流"
-          },
-          "500": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            },
-            "description": "服务异常"
-          }
-        },
-        "summary": "Branch State",
-        "tags": [
-          "txn"
-        ]
-      }
-    },
-    "/txn/branches/{xid}/commit": {
-      "post": {
-        "description": "提交分支（TM 驱动）。\n\nArgs:\n    xid: 分支事务标识。\n    participant: 应用装配的参与方。\n    db_key: 目标库键。\n\nReturns:\n    ApiResponse: 统一响应，data 为分支状态。",
-        "operationId": "commit_branch_txn_branches__xid__commit_post",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "xid",
-            "required": true,
-            "schema": {
-              "title": "Xid",
-              "type": "string"
-            }
-          },
-          {
-            "description": "目标库键（不透明库键）",
-            "in": "query",
-            "name": "db_key",
-            "required": true,
-            "schema": {
-              "description": "目标库键（不透明库键）",
-              "title": "Db Key",
-              "type": "string"
-            }
-          },
-          {
-            "in": "header",
-            "name": "Authorization",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse_BranchStateView_"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            },
-            "description": "未认证"
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            },
-            "description": "无权限"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            },
-            "description": "资源不存在"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          },
-          "429": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            },
-            "description": "限流"
-          },
-          "500": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            },
-            "description": "服务异常"
-          }
-        },
-        "summary": "Commit Branch",
-        "tags": [
-          "txn"
-        ]
-      }
-    },
-    "/txn/branches/{xid}/rollback": {
-      "post": {
-        "description": "回滚分支（TM 驱动）。\n\nArgs:\n    xid: 分支事务标识。\n    participant: 应用装配的参与方。\n    db_key: 目标库键。\n\nReturns:\n    ApiResponse: 统一响应，data 为分支状态。",
-        "operationId": "rollback_branch_txn_branches__xid__rollback_post",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "xid",
-            "required": true,
-            "schema": {
-              "title": "Xid",
-              "type": "string"
-            }
-          },
-          {
-            "description": "目标库键（不透明库键）",
-            "in": "query",
-            "name": "db_key",
-            "required": true,
-            "schema": {
-              "description": "目标库键（不透明库键）",
-              "title": "Db Key",
-              "type": "string"
-            }
-          },
-          {
-            "in": "header",
-            "name": "Authorization",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse_BranchStateView_"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            },
-            "description": "未认证"
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            },
-            "description": "无权限"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            },
-            "description": "资源不存在"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          },
-          "429": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            },
-            "description": "限流"
-          },
-          "500": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            },
-            "description": "服务异常"
-          }
-        },
-        "summary": "Rollback Branch",
-        "tags": [
-          "txn"
-        ]
       }
     }
   }
