@@ -144,6 +144,12 @@ export const MAX_SORT_COLUMNS = 3
 /** 虚拟滚动阈值（显式开启时进入虚拟模式的建议行数下限）。 */
 export const VIRTUAL_ROW_THRESHOLD = 200
 
+/** 树形默认展开阈值（节点数超过则只展开第一层；《组件设计 · 通用表格》§7）。 */
+export const TREE_EXPAND_THRESHOLD_DEFAULT = 50
+
+/** 树形展开态本地记忆键前缀（仅客户端本地，不入服务端列表偏好）。 */
+export const TREE_EXPAND_KEY_PREFIX = 'bms_tree_expanded'
+
 /** 列宽下限。 */
 export const TABLE_MIN_COLUMN_WIDTH = 60
 
@@ -443,6 +449,145 @@ export function collectTreeKeys(rows: readonly unknown[], rowKey: string, childr
   }
   walk(rows)
   return result
+}
+
+/** 树形展开选项（行键 / 子节点字段 / 默认展开阈值）。 */
+export interface TreeExpandOptions {
+  /** 行主键字段。 */
+  rowKey: string
+  /** 子节点字段（缺省 `children`）。 */
+  childrenKey?: string
+  /** 默认展开阈值（缺省 `TREE_EXPAND_THRESHOLD_DEFAULT`）。 */
+  threshold?: number
+}
+
+/**
+ * 树形节点总数（含全部层级）。
+ *
+ * @param rows 行数据。
+ * @param childrenKey 子节点字段（缺省 `children`）。
+ * @returns 节点数。
+ */
+export function countTreeNodes(rows: readonly unknown[], childrenKey = 'children'): number {
+  let count = 0
+  const walk = (list: readonly unknown[]): void => {
+    for (const row of list) {
+      count += 1
+      walk(childrenOf(row, childrenKey))
+    }
+  }
+  walk(rows)
+  return count
+}
+
+/**
+ * 收集全部可展开节点键（含子节点的节点，全层级）。
+ *
+ * @param rows 行数据。
+ * @param rowKey 行主键字段。
+ * @param childrenKey 子节点字段（缺省 `children`）。
+ * @returns 可展开节点键清单。
+ */
+export function collectParentKeys(rows: readonly unknown[], rowKey: string, childrenKey = 'children'): string[] {
+  const result: string[] = []
+  const walk = (list: readonly unknown[]): void => {
+    for (const row of list) {
+      const children = childrenOf(row, childrenKey)
+      if (children.length > 0) {
+        result.push(rowKeyOf(row, rowKey))
+        walk(children)
+      }
+    }
+  }
+  walk(rows)
+  return result
+}
+
+/**
+ * 收集第一层可展开节点键（根级且含子节点）。
+ *
+ * @param rows 行数据。
+ * @param rowKey 行主键字段。
+ * @param childrenKey 子节点字段（缺省 `children`）。
+ * @returns 第一层可展开节点键清单。
+ */
+export function collectFirstLevelParentKeys(
+  rows: readonly unknown[],
+  rowKey: string,
+  childrenKey = 'children',
+): string[] {
+  return rows.filter((row) => childrenOf(row, childrenKey).length > 0).map((row) => rowKeyOf(row, rowKey))
+}
+
+/**
+ * 解析树形默认展开键（按规模自适应：节点数 ≤ 阈值全展开父节点，超过则只展开第一层）。
+ *
+ * @param rows 行数据。
+ * @param options 树形展开选项。
+ * @returns 默认展开键清单。
+ */
+export function resolveDefaultExpandKeys(rows: readonly unknown[], options: TreeExpandOptions): string[] {
+  const childrenKey = options.childrenKey ?? 'children'
+  const threshold = options.threshold ?? TREE_EXPAND_THRESHOLD_DEFAULT
+  return countTreeNodes(rows, childrenKey) <= threshold
+    ? collectParentKeys(rows, options.rowKey, childrenKey)
+    : collectFirstLevelParentKeys(rows, options.rowKey, childrenKey)
+}
+
+/** 子树是否含命中节点。 */
+function subtreeMatches(
+  rows: readonly unknown[],
+  childrenKey: string,
+  match: (row: unknown) => boolean,
+): boolean {
+  for (const row of rows) {
+    if (match(row)) {
+      return true
+    }
+    if (subtreeMatches(childrenOf(row, childrenKey), childrenKey, match)) {
+      return true
+    }
+  }
+  return false
+}
+
+/**
+ * 收集命中节点的祖先键（用于搜索时自动展开命中路径）。
+ *
+ * @param rows 行数据。
+ * @param options 树形展开选项。
+ * @param match 命中判定（对单行）。
+ * @returns 祖先键清单（仅含子树的祖先节点，按遍历顺序）。
+ */
+export function collectAncestorKeys(
+  rows: readonly unknown[],
+  options: TreeExpandOptions,
+  match: (row: unknown) => boolean,
+): string[] {
+  const childrenKey = options.childrenKey ?? 'children'
+  const result: string[] = []
+  const walk = (list: readonly unknown[]): void => {
+    for (const row of list) {
+      const children = childrenOf(row, childrenKey)
+      if (children.length > 0 && subtreeMatches(children, childrenKey, match)) {
+        result.push(rowKeyOf(row, options.rowKey))
+        walk(children)
+      }
+    }
+  }
+  walk(rows)
+  return result
+}
+
+/**
+ * 构造树形展开态本地记忆键（`bms_tree_expanded:{pageKey}`）。
+ *
+ * @param pageKey 页面 / 表格标识。
+ * @returns 本地记忆键。
+ */
+export function buildTreeExpandKey(pageKey: string): string {
+  const key = pageKey.trim()
+  return key === '' ? TREE_EXPAND_KEY_PREFIX : `${TREE_EXPAND_KEY_PREFIX}:${key}`
 }
 
 /**

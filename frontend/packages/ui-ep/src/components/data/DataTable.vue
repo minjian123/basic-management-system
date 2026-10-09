@@ -2,6 +2,7 @@
 // 通用表格（07_05）：声明式列配置与渲染优先级 / 分页与多列排序 / 多选·展开·树形·行内编辑 / 虚拟滚动 /
 // 列个性化持久化 / 工具栏与空·加载·错误三态。对外契约保持 07_01 冻结形状，仅向后兼容新增。
 import {
+  TREE_EXPAND_THRESHOLD_DEFAULT,
   computeVirtualRange,
   formatAmount,
   formatDate,
@@ -23,6 +24,7 @@ import { computed, ref, watch } from 'vue'
 
 import { useBaseTable } from '../../composables/useBaseTable'
 import { canFullscreen, enterFullscreen, exitFullscreen } from '../../utils/fullscreen'
+import { highlightKeyword } from '../../utils/searchHighlight'
 
 import StatusTag from './StatusTag.vue'
 
@@ -113,6 +115,14 @@ interface Props {
   childrenKey?: string
   /** 默认展开全部（树形）。 */
   defaultExpandAll?: boolean
+  /** 树形默认展开阈值（节点数超过则只展开第一层；缺省 50）。 */
+  treeExpandThreshold?: number
+  /** 树形展开态本地记忆标识（给定则按 `bms_tree_expanded:{pageKey}` 本地记忆）。 */
+  treeExpandKey?: string
+  /** 搜索关键字（树形：命中路径自动展开并高亮）。 */
+  searchKeyword?: string
+  /** 搜索匹配 / 高亮字段（缺省全部可见列）。 */
+  searchFields?: string[]
   /** 是否行内编辑模式。 */
   editable?: boolean
   /** 受控多列排序。 */
@@ -162,6 +172,10 @@ const props = withDefaults(defineProps<Props>(), {
   tree: false,
   childrenKey: 'children',
   defaultExpandAll: false,
+  treeExpandThreshold: TREE_EXPAND_THRESHOLD_DEFAULT,
+  treeExpandKey: undefined,
+  searchKeyword: '',
+  searchFields: () => [],
   editable: false,
   sorts: () => [],
   density: 'default',
@@ -210,6 +224,8 @@ const tableApi = useBaseTable({
   listDensity: props.density,
   tree: props.tree,
   childrenKey: props.childrenKey,
+  treeExpandThreshold: props.treeExpandThreshold,
+  treeExpandKey: props.treeExpandKey,
   editable: props.editable,
   columns: props.columns,
   columnMeta: props.columnMeta,
@@ -312,6 +328,41 @@ const visibleColumns = computed<DataTableColumn[]>(() => {
     .filter((column) => state.get(column.key)?.visible !== false)
     .sort((left, right) => (state.get(left.key)?.order ?? 0) - (state.get(right.key)?.order ?? 0))
 })
+
+/** 搜索匹配 / 高亮字段（缺省全部可见列）。 */
+const searchFieldsResolved = computed<string[]>(() =>
+  props.searchFields.length > 0 ? props.searchFields : visibleColumns.value.map((column) => column.key),
+)
+
+/** 行是否命中搜索关键字（按匹配字段）。 */
+function rowMatchesSearch(row: unknown): boolean {
+  const keyword = props.searchKeyword.trim().toLowerCase()
+  if (keyword === '') {
+    return false
+  }
+  const record = (row ?? {}) as Record<string, unknown>
+  return searchFieldsResolved.value.some((field) => String(record[field] ?? '').toLowerCase().includes(keyword))
+}
+
+watch(
+  () => props.searchKeyword,
+  () => {
+    if (!props.tree) {
+      return
+    }
+    if (props.searchKeyword.trim() === '') {
+      tableApi.applyTreeSearch(null)
+      return
+    }
+    tableApi.applyTreeSearch(rowMatchesSearch)
+  },
+)
+
+/** 切换树形全部展开 / 折叠（写入本地记忆）。 */
+function onToggleTreeExpandAll(): void {
+  tableApi.toggleTreeExpandAll()
+  emit('expand-change', tableApi.expandedKeys.value)
+}
 
 /** 展示行（树形展平或原始行）。 */
 const displayRows = computed<{ row: Record<string, unknown>; key: string; level: number; hasChildren: boolean }[]>(
@@ -454,6 +505,20 @@ function dictText(row: Record<string, unknown>, column: DataTableColumn): string
   return translated ?? (value === null || value === undefined ? '—' : String(value))
 }
 
+/** 是否对列应用搜索高亮（仅文本类列：原值 / 字典）。 */
+function isHighlightColumn(column: DataTableColumn): boolean {
+  if (props.searchKeyword.trim() === '' || !searchFieldsResolved.value.includes(column.key)) {
+    return false
+  }
+  const kind = renderKindOf(column)
+  return kind === 'raw' || kind === 'dict'
+}
+
+/** 搜索高亮 HTML（先转义再包裹 `em`）。 */
+function highlightHtml(row: Record<string, unknown>, column: DataTableColumn): string {
+  return highlightKeyword(cellText(row, column), props.searchKeyword)
+}
+
 /** 行是否展开。 */
 function isRowExpanded(key: string): boolean {
   return expandedRows.value.includes(key)
@@ -529,6 +594,9 @@ function toggleExpand(key: string): void {
  */
 function toggleTree(key: string): void {
   tableApi.toggleExpand(key)
+  if (props.searchKeyword.trim() === '') {
+    tableApi.persistTreeExpand()
+  }
   emit('update:expanded', tableApi.expandedKeys.value)
   emit('expand-change', tableApi.expandedKeys.value)
 }
@@ -681,6 +749,9 @@ function virtualRowStyle(index: number): Record<string, string> {
         <button type="button" data-test="column-settings" @click="onToggleSettings">列设置</button>
         <button type="button" data-test="fullscreen" @click="onToggleFullscreen">全屏</button>
         <button type="button" data-test="auto-width" @click="onAutoWidth">自动列宽</button>
+        <button v-if="tree" type="button" data-test="tree-expand-all" @click="onToggleTreeExpandAll">
+          {{ tableApi.isTreeAllExpanded.value ? '全部折叠' : '全部展开' }}
+        </button>
         <slot name="toolbar" />
       </div>
 
@@ -841,10 +912,22 @@ function virtualRowStyle(index: number): Record<string, string> {
                       :value="cellText(item.row, column)"
                       size="small"
                     />
-                    <span v-else-if="renderKindOf(column) === 'dict'">{{ dictText(item.row, column) }}</span>
+                    <span v-else-if="renderKindOf(column) === 'dict'">
+                      <template v-if="isHighlightColumn(column)">
+                        <!-- eslint-disable-next-line vue/no-v-html -- highlightKeyword 已转义，仅包裹 em -->
+                        <span data-test="cell-highlight" v-html="highlightHtml(item.row, column)"></span>
+                      </template>
+                      <template v-else>{{ dictText(item.row, column) }}</template>
+                    </span>
                     <span v-else-if="renderKindOf(column) === 'mask'">{{ maskedText(item.row, column) }}</span>
                     <span v-else-if="renderKindOf(column) === 'format'">{{ formattedText(item.row, column) }}</span>
-                    <span v-else>{{ cellText(item.row, column) }}</span>
+                    <span v-else>
+                      <template v-if="isHighlightColumn(column)">
+                        <!-- eslint-disable-next-line vue/no-v-html -- highlightKeyword 已转义，仅包裹 em -->
+                        <span data-test="cell-highlight" v-html="highlightHtml(item.row, column)"></span>
+                      </template>
+                      <template v-else>{{ cellText(item.row, column) }}</template>
+                    </span>
                   </slot>
                 </td>
               </tr>
@@ -954,6 +1037,12 @@ function virtualRowStyle(index: number): Record<string, string> {
 .bms-data-table__sort-index {
   margin-left: var(--bms-spacing-sm);
   color: var(--bms-color-primary);
+}
+
+.bms-data-table__table em {
+  color: var(--bms-color-primary);
+  font-style: normal;
+  font-weight: 600;
 }
 
 .bms-data-table__indent {

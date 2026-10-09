@@ -3,6 +3,7 @@
 import {
   BaseTable,
   buildListPrefKey,
+  buildTreeExpandKey,
   fromColumnPreferences,
   isListPreferenceOversized,
   mergeTableColumns,
@@ -51,6 +52,10 @@ export interface UseBaseTableOptions {
   tree?: boolean
   /** 子节点字段。 */
   childrenKey?: string
+  /** 树形默认展开阈值（节点数超过则只展开第一层）。 */
+  treeExpandThreshold?: number
+  /** 树形展开态本地记忆标识（给定则按 `bms_tree_expanded:{pageKey}` 本地记忆）。 */
+  treeExpandKey?: string
   /** 是否行内编辑模式。 */
   editable?: boolean
   /** 列声明。 */
@@ -97,6 +102,10 @@ export interface UseBaseTableResult {
   summary: Ref<SelectionSummary>
   /** 已展开行键。 */
   expandedKeys: Ref<string[]>
+  /** 树形默认展开阈值。 */
+  treeExpandThreshold: Ref<number>
+  /** 是否全部可展开节点均已展开。 */
+  isTreeAllExpanded: ComputedRef<boolean>
   /** 列偏好。 */
   columnPreferences: Ref<ListPreference['columns']>
   /** 整份列表偏好。 */
@@ -157,6 +166,20 @@ export interface UseBaseTableResult {
   collapseAll: () => void
   /** 设置行内编辑态。 */
   setEditable: (value: boolean) => void
+  /** 设置树形默认展开阈值。 */
+  setTreeExpandThreshold: (threshold: number) => void
+  /** 树形默认展开键（按规模自适应）。 */
+  defaultExpandKeys: () => string[]
+  /** 应用树形展开（有本地记忆用记忆，否则按规模自适应默认）。 */
+  applyTreeExpand: () => void
+  /** 切换树形全部展开 / 折叠（写入本地记忆；返回切换后是否全展开）。 */
+  toggleTreeExpandAll: () => boolean
+  /** 写入树形展开态本地记忆。 */
+  persistTreeExpand: () => void
+  /** 应用搜索展开（传 `null` 恢复记忆 / 默认；命中祖先临时展开不落记忆）。 */
+  applyTreeSearch: (match: ((row: unknown) => boolean) | null) => void
+  /** 展开命中节点的祖先路径（搜索时临时展开，不落记忆）。 */
+  expandAncestorsFor: (match: (row: unknown) => boolean) => void
   /** 写入条件偏好（列表页取数后调用）。 */
   setQueryConditions: (conditions: readonly FilterCondition[], keyword?: string) => void
   /** 清除条件偏好（「重置」语义）。 */
@@ -198,6 +221,42 @@ export function useBaseTable(options: UseBaseTableOptions = {}): UseBaseTableRes
   }
   table.columnConfig.normalizeWith(toSeeds(columns.value))
 
+  // 树形展开态本地记忆（仅客户端，不入服务端列表偏好；《组件设计 · 通用表格》§7）。
+  const treeExpandState = useBasePersistedState({
+    stateKey: options.treeExpandKey === undefined ? '' : buildTreeExpandKey(options.treeExpandKey),
+    storage: 'local',
+  })
+  if (options.treeExpandThreshold !== undefined) {
+    table.setTreeExpandThreshold(options.treeExpandThreshold)
+  }
+  if (treeExpandState.persisted.stateKey !== '') {
+    treeExpandState.restore()
+  }
+
+  /** 是否有树形展开态本地记忆。 */
+  function hasTreeMemory(): boolean {
+    return treeExpandState.persisted.stateKey !== '' && treeExpandState.hasLocal.value && Array.isArray(treeExpandState.local.value)
+  }
+
+  /** 应用树形展开（有本地记忆用记忆，否则按规模自适应默认）。 */
+  function applyTreeExpand(): void {
+    if (hasTreeMemory()) {
+      table.setExpandedKeys((treeExpandState.local.value as unknown[]).map((key) => String(key)))
+    } else {
+      table.applyDefaultExpand()
+    }
+    sync()
+  }
+
+  /** 写入树形展开态本地记忆。 */
+  function persistTreeExpand(): void {
+    if (treeExpandState.persisted.stateKey === '') {
+      return
+    }
+    treeExpandState.setLocal([...table.expandedKeys].map((key) => String(key)))
+    treeExpandState.persist()
+  }
+
   const preferenceState = useBasePersistedState({
     stateKey: options.formKey === undefined ? '' : buildListPrefKey(options.formKey),
     remoteSaver: options.remoteSaver,
@@ -235,6 +294,7 @@ export function useBaseTable(options: UseBaseTableOptions = {}): UseBaseTableRes
   const selectedKeys = ref<string[]>(table.selectedKeys)
   const summary = ref<SelectionSummary>(table.selection.summary)
   const expandedKeys = ref<string[]>([...table.expandedKeys].map((key) => String(key)))
+  const treeExpandThreshold = ref(table.treeExpandThreshold)
   const columnPreferences = ref<ListPreference['columns']>(toColumnPreferences(table.columnConfig.columns))
   const revision = ref(0)
   const ready = ref(table.ready)
@@ -257,6 +317,7 @@ export function useBaseTable(options: UseBaseTableOptions = {}): UseBaseTableRes
     selectedKeys.value = table.selectedKeys
     summary.value = table.selection.summary
     expandedKeys.value = [...table.expandedKeys].map((key) => String(key))
+    treeExpandThreshold.value = table.treeExpandThreshold
     columnPreferences.value = toColumnPreferences(table.columnConfig.columns)
   }
 
@@ -290,6 +351,12 @@ export function useBaseTable(options: UseBaseTableOptions = {}): UseBaseTableRes
     return ordered
   })
 
+  /** 是否全部可展开节点均已展开（读变更序号以触发重算）。 */
+  const isTreeAllExpanded = computed<boolean>(() => {
+    void revision.value
+    return table.isAllExpanded()
+  })
+
   /** 以偏好整份回填表状态（列 / 页长 / 密度）。 */
   const applyPreference = (value: unknown): void => {
     const pref = normalizeListPreference(value)
@@ -321,6 +388,8 @@ export function useBaseTable(options: UseBaseTableOptions = {}): UseBaseTableRes
     selectedKeys,
     summary,
     expandedKeys,
+    treeExpandThreshold,
+    isTreeAllExpanded,
     columnPreferences,
     preference,
     queryConditions: computed(() => preference.value.query.conditions),
@@ -337,6 +406,9 @@ export function useBaseTable(options: UseBaseTableOptions = {}): UseBaseTableRes
     },
     setRows: (next, nextTotal) => {
       table.setRows(next, nextTotal)
+      if (table.tree) {
+        applyTreeExpand()
+      }
       sync()
     },
     setPage: (next) => {
@@ -432,6 +504,36 @@ export function useBaseTable(options: UseBaseTableOptions = {}): UseBaseTableRes
     },
     setEditable: (value) => {
       table.setEditable(value)
+      sync()
+    },
+    setTreeExpandThreshold: (threshold) => {
+      table.setTreeExpandThreshold(threshold)
+      sync()
+    },
+    defaultExpandKeys: () => table.defaultExpandKeys(),
+    applyTreeExpand,
+    toggleTreeExpandAll: () => {
+      const wasAll = table.isAllExpanded()
+      if (wasAll) {
+        table.collapseAll()
+      } else {
+        table.setExpandedKeys(table.parentKeys())
+      }
+      persistTreeExpand()
+      sync()
+      return !wasAll
+    },
+    persistTreeExpand,
+    applyTreeSearch: (match) => {
+      if (match === null) {
+        applyTreeExpand()
+        return
+      }
+      table.expandAncestorsFor(match)
+      sync()
+    },
+    expandAncestorsFor: (match) => {
+      table.expandAncestorsFor(match)
       sync()
     },
     setQueryConditions: (conditions, keyword) => {

@@ -1290,6 +1290,15 @@ export {
   type TableSortSpec,
   type TableTreeOptions,
   type TableTreeRow,
+  TREE_EXPAND_KEY_PREFIX,
+  TREE_EXPAND_THRESHOLD_DEFAULT,
+  buildTreeExpandKey,
+  collectAncestorKeys,
+  collectFirstLevelParentKeys,
+  collectParentKeys,
+  countTreeNodes,
+  resolveDefaultExpandKeys,
+  type TreeExpandOptions,
 } from './domain/table'
 export {
   FIELD_QUERY_OPERATORS,

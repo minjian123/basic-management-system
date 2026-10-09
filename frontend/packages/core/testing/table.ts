@@ -31,6 +31,8 @@ export interface TableContractTarget {
   readonly columnKeys: readonly string[]
   /** 已展开行键。 */
   readonly expandedKeys: readonly string[]
+  /** 树形默认展开阈值。 */
+  readonly treeExpandThreshold: number
   /** 设置行数据。 */
   setRows(rows: readonly unknown[], total?: number): void
   /** 设置页码。 */
@@ -57,6 +59,12 @@ export interface TableContractTarget {
   expandAll(keys?: readonly string[]): void
   /** 收起全部。 */
   collapseAll(): void
+  /** 设置树形默认展开阈值。 */
+  setTreeExpandThreshold(threshold: number): void
+  /** 树形默认展开键（按规模自适应）。 */
+  defaultExpandKeys(): readonly string[]
+  /** 展开命中节点的祖先路径（搜索时临时展开）。 */
+  expandAncestorsFor(match: (row: unknown) => boolean): void
 }
 
 /**
@@ -147,6 +155,27 @@ export function describeTableContract(name: string, create: () => TableContractT
       expect(target.expandedKeys).toEqual([])
       target.toggleExpand('2')
       expect(target.expandedKeys).toEqual(['2'])
+    })
+
+    it('树形默认展开：按规模自适应（≤ 阈值全展开、超过只展第一层）', () => {
+      const target = create()
+      const tree = [{ id: 'a', children: [{ id: 'b', children: [{ id: 'c' }] }, { id: 'd' }] }]
+      target.setRows(tree, 1)
+
+      target.setTreeExpandThreshold(10)
+      expect(target.treeExpandThreshold).toBe(10)
+      expect([...target.defaultExpandKeys()].sort()).toEqual(['a', 'b'])
+
+      target.setTreeExpandThreshold(1)
+      expect(target.defaultExpandKeys()).toEqual(['a'])
+    })
+
+    it('搜索命中：祖先路径展开', () => {
+      const target = create()
+      const tree = [{ id: 'a', children: [{ id: 'b', children: [{ id: 'c' }] }, { id: 'd' }] }]
+      target.setRows(tree, 1)
+      target.expandAncestorsFor((row) => (row as { id?: string }).id === 'c')
+      expect([...target.expandedKeys].sort()).toEqual(['a', 'b'])
     })
   })
 }

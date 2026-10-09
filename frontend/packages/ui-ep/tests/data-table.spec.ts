@@ -46,6 +46,9 @@ function makeTableTarget(): TableContractTarget {
     get expandedKeys() {
       return api.expandedKeys.value
     },
+    get treeExpandThreshold() {
+      return api.table.treeExpandThreshold
+    },
     setRows: (rows, total) => api.setRows(rows, total),
     setPage: (page) => api.setPage(page),
     setPageSize: (size) => api.setPageSize(size),
@@ -59,6 +62,9 @@ function makeTableTarget(): TableContractTarget {
     toggleExpand: (key) => api.toggleExpand(key),
     expandAll: () => api.expandAll(),
     collapseAll: () => api.collapseAll(),
+    setTreeExpandThreshold: (threshold) => api.setTreeExpandThreshold(threshold),
+    defaultExpandKeys: () => api.defaultExpandKeys(),
+    expandAncestorsFor: (match) => api.expandAncestorsFor(match),
   }
 }
 
@@ -195,15 +201,69 @@ describe('DataTable 树形 / 展开行 / 行内编辑', () => {
     { id: '2', name: '叶' },
   ]
 
-  it('树形：默认收起，点击箭头展开子节点', async () => {
+  it('树形：默认按规模自适应展开（小树全展开），点击箭头收起', async () => {
     const wrapper = mount(DataTable, {
       props: { ready: true, columns, data: treeRows, total: 2, tree: true, rowKey: 'id' },
     })
-    expect(wrapper.find('[data-test="row-1-1"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="row-1-1"]').exists()).toBe(true)
 
     await wrapper.find('[data-test="tree-toggle-1"]').trigger('click')
-    expect(wrapper.find('[data-test="row-1-1"]').exists()).toBe(true)
-    expect(wrapper.emitted('expand-change')?.[0]).toEqual([['1']])
+    expect(wrapper.find('[data-test="row-1-1"]').exists()).toBe(false)
+    expect(wrapper.emitted('expand-change')?.at(-1)).toEqual([[]])
+  })
+
+  it('树形：超阈值只展第一层 + 工具栏全部展开 / 折叠', async () => {
+    const nested = [{ id: 'a', name: 'A', children: [{ id: 'b', name: 'B', children: [{ id: 'c', name: 'C' }] }] }]
+    const wrapper = mount(DataTable, {
+      props: { ready: true, columns, data: nested, total: 1, tree: true, rowKey: 'id', treeExpandThreshold: 2 },
+    })
+    expect(wrapper.find('[data-test="row-b"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="row-c"]').exists()).toBe(false)
+
+    const expandAll = wrapper.find('[data-test="tree-expand-all"]')
+    expect(expandAll.text()).toContain('全部展开')
+    await expandAll.trigger('click')
+    expect(wrapper.find('[data-test="row-c"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="tree-expand-all"]').text()).toContain('全部折叠')
+  })
+
+  it('树形：搜索关键字命中路径自动展开并高亮', async () => {
+    const nested = [
+      { id: 'a', name: '总部', children: [{ id: 'b', name: '研发', children: [{ id: 'c', name: '前端组' }] }] },
+    ]
+    const wrapper = mount(DataTable, {
+      props: {
+        ready: true,
+        columns,
+        data: nested,
+        total: 1,
+        tree: true,
+        rowKey: 'id',
+        searchKeyword: '前端',
+        searchFields: ['name'],
+      },
+    })
+    expect(wrapper.find('[data-test="row-c"]').exists()).toBe(true)
+    const html = wrapper.findAll('[data-test="cell-highlight"]').map((node) => node.html()).join('')
+    expect(html).toContain('<em>前端</em>')
+  })
+
+  it('树形：展开态按表格维度本地记忆', async () => {
+    localStorage.removeItem('bms_tree_expanded:spec')
+    const first = mount(DataTable, {
+      props: { ready: true, columns, data: treeRows, total: 2, tree: true, rowKey: 'id', treeExpandKey: 'spec' },
+    })
+    expect(first.find('[data-test="row-1-1"]').exists()).toBe(true)
+    await first.find('[data-test="tree-toggle-1"]').trigger('click')
+    expect(localStorage.getItem('bms_tree_expanded:spec')).toBe('[]')
+    first.unmount()
+
+    const second = mount(DataTable, {
+      props: { ready: true, columns, data: treeRows, total: 2, tree: true, rowKey: 'id', treeExpandKey: 'spec' },
+    })
+    expect(second.find('[data-test="row-1-1"]').exists()).toBe(false)
+    second.unmount()
+    localStorage.removeItem('bms_tree_expanded:spec')
   })
 
   it('展开行：展开区渲染插槽内容', async () => {

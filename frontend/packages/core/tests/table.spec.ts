@@ -42,6 +42,9 @@ function makeTarget(): TableContractTarget {
     get expandedKeys() {
       return [...table.expandedKeys].map((key) => String(key))
     },
+    get treeExpandThreshold() {
+      return table.treeExpandThreshold
+    },
     setRows: (rows, total) => table.setRows(rows, total),
     setPage: (page) => table.setPage(page),
     setPageSize: (size) => table.setPageSize(size),
@@ -55,6 +58,9 @@ function makeTarget(): TableContractTarget {
     toggleExpand: (key) => table.toggleExpand(key),
     expandAll: (keys) => table.expandAll(keys),
     collapseAll: () => table.collapseAll(),
+    setTreeExpandThreshold: (threshold) => table.setTreeExpandThreshold(threshold),
+    defaultExpandKeys: () => table.defaultExpandKeys(),
+    expandAncestorsFor: (match) => table.expandAncestorsFor(match),
   }
 }
 

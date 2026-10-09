@@ -12,8 +12,12 @@ import { BaseSelection } from './selection'
 import {
   PAGE_SIZE_DEFAULT,
   PAGE_SIZE_MAX,
+  TREE_EXPAND_THRESHOLD_DEFAULT,
   buildSortParams,
+  collectAncestorKeys,
+  collectParentKeys,
   collectTreeKeys,
+  resolveDefaultExpandKeys,
   resolveDensityToken,
   rowKeyOf,
   toggleSort as toggleColumnSort,
@@ -62,6 +66,8 @@ export abstract class BaseTable extends BaseDataState {
   tree = false
   /** 子节点字段。 */
   childrenKey = 'children'
+  /** 树形默认展开阈值（节点数超过则只展开第一层；《组件设计 · 通用表格》§7）。 */
+  treeExpandThreshold = TREE_EXPAND_THRESHOLD_DEFAULT
   /** 已展开行键。 */
   readonly expandedKeys = new Set<string | number>()
   /** 是否行内编辑模式。 */
@@ -242,6 +248,98 @@ export abstract class BaseTable extends BaseDataState {
     }
     this.expandedKeys.clear()
     this.notify()
+  }
+
+  /**
+   * 设置树形默认展开阈值（非有限或负值回落缺省）。
+   *
+   * @param value 阈值（节点数）。
+   */
+  setTreeExpandThreshold(value: number): void {
+    const next = Number.isFinite(value) && value >= 0 ? Math.trunc(value) : TREE_EXPAND_THRESHOLD_DEFAULT
+    if (next === this.treeExpandThreshold) {
+      return
+    }
+    this.treeExpandThreshold = next
+    this.notify()
+  }
+
+  /**
+   * 树形默认展开键（按规模自适应：≤ 阈值全展开父节点，超过只展第一层）。
+   *
+   * @returns 默认展开键清单。
+   */
+  defaultExpandKeys(): string[] {
+    return resolveDefaultExpandKeys(this.rows, {
+      rowKey: this.rowKey,
+      childrenKey: this.childrenKey,
+      threshold: this.treeExpandThreshold,
+    })
+  }
+
+  /**
+   * 全部可展开节点键（含子节点的节点）。
+   *
+   * @returns 可展开节点键清单。
+   */
+  parentKeys(): string[] {
+    return collectParentKeys(this.rows, this.rowKey, this.childrenKey)
+  }
+
+  /**
+   * 是否全部可展开节点均已展开。
+   *
+   * @returns 是否全展开。
+   */
+  isAllExpanded(): boolean {
+    const parents = this.parentKeys()
+    return parents.length > 0 && parents.every((key) => this.expandedKeys.has(key))
+  }
+
+  /**
+   * 整体设置展开键（去重归一为字符串）。
+   *
+   * @param keys 展开键清单。
+   */
+  setExpandedKeys(keys: readonly (string | number)[]): void {
+    const next = new Set<string>(keys.map((key) => String(key)))
+    let changed = next.size !== this.expandedKeys.size
+    if (!changed) {
+      for (const key of next) {
+        if (!this.expandedKeys.has(key)) {
+          changed = true
+          break
+        }
+      }
+    }
+    if (!changed) {
+      return
+    }
+    this.expandedKeys.clear()
+    for (const key of next) {
+      this.expandedKeys.add(key)
+    }
+    this.notify()
+  }
+
+  /** 应用树形默认展开（按规模自适应；数据装载后调用）。 */
+  applyDefaultExpand(): void {
+    this.setExpandedKeys(this.defaultExpandKeys())
+  }
+
+  /**
+   * 展开命中节点的祖先路径（搜索时临时展开，不落记忆）。
+   *
+   * @param match 命中判定（对单行）。
+   */
+  expandAncestorsFor(match: (row: unknown) => boolean): void {
+    this.setExpandedKeys(
+      collectAncestorKeys(
+        this.rows,
+        { rowKey: this.rowKey, childrenKey: this.childrenKey, threshold: this.treeExpandThreshold },
+        match,
+      ),
+    )
   }
 
   /**

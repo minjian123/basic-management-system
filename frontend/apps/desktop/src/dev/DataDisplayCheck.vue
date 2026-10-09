@@ -269,12 +269,13 @@ async function runSelfCheck(): Promise<void> {
       (one(mainBox.value, '[data-test="selection-summary"]')?.textContent ?? '').includes('已选 2 条'),
   })
 
-  // 6 树形表格（缩进箭头展开）
+  // 6 树形表格（默认按规模自适应展开，箭头收起）
+  const treeExpandedByDefault = one(treeBox.value, '[data-test="row-1-1"]') !== undefined
   await click(one(treeBox.value, '[data-test="tree-toggle-1"]'))
   items.push({
     no: 6,
-    label: '树形表格（展开子节点）',
-    ok: one(treeBox.value, '[data-test="row-1-1"]') !== undefined,
+    label: '树形表格（默认自适应展开 + 箭头收起）',
+    ok: treeExpandedByDefault && one(treeBox.value, '[data-test="row-1-1"]') === undefined,
   })
 
   // 7 行内编辑（单元格变更上抛）
