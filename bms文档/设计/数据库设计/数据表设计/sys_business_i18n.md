@@ -1,4 +1,4 @@
-# sys_business_i18n（业务权限码名称多语言表）
+# sys_business_i18n（业务码名称多语言表）
 
 > BMS · 数据库设计 · 数据表设计
 

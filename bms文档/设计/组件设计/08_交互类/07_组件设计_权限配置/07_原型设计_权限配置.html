@@ -40,8 +40,8 @@
 
 <div class="proto-frame">
   <div class="proto-note">
-    本原型对应当前目录 <a href="07_组件设计_权限配置.md">《组件设计 · 权限配置》</a>：<b>菜单权限</b>（菜单树 → 该入口的操作权限 / 字段权限）、
-    <b>表单权限</b>（所有表单列表 → 操作权限 / 字段权限，补充授权）、<b>数据权限</b>（基础数据字典 → 数据选择 / 数据区域 / 数据匹配 / 扩展权限，只选不编）、<b>角色分配</b>。
+    本原型对应当前目录 <a href="07_组件设计_权限配置.md">《组件设计 · 权限配置》</a>：<b>菜单权限</b>（菜单树 → 该入口的权限码 / 字段权限）、
+    <b>表单权限</b>（所有表单列表 → 权限码 / 字段权限，补充授权）、<b>数据权限</b>（基础数据字典 → 数据选择 / 数据区域 / 数据匹配 / 扩展权限，只选不编）、<b>角色分配</b>。
     菜单 ↔ 表单多对多、权限按<b>来源</b>区分（本入口连带可改 / 非本入口只读）；<b>保存由宿主页面工具栏触发</b>（顶部示意）。
   </div>
 
@@ -88,13 +88,13 @@
                 <div class="bd">
                   <template v-if="activeMenu && menuForms.length">
                     <el-tabs v-model="menuSub">
-                      <el-tab-pane label="操作权限" name="op">
+                      <el-tab-pane label="权限码" name="op">
                         <div class="dp-hint" style="margin-bottom:6px">本入口连带生成的可改，非本入口来源只读。</div>
                         <div v-for="op in menuOps" :key="op.code" class="op-row">
                           <el-checkbox v-model="op.granted" :disabled="!op.editable" @change="dirty = true">{{ op.label }} <span class="dp-hint">{{ op.code }}</span></el-checkbox>
                           <span v-if="!op.editable" class="own">{{ op.sourceText }}</span>
                         </div>
-                        <div v-if="!menuOps.length" class="dp-hint">该表单无操作权限</div>
+                        <div v-if="!menuOps.length" class="dp-hint">该表单无权限码</div>
                       </el-tab-pane>
                       <el-tab-pane label="字段权限" name="field">
                         <div class="dp-hint" style="margin-bottom:6px">默认全部可见可编辑、授予后收窄；本入口连带可改，非本入口只读。</div>
@@ -139,13 +139,13 @@
                 <div class="bd">
                   <template v-if="activeForm">
                     <el-tabs v-model="formSub">
-                      <el-tab-pane label="操作权限" name="op">
+                      <el-tab-pane label="权限码" name="op">
                         <div class="dp-hint" style="margin-bottom:6px">表单级补充权限：直接授予的可改，来自菜单入口的只读。</div>
                         <div v-for="op in formOps" :key="op.code" class="op-row">
                           <el-checkbox v-model="op.granted" :disabled="!op.editable" @change="dirty = true">{{ op.label }} <span class="dp-hint">{{ activeForm.business }}:{{ op.code }}</span></el-checkbox>
                           <span v-if="!op.editable" class="own">{{ op.sourceText }}</span>
                         </div>
-                        <div v-if="!formOps.length" class="dp-hint">该表单无操作权限</div>
+                        <div v-if="!formOps.length" class="dp-hint">该表单无权限码</div>
                       </el-tab-pane>
                       <el-tab-pane label="字段权限" name="field">
                         <div class="dp-hint" style="margin-bottom:6px">默认全部可见可编辑、授予后收窄；直接授予的可改，来自菜单入口的只读。</div>

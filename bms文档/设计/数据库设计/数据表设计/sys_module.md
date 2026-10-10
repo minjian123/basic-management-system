@@ -26,7 +26,7 @@
 | `service_key` | VARCHAR(32) | 是 | 应用 / CI 层唯一（**不建 DB 唯一**） | 服务维度标识（微服务工程名，如 `platform`、`identity`；模块行可空） |
 | `name` | VARCHAR(128) | 否 | — | 名称（默认文案；多语言见 `sys_module_i18n`） |
 | `table_prefix` | VARCHAR(32) | 否 | 与 `deleted_at` 复合唯一 | 表前缀（形如 `{module_key}_`，如 `pur_`、`sys_`、`identity_`） |
-| `business_code` | VARCHAR(64) | 是 | — | 业务权限码（`sys_business.code`；模块行默认取 `module_key`，服务行可空） |
+| `business_code` | VARCHAR(64) | 是 | — | 业务码（`sys_business.code`；模块行默认取 `module_key`，服务行可空） |
 | `errcode_segment` | VARCHAR(8) | 是 | 应用 / CI 层唯一（**不建 DB 唯一**） | 错误码段号（字符串；产品模块 `10` 起，平台域 `01`~`04`，纯服务留空） |
 | `event_domain` | VARCHAR(64) | 否 | 与 `deleted_at` 复合唯一 | 事件域（全小写，默认与 `module_key` 一致） |
 | `service_group` | VARCHAR(16) | 否 | 默认 `foundation` | 归属分组：`foundation`（平台地基）/ `capability`（平台能力）/ `product`（产品服务） |

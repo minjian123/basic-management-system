@@ -11,7 +11,7 @@
   .ep-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
   .ep-toolbar .ep-side { margin-left: auto; }
   .sys-frame { display: block; width: 100%; border: none; background: #fff; }
-  /* 权限配置：菜单权限 / 表单权限（菜单树或表单列表 + 操作权限·字段权限两 Tab） */
+  /* 权限配置：菜单权限 / 表单权限（菜单树或表单列表 + 权限码·字段权限两 Tab） */
   .perm-pane { border: 1px solid #eaeef2; border-radius: 8px; }
   .perm-pane-hd { padding: 8px 12px; border-bottom: 1px solid #eaeef2; font-size: 13px; font-weight: 600; }
   .perm-pane-bd { padding: 10px; }
@@ -42,7 +42,7 @@
 <div class="proto-frame">
   <div class="proto-note">
     本页为「角色管理」表单框架的<b>角色记录 Tab</b>。信息栏三个子页签：<b>详细信息</b> · <b>权限配置</b> · <b>系统信息</b>。
-    权限配置四页签：<b>菜单权限</b>（菜单树 → 该入口的操作权限 / 字段权限）· <b>表单权限</b>（所有表单列表 → 操作权限 / 字段权限）·
+    权限配置四页签：<b>菜单权限</b>（菜单树 → 该入口的权限码 / 字段权限）· <b>表单权限</b>（所有表单列表 → 权限码 / 字段权限）·
     <b>数据权限</b>（基础数据字典 → 数据选择 / 数据区域 / 数据匹配 / 扩展权限，只选不编）· <b>角色分配</b>（<b>用户分配</b>内建；<b>岗位分配 / 部门分配</b>由 mdm 插件插入）。
     菜单与表单为<b>多对多</b>（不同菜单入口可指向同一表单、表单也可无入口）；权限按<b>来源</b>区分——本入口连带生成的可改，非本入口来源只读。保存只在页面工具栏一处（<b>角色分配整体随宿主保存</b>：用户分配内建 + 岗位 / 部门分配插件均进草稿一并提交；跨服务部分由宿主编排）。
   </div>
@@ -115,7 +115,7 @@
         <!-- 权限配置 -->
         <el-tab-pane label="权限配置" name="perm">
           <el-tabs v-model="permTab" type="card">
-            <!-- 菜单权限：菜单树 → 该入口的操作权限 / 字段权限 -->
+            <!-- 菜单权限：菜单树 → 该入口的权限码 / 字段权限 -->
             <el-tab-pane label="菜单权限" name="menu">
               <el-row :gutter="12">
                 <el-col :span="8">
@@ -150,7 +150,7 @@
                           该菜单入口未授予权限；仍可查看其表单权限来源，勾选菜单后本入口权限方可编辑。
                         </div>
                         <el-tabs v-model="menuPermTab">
-                          <el-tab-pane label="操作权限" name="op">
+                          <el-tab-pane label="权限码" name="op">
                             <div class="proto-hint" style="margin-bottom:6px">{{ menuFormLabel }} · 默认无；本入口连带生成的可改，非本入口来源只读。</div>
                             <div v-for="op in menuOps" :key="op.code" class="op-row">
                               <el-checkbox v-model="op.granted" :disabled="!op.editable" @change="permDirty = true">
@@ -158,7 +158,7 @@
                               </el-checkbox>
                               <span v-if="!op.editable" class="op-tag">{{ op.sourceText }}</span>
                             </div>
-                            <div v-if="!menuOps.length" class="proto-hint">该表单无操作权限</div>
+                            <div v-if="!menuOps.length" class="proto-hint">该表单无权限码</div>
                           </el-tab-pane>
                           <el-tab-pane label="字段权限" name="field">
                             <div class="proto-hint" style="margin-bottom:6px">{{ menuFormLabel }} · 默认全部可见可编辑、授予后收窄；本入口连带生成的可改，非本入口来源只读。</div>
@@ -184,7 +184,7 @@
               </el-row>
             </el-tab-pane>
 
-            <!-- 表单权限：所有表单列表 → 操作权限 / 字段权限（补充权限） -->
+            <!-- 表单权限：所有表单列表 → 权限码 / 字段权限（补充权限） -->
             <el-tab-pane label="表单权限" name="form">
               <el-row :gutter="12">
                 <el-col :span="8">
@@ -209,7 +209,7 @@
                     <div class="perm-pane-bd">
                       <template v-if="activeForm">
                         <el-tabs v-model="formPermTab">
-                          <el-tab-pane label="操作权限" name="op">
+                          <el-tab-pane label="权限码" name="op">
                             <div class="proto-hint" style="margin-bottom:6px">表单级补充权限：直接授予的可改，来自菜单入口的只读。</div>
                             <div v-for="op in formOps" :key="op.code" class="op-row">
                               <el-checkbox v-model="op.granted" :disabled="!op.editable" @change="permDirty = true">
@@ -217,7 +217,7 @@
                               </el-checkbox>
                               <span v-if="!op.editable" class="op-tag">{{ op.sourceText }}</span>
                             </div>
-                            <div v-if="!formOps.length" class="proto-hint">该表单无操作权限</div>
+                            <div v-if="!formOps.length" class="proto-hint">该表单无权限码</div>
                           </el-tab-pane>
                           <el-tab-pane label="字段权限" name="field">
                             <div class="proto-hint" style="margin-bottom:6px">默认全部可见可编辑、授予后收窄；直接授予的可改，来自菜单入口的只读。</div>
