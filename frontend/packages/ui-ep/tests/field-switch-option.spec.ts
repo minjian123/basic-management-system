@@ -1,11 +1,11 @@
 // kiwi_id: 969
-/** 开关与枚举字段用例（06_02_03）。 */
+/** 开关与选项字段用例（06_02_03）。 */
 
 import { mount } from '@vue/test-utils'
 import { defineComponent } from 'vue'
 import { describe, expect, it, vi } from 'vitest'
 
-import { EnumField, InlineSwitchCell, SwitchField, useConfirm } from '../src'
+import { OptionField, InlineSwitchCell, SwitchField, useConfirm } from '../src'
 
 const ElSwitchStub = defineComponent({
   name: 'ElSwitch',
@@ -124,34 +124,34 @@ describe('InlineSwitchCell', () => {
   })
 })
 
-describe('EnumField', () => {
+describe('OptionField', () => {
   const options = [
     { label: '甲', value: 'a' },
     { label: '乙', value: 'b' },
   ]
 
   it('下拉默认形态与值回传', async () => {
-    const wrapper = mount(EnumField, { props: { modelValue: 'a', options }, global: { stubs } })
+    const wrapper = mount(OptionField, { props: { modelValue: 'a', options }, global: { stubs } })
     expect(wrapper.findAll('.el-option')).toHaveLength(2)
     await wrapper.find('[data-test="pick-b"]').trigger('click')
     expect(wrapper.emitted('update:modelValue')?.[0]).toEqual(['b'])
   })
 
   it('单选形态与选项集校验', async () => {
-    const radio = mount(EnumField, { props: { modelValue: 'a', options, form: 'button' }, global: { stubs } })
+    const radio = mount(OptionField, { props: { modelValue: 'a', options, form: 'button' }, global: { stubs } })
     expect(radio.findAll('.el-radio-button')).toHaveLength(2)
 
-    const invalid = mount(EnumField, { props: { modelValue: 'z' as never, options }, global: { stubs } })
+    const invalid = mount(OptionField, { props: { modelValue: 'z' as never, options }, global: { stubs } })
     await invalid.vm.$nextTick()
     expect(invalid.find('[data-test="field-error"]').text()).toBe('选项不在选项集中')
   })
 
   it('必填与空选项降级', async () => {
-    const wrapper = mount(EnumField, { props: { modelValue: undefined, options, required: true }, global: { stubs } })
+    const wrapper = mount(OptionField, { props: { modelValue: undefined, options, required: true }, global: { stubs } })
     await wrapper.vm.$nextTick()
     expect(wrapper.find('[data-test="field-error"]').text()).toBe('该字段为必填项')
 
-    const empty = mount(EnumField, { props: { modelValue: undefined, options: [] }, global: { stubs } })
+    const empty = mount(OptionField, { props: { modelValue: undefined, options: [] }, global: { stubs } })
     expect(empty.attributes('data-empty')).toBe('true')
     expect(empty.findComponent(ElSelectStub).props('disabled')).toBe(true)
   })

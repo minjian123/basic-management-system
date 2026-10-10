@@ -1,0 +1,195 @@
+/**
+ * 统一装配器：平台自身注册与模块注册共用同一通道（登记 / 来源打标 / 校验 / 清理）。
+ *
+ * 两段式装配——先对全部声明校验（键模式 / 命名空间前缀 / 区域标识 / 语言标识 / 路由路径），
+ * 校验全通过后再逐项倒入；倒入途中遇同键冲突则回滚本次已登记项后抛错，保证无残留。
+ */
+import { assertIconKey, assertLocaleTag, assertNamespacedKey, assertPageAreaId } from './index';
+import { ComponentProvider, FieldRendererProvider, I18nPackProvider, IconProvider, PageAreaProvider, RouteMenuProvider, ThemeTokenProvider, WorkbenchCardProvider, } from './providers';
+import { schemaError } from './validate';
+/** 平台自身注册的来源标识。 */
+export const PLATFORM_SOURCE = 'platform';
+/**
+ * 校验并构造待倒入项（校验失败即抛错，此时不产生任何登记）。
+ *
+ * @param source 注册来源。
+ * @param registration 注册声明。
+ * @returns 待倒入项清单。
+ * @throws BaseError 键 / 前缀 / 区域标识 / 语言标识 / 路由路径校验失败（`CAPABILITY_VIOLATION`）。
+ */
+function buildPlan(source, registration) {
+    const plan = [];
+    const checkKey = (key, scope) => {
+        assertNamespacedKey(key, scope);
+        if (source !== PLATFORM_SOURCE && !key.startsWith(`${source}:`)) {
+            throw schemaError(scope, `模块注册键须以 ${source}: 开头：${key}`);
+        }
+    };
+    for (const [key, component] of Object.entries(registration.components ?? {})) {
+        checkKey(key, '通用组件');
+        plan.push({ group: 'component', key, provider: new ComponentProvider(key, component) });
+    }
+    for (const declaration of registration.fieldRenderers ?? []) {
+        checkKey(declaration.key, '字段渲染器');
+        plan.push({
+            group: 'fieldRenderer',
+            key: declaration.key,
+            provider: new FieldRendererProvider(declaration.key, declaration.component, declaration.fieldType),
+        });
+    }
+    for (const [key, iconSource] of Object.entries(registration.icons ?? {})) {
+        checkKey(key, '图标');
+        assertIconKey(key);
+        plan.push({ group: 'icon', key, provider: new IconProvider(key, iconSource) });
+    }
+    for (const card of (registration.cards ?? [])) {
+        checkKey(card.key, '工作台卡片');
+        plan.push({ group: 'card', key: card.key, provider: card });
+    }
+    for (const declaration of registration.regions ?? []) {
+        checkKey(declaration.key, '页面区域');
+        assertPageAreaId(declaration.area);
+        plan.push({
+            group: 'region',
+            key: declaration.key,
+            provider: new PageAreaProvider(declaration.key, declaration.area, declaration.component, declaration.order ?? 0, {
+                title: declaration.title,
+                icon: declaration.icon,
+                perm: declaration.perm,
+                permMode: declaration.permMode,
+                when: declaration.when,
+            }),
+        });
+    }
+    for (const declaration of registration.themeTokens ?? []) {
+        checkKey(declaration.key, '主题令牌');
+        plan.push({
+            group: 'themeToken',
+            key: declaration.key,
+            provider: new ThemeTokenProvider(declaration.key, declaration.tokens, declaration.mode),
+        });
+    }
+    for (const declaration of registration.i18nPacks ?? []) {
+        checkKey(declaration.key, 'i18n 文案包');
+        const provider = new I18nPackProvider(declaration.key, declaration.messages);
+        assertLocaleTag(provider.locale, 'i18n 文案包');
+        plan.push({ group: 'i18nPack', key: declaration.key, provider });
+    }
+    for (const route of registration.routes ?? []) {
+        if (route.meta?.title === undefined || route.meta.menu === false) {
+            continue;
+        }
+        if (!route.path.startsWith('/')) {
+            throw schemaError('路由·菜单', `路由路径须以 / 开头：${route.path}`);
+        }
+        const name = route.name ?? route.path;
+        const icon = typeof route.meta.icon === 'string' && route.meta.icon !== '' ? route.meta.icon : undefined;
+        plan.push({
+            group: 'route',
+            key: name,
+            provider: new RouteMenuProvider(name, route.path, String(route.meta.title), icon, route.meta),
+        });
+    }
+    return plan;
+}
+/**
+ * 倒入单项（倒入前统一打来源标）。
+ *
+ * @param registries 前端注册表集合。
+ * @param entry 待倒入项。
+ * @param source 注册来源。
+ */
+function registerEntry(registries, entry, source) {
+    entry.provider.registrationSource = source;
+    switch (entry.group) {
+        case 'component':
+            registries.component.register(entry.provider);
+            break;
+        case 'fieldRenderer':
+            registries.fieldRenderer.register(entry.provider);
+            break;
+        case 'icon':
+            registries.icon.register(entry.provider);
+            break;
+        case 'card':
+            registries.workbenchCard.register(entry.provider);
+            break;
+        case 'region':
+            registries.pageArea.register(entry.provider);
+            break;
+        case 'themeToken':
+            registries.themeToken.register(entry.provider);
+            break;
+        case 'i18nPack':
+            registries.i18nPack.register(entry.provider);
+            break;
+        case 'route':
+            registries.routeMenu.register(entry.provider);
+            break;
+    }
+}
+/**
+ * 统一装配（平台自身注册与模块注册共用）。
+ *
+ * @param registries 前端注册表集合。
+ * @param source 注册来源（`platform` 或模块名）。
+ * @param registration 注册声明。
+ * @returns 登记键清单（供 `releaseRegistrations` 逆序清理）。
+ * @throws BaseError 校验失败（`CAPABILITY_VIOLATION`）或同键冲突（`REGISTRY_CONFLICT`）。
+ */
+export function assembleRegistrations(registries, source, registration) {
+    const plan = buildPlan(source, registration);
+    const keys = [];
+    try {
+        for (const entry of plan) {
+            registerEntry(registries, entry, source);
+            keys.push(`${entry.group}:${entry.key}`);
+        }
+    }
+    catch (error) {
+        releaseRegistrations(registries, keys);
+        throw error;
+    }
+    return keys;
+}
+/**
+ * 逆序释放已登记键（幂等；未登记的键跳过）。
+ *
+ * @param registries 前端注册表集合。
+ * @param keys `assembleRegistrations` 返回的登记键清单。
+ */
+export function releaseRegistrations(registries, keys) {
+    for (const entry of [...keys].reverse()) {
+        const separator = entry.indexOf(':');
+        const group = entry.slice(0, separator);
+        const key = entry.slice(separator + 1);
+        switch (group) {
+            case 'component':
+                registries.component.unregister(key);
+                break;
+            case 'fieldRenderer':
+                registries.fieldRenderer.unregister(key);
+                break;
+            case 'icon':
+                registries.icon.unregister(key);
+                break;
+            case 'card':
+                registries.workbenchCard.unregister(key);
+                break;
+            case 'region':
+                registries.pageArea.unregister(key);
+                break;
+            case 'themeToken':
+                registries.themeToken.unregister(key);
+                break;
+            case 'i18nPack':
+                registries.i18nPack.unregister(key);
+                break;
+            case 'route':
+                registries.routeMenu.unregister(key);
+                break;
+            default:
+                break;
+        }
+    }
+}

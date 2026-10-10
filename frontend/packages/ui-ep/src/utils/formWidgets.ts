@@ -18,7 +18,7 @@ import CaptchaField from '../components/field/CaptchaField.vue'
 import CascadeField from '../components/field/CascadeField.vue'
 import DateTimeField from '../components/field/DateTimeField.vue'
 import DictSelectField from '../components/field/DictSelectField.vue'
-import EnumField from '../components/field/EnumField.vue'
+import OptionField from '../components/field/OptionField.vue'
 import FileUploadField from '../components/field/FileUploadField.vue'
 import ImageUploadField from '../components/field/ImageUploadField.vue'
 import NumberField from '../components/field/NumberField.vue'
@@ -61,13 +61,13 @@ const BUILTIN_WIDGETS: Readonly<Record<string, Component>> = {
   captcha: CaptchaField,
 }
 
-/** 字段类型专用件（同语义键下按类型细分：金额 / 枚举；字典类型经内建映射分发 `DictSelectField`）。 */
+/** 字段类型专用件（同语义键下按类型细分：金额 / 选项；字典类型经内建映射分发 `DictSelectField`）。 */
 const TYPE_OVERRIDES: Readonly<Record<string, Component>> = {
   amount: AmountField,
   percent: AmountField,
   number: NumberField,
-  radio: EnumField,
-  multi_select: EnumField,
+  radio: OptionField,
+  multi_select: OptionField,
 }
 
 /**
@@ -96,7 +96,7 @@ export function resolveFieldComponent(input: {
   if (input.widget === 'plain') {
     return undefined
   }
-  // 同语义键下按字段类型细分专用件（金额 / 枚举 / 字典）。
+  // 同语义键下按字段类型细分专用件（金额 / 选项 / 字典）。
   if (isKnownFieldType(input.fieldType)) {
     const overridden = TYPE_OVERRIDES[input.fieldType]
     if (overridden !== undefined) {

@@ -22,7 +22,7 @@ import { describe, expect, it } from 'vitest'
 /** 替代件对照（护栏提示用；缺件一律补进 `@bms/ui-ep`）。 */
 const REPLACEMENTS: Record<string, string> = {
   input: 'TextInput / PasswordInput / NumberInput / CheckboxInput / RadioInput / FileUploadField（按 type 选件）',
-  select: 'SelectInput / EnumField / DictSelectField',
+  select: 'SelectInput / OptionField / DictSelectField',
   textarea: 'TextareaInput',
   button: 'Element Plus ElButton（组件库无通用按钮件，按钮统一走 Element Plus）',
 }

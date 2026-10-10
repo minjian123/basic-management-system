@@ -43,9 +43,7 @@ function normalizeAttrs(raw: unknown): DictAttrSchema[] {
     }
     const dataTypeRaw = record.dataType ?? record.data_type
     const dataType = (
-      dataTypeRaw === 'number' || dataTypeRaw === 'date' || dataTypeRaw === 'enum' || dataTypeRaw === 'bool'
-        ? dataTypeRaw
-        : 'text'
+      dataTypeRaw === 'number' || dataTypeRaw === 'date' || dataTypeRaw === 'bool' ? dataTypeRaw : 'text'
     ) as DictAttrSchema['dataType']
     const operatorsRaw = record.operators
     const operators = Array.isArray(operatorsRaw)

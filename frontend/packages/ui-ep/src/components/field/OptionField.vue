@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// 枚举字段（06_02）：自定义选项集；下拉为默认，可切单选（radio / button）。
+// 选项字段（06_02）：静态选项集（由固定配置承载，运行时不改、改配置需重启）；下拉为默认，可切单选（radio / button）。
 import { computed, watch } from 'vue'
 
 import { useBaseInput } from '../../composables/useBaseInput'
@@ -8,18 +8,18 @@ import SelectInput from '../input/SelectInput.vue'
 import type { InputOption, InputOptions } from '../input/types'
 
 /** 形态。 */
-export type EnumFieldForm = 'select' | 'radio' | 'button'
+export type OptionFieldForm = 'select' | 'radio' | 'button'
 
-/** 枚举值类型。 */
-export type EnumFieldValue = string | number
+/** 选项值类型。 */
+export type OptionFieldValue = string | number
 
 interface Props {
   /** 值（受控）。 */
-  modelValue?: EnumFieldValue
+  modelValue?: OptionFieldValue
   /** 自定义选项集。 */
   options?: InputOptions
   /** 形态。 */
-  form?: EnumFieldForm
+  form?: OptionFieldForm
   /** 必填。 */
   required?: boolean
   /** 禁用。 */
@@ -44,12 +44,12 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const emit = defineEmits<{
-  'update:modelValue': [value: EnumFieldValue | undefined]
-  change: [value: EnumFieldValue | undefined]
+  'update:modelValue': [value: OptionFieldValue | undefined]
+  change: [value: OptionFieldValue | undefined]
   invalid: [message: string]
 }>()
 
-const { value, disabled, setValue } = useBaseInput<EnumFieldValue>({ disabled: props.disabled })
+const { value, disabled, setValue } = useBaseInput<OptionFieldValue>({ disabled: props.disabled })
 
 watch(
   () => props.modelValue,
@@ -86,7 +86,7 @@ watch(
   { immediate: true },
 )
 
-function onUpdate(next: EnumFieldValue | undefined): void {
+function onUpdate(next: OptionFieldValue | undefined): void {
   setValue(next)
   emit('update:modelValue', next)
   emit('change', next)
@@ -99,7 +99,7 @@ function onUpdate(next: EnumFieldValue | undefined): void {
  */
 function onSelectUpdate(next: unknown): void {
   const single = Array.isArray(next) ? next[0] : next
-  onUpdate(single as EnumFieldValue | undefined)
+  onUpdate(single as OptionFieldValue | undefined)
 }
 </script>
 
@@ -111,7 +111,7 @@ function onSelectUpdate(next: unknown): void {
       :model-value="value"
       :options="options"
       :disabled="disabled || emptyOptions"
-      :placeholder="emptyOptions ? '暂无可选枚举' : placeholder"
+      :placeholder="emptyOptions ? '暂无可选项' : placeholder"
       @update:model-value="onSelectUpdate"
     />
     <radio-input

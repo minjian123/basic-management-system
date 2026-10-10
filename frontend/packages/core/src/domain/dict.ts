@@ -68,7 +68,6 @@ export const DICT_OPERATORS_BY_TYPE: Readonly<Record<string, readonly DictOperat
   text: ['eq', 'ne', 'contains', 'not_contains', 'starts_with', 'is_null', 'not_null', 'in', 'not_in'],
   number: ['eq', 'ne', 'gt', 'lt', 'between', 'is_null', 'not_null', 'in', 'not_in'],
   date: ['eq', 'ne', 'gt', 'lt', 'between', 'is_null', 'not_null'],
-  enum: ['eq', 'ne', 'in', 'not_in', 'is_null', 'not_null'],
   bool: ['eq', 'ne', 'is_null', 'not_null'],
 }
 /** 条件组固定可查字段（除扩展属性外）。 */
@@ -96,7 +95,7 @@ export type DictOperator = (typeof DICT_OPERATORS)[number]
 /** 高级查询目标（取项 / 业务筛选）。 */
 export type DictTarget = 'items' | 'business'
 /** 属性数据类型。 */
-export type DictDataType = 'text' | 'number' | 'date' | 'enum' | 'bool'
+export type DictDataType = 'text' | 'number' | 'date' | 'bool'
 
 /** 字典条目（展示最小面；兼容后端 `snake_case`）。 */
 export interface DictItem {
@@ -796,7 +795,12 @@ export function dictFixedFieldOptions(): DictAttrFieldOption[] {
     { field: 'label', label: '标签', dataType: 'text', operators: defaultOperatorsOf('text') },
     { field: 'code', label: '编码', dataType: 'text', operators: defaultOperatorsOf('text') },
     { field: 'sort', label: '排序', dataType: 'number', operators: defaultOperatorsOf('number') },
-    { field: 'status', label: '状态', dataType: 'enum', operators: defaultOperatorsOf('enum') },
+    {
+      field: 'status',
+      label: '状态',
+      dataType: 'text',
+      operators: ['eq', 'ne', 'in', 'not_in', 'is_null', 'not_null'],
+    },
   ]
 }
 

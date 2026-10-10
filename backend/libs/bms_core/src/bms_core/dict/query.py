@@ -60,7 +60,7 @@ DICT_FIXED_FIELD_TYPES: ConcurrentStableDict[str, str] = ConcurrentStableDict(
         "label": "text",
         "code": "text",
         "sort": "number",
-        "status": "enum",
+        "status": "text",
     }
 )
 """固定字段数据类型。"""
@@ -70,7 +70,6 @@ DICT_OPERATORS_BY_TYPE: ConcurrentStableDict[str, tuple[str, ...]] = ConcurrentS
         "text": ("eq", "ne", "contains", "not_contains", "starts_with", "is_null", "not_null", "in", "not_in"),
         "number": ("eq", "ne", "gt", "lt", "between", "is_null", "not_null", "in", "not_in"),
         "date": ("eq", "ne", "gt", "lt", "between", "is_null", "not_null"),
-        "enum": ("eq", "ne", "in", "not_in", "is_null", "not_null"),
         "bool": ("eq", "ne", "is_null", "not_null"),
     }
 )
@@ -100,7 +99,7 @@ class DictAttrInfo(BaseSchema):
 
     attr_key: str = Field(description="属性键")
     name: str = Field(description="属性名（按 locale）")
-    data_type: str = Field(description="数据类型（text/number/date/enum/bool）")
+    data_type: str = Field(description="数据类型（text/number/date/bool）")
     operators: tuple[str, ...] = Field(default=(), description="可用操作符")
     widget: str | None = Field(default=None, description="值控件")
     options: tuple[Annotated[ConcurrentStableDict[str, object], CONTRACT_COLLECTION], ...] = Field(

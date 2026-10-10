@@ -1,0 +1,69 @@
+/** 富文本白名单清洗（前端 DOMPurify，白名单与后端一致口径）。 */
+import DOMPurify from 'dompurify';
+/** 允许的标签（与后端白名单保持一致口径）。 */
+export const RICH_TEXT_ALLOWED_TAGS = [
+    'p',
+    'br',
+    'strong',
+    'em',
+    'u',
+    's',
+    'ul',
+    'ol',
+    'li',
+    'h1',
+    'h2',
+    'h3',
+    'h4',
+    'blockquote',
+    'code',
+    'pre',
+    'a',
+    'img',
+    'table',
+    'thead',
+    'tbody',
+    'tr',
+    'th',
+    'td',
+    'hr',
+    'span',
+];
+/** 允许的属性。 */
+export const RICH_TEXT_ALLOWED_ATTR = ['href', 'target', 'rel', 'src', 'alt', 'width', 'height', 'class'];
+/**
+ * 清洗富文本 HTML（去除脚本 / 事件属性 / 危险协议，仅保留白名单标签与属性）。
+ *
+ * @param html 原始 HTML。
+ * @returns 清洗后的 HTML。
+ */
+export function sanitizeHtml(html) {
+    return DOMPurify.sanitize(html, {
+        ALLOWED_TAGS: [...RICH_TEXT_ALLOWED_TAGS],
+        ALLOWED_ATTR: [...RICH_TEXT_ALLOWED_ATTR],
+        FORBID_ATTR: ['style'],
+        ALLOW_DATA_ATTR: false,
+    });
+}
+/**
+ * 清洗 SVG 文本（自定义图标内联 SVG；仅启用 SVG 配置，第三方库单一落点）。
+ *
+ * @param svg 原始 SVG HTML。
+ * @returns 清洗后的 SVG HTML。
+ */
+export function sanitizeSvg(svg) {
+    return DOMPurify.sanitize(svg, { USE_PROFILES: { svg: true, svgFilters: true } });
+}
+/**
+ * 取净化后的纯文本（用于字数统计 / 校验）。
+ *
+ * @param html HTML。
+ * @returns 纯文本。
+ */
+export function sanitizeToText(html) {
+    const cleaned = sanitizeHtml(html);
+    return cleaned
+        .replace(/<[^>]*>/g, '')
+        .replace(/&nbsp;/g, ' ')
+        .trim();
+}
