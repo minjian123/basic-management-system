@@ -39,7 +39,7 @@ export abstract class BaseDictSelect extends BaseOptionSource<string | string[]>
   dictType = ''
   /** 搜索关键词。 */
   keyword = ''
-  /** 级联父值（空串 = 顶层）。 */
+  /** 上级条目 ID（`'0'` = 顶层；空串 = 不级联，不传该过滤参数）。 */
   parentId = ''
   /** 是否多选。 */
   multiple = false
@@ -145,9 +145,9 @@ export abstract class BaseDictSelect extends BaseOptionSource<string | string[]>
   }
 
   /**
-   * 设置级联父值（父值变更清空受控值并重载候选）。
+   * 设置上级条目 ID（变更即清空受控值并重载候选）。
    *
-   * @param parentId 父值（空串 = 顶层）。
+   * @param parentId 上级条目 ID（`'0'` = 顶层；空串 = 不级联）。
    */
   setParent(parentId: string): void {
     const next = parentId.trim()
@@ -294,7 +294,7 @@ export abstract class BaseDictSelect extends BaseOptionSource<string | string[]>
       const raw = await loader.call(this.source, {
         dictType: this.dictType,
         keyword: isBlankDictKeyword(this.keyword) ? undefined : this.keyword,
-        parentId: this.parentId,
+        parentId: this.parentId === '' ? undefined : this.parentId,
         limit: DICT_PROBE_LIMIT,
       })
       if (token !== this.#listSeq) {
@@ -341,7 +341,7 @@ export abstract class BaseDictSelect extends BaseOptionSource<string | string[]>
       const raw = await loader.call(this.source, {
         dictType: this.dictType,
         keyword: isBlankDictKeyword(this.keyword) ? undefined : this.keyword,
-        parentId: this.parentId,
+        parentId: this.parentId === '' ? undefined : this.parentId,
         limit: DICT_PROBE_LIMIT,
       })
       const result = normalizeDictTypeResult(raw)

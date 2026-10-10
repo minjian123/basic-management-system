@@ -2266,13 +2266,13 @@
           "parent_id": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "integer"
               },
               {
                 "type": "null"
               }
             ],
-            "description": "级联父值",
+            "description": "上级条目 ID（自引用 id；None＝顶层）",
             "title": "Parent Id"
           },
           "sort": {
@@ -8811,7 +8811,7 @@
     },
     "/api/v1/dicts/{dict_type}": {
       "get": {
-        "description": "按类型取字典（版本比对 / 关键字 / 级联 / 按值子集 / 上限）。\n\nArgs:\n    source: 字典取数契约。\n    dict_type: 字典类型码。\n    request: 请求对象（语言解析）。\n    version: 客户端本地版本号。\n    keyword: 关键字。\n    parent_id: 级联父值（空串 = 顶层）。\n    values: 逗号分隔的 value 子集。\n    limit: 返回条数上限。\n\nReturns:\n    ApiResponse: 统一响应，data 为单类型取数结果。",
+        "description": "按类型取字典（版本比对 / 关键字 / 级联 / 按值子集 / 上限）。\n\nArgs:\n    source: 字典取数契约。\n    dict_type: 字典类型码。\n    request: 请求对象（语言解析）。\n    version: 客户端本地版本号。\n    keyword: 关键字。\n    parent_id: 上级条目 ID（0 = 顶层）。\n    values: 逗号分隔的 value 子集。\n    limit: 返回条数上限。\n\nReturns:\n    ApiResponse: 统一响应，data 为单类型取数结果。",
         "operationId": "get_dict_by_type_api_v1_dicts__dict_type__get",
         "parameters": [
           {
@@ -8860,20 +8860,21 @@
             }
           },
           {
-            "description": "级联父值（引用父条目 value；空串 = 顶层）",
+            "description": "上级条目 ID（0 = 顶层；不传 = 不按父过滤）",
             "in": "query",
             "name": "parent_id",
             "required": false,
             "schema": {
               "anyOf": [
                 {
-                  "type": "string"
+                  "minimum": 0,
+                  "type": "integer"
                 },
                 {
                   "type": "null"
                 }
               ],
-              "description": "级联父值（引用父条目 value；空串 = 顶层）",
+              "description": "上级条目 ID（0 = 顶层；不传 = 不按父过滤）",
               "title": "Parent Id"
             }
           },

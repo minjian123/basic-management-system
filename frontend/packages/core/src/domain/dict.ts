@@ -100,13 +100,15 @@ export type DictDataType = 'text' | 'number' | 'date' | 'enum' | 'bool'
 
 /** 字典条目（展示最小面；兼容后端 `snake_case`）。 */
 export interface DictItem {
+  /** 条目 ID（雪花 ID 字符串；级联过滤与树构建以它为键）。 */
+  id: string
   /** 条目值。 */
   value: string
   /** 条目标签（按 locale）。 */
   label: string
   /** 条目编码。 */
   code: string
-  /** 级联父值（引用父条目 value；缺省顶层）。 */
+  /** 上级条目 ID（字符串；缺省顶层）。 */
   parentId?: string
   /** 排序值。 */
   sort: number
@@ -144,7 +146,7 @@ export interface DictTypeQuery {
   version?: number
   /** 关键字（label / value / code）。 */
   keyword?: string
-  /** 级联父值（空串 = 顶层）。 */
+  /** 上级条目 ID（`'0'` = 顶层；不传 = 不按父过滤）。 */
   parentId?: string
   /** 指定 value 子集（批量翻译）。 */
   values?: readonly string[]
@@ -279,6 +281,24 @@ export interface DictTreeNode {
 }
 
 /**
+ * 读字典 ID 字面量（字符串 / 数字 → 字符串；非法回落空串）。
+ *
+ * 后端 `BaseSchema` 把 `id` / `*_id` 序列化为字符串，此处兼容数字形态的桩与手写数据。
+ *
+ * @param raw 原始值。
+ * @returns ID 字符串（非法为空串）。
+ */
+export function readDictId(raw: unknown): string {
+  if (typeof raw === 'string') {
+    return raw
+  }
+  if (typeof raw === 'number' && Number.isFinite(raw)) {
+    return String(raw)
+  }
+  return ''
+}
+
+/**
  * 归一单条字典条目（兼容 `snake_case`；`value` 缺失剔除）。
  *
  * @param raw 原始条目。
@@ -294,20 +314,23 @@ export function normalizeDictItem(raw: unknown): DictItem | undefined {
     return undefined
   }
   const label = typeof record.label === 'string' ? record.label : value
+  const idRaw = record.id ?? record.ID
   const parentRaw = record.parentId ?? record.parent_id
   const statusRaw = record.status
   const status: DictStatus = statusRaw === 'disabled' ? 'disabled' : 'enabled'
   const colorRaw = record.color
   const sortRaw = record.sort
   const item: DictItem = {
+    id: readDictId(idRaw),
     value,
     label,
     code: typeof record.code === 'string' ? record.code : '',
     sort: typeof sortRaw === 'number' && Number.isFinite(sortRaw) ? sortRaw : 0,
     status,
   }
-  if (typeof parentRaw === 'string' && parentRaw !== '') {
-    item.parentId = parentRaw
+  const parentId = readDictId(parentRaw)
+  if (parentId !== '' && parentId !== '0') {
+    item.parentId = parentId
   }
   if (typeof colorRaw === 'string' && colorRaw !== '') {
     item.color = colorRaw
@@ -554,35 +577,38 @@ export function isDictItemDisabled(item: DictItem): boolean {
 export function toDictTreeNodes(items: readonly DictItem[]): DictTreeNode[] {
   const nodeMap = new Map<string, DictTreeNode>()
   for (const item of items) {
-    nodeMap.set(item.value, {
+    nodeMap.set(item.id, {
       value: item.value,
       label: item.label,
       disabled: isDictItemDisabled(item),
     })
   }
   const roots: DictTreeNode[] = []
-  const attach = (node: DictTreeNode, depth: number): void => {
+  const rootIds: string[] = []
+  const attach = (id: string, depth: number): void => {
     if (depth > 16) {
       return
     }
-    const children = items.filter((item) => item.parentId === node.value).sort((a, b) => a.sort - b.sort)
-    if (children.length === 0) {
+    const children = items.filter((item) => item.parentId === id).sort((a, b) => a.sort - b.sort)
+    const node = nodeMap.get(id)
+    if (children.length === 0 || node === undefined) {
       return
     }
-    node.children = children.map((child) => nodeMap.get(child.value) as DictTreeNode)
-    for (const child of node.children) {
-      attach(child, depth + 1)
+    node.children = children.map((child) => nodeMap.get(child.id) as DictTreeNode)
+    for (const child of children) {
+      attach(child.id, depth + 1)
     }
   }
   const sorted = [...items].sort((a, b) => a.sort - b.sort)
   for (const item of sorted) {
     const hasParent = item.parentId !== undefined && nodeMap.has(item.parentId)
     if (!hasParent) {
-      roots.push(nodeMap.get(item.value) as DictTreeNode)
+      roots.push(nodeMap.get(item.id) as DictTreeNode)
+      rootIds.push(item.id)
     }
   }
-  for (const root of roots) {
-    attach(root, 1)
+  for (const id of rootIds) {
+    attach(id, 1)
   }
   return roots
 }
@@ -646,7 +672,7 @@ export function buildDictTypeQuery(input: DictTypeQuery): Record<string, unknown
   if (keyword !== undefined && keyword !== '') {
     params.keyword = keyword
   }
-  if (input.parentId !== undefined) {
+  if (input.parentId !== undefined && input.parentId !== '') {
     params.parent_id = input.parentId
   }
   if (input.values !== undefined && input.values.length > 0) {

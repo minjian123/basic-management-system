@@ -25,7 +25,7 @@
 | `code` | VARCHAR(64) | 否 | 与 `(type_id, deleted_at)` 复合唯一 | 条目编码（类型内唯一） |
 | `label` | VARCHAR(128) | 否 | — | 条目标签（默认语言） |
 | `value` | VARCHAR(64) | 否 | — | 条目值（业务引用值） |
-| `parent_id` | VARCHAR(64) | 是 | 逻辑引用父条目 `value` | 级联父值（NULL = 顶层） |
+| `parent_id` | BIGINT | 是 | 自引用本表 `id` | 上级条目 ID（NULL = 顶层；2026-10-10 由「父条目 `value`」口径收口，见 02_07） |
 | `attr_json` | JSON | 是 | — | 扩展属性值（**普通运行时接口不返回**，仅高级查询按命中子集返回） |
 | `color` | VARCHAR(32) | 是 | — | 语义色（success / warning / danger / info / primary） |
 | `sort` | INT | 否 | 默认 0 | 排序值 |
@@ -44,11 +44,11 @@
 | --- | --- | --- | --- |
 | `uq_dict_item_code_deleted_at` | 唯一 | `(type_id, code, deleted_at)` | 条目编码类型内唯一（软删除后可复用） |
 | `idx_dict_item_value` | 普通 | `(type_id, value)` | 按值子集回填（批量翻译）与单值翻译 |
-| `idx_dict_item_parent_sort` | 普通 | `(type_id, parent_id, sort)` | 级联父值过滤 + 排序 |
+| `idx_dict_item_parent_sort` | 普通 | `(type_id, parent_id, sort)` | 上级条目 ID 过滤 + 排序 |
 | `idx_dict_item_label` | 普通 | `(type_id, label)` | 远程搜索前缀匹配 |
 | `idx_sys_dict_item_type_id` | 普通 | `(type_id)` | 类型过滤 |
 
-- 无物理外键；`type_id` / `dict_item_id` / `dict_type_id` / `dict_attr_id` 为逻辑引用（同租户库），`parent_id` 逻辑引用条目 `value`（级联父值）。 扩展属性 `attr_json` 不进普通缓存链路（对齐《数据架构》「字典与系统参数管理」节）；i18n 附表见 [sys_dict_item_i18n.md](sys_dict_item_i18n.md)。
+- 无物理外键；`type_id` / `dict_item_id` / `dict_type_id` / `dict_attr_id` 为逻辑引用（同租户库），`parent_id` **自引用本表 `id`**（上级条目 ID，顶层为 `NULL`）。 扩展属性 `attr_json` 不进普通缓存链路（对齐《数据架构》「字典与系统参数管理」节）；i18n 附表见 [sys_dict_item_i18n.md](sys_dict_item_i18n.md)。
 
 ## 4. 分片 / 归档 / 迁移 <a id="storage"></a>
 
@@ -63,5 +63,6 @@
 | 2026-09-21 | v1 | 新建表结构（随 02-4-27 首个迁移 `0001_dict_and_query_scheme`） | minjian |
 | 2026-09-22 | v2 | 迁移脚本迁入租户链目录（`alembic/versions/tenant/0001_dict_and_query_scheme.py`），索引名统一 `idx_*` | minjian |
 | 2026-09-22 | v3 | 索引名对齐命名约定（`ix_sys_dict_item_type_id` → `idx_sys_dict_item_type_id`）；公共软删除索引不再逐表列出 | minjian |
+| 2026-10-10 | v4 | `parent_id` 由「引用父条目 `value`（`VARCHAR(64)`）」改为「上级条目 ID（`BIGINT`，自引用同表 `id`）」（02_07 字典系统字段口径收口）；存量行由 `ops.backfill_dict_parent_id` 在迁移前回填（结构与数据分离），迁移 `platform:tenant` `0010_dict_item_parent_id_bigint` | minjian |
 
 > 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套

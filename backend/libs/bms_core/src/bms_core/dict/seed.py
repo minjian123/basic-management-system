@@ -176,8 +176,25 @@ async def _seed_type_i18n(session: AsyncSession, type_row: SysDictType, seed: Se
     return created
 
 
+def _link_parents(rows_by_value: ConcurrentStableDict[str, SysDictItem], items: ConcurrentStableList[SeedItem]) -> None:
+    """按父条目 `value` 回填上级条目 ID（第二遍；`parent_id` 自引用同表 `id`）。
+
+    Args:
+        rows_by_value: 条目 `value` → ORM 行（第一遍写入后）。
+        items: 种子条目序列。
+    """
+    for item in items:
+        if item.parent_value is None:
+            continue
+        row = rows_by_value.get(item.value)
+        parent = rows_by_value.get(item.parent_value)
+        if row is None or parent is None or row.parent_id == parent.id:
+            continue
+        row.parent_id = parent.id
+
+
 async def _seed_items(session: AsyncSession, type_row: SysDictType, items: ConcurrentStableList[SeedItem]) -> int:
-    """写入条目与条目 i18n（幂等）。
+    """写入条目与条目 i18n（幂等），并回填上级条目 ID。
 
     Args:
         session: 租户库会话。
@@ -188,6 +205,7 @@ async def _seed_items(session: AsyncSession, type_row: SysDictType, items: Concu
         int: 新增行数。
     """
     created = 0
+    rows_by_value: ConcurrentStableDict[str, SysDictItem] = ConcurrentStableDict()
     for item in items:
         stmt = select(SysDictItem).where(
             SysDictItem.type_id == type_row.id,
@@ -201,7 +219,6 @@ async def _seed_items(session: AsyncSession, type_row: SysDictType, items: Concu
                 code=item.code,
                 label=item.label,
                 value=item.value,
-                parent_id=item.parent_value,
                 color=item.color,
                 sort=0,
                 status="enabled",
@@ -209,6 +226,7 @@ async def _seed_items(session: AsyncSession, type_row: SysDictType, items: Concu
             session.add(row)
             await session.flush()
             created += 1
+        rows_by_value.set(item.value, row)
         for locale, label in item.i18n.items():
             i18n_stmt = select(SysDictItemI18n).where(
                 SysDictItemI18n.dict_item_id == row.id,
@@ -219,6 +237,8 @@ async def _seed_items(session: AsyncSession, type_row: SysDictType, items: Concu
                 continue
             session.add(SysDictItemI18n(dict_item_id=row.id, locale=locale, label=label))
             created += 1
+    _link_parents(rows_by_value, items)
+    await session.flush()
     return created
 
 

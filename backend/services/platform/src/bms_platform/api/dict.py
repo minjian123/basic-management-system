@@ -326,7 +326,7 @@ async def get_dict_by_type(
     request: Request,
     version: Annotated[int | None, Query(description="客户端本地版本号（一致时 items 返回 null）")] = None,
     keyword: Annotated[str | None, Query(description="关键字（label / value / code）")] = None,
-    parent_id: Annotated[str | None, Query(description="级联父值（引用父条目 value；空串 = 顶层）")] = None,
+    parent_id: Annotated[int | None, Query(ge=0, description="上级条目 ID（0 = 顶层；不传 = 不按父过滤）")] = None,
     values: Annotated[str | None, Query(description="指定 value 子集（逗号分隔）")] = None,
     limit: Annotated[int | None, Query(ge=1, description="返回条数上限（探针传 2001）")] = None,
 ) -> ApiResponse:
@@ -338,7 +338,7 @@ async def get_dict_by_type(
         request: 请求对象（语言解析）。
         version: 客户端本地版本号。
         keyword: 关键字。
-        parent_id: 级联父值（空串 = 顶层）。
+        parent_id: 上级条目 ID（0 = 顶层）。
         values: 逗号分隔的 value 子集。
         limit: 返回条数上限。
 

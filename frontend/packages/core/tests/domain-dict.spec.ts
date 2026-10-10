@@ -45,13 +45,14 @@ import {
 } from '../src'
 
 const items: DictItem[] = [
-  { value: 'enabled', label: '启用', code: 'enabled', sort: 0, status: 'enabled', color: 'success' },
-  { value: 'disabled', label: '停用', code: 'disabled', sort: 1, status: 'disabled' },
+  { id: '1', value: 'enabled', label: '启用', code: 'enabled', sort: 0, status: 'enabled', color: 'success' },
+  { id: '2', value: 'disabled', label: '停用', code: 'disabled', sort: 1, status: 'disabled' },
 ]
 
 describe('字典领域 · 归一', () => {
   it('条目归一（兼容 snake_case / 缺省补全 / 脏项剔除）', () => {
-    expect(normalizeDictItem({ value: 'a', label: '甲' })).toEqual({
+    expect(normalizeDictItem({ id: '9', value: 'a', label: '甲' })).toEqual({
+      id: '9',
       value: 'a',
       label: '甲',
       code: '',
@@ -59,12 +60,14 @@ describe('字典领域 · 归一', () => {
       status: 'enabled',
     })
     expect(normalizeDictItem({ value: 'b', parent_id: 'a', status: 'disabled', color: 'danger' })).toMatchObject({
+      id: '',
       value: 'b',
       label: 'b',
       parentId: 'a',
       status: 'disabled',
       color: 'danger',
     })
+    expect(normalizeDictItem({ value: 'c', parent_id: '0' })).not.toHaveProperty('parentId')
     expect(normalizeDictItem({ label: '无值' })).toBeUndefined()
     expect(normalizeDictItem(null)).toBeUndefined()
     expect(normalizeDictItems([{ value: 'a' }, { label: 'x' }])).toHaveLength(1)
@@ -121,18 +124,20 @@ describe('字典领域 · 值与选择', () => {
   })
 
   it('合并与查找（入参覆盖同名项）', () => {
-    const merged = mergeDictItems(items, [{ value: 'enabled', label: '启用改', code: '', sort: 0, status: 'enabled' }])
+    const merged = mergeDictItems(items, [
+      { id: '1', value: 'enabled', label: '启用改', code: '', sort: 0, status: 'enabled' },
+    ])
     expect(merged).toHaveLength(2)
     expect(findDictItem(merged, 'enabled')?.label).toBe('启用改')
   })
 })
 
 describe('字典领域 · 树', () => {
-  it('parentId 构建树（孤儿提升顶层 / 排序）', () => {
+  it('上级条目 ID 构建树（孤儿提升顶层 / 排序）', () => {
     const tree = toDictTreeNodes([
-      { value: 'hz', label: '杭州市', code: 'hz', parentId: 'zj', sort: 1, status: 'enabled' },
-      { value: 'zj', label: '浙江省', code: 'zj', sort: 0, status: 'enabled' },
-      { value: 'orphan', label: '孤儿', code: 'o', parentId: 'ghost', sort: 2, status: 'enabled' },
+      { id: '2', value: 'hz', label: '杭州市', code: 'hz', parentId: '1', sort: 1, status: 'enabled' },
+      { id: '1', value: 'zj', label: '浙江省', code: 'zj', sort: 0, status: 'enabled' },
+      { id: '3', value: 'orphan', label: '孤儿', code: 'o', parentId: 'ghost', sort: 2, status: 'enabled' },
     ])
     expect(tree.map((node) => node.value)).toEqual(['zj', 'orphan'])
     expect(tree[0]?.children?.map((node) => node.value)).toEqual(['hz'])
@@ -144,10 +149,11 @@ describe('字典领域 · 参数与键', () => {
     expect(buildDictTypeQuery({ dictType: 'a', version: 2, keyword: ' 启 ', parentId: '', values: ['x'], limit: 2001 })).toEqual({
       version: 2,
       keyword: '启',
-      parent_id: '',
       values: 'x',
       limit: 2001,
     })
+    expect(buildDictTypeQuery({ dictType: 'a', parentId: '0' })).toEqual({ parent_id: '0' })
+    expect(buildDictTypeQuery({ dictType: 'a', parentId: '7' })).toEqual({ parent_id: '7' })
     expect(buildDictTypeQuery({ dictType: 'a', version: 0, keyword: '' })).toEqual({})
     expect(buildDictBatchQuery(['a', 'b'], 1, 'en-US')).toEqual({ types: ['a', 'b'], version: 1, locale: 'en-US' })
     const adv = buildDictAdvQuery('items', { conditions: { logic: 'AND', children: [] }, page: 0, size: 999 })

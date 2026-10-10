@@ -51,7 +51,9 @@ class SysDictItem(BaseModel):
     code: Mapped[str] = mapped_column(String(64), comment="条目编码（类型内唯一）")
     label: Mapped[str] = mapped_column(String(128), comment="条目标签（默认语言）")
     value: Mapped[str] = mapped_column(String(64), comment="条目值")
-    parent_id: Mapped[str | None] = mapped_column(String(64), nullable=True, comment="级联父值（引用父条目 value）")
+    parent_id: Mapped[int | None] = mapped_column(
+        BigInteger, nullable=True, comment="上级条目 ID（自引用同表 id；NULL = 顶层）"
+    )
     attr_json: Mapped[ConcurrentStableDict[str, object] | None] = mapped_column(
         StableJson, nullable=True, comment="扩展属性值（普通链路不返回）"
     )

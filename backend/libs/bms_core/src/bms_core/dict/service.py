@@ -50,7 +50,7 @@ class DictItemPayload(BaseSchema):
     code: str = Field(description="条目编码（类型内唯一）")
     label: str = Field(description="条目标签（默认语言）")
     value: str = Field(description="条目值")
-    parent_id: str | None = Field(default=None, description="级联父值")
+    parent_id: int | None = Field(default=None, description="上级条目 ID（自引用 id；None＝顶层）")
     attr_json: Annotated[ConcurrentStableDict[str, object] | None, CONTRACT_COLLECTION] = Field(
         default=None, description="扩展属性值（普通链路不返回）"
     )

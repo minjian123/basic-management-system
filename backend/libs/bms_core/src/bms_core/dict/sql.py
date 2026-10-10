@@ -463,7 +463,7 @@ async def _query_labels(
 
 
 def _item_conditions(type_id: int, query: DictQuery) -> ConcurrentStableList[ColumnElement[bool]]:
-    """构造条目过滤条件（状态 / 删除 / 关键字 / 按值子集 / 级联父值）。
+    """构造条目过滤条件（状态 / 删除 / 关键字 / 按值子集 / 上级条目 ID）。
 
     Args:
         type_id: 类型 ID。
@@ -492,7 +492,7 @@ def _item_conditions(type_id: int, query: DictQuery) -> ConcurrentStableList[Col
     if query.values:
         conditions.add(SysDictItem.value.in_(tuple(query.values)))
     if query.parent_id is not None:
-        if query.parent_id == "":
+        if query.parent_id == 0:
             conditions.add(SysDictItem.parent_id.is_(None))
         else:
             conditions.add(SysDictItem.parent_id == query.parent_id)
@@ -510,6 +510,7 @@ def _to_item(item: SysDictItem, i18n_label: str | None) -> DictItem:
         DictItem: 结果条目。
     """
     return DictItem(
+        id=item.id,
         value=item.value,
         label=str(i18n_label or item.label),
         code=item.code,
@@ -574,6 +575,7 @@ def _snapshot_payload(result: DictTypeResult) -> ConcurrentStableDict[str, objec
             "version": result.version,
             "items": [
                 {
+                    "id": item.id,
                     "value": item.value,
                     "label": item.label,
                     "code": item.code,
@@ -613,14 +615,15 @@ def _cache_snapshot(cached: object, version: int) -> DictTypeResult | None:
         if not isinstance(raw, Mapping):
             return None
         row = cast("Mapping[str, object]", raw)
-        parent_id = row.get("parent_id")
+        parent_id = _as_int(row.get("parent_id"), -1)
         color = row.get("color")
         items.add(
             DictItem(
+                id=_as_int(row.get("id")),
                 value=_as_str(row.get("value")),
                 label=_as_str(row.get("label")),
                 code=_as_str(row.get("code")),
-                parent_id=None if parent_id is None else _as_str(parent_id),
+                parent_id=None if parent_id <= 0 else parent_id,
                 sort=_as_int(row.get("sort")),
                 status=_as_str(row.get("status"), "enabled"),
                 color=None if color is None else _as_str(color),

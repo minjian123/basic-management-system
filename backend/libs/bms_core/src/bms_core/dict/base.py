@@ -4,7 +4,8 @@
   探针上限 `DICT_PROBE_LIMIT`（2001）、占位版本 `NULL_DICT_VERSION`；默认语言复用 i18n `DEFAULT_LOCALE`。
 - 参数对象：`DictQuery`（单类型取数，locale 由实现从请求上下文解析）/ `DictBatchQuery`（批量合并）/
   `DictTranslateQuery`（后端翻译）。
-- 结果契约：`DictItem`（value / label / code / parent_id / sort / status / color）/
+- 结果契约：`DictItem`（id / value / label / code / parent_id / sort / status / color；`parent_id` 为
+  **上级条目 ID**（自引用同表 `id`，顶层 `None`），2026-10-10 口径收口（任务 02_07））/
   `DictTypeResult`（version / items / has_more / total）/ `DictBatchResult`（version / items）。
 - `BaseDictSource`（`key = plugin_key = "dict_source"`）：异步 `by_type`（版本比对 / 关键字 / 级联 /
   按值子集 / 上限）+ `batch`（多类型合并，一次请求）。
@@ -74,7 +75,7 @@ class DictQuery(BaseSchema):
     dict_type: str = Field(description="字典类型码")
     version: int | None = Field(default=None, description="客户端本地版本号；与全局一致时 items 返回空")
     keyword: str | None = Field(default=None, description="关键字（label / value / code，命中列由实现定义）")
-    parent_id: str | None = Field(default=None, description="级联父值（引用父条目 value）")
+    parent_id: int | None = Field(default=None, description="上级条目 ID（0 = 顶层；不传 = 不按父过滤）")
     values: tuple[str, ...] | None = Field(default=None, description="指定 value 子集（超大字典批量翻译用）")
     limit: int | None = Field(default=None, description="返回条数上限（探针传 DICT_PROBE_LIMIT）")
 
@@ -96,12 +97,17 @@ class DictTranslateQuery(BaseSchema):
 
 
 class DictItem(BaseSchema):
-    """字典条目（普通运行时链路字段；不含扩展属性 `attr_json`）。"""
+    """字典条目（普通运行时链路字段；不含扩展属性 `attr_json`）。
 
+    `parent_id` 为**上级条目 ID**（自引用同表 `id`；顶层 `None`），非父条目 `value`
+    （2026-10-10 口径收口，任务 02_07）；`id` 供前端级联过滤与字典树构建使用。
+    """
+
+    id: int = Field(default=0, description="条目主键（雪花 ID，JSON 以字符串输出）")
     value: str = Field(description="条目值")
     label: str = Field(description="条目标签（按 locale）")
     code: str = Field(default="", description="条目编码")
-    parent_id: str | None = Field(default=None, description="级联父值（引用父条目 value；None＝顶层）")
+    parent_id: int | None = Field(default=None, description="上级条目 ID（自引用 id；None＝顶层）")
     sort: int = Field(default=0, description="排序值")
     status: str = Field(default="enabled", description="状态（enabled / disabled）")
     color: str | None = Field(default=None, description="语义色（供状态标签取色，可空）")

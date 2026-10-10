@@ -114,7 +114,7 @@ async def _fetch_type(
     locale: str,
     version: int | None = None,
     keyword: str | None = None,
-    parent_id: str | None = None,
+    parent_id: int | None = None,
     values: ConcurrentStableList[str] | None = None,
     limit: int | None = None,
 ) -> DictTypeResult | None:
@@ -126,7 +126,7 @@ async def _fetch_type(
         locale: 语言标识（经 `Accept-Language` 透传）。
         version: 客户端本地版本号（一致时平台侧返回 `items=None`）。
         keyword: 关键字。
-        parent_id: 级联父值。
+        parent_id: 上级条目 ID（0 = 顶层）。
         values: 指定 value 子集。
         limit: 条数上限。
 
@@ -139,7 +139,7 @@ async def _fetch_type(
     if keyword:
         query.set("keyword", keyword)
     if parent_id is not None:
-        query.set("parent_id", parent_id)
+        query.set("parent_id", str(parent_id))
     if values is not None:
         query.set("values", ",".join(values))
     if limit is not None:
@@ -212,13 +212,14 @@ def _to_item(row: ConcurrentStableDict[str, object]) -> DictItem:
     Returns:
         DictItem: 条目。
     """
-    parent = row.get("parent_id")
+    parent_id = _as_int(row.get("parent_id"))
     color = row.get("color")
     return DictItem(
+        id=_as_int(row.get("id")),
         value=str(row.get("value", "")),
         label=str(row.get("label", "")),
         code=str(row.get("code", "")),
-        parent_id=None if parent is None else str(parent),
+        parent_id=None if parent_id <= 0 else parent_id,
         sort=_as_int(row.get("sort")),
         status=str(row.get("status", "enabled")),
         color=None if color is None else str(color),

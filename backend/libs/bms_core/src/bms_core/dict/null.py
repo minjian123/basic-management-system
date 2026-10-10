@@ -36,6 +36,7 @@ def _placeholder_items(dict_type: str) -> tuple[DictItem, ...]:
     """
     return (
         DictItem(
+            id=1,
             value=f"{dict_type}-1",
             label=f"占位{dict_type}1",
             code=f"{dict_type}_1",
@@ -45,10 +46,11 @@ def _placeholder_items(dict_type: str) -> tuple[DictItem, ...]:
             color=None,
         ),
         DictItem(
+            id=2,
             value=f"{dict_type}-2",
             label=f"占位{dict_type}2",
             code=f"{dict_type}_2",
-            parent_id=f"{dict_type}-1",
+            parent_id=1,
             sort=1,
             status="enabled",
             color="#1677ff",
@@ -57,7 +59,7 @@ def _placeholder_items(dict_type: str) -> tuple[DictItem, ...]:
 
 
 def _apply_filters(items: tuple[DictItem, ...], query: DictQuery) -> tuple[DictItem, ...]:
-    """按查询条件过滤占位条目（按值子集 / 关键字 / 级联父值）。
+    """按查询条件过滤占位条目（按值子集 / 关键字 / 上级条目 ID）。
 
     Args:
         items: 占位条目。
@@ -72,7 +74,11 @@ def _apply_filters(items: tuple[DictItem, ...], query: DictQuery) -> tuple[DictI
     if query.keyword:
         result = tuple(item for item in result if query.keyword in item.label or query.keyword in item.value)
     if query.parent_id is not None:
-        result = tuple(item for item in result if item.parent_id == query.parent_id)
+        result = tuple(
+            item
+            for item in result
+            if (item.parent_id is None if query.parent_id == 0 else item.parent_id == query.parent_id)
+        )
     return result
 
 

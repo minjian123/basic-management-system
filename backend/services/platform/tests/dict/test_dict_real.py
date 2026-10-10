@@ -237,7 +237,7 @@ async def test_seed_idempotent(dict_db_url: str) -> None:
 
 @pytest.mark.kiwi_id(963)
 async def test_by_type_version_filters_locale_and_disabled(dict_db_url: str) -> None:
-    """`by_type`：版本三态 / 关键字 / 按值子集 / 探针截断 / 级联父值 / locale 回退 / 停用不可见。"""
+    """`by_type`：版本三态 / 关键字 / 按值子集 / 探针截断 / 上级条目 ID / locale 回退 / 停用不可见。"""
     await _seed(dict_db_url)
     cache = MemoryDictCacheRegion()
     source = SqlDictSource(engines=_engines(), cache=cache)
@@ -265,10 +265,14 @@ async def test_by_type_version_filters_locale_and_disabled(dict_db_url: str) -> 
     assert probe.has_more is True
     assert probe.total == 2
 
-    top = await source.by_type(DictQuery(dict_type="region", parent_id=""))
+    all_region = await source.by_type(DictQuery(dict_type="region"))
+    assert all_region.items is not None
+    zj = next(item for item in all_region.items if item.value == "zj")
+    assert zj.id > 0
+    top = await source.by_type(DictQuery(dict_type="region", parent_id=0))
     assert top.items is not None
     assert [item.value for item in top.items] == ["zj"]
-    children = await source.by_type(DictQuery(dict_type="region", parent_id="zj"))
+    children = await source.by_type(DictQuery(dict_type="region", parent_id=zj.id))
     assert children.items is not None
     assert [item.value for item in children.items] == ["hz"]
 
@@ -396,7 +400,7 @@ async def test_advanced_query_engine_and_provider(dict_db_url: str) -> None:
             code="hz",
             label="杭州市",
             value="hz",
-            parent_id="zj",
+            parent_id=ids["zj"],
             attr_json=ConcurrentStableDict({"level": 2}),
         ),
     )

@@ -676,7 +676,7 @@ export interface paths {
          *         request: 请求对象（语言解析）。
          *         version: 客户端本地版本号。
          *         keyword: 关键字。
-         *         parent_id: 级联父值（空串 = 顶层）。
+         *         parent_id: 上级条目 ID（0 = 顶层）。
          *         values: 逗号分隔的 value 子集。
          *         limit: 返回条数上限。
          *
@@ -4139,9 +4139,9 @@ export interface components {
             label: string;
             /**
              * Parent Id
-             * @description 级联父值
+             * @description 上级条目 ID（自引用 id；None＝顶层）
              */
-            parent_id?: string | null;
+            parent_id?: number | null;
             /**
              * Sort
              * @description 排序值
@@ -8653,8 +8653,8 @@ export interface operations {
                 version?: number | null;
                 /** @description 关键字（label / value / code） */
                 keyword?: string | null;
-                /** @description 级联父值（引用父条目 value；空串 = 顶层） */
-                parent_id?: string | null;
+                /** @description 上级条目 ID（0 = 顶层；不传 = 不按父过滤） */
+                parent_id?: number | null;
                 /** @description 指定 value 子集（逗号分隔） */
                 values?: string | null;
                 /** @description 返回条数上限（探针传 2001） */

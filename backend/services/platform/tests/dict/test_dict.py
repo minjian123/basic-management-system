@@ -116,7 +116,7 @@ def test_constants_and_data_contracts() -> None:
     assert DICT_PROBE_LIMIT == 2001
     assert NULL_DICT_VERSION == 1
 
-    assert set(DictItem.model_fields) == {"value", "label", "code", "parent_id", "sort", "status", "color"}
+    assert set(DictItem.model_fields) == {"id", "value", "label", "code", "parent_id", "sort", "status", "color"}
     assert set(DictQuery.model_fields) == {"dict_type", "version", "keyword", "parent_id", "values", "limit"}
     assert set(DictBatchQuery.model_fields) == {"types", "version", "locale"}
     assert set(DictTranslateQuery.model_fields) == {"dict_type", "values", "locale"}
@@ -129,6 +129,7 @@ def test_constants_and_data_contracts() -> None:
     assert DictTranslateQuery(dict_type="t", values=("a",)).locale == "zh-CN"
 
     item = DictItem(value="v", label="标签")
+    assert item.id == 0
     assert item.code == ""
     assert item.parent_id is None
     assert item.sort == 0
@@ -160,7 +161,7 @@ async def test_null_by_type_fixed_version_and_filters() -> None:
     assert result.has_more is False
     assert result.items is not None
     assert [item.value for item in result.items] == ["sys_status-1", "sys_status-2"]
-    assert result.items[1].parent_id == "sys_status-1"
+    assert result.items[1].parent_id == 1
 
     matched = await source.by_type(DictQuery(dict_type="sys_status", version=NULL_DICT_VERSION))
     assert matched.items is None
@@ -175,7 +176,7 @@ async def test_null_by_type_fixed_version_and_filters() -> None:
     keyword = await source.by_type(DictQuery(dict_type="t", keyword="占位t2"))
     assert keyword.items is not None and len(keyword.items) == 1
 
-    child = await source.by_type(DictQuery(dict_type="t", parent_id="t-1"))
+    child = await source.by_type(DictQuery(dict_type="t", parent_id=1))
     assert child.items is not None
     assert [item.value for item in child.items] == ["t-2"]
 
@@ -272,14 +273,14 @@ async def test_routes_with_in_memory_implementations() -> None:
             client.headers.update(auth_headers())
             resp = await client.get(
                 f"{API}/material",
-                params={"version": 9, "keyword": "钢", "parent_id": "m-1", "values": "m-1,m-2", "limit": 10},
+                params={"version": 9, "keyword": "钢", "parent_id": 1, "values": "m-1,m-2", "limit": 10},
             )
             assert resp.json()["data"]["items"] is None
             assert source.last_query is not None
             assert source.last_query.dict_type == "material"
             assert source.last_query.version == 9
             assert source.last_query.keyword == "钢"
-            assert source.last_query.parent_id == "m-1"
+            assert source.last_query.parent_id == 1
             assert source.last_query.values == ("m-1", "m-2")
             assert source.last_query.limit == 10
 

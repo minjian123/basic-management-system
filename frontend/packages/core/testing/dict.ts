@@ -19,15 +19,15 @@ export const DICT_CONTRACT_STATUS: readonly Record<string, unknown>[] = [
 
 /** 契约条目：业务类型（三条）。 */
 export const DICT_CONTRACT_BIZ: readonly Record<string, unknown>[] = [
-  { value: 'purchase', label: '采购', code: 'purchase', sort: 0, status: 'enabled' },
-  { value: 'sales', label: '销售', code: 'sales', sort: 1, status: 'enabled' },
-  { value: 'inventory', label: '库存', code: 'inventory', sort: 2, status: 'enabled' },
+  { id: '11', value: 'purchase', label: '采购', code: 'purchase', sort: 0, status: 'enabled' },
+  { id: '12', value: 'sales', label: '销售', code: 'sales', sort: 1, status: 'enabled' },
+  { id: '13', value: 'inventory', label: '库存', code: 'inventory', sort: 2, status: 'enabled' },
 ]
 
 /** 契约条目：行政区划（级联：浙江省 → 杭州市）。 */
 export const DICT_CONTRACT_REGION: readonly Record<string, unknown>[] = [
-  { value: 'zj', label: '浙江省', code: 'zj', sort: 0, status: 'enabled' },
-  { value: 'hz', label: '杭州市', code: 'hz', parent_id: 'zj', sort: 1, status: 'enabled' },
+  { id: '1', value: 'zj', label: '浙江省', code: 'zj', sort: 0, status: 'enabled' },
+  { id: '2', value: 'hz', label: '杭州市', code: 'hz', parent_id: '1', sort: 1, status: 'enabled' },
 ]
 
 /** 契约属性 schema。 */
@@ -83,7 +83,8 @@ export function createDictSourceStub(overrides: DictSourceAdapter = {}): DictSou
           items = items.filter((item) => String(item.label).includes(query.keyword as string))
         }
         if (query.parentId !== undefined) {
-          items = items.filter((item) => (item.parent_id ?? '') === query.parentId)
+          const wanted = query.parentId === '0' ? '' : String(query.parentId)
+          items = items.filter((item) => String(item.parent_id ?? '') === wanted)
         }
         const large = stub.largeTypes.has(query.dictType)
         const limited = large ? items.slice(0, 1) : items
@@ -261,7 +262,7 @@ export interface DictSelectContractTarget {
   setDictType(dictType: string): void
   /** 设置关键词。 */
   setKeyword(keyword: string): void
-  /** 设置级联父值。 */
+  /** 设置上级条目 ID（`'0'` = 顶层；空串 = 不级联）。 */
   setParent(parentId: string): void
   /** 设置多选。 */
   setMultiple(value: boolean): void
@@ -539,10 +540,10 @@ export function describeDictSelectContract(name: string, create: () => DictSelec
       await target.load()
       expect(target.selectedValues).toEqual(['hz'])
 
-      target.setParent('zj')
+      target.setParent('1')
       expect(target.selectedValues).toEqual([])
       await target.load()
-      expect(stub.queries.at(-1)?.parentId).toBe('zj')
+      expect(stub.queries.at(-1)?.parentId).toBe('1')
       expect(target.items.map((item) => item.value)).toEqual(['hz'])
     })
 
