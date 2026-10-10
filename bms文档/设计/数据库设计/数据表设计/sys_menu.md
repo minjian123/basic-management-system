@@ -23,7 +23,7 @@
 | --- | --- | --- | --- | --- |
 | `id` | BIGINT | 否 | 主键，雪花 ID | 主键 |
 | `parent_id` | BIGINT | 否 | 默认 `0`；建索引 | 父菜单 ID（逻辑外键 → `sys_menu.id`；`0` 为根） |
-| `name` | VARCHAR(128) | 否 | — | 菜单名（默认文案；多语言见 `sys_menu_i18n`） |
+| `name` | VARCHAR(128) | 否 | — | 菜单名（**按优先级兜底派生的快照**：系统默认语言 → 必填语言 → 首个有值语言；写侧只提交「locale → 文案」映射，多语言见 `sys_menu_i18n`） |
 | `path` | VARCHAR(255) | 否 | 与 `deleted_at` 复合唯一 | 前端路由路径（`/` 开头；动态路由注册依据） |
 | `component` | VARCHAR(255) | 是 | — | 视图组件标识（前端按标识解析视图；可空 = 仅目录节点） |
 | `icon` | VARCHAR(64) | 是 | — | 完整 icon key（`el:` / `biz:` / `custom:` / `van:`） |

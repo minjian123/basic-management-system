@@ -23,7 +23,7 @@
 | --- | --- | --- | --- | --- |
 | `id` | BIGINT | 否 | 主键，雪花 ID | 主键 |
 | `code` | VARCHAR(64) | 否 | `(code, deleted_at)` 复合唯一 | 动作码（如 `query`、`create`、`manage`；**全局唯一动词**） |
-| `name` | VARCHAR(128) | 否 | — | 名称（默认文案；多语言见 `sys_action_i18n`） |
+| `name` | VARCHAR(128) | 否 | — | 名称（**按优先级兜底派生的快照**：系统默认语言 → 必填语言 → 首个有值语言；写侧只提交「locale → 文案」映射，多语言见 `sys_action_i18n`） |
 | `status` | VARCHAR(16) | 否 | 默认 `enabled` | 状态：`enabled` / `disabled`（停用代替删除） |
 | `created_at` | DATETIME | 否 | 审计 | 创建时间（UTC） |
 | `created_by` | BIGINT | 是 | 审计 | 创建人 |

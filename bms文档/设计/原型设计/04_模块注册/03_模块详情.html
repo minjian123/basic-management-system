@@ -31,7 +31,13 @@
       <el-descriptions title="注册要素" :column="1" border>
         <el-descriptions-item label="模块简称（module_key）">{{ mod.key }}</el-descriptions-item>
         <el-descriptions-item label="名称">{{ mod.name }}</el-descriptions-item>
-        <el-descriptions-item label="英文名称（i18n）">{{ mod.en }}</el-descriptions-item>
+        <el-descriptions-item label="名称（多语言）">
+          <div v-for="l in langs" :key="l.code" style="font-size:13px">
+            <el-tag size="small" :type="l.isDefault ? 'success' : 'info'" style="margin-right:6px">{{ l.name }}</el-tag>
+            <span>{{ names[l.code] || '（缺省，按默认文案回退）' }}</span>
+          </div>
+          <div class="proto-hint" style="line-height:1.6;margin-top:4px">名称按 locale 存 <code>sys_module_i18n</code> 附表（承载全部语言，含默认语言）；主表 <code>sys_module.name</code> 为按优先级兜底（系统默认语言 → 必填语言 → 首个有值语言）派生的快照。语言格由启用语言清单驱动，加语言免改界面。</div>
+        </el-descriptions-item>
         <el-descriptions-item label="表前缀（table_prefix）">{{ mod.prefix }}</el-descriptions-item>
         <el-descriptions-item label="错误码段（errcode_segment）">{{ mod.seg }}</el-descriptions-item>
         <el-descriptions-item label="事件域（event_domain）">{{ mod.event }}</el-descriptions-item>
@@ -96,9 +102,14 @@
       var key = new URLSearchParams(location.search).get('key') || 'sys';
       var d = DATA[key] || DATA.sys;
       var mod = ref({ key: d.key, name: d.name, en: d.en, prefix: d.prefix, seg: d.seg, event: d.event, type: d.typ, status: d.status, note: d.note });
+      var langs = [
+        { code: 'zh-CN', name: '简体中文', isDefault: true },
+        { code: 'en-US', name: 'English', isDefault: false }
+      ];
+      var names = ref({ 'zh-CN': d.name, 'en-US': d.en });
       function backList() { location.href = '02_模块注册表.html'; }
       function toastMsg(m) { ElMessage.success(m); }
-      return { mod, backList, toastMsg };
+      return { mod, langs, names, backList, toastMsg };
     }
   });
   app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });

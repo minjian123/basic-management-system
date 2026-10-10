@@ -24,7 +24,7 @@
 | `id` | BIGINT | 否 | 主键，雪花 ID | 主键 |
 | `form_id` | BIGINT | 否 | `(form_id, field_key, deleted_at)` 复合唯一；建索引 | 所属表单 ID（逻辑外键 → `sys_form.id`） |
 | `field_key` | VARCHAR(64) | 否 | 同上 | 字段键（表单内唯一，如 `username`、`status`） |
-| `name` | VARCHAR(128) | 否 | — | 字段名（默认文案；多语言见 `sys_field_i18n`） |
+| `name` | VARCHAR(128) | 否 | — | 字段名（**按优先级兜底派生的快照**：系统默认语言 → 必填语言 → 首个有值语言；写侧只提交「locale → 文案」映射，多语言见 `sys_field_i18n`） |
 | `type` | VARCHAR(32) | 否 | — | 字段类型（组件语义键，如 `input` / `select` / `date`） |
 | `sort` | INT | 否 | 默认 `0` | 同表内排序（升序） |
 | `status` | VARCHAR(16) | 否 | 默认 `enabled` | 状态：`enabled` / `disabled` |

@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 多语言文案字段（字段外壳 + 多语言明细弹框）</title>
+<link rel="stylesheet" href="../../../原型设计/资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../../../原型设计/资源/原型样式.css">
+<style>
+  .ep-page { background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:16px; }
+  .dp-bar { display:flex; align-items:center; gap:12px; flex-wrap:wrap; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+  .dp-hint { color:#b1b8bf; font-size:11px; }
+  .field { max-width:620px; }
+  .field .label { font-size:12px; color:#57606a; margin-bottom:4px; }
+  .shell-row { display:flex; align-items:center; gap:8px; }
+  .shell-row .shell-btns { flex:0 0 auto; }
+  .field-sum { margin-top:6px; font-size:12px; color:#57606a; }
+  .field-sum .miss { color:#9a6700; cursor:pointer; text-decoration:underline dotted; }
+  .ro-val { border:1px solid #d0d7de; border-radius:6px; padding:6px 10px; background:#f6f8fa; color:#57606a; font-size:13px; min-height:32px; }
+  .lang-filter { display:flex; align-items:center; gap:12px; margin-bottom:8px; }
+  .lang-list { display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-bottom:12px; }
+  .dp-state { font-family:Consolas,"Cascadia Mono",monospace; font-size:12px; background:#f6f8fa; border:1px solid #eaeef2; border-radius:6px; padding:10px; color:#57606a; white-space:pre-wrap; margin-top:12px; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="13_组件设计_多语言文案字段.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 多语言文案字段 原型（可交互）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本原型对应当前目录 <a href="13_组件设计_多语言文案字段.md">《组件设计 · 多语言文案字段》</a>：
+    表单里字段只占<b>一行</b>——文本框就地编辑<b>必填语言</b>（＝当前登录用户语言，未在其启用清单时回退系统默认语言）的文案 + 一个打开<b>多语言明细弹框</b>的按钮；
+    弹框内是<b>明细表</b>（语言 / 文案两列，行内编辑），支持语言关键字与「仅看缺失 / 仅看已填」筛选，并标出<b>系统默认语言</b>与<b>必填语言</b>；
+    弹框内为草稿，<b>确定回写字段</b>、取消丢弃，最终随宿主工具栏「保存」统一提交。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <div class="dp-bar">
+        <span class="dp-hint">当前登录语言：</span>
+        <el-select v-model="loginLocale" size="small" style="width:190px">
+          <el-option label="zh-CN（种子默认）" value="zh-CN"></el-option>
+          <el-option label="en-US" value="en-US"></el-option>
+          <el-option label="de-DE（未启用）" value="de-DE"></el-option>
+        </el-select>
+        <el-switch v-model="loadFailed" size="small" active-text="模拟语言清单取数失败"></el-switch>
+        <el-switch v-model="readonly" size="small" active-text="只读态"></el-switch>
+        <el-switch v-model="multiLine" size="small" active-text="多行形态（描述 / 正文）"></el-switch>
+      </div>
+
+      <div class="lang-list">
+        <span class="dp-hint">启用语言：</span>
+        <el-tag v-for="l in enabledLocales" :key="l.code" size="small" :type="l.isDefault ? 'success' : 'info'">
+          {{ l.name }}（{{ l.code }}）{{ l.isDefault ? '· 系统默认' : '' }}
+        </el-tag>
+        <el-tag v-for="l in disabledLocales" :key="l.code" size="small" type="warning" effect="plain">
+          {{ l.name }}（{{ l.code }}）· 停用（存量值保留）
+        </el-tag>
+      </div>
+
+      <div v-if="loadFailed" class="proto-hint" style="color:#cf222e;margin-bottom:12px">
+        ● 语言清单取数失败：降级为「仅必填语言可编辑」，明细弹框按钮置灰，不阻断其它字段录入。
+      </div>
+
+      <div class="field">
+        <div class="label">{{ multiLine ? '说明（多语言文案 · 多行形态）' : '名称（多语言文案 · 单行形态）' }}</div>
+
+        <div v-if="readonly" class="ro-val">
+          {{ readonlyText }}
+          <div class="dp-hint">只读态：按当前界面语言「{{ uiLocale }}」回显；该语言无值沿回退链（当前语言 → 系统默认语言 → 首个有值语言）。</div>
+        </div>
+
+        <template v-else>
+          <div class="shell-row">
+            <el-input
+              v-model="values[requiredCode]"
+              size="small"
+              :type="multiLine ? 'textarea' : 'text'"
+              :rows="3"
+              :placeholder="'必填语言（' + nameOf(requiredCode) + '）文案'"></el-input>
+            <span class="shell-btns">
+              <el-tooltip :content="langTip" placement="top"><el-button size="small" :title="langTip" :disabled="loadFailed" @click="openDialog">🌐</el-button></el-tooltip>
+            </span>
+          </div>
+        </template>
+      </div>
+
+      <div class="dp-state">{{ stateText }}</div>
+
+      <!-- 多语言明细弹框（可被所有多语言场景复用的独立件） -->
+      <el-dialog v-model="dialog" title="多语言文案" width="620px" :close-on-click-modal="false">
+        <div v-if="dialog">
+        <div class="lang-filter">
+          <el-input v-model="kw" size="small" placeholder="搜索语言（名称或标识）" clearable style="width:220px"></el-input>
+          <el-checkbox v-model="onlyMissing" size="small">仅看缺失</el-checkbox>
+          <el-checkbox v-model="onlyFilled" size="small">仅看已填</el-checkbox>
+          <span class="dp-hint" style="margin-left:auto">共 {{ dialogRows.length }} / {{ enabledLocales.length }} 种语言</span>
+        </div>
+        <el-table :data="dialogRows" size="small" border max-height="320">
+          <el-table-column label="语言" width="210">
+            <template #default="scope">
+              <span>{{ scope.row.name }}（{{ scope.row.code }}）</span>
+              <el-tag v-if="scope.row.code === requiredCode" size="small" type="success">必填</el-tag>
+              <el-tag v-if="scope.row.isDefault" size="small" type="info">默认</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="文案">
+            <template #default="scope">
+              <el-input
+                v-model="draft[scope.row.code]"
+                size="small"
+                :placeholder="scope.row.code === requiredCode ? '必填语言文案（必填）' : ('缺省回退：' + fallbackTextFor(scope.row.code))"></el-input>
+            </template>
+          </el-table-column>
+        </el-table>
+        <div class="dp-hint" style="margin-top:6px">弹框内为草稿：确定回写字段值，取消丢弃；最终随宿主工具栏「保存」统一提交（与整体保存口径一致）。</div>
+        </div>
+        <template #footer>
+          <el-button size="small" @click="cancelDialog">取消</el-button>
+          <el-button size="small" type="primary" @click="confirmDialog">确定</el-button>
+        </template>
+      </el-dialog>
+    </div>
+  </div>
+</div>
+
+<script src="../../../原型设计/资源/vendor/vue.global.prod.js"></script>
+<script src="../../../原型设计/资源/vendor/element-plus.min.js"></script>
+<script src="../../../原型设计/资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref, reactive, computed } = Vue;
+  var ElMessage = ElementPlus.ElMessage;
+  var ElMessageBox = ElementPlus.ElMessageBox;
+
+  var LOCALES = [
+    { code: 'zh-CN', name: '简体中文', isDefault: true, status: 'enabled' },
+    { code: 'en-US', name: 'English', isDefault: false, status: 'enabled' },
+    { code: 'ja-JP', name: '日本語', isDefault: false, status: 'enabled' },
+    { code: 'ko-KR', name: '한국어', isDefault: false, status: 'enabled' },
+    { code: 'fr-FR', name: 'Français', isDefault: false, status: 'disabled' }
+  ];
+
+  var app = createApp({
+    setup: function () {
+      var loginLocale = ref('zh-CN');
+      var uiLocale = ref('zh-CN');
+      var loadFailed = ref(false);
+      var readonly = ref(false);
+      var multiLine = ref(false);
+      var dialog = ref(false);
+      var kw = ref('');
+      var onlyMissing = ref(false);
+      var onlyFilled = ref(false);
+
+      var values = reactive({
+        'zh-CN': '用户管理',
+        'en-US': 'User management',
+        'ja-JP': '',
+        'ko-KR': '',
+        'fr-FR': 'Gestion des utilisateurs'
+      });
+      var draft = reactive({});
+      var baseline = JSON.parse(JSON.stringify(values));
+
+      var enabledLocales = computed(function () {
+        return LOCALES.filter(function (l) { return l.status === 'enabled'; });
+      });
+      var disabledLocales = computed(function () {
+        return LOCALES.filter(function (l) { return l.status === 'disabled'; });
+      });
+      var systemDefaultCode = computed(function () {
+        var hit = enabledLocales.value.filter(function (l) { return l.isDefault; })[0];
+        return hit ? hit.code : '';
+      });
+      /** 必填语言 = 当前登录用户语言；不在启用清单时回退系统默认语言。 */
+      var requiredCode = computed(function () {
+        var enabled = enabledLocales.value.map(function (l) { return l.code; });
+        return enabled.indexOf(loginLocale.value) >= 0 ? loginLocale.value : systemDefaultCode.value;
+      });
+
+      function nameOf(code) {
+        var hit = LOCALES.filter(function (l) { return l.code === code; })[0];
+        return hit ? hit.name : code;
+      }
+      function isMissing(map, code) { return !String(map[code] || '').trim(); }
+      function firstFilled(map, list) {
+        var hit = list.filter(function (l) { return String(map[l.code] || '').trim(); })[0];
+        return hit ? hit.code : '';
+      }
+
+      var missingCodes = computed(function () {
+        return enabledLocales.value.map(function (l) { return l.code; }).filter(function (c) { return isMissing(values, c); });
+      });
+      var filledCount = computed(function () {
+        return enabledLocales.value.length - missingCodes.value.length;
+      });
+      var langTip = computed(function () {
+        if (!missingCodes.value.length) return '多语言文案 · 已填 ' + filledCount.value + ' / ' + enabledLocales.value.length;
+        return '多语言文案 · 缺失：' + missingCodes.value.map(nameOf).join('、');
+      });
+
+      var readonlyText = computed(function () {
+        var hit = String(values[uiLocale.value] || '').trim();
+        if (hit) return hit;
+        var sys = String(values[systemDefaultCode.value] || '').trim();
+        if (sys) return sys;
+        var first = firstFilled(values, enabledLocales.value);
+        return first ? values[first] : '—';
+      });
+
+      function openDialog() {
+        enabledLocales.value.forEach(function (l) { draft[l.code] = values[l.code] || ''; });
+        kw.value = ''; onlyMissing.value = false; onlyFilled.value = false;
+        dialog.value = true;
+      }
+      function openDialogAt(code) { openDialog(); onlyMissing.value = true; }
+      function openDialogAt_keep(code) { openDialog(); }
+
+      var dialogRows = computed(function () {
+        var key = (kw.value || '').trim().toLowerCase();
+        var req = requiredCode.value;
+        var list = enabledLocales.value.slice().sort(function (a, b) {
+          if (a.code === req) return -1;
+          if (b.code === req) return 1;
+          return 0;
+        });
+        return list.filter(function (l) {
+          if (key && l.name.toLowerCase().indexOf(key) < 0 && l.code.toLowerCase().indexOf(key) < 0) return false;
+          var filled = !isMissing(draft, l.code);
+          if (onlyMissing.value && filled) return false;
+          if (onlyFilled.value && !filled) return false;
+          return true;
+        });
+      });
+
+      function fallbackTextFor(code) {
+        var sys = String(draft[systemDefaultCode.value] || '').trim();
+        if (sys) return sys;
+        var req = String(draft[requiredCode.value] || '').trim();
+        if (req) return req;
+        var first = firstFilled(draft, enabledLocales.value);
+        return first ? draft[first] : '—';
+      }
+
+      function confirmDialog() {
+        var dirty = enabledLocales.value.some(function (l) { return (draft[l.code] || '') !== (values[l.code] || ''); });
+        enabledLocales.value.forEach(function (l) { values[l.code] = draft[l.code] || ''; });
+        dialog.value = false;
+        if (isMissing(values, requiredCode.value)) {
+          ElMessage({ message: '必填语言「' + nameOf(requiredCode.value) + '」文案为空，请补齐后再保存', type: 'error' });
+          return;
+        }
+        ElMessage({ message: dirty ? '已回写字段值（弹框草稿已确认）；最终随页面「保存」统一提交' : '未做改动', type: 'success' });
+      }
+      function cancelDialog() {
+        var dirty = enabledLocales.value.some(function (l) { return (draft[l.code] || '') !== (values[l.code] || ''); });
+        if (!dirty) { dialog.value = false; return; }
+        ElMessageBox.confirm('放弃弹框内未确定的改动？', '提示', { type: 'warning', confirmButtonText: '放弃', cancelButtonText: '继续编辑' })
+          .then(function () { dialog.value = false; }).catch(function () {});
+      }
+
+      var stateText = computed(function () {
+        var submitValues = {};
+        LOCALES.forEach(function (l) { submitValues[l.code] = values[l.code]; });
+        return [
+          '当前登录语言：' + loginLocale.value + '　→　必填语言：' + requiredCode.value + '（' + nameOf(requiredCode.value) + '）',
+          '系统默认语言（清单默认标记）：' + systemDefaultCode.value + '　→　缺省回退目标',
+          '字段外壳：文本框就地编辑必填语言文案 + 「多语言」按钮（占一行，高度与语言数量无关）',
+          '缺失语言（启用语言中值为空）：' + (missingCodes.value.length > 0 ? missingCodes.value.join('、') : '无'),
+          '提交映射（含停用语言存量值透传；服务端按优先级兜底派生默认文案）：',
+          JSON.stringify(submitValues, null, 2)
+        ].join('\n');
+      });
+
+      return {
+        loginLocale, uiLocale, loadFailed, readonly, multiLine, dialog, kw, onlyMissing, onlyFilled,
+        values, enabledLocales, disabledLocales, systemDefaultCode, requiredCode, draft, dialogRows,
+        missingCodes, filledCount, langTip, readonlyText, stateText,
+        nameOf, fallbackTextFor, openDialog, openDialogAt, confirmDialog, cancelDialog
+      };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+</script>
+
+</body>
+</html>

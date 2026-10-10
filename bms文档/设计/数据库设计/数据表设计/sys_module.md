@@ -24,7 +24,7 @@
 | `id` | BIGINT | 否 | 主键，雪花 ID | 主键 |
 | `module_key` | VARCHAR(32) | 否 | 与 `deleted_at` 复合唯一 | 行登记标识（模块简称 / 服务标识；如 `pur`、`sys`、`identity`） |
 | `service_key` | VARCHAR(32) | 是 | 应用 / CI 层唯一（**不建 DB 唯一**） | 服务维度标识（微服务工程名，如 `platform`、`identity`；模块行可空） |
-| `name` | VARCHAR(128) | 否 | — | 名称（默认文案；多语言见 `sys_module_i18n`） |
+| `name` | VARCHAR(128) | 否 | — | 名称（**按优先级兜底派生的快照**：系统默认语言 → 必填语言 → 首个有值语言；写侧只提交「locale → 文案」映射，多语言见 `sys_module_i18n`） |
 | `table_prefix` | VARCHAR(32) | 否 | 与 `deleted_at` 复合唯一 | 表前缀（形如 `{module_key}_`，如 `pur_`、`sys_`、`identity_`） |
 | `business_code` | VARCHAR(64) | 是 | — | 业务码（`sys_business.code`；模块行默认取 `module_key`，服务行可空） |
 | `errcode_segment` | VARCHAR(8) | 是 | 应用 / CI 层唯一（**不建 DB 唯一**） | 错误码段号（字符串；产品模块 `10` 起，平台域 `01`~`04`，纯服务留空） |
