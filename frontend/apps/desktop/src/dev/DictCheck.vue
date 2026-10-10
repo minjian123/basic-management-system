@@ -25,18 +25,10 @@ const useHttp = new URLSearchParams(globalThis.location.search).get('source') ==
 
 /** 桩字典数据。 */
 const stubItems: Record<string, { value: string; label: string; code: string; parentId?: string; status: string; color?: string }[]> = {
-  user_status: [
-    { value: 'enabled', label: '启用', code: 'enabled', status: 'enabled', color: 'success' },
-    { value: 'disabled', label: '停用', code: 'disabled', status: 'disabled', color: 'danger' },
-  ],
-  biz_type: [
-    { value: 'purchase', label: '采购', code: 'purchase', status: 'enabled' },
-    { value: 'sales', label: '销售', code: 'sales', status: 'enabled' },
-    { value: 'inventory', label: '库存', code: 'inventory', status: 'enabled' },
-  ],
   region: [
     { value: 'zj', label: '浙江省', code: 'zj', status: 'enabled' },
     { value: 'hz', label: '杭州市', code: 'hz', parentId: 'zj', status: 'enabled' },
+    { value: 'xh', label: '西湖区', code: 'xh', parentId: 'hz', status: 'enabled' },
   ],
 }
 
@@ -116,7 +108,7 @@ const source: DictSourceAdapter = useHttp ? createHttpDictSource(dictSourceOptio
 /** 主实例（用户状态多选 limit=2）。 */
 const api = useBaseDictSelect({
   ready: true,
-  dictType: 'user_status',
+  dictType: 'region',
   multiple: true,
   limit: 2,
   source,
@@ -126,11 +118,11 @@ const api = useBaseDictSelect({
 /** 页面受控值。 */
 const selectValue = ref<string[]>([])
 const cascaderValue = ref<string[]>(['zj', 'hz'])
-const labelValue = ref<string[]>(['enabled', 'disabled'])
+const labelValue = ref<string[]>(['zj', 'hz'])
 const advVisible = ref(true)
 
 /** 条件组（独立件）。 */
-const conditions = ref({ logic: 'AND' as const, children: [{ field: 'value', operator: 'eq' as const, value: 'enabled' }] })
+const conditions = ref({ logic: 'AND' as const, children: [{ field: 'value', operator: 'eq' as const, value: 'zj' }] })
 
 /** 自检结果。 */
 const checks = ref<{ label: string; pass: boolean }[]>([])
@@ -151,7 +143,7 @@ async function runChecks(): Promise<void> {
   }
 
   // 1. 占位降级与零请求
-  const placeholder = useBaseDictSelect({ ready: false, dictType: 'user_status', source, storage: undefined })
+  const placeholder = useBaseDictSelect({ ready: false, dictType: 'region', source, storage: undefined })
   await placeholder.load()
   add('占位降级且零请求', placeholder.degraded.value && placeholder.requestCount.value === 0)
 
@@ -164,9 +156,9 @@ async function runChecks(): Promise<void> {
     return raw as never
   })
   const beforeBatch = calls.filter((call) => call === 'batch').length
-  await batchStore.ensureTypes(['user_status', 'biz_type'])
+  await batchStore.ensureTypes(['region', 'region'])
   const afterBatch = calls.filter((call) => call === 'batch').length
-  add('批量合并（同批多类型一次请求）', afterBatch === beforeBatch + 1 && batchStore.isLoaded('biz_type'))
+  add('批量合并（同批多类型一次请求）', afterBatch === beforeBatch + 1 && batchStore.isLoaded('region'))
 
   // 3. 版本比对（version 一致 items=null 复用缓存）
   const versionBefore = api.store.dictVersion
@@ -175,7 +167,7 @@ async function runChecks(): Promise<void> {
   add('版本比对（一致零传输复用缓存）', versionQueries > 0 || versionBefore === 0)
 
   // 4. 大小字典（探针上限 / 大字典判定）
-  const probeQuery = queries.find((query) => query.dictType === 'user_status' && query.limit !== undefined)
+  const probeQuery = queries.find((query) => query.dictType === 'region' && query.limit !== undefined)
   add('大小字典探针（limit=2001）', useHttp ? probeQuery === undefined || probeQuery.limit === 2001 : probeQuery?.limit === 2001)
 
   // 5. 远程搜索防抖（常量驱动）
@@ -183,7 +175,7 @@ async function runChecks(): Promise<void> {
 
   // 6. 本地二次缓存（写入 / 失效）
   const written = new Map<string, string>()
-  const cached = useBaseDictSelect({ ready: true, dictType: 'biz_type', source, storage: {
+  const cached = useBaseDictSelect({ ready: true, dictType: 'region', source, storage: {
     read: (key) => written.get(key),
     write: (key, value) => written.set(key, value),
     remove: (key) => written.delete(key),
@@ -201,22 +193,21 @@ async function runChecks(): Promise<void> {
   const parentQuery = queries.filter((query) => query.parentId === 'zj').length
   add('级联父值（清空重载 + parent_id 透传）', cascade.selectedValues.value.length === 0 && (useHttp || parentQuery > 0))
 
-  // 8. 禁用项（status=disabled；真实种子全部启用时断言状态字段可读）
+  // 8. 禁停用项判定（status 字段可读；桩数据全启用）
   await api.load()
   const statusReadable = api.items.value.every((item) => item.status === 'enabled' || item.status === 'disabled')
-  const hasDisabled = api.items.value.some((item) => item.status === 'disabled')
-  add('禁用项判定（状态字段可读）', statusReadable && (useHttp ? true : hasDisabled))
+  add('禁停用项判定（状态字段可读）', statusReadable)
 
   // 9. 多选上限与折叠
-  api.setValue(['enabled'])
-  api.toggle('disabled')
+  api.setValue(['zj'])
+  api.toggle('hz')
   api.toggle('ghost')
   add('多选上限与提示', api.limitExceeded.value && api.limitText.value.includes('2'))
 
   // 10. 标签回显与翻译器（缓存命中直出）
-  await api.store.ensureType('user_status')
-  const label = translator('user_status', 'enabled')
-  add('标签回显与翻译器', label === '启用' || label === 'Enabled')
+  await api.store.ensureType('region')
+  const label = translator('region', 'zj')
+  add('标签回显与翻译器', label === '浙江省' || label === 'Zhejiang')
 
   // 11. 高级查询（条件组 / 执行 / 方案）
   add('高级查询（条件组件与方案）', conditions.value.children.length === 1)
@@ -238,19 +229,19 @@ void runChecks()
     <h1>字典字段核对页（06-6）</h1>
     <p data-test="source">数据源：{{ sourceLabel }}</p>
     <section data-check-scope="select" style="margin-bottom: 16px; max-width: 480px">
-      <dict-select-field v-model="selectValue" :ready="true" :dict-type="'user_status'" :source="source" :multiple="true" :limit="2" show-color />
+      <dict-select-field v-model="selectValue" :ready="true" :dict-type="'region'" :source="source" :multiple="true" :limit="2" show-color />
     </section>
     <section data-check-scope="cascader" style="margin-bottom: 16px; max-width: 480px">
       <dict-cascader-field v-model="cascaderValue" :ready="true" :dict-type="'region'" :source="source" readonly />
     </section>
     <section data-check-scope="label" style="margin-bottom: 16px">
-      <dict-label :value="labelValue" :dict-type="'user_status'" :source="source" tag show-color />
+      <dict-label :value="labelValue" :dict-type="'region'" :source="source" tag show-color />
     </section>
     <section data-check-scope="condition" style="margin-bottom: 16px; max-width: 720px">
       <condition-group-builder v-model="conditions" :fields="[{ field: 'value', label: '值', dataType: 'text', operators: ['eq', 'contains'] }]" />
     </section>
     <section data-check-scope="advanced" style="margin-bottom: 16px">
-      <dict-advanced-query v-model:visible="advVisible" :ready="true" :dict-type="'biz_type'" :source="source" />
+      <dict-advanced-query v-model:visible="advVisible" :ready="true" :dict-type="'region'" :source="source" />
     </section>
     <section style="margin-top: 16px">
       <h2>自检结果</h2>

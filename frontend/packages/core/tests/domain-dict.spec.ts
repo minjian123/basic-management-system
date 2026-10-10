@@ -161,9 +161,9 @@ describe('字典领域 · 参数与键', () => {
   })
 
   it('缓存键与夹取 / 关键词判定', () => {
-    expect(dictCacheKey('zh-CN', 'user_status')).toBe('zh-CN:user_status')
-    expect(dictSubsetKey('zh-CN', 'user_status', 'enabled')).toBe('zh-CN:user_status:enabled')
-    expect(dictStorageKey('zh-CN', 'user_status')).toBe('bms:dict:zh-CN:user_status')
+    expect(dictCacheKey('zh-CN', 'region')).toBe('zh-CN:region')
+    expect(dictSubsetKey('zh-CN', 'region', 'enabled')).toBe('zh-CN:region:enabled')
+    expect(dictStorageKey('zh-CN', 'region')).toBe('bms:dict:zh-CN:region')
     expect(clampDictPage(0)).toBe(1)
     expect(clampDictPage(2.7)).toBe(2)
     expect(clampDictPageSize(undefined)).toBe(20)

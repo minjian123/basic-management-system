@@ -210,9 +210,9 @@ describe('utils/formWidgets 分发映射', () => {
     const dictMeta: LayoutEffective = {
       ...meta,
       fields: [
-        { key: 'status', label: '状态', type: 'dict', group: 'platform', status: 'active', dictType: 'user_status' },
-        { key: 'biz', label: '业务', type: 'dict_multi', group: 'platform', status: 'active', dictType: 'biz_type' },
-        { key: 'referenced', label: '引用字典', type: 'select', group: 'platform', status: 'active', dictType: 'user_status' },
+        { key: 'status', label: '状态', type: 'dict', group: 'platform', status: 'active', dictType: 'region' },
+        { key: 'biz', label: '业务', type: 'dict_multi', group: 'platform', status: 'active', dictType: 'region' },
+        { key: 'referenced', label: '引用字典', type: 'select', group: 'platform', status: 'active', dictType: 'region' },
       ],
       layout: {
         main: {
@@ -235,10 +235,10 @@ describe('utils/formWidgets 分发映射', () => {
     })
     const fields = wrapper.findAllComponents(DictSelectField)
     expect(fields).toHaveLength(3)
-    expect(fields[0]?.props('dictType')).toBe('user_status')
-    expect(fields[1]?.props('dictType')).toBe('biz_type')
+    expect(fields[0]?.props('dictType')).toBe('region')
+    expect(fields[1]?.props('dictType')).toBe('region')
     expect(fields[1]?.props('multiple')).toBe(true)
-    expect(fields[2]?.props('dictType')).toBe('user_status')
+    expect(fields[2]?.props('dictType')).toBe('region')
   })
 
   it('文件 / 图片字段协同（06_07）：语义键分发、上传属性透传、多选语义单一来源', () => {

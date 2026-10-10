@@ -338,7 +338,7 @@ describe('DictSelectField（真实实现）', () => {
   it('占位降级 / 禁用 / 零请求（06_01 冻结契约保持）', () => {
     const stub = createDictSourceStub()
     const wrapper = mount(DictSelectField, {
-      props: { modelValue: undefined, ready: false, dictType: 'user_status', source: stub.source },
+      props: { modelValue: undefined, ready: false, dictType: 'region', source: stub.source },
       global: { stubs },
     })
     expect(wrapper.attributes('data-degraded')).toBe('true')
@@ -349,25 +349,25 @@ describe('DictSelectField（真实实现）', () => {
   it('展开首屏加载 + 多选上限截断 + 只读回显', async () => {
     const stub = createDictSourceStub()
     const wrapper = mount(DictSelectField, {
-      props: { modelValue: undefined, ready: true, dictType: 'user_status', source: stub.source, multiple: true, limit: 1 },
+      props: { modelValue: undefined, ready: true, dictType: 'region', source: stub.source, multiple: true, limit: 1 },
       global: { stubs },
     })
     const select = findStub(wrapper, 'ElSelect')
     select.vm.$emit('visible-change', true)
     await flushPromises()
     expect(stub.calls).toContain('getType')
-    expect(wrapper.findAll('[data-test^="dict-option-"]')).toHaveLength(2)
+    expect(wrapper.findAll('[data-test^="dict-option-"]')).toHaveLength(1)
 
-    select.vm.$emit('update:modelValue', ['enabled', 'disabled'])
+    select.vm.$emit('update:modelValue', ['zj', 'hz'])
     await flushPromises()
     expect(wrapper.emitted('limit-exceed')?.[0]?.[0]).toBe(1)
-    expect(wrapper.emitted('update:modelValue')?.at(-1)?.[0]).toEqual(['enabled'])
+    expect(wrapper.emitted('update:modelValue')?.at(-1)?.[0]).toEqual(['zj'])
 
     const readonly = mount(DictSelectField, {
       props: {
-        modelValue: ['enabled', 'disabled'],
+        modelValue: ['zj', 'hz'],
         ready: true,
-        dictType: 'user_status',
+        dictType: 'region',
         source: stub.source,
         multiple: true,
         readonly: true,
@@ -399,23 +399,23 @@ describe('DictLabel（标签回显）', () => {
     const store = new (class extends BaseDictStore {})()
     store.setReady(true)
     bindDictStoreSource(store, stub.source)
-    await store.ensureType('user_status')
+    await store.ensureType('region')
 
     const wrapper = mount(DictLabel, {
-      props: { value: ['enabled', 'ghost'], dictType: 'user_status', source: stub.source, store, tag: true },
+      props: { value: ['zj', 'ghost'], dictType: 'region', source: stub.source, store, tag: true },
       global: { stubs },
     })
     await flushPromises()
-    expect(wrapper.text()).toContain('启用')
+    expect(wrapper.text()).toContain('浙江省')
     expect(wrapper.text()).toContain('ghost')
   })
 
   it('未注入数据源原值展示（零请求）', () => {
     const wrapper = mount(DictLabel, {
-      props: { value: 'enabled', dictType: 'user_status' },
+      props: { value: 'zj', dictType: 'region' },
       global: { stubs },
     })
-    expect(wrapper.text()).toBe('enabled')
+    expect(wrapper.text()).toBe('zj')
   })
 })
 
@@ -453,7 +453,7 @@ describe('DictAdvancedQuery（高级查询抽屉）', () => {
   it('打开加载元数据并执行；应用上抛取项值；取消关闭', async () => {
     const stub = createDictSourceStub()
     const wrapper = mount(DictAdvancedQuery, {
-      props: { visible: true, ready: true, dictType: 'user_status', source: stub.source },
+      props: { visible: true, ready: true, dictType: 'region', source: stub.source },
       global: { stubs },
     })
     await flushPromises()
@@ -462,7 +462,7 @@ describe('DictAdvancedQuery（高级查询抽屉）', () => {
     expect(wrapper.findAll('[data-test^="dict-adv-result-row-"]')).toHaveLength(2)
 
     await wrapper.find('[data-test="dict-adv-confirm"]').trigger('click')
-    expect(wrapper.emitted('apply')?.[0]?.[0]).toMatchObject({ target: 'items', values: ['enabled', 'disabled'] })
+    expect(wrapper.emitted('apply')?.[0]?.[0]).toMatchObject({ target: 'items', values: ['zj', 'hz'] })
 
     await wrapper.find('[data-test="dict-adv-cancel"]').trigger('click')
     expect(wrapper.emitted('cancel')).toHaveLength(1)
@@ -478,12 +478,12 @@ describe('工具（HTTP 数据源 / 注册表 / 本地通道 / 翻译器）', ()
     })
     vi.stubGlobal('fetch', fetchMock)
     const source = createHttpDictSource({ endpoint: '/api/v1' })
-    await source.getType({ dictType: 'user_status', version: 1, parentId: '' })
+    await source.getType({ dictType: 'region', version: 1, parentId: '1' })
     const url = String(fetchMock.mock.calls[0]?.[0])
-    expect(url).toContain('/api/v1/dicts/user_status')
+    expect(url).toContain('/api/v1/dicts/region')
     expect(url).toContain('version=1')
-    expect(url).toContain('parent_id=')
-    await source.batch({ types: ['user_status'], locale: 'zh-CN' })
+    expect(url).toContain('parent_id=1')
+    await source.batch({ types: ['region'], locale: 'zh-CN' })
     expect(String(fetchMock.mock.calls[1]?.[0])).toContain('/api/v1/dicts/batch')
 
     vi.stubGlobal('fetch', undefined)
@@ -502,10 +502,10 @@ describe('工具（HTTP 数据源 / 注册表 / 本地通道 / 翻译器）', ()
     store.setReady(true)
     bindDictStoreSource(store, stub.source)
     const translate = createDictTranslator(store)
-    expect(translate('user_status', 'enabled')).toBeUndefined()
-    return store.ensureType('user_status').then(() => {
-      expect(translate('user_status', 'enabled')).toBe('启用')
-      expect(translate('user_status', ['enabled', 'disabled'])).toBe('启用、停用')
+    expect(translate('region', 'zj')).toBeUndefined()
+    return store.ensureType('region').then(() => {
+      expect(translate('region', 'zj')).toBe('浙江省')
+      expect(translate('region', ['zj', 'hz'])).toBe('浙江省、杭州市')
     })
   })
 
@@ -513,7 +513,7 @@ describe('工具（HTTP 数据源 / 注册表 / 本地通道 / 翻译器）', ()
     vi.useFakeTimers()
     const stub = createDictSourceStub()
     const wrapper = mount(DictSelectField, {
-      props: { modelValue: undefined, ready: true, dictType: 'user_status', source: stub.source, searchable: true },
+      props: { modelValue: undefined, ready: true, dictType: 'region', source: stub.source, searchable: true },
       global: { stubs },
     })
     const select = findStub(wrapper, 'ElSelect')

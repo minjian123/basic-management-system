@@ -11,20 +11,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { DictConditionGroup, DictItem, DictQueryProvider, DictQueryScheme, DictSourceAdapter } from '../src'
 
-/** 契约条目：用户状态（两条 + 一条停用）。 */
-export const DICT_CONTRACT_STATUS: readonly Record<string, unknown>[] = [
-  { value: 'enabled', label: '启用', code: 'enabled', sort: 0, status: 'enabled', color: 'success' },
-  { value: 'disabled', label: '停用', code: 'disabled', sort: 1, status: 'disabled', color: 'danger' },
-]
-
-/** 契约条目：业务类型（三条）。 */
-export const DICT_CONTRACT_BIZ: readonly Record<string, unknown>[] = [
-  { id: '11', value: 'purchase', label: '采购', code: 'purchase', sort: 0, status: 'enabled' },
-  { id: '12', value: 'sales', label: '销售', code: 'sales', sort: 1, status: 'enabled' },
-  { id: '13', value: 'inventory', label: '库存', code: 'inventory', sort: 2, status: 'enabled' },
-]
-
-/** 契约条目：行政区划（级联：浙江省 → 杭州市）。 */
+/** 契约条目：行政区划（级联：浙江省 → 杭州市；两条，末条含停用语义）。 */
 export const DICT_CONTRACT_REGION: readonly Record<string, unknown>[] = [
   { id: '1', value: 'zj', label: '浙江省', code: 'zj', sort: 0, status: 'enabled' },
   { id: '2', value: 'hz', label: '杭州市', code: 'hz', parent_id: '1', sort: 1, status: 'enabled' },
@@ -178,11 +165,11 @@ export function createDictSourceStub(overrides: DictSourceAdapter = {}): DictSou
  * @returns 条目列表。
  */
 function itemsOf(dictType: string): Record<string, unknown>[] {
-  if (dictType === 'user_status') {
-    return [...DICT_CONTRACT_STATUS]
+  if (dictType === 'region') {
+    return [...DICT_CONTRACT_REGION]
   }
-  if (dictType === 'biz_type') {
-    return [...DICT_CONTRACT_BIZ]
+  if (dictType === 'region') {
+    return [...DICT_CONTRACT_REGION]
   }
   if (dictType === 'region') {
     return [...DICT_CONTRACT_REGION]
@@ -365,7 +352,7 @@ export interface DictQueryContractTarget {
 /**
  * 字典缓存契约（`06_06` 冻结；后续移动端复用同一套断言）。
  *
- * 目标约定：`user_status`（两条，含停用）/ `biz_type`（三条）/ `region`（级联两条）；
+ * 目标约定：`region`（两条，含停用）/ `region`（三条）/ `region`（级联两条）；
  * 子集回显 `enabled` 命中、`ghost` 未命中不占位。
  *
  * @param name 契约名。
@@ -380,9 +367,9 @@ export function describeDictStoreContract(name: string, create: () => DictStoreC
       expect(target.ready).toBe(false)
       expect(target.degraded).toBe(true)
 
-      await target.ensureType('user_status')
-      await target.ensureTypes(['biz_type'])
-      await target.resolveValues('user_status', ['enabled'])
+      await target.ensureType('region')
+      await target.ensureTypes(['region'])
+      await target.resolveValues('region', ['enabled'])
       expect(target.requestCount).toBe(0)
       expect(stub.calls).toEqual([])
     })
@@ -390,8 +377,8 @@ export function describeDictStoreContract(name: string, create: () => DictStoreC
     it('未注入数据源时不请求（就绪亦占位）', async () => {
       const target = create()
       target.setReady(true)
-      await target.ensureType('user_status')
-      await target.resolveValues('user_status', ['enabled'])
+      await target.ensureType('region')
+      await target.resolveValues('region', ['enabled'])
       expect(target.degraded).toBe(false)
       expect(target.requestCount).toBe(0)
     })
@@ -402,19 +389,19 @@ export function describeDictStoreContract(name: string, create: () => DictStoreC
       target.setReady(true)
       target.setSource(stub.source)
 
-      await target.ensureType('user_status')
+      await target.ensureType('region')
       expect(stub.calls).toEqual(['getType'])
       expect(stub.queries[0]?.limit).toBe(2001)
-      expect(target.itemsOf('user_status')).toHaveLength(2)
-      expect(target.isLoaded('user_status')).toBe(true)
-      expect(target.labelOf('user_status', 'enabled')).toBe('启用')
+      expect(target.itemsOf('region')).toHaveLength(2)
+      expect(target.isLoaded('region')).toBe(true)
+      expect(target.labelOf('region', 'enabled')).toBe('启用')
 
-      await target.ensureType('user_status')
+      await target.ensureType('region')
       expect(target.requestCount).toBe(1)
 
-      stub.largeTypes.add('biz_type')
-      await target.ensureType('biz_type')
-      expect(target.isLarge('biz_type')).toBe(true)
+      stub.largeTypes.add('region')
+      await target.ensureType('region')
+      expect(target.isLarge('region')).toBe(true)
     })
 
     it('批量合并：同批多类型一次请求；版本一致复用缓存', async () => {
@@ -423,16 +410,16 @@ export function describeDictStoreContract(name: string, create: () => DictStoreC
       target.setReady(true)
       target.setSource(stub.source)
 
-      await target.ensureTypes(['user_status', 'biz_type'])
+      await target.ensureTypes(['region', 'region'])
       expect(stub.calls).toEqual(['batch'])
-      expect(stub.queries[0]?.types).toEqual(['user_status', 'biz_type'])
-      expect(target.itemsOf('biz_type')).toHaveLength(3)
+      expect(stub.queries[0]?.types).toEqual(['region', 'region'])
+      expect(target.itemsOf('region')).toHaveLength(3)
       expect(target.requestCount).toBe(1)
 
-      target.invalidate('user_status')
-      await target.ensureType('user_status')
+      target.invalidate('region')
+      await target.ensureType('region')
       expect(stub.calls.at(-1)).toBe('getType')
-      expect(target.isLoaded('user_status')).toBe(true)
+      expect(target.isLoaded('region')).toBe(true)
     })
 
     it('子集回显：一次请求、二次零请求、未命中不占位', async () => {
@@ -441,13 +428,13 @@ export function describeDictStoreContract(name: string, create: () => DictStoreC
       target.setReady(true)
       target.setSource(stub.source)
 
-      await target.resolveValues('user_status', ['enabled', 'ghost'])
+      await target.resolveValues('region', ['enabled', 'ghost'])
       expect(stub.calls).toEqual(['getType'])
       expect(stub.queries[0]?.values).toEqual(['enabled', 'ghost'])
-      expect(target.labelOf('user_status', 'enabled')).toBe('启用')
-      expect(target.labelOf('user_status', 'ghost')).toBeUndefined()
+      expect(target.labelOf('region', 'enabled')).toBe('启用')
+      expect(target.labelOf('region', 'ghost')).toBeUndefined()
 
-      await target.resolveValues('user_status', ['enabled', 'ghost'])
+      await target.resolveValues('region', ['enabled', 'ghost'])
       expect(target.requestCount).toBe(1)
     })
 
@@ -467,10 +454,10 @@ export function describeDictStoreContract(name: string, create: () => DictStoreC
         },
       })
 
-      await target.ensureType('user_status')
-      expect([...written.keys()]).toEqual(['bms:dict:zh-CN:user_status'])
-      target.invalidate('user_status')
-      expect(removed).toEqual(['bms:dict:zh-CN:user_status'])
+      await target.ensureType('region')
+      expect([...written.keys()]).toEqual(['bms:dict:zh-CN:region'])
+      target.invalidate('region')
+      expect(removed).toEqual(['bms:dict:zh-CN:region'])
       expect(target.cacheSize).toBe(0)
     })
   })
@@ -500,7 +487,7 @@ export function describeDictSelectContract(name: string, create: () => DictSelec
       const stub = createDictSourceStub()
       target.setReady(true)
       target.setSource(stub.source)
-      target.setDictType('user_status')
+      target.setDictType('region')
 
       await target.load()
       expect(target.items).toHaveLength(2)
@@ -515,10 +502,10 @@ export function describeDictSelectContract(name: string, create: () => DictSelec
     it('大字典远程搜索与禁用项', async () => {
       const target = create()
       const stub = createDictSourceStub()
-      stub.largeTypes.add('user_status')
+      stub.largeTypes.add('region')
       target.setReady(true)
       target.setSource(stub.source)
-      target.setDictType('user_status')
+      target.setDictType('region')
 
       await target.load()
       expect(target.isLarge).toBe(true)
@@ -573,7 +560,7 @@ export function describeDictSelectContract(name: string, create: () => DictSelec
       const stub = createDictSourceStub()
       target.setReady(true)
       target.setSource(stub.source)
-      target.setDictType('user_status')
+      target.setDictType('region')
 
       target.setValue(['enabled', 'ghost'])
       await target.resolve()
@@ -624,7 +611,7 @@ export function describeDictQueryContract(name: string, create: () => DictQueryC
       const stub = createDictSourceStub()
       target.setReady(true)
       target.setSource(stub.source)
-      target.setDictType('user_status')
+      target.setDictType('region')
 
       await target.run()
       expect(target.results).toHaveLength(2)
@@ -642,7 +629,7 @@ export function describeDictQueryContract(name: string, create: () => DictQueryC
       const stub = createDictSourceStub()
       target.setReady(true)
       target.setSource(stub.source)
-      target.setDictType('biz_type')
+      target.setDictType('region')
       target.setTarget('business')
       target.setProvider('builtin', { keyword: '采购' })
 

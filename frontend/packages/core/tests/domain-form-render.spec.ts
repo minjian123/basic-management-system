@@ -133,10 +133,10 @@ describe('字段类型 → 控件语义键', () => {
   })
 
   it('字典引用属性透传（dictType）', () => {
-    const field = normalizeField({ key: 'status', type: 'select', dictType: 'user_status' })
-    expect(field.dictType).toBe('user_status')
-    const multi = normalizeField({ key: 'tags', type: 'dict_multi', dictType: 'biz_type' })
-    expect(multi.dictType).toBe('biz_type')
+    const field = normalizeField({ key: 'status', type: 'select', dictType: 'region' })
+    expect(field.dictType).toBe('region')
+    const multi = normalizeField({ key: 'tags', type: 'dict_multi', dictType: 'region' })
+    expect(multi.dictType).toBe('region')
   })
 
   it('验证码属性透传（captchaKind / captchaScene，非法剔除）', () => {

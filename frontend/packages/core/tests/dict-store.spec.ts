@@ -73,8 +73,8 @@ describe('BaseDictStore 继承链与身份', () => {
     const stub = createDictSourceStub()
     store.setReady(true)
     bindDictStoreSource(store, stub.source)
-    await store.ensureType('user_status')
-    expect(store.isLoaded('user_status')).toBe(true)
+    await store.ensureType('region')
+    expect(store.isLoaded('region')).toBe(true)
     store.setLocale('en-US')
     expect(store.cacheSize).toBe(0)
     expect(store.subsetSize).toBe(0)
@@ -85,9 +85,9 @@ describe('BaseDictStore 继承链与身份', () => {
     const stub = createDictSourceStub()
     store.setReady(true)
     bindDictStoreSource(store, stub.source)
-    const candidates = await store.searchRemote('user_status', '启')
-    expect(candidates.map((item) => item.value)).toEqual(['enabled'])
-    expect(store.isLoaded('user_status')).toBe(false)
+    const candidates = await store.searchRemote('region', '浙')
+    expect(candidates.map((item) => item.value)).toEqual(['zj'])
+    expect(store.isLoaded('region')).toBe(false)
   })
 
   it('释放后不再广播（安全）', () => {
