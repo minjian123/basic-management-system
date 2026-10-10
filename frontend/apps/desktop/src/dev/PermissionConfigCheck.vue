@@ -99,7 +99,7 @@ const checks = computed(() => [
   { name: '菜单三态与连带', pass: true },
   { name: '取消仅撤本来源', pass: true },
   { name: '挂接缺失标记', pass: metadata.forms.every((form) => form.menuIds.length >= 0) },
-  { name: '操作默认无', pass: grants.entries.every((entry) => entry.permType !== 'action') },
+  { name: '操作默认无', pass: grants.entries.every((entry) => entry.permType !== 'permission') },
   { name: '字段默认全开与收窄', pass: grants.fieldEntries.length >= 0 },
   { name: '数据权限四子页签', pass: metadata.dictTypes.length > 0 },
   { name: '用户分配与计数', pass: grants.users.length > 0 },
