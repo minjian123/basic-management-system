@@ -21,8 +21,8 @@
 
 | 字段 | 类型 | 可空 | 约束 / 默认 | 说明 |
 | --- | --- | --- | --- | --- |
-| `type_id` | BIGINT | 否 | 逻辑引用 `sys_dict_type.id` | 字典类型 ID |
-| `attr_key` | VARCHAR(64) | 否 | 与 `(type_id, deleted_at)` 复合唯一 | 属性键（高级查询字段 `attr.<key>`） |
+| `dict_type_id` | BIGINT | 否 | 逻辑引用 `sys_dict_type.id` | 字典类型 ID（2026-10-10 由 `type_id` 改名，见 02_08） |
+| `attr_key` | VARCHAR(64) | 否 | 与 `(dict_type_id, deleted_at)` 复合唯一 | 属性键（高级查询字段 `attr.<key>`） |
 | `name` | VARCHAR(64) | 否 | — | 属性名（默认语言） |
 | `data_type` | VARCHAR(16) | 否 | — | 数据类型（text / number / date / enum / bool） |
 | `operators` | JSON | 是 | — | 可用操作符集合（JSON 数组；空 = 按类型派生默认） |
@@ -43,11 +43,11 @@
 
 | 名称 | 类型 | 列 | 说明 |
 | --- | --- | --- | --- |
-| `uq_dict_attr_key_deleted_at` | 唯一 | `(type_id, attr_key, deleted_at)` | 属性键类型内唯一（软删除后可复用） |
-| `idx_dict_attr_sort` | 普通 | `(type_id, status, sort)` | 属性 schema 读取 |
-| `idx_sys_dict_attr_type_id` | 普通 | `(type_id)` | 类型过滤 |
+| `uq_dict_attr_key_deleted_at` | 唯一 | `(dict_type_id, attr_key, deleted_at)` | 属性键类型内唯一（软删除后可复用） |
+| `idx_dict_attr_sort` | 普通 | `(dict_type_id, status, sort)` | 属性 schema 读取 |
+| `idx_sys_dict_attr_dict_type_id` | 普通 | `(dict_type_id)` | 类型过滤 |
 
-- 无物理外键；`type_id` / `dict_item_id` / `dict_type_id` / `dict_attr_id` 为逻辑引用（同租户库），`parent_id` 逻辑引用条目 `value`（级联父值）。 属性 schema 供高级查询条件构建；条件执行走字段 / 操作符白名单 + 参数绑定（见 02-4-27 详细设计 §7）。
+- 无物理外键；`dict_type_id` / `dict_item_id` / `dict_attr_id` 为逻辑引用（同租户库）。 属性 schema 供高级查询条件构建；条件执行走字段 / 操作符白名单 + 参数绑定（见 02-4-27 详细设计 §7）。
 
 ## 4. 分片 / 归档 / 迁移 <a id="storage"></a>
 
@@ -62,5 +62,6 @@
 | 2026-09-21 | v1 | 新建表结构（随 02-4-27 首个迁移 `0001_dict_and_query_scheme`） | minjian |
 | 2026-09-22 | v2 | 迁移脚本迁入租户链目录（`alembic/versions/tenant/0001_dict_and_query_scheme.py`），索引名统一 `idx_*` | minjian |
 | 2026-09-22 | v3 | 索引名对齐命名约定（`ix_sys_dict_attr_*` → `idx_sys_dict_attr_*`）；公共软删除索引不再逐表列出（见数据规范） | minjian |
+| 2026-10-10 | v4 | 主表外键列 `type_id` → `dict_type_id`（规范 §3.1.3「主表 ID」口径，02_08）；唯一约束与索引列同步（`idx_sys_dict_attr_type_id` → `idx_sys_dict_attr_dict_type_id`）；纯改名、无数据回填（迁移 `platform:tenant` `0011_dict_field_names`） | minjian |
 
 > 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套

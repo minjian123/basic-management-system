@@ -495,7 +495,7 @@ class RoleGrantService(BaseFrameworkObject):
         if (await session.execute(type_statement)).scalar_one_or_none() is None:
             raise RoleScopeValueInvalidError(f"字典类型不存在：{dict_type_id}")
         attr_statement = select(SysDictAttr.attr_key).where(
-            SysDictAttr.type_id == dict_type_id,
+            SysDictAttr.dict_type_id == dict_type_id,
             SysDictAttr.status == "enabled",
             SysDictAttr.deleted_at.is_(None),
         )

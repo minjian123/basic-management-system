@@ -197,7 +197,7 @@ class DictQueryService(BaseFrameworkObject):
                     and_(SysDictAttrI18n.dict_attr_id == SysDictAttr.id, SysDictAttrI18n.locale == lang),
                 )
                 .where(
-                    SysDictAttr.type_id == type_row.id,
+                    SysDictAttr.dict_type_id == type_row.id,
                     SysDictAttr.status == "enabled",
                     SysDictAttr.deleted_at.is_(None),
                 )
@@ -272,7 +272,7 @@ class DictQueryService(BaseFrameworkObject):
             dialect = _dialect_name(session)
             conditions: ConcurrentStableList[ColumnElement[bool]] = ConcurrentStableList(
                 [
-                    SysDictItem.type_id == type_row.id,
+                    SysDictItem.dict_type_id == type_row.id,
                     SysDictItem.status == "enabled",
                     SysDictItem.deleted_at.is_(None),
                 ]
@@ -297,7 +297,7 @@ class DictQueryService(BaseFrameworkObject):
         items = tuple(
             DictAdvItem(
                 value=item.value,
-                label=str(i18n_label or item.label),
+                label=str(i18n_label or item.name),
                 code=item.code,
                 parent_id=item.parent_id,
                 sort=item.sort,
@@ -331,7 +331,7 @@ async def _load_type(session: DbSession, dict_type: str) -> SysDictType | None:
         SysDictType | None: 类型行；不存在 / 停用 / 已删返回 None。
     """
     stmt = select(SysDictType).where(
-        SysDictType.type == dict_type,
+        SysDictType.code == dict_type,
         SysDictType.status == "enabled",
         SysDictType.deleted_at.is_(None),
     )

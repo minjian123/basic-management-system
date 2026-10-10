@@ -1,7 +1,7 @@
 """字典写路径服务：类型 / 条目 / 属性 CRUD + 写库后失效（删缓存 + `INCR` 版本）。
 
 - 顺序：**先写库（提交）后删缓存 + 版本递增**（与《概要设计 · 字典管理》写路径一致）。
-- 唯一性：类型 `type` 与条目 `(type_id, code)` 未删除行唯一（服务层校验 + DB 复合唯一兜底）；
+- 唯一性：类型 `code` 与条目 `(dict_type_id, code)` 未删除行唯一（服务层校验 + DB 复合唯一兜底）；
   软删除后重建同 type / code 放行（复合唯一含 `deleted_at`）。
 - 并发：乐观锁冲突转 `ConcurrentConflictError`（409 语义）；类型 / 条目不存在抛 `NotFoundError`。
 - 权限码（`dict:manage`）由上层声明；本服务只做数据与缓存失效。
@@ -107,7 +107,7 @@ class DictService(BaseFrameworkObject):
             if existing is not None:
                 raise ConflictError(f"字典类型已存在：{payload.type}")
             row = SysDictType(
-                type=payload.type,
+                code=payload.type,
                 name=payload.name,
                 sort=payload.sort,
                 status=payload.status,
@@ -136,17 +136,17 @@ class DictService(BaseFrameworkObject):
             row = await _get_type(session, type_id)
             if row is None:
                 raise NotFoundError(f"字典类型不存在：{type_id}")
-            if payload.type != row.type:
+            if payload.type != row.code:
                 duplicated = await _find_type_by_code(session, payload.type)
                 if duplicated is not None and duplicated.id != type_id:
                     raise ConflictError(f"字典类型已存在：{payload.type}")
-            row.type = payload.type
+            row.code = payload.type
             row.name = payload.name
             row.sort = payload.sort
             row.status = payload.status
             await self._commit(session)
             await session.refresh(row)
-        await self.invalidate(row.type)
+        await self.invalidate(row.code)
         return row
 
     async def delete_type(self, type_id: int) -> None:
@@ -164,7 +164,7 @@ class DictService(BaseFrameworkObject):
                 raise NotFoundError(f"字典类型不存在：{type_id}")
             row.soft_delete()
             await self._commit(session)
-            dict_type = row.type
+            dict_type = row.code
         await self.invalidate(dict_type)
 
     async def create_item(self, dict_type: str, payload: DictItemPayload) -> SysDictItem:
@@ -189,9 +189,9 @@ class DictService(BaseFrameworkObject):
             if existing is not None:
                 raise ConflictError(f"字典条目编码已存在：{payload.code}")
             row = SysDictItem(
-                type_id=type_row.id,
+                dict_type_id=type_row.id,
                 code=payload.code,
-                label=payload.label,
+                name=payload.label,
                 value=payload.value,
                 parent_id=payload.parent_id,
                 attr_json=payload.attr_json,
@@ -224,11 +224,11 @@ class DictService(BaseFrameworkObject):
             if row is None or row.deleted_at is not None:
                 raise NotFoundError(f"字典条目不存在：{item_id}")
             if payload.code != row.code:
-                duplicated = await _find_item_by_code(session, row.type_id, payload.code)
+                duplicated = await _find_item_by_code(session, row.dict_type_id, payload.code)
                 if duplicated is not None and duplicated.id != item_id:
                     raise ConflictError(f"字典条目编码已存在：{payload.code}")
             row.code = payload.code
-            row.label = payload.label
+            row.name = payload.label
             row.value = payload.value
             row.parent_id = payload.parent_id
             row.attr_json = payload.attr_json
@@ -237,8 +237,8 @@ class DictService(BaseFrameworkObject):
             row.status = payload.status
             await self._commit(session)
             await session.refresh(row)
-            type_row = await _get_type(session, row.type_id)
-            dict_type = type_row.type if type_row is not None else ""
+            type_row = await _get_type(session, row.dict_type_id)
+            dict_type = type_row.code if type_row is not None else ""
         if dict_type:
             await self.invalidate(dict_type)
         return row
@@ -258,8 +258,8 @@ class DictService(BaseFrameworkObject):
                 raise NotFoundError(f"字典条目不存在：{item_id}")
             row.soft_delete()
             await self._commit(session)
-            type_row = await _get_type(session, row.type_id)
-            dict_type = type_row.type if type_row is not None else ""
+            type_row = await _get_type(session, row.dict_type_id)
+            dict_type = type_row.code if type_row is not None else ""
         if dict_type:
             await self.invalidate(dict_type)
 
@@ -281,13 +281,13 @@ class DictService(BaseFrameworkObject):
             if type_row is None:
                 raise NotFoundError(f"字典类型不存在：{dict_type}")
             stmt = select(SysDictAttr).where(
-                SysDictAttr.type_id == type_row.id,
+                SysDictAttr.dict_type_id == type_row.id,
                 SysDictAttr.attr_key == payload.attr_key,
                 SysDictAttr.deleted_at.is_(None),
             )
             row = (await session.execute(stmt)).scalar_one_or_none()
             if row is None:
-                row = SysDictAttr(type_id=type_row.id, attr_key=payload.attr_key)
+                row = SysDictAttr(dict_type_id=type_row.id, attr_key=payload.attr_key)
                 session.add(row)
             row.name = payload.name
             row.data_type = payload.data_type
@@ -380,7 +380,7 @@ async def _find_type_by_code(session: DbSession, dict_type: str) -> SysDictType 
     Returns:
         SysDictType | None: 类型行；不存在 / 已删返回 None。
     """
-    stmt = select(SysDictType).where(SysDictType.type == dict_type, SysDictType.deleted_at.is_(None))
+    stmt = select(SysDictType).where(SysDictType.code == dict_type, SysDictType.deleted_at.is_(None))
     return (await session.execute(stmt)).scalar_one_or_none()
 
 
@@ -396,7 +396,7 @@ async def _find_item_by_code(session: DbSession, type_id: int, code: str) -> Sys
         SysDictItem | None: 条目行；不存在 / 已删返回 None。
     """
     stmt = select(SysDictItem).where(
-        SysDictItem.type_id == type_id,
+        SysDictItem.dict_type_id == type_id,
         SysDictItem.code == code,
         SysDictItem.deleted_at.is_(None),
     )

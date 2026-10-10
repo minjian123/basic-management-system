@@ -181,11 +181,13 @@ async def _seed_dict() -> tuple[int, str]:
     factory = async_sessionmaker(engine, expire_on_commit=False)
     try:
         async with factory() as session:
-            row = SysDictType(type="area", name="区域", sort=1, status="enabled")
+            row = SysDictType(code="area", name="区域", sort=1, status="enabled")
             session.add(row)
             await session.flush()
             session.add(
-                SysDictAttr(type_id=row.id, attr_key="area_code", name="区域码", data_type="text", status="enabled")
+                SysDictAttr(
+                    dict_type_id=row.id, attr_key="area_code", name="区域码", data_type="text", status="enabled"
+                )
             )
             await session.commit()
             return row.id, "area_code"

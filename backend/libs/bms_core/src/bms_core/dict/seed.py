@@ -1,6 +1,6 @@
 """字典种子：平台常用字典（类型 / 条目 / i18n / 属性）幂等写入。
 
-- 幂等：按 `type` 与 `(type_id, value)` 判存（存在跳过）；可重复执行（`ops/seed_dict.py` 与测试夹具共用）。
+- 幂等：按 `code` 与 `(dict_type_id, value)` 判存（存在跳过）；可重复执行（`ops/seed_dict.py` 与测试夹具共用）。
 - 用途：开发 / 联调 / 测试（`user_status` / `user_gender` / `biz_type` / `region` 级联示例）；
   真实平台种子随字典模块阶段（阶段八）扩展。
 """
@@ -126,7 +126,7 @@ async def seed_dicts(session: AsyncSession) -> int:
     for seed in SEED_TYPES:
         type_row = await _find_type(session, seed.type)
         if type_row is None:
-            type_row = SysDictType(type=seed.type, name=seed.name, sort=seed.sort, status="enabled")
+            type_row = SysDictType(code=seed.type, name=seed.name, sort=seed.sort, status="enabled")
             session.add(type_row)
             await session.flush()
             created += 1
@@ -147,7 +147,7 @@ async def _find_type(session: AsyncSession, dict_type: str) -> SysDictType | Non
     Returns:
         SysDictType | None: 类型行；不存在返回 None。
     """
-    stmt = select(SysDictType).where(SysDictType.type == dict_type, SysDictType.deleted_at.is_(None))
+    stmt = select(SysDictType).where(SysDictType.code == dict_type, SysDictType.deleted_at.is_(None))
     return (await session.execute(stmt)).scalar_one_or_none()
 
 
@@ -208,16 +208,16 @@ async def _seed_items(session: AsyncSession, type_row: SysDictType, items: Concu
     rows_by_value: ConcurrentStableDict[str, SysDictItem] = ConcurrentStableDict()
     for item in items:
         stmt = select(SysDictItem).where(
-            SysDictItem.type_id == type_row.id,
+            SysDictItem.dict_type_id == type_row.id,
             SysDictItem.value == item.value,
             SysDictItem.deleted_at.is_(None),
         )
         row = (await session.execute(stmt)).scalar_one_or_none()
         if row is None:
             row = SysDictItem(
-                type_id=type_row.id,
+                dict_type_id=type_row.id,
                 code=item.code,
-                label=item.label,
+                name=item.label,
                 value=item.value,
                 color=item.color,
                 sort=0,
@@ -256,7 +256,7 @@ async def _seed_attrs(session: AsyncSession, type_row: SysDictType, attrs: Concu
     created = 0
     for index, attr in enumerate(attrs):
         stmt = select(SysDictAttr).where(
-            SysDictAttr.type_id == type_row.id,
+            SysDictAttr.dict_type_id == type_row.id,
             SysDictAttr.attr_key == attr.attr_key,
             SysDictAttr.deleted_at.is_(None),
         )
@@ -264,7 +264,7 @@ async def _seed_attrs(session: AsyncSession, type_row: SysDictType, attrs: Concu
             continue
         session.add(
             SysDictAttr(
-                type_id=type_row.id,
+                dict_type_id=type_row.id,
                 attr_key=attr.attr_key,
                 name=attr.name,
                 data_type=attr.data_type,

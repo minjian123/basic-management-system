@@ -151,14 +151,16 @@ async def seed_dict(target: AsyncSession) -> tuple[int, str]:
     Returns:
         tuple[int, str]: (字典类型 ID, 已启用扩展属性键)。
     """
-    dict_type = SysDictType(type="area", name="区域", sort=1, status="enabled")
+    dict_type = SysDictType(code="area", name="区域", sort=1, status="enabled")
     target.add(dict_type)
     await target.flush()
     target.add(
-        SysDictAttr(type_id=dict_type.id, attr_key="area_code", name="区域码", data_type="text", status="enabled")
+        SysDictAttr(dict_type_id=dict_type.id, attr_key="area_code", name="区域码", data_type="text", status="enabled")
     )
     target.add(
-        SysDictAttr(type_id=dict_type.id, attr_key="disabled_key", name="停用属性", data_type="text", status="disabled")
+        SysDictAttr(
+            dict_type_id=dict_type.id, attr_key="disabled_key", name="停用属性", data_type="text", status="disabled"
+        )
     )
     await target.flush()
     await target.commit()

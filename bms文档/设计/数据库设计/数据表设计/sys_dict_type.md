@@ -21,7 +21,7 @@
 
 | 字段 | 类型 | 可空 | 约束 / 默认 | 说明 |
 | --- | --- | --- | --- | --- |
-| `type` | VARCHAR(64) | 否 | 与 `deleted_at` 复合唯一 | 类型编码（唯一） |
+| `code` | VARCHAR(64) | 否 | 与 `deleted_at` 复合唯一 | 类型编码（唯一；2026-10-10 由 `type` 改名，见 02_08） |
 | `name` | VARCHAR(64) | 否 | — | 类型名称（默认语言） |
 | `sort` | INT | 否 | 默认 0 | 排序值 |
 | `status` | VARCHAR(16) | 否 | 默认 enabled | 状态（enabled / disabled） |
@@ -37,10 +37,10 @@
 
 | 名称 | 类型 | 列 | 说明 |
 | --- | --- | --- | --- |
-| `uq_dict_type_code_deleted_at` | 唯一 | `(type, deleted_at)` | 类型编码唯一（软删除后可复用） |
+| `uq_dict_type_code_deleted_at` | 唯一 | `(code, deleted_at)` | 类型编码唯一（软删除后可复用） |
 | `idx_dict_type_status_sort` | 普通 | `(status, sort)` | 运行时按状态 + 排序取类型 |
 
-- 无物理外键；`type_id` / `dict_item_id` / `dict_type_id` / `dict_attr_id` 为逻辑引用（同租户库），`parent_id` 逻辑引用条目 `value`（级联父值）。 类型停用后运行时取数不可见；i18n 附表见 [sys_dict_type_i18n.md](sys_dict_type_i18n.md)。
+- 无物理外键；`dict_type_id` / `dict_item_id` / `dict_attr_id` 为逻辑引用（同租户库）。 类型停用后运行时取数不可见；i18n 附表见 [sys_dict_type_i18n.md](sys_dict_type_i18n.md)。
 
 ## 4. 分片 / 归档 / 迁移 <a id="storage"></a>
 
@@ -55,5 +55,6 @@
 | 2026-09-21 | v1 | 新建表结构（随 02-4-27 首个迁移 `0001_dict_and_query_scheme`） | minjian |
 | 2026-09-22 | v2 | 迁移脚本迁入租户链目录（`alembic/versions/tenant/0001_dict_and_query_scheme.py`），索引名统一 `idx_*` | minjian |
 | 2026-09-22 | v3 | 公共软删除索引不再逐表列出（见数据规范） | minjian |
+| 2026-10-10 | v4 | 代码列 `type` → `code`（规范 §3.1.3 字典清单口径，02_08）；唯一约束列同步（`uq_dict_type_code_deleted_at`）；纯改名、无数据回填（迁移 `platform:tenant` `0011_dict_field_names`） | minjian |
 
 > 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套

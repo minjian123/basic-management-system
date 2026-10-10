@@ -101,7 +101,7 @@ class BuiltinDictQueryProvider(BaseQueryProvider):
             type_row = (
                 await session.execute(
                     select(SysDictType).where(
-                        SysDictType.type == dict_type,
+                        SysDictType.code == dict_type,
                         SysDictType.status == "enabled",
                         SysDictType.deleted_at.is_(None),
                     )
@@ -110,7 +110,7 @@ class BuiltinDictQueryProvider(BaseQueryProvider):
             if type_row is None:
                 return QueryResult(rows=(), total=0)
             conditions = [
-                SysDictItem.type_id == type_row.id,
+                SysDictItem.dict_type_id == type_row.id,
                 SysDictItem.status == "enabled",
                 SysDictItem.deleted_at.is_(None),
             ]
@@ -118,7 +118,7 @@ class BuiltinDictQueryProvider(BaseQueryProvider):
                 pattern = f"%{keyword.strip()}%"
                 conditions.append(
                     or_(
-                        SysDictItem.label.like(pattern),
+                        SysDictItem.name.like(pattern),
                         SysDictItem.value.like(pattern),
                         SysDictItem.code.like(pattern),
                     )
@@ -144,7 +144,7 @@ class BuiltinDictQueryProvider(BaseQueryProvider):
                 ConcurrentStableDict(
                     {
                         "value": item.value,
-                        "label": str(i18n_label or item.label),
+                        "label": str(i18n_label or item.name),
                         "code": item.code,
                         "parent_id": item.parent_id,
                         "sort": item.sort,

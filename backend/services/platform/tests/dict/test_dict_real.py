@@ -79,7 +79,7 @@ EXPECTED_TABLES = {
 EXPECTED_INDEXES = (
     "idx_dict_item_value",
     "idx_dict_item_parent_sort",
-    "idx_dict_item_label",
+    "idx_dict_item_name",
 )
 
 EXPECTED_UNIQUE_CONSTRAINTS = (
@@ -365,7 +365,7 @@ async def test_translate_subset_and_write_path(dict_db_url: str) -> None:
         with pytest.raises(BizError):
             await service.create_item("demo_status", DictItemPayload(code="a", label="重复", value="a"))
         updated = await service.update_item(item.id, DictItemPayload(code="a", label="甲改", value="a"))
-        assert updated.label == "甲改"
+        assert updated.name == "甲改"
         attr = await service.upsert_attr(
             "demo_status",
             DictAttrPayload(attr_key="score", name="分值", data_type="number"),
@@ -571,13 +571,13 @@ async def _find_item_ids(db_url: str, dict_type: str, values: tuple[str, ...]) -
     try:
         async with factory() as session:
             type_row = (
-                await session.execute(select(SysDictType).where(SysDictType.type == dict_type))
+                await session.execute(select(SysDictType).where(SysDictType.code == dict_type))
             ).scalar_one_or_none()
             assert type_row is not None
             rows = (
                 await session.execute(
                     select(SysDictItem).where(
-                        SysDictItem.type_id == type_row.id,
+                        SysDictItem.dict_type_id == type_row.id,
                         SysDictItem.value.in_(values),
                         SysDictItem.deleted_at.is_(None),
                     )

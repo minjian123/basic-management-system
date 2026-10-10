@@ -392,7 +392,7 @@ def _type_out(row: SysDictType) -> ConcurrentStableDict[str, object]:
     return ConcurrentStableDict(
         {
             "id": row.id,
-            "type": row.type,
+            "type": row.code,
             "name": row.name,
             "sort": row.sort,
             "status": row.status,
@@ -412,9 +412,9 @@ def _item_out(row: SysDictItem) -> ConcurrentStableDict[str, object]:
     return ConcurrentStableDict(
         {
             "id": row.id,
-            "type_id": row.type_id,
+            "type_id": row.dict_type_id,
             "code": row.code,
-            "label": row.label,
+            "label": row.name,
             "value": row.value,
             "parent_id": row.parent_id,
             "color": row.color,
@@ -436,7 +436,7 @@ def _attr_out(row: SysDictAttr) -> ConcurrentStableDict[str, object]:
     return ConcurrentStableDict(
         {
             "id": row.id,
-            "type_id": row.type_id,
+            "type_id": row.dict_type_id,
             "attr_key": row.attr_key,
             "name": row.name,
             "data_type": row.data_type,

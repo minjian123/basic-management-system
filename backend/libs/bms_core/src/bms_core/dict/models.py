@@ -26,11 +26,11 @@ class SysDictType(BaseModel):
 
     __tablename__ = "sys_dict_type"
     __table_args__ = (
-        UniqueConstraint("type", "deleted_at", name="uq_dict_type_code_deleted_at"),
+        UniqueConstraint("code", "deleted_at", name="uq_dict_type_code_deleted_at"),
         Index("idx_dict_type_status_sort", "status", "sort"),
     )
 
-    type: Mapped[str] = mapped_column(String(64), comment="类型编码（唯一）")
+    code: Mapped[str] = mapped_column(String(64), comment="类型编码（唯一）")
     name: Mapped[str] = mapped_column(String(64), comment="类型名称（默认语言）")
     sort: Mapped[int] = mapped_column(Integer, default=0, comment="排序值")
     status: Mapped[str] = mapped_column(String(16), default="enabled", comment="状态（enabled/disabled）")
@@ -41,15 +41,17 @@ class SysDictItem(BaseModel):
 
     __tablename__ = "sys_dict_item"
     __table_args__ = (
-        UniqueConstraint("type_id", "code", "deleted_at", name="uq_dict_item_code_deleted_at"),
-        Index("idx_dict_item_value", "type_id", "value"),
-        Index("idx_dict_item_parent_sort", "type_id", "parent_id", "sort"),
-        Index("idx_dict_item_label", "type_id", "label"),
+        UniqueConstraint("dict_type_id", "code", "deleted_at", name="uq_dict_item_code_deleted_at"),
+        Index("idx_dict_item_value", "dict_type_id", "value"),
+        Index("idx_dict_item_parent_sort", "dict_type_id", "parent_id", "sort"),
+        Index("idx_dict_item_name", "dict_type_id", "name"),
     )
 
-    type_id: Mapped[int] = mapped_column(BigInteger, index=True, comment="字典类型 ID（逻辑引用 sys_dict_type.id）")
+    dict_type_id: Mapped[int] = mapped_column(
+        BigInteger, index=True, comment="字典类型 ID（逻辑引用 sys_dict_type.id）"
+    )
     code: Mapped[str] = mapped_column(String(64), comment="条目编码（类型内唯一）")
-    label: Mapped[str] = mapped_column(String(128), comment="条目标签（默认语言）")
+    name: Mapped[str] = mapped_column(String(128), comment="条目标签（默认语言）")
     value: Mapped[str] = mapped_column(String(64), comment="条目值")
     parent_id: Mapped[int | None] = mapped_column(
         BigInteger, nullable=True, comment="上级条目 ID（自引用同表 id；NULL = 顶层）"
@@ -91,11 +93,11 @@ class SysDictAttr(BaseModel):
 
     __tablename__ = "sys_dict_attr"
     __table_args__ = (
-        UniqueConstraint("type_id", "attr_key", "deleted_at", name="uq_dict_attr_key_deleted_at"),
-        Index("idx_dict_attr_sort", "type_id", "status", "sort"),
+        UniqueConstraint("dict_type_id", "attr_key", "deleted_at", name="uq_dict_attr_key_deleted_at"),
+        Index("idx_dict_attr_sort", "dict_type_id", "status", "sort"),
     )
 
-    type_id: Mapped[int] = mapped_column(BigInteger, index=True, comment="字典类型 ID")
+    dict_type_id: Mapped[int] = mapped_column(BigInteger, index=True, comment="字典类型 ID")
     attr_key: Mapped[str] = mapped_column(String(64), comment="属性键")
     name: Mapped[str] = mapped_column(String(64), comment="属性名（默认语言）")
     data_type: Mapped[str] = mapped_column(String(16), comment="数据类型（text/number/date/enum/bool）")

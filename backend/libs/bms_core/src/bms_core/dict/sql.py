@@ -323,7 +323,7 @@ async def _load_type(session: DbSession, dict_type: str) -> SysDictType | None:
         SysDictType | None: 类型行；不存在 / 停用 / 已删返回 None。
     """
     stmt = select(SysDictType).where(
-        SysDictType.type == dict_type,
+        SysDictType.code == dict_type,
         SysDictType.status == "enabled",
         SysDictType.deleted_at.is_(None),
     )
@@ -386,18 +386,18 @@ async def _query_batch(
         ConcurrentStableDict[str, tuple[ConcurrentStableList[DictItem], int]]: 类型 → (条目, 总数)。
     """
     stmt_types = select(SysDictType).where(
-        SysDictType.type.in_(tuple(types)),
+        SysDictType.code.in_(tuple(types)),
         SysDictType.status == "enabled",
         SysDictType.deleted_at.is_(None),
     )
     type_rows = list((await session.execute(stmt_types)).scalars().all())
     if not type_rows:
         return ConcurrentStableDict()
-    id_to_type = {row.id: row.type for row in type_rows}
+    id_to_type = {row.id: row.code for row in type_rows}
     type_ids = tuple(id_to_type.keys())
     conditions: ConcurrentStableList[ColumnElement[bool]] = ConcurrentStableList(
         [
-            SysDictItem.type_id.in_(type_ids),
+            SysDictItem.dict_type_id.in_(type_ids),
             SysDictItem.status == "enabled",
             SysDictItem.deleted_at.is_(None),
         ]
@@ -409,14 +409,14 @@ async def _query_batch(
             and_(SysDictItemI18n.dict_item_id == SysDictItem.id, SysDictItemI18n.locale == locale),
         )
         .where(*conditions)
-        .order_by(SysDictItem.type_id, SysDictItem.sort, SysDictItem.id)
+        .order_by(SysDictItem.dict_type_id, SysDictItem.sort, SysDictItem.id)
     )
     rows = (await session.execute(stmt)).all()
     pages: ConcurrentStableDict[str, tuple[ConcurrentStableList[DictItem], int]] = ConcurrentStableDict(
         {name: (ConcurrentStableList(), 0) for name in types}
     )
     for item, i18n_label in rows:
-        name = id_to_type.get(item.type_id)
+        name = id_to_type.get(item.dict_type_id)
         if name is None:
             continue
         items, total = pages[name]
@@ -443,13 +443,13 @@ async def _query_labels(
         ConcurrentStableDict[str, str]: value → label（仅命中项）。
     """
     stmt = (
-        select(SysDictItem.value, SysDictItem.label, SysDictItemI18n.label)
+        select(SysDictItem.value, SysDictItem.name, SysDictItemI18n.label)
         .outerjoin(
             SysDictItemI18n,
             and_(SysDictItemI18n.dict_item_id == SysDictItem.id, SysDictItemI18n.locale == locale),
         )
         .where(
-            SysDictItem.type_id == type_id,
+            SysDictItem.dict_type_id == type_id,
             SysDictItem.value.in_(tuple(values)),
             SysDictItem.status == "enabled",
             SysDictItem.deleted_at.is_(None),
@@ -474,7 +474,7 @@ def _item_conditions(type_id: int, query: DictQuery) -> ConcurrentStableList[Col
     """
     conditions: ConcurrentStableList[ColumnElement[bool]] = ConcurrentStableList(
         [
-            SysDictItem.type_id == type_id,
+            SysDictItem.dict_type_id == type_id,
             SysDictItem.status == "enabled",
             SysDictItem.deleted_at.is_(None),
         ]
@@ -484,7 +484,7 @@ def _item_conditions(type_id: int, query: DictQuery) -> ConcurrentStableList[Col
         pattern = f"%{keyword}%"
         conditions.add(
             or_(
-                SysDictItem.label.like(pattern),
+                SysDictItem.name.like(pattern),
                 SysDictItem.value.like(pattern),
                 SysDictItem.code.like(pattern),
             )
@@ -512,7 +512,7 @@ def _to_item(item: SysDictItem, i18n_label: str | None) -> DictItem:
     return DictItem(
         id=item.id,
         value=item.value,
-        label=str(i18n_label or item.label),
+        label=str(i18n_label or item.name),
         code=item.code,
         parent_id=item.parent_id,
         sort=item.sort,
