@@ -14,7 +14,17 @@
 # 配套：还原依赖.sh（搬回原位）、重装依赖.sh（还原→安装→再外置）。
 set -eu
 
-ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+ROOT="$(cd "$SCRIPT_DIR/../../.." 2>/dev/null && pwd || true)"
+
+# ---- 仓库根校验：脚本按「脚本位置上跳三级」定位仓库根，一旦调用时路径前缀重复
+#      （如已进入 bms 仓又写成 `bms/scripts/...`），ROOT 会被推深一层，软链随即被建到
+#      `<仓>/<仓名>/…` 幽灵目录。此处就地快速失败，不做任何建链动作。
+if [ -z "$ROOT" ] || [ ! -f "$ROOT/pnpm-workspace.yaml" ]; then
+    echo "[外置依赖] 仓库根定位失败：${ROOT:-（上跳三级目录不存在）} 下没有 pnpm-workspace.yaml" >&2
+    echo "[外置依赖] 请在 bms 仓根执行 bash scripts/tools/deps/外置依赖.sh，勿叠加仓名前缀。" >&2
+    exit 2
+fi
 cd "$ROOT"
 
 # ---- 解析本地依赖仓目录（环境变量 > deploy/.env > 缺省）----
@@ -50,17 +60,22 @@ run() {
 echo "[外置依赖] 本地依赖仓：$DEPS_DIR"
 
 tmp_list=$(mktemp)
-find . -type d -name node_modules -not -path '*/.pnpm/*' > "$tmp_list"
+# 只取真实目录（显式排除软链）：软链是「已外置」标记，不是待搬移的依赖目录
+find . -type d -not -type l -name node_modules -not -path '*/.pnpm/*' > "$tmp_list"
 count=0
 while IFS= read -r d; do
-    # 已外置（原位为符号链接且指向外部）则跳过
+    # 软链一律跳过：已外置的无需重复处理，指向他处的同样不能当目录搬走
     if [ -L "$d" ]; then
-        target=$(readlink "$d")
-        case "$target" in
-            "$DEPS_DIR"*) echo "[跳过] $d 已是外置符号链接" && continue ;;
-        esac
+        echo "[跳过] $d 是符号链接（已外置或非依赖目录）"
+        continue
     fi
     rel="${d#./}"
+    # 与仓库同名的嵌套目录＝路径前缀重复误建出的幽灵目录，跳过（防再次搬移污染依赖仓）
+    case "$rel" in
+        "$(basename "$ROOT")"/*)
+            echo "[跳过] $rel（位于与仓库同名的嵌套目录，疑似前缀重复误建）" >&2
+            continue ;;
+    esac
     dest="$DEPS_DIR/$rel"
     echo "[外置] $rel"
     count=$((count + 1))

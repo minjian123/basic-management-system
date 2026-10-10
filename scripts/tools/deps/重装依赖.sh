@@ -6,9 +6,16 @@
 #   不带参数        ：前后端一起重装（uv sync + pnpm install）
 set -eu
 
-ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
+SCRIPTS_DIR="$(cd "$(dirname "$0")" && pwd)"
+ROOT="$(cd "$SCRIPTS_DIR/../../.." 2>/dev/null && pwd || true)"
+
+# ---- 仓库根校验：路径前缀重复会把 ROOT 推深一层，后续 pnpm install / 外置都会落错位置。
+if [ -z "$ROOT" ] || [ ! -f "$ROOT/pnpm-workspace.yaml" ]; then
+    echo "[重装依赖] 仓库根定位失败：${ROOT:-（上跳三级目录不存在）} 下没有 pnpm-workspace.yaml" >&2
+    echo "[重装依赖] 请在 bms 仓根执行 bash scripts/tools/deps/重装依赖.sh，勿叠加仓名前缀。" >&2
+    exit 2
+fi
 cd "$ROOT"
-SCRIPTS_DIR="$(dirname "$0")"
 
 MODE="${1:-all}"
 case "$MODE" in

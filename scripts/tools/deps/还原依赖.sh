@@ -4,7 +4,17 @@
 # 用法：bms/scripts/tools/deps/还原依赖.sh [--dry-run]
 set -eu
 
-ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+ROOT="$(cd "$SCRIPT_DIR/../../.." 2>/dev/null && pwd || true)"
+
+# ---- 仓库根校验：脚本按「脚本位置上跳三级」定位仓库根，一旦调用时路径前缀重复
+#      （如已进入 bms 仓又写成 `bms/scripts/...`），ROOT 会被推深一层；此时「还原」
+#      会把依赖目录搬进幽灵目录，破坏依赖仓。此处就地快速失败。
+if [ -z "$ROOT" ] || [ ! -f "$ROOT/pnpm-workspace.yaml" ]; then
+    echo "[还原依赖] 仓库根定位失败：${ROOT:-（上跳三级目录不存在）} 下没有 pnpm-workspace.yaml" >&2
+    echo "[还原依赖] 请在 bms 仓根执行 bash scripts/tools/deps/还原依赖.sh，勿叠加仓名前缀。" >&2
+    exit 2
+fi
 cd "$ROOT"
 
 resolve_deps_dir() {
@@ -46,6 +56,11 @@ if [ -d "$DEPS_DIR" ]; then
         rel="${src#"$DEPS_DIR"/}"
         dst="$ROOT/$rel"
         if [ -L "$dst" ] && [ "$(readlink "$dst")" = "$src" ]; then
+            # 项目内父目录必须存在（不存在即路径错位，搬回会失败或落到意外位置）
+            if [ ! -d "$(dirname "$dst")" ]; then
+                echo "[跳过] $rel：项目内父目录不存在，疑似路径错位" >&2
+                continue
+            fi
             echo "[还原] $rel"
             count=$((count + 1))
             if [ "$DRY_RUN" = 1 ]; then continue; fi
