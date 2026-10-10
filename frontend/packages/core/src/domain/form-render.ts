@@ -71,6 +71,8 @@ export type FormWidget =
   | 'cascader'
   | 'tags'
   | 'captcha'
+  | 'i18n-name'
+  | 'i18n-text'
   | 'plain'
 
 /** 控件语义键全量（含未知回退 `plain`）。 */
@@ -97,6 +99,8 @@ export const FIELD_WIDGETS: readonly FormWidget[] = [
   'cascader',
   'tags',
   'captcha',
+  'i18n-name',
+  'i18n-text',
   'plain',
 ]
 
@@ -129,6 +133,10 @@ export const FIELD_WIDGET_MAP: Readonly<Record<string, FormWidget>> = {
   cascader: 'cascader',
   tags: 'tags',
   captcha: 'captcha',
+  'i18n-name': 'i18n-name',
+  i18n_name: 'i18n-name',
+  'i18n-text': 'i18n-text',
+  i18n_text: 'i18n-text',
 }
 
 /** 字段渲染状态（运行态确定值）。 */

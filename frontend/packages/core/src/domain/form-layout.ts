@@ -263,6 +263,8 @@ export interface FieldRenderAttrs {
   captchaScene?: CaptchaScene
   /** 只读（编辑态亦只读）。 */
   readonly?: boolean
+  /** 多语言文案单条长度上限（Unicode 码点；`i18n-name` / `i18n-text` 字段类型协作，缺省 128）。 */
+  i18nMaxLength?: number
   /** 隐藏（布局引用但默认不渲染）。 */
   hidden?: boolean
 }

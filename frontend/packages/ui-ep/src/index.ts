@@ -408,6 +408,16 @@ export {
 } from './composables/useBaseCaptcha'
 export { createHttpCaptchaSource, captchaSourceRegistry, registerCaptchaSource } from './utils/captchaSource'
 export {
+  createHttpI18nLocaleSource,
+  i18nLocaleSourceRegistry,
+  registerI18nLocaleSource,
+} from './utils/i18nLocaleSource'
+export {
+  useBaseMultilingualName,
+  type UseBaseMultilingualNameOptions,
+  type UseBaseMultilingualNameResult,
+} from './composables/useBaseMultilingualName'
+export {
   useBaseDictSelect,
   type DictSelectValue,
   type UseBaseDictSelectOptions,

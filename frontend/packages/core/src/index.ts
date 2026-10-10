@@ -374,6 +374,15 @@ export {
 } from './capabilities/dict-store'
 export { BaseDictSelect } from './capabilities/dict-select'
 export { BaseDictQuery } from './capabilities/dict-query'
+export { BaseMultilingualName } from './capabilities/i18n-name-field'
+export {
+  BaseI18nLocaleSource,
+  I18nLocaleSourceProvider,
+  I18nLocaleSourceRegistry,
+  type I18nLocaleSourceAdapter,
+  type I18nLocaleSourceFactory,
+  type I18nLocaleSourceOptions,
+} from './capabilities/i18n-locale-source'
 export { BaseColumnConfig, type ColumnSeed, type ColumnState } from './capabilities/column-config'
 export { BaseQueryScheme, type QueryCondition, type QueryScheme } from './capabilities/query-scheme'
 export { BaseFieldShell } from './capabilities/field-shell'
@@ -1135,6 +1144,48 @@ export {
   type I18nMessageItem,
   type MessagePage,
 } from './domain/i18n'
+export {
+  EMPTY_LOCALE_FILTER,
+  I18N_DEFAULT_TAG_TEXT,
+  I18N_DETAIL_EMPTY_TEXT,
+  I18N_DETAIL_HINT,
+  I18N_DETAIL_TITLE,
+  I18N_FALLBACK_PREFIX,
+  I18N_LOCALE_FAILED_TEXT,
+  I18N_NAME_COUNT_PREFIX,
+  I18N_NAME_MAX,
+  I18N_NAME_MISSING_PREFIX,
+  I18N_NAME_PLACEHOLDER,
+  I18N_NAME_PLACEHOLDER_HINT,
+  I18N_NAME_TOO_LONG_TEXT,
+  I18N_REQUIRED_EMPTY_PREFIX,
+  I18N_REQUIRED_TAG_TEXT,
+  I18N_ROW_MISSING_TEXT,
+  buildI18nPayload,
+  buildLocaleRows,
+  countFilled,
+  deriveDefaultText,
+  deriveMissingNameLocales,
+  fallbackHintText,
+  filterLocaleRows,
+  isBlankName,
+  isNamesEqual,
+  isRowBlank,
+  nameHintText,
+  normalizeLocaleOptions,
+  orderLocaleOptions,
+  resolveDefaultLocale,
+  resolveDisplayText,
+  resolveRequiredLocale,
+  validateI18nNames,
+  type I18nNameCheck,
+  type I18nNames,
+  type LocaleFilter,
+  type LocaleFilterMode,
+  type LocaleOption,
+  type LocaleOptionInput,
+  type LocaleRow,
+} from './domain/i18n-name'
 export {
   APPROVAL_ACTION_LABELS,
   APPROVAL_APPROVE_PERM,
