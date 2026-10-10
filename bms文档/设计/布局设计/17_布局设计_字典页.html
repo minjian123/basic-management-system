@@ -70,8 +70,10 @@
       </p>
       <p>
         <strong>「所有字典数据」的界面同一模板</strong>：无论编辑哪一个字典类型、哪一条字典条目，界面都由
-        「详细信息 + 系统信息」两个 Tab 组成；<strong>详细信息的第一行固定为三个字典系统字段
-        Code（代码）/ Name（名称）/ State（状态）</strong>，三列等宽、顺序固定，其后才排该记录类型的其余字段。
+        「详细信息 + 系统信息」两个 Tab 组成；<strong>详细信息的第一行固定为三个字典系统字段，标识为
+        <code>Code</code> / <code>Name</code> / <code>State</code></strong>（与数据库列一一对齐），三列等宽、顺序固定，
+        其后才排该记录类型的其余字段。<strong>列标题（界面上显示的字段名）不写死</strong>——按具体需求显示（如「编码 / 名称 / 状态」「类型编码 / 显示名称 / 启用状态」等），
+        但<strong>标识与顺序不变</strong>。
         字典域模型与页面清单见《<a href="../概要设计/09_概要设计_字典管理.md">概要设计 · 字典管理</a>》§4 / §8，
         字段语义与多语言（类型 <code>name</code> / 条目 <code>label</code> 走 <code>_i18n</code> 附表）见同文档 §2.2 / §4.1。
       </p>
@@ -90,7 +92,7 @@
           <div class="d-sub" style="margin-top:.4rem">
             <div><strong>详细信息</strong>（首行三字段 + 其余字段 + 明细区）</div>
             <div class="d-subtab">
-              <strong>首行（三列，固定）</strong>：Code（代码） │ Name（名称） │ State（状态）<br>
+              <strong>首行（三列，标识固定）</strong>：<code>Code</code> │ <code>Name</code> │ <code>State</code>（列标题按需求显示，标识与数据库列对齐）<br>
               其余字段（三列栅格，按记录种类）：类型 = 排序等；条目 = 值 / 语义色 / 上级 / 排序 / 扩展属性<br>
               明细区：类型记录下挂「条目」明细 Tab（行内编辑，仅编辑态可用）；条目记录无明细
             </div>
@@ -109,23 +111,23 @@
 
       <h3 id="sys-fields">2.2 详细信息：首行三个字典系统字段</h3>
       <div class="diagram" style="max-width:720px">
-        <div class="d-box d-title">详细信息 · 第一行（el-form label-position="top" · 三列栅格，固定顺序）</div>
+        <div class="d-box d-title">详细信息 · 第一行（el-form label-position="top" · 三列栅格，标识与顺序固定）</div>
         <div class="d-box d-body" style="padding:12px">
           <div class="sys-grid3">
-            <div class="sys-cell3"><div class="f-label">Code（代码）</div><div class="f-input"></div></div>
-            <div class="sys-cell3"><div class="f-label">Name（名称）</div><div class="f-input"></div></div>
-            <div class="sys-cell3"><div class="f-label">State（状态）</div>
+            <div class="sys-cell3"><div class="f-label">Code</div><div class="f-input"></div></div>
+            <div class="sys-cell3"><div class="f-label">Name</div><div class="f-input"></div></div>
+            <div class="sys-cell3"><div class="f-label">State</div>
               <span class="dict-switch on"><span class="knob"></span>启用</span>
             </div>
           </div>
         </div>
-        <div class="d-box d-note">首行三列等宽（el-col :span="8"）· 顺序固定 Code → Name → State · 与同排字段同高对齐（多语言文案字段恒占一行，不逐语言铺开）</div>
+        <div class="d-box d-note">标识固定 Code → Name → State（与数据库列对齐）· 列标题按需求显示（图上即用标识示意）· 三列等宽（el-col :span="8"）· 与同排字段同高对齐（多语言文案字段恒占一行，不逐语言铺开）</div>
       </div>
       <ul>
-        <li><strong>首行固定</strong>：Code（代码）、Name（名称）、State（状态）三列，顺序与列宽固定，任何字典记录页都不得调换或省略；三字段是字典数据的<strong>系统字段</strong>（区别于各记录类型的其余业务字段）。</li>
-        <li><strong>字段落点</strong>：字典类型记录 → Code = <code>sys_dict_type.type</code>、Name = <code>sys_dict_type.name</code>（<code>sys_dict_type_i18n.label</code>）、State = <code>sys_dict_type.status</code>；字典条目记录 → Code = <code>sys_dict_item.code</code>、Name = <code>sys_dict_item.label</code>（<code>sys_dict_item_i18n.label</code>）、State = <code>sys_dict_item.status</code>。两级记录字段名不同但<strong>显示口径一致</strong>（同一模板）。</li>
-        <li><strong>具体显示按需求</strong>：三字段的控件形态可按模块需求选取，取值见 §3 表（如 Code 只读文本 / 新建时可填；Name 统一用多语言文案字段；State 用状态开关或下拉）。</li>
-        <li>字段标签按当前 locale 下发（<code>sys_field_i18n</code> 口径），前端不硬编码「代码 / 名称 / 状态」以外的文案。</li>
+        <li><strong>标识与顺序固定</strong>：三列的<strong>字段标识</strong>恒为 <code>Code</code> / <code>Name</code> / <code>State</code>，顺序与列宽固定，任何字典记录页都不得调换、改名或省略；三字段是字典数据的<strong>系统字段</strong>（区别于各记录类型的其余业务字段）。</li>
+        <li><strong>标识与数据库列一一对齐</strong>：字典类型记录 → <code>Code</code> = <code>sys_dict_type.type</code>、<code>Name</code> = <code>sys_dict_type.name</code>（<code>sys_dict_type_i18n.label</code>）、<code>State</code> = <code>sys_dict_type.status</code>；字典条目记录 → <code>Code</code> = <code>sys_dict_item.code</code>、<code>Name</code> = <code>sys_dict_item.label</code>（<code>sys_dict_item_i18n.label</code>）、<code>State</code> = <code>sys_dict_item.status</code>。两级记录列名不同，但<strong>标识与显示口径一致</strong>（同一模板）。</li>
+        <li><strong>列标题按需求显示</strong>：界面上显示的字段名<strong>不写死</strong>为「代码 / 名称 / 状态」——按具体需求取用（如类型侧「类型编码 / 类型名称 / 状态」、条目侧「条目编码 / 条目名称 / 状态」，或统一「编码 / 名称 / 状态」）；标题文案由字段元数据下发（见 §5），前端不硬编码，且<strong>改标题不改标识</strong>（接口字段、提交载荷与数据库列一律以标识 / 列名为准）。</li>
+        <li><strong>控件形态按需求</strong>：三字段的控件形态可按模块需求选取，取值见 §3 表（如 Code 只读文本 / 新建时可填；Name 统一用多语言文案字段；State 用状态开关或下拉）。</li>
       </ul>
 
       <h3 id="rest-fields">2.3 详细信息：其余字段</h3>
@@ -178,12 +180,14 @@
       </ul>
 
       <h2 id="display">3. 首行三字段显示口径</h2>
-      <p>三字段为字典数据系统字段，<strong>术语与顺序固定</strong>，控件形态「具体显示按需求」按下表选取；同一模块内应保持一致。</p>
+      <p>三字段为字典数据系统字段：<strong>标识固定</strong>（<code>Code</code> / <code>Name</code> / <code>State</code>，与数据库列一一对齐）、<strong>列标题与控件形态按需求</strong>；按下表选取，同一模块内保持一致。</p>
       <table>
-        <tr><th>字段</th><th>语义</th><th>可选显示口径（按需求）</th><th>约束</th></tr>
+        <tr><th>字段标识（固定）</th><th>数据库列（一一对齐）</th><th>语义</th><th>标题（按需求显示）</th><th>可选显示口径（按需求）</th><th>约束</th></tr>
         <tr>
-          <td>Code（代码）</td>
+          <td><code>Code</code></td>
+          <td>类型 <code>sys_dict_type.type</code> / 条目 <code>sys_dict_item.code</code></td>
           <td>稳定标识：类型编码 / 条目编码</td>
+          <td>「编码」「代码」「类型编码」「条目编码」等（按需求）</td>
           <td>
             ① 只读文本（默认，一经发布稳定不变）；<br>
             ② 新建态可填 + 编辑态只读（推荐：新建时可填、保存后锁定）；<br>
@@ -192,8 +196,10 @@
           <td>唯一（类型 <code>type</code> 全局唯一；条目 <code>code</code> 同类型内唯一）；字母数字与下划线；保存后不随显示形态变化</td>
         </tr>
         <tr>
-          <td>Name（名称）</td>
+          <td><code>Name</code></td>
+          <td>类型 <code>sys_dict_type.name</code> / 条目 <code>sys_dict_item.label</code>（均带 <code>_i18n</code> 附表）</td>
           <td>展示名称：类型名 / 条目名</td>
+          <td>「名称」「显示名称」「翻译名」「类型名称」「条目名称」等（按需求）</td>
           <td>
             ① <strong>多语言文案字段</strong>（默认，推荐）——表单里恒占一行：文本框就地编辑必填语言（＝当前登录用户语言）文案 + 图标按钮开多语言明细弹框；<br>
             ② 单语言输入框（仅无需多语言的内部字典）
@@ -201,8 +207,10 @@
           <td>启用语言中的必填语言必填；其余语言可缺省并按默认文案回退；禁止写死「中文名称 / 英文名称」或用逐语言铺开占满表单（见 §5）</td>
         </tr>
         <tr>
-          <td>State（状态）</td>
+          <td><code>State</code></td>
+          <td>类型 / 条目 <code>status</code></td>
           <td>启用 / 停用</td>
+          <td>「状态」「启用状态」「启用 / 停用」等（按需求）</td>
           <td>
             ① 状态开关（<code>el-switch</code>，默认，编辑态可用、只读态以状态标签回显）；<br>
             ② 状态下拉（启用 / 停用，需与其它字段同栅格对齐时）；<br>
@@ -263,7 +271,8 @@
       <h2 id="checklist">8. 检查清单</h2>
       <ul>
         <li>□ 信息栏（详细信息 / 系统信息）结构正确，与表单页同位置同交互</li>
-        <li>□ 详细信息<strong>第一行</strong>为 Code（代码）/ Name（名称）/ State（状态）三列，顺序与列宽固定、无字段插队</li>
+        <li>□ 详细信息<strong>第一行</strong>为三个字典系统字段：<strong>标识固定为 <code>Code</code> / <code>Name</code> / <code>State</code></strong>（与数据库列一一对齐），顺序与列宽固定、无字段插队</li>
+        <li>□ 三字段<strong>列标题按需求显示</strong>（不写死「代码 / 名称 / 状态」，由字段元数据下发；改标题不改标识，接口与提交载荷以标识为准）</li>
         <li>□ 三字段显示口径按模块需求选定且同模块内一致（Code 只读或新建可填；Name 用多语言文案字段；State 开关 / 下拉 / 状态标签）</li>
         <li>□ 其余字段（类型：排序；条目：值 / 语义色 / 上级 / 排序 / 扩展属性）一律排在首行之后，三列栅格、长字段跨整行</li>
         <li>□ 类型记录的条目明细区按表格明细口径（行内编辑、随主表整体提交）</li>
@@ -277,7 +286,7 @@
     </main>
 
     <footer>
-      依《<a href="../../规范/文档生成规范.md">文档生成规范</a>》编写 · 与《<a href="08_布局设计_表单页.html">08-布局设计-表单页</a>》《<a href="09_布局设计_表格明细.html">09-布局设计-表格明细</a>》《<a href="../概要设计/09_概要设计_字典管理.md">09-概要设计-字典管理</a>》配套 · 生成日期：2026-10-10
+      依《<a href="../../规范/文档生成规范.md">文档生成规范</a>》编写 · 与《<a href="08_布局设计_表单页.html">08-布局设计-表单页</a>》《<a href="09_布局设计_表格明细.html">09-布局设计-表格明细</a>》《<a href="../概要设计/09_概要设计_字典管理.md">09-概要设计-字典管理</a>》配套 · 生成日期：2026-10-10 · 修订日期：2026-10-10（首行三字段口径细化：<strong>标识固定 <code>Code</code> / <code>Name</code> / <code>State</code> 且与数据库列一一对齐，列标题按需求显示</strong>）
     </footer>
   </div>
 
