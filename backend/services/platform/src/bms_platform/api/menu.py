@@ -9,6 +9,7 @@
 - **动态菜单**：`GET /api/v1/menus/my` 登录即可访问，按当前用户权限过滤菜单树并下发表单元数据。
 """
 
+from collections.abc import AsyncGenerator
 from typing import Annotated, cast
 
 from fastapi import Depends, Query, Request
@@ -27,6 +28,7 @@ from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.db.session import DbSession
 from bms_core.db.tenant import current_tenant_id_str
 from bms_core.db.unit_of_work import UnitOfWork
+from bms_core.dict.sql import current_dict_locale
 from bms_core.i18n.base import DEFAULT_LOCALE, SUPPORTED_LOCALES
 from bms_core.menu import DEFAULT_MENU_TREE_CACHE_TTL, MENU_TREE_CACHE_TTL_KEY
 from bms_core.outbox.base import BaseOutboxStore
@@ -68,47 +70,66 @@ from bms_platform.schemas.menu import (
 from bms_platform.services.menu import MenuMetadataService
 from bms_platform.services.my_menu import MyMenuService
 
+
+async def _locale_scope(request: Request) -> AsyncGenerator[None]:
+    """请求语言作用域（路由级依赖）：设置 `current_dict_locale`，请求结束复位。
+
+    菜单域写路径的**必填语言**（＝请求语言）与元数据缓存失效所用缓存键语言均据此解析。
+
+    Args:
+        request: 请求对象（取 `Accept-Language`）。
+
+    Yields:
+        None: 作用域内请求语言生效。
+    """
+    token = current_dict_locale.set(_accept_locale(request))
+    try:
+        yield
+    finally:
+        current_dict_locale.reset(token)
+
+
 menu_router = BaseRouter(
     key="sys_menus",
     prefix="/menus",
     tags=["menu"],
-    dependencies=[Depends(require_auth)],
+    dependencies=[Depends(require_auth), Depends(_locale_scope)],
 )
 form_router = BaseRouter(
     key="sys_forms",
     prefix="/forms",
     tags=["menu"],
-    dependencies=[Depends(require_auth)],
+    dependencies=[Depends(require_auth), Depends(_locale_scope)],
 )
 button_router = BaseRouter(
     key="sys_buttons",
     prefix="/buttons",
     tags=["menu"],
-    dependencies=[Depends(require_auth)],
+    dependencies=[Depends(require_auth), Depends(_locale_scope)],
 )
 field_router = BaseRouter(
     key="sys_fields",
     prefix="/fields",
     tags=["menu"],
-    dependencies=[Depends(require_auth)],
+    dependencies=[Depends(require_auth), Depends(_locale_scope)],
 )
 business_router = BaseRouter(
     key="sys_businesses",
     prefix="/businesses",
     tags=["menu"],
-    dependencies=[Depends(require_auth)],
+    dependencies=[Depends(require_auth), Depends(_locale_scope)],
 )
 action_router = BaseRouter(
     key="sys_actions",
     prefix="/actions",
     tags=["menu"],
-    dependencies=[Depends(require_auth)],
+    dependencies=[Depends(require_auth), Depends(_locale_scope)],
 )
 permission_router = BaseRouter(
     key="sys_permissions",
     prefix="/permissions",
     tags=["menu"],
-    dependencies=[Depends(require_auth)],
+    dependencies=[Depends(require_auth), Depends(_locale_scope)],
 )
 
 UowDep = Annotated[UnitOfWork, Depends(get_platform_uow)]
@@ -197,11 +218,12 @@ async def _tree_ttl(config: BaseConfigSource) -> int:
     return max(1, value)
 
 
-def _menu_item(row: SysMenu) -> MenuItem:
-    """菜单记录 → 契约行。
+def _menu_item(row: SysMenu, i18n: ConcurrentStableDict[str, str]) -> MenuItem:
+    """菜单记录 → 契约行（出参含完整多语言映射）。
 
     Args:
         row: 菜单记录。
+        i18n: 该菜单的多语言文案映射（含必填语言回填）。
 
     Returns:
         MenuItem: 菜单契约行。
@@ -216,7 +238,7 @@ def _menu_item(row: SysMenu) -> MenuItem:
         sort=row.sort,
         hidden=row.hidden,
         status=row.status,
-        i18n=ConcurrentStableDict(),
+        i18n=i18n,
     )
 
 
@@ -261,11 +283,12 @@ def _button_item(row: SysButton) -> ButtonItem:
     )
 
 
-def _field_item(row: SysField) -> FieldItem:
-    """字段记录 → 契约行。
+def _field_item(row: SysField, i18n: ConcurrentStableDict[str, str]) -> FieldItem:
+    """字段记录 → 契约行（出参含完整多语言映射）。
 
     Args:
         row: 字段记录。
+        i18n: 该字段的多语言文案映射（含必填语言回填）。
 
     Returns:
         FieldItem: 字段契约行。
@@ -278,7 +301,7 @@ def _field_item(row: SysField) -> FieldItem:
         type=row.type,
         sort=row.sort,
         status=row.status,
-        i18n=ConcurrentStableDict(),
+        i18n=i18n,
     )
 
 
@@ -344,7 +367,8 @@ async def create_menu(req: MenuCreateRequest, uow: UowDep, outbox: OutboxDep, ca
     Returns:
         ApiResponse: 统一响应，data 为菜单行。
     """
-    return ApiResponse.ok(_menu_item(await _service(uow, outbox, cache).create_menu(req)))
+    row, i18n = await _service(uow, outbox, cache).create_menu(req)
+    return ApiResponse.ok(_menu_item(row, i18n))
 
 
 @menu_router.put("/{menu_id}", dependencies=[_REQUIRE_MENU_UPDATE])
@@ -363,7 +387,8 @@ async def update_menu(
     Returns:
         ApiResponse: 统一响应，data 为更新后的菜单行。
     """
-    return ApiResponse.ok(_menu_item(await _service(uow, outbox, cache).update_menu(menu_id, req)))
+    row, i18n = await _service(uow, outbox, cache).update_menu(menu_id, req)
+    return ApiResponse.ok(_menu_item(row, i18n))
 
 
 @menu_router.delete("/{menu_id}", dependencies=[_REQUIRE_MENU_DELETE])
@@ -589,16 +614,15 @@ async def create_field(
     Returns:
         ApiResponse: 统一响应，data 为字段行。
     """
-    row = await _service(uow, outbox, cache).create_field(
+    row, i18n = await _service(uow, outbox, cache).create_field(
         form_id=req.form_id,
         field_key=req.field_key,
-        name=req.name,
         type=req.type,
         sort=req.sort,
         status=req.status,
         i18n=req.i18n,
     )
-    return ApiResponse.ok(_field_item(row))
+    return ApiResponse.ok(_field_item(row, i18n))
 
 
 @field_router.put("/{field_id}", dependencies=[_REQUIRE_MENU_UPDATE])
@@ -617,10 +641,10 @@ async def update_field(
     Returns:
         ApiResponse: 统一响应，data 为更新后的字段行。
     """
-    row = await _service(uow, outbox, cache).update_field(
-        field_id, name=req.name, type=req.type, sort=req.sort, status=req.status, i18n=req.i18n
+    row, i18n = await _service(uow, outbox, cache).update_field(
+        field_id, type=req.type, sort=req.sort, status=req.status, i18n=req.i18n
     )
-    return ApiResponse.ok(_field_item(row))
+    return ApiResponse.ok(_field_item(row, i18n))
 
 
 @field_router.delete("/{field_id}", dependencies=[_REQUIRE_MENU_DELETE])

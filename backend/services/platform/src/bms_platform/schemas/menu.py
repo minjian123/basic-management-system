@@ -14,7 +14,6 @@ from pydantic import Field
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.schemas.base import (
     CONTRACT_COLLECTION,
-    CONTRACT_STABLE_DICT,
     CONTRACT_STABLE_LIST,
     BaseSchema,
 )
@@ -33,31 +32,29 @@ ButtonType = Literal["toolbar", "interface"]
 
 
 class MenuCreateRequest(BaseSchema):
-    """新增菜单请求（含 i18n 名称）。"""
+    """新增菜单请求（只提交多语言文案映射；主表默认文案由服务端按优先级派生）。"""
 
     parent_id: int = Field(default=0, ge=0, description="父菜单 ID（0 为根）")
-    name: str = Field(min_length=1, max_length=128, description="菜单名（默认文案）")
     path: str = Field(min_length=1, max_length=255, description="前端路由路径（/ 开头）")
     component: str | None = Field(default=None, max_length=255, description="视图组件标识（可空 = 目录节点）")
     icon: str | None = Field(default=None, max_length=64, description="完整 icon key")
     sort: int = Field(default=0, description="同级排序（升序）")
     hidden: bool = Field(default=False, description="仅隐藏侧栏入口（权限仍生效）")
     status: EnabledStatus = Field(default="enabled", description="状态（enabled/disabled）")
-    i18n: I18nNames = Field(default_factory=CONTRACT_STABLE_DICT, description="多语言名称（locale → 文案）")
+    i18n: I18nNames = Field(description="多语言文案映射（locale → 文案）；必含请求语言（登录用户语言）的文案")
 
 
 class MenuUpdateRequest(BaseSchema):
-    """更新菜单请求（整体替换）。"""
+    """更新菜单请求（整体替换；只提交多语言文案映射）。"""
 
     parent_id: int = Field(ge=0, description="父菜单 ID（0 为根）")
-    name: str = Field(min_length=1, max_length=128, description="菜单名（默认文案）")
     path: str = Field(min_length=1, max_length=255, description="前端路由路径（/ 开头）")
     component: str | None = Field(default=None, max_length=255, description="视图组件标识")
     icon: str | None = Field(default=None, max_length=64, description="完整 icon key")
     sort: int = Field(default=0, description="同级排序（升序）")
     hidden: bool = Field(default=False, description="仅隐藏侧栏入口")
     status: EnabledStatus = Field(default="enabled", description="状态（enabled/disabled）")
-    i18n: I18nNames = Field(default_factory=CONTRACT_STABLE_DICT, description="多语言名称（locale → 文案）")
+    i18n: I18nNames = Field(description="多语言文案映射（locale → 文案）；必含请求语言（登录用户语言）的文案")
 
 
 class FormCreateRequest(BaseSchema):
@@ -104,25 +101,23 @@ class ButtonUpdateRequest(BaseSchema):
 
 
 class FieldCreateRequest(BaseSchema):
-    """新增字段请求。"""
+    """新增字段请求（只提交多语言文案映射）。"""
 
     form_id: int = Field(gt=0, description="所属表单 ID")
     field_key: str = Field(min_length=1, max_length=64, description="字段键（表单内唯一）")
-    name: str = Field(min_length=1, max_length=128, description="字段名（默认文案）")
     type: str = Field(min_length=1, max_length=32, description="字段类型（组件语义键）")
     sort: int = Field(default=0, description="同表内排序（升序）")
     status: EnabledStatus = Field(default="enabled", description="状态（enabled/disabled）")
-    i18n: I18nNames = Field(default_factory=CONTRACT_STABLE_DICT, description="多语言名称（locale → 文案）")
+    i18n: I18nNames = Field(description="多语言文案映射（locale → 文案）；必含请求语言（登录用户语言）的文案")
 
 
 class FieldUpdateRequest(BaseSchema):
-    """更新字段请求。"""
+    """更新字段请求（只提交多语言文案映射）。"""
 
-    name: str = Field(min_length=1, max_length=128, description="字段名（默认文案）")
     type: str = Field(min_length=1, max_length=32, description="字段类型（组件语义键）")
     sort: int = Field(default=0, description="同表内排序（升序）")
     status: EnabledStatus = Field(default="enabled", description="状态（enabled/disabled）")
-    i18n: I18nNames = Field(default_factory=CONTRACT_STABLE_DICT, description="多语言名称（locale → 文案）")
+    i18n: I18nNames = Field(description="多语言文案映射（locale → 文案）；必含请求语言（登录用户语言）的文案")
 
 
 # --------------------------------------------------------------------------- 元数据响应

@@ -88,14 +88,13 @@ async def _create_page(client: AsyncClient, path: str, name: str, en: str, busin
         _MENUS,
         json={
             "parent_id": 0,
-            "name": name,
             "path": path,
             "component": path.strip("/"),
             "icon": "el:document",
             "sort": 1,
             "hidden": False,
             "status": "enabled",
-            "i18n": {"en-US": en},
+            "i18n": {"zh-CN": name, "en-US": en},
         },
     )
     menu_id = int(menu.json()["data"]["id"])
@@ -123,10 +122,9 @@ async def test_my_menu_filters_marks_and_locale(client: AsyncClient) -> None:
         json={
             "form_id": form_id,
             "field_key": "username",
-            "name": "用户名",
             "type": "input",
             "sort": 1,
-            "i18n": {"en-US": "Username"},
+            "i18n": {"zh-CN": "用户名", "en-US": "Username"},
         },
     )
 
@@ -164,13 +162,13 @@ async def test_my_menu_hides_broken_disabled_keeps_hidden(client: AsyncClient) -
         _MENUS,
         json={
             "parent_id": 0,
-            "name": "隐藏页",
             "path": "/t-hidden",
             "component": None,
             "icon": None,
             "sort": 1,
             "hidden": True,
             "status": "enabled",
+            "i18n": {"zh-CN": "隐藏页"},
         },
     )
     hidden_id = int(hidden_menu.json()["data"]["id"])
@@ -182,13 +180,13 @@ async def test_my_menu_hides_broken_disabled_keeps_hidden(client: AsyncClient) -
 
     # 挂接链断裂：表单指向不存在的业务码（直插绕过校验）
     broken_menu = await client.post(
-        _MENUS, json={"parent_id": 0, "name": "断裂页", "path": "/t-broken2", "status": "enabled"}
+        _MENUS, json={"parent_id": 0, "path": "/t-broken2", "status": "enabled", "i18n": {"zh-CN": "断裂页"}}
     )
     await insert_form(int(broken_menu.json()["data"]["id"]), 999999999)
 
     # 菜单自身停用
     off_menu = await client.post(
-        _MENUS, json={"parent_id": 0, "name": "停用菜单", "path": "/t-off", "status": "disabled"}
+        _MENUS, json={"parent_id": 0, "path": "/t-off", "status": "disabled", "i18n": {"zh-CN": "停用菜单"}}
     )
     assert off_menu.json()["code"] == 0
 

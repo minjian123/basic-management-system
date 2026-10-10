@@ -2395,7 +2395,7 @@
       },
       "FieldCreateRequest": {
         "additionalProperties": false,
-        "description": "新增字段请求。",
+        "description": "新增字段请求（只提交多语言文案映射）。",
         "properties": {
           "field_key": {
             "description": "字段键（表单内唯一）",
@@ -2414,16 +2414,9 @@
             "additionalProperties": {
               "type": "string"
             },
-            "description": "多语言名称（locale → 文案）",
+            "description": "多语言文案映射（locale → 文案）；必含请求语言（登录用户语言）的文案",
             "title": "I18N",
             "type": "object"
-          },
-          "name": {
-            "description": "字段名（默认文案）",
-            "maxLength": 128,
-            "minLength": 1,
-            "title": "Name",
-            "type": "string"
           },
           "sort": {
             "default": 0,
@@ -2452,8 +2445,8 @@
         "required": [
           "form_id",
           "field_key",
-          "name",
-          "type"
+          "type",
+          "i18n"
         ],
         "title": "FieldCreateRequest",
         "type": "object"
@@ -2537,22 +2530,15 @@
       },
       "FieldUpdateRequest": {
         "additionalProperties": false,
-        "description": "更新字段请求。",
+        "description": "更新字段请求（只提交多语言文案映射）。",
         "properties": {
           "i18n": {
             "additionalProperties": {
               "type": "string"
             },
-            "description": "多语言名称（locale → 文案）",
+            "description": "多语言文案映射（locale → 文案）；必含请求语言（登录用户语言）的文案",
             "title": "I18N",
             "type": "object"
-          },
-          "name": {
-            "description": "字段名（默认文案）",
-            "maxLength": 128,
-            "minLength": 1,
-            "title": "Name",
-            "type": "string"
           },
           "sort": {
             "default": 0,
@@ -2579,8 +2565,8 @@
           }
         },
         "required": [
-          "name",
-          "type"
+          "type",
+          "i18n"
         ],
         "title": "FieldUpdateRequest",
         "type": "object"
@@ -3275,7 +3261,7 @@
       },
       "MenuCreateRequest": {
         "additionalProperties": false,
-        "description": "新增菜单请求（含 i18n 名称）。",
+        "description": "新增菜单请求（只提交多语言文案映射；主表默认文案由服务端按优先级派生）。",
         "properties": {
           "component": {
             "anyOf": [
@@ -3300,7 +3286,7 @@
             "additionalProperties": {
               "type": "string"
             },
-            "description": "多语言名称（locale → 文案）",
+            "description": "多语言文案映射（locale → 文案）；必含请求语言（登录用户语言）的文案",
             "title": "I18N",
             "type": "object"
           },
@@ -3316,13 +3302,6 @@
             ],
             "description": "完整 icon key",
             "title": "Icon"
-          },
-          "name": {
-            "description": "菜单名（默认文案）",
-            "maxLength": 128,
-            "minLength": 1,
-            "title": "Name",
-            "type": "string"
           },
           "parent_id": {
             "default": 0,
@@ -3356,8 +3335,8 @@
           }
         },
         "required": [
-          "name",
-          "path"
+          "path",
+          "i18n"
         ],
         "title": "MenuCreateRequest",
         "type": "object"
@@ -3475,7 +3454,7 @@
       },
       "MenuUpdateRequest": {
         "additionalProperties": false,
-        "description": "更新菜单请求（整体替换）。",
+        "description": "更新菜单请求（整体替换；只提交多语言文案映射）。",
         "properties": {
           "component": {
             "anyOf": [
@@ -3500,7 +3479,7 @@
             "additionalProperties": {
               "type": "string"
             },
-            "description": "多语言名称（locale → 文案）",
+            "description": "多语言文案映射（locale → 文案）；必含请求语言（登录用户语言）的文案",
             "title": "I18N",
             "type": "object"
           },
@@ -3516,13 +3495,6 @@
             ],
             "description": "完整 icon key",
             "title": "Icon"
-          },
-          "name": {
-            "description": "菜单名（默认文案）",
-            "maxLength": 128,
-            "minLength": 1,
-            "title": "Name",
-            "type": "string"
           },
           "parent_id": {
             "description": "父菜单 ID（0 为根）",
@@ -3556,8 +3528,8 @@
         },
         "required": [
           "parent_id",
-          "name",
-          "path"
+          "path",
+          "i18n"
         ],
         "title": "MenuUpdateRequest",
         "type": "object"

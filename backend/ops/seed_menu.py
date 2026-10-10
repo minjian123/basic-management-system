@@ -18,7 +18,10 @@ uv run python -m ops.seed_menu --dry-run
 - **产品管理面权限码（12_04）**：产品业务码与域级 / 专属动作码随产品接入登记（首例 mdm 组织域
   `org` 及其 `org:query` / `org:create` / `org:update` / `org:delete` / `org:move`）；
 - 建表分支兼容保留（Alembic 落库后由 `alembic -n alembic:platform:platform upgrade head` 建表；
-  SQLite 开发库由启动期自动建表）。
+  SQLite 开发库由启动期自动建表）；
+- **派生化口径（2026-10-10）**：主表默认文案列（`sys_menu.name` 等）是按**默认语言派生的快照**，
+  由服务端按「系统默认语言 → 必填语言 → 首个有值语言」派生；种子同时写主表与附表默认语言行，
+  写入后**断言两者一致**（不一致即视为双写漂移，直接失败）。
 """
 
 import argparse
@@ -328,19 +331,58 @@ async def _add_i18n(session: AsyncSession, model: Any, key: str, owner_id: int, 
     return created
 
 
-async def seed_menu(url: str) -> tuple[int, int]:
-    """建表并幂等写入菜单元数据种子。
+async def _verify_derived_names(session: AsyncSession) -> int:
+    """断言「主表默认文案 ≡ 附表默认语言文案」（派生化口径一致性）。
+
+    种子同时写主表 `name` 与附表 `zh-CN` 行；若两者不等，说明主表默认文案被某处单独改写
+    （双写漂移），直接失败以暴露问题，而不是静默留下不一致数据。
+
+    Args:
+        session: 数据库会话。
+
+    Returns:
+        int: 通过校验的行数（主表与附表默认语言行成对匹配数）。
+
+    Raises:
+        RuntimeError: 存在主表默认文案与附表默认语言文案不一致的行。
+    """
+    pairs: tuple[tuple[Any, Any, str], ...] = (
+        (SysBusiness, SysBusinessI18n, "business_id"),
+        (SysAction, SysActionI18n, "action_id"),
+        (SysMenu, SysMenuI18n, "menu_id"),
+        (SysField, SysFieldI18n, "field_id"),
+    )
+    checked = 0
+    problems: ConcurrentStableList[str] = ConcurrentStableList()
+    for model, i18n_model, key in pairs:
+        statement = (
+            select(model.id, model.name, i18n_model.name)
+            .join(i18n_model, getattr(i18n_model, key) == model.id)
+            .where(model.deleted_at.is_(None), i18n_model.locale == ZH, i18n_model.deleted_at.is_(None))
+        )
+        for owner_id, name, default_text in (await session.execute(statement)).all():
+            checked += 1
+            if str(default_text) != str(name):
+                problems.add(f"{model.__tablename__}#{owner_id}：主表 name={name!r} ≠ 附表 {ZH}={default_text!r}")
+    if problems:
+        raise RuntimeError("[seed_menu] 主表默认文案与派生结果不一致：" + "；".join(problems))
+    return checked
+
+
+async def seed_menu(url: str) -> tuple[int, int, int]:
+    """建表并幂等写入菜单元数据种子（写入后断言主表默认文案与附表默认语言一致）。
 
     Args:
         url: 平台库连接串。
 
     Returns:
-        tuple[int, int]: (新增行数, 跳过行数)。
+        tuple[int, int, int]: (新增行数, 跳过行数, 派生一致性校验通过行数)。
     """
     engine = create_async_engine(url)
     factory: async_sessionmaker[AsyncSession] = async_sessionmaker(engine, expire_on_commit=False)
     created = 0
     skipped = 0
+    checked = 0
     try:
         async with engine.begin() as connection:
             for table in _MENU_TABLES:
@@ -537,10 +579,11 @@ async def seed_menu(url: str) -> tuple[int, int]:
                     skipped += 1
                 created += await _add_i18n(session, SysFieldI18n, "field_id", existing_field.id, zh, en)
 
+            checked = await _verify_derived_names(session)
             await session.commit()
     finally:
         await engine.dispose()
-    return created, skipped
+    return created, skipped, checked
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -575,8 +618,9 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
             f"字段 {len(FIELD_SEEDS)}（dry-run）"
         )
         return 0
-    created, skipped = asyncio.run(seed_menu(url))
+    created, skipped, checked = asyncio.run(seed_menu(url))
     print(f"[seed_menu] 新增 {created} 行 / 跳过 {skipped} 行（幂等；重复执行新增为 0）")
+    print(f"[seed_menu] 主表默认文案 ≡ 附表 {ZH} 一致性校验通过 {checked} 行")
     return 0
 
 

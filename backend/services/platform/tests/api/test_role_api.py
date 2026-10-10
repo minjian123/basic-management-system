@@ -270,7 +270,7 @@ async def test_role_crud_assign_and_grant_flow(role_client: AsyncClient) -> None
     menu_id, form_id = await _create_form(client, "/t-role-api", business_id)
     field = await client.post(
         _FIELDS,
-        json={"form_id": form_id, "field_key": "code", "name": "角色码", "type": "input", "sort": 1},
+        json={"form_id": form_id, "field_key": "code", "type": "input", "sort": 1, "i18n": {"zh-CN": "角色码"}},
     )
     field_id = int(field.json()["data"]["id"])
 
@@ -374,7 +374,9 @@ async def _create_form(client: AsyncClient, path: str, business_id: int) -> tupl
     Returns:
         tuple[int, int]: (菜单 ID, 表单 ID)。
     """
-    menu = await client.post(_MENUS, json={"parent_id": 0, "name": "角色用例页", "path": path, "status": "enabled"})
+    menu = await client.post(
+        _MENUS, json={"parent_id": 0, "path": path, "status": "enabled", "i18n": {"zh-CN": "角色用例页"}}
+    )
     menu_id = int(menu.json()["data"]["id"])
     form = await client.post(_FORMS, json={"menu_ids": [menu_id], "business_id": business_id, "status": "enabled"})
     return menu_id, int(form.json()["data"]["id"])

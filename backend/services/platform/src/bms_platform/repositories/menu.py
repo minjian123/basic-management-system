@@ -61,6 +61,42 @@ async def _load_i18n(
     return ConcurrentStableDict({int(cast("int", row[0])): str(cast("str", row[1])) for row in rows})
 
 
+async def _load_i18n_all(
+    session: DbSession,
+    model: Any,
+    key_column: str,
+    owner_ids: ConcurrentStableList[int],
+) -> ConcurrentStableDict[int, ConcurrentStableDict[str, str]]:
+    """按主表 ID 集合装载**全部语言**的多语言文案（维护视图用：编辑需见全部语言与停用语言存量值）。
+
+    Args:
+        session: 数据库会话。
+        model: 多语言附表模型。
+        key_column: 主表 ID 列名（如 `menu_id`）。
+        owner_ids: 主表 ID 集合。
+
+    Returns:
+        ConcurrentStableDict[int, ConcurrentStableDict[str, str]]: 主表 ID → （locale → 文案）。
+    """
+    if not owner_ids:
+        return ConcurrentStableDict()
+    key_attr = getattr(model, key_column)
+    statement = select(key_attr, model.locale, model.name).where(
+        key_attr.in_(list(owner_ids)),
+        model.deleted_at.is_(None),
+    )
+    rows = (await session.execute(statement)).all()
+    result: ConcurrentStableDict[int, ConcurrentStableDict[str, str]] = ConcurrentStableDict()
+    for row in rows:
+        owner_id = int(cast("int", row[0]))
+        bucket = result.get(owner_id)
+        if bucket is None:
+            bucket = ConcurrentStableDict[str, str]()
+            result.set(owner_id, bucket)
+        bucket.set(str(cast("str", row[1])), str(cast("str", row[2])))
+    return result
+
+
 async def _replace_i18n(
     session: DbSession,
     model: Any,
@@ -112,6 +148,19 @@ class BusinessRepository(BaseDbRepository[SysBusiness]):
         """
         return await _load_i18n(self._session, SysBusinessI18n, "business_id", business_ids, locale)
 
+    async def list_i18n_all(
+        self, business_ids: ConcurrentStableList[int]
+    ) -> ConcurrentStableDict[int, ConcurrentStableDict[str, str]]:
+        """装载业务码**全部语言**文案（维护视图出参：语言清单驱动界面，出参须完整）。
+
+        Args:
+            business_ids: 业务码 ID 集合。
+
+        Returns:
+            ConcurrentStableDict[int, ConcurrentStableDict[str, str]]: 业务码 ID → （locale → 文案）。
+        """
+        return await _load_i18n_all(self._session, SysBusinessI18n, "business_id", business_ids)
+
 
 class ActionRepository(BaseDbRepository[SysAction]):
     """动作码字典仓储（`sys_action`）：全局动词，按主键列示与多语言装载。"""
@@ -138,6 +187,19 @@ class ActionRepository(BaseDbRepository[SysAction]):
             ConcurrentStableDict[int, str]: 动作码 ID → 文案。
         """
         return await _load_i18n(self._session, SysActionI18n, "action_id", action_ids, locale)
+
+    async def list_i18n_all(
+        self, action_ids: ConcurrentStableList[int]
+    ) -> ConcurrentStableDict[int, ConcurrentStableDict[str, str]]:
+        """装载动作码**全部语言**文案（维护视图出参）。
+
+        Args:
+            action_ids: 动作码 ID 集合。
+
+        Returns:
+            ConcurrentStableDict[int, ConcurrentStableDict[str, str]]: 动作码 ID → （locale → 文案）。
+        """
+        return await _load_i18n_all(self._session, SysActionI18n, "action_id", action_ids)
 
 
 class PermissionRepository(BaseDbRepository[SysPermission]):
@@ -207,6 +269,19 @@ class MenuRepository(BaseDbRepository[SysMenu]):
             ConcurrentStableDict[int, str]: 菜单 ID → 文案。
         """
         return await _load_i18n(self._session, SysMenuI18n, "menu_id", menu_ids, locale)
+
+    async def list_i18n_all(
+        self, menu_ids: ConcurrentStableList[int]
+    ) -> ConcurrentStableDict[int, ConcurrentStableDict[str, str]]:
+        """装载菜单**全部语言**文案（维护视图出参：多语言文案字段需按语言清单回显）。
+
+        Args:
+            menu_ids: 菜单 ID 集合。
+
+        Returns:
+            ConcurrentStableDict[int, ConcurrentStableDict[str, str]]: 菜单 ID → （locale → 文案）。
+        """
+        return await _load_i18n_all(self._session, SysMenuI18n, "menu_id", menu_ids)
 
     async def replace_i18n(self, menu_id: int, names: ConcurrentStableDict[str, str]) -> None:
         """整体替换菜单多语言文案。
@@ -445,6 +520,19 @@ class FieldRepository(BaseDbRepository[SysField]):
             ConcurrentStableDict[int, str]: 字段 ID → 文案。
         """
         return await _load_i18n(self._session, SysFieldI18n, "field_id", field_ids, locale)
+
+    async def list_i18n_all(
+        self, field_ids: ConcurrentStableList[int]
+    ) -> ConcurrentStableDict[int, ConcurrentStableDict[str, str]]:
+        """装载字段**全部语言**文案（维护视图出参）。
+
+        Args:
+            field_ids: 字段 ID 集合。
+
+        Returns:
+            ConcurrentStableDict[int, ConcurrentStableDict[str, str]]: 字段 ID → （locale → 文案）。
+        """
+        return await _load_i18n_all(self._session, SysFieldI18n, "field_id", field_ids)
 
     async def replace_i18n(self, field_id: int, names: ConcurrentStableDict[str, str]) -> None:
         """整体替换字段多语言文案。

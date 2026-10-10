@@ -4225,7 +4225,7 @@ export interface components {
         };
         /**
          * FieldCreateRequest
-         * @description 新增字段请求。
+         * @description 新增字段请求（只提交多语言文案映射）。
          */
         FieldCreateRequest: {
             /**
@@ -4240,16 +4240,11 @@ export interface components {
             form_id: number;
             /**
              * I18N
-             * @description 多语言名称（locale → 文案）
+             * @description 多语言文案映射（locale → 文案）；必含请求语言（登录用户语言）的文案
              */
-            i18n?: {
+            i18n: {
                 [key: string]: string;
             };
-            /**
-             * Name
-             * @description 字段名（默认文案）
-             */
-            name: string;
             /**
              * Sort
              * @description 同表内排序（升序）
@@ -4330,21 +4325,16 @@ export interface components {
         };
         /**
          * FieldUpdateRequest
-         * @description 更新字段请求。
+         * @description 更新字段请求（只提交多语言文案映射）。
          */
         FieldUpdateRequest: {
             /**
              * I18N
-             * @description 多语言名称（locale → 文案）
+             * @description 多语言文案映射（locale → 文案）；必含请求语言（登录用户语言）的文案
              */
-            i18n?: {
+            i18n: {
                 [key: string]: string;
             };
-            /**
-             * Name
-             * @description 字段名（默认文案）
-             */
-            name: string;
             /**
              * Sort
              * @description 同表内排序（升序）
@@ -4769,7 +4759,7 @@ export interface components {
         };
         /**
          * MenuCreateRequest
-         * @description 新增菜单请求（含 i18n 名称）。
+         * @description 新增菜单请求（只提交多语言文案映射；主表默认文案由服务端按优先级派生）。
          */
         MenuCreateRequest: {
             /**
@@ -4785,9 +4775,9 @@ export interface components {
             hidden: boolean;
             /**
              * I18N
-             * @description 多语言名称（locale → 文案）
+             * @description 多语言文案映射（locale → 文案）；必含请求语言（登录用户语言）的文案
              */
-            i18n?: {
+            i18n: {
                 [key: string]: string;
             };
             /**
@@ -4795,11 +4785,6 @@ export interface components {
              * @description 完整 icon key
              */
             icon?: string | null;
-            /**
-             * Name
-             * @description 菜单名（默认文案）
-             */
-            name: string;
             /**
              * Parent Id
              * @description 父菜单 ID（0 为根）
@@ -4901,7 +4886,7 @@ export interface components {
         };
         /**
          * MenuUpdateRequest
-         * @description 更新菜单请求（整体替换）。
+         * @description 更新菜单请求（整体替换；只提交多语言文案映射）。
          */
         MenuUpdateRequest: {
             /**
@@ -4917,9 +4902,9 @@ export interface components {
             hidden: boolean;
             /**
              * I18N
-             * @description 多语言名称（locale → 文案）
+             * @description 多语言文案映射（locale → 文案）；必含请求语言（登录用户语言）的文案
              */
-            i18n?: {
+            i18n: {
                 [key: string]: string;
             };
             /**
@@ -4927,11 +4912,6 @@ export interface components {
              * @description 完整 icon key
              */
             icon?: string | null;
-            /**
-             * Name
-             * @description 菜单名（默认文案）
-             */
-            name: string;
             /**
              * Parent Id
              * @description 父菜单 ID（0 为根）

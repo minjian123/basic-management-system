@@ -19,6 +19,7 @@ from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList,
 from bms_core.core.exceptions import (
     ConflictError,
     MenuFieldKeyConflictError,
+    MenuI18nRequiredError,
     MenuNotFoundError,
     MenuPathConflictError,
     MenuReferencedError,
@@ -30,7 +31,7 @@ from bms_core.db.tenant import current_tenant_id_str
 from bms_core.db.unit_of_work import UnitOfWork
 from bms_core.dict.sql import current_dict_locale
 from bms_core.events.base import EventEnvelope
-from bms_core.i18n.base import DEFAULT_LOCALE
+from bms_core.i18n.base import DEFAULT_LOCALE, SUPPORTED_LOCALES
 from bms_core.menu import menu_tree_key, menu_version_key
 from bms_core.outbox.base import BaseOutboxStore
 from bms_core.schemas.base import CONTRACT_COLLECTION, CONTRACT_STABLE_LIST, BaseSchema
@@ -79,6 +80,92 @@ CHANGED_MENU = "menu"
 CHANGED_FORM = "form"
 CHANGED_BUTTON = "button"
 CHANGED_FIELD = "field"
+
+
+def request_locale() -> str:
+    """当前请求语言（＝必填语言口径；不支持时回退系统默认语言）。
+
+    Returns:
+        str: 生效请求语言。
+    """
+    locale = current_dict_locale.get() or DEFAULT_LOCALE
+    return locale if locale in SUPPORTED_LOCALES else DEFAULT_LOCALE
+
+
+def clean_i18n(names: ConcurrentStableDict[str, str]) -> ConcurrentStableDict[str, str]:
+    """归一多语言文案映射（剔空白值；不改动语言集合，停用语言存量值原样保留）。
+
+    Args:
+        names: 语言标识 → 文案。
+
+    Returns:
+        ConcurrentStableDict[str, str]: 归一后的映射。
+    """
+    result: ConcurrentStableDict[str, str] = ConcurrentStableDict()
+    for locale, text in names.items():
+        value = (text or "").strip()
+        if value:
+            result.set(locale, value)
+    return result
+
+
+def require_i18n_name(names: ConcurrentStableDict[str, str], *, locale: str) -> None:
+    """必填语言校验（缺文案即拒绝）。
+
+    Args:
+        names: 归一后的多语言文案映射。
+        locale: 必填语言（请求语言）。
+
+    Raises:
+        MenuI18nRequiredError: 必填语言缺文案（40208）。
+    """
+    if not (names.get(locale) or ""):
+        raise MenuI18nRequiredError(f"缺少必填语言（{locale}）的文案")
+
+
+def derive_default_name(names: ConcurrentStableDict[str, str], *, required_locale: str) -> str:
+    """派生主表默认文案（系统默认语言 → 必填语言 → 首个有值语言）。
+
+    主表默认文案列是**派生快照**（供列表零关联展示与排序），不由调用方单独提交。
+
+    Args:
+        names: 归一后的多语言文案映射。
+        required_locale: 必填语言（请求语言）。
+
+    Returns:
+        str: 主表默认文案。
+
+    Raises:
+        MenuI18nRequiredError: 全部语言皆无文案（40208）。
+    """
+    for candidate in (DEFAULT_LOCALE, required_locale):
+        value = names.get(candidate) or ""
+        if value:
+            return value
+    for text in names.values():
+        if text:
+            return text
+    raise MenuI18nRequiredError("多语言文案为空：至少一种语言须有文案")
+
+
+def i18n_out(names: ConcurrentStableDict[str, str] | None, *, name: str, locale: str) -> ConcurrentStableDict[str, str]:
+    """出参多语言映射：完整语言映射 + 必填语言缺失时以主表默认文案回填（不改写存储）。
+
+    Args:
+        names: 该主表行的多语言文案映射（可空）。
+        name: 主表默认文案。
+        locale: 必填语言（请求语言）。
+
+    Returns:
+        ConcurrentStableDict[str, str]: 补全后的映射。
+    """
+    result: ConcurrentStableDict[str, str] = ConcurrentStableDict()
+    if names is not None:
+        for key, value in names.items():
+            result.set(key, value)
+    if not (result.get(locale) or ""):
+        result.set(locale, name)
+    return result
 
 
 class SnapshotButton(BaseSchema):
@@ -210,11 +297,12 @@ def _snapshot_form(
     )
 
 
-def _menu_item(row: SysMenu) -> MenuItem:
+def _menu_item(row: SysMenu, i18n: ConcurrentStableDict[str, str]) -> MenuItem:
     """菜单记录 → 契约行（不含子节点）。
 
     Args:
         row: 菜单记录。
+        i18n: 该菜单的多语言文案映射（含必填语言回填）。
 
     Returns:
         MenuItem: 菜单契约行。
@@ -229,7 +317,7 @@ def _menu_item(row: SysMenu) -> MenuItem:
         sort=row.sort,
         hidden=row.hidden,
         status=row.status,
-        i18n=ConcurrentStableDict(),
+        i18n=i18n,
     )
 
 
@@ -479,11 +567,18 @@ class MenuMetadataService(BaseFrameworkObject):
     async def list_menu_tree(self) -> MenuTree:
         """菜单树（平台维护视图，含 disabled 与 hidden）。
 
+        出参含每个菜单的**完整多语言映射**（多语言文案字段据此回显全部语言）；必填语言缺文案时以
+        主表默认文案回填，便于界面直接编辑而不出现空白格。
+
         Returns:
             MenuTree: 根级菜单列表（子节点嵌套）。
         """
         rows = await self._menus.list_all()
-        nodes = ConcurrentStableDict[int, MenuItem]({row.id: _menu_item(row) for row in rows})
+        locale = request_locale()
+        all_i18n = await self._menus.list_i18n_all(ConcurrentStableList(row.id for row in rows))
+        nodes = ConcurrentStableDict[int, MenuItem](
+            {row.id: _menu_item(row, i18n_out(all_i18n.get(row.id), name=row.name, locale=locale)) for row in rows}
+        )
         roots = ConcurrentStableList[MenuItem]()
         for row in rows:
             node = nodes[row.id]
@@ -553,7 +648,7 @@ class MenuMetadataService(BaseFrameworkObject):
         )
 
     async def list_fields(self, form_id: int | None) -> FieldList:
-        """字段清单（按表单过滤，可空 = 全部）。
+        """字段清单（按表单过滤，可空 = 全部；出参含各字段的完整多语言映射）。
 
         Args:
             form_id: 表单 ID；None 表示全部。
@@ -562,6 +657,8 @@ class MenuMetadataService(BaseFrameworkObject):
             FieldList: 字段清单。
         """
         rows = await self._fields.list_by_form(form_id) if form_id is not None else await self._fields.list_all()
+        locale = request_locale()
+        all_i18n = await self._fields.list_i18n_all(ConcurrentStableList(row.id for row in rows))
         return FieldList(
             items=ConcurrentStableList(
                 FieldItem(
@@ -572,19 +669,21 @@ class MenuMetadataService(BaseFrameworkObject):
                     type=row.type,
                     sort=row.sort,
                     status=row.status,
-                    i18n=ConcurrentStableDict(),
+                    i18n=i18n_out(all_i18n.get(row.id), name=row.name, locale=locale),
                 )
                 for row in rows
             )
         )
 
     async def list_businesses(self) -> BusinessList:
-        """业务码清单（纯资源维度；平台维护视图 / 租户只读）。
+        """业务码清单（纯资源维度；平台维护视图 / 租户只读；出参含完整多语言映射）。
 
         Returns:
             BusinessList: 业务码清单。
         """
         rows = await self._businesses.list_all()
+        locale = request_locale()
+        all_i18n = await self._businesses.list_i18n_all(ConcurrentStableList(row.id for row in rows))
         return BusinessList(
             items=ConcurrentStableList(
                 BusinessItem(
@@ -592,19 +691,21 @@ class MenuMetadataService(BaseFrameworkObject):
                     code=row.code,
                     name=row.name,
                     status=row.status,
-                    i18n=ConcurrentStableDict(),
+                    i18n=i18n_out(all_i18n.get(row.id), name=row.name, locale=locale),
                 )
                 for row in rows
             )
         )
 
     async def list_actions(self) -> ActionList:
-        """动作码清单（全局字典；平台维护视图 / 租户只读）。
+        """动作码清单（全局字典；平台维护视图 / 租户只读；出参含完整多语言映射）。
 
         Returns:
             ActionList: 动作码清单。
         """
         rows = await self._actions.list_all()
+        locale = request_locale()
+        all_i18n = await self._actions.list_i18n_all(ConcurrentStableList(row.id for row in rows))
         return ActionList(
             items=ConcurrentStableList(
                 ActionItem(
@@ -612,7 +713,7 @@ class MenuMetadataService(BaseFrameworkObject):
                     code=row.code,
                     name=row.name,
                     status=row.status,
-                    i18n=ConcurrentStableDict(),
+                    i18n=i18n_out(all_i18n.get(row.id), name=row.name, locale=locale),
                 )
                 for row in rows
             )
@@ -651,26 +752,31 @@ class MenuMetadataService(BaseFrameworkObject):
 
     # ------------------------------------------------------------------ 写（菜单）
 
-    async def create_menu(self, req: MenuCreateRequest) -> SysMenu:
-        """新增菜单（含 i18n 名称）。
+    async def create_menu(self, req: MenuCreateRequest) -> tuple[SysMenu, ConcurrentStableDict[str, str]]:
+        """新增菜单（只收多语言文案映射；主表默认文案由服务端派生）。
 
         Args:
             req: 新增请求。
 
         Returns:
-            SysMenu: 新建菜单。
+            tuple[SysMenu, ConcurrentStableDict[str, str]]: 新建菜单与该菜单的完整多语言映射（出参用）。
 
         Raises:
+            MenuI18nRequiredError: 缺少必填语言（请求语言）的文案（40208）。
             MenuPathConflictError: 路由路径已存在（40203）。
             MenuNotFoundError: 父菜单不存在（40201）。
         """
+        locale = request_locale()
+        names = clean_i18n(req.i18n)
+        require_i18n_name(names, locale=locale)
+        name = derive_default_name(names, required_locale=locale)
         async with self._uow.begin():
             await self._ensure_parent(req.parent_id)
             if await self._menus.get_by_path(req.path) is not None:
                 raise MenuPathConflictError(f"路由路径已存在：{req.path}")
             row = await self._menus.create(
                 parent_id=req.parent_id,
-                name=req.name,
+                name=name,
                 path=req.path,
                 component=req.component,
                 icon=req.icon,
@@ -678,25 +784,30 @@ class MenuMetadataService(BaseFrameworkObject):
                 hidden=req.hidden,
                 status=req.status,
             )
-            await self._menus.replace_i18n(row.id, req.i18n)
+            await self._menus.replace_i18n(row.id, names)
             await self._publish_form_updated(form_id=None, menu_id=row.id, business_id=None, changed_type=CHANGED_MENU)
         await self.invalidate()
-        return row
+        return row, i18n_out(names, name=name, locale=locale)
 
-    async def update_menu(self, menu_id: int, req: MenuUpdateRequest) -> SysMenu:
-        """更新菜单（整体替换）。
+    async def update_menu(self, menu_id: int, req: MenuUpdateRequest) -> tuple[SysMenu, ConcurrentStableDict[str, str]]:
+        """更新菜单（整体替换；只收多语言文案映射，主表默认文案重新派生）。
 
         Args:
             menu_id: 菜单主键。
             req: 更新请求。
 
         Returns:
-            SysMenu: 更新后菜单。
+            tuple[SysMenu, ConcurrentStableDict[str, str]]: 更新后菜单与该菜单的完整多语言映射（出参用）。
 
         Raises:
+            MenuI18nRequiredError: 缺少必填语言（请求语言）的文案（40208）。
             MenuNotFoundError: 菜单不存在（40201）。
             MenuPathConflictError: 路由路径与他人冲突（40203）。
         """
+        locale = request_locale()
+        names = clean_i18n(req.i18n)
+        require_i18n_name(names, locale=locale)
+        name = derive_default_name(names, required_locale=locale)
         async with self._uow.begin():
             current = await self._menus.get(menu_id)
             if current is None:
@@ -708,7 +819,7 @@ class MenuMetadataService(BaseFrameworkObject):
             updated = await self._menus.update(
                 menu_id,
                 parent_id=req.parent_id,
-                name=req.name,
+                name=name,
                 path=req.path,
                 component=req.component,
                 icon=req.icon,
@@ -718,10 +829,10 @@ class MenuMetadataService(BaseFrameworkObject):
             )
             if updated is None:
                 raise MenuNotFoundError(f"菜单不存在：{menu_id}")
-            await self._menus.replace_i18n(menu_id, req.i18n)
+            await self._menus.replace_i18n(menu_id, names)
             await self._publish_form_updated(form_id=None, menu_id=menu_id, business_id=None, changed_type=CHANGED_MENU)
         await self.invalidate()
-        return updated
+        return updated, i18n_out(names, name=name, locale=locale)
 
     async def delete_menu(self, menu_id: int) -> None:
         """删除菜单（软删除；被表单 / 子菜单引用时拒绝）。
@@ -1025,30 +1136,33 @@ class MenuMetadataService(BaseFrameworkObject):
         *,
         form_id: int,
         field_key: str,
-        name: str,
         type: str,
         sort: int,
         status: str,
         i18n: ConcurrentStableDict[str, str],
-    ) -> SysField:
-        """新增字段（表单内字段键唯一）。
+    ) -> tuple[SysField, ConcurrentStableDict[str, str]]:
+        """新增字段（表单内字段键唯一；只收多语言文案映射，字段名由服务端派生）。
 
         Args:
             form_id: 表单 ID。
             field_key: 字段键。
-            name: 字段名。
             type: 字段类型。
             sort: 排序。
             status: 状态。
-            i18n: 多语言名称。
+            i18n: 多语言文案映射（必含请求语言文案）。
 
         Returns:
-            SysField: 新建字段。
+            tuple[SysField, ConcurrentStableDict[str, str]]: 新建字段与该字段的完整多语言映射（出参用）。
 
         Raises:
+            MenuI18nRequiredError: 缺少必填语言（请求语言）的文案（40208）。
             MenuNotFoundError: 表单不存在（40201）。
             MenuFieldKeyConflictError: 字段键在表单内重复（40205）。
         """
+        locale = request_locale()
+        names = clean_i18n(i18n)
+        require_i18n_name(names, locale=locale)
+        name = derive_default_name(names, required_locale=locale)
         async with self._uow.begin():
             form = await self._forms.get(form_id)
             if form is None:
@@ -1058,39 +1172,42 @@ class MenuMetadataService(BaseFrameworkObject):
             row = await self._fields.create(
                 form_id=form_id, field_key=field_key, name=name, type=type, sort=sort, status=status
             )
-            await self._fields.replace_i18n(row.id, i18n)
+            await self._fields.replace_i18n(row.id, names)
             await self._publish_form_updated(
                 form_id=form_id, menu_id=None, business_id=form.business_id, changed_type=CHANGED_FIELD
             )
         await self.invalidate()
-        return row
+        return row, i18n_out(names, name=name, locale=locale)
 
     async def update_field(
         self,
         field_id: int,
         *,
-        name: str,
         type: str,
         sort: int,
         status: str,
         i18n: ConcurrentStableDict[str, str],
-    ) -> SysField:
-        """更新字段。
+    ) -> tuple[SysField, ConcurrentStableDict[str, str]]:
+        """更新字段（只收多语言文案映射，字段名重新派生）。
 
         Args:
             field_id: 字段主键。
-            name: 字段名。
             type: 字段类型。
             sort: 排序。
             status: 状态。
-            i18n: 多语言名称。
+            i18n: 多语言文案映射（必含请求语言文案）。
 
         Returns:
-            SysField: 更新后字段。
+            tuple[SysField, ConcurrentStableDict[str, str]]: 更新后字段与该字段的完整多语言映射（出参用）。
 
         Raises:
+            MenuI18nRequiredError: 缺少必填语言（请求语言）的文案（40208）。
             MenuNotFoundError: 字段不存在（40201）。
         """
+        locale = request_locale()
+        names = clean_i18n(i18n)
+        require_i18n_name(names, locale=locale)
+        name = derive_default_name(names, required_locale=locale)
         async with self._uow.begin():
             current = await self._fields.get(field_id)
             if current is None:
@@ -1098,7 +1215,7 @@ class MenuMetadataService(BaseFrameworkObject):
             updated = await self._fields.update(field_id, name=name, type=type, sort=sort, status=status)
             if updated is None:
                 raise MenuNotFoundError(f"字段不存在：{field_id}")
-            await self._fields.replace_i18n(field_id, i18n)
+            await self._fields.replace_i18n(field_id, names)
             form = await self._forms.get(current.form_id)
             await self._publish_form_updated(
                 form_id=current.form_id,
@@ -1107,7 +1224,7 @@ class MenuMetadataService(BaseFrameworkObject):
                 changed_type=CHANGED_FIELD,
             )
         await self.invalidate()
-        return updated
+        return updated, i18n_out(names, name=name, locale=locale)
 
     async def delete_field(self, field_id: int) -> None:
         """删除字段（软删除）。
