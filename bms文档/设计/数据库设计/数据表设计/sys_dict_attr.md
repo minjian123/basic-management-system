@@ -24,10 +24,10 @@
 | `dict_type_id` | BIGINT | 否 | 逻辑引用 `sys_dict_type.id` | 字典类型 ID（2026-10-10 由 `type_id` 改名，见 02_08） · **系统字段**：主表 ID |
 | `attr_key` | VARCHAR(64) | 否 | 与 `(dict_type_id, deleted_at)` 复合唯一 | 属性键（高级查询字段 `attr.<key>`） |
 | `name` | VARCHAR(64) | 否 | — | 属性名（默认语言） |
-| `data_type` | VARCHAR(16) | 否 | — | 数据类型（text / number / date / enum / bool） |
+| `data_type` | VARCHAR(16) | 否 | — | 数据类型（text / number / date / bool） |
 | `operators` | JSON | 是 | — | 可用操作符集合（JSON 数组；空 = 按类型派生默认） |
 | `widget` | VARCHAR(32) | 是 | — | 值控件（text / number / date / select / switch） |
-| `options` | JSON | 是 | — | enum 选项集（JSON 数组） |
+| `options` | JSON | 是 | — | 选项集（JSON 数组） |
 | `sort` | INT | 否 | 默认 0 | 排序值 · **系统字段**：排序（通用可选） |
 | `status` | VARCHAR(16) | 否 | 默认 enabled | 状态（enabled / disabled） · **系统字段**：状态（通用可选） |
 | `scope` | VARCHAR(16) | 否 | 默认 platform | 属性来源（platform / tenant） |
@@ -40,6 +40,7 @@
 | `version` | INT | 否 | 默认 1 | 乐观锁版本 · **系统字段**：版本号 |
 
 - **待规范登记**：本表属字典域**扩展属性**，规范「系统字段」节字典清单当前只列「字典类型 / 字典条目」两级；本表 `attr_key`（属性键）与 `name`（属性名，走 `sys_dict_attr_i18n`）按本表口径，待规范补登记。
+- **口径变更（2026-10-10）**：`data_type` 取值去掉 `enum`（用不着，**需要时再补**）；`options` 列随之**暂不启用**（列保留）。
 
 ## 3. 索引与约束 <a id="index"></a>
 
