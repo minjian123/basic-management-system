@@ -197,7 +197,7 @@ describe('表单权限件与操作 / 字段面板', () => {
     const panel = mount(ActionPermissionPanel, {
       props: {
         actions: METADATA.actions,
-        entries: [{ permType: 'action', targetId: 'act:user:create', sourceMenuId: 'menu:user' }],
+        entries: [{ permType: 'permission', targetId: 'act:user:create', sourceMenuId: 'menu:user' }],
         sourceMenuId: '0',
       },
     })

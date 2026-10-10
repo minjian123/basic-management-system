@@ -9,7 +9,7 @@ import pytest
 import pytest_asyncio
 from httpx import AsyncClient
 
-from tests_support.menu_metadata import outbox_types, reset_menu_tables, seed_action, seed_business
+from tests_support.menu_metadata import outbox_types, reset_menu_tables, seed_business, seed_permission
 from tests_support.permission_admin import setup_min_tenant
 
 
@@ -40,6 +40,7 @@ _BUTTONS = "/api/v1/buttons"
 _FIELDS = "/api/v1/fields"
 _BUSINESSES = "/api/v1/businesses"
 _ACTIONS = "/api/v1/actions"
+_PERMISSIONS = "/api/v1/permissions"
 
 
 @pytest.mark.kiwi_id(2242)
@@ -115,7 +116,7 @@ async def test_menu_create_update_delete_and_conflicts(client: AsyncClient) -> N
 async def test_form_button_field_link_rules(client: AsyncClient) -> None:
     """表单 1:1、按钮同动作唯一、字段键唯一（40205）、被引用禁删（40206）。"""
     business_id = await seed_business("t_link")
-    action_id = await seed_action(business_id, "create", "新建")
+    permission_id = await seed_permission(business_id, "create", "新建")
 
     menu = await client.post(_MENUS, json={"parent_id": 0, "name": "挂接页", "path": "/t-link", "status": "enabled"})
     menu_id = int(menu.json()["data"]["id"])
@@ -166,17 +167,17 @@ async def test_form_button_field_link_rules(client: AsyncClient) -> None:
 
     button = await client.post(
         _BUTTONS,
-        json={"form_id": form_id, "action_id": action_id, "name": "新增", "type": "toolbar", "sort": 1},
+        json={"form_id": form_id, "permission_id": permission_id, "name": "新增", "type": "toolbar", "sort": 1},
     )
     assert button.json()["code"] == 0
 
     duplicate_button = await client.post(
-        _BUTTONS, json={"form_id": form_id, "action_id": action_id, "name": "新增2", "sort": 2}
+        _BUTTONS, json={"form_id": form_id, "permission_id": permission_id, "name": "新增2", "sort": 2}
     )
     assert duplicate_button.json()["code"] == 10003
 
     invalid_type = await client.post(
-        _BUTTONS, json={"form_id": form_id, "action_id": action_id, "name": "非法", "type": "bad"}
+        _BUTTONS, json={"form_id": form_id, "permission_id": permission_id, "name": "非法", "type": "bad"}
     )
     assert invalid_type.json()["code"] == 10001
 
@@ -209,20 +210,23 @@ async def test_form_button_field_link_rules(client: AsyncClient) -> None:
 
 
 @pytest.mark.kiwi_id(2242)
-async def test_business_action_read_lists(client: AsyncClient) -> None:
-    """业务 / 动作码只读列示：业务清单含直插业务码、动作清单按业务过滤。"""
+async def test_business_action_permission_read_lists(client: AsyncClient) -> None:
+    """业务 / 动作 / 权限码只读列示：业务清单含直插业务码、动作码为全局字典、权限码按业务过滤。"""
     business_id = await seed_business("t_read", "只读业务")
-    await seed_action(business_id, "query", "查询")
-    await seed_action(business_id, "manage", "管理")
+    await seed_permission(business_id, "query", "查询")
+    await seed_permission(business_id, "manage", "管理")
 
     businesses = await client.get(_BUSINESSES)
     assert businesses.json()["code"] == 0
     assert "t_read" in [item["code"] for item in businesses.json()["data"]["items"]]
 
-    actions = await client.get(_ACTIONS, params={"business_id": business_id})
+    actions = await client.get(_ACTIONS)
     assert sorted(item["code"] for item in actions.json()["data"]["items"]) == ["manage", "query"]
 
-    others = await client.get(_ACTIONS, params={"business_id": business_id + 1})
+    permissions = await client.get(_PERMISSIONS, params={"business_id": business_id})
+    assert sorted(item["code"] for item in permissions.json()["data"]["items"]) == ["t_read:manage", "t_read:query"]
+
+    others = await client.get(_PERMISSIONS, params={"business_id": business_id + 1})
     assert others.json()["data"]["items"] == []
 
 

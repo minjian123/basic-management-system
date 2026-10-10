@@ -5,12 +5,15 @@ Revises: 0006_sys_outbox_tenant_bigint
 Create Date: 2026-10-04
 
 - 归属链：`platform:platform`（`platform` 服务的平台服务库 `bms_platform`）；
-- 建 10 张表：`sys_business` / `sys_business_i18n` / `sys_action` / `sys_action_i18n` /
-  `sys_menu` / `sys_menu_i18n` / `sys_form` / `sys_button` / `sys_field` / `sys_field_i18n`；
+- 建 11 张表：`sys_business` / `sys_business_i18n` / `sys_action` / `sys_action_i18n` /
+  `sys_permission` / `sys_menu` / `sys_menu_i18n` / `sys_form` / `sys_button` / `sys_field` /
+  `sys_field_i18n`；
+- 三词分治（2026-10-10）：业务码（纯资源维度）与动作码（全局动词维度）各自成字典，
+  权限码 = `sys_permission`（业务码 × 动作码组合）；按钮 1:1 挂权限码；
 - 字段 / 索引口径与 ORM 模型（`bms_platform/models/menu.py`）逐项一致；
 - 公共字段对齐 `BaseModel`（雪花 ID / 审计 / 软删除 / 乐观锁）；
 - 四库兼容：不使用方言专用类型；索引命名对齐 `Base.metadata` 约定（`idx_{表}_{列}` / `uq_{表}_{列}`）；
-- 只建表，不写种子（MVP 元数据与业务 / 动作码经 `ops/seed_menu.py` 幂等 upsert）。
+- 只建表，不写种子（MVP 元数据与业务 / 动作 / 权限码经 `ops/seed_menu.py` 幂等 upsert）。
 """
 
 from collections.abc import Sequence
@@ -67,17 +70,15 @@ def upgrade() -> None:
     )
     op.create_index("idx_sys_business_i18n_deleted_at", "sys_business_i18n", ["deleted_at"])
 
-    # 动作权限码
+    # 动作码字典（全局动词维度）
     op.create_table(
         "sys_action",
         *_base_columns(),
         sa.Column("code", sa.String(length=64), nullable=False, comment="动作码（如 query/create/manage）"),
         sa.Column("name", sa.String(length=128), nullable=False, comment="名称（默认文案）"),
-        sa.Column("business_id", sa.BigInteger(), nullable=False, comment="归属业务码 ID（外键 → sys_business.id）"),
         sa.Column("status", sa.String(length=16), nullable=False, comment="状态（enabled/disabled）"),
-        sa.UniqueConstraint("business_id", "code", "deleted_at", name="uq_sys_action_business_code_deleted_at"),
+        sa.UniqueConstraint("code", "deleted_at", name="uq_sys_action_code_deleted_at"),
     )
-    op.create_index("idx_sys_action_business_id", "sys_action", ["business_id"])
     op.create_index("idx_sys_action_deleted_at", "sys_action", ["deleted_at"])
 
     op.create_table(
@@ -89,6 +90,21 @@ def upgrade() -> None:
         sa.UniqueConstraint("action_id", "locale", "deleted_at", name="uq_sys_action_i18n_action_locale_deleted_at"),
     )
     op.create_index("idx_sys_action_i18n_deleted_at", "sys_action_i18n", ["deleted_at"])
+
+    # 权限码（业务码 × 动作码组合）
+    op.create_table(
+        "sys_permission",
+        *_base_columns(),
+        sa.Column("business_id", sa.BigInteger(), nullable=False, comment="业务码 ID（逻辑外键 → sys_business.id）"),
+        sa.Column("action_id", sa.BigInteger(), nullable=False, comment="动作码 ID（逻辑外键 → sys_action.id）"),
+        sa.Column("status", sa.String(length=16), nullable=False, comment="状态（enabled/disabled）"),
+        sa.UniqueConstraint(
+            "business_id", "action_id", "deleted_at", name="uq_sys_permission_business_action_deleted_at"
+        ),
+    )
+    op.create_index("idx_sys_permission_business_id", "sys_permission", ["business_id"])
+    op.create_index("idx_sys_permission_action_id", "sys_permission", ["action_id"])
+    op.create_index("idx_sys_permission_deleted_at", "sys_permission", ["deleted_at"])
 
     # 菜单树
     op.create_table(
@@ -134,15 +150,17 @@ def upgrade() -> None:
         "sys_button",
         *_base_columns(),
         sa.Column("form_id", sa.BigInteger(), nullable=False, comment="所属表单 ID（逻辑外键 → sys_form.id）"),
-        sa.Column("action_id", sa.BigInteger(), nullable=False, comment="挂接动作码 ID（逻辑外键 → sys_action.id）"),
+        sa.Column(
+            "permission_id", sa.BigInteger(), nullable=False, comment="挂接权限码 ID（逻辑外键 → sys_permission.id）"
+        ),
         sa.Column("name", sa.String(length=128), nullable=False, comment="按钮名（界面可见文本）"),
         sa.Column("type", sa.String(length=16), nullable=False, comment="按钮形态（toolbar/interface）"),
         sa.Column("sort", sa.Integer(), nullable=False, comment="同表内排序（升序）"),
         sa.Column("status", sa.String(length=16), nullable=False, comment="状态（enabled/disabled）"),
-        sa.UniqueConstraint("form_id", "action_id", "deleted_at", name="uq_sys_button_form_action_deleted_at"),
+        sa.UniqueConstraint("form_id", "permission_id", "deleted_at", name="uq_sys_button_form_permission_deleted_at"),
     )
     op.create_index("idx_sys_button_form_id", "sys_button", ["form_id"])
-    op.create_index("idx_sys_button_action_id", "sys_button", ["action_id"])
+    op.create_index("idx_sys_button_permission_id", "sys_button", ["permission_id"])
     op.create_index("idx_sys_button_deleted_at", "sys_button", ["deleted_at"])
 
     op.create_table(
@@ -171,7 +189,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    """删菜单元数据十表（含索引）。"""
+    """删菜单元数据表（含索引）。"""
     for table in (
         "sys_field_i18n",
         "sys_field",
@@ -179,6 +197,7 @@ def downgrade() -> None:
         "sys_form",
         "sys_menu_i18n",
         "sys_menu",
+        "sys_permission",
         "sys_action_i18n",
         "sys_action",
         "sys_business_i18n",

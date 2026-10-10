@@ -124,11 +124,8 @@ def test_check_uses_snapshot_codes() -> None:
 
     checker = RbacPermissionChecker()
     codes: ConcurrentStableSet[str] = ConcurrentStableSet()
-    codes.add("menu")
-    actions: ConcurrentStableSet[str] = ConcurrentStableSet()
-    actions.add("role:grant")
-    set_current_permission_snapshot(PermissionSnapshot(tier=TIER_STANDARD, business_codes=codes, action_codes=actions))
-    assert checker.check("menu") is True
+    codes.add("role:grant")
+    set_current_permission_snapshot(PermissionSnapshot(tier=TIER_STANDARD, permission_codes=codes))
     assert checker.check("role:grant") is True
     assert checker.check("role:delete") is False
 
@@ -162,7 +159,7 @@ def test_guard_chain_can_deny_after_code_hit() -> None:
     checker = RbacPermissionChecker()
     actions: ConcurrentStableSet[str] = ConcurrentStableSet()
     actions.add("role:grant")
-    set_current_permission_snapshot(PermissionSnapshot(tier=TIER_STANDARD, action_codes=actions))
+    set_current_permission_snapshot(PermissionSnapshot(tier=TIER_STANDARD, permission_codes=actions))
     assert checker.check("role:grant") is True
     register_permission_guard(_DenyGuard())
     assert checker.check("role:grant") is False
@@ -251,12 +248,13 @@ async def test_invalidate_bumps_version_and_evicts_previous_user_key() -> None:
 
 
 @pytest.mark.kiwi_id(2269)
-async def test_engine_aggregates_menu_form_and_action_codes() -> None:
-    """聚合：菜单授权连带其表单业务码、表单授权取业务码、动作授权取 `业务:动作`。"""
+async def test_engine_aggregates_permission_and_entry_grants() -> None:
+    """聚合：菜单/表单授权计入入口集合、权限码授权取 `业务:动作`。"""
     service = _build_service()
     snapshot = await service.compute(user_id=5, version=1)
-    assert sorted(snapshot.business_codes) == ["data", "menu"]
-    assert sorted(snapshot.action_codes) == ["data:export", "role:grant"]
+    assert sorted(snapshot.permission_codes) == ["data:export", "role:grant"]
+    assert sorted(snapshot.granted_menu_ids) == [1]
+    assert sorted(snapshot.granted_form_ids) == [11, 12]
     assert snapshot.tier == TIER_SYSTEM_ADMIN
     assert snapshot.exempt is True
 
@@ -280,15 +278,15 @@ class _Form:
 class _Button:
     """按钮快照替身。"""
 
-    def __init__(self, action_id: int, action_code: str) -> None:
+    def __init__(self, permission_id: int, permission_code: str) -> None:
         """初始化。
 
         Args:
-            action_id: 动作 id。
-            action_code: 动作码。
+            permission_id: 权限码 id。
+            permission_code: 权限码。
         """
-        self.action_id = action_id
-        self.action_code = action_code
+        self.permission_id = permission_id
+        self.permission_code = permission_code
 
 
 class _Menu:
@@ -374,9 +372,9 @@ def _build_service() -> PermissionService:
     rows: ConcurrentStableList[object] = ConcurrentStableList()
     rows.add(_Row("menu", 1))
     rows.add(_Row("form", 12))
-    rows.add(_Row("action", 21))
-    rows.add(_Row("action", 22))
-    rows.add(_Row("action", 99))  # 未挂按钮的动作码 → 不进快照码集
+    rows.add(_Row("permission", 21))
+    rows.add(_Row("permission", 22))
+    rows.add(_Row("permission", 99))  # 未挂按钮的权限码 → 不进快照码集
 
     form_twelve: ConcurrentStableList[object] = ConcurrentStableList()
     form_twelve.add(_Form(12, "data", _button_list(export_button)))

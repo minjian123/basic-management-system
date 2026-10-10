@@ -18,6 +18,7 @@ from bms_platform.repositories.menu import (
     FieldRepository,
     FormRepository,
     MenuRepository,
+    PermissionRepository,
 )
 from bms_platform.repositories.role import (
     DataScopeRepository,
@@ -120,24 +121,25 @@ def grant_service(target: AsyncSession, cache: MemoryCacheRegion | None = None) 
 
 
 async def seed_metadata(target: AsyncSession) -> tuple[int, int, int, int]:
-    """播种授权目标元数据（菜单 / 业务 / 表单 / 动作）。
+    """播种授权目标元数据（菜单 / 业务 / 表单 / 权限码）。
 
     Args:
         target: 会话。
 
     Returns:
-        tuple[int, int, int, int]: (菜单 ID, 业务码 ID, 表单 ID, 动作 ID)。
+        tuple[int, int, int, int]: (菜单 ID, 业务码 ID, 表单 ID, 权限码 ID)。
     """
     menu = await MenuRepository(target).create(
         parent_id=0, name="授权页", path="/t-grant", component=None, icon=None, sort=1, hidden=False, status="enabled"
     )
     business = await BusinessRepository(target).create(code="t_grant", name="授权业务", status="enabled")
     form = await FormRepository(target).create(business_id=business.id, component=None, status="enabled")
-    action = await ActionRepository(target).create(
-        business_id=business.id, code="create", name="新建", status="enabled"
+    action = await ActionRepository(target).create(code="create", name="新建", status="enabled")
+    permission = await PermissionRepository(target).create(
+        business_id=business.id, action_id=action.id, status="enabled"
     )
     await target.commit()
-    return menu.id, business.id, form.id, action.id
+    return menu.id, business.id, form.id, permission.id
 
 
 async def seed_dict(target: AsyncSession) -> tuple[int, str]:

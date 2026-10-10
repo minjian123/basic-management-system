@@ -35,7 +35,7 @@ useBasePermissionConfig()
 const rows = computed(() =>
   props.actions.map((action) => {
     const sources = props.entries
-      .filter((entry) => entry.permType === 'action' && entry.targetId === action.id)
+      .filter((entry) => entry.permType === 'permission' && entry.targetId === action.id)
       .map((entry) => entry.sourceMenuId)
     const own = sources.includes(props.sourceMenuId)
     return {

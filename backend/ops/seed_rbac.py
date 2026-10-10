@@ -10,12 +10,12 @@ uv run python -m ops.seed_rbac --tenant demo --tenant-url "sqlite+aiosqlite:///�
 ```
 
 - **库定位（两库协同）**：角色域（`sys_role` / `sys_role_permission`）在 **platform 服务租户库**；
-  动作码（`sys_action` / `sys_business`）在 **platform 服务平台库**——分别解析（租户库复用
+  权限码（`sys_permission` / `sys_business` / `sys_action`）在 **platform 服务平台库**——分别解析（租户库复用
   `ops.seed_user` 的「注册库对照表取库名基 → 模板解析」口径，平台库复用 `ops.seed_tenant.resolve_url`）；
 - **幂等**：角色按 `(code, deleted_at IS NULL)`、授权按 `(role_id, perm_type, target_id, source_menu_id,
   deleted_at IS NULL)` 判存——不存在插入、存在跳过，重复执行全为「跳过」；
-- **授权目标**：权限码 `业务:动作` → `sys_action` 行（`perm_type="action"`、`source_menu_id=0`）；
-  平台库未登记的动作码**跳过并上报**（如审计域尚未落地的码）；
+- **授权目标**：权限码 `业务:动作` → `sys_permission` 行（`perm_type="permission"`、`source_menu_id=0`）；
+  平台库未登记的权限码**跳过并上报**（如审计域尚未落地的码）；
 - **三权清单（需求 07-6）**：系统管理员持**除 `role:*` 外的全部在册码**（角色域归安全管理员，
   系统 / 审计管理员不得越权授予）；安全管理员持 `role:query/create/update/delete/grant`；
   审计管理员本轮不授权（审计域权限码随审计模块落地）——**安全管理员不属豁免层级**，其可达性
@@ -31,10 +31,10 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.db.keys import PLATFORM_SERVICE_KEY
-from bms_platform.models.menu import SysAction, SysBusiness
+from bms_platform.models.menu import SysAction, SysBusiness, SysPermission
 from bms_platform.models.role import (
     NO_SOURCE_MENU_ID,
-    PERM_TYPE_ACTION,
+    PERM_TYPE_PERMISSION,
     ROLE_TYPE_AUDIT,
     ROLE_TYPE_SECURITY,
     ROLE_TYPE_SYSTEM,
@@ -72,6 +72,8 @@ SYSTEM_ADMIN_CODES: tuple[str, ...] = (
     "menu:delete",
     "business:query",
     "action:query",
+    "permission:query",
+    "permission:manage",
     "user:query",
     "user:create",
     "user:update",
@@ -124,7 +126,7 @@ async def seed_rbac(*, tenant_url: str, platform_url: str, dry_run: bool = False
         SeedOutcome: 执行结果。
     """
     outcome = SeedOutcome()
-    action_ids = await _load_action_ids(platform_url)
+    permission_ids = await _load_permission_ids(platform_url)
     plan: ConcurrentStableList[tuple[str, str, str, tuple[str, ...]]] = ConcurrentStableList()
     plan.add((ROLE_SYSTEM_ADMIN, "系统管理员", ROLE_TYPE_SYSTEM, SYSTEM_ADMIN_CODES))
     plan.add((ROLE_SECURITY_ADMIN, "安全管理员", ROLE_TYPE_SECURITY, SECURITY_ADMIN_CODES))
@@ -136,7 +138,7 @@ async def seed_rbac(*, tenant_url: str, platform_url: str, dry_run: bool = False
             for code, name, role_type, codes in plan:
                 role_id = await _ensure_role(session, code=code, name=name, role_type=role_type, outcome=outcome)
                 for permission in codes:
-                    target_id = action_ids.get(permission)
+                    target_id = permission_ids.get(permission)
                     if target_id is None:
                         if permission not in outcome.missing_codes:
                             outcome.missing_codes.add(permission)
@@ -151,8 +153,8 @@ async def seed_rbac(*, tenant_url: str, platform_url: str, dry_run: bool = False
     return outcome
 
 
-async def _load_action_ids(platform_url: str) -> ConcurrentStableDict[str, int]:
-    """从平台库取「`业务码:动作码` → 动作主键」映射。
+async def _load_permission_ids(platform_url: str) -> ConcurrentStableDict[str, int]:
+    """从平台库取「`业务码:动作码` → 权限码主键」映射。
 
     Args:
         platform_url: platform 服务平台库连接串。
@@ -165,15 +167,20 @@ async def _load_action_ids(platform_url: str) -> ConcurrentStableDict[str, int]:
     try:
         async with factory() as session:
             businesses = (await session.execute(select(SysBusiness))).scalars().all()
-            by_id: ConcurrentStableDict[int, str] = ConcurrentStableDict()
+            business_by_id: ConcurrentStableDict[int, str] = ConcurrentStableDict()
             for business in businesses:
-                by_id.set(business.id, business.code)
+                business_by_id.set(business.id, business.code)
             actions = (await session.execute(select(SysAction))).scalars().all()
-            result: ConcurrentStableDict[str, int] = ConcurrentStableDict()
+            action_by_id: ConcurrentStableDict[int, str] = ConcurrentStableDict()
             for action in actions:
-                business_code = by_id.get(action.business_id)
-                if business_code:
-                    result.set(f"{business_code}:{action.code}", action.id)
+                action_by_id.set(action.id, action.code)
+            permissions = (await session.execute(select(SysPermission))).scalars().all()
+            result: ConcurrentStableDict[str, int] = ConcurrentStableDict()
+            for permission in permissions:
+                business_code = business_by_id.get(permission.business_id)
+                action_code = action_by_id.get(permission.action_id)
+                if business_code and action_code:
+                    result.set(f"{business_code}:{action_code}", permission.id)
             return result
     finally:
         await engine.dispose()
@@ -218,7 +225,7 @@ async def _ensure_grant(session: AsyncSession, *, role_id: int, target_id: int, 
         await session.execute(
             select(SysRolePermission).where(
                 SysRolePermission.role_id == role_id,
-                SysRolePermission.perm_type == PERM_TYPE_ACTION,
+                SysRolePermission.perm_type == PERM_TYPE_PERMISSION,
                 SysRolePermission.target_id == target_id,
                 SysRolePermission.source_menu_id == NO_SOURCE_MENU_ID,
                 SysRolePermission.deleted_at.is_(None),
@@ -231,7 +238,7 @@ async def _ensure_grant(session: AsyncSession, *, role_id: int, target_id: int, 
     session.add(
         SysRolePermission(
             role_id=role_id,
-            perm_type=PERM_TYPE_ACTION,
+            perm_type=PERM_TYPE_PERMISSION,
             target_id=target_id,
             source_menu_id=NO_SOURCE_MENU_ID,
         )
@@ -250,7 +257,7 @@ async def main(args: argparse.Namespace) -> None:
     tenant_url = resolve_tenant_url(basis, args.tenant_url, args.service)
     platform_url = resolve_platform_url(args.platform_url, service=args.service)
     print(f"[seed_rbac] 租户库（角色域）：{_safe_url(tenant_url)}")
-    print(f"[seed_rbac] 服务库（动作码）：{_safe_url(platform_url)}")
+    print(f"[seed_rbac] 服务库（权限码）：{_safe_url(platform_url)}")
     outcome = await seed_rbac(tenant_url=tenant_url, platform_url=platform_url, dry_run=args.dry_run)
     mode = "预演" if args.dry_run else "落库"
     print(

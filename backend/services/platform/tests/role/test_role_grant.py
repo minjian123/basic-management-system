@@ -21,7 +21,7 @@ from bms_core.core.exceptions import (
     RoleTargetInvalidError,
 )
 from bms_core.permission.version import permission_version_key
-from bms_platform.models.role import NO_SOURCE_MENU_ID, PERM_TYPE_ACTION, PERM_TYPE_FORM, PERM_TYPE_MENU
+from bms_platform.models.role import NO_SOURCE_MENU_ID, PERM_TYPE_FORM, PERM_TYPE_MENU, PERM_TYPE_PERMISSION
 from bms_platform.repositories.role import RoleRepository
 from bms_platform.services.role_grant import DataScopeGrantEntry, FieldGrantEntry, PermissionGrantEntry
 from tests.role import helpers
@@ -56,7 +56,7 @@ def _items(*items: dict[str, object]) -> ConcurrentStableList[ConcurrentStableDi
 
 @pytest.mark.kiwi_id(2248)
 async def test_permissions_full_replace_and_source_validation() -> None:
-    """菜单 / 表单 / 操作授权全量覆盖、来源校验与目标校验；版本一次 +1。"""
+    """菜单 / 表单 / 权限码授权全量覆盖、来源校验与目标校验；版本一次 +1。"""
     target, engine = await helpers.session()
     role = await RoleRepository(target).create(code="ops", name="运维角色")
     role_id = role.id
@@ -69,14 +69,14 @@ async def test_permissions_full_replace_and_source_validation() -> None:
         _entries(
             (PERM_TYPE_MENU, menu_id, _NO_SOURCE),
             (PERM_TYPE_FORM, form_id, menu_id),
-            (PERM_TYPE_ACTION, action_id, menu_id),
+            (PERM_TYPE_PERMISSION, action_id, menu_id),
         ),
         tenant_id=_TENANT,
     )
     assert {(row.perm_type, row.target_id, row.source_menu_id) for row in created} == {
         (PERM_TYPE_MENU, menu_id, _NO_SOURCE),
         (PERM_TYPE_FORM, form_id, menu_id),
-        (PERM_TYPE_ACTION, action_id, menu_id),
+        (PERM_TYPE_PERMISSION, action_id, menu_id),
     }
     assert cache.get(permission_version_key(_TENANT)) == 1
 
@@ -93,7 +93,7 @@ async def test_permissions_full_replace_and_source_validation() -> None:
 
     with pytest.raises(RoleTargetInvalidError):
         await service.replace_permissions(
-            role_id, _entries((PERM_TYPE_ACTION, 999999999, _NO_SOURCE)), tenant_id=_TENANT
+            role_id, _entries((PERM_TYPE_PERMISSION, 999999999, _NO_SOURCE)), tenant_id=_TENANT
         )
 
     with pytest.raises(ParamError):

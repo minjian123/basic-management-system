@@ -41,6 +41,7 @@ from bms_platform.models.menu import (
     SysField,
     SysForm,
     SysMenu,
+    SysPermission,
 )
 from bms_platform.repositories.menu import (
     ActionRepository,
@@ -50,6 +51,7 @@ from bms_platform.repositories.menu import (
     FormRepository,
     MenuFormRepository,
     MenuRepository,
+    PermissionRepository,
 )
 from bms_platform.schemas.menu import (
     ActionItem,
@@ -66,6 +68,8 @@ from bms_platform.schemas.menu import (
     MenuItem,
     MenuTree,
     MenuUpdateRequest,
+    PermissionItem,
+    PermissionList,
 )
 
 FORM_UPDATED_EVENT = "sys.form.updated"
@@ -81,8 +85,8 @@ class SnapshotButton(BaseSchema):
     """缓存快照：按钮元数据。"""
 
     id: int = Field(description="按钮主键")
-    action_id: int = Field(description="动作码 ID")
-    action_code: str = Field(description="动作权限码（{业务码}:{动作码}）")
+    permission_id: int = Field(description="权限码 ID")
+    permission_code: str = Field(description="权限码（{业务码}:{动作码}）")
     name: str = Field(description="按钮名")
     type: str = Field(description="按钮形态")
     sort: int = Field(description="排序")
@@ -134,11 +138,8 @@ class MenuSnapshot(BaseSchema):
 
     locale: str = Field(description="语言标识")
     version: int = Field(description="元数据版本号")
-    business_codes: Annotated[ConcurrentStableList[str], CONTRACT_COLLECTION] = Field(
-        default_factory=CONTRACT_STABLE_LIST, description="全部业务权限码"
-    )
-    action_codes: Annotated[ConcurrentStableList[str], CONTRACT_COLLECTION] = Field(
-        default_factory=CONTRACT_STABLE_LIST, description="全部动作权限码"
+    permission_codes: Annotated[ConcurrentStableList[str], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_LIST, description="全部权限码（业务码:动作码）"
     )
     menus: Annotated[ConcurrentStableList[SnapshotMenu], CONTRACT_COLLECTION] = Field(
         default_factory=CONTRACT_STABLE_LIST, description="菜单元数据（保持 sort 顺序）"
@@ -150,6 +151,8 @@ def _snapshot_form(
     business: SysBusiness,
     *,
     action_by_id: ConcurrentStableDict[int, SysAction],
+    permission_by_id: ConcurrentStableDict[int, SysPermission],
+    business_by_id: ConcurrentStableDict[int, SysBusiness],
     buttons_by_form: ConcurrentStableDict[int, ConcurrentStableList[SysButton]],
     fields_by_form: ConcurrentStableDict[int, ConcurrentStableList[SysField]],
     field_i18n: ConcurrentStableDict[int, str],
@@ -160,6 +163,8 @@ def _snapshot_form(
         form: 表单记录。
         business: 表单挂接的业务码记录。
         action_by_id: 动作码 ID → 记录（仅启用态）。
+        permission_by_id: 权限码 ID → 记录（仅启用态）。
+        business_by_id: 业务码 ID → 记录（仅启用态）。
         buttons_by_form: 表单 ID → 按钮列表。
         fields_by_form: 表单 ID → 字段列表。
         field_i18n: 字段 ID → 本地化文案。
@@ -167,23 +172,31 @@ def _snapshot_form(
     Returns:
         SnapshotForm: 表单元数据快照。
     """
+    buttons: ConcurrentStableList[SnapshotButton] = ConcurrentStableList()
+    for button in buttons_by_form.get(form.id) or ():
+        permission = permission_by_id.get(button.permission_id)
+        if permission is None:
+            continue
+        action = action_by_id.get(permission.action_id)
+        permission_business = business_by_id.get(permission.business_id)
+        if action is None or permission_business is None:
+            continue
+        buttons.add(
+            SnapshotButton(
+                id=button.id,
+                permission_id=button.permission_id,
+                permission_code=f"{permission_business.code}:{action.code}",
+                name=button.name,
+                type=button.type,
+                sort=button.sort,
+            )
+        )
     return SnapshotForm(
         id=form.id,
         business_id=business.id,
         business_code=business.code,
         component=form.component,
-        buttons=ConcurrentStableList(
-            SnapshotButton(
-                id=button.id,
-                action_id=button.action_id,
-                action_code=f"{business.code}:{action_by_id[button.action_id].code}",
-                name=button.name,
-                type=button.type,
-                sort=button.sort,
-            )
-            for button in (buttons_by_form.get(form.id) or ())
-            if button.action_id in action_by_id
-        ),
+        buttons=buttons,
         fields=ConcurrentStableList(
             SnapshotField(
                 id=field.id,
@@ -233,6 +246,7 @@ class MenuMetadataService(BaseFrameworkObject):
         uow: UnitOfWork,
         businesses: BusinessRepository,
         actions: ActionRepository,
+        permissions: PermissionRepository,
         menus: MenuRepository,
         forms: FormRepository,
         menu_forms: MenuFormRepository,
@@ -245,8 +259,9 @@ class MenuMetadataService(BaseFrameworkObject):
 
         Args:
             uow: 请求级工作单元。
-            businesses: 业务权限码仓储。
-            actions: 动作权限码仓储。
+            businesses: 业务码字典仓储。
+            actions: 动作码字典仓储。
+            permissions: 权限码仓储（业务码 × 动作码组合）。
             menus: 菜单仓储。
             forms: 表单仓储。
             menu_forms: 菜单 ↔ 表单关联仓储（多对多）。
@@ -258,6 +273,7 @@ class MenuMetadataService(BaseFrameworkObject):
         self._uow = uow
         self._businesses = businesses
         self._actions = actions
+        self._permissions = permissions
         self._menus = menus
         self._forms = forms
         self._menu_forms = menu_forms
@@ -329,7 +345,8 @@ class MenuMetadataService(BaseFrameworkObject):
             MenuSnapshot: 元数据快照。
         """
         businesses = await self._businesses.list_all()
-        actions = await self._actions.list_by_business()
+        actions = await self._actions.list_all()
+        permissions = await self._permissions.list_all()
         menus = await self._menus.list_all()
         forms = await self._forms.list_all()
         menu_forms = await self._menu_forms.list_all()
@@ -343,6 +360,9 @@ class MenuMetadataService(BaseFrameworkObject):
             {row.id: row for row in businesses if row.status == "enabled"}
         )
         action_by_id = ConcurrentStableDict[int, SysAction]({row.id: row for row in actions if row.status == "enabled"})
+        permission_by_id = ConcurrentStableDict[int, SysPermission](
+            {row.id: row for row in permissions if row.status == "enabled"}
+        )
         form_by_id = ConcurrentStableDict[int, SysForm]({row.id: row for row in forms if row.status == "enabled"})
         forms_by_menu = ConcurrentStableDict[int, ConcurrentStableList[SysForm]]()
         for link in menu_forms:
@@ -374,12 +394,15 @@ class MenuMetadataService(BaseFrameworkObject):
                 fields_by_form.set(field.form_id, field_bucket)
             field_bucket.add(field)
 
-        business_codes = ConcurrentStableList(row.code for row in businesses if row.status == "enabled")
-        action_codes = ConcurrentStableList(
-            f"{business_by_id[row.business_id].code}:{row.code}"
-            for row in actions
-            if row.status == "enabled" and row.business_id in business_by_id
-        )
+        permission_codes = ConcurrentStableList[str]()
+        for permission in permissions:
+            if permission.status != "enabled":
+                continue
+            business = business_by_id.get(permission.business_id)
+            action = action_by_id.get(permission.action_id)
+            if business is None or action is None:
+                continue
+            permission_codes.add(f"{business.code}:{action.code}")
 
         snapshots = ConcurrentStableList[SnapshotMenu]()
         for menu in menus:
@@ -395,6 +418,8 @@ class MenuMetadataService(BaseFrameworkObject):
                         form,
                         business,
                         action_by_id=action_by_id,
+                        permission_by_id=permission_by_id,
+                        business_by_id=business_by_id,
                         buttons_by_form=buttons_by_form,
                         fields_by_form=fields_by_form,
                         field_i18n=field_i18n,
@@ -416,8 +441,7 @@ class MenuMetadataService(BaseFrameworkObject):
         return MenuSnapshot(
             locale=locale,
             version=version,
-            business_codes=business_codes,
-            action_codes=action_codes,
+            permission_codes=permission_codes,
             menus=snapshots,
         )
 
@@ -518,7 +542,7 @@ class MenuMetadataService(BaseFrameworkObject):
                 ButtonItem(
                     id=row.id,
                     form_id=row.form_id,
-                    action_id=row.action_id,
+                    permission_id=row.permission_id,
                     name=row.name,
                     type=row.type,
                     sort=row.sort,
@@ -555,7 +579,7 @@ class MenuMetadataService(BaseFrameworkObject):
         )
 
     async def list_businesses(self) -> BusinessList:
-        """业务权限码清单（租户侧可见、只读）。
+        """业务码清单（纯资源维度；平台维护视图 / 租户只读）。
 
         Returns:
             BusinessList: 业务码清单。
@@ -574,29 +598,56 @@ class MenuMetadataService(BaseFrameworkObject):
             )
         )
 
-    async def list_actions(self, business_id: int | None) -> ActionList:
-        """动作权限码清单（租户侧可见、只读）。
-
-        Args:
-            business_id: 业务码 ID；None 表示全部。
+    async def list_actions(self) -> ActionList:
+        """动作码清单（全局字典；平台维护视图 / 租户只读）。
 
         Returns:
             ActionList: 动作码清单。
         """
-        rows = await self._actions.list_by_business(business_id)
+        rows = await self._actions.list_all()
         return ActionList(
             items=ConcurrentStableList(
                 ActionItem(
                     id=row.id,
                     code=row.code,
                     name=row.name,
-                    business_id=row.business_id,
                     status=row.status,
                     i18n=ConcurrentStableDict(),
                 )
                 for row in rows
             )
         )
+
+    async def list_permissions(self, business_id: int | None) -> PermissionList:
+        """权限码清单（业务码 × 动作码组合；平台维护视图 / 租户只读）。
+
+        Args:
+            business_id: 业务码 ID；None 表示全部。
+
+        Returns:
+            PermissionList: 权限码清单（code 由业务码与动作码组合派生）。
+        """
+        rows = await self._permissions.list_by_business(business_id)
+        businesses = ConcurrentStableDict[int, SysBusiness]({row.id: row for row in await self._businesses.list_all()})
+        actions = ConcurrentStableDict[int, SysAction]({row.id: row for row in await self._actions.list_all()})
+        items: ConcurrentStableList[PermissionItem] = ConcurrentStableList()
+        for row in rows:
+            business = businesses.get(row.business_id)
+            action = actions.get(row.action_id)
+            if business is None or action is None:
+                continue
+            items.add(
+                PermissionItem(
+                    id=row.id,
+                    code=f"{business.code}:{action.code}",
+                    business_id=row.business_id,
+                    business_code=business.code,
+                    action_id=row.action_id,
+                    action_code=action.code,
+                    status=row.status,
+                )
+            )
+        return PermissionList(items=items)
 
     # ------------------------------------------------------------------ 写（菜单）
 
@@ -858,13 +909,13 @@ class MenuMetadataService(BaseFrameworkObject):
     # ------------------------------------------------------------------ 写（按钮）
 
     async def create_button(
-        self, *, form_id: int, action_id: int, name: str, type: str, sort: int, status: str
+        self, *, form_id: int, permission_id: int, name: str, type: str, sort: int, status: str
     ) -> SysButton:
-        """新增按钮（表单 + 动作 1:1）。
+        """新增按钮（表单 + 权限码 1:1）。
 
         Args:
             form_id: 表单 ID。
-            action_id: 动作码 ID。
+            permission_id: 权限码 ID。
             name: 按钮名。
             type: 按钮形态。
             sort: 排序。
@@ -874,19 +925,22 @@ class MenuMetadataService(BaseFrameworkObject):
             SysButton: 新建按钮。
 
         Raises:
-            MenuNotFoundError: 表单或动作码不存在（40201）。
-            ConflictError: 同表单同动作已存在按钮。
+            MenuNotFoundError: 表单或权限码不存在（40201）。
+            ConflictError: 同表单同权限码已存在按钮，或权限码业务与表单业务不一致。
         """
         async with self._uow.begin():
             form = await self._forms.get(form_id)
             if form is None:
                 raise MenuNotFoundError(f"表单不存在：{form_id}")
-            if await self._actions.get(action_id) is None:
-                raise MenuNotFoundError(f"动作码不存在：{action_id}")
-            if await self._buttons.get_by_form_action(form_id, action_id) is not None:
-                raise ConflictError(f"同表单同动作按钮已存在：{form_id}/{action_id}")
+            permission = await self._permissions.get(permission_id)
+            if permission is None:
+                raise MenuNotFoundError(f"权限码不存在：{permission_id}")
+            if permission.business_id != form.business_id:
+                raise ConflictError(f"权限码业务与表单业务不一致：{permission_id}")
+            if await self._buttons.get_by_form_permission(form_id, permission_id) is not None:
+                raise ConflictError(f"同表单同权限码按钮已存在：{form_id}/{permission_id}")
             row = await self._buttons.create(
-                form_id=form_id, action_id=action_id, name=name, type=type, sort=sort, status=status
+                form_id=form_id, permission_id=permission_id, name=name, type=type, sort=sort, status=status
             )
             await self._publish_form_updated(
                 form_id=form_id, menu_id=None, business_id=form.business_id, changed_type=CHANGED_BUTTON
@@ -895,13 +949,13 @@ class MenuMetadataService(BaseFrameworkObject):
         return row
 
     async def update_button(
-        self, button_id: int, *, action_id: int, name: str, type: str, sort: int, status: str
+        self, button_id: int, *, permission_id: int, name: str, type: str, sort: int, status: str
     ) -> SysButton:
         """更新按钮。
 
         Args:
             button_id: 按钮主键。
-            action_id: 动作码 ID。
+            permission_id: 权限码 ID。
             name: 按钮名。
             type: 按钮形态。
             sort: 排序。
@@ -911,24 +965,27 @@ class MenuMetadataService(BaseFrameworkObject):
             SysButton: 更新后按钮。
 
         Raises:
-            MenuNotFoundError: 按钮或动作码不存在（40201）。
-            ConflictError: 改后与同表单其它按钮同动作。
+            MenuNotFoundError: 按钮或权限码不存在（40201）。
+            ConflictError: 改后与同表单其它按钮同权限码，或权限码业务与表单业务不一致。
         """
         async with self._uow.begin():
             current = await self._buttons.get(button_id)
             if current is None:
                 raise MenuNotFoundError(f"按钮不存在：{button_id}")
-            if await self._actions.get(action_id) is None:
-                raise MenuNotFoundError(f"动作码不存在：{action_id}")
-            existing = await self._buttons.get_by_form_action(current.form_id, action_id)
+            permission = await self._permissions.get(permission_id)
+            if permission is None:
+                raise MenuNotFoundError(f"权限码不存在：{permission_id}")
+            form = await self._forms.get(current.form_id)
+            if form is not None and permission.business_id != form.business_id:
+                raise ConflictError(f"权限码业务与表单业务不一致：{permission_id}")
+            existing = await self._buttons.get_by_form_permission(current.form_id, permission_id)
             if existing is not None and existing.id != button_id:
-                raise ConflictError(f"同表单同动作按钮已存在：{current.form_id}/{action_id}")
+                raise ConflictError(f"同表单同权限码按钮已存在：{current.form_id}/{permission_id}")
             updated = await self._buttons.update(
-                button_id, action_id=action_id, name=name, type=type, sort=sort, status=status
+                button_id, permission_id=permission_id, name=name, type=type, sort=sort, status=status
             )
             if updated is None:
                 raise MenuNotFoundError(f"按钮不存在：{button_id}")
-            form = await self._forms.get(current.form_id)
             await self._publish_form_updated(
                 form_id=current.form_id,
                 menu_id=None,

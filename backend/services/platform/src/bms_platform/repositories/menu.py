@@ -1,4 +1,4 @@
-"""平台服务 repositories 层：菜单与权限元数据仓储（六实体 + 多语言附表）。
+"""平台服务 repositories 层：菜单与权限元数据仓储（业务码 / 动作码 / 权限码 + 菜单 / 表单 / 按钮 / 字段 + 多语言附表）。
 
 - 主表仓储继承 `BaseDbRepository`（软删除过滤与统一 CRUD 由基类提供）；
 - 多语言附表经模块级辅助函数读写（软删除旧行再插新行，规避 `(主表 ID, locale, deleted_at)` 唯一冲突）；
@@ -26,6 +26,7 @@ from bms_platform.models.menu import (
     SysMenu,
     SysMenuForm,
     SysMenuI18n,
+    SysPermission,
 )
 
 
@@ -113,23 +114,17 @@ class BusinessRepository(BaseDbRepository[SysBusiness]):
 
 
 class ActionRepository(BaseDbRepository[SysAction]):
-    """动作权限码仓储（`sys_action`）。"""
+    """动作码字典仓储（`sys_action`）：全局动词，按主键列示与多语言装载。"""
 
     model = SysAction
 
-    async def list_by_business(self, business_id: int | None = None) -> ConcurrentStableList[SysAction]:
-        """按业务码列示动作码（可空 = 全部；主键升序）。
-
-        Args:
-            business_id: 业务码 ID；None 表示全部。
+    async def list_all(self) -> ConcurrentStableList[SysAction]:
+        """列示全部动作码（全局字典；主键升序）。
 
         Returns:
             ConcurrentStableList[SysAction]: 动作码列表（插入序）。
         """
-        statement = self._select()
-        if business_id is not None:
-            statement = statement.where(self._column("business_id") == business_id)
-        statement = statement.order_by(self._column("id"))
+        statement = self._select().order_by(self._column("id"))
         return ConcurrentStableList((await self._session.execute(statement)).scalars().all())
 
     async def list_i18n(self, action_ids: ConcurrentStableList[int], locale: str) -> ConcurrentStableDict[int, str]:
@@ -143,6 +138,36 @@ class ActionRepository(BaseDbRepository[SysAction]):
             ConcurrentStableDict[int, str]: 动作码 ID → 文案。
         """
         return await _load_i18n(self._session, SysActionI18n, "action_id", action_ids, locale)
+
+
+class PermissionRepository(BaseDbRepository[SysPermission]):
+    """权限码仓储（`sys_permission`）：业务码 × 动作码组合，受控可授项。"""
+
+    model = SysPermission
+
+    async def list_all(self) -> ConcurrentStableList[SysPermission]:
+        """列示全部权限码（主键升序）。
+
+        Returns:
+            ConcurrentStableList[SysPermission]: 权限码列表（插入序）。
+        """
+        statement = self._select().order_by(self._column("id"))
+        return ConcurrentStableList((await self._session.execute(statement)).scalars().all())
+
+    async def list_by_business(self, business_id: int | None = None) -> ConcurrentStableList[SysPermission]:
+        """按业务码列示权限码（可空 = 全部；主键升序）。
+
+        Args:
+            business_id: 业务码 ID；None 表示全部。
+
+        Returns:
+            ConcurrentStableList[SysPermission]: 权限码列表（插入序）。
+        """
+        statement = self._select()
+        if business_id is not None:
+            statement = statement.where(self._column("business_id") == business_id)
+        statement = statement.order_by(self._column("id"))
+        return ConcurrentStableList((await self._session.execute(statement)).scalars().all())
 
 
 class MenuRepository(BaseDbRepository[SysMenu]):
@@ -348,18 +373,20 @@ class ButtonRepository(BaseDbRepository[SysButton]):
         statement = self._select().order_by(self._column("id"))
         return ConcurrentStableList((await self._session.execute(statement)).scalars().all())
 
-    async def get_by_form_action(self, form_id: int, action_id: int) -> SysButton | None:
-        """按「表单 + 动作」探测既有按钮（1:1）。
+    async def get_by_form_permission(self, form_id: int, permission_id: int) -> SysButton | None:
+        """按「表单 + 权限码」探测既有按钮（1:1）。
 
         Args:
             form_id: 表单 ID。
-            action_id: 动作码 ID。
+            permission_id: 权限码 ID。
 
         Returns:
             SysButton | None: 既有按钮；无则 None。
         """
         statement = (
-            self._select().where(self._column("form_id") == form_id, self._column("action_id") == action_id).limit(1)
+            self._select()
+            .where(self._column("form_id") == form_id, self._column("permission_id") == permission_id)
+            .limit(1)
         )
         return (await self._session.execute(statement)).scalars().first()
 

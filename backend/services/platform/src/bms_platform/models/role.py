@@ -3,7 +3,8 @@
 - 数据所有权：**平台服务**（platform 服务租户库 `bms_platform_{code}`，与 `sys_config` / `sys_user_extension` 同库）。
 - 域内引用：角色域表之间以 `role_id` 逻辑引用（同库）。
 - 跨库 / 跨服务逻辑引用（只存 ID，不 join、不建物理外键）：
-  - 授权目标 `sys_menu` / `sys_form` / `sys_action` 在 **platform 平台库**（同服务、不同库）→ 校验经平台侧元数据完成；
+  - 授权目标 `sys_menu` / `sys_form` / `sys_permission` 在 **platform 平台库**（同服务、不同库）→
+    校验经平台侧元数据完成；
   - `sys_user_role.user_id` 指向 **org 服务租户库**的 `sys_user`（跨服务）→ 有效性经 org 只读接口核验。
 - 来源标记：`source_menu_id = 0` 表示「表单级直接授予」（不用 NULL，规避唯一约束在 NULL 上的跨库语义差异）。
 - 表结构以《数据库设计》数据表文件为唯一事实源（`sys_role` 等 5 表）。
@@ -21,10 +22,10 @@ PERM_TYPE_MENU = "menu"
 PERM_TYPE_FORM = "form"
 """授权类型：表单（「查看」= 表单权限；可由菜单入口连带或表单级直接授予）。"""
 
-PERM_TYPE_ACTION = "action"
-"""授权类型：操作（动作，默认无）。"""
+PERM_TYPE_PERMISSION = "permission"
+"""授权类型：权限码（业务码 × 动作码组合，默认无）。"""
 
-PERM_TYPES: tuple[str, ...] = (PERM_TYPE_MENU, PERM_TYPE_FORM, PERM_TYPE_ACTION)
+PERM_TYPES: tuple[str, ...] = (PERM_TYPE_MENU, PERM_TYPE_FORM, PERM_TYPE_PERMISSION)
 """授权类型取值清单。"""
 
 POLICY_TYPE_SELECT = "select"
@@ -113,7 +114,7 @@ class SysRolePermission(BaseModel):
     perm_type: Mapped[str] = mapped_column(String(16), comment="授权类型（menu/form/action）")
     target_id: Mapped[int] = mapped_column(
         BigInteger,
-        comment="授权目标 ID（平台实体雪花 ID：sys_menu/sys_form/sys_action；platform 平台库跨库逻辑外键）",
+        comment="授权目标 ID（平台实体雪花 ID：sys_menu/sys_form/sys_permission；platform 平台库跨库逻辑外键）",
     )
     source_menu_id: Mapped[int] = mapped_column(
         BigInteger, default=NO_SOURCE_MENU_ID, comment="来源菜单入口 ID（0 = 表单级直接授予）"

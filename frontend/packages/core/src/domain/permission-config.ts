@@ -12,7 +12,7 @@ import { fnv1aHex, stableStringify } from './serialize'
 export type PermissionTab = 'menu' | 'form' | 'data' | 'assign'
 
 /** 授权条目类型（业务权限为推导只读，不落表）。 */
-export type PermissionEntryType = 'menu' | 'form' | 'action'
+export type PermissionEntryType = 'menu' | 'form' | 'permission'
 
 /** 勾选三态。 */
 export type PermissionCheckState = 'checked' | 'indeterminate' | 'unchecked'
@@ -507,7 +507,7 @@ export function isFormGranted(entries: readonly PermissionEntry[], formId: strin
  */
 export function actionSourceMenuIds(entries: readonly PermissionEntry[], actionId: string): string[] {
   return entries
-    .filter((entry) => entry.permType === 'action' && entry.targetId === actionId)
+    .filter((entry) => entry.permType === 'permission' && entry.targetId === actionId)
     .map((entry) => entry.sourceMenuId)
     .sort()
 }
@@ -520,7 +520,7 @@ export function actionSourceMenuIds(entries: readonly PermissionEntry[], actionI
  * @returns 任一来源存在返回 `true`。
  */
 export function isActionGranted(entries: readonly PermissionEntry[], actionId: string): boolean {
-  return entries.some((entry) => entry.permType === 'action' && entry.targetId === actionId)
+  return entries.some((entry) => entry.permType === 'permission' && entry.targetId === actionId)
 }
 
 /**
@@ -539,10 +539,10 @@ export function toggleAction(
   checked = true,
 ): PermissionEntry[] {
   const isTarget = (entry: PermissionEntry): boolean =>
-    entry.permType === 'action' && entry.targetId === actionId && entry.sourceMenuId === sourceMenuId
+    entry.permType === 'permission' && entry.targetId === actionId && entry.sourceMenuId === sourceMenuId
   const kept = entries.filter((entry) => !isTarget(entry)).map((entry) => ({ ...entry }))
   if (checked) {
-    kept.push({ permType: 'action', targetId: actionId, sourceMenuId })
+    kept.push({ permType: 'permission', targetId: actionId, sourceMenuId })
   }
   return sortEntries(kept)
 }

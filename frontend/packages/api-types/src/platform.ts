@@ -141,13 +141,12 @@ export interface paths {
         };
         /**
          * List Actions
-         * @description 动作权限码清单（租户侧可见、只读）。
+         * @description 动作码清单（全局字典；平台维护视图 / 租户只读）。
          *
          *     Args:
          *         uow: 请求级工作单元。
          *         outbox: 发件箱存储。
          *         cache: 缓存 Region。
-         *         business_id: 业务码主键（可空 = 全部）。
          *
          *     Returns:
          *         ApiResponse: 统一响应，data 为动作码清单。
@@ -1354,6 +1353,35 @@ export interface paths {
          *         ConflictError: 死信状态非 `pending`。
          */
         post: operations["replay_dead_letter_api_v1_outbox_dead_letters__dead_letter_id__replay_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/permissions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Permissions
+         * @description 权限码清单（业务码 × 动作码组合；平台维护视图 / 租户只读）。
+         *
+         *     Args:
+         *         uow: 请求级工作单元。
+         *         outbox: 发件箱存储。
+         *         cache: 缓存 Region。
+         *         business_id: 业务码主键（可空 = 全部）。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为权限码清单。
+         */
+        get: operations["list_permissions_api_v1_permissions_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2819,14 +2847,9 @@ export interface components {
     schemas: {
         /**
          * ActionItem
-         * @description 动作权限码行。
+         * @description 动作码行（全局动词维度）。
          */
         ActionItem: {
-            /**
-             * Business Id
-             * @description 归属业务码 ID
-             */
-            business_id: string;
             /**
              * Code
              * @description 动作码
@@ -2857,7 +2880,7 @@ export interface components {
         };
         /**
          * ActionList
-         * @description 动作权限码清单。
+         * @description 动作码清单。
          */
         ActionList: {
             /**
@@ -3232,6 +3255,20 @@ export interface components {
              */
             code: number;
             data?: components["schemas"]["PermissionInvalidateResult"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[PermissionList] */
+        ApiResponse_PermissionList_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["PermissionList"] | null;
             /**
              * Message
              * @default ok
@@ -3643,12 +3680,12 @@ export interface components {
         };
         /**
          * BusinessItem
-         * @description 业务权限码行。
+         * @description 业务码行（纯资源维度）。
          */
         BusinessItem: {
             /**
              * Code
-             * @description 业务权限码
+             * @description 业务码
              */
             code: string;
             /**
@@ -3676,7 +3713,7 @@ export interface components {
         };
         /**
          * BusinessList
-         * @description 业务权限码清单。
+         * @description 业务码清单。
          */
         BusinessList: {
             /**
@@ -3687,14 +3724,9 @@ export interface components {
         };
         /**
          * ButtonCreateRequest
-         * @description 新增按钮请求（挂表单 / 挂动作）。
+         * @description 新增按钮请求（挂表单 / 挂权限码）。
          */
         ButtonCreateRequest: {
-            /**
-             * Action Id
-             * @description 挂接动作码 ID
-             */
-            action_id: number;
             /**
              * Form Id
              * @description 所属表单 ID
@@ -3705,6 +3737,11 @@ export interface components {
              * @description 按钮名（界面可见文本）
              */
             name: string;
+            /**
+             * Permission Id
+             * @description 挂接权限码 ID
+             */
+            permission_id: number;
             /**
              * Sort
              * @description 同表内排序（升序）
@@ -3732,11 +3769,6 @@ export interface components {
          */
         ButtonItem: {
             /**
-             * Action Id
-             * @description 挂接动作码 ID
-             */
-            action_id: string;
-            /**
              * Form Id
              * @description 所属表单 ID
              */
@@ -3751,6 +3783,11 @@ export interface components {
              * @description 按钮名
              */
             name: string;
+            /**
+             * Permission Id
+             * @description 挂接权限码 ID
+             */
+            permission_id: string;
             /**
              * Sort
              * @description 同表内排序
@@ -3784,15 +3821,15 @@ export interface components {
          */
         ButtonUpdateRequest: {
             /**
-             * Action Id
-             * @description 挂接动作码 ID
-             */
-            action_id: number;
-            /**
              * Name
              * @description 按钮名
              */
             name: string;
+            /**
+             * Permission Id
+             * @description 挂接权限码 ID
+             */
+            permission_id: number;
             /**
              * Sort
              * @description 同表内排序（升序）
@@ -4921,19 +4958,9 @@ export interface components {
         };
         /**
          * MyMenuButton
-         * @description 动态菜单下的按钮元数据（按动作权限标记可见）。
+         * @description 动态菜单下的按钮元数据（按权限码标记可见）。
          */
         MyMenuButton: {
-            /**
-             * Action Code
-             * @description 动作权限码（{业务码}:{动作码}）
-             */
-            action_code: string;
-            /**
-             * Action Id
-             * @description 挂接动作码 ID
-             */
-            action_id: string;
             /**
              * Id
              * @description 按钮主键
@@ -4944,6 +4971,16 @@ export interface components {
              * @description 按钮名
              */
             name: string;
+            /**
+             * Permission Code
+             * @description 权限码（业务码:动作码）
+             */
+            permission_code: string;
+            /**
+             * Permission Id
+             * @description 挂接权限码 ID
+             */
+            permission_id: string;
             /**
              * Sort
              * @description 同表内排序
@@ -4956,7 +4993,7 @@ export interface components {
             type: string;
             /**
              * Visible
-             * @description 当前用户是否持有该动作权限
+             * @description 当前用户是否持有该权限码
              */
             visible: boolean;
         };
@@ -5115,7 +5152,7 @@ export interface components {
             menus?: components["schemas"]["MyMenuNode"][];
             /**
              * Permissions
-             * @description 当前用户权限码集合（业务码 + 动作码）
+             * @description 当前用户权限码集合（业务码:动作码）
              */
             permissions?: string[];
             /**
@@ -5145,6 +5182,58 @@ export interface components {
              * @description 递增后的租户权限版本号
              */
             version: number;
+        };
+        /**
+         * PermissionItem
+         * @description 权限码行（业务码 × 动作码组合，真正权限码）。
+         */
+        PermissionItem: {
+            /**
+             * Action Code
+             * @description 动作码
+             */
+            action_code: string;
+            /**
+             * Action Id
+             * @description 动作码 ID
+             */
+            action_id: string;
+            /**
+             * Business Code
+             * @description 业务码
+             */
+            business_code: string;
+            /**
+             * Business Id
+             * @description 业务码 ID
+             */
+            business_id: string;
+            /**
+             * Code
+             * @description 权限码（业务码:动作码）
+             */
+            code: string;
+            /**
+             * Id
+             * @description 权限码主键
+             */
+            id: string;
+            /**
+             * Status
+             * @description 状态（enabled/disabled）
+             */
+            status: string;
+        };
+        /**
+         * PermissionList
+         * @description 权限码清单。
+         */
+        PermissionList: {
+            /**
+             * Items
+             * @description 权限码行列表
+             */
+            items?: components["schemas"]["PermissionItem"][];
         };
         /**
          * PreferenceValueRequest
@@ -5672,7 +5761,7 @@ export interface components {
             id: string;
             /**
              * Perm Type
-             * @description 授权类型（menu/form/action）
+             * @description 授权类型（menu/form/permission）
              */
             perm_type: string;
             /**
@@ -5688,15 +5777,15 @@ export interface components {
         };
         /**
          * RolePermissionEntryRequest
-         * @description 一条授权条目（菜单 / 表单 / 操作）。
+         * @description 一条授权条目（菜单 / 表单 / 权限码）。
          */
         RolePermissionEntryRequest: {
             /**
              * Perm Type
-             * @description 授权类型（menu/form/action）
+             * @description 授权类型（menu/form/permission）
              * @enum {string}
              */
-            perm_type: "menu" | "form" | "action";
+            perm_type: "menu" | "form" | "permission";
             /**
              * Source Menu Id
              * @description 来源菜单入口 ID（0 = 表单级直接授予）
@@ -6826,10 +6915,7 @@ export interface operations {
     };
     list_actions_api_v1_actions_get: {
         parameters: {
-            query?: {
-                /** @description 业务码主键（可空 = 全部） */
-                business_id?: number | null;
-            };
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
@@ -6870,15 +6956,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
             /** @description 限流 */
@@ -10710,6 +10787,83 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    list_permissions_api_v1_permissions_get: {
+        parameters: {
+            query?: {
+                /** @description 业务码主键（可空 = 全部） */
+                business_id?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_PermissionList_"];
                 };
             };
             /** @description 未认证 */

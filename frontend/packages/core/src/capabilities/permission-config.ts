@@ -493,7 +493,7 @@ export abstract class BasePermissionConfig extends BasePlaceholderState {
    */
   actionSources(actionId: string): string[] {
     return this.entries
-      .filter((entry) => entry.permType === 'action' && entry.targetId === actionId)
+      .filter((entry) => entry.permType === 'permission' && entry.targetId === actionId)
       .map((entry) => entry.sourceMenuId)
       .sort()
   }

@@ -7,8 +7,9 @@
 3. 数据范围（读注入 / 写校验）；
 4. 权限概要（`/api/v1/menus/my` 供数）。
 
-**对后代的接口承诺**：核心字段（`business_codes` / `action_codes` / `data_scopes` / `field_perms` / `tier` /
-`profile`）语义**不得变更**；后代新增维度一律放 `extensions`（见《02_04 详细设计》§11.2 接缝 5）。
+**对后代的接口承诺**：核心字段（`permission_codes` / `granted_menu_ids` / `granted_form_ids` /
+`data_scopes` / `field_perms` / `tier` / `profile`）语义**不得变更**；后代新增维度一律放 `extensions`
+（见《02_04 详细设计》§11.2 接缝 5）。
 
 **`tier` 与 `profile` 的区别（易混）**：`tier` 是主体层级的**豁免标记**（超管 / 系统管理员 → 校验恒真）；
 `profile` 是**引擎档位**（能力集合，见 `permission/profile.py`）。
@@ -47,10 +48,12 @@ class PermissionSnapshot(BaseDataContract):
     """引擎档位（`smb` / `enterprise` / `enterprise_hr`）。"""
     tier: str = TIER_STANDARD
     """主体层级（`standard` / `system_admin` / `platform_admin`）。"""
-    business_codes: ConcurrentStableSet[str] = field(default_factory=lambda: ConcurrentStableSet[str]())
-    """业务码集合（表单 / 业务级校验与菜单入口可见性）。"""
-    action_codes: ConcurrentStableSet[str] = field(default_factory=lambda: ConcurrentStableSet[str]())
-    """动作码集合（`业务:动作`，按钮显隐与动作级校验）。"""
+    permission_codes: ConcurrentStableSet[str] = field(default_factory=lambda: ConcurrentStableSet[str]())
+    """权限码集合（`业务:动作`；动作/接口级校验唯一单位）。"""
+    granted_menu_ids: ConcurrentStableSet[int] = field(default_factory=lambda: ConcurrentStableSet[int]())
+    """已授予的菜单入口 ID 集合（入口可见性判定）。"""
+    granted_form_ids: ConcurrentStableSet[int] = field(default_factory=lambda: ConcurrentStableSet[int]())
+    """已授予的表单 ID 集合（入口可见性判定；勾菜单连带 + 表单级直接授予）。"""
     data_scopes: ConcurrentStableList[ConcurrentStableDict[str, object]] = field(
         default_factory=lambda: ConcurrentStableList[ConcurrentStableDict[str, object]]()
     )
@@ -63,15 +66,15 @@ class PermissionSnapshot(BaseDataContract):
     """扩展位：后代档位自有数据（基础版为空），**新增维度只进此处**。"""
 
     def holds(self, code: str) -> bool:
-        """是否持指定权限码（业务码或动作码命中即通过）。
+        """是否持指定权限码。
 
         Args:
-            code: 权限码（业务码或 `业务:动作`）。
+            code: 权限码（`业务:动作`）。
 
         Returns:
             bool: 持有为 True。
         """
-        return code in self.business_codes or code in self.action_codes
+        return code in self.permission_codes
 
     @property
     def exempt(self) -> bool:
@@ -113,8 +116,9 @@ class PermissionSnapshot(BaseDataContract):
         payload.set("version", self.version)
         payload.set("profile", self.profile)
         payload.set("tier", self.tier)
-        payload.set("business_codes", list(self.business_codes))
-        payload.set("action_codes", list(self.action_codes))
+        payload.set("permission_codes", list(self.permission_codes))
+        payload.set("granted_menu_ids", list(self.granted_menu_ids))
+        payload.set("granted_form_ids", list(self.granted_form_ids))
         payload.set("data_scopes", [dict(item) for item in self.data_scopes])
         payload.set(
             "field_perms",
@@ -142,10 +146,12 @@ class PermissionSnapshot(BaseDataContract):
             PermissionSnapshot: 快照。
         """
         row = _as_stable(payload)
-        business = ConcurrentStableSet[str]()
-        business.update(item for item in _as_list(row.get("business_codes")) if isinstance(item, str))
-        actions = ConcurrentStableSet[str]()
-        actions.update(item for item in _as_list(row.get("action_codes")) if isinstance(item, str))
+        permissions = ConcurrentStableSet[str]()
+        permissions.update(item for item in _as_list(row.get("permission_codes")) if isinstance(item, str))
+        menus = ConcurrentStableSet[int]()
+        menus.update(item for item in _as_list(row.get("granted_menu_ids")) if isinstance(item, int))
+        forms = ConcurrentStableSet[int]()
+        forms.update(item for item in _as_list(row.get("granted_form_ids")) if isinstance(item, int))
         scopes: ConcurrentStableList[ConcurrentStableDict[str, object]] = ConcurrentStableList()
         for item in _as_list(row.get("data_scopes")):
             scopes.add(_as_stable(item))
@@ -162,8 +168,9 @@ class PermissionSnapshot(BaseDataContract):
             version=version,
             profile=profile,
             tier=tier,
-            business_codes=business,
-            action_codes=actions,
+            permission_codes=permissions,
+            granted_menu_ids=menus,
+            granted_form_ids=forms,
             data_scopes=scopes,
             field_perms=fields,
             extensions=_as_stable(row.get("extensions")),

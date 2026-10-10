@@ -1,8 +1,8 @@
-"""平台服务 services 层：角色授权服务（菜单 / 表单 / 操作 / 字段 / 数据权限的授予与提交）。
+"""平台服务 services 层：角色授权服务（菜单 / 表单 / 权限码 / 字段 / 数据权限的授予与提交）。
 
 口径（需求 07-3、《概要设计 · 角色管理》、《组件设计 · 权限配置》）：
 
-- 授权引用**平台元数据**（`sys_menu` / `sys_form` / `sys_action` / `sys_field`，platform 平台库）；
+- 授权引用**平台元数据**（`sys_menu` / `sys_form` / `sys_permission` / `sys_field`，platform 平台库）；
   角色与授权表在 **platform 租户库**（`bms_platform_{code}`）——同服务、跨库，校验在同服务内完成；
 - **数据权限**按基础数据字典结构化（`sys_dict_*` 与角色表**同租户库**，字段白名单同库直读，无需跨服务读出口）；
   四类策略（选择 / 区域 / 匹配 / 扩展）**只选不编**，`match.field` 须属该字典类型白名单（内置三字段 + 已启用扩展属性），
@@ -35,12 +35,12 @@ from bms_core.db.unit_of_work import UnitOfWork
 from bms_core.dict.models import SysDictAttr, SysDictType
 from bms_core.permission.version import permission_version_key
 from bms_core.scope.extensions import registered_data_scope_extensions
-from bms_platform.models.menu import SysAction, SysField, SysForm, SysMenu
+from bms_platform.models.menu import SysField, SysForm, SysMenu, SysPermission
 from bms_platform.models.role import (
     NO_SOURCE_MENU_ID,
-    PERM_TYPE_ACTION,
     PERM_TYPE_FORM,
     PERM_TYPE_MENU,
+    PERM_TYPE_PERMISSION,
     PERM_TYPES,
     POLICY_TYPE_EXTENSION,
     POLICY_TYPE_MATCH,
@@ -65,7 +65,7 @@ MATCH_PATTERN = re.compile(r"^[A-Za-z0-9_\u4e00-\u9fa5*?]+$")
 
 @dataclass(frozen=True)
 class PermissionGrantEntry(BaseValueObject):
-    """一条授权条目（菜单 / 表单 / 操作）。"""
+    """一条授权条目（菜单 / 表单 / 权限码）。"""
 
     perm_type: str
     target_id: int
@@ -107,7 +107,7 @@ class MenuMetadataChecker(BaseFrameworkObject):
         """取给定主键中**真实存在**的部分。
 
         Args:
-            model: 元数据模型（`SysMenu` / `SysForm` / `SysAction` / `SysField`）。
+            model: 元数据模型（`SysMenu` / `SysForm` / `SysPermission` / `SysField`）。
             ids: 待校验主键集合。
 
         Returns:
@@ -167,7 +167,7 @@ class RoleGrantService(BaseFrameworkObject):
         self._cache = cache
 
     async def list_permission_entries(self, role_id: int) -> ConcurrentStableList[SysRolePermission]:
-        """取角色授权条目（菜单 / 表单 / 操作）。
+        """取角色授权条目（菜单 / 表单 / 权限码）。
 
         Args:
             role_id: 角色主键。
@@ -371,7 +371,7 @@ class RoleGrantService(BaseFrameworkObject):
         grouped: ConcurrentStableDict[str, ConcurrentStableSet[int]] = ConcurrentStableDict()
         grouped.set(PERM_TYPE_MENU, ConcurrentStableSet())
         grouped.set(PERM_TYPE_FORM, ConcurrentStableSet())
-        grouped.set(PERM_TYPE_ACTION, ConcurrentStableSet())
+        grouped.set(PERM_TYPE_PERMISSION, ConcurrentStableSet())
         for entry in entries:
             existing = grouped.get(entry.perm_type)
             if existing is None:
@@ -380,7 +380,7 @@ class RoleGrantService(BaseFrameworkObject):
         models: ConcurrentStableDict[str, Any] = ConcurrentStableDict()
         models.set(PERM_TYPE_MENU, SysMenu)
         models.set(PERM_TYPE_FORM, SysForm)
-        models.set(PERM_TYPE_ACTION, SysAction)
+        models.set(PERM_TYPE_PERMISSION, SysPermission)
         for perm_type in PERM_TYPES:
             ids = grouped.get(perm_type)
             if not ids:

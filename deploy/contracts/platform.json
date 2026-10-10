@@ -3,13 +3,8 @@
     "schemas": {
       "ActionItem": {
         "additionalProperties": false,
-        "description": "动作权限码行。",
+        "description": "动作码行（全局动词维度）。",
         "properties": {
-          "business_id": {
-            "description": "归属业务码 ID",
-            "title": "Business Id",
-            "type": "string"
-          },
           "code": {
             "description": "动作码",
             "title": "Code",
@@ -43,7 +38,6 @@
           "id",
           "code",
           "name",
-          "business_id",
           "status",
           "i18n"
         ],
@@ -52,7 +46,7 @@
       },
       "ActionList": {
         "additionalProperties": false,
-        "description": "动作权限码清单。",
+        "description": "动作码清单。",
         "properties": {
           "items": {
             "description": "动作码行列表",
@@ -760,6 +754,33 @@
           }
         },
         "title": "ApiResponse[PermissionInvalidateResult]",
+        "type": "object"
+      },
+      "ApiResponse_PermissionList_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PermissionList"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[PermissionList]",
         "type": "object"
       },
       "ApiResponse_RoleAssignedUsers_": {
@@ -1563,10 +1584,10 @@
       },
       "BusinessItem": {
         "additionalProperties": false,
-        "description": "业务权限码行。",
+        "description": "业务码行（纯资源维度）。",
         "properties": {
           "code": {
-            "description": "业务权限码",
+            "description": "业务码",
             "title": "Code",
             "type": "string"
           },
@@ -1606,7 +1627,7 @@
       },
       "BusinessList": {
         "additionalProperties": false,
-        "description": "业务权限码清单。",
+        "description": "业务码清单。",
         "properties": {
           "items": {
             "description": "业务码行列表",
@@ -1622,14 +1643,8 @@
       },
       "ButtonCreateRequest": {
         "additionalProperties": false,
-        "description": "新增按钮请求（挂表单 / 挂动作）。",
+        "description": "新增按钮请求（挂表单 / 挂权限码）。",
         "properties": {
-          "action_id": {
-            "description": "挂接动作码 ID",
-            "exclusiveMinimum": 0.0,
-            "title": "Action Id",
-            "type": "integer"
-          },
           "form_id": {
             "description": "所属表单 ID",
             "exclusiveMinimum": 0.0,
@@ -1642,6 +1657,12 @@
             "minLength": 1,
             "title": "Name",
             "type": "string"
+          },
+          "permission_id": {
+            "description": "挂接权限码 ID",
+            "exclusiveMinimum": 0.0,
+            "title": "Permission Id",
+            "type": "integer"
           },
           "sort": {
             "default": 0,
@@ -1672,7 +1693,7 @@
         },
         "required": [
           "form_id",
-          "action_id",
+          "permission_id",
           "name"
         ],
         "title": "ButtonCreateRequest",
@@ -1682,11 +1703,6 @@
         "additionalProperties": false,
         "description": "按钮行。",
         "properties": {
-          "action_id": {
-            "description": "挂接动作码 ID",
-            "title": "Action Id",
-            "type": "string"
-          },
           "form_id": {
             "description": "所属表单 ID",
             "title": "Form Id",
@@ -1700,6 +1716,11 @@
           "name": {
             "description": "按钮名",
             "title": "Name",
+            "type": "string"
+          },
+          "permission_id": {
+            "description": "挂接权限码 ID",
+            "title": "Permission Id",
             "type": "string"
           },
           "sort": {
@@ -1721,7 +1742,7 @@
         "required": [
           "id",
           "form_id",
-          "action_id",
+          "permission_id",
           "name",
           "type",
           "sort",
@@ -1750,18 +1771,18 @@
         "additionalProperties": false,
         "description": "更新按钮请求。",
         "properties": {
-          "action_id": {
-            "description": "挂接动作码 ID",
-            "exclusiveMinimum": 0.0,
-            "title": "Action Id",
-            "type": "integer"
-          },
           "name": {
             "description": "按钮名",
             "maxLength": 128,
             "minLength": 1,
             "title": "Name",
             "type": "string"
+          },
+          "permission_id": {
+            "description": "挂接权限码 ID",
+            "exclusiveMinimum": 0.0,
+            "title": "Permission Id",
+            "type": "integer"
           },
           "sort": {
             "default": 0,
@@ -1791,7 +1812,7 @@
           }
         },
         "required": [
-          "action_id",
+          "permission_id",
           "name"
         ],
         "title": "ButtonUpdateRequest",
@@ -3543,18 +3564,8 @@
       },
       "MyMenuButton": {
         "additionalProperties": false,
-        "description": "动态菜单下的按钮元数据（按动作权限标记可见）。",
+        "description": "动态菜单下的按钮元数据（按权限码标记可见）。",
         "properties": {
-          "action_code": {
-            "description": "动作权限码（{业务码}:{动作码}）",
-            "title": "Action Code",
-            "type": "string"
-          },
-          "action_id": {
-            "description": "挂接动作码 ID",
-            "title": "Action Id",
-            "type": "string"
-          },
           "id": {
             "description": "按钮主键",
             "title": "Id",
@@ -3563,6 +3574,16 @@
           "name": {
             "description": "按钮名",
             "title": "Name",
+            "type": "string"
+          },
+          "permission_code": {
+            "description": "权限码（业务码:动作码）",
+            "title": "Permission Code",
+            "type": "string"
+          },
+          "permission_id": {
+            "description": "挂接权限码 ID",
+            "title": "Permission Id",
             "type": "string"
           },
           "sort": {
@@ -3576,15 +3597,15 @@
             "type": "string"
           },
           "visible": {
-            "description": "当前用户是否持有该动作权限",
+            "description": "当前用户是否持有该权限码",
             "title": "Visible",
             "type": "boolean"
           }
         },
         "required": [
           "id",
-          "action_id",
-          "action_code",
+          "permission_id",
+          "permission_code",
           "name",
           "type",
           "sort",
@@ -3814,7 +3835,7 @@
             "type": "array"
           },
           "permissions": {
-            "description": "当前用户权限码集合（业务码 + 动作码）",
+            "description": "当前用户权限码集合（业务码:动作码）",
             "items": {
               "type": "string"
             },
@@ -3864,6 +3885,74 @@
           "version"
         ],
         "title": "PermissionInvalidateResult",
+        "type": "object"
+      },
+      "PermissionItem": {
+        "additionalProperties": false,
+        "description": "权限码行（业务码 × 动作码组合，真正权限码）。",
+        "properties": {
+          "action_code": {
+            "description": "动作码",
+            "title": "Action Code",
+            "type": "string"
+          },
+          "action_id": {
+            "description": "动作码 ID",
+            "title": "Action Id",
+            "type": "string"
+          },
+          "business_code": {
+            "description": "业务码",
+            "title": "Business Code",
+            "type": "string"
+          },
+          "business_id": {
+            "description": "业务码 ID",
+            "title": "Business Id",
+            "type": "string"
+          },
+          "code": {
+            "description": "权限码（业务码:动作码）",
+            "title": "Code",
+            "type": "string"
+          },
+          "id": {
+            "description": "权限码主键",
+            "title": "Id",
+            "type": "string"
+          },
+          "status": {
+            "description": "状态（enabled/disabled）",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "business_id",
+          "business_code",
+          "action_id",
+          "action_code",
+          "status"
+        ],
+        "title": "PermissionItem",
+        "type": "object"
+      },
+      "PermissionList": {
+        "additionalProperties": false,
+        "description": "权限码清单。",
+        "properties": {
+          "items": {
+            "description": "权限码行列表",
+            "items": {
+              "$ref": "#/components/schemas/PermissionItem"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "title": "PermissionList",
         "type": "object"
       },
       "PreferenceValueRequest": {
@@ -4685,7 +4774,7 @@
             "type": "string"
           },
           "perm_type": {
-            "description": "授权类型（menu/form/action）",
+            "description": "授权类型（menu/form/permission）",
             "title": "Perm Type",
             "type": "string"
           },
@@ -4711,14 +4800,14 @@
       },
       "RolePermissionEntryRequest": {
         "additionalProperties": false,
-        "description": "一条授权条目（菜单 / 表单 / 操作）。",
+        "description": "一条授权条目（菜单 / 表单 / 权限码）。",
         "properties": {
           "perm_type": {
-            "description": "授权类型（menu/form/action）",
+            "description": "授权类型（menu/form/permission）",
             "enum": [
               "menu",
               "form",
-              "action"
+              "permission"
             ],
             "title": "Perm Type",
             "type": "string"
@@ -6615,29 +6704,8 @@
     },
     "/api/v1/actions": {
       "get": {
-        "description": "动作权限码清单（租户侧可见、只读）。\n\nArgs:\n    uow: 请求级工作单元。\n    outbox: 发件箱存储。\n    cache: 缓存 Region。\n    business_id: 业务码主键（可空 = 全部）。\n\nReturns:\n    ApiResponse: 统一响应，data 为动作码清单。",
+        "description": "动作码清单（全局字典；平台维护视图 / 租户只读）。\n\nArgs:\n    uow: 请求级工作单元。\n    outbox: 发件箱存储。\n    cache: 缓存 Region。\n\nReturns:\n    ApiResponse: 统一响应，data 为动作码清单。",
         "operationId": "list_actions_api_v1_actions_get",
-        "parameters": [
-          {
-            "description": "业务码主键（可空 = 全部）",
-            "in": "query",
-            "name": "business_id",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "exclusiveMinimum": 0,
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "业务码主键（可空 = 全部）",
-              "title": "Business Id"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "content": {
@@ -6678,16 +6746,6 @@
               }
             },
             "description": "资源不存在"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
           },
           "429": {
             "content": {
@@ -11763,6 +11821,109 @@
         "summary": "Replay Dead Letter",
         "tags": [
           "outbox"
+        ]
+      }
+    },
+    "/api/v1/permissions": {
+      "get": {
+        "description": "权限码清单（业务码 × 动作码组合；平台维护视图 / 租户只读）。\n\nArgs:\n    uow: 请求级工作单元。\n    outbox: 发件箱存储。\n    cache: 缓存 Region。\n    business_id: 业务码主键（可空 = 全部）。\n\nReturns:\n    ApiResponse: 统一响应，data 为权限码清单。",
+        "operationId": "list_permissions_api_v1_permissions_get",
+        "parameters": [
+          {
+            "description": "业务码主键（可空 = 全部）",
+            "in": "query",
+            "name": "business_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "exclusiveMinimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "业务码主键（可空 = 全部）",
+              "title": "Business Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_PermissionList_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "List Permissions",
+        "tags": [
+          "menu"
         ]
       }
     },

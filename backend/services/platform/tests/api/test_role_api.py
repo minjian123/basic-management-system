@@ -28,7 +28,7 @@ from bms_platform.main import ApplicationFactory
 from bms_platform.models.role import SysDataScope, SysRole, SysRoleField, SysRolePermission, SysUserRole
 from bms_platform.models.user import SysUser
 from tests_support.auth import auth_headers
-from tests_support.menu_metadata import reset_menu_tables, seed_action, seed_business
+from tests_support.menu_metadata import reset_menu_tables, seed_business, seed_permission
 from tests_support.permission_admin import assign_system_admin
 
 _ROLES = "/api/v1/roles"
@@ -266,7 +266,7 @@ async def test_role_crud_assign_and_grant_flow(role_client: AsyncClient) -> None
     assert (await client.delete(f"{_ROLES}/{role_id}")).json()["code"] == 30044
 
     business_id = await seed_business("role", "角色管理")
-    action_id = await seed_action(business_id, "create", "新建")
+    permission_id = await seed_permission(business_id, "create", "新建")
     menu_id, form_id = await _create_form(client, "/t-role-api", business_id)
     field = await client.post(
         _FIELDS,
@@ -280,7 +280,7 @@ async def test_role_crud_assign_and_grant_flow(role_client: AsyncClient) -> None
             "entries": [
                 {"perm_type": "menu", "target_id": menu_id, "source_menu_id": 0},
                 {"perm_type": "form", "target_id": form_id, "source_menu_id": menu_id},
-                {"perm_type": "action", "target_id": action_id, "source_menu_id": menu_id},
+                {"perm_type": "permission", "target_id": permission_id, "source_menu_id": menu_id},
             ]
         },
         headers={"Idempotency-Key": "grant-1"},

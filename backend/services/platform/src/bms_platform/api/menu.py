@@ -41,6 +41,7 @@ from bms_platform.repositories.menu import (
     FormRepository,
     MenuFormRepository,
     MenuRepository,
+    PermissionRepository,
 )
 from bms_platform.schemas.menu import (
     ActionList,
@@ -62,6 +63,7 @@ from bms_platform.schemas.menu import (
     MenuTree,
     MenuUpdateRequest,
     MyMenuResponse,
+    PermissionList,
 )
 from bms_platform.services.menu import MenuMetadataService
 from bms_platform.services.my_menu import MyMenuService
@@ -102,6 +104,12 @@ action_router = BaseRouter(
     tags=["menu"],
     dependencies=[Depends(require_auth)],
 )
+permission_router = BaseRouter(
+    key="sys_permissions",
+    prefix="/permissions",
+    tags=["menu"],
+    dependencies=[Depends(require_auth)],
+)
 
 UowDep = Annotated[UnitOfWork, Depends(get_platform_uow)]
 OutboxDep = Annotated[BaseOutboxStore, Depends(get_outbox_store)]
@@ -119,6 +127,7 @@ _REQUIRE_MENU_UPDATE = Depends(require_permission("menu:update"))
 _REQUIRE_MENU_DELETE = Depends(require_permission("menu:delete"))
 _REQUIRE_BUSINESS_QUERY = Depends(require_permission("business:query"))
 _REQUIRE_ACTION_QUERY = Depends(require_permission("action:query"))
+_REQUIRE_PERMISSION_QUERY = Depends(require_permission("permission:query"))
 
 
 def _service(uow: UnitOfWork, outbox: BaseOutboxStore, cache: CacheRegion) -> MenuMetadataService:
@@ -137,6 +146,7 @@ def _service(uow: UnitOfWork, outbox: BaseOutboxStore, cache: CacheRegion) -> Me
         uow=uow,
         businesses=BusinessRepository(session),
         actions=ActionRepository(session),
+        permissions=PermissionRepository(session),
         menus=MenuRepository(session),
         forms=FormRepository(session),
         menu_forms=MenuFormRepository(session),
@@ -243,7 +253,7 @@ def _button_item(row: SysButton) -> ButtonItem:
     return ButtonItem(
         id=row.id,
         form_id=row.form_id,
-        action_id=row.action_id,
+        permission_id=row.permission_id,
         name=row.name,
         type=row.type,
         sort=row.sort,
@@ -490,7 +500,7 @@ async def create_button(
     """
     row = await _service(uow, outbox, cache).create_button(
         form_id=req.form_id,
-        action_id=req.action_id,
+        permission_id=req.permission_id,
         name=req.name,
         type=req.type,
         sort=req.sort,
@@ -517,7 +527,7 @@ async def update_button(
     """
     row = await _service(uow, outbox, cache).update_button(
         button_id,
-        action_id=req.action_id,
+        permission_id=req.permission_id,
         name=req.name,
         type=req.type,
         sort=req.sort,
@@ -649,10 +659,25 @@ async def list_businesses(uow: UowDep, outbox: OutboxDep, cache: CacheDep) -> Ap
 
 
 @action_router.get("", dependencies=[_REQUIRE_ACTION_QUERY])
-async def list_actions(
+async def list_actions(uow: UowDep, outbox: OutboxDep, cache: CacheDep) -> ApiResponse[ActionList]:
+    """动作码清单（全局字典；平台维护视图 / 租户只读）。
+
+    Args:
+        uow: 请求级工作单元。
+        outbox: 发件箱存储。
+        cache: 缓存 Region。
+
+    Returns:
+        ApiResponse: 统一响应，data 为动作码清单。
+    """
+    return ApiResponse.ok(await _service(uow, outbox, cache).list_actions())
+
+
+@permission_router.get("", dependencies=[_REQUIRE_PERMISSION_QUERY])
+async def list_permissions(
     uow: UowDep, outbox: OutboxDep, cache: CacheDep, business_id: BusinessIdQuery = None
-) -> ApiResponse[ActionList]:
-    """动作权限码清单（租户侧可见、只读）。
+) -> ApiResponse[PermissionList]:
+    """权限码清单（业务码 × 动作码组合；平台维护视图 / 租户只读）。
 
     Args:
         uow: 请求级工作单元。
@@ -661,6 +686,6 @@ async def list_actions(
         business_id: 业务码主键（可空 = 全部）。
 
     Returns:
-        ApiResponse: 统一响应，data 为动作码清单。
+        ApiResponse: 统一响应，data 为权限码清单。
     """
-    return ApiResponse.ok(await _service(uow, outbox, cache).list_actions(business_id))
+    return ApiResponse.ok(await _service(uow, outbox, cache).list_permissions(business_id))

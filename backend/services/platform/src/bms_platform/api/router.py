@@ -58,6 +58,7 @@ api_router = mount_service_routers(
             menu.field_router,
             menu.business_router,
             menu.action_router,
+            menu.permission_router,
             # 跨服务事务参与端点（`/txn/branches*`；谁挂端点谁参与，05_07）
             build_branch_router(),
         ]

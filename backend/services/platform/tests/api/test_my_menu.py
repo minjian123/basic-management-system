@@ -13,8 +13,8 @@ from httpx import AsyncClient
 from tests_support.menu_metadata import (
     insert_form,
     reset_menu_tables,
-    seed_action,
     seed_business,
+    seed_permission,
     set_business_status,
 )
 from tests_support.permission_admin import setup_min_tenant
@@ -108,14 +108,15 @@ async def _create_page(client: AsyncClient, path: str, name: str, en: str, busin
 async def test_my_menu_filters_marks_and_locale(client: AsyncClient) -> None:
     """菜单树 + 表单 / 按钮 / 字段元数据 + 权限码集合；文案按 locale 本地化。"""
     business_id = await seed_business("t_my", "我的业务")
-    action_id = await seed_action(business_id, "create", "新建")
+    permission_id = await seed_permission(business_id, "create", "新建")
     menu = await _create_page(client, "/t-my", "我的页面", "My page", "t_my")
     menu_id = int(menu["id"])
 
     forms = (await client.get(_FORMS, params={"menu_id": menu_id})).json()["data"]["items"]
     form_id = int(forms[0]["id"])
     await client.post(
-        _BUTTONS, json={"form_id": form_id, "action_id": action_id, "name": "新增", "type": "toolbar", "sort": 1}
+        _BUTTONS,
+        json={"form_id": form_id, "permission_id": permission_id, "name": "新增", "type": "toolbar", "sort": 1},
     )
     await client.post(
         _FIELDS,
@@ -134,7 +135,6 @@ async def test_my_menu_filters_marks_and_locale(client: AsyncClient) -> None:
     data = response.json()["data"]
     assert data["locale"] == "zh-CN"
     assert isinstance(data["version"], int)
-    assert "t_my" in data["permissions"]
     assert "t_my:create" in data["permissions"]
 
     node = _find(data["menus"], "/t-my")
@@ -143,7 +143,7 @@ async def test_my_menu_filters_marks_and_locale(client: AsyncClient) -> None:
     assert len(node["forms"]) == 1
     assert node["forms"][0]["business_code"] == "t_my"
     assert int(node["forms"][0]["menu_id"]) == menu_id
-    assert node["forms"][0]["buttons"][0]["action_code"] == "t_my:create"
+    assert node["forms"][0]["buttons"][0]["permission_code"] == "t_my:create"
     assert node["forms"][0]["buttons"][0]["visible"] is True
     assert node["forms"][0]["fields"][0]["name"] == "用户名"
     assert node["forms"][0]["fields"][0]["visible"] is True

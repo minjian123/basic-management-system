@@ -9,12 +9,12 @@ uv run python -m ops.seed_menu --dry-run
 ```
 
 - URL 解析复用 `ops.seed_tenant.resolve_url(service="platform")`（`sys_menu` 等归属平台服务库）；
-- 幂等：业务码按 `code`、动作码按 `(business_id, code)`、表单按 `business_id`、菜单按 `path`、
-  菜单 ↔ 表单关联按 `(menu_id, form_id)`、按钮按 `(form_id, action_id)`、字段按 `(form_id, field_key)`
+- 幂等：业务码按 `code`、动作码按 `code`、权限码按 `(business_id, action_id)`、表单按 `business_id`、菜单按 `path`、
+  菜单 ↔ 表单关联按 `(menu_id, form_id)`、按钮按 `(form_id, permission_id)`、字段按 `(form_id, field_key)`
   判存（`deleted_at IS NULL`），不存在插入、存在跳过；
 - 菜单 ↔ 表单为**多对多**（02_03 返工）：表单先按 `business_id` upsert，再经 `sys_menu_form` 关联入口；
-- 业务码清单取自《架构设计 · 权限计算引擎》「业务与动作权限码清单」节；动作码归属按
-  《英文简称规范》「动作码简称」节的典型权限码落地；
+- 业务码清单取自《架构设计 · 权限计算引擎》「业务与动作权限码清单」节；权限码组合（业务码 × 动作码）与
+  动作码字典（全局动词）同源于该节；
 - **产品管理面权限码（12_04）**：产品业务码与域级 / 专属动作码随产品接入登记（首例 mdm 组织域
   `org` 及其 `org:query` / `org:create` / `org:update` / `org:delete` / `org:move`）；
 - 建表分支兼容保留（Alembic 落库后由 `alembic -n alembic:platform:platform upgrade head` 建表；
@@ -29,7 +29,7 @@ from sqlalchemy import Table, select
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
 from bms_core.db.keys import PLATFORM_SERVICE_KEY
 from bms_platform.models.menu import (
     SysAction,
@@ -43,6 +43,7 @@ from bms_platform.models.menu import (
     SysMenu,
     SysMenuForm,
     SysMenuI18n,
+    SysPermission,
 )
 from ops.seed_tenant import resolve_url
 
@@ -55,6 +56,8 @@ BUSINESS_SEEDS: tuple[tuple[str, str, str], ...] = (
     ("menu", "菜单/表单/按钮/字段维护", "Menu metadata"),
     ("business", "业务权限维护", "Business permissions"),
     ("action", "动作权限维护", "Action permissions"),
+    ("permission", "权限码维护", "Permission codes"),
+    ("user-extension", "用户扩展", "User extension"),
     ("user", "用户管理", "User management"),
     ("post", "岗位管理", "Position management"),
     ("dept", "部门管理", "Department management"),
@@ -92,7 +95,7 @@ BUSINESS_SEEDS: tuple[tuple[str, str, str], ...] = (
 )
 """业务权限码种子（《架构设计 · 权限计算引擎》「业务与动作权限码清单」节）。"""
 
-ACTION_SEEDS: tuple[tuple[str, str, str, str], ...] = (
+PERMISSION_SEEDS: tuple[tuple[str, str, str, str], ...] = (
     ("sys", "query", "查询", "Query"),
     ("sys", "manage", "管理（含查询与维护）", "Manage"),
     ("menu", "query", "查询", "Query"),
@@ -101,6 +104,8 @@ ACTION_SEEDS: tuple[tuple[str, str, str, str], ...] = (
     ("menu", "delete", "删除", "Delete"),
     ("business", "query", "查询", "Query"),
     ("action", "query", "查询", "Query"),
+    ("permission", "query", "查询", "Query"),
+    ("permission", "manage", "管理（含查询与维护）", "Manage"),
     ("user", "query", "查询", "Query"),
     ("user", "create", "新建", "Create"),
     ("user", "update", "修改", "Update"),
@@ -109,6 +114,8 @@ ACTION_SEEDS: tuple[tuple[str, str, str, str], ...] = (
     ("user", "unlock", "账号解锁", "Unlock account"),
     ("user", "reset_pwd", "重置密码", "Reset password"),
     ("user", "assign_role", "分配角色", "Assign role"),
+    ("user-extension", "query", "查询", "Query"),
+    ("user-extension", "update", "修改", "Update"),
     ("role", "query", "查询", "Query"),
     ("role", "create", "新建", "Create"),
     ("role", "update", "修改", "Update"),
@@ -177,7 +184,31 @@ ACTION_SEEDS: tuple[tuple[str, str, str, str], ...] = (
     ("idp", "query", "查询", "Query"),
     ("pur", "query", "查询", "Query"),
 )
-"""动作权限码种子（归属业务码 + 名称；《英文简称规范》「动作码简称」节）。"""
+"""权限码种子（业务码 × 动作码组合；名称由业务名 + 动作名组合生成）。
+
+三词分治（2026-10-10）：组合即**权限码**（`sys_permission`）；动作码字典由本表按动作码去重派生
+（`ACTION_SEEDS`，全局唯一动词）。「产品管理面权限码」随产品接入登记（首例 mdm 组织域 `org`）。
+"""
+
+
+def _derive_action_seeds() -> tuple[tuple[str, str, str], ...]:
+    """由权限码种子去重派生全局动作码字典（同码取首次出现的名称）。
+
+    Returns:
+        tuple[tuple[str, str, str], ...]: （动作码，中文名，英文名）唯一清单。
+    """
+    seen: ConcurrentStableSet[str] = ConcurrentStableSet()
+    result: ConcurrentStableList[tuple[str, str, str]] = ConcurrentStableList()
+    for _business, action, zh, en in PERMISSION_SEEDS:
+        if action in seen:
+            continue
+        seen.add(action)
+        result.add((action, zh, en))
+    return tuple(result)
+
+
+ACTION_SEEDS: tuple[tuple[str, str, str], ...] = _derive_action_seeds()
+"""动作码字典种子（全局动词维度；由权限码组合去重派生）。"""
 
 MENU_SEEDS: tuple[tuple[int, str, str, str, str | None, str | None, int, bool, str | None], ...] = (
     (0, "/sys", "系统管理", "System", None, "el:setting", 10, False, None),
@@ -245,6 +276,7 @@ _MENU_TABLES: tuple[Table, ...] = (
     cast("Table", SysBusinessI18n.__table__),
     cast("Table", SysAction.__table__),
     cast("Table", SysActionI18n.__table__),
+    cast("Table", SysPermission.__table__),
     cast("Table", SysMenu.__table__),
     cast("Table", SysMenuI18n.__table__),
     cast("Table", SysForm.__table__),
@@ -253,7 +285,7 @@ _MENU_TABLES: tuple[Table, ...] = (
     cast("Table", SysField.__table__),
     cast("Table", SysFieldI18n.__table__),
 )
-"""菜单元数据十一表（含 `sys_menu_form` 关联；建表用；显式取 `Table` 以避免联合类型推导）。"""
+"""菜单元数据表集（含 `sys_menu_form` 关联与 `sys_permission` 权限码；建表用）。"""
 
 
 async def _exists(session: AsyncSession, model: Any, *conditions: Any) -> bool:
@@ -335,31 +367,52 @@ async def seed_menu(url: str) -> tuple[int, int]:
                 business_ids.set(code, existing.id)
                 created += await _add_i18n(session, SysBusinessI18n, "business_id", existing.id, zh, en)
 
-            action_ids = ConcurrentStableDict[tuple[str, str], int]()
-            for business_code, code, zh, en in ACTION_SEEDS:
-                business_id = business_ids.get(business_code, 0)
+            action_ids = ConcurrentStableDict[str, int]()
+            for code, zh, en in ACTION_SEEDS:
                 existing_action = (
                     (
                         await session.execute(
-                            select(SysAction).where(
-                                SysAction.business_id == business_id,
-                                SysAction.code == code,
-                                SysAction.deleted_at.is_(None),
-                            )
+                            select(SysAction).where(SysAction.code == code, SysAction.deleted_at.is_(None))
                         )
                     )
                     .scalars()
                     .first()
                 )
                 if existing_action is None:
-                    existing_action = SysAction(business_id=business_id, code=code, name=zh, status="enabled")
+                    existing_action = SysAction(code=code, name=zh, status="enabled")
                     session.add(existing_action)
                     await session.flush()
                     created += 1
                 else:
                     skipped += 1
-                action_ids.set((business_code, code), existing_action.id)
+                action_ids.set(code, existing_action.id)
                 created += await _add_i18n(session, SysActionI18n, "action_id", existing_action.id, zh, en)
+
+            permission_ids = ConcurrentStableDict[tuple[str, str], int]()
+            for business_code, action_code, _zh, _en in PERMISSION_SEEDS:
+                business_id = business_ids.get(business_code, 0)
+                action_id = action_ids.get(action_code, 0)
+                existing_permission = (
+                    (
+                        await session.execute(
+                            select(SysPermission).where(
+                                SysPermission.business_id == business_id,
+                                SysPermission.action_id == action_id,
+                                SysPermission.deleted_at.is_(None),
+                            )
+                        )
+                    )
+                    .scalars()
+                    .first()
+                )
+                if existing_permission is None:
+                    existing_permission = SysPermission(business_id=business_id, action_id=action_id, status="enabled")
+                    session.add(existing_permission)
+                    await session.flush()
+                    created += 1
+                else:
+                    skipped += 1
+                permission_ids.set((business_code, action_code), existing_permission.id)
 
             menu_ids = ConcurrentStableDict[str, int]()
             form_ids_by_menu = ConcurrentStableDict[int, int]()
@@ -433,14 +486,16 @@ async def seed_menu(url: str) -> tuple[int, int]:
                 if not form_id:
                     continue
                 business_code = next(seed[8] for seed in MENU_SEEDS if seed[1] == path and seed[8] is not None)
-                action_id = action_ids.get((business_code, action_code), 0)
-                if await _exists(session, SysButton, SysButton.form_id == form_id, SysButton.action_id == action_id):
+                permission_id = permission_ids.get((business_code, action_code), 0)
+                if await _exists(
+                    session, SysButton, SysButton.form_id == form_id, SysButton.permission_id == permission_id
+                ):
                     skipped += 1
                     continue
                 session.add(
                     SysButton(
                         form_id=form_id,
-                        action_id=action_id,
+                        permission_id=permission_id,
                         name=zh,
                         type=button_type,
                         sort=sort,
@@ -516,7 +571,8 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
         print(f"[seed_menu] 目标库：{target}")
         print(
             f"[seed_menu] 种子规模：业务 {len(BUSINESS_SEEDS)} / 动作 {len(ACTION_SEEDS)} / "
-            f"菜单 {len(MENU_SEEDS)} / 按钮 {len(BUTTON_SEEDS)} / 字段 {len(FIELD_SEEDS)}（dry-run）"
+            f"权限码 {len(PERMISSION_SEEDS)} / 菜单 {len(MENU_SEEDS)} / 按钮 {len(BUTTON_SEEDS)} / "
+            f"字段 {len(FIELD_SEEDS)}（dry-run）"
         )
         return 0
     created, skipped = asyncio.run(seed_menu(url))

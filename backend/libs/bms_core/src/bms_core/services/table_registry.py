@@ -184,7 +184,7 @@ TABLE_OWNERSHIP: tuple[TableRecord, ...] = (
         table_name="sys_business",
         owner="platform",
         datasource=Datasource.PLATFORM,
-        note="业务权限码（平台统一维护；03_01 落库）",
+        note="业务码字典（资源维度，平台统一维护；03_01 落库）",
     ),
     TableRecord(
         table_name="sys_business_i18n",
@@ -196,13 +196,19 @@ TABLE_OWNERSHIP: tuple[TableRecord, ...] = (
         table_name="sys_action",
         owner="platform",
         datasource=Datasource.PLATFORM,
-        note="动作权限码（03_01 落库）",
+        note="动作码字典（全局动词维度；03_01 落库）",
     ),
     TableRecord(
         table_name="sys_action_i18n",
         owner="platform",
         datasource=Datasource.PLATFORM,
         note="动作码名称多语言（03_01 落库）",
+    ),
+    TableRecord(
+        table_name="sys_permission",
+        owner="platform",
+        datasource=Datasource.PLATFORM,
+        note="权限码（业务码 × 动作码组合；03_01 落库）",
     ),
     TableRecord(
         table_name="sys_form",
@@ -232,7 +238,7 @@ TABLE_OWNERSHIP: tuple[TableRecord, ...] = (
         table_name="sys_button",
         owner="platform",
         datasource=Datasource.PLATFORM,
-        note="表单按钮（按钮 1:1 挂动作；03_01 落库）",
+        note="表单按钮（按钮 1:1 挂权限码；03_01 落库）",
     ),
     TableRecord(
         table_name="sys_form_layout",

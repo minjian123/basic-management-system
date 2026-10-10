@@ -18,7 +18,7 @@ from bms_core.schemas.base import CONTRACT_COLLECTION, CONTRACT_STABLE_LIST, Bas
 RoleStatus = Literal["enabled", "disabled"]
 """角色状态取值。"""
 
-PermType = Literal["menu", "form", "action"]
+PermType = Literal["menu", "form", "permission"]
 """授权类型取值。"""
 
 PolicyType = Literal["select", "region", "match", "extension"]
@@ -110,13 +110,13 @@ class RoleAssignedUsers(BaseSchema):
     )
 
 
-# --------------------------------------------------------------------------- 授权（菜单 / 表单 / 操作）
+# --------------------------------------------------------------------------- 授权（菜单 / 表单 / 权限码）
 
 
 class RolePermissionEntryRequest(BaseSchema):
-    """一条授权条目（菜单 / 表单 / 操作）。"""
+    """一条授权条目（菜单 / 表单 / 权限码）。"""
 
-    perm_type: PermType = Field(description="授权类型（menu/form/action）")
+    perm_type: PermType = Field(description="授权类型（menu/form/permission）")
     target_id: int = Field(gt=0, description="授权目标 ID")
     source_menu_id: int = Field(default=0, ge=0, description="来源菜单入口 ID（0 = 表单级直接授予）")
 
@@ -133,7 +133,7 @@ class RolePermissionEntryItem(BaseSchema):
     """授权条目行（响应）。"""
 
     id: int = Field(description="授权行主键")
-    perm_type: str = Field(description="授权类型（menu/form/action）")
+    perm_type: str = Field(description="授权类型（menu/form/permission）")
     target_id: int = Field(description="授权目标 ID")
     source_menu_id: int = Field(description="来源菜单入口 ID（0 = 表单级直接授予）")
 

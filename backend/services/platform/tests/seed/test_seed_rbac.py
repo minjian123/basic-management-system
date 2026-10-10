@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.models.base import Base
-from bms_platform.models.menu import SysAction, SysBusiness
+from bms_platform.models.menu import SysAction, SysBusiness, SysPermission
 from bms_platform.models.role import SysRole, SysRolePermission
 from ops.seed_rbac import (
     AUDIT_ADMIN_CODES,
@@ -28,7 +28,7 @@ from ops.seed_rbac import (
 )
 
 _BUSINESSES = (("menu", "菜单管理"), ("role", "角色管理"))
-_ACTIONS = (("menu", "query"), ("menu", "create"), ("role", "query"), ("role", "grant"))
+_PERMISSIONS = (("menu", "query"), ("menu", "create"), ("role", "query"), ("role", "grant"))
 
 
 @pytest_asyncio.fixture
@@ -49,7 +49,11 @@ async def urls(tmp_path: Path) -> AsyncIterator[tuple[str, str]]:
         await connection.run_sync(lambda conn: Base.metadata.create_all(conn, tables=tenant_tables))
     await tenant_engine.dispose()
     platform_engine = create_async_engine(platform_url)
-    platform_tables = [cast("Table", SysBusiness.__table__), cast("Table", SysAction.__table__)]
+    platform_tables = [
+        cast("Table", SysBusiness.__table__),
+        cast("Table", SysAction.__table__),
+        cast("Table", SysPermission.__table__),
+    ]
     async with platform_engine.begin() as connection:
         await connection.run_sync(lambda conn: Base.metadata.create_all(conn, tables=platform_tables))
     factory = async_sessionmaker(platform_engine, expire_on_commit=False)
@@ -60,8 +64,14 @@ async def urls(tmp_path: Path) -> AsyncIterator[tuple[str, str]]:
             session.add(row)
             await session.flush()
             by_code[code] = row.id
-        for business, action in _ACTIONS:
-            session.add(SysAction(code=action, name=action, business_id=by_code[business]))
+        action_ids = {}
+        for business, action in _PERMISSIONS:
+            if action not in action_ids:
+                action_row = SysAction(code=action, name=action)
+                session.add(action_row)
+                await session.flush()
+                action_ids[action] = action_row.id
+            session.add(SysPermission(business_id=by_code[business], action_id=action_ids[action]))
         await session.commit()
     await platform_engine.dispose()
     yield tenant_url, platform_url
@@ -97,7 +107,7 @@ async def test_seed_creates_builtin_roles_and_grants_idempotently(urls: tuple[st
     first = await seed_rbac(tenant_url=tenant_url, platform_url=platform_url)
     assert first.roles_created == 3
     assert first.roles_skipped == 0
-    assert first.grants_created == 4  # 平台库登记了 4 个动作码：menu:query / menu:create / role:query / role:grant
+    assert first.grants_created == 4  # 平台库登记了 4 个权限码：menu:query / menu:create / role:query / role:grant
     codes, grants = await _roles_and_grants(tenant_url)
     assert set(codes) == {ROLE_SYSTEM_ADMIN, ROLE_SECURITY_ADMIN, ROLE_AUDIT_ADMIN}
     assert grants == 4
@@ -123,10 +133,10 @@ async def test_seed_creates_builtin_roles_and_grants_idempotently(urls: tuple[st
 
 @pytest.mark.kiwi_id(2270)
 def test_seed_menu_registers_assign_role() -> None:
-    """`user:assign_role` 动作码与「用户管理」页按钮挂接已在菜单元数据种子登记（`02_01`）。"""
-    from ops.seed_menu import ACTION_SEEDS, BUTTON_SEEDS
+    """`user:assign_role` 权限码与「用户管理」页按钮挂接已在菜单元数据种子登记（`02_01`）。"""
+    from ops.seed_menu import BUTTON_SEEDS, PERMISSION_SEEDS
 
-    assert ("user", "assign_role", "分配角色", "Assign role") in ACTION_SEEDS
+    assert ("user", "assign_role", "分配角色", "Assign role") in PERMISSION_SEEDS
     assert ("/sys/users", "分配角色", "assign_role", "interface", 7) in BUTTON_SEEDS
 
 

@@ -31,7 +31,7 @@
   <div class="proto-note">
     本页为「菜单管理」表单框架的<b>菜单记录 Tab</b>。信息栏三个子页签：<b>详细信息</b> · <b>挂接配置</b> · <b>系统信息</b>。
     <b>挂接配置</b>内含三个子页签：<b>表单挂接</b>（菜单 ↔ 表单<b>多对多</b>，关联表 <code>sys_menu_form</code>）·
-    <b>按钮维护</b>（按钮 1:1 挂动作）· <b>字段维护</b>（字段挂表单），按钮 / 字段为<b>页内内联明细表</b>（行内编辑），
+    <b>按钮维护</b>（按钮 1:1 挂权限码）· <b>字段维护</b>（字段挂表单），按钮 / 字段为<b>页内内联明细表</b>（行内编辑），
     改动随页面工具栏「保存」统一提交；<b>字段权限</b>授予归角色管理（<code>role:grant</code>），本页只提供入口。
     挂接链断裂（菜单无表单 / 表单无业务）在保存时校验并提示（<b>40202</b>）。
   </div>
@@ -73,7 +73,7 @@
                     <el-option label="目录" value="目录"></el-option>
                     <el-option label="菜单" value="菜单"></el-option>
                   </el-select>
-                  <div class="proto-hint" style="line-height:1.6">菜单树只有目录 / 菜单两类；按钮为独立实体（挂表单 / 挂动作），在「挂接配置 · 按钮维护」中维护</div>
+                  <div class="proto-hint" style="line-height:1.6">菜单树只有目录 / 菜单两类；按钮为独立实体（挂表单 / 挂权限码），在「挂接配置 · 按钮维护」中维护</div>
                 </el-form-item>
               </el-col>
               <el-col :span="8">
@@ -148,14 +148,14 @@
               <div class="proto-note" :style="chainOk ? '' : 'border-left-color:#cf222e;background:#ffebe9;color:#1f2328'">{{ chainText }}</div>
             </el-tab-pane>
 
-            <!-- 按钮维护：按钮 1:1 挂动作（页内内联明细表） -->
+            <!-- 按钮维护：按钮 1:1 挂权限码（页内内联明细表） -->
             <el-tab-pane label="按钮维护" name="button">
               <div class="op-row">
                 <span class="proto-hint">关联表单</span>
                 <el-select v-model="selFormKey" size="small" style="width:220px" placeholder="请选择关联表单">
                   <el-option v-for="f in associatedForms" :key="f.id" :label="f.name" :value="f.id"></el-option>
                 </el-select>
-                <span class="proto-hint" style="margin-left:8px">按钮 1:1 挂接动作权限码；默认无任何按钮权限，角色授予动作后方显隐</span>
+                <span class="proto-hint" style="margin-left:8px">按钮 1:1 挂接权限码（业务码 × 动作码组合）；默认无任何按钮权限，角色授予权限码后方显隐</span>
               </div>
               <el-table :data="buttonRows" size="small" border highlight-current-row @current-change="selButton = $event" style="width:100%">
                 <el-table-column label="按钮名称" min-width="160">
@@ -169,9 +169,9 @@
                     </el-select>
                   </template>
                 </el-table-column>
-                <el-table-column label="挂接动作" min-width="180">
+                <el-table-column label="挂接权限码" min-width="180">
                   <template #default="{ row }">
-                    <el-select v-model="row.action" size="small" :disabled="!editing" placeholder="选择动作权限码" style="width:100%">
+                    <el-select v-model="row.action" size="small" :disabled="!editing" placeholder="选择权限码" style="width:100%">
                       <el-option v-for="a in actionOptions" :key="a" :label="a" :value="a"></el-option>
                     </el-select>
                   </template>

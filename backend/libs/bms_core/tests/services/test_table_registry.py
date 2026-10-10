@@ -100,6 +100,7 @@ def test_owned_tables_and_chain_derivation() -> None:
         "sys_business_i18n",
         "sys_action",
         "sys_action_i18n",
+        "sys_permission",
         "sys_menu",
         "sys_menu_i18n",
         "sys_form",

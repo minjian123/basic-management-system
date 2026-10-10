@@ -10,16 +10,19 @@
 
 聚合口径：
 
-- **菜单 / 表单 → 业务码**：菜单授权连带其关联表单的业务码；表单授权取其业务码；
-- **动作 → `业务码:动作码`**：`perm_type="action"` 的 `target_id` 为动作主键，经**菜单快照的按钮元数据**
-  建 `action_id → action_code` 索引解析（同源于 `sys_button` ⋈ `sys_action`，免跨库二次查询；
-  未挂按钮的动作不进索引——与「按钮即授权入口」的界面口径一致）。
+- **菜单授权**：菜单入口计入 `granted_menu_ids`，并连带其关联表单计入 `granted_form_ids`（入口可见性）；
+- **表单授权**：表单计入 `granted_form_ids`（入口可见性）；
+- **权限码授权**：`perm_type="permission"` 的 `target_id` 为权限码主键，经**菜单快照的按钮元数据**
+  建 `permission_id → permission_code` 索引解析（同源于 `sys_button` ⋈ `sys_permission`，免跨库二次查询；
+  未挂按钮的权限码不进索引——与「按钮即授权入口」的界面口径一致）。
 
 档位（`profile`）与 `tier` 分列：`profile` 是引擎能力档位（`smb` / `enterprise` / `enterprise_hr`），
 `tier` 是主体层级豁免标记（`standard` / `system_admin` / `platform_admin`）。
 """
 
 from __future__ import annotations
+
+from dataclasses import dataclass, field
 
 from bms_core.cache.base import CacheRegion
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
@@ -34,7 +37,7 @@ from bms_core.permission.snapshot import (
     PermissionSnapshot,
 )
 from bms_core.permission.version import permission_user_cache_key, permission_version_key
-from bms_platform.models.role import PERM_TYPE_ACTION, PERM_TYPE_FORM, PERM_TYPE_MENU, ROLE_TYPE_SYSTEM
+from bms_platform.models.role import PERM_TYPE_FORM, PERM_TYPE_MENU, PERM_TYPE_PERMISSION, ROLE_TYPE_SYSTEM
 from bms_platform.repositories.role import (
     DataScopeRepository,
     RolePermissionRepository,
@@ -45,6 +48,15 @@ from bms_platform.services.permission_subject import PermissionSubjectService
 
 DEFAULT_SNAPSHOT_TTL = 300
 """权限快照缓存有效期（秒；缺省口径，可经 `[permission].options.snapshot_ttl_seconds` 覆盖）。"""
+
+
+@dataclass
+class _Granted:
+    """聚合中间结果：权限码集合 + 入口（菜单 / 表单）授权集合。"""
+
+    permission_codes: ConcurrentStableSet[str] = field(default_factory=lambda: ConcurrentStableSet[str]())
+    menu_ids: ConcurrentStableSet[int] = field(default_factory=lambda: ConcurrentStableSet[int]())
+    form_ids: ConcurrentStableSet[int] = field(default_factory=lambda: ConcurrentStableSet[int]())
 
 
 async def invalidate_permission_cache(
@@ -157,13 +169,14 @@ class PermissionService(BaseFrameworkObject):
             PermissionSnapshot: 用户权限快照。
         """
         role_ids = await self._subject.resolve_role_ids(user_id)
-        business, actions = await self._aggregate(role_ids)
+        granted = await self._aggregate(role_ids)
         return PermissionSnapshot(
             version=version,
             profile=self._profile,
             tier=await self._tier(role_ids),
-            business_codes=business,
-            action_codes=actions,
+            permission_codes=granted.permission_codes,
+            granted_menu_ids=granted.menu_ids,
+            granted_form_ids=granted.form_ids,
             data_scopes=await self._data_scope_rules(role_ids),
             field_perms=await self._field_perms(role_ids),
         )
@@ -193,36 +206,32 @@ class PermissionService(BaseFrameworkObject):
         """
         return await invalidate_permission_cache(self._cache, tenant_id=tenant_id, user_ids=user_ids)
 
-    async def _aggregate(
-        self, role_ids: ConcurrentStableSet[int]
-    ) -> tuple[ConcurrentStableSet[str], ConcurrentStableSet[str]]:
-        """聚合角色授权为业务码 / 动作码集合（两段解析）。
+    async def _aggregate(self, role_ids: ConcurrentStableSet[int]) -> _Granted:
+        """聚合角色授权为权限码集合与入口授权集合（两段解析）。
 
         Args:
             role_ids: 角色主键集合（空集返回空集合）。
 
         Returns:
-            tuple[ConcurrentStableSet[str], ConcurrentStableSet[str]]: （业务码集合，动作码集合）。
+            _Granted: 权限码集合 + 菜单入口 / 表单授权集合。
         """
-        business: ConcurrentStableSet[str] = ConcurrentStableSet()
-        actions: ConcurrentStableSet[str] = ConcurrentStableSet()
+        granted = _Granted()
         if not role_ids:
-            return business, actions
+            return granted
         snapshot = await self._metadata.load_snapshot(locale=DEFAULT_LOCALE, tenant_id=None, ttl=self._ttl)
-        menu_forms, form_business, action_codes = _index_metadata(snapshot)
+        menu_forms, permission_codes = _index_metadata(snapshot)
         for row in await self._permissions.list_by_roles(role_ids):
             if row.perm_type == PERM_TYPE_MENU:
-                for code in menu_forms.get(row.target_id, ConcurrentStableList[str]()):
-                    business.add(code)
+                granted.menu_ids.add(row.target_id)
+                for form_id in menu_forms.get(row.target_id, ConcurrentStableList[int]()):
+                    granted.form_ids.add(form_id)
             elif row.perm_type == PERM_TYPE_FORM:
-                code = form_business.get(row.target_id)
+                granted.form_ids.add(row.target_id)
+            elif row.perm_type == PERM_TYPE_PERMISSION:
+                code = permission_codes.get(row.target_id)
                 if code is not None:
-                    business.add(code)
-            elif row.perm_type == PERM_TYPE_ACTION:
-                action_code = action_codes.get(row.target_id)
-                if action_code is not None:
-                    actions.add(action_code)
-        return business, actions
+                    granted.permission_codes.add(code)
+        return granted
 
     async def _tier(self, role_ids: ConcurrentStableSet[int]) -> str:
         """判定主体层级（命中豁免角色类型即系统管理员层级）。
@@ -268,29 +277,26 @@ PLATFORM_TIER = TIER_PLATFORM_ADMIN
 def _index_metadata(
     snapshot: MenuSnapshot,
 ) -> tuple[
-    ConcurrentStableDict[int, ConcurrentStableList[str]],
-    ConcurrentStableDict[int, str],
+    ConcurrentStableDict[int, ConcurrentStableList[int]],
     ConcurrentStableDict[int, str],
 ]:
-    """由菜单快照建三类索引（菜单 → 业务码列表、表单 → 业务码、动作 → 动作码）。
+    """由菜单快照建两类索引（菜单 → 关联表单 ID、权限码 → 权限码字符串）。
 
     Args:
         snapshot: 菜单元数据快照（未按用户过滤）。
 
     Returns:
-        tuple[ConcurrentStableDict[int, ConcurrentStableList[str]], ConcurrentStableDict[int, str],
-        ConcurrentStableDict[int, str]]: （菜单业务码，表单业务码，动作码）。
+        tuple[ConcurrentStableDict[int, ConcurrentStableList[int]], ConcurrentStableDict[int, str]]:
+        （菜单关联表单 ID，权限码字符串）。
     """
-    menu_forms: ConcurrentStableDict[int, ConcurrentStableList[str]] = ConcurrentStableDict()
-    form_business: ConcurrentStableDict[int, str] = ConcurrentStableDict()
-    action_codes: ConcurrentStableDict[int, str] = ConcurrentStableDict()
+    menu_forms: ConcurrentStableDict[int, ConcurrentStableList[int]] = ConcurrentStableDict()
+    permission_codes: ConcurrentStableDict[int, str] = ConcurrentStableDict()
     for menu in snapshot.menus:
-        codes: ConcurrentStableList[str] = ConcurrentStableList()
+        form_ids: ConcurrentStableList[int] = ConcurrentStableList()
         for form in menu.forms:
-            form_business.set(form.id, form.business_code)
-            codes.add(form.business_code)
+            form_ids.add(form.id)
             for button in form.buttons:
-                action_codes.set(button.action_id, button.action_code)
-        if codes:
-            menu_forms.set(menu.id, codes)
-    return menu_forms, form_business, action_codes
+                permission_codes.set(button.permission_id, button.permission_code)
+        if form_ids:
+            menu_forms.set(menu.id, form_ids)
+    return menu_forms, permission_codes

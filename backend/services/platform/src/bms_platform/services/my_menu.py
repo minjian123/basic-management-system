@@ -2,10 +2,9 @@
 
 按当前用户权限过滤菜单树并下发表单元数据：
 
-- **菜单可见**＝其关联表单 → 业务的**业务码**被授予（多表单时任一命中即保留；`BasePermissionChecker`；
-  当前 provider 为占位实现，真实权限计算随 `02_04` 注入，接口与前端零改动）；
-  目录节点（无表单）在其存在可见子节点时保留；
-- **按钮**按动作权限码 `{业务码}:{动作码}` 标记 `visible`；
+- **菜单可见**＝该菜单**入口授权**（`granted_menu_ids`）命中，或其所关联表单的**表单授权**（`granted_form_ids`）
+  任一命中；目录节点（无表单）在其存在可见子节点时保留；
+- **按钮**按权限码集合（`业务码:动作码`）标记 `visible`；
 - **字段**按字段权限标记 `visible` / `editable`——字段权限授予存 `sys_role_field`（归角色管理 `02_03`），
   占位阶段按「默认全部可见可编辑」，真实收窄随 `02_04`；
 - 菜单 `hidden` 仅隐藏侧栏入口，不剔除响应（路由可直达）。
@@ -53,7 +52,7 @@ class MyMenuService(BaseFrameworkObject):
         """
         snapshot = await self._metadata.load_snapshot(locale=locale, tenant_id=tenant_id, ttl=ttl)
         permissions = ConcurrentStableList(
-            code for code in tuple(snapshot.business_codes) + tuple(snapshot.action_codes) if self._checker.check(code)
+            code for code in tuple(snapshot.permission_codes) if self._checker.check(code)
         )
         nodes = ConcurrentStableDict[int, MyMenuNode](
             {menu.id: self._to_node(menu) for menu in snapshot.menus if self._is_link_visible(menu)}
@@ -82,9 +81,10 @@ class MyMenuService(BaseFrameworkObject):
         )
 
     def _is_link_visible(self, menu: SnapshotMenu) -> bool:
-        """挂接链与业务权限判定（目录节点由「存在可见子节点」决定）。
+        """入口可见性判定（目录节点由「存在可见子节点」决定）。
 
-        关联多个表单时：任一表单挂接的业务码被授予即保留该入口。
+        可见＝菜单入口授权命中，或其所关联表单的**表单授权**任一命中（双轨：入口授权独立于权限码）。
+        占位实现 / 未预加载快照按放行；豁免层级（系统管理员 / 平台层）放行。
 
         Args:
             menu: 菜单快照。
@@ -94,7 +94,12 @@ class MyMenuService(BaseFrameworkObject):
         """
         if not menu.forms:
             return True
-        return any(self._checker.check(form.business_code) for form in menu.forms)
+        snapshot = get_current_permission_snapshot()
+        if snapshot is None or snapshot.exempt:
+            return True
+        if menu.id in snapshot.granted_menu_ids:
+            return True
+        return any(form.id in snapshot.granted_form_ids for form in menu.forms)
 
     def _to_node(self, menu: SnapshotMenu) -> MyMenuNode:
         """菜单快照 → 动态菜单节点（含表单 / 按钮 / 字段标记）。
@@ -137,12 +142,12 @@ class MyMenuService(BaseFrameworkObject):
             buttons=ConcurrentStableList(
                 MyMenuButton(
                     id=button.id,
-                    action_id=button.action_id,
-                    action_code=button.action_code,
+                    permission_id=button.permission_id,
+                    permission_code=button.permission_code,
                     name=button.name,
                     type=button.type,
                     sort=button.sort,
-                    visible=self._checker.check(button.action_code),
+                    visible=self._checker.check(button.permission_code),
                 )
                 for button in form.buttons
             ),

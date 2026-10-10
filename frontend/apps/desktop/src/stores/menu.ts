@@ -92,7 +92,7 @@ function toFormMeta(form: MyMenuForm): FormMeta {
     businessCode: form.business_code,
     visibleButtonCodes: (form.buttons ?? [])
       .filter((button) => button.visible)
-      .map((button) => button.action_code),
+      .map((button) => button.permission_code),
     fieldPerms,
   }
 }

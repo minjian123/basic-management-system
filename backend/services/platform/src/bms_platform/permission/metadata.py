@@ -19,6 +19,7 @@ from bms_platform.repositories.menu import (
     FormRepository,
     MenuFormRepository,
     MenuRepository,
+    PermissionRepository,
 )
 from bms_platform.services.menu import MenuMetadataService
 
@@ -37,6 +38,7 @@ def build_menu_metadata_service(session: DbSession, cache: CacheRegion) -> MenuM
         uow=DbUnitOfWork(session),
         businesses=BusinessRepository(session),
         actions=ActionRepository(session),
+        permissions=PermissionRepository(session),
         menus=MenuRepository(session),
         forms=FormRepository(session),
         menu_forms=MenuFormRepository(session),

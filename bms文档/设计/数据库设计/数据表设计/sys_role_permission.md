@@ -1,4 +1,4 @@
-# sys_role_permission（角色授权：菜单 / 表单 / 操作）
+# sys_role_permission（角色授权：菜单 / 表单 / 权限码）
 
 > BMS · 数据库设计 · 数据表设计
 
@@ -9,11 +9,11 @@
 | 项 | 值 |
 | --- | --- |
 | 归属库 | platform 服务租户库 `bms_platform_{code}`（归属服务 `platform`） |
-| 覆盖模块 | 07-角色管理（菜单 / 表单 / 操作授权） |
+| 覆盖模块 | 07-角色管理（菜单 / 表单 / 权限码授权） |
 | 上游依据 | 《[概要设计 · 角色管理](../../概要设计/06_概要设计_角色管理.md)》「核心表」节、《[架构设计 · 权限计算引擎](../../架构设计/15_架构设计_子系统_权限计算引擎.md)》「权限模型」节、《[组件设计 · 权限配置](../../组件设计/08_交互类/07_组件设计_权限配置/07_组件设计_权限配置.md)》、《[需求 07-3](../../../项目/07_RBAC基础模块/需求/02_需求_用户与角色.md#r07-3)》 |
 | ORM 模型 | `bms_platform/models/role.py::SysRolePermission`（继承 `BaseModel`） |
 | 状态 | 已落库（`platform:tenant` 链 `0007_role_tables` 建表；模型 / 仓储 / 服务 / API 随 `02_03` 落地） |
-| 相关节点 | [数据库设计总览](../01_数据库设计_总览.md)「核心表清单总表 · 租户库」、[sys_role](sys_role.md)、[sys_menu_form](sys_menu_form.md)、[sys_menu](sys_menu.md)、[sys_form](sys_form.md)、[sys_action](sys_action.md) |
+| 相关节点 | [数据库设计总览](../01_数据库设计_总览.md)「核心表清单总表 · 租户库」、[sys_role](sys_role.md)、[sys_menu_form](sys_menu_form.md)、[sys_menu](sys_menu.md)、[sys_form](sys_form.md)、[sys_permission](sys_permission.md) |
 
 ## 2. 字段 <a id="fields"></a>
 
@@ -23,8 +23,8 @@
 | --- | --- | --- | --- | --- |
 | `id` | BIGINT | 否 | 主键，雪花 ID | 主键 |
 | `role_id` | BIGINT | 否 | 建索引 | 角色 ID（逻辑外键 → `sys_role.id`，同库） |
-| `perm_type` | VARCHAR(16) | 否 | — | 授权类型（`menu` / `form` / `action`） |
-| `target_id` | BIGINT | 否 | 建索引 | 授权目标 ID（平台实体雪花 ID：`sys_menu.id` / `sys_form.id` / `sys_action.id`；**跨库逻辑外键**） |
+| `perm_type` | VARCHAR(16) | 否 | — | 授权类型（`menu` / `form` / `permission`） |
+| `target_id` | BIGINT | 否 | 建索引 | 授权目标 ID（平台实体雪花 ID：`sys_menu.id` / `sys_form.id` / `sys_permission.id`；**跨库逻辑外键**） |
 | `source_menu_id` | BIGINT | 否 | 默认 `0` | 来源菜单入口 ID；**`0` = 表单级直接授予**（不用 NULL，避免唯一约束在 NULL 上的跨库语义差异） |
 | `created_at` | DATETIME | 否 | 审计 | 创建时间（UTC） |
 | `created_by` | BIGINT | 是 | 审计 | 创建人 |
@@ -37,12 +37,12 @@
 
 | 名称 | 类型 | 列 | 说明 |
 | --- | --- | --- | --- |
-| `uq_sys_role_permission_role_type_target_source_deleted_at` | 唯一 | `(role_id, perm_type, target_id, source_menu_id, deleted_at)` | 同一角色对同一目标同一来源唯一（支持同一表单 / 动作由多入口分别授予） |
+| `uq_sys_role_permission_role_type_target_source_deleted_at` | 唯一 | `(role_id, perm_type, target_id, source_menu_id, deleted_at)` | 同一角色对同一目标同一来源唯一（支持同一表单 / 权限码由多入口分别授予） |
 | `idx_sys_role_permission_role_type` | 普通 | `(role_id, perm_type)` | 按角色取各类授权 |
 | `idx_sys_role_permission_target` | 普通 | `target_id` | 反查授权引用（删除保护 / 引用校验） |
 
 - 无物理外键；`role_id` 同库逻辑引用，`target_id` **跨库逻辑引用平台实体**（不 join，采集经平台只读契约批量回显）。
-- **权限分层语义**：菜单权限（`menu`，仅菜单入口）→ 勾选菜单入口**连带授予其表单查看权限**（落显式 `form` 行、`source_menu_id` = 该菜单入口）；操作权限（`action`，默认无）；**业务权限不落表**（由已授予表单按「表单→业务」对照关系推导）。
+- **双轨语义（2026-10-10）**：**入口授权**＝菜单权限（`menu`，仅菜单入口）→ 勾选菜单入口**连带授予其表单查看权限**（落显式 `form` 行、`source_menu_id` = 该菜单入口）；**权限码授权**（`permission`，默认无，挂表单的按钮）；业务级**不落表**（界面可见性由入口授权独立判定，接口/数据访问走权限码）。
 - **来源判定**：`source_menu_id != 0` 的行由对应菜单入口连带生成，**本入口可改**、其它来源只读；`source_menu_id = 0` 为「表单权限」页签的**表单级直接授予**。取消勾选菜单入口时**仅删该来源行**，其它来源保留。
 - **写入方式**：整份授权**全量覆盖提交**（先删后插、单事务、`Idempotency-Key` 幂等），成功一次版本 +1。
 
@@ -57,5 +57,6 @@
 | 日期 | 版本 | 变更 | 作者 |
 | --- | --- | --- | --- |
 | 2026-10-06 | v1 | 新建表结构（org 服务租户库；`source_menu_id` 以 `0` 表示表单级直接授予） | minjian |
+| 2026-10-10 | v2 | 三词分治：授权类型 `action` 改为 `permission`，`target_id` 指向 `sys_permission.id` | minjian |
 
 > 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套

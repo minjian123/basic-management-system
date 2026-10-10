@@ -21,8 +21,8 @@ type FormItemSchema = Schemas['FormItem']
 type FieldItemSchema = Schemas['FieldItem']
 /** 按钮行契约。 */
 type ButtonItemSchema = Schemas['ButtonItem']
-/** 动作行契约。 */
-type ActionItemSchema = Schemas['ActionItem']
+/** 权限码行契约。 */
+type PermissionItemSchema = Schemas['PermissionItem']
 
 /**
  * 菜单节点 → 内核菜单节点（仅菜单入口）。
@@ -44,20 +44,20 @@ function toMenuNode(item: MenuItemSchema): PermissionMenuNode {
  * @returns 内核元数据。
  */
 export async function fetchPermissionMetadata(): Promise<PermissionMetadata> {
-  const [menus, forms, fields, buttons, actions] = await Promise.all([
+  const [menus, forms, fields, buttons, permissions] = await Promise.all([
     get<Schemas['MenuTree']>('platform', '/menus'),
     get<Schemas['FormList']>('platform', '/forms'),
     get<Schemas['FieldList']>('platform', '/fields'),
     get<Schemas['ButtonList']>('platform', '/buttons'),
-    get<Schemas['ActionList']>('platform', '/actions'),
+    get<Schemas['PermissionList']>('platform', '/permissions'),
   ])
 
   const formActions: Record<string, string[]> = {}
   for (const button of (buttons.items ?? []) as ButtonItemSchema[]) {
     const formId = String(button.form_id)
     const list = formActions[formId] ?? []
-    if (!list.includes(String(button.action_id))) {
-      list.push(String(button.action_id))
+    if (!list.includes(String(button.permission_id))) {
+      list.push(String(button.permission_id))
     }
     formActions[formId] = list
   }
@@ -81,9 +81,9 @@ export async function fetchPermissionMetadata(): Promise<PermissionMetadata> {
     name: field.name,
   }))
 
-  const actionMetas: ActionMeta[] = ((actions.items ?? []) as ActionItemSchema[]).map((action) => ({
-    id: String(action.id),
-    name: action.name,
+  const actionMetas: ActionMeta[] = ((permissions.items ?? []) as PermissionItemSchema[]).map((permission) => ({
+    id: String(permission.id),
+    name: permission.code,
   }))
 
   return {

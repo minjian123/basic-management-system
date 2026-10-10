@@ -9,11 +9,11 @@
 | 项 | 值 |
 | --- | --- |
 | 归属库 | 平台库 `bms_platform`（归属服务 `platform`） |
-| 覆盖模块 | 08-菜单管理（按钮 → 动作 挂接链） |
+| 覆盖模块 | 08-菜单管理（按钮 → 权限码 挂接链） |
 | 上游依据 | 《[概要设计 · 菜单管理](../../概要设计/07_概要设计_菜单管理.md)》、《[架构设计 · 权限计算引擎](../../架构设计/15_架构设计_子系统_权限计算引擎.md)》「权限模型」节、《[需求 07-5](../../../项目/07_RBAC基础模块/需求/03_需求_菜单与权限.md#r07-5)》 |
 | ORM 模型 | `bms_platform/models/menu.py::SysButton`（继承 `BaseModel`） |
 | 状态 | 已落库（表文件与平台链迁移 `0007_menu_metadata` 就绪；真库随部署窗口） |
-| 相关节点 | [数据库设计总览](../01_数据库设计_总览.md)「核心表清单总表 · 平台库」、[sys_form](sys_form.md)、[sys_action](sys_action.md) |
+| 相关节点 | [数据库设计总览](../01_数据库设计_总览.md)「核心表清单总表 · 平台库」、[sys_form](sys_form.md)、[sys_permission](sys_permission.md) |
 
 ## 2. 字段 <a id="fields"></a>
 
@@ -22,8 +22,8 @@
 | 字段 | 类型 | 可空 | 约束 / 默认 | 说明 |
 | --- | --- | --- | --- | --- |
 | `id` | BIGINT | 否 | 主键，雪花 ID | 主键 |
-| `form_id` | BIGINT | 否 | `(form_id, action_id, deleted_at)` 复合唯一；建索引 | 所属表单 ID（逻辑外键 → `sys_form.id`） |
-| `action_id` | BIGINT | 否 | 同上；建索引 | 挂接动作码 ID（逻辑外键 → `sys_action.id`，**1:1**） |
+| `form_id` | BIGINT | 否 | `(form_id, permission_id, deleted_at)` 复合唯一；建索引 | 所属表单 ID（逻辑外键 → `sys_form.id`） |
+| `permission_id` | BIGINT | 否 | 同上；建索引 | 挂接权限码 ID（逻辑外键 → `sys_permission.id`，**1:1**） |
 | `name` | VARCHAR(128) | 否 | — | 按钮名（界面可见文本；不入 i18n 附表） |
 | `type` | VARCHAR(16) | 否 | 默认 `toolbar` | 按钮形态：`toolbar`（工具栏）/ `interface`（表单界面内） |
 | `sort` | INT | 否 | 默认 `0` | 同表内排序（升序） |
@@ -39,12 +39,13 @@
 
 | 名称 | 类型 | 列 | 说明 |
 | --- | --- | --- | --- |
-| `uq_sys_button_form_action_deleted_at` | 唯一 | `(form_id, action_id, deleted_at)` | 同表单同动作唯一定义（软删除后可复用） |
+| `uq_sys_button_form_permission_deleted_at` | 唯一 | `(form_id, permission_id, deleted_at)` | 同表单同权限码唯一定义（软删除后可复用） |
 | `idx_sys_button_form_id` | 普通 | `form_id` | 按表单列示按钮 |
-| `idx_sys_button_action_id` | 普通 | `action_id` | 按动作码反查按钮 |
+| `idx_sys_button_permission_id` | 普通 | `permission_id` | 按权限码反查按钮 |
 
-- 无物理外键；`form_id` / `action_id` 为逻辑外键，同库。
-- **默认无任何按钮权限**：按钮不授予即不显隐（前端按动作权限 `{业务码}:{动作码}` 过滤）。
+- 无物理外键；`form_id` / `permission_id` 为逻辑外键，同库。
+- **默认无任何按钮权限**：按钮不授予即不显隐（前端按权限码 `{业务码}:{动作码}` 过滤）。
+- **三词分治（2026-10-10）**：按钮挂接对象由动作码改为**权限码**（`permission_id`）；权限码业务须与按钮所属表单业务一致（服务层校验）。
 
 ## 4. 分片 / 归档 / 迁移 <a id="storage"></a>
 
@@ -57,5 +58,7 @@
 | 日期 | 版本 | 变更 | 作者 |
 | --- | --- | --- | --- |
 | 2026-10-04 | v1 | 新建表结构（平台库；随平台链 `0007_menu_metadata` 迁移落地） | minjian |
+| 2026-10-10 | v2 | 三词分治：挂接对象 `action_id` → `permission_id`（唯一键与索引同步改） | minjian |
 
 > 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套
+

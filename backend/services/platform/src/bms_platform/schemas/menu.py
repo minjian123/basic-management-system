@@ -83,10 +83,10 @@ class FormUpdateRequest(BaseSchema):
 
 
 class ButtonCreateRequest(BaseSchema):
-    """新增按钮请求（挂表单 / 挂动作）。"""
+    """新增按钮请求（挂表单 / 挂权限码）。"""
 
     form_id: int = Field(gt=0, description="所属表单 ID")
-    action_id: int = Field(gt=0, description="挂接动作码 ID")
+    permission_id: int = Field(gt=0, description="挂接权限码 ID")
     name: str = Field(min_length=1, max_length=128, description="按钮名（界面可见文本）")
     type: ButtonType = Field(default="toolbar", description="按钮形态（toolbar/interface）")
     sort: int = Field(default=0, description="同表内排序（升序）")
@@ -96,7 +96,7 @@ class ButtonCreateRequest(BaseSchema):
 class ButtonUpdateRequest(BaseSchema):
     """更新按钮请求。"""
 
-    action_id: int = Field(gt=0, description="挂接动作码 ID")
+    permission_id: int = Field(gt=0, description="挂接权限码 ID")
     name: str = Field(min_length=1, max_length=128, description="按钮名")
     type: ButtonType = Field(default="toolbar", description="按钮形态（toolbar/interface）")
     sort: int = Field(default=0, description="同表内排序（升序）")
@@ -181,7 +181,7 @@ class ButtonItem(BaseSchema):
 
     id: int = Field(description="按钮主键")
     form_id: int = Field(description="所属表单 ID")
-    action_id: int = Field(description="挂接动作码 ID")
+    permission_id: int = Field(description="挂接权限码 ID")
     name: str = Field(description="按钮名")
     type: str = Field(description="按钮形态（toolbar/interface）")
     sort: int = Field(description="同表内排序")
@@ -218,17 +218,17 @@ class FieldList(BaseSchema):
 
 
 class BusinessItem(BaseSchema):
-    """业务权限码行。"""
+    """业务码行（纯资源维度）。"""
 
     id: int = Field(description="业务码主键")
-    code: str = Field(description="业务权限码")
+    code: str = Field(description="业务码")
     name: str = Field(description="名称（默认文案）")
     status: str = Field(description="状态（enabled/disabled）")
     i18n: I18nNames = Field(description="多语言名称（locale → 文案）")
 
 
 class BusinessList(BaseSchema):
-    """业务权限码清单。"""
+    """业务码清单。"""
 
     items: Annotated[ConcurrentStableList[BusinessItem], CONTRACT_COLLECTION] = Field(
         default_factory=CONTRACT_STABLE_LIST, description="业务码行列表"
@@ -236,21 +236,40 @@ class BusinessList(BaseSchema):
 
 
 class ActionItem(BaseSchema):
-    """动作权限码行。"""
+    """动作码行（全局动词维度）。"""
 
     id: int = Field(description="动作码主键")
     code: str = Field(description="动作码")
     name: str = Field(description="名称（默认文案）")
-    business_id: int = Field(description="归属业务码 ID")
     status: str = Field(description="状态（enabled/disabled）")
     i18n: I18nNames = Field(description="多语言名称（locale → 文案）")
 
 
 class ActionList(BaseSchema):
-    """动作权限码清单。"""
+    """动作码清单。"""
 
     items: Annotated[ConcurrentStableList[ActionItem], CONTRACT_COLLECTION] = Field(
         default_factory=CONTRACT_STABLE_LIST, description="动作码行列表"
+    )
+
+
+class PermissionItem(BaseSchema):
+    """权限码行（业务码 × 动作码组合，真正权限码）。"""
+
+    id: int = Field(description="权限码主键")
+    code: str = Field(description="权限码（业务码:动作码）")
+    business_id: int = Field(description="业务码 ID")
+    business_code: str = Field(description="业务码")
+    action_id: int = Field(description="动作码 ID")
+    action_code: str = Field(description="动作码")
+    status: str = Field(description="状态（enabled/disabled）")
+
+
+class PermissionList(BaseSchema):
+    """权限码清单。"""
+
+    items: Annotated[ConcurrentStableList[PermissionItem], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_LIST, description="权限码行列表"
     )
 
 
@@ -258,15 +277,15 @@ class ActionList(BaseSchema):
 
 
 class MyMenuButton(BaseSchema):
-    """动态菜单下的按钮元数据（按动作权限标记可见）。"""
+    """动态菜单下的按钮元数据（按权限码标记可见）。"""
 
     id: int = Field(description="按钮主键")
-    action_id: int = Field(description="挂接动作码 ID")
-    action_code: str = Field(description="动作权限码（{业务码}:{动作码}）")
+    permission_id: int = Field(description="挂接权限码 ID")
+    permission_code: str = Field(description="权限码（业务码:动作码）")
     name: str = Field(description="按钮名")
     type: str = Field(description="按钮形态（toolbar/interface）")
     sort: int = Field(description="同表内排序")
-    visible: bool = Field(description="当前用户是否持有该动作权限")
+    visible: bool = Field(description="当前用户是否持有该权限码")
 
 
 class MyMenuField(BaseSchema):
@@ -322,7 +341,7 @@ class MyMenuResponse(BaseSchema):
     locale: str = Field(description="解析后的语言标识")
     version: int = Field(description="元数据版本号（缓存版本）")
     permissions: Annotated[ConcurrentStableList[str], CONTRACT_COLLECTION] = Field(
-        default_factory=CONTRACT_STABLE_LIST, description="当前用户权限码集合（业务码 + 动作码）"
+        default_factory=CONTRACT_STABLE_LIST, description="当前用户权限码集合（业务码:动作码）"
     )
     menus: Annotated[ConcurrentStableList[MyMenuNode], CONTRACT_COLLECTION] = Field(
         default_factory=CONTRACT_STABLE_LIST, description="过滤后的菜单树（子节点嵌套）"

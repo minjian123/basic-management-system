@@ -29,7 +29,7 @@ export interface RoleAssignPayload {
 /** 授权条目载荷（ID 字符串口径，见 `SnowflakeId`）。 */
 export interface RolePermissionEntryPayload {
   /** 授权类型（menu/form/action）。 */
-  perm_type: 'menu' | 'form' | 'action'
+  perm_type: 'menu' | 'form' | 'permission'
   /** 授权目标 ID。 */
   target_id: SnowflakeId
   /** 来源菜单入口 ID（`0` = 表单级直接授予）。 */

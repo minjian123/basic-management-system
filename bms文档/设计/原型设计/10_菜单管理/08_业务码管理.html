@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 权限码管理</title>
+<title>原型 · 业务码管理</title>
 <link rel="stylesheet" href="../资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../资源/原型样式.css">
 <style>
@@ -18,16 +18,16 @@
 
 <div class="proto-bar">
   <span class="pb-crumb"><a href="01_设计说明.html">← 返回设计说明</a></span>
-  <span class="pb-name">菜单管理 · 权限码管理（表单框架 · 列表 Tab）</span>
+  <span class="pb-name">菜单管理 · 业务码管理（表单框架 · 列表 Tab）</span>
 </div>
 
 <div class="proto-frame">
   <div class="proto-note">
-    本页为「权限码管理」表单框架的<b>列表 Tab</b>（固定页签，不可关闭）；双击数据行或点「新增」打开<b>权限码记录 Tab</b>
-    （见 <a href="05_权限码表单页.html">05_权限码表单页</a>）。权限码（<code>sys_permission</code>）＝<b>业务码 × 动作码组合</b>，
-    是<b>唯一强制校验单位</b>；<a href="08_业务码管理.html">业务码</a>与<a href="09_动作码管理.html">动作码</a>为独立字典，本页只做组合（受控可授项）。
-    列表页三段式：工具栏 → 筛选区 → 表格；<b>无操作列</b>，双击行开记录 Tab；权限码存平台库、平台超管统一维护，
-    <b>租户侧可见、可分配、不可增删</b>（40204）；一经发布稳定不变，<b>停用代替删除</b>（被按钮 / 角色引用时先解除，40206）。
+    本页为「业务码管理」表单框架的<b>列表 Tab</b>（固定页签，不可关闭）；双击数据行或点「新增」打开<b>业务码记录 Tab</b>
+    （见 <a href="10_业务码表单页.html">10_业务码表单页</a>）。业务码（<code>sys_business</code>）为<b>纯资源维度</b>（权限码左半，
+    与<a href="09_动作码管理.html">动作码</a>组合成<a href="04_权限码管理.html">权限码</a>）；列表页三段式：工具栏 → 筛选区 → 表格；
+    <b>无操作列</b>，双击行开记录 Tab；业务码存平台库、平台超管统一维护，<b>租户侧可见、可分配、不可增删</b>（40204）；
+    一经发布稳定不变，<b>停用代替删除</b>。
   </div>
 
   <div id="app">
@@ -49,14 +49,7 @@
         <el-row :gutter="16">
           <el-col :span="8">
             <el-form-item label="关键字">
-              <el-input v-model="query.kw" placeholder="关键字：权限码/名称" clearable style="width:240px"></el-input>
-            </el-form-item>
-          </el-col>
-          <el-col :span="8">
-            <el-form-item label="业务码">
-              <el-select v-model="query.biz" placeholder="全部" clearable style="width:100%">
-                <el-option v-for="b in bizOptions" :key="b" :label="b" :value="b"></el-option>
-              </el-select>
+              <el-input v-model="query.kw" placeholder="关键字：业务码/名称" clearable style="width:240px"></el-input>
             </el-form-item>
           </el-col>
           <el-col :span="8">
@@ -67,10 +60,8 @@
               </el-select>
             </el-form-item>
           </el-col>
-        </el-row>
-        <el-row :gutter="16">
-          <el-col :span="8" :offset="16">
-            <el-form-item>
+          <el-col :span="8">
+            <el-form-item style="margin-top:30px">
               <el-button type="primary" @click="applyFilter">查询</el-button>
               <el-button @click="resetFilter">重置</el-button>
             </el-form-item>
@@ -79,10 +70,9 @@
       </el-form>
       <el-table :data="pageRows" border stripe @selection-change="onSel" @row-dblclick="openForm" style="width:100%">
         <el-table-column type="selection" width="48"></el-table-column>
-        <el-table-column prop="code" label="权限码" min-width="160"></el-table-column>
-        <el-table-column prop="name" label="名称" min-width="180"></el-table-column>
-        <el-table-column prop="biz" label="业务码" min-width="140"></el-table-column>
-        <el-table-column prop="act" label="动作码" min-width="130"></el-table-column>
+        <el-table-column prop="code" label="业务码" min-width="160"></el-table-column>
+        <el-table-column prop="name" label="名称" min-width="220"></el-table-column>
+        <el-table-column prop="permCount" label="权限码数" width="110"></el-table-column>
         <el-table-column label="状态" width="100">
           <template #default="{ row }"><el-tag :type="row.status === 'enabled' ? 'success' : 'info'">{{ row.status === 'enabled' ? '启用' : '停用' }}</el-tag></template>
         </el-table-column>
@@ -121,34 +111,33 @@
     setup: function () {
       var editing = ref(false);
       var rows = ref([
-        { id: 'user:create', code: 'user:create', name: '用户管理·新增', biz: 'user', act: 'create', status: 'enabled' },
-        { id: 'user:update', code: 'user:update', name: '用户管理·编辑', biz: 'user', act: 'update', status: 'enabled' },
-        { id: 'role:grant', code: 'role:grant', name: '角色管理·授权', biz: 'role', act: 'grant', status: 'enabled' },
-        { id: 'menu:query', code: 'menu:query', name: '菜单管理·查询', biz: 'menu', act: 'query', status: 'enabled' },
-        { id: 'permission:query', code: 'permission:query', name: '权限码维护·查询', biz: 'permission', act: 'query', status: 'enabled' },
-        { id: 'user-extension:query', code: 'user-extension:query', name: '用户扩展·查询', biz: 'user-extension', act: 'query', status: 'enabled' },
-        { id: 'dict:query-scheme', code: 'dict:query-scheme', name: '字典管理·高级查询方案管理', biz: 'dict', act: 'query-scheme', status: 'enabled' },
-        { id: 'ai:chat', code: 'ai:chat', name: 'AI 助手·对话', biz: 'ai', act: 'chat', status: 'disabled' }
+        { id: 'user', code: 'user', name: '用户管理（含账号锁定/解锁）', permCount: 8, status: 'enabled' },
+        { id: 'role', code: 'role', name: '角色与授权', permCount: 5, status: 'enabled' },
+        { id: 'menu', code: 'menu', name: '菜单/表单/按钮/字段维护', permCount: 4, status: 'enabled' },
+        { id: 'business', code: 'business', name: '业务权限维护', permCount: 1, status: 'enabled' },
+        { id: 'action', code: 'action', name: '动作权限维护', permCount: 1, status: 'enabled' },
+        { id: 'permission', code: 'permission', name: '权限码维护', permCount: 2, status: 'enabled' },
+        { id: 'user-extension', code: 'user-extension', name: '用户扩展（插件样例）', permCount: 2, status: 'enabled' },
+        { id: 'biz_example', code: 'biz_example', name: '业务示例模块（产品仓库登记）', permCount: 0, status: 'disabled' }
       ]);
-      var bizOptions = ['user', 'role', 'menu', 'business', 'action', 'permission', 'user-extension', 'dict', 'ai', 'export'];
-      var query = reactive({ kw: '', biz: '', status: '', page: 1, size: 20 });
+      var query = reactive({ kw: '', status: '', page: 1, size: 20 });
       var sel = ref([]);
 
       var filtered = computed(function () {
         return rows.value.filter(function (r) {
           var k = (query.kw || '').toLowerCase();
-          return (!k || (r.code + r.name).toLowerCase().indexOf(k) >= 0) && (!query.biz || r.biz === query.biz) && (!query.status || r.status === query.status);
+          return (!k || (r.code + r.name).toLowerCase().indexOf(k) >= 0) && (!query.status || r.status === query.status);
         });
       });
       var pageRows = computed(function () { var s = (query.page - 1) * query.size; return filtered.value.slice(s, s + query.size); });
 
       function applyFilter() { query.page = 1; }
-      function resetFilter() { query.kw = ''; query.biz = ''; query.status = ''; query.page = 1; }
+      function resetFilter() { query.kw = ''; query.status = ''; query.page = 1; }
       function onSel(s) { sel.value = s; }
-      function reload() { toast('已刷新权限码（保留筛选与分页）'); }
+      function reload() { toast('已刷新业务码（保留筛选与分页）'); }
       function delSel() {
         if (!sel.value.length) { ElMessage.warning('请先选择一行'); return; }
-        ElMessageBox.confirm('确认删除选中的 ' + sel.value.length + ' 个权限码？权限码一经发布稳定不变，平台库以「停用」代替删除，被按钮 / 角色引用时先解除引用（40206）。',
+        ElMessageBox.confirm('确认删除选中的 ' + sel.value.length + ' 个业务码？业务码一经发布稳定不变，平台库以「停用」代替删除，被表单 / 权限码引用时先解除引用（40206）。',
           '提示', { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消', confirmButtonClass: 'el-button--danger' })
           .then(function () {
             var ids = sel.value.map(function (r) { return r.id; });
@@ -161,7 +150,7 @@
         if (!sel.value.length) { ElMessage.warning('请先选择一行'); return; }
         var toDisabled = sel.value.some(function (r) { return r.status === 'enabled'; });
         var text = toDisabled ? '停用' : '启用';
-        ElMessageBox.confirm('确认' + text + '选中的 ' + sel.value.length + ' 个权限码？' + (toDisabled ? '停用后按钮挂接与角色授予选项即时不可选（已授予者保留）。' : ''),
+        ElMessageBox.confirm('确认' + text + '选中的 ' + sel.value.length + ' 个业务码？' + (toDisabled ? '停用后表单挂接与权限码组合选项即时不可选（已授予者保留）。' : ''),
           '提示', { type: 'warning', confirmButtonText: text, cancelButtonText: '取消' })
           .then(function () {
             sel.value.forEach(function (r) { r.status = toDisabled ? 'disabled' : 'enabled'; });
@@ -170,19 +159,19 @@
           }).catch(function () {});
       }
       function openForm(row) {
-        var url = '05_权限码表单页.html' + (row ? '?id=' + encodeURIComponent(row.code) + '&name=' + encodeURIComponent(row.name) + '&biz=' + encodeURIComponent(row.biz) + '&act=' + encodeURIComponent(row.act) : '?new=1');
+        var url = '10_业务码表单页.html' + (row ? '?id=' + encodeURIComponent(row.code) + '&name=' + encodeURIComponent(row.name) : '?new=1');
         if (location.search.indexOf('embed=1') >= 0) {
-          try { parent.openDetail('权限码记录', row ? row.name : '新建权限码', row ? row.code : ''); return; } catch (e) {}
+          try { parent.openDetail('业务码记录', row ? row.name : '新建业务码', row ? row.code : ''); return; } catch (e) {}
         }
-        if (row) { toast('打开权限码记录：' + row.code); location.href = url; return; }
-        toast('新建权限码（打开空白记录 Tab，直接进入编辑态）');
+        if (row) { toast('打开业务码记录：' + row.code); location.href = url; return; }
+        toast('新建业务码（打开空白记录 Tab，直接进入编辑态）');
         location.href = url;
       }
-      function exportMsg() { toast('按当前筛选导出权限码（受 export:download 权限约束）'); }
-      function closePage() { toast('关闭权限码管理模块页（返回）'); }
+      function exportMsg() { toast('按当前筛选导出业务码（受 export:download 权限约束）'); }
+      function closePage() { toast('关闭业务码管理模块页（返回）'); }
       function toast(m, type) { ElMessage({ message: m, type: type || 'success' }); }
 
-      return { editing, rows, bizOptions, query, sel, filtered, pageRows, applyFilter, resetFilter, onSel, reload, delSel, batchToggle, openForm, exportMsg, closePage, toast };
+      return { editing, rows, query, sel, filtered, pageRows, applyFilter, resetFilter, onSel, reload, delSel, batchToggle, openForm, exportMsg, closePage, toast };
     }
   });
   app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });

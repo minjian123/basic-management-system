@@ -30,9 +30,9 @@ from bms_core.permission.snapshot import (
 from bms_platform.models.menu import SysField
 from bms_platform.models.role import (
     NO_SOURCE_MENU_ID,
-    PERM_TYPE_ACTION,
     PERM_TYPE_FORM,
     PERM_TYPE_MENU,
+    PERM_TYPE_PERMISSION,
     POLICY_TYPE_SELECT,
     ROLE_TYPE_CUSTOM,
     SysDataScope,
@@ -65,15 +65,15 @@ _MENU_UNGRANTED_ID = 899
 class _Button:
     """按钮快照替身。"""
 
-    def __init__(self, action_id: int, action_code: str) -> None:
+    def __init__(self, permission_id: int, permission_code: str) -> None:
         """初始化。
 
         Args:
-            action_id: 动作 id。
-            action_code: 动作码。
+            permission_id: 权限码 id。
+            permission_code: 权限码。
         """
-        self.action_id = action_id
-        self.action_code = action_code
+        self.permission_id = permission_id
+        self.permission_code = permission_code
 
 
 class _Form:
@@ -192,7 +192,7 @@ async def _seed(session: AsyncSession) -> None:
         [
             SysRolePermission(role_id=role.id, perm_type=PERM_TYPE_MENU, target_id=_MENU_ID),
             SysRolePermission(role_id=role.id, perm_type=PERM_TYPE_FORM, target_id=_FORM_GRANT_ID),
-            SysRolePermission(role_id=role.id, perm_type=PERM_TYPE_ACTION, target_id=_ACTION_ID),
+            SysRolePermission(role_id=role.id, perm_type=PERM_TYPE_PERMISSION, target_id=_ACTION_ID),
         ]
     )
     field = SysField(form_id=_FORM_ID, field_key="salary", name="薪资", type="number", sort=1)
@@ -244,8 +244,8 @@ async def test_non_exempt_subject_snapshot_and_write_guard(session: AsyncSession
     snapshot = await _service(session).snapshot_for(user_id=_USER_ID, tenant_id="1001")
     assert snapshot.tier == TIER_STANDARD
     assert snapshot.exempt is False
-    assert snapshot.holds("employee") is True  # 菜单授权连带其表单业务码
-    assert snapshot.holds("payroll") is True  # 表单授权取业务码
+    assert 900 in snapshot.granted_menu_ids  # 菜单授权计入入口集合
+    assert {901, 999} <= snapshot.granted_form_ids  # 菜单连带表单 + 表单级直接授予
     assert snapshot.holds("employee:query") is True
     assert snapshot.holds("employee:export") is False
     assert snapshot.field_state(_FORM_ID, "salary") == (False, False)
@@ -279,7 +279,7 @@ async def test_snapshot_cache_reuses_version_and_reflects_grant_removal(session:
     second = await service.snapshot_for(user_id=_USER_ID, tenant_id="1001")
     assert first.holds("employee:query") == second.holds("employee:query") is True
     rows = (
-        (await session.execute(select(SysRolePermission).where(SysRolePermission.perm_type == PERM_TYPE_ACTION)))
+        (await session.execute(select(SysRolePermission).where(SysRolePermission.perm_type == PERM_TYPE_PERMISSION)))
         .scalars()
         .all()
     )

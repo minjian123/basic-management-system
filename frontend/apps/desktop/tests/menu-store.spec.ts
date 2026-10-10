@@ -52,8 +52,8 @@ const RESPONSE: MyMenuResponse = {
               buttons: [
                 {
                   id: '20',
-                  action_id: '30',
-                  action_code: 'user:create',
+                  permission_id: '30',
+                  permission_code: 'user:create',
                   name: '新增',
                   type: 'toolbar',
                   sort: 1,

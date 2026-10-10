@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>原型 · 权限码表单页</title>
+<title>原型 · 动作码表单页</title>
 <link rel="stylesheet" href="../资源/vendor/element-plus.css">
 <link rel="stylesheet" href="../资源/原型样式.css">
 <style>
@@ -17,20 +17,18 @@
 
 <div class="proto-bar">
   <span class="pb-crumb"><a href="01_设计说明.html">← 返回设计说明</a></span>
-  <span class="pb-name">菜单管理 · 权限码表单页（表单框架 · 权限码记录 Tab）</span>
+  <span class="pb-name">菜单管理 · 动作码表单页（表单框架 · 动作码记录 Tab）</span>
 </div>
 
 <div class="proto-frame">
   <div class="proto-note">
-    本页为「权限码管理」表单框架的<b>权限码记录 Tab</b>。信息栏两个子页签：<b>详细信息</b> · <b>系统信息</b>。
-    权限码（<code>sys_permission</code>）＝<b>业务码 × 动作码组合</b>（对应 <code>sys_business</code> × <code>sys_action</code>），
-    是<b>唯一强制校验单位</b>；名称由「业务名 + 动作名」组合生成，不单独维护。
-    权限码存平台库、<b>平台统一维护，租户侧只读</b>（40204）；一经发布稳定不变，<b>停用代替删除</b>（被按钮 / 角色引用时禁停用 / 删除，40206）。
+    本页为「动作码管理」表单框架的<b>动作码记录 Tab</b>。信息栏两个子页签：<b>详细信息</b> · <b>系统信息</b>。
+    动作码（<code>sys_action</code>）为<b>全局动词维度</b>（权限码右半）——<b>不归属业务</b>（同一动词全库一条），平台统一维护，<b>租户侧只读</b>（40204）；
+    动作码一经发布稳定不变，<b>停用代替删除</b>（被权限码组合引用时禁停用 / 删除，40206）。
   </div>
 
   <div id="app">
     <div class="ep-page">
-      <!-- ① 工具栏分态：只读 修改/删除/刷新/关闭 ↔ 编辑 保存/取消 -->
       <div class="ep-toolbar">
         <template v-if="!editing">
           <el-button type="primary" @click="editForm">修改</el-button>
@@ -48,37 +46,21 @@
         </span>
       </div>
 
-      <!-- ② 信息栏：详细信息 / 系统信息 -->
       <el-tabs v-model="section" :before-leave="beforeTabLeave">
         <el-tab-pane label="详细信息" name="detail">
           <el-form label-position="top" :disabled="!editing">
             <el-row :gutter="16">
               <el-col :span="8">
-                <el-form-item label="业务码" required>
-                  <el-select v-model="form.biz" filterable style="width:100%">
-                    <el-option v-for="b in bizOptions" :key="b" :label="b" :value="b"></el-option>
-                  </el-select>
-                </el-form-item>
+                <el-form-item label="动作码" required><el-input v-model="form.code" placeholder="如 create"></el-input></el-form-item>
               </el-col>
               <el-col :span="8">
-                <el-form-item label="动作码" required>
-                  <el-select v-model="form.act" filterable style="width:100%">
-                    <el-option v-for="a in actOptions" :key="a" :label="a" :value="a"></el-option>
-                  </el-select>
-                </el-form-item>
+                <el-form-item label="中文名称" required><el-input v-model="form.zh" placeholder="中文名称"></el-input></el-form-item>
               </el-col>
               <el-col :span="8">
-                <el-form-item label="权限码（组合派生）">
-                  <el-input v-model="derivedCode" readonly></el-input>
-                </el-form-item>
+                <el-form-item label="英文名称" required><el-input v-model="form.en" placeholder="English Name"></el-input></el-form-item>
               </el-col>
             </el-row>
             <el-row :gutter="16">
-              <el-col :span="8">
-                <el-form-item label="名称（组合派生）">
-                  <el-input v-model="derivedName" readonly></el-input>
-                </el-form-item>
-              </el-col>
               <el-col :span="8">
                 <el-form-item label="状态">
                   <el-switch v-model="form.enabled" active-text="启用" inactive-text="停用"></el-switch>
@@ -88,14 +70,13 @@
             <el-row :gutter="16">
               <el-col :span="24">
                 <el-form-item label="说明">
-                  <span class="proto-hint">权限码 = 业务码 × 动作码，只能选已存在的组合（受控可授项）；权限码字符串与名称均由组合派生，不单独维护；权限码经平台库维护、租户侧只读引用（40204）。</span>
+                  <span class="proto-hint">动作码为全局动词维度（权限码右半，去业务归属）；与业务码组合成权限码（见「权限码管理」）；名称按 locale 存多语言附表，缺省回退主表默认文案。</span>
                 </el-form-item>
               </el-col>
             </el-row>
           </el-form>
         </el-tab-pane>
 
-        <!-- 系统信息 -->
         <el-tab-pane label="系统信息" name="sys">
           <iframe class="sys-frame" src="../02_公共原型/04_系统信息组件.html" :style="{ height: sysH + 'px' }" @load="pushSys($event, sys)"></iframe>
         </el-tab-pane>
@@ -120,17 +101,12 @@
       var editing = ref(isNew);
       var section = ref('detail');
       var dirty = ref(false);
-      var bizOptions = ['user', 'role', 'menu', 'business', 'action', 'permission', 'user-extension', 'dict', 'ai', 'export'];
-      var actOptions = ['query', 'create', 'update', 'delete', 'manage', 'grant', 'approve', 'query-scheme'];
-      var actionNames = { query: '查询', create: '新增', update: '编辑', delete: '删除', manage: '维护', grant: '授权', approve: '审批', 'query-scheme': '高级查询方案管理' };
-      var form = reactive({ biz: 'user', act: 'create', enabled: true });
-      var derivedCode = computed(function () { return form.biz && form.act ? form.biz + ':' + form.act : ''; });
-      var derivedName = computed(function () { return form.biz && form.act ? form.biz + '·' + (actionNames[form.act] || form.act) : ''; });
+      var form = reactive({ code: 'create', zh: '新建', en: 'Create', enabled: true });
       var sys = reactive({
-        id: '1902880099887766554', version: 2,
+        id: '1902880099887766022', version: 2,
         createdAt: '2026-07-01 10:00:00', createdBy: 'admin',
         updatedAt: '2026-10-10 09:20:00', updatedBy: 'admin',
-        formKey: 'permission', formLabel: '权限码表单'
+        formKey: 'action', formLabel: '动作码表单'
       });
 
       var sysH = ref(236);
@@ -156,13 +132,13 @@
         } else { editing.value = false; toast('已取消修改'); }
       }
       function saveForm() {
-        if (!form.biz || !form.act) { toast('业务码与动作码必填', 'error'); return; }
+        if (!(form.code || '').trim() || !(form.zh || '').trim() || !(form.en || '').trim()) { toast('动作码与中英文名称必填', 'error'); return; }
         editing.value = false;
         dirty.value = false;
-        toast('权限码已保存（sys.form.updated 已发布，授权选项即时生效）');
+        toast('动作码已保存（sys.form.updated 已发布，授权 / 组合选项即时生效）');
       }
       function delForm() {
-        ElMessageBox.confirm('删除当前权限码？平台码稳定不变、以「停用」代替删除；被按钮 / 角色引用时先解除授权（40206），删除后不可恢复。', '提示', {
+        ElMessageBox.confirm('删除当前动作码？平台码稳定不变、以「停用」代替删除；被权限码组合引用时先解除引用（40206），删除后不可恢复。', '提示', {
           type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消', confirmButtonClass: 'el-button--danger'
         }).then(function () { toast('已删除（软删除，sys.form.updated 已发布）'); }).catch(function () {});
       }
@@ -175,15 +151,14 @@
       }
 
       (function () {
-        var id = qp('id'), biz = qp('biz'), act = qp('act');
-        if (isNew) { form.biz = ''; form.act = ''; return; }
-        if (biz) form.biz = biz;
-        if (act) form.act = act;
-        if (id && id.indexOf(':') >= 0) { form.biz = id.split(':')[0]; form.act = id.split(':')[1]; }
+        var id = qp('id'), name = qp('name');
+        if (isNew) { form.code = ''; form.zh = ''; form.en = ''; return; }
+        if (id) form.code = id;
+        if (name) form.zh = name;
       })();
       function toast(m, type) { ElMessage({ message: m, type: type || 'success' }); }
 
-      return { editing, section, dirty, bizOptions, actOptions, form, derivedCode, derivedName, sys, sysH, pushSys, beforeTabLeave, editForm, cancelEdit, saveForm, delForm, reload, closePage, toast };
+      return { editing, section, dirty, form, sys, sysH, pushSys, beforeTabLeave, editForm, cancelEdit, saveForm, delForm, reload, closePage, toast };
     }
   });
   app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });

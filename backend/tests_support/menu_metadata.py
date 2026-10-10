@@ -24,6 +24,7 @@ from bms_platform.models.menu import (
     SysMenu,
     SysMenuForm,
     SysMenuI18n,
+    SysPermission,
 )
 
 MENU_MODELS: tuple[Any, ...] = (
@@ -34,12 +35,13 @@ MENU_MODELS: tuple[Any, ...] = (
     SysField,
     SysMenuForm,
     SysForm,
+    SysPermission,
     SysActionI18n,
     SysAction,
     SysBusinessI18n,
     SysBusiness,
 )
-"""菜单元数据十一表（清场顺序：先子后父；含 `sys_menu_form` 关联）。"""
+"""菜单元数据十二表（清场顺序：先子后父；含 `sys_menu_form` 关联与 `sys_permission`）。"""
 
 
 def platform_url() -> str:
@@ -94,27 +96,40 @@ async def set_business_status(business_id: int, status: str) -> None:
         await engine.dispose()
 
 
-async def seed_action(business_id: int, code: str, name: str = "查询") -> int:
-    """直插动作权限码。
+async def seed_permission(business_id: int, action_code: str = "query", name: str = "查询") -> int:
+    """直插权限码（业务码 × 动作码组合）：全局动作码缺则建，再建权限码。
 
     Args:
-        business_id: 归属业务码主键。
-        code: 动作码。
-        name: 名称。
+        business_id: 业务码主键。
+        action_code: 动作码（全局动词）。
+        name: 动作名（新建动作码时使用）。
 
     Returns:
-        int: 动作码主键。
+        int: 权限码主键。
     """
     engine = create_async_engine(platform_url())
     factory = async_sessionmaker(engine, expire_on_commit=False)
     try:
         async with factory() as session:
-            row = SysAction(business_id=business_id, code=code, name=name, status="enabled")
-            session.add(row)
+            action = (
+                (
+                    await session.execute(
+                        select(SysAction).where(SysAction.code == action_code, SysAction.deleted_at.is_(None))
+                    )
+                )
+                .scalars()
+                .first()
+            )
+            if action is None:
+                action = SysAction(code=action_code, name=name, status="enabled")
+                session.add(action)
+                await session.flush()
+            permission = SysPermission(business_id=business_id, action_id=action.id, status="enabled")
+            session.add(permission)
             await session.flush()
-            action_id = row.id
+            permission_id = permission.id
             await session.commit()
-        return action_id
+        return permission_id
     finally:
         await engine.dispose()
 

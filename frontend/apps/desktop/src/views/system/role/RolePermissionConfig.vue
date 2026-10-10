@@ -72,7 +72,7 @@ const jobs: PermissionJobs = {
     return {
       roleId: id,
       entries: (permissions.items ?? []).map((entry) => ({
-        permType: entry.perm_type as 'menu' | 'form' | 'action',
+        permType: entry.perm_type as 'menu' | 'form' | 'permission',
         targetId: String(entry.target_id),
         sourceMenuId: String(entry.source_menu_id ?? '0'),
       })),
