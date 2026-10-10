@@ -258,7 +258,7 @@
                       <el-option label="文本" value="string"></el-option>
                       <el-option label="数字" value="number"></el-option>
                       <el-option label="日期" value="date"></el-option>
-                      <el-option label="枚举" value="enum"></el-option>
+                      <el-option label="选项" value="select"></el-option>
                     </el-select>
                   </template>
                 </el-table-column>
@@ -511,7 +511,7 @@
         ],
         lock_form: [
           { key: 'username', name: '用户名', type: 'string', sort: 1, status: 'enabled' },
-          { key: 'lock_type', name: '锁定类型', type: 'enum', sort: 2, status: 'enabled' }
+          { key: 'lock_type', name: '锁定类型', type: 'select', sort: 2, status: 'enabled' }
         ]
       });
       function ensureMap(map, key) { if (!map[key]) map[key] = []; return map[key]; }
