@@ -48,16 +48,16 @@ BMS 作为平台支撑独立业务产品按"平台扩展"复用（产品仓库�
 
 - 移动端 H5 宿主与渲染插件（阶段十七）、前端全页面（阶段十五）、平台自身页面迁移为模块与生产模块部署形态随后续阶段交付。
 - 后端基座与机制类的交付形态与遗留归口见《[项目骨架计划](bms文档/项目/01_项目骨架/计划/01_计划_项目骨架.md)》「后续阶段待办」节。
-- **可本地起服务**：本机裸跑全套（后端四服务 + PC 前端宿主），见「快速启动」节；后端 `/healthz`（存活）与 `/readyz`（就绪）。
+- **可本地起服务**：本机裸跑全套（后端三服务 + PC 前端宿主），见「快速启动」节；后端 `/healthz`（存活）与 `/readyz`（就绪）。
 
 ## 快速启动
 
 > 前置：Python 3.14（uv 管理）、Node 22（nvm 管理）。依赖**不进仓库树**：前端 node_modules 与后端 .venv 均外置到本地依赖仓（口径见《[开发机部署使用说明总览](bms文档/资料/开发机/开发机部署使用说明总览.md)》）。
 
-**推荐：本机裸跑全套（后端四服务 + PC 宿主；无需 Docker / 无需开发服务器）**
+**推荐：本机裸跑全套（后端三服务 + PC 宿主；无需 Docker / 无需开发服务器）**
 
 ```bash
-# 后端四服务（identity / org / tenant / platform，各绑 127.0.0.2~5，统一端口 8000）
+# 后端三服务（identity / tenant / platform，绑 127.0.0.2 / 4 / 5 别名，统一端口 8000；org 已退役归 mdm 产品）
 bash scripts/tools/dev/本地全套.sh up        # 启动（幂等 + 有界起停；自愈 hosts 别名与开发密钥）
 bash scripts/tools/dev/本地全套.sh seed      # 建演示租户与管理员账号（口令见《本地资源》，不写入本文件）
 bash scripts/tools/dev/本地全套.sh status    # 进程与 /healthz、/readyz 一览
@@ -119,7 +119,7 @@ bms/
 ├── renovate.json                # Renovate 配置（已置 enabled:false，停用自动升级）
 ├── backend/                     # FastAPI 后端工作区（uv workspace）
 │   ├── libs/bms_core/           # 共享基座库（包 bms_core：core / api / db / 各横切能力域）
-│   ├── services/                # 各服务工程（identity / org / tenant / platform / notification / file / search / report / ai）
+│   ├── services/                # 各服务工程（identity / tenant / platform / txn / notification / file / search / report / ai）
 │   ├── alembic/                 # 数据库迁移（按「服务 × 数据源」分链）
 │   └── ops/                     # 运维脚本（模块检查 / 租户库初始化 / 批量迁移 / 测试库流程）
 ├── frontend/                    # 前端单仓多包（pnpm workspace）
@@ -128,7 +128,7 @@ bms/
 │   ├── modules/                 # 运行时模块（demo / sample / slot-sample 等）
 │   ├── scripts/                 # 模块产物发布与托管脚本（release-module / serve-module-releases）
 │   └── releases/                # 模块产物归档（不入库；仅 release-log.{json,md} 入库）
-├── deploy/                      # 部署配置（ci / compose / contracts / gateway / observability / setup 等）
+├── deploy/                      # 部署配置（ci / compose / contracts / events / gateway / keycloak / observability / postgres / setup / boundaries 等）
 ├── scripts/tools/               # 开发期工具链（base-check / check-docs / deps / dev / preflight / governance 等）
 ├── ops/                         # 产品运维脚本（种子数据 / 备份恢复 / 租户库迁移，后续阶段填充）
 ├── package.json                 # 前端根脚本（core:check / vue:check / ui-ep:check / api-types:gen 等）
