@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>字典页布局设计</title>
+<link rel="stylesheet" href="../../资源/文档样式.css">
+<style>
+  .sys-select { display:inline-block; background:#f5f7fa; border:1px solid #e4e7ed; border-radius:4px; padding:1px 24px 1px 8px; font-size:.85rem; position:relative; }
+  .sys-select::after { content:""; position:absolute; right:8px; top:50%; width:0; height:0; border:4px solid transparent; border-top-color:#a8abb2; transform:translateY(-30%); }
+  .sys-grid3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px 12px; }
+  .sys-cell3 { border:1px dashed var(--border); border-radius:4px; padding:6px 10px; background:#fff; font-size:.85rem; }
+  .dict-switch { display:inline-flex; align-items:center; gap:6px; font-size:.85rem; color:var(--text-muted,#606266); }
+  .dict-switch .knob { display:inline-block; width:32px; height:16px; border-radius:8px; background:#dcdfe6; position:relative; }
+  .dict-switch .knob::after { content:""; position:absolute; top:2px; left:2px; width:12px; height:12px; border-radius:50%; background:#fff; }
+  .dict-switch.on .knob { background:#67c23a; }
+  .dict-switch.on .knob::after { left:18px; }
+</style>
+</head>
+<body>
+
+<div class="topnav">
+  <a href="../../文档首页.md">文档首页</a> ›
+  <a href="../../规划/项目规划说明.md">项目规划说明</a> ›
+  <a href="01_布局设计_总览.html">布局设计</a> ›
+  <span>字典页布局设计</span>
+  <span class="topnav-side">
+    <a href="16_布局设计_移动端细化.html">← 上一个：移动端细化</a>
+    <a href="01_布局设计_总览.html">返回总览</a>
+  </span>
+</div>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>字典页布局设计</h1>
+      <p>字典数据（类型 / 条目）统一记录页 · 详细信息与系统信息 Tab · 首行 Code / Name / State</p>
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#purpose">1. 目的与适用范围</a></li>
+        <li><a href="#structure">2. 页面结构</a>
+          <ul class="sub">
+            <li><a href="#structure-tabs">2.1 信息栏（详细信息/系统信息）</a></li>
+            <li><a href="#sys-fields">2.2 详细信息：首行三个字典系统字段</a></li>
+            <li><a href="#rest-fields">2.3 详细信息：其余字段</a></li>
+            <li><a href="#detail-area">2.4 明细区（类型下挂条目）</a></li>
+            <li><a href="#sys-layout">2.5 系统信息布局</a></li>
+          </ul>
+        </li>
+        <li><a href="#display">3. 首行三字段显示口径</a></li>
+        <li><a href="#states">4. 只读/编辑分态</a></li>
+        <li><a href="#perm-i18n">5. 字段权限与多语言文案</a></li>
+        <li><a href="#validate">6. 校验与提交</a></li>
+        <li><a href="#interaction">7. 与 FormFrame / 列表页的协作</a></li>
+        <li><a href="#checklist">8. 检查清单</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <div class="content">
+    <main>
+
+      <h2 id="purpose">1. 目的与适用范围</h2>
+      <p>
+        规范 BMS 管理端<strong>字典页</strong>的统一布局：字典数据（<code>sys_dict_type</code> 字典类型与 <code>sys_dict_item</code> 字典条目）
+        的查看与编辑界面<strong>共用同一套布局模板</strong>——参考《<a href="08_布局设计_表单页.html">布局设计-表单页</a>》的
+        表单页（FormDetailPanel）形态：工具栏 + 信息栏（<strong>详细信息 / 系统信息</strong>两个 Tab）+ 字段区（详细信息内可含明细区）。
+      </p>
+      <p>
+        <strong>「所有字典数据」的界面同一模板</strong>：无论编辑哪一个字典类型、哪一条字典条目，界面都由
+        「详细信息 + 系统信息」两个 Tab 组成；<strong>详细信息的第一行固定为三个字典系统字段
+        Code（代码）/ Name（名称）/ State（状态）</strong>，三列等宽、顺序固定，其后才排该记录类型的其余字段。
+        字典域模型与页面清单见《<a href="../概要设计/09_概要设计_字典管理.md">概要设计 · 字典管理</a>》§4 / §8，
+        字段语义与多语言（类型 <code>name</code> / 条目 <code>label</code> 走 <code>_i18n</code> 附表）见同文档 §2.2 / §4.1。
+      </p>
+      <div class="note">
+        职责划分：<strong>列表侧</strong>（字典类型列表 + 条目列表、筛选与批量操作）按《<a href="07_布局设计_列表页.html">布局设计-列表页</a>》；
+        <strong>记录侧</strong>（单条字典类型 / 条目的查看与编辑）按<strong>本布局</strong>；表格明细（类型下挂条目）按《<a href="09_布局设计_表格明细.html">布局设计-表格明细</a>》；
+        弹窗形态（字典项快速编辑）按《<a href="10_布局设计_弹窗.html">布局设计-弹窗</a>》。
+      </div>
+
+      <h2 id="structure">2. 页面结构</h2>
+      <div class="diagram">
+        <div class="d-box d-title">字典页结构（FormDetailPanel · 字典数据记录）</div>
+        <div class="d-box d-toolbar">工具栏：修改 / 删除 / 刷新 / 关闭（只读态）· 保存（编辑态）· 启用停用（按需求）</div>
+        <div class="d-box d-body">
+          <div>信息栏：<span class="d-fixed" style="padding:0 .3rem">详细信息</span> │ 系统信息</div>
+          <div class="d-sub" style="margin-top:.4rem">
+            <div><strong>详细信息</strong>（首行三字段 + 其余字段 + 明细区）</div>
+            <div class="d-subtab">
+              <strong>首行（三列，固定）</strong>：Code（代码） │ Name（名称） │ State（状态）<br>
+              其余字段（三列栅格，按记录种类）：类型 = 排序等；条目 = 值 / 语义色 / 上级 / 排序 / 扩展属性<br>
+              明细区：类型记录下挂「条目」明细 Tab（行内编辑，仅编辑态可用）；条目记录无明细
+            </div>
+            <div style="margin-top:.4rem"><strong>系统信息</strong>：label 上方三列只读栅格（ID / 版本号 / 创建用户 / 创建时间 / 修改用户 / 修改时间 / 字典类型，只读）</div>
+          </div>
+        </div>
+      </div>
+
+      <h3 id="structure-tabs">2.1 信息栏（详细信息/系统信息）</h3>
+      <ul>
+        <li>信息栏分两个子 Tab：「详细信息」与「系统信息」，与表单页同口径（同位置、同交互、同视觉）。</li>
+        <li>详细信息 = 首行三个字典系统字段 + 其余字段（按记录种类） + 明细区（仅字典类型记录有下挂条目）。</li>
+        <li>系统信息为系统审计字段区，字段形态与业务字段一致（disabled 输入框），仅只读不可编辑，各模块统一，见 2.5。</li>
+        <li>Tab 切换不切换记录、不重取数；两 Tab 共用同一份记录数据与同一套字段权限判定。</li>
+      </ul>
+
+      <h3 id="sys-fields">2.2 详细信息：首行三个字典系统字段</h3>
+      <div class="diagram" style="max-width:720px">
+        <div class="d-box d-title">详细信息 · 第一行（el-form label-position="top" · 三列栅格，固定顺序）</div>
+        <div class="d-box d-body" style="padding:12px">
+          <div class="sys-grid3">
+            <div class="sys-cell3"><div class="f-label">Code（代码）</div><div class="f-input"></div></div>
+            <div class="sys-cell3"><div class="f-label">Name（名称）</div><div class="f-input"></div></div>
+            <div class="sys-cell3"><div class="f-label">State（状态）</div>
+              <span class="dict-switch on"><span class="knob"></span>启用</span>
+            </div>
+          </div>
+        </div>
+        <div class="d-box d-note">首行三列等宽（el-col :span="8"）· 顺序固定 Code → Name → State · 与同排字段同高对齐（多语言文案字段恒占一行，不逐语言铺开）</div>
+      </div>
+      <ul>
+        <li><strong>首行固定</strong>：Code（代码）、Name（名称）、State（状态）三列，顺序与列宽固定，任何字典记录页都不得调换或省略；三字段是字典数据的<strong>系统字段</strong>（区别于各记录类型的其余业务字段）。</li>
+        <li><strong>字段落点</strong>：字典类型记录 → Code = <code>sys_dict_type.type</code>、Name = <code>sys_dict_type.name</code>（<code>sys_dict_type_i18n.label</code>）、State = <code>sys_dict_type.status</code>；字典条目记录 → Code = <code>sys_dict_item.code</code>、Name = <code>sys_dict_item.label</code>（<code>sys_dict_item_i18n.label</code>）、State = <code>sys_dict_item.status</code>。两级记录字段名不同但<strong>显示口径一致</strong>（同一模板）。</li>
+        <li><strong>具体显示按需求</strong>：三字段的控件形态可按模块需求选取，取值见 §3 表（如 Code 只读文本 / 新建时可填；Name 统一用多语言文案字段；State 用状态开关或下拉）。</li>
+        <li>字段标签按当前 locale 下发（<code>sys_field_i18n</code> 口径），前端不硬编码「代码 / 名称 / 状态」以外的文案。</li>
+      </ul>
+
+      <h3 id="rest-fields">2.3 详细信息：其余字段</h3>
+      <table>
+        <tr><th>记录种类</th><th>其余字段（首行之后，三列栅格）</th><th>说明</th></tr>
+        <tr>
+          <td>字典类型（<code>sys_dict_type</code>）</td>
+          <td>排序（<code>sort</code>）</td>
+          <td>数字输入（整数，升序）；&gt; 8 字段时用分区标题（<code>el-divider</code> / <code>SectionContainer</code>）分组</td>
+        </tr>
+        <tr>
+          <td>字典条目（<code>sys_dict_item</code>）</td>
+          <td>值（<code>value</code>）、语义色（<code>color</code>）、上级条目（<code>parent_id</code>）、排序（<code>sort</code>）、扩展属性（<code>attr_json</code>）</td>
+          <td>语义色为下拉（成功 / 警告 / 危险 / 信息 / 主色，可空）；上级条目为同类型条目选择（级联联动）；扩展属性按 <code>sys_dict_attr</code> schema 渲染（属性未启用或该类型无属性时不显示该分区）</td>
+        </tr>
+      </table>
+      <ul>
+        <li>其余字段一律排在<strong>首行三字段之后</strong>，按「三列栅格」顺排；长文本 / JSON / 备注类字段跨整行（<code>:span="24"</code>）。</li>
+        <li>字段增删由模块需求决定，但<strong>首行三字段的顺序与列宽不变</strong>；新增字段只能追加在首行之后。</li>
+      </ul>
+
+      <h3 id="detail-area">2.4 明细区（类型下挂条目）</h3>
+      <ul>
+        <li><strong>字典类型记录</strong>：详细信息下部为「条目」明细 Tab（表格明细，口径见《<a href="09_布局设计_表格明细.html">布局设计-表格明细</a>》）——列含 Code / 名称 / 值 / 语义色 / 上级 / 排序 / 状态；行内编辑，新增行 / 删除行仅编辑态可用；随主表整体提交（单事务）。</li>
+        <li>明细行内编辑时，条目字段的显示口径与条目记录页首行一致（Code / Name / State 同语义同顺序）。</li>
+        <li><strong>字典条目记录</strong>：无明细区；如需查看同类型其它条目，经工具栏「关闭」回到列表侧（或由列表侧切换记录）。</li>
+        <li>扩展属性分区（条目侧）不进入明细表格，仅在条目记录页展示，避免明细行过宽。</li>
+      </ul>
+
+      <h3 id="sys-layout">2.5 系统信息布局</h3>
+      <div class="diagram" style="max-width:720px">
+        <div class="d-box d-title">系统信息（与表单页同口径 · 三列只读栅格）</div>
+        <div class="d-box d-body" style="padding:12px">
+          <div class="sys-grid3">
+            <div class="sys-cell3"><div class="f-label">ID</div><div class="f-input"></div></div>
+            <div class="sys-cell3"><div class="f-label">版本号</div><div class="f-input"></div></div>
+            <div class="sys-cell3"><div class="f-label">创建用户</div><div class="f-input"></div></div>
+            <div class="sys-cell3"><div class="f-label">创建时间</div><div class="f-input"></div></div>
+            <div class="sys-cell3"><div class="f-label">修改用户</div><div class="f-input"></div></div>
+            <div class="sys-cell3"><div class="f-label">修改时间</div><div class="f-input"></div></div>
+            <div class="sys-cell3"><div class="f-label">字典类型</div><span class="sys-select">用户状态</span></div>
+          </div>
+        </div>
+        <div class="d-box d-note">字段顺序固定 · label 上方 · 三列只读栅格（disabled 输入框，仅不可编辑；字典类型为禁用下拉框）· 时间按租户时区格式化（无时区后缀）· 无编辑态</div>
+      </div>
+      <ul>
+        <li><strong>与表单页唯一差异</strong>：第 7 项由「表单标识」换为<strong>「字典类型」</strong>——记录当前记录所属的字典类型（用禁用下拉框展示：显示类型名，值为 type 编码，如 <code>sys_status</code>）；字典<strong>类型</strong>记录本身该项显示「—」或类型自身标识。</li>
+        <li>其余六项（ID / 版本号 / 创建用户 / 创建时间 / 修改用户 / 修改时间）与表单页完全一致，实现复用《<a href="../原型设计/02_公共原型/04_系统信息组件.html">原型-公共组件/04-系统信息组件</a>》。</li>
+        <li>系统信息无编辑态、不参与校验与提交；保存冲突（409）时提示「记录已被修改」并重载最新数据（见 §6）。</li>
+      </ul>
+
+      <h2 id="display">3. 首行三字段显示口径</h2>
+      <p>三字段为字典数据系统字段，<strong>术语与顺序固定</strong>，控件形态「具体显示按需求」按下表选取；同一模块内应保持一致。</p>
+      <table>
+        <tr><th>字段</th><th>语义</th><th>可选显示口径（按需求）</th><th>约束</th></tr>
+        <tr>
+          <td>Code（代码）</td>
+          <td>稳定标识：类型编码 / 条目编码</td>
+          <td>
+            ① 只读文本（默认，一经发布稳定不变）；<br>
+            ② 新建态可填 + 编辑态只读（推荐：新建时可填、保存后锁定）；<br>
+            ③ 可编辑输入框（仅内部临时字典，且须提示影响面）
+          </td>
+          <td>唯一（类型 <code>type</code> 全局唯一；条目 <code>code</code> 同类型内唯一）；字母数字与下划线；保存后不随显示形态变化</td>
+        </tr>
+        <tr>
+          <td>Name（名称）</td>
+          <td>展示名称：类型名 / 条目名</td>
+          <td>
+            ① <strong>多语言文案字段</strong>（默认，推荐）——表单里恒占一行：文本框就地编辑必填语言（＝当前登录用户语言）文案 + 图标按钮开多语言明细弹框；<br>
+            ② 单语言输入框（仅无需多语言的内部字典）
+          </td>
+          <td>启用语言中的必填语言必填；其余语言可缺省并按默认文案回退；禁止写死「中文名称 / 英文名称」或用逐语言铺开占满表单（见 §5）</td>
+        </tr>
+        <tr>
+          <td>State（状态）</td>
+          <td>启用 / 停用</td>
+          <td>
+            ① 状态开关（<code>el-switch</code>，默认，编辑态可用、只读态以状态标签回显）；<br>
+            ② 状态下拉（启用 / 停用，需与其它字段同栅格对齐时）；<br>
+            ③ 只读状态标签（仅查看态）
+          </td>
+          <td>启用 / 停用两值；停用即时从运行时查询结果消失（缓存失效即时生效，见 §6）；停用的条目在明细与列表中以状态标签区分</td>
+        </tr>
+      </table>
+      <ul>
+        <li>三字段为<strong>首行整体</strong>：即使某模块只关心其中一项，也不得拆散顺序或把其余字段插到首行内。</li>
+        <li>只读态回显口径：Code 直出编码文本；Name 按当前界面语言回显、无值沿回退链（当前语言 → 系统默认语言 → 派生默认文案）；State 以状态标签（启用 / 停用）回显，语义色按字典条目 <code>color</code> 或内置语义映射解析。</li>
+      </ul>
+
+      <h2 id="states">4. 只读/编辑分态</h2>
+      <table>
+        <tr><th>状态</th><th>进入方式</th><th>行为</th></tr>
+        <tr><td>只读（默认）</td><td>双击列表行打开 / 保存后停留</td><td>字段禁用，仅查看；点工具栏「修改」进入编辑态</td></tr>
+        <tr><td>编辑</td><td>点「修改」 / 工具栏「新增」打开新 Tab</td><td>字段可编辑（Code 按所选口径），工具栏「修改」切换为「保存」</td></tr>
+      </table>
+      <ul>
+        <li>新增 Tab 打开即编辑态（无需先点「修改」），保存后回填 id 与版本号。</li>
+        <li>修改未保存时切换 / 关闭 Tab → 弹确认框（脏数据保护，dirty 检测）。</li>
+        <li>明细区（类型下挂条目）仅编辑态可用；只读态以表格只读呈现。</li>
+      </ul>
+
+      <h2 id="perm-i18n">5. 字段权限与多语言文案</h2>
+      <ul>
+        <li><strong>字段权限联动</strong>：字段按表单元数据接口下发的字段权限渲染——<code>visible=false</code> 不渲染，<code>editable=false</code> 编辑态亦保持禁用（写时校验由后端兜底）；<strong>首行三字段同样受字段权限约束</strong>（如 Code 常配为不可编辑）。</li>
+        <li><strong>敏感字段脱敏</strong>：字典数据一般无敏感字段；若扩展属性含敏感值，按脱敏规则掩码，持 <code>data:plain</code> 权限码方可查看明文。</li>
+        <li><strong>多语言文案字段</strong>：Name（类型名 / 条目名）一律用多语言文案字段——表单里只占<strong>一行</strong>（文本框就地编辑必填语言文案 + 图标按钮，悬停提示完整度或缺失语言，字段标签不标注「多语言」）；弹框内为明细表（语言 / 文案两列行内编辑），语言行由<strong>启用语言清单</strong>动态生成（加语言不改界面与提交契约），标出系统默认语言与必填语言，支持语言关键字与「仅看缺失 / 仅看已填」筛选；弹框内为草稿，「确定」回写、「取消」丢弃，最终随工具栏「保存」统一提交；必填语言为空即阻断并定位，其余语言可缺省并按默认文案回退。契约依据见<a href="../组件设计/06_字段类/13_组件设计_多语言文案字段/13_组件设计_多语言文案字段.md">组件设计 · 多语言文案字段</a>。</li>
+        <li><strong>语言行为动态</strong>：启用语言清单变化时，Name 的多语言明细行随之增减，字典页布局与提交载荷不变。</li>
+      </ul>
+
+      <h2 id="validate">6. 校验与提交</h2>
+      <ul>
+        <li><strong>唯一性</strong>：类型 <code>type</code> 全局唯一；同类型下条目 <code>code</code> 唯一（软删除后释放唯一键）；冲突返回业务错误码（字典域 <code>401xx</code> 段，见《<a href="../概要设计/09_概要设计_字典管理.md">概要设计 · 字典管理</a>》§7）并在对应字段定位提示。</li>
+        <li><strong>必填与格式</strong>：Code / Name / State 必填（Code 与 Name 非空、长度上限；State 二值）；错误信息走 i18n。</li>
+        <li><strong>整体保存</strong>：字典类型记录一次性提交主表 + 明细（条目）+ 各自 <code>_i18n</code> 附表，单事务。</li>
+        <li><strong>乐观锁冲突</strong>：保存请求携带 <code>version</code>，冲突（409）提示「记录已被修改」并重载最新数据。</li>
+        <li><strong>引用校验</strong>：删除被业务引用的条目 / 非空类型时拒绝删除并提示（先解除引用）。</li>
+        <li><strong>缓存即时生效</strong>：保存成功后（先写库后删缓存 + 版本号递增）提示「字典已更新，各处字典下拉即时生效」；停用条目即时从运行时结果消失。</li>
+        <li>保存成功后刷新列表侧（列表数据与表单一致）。</li>
+      </ul>
+
+      <h2 id="interaction">7. 与 FormFrame / 列表页的协作</h2>
+      <table>
+        <tr><th>交互</th><th>方向</th><th>约定</th></tr>
+        <tr><td>记录标识</td><td>FormFrame → 字典页</td><td>prop <code>main-id</code>（Number，null 表示新增）+ 记录种类（类型 / 条目）</td></tr>
+        <tr><td>保存/删除/标题</td><td>字典页 → FormFrame</td><td><code>emit("saved", id)</code> / <code>emit("deleted")</code> / <code>emit("title-change", 名称)</code></td></tr>
+        <tr><td>脏数据状态</td><td>FormFrame ← 字典页</td><td>字典页 <code>expose dirty</code>（切换 / 关闭 Tab 时拦截确认）</td></tr>
+      </table>
+      <ul>
+        <li>列表侧（类型列表 + 条目列表、筛选、批量启用停用）按《<a href="07_布局设计_列表页.html">布局设计-列表页</a>》；菜单「字典管理」的菜单 → 表单 → 业务挂接与权限码见《<a href="../概要设计/09_概要设计_字典管理.md">概要设计 · 字典管理</a>》§6.2。</li>
+        <li>字典页作为 FormFrame 的「表单 Tab」内容，按《<a href="06_布局设计_表单框架.html">布局设计-表单框架</a>》经路由 <code>props</code> 注入 <code>title</code> / <code>listComponent</code> / <code>detailComponent</code>；被 keep-alive 缓存，切换顶层 Tab 不丢数据。</li>
+        <li>快速新建（条目 ≤ 6 字段）可直接用弹窗形态（《<a href="10_布局设计_弹窗.html">布局设计-弹窗</a>》），保存后回到字典页刷新。</li>
+      </ul>
+
+      <h2 id="checklist">8. 检查清单</h2>
+      <ul>
+        <li>□ 信息栏（详细信息 / 系统信息）结构正确，与表单页同位置同交互</li>
+        <li>□ 详细信息<strong>第一行</strong>为 Code（代码）/ Name（名称）/ State（状态）三列，顺序与列宽固定、无字段插队</li>
+        <li>□ 三字段显示口径按模块需求选定且同模块内一致（Code 只读或新建可填；Name 用多语言文案字段；State 开关 / 下拉 / 状态标签）</li>
+        <li>□ 其余字段（类型：排序；条目：值 / 语义色 / 上级 / 排序 / 扩展属性）一律排在首行之后，三列栅格、长字段跨整行</li>
+        <li>□ 类型记录的条目明细区按表格明细口径（行内编辑、随主表整体提交）</li>
+        <li>□ 系统信息 label 上方三列只读栅格统一（第 7 项为禁用下拉的「字典类型」；时间无时区后缀）</li>
+        <li>□ 只读 / 编辑分态切换正确，新增 Tab 直接可编辑，脏数据拦截生效</li>
+        <li>□ 唯一性（type / 同类型 code）、引用校验、乐观锁冲突提示、缓存即时生效提示齐备</li>
+        <li>□ 字段权限（visible / editable）与脱敏（如扩展属性含敏感值）生效</li>
+        <li>□ Name 多语言：字段恒占一行（文本框 + 图标按钮，无写死语言栏、不逐语言铺开），弹框定稿回写而落库随宿主保存，必填语言缺失阻断并定位</li>
+      </ul>
+
+    </main>
+
+    <footer>
+      依《<a href="../../规范/文档生成规范.md">文档生成规范</a>》编写 · 与《<a href="08_布局设计_表单页.html">08-布局设计-表单页</a>》《<a href="09_布局设计_表格明细.html">09-布局设计-表格明细</a>》《<a href="../概要设计/09_概要设计_字典管理.md">09-概要设计-字典管理</a>》配套 · 生成日期：2026-10-10
+    </footer>
+  </div>
+
+</div>
+
+</body>
+</html>
