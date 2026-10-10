@@ -1092,7 +1092,6 @@ class Settings(PydanticBaseSettings, BaseSettings):  # pyright: ignore[reportInc
     rate_limiter: PluginSelection = Field(default_factory=PluginSelection)
     realtime_publisher: PluginSelection = Field(default_factory=PluginSelection)
     replay_guard: PluginSelection = Field(default_factory=PluginSelection)
-    saga: PluginSelection = Field(default_factory=PluginSelection)
     scope_checker: PluginSelection = Field(default_factory=PluginSelection)
     search_index: PluginSelection = Field(default_factory=PluginSelection)
     service_client: PluginSelection = Field(default_factory=PluginSelection)

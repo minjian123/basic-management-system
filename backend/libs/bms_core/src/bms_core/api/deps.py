@@ -69,7 +69,6 @@ from bms_core.print.base import get_print_exporter, get_print_template_provider
 from bms_core.query.base import get_query_provider_registry
 from bms_core.ratelimit.base import get_rate_limiter
 from bms_core.replay.base import get_replay_guard
-from bms_core.saga.base import get_saga_executor
 from bms_core.search.base import get_search_index
 from bms_core.security.base import get_password_hasher, get_session_security
 from bms_core.servicecall.base import get_service_client
@@ -151,7 +150,6 @@ __all__ = [
     "get_read_db",
     "get_realtime_publisher",
     "get_replay_guard",
-    "get_saga_executor",
     "get_scope_checker",
     "get_search_index",
     "get_service_client",

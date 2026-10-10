@@ -129,8 +129,6 @@ from bms_core.ratelimit.redis import RedisRateLimiter
 from bms_core.redis.base import BaseRedisClient
 from bms_core.redis.redis import RedisRedisClient
 from bms_core.replay.base import BaseReplayGuard
-from bms_core.saga.base import BaseSagaExecutor
-from bms_core.saga.choreography import ChoreographySagaExecutor
 from bms_core.scope.base import DataScope
 from bms_core.search.base import BaseSearchIndex
 from bms_core.security.base import BasePasswordHasher, BaseSessionSecurity, BaseTokenCodec
@@ -211,7 +209,6 @@ _NULL_MODULES: tuple[str, ...] = (
     "bms_core.oauth.null",
     "bms_core.outbound.null",
     "bms_core.outbox.null",
-    "bms_core.saga.null",
     "bms_core.password.null",
     "bms_core.permission.null",
     "bms_core.preference.null",
@@ -303,7 +300,6 @@ PLUGIN_WIRINGS: tuple[PluginWiring, ...] = (
     PluginWiring("webhook_sender", BaseWebhookSender, "webhook_sender", "webhook_sender"),
     PluginWiring("outbox_store", BaseOutboxStore, "outbox_store", "outbox_store"),
     PluginWiring("outbox_dispatcher", BaseOutboxDispatcher, "outbox", "outbox_dispatcher"),
-    PluginWiring("saga_executor", BaseSagaExecutor, "saga", "saga_executor"),
     PluginWiring("service_client", BaseServiceClient, "service_client", "service_client"),
     PluginWiring("workflow_engine", BaseWorkflowEngine, "workflow_engine", "workflow_engine"),
     PluginWiring("identity_provider", BaseIdentityProvider, "identity_provider", "identity_provider"),
@@ -410,7 +406,6 @@ def register_platform_plugins(settings: Settings, app: FastAPI, resources: Resou
     register_plugin("service_client", "http", HttpServiceClientFactory(settings))
     register_plugin("outbox_store", "sql", SqlOutboxStoreFactory(settings))
     register_plugin("outbox_dispatcher", "poll", PollOutboxDispatcherFactory(settings, app))
-    register_plugin("saga_executor", "choreography", ChoreographySagaExecutorFactory(settings))
     register_plugin("idempotency", "redis", RedisIdempotencyStoreFactory(settings))
     register_plugin("consistency_barrier", "redis", RedisConsistencyBarrierFactory(settings))
     # 强一致专项（05_07）：真实提供者 `xa`（管理器经 TM 契约 / 参与方走分支专用同步引擎）
@@ -1108,40 +1103,6 @@ class PollOutboxDispatcherFactory(BasePluginFactory[PollOutboxDispatcher]):
             session_factory=session_factory,
             metrics=metrics,
         )
-
-
-class ChoreographySagaExecutorFactory(BasePluginFactory[ChoreographySagaExecutor]):
-    """Saga 协同式执行器工厂（`choreography`：注入事务性发件箱存储）。"""
-
-    plugin_key: str = "saga_executor"
-    plugin_name: str = "choreography"
-
-    def __init__(self, settings: Settings) -> None:
-        """初始化。
-
-        Args:
-            settings: 应用配置（`[outbox_store]` 能力选择）。
-        """
-        self._settings = settings
-
-    def create(self, options: None = None) -> ChoreographySagaExecutor:
-        """构造协同式 Saga 执行器。
-
-        Args:
-            options: 未使用（零参口径）。
-
-        Returns:
-            ChoreographySagaExecutor: 执行器实例。
-        """
-        store = cast(
-            "BaseOutboxStore",
-            resolve_plugin(
-                "outbox_store",
-                self._settings.outbox_store.provider,
-                expected_version=BaseOutboxStore.contract_version,
-            ),
-        )
-        return ChoreographySagaExecutor(store)
 
 
 class RedisIdempotencyStoreFactory(BasePluginFactory[RedisIdempotencyStore]):

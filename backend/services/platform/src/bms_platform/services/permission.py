@@ -26,7 +26,7 @@ from dataclasses import dataclass, field
 
 from bms_core.cache.base import CacheRegion
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
-from bms_core.core.objects import BaseFrameworkObject
+from bms_core.core.objects import BaseFrameworkObject, BaseValueObject
 from bms_core.i18n.base import DEFAULT_LOCALE
 from bms_core.permission.field import BaseFieldPermissionProvider, FieldPermission
 from bms_core.permission.profile import DEFAULT_PROFILE
@@ -50,8 +50,8 @@ DEFAULT_SNAPSHOT_TTL = 300
 """权限快照缓存有效期（秒；缺省口径，可经 `[permission].options.snapshot_ttl_seconds` 覆盖）。"""
 
 
-@dataclass
-class _Granted:
+@dataclass(frozen=True)
+class _Granted(BaseValueObject):
     """聚合中间结果：权限码集合 + 入口（菜单 / 表单）授权集合。"""
 
     permission_codes: ConcurrentStableSet[str] = field(default_factory=lambda: ConcurrentStableSet[str]())

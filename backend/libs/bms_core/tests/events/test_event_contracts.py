@@ -306,3 +306,19 @@ def test_snapshot_render_deterministic_and_parse_roundtrip() -> None:
         parse_event_snapshot(
             {"subscriptions": [{"consumer": "x", "event_type": "sys.user.created", "supported_majors": ["bad"]}]}
         )
+
+
+def test_event_contract_validation_failure_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
+    """启动事件契约校验失败即拒启（`EventContractError`）。"""
+    from support_app import ApplicationFactory
+
+    import bms_core.application as application
+
+    def _fake_validate(*args: object, **kwargs: object) -> tuple[str, ...]:
+        del args, kwargs
+        return ("事件域未登记：ghost",)
+
+    monkeypatch.setattr(application, "validate_event_registry", _fake_validate)
+    app = ApplicationFactory().create(None)
+    with pytest.raises(EventContractError):
+        application._validate_event_contracts(app)  # pyright: ignore[reportPrivateUsage]

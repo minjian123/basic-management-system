@@ -253,9 +253,6 @@ VALUE_OBJECT_BATCH: tuple[tuple[str, str], ...] = (
     ("backend/libs/bms_core/src/bms_core/ratelimit/base.py", "RateLimitDecision"),
     ("backend/libs/bms_core/src/bms_core/ratelimit/base.py", "RateLimitRule"),
     ("backend/libs/bms_core/src/bms_core/replay/base.py", "ReplayDecision"),
-    ("backend/libs/bms_core/src/bms_core/saga/base.py", "SagaDefinition"),
-    ("backend/libs/bms_core/src/bms_core/saga/base.py", "SagaStep"),
-    ("backend/libs/bms_core/src/bms_core/saga/base.py", "SagaStepOutcome"),
     ("backend/libs/bms_core/src/bms_core/schemas/cursor.py", "CursorPayload"),
     ("backend/libs/bms_core/src/bms_core/scope/base.py", "ScopeCondition"),
     ("backend/libs/bms_core/src/bms_core/search/base.py", "SearchDocument"),
@@ -375,8 +372,8 @@ def _manifest_system_roots() -> ConcurrentStableList[str]:
 @pytest.mark.kiwi_id(2216)
 def test_value_object_batch_is_frozen_and_complete() -> None:
     """批次台账冻结：109 项且无重复（归位清单以本台账为准；`ChatStreamHandle` 已迁出）。"""
-    assert len(VALUE_OBJECT_BATCH) == 109
-    assert len(set(VALUE_OBJECT_BATCH)) == 109
+    assert len(VALUE_OBJECT_BATCH) == 106
+    assert len(set(VALUE_OBJECT_BATCH)) == 106
 
 
 @pytest.mark.kiwi_id(2216)
