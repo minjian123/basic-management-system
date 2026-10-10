@@ -1,7 +1,7 @@
 """字典种子：平台常用字典（类型 / 条目 / i18n / 属性）幂等写入。
 
 - 幂等：按 `code` 与 `(dict_type_id, value)` 判存（存在跳过）；可重复执行（`ops/seed_dict.py` 与测试夹具共用）。
-- 用途：开发 / 联调 / 测试（`user_status` / `user_gender` / `biz_type` / `region` 级联示例）；
+- 用途：开发 / 联调 / 测试（`region` 行政区划级联示例）；
   真实平台种子随字典模块阶段（阶段八）扩展。
 """
 
@@ -53,51 +53,6 @@ class SeedType(BaseI18nSeedContract):
 
 
 SEED_TYPES: tuple[SeedType, ...] = (
-    SeedType(
-        type="user_status",
-        name="用户状态",
-        sort=1,
-        i18n=ConcurrentStableDict({"en-US": "User status"}),
-        items=(
-            SeedItem(
-                code="enabled",
-                value="enabled",
-                label="启用",
-                color="success",
-                i18n=ConcurrentStableDict({"en-US": "Enabled"}),
-            ),
-            SeedItem(
-                code="disabled",
-                value="disabled",
-                label="停用",
-                color="danger",
-                i18n=ConcurrentStableDict({"en-US": "Disabled"}),
-            ),
-        ),
-    ),
-    SeedType(
-        type="user_gender",
-        name="性别",
-        sort=2,
-        i18n=ConcurrentStableDict({"en-US": "Gender"}),
-        items=(
-            SeedItem(code="male", value="male", label="男", i18n=ConcurrentStableDict({"en-US": "Male"})),
-            SeedItem(code="female", value="female", label="女", i18n=ConcurrentStableDict({"en-US": "Female"})),
-            SeedItem(code="unknown", value="unknown", label="未知"),
-        ),
-    ),
-    SeedType(
-        type="biz_type",
-        name="业务类型",
-        sort=3,
-        i18n=ConcurrentStableDict({"en-US": "Business type"}),
-        items=(
-            SeedItem(code="purchase", value="purchase", label="采购", color="primary"),
-            SeedItem(code="sales", value="sales", label="销售", color="success"),
-            SeedItem(code="inventory", value="inventory", label="库存", color="info"),
-        ),
-        attrs=(SeedAttr(attr_key="budget", name="预算金额", data_type="number", widget="number"),),
-    ),
     SeedType(
         type="region",
         name="行政区划",

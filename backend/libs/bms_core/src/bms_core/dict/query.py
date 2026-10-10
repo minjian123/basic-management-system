@@ -299,7 +299,7 @@ class DictQueryService(BaseFrameworkObject):
                 value=item.value,
                 label=str(i18n_label or item.name),
                 code=item.code,
-                parent_id=item.parent_id,
+                parent_id=str(item.parent_id) if item.parent_id is not None else None,
                 sort=item.sort,
                 status=item.status,
                 color=item.color,

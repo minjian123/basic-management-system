@@ -242,28 +242,28 @@ async def test_by_type_version_filters_locale_and_disabled(dict_db_url: str) -> 
     cache = MemoryDictCacheRegion()
     source = SqlDictSource(engines=_engines(), cache=cache)
 
-    first = await source.by_type(DictQuery(dict_type="user_status"))
+    first = await source.by_type(DictQuery(dict_type="region"))
     assert first.version >= 0
     assert first.items is not None
-    assert [item.value for item in first.items] == ["enabled", "disabled"]
-    assert first.total == 2
+    assert [item.value for item in first.items] == ["zj", "hz", "xh"]
+    assert first.total == 3
 
-    current = await source.by_type(DictQuery(dict_type="user_status", version=first.version))
+    current = await source.by_type(DictQuery(dict_type="region", version=first.version))
     assert current.items is None
 
-    keyword = await source.by_type(DictQuery(dict_type="user_status", keyword="启"))
+    keyword = await source.by_type(DictQuery(dict_type="region", keyword="浙"))
     assert keyword.items is not None
-    assert [item.value for item in keyword.items] == ["enabled"]
+    assert [item.value for item in keyword.items] == ["zj"]
 
-    subset = await source.by_type(DictQuery(dict_type="user_status", values=("disabled",)))
+    subset = await source.by_type(DictQuery(dict_type="region", values=("xh",)))
     assert subset.items is not None
-    assert [item.value for item in subset.items] == ["disabled"]
+    assert [item.value for item in subset.items] == ["xh"]
 
-    probe = await source.by_type(DictQuery(dict_type="user_status", limit=1))
+    probe = await source.by_type(DictQuery(dict_type="region", limit=1))
     assert probe.items is not None
     assert len(probe.items) == 1
     assert probe.has_more is True
-    assert probe.total == 2
+    assert probe.total == 3
 
     all_region = await source.by_type(DictQuery(dict_type="region"))
     assert all_region.items is not None
@@ -278,21 +278,21 @@ async def test_by_type_version_filters_locale_and_disabled(dict_db_url: str) -> 
 
     token = current_dict_locale.set("en-US")
     try:
-        localized = await source.by_type(DictQuery(dict_type="user_status"))
+        localized = await source.by_type(DictQuery(dict_type="region"))
         assert localized.items is not None
-        assert localized.items[0].label == "Enabled"
+        assert localized.items[0].label == "浙江省"
     finally:
         current_dict_locale.reset(token)
 
     service = DictService(engines=_engines(), cache=cache)
-    item_id = (await _find_item_ids(dict_db_url, "user_status", ("disabled",)))["disabled"]
+    item_id = (await _find_item_ids(dict_db_url, "region", ("xh",)))["xh"]
     await service.update_item(
         item_id,
-        DictItemPayload(code="disabled", label="停用", value="disabled", status="disabled"),
+        DictItemPayload(code="xh", label="西湖区", value="xh", status="disabled"),
     )
-    after = await source.by_type(DictQuery(dict_type="user_status"))
+    after = await source.by_type(DictQuery(dict_type="region"))
     assert after.items is not None
-    assert [item.value for item in after.items] == ["enabled"]
+    assert [item.value for item in after.items] == ["zj", "hz"]
 
 
 @pytest.mark.kiwi_id(963)
@@ -307,30 +307,27 @@ async def test_cache_version_invalidate_and_batch(dict_db_url: str) -> None:
 
     context_token = current_tenant_context_var.set(_demo_context())
     try:
-        first = await source.by_type(DictQuery(dict_type="user_status"))
+        first = await source.by_type(DictQuery(dict_type="region"))
         assert first.items is not None
-        cached = await cache.aget_type(DEMO_TENANT_ID, "zh-CN", "user_status")
+        cached = await cache.aget_type(DEMO_TENANT_ID, "zh-CN", "region")
         assert isinstance(cached, dict)
         assert cached["version"] == first.version
 
-        batch = await source.batch(DictBatchQuery(types=("user_status", "user_gender")))
-        assert batch.items["user_status"] is not None
-        gender = batch.items["user_gender"]
-        assert gender is not None
-        assert len(gender.items or ()) == 3
-        again = await source.batch(DictBatchQuery(types=("user_status", "user_gender"), version=batch.version))
-        assert again.items["user_status"] is None
-        assert again.items["user_gender"] is None
+        batch = await source.batch(DictBatchQuery(types=("region",)))
+        assert batch.items["region"] is not None
+        assert len(batch.items["region"].items or ()) == 3
+        again = await source.batch(DictBatchQuery(types=("region",), version=batch.version))
+        assert again.items["region"] is None
 
-        item_id = (await _find_item_ids(dict_db_url, "user_status", ("disabled",)))["disabled"]
+        item_id = (await _find_item_ids(dict_db_url, "region", ("xh",)))["xh"]
         await service.update_item(
             item_id,
-            DictItemPayload(code="disabled", label="已停用", value="disabled", status="disabled"),
+            DictItemPayload(code="xh", label="西湖区", value="xh", status="disabled"),
         )
-        after = await source.by_type(DictQuery(dict_type="user_status"))
+        after = await source.by_type(DictQuery(dict_type="region"))
         assert after.version == first.version + 1
         assert after.items is not None
-        assert [item.value for item in after.items] == ["enabled"]
+        assert [item.value for item in after.items] == ["zj", "hz"]
     finally:
         current_tenant_context_var.reset(context_token)
 
@@ -347,12 +344,12 @@ async def test_translate_subset_and_write_path(dict_db_url: str) -> None:
 
     context_token = current_tenant_context_var.set(_demo_context())
     try:
-        mapping = await translator.translate(DictTranslateQuery(dict_type="user_status", values=("enabled", "ghost")))
-        assert mapping == {"enabled": "启用"}
+        mapping = await translator.translate(DictTranslateQuery(dict_type="region", values=("zj", "ghost")))
+        assert mapping == {"zj": "浙江省"}
         subset = await cache.avalue_subset(
-            DEMO_TENANT_ID, "zh-CN", "user_status", ConcurrentStableList(("enabled", "ghost"))
+            DEMO_TENANT_ID, "zh-CN", "region", ConcurrentStableList(("zj", "ghost"))
         )
-        assert subset == {"enabled": "启用"}
+        assert subset == {"zj": "浙江省"}
 
         created_type = await service.create_type(DictTypePayload(type="demo_status", name="演示状态"))
         assert created_type.id > 0
@@ -444,18 +441,18 @@ async def test_advanced_query_engine_and_provider(dict_db_url: str) -> None:
 @pytest.mark.kiwi_id(963)
 async def test_http_endpoints(dict_client: AsyncClient) -> None:
     """HTTP 端点：取数 / 版本一致 / 批量 / 属性 / 提供者 / 高级查询 / 写接口与失效 / locale。"""
-    resp = await dict_client.get("/api/v1/dicts/user_status")
+    resp = await dict_client.get("/api/v1/dicts/region")
     assert resp.status_code == 200, resp.text
     data = resp.json()["data"]
-    assert data["total"] == 2
+    assert data["total"] == 3
     version = data["version"]
 
-    same = await dict_client.get(f"/api/v1/dicts/user_status?version={version}")
+    same = await dict_client.get(f"/api/v1/dicts/region?version={version}")
     assert same.json()["data"]["items"] is None
 
-    batch = await dict_client.post("/api/v1/dicts/batch", json={"types": ["user_status", "user_gender"]})
+    batch = await dict_client.post("/api/v1/dicts/batch", json={"types": ["region"]})
     assert batch.status_code == 200
-    assert set(batch.json()["data"]["items"]) == {"user_status", "user_gender"}
+    assert set(batch.json()["data"]["items"]) == {"region"}
 
     attrs = await dict_client.get("/api/v1/dicts/region/attrs")
     assert attrs.status_code == 200
@@ -466,27 +463,27 @@ async def test_http_endpoints(dict_client: AsyncClient) -> None:
     assert [item["key"] for item in providers.json()["data"]] == ["builtin"]
 
     adv = await dict_client.post(
-        "/api/v1/dicts/biz_type/advanced-query",
+        "/api/v1/dicts/region/advanced-query",
         json={"target": "items", "conditions": {"logic": "AND", "children": []}, "page": 1, "size": 10},
     )
     assert adv.status_code == 200
     assert adv.json()["data"]["total"] == 3
 
     business = await dict_client.post(
-        "/api/v1/dicts/biz_type/advanced-query",
-        json={"target": "business", "provider": "builtin", "params": {"keyword": "采购"}},
+        "/api/v1/dicts/region/advanced-query",
+        json={"target": "business", "provider": "builtin", "params": {"keyword": "浙"}},
     )
     assert business.status_code == 200
     assert business.json()["data"]["total"] == 1
 
     missing = await dict_client.post(
-        "/api/v1/dicts/biz_type/advanced-query",
+        "/api/v1/dicts/region/advanced-query",
         json={"target": "business", "provider": "ghost"},
     )
     assert missing.status_code == 404
 
-    localized = await dict_client.get("/api/v1/dicts/user_status", headers={"accept-language": "en-US"})
-    assert localized.json()["data"]["items"][0]["label"] == "Enabled"
+    localized = await dict_client.get("/api/v1/dicts/region", headers={"accept-language": "en-US"})
+    assert localized.json()["data"]["items"][0]["label"] == "浙江省"
 
     created = await dict_client.post("/api/v1/dicts/types", json={"type": "http_demo", "name": "HTTP 演示"})
     assert created.status_code == 200
