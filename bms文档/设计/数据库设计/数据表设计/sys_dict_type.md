@@ -21,17 +21,19 @@
 
 | 字段 | 类型 | 可空 | 约束 / 默认 | 说明 |
 | --- | --- | --- | --- | --- |
-| `code` | VARCHAR(64) | 否 | 与 `deleted_at` 复合唯一 | 类型编码（唯一；2026-10-10 由 `type` 改名，见 02_08） |
-| `name` | VARCHAR(64) | 否 | — | 类型名称（默认语言） |
-| `sort` | INT | 否 | 默认 0 | 排序值 |
-| `status` | VARCHAR(16) | 否 | 默认 enabled | 状态（enabled / disabled） |
-| `id` | BIGINT | 否 | 主键，雪花 ID | 主键 |
-| `created_at` | DATETIME | 否 | 审计 | 创建时间（UTC） |
-| `created_by` | BIGINT | 是 | 审计 | 创建人 |
-| `updated_at` | DATETIME | 否 | 审计 | 更新时间（UTC） |
-| `updated_by` | BIGINT | 是 | 审计 | 更新人 |
-| `deleted_at` | DATETIME | 是 | 软删除（NULL=未删） | 软删除时间（NULL=未删） |
-| `version` | INT | 否 | 默认 1 | 乐观锁版本 |
+| `code` | VARCHAR(64) | 否 | 与 `deleted_at` 复合唯一 | 类型编码（唯一；2026-10-10 由 `type` 改名，见 02_08） · **系统字段**：代码 |
+| `name` | VARCHAR(64) | 否 | — | 类型名称（默认语言） · **系统字段**：名称（多语言见 `sys_dict_type_i18n`） |
+| `sort` | INT | 否 | 默认 0 | 排序值 · **系统字段**：排序 |
+| `status` | VARCHAR(16) | 否 | 默认 enabled | 状态（enabled / disabled） · **系统字段**：状态 |
+| `id` | BIGINT | 否 | 主键，雪花 ID | 主键 · **系统字段**：ID |
+| `created_at` | DATETIME | 否 | 审计 | 创建时间（UTC） · **系统字段**：审计字段 |
+| `created_by` | BIGINT | 是 | 审计 | 创建人 · **系统字段**：审计字段 |
+| `updated_at` | DATETIME | 否 | 审计 | 更新时间（UTC） · **系统字段**：审计字段 |
+| `updated_by` | BIGINT | 是 | 审计 | 更新人 · **系统字段**：审计字段 |
+| `deleted_at` | DATETIME | 是 | 软删除（NULL=未删） | 软删除时间（NULL=未删） · **系统字段**：软删除 |
+| `version` | INT | 否 | 默认 1 | 乐观锁版本 · **系统字段**：版本号 |
+
+- **系统字段缺口**：本表暂无 `remark`（备注，规范的默认系统字段：可空、列保留、界面用不到不显示）——随本表下次结构变更补齐。
 
 ## 3. 索引与约束 <a id="index"></a>
 

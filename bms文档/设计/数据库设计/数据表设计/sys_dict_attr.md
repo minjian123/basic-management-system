@@ -21,23 +21,26 @@
 
 | 字段 | 类型 | 可空 | 约束 / 默认 | 说明 |
 | --- | --- | --- | --- | --- |
-| `dict_type_id` | BIGINT | 否 | 逻辑引用 `sys_dict_type.id` | 字典类型 ID（2026-10-10 由 `type_id` 改名，见 02_08） |
+| `dict_type_id` | BIGINT | 否 | 逻辑引用 `sys_dict_type.id` | 字典类型 ID（2026-10-10 由 `type_id` 改名，见 02_08） · **系统字段**：主表 ID |
 | `attr_key` | VARCHAR(64) | 否 | 与 `(dict_type_id, deleted_at)` 复合唯一 | 属性键（高级查询字段 `attr.<key>`） |
 | `name` | VARCHAR(64) | 否 | — | 属性名（默认语言） |
 | `data_type` | VARCHAR(16) | 否 | — | 数据类型（text / number / date / enum / bool） |
 | `operators` | JSON | 是 | — | 可用操作符集合（JSON 数组；空 = 按类型派生默认） |
 | `widget` | VARCHAR(32) | 是 | — | 值控件（text / number / date / select / switch） |
 | `options` | JSON | 是 | — | enum 选项集（JSON 数组） |
-| `sort` | INT | 否 | 默认 0 | 排序值 |
-| `status` | VARCHAR(16) | 否 | 默认 enabled | 状态（enabled / disabled） |
+| `sort` | INT | 否 | 默认 0 | 排序值 · **系统字段**：排序（通用可选） |
+| `status` | VARCHAR(16) | 否 | 默认 enabled | 状态（enabled / disabled） · **系统字段**：状态（通用可选） |
 | `scope` | VARCHAR(16) | 否 | 默认 platform | 属性来源（platform / tenant） |
-| `id` | BIGINT | 否 | 主键，雪花 ID | 主键 |
-| `created_at` | DATETIME | 否 | 审计 | 创建时间（UTC） |
-| `created_by` | BIGINT | 是 | 审计 | 创建人 |
-| `updated_at` | DATETIME | 否 | 审计 | 更新时间（UTC） |
-| `updated_by` | BIGINT | 是 | 审计 | 更新人 |
-| `deleted_at` | DATETIME | 是 | 软删除（NULL=未删） | 软删除时间（NULL=未删） |
-| `version` | INT | 否 | 默认 1 | 乐观锁版本 |
+| `id` | BIGINT | 否 | 主键，雪花 ID | 主键 · **系统字段**：ID |
+| `created_at` | DATETIME | 否 | 审计 | 创建时间（UTC） · **系统字段**：审计字段 |
+| `created_by` | BIGINT | 是 | 审计 | 创建人 · **系统字段**：审计字段 |
+| `updated_at` | DATETIME | 否 | 审计 | 更新时间（UTC） · **系统字段**：审计字段 |
+| `updated_by` | BIGINT | 是 | 审计 | 更新人 · **系统字段**：审计字段 |
+| `deleted_at` | DATETIME | 是 | 软删除（NULL=未删） | 软删除时间（NULL=未删） · **系统字段**：软删除 |
+| `version` | INT | 否 | 默认 1 | 乐观锁版本 · **系统字段**：版本号 |
+
+- **系统字段缺口**：本表暂无 `remark`（备注，规范的默认系统字段：可空、列保留、界面用不到不显示）——随本表下次结构变更补齐。
+- **待规范登记**：本表属字典域**扩展属性**，规范「系统字段」节字典清单当前只列「字典类型 / 字典条目」两级；本表 `attr_key`（属性键）与 `name`（属性名，走 `sys_dict_attr_i18n`）按本表口径，待规范补登记。
 
 ## 3. 索引与约束 <a id="index"></a>
 

@@ -21,22 +21,24 @@
 
 | 字段 | 类型 | 可空 | 约束 / 默认 | 说明 |
 | --- | --- | --- | --- | --- |
-| `dict_type_id` | BIGINT | 否 | 逻辑引用 `sys_dict_type.id` | 字典类型 ID（2026-10-10 由 `type_id` 改名，见 02_08） |
-| `code` | VARCHAR(64) | 否 | 与 `(dict_type_id, deleted_at)` 复合唯一 | 条目编码（类型内唯一） |
-| `name` | VARCHAR(128) | 否 | — | 条目标签（默认语言，主表默认文案列；2026-10-10 由 `label` 改名，见 02_08） |
-| `value` | VARCHAR(64) | 否 | — | 条目值（业务引用值） |
-| `parent_id` | BIGINT | 是 | 自引用本表 `id` | 上级条目 ID（NULL = 顶层；2026-10-10 由「父条目 `value`」口径收口，见 02_07） |
+| `dict_type_id` | BIGINT | 否 | 逻辑引用 `sys_dict_type.id` | 字典类型 ID（2026-10-10 由 `type_id` 改名，见 02_08） · **系统字段**：主表 ID |
+| `code` | VARCHAR(64) | 否 | 与 `(dict_type_id, deleted_at)` 复合唯一 | 条目编码（类型内唯一） · **系统字段**：代码 |
+| `name` | VARCHAR(128) | 否 | — | 条目标签（默认语言，主表默认文案列；2026-10-10 由 `label` 改名，见 02_08） · **系统字段**：名称（多语言见 `sys_dict_item_i18n`） |
+| `value` | VARCHAR(64) | 否 | — | 条目值（**业务引用值，业务字段、不计入系统字段**） |
+| `parent_id` | BIGINT | 是 | 自引用本表 `id` | 上级条目 ID（NULL = 顶层；2026-10-10 由「父条目 `value`」口径收口，见 02_07） · **系统字段**：上级字典 ID |
 | `attr_json` | JSON | 是 | — | 扩展属性值（**普通运行时接口不返回**，仅高级查询按命中子集返回） |
 | `color` | VARCHAR(32) | 是 | — | 语义色（success / warning / danger / info / primary） |
-| `sort` | INT | 否 | 默认 0 | 排序值 |
-| `status` | VARCHAR(16) | 否 | 默认 enabled | 状态（enabled / disabled；停用运行时不可见） |
-| `id` | BIGINT | 否 | 主键，雪花 ID | 主键 |
-| `created_at` | DATETIME | 否 | 审计 | 创建时间（UTC） |
-| `created_by` | BIGINT | 是 | 审计 | 创建人 |
-| `updated_at` | DATETIME | 否 | 审计 | 更新时间（UTC） |
-| `updated_by` | BIGINT | 是 | 审计 | 更新人 |
-| `deleted_at` | DATETIME | 是 | 软删除（NULL=未删） | 软删除时间（NULL=未删） |
-| `version` | INT | 否 | 默认 1 | 乐观锁版本 |
+| `sort` | INT | 否 | 默认 0 | 排序值 · **系统字段**：排序 |
+| `status` | VARCHAR(16) | 否 | 默认 enabled | 状态（enabled / disabled；停用运行时不可见） · **系统字段**：状态 |
+| `id` | BIGINT | 否 | 主键，雪花 ID | 主键 · **系统字段**：ID |
+| `created_at` | DATETIME | 否 | 审计 | 创建时间（UTC） · **系统字段**：审计字段 |
+| `created_by` | BIGINT | 是 | 审计 | 创建人 · **系统字段**：审计字段 |
+| `updated_at` | DATETIME | 否 | 审计 | 更新时间（UTC） · **系统字段**：审计字段 |
+| `updated_by` | BIGINT | 是 | 审计 | 更新人 · **系统字段**：审计字段 |
+| `deleted_at` | DATETIME | 是 | 软删除（NULL=未删） | 软删除时间（NULL=未删） · **系统字段**：软删除 |
+| `version` | INT | 否 | 默认 1 | 乐观锁版本 · **系统字段**：版本号 |
+
+- **系统字段缺口**：本表暂无 `remark`（备注，规范的默认系统字段：可空、列保留、界面用不到不显示）——随本表下次结构变更补齐。
 
 ## 3. 索引与约束 <a id="index"></a>
 

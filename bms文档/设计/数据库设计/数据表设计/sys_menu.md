@@ -21,21 +21,23 @@
 
 | 字段 | 类型 | 可空 | 约束 / 默认 | 说明 |
 | --- | --- | --- | --- | --- |
-| `id` | BIGINT | 否 | 主键，雪花 ID | 主键 |
-| `parent_id` | BIGINT | 否 | 默认 `0`；建索引 | 父菜单 ID（逻辑外键 → `sys_menu.id`；`0` 为根） |
+| `id` | BIGINT | 否 | 主键，雪花 ID | 主键 · **系统字段**：ID |
+| `parent_id` | BIGINT | 否 | 默认 `0`；建索引 | 父菜单 ID（逻辑外键 → `sys_menu.id`；`0` 为根） · **系统字段**：上级 ID（层级自引用同表 `id`） |
 | `name` | VARCHAR(128) | 否 | — | 菜单名（**按优先级兜底派生的快照**：系统默认语言 → 必填语言 → 首个有值语言；写侧只提交「locale → 文案」映射，多语言见 `sys_menu_i18n`） |
 | `path` | VARCHAR(255) | 否 | 与 `deleted_at` 复合唯一 | 前端路由路径（`/` 开头；动态路由注册依据） |
 | `component` | VARCHAR(255) | 是 | — | 视图组件标识（前端按标识解析视图；可空 = 仅目录节点） |
 | `icon` | VARCHAR(64) | 是 | — | 完整 icon key（`el:` / `biz:` / `custom:` / `van:`） |
-| `sort` | INT | 否 | 默认 `0` | 同级排序（升序） |
+| `sort` | INT | 否 | 默认 `0` | 同级排序（升序） · **系统字段**：排序（通用可选） |
 | `hidden` | BOOLEAN | 否 | 默认 `false` | 仅隐藏侧栏入口（权限仍生效，路由可直达） |
-| `status` | VARCHAR(16) | 否 | 默认 `enabled` | 状态：`enabled` / `disabled` |
-| `created_at` | DATETIME | 否 | 审计 | 创建时间（UTC） |
-| `created_by` | BIGINT | 是 | 审计 | 创建人 |
-| `updated_at` | DATETIME | 否 | 审计 | 更新时间（UTC） |
-| `updated_by` | BIGINT | 是 | 审计 | 更新人 |
-| `deleted_at` | DATETIME | 是 | 软删除（NULL=未删） | 软删除时间（NULL=未删） |
-| `version` | INT | 否 | 默认 1 | 乐观锁版本 |
+| `status` | VARCHAR(16) | 否 | 默认 `enabled` | 状态：`enabled` / `disabled` · **系统字段**：状态（通用可选） |
+| `created_at` | DATETIME | 否 | 审计 | 创建时间（UTC） · **系统字段**：审计字段 |
+| `created_by` | BIGINT | 是 | 审计 | 创建人 · **系统字段**：审计字段 |
+| `updated_at` | DATETIME | 否 | 审计 | 更新时间（UTC） · **系统字段**：审计字段 |
+| `updated_by` | BIGINT | 是 | 审计 | 更新人 · **系统字段**：审计字段 |
+| `deleted_at` | DATETIME | 是 | 软删除（NULL=未删） | 软删除时间（NULL=未删） · **系统字段**：软删除 |
+| `version` | INT | 否 | 默认 1 | 乐观锁版本 · **系统字段**：版本号 |
+
+- **系统字段缺口**：本表暂无 `remark`（备注，规范的默认系统字段：可空、列保留、界面用不到不显示）——随本表下次结构变更补齐。
 
 ## 3. 索引与约束 <a id="index"></a>
 
