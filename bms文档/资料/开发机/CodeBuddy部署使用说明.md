@@ -1,12 +1,12 @@
 # CodeBuddy 部署使用说明
 
-> mjpc 开发机 CodeBuddy（腾讯云代码助手 IDE，codebuddy-cn 4.12.0 / 应用 1.106.1）部署、配置、扩展管理、文档预览、权限与排障实录 · 2026-09-12 部署 / 2026-09-13 免确认排障 / 2026-10-03 运行与调试链路排障 / 2026-10-04 事实同步 / 2026-10-04 本机裸跑「全套」与后端断点口径
+> mjpc 开发机 CodeBuddy（腾讯云代码助手 IDE，codebuddy-cn 4.12.0 / 应用 1.106.1）部署、配置、扩展管理、文档预览、权限与排障实录 · 2026-09-12 部署 / 2026-09-13 免确认排障 / 2026-10-03 运行与调试链路排障 / 2026-10-04 事实同步 / 2026-10-04 本机裸跑「全套」与后端断点口径 / 2026-10-10 Playwright MCP 登记与浏览器真机验证口径
 
 [文档首页](../../文档首页.md) › 资料 › 开发机 › CodeBuddy 部署使用说明　|　[同级：开发机部署使用说明总览](开发机部署使用说明总览.md)　[google-chrome部署使用说明 →](google-chrome部署使用说明.md)　[playwright部署使用说明 →](playwright部署使用说明.md)　[opencode部署使用说明 →](opencode部署使用说明.md)
 
 ## 1. 目的与适用范围 <a id="purpose"></a>
 
-记录开发机 **mjpc**（Ubuntu 26.04.1 LTS，GNOME，Wayland，NVIDIA RTX 4090）上 **CodeBuddy** 的部署与使用：安装来源与版本、四个用户数据目录的作用、首次配置项（登录/语言/插件/技能/MCP）、**权限与免确认设置**（自动运行命令、文件自动修改、安全检查类别、黑名单、安全删除；含**免确认失效的排查：安全类别的真正存储与生效链路**，见[6.3](#permission-security)）、**扩展管理（扩展目录 / open-vsx 市场 / 应用自带 CLI）与 HTML 文档预览**（内置 HTML 预览、Live Preview、Simple Browser；bms 文档资产与 md mermaid 的预览办法）、**运行与调试启动项**（`.vscode/launch.json` / `tasks.json` 的两处落点与「VS Code 不读子目录 `.vscode`」口径、启动项与任务清单、**端口自愈 / 就绪正则 / Python 解释器与 pyright 口径 / Chrome 绝对路径**排障，见[第 8 节](#debug)）、**本机裸跑后端「全套」**（脚本起停 / 账号种子 / **后端断点口径**，见[8.5](#local-stack)）、**工作区级 `.codebuddy/`（工作记忆三件套）与 AI 协作口径**（见[第 10 节](#workspace-ai)）、常用设置与排障入口。
+记录开发机 **mjpc**（Ubuntu 26.04.1 LTS，GNOME，Wayland，NVIDIA RTX 4090）上 **CodeBuddy** 的部署与使用：安装来源与版本、四个用户数据目录的作用、首次配置项（登录/语言/插件/技能/MCP）、**权限与免确认设置**（自动运行命令、文件自动修改、安全检查类别、黑名单、安全删除；含**免确认失效的排查：安全类别的真正存储与生效链路**，见[6.3](#permission-security)）、**扩展管理（扩展目录 / open-vsx 市场 / 应用自带 CLI）与 HTML 文档预览**（内置 HTML 预览、Live Preview、Simple Browser；bms 文档资产与 md mermaid 的预览办法）、**运行与调试启动项**（`.vscode/launch.json` / `tasks.json` 的两处落点与「VS Code 不读子目录 `.vscode`」口径、启动项与任务清单、**端口自愈 / 就绪正则 / Python 解释器与 pyright 口径 / Chrome 绝对路径**排障，见[第 8 节](#debug)）、**本机裸跑后端「全套」**（脚本起停 / 账号种子 / **后端断点口径**，见[8.5](#local-stack)）、**工作区级 `.codebuddy/`（工作记忆三件套）与 AI 协作口径**（见[第 10 节](#workspace-ai)）、**浏览器真机验证（Playwright MCP 登记、走查用法与 playwright-cli 选型口径**，见 [10.6](#workspace-ai-browser)）、常用设置与排障入口。
 
 本文档与《[开发机部署使用说明总览](开发机部署使用说明总览.md)》「开发设施清单」节与「桌面快捷方式设置（通用）」节配套；CodeBuddy 与 [opencode](opencode部署使用说明.md)、[deepseek-harness](../AI/deepseek_harness部署使用说明.md) 同属本机 AI 编码工具，三者互不干扰、各自独立部署。
 
@@ -80,7 +80,7 @@ CodeBuddy 的用户数据分散在 **四个目录**（实测体积为 2026-09-12
 | 硬件加速               | `~/.codebuddycn/argv.json` → `disable-hardware-acceleration`                 | 注释态（未启用软件渲染）                                                                                                                                                                     |
 | 插件启用               | `~/.codebuddy/settings.json` → `enabledPlugins`                              | 已启用官方插件：`pptx`、`pdf`、`docx`、`xlsx`、`agent-browser`、`playwright-cli`、`skills-sec-audit`、`find-skills`                                                          |
 | 插件/技能市场          | `~/.codebuddy/plugins/`、`~/.codebuddy/skills-marketplace/`                   | 已拉取官方市场；技能市场版本号见`~/.codebuddy/.skills-marketplace-version`                                                                                                                 |
-| MCP server             | `~/.codebuddy/mcp.json`                                                         | 按需登记 MCP server（登记与用法见《[deepseek_harness部署使用说明](../AI/deepseek_harness部署使用说明.md)》MCP 相关节与工具自身文档）                                                          |
+| MCP server             | `~/.codebuddy/mcp.json`                                                         | 按需登记 MCP server（登记与用法见《[deepseek_harness部署使用说明](../AI/deepseek_harness部署使用说明.md)》MCP 相关节与工具自身文档）；本机已登记 **Playwright MCP**（`mcp__playwright__*`，系统 Chrome + 隔离会话），供开发态浏览器真机走查，用法与选型见 [10.6](#workspace-ai-browser) |
 | 补全模型               | 设置`codingcopilot.selectedCompletionModel`                                     | 空值 = 使用默认模型；可在补全状态栏菜单切换                                                                                                                                                  |
 | 提交信息风格           | `codingcopilot.commitMessageStyle` / `commitMessageLanguage`                  | `Auto` / `zh_CN`                                                                                                                                                                         |
 | 编辑器关联（双击行为） | `~/.config/CodeBuddy CN/User/settings.json` → `workbench.editorAssociations` | `*.html` / `*.htm` → 内置 HTML 预览 `codebuddy.html.previewEditor`；`*.md` / `*.markdown` → 内置 Markdown 预览 `vscode.markdown.preview.editor`（详见[第 7 节](#html-preview)） |
@@ -455,6 +455,8 @@ bash scripts/tools/dev/本地全套.sh down            # 停全部：TERM → 5s
 | 需要看运行日志                                | 对话/扩展日志`~/.local/share/CodeBuddyExtension/Logs/CodeBuddyIDE/<日期>/<工作区>__<hash>.log`；IDE 日志 `~/.config/CodeBuddy CN/logs/<时间戳>/`                               |
 | 崩溃排查                                      | `~/.config/CodeBuddy CN/CrashReport/`（崩溃转储）与 `~/.codebuddy/diagnostics/`                                                                                                |
 | 网络代理问题                                  | 核对`HttpProxyMode`（系统/手动）与 `HTTPProxy`；与系统代理设置保持一致                                                                                                         |
+| Playwright MCP 调不到工具（无`mcp__playwright__*`） | 工具列表是**会话启动快照**：登记或改配置后需**重启 IDE**或刷新 MCP 面板；面板内该 server 为 running 即已拉起（见[10.6](#workspace-ai-browser)） |
+| MCP / CLI `snapshot` 落盘 `.playwright-*/*.yml` 恒 0 字节 | 二者同源缺陷：取结构改用 **`browser_snapshot` / `browser_find`**（a11y 树内联返回，含`[ref=eNN]`），或 CLI 侧 `eval` 读 DOM（见[10.6](#workspace-ai-browser)） |
 
 ## 10. 工作区级 `.codebuddy/` 与 AI 协作口径 <a id="workspace-ai"></a>
 
@@ -522,6 +524,61 @@ pnpm --filter @bms/desktop exec vue-tsc -b ; pnpm run api-types:gen:check
 
 > [8.3](#debug-tasks) 的「检查：前端基座三包 / 前端宿主 / 文档基座 / 后端」四个任务即上述门禁的一键入口；口径细则归《[测试规范](../../规范/测试规范.md)》与各工程说明，本节只作速查。
 
+### 10.6 浏览器真机验证：Playwright MCP（与 playwright-cli 对比） <a id="workspace-ai-browser"></a>
+
+开发态**真实浏览器核验**本机有两条链路，都能导航 / 点击 / 填表 / 截图 / 读控制台：**Playwright MCP**（`mcp__playwright__*`，本节登记）与 **`playwright-cli` skill**（CLI 侧口径见《[playwright部署使用说明](playwright部署使用说明.md)》，系统 Chrome 见《[google-chrome部署使用说明](google-chrome部署使用说明.md)》）。
+
+**登记**（用户级 `~/.codebuddy/mcp.json`）：
+
+```json
+{
+  "mcpServers": {
+    "playwright": {
+      "command": "npx",
+      "args": ["-y", "@playwright/mcp@0.0.83", "--browser", "chrome", "--isolated"],
+      "env": { "npm_config_registry": "https://registry.npmmirror.com" }
+    }
+  }
+}
+```
+
+| 参数 | 作用 |
+| --- | --- |
+| `@playwright/mcp@<版本>` | 走 `npx` 拉取（`env` 指 npmmirror 国内镜像）；其内置 playwright-core 决定内核支持 |
+| `--browser chrome` | 复用**系统 Google Chrome**，免下载 Chromium（本机 `~/.cache/ms-playwright` 仅有 firefox） |
+| `--isolated` | 隔离会话（不写用户 profile，每次全新上下文） |
+
+> 生效：MCP 工具的可见列表是**会话启动快照**——登记或改配置后须**重启 IDE**（或刷新 MCP 面板）方可调用；面板内该 server 显示 running 即已拉起（浏览器**惰性启动**，首次调用工具才开窗口）。实测 `tools/list` 25 个工具，`browser_navigate` 可拉起有头系统 Chrome 并导航。
+
+**真机走查模板**（以本地全套 + 宿主 dev 为例）：
+
+```bash
+cd ~/develop/bizs/bms
+bash scripts/tools/dev/本地全套.sh up                                              # 起本地四服务（见 8.5）
+bash scripts/tools/dev/本地全套.sh seed --username admin --password '<口令>' --reset-password   # 建 / 重置账号（口令只落《本地资源》）
+cd frontend && pnpm --config.verify-deps-before-run=false --filter @bms/desktop dev             # 起宿主 dev（:5173，无 TTY 须加该参数）
+```
+
+随后用 MCP 工具逐步走查：`browser_navigate` 打开 `/login` → `browser_fill_form` 填账号口令 → `browser_click` 提交 → `browser_snapshot` 读结构 / `browser_take_screenshot` 取证。常用工具：`browser_navigate` / `browser_click` / `browser_type` / `browser_fill_form` / `browser_snapshot` / `browser_find` / `browser_console_messages` / `browser_take_screenshot` / `browser_wait_for`。
+
+口径与注意：
+
+- **读页面结构用 `browser_snapshot` / `browser_find`**，二者把 a11y 树**内联返回**（含 `[ref=eNN]`），可直接据此 click / fill；**不要**指望 `.playwright-mcp/page-*.yml`——`browser_navigate` 触发的该文件恒 **0 字节**（与 `playwright-cli snapshot` 同源缺陷），`browser_click` 触发的才有内容；ref 前缀会随导航变化（如首次 `e..`、后续 `f1e..`）。
+- **截图落盘**：`browser_take_screenshot` 的 `filename` 相对**工作区根**解析；截图以**文件**落盘、工具只回路径，**不占模型图片额度**。
+- **控制台**：`browser_console_messages --level error --all`；本地开发态允许的预期错误仅 `favicon.ico` 404、模块宿主（:5002）`remoteEntry.js` `ERR_CONNECTION_REFUSED`、未登录态 `auth/refresh` 401，其余均按缺陷看。
+- 走查产物与截图放工作区 `tmp/` 下（**不入库**）。
+
+**与 `playwright-cli` 的选型（长会话口径）**：
+
+| 维度 | 谁快 / 谁省 | 原因 |
+| --- | --- | --- |
+| 速度（来回次数） | **MCP 快** | MCP 每步 1 次调用（`browser_snapshot` 直接给可点 `ref`）；CLI 每步要 2~4 次子进程调用（open → eval 读 DOM → run-code 点 → screenshot），且每次都新起进程 |
+| 单次载荷 | **CLI 省** | CLI `eval` 读 `innerText` 实测约 0.3 KB；MCP a11y 树 1~4 KB（约 3~10 倍，含 role / ref / 属性 / 嵌套） |
+| 固定开销 | 基本相当 | MCP 工具 schema 一次拉取约 3.2 K；CLI 加载 `SKILL.md` 约 2.5 K，均一次性 |
+| **长会话总消耗** | **MCP 省** | 对话每轮整体重发历史上下文 ⇒ 总消耗主导项是「累计上下文 × 来回次数」；MCP 来回更少，CLI 每步的多次来回被反复重发 |
+
+结论：**长会话首选 MCP**（又快又省）；`playwright-cli` 仅在 1~2 步的极短会话或只看单次输出时可能更省。若在意消耗，长会话内用 `browser_find`（只回命中片段）替代整页 `browser_snapshot`。
+
 ## 11. 检查清单 <a id="checklist"></a>
 
 - □ 版本已核实：包 `codebuddy-cn` 与应用版本分别取自 `dpkg -l` 与 `product.json`
@@ -536,6 +593,7 @@ pnpm --filter @bms/desktop exec vue-tsc -b ; pnpm run api-types:gen:check
 - □ Python 侧口径明确：官方 Python 扩展三件（无同命令 ID 的套壳项）、`pet` 有执行位、解释器在**工作区根** `settings.json` 声明、alembic 已由 `[tool.pyright] ignore` 排除
 - □ 排障入口齐备：日志三处、崩溃转储、市场超时与渲染异常的处置办法
 - □ 工作区级 `.codebuddy/` 口径清晰：工作记忆三件套职责分明（日报追加 / `MEMORY.md` 原地精简 / 技术坑清单只增）、**不入库**；记忆不得替代交付物；「一条龙」与 AI 交叉评审口径以《AI开发规范》《代码评审规范》为准（见[第 10 节](#workspace-ai)）
-- □ 本机事实均经核实（2026-09-12 首次核实；数量类事实 2026-10-04 复核），未写入账号/令牌等凭据
+- □ 浏览器真机验证口径明确：Playwright MCP 登记于 `~/.codebuddy/mcp.json`（系统 Chrome + `--isolated`）、生效需重启 IDE；结构读 `browser_snapshot` / `browser_find`（`.playwright-mcp/*.yml` 不可依赖）、控制台只认预期错误；长会话首选 MCP（见[10.6](#workspace-ai-browser)）
+- □ 本机事实均经核实（2026-09-12 首次核实；数量类事实 2026-10-04 复核；2026-10-10 补浏览器真机验证），未写入账号/令牌等凭据
 
-> 依《[文档生成规范](../../规范/文档生成规范.md)》编写 · 与《[开发机部署使用说明总览](开发机部署使用说明总览.md)》《[opencode部署使用说明](opencode部署使用说明.md)》《[命名规范](../../规范/命名规范.md)》配套 · 记录 2026-09-12 部署核实、2026-09-13 免确认排障、2026-10-03 运行与调试启动项与扩展补齐、2026-10-03「全套」启动链路排障（端口自愈与前置任务拆分 / ANSI 就绪正则 / Python 扩展与解释器 / pyright 口径 / PET 权限 / Chrome 绝对路径 / 含模块的前端项）、2026-10-04 数量类事实同步（原型与布局 HTML 200 个 / `pyright --outputjson` `filesAnalyzed=916`）与新增[第 10 节](#workspace-ai)（工作区级 `.codebuddy/`：工作记忆三件套 + 「一条龙」/ AI 交叉评审 / 门禁速查）（mjpc 本机）
+> 依《[文档生成规范](../../规范/文档生成规范.md)》编写 · 与《[开发机部署使用说明总览](开发机部署使用说明总览.md)》《[opencode部署使用说明](opencode部署使用说明.md)》《[命名规范](../../规范/命名规范.md)》配套 · 记录 2026-09-12 部署核实、2026-09-13 免确认排障、2026-10-03 运行与调试启动项与扩展补齐、2026-10-03「全套」启动链路排障（端口自愈与前置任务拆分 / ANSI 就绪正则 / Python 扩展与解释器 / pyright 口径 / PET 权限 / Chrome 绝对路径 / 含模块的前端项）、2026-10-04 数量类事实同步（原型与布局 HTML 200 个 / `pyright --outputjson` `filesAnalyzed=916`）与新增[第 10 节](#workspace-ai)（工作区级 `.codebuddy/`：工作记忆三件套 + 「一条龙」/ AI 交叉评审 / 门禁速查）、2026-10-10 新增 [10.6](#workspace-ai-browser)（Playwright MCP 登记、浏览器真机走查用法与 playwright-cli 选型对比）（mjpc 本机）
