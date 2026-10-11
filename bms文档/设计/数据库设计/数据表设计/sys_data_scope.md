@@ -23,7 +23,7 @@
 | --- | --- | --- | --- | --- |
 | `id` | BIGINT | 否 | 主键，雪花 ID | 主键 |
 | `role_id` | BIGINT | 否 | 建索引 | 角色 ID（逻辑外键 → `sys_role.id`，同库） |
-| `dict_key` | VARCHAR(64) | 否 | — | **字典标识**（业务码字符串，如 `role` / `org_dept` / `wms_bin`；登记于**字典数据源登记**，2026-10-11 由 `dict_type_id` 改） |
+| `data_source_key` | VARCHAR(64) | 否 | — | **数据源标识**（业务码字符串，如 `role` / `org_dept` / `wms_bin`；登记于**统一数据源登记**；2026-10-11 由 `dict_type_id` 改 `dict_key`（02_09）、再由 `dict_key` 改 `data_source_key`（02_10）） |
 | `policy_type` | VARCHAR(16) | 否 | — | 策略类型（`select` / `region` / `match` / `extension`） |
 | `config` | JSON | 否 | 默认 `[]` | 结构化策略配置（**只选不编**，按 `policy_type` 分结构，写入时后端 schema 强校验） |
 | `parent_id` | BIGINT | 是 | — | 上级明细 ID（自引用同表 `id`；本表无层级，按明细系统字段口径保留） · **系统字段**：上级明细 ID |
@@ -38,10 +38,10 @@
 
 | 名称 | 类型 | 列 | 说明 |
 | --- | --- | --- | --- |
-| `uq_sys_data_scope_role_dict_policy_deleted_at` | 唯一 | `(role_id, dict_key, policy_type, deleted_at)` | 一角色对一字典一策略一条 |
+| `uq_sys_data_scope_role_data_source_policy_deleted_at` | 唯一 | `(role_id, data_source_key, policy_type, deleted_at)` | 一角色对一数据源一策略一条 |
 | `idx_sys_data_scope_role_id` | 普通 | `role_id` | 按角色取数据权限 |
 
-- 无物理外键；`role_id` 同库逻辑引用，`dict_key` 为**字典标识**（登记于字典数据源登记，不落字典表）。
+- 无物理外键；`role_id` 同库逻辑引用，`data_source_key` 为**数据源标识**（登记于统一数据源登记，不落实体表）。
 - **`config` 结构（按 `policy_type`，只选不编）**：
   - `select`：`[{"item_code": "enabled"}, ...]` —— 直接勾选该字典的数据（分页勾选，选中即授权）
   - `region`：`[{"start": "a", "end": "m"}, ...]` —— 开始值 / 结束值（用动态字典组件选择字典数据）
@@ -55,7 +55,7 @@
 
 - **分片**：不分片（租户库常驻）。
 - **归档**：不归档（在用授权数据）。
-- **迁移**：随 **`platform:tenant` 链**迁移落地（`alembic/versions/platform/tenant/0007_role_tables.py` 建表；**2026-10-11 02_09**：归属列 `dict_type_id` → `dict_key`，迁移 `0012_data_scope_dict_key`，存量清空不回填）。
+- **迁移**：随 **`platform:tenant` 链**迁移落地（`alembic/versions/platform/tenant/0007_role_tables.py` 建表；**2026-10-11 02_09**：归属列 `dict_type_id` → `dict_key`，迁移 `0012_data_scope_dict_key`，存量清空不回填；**2026-10-11 02_10**：归属列 `dict_key` → `data_source_key`，迁移 `0016_data_source_key`——**纯改名**（不改类型 / 可空性、不动数据），唯一约束同步更名 `uq_sys_data_scope_role_data_source_policy_deleted_at`）。
 
 ## 5. 变更记录 <a id="revlog"></a>
 
@@ -65,5 +65,6 @@
 | 2026-10-07 | v2 | 归属改 **platform 服务租户库**（`platform:tenant` 链 `0007_role_tables` 建表，随 02_03 落点改定）；`config` 列 JSON 语义不变，ORM 侧改 `StableJson`（写前集合类规整 / 读回转插入序集合类）——集合类直接落裸 `JSON` 会报「非 JSON 序列化」 | minjian |
 | 2026-10-11 | v3 | 02_09 口径返工：归属列 `dict_type_id`（BIGINT → 字典类型主键）改 **`dict_key` VARCHAR(64)**（字典标识业务码字符串）；唯一约束列同步、**存量清空不回填**（迁移 `0012_data_scope_dict_key`）；校验改由**字典数据源登记**提供存在性与字段白名单（不再查 `sys_dict_type` / `sys_dict_attr`） | minjian |
 | 2026-10-11 | v4 | 系统字段对齐（02_11）：增 `parent_id`（上级明细 ID）；随 `platform:tenant` 链 `0015_system_fields_form_key` | minjian |
+| 2026-10-11 | v5 | 02_10 泛化：归属列 `dict_key` → **`data_source_key`**（数据源标识；迁移 `0016_data_source_key`，纯改名）；唯一约束更名 `uq_sys_data_scope_role_data_source_policy_deleted_at` | minjian |
 
 > 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套

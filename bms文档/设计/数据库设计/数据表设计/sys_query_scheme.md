@@ -25,7 +25,7 @@
 | `scope` | VARCHAR(16) | 否 | — | 作用域（user / tenant / platform） |
 | `owner_id` | BIGINT | 是 | 个人方案填 | 归属用户 ID |
 | `target` | VARCHAR(16) | 否 | — | 目标（items 字典条目 / business 列表筛选） |
-| `dict_key` | VARCHAR(64) | 是 | — | 字典标识（target=items 时填；2026-10-11 由 `dict_type` 改） |
+| `data_source_key` | VARCHAR(64) | 是 | — | 数据源标识（target=items 时填；2026-10-11 由 `dict_type` 改 `dict_key`（02_09）、再由 `dict_key` 改 `data_source_key`（02_10）） |
 | `field_key` | VARCHAR(64) | 是 | — | 表单标识（target=business 时为 form_key） |
 | `provider_key` | VARCHAR(64) | 是 | — | 查询提供者键（高级查询可选） |
 | `conditions` | JSON | 是 | — | 条件组 JSON（AND/OR 分组树） |
@@ -46,10 +46,10 @@
 
 | 名称 | 类型 | 列 | 说明 |
 | --- | --- | --- | --- |
-| `uq_scheme_scope_name_deleted_at` | 唯一 | `(scope, owner_id, target, dict_key, field_key, name, deleted_at)` | 同作用域下方案名唯一（软删除后可复用） |
+| `uq_scheme_scope_name_deleted_at` | 唯一 | `(scope, owner_id, target, data_source_key, field_key, name, deleted_at)` | 同作用域下方案名唯一（软删除后可复用） |
 | `idx_scheme_lookup` | 普通 | `(target, field_key, status, scope)` | 方案清单与默认解析 |
 
-- 无物理外键；`dict_key` 为**字典标识**（登记于字典数据源登记，不落字典表）。 三级优先级（个人 > 租户 > 平台）解析由存储实现承载（`SqlQuerySchemeStore`）；契约见 02-4-20。
+- 无物理外键；`data_source_key` 为**数据源标识**（登记于统一数据源登记，不落实体表）。 三级优先级（个人 > 租户 > 平台）解析由存储实现承载（`SqlQuerySchemeStore`）；契约见 02-4-20。
 
 ## 4. 分片 / 归档 / 迁移 <a id="storage"></a>
 
@@ -65,5 +65,6 @@
 | 2026-09-22 | v2 | 迁移脚本迁入租户链目录（`alembic/versions/tenant/0001_dict_and_query_scheme.py`），索引名统一 `idx_*` | minjian |
 | 2026-09-22 | v3 | 公共软删除索引不再逐表列出（见数据规范） | minjian |
 | 2026-10-11 | v4 | 02_09 口径返工：字典归属列 `dict_type` → **`dict_key`**（字典标识；迁移 `0014_query_scheme_dict_key`，纯改名） | minjian |
+| 2026-10-11 | v5 | 02_10 泛化：归属列 `dict_key` → **`data_source_key`**（数据源标识；迁移 `0016_data_source_key`，纯改名）；唯一约束 `uq_scheme_scope_name_deleted_at` 列随改名 | minjian |
 
 > 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套
