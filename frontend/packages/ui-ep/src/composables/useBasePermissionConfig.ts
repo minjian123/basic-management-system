@@ -77,7 +77,7 @@ export interface UseBasePermissionConfigResult {
   /** 表单页签子页签（响应式）。 */
   formSubTab: Ref<PermissionSubTab>
   /** 数据页签选中字典（响应式）。 */
-  selectedDictTypeId: Ref<string>
+  selectedDataSourceKey: Ref<string>
   /** 数据页签策略子页签（响应式）。 */
   dataScopePolicy: Ref<DataScopePolicyType>
   /** 是否存在未保存变更（响应式）。 */
@@ -145,7 +145,7 @@ export interface UseBasePermissionConfigResult {
   /** 设置字段权限。 */
   setFieldPerm: (formId: string, fieldId: string, patch: FieldPermPatch, sourceMenuId?: string) => boolean
   /** 设置数据权限。 */
-  setDataScope: (dictKey: string, policyType: DataScopePolicyType, config: readonly DataScopePolicyItem[]) => boolean
+  setDataScope: (dataSourceKey: string, policyType: DataScopePolicyType, config: readonly DataScopePolicyItem[]) => boolean
   /** 绑定用户。 */
   bindUsers: (users: readonly AssignedUser[]) => boolean
   /** 解绑用户。 */
@@ -205,7 +205,7 @@ export function useBasePermissionConfig(options: UseBasePermissionConfigOptions 
   const menuSubTab = ref<PermissionSubTab>(config.menuSubTab)
   const selectedFormId = ref(config.selectedFormId)
   const formSubTab = ref<PermissionSubTab>(config.formSubTab)
-  const selectedDictTypeId = ref(config.selectedDictTypeId)
+  const selectedDataSourceKey = ref(config.selectedDataSourceKey)
   const dataScopePolicy = ref<DataScopePolicyType>(config.dataScopePolicy)
   const dirty = ref(config.dirty)
   const phase = ref<PermissionPhase>(config.phase)
@@ -236,7 +236,7 @@ export function useBasePermissionConfig(options: UseBasePermissionConfigOptions 
     menuSubTab.value = config.menuSubTab
     selectedFormId.value = config.selectedFormId
     formSubTab.value = config.formSubTab
-    selectedDictTypeId.value = config.selectedDictTypeId
+    selectedDataSourceKey.value = config.selectedDataSourceKey
     dataScopePolicy.value = config.dataScopePolicy
     dirty.value = config.dirty
     phase.value = config.phase
@@ -281,7 +281,7 @@ export function useBasePermissionConfig(options: UseBasePermissionConfigOptions 
     menuSubTab,
     selectedFormId,
     formSubTab,
-    selectedDictTypeId,
+    selectedDataSourceKey,
     dataScopePolicy,
     dirty,
     phase,
@@ -330,8 +330,8 @@ export function useBasePermissionConfig(options: UseBasePermissionConfigOptions 
       sync()
       return applied
     },
-    setDataScope: (dictKey, policyType, scopeConfig) => {
-      const applied = config.setDataScope(dictKey, policyType, scopeConfig)
+    setDataScope: (dataSourceKey, policyType, scopeConfig) => {
+      const applied = config.setDataScope(dataSourceKey, policyType, scopeConfig)
       sync()
       return applied
     },

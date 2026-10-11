@@ -154,7 +154,7 @@ export abstract class BasePermissionConfig extends BasePlaceholderState {
   /** 表单页签右侧子页签。 */
   formSubTab: PermissionSubTab = 'action'
   /** 数据页签选中字典。 */
-  selectedDictTypeId = ''
+  selectedDataSourceKey = ''
   /** 数据页签右侧子页签。 */
   dataScopePolicy: DataScopePolicyType = 'select'
   /** 数据通路是否就绪（占位语义开关）。 */
@@ -310,7 +310,7 @@ export abstract class BasePermissionConfig extends BasePlaceholderState {
     this.refreshError = ''
     this.selectedMenuId = ''
     this.selectedFormId = ''
-    this.selectedDictTypeId = ''
+    this.selectedDataSourceKey = ''
     this.syncTree()
     this.touch()
   }
@@ -381,7 +381,7 @@ export abstract class BasePermissionConfig extends BasePlaceholderState {
    * @param id 字典类型 id。
    */
   selectDictType(id: string): void {
-    this.selectedDictTypeId = id
+    this.selectedDataSourceKey = id
     this.touch()
   }
 
@@ -450,7 +450,7 @@ export abstract class BasePermissionConfig extends BasePlaceholderState {
     this.entries = (snapshot.entries ?? []).map((entry) => ({ ...entry }))
     this.fieldEntries = (snapshot.fieldEntries ?? []).map((entry) => ({ ...entry }))
     this.dataScopeEntries = (snapshot.dataScopeEntries ?? []).map((entry) => ({
-      dictKey: entry.dictKey,
+      dataSourceKey: entry.dataSourceKey,
       policyType: entry.policyType,
       config: entry.config.map((item) => ({ ...item })),
     }))
@@ -564,16 +564,16 @@ export abstract class BasePermissionConfig extends BasePlaceholderState {
   /**
    * 设置数据权限条目（按字典 × 策略覆盖；空 config 移除该条）。
    *
-   * @param dictKey 字典类型 id。
+   * @param dataSourceKey 字典类型 id。
    * @param policyType 策略类型。
    * @param config 结构化配置。
    * @returns 是否已写入。
    */
-  setDataScope(dictKey: string, policyType: DataScopePolicyType, config: readonly DataScopePolicyItem[]): boolean {
+  setDataScope(dataSourceKey: string, policyType: DataScopePolicyType, config: readonly DataScopePolicyItem[]): boolean {
     if (!this.ready || !this.canGrant || this.busy) {
       return false
     }
-    this.dataScopeEntries = applyDataScope(this.dataScopeEntries, dictKey, policyType, config)
+    this.dataScopeEntries = applyDataScope(this.dataScopeEntries, dataSourceKey, policyType, config)
     this.touch()
     return true
   }
@@ -777,7 +777,7 @@ export abstract class BasePermissionConfig extends BasePlaceholderState {
       entries: this.entries.map((entry) => ({ ...entry })),
       fieldEntries: this.fieldEntries.map((entry) => ({ ...entry })),
       dataScopeEntries: this.dataScopeEntries.map((entry) => ({
-        dictKey: entry.dictKey,
+        dataSourceKey: entry.dataSourceKey,
         policyType: entry.policyType,
         config: entry.config.map((item) => ({ ...item })),
       })),
@@ -809,10 +809,10 @@ export abstract class BasePermissionConfig extends BasePlaceholderState {
       this.selectedFormId = this.metadata.forms[0]?.id ?? ''
     }
     if (
-      this.selectedDictTypeId === '' ||
-      !this.metadata.dictKeys.some((dict) => dict.id === this.selectedDictTypeId)
+      this.selectedDataSourceKey === '' ||
+      !this.metadata.dataSourceKeys.some((dict) => dict.id === this.selectedDataSourceKey)
     ) {
-      this.selectedDictTypeId = this.metadata.dictKeys[0]?.id ?? ''
+      this.selectedDataSourceKey = this.metadata.dataSourceKeys[0]?.id ?? ''
     }
   }
 

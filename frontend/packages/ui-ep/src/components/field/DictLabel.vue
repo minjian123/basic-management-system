@@ -9,7 +9,7 @@ interface Props {
   /** 值（单值 / 数组）。 */
   value?: string | number | (string | number)[] | undefined
   /** 字典类型码。 */
-  dictKey?: string
+  dataSourceKey?: string
   /** 字典数据源（未注入即占位零请求，原值展示）。 */
   source?: DictSourceAdapter
   /** 缓存能力（缺省由投影内建；跨件共享请外部传入）。 */
@@ -28,7 +28,7 @@ interface Props {
 
 const props = withDefaults(defineProps<Props>(), {
   value: undefined,
-  dictKey: '',
+  dataSourceKey: '',
   source: undefined,
   store: undefined,
   ready: true,
@@ -40,7 +40,7 @@ const props = withDefaults(defineProps<Props>(), {
 
 const api = useBaseDictSelect({
   ready: props.ready,
-  dictKey: props.dictKey,
+  dataSourceKey: props.dataSourceKey,
   source: props.source,
   store: props.store,
   multiple: true,
@@ -51,7 +51,7 @@ watch(
   (next) => api.setReady(next),
 )
 watch(
-  () => props.dictKey,
+  () => props.dataSourceKey,
   (next) => api.setDictType(next),
 )
 watch(

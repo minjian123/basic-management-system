@@ -292,6 +292,7 @@ export { BaseUserDisplay, type UserDisplayInfo, type UserStatus } from './capabi
 export { BaseDynamicRoutes, type RouteNode } from './capabilities/dynamic-routes'
 export { BaseFormMeta } from './capabilities/form-meta'
 export { BaseFormPage, type FormMode } from './capabilities/form-page'
+export { BasePageRoute, type PageRouteAdapter } from './capabilities/page-route'
 
 export { BaseInput } from './capabilities/input'
 export { BaseDisplay } from './capabilities/display'
@@ -456,7 +457,7 @@ export {
   type DataScopePolicyType,
   type DataScopeRegionItem,
   type DataScopeSelectItem,
-  type DictKeyMeta,
+  type DataSourceKeyMeta,
   type FieldEntriesPayload,
   type FieldMeta,
   type FieldPermEntry,
@@ -1995,3 +1996,18 @@ export {
   type ListPreferencePruneResult,
   type ListQueryPreference,
 } from './domain/list-preference'
+export {
+  DATA_SOURCE_KINDS,
+  FORM_KINDS,
+  PAGE_ROUTE_KEY_PATTERN,
+  normalizeDataSourceRecord,
+  normalizeDataSourceRecords,
+  normalizeFormKeyRecord,
+  normalizeFormKeyRecords,
+  normalizeFormPageDeclaration,
+  resolvePageRoute,
+  type DataSourceRecord,
+  type FormKeyRecord,
+  type FormPageDeclaration,
+  type PageRouteResolution,
+} from './domain/page-route'

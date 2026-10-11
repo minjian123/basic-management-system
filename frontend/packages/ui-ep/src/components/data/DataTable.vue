@@ -51,7 +51,7 @@ export interface DataTableColumn {
   /** 格式化口径。 */
   format?: 'number' | 'amount' | 'percent' | 'date' | 'datetime' | 'fileSize' | 'boolean'
   /** 字典类型（配合注入的翻译处理函数）。 */
-  dictKey?: string
+  dataSourceKey?: string
   /** 是否状态列。 */
   status?: boolean
   /** 是否脱敏列。 */
@@ -154,7 +154,7 @@ interface Props {
   /** 是否具备查看明文权限（脱敏列）。 */
   plainEnabled?: boolean
   /** 字典 label 翻译（宿主注入；未注入即显示原值，不发请求）。 */
-  translator?: (dictKey: string, value: unknown) => string | undefined
+  translator?: (dataSourceKey: string, value: unknown) => string | undefined
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -501,7 +501,7 @@ function maskedText(row: Record<string, unknown>, column: DataTableColumn): stri
 /** 字典翻译文本。 */
 function dictText(row: Record<string, unknown>, column: DataTableColumn): string {
   const value = row[column.key]
-  const translated = column.dictKey === undefined ? undefined : props.translator?.(column.dictKey, value)
+  const translated = column.dataSourceKey === undefined ? undefined : props.translator?.(column.dataSourceKey, value)
   return translated ?? (value === null || value === undefined ? '—' : String(value))
 }
 

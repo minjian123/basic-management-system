@@ -141,7 +141,7 @@ export interface DictBatchResult {
 /** 单类型查询参数（线参数由 `buildDictTypeQuery` 单一构造）。 */
 export interface DictTypeQuery {
   /** 字典类型码。 */
-  dictKey: string
+  dataSourceKey: string
   /** 客户端本地版本号（一致时后端返回 `items=null`）。 */
   version?: number
   /** 关键字（label / value / code）。 */
@@ -207,7 +207,7 @@ export interface DictQueryProvider {
   /** 目标（`items` / `business`）。 */
   target: DictTarget
   /** 适用字典类型（空 = 全部）。 */
-  dictKeys: readonly string[]
+  dataSourceKeys: readonly string[]
   /** 参数 JSON Schema 子集。 */
   paramSchema: Record<string, unknown>
 }
@@ -223,7 +223,7 @@ export interface DictQueryScheme {
   /** 目标。 */
   target: DictTarget
   /** 字典类型（`target=items`）。 */
-  dictKey?: string
+  dataSourceKey?: string
   /** 查询提供者键。 */
   providerKey?: string
   /** 条件组。 */
@@ -627,34 +627,34 @@ export function toDictCascadeOptions(items: readonly DictItem[]): DictTreeNode[]
  * 类型缓存键（`{locale}:{type}`）。
  *
  * @param locale 语言。
- * @param dictKey 字典类型码。
+ * @param dataSourceKey 字典类型码。
  * @returns 缓存键。
  */
-export function dictCacheKey(locale: string, dictKey: string): string {
-  return `${locale}:${dictKey}`
+export function dictCacheKey(locale: string, dataSourceKey: string): string {
+  return `${locale}:${dataSourceKey}`
 }
 
 /**
  * 子集缓存键（`{locale}:{type}:{value}`）。
  *
  * @param locale 语言。
- * @param dictKey 字典类型码。
+ * @param dataSourceKey 字典类型码。
  * @param value 条目值。
  * @returns 子集缓存键。
  */
-export function dictSubsetKey(locale: string, dictKey: string, value: string): string {
-  return `${locale}:${dictKey}:${value}`
+export function dictSubsetKey(locale: string, dataSourceKey: string, value: string): string {
+  return `${locale}:${dataSourceKey}:${value}`
 }
 
 /**
  * 本地二次缓存键（`bms:dict:{locale}:{type}`）。
  *
  * @param locale 语言。
- * @param dictKey 字典类型码。
+ * @param dataSourceKey 字典类型码。
  * @returns 本地缓存键。
  */
-export function dictStorageKey(locale: string, dictKey: string): string {
-  return `${DICT_STORAGE_PREFIX}:${locale}:${dictKey}`
+export function dictStorageKey(locale: string, dataSourceKey: string): string {
+  return `${DICT_STORAGE_PREFIX}:${locale}:${dataSourceKey}`
 }
 
 /**
@@ -846,9 +846,9 @@ export function normalizeDictQueryScheme(raw: unknown): DictQueryScheme | undefi
   if (typeof idRaw === 'number' && Number.isFinite(idRaw)) {
     scheme.id = idRaw
   }
-  const dictKey = record.dictKey ?? record.dict_key
-  if (typeof dictKey === 'string' && dictKey !== '') {
-    scheme.dictKey = dictKey
+  const dataSourceKey = record.dataSourceKey ?? record.data_source_key
+  if (typeof dataSourceKey === 'string' && dataSourceKey !== '') {
+    scheme.dataSourceKey = dataSourceKey
   }
   const providerKey = record.providerKey ?? record.provider_key
   if (typeof providerKey === 'string' && providerKey !== '') {

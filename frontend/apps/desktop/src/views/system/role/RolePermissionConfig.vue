@@ -84,7 +84,7 @@ const jobs: PermissionJobs = {
         sourceMenuId: String(entry.source_menu_id ?? '0'),
       })),
       dataScopeEntries: (scopes.items ?? []).map((entry) => ({
-        dictKey: String(entry.dict_key),
+        dataSourceKey: String(entry.data_source_key),
         policyType: entry.policy_type as 'select' | 'region' | 'match' | 'extension',
         config: (entry.config ?? []).map((item) => ({ ...item })) as unknown as DataScopePolicyItem[],
       })),
@@ -121,7 +121,7 @@ const jobs: PermissionJobs = {
   submitDataScopes: async ({ roleId, payload }) => {
     await replaceRoleDataScopes(String(roleId ?? currentId.value), {
       entries: payload.entries.map((entry) => ({
-        dict_key: entry.dictKey,
+        data_source_key: entry.dataSourceKey,
         policy_type: entry.policyType,
         config: entry.config as unknown as Record<string, unknown>[],
       })),

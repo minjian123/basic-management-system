@@ -23,6 +23,7 @@ import { installModules, installPlatformRegistrations, resolveRouteModule } from
 import { moduleI18n } from './module/i18n'
 import { router } from './router'
 import { ensureMenuRoutes, uninstallMenuRoutesAll } from './router/dynamic'
+import { ensureFormPageRoutes, pageRoute, uninstallFormPageRoutes } from './router/page-route'
 import { installAuthGuard, resolvePublicPaths } from './router/guard'
 import { useMenuStore } from './stores/menu'
 import { useSessionStore } from './stores/session'
@@ -89,6 +90,8 @@ installAuthGuard(router, {
   ensureSession: () => session.ensureReady(),
   ensureRoutes: async () => {
     await menu.load()
+    await pageRoute.load()
+    ensureFormPageRoutes(router)
     ensureMenuRoutes(router, menu.tree)
   },
   permissions: () => {
@@ -112,9 +115,13 @@ session.$subscribe((_mutation, state) => {
   if (state.token === null) {
     menu.reset()
     uninstallMenuRoutesAll(router)
+    uninstallFormPageRoutes(router)
+    pageRoute.reset()
     return
   }
-  void menu.load().then(() => {
+  void menu.load().then(async () => {
+    await pageRoute.load()
+    ensureFormPageRoutes(router)
     ensureMenuRoutes(router, menu.tree)
   })
 })

@@ -64,7 +64,7 @@ class HttpDictSource extends BaseDictSource {
    * @returns 原始结果。
    */
   override async getType(query: DictSourceTypeQuery): Promise<unknown> {
-    return this.#request('GET', `/dicts/${encodeURIComponent(query.dictKey)}`, buildDictTypeQuery(query))
+    return this.#request('GET', `/dicts/${encodeURIComponent(query.dataSourceKey)}`, buildDictTypeQuery(query))
   }
 
   /**
@@ -84,7 +84,7 @@ class HttpDictSource extends BaseDictSource {
    * @returns 原始结果。
    */
   override async loadAttrs(query: DictSourceAttrsQuery): Promise<unknown> {
-    return this.#request('GET', `/dicts/${encodeURIComponent(query.dictKey)}/attrs`, {
+    return this.#request('GET', `/dicts/${encodeURIComponent(query.dataSourceKey)}/attrs`, {
       ...(query.locale === undefined ? {} : { locale: query.locale }),
     })
   }
@@ -97,7 +97,7 @@ class HttpDictSource extends BaseDictSource {
    */
   override async loadProviders(query: DictSourceProvidersQuery): Promise<unknown> {
     return this.#request('GET', '/dicts/query-providers', {
-      ...(query.dictKey === undefined || query.dictKey === '' ? {} : { dict_key: query.dictKey }),
+      ...(query.dataSourceKey === undefined || query.dataSourceKey === '' ? {} : { data_source_key: query.dataSourceKey }),
     })
   }
 
@@ -110,7 +110,7 @@ class HttpDictSource extends BaseDictSource {
   override async advancedQuery(query: DictSourceAdvQuery): Promise<unknown> {
     return this.#request(
       'POST',
-      `/dicts/${encodeURIComponent(query.dictKey)}/advanced-query`,
+      `/dicts/${encodeURIComponent(query.dataSourceKey)}/advanced-query`,
       buildDictAdvQuery(query.target, {
         conditions: query.conditions,
         provider: query.provider,
@@ -253,8 +253,8 @@ function schemeToWire(scheme: DictQueryScheme): Record<string, unknown> {
   if (scheme.id !== undefined) {
     body.id = scheme.id
   }
-  if (scheme.dictKey !== undefined) {
-    body.dict_key = scheme.dictKey
+  if (scheme.dataSourceKey !== undefined) {
+    body.data_source_key = scheme.dataSourceKey
   }
   if (scheme.providerKey !== undefined) {
     body.provider_key = scheme.providerKey

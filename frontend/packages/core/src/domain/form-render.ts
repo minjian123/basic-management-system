@@ -476,8 +476,8 @@ export function normalizeField(input: FormFieldInput | undefined, index = 0): Fo
   if (options.length > 0) {
     field.options = options
   }
-  if (typeof source.dictKey === 'string' && source.dictKey !== '') {
-    field.dictKey = source.dictKey
+  if (typeof source.dataSourceKey === 'string' && source.dataSourceKey !== '') {
+    field.dataSourceKey = source.dataSourceKey
   }
   if (typeof source.uploadAccept === 'string' && source.uploadAccept !== '') {
     field.uploadAccept = source.uploadAccept
@@ -636,7 +636,7 @@ function mergeAttrs(field: FormField, override: FieldRenderOverride | undefined)
     defaultValue: override.defaultValue ?? field.defaultValue,
     rules: override.rules ?? field.rules,
     options: override.options ?? field.options,
-    dictKey: override.dictKey ?? field.dictKey,
+    dataSourceKey: override.dataSourceKey ?? field.dataSourceKey,
     uploadAccept: override.uploadAccept ?? field.uploadAccept,
     uploadMaxSize: override.uploadMaxSize ?? field.uploadMaxSize,
     uploadLimit: override.uploadLimit ?? field.uploadLimit,

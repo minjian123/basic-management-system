@@ -9,7 +9,7 @@ import {
   type DataScopePolicyItem,
   type DataScopePolicyType,
   type DictSourceAdapter,
-  type DictKeyMeta,
+  type DataSourceKeyMeta,
 } from '@bms/core'
 import { computed, ref, watch } from 'vue'
 
@@ -42,13 +42,13 @@ interface ExtensionRow {
 
 interface Props {
   /** 基础数据字典清单。 */
-  dictKeys?: DictKeyMeta[]
+  dataSourceKeys?: DataSourceKeyMeta[]
   /** 扩展权限登记清单。 */
   extensions?: DataScopeExtensionMeta[]
   /** 数据权限条目。 */
   entries?: DataScopeEntry[]
   /** 选中字典类型 id。 */
-  selectedDictTypeId?: string
+  selectedDataSourceKey?: string
   /** 当前策略子页签。 */
   policy?: DataScopePolicyType
   /** 匹配字段白名单。 */
@@ -66,10 +66,10 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  dictKeys: () => [],
+  dataSourceKeys: () => [],
   extensions: () => [],
   entries: () => [],
-  selectedDictTypeId: '',
+  selectedDataSourceKey: '',
   policy: 'select',
   matchFields: () => ['code', 'name', 'remark'],
   source: undefined,
@@ -82,7 +82,7 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<{
   'select-dict': [id: string]
   'update:policy': [policy: DataScopePolicyType]
-  'set-scope': [payload: { dictKey: string; policyType: DataScopePolicyType; config: DataScopePolicyItem[] }]
+  'set-scope': [payload: { dataSourceKey: string; policyType: DataScopePolicyType; config: DataScopePolicyItem[] }]
   validate: [payload: { policyType: DataScopePolicyType; message: string }]
 }>()
 
@@ -99,11 +99,11 @@ const matchRows = ref<MatchRow[]>([])
 const extensionRows = ref<ExtensionRow[]>([])
 
 /** 选中字典类型码（透传动态字典件）。 */
-const dictCode = computed(() => props.dictKeys.find((dict) => dict.id === props.selectedDictTypeId)?.code ?? '')
+const dictCode = computed(() => props.dataSourceKeys.find((dict) => dict.id === props.selectedDataSourceKey)?.code ?? '')
 
 /** 当前字典 × 策略的条目。 */
 function entryOf(policy: DataScopePolicyType): DataScopeEntry | undefined {
-  return props.entries.find((entry) => entry.dictKey === props.selectedDictTypeId && entry.policyType === policy)
+  return props.entries.find((entry) => entry.dataSourceKey === props.selectedDataSourceKey && entry.policyType === policy)
 }
 
 /** 从条目同步各策略草稿。 */
@@ -127,13 +127,13 @@ function sync(): void {
   })
 }
 
-watch(() => [props.selectedDictTypeId, props.entries], sync, { immediate: true, deep: true })
+watch(() => [props.selectedDataSourceKey, props.entries], sync, { immediate: true, deep: true })
 
 /** 提交数据选择。 */
 function submitSelect(values: string | string[]): void {
   const list = Array.isArray(values) ? values : [values]
   emit('set-scope', {
-    dictKey: props.selectedDictTypeId,
+    dataSourceKey: props.selectedDataSourceKey,
     policyType: 'select',
     config: list.filter((value) => value !== '').map((itemCode) => ({ itemCode })),
   })
@@ -143,7 +143,7 @@ function submitSelect(values: string | string[]): void {
 function submit(policy: DataScopePolicyType): void {
   if (policy === 'region') {
     emit('set-scope', {
-      dictKey: props.selectedDictTypeId,
+      dataSourceKey: props.selectedDataSourceKey,
       policyType: 'region',
       config: regionRows.value.filter((row) => row.start !== '' || row.end !== '').map((row) => ({ ...row })),
     })
@@ -157,14 +157,14 @@ function submit(policy: DataScopePolicyType): void {
       }
     }
     emit('set-scope', {
-      dictKey: props.selectedDictTypeId,
+      dataSourceKey: props.selectedDataSourceKey,
       policyType: 'match',
       config: matchRows.value.filter((row) => row.pattern !== '').map((row) => ({ ...row })),
     })
     return
   }
   emit('set-scope', {
-    dictKey: props.selectedDictTypeId,
+    dataSourceKey: props.selectedDataSourceKey,
     policyType: 'extension',
     config: extensionRows.value
       .filter((row) => row.key !== '')
@@ -185,11 +185,11 @@ const availablePolicies = computed(() =>
   <div class="bms-data-scope" data-test="data-scope" :data-disabled="disabled || undefined">
     <div class="bms-data-scope__dicts">
       <button
-        v-for="dict in dictKeys"
+        v-for="dict in dataSourceKeys"
         :key="dict.id"
         type="button"
         :data-test="`dict-${dict.id}`"
-        :data-active="selectedDictTypeId === dict.id || undefined"
+        :data-active="selectedDataSourceKey === dict.id || undefined"
         @click="emit('select-dict', dict.id)"
       >
         {{ dict.name }}
@@ -210,7 +210,7 @@ const availablePolicies = computed(() =>
         </button>
       </div>
 
-      <p v-if="selectedDictTypeId === ''" data-test="empty">{{ emptyText }}</p>
+      <p v-if="selectedDataSourceKey === ''" data-test="empty">{{ emptyText }}</p>
 
       <template v-else>
         <dynamic-dict-picker

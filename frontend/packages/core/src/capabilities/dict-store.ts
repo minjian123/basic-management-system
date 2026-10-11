@@ -58,7 +58,7 @@ export type DictBatchLoader = (
 
 /** 单类型取数回调。 */
 export type DictTypeLoader = (query: {
-  dictKey: string
+  dataSourceKey: string
   version?: number
   keyword?: string
   parentId?: string
@@ -67,7 +67,7 @@ export type DictTypeLoader = (query: {
 }) => Promise<DictTypeResult | undefined>
 
 /** 子集取数回调（按值批量回填）。 */
-export type DictSubsetLoader = (dictKey: string, values: readonly string[]) => Promise<DictItem[] | undefined>
+export type DictSubsetLoader = (dataSourceKey: string, values: readonly string[]) => Promise<DictItem[] | undefined>
 
 /** 字典缓存能力基类（抽象；全局一份缓存，跨件 / 跨表单共享）。 */
 export abstract class BaseDictStore extends BasePlaceholderState {
@@ -217,45 +217,45 @@ export abstract class BaseDictStore extends BasePlaceholderState {
   /**
    * 确保单类型已加载（探针 `limit=2001` 判定大小字典；本地缓存命中先显示、版本校验后刷新）。
    *
-   * @param dictKey 字典类型码。
+   * @param dataSourceKey 字典类型码。
    * @returns 无。
    */
-  async ensureType(dictKey: string): Promise<void> {
-    if (dictKey === '' || this.isLoaded(dictKey)) {
+  async ensureType(dataSourceKey: string): Promise<void> {
+    if (dataSourceKey === '' || this.isLoaded(dataSourceKey)) {
       return
     }
-    const inflight = this._pending.get(dictKey)
+    const inflight = this._pending.get(dataSourceKey)
     if (inflight !== undefined) {
       return inflight
     }
     if (!this.canRequest() || this._typeLoader === undefined) {
       return
     }
-    const task = this._loadOne(dictKey)
-    this._pending.set(dictKey, task)
+    const task = this._loadOne(dataSourceKey)
+    this._pending.set(dataSourceKey, task)
     try {
       await task
     } finally {
-      this._pending.delete(dictKey)
+      this._pending.delete(dataSourceKey)
     }
   }
 
   /**
    * 远程搜索（关键字；结果仅作候选，不写类型缓存）。
    *
-   * @param dictKey 字典类型码。
+   * @param dataSourceKey 字典类型码。
    * @param keyword 关键字。
    * @returns 候选条目（未就绪 / 未注入返回空）。
    */
-  async searchRemote(dictKey: string, keyword: string): Promise<DictItem[]> {
-    if (!this.canRequest() || this._typeLoader === undefined || dictKey === '') {
+  async searchRemote(dataSourceKey: string, keyword: string): Promise<DictItem[]> {
+    if (!this.canRequest() || this._typeLoader === undefined || dataSourceKey === '') {
       return []
     }
     this.markLoaded()
     this.loading = true
     this.emitUpdate()
     try {
-      const result = await this._typeLoader({ dictKey, keyword, limit: DICT_PROBE_LIMIT })
+      const result = await this._typeLoader({ dataSourceKey, keyword, limit: DICT_PROBE_LIMIT })
       this.loading = false
       this.emitUpdate()
       if (result === undefined) {
@@ -273,19 +273,19 @@ export abstract class BaseDictStore extends BasePlaceholderState {
   /**
    * 按值批量回显（缺失值一次 `values=` 子集回填；二次零请求）。
    *
-   * @param dictKey 字典类型码。
+   * @param dataSourceKey 字典类型码。
    * @param values 待回显值序列。
    * @returns 无。
    */
-  async resolveValues(dictKey: string, values: readonly string[]): Promise<void> {
+  async resolveValues(dataSourceKey: string, values: readonly string[]): Promise<void> {
     const targets = [...new Set(values)].filter(
-      (value) => value !== '' && !this._resolved.has(dictSubsetKey(this.locale, dictKey, value)),
+      (value) => value !== '' && !this._resolved.has(dictSubsetKey(this.locale, dataSourceKey, value)),
     )
     if (targets.length === 0) {
       return
     }
     for (const value of targets) {
-      this._resolved.add(dictSubsetKey(this.locale, dictKey, value))
+      this._resolved.add(dictSubsetKey(this.locale, dataSourceKey, value))
     }
     if (!this.canRequest()) {
       return
@@ -295,11 +295,11 @@ export abstract class BaseDictStore extends BasePlaceholderState {
       this.loading = true
       this.emitUpdate()
       try {
-        const items = await this._subsetLoader(dictKey, targets)
+        const items = await this._subsetLoader(dataSourceKey, targets)
         this.loading = false
         if (items !== undefined && items.length > 0) {
-          this._putSubset(dictKey, items)
-          this._mergeEntry(dictKey, items)
+          this._putSubset(dataSourceKey, items)
+          this._mergeEntry(dataSourceKey, items)
         }
         this.emitUpdate()
       } catch (error) {
@@ -311,10 +311,10 @@ export abstract class BaseDictStore extends BasePlaceholderState {
     }
     if (this._typeLoader !== undefined) {
       this.markLoaded()
-      const result = await this._typeLoader({ dictKey, values: targets, limit: DICT_PROBE_LIMIT })
+      const result = await this._typeLoader({ dataSourceKey, values: targets, limit: DICT_PROBE_LIMIT })
       if (result !== undefined && result.items !== null) {
-        this._putSubset(dictKey, result.items)
-        this._mergeEntry(dictKey, result.items)
+        this._putSubset(dataSourceKey, result.items)
+        this._mergeEntry(dataSourceKey, result.items)
         this.emitUpdate()
       }
     }
@@ -323,65 +323,65 @@ export abstract class BaseDictStore extends BasePlaceholderState {
   /**
    * 同步读类型条目（未加载返回空数组）。
    *
-   * @param dictKey 字典类型码。
+   * @param dataSourceKey 字典类型码。
    * @returns 条目列表。
    */
-  itemsOf(dictKey: string): DictItem[] {
-    return this._entries.get(this._key(dictKey))?.items ?? []
+  itemsOf(dataSourceKey: string): DictItem[] {
+    return this._entries.get(this._key(dataSourceKey))?.items ?? []
   }
 
   /**
    * 取类型缓存项（未加载返回 `undefined`）。
    *
-   * @param dictKey 字典类型码。
+   * @param dataSourceKey 字典类型码。
    * @returns 缓存项。
    */
-  entryOf(dictKey: string): DictCacheEntry | undefined {
-    return this._entries.get(this._key(dictKey))
+  entryOf(dataSourceKey: string): DictCacheEntry | undefined {
+    return this._entries.get(this._key(dataSourceKey))
   }
 
   /**
    * 类型是否已加载。
    *
-   * @param dictKey 字典类型码。
+   * @param dataSourceKey 字典类型码。
    * @returns 已加载 `true`。
    */
-  isLoaded(dictKey: string): boolean {
-    return this._entries.has(this._key(dictKey))
+  isLoaded(dataSourceKey: string): boolean {
+    return this._entries.has(this._key(dataSourceKey))
   }
 
   /**
    * 是否超大字典（探针判定）。
    *
-   * @param dictKey 字典类型码。
+   * @param dataSourceKey 字典类型码。
    * @returns 超大字典 `true`。
    */
-  isLarge(dictKey: string): boolean {
-    return this._large.has(dictKey)
+  isLarge(dataSourceKey: string): boolean {
+    return this._large.has(dataSourceKey)
   }
 
   /**
    * 按值取标签（子集缓存优先，其次类型缓存；未命中 `undefined`）。
    *
-   * @param dictKey 字典类型码。
+   * @param dataSourceKey 字典类型码。
    * @param value 值。
    * @returns 标签；未命中 `undefined`。
    */
-  labelOf(dictKey: string, value: string): string | undefined {
-    const subset = this._subsets.get(dictSubsetKey(this.locale, dictKey, value))
+  labelOf(dataSourceKey: string, value: string): string | undefined {
+    const subset = this._subsets.get(dictSubsetKey(this.locale, dataSourceKey, value))
     if (subset !== undefined) {
       return subset
     }
-    return this._entries.get(this._key(dictKey))?.items.find((item) => item.value === value)?.label
+    return this._entries.get(this._key(dataSourceKey))?.items.find((item) => item.value === value)?.label
   }
 
   /**
    * 失效缓存（类型 / 全部；同步清本地二次缓存）。
    *
-   * @param dictKey 字典类型码；缺省全清。
+   * @param dataSourceKey 字典类型码；缺省全清。
    */
-  invalidate(dictKey?: string): void {
-    if (dictKey === undefined) {
+  invalidate(dataSourceKey?: string): void {
+    if (dataSourceKey === undefined) {
       for (const key of this._entries.keys()) {
         this._removeLocal(key.split(':').slice(1).join(':'))
       }
@@ -392,19 +392,19 @@ export abstract class BaseDictStore extends BasePlaceholderState {
       this.emitUpdate()
       return
     }
-    this._entries.delete(this._key(dictKey))
+    this._entries.delete(this._key(dataSourceKey))
     for (const key of [...this._resolved]) {
-      if (key.startsWith(`${this.locale}:${dictKey}:`)) {
+      if (key.startsWith(`${this.locale}:${dataSourceKey}:`)) {
         this._resolved.delete(key)
       }
     }
     for (const key of [...this._subsets.keys()]) {
-      if (key.startsWith(`${this.locale}:${dictKey}:`)) {
+      if (key.startsWith(`${this.locale}:${dataSourceKey}:`)) {
         this._subsets.delete(key)
       }
     }
-    this._large.delete(dictKey)
-    this._removeLocal(dictKey)
+    this._large.delete(dataSourceKey)
+    this._removeLocal(dataSourceKey)
     this.emitUpdate()
   }
 
@@ -437,25 +437,25 @@ export abstract class BaseDictStore extends BasePlaceholderState {
   /**
    * 缓存键（`{locale}:{type}`）。
    *
-   * @param dictKey 字典类型码。
+   * @param dataSourceKey 字典类型码。
    * @returns 缓存键。
    */
-  _key(dictKey: string): string {
-    return dictCacheKey(this.locale, dictKey)
+  _key(dataSourceKey: string): string {
+    return dictCacheKey(this.locale, dataSourceKey)
   }
 
   /**
    * 单类型加载（本地缓存先显示 → 版本校验请求）。
    *
-   * @param dictKey 字典类型码。
+   * @param dataSourceKey 字典类型码。
    * @returns 无。
    */
-  async _loadOne(dictKey: string): Promise<void> {
-    const local = this._readLocal(dictKey)
+  async _loadOne(dataSourceKey: string): Promise<void> {
+    const local = this._readLocal(dataSourceKey)
     if (local !== undefined) {
-      this._putEntry(dictKey, local)
+      this._putEntry(dataSourceKey, local)
       if (local.hasMore) {
-        this._large.add(dictKey)
+        this._large.add(dataSourceKey)
       }
     }
     this.markLoaded()
@@ -463,8 +463,8 @@ export abstract class BaseDictStore extends BasePlaceholderState {
     this.emitUpdate()
     try {
       const result = await (this._typeLoader as DictTypeLoader)({
-        dictKey,
-        version: this._entries.get(this._key(dictKey))?.version,
+        dataSourceKey,
+        version: this._entries.get(this._key(dataSourceKey))?.version,
         limit: DICT_PROBE_LIMIT,
       })
       this.loading = false
@@ -474,22 +474,22 @@ export abstract class BaseDictStore extends BasePlaceholderState {
       }
       if (result.items === null) {
         // 版本一致：保留本地缓存（无缓存时以空集标记已加载）
-        if (!this._entries.has(this._key(dictKey))) {
-          this._putEntry(dictKey, { version: result.version, items: [], hasMore: false, total: 0 })
+        if (!this._entries.has(this._key(dataSourceKey))) {
+          this._putEntry(dataSourceKey, { version: result.version, items: [], hasMore: false, total: 0 })
         }
         this.dictVersion = result.version
         this.emitUpdate()
         return
       }
       this.dictVersion = result.version
-      this._putEntry(dictKey, {
+      this._putEntry(dataSourceKey, {
         version: result.version,
         items: result.items,
         hasMore: result.hasMore,
         total: result.total,
       })
       if (isLargeDict(result)) {
-        this._large.add(dictKey)
+        this._large.add(dataSourceKey)
       }
       this.emitUpdate()
     } catch (error) {
@@ -593,11 +593,11 @@ export abstract class BaseDictStore extends BasePlaceholderState {
   /**
    * 写入类型缓存（LRU 淘汰 + 本地二次缓存）。
    *
-   * @param dictKey 字典类型码。
+   * @param dataSourceKey 字典类型码。
    * @param entry 缓存项。
    */
-  _putEntry(dictKey: string, entry: DictCacheEntry): void {
-    const key = this._key(dictKey)
+  _putEntry(dataSourceKey: string, entry: DictCacheEntry): void {
+    const key = this._key(dataSourceKey)
     if (this._entries.has(key)) {
       this._entries.delete(key)
     }
@@ -611,19 +611,19 @@ export abstract class BaseDictStore extends BasePlaceholderState {
       this._entries.delete(oldest)
       this._removeLocal(type)
     }
-    if (!this._large.has(dictKey)) {
-      this._writeLocal(dictKey, entry)
+    if (!this._large.has(dataSourceKey)) {
+      this._writeLocal(dataSourceKey, entry)
     }
   }
 
   /**
    * 子集条目合并进类型缓存（已加载时；不新建缓存项）。
    *
-   * @param dictKey 字典类型码。
+   * @param dataSourceKey 字典类型码。
    * @param items 条目列表。
    */
-  _mergeEntry(dictKey: string, items: readonly DictItem[]): void {
-    const entry = this._entries.get(this._key(dictKey))
+  _mergeEntry(dataSourceKey: string, items: readonly DictItem[]): void {
+    const entry = this._entries.get(this._key(dataSourceKey))
     if (entry === undefined) {
       return
     }
@@ -642,12 +642,12 @@ export abstract class BaseDictStore extends BasePlaceholderState {
   /**
    * 写子集缓存（LRU 淘汰）。
    *
-   * @param dictKey 字典类型码。
+   * @param dataSourceKey 字典类型码。
    * @param items 条目列表。
    */
-  _putSubset(dictKey: string, items: readonly DictItem[]): void {
+  _putSubset(dataSourceKey: string, items: readonly DictItem[]): void {
     for (const item of items) {
-      const key = dictSubsetKey(this.locale, dictKey, item.value)
+      const key = dictSubsetKey(this.locale, dataSourceKey, item.value)
       if (this._subsets.has(key)) {
         this._subsets.delete(key)
       }
@@ -665,11 +665,11 @@ export abstract class BaseDictStore extends BasePlaceholderState {
   /**
    * 读本地二次缓存（解析失败 / 结构非法返回 `undefined`）。
    *
-   * @param dictKey 字典类型码。
+   * @param dataSourceKey 字典类型码。
    * @returns 缓存项。
    */
-  _readLocal(dictKey: string): DictCacheEntry | undefined {
-    const raw = this.storage?.read(dictStorageKey(this.locale, dictKey))
+  _readLocal(dataSourceKey: string): DictCacheEntry | undefined {
+    const raw = this.storage?.read(dictStorageKey(this.locale, dataSourceKey))
     if (raw === undefined) {
       return undefined
     }
@@ -693,11 +693,11 @@ export abstract class BaseDictStore extends BasePlaceholderState {
   /**
    * 写本地二次缓存（小字典；超体积不写；失败静默）。
    *
-   * @param dictKey 字典类型码。
+   * @param dataSourceKey 字典类型码。
    * @param entry 缓存项。
    */
-  _writeLocal(dictKey: string, entry: DictCacheEntry): void {
-    if (this.storage === undefined || this._large.has(dictKey)) {
+  _writeLocal(dataSourceKey: string, entry: DictCacheEntry): void {
+    if (this.storage === undefined || this._large.has(dataSourceKey)) {
       return
     }
     const payload = JSON.stringify({
@@ -709,16 +709,16 @@ export abstract class BaseDictStore extends BasePlaceholderState {
     if (payload.length > DICT_STORAGE_MAX_BYTES) {
       return
     }
-    this.storage.write(dictStorageKey(this.locale, dictKey), payload)
+    this.storage.write(dictStorageKey(this.locale, dataSourceKey), payload)
   }
 
   /**
    * 删本地二次缓存。
    *
-   * @param dictKey 字典类型码。
+   * @param dataSourceKey 字典类型码。
    */
-  _removeLocal(dictKey: string): void {
-    this.storage?.remove(dictStorageKey(this.locale, dictKey))
+  _removeLocal(dataSourceKey: string): void {
+    this.storage?.remove(dictStorageKey(this.locale, dataSourceKey))
   }
 }
 
@@ -739,7 +739,7 @@ export function bindDictStoreSource(store: BaseDictStore, source: DictSourceAdap
     store.bindTypeLoader(async (query) =>
       normalizeDictTypeResult(
         await getType.call(source, {
-          dictKey: query.dictKey,
+          dataSourceKey: query.dataSourceKey,
           version: query.version,
           keyword: query.keyword,
           parentId: query.parentId,
@@ -748,8 +748,8 @@ export function bindDictStoreSource(store: BaseDictStore, source: DictSourceAdap
         }),
       ),
     )
-    store.bindSubsetLoader(async (dictKey, values) => {
-      const result = normalizeDictTypeResult(await getType.call(source, { dictKey, values }))
+    store.bindSubsetLoader(async (dataSourceKey, values) => {
+      const result = normalizeDictTypeResult(await getType.call(source, { dataSourceKey, values }))
       return result.items ?? []
     })
   }

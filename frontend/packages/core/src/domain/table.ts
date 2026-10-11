@@ -47,7 +47,7 @@ export interface TableColumn {
   /** 格式化口径。 */
   format?: TableColumnFormat
   /** 字典类型（字典列批量翻译）。 */
-  dictKey?: string
+  dataSourceKey?: string
   /** 是否状态列（由状态标签渲染）。 */
   status?: boolean
   /** 是否脱敏列。 */
@@ -251,7 +251,7 @@ export function mergeTableColumns(
  * @returns 渲染类型。
  */
 export function resolveRenderKind(column: TableColumn): TableRenderKind {
-  if (column.dictKey !== undefined && column.dictKey !== '') {
+  if (column.dataSourceKey !== undefined && column.dataSourceKey !== '') {
     return 'dict'
   }
   if (column.status === true) {

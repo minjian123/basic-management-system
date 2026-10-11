@@ -360,7 +360,7 @@ describe('DataTable 状态视图', () => {
     const dict = mount(DataTable, {
       props: {
         ready: true,
-        columns: [{ key: 'status', title: '状态', dictKey: 'sys_status' }],
+        columns: [{ key: 'status', title: '状态', dataSourceKey: 'sys_status' }],
         data: [{ id: '1', status: 'enabled' }],
         total: 1,
         translator: () => '启用',

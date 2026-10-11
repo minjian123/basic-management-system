@@ -207,7 +207,7 @@ export interface QuerySchemeEntry {
   /** 方案目标。 */
   target: QuerySchemeTarget
   /** 字典类型（`items` 目标用）。 */
-  dictKey?: string
+  dataSourceKey?: string
   /** 业务标识（列表筛选取表单键）。 */
   fieldKey?: string
   /** 查询提供者键（字典高级查询用）。 */
@@ -617,7 +617,7 @@ export function normalizeSchemeEntry(value: unknown): QuerySchemeEntry | undefin
     scope,
     ownerId: typeof entry.ownerId === 'string' ? entry.ownerId : undefined,
     target,
-    dictKey: typeof entry.dictKey === 'string' ? entry.dictKey : undefined,
+    dataSourceKey: typeof entry.dataSourceKey === 'string' ? entry.dataSourceKey : undefined,
     fieldKey: typeof entry.fieldKey === 'string' ? entry.fieldKey : undefined,
     providerKey: typeof entry.providerKey === 'string' ? entry.providerKey : undefined,
     conditions: normalizeConditions(entry.conditions),

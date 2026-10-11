@@ -100,10 +100,10 @@ describe('角色端点封装（02_03）', () => {
     await getRoleDataScopes('1001')
     expect(getMock).toHaveBeenCalledWith('platform', '/roles/1001/data-permissions')
     await replaceRoleDataScopes('1001', {
-      entries: [{ dict_key: '6001', policy_type: 'select', config: [{ item_code: 'enabled' }] }],
+      entries: [{ data_source_key: '6001', policy_type: 'select', config: [{ item_code: 'enabled' }] }],
     })
     expect(putMock).toHaveBeenCalledWith('platform', '/roles/1001/data-permissions', {
-      entries: [{ dict_key: '6001', policy_type: 'select', config: [{ item_code: 'enabled' }] }],
+      entries: [{ data_source_key: '6001', policy_type: 'select', config: [{ item_code: 'enabled' }] }],
     })
   })
 

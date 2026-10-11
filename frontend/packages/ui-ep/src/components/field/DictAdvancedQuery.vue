@@ -18,7 +18,7 @@ interface Props {
   /** 可见（受控）。 */
   visible?: boolean
   /** 字典类型码。 */
-  dictKey?: string
+  dataSourceKey?: string
   /** 目标（缺省取项）。 */
   target?: 'items' | 'business'
   /** 数据通路是否就绪。 */
@@ -37,7 +37,7 @@ interface Props {
 
 const props = withDefaults(defineProps<Props>(), {
   visible: false,
-  dictKey: '',
+  dataSourceKey: '',
   target: 'items',
   ready: false,
   source: undefined,
@@ -56,7 +56,7 @@ const emit = defineEmits<{
 
 const api = useBaseDictQuery({
   ready: props.ready,
-  dictKey: props.dictKey,
+  dataSourceKey: props.dataSourceKey,
   target: props.target,
   source: props.source,
   pageSize: props.pageSize,
@@ -73,7 +73,7 @@ watch(
   (next) => api.setReady(next),
 )
 watch(
-  () => props.dictKey,
+  () => props.dataSourceKey,
   (next) => api.setDictType(next),
 )
 watch(

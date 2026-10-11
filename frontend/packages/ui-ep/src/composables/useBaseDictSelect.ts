@@ -27,7 +27,7 @@ export interface UseBaseDictSelectOptions {
   /** 数据通路是否就绪（缺省 false）。 */
   ready?: boolean
   /** 字典类型码。 */
-  dictKey?: string
+  dataSourceKey?: string
   /** 是否多选。 */
   multiple?: boolean
   /** 多选上限（0 不限）。 */
@@ -99,7 +99,7 @@ export interface UseBaseDictSelectResult {
   /** 注入 / 移除数据源。 */
   setSource(source: DictSourceAdapter | undefined): void
   /** 切换字典类型。 */
-  setDictType(dictKey: string): void
+  setDictType(dataSourceKey: string): void
   /** 设置关键词。 */
   setKeyword(keyword: string): void
   /** 设置级联父值。 */
@@ -159,8 +159,8 @@ export function useBaseDictSelect(options: UseBaseDictSelectOptions = {}): UseBa
     select.setReady(options.ready)
     store.setReady(options.ready)
   }
-  if (options.dictKey !== undefined) {
-    select.setDictType(options.dictKey)
+  if (options.dataSourceKey !== undefined) {
+    select.setDictType(options.dataSourceKey)
   }
   if (options.multiple !== undefined) {
     select.setMultiple(options.multiple)

@@ -68,7 +68,7 @@ const sysInfo = computed<SysInfoData>(() => ({
   createdAt: detail.value?.created_at ?? null,
   updatedBy: detail.value?.updated_by ?? null,
   updatedAt: detail.value?.updated_at ?? null,
-  formKey: 'role_form',
+  formKey: 'role',
   formLabel: '角色管理',
 }))
 

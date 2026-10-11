@@ -16,7 +16,7 @@ interface Props {
   /** 数据通路是否就绪。 */
   ready?: boolean
   /** 字典类型码。 */
-  dictKey?: string
+  dataSourceKey?: string
   /** 字典数据源（未注入即占位零请求）。 */
   source?: DictSourceAdapter
   /** 多选。 */
@@ -42,7 +42,7 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
   modelValue: undefined,
   ready: false,
-  dictKey: '',
+  dataSourceKey: '',
   source: undefined,
   multiple: false,
   checkStrictly: true,
@@ -64,7 +64,7 @@ const emit = defineEmits<{
 
 const api = useBaseDictSelect({
   ready: props.ready,
-  dictKey: props.dictKey,
+  dataSourceKey: props.dataSourceKey,
   source: props.source,
   multiple: props.multiple,
   disabled: props.disabled,
@@ -77,7 +77,7 @@ watch(
   (next) => api.setReady(next),
 )
 watch(
-  () => props.dictKey,
+  () => props.dataSourceKey,
   async (next) => {
     api.setDictType(next)
     loaded.value = false

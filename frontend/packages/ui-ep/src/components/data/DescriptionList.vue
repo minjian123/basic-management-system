@@ -46,7 +46,7 @@ export interface DescItem {
   /** 字段类型（决定值渲染器；缺省按原值文本）。 */
   type?: DescItemType
   /** 字典类型（配合注入的翻译处理函数）。 */
-  dictKey?: string
+  dataSourceKey?: string
   /** 枚举选项。 */
   options?: { label: string; value: unknown }[]
   /** 状态色映射（`值 → 语义色`）。 */
@@ -106,7 +106,7 @@ interface Props {
   /** 字段渲染器注册表（宿主注入；未登记类型回落内置轻量渲染）。 */
   renderers?: FieldRendererRegistry
   /** 字典 label 翻译（宿主注入；未注入即显示原值，不发请求）。 */
-  translator?: (dictKey: string, value: unknown) => string | undefined
+  translator?: (dataSourceKey: string, value: unknown) => string | undefined
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -276,7 +276,7 @@ function singleText(item: DescItem, value: unknown): string {
       return richSummary(String(value))
     case 'dict':
       return (
-        (item.dictKey !== undefined ? props.translator?.(item.dictKey, value) : undefined) ??
+        (item.dataSourceKey !== undefined ? props.translator?.(item.dataSourceKey, value) : undefined) ??
         optionLabel(item, value) ??
         String(value)
       )

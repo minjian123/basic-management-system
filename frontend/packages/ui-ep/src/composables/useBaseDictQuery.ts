@@ -22,7 +22,7 @@ export interface UseBaseDictQueryOptions {
   /** 数据通路是否就绪（缺省 false）。 */
   ready?: boolean
   /** 字典类型码。 */
-  dictKey?: string
+  dataSourceKey?: string
   /** 目标（缺省取项）。 */
   target?: DictTarget
   /** 数据源（未注入即占位零请求）。 */
@@ -42,7 +42,7 @@ export interface UseBaseDictQueryResult {
   /** 请求计数。 */
   requestCount: Ref<number>
   /** 字典类型（响应式）。 */
-  dictKey: Ref<string>
+  dataSourceKey: Ref<string>
   /** 目标（响应式）。 */
   target: Ref<DictTarget>
   /** 属性 schema（响应式）。 */
@@ -84,7 +84,7 @@ export interface UseBaseDictQueryResult {
   /** 切换就绪态。 */
   setReady(value: boolean): void
   /** 切换字典类型。 */
-  setDictType(dictKey: string): void
+  setDictType(dataSourceKey: string): void
   /** 切换目标。 */
   setTarget(target: DictTarget): void
   /** 设置条件组。 */
@@ -130,8 +130,8 @@ export function useBaseDictQuery(options: UseBaseDictQueryOptions = {}): UseBase
   if (options.ready !== undefined) {
     query.setReady(options.ready)
   }
-  if (options.dictKey !== undefined) {
-    query.setDictType(options.dictKey)
+  if (options.dataSourceKey !== undefined) {
+    query.setDictType(options.dataSourceKey)
   }
   if (options.target !== undefined) {
     query.setTarget(options.target)
@@ -146,7 +146,7 @@ export function useBaseDictQuery(options: UseBaseDictQueryOptions = {}): UseBase
   const ready = ref(query.ready)
   const degraded = ref(query.degraded)
   const requestCount = ref(query.requestCount)
-  const dictKey = ref(query.dictKey)
+  const dataSourceKey = ref(query.dataSourceKey)
   const target = ref<DictTarget>(query.target)
   const attrs = ref<DictAttrSchema[]>([...query.attrs])
   const providers = ref<DictQueryProvider[]>([...query.providers])
@@ -168,7 +168,7 @@ export function useBaseDictQuery(options: UseBaseDictQueryOptions = {}): UseBase
     ready.value = query.ready
     degraded.value = query.degraded
     requestCount.value = query.requestCount
-    dictKey.value = query.dictKey
+    dataSourceKey.value = query.dataSourceKey
     target.value = query.target
     attrs.value = [...query.attrs]
     providers.value = [...query.providers]
@@ -207,7 +207,7 @@ export function useBaseDictQuery(options: UseBaseDictQueryOptions = {}): UseBase
     ready,
     degraded,
     requestCount,
-    dictKey,
+    dataSourceKey,
     target,
     attrs,
     providers,

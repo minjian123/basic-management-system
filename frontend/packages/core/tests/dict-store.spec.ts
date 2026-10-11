@@ -46,14 +46,14 @@ function makeTarget(): DictStoreContractTarget {
       ),
     setLocale: (locale) => store.setLocale(locale),
     ensureTypes: (types) => store.ensureTypes(types),
-    ensureType: (dictKey) => store.ensureType(dictKey),
-    searchRemote: (dictKey, keyword) => store.searchRemote(dictKey, keyword),
-    resolveValues: (dictKey, values) => store.resolveValues(dictKey, values),
-    itemsOf: (dictKey) => store.itemsOf(dictKey),
-    labelOf: (dictKey, value) => store.labelOf(dictKey, value),
-    isLoaded: (dictKey) => store.isLoaded(dictKey),
-    isLarge: (dictKey) => store.isLarge(dictKey),
-    invalidate: (dictKey) => store.invalidate(dictKey),
+    ensureType: (dataSourceKey) => store.ensureType(dataSourceKey),
+    searchRemote: (dataSourceKey, keyword) => store.searchRemote(dataSourceKey, keyword),
+    resolveValues: (dataSourceKey, values) => store.resolveValues(dataSourceKey, values),
+    itemsOf: (dataSourceKey) => store.itemsOf(dataSourceKey),
+    labelOf: (dataSourceKey, value) => store.labelOf(dataSourceKey, value),
+    isLoaded: (dataSourceKey) => store.isLoaded(dataSourceKey),
+    isLarge: (dataSourceKey) => store.isLarge(dataSourceKey),
+    invalidate: (dataSourceKey) => store.invalidate(dataSourceKey),
   }
 }
 

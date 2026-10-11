@@ -248,7 +248,7 @@ export interface FieldRenderAttrs {
   /** 选项集（下拉 / 单选 / 复选 / 穿梭等）。 */
   options?: readonly ExtFieldOption[]
   /** 字典类型（选项集引用字典；与 `select` / `multi_select` 或 `dict` / `dict_multi` 字段类型协作）。 */
-  dictKey?: string
+  dataSourceKey?: string
   /** 上传接受类型（扩展名 / MIME，逗号分隔；`file-upload` / `image-upload` 字段类型协作）。 */
   uploadAccept?: string
   /** 上传单文件大小上限（字节）。 */

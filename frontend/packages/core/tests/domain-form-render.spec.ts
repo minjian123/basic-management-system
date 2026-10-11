@@ -132,11 +132,11 @@ describe('字段类型 → 控件语义键', () => {
     expect(image.uploadMultiple).toBe(false)
   })
 
-  it('字典引用属性透传（dictKey）', () => {
-    const field = normalizeField({ key: 'status', type: 'select', dictKey: 'user_status' })
-    expect(field.dictKey).toBe('user_status')
-    const multi = normalizeField({ key: 'tags', type: 'dict_multi', dictKey: 'biz_type' })
-    expect(multi.dictKey).toBe('biz_type')
+  it('字典引用属性透传（dataSourceKey）', () => {
+    const field = normalizeField({ key: 'status', type: 'select', dataSourceKey: 'user_status' })
+    expect(field.dataSourceKey).toBe('user_status')
+    const multi = normalizeField({ key: 'tags', type: 'dict_multi', dataSourceKey: 'biz_type' })
+    expect(multi.dataSourceKey).toBe('biz_type')
   })
 
   it('验证码属性透传（captchaKind / captchaScene，非法剔除）', () => {

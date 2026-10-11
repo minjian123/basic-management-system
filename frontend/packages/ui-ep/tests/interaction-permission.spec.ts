@@ -87,8 +87,8 @@ function permissionTarget(): PermissionConfigContractTarget {
       return entry === undefined ? undefined : { visible: entry.visible, editable: entry.editable }
     },
     setFieldPerm: (formId, fieldId, patch, sourceMenuId) => projection.setFieldPerm(formId, fieldId, patch, sourceMenuId),
-    setDataScope: (dictKey, policyType, config) =>
-      projection.setDataScope(dictKey, policyType as DataScopePolicyType, config as DataScopePolicyItem[]),
+    setDataScope: (dataSourceKey, policyType, config) =>
+      projection.setDataScope(dataSourceKey, policyType as DataScopePolicyType, config as DataScopePolicyItem[]),
     payloadPermissions: () => projection.config.permissionPayload.entries,
     payloadFields: () => projection.config.fieldPayload.entries,
     payloadDataScopes: () => projection.config.dataScopePayload.entries,
@@ -122,7 +122,7 @@ const METADATA: PermissionMetadata = {
   ],
   formActions: { 'form:user': ['act:user:create'] },
   formFields: { 'form:user': ['field:name', 'field:salary'] },
-  dictKeys: [{ id: 'dict:user', code: 'user', name: '用户字典' }],
+  dataSourceKeys: [{ id: 'dict:user', code: 'user', name: '用户字典' }],
   extensions: [],
 }
 
@@ -223,7 +223,7 @@ describe('表单权限件与操作 / 字段面板', () => {
 describe('数据权限件与动态字典件', () => {
   it('扩展未注册不显示该子页签', () => {
     const panel = mount(DataScopePanel, {
-      props: { dictKeys: METADATA.dictKeys, extensions: [], selectedDictTypeId: 'dict:user', policy: 'select' },
+      props: { dataSourceKeys: METADATA.dataSourceKeys, extensions: [], selectedDataSourceKey: 'dict:user', policy: 'select' },
     })
     expect(panel.find('[data-test="policy-extension"]').exists()).toBe(false)
     expect(panel.find('[data-test="policy-select"]').exists()).toBe(true)
@@ -232,15 +232,15 @@ describe('数据权限件与动态字典件', () => {
   it('匹配通配符越界触发校验提示', async () => {
     const panel = mount(DataScopePanel, {
       props: {
-        dictKeys: METADATA.dictKeys,
+        dataSourceKeys: METADATA.dataSourceKeys,
         entries: [
           {
-            dictKey: 'dict:user',
+            dataSourceKey: 'dict:user',
             policyType: 'match',
             config: [{ field: 'code', pattern: 'a=b' }],
           },
         ],
-        selectedDictTypeId: 'dict:user',
+        selectedDataSourceKey: 'dict:user',
         policy: 'match',
         ready: false,
       },
@@ -254,7 +254,7 @@ describe('数据权限件与动态字典件', () => {
   })
 
   it('动态字典件无数据源时为空态', () => {
-    const picker = mount(DynamicDictPicker, { props: { dictKey: 'user' } })
+    const picker = mount(DynamicDictPicker, { props: { dataSourceKey: 'user' } })
     expect(picker.find('[data-test="empty"]').exists()).toBe(true)
   })
 })

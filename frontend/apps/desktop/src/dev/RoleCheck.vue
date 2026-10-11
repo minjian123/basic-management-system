@@ -31,7 +31,7 @@ const sysInfo = computed(() => ({
   createdAt: '2026-10-06 09:30',
   updatedBy: '1002',
   updatedAt: '2026-10-07 11:20',
-  formKey: 'role_form',
+  formKey: 'role',
   formLabel: '角色管理',
 }))
 

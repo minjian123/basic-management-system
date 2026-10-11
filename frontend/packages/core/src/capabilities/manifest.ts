@@ -81,6 +81,7 @@ export const CAPABILITY_MANIFEST: Readonly<Record<string, readonly string[]>> = 
   'dict-query': ['placeholder-state', 'dict-store'],
   captcha: ['input'],
   'dynamic-routes': [],
+  'page-route': ['placeholder-state'],
   'form-meta': [],
   'form-page': ['form-meta'],
   chart: ['data-state'],

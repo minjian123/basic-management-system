@@ -41,22 +41,10 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/views/SysUserDetailView.vue'),
     meta: { title: '用户详情' },
   },
-  // 角色管理（平台内建页）：菜单 `/sys/roles` 由 `seed_menu.py` 下发并经动态菜单装载；
-  // 此处静态注册真实路由（`installMenuRoutes` 对已存在路径跳过，占位路由不顶替）。
-  {
-    path: '/sys/roles',
-    name: 'SystemRole',
-    component: () => import('@/views/system/RoleView.vue'),
-    meta: { title: '角色管理', keepAlive: true },
-  },
-  // 用户管理 / 账号锁定（平台内建页）：菜单 `/sys/users`、`/sys/account-locks` 由 `seed_menu.py` 下发
-  // 并经动态菜单装载；此处静态注册真实路由（`installMenuRoutes` 对已存在路径跳过）。
-  {
-    path: '/sys/users',
-    name: 'SystemUser',
-    component: () => import('@/views/system/user/UserView.vue'),
-    meta: { title: '用户管理', keepAlive: true },
-  },
+  // 角色管理 / 用户管理（平台内建页）：菜单 `/sys/roles`、`/sys/users` 由 `seed_menu.py` 下发，
+  // 路由改由**通用页面路由**统一装载（`router/page-route.ts` 声明装载，02_13）；`installMenuRoutes`
+  // 对已存在路径跳过，占位路由不顶替。
+  // 账号锁定（平台内建页）：`sys_account_lock` 未入表单标识清单，仍静态注册。
   {
     path: '/sys/account-locks',
     name: 'SystemAccountLock',

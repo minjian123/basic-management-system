@@ -14,6 +14,16 @@ class MenuRouteRegistry extends BaseDynamicRoutes {}
 /** 占位路由名。 */
 const PLACEHOLDER_VIEW = () => import('@/views/PlaceholderView.vue')
 
+/**
+ * 路由路径是否已存在（按路径判定；静态路由与已注册占位路由均命中）。
+ *
+ * @param router 路由实例。
+ * @param path 路径。
+ */
+function hasRoutePath(router: Router, path: string): boolean {
+  return router.getRoutes().some((route) => route.path === path)
+}
+
 /** 本模块装载的菜单占位路由路径（幂等依据与卸载清单）。 */
 let installedMenuPaths: string[] = []
 
@@ -30,7 +40,7 @@ export function installMenuRoutes(router: Router, menu: readonly MenuNode[]): st
   const registered: string[] = []
 
   for (const path of paths) {
-    if (path === '/' || router.hasRoute(path)) {
+    if (path === '/' || hasRoutePath(router, path)) {
       continue
     }
     const node = findMenuByPath(menu, path)

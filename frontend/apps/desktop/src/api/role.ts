@@ -65,7 +65,7 @@ export interface RoleFieldPayload {
 /** 数据权限条目载荷（ID 字符串口径）。 */
 export interface RoleDataScopeEntryPayload {
   /** 字典类型 ID。 */
-  dict_key: SnowflakeId
+  data_source_key: SnowflakeId
   /** 策略类型（select/region/match/extension）。 */
   policy_type: 'select' | 'region' | 'match' | 'extension'
   /** 结构化策略配置（按策略分结构）。 */

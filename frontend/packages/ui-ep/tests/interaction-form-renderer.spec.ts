@@ -205,14 +205,14 @@ describe('utils/formWidgets 分发映射', () => {
     expect(deptField.props('multiple')).toBe(true)
   })
 
-  it('字典字段协同（06_06）：dict / dict_multi 映射字典件、dictKey 透传、select + dictKey 优先分发、多选语义单一来源', () => {
+  it('字典字段协同（06_06）：dict / dict_multi 映射字典件、dataSourceKey 透传、select + dataSourceKey 优先分发、多选语义单一来源', () => {
     expect(MULTIPLE_WIDGETS).toContain('dict-multi')
     const dictMeta: LayoutEffective = {
       ...meta,
       fields: [
-        { key: 'status', label: '状态', type: 'dict', group: 'platform', status: 'active', dictKey: 'user_status' },
-        { key: 'biz', label: '业务', type: 'dict_multi', group: 'platform', status: 'active', dictKey: 'biz_type' },
-        { key: 'referenced', label: '引用字典', type: 'select', group: 'platform', status: 'active', dictKey: 'user_status' },
+        { key: 'status', label: '状态', type: 'dict', group: 'platform', status: 'active', dataSourceKey: 'user_status' },
+        { key: 'biz', label: '业务', type: 'dict_multi', group: 'platform', status: 'active', dataSourceKey: 'biz_type' },
+        { key: 'referenced', label: '引用字典', type: 'select', group: 'platform', status: 'active', dataSourceKey: 'user_status' },
       ],
       layout: {
         main: {
@@ -235,10 +235,10 @@ describe('utils/formWidgets 分发映射', () => {
     })
     const fields = wrapper.findAllComponents(DictSelectField)
     expect(fields).toHaveLength(3)
-    expect(fields[0]?.props('dictKey')).toBe('user_status')
-    expect(fields[1]?.props('dictKey')).toBe('biz_type')
+    expect(fields[0]?.props('dataSourceKey')).toBe('user_status')
+    expect(fields[1]?.props('dataSourceKey')).toBe('biz_type')
     expect(fields[1]?.props('multiple')).toBe(true)
-    expect(fields[2]?.props('dictKey')).toBe('user_status')
+    expect(fields[2]?.props('dataSourceKey')).toBe('user_status')
   })
 
   it('文件 / 图片字段协同（06_07）：语义键分发、上传属性透传、多选语义单一来源', () => {

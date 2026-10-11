@@ -37,7 +37,7 @@ const metadata: PermissionMetadata = {
   ],
   formActions: { 'form:user': ['act:user:create', 'act:user:update'] },
   formFields: { 'form:user': ['field:name', 'field:salary'] },
-  dictKeys: [{ id: 'dict:user', code: 'user', name: '用户字典' }],
+  dataSourceKeys: [{ id: 'dict:user', code: 'user', name: '用户字典' }],
   extensions: [],
 }
 
@@ -46,7 +46,7 @@ const grants: PermissionSnapshot = {
   roleId: 'r1',
   entries: [{ permType: 'menu', targetId: 'menu:user', sourceMenuId: '0' }],
   fieldEntries: [],
-  dataScopeEntries: [{ dictKey: 'dict:user', policyType: 'select', config: [{ itemCode: 'enabled' }] }],
+  dataScopeEntries: [{ dataSourceKey: 'dict:user', policyType: 'select', config: [{ itemCode: 'enabled' }] }],
   users: [{ id: 'u1', username: 'zhang', name: '张三', status: 'enabled' }],
 }
 
@@ -101,7 +101,7 @@ const checks = computed(() => [
   { name: '挂接缺失标记', pass: metadata.forms.every((form) => form.menuIds.length >= 0) },
   { name: '操作默认无', pass: grants.entries.every((entry) => entry.permType !== 'permission') },
   { name: '字段默认全开与收窄', pass: grants.fieldEntries.length >= 0 },
-  { name: '数据权限四子页签', pass: metadata.dictKeys.length > 0 },
+  { name: '数据权限四子页签', pass: metadata.dataSourceKeys.length > 0 },
   { name: '用户分配与计数', pass: grants.users.length > 0 },
   { name: '三类载荷幂等', pass: true },
   { name: '三接口顺序提交与错误码定位', pass: submitLog.value.length >= 0 },

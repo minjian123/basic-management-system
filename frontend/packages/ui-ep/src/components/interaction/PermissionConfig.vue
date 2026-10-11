@@ -82,7 +82,7 @@ const {
   menuSubTab,
   selectedFormId,
   formSubTab,
-  selectedDictTypeId,
+  selectedDataSourceKey,
   dataScopePolicy,
   dirty,
   busy,
@@ -202,8 +202,8 @@ function onSetFieldPerm(payload: { formId: string; fieldId: string; patch: Field
 }
 
 /** 数据权限。 */
-function onSetScope(payload: { dictKey: string; policyType: DataScopePolicyType; config: DataScopePolicyItem[] }): void {
-  if (setDataScope(payload.dictKey, payload.policyType, payload.config)) {
+function onSetScope(payload: { dataSourceKey: string; policyType: DataScopePolicyType; config: DataScopePolicyItem[] }): void {
+  if (setDataScope(payload.dataSourceKey, payload.policyType, payload.config)) {
     emit('change', { kind: 'scope', value: payload })
   }
 }
@@ -325,10 +325,10 @@ defineExpose({
         <template v-else-if="tab === 'data'">
           <slot name="data-panel">
             <data-scope-panel
-              :dict-types="metadata.dictKeys"
+              :dict-types="metadata.dataSourceKeys"
               :extensions="metadata.extensions"
               :entries="dataScopeEntries"
-              :selected-dict-type-id="selectedDictTypeId"
+              :selected-dict-type-id="selectedDataSourceKey"
               :policy="dataScopePolicy"
               :ready="ready"
               :disabled="panelDisabled()"

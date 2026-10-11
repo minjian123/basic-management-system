@@ -101,13 +101,13 @@ function normalizeProviders(raw: unknown): DictQueryProvider[] {
       continue
     }
     const target = record.target === 'items' ? 'items' : 'business'
-    const dictKeysRaw = record.dictKeys ?? record.dict_keys
+    const dataSourceKeysRaw = record.dataSourceKeys ?? record.data_source_keys
     const paramSchemaRaw = record.paramSchema ?? record.param_schema
     providers.push({
       key,
       name: typeof record.name === 'string' ? record.name : key,
       target,
-      dictKeys: Array.isArray(dictKeysRaw) ? dictKeysRaw.map((item) => String(item)) : [],
+      dataSourceKeys: Array.isArray(dataSourceKeysRaw) ? dataSourceKeysRaw.map((item) => String(item)) : [],
       paramSchema:
         paramSchemaRaw !== null && typeof paramSchemaRaw === 'object' && !Array.isArray(paramSchemaRaw)
           ? (paramSchemaRaw as Record<string, unknown>)
@@ -146,7 +146,7 @@ export abstract class BaseDictQuery extends BasePlaceholderState {
   /** 数据通路是否就绪（占位语义，缺省 `false`）。 */
   ready = false
   /** 字典类型码。 */
-  dictKey = ''
+  dataSourceKey = ''
   /** 目标（取项 / 业务筛选）。 */
   target: DictTarget = 'items'
   /** 属性 schema（元数据）。 */
@@ -216,10 +216,10 @@ export abstract class BaseDictQuery extends BasePlaceholderState {
   /**
    * 切换字典类型（清空元数据 / 条件 / 结果）。
    *
-   * @param dictKey 字典类型码。
+   * @param dataSourceKey 字典类型码。
    */
-  setDictType(dictKey: string): void {
-    this.dictKey = dictKey.trim()
+  setDictType(dataSourceKey: string): void {
+    this.dataSourceKey = dataSourceKey.trim()
     this.attrs.splice(0, this.attrs.length)
     this.providers.splice(0, this.providers.length)
     this.reset()
@@ -292,7 +292,7 @@ export abstract class BaseDictQuery extends BasePlaceholderState {
    * @returns 无。
    */
   async loadMeta(): Promise<void> {
-    if (!this.ready || this.dictKey === '') {
+    if (!this.ready || this.dataSourceKey === '') {
       return
     }
     const adapter = this.source
@@ -310,10 +310,10 @@ export abstract class BaseDictQuery extends BasePlaceholderState {
     this.errorMessage = ''
     this.emitUpdate()
     const [attrsResult, providersResult] = await Promise.all([
-      attrsLoader === undefined ? Promise.resolve(undefined) : attrsLoader.call(adapter, { dictKey: this.dictKey }),
+      attrsLoader === undefined ? Promise.resolve(undefined) : attrsLoader.call(adapter, { dataSourceKey: this.dataSourceKey }),
       providersLoader === undefined
         ? Promise.resolve(undefined)
-        : providersLoader.call(adapter, { dictKey: this.dictKey }),
+        : providersLoader.call(adapter, { dataSourceKey: this.dataSourceKey }),
     ])
     this.attrs.splice(0, this.attrs.length, ...normalizeAttrs(attrsResult))
     this.providers.splice(0, this.providers.length, ...normalizeProviders(providersResult))
@@ -327,7 +327,7 @@ export abstract class BaseDictQuery extends BasePlaceholderState {
    * @returns 无。
    */
   async run(): Promise<void> {
-    if (!this.ready || this.dictKey === '') {
+    if (!this.ready || this.dataSourceKey === '') {
       return
     }
     const adapter = this.source
@@ -352,7 +352,7 @@ export abstract class BaseDictQuery extends BasePlaceholderState {
     this.emitUpdate()
     try {
       const raw = await loader.call(adapter, {
-        dictKey: this.dictKey,
+        dataSourceKey: this.dataSourceKey,
         target: this.target,
         conditions: this.conditions,
         provider: this.providerKey === '' ? undefined : this.providerKey,
@@ -479,7 +479,7 @@ export abstract class BaseDictQuery extends BasePlaceholderState {
       name,
       scope: scope ?? 'user',
       target: this.target,
-      dictKey: this.dictKey,
+      dataSourceKey: this.dataSourceKey,
       providerKey: this.providerKey === '' ? undefined : this.providerKey,
       conditions: this.conditions,
       params: { ...this.providerParams },
@@ -524,7 +524,7 @@ export abstract class BaseDictQuery extends BasePlaceholderState {
   toBusinessFilter(): Record<string, unknown> {
     return {
       target: 'business',
-      dict_key: this.dictKey,
+      data_source_key: this.dataSourceKey,
       provider: this.providerKey,
       params: { ...this.providerParams },
       conditions: this.conditions,
