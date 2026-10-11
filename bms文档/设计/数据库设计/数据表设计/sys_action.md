@@ -22,9 +22,11 @@
 | 字段 | 类型 | 可空 | 约束 / 默认 | 说明 |
 | --- | --- | --- | --- | --- |
 | `id` | BIGINT | 否 | 主键，雪花 ID | 主键 · **系统字段**：ID |
-| `code` | VARCHAR(64) | 否 | `(code, deleted_at)` 复合唯一 | 动作码（如 `query`、`create`、`manage`；**全局唯一动词**） |
+| `form_key` | VARCHAR(64) | 否 | `(form_key, deleted_at)` 复合唯一 | 表单标识（**多表联合判别列**；全局唯一、保存后不变） · **系统字段**：表单标识 |
+| `code` | VARCHAR(64) | 否 | `(code, deleted_at)` 复合唯一 | 动作码（如 `query`、`create`、`manage`；**全局唯一动词**） · **系统字段**：代码 |
 | `name` | VARCHAR(128) | 否 | — | 名称（**按优先级兜底派生的快照**：系统默认语言 → 必填语言 → 首个有值语言；写侧只提交「locale → 文案」映射，多语言见 `sys_action_i18n`） |
 | `status` | VARCHAR(16) | 否 | 默认 `enabled` | 状态：`enabled` / `disabled`（停用代替删除） · **系统字段**：状态（通用可选） |
+| `parent_id` | BIGINT | 是 | — | 上级字典 ID（自引用同表 `id`；顶层 NULL；本表无层级，按系统字段口径保留） · **系统字段**：上级字典 ID |
 | `created_at` | DATETIME | 否 | 审计 | 创建时间（UTC） · **系统字段**：审计字段 |
 | `created_by` | BIGINT | 是 | 审计 | 创建人 · **系统字段**：审计字段 |
 | `updated_at` | DATETIME | 否 | 审计 | 更新时间（UTC） · **系统字段**：审计字段 |
@@ -37,6 +39,7 @@
 | 名称 | 类型 | 列 | 说明 |
 | --- | --- | --- | --- |
 | `uq_sys_action_code_deleted_at` | 唯一 | `(code, deleted_at)` | 动作码全局唯一（软删除后可复用） |
+| `uq_sys_action_form_key_deleted_at` | 唯一 | `(form_key, deleted_at)` | 表单标识唯一（多表联合判别列） |
 
 - 无物理外键；动作码为纯维度表，被 `sys_permission.action_id` 引用（同库）。
 - **三词分治（2026-10-10）**：动作码**解耦业务**（去 `business_id`），退化为**全局动词维度**（权限码右半）；同一动词（如 `query`）全库一条，与业务的组合改由 `sys_permission` 承载。
@@ -55,5 +58,6 @@
 | --- | --- | --- | --- |
 | 2026-10-04 | v1 | 新建表结构（平台库；随平台链 `0007_menu_metadata` 迁移落地） | minjian |
 | 2026-10-10 | v2 | 三词分治：去 `business_id`，动作码改全局唯一（唯一键 `(code, deleted_at)`） | minjian |
+| 2026-10-11 | v3 | 系统字段对齐（02_11）：增 `form_key`（表单标识，多表联合判别列）+ `parent_id`；随 `platform:platform` 链 `0010_system_fields_form_key` | minjian |
 
 > 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套

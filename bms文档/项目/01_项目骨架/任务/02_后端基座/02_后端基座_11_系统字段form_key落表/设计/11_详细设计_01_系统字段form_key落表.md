@@ -31,7 +31,7 @@
 | 9 | 迁移组织 | **按链各新增一条**（一条内批改本链全部目标表：加列 + 复合唯一 + 索引） | 与「按服务 × 数据源分链」口径一致、易回滚 |
 | 10 | 交付边界 | **含基座校验断言**（`form_key` 存在性 + 清单一致 + 跨表全局唯一），纳入 `preflight --fast` 与 CI | 口径可持续守卫、防回退 |
 | 11 | 明细补列范围 | 明细**只补 `parent_id`**（多列明细另补 `sort`），不补 `code` / `name` / `status`（对齐 §3.1.1 明细形态） | 明细与字典口径各归其位 |
-| 12 | 既有标识列与 `code` | **重命名为 `code`**（表内只有 `code`、无双码；DB 列名 + ORM 属性改，**API 契约字段名保持**，列名 ↔ 契约字段名映射登记表文件） | 与「字典表格式即 `code` + `name`」一致、无冗余；成本＝涉 ORM / 迁移 / 仓储与映射登记 |
+| 12 | 既有标识列与 `code` | **只改 DB 列名**为 `code`（表文件 + 迁移改列名）；ORM 用 `mapped_column("code", …)` 映射，**属性名与既有代码 / 契约字段名不动**；列名 ↔ 属性 / 契约字段名映射登记表文件 | 与「字典表格式即 `code` + `name`」一致（DB 口径齐、无双码）；代码零波及、无误伤协议同名参数风险；成本＝6 个属性名 ≠ 列名（表文件登记映射） |
 
 ## 3. 影响面与全表判定 <a id="impact"></a>
 
@@ -122,7 +122,7 @@ bms 后端**无「业务表单数据」表**（业务表单在产品仓：biz `p
 
 ## 6. ORM 模型变更口径 <a id="models"></a>
 
-- **字典表**：类内增 `form_key: Mapped[str] = mapped_column(String(64), nullable=False, comment="表单标识（全局唯一；保存后不变）")`；`__table_args__` 加 `UniqueConstraint("form_key", "deleted_at", name="uq_{表}_form_key_deleted_at")`；按 §3.1 补齐 / 改名既有列（改名＝属性名同步改，**API 契约字段名保持**）。
+- **字典表**：类内增 `form_key: Mapped[str] = mapped_column(String(64), nullable=False, comment="表单标识（全局唯一；保存后不变）")`；`__table_args__` 加 `UniqueConstraint("form_key", "deleted_at", name="uq_{表}_form_key_deleted_at")`；按 §3.1 补齐既有列（缺 `name` / `status` 者新增）。**既有标识列改名只改 DB 列名**——`mapped_column("code", String(...), …)` 映射（**属性名与既有代码 / 契约字段名保持不动**），唯一约束名同步改为 `uq_{表}_code_deleted_at`，列名 ↔ 属性名映射登记表文件。
 - **明细表**：类内增 `parent_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True, comment="上级 ID（自引用同表 id；顶层 NULL）")`；多列明细另补 `sort`。
 - **`form_key` 取值落地**：因 `form_key` 为**每表常量**（同一表所有行同值），模型侧以 `default="<form_key>"`（或 `server_default`）声明；**写入路径不改业务代码**（列值恒定，由模型缺省提供）。
 - **不落 `BaseModel` 基类**：`form_key` 仅在字典 / 表单具体模型声明（§3.1.1 基础字段不含 `form_key`），**不动** `bms_core/models/base.py`。
@@ -218,7 +218,7 @@ bms/bms文档/设计/数据库设计/数据表设计/*.md                    # �
 
 - **常量列的语义（设计说明）**：`form_key` 为**每表常量**，其**核心用途＝多表联合（union）取数的表判别列**（同表所有行同值，联合结果按它区分来源），故「同表多行同值」是**设计意图**而非缺陷；`(form_key, deleted_at)` 复合唯一在 MySQL / PostgreSQL 下（`NULL` 互异）对同表多行不产生额外约束力，「全局唯一」由 `FORM_CATALOG` 跨表校验承担。本任务按规范原文落地并登记说明，**不在应用层按方言各有实现**（沿用 §4「达梦 `NULL` 语义差异归口方言特性文档」）。
 - **达梦复合唯一差异**：`(form_key, deleted_at)` 中 `NULL` 语义差异（已实测，归口 `设计/数据库设计/方言特性/03_DM8.md`）；本任务沿用既有口径，真库实测随部署窗口回写。
-- **列改名面广**：涉及 `sys_module` / `sys_product` / `sys_user` / `sys_config` / `sys_identity_provider` / `sys_client` 六张表；须按「改名收口策略」——只改 DB 列 + ORM 属性 + 索引 / 唯一约束名，**API 契约字段名与前端字段名保持**，并做全仓旧限定名 grep 收尾复核。
+- **列改名**：涉及 `sys_module` / `sys_product` / `sys_user` / `sys_config` / `sys_identity_provider` / `sys_client` 六张表；**只改 DB 列名**（表文件 + 迁移），ORM 属性与全仓代码 / 契约字段名**不动**（`mapped_column("code", …)` 映射），故无代码回归面；须在表文件登记「列名 ↔ 属性 / 契约字段名」映射，防止后续读表文件误判。
 - **`parent_id` 冗余**：非层级字典 / 明细的 `parent_id` 为按需冗余列（依 q6 决策），长期恒 `NULL`；已在判定表逐表登记，后续如判定无必要可单独立项移除。
 - **产品仓待办**：mdm / biz / cw 的表文件与模型尚未按本口径对齐（本次范围外），需在产品仓任务登记，防遗漏。
 

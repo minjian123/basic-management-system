@@ -21,13 +21,15 @@
 
 | 字段 | 类型 | 可空 | 约束 / 默认 | 说明 |
 | --- | --- | --- | --- | --- |
-| `id` | BIGINT | 否 | 主键，雪花 ID | 主键 |
-| `code` | VARCHAR(64) | 否 | 与 `deleted_at` 复合唯一 | 租户编码（全小写） |
-| `name` | VARCHAR(128) | 否 | — | 租户名称 |
+| `id` | BIGINT | 否 | 主键，雪花 ID | 主键 · **系统字段**：ID |
+| `form_key` | VARCHAR(64) | 否 | `(form_key, deleted_at)` 复合唯一 | 表单标识（**多表联合判别列**；全局唯一、保存后不变） · **系统字段**：表单标识 |
+| `code` | VARCHAR(64) | 否 | 与 `deleted_at` 复合唯一 | 租户编码（全小写） · **系统字段**：代码 |
+| `name` | VARCHAR(128) | 否 | — | 租户名称 · **系统字段**：名称 |
 | `domain` | VARCHAR(255) | 是 | `idx_sys_tenant_domain` | 子域名（`{domain}`） |
 | `db_key` | VARCHAR(64) | 是 | — | **已废弃**（06_01 起不再写入）：服务化后库键由 `tenant_{service}_{code}` 派生，注册表不持有数据源键；存量取值保留但不再被消费 |
 | `status` | VARCHAR(16) | 否 | — | 状态（`active` / `suspended`） |
 | `expire_at` | DATETIME | 是 | — | 到期时间（UTC） |
+| `parent_id` | BIGINT | 是 | — | 上级字典 ID（自引用同表 `id`；顶层 NULL；本表无层级，按系统字段口径保留） · **系统字段**：上级字典 ID |
 | `created_at` | DATETIME | 否 | 审计 | 创建时间（UTC） |
 | `created_by` | BIGINT | 是 | 审计 | 创建人 |
 | `updated_at` | DATETIME | 否 | 审计 | 更新时间（UTC） |
@@ -40,6 +42,7 @@
 | 名称 | 类型 | 列 | 说明 |
 | --- | --- | --- | --- |
 | `uq_sys_tenant_code_deleted_at` | 唯一 | `(code, deleted_at)` | 租户编码唯一（软删除后可复用） |
+| `uq_sys_tenant_form_key_deleted_at` | 唯一 | `(form_key, deleted_at)` | 表单标识唯一（多表联合判别列） |
 | `idx_sys_tenant_domain` | 普通 | `(domain)` | 子域名解析查询 |
 
 - 无物理外键；租户库按命名约定 `bms_{service}_{tenant}` 由「服务标识 + 租户编码」派生（键 `tenant_{service}_{code}`），注册表不再持有数据源键。
@@ -58,5 +61,6 @@
 | 2026-09-22 | v2 | 迁移落地：随平台链 `0001_sys_tenant_module` 建表（原 `ix_*` 索引名统一为 `idx_*`） | minjian |
 | 2026-09-22 | v3 | 索引名对齐实际库与模型元数据（`idx_domain` → `idx_sys_tenant_domain`） | minjian |
 | 2026-09-23 | v4 | `db_key` 废弃：改可空（平台链 `0005`）且不再写入，库键改由 `tenant_{service}_{code}` 派生（06_01）；归属库 / ORM 模型两栏对齐 06_03 迁出结果 | minjian |
+| 2026-10-11 | v5 | 系统字段对齐（02_11）：增 `form_key`（表单标识，多表联合判别列）+ `parent_id`；随 `tenant:platform` 链 `0007_system_fields_form_key` | minjian |
 
 > 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套

@@ -21,8 +21,9 @@
 
 | 字段 | 类型 | 可空 | 约束 / 默认 | 说明 |
 | --- | --- | --- | --- | --- |
-| `id` | BIGINT | 否 | 主键，雪花 ID | 主键 |
-| `module_key` | VARCHAR(32) | 否 | 与 `deleted_at` 复合唯一 | 行登记标识（模块简称 / 服务标识；如 `pur`、`sys`、`identity`） |
+| `id` | BIGINT | 否 | 主键，雪花 ID | 主键 · **系统字段**：ID |
+| `form_key` | VARCHAR(64) | 否 | `(form_key, deleted_at)` 复合唯一 | 表单标识（**多表联合判别列**；全局唯一、保存后不变） · **系统字段**：表单标识 |
+| `code` | VARCHAR(32) | 否 | 与 `deleted_at` 复合唯一 | 行登记标识（模块简称 / 服务标识；如 `pur`、`sys`、`identity`）。**DB 列名 `code`，ORM 属性与契约字段名仍为 `module_key`**（列名 ↔ 属性映射见「索引与约束」） · **系统字段**：代码 |
 | `service_key` | VARCHAR(32) | 是 | 应用 / CI 层唯一（**不建 DB 唯一**） | 服务维度标识（微服务工程名，如 `platform`、`identity`；模块行可空） |
 | `name` | VARCHAR(128) | 否 | — | 名称（**按优先级兜底派生的快照**：系统默认语言 → 必填语言 → 首个有值语言；写侧只提交「locale → 文案」映射，多语言见 `sys_module_i18n`） |
 | `table_prefix` | VARCHAR(32) | 否 | 与 `deleted_at` 复合唯一 | 表前缀（形如 `{module_key}_`，如 `pur_`、`sys_`、`identity_`） |
@@ -34,8 +35,9 @@
 | `service_version` | VARCHAR(16) | 否 | 默认 `0.1.0` | 服务版本（semver） |
 | `contract_version` | VARCHAR(16) | 否 | 默认 `0.1.0` | 公开契约（OpenAPI）版本（semver） |
 | `product_key` | VARCHAR(32) | 是 | — | 产品标识（`biz` / `cw`；空 = 平台） |
-| `status` | VARCHAR(16) | 否 | 默认 `enabled` | 状态：`enabled` / `disabled` / `planned` |
-| `created_at` | DATETIME | 否 | 审计 | 创建时间（UTC） |
+| `status` | VARCHAR(16) | 否 | 默认 `enabled` | 状态：`enabled` / `disabled` / `planned` · **系统字段**：状态 |
+| `parent_id` | BIGINT | 是 | — | 上级字典 ID（自引用同表 `id`；顶层 NULL；本表无层级，按系统字段口径保留） · **系统字段**：上级字典 ID |
+| `created_at` | DATETIME | 否 | 审计 | 创建时间（UTC） · **系统字段**：审计字段 |
 | `created_by` | BIGINT | 是 | 审计 | 创建人 |
 | `updated_at` | DATETIME | 否 | 审计 | 更新时间（UTC） |
 | `updated_by` | BIGINT | 是 | 审计 | 更新人 |
@@ -46,7 +48,8 @@
 
 | 名称 | 类型 | 列 | 说明 |
 | --- | --- | --- | --- |
-| `uq_sys_module_key_deleted_at` | 唯一 | `(module_key, deleted_at)` | 行登记标识唯一（软删除后可复用） |
+| `uq_sys_module_code_deleted_at` | 唯一 | `(code, deleted_at)` | 行登记标识唯一（软删除后可复用；原 `uq_sys_module_key_deleted_at`） |
+| `uq_sys_module_form_key_deleted_at` | 唯一 | `(form_key, deleted_at)` | 表单标识唯一（多表联合判别列） |
 | `uq_sys_module_prefix_deleted_at` | 唯一 | `(table_prefix, deleted_at)` | 表前缀唯一 |
 | `uq_sys_module_domain_deleted_at` | 唯一 | `(event_domain, deleted_at)` | 事件域唯一 |
 
@@ -67,5 +70,6 @@
 | 2026-09-13 | v1 | 新建表结构（平台库；随落库阶段迁移） | minjian |
 | 2026-09-22 | v2 | 迁移落地：随平台链 `0001_sys_tenant_module` 建表（索引名统一 `idx_*`；种子脚本退化为纯种子） | minjian |
 | 2026-09-22 | v3 | 升格服务目录：增 `service_key` / `business_code` / `service_group` / `build_batch` / `service_version` / `contract_version` / `product_key`；`errcode_segment` 改可空并去 DB 复合唯一（随平台链 `0002_sys_module_catalog`） | minjian |
+| 2026-10-11 | v4 | 系统字段对齐（02_11）：增 `form_key`（表单标识，多表联合判别列）+ `parent_id`；既有标识列 `module_key` **DB 列名改 `code`**（ORM 属性 / 契约字段名保持 `module_key`），唯一约束改 `uq_sys_module_code_deleted_at`；随 `platform:platform` 链 `0010_system_fields_form_key` | minjian |
 
 > 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套

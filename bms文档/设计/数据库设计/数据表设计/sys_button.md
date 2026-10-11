@@ -28,6 +28,7 @@
 | `type` | VARCHAR(16) | 否 | 默认 `toolbar` | 按钮形态：`toolbar`（工具栏）/ `interface`（表单界面内） |
 | `sort` | INT | 否 | 默认 `0` | 同表内排序（升序） · **系统字段**：行序（明细排序） |
 | `status` | VARCHAR(16) | 否 | 默认 `enabled` | 状态：`enabled` / `disabled` · **系统字段**：状态（通用可选） |
+| `parent_id` | BIGINT | 是 | — | 上级明细 ID（自引用同表 `id`；本表无层级，按明细系统字段口径保留） · **系统字段**：上级明细 ID |
 | `created_at` | DATETIME | 否 | 审计 | 创建时间（UTC） · **系统字段**：审计字段 |
 | `created_by` | BIGINT | 是 | 审计 | 创建人 · **系统字段**：审计字段 |
 | `updated_at` | DATETIME | 否 | 审计 | 更新时间（UTC） · **系统字段**：审计字段 |
@@ -59,6 +60,7 @@
 | --- | --- | --- | --- |
 | 2026-10-04 | v1 | 新建表结构（平台库；随平台链 `0007_menu_metadata` 迁移落地） | minjian |
 | 2026-10-10 | v2 | 三词分治：挂接对象 `action_id` → `permission_id`（唯一键与索引同步改） | minjian |
+| 2026-10-11 | v3 | 系统字段对齐（02_11）：增 `parent_id`（上级明细 ID）；随 `platform:platform` 链 `0010_system_fields_form_key` | minjian |
 
 > 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套
 

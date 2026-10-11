@@ -21,11 +21,13 @@
 
 | 字段 | 类型 | 可空 | 约束 / 默认 | 说明 |
 | --- | --- | --- | --- | --- |
-| `id` | BIGINT | 否 | 主键，雪花 ID | 主键 |
-| `code` | VARCHAR(64) | 否 | 与 `deleted_at` 复合唯一 | 角色码（租户内唯一；格式受 `role.code_pattern` 约束；**创建后可修改**） |
+| `id` | BIGINT | 否 | 主键，雪花 ID | 主键 · **系统字段**：ID |
+| `form_key` | VARCHAR(64) | 否 | `(form_key, deleted_at)` 复合唯一 | 表单标识（**多表联合判别列**；全局唯一、保存后不变） · **系统字段**：表单标识 |
+| `code` | VARCHAR(64) | 否 | 与 `deleted_at` 复合唯一 | 角色码（租户内唯一；格式受 `role.code_pattern` 约束；**创建后可修改**） · **系统字段**：代码 |
 | `name` | VARCHAR(128) | 否 | — | 角色名称 |
 | `status` | VARCHAR(16) | 否 | 默认 `enabled` | 状态（`enabled` / `disabled`） |
 | `role_type` | VARCHAR(16) | 否 | 默认 `custom` | 角色类型（`custom` / `system` / `security` / `audit`；**内置判定依据，不可修改**） |
+| `parent_id` | BIGINT | 是 | — | 上级字典 ID（自引用同表 `id`；顶层 NULL；本表无层级，按系统字段口径保留） · **系统字段**：上级字典 ID |
 | `created_at` | DATETIME | 否 | 审计 | 创建时间（UTC） |
 | `created_by` | BIGINT | 是 | 审计 | 创建人 |
 | `updated_at` | DATETIME | 否 | 审计 | 更新时间（UTC） |
@@ -38,6 +40,7 @@
 | 名称 | 类型 | 列 | 说明 |
 | --- | --- | --- | --- |
 | `uq_sys_role_code_deleted_at` | 唯一 | `(code, deleted_at)` | 角色码租户内唯一（软删除后可复用） |
+| `uq_sys_role_form_key_deleted_at` | 唯一 | `(form_key, deleted_at)` | 表单标识唯一（多表联合判别列） |
 | `idx_sys_role_status` | 普通 | `status` | 状态筛选 |
 
 - 无物理外键；本表为角色域主表，其余角色域表以 `role_id` 逻辑引用。
@@ -56,5 +59,6 @@
 | --- | --- | --- | --- |
 | 2026-10-06 | v1 | 新建表结构（org 服务租户库；角色域 5 表随本任务落地） | minjian |
 | 2026-10-08 | v2 | 增 `role_type` 列（内置判定由配置常量改为列判定）、角色码放开可修改（子任务「角色码可改与内置判定脱钩」，迁移 `0009_role_type`） | minjian |
+| 2026-10-11 | v3 | 系统字段对齐（02_11）：增 `form_key`（表单标识，多表联合判别列）+ `parent_id`；随 `platform:tenant` 链 `0015_system_fields_form_key` | minjian |
 
 > 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套

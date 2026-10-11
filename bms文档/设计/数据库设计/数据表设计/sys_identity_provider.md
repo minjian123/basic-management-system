@@ -21,15 +21,17 @@
 
 | 字段 | 类型 | 可空 | 约束 / 默认 | 说明 |
 | --- | --- | --- | --- | --- |
-| `id` | BIGINT | 否 | 主键，雪花 ID | 主键 |
-| `name` | VARCHAR(64) | 否 | — | 显示名（登录页入口文案） |
-| `idp_key` | VARCHAR(64) | 否 | 与 `deleted_at` 复合唯一 | 租户内稳定标识 slug（路由参数 `{idp_key}`；映射键组成 `{tenant}:{idp_key}`） |
+| `id` | BIGINT | 否 | 主键，雪花 ID | 主键 · **系统字段**：ID |
+| `form_key` | VARCHAR(64) | 否 | `(form_key, deleted_at)` 复合唯一 | 表单标识（**多表联合判别列**；全局唯一、保存后不变） · **系统字段**：表单标识 |
+| `code` | VARCHAR(64) | 否 | 与 `deleted_at` 复合唯一 | 租户内稳定标识 slug（路由参数 `{idp_key}`；映射键组成 `{tenant}:{idp_key}`）。**DB 列名 `code`，ORM 属性与契约字段名仍为 `idp_key`** · **系统字段**：代码 |
+| `name` | VARCHAR(64) | 否 | — | 显示名（登录页入口文案） · **系统字段**：名称 |
 | `type` | VARCHAR(32) | 否 | — | 协议类型，取 `IDP_PROTOCOLS`（`oidc` / `cas` / `wecom` / `dingtalk`） |
 | `icon` | VARCHAR(255) | 是 | — | 图标（可空，前端按空回退默认样式） |
 | `config` | TEXT | 否 | JSON | 协议配置 JSON（`issuer` / `client_id` / `client_secret_ref` / `scopes` / `redirect_uri` / `jit_enabled` 等）；**密钥类只存引用**（`env:变量名` 或预留 `secret:标识`） |
 | `status` | VARCHAR(16) | 否 | 默认 `enabled` | 状态：`enabled` / `disabled`（停用不出现在入口清单、不可发起授权） |
-| `sort` | INT | 否 | 默认 0 | 登录页排序（升序） |
-| `created_at` | DATETIME | 否 | 审计 | 创建时间（UTC） |
+| `sort` | INT | 否 | 默认 0 | 登录页排序（升序） · **系统字段**：排序 |
+| `parent_id` | BIGINT | 是 | — | 上级字典 ID（自引用同表 `id`；顶层 NULL；本表无层级，按系统字段口径保留） · **系统字段**：上级字典 ID |
+| `created_at` | DATETIME | 否 | 审计 | 创建时间（UTC） · **系统字段**：审计字段 |
 | `created_by` | BIGINT | 是 | 审计 | 创建人 |
 | `updated_at` | DATETIME | 否 | 审计 | 更新时间（UTC） |
 | `updated_by` | BIGINT | 是 | 审计 | 更新人 |
@@ -43,7 +45,8 @@
 
 | 名称 | 类型 | 列 | 说明 |
 | --- | --- | --- | --- |
-| `uq_sys_identity_provider_idp_key_deleted_at` | 唯一 | `(idp_key, deleted_at)` | 租户内 IdP 标识唯一（软删除后可复用） |
+| `uq_sys_identity_provider_code_deleted_at` | 唯一 | `(code, deleted_at)` | 租户内 IdP 标识唯一（软删除后可复用；原 `uq_sys_identity_provider_idp_key_deleted_at`） |
+| `uq_sys_identity_provider_form_key_deleted_at` | 唯一 | `(form_key, deleted_at)` | 表单标识唯一（多表联合判别列） |
 | `idx_sys_identity_provider_status_sort` | 普通 | `(status, sort)` | 入口清单主路径（`status = enabled` 按 `sort` 排序） |
 
 - 无物理外键；租户归属由所在租户库 `bms_identity_{code}` 隐含承载。
@@ -59,5 +62,6 @@
 | 日期 | 版本 | 变更 | 作者 |
 | --- | --- | --- | --- |
 | 2026-09-27 | v1 | 新建表结构（identity 服务租户库；随 02_01 落库迁移 `0002_sys_identity_provider`） | minjian |
+| 2026-10-11 | v2 | 系统字段对齐（02_11）：增 `form_key`（表单标识，多表联合判别列）+ `parent_id`；既有标识列 `idp_key` **DB 列名改 `code`**（ORM 属性 / 契约字段名保持 `idp_key`），唯一约束改 `uq_sys_identity_provider_code_deleted_at`；随 `identity:tenant` 链 `0006_system_fields_form_key` | minjian |
 
 > 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套

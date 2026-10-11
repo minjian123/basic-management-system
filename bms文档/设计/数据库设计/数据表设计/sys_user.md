@@ -21,8 +21,9 @@
 
 | 字段 | 类型 | 可空 | 约束 / 默认 | 说明 |
 | --- | --- | --- | --- | --- |
-| `id` | BIGINT | 否 | 主键，雪花 ID | 主键 |
-| `username` | VARCHAR(64) | 否 | 与 `deleted_at` 复合唯一 | 登录账号（唯一；软删除后可复用） |
+| `id` | BIGINT | 否 | 主键，雪花 ID | 主键 · **系统字段**：ID |
+| `form_key` | VARCHAR(64) | 否 | `(form_key, deleted_at)` 复合唯一 | 表单标识（**多表联合判别列**；全局唯一、保存后不变） · **系统字段**：表单标识 |
+| `code` | VARCHAR(64) | 否 | 与 `deleted_at` 复合唯一 | 登录账号（唯一；软删除后可复用）。**DB 列名 `code`，ORM 属性与契约字段名仍为 `username`** · **系统字段**：代码 |
 | `password_hash` | VARCHAR(255) | 否 | — | 口令哈希（PBKDF2 自描述串；**SSO JIT 建号存不可登录占位** `!sso`，非 PBKDF2 串，本地登录校验恒失败，「是否 SSO 账号」以 `sys_user_identity` 绑定为事实源） |
 | `name` | VARCHAR(128) | 否 | — | 用户昵称 / 显示名 |
 | `status` | VARCHAR(16) | 否 | 默认 `enabled` | 状态（`enabled` / `disabled`） |
@@ -36,7 +37,8 @@
 | `phone` | VARCHAR(32) | 是 | — | 手机号（找回密码通道；维护入口 / 唯一性与格式校验归用户管理阶段） |
 | `locale` | VARCHAR(16) | 是 | — | 语言偏好（如 `zh-cn`） |
 | `timezone` | VARCHAR(64) | 是 | — | 时区偏好（如 `Asia/Shanghai`） |
-| `created_at` | DATETIME | 否 | 审计 | 创建时间（UTC） |
+| `parent_id` | BIGINT | 是 | — | 上级字典 ID（自引用同表 `id`；顶层 NULL；本表无层级，按系统字段口径保留） · **系统字段**：上级字典 ID |
+| `created_at` | DATETIME | 否 | 审计 | 创建时间（UTC） · **系统字段**：审计字段 |
 | `created_by` | BIGINT | 是 | 审计 | 创建人 |
 | `updated_at` | DATETIME | 否 | 审计 | 更新时间（UTC） |
 | `updated_by` | BIGINT | 是 | 审计 | 更新人 |
@@ -47,7 +49,8 @@
 
 | 名称 | 类型 | 列 | 说明 |
 | --- | --- | --- | --- |
-| `uq_sys_user_username_deleted_at` | 唯一 | `(username, deleted_at)` | 登录账号唯一（软删除后可复用） |
+| `uq_sys_user_code_deleted_at` | 唯一 | `(code, deleted_at)` | 登录账号唯一（软删除后可复用；原 `uq_sys_user_username_deleted_at`，列 DB 名改 `code`） |
+| `uq_sys_user_form_key_deleted_at` | 唯一 | `(form_key, deleted_at)` | 表单标识唯一（多表联合判别列） |
 
 - 无物理外键；`sys_session.user_id` / `sys_user_identity.user_id` 为**跨服务**逻辑外键指向本表 `id`（identity 服务只持值，不建物理外键、不直连本表）；`sys_user_role.user_id` / `sys_account_lock.user_id` / `sys_user_extension.user_id` / `sys_user_preference.user_id` 与本表**同库**（platform 服务租户库）逻辑引用。
 - 登录以 `username` 等值查询为主路径，复合唯一索引已覆盖，不另建普通索引。
@@ -68,5 +71,6 @@
 | 2026-09-27 | v2 | 新增 `pwd_reset_required` 字段（强制改密标志；随 03_05 落库迁移 `0002_password_policy_and_account_lock`） | minjian |
 | 2026-09-28 | v3 | 新增 `email` / `phone` 可空字段（找回密码通道；随 03_06 落库迁移 `0003_sys_user_reset_contact`） | minjian |
 | 2026-10-07 | v4 | **归属库迁移**：org 服务租户库 → **platform 服务租户库**（随 02_05 落 `platform:tenant` 链 `0008_user_tables`；字段 / 索引 / 约束不变） | minjian |
+| 2026-10-11 | v5 | 系统字段对齐（02_11）：增 `form_key`（表单标识，多表联合判别列）+ `parent_id`；既有标识列 `username` **DB 列名改 `code`**（ORM 属性 / 契约字段名保持 `username`），唯一约束改 `uq_sys_user_code_deleted_at`；随 `platform:tenant` 链 `0015_system_fields_form_key` | minjian |
 
 > 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套

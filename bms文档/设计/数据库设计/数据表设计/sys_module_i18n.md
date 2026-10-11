@@ -25,6 +25,7 @@
 | `module_id` | BIGINT | 否 | `(module_id, locale, deleted_at)` 复合唯一 | 模块 ID（逻辑外键 → `sys_module.id`） |
 | `locale` | VARCHAR(16) | 否 | 同上 | 语言标识（如 `zh-CN`、`en-US`） |
 | `name` | VARCHAR(128) | 否 | — | 模块名的该语言文案 |
+| `parent_id` | BIGINT | 是 | — | 上级明细 ID（自引用同表 `id`；本表无层级，按明细系统字段口径保留） · **系统字段**：上级明细 ID |
 | `created_at` | DATETIME | 否 | 审计 | 创建时间（UTC） |
 | `created_by` | BIGINT | 是 | 审计 | 创建人 |
 | `updated_at` | DATETIME | 否 | 审计 | 更新时间（UTC） |
@@ -52,5 +53,6 @@
 | --- | --- | --- | --- |
 | 2026-09-13 | v1 | 新建表结构（平台库；随落库阶段迁移） | minjian |
 | 2026-09-22 | v2 | 迁移落地：随平台链 `0001_sys_tenant_module` 建表 | minjian |
+| 2026-10-11 | v3 | 系统字段对齐（02_11）：增 `parent_id`（上级明细 ID）；随 `platform:platform` 链 `0010_system_fields_form_key` | minjian |
 
 > 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套

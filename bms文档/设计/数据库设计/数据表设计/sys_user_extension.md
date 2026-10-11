@@ -26,6 +26,7 @@
 | `user_id` | BIGINT | 否 | — | 用户主键（逻辑外键 `sys_user.id`；**同库**（platform 服务租户库）只持值、不建物理外键） |
 | `label` | VARCHAR(64) | 否 | — | 扩展标签（用户维度内唯一） |
 | `remark` | VARCHAR(255) | 是 | — | 备注 |
+| `parent_id` | BIGINT | 是 | — | 上级明细 ID（自引用同表 `id`；本表无层级，按明细系统字段口径保留） · **系统字段**：上级明细 ID |
 | `created_at` | DATETIME | 否 | 审计 | 创建时间（UTC） |
 | `created_by` | BIGINT | 是 | 审计 | 创建人 |
 | `updated_at` | DATETIME | 否 | 审计 | 更新时间（UTC） |
@@ -54,5 +55,6 @@
 | 日期 | 版本 | 变更 | 作者 |
 | --- | --- | --- | --- |
 | 2026-10-03 | v1 | 新建表结构（platform 服务租户库；随具名插槽样例插件后端契约落 `platform:tenant` 链迁移 `0006_sys_user_extension`） | minjian |
+| 2026-10-11 | v2 | 系统字段对齐（02_11）：增 `parent_id`（上级明细 ID）；随 `platform:tenant` 链 `0015_system_fields_form_key` | minjian |
 
 > 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套

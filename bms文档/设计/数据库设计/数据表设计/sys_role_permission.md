@@ -26,6 +26,7 @@
 | `perm_type` | VARCHAR(16) | 否 | — | 授权类型（`menu` / `form` / `permission`） |
 | `target_id` | BIGINT | 否 | 建索引 | 授权目标 ID（平台实体雪花 ID：`sys_menu.id` / `sys_form.id` / `sys_permission.id`；**跨库逻辑外键**） |
 | `source_menu_id` | BIGINT | 否 | 默认 `0` | 来源菜单入口 ID；**`0` = 表单级直接授予**（不用 NULL，避免唯一约束在 NULL 上的跨库语义差异） |
+| `parent_id` | BIGINT | 是 | — | 上级明细 ID（自引用同表 `id`；本表无层级，按明细系统字段口径保留） · **系统字段**：上级明细 ID |
 | `created_at` | DATETIME | 否 | 审计 | 创建时间（UTC） |
 | `created_by` | BIGINT | 是 | 审计 | 创建人 |
 | `updated_at` | DATETIME | 否 | 审计 | 更新时间（UTC） |
@@ -58,5 +59,6 @@
 | --- | --- | --- | --- |
 | 2026-10-06 | v1 | 新建表结构（org 服务租户库；`source_menu_id` 以 `0` 表示表单级直接授予） | minjian |
 | 2026-10-10 | v2 | 三词分治：授权类型 `action` 改为 `permission`，`target_id` 指向 `sys_permission.id` | minjian |
+| 2026-10-11 | v3 | 系统字段对齐（02_11）：增 `parent_id`（上级明细 ID）；随 `platform:tenant` 链 `0015_system_fields_form_key` | minjian |
 
 > 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套

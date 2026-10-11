@@ -33,6 +33,7 @@
 | `retry_count` | INT | 否 | 默认 0 | TM 驱动重试次数（退避重试，不静默放弃） |
 | `last_error` | VARCHAR(512) | 是 | — | 最近一次驱动失败原因（截断） |
 | `request_hash` | VARCHAR(64) | 是 | — | 分支执行载荷摘要（**分支级幂等**：同 `xid` 同摘要的重复执行直接返回原结果） |
+| `parent_id` | BIGINT | 是 | — | 上级明细 ID（自引用同表 `id`；本表无层级，按明细系统字段口径保留） · **系统字段**：上级明细 ID |
 | `created_at` / `created_by` / `updated_at` / `updated_by` / `deleted_at` / `version` | — | — | 公共字段 | 继承 `BaseModel`；`version` 兼作**行级乐观锁** |
 
 ## 3. 索引与约束 <a id="index"></a>
@@ -56,5 +57,6 @@
 | 日期 | 版本 | 变更 | 作者 |
 | --- | --- | --- | --- |
 | 2026-10-09 | v1 | 新建表结构（TM 账本分支表；`db_key` 为不透明库键，TM 不感知租户 / 业务；随 05_07 落地） | minjian |
+| 2026-10-11 | v2 | 系统字段对齐（02_11）：增 `parent_id`（上级明细 ID）；随 `txn:platform` 链 `0003_system_fields_form_key` | minjian |
 
 > 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套

@@ -27,6 +27,7 @@
 | `id` | BIGINT | 否 | 主键，雪花 ID | 主键 |
 | `tenant_id` | BIGINT | 否 | 与 `deleted_at` 复合唯一（`uq_sys_tenant_database_tenant_deleted_at`） | 租户主键（同库逻辑外键 → `sys_tenant.id`，只持值） |
 | `db_basis` | VARCHAR(64) | 否 | — | 库名基（创建时冻结的租户编码，稳定不可变） |
+| `parent_id` | BIGINT | 是 | — | 上级明细 ID（自引用同表 `id`；本表无层级，按明细系统字段口径保留） · **系统字段**：上级明细 ID |
 | `created_at` | DATETIME | 否 | 审计 | 创建时间（UTC） |
 | `created_by` | BIGINT | 是 | 审计 | 创建人 |
 | `updated_at` | DATETIME | 否 | 审计 | 更新时间（UTC） |
@@ -56,5 +57,6 @@
 | 日期 | 版本 | 变更 | 作者 |
 | --- | --- | --- | --- |
 | 2026-09-29 | v1 | 新建表结构（平台库 `bms_tenant`；`tenant_id` + `db_basis` 对照，随 10_04 迁移 `0004_sys_tenant_database` 落地并回填存量） | minjian |
+| 2026-10-11 | v2 | 系统字段对齐（02_11）：增 `parent_id`（上级明细 ID）；随 `tenant:platform` 链 `0007_system_fields_form_key` | minjian |
 
 > 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套

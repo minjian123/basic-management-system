@@ -31,6 +31,7 @@
 | `unlock_at` | DATETIME | 是 | — | 解锁时间（UTC；NULL=未解锁） |
 | `unlock_by` | BIGINT | 是 | — | 解锁操作人（手动解锁为操作人；自动解锁为 NULL） |
 | `unlock_mode` | VARCHAR(16) | 是 | — | 解锁方式（`manual` 手动 / `auto` 到期自动；NULL=未解锁） |
+| `parent_id` | BIGINT | 是 | — | 上级明细 ID（自引用同表 `id`；本表无层级，按明细系统字段口径保留） · **系统字段**：上级明细 ID |
 | `created_at` | DATETIME | 否 | 审计 | 创建时间（UTC） |
 | `created_by` | BIGINT | 是 | 审计 | 创建人 |
 | `updated_at` | DATETIME | 否 | 审计 | 更新时间（UTC） |
@@ -64,5 +65,6 @@
 | 2026-09-27 | v1 | 新建表结构（org 服务租户库；随 `03_05` 落 `org:tenant` 链迁移 `0002_password_policy_and_account_lock`） | minjian |
 | 2026-09-28 | v2 | 补 `expire_at`（锁定期限）/ `unlock_mode`（解锁方式）两列，随 `03_07` 落 `org:tenant` 链迁移 `0004_sys_account_lock_expire` | minjian |
 | 2026-10-07 | v3 | **归属库迁移**：org 服务租户库 → **platform 服务租户库**（随 02_05 落 `platform:tenant` 链 `0008_user_tables`；字段 / 索引 / 约束不变） | minjian |
+| 2026-10-11 | v4 | 系统字段对齐（02_11）：增 `parent_id`（上级明细 ID）；随 `platform:tenant` 链 `0015_system_fields_form_key` | minjian |
 
 > 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套

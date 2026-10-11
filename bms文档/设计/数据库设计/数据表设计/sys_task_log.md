@@ -27,6 +27,7 @@
 | `started_at` | DATETIME | 是 | — | 开始时间（UTC） |
 | `finished_at` | DATETIME | 是 | — | 结束时间（UTC） |
 | `result` | TEXT | 是 | — | 执行结果 / 异常摘要 |
+| `parent_id` | BIGINT | 是 | — | 上级明细 ID（自引用同表 `id`；本表无层级，按明细系统字段口径保留） · **系统字段**：上级明细 ID |
 | `created_at` | DATETIME | 否 | 审计 | 创建时间（UTC） |
 | `created_by` | BIGINT | 是 | 审计 | 创建人 |
 | `updated_at` | DATETIME | 否 | 审计 | 更新时间（UTC） |
@@ -54,5 +55,6 @@
 | --- | --- | --- | --- |
 | 2026-09-13 | v1 | 新建表结构（租户库；随回补阶段迁移） | minjian |
 | 2026-09-22 | v2 | 索引名对齐实际库与模型元数据（`idx_task_id` → `idx_sys_task_log_task_id`） | minjian |
+| 2026-10-11 | v3 | 系统字段对齐（02_11）：增 `parent_id`（上级明细 ID）（`planned` 表只补表文件与模型，迁移随其入链时补） | minjian |
 
 > 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套

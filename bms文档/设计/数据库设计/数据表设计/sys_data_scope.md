@@ -26,6 +26,7 @@
 | `dict_key` | VARCHAR(64) | 否 | — | **字典标识**（业务码字符串，如 `role` / `org_dept` / `wms_bin`；登记于**字典数据源登记**，2026-10-11 由 `dict_type_id` 改） |
 | `policy_type` | VARCHAR(16) | 否 | — | 策略类型（`select` / `region` / `match` / `extension`） |
 | `config` | JSON | 否 | 默认 `[]` | 结构化策略配置（**只选不编**，按 `policy_type` 分结构，写入时后端 schema 强校验） |
+| `parent_id` | BIGINT | 是 | — | 上级明细 ID（自引用同表 `id`；本表无层级，按明细系统字段口径保留） · **系统字段**：上级明细 ID |
 | `created_at` | DATETIME | 否 | 审计 | 创建时间（UTC） |
 | `created_by` | BIGINT | 是 | 审计 | 创建人 |
 | `updated_at` | DATETIME | 否 | 审计 | 更新时间（UTC） |
@@ -63,5 +64,6 @@
 | 2026-10-06 | v1 | 新建表结构（org 服务租户库；按字典类型结构化、`config` JSON、只选不编） | minjian |
 | 2026-10-07 | v2 | 归属改 **platform 服务租户库**（`platform:tenant` 链 `0007_role_tables` 建表，随 02_03 落点改定）；`config` 列 JSON 语义不变，ORM 侧改 `StableJson`（写前集合类规整 / 读回转插入序集合类）——集合类直接落裸 `JSON` 会报「非 JSON 序列化」 | minjian |
 | 2026-10-11 | v3 | 02_09 口径返工：归属列 `dict_type_id`（BIGINT → 字典类型主键）改 **`dict_key` VARCHAR(64)**（字典标识业务码字符串）；唯一约束列同步、**存量清空不回填**（迁移 `0012_data_scope_dict_key`）；校验改由**字典数据源登记**提供存在性与字段白名单（不再查 `sys_dict_type` / `sys_dict_attr`） | minjian |
+| 2026-10-11 | v4 | 系统字段对齐（02_11）：增 `parent_id`（上级明细 ID）；随 `platform:tenant` 链 `0015_system_fields_form_key` | minjian |
 
 > 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套
