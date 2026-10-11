@@ -254,7 +254,7 @@ function schemeToWire(scheme: DictQueryScheme): Record<string, unknown> {
     body.id = scheme.id
   }
   if (scheme.dictKey !== undefined) {
-    body.dict_type = scheme.dictKey
+    body.dict_key = scheme.dictKey
   }
   if (scheme.providerKey !== undefined) {
     body.provider_key = scheme.providerKey

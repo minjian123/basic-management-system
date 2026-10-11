@@ -4943,10 +4943,10 @@ export interface components {
                 [key: string]: unknown;
             } | null;
             /**
-             * Dict Type
-             * @description 字典类型（target=items 时填）
+             * Dict Key
+             * @description 字典标识（target=items 时填）
              */
-            dict_type?: string | null;
+            dict_key?: string | null;
             /**
              * Field Key
              * @description 表单标识（target=business 时为 form_key）

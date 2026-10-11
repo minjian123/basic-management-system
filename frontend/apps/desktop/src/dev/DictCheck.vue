@@ -85,7 +85,7 @@ const stubSource: DictSourceAdapter = {
     { attr_key: 'level', name: '层级', data_type: 'number', operators: ['eq', 'gt'], sort: 0, scope: 'platform' },
   ],
   loadProviders: async () => [
-    { key: 'builtin', name: '字典条目查询（内建）', target: 'business', dict_types: [], param_schema: {} },
+    { key: 'builtin', name: '字典条目查询（内建）', target: 'business', dict_keys: [], param_schema: {} },
   ],
   advancedQuery: async (query) => ({
     items: stubItems[query.dictKey] ?? [],

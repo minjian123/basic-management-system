@@ -846,7 +846,7 @@ export function normalizeDictQueryScheme(raw: unknown): DictQueryScheme | undefi
   if (typeof idRaw === 'number' && Number.isFinite(idRaw)) {
     scheme.id = idRaw
   }
-  const dictKey = record.dictKey ?? record.dict_type
+  const dictKey = record.dictKey ?? record.dict_key
   if (typeof dictKey === 'string' && dictKey !== '') {
     scheme.dictKey = dictKey
   }

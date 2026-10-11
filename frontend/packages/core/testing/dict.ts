@@ -37,7 +37,7 @@ export const DICT_CONTRACT_ATTRS: readonly Record<string, unknown>[] = [
 
 /** 契约提供者。 */
 export const DICT_CONTRACT_PROVIDERS: readonly Record<string, unknown>[] = [
-  { key: 'builtin', name: '字典条目查询（内建）', target: 'business', dict_types: [], param_schema: {} },
+  { key: 'builtin', name: '字典条目查询（内建）', target: 'business', dict_keys: [], param_schema: {} },
 ]
 
 /** 数据源桩（记录调用轨迹与查询入参）。 */
@@ -135,7 +135,7 @@ export function createDictSourceStub(overrides: DictSourceAdapter = {}): DictSou
             name: '常用条件',
             scope: 'user',
             target: 'items',
-            dict_type: query.target === 'items' ? 'region' : undefined,
+            dict_key: query.target === 'items' ? 'region' : undefined,
             conditions: { logic: 'AND', children: [] },
             is_default: true,
             shared: false,

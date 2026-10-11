@@ -196,7 +196,7 @@ def test_chain_revisions_integrity() -> None:
     platform_head = ScriptDirectory.from_config(_config(resolve_chain("platform:platform"))).get_current_head()
     assert platform_head == "0009_sys_product"
     tenant_service_head = ScriptDirectory.from_config(_config(default_chain())).get_current_head()
-    assert tenant_service_head == "0013_drop_dict_tables"
+    assert tenant_service_head == "0014_query_scheme_dict_key"
 
     for name in (
         "platform:platform",

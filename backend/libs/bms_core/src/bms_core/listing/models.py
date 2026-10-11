@@ -1,7 +1,7 @@
 """列表查询与偏好 ORM 模型：查询方案表 `sys_query_scheme`（泛化：字典高级查询 + 列表筛选共用）。
 
 - 表声明出自 `02-4-20`（`BaseQuerySchemeStore` / `QueryScheme` 契约）；本文件为真实落库模型。
-- `target=items`（字典高级查询，填 `dict_type`）/ `target=business`（列表筛选，`field_key=form_key`）。
+- `target=items`（字典高级查询，填 `dict_key`）/ `target=business`（列表筛选，`field_key=form_key`）。
 """
 
 from sqlalchemy import BigInteger, Boolean, Index, String, UniqueConstraint
@@ -22,7 +22,7 @@ class SysQueryScheme(BaseModel):
             "scope",
             "owner_id",
             "target",
-            "dict_type",
+            "dict_key",
             "field_key",
             "name",
             "deleted_at",
@@ -35,7 +35,9 @@ class SysQueryScheme(BaseModel):
     scope: Mapped[str] = mapped_column(String(16), comment="作用域（user/tenant/platform）")
     owner_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True, comment="归属用户 ID（个人方案）")
     target: Mapped[str] = mapped_column(String(16), comment="目标（items/business）")
-    dict_type: Mapped[str | None] = mapped_column(String(64), nullable=True, comment="字典类型（target=items）")
+    dict_key: Mapped[str | None] = mapped_column(
+        String(64), nullable=True, comment="字典标识（target=items；2026-10-11 由 dict_type 改）"
+    )
     field_key: Mapped[str | None] = mapped_column(String(64), nullable=True, comment="表单标识（target=business）")
     provider_key: Mapped[str | None] = mapped_column(String(64), nullable=True, comment="查询提供者键")
     conditions: Mapped[ConcurrentStableDict[str, object] | None] = mapped_column(

@@ -88,7 +88,7 @@ function normalizeProviders(raw: unknown): DictQueryProvider[] {
       continue
     }
     const target = record.target === 'items' ? 'items' : 'business'
-    const dictKeysRaw = record.dictKeys ?? record.dict_types
+    const dictKeysRaw = record.dictKeys ?? record.dict_keys
     const paramSchemaRaw = record.paramSchema ?? record.param_schema
     providers.push({
       key,

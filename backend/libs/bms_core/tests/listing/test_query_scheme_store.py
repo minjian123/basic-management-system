@@ -98,7 +98,7 @@ async def test_query_scheme_crud_and_default_resolution(scheme_store: SqlQuerySc
                 name="我的常用",
                 scope=QuerySchemeScope.USER,
                 target=QuerySchemeTarget.ITEMS,
-                dict_type="region",
+                dict_key="region",
                 conditions=ConcurrentStableDict({"logic": "AND", "children": []}),
                 is_default=True,
             )
@@ -115,7 +115,7 @@ async def test_query_scheme_crud_and_default_resolution(scheme_store: SqlQuerySc
                 name="平台默认",
                 scope=QuerySchemeScope.PLATFORM,
                 target=QuerySchemeTarget.ITEMS,
-                dict_type="region",
+                dict_key="region",
                 is_default=True,
             )
         )

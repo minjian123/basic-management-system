@@ -3756,7 +3756,7 @@
             "description": "条件组 JSON",
             "title": "Conditions"
           },
-          "dict_type": {
+          "dict_key": {
             "anyOf": [
               {
                 "type": "string"
@@ -3765,8 +3765,8 @@
                 "type": "null"
               }
             ],
-            "description": "字典类型（target=items 时填）",
-            "title": "Dict Type"
+            "description": "字典标识（target=items 时填）",
+            "title": "Dict Key"
           },
           "field_key": {
             "anyOf": [

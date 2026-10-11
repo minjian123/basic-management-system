@@ -210,7 +210,7 @@ describe('字典领域 · 条件组与方案', () => {
       name: '常用',
       scope: 'tenant',
       target: 'items',
-      dict_type: 'region',
+      dict_key: 'region',
       provider_key: 'builtin',
       is_default: true,
     })

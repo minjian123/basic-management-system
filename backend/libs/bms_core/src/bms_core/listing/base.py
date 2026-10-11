@@ -108,7 +108,7 @@ class QueryScheme(BaseSchema):
     scope: QuerySchemeScope = Field(default=QuerySchemeScope.USER, description="作用域（个人 / 租户 / 平台）")
     owner_id: int | None = Field(default=None, description="归属用户 ID（个人方案）")
     target: QuerySchemeTarget = Field(description="目标（items 字典条目 / business 列表筛选）")
-    dict_type: str | None = Field(default=None, description="字典类型（target=items 时填）")
+    dict_key: str | None = Field(default=None, description="字典标识（target=items 时填）")
     field_key: str | None = Field(default=None, description="表单标识（target=business 时为 form_key）")
     provider_key: str | None = Field(default=None, description="查询提供者键（字典高级查询可选）")
     conditions: Annotated[ConcurrentStableDict[str, object] | None, CONTRACT_COLLECTION] = Field(
