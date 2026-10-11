@@ -2,7 +2,7 @@
 
 - **鉴权**：模块级 `require_auth`；读挂 `role:query`、写挂 `role:create` / `role:update` / `role:delete`，
   分配与授权挂 `role:grant`（当前 `NullPermissionChecker` 恒放行，`02_04` 注入真实检查器后自动收口）；
-- **双库依赖**：角色域 5 表与 `sys_user` / `sys_dict_*` 在 **platform 服务租户库**（`get_uow`）；
+- **双库依赖**：角色域 5 表与 `sys_user` 在 **platform 服务租户库**（`get_uow`）；
   授权引用的菜单 / 表单 / 动作 / 字段元数据在 **platform 服务平台库**（`get_platform_uow`）——
   同服务、跨库，校验在同服务内完成（不经内部端点）；
 - **写口径**：授权 / 字段 / 数据权限为**全量覆盖**（单事务先删后插）；分配为**幂等 upsert**；

@@ -218,8 +218,8 @@ async def test_migration_head_and_tables(dialect: str, urls: tuple[str, str], re
 async def test_tenant_isolation(dialect: str, urls: tuple[str, str], registry: EngineRegistry) -> None:
     """租户隔离：平台对象与租户对象为不同物理对象——各自链表互不可见（表归属按 06_02 分链口径）。"""
     assert await _can_select(registry, PLATFORM_DB_KEY, "sys_module") is True
-    assert await _can_select(registry, _TENANT_DB_KEY, "sys_dict_type") is True
-    assert await _can_select(registry, PLATFORM_DB_KEY, "sys_dict_type") is False
+    assert await _can_select(registry, _TENANT_DB_KEY, "sys_data_scope") is True
+    assert await _can_select(registry, PLATFORM_DB_KEY, "sys_data_scope") is False
     assert await _can_select(registry, _TENANT_DB_KEY, "sys_module") is False
     assert await _can_select(registry, _TENANT_DB_KEY, "sys_tenant") is False
 

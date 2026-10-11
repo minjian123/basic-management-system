@@ -107,7 +107,7 @@ class DictQueryProviderInfo(BaseSchema):
     key: str = Field(description="提供者标识")
     name: str = Field(description="显示名")
     target: str = Field(default="business", description="目标（items/business）")
-    dict_types: tuple[str, ...] = Field(default=(), description="适用字典（空 = 全部）")
+    dict_keys: tuple[str, ...] = Field(default=(), description="适用字典标识（空 = 全部）")
     param_schema: Annotated[ConcurrentStableDict[str, object], CONTRACT_COLLECTION] = Field(
         default_factory=CONTRACT_STABLE_DICT, description="参数 JSON Schema 子集"
     )

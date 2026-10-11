@@ -43,6 +43,7 @@ from bms_core.servicecall.base import BaseServiceClient, ServiceRequest
 __all__ = [
     "ACCEPT_LANGUAGE_HEADER",
     "DICT_BATCH_PATH",
+    "DICT_KEY_PATH",
     "DICT_SERVICE_KEY",
     "HTTP_DICT_PROVIDER",
     "TRANSLATE_VALUES_CHUNK",
@@ -55,9 +56,9 @@ HTTP_DICT_PROVIDER = "http"
 """跨服务读出口提供者名（`[dict_source].provider` / `[dict_translator].provider`）。"""
 
 DICT_SERVICE_KEY = "platform"
-"""字典数据权威服务标识（`sys_dict_*` 所有者）。"""
+"""字典数据出口所有者服务标识（平台统一出口）。"""
 
-DICT_TYPE_PATH = "/api/v1/dicts/{dict_key}"
+DICT_KEY_PATH = "/api/v1/dicts/{dict_key}"
 """单类型取数契约路径模板。"""
 
 DICT_BATCH_PATH = "/api/v1/dicts/batch"
@@ -79,7 +80,7 @@ def dict_key_path(dict_key: str) -> str:
     Returns:
         str: 契约路径。
     """
-    return DICT_TYPE_PATH.format(dict_key=quote(dict_key, safe=""))
+    return DICT_KEY_PATH.format(dict_key=quote(dict_key, safe=""))
 
 
 def _headers(locale: str) -> ConcurrentStableDict[str, str]:

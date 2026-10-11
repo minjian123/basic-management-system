@@ -146,7 +146,7 @@ async def list_query_providers(
         if provider is None:
             continue
         record = _provider_record(key, provider)
-        dict_keys = record.get("dict_types")
+        dict_keys = record.get("dict_keys")
         if dict_key is not None and isinstance(dict_keys, list):
             names = [str(item) for item in cast("list[object]", dict_keys)]
             if len(names) > 0 and dict_key not in names:
@@ -174,7 +174,7 @@ def _provider_record(key: str, provider: BaseQueryProvider) -> ConcurrentStableD
             "key": key,
             "name": provider.describe(),
             "target": "business",
-            "dict_types": [],
+            "dict_keys": [],
             "param_schema": {},
         }
     )

@@ -56,7 +56,7 @@ class BuiltinDictQueryProvider(BaseQueryProvider):
             key=self.key,
             name="字典条目查询（内建）",
             target="business",
-            dict_types=(),
+            dict_keys=(),
             param_schema=ConcurrentStableDict(
                 {
                     "type": "object",
