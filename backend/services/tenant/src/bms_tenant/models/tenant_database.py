@@ -22,3 +22,6 @@ class SysTenantDatabase(BaseModel):
 
     tenant_id: Mapped[int] = mapped_column(BigInteger, comment="租户主键（同库逻辑外键 → sys_tenant.id，只持值）")
     db_basis: Mapped[str] = mapped_column(String(64), comment="库名基（创建时冻结的租户编码，稳定不可变）")
+    parent_id: Mapped[int | None] = mapped_column(
+        BigInteger, nullable=True, comment="上级明细 ID（自引用同表 id；顶层 NULL）"
+    )

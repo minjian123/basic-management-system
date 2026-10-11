@@ -12,12 +12,24 @@ class SysTask(BaseModel):
     """任务定义（`sys_task`）：调度配置与执行体登记。"""
 
     __tablename__ = "sys_task"
-    __table_args__ = (UniqueConstraint("name", "deleted_at", name="uq_sys_task_name_deleted_at"),)
+    __table_args__ = (
+        UniqueConstraint("name", "deleted_at", name="uq_sys_task_name_deleted_at"),
+        UniqueConstraint("code", "deleted_at", name="uq_sys_task_code_deleted_at"),
+        UniqueConstraint("form_key", "deleted_at", name="uq_sys_task_form_key_deleted_at"),
+    )
 
+    form_key: Mapped[str] = mapped_column(
+        String(64), default="task", comment="表单标识（多表联合判别列；全局唯一、保存后不变）"
+    )
+    code: Mapped[str] = mapped_column(String(64), comment="任务代码（如 cleanup_outbox）")
     name: Mapped[str] = mapped_column(String(128), comment="任务名（唯一）")
     handler: Mapped[str] = mapped_column(String(256), comment="执行体（调用路径）")
     cron: Mapped[str | None] = mapped_column(String(64), nullable=True, comment="调度表达式（NULL=手动触发）")
     enabled: Mapped[bool] = mapped_column(Boolean, default=True, comment="是否启用")
+    status: Mapped[str] = mapped_column(String(16), default="enabled", comment="状态（enabled/disabled）")
+    parent_id: Mapped[int | None] = mapped_column(
+        BigInteger, nullable=True, comment="上级字典 ID（自引用同表 id；顶层 NULL）"
+    )
 
 
 class SysTaskLog(BaseModel):
@@ -30,6 +42,9 @@ class SysTaskLog(BaseModel):
     started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, comment="开始时间（UTC）")
     finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, comment="结束时间（UTC）")
     result: Mapped[str | None] = mapped_column(Text, nullable=True, comment="执行结果 / 异常摘要")
+    parent_id: Mapped[int | None] = mapped_column(
+        BigInteger, nullable=True, comment="上级明细 ID（自引用同表 id；顶层 NULL）"
+    )
 
 
 class SysUserPreference(BaseModel):
@@ -47,6 +62,9 @@ class SysUserPreference(BaseModel):
     user_id: Mapped[int] = mapped_column(BigInteger, index=True, comment="用户 ID（逻辑外键 → sys_user.id）")
     pref_key: Mapped[str] = mapped_column(String(128), comment="偏好键（域.键，如 list.user_form）")
     pref_value: Mapped[str] = mapped_column(Text, comment="偏好值（JSON 字符串）")
+    parent_id: Mapped[int | None] = mapped_column(
+        BigInteger, nullable=True, comment="上级明细 ID（自引用同表 id；顶层 NULL）"
+    )
 
 
 class SysIcon(BaseModel):
@@ -58,14 +76,23 @@ class SysIcon(BaseModel):
     """
 
     __tablename__ = "sys_icon"
-    __table_args__ = (UniqueConstraint("code", "deleted_at", name="uq_sys_icon_code_deleted_at"),)
+    __table_args__ = (
+        UniqueConstraint("code", "deleted_at", name="uq_sys_icon_code_deleted_at"),
+        UniqueConstraint("form_key", "deleted_at", name="uq_sys_icon_form_key_deleted_at"),
+    )
 
+    form_key: Mapped[str] = mapped_column(
+        String(64), default="icon", comment="表单标识（多表联合判别列；全局唯一、保存后不变）"
+    )
     code: Mapped[str] = mapped_column(String(64), comment="图标键（kebab-case，租户内唯一；icon key = custom:{code}）")
     name: Mapped[str] = mapped_column(String(128), comment="图标名称（默认文案）")
     category: Mapped[str] = mapped_column(String(64), index=True, comment="图标分组（分类）")
     tags: Mapped[str] = mapped_column(String(256), default="", comment="标签（逗号分隔，搜索用；跨方言安全）")
     svg: Mapped[str] = mapped_column(Text, comment="SVG 内容（上传前清洗归文件管理阶段）")
     status: Mapped[str] = mapped_column(String(16), default="active", comment="状态（active/disabled）")
+    parent_id: Mapped[int | None] = mapped_column(
+        BigInteger, nullable=True, comment="上级字典 ID（自引用同表 id；顶层 NULL）"
+    )
 
 
 class SysIconI18n(BaseModel):
@@ -79,6 +106,9 @@ class SysIconI18n(BaseModel):
     icon_id: Mapped[int] = mapped_column(BigInteger, comment="图标 ID（逻辑外键 → sys_icon.id）")
     locale: Mapped[str] = mapped_column(String(16), comment="语言标识（如 zh-CN）")
     name: Mapped[str] = mapped_column(String(128), comment="图标名称文案")
+    parent_id: Mapped[int | None] = mapped_column(
+        BigInteger, nullable=True, comment="上级明细 ID（自引用同表 id；顶层 NULL）"
+    )
 
 
 class SysUserExtension(BaseModel):
@@ -96,3 +126,6 @@ class SysUserExtension(BaseModel):
     user_id: Mapped[int] = mapped_column(BigInteger, index=True, comment="用户主键（逻辑外键 → sys_user.id）")
     label: Mapped[str] = mapped_column(String(64), comment="扩展标签（用户维度内唯一）")
     remark: Mapped[str | None] = mapped_column(String(255), nullable=True, comment="备注")
+    parent_id: Mapped[int | None] = mapped_column(
+        BigInteger, nullable=True, comment="上级明细 ID（自引用同表 id；顶层 NULL）"
+    )

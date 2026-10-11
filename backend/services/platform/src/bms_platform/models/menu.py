@@ -21,11 +21,20 @@ class SysBusiness(BaseModel):
     """业务码字典（`sys_business`）：纯资源维度（权限码左半），平台统一维护、租户侧只读。"""
 
     __tablename__ = "sys_business"
-    __table_args__ = (UniqueConstraint("code", "deleted_at", name="uq_sys_business_code_deleted_at"),)
+    __table_args__ = (
+        UniqueConstraint("code", "deleted_at", name="uq_sys_business_code_deleted_at"),
+        UniqueConstraint("form_key", "deleted_at", name="uq_sys_business_form_key_deleted_at"),
+    )
 
+    form_key: Mapped[str] = mapped_column(
+        String(64), default="business", comment="表单标识（多表联合判别列；全局唯一、保存后不变）"
+    )
     code: Mapped[str] = mapped_column(String(64), comment="业务码（小写单词，资源维度）")
     name: Mapped[str] = mapped_column(String(128), comment="名称（默认文案）")
     status: Mapped[str] = mapped_column(String(16), default="enabled", comment="状态（enabled/disabled）")
+    parent_id: Mapped[int | None] = mapped_column(
+        BigInteger, nullable=True, comment="上级字典 ID（自引用同表 id；顶层 NULL）"
+    )
 
 
 class SysBusinessI18n(BaseModel):
@@ -39,17 +48,29 @@ class SysBusinessI18n(BaseModel):
     business_id: Mapped[int] = mapped_column(BigInteger, comment="业务码 ID（逻辑外键 → sys_business.id）")
     locale: Mapped[str] = mapped_column(String(16), comment="语言标识（如 zh-CN）")
     name: Mapped[str] = mapped_column(String(128), comment="业务名的该语言文案")
+    parent_id: Mapped[int | None] = mapped_column(
+        BigInteger, nullable=True, comment="上级明细 ID（自引用同表 id；顶层 NULL）"
+    )
 
 
 class SysAction(BaseModel):
     """动作码字典（`sys_action`）：全局动词维度（权限码右半），平台统一维护、租户侧只读。"""
 
     __tablename__ = "sys_action"
-    __table_args__ = (UniqueConstraint("code", "deleted_at", name="uq_sys_action_code_deleted_at"),)
+    __table_args__ = (
+        UniqueConstraint("code", "deleted_at", name="uq_sys_action_code_deleted_at"),
+        UniqueConstraint("form_key", "deleted_at", name="uq_sys_action_form_key_deleted_at"),
+    )
 
+    form_key: Mapped[str] = mapped_column(
+        String(64), default="action", comment="表单标识（多表联合判别列；全局唯一、保存后不变）"
+    )
     code: Mapped[str] = mapped_column(String(64), comment="动作码（如 query/create/manage；全局唯一动词）")
     name: Mapped[str] = mapped_column(String(128), comment="名称（默认文案）")
     status: Mapped[str] = mapped_column(String(16), default="enabled", comment="状态（enabled/disabled）")
+    parent_id: Mapped[int | None] = mapped_column(
+        BigInteger, nullable=True, comment="上级字典 ID（自引用同表 id；顶层 NULL）"
+    )
 
 
 class SysActionI18n(BaseModel):
@@ -63,6 +84,9 @@ class SysActionI18n(BaseModel):
     action_id: Mapped[int] = mapped_column(BigInteger, comment="动作码 ID（逻辑外键 → sys_action.id）")
     locale: Mapped[str] = mapped_column(String(16), comment="语言标识（如 zh-CN）")
     name: Mapped[str] = mapped_column(String(128), comment="动作名的该语言文案")
+    parent_id: Mapped[int | None] = mapped_column(
+        BigInteger, nullable=True, comment="上级明细 ID（自引用同表 id；顶层 NULL）"
+    )
 
 
 class SysPermission(BaseModel):
@@ -109,6 +133,9 @@ class SysMenuI18n(BaseModel):
     menu_id: Mapped[int] = mapped_column(BigInteger, comment="菜单 ID（逻辑外键 → sys_menu.id）")
     locale: Mapped[str] = mapped_column(String(16), comment="语言标识（如 zh-CN）")
     name: Mapped[str] = mapped_column(String(128), comment="菜单名的该语言文案")
+    parent_id: Mapped[int | None] = mapped_column(
+        BigInteger, nullable=True, comment="上级明细 ID（自引用同表 id；顶层 NULL）"
+    )
 
 
 class SysForm(BaseModel):
@@ -150,6 +177,9 @@ class SysButton(BaseModel):
     type: Mapped[str] = mapped_column(String(16), default="toolbar", comment="按钮形态（toolbar/interface）")
     sort: Mapped[int] = mapped_column(Integer, default=0, comment="同表内排序（升序）")
     status: Mapped[str] = mapped_column(String(16), default="enabled", comment="状态（enabled/disabled）")
+    parent_id: Mapped[int | None] = mapped_column(
+        BigInteger, nullable=True, comment="上级明细 ID（自引用同表 id；顶层 NULL）"
+    )
 
 
 class SysField(BaseModel):
@@ -164,6 +194,9 @@ class SysField(BaseModel):
     type: Mapped[str] = mapped_column(String(32), comment="字段类型（组件语义键）")
     sort: Mapped[int] = mapped_column(Integer, default=0, comment="同表内排序（升序）")
     status: Mapped[str] = mapped_column(String(16), default="enabled", comment="状态（enabled/disabled）")
+    parent_id: Mapped[int | None] = mapped_column(
+        BigInteger, nullable=True, comment="上级明细 ID（自引用同表 id；顶层 NULL）"
+    )
 
 
 class SysFieldI18n(BaseModel):
@@ -177,3 +210,6 @@ class SysFieldI18n(BaseModel):
     field_id: Mapped[int] = mapped_column(BigInteger, comment="字段 ID（逻辑外键 → sys_field.id）")
     locale: Mapped[str] = mapped_column(String(16), comment="语言标识（如 zh-CN）")
     name: Mapped[str] = mapped_column(String(128), comment="字段名的该语言文案")
+    parent_id: Mapped[int | None] = mapped_column(
+        BigInteger, nullable=True, comment="上级明细 ID（自引用同表 id；顶层 NULL）"
+    )

@@ -307,6 +307,18 @@ def main() -> int:
         failures,
     )
     _run(
+        "基座：check-system-fields",
+        ConcurrentStableList([sys.executable, "scripts/tools/base-check/check-system-fields.py", str(root)]),
+        root,
+        failures,
+    )
+    _run(
+        "基座：check-system-fields --self-test",
+        ConcurrentStableList([sys.executable, "scripts/tools/base-check/check-system-fields.py", "--self-test"]),
+        root,
+        failures,
+    )
+    _run(
         "基座：check-env-example（环境变量模板键位）",
         ConcurrentStableList([sys.executable, "scripts/tools/base-check/check-env-example.py", str(root)]),
         root,

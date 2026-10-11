@@ -68,14 +68,21 @@ class SysRole(BaseModel):
     __tablename__ = "sys_role"
     __table_args__ = (
         UniqueConstraint("code", "deleted_at", name="uq_sys_role_code_deleted_at"),
+        UniqueConstraint("form_key", "deleted_at", name="uq_sys_role_form_key_deleted_at"),
         Index("idx_sys_role_status", "status"),
     )
 
+    form_key: Mapped[str] = mapped_column(
+        String(64), default="role", comment="表单标识（多表联合判别列；全局唯一、保存后不变）"
+    )
     code: Mapped[str] = mapped_column(String(64), comment="角色码（租户内唯一；可修改）")
     name: Mapped[str] = mapped_column(String(128), comment="角色名称")
     status: Mapped[str] = mapped_column(String(16), default="enabled", comment="状态（enabled/disabled）")
     role_type: Mapped[str] = mapped_column(
         String(16), default=ROLE_TYPE_CUSTOM, comment="角色类型（custom/system/security/audit；内置判定，不可修改）"
+    )
+    parent_id: Mapped[int | None] = mapped_column(
+        BigInteger, nullable=True, comment="上级字典 ID（自引用同表 id；顶层 NULL）"
     )
 
 
@@ -119,6 +126,9 @@ class SysRolePermission(BaseModel):
     source_menu_id: Mapped[int] = mapped_column(
         BigInteger, default=NO_SOURCE_MENU_ID, comment="来源菜单入口 ID（0 = 表单级直接授予）"
     )
+    parent_id: Mapped[int | None] = mapped_column(
+        BigInteger, nullable=True, comment="上级明细 ID（自引用同表 id；顶层 NULL）"
+    )
 
 
 class SysRoleField(BaseModel):
@@ -149,6 +159,9 @@ class SysRoleField(BaseModel):
     source_menu_id: Mapped[int] = mapped_column(
         BigInteger, default=NO_SOURCE_MENU_ID, comment="来源菜单入口 ID（0 = 表单级直接授予）"
     )
+    parent_id: Mapped[int | None] = mapped_column(
+        BigInteger, nullable=True, comment="上级明细 ID（自引用同表 id；顶层 NULL）"
+    )
 
 
 class SysDataScope(BaseModel):
@@ -169,4 +182,7 @@ class SysDataScope(BaseModel):
     policy_type: Mapped[str] = mapped_column(String(16), comment="策略类型（select/region/match/extension）")
     config: Mapped[ConcurrentStableList[ConcurrentStableDict[str, object]]] = mapped_column(
         StableJson, default=list, comment="结构化策略配置（只选不编，按策略分结构）"
+    )
+    parent_id: Mapped[int | None] = mapped_column(
+        BigInteger, nullable=True, comment="上级明细 ID（自引用同表 id；顶层 NULL）"
     )

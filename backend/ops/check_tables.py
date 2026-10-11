@@ -17,7 +17,9 @@ uv run python -m ops.check_tables --offline    # 仅离线断言（无库场景�
    `chain_tables` 中（派生自证 + 防漏；`*` 基础设施表跳过）；
 4. **脚本表集不越界（净新建口径）**：每条**有脚本**的链，按**整链汇总**后
    `（建表 ∪ 批量改表）− 删表 ⊆ 该链 chain_tables`——同一链内先建后删的表**净零**放行
-   （表迁出后历史建表脚本 + 补删表迁移即属此类，如 `org:tenant` 的 `sys_user`）。
+   （表迁出后历史建表脚本 + 补删表迁移即属此类，如 `org:tenant` 的 `sys_user`）；
+5. **form_key 一致**（02_11）：`FormRegistry().validate()`（标识格式与跨表全局唯一）+ `FORM_CATALOG`
+   与模型元数据**双向一致**（清单表须有 `form_key` 列；有 `form_key` 列的模型表须在清单）。
 
 接库（`--url`）：读平台服务库 `sys_table_ownership`（未软删行）与清单**双向对账**（缺行 / 清单外行 /
 字段不符），只读不写；空库判失败（种子未执行）。
@@ -51,6 +53,7 @@ from bms_core.db.migration import (
 from bms_core.db.sync import is_sync_only_url
 from bms_core.models.base import Base
 from bms_core.models.ownership import SysTableOwnership
+from bms_core.registry.forms import FORM_CATALOG, FormRegistry
 from bms_core.services.module_registry import enabled_service_keys
 from bms_core.services.table_registry import (
     OWNER_EVERY_SERVICE,
@@ -132,6 +135,30 @@ def check_offline(*, versions_root: Path = VERSIONS_ROOT) -> ConcurrentStableLis
             errors.add(f"{record.table_name}：enabled 但未进入归属服务 {record.owner} 的 {record.datasource} 链")
 
     errors.update(_check_script_tables(versions_root))
+    errors.update(_check_form_keys())
+    return errors
+
+
+def _check_form_keys() -> ConcurrentStableList[str]:
+    """系统字段 `form_key` 校验（02_11）：清单自校验 + 清单 ↔ 模型双向一致。
+
+    Returns:
+        ConcurrentStableList[str]: 违规明细。
+    """
+    errors = ConcurrentStableList(FormRegistry().validate())
+    catalog_tables: ConcurrentStableSet[str] = ConcurrentStableSet(record.table for record in FORM_CATALOG)
+    for record in FORM_CATALOG:
+        table = Base.metadata.tables.get(record.table)
+        if table is None:
+            errors.add(f"form_key 清单表缺模型：{record.table}（form_key={record.form_key}）")
+        elif "form_key" not in table.columns:
+            errors.add(f"模型表缺 form_key 列：{record.table}（须与 form_key 清单一致）")
+    for name in sorted(imported_model_tables()):
+        table = Base.metadata.tables.get(name)
+        if table is None or "form_key" not in table.columns:
+            continue
+        if name not in catalog_tables:
+            errors.add(f"模型表有 form_key 列但未登记 form_key 清单：{name}")
     return errors
 
 

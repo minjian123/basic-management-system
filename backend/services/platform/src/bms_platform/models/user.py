@@ -44,9 +44,17 @@ class SysUser(BaseModel):
     """用户（系统账号，`sys_user`）：本地登录凭据与账号状态。"""
 
     __tablename__ = "sys_user"
-    __table_args__ = (UniqueConstraint("username", "deleted_at", name="uq_sys_user_username_deleted_at"),)
+    __table_args__ = (
+        UniqueConstraint("code", "deleted_at", name="uq_sys_user_code_deleted_at"),
+        UniqueConstraint("form_key", "deleted_at", name="uq_sys_user_form_key_deleted_at"),
+    )
 
-    username: Mapped[str] = mapped_column(String(64), comment="登录账号（唯一；软删除后可复用）")
+    form_key: Mapped[str] = mapped_column(
+        String(64), default="user", comment="表单标识（多表联合判别列；全局唯一、保存后不变）"
+    )
+    username: Mapped[str] = mapped_column(
+        "code", String(64), comment="登录账号（唯一；软删除后可复用；DB 列名为 code）"
+    )
     password_hash: Mapped[str] = mapped_column(String(255), comment="口令哈希（PBKDF2 自描述串）")
     name: Mapped[str] = mapped_column(String(128), comment="用户昵称 / 显示名")
     status: Mapped[str] = mapped_column(String(16), default="enabled", comment="状态（enabled/disabled）")
@@ -70,6 +78,9 @@ class SysUser(BaseModel):
     )
     locale: Mapped[str | None] = mapped_column(String(16), nullable=True, comment="语言偏好（如 zh-cn）")
     timezone: Mapped[str | None] = mapped_column(String(64), nullable=True, comment="时区偏好（如 Asia/Shanghai）")
+    parent_id: Mapped[int | None] = mapped_column(
+        BigInteger, nullable=True, comment="上级字典 ID（自引用同表 id；顶层 NULL）"
+    )
 
 
 class SysAccountLock(BaseModel):
@@ -96,4 +107,7 @@ class SysAccountLock(BaseModel):
     unlock_by: Mapped[int | None] = mapped_column(BigInteger, nullable=True, comment="解锁操作人（自动解锁为 NULL）")
     unlock_mode: Mapped[str | None] = mapped_column(
         String(16), nullable=True, comment="解锁方式（manual/auto；NULL=未解锁）"
+    )
+    parent_id: Mapped[int | None] = mapped_column(
+        BigInteger, nullable=True, comment="上级明细 ID（自引用同表 id；顶层 NULL）"
     )

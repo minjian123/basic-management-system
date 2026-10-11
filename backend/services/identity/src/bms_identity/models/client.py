@@ -5,7 +5,7 @@
 - 表结构以《数据库设计》数据表文件为唯一事实源（`sys_client`）。
 """
 
-from sqlalchemy import String, Text, UniqueConstraint
+from sqlalchemy import BigInteger, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from bms_core.models.base import BaseModel
@@ -15,9 +15,17 @@ class SysClient(BaseModel):
     """第三方应用客户端（`sys_client`）：OIDC 授权码 / Client Credentials 载体。"""
 
     __tablename__ = "sys_client"
-    __table_args__ = (UniqueConstraint("client_id", "deleted_at", name="uq_sys_client_client_id_deleted_at"),)
+    __table_args__ = (
+        UniqueConstraint("code", "deleted_at", name="uq_sys_client_code_deleted_at"),
+        UniqueConstraint("form_key", "deleted_at", name="uq_sys_client_form_key_deleted_at"),
+    )
 
-    client_id: Mapped[str] = mapped_column(String(64), comment="客户端标识（服务端生成；租户内唯一）")
+    form_key: Mapped[str] = mapped_column(
+        String(64), default="client", comment="表单标识（多表联合判别列；全局唯一、保存后不变）"
+    )
+    client_id: Mapped[str] = mapped_column(
+        "code", String(64), comment="客户端标识（服务端生成；租户内唯一；DB 列名为 code）"
+    )
     client_secret_hash: Mapped[str | None] = mapped_column(
         String(255), nullable=True, comment="客户端密钥哈希（PBKDF2 自描述串；公共客户端为空）"
     )
@@ -29,3 +37,6 @@ class SysClient(BaseModel):
     scopes: Mapped[str] = mapped_column(Text, comment="允许申请 scope 集合 JSON 数组")
     ip_whitelist: Mapped[str] = mapped_column(Text, comment="来源 IP / CIDR 白名单 JSON 数组（应用侧写 []）")
     status: Mapped[str] = mapped_column(String(16), default="enabled", comment="状态（enabled/disabled）")
+    parent_id: Mapped[int | None] = mapped_column(
+        BigInteger, nullable=True, comment="上级字典 ID（自引用同表 id；顶层 NULL）"
+    )

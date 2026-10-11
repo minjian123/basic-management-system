@@ -6,7 +6,7 @@
 
 from datetime import datetime
 
-from sqlalchemy import DateTime, String, UniqueConstraint
+from sqlalchemy import BigInteger, DateTime, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from bms_core.models.base import BaseModel
@@ -20,8 +20,14 @@ class SysTenant(BaseModel):
     """
 
     __tablename__ = "sys_tenant"
-    __table_args__ = (UniqueConstraint("code", "deleted_at", name="uq_sys_tenant_code_deleted_at"),)
+    __table_args__ = (
+        UniqueConstraint("code", "deleted_at", name="uq_sys_tenant_code_deleted_at"),
+        UniqueConstraint("form_key", "deleted_at", name="uq_sys_tenant_form_key_deleted_at"),
+    )
 
+    form_key: Mapped[str] = mapped_column(
+        String(64), default="tenant", comment="表单标识（多表联合判别列；全局唯一、保存后不变）"
+    )
     code: Mapped[str] = mapped_column(String(64), comment="租户编码（全小写）")
     name: Mapped[str] = mapped_column(String(128), comment="租户名称")
     domain: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True, comment="子域名")
@@ -32,3 +38,6 @@ class SysTenant(BaseModel):
     )
     status: Mapped[str] = mapped_column(String(16), default="active", comment="状态（active/suspended）")
     expire_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, comment="到期时间（UTC）")
+    parent_id: Mapped[int | None] = mapped_column(
+        BigInteger, nullable=True, comment="上级字典 ID（自引用同表 id；顶层 NULL）"
+    )

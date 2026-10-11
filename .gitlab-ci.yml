@@ -203,6 +203,9 @@ base-integrity:
   image: $REGISTRY_IMAGE_PREFIX/ci-backend:py314
   script:
     - python scripts/tools/base-check/check-base.py
+    # 系统字段 form_key：构建期清单 ↔ 表文件双向一致 + 跨表全局唯一（02_11）
+    - python scripts/tools/base-check/check-system-fields.py
+    - python scripts/tools/base-check/check-system-fields.py --self-test
     # 环境变量模板键位一致性（密钥键位齐备 / 无废弃键 / 无真实密钥；04_03）
     - python scripts/tools/base-check/check-env-example.py
     - python scripts/tools/base-check/check-env-example.py --self-test

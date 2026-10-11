@@ -8,7 +8,7 @@
 
 from datetime import datetime
 
-from sqlalchemy import DateTime, Index, Integer, String, UniqueConstraint
+from sqlalchemy import BigInteger, DateTime, Index, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from bms_core.models.base import BaseModel
@@ -55,6 +55,9 @@ class GlobalTxnBranch(BaseModel):
     request_hash: Mapped[str | None] = mapped_column(
         String(64), nullable=True, comment="分支执行载荷摘要（分支级幂等）"
     )
+    parent_id: Mapped[int | None] = mapped_column(
+        BigInteger, nullable=True, comment="上级明细 ID（自引用同表 id；顶层 NULL）"
+    )
 
 
 class GlobalTxnRecovery(BaseModel):
@@ -74,3 +77,6 @@ class GlobalTxnRecovery(BaseModel):
     actor: Mapped[str] = mapped_column(String(64), comment="处置方（recoverer / operator）")
     handler: Mapped[str | None] = mapped_column(String(64), nullable=True, comment="人工处置的操作人标识")
     conclusion: Mapped[str | None] = mapped_column(String(255), nullable=True, comment="处置结论")
+    parent_id: Mapped[int | None] = mapped_column(
+        BigInteger, nullable=True, comment="上级明细 ID（自引用同表 id；顶层 NULL）"
+    )

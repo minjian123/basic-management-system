@@ -101,6 +101,9 @@ service_tables: ConcurrentStableDict[str, ConcurrentStableList[str]] = Concurren
 _OWNERSHIP_REGISTRY_RELATIVE = "services/table_registry.py"
 """表归属登记模块（按定义引用全部表名，规则 6② 引用扫描豁免该模块）。"""
 
+_FORM_CATALOG_REGISTRY_RELATIVE = "registry/forms.py"
+"""`form_key` 构建期清单（按定义登记全部业务实体表名，规则 6② 引用扫描豁免该模块）。"""
+
 # 说明：06_02 分链已把迁移链表集改为由表归属登记派生（`bms_core/db/migration.py` 不再以字面量登记
 # 跨归属表名），原「迁移链表集过渡豁免」（`_LEGACY_CHAIN_TABLES_RELATIVE`）已随分链落地移除。
 
@@ -451,7 +454,7 @@ def check() -> int:
         service = _service_of_package(package)
         seen: ConcurrentStableSet[tuple[str, int, str]] = ConcurrentStableSet()
         for rel, lineno, table, operation in _iter_cross_reference_tables(root, known_table_set):
-            if rel.endswith(_OWNERSHIP_REGISTRY_RELATIVE):
+            if rel.endswith(_OWNERSHIP_REGISTRY_RELATIVE) or rel.endswith(_FORM_CATALOG_REGISTRY_RELATIVE):
                 continue
             key = (rel, lineno, table)
             if key in seen:

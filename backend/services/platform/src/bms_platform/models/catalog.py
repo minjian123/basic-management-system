@@ -23,12 +23,18 @@ class SysModule(BaseModel):
 
     __tablename__ = "sys_module"
     __table_args__ = (
-        UniqueConstraint("module_key", "deleted_at", name="uq_sys_module_key_deleted_at"),
+        UniqueConstraint("code", "deleted_at", name="uq_sys_module_code_deleted_at"),
+        UniqueConstraint("form_key", "deleted_at", name="uq_sys_module_form_key_deleted_at"),
         UniqueConstraint("table_prefix", "deleted_at", name="uq_sys_module_prefix_deleted_at"),
         UniqueConstraint("event_domain", "deleted_at", name="uq_sys_module_domain_deleted_at"),
     )
 
-    module_key: Mapped[str] = mapped_column(String(32), comment="行登记标识（模块简称 / 服务标识）")
+    form_key: Mapped[str] = mapped_column(
+        String(64), default="module", comment="表单标识（多表联合判别列；全局唯一、保存后不变）"
+    )
+    module_key: Mapped[str] = mapped_column(
+        "code", String(32), comment="行登记标识（模块简称 / 服务标识；DB 列名为 code）"
+    )
     service_key: Mapped[str | None] = mapped_column(
         String(32), nullable=True, comment="服务维度标识（微服务工程名，如 platform）"
     )
@@ -49,6 +55,9 @@ class SysModule(BaseModel):
     contract_version: Mapped[str] = mapped_column(String(16), default="0.1.0", comment="契约版本（semver）")
     product_key: Mapped[str | None] = mapped_column(String(32), nullable=True, comment="产品标识（biz/cw；空=平台）")
     status: Mapped[str] = mapped_column(String(16), default="enabled", comment="状态（enabled/disabled/planned）")
+    parent_id: Mapped[int | None] = mapped_column(
+        BigInteger, nullable=True, comment="上级字典 ID（自引用同表 id；顶层 NULL）"
+    )
 
 
 class SysModuleI18n(BaseModel):
@@ -67,6 +76,9 @@ class SysModuleI18n(BaseModel):
     module_id: Mapped[int] = mapped_column(BigInteger, comment="模块 ID（逻辑外键 → sys_module.id）")
     locale: Mapped[str] = mapped_column(String(16), comment="语言标识（如 zh-CN）")
     name: Mapped[str] = mapped_column(String(128), comment="模块名文案")
+    parent_id: Mapped[int | None] = mapped_column(
+        BigInteger, nullable=True, comment="上级明细 ID（自引用同表 id；顶层 NULL）"
+    )
 
 
 class SysProduct(BaseModel):
@@ -79,13 +91,24 @@ class SysProduct(BaseModel):
     """
 
     __tablename__ = "sys_product"
-    __table_args__ = (UniqueConstraint("product_key", "deleted_at", name="uq_sys_product_key_deleted_at"),)
+    __table_args__ = (
+        UniqueConstraint("code", "deleted_at", name="uq_sys_product_code_deleted_at"),
+        UniqueConstraint("form_key", "deleted_at", name="uq_sys_product_form_key_deleted_at"),
+    )
 
-    product_key: Mapped[str] = mapped_column(String(32), comment="产品标识（如 mdm / biz / cw）")
+    form_key: Mapped[str] = mapped_column(
+        String(64), default="product", comment="表单标识（多表联合判别列；全局唯一、保存后不变）"
+    )
+    product_key: Mapped[str] = mapped_column(
+        "code", String(32), comment="产品标识（如 mdm / biz / cw；DB 列名为 code）"
+    )
     name: Mapped[str] = mapped_column(String(128), comment="产品名称（默认文案）")
     frontend_package_source: Mapped[str | None] = mapped_column(
         String(255), nullable=True, comment="前端包来源（产品前端模块产物的获取来源；本期留空）"
     )
     status: Mapped[str] = mapped_column(
         String(16), default="enabled", comment="状态（enabled/disabled/planned/retired）"
+    )
+    parent_id: Mapped[int | None] = mapped_column(
+        BigInteger, nullable=True, comment="上级字典 ID（自引用同表 id；顶层 NULL）"
     )
