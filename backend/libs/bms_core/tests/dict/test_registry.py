@@ -1,5 +1,7 @@
 """字典数据源登记注册表用例（02_09）：清单校验、注入合并、查询与非法项。"""
 
+import pytest
+
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.dict.registry import (
     DICT_CATALOG,
@@ -9,6 +11,7 @@ from bms_core.dict.registry import (
 )
 
 
+@pytest.mark.kiwi_id(2285)
 def test_catalog_is_valid() -> None:
     """构建期清单自身通过离线校验。"""
     registry = DictRegistry()
@@ -18,6 +21,7 @@ def test_catalog_is_valid() -> None:
     assert "org_dept" in keys
 
 
+@pytest.mark.kiwi_id(2285)
 def test_merge_inject_appends() -> None:
     """注入记录追加在构建期清单之后（插入序）。"""
     injected = DictRecord(
@@ -34,6 +38,7 @@ def test_merge_inject_appends() -> None:
     assert registry.validate() == []
 
 
+@pytest.mark.kiwi_id(2285)
 def test_validate_reports_issues() -> None:
     """非法项被逐条报出（格式 / 重复 / 缺名 / 产品缺产品标识 / 策略非法 / 白名单非法）。"""
     records: ConcurrentStableList[DictRecord] = ConcurrentStableList(

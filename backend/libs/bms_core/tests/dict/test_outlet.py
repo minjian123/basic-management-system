@@ -1,5 +1,7 @@
 """字典统一出口用例（02_09）：登记路由取数 / 翻译、未命中等价空结果、批量合并、缓存与过滤。"""
 
+import pytest
+
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.dict.base import DictBatchQuery, DictItem, DictQuery, DictTranslateQuery
 from bms_core.dict.cache import MemoryDictCacheRegion
@@ -38,6 +40,7 @@ def _source(
     return RoutedDictSource(DictOutlet(_registry(records), providers), MemoryDictCacheRegion())
 
 
+@pytest.mark.kiwi_id(2285)
 async def test_by_type_routes_to_provider() -> None:
     """命中登记的字典经 `data_source` 路由到对应提供者。"""
     record = DictRecord(dict_key="role", name="角色", data_source="platform")
@@ -47,6 +50,7 @@ async def test_by_type_routes_to_provider() -> None:
     assert result.items[0].label == "管理员"
 
 
+@pytest.mark.kiwi_id(2285)
 async def test_unknown_or_disabled_returns_empty() -> None:
     """未登记 / 停用 / 无提供者一律返回空结果（版本 0、items=()）。"""
     disabled = DictRecord(dict_key="role", name="角色", data_source="platform", status="disabled")
@@ -57,6 +61,7 @@ async def test_unknown_or_disabled_returns_empty() -> None:
     assert off.version == 0 and off.items == ()
 
 
+@pytest.mark.kiwi_id(2285)
 async def test_filters_keyword_and_values() -> None:
     """关键字 / 按值子集过滤在出口生效。"""
     record = DictRecord(dict_key="role", name="角色", data_source="platform")
@@ -67,6 +72,7 @@ async def test_filters_keyword_and_values() -> None:
     assert by_values.items is not None and by_values.items[0].value == "viewer"
 
 
+@pytest.mark.kiwi_id(2285)
 async def test_version_current_returns_none_items() -> None:
     """版本一致时 items 返回 None（省流量）。"""
     record = DictRecord(dict_key="role", name="角色", data_source="platform")
@@ -76,6 +82,7 @@ async def test_version_current_returns_none_items() -> None:
     assert again.items is None
 
 
+@pytest.mark.kiwi_id(2285)
 async def test_batch_merges() -> None:
     """批量合并逐标识路由，返回内层结果映射。"""
     record = DictRecord(dict_key="role", name="角色", data_source="platform")
@@ -87,6 +94,7 @@ async def test_batch_merges() -> None:
     assert unknown is not None and unknown.items == ()
 
 
+@pytest.mark.kiwi_id(2285)
 async def test_translate_routes_and_maps() -> None:
     """翻译经路由到提供者，value → label；未命中不占位。"""
     record = DictRecord(dict_key="role", name="角色", data_source="platform")
