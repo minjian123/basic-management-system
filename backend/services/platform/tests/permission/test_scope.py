@@ -60,11 +60,13 @@ def _provider() -> RbacDataScope:
     return RbacDataScope(Settings())
 
 
-def _rule(dict_key: int, policy_type: str, config: ConcurrentStableList[object]) -> ConcurrentStableDict[str, object]:
+def _rule(
+    data_source_key: int, policy_type: str, config: ConcurrentStableList[object]
+) -> ConcurrentStableDict[str, object]:
     """构造一条数据范围规则（快照载荷行）。
 
     Args:
-        dict_key: 字典类型主键。
+        data_source_key: 数据源标识（快照载荷行合成值）。
         policy_type: 策略类型。
         config: 策略配置行。
 
@@ -72,7 +74,7 @@ def _rule(dict_key: int, policy_type: str, config: ConcurrentStableList[object])
         ConcurrentStableDict[str, object]: 规则行。
     """
     row: ConcurrentStableDict[str, object] = ConcurrentStableDict()
-    row.set("dict_key", dict_key)
+    row.set("data_source_key", data_source_key)
     row.set("policy_type", policy_type)
     row.set("config", list(config))
     return row

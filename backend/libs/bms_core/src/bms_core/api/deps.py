@@ -33,7 +33,7 @@ from bms_core.db.session import (
     get_write_db,
 )
 from bms_core.db.tenant import TenantContext, TenantLookup, get_tenant
-from bms_core.dict.base import get_dict_cache_region, get_dict_source, get_dict_translator
+from bms_core.dict.base import get_data_source, get_dict_cache_region, get_dict_translator
 from bms_core.dict.query import DictQueryService
 from bms_core.edge.base import get_edge_trust, require_edge_identity
 from bms_core.events.base import get_event_publisher
@@ -100,10 +100,10 @@ __all__ = [
     "get_config_service",
     "get_config_source",
     "get_dashboard_card_registry",
+    "get_data_source",
     "get_db",
     "get_dict_cache_region",
     "get_dict_query_service",
-    "get_dict_source",
     "get_dict_translator",
     "get_distributed_lock",
     "get_edge_trust",
@@ -180,7 +180,7 @@ def get_dict_query_service(request: Request) -> DictQueryService:
     Returns:
         DictQueryService: 字典高级查询服务实例。
     """
-    return DictQueryService(source=get_dict_source(request))
+    return DictQueryService(source=get_data_source(request))
 
 
 def get_config_service(request: Request) -> ConfigService:

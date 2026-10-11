@@ -3756,7 +3756,7 @@
             "description": "条件组 JSON",
             "title": "Conditions"
           },
-          "dict_key": {
+          "data_source_key": {
             "anyOf": [
               {
                 "type": "string"
@@ -3766,7 +3766,7 @@
               }
             ],
             "description": "字典标识（target=items 时填）",
-            "title": "Dict Key"
+            "title": "Data Source Key"
           },
           "field_key": {
             "anyOf": [
@@ -4159,9 +4159,9 @@
             "title": "Config",
             "type": "array"
           },
-          "dict_key": {
+          "data_source_key": {
             "description": "字典标识（业务码字符串）",
-            "title": "Dict Key",
+            "title": "Data Source Key",
             "type": "string"
           },
           "id": {
@@ -4177,7 +4177,7 @@
         },
         "required": [
           "id",
-          "dict_key",
+          "data_source_key",
           "policy_type"
         ],
         "title": "RoleDataScopeEntryItem",
@@ -4196,10 +4196,10 @@
             "title": "Config",
             "type": "array"
           },
-          "dict_key": {
+          "data_source_key": {
             "description": "字典标识（业务码字符串，如 org_dept / role）",
             "minLength": 1,
-            "title": "Dict Key",
+            "title": "Data Source Key",
             "type": "string"
           },
           "policy_type": {
@@ -4215,7 +4215,7 @@
           }
         },
         "required": [
-          "dict_key",
+          "data_source_key",
           "policy_type"
         ],
         "title": "RoleDataScopeEntryRequest",
@@ -7189,6 +7189,108 @@
         ]
       }
     },
+    "/api/v1/data-sources": {
+      "get": {
+        "description": "列统一数据源登记清单（供数据权限左列 / 通用页面）。\n\nArgs:\n    kind: 类型过滤（`dict` / `form`；空 = 全部）。\n\nReturns:\n    ApiResponse: 统一响应，data 为登记清单数组。\n\nRaises:\n    ParamError: 类型取值非法。",
+        "operationId": "list_data_sources_api_v1_data_sources_get",
+        "parameters": [
+          {
+            "description": "按类型过滤（dict / form；空 = 全部）",
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "按类型过滤（dict / form；空 = 全部）",
+              "title": "Kind"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "List Data Sources",
+        "tags": [
+          "data-source"
+        ]
+      }
+    },
     "/api/v1/demos": {
       "get": {
         "description": "demo 列表。\n\nReturns:\n    ApiResponse: 统一响应，data 为记录数组。",
@@ -7636,78 +7738,6 @@
         ]
       }
     },
-    "/api/v1/dicts": {
-      "get": {
-        "description": "列可用字典登记清单（供数据权限左列 / 字典页）。\n\nArgs:\n    translator: 字典翻译契约（占位注入以固定鉴权依赖顺序，未使用）。\n\nReturns:\n    ApiResponse: 统一响应，data 为登记清单数组。",
-        "operationId": "list_dicts_api_v1_dicts_get",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            },
-            "description": "未认证"
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            },
-            "description": "无权限"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            },
-            "description": "资源不存在"
-          },
-          "429": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            },
-            "description": "限流"
-          },
-          "500": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            },
-            "description": "服务异常"
-          }
-        },
-        "summary": "List Dicts",
-        "tags": [
-          "dict"
-        ]
-      }
-    },
     "/api/v1/dicts/batch": {
       "post": {
         "description": "批量合并取字典（一次请求多标识；版本一致的标识 items 返回 null）。\n\nArgs:\n    source: 字典取数契约。\n    query: 批量取数参数（types / version / locale）。\n    request: 请求对象（语言解析）。\n\nReturns:\n    ApiResponse: 统一响应，data 为批量结果。",
@@ -7802,13 +7832,13 @@
     },
     "/api/v1/dicts/query-providers": {
       "get": {
-        "description": "列可用查询提供者（按标识过滤；含参数 schema 子集）。\n\nArgs:\n    registry: 查询提供者注册表。\n    dict_key: 字典标识（可选）。\n\nReturns:\n    ApiResponse: 统一响应，data 为提供者清单数组。",
+        "description": "列可用查询提供者（按标识过滤；含参数 schema 子集）。\n\nArgs:\n    registry: 查询提供者注册表。\n    data_source_key: 字典标识（可选）。\n\nReturns:\n    ApiResponse: 统一响应，data 为提供者清单数组。",
         "operationId": "list_query_providers_api_v1_dicts_query_providers_get",
         "parameters": [
           {
             "description": "按字典标识过滤（空 = 全部）",
             "in": "query",
-            "name": "dict_key",
+            "name": "data_source_key",
             "required": false,
             "schema": {
               "anyOf": [
@@ -7820,7 +7850,7 @@
                 }
               ],
               "description": "按字典标识过滤（空 = 全部）",
-              "title": "Dict Key"
+              "title": "Data Source Key"
             }
           }
         ],
@@ -7902,17 +7932,17 @@
         ]
       }
     },
-    "/api/v1/dicts/{dict_key}": {
+    "/api/v1/dicts/{data_source_key}": {
       "get": {
-        "description": "按字典标识取字典（版本比对 / 关键字 / 级联 / 按值子集 / 上限）。\n\nArgs:\n    source: 字典取数契约。\n    dict_key: 字典标识。\n    request: 请求对象（语言解析）。\n    version: 客户端本地版本号。\n    keyword: 关键字。\n    parent_id: 上级条目 ID（0 = 顶层）。\n    values: 逗号分隔的 value 子集。\n    limit: 返回条数上限。\n\nReturns:\n    ApiResponse: 统一响应，data 为单标识取数结果。",
-        "operationId": "get_dict_by_type_api_v1_dicts__dict_key__get",
+        "description": "按字典标识取字典（版本比对 / 关键字 / 级联 / 按值子集 / 上限）。\n\nArgs:\n    source: 字典取数契约。\n    data_source_key: 字典标识。\n    request: 请求对象（语言解析）。\n    version: 客户端本地版本号。\n    keyword: 关键字。\n    parent_id: 上级条目 ID（0 = 顶层）。\n    values: 逗号分隔的 value 子集。\n    limit: 返回条数上限。\n\nReturns:\n    ApiResponse: 统一响应，data 为单标识取数结果。",
+        "operationId": "get_dict_by_type_api_v1_dicts__data_source_key__get",
         "parameters": [
           {
             "in": "path",
-            "name": "dict_key",
+            "name": "data_source_key",
             "required": true,
             "schema": {
-              "title": "Dict Key",
+              "title": "Data Source Key",
               "type": "string"
             }
           },
@@ -8087,17 +8117,17 @@
         ]
       }
     },
-    "/api/v1/dicts/{dict_key}/advanced-query": {
+    "/api/v1/dicts/{data_source_key}/advanced-query": {
       "post": {
-        "description": "字典高级查询（items 条件引擎 / business 提供者）。\n\nArgs:\n    query_service: 高级查询服务。\n    registry: 查询提供者注册表。\n    dict_key: 字典标识。\n    payload: 查询请求体。\n    request: 请求对象（语言解析）。\n\nReturns:\n    ApiResponse: 统一响应，data 为分页结果。",
-        "operationId": "advanced_query_dict_api_v1_dicts__dict_key__advanced_query_post",
+        "description": "字典高级查询（items 条件引擎 / business 提供者）。\n\nArgs:\n    query_service: 高级查询服务。\n    registry: 查询提供者注册表。\n    data_source_key: 字典标识。\n    payload: 查询请求体。\n    request: 请求对象（语言解析）。\n\nReturns:\n    ApiResponse: 统一响应，data 为分页结果。",
+        "operationId": "advanced_query_dict_api_v1_dicts__data_source_key__advanced_query_post",
         "parameters": [
           {
             "in": "path",
-            "name": "dict_key",
+            "name": "data_source_key",
             "required": true,
             "schema": {
-              "title": "Dict Key",
+              "title": "Data Source Key",
               "type": "string"
             }
           }
@@ -8190,17 +8220,17 @@
         ]
       }
     },
-    "/api/v1/dicts/{dict_key}/attrs": {
+    "/api/v1/dicts/{data_source_key}/attrs": {
       "get": {
-        "description": "取字典查询字段 schema（供高级查询条件构建；本期为固定字段）。\n\nArgs:\n    query_service: 高级查询服务。\n    dict_key: 字典标识。\n    request: 请求对象（语言解析）。\n\nReturns:\n    ApiResponse: 统一响应，data 为字段清单。",
-        "operationId": "get_dict_attrs_api_v1_dicts__dict_key__attrs_get",
+        "description": "取字典查询字段 schema（供高级查询条件构建；本期为固定字段）。\n\nArgs:\n    query_service: 高级查询服务。\n    data_source_key: 字典标识。\n    request: 请求对象（语言解析）。\n\nReturns:\n    ApiResponse: 统一响应，data 为字段清单。",
+        "operationId": "get_dict_attrs_api_v1_dicts__data_source_key__attrs_get",
         "parameters": [
           {
             "in": "path",
-            "name": "dict_key",
+            "name": "data_source_key",
             "required": true,
             "schema": {
-              "title": "Dict Key",
+              "title": "Data Source Key",
               "type": "string"
             }
           }

@@ -4,7 +4,8 @@
 
 - 授权引用**平台元数据**（`sys_menu` / `sys_form` / `sys_permission` / `sys_field`，platform 平台库）；
   角色与授权表在 **platform 租户库**（`bms_platform_{code}`）——同服务、跨库，校验在同服务内完成；
-- **数据权限**按基础数据字典结构化（字典标识 `dict_key` 经**字典数据源登记**校验字段白名单与存在性，无需跨服务读出口）；
+- **数据权限**按基础数据字典结构化（数据源标识 `data_source_key` 经**统一数据源登记**校验字段白名单与存在性，
+  无需跨服务读出口）；
   四类策略（选择 / 区域 / 匹配 / 扩展）**只选不编**，`match.field` 须属该字典类型白名单（内置三字段 + 已启用扩展属性），
   `match.pattern` 仅允许 `*` `?` 与中英文 / 数字 / 下划线，`extension.key` 须在扩展权限注册表内；
 - **全量覆盖提交**（先删后插、单事务）；成功**一次**权限版本 +1（`bms:{租户}:permission:version`）供权限计算失效；
@@ -30,9 +31,9 @@ from bms_core.core.exceptions import (
     RoleTargetInvalidError,
 )
 from bms_core.core.objects import BaseFrameworkObject, BaseValueObject
+from bms_core.datasource.registry import DataSourceRegistry
 from bms_core.db.session import DbSession
 from bms_core.db.unit_of_work import UnitOfWork
-from bms_core.dict.registry import DictRegistry
 from bms_core.permission.version import permission_version_key
 from bms_core.scope.extensions import registered_data_scope_extensions
 from bms_platform.models.menu import SysField, SysForm, SysMenu, SysPermission
@@ -87,7 +88,7 @@ class FieldGrantEntry(BaseValueObject):
 class DataScopeGrantEntry(BaseValueObject):
     """一条数据权限条目（角色 × 字典 × 策略 → 结构化配置）。"""
 
-    dict_key: str
+    data_source_key: str
     policy_type: str
     config: ConcurrentStableList[ConcurrentStableDict[str, object]]
 
@@ -314,7 +315,7 @@ class RoleGrantService(BaseFrameworkObject):
                 created.add(
                     await self._data_scopes.create(
                         role_id=role_id,
-                        dict_key=entry.dict_key,
+                        data_source_key=entry.data_source_key,
                         policy_type=entry.policy_type,
                         config=[item for item in entry.config],
                     )
@@ -444,14 +445,14 @@ class RoleGrantService(BaseFrameworkObject):
         for entry in entries:
             if entry.policy_type not in POLICY_TYPES:
                 raise RoleScopeValueInvalidError(f"数据权限策略非法：{entry.policy_type}")
-            if not self._dict_key_exists(entry.dict_key):
-                raise RoleScopeValueInvalidError(f"字典标识不存在：{entry.dict_key}")
-            key = (entry.dict_key, entry.policy_type)
+            if not self._data_source_key_exists(entry.data_source_key):
+                raise RoleScopeValueInvalidError(f"字典标识不存在：{entry.data_source_key}")
+            key = (entry.data_source_key, entry.policy_type)
             if key in seen:
                 raise RoleScopeValueInvalidError("同一字典同一策略只允许一条")
             seen.add(key)
             if entry.policy_type == POLICY_TYPE_MATCH:
-                allowed = self._match_field_whitelist(entry.dict_key)
+                allowed = self._match_field_whitelist(entry.data_source_key)
                 for item in entry.config:
                     field = item.get("field")
                     pattern = item.get("pattern")
@@ -465,23 +466,23 @@ class RoleGrantService(BaseFrameworkObject):
                     if not isinstance(extension_key, str) or extension_key not in registered_keys:
                         raise RoleScopeValueInvalidError(f"扩展权限未注册：{extension_key}")
 
-    def _dict_key_exists(self, dict_key: str) -> bool:
+    def _data_source_key_exists(self, data_source_key: str) -> bool:
         """字典标识是否已登记（启用）。
 
         Args:
-            dict_key: 字典标识（业务码）。
+            data_source_key: 字典标识（业务码）。
 
         Returns:
             bool: 已登记且启用为 True。
         """
-        record = DictRegistry().get(dict_key)
+        record = DataSourceRegistry().get(data_source_key)
         return record is not None and record.status == "enabled"
 
-    def _match_field_whitelist(self, dict_key: str) -> ConcurrentStableSet[str]:
+    def _match_field_whitelist(self, data_source_key: str) -> ConcurrentStableSet[str]:
         """取某字典的可匹配字段白名单（登记项 `allowlist` + 内置三字段）。
 
         Args:
-            dict_key: 字典标识（业务码）。
+            data_source_key: 字典标识（业务码）。
 
         Returns:
             ConcurrentStableSet[str]: 白名单字段键。
@@ -489,9 +490,9 @@ class RoleGrantService(BaseFrameworkObject):
         Raises:
             RoleScopeValueInvalidError: 字典标识不存在。
         """
-        record = DictRegistry().get(dict_key)
+        record = DataSourceRegistry().get(data_source_key)
         if record is None:
-            raise RoleScopeValueInvalidError(f"字典标识不存在：{dict_key}")
+            raise RoleScopeValueInvalidError(f"字典标识不存在：{data_source_key}")
         allowed: ConcurrentStableSet[str] = ConcurrentStableSet(BUILTIN_MATCH_FIELDS)
         allowed.update(record.allowlist)
         return allowed

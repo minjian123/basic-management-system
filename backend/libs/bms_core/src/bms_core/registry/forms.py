@@ -9,8 +9,9 @@
 - 每表 `(form_key, deleted_at)` 复合唯一（DB 层）；**跨表全局唯一**由本清单校验承担。
 - `form_key` **保存后不变**，供通用页面路由 / 查询方案（`field_key = form_key`）/ 用户偏好（`list.{form_key}`）引用。
 
-本模块只登记**界面标识 → 表**；数据源登记（`data_source_key`）归 `DataSourceRegistry`（任务 `02_10`），
-`form_key → data_source_key`（多对一）由二者在构建期合并解析（任务 `02_13` 消费）。
+本模块只登记**界面标识 → 表**；数据源登记（`data_source_key`）归 `DataSourceRegistry`
+（`bms_core/datasource/registry.py`）；`form_key → data_source_key`（多对一）在构建期**回填**
+（默认 1:1 同名，任务 `02_10`），由通用页面路由解析（任务 `02_13` 消费）。
 """
 
 from __future__ import annotations
@@ -63,7 +64,8 @@ class FormRecord(BaseValueObject):
         name: 名称（通用页面路由 / 清单展示）。
         kind: 类型（`dict` 字典 / `form` 表单）。
         status: 状态（`enabled` / `disabled`）。
-        data_source_key: 数据源标识（`form_key → data_source_key` 多对一；由任务 `02_10` 回填，暂空）。
+        data_source_key: 数据源标识（`form_key → data_source_key` 多对一；任务 `02_10` 回填，默认 1:1 同名；
+            与 `DataSourceRegistry` 的**闭合**（回填值已登记）由 `check-system-fields.py` 对 bms 侧清单断言）。
     """
 
     form_key: str
@@ -75,18 +77,23 @@ class FormRecord(BaseValueObject):
 
 
 FORM_CATALOG: tuple[FormRecord, ...] = (
-    FormRecord(form_key="module", table="sys_module", name="业务模块注册"),
-    FormRecord(form_key="product", table="sys_product", name="产品档案"),
-    FormRecord(form_key="business", table="sys_business", name="业务码"),
-    FormRecord(form_key="action", table="sys_action", name="动作码"),
-    FormRecord(form_key="role", table="sys_role", name="角色"),
-    FormRecord(form_key="user", table="sys_user", name="用户"),
-    FormRecord(form_key="config", table="sys_config", name="系统参数"),
-    FormRecord(form_key="tenant", table="sys_tenant", name="租户"),
-    FormRecord(form_key="identity_provider", table="sys_identity_provider", name="外部 IdP 配置"),
-    FormRecord(form_key="client", table="sys_client", name="第三方应用"),
-    FormRecord(form_key="task", table="sys_task", name="定时任务"),
-    FormRecord(form_key="icon", table="sys_icon", name="自定义图标"),
+    FormRecord(form_key="module", table="sys_module", name="业务模块注册", data_source_key="module"),
+    FormRecord(form_key="product", table="sys_product", name="产品档案", data_source_key="product"),
+    FormRecord(form_key="business", table="sys_business", name="业务码", data_source_key="business"),
+    FormRecord(form_key="action", table="sys_action", name="动作码", data_source_key="action"),
+    FormRecord(form_key="role", table="sys_role", name="角色", data_source_key="role"),
+    FormRecord(form_key="user", table="sys_user", name="用户", data_source_key="user"),
+    FormRecord(form_key="config", table="sys_config", name="系统参数", data_source_key="config"),
+    FormRecord(form_key="tenant", table="sys_tenant", name="租户", data_source_key="tenant"),
+    FormRecord(
+        form_key="identity_provider",
+        table="sys_identity_provider",
+        name="外部 IdP 配置",
+        data_source_key="identity_provider",
+    ),
+    FormRecord(form_key="client", table="sys_client", name="第三方应用", data_source_key="client"),
+    FormRecord(form_key="task", table="sys_task", name="定时任务", data_source_key="task"),
+    FormRecord(form_key="icon", table="sys_icon", name="自定义图标", data_source_key="icon"),
 )
 """bms 侧构建期清单（字典表；表单表 `form` 类随产品 / 业务表以注入方式回补）。"""
 
@@ -195,4 +202,8 @@ class FormRegistry(BaseFrameworkObject):
                 issues.add(f"类型取值非法：{record.form_key!r} → {record.kind!r}")
             if record.status not in valid_status:
                 issues.add(f"状态取值非法：{record.form_key!r} → {record.status!r}")
+            if not record.data_source_key:
+                issues.add(f"数据源标识缺失：{record.form_key!r}")
+            elif not _FORM_KEY_RE.match(record.data_source_key):
+                issues.add(f"数据源标识格式非法：{record.form_key!r} → {record.data_source_key!r}")
         return issues

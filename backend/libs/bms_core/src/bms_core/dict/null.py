@@ -4,7 +4,7 @@ from bms_core.core.capability import BaseNullObject
 from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.dict.base import (
     NULL_DICT_VERSION,
-    BaseDictSource,
+    BaseDataSource,
     BaseDictTranslator,
     DictBatchQuery,
     DictBatchResult,
@@ -25,11 +25,11 @@ _TRANSLATE_PREFIX = "占位"
 """占位翻译前缀（`NullDictTranslator` 依此生成标签，便于断言）。"""
 
 
-def _placeholder_items(dict_key: str) -> tuple[DictItem, ...]:
+def _placeholder_items(data_source_key: str) -> tuple[DictItem, ...]:
     """构造类型占位条目（两条：顶层 + 其子级，供级联断言）。
 
     Args:
-        dict_key: 字典类型码。
+        data_source_key: 字典类型码。
 
     Returns:
         tuple[DictItem, ...]: 固定两条占位条目。
@@ -37,9 +37,9 @@ def _placeholder_items(dict_key: str) -> tuple[DictItem, ...]:
     return (
         DictItem(
             id=1,
-            value=f"{dict_key}-1",
-            label=f"占位{dict_key}1",
-            code=f"{dict_key}_1",
+            value=f"{data_source_key}-1",
+            label=f"占位{data_source_key}1",
+            code=f"{data_source_key}_1",
             parent_id=None,
             sort=0,
             status="enabled",
@@ -47,9 +47,9 @@ def _placeholder_items(dict_key: str) -> tuple[DictItem, ...]:
         ),
         DictItem(
             id=2,
-            value=f"{dict_key}-2",
-            label=f"占位{dict_key}2",
-            code=f"{dict_key}_2",
+            value=f"{data_source_key}-2",
+            label=f"占位{data_source_key}2",
+            code=f"{data_source_key}_2",
             parent_id=1,
             sort=1,
             status="enabled",
@@ -82,20 +82,20 @@ def _apply_filters(items: tuple[DictItem, ...], query: DictQuery) -> tuple[DictI
     return result
 
 
-def _type_result(dict_key: str) -> DictTypeResult:
+def _type_result(data_source_key: str) -> DictTypeResult:
     """构造单类型占位结果（两条固定条目）。
 
     Args:
-        dict_key: 字典类型码。
+        data_source_key: 字典类型码。
 
     Returns:
         DictTypeResult: 固定两条条目的占位结果。
     """
-    items = _placeholder_items(dict_key)
+    items = _placeholder_items(data_source_key)
     return DictTypeResult(version=NULL_DICT_VERSION, items=items, has_more=False, total=len(items))
 
 
-class NullDictSource(BaseDictSource, BaseNullObject):
+class NullDictSource(BaseDataSource, BaseNullObject):
     """占位字典取数：固定两条条目、版本一致返空、按条件过滤；不连库、不做真实缓存。"""
 
     async def by_type(self, query: DictQuery) -> DictTypeResult:
@@ -111,7 +111,7 @@ class NullDictSource(BaseDictSource, BaseNullObject):
         if query.version == current:
             return DictTypeResult(version=current, items=None, has_more=False, total=0)
 
-        items = _apply_filters(_placeholder_items(query.dict_key), query)
+        items = _apply_filters(_placeholder_items(query.data_source_key), query)
         total = len(items)
         has_more = query.limit is not None and total > query.limit
         if query.limit is not None:
@@ -149,7 +149,9 @@ class NullDictTranslator(BaseDictTranslator, BaseNullObject):
         Returns:
             ConcurrentStableDict[str, str]: value → 占位标签。
         """
-        return ConcurrentStableDict({value: f"{_TRANSLATE_PREFIX}{query.dict_key}:{value}" for value in query.values})
+        return ConcurrentStableDict(
+            {value: f"{_TRANSLATE_PREFIX}{query.data_source_key}:{value}" for value in query.values}
+        )
 
 
 class NullDictCacheRegion(DictCacheRegion, BaseNullObject):

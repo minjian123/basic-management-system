@@ -11,7 +11,7 @@ from bms_core.dict.http import (
     ACCEPT_LANGUAGE_HEADER,
     DICT_BATCH_PATH,
     TRANSLATE_VALUES_CHUNK,
-    HttpDictSource,
+    HttpDataSource,
     HttpDictTranslator,
 )
 from bms_core.edge.headers import TENANT_ID_HEADER
@@ -75,11 +75,11 @@ async def test_by_type_maps_query_and_parses_response() -> None:
             [{"version": 7, "items": [_item_payload("enabled", "启用")], "has_more": False, "total": 1}]
         )
     )
-    source = HttpDictSource(client=client)
+    source = HttpDataSource(client=client)
     token = set_current_tenant("demo")
     try:
         result = await source.by_type(
-            DictQuery(dict_key="status", version=6, keyword="启", parent_id=None, values=None, limit=10)
+            DictQuery(data_source_key="status", version=6, keyword="启", parent_id=None, values=None, limit=10)
         )
     finally:
         reset_current_tenant(token)
@@ -101,8 +101,8 @@ async def test_by_type_maps_query_and_parses_response() -> None:
 async def test_by_type_version_current_and_values_subset() -> None:
     """版本一致（平台侧返回 `items=null`）→ `items=None`；按值子集经逗号拼接传参。"""
     client = _FakeClient(ConcurrentStableList([{"version": 7, "items": None, "has_more": False, "total": 0}]))
-    source = HttpDictSource(client=client)
-    result = await source.by_type(DictQuery(dict_key="status", values=("a", "b")))
+    source = HttpDataSource(client=client)
+    result = await source.by_type(DictQuery(data_source_key="status", values=("a", "b")))
     assert result.items is None
     assert client.requests[0].query == {"values": "a,b"}
 
@@ -123,7 +123,7 @@ async def test_batch_posts_body_and_parses_items() -> None:
             ]
         )
     )
-    source = HttpDictSource(client=client)
+    source = HttpDataSource(client=client)
     result = await source.batch(DictBatchQuery(types=("status", "level"), version=8))
 
     request = client.requests[0]
@@ -141,7 +141,7 @@ async def test_translate_maps_hits_and_keeps_misses() -> None:
     """翻译：命中取 label、未命中回退原值；单批内一次调用。"""
     client = _FakeClient(ConcurrentStableList([{"version": 3, "items": [_item_payload("a", "甲")], "total": 1}]))
     translator = HttpDictTranslator(client=client)
-    mapping = await translator.translate(DictTranslateQuery(dict_key="status", values=("a", "b")))
+    mapping = await translator.translate(DictTranslateQuery(data_source_key="status", values=("a", "b")))
     assert mapping == {"a": "甲", "b": "b"}
     assert client.requests[0].query == {"values": "a,b"}
 
@@ -153,7 +153,7 @@ async def test_translate_chunks_large_value_sets() -> None:
     values = tuple(f"v{index}" for index in range(size + 1))
     client = _FakeClient(ConcurrentStableList([{"version": 1, "items": [_item_payload(values[0], "首")], "total": 1}]))
     translator = HttpDictTranslator(client=client)
-    mapping = await translator.translate(DictTranslateQuery(dict_key="big", values=values))
+    mapping = await translator.translate(DictTranslateQuery(data_source_key="big", values=values))
     assert len(client.requests) == 2
     assert client.requests[0].query is not None and client.requests[0].query["values"].count(",") == size - 1
     assert mapping[values[0]] == "首"
@@ -162,15 +162,15 @@ async def test_translate_chunks_large_value_sets() -> None:
 @pytest.mark.kiwi_id(2178)
 async def test_degrade_when_platform_unavailable() -> None:
     """降级：平台侧不可达 → 取数返回空结果、批量逐类型空结果、翻译回退原值（不抛业务错）。"""
-    source = HttpDictSource(client=_FakeClient(unavailable=True))
-    single = await source.by_type(DictQuery(dict_key="status"))
+    source = HttpDataSource(client=_FakeClient(unavailable=True))
+    single = await source.by_type(DictQuery(data_source_key="status"))
     assert single.items == () and single.version == 0
     batch = await source.batch(DictBatchQuery(types=("status", "level")))
     assert set(batch.items) == {"status", "level"}
     assert all(item is not None and item.items == () for item in batch.items.values())
 
     translator = HttpDictTranslator(client=_FakeClient(unavailable=True))
-    assert await translator.translate(DictTranslateQuery(dict_key="status", values=("x",))) == {"x": "x"}
+    assert await translator.translate(DictTranslateQuery(data_source_key="status", values=("x",))) == {"x": "x"}
 
 
 @pytest.mark.kiwi_id(2178)
@@ -194,8 +194,8 @@ async def test_degrade_on_non_2xx_and_malformed_payload() -> None:
             """
             return self._response
 
-    bad_status = HttpDictSource(client=_BadClient(ServiceResponse(status_code=503, content=b"")))
-    assert (await bad_status.by_type(DictQuery(dict_key="status"))).items == ()
+    bad_status = HttpDataSource(client=_BadClient(ServiceResponse(status_code=503, content=b"")))
+    assert (await bad_status.by_type(DictQuery(data_source_key="status"))).items == ()
 
-    malformed = HttpDictSource(client=_BadClient(ServiceResponse(status_code=200, content=b'{"code":0}')))
-    assert (await malformed.by_type(DictQuery(dict_key="status"))).items == ()
+    malformed = HttpDataSource(client=_BadClient(ServiceResponse(status_code=200, content=b'{"code":0}')))
+    assert (await malformed.by_type(DictQuery(data_source_key="status"))).items == ()

@@ -14,7 +14,7 @@ from bms_core.catalog.loader import register_catalog_reader
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.db.registry import EngineRegistry
-from bms_core.dict.outlet import register_dict_provider
+from bms_core.dict.outlet import register_data_source
 from bms_platform import CONTRACT_VERSION, SERVICE_NAME, SERVICE_TITLE, __version__
 from bms_platform.api.router import api_router
 from bms_platform.permission.checker import RBAC_PROVIDER_NAME, register_rbac_permission
@@ -23,7 +23,7 @@ from bms_platform.scope.rbac import RBAC_DATA_SCOPE_NAME, register_rbac_data_sco
 from bms_platform.services.branch_handlers import build_branch_handlers
 from bms_platform.services.demo_service import DemoService
 from bms_platform.sources.catalog_source import read_catalog
-from bms_platform.sources.dict_source import PlatformDictDataProvider
+from bms_platform.sources.dict_source import PlatformDictDataSource
 
 
 class ApplicationFactory(BaseServiceApplicationFactory):
@@ -75,4 +75,4 @@ class ApplicationFactory(BaseServiceApplicationFactory):
         # 服务目录权威本地读取器（本服务即 `sys_module` 所有者；共享基座库不静态依赖服务包）
         register_catalog_reader(SERVICE_NAME, read_catalog)
         # 字典平台内建数据源提供者（02_09：`sys_role` 等平台字典经统一出口取数；产品来源由前端直取）
-        register_dict_provider(PlatformDictDataProvider(engines=cast(EngineRegistry, app.state.engine_registry)))
+        register_data_source(PlatformDictDataSource(engines=cast(EngineRegistry, app.state.engine_registry)))

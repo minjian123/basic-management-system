@@ -57,7 +57,7 @@ class PermissionSnapshot(BaseDataContract):
     data_scopes: ConcurrentStableList[ConcurrentStableDict[str, object]] = field(
         default_factory=lambda: ConcurrentStableList[ConcurrentStableDict[str, object]]()
     )
-    """数据范围规则（`dict_key` / `policy_type` / `config`；读注入与写校验）。"""
+    """数据范围规则（`data_source_key` / `policy_type` / `config`；读注入与写校验）。"""
     field_perms: ConcurrentStableList[FieldPermission] = field(
         default_factory=lambda: ConcurrentStableList[FieldPermission]()
     )

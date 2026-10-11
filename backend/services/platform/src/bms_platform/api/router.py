@@ -9,6 +9,7 @@ from bms_core.transaction.api import build_branch_router
 from bms_platform.api import (
     account_locks,
     codecheck,
+    data_source,
     demo,
     icon,
     internal_account_locks,
@@ -38,6 +39,7 @@ api_router = mount_service_routers(
             plugins.router,
             preference.router,
             query_scheme.router,
+            data_source.router,
             dict_api.router,
             icon.router,
             codecheck.router,

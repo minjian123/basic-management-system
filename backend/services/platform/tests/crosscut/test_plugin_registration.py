@@ -44,7 +44,7 @@ _EXPECTED_PLUGIN_KEYS = frozenset(
         "data_ownership_guard",
         "data_scope",
         "dict_cache_region",
-        "dict_source",
+        "data_source",
         "dict_translator",
         "distributed_lock",
         "edge",

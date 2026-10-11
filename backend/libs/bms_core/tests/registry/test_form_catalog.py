@@ -36,24 +36,45 @@ def test_catalog_kind_valid_and_lookup() -> None:
 
 def test_merge_appends_injected_records() -> None:
     """注入记录并入清单（插入序：清单在前、注入在后），且合并后仍通过校验。"""
-    extra = FormRecord(form_key="purchase_order", table="pur_order", name="采购订单", kind=FormKind.FORM.value)
+    extra = FormRecord(
+        form_key="purchase_order",
+        table="pur_order",
+        name="采购订单",
+        kind=FormKind.FORM.value,
+        data_source_key="purchase_order",
+    )
     merged = merge_form_records(injected=(extra,))
     assert merged[-1].form_key == "purchase_order"
     assert list(FormRegistry(merged).validate()) == []
 
 
+@pytest.mark.kiwi_id(2287)
+def test_form_data_source_backfill_closed() -> None:
+    """`form_key → data_source_key` 回填闭合（02_10）：每个 `form_key` 已回填且其数据源已登记。"""
+    from bms_core.datasource.registry import DATA_SOURCE_CATALOG
+
+    known = {record.data_source_key for record in DATA_SOURCE_CATALOG}
+    for record in FORM_CATALOG:
+        assert record.data_source_key, record.form_key
+        assert record.data_source_key in known, record.form_key
+
+
 def test_validate_reports_duplicate_and_bad_format() -> None:
-    """反例：跨表重复与格式非法被拦截。"""
+    """反例：跨表重复 / 格式非法 / 数据源标识缺失或非法被拦截。"""
     records = (
         FormRecord(form_key="role", table="sys_role", name="角色"),
         FormRecord(form_key="role", table="sys_role_x", name="重复标识"),
         FormRecord(form_key="Bad-Key", table="sys_bad", name="格式非法"),
+        FormRecord(form_key="nosrc", table="sys_nosrc", name="未回填"),
+        FormRecord(form_key="badsrc", table="sys_badsrc", name="源格式非法", data_source_key="Bad-Key"),
     )
     from bms_core.core.concurrent import ConcurrentStableList
 
     issues = list(FormRegistry(ConcurrentStableList(records)).validate())
     assert any("重复" in issue for issue in issues)
     assert any("格式非法" in issue for issue in issues)
+    assert any("数据源标识缺失" in issue for issue in issues)
+    assert any("数据源标识格式非法" in issue for issue in issues)
 
 
 @pytest.mark.parametrize("form_key", ["module", "user", "tenant", "identity_provider"])

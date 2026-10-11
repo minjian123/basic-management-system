@@ -103,7 +103,7 @@ class SqlQuerySchemeStore(BaseQuerySchemeStore):
                         scope=scheme.scope.value,
                         owner_id=scheme.owner_id if scheme.owner_id is not None else current_user_id.get(),
                         target=scheme.target.value,
-                        dict_key=scheme.dict_key,
+                        data_source_key=scheme.data_source_key,
                         field_key=scheme.field_key,
                         provider_key=scheme.provider_key,
                         conditions=dict(scheme.conditions) if scheme.conditions is not None else None,
@@ -124,7 +124,7 @@ class SqlQuerySchemeStore(BaseQuerySchemeStore):
                 row.scope = scheme.scope.value
                 row.owner_id = scheme.owner_id
                 row.target = scheme.target.value
-                row.dict_key = scheme.dict_key
+                row.data_source_key = scheme.data_source_key
                 row.field_key = scheme.field_key
                 row.provider_key = scheme.provider_key
                 row.conditions = scheme.conditions
@@ -221,7 +221,7 @@ def _to_scheme(row: SysQueryScheme) -> QueryScheme:
         scope=scope,
         owner_id=row.owner_id,
         target=QuerySchemeTarget(row.target),
-        dict_key=row.dict_key,
+        data_source_key=row.data_source_key,
         field_key=row.field_key,
         provider_key=row.provider_key,
         conditions=ConcurrentStableDict(row.conditions) if row.conditions is not None else None,

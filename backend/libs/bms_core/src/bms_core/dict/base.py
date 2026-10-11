@@ -7,13 +7,13 @@
 - 结果契约：`DictItem`（id / value / label / code / parent_id / sort / status / color；`parent_id` 为
   **上级条目 ID**（自引用同表 `id`，顶层 `None`），2026-10-10 口径收口（任务 02_07））/
   `DictTypeResult`（version / items / has_more / total）/ `DictBatchResult`（version / items）。
-- `BaseDictSource`（`key = plugin_key = "dict_source"`）：异步 `by_type`（版本比对 / 关键字 / 级联 /
-  按值子集 / 上限）+ `batch`（多类型合并，一次请求）。
+- `BaseDataSource`（`key = plugin_key = "data_source"`，02_10 由 `BaseDataSource` 改名）：异步 `by_type`
+  （版本比对 / 关键字 / 级联 / 按值子集 / 上限）+ `batch`（多类型合并，一次请求）。
 - `BaseDictTranslator`（`key = plugin_key = "dict_translator"`）：异步 `translate`（value → label，
   与取数共用同一份 L1 缓存，防 N+1）。
 - `DictCacheRegion`（`key = plugin_key = "dict_cache_region"`）：缓存域扩展子类——固定 `domain="dict"`，
   提供 `type_cache_key` / `version_cache_key` / `is_version_current`；真实 L1 双 Region 随通用能力阶段继承本类回补。
-- 提供者 `get_dict_source` / `get_dict_translator` / `get_dict_cache_region`（应用级单例；
+- 提供者 `get_data_source` / `get_dict_translator` / `get_dict_cache_region`（应用级单例；
   公共依赖经 `app/api/deps.py` 统一导出）。
 
 口径：**版本比对只承担「缓存是否新鲜」判断**——`DictTypeResult.items` 三态：`None`＝版本一致
@@ -43,7 +43,7 @@ __all__ = [
     "DICT_PROBE_LIMIT",
     "DICT_STATUSES",
     "NULL_DICT_VERSION",
-    "BaseDictSource",
+    "BaseDataSource",
     "BaseDictTranslator",
     "DictBatchQuery",
     "DictBatchResult",
@@ -53,8 +53,8 @@ __all__ = [
     "DictTranslateQuery",
     "DictTypeResult",
     "current_dict_locale",
+    "get_data_source",
     "get_dict_cache_region",
-    "get_dict_source",
     "get_dict_translator",
 ]
 
@@ -77,7 +77,7 @@ current_dict_locale: ContextVar[str] = ContextVar("current_dict_locale", default
 class DictQuery(BaseSchema):
     """单类型取数参数对象（`locale` 由实现从请求上下文解析，不入参）。"""
 
-    dict_key: str = Field(description="字典类型码")
+    data_source_key: str = Field(description="字典类型码")
     version: int | None = Field(default=None, description="客户端本地版本号；与全局一致时 items 返回空")
     keyword: str | None = Field(default=None, description="关键字（label / value / code，命中列由实现定义）")
     parent_id: int | None = Field(default=None, description="上级条目 ID（0 = 顶层；不传 = 不按父过滤）")
@@ -96,7 +96,7 @@ class DictBatchQuery(BaseSchema):
 class DictTranslateQuery(BaseSchema):
     """后端翻译参数对象（value → label）。"""
 
-    dict_key: str = Field(description="字典类型码")
+    data_source_key: str = Field(description="字典类型码")
     values: tuple[str, ...] = Field(description="待翻译 value 序列")
     locale: str = Field(default=DEFAULT_LOCALE, description="语言（默认 zh-CN）")
 
@@ -139,11 +139,11 @@ class DictBatchResult(BaseSchema):
     )
 
 
-class BaseDictSource(BasePluggable, ABC):
+class BaseDataSource(BasePluggable, ABC):
     """字典取数契约：单类型取数与批量合并取数。"""
 
-    key: str = "dict_source"
-    plugin_key: str = "dict_source"
+    key: str = "data_source"
+    plugin_key: str = "data_source"
     plugin_name: str = NULL_PLUGIN_NAME
     contract_version: str = DEFAULT_CONTRACT_VERSION
 
@@ -211,18 +211,18 @@ class DictCacheRegion(CacheRegion, ABC):
         """
         return DICT_CACHE_DOMAIN
 
-    def type_cache_key(self, tenant: str | None, locale: str, dict_key: str) -> str:
+    def type_cache_key(self, tenant: str | None, locale: str, data_source_key: str) -> str:
         """拼字典类型缓存 key（`bms:{tenant}:dict:{locale}:{type}`）。
 
         Args:
             tenant: 租户标识；None 为全局。
             locale: 语言。
-            dict_key: 字典类型码。
+            data_source_key: 字典类型码。
 
         Returns:
             str: 缓存 key。
         """
-        return self.build_key(f"{locale}:{dict_key}", tenant=tenant)
+        return self.build_key(f"{locale}:{data_source_key}", tenant=tenant)
 
     def version_cache_key(self, tenant: str | None) -> str:
         """拼字典全局版本键（`bms:{tenant}:dict:version`）。
@@ -235,18 +235,18 @@ class DictCacheRegion(CacheRegion, ABC):
         """
         return self.build_key("version", tenant=tenant)
 
-    def value_cache_key(self, tenant: str | None, locale: str, dict_key: str) -> str:
+    def value_cache_key(self, tenant: str | None, locale: str, data_source_key: str) -> str:
         """拼字典按值子集缓存键（`bms:{tenant}:dict:{locale}:{type}:v`，整体映射 JSON）。
 
         Args:
             tenant: 租户标识；None 为全局。
             locale: 语言。
-            dict_key: 字典类型码。
+            data_source_key: 字典类型码。
 
         Returns:
             str: 子集缓存 key。
         """
-        return self.build_key(f"{locale}:{dict_key}:v", tenant=tenant)
+        return self.build_key(f"{locale}:{data_source_key}:v", tenant=tenant)
 
     def is_version_current(self, version: int, *, tenant: str | None) -> bool:
         """版本一致性判定（派生）。
@@ -260,24 +260,24 @@ class DictCacheRegion(CacheRegion, ABC):
         """
         return not self.is_stale(self.version_cache_key(tenant), version)
 
-    async def aget_type(self, tenant: str | None, locale: str, dict_key: str) -> object | None:
+    async def aget_type(self, tenant: str | None, locale: str, data_source_key: str) -> object | None:
         """读类型缓存（异步；缺省回退同步实现，Redis 子类覆写为真异步）。
 
         Args:
             tenant: 租户标识；None 为全局。
             locale: 语言。
-            dict_key: 字典类型码。
+            data_source_key: 字典类型码。
 
         Returns:
             object | None: 缓存值 `{version, items, has_more, total}`；未命中返回 None。
         """
-        return self.get(self.type_cache_key(tenant, locale, dict_key))
+        return self.get(self.type_cache_key(tenant, locale, data_source_key))
 
     async def aset_type(
         self,
         tenant: str | None,
         locale: str,
-        dict_key: str,
+        data_source_key: str,
         value: object,
         ttl: int | None = None,
     ) -> None:
@@ -286,27 +286,27 @@ class DictCacheRegion(CacheRegion, ABC):
         Args:
             tenant: 租户标识；None 为全局。
             locale: 语言。
-            dict_key: 字典类型码。
+            data_source_key: 字典类型码。
             value: 缓存值。
             ttl: 有效期（秒）。
         """
-        self.set(self.type_cache_key(tenant, locale, dict_key), value, ttl)
+        self.set(self.type_cache_key(tenant, locale, data_source_key), value, ttl)
 
-    async def adrop_type(self, tenant: str | None, locale: str, dict_key: str) -> None:
+    async def adrop_type(self, tenant: str | None, locale: str, data_source_key: str) -> None:
         """删类型缓存（异步；缺省回退同步实现）。
 
         Args:
             tenant: 租户标识；None 为全局。
             locale: 语言。
-            dict_key: 字典类型码。
+            data_source_key: 字典类型码。
         """
-        self.delete(self.type_cache_key(tenant, locale, dict_key))
+        self.delete(self.type_cache_key(tenant, locale, data_source_key))
 
     async def avalue_subset(
         self,
         tenant: str | None,
         locale: str,
-        dict_key: str,
+        data_source_key: str,
         values: ConcurrentStableList[str],
     ) -> ConcurrentStableDict[str, str]:
         """读按值子集缓存（异步；缺省回退同步实现）。
@@ -314,13 +314,13 @@ class DictCacheRegion(CacheRegion, ABC):
         Args:
             tenant: 租户标识；None 为全局。
             locale: 语言。
-            dict_key: 字典类型码。
+            data_source_key: 字典类型码。
             values: 待查 value 序列。
 
         Returns:
             ConcurrentStableDict[str, str]: value → label（仅命中项）。
         """
-        cached = self.get(self.value_cache_key(tenant, locale, dict_key))
+        cached = self.get(self.value_cache_key(tenant, locale, data_source_key))
         if not isinstance(cached, Mapping):
             return ConcurrentStableDict()
         payload = cast("Mapping[str, object]", cached)
@@ -334,7 +334,7 @@ class DictCacheRegion(CacheRegion, ABC):
         self,
         tenant: str | None,
         locale: str,
-        dict_key: str,
+        data_source_key: str,
         mapping: ConcurrentStableDict[str, str],
     ) -> None:
         """回填按值子集缓存（异步；与既有映射合并后整体写入）。
@@ -342,10 +342,10 @@ class DictCacheRegion(CacheRegion, ABC):
         Args:
             tenant: 租户标识；None 为全局。
             locale: 语言。
-            dict_key: 字典类型码。
+            data_source_key: 字典类型码。
             mapping: 待回填的 value → label 映射。
         """
-        key = self.value_cache_key(tenant, locale, dict_key)
+        key = self.value_cache_key(tenant, locale, data_source_key)
         current = self.get(key)
         merged: ConcurrentStableDict[str, str] = ConcurrentStableDict()
         if isinstance(current, Mapping):
@@ -380,7 +380,7 @@ class DictCacheRegion(CacheRegion, ABC):
         self,
         tenant: str | None,
         locale: str,
-        dict_key: str,
+        data_source_key: str,
         token: str,
         ttl: int = 5,
     ) -> bool:
@@ -389,7 +389,7 @@ class DictCacheRegion(CacheRegion, ABC):
         Args:
             tenant: 租户标识；None 为全局。
             locale: 语言。
-            dict_key: 字典类型码。
+            data_source_key: 字典类型码。
             token: 持有者令牌。
             ttl: 锁有效期（秒）。
 
@@ -402,7 +402,7 @@ class DictCacheRegion(CacheRegion, ABC):
         self,
         tenant: str | None,
         locale: str,
-        dict_key: str,
+        data_source_key: str,
         token: str,
     ) -> bool:
         """释放类型取数互斥锁（异步；缺省空操作，Redis / 内存子类覆写比对令牌）。
@@ -410,7 +410,7 @@ class DictCacheRegion(CacheRegion, ABC):
         Args:
             tenant: 租户标识；None 为全局。
             locale: 语言。
-            dict_key: 字典类型码。
+            data_source_key: 字典类型码。
             token: 持有者令牌。
 
         Returns:
@@ -419,22 +419,22 @@ class DictCacheRegion(CacheRegion, ABC):
         return True
 
 
-def get_dict_source(request: Request) -> BaseDictSource:
+def get_data_source(request: Request) -> BaseDataSource:
     """取应用级字典取数契约（依赖注入提供者）。
 
     Args:
         request: 请求对象。
 
     Returns:
-        BaseDictSource: 应用装配的字典取数实例。
+        BaseDataSource: 应用装配的字典取数实例。
     """
     settings = cast("Settings", request.app.state.settings)
     return cast(
-        "BaseDictSource",
+        "BaseDataSource",
         resolve_plugin(
-            "dict_source",
-            settings.dict_source.provider,
-            expected_version=BaseDictSource.contract_version,
+            "data_source",
+            settings.data_source.provider,
+            expected_version=BaseDataSource.contract_version,
         ),
     )
 

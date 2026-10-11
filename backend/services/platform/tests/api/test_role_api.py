@@ -296,14 +296,14 @@ async def test_role_crud_assign_and_grant_flow(role_client: AsyncClient) -> None
     )
     assert mismatch.json()["code"] == 30049
 
-    dict_key, attr_key = await _seed_dict()
+    data_source_key, attr_key = await _seed_dict()
     scopes = await client.put(
         f"{_ROLES}/{role_id}/data-permissions",
         json={
             "entries": [
-                {"dict_key": dict_key, "policy_type": "select", "config": [{"item_code": "enabled"}]},
+                {"data_source_key": data_source_key, "policy_type": "select", "config": [{"item_code": "enabled"}]},
                 {
-                    "dict_key": dict_key,
+                    "data_source_key": data_source_key,
                     "policy_type": "match",
                     "config": [{"field": "code", "pattern": "user_*"}, {"field": attr_key, "pattern": "A?"}],
                 },
@@ -314,7 +314,7 @@ async def test_role_crud_assign_and_grant_flow(role_client: AsyncClient) -> None
 
     bad_payload = cast(
         "dict[str, object]",
-        {"entries": [{"dict_key": dict_key, "policy_type": "bad", "config": []}]},
+        {"entries": [{"data_source_key": data_source_key, "policy_type": "bad", "config": []}]},
     )
     bad_policy = await client.put(f"{_ROLES}/{role_id}/data-permissions", json=bad_payload)
     assert bad_policy.json()["code"] == 10001

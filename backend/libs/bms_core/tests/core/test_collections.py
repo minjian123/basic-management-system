@@ -71,7 +71,7 @@ def test_merge_keeps_order_and_type() -> None:
 
 
 @pytest.mark.kiwi_id(15)
-def test_set_operations_and_dict_key_ops() -> None:
+def test_set_operations_and_data_source_key_ops() -> None:
     """集合运算保序；字典按键交并。"""
     left = SortedSet([1, 2, 3])
     right = SortedSet([2, 3, 4])

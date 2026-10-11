@@ -1,16 +1,19 @@
 #!/usr/bin/env python3
-"""系统字段 `form_key` 校验（02_11，CI 与本地运行）。
+"""系统字段 `form_key` 校验（02_11 起，02_10 增 `data_source_key` 闭合，CI 与本地运行）。
 
 校验目标：`form_key` 构建期清单（`bms_core/registry/forms.py::FORM_CATALOG`）与数据表文件双向一致，
-且 `form_key` 跨表全局唯一。
+且 `form_key` 跨表全局唯一；并校验 `form_key → data_source_key` 回填**闭合**
+（每个 `FormRecord.data_source_key` 非空且落在 `bms_core/datasource/registry.py::DATA_SOURCE_CATALOG`）。
 
 校验项：
   1. 清单可解析且非空；
   2. `form_key` 格式合法（`^[a-z][a-z0-9_]*$`）且**跨表全局唯一**；`table` 唯一；
   3. 清单每张表：`数据表设计/{表}.md` 存在，且「字段」节含 `form_key` 行与 `parent_id` 行（字典 5 项）；
-  4. **反向**：任一表文件含 `form_key` 行者须登记进清单（防「表落了字段却没进清单」）。
+  4. **反向**：任一表文件含 `form_key` 行者须登记进清单（防「表落了字段却没进清单」）；
+  5. **数据源闭合**（02_10）：`FormRecord.data_source_key` 非空且 ∈ `DATA_SOURCE_CATALOG` 的数据源标识集合。
 
-自检（反例驱动）：`python3 check-system-fields.py --self-test` 校验纯函数 `diff_form_catalog`。
+自检（反例驱动）：`python3 check-system-fields.py --self-test` 校验纯函数 `diff_form_catalog` /
+`diff_data_source_closure`。
 
 任一项不通过则退出码 1。
 """
@@ -22,6 +25,7 @@ import sys
 
 ROOT = os.path.abspath(sys.argv[1] if len(sys.argv) > 1 else ".")
 CATALOG_PY = "backend/libs/bms_core/src/bms_core/registry/forms.py"
+DATASOURCE_PY = "backend/libs/bms_core/src/bms_core/datasource/registry.py"
 TABLE_DIR = "bms文档/设计/数据库设计/数据表设计"
 
 KEY_RE = re.compile(r"^[a-z][a-z0-9_]*$")
@@ -29,6 +33,42 @@ ROW_FORM_KEY_RE = re.compile(r"^\|\s*`form_key`\s*\|", re.MULTILINE)
 ROW_PARENT_ID_RE = re.compile(r"^\|\s*`parent_id`\s*\|", re.MULTILINE)
 
 problems = []
+
+
+def parse_records(path, const_name):
+    """从模块文件按 AST 解析 `const_name`（tuple / list of 构造调用）的常量关键字参数。
+
+    Args:
+        path: 模块文件路径。
+        const_name: 常量名（如 `FORM_CATALOG`）。
+
+    Returns:
+        list[dict[str, object]]: 每条记录的常量关键字参数（非字面量参数跳过）；文件 / 目标缺失时为空列表。
+    """
+    if not os.path.isfile(path):
+        return []
+    with open(path, encoding="utf-8", errors="ignore") as fh:
+        tree = ast.parse(fh.read())
+    for node in tree.body:
+        value = None
+        if isinstance(node, ast.Assign):
+            targets = [t.id for t in node.targets if isinstance(t, ast.Name)]
+            if const_name in targets:
+                value = node.value
+        elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+            if node.target.id == const_name:
+                value = node.value
+        if not isinstance(value, (ast.Tuple, ast.List)):
+            continue
+        records = []
+        for item in value.elts:
+            if not isinstance(item, ast.Call):
+                continue
+            records.append(
+                {kw.arg: kw.value.value for kw in item.keywords if kw.arg and isinstance(kw.value, ast.Constant)}
+            )
+        return records
+    return []
 
 
 def parse_catalog(path):
@@ -40,32 +80,47 @@ def parse_catalog(path):
     Returns:
         list[tuple[str, str]]: （form_key, table）列表；文件 / 目标缺失时为空列表。
     """
-    if not os.path.isfile(path):
-        return []
-    with open(path, encoding="utf-8", errors="ignore") as fh:
-        tree = ast.parse(fh.read())
-    for node in tree.body:
-        value = None
-        if isinstance(node, ast.Assign):
-            targets = [t.id for t in node.targets if isinstance(t, ast.Name)]
-            if "FORM_CATALOG" in targets:
-                value = node.value
-        elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
-            if node.target.id == "FORM_CATALOG":
-                value = node.value
-        if not isinstance(value, (ast.Tuple, ast.List)):
-            continue
-        records = []
-        for item in value.elts:
-            if not isinstance(item, ast.Call):
-                continue
-            kwargs = {kw.arg: kw.value for kw in item.keywords if kw.arg}
-            key_node = kwargs.get("form_key")
-            table_node = kwargs.get("table")
-            if isinstance(key_node, ast.Constant) and isinstance(table_node, ast.Constant):
-                records.append((str(key_node.value), str(table_node.value)))
-        return records
-    return []
+    records = []
+    for record in parse_records(path, "FORM_CATALOG"):
+        key_value = record.get("form_key")
+        table_value = record.get("table")
+        if isinstance(key_value, str) and isinstance(table_value, str):
+            records.append((key_value, table_value))
+    return records
+
+
+def parse_form_data_sources(path):
+    """从 `forms.py` 解析 `form_key → data_source_key` 回填对。
+
+    Args:
+        path: `forms.py` 路径。
+
+    Returns:
+        list[tuple[str, str]]: （form_key, data_source_key）列表（缺 `data_source_key` 记空串）。
+    """
+    pairs = []
+    for record in parse_records(path, "FORM_CATALOG"):
+        key_value = record.get("form_key")
+        if isinstance(key_value, str):
+            source_value = record.get("data_source_key")
+            pairs.append((key_value, source_value if isinstance(source_value, str) else ""))
+    return pairs
+
+
+def parse_data_source_keys(path):
+    """从 `datasource/registry.py` 解析 `DATA_SOURCE_CATALOG` 的数据源标识集合。
+
+    Args:
+        path: `datasource/registry.py` 路径。
+
+    Returns:
+        set[str]: 已登记数据源标识集合。
+    """
+    return {
+        record["data_source_key"]
+        for record in parse_records(path, "DATA_SOURCE_CATALOG")
+        if isinstance(record.get("data_source_key"), str)
+    }
 
 
 def diff_form_catalog(catalog, table_texts):
@@ -104,6 +159,27 @@ def diff_form_catalog(catalog, table_texts):
     return issues
 
 
+def diff_data_source_closure(pairs, known_keys):
+    """纯函数：`form_key → data_source_key` 回填闭合（非空且已登记）。
+
+    Args:
+        pairs: （form_key, data_source_key）列表。
+        known_keys: 已登记数据源标识集合。
+
+    Returns:
+        list[str]: 问题描述列表（空 = 通过）。
+    """
+    issues = []
+    for form_key, data_source_key in pairs:
+        if not data_source_key:
+            issues.append(f"form_key 未回填 data_source_key：{form_key!r}")
+        elif not KEY_RE.match(data_source_key):
+            issues.append(f"data_source_key 格式非法：{form_key!r} → {data_source_key!r}")
+        elif data_source_key not in known_keys:
+            issues.append(f"data_source_key 未登记：{form_key!r} → {data_source_key!r}")
+    return issues
+
+
 def load_table_texts():
     """读取 `数据表设计/` 全部表文件文本。
 
@@ -123,13 +199,19 @@ def load_table_texts():
 
 
 def check_form_catalog():
-    """清单 ↔ 表文件一致性 + 全局唯一（累加进 `problems`）。"""
+    """清单 ↔ 表文件一致性 + 全局唯一 + `data_source_key` 闭合（累加进 `problems`）。"""
     catalog = parse_catalog(os.path.join(ROOT, CATALOG_PY))
     if not catalog:
         problems.append(f"[form_key] 清单不可解析或为空：{CATALOG_PY}")
         return
     for issue in diff_form_catalog(catalog, load_table_texts()):
         problems.append(f"[form_key] {issue}")
+    known_keys = parse_data_source_keys(os.path.join(ROOT, DATASOURCE_PY))
+    if not known_keys:
+        problems.append(f"[data_source_key] 数据源清单不可解析或为空：{DATASOURCE_PY}")
+        return
+    for issue in diff_data_source_closure(parse_form_data_sources(os.path.join(ROOT, CATALOG_PY)), known_keys):
+        problems.append(f"[data_source_key] {issue}")
 
 
 def self_test():
@@ -164,6 +246,12 @@ def self_test():
             1,
         ),
     ]
+    closure_cases = [
+        ("正常：回填值均已登记", [("role", "role"), ("tenant", "tenant")], {"role", "tenant"}, 0),
+        ("反例 A：未回填", [("role", "")], {"role"}, 1),
+        ("反例 B：回填值未登记", [("role", "ghost")], {"role"}, 1),
+        ("反例 C：回填值格式非法", [("role", "Bad-Key")], {"role"}, 1),
+    ]
     bad = 0
     for title, catalog, tables, expect in cases:
         got = diff_form_catalog(catalog, tables)
@@ -172,7 +260,15 @@ def self_test():
         print(f"  [{flag}] {title}：期望 {expect} 项，实得 {len(got)} 项")
         for g in got:
             print(f"        {g}")
-    print(f"\n[system-fields self-test] {'通过' if not bad else '不通过'}：断言用例 {len(cases)} 个")
+    for title, pairs, known, expect in closure_cases:
+        got = diff_data_source_closure(pairs, known)
+        flag = "OK" if len(got) == expect else "FAIL"
+        bad += flag == "FAIL"
+        print(f"  [{flag}] {title}：期望 {expect} 项，实得 {len(got)} 项")
+        for g in got:
+            print(f"        {g}")
+    total = len(cases) + len(closure_cases)
+    print(f"\n[system-fields self-test] {'通过' if not bad else '不通过'}：断言用例 {total} 个")
     return 1 if bad else 0
 
 
@@ -186,7 +282,7 @@ def main():
         if len(problems) > 50:
             print(f"  ... 其余 {len(problems) - 50} 项")
         sys.exit(1)
-    print("[system-fields] 通过：form_key 清单与表文件双向一致、跨表全局唯一。")
+    print("[system-fields] 通过：form_key 清单与表文件双向一致、跨表全局唯一，data_source_key 回填闭合。")
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 """字典高级查询（02_09 改指）：条件引擎（Python 过滤）+ 结果分页。
 
-- 数据源：经**统一出口**（`BaseDictSource`）按 `dict_key` 取条目，**不再查字典类型 / 属性表**。
+- 数据源：经**统一出口**（`BaseDataSource`）按 `data_source_key` 取条目，**不再查字典类型 / 属性表**。
 - `load_attrs`：无扩展属性表；返回**固定字段** schema（`value` / `label` / `code` / `sort` / `status`）。
 - 条件引擎：条件组（AND/OR 分组树，深度 ≤ `DICT_ADV_MAX_DEPTH`）——字段 / 操作符白名单 + 值比较，
   在条目集上做 Python 过滤（不拼 SQL）。
@@ -15,7 +15,7 @@ from pydantic import Field
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.exceptions import ParamError
 from bms_core.core.objects import BaseFrameworkObject
-from bms_core.dict.base import BaseDictSource, DictItem, DictQuery
+from bms_core.dict.base import BaseDataSource, DictItem, DictQuery
 from bms_core.query.base import BaseQueryProviderRegistry
 from bms_core.schemas.base import CONTRACT_COLLECTION, CONTRACT_STABLE_DICT, BaseSchema
 
@@ -107,7 +107,7 @@ class DictQueryProviderInfo(BaseSchema):
     key: str = Field(description="提供者标识")
     name: str = Field(description="显示名")
     target: str = Field(default="business", description="目标（items/business）")
-    dict_keys: tuple[str, ...] = Field(default=(), description="适用字典标识（空 = 全部）")
+    data_source_keys: tuple[str, ...] = Field(default=(), description="适用字典标识（空 = 全部）")
     param_schema: Annotated[ConcurrentStableDict[str, object], CONTRACT_COLLECTION] = Field(
         default_factory=CONTRACT_STABLE_DICT, description="参数 JSON Schema 子集"
     )
@@ -155,7 +155,7 @@ class DictAdvQueryPayload(BaseSchema):
 class DictQueryService(BaseFrameworkObject):
     """字典高级查询服务（固定字段 schema + 条件引擎 + 分页执行；经统一出口取数）。"""
 
-    def __init__(self, *, source: BaseDictSource) -> None:
+    def __init__(self, *, source: BaseDataSource) -> None:
         """初始化。
 
         Args:
@@ -163,11 +163,11 @@ class DictQueryService(BaseFrameworkObject):
         """
         self._source = source
 
-    async def load_attrs(self, dict_key: str, locale: str | None = None) -> tuple[DictAttrInfo, ...]:
+    async def load_attrs(self, data_source_key: str, locale: str | None = None) -> tuple[DictAttrInfo, ...]:
         """返回固定字段 schema（无扩展属性表）。
 
         Args:
-            dict_key: 字典标识。
+            data_source_key: 字典标识。
             locale: 语言（本期固定字段不分语言，保留参数以兼容调用面）。
 
         Returns:
@@ -192,7 +192,7 @@ class DictQueryService(BaseFrameworkObject):
 
     async def advanced_query(
         self,
-        dict_key: str,
+        data_source_key: str,
         payload: DictAdvQueryPayload,
         *,
         registry: BaseQueryProviderRegistry | None = None,
@@ -200,7 +200,7 @@ class DictQueryService(BaseFrameworkObject):
         """执行高级查询（items 条件引擎 / business 提供者）。
 
         Args:
-            dict_key: 字典标识。
+            data_source_key: 字典标识。
             payload: 查询请求体。
             registry: 查询提供者注册表（`target=business` 必填）。
 
@@ -219,7 +219,7 @@ class DictQueryService(BaseFrameworkObject):
             params: ConcurrentStableDict[str, object] = (
                 ConcurrentStableDict(payload.params) if payload.params is not None else ConcurrentStableDict()
             )
-            params.put_if_absent("dict_key", dict_key)
+            params.put_if_absent("data_source_key", data_source_key)
             params.set("page", page)
             params.set("size", size)
             result = await registry.query(key, params)
@@ -229,7 +229,7 @@ class DictQueryService(BaseFrameworkObject):
                 page=page,
                 size=size,
             )
-        loaded = await self._source.by_type(DictQuery(dict_key=dict_key))
+        loaded = await self._source.by_type(DictQuery(data_source_key=data_source_key))
         items = tuple(loaded.items or ())
         if payload.conditions is not None:
             items = tuple(item for item in items if _match_group(payload.conditions, item, depth=1))

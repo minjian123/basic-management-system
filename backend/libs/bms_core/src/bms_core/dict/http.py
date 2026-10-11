@@ -1,10 +1,10 @@
 """字典跨服务读出口（06_02 承接 06_03 遗留 3）：经 `service_client` 读 `platform` 服务的字典接口。
 
-- **提供者**：`dict_source:http` / `dict_translator:http`（`[dict_source].provider = "http"`）——非
+- **提供者**：`data_source:http` / `dict_translator:http`（`[data_source].provider = "http"`）——非
   `platform` 服务使用：字典数据的**权威侧是 `platform` 服务**（其租户库存字典六表），其余服务不直连
   字典表、也不复制缓存实现，统一经公开契约读取（服务间只经 `/api/v1` 公开面，东西向直连不经网关）。
 - **契约**（复用平台服务**既有**接口，不新增端点）：
-  - 单类型取数：`GET /api/v1/dicts/{dict_key}`（`version` / `keyword` / `parent_id` / `values` / `limit`）；
+  - 单类型取数：`GET /api/v1/dicts/{data_source_key}`（`version` / `keyword` / `parent_id` / `values` / `limit`）；
   - 批量合并：`POST /api/v1/dicts/batch`（`types` / `version` / `locale`）；
   - 语言：`Accept-Language` 头（平台端点按该头解析 locale）；租户：`X-Tenant-Id` 头（租户上下文透传，
     否则平台侧按子域名 / 令牌解析）。
@@ -25,7 +25,7 @@ from bms_core.core.context import get_current_tenant
 from bms_core.core.exceptions import ServiceUnavailableError
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION
 from bms_core.dict.base import (
-    BaseDictSource,
+    BaseDataSource,
     BaseDictTranslator,
     DictBatchQuery,
     DictBatchResult,
@@ -42,23 +42,23 @@ from bms_core.servicecall.base import BaseServiceClient, ServiceRequest
 
 __all__ = [
     "ACCEPT_LANGUAGE_HEADER",
+    "DATA_SOURCE_PATH",
     "DICT_BATCH_PATH",
-    "DICT_KEY_PATH",
     "DICT_SERVICE_KEY",
     "HTTP_DICT_PROVIDER",
     "TRANSLATE_VALUES_CHUNK",
-    "HttpDictSource",
+    "HttpDataSource",
     "HttpDictTranslator",
-    "dict_key_path",
+    "data_source_path",
 ]
 
 HTTP_DICT_PROVIDER = "http"
-"""跨服务读出口提供者名（`[dict_source].provider` / `[dict_translator].provider`）。"""
+"""跨服务读出口提供者名（`[data_source].provider` / `[dict_translator].provider`）。"""
 
 DICT_SERVICE_KEY = "platform"
 """字典数据出口所有者服务标识（平台统一出口）。"""
 
-DICT_KEY_PATH = "/api/v1/dicts/{dict_key}"
+DATA_SOURCE_PATH = "/api/v1/dicts/{data_source_key}"
 """单类型取数契约路径模板。"""
 
 DICT_BATCH_PATH = "/api/v1/dicts/batch"
@@ -71,16 +71,16 @@ TRANSLATE_VALUES_CHUNK = 200
 """翻译按值子集的单批上限（避免一次请求过大）。"""
 
 
-def dict_key_path(dict_key: str) -> str:
+def data_source_path(data_source_key: str) -> str:
     """拼单类型取数契约路径（URL 编码字典类型码）。
 
     Args:
-        dict_key: 字典类型码。
+        data_source_key: 字典类型码。
 
     Returns:
         str: 契约路径。
     """
-    return DICT_KEY_PATH.format(dict_key=quote(dict_key, safe=""))
+    return DATA_SOURCE_PATH.format(data_source_key=quote(data_source_key, safe=""))
 
 
 def _headers(locale: str) -> ConcurrentStableDict[str, str]:
@@ -111,7 +111,7 @@ def _current_locale() -> str:
 async def _fetch_type(
     client: BaseServiceClient,
     *,
-    dict_key: str,
+    data_source_key: str,
     locale: str,
     version: int | None = None,
     keyword: str | None = None,
@@ -123,7 +123,7 @@ async def _fetch_type(
 
     Args:
         client: 服务间调用客户端。
-        dict_key: 字典类型码。
+        data_source_key: 字典类型码。
         locale: 语言标识（经 `Accept-Language` 透传）。
         version: 客户端本地版本号（一致时平台侧返回 `items=None`）。
         keyword: 关键字。
@@ -148,7 +148,7 @@ async def _fetch_type(
     request = ServiceRequest(
         service=DICT_SERVICE_KEY,
         method="GET",
-        path=dict_key_path(dict_key),
+        path=data_source_path(data_source_key),
         query=query,
         headers=_headers(locale),
     )
@@ -254,7 +254,7 @@ def _empty_result() -> DictTypeResult:
     return DictTypeResult(version=0, items=(), has_more=False, total=0)
 
 
-class HttpDictSource(BaseDictSource):
+class HttpDataSource(BaseDataSource):
     """跨服务字典取数（经 `service_client` 读 `platform` 服务；不可达返回空结果）。"""
 
     plugin_name: str = HTTP_DICT_PROVIDER
@@ -279,7 +279,7 @@ class HttpDictSource(BaseDictSource):
         """
         result = await _fetch_type(
             self._client,
-            dict_key=query.dict_key,
+            data_source_key=query.data_source_key,
             locale=_current_locale(),
             version=query.version,
             keyword=query.keyword,
@@ -359,7 +359,7 @@ class HttpDictTranslator(BaseDictTranslator):
         pending: ConcurrentStableList[str] = ConcurrentStableList(query.values)
         tenant = get_current_tenant()
         if self._cache is not None and pending:
-            cached = await self._cache.avalue_subset(tenant, query.locale, query.dict_key, pending)
+            cached = await self._cache.avalue_subset(tenant, query.locale, query.data_source_key, pending)
             if cached:
                 for value, label in cached.items():
                     mapping.set(value, label)
@@ -368,7 +368,7 @@ class HttpDictTranslator(BaseDictTranslator):
         for chunk in _chunks(pending, TRANSLATE_VALUES_CHUNK):
             result = await _fetch_type(
                 self._client,
-                dict_key=query.dict_key,
+                data_source_key=query.data_source_key,
                 locale=query.locale,
                 values=chunk,
             )
@@ -379,7 +379,7 @@ class HttpDictTranslator(BaseDictTranslator):
                     fresh.set(item.value, item.label)
         mapping.update(fresh.items())
         if self._cache is not None and fresh:
-            await self._cache.aset_value_subset(tenant, query.locale, query.dict_key, fresh)
+            await self._cache.aset_value_subset(tenant, query.locale, query.data_source_key, fresh)
         return mapping
 
 

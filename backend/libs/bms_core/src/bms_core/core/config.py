@@ -1048,7 +1048,7 @@ class Settings(PydanticBaseSettings, BaseSettings):  # pyright: ignore[reportInc
     data_ownership: DataOwnershipSettings = Field(default_factory=DataOwnershipSettings)
     data_scope: PluginSelection = Field(default_factory=PluginSelection)
     dict_cache_region: PluginSelection = Field(default_factory=PluginSelection)
-    dict_source: PluginSelection = Field(default_factory=PluginSelection)
+    data_source: PluginSelection = Field(default_factory=PluginSelection)
     dict_translator: PluginSelection = Field(default_factory=PluginSelection)
     distributed_lock: PluginSelection = Field(default_factory=PluginSelection)
     edge: EdgeSettings = Field(default_factory=EdgeSettings)
