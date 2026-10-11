@@ -7,7 +7,7 @@ import { useBaseDictSelect, type DictSelectValue } from '../../composables/useBa
 
 interface Props {
   /** 字典类型码。 */
-  dictType?: string
+  dictKey?: string
   /** 选中值（`v-model`）。 */
   modelValue?: string | string[]
   /** 是否多选。 */
@@ -25,7 +25,7 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  dictType: '',
+  dictKey: '',
   modelValue: '',
   multiple: false,
   ready: false,
@@ -40,7 +40,7 @@ const emit = defineEmits<{ 'update:modelValue': [value: string | string[]] }>()
 const { items, degraded, disabled: effectiveDisabled, setDictType, setSource, setReady, syncValue, toggle, load } =
   useBaseDictSelect({
     ready: props.ready,
-    dictType: props.dictType,
+    dictKey: props.dictKey,
     multiple: props.multiple,
     value: props.modelValue,
     source: props.source,
@@ -54,7 +54,7 @@ const selected = computed<Set<string>>(() =>
 )
 
 watch(
-  () => props.dictType,
+  () => props.dictKey,
   (value) => {
     setDictType(value)
     void load()

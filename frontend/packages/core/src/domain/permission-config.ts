@@ -79,7 +79,7 @@ export interface FieldMeta {
 }
 
 /** 基础数据字典类型元数据（数据权限）。 */
-export interface DictTypeMeta {
+export interface DictKeyMeta {
   /** 字典类型主键。 */
   id: string
   /** 字典类型码。 */
@@ -113,7 +113,7 @@ export interface PermissionMetadata {
   /** 表单 → 字段 id 清单。 */
   formFields: Readonly<Record<string, readonly string[]>>
   /** 基础数据字典清单。 */
-  dictTypes: DictTypeMeta[]
+  dictKeys: DictKeyMeta[]
   /** 扩展权限登记清单（未注册即隐藏扩展子页签）。 */
   extensions: DataScopeExtensionMeta[]
 }
@@ -126,7 +126,7 @@ export const EMPTY_PERMISSION_METADATA: PermissionMetadata = {
   fields: [],
   formActions: {},
   formFields: {},
-  dictTypes: [],
+  dictKeys: [],
   extensions: [],
 }
 
@@ -212,7 +212,7 @@ export type DataScopePolicyItem =
 /** 数据权限条目（角色 × 字典 × 策略）。 */
 export interface DataScopeEntry {
   /** 字典类型 id。 */
-  dictTypeId: string
+  dictKey: string
   /** 策略类型。 */
   policyType: DataScopePolicyType
   /** 结构化配置（只选不编）。 */
@@ -637,42 +637,42 @@ export function findFieldMismatch(
 // --------------------------------------------------------------------------- 数据权限
 
 /**
- * 覆盖写入数据权限条目（按 `dictTypeId` + `policyType`）。
+ * 覆盖写入数据权限条目（按 `dictKey` + `policyType`）。
  *
  * @param entries 现有数据权限条目。
- * @param dictTypeId 字典类型 id。
+ * @param dictKey 字典类型 id。
  * @param policyType 策略类型。
  * @param config 结构化配置。
  * @returns 新数据权限条目。
  */
 export function setDataScopeEntry(
   entries: readonly DataScopeEntry[],
-  dictTypeId: string,
+  dictKey: string,
   policyType: DataScopePolicyType,
   config: readonly DataScopePolicyItem[],
 ): DataScopeEntry[] {
   const kept = entries
-    .filter((entry) => !(entry.dictTypeId === dictTypeId && entry.policyType === policyType))
+    .filter((entry) => !(entry.dictKey === dictKey && entry.policyType === policyType))
     .map(cloneDataScopeEntry)
-  kept.push({ dictTypeId, policyType, config: config.map((item) => ({ ...item })) })
+  kept.push({ dictKey, policyType, config: config.map((item) => ({ ...item })) })
   return sortDataScopeEntries(kept)
 }
 
 /**
- * 移除数据权限条目（按 `dictTypeId` + `policyType`）。
+ * 移除数据权限条目（按 `dictKey` + `policyType`）。
  *
  * @param entries 现有数据权限条目。
- * @param dictTypeId 字典类型 id。
+ * @param dictKey 字典类型 id。
  * @param policyType 策略类型。
  * @returns 新数据权限条目。
  */
 export function removeDataScopeEntry(
   entries: readonly DataScopeEntry[],
-  dictTypeId: string,
+  dictKey: string,
   policyType: DataScopePolicyType,
 ): DataScopeEntry[] {
   return entries
-    .filter((entry) => !(entry.dictTypeId === dictTypeId && entry.policyType === policyType))
+    .filter((entry) => !(entry.dictKey === dictKey && entry.policyType === policyType))
     .map(cloneDataScopeEntry)
 }
 
@@ -899,9 +899,9 @@ function sortFieldEntries(entries: readonly FieldPermEntry[]): FieldPermEntry[] 
  */
 function sortDataScopeEntries(entries: readonly DataScopeEntry[]): DataScopeEntry[] {
   return [...entries].sort((left, right) =>
-    left.dictTypeId === right.dictTypeId
+    left.dictKey === right.dictKey
       ? left.policyType.localeCompare(right.policyType)
-      : left.dictTypeId.localeCompare(right.dictTypeId),
+      : left.dictKey.localeCompare(right.dictKey),
   )
 }
 
@@ -911,5 +911,5 @@ function sortDataScopeEntries(entries: readonly DataScopeEntry[]): DataScopeEntr
  * @param entry 数据权限条目。
  */
 function cloneDataScopeEntry(entry: DataScopeEntry): DataScopeEntry {
-  return { dictTypeId: entry.dictTypeId, policyType: entry.policyType, config: entry.config.map((item) => ({ ...item })) }
+  return { dictKey: entry.dictKey, policyType: entry.policyType, config: entry.config.map((item) => ({ ...item })) }
 }

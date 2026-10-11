@@ -140,11 +140,11 @@ describe('domain/permission-config（新口径）', () => {
 
   it('数据权限：覆盖、移除、空配置丢弃', () => {
     let entries = setDataScopeEntry([], 'dict:user', 'select', [{ itemCode: 'enabled' }])
-    expect(entries).toEqual([{ dictTypeId: 'dict:user', policyType: 'select', config: [{ itemCode: 'enabled' }] }])
+    expect(entries).toEqual([{ dictKey: 'dict:user', policyType: 'select', config: [{ itemCode: 'enabled' }] }])
     entries = setDataScopeEntry(entries, 'dict:user', 'match', [{ field: 'code', pattern: 'user_*' }])
     expect(entries).toHaveLength(2)
     expect(removeDataScopeEntry(entries, 'dict:user', 'select')).toHaveLength(1)
-    expect(collectDataScopePayload([{ dictTypeId: 'dict:user', policyType: 'select', config: [] }])).toEqual([])
+    expect(collectDataScopePayload([{ dictKey: 'dict:user', policyType: 'select', config: [] }])).toEqual([])
   })
 
   it('用户分配：去重、解绑、差量', () => {

@@ -48,8 +48,8 @@ function makeSelectTarget(): DictSelectContractTarget {
     get requestCount() {
       return select.requestCount
     },
-    get dictType() {
-      return select.dictType
+    get dictKey() {
+      return select.dictKey
     },
     get items() {
       return select.items
@@ -75,7 +75,7 @@ function makeSelectTarget(): DictSelectContractTarget {
       bindDictStoreSource(store, source)
     },
     setStore: () => undefined,
-    setDictType: (dictType) => select.setDictType(dictType),
+    setDictType: (dictKey) => select.setDictType(dictKey),
     setKeyword: (keyword) => select.setKeyword(keyword),
     setParent: (parentId) => select.setParent(parentId),
     setMultiple: (value) => select.setMultiple(value),
@@ -157,7 +157,7 @@ function makeQueryTarget(): DictQueryContractTarget {
     },
     setReady: (value) => query.setReady(value),
     setSource: (source) => query.setSource(source),
-    setDictType: (dictType) => query.setDictType(dictType),
+    setDictType: (dictKey) => query.setDictType(dictKey),
     setTarget: (target) => query.setTarget(target === 'business' ? 'business' : 'items'),
     setConditions: (group) => query.setConditions(group),
     setProvider: (key, params) => query.setProvider(key, params),

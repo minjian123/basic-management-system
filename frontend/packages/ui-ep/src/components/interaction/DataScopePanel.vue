@@ -9,7 +9,7 @@ import {
   type DataScopePolicyItem,
   type DataScopePolicyType,
   type DictSourceAdapter,
-  type DictTypeMeta,
+  type DictKeyMeta,
 } from '@bms/core'
 import { computed, ref, watch } from 'vue'
 
@@ -42,7 +42,7 @@ interface ExtensionRow {
 
 interface Props {
   /** 基础数据字典清单。 */
-  dictTypes?: DictTypeMeta[]
+  dictKeys?: DictKeyMeta[]
   /** 扩展权限登记清单。 */
   extensions?: DataScopeExtensionMeta[]
   /** 数据权限条目。 */
@@ -66,7 +66,7 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  dictTypes: () => [],
+  dictKeys: () => [],
   extensions: () => [],
   entries: () => [],
   selectedDictTypeId: '',
@@ -82,7 +82,7 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<{
   'select-dict': [id: string]
   'update:policy': [policy: DataScopePolicyType]
-  'set-scope': [payload: { dictTypeId: string; policyType: DataScopePolicyType; config: DataScopePolicyItem[] }]
+  'set-scope': [payload: { dictKey: string; policyType: DataScopePolicyType; config: DataScopePolicyItem[] }]
   validate: [payload: { policyType: DataScopePolicyType; message: string }]
 }>()
 
@@ -99,11 +99,11 @@ const matchRows = ref<MatchRow[]>([])
 const extensionRows = ref<ExtensionRow[]>([])
 
 /** 选中字典类型码（透传动态字典件）。 */
-const dictCode = computed(() => props.dictTypes.find((dict) => dict.id === props.selectedDictTypeId)?.code ?? '')
+const dictCode = computed(() => props.dictKeys.find((dict) => dict.id === props.selectedDictTypeId)?.code ?? '')
 
 /** 当前字典 × 策略的条目。 */
 function entryOf(policy: DataScopePolicyType): DataScopeEntry | undefined {
-  return props.entries.find((entry) => entry.dictTypeId === props.selectedDictTypeId && entry.policyType === policy)
+  return props.entries.find((entry) => entry.dictKey === props.selectedDictTypeId && entry.policyType === policy)
 }
 
 /** 从条目同步各策略草稿。 */
@@ -133,7 +133,7 @@ watch(() => [props.selectedDictTypeId, props.entries], sync, { immediate: true, 
 function submitSelect(values: string | string[]): void {
   const list = Array.isArray(values) ? values : [values]
   emit('set-scope', {
-    dictTypeId: props.selectedDictTypeId,
+    dictKey: props.selectedDictTypeId,
     policyType: 'select',
     config: list.filter((value) => value !== '').map((itemCode) => ({ itemCode })),
   })
@@ -143,7 +143,7 @@ function submitSelect(values: string | string[]): void {
 function submit(policy: DataScopePolicyType): void {
   if (policy === 'region') {
     emit('set-scope', {
-      dictTypeId: props.selectedDictTypeId,
+      dictKey: props.selectedDictTypeId,
       policyType: 'region',
       config: regionRows.value.filter((row) => row.start !== '' || row.end !== '').map((row) => ({ ...row })),
     })
@@ -157,14 +157,14 @@ function submit(policy: DataScopePolicyType): void {
       }
     }
     emit('set-scope', {
-      dictTypeId: props.selectedDictTypeId,
+      dictKey: props.selectedDictTypeId,
       policyType: 'match',
       config: matchRows.value.filter((row) => row.pattern !== '').map((row) => ({ ...row })),
     })
     return
   }
   emit('set-scope', {
-    dictTypeId: props.selectedDictTypeId,
+    dictKey: props.selectedDictTypeId,
     policyType: 'extension',
     config: extensionRows.value
       .filter((row) => row.key !== '')
@@ -185,7 +185,7 @@ const availablePolicies = computed(() =>
   <div class="bms-data-scope" data-test="data-scope" :data-disabled="disabled || undefined">
     <div class="bms-data-scope__dicts">
       <button
-        v-for="dict in dictTypes"
+        v-for="dict in dictKeys"
         :key="dict.id"
         type="button"
         :data-test="`dict-${dict.id}`"

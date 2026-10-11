@@ -164,7 +164,7 @@ function textOf(field: RenderFieldPlan): string {
  * @param field 字段渲染项。
  */
 function componentOf(field: RenderFieldPlan): unknown {
-  // 字典引用字段（`select` / `multi-select` + `dictType`）优先分发字典件
+  // 字典引用字段（`select` / `multi-select` + `dictKey`）优先分发字典件
   if (isDictReferenced(field)) {
     return DictSelectField
   }
@@ -176,7 +176,7 @@ function componentOf(field: RenderFieldPlan): unknown {
 }
 
 /**
- * 是否字典引用字段（`dict` / `dict_multi` 字段类型，或 `select` / `multi-select` 且带 `dictType`）。
+ * 是否字典引用字段（`dict` / `dict_multi` 字段类型，或 `select` / `multi-select` 且带 `dictKey`）。
  *
  * @param field 字段渲染项。
  */
@@ -184,8 +184,8 @@ function isDictReferenced(field: RenderFieldPlan): boolean {
   if (field.widget === 'dict-select' || field.widget === 'dict-multi') {
     return true
   }
-  const dictType = field.base.dictType ?? ''
-  return dictType !== '' && (field.widget === 'select' || field.widget === 'multi-select')
+  const dictKey = field.base.dictKey ?? ''
+  return dictKey !== '' && (field.widget === 'select' || field.widget === 'multi-select')
 }
 
 /**
@@ -207,7 +207,7 @@ function isMultiple(field: RenderFieldPlan): boolean {
 }
 
 /**
- * 控件附加属性（组织选择件透传 `kind`；字典件透传 `dictType`；上传件透传 `upload*`；验证码件透传 `captchaKind` / `captchaScene`；其余为空）。
+ * 控件附加属性（组织选择件透传 `kind`；字典件透传 `dictKey`；上传件透传 `upload*`；验证码件透传 `captchaKind` / `captchaScene`；其余为空）。
  *
  * @param field 字段渲染项。
  */
@@ -216,7 +216,7 @@ function extraProps(field: RenderFieldPlan): Record<string, unknown> {
     return { kind: orgKindOfFieldType(field.base.type) ?? 'user' }
   }
   if (isDictReferenced(field)) {
-    return { dictType: field.base.dictType ?? '' }
+    return { dictKey: field.base.dictKey ?? '' }
   }
   if (field.widget === 'file-upload' || field.widget === 'image-upload') {
     return {

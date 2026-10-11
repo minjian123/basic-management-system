@@ -456,7 +456,7 @@ export {
   type DataScopePolicyType,
   type DataScopeRegionItem,
   type DataScopeSelectItem,
-  type DictTypeMeta,
+  type DictKeyMeta,
   type FieldEntriesPayload,
   type FieldMeta,
   type FieldPermEntry,

@@ -1309,7 +1309,7 @@ export interface PermissionContractMetadata {
   /** 表单 → 字段 id。 */
   formFields: Record<string, string[]>
   /** 字典类型清单。 */
-  dictTypes: { id: string; code: string; name: string }[]
+  dictKeys: { id: string; code: string; name: string }[]
   /** 扩展权限清单。 */
   extensions: { key: string; name: string; hasParams: boolean }[]
 }
@@ -1341,7 +1341,7 @@ export interface PermissionContractFieldEntry {
 /** 权限配置契约数据权限条目（最小面）。 */
 export interface PermissionContractDataScopeEntry {
   /** 字典类型 id。 */
-  dictTypeId: string
+  dictKey: string
   /** 策略类型。 */
   policyType: string
   /** 结构化配置。 */
@@ -1449,7 +1449,7 @@ export interface PermissionConfigContractTarget {
     sourceMenuId?: string,
   ): boolean
   /** 设置数据权限。 */
-  setDataScope(dictTypeId: string, policyType: string, config: unknown[]): boolean
+  setDataScope(dictKey: string, policyType: string, config: unknown[]): boolean
   /** 授权条目载荷。 */
   payloadPermissions(): PermissionContractEntry[]
   /** 字段权限载荷。 */
@@ -1491,7 +1491,7 @@ const PERMISSION_CONTRACT_METADATA: PermissionContractMetadata = {
   ],
   formActions: { 'form:user': ['act:user:create'] },
   formFields: { 'form:user': ['field:name', 'field:salary'] },
-  dictTypes: [{ id: 'dict:user', code: 'user', name: '用户字典' }],
+  dictKeys: [{ id: 'dict:user', code: 'user', name: '用户字典' }],
   extensions: [],
 }
 
@@ -1622,7 +1622,7 @@ export function describePermissionConfigContract(
       expect(target.payloadDataScopes()).toEqual([])
       expect(target.setDataScope('dict:user', 'select', [{ itemCode: 'enabled' }])).toBe(true)
       expect(target.payloadDataScopes()).toEqual([
-        { dictTypeId: 'dict:user', policyType: 'select', config: [{ itemCode: 'enabled' }] },
+        { dictKey: 'dict:user', policyType: 'select', config: [{ itemCode: 'enabled' }] },
       ])
       target.setDataScope('dict:user', 'select', [])
       expect(target.payloadDataScopes()).toEqual([])

@@ -2,11 +2,11 @@
  * 权限配置元数据装配：把 platform 契约的菜单 / 表单 / 字段 / 按钮 / 动作元数据映射为
  * 授权编排所需的内核元数据（`PermissionMetadata`）；菜单元数据落 platform 平台库（`/menus` 等）。
  *
- * 数据权限字典类型清单缺后端列表端点（当前仅 `GET /dicts/{dict_type}`），`dictTypes` 暂为空（遗留后端补端点）；
+ * 数据权限字典清单经 `GET /dicts`（字典数据源登记清单）装配（2026-10-11 02_09）；
  * 扩展权限注册清单本期为空注册（未注册即隐藏扩展子页签）。
  */
 
-import type { ActionMeta, FieldMeta, FormMeta, PermissionMenuNode, PermissionMetadata } from '@bms/core'
+import type { ActionMeta, DictKeyMeta, FieldMeta, FormMeta, PermissionMenuNode, PermissionMetadata } from '@bms/core'
 import type { platform } from '@bms/api-types'
 
 import { get } from './request'
@@ -86,6 +86,19 @@ export async function fetchPermissionMetadata(): Promise<PermissionMetadata> {
     name: permission.code,
   }))
 
+  const dictsRaw = await get<unknown[]>('platform', '/dicts')
+  const dictMetas: DictKeyMeta[] = (Array.isArray(dictsRaw) ? dictsRaw : []).flatMap((item) => {
+    if (item === null || typeof item !== 'object') {
+      return []
+    }
+    const record = item as Record<string, unknown>
+    const key = record.dict_key
+    if (typeof key !== 'string' || key === '') {
+      return []
+    }
+    return [{ id: key, code: key, name: typeof record.name === 'string' ? record.name : key }]
+  })
+
   return {
     menus: ((menus.items ?? []) as MenuItemSchema[]).map(toMenuNode),
     forms: formMetas,
@@ -93,7 +106,7 @@ export async function fetchPermissionMetadata(): Promise<PermissionMetadata> {
     fields: fieldMetas,
     formActions,
     formFields,
-    dictTypes: [],
+    dictKeys: dictMetas,
     extensions: [],
   }
 }

@@ -75,7 +75,7 @@ export function createDictSourceStub(overrides: DictSourceAdapter = {}): DictSou
         if (query.version !== undefined && query.version === stub.version) {
           return { version: stub.version, items: null, has_more: false, total: 0 }
         }
-        let items = itemsOf(query.dictType)
+        let items = itemsOf(query.dictKey)
         if (query.values !== undefined && query.values.length > 0) {
           items = items.filter((item) => query.values?.includes(String(item.value)))
         }
@@ -86,7 +86,7 @@ export function createDictSourceStub(overrides: DictSourceAdapter = {}): DictSou
           const wanted = query.parentId === '0' ? '' : String(query.parentId)
           items = items.filter((item) => String(item.parent_id ?? '') === wanted)
         }
-        const large = stub.largeTypes.has(query.dictType)
+        const large = stub.largeTypes.has(query.dictKey)
         const limited = large ? items.slice(0, 1) : items
         return {
           version: stub.version,
@@ -110,12 +110,12 @@ export function createDictSourceStub(overrides: DictSourceAdapter = {}): DictSou
       },
       loadAttrs: async (query) => {
         calls.push('loadAttrs')
-        queries.push({ dictType: query.dictType })
+        queries.push({ dictKey: query.dictKey })
         return [...DICT_CONTRACT_ATTRS]
       },
       loadProviders: async (query) => {
         calls.push('loadProviders')
-        queries.push({ dictType: query.dictType })
+        queries.push({ dictKey: query.dictKey })
         return [...DICT_CONTRACT_PROVIDERS]
       },
       advancedQuery: async (query) => {
@@ -124,7 +124,7 @@ export function createDictSourceStub(overrides: DictSourceAdapter = {}): DictSou
         if (query.target === 'business') {
           return { items: [], rows: [{ value: 'purchase', label: '采购' }], total: 1, page: 1, size: 20 }
         }
-        return { items: itemsOf(query.dictType), rows: [], total: itemsOf(query.dictType).length, page: 1, size: 20 }
+        return { items: itemsOf(query.dictKey), rows: [], total: itemsOf(query.dictKey).length, page: 1, size: 20 }
       },
       listSchemes: async (query) => {
         calls.push('listSchemes')
@@ -174,17 +174,17 @@ export function createDictSourceStub(overrides: DictSourceAdapter = {}): DictSou
 /**
  * 按类型取契约条目。
  *
- * @param dictType 字典类型码。
+ * @param dictKey 字典类型码。
  * @returns 条目列表。
  */
-function itemsOf(dictType: string): Record<string, unknown>[] {
-  if (dictType === 'user_status') {
+function itemsOf(dictKey: string): Record<string, unknown>[] {
+  if (dictKey === 'user_status') {
     return [...DICT_CONTRACT_STATUS]
   }
-  if (dictType === 'biz_type') {
+  if (dictKey === 'biz_type') {
     return [...DICT_CONTRACT_BIZ]
   }
-  if (dictType === 'region') {
+  if (dictKey === 'region') {
     return [...DICT_CONTRACT_REGION]
   }
   return []
@@ -217,21 +217,21 @@ export interface DictStoreContractTarget {
   /** 批量确保加载。 */
   ensureTypes(types: readonly string[]): Promise<void>
   /** 单类型确保加载。 */
-  ensureType(dictType: string): Promise<void>
+  ensureType(dictKey: string): Promise<void>
   /** 远程搜索。 */
-  searchRemote(dictType: string, keyword: string): Promise<DictItem[]>
+  searchRemote(dictKey: string, keyword: string): Promise<DictItem[]>
   /** 按值回显。 */
-  resolveValues(dictType: string, values: readonly string[]): Promise<void>
+  resolveValues(dictKey: string, values: readonly string[]): Promise<void>
   /** 同步读条目。 */
-  itemsOf(dictType: string): readonly DictItem[]
+  itemsOf(dictKey: string): readonly DictItem[]
   /** 按值取标签。 */
-  labelOf(dictType: string, value: string): string | undefined
+  labelOf(dictKey: string, value: string): string | undefined
   /** 是否已加载。 */
-  isLoaded(dictType: string): boolean
+  isLoaded(dictKey: string): boolean
   /** 是否大字典。 */
-  isLarge(dictType: string): boolean
+  isLarge(dictKey: string): boolean
   /** 失效。 */
-  invalidate(dictType?: string): void
+  invalidate(dictKey?: string): void
 }
 
 /** 选择族契约面。 */
@@ -243,7 +243,7 @@ export interface DictSelectContractTarget {
   /** 请求计数。 */
   readonly requestCount: number
   /** 字典类型码。 */
-  readonly dictType: string
+  readonly dictKey: string
   /** 候选与回显条目。 */
   readonly items: readonly DictItem[]
   /** 选中值。 */
@@ -259,7 +259,7 @@ export interface DictSelectContractTarget {
   /** 注入 / 移除缓存。 */
   setStore(store: unknown): void
   /** 切换类型。 */
-  setDictType(dictType: string): void
+  setDictType(dictKey: string): void
   /** 设置关键词。 */
   setKeyword(keyword: string): void
   /** 设置上级条目 ID（`'0'` = 顶层；空串 = 不级联）。 */
@@ -331,7 +331,7 @@ export interface DictQueryContractTarget {
   /** 注入 / 移除数据源。 */
   setSource(source: DictSourceAdapter | undefined): void
   /** 切换类型。 */
-  setDictType(dictType: string): void
+  setDictType(dictKey: string): void
   /** 切换目标。 */
   setTarget(target: string): void
   /** 设置条件。 */

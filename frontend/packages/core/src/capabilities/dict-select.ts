@@ -36,7 +36,7 @@ export abstract class BaseDictSelect extends BaseOptionSource<string | string[]>
   /** 数据通路是否就绪（占位语义，缺省 `false`）。 */
   ready = false
   /** 字典类型码。 */
-  dictType = ''
+  dictKey = ''
   /** 搜索关键词。 */
   keyword = ''
   /** 上级条目 ID（`'0'` = 顶层；空串 = 不级联，不传该过滤参数）。 */
@@ -67,7 +67,7 @@ export abstract class BaseDictSelect extends BaseOptionSource<string | string[]>
 
   /** 是否超大字典（缓存层探针判定）。 */
   get isLarge(): boolean {
-    return this.store !== undefined && this.store.isLarge(this.dictType)
+    return this.store !== undefined && this.store.isLarge(this.dictKey)
   }
 
   /** 选中值（受控值归一）。 */
@@ -82,7 +82,7 @@ export abstract class BaseDictSelect extends BaseOptionSource<string | string[]>
 
   /** 是否可发起候选加载（就绪 ∧ 类型非空 ∧ 数据源或缓存可用）。 */
   get canLoad(): boolean {
-    if (!this.ready || this.dictType === '') {
+    if (!this.ready || this.dictKey === '') {
       return false
     }
     return this.source !== undefined || this.store !== undefined
@@ -121,10 +121,10 @@ export abstract class BaseDictSelect extends BaseOptionSource<string | string[]>
   /**
    * 切换字典类型（清空候选 / 关键词 / 错误）。
    *
-   * @param dictType 字典类型码。
+   * @param dictKey 字典类型码。
    */
-  setDictType(dictType: string): void {
-    this.dictType = dictType.trim()
+  setDictType(dictKey: string): void {
+    this.dictKey = dictKey.trim()
     this.keyword = ''
     this.limitExceeded = false
     this.errorCode = undefined
@@ -267,17 +267,17 @@ export abstract class BaseDictSelect extends BaseOptionSource<string | string[]>
    * @returns 无。
    */
   override async load(): Promise<void> {
-    if (!this.ready || this.dictType === '') {
+    if (!this.ready || this.dictKey === '') {
       return
     }
     if (this.store !== undefined && this.store.ready && this.store.source !== undefined && this.parentId === '') {
-      await this.store.ensureType(this.dictType)
-      if (this.store.isLarge(this.dictType) && !isBlankDictKeyword(this.keyword)) {
-        const candidates = await this.store.searchRemote(this.dictType, this.keyword)
+      await this.store.ensureType(this.dictKey)
+      if (this.store.isLarge(this.dictKey) && !isBlankDictKeyword(this.keyword)) {
+        const candidates = await this.store.searchRemote(this.dictKey, this.keyword)
         this.#applyCandidates(candidates)
         return
       }
-      this.#applyCandidates(this.#filterTopLevel(this.store.itemsOf(this.dictType)))
+      this.#applyCandidates(this.#filterTopLevel(this.store.itemsOf(this.dictKey)))
       return
     }
     const loader = this.source?.getType
@@ -292,7 +292,7 @@ export abstract class BaseDictSelect extends BaseOptionSource<string | string[]>
     this.emitUpdate()
     try {
       const raw = await loader.call(this.source, {
-        dictType: this.dictType,
+        dictKey: this.dictKey,
         keyword: isBlankDictKeyword(this.keyword) ? undefined : this.keyword,
         parentId: this.parentId === '' ? undefined : this.parentId,
         limit: DICT_PROBE_LIMIT,
@@ -323,12 +323,12 @@ export abstract class BaseDictSelect extends BaseOptionSource<string | string[]>
    * @returns 候选条目。
    */
   async searchRemote(keyword: string): Promise<DictItem[]> {
-    if (!this.ready || this.dictType === '') {
+    if (!this.ready || this.dictKey === '') {
       return []
     }
     this.setKeyword(keyword)
     if (this.store !== undefined && this.store.ready && this.store.source !== undefined) {
-      const candidates = await this.store.searchRemote(this.dictType, this.keyword)
+      const candidates = await this.store.searchRemote(this.dictKey, this.keyword)
       this.#applyCandidates(candidates)
       return candidates
     }
@@ -339,7 +339,7 @@ export abstract class BaseDictSelect extends BaseOptionSource<string | string[]>
     this.markLoaded()
     try {
       const raw = await loader.call(this.source, {
-        dictType: this.dictType,
+        dictKey: this.dictKey,
         keyword: isBlankDictKeyword(this.keyword) ? undefined : this.keyword,
         parentId: this.parentId === '' ? undefined : this.parentId,
         limit: DICT_PROBE_LIMIT,
@@ -363,7 +363,7 @@ export abstract class BaseDictSelect extends BaseOptionSource<string | string[]>
    */
   async resolve(extra?: readonly string[]): Promise<void> {
     const targets = normalizeDictValues(extra ?? this.selectedValues, true)
-    if (!this.ready || this.dictType === '' || targets.length === 0) {
+    if (!this.ready || this.dictKey === '' || targets.length === 0) {
       return
     }
     const missing = targets.filter((value) => this.itemOf(value) === undefined)
@@ -371,14 +371,14 @@ export abstract class BaseDictSelect extends BaseOptionSource<string | string[]>
       return
     }
     if (this.store !== undefined && this.store.ready && this.store.source !== undefined) {
-      await this.store.resolveValues(this.dictType, missing)
+      await this.store.resolveValues(this.dictKey, missing)
       this.#applyItems(
         missing.map((value) => {
-          const label = this.store?.labelOf(this.dictType, value)
+          const label = this.store?.labelOf(this.dictKey, value)
           if (label === undefined) {
             return this.placeholderOf(value)
           }
-          return { value, label, code: '', sort: 0, status: 'enabled' } satisfies DictItem
+          return { id: '0', value, label, code: '', sort: 0, status: 'enabled' } satisfies DictItem
         }),
       )
       return
@@ -393,7 +393,7 @@ export abstract class BaseDictSelect extends BaseOptionSource<string | string[]>
     this.emitUpdate()
     try {
       const raw = await loader.call(this.source, {
-        dictType: this.dictType,
+        dictKey: this.dictKey,
         values: missing,
         limit: DICT_PROBE_LIMIT,
       })
@@ -449,7 +449,7 @@ export abstract class BaseDictSelect extends BaseOptionSource<string | string[]>
    * 失效缓存（类型缓存 + 本地二次缓存）。
    */
   invalidate(): void {
-    this.store?.invalidate(this.dictType)
+    this.store?.invalidate(this.dictKey)
     this.items.splice(0, this.items.length)
     this.options.splice(0, this.options.length)
     this.emitUpdate()
@@ -457,11 +457,11 @@ export abstract class BaseDictSelect extends BaseOptionSource<string | string[]>
 
   /** 从缓存层同步候选与回显（缓存更新后调用）。 */
   syncStore(): void {
-    if (this.store === undefined || this.dictType === '') {
+    if (this.store === undefined || this.dictKey === '') {
       return
     }
-    if (this.store.isLoaded(this.dictType)) {
-      this.#applyCandidates(filterDictItems(this.store.itemsOf(this.dictType), this.keyword))
+    if (this.store.isLoaded(this.dictKey)) {
+      this.#applyCandidates(filterDictItems(this.store.itemsOf(this.dictKey), this.keyword))
     }
   }
 
@@ -487,7 +487,7 @@ export abstract class BaseDictSelect extends BaseOptionSource<string | string[]>
    * @param value 条目值。
    */
   private placeholderOf(value: string): DictItem {
-    return { value, label: value, code: '', sort: 0, status: 'enabled' }
+    return { id: '0', value, label: value, code: '', sort: 0, status: 'enabled' }
   }
 
   /**

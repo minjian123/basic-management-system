@@ -88,13 +88,13 @@ function normalizeProviders(raw: unknown): DictQueryProvider[] {
       continue
     }
     const target = record.target === 'items' ? 'items' : 'business'
-    const dictTypesRaw = record.dictTypes ?? record.dict_types
+    const dictKeysRaw = record.dictKeys ?? record.dict_types
     const paramSchemaRaw = record.paramSchema ?? record.param_schema
     providers.push({
       key,
       name: typeof record.name === 'string' ? record.name : key,
       target,
-      dictTypes: Array.isArray(dictTypesRaw) ? dictTypesRaw.map((item) => String(item)) : [],
+      dictKeys: Array.isArray(dictKeysRaw) ? dictKeysRaw.map((item) => String(item)) : [],
       paramSchema:
         paramSchemaRaw !== null && typeof paramSchemaRaw === 'object' && !Array.isArray(paramSchemaRaw)
           ? (paramSchemaRaw as Record<string, unknown>)
@@ -133,7 +133,7 @@ export abstract class BaseDictQuery extends BasePlaceholderState {
   /** 数据通路是否就绪（占位语义，缺省 `false`）。 */
   ready = false
   /** 字典类型码。 */
-  dictType = ''
+  dictKey = ''
   /** 目标（取项 / 业务筛选）。 */
   target: DictTarget = 'items'
   /** 属性 schema（元数据）。 */
@@ -203,10 +203,10 @@ export abstract class BaseDictQuery extends BasePlaceholderState {
   /**
    * 切换字典类型（清空元数据 / 条件 / 结果）。
    *
-   * @param dictType 字典类型码。
+   * @param dictKey 字典类型码。
    */
-  setDictType(dictType: string): void {
-    this.dictType = dictType.trim()
+  setDictType(dictKey: string): void {
+    this.dictKey = dictKey.trim()
     this.attrs.splice(0, this.attrs.length)
     this.providers.splice(0, this.providers.length)
     this.reset()
@@ -279,7 +279,7 @@ export abstract class BaseDictQuery extends BasePlaceholderState {
    * @returns 无。
    */
   async loadMeta(): Promise<void> {
-    if (!this.ready || this.dictType === '') {
+    if (!this.ready || this.dictKey === '') {
       return
     }
     const adapter = this.source
@@ -297,10 +297,10 @@ export abstract class BaseDictQuery extends BasePlaceholderState {
     this.errorMessage = ''
     this.emitUpdate()
     const [attrsResult, providersResult] = await Promise.all([
-      attrsLoader === undefined ? Promise.resolve(undefined) : attrsLoader.call(adapter, { dictType: this.dictType }),
+      attrsLoader === undefined ? Promise.resolve(undefined) : attrsLoader.call(adapter, { dictKey: this.dictKey }),
       providersLoader === undefined
         ? Promise.resolve(undefined)
-        : providersLoader.call(adapter, { dictType: this.dictType }),
+        : providersLoader.call(adapter, { dictKey: this.dictKey }),
     ])
     this.attrs.splice(0, this.attrs.length, ...normalizeAttrs(attrsResult))
     this.providers.splice(0, this.providers.length, ...normalizeProviders(providersResult))
@@ -314,7 +314,7 @@ export abstract class BaseDictQuery extends BasePlaceholderState {
    * @returns 无。
    */
   async run(): Promise<void> {
-    if (!this.ready || this.dictType === '') {
+    if (!this.ready || this.dictKey === '') {
       return
     }
     const adapter = this.source
@@ -339,7 +339,7 @@ export abstract class BaseDictQuery extends BasePlaceholderState {
     this.emitUpdate()
     try {
       const raw = await loader.call(adapter, {
-        dictType: this.dictType,
+        dictKey: this.dictKey,
         target: this.target,
         conditions: this.conditions,
         provider: this.providerKey === '' ? undefined : this.providerKey,
@@ -466,7 +466,7 @@ export abstract class BaseDictQuery extends BasePlaceholderState {
       name,
       scope: scope ?? 'user',
       target: this.target,
-      dictType: this.dictType,
+      dictKey: this.dictKey,
       providerKey: this.providerKey === '' ? undefined : this.providerKey,
       conditions: this.conditions,
       params: { ...this.providerParams },
@@ -511,7 +511,7 @@ export abstract class BaseDictQuery extends BasePlaceholderState {
   toBusinessFilter(): Record<string, unknown> {
     return {
       target: 'business',
-      dict_type: this.dictType,
+      dict_key: this.dictKey,
       provider: this.providerKey,
       params: { ...this.providerParams },
       conditions: this.conditions,

@@ -146,15 +146,15 @@ describe('字典领域 · 树', () => {
 
 describe('字典领域 · 参数与键', () => {
   it('单类型 / 批量 / 高级查询线参数（非空才传 / 夹取）', () => {
-    expect(buildDictTypeQuery({ dictType: 'a', version: 2, keyword: ' 启 ', parentId: '', values: ['x'], limit: 2001 })).toEqual({
+    expect(buildDictTypeQuery({ dictKey: 'a', version: 2, keyword: ' 启 ', parentId: '', values: ['x'], limit: 2001 })).toEqual({
       version: 2,
       keyword: '启',
       values: 'x',
       limit: 2001,
     })
-    expect(buildDictTypeQuery({ dictType: 'a', parentId: '0' })).toEqual({ parent_id: '0' })
-    expect(buildDictTypeQuery({ dictType: 'a', parentId: '7' })).toEqual({ parent_id: '7' })
-    expect(buildDictTypeQuery({ dictType: 'a', version: 0, keyword: '' })).toEqual({})
+    expect(buildDictTypeQuery({ dictKey: 'a', parentId: '0' })).toEqual({ parent_id: '0' })
+    expect(buildDictTypeQuery({ dictKey: 'a', parentId: '7' })).toEqual({ parent_id: '7' })
+    expect(buildDictTypeQuery({ dictKey: 'a', version: 0, keyword: '' })).toEqual({})
     expect(buildDictBatchQuery(['a', 'b'], 1, 'en-US')).toEqual({ types: ['a', 'b'], version: 1, locale: 'en-US' })
     const adv = buildDictAdvQuery('items', { conditions: { logic: 'AND', children: [] }, page: 0, size: 999 })
     expect(adv).toMatchObject({ target: 'items', page: 1, size: 100 })
@@ -214,7 +214,7 @@ describe('字典领域 · 条件组与方案', () => {
       provider_key: 'builtin',
       is_default: true,
     })
-    expect(scheme).toMatchObject({ id: 1, name: '常用', scope: 'tenant', dictType: 'region', providerKey: 'builtin', isDefault: true })
+    expect(scheme).toMatchObject({ id: 1, name: '常用', scope: 'tenant', dictKey: 'region', providerKey: 'builtin', isDefault: true })
     expect(normalizeDictQueryScheme({ name: '', target: 'items' })).toBeUndefined()
     expect(dictSchemePriority('user')).toBeLessThan(dictSchemePriority('tenant'))
     expect(dictSchemePriority('tenant')).toBeLessThan(dictSchemePriority('platform'))

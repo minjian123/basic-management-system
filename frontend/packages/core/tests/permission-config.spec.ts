@@ -39,7 +39,7 @@ const METADATA: PermissionMetadata = {
   ],
   formActions: { 'form:user': ['act:user:create'] },
   formFields: { 'form:user': ['field:name', 'field:salary'] },
-  dictTypes: [{ id: 'dict:user', code: 'user', name: '用户字典' }],
+  dictKeys: [{ id: 'dict:user', code: 'user', name: '用户字典' }],
   extensions: [],
 }
 

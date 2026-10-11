@@ -151,7 +151,7 @@ describe('DescriptionList 各类型回显', () => {
     const wrapper = mount(DescriptionList, {
       props: {
         items: [
-          { key: 'type', label: '类型', type: 'dict' as const, dictType: 'sys_type' },
+          { key: 'type', label: '类型', type: 'dict' as const, dictKey: 'sys_type' },
           { key: 'ratio', label: '比例', type: 'percent' as const, precision: 1 },
         ],
         data: { type: 'a', ratio: 0.125 },
@@ -163,7 +163,7 @@ describe('DescriptionList 各类型回显', () => {
 
     const fallback = mount(DescriptionList, {
       props: {
-        items: [{ key: 'type', label: '类型', type: 'dict' as const, dictType: 'sys_type' }],
+        items: [{ key: 'type', label: '类型', type: 'dict' as const, dictKey: 'sys_type' }],
         data: { type: 'a' },
       },
     })

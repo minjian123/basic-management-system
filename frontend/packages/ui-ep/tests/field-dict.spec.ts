@@ -158,14 +158,14 @@ function makeStoreTarget(): DictStoreContractTarget {
     setStorage: (channel) => store.setStorage(channel as never),
     setLocale: (locale) => store.setLocale(locale),
     ensureTypes: (types) => store.ensureTypes(types),
-    ensureType: (dictType) => store.ensureType(dictType),
-    searchRemote: (dictType, keyword) => store.searchRemote(dictType, keyword),
-    resolveValues: (dictType, values) => store.resolveValues(dictType, values),
-    itemsOf: (dictType) => store.itemsOf(dictType),
-    labelOf: (dictType, value) => store.labelOf(dictType, value),
-    isLoaded: (dictType) => store.isLoaded(dictType),
-    isLarge: (dictType) => store.isLarge(dictType),
-    invalidate: (dictType) => store.invalidate(dictType),
+    ensureType: (dictKey) => store.ensureType(dictKey),
+    searchRemote: (dictKey, keyword) => store.searchRemote(dictKey, keyword),
+    resolveValues: (dictKey, values) => store.resolveValues(dictKey, values),
+    itemsOf: (dictKey) => store.itemsOf(dictKey),
+    labelOf: (dictKey, value) => store.labelOf(dictKey, value),
+    isLoaded: (dictKey) => store.isLoaded(dictKey),
+    isLarge: (dictKey) => store.isLarge(dictKey),
+    invalidate: (dictKey) => store.invalidate(dictKey),
   }
 }
 
@@ -182,8 +182,8 @@ function makeSelectTarget(): DictSelectContractTarget {
     get requestCount() {
       return select.requestCount
     },
-    get dictType() {
-      return select.dictType
+    get dictKey() {
+      return select.dictKey
     },
     get items() {
       return select.items
@@ -203,7 +203,7 @@ function makeSelectTarget(): DictSelectContractTarget {
     setReady: (value) => api.setReady(value),
     setSource: (source) => api.setSource(source),
     setStore: () => undefined,
-    setDictType: (dictType) => api.setDictType(dictType),
+    setDictType: (dictKey) => api.setDictType(dictKey),
     setKeyword: (keyword) => api.setKeyword(keyword),
     setParent: (parentId) => api.setParent(parentId),
     setMultiple: (value) => api.setMultiple(value),
@@ -269,7 +269,7 @@ function makeQueryTarget(): DictQueryContractTarget {
     },
     setReady: (value) => api.setReady(value),
     setSource: (source) => api.setSource(source),
-    setDictType: (dictType) => api.setDictType(dictType),
+    setDictType: (dictKey) => api.setDictType(dictKey),
     setTarget: (target) => api.setTarget(target === 'business' ? 'business' : 'items'),
     setConditions: (group) => api.setConditions(group),
     setProvider: (key, params) => api.setProvider(key, params),
@@ -338,7 +338,7 @@ describe('DictSelectField（真实实现）', () => {
   it('占位降级 / 禁用 / 零请求（06_01 冻结契约保持）', () => {
     const stub = createDictSourceStub()
     const wrapper = mount(DictSelectField, {
-      props: { modelValue: undefined, ready: false, dictType: 'user_status', source: stub.source },
+      props: { modelValue: undefined, ready: false, dictKey: 'user_status', source: stub.source },
       global: { stubs },
     })
     expect(wrapper.attributes('data-degraded')).toBe('true')
@@ -349,7 +349,7 @@ describe('DictSelectField（真实实现）', () => {
   it('展开首屏加载 + 多选上限截断 + 只读回显', async () => {
     const stub = createDictSourceStub()
     const wrapper = mount(DictSelectField, {
-      props: { modelValue: undefined, ready: true, dictType: 'user_status', source: stub.source, multiple: true, limit: 1 },
+      props: { modelValue: undefined, ready: true, dictKey: 'user_status', source: stub.source, multiple: true, limit: 1 },
       global: { stubs },
     })
     const select = findStub(wrapper, 'ElSelect')
@@ -367,7 +367,7 @@ describe('DictSelectField（真实实现）', () => {
       props: {
         modelValue: ['enabled', 'disabled'],
         ready: true,
-        dictType: 'user_status',
+        dictKey: 'user_status',
         source: stub.source,
         multiple: true,
         readonly: true,
@@ -402,7 +402,7 @@ describe('DictLabel（标签回显）', () => {
     await store.ensureType('user_status')
 
     const wrapper = mount(DictLabel, {
-      props: { value: ['enabled', 'ghost'], dictType: 'user_status', source: stub.source, store, tag: true },
+      props: { value: ['enabled', 'ghost'], dictKey: 'user_status', source: stub.source, store, tag: true },
       global: { stubs },
     })
     await flushPromises()
@@ -412,7 +412,7 @@ describe('DictLabel（标签回显）', () => {
 
   it('未注入数据源原值展示（零请求）', () => {
     const wrapper = mount(DictLabel, {
-      props: { value: 'enabled', dictType: 'user_status' },
+      props: { value: 'enabled', dictKey: 'user_status' },
       global: { stubs },
     })
     expect(wrapper.text()).toBe('enabled')
@@ -423,7 +423,7 @@ describe('DictCascaderField（字典级联）', () => {
   it('树加载与只读路径回显', async () => {
     const stub = createDictSourceStub()
     const wrapper = mount(DictCascaderField, {
-      props: { modelValue: ['zj', 'hz'], ready: true, dictType: 'region', source: stub.source, readonly: true },
+      props: { modelValue: ['zj', 'hz'], ready: true, dictKey: 'region', source: stub.source, readonly: true },
       global: { stubs },
     })
     await flushPromises()
@@ -453,7 +453,7 @@ describe('DictAdvancedQuery（高级查询抽屉）', () => {
   it('打开加载元数据并执行；应用上抛取项值；取消关闭', async () => {
     const stub = createDictSourceStub()
     const wrapper = mount(DictAdvancedQuery, {
-      props: { visible: true, ready: true, dictType: 'user_status', source: stub.source },
+      props: { visible: true, ready: true, dictKey: 'user_status', source: stub.source },
       global: { stubs },
     })
     await flushPromises()
@@ -478,7 +478,7 @@ describe('工具（HTTP 数据源 / 注册表 / 本地通道 / 翻译器）', ()
     })
     vi.stubGlobal('fetch', fetchMock)
     const source = createHttpDictSource({ endpoint: '/api/v1' })
-    await source.getType({ dictType: 'user_status', version: 1, parentId: '' })
+    await source.getType({ dictKey: 'user_status', version: 1, parentId: '' })
     const url = String(fetchMock.mock.calls[0]?.[0])
     expect(url).toContain('/api/v1/dicts/user_status')
     expect(url).toContain('version=1')
@@ -488,7 +488,7 @@ describe('工具（HTTP 数据源 / 注册表 / 本地通道 / 翻译器）', ()
 
     vi.stubGlobal('fetch', undefined)
     const degraded = createHttpDictSource()
-    expect(await degraded.getType({ dictType: 'x' })).toBeUndefined()
+    expect(await degraded.getType({ dictKey: 'x' })).toBeUndefined()
   })
 
   it('注册表登记与默认键 / 本地通道 / 翻译器', () => {
@@ -513,7 +513,7 @@ describe('工具（HTTP 数据源 / 注册表 / 本地通道 / 翻译器）', ()
     vi.useFakeTimers()
     const stub = createDictSourceStub()
     const wrapper = mount(DictSelectField, {
-      props: { modelValue: undefined, ready: true, dictType: 'user_status', source: stub.source, searchable: true },
+      props: { modelValue: undefined, ready: true, dictKey: 'user_status', source: stub.source, searchable: true },
       global: { stubs },
     })
     const select = findStub(wrapper, 'ElSelect')

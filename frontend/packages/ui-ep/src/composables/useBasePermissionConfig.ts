@@ -145,7 +145,7 @@ export interface UseBasePermissionConfigResult {
   /** 设置字段权限。 */
   setFieldPerm: (formId: string, fieldId: string, patch: FieldPermPatch, sourceMenuId?: string) => boolean
   /** 设置数据权限。 */
-  setDataScope: (dictTypeId: string, policyType: DataScopePolicyType, config: readonly DataScopePolicyItem[]) => boolean
+  setDataScope: (dictKey: string, policyType: DataScopePolicyType, config: readonly DataScopePolicyItem[]) => boolean
   /** 绑定用户。 */
   bindUsers: (users: readonly AssignedUser[]) => boolean
   /** 解绑用户。 */
@@ -330,8 +330,8 @@ export function useBasePermissionConfig(options: UseBasePermissionConfigOptions 
       sync()
       return applied
     },
-    setDataScope: (dictTypeId, policyType, scopeConfig) => {
-      const applied = config.setDataScope(dictTypeId, policyType, scopeConfig)
+    setDataScope: (dictKey, policyType, scopeConfig) => {
+      const applied = config.setDataScope(dictKey, policyType, scopeConfig)
       sync()
       return applied
     },

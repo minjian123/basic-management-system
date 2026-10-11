@@ -22,7 +22,7 @@ import type {
 /** 单类型取数入参（与后端 `DictQuery` 同形）。 */
 export interface DictSourceTypeQuery {
   /** 字典类型码。 */
-  dictType: string
+  dictKey: string
   /** 客户端本地版本号（一致时后端返回 `items=null`）。 */
   version?: number
   /** 关键字（label / value / code）。 */
@@ -48,7 +48,7 @@ export interface DictSourceBatchQuery {
 /** 属性 schema 入参。 */
 export interface DictSourceAttrsQuery {
   /** 字典类型码。 */
-  dictType: string
+  dictKey: string
   /** 语言。 */
   locale?: string
 }
@@ -56,13 +56,13 @@ export interface DictSourceAttrsQuery {
 /** 提供者清单入参。 */
 export interface DictSourceProvidersQuery {
   /** 按字典类型过滤（可选）。 */
-  dictType?: string
+  dictKey?: string
 }
 
 /** 高级查询入参。 */
 export interface DictSourceAdvQuery {
   /** 字典类型码。 */
-  dictType: string
+  dictKey: string
   /** 目标（取项 / 业务筛选）。 */
   target: DictTarget
   /** 条件组。 */

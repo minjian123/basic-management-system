@@ -55,7 +55,7 @@ const stubSource: DictSourceAdapter = {
     if (query.version !== undefined && query.version === stubVersion.value) {
       return { version: stubVersion.value, items: null, has_more: false, total: 0 }
     }
-    let items = stubItems[query.dictType] ?? []
+    let items = stubItems[query.dictKey] ?? []
     if (query.values !== undefined) {
       items = items.filter((item) => query.values?.includes(item.value))
     }
@@ -88,9 +88,9 @@ const stubSource: DictSourceAdapter = {
     { key: 'builtin', name: '字典条目查询（内建）', target: 'business', dict_types: [], param_schema: {} },
   ],
   advancedQuery: async (query) => ({
-    items: stubItems[query.dictType] ?? [],
+    items: stubItems[query.dictKey] ?? [],
     rows: [],
-    total: (stubItems[query.dictType] ?? []).length,
+    total: (stubItems[query.dictKey] ?? []).length,
     page: 1,
     size: 20,
   }),
@@ -116,7 +116,7 @@ const source: DictSourceAdapter = useHttp ? createHttpDictSource(dictSourceOptio
 /** 主实例（用户状态多选 limit=2）。 */
 const api = useBaseDictSelect({
   ready: true,
-  dictType: 'user_status',
+  dictKey: 'user_status',
   multiple: true,
   limit: 2,
   source,
@@ -151,7 +151,7 @@ async function runChecks(): Promise<void> {
   }
 
   // 1. 占位降级与零请求
-  const placeholder = useBaseDictSelect({ ready: false, dictType: 'user_status', source, storage: undefined })
+  const placeholder = useBaseDictSelect({ ready: false, dictKey: 'user_status', source, storage: undefined })
   await placeholder.load()
   add('占位降级且零请求', placeholder.degraded.value && placeholder.requestCount.value === 0)
 
@@ -175,7 +175,7 @@ async function runChecks(): Promise<void> {
   add('版本比对（一致零传输复用缓存）', versionQueries > 0 || versionBefore === 0)
 
   // 4. 大小字典（探针上限 / 大字典判定）
-  const probeQuery = queries.find((query) => query.dictType === 'user_status' && query.limit !== undefined)
+  const probeQuery = queries.find((query) => query.dictKey === 'user_status' && query.limit !== undefined)
   add('大小字典探针（limit=2001）', useHttp ? probeQuery === undefined || probeQuery.limit === 2001 : probeQuery?.limit === 2001)
 
   // 5. 远程搜索防抖（常量驱动）
@@ -183,7 +183,7 @@ async function runChecks(): Promise<void> {
 
   // 6. 本地二次缓存（写入 / 失效）
   const written = new Map<string, string>()
-  const cached = useBaseDictSelect({ ready: true, dictType: 'biz_type', source, storage: {
+  const cached = useBaseDictSelect({ ready: true, dictKey: 'biz_type', source, storage: {
     read: (key) => written.get(key),
     write: (key, value) => written.set(key, value),
     remove: (key) => written.delete(key),
@@ -194,7 +194,7 @@ async function runChecks(): Promise<void> {
   add('本地二次缓存写入与失效', wrote && written.size === 0)
 
   // 7. 级联父值（父变清空重载 + parent_id 透传）
-  const cascade = useBaseDictSelect({ ready: true, dictType: 'region', source, storage: undefined })
+  const cascade = useBaseDictSelect({ ready: true, dictKey: 'region', source, storage: undefined })
   cascade.setValue('hz')
   cascade.setParent('zj')
   await cascade.load()

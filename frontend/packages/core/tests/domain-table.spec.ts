@@ -51,7 +51,7 @@ describe('列配置解析', () => {
     expect(resolveRenderKind({ key: 'a', title: 'A', format: 'amount' })).toBe('format')
     expect(resolveRenderKind({ key: 'a', title: 'A', format: 'amount', mask: true })).toBe('mask')
     expect(resolveRenderKind({ key: 'a', title: 'A', status: true })).toBe('status')
-    expect(resolveRenderKind({ key: 'a', title: 'A', status: true, dictType: 'sys_status' })).toBe('dict')
+    expect(resolveRenderKind({ key: 'a', title: 'A', status: true, dictKey: 'sys_status' })).toBe('dict')
   })
 
   it('可见列按偏好过滤与排序，偏好缺失列保留在末尾', () => {

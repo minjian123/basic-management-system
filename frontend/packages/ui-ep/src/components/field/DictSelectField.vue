@@ -39,7 +39,7 @@ interface Props {
   /** 降级文案。 */
   degradeText?: string
   /** 字典类型码（真实取数必填）。 */
-  dictType?: string
+  dictKey?: string
   /** 可搜索（远程搜索 / 本地过滤）。 */
   searchable?: boolean
   /** 字典数据源（未注入即占位零请求）。 */
@@ -80,7 +80,7 @@ const props = withDefaults(defineProps<Props>(), {
   disabled: false,
   placeholder: '请选择',
   degradeText: DICT_PLACEHOLDER_TEXT,
-  dictType: '',
+  dictKey: '',
   searchable: true,
   source: undefined,
   store: undefined,
@@ -104,12 +104,12 @@ const emit = defineEmits<{
   retry: []
   invalid: [message: string]
   'limit-exceed': [limit: number]
-  loaded: [payload: { dictType: string; hasMore: boolean; total: number }]
+  loaded: [payload: { dictKey: string; hasMore: boolean; total: number }]
 }>()
 
 const api = useBaseDictSelect({
   ready: props.ready,
-  dictType: props.dictType,
+  dictKey: props.dictKey,
   multiple: props.multiple,
   limit: props.limit,
   parentId: props.parentId,
@@ -125,7 +125,7 @@ watch(
   (next) => api.setReady(next),
 )
 watch(
-  () => props.dictType,
+  () => props.dictKey,
   (next) => api.setDictType(next),
 )
 watch(

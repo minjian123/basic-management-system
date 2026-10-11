@@ -202,8 +202,8 @@ function onSetFieldPerm(payload: { formId: string; fieldId: string; patch: Field
 }
 
 /** 数据权限。 */
-function onSetScope(payload: { dictTypeId: string; policyType: DataScopePolicyType; config: DataScopePolicyItem[] }): void {
-  if (setDataScope(payload.dictTypeId, payload.policyType, payload.config)) {
+function onSetScope(payload: { dictKey: string; policyType: DataScopePolicyType; config: DataScopePolicyItem[] }): void {
+  if (setDataScope(payload.dictKey, payload.policyType, payload.config)) {
     emit('change', { kind: 'scope', value: payload })
   }
 }
@@ -325,7 +325,7 @@ defineExpose({
         <template v-else-if="tab === 'data'">
           <slot name="data-panel">
             <data-scope-panel
-              :dict-types="metadata.dictTypes"
+              :dict-types="metadata.dictKeys"
               :extensions="metadata.extensions"
               :entries="dataScopeEntries"
               :selected-dict-type-id="selectedDictTypeId"
