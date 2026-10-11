@@ -26,13 +26,29 @@ import {
 } from '../domain/dict'
 import type { DictSourceAdapter } from './dict-source'
 
+/**
+ * 解列表响应：兼容裸数组与 `{ items: [...] }` 包装。
+ *
+ * 字典族契约（`GET /dicts/{data_source_key}/attrs`、`GET /dicts/query-providers`）的 `data`
+ * 已由裸数组收敛为 `{ items: [...] }`（02_12）；此处兼容两种形状，旧桩 / 旧宿主实现零改动。
+ */
+function toItems(raw: unknown): unknown[] {
+  if (Array.isArray(raw)) {
+    return raw
+  }
+  if (raw !== null && typeof raw === 'object') {
+    const items = (raw as Record<string, unknown>).items
+    if (Array.isArray(items)) {
+      return items
+    }
+  }
+  return []
+}
+
 /** 属性 schema 归一（脏项剔除）。 */
 function normalizeAttrs(raw: unknown): DictAttrSchema[] {
-  if (!Array.isArray(raw)) {
-    return []
-  }
   const attrs: DictAttrSchema[] = []
-  for (const entry of raw) {
+  for (const entry of toItems(raw)) {
     if (entry === null || typeof entry !== 'object') {
       continue
     }
@@ -74,11 +90,8 @@ function normalizeAttrs(raw: unknown): DictAttrSchema[] {
 
 /** 查询提供者归一（脏项剔除）。 */
 function normalizeProviders(raw: unknown): DictQueryProvider[] {
-  if (!Array.isArray(raw)) {
-    return []
-  }
   const providers: DictQueryProvider[] = []
-  for (const entry of raw) {
+  for (const entry of toItems(raw)) {
     if (entry === null || typeof entry !== 'object') {
       continue
     }

@@ -438,6 +438,168 @@
         "title": "ApiResponse[CredentialVerifyResult]",
         "type": "object"
       },
+      "ApiResponse_DataSourceListResponse_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DataSourceListResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[DataSourceListResponse]",
+        "type": "object"
+      },
+      "ApiResponse_DictAdvQueryResult_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DictAdvQueryResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[DictAdvQueryResult]",
+        "type": "object"
+      },
+      "ApiResponse_DictAttrListResponse_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DictAttrListResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[DictAttrListResponse]",
+        "type": "object"
+      },
+      "ApiResponse_DictBatchResult_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DictBatchResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[DictBatchResult]",
+        "type": "object"
+      },
+      "ApiResponse_DictQueryProviderListResponse_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DictQueryProviderListResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[DictQueryProviderListResponse]",
+        "type": "object"
+      },
+      "ApiResponse_DictTypeResult_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DictTypeResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[DictTypeResult]",
+        "type": "object"
+      },
       "ApiResponse_FieldItem_": {
         "additionalProperties": false,
         "properties": {
@@ -1998,6 +2160,156 @@
         "title": "CredentialVerifyResult",
         "type": "object"
       },
+      "DataSourceKind": {
+        "description": "数据源类型（数据形态；预留其它）。",
+        "enum": [
+          "dict",
+          "form"
+        ],
+        "title": "DataSourceKind",
+        "type": "string"
+      },
+      "DataSourceListResponse": {
+        "additionalProperties": false,
+        "description": "统一数据源登记清单响应（保序：构建期清单序 + 注入序）。",
+        "properties": {
+          "items": {
+            "description": "数据源登记记录清单",
+            "items": {
+              "$ref": "#/components/schemas/DataSourceResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "DataSourceListResponse",
+        "type": "object"
+      },
+      "DataSourceOrigin": {
+        "description": "数据源来源（数据所有者类别）。",
+        "enum": [
+          "platform",
+          "product"
+        ],
+        "title": "DataSourceOrigin",
+        "type": "string"
+      },
+      "DataSourceResponse": {
+        "additionalProperties": false,
+        "description": "数据源登记记录响应（与 `DataSourceRecord` 对齐）。",
+        "properties": {
+          "allowlist": {
+            "default": [],
+            "description": "数据权限可匹配字段白名单",
+            "items": {
+              "type": "string"
+            },
+            "title": "Allowlist",
+            "type": "array"
+          },
+          "cascade": {
+            "default": false,
+            "description": "是否级联（有无上级字段）",
+            "title": "Cascade",
+            "type": "boolean"
+          },
+          "data_source": {
+            "description": "数据出口标识（统一出口按此路由到具体实现）",
+            "title": "Data Source",
+            "type": "string"
+          },
+          "data_source_key": {
+            "description": "数据源标识（业务码字符串，全局唯一）",
+            "title": "Data Source Key",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/DataSourceKind",
+            "description": "类型（dict 字典 / form 表单，预留其它）"
+          },
+          "name": {
+            "description": "名称（数据权限左列 / 通用页面显示）",
+            "title": "Name",
+            "type": "string"
+          },
+          "origin": {
+            "$ref": "#/components/schemas/DataSourceOrigin",
+            "description": "来源（platform 平台内建 / product 产品提供）"
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "产品取数路径（origin=product 时前端经网关直取）",
+            "title": "Path"
+          },
+          "product_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "产品标识（origin=product 时非空）",
+            "title": "Product Key"
+          },
+          "status": {
+            "$ref": "#/components/schemas/DataSourceStatus",
+            "default": "enabled",
+            "description": "状态（enabled / disabled）"
+          },
+          "strategies": {
+            "default": [
+              "select"
+            ],
+            "description": "可用策略集合（select / region / match / extension）",
+            "items": {
+              "$ref": "#/components/schemas/DataSourceStrategy"
+            },
+            "title": "Strategies",
+            "type": "array"
+          }
+        },
+        "required": [
+          "data_source_key",
+          "name",
+          "kind",
+          "data_source",
+          "origin"
+        ],
+        "title": "DataSourceResponse",
+        "type": "object"
+      },
+      "DataSourceStatus": {
+        "description": "数据源登记项状态。",
+        "enum": [
+          "enabled",
+          "disabled"
+        ],
+        "title": "DataSourceStatus",
+        "type": "string"
+      },
+      "DataSourceStrategy": {
+        "description": "数据权限可用策略（供数据权限左列渲染，只选不编）。",
+        "enum": [
+          "select",
+          "region",
+          "match",
+          "extension"
+        ],
+        "title": "DataSourceStrategy",
+        "type": "string"
+      },
       "DemoCreateRequest": {
         "additionalProperties": false,
         "description": "创建 demo 请求。",
@@ -2032,6 +2344,70 @@
           "name"
         ],
         "title": "DemoUpdateRequest",
+        "type": "object"
+      },
+      "DictAdvItem": {
+        "additionalProperties": false,
+        "description": "高级查询结果条目（普通字段）。",
+        "properties": {
+          "code": {
+            "default": "",
+            "description": "条目编码",
+            "title": "Code",
+            "type": "string"
+          },
+          "color": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "语义色",
+            "title": "Color"
+          },
+          "label": {
+            "description": "条目标签（按 locale）",
+            "title": "Label",
+            "type": "string"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "上级条目 ID",
+            "title": "Parent Id"
+          },
+          "sort": {
+            "default": 0,
+            "description": "排序值",
+            "title": "Sort",
+            "type": "integer"
+          },
+          "status": {
+            "default": "enabled",
+            "description": "状态",
+            "title": "Status",
+            "type": "string"
+          },
+          "value": {
+            "description": "条目值",
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "value",
+          "label"
+        ],
+        "title": "DictAdvItem",
         "type": "object"
       },
       "DictAdvQueryPayload": {
@@ -2098,6 +2474,141 @@
         "title": "DictAdvQueryPayload",
         "type": "object"
       },
+      "DictAdvQueryResult": {
+        "additionalProperties": false,
+        "description": "高级查询结果（`items` 取项 / `rows` 业务筛选二选一）。",
+        "properties": {
+          "items": {
+            "default": [],
+            "description": "字典条目（target=items）",
+            "items": {
+              "$ref": "#/components/schemas/DictAdvItem"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "page": {
+            "default": 1,
+            "description": "页码（自 1）",
+            "title": "Page",
+            "type": "integer"
+          },
+          "rows": {
+            "default": [],
+            "description": "业务记录（target=business）",
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Rows",
+            "type": "array"
+          },
+          "size": {
+            "default": 20,
+            "description": "页长",
+            "title": "Size",
+            "type": "integer"
+          },
+          "total": {
+            "default": 0,
+            "description": "命中总数",
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "title": "DictAdvQueryResult",
+        "type": "object"
+      },
+      "DictAttrInfo": {
+        "additionalProperties": false,
+        "description": "属性 schema（高级查询条件字段；本期为固定字段）。",
+        "properties": {
+          "attr_key": {
+            "description": "字段键",
+            "title": "Attr Key",
+            "type": "string"
+          },
+          "data_type": {
+            "description": "数据类型（text/number/enum）",
+            "title": "Data Type",
+            "type": "string"
+          },
+          "name": {
+            "description": "字段名",
+            "title": "Name",
+            "type": "string"
+          },
+          "operators": {
+            "default": [],
+            "description": "可用操作符",
+            "items": {
+              "type": "string"
+            },
+            "title": "Operators",
+            "type": "array"
+          },
+          "options": {
+            "default": [],
+            "description": "枚举选项集",
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Options",
+            "type": "array"
+          },
+          "scope": {
+            "default": "platform",
+            "description": "来源（platform/tenant）",
+            "title": "Scope",
+            "type": "string"
+          },
+          "sort": {
+            "default": 0,
+            "description": "排序值",
+            "title": "Sort",
+            "type": "integer"
+          },
+          "widget": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "值控件",
+            "title": "Widget"
+          }
+        },
+        "required": [
+          "attr_key",
+          "name",
+          "data_type"
+        ],
+        "title": "DictAttrInfo",
+        "type": "object"
+      },
+      "DictAttrListResponse": {
+        "additionalProperties": false,
+        "description": "字典可查字段 schema 清单响应（保序；供 `GET /dicts/{data_source_key}/attrs`）。",
+        "properties": {
+          "items": {
+            "description": "固定字段 schema 清单",
+            "items": {
+              "$ref": "#/components/schemas/DictAttrInfo"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "DictAttrListResponse",
+        "type": "object"
+      },
       "DictBatchQuery": {
         "additionalProperties": false,
         "description": "批量合并取数参数对象（表单页多字典字段合并为一次请求）。",
@@ -2133,6 +2644,208 @@
           "types"
         ],
         "title": "DictBatchQuery",
+        "type": "object"
+      },
+      "DictBatchResult": {
+        "additionalProperties": false,
+        "description": "批量合并取数结果（内层 `DictTypeResult.version` 与批量全局 `version` 同值）。",
+        "properties": {
+          "items": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/DictTypeResult"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "description": "按类型的取数结果；None＝该类型版本一致",
+            "title": "Items",
+            "type": "object"
+          },
+          "version": {
+            "default": 0,
+            "description": "当前全局版本号",
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "title": "DictBatchResult",
+        "type": "object"
+      },
+      "DictItem": {
+        "additionalProperties": false,
+        "description": "字典条目（普通运行时链路字段；不含扩展属性 `attr_json`）。\n\n`parent_id` 为**上级条目 ID**（自引用同表 `id`；顶层 `None`），非父条目 `value`\n（2026-10-10 口径收口，任务 02_07）；`id` 供前端级联过滤与字典树构建使用。",
+        "properties": {
+          "code": {
+            "default": "",
+            "description": "条目编码",
+            "title": "Code",
+            "type": "string"
+          },
+          "color": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "语义色（供状态标签取色，可空）",
+            "title": "Color"
+          },
+          "id": {
+            "default": 0,
+            "description": "条目主键（雪花 ID，JSON 以字符串输出）",
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "description": "条目标签（按 locale）",
+            "title": "Label",
+            "type": "string"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "上级条目 ID（自引用 id；None＝顶层）",
+            "title": "Parent Id"
+          },
+          "sort": {
+            "default": 0,
+            "description": "排序值",
+            "title": "Sort",
+            "type": "integer"
+          },
+          "status": {
+            "default": "enabled",
+            "description": "状态（enabled / disabled）",
+            "title": "Status",
+            "type": "string"
+          },
+          "value": {
+            "description": "条目值",
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "value",
+          "label"
+        ],
+        "title": "DictItem",
+        "type": "object"
+      },
+      "DictQueryProviderInfo": {
+        "additionalProperties": false,
+        "description": "查询提供者清单项（发现—选择—调用）。",
+        "properties": {
+          "data_source_keys": {
+            "default": [],
+            "description": "适用字典标识（空 = 全部）",
+            "items": {
+              "type": "string"
+            },
+            "title": "Data Source Keys",
+            "type": "array"
+          },
+          "key": {
+            "description": "提供者标识",
+            "title": "Key",
+            "type": "string"
+          },
+          "name": {
+            "description": "显示名",
+            "title": "Name",
+            "type": "string"
+          },
+          "param_schema": {
+            "additionalProperties": true,
+            "description": "参数 JSON Schema 子集",
+            "title": "Param Schema",
+            "type": "object"
+          },
+          "target": {
+            "default": "business",
+            "description": "目标（items/business）",
+            "title": "Target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "name"
+        ],
+        "title": "DictQueryProviderInfo",
+        "type": "object"
+      },
+      "DictQueryProviderListResponse": {
+        "additionalProperties": false,
+        "description": "查询提供者清单响应（保序；供 `GET /dicts/query-providers`）。",
+        "properties": {
+          "items": {
+            "description": "查询提供者清单",
+            "items": {
+              "$ref": "#/components/schemas/DictQueryProviderInfo"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "DictQueryProviderListResponse",
+        "type": "object"
+      },
+      "DictTypeResult": {
+        "additionalProperties": false,
+        "description": "单类型取数结果（`items=None` 表示版本一致，前端复用本地缓存）。",
+        "properties": {
+          "has_more": {
+            "default": false,
+            "description": "是否还有更多（超过 limit 截断）",
+            "title": "Has More",
+            "type": "boolean"
+          },
+          "items": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/DictItem"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "条目集；None＝版本一致（省流量）；空元组＝确无数据",
+            "title": "Items"
+          },
+          "total": {
+            "default": 0,
+            "description": "命中总数",
+            "title": "Total",
+            "type": "integer"
+          },
+          "version": {
+            "default": 0,
+            "description": "当前全局版本号",
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "title": "DictTypeResult",
         "type": "object"
       },
       "ExpressionContextPayload": {
@@ -7191,7 +7904,7 @@
     },
     "/api/v1/data-sources": {
       "get": {
-        "description": "列统一数据源登记清单（供数据权限左列 / 通用页面）。\n\nArgs:\n    kind: 类型过滤（`dict` / `form`；空 = 全部）。\n\nReturns:\n    ApiResponse: 统一响应，data 为登记清单数组。\n\nRaises:\n    ParamError: 类型取值非法。",
+        "description": "列统一数据源登记清单（供数据权限左列 / 通用页面）。\n\nArgs:\n    kind: 类型过滤（`dict` / `form`；空 = 全部）。\n\nReturns:\n    ApiResponse[DataSourceListResponse]: 统一响应，data 为登记清单（`items` 保序）。\n\nRaises:\n    ParamError: 类型取值非法。",
         "operationId": "list_data_sources_api_v1_data_sources_get",
         "parameters": [
           {
@@ -7218,7 +7931,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
+                  "$ref": "#/components/schemas/ApiResponse_DataSourceListResponse_"
                 }
               }
             },
@@ -7740,7 +8453,7 @@
     },
     "/api/v1/dicts/batch": {
       "post": {
-        "description": "批量合并取字典（一次请求多标识；版本一致的标识 items 返回 null）。\n\nArgs:\n    source: 字典取数契约。\n    query: 批量取数参数（types / version / locale）。\n    request: 请求对象（语言解析）。\n\nReturns:\n    ApiResponse: 统一响应，data 为批量结果。",
+        "description": "批量合并取字典（一次请求多标识；版本一致的标识 items 返回 null）。\n\nArgs:\n    source: 字典取数契约。\n    query: 批量取数参数（types / version / locale）。\n    request: 请求对象（语言解析）。\n\nReturns:\n    ApiResponse[DictBatchResult]: 统一响应，data 为批量结果。",
         "operationId": "batch_dicts_api_v1_dicts_batch_post",
         "requestBody": {
           "content": {
@@ -7757,7 +8470,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
+                  "$ref": "#/components/schemas/ApiResponse_DictBatchResult_"
                 }
               }
             },
@@ -7832,7 +8545,7 @@
     },
     "/api/v1/dicts/query-providers": {
       "get": {
-        "description": "列可用查询提供者（按标识过滤；含参数 schema 子集）。\n\nArgs:\n    registry: 查询提供者注册表。\n    data_source_key: 字典标识（可选）。\n\nReturns:\n    ApiResponse: 统一响应，data 为提供者清单数组。",
+        "description": "列可用查询提供者（按标识过滤；含参数 schema 子集）。\n\nArgs:\n    registry: 查询提供者注册表。\n    data_source_key: 字典标识（可选）。\n\nReturns:\n    ApiResponse[DictQueryProviderListResponse]: 统一响应，data 为提供者清单（`items` 保序）。",
         "operationId": "list_query_providers_api_v1_dicts_query_providers_get",
         "parameters": [
           {
@@ -7859,7 +8572,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
+                  "$ref": "#/components/schemas/ApiResponse_DictQueryProviderListResponse_"
                 }
               }
             },
@@ -7934,7 +8647,7 @@
     },
     "/api/v1/dicts/{data_source_key}": {
       "get": {
-        "description": "按字典标识取字典（版本比对 / 关键字 / 级联 / 按值子集 / 上限）。\n\nArgs:\n    source: 字典取数契约。\n    data_source_key: 字典标识。\n    request: 请求对象（语言解析）。\n    version: 客户端本地版本号。\n    keyword: 关键字。\n    parent_id: 上级条目 ID（0 = 顶层）。\n    values: 逗号分隔的 value 子集。\n    limit: 返回条数上限。\n\nReturns:\n    ApiResponse: 统一响应，data 为单标识取数结果。",
+        "description": "按字典标识取字典（版本比对 / 关键字 / 级联 / 按值子集 / 上限）。\n\nArgs:\n    source: 字典取数契约。\n    data_source_key: 字典标识。\n    request: 请求对象（语言解析）。\n    version: 客户端本地版本号。\n    keyword: 关键字。\n    parent_id: 上级条目 ID（0 = 顶层）。\n    values: 逗号分隔的 value 子集。\n    limit: 返回条数上限。\n\nReturns:\n    ApiResponse[DictTypeResult]: 统一响应，data 为单标识取数结果。",
         "operationId": "get_dict_by_type_api_v1_dicts__data_source_key__get",
         "parameters": [
           {
@@ -8044,7 +8757,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
+                  "$ref": "#/components/schemas/ApiResponse_DictTypeResult_"
                 }
               }
             },
@@ -8119,7 +8832,7 @@
     },
     "/api/v1/dicts/{data_source_key}/advanced-query": {
       "post": {
-        "description": "字典高级查询（items 条件引擎 / business 提供者）。\n\nArgs:\n    query_service: 高级查询服务。\n    registry: 查询提供者注册表。\n    data_source_key: 字典标识。\n    payload: 查询请求体。\n    request: 请求对象（语言解析）。\n\nReturns:\n    ApiResponse: 统一响应，data 为分页结果。",
+        "description": "字典高级查询（items 条件引擎 / business 提供者）。\n\nArgs:\n    query_service: 高级查询服务。\n    registry: 查询提供者注册表。\n    data_source_key: 字典标识。\n    payload: 查询请求体。\n    request: 请求对象（语言解析）。\n\nReturns:\n    ApiResponse[DictAdvQueryResult]: 统一响应，data 为分页结果。",
         "operationId": "advanced_query_dict_api_v1_dicts__data_source_key__advanced_query_post",
         "parameters": [
           {
@@ -8147,7 +8860,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
+                  "$ref": "#/components/schemas/ApiResponse_DictAdvQueryResult_"
                 }
               }
             },
@@ -8222,7 +8935,7 @@
     },
     "/api/v1/dicts/{data_source_key}/attrs": {
       "get": {
-        "description": "取字典查询字段 schema（供高级查询条件构建；本期为固定字段）。\n\nArgs:\n    query_service: 高级查询服务。\n    data_source_key: 字典标识。\n    request: 请求对象（语言解析）。\n\nReturns:\n    ApiResponse: 统一响应，data 为字段清单。",
+        "description": "取字典查询字段 schema（供高级查询条件构建；本期为固定字段）。\n\nArgs:\n    query_service: 高级查询服务。\n    data_source_key: 字典标识。\n    request: 请求对象（语言解析）。\n\nReturns:\n    ApiResponse[DictAttrListResponse]: 统一响应，data 为字段清单（`items` 保序）。",
         "operationId": "get_dict_attrs_api_v1_dicts__data_source_key__attrs_get",
         "parameters": [
           {
@@ -8240,7 +8953,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
+                  "$ref": "#/components/schemas/ApiResponse_DictAttrListResponse_"
                 }
               }
             },

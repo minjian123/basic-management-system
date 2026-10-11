@@ -29,7 +29,9 @@ __all__ = [
     "DictAdvQueryPayload",
     "DictAdvQueryResult",
     "DictAttrInfo",
+    "DictAttrListResponse",
     "DictQueryProviderInfo",
+    "DictQueryProviderListResponse",
     "DictQueryService",
 ]
 
@@ -110,6 +112,22 @@ class DictQueryProviderInfo(BaseSchema):
     data_source_keys: tuple[str, ...] = Field(default=(), description="适用字典标识（空 = 全部）")
     param_schema: Annotated[ConcurrentStableDict[str, object], CONTRACT_COLLECTION] = Field(
         default_factory=CONTRACT_STABLE_DICT, description="参数 JSON Schema 子集"
+    )
+
+
+class DictAttrListResponse(BaseSchema):
+    """字典可查字段 schema 清单响应（保序；供 `GET /dicts/{data_source_key}/attrs`）。"""
+
+    items: Annotated[ConcurrentStableList[DictAttrInfo], CONTRACT_COLLECTION] = Field(
+        description="固定字段 schema 清单"
+    )
+
+
+class DictQueryProviderListResponse(BaseSchema):
+    """查询提供者清单响应（保序；供 `GET /dicts/query-providers`）。"""
+
+    items: Annotated[ConcurrentStableList[DictQueryProviderInfo], CONTRACT_COLLECTION] = Field(
+        description="查询提供者清单"
     )
 
 

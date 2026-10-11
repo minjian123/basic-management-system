@@ -27,10 +27,19 @@ from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.dict.base import (
     BaseDataSource,
     DictBatchQuery,
+    DictBatchResult,
     DictQuery,
+    DictTypeResult,
     current_dict_locale,
 )
-from bms_core.dict.query import DictAdvQueryPayload, DictQueryProviderInfo, DictQueryService
+from bms_core.dict.query import (
+    DictAdvQueryPayload,
+    DictAdvQueryResult,
+    DictAttrListResponse,
+    DictQueryProviderInfo,
+    DictQueryProviderListResponse,
+    DictQueryService,
+)
 from bms_core.i18n.base import DEFAULT_LOCALE, SUPPORTED_LOCALES
 from bms_core.query.base import BaseQueryProvider, BaseQueryProviderRegistry
 from bms_core.schemas.common import ApiResponse
@@ -77,7 +86,7 @@ def parse_values(raw: str) -> tuple[str, ...]:
 
 
 @router.post("/batch")
-async def batch_dicts(source: SourceDep, query: DictBatchQuery, request: Request) -> ApiResponse:
+async def batch_dicts(source: SourceDep, query: DictBatchQuery, request: Request) -> ApiResponse[DictBatchResult]:
     """批量合并取字典（一次请求多标识；版本一致的标识 items 返回 null）。
 
     Args:
@@ -86,7 +95,7 @@ async def batch_dicts(source: SourceDep, query: DictBatchQuery, request: Request
         request: 请求对象（语言解析）。
 
     Returns:
-        ApiResponse: 统一响应，data 为批量结果。
+        ApiResponse[DictBatchResult]: 统一响应，data 为批量结果。
     """
     with _locale_scope(request):
         return ApiResponse.ok(await source.batch(query))
@@ -96,7 +105,7 @@ async def batch_dicts(source: SourceDep, query: DictBatchQuery, request: Request
 async def list_query_providers(
     registry: RegistryDep,
     data_source_key: Annotated[str | None, Query(description="按字典标识过滤（空 = 全部）")] = None,
-) -> ApiResponse:
+) -> ApiResponse[DictQueryProviderListResponse]:
     """列可用查询提供者（按标识过滤；含参数 schema 子集）。
 
     Args:
@@ -104,51 +113,51 @@ async def list_query_providers(
         data_source_key: 字典标识（可选）。
 
     Returns:
-        ApiResponse: 统一响应，data 为提供者清单数组。
+        ApiResponse[DictQueryProviderListResponse]: 统一响应，data 为提供者清单（`items` 保序）。
     """
-    items: ConcurrentStableList[ConcurrentStableDict[str, object]] = ConcurrentStableList()
+    items: ConcurrentStableList[DictQueryProviderInfo] = ConcurrentStableList()
     provider_keys = registry.keys()
     for key in provider_keys:
         provider = registry.get(key)
         if provider is None:
             continue
-        record = _provider_record(key, provider)
-        data_source_keys = record.get("data_source_keys")
-        if data_source_key is not None and isinstance(data_source_keys, list):
-            names = [str(item) for item in cast("list[object]", data_source_keys)]
-            if len(names) > 0 and data_source_key not in names:
-                continue
+        record = _provider_info(key, provider)
+        if (
+            data_source_key is not None
+            and len(record.data_source_keys) > 0
+            and data_source_key not in record.data_source_keys
+        ):
+            continue
         items.add(record)
-    return ApiResponse.ok([dict(record) for record in items])
+    return ApiResponse.ok(DictQueryProviderListResponse(items=items))
 
 
-def _provider_record(key: str, provider: BaseQueryProvider) -> ConcurrentStableDict[str, object]:
-    """提供者 → 清单记录（有 `info()` 用其声明，否则按契约降级）。
+def _provider_info(key: str, provider: BaseQueryProvider) -> DictQueryProviderInfo:
+    """提供者 → 清单项（有 `info()` 用其声明，否则按契约降级）。
 
     Args:
         key: 提供者键。
         provider: 提供者实例。
 
     Returns:
-        ConcurrentStableDict[str, object]: 清单记录。
+        DictQueryProviderInfo: 清单项。
     """
     info = getattr(provider, "info", None)
     if callable(info):
-        payload = cast("DictQueryProviderInfo", info())
-        return ConcurrentStableDict({str(name): value for name, value in payload.model_dump(mode="json").items()})
-    return ConcurrentStableDict(
-        {
-            "key": key,
-            "name": provider.describe(),
-            "target": "business",
-            "data_source_keys": [],
-            "param_schema": {},
-        }
+        return cast("DictQueryProviderInfo", info())
+    return DictQueryProviderInfo(
+        key=key,
+        name=provider.describe(),
+        target="business",
+        data_source_keys=(),
+        param_schema=ConcurrentStableDict(),
     )
 
 
 @router.get("/{data_source_key}/attrs")
-async def get_dict_attrs(query_service: QueryServiceDep, data_source_key: str, request: Request) -> ApiResponse:
+async def get_dict_attrs(
+    query_service: QueryServiceDep, data_source_key: str, request: Request
+) -> ApiResponse[DictAttrListResponse]:
     """取字典查询字段 schema（供高级查询条件构建；本期为固定字段）。
 
     Args:
@@ -157,11 +166,11 @@ async def get_dict_attrs(query_service: QueryServiceDep, data_source_key: str, r
         request: 请求对象（语言解析）。
 
     Returns:
-        ApiResponse: 统一响应，data 为字段清单。
+        ApiResponse[DictAttrListResponse]: 统一响应，data 为字段清单（`items` 保序）。
     """
     with _locale_scope(request):
         attrs = await query_service.load_attrs(data_source_key)
-    return ApiResponse.ok([attr.model_dump(mode="json") for attr in attrs])
+    return ApiResponse.ok(DictAttrListResponse(items=ConcurrentStableList(attrs)))
 
 
 @router.post("/{data_source_key}/advanced-query")
@@ -171,7 +180,7 @@ async def advanced_query_dict(
     data_source_key: str,
     payload: DictAdvQueryPayload,
     request: Request,
-) -> ApiResponse:
+) -> ApiResponse[DictAdvQueryResult]:
     """字典高级查询（items 条件引擎 / business 提供者）。
 
     Args:
@@ -182,11 +191,11 @@ async def advanced_query_dict(
         request: 请求对象（语言解析）。
 
     Returns:
-        ApiResponse: 统一响应，data 为分页结果。
+        ApiResponse[DictAdvQueryResult]: 统一响应，data 为分页结果。
     """
     with _locale_scope(request):
         result = await query_service.advanced_query(data_source_key, payload, registry=registry)
-    return ApiResponse.ok(result.model_dump(mode="json"))
+    return ApiResponse.ok(result)
 
 
 @router.get("/{data_source_key}")
@@ -199,7 +208,7 @@ async def get_dict_by_type(
     parent_id: Annotated[int | None, Query(ge=0, description="上级条目 ID（0 = 顶层；不传 = 不按父过滤）")] = None,
     values: Annotated[str | None, Query(description="指定 value 子集（逗号分隔）")] = None,
     limit: Annotated[int | None, Query(ge=1, description="返回条数上限（探针传 2001）")] = None,
-) -> ApiResponse:
+) -> ApiResponse[DictTypeResult]:
     """按字典标识取字典（版本比对 / 关键字 / 级联 / 按值子集 / 上限）。
 
     Args:
@@ -213,7 +222,7 @@ async def get_dict_by_type(
         limit: 返回条数上限。
 
     Returns:
-        ApiResponse: 统一响应，data 为单标识取数结果。
+        ApiResponse[DictTypeResult]: 统一响应，data 为单标识取数结果。
     """
     query = DictQuery(
         data_source_key=data_source_key,

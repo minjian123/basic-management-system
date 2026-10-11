@@ -345,7 +345,7 @@ export interface paths {
          *         kind: 类型过滤（`dict` / `form`；空 = 全部）。
          *
          *     Returns:
-         *         ApiResponse: 统一响应，data 为登记清单数组。
+         *         ApiResponse[DataSourceListResponse]: 统一响应，data 为登记清单（`items` 保序）。
          *
          *     Raises:
          *         ParamError: 类型取值非法。
@@ -464,7 +464,7 @@ export interface paths {
          *         request: 请求对象（语言解析）。
          *
          *     Returns:
-         *         ApiResponse: 统一响应，data 为批量结果。
+         *         ApiResponse[DictBatchResult]: 统一响应，data 为批量结果。
          */
         post: operations["batch_dicts_api_v1_dicts_batch_post"];
         delete?: never;
@@ -489,7 +489,7 @@ export interface paths {
          *         data_source_key: 字典标识（可选）。
          *
          *     Returns:
-         *         ApiResponse: 统一响应，data 为提供者清单数组。
+         *         ApiResponse[DictQueryProviderListResponse]: 统一响应，data 为提供者清单（`items` 保序）。
          */
         get: operations["list_query_providers_api_v1_dicts_query_providers_get"];
         put?: never;
@@ -522,7 +522,7 @@ export interface paths {
          *         limit: 返回条数上限。
          *
          *     Returns:
-         *         ApiResponse: 统一响应，data 为单标识取数结果。
+         *         ApiResponse[DictTypeResult]: 统一响应，data 为单标识取数结果。
          */
         get: operations["get_dict_by_type_api_v1_dicts__data_source_key__get"];
         put?: never;
@@ -554,7 +554,7 @@ export interface paths {
          *         request: 请求对象（语言解析）。
          *
          *     Returns:
-         *         ApiResponse: 统一响应，data 为分页结果。
+         *         ApiResponse[DictAdvQueryResult]: 统一响应，data 为分页结果。
          */
         post: operations["advanced_query_dict_api_v1_dicts__data_source_key__advanced_query_post"];
         delete?: never;
@@ -580,7 +580,7 @@ export interface paths {
          *         request: 请求对象（语言解析）。
          *
          *     Returns:
-         *         ApiResponse: 统一响应，data 为字段清单。
+         *         ApiResponse[DictAttrListResponse]: 统一响应，data 为字段清单（`items` 保序）。
          */
         get: operations["get_dict_attrs_api_v1_dicts__data_source_key__attrs_get"];
         put?: never;
@@ -2933,6 +2933,90 @@ export interface components {
              */
             message: string;
         };
+        /** ApiResponse[DataSourceListResponse] */
+        ApiResponse_DataSourceListResponse_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["DataSourceListResponse"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[DictAdvQueryResult] */
+        ApiResponse_DictAdvQueryResult_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["DictAdvQueryResult"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[DictAttrListResponse] */
+        ApiResponse_DictAttrListResponse_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["DictAttrListResponse"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[DictBatchResult] */
+        ApiResponse_DictBatchResult_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["DictBatchResult"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[DictQueryProviderListResponse] */
+        ApiResponse_DictQueryProviderListResponse_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["DictQueryProviderListResponse"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[DictTypeResult] */
+        ApiResponse_DictTypeResult_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["DictTypeResult"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
         /** ApiResponse[FieldItem] */
         ApiResponse_FieldItem_: {
             /**
@@ -3809,6 +3893,101 @@ export interface components {
             valid: boolean;
         };
         /**
+         * DataSourceKind
+         * @description 数据源类型（数据形态；预留其它）。
+         * @enum {string}
+         */
+        DataSourceKind: "dict" | "form";
+        /**
+         * DataSourceListResponse
+         * @description 统一数据源登记清单响应（保序：构建期清单序 + 注入序）。
+         */
+        DataSourceListResponse: {
+            /**
+             * Items
+             * @description 数据源登记记录清单
+             */
+            items: components["schemas"]["DataSourceResponse"][];
+        };
+        /**
+         * DataSourceOrigin
+         * @description 数据源来源（数据所有者类别）。
+         * @enum {string}
+         */
+        DataSourceOrigin: "platform" | "product";
+        /**
+         * DataSourceResponse
+         * @description 数据源登记记录响应（与 `DataSourceRecord` 对齐）。
+         */
+        DataSourceResponse: {
+            /**
+             * Allowlist
+             * @description 数据权限可匹配字段白名单
+             * @default []
+             */
+            allowlist: string[];
+            /**
+             * Cascade
+             * @description 是否级联（有无上级字段）
+             * @default false
+             */
+            cascade: boolean;
+            /**
+             * Data Source
+             * @description 数据出口标识（统一出口按此路由到具体实现）
+             */
+            data_source: string;
+            /**
+             * Data Source Key
+             * @description 数据源标识（业务码字符串，全局唯一）
+             */
+            data_source_key: string;
+            /** @description 类型（dict 字典 / form 表单，预留其它） */
+            kind: components["schemas"]["DataSourceKind"];
+            /**
+             * Name
+             * @description 名称（数据权限左列 / 通用页面显示）
+             */
+            name: string;
+            /** @description 来源（platform 平台内建 / product 产品提供） */
+            origin: components["schemas"]["DataSourceOrigin"];
+            /**
+             * Path
+             * @description 产品取数路径（origin=product 时前端经网关直取）
+             */
+            path?: string | null;
+            /**
+             * Product Key
+             * @description 产品标识（origin=product 时非空）
+             */
+            product_key?: string | null;
+            /**
+             * @description 状态（enabled / disabled）
+             * @default enabled
+             */
+            status: components["schemas"]["DataSourceStatus"];
+            /**
+             * Strategies
+             * @description 可用策略集合（select / region / match / extension）
+             * @default [
+             *       "select"
+             *     ]
+             */
+            strategies: components["schemas"]["DataSourceStrategy"][];
+        };
+        /**
+         * DataSourceStatus
+         * @description 数据源登记项状态。
+         * @enum {string}
+         */
+        DataSourceStatus: "enabled" | "disabled";
+        /**
+         * DataSourceStrategy
+         * @description 数据权限可用策略（供数据权限左列渲染，只选不编）。
+         * @enum {string}
+         */
+        DataSourceStrategy: "select" | "region" | "match" | "extension";
+        /**
          * DemoCreateRequest
          * @description 创建 demo 请求。
          */
@@ -3829,6 +4008,50 @@ export interface components {
              * @description demo 名称
              */
             name: string;
+        };
+        /**
+         * DictAdvItem
+         * @description 高级查询结果条目（普通字段）。
+         */
+        DictAdvItem: {
+            /**
+             * Code
+             * @description 条目编码
+             * @default
+             */
+            code: string;
+            /**
+             * Color
+             * @description 语义色
+             */
+            color?: string | null;
+            /**
+             * Label
+             * @description 条目标签（按 locale）
+             */
+            label: string;
+            /**
+             * Parent Id
+             * @description 上级条目 ID
+             */
+            parent_id?: string | null;
+            /**
+             * Sort
+             * @description 排序值
+             * @default 0
+             */
+            sort: number;
+            /**
+             * Status
+             * @description 状态
+             * @default enabled
+             */
+            status: string;
+            /**
+             * Value
+             * @description 条目值
+             */
+            value: string;
         };
         /**
          * DictAdvQueryPayload
@@ -3874,6 +4097,107 @@ export interface components {
             target: string;
         };
         /**
+         * DictAdvQueryResult
+         * @description 高级查询结果（`items` 取项 / `rows` 业务筛选二选一）。
+         */
+        DictAdvQueryResult: {
+            /**
+             * Items
+             * @description 字典条目（target=items）
+             * @default []
+             */
+            items: components["schemas"]["DictAdvItem"][];
+            /**
+             * Page
+             * @description 页码（自 1）
+             * @default 1
+             */
+            page: number;
+            /**
+             * Rows
+             * @description 业务记录（target=business）
+             * @default []
+             */
+            rows: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Size
+             * @description 页长
+             * @default 20
+             */
+            size: number;
+            /**
+             * Total
+             * @description 命中总数
+             * @default 0
+             */
+            total: number;
+        };
+        /**
+         * DictAttrInfo
+         * @description 属性 schema（高级查询条件字段；本期为固定字段）。
+         */
+        DictAttrInfo: {
+            /**
+             * Attr Key
+             * @description 字段键
+             */
+            attr_key: string;
+            /**
+             * Data Type
+             * @description 数据类型（text/number/enum）
+             */
+            data_type: string;
+            /**
+             * Name
+             * @description 字段名
+             */
+            name: string;
+            /**
+             * Operators
+             * @description 可用操作符
+             * @default []
+             */
+            operators: string[];
+            /**
+             * Options
+             * @description 枚举选项集
+             * @default []
+             */
+            options: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Scope
+             * @description 来源（platform/tenant）
+             * @default platform
+             */
+            scope: string;
+            /**
+             * Sort
+             * @description 排序值
+             * @default 0
+             */
+            sort: number;
+            /**
+             * Widget
+             * @description 值控件
+             */
+            widget?: string | null;
+        };
+        /**
+         * DictAttrListResponse
+         * @description 字典可查字段 schema 清单响应（保序；供 `GET /dicts/{data_source_key}/attrs`）。
+         */
+        DictAttrListResponse: {
+            /**
+             * Items
+             * @description 固定字段 schema 清单
+             */
+            items: components["schemas"]["DictAttrInfo"][];
+        };
+        /**
          * DictBatchQuery
          * @description 批量合并取数参数对象（表单页多字典字段合并为一次请求）。
          */
@@ -3894,6 +4218,153 @@ export interface components {
              * @description 客户端本地版本号；一致的类型 items 返回空
              */
             version?: number | null;
+        };
+        /**
+         * DictBatchResult
+         * @description 批量合并取数结果（内层 `DictTypeResult.version` 与批量全局 `version` 同值）。
+         */
+        DictBatchResult: {
+            /**
+             * Items
+             * @description 按类型的取数结果；None＝该类型版本一致
+             */
+            items?: {
+                [key: string]: components["schemas"]["DictTypeResult"] | null;
+            };
+            /**
+             * Version
+             * @description 当前全局版本号
+             * @default 0
+             */
+            version: number;
+        };
+        /**
+         * DictItem
+         * @description 字典条目（普通运行时链路字段；不含扩展属性 `attr_json`）。
+         *
+         *     `parent_id` 为**上级条目 ID**（自引用同表 `id`；顶层 `None`），非父条目 `value`
+         *     （2026-10-10 口径收口，任务 02_07）；`id` 供前端级联过滤与字典树构建使用。
+         */
+        DictItem: {
+            /**
+             * Code
+             * @description 条目编码
+             * @default
+             */
+            code: string;
+            /**
+             * Color
+             * @description 语义色（供状态标签取色，可空）
+             */
+            color?: string | null;
+            /**
+             * Id
+             * @description 条目主键（雪花 ID，JSON 以字符串输出）
+             * @default 0
+             */
+            id: string;
+            /**
+             * Label
+             * @description 条目标签（按 locale）
+             */
+            label: string;
+            /**
+             * Parent Id
+             * @description 上级条目 ID（自引用 id；None＝顶层）
+             */
+            parent_id?: string | null;
+            /**
+             * Sort
+             * @description 排序值
+             * @default 0
+             */
+            sort: number;
+            /**
+             * Status
+             * @description 状态（enabled / disabled）
+             * @default enabled
+             */
+            status: string;
+            /**
+             * Value
+             * @description 条目值
+             */
+            value: string;
+        };
+        /**
+         * DictQueryProviderInfo
+         * @description 查询提供者清单项（发现—选择—调用）。
+         */
+        DictQueryProviderInfo: {
+            /**
+             * Data Source Keys
+             * @description 适用字典标识（空 = 全部）
+             * @default []
+             */
+            data_source_keys: string[];
+            /**
+             * Key
+             * @description 提供者标识
+             */
+            key: string;
+            /**
+             * Name
+             * @description 显示名
+             */
+            name: string;
+            /**
+             * Param Schema
+             * @description 参数 JSON Schema 子集
+             */
+            param_schema?: {
+                [key: string]: unknown;
+            };
+            /**
+             * Target
+             * @description 目标（items/business）
+             * @default business
+             */
+            target: string;
+        };
+        /**
+         * DictQueryProviderListResponse
+         * @description 查询提供者清单响应（保序；供 `GET /dicts/query-providers`）。
+         */
+        DictQueryProviderListResponse: {
+            /**
+             * Items
+             * @description 查询提供者清单
+             */
+            items: components["schemas"]["DictQueryProviderInfo"][];
+        };
+        /**
+         * DictTypeResult
+         * @description 单类型取数结果（`items=None` 表示版本一致，前端复用本地缓存）。
+         */
+        DictTypeResult: {
+            /**
+             * Has More
+             * @description 是否还有更多（超过 limit 截断）
+             * @default false
+             */
+            has_more: boolean;
+            /**
+             * Items
+             * @description 条目集；None＝版本一致（省流量）；空元组＝确无数据
+             */
+            items?: components["schemas"]["DictItem"][] | null;
+            /**
+             * Total
+             * @description 命中总数
+             * @default 0
+             */
+            total: number;
+            /**
+             * Version
+             * @description 当前全局版本号
+             * @default 0
+             */
+            version: number;
         };
         /**
          * ExpressionContextPayload
@@ -7215,7 +7686,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ApiResponse"];
+                    "application/json": components["schemas"]["ApiResponse_DataSourceListResponse_"];
                 };
             };
             /** @description 未认证 */
@@ -7668,7 +8139,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ApiResponse"];
+                    "application/json": components["schemas"]["ApiResponse_DictBatchResult_"];
                 };
             };
             /** @description 未认证 */
@@ -7745,7 +8216,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ApiResponse"];
+                    "application/json": components["schemas"]["ApiResponse_DictQueryProviderListResponse_"];
                 };
             };
             /** @description 未认证 */
@@ -7832,7 +8303,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ApiResponse"];
+                    "application/json": components["schemas"]["ApiResponse_DictTypeResult_"];
                 };
             };
             /** @description 未认证 */
@@ -7912,7 +8383,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ApiResponse"];
+                    "application/json": components["schemas"]["ApiResponse_DictAdvQueryResult_"];
                 };
             };
             /** @description 未认证 */
@@ -7988,7 +8459,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ApiResponse"];
+                    "application/json": components["schemas"]["ApiResponse_DictAttrListResponse_"];
                 };
             };
             /** @description 未认证 */

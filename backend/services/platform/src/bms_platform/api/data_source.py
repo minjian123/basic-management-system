@@ -11,11 +11,12 @@ from typing import Annotated
 from fastapi import Depends, Query
 
 from bms_core.api.base import BaseRouter, require_auth
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.exceptions import ParamError
 from bms_core.datasource.registry import DataSourceKind
 from bms_core.dict.outlet import build_data_source_outlet
 from bms_core.schemas.common import ApiResponse
+from bms_core.schemas.datasource import DataSourceListResponse, DataSourceResponse
 
 router = BaseRouter(
     key="data_source",
@@ -28,39 +29,23 @@ router = BaseRouter(
 @router.get("")
 async def list_data_sources(
     kind: Annotated[str | None, Query(description="按类型过滤（dict / form；空 = 全部）")] = None,
-) -> ApiResponse:
+) -> ApiResponse[DataSourceListResponse]:
     """列统一数据源登记清单（供数据权限左列 / 通用页面）。
 
     Args:
         kind: 类型过滤（`dict` / `form`；空 = 全部）。
 
     Returns:
-        ApiResponse: 统一响应，data 为登记清单数组。
+        ApiResponse[DataSourceListResponse]: 统一响应，data 为登记清单（`items` 保序）。
 
     Raises:
         ParamError: 类型取值非法。
     """
     if kind is not None and kind not in {item.value for item in DataSourceKind}:
         raise ParamError(f"数据源类型非法：{kind}")
-    records: ConcurrentStableList[ConcurrentStableDict[str, object]] = ConcurrentStableList()
+    records: ConcurrentStableList[DataSourceResponse] = ConcurrentStableList()
     for record in build_data_source_outlet().registry.catalog_records():
         if kind is not None and record.kind != kind:
             continue
-        records.add(
-            ConcurrentStableDict(
-                {
-                    "data_source_key": record.data_source_key,
-                    "name": record.name,
-                    "kind": record.kind,
-                    "data_source": record.data_source,
-                    "origin": record.origin,
-                    "product_key": record.product_key,
-                    "path": record.path,
-                    "allowlist": list(record.allowlist),
-                    "cascade": record.cascade,
-                    "strategies": list(record.strategies),
-                    "status": record.status,
-                }
-            )
-        )
-    return ApiResponse.ok([dict(record) for record in records])
+        records.add(DataSourceResponse.model_validate(record))
+    return ApiResponse.ok(DataSourceListResponse(items=records))
