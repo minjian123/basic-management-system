@@ -76,6 +76,7 @@ class DictRecord(BaseValueObject):
         origin: 来源（`platform` 平台内建 / `product` 产品提供）。
         data_source: 数据出口标识（统一出口按此路由到具体实现）。
         product_key: 产品标识（`origin=product` 时必填，如 `mdm` / `biz`）。
+        path: 产品取数路径（`origin=product` 时前端经网关直取用，如 `/data-source/dept-tree`）。
         allowlist: 可用于数据权限的字段白名单（`match` 策略可匹配字段）。
         cascade: 是否级联（有无上级字段，供级联取数）。
         strategies: 可用策略集合（`select` / `region` / `match` / `extension`）。
@@ -87,6 +88,7 @@ class DictRecord(BaseValueObject):
     data_source: str
     origin: str = DictOrigin.PLATFORM.value
     product_key: str | None = None
+    path: str | None = None
     allowlist: tuple[str, ...] = ()
     cascade: bool = False
     strategies: tuple[str, ...] = (DictStrategy.SELECT.value,)
@@ -94,31 +96,24 @@ class DictRecord(BaseValueObject):
 
 
 DICT_CATALOG: tuple[DictRecord, ...] = (
-    # 平台内建示例（数据本体在平台实体表；provider 随本任务落地）
+    # 平台内建示例（数据本体在平台实体表；经平台统一出口取数）
     DictRecord(
         dict_key="role",
         name="角色",
         origin=DictOrigin.PLATFORM.value,
         data_source="platform.role",
-        allowlist=("code", "name"),
+        allowlist=("code", "label"),
         strategies=(DictStrategy.SELECT.value, DictStrategy.MATCH.value),
     ),
-    DictRecord(
-        dict_key="tenant",
-        name="租户",
-        origin=DictOrigin.PLATFORM.value,
-        data_source="platform.tenant",
-        allowlist=("code", "name"),
-        strategies=(DictStrategy.SELECT.value, DictStrategy.MATCH.value),
-    ),
-    # 跨项目示例（数据本体在 mdm 产品；provider 经产品命名空间寻址）
+    # 跨项目示例（数据本体在 mdm 产品；前端经网关直取产品命名空间）
     DictRecord(
         dict_key="org_dept",
         name="部门",
         origin=DictOrigin.PRODUCT.value,
         product_key="mdm",
-        data_source="mdm.org_dept",
-        allowlist=("code", "name"),
+        data_source="mdm.org.dept",
+        path="/data-source/dept-tree",
+        allowlist=("code", "label"),
         cascade=True,
         strategies=(DictStrategy.SELECT.value, DictStrategy.REGION.value, DictStrategy.MATCH.value),
     ),
@@ -127,8 +122,9 @@ DICT_CATALOG: tuple[DictRecord, ...] = (
         name="岗位",
         origin=DictOrigin.PRODUCT.value,
         product_key="mdm",
-        data_source="mdm.org_post",
-        allowlist=("code", "name"),
+        data_source="mdm.org.post",
+        path="/data-source/posts",
+        allowlist=("code", "label"),
         strategies=(DictStrategy.SELECT.value, DictStrategy.MATCH.value),
     ),
 )
