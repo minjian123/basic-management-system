@@ -416,28 +416,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/dicts/attrs/{attr_id}": {
+    "/api/v1/dicts": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get?: never;
-        put?: never;
-        post?: never;
         /**
-         * Delete Dict Attr
-         * @description 软删除字典扩展属性。
+         * List Dicts
+         * @description 列可用字典登记清单（供数据权限左列 / 字典页）。
          *
          *     Args:
-         *         service: 字典写路径服务。
-         *         attr_id: 属性 ID。
+         *         translator: 字典翻译契约（占位注入以固定鉴权依赖顺序，未使用）。
          *
          *     Returns:
-         *         ApiResponse: 统一响应（data 为 null）。
+         *         ApiResponse: 统一响应，data 为登记清单数组。
          */
-        delete: operations["delete_dict_attr_api_v1_dicts_attrs__attr_id__delete"];
+        get: operations["list_dicts_api_v1_dicts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -454,7 +453,7 @@ export interface paths {
         put?: never;
         /**
          * Batch Dicts
-         * @description 批量合并取字典（一次请求多类型；版本一致的类型 items 返回 null）。
+         * @description 批量合并取字典（一次请求多标识；版本一致的标识 items 返回 null）。
          *
          *     Args:
          *         source: 字典取数契约。
@@ -471,45 +470,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/dicts/items/{item_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * Update Dict Item
-         * @description 修改字典条目（乐观锁）。
-         *
-         *     Args:
-         *         service: 字典写路径服务。
-         *         item_id: 条目 ID。
-         *         payload: 条目载荷。
-         *
-         *     Returns:
-         *         ApiResponse: 统一响应，data 为条目行。
-         */
-        put: operations["update_dict_item_api_v1_dicts_items__item_id__put"];
-        post?: never;
-        /**
-         * Delete Dict Item
-         * @description 软删除字典条目。
-         *
-         *     Args:
-         *         service: 字典写路径服务。
-         *         item_id: 条目 ID。
-         *
-         *     Returns:
-         *         ApiResponse: 统一响应（data 为 null）。
-         */
-        delete: operations["delete_dict_item_api_v1_dicts_items__item_id__delete"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/dicts/query-providers": {
         parameters: {
             query?: never;
@@ -519,11 +479,11 @@ export interface paths {
         };
         /**
          * List Query Providers
-         * @description 列可用查询提供者（按 type 过滤；含参数 schema 子集）。
+         * @description 列可用查询提供者（按标识过滤；含参数 schema 子集）。
          *
          *     Args:
          *         registry: 查询提供者注册表。
-         *         dict_type: 字典类型码（可选）。
+         *         dict_key: 字典标识（可选）。
          *
          *     Returns:
          *         ApiResponse: 统一响应，data 为提供者清单数组。
@@ -537,129 +497,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/dicts/types": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Create Dict Type
-         * @description 新增字典类型。
-         *
-         *     Args:
-         *         service: 字典写路径服务。
-         *         payload: 类型载荷。
-         *
-         *     Returns:
-         *         ApiResponse: 统一响应，data 为类型行。
-         */
-        post: operations["create_dict_type_api_v1_dicts_types_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/dicts/types/{dict_type}/attrs": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Upsert Dict Attr
-         * @description 新增 / 更新字典扩展属性（按 `attr_key` upsert）。
-         *
-         *     Args:
-         *         service: 字典写路径服务。
-         *         dict_type: 字典类型码。
-         *         payload: 属性载荷。
-         *
-         *     Returns:
-         *         ApiResponse: 统一响应，data 为属性行。
-         */
-        post: operations["upsert_dict_attr_api_v1_dicts_types__dict_type__attrs_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/dicts/types/{dict_type}/items": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Create Dict Item
-         * @description 新增字典条目（类型内编码唯一）。
-         *
-         *     Args:
-         *         service: 字典写路径服务。
-         *         dict_type: 字典类型码。
-         *         payload: 条目载荷。
-         *
-         *     Returns:
-         *         ApiResponse: 统一响应，data 为条目行。
-         */
-        post: operations["create_dict_item_api_v1_dicts_types__dict_type__items_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/dicts/types/{type_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * Update Dict Type
-         * @description 修改字典类型（乐观锁）。
-         *
-         *     Args:
-         *         service: 字典写路径服务。
-         *         type_id: 类型 ID。
-         *         payload: 类型载荷。
-         *
-         *     Returns:
-         *         ApiResponse: 统一响应，data 为类型行。
-         */
-        put: operations["update_dict_type_api_v1_dicts_types__type_id__put"];
-        post?: never;
-        /**
-         * Delete Dict Type
-         * @description 软删除字典类型。
-         *
-         *     Args:
-         *         service: 字典写路径服务。
-         *         type_id: 类型 ID。
-         *
-         *     Returns:
-         *         ApiResponse: 统一响应（data 为 null）。
-         */
-        delete: operations["delete_dict_type_api_v1_dicts_types__type_id__delete"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/dicts/{dict_type}": {
+    "/api/v1/dicts/{dict_key}": {
         parameters: {
             query?: never;
             header?: never;
@@ -668,11 +506,11 @@ export interface paths {
         };
         /**
          * Get Dict By Type
-         * @description 按类型取字典（版本比对 / 关键字 / 级联 / 按值子集 / 上限）。
+         * @description 按字典标识取字典（版本比对 / 关键字 / 级联 / 按值子集 / 上限）。
          *
          *     Args:
          *         source: 字典取数契约。
-         *         dict_type: 字典类型码。
+         *         dict_key: 字典标识。
          *         request: 请求对象（语言解析）。
          *         version: 客户端本地版本号。
          *         keyword: 关键字。
@@ -681,9 +519,9 @@ export interface paths {
          *         limit: 返回条数上限。
          *
          *     Returns:
-         *         ApiResponse: 统一响应，data 为单类型取数结果。
+         *         ApiResponse: 统一响应，data 为单标识取数结果。
          */
-        get: operations["get_dict_by_type_api_v1_dicts__dict_type__get"];
+        get: operations["get_dict_by_type_api_v1_dicts__dict_key__get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -692,7 +530,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/dicts/{dict_type}/advanced-query": {
+    "/api/v1/dicts/{dict_key}/advanced-query": {
         parameters: {
             query?: never;
             header?: never;
@@ -708,21 +546,21 @@ export interface paths {
          *     Args:
          *         query_service: 高级查询服务。
          *         registry: 查询提供者注册表。
-         *         dict_type: 字典类型码。
+         *         dict_key: 字典标识。
          *         payload: 查询请求体。
          *         request: 请求对象（语言解析）。
          *
          *     Returns:
          *         ApiResponse: 统一响应，data 为分页结果。
          */
-        post: operations["advanced_query_dict_api_v1_dicts__dict_type__advanced_query_post"];
+        post: operations["advanced_query_dict_api_v1_dicts__dict_key__advanced_query_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/dicts/{dict_type}/attrs": {
+    "/api/v1/dicts/{dict_key}/attrs": {
         parameters: {
             query?: never;
             header?: never;
@@ -731,17 +569,17 @@ export interface paths {
         };
         /**
          * Get Dict Attrs
-         * @description 取字典类型属性 schema（供高级查询条件构建）。
+         * @description 取字典查询字段 schema（供高级查询条件构建；本期为固定字段）。
          *
          *     Args:
          *         query_service: 高级查询服务。
-         *         dict_type: 字典类型码。
+         *         dict_key: 字典标识。
          *         request: 请求对象（语言解析）。
          *
          *     Returns:
-         *         ApiResponse: 统一响应，data 为属性清单。
+         *         ApiResponse: 统一响应，data 为字段清单。
          */
-        get: operations["get_dict_attrs_api_v1_dicts__dict_type__attrs_get"];
+        get: operations["get_dict_attrs_api_v1_dicts__dict_key__attrs_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -4033,62 +3871,6 @@ export interface components {
             target: string;
         };
         /**
-         * DictAttrPayload
-         * @description 字典扩展属性写入载荷。
-         */
-        DictAttrPayload: {
-            /**
-             * Attr Key
-             * @description 属性键
-             */
-            attr_key: string;
-            /**
-             * Data Type
-             * @description 数据类型（text/number/date/enum/bool）
-             */
-            data_type: string;
-            /**
-             * Name
-             * @description 属性名（默认语言）
-             */
-            name: string;
-            /**
-             * Operators
-             * @description 可用操作符集合
-             */
-            operators?: string[] | null;
-            /**
-             * Options
-             * @description enum 选项集
-             */
-            options?: {
-                [key: string]: unknown;
-            }[] | null;
-            /**
-             * Scope
-             * @description 属性来源（platform/tenant）
-             * @default platform
-             */
-            scope: string;
-            /**
-             * Sort
-             * @description 排序值
-             * @default 0
-             */
-            sort: number;
-            /**
-             * Status
-             * @description 状态（enabled/disabled）
-             * @default enabled
-             */
-            status: string;
-            /**
-             * Widget
-             * @description 值控件
-             */
-            widget?: string | null;
-        };
-        /**
          * DictBatchQuery
          * @description 批量合并取数参数对象（表单页多字典字段合并为一次请求）。
          */
@@ -4109,84 +3891,6 @@ export interface components {
              * @description 客户端本地版本号；一致的类型 items 返回空
              */
             version?: number | null;
-        };
-        /**
-         * DictItemPayload
-         * @description 字典条目写入载荷。
-         */
-        DictItemPayload: {
-            /**
-             * Attr Json
-             * @description 扩展属性值（普通链路不返回）
-             */
-            attr_json?: {
-                [key: string]: unknown;
-            } | null;
-            /**
-             * Code
-             * @description 条目编码（类型内唯一）
-             */
-            code: string;
-            /**
-             * Color
-             * @description 语义色
-             */
-            color?: string | null;
-            /**
-             * Label
-             * @description 条目标签（默认语言）
-             */
-            label: string;
-            /**
-             * Parent Id
-             * @description 上级条目 ID（自引用 id；None＝顶层）
-             */
-            parent_id?: number | null;
-            /**
-             * Sort
-             * @description 排序值
-             * @default 0
-             */
-            sort: number;
-            /**
-             * Status
-             * @description 状态（enabled/disabled）
-             * @default enabled
-             */
-            status: string;
-            /**
-             * Value
-             * @description 条目值
-             */
-            value: string;
-        };
-        /**
-         * DictTypePayload
-         * @description 字典类型写入载荷。
-         */
-        DictTypePayload: {
-            /**
-             * Name
-             * @description 类型名称（默认语言）
-             */
-            name: string;
-            /**
-             * Sort
-             * @description 排序值
-             * @default 0
-             */
-            sort: number;
-            /**
-             * Status
-             * @description 状态（enabled/disabled）
-             * @default enabled
-             */
-            status: string;
-            /**
-             * Type
-             * @description 类型编码（唯一）
-             */
-            type: string;
         };
         /**
          * ExpressionContextPayload
@@ -5465,10 +5169,10 @@ export interface components {
                 [key: string]: unknown;
             }[];
             /**
-             * Dict Type Id
-             * @description 字典类型 ID
+             * Dict Key
+             * @description 字典标识（业务码字符串）
              */
-            dict_type_id: string;
+            dict_key: string;
             /**
              * Id
              * @description 数据权限行主键
@@ -5493,10 +5197,10 @@ export interface components {
                 [key: string]: unknown;
             }[];
             /**
-             * Dict Type Id
-             * @description 字典类型 ID
+             * Dict Key
+             * @description 字典标识（业务码字符串，如 org_dept / role）
              */
-            dict_type_id: number;
+            dict_key: string;
             /**
              * Policy Type
              * @description 策略类型（select/region/match/extension）
@@ -7865,13 +7569,11 @@ export interface operations {
             };
         };
     };
-    delete_dict_attr_api_v1_dicts_attrs__attr_id__delete: {
+    list_dicts_api_v1_dicts_get: {
         parameters: {
             query?: never;
             header?: never;
-            path: {
-                attr_id: number;
-            };
+            path?: never;
             cookie?: never;
         };
         requestBody?: never;
@@ -7910,15 +7612,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
             /** @description 限流 */
@@ -8019,167 +7712,11 @@ export interface operations {
             };
         };
     };
-    update_dict_item_api_v1_dicts_items__item_id__put: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                item_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["DictItemPayload"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiResponse"];
-                };
-            };
-            /** @description 未认证 */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiResponse"];
-                };
-            };
-            /** @description 无权限 */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiResponse"];
-                };
-            };
-            /** @description 资源不存在 */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-            /** @description 限流 */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiResponse"];
-                };
-            };
-            /** @description 服务异常 */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiResponse"];
-                };
-            };
-        };
-    };
-    delete_dict_item_api_v1_dicts_items__item_id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                item_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiResponse"];
-                };
-            };
-            /** @description 未认证 */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiResponse"];
-                };
-            };
-            /** @description 无权限 */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiResponse"];
-                };
-            };
-            /** @description 资源不存在 */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-            /** @description 限流 */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiResponse"];
-                };
-            };
-            /** @description 服务异常 */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiResponse"];
-                };
-            };
-        };
-    };
     list_query_providers_api_v1_dicts_query_providers_get: {
         parameters: {
             query?: {
-                /** @description 按字典类型过滤（空 = 全部） */
-                dict_type?: string | null;
+                /** @description 按字典标识过滤（空 = 全部） */
+                dict_key?: string | null;
             };
             header?: never;
             path?: never;
@@ -8252,401 +7789,7 @@ export interface operations {
             };
         };
     };
-    create_dict_type_api_v1_dicts_types_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["DictTypePayload"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiResponse"];
-                };
-            };
-            /** @description 未认证 */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiResponse"];
-                };
-            };
-            /** @description 无权限 */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiResponse"];
-                };
-            };
-            /** @description 资源不存在 */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-            /** @description 限流 */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiResponse"];
-                };
-            };
-            /** @description 服务异常 */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiResponse"];
-                };
-            };
-        };
-    };
-    upsert_dict_attr_api_v1_dicts_types__dict_type__attrs_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                dict_type: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["DictAttrPayload"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiResponse"];
-                };
-            };
-            /** @description 未认证 */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiResponse"];
-                };
-            };
-            /** @description 无权限 */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiResponse"];
-                };
-            };
-            /** @description 资源不存在 */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-            /** @description 限流 */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiResponse"];
-                };
-            };
-            /** @description 服务异常 */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiResponse"];
-                };
-            };
-        };
-    };
-    create_dict_item_api_v1_dicts_types__dict_type__items_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                dict_type: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["DictItemPayload"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiResponse"];
-                };
-            };
-            /** @description 未认证 */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiResponse"];
-                };
-            };
-            /** @description 无权限 */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiResponse"];
-                };
-            };
-            /** @description 资源不存在 */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-            /** @description 限流 */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiResponse"];
-                };
-            };
-            /** @description 服务异常 */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiResponse"];
-                };
-            };
-        };
-    };
-    update_dict_type_api_v1_dicts_types__type_id__put: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                type_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["DictTypePayload"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiResponse"];
-                };
-            };
-            /** @description 未认证 */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiResponse"];
-                };
-            };
-            /** @description 无权限 */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiResponse"];
-                };
-            };
-            /** @description 资源不存在 */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-            /** @description 限流 */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiResponse"];
-                };
-            };
-            /** @description 服务异常 */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiResponse"];
-                };
-            };
-        };
-    };
-    delete_dict_type_api_v1_dicts_types__type_id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                type_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiResponse"];
-                };
-            };
-            /** @description 未认证 */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiResponse"];
-                };
-            };
-            /** @description 无权限 */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiResponse"];
-                };
-            };
-            /** @description 资源不存在 */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-            /** @description 限流 */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiResponse"];
-                };
-            };
-            /** @description 服务异常 */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiResponse"];
-                };
-            };
-        };
-    };
-    get_dict_by_type_api_v1_dicts__dict_type__get: {
+    get_dict_by_type_api_v1_dicts__dict_key__get: {
         parameters: {
             query?: {
                 /** @description 客户端本地版本号（一致时 items 返回 null） */
@@ -8662,7 +7805,7 @@ export interface operations {
             };
             header?: never;
             path: {
-                dict_type: string;
+                dict_key: string;
             };
             cookie?: never;
         };
@@ -8733,12 +7876,12 @@ export interface operations {
             };
         };
     };
-    advanced_query_dict_api_v1_dicts__dict_type__advanced_query_post: {
+    advanced_query_dict_api_v1_dicts__dict_key__advanced_query_post: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                dict_type: string;
+                dict_key: string;
             };
             cookie?: never;
         };
@@ -8813,12 +7956,12 @@ export interface operations {
             };
         };
     };
-    get_dict_attrs_api_v1_dicts__dict_type__attrs_get: {
+    get_dict_attrs_api_v1_dicts__dict_key__attrs_get: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                dict_type: string;
+                dict_key: string;
             };
             cookie?: never;
         };

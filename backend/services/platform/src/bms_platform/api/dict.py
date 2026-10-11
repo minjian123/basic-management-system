@@ -1,13 +1,13 @@
-"""字典路由：`/api/v1/dicts`（登录即可；真实取数 / 缓存 / 高级查询 / 写路径随 02-4-27 落地）。
+"""字典路由：`/api/v1/dicts`（登录即可；2026-10-11 02_09 口径返工）。
 
-- 运行时取数：`GET /dicts/{dict_type}`（版本 / 关键字 / 级联父值 / 按值子集 / 上限）与
-  `POST /dicts/batch`（多类型合并；既有契约与响应形状不变）。
-- 高级查询：`GET /dicts/query-providers`（提供者清单）/ `GET /dicts/{dict_type}/attrs`（属性 schema）/
-  `POST /dicts/{dict_type}/advanced-query`（`target=items` 条件引擎 / `target=business` 提供者）。
-- 写路径（简化 REST）：类型 / 条目 / 属性 CRUD（先写库后删缓存 + `INCR` 版本）；权限码 `dict:manage` 随 RBAC 阶段
-  （当前 `require_auth` 占位）。
+- 运行时取数：`GET /dicts/{dict_key}`（版本 / 关键字 / 级联 / 按值子集 / 上限）与
+  `POST /dicts/batch`（多标识合并）；**取数经字典统一出口**（平台内建数据源），契约形状不变。
+- 登记清单：`GET /dicts`（可用字典登记清单；供数据权限左列 / 字典页）。
+- 高级查询：`GET /dicts/query-providers`（提供者清单）/ `GET /dicts/{dict_key}/attrs`（属性 schema）/
+  `POST /dicts/{dict_key}/advanced-query`（`target=items` 条件引擎 / `target=business` 提供者）。
+- **维护 / 属性端点已删除**（字典类型 / 条目 / 属性一套剔除，写路径随表拆除）。
 - locale：按 `Accept-Language` 解析（`current_dict_locale` 上下文；端点内 `with` 作用域设置与复位）。
-- 路由注册顺序：静态段（`batch` / `query-providers` / `types` / `items` / `attrs`）先于 `/{dict_type}` 通配。
+- 路由注册顺序：静态段（`batch` / `query-providers`）先于 `/{dict_key}` 通配。
 """
 
 from collections.abc import Generator
@@ -19,7 +19,6 @@ from fastapi import Depends, Query, Request
 from bms_core.api.base import BaseRouter, require_auth
 from bms_core.api.deps import (
     get_dict_query_service,
-    get_dict_service,
     get_dict_source,
     get_dict_translator,
     get_query_provider_registry,
@@ -30,11 +29,10 @@ from bms_core.dict.base import (
     BaseDictTranslator,
     DictBatchQuery,
     DictQuery,
+    current_dict_locale,
 )
-from bms_core.dict.models import SysDictAttr, SysDictItem, SysDictType
+from bms_core.dict.outlet import build_dict_outlet
 from bms_core.dict.query import DictAdvQueryPayload, DictQueryProviderInfo, DictQueryService
-from bms_core.dict.service import DictAttrPayload, DictItemPayload, DictService, DictTypePayload
-from bms_core.dict.sql import current_dict_locale
 from bms_core.i18n.base import DEFAULT_LOCALE, SUPPORTED_LOCALES
 from bms_core.query.base import BaseQueryProvider, BaseQueryProviderRegistry
 from bms_core.schemas.common import ApiResponse
@@ -48,7 +46,6 @@ router = BaseRouter(
 
 SourceDep = Annotated[BaseDictSource, Depends(get_dict_source)]
 TranslatorDep = Annotated[BaseDictTranslator, Depends(get_dict_translator)]
-ServiceDep = Annotated[DictService, Depends(get_dict_service)]
 QueryServiceDep = Annotated[DictQueryService, Depends(get_dict_query_service)]
 RegistryDep = Annotated[BaseQueryProviderRegistry, Depends(get_query_provider_registry)]
 
@@ -82,9 +79,39 @@ def parse_values(raw: str) -> tuple[str, ...]:
     return tuple(part.strip() for part in raw.split(",") if part.strip())
 
 
+@router.get("")
+async def list_dicts(translator: TranslatorDep) -> ApiResponse:
+    """列可用字典登记清单（供数据权限左列 / 字典页）。
+
+    Args:
+        translator: 字典翻译契约（占位注入以固定鉴权依赖顺序，未使用）。
+
+    Returns:
+        ApiResponse: 统一响应，data 为登记清单数组。
+    """
+    records: ConcurrentStableList[ConcurrentStableDict[str, object]] = ConcurrentStableList()
+    for record in build_dict_outlet().registry.catalog_records():
+        records.add(
+            ConcurrentStableDict(
+                {
+                    "dict_key": record.dict_key,
+                    "name": record.name,
+                    "origin": record.origin,
+                    "product_key": record.product_key,
+                    "path": record.path,
+                    "allowlist": list(record.allowlist),
+                    "cascade": record.cascade,
+                    "strategies": list(record.strategies),
+                    "status": record.status,
+                }
+            )
+        )
+    return ApiResponse.ok([dict(record) for record in records])
+
+
 @router.post("/batch")
 async def batch_dicts(source: SourceDep, query: DictBatchQuery, request: Request) -> ApiResponse:
-    """批量合并取字典（一次请求多类型；版本一致的类型 items 返回 null）。
+    """批量合并取字典（一次请求多标识；版本一致的标识 items 返回 null）。
 
     Args:
         source: 字典取数契约。
@@ -101,13 +128,13 @@ async def batch_dicts(source: SourceDep, query: DictBatchQuery, request: Request
 @router.get("/query-providers")
 async def list_query_providers(
     registry: RegistryDep,
-    dict_type: Annotated[str | None, Query(description="按字典类型过滤（空 = 全部）")] = None,
+    dict_key: Annotated[str | None, Query(description="按字典标识过滤（空 = 全部）")] = None,
 ) -> ApiResponse:
-    """列可用查询提供者（按 type 过滤；含参数 schema 子集）。
+    """列可用查询提供者（按标识过滤；含参数 schema 子集）。
 
     Args:
         registry: 查询提供者注册表。
-        dict_type: 字典类型码（可选）。
+        dict_key: 字典标识（可选）。
 
     Returns:
         ApiResponse: 统一响应，data 为提供者清单数组。
@@ -119,10 +146,10 @@ async def list_query_providers(
         if provider is None:
             continue
         record = _provider_record(key, provider)
-        dict_types = record.get("dict_types")
-        if dict_type is not None and isinstance(dict_types, list):
-            names = [str(item) for item in cast("list[object]", dict_types)]
-            if len(names) > 0 and dict_type not in names:
+        dict_keys = record.get("dict_types")
+        if dict_key is not None and isinstance(dict_keys, list):
+            names = [str(item) for item in cast("list[object]", dict_keys)]
+            if len(names) > 0 and dict_key not in names:
                 continue
         items.add(record)
     return ApiResponse.ok([dict(record) for record in items])
@@ -153,152 +180,28 @@ def _provider_record(key: str, provider: BaseQueryProvider) -> ConcurrentStableD
     )
 
 
-@router.post("/types")
-async def create_dict_type(service: ServiceDep, payload: DictTypePayload) -> ApiResponse:
-    """新增字典类型。
-
-    Args:
-        service: 字典写路径服务。
-        payload: 类型载荷。
-
-    Returns:
-        ApiResponse: 统一响应，data 为类型行。
-    """
-    row = await service.create_type(payload)
-    return ApiResponse.ok(dict(_type_out(row)))
-
-
-@router.put("/types/{type_id}")
-async def update_dict_type(service: ServiceDep, type_id: int, payload: DictTypePayload) -> ApiResponse:
-    """修改字典类型（乐观锁）。
-
-    Args:
-        service: 字典写路径服务。
-        type_id: 类型 ID。
-        payload: 类型载荷。
-
-    Returns:
-        ApiResponse: 统一响应，data 为类型行。
-    """
-    row = await service.update_type(type_id, payload)
-    return ApiResponse.ok(dict(_type_out(row)))
-
-
-@router.delete("/types/{type_id}")
-async def delete_dict_type(service: ServiceDep, type_id: int) -> ApiResponse:
-    """软删除字典类型。
-
-    Args:
-        service: 字典写路径服务。
-        type_id: 类型 ID。
-
-    Returns:
-        ApiResponse: 统一响应（data 为 null）。
-    """
-    await service.delete_type(type_id)
-    return ApiResponse.ok(None)
-
-
-@router.post("/types/{dict_type}/items")
-async def create_dict_item(service: ServiceDep, dict_type: str, payload: DictItemPayload) -> ApiResponse:
-    """新增字典条目（类型内编码唯一）。
-
-    Args:
-        service: 字典写路径服务。
-        dict_type: 字典类型码。
-        payload: 条目载荷。
-
-    Returns:
-        ApiResponse: 统一响应，data 为条目行。
-    """
-    row = await service.create_item(dict_type, payload)
-    return ApiResponse.ok(dict(_item_out(row)))
-
-
-@router.post("/types/{dict_type}/attrs")
-async def upsert_dict_attr(service: ServiceDep, dict_type: str, payload: DictAttrPayload) -> ApiResponse:
-    """新增 / 更新字典扩展属性（按 `attr_key` upsert）。
-
-    Args:
-        service: 字典写路径服务。
-        dict_type: 字典类型码。
-        payload: 属性载荷。
-
-    Returns:
-        ApiResponse: 统一响应，data 为属性行。
-    """
-    row = await service.upsert_attr(dict_type, payload)
-    return ApiResponse.ok(dict(_attr_out(row)))
-
-
-@router.put("/items/{item_id}")
-async def update_dict_item(service: ServiceDep, item_id: int, payload: DictItemPayload) -> ApiResponse:
-    """修改字典条目（乐观锁）。
-
-    Args:
-        service: 字典写路径服务。
-        item_id: 条目 ID。
-        payload: 条目载荷。
-
-    Returns:
-        ApiResponse: 统一响应，data 为条目行。
-    """
-    row = await service.update_item(item_id, payload)
-    return ApiResponse.ok(dict(_item_out(row)))
-
-
-@router.delete("/items/{item_id}")
-async def delete_dict_item(service: ServiceDep, item_id: int) -> ApiResponse:
-    """软删除字典条目。
-
-    Args:
-        service: 字典写路径服务。
-        item_id: 条目 ID。
-
-    Returns:
-        ApiResponse: 统一响应（data 为 null）。
-    """
-    await service.delete_item(item_id)
-    return ApiResponse.ok(None)
-
-
-@router.delete("/attrs/{attr_id}")
-async def delete_dict_attr(service: ServiceDep, attr_id: int) -> ApiResponse:
-    """软删除字典扩展属性。
-
-    Args:
-        service: 字典写路径服务。
-        attr_id: 属性 ID。
-
-    Returns:
-        ApiResponse: 统一响应（data 为 null）。
-    """
-    await service.delete_attr(attr_id)
-    return ApiResponse.ok(None)
-
-
-@router.get("/{dict_type}/attrs")
-async def get_dict_attrs(query_service: QueryServiceDep, dict_type: str, request: Request) -> ApiResponse:
-    """取字典类型属性 schema（供高级查询条件构建）。
+@router.get("/{dict_key}/attrs")
+async def get_dict_attrs(query_service: QueryServiceDep, dict_key: str, request: Request) -> ApiResponse:
+    """取字典查询字段 schema（供高级查询条件构建；本期为固定字段）。
 
     Args:
         query_service: 高级查询服务。
-        dict_type: 字典类型码。
+        dict_key: 字典标识。
         request: 请求对象（语言解析）。
 
     Returns:
-        ApiResponse: 统一响应，data 为属性清单。
+        ApiResponse: 统一响应，data 为字段清单。
     """
     with _locale_scope(request):
-        attrs = await query_service.load_attrs(dict_type)
+        attrs = await query_service.load_attrs(dict_key)
     return ApiResponse.ok([attr.model_dump(mode="json") for attr in attrs])
 
 
-@router.post("/{dict_type}/advanced-query")
+@router.post("/{dict_key}/advanced-query")
 async def advanced_query_dict(
     query_service: QueryServiceDep,
     registry: RegistryDep,
-    dict_type: str,
+    dict_key: str,
     payload: DictAdvQueryPayload,
     request: Request,
 ) -> ApiResponse:
@@ -307,7 +210,7 @@ async def advanced_query_dict(
     Args:
         query_service: 高级查询服务。
         registry: 查询提供者注册表。
-        dict_type: 字典类型码。
+        dict_key: 字典标识。
         payload: 查询请求体。
         request: 请求对象（语言解析）。
 
@@ -315,14 +218,14 @@ async def advanced_query_dict(
         ApiResponse: 统一响应，data 为分页结果。
     """
     with _locale_scope(request):
-        result = await query_service.advanced_query(dict_type, payload, registry=registry)
+        result = await query_service.advanced_query(dict_key, payload, registry=registry)
     return ApiResponse.ok(result.model_dump(mode="json"))
 
 
-@router.get("/{dict_type}")
+@router.get("/{dict_key}")
 async def get_dict_by_type(
     source: SourceDep,
-    dict_type: str,
+    dict_key: str,
     request: Request,
     version: Annotated[int | None, Query(description="客户端本地版本号（一致时 items 返回 null）")] = None,
     keyword: Annotated[str | None, Query(description="关键字（label / value / code）")] = None,
@@ -330,11 +233,11 @@ async def get_dict_by_type(
     values: Annotated[str | None, Query(description="指定 value 子集（逗号分隔）")] = None,
     limit: Annotated[int | None, Query(ge=1, description="返回条数上限（探针传 2001）")] = None,
 ) -> ApiResponse:
-    """按类型取字典（版本比对 / 关键字 / 级联 / 按值子集 / 上限）。
+    """按字典标识取字典（版本比对 / 关键字 / 级联 / 按值子集 / 上限）。
 
     Args:
         source: 字典取数契约。
-        dict_type: 字典类型码。
+        dict_key: 字典标识。
         request: 请求对象（语言解析）。
         version: 客户端本地版本号。
         keyword: 关键字。
@@ -343,10 +246,10 @@ async def get_dict_by_type(
         limit: 返回条数上限。
 
     Returns:
-        ApiResponse: 统一响应，data 为单类型取数结果。
+        ApiResponse: 统一响应，data 为单标识取数结果。
     """
     query = DictQuery(
-        dict_type=dict_type,
+        dict_key=dict_key,
         version=version,
         keyword=keyword,
         parent_id=parent_id,
@@ -378,73 +281,3 @@ def _accept_locale(request: Request) -> str:
             if supported.split("-")[0].lower() == prefix:
                 return supported
     return DEFAULT_LOCALE
-
-
-def _type_out(row: SysDictType) -> ConcurrentStableDict[str, object]:
-    """类型行 → 响应字典。
-
-    Args:
-        row: 类型行。
-
-    Returns:
-        ConcurrentStableDict[str, object]: 响应数据。
-    """
-    return ConcurrentStableDict(
-        {
-            "id": row.id,
-            "type": row.code,
-            "name": row.name,
-            "sort": row.sort,
-            "status": row.status,
-        }
-    )
-
-
-def _item_out(row: SysDictItem) -> ConcurrentStableDict[str, object]:
-    """条目行 → 响应字典。
-
-    Args:
-        row: 条目行。
-
-    Returns:
-        ConcurrentStableDict[str, object]: 响应数据。
-    """
-    return ConcurrentStableDict(
-        {
-            "id": row.id,
-            "type_id": row.dict_type_id,
-            "code": row.code,
-            "label": row.name,
-            "value": row.value,
-            "parent_id": row.parent_id,
-            "color": row.color,
-            "sort": row.sort,
-            "status": row.status,
-        }
-    )
-
-
-def _attr_out(row: SysDictAttr) -> ConcurrentStableDict[str, object]:
-    """属性行 → 响应字典。
-
-    Args:
-        row: 属性行。
-
-    Returns:
-        ConcurrentStableDict[str, object]: 响应数据。
-    """
-    return ConcurrentStableDict(
-        {
-            "id": row.id,
-            "type_id": row.dict_type_id,
-            "attr_key": row.attr_key,
-            "name": row.name,
-            "data_type": row.data_type,
-            "operators": list(row.operators) if row.operators is not None else None,
-            "widget": row.widget,
-            "options": list(row.options) if row.options is not None else None,
-            "sort": row.sort,
-            "status": row.status,
-            "scope": row.scope,
-        }
-    )

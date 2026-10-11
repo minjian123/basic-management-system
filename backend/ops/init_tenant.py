@@ -20,7 +20,7 @@ uv run python -m ops.init_tenant --code acme \
 - **建库**：`app/db/admin.py`（MySQL / PG 建库、SQLite 建文件、达梦建模式；**幂等**，已存在跳过）；
 - **迁移**：本服务的租户链 `{service}:tenant` `upgrade head`（与 `ops/migrate_tenants.py` 同源；
   `alembic_version` 已最新则跳过）；
-- **种子**：字典种子（`app/dict/seed.py`）与系统参数种子（`bms_core/config/seed.py`）幂等；输出新增行数；
+- **种子**：系统参数种子（`bms_core/config/seed.py`）幂等；输出新增行数（字典种子随字典六表拆除，02_09）；
 - `--dry-run` 仅打印计划（连接串脱敏），不建连、不建库；
 - 平台侧租户注册（`sys_tenant` 行）由 `ops/seed_tenant.py` 或租户管理阶段开通流程负责（本脚本只管库侧三步）。
 """
@@ -51,7 +51,6 @@ from bms_core.db.migration import (
 )
 from bms_core.db.tenant import build_tenant_db_key
 from bms_core.db.tenant_source import TENANT_SERVICE_KEY
-from bms_core.dict.seed import seed_dicts
 from ops.migrate_tenants import tenant_refs
 
 
@@ -142,19 +141,19 @@ async def _resolve_basis(code: str) -> str:
 
 
 async def _seed(url: str) -> int:
-    """执行字典与系统参数种子（幂等）。
+    """执行系统参数种子（幂等）。
 
     Args:
         url: 租户库连接串。
 
     Returns:
-        int: 新增行数（字典 + 系统参数合计）。
+        int: 新增行数（系统参数合计）。
     """
     engine = create_async_engine(url, poolclass=NullPool)
     factory: async_sessionmaker[AsyncSession] = async_sessionmaker(engine, expire_on_commit=False)
     try:
         async with factory() as session:
-            return await seed_dicts(session) + await seed_configs(session)
+            return await seed_configs(session)
     finally:
         await engine.dispose()
 

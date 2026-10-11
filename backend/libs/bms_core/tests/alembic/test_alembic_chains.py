@@ -90,7 +90,8 @@ def test_chain_tables_derived_from_ownership() -> None:
     assert "sys_module" not in tenant_platform
 
     tenant_chain = resolve_chain("platform:tenant").tables
-    assert "sys_dict_type" in tenant_chain
+    assert "sys_dict_type" not in tenant_chain
+    assert "sys_role" in tenant_chain
     assert "sys_outbox" in tenant_chain
     assert "sys_module" not in tenant_chain
 
@@ -195,7 +196,7 @@ def test_chain_revisions_integrity() -> None:
     platform_head = ScriptDirectory.from_config(_config(resolve_chain("platform:platform"))).get_current_head()
     assert platform_head == "0009_sys_product"
     tenant_service_head = ScriptDirectory.from_config(_config(default_chain())).get_current_head()
-    assert tenant_service_head == "0009_role_type"
+    assert tenant_service_head == "0013_drop_dict_tables"
 
     for name in (
         "platform:platform",

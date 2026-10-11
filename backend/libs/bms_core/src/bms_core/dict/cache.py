@@ -3,7 +3,7 @@
 - `MemoryDictCacheRegion`：纯进程内 L1（双分区：整类型 + 按值子集；版本按租户计数）；无 Redis 环境 / 测试用。
 - `RedisDictCacheRegion`：Redis 共享层（类型 key / 版本键 `INCR` / SETNX 互斥锁 / TTL 抖动）叠加进程内 L1
   （先 L1 后 Redis，命中回填）；Redis 不可用时自动降级（`RedisCacheRegion` 内部兜底）。
-- 两层键构成统一由 `DictCacheRegion`（`dict_key` / `value_key` / `version_key`）提供，实现不重拼 key。
+- 两层键构成统一由 `DictCacheRegion`（`type_cache_key` / `value_cache_key` / `version_cache_key`）提供，实现不重拼 key。
 """
 
 from collections.abc import Mapping
@@ -121,7 +121,7 @@ class MemoryDictCacheRegion(DictCacheRegion):
         self,
         tenant: str | None,
         locale: str,
-        dict_type: str,
+        dict_key: str,
         token: str,
         ttl: int = DEFAULT_LOCK_TTL,
     ) -> bool:
@@ -130,14 +130,14 @@ class MemoryDictCacheRegion(DictCacheRegion):
         Args:
             tenant: 租户标识；None 为全局。
             locale: 语言。
-            dict_type: 字典类型码。
+            dict_key: 字典类型码。
             token: 持有者令牌。
             ttl: 锁有效期（秒）。
 
         Returns:
             bool: 获锁为 True。
         """
-        key = self.dict_key(tenant, locale, dict_type)
+        key = self.type_cache_key(tenant, locale, dict_key)
         now = monotonic()
         with self._lock:
             current = self._locks.get(key)
@@ -150,7 +150,7 @@ class MemoryDictCacheRegion(DictCacheRegion):
         self,
         tenant: str | None,
         locale: str,
-        dict_type: str,
+        dict_key: str,
         token: str,
     ) -> bool:
         """释放类型取数互斥锁（比对令牌；令牌不符不删）。
@@ -158,13 +158,13 @@ class MemoryDictCacheRegion(DictCacheRegion):
         Args:
             tenant: 租户标识；None 为全局。
             locale: 语言。
-            dict_type: 字典类型码。
+            dict_key: 字典类型码。
             token: 持有者令牌。
 
         Returns:
             bool: 释放到为 True。
         """
-        key = self.dict_key(tenant, locale, dict_type)
+        key = self.type_cache_key(tenant, locale, dict_key)
         with self._lock:
             current = self._locks.get(key)
             if current is None or current[0] != token:
@@ -258,18 +258,18 @@ class RedisDictCacheRegion(DictCacheRegion):
         """释放 Redis 客户端（幂等）。"""
         await self._redis.aclose()
 
-    async def aget_type(self, tenant: str | None, locale: str, dict_type: str) -> object | None:
+    async def aget_type(self, tenant: str | None, locale: str, dict_key: str) -> object | None:
         """读类型缓存（先 L1 后 Redis，命中回填 L1）。
 
         Args:
             tenant: 租户标识；None 为全局。
             locale: 语言。
-            dict_type: 字典类型码。
+            dict_key: 字典类型码。
 
         Returns:
             object | None: 缓存值；未命中返回 None。
         """
-        key = self.dict_key(tenant, locale, dict_type)
+        key = self.type_cache_key(tenant, locale, dict_key)
         cached = self._l1.get(key)
         if cached is not None:
             return cached
@@ -282,7 +282,7 @@ class RedisDictCacheRegion(DictCacheRegion):
         self,
         tenant: str | None,
         locale: str,
-        dict_type: str,
+        dict_key: str,
         value: object,
         ttl: int | None = None,
     ) -> None:
@@ -291,23 +291,23 @@ class RedisDictCacheRegion(DictCacheRegion):
         Args:
             tenant: 租户标识；None 为全局。
             locale: 语言。
-            dict_type: 字典类型码。
+            dict_key: 字典类型码。
             value: 缓存值。
             ttl: 有效期（秒）。
         """
-        key = self.dict_key(tenant, locale, dict_type)
+        key = self.type_cache_key(tenant, locale, dict_key)
         self._l1.set(key, value, ttl)
         await self._redis.aset(key, value, ttl)
 
-    async def adrop_type(self, tenant: str | None, locale: str, dict_type: str) -> None:
+    async def adrop_type(self, tenant: str | None, locale: str, dict_key: str) -> None:
         """删类型缓存（L1 + Redis）。
 
         Args:
             tenant: 租户标识；None 为全局。
             locale: 语言。
-            dict_type: 字典类型码。
+            dict_key: 字典类型码。
         """
-        key = self.dict_key(tenant, locale, dict_type)
+        key = self.type_cache_key(tenant, locale, dict_key)
         self._l1.delete(key)
         await self._redis.adelete(key)
 
@@ -315,7 +315,7 @@ class RedisDictCacheRegion(DictCacheRegion):
         self,
         tenant: str | None,
         locale: str,
-        dict_type: str,
+        dict_key: str,
         values: ConcurrentStableList[str],
     ) -> ConcurrentStableDict[str, str]:
         """读按值子集缓存（L1 + Redis）。
@@ -323,13 +323,13 @@ class RedisDictCacheRegion(DictCacheRegion):
         Args:
             tenant: 租户标识；None 为全局。
             locale: 语言。
-            dict_type: 字典类型码。
+            dict_key: 字典类型码。
             values: 待查 value 序列。
 
         Returns:
             ConcurrentStableDict[str, str]: value → label（仅命中项）。
         """
-        key = self.value_key(tenant, locale, dict_type)
+        key = self.value_cache_key(tenant, locale, dict_key)
         cached = self._l1.get(key)
         if not isinstance(cached, Mapping):
             cached = await self._redis.aget(key)
@@ -348,7 +348,7 @@ class RedisDictCacheRegion(DictCacheRegion):
         self,
         tenant: str | None,
         locale: str,
-        dict_type: str,
+        dict_key: str,
         mapping: ConcurrentStableDict[str, str],
     ) -> None:
         """回填按值子集缓存（L1 + Redis 合并写）。
@@ -356,10 +356,10 @@ class RedisDictCacheRegion(DictCacheRegion):
         Args:
             tenant: 租户标识；None 为全局。
             locale: 语言。
-            dict_type: 字典类型码。
+            dict_key: 字典类型码。
             mapping: 待回填的 value → label 映射。
         """
-        key = self.value_key(tenant, locale, dict_type)
+        key = self.value_cache_key(tenant, locale, dict_key)
         cached = self._l1.get(key)
         if not isinstance(cached, Mapping):
             cached = await self._redis.aget(key)
@@ -381,7 +381,7 @@ class RedisDictCacheRegion(DictCacheRegion):
         Returns:
             int: 当前版本号。
         """
-        raw = await self._redis.aget(self.version_key(tenant))
+        raw = await self._redis.aget(self.version_cache_key(tenant))
         try:
             return int(raw)  # pyright: ignore[reportArgumentType]
         except TypeError, ValueError:
@@ -396,13 +396,13 @@ class RedisDictCacheRegion(DictCacheRegion):
         Returns:
             int: 递增后的版本号。
         """
-        return await self._redis.aincrease(self.version_key(tenant))
+        return await self._redis.aincrease(self.version_cache_key(tenant))
 
     async def alock(
         self,
         tenant: str | None,
         locale: str,
-        dict_type: str,
+        dict_key: str,
         token: str,
         ttl: int = DEFAULT_LOCK_TTL,
     ) -> bool:
@@ -411,21 +411,21 @@ class RedisDictCacheRegion(DictCacheRegion):
         Args:
             tenant: 租户标识；None 为全局。
             locale: 语言。
-            dict_type: 字典类型码。
+            dict_key: 字典类型码。
             token: 持有者令牌。
             ttl: 锁有效期（秒）。
 
         Returns:
             bool: 获锁为 True。
         """
-        key = f"lock:{self.dict_key(tenant, locale, dict_type)}"
+        key = f"lock:{self.type_cache_key(tenant, locale, dict_key)}"
         return await self._redis.asetnx(key, token, ttl)
 
     async def arelease_lock(
         self,
         tenant: str | None,
         locale: str,
-        dict_type: str,
+        dict_key: str,
         token: str,
     ) -> bool:
         """释放类型取数互斥锁（Lua 比对 token）。
@@ -433,11 +433,11 @@ class RedisDictCacheRegion(DictCacheRegion):
         Args:
             tenant: 租户标识；None 为全局。
             locale: 语言。
-            dict_type: 字典类型码。
+            dict_key: 字典类型码。
             token: 持有者令牌。
 
         Returns:
             bool: 释放到为 True。
         """
-        key = f"lock:{self.dict_key(tenant, locale, dict_type)}"
+        key = f"lock:{self.type_cache_key(tenant, locale, dict_key)}"
         return await self._redis.arelease_lock(key, token)

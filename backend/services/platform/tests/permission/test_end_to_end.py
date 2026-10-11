@@ -213,7 +213,7 @@ async def _seed(session: AsyncSession) -> None:
     row.set("field", "area_code")
     row.set("values", ["13"])
     config.add(row)
-    session.add(SysDataScope(role_id=role.id, dict_type_id=1, policy_type=POLICY_TYPE_SELECT, config=list(config)))
+    session.add(SysDataScope(role_id=role.id, dict_key="role", policy_type=POLICY_TYPE_SELECT, config=list(config)))
     await session.commit()
 
 

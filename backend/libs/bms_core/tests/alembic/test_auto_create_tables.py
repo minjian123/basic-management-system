@@ -79,7 +79,7 @@ async def test_sqlite_auto_create_tables_and_idempotent(tmp_path: Path, monkeypa
         assert {"sys_module", "sys_module_i18n", "sys_table_ownership", "sys_outbox"} <= platform_tables
         assert "sys_tenant" not in platform_tables, "租户注册归 tenant 服务，不进平台服务的平台链"
         tenant_tables = _tables(tenant)
-        assert {"sys_dict_type", "sys_query_scheme", "sys_outbox"} <= tenant_tables
+        assert {"sys_data_scope", "sys_query_scheme", "sys_outbox"} <= tenant_tables
         assert "sys_task" not in tenant_tables, "骨架表（planned）不入链、不自动建表"
 
         before = (_tables(platform), _tables(tenant))
@@ -106,8 +106,8 @@ async def test_auto_create_service_ized_targets(tmp_path: Path, monkeypatch: pyt
         handled = await ensure_development_schema(registry, settings)
         assert handled == ["platform", "tenant_demo", "tenant_acme"]
         assert "sys_module" in _tables(tmp_path / "bms_platform.db")
-        assert "sys_dict_type" in _tables(tmp_path / "bms_platform_demo.db")
-        assert "sys_dict_type" in _tables(tmp_path / "bms_platform_acme.db")
+        assert "sys_data_scope" in _tables(tmp_path / "bms_platform_demo.db")
+        assert "sys_data_scope" in _tables(tmp_path / "bms_platform_acme.db")
     finally:
         await registry.aclose()
 

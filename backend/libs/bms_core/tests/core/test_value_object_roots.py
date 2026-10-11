@@ -67,7 +67,6 @@ from bms_core.db.inventory import DbCount
 from bms_core.db.registry import PoolBudgetRow
 from bms_core.db.tenant import TenantContext
 from bms_core.db.tenant_registry import TenantSnapshot
-from bms_core.dict.seed import SeedItem, SeedType
 from bms_core.edge.base import EdgeIdentity, EdgeTrustDecision
 from bms_core.events.contracts import EventContract, EventFieldSpec, EventSubscription
 from bms_core.health.base import HealthCheckReport, HealthCheckResult
@@ -166,7 +165,7 @@ ROLE_CHAINS: tuple[tuple[type, tuple[type, ...]], ...] = (
     (BaseFieldSpecContract, (ColumnSpec, EventFieldSpec)),
     (BaseProcessContract, (ProcessDefinition, ProcessInstance)),
     (BaseRegistryRecordContract, (ModuleRecord, TableRecord)),
-    (BaseI18nSeedContract, (SeedItem, SeedType)),
+    (BaseI18nSeedContract, ()),
     (BaseOpsReportContract, (DatabaseTarget, DbCount, PoolBudgetRow)),
     (BaseHealthResultContract, (HealthCheckResult, HealthCheckReport)),
     (BaseTallyContract, (DispatchResult, OwnershipStats)),
@@ -208,9 +207,6 @@ VALUE_OBJECT_BATCH: tuple[tuple[str, str], ...] = (
     ("backend/libs/bms_core/src/bms_core/db/registry.py", "PoolBudgetRow"),
     ("backend/libs/bms_core/src/bms_core/db/tenant.py", "TenantContext"),
     ("backend/libs/bms_core/src/bms_core/db/tenant_registry.py", "TenantSnapshot"),
-    ("backend/libs/bms_core/src/bms_core/dict/seed.py", "SeedAttr"),
-    ("backend/libs/bms_core/src/bms_core/dict/seed.py", "SeedItem"),
-    ("backend/libs/bms_core/src/bms_core/dict/seed.py", "SeedType"),
     ("backend/libs/bms_core/src/bms_core/edge/base.py", "EdgeIdentity"),
     ("backend/libs/bms_core/src/bms_core/edge/base.py", "EdgeTrustDecision"),
     ("backend/libs/bms_core/src/bms_core/events/contracts.py", "EventContract"),
@@ -372,8 +368,8 @@ def _manifest_system_roots() -> ConcurrentStableList[str]:
 @pytest.mark.kiwi_id(2216)
 def test_value_object_batch_is_frozen_and_complete() -> None:
     """批次台账冻结：109 项且无重复（归位清单以本台账为准；`ChatStreamHandle` 已迁出）。"""
-    assert len(VALUE_OBJECT_BATCH) == 106
-    assert len(set(VALUE_OBJECT_BATCH)) == 106
+    assert len(VALUE_OBJECT_BATCH) == 103
+    assert len(set(VALUE_OBJECT_BATCH)) == 103
 
 
 @pytest.mark.kiwi_id(2216)

@@ -74,7 +74,6 @@ COMMON_MODEL_MODULES: tuple[str, ...] = (
     "bms_core.models.ownership",
     "bms_core.models.outbox",
     "bms_core.config.models",
-    "bms_core.dict.models",
     "bms_core.listing.models",
 )
 """公共模型模块清单（跨服务共享的基座模型；各链均需注册其元数据）。"""

@@ -47,11 +47,11 @@ def test_chain_metadata_intersects_existing_models() -> None:
         name="platform:tenant",
         service="platform",
         datasource="tenant",
-        tables=ConcurrentStableSet({"sys_dict_type", "sys_ghost"}),
+        tables=ConcurrentStableSet({"sys_role", "sys_ghost"}),
         scope="platform 服务的服务租户库",
     )
     tables = chain_metadata(chain)
-    assert set(tables.tables) == {"sys_dict_type"}
+    assert set(tables.tables) == {"sys_role"}
     assert resolve_chain("tenant:platform").name == "tenant:platform"
 
 

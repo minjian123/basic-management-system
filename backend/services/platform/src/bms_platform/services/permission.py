@@ -263,7 +263,7 @@ class PermissionService(BaseFrameworkObject):
             return rules
         for row in await self._data_scopes.list_by_roles(role_ids):
             item: ConcurrentStableDict[str, object] = ConcurrentStableDict()
-            item.set("dict_type_id", row.dict_type_id)
+            item.set("dict_key", row.dict_key)
             item.set("policy_type", row.policy_type)
             item.set("config", list(row.config))
             rules.add(item)

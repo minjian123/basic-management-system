@@ -101,7 +101,7 @@ DICT_CATALOG: tuple[DictRecord, ...] = (
         dict_key="role",
         name="角色",
         origin=DictOrigin.PLATFORM.value,
-        data_source="platform.role",
+        data_source="platform",
         allowlist=("code", "label"),
         strategies=(DictStrategy.SELECT.value, DictStrategy.MATCH.value),
     ),

@@ -98,10 +98,10 @@ def test_assess_table_ownership() -> None:
 @pytest.mark.kiwi_id(2170)
 def test_assess_statement_and_exception() -> None:
     """SQL 越界判定 + 只读例外只放行 read 操作。"""
-    exceptions = (_exception(target_prefix="sys_dict_type"),)
-    assert assess_statement("select * from sys_dict_type", service="report", exceptions=exceptions) == ()
-    assert assess_statement("select * from sys_dict_type", service="report") != ()
-    assert assess_statement("update sys_dict_type set x=1", service="report", exceptions=exceptions) != ()
+    exceptions = (_exception(target_prefix="sys_role"),)
+    assert assess_statement("select * from sys_role", service="report", exceptions=exceptions) == ()
+    assert assess_statement("select * from sys_role", service="report") != ()
+    assert assess_statement("update sys_role set x=1", service="report", exceptions=exceptions) != ()
 
 
 @pytest.mark.kiwi_id(2170)

@@ -164,7 +164,7 @@ async def test_data_scopes_policy_validation_and_whitelist() -> None:
     target, engine = await helpers.session()
     role = await RoleRepository(target).create(code="ops", name="运维角色")
     role_id = role.id
-    dict_type_id, attr_key = await helpers.seed_dict(target)
+    dict_key, attr_key = await helpers.seed_dict(target)
     cache = MemoryCacheRegion()
     service = helpers.grant_service(target, cache)
 
@@ -172,14 +172,10 @@ async def test_data_scopes_policy_validation_and_whitelist() -> None:
         role_id,
         ConcurrentStableList(
             (
+                DataScopeGrantEntry(dict_key=dict_key, policy_type="select", config=_items({"item_code": "enabled"})),
+                DataScopeGrantEntry(dict_key=dict_key, policy_type="region", config=_items({"start": "a", "end": "m"})),
                 DataScopeGrantEntry(
-                    dict_type_id=dict_type_id, policy_type="select", config=_items({"item_code": "enabled"})
-                ),
-                DataScopeGrantEntry(
-                    dict_type_id=dict_type_id, policy_type="region", config=_items({"start": "a", "end": "m"})
-                ),
-                DataScopeGrantEntry(
-                    dict_type_id=dict_type_id,
+                    dict_key=dict_key,
                     policy_type="match",
                     config=_items({"field": "code", "pattern": "user_*"}, {"field": attr_key, "pattern": "A?"}),
                 ),
@@ -197,7 +193,7 @@ async def test_data_scopes_policy_validation_and_whitelist() -> None:
             ConcurrentStableList(
                 (
                     DataScopeGrantEntry(
-                        dict_type_id=dict_type_id,
+                        dict_key=dict_key,
                         policy_type="match",
                         config=_items({"field": "disabled_key", "pattern": "a"}),
                     ),
@@ -213,7 +209,7 @@ async def test_data_scopes_policy_validation_and_whitelist() -> None:
             ConcurrentStableList(
                 (
                     DataScopeGrantEntry(
-                        dict_type_id=dict_type_id,
+                        dict_key=dict_key,
                         policy_type="match",
                         config=_items({"field": "code", "pattern": "a[b]"}),
                     ),
@@ -228,7 +224,7 @@ async def test_data_scopes_policy_validation_and_whitelist() -> None:
             ConcurrentStableList(
                 (
                     DataScopeGrantEntry(
-                        dict_type_id=dict_type_id, policy_type="extension", config=_items({"key": "dept_subtree"})
+                        dict_key=dict_key, policy_type="extension", config=_items({"key": "dept_subtree"})
                     ),
                 )
             ),
@@ -241,10 +237,10 @@ async def test_data_scopes_policy_validation_and_whitelist() -> None:
             ConcurrentStableList(
                 (
                     DataScopeGrantEntry(
-                        dict_type_id=dict_type_id, policy_type="select", config=_items({"item_code": "enabled"})
+                        dict_key=dict_key, policy_type="select", config=_items({"item_code": "enabled"})
                     ),
                     DataScopeGrantEntry(
-                        dict_type_id=dict_type_id, policy_type="select", config=_items({"item_code": "disabled"})
+                        dict_key=dict_key, policy_type="select", config=_items({"item_code": "disabled"})
                     ),
                 )
             ),
@@ -255,7 +251,7 @@ async def test_data_scopes_policy_validation_and_whitelist() -> None:
         await service.replace_data_scopes(
             role_id,
             ConcurrentStableList(
-                (DataScopeGrantEntry(dict_type_id=999999999, policy_type="select", config=_items({"a": 1})),)
+                (DataScopeGrantEntry(dict_key="nope", policy_type="select", config=_items({"a": 1})),)
             ),
             tenant_id=_TENANT,
         )

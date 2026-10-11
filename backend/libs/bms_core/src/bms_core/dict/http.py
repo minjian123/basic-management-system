@@ -4,7 +4,7 @@
   `platform` 服务使用：字典数据的**权威侧是 `platform` 服务**（其租户库存字典六表），其余服务不直连
   字典表、也不复制缓存实现，统一经公开契约读取（服务间只经 `/api/v1` 公开面，东西向直连不经网关）。
 - **契约**（复用平台服务**既有**接口，不新增端点）：
-  - 单类型取数：`GET /api/v1/dicts/{dict_type}`（`version` / `keyword` / `parent_id` / `values` / `limit`）；
+  - 单类型取数：`GET /api/v1/dicts/{dict_key}`（`version` / `keyword` / `parent_id` / `values` / `limit`）；
   - 批量合并：`POST /api/v1/dicts/batch`（`types` / `version` / `locale`）；
   - 语言：`Accept-Language` 头（平台端点按该头解析 locale）；租户：`X-Tenant-Id` 头（租户上下文透传，
     否则平台侧按子域名 / 令牌解析）。
@@ -34,8 +34,8 @@ from bms_core.dict.base import (
     DictQuery,
     DictTranslateQuery,
     DictTypeResult,
+    current_dict_locale,
 )
-from bms_core.dict.sql import current_dict_locale
 from bms_core.edge.headers import TENANT_ID_HEADER
 from bms_core.i18n.base import DEFAULT_LOCALE
 from bms_core.servicecall.base import BaseServiceClient, ServiceRequest
@@ -48,7 +48,7 @@ __all__ = [
     "TRANSLATE_VALUES_CHUNK",
     "HttpDictSource",
     "HttpDictTranslator",
-    "dict_type_path",
+    "dict_key_path",
 ]
 
 HTTP_DICT_PROVIDER = "http"
@@ -57,7 +57,7 @@ HTTP_DICT_PROVIDER = "http"
 DICT_SERVICE_KEY = "platform"
 """字典数据权威服务标识（`sys_dict_*` 所有者）。"""
 
-DICT_TYPE_PATH = "/api/v1/dicts/{dict_type}"
+DICT_TYPE_PATH = "/api/v1/dicts/{dict_key}"
 """单类型取数契约路径模板。"""
 
 DICT_BATCH_PATH = "/api/v1/dicts/batch"
@@ -70,16 +70,16 @@ TRANSLATE_VALUES_CHUNK = 200
 """翻译按值子集的单批上限（避免一次请求过大）。"""
 
 
-def dict_type_path(dict_type: str) -> str:
+def dict_key_path(dict_key: str) -> str:
     """拼单类型取数契约路径（URL 编码字典类型码）。
 
     Args:
-        dict_type: 字典类型码。
+        dict_key: 字典类型码。
 
     Returns:
         str: 契约路径。
     """
-    return DICT_TYPE_PATH.format(dict_type=quote(dict_type, safe=""))
+    return DICT_TYPE_PATH.format(dict_key=quote(dict_key, safe=""))
 
 
 def _headers(locale: str) -> ConcurrentStableDict[str, str]:
@@ -110,7 +110,7 @@ def _current_locale() -> str:
 async def _fetch_type(
     client: BaseServiceClient,
     *,
-    dict_type: str,
+    dict_key: str,
     locale: str,
     version: int | None = None,
     keyword: str | None = None,
@@ -122,7 +122,7 @@ async def _fetch_type(
 
     Args:
         client: 服务间调用客户端。
-        dict_type: 字典类型码。
+        dict_key: 字典类型码。
         locale: 语言标识（经 `Accept-Language` 透传）。
         version: 客户端本地版本号（一致时平台侧返回 `items=None`）。
         keyword: 关键字。
@@ -147,7 +147,7 @@ async def _fetch_type(
     request = ServiceRequest(
         service=DICT_SERVICE_KEY,
         method="GET",
-        path=dict_type_path(dict_type),
+        path=dict_key_path(dict_key),
         query=query,
         headers=_headers(locale),
     )
@@ -278,7 +278,7 @@ class HttpDictSource(BaseDictSource):
         """
         result = await _fetch_type(
             self._client,
-            dict_type=query.dict_type,
+            dict_key=query.dict_key,
             locale=_current_locale(),
             version=query.version,
             keyword=query.keyword,
@@ -358,7 +358,7 @@ class HttpDictTranslator(BaseDictTranslator):
         pending: ConcurrentStableList[str] = ConcurrentStableList(query.values)
         tenant = get_current_tenant()
         if self._cache is not None and pending:
-            cached = await self._cache.avalue_subset(tenant, query.locale, query.dict_type, pending)
+            cached = await self._cache.avalue_subset(tenant, query.locale, query.dict_key, pending)
             if cached:
                 for value, label in cached.items():
                     mapping.set(value, label)
@@ -367,7 +367,7 @@ class HttpDictTranslator(BaseDictTranslator):
         for chunk in _chunks(pending, TRANSLATE_VALUES_CHUNK):
             result = await _fetch_type(
                 self._client,
-                dict_type=query.dict_type,
+                dict_key=query.dict_key,
                 locale=query.locale,
                 values=chunk,
             )
@@ -378,7 +378,7 @@ class HttpDictTranslator(BaseDictTranslator):
                     fresh.set(item.value, item.label)
         mapping.update(fresh.items())
         if self._cache is not None and fresh:
-            await self._cache.aset_value_subset(tenant, query.locale, query.dict_type, fresh)
+            await self._cache.aset_value_subset(tenant, query.locale, query.dict_key, fresh)
         return mapping
 
 

@@ -152,19 +152,19 @@ class SysRoleField(BaseModel):
 
 
 class SysDataScope(BaseModel):
-    """角色数据权限（`sys_data_scope`）：角色 × 字典 × 策略 → `config`（只选不编）。"""
+    """角色数据权限（`sys_data_scope`）：角色 × 字典标识 × 策略 → `config`（只选不编）。"""
 
     __tablename__ = "sys_data_scope"
     __table_args__ = (
         UniqueConstraint(
-            "role_id", "dict_type_id", "policy_type", "deleted_at", name="uq_sys_data_scope_role_dict_policy_deleted_at"
+            "role_id", "dict_key", "policy_type", "deleted_at", name="uq_sys_data_scope_role_dict_policy_deleted_at"
         ),
         Index("idx_sys_data_scope_role_id", "role_id"),
     )
 
     role_id: Mapped[int] = mapped_column(BigInteger, comment="角色主键（逻辑外键 sys_role.id，同库）")
-    dict_type_id: Mapped[int] = mapped_column(
-        BigInteger, comment="字典类型 ID（platform 服务租户库实体，同服务同库逻辑外键 sys_dict_type.id）"
+    dict_key: Mapped[str] = mapped_column(
+        String(64), comment="字典标识（业务码字符串，如 org_dept / role / wms_bin；登记于字典数据源登记）"
     )
     policy_type: Mapped[str] = mapped_column(String(16), comment="策略类型（select/region/match/extension）")
     config: Mapped[ConcurrentStableList[ConcurrentStableDict[str, object]]] = mapped_column(

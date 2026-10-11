@@ -9,7 +9,6 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 from bms_core.cache.memory import MemoryCacheRegion
 from bms_core.config.null import NullConfigSource
 from bms_core.db.unit_of_work import DbUnitOfWork
-from bms_core.dict.models import SysDictAttr, SysDictType
 from bms_core.schemas.pagination import BasePageQuery
 from bms_platform.models.role import SysRole
 from bms_platform.repositories.menu import (
@@ -142,29 +141,17 @@ async def seed_metadata(target: AsyncSession) -> tuple[int, int, int, int]:
     return menu.id, business.id, form.id, permission.id
 
 
-async def seed_dict(target: AsyncSession) -> tuple[int, str]:
-    """播种一个字典类型与一个**已启用**扩展属性（数据权限匹配字段白名单）。
+async def seed_dict(target: AsyncSession) -> tuple[str, str]:
+    """取一个已登记字典标识与其可匹配字段（数据权限白名单，来自字典数据源登记）。
 
     Args:
-        target: 会话。
+        target: 会话（保留参数以兼容调用面；本期校验走登记清单，不落字典表）。
 
     Returns:
-        tuple[int, str]: (字典类型 ID, 已启用扩展属性键)。
+        tuple[str, str]: (字典标识, 可匹配字段键)。
     """
-    dict_type = SysDictType(code="area", name="区域", sort=1, status="enabled")
-    target.add(dict_type)
-    await target.flush()
-    target.add(
-        SysDictAttr(dict_type_id=dict_type.id, attr_key="area_code", name="区域码", data_type="text", status="enabled")
-    )
-    target.add(
-        SysDictAttr(
-            dict_type_id=dict_type.id, attr_key="disabled_key", name="停用属性", data_type="text", status="disabled"
-        )
-    )
-    await target.flush()
     await target.commit()
-    return dict_type.id, "area_code"
+    return "role", "label"
 
 
 async def seed_form_field(target: AsyncSession, form_id: int) -> int:

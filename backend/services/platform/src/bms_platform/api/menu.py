@@ -28,7 +28,7 @@ from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.db.session import DbSession
 from bms_core.db.tenant import current_tenant_id_str
 from bms_core.db.unit_of_work import UnitOfWork
-from bms_core.dict.sql import current_dict_locale
+from bms_core.dict.base import current_dict_locale
 from bms_core.i18n.base import DEFAULT_LOCALE, SUPPORTED_LOCALES
 from bms_core.menu import DEFAULT_MENU_TREE_CACHE_TTL, MENU_TREE_CACHE_TTL_KEY
 from bms_core.outbox.base import BaseOutboxStore

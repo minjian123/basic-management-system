@@ -1,30 +1,21 @@
-"""字典高级查询（`app/dict/query.py`）：属性 schema / 通用条件引擎 / 结果分页。
+"""字典高级查询（02_09 改指）：条件引擎（Python 过滤）+ 结果分页。
 
-- `load_attrs`：读 `sys_dict_attr` + i18n（locale 回退）；`operators` 缺省按 `data_type` 派生。
-- 条件引擎：条件组（AND/OR 分组树，深度 ≤ `DICT_ADV_MAX_DEPTH`）→ SQLAlchemy 表达式
-  （字段 / 操作符白名单 + 参数绑定，**不拼 SQL**）；字段白名单 = 固定字段 + 该类型已定义属性
-  （`attr.<attr_key>`，只支持一层键）；属性值经方言适配 JSON 提取（SQLite / MySQL / PostgreSQL 实现，
-  达梦按同构口径编写）。
+- 数据源：经**统一出口**（`BaseDictSource`）按 `dict_key` 取条目，**不再查字典类型 / 属性表**。
+- `load_attrs`：无扩展属性表；返回**固定字段** schema（`value` / `label` / `code` / `sort` / `status`）。
+- 条件引擎：条件组（AND/OR 分组树，深度 ≤ `DICT_ADV_MAX_DEPTH`）——字段 / 操作符白名单 + 值比较，
+  在条目集上做 Python 过滤（不拼 SQL）。
 - `advanced_query`：`target=items` 走条件引擎分页；`target=business` 经查询提供者注册表（未注册 404）。
-- 扩展属性 `attr_json` **只在本接口返回**（普通取数与缓存链路不返回）。
 """
 
-from collections.abc import AsyncGenerator, Mapping
-from contextlib import asynccontextmanager
-from typing import Annotated, Any, cast
+from collections.abc import Mapping
+from typing import Annotated, cast
 
 from pydantic import Field
-from sqlalchemy import ColumnElement, Integer, Numeric, and_, func, not_, or_, select, true
-from sqlalchemy import cast as sa_cast
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.exceptions import ParamError
 from bms_core.core.objects import BaseFrameworkObject
-from bms_core.db.registry import EngineRegistry
-from bms_core.db.session import DbSession, session_scope
-from bms_core.dict.models import SysDictAttr, SysDictAttrI18n, SysDictItem, SysDictItemI18n, SysDictType
-from bms_core.dict.sql import current_dict_locale
-from bms_core.i18n.base import DEFAULT_LOCALE
+from bms_core.dict.base import BaseDictSource, DictItem, DictQuery
 from bms_core.query.base import BaseQueryProviderRegistry
 from bms_core.schemas.base import CONTRACT_COLLECTION, CONTRACT_STABLE_DICT, BaseSchema
 
@@ -52,7 +43,7 @@ DICT_ADV_PAGE_SIZE_MAX = 100
 """高级查询页长上限。"""
 
 DICT_ADV_FIXED_FIELDS: tuple[str, ...] = ("value", "label", "code", "sort", "status")
-"""固定可查字段（除扩展属性外）。"""
+"""固定可查字段。"""
 
 DICT_FIXED_FIELD_TYPES: ConcurrentStableDict[str, str] = ConcurrentStableDict(
     {
@@ -74,7 +65,7 @@ DICT_OPERATORS_BY_TYPE: ConcurrentStableDict[str, tuple[str, ...]] = ConcurrentS
         "bool": ("eq", "ne", "is_null", "not_null"),
     }
 )
-"""按数据类型派生的可用操作符（属性未声明 operators 时的缺省）。"""
+"""按数据类型派生的可用操作符。"""
 
 _ALL_OPERATORS: ConcurrentStableSet[str] = ConcurrentStableSet(
     {
@@ -96,18 +87,18 @@ _ALL_OPERATORS: ConcurrentStableSet[str] = ConcurrentStableSet(
 
 
 class DictAttrInfo(BaseSchema):
-    """属性 schema（高级查询条件字段）。"""
+    """属性 schema（高级查询条件字段；本期为固定字段）。"""
 
-    attr_key: str = Field(description="属性键")
-    name: str = Field(description="属性名（按 locale）")
-    data_type: str = Field(description="数据类型（text/number/date/enum/bool）")
+    attr_key: str = Field(description="字段键")
+    name: str = Field(description="字段名")
+    data_type: str = Field(description="数据类型（text/number/enum）")
     operators: tuple[str, ...] = Field(default=(), description="可用操作符")
     widget: str | None = Field(default=None, description="值控件")
     options: tuple[Annotated[ConcurrentStableDict[str, object], CONTRACT_COLLECTION], ...] = Field(
-        default=(), description="enum 选项集"
+        default=(), description="枚举选项集"
     )
     sort: int = Field(default=0, description="排序值")
-    scope: str = Field(default="platform", description="属性来源（platform/tenant）")
+    scope: str = Field(default="platform", description="来源（platform/tenant）")
 
 
 class DictQueryProviderInfo(BaseSchema):
@@ -116,25 +107,22 @@ class DictQueryProviderInfo(BaseSchema):
     key: str = Field(description="提供者标识")
     name: str = Field(description="显示名")
     target: str = Field(default="business", description="目标（items/business）")
-    dict_types: tuple[str, ...] = Field(default=(), description="适用字典类型（空 = 全部）")
+    dict_types: tuple[str, ...] = Field(default=(), description="适用字典（空 = 全部）")
     param_schema: Annotated[ConcurrentStableDict[str, object], CONTRACT_COLLECTION] = Field(
         default_factory=CONTRACT_STABLE_DICT, description="参数 JSON Schema 子集"
     )
 
 
 class DictAdvItem(BaseSchema):
-    """高级查询结果条目（普通字段 + 扩展属性子集）。"""
+    """高级查询结果条目（普通字段）。"""
 
     value: str = Field(description="条目值")
     label: str = Field(description="条目标签（按 locale）")
     code: str = Field(default="", description="条目编码")
-    parent_id: str | None = Field(default=None, description="级联父值")
+    parent_id: str | None = Field(default=None, description="上级条目 ID")
     sort: int = Field(default=0, description="排序值")
     status: str = Field(default="enabled", description="状态")
     color: str | None = Field(default=None, description="语义色")
-    attr: Annotated[ConcurrentStableDict[str, object] | None, CONTRACT_COLLECTION] = Field(
-        default=None, description="扩展属性子集（仅本接口返回）"
-    )
 
 
 class DictAdvQueryResult(BaseSchema):
@@ -165,66 +153,46 @@ class DictAdvQueryPayload(BaseSchema):
 
 
 class DictQueryService(BaseFrameworkObject):
-    """字典高级查询服务（属性 schema 读取 + 条件引擎 + 分页执行）。"""
+    """字典高级查询服务（固定字段 schema + 条件引擎 + 分页执行；经统一出口取数）。"""
 
-    def __init__(self, *, engines: EngineRegistry) -> None:
+    def __init__(self, *, source: BaseDictSource) -> None:
         """初始化。
 
         Args:
-            engines: 多租户引擎注册表。
+            source: 字典统一出口取数契约。
         """
-        self._engines = engines
+        self._source = source
 
-    async def load_attrs(self, dict_type: str, locale: str | None = None) -> tuple[DictAttrInfo, ...]:
-        """读属性 schema（i18n 回退 + 排序）。
+    async def load_attrs(self, dict_key: str, locale: str | None = None) -> tuple[DictAttrInfo, ...]:
+        """返回固定字段 schema（无扩展属性表）。
 
         Args:
-            dict_type: 字典类型码。
-            locale: 语言（缺省当前请求语言）。
+            dict_key: 字典标识。
+            locale: 语言（本期固定字段不分语言，保留参数以兼容调用面）。
 
         Returns:
-            tuple[DictAttrInfo, ...]: 属性清单。
+            tuple[DictAttrInfo, ...]: 固定字段清单。
         """
-        lang = locale or current_dict_locale.get() or DEFAULT_LOCALE
-        async with self._session() as session:
-            type_row = await _load_type(session, dict_type)
-            if type_row is None:
-                return ()
-            stmt = (
-                select(SysDictAttr, SysDictAttrI18n.name)
-                .outerjoin(
-                    SysDictAttrI18n,
-                    and_(SysDictAttrI18n.dict_attr_id == SysDictAttr.id, SysDictAttrI18n.locale == lang),
-                )
-                .where(
-                    SysDictAttr.dict_type_id == type_row.id,
-                    SysDictAttr.status == "enabled",
-                    SysDictAttr.deleted_at.is_(None),
-                )
-                .order_by(SysDictAttr.sort, SysDictAttr.id)
-            )
-            rows = (await session.execute(stmt)).all()
         result: ConcurrentStableList[DictAttrInfo] = ConcurrentStableList()
-        for attr, i18n_name in rows:
-            operators = tuple(attr.operators) if attr.operators else DICT_OPERATORS_BY_TYPE.get(attr.data_type, ())
-            options = tuple(attr.options) if attr.options else ()
+        for index, field in enumerate(DICT_ADV_FIXED_FIELDS):
+            data_type = DICT_FIXED_FIELD_TYPES.get(field, "text")
             result.add(
                 DictAttrInfo(
-                    attr_key=attr.attr_key,
-                    name=str(i18n_name or attr.name),
-                    data_type=attr.data_type,
-                    operators=operators,
-                    widget=attr.widget,
-                    options=options,
-                    sort=attr.sort,
-                    scope=attr.scope,
+                    attr_key=field,
+                    name=field,
+                    data_type=data_type,
+                    operators=DICT_OPERATORS_BY_TYPE.get(data_type, ()),
+                    widget=None,
+                    options=(),
+                    sort=index,
+                    scope="platform",
                 )
             )
         return tuple(result)
 
     async def advanced_query(
         self,
-        dict_type: str,
+        dict_key: str,
         payload: DictAdvQueryPayload,
         *,
         registry: BaseQueryProviderRegistry | None = None,
@@ -232,7 +200,7 @@ class DictQueryService(BaseFrameworkObject):
         """执行高级查询（items 条件引擎 / business 提供者）。
 
         Args:
-            dict_type: 字典类型码。
+            dict_key: 字典标识。
             payload: 查询请求体。
             registry: 查询提供者注册表（`target=business` 必填）。
 
@@ -251,7 +219,7 @@ class DictQueryService(BaseFrameworkObject):
             params: ConcurrentStableDict[str, object] = (
                 ConcurrentStableDict(payload.params) if payload.params is not None else ConcurrentStableDict()
             )
-            params.put_if_absent("dict_type", dict_type)
+            params.put_if_absent("dict_key", dict_key)
             params.set("page", page)
             params.set("size", size)
             result = await registry.query(key, params)
@@ -261,137 +229,53 @@ class DictQueryService(BaseFrameworkObject):
                 page=page,
                 size=size,
             )
-        locale = current_dict_locale.get() or DEFAULT_LOCALE
-        attrs: ConcurrentStableDict[str, DictAttrInfo] = ConcurrentStableDict(
-            {info.attr_key: info for info in await self.load_attrs(dict_type, locale)}
+        loaded = await self._source.by_type(DictQuery(dict_key=dict_key))
+        items = tuple(loaded.items or ())
+        if payload.conditions is not None:
+            items = tuple(item for item in items if _match_group(payload.conditions, item, depth=1))
+        total = len(items)
+        page_items = items[(page - 1) * size : (page - 1) * size + size]
+        return DictAdvQueryResult(
+            items=tuple(_to_adv_item(item) for item in page_items),
+            total=total,
+            page=page,
+            size=size,
         )
-        async with self._session() as session:
-            type_row = await _load_type(session, dict_type)
-            if type_row is None:
-                return DictAdvQueryResult(page=page, size=size)
-            dialect = _dialect_name(session)
-            conditions: ConcurrentStableList[ColumnElement[bool]] = ConcurrentStableList(
-                [
-                    SysDictItem.dict_type_id == type_row.id,
-                    SysDictItem.status == "enabled",
-                    SysDictItem.deleted_at.is_(None),
-                ]
-            )
-            if payload.conditions is not None:
-                conditions.add(_build_conditions(payload.conditions, attrs, dialect))
-            total = int(
-                (await session.execute(select(func.count()).select_from(SysDictItem).where(*conditions))).scalar_one()
-            )
-            stmt = (
-                select(SysDictItem, SysDictItemI18n.label)
-                .outerjoin(
-                    SysDictItemI18n,
-                    and_(SysDictItemI18n.dict_item_id == SysDictItem.id, SysDictItemI18n.locale == locale),
-                )
-                .where(*conditions)
-                .order_by(SysDictItem.sort, SysDictItem.id)
-                .offset((page - 1) * size)
-                .limit(size)
-            )
-            rows = (await session.execute(stmt)).all()
-        items = tuple(
-            DictAdvItem(
-                value=item.value,
-                label=str(i18n_label or item.name),
-                code=item.code,
-                parent_id=item.parent_id,
-                sort=item.sort,
-                status=item.status,
-                color=item.color,
-                attr=ConcurrentStableDict(item.attr_json) if item.attr_json is not None else None,
-            )
-            for item, i18n_label in rows
-        )
-        return DictAdvQueryResult(items=items, total=total, page=page, size=size)
-
-    @asynccontextmanager
-    async def _session(self) -> AsyncGenerator[DbSession]:
-        """租户库会话（统一会话入口：按当前租户上下文取引擎）。
-
-        Yields:
-            DbSession: 租户库会话（异步会话，或同步方言下的同步门面）。
-        """
-        async with session_scope(self._engines) as session:
-            yield session
 
 
-async def _load_type(session: DbSession, dict_type: str) -> SysDictType | None:
-    """按类型码取启用类型。
+def _to_adv_item(item: DictItem) -> DictAdvItem:
+    """条目 → 高级查询结果条目。
 
     Args:
-        session: 租户库会话。
-        dict_type: 字典类型码。
+        item: 字典条目。
 
     Returns:
-        SysDictType | None: 类型行；不存在 / 停用 / 已删返回 None。
+        DictAdvItem: 结果条目。
     """
-    stmt = select(SysDictType).where(
-        SysDictType.code == dict_type,
-        SysDictType.status == "enabled",
-        SysDictType.deleted_at.is_(None),
+    return DictAdvItem(
+        value=item.value,
+        label=item.label,
+        code=item.code,
+        parent_id=str(item.parent_id) if item.parent_id is not None else None,
+        sort=item.sort,
+        status=item.status,
+        color=item.color,
     )
-    return (await session.execute(stmt)).scalar_one_or_none()
 
 
-def _dialect_name(session: DbSession) -> str:
-    """取会话方言名（`sqlite` / `mysql` / `postgresql` / `dm`）。
-
-    Args:
-        session: 租户库会话。
-
-    Returns:
-        str: 方言名（未识别回落 sqlite）。
-    """
-    bind = session.get_bind()
-    return getattr(getattr(bind, "dialect", None), "name", "sqlite")
-
-
-def _build_conditions(
-    group: ConcurrentStableDict[str, object],
-    attrs: ConcurrentStableDict[str, DictAttrInfo],
-    dialect: str,
-) -> ColumnElement[bool]:
-    """把条件组递归构建为 SQL 条件（白名单 + 参数绑定；深度 ≤ 2）。
+def _match_group(group: ConcurrentStableDict[str, object], item: DictItem, *, depth: int) -> bool:
+    """判定条目是否命中条件组（递归 AND/OR；深度 ≤ 2）。
 
     Args:
         group: 条件组（`{logic, children}`）。
-        attrs: 属性 schema 映射（键为 attr_key）。
-        dialect: 方言名。
-
-    Returns:
-        ColumnElement[bool]: SQL 条件。
-
-    Raises:
-        ParamError: 结构 / 字段 / 操作符非法。
-    """
-    return _build_group(group, attrs, dialect, depth=1)
-
-
-def _build_group(
-    group: ConcurrentStableDict[str, object],
-    attrs: ConcurrentStableDict[str, DictAttrInfo],
-    dialect: str,
-    *,
-    depth: int,
-) -> ColumnElement[bool]:
-    """递归构建分组条件。
-
-    Args:
-        group: 条件组。
-        attrs: 属性 schema 映射。
-        dialect: 方言名。
+        item: 字典条目。
         depth: 当前深度（自 1）。
 
     Returns:
-        ColumnElement[bool]: SQL 条件。
+        bool: 命中 True。
 
     Raises:
-        ParamError: 深度 / 结构非法。
+        ParamError: 深度 / 逻辑 / 结构非法。
     """
     if depth > DICT_ADV_MAX_DEPTH:
         raise ParamError(f"条件组嵌套超过 {DICT_ADV_MAX_DEPTH} 层")
@@ -400,191 +284,124 @@ def _build_group(
         raise ParamError("条件组逻辑仅支持 AND / OR")
     children = group.get("children")
     if not isinstance(children, list):
-        return true()
+        return True
     raw_children = cast("list[object]", children)
     if len(raw_children) == 0:
-        return true()
-    parts: ConcurrentStableList[ColumnElement[bool]] = ConcurrentStableList()
+        return True
+    results: ConcurrentStableList[bool] = ConcurrentStableList()
     for child in raw_children:
         if not isinstance(child, Mapping):
             raise ParamError("条件项结构非法")
-        item = ConcurrentStableDict(cast("Mapping[str, object]", child))
-        if "children" in item:
-            parts.add(_build_group(item, attrs, dialect, depth=depth + 1))
+        node = ConcurrentStableDict(cast("Mapping[str, object]", child))
+        if "children" in node:
+            results.add(_match_group(node, item, depth=depth + 1))
         else:
-            parts.add(_build_item(item, attrs, dialect))
-    return or_(*parts) if logic == "OR" else and_(*parts)
+            results.add(_match_item(node, item))
+    return any(results) if logic == "OR" else all(results)
 
 
-def _build_item(
-    item: ConcurrentStableDict[str, object],
-    attrs: ConcurrentStableDict[str, DictAttrInfo],
-    dialect: str,
-) -> ColumnElement[bool]:
-    """构建单个条件项（字段 / 操作符白名单 + 值绑定）。
+def _match_item(node: ConcurrentStableDict[str, object], item: DictItem) -> bool:
+    """判定条目是否命中单个条件项。
 
     Args:
-        item: 条件项（`{field, operator, value}`）。
-        attrs: 属性 schema 映射。
-        dialect: 方言名。
+        node: 条件项（`{field, operator, value}`）。
+        item: 字典条目。
 
     Returns:
-        ColumnElement[bool]: SQL 条件。
+        bool: 命中 True。
 
     Raises:
         ParamError: 字段 / 操作符非法。
     """
-    field = str(item.get("field", ""))
-    operator = str(item.get("operator", ""))
-    value = item.get("value")
+    field = str(node.get("field", ""))
+    operator = str(node.get("operator", ""))
+    value = node.get("value")
+    if field not in DICT_ADV_FIXED_FIELDS:
+        raise ParamError(f"字段不在白名单：{field}")
     if operator not in _ALL_OPERATORS:
         raise ParamError(f"不支持的操作符：{operator}")
-    expression, data_type = _field_expression(field, attrs, dialect)
-    allowed = DICT_OPERATORS_BY_TYPE.get(data_type, ())
-    if operator not in allowed:
+    data_type = DICT_FIXED_FIELD_TYPES.get(field, "text")
+    if operator not in DICT_OPERATORS_BY_TYPE.get(data_type, ()):
         raise ParamError(f"操作符 {operator} 不适用于 {data_type} 类型")
-    return _apply_operator(expression, data_type, operator, value, dialect)
+    actual = getattr(item, field)
+    return _compare(actual, operator, value, data_type)
 
 
-def _field_expression(
-    field: str,
-    attrs: ConcurrentStableDict[str, DictAttrInfo],
-    dialect: str,
-) -> tuple[ColumnElement[Any], str]:
-    """解析字段 → SQL 表达式与数据类型。
+def _compare(actual: object, operator: str, value: object, data_type: str) -> bool:
+    """比较条目字段值与条件值。
 
     Args:
-        field: 字段名（固定字段或 `attr.<key>`）。
-        attrs: 属性 schema 映射。
-        dialect: 方言名。
-
-    Returns:
-        tuple[ColumnElement[Any], str]: SQL 表达式与数据类型。
-
-    Raises:
-        ParamError: 字段不在白名单。
-    """
-    if field in DICT_ADV_FIXED_FIELDS:
-        column = getattr(SysDictItem, field)
-        return cast("ColumnElement[Any]", column), DICT_FIXED_FIELD_TYPES[field]
-    if field.startswith("attr."):
-        key = field[len("attr.") :]
-        info = attrs.get(key)
-        if info is None:
-            raise ParamError(f"未定义的属性字段：{field}")
-        return _json_text(SysDictItem.attr_json, key, dialect), info.data_type
-    raise ParamError(f"字段不在白名单：{field}")
-
-
-def _json_text(column: object, key: str, dialect: str) -> ColumnElement[Any]:
-    """按方言生成 JSON 文本提取表达式（一层键）。
-
-    Args:
-        column: JSON 列。
-        key: 属性键。
-        dialect: 方言名。
-
-    Returns:
-        ColumnElement[Any]: 提取表达式。
-    """
-    path = f"$.{key}"
-    if dialect == "mysql":
-        return cast("ColumnElement[Any]", func.json_unquote(func.json_extract(column, path)))
-    if dialect == "postgresql":
-        return cast("ColumnElement[Any]", func.json_extract_path_text(column, key))
-    if dialect == "dm":
-        return cast("ColumnElement[Any]", func.json_value(column, path))
-    return cast("ColumnElement[Any]", func.json_extract(column, path))
-
-
-def _apply_operator(
-    expression: ColumnElement[Any],
-    data_type: str,
-    operator: str,
-    value: object,
-    dialect: str,
-) -> ColumnElement[bool]:
-    """按操作符构建条件（空值 / 集合 / 比较 / 模糊）。
-
-    Args:
-        expression: 字段表达式。
-        data_type: 数据类型。
+        actual: 条目字段值。
         operator: 操作符。
         value: 条件值。
-        dialect: 方言名。
+        data_type: 数据类型。
 
     Returns:
-        ColumnElement[bool]: SQL 条件。
+        bool: 命中 True。
 
     Raises:
         ParamError: 值非法。
     """
     if operator == "is_null":
-        return expression.is_(None)
+        return actual is None
     if operator == "not_null":
-        return expression.is_not(None)
+        return actual is not None
     if operator in ("in", "not_in"):
-        values = _as_list(value)
-        members = list(values)
-        return expression.in_(members) if operator == "in" else expression.not_in(members)
+        members = _as_list(value)
+        hit = any(str(actual) == str(member) for member in members)
+        return hit if operator == "in" else not hit
     if operator in ("contains", "not_contains", "starts_with"):
         text = _as_text(value)
-        pattern = f"%{text}%" if operator != "starts_with" else f"{text}%"
-        condition = expression.like(pattern)
-        return condition if operator != "not_contains" else not_(condition)
+        hay = "" if actual is None else str(actual)
+        hit = text in hay if operator != "starts_with" else hay.startswith(text)
+        return hit if operator != "not_contains" else not hit
     if operator in ("eq", "ne"):
-        normalized = _normalize_scalar(value, data_type, dialect)
-        return expression == normalized if operator == "eq" else expression != normalized
-    if operator in ("gt", "lt"):
-        target = _numeric_expression(expression, data_type, dialect)
-        return target > value if operator == "gt" else target < value
-    if operator == "between":
-        low, high = _as_pair(value)
-        target = _numeric_expression(expression, data_type, dialect)
-        return target.between(low, high)
+        hit = str(actual) == str(value)
+        return hit if operator == "eq" else not hit
+    if operator in ("gt", "lt", "between"):
+        return _compare_ordered(actual, operator, value)
     raise ParamError(f"不支持的操作符：{operator}")
 
 
-def _numeric_expression(
-    expression: ColumnElement[Any],
-    data_type: str,
-    dialect: str,
-) -> ColumnElement[Any]:
-    """数值 / 日期比较表达式（number 经 CAST，date 按 ISO 字符串比较）。
+def _compare_ordered(actual: object, operator: str, value: object) -> bool:
+    """有序比较（number 转 float；非法回落字符串比较）。
 
     Args:
-        expression: 字段表达式。
-        data_type: 数据类型。
-        dialect: 方言名。
+        actual: 条目字段值。
+        operator: 操作符（gt/lt/between）。
+        value: 条件值。
 
     Returns:
-        ColumnElement[Any]: 比较表达式。
+        bool: 命中 True。
+
+    Raises:
+        ParamError: 值非法。
     """
-    if data_type == "number":
-        return cast("ColumnElement[Any]", sa_cast(expression, Numeric))
-    if data_type == "bool" and dialect == "sqlite":
-        return cast("ColumnElement[Any]", sa_cast(expression, Integer))
-    return expression
+    left = _as_number(actual)
+    if operator == "between":
+        low, high = _as_pair(value)
+        return _as_number(low) <= left <= _as_number(high)
+    right = _as_number(value)
+    return left > right if operator == "gt" else left < right
 
 
-def _normalize_scalar(value: object, data_type: str, dialect: str) -> object:
-    """归一比较值（bool 在 SQLite 下转 0/1）。
+def _as_number(value: object) -> float:
+    """值 → 数值（非法则取原字符串长度序，仅供有序比较兜底）。
 
     Args:
         value: 原始值。
-        data_type: 数据类型。
-        dialect: 方言名。
 
     Returns:
-        object: 归一后的绑定值。
+        float: 数值（不可转则 0.0）。
     """
-    if data_type == "bool":
-        if dialect == "sqlite":
-            return 1 if bool(value) else 0
-        return "true" if bool(value) else "false"
     if isinstance(value, bool):
-        return "true" if value else "false"
-    return value
+        return 1.0 if value else 0.0
+    if isinstance(value, int | float):
+        return float(value)
+    try:
+        return float(str(value))
+    except ValueError:
+        return 0.0
 
 
 def _as_list(value: object) -> ConcurrentStableList[object]:

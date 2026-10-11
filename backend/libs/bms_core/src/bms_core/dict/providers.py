@@ -1,23 +1,15 @@
-"""字典域内建查询提供者：`target=business` 的只读示例（发现—选择—调用链路演示）。
+"""字典域内建查询提供者（02_09 改指）：`target=business` 的只读示例（经统一出口取数）。
 
-- `BuiltinDictQueryProvider`（`key=builtin`）：对字典条目表做只读查询（`dict_type` / `keyword` / 分页），
-  作为高级查询「筛选（business）」模式的默认提供者；自定义提供者经 `BaseQueryProviderRegistry` 登记接入
-  （02-4-9 契约），未注册 provider 查询抛 404。
-- 数据权限 / 租户过滤由实现侧（会话按租户库）保证；只读约束（不写库）。
+- `BuiltinDictQueryProvider`（`key=builtin`）：经**统一出口**按字典标识取条目（`dict_key` / `keyword` /
+  分页），作为高级查询「筛选（business）」模式的默认提供者；自定义提供者经 `BaseQueryProviderRegistry`
+  登记接入（02-4-9 契约），未注册 provider 查询抛 404。
+- 删除 / 租户过滤由出口与实现侧保证；只读约束（不写库）。
 """
 
-from collections.abc import AsyncGenerator
-from contextlib import asynccontextmanager
-
-from sqlalchemy import and_, func, or_, select
-
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.exceptions import ParamError
-from bms_core.db.registry import EngineRegistry
-from bms_core.db.session import DbSession, session_scope
-from bms_core.dict.models import SysDictItem, SysDictItemI18n, SysDictType
+from bms_core.dict.base import BaseDictSource, DictItem, DictQuery
 from bms_core.dict.query import DictQueryProviderInfo
-from bms_core.i18n.base import DEFAULT_LOCALE
 from bms_core.query.base import BaseQueryProvider, QueryResult
 
 __all__ = ["BuiltinDictQueryProvider"]
@@ -27,15 +19,15 @@ PAGE_SIZE_MAX = 100
 
 
 class BuiltinDictQueryProvider(BaseQueryProvider):
-    """字典条目只读查询提供者（`target=business` 示例）。"""
+    """字典条目只读查询提供者（`target=business` 示例；经统一出口取数）。"""
 
-    def __init__(self, *, engines: EngineRegistry) -> None:
+    def __init__(self, *, source: BaseDictSource) -> None:
         """初始化。
 
         Args:
-            engines: 多租户引擎注册表。
+            source: 字典统一出口取数契约。
         """
-        self._engines = engines
+        self._source = source
 
     @property
     def key(self) -> str:
@@ -69,101 +61,64 @@ class BuiltinDictQueryProvider(BaseQueryProvider):
                 {
                     "type": "object",
                     "properties": {
-                        "dict_type": {"type": "string", "description": "字典类型码"},
+                        "dict_key": {"type": "string", "description": "字典标识"},
                         "keyword": {"type": "string", "description": "关键字（label / value / code）"},
                         "page": {"type": "integer", "minimum": 1},
                         "size": {"type": "integer", "minimum": 1, "maximum": PAGE_SIZE_MAX},
                     },
-                    "required": ["dict_type"],
+                    "required": ["dict_key"],
                 }
             ),
         )
 
     async def query(self, params: ConcurrentStableDict[str, object]) -> QueryResult:
-        """只读查询字典条目（按类型 + 关键字 + 分页）。
+        """只读查询字典条目（按标识 + 关键字 + 分页；经统一出口）。
 
         Args:
-            params: 查询参数（`dict_type` / `keyword` / `page` / `size`）。
+            params: 查询参数（`dict_key` / `keyword` / `page` / `size`）。
 
         Returns:
             QueryResult: 结果行（条目字段）与总数。
 
         Raises:
-            ParamError: 缺少 `dict_type`。
+            ParamError: 缺少 `dict_key`。
         """
-        dict_type = params.get("dict_type")
-        if not isinstance(dict_type, str) or dict_type == "":
-            raise ParamError("缺少 dict_type 参数")
+        dict_key = params.get("dict_key")
+        if not isinstance(dict_key, str) or dict_key == "":
+            raise ParamError("缺少 dict_key 参数")
         keyword = params.get("keyword")
         page = _as_page(params.get("page"))
         size = min(max(1, _as_page(params.get("size"), default=20)), PAGE_SIZE_MAX)
-        async with self._session() as session:
-            type_row = (
-                await session.execute(
-                    select(SysDictType).where(
-                        SysDictType.code == dict_type,
-                        SysDictType.status == "enabled",
-                        SysDictType.deleted_at.is_(None),
-                    )
-                )
-            ).scalar_one_or_none()
-            if type_row is None:
-                return QueryResult(rows=(), total=0)
-            conditions = [
-                SysDictItem.dict_type_id == type_row.id,
-                SysDictItem.status == "enabled",
-                SysDictItem.deleted_at.is_(None),
-            ]
-            if isinstance(keyword, str) and keyword.strip():
-                pattern = f"%{keyword.strip()}%"
-                conditions.append(
-                    or_(
-                        SysDictItem.name.like(pattern),
-                        SysDictItem.value.like(pattern),
-                        SysDictItem.code.like(pattern),
-                    )
-                )
-            total = int(
-                (await session.execute(select(func.count()).select_from(SysDictItem).where(*conditions))).scalar_one()
-            )
-            stmt = (
-                select(SysDictItem, SysDictItemI18n.label)
-                .outerjoin(
-                    SysDictItemI18n,
-                    and_(SysDictItemI18n.dict_item_id == SysDictItem.id, SysDictItemI18n.locale == DEFAULT_LOCALE),
-                )
-                .where(*conditions)
-                .order_by(SysDictItem.sort, SysDictItem.id)
-                .offset((page - 1) * size)
-                .limit(size)
-            )
-            rows = (await session.execute(stmt)).all()
-        result_rows: ConcurrentStableList[ConcurrentStableDict[str, object]] = ConcurrentStableList()
-        for item, i18n_label in rows:
-            result_rows.add(
-                ConcurrentStableDict(
-                    {
-                        "value": item.value,
-                        "label": str(i18n_label or item.name),
-                        "code": item.code,
-                        "parent_id": item.parent_id,
-                        "sort": item.sort,
-                        "status": item.status,
-                        "color": item.color,
-                    }
-                )
-            )
-        return QueryResult(rows=tuple(result_rows), total=total)
+        result = await self._source.by_type(DictQuery(dict_key=dict_key))
+        items = tuple(result.items or ())
+        if isinstance(keyword, str) and keyword.strip():
+            text = keyword.strip()
+            items = tuple(item for item in items if text in item.label or text in item.value or text in item.code)
+        total = len(items)
+        page_items = items[(page - 1) * size : (page - 1) * size + size]
+        return QueryResult(rows=tuple(_to_row(item) for item in page_items), total=total)
 
-    @asynccontextmanager
-    async def _session(self) -> AsyncGenerator[DbSession]:
-        """租户库会话（统一会话入口：按当前租户上下文取引擎）。
 
-        Yields:
-            DbSession: 租户库会话（异步会话，或同步方言下的同步门面）。
-        """
-        async with session_scope(self._engines) as session:
-            yield session
+def _to_row(item: DictItem) -> ConcurrentStableDict[str, object]:
+    """条目 → 结果行。
+
+    Args:
+        item: 字典条目。
+
+    Returns:
+        ConcurrentStableDict[str, object]: 结果行。
+    """
+    return ConcurrentStableDict(
+        {
+            "value": item.value,
+            "label": item.label,
+            "code": item.code,
+            "parent_id": item.parent_id,
+            "sort": item.sort,
+            "status": item.status,
+            "color": item.color,
+        }
+    )
 
 
 def _as_page(value: object, *, default: int = 1) -> int:

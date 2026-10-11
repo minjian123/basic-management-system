@@ -192,7 +192,7 @@ class RoleFields(BaseSchema):
 class RoleDataScopeEntryRequest(BaseSchema):
     """一条数据权限条目（角色 × 字典 × 策略 → 结构化配置，只选不编）。"""
 
-    dict_type_id: int = Field(gt=0, description="字典类型 ID")
+    dict_key: str = Field(min_length=1, description="字典标识（业务码字符串，如 org_dept / role）")
     policy_type: PolicyType = Field(description="策略类型（select/region/match/extension）")
     config: Annotated[ConcurrentStableList[ConcurrentStableDict[str, object]], CONTRACT_COLLECTION] = Field(
         default_factory=CONTRACT_STABLE_LIST, description="结构化策略配置（按策略分结构）"
@@ -211,7 +211,7 @@ class RoleDataScopeEntryItem(BaseSchema):
     """数据权限条目行（响应）。"""
 
     id: int = Field(description="数据权限行主键")
-    dict_type_id: int = Field(description="字典类型 ID")
+    dict_key: str = Field(description="字典标识（业务码字符串）")
     policy_type: str = Field(description="策略类型（select/region/match/extension）")
     config: Annotated[ConcurrentStableList[ConcurrentStableDict[str, object]], CONTRACT_COLLECTION] = Field(
         default_factory=CONTRACT_STABLE_LIST, description="结构化策略配置"

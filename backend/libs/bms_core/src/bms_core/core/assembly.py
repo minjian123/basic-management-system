@@ -63,8 +63,8 @@ from bms_core.db.session import SessionFactory
 from bms_core.dict.base import BaseDictSource, BaseDictTranslator, DictCacheRegion
 from bms_core.dict.cache import MemoryDictCacheRegion, RedisDictCacheRegion
 from bms_core.dict.http import HttpDictSource, HttpDictTranslator
+from bms_core.dict.outlet import RoutedDictSource, RoutedDictTranslator, build_dict_outlet
 from bms_core.dict.providers import BuiltinDictQueryProvider
-from bms_core.dict.sql import SqlDictSource, SqlDictTranslator
 from bms_core.edge.base import BaseEdgeTrust
 from bms_core.edge.headers import GATEWAY_IDENTITY_VALUE
 from bms_core.edge.marker import MarkerEdgeTrust
@@ -373,8 +373,8 @@ def register_platform_plugins(settings: Settings, app: FastAPI, resources: Resou
     register_plugin("session_store", "redis", RedisSessionStoreFactory(settings))
     register_plugin("dict_cache_region", "memory", MemoryDictCacheRegionFactory())
     register_plugin("dict_cache_region", "redis", RedisDictCacheRegionFactory(settings))
-    register_plugin("dict_source", "sql", SqlDictSourceFactory(app))
-    register_plugin("dict_translator", "sql", SqlDictTranslatorFactory(app))
+    register_plugin("dict_source", "routed", RoutedDictSourceFactory(app))
+    register_plugin("dict_translator", "routed", RoutedDictTranslatorFactory(app))
     # 跨服务读出口（06_02）：非 platform 服务经公开契约读平台服务字典接口（权威侧仍为 platform）
     register_plugin("dict_source", "http", HttpDictSourceFactory(app))
     register_plugin("dict_translator", "http", HttpDictTranslatorFactory(app))
@@ -1511,32 +1511,31 @@ class RedisDictCacheRegionFactory(BasePluginFactory[RedisDictCacheRegion]):
         return RedisDictCacheRegion(url=self._settings.redis.url)
 
 
-class SqlDictSourceFactory(BasePluginFactory[SqlDictSource]):
-    """字典真实取数工厂（注入引擎注册表与已装配的字典缓存域）。"""
+class RoutedDictSourceFactory(BasePluginFactory[RoutedDictSource]):
+    """字典统一出口取数工厂（02_09）：按登记路由到平台内建数据源 + 缓存。"""
 
     plugin_key: str = "dict_source"
-    plugin_name: str = "sql"
+    plugin_name: str = "routed"
 
     def __init__(self, app: FastAPI) -> None:
         """初始化。
 
         Args:
-            app: 应用实例（取 `engine_registry` 与已装配 `dict_cache_region`）。
+            app: 应用实例（取已装配 `dict_cache_region`）。
         """
         self._app = app
 
-    def create(self, options: None = None) -> SqlDictSource:
-        """构造真实取数实例。
+    def create(self, options: None = None) -> RoutedDictSource:
+        """构造统一出口取数实例。
 
         Args:
             options: 未使用（零参口径）。
 
         Returns:
-            SqlDictSource: 取数实例。
+            RoutedDictSource: 取数实例。
         """
-        engines = cast("EngineRegistry", self._app.state.engine_registry)
         cache = cast("DictCacheRegion | None", getattr(self._app.state, "dict_cache_region", None))
-        return SqlDictSource(engines=engines, cache=cache)
+        return RoutedDictSource(build_dict_outlet(), cache)
 
 
 class HttpDictSourceFactory(BasePluginFactory[HttpDictSource]):
@@ -1612,32 +1611,31 @@ def _resolve_service_client(app: FastAPI) -> BaseServiceClient:
     )
 
 
-class SqlDictTranslatorFactory(BasePluginFactory[SqlDictTranslator]):
-    """字典真实翻译工厂（与取数共用同一份字典缓存域）。"""
+class RoutedDictTranslatorFactory(BasePluginFactory[RoutedDictTranslator]):
+    """字典统一出口翻译工厂（02_09）：与取数共用同一份字典缓存域。"""
 
     plugin_key: str = "dict_translator"
-    plugin_name: str = "sql"
+    plugin_name: str = "routed"
 
     def __init__(self, app: FastAPI) -> None:
         """初始化。
 
         Args:
-            app: 应用实例（取 `engine_registry` 与已装配 `dict_cache_region`）。
+            app: 应用实例（取已装配 `dict_cache_region`）。
         """
         self._app = app
 
-    def create(self, options: None = None) -> SqlDictTranslator:
-        """构造真实翻译实例。
+    def create(self, options: None = None) -> RoutedDictTranslator:
+        """构造统一出口翻译实例。
 
         Args:
             options: 未使用（零参口径）。
 
         Returns:
-            SqlDictTranslator: 翻译实例。
+            RoutedDictTranslator: 翻译实例。
         """
-        engines = cast("EngineRegistry", self._app.state.engine_registry)
         cache = cast("DictCacheRegion | None", getattr(self._app.state, "dict_cache_region", None))
-        return SqlDictTranslator(engines=engines, cache=cache)
+        return RoutedDictTranslator(build_dict_outlet(), cache)
 
 
 class SqlQuerySchemeStoreFactory(BasePluginFactory[SqlQuerySchemeStore]):
@@ -1708,7 +1706,7 @@ class LocalQueryProviderRegistryFactory(BasePluginFactory[LocalQueryProviderRegi
         Returns:
             LocalQueryProviderRegistry: 注册表实例。
         """
-        engines = cast("EngineRegistry", self._app.state.engine_registry)
+        cache = cast("DictCacheRegion | None", getattr(self._app.state, "dict_cache_region", None))
         registry = LocalQueryProviderRegistry()
-        registry.register(BuiltinDictQueryProvider(engines=engines))
+        registry.register(BuiltinDictQueryProvider(source=RoutedDictSource(build_dict_outlet(), cache)))
         return registry

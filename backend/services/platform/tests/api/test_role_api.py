@@ -21,7 +21,6 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from bms_core.api.deps import get_idempotency_store
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import get_settings
-from bms_core.dict.models import SysDictAttr, SysDictType
 from bms_core.idempotency.base import IDEMPOTENCY_PAYLOAD_TYPE
 from bms_core.models.base import Base
 from bms_platform.main import ApplicationFactory
@@ -44,8 +43,6 @@ _TENANT_MODELS = (
     SysRoleField,
     SysDataScope,
     SysUser,
-    SysDictType,
-    SysDictAttr,
 )
 
 
@@ -171,28 +168,13 @@ async def _seed_user(username: str, name: str, *, status: str = "enabled") -> in
         await engine.dispose()
 
 
-async def _seed_dict() -> tuple[int, str]:
-    """直插租户库字典类型与已启用扩展属性。
+async def _seed_dict() -> tuple[str, str]:
+    """取一个已登记字典标识与其可匹配字段（数据权限白名单，来自字典数据源登记）。
 
     Returns:
-        tuple[int, str]: (字典类型主键, 扩展属性键)。
+        tuple[str, str]: (字典标识, 可匹配字段键)。
     """
-    engine = create_async_engine(os.environ["BMS_DATABASE__TENANTS__URL"])
-    factory = async_sessionmaker(engine, expire_on_commit=False)
-    try:
-        async with factory() as session:
-            row = SysDictType(code="area", name="区域", sort=1, status="enabled")
-            session.add(row)
-            await session.flush()
-            session.add(
-                SysDictAttr(
-                    dict_type_id=row.id, attr_key="area_code", name="区域码", data_type="text", status="enabled"
-                )
-            )
-            await session.commit()
-            return row.id, "area_code"
-    finally:
-        await engine.dispose()
+    return "role", "label"
 
 
 @pytest.mark.kiwi_id(2248)
@@ -314,14 +296,14 @@ async def test_role_crud_assign_and_grant_flow(role_client: AsyncClient) -> None
     )
     assert mismatch.json()["code"] == 30049
 
-    dict_type_id, attr_key = await _seed_dict()
+    dict_key, attr_key = await _seed_dict()
     scopes = await client.put(
         f"{_ROLES}/{role_id}/data-permissions",
         json={
             "entries": [
-                {"dict_type_id": dict_type_id, "policy_type": "select", "config": [{"item_code": "enabled"}]},
+                {"dict_key": dict_key, "policy_type": "select", "config": [{"item_code": "enabled"}]},
                 {
-                    "dict_type_id": dict_type_id,
+                    "dict_key": dict_key,
                     "policy_type": "match",
                     "config": [{"field": "code", "pattern": "user_*"}, {"field": attr_key, "pattern": "A?"}],
                 },
@@ -332,7 +314,7 @@ async def test_role_crud_assign_and_grant_flow(role_client: AsyncClient) -> None
 
     bad_payload = cast(
         "dict[str, object]",
-        {"entries": [{"dict_type_id": dict_type_id, "policy_type": "bad", "config": []}]},
+        {"entries": [{"dict_key": dict_key, "policy_type": "bad", "config": []}]},
     )
     bad_policy = await client.put(f"{_ROLES}/{role_id}/data-permissions", json=bad_payload)
     assert bad_policy.json()["code"] == 10001

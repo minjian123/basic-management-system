@@ -29,7 +29,7 @@ from bms_core.core.serialization import normalize_collections
 from bms_core.db.session import DbSession
 from bms_core.db.tenant import current_tenant_id_str
 from bms_core.db.unit_of_work import UnitOfWork
-from bms_core.dict.sql import current_dict_locale
+from bms_core.dict.base import current_dict_locale
 from bms_core.events.base import EventEnvelope
 from bms_core.i18n.base import DEFAULT_LOCALE, SUPPORTED_LOCALES
 from bms_core.menu import menu_tree_key, menu_version_key

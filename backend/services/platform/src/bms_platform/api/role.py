@@ -300,7 +300,7 @@ def _data_scope_item(row: SysDataScope) -> RoleDataScopeEntryItem:
     """
     return RoleDataScopeEntryItem(
         id=row.id,
-        dict_type_id=row.dict_type_id,
+        dict_key=row.dict_key,
         policy_type=row.policy_type,
         config=ConcurrentStableList(row.config or ()),
     )
@@ -651,7 +651,7 @@ async def replace_data_scopes(
         ApiResponse: 统一响应，data 为重建后的数据权限条目清单。
     """
     entries = ConcurrentStableList(
-        DataScopeGrantEntry(dict_type_id=entry.dict_type_id, policy_type=entry.policy_type, config=entry.config)
+        DataScopeGrantEntry(dict_key=entry.dict_key, policy_type=entry.policy_type, config=entry.config)
         for entry in req.entries
     )
     rows = await _grant_service(uow, platform_uow, cache).replace_data_scopes(

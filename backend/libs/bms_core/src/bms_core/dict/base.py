@@ -12,7 +12,7 @@
 - `BaseDictTranslator`（`key = plugin_key = "dict_translator"`）：异步 `translate`（value → label，
   与取数共用同一份 L1 缓存，防 N+1）。
 - `DictCacheRegion`（`key = plugin_key = "dict_cache_region"`）：缓存域扩展子类——固定 `domain="dict"`，
-  提供 `dict_key` / `version_key` / `is_version_current`；真实 L1 双 Region 随通用能力阶段继承本类回补。
+  提供 `type_cache_key` / `version_cache_key` / `is_version_current`；真实 L1 双 Region 随通用能力阶段继承本类回补。
 - 提供者 `get_dict_source` / `get_dict_translator` / `get_dict_cache_region`（应用级单例；
   公共依赖经 `app/api/deps.py` 统一导出）。
 
@@ -25,6 +25,7 @@
 
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
+from contextvars import ContextVar
 from typing import Annotated, cast
 
 from fastapi import Request
@@ -51,6 +52,7 @@ __all__ = [
     "DictQuery",
     "DictTranslateQuery",
     "DictTypeResult",
+    "current_dict_locale",
     "get_dict_cache_region",
     "get_dict_source",
     "get_dict_translator",
@@ -68,11 +70,14 @@ DICT_PROBE_LIMIT = 2001
 NULL_DICT_VERSION = 1
 """占位全局版本号（空实现固定下发，供版本比对断言）。"""
 
+current_dict_locale: ContextVar[str] = ContextVar("current_dict_locale", default=DEFAULT_LOCALE)
+"""当前请求语言（路由层按 `Accept-Language` 解析后设置；缺省 `zh-CN`）。"""
+
 
 class DictQuery(BaseSchema):
     """单类型取数参数对象（`locale` 由实现从请求上下文解析，不入参）。"""
 
-    dict_type: str = Field(description="字典类型码")
+    dict_key: str = Field(description="字典类型码")
     version: int | None = Field(default=None, description="客户端本地版本号；与全局一致时 items 返回空")
     keyword: str | None = Field(default=None, description="关键字（label / value / code，命中列由实现定义）")
     parent_id: int | None = Field(default=None, description="上级条目 ID（0 = 顶层；不传 = 不按父过滤）")
@@ -91,7 +96,7 @@ class DictBatchQuery(BaseSchema):
 class DictTranslateQuery(BaseSchema):
     """后端翻译参数对象（value → label）。"""
 
-    dict_type: str = Field(description="字典类型码")
+    dict_key: str = Field(description="字典类型码")
     values: tuple[str, ...] = Field(description="待翻译 value 序列")
     locale: str = Field(default=DEFAULT_LOCALE, description="语言（默认 zh-CN）")
 
@@ -206,20 +211,20 @@ class DictCacheRegion(CacheRegion, ABC):
         """
         return DICT_CACHE_DOMAIN
 
-    def dict_key(self, tenant: str | None, locale: str, dict_type: str) -> str:
+    def type_cache_key(self, tenant: str | None, locale: str, dict_key: str) -> str:
         """拼字典类型缓存 key（`bms:{tenant}:dict:{locale}:{type}`）。
 
         Args:
             tenant: 租户标识；None 为全局。
             locale: 语言。
-            dict_type: 字典类型码。
+            dict_key: 字典类型码。
 
         Returns:
             str: 缓存 key。
         """
-        return self.build_key(f"{locale}:{dict_type}", tenant=tenant)
+        return self.build_key(f"{locale}:{dict_key}", tenant=tenant)
 
-    def version_key(self, tenant: str | None) -> str:
+    def version_cache_key(self, tenant: str | None) -> str:
         """拼字典全局版本键（`bms:{tenant}:dict:version`）。
 
         Args:
@@ -230,18 +235,18 @@ class DictCacheRegion(CacheRegion, ABC):
         """
         return self.build_key("version", tenant=tenant)
 
-    def value_key(self, tenant: str | None, locale: str, dict_type: str) -> str:
+    def value_cache_key(self, tenant: str | None, locale: str, dict_key: str) -> str:
         """拼字典按值子集缓存键（`bms:{tenant}:dict:{locale}:{type}:v`，整体映射 JSON）。
 
         Args:
             tenant: 租户标识；None 为全局。
             locale: 语言。
-            dict_type: 字典类型码。
+            dict_key: 字典类型码。
 
         Returns:
             str: 子集缓存 key。
         """
-        return self.build_key(f"{locale}:{dict_type}:v", tenant=tenant)
+        return self.build_key(f"{locale}:{dict_key}:v", tenant=tenant)
 
     def is_version_current(self, version: int, *, tenant: str | None) -> bool:
         """版本一致性判定（派生）。
@@ -253,26 +258,26 @@ class DictCacheRegion(CacheRegion, ABC):
         Returns:
             bool: 一致为 True。
         """
-        return not self.is_stale(self.version_key(tenant), version)
+        return not self.is_stale(self.version_cache_key(tenant), version)
 
-    async def aget_type(self, tenant: str | None, locale: str, dict_type: str) -> object | None:
+    async def aget_type(self, tenant: str | None, locale: str, dict_key: str) -> object | None:
         """读类型缓存（异步；缺省回退同步实现，Redis 子类覆写为真异步）。
 
         Args:
             tenant: 租户标识；None 为全局。
             locale: 语言。
-            dict_type: 字典类型码。
+            dict_key: 字典类型码。
 
         Returns:
             object | None: 缓存值 `{version, items, has_more, total}`；未命中返回 None。
         """
-        return self.get(self.dict_key(tenant, locale, dict_type))
+        return self.get(self.type_cache_key(tenant, locale, dict_key))
 
     async def aset_type(
         self,
         tenant: str | None,
         locale: str,
-        dict_type: str,
+        dict_key: str,
         value: object,
         ttl: int | None = None,
     ) -> None:
@@ -281,27 +286,27 @@ class DictCacheRegion(CacheRegion, ABC):
         Args:
             tenant: 租户标识；None 为全局。
             locale: 语言。
-            dict_type: 字典类型码。
+            dict_key: 字典类型码。
             value: 缓存值。
             ttl: 有效期（秒）。
         """
-        self.set(self.dict_key(tenant, locale, dict_type), value, ttl)
+        self.set(self.type_cache_key(tenant, locale, dict_key), value, ttl)
 
-    async def adrop_type(self, tenant: str | None, locale: str, dict_type: str) -> None:
+    async def adrop_type(self, tenant: str | None, locale: str, dict_key: str) -> None:
         """删类型缓存（异步；缺省回退同步实现）。
 
         Args:
             tenant: 租户标识；None 为全局。
             locale: 语言。
-            dict_type: 字典类型码。
+            dict_key: 字典类型码。
         """
-        self.delete(self.dict_key(tenant, locale, dict_type))
+        self.delete(self.type_cache_key(tenant, locale, dict_key))
 
     async def avalue_subset(
         self,
         tenant: str | None,
         locale: str,
-        dict_type: str,
+        dict_key: str,
         values: ConcurrentStableList[str],
     ) -> ConcurrentStableDict[str, str]:
         """读按值子集缓存（异步；缺省回退同步实现）。
@@ -309,13 +314,13 @@ class DictCacheRegion(CacheRegion, ABC):
         Args:
             tenant: 租户标识；None 为全局。
             locale: 语言。
-            dict_type: 字典类型码。
+            dict_key: 字典类型码。
             values: 待查 value 序列。
 
         Returns:
             ConcurrentStableDict[str, str]: value → label（仅命中项）。
         """
-        cached = self.get(self.value_key(tenant, locale, dict_type))
+        cached = self.get(self.value_cache_key(tenant, locale, dict_key))
         if not isinstance(cached, Mapping):
             return ConcurrentStableDict()
         payload = cast("Mapping[str, object]", cached)
@@ -329,7 +334,7 @@ class DictCacheRegion(CacheRegion, ABC):
         self,
         tenant: str | None,
         locale: str,
-        dict_type: str,
+        dict_key: str,
         mapping: ConcurrentStableDict[str, str],
     ) -> None:
         """回填按值子集缓存（异步；与既有映射合并后整体写入）。
@@ -337,10 +342,10 @@ class DictCacheRegion(CacheRegion, ABC):
         Args:
             tenant: 租户标识；None 为全局。
             locale: 语言。
-            dict_type: 字典类型码。
+            dict_key: 字典类型码。
             mapping: 待回填的 value → label 映射。
         """
-        key = self.value_key(tenant, locale, dict_type)
+        key = self.value_cache_key(tenant, locale, dict_key)
         current = self.get(key)
         merged: ConcurrentStableDict[str, str] = ConcurrentStableDict()
         if isinstance(current, Mapping):
@@ -375,7 +380,7 @@ class DictCacheRegion(CacheRegion, ABC):
         self,
         tenant: str | None,
         locale: str,
-        dict_type: str,
+        dict_key: str,
         token: str,
         ttl: int = 5,
     ) -> bool:
@@ -384,7 +389,7 @@ class DictCacheRegion(CacheRegion, ABC):
         Args:
             tenant: 租户标识；None 为全局。
             locale: 语言。
-            dict_type: 字典类型码。
+            dict_key: 字典类型码。
             token: 持有者令牌。
             ttl: 锁有效期（秒）。
 
@@ -397,7 +402,7 @@ class DictCacheRegion(CacheRegion, ABC):
         self,
         tenant: str | None,
         locale: str,
-        dict_type: str,
+        dict_key: str,
         token: str,
     ) -> bool:
         """释放类型取数互斥锁（异步；缺省空操作，Redis / 内存子类覆写比对令牌）。
@@ -405,7 +410,7 @@ class DictCacheRegion(CacheRegion, ABC):
         Args:
             tenant: 租户标识；None 为全局。
             locale: 语言。
-            dict_type: 字典类型码。
+            dict_key: 字典类型码。
             token: 持有者令牌。
 
         Returns:

@@ -32,7 +32,7 @@ from bms_core.core.exceptions import (
 from bms_core.core.objects import BaseFrameworkObject, BaseValueObject
 from bms_core.db.session import DbSession
 from bms_core.db.unit_of_work import UnitOfWork
-from bms_core.dict.models import SysDictAttr, SysDictType
+from bms_core.dict.registry import DictRegistry
 from bms_core.permission.version import permission_version_key
 from bms_core.scope.extensions import registered_data_scope_extensions
 from bms_platform.models.menu import SysField, SysForm, SysMenu, SysPermission
@@ -87,7 +87,7 @@ class FieldGrantEntry(BaseValueObject):
 class DataScopeGrantEntry(BaseValueObject):
     """一条数据权限条目（角色 × 字典 × 策略 → 结构化配置）。"""
 
-    dict_type_id: int
+    dict_key: str
     policy_type: str
     config: ConcurrentStableList[ConcurrentStableDict[str, object]]
 
@@ -314,7 +314,7 @@ class RoleGrantService(BaseFrameworkObject):
                 created.add(
                     await self._data_scopes.create(
                         role_id=role_id,
-                        dict_type_id=entry.dict_type_id,
+                        dict_key=entry.dict_key,
                         policy_type=entry.policy_type,
                         config=[item for item in entry.config],
                     )
@@ -440,18 +440,18 @@ class RoleGrantService(BaseFrameworkObject):
         registered_keys: ConcurrentStableSet[str] = ConcurrentStableSet()
         for extension in registered_data_scope_extensions():
             registered_keys.add(extension.key)
-        seen: ConcurrentStableSet[tuple[int, str]] = ConcurrentStableSet()
+        seen: ConcurrentStableSet[tuple[str, str]] = ConcurrentStableSet()
         for entry in entries:
             if entry.policy_type not in POLICY_TYPES:
                 raise RoleScopeValueInvalidError(f"数据权限策略非法：{entry.policy_type}")
-            if not await self._dict_type_exists(entry.dict_type_id):
-                raise RoleScopeValueInvalidError(f"字典类型不存在：{entry.dict_type_id}")
-            key = (entry.dict_type_id, entry.policy_type)
+            if not self._dict_key_exists(entry.dict_key):
+                raise RoleScopeValueInvalidError(f"字典标识不存在：{entry.dict_key}")
+            key = (entry.dict_key, entry.policy_type)
             if key in seen:
                 raise RoleScopeValueInvalidError("同一字典同一策略只允许一条")
             seen.add(key)
             if entry.policy_type == POLICY_TYPE_MATCH:
-                allowed = await self._match_field_whitelist(entry.dict_type_id)
+                allowed = self._match_field_whitelist(entry.dict_key)
                 for item in entry.config:
                     field = item.get("field")
                     pattern = item.get("pattern")
@@ -465,42 +465,35 @@ class RoleGrantService(BaseFrameworkObject):
                     if not isinstance(extension_key, str) or extension_key not in registered_keys:
                         raise RoleScopeValueInvalidError(f"扩展权限未注册：{extension_key}")
 
-    async def _dict_type_exists(self, dict_type_id: int) -> bool:
-        """字典类型是否存在（未软删）。
+    def _dict_key_exists(self, dict_key: str) -> bool:
+        """字典标识是否已登记（启用）。
 
         Args:
-            dict_type_id: 字典类型主键。
+            dict_key: 字典标识（业务码）。
 
         Returns:
-            bool: 存在 True。
+            bool: 已登记且启用为 True。
         """
-        session = cast("DbSession", self._uow.session)
-        statement = select(SysDictType.id).where(SysDictType.id == dict_type_id, SysDictType.deleted_at.is_(None))
-        return (await session.execute(statement)).scalar_one_or_none() is not None
+        record = DictRegistry().get(dict_key)
+        return record is not None and record.status == "enabled"
 
-    async def _match_field_whitelist(self, dict_type_id: int) -> ConcurrentStableSet[str]:
-        """取某字典类型的可匹配字段白名单（内置三字段 + 已启用扩展属性）。
+    def _match_field_whitelist(self, dict_key: str) -> ConcurrentStableSet[str]:
+        """取某字典的可匹配字段白名单（登记项 `allowlist` + 内置三字段）。
 
         Args:
-            dict_type_id: 字典类型主键。
+            dict_key: 字典标识（业务码）。
 
         Returns:
             ConcurrentStableSet[str]: 白名单字段键。
 
         Raises:
-            RoleScopeValueInvalidError: 字典类型不存在。
+            RoleScopeValueInvalidError: 字典标识不存在。
         """
-        session = cast("DbSession", self._uow.session)
-        type_statement = select(SysDictType.id).where(SysDictType.id == dict_type_id, SysDictType.deleted_at.is_(None))
-        if (await session.execute(type_statement)).scalar_one_or_none() is None:
-            raise RoleScopeValueInvalidError(f"字典类型不存在：{dict_type_id}")
-        attr_statement = select(SysDictAttr.attr_key).where(
-            SysDictAttr.dict_type_id == dict_type_id,
-            SysDictAttr.status == "enabled",
-            SysDictAttr.deleted_at.is_(None),
-        )
+        record = DictRegistry().get(dict_key)
+        if record is None:
+            raise RoleScopeValueInvalidError(f"字典标识不存在：{dict_key}")
         allowed: ConcurrentStableSet[str] = ConcurrentStableSet(BUILTIN_MATCH_FIELDS)
-        allowed.update((await session.execute(attr_statement)).scalars().all())
+        allowed.update(record.allowlist)
         return allowed
 
     async def _bump_version(self, tenant_id: str | None) -> None:

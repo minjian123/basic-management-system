@@ -341,12 +341,6 @@ TABLE_OWNERSHIP: tuple[TableRecord, ...] = (
         note="AI 端点配置（预留）",
     ),
     # ---- 租户层表（库类别 tenant）----
-    TableRecord(table_name="sys_dict_type", owner="platform", datasource=Datasource.TENANT, note="字典类型"),
-    TableRecord(table_name="sys_dict_item", owner="platform", datasource=Datasource.TENANT, note="字典条目"),
-    TableRecord(table_name="sys_dict_type_i18n", owner="platform", datasource=Datasource.TENANT, note="字典类型多语言"),
-    TableRecord(table_name="sys_dict_item_i18n", owner="platform", datasource=Datasource.TENANT, note="字典条目多语言"),
-    TableRecord(table_name="sys_dict_attr", owner="platform", datasource=Datasource.TENANT, note="字典扩展属性"),
-    TableRecord(table_name="sys_dict_attr_i18n", owner="platform", datasource=Datasource.TENANT, note="字典属性多语言"),
     TableRecord(table_name="sys_query_scheme", owner="platform", datasource=Datasource.TENANT, note="查询方案"),
     TableRecord(
         table_name="sys_config",

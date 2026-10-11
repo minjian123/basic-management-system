@@ -35,7 +35,6 @@ from bms_core.db.session import (
 from bms_core.db.tenant import TenantContext, TenantLookup, get_tenant
 from bms_core.dict.base import get_dict_cache_region, get_dict_source, get_dict_translator
 from bms_core.dict.query import DictQueryService
-from bms_core.dict.service import DictService
 from bms_core.edge.base import get_edge_trust, require_edge_identity
 from bms_core.events.base import get_event_publisher
 from bms_core.fallback.base import get_fallback_policy
@@ -104,7 +103,6 @@ __all__ = [
     "get_db",
     "get_dict_cache_region",
     "get_dict_query_service",
-    "get_dict_service",
     "get_dict_source",
     "get_dict_translator",
     "get_distributed_lock",
@@ -173,21 +171,8 @@ __all__ = [
 ]
 
 
-def get_dict_service(request: Request) -> DictService:
-    """取字典写路径服务（请求级组装：引擎注册表 + 字典缓存域）。
-
-    Args:
-        request: 请求对象。
-
-    Returns:
-        DictService: 字典写路径服务实例。
-    """
-    engines = cast("EngineRegistry", request.app.state.engine_registry)
-    return DictService(engines=engines, cache=get_dict_cache_region(request))
-
-
 def get_dict_query_service(request: Request) -> DictQueryService:
-    """取字典高级查询服务（请求级组装：引擎注册表）。
+    """取字典高级查询服务（请求级组装：经统一出口取数）。
 
     Args:
         request: 请求对象。
@@ -195,8 +180,7 @@ def get_dict_query_service(request: Request) -> DictQueryService:
     Returns:
         DictQueryService: 字典高级查询服务实例。
     """
-    engines = cast("EngineRegistry", request.app.state.engine_registry)
-    return DictQueryService(engines=engines)
+    return DictQueryService(source=get_dict_source(request))
 
 
 def get_config_service(request: Request) -> ConfigService:

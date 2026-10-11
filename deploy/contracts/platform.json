@@ -2098,95 +2098,6 @@
         "title": "DictAdvQueryPayload",
         "type": "object"
       },
-      "DictAttrPayload": {
-        "additionalProperties": false,
-        "description": "字典扩展属性写入载荷。",
-        "properties": {
-          "attr_key": {
-            "description": "属性键",
-            "title": "Attr Key",
-            "type": "string"
-          },
-          "data_type": {
-            "description": "数据类型（text/number/date/enum/bool）",
-            "title": "Data Type",
-            "type": "string"
-          },
-          "name": {
-            "description": "属性名（默认语言）",
-            "title": "Name",
-            "type": "string"
-          },
-          "operators": {
-            "anyOf": [
-              {
-                "items": {
-                  "type": "string"
-                },
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "可用操作符集合",
-            "title": "Operators"
-          },
-          "options": {
-            "anyOf": [
-              {
-                "items": {
-                  "additionalProperties": true,
-                  "type": "object"
-                },
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "enum 选项集",
-            "title": "Options"
-          },
-          "scope": {
-            "default": "platform",
-            "description": "属性来源（platform/tenant）",
-            "title": "Scope",
-            "type": "string"
-          },
-          "sort": {
-            "default": 0,
-            "description": "排序值",
-            "title": "Sort",
-            "type": "integer"
-          },
-          "status": {
-            "default": "enabled",
-            "description": "状态（enabled/disabled）",
-            "title": "Status",
-            "type": "string"
-          },
-          "widget": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "值控件",
-            "title": "Widget"
-          }
-        },
-        "required": [
-          "attr_key",
-          "name",
-          "data_type"
-        ],
-        "title": "DictAttrPayload",
-        "type": "object"
-      },
       "DictBatchQuery": {
         "additionalProperties": false,
         "description": "批量合并取数参数对象（表单页多字典字段合并为一次请求）。",
@@ -2222,117 +2133,6 @@
           "types"
         ],
         "title": "DictBatchQuery",
-        "type": "object"
-      },
-      "DictItemPayload": {
-        "additionalProperties": false,
-        "description": "字典条目写入载荷。",
-        "properties": {
-          "attr_json": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "扩展属性值（普通链路不返回）",
-            "title": "Attr Json"
-          },
-          "code": {
-            "description": "条目编码（类型内唯一）",
-            "title": "Code",
-            "type": "string"
-          },
-          "color": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "语义色",
-            "title": "Color"
-          },
-          "label": {
-            "description": "条目标签（默认语言）",
-            "title": "Label",
-            "type": "string"
-          },
-          "parent_id": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "上级条目 ID（自引用 id；None＝顶层）",
-            "title": "Parent Id"
-          },
-          "sort": {
-            "default": 0,
-            "description": "排序值",
-            "title": "Sort",
-            "type": "integer"
-          },
-          "status": {
-            "default": "enabled",
-            "description": "状态（enabled/disabled）",
-            "title": "Status",
-            "type": "string"
-          },
-          "value": {
-            "description": "条目值",
-            "title": "Value",
-            "type": "string"
-          }
-        },
-        "required": [
-          "code",
-          "label",
-          "value"
-        ],
-        "title": "DictItemPayload",
-        "type": "object"
-      },
-      "DictTypePayload": {
-        "additionalProperties": false,
-        "description": "字典类型写入载荷。",
-        "properties": {
-          "name": {
-            "description": "类型名称（默认语言）",
-            "title": "Name",
-            "type": "string"
-          },
-          "sort": {
-            "default": 0,
-            "description": "排序值",
-            "title": "Sort",
-            "type": "integer"
-          },
-          "status": {
-            "default": "enabled",
-            "description": "状态（enabled/disabled）",
-            "title": "Status",
-            "type": "string"
-          },
-          "type": {
-            "description": "类型编码（唯一）",
-            "title": "Type",
-            "type": "string"
-          }
-        },
-        "required": [
-          "type",
-          "name"
-        ],
-        "title": "DictTypePayload",
         "type": "object"
       },
       "ExpressionContextPayload": {
@@ -4359,9 +4159,9 @@
             "title": "Config",
             "type": "array"
           },
-          "dict_type_id": {
-            "description": "字典类型 ID",
-            "title": "Dict Type Id",
+          "dict_key": {
+            "description": "字典标识（业务码字符串）",
+            "title": "Dict Key",
             "type": "string"
           },
           "id": {
@@ -4377,7 +4177,7 @@
         },
         "required": [
           "id",
-          "dict_type_id",
+          "dict_key",
           "policy_type"
         ],
         "title": "RoleDataScopeEntryItem",
@@ -4396,11 +4196,11 @@
             "title": "Config",
             "type": "array"
           },
-          "dict_type_id": {
-            "description": "字典类型 ID",
-            "exclusiveMinimum": 0.0,
-            "title": "Dict Type Id",
-            "type": "integer"
+          "dict_key": {
+            "description": "字典标识（业务码字符串，如 org_dept / role）",
+            "minLength": 1,
+            "title": "Dict Key",
+            "type": "string"
           },
           "policy_type": {
             "description": "策略类型（select/region/match/extension）",
@@ -4415,7 +4215,7 @@
           }
         },
         "required": [
-          "dict_type_id",
+          "dict_key",
           "policy_type"
         ],
         "title": "RoleDataScopeEntryRequest",
@@ -7836,21 +7636,10 @@
         ]
       }
     },
-    "/api/v1/dicts/attrs/{attr_id}": {
-      "delete": {
-        "description": "软删除字典扩展属性。\n\nArgs:\n    service: 字典写路径服务。\n    attr_id: 属性 ID。\n\nReturns:\n    ApiResponse: 统一响应（data 为 null）。",
-        "operationId": "delete_dict_attr_api_v1_dicts_attrs__attr_id__delete",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "attr_id",
-            "required": true,
-            "schema": {
-              "title": "Attr Id",
-              "type": "integer"
-            }
-          }
-        ],
+    "/api/v1/dicts": {
+      "get": {
+        "description": "列可用字典登记清单（供数据权限左列 / 字典页）。\n\nArgs:\n    translator: 字典翻译契约（占位注入以固定鉴权依赖顺序，未使用）。\n\nReturns:\n    ApiResponse: 统一响应，data 为登记清单数组。",
+        "operationId": "list_dicts_api_v1_dicts_get",
         "responses": {
           "200": {
             "content": {
@@ -7892,16 +7681,6 @@
             },
             "description": "资源不存在"
           },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          },
           "429": {
             "content": {
               "application/json": {
@@ -7923,7 +7702,7 @@
             "description": "服务异常"
           }
         },
-        "summary": "Delete Dict Attr",
+        "summary": "List Dicts",
         "tags": [
           "dict"
         ]
@@ -7931,7 +7710,7 @@
     },
     "/api/v1/dicts/batch": {
       "post": {
-        "description": "批量合并取字典（一次请求多类型；版本一致的类型 items 返回 null）。\n\nArgs:\n    source: 字典取数契约。\n    query: 批量取数参数（types / version / locale）。\n    request: 请求对象（语言解析）。\n\nReturns:\n    ApiResponse: 统一响应，data 为批量结果。",
+        "description": "批量合并取字典（一次请求多标识；版本一致的标识 items 返回 null）。\n\nArgs:\n    source: 字典取数契约。\n    query: 批量取数参数（types / version / locale）。\n    request: 请求对象（语言解析）。\n\nReturns:\n    ApiResponse: 统一响应，data 为批量结果。",
         "operationId": "batch_dicts_api_v1_dicts_batch_post",
         "requestBody": {
           "content": {
@@ -8021,209 +7800,15 @@
         ]
       }
     },
-    "/api/v1/dicts/items/{item_id}": {
-      "delete": {
-        "description": "软删除字典条目。\n\nArgs:\n    service: 字典写路径服务。\n    item_id: 条目 ID。\n\nReturns:\n    ApiResponse: 统一响应（data 为 null）。",
-        "operationId": "delete_dict_item_api_v1_dicts_items__item_id__delete",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "item_id",
-            "required": true,
-            "schema": {
-              "title": "Item Id",
-              "type": "integer"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            },
-            "description": "未认证"
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            },
-            "description": "无权限"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            },
-            "description": "资源不存在"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          },
-          "429": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            },
-            "description": "限流"
-          },
-          "500": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            },
-            "description": "服务异常"
-          }
-        },
-        "summary": "Delete Dict Item",
-        "tags": [
-          "dict"
-        ]
-      },
-      "put": {
-        "description": "修改字典条目（乐观锁）。\n\nArgs:\n    service: 字典写路径服务。\n    item_id: 条目 ID。\n    payload: 条目载荷。\n\nReturns:\n    ApiResponse: 统一响应，data 为条目行。",
-        "operationId": "update_dict_item_api_v1_dicts_items__item_id__put",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "item_id",
-            "required": true,
-            "schema": {
-              "title": "Item Id",
-              "type": "integer"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/DictItemPayload"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            },
-            "description": "未认证"
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            },
-            "description": "无权限"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            },
-            "description": "资源不存在"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          },
-          "429": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            },
-            "description": "限流"
-          },
-          "500": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            },
-            "description": "服务异常"
-          }
-        },
-        "summary": "Update Dict Item",
-        "tags": [
-          "dict"
-        ]
-      }
-    },
     "/api/v1/dicts/query-providers": {
       "get": {
-        "description": "列可用查询提供者（按 type 过滤；含参数 schema 子集）。\n\nArgs:\n    registry: 查询提供者注册表。\n    dict_type: 字典类型码（可选）。\n\nReturns:\n    ApiResponse: 统一响应，data 为提供者清单数组。",
+        "description": "列可用查询提供者（按标识过滤；含参数 schema 子集）。\n\nArgs:\n    registry: 查询提供者注册表。\n    dict_key: 字典标识（可选）。\n\nReturns:\n    ApiResponse: 统一响应，data 为提供者清单数组。",
         "operationId": "list_query_providers_api_v1_dicts_query_providers_get",
         "parameters": [
           {
-            "description": "按字典类型过滤（空 = 全部）",
+            "description": "按字典标识过滤（空 = 全部）",
             "in": "query",
-            "name": "dict_type",
+            "name": "dict_key",
             "required": false,
             "schema": {
               "anyOf": [
@@ -8234,8 +7819,8 @@
                   "type": "null"
                 }
               ],
-              "description": "按字典类型过滤（空 = 全部）",
-              "title": "Dict Type"
+              "description": "按字典标识过滤（空 = 全部）",
+              "title": "Dict Key"
             }
           }
         ],
@@ -8317,509 +7902,17 @@
         ]
       }
     },
-    "/api/v1/dicts/types": {
-      "post": {
-        "description": "新增字典类型。\n\nArgs:\n    service: 字典写路径服务。\n    payload: 类型载荷。\n\nReturns:\n    ApiResponse: 统一响应，data 为类型行。",
-        "operationId": "create_dict_type_api_v1_dicts_types_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/DictTypePayload"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            },
-            "description": "未认证"
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            },
-            "description": "无权限"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            },
-            "description": "资源不存在"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          },
-          "429": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            },
-            "description": "限流"
-          },
-          "500": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            },
-            "description": "服务异常"
-          }
-        },
-        "summary": "Create Dict Type",
-        "tags": [
-          "dict"
-        ]
-      }
-    },
-    "/api/v1/dicts/types/{dict_type}/attrs": {
-      "post": {
-        "description": "新增 / 更新字典扩展属性（按 `attr_key` upsert）。\n\nArgs:\n    service: 字典写路径服务。\n    dict_type: 字典类型码。\n    payload: 属性载荷。\n\nReturns:\n    ApiResponse: 统一响应，data 为属性行。",
-        "operationId": "upsert_dict_attr_api_v1_dicts_types__dict_type__attrs_post",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "dict_type",
-            "required": true,
-            "schema": {
-              "title": "Dict Type",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/DictAttrPayload"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            },
-            "description": "未认证"
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            },
-            "description": "无权限"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            },
-            "description": "资源不存在"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          },
-          "429": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            },
-            "description": "限流"
-          },
-          "500": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            },
-            "description": "服务异常"
-          }
-        },
-        "summary": "Upsert Dict Attr",
-        "tags": [
-          "dict"
-        ]
-      }
-    },
-    "/api/v1/dicts/types/{dict_type}/items": {
-      "post": {
-        "description": "新增字典条目（类型内编码唯一）。\n\nArgs:\n    service: 字典写路径服务。\n    dict_type: 字典类型码。\n    payload: 条目载荷。\n\nReturns:\n    ApiResponse: 统一响应，data 为条目行。",
-        "operationId": "create_dict_item_api_v1_dicts_types__dict_type__items_post",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "dict_type",
-            "required": true,
-            "schema": {
-              "title": "Dict Type",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/DictItemPayload"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            },
-            "description": "未认证"
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            },
-            "description": "无权限"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            },
-            "description": "资源不存在"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          },
-          "429": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            },
-            "description": "限流"
-          },
-          "500": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            },
-            "description": "服务异常"
-          }
-        },
-        "summary": "Create Dict Item",
-        "tags": [
-          "dict"
-        ]
-      }
-    },
-    "/api/v1/dicts/types/{type_id}": {
-      "delete": {
-        "description": "软删除字典类型。\n\nArgs:\n    service: 字典写路径服务。\n    type_id: 类型 ID。\n\nReturns:\n    ApiResponse: 统一响应（data 为 null）。",
-        "operationId": "delete_dict_type_api_v1_dicts_types__type_id__delete",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "type_id",
-            "required": true,
-            "schema": {
-              "title": "Type Id",
-              "type": "integer"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            },
-            "description": "未认证"
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            },
-            "description": "无权限"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            },
-            "description": "资源不存在"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          },
-          "429": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            },
-            "description": "限流"
-          },
-          "500": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            },
-            "description": "服务异常"
-          }
-        },
-        "summary": "Delete Dict Type",
-        "tags": [
-          "dict"
-        ]
-      },
-      "put": {
-        "description": "修改字典类型（乐观锁）。\n\nArgs:\n    service: 字典写路径服务。\n    type_id: 类型 ID。\n    payload: 类型载荷。\n\nReturns:\n    ApiResponse: 统一响应，data 为类型行。",
-        "operationId": "update_dict_type_api_v1_dicts_types__type_id__put",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "type_id",
-            "required": true,
-            "schema": {
-              "title": "Type Id",
-              "type": "integer"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/DictTypePayload"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            },
-            "description": "未认证"
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            },
-            "description": "无权限"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            },
-            "description": "资源不存在"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          },
-          "429": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            },
-            "description": "限流"
-          },
-          "500": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            },
-            "description": "服务异常"
-          }
-        },
-        "summary": "Update Dict Type",
-        "tags": [
-          "dict"
-        ]
-      }
-    },
-    "/api/v1/dicts/{dict_type}": {
+    "/api/v1/dicts/{dict_key}": {
       "get": {
-        "description": "按类型取字典（版本比对 / 关键字 / 级联 / 按值子集 / 上限）。\n\nArgs:\n    source: 字典取数契约。\n    dict_type: 字典类型码。\n    request: 请求对象（语言解析）。\n    version: 客户端本地版本号。\n    keyword: 关键字。\n    parent_id: 上级条目 ID（0 = 顶层）。\n    values: 逗号分隔的 value 子集。\n    limit: 返回条数上限。\n\nReturns:\n    ApiResponse: 统一响应，data 为单类型取数结果。",
-        "operationId": "get_dict_by_type_api_v1_dicts__dict_type__get",
+        "description": "按字典标识取字典（版本比对 / 关键字 / 级联 / 按值子集 / 上限）。\n\nArgs:\n    source: 字典取数契约。\n    dict_key: 字典标识。\n    request: 请求对象（语言解析）。\n    version: 客户端本地版本号。\n    keyword: 关键字。\n    parent_id: 上级条目 ID（0 = 顶层）。\n    values: 逗号分隔的 value 子集。\n    limit: 返回条数上限。\n\nReturns:\n    ApiResponse: 统一响应，data 为单标识取数结果。",
+        "operationId": "get_dict_by_type_api_v1_dicts__dict_key__get",
         "parameters": [
           {
             "in": "path",
-            "name": "dict_type",
+            "name": "dict_key",
             "required": true,
             "schema": {
-              "title": "Dict Type",
+              "title": "Dict Key",
               "type": "string"
             }
           },
@@ -8994,17 +8087,17 @@
         ]
       }
     },
-    "/api/v1/dicts/{dict_type}/advanced-query": {
+    "/api/v1/dicts/{dict_key}/advanced-query": {
       "post": {
-        "description": "字典高级查询（items 条件引擎 / business 提供者）。\n\nArgs:\n    query_service: 高级查询服务。\n    registry: 查询提供者注册表。\n    dict_type: 字典类型码。\n    payload: 查询请求体。\n    request: 请求对象（语言解析）。\n\nReturns:\n    ApiResponse: 统一响应，data 为分页结果。",
-        "operationId": "advanced_query_dict_api_v1_dicts__dict_type__advanced_query_post",
+        "description": "字典高级查询（items 条件引擎 / business 提供者）。\n\nArgs:\n    query_service: 高级查询服务。\n    registry: 查询提供者注册表。\n    dict_key: 字典标识。\n    payload: 查询请求体。\n    request: 请求对象（语言解析）。\n\nReturns:\n    ApiResponse: 统一响应，data 为分页结果。",
+        "operationId": "advanced_query_dict_api_v1_dicts__dict_key__advanced_query_post",
         "parameters": [
           {
             "in": "path",
-            "name": "dict_type",
+            "name": "dict_key",
             "required": true,
             "schema": {
-              "title": "Dict Type",
+              "title": "Dict Key",
               "type": "string"
             }
           }
@@ -9097,17 +8190,17 @@
         ]
       }
     },
-    "/api/v1/dicts/{dict_type}/attrs": {
+    "/api/v1/dicts/{dict_key}/attrs": {
       "get": {
-        "description": "取字典类型属性 schema（供高级查询条件构建）。\n\nArgs:\n    query_service: 高级查询服务。\n    dict_type: 字典类型码。\n    request: 请求对象（语言解析）。\n\nReturns:\n    ApiResponse: 统一响应，data 为属性清单。",
-        "operationId": "get_dict_attrs_api_v1_dicts__dict_type__attrs_get",
+        "description": "取字典查询字段 schema（供高级查询条件构建；本期为固定字段）。\n\nArgs:\n    query_service: 高级查询服务。\n    dict_key: 字典标识。\n    request: 请求对象（语言解析）。\n\nReturns:\n    ApiResponse: 统一响应，data 为字段清单。",
+        "operationId": "get_dict_attrs_api_v1_dicts__dict_key__attrs_get",
         "parameters": [
           {
             "in": "path",
-            "name": "dict_type",
+            "name": "dict_key",
             "required": true,
             "schema": {
-              "title": "Dict Type",
+              "title": "Dict Key",
               "type": "string"
             }
           }

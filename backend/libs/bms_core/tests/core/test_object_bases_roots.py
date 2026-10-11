@@ -77,7 +77,6 @@ OBJECT_BATCH: tuple[tuple[str, str, str], ...] = (
     ("backend/libs/bms_core/src/bms_core/db/sync.py", "_SyncTransaction", "BaseFrameworkObject"),
     ("backend/libs/bms_core/src/bms_core/db/tenant_remote.py", "RemoteTenantSource", "BaseFrameworkObject"),
     ("backend/libs/bms_core/src/bms_core/dict/query.py", "DictQueryService", "BaseFrameworkObject"),
-    ("backend/libs/bms_core/src/bms_core/dict/service.py", "DictService", "BaseFrameworkObject"),
     ("backend/libs/bms_core/src/bms_core/events/contracts.py", "EventContractRegistry", "BaseFrameworkObject"),
     ("backend/libs/bms_core/src/bms_core/idp/jwks.py", "JwksCache", "BaseFrameworkObject"),
     ("backend/libs/bms_core/src/bms_core/idp/registry.py", "IdentityProviderRegistry", "BaseFrameworkObject"),

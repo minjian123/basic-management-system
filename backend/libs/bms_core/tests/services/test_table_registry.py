@@ -111,7 +111,7 @@ def test_owned_tables_and_chain_derivation() -> None:
     }
 
     tenant_chain = chain_tables("platform", Datasource.TENANT)
-    assert {"sys_dict_type", "sys_dict_item", "sys_query_scheme"} <= tenant_chain
+    assert {"sys_data_scope", "sys_query_scheme"} <= tenant_chain
     # 角色域 5 表（02_03）与用户 / 账号锁定两表（02_05）落 platform 服务租户库
     assert {
         "sys_role",

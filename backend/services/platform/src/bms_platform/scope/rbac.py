@@ -1,6 +1,6 @@
 """平台服务：RBAC 数据范围 provider（`[data_scope].provider = "rbac"`）。
 
-- **输入**：请求级权限快照的 `data_scopes`（`dict_type_id` / `policy_type` / `config`，由引擎计算并缓存）；
+- **输入**：请求级权限快照的 `data_scopes`（`dict_key` / `policy_type` / `config`，由引擎计算并缓存）；
 - **读**：按 `policy_type` 经策略注册表求值（核心不判策略类型），同字典类型内多规则**并集**，
   跨字典类型**合取**；非法 / 未注册策略退化为永假（从严）；
 - **写**：服务层写入口显式调 `allow_write(values)`——待写值须落在同一批条件内，失败拒（`30001`）；
@@ -99,12 +99,12 @@ class RbacDataScope(DataScope):
         """
         grouped: ConcurrentStableDict[str, ConcurrentStableList[ScopeCondition]] = ConcurrentStableDict()
         for row in snapshot.data_scopes:
-            dict_type_id = str(row.get("dict_type_id", ""))
+            dict_key = str(row.get("dict_key", ""))
             policy_type = row.get("policy_type")
             policy = scope_policy(policy_type) if isinstance(policy_type, str) else None
             if policy is None:
                 _logger.warning("数据范围策略未注册，该条不产生放行：%s", policy_type)
-                bucket = _bucket(grouped, dict_type_id)
+                bucket = _bucket(grouped, dict_key)
                 bucket.add(ScopeCondition("id", "in", []))
                 continue
             config = cast("Any", row.get("config"))
@@ -116,7 +116,7 @@ class RbacDataScope(DataScope):
                         for key, value in cast("Any", item).items():
                             stable.set(str(key), value)
                         rows.add(stable)
-            bucket = _bucket(grouped, dict_type_id)
+            bucket = _bucket(grouped, dict_key)
             bucket.update(policy(rows))
         result: ConcurrentStableList[ScopeCondition] = ConcurrentStableList()
         for key in grouped:
@@ -128,30 +128,30 @@ class RbacDataScope(DataScope):
 
 
 def _bucket(
-    grouped: ConcurrentStableDict[str, ConcurrentStableList[ScopeCondition]], dict_type_id: str
+    grouped: ConcurrentStableDict[str, ConcurrentStableList[ScopeCondition]], dict_key: str
 ) -> ConcurrentStableList[ScopeCondition]:
     """取（或新建）字典类型的条件桶。
 
     Args:
         grouped: 分组表。
-        dict_type_id: 字典类型主键（字符串化）。
+        dict_key: 字典类型主键（字符串化）。
 
     Returns:
         ConcurrentStableList[ScopeCondition]: 该字典类型的条件桶。
     """
-    bucket = grouped.get(dict_type_id)
+    bucket = grouped.get(dict_key)
     if bucket is None:
         created: ConcurrentStableList[ScopeCondition] = ConcurrentStableList()
-        grouped.set(dict_type_id, created)
+        grouped.set(dict_key, created)
         return created
     return bucket
 
 
-def _union(dict_type_id: str, bucket: ConcurrentStableList[ScopeCondition]) -> ConcurrentStableList[ScopeCondition]:
+def _union(dict_key: str, bucket: ConcurrentStableList[ScopeCondition]) -> ConcurrentStableList[ScopeCondition]:
     """同字典类型内并集整理：同字段同操作符可合并（`in` 值集合并），否则退化合取并上报。
 
     Args:
-        dict_type_id: 字典类型主键（上报用）。
+        dict_key: 字典类型主键（上报用）。
         bucket: 该字典类型的条件桶。
 
     Returns:
@@ -172,7 +172,7 @@ def _union(dict_type_id: str, bucket: ConcurrentStableList[ScopeCondition]) -> C
         result: ConcurrentStableList[ScopeCondition] = ConcurrentStableList()
         result.add(ScopeCondition(field, _UNION_OPERATOR, list(merged)))
         return result
-    _logger.warning("数据范围并集退化为合取（从严）：字典 %s，字段 %s，操作符 %s", dict_type_id, fields, operators)
+    _logger.warning("数据范围并集退化为合取（从严）：字典 %s，字段 %s，操作符 %s", dict_key, fields, operators)
     return bucket
 
 
