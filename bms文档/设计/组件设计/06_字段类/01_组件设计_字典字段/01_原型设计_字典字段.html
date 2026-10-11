@@ -234,7 +234,7 @@
             <div class="dp-metric"><div class="v">{{ store.refetch }}</div><div class="k">版本不一致重拉全量</div></div>
             <div class="dp-metric"><div class="v">{{ store.memHit }}</div><div class="k">内存缓存命中</div></div>
             <div class="dp-metric"><div class="v">{{ store.localHit }}</div><div class="k">本地二次缓存命中</div></div>
-            <div class="dp-metric"><div class="v">{{ store.types.length }}</div><div class="k">本表单字典类型数（合并请求）</div></div>
+            <div class="dp-metric"><div class="v">{{ store.types.length }}</div><div class="k">本表单字典标识数（合并请求）</div></div>
           </div>
 
           <div class="ep-section">请求 / 缓存日志</div>
@@ -281,7 +281,7 @@
               </el-col>
               <el-col :span="6">
                 <el-form-item>
-                  <template #label>扩展属性<em class="dp-type">sys_dict_attr（客户可定制）</em></template>
+                  <template #label>可查字段<em class="dp-type">固定字段 + 登记项白名单</em></template>
                   <div>
                     <el-tag v-for="a in advAttrs" :key="a.key" size="small" style="margin:2px">{{ a.name }}</el-tag>
                   </div>
@@ -293,7 +293,7 @@
           <el-alert type="info" :closable="false" show-icon
             title="高级查询 = 条件组（AND/OR 分组 + 常用操作符） + 查询提供者（通用引擎 / 后端注册的自定义实现类） + 查询方案（个人/共享，可保存复用）"></el-alert>
           <div class="proto-note" style="margin-top:12px">
-            内存评估：扩展属性存 <span class="dp-code">sys_dict_item.attr_json</span>，普通运行时接口<b>不返回</b> attr_json，属性仅在高级查询时按命中子集分页返回，不放大 L1/Redis/前端本地缓存；属性值长度 ≤ 1KB、属性数 ≤ 50/类型可配。
+            内存评估：可查字段为固定字段 + 登记项白名单（无独立属性列，2026-10-11 02_09），普通运行时接口仅下发条目基本字段，不放大 L1/Redis/前端本地缓存。
           </div>
         </el-tab-pane>
       </el-tabs>

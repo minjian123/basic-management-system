@@ -25,7 +25,7 @@
 | `VARCHAR(n)` | VARCHAR(n)（长度以字符计） | 实测 |
 | `TEXT` | TEXT | 实测 |
 | `BOOLEAN` | BOOL（TINYINT(1)） | 实测（DDL 编译） |
-| `JSON`（多值字段） | JSON | 实测（`sys_dict_item.attr_json` / `sys_query_scheme.*` 真库建表通过；JSON 值写入读回一致） |
+| `JSON`（多值字段） | JSON | 实测（`sys_query_scheme.*` 真库建表通过、JSON 值写入读回一致；原 `sys_dict_item.attr_json` 已随字典六表拆除，2026-10-11 02_09） |
 | `DECIMAL(20,4)`（金额） | DECIMAL(20,4) | 实测（DDL 编译） |
 
 - 禁用方言专用类型：`ENUM`、`SET`、`TINYINT` 直写（布尔经 `BOOLEAN` 逻辑类型表达）、`UNSIGNED`。

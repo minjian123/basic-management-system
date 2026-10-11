@@ -183,10 +183,10 @@ tag: {{ j(wCheckbox) }}（与 checkbox 同一字段，仅形态不同）</div>
         <!-- ④ 选项集与字典引用 -->
         <el-tab-pane label="④ 选项集与字典引用" name="options">
           <div class="dp-bar">
-            <span class="proto-hint">选项集来源二选一：静态 <b>options</b>（字段属性 JSON）或引用字典 <b>dictType</b>（取数与翻译复用 02 字典字段：POST /dicts/batch + 版本比对）</span>
+            <span class="proto-hint">选项集来源二选一：静态 <b>options</b>（字段属性 JSON）或引用字典 <b>dictKey</b>（取数与翻译复用 02 字典字段：POST /dicts/batch + 版本比对）</span>
             <el-radio-group v-model="source" size="small" :disabled="readonly">
               <el-radio-button value="static">静态选项集</el-radio-button>
-              <el-radio-button value="dict">引用字典类型</el-radio-button>
+              <el-radio-button value="dict">引用字典</el-radio-button>
             </el-radio-group>
           </div>
 
@@ -223,7 +223,7 @@ tag: {{ j(wCheckbox) }}（与 checkbox 同一字段，仅形态不同）</div>
           </template>
 
           <template v-else>
-            <div class="ep-section">字典引用（dictType = user_status）</div>
+            <div class="ep-section">字典引用（dictKey = user_status）</div>
             <div class="dp-bar">
               <el-button size="small" type="primary" @click="loadDict" :disabled="readonly">POST /dicts/batch（模拟）</el-button>
               <span class="dp-code">本地版本：{{ dictVersion === null ? '无' : dictVersion }}</span>
