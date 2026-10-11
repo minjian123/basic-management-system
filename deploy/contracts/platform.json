@@ -681,6 +681,33 @@
         "title": "ApiResponse[FormItem]",
         "type": "object"
       },
+      "ApiResponse_FormKeyListResponse_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FormKeyListResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[FormKeyListResponse]",
+        "type": "object"
+      },
       "ApiResponse_FormList_": {
         "additionalProperties": false,
         "properties": {
@@ -3195,6 +3222,84 @@
         "title": "FormItem",
         "type": "object"
       },
+      "FormKeyListResponse": {
+        "additionalProperties": false,
+        "description": "表单标识清单响应（保序：构建期清单序 + 注入序）。",
+        "properties": {
+          "items": {
+            "description": "表单标识登记记录清单",
+            "items": {
+              "$ref": "#/components/schemas/FormKeyResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "FormKeyListResponse",
+        "type": "object"
+      },
+      "FormKeyResponse": {
+        "additionalProperties": false,
+        "description": "表单标识登记记录响应（与 `FormRecord` 对齐）。",
+        "properties": {
+          "data_source_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "数据源标识（`form_key → data_source_key` 多对一）",
+            "title": "Data Source Key"
+          },
+          "form_key": {
+            "description": "表单标识（业务码字符串，全局唯一、保存后不变）",
+            "title": "Form Key",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/FormKind",
+            "description": "类型（dict 字典 / form 表单）"
+          },
+          "name": {
+            "description": "名称（通用页面展示）",
+            "title": "Name",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/FormStatus",
+            "default": "enabled",
+            "description": "状态（enabled / disabled）"
+          },
+          "table": {
+            "description": "物理表名（该标识所在实体表）",
+            "title": "Table",
+            "type": "string"
+          }
+        },
+        "required": [
+          "form_key",
+          "name",
+          "kind",
+          "table"
+        ],
+        "title": "FormKeyResponse",
+        "type": "object"
+      },
+      "FormKind": {
+        "description": "表单类型（数据形态）。",
+        "enum": [
+          "dict",
+          "form"
+        ],
+        "title": "FormKind",
+        "type": "string"
+      },
       "FormList": {
         "additionalProperties": false,
         "description": "表单清单。",
@@ -3210,6 +3315,15 @@
         },
         "title": "FormList",
         "type": "object"
+      },
+      "FormStatus": {
+        "description": "表单登记项状态。",
+        "enum": [
+          "enabled",
+          "disabled"
+        ],
+        "title": "FormStatus",
+        "type": "string"
       },
       "FormUpdateRequest": {
         "additionalProperties": false,
@@ -9410,6 +9524,108 @@
         "summary": "Update Field",
         "tags": [
           "menu"
+        ]
+      }
+    },
+    "/api/v1/form-keys": {
+      "get": {
+        "description": "列表单标识清单（供通用页面路由：`form_key → data_source_key`）。\n\nArgs:\n    kind: 类型过滤（`dict` / `form`；空 = 全部）。\n\nReturns:\n    ApiResponse[FormKeyListResponse]: 统一响应，data 为表单标识清单（`items` 保序）。\n\nRaises:\n    ParamError: 类型取值非法。",
+        "operationId": "list_form_keys_api_v1_form_keys_get",
+        "parameters": [
+          {
+            "description": "按类型过滤（dict / form；空 = 全部）",
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "按类型过滤（dict / form；空 = 全部）",
+              "title": "Kind"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_FormKeyListResponse_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "List Form Keys",
+        "tags": [
+          "form-key"
         ]
       }
     },

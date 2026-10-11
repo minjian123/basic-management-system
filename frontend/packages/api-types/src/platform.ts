@@ -676,6 +676,35 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/form-keys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Form Keys
+         * @description 列表单标识清单（供通用页面路由：`form_key → data_source_key`）。
+         *
+         *     Args:
+         *         kind: 类型过滤（`dict` / `form`；空 = 全部）。
+         *
+         *     Returns:
+         *         ApiResponse[FormKeyListResponse]: 统一响应，data 为表单标识清单（`items` 保序）。
+         *
+         *     Raises:
+         *         ParamError: 类型取值非法。
+         */
+        get: operations["list_form_keys_api_v1_form_keys_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/forms": {
         parameters: {
             query?: never;
@@ -3059,6 +3088,20 @@ export interface components {
              */
             message: string;
         };
+        /** ApiResponse[FormKeyListResponse] */
+        ApiResponse_FormKeyListResponse_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["FormKeyListResponse"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
         /** ApiResponse[FormList] */
         ApiResponse_FormList_: {
             /**
@@ -4604,6 +4647,56 @@ export interface components {
             updated_at: string;
         };
         /**
+         * FormKeyListResponse
+         * @description 表单标识清单响应（保序：构建期清单序 + 注入序）。
+         */
+        FormKeyListResponse: {
+            /**
+             * Items
+             * @description 表单标识登记记录清单
+             */
+            items: components["schemas"]["FormKeyResponse"][];
+        };
+        /**
+         * FormKeyResponse
+         * @description 表单标识登记记录响应（与 `FormRecord` 对齐）。
+         */
+        FormKeyResponse: {
+            /**
+             * Data Source Key
+             * @description 数据源标识（`form_key → data_source_key` 多对一）
+             */
+            data_source_key?: string | null;
+            /**
+             * Form Key
+             * @description 表单标识（业务码字符串，全局唯一、保存后不变）
+             */
+            form_key: string;
+            /** @description 类型（dict 字典 / form 表单） */
+            kind: components["schemas"]["FormKind"];
+            /**
+             * Name
+             * @description 名称（通用页面展示）
+             */
+            name: string;
+            /**
+             * @description 状态（enabled / disabled）
+             * @default enabled
+             */
+            status: components["schemas"]["FormStatus"];
+            /**
+             * Table
+             * @description 物理表名（该标识所在实体表）
+             */
+            table: string;
+        };
+        /**
+         * FormKind
+         * @description 表单类型（数据形态）。
+         * @enum {string}
+         */
+        FormKind: "dict" | "form";
+        /**
          * FormList
          * @description 表单清单。
          */
@@ -4614,6 +4707,12 @@ export interface components {
              */
             items?: components["schemas"]["FormItem"][];
         };
+        /**
+         * FormStatus
+         * @description 表单登记项状态。
+         * @enum {string}
+         */
+        FormStatus: "enabled" | "disabled";
         /**
          * FormUpdateRequest
          * @description 更新表单请求（菜单入口关联全量替换）。
@@ -8771,6 +8870,83 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponse_NoneType_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    list_form_keys_api_v1_form_keys_get: {
+        parameters: {
+            query?: {
+                /** @description 按类型过滤（dict / form；空 = 全部） */
+                kind?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_FormKeyListResponse_"];
                 };
             };
             /** @description 未认证 */
