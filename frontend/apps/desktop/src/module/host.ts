@@ -251,10 +251,18 @@ export function moduleMenuNodes(): MenuNode[] {
   }))
 }
 
+/** 模块菜单分组条目（装配期即冻结组内首项路径与组图标，避免渲染期反查首项）。 */
+type ModuleMenuGroupEntry = {
+  kind: 'group'
+  title: string
+  icon: string | undefined
+  /** 组内首项路径（分组节点自身的 `path`）。 */
+  path: string
+  nodes: MenuNode[]
+}
+
 /** 模块菜单条目（单节点或分组）。 */
-type ModuleMenuEntry =
-  | { kind: 'node'; node: MenuNode }
-  | { kind: 'group'; title: string; icon: string | undefined; nodes: MenuNode[] }
+type ModuleMenuEntry = { kind: 'node'; node: MenuNode } | ModuleMenuGroupEntry
 
 /**
  * 模块菜单分组（宿主菜单装配泛化：按路由 `meta.group` 归组、`meta.devOnly` 生产隐藏）。
@@ -267,7 +275,7 @@ type ModuleMenuEntry =
  */
 export function moduleMenuGroups(dev: boolean): MenuNode[] {
   const entries: ModuleMenuEntry[] = []
-  const groupIndex = new Map<string, number>()
+  const groups = new Map<string, ModuleMenuGroupEntry>()
   for (const provider of registries.routeMenu.values()) {
     const meta = provider.meta
     if (meta.devOnly === true && !dev) {
@@ -284,26 +292,29 @@ export function moduleMenuGroups(dev: boolean): MenuNode[] {
       entries.push({ kind: 'node', node })
       continue
     }
-    let index = groupIndex.get(group)
-    if (index === undefined) {
-      index = entries.length
-      groupIndex.set(group, index)
+    let groupEntry = groups.get(group)
+    if (groupEntry === undefined) {
       const groupIcon = typeof meta.groupIcon === 'string' && meta.groupIcon !== '' ? meta.groupIcon : undefined
-      entries.push({ kind: 'group', title: group, icon: groupIcon, nodes: [] })
+      groupEntry = {
+        kind: 'group',
+        title: group,
+        icon: groupIcon ?? node.icon,
+        path: node.path,
+        nodes: [],
+      }
+      groups.set(group, groupEntry)
+      entries.push(groupEntry)
     }
-    const entry = entries[index]
-    if (entry.kind === 'group') {
-      entry.nodes.push(node)
-    }
+    groupEntry.nodes.push(node)
   }
   return entries.map((entry) => {
     if (entry.kind === 'node') {
       return entry.node
     }
     return {
-      path: entry.nodes[0]?.path ?? '',
+      path: entry.path,
       title: entry.title,
-      icon: entry.icon ?? entry.nodes[0]?.icon,
+      icon: entry.icon,
       children: entry.nodes,
     }
   })
