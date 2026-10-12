@@ -109,3 +109,23 @@ async def test_assign_rejects_invalid_subject_and_lists_with_filters() -> None:
         await service.unassign_user(999999999, user_a, tenant_id=_TENANT)
 
     await engine.dispose()
+
+
+async def test_assign_empty_and_duplicate_inputs() -> None:
+    """空入参短路（不递增版本）；重复主键去重后仅落一行。"""
+    target, engine = await helpers.session()
+    role_id, user_a, _b, _c = await _seed(target)
+    cache = MemoryCacheRegion()
+    service = helpers.assign_service(target, cache)
+
+    assert list(await service.assign_users(role_id, ConcurrentStableList(), tenant_id=_TENANT)) == []
+    assert cache.get(permission_version_key(_TENANT)) is None
+    await helpers.commit(target)
+
+    assigned = await service.assign_users(role_id, ConcurrentStableList((user_a, user_a)), tenant_id=_TENANT)
+    assert [user.id for user in assigned] == [user_a]
+    await helpers.commit(target)
+    rows = await UserRoleRepository(target).list_by_role(role_id)
+    assert [row.user_id for row in rows] == [user_a]
+    await helpers.commit(target)
+    await engine.dispose()

@@ -12,7 +12,7 @@
 import pytest
 
 from bms_core.cache.memory import MemoryCacheRegion
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.exceptions import (
     ParamError,
     RoleFieldMismatchError,
@@ -21,9 +21,20 @@ from bms_core.core.exceptions import (
     RoleTargetInvalidError,
 )
 from bms_core.permission.version import permission_version_key
+from bms_core.scope.extensions import (
+    DataScopeExtensionInfo,
+    register_data_scope_extension,
+    reset_data_scope_extensions,
+)
+from bms_platform.models.menu import SysMenu
 from bms_platform.models.role import NO_SOURCE_MENU_ID, PERM_TYPE_FORM, PERM_TYPE_MENU, PERM_TYPE_PERMISSION
 from bms_platform.repositories.role import RoleRepository
-from bms_platform.services.role_grant import DataScopeGrantEntry, FieldGrantEntry, PermissionGrantEntry
+from bms_platform.services.role_grant import (
+    DataScopeGrantEntry,
+    FieldGrantEntry,
+    MenuMetadataChecker,
+    PermissionGrantEntry,
+)
 from tests.role import helpers
 
 _TENANT = "1001"
@@ -263,4 +274,80 @@ async def test_data_scopes_policy_validation_and_whitelist() -> None:
     assert cache.get(permission_version_key(_TENANT)) == 1
     kept = await service.list_data_scope_entries(role_id)
     assert len(kept) == 3
+    await engine.dispose()
+
+
+async def test_grant_checker_empty_sets_and_defensive_paths() -> None:
+    """元数据校验器空集合短路；目标分组遇未知类型跳过；字段权限条目重复即拒（10001）。"""
+    target, engine = await helpers.session()
+    role = await RoleRepository(target).create(code="ops", name="运维角色")
+    role_id = role.id
+    _menu_id, _business_id, form_id, _action_id = await helpers.seed_metadata(target)
+    field_id = await helpers.seed_form_field(target, form_id)
+    service = helpers.grant_service(target, MemoryCacheRegion())
+
+    checker = MenuMetadataChecker(target)
+    assert list(await checker.existing_ids(SysMenu, ConcurrentStableSet())) == []
+    assert list(await checker.form_field_pairs(ConcurrentStableSet())) == []
+
+    await service._ensure_targets_exist(  # pyright: ignore[reportPrivateUsage]
+        ConcurrentStableList((PermissionGrantEntry(perm_type="ghost", target_id=1, source_menu_id=0),))
+    )
+
+    with pytest.raises(ParamError):
+        await service.replace_fields(
+            role_id,
+            ConcurrentStableList(
+                (
+                    FieldGrantEntry(form_id=form_id, field_id=field_id, visible=True, editable=False),
+                    FieldGrantEntry(form_id=form_id, field_id=field_id, visible=True, editable=False),
+                )
+            ),
+            tenant_id=_TENANT,
+        )
+    await engine.dispose()
+
+
+async def test_data_scope_invalid_policy_registered_extension_and_whitelist_guard() -> None:
+    """数据权限：策略非法（30047）；未登记字典白名单取值即拒；已注册扩展两条配置项通过。"""
+    target, engine = await helpers.session()
+    role = await RoleRepository(target).create(code="ops", name="运维角色")
+    role_id = role.id
+    data_source_key, _attr_key = await helpers.seed_dict(target)
+    service = helpers.grant_service(target, MemoryCacheRegion())
+
+    with pytest.raises(RoleScopeValueInvalidError):
+        await service.replace_data_scopes(
+            role_id,
+            ConcurrentStableList(
+                (
+                    DataScopeGrantEntry(
+                        data_source_key=data_source_key, policy_type="bogus", config=_items({"item_code": "a"})
+                    ),
+                )
+            ),
+            tenant_id=_TENANT,
+        )
+
+    with pytest.raises(RoleScopeValueInvalidError):
+        service._match_field_whitelist("nope")  # pyright: ignore[reportPrivateUsage]
+
+    register_data_scope_extension(DataScopeExtensionInfo(key="dept_subtree", label="本部门及下级"))
+    try:
+        created = await service.replace_data_scopes(
+            role_id,
+            ConcurrentStableList(
+                (
+                    DataScopeGrantEntry(
+                        data_source_key=data_source_key,
+                        policy_type="extension",
+                        config=_items({"key": "dept_subtree"}, {"key": "dept_subtree"}),
+                    ),
+                )
+            ),
+            tenant_id=_TENANT,
+        )
+        assert [row.policy_type for row in created] == ["extension"]
+    finally:
+        reset_data_scope_extensions()
     await engine.dispose()

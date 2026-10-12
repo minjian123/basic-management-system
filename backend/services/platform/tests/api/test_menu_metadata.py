@@ -5,10 +5,18 @@
 字段键重复（40205）、被引用禁删（40206）、业务 / 动作码只读列示，以及元数据变更发布 `sys.form.updated` 事件。
 """
 
+from typing import Any, cast
+
 import pytest
 import pytest_asyncio
+from fastapi import Request
 from httpx import AsyncClient
 
+from bms_core.menu import DEFAULT_MENU_TREE_CACHE_TTL
+from bms_platform.api.menu import (
+    _accept_locale,  # pyright: ignore[reportPrivateUsage]
+    _tree_ttl,  # pyright: ignore[reportPrivateUsage]
+)
 from tests_support.menu_metadata import outbox_types, reset_menu_tables, seed_business, seed_permission
 from tests_support.permission_admin import setup_min_tenant
 
@@ -329,3 +337,93 @@ async def test_menu_and_field_views_return_full_i18n(client: AsyncClient) -> Non
     businesses = (await client.get(_BUSINESSES)).json()["data"]["items"]
     seeded_business = next(item for item in businesses if item["code"] == "t_full_i18n")
     assert seeded_business["i18n"]["zh-CN"] == "测试业务"
+
+
+@pytest.mark.kiwi_id(2242)
+async def test_metadata_update_endpoints(client: AsyncClient) -> None:
+    """表单 / 按钮 / 字段更新端点：挂接全量替换与文案 / 形态 / 排序更新。"""
+    business_id = await seed_business("t_update")
+    menu = await client.post(
+        _MENUS, json={"parent_id": 0, "path": "/t-update", "status": "enabled", "i18n": {"zh-CN": "更新页"}}
+    )
+    menu_id = int(menu.json()["data"]["id"])
+    form = await client.post(_FORMS, json={"menu_ids": [menu_id], "business_id": business_id, "status": "enabled"})
+    form_id = int(form.json()["data"]["id"])
+
+    second_menu = await client.post(
+        _MENUS, json={"parent_id": 0, "path": "/t-update-2", "status": "enabled", "i18n": {"zh-CN": "更新页二"}}
+    )
+    second_menu_id = int(second_menu.json()["data"]["id"])
+    updated_form = await client.put(
+        f"{_FORMS}/{form_id}",
+        json={"menu_ids": [second_menu_id], "business_id": business_id, "component": "Upd", "status": "enabled"},
+    )
+    assert updated_form.json()["code"] == 0
+    assert updated_form.json()["data"]["component"] == "Upd"
+    assert [int(item) for item in updated_form.json()["data"]["menu_ids"]] == [second_menu_id]
+
+    permission_id = await seed_permission(business_id, "edit", "编辑")
+    button = await client.post(
+        _BUTTONS,
+        json={"form_id": form_id, "permission_id": permission_id, "name": "编辑", "type": "toolbar", "sort": 1},
+    )
+    button_id = int(button.json()["data"]["id"])
+    updated_button = await client.put(
+        f"{_BUTTONS}/{button_id}",
+        json={"permission_id": permission_id, "name": "编辑改", "type": "interface", "sort": 5, "status": "disabled"},
+    )
+    assert updated_button.json()["code"] == 0
+    assert updated_button.json()["data"]["name"] == "编辑改"
+    assert updated_button.json()["data"]["type"] == "interface"
+
+    field = await client.post(
+        _FIELDS, json={"form_id": form_id, "field_key": "desc", "type": "input", "sort": 1, "i18n": {"zh-CN": "描述"}}
+    )
+    field_id = int(field.json()["data"]["id"])
+    updated_field = await client.put(
+        f"{_FIELDS}/{field_id}",
+        json={"type": "textarea", "sort": 3, "status": "enabled", "i18n": {"zh-CN": "描述改"}},
+    )
+    assert updated_field.json()["code"] == 0
+    assert updated_field.json()["data"]["name"] == "描述改"
+    assert updated_field.json()["data"]["type"] == "textarea"
+
+
+def _language_request(accept_language: str) -> Request:
+    """构造带 `Accept-Language` 的最小请求对象。
+
+    Args:
+        accept_language: 请求语言头原文。
+
+    Returns:
+        Request: 请求对象。
+    """
+    return Request(scope={"type": "http", "headers": [(b"accept-language", accept_language.encode())]})
+
+
+def test_accept_locale_prefix_fallback() -> None:
+    """语言解析：区域变体按前缀回落清单语言；无匹配回默认语言。"""
+    assert _accept_locale(_language_request("zh-TW")) == "zh-CN"
+    assert _accept_locale(_language_request("fr")) == "zh-CN"
+
+
+class _BadConfigSource:
+    """系统参数取数替身：返回不可解析的 TTL 原文。"""
+
+    async def get(self, key: str, default: str) -> str:
+        """返回非法整数文本。
+
+        Args:
+            key: 参数键（忽略）。
+            default: 缺省值（忽略）。
+
+        Returns:
+            str: 非法 TTL 文本。
+        """
+        del key, default
+        return "not-an-int"
+
+
+async def test_tree_ttl_falls_back_on_invalid_config() -> None:
+    """菜单树缓存 TTL：参数值非法整数时回落缺省值。"""
+    assert await _tree_ttl(cast("Any", _BadConfigSource())) == DEFAULT_MENU_TREE_CACHE_TTL

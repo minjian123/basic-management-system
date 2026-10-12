@@ -7,9 +7,11 @@
 故在每次服务调用前以 `helpers.commit` 结束当前事务（见各步骤）。
 """
 
+from typing import Any, cast
+
 import pytest
 
-from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.exceptions import (
     ConcurrentConflictError,
     ParamError,
@@ -18,7 +20,9 @@ from bms_core.core.exceptions import (
     RoleNotFoundError,
     RoleProtectedError,
 )
+from bms_core.db.unit_of_work import DbUnitOfWork
 from bms_platform.repositories.role import RoleRepository, UserRoleRepository
+from bms_platform.services.role import ROLE_CODE_PATTERN_KEY, RoleService
 from tests.role import helpers
 
 
@@ -97,4 +101,55 @@ async def test_role_crud_and_protection() -> None:
         await service.detail(role_id)
     assert missing.value.code == 30041
 
+    await engine.dispose()
+
+
+class _PatternConfig:
+    """系统参数取数替身：固定返回角色码格式。"""
+
+    def __init__(self, pattern: str) -> None:
+        """初始化。
+
+        Args:
+            pattern: 角色码正则。
+        """
+        self._pattern = pattern
+
+    async def get_many(self, keys: ConcurrentStableList[str]) -> ConcurrentStableDict[str, str]:
+        """返回角色码格式参数。
+
+        Args:
+            keys: 参数键序列（忽略）。
+
+        Returns:
+            ConcurrentStableDict[str, str]: 参数键 → 值。
+        """
+        del keys
+        return ConcurrentStableDict({ROLE_CODE_PATTERN_KEY: self._pattern})
+
+
+async def test_role_code_pattern_override_and_invalid_status() -> None:
+    """角色码格式取自系统参数；新建 / 修改的状态非法即拒（10001）。"""
+    target, engine = await helpers.session()
+    service = helpers.role_service(target)
+
+    with pytest.raises(ParamError):
+        await service.create_role(code="ops_admin", name="非法状态", status="bogus")
+    await helpers.commit(target)
+
+    role = await service.create_role(code="ops_admin", name="运维")
+    await helpers.commit(target)
+    with pytest.raises(ParamError):
+        await service.update_role(role.id, status="bogus", version=role.version)
+    await helpers.commit(target)
+
+    custom = RoleService(
+        RoleRepository(target),
+        UserRoleRepository(target),
+        DbUnitOfWork(target),
+        cast("Any", _PatternConfig("^x[0-9]+$")),
+    )
+    created = await custom.create_role(code="x7", name="自定义码角色")
+    assert created.code == "x7"
+    await helpers.commit(target)
     await engine.dispose()

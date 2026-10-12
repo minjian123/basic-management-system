@@ -34,6 +34,7 @@ from bms_core.idempotency.base import DEFAULT_IDEMPOTENCY_TTL, IDEMPOTENCY_PAYLO
 from bms_core.models.base import Base
 from bms_core.outbox.null import NullOutboxStore
 from bms_core.servicecall.base import BaseServiceClient, ServiceRequest, ServiceResponse
+from bms_platform.api.users import _read_cached_user_id  # pyright: ignore[reportPrivateUsage]
 from bms_platform.models.role import ROLE_TYPE_SYSTEM, SysRole, SysUserRole
 from bms_platform.models.user import SysAccountLock, SysUser
 from tests_support.permission_admin import setup_min_tenant
@@ -540,5 +541,36 @@ async def test_create_idempotency_and_roles(client: AsyncClient, service_app: Fa
     assert len(items) == 1
     assert items[0]["role_type"] == "custom"
     assert cast("str", items[0]["role_code"]).startswith("r_custom")
+
+    await harness.close()
+
+
+def test_read_cached_user_id_payload_shapes() -> None:
+    """幂等首次结果解析：非对象 / 非整数 / 布尔 `user_id` 一律回落 None；正整数取回。"""
+    assert _read_cached_user_id(json.loads('"text"')) is None
+    assert _read_cached_user_id(json.loads('{"user_id": "x"}')) is None
+    assert _read_cached_user_id(json.loads('{"user_id": true}')) is None
+    assert _read_cached_user_id(json.loads('{"user_id": 5}')) == 5
+
+
+async def test_create_idempotency_stale_payload_conflicts(
+    client: AsyncClient, service_app: FastAPI, tmp_path: Path
+) -> None:
+    """幂等键已占用但首次结果不可解析（并发在途 / 脏载荷）→ 10003。"""
+    harness = await _harness(tmp_path, service_app)
+
+    first_body = {"username": "ivan", "name": "伊万", "password": PASSWORD}
+    _data(await client.post(API, json=first_body, headers={"Idempotency-Key": "ik1"}))
+    key1 = next(iter(harness.idempotency.seen))
+    harness.idempotency.seen.set(key1, cast("IDEMPOTENCY_PAYLOAD_TYPE", "text"))
+    conflict = await client.post(API, json=first_body, headers={"Idempotency-Key": "ik1"})
+    assert _code(conflict) == 10003
+
+    second_body = {"username": "judy", "name": "朱迪", "password": PASSWORD}
+    _data(await client.post(API, json=second_body, headers={"Idempotency-Key": "ik2"}))
+    key2 = next(key for key in harness.idempotency.seen if key.endswith("ik2"))
+    harness.idempotency.seen.set(key2, cast("IDEMPOTENCY_PAYLOAD_TYPE", json.loads('{"user_id": "x"}')))
+    conflict2 = await client.post(API, json=second_body, headers={"Idempotency-Key": "ik2"})
+    assert _code(conflict2) == 10003
 
     await harness.close()

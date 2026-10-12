@@ -27,7 +27,14 @@ from bms_core.scope.extensions import (
     reset_data_scope_extensions,
     reset_scope_extension_resolvers,
 )
-from bms_platform.scope.policies import DENY_ALL_CONDITION, register_scope_policies
+from bms_platform.scope.policies import (
+    DENY_ALL_CONDITION,
+    register_scope_policies,
+    resolve_extension,
+    resolve_match,
+    resolve_region,
+    resolve_select,
+)
 from bms_platform.scope.rbac import (
     RbacDataScope,
     RbacDataScopeFactory,
@@ -290,6 +297,33 @@ def test_union_merges_in_conditions_and_falls_back_on_field_mismatch() -> None:
 
     fallback = _union("k", ConcurrentStableList([ScopeCondition("a", "in", ["1"]), ScopeCondition("b", "in", ["2"])]))
     assert [item.field for item in fallback] == ["a", "b"]
+
+
+def test_select_policy_denies_bad_field_and_empty_values() -> None:
+    """`select`：字段非标识符 / `values` 非序列 / 勾选为空 → 永假。"""
+    assert resolve_select(cast("Any", _rows(_config(field="1bad", values=["a"])))) == [DENY_ALL_CONDITION]
+    assert resolve_select(cast("Any", _rows(_config(field="code", values="a")))) == [DENY_ALL_CONDITION]
+    assert resolve_select(cast("Any", _rows(_config(field="code", values=[])))) == [DENY_ALL_CONDITION]
+
+
+def test_region_policy_denies_missing_and_incomparable() -> None:
+    """`region`：缺 `start` / `end`，或起止不可比 → 永假。"""
+    assert resolve_region(cast("Any", _rows(_config(field="code", start="a")))) == [DENY_ALL_CONDITION]
+    assert resolve_region(cast("Any", _rows(_config(field="code", start="a", end=1)))) == [DENY_ALL_CONDITION]
+
+
+def test_match_policy_denies_missing_field_or_pattern() -> None:
+    """`match`：字段非法 / `pattern` 非字符串 / 空串 → 永假。"""
+    assert resolve_match(cast("Any", _rows(_config(pattern="a*")))) == [DENY_ALL_CONDITION]
+    assert resolve_match(cast("Any", _rows(_config(field="code", pattern=1)))) == [DENY_ALL_CONDITION]
+    assert resolve_match(cast("Any", _rows(_config(field="code", pattern="")))) == [DENY_ALL_CONDITION]
+
+
+def test_extension_policy_denies_missing_key_and_empty_result() -> None:
+    """`extension`：缺 `key` → 永假；求值器返回空 → 永假。"""
+    assert resolve_extension(cast("Any", _rows(_config(params={})))) == [DENY_ALL_CONDITION]
+    register_scope_extension_resolver("empty_ext", lambda rows: _cond_list())
+    assert resolve_extension(cast("Any", _rows(_config(key="empty_ext")))) == [DENY_ALL_CONDITION]
 
 
 def _cond_list(*items: ScopeCondition) -> ConcurrentStableList[ScopeCondition]:

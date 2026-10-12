@@ -53,9 +53,18 @@ class _RecordingIdempotency:
         """初始化空首次结果表。"""
         self.keys: ConcurrentStableList[str] = ConcurrentStableList()
         self._payloads: ConcurrentStableDict[str, IDEMPOTENCY_PAYLOAD_TYPE] = ConcurrentStableDict()
+        self._stale: ConcurrentStableList[str] = ConcurrentStableList()
+
+    def mark_stale(self, key: str) -> None:
+        """标记键「已占用但无首次结果」（模拟并发在途：begin False + load None）。
+
+        Args:
+            key: 幂等键。
+        """
+        self._stale.add(key)
 
     async def begin(self, key: str, *, ttl: int | None = None) -> bool:
-        """登记幂等键（首次 True）。
+        """登记幂等键（首次 True；已标记 stale 的键恒 False）。
 
         Args:
             key: 幂等键。
@@ -66,6 +75,8 @@ class _RecordingIdempotency:
         """
         del ttl
         self.keys.add(key)
+        if key in self._stale:
+            return False
         return key not in self._payloads
 
     async def load(self, key: str) -> IDEMPOTENCY_PAYLOAD_TYPE | None:
@@ -364,3 +375,88 @@ async def _create_form(client: AsyncClient, path: str, business_id: int) -> tupl
     menu_id = int(menu.json()["data"]["id"])
     form = await client.post(_FORMS, json={"menu_ids": [menu_id], "business_id": business_id, "status": "enabled"})
     return menu_id, int(form.json()["data"]["id"])
+
+
+async def test_role_read_endpoints_and_illegal_status(role_client: AsyncClient) -> None:
+    """角色读端点：状态筛选非法 10001；授权 / 字段 / 数据权限条目读取（空清单）。"""
+    client = role_client
+    illegal = await client.get(_ROLES, params={"status": "unknown"})
+    assert illegal.json()["code"] == 10001
+
+    role = await client.post(_ROLES, json={"code": "reader", "name": "只读角色"})
+    role_id = int(role.json()["data"]["id"])
+
+    permissions = await client.get(f"{_ROLES}/{role_id}/permissions")
+    assert permissions.json()["code"] == 0
+    assert permissions.json()["data"]["items"] == []
+
+    fields = await client.get(f"{_ROLES}/{role_id}/fields")
+    assert fields.json()["code"] == 0
+    assert fields.json()["data"]["items"] == []
+
+    scopes = await client.get(f"{_ROLES}/{role_id}/data-permissions")
+    assert scopes.json()["code"] == 0
+    assert scopes.json()["data"]["items"] == []
+
+
+async def test_role_assign_and_grant_idempotency_skips(role_client: AsyncClient) -> None:
+    """幂等键分支：无键不写首次结果；键已占用但无载荷 → 落到实际执行分支。"""
+    client = role_client
+    role_id = int((await client.post(_ROLES, json={"code": "ops_skip", "name": "跳键角色"})).json()["data"]["id"])
+    user_id = await _seed_user("frank", "弗兰克")
+
+    no_key = await client.post(f"{_ROLES}/{role_id}/users", json={"user_ids": [user_id]})
+    assert no_key.json()["code"] == 0
+
+    _IDEMPOTENCY.mark_stale("bms:1001:idem:stale-assign")
+    stale = await client.post(
+        f"{_ROLES}/{role_id}/users", json={"user_ids": [user_id]}, headers={"Idempotency-Key": "stale-assign"}
+    )
+    assert stale.json()["code"] == 0
+
+    no_key_grant = await client.put(f"{_ROLES}/{role_id}/permissions", json={"entries": []})
+    assert no_key_grant.json()["code"] == 0
+
+    _IDEMPOTENCY.mark_stale("bms:1001:idem:stale-grant")
+    stale_grant = await client.put(
+        f"{_ROLES}/{role_id}/permissions", json={"entries": []}, headers={"Idempotency-Key": "stale-grant"}
+    )
+    assert stale_grant.json()["code"] == 0
+
+
+async def test_role_assignments_endpoint_applies_role_segment(role_client: AsyncClient) -> None:
+    """保存编排端点：角色本体分段全量覆盖 + 回带生效详情、用户清单与分段名。"""
+    client = role_client
+    role_id = int((await client.post(_ROLES, json={"code": "ops_flow", "name": "编排角色"})).json()["data"]["id"])
+
+    updated = await client.put(f"{_ROLES}/{role_id}/assignments", json={"role": {"name": "编排角色改", "version": 1}})
+    assert updated.json()["code"] == 0, updated.text
+    assert updated.json()["data"]["role"]["name"] == "编排角色改"
+    assert updated.json()["data"]["applied"] == ["role"]
+    assert updated.json()["data"]["users"]["items"] == []
+
+    # 无 `role` 分段：跳过命令式 `role:update` 复校（仅挂端点级 `role:grant`）。
+    user_id = await _seed_user("hank", "汉克")
+    users_only = await client.put(f"{_ROLES}/{role_id}/assignments", json={"user_ids": [user_id]})
+    assert users_only.json()["code"] == 0, users_only.text
+    assert users_only.json()["data"]["applied"] == ["user_ids"]
+    assert [int(item["user_id"]) for item in users_only.json()["data"]["users"]["items"]] == [user_id]
+
+
+async def test_user_assignments_endpoint_applies_profile(role_client: AsyncClient) -> None:
+    """用户保存编排端点：`profile` 分段（命令式复校 `user:update`）+ 回带生效详情与分段名。"""
+    client = role_client
+    user_id = await _seed_user("gina", "吉娜")
+
+    updated = await client.put(f"{_USERS}/{user_id}/assignments", json={"profile": {"name": "吉娜改", "version": 1}})
+    assert updated.json()["code"] == 0, updated.text
+    assert updated.json()["data"]["user"]["name"] == "吉娜改"
+    assert updated.json()["data"]["applied"] == ["profile"]
+    assert updated.json()["data"]["roles"]["items"] == []
+
+    # 无 `profile` 分段：跳过命令式 `user:update` 复校（仅挂端点级 `user:assign_role`）。
+    role_id = int((await client.post(_ROLES, json={"code": "assignee_role", "name": "受派角色"})).json()["data"]["id"])
+    roles_only = await client.put(f"{_USERS}/{user_id}/assignments", json={"role_ids": [role_id]})
+    assert roles_only.json()["code"] == 0, roles_only.text
+    assert roles_only.json()["data"]["applied"] == ["role_ids"]
+    assert [int(item["role_id"]) for item in roles_only.json()["data"]["roles"]["items"]] == [role_id]
