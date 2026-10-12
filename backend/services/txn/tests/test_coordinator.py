@@ -25,6 +25,7 @@ from bms_core.transaction.base import (
     TXN_COMMITTED,
     TXN_COMMITTING,
     TXN_ROLLED_BACK,
+    TXN_ROLLING_BACK,
     BranchSpec,
     build_branch_xid,
 )
@@ -310,6 +311,71 @@ async def test_recovery_requires_leadership(uow: DbUnitOfWork) -> None:
 
     assert await recovery.run_as_leader() == 0
     await lock.release("bms:global:lock:txn:leader", token)
+
+
+async def test_recovery_as_leader_executes_scan(uow: DbUnitOfWork) -> None:
+    """取得 leader 身份（锁空闲）时执行单轮扫描；无在途事务返回 0。"""
+    assert await _recovery(uow, _coordinator(uow, FakeDriver())).is_leader() is True
+    assert await _recovery(uow, _coordinator(uow, FakeDriver())).run_as_leader() == 0
+
+
+async def test_recovery_rolls_back_rolling_back_transaction(uow: DbUnitOfWork) -> None:
+    """决定点前的 `rolling_back` 事务：未到期仍驱动回滚（续行至终态）。"""
+    driver = FakeDriver()
+    coordinator = _coordinator(uow, driver)
+    started = await coordinator.begin(caller_service="platform", branches=_specs())
+    txns = GlobalTxnRepository(uow.session)
+    async with uow.begin():
+        row = await txns.get_by_global_txn_id(started.global_txn_id)
+        assert row is not None
+        row.state = TXN_ROLLING_BACK
+        row.deadline_at = datetime.now(UTC) + timedelta(seconds=300)
+        await txns.flush()
+
+    recovery = _recovery(uow, coordinator)
+
+    assert await recovery.run_once() == 1
+    assert (await coordinator.status(started.global_txn_id)).state == TXN_ROLLED_BACK
+    assert driver.committed == []
+
+
+async def test_recovery_skips_unknown_state_row(uow: DbUnitOfWork, monkeypatch: pytest.MonkeyPatch) -> None:
+    """非终态查询返回协议外状态行：跳过不驱动；已终态行亦被过滤。"""
+    driver = FakeDriver()
+    coordinator = _coordinator(uow, driver)
+    unknown = await coordinator.begin(caller_service="platform", branches=_specs())
+    terminal = await coordinator.begin(caller_service="platform", branches=_specs())
+
+    async def _rows(self: GlobalTxnRepository, *, limit: int = 200) -> ConcurrentStableList[GlobalTxn]:
+        del limit
+        rows: ConcurrentStableList[GlobalTxn] = ConcurrentStableList()
+        unknown_row = await self.get_by_global_txn_id(unknown.global_txn_id)
+        assert unknown_row is not None
+        unknown_row.deadline_at = datetime.now(UTC) + timedelta(seconds=300)
+        unknown_row.state = "protocol_unknown"
+        rows.add(unknown_row)
+        terminal_row = await self.get_by_global_txn_id(terminal.global_txn_id)
+        assert terminal_row is not None
+        terminal_row.state = TXN_COMMITTED
+        rows.add(terminal_row)
+        return rows
+
+    monkeypatch.setattr(GlobalTxnRepository, "list_unsettled", _rows)
+    recovery = _recovery(uow, coordinator)
+
+    assert await recovery.run_once() == 0
+    assert driver.committed == [] and driver.rolled_back == []
+
+
+async def test_recovery_record_tolerates_missing_transaction(uow: DbUnitOfWork) -> None:
+    """处置台账落库：事务记录缺失时结论为「事务记录缺失」（不阻断台账写入）。"""
+    recovery = _recovery(uow, _coordinator(uow, FakeDriver()))
+
+    await recovery._record("missing-txn", None, "drive_commit", datetime.now(UTC))  # pyright: ignore[reportPrivateUsage]
+
+    async with uow.begin():
+        logs = await GlobalTxnRecoveryRepository(uow.session).list_recent()
+    assert [log.conclusion for log in logs] == ["事务记录缺失"]
 
 
 class FailingVerifyDriver(FakeDriver):
