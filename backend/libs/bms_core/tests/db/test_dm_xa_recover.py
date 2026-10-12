@@ -106,3 +106,40 @@ def test_recovered_xid_drives_commit_and_rollback() -> None:
 def test_recover_twophase_returns_empty_when_no_hung_branch() -> None:
     """无悬挂分支：返回空表（不报错）。"""
     assert list(DMXADialect().do_recover_twophase(_FakeConnection())) == []  # pyright: ignore[reportPrivateUsage]
+
+
+def test_matches_recovered_xid() -> None:
+    """悬挂列举项与目标分支比对：派生摘要一致为 True、不一致为 False。"""
+    dialect = DMXADialect()
+    gtrid, bqual = DMXADialect._xid_raw("branch-1")  # pyright: ignore[reportPrivateUsage]
+
+    assert dialect.matches_recovered_xid("branch-1", DMXARecoveredXid(gtrid, bqual)) is True
+    assert dialect.matches_recovered_xid("branch-1", DMXARecoveredXid("00", "11")) is False
+
+
+def test_begin_and_prepare_twophase_emit_expected_calls() -> None:
+    """开启与准备分支：`XA_START`（TMNOFLAGS）与 `XA_END` → `XA_PREPARE` 语句形态。"""
+    dialect = DMXADialect()
+    begin_link = _FakeConnection()
+    prepare_link = _FakeConnection()
+
+    dialect.do_begin_twophase(begin_link, "branch-1")
+    dialect.do_prepare_twophase(prepare_link, "branch-1")
+
+    assert "XA_START" in begin_link.statements[0]
+    assert "XA_END" in prepare_link.statements[0] and "XA_PREPARE" in prepare_link.statements[0]
+
+
+def test_unprepared_commit_and_rollback_prepare_first() -> None:
+    """未 `prepare` 的提交 / 回滚：先补 `XA_PREPARE` / `XA_END` 再驱动协议（不跳步）。"""
+    dialect = DMXADialect()
+    commit_link = _FakeConnection()
+    rollback_link = _FakeConnection()
+
+    dialect.do_commit_twophase(commit_link, "branch-1", is_prepared=False)
+    dialect.do_rollback_twophase(rollback_link, "branch-1", is_prepared=False)
+
+    assert "XA_PREPARE" in commit_link.statements[0]
+    assert "XA_COMMIT" in commit_link.statements[1]
+    assert "XA_END" in rollback_link.statements[0]
+    assert "XA_ROLLBACK" in rollback_link.statements[1]

@@ -1,5 +1,7 @@
 """服务包模型名前缀参数化测试（Kiwi 2254）：包名派生 / 配置前缀 / 严格入口 / 平台默认不变。"""
 
+from types import SimpleNamespace
+
 import pytest
 
 from bms_core.core.config import Settings, get_settings
@@ -63,3 +65,32 @@ def test_prefix_mismatch_reports_error() -> None:
     assert service_model_modules("platform", settings=product) == ()
     with pytest.raises(ConfigError):
         require_service_model_modules("platform", settings=product)
+
+
+@pytest.mark.kiwi_id(2254)
+def test_existing_package_without_declaration_fails(monkeypatch: pytest.MonkeyPatch) -> None:
+    """服务包存在但未声明 `MODEL_MODULES` → `ConfigError`（不静默返回空清单）。"""
+    from bms_core.db import migration
+
+    def _package_exists(name: str) -> bool:
+        del name
+        return True
+
+    def _import_module(name: str) -> SimpleNamespace:
+        del name
+        return SimpleNamespace()
+
+    monkeypatch.setattr(migration, "_package_exists", _package_exists)
+    monkeypatch.setattr(migration.importlib, "import_module", _import_module)
+
+    with pytest.raises(ConfigError, match="MODEL_MODULES"):
+        service_model_modules("platform")
+
+
+@pytest.mark.kiwi_id(2254)
+def test_require_service_model_modules_returns_existing_package() -> None:
+    """严格入口：服务包存在时返回其模型模块清单（与宽松入口一致）。"""
+    modules = require_service_model_modules("platform")
+
+    assert modules
+    assert modules == service_model_modules("platform")

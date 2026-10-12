@@ -23,6 +23,7 @@ from bms_core.db.migration import (
     config_section,
     default_chain,
     has_revisions,
+    head_revision,
     parse_chain_name,
     resolve_chain,
     resolve_chain_from_section,
@@ -170,6 +171,61 @@ def test_alembic_config_requires_registered_section() -> None:
     assert alembic_config(resolve_chain("platform:platform")).get_main_option("version_locations")
     with pytest.raises(ConfigError):
         alembic_config(resolve_chain("file:tenant"))
+
+
+@pytest.mark.kiwi_id(1078)
+def test_backend_root_raises_when_no_alembic_ini(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """工程布局异常：向上无含 `alembic.ini` 的目录 → `ConfigError`（不静默回落）。"""
+    from bms_core.db import migration
+
+    monkeypatch.setattr(migration, "__file__", str(tmp_path / "ghost" / "migration.py"))
+
+    with pytest.raises(ConfigError, match=r"alembic\.ini"):
+        migration._find_backend_root()  # pyright: ignore[reportPrivateUsage]
+
+
+@pytest.mark.kiwi_id(1078)
+def test_build_chain_name_rejects_invalid_datasource() -> None:
+    """链名构造：数据源段非法（非 platform / tenant / archive）即拒。"""
+    with pytest.raises(ConfigError, match="数据源段非法"):
+        build_chain_name("platform", "legacy")
+
+
+@pytest.mark.kiwi_id(1078)
+def test_build_chain_name_rejects_unknown_service() -> None:
+    """链名构造：服务标识未登记即拒（不误跑未登记服务库）。"""
+    with pytest.raises(ConfigError, match="服务标识未登记"):
+        build_chain_name("ghost", "platform")
+
+
+@pytest.mark.kiwi_id(1078)
+def test_head_revision_of_empty_chain_is_none() -> None:
+    """空链（无版本脚本）head 为 None：供「已是最新」幂等判定，不报错。"""
+    assert has_revisions(resolve_chain("platform:archive")) is False
+    assert head_revision(resolve_chain("platform:archive")) is None
+
+
+@pytest.mark.kiwi_id(1078)
+def test_alembic_config_rejects_empty_version_locations(monkeypatch: pytest.MonkeyPatch) -> None:
+    """配置段存在但 `version_locations` 为空 → `ConfigError`（缺段按未登记处理）。"""
+
+    class _EmptyConfig:
+        """Alembic 配置替身：`version_locations` 为空。"""
+
+        def __init__(self, *args: object, **kwargs: object) -> None:
+            del args, kwargs
+
+        def get_main_option(self, name: str) -> str | None:
+            """恒定返回空（模拟缺 `version_locations`）。"""
+            del name
+            return None
+
+    from bms_core.db import migration
+
+    monkeypatch.setattr(migration, "Config", _EmptyConfig)
+
+    with pytest.raises(ConfigError, match="version_locations"):
+        alembic_config(resolve_chain("platform:platform"))
 
 
 @pytest.mark.kiwi_id(1078)
