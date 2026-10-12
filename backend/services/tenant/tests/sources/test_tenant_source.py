@@ -10,15 +10,17 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from bms_core.cache.base import CacheRegion
 from bms_core.cache.memory import MemoryCacheRegion
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.config import Settings
 from bms_core.core.exceptions import MultipleActiveTenantsError, TenantNotFoundError, TenantSuspendedError
 from bms_core.db.engine import EngineFactory
 from bms_core.db.registry import EngineRegistry
 from bms_core.db.tenant_registry import snapshot_cache_key
+from bms_core.db.tenant_source import build_tenant_lookup, registered_tenant_sources
 from bms_core.models.base import Base
 from bms_tenant.models.tenant import SysTenant
 from bms_tenant.models.tenant_database import SysTenantDatabase
-from bms_tenant.sources.tenant_source import LocalTenantSource
+from bms_tenant.sources.tenant_source import LOCAL_TENANT_SOURCE, LocalTenantSource, register_local_tenant_source
 
 
 @pytest.fixture
@@ -262,3 +264,82 @@ async def test_invalidate_by_domain(platform_url: str) -> None:
         await source.invalidate(domain="demo.bms.example.com")
     finally:
         await registry.aclose()
+
+
+@pytest.mark.kiwi_id(1019)
+async def test_lookup_by_id_and_invalid_id(platform_url: str) -> None:
+    """按主键取上下文：十进制字符串命中；非数字主键直接判未知（不走库查询）。"""
+    source, registry = _source(platform_url)
+    try:
+        demo = await source.by_code("demo")
+        assert demo.tenant_id is not None
+
+        by_id = await source.by_id(str(demo.tenant_id))
+        assert by_id.code == "demo" and by_id.tenant_id == demo.tenant_id
+
+        with pytest.raises(TenantNotFoundError):
+            await source.by_id("not-a-number")
+    finally:
+        await registry.aclose()
+
+
+@pytest.mark.kiwi_id(1019)
+async def test_cache_get_ignores_payload_without_code(platform_url: str) -> None:
+    """缓存载荷缺 `code`（形态非法）：视为未命中并回源平台库，不抛错。"""
+    cache = MemoryCacheRegion(domain="tenant")
+    source, registry = _source(platform_url, cache=cache)
+    try:
+        payload: ConcurrentStableDict[str, object] = ConcurrentStableDict()
+        payload.set("version", cache.get_global_version())
+        cache.set(snapshot_cache_key("code", "demo"), payload, 60)
+
+        demo = await source.by_code("demo")
+        assert demo.code == "demo"
+    finally:
+        await registry.aclose()
+
+
+@pytest.mark.kiwi_id(2176)
+async def test_bump_version_without_cache_is_noop(platform_url: str) -> None:
+    """无缓存实现时递增版本号为空操作（不阻断写路径）。"""
+    source, registry = _source(platform_url)
+    try:
+        source.bump_version()
+    finally:
+        await registry.aclose()
+
+
+@pytest.mark.kiwi_id(2176)
+async def test_bump_version_falls_back_to_version_key(platform_url: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    """缓存实现无 `bump_version` 时经域内版本键写回「当前值 + 1」。"""
+    cache = MemoryCacheRegion(domain="tenant")
+    source, registry = _source(platform_url, cache=cache)
+    monkeypatch.delattr(MemoryCacheRegion, "bump_version")
+    try:
+        source.bump_version()
+        assert cache.get(cache.build_key("version")) == 1
+    finally:
+        await registry.aclose()
+
+
+@pytest.mark.kiwi_id(1019)
+def test_register_local_tenant_source_factory(platform_url: str) -> None:
+    """登记工厂：`local` 已登记且按 `[tenant].resolve_cache_ttl` 装配缓存 TTL。"""
+    settings = Settings()
+    settings.database.platform.url = platform_url
+    settings.tenant.resolve_cache_ttl = 77
+    registry = EngineRegistry(EngineFactory(settings))
+    cache = MemoryCacheRegion(domain="tenant")
+    register_local_tenant_source()
+
+    assert LOCAL_TENANT_SOURCE in registered_tenant_sources()
+    built = build_tenant_lookup(
+        LOCAL_TENANT_SOURCE,
+        settings=settings,
+        registry=registry,
+        cache=cache,
+        session_factory=None,
+    )
+    assert isinstance(built, LocalTenantSource)
+    assert built.cache is cache
+    assert built._cache_ttl == 77  # pyright: ignore[reportPrivateUsage]
