@@ -153,7 +153,7 @@ def test_service_template_structure() -> None:
     test_script = "\n".join(str(line) for line in template["service-test"]["script"])
     assert 'cd "services/$SERVICE"' in test_script
     assert '--cov="bms_$SERVICE"' in test_script
-    assert "--cov-fail-under=70" in test_script
+    assert "--cov-fail-under=100" in test_script
 
 
 @pytest.mark.kiwi_id(2184)

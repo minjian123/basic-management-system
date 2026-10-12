@@ -28,7 +28,8 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['text', 'lcov', 'json-summary'],
       reportsDirectory: 'coverage',
-      thresholds: { statements: 70, branches: 70, functions: 70, lines: 70 },
+      // 覆盖率门槛与维度口径见 bms文档/规范/AI开发规范.md「覆盖率要求」节（唯一权威）。
+      thresholds: { statements: 100, branches: 100, functions: 100, lines: 100 },
     },
   },
 })

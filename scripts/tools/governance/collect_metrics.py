@@ -144,7 +144,7 @@ def collect_coverage(root: Path, skip_tests: bool, with_frontend: bool) -> Concu
     backend_data: ConcurrentStableDict[str, object] = ConcurrentStableDict({"ran": False})
     if not skip_tests:
         code, out = run(
-            ConcurrentStableList(["uv", "run", "pytest", "-q", "--cov=app", "--cov-branch", "--cov-fail-under=70"]),
+            ConcurrentStableList(["uv", "run", "pytest", "-q", "--cov=app", "--cov-branch", "--cov-fail-under=100"]),
             cwd=backend,
             timeout=900,
         )
@@ -242,6 +242,7 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
     else:
         print(f"  降级：{defects['reason']}")
 
+    # 覆盖率门禁口径（唯一权威）见《AI开发规范》「覆盖率要求」节。
     print("\n[2/3] 覆盖率（后端行 / 分支；前端行 / 分支）")
     backend = coverage["backend"]
     if backend.get("ran"):
@@ -251,7 +252,7 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
             f"（用例 {backend.get('passed')} passed / "
             f"{backend.get('skipped')} skipped / {backend.get('failed')} failed，"
             f"{backend.get('duration_s')}s）"
-            f" → 门禁 ≥ 70%：{'达标' if (backend.get('lines_pct') or 0) >= 70 else '不达标'}"
+            f" → 门禁：{'达标' if (backend.get('lines_pct') or 0) >= 100 else '不达标'}"
         )
     else:
         print("  后端：跳过测试执行（--skip-tests），无本次覆盖率")
@@ -260,7 +261,7 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
         print(
             f"  {name}：行 {pct}%、分支 {data.get('coverage_branches_pct')}%"
             f"（产物日期 {data.get('coverage_file_mtime')}）"
-            f" → 门禁 ≥ 70%：{'达标' if (pct or 0) >= 70 else '待确认'}"
+            f" → 门禁：{'达标' if (pct or 0) >= 100 else '待确认'}"
         )
 
     print("\n[3/3] 用例执行统计")

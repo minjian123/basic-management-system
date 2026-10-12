@@ -15,7 +15,7 @@
 | `tools/dev/` | **本机裸跑全套**（`本地全套.sh`：四服务起停 / seed / status / logs / unlock）与宿主端口清理 |
 | `tools/deps/` | 依赖外置维护（`外置依赖.sh` / `还原依赖.sh` / `重装依赖.sh`） |
 | `tools/preflight/` | 推送前本地预检（`check-preflight.py`；`--fast` 秒级只跑 CI 配置 / 静态 / 基座与边界） |
-| `tools/base-check/` | 基座与边界护栏：`check-base.py`、`check-backend-base.py`、`check-service-boundaries.py`、`check-bare-collections.py`、`check-docs-scope.py`、`check-coverage-threshold.py`、`check-prototype-review.py`、`check-env-example.py`、`check-links.py`（链接自洽，**本地手工跑**，不挂 CI） |
+| `tools/base-check/` | 基座与边界护栏：`check-base.py`、`check-backend-base.py`、`check-service-boundaries.py`、`check-bare-collections.py`、`check-docs-scope.py`、`check-prototype-review.py`、`check-env-example.py`、`check-links.py`（链接自洽，**本地手工跑**，不挂 CI） |
 | `tools/check-docs/` | 项目文档状态一致性核对（`check-status.py`：需求 / 任务 / 计划三处，同挂 `base-integrity`） |
 | `tools/governance/` | 治理脚本（`collect_metrics.py` 阶段度量 + 用例统计、`review_stage.py` 阶段末复盘清单、`boundary_metrics.py` 越界 / 跨库 / 例外计数） |
 | `tools/deploy/` | 服务编排与发布部署（`release.py`：bootstrap / deploy / rollback，在部署机执行） |
