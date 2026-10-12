@@ -362,6 +362,13 @@ class PluginRegistry(BaseFrameworkObject):
             return self.build()
         return self._plugins
 
+    def reset(self) -> None:
+        """复位构建态（测试隔离用）：解除「构建后只读」冻结，保留候选与显式登记。
+
+        仅置回未构建态；实例缓存由下一次 `build()` 统一清理，故复位后重新构建得到等价快照。
+        """
+        self._plugins = None
+
 
 _DEFAULT_REGISTRY = PluginRegistry()
 """进程级默认插件注册表（`BasePluggable.__init_subclass__` 候选汇入）。"""

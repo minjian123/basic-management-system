@@ -112,3 +112,19 @@ def reset_request_context() -> Iterator[None]:
     current_tenant.set(None)
     current_tenant_context_var.set(None)
     current_user_id.set(None)
+
+
+@pytest.fixture(autouse=True)
+def reset_plugin_registry() -> Iterator[None]:
+    """用例结束后解除插件注册表冻结，防跨用例顺序敏感。
+
+    插件注册表是进程级单例，首次装配即「构建并冻结（运行期只读）」且进程内不再解冻；不复位则
+    先装配的用例会把注册表冻死，后续用例的服务应用构建因「禁止再登记」而失败。
+
+    Yields:
+        None: 用例运行期。
+    """
+    yield
+    from bms_core.core.plugin import default_plugin_registry
+
+    default_plugin_registry().reset()
