@@ -102,3 +102,46 @@ async def test_unavailable_fails_closed() -> None:
         await store.load("bms:global:idem:k")
     with pytest.raises(RedisUnavailableError):
         await store.save("bms:global:idem:k", {"ok": True})
+
+
+class _UnavailableClient:
+    """已判定不可用的客户端替身：直接抛 `RedisUnavailableError`（验证直通不重复包装）。"""
+
+    async def set(self, *args: object, **kwargs: object) -> None:
+        """直接抛 `RedisUnavailableError`。"""
+        from bms_core.core.exceptions import RedisUnavailableError
+
+        raise RedisUnavailableError("上游已判定不可用")
+
+    async def get(self, *args: object, **kwargs: object) -> None:
+        """直接抛 `RedisUnavailableError`。"""
+        from bms_core.core.exceptions import RedisUnavailableError
+
+        raise RedisUnavailableError("上游已判定不可用")
+
+
+@pytest.mark.kiwi_id(2173)
+async def test_store_lazily_uses_shared_client() -> None:
+    """未注入客户端：惰性取进程共享客户端（同一实例复用，不各自建连）。"""
+    store = RedisIdempotencyStore(_REDIS_URL)
+
+    assert store.client is store.client
+    key = build_idempotency_key(key="lazy-1", tenant="t1")
+    assert await store.begin(key) is True
+    await store.save(key, {"code": 0})
+    assert await store.load(key) == {"code": 0}
+
+
+@pytest.mark.kiwi_id(2173)
+async def test_already_unavailable_error_passes_through() -> None:
+    """客户端已抛 `RedisUnavailableError`：原样直通（不重复包装为新的错误对象）。"""
+    from bms_core.core.exceptions import RedisUnavailableError
+
+    store = RedisIdempotencyStore(_REDIS_URL, client=cast("Redis", _UnavailableClient()))
+
+    with pytest.raises(RedisUnavailableError, match="上游已判定不可用"):
+        await store.begin("bms:global:idem:k")
+    with pytest.raises(RedisUnavailableError, match="上游已判定不可用"):
+        await store.load("bms:global:idem:k")
+    with pytest.raises(RedisUnavailableError, match="上游已判定不可用"):
+        await store.save("bms:global:idem:k", {"ok": True})

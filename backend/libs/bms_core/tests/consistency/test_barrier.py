@@ -136,3 +136,65 @@ async def test_redis_unavailable_fails_closed() -> None:
         await barrier.mark_applied(scope="perm", version=1, tenant="t1")
     with pytest.raises(RedisUnavailableError):
         await barrier.applied_version(scope="perm", tenant="t1")
+
+
+class _AlreadyUnavailableClient:
+    """已判定不可用的客户端替身：直接抛 `RedisUnavailableError`（验证直通不重复包装）。"""
+
+    async def get(self, *args: object, **kwargs: object) -> None:
+        """直接抛 `RedisUnavailableError`。"""
+        from bms_core.core.exceptions import RedisUnavailableError
+
+        raise RedisUnavailableError("上游已判定不可用")
+
+    async def eval(self, *args: object, **kwargs: object) -> None:
+        """直接抛 `RedisUnavailableError`。"""
+        from bms_core.core.exceptions import RedisUnavailableError
+
+        raise RedisUnavailableError("上游已判定不可用")
+
+
+class _RawValueClient:
+    """返回固定原始值的客户端替身（验证版本号解析兜底）。"""
+
+    def __init__(self, value: object) -> None:
+        """初始化。
+
+        Args:
+            value: `get` 返回的原始值。
+        """
+        self._value = value
+
+    async def get(self, *args: object, **kwargs: object) -> object:
+        """返回固定值。"""
+        return self._value
+
+
+@pytest.mark.kiwi_id(2246)
+async def test_redis_client_lazily_uses_shared_client() -> None:
+    """未注入客户端：惰性取进程共享客户端（同一实例复用，不各自建连）。"""
+    barrier = RedisConsistencyBarrier(_REDIS_URL)
+
+    assert barrier.client is barrier.client
+    assert await barrier.applied_version(scope="lazy", tenant="t1") == 0
+
+
+@pytest.mark.kiwi_id(2246)
+async def test_redis_already_unavailable_error_passes_through() -> None:
+    """客户端已抛 `RedisUnavailableError`：原样直通（不重复包装为新的错误对象）。"""
+    from bms_core.core.exceptions import RedisUnavailableError
+
+    barrier = RedisConsistencyBarrier(_REDIS_URL, client=cast("Redis", _AlreadyUnavailableClient()))
+
+    with pytest.raises(RedisUnavailableError, match="上游已判定不可用"):
+        await barrier.applied_version(scope="perm", tenant="t1")
+    with pytest.raises(RedisUnavailableError, match="上游已判定不可用"):
+        await barrier.mark_applied(scope="perm", version=1, tenant="t1")
+
+
+@pytest.mark.kiwi_id(2246)
+async def test_redis_version_parsing_falls_back_to_zero() -> None:
+    """版本号解析兜底：脏值（非数字 / 非标量）按「无记录」处理，不抛错。"""
+    for raw in ("not-a-number", ["x"]):
+        barrier = RedisConsistencyBarrier(_REDIS_URL, client=cast("Redis", _RawValueClient(raw)))
+        assert await barrier.applied_version(scope="perm", tenant="t1") == 0

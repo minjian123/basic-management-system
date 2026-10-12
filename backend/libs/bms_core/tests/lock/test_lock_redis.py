@@ -58,3 +58,72 @@ async def test_redis_lock_fails_closed() -> None:
         await lock.release(key, "token")
     with pytest.raises(RedisUnavailableError):
         await lock.extend(key, "token", ttl=5)
+
+
+class _UnavailableClient:
+    """已判定不可用的客户端替身：直接抛 `RedisUnavailableError`（验证直通不重复包装）。"""
+
+    async def set(self, *args: object, **kwargs: object) -> None:
+        """直接抛 `RedisUnavailableError`。"""
+        from bms_core.core.exceptions import RedisUnavailableError
+
+        raise RedisUnavailableError("上游已判定不可用")
+
+    async def eval(self, *args: object, **kwargs: object) -> None:
+        """直接抛 `RedisUnavailableError`。"""
+        from bms_core.core.exceptions import RedisUnavailableError
+
+        raise RedisUnavailableError("上游已判定不可用")
+
+
+@pytest.mark.kiwi_id(2198)
+async def test_redis_lock_lazily_uses_shared_client() -> None:
+    """未注入客户端：惰性取进程共享客户端（同一实例复用，不各自建连）。"""
+    lock = RedisDistributedLock()
+    key = build_lock_key(tenant="lazy", resource="jit")
+
+    assert lock.client is lock.client
+    token = await lock.acquire(key, ttl=30)
+    assert token is not None
+    assert await lock.release(key, token) is True
+
+
+@pytest.mark.kiwi_id(2198)
+async def test_redis_lock_already_unavailable_passes_through() -> None:
+    """客户端已抛 `RedisUnavailableError`：原样直通（不重复包装）。"""
+    from bms_core.core.exceptions import RedisUnavailableError
+
+    lock = RedisDistributedLock(client=cast("Redis", cast("object", _UnavailableClient())))
+    key = build_lock_key(tenant="demo", resource="jit")
+
+    with pytest.raises(RedisUnavailableError, match="上游已判定不可用"):
+        await lock.acquire(key)
+    with pytest.raises(RedisUnavailableError, match="上游已判定不可用"):
+        await lock.release(key, "token")
+    with pytest.raises(RedisUnavailableError, match="上游已判定不可用"):
+        await lock.extend(key, "token", ttl=5)
+
+
+@pytest.mark.kiwi_id(2198)
+async def test_redis_lock_degraded_flag_skips_repeat_warning() -> None:
+    """已置降级标记后再次失败：不重复记警告（标记已在首次失败时置位）。"""
+    from bms_core.core.exceptions import RedisUnavailableError
+
+    lock = RedisDistributedLock(client=cast("Redis", cast("object", _BrokenClient())))
+    key = build_lock_key(tenant="demo", resource="jit")
+
+    with pytest.raises(RedisUnavailableError):
+        await lock.acquire(key)
+    assert lock._degraded is True  # pyright: ignore[reportPrivateUsage]
+
+    with pytest.raises(RedisUnavailableError):
+        await lock.acquire(key)
+
+
+@pytest.mark.kiwi_id(2198)
+async def test_redis_lock_aclose_without_client_is_noop() -> None:
+    """未取用客户端即释放：空操作（不建连、不抛错），可重复调用。"""
+    lock = RedisDistributedLock()
+
+    await lock.aclose()
+    await lock.aclose()
