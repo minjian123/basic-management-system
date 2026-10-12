@@ -116,3 +116,15 @@ async def test_lock_endpoints_reject_invalid_token(client: AsyncClient, service_
     assert denied.status_code == 401
 
     await engine.dispose()
+
+
+@pytest.mark.kiwi_id(2211)
+async def test_list_locks_empty_skips_user_batch(client: AsyncClient, service_app: FastAPI, tmp_path: Path) -> None:
+    """空清单：无锁定记录时用户批量取数短路（空集合直接返回空映射，不查用户表）。"""
+    engine, _, _ = await _file_app(tmp_path, service_app)
+
+    listed = await client.get(API)
+    assert listed.status_code == 200
+    assert listed.json()["data"] == {"list": [], "total": 0, "page": 1, "size": 20}
+
+    await engine.dispose()

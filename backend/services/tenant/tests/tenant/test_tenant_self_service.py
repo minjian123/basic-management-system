@@ -102,6 +102,35 @@ class _RecordingIdempotency:
         self._payloads.set(key, payload)
 
 
+class _StaleIdempotency(_RecordingIdempotency):
+    """幂等基座测试替身：非首次且首次结果不可读（占位期并发穿透，应继续执行）。"""
+
+    async def begin(self, key: str, *, ttl: int | None = None) -> bool:
+        """登记幂等键并恒返回非首次。
+
+        Args:
+            key: 幂等键。
+            ttl: 键有效期（替身忽略）。
+
+        Returns:
+            bool: 恒 False（非首次）。
+        """
+        await super().begin(key, ttl=ttl)
+        return False
+
+    async def load(self, key: str) -> IDEMPOTENCY_PAYLOAD_TYPE | None:
+        """取首次结果（恒不可读）。
+
+        Args:
+            key: 幂等键（忽略）。
+
+        Returns:
+            IDEMPOTENCY_PAYLOAD_TYPE | None: 恒 None。
+        """
+        del key
+        return None
+
+
 @pytest.mark.kiwi_id(891)
 def test_contract_inheritance_and_identity() -> None:
     """契约继承链与能力域标识（含真实实现继承位）。"""
@@ -358,6 +387,22 @@ async def test_switch_idempotency_reuses_first_result() -> None:
     assert first.json()["data"]["tenant_code"] == DEMO_CODE
     assert second.json()["data"] == first.json()["data"]
     assert double.keys == [f"bms:{DEMO_TENANT_ID}:idem:k-1", f"bms:{DEMO_TENANT_ID}:idem:k-1"]
+
+
+@pytest.mark.kiwi_id(891)
+@pytest.mark.kiwi_id(2218)
+async def test_switch_idempotency_without_cached_result_executes() -> None:
+    """切换：幂等键非首次但首次结果不可读时继续执行（并发穿透不阻断）。"""
+    app = ApplicationFactory().create(None)
+    stale = _StaleIdempotency()
+    app.dependency_overrides[get_idempotency_store] = lambda: stale
+    async with lifespan(app), AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        client.headers.update(auth_headers())
+        await client.get(f"{API}/mine")  # 自愈：建立自有租户关系
+        resp = await client.post(f"{API}/switch", json={"code": DEMO_CODE}, headers={"Idempotency-Key": "k-9"})
+
+    assert resp.json()["data"]["tenant_code"] == DEMO_CODE
+    assert stale.keys == [f"bms:{DEMO_TENANT_ID}:idem:k-9"]
 
 
 @pytest.mark.kiwi_id(891)

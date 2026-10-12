@@ -415,3 +415,20 @@ async def test_icon_update_and_delete_idempotency_reuse() -> None:
         f"bms:{DEMO_TENANT_ID}:idem:k-4",
         f"bms:{DEMO_TENANT_ID}:idem:k-4",
     ]
+
+
+@pytest.mark.kiwi_id(927)
+@pytest.mark.kiwi_id(2218)
+async def test_icon_create_and_delete_stale_idempotency_executes() -> None:
+    """新增 / 删除：幂等键非首次但首次结果不可读时继续执行（并发穿透不阻断）。"""
+    app = ApplicationFactory().create(None)
+    stale = _StaleIdempotency()
+    app.dependency_overrides[get_idempotency_store] = lambda: stale
+    async with lifespan(app), AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        client.headers.update(auth_headers())
+        created = await client.post(API, json=_ICON_BODY, headers={"Idempotency-Key": "k-5"})
+        removed = await client.delete(f"{API}/purchase-order", headers={"Idempotency-Key": "k-6"})
+
+    assert created.json()["data"]["name"] == "采购订单"
+    assert removed.json()["data"] == {"deleted": True}
+    assert stale.keys == [f"bms:{DEMO_TENANT_ID}:idem:k-5", f"bms:{DEMO_TENANT_ID}:idem:k-6"]

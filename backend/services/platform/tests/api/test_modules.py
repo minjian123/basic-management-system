@@ -154,6 +154,17 @@ async def test_list_modules_empty_catalog(tmp_path: Path, monkeypatch: pytest.Mo
         assert missing.json()["code"] == 10002
 
 
+@pytest.mark.kiwi_id(2164)
+async def test_modules_snapshot_full_catalog(client: AsyncClient) -> None:
+    """快照：全量清单（不分页），字段与明细同口径、数量与清单总数一致。"""
+    snapshot = await client.get("/api/v1/modules/snapshot")
+    assert snapshot.status_code == 200
+    data = snapshot.json()["data"]
+    assert [item["module_key"] for item in data] == _EXPECTED_KEYS
+    assert set(data[0]) == set(ModuleResponse.model_fields)
+    assert data[0]["service_key"] == "platform"
+
+
 @pytest.mark.kiwi_id(28)
 async def test_startup_validation_aborts_on_conflict(monkeypatch: pytest.MonkeyPatch) -> None:
     """启动校验：冲突时中止启动（统一异常 `CatalogError`）。"""

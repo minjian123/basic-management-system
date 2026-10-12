@@ -62,6 +62,8 @@ def test_check_names_from_dependencies() -> None:
     assert database_check.name == "database"
     assert redis_check.name in DEPENDENCIES
     assert database_check.name in DEPENDENCIES
+    assert redis_check.describe() == "Redis 健康检查（redis）"
+    assert database_check.describe() == "数据库健康检查（database）"
 
 
 @pytest.mark.kiwi_id(65)

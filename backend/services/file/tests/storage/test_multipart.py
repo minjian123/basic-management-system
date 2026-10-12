@@ -415,3 +415,48 @@ async def test_dedup_route_maps_hit() -> None:
     assert data["content_type"] == "application/octet-stream"
     assert data["etag"] == "etag-hit"
     assert data["stored_at"].startswith("2026-09-20T08:00:00")
+
+
+class _StaleIdempotencyStore(_FakeIdempotencyStore):
+    """幂等存储替身：非首次且首次结果不可读（占位期并发穿透，应继续执行）。"""
+
+    async def begin(self, key: str, *, ttl: int = DEFAULT_IDEMPOTENCY_TTL) -> bool:
+        """登记幂等键并恒返回非首次。
+
+        Args:
+            key: 幂等键。
+            ttl: 键有效期（忽略）。
+
+        Returns:
+            bool: 恒 False（非首次）。
+        """
+        await super().begin(key, ttl=ttl)
+        return False
+
+    async def load(self, key: str) -> IDEMPOTENCY_PAYLOAD_TYPE | None:
+        """取首次结果（恒不可读）。
+
+        Args:
+            key: 幂等键（忽略）。
+
+        Returns:
+            IDEMPOTENCY_PAYLOAD_TYPE | None: 恒 None。
+        """
+        del key
+        return None
+
+
+@pytest.mark.kiwi_id(845)
+async def test_initiate_idempotency_without_cached_result_executes() -> None:
+    """初始化：幂等键非首次但首次结果不可读时继续执行（并发穿透不阻断）。"""
+    store = _StaleIdempotencyStore()
+    app = ApplicationFactory().create(None)
+    app.dependency_overrides[get_idempotency_store] = lambda: store
+    body = {"key": "files/b.bin", "size": 1024, "sha256": "b" * 64}
+    async with lifespan(app), AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        client.headers.update(auth_headers())
+        resp = await client.post(f"{API}/uploads", json=body, headers={IDEMPOTENCY_HEADER: "case-stale"})
+
+    assert resp.status_code == 200
+    assert resp.json()["data"]["key"] == "files/b.bin"
+    assert store.begun == [build_idempotency_key(key="case-stale")]

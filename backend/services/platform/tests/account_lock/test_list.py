@@ -161,3 +161,28 @@ async def test_detail_includes_unlocked_and_missing() -> None:
         await service.detail(9999)
     assert excinfo.value.code == 30007
     await engine.dispose()
+
+
+@pytest.mark.kiwi_id(2211)
+async def test_get_open_by_user_without_lock_type() -> None:
+    """仓储：`lock_type` 缺省（不过滤类型）取最近一条未解锁记录；带类型时按类型过滤。"""
+    session, engine = await _session()
+    active_fail_id, _, active_inactive_id, _ = await _seed(session)
+    users = UserRepository(session)
+    u1 = await users.get_by_username("u1")
+    u2 = await users.get_by_username("u2")
+    assert u1 is not None and u2 is not None
+    locks = AccountLockRepository(session)
+
+    # u1：生效 fail_limit（-5 分钟）+ 已解锁 manual → 缺省类型取生效那条
+    any_open = await locks.get_open_by_user(u1.id)
+    assert any_open is not None and any_open.id == active_fail_id
+
+    # u2：生效 inactive（-200 天）+ 已到期未闭锁 fail_limit（-1 天）→ 取 locked_at 最新
+    newest = await locks.get_open_by_user(u2.id)
+    assert newest is not None and newest.unlock_at is None and newest.id != active_inactive_id
+
+    typed = await locks.get_open_by_user(u2.id, lock_type=LOCK_TYPE_INACTIVE)
+    assert typed is not None and typed.id == active_inactive_id
+    assert await locks.get_open_by_user(999999) is None
+    await engine.dispose()

@@ -110,6 +110,19 @@ async def test_static_provider_form_filter_and_empty_roles(session: AsyncSession
 
 
 @pytest.mark.kiwi_id(2269)
+async def test_static_provider_skips_unresolvable_field_key(session: AsyncSession) -> None:
+    """字段键缺失：收窄项指向未登记字段（`sys_field` 无此主键）时跳过，不进结果。"""
+    await _seed(session)
+    session.add(SysRoleField(role_id=12, form_id=_FORM_ID, field_id=999999, visible=False, editable=False))
+    await session.commit()
+
+    provider = StaticFieldPermissionProvider(session, session)
+    roles: ConcurrentStableSet[int] = ConcurrentStableSet()
+    roles.add(12)
+    assert list(await provider.resolve(role_ids=roles, form_ids=ConcurrentStableSet[int]())) == []
+
+
+@pytest.mark.kiwi_id(2269)
 async def test_field_provider_factory_registry_supports_override(session: AsyncSession) -> None:
     """工厂注册表：登记后可按会话构造，末位登记生效（后代档位覆盖口径）。"""
     reset_field_permission_provider_factories()

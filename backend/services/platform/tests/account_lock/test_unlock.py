@@ -108,6 +108,21 @@ async def test_unlock_repeat_and_missing_raise_30007() -> None:
 
 
 @pytest.mark.kiwi_id(2211)
+async def test_unlock_skips_missing_account() -> None:
+    """目标账号已不存在（历史脏数据）：只闭锁记录、跳过账号状态写回，不抛错。"""
+    session, engine = await _memory_session()
+    lock = await AccountLockRepository(session).create(
+        user_id=999999, lock_type=LOCK_TYPE_MANUAL, reason="r", locked_at=_LOCKED_AT
+    )
+    await session.commit()
+
+    unlocked = await _service(session).unlock(lock.id, actor=3, now=datetime(2026, 10, 14, 13, 0, 0))
+    assert unlocked.unlock_at == datetime(2026, 10, 14, 13, 0, 0)
+    assert unlocked.unlock_mode == UNLOCK_MODE_MANUAL and unlocked.unlock_by == 3
+    await engine.dispose()
+
+
+@pytest.mark.kiwi_id(2211)
 async def test_unlock_concurrent_optimistic_conflict(tmp_path: Path) -> None:
     """并发解锁：后到者乐观锁冲突 → `ConcurrentConflictError`（10004）。"""
     session_a, session_b, engine = await _file_sessions(tmp_path)

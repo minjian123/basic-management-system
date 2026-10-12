@@ -487,6 +487,25 @@ async def test_batch_idempotency_without_cached_result_executes() -> None:
 
 @pytest.mark.kiwi_id(906)
 @pytest.mark.kiwi_id(2218)
+async def test_export_idempotency_without_cached_result_executes() -> None:
+    """导出：幂等键非首次但首次结果不可读时继续执行（并发穿透不阻断）。"""
+    app = ApplicationFactory().create(None)
+    stale = _StaleIdempotency()
+    app.dependency_overrides[get_idempotency_store] = lambda: stale
+    async with lifespan(app), AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        client.headers.update(auth_headers())
+        resp = await client.post(
+            f"{API}/exports",
+            json={"template_key": "order", "document": {"biz_key": "SO-9"}},
+            headers={"Idempotency-Key": "k-4"},
+        )
+
+    assert resp.json()["data"]["file_name"] == "order.pdf"
+    assert stale.keys == [f"bms:{DEMO_TENANT_ID}:idem:k-4"]
+
+
+@pytest.mark.kiwi_id(906)
+@pytest.mark.kiwi_id(2218)
 async def test_batch_idempotency_reuses_first_result() -> None:
     """批量按幂等键复用首次结果（作用域绑当前租户位）。"""
     app = ApplicationFactory().create(None)

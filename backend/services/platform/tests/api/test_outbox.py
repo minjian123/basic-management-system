@@ -1,5 +1,6 @@
 """死信看板接口测试（Kiwi 2173）：列表分页 / 筛选 / 详情 / 重投 / 忽略 / 404 / 状态冲突。"""
 
+from datetime import datetime
 from typing import cast
 
 import pytest
@@ -8,7 +9,7 @@ from httpx import AsyncClient
 from sqlalchemy import Table, select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import get_settings
 from bms_core.events.base import EventEnvelope
 from bms_core.models.base import Base
@@ -119,3 +120,54 @@ async def test_dead_letter_board_flow(client: AsyncClient) -> None:
 
     missing_action = await client.post("/api/v1/outbox/dead-letters/999999999/ignore")
     assert missing_action.status_code == 404
+
+
+async def _seed_consumer_dead_letter() -> int:
+    """直插一条消费来源死信（`source=consumer`，不经投递器）。
+
+    Returns:
+        int: 死信记录主键。
+    """
+    url = get_settings().database.tenants.resolved_url()
+    engine = create_async_engine(url)
+    maker = async_sessionmaker(engine, expire_on_commit=False)
+    async with maker() as session, session.begin():
+        row = SysEventDeadLetter(
+            source="consumer",
+            event_id="evt-consumer-1",
+            event_type="order.created",
+            consumer="billing",
+            payload=ConcurrentStableDict(),
+            error_msg="consume boom",
+            retry_count=3,
+            status=DEAD_LETTER_STATUS_PENDING,
+            occurred_at=datetime(2026, 10, 1, 0, 0, 0),
+        )
+        session.add(row)
+        await session.flush()
+        dead_id = row.id
+    await engine.dispose()
+    return dead_id
+
+
+@pytest.mark.kiwi_id(2173)
+async def test_replay_missing_and_consumer_source(client: AsyncClient) -> None:
+    """重投：死信不存在 → 404 / 10002；`source=consumer` 只改处置状态、不动发件箱。"""
+    missing = await client.post("/api/v1/outbox/dead-letters/999999999/replay")
+    assert missing.status_code == 404
+    assert missing.json()["code"] == 10002
+
+    dead_id = await _seed_consumer_dead_letter()
+    replayed = await client.post(f"/api/v1/outbox/dead-letters/{dead_id}/replay")
+    assert replayed.status_code == 200
+    assert replayed.json()["data"]["status"] == "replayed"
+    assert replayed.json()["data"]["source"] == "consumer"
+
+    # 消费来源无对应发件箱记录：账本保持原状（不新增 / 不重置）
+    backend_url = get_settings().database.tenants.resolved_url()
+    engine = create_async_engine(backend_url)
+    maker = async_sessionmaker(engine, expire_on_commit=False)
+    async with maker() as session:
+        rows = (await session.execute(select(SysOutbox))).scalars().all()
+    await engine.dispose()
+    assert rows == []
