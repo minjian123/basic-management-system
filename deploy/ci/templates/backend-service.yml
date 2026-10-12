@@ -42,6 +42,8 @@ service-test:
   script:
     - test -n "$SERVICE" || { echo "缺少 SERVICE 变量（须由父流水线 trigger 传入）"; exit 1; }
     - test -d "backend/services/$SERVICE" || { echo "服务目录不存在：backend/services/$SERVICE"; exit 1; }
+    # 测试库隔离（2026-10-12）：runner 工作区复用下清空 SQLite 测试库目录，防旧 schema 串用（同 backend-test 口径）
+    - rm -rf "$CI_PROJECT_DIR/database/bms/test"
     - cd backend
     - uv sync --frozen
     - cd "services/$SERVICE"

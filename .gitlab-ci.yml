@@ -380,6 +380,10 @@ backend-test:
       exists:
         - backend/pyproject.toml
   script:
+    # 测试库隔离（2026-10-12）：runner 工作区复用（`/builds` 跨作业 / 跨流水线保留），
+    # `database/` 为 gitignore 的 SQLite 测试库（不入库、git 清理不覆盖），旧库 schema 会与
+    # 当前模型 / 迁移不一致（表现为「no such column」→ 10006 只读降级）⇒ 每次作业先清空测试库目录。
+    - rm -rf "$CI_PROJECT_DIR/database/bms/test"
     - cd backend
     - uv sync --frozen
     - uv run pytest --cov=bms_core --cov=bms_platform --cov=bms_txn --cov=bms_txn --cov=bms_identity --cov=bms_tenant --cov=bms_file --cov=bms_notification --cov=bms_search --cov=bms_ai --cov=bms_report --cov-branch --cov-report=term --cov-report=json:coverage.json --cov-fail-under=70
