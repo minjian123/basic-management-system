@@ -75,7 +75,7 @@
 
 ## 4. 覆盖率 <a id="coverage"></a>
 
-**定向验证 + 既有门禁**（口径见详细设计 §5）：本轮有运行时代码改动（`core/concurrent.py` / `schemas/base.py` / `core/serialization.py` / `core/base.py`）与护栏脚本改动，按《[测试规范](../../../../../../规范/测试规范.md)》「只跑受变更影响的部分」跑定向 `pytest`（`bms_core` 全量）与后端 `pyright` / `ruff`；护栏脚本自身不在 `ruff` / `pyright` 覆盖范围，以 `--self-test` 矩阵保障；`bms_core` 覆盖率门槛（≥70%）随既有门禁执行，全量与集成验证交 CI 按需触发。
+**定向验证 + 既有门禁**（口径见详细设计 §5）：本轮有运行时代码改动（`core/concurrent.py` / `schemas/base.py` / `core/serialization.py` / `core/base.py`）与护栏脚本改动，按《[测试规范](../../../../../../规范/测试规范.md)》「只跑受变更影响的部分」跑定向 `pytest`（`bms_core` 全量）与后端 `pyright` / `ruff`；护栏脚本自身不在 `ruff` / `pyright` 覆盖范围，以 `--self-test` 矩阵保障；`bms_core` 覆盖率门槛随既有门禁执行，全量与集成验证交 CI 按需触发。
 
 ## 5. 验证命令与结果 <a id="verify"></a>
 

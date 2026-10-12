@@ -89,7 +89,7 @@ sh -n deploy/ci/build-base.sh   # 另以 YAML 解析校验 .gitlab-ci.yml 新增
 
 | 侧 | 语句 | 分支 | 函数 | 行 | 口径 |
 | --- | --- | --- | --- | --- | --- |
-| 宿主（`apps/desktop` `test:cov`） | 88.47% | 80.19% | 81.69% | 89.07% | 高于《测试规范》前端 70% 阈值；`src/module/` 语句与行 **100%**（`federation.ts` 四维 100%；`host.ts` 分支 81.81%，余为防御性回退分支） |
+| 宿主（`apps/desktop` `test:cov`） | 88.47% | 80.19% | 81.69% | 89.07% | 高于《测试规范》前端 阈值；`src/module/` 语句与行 **100%**（`federation.ts` 四维 100%；`host.ts` 分支 81.81%，余为防御性回退分支） |
 | 核心（`packages/core`） | — | — | — | — | 核心包门禁为 `core:check`（typecheck / lint / test），不含覆盖率采集（包内未安装 coverage 依赖），与既有口径一致 |
 | 模块工程（`modules/demo`） | — | — | — | — | 模块侧门禁为 `typecheck` / `lint` / `test` + 构建产物断言脚本（`budget`）；未配覆盖率采集，用例覆盖模块定义契约与产物形态（覆盖率门禁如需，随 `04_01` 首个样例统一口径） |
 

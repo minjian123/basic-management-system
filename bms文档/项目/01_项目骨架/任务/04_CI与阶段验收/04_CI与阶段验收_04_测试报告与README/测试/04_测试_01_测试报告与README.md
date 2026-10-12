@@ -35,7 +35,7 @@ cd <bms 根>
 python3 scripts/tools/governance/collect_metrics.py --with-frontend     # 三项度量 + 用例统计
 python3 scripts/tools/governance/review_stage.py                        # 复盘清单 8 项
 python3 scripts/tools/check-docs/check-status.py && python3 scripts/tools/base-check/check-base.py
-cd backend && uv run pytest -q --cov=app --cov-branch --cov-fail-under=70
+cd backend && uv run pytest -q --cov=app --cov-branch --cov-fail-under=100
 ```
 
 ## 3. 执行记录与结果 <a id="run"></a>
@@ -49,9 +49,9 @@ $ python3 scripts/tools/governance/collect_metrics.py --with-frontend --out /tmp
   总数 1 / 打开 0 / 已闭环 1 / 自动缺陷 1 / 手工缺陷 0 / P0-P1 未清零：0
     #1 [closed] [自动缺陷] main pipeline failure @ 7ef8a345 | ['defect-auto']
 [3/4] 覆盖率（后端行 / 分支；前端行 / 分支）
-  后端：行/语句 99.75%、分支覆盖 已启用（用例 417 passed / 7 skipped / 0 failed，1.59s） → 门禁 ≥ 70%：达标
-  apps/desktop：行 100%、分支 100%（产物日期 2026-09-15） → 门禁 ≥ 70%：达标
-  frontend-mobile：行 100%、分支 100%（产物日期 2026-09-15） → 门禁 ≥ 70%：达标
+  后端：行/语句 99.75%、分支覆盖 已启用（用例 417 passed / 7 skipped / 0 failed，1.59s） → 门禁：达标
+  apps/desktop：行 100%、分支 100%（产物日期 2026-09-15） → 门禁：达标
+  frontend-mobile：行 100%、分支 100%（产物日期 2026-09-15） → 门禁：达标
 [4/4] 用例执行统计
   apps/desktop：Test Files 4 passed / Tests 18 passed
   frontend-mobile：Test Files 4 passed / Tests 18 passed
@@ -77,9 +77,9 @@ $ python3 scripts/tools/base-check/check-base.py
 5. 跨文档编号引用：0 处
 [base-integrity] 通过
 
-$ cd backend && uv run pytest -q --cov=app --cov-branch --cov-fail-under=70
+$ cd backend && uv run pytest -q --cov=app --cov-branch --cov-fail-under=100
 417 passed, 7 skipped in 1.59s
-Required test coverage of 70% reached. Total coverage: 99.75%
+Total coverage: 99.75%
 ```
 
 **结果汇总**：报告与 README 交付物齐备，脚本与自检全绿，门禁第 10 行转「达标」、**阶段一 54/54 闭环**；收口推送流水线 **177**（`70d6434`，12 job）全绿；本任务未产生缺陷 Issue。
@@ -90,14 +90,14 @@ Required test coverage of 70% reached. Total coverage: 99.75%
 | --- | --- | --- | --- |
 | 1 | 采集脚本首次运行报 `ValueError: too many values to unpack` | 前端分支误写为 `strip_ansi(run(...)[1])` | 改为先取 `(code, raw)` 再 `strip_ansi(raw)`；复跑通过 |
 | 2 | 复盘清单初次 6/8 | 门禁表结论带括注未识别、README 期望串写错（后端不应含 `pnpm run`） | 解析取前导结论词、期望串改正；复跑 8/8（实施记录 §4 第 3 / 4 项） |
-| 3 | 报告数字一度只能取到取整 `99%` | `pytest -q --cov` 无 `--cov-fail-under` 时不打印精确汇总 | 采集命令补 `--cov-fail-under=70` 取 99.75%，并顺带校验门禁 |
+| 3 | 报告数字一度只能取到取整 `99%` | `pytest -q --cov` 无 `--cov-fail-under` 时不打印精确汇总 | 采集命令补 `--cov-fail-under=100` 取 99.75%，并顺带校验门禁 |
 
 ## 5. 覆盖率 <a id="coverage"></a>
 
 | 项 | 实测 | 门禁口径 | 结论 |
 | --- | --- | --- | --- |
-| 后端全量覆盖率 | **99.75%**（语句 3668 未覆盖 3；分支 392 未覆盖 7） | 整体 ≥ 70%（核心模块 ≥ 80% 待模块路径确定后接入） | 达标 |
-| 前端双端覆盖率 | apps/desktop / frontend-mobile 各 **100%**（行 / 分支 / 函数） | ≥ 70% | 达标 |
+| 后端全量覆盖率 | **99.75%**（语句 3668 未覆盖 3；分支 392 未覆盖 7） | 整体（核心模块覆盖率 待模块路径确定后接入） | 达标 |
+| 前端双端覆盖率 | apps/desktop / frontend-mobile 各 **100%**（行 / 分支 / 函数） | | 达标 |
 | 用例通过率 | 后端 417 passed / 7 skipped；前端各 18 用例（双端 4 文件） | 冒烟层全绿 | 达标 |
 
 > 数据同《[项目骨架阶段测试报告](../../../../01_测试报告_项目骨架.md)》§3；覆盖率只作本任务快照，阈值以《测试规范》§6 与流水线为准。

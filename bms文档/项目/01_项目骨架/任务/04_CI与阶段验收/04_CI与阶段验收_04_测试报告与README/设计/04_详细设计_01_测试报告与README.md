@@ -27,7 +27,7 @@
 | 阶段测试报告 | **不存在**；《文档首页》与《项目规划说明》已登记落点 `项目/01_项目骨架/01_测试报告_项目骨架.md` | 四章节 + 复盘 + 附录取证齐备，数据来自脚本采集 | 新增 |
 | 治理脚本 | `scripts/tools/governance/` **不存在**（现有：backup / base-check / bg / check-docs / defect / dsh / gitlab / graphify / reorder-* / vision / winrm / wol / workbuddy） | 落地 `collect_metrics.py`（三项度量 + 用例执行统计）与 `review_stage.py`（阶段末复盘清单） | 新增 |
 | 缺陷统计 | GitLab Issue 仅 1 条（准备期
-| 覆盖率数据 | 后端 `pytest` 417 passed / 7 skipped、覆盖率 99.75%（04-3 实测）；前端双端 Vitest v8 覆盖率已在 CI 跑（阈值 70%） | 报告以脚本采集（后端跑 pytest 取 TOTAL，前端读 coverage 产物） | 采集 |
+| 覆盖率数据 | 后端 `pytest` 417 passed / 7 skipped、覆盖率 99.75%（04-3 实测）；前端双端 Vitest v8 覆盖率已在 CI 跑 | 报告以脚本采集（后端跑 pytest 取 TOTAL，前端读 coverage 产物） | 采集 |
 | 根 README「项目状态」 | **过时**：写「阶段一收尾中：工程骨架 6/6、后端基座 5/5 已交付；后端基础能力 2/3（健康检查待执行）；CI 与阶段验收任务待推进」 | 改为阶段一收尾现状（54/54 与 阶段验收门禁结论） | 修改 |
 | 四份 README | 均含「项目简介 / 快速启动 / 目录结构 / 文档导航」；根 README 快速启动已是应用工厂命令；**文档导航缺阶段一需求 / 任务 / 计划 / 测试报告** | 全面同步（状态、快速启动含本地门禁命令、目录结构、导航四件套 + 报告） | 修改 |
 | 门禁第 10 行 | 「进行中（测试报告与 README 由 04-4 交付，完成即转达标）」 | 交付后转「达标」并补证据；阶段一 54/54 | 回写 |
@@ -71,7 +71,7 @@ bms文档/
 | --- | --- | --- |
 | 1 | 用例执行统计 | `collect_metrics.py`：后端 pytest（passed / skipped / duration）、前端双端 Vitest 用例数、Playwright E2E（本阶段未启用，如实标注） |
 | 2 | 缺陷统计 | `collect_metrics.py` 经 GitLab API 取 Issue（本阶段 0 条）；附「当场修复未建单」2 项清单与缺陷链路现状 |
-| 3 | 覆盖率 | 后端行 / 分支覆盖（脚本跑 pytest-cov 取 TOTAL）vs 门禁（整体 ≥ 70%、核心 ≥ 80% 待模块路径确定）；前端双端 Vitest coverage vs 70% |
+| 3 | 覆盖率 | 后端行 / 分支覆盖（脚本跑 pytest-cov 取 TOTAL）vs 门禁（整体 待模块路径确定）；前端双端 Vitest coverage vs |
 | 4 | 风险与遗留项 | 计划 §3.1「后续阶段待办」逐条（跨阶段基座回补窗口、机制类占位实现、三库真库、Allure 接线、核心模块覆盖率、重验证层激活前置） |
 | 5 | 复盘与经验教训 | 本阶段测试与 CI 过程的问题与改进项（《测试规范》§12 要求）；素材来自各任务实施记录 §4 与本任务复盘 |
 | 附录 | 数据采集命令与原始输出 | `collect_metrics.py` / `review_stage.py` / 本地门禁 / 流水线的命令与输出摘要（可复现取证） |
@@ -181,7 +181,7 @@ cd <bms 根>
 python3 scripts/tools/governance/collect_metrics.py --stage 01_项目骨架
 python3 scripts/tools/governance/review_stage.py --stage 01_项目骨架
 python3 scripts/tools/check-docs/check-status.py && python3 scripts/tools/base-check/check-base.py
-cd backend && uv run pytest -q --cov=app --cov-branch --cov-fail-under=70
+cd backend && uv run pytest -q --cov=app --cov-branch --cov-fail-under=100
 ```
 
 ## 10. 实施步骤 <a id="steps"></a>

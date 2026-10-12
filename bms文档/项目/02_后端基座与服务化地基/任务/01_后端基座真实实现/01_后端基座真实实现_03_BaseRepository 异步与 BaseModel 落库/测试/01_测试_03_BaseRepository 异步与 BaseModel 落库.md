@@ -73,7 +73,7 @@ $ python3 scripts/tools/base-check/check-links.py          # 断链 0 / 失效�
 
 ## 5. 覆盖率 <a id="coverage"></a>
 
-`uv run pytest --cov=app --cov-branch --cov-report=term`：**TOTAL 8937 语句，覆盖率 95%**（门禁阈值 70%，达标；任务级快照）。本任务新增 / 修改模块：`repositories/base_db_repository.py` 100%、`repositories/base_scoped_repository.py` 100%、`db/session.py` 100%、`models/base.py` 100%；dict / listing 迁移仅替换会话入口，覆盖率与既有基线持平（既有分支缺口非本任务引入）。
+`uv run pytest --cov=app --cov-branch --cov-report=term`：**TOTAL 8937 语句，覆盖率 95%**（门禁达标；任务级快照）。本任务新增 / 修改模块：`repositories/base_db_repository.py` 100%、`repositories/base_scoped_repository.py` 100%、`db/session.py` 100%、`models/base.py` 100%；dict / listing 迁移仅替换会话入口，覆盖率与既有基线持平（既有分支缺口非本任务引入）。
 
 ## 6. 偏差与遗留 <a id="deviations"></a>
 

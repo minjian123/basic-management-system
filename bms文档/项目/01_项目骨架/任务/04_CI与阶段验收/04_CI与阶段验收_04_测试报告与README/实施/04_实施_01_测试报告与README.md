@@ -37,7 +37,7 @@ flowchart LR
 ## 3. 实施过程 <a id="process"></a>
 
 1. **Kiwi 先登记**：经 mjbk 容器内 Django shell 登记本任务 1 条用例并取得编号 **69**（产品「BMS 基础管理系统」/ 分类「平台骨架」/ P2 / CONFIRMED / 标签「自动化」/ `is_automated=True`），题面含报告齐备、两脚本输出、复盘清单、门禁转达标与 54/54、README 一致五项断言。
-2. **治理脚本一（度量采集）**：新增 `scripts/tools/governance/collect_metrics.py`——① 阶段进度偏差（基线取计划「门禁对照」 日期、进度起点取「自 YYYY-MM-DD 起排」，偏差率＝偏差天数 / 进度窗口）；② 缺陷分布与收敛（GitLab API `state=all`，按 `defect-auto` 聚合，凭据取 `deploy/.env`、无凭据降级不报错）；③ 覆盖率（后端 `uv run pytest --cov=app --cov-branch --cov-fail-under=70` 取 `Total coverage` 精确值，前端读 `coverage-summary.json`，`--with-frontend` 可重跑）；④ 用例执行统计（pytest 摘要 + 双端 Vitest 摘要 + Playwright 未启用标注）。只读、默认不落中间产物（`--out` 可选）。
+2. **治理脚本一（度量采集）**：新增 `scripts/tools/governance/collect_metrics.py`——① 阶段进度偏差（基线取计划「门禁对照」 日期、进度起点取「自 YYYY-MM-DD 起排」，偏差率＝偏差天数 / 进度窗口）；② 缺陷分布与收敛（GitLab API `state=all`，按 `defect-auto` 聚合，凭据取 `deploy/.env`、无凭据降级不报错）；③ 覆盖率（后端 `uv run pytest --cov=app --cov-branch --cov-fail-under=100` 取 `Total coverage` 精确值，前端读 `coverage-summary.json`，`--with-frontend` 可重跑）；④ 用例执行统计（pytest 摘要 + 双端 Vitest 摘要 + Playwright 未启用标注）。只读、默认不落中间产物（`--out` 可选）。
 3. **治理脚本二（复盘清单）**：新增 `scripts/tools/governance/review_stage.py`——八项自动核对（三类文档一致 / 基座自检（subprocess 复用 `check-status.py`、`check-base.py`）/ 门禁表结论齐备 / 阶段残留为 0 / 遗留项登记 / 报告与 README 就位 / 记录齐备 / Kiwi 编号引用），逐项打印「通过 / 不通过 + 证据」，有不通过则退出码 1。
 4. **工具链登记**：`scripts/README.md` 新增 `tools/governance/` 行（与 `base-check/`、`check-docs/` 同构口径）。
 5. **数据采集**：`collect_metrics.py --with-frontend --out /tmp/bms_metrics.json` 产出——进度偏差 `-13 天（提前，92.9% 于 14 天窗口）`、缺陷 `总数 1 / 打开 0 / 已闭环 1（准备期 #1 自动缺陷）`、后端覆盖率 `99.75%（语句 3668 未覆盖 3、分支 392 未覆盖 7）`、前端双端 `100%`、用例 `后端 417 passed / 7 skipped；前端各 4 文件 / 18 用例`。
@@ -55,7 +55,7 @@ flowchart LR
 | # | 问题 / 现象 | 原因 | 处置与落点 |
 | --- | --- | --- | --- |
 | 1 | 前端用例统计解析为 `None` | Vitest 摘要带 ANSI 颜色转义（`Tests \x1b[22m \x1b[32m18 passed`） | 解析前 `strip_ansi()`；采集复跑得 `4 文件 / 18 用例`（设计 §5.2 口径不变） |
-| 2 | 后端覆盖率只取到取整 `99%` | `pytest -q --cov` 不带 `--cov-fail-under` 时不打印精确汇总行 | 采集命令补 `--cov-fail-under=70`，取 `Total coverage: 99.75%`（同时顺带校验门禁） |
+| 2 | 后端覆盖率只取到取整 `99%` | `pytest -q --cov` 不带 `--cov-fail-under` 时不打印精确汇总行 | 采集命令补 `--cov-fail-under=100`，取 `Total coverage: 99.75%`（同时顺带校验门禁） |
 | 3 | `review_stage.py` 门禁表只数到 7 行 | 结论列含括注（`达标（占位口径）`、`进行中（…）`）未落入取值集合 | 解析改为取 `（` 前的前导结论词；设计 §6.2 措辞同步为「结论允许带括注」 |
 | 4 | 复盘清单误报 `backend/README.md 缺 ['pnpm run']` | 校验期望串写错（后端工程无 pnpm） | 期望串改为 `uv run uvicorn` / `文档导航` / `check-status.py` |
 | 5 | 需求总览链接到测试报告断链（base-check 报） | `需求/00` 位于 `需求/` 下，指向阶段根的测试报告应为 `../01_测试报告_项目骨架.md` | 已修正；`check-base.py` 断链归零 |
@@ -70,7 +70,7 @@ flowchart LR
 | R1 | `apps/desktop/README.md` / `frontend-mobile/README.md` 指向《架构设计 · 前端架构》的链接编号错（写 `28_…`，实际为 `08_…`）；且 `check-base.py` 只扫 `bms文档/`，覆盖不到各 README | 历史断链（本次同步未察觉） | 两份 README 均改为 `08_架构设计_前端架构.md`；报告 §5 改进项登记「README 内链接需人工核对或扩展扫描范围」 |
 | R2 | 同一份报告中「373 项」与「374 项」并存，跨文档亦分裂（需求 04-3 注块 / 03 实施记录为 373，03 实施 §5 与测试记录为 374） | 计数未随记录落盘同步 | 统一口径「收口时 374 项（04-3 核对时 373 项）」；需求 04-3 注块与 03 实施记录 §4 已注明；报告 §5 改 374 |
 | R3 | 设计 §6.1 声明 `review_stage.py` 支持 `--strict`（实现无）；§5.1 称 `--out` 写 JSON/Markdown（实现仅 JSON）；§5.2 称按 `defect-auto` / `defect-manual` 聚合（实现仅前者） | 设计与实现不一致 | 设计 §6.1 去掉 `--strict`、§5.1 改为「写 JSON」；脚本补 `defect_manual` 计数字段并把 `p0_p1_open` 改为按 P0/P1 标签真实统计 |
-| R4 | 报告 §3 引「核心模块 ≥ 80%」指向计划 §3.1，但 §3.1 无该行 | 引用缺证 | 改指《项目骨架计划》§2 的 04_01 行「偏差与遗留」列（实际登记处） |
+| R4 | 报告 §3 引「核心模块覆盖率」指向计划 §3.1，但 §3.1 无该行 | 引用缺证 | 改指《项目骨架计划》§2 的 04_01 行「偏差与遗留」列（实际登记处） |
 | R5 | 报告「52 条」与复盘清单输出「53 行」并存 | 统计口径易误读 | 脚本排除表头行 → 输出「52 条」；报告 §4 标题补「共 52 条」 |
 | R6 | `scripts/README.md` 工具清单漏列 `reorder-stage/`、`workbuddy/` | 清单与磁盘不一致 | 已补两行（15 项与磁盘一致） |
 | R7 | `collect_metrics.py` 措辞「默认不落中间产物到仓库」偏宽（跑测试会生成 `.coverage` / `coverage/`） | 措辞与实现偏差 | docstring 明确「本地产物均已被 `.gitignore` 忽略」 |
@@ -91,7 +91,7 @@ flowchart LR
 | 报告齐备 | 《[项目骨架阶段测试报告](../../../../01_测试报告_项目骨架.md)》 | 四章节 + 复盘 + 附录；数字可追溯到附录命令输出 |
 | 门禁与状态收口 | 《需求总览》§4 第 10 行 / §3 总清单 | 第 10 行「达标」；**54/54 已完成** |
 | README 一致 | 四份 README 关键命令 | 根：应用工厂启动 / 门禁块 / 报告链接；三工程：dev 端口（5173 / 5174）、`test:cov`、阶段一导航 |
-| 本地门禁 | `ruff` / `format` / `pyright` / `pytest -q --cov=app --cov-branch --cov-fail-under=70` | 通过 / 218 已格式化 / 0 errors / 417 passed 7 skipped、覆盖率 99.75% |
+| 本地门禁 | `ruff` / `format` / `pyright` / `pytest -q --cov=app --cov-branch --cov-fail-under=100` | 通过 / 218 已格式化 / 0 errors / 417 passed 7 skipped、覆盖率 99.75% |
 | 提交与流水线 | git 历史 + GitLab 流水线 | `d9efad4` / `70d6434` 已推送；**流水线 177**（`70d6434`）**success，12 job**（含 `base-integrity` 文档状态核对） |
 
 ## 6. 偏差与遗留 <a id="deviations"></a>
@@ -99,7 +99,7 @@ flowchart LR
 - **设计偏差（1 处，已在设计 §14 登记）**：报告章节超需求字面的「四章节」——增「5. 复盘与经验教训」（《测试规范》§12 明文要求）与附录「数据采集命令与原始输出」（取证）；已在需求 04-4 注块说明。
 - **脚本口径细化（4 处，已回写设计 §5/§6）**：Vitest 输出需去 ANSI；后端覆盖率取精确值需带 `--cov-fail-under`；`review_stage.py` 门禁表结论允许括注；复盘清单待办条数排除表头行。
 - **交叉审核引入的修正（8 项，见 [§4](#issues)）**：README 链接编号（2 份）、计数口径统一（373/374）、设计与实现对齐（`--strict` / `--out` / 缺陷聚合）、报告引用缺证、工具链清单漏列、脚本措辞与 `p0_p1_open` 实现、实施信息表字段超规（保持通用写法）。
-- **遗留**：**无新增**。既有遗留（机制类真实实现、跨阶段基座回补、三库真库与达梦实测、Allure→Kiwi 接线、核心模块覆盖率 ≥ 80%、重验证层激活前置）沿用计划 §3.1 与阶段测试报告 §4 登记。
+- **遗留**：**无新增**。既有遗留（机制类真实实现、跨阶段基座回补、三库真库与达梦实测、Allure→Kiwi 接线、核心模块覆盖率、重验证层激活前置）沿用计划 §3.1 与阶段测试报告 §4 登记。
 - **提交**：脚本 + README 批次 `d9efad4`、文档收口批次 `70d6434`，已推送 main；因 `backend/README.md` 属 CI 触发路径（`backend/**/*`），收口推送触发**流水线 177（12 job，success）**，同时验证了「冒烟层 + 文档状态核对 + pyright / 模块清单」在收口态仍全绿。
 
 > 本文档依《文档生成规范》编写

@@ -80,7 +80,7 @@ uv run pytest --cov=app --cov-report=term-missing -q
 | `app/main.py` | 11 | 0 | 100% |
 | **合计** | **12** | **0** | **100%** |
 
-口径：本任务为任务级覆盖率快照；覆盖率门禁（核心 ≥ 80% / 整体 ≥ 70%）随 04-1 接入 CI，`pytest-cov` 机制已就位。
+口径：本任务为任务级覆盖率快照；覆盖率门禁（整体）随 04-1 接入 CI，`pytest-cov` 机制已就位。
 
 ## 6. 偏差与遗留 <a id="deviations"></a>
 

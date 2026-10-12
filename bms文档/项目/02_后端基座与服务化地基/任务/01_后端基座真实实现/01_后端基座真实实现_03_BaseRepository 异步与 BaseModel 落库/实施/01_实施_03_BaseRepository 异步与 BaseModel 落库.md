@@ -76,7 +76,7 @@ python3 scripts/tools/base-check/check-links.py
 | `BaseModel` 雪花 ID / 软删除 / 审计 / 乐观锁用例通过 | 仓储异步链路用例（ID / 审计字段 / 软删恢复 / 并发旧版本 409）+ 既有 Kiwi 30 同步用例 | 通过 |
 | 四库类型映射与复合唯一索引验证通过 | 四方言 DDL 编译断言 + SQLite 真库多 NULL 共存与同键复用 | 通过（三库真库实测归 01_05） |
 | `sys_module` 落库且种子正确 | 种子脚本幂等用例 + 开发平台库执行 | 通过（4 行，重复执行 0 行） |
-| `pytest` / `ruff` / `pyright` 全绿 | 门禁命令 | `ruff` / `pyright` 全绿；`pytest` 812 passed / 8 skipped，覆盖率 95%（门禁 ≥70%），本任务新增 / 修改模块 100% |
+| `pytest` / `ruff` / `pyright` 全绿 | 门禁命令 | `ruff` / `pyright` 全绿；`pytest` 812 passed / 8 skipped，覆盖率 95%（门禁），本任务新增 / 修改模块 100% |
 
 ## 6. 偏差与遗留 <a id="deviations"></a>
 

@@ -57,7 +57,7 @@ docker run --rm -p 8000:8000 bms-platform:dev        # 平台库需先迁移；�
 
 # 本地门禁（与 CI 同口径）
 uv run ruff check . && uv run ruff format --check . && uv run pyright
-uv run pytest -q --cov=bms_core --cov=bms_platform --cov=bms_identity --cov=bms_tenant --cov=bms_org --cov=bms_file --cov=bms_notification --cov=bms_search --cov=bms_ai --cov=bms_report --cov-branch --cov-fail-under=70   # 覆盖率门禁 ≥ 70%
+uv run pytest -q --cov=bms_core --cov=bms_platform --cov=bms_identity --cov=bms_tenant --cov=bms_org --cov=bms_file --cov=bms_notification --cov=bms_search --cov=bms_ai --cov=bms_report --cov-branch --cov-fail-under=100   # 覆盖率门禁（门槛与维度见 bms文档/规范/AI开发规范.md「覆盖率要求」节）
 uv run python -m ops.check_modules                            # 模块注册清单校验
 cd .. && python3 scripts/tools/base-check/check-base.py        # 基座自检（须在仓库根）
 python3 scripts/tools/base-check/check-service-boundaries.py  # 服务边界护栏（共享库 / 服务依赖、分层单向、表 / 表前缀跨服务唯一）

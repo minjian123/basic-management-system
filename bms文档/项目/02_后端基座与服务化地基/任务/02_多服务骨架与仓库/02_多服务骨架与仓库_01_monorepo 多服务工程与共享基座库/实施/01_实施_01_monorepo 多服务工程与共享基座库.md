@@ -41,7 +41,7 @@ flowchart LR
 7. **服务边界机器护栏**：新增 `scripts/tools/base-check/check-service-boundaries.py`（四项规则 + `--self-test`）；套内 `test_module_boundary` 改写为扫描 `libs` / `services` 双包；`check-backend-base.py` 扫描路径改 `backend/libs/**` + `backend/services/**`，错误码路径与自检样例同步。
 8. **服务脚手架**：新增 `backend/scripts/new_service.py`（含 `scripts/__init__.py`），生成独立工程骨架（pyproject + 五层 + 入口 + 冒烟用例）；命名 / 保留名 / 重名校验。
 9. **CI 与镜像适配**：`.gitlab-ci.yml` 后端各 job 补 `uv sync --frozen`（工作区成员装入预建 venv 之外）、`--cov=app` → `--cov=bms_core --cov=bms_platform`、三库集成用例路径改 `libs/bms_core/tests/integration`、swagger 入口改 `bms_platform.main`；`deploy/ci/Dockerfile.backend` 改 `--no-install-workspace` 并复制成员 pyproject。
-10. **门禁与构建**：`uv run pytest` → 898 passed / 36 skipped；覆盖率 96%（≥ 70% 门禁）；`ruff check` / `ruff format --check` / `pyright` 全绿；`uv build --package bms-core|bms-platform` 各自出 wheel。
+10. **门禁与构建**：`uv run pytest` → 898 passed / 36 skipped；覆盖率 96%（≥ 门禁）；`ruff check` / `ruff format --check` / `pyright` 全绿；`uv build --package bms-core|bms-platform` 各自出 wheel。
 11. **登记回写与记录**：见 §6 与测试记录。
 
 ## 4. 问题与处置 <a id="issues"></a>
@@ -62,7 +62,7 @@ flowchart LR
 | 验证项 | 命令 | 结果 |
 | --- | --- | --- |
 | 全量用例 | `uv run pytest -q` | 898 passed / 36 skipped（跳过为真库 / 外部服务 env 守卫） |
-| 覆盖率 | `uv run pytest -q --cov=bms_core --cov=bms_platform --cov-branch` | 总体 **96%**（≥ 70% 门禁） |
+| 覆盖率 | `uv run pytest -q --cov=bms_core --cov=bms_platform --cov-branch` | 总体 **96%**（≥ 门禁） |
 | 静态检查 | `uv run ruff check .` / `uv run ruff format --check .` / `uv run pyright` | 全通过（0 error） |
 | 独立构建 | `uv build --package bms-core` / `uv build --package bms-platform` | 各自产出 wheel + sdist |
 | 应用启动 | `python -c "import bms_platform.asgi"` | 正常构造应用 |

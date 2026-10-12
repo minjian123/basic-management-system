@@ -92,13 +92,13 @@ bash scripts/tools/deps/外置依赖.sh          # 安装完成后恢复外置�
 
 ```bash
 uv run ruff check . && uv run ruff format --check . && uv run pyright   # 依赖外置态下 pyright 可能不可用，交 CI 兜底
-uv run pytest -q --cov=bms_core --cov=bms_platform --cov-branch --cov-fail-under=70    # 覆盖率门禁 ≥ 70%
+uv run pytest -q --cov=bms_core --cov=bms_platform --cov-branch --cov-fail-under=100   # 覆盖率门禁（门槛与维度见 bms文档/规范/AI开发规范.md「覆盖率要求」节）
 uv run python -m ops.check_modules                             # 模块注册清单校验
-cd ../frontend/apps/desktop && pnpm run lint && pnpm run test:cov && pnpm run build && pnpm run budget   # 宿主（覆盖率 ≥ 70%、体积预算门禁）
+cd ../frontend/apps/desktop && pnpm run lint && pnpm run test:cov && pnpm run build && pnpm run budget   # 宿主（覆盖率门禁同上、体积预算门禁）
 cd ../../.. && python3 scripts/tools/base-check/check-base.py  # 基座自检（须在仓库根）
 python3 scripts/tools/base-check/check-links.py                # 链接自洽校验（本地手工跑，不挂 CI）
 python3 scripts/tools/check-docs/check-status.py --stage <阶段> --strict   # 需求 / 任务 / 计划状态一致性
-python3 scripts/tools/preflight/check-preflight.py --fast      # 推送前预检（秒级；只跑 --fast，不跑全量）
+python3 scripts/tools/preflight/check-preflight.py             # 推送前预检（含覆盖率硬门禁；--fast 仅日常快速自检，推送前须跑完整预检）
 python3 scripts/tools/governance/collect_metrics.py           # 阶段度量与用例统计（阶段末）
 python3 scripts/tools/governance/review_stage.py              # 阶段末复盘清单
 ```

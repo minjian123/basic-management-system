@@ -45,7 +45,7 @@
 | 验证项 | 命令 | 结果 |
 | --- | --- | --- |
 | 全量用例 | `uv run pytest -q` | **898 passed / 36 skipped**（31s） |
-| 覆盖率 | `uv run pytest -q --cov=bms_core --cov=bms_platform --cov-branch` | 总体 **96%**（≥ 70% 门禁） |
+| 覆盖率 | `uv run pytest -q --cov=bms_core --cov=bms_platform --cov-branch` | 总体 **96%**（≥ 门禁） |
 | lint | `uv run ruff check .` | 通过 |
 | 格式化 | `uv run ruff format --check .` | 通过 |
 | 类型检查 | `uv run pyright` | 0 error / 0 warning |
