@@ -18,7 +18,13 @@ from bms_core.core.context import get_current_tenant
 from bms_core.core.serialization import stable_json_dumps
 from bms_core.dict.base import DictBatchQuery, DictQuery, DictTranslateQuery
 from bms_core.dict.cache import MemoryDictCacheRegion
-from bms_core.dict.http import HttpDataSource, HttpDictTranslator, _as_int, _chunks, _to_item
+from bms_core.dict.http import (
+    HttpDataSource,
+    HttpDictTranslator,
+    _as_int,  # pyright: ignore[reportPrivateUsage]
+    _chunks,  # pyright: ignore[reportPrivateUsage]
+    _to_item,  # pyright: ignore[reportPrivateUsage]
+)
 from bms_core.servicecall.base import BaseServiceClient, ServiceRequest, ServiceResponse
 
 

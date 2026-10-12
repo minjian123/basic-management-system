@@ -13,7 +13,7 @@ from typing import Any, cast
 import fakeredis
 import fakeredis.aioredis
 
-from bms_core.cache.redis import RedisCacheRegion, _load, _to_int
+from bms_core.cache.redis import RedisCacheRegion, _load, _to_int  # pyright: ignore[reportPrivateUsage]
 from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.redis.base import clear_shared_redis_client, set_shared_redis_client
 from bms_core.redis.redis import RedisRedisClient
@@ -47,11 +47,12 @@ def _region(**overrides: object) -> RedisCacheRegion:
     Returns:
         RedisCacheRegion: 缓存 Region。
     """
-    server = fakeredis.FakeServer()
+    fake: Any = fakeredis
+    server = fake.FakeServer()
     params: ConcurrentStableDict[str, Any] = ConcurrentStableDict()
     params.set("domain", "demo")
-    params.set("sync_client", fakeredis.FakeRedis(server=server, decode_responses=True))
-    params.set("async_client", fakeredis.aioredis.FakeRedis(server=server, decode_responses=True))
+    params.set("sync_client", fake.FakeRedis(server=server, decode_responses=True))
+    params.set("async_client", fake.aioredis.FakeRedis(server=server, decode_responses=True))
     for key, value in overrides.items():
         params.set(key, value)
     return RedisCacheRegion(

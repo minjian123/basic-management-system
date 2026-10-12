@@ -26,15 +26,15 @@ from bms_core.dict.query import (
     DICT_OPERATORS_BY_TYPE,
     DictAdvQueryPayload,
     DictQueryService,
-    _as_list,
-    _as_number,
-    _as_pair,
-    _as_text,
-    _compare,
-    _compare_ordered,
-    _match_group,
-    _match_item,
-    _to_adv_item,
+    _as_list,  # pyright: ignore[reportPrivateUsage]
+    _as_number,  # pyright: ignore[reportPrivateUsage]
+    _as_pair,  # pyright: ignore[reportPrivateUsage]
+    _as_text,  # pyright: ignore[reportPrivateUsage]
+    _compare,  # pyright: ignore[reportPrivateUsage]
+    _compare_ordered,  # pyright: ignore[reportPrivateUsage]
+    _match_group,  # pyright: ignore[reportPrivateUsage]
+    _match_item,  # pyright: ignore[reportPrivateUsage]
+    _to_adv_item,  # pyright: ignore[reportPrivateUsage]
 )
 
 

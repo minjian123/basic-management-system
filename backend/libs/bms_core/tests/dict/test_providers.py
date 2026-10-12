@@ -14,7 +14,12 @@ import pytest
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.exceptions import ParamError
 from bms_core.dict.base import DictItem
-from bms_core.dict.providers import PAGE_SIZE_MAX, BuiltinDictQueryProvider, _as_page, _to_row
+from bms_core.dict.providers import (
+    PAGE_SIZE_MAX,
+    BuiltinDictQueryProvider,
+    _as_page,  # pyright: ignore[reportPrivateUsage]
+    _to_row,  # pyright: ignore[reportPrivateUsage]
+)
 
 
 class _Loaded:

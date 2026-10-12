@@ -38,7 +38,7 @@ def _client(*, pool_size: int = 0, key_prefix: str = DEFAULT_KEY_PREFIX) -> Redi
         "redis://localhost:6379/0",
         pool_size=pool_size,
         key_prefix=key_prefix,
-        sync_client=fakeredis.FakeRedis(decode_responses=True),
+        sync_client=cast("Any", fakeredis.FakeRedis(decode_responses=True)),
         async_client=fakeredis.aioredis.FakeRedis(decode_responses=True),
     )
 
@@ -73,9 +73,9 @@ def test_client_properties_and_pool_bounds() -> None:
     client = _client(pool_size=0)
     assert client.url == "redis://localhost:6379/0"
     assert client.key_prefix == DEFAULT_KEY_PREFIX
-    assert client._max_connections is None
+    assert client._max_connections is None  # pyright: ignore[reportPrivateUsage]
 
-    assert _client(pool_size=8)._max_connections == 8
+    assert _client(pool_size=8)._max_connections == 8  # pyright: ignore[reportPrivateUsage]
     assert _client(key_prefix="x:").key_prefix == "x:"
 
 

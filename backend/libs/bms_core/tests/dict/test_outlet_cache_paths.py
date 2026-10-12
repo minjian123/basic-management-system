@@ -30,8 +30,8 @@ from bms_core.dict.outlet import (
     EmptyDictDataSource,
     RoutedDataSource,
     RoutedDictTranslator,
-    _cache_snapshot,
-    _snapshot_payload,
+    _cache_snapshot,  # pyright: ignore[reportPrivateUsage]
+    _snapshot_payload,  # pyright: ignore[reportPrivateUsage]
     build_data_source_outlet,
     register_data_source,
     registered_data_sources,

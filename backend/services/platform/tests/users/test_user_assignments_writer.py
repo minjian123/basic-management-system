@@ -54,9 +54,9 @@ from bms_platform.services.user_assignments import (
     USER_ASSIGNMENTS_OP,
     UserAssignmentsService,
     UserAssignmentWriter,
-    _branch_state,
-    _clean_optional,
-    _dedupe,
+    _branch_state,  # pyright: ignore[reportPrivateUsage]
+    _clean_optional,  # pyright: ignore[reportPrivateUsage]
+    _dedupe,  # pyright: ignore[reportPrivateUsage]
 )
 
 pytestmark = [pytest.mark.kiwi_id(2278)]
@@ -619,7 +619,7 @@ async def test_xa_path_declares_branches_and_commits() -> None:
     assert ops[0].args.get("idempotency_key") == "k-1"
 
     assert len(client.requests) == 1
-    body = client.requests[0].json_body
+    body = cast("Any", client.requests[0].json_body)
     assert body.get("xid") == f"xid-{BRANCH_ID_ORG}"
     org_ops = body.get("ops")
     assert [entry.get("op") for entry in org_ops] == [ORG_USER_POSTS_OP, ORG_USER_DEPTS_OP]
@@ -681,7 +681,7 @@ async def test_execute_org_branches_returns_early_without_org_segments() -> None
     client = _ClientSpy()
     service = _xa_service(_ManagerSpy(), _ParticipantSpy(), client)
 
-    await service._execute_org_branches(
+    await service._execute_org_branches(  # pyright: ignore[reportPrivateUsage]
         xid="x",
         db_key="k",
         user_id=7,

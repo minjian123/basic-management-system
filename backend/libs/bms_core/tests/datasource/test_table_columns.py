@@ -19,7 +19,12 @@ from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import get_settings
 from bms_core.db.engine import EngineFactory
 from bms_core.db.registry import EngineRegistry
-from bms_core.dict.table import DictColumnMapping, DictTableDataSource, _as_int, _as_optional_int
+from bms_core.dict.table import (
+    DictColumnMapping,
+    DictTableDataSource,
+    _as_int,  # pyright: ignore[reportPrivateUsage]
+    _as_optional_int,  # pyright: ignore[reportPrivateUsage]
+)
 
 _OPEN_ENGINES: ConcurrentStableList[EngineRegistry] = ConcurrentStableList()
 

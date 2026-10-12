@@ -22,9 +22,9 @@ from bms_core.dict.null import (
     NullDictCacheRegion,
     NullDictSource,
     NullDictTranslator,
-    _apply_filters,
-    _placeholder_items,
-    _type_result,
+    _apply_filters,  # pyright: ignore[reportPrivateUsage]
+    _placeholder_items,  # pyright: ignore[reportPrivateUsage]
+    _type_result,  # pyright: ignore[reportPrivateUsage]
 )
 
 
@@ -36,7 +36,7 @@ async def test_null_source_by_type_placeholder_and_filters() -> None:
     assert plain.version == NULL_DICT_VERSION
     assert plain.total == 2
     assert plain.has_more is False
-    assert [item.value for item in plain.items] == ["demo-1", "demo-2"]
+    assert [item.value for item in (plain.items or ())] == ["demo-1", "demo-2"]
 
     same_version = await source.by_type(DictQuery(data_source_key="demo", version=NULL_DICT_VERSION))
     assert same_version.items is None
@@ -44,19 +44,19 @@ async def test_null_source_by_type_placeholder_and_filters() -> None:
 
     limited = await source.by_type(DictQuery(data_source_key="demo", limit=1))
     assert limited.has_more is True
-    assert [item.value for item in limited.items] == ["demo-1"]
+    assert [item.value for item in (limited.items or ())] == ["demo-1"]
 
     by_values = await source.by_type(DictQuery(data_source_key="demo", values=("demo-2",)))
-    assert [item.value for item in by_values.items] == ["demo-2"]
+    assert [item.value for item in (by_values.items or ())] == ["demo-2"]
 
     by_keyword = await source.by_type(DictQuery(data_source_key="demo", keyword="占位demo2"))
-    assert [item.value for item in by_keyword.items] == ["demo-2"]
+    assert [item.value for item in (by_keyword.items or ())] == ["demo-2"]
 
     top_level = await source.by_type(DictQuery(data_source_key="demo", parent_id=0))
-    assert [item.value for item in top_level.items] == ["demo-1"]
+    assert [item.value for item in (top_level.items or ())] == ["demo-1"]
 
     children = await source.by_type(DictQuery(data_source_key="demo", parent_id=1))
-    assert [item.value for item in children.items] == ["demo-2"]
+    assert [item.value for item in (children.items or ())] == ["demo-2"]
 
 
 async def test_null_source_batch_versions() -> None:
@@ -70,7 +70,9 @@ async def test_null_source_batch_versions() -> None:
 
     fresh = await source.batch(DictBatchQuery(types=("a", "b")))
     assert fresh.items.get("a") is not None
-    assert len(fresh.items.get("b").items or ()) == 2
+    fresh_b = fresh.items.get("b")
+    assert fresh_b is not None
+    assert len(fresh_b.items or ()) == 2
 
 
 def test_placeholder_helpers_shape() -> None:

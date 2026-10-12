@@ -16,7 +16,6 @@ from types import SimpleNamespace
 from typing import Any, cast
 
 import fakeredis
-import fakeredis.aioredis
 import pytest
 
 from bms_core.cache.redis import RedisCacheRegion
@@ -168,11 +167,12 @@ def _redis_region() -> RedisDictCacheRegion:
     Returns:
         RedisDictCacheRegion: 两层缓存实例。
     """
-    server = fakeredis.FakeServer()
+    fake: Any = fakeredis
+    server = fake.FakeServer()
     inner = RedisCacheRegion(
         domain=DICT_CACHE_DOMAIN,
-        sync_client=cast("Any", fakeredis.FakeRedis(server=server, decode_responses=True)),
-        async_client=cast("Any", fakeredis.aioredis.FakeRedis(server=server, decode_responses=True)),
+        sync_client=fake.FakeRedis(server=server, decode_responses=True),
+        async_client=fake.aioredis.FakeRedis(server=server, decode_responses=True),
     )
     return RedisDictCacheRegion(redis_region=inner, max_items=8)
 
@@ -265,7 +265,11 @@ async def test_redis_region_value_subset_versions_and_lock() -> None:
 def test_di_providers_resolve_dict_contracts(monkeypatch: pytest.MonkeyPatch) -> None:
     """依赖注入提供者：经 `app.state.settings` 解析字典取数 / 翻译 / 缓存域三契约。"""
     sentinel = object()
-    monkeypatch.setattr("bms_core.dict.base.resolve_plugin", lambda *_args, **_kwargs: sentinel)
+
+    def _resolve(*_args: object, **_kwargs: object) -> object:
+        return sentinel
+
+    monkeypatch.setattr("bms_core.dict.base.resolve_plugin", _resolve)
     settings = get_settings()
     request = cast("Any", SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(settings=settings))))
     assert get_data_source(request) is sentinel
