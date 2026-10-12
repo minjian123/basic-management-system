@@ -369,3 +369,48 @@ async def test_minio_client_methods_with_stub(monkeypatch: pytest.MonkeyPatch) -
     assert get_url.method == "GET"
     assert put_url.url.endswith("method=PUT")
     assert put_url.expires_in == 120
+
+
+class _FailingMinioClient(_FakeMinioClient):
+    """假客户端：读取 / 删除恒定抛非 `NoSuchKey` 的 S3 错误（透传分支）。"""
+
+    def get_object(self, bucket: str, key: str) -> _FakeBody:
+        """恒定抛权限类错误（非未命中）。"""
+        del bucket, key
+        raise _FakeS3Error("AccessDenied")
+
+    def remove_object(self, bucket: str, key: str) -> None:
+        """恒定抛权限类错误（非未命中）。"""
+        del bucket, key
+        raise _FakeS3Error("AccessDenied")
+
+
+@pytest.mark.kiwi_id(662)
+async def test_minio_ensure_client_builds_sdk_client_once(monkeypatch: pytest.MonkeyPatch) -> None:
+    """惰性客户端：首次调用导入 SDK 并构造；再次调用复用同一实例（不重建）。"""
+    storage = MinioObjectStorage(endpoint="localhost:9000", access_key="ak", secret_key="sk")
+    assert storage._client is None  # pyright: ignore[reportPrivateUsage]
+
+    built = storage._ensure_client()  # pyright: ignore[reportPrivateUsage]
+
+    assert built is storage._ensure_client()  # pyright: ignore[reportPrivateUsage]
+    assert type(built).__name__ == "Minio"
+
+
+@pytest.mark.kiwi_id(662)
+async def test_minio_passes_through_non_missing_errors(monkeypatch: pytest.MonkeyPatch) -> None:
+    """非 `NoSuchKey` 的 S3 错误原样透传：读取不误判为未命中、删除不静默吞错。"""
+    storage = MinioObjectStorage(endpoint="localhost:9000", access_key="ak", secret_key="sk")
+    failing = _FailingMinioClient()
+
+    def _ensure(storage: MinioObjectStorage) -> _FailingMinioClient:
+        del storage
+        return failing
+
+    monkeypatch.setattr("minio.error.S3Error", _FakeS3Error)
+    monkeypatch.setattr(MinioObjectStorage, "_ensure_client", _ensure)
+
+    with pytest.raises(_FakeS3Error, match="AccessDenied"):
+        await storage.get("docs/x.bin")
+    with pytest.raises(_FakeS3Error, match="AccessDenied"):
+        await storage.delete("docs/x.bin")
