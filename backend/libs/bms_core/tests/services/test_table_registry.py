@@ -2,6 +2,7 @@
 
 from collections.abc import Iterator
 from dataclasses import replace
+from types import SimpleNamespace
 
 import pytest
 from sqlalchemy import UniqueConstraint
@@ -22,6 +23,7 @@ from bms_core.services.table_registry import (
     known_service_keys,
     owned_tables_for,
     register_table_records,
+    registered_services,
     reset_table_records,
     table_names,
     table_owner,
@@ -225,6 +227,41 @@ def test_ownership_model_declared() -> None:
     assert SysTableOwnership.__table__.columns["status"].default.arg == TableStatus.ENABLED
 
 
+@pytest.mark.kiwi_id(2176)
+def test_record_from_row_matches_declaration() -> None:
+    """ORM 行转换：按登记字段取值（`note` 缺省补空串），与清单同值记录一致。"""
+    row = SysTableOwnership(
+        table_name="sys_tenant",
+        owner="tenant",
+        datasource=Datasource.PLATFORM,
+        status=TableStatus.ENABLED,
+        note="租户注册表",
+    )
+
+    assert TableRecord.from_row(row) == TableRecord(
+        table_name="sys_tenant",
+        owner="tenant",
+        datasource=Datasource.PLATFORM,
+        status=TableStatus.ENABLED,
+        note="租户注册表",
+    )
+    assert TableRecord.from_row(
+        SimpleNamespace(
+            table_name="zzz_item", owner="platform", datasource=Datasource.TENANT, status=TableStatus.ENABLED, note=None
+        )
+    ) == _record("zzz_item")
+
+
+@pytest.mark.kiwi_id(2176)
+def test_registry_rejects_both_for_non_sentinel_owner() -> None:
+    """`both` 库类别仅限「每服务自有」哨兵归属：普通服务误用即检出。"""
+    registry = TableOwnershipRegistry(
+        ConcurrentStableList([_record("zzz_both", owner="platform", datasource=Datasource.BOTH)])
+    )
+
+    assert any("`both` 库类别仅限" in error for error in registry.validate())
+
+
 def _org_records() -> ConcurrentStableList[TableRecord]:
     """构造产品侧（mdm 组织域）注入记录。
 
@@ -274,3 +311,52 @@ def test_injection_dedupe_and_conflict() -> None:
     register_table_records(ConcurrentStableList([replace(platform_record, note="冲突登记")]))
     errors = TableOwnershipRegistry().validate()
     assert any("表名重复登记" in error and "sys_notification" in error for error in errors)
+
+
+@pytest.mark.kiwi_id(2254)
+def test_registered_services_excludes_every_service_owner() -> None:
+    """在册服务标识：排除 `*`（每服务可用）归属；产品注入服务随之可见。"""
+    services = registered_services()
+
+    assert "platform" in services
+    assert OWNER_EVERY_SERVICE not in services
+
+    register_table_records(_org_records())
+    assert "org" in registered_services()
+
+
+@pytest.mark.kiwi_id(2254)
+def test_list_tables_filters() -> None:
+    """清单筛选：按归属 / 库类别 / 状态逐项过滤，可叠加；无参返回全量。"""
+    registry = TableOwnershipRegistry()
+    all_tables = registry.list_tables()
+    assert len(all_tables) == len(table_ownership_view())
+
+    by_owner = registry.list_tables(owner="platform")
+    assert by_owner and all(record.owner == "platform" for record in by_owner)
+
+    by_datasource = registry.list_tables(datasource=Datasource.PLATFORM)
+    assert by_datasource and all(record.datasource == Datasource.PLATFORM for record in by_datasource)
+
+    by_status = registry.list_tables(status=TableStatus.ENABLED)
+    assert by_status and all(record.status == TableStatus.ENABLED for record in by_status)
+
+    combined = registry.list_tables(owner="platform", datasource=Datasource.PLATFORM, status=TableStatus.ENABLED)
+    assert combined
+    assert all(
+        record.owner == "platform" and record.datasource == Datasource.PLATFORM and record.status == TableStatus.ENABLED
+        for record in combined
+    )
+    assert len(combined) <= len(by_owner)
+
+
+@pytest.mark.kiwi_id(2254)
+def test_register_table_records_skips_already_registered() -> None:
+    """同值重复登记无操作（幂等）：已登记记录不再入集合，条目数不变。"""
+    records = _org_records()
+    register_table_records(records)
+    before = len(injected_table_records())
+
+    register_table_records(records)
+
+    assert len(injected_table_records()) == before
