@@ -30,6 +30,10 @@ vi.mock('@/api/accountLock', () => ({
 
 vi.mock('@/api/user', () => ({ listUsers: (...args: unknown[]) => listUsers(...args) }))
 
+// 文件级放宽超时：本文件用**真实** `el-table` 渲染、用例偏重，CI 机器较慢（实测单例 ~5.4s 撞默认 5s 超时）；
+// 仅本文件放宽到 15s，其余用例仍保持默认 5s 的快速失败。
+vi.setConfig({ testTimeout: 15000 })
+
 const { useSessionStore } = await import('@/stores/session')
 const { useTabsStore } = await import('@/stores/tabs')
 const AccountLockView = (await import('@/views/system/user/AccountLockView.vue')).default
