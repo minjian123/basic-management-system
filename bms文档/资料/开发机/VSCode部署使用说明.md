@@ -162,16 +162,18 @@ done
 [Model][openRepository] Opened repository (path): /home/minjian/develop/bizs/bms
 ```
 
-**根因：IDE 的「工作区状态」把 SCM 视图与仓库可见性置成了隐藏。** 权威存储在 `~/.config/Code/User/workspaceStorage/<hash>/state.vscdb`（SQLite；`<hash>` 目录按同目录 `workspace.json` 的 `folder` 字段定位），其中两个键决定面板长什么样：
+**根因：IDE 的「工作区状态」里「哪些仓库可见」被改窄了。** 权威存储在 `~/.config/Code/User/workspaceStorage/<hash>/state.vscdb`（SQLite；`<hash>` 目录按同目录 `workspace.json` 的 `folder` 字段定位），关键键如下：
 
-| 键                              | 含义                     | 故障取值                              |
-| ------------------------------- | ------------------------ | ------------------------------------- |
-| `workbench.scm.views.state`     | 各 SCM 视图的折叠 / 隐藏 | 三个视图全 `isHidden: true`           |
-| `scm:view:visibleRepositories`  | 哪些仓库可见             | `visible: [4]`（5 个仓库只勾第 5 个） |
+| 键                             | 说明                                                                       |
+| ------------------------------ | -------------------------------------------------------------------------- |
+| `scm:view:visibleRepositories` | **故障就在这个键**：`visible` 只含部分下标（本次为 `[4]`），有变更的仓库被排除 |
+| `workbench.scm.views.state`    | `isHidden: true` 是**正常默认值**，非故障（详见下方「易误判」）              |
 
 `visible` 存的是 `all` 数组的**下标**（不是仓库名）：`all` 顺序为 `[bizs, biz, bms, mdm, test]`，故 `[4]` 正指向**空仓库 test**。
 
-> **定位突破口（可复用）**：同一工作区在 **CodeBuddy** 里是正常的（`visible: [0,1,2,3,4]`、`isHidden: false`）。**同一工作区、同一份仓库、两个 IDE 表现不同 ⇒ 排除 git 与工作区本身，锁定为 IDE 侧状态**。排查手法：无 `sqlite3` 命令时用 `python3 -c` + 标准库 `sqlite3` 读 `ItemTable`（先 `SELECT key FROM ItemTable` 过滤 `scm`/`git` 相关键）。
+> **易误判（本次踩过）**：`workbench.scm.views.state` 里三个视图的 `isHidden` 在**正常工作的**工作区同样是 `true`（实测 CodeBuddy 的 `bms_other` / `cws` / `Claw` 三项全为 true，面板照常显示变更）——它是默认值，**不能拿来判故障**。判据只有一条：`visible` 是否覆盖 `all`。
+
+> **定位突破口（可复用）**：同一工作区在 **CodeBuddy** 里是正常的（`visible: [0,1,2,3,4]`）。**同一工作区、同一份仓库、两个 IDE 表现不同 ⇒ 排除 git 与工作区本身，锁定为 IDE 侧状态**。排查手法：无 `sqlite3` 命令时用 `python3 -c` + 标准库 `sqlite3` 读 `ItemTable`（先 `SELECT key FROM ItemTable` 过滤 `scm`/`git` 相关键）。
 
 ### 6.3 修复 <a id="scm-fix"></a>
 
@@ -187,12 +189,12 @@ python3 scripts/tools/ide/fix_scm_state.py --ide vscode --check
 python3 scripts/tools/ide/fix_scm_state.py --ide vscode
 ```
 
-脚本行为：定位 `state.vscdb` → 自动备份为 `state.vscdb.bak-<时间戳>` → 把各 SCM 视图 `isHidden` 改回 `false`、把 `visible` 改为全部下标 → **回读校验**并打印结果。**检测到目标 IDE 仍在运行时会直接中止**（运行期间改库会被退出时的内存回写覆盖，白改）。
+脚本行为：定位 `state.vscdb` → 自动备份为 `state.vscdb.bak-<时间戳>` → 把 `visible` 改为全部下标（**只改这一处**，`isHidden` 属正常默认值不动）→ **回读校验**并打印结果。**检测到目标 IDE 仍在运行时会直接中止**（运行期间改库会被退出时的内存回写覆盖，白改）。工作区若从未保存过仓库可见性记录（键不存在），脚本报「不适用」并直接退出，不判失败。
 
 修复后重新打开 IDE，面板即显示全部 5 个仓库。实测 `--check` 输出（修复前）：
 
 ```text
-隐藏的视图：workbench.scm.repositories, workbench.scm, workbench.scm.history
+视图 isHidden：workbench.scm.repositories, workbench.scm, workbench.scm.history（此项为正常默认值，不参与判故障）
 仓库总数  ：5，可见下标：[4]
   ✗ [0] /home/minjian/develop/bizs
   ✗ [1] /home/minjian/develop/bizs/biz
@@ -212,7 +214,7 @@ python3 scripts/tools/ide/fix_scm_state.py --ide vscode
 "scm.alwaysShowRepositories": true
 ```
 
-> 该设置**只降低复发概率，不能完全防止**——视图仍可能被手动隐藏（如误点视图标题的隐藏按钮）。复发时重跑[6.3](#scm-fix)的脚本即可。
+> 该设置**只降低复发概率，不能完全防止**——仓库可见性仍可能被改窄。复发时重跑[6.3](#scm-fix)的脚本即可；若是**视图本身**被误隐藏（面板里整块消失），用命令面板「视图: 重置视图位置」。
 >
 > **另一处易混淆点**：本工作区根 `.gitignore` 为「`/*` 全忽略 + 白名单」，根仓库本就**只跟踪工作区配置文件**（`AGENTS.md`、`README.md`、`.vscode/`、`*.code-workspace` 等）。因此在面板里选中**根仓库**时「看不到变化」往往是正常的；`bms` / `biz` / `mdm` / `test` 的变更需各自可见才会展示。
 

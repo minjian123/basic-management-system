@@ -9,19 +9,19 @@
 
 ## 根因
 
-**不是 git 故障**，而是 IDE 的**工作区状态**被置成了「隐藏」。权威存储在：
+**不是 git 故障**，而是 IDE 的**工作区状态**里「哪些仓库可见」被改窄了。权威存储在：
 
     <用户数据目录>/User/workspaceStorage/<hash>/state.vscdb
 
-（SQLite；`<hash>` 目录按同目录 `workspace.json` 的 `folder` 字段定位。）
-其中两个键决定面板长什么样：
+（SQLite；`<hash>` 目录按同目录 `workspace.json` 的 `folder` 字段定位。）关键键：
 
-| 键 | 含义 | 故障取值 |
-| --- | --- | --- |
-| `workbench.scm.views.state` | 各 SCM 视图的折叠 / 隐藏 | 三个视图全 `isHidden: true` |
-| `scm:view:visibleRepositories` | 哪些仓库可见 | `visible: [4]`（5 个仓库只勾第 5 个） |
+| 键 | 说明 |
+| --- | --- |
+| `scm:view:visibleRepositories` | **故障就在这个键**：`visible` 只含部分下标，有变更的仓库被排除 |
+| `workbench.scm.views.state` | `isHidden: true` 是正常默认值，不参与判故障（见 `ScmState.ok`） |
 
-`visible` 存的是 `all` 数组的**下标**，不是仓库名。
+`visible` 存的是 `all` 数组的**下标**，不是仓库名。排查时按 `all` 的顺序逐条对照，
+即可看出被排除的是哪个仓库。
 
 ## 用法
 
@@ -90,9 +90,24 @@ class ScmState(NamedTuple):
     visible: tuple[int, ...]
 
     @property
+    def has_repos(self) -> bool:
+        """该工作区是否保存过仓库可见性记录。
+
+        没保存过（键不存在）不等于故障——例如 bms_other 是 git 仓库但从未让 IDE
+        写过该键；这类工作区只报告「不适用」，不判失败、也不提供修复。
+        """
+        return bool(self.all_repos)
+
+    @property
     def ok(self) -> bool:
-        """视图无隐藏、且全部仓库可见即视为正常。"""
-        return not self.hidden_views and bool(self.all_repos) and len(self.visible) == len(self.all_repos)
+        """全部仓库可见即视为正常。
+
+        **判据只看 `visible` 是否覆盖 `all`**：`workbench.scm.views.state` 里各视图
+        `isHidden: true` 是 VS Code / CodeBuddy 的**正常默认值**（实测 CodeBuddy 的
+        bms_other / cws / Claw 等工作区三项全为 true，面板照常显示变更），故不作为
+        故障判据——早期版本拿它判失败，导致正常的工作区被误报。
+        """
+        return self.has_repos and len(self.visible) == len(self.all_repos)
 
 
 # 各 IDE 的默认用户数据目录（相对 $HOME）与进程特征
@@ -202,7 +217,8 @@ def inspect(cur: sqlite3.Cursor) -> ScmState:
 
 def describe(state: ScmState) -> None:
     """打印状态明细（仓库逐条标出可见与否）。"""
-    print(f"      隐藏的视图：{', '.join(state.hidden_views) if state.hidden_views else '无'}")
+    hidden = ", ".join(state.hidden_views) if state.hidden_views else "无"
+    print(f"      视图 isHidden：{hidden}（此项为正常默认值，不参与判故障）")
     print(f"      仓库总数  ：{len(state.all_repos)}，可见下标：{list(state.visible)}")
     for index, repo in enumerate(state.all_repos):
         mark = "✓" if index in state.visible else "✗"
@@ -210,27 +226,13 @@ def describe(state: ScmState) -> None:
 
 
 def _apply_fix(cur: sqlite3.Cursor) -> ConcurrentStableList[str]:
-    """把视图隐藏与仓库可见性改回默认；返回改动说明。"""
+    """把仓库可见性改回「全部可见」；返回改动说明。
+
+    只改 `scm:view:visibleRepositories`——`workbench.scm.views.state` 的 `isHidden`
+    是正常默认值（见 `ScmState.ok`），不予改动，避免无谓的状态写入。
+    """
     changed: ConcurrentStableList[str] = ConcurrentStableList()
 
-    # 1) 恢复被隐藏的 SCM 视图
-    raw, as_bytes = read_value(cur, VIEW_STATE_KEY)
-    if raw:
-        try:
-            state = json.loads(raw)
-        except ValueError:
-            state = {}
-        names: ConcurrentStableList[str] = ConcurrentStableList()
-        for name, item in state.items():
-            if isinstance(item, dict) and item.get("isHidden"):
-                names.add(name)
-        if names:
-            for name in names:
-                state[name]["isHidden"] = False
-            write_value(cur, VIEW_STATE_KEY, state, as_bytes)
-            changed.add(f"恢复视图显示：{', '.join(names)}")
-
-    # 2) 恢复全部仓库可见
     raw, as_bytes = read_value(cur, REPOS_KEY)
     if raw:
         try:
@@ -238,7 +240,7 @@ def _apply_fix(cur: sqlite3.Cursor) -> ConcurrentStableList[str]:
         except ValueError:
             data = {}
         all_repos = data.get("all", []) or []
-        if all_repos:
+        if all_repos and len(data.get("visible", []) or []) != len(all_repos):
             data["visible"] = list(range(len(all_repos)))
             write_value(cur, REPOS_KEY, data, as_bytes)
             changed.add(f"恢复 {len(all_repos)} 个仓库可见")
@@ -249,7 +251,7 @@ def _apply_fix(cur: sqlite3.Cursor) -> ConcurrentStableList[str]:
 def main() -> int:
     profiles = dict(IDE_PROFILES)
     parser = argparse.ArgumentParser(
-        description="修复 IDE 源代码管理面板看不到仓库（工作区状态被置为隐藏）",
+        description="修复 IDE 源代码管理面板看不到仓库（工作区状态里仓库可见性不全）",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
@@ -307,9 +309,17 @@ def main() -> int:
 
     if args.check:
         con.close()
-        verdict = "面板状态正常。" if before.ok else "存在隐藏，可去掉 --check 执行修复。"
+        if not before.has_repos:
+            print("\n[结论] 该工作区未保存过仓库可见性记录（不适用，无需处理）。")
+            return 0
+        verdict = "面板状态正常。" if before.ok else "仓库可见性不全，可去掉 --check 执行修复。"
         print(f"\n[结论] {verdict}")
         return 0 if before.ok else 2
+
+    if not before.has_repos:
+        con.close()
+        print("\n[完成] 该工作区未保存过仓库可见性记录（可能是未含 git 仓库，或尚未让 IDE 写过该键），无需处理。")
+        return 0
 
     if ide_running(profile.process_markers):
         print(
