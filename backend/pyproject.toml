@@ -80,6 +80,7 @@ asyncio_mode = "auto"
 addopts = "--import-mode=importlib"
 testpaths = [
     "libs/bms_core/tests",
+    "services/txn/tests",
     "services/platform/tests",
     "services/identity/tests",
     "services/tenant/tests",
@@ -94,6 +95,7 @@ pythonpath = [
     "libs/bms_core/tests",
     "services/file/tests",
     "services/platform",
+    "services/txn",
 ]
 markers = [
     "kiwi_id: Kiwi TCMS 用例编号（如 @pytest.mark.kiwi_id(1)）",
