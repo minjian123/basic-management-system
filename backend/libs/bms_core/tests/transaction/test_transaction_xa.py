@@ -9,6 +9,7 @@ from typing import Any, cast
 
 import pytest
 from fastapi import FastAPI
+from fastapi.routing import APIRoute
 from starlette.routing import Route
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
@@ -16,11 +17,12 @@ from bms_core.core.config import Settings
 from bms_core.core.exceptions import ServiceUnavailableError, TransactionUnavailableError
 from bms_core.db.session import DbSession
 from bms_core.servicecall.base import BaseServiceClient, ServiceRequest, ServiceResponse
-from bms_core.transaction.api import build_branch_router
+from bms_core.transaction.api import BranchExecuteRequest, BranchOpRequest, build_branch_router
 from bms_core.transaction.base import (
     TM_SERVICE_NAME,
     TRANSACTION_MANAGER_KEY,
     TRANSACTION_PARTICIPANT_KEY,
+    BaseTransactionParticipant,
     BranchHandlerRegistry,
     BranchOp,
     BranchSpec,
@@ -172,6 +174,91 @@ def test_provider_names_reserved() -> None:
     assert XA_PLUGIN_NAME == "xa"
     assert TRANSACTION_MANAGER_KEY == "transaction_manager"
     assert TRANSACTION_PARTICIPANT_KEY == "transaction_participant"
+
+
+class _ParticipantStub(BaseTransactionParticipant):
+    """参与方替身（回固定状态并记录调用）。"""
+
+    def __init__(self) -> None:
+        self.calls: ConcurrentStableList[tuple[str, str]] = ConcurrentStableList()
+
+    @property
+    def enabled(self) -> bool:
+        """恒定真（替身具备两阶段能力）。"""
+        return True
+
+    async def execute_branch(self, *, xid: str, db_key: str, ops: tuple[BranchOp, ...]) -> str:
+        """记录执行并回 `prepared`。"""
+        del ops
+        self.calls.add((f"execute:{xid}", db_key))
+        return "prepared"
+
+    async def commit_branch(self, *, xid: str, db_key: str) -> str:
+        """记录提交并回 `committed`。"""
+        self.calls.add((f"commit:{xid}", db_key))
+        return "committed"
+
+    async def rollback_branch(self, *, xid: str, db_key: str) -> str:
+        """记录回滚并回 `rolled_back`。"""
+        self.calls.add((f"rollback:{xid}", db_key))
+        return "rolled_back"
+
+    async def branch_state(self, *, xid: str, db_key: str) -> str:
+        """记录核验并回 `prepared`。"""
+        self.calls.add((f"state:{xid}", db_key))
+        return "prepared"
+
+    async def recover_branches(self, *, db_key: str) -> tuple[str, ...]:
+        """记录悬挂列举并回单个 `xid`。"""
+        self.calls.add(("recover", db_key))
+        return ("x1",)
+
+
+def _branch_endpoints() -> ConcurrentStableDict[tuple[str, str], Any]:
+    """按（方法, 路径）取参与端点函数的映射（直接调用端点，免起 ASGI 服务器）。"""
+    found: ConcurrentStableDict[tuple[str, str], Any] = ConcurrentStableDict()
+    for route in build_branch_router().routes:
+        if not isinstance(route, APIRoute):
+            continue
+        for method in route.methods or set():
+            found.set((method, route.path), route.endpoint)
+    return found
+
+
+async def test_branch_router_endpoints_delegate_to_participant() -> None:
+    """参与端点：执行 / 提交 / 回滚 / 状态 / 悬挂列举逐一委派参与方。"""
+    endpoints = _branch_endpoints()
+    participant = _ParticipantStub()
+
+    executed = await endpoints[("POST", "/txn/branches")](
+        BranchExecuteRequest(
+            xid="x1",
+            db_key="platform",
+            ops=ConcurrentStableList([BranchOpRequest(op="test.op")]),
+        ),
+        participant,
+    )
+    assert executed.data is not None and executed.data.state == "prepared"
+
+    committed = await endpoints[("POST", "/txn/branches/{xid}/commit")]("x1", participant, "platform")
+    assert committed.data is not None and committed.data.state == "committed"
+
+    rolled_back = await endpoints[("POST", "/txn/branches/{xid}/rollback")]("x1", participant, "platform")
+    assert rolled_back.data is not None and rolled_back.data.state == "rolled_back"
+
+    state = await endpoints[("GET", "/txn/branches/{xid}")]("x1", participant, "platform")
+    assert state.data is not None and state.data.state == "prepared"
+
+    recovered = await endpoints[("GET", "/txn/branches")](participant, "platform")
+    assert recovered.data is not None and list(recovered.data.xids) == ["x1"]
+
+    assert list(participant.calls) == [
+        ("execute:x1", "platform"),
+        ("commit:x1", "platform"),
+        ("rollback:x1", "platform"),
+        ("state:x1", "platform"),
+        ("recover", "platform"),
+    ]
 
 
 def _ok_raw(data: object) -> ServiceResponse:

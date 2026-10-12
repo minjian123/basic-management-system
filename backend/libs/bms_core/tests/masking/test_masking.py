@@ -9,7 +9,7 @@ from httpx import ASGITransport, AsyncClient
 from bms_core.core import plugin as plugin_module
 from bms_core.core.base import BaseObject
 from bms_core.core.capability import BaseCapability, BaseNullObject
-from bms_core.core.concurrent import ConcurrentStableSet
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.config import PluginSelection, Settings
 from bms_core.core.context import get_current_masker, reset_current_masker, set_current_masker
 from bms_core.core.plugin import PluginRegistry
@@ -17,7 +17,11 @@ from bms_core.masking.base import MASK_STRATEGIES, BaseMasker, MaskRule, get_mas
 from bms_core.masking.null import NullMasker
 from bms_core.permission.base import BasePermissionChecker
 from bms_core.permission.null import NullPermissionChecker
-from bms_core.schemas.base import BaseSchema, MaskedFields
+from bms_core.schemas.base import (
+    BaseSchema,
+    MaskedFields,
+    _mask_sequence,  # pyright: ignore[reportPrivateUsage]
+)
 
 
 class DenyChecker(BasePermissionChecker):
@@ -61,6 +65,60 @@ class UserResponse(BaseSchema):
     id: int
     name: str
     phone: str
+
+
+class SequenceResponse(BaseSchema):
+    """测试用响应模型：容器型敏感字段（逐元素掩码并保持容器形态）。"""
+
+    masked_fields: ClassVar[MaskedFields] = ConcurrentStableSet[str]({"secrets"})
+
+    secrets: object = None
+
+
+def _mask_sequence_value(value: object) -> object:
+    """经契约序列化链掩码单个容器值（返回掩码后的容器）。"""
+    return SequenceResponse.model_construct(secrets=value).model_dump()["secrets"]
+
+
+def test_masking_covers_sequence_container_forms() -> None:
+    """脱敏递归：集合类 / 元组 / frozenset / 集合 / 列表容器逐元素掩码且形态保持。"""
+    token = set_current_masker(FixedMasker(checker=NullPermissionChecker()))
+    try:
+        stable_list = _mask_sequence_value(ConcurrentStableList(["a"]))
+        assert isinstance(stable_list, ConcurrentStableList)
+        assert list(stable_list) == ["***"]
+
+        stable_set = _mask_sequence_value(ConcurrentStableSet(["a"]))
+        assert isinstance(stable_set, ConcurrentStableSet)
+        assert list(stable_set) == ["***"]
+
+        assert _mask_sequence_value(["a"]) == ["***"]
+        assert _mask_sequence_value(("a",)) == ["***"]  # 序列化链把元组归一为列表
+    finally:
+        reset_current_masker(token)
+
+
+def test_mask_sequence_preserves_container_forms() -> None:
+    """脱敏序列容器形态：元组 / frozenset / 集合 / 列表经掩码后保持原容器。"""
+    masker = FixedMasker(checker=NullPermissionChecker())
+    masked = ConcurrentStableDict[str, str]({"secrets": "custom"})
+
+    assert _mask_sequence(masked, "secrets", ("a",), masker, 1) == ("***",)
+    assert _mask_sequence(masked, "secrets", frozenset({"a"}), masker, 1) == frozenset({"***"})
+    assert _mask_sequence(masked, "secrets", {"a"}, masker, 1) == {"***"}
+    assert _mask_sequence(masked, "secrets", ["a"], masker, 1) == ["***"]
+
+
+def test_masking_stops_at_depth_limit() -> None:
+    """脱敏递归深度上限：超深嵌套原样返回（不无限递归）。"""
+    token = set_current_masker(FixedMasker(checker=NullPermissionChecker()))
+    try:
+        nested: object = "leaf"
+        for _ in range(7):
+            nested = [nested]
+        assert isinstance(_mask_sequence_value(nested), list)
+    finally:
+        reset_current_masker(token)
 
 
 def _build_app(masker: BaseMasker, monkeypatch: pytest.MonkeyPatch) -> FastAPI:

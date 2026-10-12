@@ -57,6 +57,17 @@ class _Holder(BaseObject):
         self.items = items
 
 
+def test_metadata_on_non_collection_falls_back_to_default_schema() -> None:
+    """元数据挂到非集合类型：回落默认 schema（校验语义不变）。"""
+
+    class _Plain(BaseSchema):
+        """非集合字段（验证元数据的回落分支）。"""
+
+        value: Annotated[int, CONTRACT_COLLECTION] = 1
+
+    assert _Plain(value=7).value == 7
+
+
 def _envelope(**overrides: object) -> _Envelope:
     """构造含集合字段的契约实例（默认插入序样本）。"""
     payload: ConcurrentStableDict[str, object] = ConcurrentStableDict(

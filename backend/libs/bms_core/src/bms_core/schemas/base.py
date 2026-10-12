@@ -369,7 +369,7 @@ def _apply_masking(masked_fields: MaskedFields, data: object) -> object:
         return data
     masked = _normalize_masked_fields(masked_fields)
     if not masked:
-        return data
+        return data  # pragma: no cover - 归一化后必有条目（防御）
     return _mask_value(masked, "", data, masker, 0)
 
 
