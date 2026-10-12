@@ -5,8 +5,10 @@
 """
 
 from collections.abc import Iterator
+from typing import Any, cast
 
 import pytest
+from fastapi import FastAPI, Request
 
 from bms_core.cache.memory import MemoryCacheRegion
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
@@ -23,6 +25,7 @@ from bms_core.permission.snapshot import (
     TIER_STANDARD,
     TIER_SYSTEM_ADMIN,
     PermissionSnapshot,
+    get_current_permission_snapshot,
     set_current_permission_snapshot,
 )
 from bms_core.permission.version import permission_user_cache_key, permission_version_key
@@ -341,8 +344,12 @@ class _Role:
         self.role_type = role_type
 
 
-def _build_service() -> PermissionService:
+def _build_service(*, cache: MemoryCacheRegion | None = None, subject: Any | None = None) -> PermissionService:
     """构造引擎（替身仓储：菜单 1 关联表单 11；表单 12 独立；动作 21 / 22）。
+
+    Args:
+        cache: 缓存域（缺省新建内存实现）。
+        subject: 主体链替身（缺省固定单角色）。
 
     Returns:
         PermissionService: 引擎实例。
@@ -375,10 +382,12 @@ def _build_service() -> PermissionService:
     rows.add(_Row("permission", 21))
     rows.add(_Row("permission", 22))
     rows.add(_Row("permission", 99))  # 未挂按钮的权限码 → 不进快照码集
+    rows.add(_Row("ghost", 5))  # 未登记授权类型 → 聚合跳过
 
     form_twelve: ConcurrentStableList[object] = ConcurrentStableList()
     form_twelve.add(_Form(12, "data", _button_list(export_button)))
     menus.add(_Menu(2, form_twelve))
+    menus.add(_Menu(3, ConcurrentStableList()))  # 无表单目录 → 不产生入口授权
     _menus_holder = menus
 
     roles: ConcurrentStableList[object] = ConcurrentStableList()
@@ -389,8 +398,8 @@ def _build_service() -> PermissionService:
         permissions=_StubPermissions(rows),  # type: ignore[arg-type]
         data_scopes=_StubScopes(),  # type: ignore[arg-type]
         metadata=_Metadata(),  # type: ignore[arg-type]
-        subject=_StubSubject(),  # type: ignore[arg-type]
-        cache=MemoryCacheRegion(),
+        subject=cast("Any", subject if subject is not None else _StubSubject()),  # type: ignore[arg-type]
+        cache=cache if cache is not None else MemoryCacheRegion(),
         profile="smb",
     )
 
@@ -490,3 +499,74 @@ def _button_list(*items: object) -> ConcurrentStableList[object]:
     for item in items:
         result.add(item)
     return result
+
+
+class _EmptySubject:
+    """主体链替身：恒返回空角色集合。"""
+
+    async def resolve_role_ids(self, user_id: int) -> ConcurrentStableSet[int]:
+        """返回空集合。
+
+        Args:
+            user_id: 用户主键（忽略）。
+
+        Returns:
+            ConcurrentStableSet[int]: 空集合。
+        """
+        del user_id
+        return ConcurrentStableSet()
+
+
+async def test_snapshot_for_recomputes_on_stale_cached_version() -> None:
+    """`snapshot_for`：缓存快照版本与当前权限版本不一致时重算并回写。"""
+    cache = MemoryCacheRegion()
+    service = _build_service(cache=cache)
+    key = permission_user_cache_key("1001", 5, 0)
+    await cache.aset(key, PermissionSnapshot(version=99, tier=TIER_STANDARD).to_payload(), ttl=60)
+
+    snapshot = await service.snapshot_for(user_id=5, tenant_id="1001")
+    assert snapshot.version == 0
+    assert cache.get(key) is not None
+
+
+async def test_compute_without_roles_returns_empty_grants() -> None:
+    """无角色主体：权限码 / 入口授权 / 数据范围规则均为空。"""
+    service = _build_service(subject=_EmptySubject())
+    snapshot = await service.compute(user_id=5, version=1)
+    assert list(snapshot.permission_codes) == []
+    assert list(snapshot.granted_menu_ids) == []
+    assert list(snapshot.granted_form_ids) == []
+    assert list(snapshot.data_scopes) == []
+
+
+async def test_org_resolver_payload_shape_fallbacks() -> None:
+    """出口解析回落：`data` 非对象 / `role_ids` 非序列 → 空集。"""
+    bad_data = OrgRoleResolver(_Client(response=_Response(200, {"data": "x"})))  # type: ignore[arg-type]
+    assert list(await bad_data.resolve(user_id=1)) == []
+
+    bad_ids = OrgRoleResolver(_Client(response=_Response(200, {"data": {"role_ids": "x"}})))  # type: ignore[arg-type]
+    assert list(await bad_ids.resolve(user_id=1)) == []
+
+
+def test_subject_service_from_registry() -> None:
+    """按基座注册表构造主体链服务（缺省装配路径）。"""
+    service = PermissionSubjectService.from_registry()
+    assert isinstance(service, PermissionSubjectService)
+
+
+async def test_checker_aprepare_idempotent_and_without_current_user() -> None:
+    """预加载：无当前用户时按平台层快照放行；重复调用直接返回（幂等）。"""
+    from bms_platform.permission.checker import RbacPermissionChecker
+
+    checker = RbacPermissionChecker()
+    app = FastAPI()
+    request = Request(scope={"type": "http", "method": "GET", "path": "/x", "headers": [], "app": app})
+
+    current_user_id.set(None)
+    await checker.aprepare(request=request)
+    snapshot = get_current_permission_snapshot()
+    assert snapshot is not None and snapshot.tier == TIER_PLATFORM_ADMIN
+
+    current_user_id.set(None)
+    await checker.aprepare(request=request)
+    assert request.state.permission_prepared is True
