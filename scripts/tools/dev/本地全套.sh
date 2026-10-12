@@ -336,8 +336,6 @@ cmd_seed() {
   ( cd "$BACKEND" && "$PY" -m ops.seed_tenant ) || rc=1
   log "种子：菜单元数据（配置解析 bms_platform.db）"
   ( cd "$BACKEND" && "$PY" -m ops.seed_menu ) || rc=1
-  log "种子：内置角色与授权（角色域 platform 租户库；依赖上一步的动作码）"
-  ( cd "$BACKEND" && "$PY" -m ops.seed_rbac ) || rc=1
   log "建号：$USERNAME（demo 租户 platform 库；口令只打印这一次——请登记到《本地资源》「BMS 应用账号」节）"
   local extra=()
   [ "$RESET_PASSWORD" -eq 1 ] && extra+=(--reset-password)
@@ -345,6 +343,10 @@ cmd_seed() {
   [ -n "$PASSWORD" ] && extra+=(--password "$PASSWORD")
   ( cd "$BACKEND" && "$PY" -m ops.seed_user \
       --username "$USERNAME" "${extra[@]}" ) || rc=1
+  # 内置角色与授权 + bootstrap 绑定（依赖上一步的动作码与已建账号）：把建出的账号绑到内置系统管理员，
+  # 命中权限引擎豁免层级，使本地开发对全部 `require_permission` 端点开箱可用。
+  log "种子：内置角色与授权（角色域 platform 租户库）+ 绑定 $USERNAME → 内置系统管理员"
+  ( cd "$BACKEND" && "$PY" -m ops.seed_rbac --assign-user "$USERNAME" ) || rc=1
   [ "$rc" -eq 0 ] && log "种子完成（幂等：重复执行新增为 0）"
   return "$rc"
 }

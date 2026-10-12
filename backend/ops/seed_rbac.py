@@ -4,10 +4,16 @@
 
 ```bash
 cd backend
-uv run python -m ops.seed_rbac --tenant demo --dry-run      # 计划预演
-uv run python -m ops.seed_rbac --tenant demo                # 落库（幂等）
+uv run python -m ops.seed_rbac --tenant demo --dry-run                    # 计划预演
+uv run python -m ops.seed_rbac --tenant demo                              # 落库（幂等）
+uv run python -m ops.seed_rbac --tenant demo --assign-user admin          # 落库并把 admin 绑到内置系统管理员
 uv run python -m ops.seed_rbac --tenant demo --tenant-url "sqlite+aiosqlite:///…" --platform-url "…"
 ```
+
+- **bootstrap 绑定（`--assign-user`）**：把首个可用账号（`sys_user.code`，或直接给用户主键）绑到内置
+  **系统管理员**角色——该角色 `role_type=system` 命中权限引擎的**豁免层级**，使本地开发对全部
+  `require_permission` 端点开箱可用（免逐码授权；权限码级判定由权限引擎专项用例覆盖）。账号尚未建号时
+  跳过并上报（须先执行 `ops.seed_user`），幂等（已有绑定即跳过）。
 
 - **库定位（两库协同）**：角色域（`sys_role` / `sys_role_permission`）在 **platform 服务租户库**；
   权限码（`sys_permission` / `sys_business` / `sys_action`）在 **platform 服务平台库**——分别解析（租户库复用
@@ -40,7 +46,9 @@ from bms_platform.models.role import (
     ROLE_TYPE_SYSTEM,
     SysRole,
     SysRolePermission,
+    SysUserRole,
 )
+from bms_platform.models.user import SysUser
 from ops.seed_tenant import resolve_url as resolve_platform_url
 from ops.seed_user import resolve_tenant_basis, resolve_tenant_url  # 复用既有租户库解析口径
 
@@ -87,8 +95,13 @@ SYSTEM_ADMIN_CODES: tuple[str, ...] = (
     "sso:bind",
     "open:manage",
     "idp:manage",
+    "user-extension:query",
+    "user-extension:update",
 )
 """系统管理员授权（在册权限码去除角色域码）。与 `require_permission` 在册清单同步维护。"""
+
+DEFAULT_ASSIGN_ACCOUNT = "admin"
+"""缺省绑定账号（本地 bootstrap：把首个可用账号绑到内置系统管理员，命中豁免层级）。"""
 
 AUDIT_ADMIN_CODES: tuple[str, ...] = ()
 """审计管理员授权（本轮为空；审计域权限码随审计模块落地）。"""
@@ -110,16 +123,26 @@ class SeedOutcome:
     grants_skipped: int = 0
     """已存在授权条目数。"""
 
+    assignments_created: int = 0
+    """新增「用户 → 内置角色」绑定数（bootstrap 豁免层级）。"""
+
+    assignments_skipped: int = 0
+    """已存在「用户 → 内置角色」绑定数。"""
+
+    assign_unresolved: ConcurrentStableList[str] = field(default_factory=lambda: ConcurrentStableList[str]())
+    """待绑定但库中未找到的账号 / 主键（如建号脚本尚未执行）。"""
+
     missing_codes: ConcurrentStableList[str] = field(default_factory=lambda: ConcurrentStableList[str]())
     """平台库未登记、被跳过的权限码（需先执行 `ops.seed_menu` 或补齐产品域动作码）。"""
 
 
-async def seed_rbac(*, tenant_url: str, platform_url: str, dry_run: bool = False) -> SeedOutcome:
-    """播种三权内置角色与其授权（幂等）。
+async def seed_rbac(*, tenant_url: str, platform_url: str, assign_user: str = "", dry_run: bool = False) -> SeedOutcome:
+    """播种三权内置角色与其授权（幂等），并按需绑定 bootstrap 账号。
 
     Args:
         tenant_url: platform 服务租户库连接串（角色域）。
         platform_url: platform 服务平台库连接串（业务 / 动作码）。
+        assign_user: 待绑定到内置系统管理员的账号（`sys_user.code`）或用户主键（空串跳过）。
         dry_run: 仅预演（不写库）。
 
     Returns:
@@ -135,8 +158,11 @@ async def seed_rbac(*, tenant_url: str, platform_url: str, dry_run: bool = False
     factory = async_sessionmaker(engine, expire_on_commit=False)
     try:
         async with factory() as session:
+            system_role_id = 0
             for code, name, role_type, codes in plan:
                 role_id = await _ensure_role(session, code=code, name=name, role_type=role_type, outcome=outcome)
+                if code == ROLE_SYSTEM_ADMIN:
+                    system_role_id = role_id
                 for permission in codes:
                     target_id = permission_ids.get(permission)
                     if target_id is None:
@@ -144,6 +170,8 @@ async def seed_rbac(*, tenant_url: str, platform_url: str, dry_run: bool = False
                             outcome.missing_codes.add(permission)
                         continue
                     await _ensure_grant(session, role_id=role_id, target_id=target_id, outcome=outcome)
+            if assign_user != "":
+                await _ensure_assignment(session, role_id=system_role_id, account=assign_user, outcome=outcome)
             if dry_run:
                 await session.rollback()
             else:
@@ -247,6 +275,55 @@ async def _ensure_grant(session: AsyncSession, *, role_id: int, target_id: int, 
     outcome.grants_created += 1
 
 
+async def _resolve_user_id(session: AsyncSession, account: str) -> int | None:
+    """按账号（`sys_user.code`）或用户主键解析用户主键。
+
+    Args:
+        session: 租户库会话。
+        account: 待解析账号（纯数字按用户主键解析）。
+
+    Returns:
+        int | None: 用户主键；未找到返回 None。
+    """
+    condition = SysUser.id == int(account) if account.isdigit() else SysUser.username == account
+    return (
+        await session.execute(select(SysUser.id).where(condition, SysUser.deleted_at.is_(None)))
+    ).scalar_one_or_none()
+
+
+async def _ensure_assignment(session: AsyncSession, *, role_id: int, account: str, outcome: SeedOutcome) -> None:
+    """把 bootstrap 账号绑定到内置系统管理员角色（按 `(role_id, user_id)` 判存）。
+
+    绑定后主体命中**豁免层级**（`role_type=system`），使本地开发对全部 `require_permission`
+    端点开箱可用（无需逐码授权；权限码级判定由权限引擎专项用例覆盖）。
+
+    Args:
+        session: 租户库会话。
+        role_id: 内置系统管理员角色主键。
+        account: 待绑定账号（`sys_user.code`）或用户主键。
+        outcome: 结果累计。
+    """
+    user_id = await _resolve_user_id(session, account)
+    if user_id is None:
+        outcome.assign_unresolved.add(account)
+        return
+    existing = (
+        await session.execute(
+            select(SysUserRole).where(
+                SysUserRole.role_id == role_id,
+                SysUserRole.user_id == user_id,
+                SysUserRole.deleted_at.is_(None),
+            )
+        )
+    ).scalar_one_or_none()
+    if existing is not None:
+        outcome.assignments_skipped += 1
+        return
+    session.add(SysUserRole(role_id=role_id, user_id=user_id))
+    await session.flush()
+    outcome.assignments_created += 1
+
+
 async def main(args: argparse.Namespace) -> None:
     """脚本入口：解析两库 URL 并执行播种。
 
@@ -258,12 +335,24 @@ async def main(args: argparse.Namespace) -> None:
     platform_url = resolve_platform_url(args.platform_url, service=args.service)
     print(f"[seed_rbac] 租户库（角色域）：{_safe_url(tenant_url)}")
     print(f"[seed_rbac] 服务库（权限码）：{_safe_url(platform_url)}")
-    outcome = await seed_rbac(tenant_url=tenant_url, platform_url=platform_url, dry_run=args.dry_run)
+    outcome = await seed_rbac(
+        tenant_url=tenant_url,
+        platform_url=platform_url,
+        assign_user=args.assign_user,
+        dry_run=args.dry_run,
+    )
     mode = "预演" if args.dry_run else "落库"
     print(
         f"[seed_rbac] {mode}完成：角色 新增 {outcome.roles_created} / 跳过 {outcome.roles_skipped}；"
         f"授权 新增 {outcome.grants_created} / 跳过 {outcome.grants_skipped}"
     )
+    if args.assign_user:
+        print(
+            f"[seed_rbac] 绑定内置系统管理员：{args.assign_user} 新增 {outcome.assignments_created} / "
+            f"跳过 {outcome.assignments_skipped}"
+        )
+    if outcome.assign_unresolved:
+        print(f"[seed_rbac] 待绑定但库中未找到（先执行建号脚本）：{', '.join(outcome.assign_unresolved)}")
     if outcome.missing_codes:
         print(f"[seed_rbac] 平台库未登记、已跳过的权限码：{', '.join(outcome.missing_codes)}")
 
@@ -295,6 +384,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--service", default=PLATFORM_SERVICE_KEY, help="目标服务标识（缺省 platform）")
     parser.add_argument("--tenant-url", default="", help="显式租户库连接串（覆盖模板解析）")
     parser.add_argument("--platform-url", default="", help="显式服务库连接串（覆盖模板解析）")
+    parser.add_argument(
+        "--assign-user",
+        default="",
+        help=f"把该账号（sys_user.code）或用户主键绑到内置系统管理员；缺省不绑定（{DEFAULT_ASSIGN_ACCOUNT}）",
+    )
     parser.add_argument("--dry-run", action="store_true", help="仅预演（不写库）")
     return parser
 

@@ -1,8 +1,8 @@
 """平台服务用户扩展信息端点：`/api/v1/user-extensions`（按用户列列表 + 新增 / 更新一条）。
 
-- **鉴权**：模块级 `require_auth`；读挂 `require_permission("sys:user-extension:query")`、
-  写挂 `require_permission("sys:user-extension:update")`（permission 基座当前为 Null = RBAC 前
-  平台超管口径，RBAC 就绪后自动收口）。
+- **鉴权**：模块级 `require_auth`；读挂 `require_permission("user-extension:query")`、
+  写挂 `require_permission("user-extension:update")`（权限码与 `ops.seed_menu` 的
+  `user-extension` 业务码 + `query` / `update` 动作码同源；平台超管经豁免层级直通）。
 - **租户**：由登录态解析租户，`get_uow` 取 platform 服务租户库会话（与字典 / 系统参数同口径）。
 - **契约**：具名插槽样例插件的后端契约面（插件前端经宿主注入 `api` 按服务键 `platform` 调用）；
   计入 platform 公开契约（`deploy/contracts/platform.json`）；新增端点属非破坏性变更。
@@ -39,8 +39,8 @@ router = BaseRouter(
 UowDep = Annotated[UnitOfWork, Depends(get_uow)]
 UserIdQuery = Annotated[int, Query(gt=0, description="用户主键（必填）")]
 
-_REQUIRE_QUERY = Depends(require_permission("sys:user-extension:query"))
-_REQUIRE_UPDATE = Depends(require_permission("sys:user-extension:update"))
+_REQUIRE_QUERY = Depends(require_permission("user-extension:query"))
+_REQUIRE_UPDATE = Depends(require_permission("user-extension:update"))
 
 
 def _service(uow: UowDep) -> UserExtensionService:
