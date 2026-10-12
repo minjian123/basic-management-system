@@ -81,3 +81,7 @@ $ python3 scripts/tools/base-check/check-links.py          # 断链 0 / 失效�
 - 开放项：模块仓储依赖注入工厂随首个业务模块接入；dict / listing 仓储化另行评估。
 
 > 本文档依《文档生成规范》编写
+
+## 原型对照结论 <a id="prototype-review"></a>
+
+不适用：BaseRepository 异步与 BaseModel 落库类交付，交付物为后端仓储与模型实现，无界面可见变更。

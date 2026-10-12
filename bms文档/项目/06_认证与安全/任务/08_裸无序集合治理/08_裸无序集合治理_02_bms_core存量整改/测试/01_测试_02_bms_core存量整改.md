@@ -136,3 +136,7 @@
 | 3 | 护栏复跑清零 | 单测 | 同上 `::test_bare_collections_check_clean` | `check` 无问题；新增 0 / 残留 0 / 基线条目 0 | 通过 |
 
 **执行记录**：`pytest libs/bms_core/tests/boundary/test_bare_collections_guard.py` → **3 passed**；`pyright` 0 error、`ruff` 全绿。
+
+## 原型对照结论 <a id="prototype-review"></a>
+
+不适用：裸无序集合存量整改类交付，交付物为后端代码集合类型整改与守卫，无界面可见变更。
