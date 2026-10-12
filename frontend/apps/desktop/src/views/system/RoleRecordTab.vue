@@ -51,6 +51,12 @@ const form = ref<{ code: string; name: string; status: RoleStatus; version: numb
 const permissionDirty = ref(false)
 /** 基本信息脏态。 */
 const detailDirty = ref(false)
+/** 载入时的基本信息基线（用于判定「基本信息是否真的改过」）。 */
+const baseline = ref<{ code: string; name: string; status: RoleStatus }>({
+  code: '',
+  name: '',
+  status: 'enabled',
+})
 /** 权限配置容器引用（工具栏保存分派）。 */
 const permissionRef = ref<InstanceType<typeof RolePermissionConfig> | null>(null)
 
@@ -74,6 +80,21 @@ const sysInfo = computed<SysInfoData>(() => ({
 
 watch(dirty, (value) => emit('dirty', value))
 
+// 基本信息改动判定：与载入基线逐字段比对（避免「载入即脏」的误判）
+watch(
+  form,
+  () => {
+    if (!editing.value || isNew.value) {
+      detailDirty.value = false
+      return
+    }
+    const b = baseline.value
+    detailDirty.value =
+      form.value.code !== b.code || form.value.name !== b.name || form.value.status !== b.status
+  },
+  { deep: true },
+)
+
 /**
  * 归一角色状态（详情契约 `status` 为 string，写接口要求 `enabled` / `disabled`）。
  *
@@ -91,6 +112,8 @@ async function load(): Promise<void> {
     editing.value = true
     detail.value = null
     form.value = { code: '', name: '', status: 'enabled', version: 1 }
+    baseline.value = { code: '', name: '', status: 'enabled' }
+    detailDirty.value = false
     return
   }
   loading.value = true
@@ -103,7 +126,13 @@ async function load(): Promise<void> {
       status: toStatus(data.status),
       version: data.version ?? 1,
     }
+    baseline.value = {
+      code: form.value.code,
+      name: form.value.name,
+      status: form.value.status,
+    }
     editing.value = false
+    detailDirty.value = false
   } catch (error: unknown) {
     ElMessage.error(error instanceof Error ? error.message : '角色详情加载失败')
   } finally {
