@@ -31,6 +31,7 @@
 | `tools/reorder-design/` | 设计文档节点编号重排 |
 | `tools/reorder-stage/` | 阶段目录编号重排（`renumber_stage.py`） |
 | `tools/workbuddy/` | WorkBuddy 桌面端补丁脚本 |
+| `tools/ide/` | IDE 工作区状态修复（`fix_scm_state.py`：源代码管理面板看不到仓库，VS Code / CodeBuddy 通用） |
 
 ## 常用命令
 
