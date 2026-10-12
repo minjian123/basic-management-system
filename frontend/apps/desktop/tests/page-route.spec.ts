@@ -6,7 +6,7 @@
 import { createMemoryHistory, createRouter, type Router } from 'vue-router'
 import { beforeEach, describe, expect, it } from 'vitest'
 
-import { ensureFormPageRoutes, pageRoute, uninstallFormPageRoutes } from '@/router/page-route'
+import { FORM_PAGE_DECLARATIONS, ensureFormPageRoutes, pageRoute, resolvePageRoute, uninstallFormPageRoutes } from '@/router/page-route'
 
 const DATA_SOURCES = {
   items: [
@@ -49,6 +49,24 @@ describe('表单页路由统一装载（02_13）', () => {
     expect(ensureFormPageRoutes(router)).toEqual(names)
     uninstallFormPageRoutes(router)
     expect(router.hasRoute('SystemRole')).toBe(false)
+    // 卸载后再卸载（空清单）为幂等空操作
+    uninstallFormPageRoutes(router)
+    expect(router.hasRoute('SystemRole')).toBe(false)
+  })
+
+  it('已存在同路径静态路由时跳过（不覆盖）', () => {
+    router.addRoute({ path: '/sys/roles', name: 'PreExisting', component: { template: '<div />' } })
+    const names = ensureFormPageRoutes(router)
+    expect(names).toEqual(['SystemUser'])
+    expect(router.hasRoute('PreExisting')).toBe(true)
+  })
+
+  it('平台表单页声明覆盖 role / user 且标题取自声明', () => {
+    expect(FORM_PAGE_DECLARATIONS.map((item) => item.formKey)).toEqual(['role', 'user'])
+    expect(resolvePageRoute('role')).toBeUndefined()
+    expect(pageRoute.listPreferenceKeyOf('role')).toBe('list.role')
+    expect(pageRoute.schemeFieldKeyOf('role')).toBe('role')
+    expect(pageRoute.declarationOf('user')?.title).toBe('用户管理')
   })
 })
 
