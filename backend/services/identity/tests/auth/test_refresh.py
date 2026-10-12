@@ -118,11 +118,22 @@ async def test_refresh_tenant_mismatch(client: AsyncClient, service_app: FastAPI
 
 @pytest.mark.kiwi_id(2194)
 async def test_refresh_missing_session_claim(client: AsyncClient, service_app: FastAPI) -> None:
-    """refresh 缺少会话标识（jti）：401。"""
+    """refresh 缺少会话标识（jti）：401（租户位匹配以真正落到 jti 校验分支）。"""
     issuer, _store = await _prepare(client, service_app)
-    issuer.mint("ref-nojti", jti=None)
+    issuer.mint("ref-nojti", jti=None, tenant_id=TENANT_ID)
     client.cookies.clear()
-    assert (await client.post(API_REFRESH, headers={"Cookie": f"{COOKIE}=ref-nojti"})).status_code == 401
+    resp = await client.post(API_REFRESH, headers={"Cookie": f"{COOKIE}=ref-nojti"})
+    assert resp.status_code == 401 and resp.json()["code"] == 20001
+
+
+@pytest.mark.kiwi_id(2194)
+async def test_refresh_non_string_session_claim(client: AsyncClient, service_app: FastAPI) -> None:
+    """refresh 会话标识非字符串（脏值）：401（`isinstance` 校验分支）。"""
+    issuer, _store = await _prepare(client, service_app)
+    issuer.mint("ref-bad-jti", jti=12345, tenant_id=TENANT_ID)
+    client.cookies.clear()
+    resp = await client.post(API_REFRESH, headers={"Cookie": f"{COOKIE}=ref-bad-jti"})
+    assert resp.status_code == 401 and resp.json()["code"] == 20001
 
 
 @pytest.mark.kiwi_id(2194)

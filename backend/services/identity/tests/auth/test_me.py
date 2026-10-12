@@ -126,3 +126,16 @@ async def test_me_fails_closed_when_org_unavailable(client: AsyncClient, service
     resp = await client.get(API_ME, headers=TENANT_HEADERS)
     assert resp.status_code == 503
     assert resp.json()["code"] == 10007
+
+
+async def test_current_user_rejects_missing_user_id() -> None:
+    """当前用户服务（防御分支）：登录态缺用户主键 → 20001（不触达 platform）。"""
+    from bms_core.core.exceptions import AuthError
+    from bms_identity.services.auth import CurrentUserService
+    from bms_identity.services.platform_client import PlatformCredentialClient
+
+    client = FakePlatformClient()
+    service = CurrentUserService(PlatformCredentialClient(client))
+    with pytest.raises(AuthError):
+        await service.current_user(user_id=None, tenant_id=TENANT_ID, tenant_code="demo")
+    assert client.calls == []

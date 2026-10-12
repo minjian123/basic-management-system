@@ -176,3 +176,12 @@ async def test_authorize_pkce_method_must_be_s256(client: AsyncClient, oidc: Oid
     )
     assert response.status_code == 302
     assert "error=invalid_request" in response.headers["location"]
+
+
+@pytest.mark.kiwi_id(2202)
+async def test_authorize_confidential_client_without_pkce_succeeds(client: AsyncClient, oidc: OidcHarness) -> None:
+    """机密客户端未带 PKCE：放行（`elif is_public` 假分支），302 回跳带 code。"""
+    await oidc.seed_client()
+    response = await client.get(_AUTHORIZE, params=_params(), headers=TENANT_HEADERS)
+    assert response.status_code == 302
+    assert "code=" in response.headers["location"]

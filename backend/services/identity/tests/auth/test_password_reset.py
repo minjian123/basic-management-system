@@ -8,6 +8,7 @@ from httpx import AsyncClient
 from sqlalchemy import select
 
 from bms_core.api.deps import get_rate_limiter
+from bms_core.core.exceptions import AuthError
 from bms_core.idp.state.memory import MemoryIdpStateStore
 from bms_core.ratelimit.memory import MemoryRateLimiter
 from bms_core.session.memory import MemorySessionStore
@@ -212,3 +213,21 @@ async def test_reset_revokes_all_sessions_and_next_request_401(client: AsyncClie
 
     after = await client.get(API_SESSIONS, headers={**TENANT_HEADERS, "Authorization": f"Bearer {access}"})
     assert after.status_code == 401 and after.json()["code"] == 20012
+
+
+@pytest.mark.kiwi_id(2210)
+def test_require_tenant_id_rejects_missing_primary_key() -> None:
+    """租户主键闸门（防御分支）：演示兜底口径（无雪花主键）→ 20001。"""
+    from bms_core.db.tenant import TenantContext
+    from bms_identity.api import password_reset as password_reset_api
+
+    with pytest.raises(AuthError):
+        password_reset_api._require_tenant_id(  # pyright: ignore[reportPrivateUsage]
+            TenantContext(code="demo", db_key="tenant_demo", name="演示租户")
+        )
+    assert (
+        password_reset_api._require_tenant_id(  # pyright: ignore[reportPrivateUsage]
+            TenantContext(code="demo", db_key="tenant_demo", name="演示租户", tenant_id=1001)
+        )
+        == "1001"
+    )

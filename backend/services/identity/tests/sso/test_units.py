@@ -16,7 +16,7 @@ from bms_core.core.exceptions import (
     SsoProviderNotFoundError,
     TenantNotFoundError,
 )
-from bms_core.db.tenant import TenantLookup
+from bms_core.db.tenant import TenantContext, TenantLookup
 from bms_core.idp.state.memory import MemoryIdpStateStore
 from bms_core.lock.null import NullDistributedLock
 from bms_core.outbox.null import NullOutboxStore
@@ -127,3 +127,11 @@ async def test_resolve_sso_tenant_requires_any_source() -> None:
     # 授权端点（必带租户）：多启用租户转 20051，不向授权面暴露租户段码。
     with pytest.raises(SsoProviderNotFoundError):
         await _resolve_sso_tenant_required(None, None, cast("TenantLookup", _MultiActiveSource()))
+
+
+@pytest.mark.kiwi_id(2197)
+async def test_resolve_sso_tenant_rejects_context_without_primary_key() -> None:
+    """上下文命中但缺雪花主键（演示兜底口径）→ 80001（端点内防御分支）。"""
+    keyless = TenantContext(code="demo", db_key="tenant_demo", name="演示租户")
+    with pytest.raises(TenantNotFoundError):
+        await _resolve_sso_tenant(None, keyless, cast("TenantLookup", _EmptyActiveSource()))

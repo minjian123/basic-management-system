@@ -292,3 +292,15 @@ async def test_create_scope_outside_registry_rejected(client: AsyncClient, oidc:
     assert product_scope.status_code == 200
     created = product_scope.json()["data"]
     assert created["scopes"] == ["mdm:read", "open:read"]
+
+
+@pytest.mark.kiwi_id(2202)
+async def test_create_dedupes_and_drops_blank_entries(client: AsyncClient, oidc: OidcHarness) -> None:
+    """字段归一化：重复值去重、空白项丢弃（`_dedupe` 假分支）。"""
+    created = await _create(
+        client,
+        redirect_uris=["http://rp.test/dup", " http://rp.test/dup ", "   "],
+        ip_whitelist=["10.0.0.1", "10.0.0.1", "  ", "10.0.0.2"],
+    )
+    assert created["redirect_uris"] == ["http://rp.test/dup"]
+    assert created["ip_whitelist"] == ["10.0.0.1", "10.0.0.2"]

@@ -133,3 +133,13 @@ async def test_revoke_user_sessions_rejects_invalid_reason(client: AsyncClient, 
     invalid = await client.post(API, json={"user_id": 42}, headers={"Authorization": "Bearer platform"})
     assert invalid.json()["code"] == 10001
     assert list(_RecordingSessionService.calls) == []
+
+
+@pytest.mark.kiwi_id(2270)
+def test_require_tenant_rejects_missing_context_and_id() -> None:
+    """端点租户闸门（防御分支）：上下文缺失 / 缺少租户主键一律 20001。"""
+    with pytest.raises(AuthError):
+        module._require_tenant(None)  # pyright: ignore[reportPrivateUsage]
+    with pytest.raises(AuthError):
+        module._require_tenant(TenantContext(code="demo", db_key="tenant_demo", name="演示租户"))  # pyright: ignore[reportPrivateUsage]
+    assert module._require_tenant(TENANT) is TENANT  # pyright: ignore[reportPrivateUsage]

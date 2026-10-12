@@ -103,6 +103,9 @@ def test_helpers_branches() -> None:
     assert with_query("http://x/cb", "a=1") == "http://x/cb?a=1"
     assert with_query("http://x/cb?t=1", "a=1") == "http://x/cb?t=1&a=1"
     assert "error=invalid_scope" in redirect_error(REDIRECT_URI, "invalid_scope", "st")
+    # 无 state（假分支）：不追加 state 参数。
+    assert "state=" not in redirect_error(REDIRECT_URI, "invalid_scope", None)
+    assert "state=" not in redirect_error(REDIRECT_URI, "invalid_scope", "")
 
 
 @pytest.mark.kiwi_id(2202)
@@ -175,3 +178,34 @@ async def test_resolve_tenant_branches() -> None:
     assert await oidc_api._resolve(None, context, lookup) is context  # pyright: ignore[reportPrivateUsage]
     with pytest.raises(TenantNotFoundError):
         await oidc_api._resolve(None, None, lookup)  # pyright: ignore[reportPrivateUsage]
+
+
+@pytest.mark.kiwi_id(2202)
+async def test_resolve_tenant_rejects_context_without_primary_key() -> None:
+    """上下文命中但缺雪花主键（演示兜底口径）→ 80001（端点内防御分支）。"""
+    source = _FakeTenantSource()
+    keyless = TenantContext(code="demo", db_key="tenant_demo", name="demo")
+    with pytest.raises(TenantNotFoundError):
+        await oidc_api._resolve(None, keyless, cast("TenantLookup", source))  # pyright: ignore[reportPrivateUsage]
+
+
+@pytest.mark.kiwi_id(2202)
+async def test_token_ignores_malformed_basic_header_and_uses_form(client: AsyncClient, oidc: OidcHarness) -> None:
+    """Basic 头非法（解码失败）时回落表单客户端认证，换码仍成功。"""
+    await oidc.seed_client()
+    verifier, challenge = pkce()
+    code, _ = await authorize_code(client, code_challenge=challenge, code_challenge_method="S256")
+    response = await client.post(
+        "/api/v1/oidc/token",
+        data={
+            "grant_type": "authorization_code",
+            "code": code,
+            "redirect_uri": REDIRECT_URI,
+            "code_verifier": verifier,
+            "client_id": CLIENT_ID,
+            "client_secret": CLIENT_SECRET,
+        },
+        headers={**TENANT_HEADERS, "Authorization": "Basic !!!"},
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["access_token"]

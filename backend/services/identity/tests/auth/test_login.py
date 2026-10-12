@@ -2,12 +2,12 @@
 
 import pytest
 from fastapi import FastAPI
-from httpx import AsyncClient, Response
+from httpx import ASGITransport, AsyncClient, Response
 from sqlalchemy import select
 
 from bms_core.api.deps import get_tenant_source
 from bms_core.core.exceptions import NeedTenantError
-from bms_core.db.tenant import TenantNotFoundError
+from bms_core.db.tenant import TenantContext, TenantNotFoundError
 from bms_core.ratelimit.memory import MemoryRateLimiter
 from bms_core.session.memory import MemorySessionStore
 from bms_identity.api.tenancy import resolve_request_tenant
@@ -28,6 +28,21 @@ from .helpers import (
 from .session_helpers import tenant_scope, utc_now
 
 API_LOGIN = "/api/v1/auth/login"
+
+
+class _KeylessTenantSource(FakeTenantSource):
+    """租户源替身：按编码解析出**无雪花主键**的租户上下文（演示兜底口径）。"""
+
+    async def by_code(self, code: str) -> TenantContext:
+        """按编码取无主键租户。
+
+        Args:
+            code: 租户编码。
+
+        Returns:
+            TenantContext: 无 `tenant_id` 的租户上下文。
+        """
+        return TenantContext(code=code, db_key="tenant_demo", name="演示租户")
 
 
 async def _login(client: AsyncClient, account: str, password: str, **extra: object) -> Response:
@@ -434,3 +449,39 @@ async def test_login_remember_me_branches(client: AsyncClient, service_app: Fast
     # 会话标记 TTL 与会话记录一致（会话级=24h）
     marker = await store.load(issuer.specs[0].session_id, tenant=TENANT_ID)
     assert marker is not None
+
+
+@pytest.mark.kiwi_id(2194)
+async def test_login_rejects_tenant_without_primary_key(client: AsyncClient, service_app: FastAPI) -> None:
+    """解析出的租户缺雪花主键（演示兜底口径）→ 认证错误（20001 / 401）。"""
+    issuer, platform_client, store, limiter = (
+        FakeUserTokenIssuer(),
+        FakePlatformClient(),
+        MemorySessionStore(),
+        MemoryRateLimiter(),
+    )
+    platform_client.set_user("admin", password="secret")
+    wire_auth(service_app, issuer=issuer, platform_client=platform_client, store=store, limiter=limiter)
+    service_app.dependency_overrides[get_tenant_source] = lambda: _KeylessTenantSource()
+
+    resp = await _login(client, "admin", "secret", tenant="nokey")
+    assert resp.status_code == 401 and resp.json()["code"] == 20001
+
+
+@pytest.mark.kiwi_id(2235)
+async def test_login_without_client_ip_skips_ip_rate_limit(service_app: FastAPI) -> None:
+    """无来源 IP（内部网络口径）：跳过 IP 维度限流，仅落账号维度键。"""
+    issuer, platform_client, store, limiter = (
+        FakeUserTokenIssuer(),
+        FakePlatformClient(),
+        MemorySessionStore(),
+        MemoryRateLimiter(),
+    )
+    platform_client.set_user("admin", password="secret")
+    wire_auth(service_app, issuer=issuer, platform_client=platform_client, store=store, limiter=limiter)
+
+    async with AsyncClient(transport=ASGITransport(app=service_app, client=("", 0)), base_url="http://test") as bare:
+        resp = await bare.post(API_LOGIN, json={"account": "admin", "password": "secret"})
+    assert resp.status_code == 200
+    keys = list(limiter._windows)  # pyright: ignore[reportPrivateUsage]
+    assert keys == [f"bms:{TENANT_ID}:rate:account:admin"]

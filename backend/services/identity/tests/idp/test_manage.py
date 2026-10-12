@@ -7,9 +7,11 @@ from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
-from bms_core.core.exceptions import PermissionError
+from bms_core.core.exceptions import AuthError, PermissionError
 from bms_core.core.serialization import normalize_collections
+from bms_core.db.tenant import TenantContext
 from bms_core.permission import base as permission_base
+from bms_identity.api import identity_providers as idp_api
 
 from .conftest import ISSUER, TENANT_HEADERS, TENANT_ID, ManageHarness
 
@@ -153,6 +155,38 @@ async def test_not_found_branches(client: AsyncClient, manage: ManageHarness) ->
 
 
 @pytest.mark.kiwi_id(2203)
+async def test_update_partial_fields_skip_absent(client: AsyncClient, manage: ManageHarness) -> None:
+    """局部更新：未携带字段（None）不写入，逐字段单独更新均生效（四个可选分支假路径）。"""
+    created = await _create(client)
+    provider_id = created["id"]
+
+    empty = await client.put(f"{_BASE}/{provider_id}", json={}, headers=TENANT_HEADERS)
+    assert empty.status_code == 200
+    assert empty.json()["data"]["name"] == "Keycloak"
+    assert empty.json()["data"]["sort"] == 0
+
+    by_name = await client.put(f"{_BASE}/{provider_id}", json={"name": "OnlyName"}, headers=TENANT_HEADERS)
+    assert by_name.json()["data"]["name"] == "OnlyName"
+    assert by_name.json()["data"]["icon"] == ""
+
+    by_icon = await client.put(f"{_BASE}/{provider_id}", json={"icon": "only.png"}, headers=TENANT_HEADERS)
+    assert by_icon.json()["data"]["icon"] == "only.png"
+    assert by_icon.json()["data"]["name"] == "OnlyName"
+
+    by_sort = await client.put(f"{_BASE}/{provider_id}", json={"sort": 7}, headers=TENANT_HEADERS)
+    assert by_sort.json()["data"]["sort"] == 7
+    assert by_sort.json()["data"]["icon"] == "only.png"
+
+    by_config = await client.put(
+        f"{_BASE}/{provider_id}",
+        json={"config": dict(_oidc_config(jit_enabled=True))},
+        headers=TENANT_HEADERS,
+    )
+    assert by_config.json()["data"]["config"]["jit_enabled"] is True
+    assert by_config.json()["data"]["sort"] == 7
+
+
+@pytest.mark.kiwi_id(2203)
 async def test_status_invalid(client: AsyncClient, manage: ManageHarness) -> None:
     """启停状态非法 20064。"""
     created = await _create(client)
@@ -270,3 +304,14 @@ async def test_sso_providers_no_config(client: AsyncClient, manage: ManageHarnes
     items = response.json()["data"]["items"]
     assert items and "config" not in items[0]
     assert "s3cr3t" not in str(items)
+
+
+@pytest.mark.kiwi_id(2203)
+def test_require_tenant_id_rejects_missing_primary_key() -> None:
+    """租户主键闸门（防御分支）：演示兜底口径（无雪花主键）→ 20001。"""
+    with pytest.raises(AuthError):
+        idp_api._require_tenant_id(TenantContext(code="demo", db_key="tenant_demo", name="演示租户"))  # pyright: ignore[reportPrivateUsage]
+    assert (
+        idp_api._require_tenant_id(TenantContext(code="demo", db_key="tenant_demo", name="演示租户", tenant_id=1001))  # pyright: ignore[reportPrivateUsage]
+        == "1001"
+    )

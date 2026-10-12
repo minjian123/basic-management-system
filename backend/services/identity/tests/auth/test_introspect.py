@@ -14,7 +14,7 @@ from bms_core.api.deps import get_service_token_issuer, get_tenant_source, get_t
 from bms_core.application import service_lifespan
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.exceptions import AuthError, ConfigError, ServiceUnavailableError, TenantNotFoundError
-from bms_core.db.tenant import TenantContext
+from bms_core.db.tenant import TenantContext, TenantLookup
 from bms_core.idp.base import IdentityClaims
 from bms_core.oauth.base import OAuthToken
 from bms_core.oauth.jwt import JwtServiceTokenIssuer
@@ -113,11 +113,27 @@ class _TenantSource:
         return TenantContext(code="acme", db_key="tenant_acme", name="示例租户", tenant_id=2002)
 
 
+class _BrokenTenantSource(_TenantSource):
+    """占位租户源：按令牌主键反解即抛非业务异常（租户注册契约异常口径）。"""
+
+    async def by_id(self, tenant_id: str) -> TenantContext:
+        """按租户主键反解即抛异常。
+
+        Args:
+            tenant_id: 租户主键字符串。
+
+        Raises:
+            RuntimeError: 固定失败（模拟租户注册契约异常）。
+        """
+        raise RuntimeError(f"租户注册契约不可达：{tenant_id}")
+
+
 async def _request(
     *,
     verifier: BaseTokenVerifier,
     issuer: BaseServiceTokenIssuer,
     headers: ConcurrentStableDict[str, str] | None = None,
+    tenant_source: TenantLookup | None = None,
 ) -> tuple[int, ConcurrentStableDict[str, str]]:
     """构造应用并经依赖覆盖发起一次 introspect 请求。
 
@@ -125,15 +141,17 @@ async def _request(
         verifier: 注入的统一校验器。
         issuer: 注入的服务 JWT 签发者。
         headers: 请求头。
+        tenant_source: 注入的租户源（None 用默认占位源）。
 
     Returns:
         tuple[int, ConcurrentStableDict[str, str]]: 状态码与响应头。
     """
     app: FastAPI = ApplicationFactory().create(None)
+    source: TenantLookup = tenant_source if tenant_source is not None else _TenantSource()
     async with service_lifespan(app):
         app.dependency_overrides[get_token_verifier] = lambda: verifier
         app.dependency_overrides[get_service_token_issuer] = lambda: issuer
-        app.dependency_overrides[get_tenant_source] = lambda: _TenantSource()
+        app.dependency_overrides[get_tenant_source] = lambda: source
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             response = await client.get(_INTROSPECT, headers=headers or {})
         return response.status_code, ConcurrentStableDict(response.headers)
@@ -264,6 +282,21 @@ def test_issuance_failure_is_unavailable() -> None:
         _request(
             verifier=_StubVerifier(result=VerifiedToken(subject="u-1")),
             issuer=_FailingIssuer(),
+            headers=ConcurrentStableDict(
+                {"Authorization": "Bearer user-token", "X-Forwarded-Uri": "/api/platform/v1/users"}
+            ),
+        )
+    )
+    assert status == 503
+
+
+def test_tenant_lookup_failure_is_unavailable() -> None:
+    """令牌带租户位但租户源反解异常（非 TenantNotFoundError）→ 503（fail-closed）。"""
+    status, _ = asyncio.run(
+        _request(
+            verifier=_StubVerifier(result=VerifiedToken(subject="u-1", tenant_id="2002")),
+            issuer=_issuer(),
+            tenant_source=_BrokenTenantSource(),
             headers=ConcurrentStableDict(
                 {"Authorization": "Bearer user-token", "X-Forwarded-Uri": "/api/platform/v1/users"}
             ),

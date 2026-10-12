@@ -8,6 +8,7 @@ from httpx import AsyncClient
 
 from bms_core.api.deps import get_tenant
 from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.db.tenant import TenantContext
 
 from .session_helpers import API_SESSIONS, TENANT_HEADERS, login, seed_session, utc_now, wire_login
 
@@ -107,5 +108,16 @@ async def test_list_requires_tenant_context(client: AsyncClient, service_app: Fa
     """无租户上下文 → 认证错误（20001 / 401）。"""
     await wire_login(service_app)
     service_app.dependency_overrides[get_tenant] = lambda: None
+    resp = await client.get(API_SESSIONS)
+    assert resp.status_code == 401 and resp.json()["code"] == 20001
+
+
+@pytest.mark.kiwi_id(2195)
+async def test_list_requires_tenant_primary_key(client: AsyncClient, service_app: FastAPI) -> None:
+    """上下文租户缺主键（演示兜底口径）→ 认证错误（20001 / 401）。"""
+    await wire_login(service_app)
+    service_app.dependency_overrides[get_tenant] = lambda: TenantContext(
+        code="demo", db_key="tenant_demo", name="演示租户"
+    )
     resp = await client.get(API_SESSIONS)
     assert resp.status_code == 401 and resp.json()["code"] == 20001

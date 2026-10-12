@@ -109,12 +109,26 @@ def test_helpers_username_and_config() -> None:
     assert jit_enabled_for("{}", Settings().sso) is False
     assert allowed_email_domains('{"allowed_email_domains": ["Corp.com"]}', "k") == frozenset({"corp.com"})
     assert allowed_email_domains("{}", "k") == frozenset()
+    # 数组内含空串 / 空白项：丢弃空项，保留有效域名（循环体假分支）。
+    assert allowed_email_domains('{"allowed_email_domains": ["", " ", "Corp.com"]}', "k") == frozenset({"corp.com"})
     with pytest.raises(ConfigError):
         allowed_email_domains('{"allowed_email_domains": "corp.com"}', "k")
     with pytest.raises(ConfigError):
         jit_enabled_for("{not-json", Settings().sso)
     with pytest.raises(ConfigError):
         allowed_email_domains("[1,2]", "k")
+
+
+@pytest.mark.kiwi_id(2198)
+def test_enforce_whitelist_accepts_matching_domain() -> None:
+    """域名白名单命中（空邮箱判定假分支）：不抛错。"""
+    service = _service(FakeSsoPlatformClient())
+    service._enforce_whitelist(  # pyright: ignore[reportPrivateUsage]
+        TENANT,
+        '{"allowed_email_domains": ["corp.com"]}',
+        IDP_KEY,
+        ExternalIdentity(subject="sub-9", username="alice", email="Alice@CORP.com"),
+    )
 
 
 @pytest.mark.kiwi_id(2198)

@@ -223,6 +223,27 @@ async def test_reset_password_token_payload_and_not_found() -> None:
 
 
 @pytest.mark.kiwi_id(2210)
+async def test_reset_password_unknown_account_rejected() -> None:
+    """令牌有效但账号已不存在（platform 未更新）→ 20005（`not updated` 分支）。"""
+    session, engine = await _session()
+    platform_client = FakePlatformClient()
+    states = MemoryIdpStateStore()
+    service = _service(session, platform_client=platform_client, states=states)
+    await states.save(
+        "vanished",
+        ConcurrentStableDict({"user_id": 999, "account": "nobody"}),
+        tenant=TENANT_ID,
+        namespace=PASSWORD_RESET_NAMESPACE,
+    )
+
+    with pytest.raises(PasswordResetTokenError) as gone:
+        await service.reset_password("vanished", "NewSecret1!", tenant_id=TENANT_ID, tenant_code=TENANT)
+    assert gone.value.code == 20005 and gone.value.http_status == 400
+    await session.close()
+    await engine.dispose()
+
+
+@pytest.mark.kiwi_id(2210)
 async def test_reset_password_policy_and_history_mapping() -> None:
     """改密策略闸门：复杂度违规 30005（带 violations）/ 历史重复 30006。"""
     session, engine = await _session()
