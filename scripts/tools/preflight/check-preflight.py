@@ -272,6 +272,7 @@ def main() -> int:
             else [
                 "--cov=bms_core",
                 "--cov=bms_platform",
+                "--cov=bms_txn",
                 "--cov=bms_identity",
                 "--cov=bms_tenant",
                 "--cov=bms_file",

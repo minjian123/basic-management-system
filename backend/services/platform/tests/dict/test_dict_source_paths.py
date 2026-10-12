@@ -21,9 +21,9 @@ from bms_platform.sources.dict_source import PlatformDictDataSource
 
 
 @pytest_asyncio.fixture
-async def dict_source(tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch) -> AsyncIterator[
-    PlatformDictDataSource
-]:
+async def dict_source(
+    tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch
+) -> AsyncIterator[PlatformDictDataSource]:
     """临时租户库（`sys_role`）+ 平台内建字典数据源。
 
     Args:
