@@ -1,6 +1,6 @@
 """数据脱敏基座契约测试（Kiwi 39）：继承 / 注册 / 占位直通 / 权限联动 / 序列化掩码。"""
 
-from typing import Annotated, ClassVar
+from typing import Annotated, ClassVar, cast
 
 import pytest
 from fastapi import Depends, FastAPI
@@ -84,13 +84,17 @@ def test_masking_covers_sequence_container_forms() -> None:
     """脱敏递归：集合类 / 元组 / frozenset / 集合 / 列表容器逐元素掩码且形态保持。"""
     token = set_current_masker(FixedMasker(checker=NullPermissionChecker()))
     try:
-        stable_list = _mask_sequence_value(ConcurrentStableList(["a"]))
-        assert isinstance(stable_list, ConcurrentStableList)
-        assert list(stable_list) == ["***"]
+        source_list: ConcurrentStableList[str] = ConcurrentStableList()
+        source_list.add("a")
+        masked_list = cast("ConcurrentStableList[str]", _mask_sequence_value(source_list))
+        assert type(masked_list).__name__ == "ConcurrentStableList"
+        assert list(masked_list) == ["***"]
 
-        stable_set = _mask_sequence_value(ConcurrentStableSet(["a"]))
-        assert isinstance(stable_set, ConcurrentStableSet)
-        assert list(stable_set) == ["***"]
+        source_set: ConcurrentStableSet[str] = ConcurrentStableSet()
+        source_set.add("a")
+        masked_set = cast("ConcurrentStableSet[str]", _mask_sequence_value(source_set))
+        assert type(masked_set).__name__ == "ConcurrentStableSet"
+        assert list(masked_set) == ["***"]
 
         assert _mask_sequence_value(["a"]) == ["***"]
         assert _mask_sequence_value(("a",)) == ["***"]  # 序列化链把元组归一为列表
