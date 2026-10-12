@@ -26,6 +26,22 @@ describe('ConfirmDialog', () => {
   })
 })
 
+describe('ConfirmDialog 关闭规则（原型 §8：确认类禁遮罩与 Esc）', () => {
+  it('向底层件传 `close-on-click-modal=false` 与 `close-on-press-escape=false`', () => {
+    const dialogStub = {
+      props: ['title', 'closeOnClickModal', 'closeOnPressEscape'],
+      template: '<div><slot /><slot name="footer" /></div>',
+    }
+    const wrapper = mount(ConfirmDialog, {
+      props: { modelValue: true, title: '删除确认', content: '确定删除吗？', danger: true },
+      global: { stubs: { ElDialog: dialogStub, ElButton: { template: '<button><slot /></button>' } } },
+    })
+    const dialog = wrapper.findComponent(dialogStub)
+    expect(dialog.props('closeOnClickModal')).toBe(false)
+    expect(dialog.props('closeOnPressEscape')).toBe(false)
+  })
+})
+
 describe('useConfirm', () => {
   it('confirm() 返回 Promise 并由 resolveConfirm 结算', async () => {
     const { state, confirm, resolveConfirm } = useConfirm()

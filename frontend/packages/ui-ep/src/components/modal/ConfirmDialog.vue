@@ -74,7 +74,16 @@ function onCancel(): void {
 </script>
 
 <template>
-  <el-dialog v-model="dialogVisible" :title="title" width="420px" append-to-body>
+  <!-- 确认类关闭规则（《布局设计 10 弹窗》/《组件设计 · 弹窗抽屉表单》§8）：**禁遮罩与 Esc 关闭**，
+       必须显式点按钮——`close-on-click-modal` / `close-on-press-escape` 一律关闭。 -->
+  <el-dialog
+    v-model="dialogVisible"
+    :title="title"
+    width="420px"
+    :close-on-click-modal="false"
+    :close-on-press-escape="false"
+    append-to-body
+  >
     <p class="confirm-dialog__content">{{ content }}</p>
     <template #footer>
       <el-button data-test="confirm-cancel" @click="onCancel">{{ cancelText }}</el-button>
