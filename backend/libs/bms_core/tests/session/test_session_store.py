@@ -87,6 +87,23 @@ async def test_redis_store_lazy_client_and_ttl_branch() -> None:
     store = RedisSessionStore(url="redis://localhost:6379/0")
     assert store.client is not None
     await store.aclose()
+    # 客户端已释放：再次关闭为幂等空操作（不进入释放分支）。
+    await store.aclose()
+
+
+@pytest.mark.kiwi_id(2194)
+async def test_memory_store_clear_empties_items_and_blacklist() -> None:
+    """内存实现 `clear`：逐条移除会话与黑名单（清空后均为未命中）。"""
+    store = MemorySessionStore()
+    await store.save("s1", ConcurrentStableDict({"user_id": 1}), ttl=60)
+    await store.save("s2", ConcurrentStableDict({"user_id": 2}), ttl=60)
+    await store.blacklist("bk", ttl=60)
+
+    store.clear()
+
+    assert await store.load("s1") is None
+    assert await store.load("s2") is None
+    assert await store.is_blacklisted("bk") is False
 
 
 @pytest.mark.kiwi_id(2194)

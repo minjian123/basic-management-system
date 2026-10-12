@@ -19,8 +19,13 @@ from fastapi import FastAPI
 from sqlalchemy import Table, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+import bms_core.catalog.loader as loader_module
 from bms_core.application import BaseServiceApplicationFactory, service_lifespan
-from bms_core.catalog.loader import register_catalog_reader
+from bms_core.catalog.loader import (
+    CatalogReader,
+    load_catalog_snapshot,
+    register_catalog_reader,
+)
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import get_settings
 from bms_core.core.error_codes import ErrorCode
@@ -321,3 +326,98 @@ async def test_lifespan_rejects_missing_catalog_table(catalog_db_url: str, monke
     with pytest.raises(CatalogError, match="服务目录不可读"):
         async with service_lifespan(app):
             pass
+
+
+def _no_reader(service: str) -> CatalogReader | None:
+    """读取器解析替身：恒无登记（模拟装配期遗漏）。
+
+    Args:
+        service: 服务标识（忽略）。
+
+    Returns:
+        CatalogReader | None: 恒 None。
+    """
+    del service
+    return None
+
+
+async def _catalog_error_reader(session: AsyncSession) -> ConcurrentStableList[ModuleRecord]:
+    """读取器替身：恒抛 `CatalogError`（验证原样直通）。
+
+    Args:
+        session: 会话（忽略）。
+
+    Raises:
+        CatalogError: 恒定抛出。
+    """
+    del session
+    raise CatalogError("读取器判定失败")
+
+
+def _resolve_catalog_error_reader(service: str) -> CatalogReader:
+    """读取器解析替身：恒返回抛 `CatalogError` 的读取器。
+
+    Args:
+        service: 服务标识（忽略）。
+
+    Returns:
+        CatalogReader: 抛错的读取器。
+    """
+    del service
+    return _catalog_error_reader
+
+
+class _PlainSessionScope:
+    """会话作用域替身：产出占位会话（读取器不真正使用）。"""
+
+    async def __aenter__(self) -> object:
+        """产出占位会话。
+
+        Returns:
+            object: 占位会话对象。
+        """
+        return object()
+
+    async def __aexit__(self, exc_type: object, exc: object, tb: object) -> None:
+        """退出（占位）。
+
+        Args:
+            exc_type: 异常类型。
+            exc: 异常对象。
+            tb: 回溯。
+        """
+
+
+def _plain_session_scope(*args: object, **kwargs: object) -> _PlainSessionScope:
+    """构造产出占位会话的作用域。
+
+    Args:
+        args: 位置参数（忽略）。
+        kwargs: 关键字参数（忽略）。
+
+    Returns:
+        _PlainSessionScope: 会话作用域替身。
+    """
+    del args, kwargs
+    return _PlainSessionScope()
+
+
+@pytest.mark.kiwi_id(2163)
+async def test_load_catalog_snapshot_authority_without_reader(monkeypatch: pytest.MonkeyPatch) -> None:
+    """目录权威未登记本地读取器：直接抛 `CatalogError`（装配期遗漏的显式提示）。"""
+    monkeypatch.setattr(loader_module, "resolve_catalog_reader", _no_reader)
+    app = _create_app()
+    with pytest.raises(CatalogError, match="本地读取器未登记"):
+        await load_catalog_snapshot(app)
+
+
+@pytest.mark.kiwi_id(2163)
+async def test_load_catalog_snapshot_authority_reader_catalog_error_passthrough(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """目录权威读取器抛 `CatalogError`：原样直通（不包装为「不可读」文案）。"""
+    monkeypatch.setattr(loader_module, "resolve_catalog_reader", _resolve_catalog_error_reader)
+    monkeypatch.setattr(loader_module, "session_scope", _plain_session_scope)
+    app = _create_app()
+    with pytest.raises(CatalogError, match="读取器判定失败"):
+        await load_catalog_snapshot(app)

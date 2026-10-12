@@ -117,3 +117,19 @@ async def test_operational_error_translated_and_degraded() -> None:
     assert response.json()["code"] == 10006
     assert health.is_degraded() is True
     await app.state.engine_registry.aclose()
+
+
+@pytest.mark.kiwi_id(984)
+async def test_operational_error_without_primary_health_state() -> None:
+    """连接类异常且未装配主库状态：仍转 503 / 10006（跳过降级标记分支）。"""
+    app = FastAPI()
+    register_exception_handlers(app)
+
+    @app.get("/boom")
+    async def _boom() -> None:  # pyright: ignore[reportUnusedFunction]
+        raise OperationalError("boom", {}, Exception("connection lost"))
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.get("/boom")
+    assert response.status_code == 503
+    assert response.json()["code"] == 10006

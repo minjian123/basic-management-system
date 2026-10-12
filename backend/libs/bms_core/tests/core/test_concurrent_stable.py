@@ -189,6 +189,29 @@ def test_stable_sharded_concurrent_write_restores_insertion_order() -> None:
 
 
 @pytest.mark.kiwi_id(2222)
+def test_stable_sharded_remove_tolerates_stale_find_target(monkeypatch: pytest.MonkeyPatch) -> None:
+    """SHARDED 删除的竞态防御：`_find` 命中的序号在段内已不存在时循环自然结束（不抛错）。"""
+    items = ConcurrentStableList(["keep"])
+    # 模拟并发窗口：`_find` 返回段内不存在的序号（元素已被并发删除）
+    monkeypatch.setattr(items, "_find", _stale_find_target)
+    items.remove("keep")
+    assert items.to_list() == ["keep"]
+
+
+def _stale_find_target(item: object) -> tuple[int, int]:
+    """查找替身：恒返回段内不存在的序号（模拟并发删除窗口）。
+
+    Args:
+        item: 目标元素（忽略）。
+
+    Returns:
+        tuple[int, int]: （不存在的序号, 段号）。
+    """
+    del item
+    return (999_999, 0)
+
+
+@pytest.mark.kiwi_id(2222)
 def test_stable_dict_sharded_concurrent_write_restores_insertion_order() -> None:
     """SHARDED 分段写：并发行写入后每线程键序仍为插入序，读写不丢不重。"""
     data = ConcurrentStableDict[int, int]()

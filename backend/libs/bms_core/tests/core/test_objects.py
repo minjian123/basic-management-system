@@ -2,6 +2,7 @@
 
 import asyncio
 import dataclasses
+from typing import ClassVar
 
 import pytest
 
@@ -9,7 +10,12 @@ from bms_core.api.base import BaseRouter
 from bms_core.core.base import BaseObject
 from bms_core.core.capability import BaseAsyncResource, BaseCapability, BasePlaceholder
 from bms_core.core.logging import BaseLogger
-from bms_core.core.objects import BaseDataContract, BaseFrameworkObject, BaseValueObject
+from bms_core.core.objects import (
+    BaseAuthorizeUrlResultContract,
+    BaseDataContract,
+    BaseFrameworkObject,
+    BaseValueObject,
+)
 from bms_core.core.plugin import BasePluggable
 from bms_core.core.provider import BaseProvider
 from bms_core.models.base import BaseModel
@@ -82,3 +88,34 @@ def test_four_segment_inheritance() -> None:
         assert issubclass(cls, BaseObject)
     assert issubclass(BasePluggable, BaseCapability)
     assert issubclass(BaseProvider, BaseCapability)
+
+
+class _Placeholder(BasePlaceholder):
+    """测试用占位实现（不覆写 `describe`）。"""
+
+
+@dataclasses.dataclass(frozen=True)
+class _AuthorizeResult(BaseAuthorizeUrlResultContract):
+    """测试用授权跳转结果（按 `URL_FIELD` 声明承载字段）。"""
+
+    URL_FIELD: ClassVar[str] = "redirect_url"
+
+    redirect_url: str
+    state: str = ""
+
+
+@pytest.mark.kiwi_id(2214)
+def test_placeholder_describe_default() -> None:
+    """占位描述：默认取类名并附占位后缀（子类未覆写时的统一口径）。"""
+    assert _Placeholder().describe() == "_Placeholder（占位实现，待回补真实实现）"
+    assert _Placeholder.placeholder is True
+
+
+@pytest.mark.kiwi_id(2214)
+def test_authorize_url_contract_reads_declared_field() -> None:
+    """授权跳转结果契约：`url` 统一读取 `URL_FIELD` 声明的字段（不重命名字段）。"""
+    result = _AuthorizeResult(redirect_url="https://idp.example.com/authorize?code=x", state="s1")
+    assert _AuthorizeResult.URL_FIELD == "redirect_url"
+    assert result.url == "https://idp.example.com/authorize?code=x"
+    assert result.state == "s1"
+    assert BaseAuthorizeUrlResultContract.URL_FIELD == ""

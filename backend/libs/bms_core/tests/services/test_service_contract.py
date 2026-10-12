@@ -86,7 +86,7 @@ def test_validate_contract() -> None:
     assert any("paths 为空" in message for message in errors)
 
 
-def _leaf(path: str, *, include_in_schema: bool) -> SimpleNamespace:
+def _leaf(path: str, *, include_in_schema: bool = True) -> SimpleNamespace:
     """构造实现路由叶子桩（模拟 FastAPI `APIRoute` / `_EffectiveRouteContext`）。"""
     return SimpleNamespace(path=path, include_in_schema=include_in_schema)
 
@@ -119,6 +119,19 @@ def test_service_route_sets_empty_is_detectable() -> None:
     visible, invisible = service_route_sets(SimpleNamespace(routes=ConcurrentStableList()))
 
     assert len(visible) == 0
+    assert len(invisible) == 0
+
+
+@pytest.mark.kiwi_id(2227)
+def test_service_route_sets_skips_non_route_entries() -> None:
+    """非路由条目（无 `path` / 无 `include_in_schema` / 类型不符）被跳过，不产生幽灵路由。"""
+    non_route = SimpleNamespace(effective_candidates=None, routes=None, path=123, include_in_schema=True)
+    no_schema = SimpleNamespace(effective_candidates=None, routes=None, path="/api/v1/x", include_in_schema=None)
+    app = SimpleNamespace(routes=ConcurrentStableList([non_route, no_schema, _leaf("/api/v1/ok")]))
+
+    visible, invisible = service_route_sets(app)
+
+    assert sorted(visible) == ["/api/v1/ok"]
     assert len(invisible) == 0
 
 

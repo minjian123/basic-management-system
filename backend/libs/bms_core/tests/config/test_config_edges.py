@@ -80,6 +80,9 @@ async def test_redis_cache_sync_methods_and_lifecycle() -> None:
     region._l1.delete("bms:demo:config:k2")  # pyright: ignore[reportPrivateUsage]
     assert region.get("bms:demo:config:k2") == "v2"
 
+    # L1 与 Redis 均未命中：返回 None 且不回填 L1
+    assert region.get("bms:demo:config:missing") is None
+
     await region.aset_value("demo", "k3", "v3")
     fresh = RedisConfigCacheRegion(redis_region=shared)
     assert await fresh.aget_value("demo", "k3") == "v3"

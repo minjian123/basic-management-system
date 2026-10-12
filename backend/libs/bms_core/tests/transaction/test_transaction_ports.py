@@ -14,9 +14,11 @@ from bms_core.core.assembly import PLUGIN_WIRINGS
 from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.config import Settings
 from bms_core.core.error_codes import ErrorCode
-from bms_core.core.exceptions import TransactionUnavailableError
+from bms_core.core.exceptions import ParamError, TransactionUnavailableError
 from bms_core.core.plugin import NULL_PLUGIN_NAME, resolve_plugin
 from bms_core.transaction.base import (
+    MAX_BRANCH_ID_LENGTH,
+    MAX_XA_XID_BYTES,
     TRANSACTION_MANAGER_KEY,
     TRANSACTION_PARTICIPANT_KEY,
     TXN_STATES,
@@ -27,6 +29,7 @@ from bms_core.transaction.base import (
     BranchOp,
     BranchSpec,
     GlobalTransaction,
+    build_branch_xid,
 )
 from bms_core.transaction.null import NullTransactionManager, NullTransactionParticipant
 
@@ -97,6 +100,18 @@ def test_plugin_wirings_share_transaction_section() -> None:
     assert wirings[TRANSACTION_PARTICIPANT_KEY].port is BaseTransactionParticipant
     assert wirings[TRANSACTION_MANAGER_KEY].settings_section == "transaction_manager"
     assert wirings[TRANSACTION_PARTICIPANT_KEY].settings_section == "transaction_manager"
+
+
+def test_build_branch_xid_and_length_guards() -> None:
+    """分支 `xid` 构造：`gtrid|bqual` 文本形态；分支标识超长与 `xid` 超字节上限均拒（10001）。"""
+    assert build_branch_xid("gtxn-1", "b1") == "gtxn-1|b1"
+
+    with pytest.raises(ParamError):
+        build_branch_xid("gtxn-1", "b" * (MAX_BRANCH_ID_LENGTH + 1))
+
+    # 分支标识在长度上限内、但拼出的 xid 超 XA 字节上限：走第二道校验。
+    with pytest.raises(ParamError):
+        build_branch_xid("g" * (MAX_XA_XID_BYTES - 1), "b" * MAX_BRANCH_ID_LENGTH)
 
 
 def test_null_provider_resolves_both_ports() -> None:

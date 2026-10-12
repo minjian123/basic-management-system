@@ -55,6 +55,9 @@ async def test_oidc_probe_success_and_failures() -> None:
     incomplete = await _oidc(lambda request: httpx.Response(200, json={"issuer": ISSUER})).probe()
     assert incomplete.reachable is False
 
+    not_object = await _oidc(lambda request: httpx.Response(200, json=[1, 2])).probe()
+    assert not_object.reachable is False and not_object.detail == "Discovery 响应非对象"
+
     def boom(request: httpx.Request) -> httpx.Response:
         raise httpx.ConnectError("boom", request=request)
 
@@ -153,6 +156,12 @@ async def test_dingtalk_probe_reachable_and_5xx() -> None:
 
     down = await _dingtalk(lambda request: httpx.Response(503, json={})).probe()
     assert down.reachable is False
+
+    def boom(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("boom", request=request)
+
+    unreachable = await _dingtalk(boom).probe()
+    assert unreachable.reachable is False and unreachable.detail == "钉钉接口不可达"
 
 
 @pytest.mark.kiwi_id(2203)

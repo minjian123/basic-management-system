@@ -112,6 +112,24 @@ async def test_access_token_roundtrip_and_verify() -> None:
 
 
 @pytest.mark.kiwi_id(2202)
+async def test_access_token_omits_optional_claims_when_absent() -> None:
+    """access token：`tenant_id` / `client_id` / `scopes` 缺省为空时不写 claims（可选分支）。"""
+    _, keys = _keys()
+    provider = JwtOidcProvider(keys=keys, active_kid="usr-k1")
+    token = await provider.issue_access_token(AccessTokenSpec(subject="1001", issuer=ISS))
+
+    payload = jwt.decode(token, to_key_set(keys)).claims
+    assert "tenant_id" not in payload
+    assert "client_id" not in payload
+    assert "scope" not in payload
+
+    claims = provider.verify_access_token(token, issuer=ISS)
+    assert claims.tenant_id == ""
+    assert claims.client_id == ""
+    assert claims.scopes == ()
+
+
+@pytest.mark.kiwi_id(2202)
 async def test_access_token_rejects_wrong_issuer_and_type() -> None:
     """access token：issuer 不符拒；typ 非 idp_access 拒。"""
     token_key, keys = _keys()

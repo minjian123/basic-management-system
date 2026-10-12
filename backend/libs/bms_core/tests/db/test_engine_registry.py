@@ -6,7 +6,12 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.db.engine import EngineFactory
-from bms_core.db.registry import PLATFORM_DB_KEY, EngineRegistry, tenant_pool_budget_warnings
+from bms_core.db.registry import (
+    PLATFORM_DB_KEY,
+    EngineRegistry,
+    _db_kind,  # pyright: ignore[reportPrivateUsage]
+    tenant_pool_budget_warnings,
+)
 from bms_core.lock.base import DEFAULT_LOCK_TTL, DEFAULT_WAIT, BaseDistributedLock
 from bms_core.services.module_registry import enabled_service_keys
 
@@ -134,3 +139,35 @@ def test_tenant_pool_budget_warnings() -> None:
 
     settings.database.tenants.max_connections = 0
     assert tenant_pool_budget_warnings(settings, max_active=100) == []
+
+
+@pytest.mark.kiwi_id(1019)
+def test_db_kind_falls_back_to_none_for_illegal_key() -> None:
+    """库类别解析：非法键形态回落 None（记账路径不因历史键失败）。"""
+    assert _db_kind(PLATFORM_DB_KEY) == "platform"  # pyright: ignore[reportPrivateUsage]
+    assert _db_kind("tenant_demo") == "tenant"  # pyright: ignore[reportPrivateUsage]
+    assert _db_kind("archive") == "archive"  # pyright: ignore[reportPrivateUsage]
+    assert _db_kind("bogus-key") is None  # pyright: ignore[reportPrivateUsage]
+
+
+@pytest.mark.kiwi_id(1019)
+async def test_registry_reuses_engine_created_by_concurrent_peer(monkeypatch: pytest.MonkeyPatch) -> None:
+    """创建窗口内的并发复用：进程内锁内复查命中已建引擎（不重复创建）。"""
+    registry = EngineRegistry(_factory())
+    platform = await registry.get(PLATFORM_DB_KEY)
+
+    # 模拟并发窗口：首次查缓存为空，锁内复查时另一实例已写入
+    original_get = registry._engines.get  # pyright: ignore[reportPrivateUsage]
+    calls: ConcurrentStableList[str] = ConcurrentStableList()
+
+    def _racing_get(key: str, default: object = None) -> object:
+        """替身：首次调用返回空，之后返回已建引擎。"""
+        calls.add(key)
+        if len(calls) == 1:
+            return default
+        return original_get(key, default)
+
+    monkeypatch.setattr(registry._engines, "get", _racing_get)  # pyright: ignore[reportPrivateUsage]
+    assert await registry.get(PLATFORM_DB_KEY) is platform
+    assert len(calls) >= 2
+    await registry.aclose()

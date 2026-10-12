@@ -4,12 +4,20 @@ import sqlite3
 from pathlib import Path
 
 import pytest
+from sqlalchemy import MetaData
 
-from bms_core.core.concurrent import ConcurrentStableSet
+import bms_core.db.bootstrap as bootstrap_module
+from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.config import get_settings
 from bms_core.db.bootstrap import db_keys_for, ensure_development_schema
 from bms_core.db.engine import EngineFactory
-from bms_core.db.migration import resolve_chain
+from bms_core.db.migration import (
+    DATASOURCE_ARCHIVE,
+    DATASOURCE_PLATFORM,
+    DATASOURCE_TENANT,
+    MigrationChain,
+    resolve_chain,
+)
 from bms_core.db.registry import EngineRegistry
 
 
@@ -157,3 +165,96 @@ async def test_auto_create_skips_non_sqlite(tmp_path: Path, monkeypatch: pytest.
         assert registry.active_keys() == [], "跳过后不应产生引擎"
     finally:
         await registry.aclose()
+
+
+def _chain(datasource: str, *, tables: ConcurrentStableSet[str]) -> MigrationChain:
+    """构造指定数据源段的迁移链替身（表集可控）。
+
+    Args:
+        datasource: 数据源段（`platform` / `tenant` / `archive` / 其它）。
+        tables: 该链表集。
+
+    Returns:
+        MigrationChain: 链定义。
+    """
+    return MigrationChain(
+        name=f"probe:{datasource}", service="platform", datasource=datasource, tables=tables, scope="探针"
+    )
+
+
+@pytest.mark.kiwi_id(1078)
+def test_db_keys_for_unknown_datasource_returns_empty() -> None:
+    """未知数据源段：取键为空列表（防御分支，不抛错）。"""
+    settings = get_settings()
+    assert db_keys_for(_chain("mystery", tables=ConcurrentStableSet()), settings) == []
+
+
+@pytest.mark.kiwi_id(1078)
+def test_db_keys_for_archive_and_tenant_branches() -> None:
+    """归档链取单键；租户链逐 `dev_tenants` 派生（三分支对照）。"""
+    settings = get_settings()
+    assert db_keys_for(_chain(DATASOURCE_ARCHIVE, tables=ConcurrentStableSet()), settings) == ["archive"]
+    settings.tenant.dev_tenants = ConcurrentStableList(["demo", "acme"])
+    assert db_keys_for(_chain(DATASOURCE_TENANT, tables=ConcurrentStableSet()), settings) == [
+        "tenant_demo",
+        "tenant_acme",
+    ]
+    assert db_keys_for(_chain(DATASOURCE_PLATFORM, tables=ConcurrentStableSet()), settings) == ["platform"]
+
+
+@pytest.mark.kiwi_id(1078)
+async def test_auto_create_skips_chain_without_tables(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """链有迁移脚本但表集为空：跳过建表（不产生引擎）。"""
+    platform, tenant = _point_to(tmp_path, monkeypatch)
+    settings = get_settings()
+
+    monkeypatch.setattr(bootstrap_module, "service_chains", _empty_table_chains)
+    monkeypatch.setattr(bootstrap_module, "has_revisions", _always_has_revisions)
+    monkeypatch.setattr(bootstrap_module, "chain_metadata", _empty_metadata)
+
+    registry = EngineRegistry(EngineFactory(settings))
+    try:
+        assert await ensure_development_schema(registry, settings) == []
+        assert registry.active_keys() == []
+    finally:
+        await registry.aclose()
+    assert not platform.exists() and not tenant.exists()
+
+
+def _empty_table_chains(service: str) -> ConcurrentStableList[MigrationChain]:
+    """服务链替身：单条表集为空的平台链。
+
+    Args:
+        service: 服务标识（忽略）。
+
+    Returns:
+        ConcurrentStableList[MigrationChain]: 单条空表链。
+    """
+    del service
+    return ConcurrentStableList([_chain(DATASOURCE_PLATFORM, tables=ConcurrentStableSet())])
+
+
+def _always_has_revisions(chain: MigrationChain) -> bool:
+    """迁移脚本判定替身：恒有脚本。
+
+    Args:
+        chain: 链定义（忽略）。
+
+    Returns:
+        bool: 恒 True。
+    """
+    del chain
+    return True
+
+
+def _empty_metadata(chain: MigrationChain) -> MetaData:
+    """链元数据替身：恒空表集。
+
+    Args:
+        chain: 链定义（忽略）。
+
+    Returns:
+        MetaData: 空元数据。
+    """
+    del chain
+    return MetaData()

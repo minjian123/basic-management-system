@@ -42,6 +42,13 @@ def test_filter_serialization() -> None:
 
 
 @pytest.mark.kiwi_id(781)
+def test_filter_serialization_list_without_multi_operator() -> None:
+    """列表值但操作符非 `between` / `in` / `not_in` 时回落原值直传（不逗号拼接）。"""
+    assert FilterSpec(field="tags", operator="eq", value=["a", "b"]).serialize() == {"tags": ["a", "b"]}
+    assert FilterSpec(field="tags", operator="ne", value=("a",)).serialize() == {"tags": ("a",)}
+
+
+@pytest.mark.kiwi_id(781)
 def test_base_filter_query_params() -> None:
     """列表筛选请求：条件 + 关键字合并；空关键字不传。"""
     query = BaseFilterQuery(

@@ -11,9 +11,11 @@ from sqlalchemy import Engine
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
-from bms_core.api.deps import get_primary_health
+import bms_core.api.deps as deps_module
+from bms_core.api.deps import get_config_service, get_primary_health, get_tenant_source
 from bms_core.api.errors import register_exception_handlers
 from bms_core.api.middleware import ReadOnlyMiddleware
+from bms_core.config.service import ConfigService
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.core.exceptions import ConfigError
@@ -156,6 +158,72 @@ async def test_request_context_selects_engine() -> None:
     request = cast("Request", SimpleNamespace(app=app))
     assert get_primary_health(request) is app.state.primary_health
     await app.state.engine_registry.aclose()
+
+
+@pytest.mark.kiwi_id(984)
+def test_tenant_source_provider_reads_app_state() -> None:
+    """`get_tenant_source`：直接取应用装配的租户源实例（契约类型）。"""
+    source = object()
+    request = cast(
+        "Request",
+        SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(tenant_source=source))),
+    )
+    assert get_tenant_source(request) is source
+
+
+@pytest.mark.kiwi_id(984)
+def test_config_service_provider_wires_engines_and_cache(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`get_config_service`：请求级组装引擎注册表 + 配置缓存域。"""
+    from bms_core.config.cache import MemoryConfigCacheRegion
+
+    cache = MemoryConfigCacheRegion()
+
+    def _cache_region(request: Request) -> MemoryConfigCacheRegion:
+        """替身：恒定返回注入的缓存域。
+
+        Args:
+            request: 请求对象（忽略）。
+
+        Returns:
+            MemoryConfigCacheRegion: 缓存域实例。
+        """
+        del request
+        return cache
+
+    monkeypatch.setattr(deps_module, "get_config_cache_region", _cache_region)
+    engines = object()
+    request = cast(
+        "Request",
+        SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(engine_registry=engines))),
+    )
+    service = get_config_service(request)
+    assert isinstance(service, ConfigService)
+
+
+@pytest.mark.kiwi_id(984)
+async def test_engine_kwargs_connect_timeout_branches() -> None:
+    """建连超时分支：MySQL / PostgreSQL 附 `connect_args`；其余方言（含达梦）不附。"""
+    settings = Settings()
+    settings.database.platform.url = "mysql+aiomysql://bms@db:3306/bms_dev"
+    factory = EngineFactory(settings)
+    assert "connect_args" in factory._engine_kwargs(settings.database.platform, "mysql")  # pyright: ignore[reportPrivateUsage]
+    assert "connect_args" in factory._engine_kwargs(settings.database.platform, "postgresql")  # pyright: ignore[reportPrivateUsage]
+    dm_kwargs = factory._engine_kwargs(settings.database.platform, "dmxa")  # pyright: ignore[reportPrivateUsage]
+    assert "connect_args" not in dm_kwargs
+    assert dm_kwargs["pool_pre_ping"] is True
+
+
+@pytest.mark.kiwi_id(984)
+async def test_drop_skips_already_removed_engines() -> None:
+    """`drop` 的并发回收防御：角色快照存在但条目已被移除时不重复 `dispose`（异步 / 同步两路）。"""
+    factory = EngineFactory(Settings())
+    # 模拟并发回收窗口：角色快照取自 `_engines` / `_sync_engines`，取回时条目已被移除
+    factory._engines.set(("platform", "write"), cast("AsyncEngine", None))  # pyright: ignore[reportPrivateUsage]
+    factory._sync_engines.set(("platform", "write"), cast("Engine", None))  # pyright: ignore[reportPrivateUsage]
+
+    await factory.drop("platform")
+    assert "platform" not in factory._engines  # pyright: ignore[reportPrivateUsage]
+    await factory.aclose()
 
 
 @pytest.mark.kiwi_id(2164)

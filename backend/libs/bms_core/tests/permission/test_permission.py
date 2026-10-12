@@ -1,6 +1,6 @@
 """权限校验基座契约测试（Kiwi 39）：继承 / 恒定允许 / 强制校验 / 依赖工厂与解析。"""
 
-from typing import Annotated
+from typing import Annotated, Any, cast
 
 import pytest
 from fastapi import Depends, FastAPI
@@ -13,7 +13,16 @@ from bms_core.core.capability import BaseCapability, BaseNullObject
 from bms_core.core.config import PluginSelection, Settings
 from bms_core.core.exceptions import PermissionError
 from bms_core.core.plugin import PluginRegistry
+from bms_core.permission import guard as guard_module
 from bms_core.permission.base import BasePermissionChecker, get_permission_checker, require_permission
+from bms_core.permission.guard import (
+    BasePermissionGuard,
+    PermissionGuardContext,
+    guards_allow,
+    register_permission_guard,
+    registered_permission_guards,
+    reset_permission_guards,
+)
 from bms_core.permission.null import NullPermissionChecker
 
 
@@ -112,3 +121,36 @@ async def test_require_permission_dependency_denies(monkeypatch: pytest.MonkeyPa
         body = resp.json()
         assert body["code"] == 30001
         assert body["data"] is None
+
+
+@pytest.mark.kiwi_id(39)
+def test_guard_registry_skips_empty_slot_and_resets() -> None:
+    """校验链注册表：空值槽位跳过（不经公开登记通道）；清空后为空链且空链恒通过。"""
+
+    class _AllowGuard(BasePermissionGuard):
+        """恒定放行的校验环节替身。"""
+
+        key = "unit_allow_guard"
+
+        def allow(self, context: PermissionGuardContext) -> bool:
+            """恒定放行。
+
+            Args:
+                context: 校验上下文（本实现不校验）。
+
+            Returns:
+                bool: True。
+            """
+            del context
+            return True
+
+    reset_permission_guards()
+    try:
+        register_permission_guard(_AllowGuard())
+        guard_module._GUARDS.set("ghost", cast("Any", None))  # pyright: ignore[reportPrivateUsage]
+        assert [guard.key for guard in registered_permission_guards()] == ["unit_allow_guard"]
+        assert guards_allow(PermissionGuardContext(code="data:plain")) is True
+    finally:
+        reset_permission_guards()
+    assert registered_permission_guards() == ()
+    assert guards_allow(PermissionGuardContext(code="data:plain")) is True

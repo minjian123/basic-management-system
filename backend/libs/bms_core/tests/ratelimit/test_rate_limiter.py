@@ -86,7 +86,7 @@ async def test_memory_limiter_window_rollover(monkeypatch: pytest.MonkeyPatch) -
 
 @pytest.mark.kiwi_id(2194)
 async def test_redis_limiter_lazy_client_and_recovery() -> None:
-    """Redis 实现：懒建客户端 + 降级后恢复。"""
+    """Redis 实现：懒建客户端 + 降级标志置位 / 恢复清零 + 无客户端时关闭空操作。"""
     lazy = RedisRateLimiter(url="redis://localhost:6379/0")
     assert lazy.client is not None
     await lazy.aclose()
@@ -96,10 +96,17 @@ async def test_redis_limiter_lazy_client_and_recovery() -> None:
             raise RuntimeError("down")
 
     limiter = RedisRateLimiter(client=_Broken())  # type: ignore[arg-type]
+    assert limiter.is_degraded is False
     assert (await limiter.check("k", RateLimitRule(limit=5))).allowed is True
+    assert limiter.is_degraded is True
 
     working = fakeredis.aioredis.FakeRedis(decode_responses=True)
     limiter._client = working  # pyright: ignore[reportPrivateUsage]
     recovered = await limiter.check("k", RateLimitRule(limit=5))
     assert recovered.allowed is True and recovered.reset_after >= 0
+    assert limiter.is_degraded is False
+    await limiter.aclose()
+
+    # 客户端已释放：再次关闭为幂等空操作（不进入释放分支）。
+    assert limiter.is_degraded is False
     await limiter.aclose()

@@ -194,6 +194,15 @@ async def test_resolve_fallback_and_rejection() -> None:
 
 
 @pytest.mark.kiwi_id(1019)
+async def test_resolve_without_source_rejects_non_code_sources() -> None:
+    """无租户源时非编码来源（令牌主键 / 子域名）直接拒绝：无法经内置兜底解析。"""
+    with pytest.raises(TenantNotFoundError, match="缺少租户源"):
+        await resolve_request_tenant(path="/api/v1/x", token_tenant_id="1002", source=None)
+    with pytest.raises(TenantNotFoundError, match="缺少租户源"):
+        await resolve_request_tenant(path="/api/v1/x", host="demo.bms.example.com", source=None)
+
+
+@pytest.mark.kiwi_id(1019)
 async def test_malformed_sources_treated_as_absent() -> None:
     """形态非法的来源值等同未提供（不送入租户源）：dev 回落演示租户、prod 拒绝 4xx。
 

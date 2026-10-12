@@ -1,6 +1,7 @@
 """库级建删能力测试（Kiwi 1078）：目标解析、SQLite 真跑与三方言语句断言。"""
 
 from pathlib import Path
+from typing import cast
 
 import pytest
 
@@ -14,7 +15,9 @@ from bms_core.db.admin import (
     database_exists,
     database_name_of,
     drop_database,
+    fetch_rows,
     resolve_target,
+    run_statements,
 )
 
 
@@ -217,3 +220,15 @@ async def test_dm_delegates_to_sync_helpers(monkeypatch: pytest.MonkeyPatch) -> 
     assert executed == [(url, "CREATE SCHEMA BMS_MIGRCHECK")]
     assert await admin._fetch(url, "SELECT 1 FROM ALL_USERS WHERE USERNAME = :name", name="BMS_MIGRCHECK") == []  # pyright: ignore[reportPrivateUsage]
     assert fetched[0][2] == "BMS_MIGRCHECK"
+
+
+@pytest.mark.kiwi_id(1078)
+async def test_public_statement_wrappers_delegate(tmp_path: Path) -> None:
+    """公开语句入口（`run_statements` / `fetch_rows`）转调内部助手并真实生效（SQLite 代跑）。"""
+    async_url = f"sqlite+aiosqlite:///{tmp_path / 'wrapper.db'}"
+
+    await run_statements(async_url, "CREATE TABLE probe (id INTEGER)")
+    await run_statements(async_url, "INSERT INTO probe (id) VALUES (7)")
+    rows = await fetch_rows(async_url, "SELECT id FROM probe WHERE id = :name", name="7")
+    assert len(rows) == 1
+    assert cast("tuple[object, ...]", rows[0])[0] == 7

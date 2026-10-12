@@ -160,6 +160,20 @@ def _ownership_errors(view: object, records: object) -> ConcurrentStableList[str
     return ConcurrentStableList(["库中缺登记行"])
 
 
+def _ownership_ok(view: object, records: object) -> ConcurrentStableList[str]:
+    """接库对账替身：恒定通过（空问题清单）。
+
+    Args:
+        view: 清单视图（忽略）。
+        records: 接库记录（忽略）。
+
+    Returns:
+        ConcurrentStableList[str]: 空问题清单。
+    """
+    del view, records
+    return ConcurrentStableList()
+
+
 def _platform_warnings(settings: object) -> ConcurrentStableList[str]:
     """平台连接池预算告警替身：恒定返回一条。
 
@@ -244,3 +258,13 @@ async def test_validate_table_ownership_rejects_db_mismatch(monkeypatch: pytest.
     monkeypatch.setattr(app_module, "validate_table_ownership", _ownership_errors)
     with pytest.raises(CatalogError):
         await app_module._validate_table_ownership(_app())  # pyright: ignore[reportPrivateUsage]
+
+
+async def test_validate_table_ownership_passes_when_consistent(monkeypatch: pytest.MonkeyPatch) -> None:
+    """接库记录与清单一致 → 正常返回（不抛错，不置降级标记）。"""
+    monkeypatch.setattr(app_module, "session_scope", _session_scope)
+    monkeypatch.setattr(app_module, "TableRecord", SimpleNamespace(from_row=_from_row))
+    monkeypatch.setattr(app_module, "validate_table_ownership", _ownership_ok)
+    app = _app()
+    await app_module._validate_table_ownership(app)  # pyright: ignore[reportPrivateUsage]
+    assert getattr(app.state, "ownership_degraded", False) is False

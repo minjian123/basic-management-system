@@ -66,6 +66,18 @@ async def test_same_name_conflicting_kind_fails_fast() -> None:
 
 
 @pytest.mark.kiwi_id(2182)
+async def test_same_key_reuses_cached_metric() -> None:
+    """同类型 + 同名 + 同标签集复用缓存指标对象（重复记录累加而非重建）。"""
+    metrics = PrometheusMetrics("platform")
+    await metrics.counter("bms_request_total", labels={"method": "GET"})
+    await metrics.counter("bms_request_total", labels={"method": "GET"})
+
+    text = _render(metrics)
+    assert "bms_request_total" in text
+    assert 'method="GET"' in text
+
+
+@pytest.mark.kiwi_id(2182)
 def test_null_metrics_render_none() -> None:
     """占位实现不提供渲染能力（`render()` 返回 None，端点按不支持处理）。"""
     assert NullMetrics().render() is None

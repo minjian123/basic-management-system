@@ -72,3 +72,19 @@ def test_validate_reports_issues() -> None:
     assert "产品来源缺产品标识" in joined
     assert "策略取值非法" in joined
     assert "白名单字段名格式非法" in joined
+
+
+@pytest.mark.kiwi_id(2287)
+def test_get_returns_none_for_unregistered_key() -> None:
+    """未登记标识取记录返回 `None`（不抛错）。"""
+    assert DataSourceRegistry().get("not_registered") is None
+
+
+@pytest.mark.kiwi_id(2287)
+def test_validate_reports_illegal_origin() -> None:
+    """来源取值非法被报出（`origin` 不在平台 / 产品两值内）。"""
+    records: ConcurrentStableList[DataSourceRecord] = ConcurrentStableList(
+        [DataSourceRecord(data_source_key="bad_origin", name="来源非法", data_source="x", origin="vendor")]
+    )
+    issues = DataSourceRegistry(records).validate()
+    assert any("来源取值非法：'bad_origin' → 'vendor'" in issue for issue in issues)

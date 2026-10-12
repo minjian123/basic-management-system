@@ -4,10 +4,21 @@
 占位实现为空操作——不连消息中间件、不投递、不消费；真实实现随阶段十（M10 集成消息可用）回补。
 """
 
-import pytest
+from types import SimpleNamespace
+from typing import cast
 
-from bms_core.core.concurrent import ConcurrentStableDict
-from bms_core.events.base import EventConsumer, EventEnvelope, EventPublisher
+import pytest
+from fastapi import Request
+
+import bms_core.events.base as events_base
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.core.config import get_settings
+from bms_core.events.base import (
+    EventConsumer,
+    EventEnvelope,
+    EventPublisher,
+    get_event_publisher,
+)
 from bms_core.events.null import NULL_EVENT_TYPE, NullEventConsumer, NullEventPublisher
 
 
@@ -35,3 +46,23 @@ def test_null_implementations_satisfy_contracts() -> None:
     """占位实现满足发布 / 消费契约（真实实现随阶段十替换，业务代码零改动）。"""
     assert isinstance(NullEventPublisher(), EventPublisher)
     assert isinstance(NullEventConsumer(), EventConsumer)
+
+
+@pytest.mark.kiwi_id(689)
+def test_get_event_publisher_provider(monkeypatch: pytest.MonkeyPatch) -> None:
+    """依赖注入提供者：按配置解析应用级发布实例（不触发进程级插件注册表构建）。"""
+    resolved: ConcurrentStableList[tuple[str, str | None, str | None]] = ConcurrentStableList()
+
+    def _fake_resolve(plugin_key: str, provider: str | None = None, *, expected_version: str | None = None) -> object:
+        """替身：记录解析入参并返回占位发布实现。"""
+        resolved.add((plugin_key, provider, expected_version))
+        return NullEventPublisher()
+
+    monkeypatch.setattr(events_base, "resolve_plugin", _fake_resolve)
+    settings = get_settings()
+    settings.event.provider = "kafka"
+    request = cast("Request", SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(settings=settings))))
+
+    publisher = get_event_publisher(request)
+    assert isinstance(publisher, NullEventPublisher)
+    assert resolved == [("event", "kafka", EventPublisher.contract_version)]

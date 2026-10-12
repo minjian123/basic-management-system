@@ -4,21 +4,27 @@
 """
 
 import asyncio
+from types import SimpleNamespace
 from typing import cast
 
 import pytest
 from fakeredis.aioredis import FakeRedis
+from fastapi import Request
 from redis.asyncio import Redis
 
+import bms_core.consistency.base as base_module
 from bms_core.consistency.base import (
     DEFAULT_BARRIER_POLL_MS,
     DEFAULT_BARRIER_TIMEOUT_MS,
     BaseConsistencyBarrier,
     build_consistency_key,
+    get_consistency_barrier,
 )
 from bms_core.consistency.null import NullConsistencyBarrier
 from bms_core.consistency.redis import RedisConsistencyBarrier
 from bms_core.core.capability import BaseCapability, BaseNullObject
+from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.core.config import get_settings
 from bms_core.core.exceptions import ConsistencyBarrierTimeout
 
 _REDIS_URL = "redis://localhost:6379/0"
@@ -198,3 +204,23 @@ async def test_redis_version_parsing_falls_back_to_zero() -> None:
     for raw in ("not-a-number", ["x"]):
         barrier = RedisConsistencyBarrier(_REDIS_URL, client=cast("Redis", _RawValueClient(raw)))
         assert await barrier.applied_version(scope="perm", tenant="t1") == 0
+
+
+@pytest.mark.kiwi_id(2246)
+def test_get_consistency_barrier_provider(monkeypatch: pytest.MonkeyPatch) -> None:
+    """依赖注入提供者：按配置解析应用级屏障实例（不触发进程级插件注册表构建）。"""
+    resolved: ConcurrentStableList[tuple[str, str | None, str | None]] = ConcurrentStableList()
+
+    def _fake_resolve(plugin_key: str, provider: str | None = None, *, expected_version: str | None = None) -> object:
+        """替身：记录解析入参并返回占位屏障。"""
+        resolved.add((plugin_key, provider, expected_version))
+        return NullConsistencyBarrier()
+
+    monkeypatch.setattr(base_module, "resolve_plugin", _fake_resolve)
+    settings = get_settings()
+    settings.consistency_barrier.provider = "redis"
+    request = cast("Request", SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(settings=settings))))
+
+    barrier = get_consistency_barrier(request)
+    assert isinstance(barrier, NullConsistencyBarrier)
+    assert resolved == [("consistency_barrier", "redis", BaseConsistencyBarrier.contract_version)]
