@@ -28,7 +28,14 @@ from bms_core.scope.extensions import (
     reset_scope_extension_resolvers,
 )
 from bms_platform.scope.policies import DENY_ALL_CONDITION, register_scope_policies
-from bms_platform.scope.rbac import RbacDataScope
+from bms_platform.scope.rbac import (
+    RbacDataScope,
+    RbacDataScopeFactory,
+    _like_match,  # pyright: ignore[reportPrivateUsage]
+    _matches_value,  # pyright: ignore[reportPrivateUsage]
+    _union,  # pyright: ignore[reportPrivateUsage]
+    register_rbac_data_scope,
+)
 
 _FORM = "\u884c\u653f\u533a\u57df"
 
@@ -210,6 +217,79 @@ def test_exempt_and_absent_snapshot_do_not_filter() -> None:
     set_current_permission_snapshot(None)
     assert provider.read_predicate() is None
     assert provider.allow_write(values) is True
+
+
+def test_factory_and_registration_are_idempotent() -> None:
+    """工厂：按配置构造 provider；登记按注册表实例幂等（重复调用不重登记）。"""
+    settings = Settings()
+    provider = RbacDataScopeFactory(settings).create()
+    assert isinstance(provider, RbacDataScope)
+
+    register_rbac_data_scope(settings)
+    register_rbac_data_scope(settings)
+
+
+def test_conditions_skip_non_sequence_config_and_non_mapping_rows() -> None:
+    """规则载荷形态：`config` 非序列按空规则处理；序列内非对象项跳过。"""
+    non_sequence: ConcurrentStableDict[str, object] = ConcurrentStableDict()
+    non_sequence.set("data_source_key", 1)
+    non_sequence.set("policy_type", "select")
+    non_sequence.set("config", None)
+    set_current_permission_snapshot(_snapshot(non_sequence))
+    assert _as_conditions(_provider().read_predicate()) == []
+
+    rows = _rows(_config(field="area_code", values=["13"]))
+    rows.add("not-a-mapping")
+    mixed: ConcurrentStableDict[str, object] = ConcurrentStableDict()
+    mixed.set("data_source_key", 2)
+    mixed.set("policy_type", "select")
+    mixed.set("config", list(rows))
+    set_current_permission_snapshot(_snapshot(mixed))
+    assert [item.field for item in _as_conditions(_provider().read_predicate())] == ["area_code"]
+
+
+def test_like_match_handles_wildcards_and_rejects_invalid() -> None:
+    """写校验 LIKE：子串 / `%` / `_` 命中；非字符串与越界模式拒。"""
+    assert _like_match("BJ-01", "BJ") is True
+    assert _like_match("BJ-01", "bj") is False
+    assert _like_match("BJ-01", "BJ%") is True
+    assert _like_match("BJ-01", "BJ_01") is True
+    assert _like_match("BJ-01", "BJ;drop") is False
+    assert _like_match(1, "BJ") is False
+    assert _like_match("BJ", 1) is False
+
+
+def test_matches_value_covers_all_operators() -> None:
+    """写校验判定：11 种操作符逐一覆盖（含类型不匹配与未知操作符）。"""
+    assert _matches_value(None, ScopeCondition("a", "is_null", None)) is True
+    assert _matches_value("x", ScopeCondition("a", "is_null", None)) is False
+    assert _matches_value("x", ScopeCondition("a", "is_not_null", None)) is True
+    assert _matches_value(1, ScopeCondition("a", "eq", 1)) is True
+    assert _matches_value(1, ScopeCondition("a", "ne", 2)) is True
+    assert _matches_value("x", ScopeCondition("a", "in", ["x", "y"])) is True
+    assert _matches_value("z", ScopeCondition("a", "in", ["x"])) is False
+    assert _matches_value("x", ScopeCondition("a", "in", "x")) is False
+    assert _matches_value("BJ", ScopeCondition("a", "like", "B%")) is True
+    assert _matches_value(5, ScopeCondition("a", "between", [1, 10])) is True
+    assert _matches_value(5, ScopeCondition("a", "between", [1])) is False
+    assert _matches_value("x", ScopeCondition("a", "between", [1, 2])) is False
+    assert _matches_value(5, ScopeCondition("a", "gt", 1)) is True
+    assert _matches_value(5, ScopeCondition("a", "gte", 5)) is True
+    assert _matches_value(5, ScopeCondition("a", "lt", 6)) is True
+    assert _matches_value(5, ScopeCondition("a", "lte", 5)) is True
+    assert _matches_value("x", ScopeCondition("a", "gt", 1)) is False
+    assert _matches_value(1, ScopeCondition("a", "unknown", 1)) is False
+
+
+def test_union_merges_in_conditions_and_falls_back_on_field_mismatch() -> None:
+    """并集整理：同字段同 `in` 合并（非序列值跳过）；字段不同退化合取。"""
+    merged = _union("k", ConcurrentStableList([ScopeCondition("a", "in", ["1"]), ScopeCondition("a", "in", "2")]))
+    assert len(merged) == 1
+    first = next(iter(merged))
+    assert list(cast("Any", first.value)) == ["1"]
+
+    fallback = _union("k", ConcurrentStableList([ScopeCondition("a", "in", ["1"]), ScopeCondition("b", "in", ["2"])]))
+    assert [item.field for item in fallback] == ["a", "b"]
 
 
 def _cond_list(*items: ScopeCondition) -> ConcurrentStableList[ScopeCondition]:
