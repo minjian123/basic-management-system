@@ -164,7 +164,7 @@ def test_four_dialect_type_mapping(name: str) -> None:
 def test_soft_delete_composite_unique_in_ddl(name: str) -> None:
     """软删除复合唯一索引：四库 DDL 均含非空列 `(唯一字段, deleted_at)` 复合唯一（段位不建唯一）。"""
     ddl = str(CreateTable(_SYS_MODULE_TABLE).compile(dialect=_dialect(name)))
-    for column in ("module_key", "table_prefix", "event_domain"):
+    for column in ("code", "table_prefix", "event_domain"):
         assert f"UNIQUE ({column}, deleted_at)" in ddl, (name, column)
     assert "UNIQUE (errcode_segment, deleted_at)" not in ddl
 
@@ -174,7 +174,7 @@ def test_index_naming_convention() -> None:
     """`index=True` 生成 `idx_{表}_{列}`；显式 `uq_*` 命名不变。"""
     assert {index.name for index in _SYS_MODULE_TABLE.indexes} == {"idx_sys_module_deleted_at"}
     constraints = {constraint.name for constraint in _SYS_MODULE_TABLE.constraints}
-    assert "uq_sys_module_key_deleted_at" in constraints
+    assert "uq_sys_module_code_deleted_at" in constraints
 
 
 @pytest.mark.kiwi_id(1050)
@@ -209,7 +209,7 @@ def test_boolean_storage_roundtrip(tmp_path: Path) -> None:
     try:
         cast("Table", SysTask.__table__).create(engine)
         with Session(engine) as session:
-            session.add(SysTask(name="demo", handler="bms_core.tasks.demo"))
+            session.add(SysTask(code="demo_task", name="demo", handler="bms_core.tasks.demo"))
             session.commit()
             assert session.execute(text("SELECT enabled FROM sys_task")).scalar_one() == 1
     finally:

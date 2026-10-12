@@ -271,8 +271,8 @@ def test_table_declaration() -> None:
         assert field_name in SysIconI18n.__table__.columns
 
     icon_uniques = [item for item in cast("Table", SysIcon.__table__).constraints if isinstance(item, UniqueConstraint)]
-    assert [item.name for item in icon_uniques] == ["uq_sys_icon_code_deleted_at"]
-    assert "deleted_at" in {column.name for column in icon_uniques[0].columns}
+    assert {item.name for item in icon_uniques} == {"uq_sys_icon_code_deleted_at", "uq_sys_icon_form_key_deleted_at"}
+    assert all("deleted_at" in {column.name for column in item.columns} for item in icon_uniques)
 
     i18n_table = cast("Table", SysIconI18n.__table__)
     i18n_uniques = [item for item in i18n_table.constraints if isinstance(item, UniqueConstraint)]

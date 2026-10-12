@@ -259,7 +259,7 @@ def test_check_catalog_db_products(tmp_path: Path) -> None:
     assert any("产品档案 mdm：status 与清单不一致" in error for error in errors)
     assert check_modules.main(ConcurrentStableList(["--url", url])) == 1
 
-    asyncio.run(_exec_sql(url, "DELETE FROM sys_product WHERE product_key = 'cw'"))
+    asyncio.run(_exec_sql(url, "DELETE FROM sys_product WHERE code = 'cw'"))
     assert any("产品档案库中缺登记行：cw" in error for error in check_modules.check_catalog_db(url))
 
     asyncio.run(_exec_sql(url, "DELETE FROM sys_product"))

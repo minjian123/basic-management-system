@@ -234,7 +234,9 @@ def test_task_base_and_models(engine: Engine) -> None:
     assert task.run(1, key="v") == ((1,), {"key": "v"})
     assert {"sys_task", "sys_task_log"} <= set(Base.metadata.tables)
     with Session(engine) as session:
-        sys_task = SysTask(name="demo_task", handler="bms_core.tasks.demo:DemoTask", cron=None, enabled=True)
+        sys_task = SysTask(
+            code="demo_task", name="demo_task", handler="bms_core.tasks.demo:DemoTask", cron=None, enabled=True
+        )
         session.add(sys_task)
         session.commit()
         log = SysTaskLog(task_id=sys_task.id, status="success", result="ok")

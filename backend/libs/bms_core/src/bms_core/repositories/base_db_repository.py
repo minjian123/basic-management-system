@@ -132,7 +132,10 @@ class BaseDbRepository[ModelT: BaseModel](BaseScopedRepository[ModelT], ABC):
             session: 请求级异步会话（与服务事务同会话）。
         """
         self._session = session
-        self._columns = frozenset(column.key for column in inspect(self.model).columns)
+        # 字段白名单取 **ORM 属性名**（`mapper.column_attrs`），与 `_column` / `_write_values` 的
+        # `getattr` / `model(**payload)` / `setattr` 同口径——DB 列名可经 `mapped_column("code")`
+        # 与属性名不同（系统字段口径：标识列 DB 名统一 `code`，属性名与契约字段名保持）。
+        self._columns = frozenset(attribute.key for attribute in inspect(self.model).mapper.column_attrs)
 
     async def list(self, *, sort: ConcurrentStableList[SortSpec] | None = None) -> ConcurrentStableList[ModelT]:
         """查询全部记录（作用域过滤 + 排序，默认 `id` 升序）。

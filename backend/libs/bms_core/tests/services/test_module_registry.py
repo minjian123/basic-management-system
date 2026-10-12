@@ -185,13 +185,14 @@ def test_validate_detects_bad_format() -> None:
 
 @pytest.mark.kiwi_id(2162)
 def test_models_declared_and_persistable(tmp_path: Path) -> None:
-    """模型声明：新字段可建表 / 落库；DB 唯一仅 module_key / table_prefix / event_domain。"""
+    """模型声明：新字段可建表 / 落库；DB 唯一仅 `code` / `form_key` / `table_prefix` / `event_domain`。"""
     assert {"sys_module", "sys_module_i18n"} <= set(Base.metadata.tables)
     unique_names = {
         constraint.name for constraint in SysModule.__table_args__ if isinstance(constraint, UniqueConstraint)
     }
     assert unique_names == {
-        "uq_sys_module_key_deleted_at",
+        "uq_sys_module_code_deleted_at",
+        "uq_sys_module_form_key_deleted_at",
         "uq_sys_module_prefix_deleted_at",
         "uq_sys_module_domain_deleted_at",
     }
@@ -414,15 +415,16 @@ def test_validate_products_roundtrip_and_drift() -> None:
 
 @pytest.mark.kiwi_id(2249)
 def test_sys_product_model_declared_and_persistable(tmp_path: Path) -> None:
-    """模型声明：`sys_product` 在元数据中、唯一约束 `(product_key, deleted_at)`、软删除索引；可建表落库且键可复用。"""
+    """模型声明：`sys_product` 在元数据中、唯一约束 `code` / `form_key`（各配 `deleted_at`）、软删除索引；
+    可建表落库且键可复用。"""
     assert "sys_product" in Base.metadata.tables
     unique_names = {
         constraint.name for constraint in SysProduct.__table_args__ if isinstance(constraint, UniqueConstraint)
     }
-    assert unique_names == {"uq_sys_product_key_deleted_at"}
+    assert unique_names == {"uq_sys_product_code_deleted_at", "uq_sys_product_form_key_deleted_at"}
     assert {index.name for index in cast("Table", SysProduct.__table__).indexes} == {"idx_sys_product_deleted_at"}
     columns = SysProduct.__table__.columns
-    assert columns["product_key"].nullable is False
+    assert columns["code"].nullable is False
     assert columns["frontend_package_source"].nullable is True
     assert columns["status"].default.arg == ProductStatus.ENABLED
 

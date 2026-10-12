@@ -41,9 +41,13 @@ EXPECTED_TABLES = {
 
 EXPECTED_COLUMNS = {
     "id",
-    "config_key",
+    "form_key",
+    "code",
+    "name",
+    "status",
     "value",
     "remark",
+    "parent_id",
     "created_at",
     "created_by",
     "updated_at",
