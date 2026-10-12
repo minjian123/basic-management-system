@@ -13,10 +13,15 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from bms_core.boundary.assess import assess_statement, assess_table
 from bms_core.boundary.base import get_data_ownership_guard
 from bms_core.boundary.directory import (
+    is_infrastructure,
     known_prefixes,
     known_services,
+    known_tables,
+    owned_tables_for,
     table_owner,
+    table_owners_map,
     table_prefix_of,
+    table_records,
 )
 from bms_core.boundary.exceptions import (
     OwnershipException,
@@ -32,6 +37,7 @@ from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList,
 from bms_core.core.exceptions import ConfigError, DataOwnershipError
 from bms_core.core.plugin import PluginRegistry
 from bms_core.metrics.null import NullMetrics
+from bms_core.services.table_registry import Datasource, table_ownership_view
 
 
 def _exception(**overrides: str) -> OwnershipException:
@@ -69,6 +75,28 @@ def test_directory_ownership() -> None:
     assert table_owner("zzz_unknown") is None
     assert "sys_" in known_prefixes()
     assert "report" in known_services()
+
+
+@pytest.mark.kiwi_id(2170)
+def test_directory_snapshots_and_derived_queries() -> None:
+    """目录派生查询：归属映射 / 记录快照 / 基础设施判定 / 服务自有表 / 全表名（与登记同源）。"""
+    owners = table_owners_map()
+    assert owners["sys_tenant"] == "tenant"
+    assert owners["sys_module"] == "platform"
+    assert "zzz_unknown" not in owners
+
+    records = table_records()
+    assert any(record.table_name == "sys_tenant" and record.owner == "tenant" for record in records)
+    assert len(records) == len(table_ownership_view())
+
+    assert is_infrastructure("sys_outbox") is True
+    assert is_infrastructure("sys_tenant") is False
+
+    assert "sys_tenant" in owned_tables_for("tenant", datasource=Datasource.PLATFORM)
+    assert "sys_tenant" not in owned_tables_for("tenant", datasource=Datasource.TENANT)
+
+    assert "sys_tenant" in known_tables()
+    assert "zzz_unknown" not in known_tables()
 
 
 @pytest.mark.kiwi_id(2170)

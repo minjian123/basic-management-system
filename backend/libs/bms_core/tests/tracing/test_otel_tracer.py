@@ -8,8 +8,13 @@ from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 from opentelemetry.trace import NoOpTracer
 
-from bms_core.core.context import get_current_span_id, get_current_trace_id
-from bms_core.tracing.base import BaseTracer, otel_trace_id, resolve_trace_id
+from bms_core.core.context import (
+    get_current_span_id,
+    get_current_trace_id,
+    reset_current_span_id,
+    set_current_span_id,
+)
+from bms_core.tracing.base import BaseTracer, otel_trace_id, resolve_span_id, resolve_trace_id
 from bms_core.tracing.otel import OtelTracer
 
 
@@ -59,6 +64,7 @@ async def test_span_ids_and_context(tracer: OtelTracer, exporter: InMemorySpanEx
         assert inside_span is not None and len(inside_span) == 16
         assert resolve_trace_id() == inside_trace
         assert otel_trace_id() == inside_trace
+        assert resolve_span_id() == inside_span
 
     spans = exporter.get_finished_spans()
     assert [span.name for span in spans] == ["outer"]
@@ -94,3 +100,15 @@ async def test_fallback_without_provider() -> None:
             assert child.trace_id == root.trace_id
             assert child.parent_span_id == root.span_id
             assert get_current_trace_id() == root.trace_id
+
+
+@pytest.mark.kiwi_id(2182)
+def test_resolve_span_id_without_otel_span_falls_back_to_context_var() -> None:
+    """无有效 OTel span 时 `resolve_span_id` 回退上下文变量（无上下文返回 None）。"""
+    assert resolve_span_id() is None
+
+    token = set_current_span_id("0123456789abcdef")
+    try:
+        assert resolve_span_id() == "0123456789abcdef"
+    finally:
+        reset_current_span_id(token)
