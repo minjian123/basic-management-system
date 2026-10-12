@@ -116,3 +116,44 @@ async def test_repository_scope_and_paging(service_app: FastAPI) -> None:
         page2 = await repo.list_active(BasePageQuery(page=2, size=2), now=now)
         assert len(page2) == 1
         assert {r.session_id for r in page1} | {r.session_id for r in page2} == {"7001", "7002", "7003"}
+
+
+@pytest.mark.kiwi_id(2195)
+async def test_repository_create_rotate_and_revoke(service_app: FastAPI) -> None:
+    """仓储写路径：创建（主键同会话 id）/ 轮换续期 / 撤销幂等。"""
+    now = utc_now()
+    async with tenant_scope(service_app) as session:
+        repo = SessionRepository(session)
+
+        created = await repo.create_session(
+            session_id="8001",
+            user_id=9,
+            refresh_token_hash="hash-1",
+            login_at=now,
+            expires_at=now + timedelta(days=14),
+            device="PC-Chrome",
+            ip="10.0.0.9",
+            remember_me=True,
+        )
+        await session.commit()
+        assert created.id == 8001 and created.session_id == "8001"
+        assert created.device == "PC-Chrome" and created.ip == "10.0.0.9"
+
+        rotated = await repo.update_refresh_hash("8001", "hash-2")
+        assert rotated is not None and rotated.refresh_token_hash == "hash-2"
+
+        new_expiry = now + timedelta(days=30)
+        rolled = await repo.rotate("8001", refresh_token_hash="hash-3", expires_at=new_expiry)
+        assert rolled is not None
+        assert rolled.refresh_token_hash == "hash-3" and rolled.expires_at == new_expiry
+
+        assert await repo.revoke("8001", revoked_at=now) is True
+        # 已撤销：幂等（不重复写入，仍返回 True）
+        later = now + timedelta(minutes=5)
+        assert await repo.revoke("8001", revoked_at=later) is True
+
+        reloaded = await repo.get_by_session_id("8001")
+        assert reloaded is not None and reloaded.revoked_at is not None
+        assert reloaded.revoked_at != later, "已撤销会话不被二次覆盖"
+
+        assert await repo.rotate("ghost", refresh_token_hash="h", expires_at=new_expiry) is None
