@@ -31,8 +31,20 @@ const hostDeclaration = loadSharedDependencies({ role: 'host' })
 const remoteDeclaration = loadSharedDependencies({ role: 'remote' })
 const sharedNames = Object.keys(hostDeclaration.shared)
 
-/** 依赖清单中登记的版本范围（单一来源与之长期绑定，由白名单护栏断言）。 */
-const declaredRange = (name: string): string => String((hostPackage.dependencies as Record<string, string>)[name] ?? '')
+/**
+ * 依赖清单中登记的版本范围（单一来源与之长期绑定，由白名单护栏断言）。
+ *
+ * 工作区 / 本地链接依赖（`workspace:` / `file:` / `link:`）声明的是**协议**而非版本，须解析
+ * 目标包自身 `package.json` 的 `version` 再取 `^<version>`（口径与 `scripts/check-shared-whitelist.mjs`
+ * 「实装版本」一致，2026-10-09 需求 05-14）；普通版本范围声明沿用原口径。
+ *
+ * @param name 包名。
+ * @returns 期望的版本要求。
+ */
+const declaredRange = (name: string): string => {
+  const declared = String((hostPackage.dependencies as Record<string, string>)[name] ?? '')
+  return /^(workspace|file|link):/.test(declared) ? `^${installedVersion(name)}` : declared
+}
 
 const nodeRequire = createRequire(import.meta.url)
 

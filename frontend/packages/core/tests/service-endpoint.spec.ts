@@ -21,7 +21,7 @@ import {
 } from '../src'
 
 describe('服务键与「域 → 服务前缀」映射（Kiwi 2191）', () => {
-  it('服务键为 8 个已启用平台服务且顺序与目录一致', () => {
+  it('服务键为 9 个已启用平台服务且顺序与目录一致', () => {
     expect(SERVICE_KEYS).toEqual([
       'platform',
       'identity',
@@ -31,6 +31,7 @@ describe('服务键与「域 → 服务前缀」映射（Kiwi 2191）', () => {
       'search',
       'ai',
       'report',
+      'txn',
     ])
   })
 
@@ -132,6 +133,7 @@ describe('产品命名空间寻址（05-13 · Kiwi 2259）', () => {
       'search',
       'ai',
       'report',
+      'txn',
     ])
     expect((SERVICE_KEYS as readonly string[]).includes('org')).toBe(false)
     expect(serviceUrl('platform', '/tenants')).toBe('/api/platform/v1/tenants')
