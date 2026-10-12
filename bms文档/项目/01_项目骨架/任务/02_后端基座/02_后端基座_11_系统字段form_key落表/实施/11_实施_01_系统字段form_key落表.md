@@ -74,4 +74,27 @@ bms/bms文档/设计/数据库设计/数据表设计/*.md                       
 - **`form_key` 常量列语义**：DB 层 `(form_key, deleted_at)` 复合唯一对同表多行无实际约束力（`form_key` 为每表常量，联合取数判别列即其用途）；跨表全局唯一由 `FormRegistry` 承担（设计 §12 已登记）。
 - **`02_10` 待回填**：`FormRecord.data_source_key` 暂空，由任务 `02_10`（统一数据源注册）回填，供任务 `02_13` 解析 `form_key → data_source_key`。
 
+## 7. 返工（2026-10-12 · CI 全量用例暴露） <a id="rework"></a>
+
+**问题**：本任务交付时只跑 `preflight --fast`（不含全量后端用例），`02_13` 推送触发流水线后 `test:backend-test` 失败——本地全量 `pytest` 复现 **115 failed**，根因是「列名 ↔ 属性名映射」口径在**通用仓储**处漏改。
+
+**根因**：`libs/bms_core/src/bms_core/repositories/base_db_repository.py` 的字段白名单取 **DB 列名**（`inspect(model).columns` 的 `column.key`），而 `_column` / `_write_values` 用 **ORM 属性名**（`getattr` / `model(**payload)` / `setattr`）；标识列 DB 名改 `code`、属性名保持（设计决策 12）后两者分叉，按契约字段名（`product_key` / `username` / `client_id` / `config_key` / `module_key` / `idp_key`）传参的排序 / 筛选 / 写入一律 `ConfigError`（接口 500）。
+
+**处置（方案 A）**：
+
+1. `BaseDbRepository._columns` 改取 **ORM 属性名**（`inspect(self.model).mapper.column_attrs` 的 `attribute.key`），与 `getattr` 口径对齐；DB 列名保持 `code`、属性名与契约字段名保持（OIDC `client_id` / 登录 `username` 等标准字段不受影响）。
+2. 同步过期断言（02_11 改名 / 迁移推进后未同步者）：
+   - `libs/bms_core/tests/alembic/test_alembic_chains.py`：platform 链 head → `0010_system_fields_form_key`；tenant 链 head → `0016_data_source_key`。
+   - `libs/bms_core/tests/ops/test_migration_ops.py`：单库 / 租户库 revisions 期望 → `0016_data_source_key` / `0010_system_fields_form_key`。
+   - `libs/bms_core/tests/config/test_config_real.py`：`sys_config` 期望列 → 新系统字段（`code` / `form_key` / `name` / `status` / `parent_id`）。
+   - `libs/bms_core/tests/ops/test_check_modules.py`：删行 SQL 列名 `product_key` → `code`。
+   - `libs/bms_core/tests/services/test_module_registry.py`：唯一约束名 / 列名 → `code`、补 `form_key`。
+   - `services/platform/tests/models/test_type_mapping.py`：DDL 复合唯一列名 / 约束名 / `SysTask` 必填 `code`。
+   - `services/platform/tests/crosscut/test_cross_phase_bases.py`：`SysTask` 构造补 `code`。
+   - `services/platform/tests/icon/test_icon_registry.py`：`sys_icon` 唯一约束集合（含 `form_key`）。
+
+**验证**：`uv run pytest`（全量）**0 failed**；`ruff check` / `ruff format --check` / `pyright` 全绿；`preflight --fast` 全绿。
+
+**教训**：改动「列名 / 属性名映射」类基座口径，推送前须跑一次**全量后端用例**（或至少覆盖仓储 / 模型 / 迁移 / 认证 / 用户域），不得仅以 `preflight --fast` 收口。
+
 > 本文档依《文档生成规范》编写

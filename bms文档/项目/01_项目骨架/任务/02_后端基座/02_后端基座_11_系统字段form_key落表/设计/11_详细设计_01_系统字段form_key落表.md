@@ -123,6 +123,7 @@ bms 后端**无「业务表单数据」表**（业务表单在产品仓：biz `p
 ## 6. ORM 模型变更口径 <a id="models"></a>
 
 - **字典表**：类内增 `form_key: Mapped[str] = mapped_column(String(64), nullable=False, comment="表单标识（全局唯一；保存后不变）")`；`__table_args__` 加 `UniqueConstraint("form_key", "deleted_at", name="uq_{表}_form_key_deleted_at")`；按 §3.1 补齐既有列（缺 `name` / `status` 者新增）。**既有标识列改名只改 DB 列名**——`mapped_column("code", String(...), …)` 映射（**属性名与既有代码 / 契约字段名保持不动**），唯一约束名同步改为 `uq_{表}_code_deleted_at`，列名 ↔ 属性名映射登记表文件。
+- **字段解析口径（返工补，2026-10-12）**：DB 列名 ≠ 属性名后，凡「按字段名解析模型列」的基座一律取 **ORM 属性名**（不得取 DB 列名）——通用仓储 `BaseDbRepository._columns` 由 `inspect(model).columns`（列名）改 `inspect(model).mapper.column_attrs`（属性名），与同处的 `getattr(model, field)` / `model(**payload)` / `setattr` 口径对齐；否则按属性名（契约字段名）传入的排序 / 筛选 / 写入会一律快速失败（`ConfigError`，接口 500）。判定原则：**对外字段名（属性名）为唯一解析口径，DB 列名只在 DDL / 迁移层出现**。
 - **明细表**：类内增 `parent_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True, comment="上级 ID（自引用同表 id；顶层 NULL）")`；多列明细另补 `sort`。
 - **`form_key` 取值落地**：因 `form_key` 为**每表常量**（同一表所有行同值），模型侧以 `default="<form_key>"`（或 `server_default`）声明；**写入路径不改业务代码**（列值恒定，由模型缺省提供）。
 - **不落 `BaseModel` 基类**：`form_key` 仅在字典 / 表单具体模型声明（§3.1.1 基础字段不含 `form_key`），**不动** `bms_core/models/base.py`。
@@ -218,7 +219,8 @@ bms/bms文档/设计/数据库设计/数据表设计/*.md                    # �
 
 - **常量列的语义（设计说明）**：`form_key` 为**每表常量**，其**核心用途＝多表联合（union）取数的表判别列**（同表所有行同值，联合结果按它区分来源），故「同表多行同值」是**设计意图**而非缺陷；`(form_key, deleted_at)` 复合唯一在 MySQL / PostgreSQL 下（`NULL` 互异）对同表多行不产生额外约束力，「全局唯一」由 `FORM_CATALOG` 跨表校验承担。本任务按规范原文落地并登记说明，**不在应用层按方言各有实现**（沿用 §4「达梦 `NULL` 语义差异归口方言特性文档」）。
 - **达梦复合唯一差异**：`(form_key, deleted_at)` 中 `NULL` 语义差异（已实测，归口 `设计/数据库设计/方言特性/03_DM8.md`）；本任务沿用既有口径，真库实测随部署窗口回写。
-- **列改名**：涉及 `sys_module` / `sys_product` / `sys_user` / `sys_config` / `sys_identity_provider` / `sys_client` 六张表；**只改 DB 列名**（表文件 + 迁移），ORM 属性与全仓代码 / 契约字段名**不动**（`mapped_column("code", …)` 映射），故无代码回归面；须在表文件登记「列名 ↔ 属性 / 契约字段名」映射，防止后续读表文件误判。
+- **列改名**：涉及 `sys_module` / `sys_product` / `sys_user` / `sys_config` / `sys_identity_provider` / `sys_client` 六张表；**只改 DB 列名**（表文件 + 迁移），ORM 属性与全仓代码 / 契约字段名**不动**（`mapped_column("code", …)` 映射），须在表文件登记「列名 ↔ 属性 / 契约字段名」映射，防止后续读表文件误判。
+  - **返工教训（2026-10-12，CI 全量用例暴露）**：原判「无代码回归面」**不成立**——通用仓储 `BaseDbRepository` 的字段白名单取的是 **DB 列名**（`inspect(model).columns` 的 `column.key`），与 `getattr(model, field)` 的**属性名**口径分叉，导致按契约字段名（`product_key` / `username` / `client_id` / `config_key` / `module_key` / `idp_key`）传参的排序 / 筛选 / 写入一律 `ConfigError`（接口 500），全量 pytest **115 条**失败。**根因**：本任务交付时只跑 `preflight --fast`（不含全量后端用例），未发现该回归。**处置**：按 §6「字段解析口径」改仓储取属性名（方案 A，DB 列名保持 `code`，不动契约字段名）；**教训**：改「列名 / 属性名映射」类基座口径须跑一次**全量后端用例**，不得只跑快速预检。
 - **`parent_id` 冗余**：非层级字典 / 明细的 `parent_id` 为按需冗余列（依 q6 决策），长期恒 `NULL`；已在判定表逐表登记，后续如判定无必要可单独立项移除。
 - **产品仓待办**：mdm / biz / cw 的表文件与模型尚未按本口径对齐（本次范围外），需在产品仓任务登记，防遗漏。
 
