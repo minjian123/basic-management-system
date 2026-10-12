@@ -47,7 +47,9 @@ service-test:
     - rm -rf "$CI_PROJECT_DIR/database"
     - find "$CI_PROJECT_DIR/backend" -name 'bms_*.db*' -delete
     - cd backend
-    - uv sync --frozen
+    # `--reinstall`（2026-10-12）：镜像预置 venv + 持久 uv 缓存下，工作区包（版本恒 0.1.0）会被判为
+    # 「已满足」而沿用过期产物 ⇒ 运行时模型与当前仓库不一致（同 backend-test 口径）。
+    - uv sync --frozen --reinstall
     - cd "services/$SERVICE"
     - uv run pytest -q --cov="bms_$SERVICE" --cov-branch --cov-report=term --cov-fail-under=70
   coverage: '/^TOTAL.*?\s+\d+\s+\d+\s+(\d+(?:\.\d+)?%)$/'

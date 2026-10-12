@@ -387,7 +387,10 @@ backend-test:
     - rm -rf "$CI_PROJECT_DIR/database"
     - find "$CI_PROJECT_DIR/backend" -name 'bms_*.db*' -delete
     - cd backend
-    - uv sync --frozen
+    # `--reinstall`（2026-10-12）：镜像内预置 venv + 持久 uv 缓存下，工作区包（`bms-*`，版本恒为 0.1.0）
+    # 会被判为「已满足」而沿用过期产物（源码已改、版本未变）⇒ 运行时模型与当前仓库不一致。
+    # 强制按当前工作树重建本地包，避免陈旧模型（如缺 `form_key` 列）。
+    - uv sync --frozen --reinstall
     - uv run pytest --cov=bms_core --cov=bms_platform --cov=bms_txn --cov=bms_txn --cov=bms_identity --cov=bms_tenant --cov=bms_file --cov=bms_notification --cov=bms_search --cov=bms_ai --cov=bms_report --cov-branch --cov-report=term --cov-report=json:coverage.json --cov-fail-under=70
     # 路径级子阈值（04_04）：认证模块（identity 整包 + bms_core 认证横切）行覆盖率 ≥80%
     # （04_01 详细设计 §6.1 预留位落地；RBAC / 工作流子阈值后续在脚本路径组常量追加）
@@ -828,6 +831,9 @@ shared-deps-check:
       exists:
         - frontend/shared-dependencies.json
   script:
+    # 依赖安装（2026-10-12）：白名单校验需解析工作区包（`workspace:*`）实装版本，
+    # 依赖各工程 `node_modules` 符号链接 ⇒ 先现装（与其它前端 job 同口径）。
+    - pnpm install --frozen-lockfile
     - node frontend/scripts/check-shared-deps.mjs
     - node frontend/scripts/check-shared-whitelist.mjs
 
