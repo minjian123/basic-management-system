@@ -194,4 +194,86 @@ describe('useMenuStore（03_01）', () => {
     expect(getPermissionCodes()).toEqual([])
     expect(useSessionStore().codes).toEqual([])
   })
+
+  it('并发 load 复用同一 Promise（in-flight 单例）', async () => {
+    fetchMock.mockResolvedValue(RESPONSE)
+    const store = useMenuStore()
+
+    await Promise.all([store.load(), store.load()])
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(store.loaded).toBe(true)
+  })
+
+  it('缺省项回落：无 children / forms / fields / buttons / menus / permissions 均按空集合处理', () => {
+    const store = useMenuStore()
+
+    store.apply({
+      locale: 'en-US',
+      version: 1,
+      menus: [
+        {
+          id: '1',
+          parent_id: '0',
+          name: '无表单入口',
+          path: '/plain',
+          component: null,
+          icon: null,
+          sort: 1,
+          hidden: false,
+          forms: [{ id: '10', menu_id: '1', business_id: '1', business_code: 'plain', component: null }],
+        },
+        // 完全缺省 `children` / `forms` 键的节点（`?? []` 右侧分支）
+        {
+          id: '3',
+          parent_id: '0',
+          name: '空入口',
+          path: '/empty',
+          component: null,
+          icon: null,
+          sort: 2,
+          hidden: false,
+        },
+      ],
+    })
+
+    // 叶子无 `children` 键 → 映射后同样无 children
+    expect(store.tree.map((node) => node.path)).toEqual(['/plain', '/empty'])
+    expect(store.tree[0] !== undefined && 'children' in store.tree[0]).toBe(false)
+    expect(store.tree[1] !== undefined && 'children' in store.tree[1]).toBe(false)
+    // 表单无 fields / buttons → 空字段权限与空可见按钮码
+    expect(store.formOf('/plain')).toMatchObject({ id: '10', visibleButtonCodes: [], fieldPerms: {} })
+    // 缺 `forms` 的节点不产生路径索引
+    expect(store.formOf('/empty')).toBeUndefined()
+  })
+
+  it('响应缺 menus / permissions 时按空集合落地', () => {
+    const store = useMenuStore()
+
+    store.apply({ locale: 'zh-CN', version: 7 })
+
+    expect(store.tree).toEqual([])
+    expect(store.permissions).toEqual([])
+    expect(store.formIdByPath).toEqual({})
+    expect(store.loaded).toBe(true)
+  })
+
+  it('字段权限取不存在的表单 → 空映射（可选链回落）', () => {
+    const store = useMenuStore()
+    expect(store.fieldPermissions('nope')).toEqual({})
+  })
+
+  it('失败原因非 Error 时按字符串落地；重复失败只提示一次', () => {
+    vi.stubEnv('DEV', false)
+    const store = useMenuStore()
+
+    store.applyFallback('boom')
+    expect(store.error).toBe('boom')
+    expect(notifyMock).toHaveBeenCalledTimes(1)
+
+    // 第二次失败：`notified` 已置位 → 不再重复提示
+    store.applyFallback(new Error('again'))
+    expect(store.error).toBe('again')
+    expect(notifyMock).toHaveBeenCalledTimes(1)
+  })
 })

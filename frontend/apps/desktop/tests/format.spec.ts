@@ -19,4 +19,20 @@ describe('格式化工具', () => {
   it('脱敏透传', () => {
     expect(mask('13800138000', { head: 3, tail: 4 })).toBe('138****8000')
   })
+
+  it('configureFormatDefaults 部分更新：仅传 locale / 仅传 timezone 均生效', () => {
+    configureFormatDefaults({ locale: 'en-US' })
+    expect(formatDate('2026-01-02T03:04:05Z')).toContain('2026')
+
+    configureFormatDefaults({ timezone: 'UTC' })
+    expect(formatDateTime('2026-01-02T03:04:05Z')).toContain('2026')
+  })
+
+  it('不传基准时回落已注入默认值', () => {
+    configureFormatDefaults({ locale: 'en-US', timezone: 'UTC' })
+    expect(formatDate('2026-01-02T03:04:05Z')).toBe('Jan 2, 2026')
+    // 货币缺省不随 locale 变（宿主默认币种），显式传 `currency` 才切换
+    expect(formatAmount(12.5)).toBe('CN¥12.50')
+    expect(formatAmount(12.5, { currency: 'USD' })).toBe('$12.50')
+  })
 })

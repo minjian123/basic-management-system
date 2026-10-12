@@ -81,4 +81,55 @@ describe('useTabsStore（02_03）', () => {
     expect(store.tabs[0]?.closable).toBe(false)
     expect(store.tabs[1]?.closable).toBe(true)
   })
+
+  it('activate：已存在的键切换激活', () => {
+    const store = useTabsStore()
+    store.reset('list', '角色管理')
+    store.open(recordTabKey('1'), '运维管理员')
+
+    store.activate('list')
+    expect(store.active).toBe('list')
+    expect(store.activeTab?.key).toBe('list')
+  })
+
+  it('getter：tabOf 命中 / 未命中，activeTab 无匹配时为 undefined', () => {
+    const store = useTabsStore()
+    store.reset('list', '角色管理')
+
+    expect(store.tabOf('list')?.title).toBe('角色管理')
+    expect(store.tabOf('record:404')).toBeUndefined()
+    expect(store.activeTab?.key).toBe('list')
+
+    // 激活键指向不存在的页签 → activeTab 回落 undefined
+    store.active = 'record:404'
+    expect(store.activeTab).toBeUndefined()
+  })
+
+  it('setDirty：不存在的键忽略', () => {
+    const store = useTabsStore()
+    store.reset('list', '角色管理')
+
+    store.setDirty('record:404', true)
+    expect(store.dirtyKeys).toEqual([])
+  })
+
+  it('close / discard：未知键与不可关闭的列表页签一律返回 false', () => {
+    const store = useTabsStore()
+    store.reset('list', '角色管理')
+
+    expect(store.close('record:404')).toBe(false)
+    expect(store.close('list')).toBe(false)
+    expect(store.discard('record:404')).toBe(false)
+    expect(store.discard('list')).toBe(false)
+    expect(store.tabs).toHaveLength(1)
+  })
+
+  it('removeAt：移除最后一个页签后激活键回落空串', () => {
+    const store = useTabsStore()
+    store.reset('list', '角色管理')
+    store.removeAt(0)
+
+    expect(store.tabs).toEqual([])
+    expect(store.active).toBe('')
+  })
 })

@@ -47,9 +47,7 @@ const RESPONSES: Record<string, unknown> = {
 
 beforeEach(() => {
   getMock.mockReset()
-  getMock.mockImplementation((_service: string, path: string) =>
-    Promise.resolve(RESPONSES[path] ?? { items: [] }),
-  )
+  getMock.mockImplementation((_service: string, path: string) => Promise.resolve(RESPONSES[path] ?? { items: [] }))
 })
 
 describe('权限配置元数据装配（02_13）', () => {
@@ -101,5 +99,13 @@ describe('权限配置元数据装配（02_13）', () => {
     )
     const meta = await fetchPermissionMetadata()
     expect(meta.forms).toEqual([{ id: '101', name: '表单 101', menuIds: [] }])
+  })
+
+  it('数据源清单缺 items 时回落空集合', async () => {
+    getMock.mockImplementation((_service: string, path: string) =>
+      Promise.resolve(path === '/data-sources' ? {} : { items: [] }),
+    )
+    const meta = await fetchPermissionMetadata()
+    expect(meta.dataSourceKeys).toEqual([])
   })
 })

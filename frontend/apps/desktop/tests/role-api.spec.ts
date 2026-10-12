@@ -4,6 +4,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
+  applyRoleAssignments,
   assignRoleUsers,
   createRole,
   deleteRole,
@@ -110,5 +111,16 @@ describe('角色端点封装（02_03）', () => {
   it('最小用户只读查询：`/users`（同 platform 服务段）', async () => {
     await listUsers({ kw: 'dav', status: 'enabled', page: 1, size: 20 })
     expect(getMock).toHaveBeenCalledWith('platform', '/users', { kw: 'dav', status: 'enabled', page: 1, size: 20 })
+  })
+
+  it('角色保存编排：PUT `/roles/{id}/assignments`（分段全量覆盖载荷原样透传）', async () => {
+    const payload = {
+      role: { name: '运维负责人', status: 'enabled' as const, version: 2 },
+      user_ids: ['2001'],
+      role_posts: null,
+      role_depts: null,
+    }
+    await applyRoleAssignments('1001', payload)
+    expect(putMock).toHaveBeenCalledWith('platform', '/roles/1001/assignments', payload)
   })
 })

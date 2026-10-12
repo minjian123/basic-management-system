@@ -124,9 +124,133 @@ describe('角色分配页签具名插槽与显式上下文（05-11 · Kiwi 2260�
     expect(typeof captured).toBe('function')
 
     // 登记一个草稿提交器后，宿主页签可收集到分段
-    captured?.({ isDirty: () => true, buildSegment: () => ({ key: 'role_depts', value: { dept_ids: ['d1'] } }), reload: async () => {} })
+    captured?.({
+      isDirty: () => true,
+      buildSegment: () => ({ key: 'role_depts', value: { dept_ids: ['d1'] } }),
+      reload: async () => {},
+    })
     await flushPromises()
     expect(wrapper.vm.buildSegments()).toEqual({ role_depts: { dept_ids: ['d1'] } })
+
+    registries.pageArea.unregister('mdm-org:role-depts')
+  })
+
+  it('草稿提交器登记：同项重复登记去重（不重复收集），脏态经暴露面上抛', async () => {
+    let captured: HostSubmitterRegistrar | undefined
+    const probe = {
+      name: 'role-assign-dedupe-probe',
+      setup: () => {
+        captured = useModuleSlotField<HostSubmitterRegistrar>('registerSubmitter').value
+        return () => h('span')
+      },
+    }
+    registries.pageArea.register(new PageAreaProvider('mdm-org:role-posts', 'sys.role.detail.assign', probe, 10))
+
+    const wrapper = await mountTab('r-1')
+    expect(wrapper.vm.isDirty()).toBe(false)
+
+    const entry = {
+      isDirty: () => true,
+      buildSegment: () => ({ key: 'role_posts', value: { post_ids: ['p1'] } }),
+      reload: async () => {},
+    }
+    // 同一提交器登记两次：去重后只保留一份（分段不重复）
+    captured?.(entry)
+    captured?.(entry)
+    await flushPromises()
+
+    expect(wrapper.vm.buildSegments()).toEqual({ role_posts: { post_ids: ['p1'] } })
+    expect(wrapper.vm.isDirty()).toBe(true)
+    expect(wrapper.emitted('dirty')?.at(-1)).toEqual([true])
+
+    registries.pageArea.unregister('mdm-org:role-posts')
+  })
+
+  it('草稿分段收集：无改动（返回 `null`）的段不出现', async () => {
+    let captured: HostSubmitterRegistrar | undefined
+    const probe = {
+      name: 'role-assign-null-segment-probe',
+      setup: () => {
+        captured = useModuleSlotField<HostSubmitterRegistrar>('registerSubmitter').value
+        return () => h('span')
+      },
+    }
+    registries.pageArea.register(new PageAreaProvider('mdm-org:role-depts', 'sys.role.detail.assign', probe, 30))
+
+    const wrapper = await mountTab('r-1')
+    captured?.({ isDirty: () => false, buildSegment: () => null, reload: async () => {} })
+    await flushPromises()
+
+    expect(wrapper.vm.buildSegments()).toEqual({})
+    expect(wrapper.vm.isDirty()).toBe(false)
+
+    registries.pageArea.unregister('mdm-org:role-depts')
+  })
+
+  it('撤销：逐项调用各插件的 `reload` 复位草稿', async () => {
+    let captured: HostSubmitterRegistrar | undefined
+    const probe = {
+      name: 'role-assign-revert-probe',
+      setup: () => {
+        captured = useModuleSlotField<HostSubmitterRegistrar>('registerSubmitter').value
+        return () => h('span')
+      },
+    }
+    registries.pageArea.register(new PageAreaProvider('mdm-org:role-depts', 'sys.role.detail.assign', probe, 30))
+
+    const first = vi.fn(async () => undefined)
+    const second = vi.fn(async () => undefined)
+    const wrapper = await mountTab('r-1')
+    captured?.({
+      isDirty: () => true,
+      buildSegment: () => ({ key: 'role_depts', value: { dept_ids: ['d1'] } }),
+      reload: first,
+    })
+    captured?.({ isDirty: () => false, buildSegment: () => null, reload: second })
+    await flushPromises()
+
+    await wrapper.vm.revert()
+
+    expect(first).toHaveBeenCalledTimes(1)
+    expect(second).toHaveBeenCalledTimes(1)
+
+    registries.pageArea.unregister('mdm-org:role-depts')
+  })
+
+  it('新增态插槽上下文：角色标识归一为空串（不向插件暴露 `new`）', async () => {
+    const wrapper = await mountTab('new')
+
+    const context = (wrapper.vm as unknown as { $: { setupState: Record<string, unknown> } }).$.setupState
+      .slotContext as Record<string, unknown>
+    expect(context.roleId).toBe('')
+    expect(typeof context.registerSubmitter).toBe('function')
+  })
+
+  it('实体切换：记录页签切换角色即清空已登记草稿', async () => {
+    let captured: HostSubmitterRegistrar | undefined
+    const probe = {
+      name: 'role-assign-switch-probe',
+      setup: () => {
+        captured = useModuleSlotField<HostSubmitterRegistrar>('registerSubmitter').value
+        return () => h('span')
+      },
+    }
+    registries.pageArea.register(new PageAreaProvider('mdm-org:role-depts', 'sys.role.detail.assign', probe, 30))
+
+    const wrapper = await mountTab('r-1')
+    captured?.({
+      isDirty: () => true,
+      buildSegment: () => ({ key: 'role_depts', value: { dept_ids: ['d1'] } }),
+      reload: async () => {},
+    })
+    await flushPromises()
+    expect(wrapper.vm.buildSegments()).toEqual({ role_depts: { dept_ids: ['d1'] } })
+
+    await wrapper.setProps({ roleId: 'r-2' })
+    await flushPromises()
+
+    expect(wrapper.vm.buildSegments()).toEqual({})
+    expect(wrapper.vm.isDirty()).toBe(false)
 
     registries.pageArea.unregister('mdm-org:role-depts')
   })

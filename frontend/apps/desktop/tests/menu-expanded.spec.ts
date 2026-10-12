@@ -39,4 +39,17 @@ describe('useMenuExpanded（03_01）', () => {
     expect(expanded.expandedKeys.value).toEqual([])
     expect(JSON.parse(localStorage.getItem(MENU_EXPANDED_STORAGE_KEY) ?? 'null')).toEqual([])
   })
+
+  it('持久化为非数组（JSON 对象 / 字符串）时按空集合处理', () => {
+    localStorage.setItem(MENU_EXPANDED_STORAGE_KEY, JSON.stringify({ a: 1 }))
+    expect(useMenuExpanded().expandedKeys.value).toEqual([])
+
+    localStorage.setItem(MENU_EXPANDED_STORAGE_KEY, JSON.stringify('text'))
+    expect(useMenuExpanded().expandedKeys.value).toEqual([])
+  })
+
+  it('持久化集合剔除非字符串项', () => {
+    localStorage.setItem(MENU_EXPANDED_STORAGE_KEY, JSON.stringify(['/sys', 1, null, '/platform']))
+    expect(useMenuExpanded().expandedKeys.value).toEqual(['/sys', '/platform'])
+  })
 })

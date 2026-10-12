@@ -54,9 +54,9 @@ describe('createAxiosAdapter（Kiwi 2191）', () => {
 
   it('请求拦截器按令牌注入 Authorization', () => {
     createAxiosAdapter()
-    const interceptor = useMock.mock.calls[0]?.[0] as (config: {
+    const interceptor = useMock.mock.calls[0]?.[0] as (config: { headers: Record<string, string> }) => {
       headers: Record<string, string>
-    }) => { headers: Record<string, string> }
+    }
     const config = { headers: {} as Record<string, string> }
     expect(interceptor(config).headers.Authorization).toBeUndefined()
     setAccessToken('t1')
@@ -124,6 +124,47 @@ describe('createAxiosAdapter（Kiwi 2191）', () => {
     const adapter = createAxiosAdapter({ onError })
     await expect(adapter.request({ method: 'GET', url: '/api/platform/v1/x' })).rejects.toMatchObject({ code: 10001 })
     expect(onError).toHaveBeenCalledTimes(1)
+  })
+
+  it('非 Error 抛出（字符串 / 空对象）→ 统一文案 ApiError(10001)', async () => {
+    for (const thrown of ['boom', { reason: 'x' }]) {
+      requestMock.mockReset()
+      requestMock.mockRejectedValueOnce(thrown)
+      const adapter = createAxiosAdapter()
+      await expect(adapter.request({ method: 'GET', url: '/api/platform/v1/x' })).rejects.toMatchObject({
+        code: 10001,
+        message: '请求失败',
+      })
+    }
+  })
+
+  it('401 无有效业务码（非数值 / 零）→ 会话失效', async () => {
+    for (const body of [
+      { code: '20002', message: 'error' },
+      { code: 0, message: '空码' },
+    ]) {
+      requestMock.mockReset()
+      requestMock.mockRejectedValueOnce({ isAxiosError: true, response: { status: 401, data: body } })
+      const adapter = createAxiosAdapter()
+      await expect(adapter.request({ method: 'GET', url: '/api/platform/v1/x' })).rejects.toBeInstanceOf(
+        SessionExpiredError,
+      )
+    }
+  })
+
+  it('401 业务码有效但 message 非字符串 → 文案回落空串', async () => {
+    requestMock.mockRejectedValueOnce({
+      isAxiosError: true,
+      response: { status: 401, data: { code: 20002, message: 123 } },
+    })
+    const adapter = createAxiosAdapter()
+    const error: unknown = await adapter
+      .request({ method: 'POST', url: '/api/identity/v1/auth/login' })
+      .then(() => undefined)
+      .catch((caught: unknown) => caught)
+    expect(error).toBeInstanceOf(ApiError)
+    expect((error as ApiError).code).toBe(20002)
+    expect((error as ApiError).message).toBe('')
   })
 
   it('installHttpAdapter 注入核心适配器', () => {
@@ -224,11 +265,10 @@ describe('401 静默刷新与重放（Kiwi 2230）', () => {
 
 describe('凭据与租户头口径（Kiwi 2230）', () => {
   /** 取装配后的请求拦截器。 */
-  function interceptor(): (config: {
+  function interceptor(): (config: { headers: Record<string, string>; url?: string; withCredentials?: boolean }) => {
     headers: Record<string, string>
-    url?: string
     withCredentials?: boolean
-  }) => { headers: Record<string, string>; withCredentials?: boolean } {
+  } {
     createAxiosAdapter()
     return useMock.mock.calls[0]?.[0] as never
   }
