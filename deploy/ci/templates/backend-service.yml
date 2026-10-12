@@ -42,10 +42,10 @@ service-test:
   script:
     - test -n "$SERVICE" || { echo "缺少 SERVICE 变量（须由父流水线 trigger 传入）"; exit 1; }
     - test -d "backend/services/$SERVICE" || { echo "服务目录不存在：backend/services/$SERVICE"; exit 1; }
-    # 测试库隔离（2026-10-12）：runner 工作区复用下清空全部 SQLite 测试库产物（database/** 与 backend/**/bms_*.db），
-    # 防旧 schema 串用（同 backend-test 口径：auto_create 不为既有表补列 ⇒ no such column → 10006）。
-    - rm -rf "$CI_PROJECT_DIR/database"
-    - find "$CI_PROJECT_DIR/backend" -name 'bms_*.db*' -delete
+    # 测试库隔离（2026-10-12）：runner 工作区复用下删除**全部** SQLite 库文件（不限于 `database/`），
+    # 防旧 schema 串用（`create_all(checkfirst=True)` 只补不删 ⇒ no such column → 10006）。
+    - find "$CI_PROJECT_DIR" -name '*.db' -not -path '*/.git/*' -delete
+    - find "$CI_PROJECT_DIR" -name '*.db-journal' -not -path '*/.git/*' -delete
     - cd backend
     # `--reinstall`（2026-10-12）：镜像预置 venv + 持久 uv 缓存下，工作区包（版本恒 0.1.0）会被判为
     # 「已满足」而沿用过期产物 ⇒ 运行时模型与当前仓库不一致（同 backend-test 口径）。

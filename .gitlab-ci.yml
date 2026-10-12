@@ -380,12 +380,12 @@ backend-test:
       exists:
         - backend/pyproject.toml
   script:
-    # 测试库隔离（2026-10-12）：runner 工作区复用（`/builds` 跨作业 / 跨流水线保留），
-    # 而 SQLite 测试库（`database/**` 与 `backend/**/bms_*.db`，均 .gitignore 不入库、git 清理不覆盖）
-    # 会残留旧 schema，`auto_create` 不会为既有表补列 ⇒ 表现为「no such column」→ 10006 只读降级。
-    # 故每次作业先清空全部测试库产物（作业内自动建库 / 迁移 / 播种）。
-    - rm -rf "$CI_PROJECT_DIR/database"
-    - find "$CI_PROJECT_DIR/backend" -name 'bms_*.db*' -delete
+    # 测试库隔离（2026-10-12）：runner 工作区复用（`/builds` 跨作业 / 跨流水线保留），而 SQLite 测试库
+    # （`.gitignore` 不入库、git 清理不覆盖）会残留旧 schema；`auto_create` 用 `create_all(checkfirst=True)`
+    # **只补不删**，既有表不会被补列 ⇒ 表现为「no such column」→ 10006 只读降级。
+    # 故每次作业删除工作区内**全部** SQLite 库文件（不限于 `database/`，覆盖各 CWD 相对路径产物）。
+    - find "$CI_PROJECT_DIR" -name '*.db' -not -path '*/.git/*' -delete
+    - find "$CI_PROJECT_DIR" -name '*.db-journal' -not -path '*/.git/*' -delete
     - cd backend
     # `--reinstall`（2026-10-12）：镜像内预置 venv + 持久 uv 缓存下，工作区包（`bms-*`，版本恒为 0.1.0）
     # 会被判为「已满足」而沿用过期产物（源码已改、版本未变）⇒ 运行时模型与当前仓库不一致。
