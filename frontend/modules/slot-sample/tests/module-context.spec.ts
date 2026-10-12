@@ -121,7 +121,9 @@ describe('模块注入上下文消费（Kiwi 2238）', () => {
     injectHost(probe)
 
     await expect(listUserExtensions('1001')).resolves.toEqual([{ id: '1', label: 'vip' }])
-    await createUserExtension({ userId: '1001', label: 'vip', remark: null })
+    // 雪花 ID 按**字符串**承载（`Number` 超 2^53 会丢低位：曾把 `…608` 写成 `…600`）。
+    const created = await createUserExtension({ userId: '804518310191300608', label: 'vip', remark: null })
+    expect(created).toMatchObject({ user_id: '804518310191300608' })
     await updateUserExtension('1', { label: 'svip', remark: '备注' })
 
     expect(probe.calls).toEqual([

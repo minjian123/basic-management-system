@@ -81,8 +81,10 @@ export async function createUserExtension(input: {
   label: string
   remark?: string | null
 }): Promise<UserExtensionItem> {
+  // 雪花 ID 必须按**字符串**承载：JS `Number` 超过 2^53 会丢低位（曾把 `…608` 写成 `…600`），
+  // 与契约「整型以字符串输出」同口径；后端按 `int` 宽松解析字符串。
   return requireApi().post<UserExtensionItem>(SERVICE_KEY, RESOURCE, {
-    user_id: Number(input.userId),
+    user_id: input.userId,
     label: input.label,
     remark: input.remark ?? null,
   })

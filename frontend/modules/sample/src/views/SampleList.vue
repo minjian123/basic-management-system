@@ -13,6 +13,7 @@ import { useSampleI18n } from '../composables/useSampleI18n'
 import {
   SAMPLE_CATEGORIES,
   SAMPLE_STATUSES,
+  labelKeyOf,
   type SampleCategory,
   type SampleQuery,
   type SampleRecord,
@@ -52,6 +53,11 @@ const columns = computed<DataTableColumn[]>(() => [
   { key: 'owner', title: t('sample.column.owner'), width: 110 },
   { key: 'createdAt', title: t('sample.column.createdAt'), width: 170, format: 'datetime', sortable: true },
 ])
+
+/** 分类展示名（枚举值 → 本地化标签；与详情页 `enum` 选项同口径，避免原始键外露）。 */
+function categoryText(value: unknown): string {
+  return t(labelKeyOf(SAMPLE_CATEGORIES, value))
+}
 
 const conditions = ref<FilterCondition[]>([])
 const keyword = ref('')
@@ -191,6 +197,9 @@ onMounted(loadHostUser)
             {{ t('sample.list.create') }}
           </el-button>
           <el-button data-test="sample-refresh" @click="load">{{ t('sample.list.refresh') }}</el-button>
+        </template>
+        <template #cell-category="{ row }">
+          {{ categoryText((row as unknown as SampleRecord).category) }}
         </template>
         <template #cell-priority="{ row }">
           <sample-priority-tag :value="(row as unknown as SampleRecord).priority" />

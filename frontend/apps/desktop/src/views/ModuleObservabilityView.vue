@@ -106,7 +106,7 @@ function ms(value: number | null): string {
     </header>
 
     <h3>模块与耗时</h3>
-    <el-table :data="rows" size="small" data-test="observability-modules">
+    <el-table :data="rows" size="small" empty-text="暂无数据" data-test="observability-modules">
       <el-table-column prop="name" label="模块" />
       <el-table-column prop="version" label="版本" width="90" />
       <el-table-column prop="mode" label="形态" width="80" />
@@ -133,7 +133,7 @@ function ms(value: number | null): string {
     <p class="module-observability__hint">体积按模块可见见发布记录 size 字段与 CI module-build 汇总输出。</p>
 
     <h3>错误（按模块）</h3>
-    <el-table :data="errors" size="small" data-test="observability-errors">
+    <el-table :data="errors" size="small" empty-text="暂无数据" data-test="observability-errors">
       <el-table-column prop="module" label="模块" width="120" />
       <el-table-column prop="version" label="版本" width="90" />
       <el-table-column prop="phase" label="阶段" width="90" />
@@ -142,7 +142,7 @@ function ms(value: number | null): string {
     </el-table>
 
     <h3>守卫决策（平台）</h3>
-    <el-table :data="guards" size="small" data-test="observability-guards">
+    <el-table :data="guards" size="small" empty-text="暂无数据" data-test="observability-guards">
       <el-table-column prop="decision" label="决策" width="100" />
       <el-table-column prop="path" label="路径" />
       <el-table-column prop="reason" label="原因" width="180" />
@@ -153,7 +153,7 @@ function ms(value: number | null): string {
     </p>
 
     <h3>Web Vitals（按模块）</h3>
-    <el-table :data="vitals" size="small" data-test="observability-vitals">
+    <el-table :data="vitals" size="small" empty-text="暂无数据" data-test="observability-vitals">
       <el-table-column prop="scope" label="归属" width="120" />
       <el-table-column prop="metric" label="指标" width="90" />
       <el-table-column prop="value" label="值" width="100" />
