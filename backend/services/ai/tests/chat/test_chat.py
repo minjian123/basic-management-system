@@ -205,6 +205,74 @@ async def test_null_stream_fixed_returns() -> None:
     assert await stream.stop(NULL_CHAT_STREAM_ID) is False
 
 
+class _ClosableEvents:
+    """可关闭事件序列替身：`aclose` 记录调用（句柄关闭钩子）。"""
+
+    def __init__(self, events: ConcurrentStableList[ChatStreamEvent]) -> None:
+        self._events = events
+        self._index = 0
+        self.closed = False
+
+    def __aiter__(self) -> AsyncIterator[ChatStreamEvent]:
+        """返回自身（异步迭代协议）。"""
+        return self
+
+    async def __anext__(self) -> ChatStreamEvent:
+        """逐个吐出事件，耗尽即停止。"""
+        if self._index >= len(self._events):
+            raise StopAsyncIteration
+        event = self._events[self._index]
+        self._index += 1
+        return event
+
+    async def aclose(self) -> None:
+        """记录关闭调用。"""
+        self.closed = True
+
+
+class _PlainEvents:
+    """无 `aclose` 的事件序列替身（仅异步可迭代）。"""
+
+    def __init__(self, events: ConcurrentStableList[ChatStreamEvent]) -> None:
+        self._events = events
+        self._index = 0
+
+    def __aiter__(self) -> AsyncIterator[ChatStreamEvent]:
+        """返回自身（异步迭代协议）。"""
+        return self
+
+    async def __anext__(self) -> ChatStreamEvent:
+        """逐个吐出事件，耗尽即停止。"""
+        if self._index >= len(self._events):
+            raise StopAsyncIteration
+        event = self._events[self._index]
+        self._index += 1
+        return event
+
+
+@pytest.mark.kiwi_id(820)
+async def test_stream_handle_aclose_closes_underlying_events() -> None:
+    """句柄关闭：底层事件序列支持 `aclose` 时一并关闭（生命周期钩子）。"""
+    events = _ClosableEvents(ConcurrentStableList([ChatStreamEvent(type="done", stream_id="s1")]))
+    handle = ChatStreamHandle(stream_id="s1", events=events)
+
+    await handle.aclose()
+
+    assert events.closed is True
+
+
+@pytest.mark.kiwi_id(820)
+async def test_stream_handle_aclose_without_closer_is_noop() -> None:
+    """底层事件序列无 `aclose`：句柄关闭为空操作，事件序列仍可正常消费。"""
+    events = _PlainEvents(ConcurrentStableList([ChatStreamEvent(type="done", stream_id="s2")]))
+    handle = ChatStreamHandle(stream_id="s2", events=events)
+
+    await handle.aclose()
+
+    first = await anext(handle.events)
+    assert first.stream_id == "s2"
+
+
 @pytest.mark.kiwi_id(820)
 async def test_null_session_store_and_action_gate() -> None:
     """占位会话查询空集 / None；占位确认撤销恒 unknown。"""

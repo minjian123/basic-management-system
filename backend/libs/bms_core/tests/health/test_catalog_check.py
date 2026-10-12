@@ -19,6 +19,8 @@ from bms_core.core.exceptions import ServiceUnavailableError
 from bms_core.health.base import BaseHealthCheck, HealthCheckResult
 from bms_core.health.checks import CatalogHealthCheck
 from bms_core.health.registry import HealthCheckRegistry
+from bms_core.metrics.base import MetricLabels
+from bms_core.metrics.null import NullMetrics
 from bms_core.metrics.prometheus import PrometheusMetrics
 from bms_core.services.module_registry import SERVICE_CATALOG
 
@@ -163,3 +165,108 @@ async def test_readyz_records_catalog_reachable(monkeypatch: pytest.MonkeyPatch)
     text = await _probe_readyz(monkeypatch, error=None)
     assert 'bms_catalog_degraded{service="test"} 0.0' in text
     assert 'bms_dependency_up{dependency="catalog",service="test"} 1.0' in text
+
+
+class _BrokenMetrics(NullMetrics):
+    """指标器替身：写入即抛错（探针不受影响的降级分支）。"""
+
+    plugin_name = "broken"
+
+    async def gauge(self, name: str, *, value: float, labels: MetricLabels | None = None) -> None:
+        """恒定抛错。"""
+        del name, value, labels
+        raise RuntimeError("metrics down")
+
+
+async def _probe_readyz_without_metrics(monkeypatch: pytest.MonkeyPatch, *, metrics: object) -> int:
+    """以给定 `app.state.metrics` 形态经 `/readyz` 聚合一次，返回状态码。
+
+    Args:
+        monkeypatch: pytest monkeypatch 夹具。
+        metrics: 放入 `app.state.metrics` 的对象（可缺省 / 非 `BaseMetrics`）。
+
+    Returns:
+        int: `/readyz` 状态码。
+    """
+    _stub_snapshot(monkeypatch, error=None)
+    app = FastAPI()
+    if metrics is not None:
+        app.state.metrics = metrics
+    app.state.startup_complete = True
+    app.state.draining = False
+    app.include_router(health.router)
+    registry = HealthCheckRegistry()
+    registry.register(CatalogHealthCheck(app))
+    app.dependency_overrides[get_health_check_registry] = lambda: registry
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.get("/readyz")
+    return response.status_code
+
+
+@pytest.mark.kiwi_id(2183)
+async def test_readyz_without_metrics_still_serves(monkeypatch: pytest.MonkeyPatch) -> None:
+    """未装配指标器（`app.state.metrics` 缺省 / 非契约实例）：探针照常返回，不因缺指标失败。"""
+    assert await _probe_readyz_without_metrics(monkeypatch, metrics=None) == 200
+    assert await _probe_readyz_without_metrics(monkeypatch, metrics=object()) == 200
+
+
+@pytest.mark.kiwi_id(2183)
+async def test_readyz_swallows_metric_write_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+    """指标写入抛错：探针静默忽略（就绪判定不受指标侧故障影响）。"""
+    assert await _probe_readyz_without_metrics(monkeypatch, metrics=_BrokenMetrics()) == 200
+
+
+async def _readyz_status(*, startup_complete: bool, draining: bool) -> int:
+    """以给定启动 / 停机标记经 `/readyz` 探针一次，返回状态码。
+
+    Args:
+        startup_complete: 启动完成态。
+        draining: 停机摘流标记。
+
+    Returns:
+        int: `/readyz` 状态码。
+    """
+    app = FastAPI()
+    app.state.startup_complete = startup_complete
+    app.state.draining = draining
+    app.include_router(health.router)
+    registry = HealthCheckRegistry()
+    registry.register(_OkCheck())
+    app.dependency_overrides[get_health_check_registry] = lambda: registry
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.get("/readyz")
+    return response.status_code
+
+
+@pytest.mark.kiwi_id(2183)
+async def test_readyz_unavailable_when_not_started_or_draining() -> None:
+    """启动未完成 / 停机摘流中：`/readyz` 直接 503（不聚合检查项）。"""
+    assert await _readyz_status(startup_complete=False, draining=False) == 503
+    assert await _readyz_status(startup_complete=True, draining=True) == 503
+    assert await _readyz_status(startup_complete=True, draining=False) == 200
+
+
+@pytest.mark.kiwi_id(2183)
+async def test_readyz_records_non_catalog_dependency_only(monkeypatch: pytest.MonkeyPatch) -> None:
+    """非 `catalog` 检查项：只记 `bms_dependency_up`，不写 `bms_catalog_degraded`。"""
+    _stub_snapshot(monkeypatch, error=None)
+    metrics = PrometheusMetrics("test")
+    app = FastAPI()
+    app.state.metrics = metrics
+    app.state.startup_complete = True
+    app.state.draining = False
+    app.include_router(health.router)
+    registry = HealthCheckRegistry()
+    registry.register(_OkCheck())
+    app.dependency_overrides[get_health_check_registry] = lambda: registry
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.get("/readyz")
+    assert response.status_code == 200
+    rendered = metrics.render()
+    assert rendered is not None
+    text = rendered[0].decode()
+    assert 'bms_dependency_up{dependency="database",service="test"} 1.0' in text
+    assert "bms_catalog_degraded" not in text

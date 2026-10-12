@@ -105,6 +105,36 @@ async def test_wecom_probe_credentials() -> None:
     assert bad.reachable is False and "40001" in bad.detail
 
 
+@pytest.mark.kiwi_id(2203)
+async def test_wecom_probe_unreachable_and_non_object() -> None:
+    """企微探测异常面：非 2xx / 非 JSON / 非对象 / 网络异常一律不可达（detail 只记摘要）。"""
+
+    def _down(request: httpx.Request) -> httpx.Response:
+        del request
+        raise httpx.ConnectError("down")
+
+    def _wecom(transport: httpx.MockTransport) -> WecomIdentityProvider:
+        return WecomIdentityProvider(
+            corp_id="corp-1",
+            agent_id="agent-1",
+            secret="s",
+            redirect_uri="https://app.test/cb",
+            transport=transport,
+        )
+
+    http_500 = await _wecom(_transport(lambda request: httpx.Response(500, json={}))).probe()
+    assert http_500.reachable is False and http_500.detail == "企业微信接口不可达"
+
+    not_json = await _wecom(_transport(lambda request: httpx.Response(200, content=b"not-json"))).probe()
+    assert not_json.reachable is False and not_json.detail == "企业微信接口不可达"
+
+    not_object = await _wecom(_transport(lambda request: httpx.Response(200, json=[1, 2]))).probe()
+    assert not_object.reachable is False and not_object.detail == "企业微信响应非对象"
+
+    unreachable = await _wecom(httpx.MockTransport(_down)).probe()
+    assert unreachable.reachable is False and unreachable.detail == "企业微信接口不可达"
+
+
 def _dingtalk(handler: Handler) -> DingtalkIdentityProvider:
     """构造注入 MockTransport 的钉钉客户端。"""
     return DingtalkIdentityProvider(
