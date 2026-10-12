@@ -383,7 +383,9 @@ backend-test:
     # 测试库隔离（2026-10-12）：runner 工作区复用（`/builds` 跨作业 / 跨流水线保留），而 SQLite 测试库
     # （`.gitignore` 不入库、git 清理不覆盖）会残留旧 schema；`auto_create` 用 `create_all(checkfirst=True)`
     # **只补不删**，既有表不会被补列 ⇒ 表现为「no such column」→ 10006 只读降级。
-    # 故每次作业删除工作区内**全部** SQLite 库文件（不限于 `database/`，覆盖各 CWD 相对路径产物）。
+    # 注意落点：`config*.toml` 的 `sqlite_dir` 为 **`backend/` 上两级**（工作区根 `database/<仓库>/`），
+    # 故须显式清 **仓库上一级**的 `database/bms`，并兜底清仓库内全部 `*.db`。
+    - rm -rf "$CI_PROJECT_DIR/database" "$(dirname "$CI_PROJECT_DIR")/database/bms"
     - find "$CI_PROJECT_DIR" -name '*.db' -not -path '*/.git/*' -delete
     - find "$CI_PROJECT_DIR" -name '*.db-journal' -not -path '*/.git/*' -delete
     - cd backend
