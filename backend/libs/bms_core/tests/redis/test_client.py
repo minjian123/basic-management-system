@@ -24,22 +24,23 @@ from bms_core.redis.null import NullRedisClient
 from bms_core.redis.redis import RedisRedisClient
 
 
-def _client(**kwargs: object) -> RedisRedisClient:
+def _client(*, pool_size: int = 0, key_prefix: str = DEFAULT_KEY_PREFIX) -> RedisRedisClient:
     """构造注入 fakeredis 的 Redis 统一客户端。
 
     Args:
-        kwargs: 透传给构造函数的覆写项。
+        pool_size: 连接池上限。
+        key_prefix: 键前缀。
 
     Returns:
         RedisRedisClient: 统一客户端。
     """
-    params: dict[str, Any] = {
-        "url": "redis://localhost:6379/0",
-        "sync_client": fakeredis.FakeRedis(decode_responses=True),
-        "async_client": fakeredis.aioredis.FakeRedis(decode_responses=True),
-    }
-    params.update(kwargs)
-    return RedisRedisClient(**params)
+    return RedisRedisClient(
+        "redis://localhost:6379/0",
+        pool_size=pool_size,
+        key_prefix=key_prefix,
+        sync_client=fakeredis.FakeRedis(decode_responses=True),
+        async_client=fakeredis.aioredis.FakeRedis(decode_responses=True),
+    )
 
 
 def test_null_client_fails_closed() -> None:

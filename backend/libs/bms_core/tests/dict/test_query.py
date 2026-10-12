@@ -263,7 +263,7 @@ def test_match_item_rejects_unknown_field_and_operator() -> None:
         (_item("a", sort=5), {"field": "sort", "operator": "between", "value": [1, 9]}, True),
     ],
 )
-def test_match_item_operator_families(item: DictItem, node: dict[str, object], expected: bool) -> None:
+def test_match_item_operator_families(item: DictItem, node: Any, expected: bool) -> None:
     """条件项：各操作符族（空值 / 集合 / 模糊 / 等值 / 有序）命中判定。"""
     assert _match_item(_node(json.dumps(node)), item) is expected
 
