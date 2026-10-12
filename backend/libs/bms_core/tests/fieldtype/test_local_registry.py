@@ -52,6 +52,26 @@ def test_dict_field_type_validate_and_metadata() -> None:
     assert registry.column_type("dict_multi", "sqlite") == "text"
 
 
+def test_simple_field_type_validate_kinds_and_describe() -> None:
+    """数据驱动字段类型：文本 / 数值 / 布尔 / 字符串数组各形态校验、未知类别放行与元信息描述。"""
+    from bms_core.fieldtype.local import SimpleFieldType
+
+    registry = LocalFieldTypeRegistry()
+    assert registry.validate("text", "x") == ()
+    assert registry.validate("text", 1) != ()
+    assert registry.validate("number", 1.5) == ()
+    assert registry.validate("number", True) != ()
+    assert registry.validate("number", "1") != ()
+    assert registry.validate("switch", True) == ()
+    assert registry.validate("switch", 1) != ()
+    assert registry.validate("multi_select", [1]) != ()
+    assert registry.validate("multi_select", []) == ()
+
+    unknown_kind = SimpleFieldType(key="ghost", widget="ghost", kind="bogus")
+    assert unknown_kind.validate("anything") == ()
+    assert unknown_kind.describe() == "字段类型 ghost（ghost）"
+
+
 @pytest.mark.kiwi_id(963)
 def test_unknown_field_type_raises() -> None:
     """未知字段类型：校验 / 列类型抛 `NotFoundError`（10002 / 404 语义）。"""

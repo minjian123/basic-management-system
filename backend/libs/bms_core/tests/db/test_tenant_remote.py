@@ -223,6 +223,43 @@ async def test_remote_source_fallback_rejects_non_code_values() -> None:
 
 
 @pytest.mark.kiwi_id(2176)
+async def test_remote_suspended_without_release_and_cache_paths() -> None:
+    """停用快照无回收回调、按主键取上下文、缓存损坏回落回源、非 2xx 不可达与 `invalidate` 分支。"""
+    with pytest.raises(TenantSuspendedError):
+        await RemoteTenantSource(client=_client(_ok(_payload("sosp", status="suspended")))).single_active()
+
+    with pytest.raises(TenantSuspendedError):
+        await RemoteTenantSource(client=_client(_ok(_payload("sosp", status="suspended")))).by_code("sosp")
+
+    cache = MemoryCacheRegion(domain="tenant")
+    client = _client(_ok(_payload()))
+    source = RemoteTenantSource(client=client, cache=cache, cache_ttl=60)
+    context = await source.by_id("7")
+    assert context.code == "demo"
+    assert dict(client.calls[0].query or {}) == {"tenant_id": "7"}
+    await source.invalidate(tenant_id="7")
+    assert cache.get(snapshot_cache_key("id", "7")) is None
+    await source.invalidate()
+
+    # 无缓存源：`invalidate` 安全跳过（不抛错）。
+    await RemoteTenantSource(client=_client(_ok(_payload()))).invalidate("demo")
+
+    # 缓存载荷损坏（缺字段）→ 回落契约回源。
+    corrupt = MemoryCacheRegion(domain="tenant")
+    corrupt.set(snapshot_cache_key("code", "demo"), {"version": 0}, 60)
+    corrupt_source = RemoteTenantSource(client=_client(_ok(_payload())), cache=corrupt, cache_ttl=60)
+    assert (await corrupt_source.by_code("demo")).code == "demo"
+
+    # 非 404 / 401 的非 2xx → 契约不可达。
+    with pytest.raises(ServiceUnavailableError):
+        await RemoteTenantSource(client=_client(ServiceResponse(status_code=500))).by_code("demo")
+
+    # 200 但响应体缺必填字段 → 契约不可达。
+    with pytest.raises(ServiceUnavailableError):
+        await RemoteTenantSource(client=_client(_ok(ConcurrentStableDict()))).by_code("demo")
+
+
+@pytest.mark.kiwi_id(2176)
 async def test_remote_source_by_domain_and_registration_idempotent() -> None:
     """按域名取上下文（query 为 domain）；`register_remote_tenant_source` 幂等可重复调用。"""
     register_remote_tenant_source()

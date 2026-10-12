@@ -3,23 +3,26 @@
 测试库：临时 SQLite 文件（跑 Alembic 首个迁移建表）。
 """
 
-from collections.abc import AsyncIterator, Generator, Iterator
-from contextlib import contextmanager
+from collections.abc import AsyncGenerator, AsyncIterator, Generator, Iterator
+from contextlib import asynccontextmanager, contextmanager
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any, cast
 
 import pytest
 from alembic.config import Config
+from sqlalchemy.orm.exc import StaleDataError
 
 from alembic import command
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import get_settings
 from bms_core.core.context import current_user_id
+from bms_core.core.exceptions import ConcurrentConflictError, NotFoundError
 from bms_core.db.engine import EngineFactory
 from bms_core.db.migration import BACKEND_ROOT
 from bms_core.db.registry import EngineRegistry
 from bms_core.listing.base import QueryScheme, QuerySchemeScope, QuerySchemeTarget
-from bms_core.listing.store import SqlQuerySchemeStore
+from bms_core.listing.store import SqlQuerySchemeStore, _to_scheme  # pyright: ignore[reportPrivateUsage]
 
 
 def _run_migrations(url: str) -> None:
@@ -139,3 +142,108 @@ async def test_query_scheme_crud_and_default_resolution(scheme_store: SqlQuerySc
         resolved_other = await scheme_store.resolve_default(QuerySchemeTarget.ITEMS)
         assert resolved_other is not None
         assert resolved_other.name == "平台默认"
+
+
+async def test_query_scheme_field_key_filters_and_missing_paths(scheme_store: SqlQuerySchemeStore) -> None:
+    """`field_key` 过滤、更新不存在方案拒 10002、删除不存在返 False、无默认方案返 None。"""
+    with _as_user(1001):
+        await scheme_store.save(
+            QueryScheme(
+                name="带字段键",
+                scope=QuerySchemeScope.USER,
+                target=QuerySchemeTarget.ITEMS,
+                data_source_key="region",
+                field_key="purchase_order",
+                is_default=True,
+            )
+        )
+        by_field = await scheme_store.list(QuerySchemeTarget.ITEMS, field_key="purchase_order")
+        assert [scheme.name for scheme in by_field] == ["带字段键"]
+        assert await scheme_store.list(QuerySchemeTarget.ITEMS, field_key="absent") == ()
+        resolved = await scheme_store.resolve_default(QuerySchemeTarget.ITEMS, field_key="purchase_order")
+        assert resolved is not None and resolved.name == "带字段键"
+        assert await scheme_store.resolve_default(QuerySchemeTarget.ITEMS, field_key="absent") is None
+
+    with pytest.raises(NotFoundError):
+        await scheme_store.save(
+            QueryScheme(
+                id=987654321,
+                name="不存在",
+                scope=QuerySchemeScope.USER,
+                target=QuerySchemeTarget.ITEMS,
+                data_source_key="region",
+            )
+        )
+    assert await scheme_store.delete(987654321) is False
+
+
+def test_to_scheme_falls_back_on_invalid_scope() -> None:
+    """非法作用域取值回落个人作用域。"""
+    row = SimpleNamespace(
+        id=1,
+        name="异常方案",
+        scope="bogus",
+        owner_id=None,
+        target="items",
+        data_source_key="region",
+        field_key=None,
+        provider_key=None,
+        conditions=None,
+        params=None,
+        layout=None,
+        is_default=False,
+        shared=False,
+        status="enabled",
+    )
+    assert _to_scheme(cast("Any", row)).scope is QuerySchemeScope.USER
+
+
+class _StaleSession:
+    """会话替身：登记新增后提交即报乐观锁冲突。"""
+
+    def add(self, row: object) -> None:
+        """登记新增行（占位）。
+
+        Args:
+            row: ORM 行。
+        """
+        del row
+
+    async def commit(self) -> None:
+        """提交即报乐观锁冲突。
+
+        Raises:
+            StaleDataError: 乐观锁冲突。
+        """
+        raise StaleDataError("stale")
+
+
+@asynccontextmanager
+async def _stale_scope(*args: object, **kwargs: object) -> AsyncGenerator[object]:
+    """会话作用域替身：产出恒冲突会话。
+
+    Args:
+        args: 位置参数（忽略）。
+        kwargs: 关键字参数（忽略）。
+
+    Yields:
+        object: 恒冲突会话替身。
+    """
+    del args, kwargs
+    yield _StaleSession()
+
+
+async def test_save_translates_stale_data_error(
+    scheme_store: SqlQuerySchemeStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """乐观锁冲突（`StaleDataError`）→ 10004 / 409 语义。"""
+    monkeypatch.setattr("bms_core.listing.store.session_scope", _stale_scope)
+    with pytest.raises(ConcurrentConflictError):
+        await scheme_store.save(
+            QueryScheme(
+                name="冲突方案",
+                scope=QuerySchemeScope.PLATFORM,
+                target=QuerySchemeTarget.ITEMS,
+                data_source_key="region",
+            )
+        )

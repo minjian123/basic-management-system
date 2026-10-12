@@ -150,6 +150,21 @@ async def test_scope_operators() -> None:
 
 
 @pytest.mark.kiwi_id(11)
+async def test_like_wildcards_and_non_string_values() -> None:
+    """LIKE 判定：通配符模式（`%` / `_`）与数据库同义；非字符串取值恒不命中。"""
+    repo = await _repo_with_rows()
+
+    repo.use_scope(FixedScope(ScopeCondition("name", "like", "乙%")))
+    assert [row.name for row in await repo.list()] == ["乙"]
+
+    repo.use_scope(FixedScope(ScopeCondition("name", "like", "__")))
+    assert await repo.list() == []
+
+    repo.use_scope(FixedScope(ScopeCondition("name", "like", 1)))
+    assert await repo.list() == []
+
+
+@pytest.mark.kiwi_id(11)
 async def test_scope_condition_list_and_write_scope() -> None:
     """条件列表（AND）；越权 / 已删记录不可改删。"""
     repo = ScopedRowRepository()
