@@ -21,7 +21,7 @@ def test_asgi_module_exposes_application() -> None:
 
 def test_module_source_does_not_run_service() -> None:
     """以非 `__main__` 名字执行入口模块：不触发启动（`__name__ != "__main__"` 分支）。"""
-    assert load_entrypoint_source("bms_notification") == "bms_notification_entrypoint_probe"
+    assert load_entrypoint_source("bms_notification") == "bms_notification._entrypoint_probe"
 
 
 def test_module_entrypoint_runs_service(monkeypatch: pytest.MonkeyPatch) -> None:

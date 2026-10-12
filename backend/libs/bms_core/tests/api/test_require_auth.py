@@ -317,6 +317,50 @@ async def test_cross_tenant_explicit_mismatch_rejected() -> None:
     assert excinfo.value.code == 20001
 
 
+def test_as_user_id_blank_and_non_numeric() -> None:
+    """主体解析：空值为 None；非数字回落 None；带空白数字串转 int。"""
+    from bms_core.api.base import _as_user_id  # pyright: ignore[reportPrivateUsage]
+
+    assert _as_user_id(None) is None
+    assert _as_user_id("") is None
+    assert _as_user_id("u-42") is None
+    assert _as_user_id(" 42 ") == 42
+
+
+async def test_gateway_without_tenant_leaves_context_unscoped() -> None:
+    """网关路径：请求态无租户 → 原样返回；无租户编码 / 主键则不写租户上下文。"""
+    store = await _store_with("s9")
+    state = ConcurrentStableDict[str, object]({"edge_identity": EdgeIdentity(subject="1001", session_id="s9")})
+    context = await require_auth(_request(state=state), verifier=_StubVerifier(), store=store)
+    assert context.tenant_code is None
+    assert context.tenant_id is None
+
+
+async def test_gateway_tenant_mismatch_rejected() -> None:
+    """网关路径：显式租户主键与边缘身份租户主键不一致 → 跨租户拒绝（20001 / 401）。"""
+    store = await _store_with("s8")
+    state = ConcurrentStableDict[str, object](
+        {
+            "edge_identity": EdgeIdentity(subject="1001", tenant_id=_ACME_ID, session_id="s8"),
+            "tenant": _demo_tenant(),
+        }
+    )
+    with pytest.raises(AuthError) as excinfo:
+        await require_auth(_request(state=state), verifier=_StubVerifier(), store=store)
+    assert excinfo.value.code == 20001
+
+
+async def test_local_token_without_tenant_id_skips_resolution() -> None:
+    """本地路径：令牌无租户主键 → 不做租户解析（原样返回）。"""
+    store = await _store_with("s10")
+    request = _request(headers=ConcurrentStableDict({"Authorization": f"Bearer {_TOK}"}))
+    context = await require_auth(
+        request, verifier=_StubVerifier(result=_verified(tenant_id=None, session_id="s10")), store=store
+    )
+    assert context.tenant_id is None
+    assert context.tenant_code is None
+
+
 async def test_token_tenant_overrides_fallback() -> None:
     """无显式来源（回落演示租户）时以令牌租户 id 经租户源解析为准并写请求态。"""
     store = await _store_with("s7", tenant_id=_ACME_ID)

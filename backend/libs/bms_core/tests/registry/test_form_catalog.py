@@ -81,3 +81,32 @@ def test_validate_reports_duplicate_and_bad_format() -> None:
 def test_catalog_contains_expected_keys(form_key: str) -> None:
     """关键字典表标识在清单内。"""
     assert FormRegistry().get(form_key) is not None
+
+
+def test_catalog_exports_and_validate_remaining_violations() -> None:
+    """清单出口（全量副本 / 标识集 / 未登记表回落）与剩余校验分支（表名 / 名称 / 类型 / 状态）。"""
+    from bms_core.core.concurrent import ConcurrentStableList
+
+    registry = FormRegistry()
+    assert len(registry.catalog_records()) == len(FORM_CATALOG)
+    assert registry.keys() == {record.form_key for record in FORM_CATALOG}
+    assert registry.by_table("__absent__") is None
+
+    records = (
+        FormRecord(form_key="alpha", table="1bad", name="甲", data_source_key="alpha"),
+        FormRecord(form_key="beta", table="sys_shared", name="乙", data_source_key="beta"),
+        FormRecord(
+            form_key="gamma",
+            table="sys_shared",
+            name="",
+            kind="weird",
+            status="weird",
+            data_source_key="gamma",
+        ),
+    )
+    issues = list(FormRegistry(ConcurrentStableList(records)).validate())
+    assert any("表名格式非法" in issue for issue in issues)
+    assert any("表名重复登记" in issue for issue in issues)
+    assert any("名称缺失" in issue for issue in issues)
+    assert any("类型取值非法" in issue for issue in issues)
+    assert any("状态取值非法" in issue for issue in issues)
