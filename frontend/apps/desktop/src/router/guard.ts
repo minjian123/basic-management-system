@@ -71,6 +71,26 @@ export function resolvePublicPaths(dev: boolean = import.meta.env.DEV): readonly
 }
 
 /**
+ * 是否**免会话判定**路径（公开且非登录族；如 `/403` / `/404` / `/500` 与开发态面板）。
+ *
+ * 应用根以 `session.ready` 渲染骨架屏，而本函数命中的路径**不会触发会话就绪**（守卫「公开页
+ * 直接放行，不等待续期」）——若仍按 `session.ready` 等待，冷启动直开错误页会**永久停在骨架屏**。
+ * 故这类路径免等（直接渲染）；**登录族**（`/login` 及其子路径）不在其内——登录页需先完成就绪
+ * 判定，避免闪登录页（域五 `05_03` 口径）。
+ *
+ * @param path 目标路径（`route.path`）。
+ * @param publicPaths 公开白名单（缺省 `resolvePublicPaths()`）。
+ * @returns 免会话判定返回 true。
+ */
+export function isSessionFreePath(
+  path: string,
+  publicPaths: readonly string[] = resolvePublicPaths(),
+): boolean {
+  const isLoginFamily = path === DEFAULT_LOGIN_PATH || path.startsWith(`${DEFAULT_LOGIN_PATH}/`)
+  return !isLoginFamily && isPublicPath(path, publicPaths)
+}
+
+/**
  * 安装认证守卫；开关关闭（`off`）时不注册任何钩子。
  *
  * @param router 路由实例。

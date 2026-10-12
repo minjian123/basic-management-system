@@ -16,6 +16,7 @@ import {
   DEV_PUBLIC_PATHS,
   installAuthGuard,
   isAuthGuardEnabled,
+  isSessionFreePath,
   resolvePublicPaths,
   toRequiredPermissions,
   type AuthGuardDeps,
@@ -298,5 +299,30 @@ describe('LoginView 登录页可达（Kiwi 2191）', () => {
     expect(wrapper.find('[data-test="login-form"]').exists()).toBe(true)
     expect(wrapper.find('[data-test="login-account"]').exists()).toBe(true)
     expect(wrapper.find('[data-test="login-password"]').exists()).toBe(true)
+  })
+})
+
+describe('isSessionFreePath（免会话判定路径：错误页冷启动不落骨架屏）', () => {
+  it('错误页与开发态面板：免判定（不等待会话就绪）', () => {
+    for (const path of ['/403', '/404', '/500', '/dev/module-observability']) {
+      expect(isSessionFreePath(path, resolvePublicPaths())).toBe(true)
+    }
+  })
+
+  it('登录族（含子路径）：仍需等待就绪判定（避免闪登录页）', () => {
+    for (const path of ['/login', '/login/qr', '/login/qr/scan']) {
+      expect(isSessionFreePath(path, resolvePublicPaths())).toBe(false)
+    }
+  })
+
+  it('受保护路径：不属免判定（公开白名单之外）', () => {
+    for (const path of ['/', '/sys/users', '/sys/users/1', '/demo']) {
+      expect(isSessionFreePath(path, resolvePublicPaths())).toBe(false)
+    }
+  })
+
+  it('缺省白名单参数：与显式传入等价', () => {
+    expect(isSessionFreePath('/404')).toBe(true)
+    expect(isSessionFreePath('/login')).toBe(false)
   })
 })

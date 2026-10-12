@@ -10,6 +10,7 @@ import ModuleBoundary from '@/components/ModuleBoundary.vue'
 import { useMenuExpanded } from '@/composables/useMenuExpanded'
 import { moduleMenuGroups } from '@/module/host'
 import { registries, registriesRevision } from '@/module/registries'
+import { isSessionFreePath, resolvePublicPaths } from '@/router/guard'
 import { isStandalonePath } from '@/router/layout-scope'
 import { useMenuStore } from '@/stores/menu'
 import { useSessionStore } from '@/stores/session'
@@ -29,6 +30,11 @@ const menuExpanded = useMenuExpanded()
 // 独立全屏页（登录族：`/login`、`/login/qr`）：只渲染 `router-view`，**不套主框架外壳**、不入页签
 // （需求 05-1「独立全屏页 + 居中单卡片」；判定见 `@/router/layout-scope`）。
 const standalone = computed(() => isStandalonePath(route.path))
+
+// 骨架屏仅在「**需会话判定**且判定未完成」时展示：免判定公开页（错误页 `/403` `/404` `/500`、
+// 开发态面板）不触发会话就绪，若一并等待会**永久停在骨架屏**（冷启动直开错误页即空白）；
+// 登录族仍需等待判定完成，避免闪登录页。
+const waitingSession = computed(() => !session.ready && !isSessionFreePath(route.path, resolvePublicPaths()))
 
 // 模块菜单装配泛化：模块经路由 meta 声明菜单（title / icon / group / groupIcon / devOnly），
 // 宿主从注册表快照按来源分组装配（不再硬编码 demo 分组）；`devOnly` 项生产态隐藏。
@@ -83,8 +89,9 @@ async function onTabClose(key: string): Promise<void> {
 </script>
 
 <template>
-  <!-- 会话就绪前（首屏静默续期 / 登录页判定）：骨架屏等待态，不闪登录页、不白屏。 -->
-  <div v-if="!session.ready" class="app-skeleton" data-test="app-skeleton" aria-busy="true">
+  <!-- 会话就绪前（首屏静默续期 / 登录页判定）：骨架屏等待态，不闪登录页、不白屏；
+       免会话判定的公开页（错误页等）不等（`waitingSession`），避免永久停在骨架屏。 -->
+  <div v-if="waitingSession" class="app-skeleton" data-test="app-skeleton" aria-busy="true">
     <div class="app-skeleton__header"></div>
     <div class="app-skeleton__body">
       <div class="app-skeleton__side"></div>
