@@ -23,6 +23,7 @@ from bms_core.transaction.base import (
     BRANCH_PREPARED,
     TXN_ACTIVE,
     TXN_COMMITTED,
+    TXN_COMMITTING,
     TXN_ROLLED_BACK,
     BranchSpec,
     build_branch_xid,
@@ -309,6 +310,101 @@ async def test_recovery_requires_leadership(uow: DbUnitOfWork) -> None:
 
     assert await recovery.run_as_leader() == 0
     await lock.release("bms:global:lock:txn:leader", token)
+
+
+class FailingVerifyDriver(FakeDriver):
+    """核验恒定失败的驱动替身（模拟参与方不可达）。"""
+
+    async def verify(self, *, service: str, db_key: str, xid: str) -> str:
+        """恒定抛错。"""
+        del service, db_key, xid
+        raise RuntimeError("核验不可达")
+
+
+async def test_verify_failure_rolls_back_and_records_error(uow: DbUnitOfWork) -> None:
+    """决定点前核验失败：按否决处理（记失败原因）⇒ 全部分支回滚、无任何提交。"""
+    driver = FailingVerifyDriver()
+    coordinator = _coordinator(uow, driver)
+    started = await coordinator.begin(caller_service="platform", branches=_specs())
+
+    result = await coordinator.commit(started.global_txn_id)
+
+    assert result.state == TXN_ROLLED_BACK
+    assert driver.committed == []
+    branches = GlobalTxnBranchRepository(uow.session)
+    async with uow.begin():
+        rows = await branches.list_by_txn(started.global_txn_id)
+    assert all(row.retry_count == 1 for row in rows)
+    assert all(row.last_error == "核验不可达" for row in rows)
+
+
+async def test_rollback_in_committing_state_is_absorbed(uow: DbUnitOfWork) -> None:
+    """决定点已落（`committing`）时的回滚请求：只提交、不再回滚（幂等吸收）。"""
+    driver = FakeDriver()
+    coordinator = _coordinator(uow, driver)
+    started = await coordinator.begin(caller_service="platform", branches=_specs())
+    txns = GlobalTxnRepository(uow.session)
+    async with uow.begin():
+        row = await txns.get_by_global_txn_id(started.global_txn_id)
+        assert row is not None
+        row.state = TXN_COMMITTING
+        row.decided_at = datetime.now(UTC)
+        await txns.flush()
+
+    result = await coordinator.rollback(started.global_txn_id)
+
+    assert result.state == TXN_COMMITTED
+    assert driver.rolled_back == []
+
+
+async def test_internal_helpers_edge_cases(uow: DbUnitOfWork) -> None:
+    """内部辅助：事务缺失即拒；终态不再决定；分支缺失 / 同态跳过；驱动跳过已终态分支。"""
+    coordinator = _coordinator(uow, FakeDriver())
+
+    with pytest.raises(ParamError):
+        await coordinator.commit("not-exists")
+
+    started = await coordinator.begin(caller_service="platform", branches=_specs())
+    gid = started.global_txn_id
+    await coordinator.commit(gid)
+
+    with pytest.raises(ParamError):
+        await coordinator._decide("not-exists", TXN_COMMITTING)  # pyright: ignore[reportPrivateUsage]
+    await coordinator._decide(gid, TXN_COMMITTING)  # pyright: ignore[reportPrivateUsage] - 终态：直接返回
+    await coordinator._set_branch_state(gid, "missing", BRANCH_PREPARED)  # pyright: ignore[reportPrivateUsage]
+    await coordinator._set_branch_state(gid, "p1", "committed")  # pyright: ignore[reportPrivateUsage] - 同态跳过
+    await coordinator._record_branch_error(gid, "missing", "x")  # pyright: ignore[reportPrivateUsage]
+    await coordinator._drive(gid, commit=True)  # pyright: ignore[reportPrivateUsage] - 全部分支已终态：跳过
+    assert (await coordinator.status(gid)).state == TXN_COMMITTED
+
+
+async def test_ledger_repository_queries(uow: DbUnitOfWork) -> None:
+    """账本仓储：启发式终态 / 到期 `active` / 未确认分支 / 处置台账落库。"""
+    coordinator = _coordinator(uow, FakeDriver())
+    heuristic = await coordinator.begin(caller_service="platform", branches=_specs())
+    expired = await coordinator.begin(caller_service="platform", branches=_specs())
+
+    txns = GlobalTxnRepository(uow.session)
+    branches = GlobalTxnBranchRepository(uow.session)
+    recoveries = GlobalTxnRecoveryRepository(uow.session)
+
+    async with uow.begin():
+        heuristic_row = await txns.get_by_global_txn_id(heuristic.global_txn_id)
+        assert heuristic_row is not None
+        heuristic_row.state = "heuristic_commit"
+        expired_row = await txns.get_by_global_txn_id(expired.global_txn_id)
+        assert expired_row is not None
+        expired_row.deadline_at = datetime.now(UTC) - timedelta(seconds=1)
+        await txns.flush()
+        await recoveries.flush()
+
+    async with uow.begin():
+        heuristic_rows = await txns.list_heuristic()
+        expired_rows = await txns.list_expired_active(now=datetime.now(UTC))
+        unsettled = await branches.list_unsettled()
+    assert [item.global_txn_id for item in heuristic_rows] == [heuristic.global_txn_id]
+    assert [item.global_txn_id for item in expired_rows] == [expired.global_txn_id]
+    assert [item.branch_id for item in unsettled] == ["p1", "m1", "p1", "m1"]
 
 
 def _recovery(uow: DbUnitOfWork, coordinator: TransactionCoordinator, *, lock: Any = None) -> TransactionRecovery:
