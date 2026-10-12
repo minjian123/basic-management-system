@@ -84,6 +84,26 @@ async function mountQr(
   return { wrapper, router, pinia }
 }
 
+/**
+ * 以自定义桩适配器挂载扫码登录页（用于覆写请求失败等异常链路）。
+ *
+ * @param requestImpl 桩适配器实现。
+ * @returns 装配结果。
+ */
+async function mountQrWithAdapter(
+  requestImpl: (config: RequestConfig) => Promise<unknown>,
+): Promise<{ wrapper: ReturnType<typeof mount>; router: Router; pinia: Pinia }> {
+  const pinia = createPinia()
+  setActivePinia(pinia)
+  const router = makeRouter()
+  await router.push('/login/qr')
+  await router.isReady()
+  requestMock.mockImplementation((config: RequestConfig) => requestImpl(config))
+  const wrapper = mount(QrLoginView, { global: { plugins: [pinia, router] } })
+  await flushPromises()
+  return { wrapper, router, pinia }
+}
+
 beforeEach(() => {
   requestMock.mockReset()
   configureRequestAdapter({ request: requestMock })
@@ -103,8 +123,25 @@ describe('扫码登录页（Kiwi 2233）', () => {
   })
 
   it('无可扫码入口渲染空态', async () => {
-    const { wrapper } = await mountQr('', { items: [{ idp_key: 'keycloak', name: 'Keycloak', icon: '', type: 'oidc', sort: 1 }] })
+    const { wrapper } = await mountQr('', {
+      items: [{ idp_key: 'keycloak', name: 'Keycloak', icon: '', type: 'oidc', sort: 1 }],
+    })
     expect(wrapper.find('[data-test="sso-qr-empty"]').exists()).toBe(true)
+    wrapper.unmount()
+  })
+
+  it('入口清单响应缺省 items：按空清单渲染空态', async () => {
+    const { wrapper } = await mountQr('', {})
+    expect(wrapper.find('[data-test="sso-qr-empty"]').exists()).toBe(true)
+    wrapper.unmount()
+  })
+
+  it('入口清单请求失败：按空态处理，不阻断返回账号登录', async () => {
+    const { wrapper } = await mountQrWithAdapter(() => Promise.reject(new Error('providers down')))
+
+    expect(wrapper.find('[data-test="sso-qr-empty"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="qr-login-view"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="sso-qr-back"]').exists()).toBe(true)
     wrapper.unmount()
   })
 

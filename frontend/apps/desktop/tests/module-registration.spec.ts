@@ -5,13 +5,17 @@ import { PLATFORM_SOURCE, assembleRegistrations, releaseRegistrations } from '@b
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { getModuleLoader, installModules, installPlatformRegistrations, unmountModule } from '@/module/host'
-import { registries } from '@/module/registries'
+import { PLATFORM_REGISTRATION, bumpRegistriesRevision, registries, registriesRevision } from '@/module/registries'
 
 import { demoDefinition, REMOTE_ENTRY } from './support/module-fixture'
 
 /** Module Federation 运行时替身（远端模块定义经此注入）。 */
 const { loadRemote } = vi.hoisted(() => ({ loadRemote: vi.fn() }))
 vi.mock('@module-federation/runtime', () => ({ registerRemotes: vi.fn(), loadRemote }))
+
+// 平台内建区域项的组件为重型业务页：此处只核验「懒加载器可解析」，故以轻桩替换，避免拖慢用例。
+vi.mock('@/views/system/user/RoleAssignPanel.vue', () => ({ default: { name: 'RoleAssignPanelStub' } }))
+vi.mock('@/views/system/role/RoleUsersPanel.vue', () => ({ default: { name: 'RoleUsersPanelStub' } }))
 
 beforeEach(() => {
   loadRemote.mockReset()
@@ -132,5 +136,27 @@ describe('统一装配通道（Kiwi 976）', () => {
     expect(registries.pageArea.get('sys:user-detail-roles')).toBeUndefined()
     expect(registries.pageArea.get('demo:ext')).toBeUndefined()
     expect(registries.pageArea.get('demo:gated')).toBeUndefined()
+  })
+})
+
+// kiwi_id: 976
+describe('宿主注册表实例与平台自身声明（Kiwi 976）', () => {
+  it('平台声明含两个内建区域项，其组件为可解析的懒加载器（角色分配 / 用户分配）', async () => {
+    const declarations = PLATFORM_REGISTRATION.regions ?? []
+    expect(declarations.map((item) => item.key)).toEqual(['sys:user-detail-roles', 'sys:role-detail-users'])
+
+    for (const declaration of declarations) {
+      const loader = declaration.component as (() => Promise<unknown>) | undefined
+      expect(typeof loader).toBe('function')
+      await expect(loader?.()).resolves.toBeDefined()
+    }
+  })
+
+  it('装配版本号自增（注册表实例非响应式，视图据此重算）', () => {
+    const before = registriesRevision.value
+    bumpRegistriesRevision()
+    expect(registriesRevision.value).toBe(before + 1)
+    bumpRegistriesRevision()
+    expect(registriesRevision.value).toBe(before + 2)
   })
 })

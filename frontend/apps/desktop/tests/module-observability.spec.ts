@@ -11,6 +11,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   installModuleRouteScope,
   installObservability,
+  moduleReporterRegistry,
   moduleSnapshot,
   moduleTelemetry,
   reportModuleError,
@@ -81,6 +82,18 @@ describe('错误上报与按模块归因（Kiwi 982）', () => {
     expect(snapshot.platform.errors[0]).toMatchObject({ name: 'platform', message: 'platform 错' })
     expect(snapshot.modules.demo.errors[0]).toMatchObject({ name: 'demo', version: '0.2.0', phase: 'mount' })
   })
+
+  it('非 Error 抛出值与空模块名：按字符串归因、空名归 platform（防御分支）', () => {
+    const sink = createModuleReporterSink(moduleTelemetry)
+    // 非 Error 抛出值 + 非字符串 meta.scope：message 取 String(error)、phase 回落 runtime。
+    sink('字符串错误', { scope: 42 })
+    // 显式上报空模块名：归 platform。
+    reportModuleError('', '0.0.0', 'load', '非 Error')
+
+    const errors = moduleSnapshot().platform.errors
+    expect(errors.map((item) => item.message)).toEqual(['字符串错误', '非 Error'])
+    expect(errors[0]?.phase).toBe('runtime')
+  })
 })
 
 describe('Web Vitals 按模块归属（Kiwi 982）', () => {
@@ -96,6 +109,19 @@ describe('Web Vitals 按模块归属（Kiwi 982）', () => {
     const snapshot = moduleSnapshot()
     expect(snapshot.modules.demo.vitals[0]).toMatchObject({ metric: 'LCP', value: 1234, rating: 'good' })
     expect(snapshot.platform.vitals[0]).toMatchObject({ metric: 'LCP', value: 1300 })
+  })
+
+  it('上报实现解析失败时不注入遥测（防御分支；Vitals 采集仍安装）', () => {
+    const registerSpy = vi.spyOn(moduleReporterRegistry, 'register').mockImplementation(() => {})
+    const resolveSpy = vi.spyOn(moduleReporterRegistry, 'resolve').mockReturnValueOnce(undefined)
+    try {
+      installObservability()
+    } finally {
+      registerSpy.mockRestore()
+      resolveSpy.mockRestore()
+    }
+
+    expect(vitalsCallbacks).toHaveLength(3)
   })
 })
 
@@ -121,6 +147,22 @@ describe('模块路由作用域（Kiwi 982）', () => {
 
     after?.({ name: 'HomeView' })
     expect(activeModule()).toBeNull()
+  })
+
+  it('未经过导航前置钩子（无导航起点）时只更新活动模块、不记渲染耗时', () => {
+    let after: ((to: { name: unknown }) => void) | undefined
+    const router = {
+      beforeEach: () => {},
+      afterEach: (fn: (to: { name: unknown }) => void) => {
+        after = fn
+      },
+    } as unknown as Router
+
+    installModuleRouteScope(router, (name) => (name === 'DemoHome' ? { name: 'demo', version: '0.1.0' } : undefined))
+    after?.({ name: 'DemoHome' })
+
+    expect(activeModule()).toEqual({ name: 'demo', version: '0.1.0' })
+    expect(moduleSnapshot().modules.demo?.load ?? []).toEqual([])
   })
 })
 

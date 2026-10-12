@@ -1,12 +1,21 @@
 // kiwi_id: 977
 /** 模块宿主装配用例（清单驱动加载 → 按 mode 分派入口 → 路由注册 → 注册表派生菜单 → 卸载清理与消费接线还原）。 */
 
-import { ComponentProvider, type ModuleRouteDeclaration } from '@bms/core'
+import { ComponentProvider, assembleRegistrations, releaseRegistrations, type ModuleRouteDeclaration } from '@bms/core'
 import type { Router } from 'vue-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { clearModuleError, useModuleError } from '@/module/boundary'
-import { getModuleLoader, installModules, moduleMenuGroups, moduleMenuNodes, mountModule, retryModule, unmountModule } from '@/module/host'
+import {
+  getModuleLoader,
+  installModules,
+  moduleMenuGroups,
+  moduleMenuNodes,
+  mountModule,
+  resolveRouteModule,
+  retryModule,
+  unmountModule,
+} from '@/module/host'
 import { MODULE_REMOTE_ENTRY_TYPE } from '@/module/federation'
 import { moduleI18n } from '@/module/i18n'
 import { registries } from '@/module/registries'
@@ -233,6 +242,131 @@ describe('宿主编装载（清单驱动 · 按 mode 分派入口）', () => {
     expect(registries.component.get('demo:toolbox')?.registrationSource).toBeUndefined()
 
     registries.component.unregister('demo:toolbox')
+  })
+})
+
+// kiwi_id: 977
+describe('宿主编装载补充分支（Kiwi 977）', () => {
+  it('非 Error 抛出值按字符串归因（reason 取 String(error)）', async () => {
+    loadRemote.mockRejectedValueOnce('远端入口加载失败：字符串抛出')
+
+    const summary = await installModules({ router })
+
+    expect(summary.failures.map((item) => item.reason)).toEqual(['远端入口加载失败：字符串抛出'])
+  })
+
+  it('模块未声明路由 / 文案包时按空清单装载（可选声明缺省安全）', async () => {
+    loadRemote.mockResolvedValue({
+      default: {
+        manifest: {
+          name: 'demo',
+          version: '0.1.0',
+          contractVersion: (await import('@bms/core')).MODULE_CONTRACT_VERSION,
+        },
+        setup: () => ({ components: { 'demo:minimal': {} } }),
+      },
+    })
+
+    const summary = await installModules({ router })
+
+    expect(summary.mounted).toEqual(['demo'])
+    expect(router.hasRoute('DemoHome')).toBe(false)
+    expect(moduleMenuNodes()).toEqual([])
+    // 卸载路径亦按缺省空清单走（无路由 / 无文案 / 无令牌 / 无登记键可还原）。
+    unmountModule('demo')
+    expect(getModuleLoader()?.isMounted('demo')).toBe(false)
+  })
+
+  it('重试未装载清单：拒绝（未注册不可用）', async () => {
+    // 清单装载前 `loader` 未定义（模块级状态）：重置模块图后取全新实例核验该分支。
+    vi.resetModules()
+    const fresh = await import('@/module/host')
+    await expect(fresh.retryModule('demo')).rejects.toThrow(/模块清单未装载/)
+    await expect(fresh.mountModule('demo')).rejects.toThrow(/模块清单未装载/)
+  })
+
+  it('重试未登记模块拒绝；已挂载模块先卸载再重挂；路由名解析按类型判定', async () => {
+    await installModules({ router })
+    // ② 清单未登记该模块：拒绝。
+    await expect(retryModule('nope')).rejects.toThrow(/模块未登记/)
+
+    // ③ 已挂载：先卸载再重挂（幂等重试），仍处挂载态。
+    await retryModule('demo')
+    expect(getModuleLoader()?.isMounted('demo')).toBe(true)
+    expect(router.hasRoute('DemoHome')).toBe(true)
+
+    // ④ 非字符串路由名不参与模块路由解析。
+    expect(resolveRouteModule(undefined)).toBeUndefined()
+    expect(resolveRouteModule(42)).toBeUndefined()
+    expect(resolveRouteModule('DemoHome')).toEqual({ name: 'demo', version: '0.1.0' })
+    expect(resolveRouteModule('Unknown')).toBeUndefined()
+  })
+
+  it('未装载模块卸载为幂等空操作（无登记键 / 无路由 / 无文案）', () => {
+    expect(() => unmountModule('never-mounted')).not.toThrow()
+    expect(moduleMenuNodes()).toEqual([])
+  })
+
+  it('菜单分组：顶级项（未声明 group）、组内首项路径与图标回落、组图标缺省回落首项图标', async () => {
+    const keys = assembleRegistrations(registries, 'demo', {
+      routes: [
+        // 顶级项：未声明 group。
+        { path: '/demo/top', name: 'DemoTop', component: async () => ({}), meta: { title: '顶级项' } },
+        // 分组：显式组图标。
+        {
+          path: '/demo/g1',
+          name: 'DemoG1',
+          component: async () => ({}),
+          meta: { title: '组一项', group: '演示组', groupIcon: 'grid' },
+        },
+        {
+          path: '/demo/g2',
+          name: 'DemoG2',
+          component: async () => ({}),
+          meta: { title: '组二项', group: '演示组' },
+        },
+        // 分组：未声明组图标（回落组内首项图标）。
+        {
+          path: '/demo/h1',
+          name: 'DemoH1',
+          component: async () => ({}),
+          meta: { title: '组一项', group: '无图标组', icon: 'star' },
+        },
+        // 空串 group / groupIcon 视为未声明（归一为 undefined）。
+        {
+          path: '/demo/e1',
+          name: 'DemoE1',
+          component: async () => ({}),
+          meta: { title: '空串组', group: '', groupIcon: '' },
+        },
+      ],
+    })
+
+    const menu = moduleMenuGroups(true)
+
+    expect(menu.map((node) => node.title)).toEqual(['顶级项', '演示组', '无图标组', '空串组'])
+    expect(menu[0]).toMatchObject({ path: '/demo/top', icon: 'sparkles' })
+    expect(menu[1]).toMatchObject({ path: '/demo/g1', icon: 'grid' })
+    expect(menu[1]?.children?.map((node) => node.path)).toEqual(['/demo/g1', '/demo/g2'])
+    expect(menu[2]).toMatchObject({ path: '/demo/h1', icon: 'star' })
+    expect(menu[3]).toMatchObject({ path: '/demo/e1', icon: 'sparkles' })
+
+    releaseRegistrations(registries, keys)
+    expect(moduleMenuGroups(true)).toEqual([])
+  })
+
+  it('菜单分组：生产态隐藏 devOnly 项；未声明图标回落 sparkles', async () => {
+    const keys = assembleRegistrations(registries, 'demo', {
+      routes: [
+        { path: '/demo/dev', name: 'DemoDev', component: async () => ({}), meta: { title: '仅开发', devOnly: true } },
+        { path: '/demo/prod', name: 'DemoProd', component: async () => ({}), meta: { title: '生产可见' } },
+      ],
+    })
+
+    expect(moduleMenuGroups(false).map((node) => node.title)).toEqual(['生产可见'])
+    expect(moduleMenuGroups(true).map((node) => node.title)).toEqual(['仅开发', '生产可见'])
+
+    releaseRegistrations(registries, keys)
   })
 })
 

@@ -17,6 +17,7 @@ import {
   installAuthGuard,
   isAuthGuardEnabled,
   resolvePublicPaths,
+  toRequiredPermissions,
   type AuthGuardDeps,
 } from '@/router/guard'
 import LoginView from '@/views/LoginView.vue'
@@ -108,6 +109,15 @@ describe('isAuthGuardEnabled（Kiwi 2191 / 2231）', () => {
   it('VITE_AUTH_GUARD=off 关闭', () => {
     vi.stubEnv('VITE_AUTH_GUARD', 'off')
     expect(isAuthGuardEnabled()).toBe(false)
+  })
+})
+
+describe('toRequiredPermissions（Kiwi 2231）', () => {
+  it('权限码归一：单码 / 数组去空 / 未声明；空串视为未声明', () => {
+    expect(toRequiredPermissions(undefined)).toEqual([])
+    expect(toRequiredPermissions('')).toEqual([])
+    expect(toRequiredPermissions('user:query')).toEqual(['user:query'])
+    expect(toRequiredPermissions(['user:query', '', 'user:edit'])).toEqual(['user:query', 'user:edit'])
   })
 })
 
@@ -211,7 +221,10 @@ describe('installAuthGuard 判定与回跳（Kiwi 2231）', () => {
     const ensureRoutes = vi.fn(() => {
       installed = true
     })
-    const { run } = install({ ensureSession: vi.fn().mockResolvedValue(true), ensureRoutes }, { hasRoute: () => installed })
+    const { run } = install(
+      { ensureSession: vi.fn().mockResolvedValue(true), ensureRoutes },
+      { hasRoute: () => installed },
+    )
 
     expect(await run(target('/system/user', { query: { from: 'deep' } }))).toEqual({
       path: '/system/user',
@@ -262,11 +275,13 @@ describe('菜单动态路由与守卫协同（Kiwi 2231）', () => {
 
   it('memory router 可注册守卫（集成：beforeEach 已装配）', () => {
     const router = createRouter({ history: createMemoryHistory(), routes: [] })
-    expect(installAuthGuard(router, {
-      ensureSession: vi.fn().mockResolvedValue(false),
-      ensureRoutes: vi.fn(),
-      permissions: () => ({ codes: [], loaded: false }),
-    })).toBe(true)
+    expect(
+      installAuthGuard(router, {
+        ensureSession: vi.fn().mockResolvedValue(false),
+        ensureRoutes: vi.fn(),
+        permissions: () => ({ codes: [], loaded: false }),
+      }),
+    ).toBe(true)
   })
 })
 

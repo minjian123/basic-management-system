@@ -2,6 +2,7 @@
 /** 登录页用例（05_01 / 05_06）：表单提交与回跳 / 验证码时机 / SSO 入口 / 错误文案 / 密码安全口径 / 租户标识默认隐藏与 20007。 */
 
 import { configureRequestAdapter, type RequestConfig } from '@bms/core'
+import { CaptchaField } from '@bms/ui-ep'
 import { flushPromises, mount, type DOMWrapper, type VueWrapper } from '@vue/test-utils'
 import { createPinia, setActivePinia, type Pinia } from 'pinia'
 import { createMemoryHistory, createRouter, type Router } from 'vue-router'
@@ -223,6 +224,60 @@ describe('登录页（Kiwi 2232）', () => {
     expect(session.user?.name).toBe('管理员')
     expect(session.tenant).toBe('acme')
     expect(router.currentRoute.value.fullPath).toBe('/org/users?page=2')
+  })
+
+  it('登录成功且强制改密为真：提示尽快修改初始密码', async () => {
+    stubRequests({
+      login: () => ({ ...LOGIN_SUCCESS, user: { ...LOGIN_SUCCESS.user, must_change_password: true } }),
+    })
+    const { wrapper } = await mountLogin()
+
+    await submit(wrapper)
+
+    expect(vi.mocked(notifyMustChangePassword)).toHaveBeenCalledTimes(1)
+  })
+
+  it('验证码策略请求失败：静默降级为不显示验证码块，不阻断本地登录', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.reject(new Error('policy down'))),
+    )
+    const { wrapper } = await mountLogin()
+
+    // 策略获取抛错即静默降级（形态置空、不强制）：验证码块不渲染。
+    expect(wrapper.find('[data-test="login-captcha"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="login-view"]').exists()).toBe(true)
+  })
+
+  it('SSO 清单请求失败：静默按空清单处理，不阻断本地登录', async () => {
+    requestMock.mockImplementation((config: RequestConfig) => {
+      if (config.url.includes('/auth/sso/providers')) {
+        return Promise.reject(new Error('providers down'))
+      }
+      return Promise.resolve(undefined)
+    })
+    const { wrapper } = await mountLogin()
+
+    expect(wrapper.find('[data-test="login-sso"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="login-form"]').exists()).toBe(true)
+  })
+
+  it('SSO 回调失败：非数字错误码时回落 message 文案', async () => {
+    const { wrapper } = await mountLogin('error=oops&message=自定义失败信息')
+
+    expect(wrapper.find('[data-test="login-error"]').text()).toContain('自定义失败信息')
+  })
+
+  it('验证码挑战已加载但未填验证码：本地拦截不发请求', async () => {
+    stubCaptchaFetch({ required: true, channels: ['image'] })
+    const { wrapper } = await mountLogin()
+
+    // 挑战加载即上抛「有挑战标识、无输入」的凭证（延迟提交模式），提交时按未完备拦截。
+    expect(wrapper.find('[data-test="login-captcha"]').exists()).toBe(true)
+    await submit(wrapper)
+
+    expect(loginCalls()).toHaveLength(0)
+    expect(wrapper.find('[data-test="login-error"]').text()).toContain('请完成验证码校验')
   })
 
   it('本机已记住租户：默认隐藏该项但静默随请求携带', async () => {
@@ -540,22 +595,91 @@ describe('登录页（Kiwi 2232）', () => {
 
     const nakedInputs = wrapper
       .findAll('input')
-      .filter(
-        (input) => input.element.closest('.bms-text-input, .bms-password-input, .bms-boolean-checkbox') === null,
-      )
+      .filter((input) => input.element.closest('.bms-text-input, .bms-password-input, .bms-boolean-checkbox') === null)
     const nakedButtons = wrapper.findAll('button').filter((button) => !button.classes().includes('el-button'))
     expect(nakedInputs).toHaveLength(0)
     expect(nakedButtons).toHaveLength(0)
   })
 
-  it('强制改密标记为真时提示「请尽快修改初始密码」', async () => {
+  it('策略数据体缺省回落平台默认策略；SSO 清单缺省 items 按空清单处理', async () => {
+    // 数据源返回 `data: null`：策略归一回落 `defaultCaptchaPolicy('login')`（不强制、不显示）。
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.resolve({ ok: true, json: () => Promise.resolve({ code: 0, message: 'ok', data: null }) })),
+    )
+    stubRequests({ providers: {} })
+    const { wrapper } = await mountLogin()
+
+    expect(wrapper.find('[data-test="login-captcha"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="login-sso"]').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('SSO 回调错误码非数字且无 message：回落通用文案（空串分支）', async () => {
+    const { wrapper } = await mountLogin('error=oops')
+
+    expect(wrapper.find('[data-test="login-error"]').text()).toContain('操作失败，请稍后重试')
+    wrapper.unmount()
+  })
+
+  it('非 ApiError 链路（网络级异常）：文案回落通用提示，不误判为已登记错误码', async () => {
     stubRequests({
-      login: () => ({ ...LOGIN_SUCCESS, user: { ...LOGIN_SUCCESS.user, must_change_password: true } }),
+      login: () => {
+        throw new Error('network down')
+      },
     })
     const { wrapper } = await mountLogin()
 
     await submit(wrapper)
 
-    expect(vi.mocked(notifyMustChangePassword)).toHaveBeenCalledTimes(1)
+    expect(wrapper.find('[data-test="login-error"]').text()).toContain('操作失败，请稍后重试')
+    wrapper.unmount()
+  })
+
+  it('登录响应缺省 tenant：会话租户回落当前归一租户（为空即不落租户）', async () => {
+    stubRequests({ login: () => ({ ...LOGIN_SUCCESS, user: { ...LOGIN_SUCCESS.user, tenant: null } }) })
+    const { wrapper, pinia } = await mountLogin()
+
+    await submit(wrapper)
+
+    expect(useSessionStore(pinia).tenant).toBeNull()
+    wrapper.unmount()
+  })
+
+  it('凭证缺 code（非滑块）：视为校验未完成，本地拦截不发登录请求', async () => {
+    stubCaptchaFetch({ required: true, channels: ['image'] })
+    const { wrapper } = await mountLogin()
+
+    await wrapper.find('[data-test="login-account"]').setValue('admin')
+    await passwordField(wrapper).setValue('secret')
+    // 件层凭证缺 `code`（契约可选字段）：归一判空即拦截。
+    wrapper.findComponent(CaptchaField).vm.$emit('credential', { kind: 'image', captchaId: 'c1' })
+    await flushPromises()
+    await submit(wrapper)
+
+    expect(loginCalls()).toHaveLength(0)
+    expect(wrapper.find('[data-test="login-error"]').text()).toContain('请完成验证码校验')
+    wrapper.unmount()
+  })
+
+  it('租户标识未展开时变更租户：不重拉 SSO 清单（仅展开态跟随）', async () => {
+    let providersCalls = 0
+    requestMock.mockImplementation((config: RequestConfig) => {
+      if (config.url.includes('/auth/sso/providers')) {
+        providersCalls += 1
+        return Promise.resolve({ items: [] })
+      }
+      return Promise.resolve(undefined)
+    })
+    const { wrapper } = await mountLogin()
+    expect(providersCalls).toBe(1)
+
+    const state = (wrapper.vm as unknown as { $: { setupState: Record<string, unknown> } }).$.setupState
+    state.tenantInput = 'acme'
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="login-tenant"]').exists()).toBe(false)
+    expect(providersCalls).toBe(1)
+    wrapper.unmount()
   })
 })
