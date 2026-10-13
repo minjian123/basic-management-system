@@ -1,8 +1,9 @@
-// kiwi_id: 2248
+// kiwi_id: 2248, 2294
 /**
- * 角色记录页（`RoleRecordTab`）用例（`02_03` · Kiwi 2248）：
+ * 角色记录页（`RoleRecordTab`）用例（`02_03` / `08_02` · Kiwi 2248 / 2294）：
  * 详情载入 / 编辑与查看切换 / 工具栏单一保存（新增建号、本体改动、分配草稿编排、授权提交）/
- * 撤销（授权与基本信息）/ 内置角色提示 / 系统信息 / 基本信息脏态基线比对 / 脏态上抛与页签切换。
+ * 撤销（授权与基本信息）/ 内置角色提示 / 系统信息 / 基本信息脏态基线比对 / 脏态上抛与页签切换 /
+ * 字典记录页骨架对齐（骨架件承载、首行三字段顺序与列宽、业务 Tab 位置）。
  *
  * 说明：权限配置容器在本用例中由桩件承接（暴露记录页编排所需的草稿收集接口），
  * 容器自身契约由 `role-permission-config.spec.ts` 覆盖。
@@ -457,7 +458,7 @@ describe('角色记录页（02_03 · Kiwi 2248）', () => {
     await nextTick()
 
     expect(stateOf(wrapper).section).toBe('sys')
-    expect(wrapper.find('[data-test="role-record-sysinfo"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="sys-info-panel"]').exists()).toBe(true)
   })
 
   it('状态选择：`el-select` 回写表单状态', async () => {
@@ -533,6 +534,34 @@ describe('角色记录页（02_03 · Kiwi 2248）', () => {
     wrapper.findComponent({ name: 'RolePermissionConfigStub' }).vm.$emit('dirty', true)
     await nextTick()
     expect(exposed(wrapper).isDirty()).toBe(true)
+  })
+})
+
+describe('角色记录页 · 字典记录页骨架对齐（08_02 · Kiwi 2294）', () => {
+  it('经骨架件承载：信息栏两固定 Tab 齐备，业务 Tab 插在两者之间', async () => {
+    const wrapper = await mountRecord()
+
+    expect(wrapper.find('[data-test="dict-record-layout"]').exists()).toBe(true)
+    const labels = wrapper.findAllComponents({ name: 'ElTabPane' }).map((pane) => pane.props('label'))
+    expect(labels).toEqual(['详细信息', '权限配置', '系统信息'])
+  })
+
+  it('详细信息首行三字段（角色码 / 角色名 / 状态）三列等宽且顺序固定，其余字段排首行之后', async () => {
+    const wrapper = await mountRecord()
+
+    for (const test of ['role-record-code', 'role-record-name', 'role-record-status']) {
+      const col = wrapper.find(`[data-test="${test}"]`).element.closest('.el-col')
+      expect(col?.className).toContain('el-col-8')
+    }
+    const html = wrapper.html()
+    const order = ['role-record-code', 'role-record-name', 'role-record-status', 'role-record-type']
+    const indexes = order.map((test) => html.indexOf(`data-test="${test}"`))
+    expect(indexes.every((value, index) => value >= 0 && (index === 0 || value > indexes[index - 1]!))).toBe(true)
+  })
+
+  it('系统信息侧由内置系统信息件承载（页面不再自建系统信息区）', async () => {
+    const wrapper = await mountRecord()
+    expect(wrapper.find('[data-test="sys-info-panel"]').exists()).toBe(true)
   })
 })
 

@@ -1,5 +1,5 @@
-// kiwi_id: 2293
-/** 字典记录页骨架件用例（08_01）：工具栏 / 首行三字段 / 其余字段 / 业务 Tab 插槽与 Tab 顺序、只读绑定、系统信息内置。 */
+// kiwi_id: 2293, 2294
+/** 字典记录页骨架件用例（08_01 / 08_02）：工具栏 / 首行三字段 / 其余字段 / 业务 Tab / 系统信息扩展位插槽与 Tab 顺序、只读绑定、系统信息内置。 */
 
 import { mount } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
@@ -32,7 +32,7 @@ const SysInfoPanel = {
 
 const stubs = { ElTabs, ElTabPane, ElForm, ElRow, SysInfoPanel }
 
-/** 骨架装配（插槽齐备：工具栏 / 首行三字段 / 其余字段 / 业务 Tab）。 */
+/** 骨架装配（插槽齐备：工具栏 / 首行三字段 / 其余字段 / 业务 Tab / 系统信息扩展位）。 */
 function mountLayout(disabled = false) {
   return mount(DictRecordLayout, {
     props: {
@@ -46,6 +46,7 @@ function mountLayout(disabled = false) {
       'first-row': '<div data-test="first-row">首行三字段</div>',
       fields: '<div data-test="fields">其余字段</div>',
       'extra-tabs': '<div data-test="biz-tab">业务 Tab</div>',
+      'sys-extra': '<div data-test="sys-extra">系统信息扩展</div>',
     },
     global: { stubs },
   })
@@ -86,6 +87,24 @@ describe('DictRecordLayout（08_01）', () => {
     expect(panel.props('info')).toEqual({ id: '9', formKey: 'role' })
     expect(panel.props('timezone')).toBe('UTC')
     expect(wrapper.findAll('.el-tab-pane').map((pane) => pane.attributes('data-label'))).toEqual(['基本', '审计'])
+  })
+
+  it('系统信息侧扩展位（`sys-extra`）渲染在内置系统信息件之后；不传即不渲染', () => {
+    const wrapper = mountLayout()
+    const sysPane = wrapper.find('.el-tab-pane[data-name="sys"]')
+    expect(sysPane.find('[data-test="sys-info-stub"]').exists()).toBe(true)
+    expect(sysPane.find('[data-test="sys-extra"]').text()).toBe('系统信息扩展')
+    // 顺序：内置系统信息件在前、扩展位在后
+    const html = sysPane.html()
+    expect(html.indexOf('sys-info-stub')).toBeLessThan(html.indexOf('data-test="sys-extra"'))
+
+    // 不传扩展位：系统信息页签内仅内置系统信息件（不产生空容器）
+    const bare = mount(DictRecordLayout, {
+      props: { modelValue: 'sys', info: { id: '1', formKey: 'role' } },
+      global: { stubs },
+    })
+    const barePane = bare.find('.el-tab-pane[data-name="sys"]')
+    expect(barePane.findAll('div[data-test]').map((el) => el.attributes('data-test'))).toEqual(['sys-info-stub'])
   })
 
   it('只读分态由 disabled 绑定详情区表单；激活页签受控回写', async () => {

@@ -1,11 +1,14 @@
 <script setup lang="ts">
-// 用户记录 Tab（表单框架的记录页）：信息栏三子页签——详细信息 / 用户分配 / 系统信息。
+// 用户记录 Tab（表单框架的记录页）：经字典记录页骨架件对齐《布局设计 · 字典页》——
+// 工具栏 + 信息栏（详细信息 / 用户分配 / 系统信息，业务 Tab 插在固定两 Tab 之间）；
+// 详细信息首行固定三字段（用户名 / 姓名 / 状态，三列等宽），其余字段排首行之后；
+// 系统信息侧由骨架件内置系统信息件承载，SSO 身份绑定只读区块经骨架件 `sys-extra` 扩展位呈现。
 // 工具栏**单一保存**：基础资料与「用户分配」（角色 + mdm 岗位 / 部门，均为插件草稿）一次提交；
 // 分配段存在时经**用户保存编排端点**（跨服务原子），仅改基础资料时走 `PUT /users/{id}`。
 import {
+  DictRecordLayout,
   EmptyState,
   ModuleAreaOutlet,
-  SysInfoPanel,
   type HostSubmitterEntry,
   type HostSubmitterSegment,
   type HostSubmitterRegistrar,
@@ -46,8 +49,8 @@ const NEW_KEY = 'new'
 
 const session = useSessionStore()
 
-/** 当前子页签。 */
-const section = ref<'detail' | 'assign' | 'sys'>('detail')
+/** 当前子页签（骨架件受控键：`detail` / `assign` / `sys`）。 */
+const section = ref<string>('detail')
 /** 是否新增态。 */
 const isNew = computed(() => props.userId === NEW_KEY)
 /** 是否编辑态。 */
@@ -105,7 +108,7 @@ const sysInfo = computed<SysInfoData>(() => ({
   updatedBy: null,
   updatedAt: detail.value?.updated_at ?? null,
   formKey: 'user',
-  formLabel: '用户表单',
+  formLabel: '用户管理',
 }))
 
 /**
@@ -353,114 +356,113 @@ defineExpose({ save, isDirty: (): boolean => dirty.value })
 </script>
 
 <template>
-  <div class="user-record" data-test="user-record">
-    <div class="user-record__bar">
-      <template v-if="isNew">
-        <el-button type="primary" :loading="saving" data-test="user-record-save" @click="save">保存</el-button>
-      </template>
-      <template v-else>
-        <el-button v-if="editing" type="primary" :loading="saving" data-test="user-record-save" @click="save">
-          保存
-        </el-button>
-        <el-button v-if="editing" data-test="user-record-cancel" @click="cancelEdit">取消</el-button>
-        <el-button v-else-if="can('user:update')" data-test="user-record-edit" @click="startEdit">修改</el-button>
-        <el-button
-          v-if="!isNew && can('user:delete')"
-          type="danger"
-          plain
-          data-test="user-record-delete"
-          @click="remove"
-        >
-          删除
-        </el-button>
-      </template>
-      <el-button data-test="user-record-refresh" @click="load">刷新</el-button>
-      <el-button data-test="user-record-close" @click="emit('close')">关闭</el-button>
-      <span class="user-record__side">
-        <span v-if="loading" class="user-record__hint" data-test="user-record-loading">载入中…</span>
-        <span v-if="dirty" class="user-record__dirty" data-test="user-record-dirty">● 有未保存变更</span>
-      </span>
-    </div>
-
-    <el-tabs v-model="section" data-test="user-record-tabs">
-      <el-tab-pane label="详细信息" name="detail">
-        <el-form label-position="top" :disabled="!editing">
-          <el-row :gutter="16">
-            <el-col :span="8">
-              <el-form-item label="用户名">
-                <el-input
-                  v-model="form.username"
-                  :disabled="!isNew"
-                  placeholder="登录账号（创建后不可修改）"
-                  data-test="user-record-username"
-                />
-              </el-form-item>
-            </el-col>
-            <el-col :span="8">
-              <el-form-item label="姓名">
-                <el-input v-model="form.name" data-test="user-record-name" />
-              </el-form-item>
-            </el-col>
-            <el-col :span="8">
-              <el-form-item label="状态">
-                <el-select v-model="form.status" data-test="user-record-status">
-                  <el-option v-for="item in USER_STATUS_OPTIONS" :key="item.value" :label="item.label" :value="item.value" />
-                </el-select>
-              </el-form-item>
-            </el-col>
-          </el-row>
-          <el-row :gutter="16">
-            <el-col :span="8">
-              <el-form-item label="手机号">
-                <el-input v-model="form.phone" data-test="user-record-phone" />
-              </el-form-item>
-            </el-col>
-            <el-col :span="8">
-              <el-form-item label="邮箱">
-                <el-input v-model="form.email" data-test="user-record-email" />
-              </el-form-item>
-            </el-col>
-            <el-col v-if="isNew" :span="8">
-              <el-form-item label="首登改密">
-                <el-checkbox v-model="form.pwdResetRequired" data-test="user-record-pwd-reset">
-                  强制下次登录修改密码
-                </el-checkbox>
-              </el-form-item>
-            </el-col>
-          </el-row>
-        </el-form>
-      </el-tab-pane>
-
-      <el-tab-pane label="用户分配" name="assign">
-        <empty-state
-          v-if="isNew"
-          type="data"
-          title="用户创建后可分配"
-          description="保存建号成功后，可在此分配角色 / 岗位 / 部门。"
-          data-test="user-assign-new-hint"
-        />
-        <template v-else>
-          <p v-if="disabledAccount" class="user-record__hint" data-test="user-assign-disabled-hint">
-            账号已停用：分配只读（仅启用账号可持有角色 / 岗位 / 部门分配），请先启用后再分配。
-          </p>
-          <!-- 具名插槽：平台内建「角色分配」与 mdm 岗位 / 部门插件同槽并列（缺失即不渲染，不报错） -->
-          <module-area-outlet
-            :area="USER_ASSIGN_SLOT"
-            variant="tabs"
-            tab-type="card"
-            empty-text="暂无可用的分配项：无「用户分配」权限或分配插件未加载"
-            :registries="registries"
-            :revision="registriesRevision"
-            :permission-codes="session.codes"
-            :context="slotContext"
-            data-test="user-assign-slot"
-          />
+  <div data-test="user-record">
+    <dict-record-layout v-model="section" :info="sysInfo" :disabled="!editing">
+      <template #toolbar>
+        <template v-if="isNew">
+          <el-button type="primary" :loading="saving" data-test="user-record-save" @click="save">保存</el-button>
         </template>
-      </el-tab-pane>
+        <template v-else>
+          <el-button v-if="editing" type="primary" :loading="saving" data-test="user-record-save" @click="save">
+            保存
+          </el-button>
+          <el-button v-if="editing" data-test="user-record-cancel" @click="cancelEdit">取消</el-button>
+          <el-button v-else-if="can('user:update')" data-test="user-record-edit" @click="startEdit">修改</el-button>
+          <el-button
+            v-if="!isNew && can('user:delete')"
+            type="danger"
+            plain
+            data-test="user-record-delete"
+            @click="remove"
+          >
+            删除
+          </el-button>
+        </template>
+        <el-button data-test="user-record-refresh" @click="load">刷新</el-button>
+        <el-button data-test="user-record-close" @click="emit('close')">关闭</el-button>
+        <span class="user-record__side">
+          <span v-if="loading" class="user-record__hint" data-test="user-record-loading">载入中…</span>
+          <span v-if="dirty" class="user-record__dirty" data-test="user-record-dirty">● 有未保存变更</span>
+        </span>
+      </template>
 
-      <el-tab-pane label="系统信息" name="sys">
-        <sys-info-panel :info="sysInfo" data-test="user-record-sysinfo" />
+      <template #first-row>
+        <el-col :span="8">
+          <el-form-item label="用户名">
+            <el-input
+              v-model="form.username"
+              :disabled="!isNew"
+              placeholder="登录账号（创建后不可修改）"
+              data-test="user-record-username"
+            />
+          </el-form-item>
+        </el-col>
+        <el-col :span="8">
+          <el-form-item label="姓名">
+            <el-input v-model="form.name" data-test="user-record-name" />
+          </el-form-item>
+        </el-col>
+        <el-col :span="8">
+          <el-form-item label="状态">
+            <el-select v-model="form.status" data-test="user-record-status">
+              <el-option v-for="item in USER_STATUS_OPTIONS" :key="item.value" :label="item.label" :value="item.value" />
+            </el-select>
+          </el-form-item>
+        </el-col>
+      </template>
 
+      <template #fields>
+        <el-row :gutter="16">
+          <el-col :span="8">
+            <el-form-item label="手机号">
+              <el-input v-model="form.phone" data-test="user-record-phone" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item label="邮箱">
+              <el-input v-model="form.email" data-test="user-record-email" />
+            </el-form-item>
+          </el-col>
+          <el-col v-if="isNew" :span="8">
+            <el-form-item label="首登改密">
+              <el-checkbox v-model="form.pwdResetRequired" data-test="user-record-pwd-reset">
+                强制下次登录修改密码
+              </el-checkbox>
+            </el-form-item>
+          </el-col>
+        </el-row>
+      </template>
+
+      <template #extra-tabs>
+        <el-tab-pane label="用户分配" name="assign">
+          <empty-state
+            v-if="isNew"
+            type="data"
+            title="用户创建后可分配"
+            description="保存建号成功后，可在此分配角色 / 岗位 / 部门。"
+            data-test="user-assign-new-hint"
+          />
+          <template v-else>
+            <p v-if="disabledAccount" class="user-record__hint" data-test="user-assign-disabled-hint">
+              账号已停用：分配只读（仅启用账号可持有角色 / 岗位 / 部门分配），请先启用后再分配。
+            </p>
+            <!-- 具名插槽：平台内建「角色分配」与 mdm 岗位 / 部门插件同槽并列（缺失即不渲染，不报错） -->
+            <module-area-outlet
+              :area="USER_ASSIGN_SLOT"
+              variant="tabs"
+              tab-type="card"
+              empty-text="暂无可用的分配项：无「用户分配」权限或分配插件未加载"
+              :registries="registries"
+              :revision="registriesRevision"
+              :permission-codes="session.codes"
+              :context="slotContext"
+              data-test="user-assign-slot"
+            />
+          </template>
+        </el-tab-pane>
+      </template>
+
+      <template #sys-extra>
         <div class="user-record__section">SSO 身份绑定</div>
         <p class="user-record__hint">只读展示，绑定管理归 SSO 业务；需 `sso:bind` 权限码。</p>
         <el-table :data="identities" size="small" border data-test="user-record-identities">
@@ -471,19 +473,12 @@ defineExpose({ save, isDirty: (): boolean => dirty.value })
             <span class="user-record__hint">该用户未绑定任何 SSO 身份</span>
           </template>
         </el-table>
-      </el-tab-pane>
-    </el-tabs>
+      </template>
+    </dict-record-layout>
   </div>
 </template>
 
 <style scoped>
-.user-record__bar {
-  display: flex;
-  align-items: center;
-  gap: var(--bms-space-2);
-  margin-bottom: var(--bms-space-3);
-}
-
 .user-record__side {
   margin-left: auto;
 }

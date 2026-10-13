@@ -1,8 +1,9 @@
-// kiwi_id: 2277
+// kiwi_id: 2277, 2294
 /**
- * 用户记录页（`UserRecordTab`）用例（`02_02` · Kiwi 2277）：
+ * 用户记录页（`UserRecordTab`）用例（`02_02` / `08_02` · Kiwi 2277 / 2294）：
  * 详情载入 / 编辑与取消 / 工具栏单一保存（基础资料与分配分段）/ 新建（初始密码）/ 删除 /
- * SSO 身份只读区块 / 脏态判定与上抛 / 三子页签渲染。
+ * SSO 身份只读区块 / 脏态判定与上抛 / 三子页签渲染 / 字典记录页骨架对齐（骨架件承载、
+ * 首行三字段顺序与列宽、业务 Tab 位置、SSO 区块落系统信息侧）。
  *
  * 说明：插件挂接位在本用例中由桩件承接（`ModuleAreaOutlet` 桩捕获宿主上下文），
  * 挂接位本身的契约由 `user-assign-slot.spec.ts`（Kiwi 2276）覆盖。
@@ -488,7 +489,7 @@ describe('用户记录页（02_02 · Kiwi 2277）', () => {
     await wrapper.findAll('.el-tabs__item')[2]!.trigger('click')
     await flushPromises()
 
-    expect(wrapper.find('[data-test="user-record-sysinfo"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="sys-info-panel"]').exists()).toBe(true)
     expect(wrapper.find('[data-test="user-record-identities"]').exists()).toBe(true)
   })
 
@@ -506,5 +507,46 @@ describe('用户记录页（02_02 · Kiwi 2277）', () => {
 
     await registerEntry({ ...idleEntry(), isDirty: () => true })
     expect(exposed(wrapper).isDirty()).toBe(true)
+  })
+})
+
+describe('用户记录页 · 字典记录页骨架对齐（08_02 · Kiwi 2294）', () => {
+  it('经骨架件承载：信息栏两固定 Tab 齐备，业务 Tab 插在两者之间', async () => {
+    const wrapper = await mountRecord()
+
+    expect(wrapper.find('[data-test="dict-record-layout"]').exists()).toBe(true)
+    const labels = wrapper.findAllComponents({ name: 'ElTabPane' }).map((pane) => pane.props('label'))
+    expect(labels).toEqual(['详细信息', '用户分配', '系统信息'])
+  })
+
+  it('详细信息首行三字段（用户名 / 姓名 / 状态）三列等宽且顺序固定，其余字段排首行之后', async () => {
+    const wrapper = await mountRecord()
+
+    for (const test of ['user-record-username', 'user-record-name', 'user-record-status']) {
+      const col = wrapper.find(`[data-test="${test}"]`).element.closest('.el-col')
+      expect(col?.className).toContain('el-col-8')
+    }
+    const html = wrapper.html()
+    const order = [
+      'user-record-username',
+      'user-record-name',
+      'user-record-status',
+      'user-record-phone',
+      'user-record-email',
+    ]
+    const indexes = order.map((test) => html.indexOf(`data-test="${test}"`))
+    expect(indexes.every((value, index) => value >= 0 && (index === 0 || value > indexes[index - 1]!))).toBe(true)
+  })
+
+  it('SSO 身份绑定只读区块落「系统信息」侧、排在内置系统信息件之后', async () => {
+    listUserIdentities.mockResolvedValue({ items: [{ idp_key: 'oidc', external_id: 'sub-1', tenant_id: 't1' }] })
+    const wrapper = await mountRecord()
+
+    const sysPane = wrapper.find('#pane-sys')
+    expect(sysPane.exists()).toBe(true)
+    expect(sysPane.find('[data-test="sys-info-panel"]').exists()).toBe(true)
+    expect(sysPane.find('[data-test="user-record-identities"]').exists()).toBe(true)
+    const html = sysPane.html()
+    expect(html.indexOf('sys-info-panel')).toBeLessThan(html.indexOf('user-record-identities'))
   })
 })

@@ -1,7 +1,9 @@
 <script setup lang="ts">
-// 角色记录 Tab（表单框架的记录页）：信息栏三子页签——详细信息 / 权限配置 / 系统信息；
+// 角色记录 Tab（表单框架的记录页）：经字典记录页骨架件对齐《布局设计 · 字典页》——
+// 工具栏 + 信息栏（详细信息 / 权限配置 / 系统信息，业务 Tab 插在固定两 Tab 之间）；
+// 详细信息首行固定三字段（角色码 / 角色名 / 状态，三列等宽），其余字段排首行之后；
 // 工具栏**单一保存**：详细信息页签保存基本信息，权限配置页签保存授权（角色分配随宿主保存）。
-import { SysInfoPanel, type SysInfoData } from '@bms/ui-ep'
+import { DictRecordLayout, type SysInfoData } from '@bms/ui-ep'
 import { ElMessage } from 'element-plus'
 import { computed, onMounted, ref, watch } from 'vue'
 
@@ -28,8 +30,8 @@ const emit = defineEmits<{ saved: [role: RoleDetail]; dirty: [dirty: boolean]; c
 /** 新增态标识（记录页签键 `record:new`）。 */
 const NEW_KEY = 'new'
 
-/** 当前子页签。 */
-const section = ref<'detail' | 'permission' | 'sys'>('detail')
+/** 当前子页签（骨架件受控键：`detail` / `permission` / `sys`）。 */
+const section = ref<string>('detail')
 /** 是否新增态。 */
 const isNew = computed(() => props.roleId === NEW_KEY)
 /** 是否编辑态（查看 ⇄ 编辑分态）。 */
@@ -271,90 +273,80 @@ defineExpose({ save, isDirty: (): boolean => dirty.value })
 </script>
 
 <template>
-  <div class="role-record" data-test="role-record">
-    <div class="role-record__bar">
-      <el-button v-if="isNew" type="primary" :loading="saving" data-test="role-record-save" @click="save">
-        保存
-      </el-button>
-      <template v-else>
-        <el-button
-          v-if="editing || dirty"
-          type="primary"
-          :loading="saving"
-          data-test="role-record-save"
-          @click="save"
-        >
+  <div data-test="role-record">
+    <dict-record-layout v-model="section" :info="sysInfo" :disabled="!editing">
+      <template #toolbar>
+        <el-button v-if="isNew" type="primary" :loading="saving" data-test="role-record-save" @click="save">
           保存
         </el-button>
-        <el-button v-if="dirty" data-test="role-record-revert" @click="revert">撤销</el-button>
-        <el-button v-else-if="!editing" data-test="role-record-edit" @click="toggleEditing">编辑</el-button>
-      </template>
-      <el-button data-test="role-record-close" @click="emit('close')">关闭</el-button>
-      <span class="role-record__side">
-        <span v-if="loading" class="role-record__hint" data-test="role-record-loading">载入中…</span>
-        <span v-if="dirty" class="role-record__dirty" data-test="role-record-dirty">● 有未保存变更</span>
-        <span v-else-if="builtin" class="role-record__hint" data-test="role-record-builtin">
-          内置角色：不可删除 / 停用 / 变更类型（角色码与名称可改）
+        <template v-else>
+          <el-button
+            v-if="editing || dirty"
+            type="primary"
+            :loading="saving"
+            data-test="role-record-save"
+            @click="save"
+          >
+            保存
+          </el-button>
+          <el-button v-if="dirty" data-test="role-record-revert" @click="revert">撤销</el-button>
+          <el-button v-else-if="!editing" data-test="role-record-edit" @click="toggleEditing">编辑</el-button>
+        </template>
+        <el-button data-test="role-record-close" @click="emit('close')">关闭</el-button>
+        <span class="role-record__side">
+          <span v-if="loading" class="role-record__hint" data-test="role-record-loading">载入中…</span>
+          <span v-if="dirty" class="role-record__dirty" data-test="role-record-dirty">● 有未保存变更</span>
+          <span v-else-if="builtin" class="role-record__hint" data-test="role-record-builtin">
+            内置角色：不可删除 / 停用 / 变更类型（角色码与名称可改）
+          </span>
         </span>
-      </span>
-    </div>
+      </template>
 
-    <el-tabs v-model="section" data-test="role-record-tabs">
-      <el-tab-pane label="详细信息" name="detail">
-        <el-form label-position="top" :disabled="!editing">
-          <el-row :gutter="16">
-            <el-col :span="8">
-              <el-form-item label="角色码" required>
-                <el-input v-model="form.code" placeholder="角色码（租户内唯一，可修改）" data-test="role-record-code" />
-              </el-form-item>
-            </el-col>
-            <el-col :span="8">
-              <el-form-item label="角色名" required>
-                <el-input v-model="form.name" data-test="role-record-name" />
-              </el-form-item>
-            </el-col>
-            <el-col :span="8">
-              <el-form-item label="状态">
-                <el-select v-model="form.status" :disabled="builtin" data-test="role-record-status">
-                  <el-option label="启用" value="enabled" />
-                  <el-option label="停用" value="disabled" />
-                </el-select>
-              </el-form-item>
-            </el-col>
-          </el-row>
-          <el-row :gutter="16">
-            <el-col :span="8">
-              <el-form-item label="角色类型">
-                <el-input :model-value="roleTypeText" disabled data-test="role-record-type" />
-              </el-form-item>
-            </el-col>
-          </el-row>
-        </el-form>
-      </el-tab-pane>
+      <template #first-row>
+        <el-col :span="8">
+          <el-form-item label="角色码" required>
+            <el-input v-model="form.code" placeholder="角色码（租户内唯一，可修改）" data-test="role-record-code" />
+          </el-form-item>
+        </el-col>
+        <el-col :span="8">
+          <el-form-item label="角色名" required>
+            <el-input v-model="form.name" data-test="role-record-name" />
+          </el-form-item>
+        </el-col>
+        <el-col :span="8">
+          <el-form-item label="状态">
+            <el-select v-model="form.status" :disabled="builtin" data-test="role-record-status">
+              <el-option label="启用" value="enabled" />
+              <el-option label="停用" value="disabled" />
+            </el-select>
+          </el-form-item>
+        </el-col>
+      </template>
 
-      <el-tab-pane label="权限配置" name="permission">
-        <role-permission-config
-          ref="permissionRef"
-          :role-id="isNew ? 'new' : props.roleId"
-          @dirty="(value: boolean) => (permissionDirty = value)"
-        />
-      </el-tab-pane>
+      <template #fields>
+        <el-row :gutter="16">
+          <el-col :span="8">
+            <el-form-item label="角色类型">
+              <el-input :model-value="roleTypeText" disabled data-test="role-record-type" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+      </template>
 
-      <el-tab-pane label="系统信息" name="sys">
-        <sys-info-panel :info="sysInfo" data-test="role-record-sysinfo" />
-      </el-tab-pane>
-    </el-tabs>
+      <template #extra-tabs>
+        <el-tab-pane label="权限配置" name="permission">
+          <role-permission-config
+            ref="permissionRef"
+            :role-id="isNew ? 'new' : props.roleId"
+            @dirty="(value: boolean) => (permissionDirty = value)"
+          />
+        </el-tab-pane>
+      </template>
+    </dict-record-layout>
   </div>
 </template>
 
 <style scoped>
-.role-record__bar {
-  display: flex;
-  align-items: center;
-  gap: var(--bms-space-2);
-  margin-bottom: var(--bms-space-3);
-}
-
 .role-record__side {
   margin-left: auto;
 }

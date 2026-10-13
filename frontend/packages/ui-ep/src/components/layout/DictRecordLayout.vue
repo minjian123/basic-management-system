@@ -2,7 +2,8 @@
 // 字典记录页骨架（布局族）：所有字典（基础数据）记录页共用的记录页模板——
 // 工具栏 + 信息栏「详细信息 / 系统信息」两个子页签（最少两 Tab）；详细信息首行固定为三个字典系统字段
 // （字段标识 Code / Name / State，三列等宽、顺序固定，由 `first-row` 插槽填入），其后为其余字段
-// （`fields` 插槽）与业务 Tab（`extra-tabs` 插槽，不受限）；系统信息由通用系统信息件承载。
+// （`fields` 插槽）与业务 Tab（`extra-tabs` 插槽，不受限）；系统信息由通用系统信息件承载，
+// 系统信息侧另留 `sys-extra` 扩展位（渲染在内置件之后，如只读的扩展区块）。
 // 口径见《布局设计 · 字典页》§2：字典记录页据此一次对齐，后续新增字典记录页直接套用本骨架。
 import { ElForm, ElRow, ElTabPane, ElTabs } from 'element-plus'
 import { computed } from 'vue'
@@ -60,6 +61,7 @@ const active = computed({
       <slot name="extra-tabs" />
       <el-tab-pane :label="sysLabel" name="sys">
         <sys-info-panel :info="info" :timezone="timezone" />
+        <slot name="sys-extra" />
       </el-tab-pane>
     </el-tabs>
   </div>
