@@ -1029,8 +1029,12 @@ txn-2pc:
   script:
     - cd backend
     - uv sync --frozen
-    - BMS_TEST_DB_URL="$BMS_TEST_MYSQL_URL" uv run python -m ops.test_db create --engine mysql --execute
-    - BMS_TEST_DB_URL="$BMS_TEST_PG_URL" uv run python -m ops.test_db create --engine postgres --execute
+    # `ops.test_db` 走**异步**引擎，而本 job 的 2PC 用例变量是**同步**驱动串（`mysql+pymysql` /
+    # `postgresql+psycopg`，后者本身异步可用）⇒ MySQL 建库前把驱动段换成 `mysql+aiomysql`。
+    # `--scope platform`：2PC 只涉平台侧两库，不建本 job 用不到的租户库（避免「未配置连接串」计失败）。
+    - MYSQL_ASYNC_URL="$(printf '%s' "$BMS_TEST_MYSQL_URL" | sed -E 's#^mysql\+pymysql#mysql+aiomysql#')"
+    - uv run python -m ops.test_db create --engine mysql --scope platform --url "$MYSQL_ASYNC_URL" --execute
+    - uv run python -m ops.test_db create --engine postgres --scope platform --url "$BMS_TEST_PG_URL" --execute
     - uv run pytest libs/bms_core/tests/integration/test_cross_db_2pc.py -v
 
 integration-mysql:
