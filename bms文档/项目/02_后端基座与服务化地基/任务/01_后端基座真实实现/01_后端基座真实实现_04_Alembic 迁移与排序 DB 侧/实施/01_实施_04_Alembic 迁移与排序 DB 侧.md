@@ -33,7 +33,7 @@ flowchart LR
 
 ## 3. 实施过程 <a id="process"></a>
 
-1. **Kiwi 用例登记（先登记后编码）**：登记 1 条用例覆盖全部断言面，平台回读编号 **1078**；登记输入 `scripts/kiwi/cases/2026-09-22_阶段二01-04_Alembic迁移与排序DB侧.json`（含回读 `case_id`），台账回写见 §7。
+1. **Kiwi 用例登记（先登记后编码）**：登记 1 条用例覆盖全部断言面，平台回读编号 **1078**；登记输入 `scripts/kiwi/cases/2026-09-22_阶段二01-04_Alembic迁移与排序DB侧.json`（含回读 `case_id`），登记回写见 §7。
 2. **迁移链注册** `app/db/migration.py`：登记三链（`platform` / `tenant` / `archive`）的版本目录、表集（平台三表 / 租户七表 / 归档空）、分支标签与连接串取法；`chain_metadata` 取元数据子集（`Table.to_metadata` + 命名约定）、`chain_url` 复用 `EngineFactory.resolve_url` / `resolved_url`（本任务公开化）、`current_revision` 读 `alembic_version`、`apply_session_schema` 切换达梦会话模式。
 3. **`alembic` 环境与脚本**：`alembic.ini` 增命名配置段 `[alembic:platform]` / `[alembic:tenant]` / `[alembic:archive]`（各自 `version_locations`；缺省 `[alembic]` 段即租户链，既有裸命令零改动）；`env.py` 由配置段派生链并取元数据子集，在线分支按方言分流（达梦同步引擎、其余异步 + `run_sync`），支持 `-x url=` / `-x db_key=` / `-x schema=`，空链提示跳过；新增平台链迁移 `versions/platform/0001_sys_tenant_module.py`（`sys_tenant` / `sys_module` / `sys_module_i18n`），租户链迁移迁入 `versions/tenant/` 并补 `branch_labels`、12 处 `ix_*` 索引名修订为 `idx_*`，归档链建占位说明。
 4. **SQLite 开发库自动建表** `app/db/bootstrap.py` + `main.lifespan` 接线：按 `[database].auto_create` 开关与 SQLite 方言判定，以迁移链表集执行 `create_all(checkfirst=True)`（幂等、不建骨架表），URL 去重后写入日志。
@@ -44,7 +44,7 @@ flowchart LR
 9. **开发库重建**：删除本地 SQLite 开发库（先备份至 `/tmp`）→ 平台链 `0001_sys_tenant_module` + 租户链 `0001_dict_query_scheme` 迁移 → `ops.seed_tenant`（2 行）/ `ops.seed_module`（4 行）/ `ops.seed_dict`（25 行）幂等重跑；复核 `alembic_version` 与索引名（无 `ix_*` 残留）。
 10. **用例与门禁**：新增/适配 11 个用例文件（见测试记录），`pytest` / `ruff` / `pyright` 全绿；新增与改动模块覆盖率 100%。
 11. **三库真库演练**：mjbk 三库按方言建库（达梦建模式）→ 迁移平台链与租户链 → 校验 `alembic_version` 与表清单 → 清理，6 次迁移执行全部通过（结论见测试记录 §3.2）。
-12. **登记回写与记录**：见 §6 与测试记录；计划 §2 / §3、任务状态、Kiwi 台账、基类清单、规范与架构节点、数据表设计状态均已按实施结果回写。
+12. **登记回写与记录**：见 §6 与测试记录；计划 §2 / §3、任务状态、基类清单、规范与架构节点、数据表设计状态均已按实施结果回写。
 
 ## 4. 问题与处置 <a id="issues"></a>
 

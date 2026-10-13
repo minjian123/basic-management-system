@@ -33,7 +33,7 @@ flowchart LR
 
 ## 3. 实施过程 <a id="process"></a>
 
-1. **Kiwi 用例登记**：先登记本任务策展用例并回读编号 **1050**（登记输入与结果落测试仓 `scripts/kiwi/cases/`、`exports/`，台账已回填）。
+1. **Kiwi 用例登记**：先登记本任务策展用例并回读编号 **1050**（登记输入与结果落测试仓 `scripts/kiwi/cases/`、`exports/`）。
 2. **仓储契约与中间层**：`BaseScopedRepository` 新增 `soft_delete` / `hard_delete` 派生默认（委托 `delete`，DB 实现覆写）；`_scope_conditions(include_soft_delete=...)` 参数支持物理删除穿透软删过滤。
 3. **DB 实现**：`BaseDbRepository` 改真实实现并退出 `BaseStub`——构造注入 `AsyncSession`、`model` 类属性、`_column` / `_scope_where` / `_select` 基础语句、11 操作符翻译（非法条件 `ConfigError`）、CRUD / `exists` / `count`、`list_page` / `list_cursor`、`_apply_sort` 基础 ORDER BY、`_write_values`（白名单 + 租户写入口径）、`_guard_version` 包 `flush` 转 409。仓储只 `flush` 不 `commit`。
 4. **模型与映射**：`Base.metadata` 设 ix 命名约定（`idx_{表}_{列}`）；`BaseModel` docstring 四库映射表按实测回写（布尔实为 SQLite BOOLEAN / MySQL BOOL / PG BOOLEAN / 达梦 SMALLINT；补 String / Text / JSON 与多值口径）。
