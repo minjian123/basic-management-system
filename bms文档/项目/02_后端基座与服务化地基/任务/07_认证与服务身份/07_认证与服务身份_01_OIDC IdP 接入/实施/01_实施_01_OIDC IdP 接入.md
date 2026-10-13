@@ -88,7 +88,7 @@ flowchart LR
 | 任务 / 父任务 | 任务 01 状态与完成日期；父任务子任务表一致 |
 | 下游任务文档 | 07_02 / 07_03 补「前置契约（已交付）」（issuer / JWKS 端点 / `idp/jwks.py` 助手 / `OidcIdentityProvider.verify_token` / `aud` 口径） |
 | Kiwi TCMS | 用例 **2179**（IdP 编排 / 声明式 realm / OIDC 客户端 / JWKS 验签覆盖面） |
-| 测试资产仓 | `test/scripts/kiwi/cases/2026-09-23_阶段二07-01_OIDC IdP 接入.json` 与 `exports/2026-09-23_阶段二07-01_登记回读.json`；《Kiwi 用例台账》追加批次 |
+| 测试资产仓 | `test/scripts/kiwi/cases/2026-09-23_阶段二07-01_OIDC IdP 接入.json` 与 `exports/2026-09-23_阶段二07-01_登记回读.json`（编号与批次以平台为准） |
 | 实施 / 测试记录 | 本文件与[测试记录](../测试/01_测试_01_OIDC IdP 接入.md) |
 
 ## 7. 偏差与遗留 <a id="deviations"></a>
