@@ -52,6 +52,7 @@ flowchart LR
 | Qwen3.8-27B | mjpc | 8080 | 系统服务 `llamacpp-qwen` |
 | bge-small-zh | mjpc | 8082 | 系统服务 `llamacpp-bge`（512 维，CPU） |
 | LM Studio | mjw | 1234 | `qwen3-vl-8b-instruct-abliterated-v2`（须 `--bind 0.0.0.0`） |
+| Web 面板 | mjbk | 5173 | 容器 `mirix-dashboard`（官方面板，浏览/搜索/管理记忆） |
 
 ```text
 mjbk:~/mirix/
@@ -68,7 +69,8 @@ mjbk:~/mirix/
 ### 4.1 依赖容器 <a id="deploy-containers"></a>
 
 ```bash
-cd ~/mirix && docker compose --env-file .env up -d     # PG 55432 / Redis 6380（避开 bms-postgres 5432、bms-redis 6379）
+cd ~/mirix && docker compose --env-file .env up -d mirix-postgres mirix-dashboard   # PG 55432 + 面板 5173
+# Redis 6380 当前不启动（见 6.2）
 ```
 
 初始化库时已建扩展 `vector`（pgvector）/ `uuid-ossp` / `pg_trgm`。
@@ -99,8 +101,15 @@ curl -s localhost:8095/status    # 电源组：woke / inflight / idle_s
 
 ### 4.4 源码补丁（MIRIX 自身缺陷，升级后需重打） <a id="patches"></a>
 
-`~/mirix/src/mirix/server/rest_api.py` 打了两处补丁（原文件备份 `*.bak_mirix_content_patch` / `*.bak2`）：
-消息 `content` 为 OpenAI 数组格式（`[{"type":"text",...}]`）时，`extract_topics_and_temporal_info` 与 `/memory/add` 会 `str + dict` 崩溃；补丁使其兼容字符串与数组两种格式。
+对 `~/mirix/src/` 打了 4 组补丁（各自留有 `.bak*` 备份）：
+
+| # | 文件 | 问题 | 修复 |
+| --- | --- | --- | --- |
+| 1 | `server/rest_api.py` | 消息 `content` 为 OpenAI 数组格式时，`extract_topics_and_temporal_info` 与 `/memory/add` 报 `str + dict` | 兼容字符串与数组两种格式（3 处） |
+| 2 | `services/admin_user_manager.py` | 面板登录 `authenticate()` 触发同步惰性加载 → `MissingGreenlet`；`last_login` 写库时区不匹配 | 改为原生 `UPDATE` + 直接构造 Pydantic 对象、写 naive UTC |
+| 3 | `server/rest_api.py` | `/users` 列表引用不存在的 `server.admin_user_manager` | 改为 `server.client_manager` |
+
+> 升级 MIRIX（`git pull`）后需重打，否则抽取、面板登录、用户列表会分别报错。
 
 ### 4.5 定时归并 <a id="timer"></a>
 
@@ -146,6 +155,28 @@ MIRIX 的 Redis 向量索引固定按 4096 维建，而 bge-small-zh 只有 512 
 ### 6.3 命令 <a id="commands"></a>
 
 全局命令（`~/.config/opencode/commands/`）：`/记住 <内容>`、`/整理记忆`（先预览后归并）、`/记忆状态`。
+
+### 6.4 Web 面板（浏览 / 搜索 / 管理记忆） <a id="dashboard"></a>
+
+官方 React 面板，容器 `mirix-dashboard`（`:5173`），nginx 把 `/api/` 反代到宿主机 MIRIX 服务
+（compose 用 `extra_hosts: mirix_api:host-gateway`）。访问 **http://<mjbk-IP>:5173**，用面板账号登录后
+在「Memories」页右上角选择作用域用户（`minjian` 用户级 / `minjian@bizs` 项目级）即可浏览各记忆类型
+（Episodic / Semantic / Procedural / Resource / Knowledge / Core），支持搜索与管理。
+
+> 面板按 **client** 隔离：登录凭据挂在存记忆的 client（`mirix-cli`）上，否则看不到记忆。
+> 需 ufw 放行 5173，以及 **docker 网段 → 宿主机 8531**（`ufw allow from 172.16.0.0/12 to any port 8531`）。
+
+### 6.5 重置记忆（清库重抽） <a id="reset"></a>
+
+清空记忆（保留 client / 用户）并重灌历史对话：
+
+```bash
+cd ~/mirix && venv/bin/python recover_memories.py     # 清空 + 重建 agents（中文提示词）+ 重灌
+```
+
+> **注意**：不能只 `TRUNCATE messages` —— agent 依赖系统提示消息，只清消息会导致
+> `assert in_context_messages[0].role == system` 失败、抽取全断。必须连同 `agents` 一起重建。
+> 另：`block` 表被清空后需补 `human` / `persona` 段，且 block id 须匹配 `^block-[a-fA-F0-9]{8}`。
 
 ## 7. 验证 <a id="verify"></a>
 
