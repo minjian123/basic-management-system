@@ -23,6 +23,7 @@ _CI_PATH = _REPO / ".gitlab-ci.yml"
 _TEMPLATE_PATH = _REPO / "deploy" / "ci" / "templates" / "backend-service.yml"
 _IMAGE_SWITCH = _REPO / "deploy" / "ci" / "verify" / "image"
 _DOCKERFILE = BACKEND_ROOT / "Dockerfile"
+_CI_BASE_DOCKERFILE = _REPO / "deploy" / "ci" / "Dockerfile.backend"
 
 
 def _load(path: Path) -> ConcurrentStableDict[str, Any]:
@@ -225,3 +226,21 @@ def test_tag_pipeline_builds_semver_images_and_manifest() -> None:
     assert "bms-$SERVICE:$CI_COMMIT_TAG" in release_script
     assert "release-manifest.json" in release_script
     assert release["artifacts"]["paths"] == ["release-manifest.json", "sbom-*.cyclonedx.json"]
+
+
+@pytest.mark.kiwi_id(2184)
+def test_image_dockerfiles_copy_every_service_pyproject() -> None:
+    """两份镜像 Dockerfile 的成员元数据层须逐个覆盖已启用服务的 `pyproject.toml`。
+
+    `uv sync --frozen --package bms-<service>` 依赖成员 `pyproject.toml` 就位；漏拷即报
+    「does not appear to be a Python project」（2026-10-13 实测：`backend/Dockerfile` 漏
+    `services/txn`，`trigger-txn` 的 `service-build` 直接失败，父流水线被阻断）。
+    """
+    for label, path in (
+        ("backend/Dockerfile", _DOCKERFILE),
+        ("deploy/ci/Dockerfile.backend", _CI_BASE_DOCKERFILE),
+    ):
+        text = path.read_text(encoding="utf-8")
+        for service in enabled_service_keys():
+            copy_line = f"COPY services/{service}/pyproject.toml services/{service}/pyproject.toml"
+            assert copy_line in text, f"{label} 缺少 {service} 的成员 pyproject COPY"

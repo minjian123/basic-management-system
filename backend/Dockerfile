@@ -41,6 +41,7 @@ COPY services/notification/pyproject.toml services/notification/pyproject.toml
 COPY services/search/pyproject.toml services/search/pyproject.toml
 COPY services/ai/pyproject.toml services/ai/pyproject.toml
 COPY services/report/pyproject.toml services/report/pyproject.toml
+COPY services/txn/pyproject.toml services/txn/pyproject.toml
 # 第三方依赖层（不装工作区成员；锁文件零漂移）
 RUN uv sync --frozen --no-install-workspace --package "bms-${SERVICE}" && rm -rf /root/.cache
 

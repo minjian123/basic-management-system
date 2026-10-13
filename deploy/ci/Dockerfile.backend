@@ -52,4 +52,5 @@ COPY services/notification/pyproject.toml services/notification/pyproject.toml
 COPY services/search/pyproject.toml services/search/pyproject.toml
 COPY services/ai/pyproject.toml services/ai/pyproject.toml
 COPY services/report/pyproject.toml services/report/pyproject.toml
+COPY services/txn/pyproject.toml services/txn/pyproject.toml
 RUN uv sync --frozen --no-install-workspace && rm -rf /root/.cache
