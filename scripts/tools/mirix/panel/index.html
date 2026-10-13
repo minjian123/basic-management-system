@@ -159,8 +159,11 @@ async function loadType(){
     serverTotal = (v.total_count!==undefined) ? v.total_count : (v.items||[]).length;
     if(curType==='core'){
       const scopes=v.scopes||{};
-      allItems=Object.keys(scopes).flatMap(k=>(scopes[k]||[]).map(b=>({
-        _core:true, label:(b.label||k), id:b.id||'', value:b.value||'' })));
+      allItems=Object.keys(scopes).flatMap(k=>{
+        const node=scopes[k];
+        const arr=Array.isArray(node) ? node : (node && node.items) || [];
+        return arr.map(b=>({ _core:true, label:(b.label||k), id:b.id||'', value:b.value||'' }));
+      });
     } else {
       allItems=v.items||[];
     }
