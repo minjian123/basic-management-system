@@ -11,7 +11,7 @@ Start-Sleep -Seconds 2
 & $lms server start --bind 0.0.0.0 --port 1234
 
 Write-Output "加载模型 qwen3-vl-8b-instruct-abliterated-v2 ..."
-& $lms load qwen3-vl-8b-instruct-abliterated-v2 --gpu max -y
+& $lms load qwen3-vl-8b-instruct-abliterated-v2 --gpu max -c 32768 -y
 
 Write-Output "服务状态："
 & $lms server status

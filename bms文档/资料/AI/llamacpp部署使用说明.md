@@ -11,8 +11,9 @@ llama.cpp 是 C/C++ 实现的本地大模型推理引擎，自带 `llama-server`
 [opencode](https://opencode.ai) 与 dsh（DeepSeek Harness，见《[deepseek_harness部署使用说明](deepseek_harness部署使用说明.md)》）的本地模型后端，
 全程离线、免费、无 API Key（dsh 侧需配一个占位 key，见 5.4 节）。
 
-与 LM Studio 的关系：opencode 的 `llamacpp` 提供商接的是 llama.cpp 的 `llama-server`（端口 **8080**），
-与 `lmstudio` 提供商（端口 1234，当前未运行）互不相干。本文只讲 llama.cpp 这一条链路。
+与 LM Studio 的关系：opencode 的 `llamacpp` 提供商接本机 `llama-server`（端口 **8080**）；
+另有 `lmstudio-mjw` 提供商接 **mjw** 的 LM Studio（`<mjw-IP>:1234`，模型 `qwen3-vl-8b-instruct-abliterated-v2`），
+登记在**全局** `~/.config/opencode/opencode.jsonc`（不入库，token 走环境变量 `LMSTUDIO_MJW_API_KEY`）。本文只讲 llama.cpp 这一条链路。
 
 核心特点：
 
@@ -31,7 +32,7 @@ llama.cpp 是 C/C++ 实现的本地大模型推理引擎，自带 `llama-server`
 
 | 项 | 值 |
 | --- | --- |
-| 主机 | mjpc（内网 `192.168.0.124`） |
+| 主机 | mjpc（内网，取值见《[本地资源](../../用户文档/本地资源.md)》） |
 | GPU | NVIDIA GeForce RTX 4090，显存 24564 MiB，驱动 595.91.07 |
 | 编译工具链 | GCC/GNU 15.2.0（Linux x86_64）+ CUDA 13.4.1（`nvcc` V13.4.59，`/usr/local/cuda-13.4`） |
 | llama.cpp | 0.3.0-dev（build 87，commit `9d81721`），CMake Release，CUDA 开启 |
@@ -246,7 +247,7 @@ curl -s http://127.0.0.1:8080/v1/chat/completions \
 }
 ```
 
-> 同文件里还有一个 `lmstudio` 提供商（`baseURL` 指向 `127.0.0.1:1234`），当前未运行；本地推理走的是 `llamacpp`（8080）。
+> 本地推理走 `llamacpp`（8080）；mjw 的多模态走全局配置里的 `lmstudio-mjw` 提供商（`<mjw-IP>:1234`，需 mjw 开机且 LM Studio 已加载模型）。
 > opencode 的模型 id 只是**调用端名称**（lamacpp 服务端 `/v1/models` 恒返回当前加载的 GGUF 全路径），
 > 实际切换靠服务端脚本（第 3.3 节）；`models` 注册的多个别名对应同一个 8080 服务，当前加载哪个即提供哪个的响应。
 > 注意注册的 `limit.context` 为 262144，而服务端实际 `-c 184320`（180K）：超出服务端上限的请求会被拒绝，长任务请控制上下文。
