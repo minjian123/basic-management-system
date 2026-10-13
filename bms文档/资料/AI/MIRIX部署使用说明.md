@@ -52,7 +52,7 @@ flowchart LR
 | Qwen3.8-27B | mjpc | 8080 | 系统服务 `llamacpp-qwen` |
 | bge-small-zh | mjpc | 8082 | 系统服务 `llamacpp-bge`（512 维，CPU） |
 | LM Studio | mjw | 1234 | `qwen3-vl-8b-instruct-abliterated-v2`（须 `--bind 0.0.0.0`） |
-| Web 面板 | mjbk | 5173 | 容器 `mirix-dashboard`（官方面板，浏览/搜索/管理记忆） |
+| 中文面板 | mjbk | 5173 | 容器 `mirix-panel`（自建静态页，浏览 / 搜索 / 归并记忆） |
 
 ```text
 mjbk:~/mirix/
@@ -61,7 +61,8 @@ mjbk:~/mirix/
 ├── init_client.py  make_key.py  cn_prompts.py   # 一次性初始化脚本
 ├── meta_agent.json  api_key.txt         # 初始化产物（key 权限 600）
 ├── auto_dream.sh                        # 定时归并脚本
-└── proxy/  (proxy.py, config.json)      # 模型代理（config 含口令，权限 600）
+├── proxy/  (proxy.py, config.json)      # 模型代理（config 含口令，权限 600）
+└── panel/  (index.html, nginx.conf)     # 中文记忆面板
 ```
 
 ## 4. mjbk 侧部署 <a id="deploy-mjbk"></a>
@@ -69,7 +70,7 @@ mjbk:~/mirix/
 ### 4.1 依赖容器 <a id="deploy-containers"></a>
 
 ```bash
-cd ~/mirix && docker compose --env-file .env up -d mirix-postgres mirix-dashboard   # PG 55432 + 面板 5173
+cd ~/mirix && docker compose --env-file .env up -d mirix-postgres mirix-panel   # PG 55432 + 中文面板 5173
 # Redis 6380 当前不启动（见 6.2）
 ```
 
@@ -156,15 +157,25 @@ MIRIX 的 Redis 向量索引固定按 4096 维建，而 bge-small-zh 只有 512 
 
 全局命令（`~/.config/opencode/commands/`）：`/记住 <内容>`、`/整理记忆`（先预览后归并）、`/记忆状态`。
 
-### 6.4 Web 面板（浏览 / 搜索 / 管理记忆） <a id="dashboard"></a>
+### 6.4 中文记忆面板（浏览 / 搜索 / 归并） <a id="dashboard"></a>
 
-官方 React 面板，容器 `mirix-dashboard`（`:5173`），nginx 把 `/api/` 反代到宿主机 MIRIX 服务
-（compose 用 `extra_hosts: mirix_api:host-gateway`）。访问 **http://<mjbk-IP>:5173**，用面板账号登录后
-在「Memories」页右上角选择作用域用户（`minjian` 用户级 / `minjian@bizs` 项目级）即可浏览各记忆类型
-（Episodic / Semantic / Procedural / Resource / Knowledge / Core），支持搜索与管理。
+**自建单文件静态页**，容器 `mirix-panel`（nginx:alpine，`:5173`），nginx 把 `/api/` 反代到宿主机 MIRIX 服务
+（compose 用 `extra_hosts: mirix_api:host-gateway`）。访问 **http://<mjbk-IP>:5173**，输入**客户端 API Key**
+进入（存浏览器 localStorage）。
 
-> 面板按 **client** 隔离：登录凭据挂在存记忆的 client（`mirix-cli`）上，否则看不到记忆。
-> 需 ufw 放行 5173，以及 **docker 网段 → 宿主机 8531**（`ufw allow from 172.16.0.0/12 to any port 8531`）。
+功能：
+
+| 区 | 说明 |
+| --- | --- |
+| 作用域切换 | 下拉选 `minjian`（用户级）/ `minjian@bizs`、`minjian@cws`（项目级）/ 自定义 user_id |
+| 类型分页 | 情景（episodic）/ 语义（semantic）/ 流程（procedural）/ 资源（resource）/ 知识库（knowledge_vault）/ 核心（core） |
+| 列表 | 点条目展开详情（摘要、详情、来源、时间） |
+| 语义搜索 | 输入问题走本地嵌入检索（跨全部类型） |
+| 归并 | 「归并预览」（dry_run）看将处理的条目数；「执行归并」调 `auto_dream` 合并去重、消解冲突 |
+
+> **为何不用官方面板**：`yuwucsd/mirix-dashboard` 无多语言支持（英文硬编码、源码无 i18n 依赖），故自建中文面板。
+> 面板按 **client** 隔离：本面板用客户端 API Key（`mirix-cli`）直连 REST，与记忆同属一个 client，天然可见。
+> 源文件在 `~/mirix/panel/`（`index.html`、`nginx.conf`），改后 `docker restart mirix-panel` 生效。
 
 ### 6.5 重置记忆（清库重抽） <a id="reset"></a>
 
