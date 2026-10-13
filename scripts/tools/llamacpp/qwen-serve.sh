@@ -32,7 +32,7 @@ echo "启动 llama-server: model=$KEY host=$HOST port=$PORT file=$GGUF"
 exec "$DIR/build/bin/llama-server" \
   -m "$GGUF" \
   -mm "$MMPROJ" \
-  -ngl 999 -c 215040 -ctk q4_0 -ctv q4_0 \
+  -ngl 999 -c 184320 -ctk q4_0 -ctv q4_0 \
   --flash-attn on --host "$HOST" --port "$PORT" \
   --jinja \
   --chat-template-file "$CHAT_TPL" \

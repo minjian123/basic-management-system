@@ -18,7 +18,7 @@ llama.cpp 是 C/C++ 实现的本地大模型推理引擎，自带 `llama-server`
 
 - **OpenAI 兼容**：`/v1/chat/completions`、`/v1/models` 标准接口，任意 OpenAI SDK 直连。
 - **CUDA 加速**：27B 模型全层（`-ngl 999`）卸载到 RTX 4090 显存，K/V 量化 q4_0 省显存。
-- **长上下文**：210K（`-c 215040`），配合 Flash Attention。
+- **长上下文**：180K（`-c 184320`），配合 Flash Attention。
 - **多模态**：加载 mmproj 视觉投影（`-mm`），支持图片输入。
 - **推理模型**：以 `--reasoning-format deepseek` 运行，先输出思考（`reasoning_content`）再出正文。
 - **多模型可选、人工启动**：三个 Qwen3.8-27B 量化版（UD / 官方标准版 / Uncensored）各配一个启动脚本，
@@ -48,7 +48,7 @@ llama.cpp 是 C/C++ 实现的本地大模型推理引擎，自带 `llama-server`
 └── mmproj-Qwen3.8-27B-f16.gguf            # 多模态视觉投影，f16，885M（三个主模型共用）
 ```
 
-> 显存核算：单个 Q4_K_M 权重约 16.4–16.8G + mmproj 0.9G，`-ngl 999` 全上卡，K/V 用 q4_0 量化压住 210K 上下文的 cache，
+> 显存核算：单个 Q4_K_M 权重约 16.4–16.8G + mmproj 0.9G，`-ngl 999` 全上卡，K/V 用 q4_0 量化压住 180K 上下文的 cache，
 > 三个模型均可在 24G 显存内加载（实测峰值约 23.8–24.0 GiB）。启动日志有一条
 > `n_gpu_layers already set by user to 999` 的 W 级提示，属正常，不影响加载。
 
@@ -76,7 +76,7 @@ ls build/bin/llama-server
 > **源码更新后需重新编译**：llama.cpp 为自编译源码运行，`git pull` 拉新源码后若不重建，
 > 二进制仍是旧编译版。2026-09-01 实测：旧编译版（build 1，commit `cb30059`）加载 mmproj 时在
 > `mtmd/clip` 处 `ggml_abort` 崩溃（core-dump / CUDA OOM）；`git pull` 到新源码（含 `qwen4exp` 系
-> `mtmd input, cuda abort` 修复）并重编译为 build 87（`9d81721`）后，mmproj 加载正常，210K + mmproj
+> `mtmd input, cuda abort` 修复）并重编译为 build 87（`9d81721`）后，mmproj 加载正常，180K + mmproj
 > 三个模型均能启动。2026-09-01 晚再加 `GGML_CUDA_FA_ALL_QUANTS=ON` 重编译（同 commit，仅改编译选项）。
 > 编译完成后用 `llama-server --version` 核对 commit。
 
@@ -139,7 +139,7 @@ sudo systemctl status llamacpp-qwen llamacpp-bge
 
 ### 3.4 启停脚本内部约定 <a id="deploy-notes"></a>
 
-- 三个模型共用 `-m` 换路径、`-mm` 固定为同一 mmproj、其余参数一致（`-ngl 999 -c 215040 -ctk q4_0 -ctv q4_0 --flash-attn on --jinja --chat-template-file ... --reasoning-format deepseek --reasoning-effort max --reasoning-preserve --spec-type ngram-mod --spec-ngram-mod-n-match 16 --spec-ngram-mod-n-min 32 --spec-ngram-mod-n-max 64`）。
+- 三个模型共用 `-m` 换路径、`-mm` 固定为同一 mmproj、其余参数一致（`-ngl 999 -c 184320 -ctk q4_0 -ctv q4_0 --flash-attn on --jinja --chat-template-file ... --reasoning-format deepseek --reasoning-effort max --reasoning-preserve --spec-type ngram-mod --spec-ngram-mod-n-match 16 --spec-ngram-mod-n-min 32 --spec-ngram-mod-n-max 64`）。
 - 每次 `qwen-*.sh` 启动前先调用 `qwen-stop.sh`（按端口 8080 pkill），保证一次仅一个模型。
 - 参数改动集中在 `qwen-start.sh` 的 `MODEL` / `DISPLAY` 映射与公共参数处；换模型无需动启动脚本。
 
@@ -164,7 +164,7 @@ GNOME 应用菜单提供四组入口（`~/.local/share/applications/`，与 Comf
 | `-m` | 主模型路径 | 对应所选 Qwen3.8-27B 版本（UD / 官方标准版 / Uncensored）的 `Q4_K_M` 权重 |
 | `-mm` | mmproj 路径 | 多模态视觉投影（`f16`），启用图片输入（三模型共用） |
 | `-ngl 999` | 999 | 全部 Transformer 层卸载到 GPU |
-| `-c 215040` | 210K | 上下文窗口长度 |
+| `-c 184320` | 180K | 上下文窗口长度 |
 | `-ctk q4_0` / `-ctv q4_0` | q4_0 | K cache / V cache 量化，压缩长上下文显存占用 |
 | `--flash-attn on` | on | 开启 Flash Attention（编译期 `GGML_CUDA_FA_ALL_QUANTS=ON` 覆盖全部量化类型） |
 | `--spec-type ngram-mod` + n-match 16 / n-min 32 / n-max 64 | — | n-gram 推测解码（dense 微调参数）：无草稿模型，靠历史重复模式猜 token；27B dense 模型实测比默认参数（n-match 24/48/64）重复场景最高快约 5.7 倍 |
@@ -249,7 +249,7 @@ curl -s http://127.0.0.1:8080/v1/chat/completions \
 > 同文件里还有一个 `lmstudio` 提供商（`baseURL` 指向 `127.0.0.1:1234`），当前未运行；本地推理走的是 `llamacpp`（8080）。
 > opencode 的模型 id 只是**调用端名称**（lamacpp 服务端 `/v1/models` 恒返回当前加载的 GGUF 全路径），
 > 实际切换靠服务端脚本（第 3.3 节）；`models` 注册的多个别名对应同一个 8080 服务，当前加载哪个即提供哪个的响应。
-> 注意注册的 `limit.context` 为 262144，而服务端实际 `-c 215040`（210K）：超出服务端上限的请求会被拒绝，长任务请控制上下文。
+> 注意注册的 `limit.context` 为 262144，而服务端实际 `-c 184320`（180K）：超出服务端上限的请求会被拒绝，长任务请控制上下文。
 
 ### 5.4 接入 dsh（DeepSeek Harness） <a id="daily-dsh"></a>
 
@@ -273,7 +273,7 @@ llm-pi-ai:
       models:
         - id: /home/minjian/ai/models/Qwen3.8-27B-UD-Q4_K_M.gguf
           name: Qwen3.8-27B-UD-Q4_K_M
-          contextWindow: 210000
+          contextWindow: 184320
           maxTokens: 32000
           reasoningEfforts:     # 档位键 → 发给 llama-server 的 wire 值（与模板语汇同名）
             off: off
@@ -311,6 +311,8 @@ Qwen3.8-27B 的"思考强度"没有独立模型参数，由 chat 模板（第 3.
 - **2026-09-01 加速配置**：`qwen-start.sh` 启用 ngram-mod 推测解码（先 `--spec-default`，后经 16 用例 A/B 实测改为 dense 微调参数 `--spec-ngram-mod-n-match 16 --spec-ngram-mod-n-min 32 --spec-ngram-mod-n-max 64`，重复场景最高提速约 5.7 倍）；llama.cpp 以 `GGML_CUDA_FA_ALL_QUANTS=ON` 重编译（同 commit `9d81721`，仅改编译选项）；文档同步修正上下文为实际值 210K（`-c 215040`）。
 - **2026-09-09 思考强度开最大**：`qwen-start.sh` 公共参数加 `--reasoning-effort max`（服务端默认思考强度最强档）；opencode 侧 llamacpp 三模型 `reasoningEffort` 由 medium 改 `high`；dsh `~/.dsh/settings.yaml` 的 llamacpp provider 加 `reasoning: max` 默认档并为两个模型声明 `reasoningEfforts` 七档字典（wire 值与模板语汇同名），GUI 可选思考档位（改动前备份 `settings.yaml.bak_20260909_213836`）。控制方法见 5.5 节。
 
+- **2026-10-13 上下文调整为 180K**：`qwen-start.sh` / `qwen-serve.sh` 的 `-c` 由 215040（210K）改为 **184320（180K）**，为长会话/记忆压缩留出更稳的显存余量；改后重启服务（`sudo systemctl restart llamacpp-qwen` 或 `qwen-restart.sh`）生效。
+
 ### 6.2 改动后的生效顺序 <a id="maintain-apply"></a>
 
 | 改动对象 | 生效方式 |
@@ -323,7 +325,7 @@ Qwen3.8-27B 的"思考强度"没有独立模型参数，由 chat 模板（第 3.
 ### 6.3 调参建议 <a id="maintain-tune"></a>
 
 - **显存吃紧**：降 `-c`（上下文）、保持 `-ctk/-ctv q4_0`，或降量化精度（更小量化）。实测三个模型在
-  210K + mmproj 下显存峰值约 23.8–24.0 GiB，接近 24G 上限；若加其它显存占用建议降 `-c`。
+  180K + mmproj 下显存峰值约 23.8–24.0 GiB，接近 24G 上限；若加其它显存占用建议降 `-c`。
 - **速度优先**：确认 `-ngl 999` 与 `--flash-attn on` 已开、编译期 `GGML_CUDA_FA_ALL_QUANTS=ON`（3.1 节）；`-c` 不宜远超实际所需（cache 按上限预留）。
 - **推测解码参数**：27B dense 模型用 `--spec-type ngram-mod --spec-ngram-mod-n-match 16 --spec-ngram-mod-n-min 32 --spec-ngram-mod-n-max 64`（2026-09-01 大样本 A/B 实测：重复文本场景接受率 0.79–1.00、吞吐最高 261 tok/s，默认参数同场景最低 0%、45 tok/s；问答场景两者均无草稿，代码场景相近）。提速效果看服务日志 `draft acceptance rate`。
 - **换模型**：直接运行对应脚本（`qwen-ud/std/unc.sh`），无需改任何配置；opencode 侧 `models` 别名均已注册。
@@ -347,7 +349,7 @@ Qwen3.8-27B 的"思考强度"没有独立模型参数，由 chat 模板（第 3.
 | 问题 | 处理 |
 | --- | --- |
 | 服务起不来 / 端口 8080 连不上？ | `~/develop/llama.cpp/qwen-server.log` 看报错（多为显存不足、路径错、或 mmproj 架构不匹配）；`tail -50 qwen-server.log`。 |
-| 模型加载很慢？ | 16G+ 权重 + 210K 上下文首次加载 30–60 秒属正常；用 `curl /v1/models` 轮询确认就绪，勿反复重启。 |
+| 模型加载很慢？ | 16G+ 权重 + 180K 上下文首次加载 30–60 秒属正常；用 `curl /v1/models` 轮询确认就绪，勿反复重启。 |
 | `content` 返回空？ | 推理模型思考占满 `max_tokens`（5.2 节）。调大 `max_tokens`，或读 `reasoning_content` 字段。 |
 | 日志里 `n_gpu_layers already set by user to 999`？ | W 级正常提示：`-ngl 999` 已显式指定，跳过自动拟合，忽略即可。 |
 | 日志里 `GGML_ASSERT(buffer) failed` / `cudaMalloc failed: out of memory`？ | 多为共享显存不足或旧二进制 mmproj 崩溃（见 3.1 节重编译提示）；先 `qwen-stop.sh` 释放显存再启；还不行检查是否 `git pull` 后未重编译。 |
