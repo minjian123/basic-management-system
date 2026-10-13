@@ -212,7 +212,33 @@ rm -rf ~/.config/Steamcommunity_302 ~/.cache/Steamcommunity_302
 
 ### 7.4 浏览器证书信任 <a id="cert"></a>
 
-根证书已由服务自动导入系统 NSS 库（`/etc/pki/nssdb`），系统浏览器与 curl 直接信任。个别发行版 certutil 导入后 Steam 客户端仍报证书错误时，需在游戏内浏览器（Steam 叠加界面 → 网页浏览器 → `chrome://settings/certificates`）手动导入 `/var/lib/Steamcommunity_302/certificates/s302-root-ca.pem`（发布页已知问题 1/2 有完整图文）。
+根证书由服务自动导入**系统** NSS 库（`/etc/pki/nssdb`）与系统 CA 目录（`/etc/ssl/certs`），**读系统库的客户端**（curl、Chromium、系统浏览器）开箱即信。
+
+**Firefox 例外**：Firefox 从不读系统信任库，只认自己 profile 下的 NSS 库（`cert9.db`），故 S302 换根后 Firefox 会先于其他客户端失效——表现为被 S302 接管的站点（github.com、steamcommunity.com 等）报「您的连接不安全 / `SEC_ERROR_UNKNOWN_ISSUER`」，而同一时刻 curl、Chromium 访问同一站点正常。本机为 snap 版 Firefox，其沙盒内无 p11-kit 信任模块，改 `security.enterprise_roots.enabled` 让其读系统库的路子走不通，须手工导入。
+
+排查与修复（以 2026-09-03 升级引入新 ECC 根 `Steamcommunity302 - 2026 ECC Root`、而 Firefox 库仅存旧 RSA 根为例）：
+
+```bash
+# 1. 看 S302 当前签发链的根（末尾一行 i: 即根证书 CN）
+openssl s_client -connect 127.0.0.1:443 -servername github.com </dev/null 2>/dev/null | grep -E '^\s*i:'
+
+# 2. 看 Firefox 库里有哪些根（snap 版 profile 位于 ~/snap/firefox/common/.mozilla/firefox/<profile>.default）
+FFPROF=~/snap/firefox/common/.mozilla/firefox/*.default
+certutil -L -d "sql:$FFPROF" | grep -i s302
+
+# 3. 必须先退出 Firefox，否则其退出时会用内存中的旧证书库覆盖写入
+pkill -TERM firefox
+
+# 4. 导入缺失的根（证书源：/usr/local/share/ca-certificates/s302-v15-root-ca-*.crt）
+certutil -A -d "sql:$FFPROF" -n "S302 V15 Root CA a04a7d564c1b4442" -t "CT,C,C" \
+  -i /usr/local/share/ca-certificates/s302-v15-root-ca-a04a7d564c1b4442.crt
+
+# 5. 重启 Firefox，确认证书库保留且站点可开
+```
+
+> 口径与系统库对齐：`/etc/pki/nssdb` 同时保留新旧两个 S302 根（旧 RSA 根 `Steamcommunity302` + 新 ECC 根 `Steamcommunity302 - 2026 ECC Root`），Firefox 库亦按此补齐，避免站点走旧根签发时再次失效；导入前先备份 `cert9.db`。S302 换根频率低（约一年一两次），不另设自动同步脚本，按本节手工修复即可。
+
+个别发行版 certutil 导入后 Steam 客户端仍报证书错误时，需在游戏内浏览器（Steam 叠加界面 → 网页浏览器 → `chrome://settings/certificates`）手动导入 `/var/lib/Steamcommunity_302/certificates/s302-root-ca.pem`（发布页已知问题 1/2 有完整图文）。
 
 ### 7.5 安全边界 <a id="security"></a>
 
