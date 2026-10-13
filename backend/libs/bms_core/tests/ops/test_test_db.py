@@ -102,12 +102,13 @@ def test_resolve_admin_url(monkeypatch: pytest.MonkeyPatch) -> None:
 
 @pytest.mark.kiwi_id(1156)
 def test_account_statements() -> None:
-    """建号语句：MySQL 幂等建号 + 库级 `bms\\_test%` 授权；PostgreSQL / 达梦不在本函数内出语句。"""
+    """建号语句：MySQL 幂等建号 + 库级 `bms\\_test%` 授权 + 全局 `XA_RECOVER_ADMIN`；PG / 达梦不出语句。"""
     statements = account_statements("mysql", "p'wd")
-    assert len(statements) == 2
+    assert len(statements) == 3
     assert statements[0].startswith("CREATE USER IF NOT EXISTS 'bms_test'@'%'")
     assert "p''wd" in statements[0]
     assert "GRANT ALL PRIVILEGES ON `bms\\_test%`.*" in statements[1]
+    assert "GRANT XA_RECOVER_ADMIN ON *.*" in statements[2]
     assert account_statements("postgres", "x") == ()
     assert account_statements("dm8", "x") == ()
     assert TEST_ACCOUNT == {"mysql": "bms_test", "postgres": "bms_test", "dm8": "SYSDBA"}

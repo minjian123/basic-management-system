@@ -210,6 +210,9 @@ def account_statements(engine: str, password: str) -> tuple[str, ...]:
         return (
             f"CREATE USER IF NOT EXISTS '{account}'@'%' IDENTIFIED BY '{literal}'",
             f"GRANT ALL PRIVILEGES ON `bms\\_test%`.* TO '{account}'@'%'",
+            # MySQL 8.0.30+ 起 `XA RECOVER` 须有全局 `XA_RECOVER_ADMIN` 才能看到**其他会话**的悬挂分支
+            # （缺该权限报 `XAER_RMERR`），真库悬挂分支用例（test_cross_db_2pc）依赖该恢复视图。
+            f"GRANT XA_RECOVER_ADMIN ON *.* TO '{account}'@'%'",
         )
     return ()
 

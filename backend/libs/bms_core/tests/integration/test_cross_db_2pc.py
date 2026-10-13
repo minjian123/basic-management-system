@@ -34,6 +34,10 @@ _RECOVER = {
     "postgres": "SELECT COUNT(*) FROM pg_prepared_xacts",
     "dm8": "SELECT COUNT(*) FROM TABLE(DBMS_XA.XA_RECOVER())",
 }
+_LOCK_WAIT = {
+    "mysql": "SET SESSION lock_wait_timeout = 60",
+    "postgresql": "SET lock_timeout = '60s'",
+}
 
 
 @pytest.fixture(scope="module")
@@ -52,9 +56,21 @@ def _engine(url: str) -> Engine:
     return create_engine(url)
 
 
+def _bound_lock_wait(connection: Connection, engine: Engine) -> None:
+    """收紧元数据锁等待（缺省无上限）：悬挂分支在场时把「卡死」降级为可诊断的 60s 失败。
+
+    MySQL 的 `lock_wait_timeout` 缺省 31536000s（等于永久）——`DROP TABLE` 一旦撞上未清理的
+    prepared 分支即无限阻塞（2026-10-13 `txn-2pc` 因此卡死 16 分钟）；PostgreSQL 对应 `lock_timeout`。
+    """
+    statement = _LOCK_WAIT.get(engine.dialect.name)
+    if statement:
+        connection.execute(text(statement))
+
+
 def _setup(db_name: str, engine: Engine) -> None:
     """建探测表（幂等）。"""
     with engine.begin() as connection:
+        _bound_lock_wait(connection, engine)
         connection.execute(text(f"DROP TABLE IF EXISTS {_TABLE}"))
         connection.execute(text(_CREATE[db_name]))
 
@@ -63,6 +79,7 @@ def _teardown(engine: Engine) -> None:
     """删探测表（幂等）。"""
     try:
         with engine.begin() as connection:
+            _bound_lock_wait(connection, engine)
             connection.execute(text(f"DROP TABLE IF EXISTS {_TABLE}"))
     finally:
         engine.dispose()
@@ -117,19 +134,29 @@ def test_hung_branch_visible(db_name: str, available_dbs: ConcurrentStableDict[s
         pytest.skip(f"未配置 {_ENV[db_name]}，跳过 {db_name} 悬挂分支用例")
     engine = _engine(available_dbs[db_name])
     _setup(db_name, engine)
+    connection = engine.connect()
+    txn = connection.begin_twophase()
+    prepared = False
     try:
-        connection = engine.connect()
-        txn = connection.begin_twophase()
         connection.execute(text(f"INSERT INTO {_TABLE} (id, note) VALUES (9, 'hung')"))
         txn.prepare()
+        prepared = True
         with engine.connect() as probe:
             rows = probe.execute(text(_RECOVER[db_name])).fetchall()
         assert rows, f"{db_name} 应可见悬挂分支"
         txn.rollback()
+        prepared = False
         connection.close()
         assert _note(engine, 9) is None
     finally:
-        _teardown(engine)
+        try:
+            if prepared:
+                # 断言失败也必须回滚悬挂分支：否则探测表被该分支的 metadata lock 占住，`_teardown`
+                # 的 DROP 会一直等到锁超时（2026-10-13 实测卡死 16 分钟、并留下孤儿 XA）。
+                txn.rollback()
+                connection.close()
+        finally:
+            _teardown(engine)
 
 
 def test_cross_db_two_phase(available_dbs: ConcurrentStableDict[str, str]) -> None:
