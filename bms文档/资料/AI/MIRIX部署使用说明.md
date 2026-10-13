@@ -175,7 +175,7 @@ MIRIX 的 Redis 向量索引固定按 4096 维建，而 bge-small-zh 只有 512 
 
 > **为何不用官方面板**：`yuwucsd/mirix-dashboard` 无多语言支持（英文硬编码、源码无 i18n 依赖），故自建中文面板。
 > 面板按 **client** 隔离：本面板用客户端 API Key（`mirix-cli`）直连 REST，与记忆同属一个 client，天然可见。
-> 源文件在 `~/mirix/panel/`（`index.html`、`nginx.conf`），改后 `docker restart mirix-panel` 生效。
+> 源文件**仓库副本**在 `bms/scripts/tools/mirix/panel/`（`index.html`、`nginx.conf`、README）；mjbk 侧位于 `~/mirix/panel/`。改动后同步并 `docker restart mirix-panel` 生效。
 
 ### 6.5 重置记忆（清库重抽） <a id="reset"></a>
 

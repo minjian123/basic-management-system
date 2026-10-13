@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>MIRIX 记忆面板</title>
+<style>
+  :root { --bg:#0d1117; --card:#161b22; --line:#30363d; --fg:#e6edf3; --dim:#8b949e; --acc:#2f81f7; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+         background:var(--bg); color:var(--fg); font-size:14px; }
+  header { display:flex; align-items:center; gap:16px; padding:14px 20px; border-bottom:1px solid var(--line);
+           position:sticky; top:0; background:var(--bg); z-index:5; flex-wrap:wrap; }
+  h1 { font-size:16px; margin:0; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:14px 16px; margin:14px 20px; }
+  button, select, input[type=text], input[type=password], textarea {
+      background:#21262d; color:var(--fg); border:1px solid var(--line); border-radius:6px;
+      padding:6px 10px; font-size:13px; font-family:inherit; }
+  button { cursor:pointer; }
+  button:hover { border-color:var(--acc); }
+  button.primary { background:var(--acc); border-color:var(--acc); color:#fff; }
+  .tabs { display:flex; gap:6px; flex-wrap:wrap; margin:6px 0 12px; }
+  .tabs button.active { background:var(--acc); border-color:var(--acc); color:#fff; }
+  .row { border:1px solid var(--line); border-radius:6px; padding:10px 12px; margin-bottom:8px; background:#0f141b; }
+  .row .meta { color:var(--dim); font-size:12px; margin-bottom:4px; display:flex; gap:10px; flex-wrap:wrap; }
+  .row .sum { line-height:1.5; }
+  .row pre { white-space:pre-wrap; word-break:break-word; color:var(--dim); font-size:12px; margin:8px 0 0; display:none; }
+  .row.open pre { display:block; }
+  .muted { color:var(--dim); }
+  .grow { flex:1; }
+  .status-ok { color:#3fb950; } .status-bad { color:#f85149; }
+  #toast { position:fixed; right:20px; bottom:20px; background:var(--card); border:1px solid var(--acc);
+           padding:10px 14px; border-radius:8px; display:none; max-width:420px; }
+  .login { max-width:520px; margin:12vh auto; }
+  .login input { width:100%; margin:6px 0 12px; }
+  label { color:var(--dim); font-size:12px; }
+</style>
+</head>
+<body>
+
+<div id="login" class="login card">
+  <h1>MIRIX 记忆面板</h1>
+  <p class="muted">输入客户端 API Key 进入（存在本机浏览器，不上传）。</p>
+  <label>API Key</label>
+  <input id="keyInput" type="password" placeholder="Nmtf...7s4" />
+  <button class="primary" onclick="saveKey()">进入</button>
+  <p class="muted" id="loginMsg"></p>
+</div>
+
+<div id="app" style="display:none">
+  <header>
+    <h1>MIRIX 记忆面板</h1>
+    <span id="health" class="muted">检测中…</span>
+    <span class="grow"></span>
+    <label>作用域</label>
+    <select id="userSel" onchange="loadAll()">
+      <option value="minjian">minjian（用户级）</option>
+      <option value="minjian@bizs">minjian@bizs（项目级·bizs）</option>
+      <option value="minjian@cws">minjian@cws（项目级·cws）</option>
+      <option value="__custom">自定义…</option>
+    </select>
+    <button onclick="switchKey()">换 Key</button>
+  </header>
+
+  <div class="card">
+    <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center">
+      <input id="q" class="grow" type="text" placeholder="语义搜索记忆，如：前端依赖用什么包管理器" onkeydown="if(event.key==='Enter')doSearch()" />
+      <button class="primary" onclick="doSearch()">搜索</button>
+      <button onclick="clearSearch()">清除</button>
+      <button onclick="doDream(true)">归并预览</button>
+      <button onclick="doDream(false)">执行归并</button>
+      <button onclick="loadAll()">刷新</button>
+    </div>
+    <p class="muted" id="hint" style="margin:8px 0 0"></p>
+  </div>
+
+  <div class="card">
+    <div class="tabs" id="tabs"></div>
+    <div id="list"></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const API = '/api';
+const TYPES = [
+  ['episodic','情景记忆'], ['semantic','语义记忆'], ['procedural','流程记忆'],
+  ['resource','资源记忆'], ['knowledge_vault','知识库'], ['core','核心记忆'],
+];
+let curType = 'episodic';
+let lastSearch = null;
+
+function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.style.display='block';
+  clearTimeout(t._h); t._h=setTimeout(()=>t.style.display='none', 4000); }
+function getKey(){ return localStorage.getItem('mirix_key') || ''; }
+function saveKey(){ const v=document.getElementById('keyInput').value.trim();
+  if(!v){ document.getElementById('loginMsg').textContent='请填写 API Key'; return; }
+  localStorage.setItem('mirix_key', v); boot(); }
+function switchKey(){ localStorage.removeItem('mirix_key'); location.reload(); }
+function currentUser(){ const v=document.getElementById('userSel').value;
+  if(v==='__custom'){ const c=prompt('输入作用域 user_id（如 minjian@xxx）'); if(c){ return c; } }
+  return v; }
+
+async function api(path, opt){
+  opt = opt || {};
+  const headers = Object.assign({ 'X-API-Key': getKey() }, opt.headers || {});
+  if(opt.body) headers['Content-Type']='application/json';
+  const res = await fetch(API + path, { method: opt.method || 'GET', headers, body: opt.body ? JSON.stringify(opt.body) : undefined });
+  const text = await res.text();
+  let data; try { data = JSON.parse(text); } catch(e){ data = text; }
+  if(!res.ok){ throw new Error((data && data.detail) ? data.detail : ('HTTP ' + res.status)); }
+  return data;
+}
+
+async function boot(){
+  document.getElementById('login').style.display='none';
+  document.getElementById('app').style.display='block';
+  renderTabs(); checkHealth(); loadAll();
+}
+
+function renderTabs(){
+  const box = document.getElementById('tabs');
+  box.innerHTML = TYPES.map(([k,zh]) =>
+    `<button class="${k===curType?'active':''}" onclick="pickType('${k}')">${zh}</button>`).join('');
+}
+function pickType(k){ curType=k; lastSearch=null; renderTabs(); loadType(); }
+
+async function checkHealth(){
+  const el=document.getElementById('health');
+  try{ const d=await api('/health'); el.innerHTML='服务：<span class="status-ok">正常</span>'; }
+  catch(e){ el.innerHTML='服务：<span class="status-bad">异常</span> ' + e.message; }
+}
+
+async function loadAll(){
+  await checkHealth();
+  await loadType();
+}
+
+async function loadType(){
+  const user=currentUser();
+  const list=document.getElementById('list');
+  document.getElementById('hint').textContent = '作用域 ' + user + ' · 共 6 类记忆';
+  list.innerHTML='<p class="muted">加载中…</p>';
+  try{
+    const d=await api('/memory/components?user_id=' + encodeURIComponent(user) + '&memory_type=' + curType);
+    renderComponents(d.memories || {}, user);
+  }catch(e){ list.innerHTML='<p class="status-bad">读取失败：' + e.message + '</p>'; }
+}
+
+function renderComponents(mems, user){
+  const list=document.getElementById('list');
+  const v = mems[curType] || {};
+  const items = v.items || [];
+  if(curType==='core'){
+    const scopes = v.scopes || {};
+    const keys = Object.keys(scopes);
+    if(!keys.length){ list.innerHTML='<p class="muted">（无核心记忆）</p>'; return; }
+    list.innerHTML = keys.map(k=>{
+      const blocks = scopes[k] || [];
+      return blocks.map(b=>rowCard('核心', b.label||k, 'block', b.value||'')).join('');
+    }).join('');
+    return;
+  }
+  if(mems[curType] && mems[curType].total_count===undefined && v.total_count===undefined){ /* noop */ }
+  const total = (v.total_count!==undefined) ? v.total_count : items.length;
+  if(!items.length){ list.innerHTML='<p class="muted">（无记录，共 '+total+' 条）</p>'; return; }
+  list.innerHTML = '<p class="muted" style="margin:0 0 8px">共 ' + total + ' 条</p>' +
+                   items.map(it=>rowCard(curType, displayTitle(curType,it), it.id||'', displayBody(curType,it))).join('');
+}
+
+function displayTitle(type, it){
+  if(type==='semantic') return it.name || it.summary || '(未命名)';
+  if(type==='knowledge_vault') return it.caption || it.entry_type || '(未命名)';
+  if(type==='procedural') return it.name || it.title || it.description || '(未命名)';
+  if(type==='resource') return it.title || it.name || it.summary || '(未命名)';
+  return it.summary || it.event_type || '(未命名)';
+}
+function displayBody(type, it){
+  const parts=[];
+  const title = displayTitle(type, it);
+  if(it.summary && it.summary!==title) parts.push(it.summary);
+  if(it.details) parts.push(it.details);
+  if(it.secret_value) parts.push(it.secret_value);
+  if(it.content) parts.push(it.content);
+  if(it.instructions) parts.push(it.instructions);
+  if(it.source) parts.push('来源：' + it.source);
+  if(it.occurred_at) parts.push('时间：' + it.occurred_at);
+  return parts.join('\n');
+}
+function rowCard(label, title, id, body){
+  const b = (body||'').replace(/</g,'&lt;');
+  return `<div class="row" onclick="this.classList.toggle('open')">
+    <div class="meta"><span>${label}</span><span>${id}</span></div>
+    <div class="sum">${(title||'').replace(/</g,'&lt;')}</div>
+    <pre>${b}</pre></div>`;
+}
+
+async function doSearch(){
+  const q=document.getElementById('q').value.trim();
+  if(!q){ toast('请输入搜索内容'); return; }
+  const user=currentUser();
+  const list=document.getElementById('list');
+  list.innerHTML='<p class="muted">搜索中…（走本地嵌入，稍候）</p>';
+  try{
+    const d=await api('/memory/search?user_id=' + encodeURIComponent(user) +
+      '&query=' + encodeURIComponent(q) + '&memory_type=all&search_method=embedding&limit=20');
+    const rs = d.results || [];
+    document.getElementById('hint').textContent = '搜索「' + q + '」命中 ' + rs.length + ' 条';
+    if(!rs.length){ list.innerHTML='<p class="muted">（无命中）</p>'; return; }
+    list.innerHTML = rs.map(it=>rowCard(zhType(it.memory_type), displayTitle(it.memory_type,it), it.id||'', displayBody(it.memory_type,it))).join('');
+  }catch(e){ list.innerHTML='<p class="status-bad">搜索失败：' + e.message + '</p>'; }
+}
+function clearSearch(){ document.getElementById('q').value=''; loadAll(); }
+function zhType(t){ const f=TYPES.find(x=>x[0]===t); return f?f[1]:t; }
+
+async function doDream(dry){
+  const user=currentUser();
+  if(!confirm((dry?'预览':'执行') + '归并对作用域「' + user + '」的记忆？' + (dry?'（不会改动数据）':'（会合并/删除重复与过期条目）'))) return;
+  toast((dry?'预览中':'归并中') + '…可能耗时较久');
+  try{
+    const d=await api('/memory/auto_dream?user_id=' + encodeURIComponent(user),
+      { method:'POST', body:{ mode:'experience', dry_run: !!dry } });
+    toast((dry?'预览完成：':'归并完成：') + JSON.stringify(d.processed || d).slice(0,300));
+    if(!dry) loadAll();
+  }catch(e){ toast('归并失败：' + e.message); }
+}
+
+if(getKey()){ boot(); } else { document.getElementById('login').style.display='block'; }
+</script>
+</body>
+</html>
