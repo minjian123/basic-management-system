@@ -1,6 +1,6 @@
 # opencode 部署使用说明
 
-> mjpc 开发机 opencode（命令行 CLI + 桌面端 desktop）部署与验证实录 · 初版 2026-08-29，现行版本 v2（2026-09-29 完成 v1 → v2 迁移；2026-10-02 升到 2.0.21、CommandCode 改走 Responses API）
+> mjpc 开发机 opencode（命令行 CLI + 桌面端 desktop）部署与验证实录 · 初版 2026-08-29，现行版本 v2（2026-09-29 完成 v1 → v2 迁移；2026-10-02 升到 2.0.21、CommandCode 改走 Responses API；2026-10-13 启用 Web / 手机访问、桌面端升到 2.0.27）
 
 [文档首页](../../文档首页.md) › 资料 › 开发机 › opencode 部署使用说明　|　[同级参照：中文输入法部署使用说明 →](中文输入法部署使用说明.md)　[Steamcommunity_302部署使用说明 →](Steamcommunity_302部署使用说明.md)　[防火墙部署使用说明 →](防火墙部署使用说明.md)
 
@@ -9,10 +9,10 @@
 记录开发机 **mjpc**（Ubuntu 26.04.1 LTS，GNOME，Wayland，NVIDIA RTX 4090）上 **opencode v2** 的部署、配置与使用：
 
 - **opencode CLI**（命令行版）：官方二进制，装于 `~/.opencode/bin/opencode`，当前 **2.0.21**（旧版备份 `opencode-2.0.18.bak`）；
-- **opencode desktop**（桌面图形端）：官方 `.deb`，apt 安装到 `/opt/OpenCode/`，当前 **2.0.21**（由包内自更新器自行跟进）；
+- **opencode desktop**（桌面图形端）：官方 `.deb`，apt 安装到 `/opt/OpenCode/`，当前 **2.0.27**（由包内自更新器自行跟进）；
 - **配置**：全局 `~/.config/opencode/opencode.jsonc` 与各项目配置**已全部迁移为 v2 原生格式**（[第 6 节](#config)）。
 
-v1 时期的 snap 部署方式、NVIDIA/Wayland 下 GPU 崩溃的排查结论与 `--disable-gpu` 规避方案属**历史备查**，保留在[第 2.3 节](#history-v1)与[第 8.2 节](#gpu-history)，遇同类现象可直接照做。
+v1 时期的 snap 部署方式、NVIDIA/Wayland 下 GPU 崩溃的排查结论与 `--disable-gpu` 规避方案属**历史备查**，保留在[第 2.3 节](#history-v1)与[第 8.3 节](#gpu-history)，遇同类现象可直接照做。
 
 ## 2. 现状与沿革 <a id="status"></a>
 
@@ -21,13 +21,13 @@ v1 时期的 snap 部署方式、NVIDIA/Wayland 下 GPU 崩溃的排查结论与
 | 实体 | 版本 | 安装位置 | 启动方式 |
 | --- | --- | --- | --- |
 | CLI | 2.0.21 | `~/.opencode/bin/opencode`（同目录 `opencode2` 为兼容别名 shim；旧版留 `opencode-2.0.18.bak`） | 终端执行 `opencode` |
-| 桌面端 | 2.0.21 | `/opt/OpenCode/`（apt 包名 `opencode`） | 应用菜单 **OpenCode**；或命令行 `/usr/bin/ai.opencode.desktop` |
+| 桌面端 | 2.0.27 | `/opt/OpenCode/`（apt 包名 `opencode`） | 应用菜单 **OpenCode**；或命令行 `/usr/bin/ai.opencode.desktop` |
 
 两者**升级通道独立、版本号可不一致**：CLI 需手动换官方二进制（见 [4.1 节](#cli-install)），桌面端由包内自更新器检查下载（`~/.cache/@opencodedesktop-updater`）。
 
 > **CLI 不要用 `opencode upgrade` 升级**：它走 GitHub 发布通道，而 v2 的 GitHub Release 页只挂源码包、没有平台二进制资产（`.../releases/latest/download/opencode-linux-x64.tar.gz` 实测 404），命令常长时间卡住后失败；本机改用官方 CDN 或 npmmirror 手动换二进制（见 [4.1 节](#cli-install)）。
 >
-> 桌面端则会自行跟进小版本：2026-09-29 迁移当日自更新器检到 2.0.18，2026-10-02 已升到 **2.0.21**（`dpkg -s opencode` 为 `Version: 2.0.21`，内嵌 CLI 版本目录 `~/.config/ai.opencode.desktop/cli/` 下已有 2.0.16 / 2.0.19 / 2.0.20 / 2.0.21 四份）。
+> 桌面端则会自行跟进小版本：2026-09-29 迁移当日自更新器检到 2.0.18，2026-10-02 升到 2.0.21，2026-10-13 已是 **2.0.27**（`dpkg -s opencode` 为 `Version: 2.0.27`；内嵌 CLI 版本目录 `~/.config/ai.opencode.desktop/cli/` 下现只保留 `2.0.27` 一份，旧版本目录已被清理）。
 
 ### 2.2 v1 → v2 迁移过程（2026-09-29） <a id="migration"></a>
 
@@ -62,10 +62,10 @@ v2 是一次重写（服务端 API 重做、运行时换 Node、插件 API 不�
 | 桌面 | GNOME（`XDG_SESSION_TYPE=wayland`） |
 | 显卡 | NVIDIA GeForce RTX 4090（AD102），驱动 595.91.07 |
 | opencode CLI | 2.0.21（官方 `opencode-linux-x64.tar.gz` 二进制） |
-| opencode 桌面端 | 2.0.21（官方 `opencode-desktop-linux-amd64.deb`，apt 包 `opencode`） |
+| opencode 桌面端 | 2.0.27（官方 `opencode-desktop-linux-amd64.deb`，apt 包 `opencode`） |
 | 全局配置 | `~/.config/opencode/opencode.jsonc`（v2 原生格式） |
 | 数据目录 | `~/.local/share/opencode/`（`opencode.db` 为凭据与会话的唯一存储） |
-| 后台服务 | `opencode serve --service`（v2 共享后台服务，各客户端共用，随用随起） |
+| 后台服务 | `opencode serve --service`（v2 共享后台服务，各客户端共用；由桌面端拉起、随桌面端启停，默认只监听 `127.0.0.1:49374`，局域网 / 手机访问见 [8.2 节](#web-access)） |
 
 ## 4. 命令行 CLI 部署 <a id="cli"></a>
 
@@ -129,7 +129,7 @@ fi
 which opencode            # /home/minjian/.opencode/bin/opencode
 opencode --version        # opencode v2.0.21
 opencode debug paths      # 打印 home/data/cache/config/state/db 等路径
-script -qec "opencode models" /dev/null   # 列出可用模型（需交互终端，见 8.3）
+script -qec "opencode models" /dev/null   # 列出可用模型（需交互终端，见 8.4）
 ```
 
 > `opencode models` 在管道/非交互环境下**无输出**（命令要求可交互终端），排障时用真实终端或 `script -qec` 包一层。
@@ -185,7 +185,16 @@ grep -E "main window visible|background service ready" "$D/main.log"
 | `main.log` | `v2 CLI background service ready { version: '2.0.21', probed: false, url: 'http://127.0.0.1:49374' }` |
 | GPU 进程 | 当日日志目录（`logs/20261002T035029/`）全目录检索无 `exit_code=139` / `GPU process exited` / `Vulkan` 记录，主进程自启动后持续存活，`--disable-gpu` 仍不需要 |
 
-> 启动时仍会打印一条 `'--ozone-platform=wayland' is not compatible with Vulkan` 警告，属历史已知的无害告警（GPU 进程未崩溃即正常），无需处理；仅当出现[第 8.2 节](#gpu-history)所述的 GPU 崩溃时才需要 `--disable-gpu`。
+2026-10-13 复核（桌面端升到 2.0.27、启用 Web / 手机访问）：
+
+| 证据 | 取值 |
+| --- | --- |
+| `dpkg -s opencode` | `Version: 2.0.27` |
+| `~/.config/ai.opencode.desktop/cli/` | 内嵌 CLI 目录仅剩 `2.0.27` 一份 |
+| `main.log`（`logs/20261013T045240/`） | `v2 CLI background service ready { version: '2.0.27', probed: false, url: 'http://127.0.0.1:49374', hostname: '127.0.0.1', port: '49374' }` |
+| 进程关系 | `opencode-cli serve --service`（桌面端内嵌 CLI）的父进程为桌面端 `ai.opencode.desktop`，后台服务随之启停（见 [8.2 节](#web-access)） |
+
+> 启动时仍会打印一条 `'--ozone-platform=wayland' is not compatible with Vulkan` 警告，属历史已知的无害告警（GPU 进程未崩溃即正常），无需处理；仅当出现[第 8.3 节](#gpu-history)所述的 GPU 崩溃时才需要 `--disable-gpu`。
 
 ## 6. 配置（v2 原生格式） <a id="config"></a>
 
@@ -272,7 +281,7 @@ Command Code 的 Provider API 在同一 `baseURL` 下提供两条 OpenAI 风格�
 | `package` = `openai-compatible`，`baseURL` 写到 `.../provider/v1/responses` | `POST /provider/v1/responses/chat/completions` | 两层路径，必然 404 |
 | `package` = `openai/responses`，`baseURL` 写到 `/provider/v1` | `POST /provider/v1/responses` | **采用**；`opencode run -m commandcode/deepseek-v4.1-flash` 实测正常返回 |
 
-> **未发布包提醒**：v2 文档的「Packages」清单与 npm 库 `@opencode/ai` 里都有 `@opencode/ai/providers/openai-compatible/responses`（语义上更贴合第三方兼容端点），但 CLI 二进制**尚未把它注册成内置包**——2026-10-02 实测 2.0.18 与 2.0.21（npm 平台包、桌面端内嵌 CLI 都试过）写该包名一律报 `Cannot find package '@opencode/ai'`。故本机暂用 `openai/responses`；官方把它内置后可一行切换，升级后先照 [8.6 节](#provider-package)的办法判断是否已支持。
+> **未发布包提醒**：v2 文档的「Packages」清单与 npm 库 `@opencode/ai` 里都有 `@opencode/ai/providers/openai-compatible/responses`（语义上更贴合第三方兼容端点），但 CLI 二进制**尚未把它注册成内置包**——2026-10-02 实测 2.0.18 与 2.0.21（npm 平台包、桌面端内嵌 CLI 都试过）写该包名一律报 `Cannot find package '@opencode/ai'`。故本机暂用 `openai/responses`；官方把它内置后可一行切换，升级后先照 [8.7 节](#provider-package)的办法判断是否已支持。
 
 > 切换后已复核：`opencode models` 正常列出 `commandcode/*` 两个模型，实跑与非交互 `opencode run` 均正常（见 [8.1 节](#usage-cli)）。
 
@@ -331,9 +340,101 @@ opencode --standalone                     # 用私有服务运行（不共用后
 ```
 
 - CLI 在项目目录运行时读该项目配置（如 `~/develop/bizs/.opencode/opencode.json`），本机默认模型为项目配置里的 `llamacpp/qwen3.8-27b-ud-q4-k-m`（连本机 `http://127.0.0.1:8080/v1` 的 llama-server）；
-- v2 默认复用**一个共享后台服务**（`opencode serve --service`），所有本地客户端（CLI/桌面端/Web）连它；排障时可用 `--standalone` 起私有服务隔离变量。
+- v2 默认复用**一个共享后台服务**（`opencode serve --service`），所有本地客户端（CLI/桌面端/Web）连它；本机该服务由桌面端拉起、随桌面端启停，排障时可用 `--standalone` 起私有服务隔离变量；手机 / 局域网与公网访问见 [8.2 节](#web-access)。
 
-### 8.2 桌面端无窗口 / GPU 崩溃（历史结论） <a id="gpu-history"></a>
+### 8.2 Web 与手机访问 <a id="web-access"></a>
+
+opencode v2 自带 Web UI，由**同一个共享后台服务**（`opencode serve --service`）提供，与 TUI / 桌面端共用会话与配置，默认开启、密码保护。本机该服务**由桌面端拉起、随桌面端启停**（不常驻、不自启，也无 systemd 单元）：桌面端开着服务就在，关掉即停。
+
+**访问入口（opencode pair）**
+
+```bash
+opencode pair
+```
+
+命令打印三样东西：
+
+- **一次性配对链接**（形如 `http://<主机>:49374/auth/connect/...`，**5 分钟内有效、用一次即失效**）；
+- **用户名 / 密码**（用户名固定 `opencode`）；
+- **二维码**（用 OpenCode 手机 / 桌面 App 扫描，或把链接粘进 App 的服务器地址栏）。
+
+浏览器打开链接即写入会话 cookie 并载入 Web UI，**会话有效 30 天**；更改服务器密码会让所有会话立即登出。
+
+**手机同局域网访问**
+
+共享服务默认只监听 `127.0.0.1`（仅本机可达）。要让同一 WiFi 下的手机连上，先改监听地址：
+
+```bash
+# 监听所有网卡（改设置会停掉后台服务，需重启生效；本机服务由桌面端托管，重启桌面端即可）
+opencode service set hostname 0.0.0.0
+```
+
+重启桌面端后，共享服务以 `0.0.0.0` 监听（桌面端 `main.log` 的 `background service ready` 里可见 `hostname: '0.0.0.0'`）。再用开发机的局域网地址生成配对链接：
+
+```bash
+opencode pair --url http://<mjpc-IP>:49374
+```
+
+手机浏览器打开该链接（或直接访问 `http://<mjpc-IP>:49374`），输入命令行打印的用户名 / 密码即可进入；`<mjpc-IP>` 取值见《[本地资源](../../用户文档/本地资源.md)》。
+
+> **防火墙**：开发机启用 ufw（入站默认拒绝）时须先放行端口，否则手机连不上：
+>
+> ```bash
+> sudo ufw allow 49374/tcp comment 'opencode web'
+> ```
+>
+> 该规则已登记于《[防火墙部署使用说明](防火墙部署使用说明.md)》。
+
+**公网访问（外出 / 移动网络）**
+
+不在同一网络时，用官方内置的 OpenTunnel 临时把服务暴露到公网：
+
+```bash
+opencode pair --remote
+```
+
+首次执行会询问是否把服务暴露到互联网（流量端到端加密，仍需服务器密码）；非交互环境须加 `--yes` 才继续。**建议按需临时开启**，不用时关闭：
+
+```bash
+opencode service set remote false
+```
+
+**经 SSH 端口转发（备选）**
+
+服务只监听回环时，也可从本机转发端口后打开打印出的链接：
+
+```bash
+ssh -L 49374:127.0.0.1:49374 <用户>@<mjpc-IP>
+```
+
+**服务器密码与配置项**
+
+服务密码默认由 opencode 随机生成，存于 `~/.config/opencode/service.json`；本机实际取值见《[本地资源](../../用户文档/本地资源.md)》（不写入本文档）。改密码：
+
+```bash
+opencode service set password '<新密码>'
+```
+
+常用配置项（改完都需重启服务生效，改设置会停掉后台服务）：
+
+| 键 | 作用 | 示例 |
+| --- | --- | --- |
+| `hostname` | 监听地址 | `0.0.0.0`（所有网卡）/ `127.0.0.1`（仅本机） |
+| `port` | 固定端口（默认 49374） | `49374` |
+| `password` | 服务器密码 | `'<新密码>'` |
+| `cors` | 允许的跨源来源 | `https://app.example.com` |
+| `env` | 传给服务进程的环境变量 | `OPENCODE_LOG_LEVEL DEBUG` |
+| `remote` | 是否开启 OpenTunnel 远程通道 | `false` |
+
+> **独立前台服务（备选）**：需要脱离桌面端单独跑（如共享主机、容器）时用 `opencode serve`：
+>
+> ```bash
+> opencode serve --hostname 0.0.0.0 --port 4096
+> ```
+>
+> 输出 `server listening on ...` 与 `server password ...`；客户端用 `opencode --server http://127.0.0.1:4096` 连接。本机日常不用这种方式——服务随桌面端启停即可。
+
+### 8.3 桌面端无窗口 / GPU 崩溃（历史结论） <a id="gpu-history"></a>
 
 v1 时期（2026-08）在本机 NVIDIA + Wayland 下遇到过「点图标无窗口」，根因是 **GPU 进程在原生 Wayland + Vulkan 下初始化即 SIGSEGV（`exit_code=139`）并无限重试**，把主进程拖垮：
 
@@ -373,7 +474,7 @@ cat "$D/main.log"; grep -iE 'exit_code=139|GPU process exited|Vulkan' "$D/utilit
 ls -lt ~/.config/ai.opencode.desktop/Crashpad/pending/*.dmp 2>/dev/null | head   # 近期崩溃转储
 ```
 
-### 8.3 `opencode models` 无输出 <a id="models-empty"></a>
+### 8.4 `opencode models` 无输出 <a id="models-empty"></a>
 
 该命令要求可交互终端；在管道、脚本或工具调用里执行会**静默返回空**。排障用：
 
@@ -381,7 +482,7 @@ ls -lt ~/.config/ai.opencode.desktop/Crashpad/pending/*.dmp 2>/dev/null | head  
 script -qec "opencode models" /dev/null
 ```
 
-### 8.4 命令找不到 / 装了两个版本 <a id="cli-missing"></a>
+### 8.5 命令找不到 / 装了两个版本 <a id="cli-missing"></a>
 
 ```bash
 which -a opencode                     # 应只有 ~/.opencode/bin/opencode
@@ -393,7 +494,7 @@ opencode --version                    # 期望 v2.0.21
 - v1 与 v2 **不能并存**（同一个 `opencode` 命令）：若 `which -a` 出现多个路径，先卸载 v1 安装（snap 版用 `sudo snap remove opencode`）；
 - snap 版 `latest/stable` 通道仍发布 v1（1.18.x），需要回退 v1 时可用 `sudo snap install opencode` 装回 snap 版 CLI + 桌面端。
 
-### 8.5 MCP 服务器与插件 <a id="mcp-trouble"></a>
+### 8.6 MCP 服务器与插件 <a id="mcp-trouble"></a>
 
 ```bash
 opencode mcp list                     # ✓ 名称 connected 即正常
@@ -407,7 +508,7 @@ opencode mcp auth <名>                # 需要时完成 OAuth
 | MCP 工具超时 | v2 的 `mcp.timeout` 分 `startup`（默认 30 秒）/`catalog`（默认 30 秒）/`execution`（默认 12 小时）；本机项目配置把 `catalog` 与 `execution` 设为 200 秒 |
 | 插件未生效 | v1 插件实现在 v2 不运行，须按 v2 插件 API 重写；改完完全重启客户端 |
 
-### 8.6 provider 初始化报 `Cannot find package '@opencode/ai'` <a id="provider-package"></a>
+### 8.7 provider 初始化报 `Cannot find package '@opencode/ai'` <a id="provider-package"></a>
 
 自定义 provider 的 `package` 写了**当前二进制未内置**的运行时包时，模型初始化直接失败：
 
@@ -426,6 +527,33 @@ grep -a -c "providers/openai-compatible/responses" ~/.opencode/bin/opencode
 | 别只信文档 | 内置包名以二进制注册表为准：官方 v2 文档列出的包可能尚未随发布内置（本机踩过的例子见 [6.5 节](#commandcode-responses)的未发布包提醒） |
 | 换等价运行时 | 改用语义相同、本版已内置的包（如 CommandCode 用 `@opencode/ai/providers/openai/responses`） |
 | 仍要该包 | 官方另提供 npm 包与 `file://` 本地包两种 `package` 形式，可按需选用（本机未验证） |
+
+### 8.8 会话内无法 `sudo`（桌面端沙箱） <a id="nonewprivs"></a>
+
+在 **opencode 桌面端**发起的会话里执行需要提权的命令（如 `sudo ufw ...`）会直接失败：
+
+```text
+sudo: The "no new privileges" flag is set, which prevents sudo from running as root.
+```
+
+原因不是账号不在 sudo 组，也不是 opencode 的 `permissions`（本机已全 `allow`）：**桌面端（Electron/Chromium）主进程启动时会给自己设内核标记 `NoNewPrivs=1`**，其下所有子进程（opencode 服务、工具执行的命令）都继承该标记；`NoNewPrivs` 会让**任何 setuid 提权（含 sudo）失效**，且进程内无法自行解除。
+
+证据（会话内命令、桌面端主进程、共享服务三者的标记一致）：
+
+```bash
+grep NoNewPrivs /proc/self/status
+grep NoNewPrivs /proc/$(pgrep -f 'ai.opencode.desktop' | head -1)/status
+grep NoNewPrivs /proc/$(pgrep -f 'opencode-cli serve --service' | head -1)/status
+# 三者均输出 NoNewPrivs: 1
+```
+
+| 处置 | 结果 |
+| --- | --- |
+| 给桌面项 Exec 加 `--no-sandbox`，重启桌面端 | **无效**：Electron 主进程仍设 `NoNewPrivs=1`，实测主进程与服务的标记不变 |
+| 在会话内换 `pkexec` / 带密码的 `sudo -S` | 无效：任何 setuid 提权均被内核拒绝 |
+| **在本机终端执行提权命令** | **采用**：终端是 `systemd --user`（`NoNewPrivs=0`）的子进程，不受该标记限制，`sudo` 正常 |
+
+结论：**需要 root 的操作（如 ufw 放行端口）请在本机终端执行，不要在 opencode 会话里做**；桌面端沙箱的 `NoNewPrivs` 无法在会话内绕过（`systemd` 也只能增加该标记、不能移除）。
 
 ## 9. 关联文档 <a id="related"></a>
 
