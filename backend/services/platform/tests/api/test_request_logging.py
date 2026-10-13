@@ -36,12 +36,27 @@ def _build_app(*, slow_ms: int = 1000) -> FastAPI:
 
 
 def _records(capsys: pytest.CaptureFixture[str]) -> ConcurrentStableList[ConcurrentStableDict[str, object]]:
-    """读取 stdout 并按 JSON 行解析（跳过非 JSON 行，如 lifespan 装配日志的其它渲染形态）。"""
+    """读取 stdout 并按 JSON 行解析，**只保留本服务的日志事件**（跳过非 JSON 行与外部噪声）。
+
+    外部线程也会以 JSON 形态写入 stdout——前序 DB 用例遗留的 aiosqlite 连接在后台收尾时
+    会打 `executing <function Connection.stop...>`（structlog 把消息放在 `event` 键）；
+    若不加筛选，`records[0]` 会被噪声顶掉（2026-10-13 实测的顺序敏感偶发失败）。
+
+    Args:
+        capsys: pytest 标准输出捕获夹具。
+
+    Returns:
+        ConcurrentStableList[ConcurrentStableDict[str, object]]: 本服务日志事件记录（按输出顺序）。
+    """
+    events = ("request", "slow_request", "uncaught_exception")
     records: ConcurrentStableList[ConcurrentStableDict[str, object]] = ConcurrentStableList()
     for line in capsys.readouterr().out.splitlines():
         text = line.strip()
-        if text.startswith("{"):
-            records.add(ConcurrentStableDict(json.loads(text)))
+        if not text.startswith("{"):
+            continue
+        record = ConcurrentStableDict(json.loads(text))
+        if record.get("event") in events:
+            records.add(record)
     return records
 
 
