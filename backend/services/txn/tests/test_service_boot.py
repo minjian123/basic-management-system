@@ -2,8 +2,19 @@
 
 from httpx import ASGITransport, AsyncClient
 
+from bms_core.core.config import Settings
 from bms_txn import SERVICE_NAME
 from bms_txn.main import ApplicationFactory
+
+
+def test_prepare_settings_keeps_explicit_health_provider() -> None:
+    """`prepare_settings` 只补缺省：显式配置的健康检查 provider 不被清空（防真实检查被静默关闭）。"""
+    settings = Settings()
+    settings.health_check_registry.provider = "local"
+
+    ApplicationFactory().prepare_settings(settings)
+
+    assert settings.health_check_registry.provider == "local"
 
 
 async def test_service_boots_and_exposes_probes() -> None:

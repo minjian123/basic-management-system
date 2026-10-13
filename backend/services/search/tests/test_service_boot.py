@@ -5,6 +5,12 @@ from fastapi import FastAPI
 from httpx import AsyncClient
 
 from bms_search import SERVICE_NAME, SERVICE_TITLE
+from bms_search.models import MODEL_MODULES
+
+
+def test_models_package_declares_module_list() -> None:
+    """服务 `models` 包须声明 `MODEL_MODULES`（迁移链按服务解析模型；本服务暂无模型 → 空元组）。"""
+    assert MODEL_MODULES == ()
 
 
 @pytest.mark.kiwi_id(1206)

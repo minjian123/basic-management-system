@@ -154,3 +154,13 @@ async def test_startup_log_excludes_options(
     assert "插件装配完成" in out
     assert "object_storage" in out
     assert "top-secret" not in out
+
+
+def test_prepare_settings_keeps_explicit_data_scope_provider() -> None:
+    """`prepare_settings` 只补缺省：显式配置的 `[data_scope].provider` 不被改写。"""
+    settings = Settings()
+    settings.data_scope.provider = "custom-data-scope"
+
+    ApplicationFactory().prepare_settings(settings)
+
+    assert settings.data_scope.provider == "custom-data-scope"
