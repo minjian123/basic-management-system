@@ -969,6 +969,9 @@ e2e-playwright:
 .integration-base: &integration-base
   stage: verify
   image: $REGISTRY_IMAGE_PREFIX/ci-backend:py314
+  # 实库串行化：integration-* 与 txn-2pc 共用 bms_test_mysql / bms_test_pg，且各自收尾会 DROP 库
+  # ⇒ 同 stage 并行会互相「抽库」（2026-10-13 实测 txn-2pc 报 Unknown database / does not exist）。
+  resource_group: bms-real-db
   # Redis 基础能力（03_04）：集成档注入 Redis service，使 Redis 集成用例由 skip 转执行
   services:
     - name: redis:8
@@ -1011,6 +1014,8 @@ e2e-playwright:
 txn-2pc:
   stage: verify
   image: $REGISTRY_IMAGE_PREFIX/ci-backend:py314
+  # 与 integration-* 同组串行（共用同一个 bms_test_mysql / bms_test_pg，见 .integration-base 注释）
+  resource_group: bms-real-db
   variables:
     BMS_ENV: test
     BMS_TEST_MYSQL_URL: mysql+pymysql://bms_test:$MYSQL_TEST_PASSWORD@192.168.0.107:3306/bms_test_mysql
