@@ -1,0 +1,18 @@
+[Unit]
+Description=llama.cpp Qwen3.8-27B 推理服务（MIRIX 按需启动，0.0.0.0:8080）
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=minjian
+Group=minjian
+WorkingDirectory=/home/minjian/develop/llama.cpp
+EnvironmentFile=-/home/minjian/develop/llama.cpp/llamacpp-qwen.env
+ExecStart=/home/minjian/develop/llama.cpp/qwen-serve.sh ${MODEL_KEY}
+Restart=always
+RestartSec=5
+TimeoutStopSec=20
+
+[Install]
+WantedBy=multi-user.target

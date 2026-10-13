@@ -1,0 +1,19 @@
+[Unit]
+Description=llama.cpp bge-small-zh-v1.5 中文嵌入服务（MIRIX，0.0.0.0:8082）
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=minjian
+Group=minjian
+WorkingDirectory=/home/minjian/develop/llama.cpp
+# 走 CPU（-ngl 0），避免与 27B 抢 24G 显存
+ExecStart=/home/minjian/develop/llama.cpp/build/bin/llama-server \
+  -m /home/minjian/ai/models/bge-small-zh-v1.5/bge-small-zh-v1.5-f16.gguf \
+  --embeddings --host 0.0.0.0 --port 8082 -ngl 0 -c 512 --no-webui
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

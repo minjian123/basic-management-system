@@ -114,6 +114,25 @@ ls build/bin/llama-server
 ~/develop/llama.cpp/qwen-restart.sh std   # 重启为标准版
 ```
 
+### 3.3.1 系统级常驻服务（按需启动，供 MIRIX） <a id="deploy-systemd"></a>
+
+2026-10-13 起新增两个**系统级**服务，供 MIRIX 记忆服务按需 `systemctl start`（**默认不自启**，避免与人工脚本、显存占用冲突）：
+
+| 服务 | 端口 | 模型 | 说明 |
+| --- | --- | --- | --- |
+| `llamacpp-qwen` | 8080 | Qwen3.8-27B（档位见 `llamacpp-qwen.env`，可选 ud/std/unc） | 推理服务；前台包装脚本 `qwen-serve.sh`（不做 stop-others/nohup） |
+| `llamacpp-bge` | 8082 | bge-small-zh-v1.5（512 维） | 中文嵌入；CPU（`-ngl 0`），不与 27B 争显存 |
+
+```bash
+sudo bash scripts/tools/llamacpp/install-systemd.sh          # 一次性安装（sshd + ufw 放行 + 单元；脚本会同步 qwen-serve.sh 与档位配置）
+sudo systemctl start|stop llamacpp-qwen llamacpp-bge         # 按需启停
+sudo systemctl status llamacpp-qwen llamacpp-bge
+```
+
+> 单元与包装脚本的**仓库副本**在 `bms/scripts/tools/llamacpp/`（`llamacpp-*.service`、`qwen-serve.sh`、`llamacpp-qwen.env.example`、`install-systemd.sh`）；`install-systemd.sh` 会把包装脚本同步到 `~/develop/llama.cpp/` 再安装单元，机器与仓库两处保持一致。
+
+> 与人工脚本（3.3 节）的 8080 互斥：两种方式一次只跑一个 27B 实例。
+
 > 历史说明：早期采用 systemd 用户服务 `qwen.service`（disabled，人工启停）。为承载多模型自选，
 > 2026-09-01 起改为纯脚本 + nohup 管理，`qwen.service` 已禁用并移除；相关 `qwen-start.sh` 亦由
 > systemd 优先改通用模型启动器。
