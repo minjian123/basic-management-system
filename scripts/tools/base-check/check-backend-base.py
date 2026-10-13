@@ -3,10 +3,10 @@
 
 校验六项（《后端审计规范》B1 / B5 / B6 / B9 的机器化；直继承合法性见 09_01；数据类体系语义见 09_03）：
 
-1. **继承链对账**：《后端基类清单》§10「继承链与代码位置」的 `A → B → …` 链条
+1. **继承链对账**：《后端基类实现契约》§7「继承链与代码位置」的 `A → B → …` 链条
    ↔ 代码 `backend/libs/**`、`backend/services/**` 与 `backend/ops/**` 的 `class A(B)` 相邻关系；
 2. **清单登记对账**：直接继承 `BaseObject` 的类必须出现在《后端基类清单》文本中；
-3. **直继承合法性（09_01，严禁上帝基类）**：除《后端基类清单》§10「体系根清单」登记的**体系根**
+3. **直继承合法性（09_01，严禁上帝基类）**：除《后端基类实现契约》§7「体系根清单」登记的**体系根**
    与 `deploy/boundaries/direct_base_object_baseline.json` **基线存量**外，**禁止直接继承 `BaseObject`**
    （体系根必须承载本体系公共语义；存量按盘点报告分批归位并递减基线）；
 4. **错误码段位**：`bms_core/core/error_codes.py` 的平台码为 5 位且万位落在平台段（1~9）、
@@ -45,6 +45,9 @@ from bms_core.core.serialization import normalize_collections  # noqa: E402
 
 ROOT = os.path.abspath(sys.argv[1] if len(sys.argv) > 1 else ".")
 MANIFEST = os.path.join(ROOT, "bms文档/后端基类清单.md")
+"""基类登记表（清单登记对账读取：直接继承 `BaseObject` 的类须出现在本清单文本中）。"""
+CHAIN_DOC = os.path.join(ROOT, "bms文档/设计/基类体系/后端基类实现契约.md")
+"""继承链与体系根清单文档（§7 继承链与代码位置；继承链对账与体系根白名单读取）。"""
 SOURCE_DIRS = (
     os.path.join(ROOT, "backend/libs"),
     os.path.join(ROOT, "backend/services"),
@@ -55,7 +58,7 @@ VERSIONS_DIR = os.path.join(ROOT, "backend/alembic/versions")
 DIRECT_BASELINE = os.path.join(ROOT, "deploy/boundaries/direct_base_object_baseline.json")
 """直继承存量基线快照（09_01；未归位的历史直继承类豁免并递减）。"""
 ROOT_BASES_MARKER = "体系根清单"
-"""《后端基类清单》§10 内「体系根清单」小节标记（白名单权威来源）。"""
+"""《后端基类实现契约》§7 内「体系根清单」小节标记（白名单权威来源）。"""
 VALUE_OBJECT_ROOT = "BaseValueObject"
 """值对象体系根（其下各类须为不可变数据类：`@dataclass(frozen=True)`）。"""
 FRAMEWORK_OBJECT_ROOT = "BaseFrameworkObject"
@@ -169,8 +172,8 @@ def index_classes() -> ConcurrentStableDict[str, ConcurrentStableList[Concurrent
 
 def check_inheritance(index: ConcurrentStableDict[str, ConcurrentStableList[ConcurrentStableList[str]]]) -> int:
     global checked_chains
-    text = Path(MANIFEST).read_text(encoding="utf-8")
-    section = text[text.index("## 10. 继承链与代码位置") : text.index("## 11.")]
+    text = Path(CHAIN_DOC).read_text(encoding="utf-8")
+    section = text[text.index("## 7. 继承链与代码位置") :]
     for raw_line in section.splitlines():
         for chain in parse_chains(raw_line):
             for parent, child in itertools.pairwise(chain):
@@ -202,13 +205,13 @@ def check_manifest_coverage(index: ConcurrentStableDict[str, ConcurrentStableLis
 
 
 def parse_root_bases() -> ConcurrentStableList[str]:
-    """解析《后端基类清单》§10「体系根清单」小节的体系根类名（白名单）。
+    """解析《后端基类实现契约》§7「体系根清单」小节的体系根类名（白名单）。
 
     Returns:
         ConcurrentStableList[str]: 允许直接继承 `BaseObject` 的体系根类名（稳定序；小节缺失时为空）。
     """
-    text = Path(MANIFEST).read_text(encoding="utf-8")
-    section = text[text.index("## 10.") : text.index("## 11.")] if "## 10." in text and "## 11." in text else text
+    text = Path(CHAIN_DOC).read_text(encoding="utf-8")
+    section = text[text.index("## 7. 继承链与代码位置") :] if "## 7. 继承链与代码位置" in text else text
     marker_index = section.find(ROOT_BASES_MARKER)
     if marker_index < 0:
         return ConcurrentStableList()
@@ -277,7 +280,7 @@ def check_direct_inheritance() -> int:
     """直继承合法性（09_01）：除体系根（清单白名单）与基线存量外，禁止直接继承 `BaseObject`。"""
     roots = parse_root_bases()
     if not roots:
-        problems.add(f"[直继承] 《后端基类清单》§10 未登记「{ROOT_BASES_MARKER}」小节（白名单缺失，按拒绝处理）")
+        problems.add(f"[直继承] 《后端基类实现契约》§7 未登记「{ROOT_BASES_MARKER}」小节（白名单缺失，按拒绝处理）")
         return 0
     baseline = load_direct_baseline()
     found = scan_direct_base_object()
@@ -598,12 +601,18 @@ def self_test() -> int:
 
         def write_manifest(*, chains: str = "", roots: tuple[str, ...] = ("BaseValueObject",)) -> None:
             root_lines = "\n".join(f"- `{name}`：测试体系" for name in roots)
-            with open(os.path.join(tmp, "bms文档/后端基类清单.md"), "w", encoding="utf-8") as handle:
-                handle.write(
-                    "# 清单\n\n## 10. 继承链与代码位置\n\n"
-                    f"**{ROOT_BASES_MARKER}（允许直接继承 `BaseObject`）**：\n\n"
-                    f"{root_lines}\n\n{chains}\n\n## 11. 扩展\n"
-                )
+            body = (
+                "# 清单\n\n## 7. 继承链与代码位置\n\n"
+                f"**{ROOT_BASES_MARKER}（允许直接继承 `BaseObject`）**：\n\n"
+                f"{root_lines}\n\n{chains}\n"
+            )
+            for path in (
+                os.path.join(tmp, "bms文档/后端基类清单.md"),
+                os.path.join(tmp, "bms文档/设计/基类体系/后端基类实现契约.md"),
+            ):
+                os.makedirs(os.path.dirname(path), exist_ok=True)
+                with open(path, "w", encoding="utf-8") as handle:
+                    handle.write(body)
 
         def write_baseline(entries: ConcurrentStableList[tuple[str, str]]) -> None:
             payload = {
@@ -643,8 +652,12 @@ def self_test() -> int:
         write_baseline([])
         run_case("非体系根直继承未入基线", expect_fail=True)
         # 3) 体系根清单小节缺失（白名单为空）→ 拦截
-        with open(os.path.join(tmp, "bms文档/后端基类清单.md"), "w", encoding="utf-8") as handle:
-            handle.write("# 清单\n\n## 10. 继承链与代码位置\n\n## 11. 扩展\n")
+        for path in (
+            os.path.join(tmp, "bms文档/后端基类清单.md"),
+            os.path.join(tmp, "bms文档/设计/基类体系/后端基类实现契约.md"),
+        ):
+            with open(path, "w", encoding="utf-8") as handle:
+                handle.write("# 清单\n\n## 7. 继承链与代码位置\n")
         run_case("体系根清单缺失", expect_fail=True)
         # 4) 清单登记未存在的类 → 拦截（继承链缺类）
         write_manifest(chains="- `GhostClass → BaseObject`。")
@@ -756,7 +769,7 @@ def main() -> int:
     shapes = check_data_class_semantics()
     codes = check_error_segments()
     revs = check_alembic_chain()
-    print(f"1. 继承链对账：检查 {chains} 条相邻关系（清单 §10 ↔ 代码）")
+    print(f"1. 继承链对账：检查 {chains} 条相邻关系（实现契约 §7 ↔ 代码）")
     print(f"2. 清单对账（补充）：直接继承 BaseObject 的 {covered} 个基座类均已登记")
     print(f"3. 直继承合法性：检查 {direct} 个直接继承 BaseObject 的类（体系根 / 基线放行）")
     print(f"4. 数据类体系语义：检查 {shapes} 个类形态（值对象须 frozen dataclass / 框架对象不得 dataclass）")

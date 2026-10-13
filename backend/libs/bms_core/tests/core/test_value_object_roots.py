@@ -1,6 +1,6 @@
 """值对象存量归位（批次 1，09_03，Kiwi 2216）。
 
-依据《后端基类清单》§10「体系根清单」与 09_01 直继承护栏
+依据《后端基类实现契约》§7「体系根清单」与 09_01 直继承护栏
 （`scripts/tools/base-check/check-backend-base.py`）：
 
 - 批次 1 的 110 个不可变值对象改挂 `BaseValueObject`（不再直继承 `BaseObject`），其中
@@ -97,7 +97,7 @@ from bms_core.workflow.base import ProcessDefinition, ProcessInstance
 _BACKEND = Path(__file__).resolve().parents[4]
 _ROOT = _BACKEND.parent
 _BASELINE = _ROOT / "deploy" / "boundaries" / "direct_base_object_baseline.json"
-_MANIFEST = _ROOT / "bms文档" / "后端基类清单.md"
+_MANIFEST = _ROOT / "bms文档" / "设计" / "基类体系" / "后端基类实现契约.md"
 _SOURCE_DIRS = (_BACKEND / "libs", _BACKEND / "services", _BACKEND / "ops")
 _SYSTEM_ROOTS = frozenset(
     {
@@ -347,13 +347,13 @@ def _baseline_entries() -> ConcurrentStableList[tuple[str, str, str]]:
 
 
 def _manifest_system_roots() -> ConcurrentStableList[str]:
-    """解析《后端基类清单》§10「体系根清单」小节的体系根（护栏白名单权威来源）。
+    """解析《后端基类实现契约》§7「体系根清单」小节的体系根（护栏白名单权威来源）。
 
     Returns:
         ConcurrentStableList[str]: 体系根类名（稳定序）。
     """
     text = _MANIFEST.read_text(encoding="utf-8")
-    section = text[text.index("## 10.") : text.index("## 11.")]
+    section = text[text.index("## 7. 继承链与代码位置") :]
     roots: ConcurrentStableList[str] = ConcurrentStableList()
     for raw_line in section[section.index(_ROOT_BASES_MARKER) :].splitlines()[1:]:
         line = raw_line.strip()
@@ -510,7 +510,7 @@ def test_secret_material_repr_masks_declared_fields() -> None:
 
 @pytest.mark.kiwi_id(2216)
 def test_system_roots_still_directly_inherit_base_object() -> None:
-    """体系根边界：白名单 = 清单 §10「体系根清单」的 7 个，且仍直接继承 `BaseObject`。"""
+    """体系根边界：白名单 = 实现契约 §7「体系根清单」的 7 个，且仍直接继承 `BaseObject`。"""
     found = {name for _rel, name in _direct_base_object_inheritors()}
     assert set(_manifest_system_roots()) == _SYSTEM_ROOTS
     assert found >= _SYSTEM_ROOTS
