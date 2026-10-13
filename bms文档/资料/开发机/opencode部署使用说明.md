@@ -52,7 +52,7 @@ v2 是一次重写（服务端 API 重做、运行时换 Node、插件 API 不�
 - v1 全局配置的 provider 用 `npm: "@ai-sdk/openai-compatible"` 运行时，凭据存 `~/.local/share/opencode/auth.json` 并通过 `/connect` 录入；
 - v1 插件 API 与 v2 **完全不兼容**，v1 插件实现（如工作区 `.opencode/plugins/*.js`）不会在 v2 中运行。
 
-> 2026-09-18 的记忆插件 `opencode-mem` 故障处置（登记后桌面端无法会话、当日卸载）属 v1 时期事件，其排除思路（先移除 `plugin` 登记、清插件缓存、完全重启）对 v2 的 v2 版插件同样适用。
+> 记忆插件 `opencode-mem` 两轮部署均当日卸载：2026-09-18（v1 时期，登记后桌面端无法会话）与 2026-10-13（v2 时期重新登记，当日移除）。当前全局与各工作区均未登记该插件，两轮残留（插件配置 `opencode-mem.jsonc`、记忆库 `~/.opencode-mem/`、插件缓存、工作区标记 `.opencode-mem-project`）均已清理。将来如需重新登记，按 git 历史找回当日的《opencode-mem部署使用说明》；登记后须**完全重启**并先验证会话正常再投入日常使用——排除与清理思路（先移除登记项、清插件缓存、完全重启）对其他插件同样适用。
 
 ## 3. 技术环境 <a id="environment"></a>
 
