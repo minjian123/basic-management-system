@@ -67,6 +67,10 @@ opencode plugin add opencode-mem@latest
 
 ```jsonc
 {
+  // 语言：记忆与用户画像内容一律简体中文
+  //   默认 "auto" 会跟随提示词语言，但工具描述会显示 English（getLanguageName("auto")→English），可能诱导英文
+  "autoCaptureLanguage": "zh",
+
   // 自动捕获：用【本机】Qwen3.8-27B（opencode 的 llamacpp 提供商）
   "opencodeProvider": "llamacpp",
   "opencodeModel": "qwen3.8-27b-q4-k-m",
@@ -88,6 +92,7 @@ opencode plugin add opencode-mem@latest
   - 走 OpenCode 已注册的本地 provider：`opencodeProvider` + `opencodeModel`（本方案采用，opencode 负责鉴权/路由）。
   - 直连 OpenAI 兼容端点：`memoryProvider: "openai-chat"` + `memoryApiUrl` + `memoryModel` + `memoryApiKey`。
 - `"opencodeModel": "inherit"` 表示**跟随当前会话模型**（会话用云端时会走云端，不算本地）。
+- **语言**：`autoCaptureLanguage` 控制自动捕获记忆与用户画像的输出语言，默认 `"auto"`（跟随提示词）；本方案显式设为 `"zh"`（中文）。取值为 ISO 639 语言码（`getLanguageName` 映射：`zh`→Chinese、`en`→English）。
 - **嵌入换模型会变维度**，届时需用 Web UI 的 re-embed 功能重建；本方案用本机 bge（512 维）固定不变。
 - 单独用插件内置嵌入（`Xenova/nomic-embed-text-v1`）时首次需从 Hugging Face 下载；国内可设 `HF_ENDPOINT=https://hf-mirror.com`（已写入 `~/.config/environment.d/hf-mirror.conf`）。
 
