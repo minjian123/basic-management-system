@@ -101,6 +101,28 @@ export abstract class BasePageRoute extends BasePlaceholderState {
   }
 
   /**
+   * 是否字典记录页（表单标识命中且数据形态为字典）。
+   *
+   * 字典记录页据此套用《布局设计 · 字典页》骨架；清单未装载 / 未命中的表单标识返回 `false`（占位零请求语义不变）。
+   *
+   * @param formKey 表单标识。
+   * @returns 是否字典。
+   */
+  isDictPage(formKey: string): boolean {
+    return this.formKeys.find((entry) => entry.formKey === formKey)?.isDict === true
+  }
+
+  /**
+   * 是否字典数据源（数据源标识命中且数据形态为字典）。
+   *
+   * @param dataSourceKey 数据源标识。
+   * @returns 是否字典；清单未装载 / 未命中返回 `false`。
+   */
+  isDictDataSource(dataSourceKey: string): boolean {
+    return this.dataSources.find((entry) => entry.dataSourceKey === dataSourceKey)?.isDict === true
+  }
+
+  /**
    * 解析数据源标识（`form_key → data_source_key`）。
    *
    * @param formKey 表单标识。

@@ -11,7 +11,7 @@
 
 from typing import Annotated
 
-from pydantic import Field
+from pydantic import Field, computed_field
 
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.registry.forms import FormKind, FormStatus
@@ -29,6 +29,12 @@ class FormKeyResponse(BaseSchema):
     table: str = Field(description="物理表名（该标识所在实体表）")
     data_source_key: str | None = Field(default=None, description="数据源标识（`form_key → data_source_key` 多对一）")
     status: FormStatus = Field(default=FormStatus.ENABLED, description="状态（enabled / disabled）")
+
+    @computed_field
+    @property
+    def is_dict(self) -> bool:
+        """是否字典（由 `kind` 派生；供界面按数据形态套用字典记录页骨架，避免前端各写一套判定）。"""
+        return self.kind == FormKind.DICT
 
 
 class FormKeyListResponse(BaseSchema):

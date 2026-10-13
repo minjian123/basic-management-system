@@ -3985,6 +3985,11 @@ export interface components {
              * @description 数据源标识（业务码字符串，全局唯一）
              */
             data_source_key: string;
+            /**
+             * Is Dict
+             * @description 是否字典（由 `kind` 派生；供界面按数据形态套用字典记录页骨架，避免前端各写一套判定）。
+             */
+            readonly is_dict: boolean;
             /** @description 类型（dict 字典 / form 表单，预留其它） */
             kind: components["schemas"]["DataSourceKind"];
             /**
@@ -4672,6 +4677,11 @@ export interface components {
              * @description 表单标识（业务码字符串，全局唯一、保存后不变）
              */
             form_key: string;
+            /**
+             * Is Dict
+             * @description 是否字典（由 `kind` 派生；供界面按数据形态套用字典记录页骨架，避免前端各写一套判定）。
+             */
+            readonly is_dict: boolean;
             /** @description 类型（dict 字典 / form 表单） */
             kind: components["schemas"]["FormKind"];
             /**

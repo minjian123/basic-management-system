@@ -4,14 +4,17 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from bms_core.application import service_lifespan as lifespan
-from bms_core.registry.forms import FORM_CATALOG
+from bms_core.registry.forms import FORM_CATALOG, FormKind, FormRecord
 from bms_core.schemas.form import FormKeyListResponse, FormKeyResponse
 from bms_platform.main import ApplicationFactory
+
+# 响应字段集 = 声明字段 ∪ 计算字段（`is_dict` 为派生字段，不入 `model_fields`）。
+_ITEM_FIELDS = set(FormKeyResponse.model_fields) | set(FormKeyResponse.model_computed_fields)
 
 
 @pytest.mark.kiwi_id(2292)
 async def test_form_keys_contract(client: AsyncClient) -> None:
-    """GET /api/v1/form-keys：登录即可；data.items 字段集 = FormKeyResponse.model_fields；枚举取值；映射闭合。"""
+    """GET /api/v1/form-keys：登录即可；data.items 字段集 = 声明字段 ∪ 计算字段；枚举取值；映射闭合。"""
     resp = await client.get("/api/v1/form-keys")
     assert resp.status_code == 200
     body = resp.json()
@@ -20,7 +23,7 @@ async def test_form_keys_contract(client: AsyncClient) -> None:
     items = body["data"]["items"]
     assert len(items) == len(FORM_CATALOG)
     first = items[0]
-    assert set(first) == set(FormKeyResponse.model_fields)
+    assert set(first) == _ITEM_FIELDS
     assert first["kind"] in {"dict", "form"}
     assert first["status"] in {"enabled", "disabled"}
     # form_key → data_source_key 闭合：每条非空，且与构建期清单一致。
@@ -28,6 +31,17 @@ async def test_form_keys_contract(client: AsyncClient) -> None:
     for item in items:
         assert item["data_source_key"] is not None
         assert item["data_source_key"] == expected[item["form_key"]]
+    # 派生字段 is_dict：与 kind 同源（本清单均为字典表），且非字典项为 False。
+    assert all(item["is_dict"] == (item["kind"] == "dict") for item in items)
+    assert all(item["is_dict"] is True for item in items)
+    form_record = FormRecord(
+        form_key="purchase_order",
+        table="biz_purchase_order",
+        name="采购申请",
+        kind=FormKind.FORM.value,
+        data_source_key="purchase_order",
+    )
+    assert FormKeyResponse.model_validate(form_record).is_dict is False
 
 
 @pytest.mark.kiwi_id(2292)
@@ -66,5 +80,6 @@ async def test_form_keys_contract_schema() -> None:
     ref = path["responses"]["200"]["content"]["application/json"]["schema"]["$ref"]
     assert ref == "#/components/schemas/ApiResponse_FormKeyListResponse_"
     components = schema["components"]["schemas"]
-    assert set(components["FormKeyResponse"]["properties"]) == set(FormKeyResponse.model_fields)
+    assert set(components["FormKeyResponse"]["properties"]) == _ITEM_FIELDS
+    assert components["FormKeyResponse"]["properties"]["is_dict"]["type"] == "boolean"
     assert set(components["FormKind"]["enum"]) == {"dict", "form"}

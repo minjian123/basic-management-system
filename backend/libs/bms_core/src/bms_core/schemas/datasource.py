@@ -11,7 +11,7 @@
 
 from typing import Annotated
 
-from pydantic import Field
+from pydantic import Field, computed_field
 
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.datasource.registry import (
@@ -41,6 +41,12 @@ class DataSourceResponse(BaseSchema):
         default=(DataSourceStrategy.SELECT,), description="可用策略集合（select / region / match / extension）"
     )
     status: DataSourceStatus = Field(default=DataSourceStatus.ENABLED, description="状态（enabled / disabled）")
+
+    @computed_field
+    @property
+    def is_dict(self) -> bool:
+        """是否字典（由 `kind` 派生；供界面按数据形态套用字典记录页骨架，避免前端各写一套判定）。"""
+        return self.kind == DataSourceKind.DICT
 
 
 class DataSourceListResponse(BaseSchema):

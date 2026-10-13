@@ -12,8 +12,22 @@ import { buildListPrefKey } from './list-preference'
 export const DATA_SOURCE_KINDS: readonly string[] = ['dict', 'form']
 /** 表单标识类型（与后端 `FormKind` 同源）。 */
 export const FORM_KINDS: readonly string[] = ['dict', 'form']
+/** 字典类型取值（数据形态 = 字典；与后端 `FormKind.DICT` / `DataSourceKind.DICT` 同源）。 */
+export const DICT_KIND = 'dict'
 /** 标识格式（与后端 `FORM_KEY_PATTERN` / `DATA_SOURCE_KEY_PATTERN` 同源）。 */
 export const PAGE_ROUTE_KEY_PATTERN = /^[a-z][a-z0-9_]*$/
+
+/**
+ * 是否字典（**唯一判定**：数据形态 = 字典）。
+ *
+ * 字典记录页据此套用《布局设计 · 字典页》骨架；后端同口径经清单响应 `is_dict` 下发。
+ *
+ * @param kind 类型取值（`dict` / `form`；未知 / 缺省按非字典）。
+ * @returns 是否字典。
+ */
+export function isDictKind(kind: string | undefined): boolean {
+  return kind === DICT_KIND
+}
 
 /** 数据源登记记录（`GET /api/v1/data-sources` 清单条目；兼容 `snake_case`）。 */
 export interface DataSourceRecord {
@@ -23,6 +37,8 @@ export interface DataSourceRecord {
   name: string
   /** 类型（`dict` / `form`，预留其它）。 */
   kind: string
+  /** 是否字典（后端派生字段 `is_dict`；缺省按 `kind` 判定）。 */
+  isDict: boolean
   /** 数据出口标识。 */
   dataSource: string
   /** 来源（`platform` / `product`）。 */
@@ -49,6 +65,8 @@ export interface FormKeyRecord {
   name: string
   /** 类型（`dict` / `form`）。 */
   kind: string
+  /** 是否字典（后端派生字段 `is_dict`；缺省按 `kind` 判定）。 */
+  isDict: boolean
   /** 物理表名。 */
   table: string
   /** 数据源标识（`form_key → data_source_key` 多对一；可空）。 */
@@ -137,6 +155,23 @@ function readStringArray(record: Record<string, unknown>, keys: readonly string[
 }
 
 /**
+ * 读布尔字段（兼容 `snake_case`；非布尔回落 `undefined`）。
+ *
+ * @param record 原始对象。
+ * @param keys 候选键（依次尝试）。
+ * @returns 布尔值；未命中返回 `undefined`。
+ */
+function readBoolean(record: Record<string, unknown>, keys: readonly string[]): boolean | undefined {
+  for (const key of keys) {
+    const value = record[key]
+    if (typeof value === 'boolean') {
+      return value
+    }
+  }
+  return undefined
+}
+
+/**
  * 归一单条数据源登记记录。
  *
  * @param raw 原始记录。
@@ -151,12 +186,14 @@ export function normalizeDataSourceRecord(raw: unknown): DataSourceRecord | unde
   if (dataSourceKey === '') {
     return undefined
   }
+  const kind = readString(record, ['kind'])
   const productKey = readString(record, ['productKey', 'product_key'])
   const path = readString(record, ['path'])
   const result: DataSourceRecord = {
     dataSourceKey,
     name: readString(record, ['name'], dataSourceKey),
-    kind: readString(record, ['kind']),
+    kind,
+    isDict: readBoolean(record, ['isDict', 'is_dict']) ?? isDictKind(kind),
     dataSource: readString(record, ['dataSource', 'data_source']),
     origin: readString(record, ['origin']),
     allowlist: readStringArray(record, ['allowlist']),
@@ -198,11 +235,13 @@ export function normalizeFormKeyRecord(raw: unknown): FormKeyRecord | undefined 
   if (formKey === '') {
     return undefined
   }
+  const kind = readString(record, ['kind'], DICT_KIND)
   const dataSourceKey = readString(record, ['dataSourceKey', 'data_source_key'])
   const result: FormKeyRecord = {
     formKey,
     name: readString(record, ['name'], formKey),
-    kind: readString(record, ['kind'], 'dict'),
+    kind,
+    isDict: readBoolean(record, ['isDict', 'is_dict']) ?? isDictKind(kind),
     table: readString(record, ['table']),
     status: readString(record, ['status'], 'enabled'),
   }

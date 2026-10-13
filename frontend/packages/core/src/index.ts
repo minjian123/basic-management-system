@@ -1998,8 +1998,10 @@ export {
 } from './domain/list-preference'
 export {
   DATA_SOURCE_KINDS,
+  DICT_KIND,
   FORM_KINDS,
   PAGE_ROUTE_KEY_PATTERN,
+  isDictKind,
   normalizeDataSourceRecord,
   normalizeDataSourceRecords,
   normalizeFormKeyRecord,
