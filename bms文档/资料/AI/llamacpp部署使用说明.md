@@ -114,9 +114,9 @@ ls build/bin/llama-server
 ~/develop/llama.cpp/qwen-restart.sh std   # 重启为标准版
 ```
 
-### 3.3.1 系统级常驻服务（按需启动，供 MIRIX） <a id="deploy-systemd"></a>
+### 3.3.1 系统级常驻服务（按需启动） <a id="deploy-systemd"></a>
 
-2026-10-13 起新增两个**系统级**服务，供 MIRIX 记忆服务按需 `systemctl start`（**默认不自启**，避免与人工脚本、显存占用冲突）：
+2026-10-13 起新增两个**系统级**服务，可按需 `systemctl start`（**默认不自启**，避免与人工脚本、显存占用冲突）：
 
 | 服务 | 端口 | 模型 | 说明 |
 | --- | --- | --- | --- |
