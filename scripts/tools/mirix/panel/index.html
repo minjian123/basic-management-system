@@ -9,15 +9,16 @@
   * { box-sizing:border-box; }
   body { margin:0; font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
          background:var(--bg); color:var(--fg); font-size:14px; }
-  header { display:flex; align-items:center; gap:16px; padding:14px 20px; border-bottom:1px solid var(--line);
+  header { display:flex; align-items:center; gap:12px; padding:12px 20px; border-bottom:1px solid var(--line);
            position:sticky; top:0; background:var(--bg); z-index:5; flex-wrap:wrap; }
   h1 { font-size:16px; margin:0; }
   .card { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:14px 16px; margin:14px 20px; }
-  button, select, input[type=text], input[type=password], textarea {
+  button, select, input[type=text], input[type=password], input[type=number] {
       background:#21262d; color:var(--fg); border:1px solid var(--line); border-radius:6px;
       padding:6px 10px; font-size:13px; font-family:inherit; }
   button { cursor:pointer; }
-  button:hover { border-color:var(--acc); }
+  button:disabled { opacity:.45; cursor:not-allowed; }
+  button:hover:not(:disabled) { border-color:var(--acc); }
   button.primary { background:var(--acc); border-color:var(--acc); color:#fff; }
   .tabs { display:flex; gap:6px; flex-wrap:wrap; margin:6px 0 12px; }
   .tabs button.active { background:var(--acc); border-color:var(--acc); color:#fff; }
@@ -34,6 +35,9 @@
   .login { max-width:520px; margin:12vh auto; }
   .login input { width:100%; margin:6px 0 12px; }
   label { color:var(--dim); font-size:12px; }
+  .pager { display:flex; align-items:center; gap:8px; flex-wrap:wrap; padding:10px 2px 2px; border-top:1px solid var(--line); margin-top:10px; }
+  .pager .info { color:var(--dim); font-size:12px; }
+  .pager input[type=number] { width:70px; }
 </style>
 </head>
 <body>
@@ -53,7 +57,7 @@
     <span id="health" class="muted">检测中…</span>
     <span class="grow"></span>
     <label>作用域</label>
-    <select id="userSel" onchange="loadAll()">
+    <select id="userSel" onchange="onScopeChange()">
       <option value="minjian">minjian（用户级）</option>
       <option value="minjian@bizs">minjian@bizs（项目级·bizs）</option>
       <option value="minjian@cws">minjian@cws（项目级·cws）</option>
@@ -69,7 +73,7 @@
       <button onclick="clearSearch()">清除</button>
       <button onclick="doDream(true)">归并预览</button>
       <button onclick="doDream(false)">执行归并</button>
-      <button onclick="loadAll()">刷新</button>
+      <button onclick="loadType()">刷新</button>
     </div>
     <p class="muted" id="hint" style="margin:8px 0 0"></p>
   </div>
@@ -77,6 +81,7 @@
   <div class="card">
     <div class="tabs" id="tabs"></div>
     <div id="list"></div>
+    <div class="pager" id="pager"></div>
   </div>
 </div>
 
@@ -88,8 +93,14 @@ const TYPES = [
   ['episodic','情景记忆'], ['semantic','语义记忆'], ['procedural','流程记忆'],
   ['resource','资源记忆'], ['knowledge_vault','知识库'], ['core','核心记忆'],
 ];
+const FETCH_LIMIT = 1000;   // 后端单次上限（MAX_MEMORY_LIMIT）
+
 let curType = 'episodic';
-let lastSearch = null;
+let searchMode = false;      // 当前是否为搜索结果视图
+let allItems = [];           // 当前视图的全部条目（已抓取）
+let serverTotal = 0;         // 后端报告的该类型总数
+let page = 1;
+let pageSize = Number(localStorage.getItem('mirix_pageSize') || 10);
 
 function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.style.display='block';
   clearTimeout(t._h); t._h=setTimeout(()=>t.style.display='none', 4000); }
@@ -98,15 +109,20 @@ function saveKey(){ const v=document.getElementById('keyInput').value.trim();
   if(!v){ document.getElementById('loginMsg').textContent='请填写 API Key'; return; }
   localStorage.setItem('mirix_key', v); boot(); }
 function switchKey(){ localStorage.removeItem('mirix_key'); location.reload(); }
-function currentUser(){ const v=document.getElementById('userSel').value;
-  if(v==='__custom'){ const c=prompt('输入作用域 user_id（如 minjian@xxx）'); if(c){ return c; } }
-  return v; }
+
+function currentUser(){
+  const v=document.getElementById('userSel').value;
+  if(v==='__custom'){ const c=prompt('输入作用域 user_id（如 minjian@xxx）'); return c || 'minjian'; }
+  return v;
+}
+function onScopeChange(){ searchMode=false; page=1; loadType(); }
 
 async function api(path, opt){
   opt = opt || {};
   const headers = Object.assign({ 'X-API-Key': getKey() }, opt.headers || {});
   if(opt.body) headers['Content-Type']='application/json';
-  const res = await fetch(API + path, { method: opt.method || 'GET', headers, body: opt.body ? JSON.stringify(opt.body) : undefined });
+  const res = await fetch(API + path, { method: opt.method || 'GET', headers,
+    body: opt.body ? JSON.stringify(opt.body) : undefined });
   const text = await res.text();
   let data; try { data = JSON.parse(text); } catch(e){ data = text; }
   if(!res.ok){ throw new Error((data && data.detail) ? data.detail : ('HTTP ' + res.status)); }
@@ -116,58 +132,80 @@ async function api(path, opt){
 async function boot(){
   document.getElementById('login').style.display='none';
   document.getElementById('app').style.display='block';
-  renderTabs(); checkHealth(); loadAll();
+  renderTabs(); checkHealth(); loadType();
 }
 
 function renderTabs(){
-  const box = document.getElementById('tabs');
-  box.innerHTML = TYPES.map(([k,zh]) =>
-    `<button class="${k===curType?'active':''}" onclick="pickType('${k}')">${zh}</button>`).join('');
+  document.getElementById('tabs').innerHTML = TYPES.map(([k,zh]) =>
+    `<button class="${k===curType && !searchMode ?'active':''}" onclick="pickType('${k}')">${zh}</button>`).join('');
 }
-function pickType(k){ curType=k; lastSearch=null; renderTabs(); loadType(); }
+function pickType(k){ curType=k; searchMode=false; page=1; renderTabs(); loadType(); }
 
 async function checkHealth(){
   const el=document.getElementById('health');
-  try{ const d=await api('/health'); el.innerHTML='服务：<span class="status-ok">正常</span>'; }
+  try{ await api('/health'); el.innerHTML='服务：<span class="status-ok">正常</span>'; }
   catch(e){ el.innerHTML='服务：<span class="status-bad">异常</span> ' + e.message; }
 }
 
-async function loadAll(){
-  await checkHealth();
-  await loadType();
-}
-
 async function loadType(){
+  searchMode=false; page=1; renderTabs();
   const user=currentUser();
-  const list=document.getElementById('list');
-  document.getElementById('hint').textContent = '作用域 ' + user + ' · 共 6 类记忆';
-  list.innerHTML='<p class="muted">加载中…</p>';
+  document.getElementById('list').innerHTML='<p class="muted">加载中…</p>';
+  document.getElementById('pager').innerHTML='';
   try{
-    const d=await api('/memory/components?user_id=' + encodeURIComponent(user) + '&memory_type=' + curType);
-    renderComponents(d.memories || {}, user);
-  }catch(e){ list.innerHTML='<p class="status-bad">读取失败：' + e.message + '</p>'; }
+    const d=await api('/memory/components?user_id=' + encodeURIComponent(user) +
+                      '&memory_type=' + curType + '&limit=' + FETCH_LIMIT);
+    const v=(d.memories || {})[curType] || {};
+    serverTotal = (v.total_count!==undefined) ? v.total_count : (v.items||[]).length;
+    if(curType==='core'){
+      const scopes=v.scopes||{};
+      allItems=Object.keys(scopes).flatMap(k=>(scopes[k]||[]).map(b=>({
+        _core:true, label:(b.label||k), id:b.id||'', value:b.value||'' })));
+    } else {
+      allItems=v.items||[];
+    }
+    document.getElementById('hint').textContent = '作用域 ' + user + ' · 当前类型「' + zhType(curType) + '」';
+    renderPage();
+  }catch(e){ document.getElementById('list').innerHTML='<p class="status-bad">读取失败：' + e.message + '</p>'; }
 }
 
-function renderComponents(mems, user){
+function totalPages(){ return Math.max(1, Math.ceil(allItems.length / pageSize)); }
+function clampPage(){ page = Math.min(Math.max(1, page), totalPages()); }
+
+function renderPage(){
   const list=document.getElementById('list');
-  const v = mems[curType] || {};
-  const items = v.items || [];
-  if(curType==='core'){
-    const scopes = v.scopes || {};
-    const keys = Object.keys(scopes);
-    if(!keys.length){ list.innerHTML='<p class="muted">（无核心记忆）</p>'; return; }
-    list.innerHTML = keys.map(k=>{
-      const blocks = scopes[k] || [];
-      return blocks.map(b=>rowCard('核心', b.label||k, 'block', b.value||'')).join('');
-    }).join('');
-    return;
-  }
-  if(mems[curType] && mems[curType].total_count===undefined && v.total_count===undefined){ /* noop */ }
-  const total = (v.total_count!==undefined) ? v.total_count : items.length;
-  if(!items.length){ list.innerHTML='<p class="muted">（无记录，共 '+total+' 条）</p>'; return; }
-  list.innerHTML = '<p class="muted" style="margin:0 0 8px">共 ' + total + ' 条</p>' +
-                   items.map(it=>rowCard(curType, displayTitle(curType,it), it.id||'', displayBody(curType,it))).join('');
+  if(!allItems.length){ list.innerHTML='<p class="muted">（无记录，库中共 '+serverTotal+' 条）</p>';
+    document.getElementById('pager').innerHTML=''; return; }
+  clampPage();
+  const start=(page-1)*pageSize, end=Math.min(start+pageSize, allItems.length);
+  const slice=allItems.slice(start, end);
+  list.innerHTML = (searchMode ? '' : '<p class="muted" style="margin:0 0 8px">库中共 ' + serverTotal + ' 条，已抓取 ' + allItems.length + ' 条</p>')
+    + slice.map(it=>{
+        if(it._core) return rowCard('核心', it.label, it.id, it.value);
+        const t=it.memory_type||curType;
+        return rowCard(zhType(t), displayTitle(t,it), it.id||'', displayBody(t,it));
+      }).join('');
+  renderPager(start, end);
 }
+
+function renderPager(start, end){
+  const tp=totalPages();
+  document.getElementById('pager').innerHTML = `
+    <button ${page<=1?'disabled':''} onclick="goto(1)">⏮ 首页</button>
+    <button ${page<=1?'disabled':''} onclick="goto(${page-1})">← 上一页</button>
+    <span class="info">第 <input type="number" min="1" max="${tp}" value="${page}" onchange="goto(+this.value)" style="width:70px" /> / ${tp} 页
+      · 显示 ${start+1}-${end} / 共 ${allItems.length} 条</span>
+    <button ${page>=tp?'disabled':''} onclick="goto(${page+1})">下一页 →</button>
+    <button ${page>=tp?'disabled':''} onclick="goto(${tp})">末页 ⏭</button>
+    <span class="grow"></span>
+    <label>每页</label>
+    <select onchange="setPageSize(+this.value)">
+      ${[10,20,50,100].map(n=>`<option value="${n}" ${n===pageSize?'selected':''}>${n}</option>`).join('')}
+    </select>
+  `;
+}
+function goto(p){ page=p; renderPage(); window.scrollTo({top:0,behavior:'smooth'}); }
+function setPageSize(n){ pageSize=n; localStorage.setItem('mirix_pageSize', n); page=1; renderPage(); }
 
 function displayTitle(type, it){
   if(type==='semantic') return it.name || it.summary || '(未命名)';
@@ -178,7 +216,7 @@ function displayTitle(type, it){
 }
 function displayBody(type, it){
   const parts=[];
-  const title = displayTitle(type, it);
+  const title=displayTitle(type, it);
   if(it.summary && it.summary!==title) parts.push(it.summary);
   if(it.details) parts.push(it.details);
   if(it.secret_value) parts.push(it.secret_value);
@@ -189,29 +227,30 @@ function displayBody(type, it){
   return parts.join('\n');
 }
 function rowCard(label, title, id, body){
-  const b = (body||'').replace(/</g,'&lt;');
+  const esc=s=>(s||'').replace(/</g,'&lt;');
   return `<div class="row" onclick="this.classList.toggle('open')">
-    <div class="meta"><span>${label}</span><span>${id}</span></div>
-    <div class="sum">${(title||'').replace(/</g,'&lt;')}</div>
-    <pre>${b}</pre></div>`;
+    <div class="meta"><span>${esc(label)}</span><span>${esc(id)}</span></div>
+    <div class="sum">${esc(title)}</div>
+    <pre>${esc(body)}</pre></div>`;
 }
 
 async function doSearch(){
   const q=document.getElementById('q').value.trim();
   if(!q){ toast('请输入搜索内容'); return; }
   const user=currentUser();
-  const list=document.getElementById('list');
-  list.innerHTML='<p class="muted">搜索中…（走本地嵌入，稍候）</p>';
+  document.getElementById('list').innerHTML='<p class="muted">搜索中…（走本地嵌入，稍候）</p>';
+  document.getElementById('pager').innerHTML='';
   try{
     const d=await api('/memory/search?user_id=' + encodeURIComponent(user) +
-      '&query=' + encodeURIComponent(q) + '&memory_type=all&search_method=embedding&limit=20');
-    const rs = d.results || [];
-    document.getElementById('hint').textContent = '搜索「' + q + '」命中 ' + rs.length + ' 条';
-    if(!rs.length){ list.innerHTML='<p class="muted">（无命中）</p>'; return; }
-    list.innerHTML = rs.map(it=>rowCard(zhType(it.memory_type), displayTitle(it.memory_type,it), it.id||'', displayBody(it.memory_type,it))).join('');
-  }catch(e){ list.innerHTML='<p class="status-bad">搜索失败：' + e.message + '</p>'; }
+      '&query=' + encodeURIComponent(q) + '&memory_type=all&search_method=embedding&limit=' + FETCH_LIMIT);
+    searchMode=true; page=1;
+    allItems=d.results||[];
+    document.getElementById('hint').textContent='搜索「' + q + '」命中 ' + allItems.length + ' 条';
+    renderTabs();
+    renderPage();
+  }catch(e){ document.getElementById('list').innerHTML='<p class="status-bad">搜索失败：' + e.message + '</p>'; }
 }
-function clearSearch(){ document.getElementById('q').value=''; loadAll(); }
+function clearSearch(){ document.getElementById('q').value=''; searchMode=false; page=1; loadType(); }
 function zhType(t){ const f=TYPES.find(x=>x[0]===t); return f?f[1]:t; }
 
 async function doDream(dry){
@@ -221,8 +260,8 @@ async function doDream(dry){
   try{
     const d=await api('/memory/auto_dream?user_id=' + encodeURIComponent(user),
       { method:'POST', body:{ mode:'experience', dry_run: !!dry } });
-    toast((dry?'预览完成：':'归并完成：') + JSON.stringify(d.processed || d).slice(0,300));
-    if(!dry) loadAll();
+    toast((dry?'预览完成：':'归并完成：') + JSON.stringify(d.processed || d).slice(0,320));
+    if(!dry) loadType();
   }catch(e){ toast('归并失败：' + e.message); }
 }
 
