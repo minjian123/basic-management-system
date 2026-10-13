@@ -42,11 +42,11 @@ def upgrade() -> None:
     """字典列名对齐系统字段口径（纯改名 + 索引随列重建）。"""
     op.drop_index("idx_dict_item_label", table_name=ITEM)
     op.drop_index("idx_sys_dict_item_type_id", table_name=ITEM)
-    with op.batch_alter_table(TYPE) as batch:
+    with op.batch_alter_table(TYPE, recreate="always") as batch:
         batch.alter_column("type", new_column_name="code")
-    with op.batch_alter_table(NODE) as batch:
+    with op.batch_alter_table(NODE, recreate="always") as batch:
         batch.alter_column("type_id", new_column_name="dict_type_id")
-    with op.batch_alter_table(ITEM) as batch:
+    with op.batch_alter_table(ITEM, recreate="always") as batch:
         batch.alter_column("type_id", new_column_name="dict_type_id")
         batch.alter_column("label", new_column_name="name")
     op.create_index("idx_dict_item_name", ITEM, ["dict_type_id", "name"])
@@ -57,12 +57,12 @@ def downgrade() -> None:
     """列名与索引名回退。"""
     op.drop_index("idx_sys_dict_item_dict_type_id", table_name=ITEM)
     op.drop_index("idx_dict_item_name", table_name=ITEM)
-    with op.batch_alter_table(ITEM) as batch:
+    with op.batch_alter_table(ITEM, recreate="always") as batch:
         batch.alter_column("name", new_column_name="label")
         batch.alter_column("dict_type_id", new_column_name="type_id")
-    with op.batch_alter_table(NODE) as batch:
+    with op.batch_alter_table(NODE, recreate="always") as batch:
         batch.alter_column("dict_type_id", new_column_name="type_id")
-    with op.batch_alter_table(TYPE) as batch:
+    with op.batch_alter_table(TYPE, recreate="always") as batch:
         batch.alter_column("code", new_column_name="type")
     op.create_index("idx_sys_dict_item_type_id", ITEM, ["type_id"])
     op.create_index("idx_dict_item_label", ITEM, ["type_id", "label"])

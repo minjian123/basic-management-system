@@ -13,6 +13,9 @@ Create Date: 2026-10-11
   `sys_button` / `sys_field_i18n`）补 `parent_id`（上级明细 ID）；
 - `form_key` 为每表常量（缺省取本表标识），加列即回填存量行；`(form_key, deleted_at)` 复合唯一；
 - 四库兼容：经 `batch_alter_table`（SQLite 重建表兼容）；只改结构不写种子。
+  列**改名**一律 `recreate="always"`：MySQL 的 `recreate="auto"` 会走 `ALTER ... CHANGE`，
+  而 MySQL 要求 `CHANGE/MODIFY` 必须带类型（只给 `new_column_name` 即报
+  `All MySQL CHANGE/MODIFY COLUMN operations require the existing type.`）。
 """
 
 from collections.abc import Sequence
@@ -86,7 +89,7 @@ def _rename_identifier(table: str, old_name: str, new_name: str) -> None:
         old_name: 原列名（ORM 属性名）。
         new_name: 新列名（DB 列名，`code`）。
     """
-    with op.batch_alter_table(table) as batch:
+    with op.batch_alter_table(table, recreate="always") as batch:
         batch.alter_column(old_name, new_column_name=new_name)
 
 
@@ -157,12 +160,10 @@ def downgrade() -> None:
     _rename_unique(
         "sys_product", "uq_sys_product_code_deleted_at", "uq_sys_product_key_deleted_at", ["product_key", "deleted_at"]
     )
-    with op.batch_alter_table("sys_product") as batch:
-        batch.alter_column("code", new_column_name="product_key")
+    _rename_identifier("sys_product", "code", "product_key")
 
     _drop_dict_fields("sys_module")
     _rename_unique(
         "sys_module", "uq_sys_module_code_deleted_at", "uq_sys_module_key_deleted_at", ["module_key", "deleted_at"]
     )
-    with op.batch_alter_table("sys_module") as batch:
-        batch.alter_column("code", new_column_name="module_key")
+    _rename_identifier("sys_module", "code", "module_key")

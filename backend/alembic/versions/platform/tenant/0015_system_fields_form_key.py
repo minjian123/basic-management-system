@@ -98,7 +98,7 @@ def upgrade() -> None:
     _add_dict_fields("sys_role", "role")
 
     # sys_user：username → code（只改 DB 列名）+ form_key + parent_id
-    with op.batch_alter_table("sys_user") as batch:
+    with op.batch_alter_table("sys_user", recreate="always") as batch:
         batch.alter_column("username", new_column_name="code")
     with op.batch_alter_table("sys_user") as batch:
         batch.drop_constraint("uq_sys_user_username_deleted_at", type_="unique")
@@ -106,7 +106,7 @@ def upgrade() -> None:
     _add_dict_fields("sys_user", "user")
 
     # sys_config：config_key → code（只改 DB 列名）+ form_key + name + status + parent_id
-    with op.batch_alter_table("sys_config") as batch:
+    with op.batch_alter_table("sys_config", recreate="always") as batch:
         batch.alter_column("config_key", new_column_name="code")
     with op.batch_alter_table("sys_config") as batch:
         batch.drop_constraint("uq_sys_config_config_key_deleted_at", type_="unique")
@@ -144,14 +144,14 @@ def downgrade() -> None:
     with op.batch_alter_table("sys_config") as batch:
         batch.drop_constraint("uq_sys_config_code_deleted_at", type_="unique")
         batch.create_unique_constraint("uq_sys_config_config_key_deleted_at", ["config_key", "deleted_at"])
-    with op.batch_alter_table("sys_config") as batch:
+    with op.batch_alter_table("sys_config", recreate="always") as batch:
         batch.alter_column("code", new_column_name="config_key")
 
     _drop_dict_fields("sys_user")
     with op.batch_alter_table("sys_user") as batch:
         batch.drop_constraint("uq_sys_user_code_deleted_at", type_="unique")
         batch.create_unique_constraint("uq_sys_user_username_deleted_at", ["username", "deleted_at"])
-    with op.batch_alter_table("sys_user") as batch:
+    with op.batch_alter_table("sys_user", recreate="always") as batch:
         batch.alter_column("code", new_column_name="username")
 
     _drop_dict_fields("sys_role")

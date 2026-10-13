@@ -26,12 +26,12 @@ TABLE = "sys_query_scheme"
 
 
 def upgrade() -> None:
-    """`sys_query_scheme.dict_type` → `dict_key`（纯改名；约束随列重建由 batch 代理）。"""
-    with op.batch_alter_table(TABLE) as batch:
+    """`sys_query_scheme.dict_type` → `dict_key`（纯改名；重建表以兼容 MySQL 的改名口径）。"""
+    with op.batch_alter_table(TABLE, recreate="always") as batch:
         batch.alter_column("dict_type", new_column_name="dict_key")
 
 
 def downgrade() -> None:
     """`dict_key` → `dict_type`（纯改名回退）。"""
-    with op.batch_alter_table(TABLE) as batch:
+    with op.batch_alter_table(TABLE, recreate="always") as batch:
         batch.alter_column("dict_key", new_column_name="dict_type")
