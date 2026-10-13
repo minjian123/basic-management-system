@@ -19,6 +19,11 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     include: ['tests/**/*.spec.ts'],
+    // 单例超时（缺省 5s 在 CI 机器上偏紧）：宿主用例普遍挂**真实** `el-table` / 懒加载路由视图，
+    // CI 并发下重型文件（`user-record-tab` / `account-lock-view` / `*-view` / 路由族）可达本地的数倍，
+    // 实测多次撞 5s（2026-10-13：account-lock-view 2 例、user-record-tab 1 例）⇒ 统一放宽到 15s，
+    // 避免逐个文件打补丁；真实挂死仍会在 15s 内暴露。
+    testTimeout: 15000,
     server: {
       deps: {
         inline: ['element-plus'],
