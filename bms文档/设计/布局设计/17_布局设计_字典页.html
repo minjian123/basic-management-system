@@ -75,8 +75,17 @@
         其后才排该记录类型的其余字段。<strong>列标题（界面上显示的字段名）不写死</strong>——按具体需求显示（如「标识 / 名称 / 状态」等），
         但<strong>标识与顺序不变</strong>。
         字典域模型与页面清单见《<a href="../概要设计/09_概要设计_字典管理.md">概要设计 · 字典管理</a>》§1 / §8，
-        登记项字段（<code>dict_key</code> / 名称 / 来源 / 数据出口 / 字段白名单 / 级联 / 可用策略）与多语言（名称随所有者域下发）见同文档。
+        登记项字段（<code>data_source_key</code> / 名称 / 来源 / 数据出口 / 字段白名单 / 级联 / 可用策略）与多语言（名称随所有者域下发）见同文档。
       </p>
+      <div class="note">
+        <strong>通用记录页骨架模板（适用范围）</strong>：本页描述的不是某一个页面，而是<strong>所有字典记录页共用的一套骨架</strong>——
+        工具栏 + 信息栏「详细信息 / 系统信息」两个子页签（<strong>最少两 Tab</strong>）+ 详细信息首行三字段 <code>Code</code> / <code>Name</code> / <code>State</code>（三列等宽、顺序固定）
+        +「系统信息」区；<strong>其余业务 Tab 与字段不受限</strong>（可增，如角色「权限配置」、用户「用户分配」）。实现侧按数据形态判定
+        （清单 <code>kind</code> / 清单接口 <code>is_dict</code>）后套用同一骨架件，新增字典记录页无需各自实现。
+        <br><strong>与《<a href="08_布局设计_表单页.html">布局设计-表单页</a>》的关系</strong>：两者的<strong>系统信息区完全一致</strong>（同 7 项、同顺序、同形态）；
+        差异仅在详细信息区——表单页为主表字段区 + 明细区，字典页为<strong>首行三字段固定</strong> + 其余字段 + 条目预览。登记项专属字段
+        （来源 / 数据出口 / 字段白名单 / 级联 / 可用策略与明细区条目预览）仅数据源登记项页具备。
+      </div>
       <div class="note">
         职责划分：<strong>列表侧</strong>（字典登记项列表、筛选）按《<a href="07_布局设计_列表页.html">布局设计-列表页</a>》；
         <strong>记录侧</strong>（单条字典登记项的查看与编辑）按<strong>本布局</strong>；条目预览（该字典条目只读，经字典出口取数）按《<a href="09_布局设计_表格明细.html">布局设计-表格明细</a>》口径；
@@ -97,7 +106,7 @@
               其余字段（三列栅格）：来源 / 数据出口 / 产品路径 / 字段白名单 / 级联 / 可用策略<br>
               明细区：该字典「条目预览」（只读，经字典出口取数，分页）
             </div>
-            <div style="margin-top:.4rem"><strong>系统信息</strong>：label 上方三列只读栅格（ID / 版本号 / 创建用户 / 创建时间 / 修改用户 / 修改时间 / 数据来源，只读）</div>
+            <div style="margin-top:.4rem"><strong>系统信息</strong>：label 上方三列只读栅格（ID / 版本号 / 创建用户 / 创建时间 / 修改用户 / 修改时间 / 表单标识，只读）</div>
           </div>
         </div>
       </div>
@@ -126,7 +135,7 @@
       </div>
       <ul>
         <li><strong>标识与顺序固定</strong>：三列的<strong>字段标识</strong>恒为 <code>Code</code> / <code>Name</code> / <code>State</code>，顺序与列宽固定，任何字典记录页都不得调换、改名或省略；三字段是字典数据的<strong>系统字段</strong>（区别于各记录类型的其余业务字段）。<strong>界面上显示的是列标题</strong>（见下条），标识只用于接口字段与数据库列对齐，不直接出现在界面上。</li>
-        <li><strong>标识与登记项对齐</strong>：字典登记项记录 → <code>Code</code> = <code>dict_key</code>（字典标识）、<code>Name</code> = <code>name</code>（名称）、<code>State</code> = <code>status</code>（状态）。<strong>标识与显示口径一致</strong>（同一模板）。</li>
+        <li><strong>标识与登记项对齐</strong>：字典登记项记录 → <code>Code</code> = <code>data_source_key</code>（字典标识）、<code>Name</code> = <code>name</code>（名称）、<code>State</code> = <code>status</code>（状态）。<strong>标识与显示口径一致</strong>（同一模板）。</li>
         <li><strong>列标题按需求显示</strong>：界面上显示的字段名<strong>不写死</strong>为「代码 / 名称 / 状态」——按具体需求取用（如类型侧「类型编码 / 类型名称 / 状态」、条目侧「条目编码 / 条目名称 / 状态」，或统一「编码 / 名称 / 状态」）；标题文案由字段元数据下发（见 §5），前端不硬编码，且<strong>改标题不改标识</strong>（接口字段、提交载荷与数据库列一律以标识 / 列名为准）。</li>
         <li><strong>控件形态按需求</strong>：三字段的控件形态可按模块需求选取，取值见 §3 表（如 Code 只读文本 / 新建时可填；Name 统一用多语言文案字段；State 用状态开关或下拉）。</li>
       </ul>
@@ -146,7 +155,7 @@
 
       <h3 id="detail-area">2.4 明细区（条目预览，只读）</h3>
       <ul>
-        <li><strong>条目预览</strong>：详细信息下部为「条目」预览 Tab（表格明细口径，见《<a href="09_布局设计_表格明细.html">布局设计-表格明细</a>》）——列含 值 / 标签 / 编码 / 语义色 / 上级 / 排序 / 状态（标题按需求显示）；<strong>只读</strong>，经<strong>字典统一出口</strong>按 <code>dict_key</code> 取数（平台内建经平台出口；产品来源由前端经网关直取产品命名空间），支持关键字 / 分页。</li>
+        <li><strong>条目预览</strong>：详细信息下部为「条目」预览 Tab（表格明细口径，见《<a href="09_布局设计_表格明细.html">布局设计-表格明细</a>》）——列含 值 / 标签 / 编码 / 语义色 / 上级 / 排序 / 状态（标题按需求显示）；<strong>只读</strong>，经<strong>字典统一出口</strong>按 <code>data_source_key</code> 取数（平台内建经平台出口；产品来源由前端经网关直取产品命名空间），支持关键字 / 分页。</li>
         <li>字典数据本体由各所有者域承载（平台实体表 / mdm / biz），平台侧<strong>不维护</strong>字典条目——写路径已随字典六表（<code>sys_dict_type</code> / <code>sys_dict_item</code> / <code>sys_dict_attr</code> + 3 <code>_i18n</code>）拆除（2026-10-11 02_09）。</li>
       </ul>
 
@@ -161,14 +170,14 @@
             <div class="sys-cell3"><div class="f-label">创建时间</div><div class="f-input"></div></div>
             <div class="sys-cell3"><div class="f-label">修改用户</div><div class="f-input"></div></div>
             <div class="sys-cell3"><div class="f-label">修改时间</div><div class="f-input"></div></div>
-            <div class="sys-cell3"><div class="f-label">数据来源</div><span class="sys-select">平台内建</span></div>
+            <div class="sys-cell3"><div class="f-label">表单标识</div><span class="sys-select">角色管理</span></div>
           </div>
         </div>
-        <div class="d-box d-note">字段顺序固定 · label 上方 · 三列只读栅格（disabled 输入框，仅不可编辑；数据来源为禁用文本）· 时间按租户时区格式化（无时区后缀）· 无编辑态</div>
+        <div class="d-box d-note">字段顺序固定 · label 上方 · 三列只读栅格（disabled 输入框，仅不可编辑；表单标识为禁用下拉框：显示表单名、值为 <code>form_key</code>）· 时间按租户时区格式化（无时区后缀）· 无编辑态</div>
       </div>
       <ul>
-        <li><strong>与表单页唯一差异</strong>：第 7 项由「表单标识」换为<strong>「数据来源」</strong>——展示该字典的来源（平台内建 / 产品提供 + 产品标识，如 <code>mdm</code>）。</li>
-        <li>其余六项（ID / 版本号 / 创建用户 / 创建时间 / 修改用户 / 修改时间）与表单页完全一致，实现复用《<a href="../原型设计/02_公共原型/04_系统信息组件.html">原型-公共组件/04-系统信息组件</a>》。</li>
+        <li><strong>与表单页一致</strong>：第 7 项为<strong>表单标识（<code>form_key</code>，字典对应的表单标识）</strong>——用禁用下拉框展示（显示中文表单名、值为表单标识，如「角色管理」/ <code>role</code>），与表单页 §2.1.1 同款；<strong>系统信息区两页无差异</strong>。</li>
+        <li>七项（ID / 版本号 / 创建用户 / 创建时间 / 修改用户 / 修改时间 / 表单标识）与表单页完全一致，实现复用《<a href="../原型设计/02_公共原型/04_系统信息组件.html">原型-公共组件/04-系统信息组件</a>》；时间按租户时区格式化为 <code>yyyy-MM-dd HH:mm</code>、无时区后缀。</li>
         <li>系统信息无编辑态、不参与校验与提交；保存冲突（409）时提示「记录已被修改」并重载最新数据（见 §6）。</li>
       </ul>
 
@@ -178,7 +187,7 @@
         <tr><th>字段标识（固定）</th><th>登记项字段</th><th>语义</th><th>标题（按需求显示）</th><th>可选显示口径（按需求）</th><th>约束</th></tr>
         <tr>
           <td><code>Code</code></td>
-          <td><code>dict_key</code>（字典标识）</td>
+          <td><code>data_source_key</code>（字典标识）</td>
           <td>稳定标识：字典标识（业务码）</td>
           <td>「标识」「字典标识」「编码」等（按需求）</td>
           <td>
@@ -186,7 +195,7 @@
             ② 新建态可填 + 编辑态只读（推荐：新建时可填、保存后锁定）；<br>
             ③ 可编辑输入框（仅内部临时字典，且须提示影响面）
           </td>
-          <td>唯一（登记项 <code>dict_key</code> 全局唯一）；字母数字与下划线；保存后不随显示形态变化</td>
+          <td>唯一（登记项 <code>data_source_key</code> 全局唯一）；字母数字与下划线；保存后不随显示形态变化</td>
         </tr>
         <tr>
           <td><code>Name</code></td>
@@ -239,7 +248,7 @@
 
       <h2 id="validate">6. 校验与提交</h2>
       <ul>
-        <li><strong>登记项维护</strong>：字典数据源登记为<strong>构建期清单</strong>（各项目装载注入、运行期只读），字典页以只读为主；登记项 <code>dict_key</code> 全局唯一、格式 <code>^[a-z][a-z0-9_]*$</code>（冲突由启动 / CI 校验拦截）。</li>
+        <li><strong>登记项维护</strong>：字典数据源登记为<strong>构建期清单</strong>（各项目装载注入、运行期只读），字典页以只读为主；登记项 <code>data_source_key</code> 全局唯一、格式 <code>^[a-z][a-z0-9_]*$</code>（冲突由启动 / CI 校验拦截）。</li>
         <li><strong>必填与格式</strong>：Code / Name / State 必填（登记项字段非空；State 二值）；错误信息走 i18n。</li>
         <li><strong>保存</strong>：字典数据写路径已随字典六表拆除（2026-10-11 02_09）；本页以只读展示登记项与条目预览，登记变更随各项目构建期清单与部署。</li>
         <li><strong>乐观锁冲突</strong>：保存请求携带 <code>version</code>，冲突（409）提示「记录已被修改」并重载最新数据。</li>
@@ -250,7 +259,7 @@
       <h2 id="interaction">7. 与 FormFrame / 列表页的协作</h2>
       <table>
         <tr><th>交互</th><th>方向</th><th>约定</th></tr>
-        <tr><td>记录标识</td><td>FormFrame → 字典页</td><td>prop <code>main-id</code>（String，<code>dict_key</code>，登记项记录）</td></tr>
+        <tr><td>记录标识</td><td>FormFrame → 字典页</td><td>prop <code>main-id</code>（String，<code>data_source_key</code>，登记项记录）</td></tr>
         <tr><td>保存/删除/标题</td><td>字典页 → FormFrame</td><td><code>emit("saved", id)</code> / <code>emit("deleted")</code> / <code>emit("title-change", 名称)</code></td></tr>
         <tr><td>脏数据状态</td><td>FormFrame ← 字典页</td><td>字典页 <code>expose dirty</code>（切换 / 关闭 Tab 时拦截确认）</td></tr>
       </table>
@@ -268,9 +277,9 @@
         <li>□ 三字段显示口径按模块需求选定且同模块内一致（Code 只读或新建可填；Name 用多语言文案字段；State 开关 / 下拉 / 状态标签）</li>
         <li>□ 其余字段（来源 / 数据出口 / 产品路径 / 字段白名单 / 级联 / 可用策略）一律排在首行之后，三列栅格、长字段跨整行</li>
         <li>□ 条目预览为只读（经字典出口取数），非编辑区</li>
-        <li>□ 系统信息 label 上方三列只读栅格统一（第 7 项为「数据来源」；时间无时区后缀）</li>
+        <li>□ 系统信息 label 上方三列只读栅格统一（第 7 项为「表单标识」<code>form_key</code>，禁用下拉框显示表单名；时间按租户时区、无时区后缀）</li>
         <li>□ 只读 / 编辑分态切换正确，新增 Tab 直接可编辑，脏数据拦截生效</li>
-        <li>□ 登记项 <code>dict_key</code> 唯一性与格式校验（启动 / CI）、缓存即时生效说明齐备</li>
+        <li>□ 登记项 <code>data_source_key</code> 唯一性与格式校验（启动 / CI）、缓存即时生效说明齐备</li>
         <li>□ 字段权限（visible / editable）与脱敏（如字典数据含敏感字段）生效</li>
         <li>□ Name 多语言：字段恒占一行（文本框 + 图标按钮，无写死语言栏、不逐语言铺开），弹框定稿回写而落库随宿主保存，必填语言缺失阻断并定位</li>
       </ul>
@@ -278,7 +287,7 @@
     </main>
 
     <footer>
-      依《<a href="../../规范/文档生成规范.md">文档生成规范</a>》编写 · 与《<a href="08_布局设计_表单页.html">08-布局设计-表单页</a>》《<a href="09_布局设计_表格明细.html">09-布局设计-表格明细</a>》《<a href="../概要设计/09_概要设计_字典管理.md">09-概要设计-字典管理</a>》配套 · 生成日期：2026-10-10 · 修订日期：2026-10-10（首行三字段口径细化：<strong>标识固定 <code>Code</code> / <code>Name</code> / <code>State</code> 且与数据库列一一对齐，列标题按需求显示</strong>）
+      依《<a href="../../规范/文档生成规范.md">文档生成规范</a>》编写 · 与《<a href="08_布局设计_表单页.html">08-布局设计-表单页</a>》《<a href="09_布局设计_表格明细.html">09-布局设计-表格明细</a>》《<a href="../概要设计/09_概要设计_字典管理.md">09-概要设计-字典管理</a>》配套 · 生成日期：2026-10-10 · 修订日期：2026-10-13（<strong>通用记录页骨架模板</strong>适用范围与与表单页关系；系统信息第 7 项统一为<strong>表单标识 <code>form_key</code></strong>，与表单页一致；术语 <code>dict_key</code> → <code>data_source_key</code>）
     </footer>
   </div>
 
