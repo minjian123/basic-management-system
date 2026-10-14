@@ -129,3 +129,28 @@ onBeforeUnmount(() => {
     <p v-if="failed" class="bms-code-mirror-host__error" data-test="cm-error">编辑内核不可用，已降级为纯文本</p>
   </div>
 </template>
+
+<style scoped>
+/* 薄封装件：只补宿主壳样式，不主题化 CodeMirror 内核（内核主题归品牌化任务） */
+.bms-code-mirror-host {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.bms-code-mirror-host__mount {
+  min-height: 120px;
+  overflow: auto;
+}
+
+.bms-code-mirror-host__error {
+  margin: 0;
+  padding: var(--bms-space-2) var(--bms-space-3);
+  color: var(--bms-color-text-secondary);
+  font-size: var(--bms-font-size-xs);
+  background: var(--bms-color-warning-bg);
+  border-top: 1px solid var(--bms-color-border);
+}
+</style>
+

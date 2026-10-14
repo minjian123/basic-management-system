@@ -1,6 +1,8 @@
 <script setup lang="ts">
 // 操作权限面板（08-4-4，新口径）：某表单的动作码清单——默认无、勾选授予、来源判定（本来源可改、非本来源只读）。
+// 样式（11-01）：勾选改 el-checkbox 承载，来源只读标记消费 --bms-perm-readonly-bg，补 <style scoped>。
 import type { ActionMeta, PermissionEntry } from '@bms/core'
+import { ElCheckbox } from 'element-plus'
 import { computed } from 'vue'
 
 import { useBasePermissionConfig } from '../../composables/useBasePermissionConfig'
@@ -47,21 +49,59 @@ const rows = computed(() =>
     }
   }),
 )
+
+/** 勾选变更。 */
+function onToggle(id: string, value: boolean | string | number): void {
+  emit('toggle', { actionId: id, checked: value === true })
+}
 </script>
 
 <template>
   <div class="bms-action-perm" data-test="action-perm" :data-disabled="disabled || undefined">
-    <p v-if="rows.length === 0" data-test="empty">{{ emptyText }}</p>
-    <label v-for="row in rows" :key="row.id" class="bms-action-perm__row" :data-test="`action-${row.id}`">
-      <input
-        type="checkbox"
+    <p v-if="rows.length === 0" class="bms-action-perm__empty" data-test="empty">{{ emptyText }}</p>
+    <div v-for="row in rows" :key="row.id" class="bms-action-perm__row" :data-test="`action-${row.id}`">
+      <el-checkbox
         :data-test="`action-check-${row.id}`"
-        :checked="row.checked"
+        :model-value="row.checked"
         :disabled="disabled || row.readonly"
-        @change="emit('toggle', { actionId: row.id, checked: ($event.target as HTMLInputElement).checked })"
-      />
-      <span>{{ row.name }}</span>
-      <em v-if="row.readonly" data-test="action-readonly">来自其它来源</em>
-    </label>
+        @update:model-value="onToggle(row.id, $event)"
+      >
+        {{ row.name }}
+      </el-checkbox>
+      <span v-if="row.readonly" class="bms-action-perm__readonly" data-test="action-readonly">来自其它来源</span>
+    </div>
   </div>
 </template>
+
+<style scoped>
+.bms-action-perm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bms-space-1);
+}
+
+.bms-action-perm__empty {
+  margin: 0;
+  padding: var(--bms-space-4) 0;
+  color: var(--bms-color-text-secondary);
+  font-size: var(--bms-font-size-sm);
+  text-align: center;
+}
+
+.bms-action-perm__row {
+  display: flex;
+  align-items: center;
+  gap: var(--bms-space-2);
+  min-height: var(--bms-control-height);
+}
+
+.bms-action-perm__readonly {
+  flex: none;
+  padding: 0 var(--bms-space-1);
+  color: var(--bms-color-text-secondary);
+  font-size: var(--bms-font-size-xs);
+  font-style: normal;
+  background: var(--bms-perm-readonly-bg);
+  border-radius: var(--bms-radius-sm);
+}
+</style>

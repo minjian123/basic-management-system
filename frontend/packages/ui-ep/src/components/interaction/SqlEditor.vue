@@ -1,5 +1,7 @@
 <script setup lang="ts">
 // SQL 编辑器件（08_02）：通用编辑内核（SQL 语言）+ 仅 SELECT 轻校验 + 格式化 / 测试执行入口 + 字段清单插入。
+// 样式（11-01）：工具栏改 el-button、字段清单改 el-button 列名，补 <style scoped> 消费 --bms-* 令牌。
+import { ElButton } from 'element-plus'
 import { computed, ref } from 'vue'
 
 import { useBaseDataState } from '../../composables/useBaseDataState'
@@ -85,31 +87,104 @@ function insertField(name: string): void {
 <template>
   <div class="bms-sql-editor" data-test="sql-editor" :data-state="state">
     <div class="bms-sql-editor__toolbar" data-test="toolbar">
-      <button type="button" data-test="format" :disabled="readOnly" @click="emit('format')">格式化</button>
-      <button type="button" data-test="validate" :disabled="readOnly" @click="runValidate">校验</button>
-      <button type="button" data-test="test" :disabled="readOnly || !canTest" @click="emit('test')">测试执行</button>
+      <el-button data-test="format" size="small" :disabled="readOnly" @click="emit('format')">格式化</el-button>
+      <el-button data-test="validate" size="small" :disabled="readOnly" @click="runValidate">校验</el-button>
+      <el-button data-test="test" size="small" type="primary" :disabled="readOnly || !canTest" @click="emit('test')">
+        测试执行
+      </el-button>
     </div>
     <div class="bms-sql-editor__body">
-      <CodeEditor
-        ref="editor"
-        :model-value="modelValue"
-        language="sql"
-        :read-only="readOnly"
-        :height="height"
-        :diagnostics="activeDiagnostics"
-        @update:model-value="emit('update:modelValue', $event)"
-      />
+      <div class="bms-sql-editor__main">
+        <CodeEditor
+          ref="editor"
+          :model-value="modelValue"
+          language="sql"
+          :read-only="readOnly"
+          :height="height"
+          :diagnostics="activeDiagnostics"
+          @update:model-value="emit('update:modelValue', $event)"
+        />
+      </div>
       <aside v-if="fields.length > 0" class="bms-sql-editor__fields" data-test="fields">
-        <button
-          v-for="field in fields"
-          :key="field.name"
-          type="button"
-          :data-test="`field-${field.name}`"
-          @click="insertField(field.name)"
-        >
-          {{ field.name }}（{{ field.type }}）
-        </button>
+        <strong class="bms-sql-editor__fields-title">字段清单</strong>
+        <div class="bms-sql-editor__field-list">
+          <el-button
+            v-for="field in fields"
+            :key="field.name"
+            :data-test="`field-${field.name}`"
+            size="small"
+            @click="insertField(field.name)"
+          >
+            {{ field.name }}（{{ field.type }}）
+          </el-button>
+        </div>
       </aside>
     </div>
   </div>
 </template>
+
+<style scoped>
+.bms-sql-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bms-space-3);
+  min-width: 0;
+}
+
+.bms-sql-editor__toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--bms-space-2);
+}
+
+.bms-sql-editor__body {
+  display: flex;
+  gap: var(--bms-space-3);
+  min-width: 0;
+}
+
+.bms-sql-editor__main {
+  flex: 1;
+  min-width: 0;
+}
+
+.bms-sql-editor__fields {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: var(--bms-space-2);
+  width: 200px;
+  max-height: 100%;
+  padding: var(--bms-space-3);
+  overflow: auto;
+  border: 1px solid var(--bms-color-border);
+  border-radius: var(--bms-radius-md);
+}
+
+.bms-sql-editor__fields-title {
+  color: var(--bms-color-text);
+  font-size: var(--bms-font-size-sm);
+  font-weight: 600;
+}
+
+.bms-sql-editor__field-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bms-space-1);
+}
+
+.bms-sql-editor[data-state='error'] .bms-sql-editor__fields {
+  border-color: var(--bms-color-danger);
+}
+
+@media (max-width: 992px) {
+  .bms-sql-editor__body {
+    flex-direction: column;
+  }
+
+  .bms-sql-editor__fields {
+    width: 100%;
+  }
+}
+</style>
+

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 // 菜单树内部子件（08-4-4，新口径）：仅菜单入口树——三态勾选、搜索、展开收起、挂接缺失标记；树机制经树族投影。
+// 样式（11-01）：模板改组件库件承载（el-input 搜索 / el-checkbox 三态 / el-button 展开），补 <style scoped> 消费 --bms-* 令牌。
 import {
   flattenMenus,
   menuCheckState,
@@ -7,6 +8,7 @@ import {
   type PermissionEntry,
   type PermissionMenuNode,
 } from '@bms/core'
+import { ElButton, ElCheckbox, ElInput } from 'element-plus'
 import { computed, ref, watch } from 'vue'
 
 import { useBaseTreeData } from '../../composables/useBaseTreeData'
@@ -96,8 +98,7 @@ const visible = computed(() => {
     node.name.includes(text) || (node.children ?? []).some((child) => match(child))
   return flattenMenus(props.menus).filter((entry) => {
     if (text === '') {
-      const parentVisible = true
-      return parentVisible
+      return true
     }
     return match(entry.node)
   })
@@ -109,26 +110,27 @@ function toggleExpand(id: string): void {
   expandedTick.value += 1
 }
 
-/** 勾选 / 取消勾选。 */
-function onCheck(id: string, event: Event): void {
-  emit('check', { id, checked: (event.target as HTMLInputElement).checked })
+/** 勾选 / 取消勾选（el-checkbox 值变更）。 */
+function onCheck(id: string, value: boolean | string | number): void {
+  emit('check', { id, checked: value === true })
 }
 </script>
 
 <template>
   <div class="bms-permission-tree" data-test="permission-tree" :data-disabled="disabled || undefined">
     <div class="bms-permission-tree__toolbar" data-test="tree-toolbar">
-      <input
-        type="search"
+      <el-input
         data-test="tree-search"
+        :model-value="keyword"
         placeholder="搜索菜单"
-        :value="keyword"
+        size="small"
+        clearable
         :disabled="disabled"
-        @input="emit('update:keyword', ($event.target as HTMLInputElement).value)"
+        @update:model-value="emit('update:keyword', $event)"
       />
     </div>
 
-    <p v-if="visible.length === 0" data-test="empty">{{ emptyText }}</p>
+    <p v-if="visible.length === 0" class="bms-permission-tree__empty" data-test="empty">{{ emptyText }}</p>
 
     <div
       v-for="entry in visible"
@@ -141,35 +143,128 @@ function onCheck(id: string, event: Event): void {
       :data-active="selectedId === entry.node.id || undefined"
       :style="{ paddingLeft: `${entry.depth * 16}px` }"
     >
-      <button
+      <el-button
         v-if="entry.node.children !== undefined && entry.node.children.length > 0"
-        type="button"
+        class="bms-permission-tree__expand"
         data-test="tree-expand"
         :data-test-key="entry.node.id"
+        text
+        size="small"
+        :disabled="disabled"
         @click="toggleExpand(entry.node.id)"
       >
         {{ isExpanded(entry.node.id) ? '▾' : '▸' }}
-      </button>
+      </el-button>
+      <span v-else class="bms-permission-tree__spacer" aria-hidden="true" />
 
-      <label>
-        <input
-          type="checkbox"
-          :data-test="`node-check-${entry.node.id}`"
-          :checked="stateOf(entry.node.id) === 'checked'"
-          :disabled="disabled || detached(entry.node.id)"
-          @change="onCheck(entry.node.id, $event)"
-        />
-      </label>
+      <el-checkbox
+        :data-test="`node-check-${entry.node.id}`"
+        :model-value="stateOf(entry.node.id) === 'checked'"
+        :indeterminate="stateOf(entry.node.id) === 'indeterminate'"
+        :disabled="disabled || detached(entry.node.id)"
+        @update:model-value="onCheck(entry.node.id, $event)"
+      />
       <i v-if="stateOf(entry.node.id) === 'indeterminate'" data-test="indeterminate" />
 
       <span v-if="showIcon && entry.node.icon" class="bms-permission-tree__icon">
         <IconRenderer :name="entry.node.icon" :size="14" />
       </span>
 
-      <button type="button" data-test="tree-label" @click="emit('select', entry.node.id)">
+      <el-button
+        class="bms-permission-tree__label"
+        data-test="tree-label"
+        text
+        :disabled="disabled"
+        @click="emit('select', entry.node.id)"
+      >
         {{ entry.node.name }}
-      </button>
-      <span v-if="detached(entry.node.id)" data-test="detached">未挂接</span>
+      </el-button>
+      <span v-if="detached(entry.node.id)" class="bms-permission-tree__detached" data-test="detached">未挂接</span>
     </div>
   </div>
 </template>
+
+<style scoped>
+.bms-permission-tree {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: auto;
+}
+
+.bms-permission-tree__toolbar {
+  flex: none;
+  padding-bottom: var(--bms-space-2);
+  margin-bottom: var(--bms-space-2);
+  border-bottom: 1px solid var(--bms-color-border);
+}
+
+.bms-permission-tree__empty {
+  margin: 0;
+  padding: var(--bms-space-6) 0;
+  color: var(--bms-color-text-secondary);
+  font-size: var(--bms-font-size-sm);
+  text-align: center;
+}
+
+.bms-permission-tree__node {
+  display: flex;
+  align-items: center;
+  gap: var(--bms-space-1);
+  min-height: var(--bms-control-height);
+  padding-right: var(--bms-space-2);
+  border-bottom: 1px solid var(--bms-color-border);
+}
+
+.bms-permission-tree__node:hover {
+  background: var(--bms-color-fill);
+}
+
+.bms-permission-tree__node[data-active] {
+  background: var(--bms-color-primary-light);
+  box-shadow: inset 2px 0 0 var(--bms-color-primary);
+}
+
+.bms-permission-tree__node[data-disabled] {
+  opacity: 0.7;
+}
+
+.bms-permission-tree__expand {
+  flex: none;
+  width: 20px;
+  padding: 0;
+  color: var(--bms-color-text-secondary);
+}
+
+.bms-permission-tree__spacer {
+  flex: none;
+  width: 20px;
+}
+
+.bms-permission-tree__icon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  color: var(--bms-color-text-secondary);
+}
+
+.bms-permission-tree__label {
+  flex: 1;
+  min-width: 0;
+  justify-content: flex-start;
+  overflow: hidden;
+  color: var(--bms-color-text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bms-permission-tree__detached {
+  flex: none;
+  padding: 0 var(--bms-space-1);
+  color: var(--bms-perm-detached-color);
+  font-size: var(--bms-font-size-xs);
+  font-style: normal;
+  background: var(--bms-color-warning-bg);
+  border-radius: var(--bms-radius-sm);
+}
+</style>

@@ -175,3 +175,62 @@ defineExpose({ focus, getValue, setValue, insert, getSelection })
     </ul>
   </div>
 </template>
+
+<style scoped>
+.bms-code-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bms-space-2);
+  min-width: 0;
+}
+
+.bms-code-editor :deep(.bms-code-mirror-host),
+.bms-code-editor__fallback {
+  border: 1px solid var(--bms-color-border);
+  border-radius: var(--bms-radius-md);
+}
+
+.bms-code-editor__fallback {
+  box-sizing: border-box;
+  width: 100%;
+  padding: var(--bms-space-3);
+  color: var(--bms-color-text);
+  font-family: var(--bms-font-family-mono, monospace);
+  font-size: var(--bms-font-size-sm);
+  line-height: var(--bms-line-height);
+  background: var(--bms-color-bg);
+  outline: none;
+  resize: none;
+}
+
+.bms-code-editor__fallback:focus {
+  border-color: var(--bms-color-primary);
+  box-shadow: 0 0 0 2px var(--bms-color-focus-ring);
+}
+
+.bms-code-editor__diagnostics {
+  margin: 0;
+  padding: var(--bms-space-2) 0 0;
+  list-style: none;
+  border-top: 1px solid var(--bms-color-border);
+}
+
+.bms-code-editor__diagnostics li {
+  padding: var(--bms-space-1) 0;
+  color: var(--bms-color-text-secondary);
+  font-size: var(--bms-font-size-xs);
+}
+
+.bms-code-editor__diagnostics li[data-severity='error'] {
+  color: var(--bms-color-danger);
+}
+
+.bms-code-editor__diagnostics li[data-severity='warning'] {
+  color: var(--bms-color-warning);
+}
+
+.bms-code-editor__diagnostics li[data-severity='info'] {
+  color: var(--bms-color-info);
+}
+</style>
+

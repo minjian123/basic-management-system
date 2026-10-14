@@ -66,6 +66,13 @@ describe('设计令牌 tokens.scss', () => {
     }
   })
 
+  it('权限配置域令牌齐备（2026-10-14 登记，前端组件库 11_01）', () => {
+    for (const token of ['--bms-perm-detached-color', '--bms-perm-readonly-bg', '--bms-perm-invalid-color']) {
+      // 亮 / 暗两套各一处 → 至少两处定义
+      expect(scss.split(token).length - 1).toBeGreaterThanOrEqual(2)
+    }
+  })
+
   it('打印样式令牌组齐备（打印与屏幕样式解耦）', () => {
     for (const token of [
       '--bms-print-paper-bg',

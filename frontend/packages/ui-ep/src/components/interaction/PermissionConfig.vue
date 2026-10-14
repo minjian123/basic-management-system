@@ -16,6 +16,7 @@ import {
   type PermissionTab,
 } from '@bms/core'
 import { onMounted, watch } from 'vue'
+import { ElTabPane, ElTabs } from 'element-plus'
 
 import { useBasePermissionConfig } from '../../composables/useBasePermissionConfig'
 import DataScopePanel from './DataScopePanel.vue'
@@ -180,6 +181,14 @@ function panelDisabled(): boolean {
   return props.readonly || disabled.value || busy.value
 }
 
+/** 页签中文名（原型口径）。 */
+const TAB_LABELS: Readonly<Record<string, string>> = {
+  menu: '菜单权限',
+  form: '表单权限',
+  data: '数据权限',
+  assign: '角色分配',
+}
+
 /** 菜单勾选。 */
 function onToggleMenu(payload: { id: string; checked: boolean }): void {
   if (toggleMenu(payload.id, payload.checked)) {
@@ -257,21 +266,29 @@ defineExpose({
     </div>
 
     <template v-else>
-      <div class="bms-permission-config__tabs" data-test="permission-tabs">
-        <button
+      <el-tabs
+        :model-value="tab"
+        class="bms-permission-config__tabs"
+        data-test="permission-tabs"
+        :class="{ 'is-readonly': readonly }"
+        @tab-change="(name: string | number) => !readonly && setTab(name as PermissionTab)"
+      >
+        <el-tab-pane
           v-for="item in PERMISSION_TABS"
           :key="item"
-          type="button"
-          :data-test="`permission-tab-${item}`"
-          :data-active="tab === item || undefined"
+          :name="item"
+          :label="TAB_LABELS[item] ?? item"
           :disabled="readonly"
-          @click="!readonly && setTab(item)"
         >
-          {{ item }}
-        </button>
-      </div>
+          <template #label>
+            <span :data-test="`permission-tab-${item}`" :data-active="tab === item || undefined">
+              {{ TAB_LABELS[item] ?? item }}
+            </span>
+          </template>
+        </el-tab-pane>
+      </el-tabs>
 
-      <p v-if="errorMessage !== ''" data-test="permission-error" :data-tab="errorTarget?.tab">
+      <p v-if="errorMessage !== ''" class="bms-permission-config__error" data-test="permission-error" :data-tab="errorTarget?.tab">
         {{ errorMessage }}
       </p>
 
@@ -325,10 +342,10 @@ defineExpose({
         <template v-else-if="tab === 'data'">
           <slot name="data-panel">
             <data-scope-panel
-              :dict-types="metadata.dataSourceKeys"
+              :data-source-keys="metadata.dataSourceKeys"
               :extensions="metadata.extensions"
               :entries="dataScopeEntries"
-              :selected-dict-type-id="selectedDataSourceKey"
+              :selected-data-source-key="selectedDataSourceKey"
               :policy="dataScopePolicy"
               :ready="ready"
               :disabled="panelDisabled()"
@@ -355,3 +372,49 @@ defineExpose({
     </template>
   </div>
 </template>
+
+<style scoped>
+.bms-permission-config {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.bms-permission-config__degrade {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 160px;
+  padding: var(--bms-space-6);
+  color: var(--bms-color-text-secondary);
+  font-size: var(--bms-font-size-sm);
+  background: var(--bms-color-fill);
+  border: 1px dashed var(--bms-color-border);
+  border-radius: var(--bms-radius-md);
+}
+
+.bms-permission-config__tabs :deep(.el-tabs__header) {
+  margin-bottom: var(--bms-space-3);
+}
+
+.bms-permission-config__tabs.is-readonly :deep(.el-tabs__item) {
+  cursor: not-allowed;
+}
+
+.bms-permission-config__error {
+  margin: 0 0 var(--bms-space-3);
+  padding: var(--bms-space-2) var(--bms-space-3);
+  color: var(--bms-color-danger);
+  font-size: var(--bms-font-size-sm);
+  background: var(--bms-color-warning-bg);
+  border-radius: var(--bms-radius-md);
+}
+
+.bms-permission-config__body {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+</style>
+

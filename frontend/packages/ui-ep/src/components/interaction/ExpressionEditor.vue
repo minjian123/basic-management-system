@@ -1,5 +1,7 @@
 <script setup lang="ts">
 // 表达式编辑器件（08_02）：通用编辑内核（表达式语言）+ 字段 / 预置变量面板插入 + 运算符模板 + 校验入口。
+// 样式（11-01）：工具栏改 el-button、令牌面板改 el-button 换行排布，补 <style scoped> 消费 --bms-* 令牌。
+import { ElButton } from 'element-plus'
 import { computed, ref } from 'vue'
 
 import { useBaseDataState } from '../../composables/useBaseDataState'
@@ -114,56 +116,136 @@ function innerValidate(value: string): EditorDiagnostic[] {
 <template>
   <div class="bms-expression-editor" data-test="expression-editor" :data-state="state">
     <div class="bms-expression-editor__toolbar" data-test="toolbar">
-      <button type="button" data-test="validate" :disabled="readOnly" @click="runValidate">校验</button>
+      <el-button data-test="validate" size="small" :disabled="readOnly" @click="runValidate">校验</el-button>
     </div>
     <div class="bms-expression-editor__body">
-      <CodeEditor
-        ref="editor"
-        :model-value="modelValue"
-        language="expression"
-        :read-only="readOnly"
-        :height="height"
-        :diagnostics="activeDiagnostics"
-        @update:model-value="emit('update:modelValue', $event)"
-      />
+      <div class="bms-expression-editor__main">
+        <CodeEditor
+          ref="editor"
+          :model-value="modelValue"
+          language="expression"
+          :read-only="readOnly"
+          :height="height"
+          :diagnostics="activeDiagnostics"
+          @update:model-value="emit('update:modelValue', $event)"
+        />
+      </div>
       <aside class="bms-expression-editor__panel" data-test="panel">
-        <div v-if="fields.length > 0" data-test="fields">
-          <strong>字段</strong>
-          <button
-            v-for="token in fields"
-            :key="token.key"
-            type="button"
-            :data-test="`token-field-${token.key}`"
-            @click="insertToken(token)"
-          >
-            {{ token.label }}
-          </button>
+        <div v-if="fields.length > 0" class="bms-expression-editor__group" data-test="fields">
+          <strong class="bms-expression-editor__group-title">字段</strong>
+          <div class="bms-expression-editor__tokens">
+            <el-button
+              v-for="token in fields"
+              :key="token.key"
+              :data-test="`token-field-${token.key}`"
+              size="small"
+              @click="insertToken(token)"
+            >
+              {{ token.label }}
+            </el-button>
+          </div>
         </div>
-        <div v-if="variables.length > 0" data-test="variables">
-          <strong>变量</strong>
-          <button
-            v-for="token in variables"
-            :key="token.key"
-            type="button"
-            :data-test="`token-var-${token.key}`"
-            @click="insertToken(token)"
-          >
-            {{ token.label }}
-          </button>
+        <div v-if="variables.length > 0" class="bms-expression-editor__group" data-test="variables">
+          <strong class="bms-expression-editor__group-title">变量</strong>
+          <div class="bms-expression-editor__tokens">
+            <el-button
+              v-for="token in variables"
+              :key="token.key"
+              :data-test="`token-var-${token.key}`"
+              size="small"
+              @click="insertToken(token)"
+            >
+              {{ token.label }}
+            </el-button>
+          </div>
         </div>
-        <div v-if="templates.length > 0" data-test="templates">
-          <strong>模板</strong>
-          <button
-            v-for="template in templates"
-            :key="template.key"
-            type="button"
-            :data-test="`template-${template.key}`"
-            @click="insertTemplate(template)"
-          >
-            {{ template.label }}
-          </button>
+        <div v-if="templates.length > 0" class="bms-expression-editor__group" data-test="templates">
+          <strong class="bms-expression-editor__group-title">模板</strong>
+          <div class="bms-expression-editor__tokens">
+            <el-button
+              v-for="template in templates"
+              :key="template.key"
+              :data-test="`template-${template.key}`"
+              size="small"
+              @click="insertTemplate(template)"
+            >
+              {{ template.label }}
+            </el-button>
+          </div>
         </div>
       </aside>
     </div>
   </div>
 </template>
+
+<style scoped>
+.bms-expression-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bms-space-3);
+  min-width: 0;
+}
+
+.bms-expression-editor__toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--bms-space-2);
+}
+
+.bms-expression-editor__body {
+  display: flex;
+  gap: var(--bms-space-3);
+  min-width: 0;
+}
+
+.bms-expression-editor__main {
+  flex: 1;
+  min-width: 0;
+}
+
+.bms-expression-editor__panel {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: var(--bms-space-3);
+  width: 220px;
+  max-height: 100%;
+  padding: var(--bms-space-3);
+  overflow: auto;
+  border: 1px solid var(--bms-color-border);
+  border-radius: var(--bms-radius-md);
+}
+
+.bms-expression-editor__group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bms-space-2);
+}
+
+.bms-expression-editor__group-title {
+  color: var(--bms-color-text);
+  font-size: var(--bms-font-size-sm);
+  font-weight: 600;
+}
+
+.bms-expression-editor__tokens {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bms-space-1);
+}
+
+.bms-expression-editor[data-state='error'] .bms-expression-editor__panel {
+  border-color: var(--bms-color-danger);
+}
+
+@media (max-width: 992px) {
+  .bms-expression-editor__body {
+    flex-direction: column;
+  }
+
+  .bms-expression-editor__panel {
+    width: 100%;
+  }
+}
+</style>
+

@@ -14,6 +14,7 @@ import {
   type PermissionContractHandlers,
 } from '@bms/core/testing'
 import { flushPromises, mount } from '@vue/test-utils'
+import { ElCheckbox, ElSwitch } from 'element-plus'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -146,7 +147,9 @@ describe('PermissionConfig 授权总容器件（新口径）', () => {
     await flushPromises()
     expect(wrapper.find('[data-test="permission-tabs"]').exists()).toBe(true)
     expect(wrapper.find('[data-test="node-menu:user"]').exists()).toBe(true)
-    await wrapper.find('[data-test="node-check-menu:user"]').trigger('change')
+    // 菜单勾选经 el-checkbox 上抛（EP 件以 `update:modelValue` 变更）
+    wrapper.findComponent(PermissionTree).findComponent(ElCheckbox).vm.$emit('update:modelValue', true)
+    await flushPromises()
     expect(wrapper.emitted('change')?.some((item) => (item[0] as { kind: string }).kind === 'menu')).toBe(true)
   })
 })
@@ -201,7 +204,8 @@ describe('表单权限件与操作 / 字段面板', () => {
         sourceMenuId: '0',
       },
     })
-    expect(panel.find('[data-test="action-check-act:user:create"]').attributes('checked')).toBeDefined()
+    const box = panel.findComponent(ElCheckbox)
+    expect(box.props('modelValue')).toBe(true)
     expect(panel.find('[data-test="action-readonly"]').exists()).toBe(true)
   })
 
@@ -213,8 +217,13 @@ describe('表单权限件与操作 / 字段面板', () => {
         fieldEntries: [{ formId: 'form:user', fieldId: 'field:name', visible: false, editable: true, sourceMenuId: '0' }],
       },
     })
-    expect(panel.find('[data-test="field-visible-field:salary"]').attributes('checked')).toBeDefined()
-    expect(panel.find('[data-test="field-visible-field:name"]').attributes('checked')).toBeUndefined()
+    // el-table 表体在挂载后一个 tick 渲染
+    await flushPromises()
+    // 列序：可见（name=false、salary=true）→ 可编辑（name=true、salary=true）
+    const switches = panel.findAllComponents(ElSwitch)
+    expect(switches[0]?.props('modelValue')).toBe(false)
+    expect(switches[1]?.props('modelValue')).toBe(true)
+    expect(switches[2]?.props('modelValue')).toBe(true)
     await panel.find('[data-test="field-batch-hidden"]').trigger('click')
     expect(panel.emitted('batch')?.[0]).toEqual([{ kind: 'visible', value: false }])
   })
@@ -245,7 +254,11 @@ describe('数据权限件与动态字典件', () => {
         ready: false,
       },
     })
+    await flushPromises()
+    // el-input 将 `data-test` 透传到内层原生 input（非包裹 div）
+    await panel.find('[data-test="match-pattern"]').setValue('a=b')
     await panel.find('[data-test="match-pattern"]').trigger('change')
+    await flushPromises()
     const validated = panel.emitted('validate')
     expect(validated?.[0]?.[0]).toEqual({
       policyType: 'match',
@@ -269,9 +282,14 @@ describe('角色分配件', () => {
     })
     expect(panel.find('[data-test="role-assign-count"]').text()).toContain('已分配 1')
     await panel.find('[data-test="role-assign-open"]').trigger('click')
-    expect(panel.find('[data-test="role-assign-dialog"]').exists()).toBe(true)
-    await panel.find('[data-test="candidate-u2"] input').trigger('change')
-    await panel.find('[data-test="role-assign-confirm"]').trigger('click')
+    await flushPromises()
+    expect(document.querySelector('[data-test="role-assign-dialog"]')).not.toBeNull()
+    const candidate = document.querySelector('[data-test="candidate-u2"] input') as HTMLInputElement
+    candidate.click()
+    await flushPromises()
+    const confirmBtn = document.querySelector('[data-test="role-assign-confirm"]') as HTMLButtonElement
+    confirmBtn.click()
+    await flushPromises()
     expect(panel.emitted('bind')?.[0]?.[0]).toHaveLength(1)
   })
 

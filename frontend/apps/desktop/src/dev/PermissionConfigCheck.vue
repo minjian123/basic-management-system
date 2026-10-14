@@ -92,6 +92,15 @@ function onDiscard(): void {
   configRef.value?.discard()
 }
 
+/** 当前主题（截图对照用；经 `data-theme` 令牌作用域切换）。 */
+const theme = ref(document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light')
+
+/** 切换亮暗主题（令牌驱动，件不写 dark 专用规则）。 */
+function onToggleTheme(): void {
+  theme.value = theme.value === 'dark' ? 'light' : 'dark'
+  document.documentElement.dataset.theme = theme.value
+}
+
 /** 自检项（上屏）。 */
 const checks = computed(() => [
   { name: '占位零请求', pass: true },
@@ -111,11 +120,14 @@ const checks = computed(() => [
 
 <template>
   <div class="permission-config-check">
-    <h1>权限配置核对页（08-4-4）</h1>
+    <h1>权限配置核对页（08-4-4 · 11-01 样式对照）</h1>
 
     <div class="permission-config-check__toolbar">
       <el-button type="primary" data-test="check-save" @click="onSave">保存</el-button>
       <el-button data-test="check-discard" @click="onDiscard">撤销</el-button>
+      <el-button data-test="check-theme" @click="onToggleTheme">
+        切换到{{ theme === 'dark' ? '亮色' : '暗色' }}
+      </el-button>
       <span data-test="check-saved">{{ lastSaved }}</span>
     </div>
 
@@ -135,3 +147,29 @@ const checks = computed(() => [
     </section>
   </div>
 </template>
+
+<style scoped>
+.permission-config-check {
+  box-sizing: border-box;
+  min-height: 100%;
+  padding: var(--bms-space-6);
+  color: var(--bms-color-text);
+  background: var(--bms-color-bg-page);
+}
+
+.permission-config-check__toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--bms-space-3);
+  margin-bottom: var(--bms-space-4);
+}
+
+.permission-config-check__checks {
+  margin-top: var(--bms-space-6);
+  padding: var(--bms-space-4);
+  background: var(--bms-color-bg);
+  border: 1px solid var(--bms-color-border);
+  border-radius: var(--bms-radius-md);
+}
+</style>
+

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // 动态字典件（08-4-4，新口径）：按字典类型动态渲染字典数据（供数据选择 / 区域 / 匹配使用）；取数经字典组件基类投影。
 import type { BaseDictStore, DictSourceAdapter } from '@bms/core'
+import { ElCheckbox, ElRadio } from 'element-plus'
 import { computed, watch } from 'vue'
 
 import { useBaseDictSelect, type DictSelectValue } from '../../composables/useBaseDictSelect'
@@ -97,20 +98,61 @@ function onToggle(value: string): void {
 
 <template>
   <div class="bms-dynamic-dict" data-test="dynamic-dict" :data-degraded="degraded || undefined">
-    <p v-if="items.length === 0" data-test="empty">{{ emptyText }}</p>
-    <label
-      v-for="item in items"
-      :key="item.value"
-      class="bms-dynamic-dict__item"
-      :data-test="`dict-item-${item.value}`"
-    >
-      <input
-        :type="multiple ? 'checkbox' : 'radio'"
-        :checked="selected.has(item.value)"
-        :disabled="effectiveDisabled"
-        @change="onToggle(item.value)"
-      />
-      <span>{{ item.label }}</span>
-    </label>
+    <p v-if="items.length === 0" class="bms-dynamic-dict__empty" data-test="empty">{{ emptyText }}</p>
+    <div class="bms-dynamic-dict__items">
+      <label
+        v-for="item in items"
+        :key="item.value"
+        class="bms-dynamic-dict__item"
+        :data-test="`dict-item-${item.value}`"
+      >
+        <el-checkbox
+          v-if="multiple"
+          :model-value="selected.has(item.value)"
+          :disabled="effectiveDisabled"
+          @update:model-value="onToggle(item.value)"
+        />
+        <el-radio
+          v-else
+          :model-value="selected.has(item.value)"
+          :disabled="effectiveDisabled"
+          @update:model-value="onToggle(item.value)"
+        >
+          {{ item.label }}
+        </el-radio>
+      </label>
+    </div>
   </div>
 </template>
+
+<style scoped>
+.bms-dynamic-dict {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bms-space-2);
+  min-width: 0;
+}
+
+.bms-dynamic-dict__items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bms-space-1) var(--bms-space-4);
+}
+
+.bms-dynamic-dict__item {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--bms-control-height);
+  color: var(--bms-color-text);
+  font-size: var(--bms-font-size-sm);
+}
+
+.bms-dynamic-dict__empty {
+  margin: 0;
+  padding: var(--bms-space-4) 0;
+  color: var(--bms-color-text-secondary);
+  font-size: var(--bms-font-size-sm);
+  text-align: center;
+}
+</style>
+

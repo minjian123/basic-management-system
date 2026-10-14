@@ -1,5 +1,7 @@
 <script setup lang="ts">
 // 只读高亮件（08_02）：highlight.js 模块级缓存（与编辑内核分工），长文折叠 + 最大高度滚动 + 复制。
+// 样式（11-01）：头栏改 el-button 承载、行号槽与代码区补等宽样式，补 <style scoped> 消费 --bms-* 令牌。
+import { ElButton } from 'element-plus'
 import { computed, ref, watch } from 'vue'
 
 import { escapeHtml, useHighlight } from '../../composables/useHighlight'
@@ -86,16 +88,19 @@ function copy(): void {
     :data-lines="lines.length"
   >
     <div class="bms-code-viewer__header" data-test="header">
-      <span data-test="language">{{ language }}</span>
-      <button v-if="copyable" type="button" data-test="copy" @click="copy">复制</button>
-      <button
-        v-if="collapsible && lines.length > collapseLines"
-        type="button"
-        data-test="toggle-collapse"
-        @click="expanded = !expanded"
-      >
-        {{ expanded ? '收起' : '展开' }}
-      </button>
+      <span class="bms-code-viewer__language" data-test="language">{{ language }}</span>
+      <div class="bms-code-viewer__actions">
+        <el-button v-if="copyable" data-test="copy" link size="small" @click="copy">复制</el-button>
+        <el-button
+          v-if="collapsible && lines.length > collapseLines"
+          data-test="toggle-collapse"
+          link
+          size="small"
+          @click="expanded = !expanded"
+        >
+          {{ expanded ? '收起' : '展开' }}
+        </el-button>
+      </div>
     </div>
     <div class="bms-code-viewer__body" :style="{ maxHeight: effectiveMaxHeight }">
       <pre v-if="lineNumbers" class="bms-code-viewer__gutter" data-test="gutter" aria-hidden="true"><span v-for="line in lines.length" :key="line">{{ line }}
@@ -111,3 +116,72 @@ function copy(): void {
     </div>
   </div>
 </template>
+
+<style scoped>
+.bms-code-viewer {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--bms-color-border);
+  border-radius: var(--bms-radius-md);
+}
+
+.bms-code-viewer__header {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--bms-space-2);
+  padding: var(--bms-space-1) var(--bms-space-3);
+  background: var(--bms-color-fill);
+  border-bottom: 1px solid var(--bms-color-border);
+}
+
+.bms-code-viewer__language {
+  color: var(--bms-color-text-secondary);
+  font-family: var(--bms-font-family-mono, monospace);
+  font-size: var(--bms-font-size-xs);
+}
+
+.bms-code-viewer__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--bms-space-2);
+}
+
+.bms-code-viewer__body {
+  display: flex;
+  min-width: 0;
+  overflow: auto;
+  background: var(--bms-color-bg);
+}
+
+.bms-code-viewer__gutter {
+  flex: none;
+  margin: 0;
+  padding: var(--bms-space-2);
+  color: var(--bms-color-text-secondary);
+  font-family: var(--bms-font-family-mono, monospace);
+  font-size: var(--bms-font-size-sm);
+  line-height: var(--bms-line-height);
+  text-align: right;
+  border-right: 1px solid var(--bms-color-border);
+  user-select: none;
+}
+
+.bms-code-viewer__code {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: var(--bms-space-2) var(--bms-space-3);
+  font-family: var(--bms-font-family-mono, monospace);
+  font-size: var(--bms-font-size-sm);
+  line-height: var(--bms-line-height);
+}
+
+.bms-code-viewer__code[data-wrap] {
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+</style>

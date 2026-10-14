@@ -1,5 +1,7 @@
 <script setup lang="ts">
 // cron 编辑器件（08_02）：5 段编辑 + 人类可读描述 + 常用模板 + 合法性校验。
+// 样式（11-01）：段编辑改 el-input（prepend 段名）、模板改 el-button，补 <style scoped> 消费 --bms-* 令牌。
+import { ElButton, ElInput } from 'element-plus'
 import { computed, ref, watch } from 'vue'
 
 import { useBaseDataState } from '../../composables/useBaseDataState'
@@ -112,28 +114,30 @@ function applyTemplate(value: string): void {
     :data-readonly="readOnly || undefined"
   >
     <div class="bms-cron-editor__segments" data-test="segments">
-      <label v-for="segment in SEGMENTS" :key="segment.key">
-        {{ segment.label }}
-        <input
-          :value="segments[segment.key]"
+      <label v-for="segment in SEGMENTS" :key="segment.key" class="bms-cron-editor__segment">
+        <span class="bms-cron-editor__segment-label">{{ segment.label }}</span>
+        <el-input
           :data-test="`cron-${segment.key}`"
+          class="bms-cron-editor__segment-input"
+          :model-value="segments[segment.key]"
+          size="small"
           :readonly="readOnly"
-          @input="update(segment.key, ($event.target as HTMLInputElement).value)"
+          @update:model-value="(value: string) => update(segment.key, value)"
         />
       </label>
     </div>
 
     <div class="bms-cron-editor__templates" data-test="templates">
-      <button
+      <el-button
         v-for="template in CRON_TEMPLATES"
         :key="template.key"
-        type="button"
         :data-test="`cron-template-${template.key}`"
+        size="small"
         :disabled="readOnly"
         @click="applyTemplate(template.expression)"
       >
         {{ template.label }}
-      </button>
+      </el-button>
     </div>
 
     <p class="bms-cron-editor__expression" data-test="cron-expression">{{ expression }}</p>
@@ -141,3 +145,69 @@ function applyTemplate(value: string): void {
     <p v-if="!result.valid" class="bms-cron-editor__error" data-test="cron-error">{{ result.message }}</p>
   </div>
 </template>
+
+<style scoped>
+.bms-cron-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bms-space-3);
+  min-width: 0;
+}
+
+.bms-cron-editor__segments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bms-space-2) var(--bms-space-3);
+}
+
+.bms-cron-editor__segment {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--bms-space-2);
+}
+
+.bms-cron-editor__segment-label {
+  color: var(--bms-color-text-secondary);
+  font-size: var(--bms-font-size-sm);
+}
+
+.bms-cron-editor__segment-input {
+  width: 120px;
+}
+
+.bms-cron-editor__templates {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bms-space-2);
+}
+
+.bms-cron-editor__expression {
+  margin: 0;
+  padding: var(--bms-space-2) var(--bms-space-3);
+  font-family: var(--bms-font-family-mono, monospace);
+  font-size: var(--bms-font-size-sm);
+  background: var(--bms-color-fill);
+  border-radius: var(--bms-radius-md);
+}
+
+.bms-cron-editor__description {
+  margin: 0;
+  color: var(--bms-color-text-secondary);
+  font-size: var(--bms-font-size-sm);
+}
+
+.bms-cron-editor[data-valid='true'] .bms-cron-editor__expression {
+  border-left: 2px solid var(--bms-color-success);
+}
+
+.bms-cron-editor[data-valid='false'] .bms-cron-editor__expression {
+  border-left: 2px solid var(--bms-color-danger);
+}
+
+.bms-cron-editor__error {
+  margin: 0;
+  color: var(--bms-color-danger);
+  font-size: var(--bms-font-size-sm);
+}
+</style>
+

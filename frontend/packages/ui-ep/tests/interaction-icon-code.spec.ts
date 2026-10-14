@@ -124,21 +124,31 @@ describe('IconPicker 图标选择', () => {
     const registry = new IconRegistry()
     registry.register(new IconProvider('biz:order', DummyIcon, { name: 'Order 订单', category: 'business' }))
 
-    const wrapper = mount(IconPicker, { props: { registry } })
+    // el-popover 内容 teleport 到 body（挂 attachTo 便于断言文档树）
+    const wrapper = mount(IconPicker, { props: { registry }, attachTo: document.body })
     await wrapper.find('[data-test="trigger"]').trigger('click')
     await flushPromises()
-    expect(wrapper.find('[data-test="popover"]').exists()).toBe(true)
+    const popover = (): Element | null => document.querySelector('[data-test="popover"]')
+    expect(popover()).not.toBeNull()
     expect(wrapper.emitted('open')).toHaveLength(1)
 
-    await wrapper.find('[data-test="search"]').setValue('order')
-    expect(wrapper.find('[data-test="icon-biz:order"]').exists()).toBe(true)
+    await flushPromises()
+    const search = document.querySelector('[data-test="search"]') as HTMLInputElement
+    search.value = 'order'
+    search.dispatchEvent(new Event('input'))
+    await flushPromises()
+    expect(document.querySelector('[data-test="icon-biz:order"]')).not.toBeNull()
 
-    await wrapper.find('[data-test="icon-biz:order"]').trigger('click')
+    ;(document.querySelector('[data-test="icon-biz:order"]') as HTMLElement).click()
+    await flushPromises()
     expect(wrapper.emitted('update:modelValue')?.[0]).toEqual(['biz:order'])
     expect(wrapper.emitted('change')?.[0]).toEqual(['biz:order'])
-    expect(wrapper.find('[data-test="popover"]').exists()).toBe(false)
+    // el-popover 关闭后节点保留、以 `display: none` 隐藏
+    await flushPromises()
+    const popper = popover()?.closest('.el-popper') as HTMLElement | null
+    expect(popper?.style.display).toBe('none')
 
-    const cleared = mount(IconPicker, { props: { registry, modelValue: 'biz:order' } })
+    const cleared = mount(IconPicker, { props: { registry, modelValue: 'biz:order' }, attachTo: document.body })
     await cleared.find('[data-test="clear"]').trigger('click')
     expect(cleared.emitted('clear')).toHaveLength(1)
     expect(cleared.emitted('update:modelValue')?.[0]).toEqual([''])

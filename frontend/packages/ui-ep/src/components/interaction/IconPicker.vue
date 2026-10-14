@@ -1,6 +1,8 @@
 <script setup lang="ts">
 // 图标选择件（08_02）：搜索 / 分类 / 网格 / 最近使用 / 清除，候选来自图标注册表（未登记不可选）。
+// 样式（11-01）：触发框改 el-input、弹层改 el-popover、分类改 el-tag、网格补样式，消费 --bms-* 令牌。
 import type { IconRegistry, IconProvider } from '@bms/core'
+import { ElInput, ElPopover, ElTag } from 'element-plus'
 import { computed, ref } from 'vue'
 
 import { ensureOfficialIcons } from '../../icons/official'
@@ -143,64 +145,197 @@ function clear(): void {
   emit('clear')
 }
 
+/** 触发框点击（开 / 关弹层）。 */
+function onTrigger(): void {
+  if (visible.value) {
+    close()
+  } else {
+    void open()
+  }
+}
+
+/** 分类切换。 */
+function onCategory(item: string): void {
+  activeCategory.value = item
+}
+
 defineExpose({ open, close, clear })
 </script>
 
 <template>
   <div class="bms-icon-picker" :data-size="size" :data-disabled="disabled || undefined" :data-open="visible || undefined">
-    <button
-      type="button"
-      class="bms-icon-picker__trigger"
-      data-test="trigger"
+    <el-popover
+      :visible="visible"
+      :width="360"
+      placement="bottom-start"
+      trigger="click"
       :disabled="disabled"
-      @click="visible ? close() : open()"
+      @hide="close"
     >
-      <IconRenderer v-if="modelValue" :name="modelValue" :size="16" :registry="registry" />
-      <span v-else class="bms-icon-picker__placeholder" data-test="placeholder-text">{{ placeholder }}</span>
-      <span v-if="modelValue" data-test="trigger-key">{{ modelValue }}</span>
-      <span v-if="clearable && modelValue" data-test="clear" @click.stop="clear">×</span>
-    </button>
-
-    <div v-if="visible" class="bms-icon-picker__popover" data-test="popover">
-      <input v-model="keyword" type="search" data-test="search" :placeholder="placeholder" />
-      <div class="bms-icon-picker__categories" data-test="categories">
-        <button
-          v-for="item in categories"
-          :key="item"
-          type="button"
-          :data-test="`category-${item}`"
-          :data-active="(category || activeCategory) === item || undefined"
-          @click="activeCategory = item"
+      <template #reference>
+        <el-input
+          class="bms-icon-picker__trigger"
+          data-test="trigger"
+          :model-value="modelValue"
+          readonly
+          :placeholder="placeholder"
+          :size="size"
+          :disabled="disabled"
+          @click="onTrigger"
         >
-          {{ item }}
-        </button>
-      </div>
+          <template #prefix>
+            <IconRenderer v-if="modelValue" :name="modelValue" :size="16" :registry="registry" />
+          </template>
+          <template #suffix>
+            <span v-if="clearable && modelValue" class="bms-icon-picker__clear" data-test="clear" @click.stop="clear">×</span>
+            <span v-else class="bms-icon-picker__arrow">▾</span>
+          </template>
+        </el-input>
+      </template>
 
-      <div v-if="recentLimit > 0 && recentProviders.length > 0" class="bms-icon-picker__recent" data-test="recent">
-        <span
-          v-for="provider in recentProviders"
-          :key="provider.key"
-          :data-test="`recent-${provider.key}`"
-          @click="select(provider)"
-        >
-          <IconRenderer :name="provider.key" :size="16" :registry="registry" />
-        </span>
-      </div>
+      <div class="bms-icon-picker__popover" data-test="popover">
+        <el-input v-model="keyword" data-test="search" size="small" :placeholder="placeholder" clearable />
 
-      <div class="bms-icon-picker__grid" data-test="grid">
-        <button
-          v-for="provider in providers"
-          :key="provider.key"
-          type="button"
-          :data-test="`icon-${provider.key}`"
-          :data-active="provider.key === modelValue || undefined"
-          :title="provider.key"
-          @click="select(provider)"
-        >
-          <IconRenderer :name="provider.key" :size="18" :registry="registry" />
-        </button>
-        <p v-if="providers.length === 0" data-test="empty">无匹配图标</p>
+        <div class="bms-icon-picker__categories" data-test="categories">
+          <el-tag
+            v-for="item in categories"
+            :key="item"
+            :data-test="`category-${item}`"
+            :effect="(category || activeCategory) === item ? 'dark' : 'plain'"
+            size="small"
+            class="bms-icon-picker__category"
+            @click="onCategory(item)"
+          >
+            {{ item }}
+          </el-tag>
+        </div>
+
+        <div v-if="recentLimit > 0 && recentProviders.length > 0" class="bms-icon-picker__recent" data-test="recent">
+          <div class="bms-icon-picker__recent-title">最近使用</div>
+          <div class="bms-icon-picker__grid">
+            <button
+              v-for="provider in recentProviders"
+              :key="provider.key"
+              type="button"
+              class="bms-icon-picker__cell"
+              :data-test="`recent-${provider.key}`"
+              :title="provider.key"
+              @click="select(provider)"
+            >
+              <IconRenderer :name="provider.key" :size="16" :registry="registry" />
+            </button>
+          </div>
+        </div>
+
+        <div class="bms-icon-picker__grid" data-test="grid">
+          <button
+            v-for="provider in providers"
+            :key="provider.key"
+            type="button"
+            class="bms-icon-picker__cell"
+            :data-test="`icon-${provider.key}`"
+            :data-active="provider.key === modelValue || undefined"
+            :title="provider.key"
+            @click="select(provider)"
+          >
+            <IconRenderer :name="provider.key" :size="18" :registry="registry" />
+          </button>
+          <p v-if="providers.length === 0" class="bms-icon-picker__empty" data-test="empty">无匹配图标</p>
+        </div>
+
+        <span v-if="modelValue" class="bms-icon-picker__selected" data-test="trigger-key">{{ modelValue }}</span>
       </div>
-    </div>
+    </el-popover>
   </div>
 </template>
+
+<style scoped>
+.bms-icon-picker {
+  display: inline-flex;
+  width: 100%;
+}
+
+.bms-icon-picker__trigger {
+  width: 100%;
+}
+
+.bms-icon-picker__clear {
+  color: var(--bms-color-text-secondary);
+  cursor: pointer;
+}
+
+.bms-icon-picker__arrow {
+  color: var(--bms-color-text-secondary);
+}
+
+.bms-icon-picker__popover {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bms-space-2);
+}
+
+.bms-icon-picker__categories {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bms-space-1);
+}
+
+.bms-icon-picker__category {
+  cursor: pointer;
+}
+
+.bms-icon-picker__recent-title {
+  margin-bottom: var(--bms-space-1);
+  color: var(--bms-color-text-secondary);
+  font-size: var(--bms-font-size-xs);
+}
+
+.bms-icon-picker__grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: var(--bms-space-1);
+  max-height: 260px;
+  overflow: auto;
+}
+
+.bms-icon-picker__cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 36px;
+  padding: 0;
+  color: var(--bms-color-text-secondary);
+  background: var(--bms-color-bg);
+  border: 1px solid var(--bms-color-border);
+  border-radius: var(--bms-radius-md);
+  cursor: pointer;
+}
+
+.bms-icon-picker__cell:hover {
+  color: var(--bms-color-primary);
+  border-color: var(--bms-color-primary);
+}
+
+.bms-icon-picker__cell[data-active] {
+  color: var(--bms-color-white);
+  background: var(--bms-color-primary);
+  border-color: var(--bms-color-primary);
+}
+
+.bms-icon-picker__empty {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: var(--bms-space-4) 0;
+  color: var(--bms-color-text-secondary);
+  font-size: var(--bms-font-size-sm);
+  text-align: center;
+}
+
+.bms-icon-picker__selected {
+  padding-top: var(--bms-space-1);
+  color: var(--bms-color-text-secondary);
+  font-family: var(--bms-font-family-mono, monospace);
+  font-size: var(--bms-font-size-xs);
+  border-top: 1px solid var(--bms-color-border);
+}
+</style>

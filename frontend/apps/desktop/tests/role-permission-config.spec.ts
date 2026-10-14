@@ -7,8 +7,9 @@
  * 供角色记录页工具栏单一保存与撤销调用。
  */
 
-import { PermissionConfig } from '@bms/ui-ep'
+import { PermissionConfig, PermissionTree } from '@bms/ui-ep'
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
+import { ElCheckbox } from 'element-plus'
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
@@ -334,8 +335,8 @@ describe('权限配置容器（02_03 · Kiwi 2248）', () => {
     // 初始双假态不触发上抛（watch 非立即执行）
     expect(wrapper.emitted('dirty')).toBeUndefined()
 
-    // 授权总容器件脏（菜单勾选：原生 checkbox 需置 checked 后派发 change）
-    await wrapper.find('[data-test="node-check-menu:user"]').setValue(true)
+    // 授权总容器件脏（菜单勾选经 el-checkbox 上抛 `update:modelValue`）
+    wrapper.findComponent(PermissionTree).findComponent(ElCheckbox).vm.$emit('update:modelValue', true)
     await flushPromises()
     expect(exposed(wrapper).isConfigDirty()).toBe(true)
     expect(wrapper.emitted('dirty')?.at(-1)).toEqual([true])
@@ -387,7 +388,7 @@ describe('权限配置容器（02_03 · Kiwi 2248）', () => {
   it('撤销：丢弃授权容器变更并复位角色分配草稿', async () => {
     const wrapper = await mountConfig()
 
-    await wrapper.find('[data-test="node-check-menu:user"]').setValue(true)
+    wrapper.findComponent(PermissionTree).findComponent(ElCheckbox).vm.$emit('update:modelValue', true)
     await flushPromises()
     expect(exposed(wrapper).isConfigDirty()).toBe(true)
 
