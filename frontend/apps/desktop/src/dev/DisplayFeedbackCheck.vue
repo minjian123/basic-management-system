@@ -50,8 +50,8 @@ const auditRecords: AuditRecord[] = [
   },
 ]
 
-/** 审计字段级差异样例（含新增 / 修改 / 删除三类）。 */
-const auditDiffItems: AuditFieldDiff[] = [
+/** 审计字段级差异样例（含新增 / 修改 / 删除三类；点列表行打开抽屉后展示，核对页默认不预开抽屉以免遮挡整页）。 */
+const auditDiffSample: AuditFieldDiff[] = [
   { field: 'name', label: '姓名', oldValue: '张三', newValue: '张三丰' },
   { field: 'amount', label: '金额', oldValue: 1000, newValue: 2000, valueType: 'amount' },
   { field: 'enabled', label: '启用', oldValue: false, newValue: true, valueType: 'boolean' },
@@ -68,8 +68,9 @@ const previewFiles: PreviewFile[] = [
   { id: 'f5', name: '合同模板.docx', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' },
 ]
 const previewIndex = ref(0)
-const previewVisible = ref(true)
-const previewMode = ref<'overlay' | 'drawer' | 'inline'>('overlay')
+// 遮罩形态为 `position: fixed` 铺满视口，默认不打开以免遮挡整页核对；核对时点「打开预览」
+const previewVisible = ref(false)
+const previewMode = ref<'overlay' | 'drawer' | 'inline'>('inline')
 
 /** 二维码内容与状态。 */
 const qrValue = ref('https://bms.example.com/share/abc123')
@@ -93,6 +94,22 @@ const avatarGroup: UserDisplayInfo[] = [
   { id: 'u4', name: '赵六' },
   { id: 'u5', name: '钱七' },
 ]
+
+/** 是否已选中审计记录（未选中时不预开详情抽屉，避免遮挡整页核对）。 */
+const auditSelected = ref(false)
+
+/** 当前展示的字段差异（初始为空；点列表行后展示样例）。 */
+const auditDiffItems = ref<AuditFieldDiff[]>([])
+
+/**
+ * 审计记录选中（打开抽屉并展示字段差异与链字段样例）。
+ *
+ * `el-table` 的 `row-click` 首个参数即行对象。
+ */
+function onAuditSelect(): void {
+  auditSelected.value = true
+  auditDiffItems.value = auditDiffSample
+}
 
 /** 空状态引导按钮样例（权限码）。 */
 const emptyPermissions = ref(['sys:user:create'])
@@ -136,10 +153,11 @@ const checks = computed(() => [
         :total="2"
         :page="1"
         :table-options="['sys_user', 'sys_role', 'sys_dept']"
-        prev-hash="abcdef0123456789abcdef0123456789"
-        record-hash="fedcba9876543210fedcba9876543210"
-        :chain-verified="false"
+        :prev-hash="auditSelected ? 'abcdef0123456789abcdef0123456789' : ''"
+        :record-hash="auditSelected ? 'fedcba9876543210fedcba9876543210' : ''"
+        :chain-verified="auditSelected ? false : undefined"
         data-test="audit-diff"
+        @select="onAuditSelect"
       />
     </section>
 
