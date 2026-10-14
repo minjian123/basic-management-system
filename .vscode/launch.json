@@ -216,6 +216,8 @@
         "notice-check.html",
         "chart-check.html",
         "data-display-check.html",
+        "container-check.html",
+        "display-feedback-check.html",
         "layout-check.html",
         "menu-check.html",
         "role-check.html",
