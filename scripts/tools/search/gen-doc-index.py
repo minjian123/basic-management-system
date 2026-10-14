@@ -38,7 +38,7 @@ _SRC_ROOT = _ROOT / "backend" / "libs" / "bms_core" / "src"
 if str(_SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(_SRC_ROOT))
 
-from bms_core.core.concurrent import (
+from bms_core.core.concurrent import (  # noqa: E402
     ConcurrentStableDict,
     ConcurrentStableList,
 )
@@ -191,9 +191,7 @@ def group_units(
     records: ConcurrentStableList[ConcurrentStableDict],
 ) -> ConcurrentStableList[ConcurrentStableDict]:
     """把文件记录聚合为「语义单元」：项目域按阶段，其余域按一级子目录。"""
-    units: ConcurrentStableDict[str, ConcurrentStableList[ConcurrentStableDict]] = (
-        ConcurrentStableDict()
-    )
+    units: ConcurrentStableDict[str, ConcurrentStableList[ConcurrentStableDict]] = ConcurrentStableDict()
     for rec in records:
         key = unit_key(rec)
         if key not in units:
@@ -216,23 +214,17 @@ def _plain(obj):
     """把集合类对象递归还原为普通 list / dict（json 无法序列化集合类）。"""
     if isinstance(obj, Mapping):
         return {k: _plain(v) for k, v in obj.items()}
-    if isinstance(obj, (list, tuple, set, frozenset)) or (
-        hasattr(obj, "__iter__") and not isinstance(obj, str)
-    ):
+    if isinstance(obj, (list, tuple, set, frozenset)) or (hasattr(obj, "__iter__") and not isinstance(obj, str)):
         return [_plain(x) for x in obj]
     return obj
 
 
 def dump(skeleton: ConcurrentStableList[ConcurrentStableDict], path: str) -> None:
-    Path(path).write_text(
-        json.dumps(_plain(skeleton), ensure_ascii=False, indent=2), encoding="utf-8"
-    )
+    Path(path).write_text(json.dumps(_plain(skeleton), ensure_ascii=False, indent=2), encoding="utf-8")
     log(f"[输出] {path}")
 
 
-def representative_files(
-    unit: ConcurrentStableDict, cap: int = 200
-) -> ConcurrentStableList[ConcurrentStableDict]:
+def representative_files(unit: ConcurrentStableDict, cap: int = 200) -> ConcurrentStableList[ConcurrentStableDict]:
     """挑出给模型看的代表文件，避免大阶段被「任务叶子文件」淹没。
 
     优先保留：路径浅的（总览 / 需求 / 计划）、以及类型上更像入口的
@@ -252,7 +244,7 @@ def representative_files(
     head = files[:cap]
     if len(files) > cap:
         # 保留一个「其余 N 份」的提示，让模型知道还有同族文件
-        head = head + [
+        head += [
             {
                 "rel": f"……（其余 {len(files) - cap} 份同族文档略）",
                 "title": "",
@@ -308,18 +300,14 @@ def extract_json(text: str) -> ConcurrentStableDict | None:
     except json.JSONDecodeError:
         return None
     # 字段校验：缺字段或类型不对即视为无效
-    if not isinstance(obj.get("topic"), str) or not isinstance(
-        obj.get("questions"), list
-    ):
+    if not isinstance(obj.get("topic"), str) or not isinstance(obj.get("questions"), list):
         return None
     if not isinstance(obj.get("entry_files"), list):
         return None
     return obj
 
 
-def enrich(
-    skeleton: ConcurrentStableList[ConcurrentStableDict], limit: int | None
-) -> None:
+def enrich(skeleton: ConcurrentStableList[ConcurrentStableDict], limit: int | None) -> None:
     """按任务域批量调本地 LLM 补语义。"""
     targets = [u for u in skeleton if u.get("needs_llm") and not u.get("semantic")]
     if limit:
@@ -350,9 +338,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="文档域路由索引进结构生成器")
     parser.add_argument("--workspace", default=".", help="工作区根（默认当前目录）")
     parser.add_argument("--out", help="输出骨架 JSON 路径（默认打印摘要）")
-    parser.add_argument(
-        "--no-llm", action="store_true", help="只产结构骨架，不调本地模型"
-    )
+    parser.add_argument("--no-llm", action="store_true", help="只产结构骨架，不调本地模型")
     parser.add_argument("--enrich", help="读取既有骨架 JSON 后只做语义补全")
     parser.add_argument("--limit", type=int, help="限制 LLM 调用数量（调试用）")
     args = parser.parse_args()
@@ -386,13 +372,8 @@ def main() -> int:
                 unit["file_count"] = len(unit["files"])
             for _u in units:
                 skeleton.add(_u)
-            log(
-                f"[扫描] {repo}/{docname}：{len(records)} 份文档 → {len(units)} 个任务域"
-            )
-        log(
-            f"[合计] {len(skeleton)} 个任务域，其中需补语义 "
-            f"{sum(1 for u in skeleton if u.get('needs_llm'))} 个"
-        )
+            log(f"[扫描] {repo}/{docname}：{len(records)} 份文档 → {len(units)} 个任务域")
+        log(f"[合计] {len(skeleton)} 个任务域，其中需补语义 {sum(1 for u in skeleton if u.get('needs_llm'))} 个")
 
     if not args.no_llm and not args.enrich:
         enrich(skeleton, args.limit)
@@ -403,10 +384,7 @@ def main() -> int:
         for unit in skeleton:
             sem = unit.get("semantic") or {}
             topic = sem.get("topic") or "-"
-            log(
-                f"  {unit['repo']:>4} | {unit['domain']:<8} | {unit['dir']:<50} | "
-                f"{unit['file_count']:>3} 份 | {topic}"
-            )
+            log(f"  {unit['repo']:>4} | {unit['domain']:<8} | {unit['dir']:<50} | {unit['file_count']:>3} 份 | {topic}")
     return 0
 
 

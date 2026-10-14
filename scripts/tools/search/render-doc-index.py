@@ -26,7 +26,7 @@ _SRC_ROOT = _ROOT / "backend" / "libs" / "bms_core" / "src"
 if str(_SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(_SRC_ROOT))
 
-from bms_core.core.concurrent import (
+from bms_core.core.concurrent import (  # noqa: E402
     ConcurrentStableDict,
     ConcurrentStableList,
 )
@@ -113,13 +113,9 @@ def render(skeleton: ConcurrentStableList[ConcurrentStableDict]) -> str:
     lines: ConcurrentStableList[str] = ConcurrentStableList()
     lines.add("# 文档域路由索引")
     lines.add("")
-    lines.add(
-        "> 按「主题域 × 阶段」指路的文档导航 · 与《文档首页》互补：首页管全量树，本索引管「去哪查」"
-    )
+    lines.add("> 按「主题域 × 阶段」指路的文档导航 · 与《文档首页》互补：首页管全量树，本索引管「去哪查」")
     lines.add("")
-    lines.add(
-        "[文档首页](文档首页.md) › 文档域路由索引　|　[配套：基座文档清单 →](基座文档清单.md)"
-    )
+    lines.add("[文档首页](文档首页.md) › 文档域路由索引　|　[配套：基座文档清单 →](基座文档清单.md)")
     lines.add("")
     lines.add("---")
     lines.add("")
@@ -129,20 +125,14 @@ def render(skeleton: ConcurrentStableList[ConcurrentStableDict]) -> str:
     lines.add("文档规模已到 1788 份 / 1190 万字符，常见词命中上千文件，")
     lines.add("直接全库撒词的代价远高于先查本索引再进目录。")
     lines.add("")
-    lines.add(
-        "**不是**：任何口径的权威来源。基类继承链仍以《前端基类清单》《后端基类清单》为唯一权威，"
-    )
-    lines.add(
-        "基座边界以《基座文档清单》为准，规范正文以各《规范》为准——本索引只指路，不复制结论。"
-    )
+    lines.add("**不是**：任何口径的权威来源。基类继承链仍以《前端基类清单》《后端基类清单》为唯一权威，")
+    lines.add("基座边界以《基座文档清单》为准，规范正文以各《规范》为准——本索引只指路，不复制结论。")
     lines.add("")
     lines.add("**维护**：结构由 `scripts/tools/search/gen-doc-index.py` 扫描目录生成，")
     lines.add("语义（典型问题 / 首查文件）由本地 LLM 批量补全；")
     lines.add("目录结构变化后重跑生成，勿手改结构部分。")
     lines.add("")
-    lines.add(
-        "配套：[代码落点索引](代码落点索引.md)（代码去哪找）· [基座文档清单](基座文档清单.md)（基座边界）"
-    )
+    lines.add("配套：[代码落点索引](代码落点索引.md)（代码去哪找）· [基座文档清单](基座文档清单.md)（基座边界）")
     lines.add("")
     lines.add('## 2. 规模总览 <a id="scale"></a>')
     lines.add("")
@@ -156,9 +146,7 @@ def render(skeleton: ConcurrentStableList[ConcurrentStableDict]) -> str:
     # 按主题域分组
     lines.add('## 3. 主题域路由 <a id="routing"></a>')
     lines.add("")
-    domains: ConcurrentStableDict[str, ConcurrentStableList[ConcurrentStableDict]] = (
-        ConcurrentStableDict()
-    )
+    domains: ConcurrentStableDict[str, ConcurrentStableList[ConcurrentStableDict]] = ConcurrentStableDict()
     for u in skeleton:
         dom = u["domain"]
         if dom not in domains:

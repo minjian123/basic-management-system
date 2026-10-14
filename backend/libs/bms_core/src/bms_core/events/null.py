@@ -1,4 +1,4 @@
-"""events 能力域缺省实现（Null Object）：发布 / 消费空操作（05 补缺；真实实现随阶段十 M10 集成消息可用）。"""
+"""events 能力域缺省实现（Null Object）：发布 / 消费空操作（05 补缺；真实实现待消息中间件就绪后回补）。"""
 
 from bms_core.core.capability import BaseNullObject
 from bms_core.events.base import EventConsumer, EventEnvelope, EventPublisher
@@ -9,7 +9,7 @@ NULL_EVENT_TYPE = "event.null"
 
 
 class NullEventPublisher(EventPublisher, BaseNullObject):
-    """占位事件发布：空操作（不连消息中间件、不投递；真实实现随阶段十 M10 集成消息可用）。"""
+    """占位事件发布：空操作（不连消息中间件、不投递；真实实现待消息中间件就绪后回补）。"""
 
     @property
     def event_type(self) -> str:
@@ -36,7 +36,7 @@ class NullEventPublisher(EventPublisher, BaseNullObject):
 
 
 class NullEventConsumer(EventConsumer, BaseNullObject):
-    """占位事件消费：空操作（不连消息中间件、不消费；真实实现随阶段十 M10 集成消息可用）。
+    """占位事件消费：空操作（不连消息中间件、不消费；真实实现待消息中间件就绪后回补）。
 
     分轨后实现名沿用约定的 `null`（`NULL_PLUGIN_NAME`），与发布侧不冲突。
     """

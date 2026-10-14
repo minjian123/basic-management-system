@@ -1,4 +1,4 @@
-"""事件能力域：事件发布 / 消费基座契约（消息中间件在阶段十 M10 集成消息可用回补）。"""
+"""事件能力域：事件发布 / 消费基座契约（消息中间件就绪后回补真实实现）。"""
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
@@ -98,7 +98,7 @@ class BaseEventConsumer(BaseEventWorker):
 
 
 class EventConsumer(BaseEventConsumer):
-    """事件消费基座契约：分区有序异步消费（真实实现随阶段十 M10 集成消息可用）。"""
+    """事件消费基座契约：分区有序异步消费（消息中间件就绪后回补真实实现）。"""
 
     @abstractmethod
     async def consume(self, event: EventEnvelope) -> None:

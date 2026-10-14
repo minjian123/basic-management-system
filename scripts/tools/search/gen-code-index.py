@@ -31,7 +31,7 @@ _SRC_ROOT = _ROOT / "backend" / "libs" / "bms_core" / "src"
 if str(_SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(_SRC_ROOT))
 
-from bms_core.core.concurrent import (
+from bms_core.core.concurrent import (  # noqa: E402
     ConcurrentStableDict,
     ConcurrentStableList,
 )
@@ -63,7 +63,7 @@ def module_docstring(path: Path) -> str:
     """取 Python 模块 docstring 首行（无 ast 开销，够快）。"""
     try:
         tree = ast.parse(path.read_text(encoding="utf-8", errors="replace"))
-    except (SyntaxError, OSError, ValueError):
+    except SyntaxError, OSError, ValueError:
         return ""
     doc = ast.get_docstring(tree)
     if not doc:
@@ -78,7 +78,7 @@ def package_exports(path: Path) -> ConcurrentStableList[str]:
         return []
     try:
         tree = ast.parse(path.read_text(encoding="utf-8", errors="replace"))
-    except (SyntaxError, OSError, ValueError):
+    except SyntaxError, OSError, ValueError:
         return []
     for node in tree.body:
         if isinstance(node, ast.Assign):
@@ -89,15 +89,9 @@ def package_exports(path: Path) -> ConcurrentStableList[str]:
                     and isinstance(node.value, ast.List | ast.Tuple)
                 ):
                     return [
-                        el.value
-                        for el in node.value.elts
-                        if isinstance(el, ast.Constant) and isinstance(el.value, str)
+                        el.value for el in node.value.elts if isinstance(el, ast.Constant) and isinstance(el.value, str)
                     ]
-    names = [
-        node.name
-        for node in tree.body
-        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef)
-    ]
+    names = [node.name for node in tree.body if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef)]
     return names
 
 
@@ -109,9 +103,7 @@ def _plain(obj):
     """
     if isinstance(obj, Mapping):
         return {k: _plain(v) for k, v in obj.items()}
-    if isinstance(obj, (list, tuple, set, frozenset)) or (
-        hasattr(obj, "__iter__") and not isinstance(obj, str)
-    ):
+    if isinstance(obj, (list, tuple, set, frozenset)) or (hasattr(obj, "__iter__") and not isinstance(obj, str)):
         return [_plain(x) for x in obj]
     return obj
 
@@ -264,17 +256,11 @@ def render(
     )
     lines.add("本索引**不复制**这些结论，只提供目录与职责导航。")
     lines.add("")
-    lines.add(
-        "配套：[文档域路由索引](文档域路由索引.md)（文档去哪查）· [基座文档清单](基座文档清单.md)（基座边界）"
-    )
+    lines.add("配套：[文档域路由索引](文档域路由索引.md)（文档去哪查）· [基座文档清单](基座文档清单.md)（基座边界）")
     lines.add("")
     lines.add("维护：`scripts/tools/search/gen-code-index.py` 扫描生成；")
-    lines.add(
-        "职责描述取自源码头部注释：后端模块 docstring；前端 JSDoc 块注释 / 行注释 / Vue 模板注释。"
-    )
-    lines.add(
-        "（1217 个源文件中 1211 个有头部职责注释；其余为 vitest 配置与测试文件，无需职责说明）"
-    )
+    lines.add("职责描述取自源码头部注释：后端模块 docstring；前端 JSDoc 块注释 / 行注释 / Vue 模板注释。")
+    lines.add("（1217 个源文件中 1211 个有头部职责注释；其余为 vitest 配置与测试文件，无需职责说明）")
     lines.add("")
 
     lines.add('## 2. 后端 <a id="backend"></a>')
@@ -306,10 +292,7 @@ def render(
         lines.add(f"### {pkg['label']}")
         lines.add("")
         lines.add(f"- **目录**：`{pkg['base']}`")
-        lines.add(
-            f"- **源文件**：{count} 个（ts / vue / tsx，不含 dist）"
-            f" · 有头部职责注释 {len(with_doc)} 个"
-        )
+        lines.add(f"- **源文件**：{count} 个（ts / vue / tsx，不含 dist） · 有头部职责注释 {len(with_doc)} 个")
         lines.add("")
         if with_doc:
             lines.add("| 文件 | 职责 |")
@@ -355,9 +338,7 @@ def main() -> int:
             if not src.is_dir():
                 continue
             # 服务 src 下是 bms_<名> 包
-            pkgs = [
-                p for p in src.iterdir() if p.is_dir() and not p.name.startswith("__")
-            ]
+            pkgs = [p for p in src.iterdir() if p.is_dir() and not p.name.startswith("__")]
             for pkg in pkgs:
                 backend.add(scan_python_dir(pkg, f"服务 {svc.name} · {pkg.name}", bms))
 
