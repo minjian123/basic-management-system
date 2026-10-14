@@ -42,6 +42,7 @@ from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList,
 from bms_core.core.config import Settings, get_settings
 from bms_core.core.exceptions import ConfigError
 from bms_core.core.objects import BaseValueObject
+from bms_core.core.paths import resolve_backend_root
 from bms_core.db.keys import PLATFORM_SERVICE_KEY, build_platform_db_key
 from bms_core.models.base import Base
 from bms_core.services.table_registry import chain_tables, known_service_keys
@@ -91,20 +92,19 @@ _SCOPE_SUFFIX: ConcurrentStableDict[str, str] = ConcurrentStableDict(
 
 
 def _find_backend_root() -> Path:
-    """定位后端工程根（`backend/`）：自本文件向上取首个含 `alembic.ini` 的目录。
+    """定位后端工程根（`backend/`）：经统一入口解析（环境变量优先，其次向上搜根）。
 
-    工作区形态下迁移脚本落点由库内相对定位改为向上搜根，避免硬编码层级随布局漂移。
+    工作区形态与依赖外置形态下，工程根位置会变（`.venv` 外置为符号链接时包体不再位于仓库内），
+    故统一走 `bms_core.core.paths.resolve_backend_root`——显式覆盖优先，否则自本文件向上搜首个含
+    `alembic.ini` 的目录（搜索不穿透符号链接，外置态仍能命中仓库内工程根）。
 
     Returns:
         Path: 后端工程根目录。
 
     Raises:
-        ConfigError: 向上未找到含 `alembic.ini` 的目录（工程布局异常）。
+        ConfigError: 环境变量取值无效，或向上未找到含 `alembic.ini` 的目录（工程布局异常）。
     """
-    for parent in Path(__file__).resolve().parents:
-        if (parent / "alembic.ini").is_file():
-            return parent
-    raise ConfigError("未找到 backend/ 工程根（向上无含 alembic.ini 的目录）")
+    return resolve_backend_root("alembic.ini", anchor=Path(__file__))
 
 
 BACKEND_ROOT = _find_backend_root()

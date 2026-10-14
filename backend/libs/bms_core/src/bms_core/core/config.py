@@ -30,6 +30,7 @@ from sqlalchemy.engine import make_url
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.exceptions import ConfigError
+from bms_core.core.paths import resolve_backend_root
 from bms_core.permission.profile import DEFAULT_PROFILE, ensure_profile_supported, normalize_profile
 from bms_core.schemas.base import (
     CONTRACT_COLLECTION,
@@ -49,18 +50,19 @@ _LOG_LEVELS = ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL")
 
 
 def _find_config_dir() -> Path:
-    """定位配置目录（后端工程根）：自本文件向上取首个含 `config.toml` 的目录。
+    """定位配置目录（后端工程根）：经统一入口解析（环境变量优先，其次向上搜 `config.toml`）。
 
-    工作区形态下配置随 `backend/` 工程根（非包内），故用向上搜根代替硬编码层级。
+    工作区形态下配置随 `backend/` 工程根（非包内）；依赖外置形态下包体在依赖仓、工程根仍在
+    仓库内，故统一走 `bms_core.core.paths.resolve_backend_root`——搜索不穿透符号链接，外置态
+    仍能命中仓库内工程根。
 
     Returns:
-        Path: 含 `config.toml` 的最近祖先目录；未命中时回落最顶层祖先（避免导入期抛错）。
+        Path: 含 `config.toml` 的工程根目录。
+
+    Raises:
+        ConfigError: 环境变量取值无效，或向上未找到含 `config.toml` 的目录（工程布局异常）。
     """
-    parents = Path(__file__).resolve().parents
-    for parent in parents:
-        if (parent / _BASE_CONFIG).is_file():
-            return parent
-    return parents[-1]
+    return resolve_backend_root(_BASE_CONFIG, anchor=Path(__file__))
 
 
 _CONFIG_DIR = _find_config_dir()  # backend/

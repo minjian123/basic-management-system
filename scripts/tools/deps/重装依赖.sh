@@ -25,7 +25,10 @@ case "$MODE" in
     *) echo "[重装依赖] 未知参数：$MODE（支持 --frontend-only / --backend-only）" >&2; exit 2 ;;
 esac
 
-# 后端环境外置：UV_PROJECT_ENVIRONMENT 指向本地依赖仓（与 deploy/.env 同源读取）
+# 后端环境外置：uv 项目环境走**符号链接口径**（`backend/.venv` -> 依赖仓 backend-venv），
+# 不再依赖 UV_PROJECT_ENVIRONMENT —— 该变量只在交互式 shell 生效（.bashrc 有 interactive
+# early-return），非交互调用（脚本 / agent / CI 外部工具）会落回仓内 `.venv`，且全局导出会
+# 跨仓串环境（2026-10-14 实测：mdm 目录下 uv run 误装进 bms 共享环境）。
 resolve_deps_dir() {
     if [ -n "${DEPS_DIR:-}" ]; then
         printf '%s' "$DEPS_DIR"
@@ -42,8 +45,6 @@ resolve_deps_dir() {
     printf '%s' "${HOME:-/home/shared}/dev-deps/bms"
 }
 export DEPS_DIR="$(resolve_deps_dir)"
-# 后端环境外置：uv 项目环境指向本地依赖仓 backend-venv（仓库内不落 .venv）
-export UV_PROJECT_ENVIRONMENT="$DEPS_DIR/backend-venv"
 
 echo "[重装依赖] 本地依赖仓：$DEPS_DIR"
 
@@ -52,12 +53,14 @@ echo "[重装依赖] 本地依赖仓：$DEPS_DIR"
 sh "$SCRIPTS_DIR/还原依赖.sh"
 
 # 2) 安装
+# 后端一律在 `backend/` 下执行（工程根在 `backend/`，仓根没有 pyproject.toml）：
+# 还原后 `.venv` 已回到 `backend/.venv` 真实目录，uv sync 就地同步该环境。
 if [ "$MODE" = "--frontend-only" ]; then
     pnpm install --frozen-lockfile
 elif [ "$MODE" = "--backend-only" ]; then
-    uv sync --frozen
+    (cd "$ROOT/backend" && uv sync --frozen)
 else
-    uv sync --frozen
+    (cd "$ROOT/backend" && uv sync --frozen)
     pnpm install --frozen-lockfile
 fi
 

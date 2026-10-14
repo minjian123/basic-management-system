@@ -1,7 +1,7 @@
 #!/bin/sh
 # 依赖外置：把项目内依赖目录整体搬移至本地依赖仓，原位置留目录级符号链接。
 # 效果：磁盘占用归零、内容不出项目（检索/扫描工具默认不跟随符号链接即扫不到）。
-# 适用对象：pnpm workspace 的 node_modules 目录。
+# 适用对象：pnpm workspace 的 node_modules 目录 + 后端 `.venv`（backend/.venv）。
 #
 # 用法：
 #   bms/scripts/tools/deps/外置依赖.sh [--dry-run]
@@ -116,6 +116,43 @@ fix_workspace_links() {
     done
 }
 fix_workspace_links
+
+# ---- 后端 .venv 外置 ----
+# 与 node_modules 同口径：真实目录整体搬到依赖仓，原位留符号链接。之所以能这么做，是因为
+# 基座工程根定位（`bms_core.core.paths.resolve_backend_root`）**不穿透符号链接**——外置态下
+# 包体虽在依赖仓，仍能经 `backend/.venv/...` 这一字面层级上溯到仓库内工程根。
+# 依赖仓已有环境时以依赖仓为准：仓内若残留真实目录（历史上非交互式 uv 调用所建）即删除，
+# 避免两份环境并存混淆（两份内容可以不一致，误用会得到难以排查的行为差异）。
+externalize_backend_venv() {
+    live="$ROOT/backend/.venv"
+    store="$DEPS_DIR/backend-venv"
+    if [ -L "$live" ]; then
+        echo "[跳过] backend/.venv 是符号链接（已外置）"
+        return 0
+    fi
+    if [ -d "$store" ]; then
+        if [ -d "$live" ]; then
+            echo "[外置] backend/.venv：依赖仓已有环境，删除仓内残留目录（以依赖仓为准）"
+            count=$((count + 1))
+            run rm -rf "$live"
+        else
+            echo "[外置] backend/.venv：采用依赖仓现有环境（原位建符号链接）"
+        fi
+        if [ "$DRY_RUN" != 1 ]; then ln -s "$store" "$live"; else echo "[dry-run] ln -s $store $live"; fi
+        return 0
+    fi
+    if [ -d "$live" ]; then
+        echo "[外置] backend/.venv"
+        count=$((count + 1))
+        if [ "$DRY_RUN" = 1 ]; then return 0; fi
+        mkdir -p "$DEPS_DIR"
+        mv "$live" "$store"
+        ln -s "$store" "$live"
+    else
+        echo "[跳过] backend/.venv 不存在（先 uv sync 生成，或本仓未启用后端外置）"
+    fi
+}
+externalize_backend_venv
 
 echo "[外置] 查看本地依赖仓体积： du -sh \"$DEPS_DIR\""
 echo "[外置] 确认项目内为符号链接： ls -la <包>/node_modules"

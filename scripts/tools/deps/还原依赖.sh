@@ -70,5 +70,20 @@ if [ -d "$DEPS_DIR" ]; then
         fi
     done < "$tmp_list"
     rm -f "$tmp_list"
+
+    # ---- 后端 .venv 还原 ----
+    # 与 node_modules 同口径：删原位符号链接，把依赖仓环境搬回 `backend/.venv`。
+    # 安装器（uv sync）面对符号链接形态的 `.venv` 行为不一致（可能要求 `--clear`），故装依赖前
+    # 必须先还原。依赖仓无对应环境时不动（该仓未启用后端外置）。
+    venv_link="$ROOT/backend/.venv"
+    venv_store="$DEPS_DIR/backend-venv"
+    if [ -L "$venv_link" ] && [ -d "$venv_store" ]; then
+        echo "[还原] backend/.venv"
+        count=$((count + 1))
+        if [ "$DRY_RUN" != 1 ]; then
+            rm -f "$venv_link"
+            mv "$venv_store" "$venv_link"
+        fi
+    fi
 fi
 echo "[还原] 完成：共 $count 个依赖目录已搬回。"

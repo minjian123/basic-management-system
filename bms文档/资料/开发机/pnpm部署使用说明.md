@@ -39,7 +39,7 @@
 | 项目 registry | npmmirror（`bms/.npmrc` 的 `registry=https://registry.npmmirror.com`） |
 | workspace 收敛 | `bms/pnpm-workspace.yaml`：`frontend/packages/*`、`frontend/apps/*`、`frontend/modules/*` |
 | 单一锁文件 | `bms/pnpm-lock.yaml`（删除 4 份 `package-lock.json`：根 / desktop / demo / sample） |
-| 本地依赖仓 | `bms/deploy/.env` 的 `DEPS_DIR` 指定（默认 `$HOME/dev-deps/bms`；含前端 node_modules 与后端 backend-venv，见[uv 部署使用说明](uv部署使用说明.md)） |
+| 本地依赖仓 | `bms/deploy/.env` 的 `DEPS_DIR` 指定（默认 `$HOME/dev-deps/bms`；含前端 node_modules 与后端 `backend-venv`，见[uv 部署使用说明](uv部署使用说明.md)） |
 
 > 依赖安装一律走国内镜像（npmmirror）；`pnpm install` 命中 store 即秒级「link 出目录」，重装基本不耗时。
 
@@ -84,7 +84,7 @@ flowchart LR
 
 | 形态 | 说明 |
 | --- | --- |
-| 外置态 | node_modules 为符号链接；日常开发、构建、检索均在此态（**推荐常驻**） |
+| 外置态 | node_modules 为符号链接；日常开发、构建、检索均在此态（**推荐常驻**）。后端 `.venv` 同口径（`backend/.venv -> $DEPS_DIR/backend-venv`，见[uv 部署使用说明](uv部署使用说明.md)） |
 | 还原态 | 符号链接删除、真实目录搬回项目内；仅 pnpm install 前需要（安装器重建时若遇符号链接会误判跳过） |
 
 ### 5.1 三入口脚本 <a id="scripts"></a>
@@ -93,8 +93,8 @@ flowchart LR
 
 | 脚本 | 作用 |
 | --- | --- |
-| `外置依赖.sh` | 项目内全部 node_modules → mv 到本地依赖仓 + 原位符号链接；`--dry-run` 预览 |
-| `还原依赖.sh` | 经符号链接定位并把真实目录整体搬回项目内（还原态） |
+| `外置依赖.sh` | 项目内全部 node_modules **与后端 `.venv`** → mv 到本地依赖仓 + 原位符号链接；`--dry-run` 预览 |
+| `还原依赖.sh` | 经符号链接定位并把真实目录整体搬回项目内（还原态；含后端 `.venv`） |
 | `重装依赖.sh` | **还原 → 安装 → 再外置**的完整闭环；参数 `--frontend-only` / `--backend-only` / 不带（前后端都装） |
 
 本地依赖仓路径读取顺序：环境变量 `DEPS_DIR` → `bms/deploy/.env` 的 `DEPS_DIR=` → 默认 `$HOME/dev-deps/bms`。
