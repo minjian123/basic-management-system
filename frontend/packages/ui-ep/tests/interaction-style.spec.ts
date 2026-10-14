@@ -1,4 +1,4 @@
-// kiwi_id: 2295, 2296
+// kiwi_id: 2295, 2296, 2297
 /**
  * 件族样式齐备护栏（11_01 交互类 / 11_02 容器与展示反馈件族样式补齐 · 需求 11-1）：
  * **硬断言全库真裸骨架件**均含非空 `<style scoped>`，且样式块无硬编码色值（一律消费令牌）。
@@ -86,6 +86,30 @@ const CONTAINER_DISPLAY_FEEDBACK_BATCH = [
   'feedback/ErrorPage',
   'feedback/LoadingMask',
 ]
+
+/** `11_03` 补齐的字段与基础控件 17 件（字段族 15 + 基础控件族 2）。 */
+const FIELD_INPUT_BATCH = [
+  'field/AmountField',
+  'field/CascadeField',
+  'field/DateTimeField',
+  'field/EnumField',
+  'field/InlineSwitchCell',
+  'field/MultilingualDetailDialog',
+  'field/MultilingualNameField',
+  'field/MultilingualTextField',
+  'field/NumberField',
+  'field/RichTextEditor',
+  'field/RichTextField',
+  'field/SwitchField',
+  'field/TagInputField',
+  'field/TransferField',
+  'field/TreeSelectField',
+  'input/CheckboxInput',
+  'input/PasswordInput',
+]
+
+/** `11_03` 新增 4 件（新增件同受样式护栏约束）。 */
+const FIELD_INPUT_NEW = ['field/TimeField', 'field/PercentField', 'field/EnumMultiField', 'input/TriStateSwitch']
 
 /** 全库组件源码（`<族>/<件名>` → 源码）。 */
 function componentSources(): { name: string; path: string; source: string }[] {
@@ -209,6 +233,44 @@ describe('件族样式齐备护栏（全库真裸骨架硬断言 + EP 薄包装�
       expect(block, `${name} 缺 <style scoped>`).not.toBeNull()
       expect((block?.[1] ?? '').trim().length, `${name} 样式块为空`).toBeGreaterThan(0)
     }
+  })
+
+  it('本批字段与基础控件 17 件齐备（需求 11-1 第三批范围）', () => {
+    const names = componentSources().map((file) => file.name)
+    for (const target of FIELD_INPUT_BATCH) {
+      expect(names, `缺少件 ${target}`).toContain(target)
+    }
+    expect(FIELD_INPUT_BATCH).toHaveLength(17)
+  })
+
+  it('本批字段与基础控件 17 件均含非空 <style scoped>', () => {
+    const sources = new Map(componentSources().map((file) => [file.name, file]))
+    for (const name of FIELD_INPUT_BATCH) {
+      const file = sources.get(name)
+      expect(file, `缺少件 ${name}`).toBeDefined()
+      const block = file?.source.match(STYLE_BLOCK)
+      expect(block, `${name} 缺 <style scoped>`).not.toBeNull()
+      expect((block?.[1] ?? '').trim().length, `${name} 样式块为空`).toBeGreaterThan(0)
+    }
+  })
+
+  it('本批新增 4 件齐备且均含非空 <style scoped>', () => {
+    const sources = new Map(componentSources().map((file) => [file.name, file]))
+    for (const name of FIELD_INPUT_NEW) {
+      const file = sources.get(name)
+      expect(file, `缺少件 ${name}`).toBeDefined()
+      const block = file?.source.match(STYLE_BLOCK)
+      expect(block, `${name} 缺 <style scoped>`).not.toBeNull()
+      expect((block?.[1] ?? '').trim().length, `${name} 样式块为空`).toBeGreaterThan(0)
+    }
+    expect(FIELD_INPUT_NEW).toHaveLength(4)
+  })
+
+  it('全局样式落点存在且含跨件共用类（bms-field-error）', () => {
+    const global = readFileSync(resolve(process.cwd(), 'src/styles/components.css'), 'utf8')
+    expect(global).toContain('.bms-field-error')
+    // 全局落点同样受「色值零硬编码」约束
+    expect(global.replace(/\/\*[\s\S]*?\*\//g, '').match(COLOR_LITERAL)).toBeNull()
   })
 
   it('全库真裸骨架件均含非空 <style scoped>（硬断言、不留批次豁免）', () => {

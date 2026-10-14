@@ -111,6 +111,20 @@
   --bms-qr-mask-bg: rgba(255, 255, 255, 0.9);
   --bms-file-preview-mask-bg: rgba(0, 0, 0, 0.82);
   --bms-color-mask-bg: rgba(255, 255, 255, 0.8);
+  // 字段族（错误文案 / 只读回显 / 标签建议 / 富文本内容区 / 多语言标记 / 三态开关；禁止硬编码色值）
+  --bms-field-error-color: #cf222e;
+  --bms-field-readonly-bg: #f5f7fa;
+  --bms-field-readonly-border: #dcdfe6;
+  --bms-field-suggest-bg: #ffffff;
+  --bms-field-suggest-hover-bg: #f5f7fa;
+  --bms-richtext-toolbar-bg: #f5f7fa;
+  --bms-richtext-content-bg: #ffffff;
+  --bms-richtext-border: #dcdfe6;
+  --bms-richtext-code-bg: #f6f8fa;
+  --bms-i18n-marker-bg: #f5f7fa;
+  --bms-i18n-missing-color: #e6a23c;
+  --bms-tristate-bg: #dcdfe6;
+  --bms-tristate-color: #909399;
   // 反白文字与图形尺寸（《设计令牌》「反白文字与图形尺寸」节既有登记，2026-10-14 落地）
   --bms-color-text-inverse: #ffffff;
   --bms-illustration-size: 96px;
@@ -263,6 +277,20 @@
   --bms-qr-mask-bg: rgba(29, 30, 31, 0.9);
   --bms-file-preview-mask-bg: rgba(0, 0, 0, 0.82);
   --bms-color-mask-bg: rgba(29, 30, 31, 0.8);
+  // 字段族底随深色调整对比度；错误字色与缺失标记提亮 / 保持语义一致
+  --bms-field-error-color: #f89898;
+  --bms-field-readonly-bg: #262727;
+  --bms-field-readonly-border: #4c4d4f;
+  --bms-field-suggest-bg: #1d1e1f;
+  --bms-field-suggest-hover-bg: #262727;
+  --bms-richtext-toolbar-bg: #262727;
+  --bms-richtext-content-bg: #1d1e1f;
+  --bms-richtext-border: #4c4d4f;
+  --bms-richtext-code-bg: #232324;
+  --bms-i18n-marker-bg: #262727;
+  --bms-i18n-missing-color: #e6a23c;
+  --bms-tristate-bg: #4c4d4f;
+  --bms-tristate-color: #a3a6ad;
 }
 
 // 布局结构响应式（窄屏内容区边距收紧；断点与 `useResponsive` 缺省窄屏阈值一致，媒体查询只做尺寸适配、不承担折叠）

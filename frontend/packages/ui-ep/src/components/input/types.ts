@@ -8,6 +8,10 @@ export interface InputOption<T = string | number> {
   value: T
   /** 是否禁用。 */
   disabled?: boolean
+  /** 语义色（只读标签用，缺省回退默认色；枚举选项集解析消费）。 */
+  color?: string
+  /** 展示顺序（枚举选项集解析按此升序，缺省 0）。 */
+  sort?: number
 }
 
 /** 选项分组。 */

@@ -44,7 +44,7 @@ function walk(dir: string, out: string[] = []): string[] {
     const path = join(dir, entry)
     if (statSync(path).isDirectory()) {
       walk(path, out)
-    } else if (path.endsWith('.vue') || path.endsWith('.scss')) {
+    } else if (path.endsWith('.vue') || path.endsWith('.scss') || path.endsWith('.css')) {
       out.push(path)
     }
   }

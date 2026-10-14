@@ -1,0 +1,19 @@
+/**
+ * ui-ep 全局样式落点（**唯一**跨件共用类样式来源）。
+ *
+ * 定位：件级样式一律落各件 `<style scoped>`；本文件**只放跨件共用契约面**的类（同一类被多件引用、
+ * 落件级会重复定义且新增件易漏），当前首项为全库 22 个字段件共用的 `.bms-field-error`（错误文案位）。
+ *
+ * 引入方式：由 `src/index.ts` 顶部 `import './styles/components.css'` 引入，使任意宿主 / 运行时模块
+ * 引 `ui-ep` 即得样式（与 `utils/vueFlow.ts` 引 `@vue-flow` 样式的先例同口径）。**不引令牌文件**
+ * （令牌唯一来源为宿主 `src/styles/tokens.scss`，本文件只消费 `var(--bms-*)`）。
+ *
+ * 护栏：`tests/guard-tokens.spec.ts` 扫描 `src/**`，本文件同样受「色值零硬编码」约束。
+ */
+
+.bms-field-error {
+  margin: var(--bms-space-1) 0 0;
+  color: var(--bms-field-error-color);
+  font-size: var(--bms-font-size-xs);
+  line-height: var(--bms-line-height);
+}

@@ -53,6 +53,7 @@ export type FormWidget =
   | 'textarea'
   | 'number'
   | 'datetime'
+  | 'time'
   | 'select'
   | 'multi-select'
   | 'radio'
@@ -81,6 +82,7 @@ export const FIELD_WIDGETS: readonly FormWidget[] = [
   'textarea',
   'number',
   'datetime',
+  'time',
   'select',
   'multi-select',
   'radio',
@@ -114,6 +116,7 @@ export const FIELD_WIDGET_MAP: Readonly<Record<string, FormWidget>> = {
   percent: 'number',
   date: 'datetime',
   datetime: 'datetime',
+  time: 'time',
   select: 'select',
   multi_select: 'multi-select',
   radio: 'radio',

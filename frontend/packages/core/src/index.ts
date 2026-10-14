@@ -496,12 +496,17 @@ export {
 export {
   MAX_DECIMAL_PRECISION,
   compareDecimal,
+  decimalPlaces,
+  formatDecimal,
   fromMinorUnits,
   isDecimal,
   isDecimalInRange,
   normalizeDecimal,
+  padDecimal,
   sanitizePrecision,
+  toChineseUpper,
   toMinorUnits,
+  type DecimalPlaces,
   type DecimalRangeOptions,
 } from './domain/decimal'
 export { computeVirtualRange, type VirtualRange, type VirtualRangeOptions } from './domain/virtual-range'

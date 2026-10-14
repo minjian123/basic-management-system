@@ -218,6 +218,8 @@
         "data-display-check.html",
         "container-check.html",
         "display-feedback-check.html",
+        "field-check.html",
+        "input-check.html",
         "layout-check.html",
         "menu-check.html",
         "role-check.html",

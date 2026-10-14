@@ -90,9 +90,14 @@ async function mountView(codes: string[] = []): Promise<{ wrapper: VueWrapper; p
   return { wrapper, pinia }
 }
 
-/** 行内状态开关（`InlineSwitchCell` 内的 `SwitchInput`，宿主切换经其 `update:modelValue` 触发）。 */
+/**
+ * 行内状态开关（`InlineSwitchCell` 内的 `TriStateSwitch`，宿主切换经其 `update:modelValue` 触发）。
+ *
+ * 迁移说明（11_03）：三态承载由 Element Plus `el-switch` 改自绘 `TriStateSwitch`
+ * （EP 2.14.7 无 `indeterminate`，无法呈现「未设置」态）。
+ */
 function switchOf(wrapper: VueWrapper, index = 0) {
-  return wrapper.findAllComponents({ name: 'InlineSwitchCell' })[index]!.findComponent({ name: 'SwitchInput' })
+  return wrapper.findAllComponents({ name: 'InlineSwitchCell' })[index]!.findComponent({ name: 'TriStateSwitch' })
 }
 
 /** jsdom 垫片：真实 `el-table` 依赖 ResizeObserver（仅需存在，行为不参与断言）。 */

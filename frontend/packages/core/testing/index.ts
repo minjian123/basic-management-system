@@ -32,6 +32,7 @@ export * from './dict'
 export * from './file-upload'
 export * from './captcha'
 export * from './multilingual-name'
+export * from './field-input'
 export * from './module'
 
 /** 契约用例套件定义体。 */

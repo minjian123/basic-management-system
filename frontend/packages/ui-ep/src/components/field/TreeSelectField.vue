@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // 树选择字段（06_02）：单选 / 多选（父子联动策略）/ 懒加载 / 搜索 / 只读路径回显；空态经 `03_02`。
-import { ElTreeSelect } from 'element-plus'
+// 补：仅叶子可选 / 排除节点含子树 / 父子独立缺省 / 多选折叠回显 / 节点点击事件 / 失败重放。
+import { ElButton, ElTreeSelect } from 'element-plus'
 import { computed, ref, watch } from 'vue'
 
 import { useBaseInput } from '../../composables/useBaseInput'
@@ -32,6 +33,12 @@ interface Props {
   checkStrictly?: boolean
   /** 可搜索。 */
   searchable?: boolean
+  /** 仅叶子可选（非叶子节点不可选、点击只展开）。 */
+  onlyLeaf?: boolean
+  /** 排除节点（含子树），选上级时排除自身防环。 */
+  excludeSubtree?: string[]
+  /** 多选折叠回显（超过阈值折叠为「标签1 等 M 项」；缺省开启）。 */
+  collapseTags?: boolean
   /** 懒加载。 */
   lazy?: boolean
   /** 懒加载取子节点。 */
@@ -54,8 +61,11 @@ const props = withDefaults(defineProps<Props>(), {
   modelValue: undefined,
   data: () => [],
   multiple: false,
-  checkStrictly: false,
+  checkStrictly: true,
   searchable: true,
+  onlyLeaf: false,
+  excludeSubtree: () => [],
+  collapseTags: true,
   lazy: false,
   load: undefined,
   readonly: false,
@@ -71,10 +81,16 @@ const emit = defineEmits<{
   change: [value: TreeFieldValue]
   invalid: [message: string]
   retry: []
+  /** 节点点击（联动其他字段；节点 §4「值变化通知含节点点击」）。 */
+  'node-click': [key: string]
 }>()
 
 const { value, disabled, setValue } = useBaseInput<TreeFieldValue>({ disabled: props.disabled })
 const loadError = ref(false)
+/** 懒加载中。 */
+const loading = ref(false)
+/** 最近一次懒加载入参（失败重放用）。 */
+let lastLoad: { node: unknown; resolve: (children: Record<string, unknown>[]) => void; reject: () => void } | undefined
 
 watch(
   () => props.modelValue,
@@ -129,6 +145,42 @@ const readonlyPaths = computed<string[]>(() => {
   return selected.map((key) => (findPath(props.data, key, []) ?? [key]).join(' / '))
 })
 
+/** 排除节点集合（含子树）。 */
+const excludedKeys = computed<Set<string>>(() => {
+  const excluded = new Set<string>()
+  const collect = (nodes: readonly TreeFieldNode[], trail: string[]): void => {
+    for (const node of nodes) {
+      if (props.excludeSubtree.includes(node.key)) {
+        const gather = (target: TreeFieldNode): void => {
+          excluded.add(target.key)
+          target.children?.forEach(gather)
+        }
+        gather(node)
+        continue
+      }
+      trail.push(node.key)
+      if (node.children !== undefined) {
+        collect(node.children, trail)
+      }
+    }
+  }
+  collect(props.data, [])
+  return excluded
+})
+
+/** 生效树数据（剔除排除节点及其子树；仅叶子时标记非叶子不可选）。 */
+const effectiveData = computed<TreeFieldNode[]>(() => {
+  const map = (nodes: readonly TreeFieldNode[]): TreeFieldNode[] =>
+    nodes
+      .filter((node) => !excludedKeys.value.has(node.key))
+      .map((node) => ({
+        ...node,
+        disabled: node.disabled === true || (props.onlyLeaf && (node.children?.length ?? 0) > 0),
+        children: node.children === undefined ? undefined : map(node.children),
+      }))
+  return map(props.data)
+})
+
 const internalError = computed<string>(() => {
   const current = value.value
   if (loadError.value) {
@@ -168,7 +220,9 @@ watch(
  * @param reject 失败回调。
  */
 function onLoad(node: unknown, resolve: (children: Record<string, unknown>[]) => void, reject: () => void): void {
+  lastLoad = { node, resolve, reject }
   emit('retry')
+  loading.value = true
   props
     .load?.(node as TreeFieldNode)
     .then((children) => {
@@ -179,7 +233,34 @@ function onLoad(node: unknown, resolve: (children: Record<string, unknown>[]) =>
       loadError.value = true
       reject()
     })
+    .finally(() => {
+      loading.value = false
+    })
 }
+
+/** 重试：**重放请求**（经 `onLoad` 再派发一次 `retry`，与既有口径一致）。 */
+function onRetry(): void {
+  if (lastLoad !== undefined) {
+    onLoad(lastLoad.node, lastLoad.resolve, lastLoad.reject)
+  }
+}
+
+/** 节点点击（节点 §4）。 */
+function onNodeClick(node: unknown): void {
+  const key = (node as TreeFieldNode | undefined)?.key
+  if (key !== undefined) {
+    emit('node-click', key)
+  }
+}
+
+/** 清空（内容操作）。 */
+function clear(): void {
+  setValue(undefined)
+  emit('update:modelValue', undefined)
+  emit('change', undefined)
+}
+
+defineExpose({ setValue, clear })
 
 function onUpdate(next: TreeFieldValue): void {
   setValue(next)
@@ -189,7 +270,7 @@ function onUpdate(next: TreeFieldValue): void {
 </script>
 
 <template>
-  <div class="bms-tree-select-field" :data-invalid="resolvedError !== ''">
+  <div class="bms-tree-select-field" :data-invalid="resolvedError !== ''" :data-loading="loading">
     <div v-if="readonly" class="bms-tree-select-field__readonly" data-test="tree-readonly">
       <span v-for="(path, index) in readonlyPaths" :key="index" class="bms-tree-select-field__path">{{ path }}</span>
       <span v-if="readonlyPaths.length === 0">—</span>
@@ -201,7 +282,7 @@ function onUpdate(next: TreeFieldValue): void {
       v-else
       class="bms-tree-select-field__control"
       :model-value="multiple ? (Array.isArray(value) ? value : []) : value"
-      :data="data"
+      :data="effectiveData"
       :multiple="multiple"
       :check-strictly="checkStrictly"
       :filterable="searchable"
@@ -210,13 +291,62 @@ function onUpdate(next: TreeFieldValue): void {
       :disabled="disabled"
       :placeholder="placeholder"
       :node-key="'key'"
+      :collapse-tags="collapseTags"
       :props="{ label: 'label', children: 'children', disabled: 'disabled' }"
       @update:model-value="onUpdate"
+      @node-click="onNodeClick"
     />
 
-    <button v-if="loadError" type="button" data-test="tree-retry" class="bms-tree-select-field__retry" @click="emit('retry')">
+    <el-button
+      v-if="loadError"
+      class="bms-tree-select-field__retry"
+      link
+      size="small"
+      data-test="tree-retry"
+      @click="onRetry"
+    >
       重试
-    </button>
+    </el-button>
     <p v-if="resolvedError !== ''" class="bms-field-error" data-test="field-error">{{ resolvedError }}</p>
   </div>
 </template>
+
+<style scoped>
+.bms-tree-select-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bms-space-1);
+  width: 100%;
+  min-width: 0;
+}
+
+.bms-tree-select-field__control {
+  width: 100%;
+}
+
+.bms-tree-select-field__readonly {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bms-space-1);
+  min-height: var(--bms-control-height);
+  padding: 0 var(--bms-space-2);
+  color: var(--bms-color-text);
+  line-height: var(--bms-control-height);
+  background: var(--bms-field-readonly-bg);
+  border: 1px solid var(--bms-field-readonly-border);
+  border-radius: var(--bms-radius-md);
+}
+
+.bms-tree-select-field__path {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 var(--bms-space-1);
+  background: var(--bms-field-suggest-hover-bg);
+  border-radius: var(--bms-radius-sm);
+}
+
+.bms-tree-select-field__retry {
+  align-self: flex-start;
+  font-size: var(--bms-font-size-xs);
+}
+</style>

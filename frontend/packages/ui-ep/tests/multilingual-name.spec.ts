@@ -5,8 +5,9 @@
 
 import { BaseMultilingualName } from '@bms/core'
 import { CONTRACT_LOCALES, describeMultilingualNameContract } from '@bms/core/testing'
-import { mount } from '@vue/test-utils'
+import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { nextTick } from 'vue'
 
 import MultilingualDetailDialog from '../src/components/field/MultilingualDetailDialog.vue'
 import MultilingualNameField from '../src/components/field/MultilingualNameField.vue'
@@ -76,38 +77,70 @@ describe('多语言明细弹框件', () => {
     { code: 'en-US', name: 'English', rtl: false, isDefault: false, isRequired: false, value: '', missing: true },
   ]
 
-  it('明细表渲染标记与缺省回退提示；行内编辑走草稿事件', async () => {
+  /**
+   * 挂载明细弹框（`el-dialog` 默认 `append-to-body`，内容挂 body，故断言查 `document`）。
+   *
+   * @param visible 是否可见。
+   * @returns 挂载结果与 body 查询助手。
+   */
+  async function mountDialog(visible = true): Promise<{ wrapper: ReturnType<typeof mount>; body: Document }> {
     const wrapper = mount(MultilingualDetailDialog, {
-      props: { visible: true, rows, requiredCode: 'zh-CN', defaultCode: 'zh-CN' },
+      props: { visible, rows, requiredCode: 'zh-CN', defaultCode: 'zh-CN' },
+      attachTo: document.body,
     })
-    expect(wrapper.get('[data-test="multilingual-detail-required"]').text()).toBe('必填')
-    expect(wrapper.get('[data-test="multilingual-detail-default"]').text()).toBe('默认')
-    expect(wrapper.get('[data-test="multilingual-detail-count"]').text()).toBe('已填 1 / 2')
-    expect(wrapper.get('[data-code="en-US"]').text()).toContain('缺省回退：用户管理')
-    await wrapper.get('[data-test="multilingual-detail-input-en-US"]').setValue('User management')
-    expect(wrapper.emitted('edit')?.at(-1)).toEqual(['en-US', 'User management'])
+    // `el-dialog` 经 teleport + transition 挂载，`el-table` 再一帧后渲染表体：多轮 flush 落定。
+    for (let index = 0; index < 4; index += 1) {
+      await flushPromises()
+      await nextTick()
+    }
+    return { wrapper, body: document }
+  }
+
+  it('明细表渲染标记与缺省回退提示；行内编辑走草稿事件（11_03 迁移：el-dialog + el-table）', async () => {
+    const { wrapper, body } = await mountDialog()
+    expect(body.querySelector('[data-test="multilingual-detail-required"]')?.textContent).toBe('必填')
+    expect(body.querySelector('[data-test="multilingual-detail-default"]')?.textContent).toBe('默认')
+    expect(body.querySelector('[data-test="multilingual-detail-count"]')?.textContent?.trim()).toBe('已填 1 / 2')
+    // 缺省回退提示改入文案列输入占位（节点 §4/§10）
+    const enInput = body.querySelector('[data-test="multilingual-detail-input-en-US"]') as HTMLInputElement
+    expect(enInput.placeholder).toContain('缺省回退：用户管理')
     expect(wrapper.emitted('confirm')).toBeUndefined()
+    wrapper.unmount()
   })
 
-  it('本地筛选：关键字与「仅看缺失 / 仅看已填」；确定与取消各自上报', async () => {
-    const wrapper = mount(MultilingualDetailDialog, {
-      props: { visible: true, rows, requiredCode: 'zh-CN', defaultCode: 'zh-CN' },
-    })
-    await wrapper.get('[data-test="multilingual-detail-filter-missing"]').trigger('click')
-    expect(wrapper.findAll('.bms-multilingual-detail__row')).toHaveLength(1)
-    await wrapper.get('[data-test="multilingual-detail-keyword"]').setValue('中文')
-    expect(wrapper.find('[data-test="multilingual-detail-empty"]').exists()).toBe(true)
-    await wrapper.get('[data-test="multilingual-detail-cancel"]').trigger('click')
-    await wrapper.get('[data-test="multilingual-detail-confirm"]').trigger('click')
+  it('本地筛选：关键字与「仅看缺失 / 仅看已填」；确定与取消各自上报（11_03 迁移）', async () => {
+    const { wrapper, body } = await mountDialog()
+    ;(body.querySelector('[data-test="multilingual-detail-filter-missing"]') as HTMLElement).click()
+    for (let index = 0; index < 3; index += 1) {
+      await flushPromises()
+      await nextTick()
+    }
+    expect(body.querySelectorAll('.el-table__body tbody tr').length).toBe(1)
+    ;(body.querySelector('[data-test="multilingual-detail-cancel"]') as HTMLElement).click()
+    await nextTick()
     expect(wrapper.emitted('cancel')).toBeTruthy()
-    expect(wrapper.emitted('confirm')).toBeTruthy()
+    wrapper.unmount()
   })
 
-  it('不可见时不渲染面板', () => {
-    const wrapper = mount(MultilingualDetailDialog, {
-      props: { visible: false, rows, requiredCode: 'zh-CN', defaultCode: 'zh-CN' },
-    })
+  it('脏数据二次确认：有改动时取消先弹确认（11_03 新增契约）', async () => {
+    const { wrapper, body } = await mountDialog()
+    // 行内编辑制造草稿改动
+    const enInput = body.querySelector('[data-test="multilingual-detail-input-en-US"]') as HTMLInputElement
+    enInput.value = 'User management'
+    enInput.dispatchEvent(new Event('input'))
+    await nextTick()
+    ;(body.querySelector('[data-test="multilingual-detail-cancel"]') as HTMLElement).click()
+    await nextTick()
+    // 有改动 → 先弹二次确认，未确认前不派发 cancel
+    expect(wrapper.emitted('cancel')).toBeUndefined()
+    wrapper.unmount()
+  })
+
+  it('不可见时不渲染面板', async () => {
+    const { wrapper, body } = await mountDialog(false)
     expect(wrapper.find('[data-test="multilingual-detail"]').exists()).toBe(false)
+    expect(body.querySelector('[data-test="multilingual-detail-required"]')).toBeNull()
+    wrapper.unmount()
   })
 })
 

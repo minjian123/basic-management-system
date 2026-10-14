@@ -27,6 +27,8 @@ interface Props {
   max?: number
   /** 禁用。 */
   disabled?: boolean
+  /** 只读（顿号分隔纯文本回显已选标签——节点 05_07 §4）。 */
+  readonly?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -37,6 +39,7 @@ const props = withDefaults(defineProps<Props>(), {
   min: undefined,
   max: undefined,
   disabled: false,
+  readonly: false,
 })
 
 const emit = defineEmits<{
@@ -62,6 +65,21 @@ const selected = computed<CheckboxValue[]>(() => (Array.isArray(value.value) ? v
 const selectableValues = computed(() => flatOptions.value.filter((option) => option.disabled !== true).map((option) => option.value))
 const allChecked = computed(() => selectableValues.value.length > 0 && selectableValues.value.every((item) => selected.value.includes(item)))
 const indeterminate = computed(() => selected.value.length > 0 && !allChecked.value)
+
+/**
+ * 只读回显文本（节点 05_07 §4）：按选项集顺序取 label，**顿号分隔**，空值占位 `—`；
+ * 不在选项集内的历史值回退原值（与 `EnumMultiField` 同口径，不静默丢值）。
+ */
+const readonlyText = computed(() => {
+  const order = new Map<CheckboxValue, number>(flatOptions.value.map((option, index) => [option.value, index]))
+  const items = [...new Set(selected.value)].sort(
+    (left, right) => (order.get(left) ?? Number.MAX_SAFE_INTEGER) - (order.get(right) ?? Number.MAX_SAFE_INTEGER),
+  )
+  if (items.length === 0) {
+    return '—'
+  }
+  return items.map((item) => flatOptions.value.find((option) => option.value === item)?.label ?? String(item)).join('、')
+})
 
 onValueChange((next) => {
   emit('update:modelValue', next ?? [])
@@ -90,27 +108,71 @@ function onToggleAll(checked: CheckboxValueType): void {
 </script>
 
 <template>
-  <div class="bms-checkbox-input">
-    <el-checkbox
-      v-if="selectAll"
-      class="bms-checkbox-input__all"
-      data-test="checkbox-all"
-      :model-value="allChecked"
-      :indeterminate="indeterminate"
-      :disabled="disabled"
-      @update:model-value="onToggleAll"
-    >
-      全选
-    </el-checkbox>
-    <el-checkbox-group :model-value="selected" :disabled="disabled" @update:model-value="onGroupUpdate">
-      <template v-for="(option, index) in flatOptions" :key="index">
-        <el-checkbox-button v-if="form === 'tag'" :value="option.value" :disabled="option.disabled">
-          {{ option.label }}
-        </el-checkbox-button>
-        <el-checkbox v-else :value="option.value" :disabled="option.disabled">
-          {{ option.label }}
-        </el-checkbox>
-      </template>
-    </el-checkbox-group>
+  <div class="bms-checkbox-input" :data-readonly="readonly">
+    <div v-if="readonly" class="bms-checkbox-input__readonly" data-test="checkbox-readonly">{{ readonlyText }}</div>
+
+    <template v-else>
+      <el-checkbox
+        v-if="selectAll"
+        class="bms-checkbox-input__all"
+        data-test="checkbox-all"
+        :model-value="allChecked"
+        :indeterminate="indeterminate"
+        :disabled="disabled"
+        @update:model-value="onToggleAll"
+      >
+        全选
+      </el-checkbox>
+      <el-checkbox-group
+        class="bms-checkbox-input__group"
+        :model-value="selected"
+        :disabled="disabled"
+        @update:model-value="onGroupUpdate"
+      >
+        <template v-for="(option, index) in flatOptions" :key="index">
+          <el-checkbox-button v-if="form === 'tag'" :value="option.value" :disabled="option.disabled">
+            {{ option.label }}
+          </el-checkbox-button>
+          <el-checkbox v-else :value="option.value" :disabled="option.disabled">
+            {{ option.label }}
+          </el-checkbox>
+        </template>
+      </el-checkbox-group>
+    </template>
   </div>
 </template>
+
+<style scoped>
+.bms-checkbox-input {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bms-space-1);
+  width: 100%;
+  min-width: 0;
+}
+
+.bms-checkbox-input__all {
+  align-self: flex-start;
+  padding-bottom: var(--bms-space-1);
+  color: var(--bms-color-text-secondary);
+  border-bottom: 1px solid var(--bms-color-border);
+}
+
+.bms-checkbox-input__group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--bms-space-2);
+  line-height: var(--bms-line-height);
+}
+
+.bms-checkbox-input[data-readonly='true'] .bms-checkbox-input__readonly {
+  min-height: var(--bms-control-height);
+  padding: 0 var(--bms-space-2);
+  color: var(--bms-color-text);
+  line-height: var(--bms-control-height);
+  background: var(--bms-field-readonly-bg);
+  border: 1px solid var(--bms-field-readonly-border);
+  border-radius: var(--bms-radius-md);
+}
+</style>

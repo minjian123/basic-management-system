@@ -88,6 +88,27 @@ describe('设计令牌 tokens.scss', () => {
     }
   })
 
+  it('字段族令牌齐备（2026-10-14 登记，前端组件库 11_03）', () => {
+    // 新增语义令牌：亮 / 暗两套各一处 → 至少两处定义
+    for (const token of [
+      '--bms-field-error-color',
+      '--bms-field-readonly-bg',
+      '--bms-field-readonly-border',
+      '--bms-field-suggest-bg',
+      '--bms-field-suggest-hover-bg',
+      '--bms-richtext-toolbar-bg',
+      '--bms-richtext-content-bg',
+      '--bms-richtext-border',
+      '--bms-richtext-code-bg',
+      '--bms-i18n-marker-bg',
+      '--bms-i18n-missing-color',
+      '--bms-tristate-bg',
+      '--bms-tristate-color',
+    ]) {
+      expect(scss.split(token).length - 1).toBeGreaterThanOrEqual(2)
+    }
+  })
+
   it('既有漂移令牌落地（《设计令牌》已登记、工程侧补齐，2026-10-14）', () => {
     // 滚动条 5 条 + 反白字色 + 插画尺寸（漂移落地）与全屏背景（覆盖点转正式）
     for (const token of [
