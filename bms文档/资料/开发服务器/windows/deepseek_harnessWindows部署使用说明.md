@@ -107,7 +107,7 @@ Start-ScheduledTask -TaskName DSH_TASK
 ### 4.3 首次启动 <a id="run-first"></a>
 
 首次 `dsh web` 自动初始化 `C:\Users\minjian\.dsh`（profiles / storages / 凭据文件），
-web profile 为全新默认（未装 mjpc 上的 dsh-free-vision、dshmarket、dsh-mnemon 等 bundle；
+web profile 为全新默认（未装 mjpc 上的 dsh-free-vision、dshmarket 等 bundle；
 如需安装见 Linux 版部署说明第 8 节，mjw 上执行 `pnpm dsh plugin --profile web add <pkg>`）。
 
 ## 5. 更新 <a id="update"></a>

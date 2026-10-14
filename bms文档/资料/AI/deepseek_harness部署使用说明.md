@@ -201,7 +201,7 @@ refs:
 （桌面项 Exec 直接指向 ~/.local/bin/dsh-update.sh）
 ```
 
-`dsh-update.sh` **幂等更新流程**：先比对版本——dsh 主体比对本地 HEAD 与 origin/master，插件（dsh-free-vision、dshmarket、dsh-mnemon）比对已装版本与 npm 最新（查询在 profile 目录内执行，**走国内镜像 npmmirror**）；**全部一致且 web 在跑 → 提示退出（不动 web）；web 未跑 → 直接启动**；任一落后才停 web → 只更新落后项（`git pull --ff-only` / `pnpm install` / `pnpm run clean` / `pnpm run build`、插件 `up --latest` + `rebuild` 重跑插件构建脚本（编译）并核对更新后版本）→ 以构建产物重启（`node apps/cli/lib/bin.js web`）。网络查询失败（离线/慢）时跳过对应项、**不误停 web**；更新命令均带超时（pull 5min / install 10min / clean 5min / build 15min / up 5min / rebuild 5min），任何失败路径由 EXIT 兜底把 web 拉起，不会出现"停了起不来"。支持 `--force`（跳过版本检查强制全量更新，插件同样走更新+重编译）、`--no-restart`（只更新不重启）、`--boot`（启动前模式，见下）。更新前的 profile 配置/插件树**需自行备份**（原先由 dsh-undo-savepoint 自动快照，该插件已于 2026-09-25 卸载，见 8.8）。
+`dsh-update.sh` **幂等更新流程**：先比对版本——dsh 主体比对本地 HEAD 与 origin/master，插件（dsh-free-vision、dshmarket）比对已装版本与 npm 最新（查询在 profile 目录内执行，**走国内镜像 npmmirror**）；**全部一致且 web 在跑 → 提示退出（不动 web）；web 未跑 → 直接启动**；任一落后才停 web → 只更新落后项（`git pull --ff-only` / `pnpm install` / `pnpm run clean` / `pnpm run build`、插件 `up --latest` + `rebuild` 重跑插件构建脚本（编译）并核对更新后版本）→ 以构建产物重启（`node apps/cli/lib/bin.js web`）。网络查询失败（离线/慢）时跳过对应项、**不误停 web**；更新命令均带超时（pull 5min / install 10min / clean 5min / build 15min / up 5min / rebuild 5min），任何失败路径由 EXIT 兜底把 web 拉起，不会出现"停了起不来"。支持 `--force`（跳过版本检查强制全量更新，插件同样走更新+重编译）、`--no-restart`（只更新不重启）、`--boot`（启动前模式，见下）。更新前的 profile 配置/插件树**需自行备份**（原先由 dsh-undo-savepoint 自动快照，该插件已于 2026-09-25 卸载，见 8.8）。
 
 **每次启动先自动更新**（2026-09-18 新增）：`dsh-web-start.sh` 在 exec 启动前调用 `dsh-update.sh --boot`——启动前模式**只检查/更新，绝不启停 web**；web 已在运行则直接跳过；检出有未提交改动时降级为「跳过源码更新、只更新插件」而不中止；更新失败仅打印告警，仍用当前版本继续启动。即「启动 dsh web」与「更新 dsh与插件」共用同一套版本比对与更新逻辑，不必先点更新再点启动。临时跳过本次检查：`DSH_START_SKIP_UPDATE=1 bash ~/.local/bin/dsh-web-start.sh`。
 
@@ -238,7 +238,7 @@ DSH_START_SKIP_UPDATE=1 bash ~/.local/bin/dsh-web-start.sh            # 启动 d
 
 ## 8. 插件扩展 <a id="plugins"></a>
 
-「一切皆插件」，可通过 `dsh plugin --profile <name> add|remove <pkg>` 给 profile 装/卸插件（转发给 pnpm，并自动 reconcile `dsh.profile.bundles` 图层）。本机**当前装有**五个挂进 `web` profile 的 bundle 扩展：`dsh-free-vision`（见 8.1）、`dshmarket`（插件市场，见 8.3）、`dsh-mnemon`（跨会话记忆，见 8.4）、`dsh-context`（客户端上下文注入，曾卸载、2026-09-25 重装，见 8.5）、`@linxin666/dsh-remote-web-ui`（远程 Web UI，见 8.6）。曾装过已移除：`dsh-tui`（见 8.7）、`dsh-undo-savepoint`（2026-09-25 卸载，见 8.8）。
+「一切皆插件」，可通过 `dsh plugin --profile <name> add|remove <pkg>` 给 profile 装/卸插件（转发给 pnpm，并自动 reconcile `dsh.profile.bundles` 图层）。本机**当前装有**四个挂进 `web` profile 的 bundle 扩展：`dsh-free-vision`（见 8.1）、`dshmarket`（插件市场，见 8.3）、`dsh-context`（客户端上下文注入，曾卸载、2026-09-25 重装，见 8.5）、`@linxin666/dsh-remote-web-ui`（远程 Web UI，见 8.6）。曾装过已移除：`dsh-tui`（见 8.7）、`dsh-undo-savepoint`（2026-09-25 卸载，见 8.8）、`dsh-mnemon`（跨会话记忆，2026-10-14 卸载，见 8.9）。
 
 ### 8.1 免费视觉 dsh-free-vision（web profile bundle，当前装有） <a id="plugins-free-vision"></a>
 
@@ -280,32 +280,66 @@ npm 月下载量约 45.9 万、GitHub 4086 星（同类第二名的月下载量�
 > **取舍**：第三方社区插件（非 DeepSeek 官方），会联网访问 dshmarket.com；解包 3.1 MB、依赖 `undici` 与
 > `js-yaml`，并注入设置页与主题；GitHub 上有数十个 open issue 在跟进。卸载：`pnpm dsh plugin --profile web remove dshmarket`。
 
-### 8.4 跨会话记忆 dsh-mnemon（web profile bundle，当前装有） <a id="plugins-mnemon"></a>
+### 8.4 曾装已移除：跨会话记忆 dsh-mnemon <a id="plugins-mnemon"></a>
 
-给 DSH 装上**跨会话长期记忆**：每回合把相关记忆投影进上下文，会话结束自动沉淀。三层结构——运行时热记忆
-（`USER.md` / `MEMORY.md`）、可检索 Markdown 档案、长期证据（记忆空间），三层共用侧栏「记忆系统」。
-仓库：<https://github.com/omdsh-dev/dsh-mnemon>（MIT）。选它的依据是热度与评价双第一：npm 月下载约 3.86 万、
-GitHub 383 星（同类第二为 315 星、下载量第二为 2.21 万），被社区生态盘点称为「工程化标杆」。
+**2026-10-14 卸载（用不上了）**：npm 包 `dsh-mnemon`（MIT，上游 <https://github.com/omdsh-dev/dsh-mnemon>），
+2026-09-18 以 0.5.10 装入 `web` profile，卸载时版本 0.5.28。能力是给 DSH 装**跨会话长期记忆**：每回合把相关记忆
+投影进上下文，会话结束自动沉淀，三层结构——运行时热记忆（`USER.md` / `MEMORY.md`）、可检索 Markdown 档案、
+长期证据（记忆空间），三层共用侧栏「记忆系统」。选它的依据是热度与评价双第一（npm 月下载约 3.86 万、GitHub 383 星）。
 
-| 项 | 值 |
-| --- | --- |
-| 安装 | `pnpm dsh plugin --profile web add dsh-mnemon`（2026-09-18 装，走 npmmirror 源，含 16 个官方子包） |
-| 版本 | 0.5.10 |
-| 附带组件 | `mnemon` CLI（`npm install -g @mnemon-dev/mnemon`，同日装 0.2.9）——本地长期记忆（Mnemon Native）需要它 |
-| 存储 | `~/.mnemon/{runtime,documents}`（本地 Markdown / JSON，首次加载自动建空模板） |
-| 落位 | bundle 图层（`dsh.profile.bundles` 自动登记），patch 插入 `mnemon-bundle` 分组 |
-| 生效时机 | 装/卸需**重启 dsh web** |
-| 与更新脚本 | 已纳入 `dsh-update.sh` 的插件清单（见 6 节），与其他插件一样自动 `up --latest` + `rebuild` |
+卸载范围与留档：
 
-**只用本地、不接云端**（2026-09-18 决定）：profile 补丁层已把记忆空间的 Provider 收窄为仅
-`dsh-mnemon-provider-mnemon-native`（见 `~/.dsh/profiles/web/cordis.patch.yml` 的 dsh-mnemon 段），
-8 个云端 Provider（openviking / honcho / mem0 / hindsight / holographic / retaindb / byterover /
-supermemory）不再装载；插件默认亦关闭向量嵌入（`embedding.enabled: false`）、远程访问为只读。
-需要接云端时删除该段即恢复默认。
+- 卸载走 dshmarket 市场内的「卸载」（2026-10-14 13:55，exit 0）：自动剔除 `dsh.profile.bundles` 图层条目与
+  `package.json` 依赖，并清理 patch 层的 mnemon 相关行（mnemon-bundle / mnemon / mnemon-source-runtime /
+  mnemon-source-documents / mnemon-source-memory-spaces / mnemon-strategy-* 等）；
+- 手工补清了卸载未覆盖的四处残留：`cordis.patch.yml` 的 mnemon 两段补丁、`pnpm-workspace.yaml` 的
+  `minimumReleaseAgeExclude` 七条 mnemon 规则、`node_modules/.bin/dsh-mnemon-repair-session` 断链软链、
+  `dsh-update.sh` 的 `PLUGINS` 清单项；
+- 同时卸载了全局 CLI `@mnemon-dev/mnemon@0.2.9`（命令 `mnemon`，Mnemon Native 本地记忆组件，插件卸后无调用方），
+  并删除其数据目录 `~/.mnemon/`（308K，本地 Markdown / JSON 记忆档案）；
+- 改动前的 profile 配置（`cordis.patch.yml` / `pnpm-workspace.yaml` / `dsh-update.sh`）已打包留档在
+  `~/backups/dsh-mnemon-uninstall-20261014/`。
 
-> **注意**：`mnemon` CLI 装在 nvm 当前 Node 版本目录下（`~/.nvm/versions/node/v24.20.0/bin/mnemon`），
-> 切换 Node 版本后可能找不到；届时用环境变量 `MNEMON_CLI_PATH` 或用户设置里的 `mnemon.cliPath` 指定绝对路径，
-> **不要**为此整体替换插件的 profile patch。
+装回方式：
+
+```bash
+cd /home/minjian/develop/deepseek-harness
+pnpm dsh plugin --profile web add dsh-mnemon
+```
+
+装回后需按 8.9 节手工补回 `pnpm-workspace.yaml` 的 `minimumReleaseAgeExclude` 规则，并重建补丁层配置。
+
+### 8.9 装回 dsh-mnemon 的配套手工项 <a id="plugins-mnemon-reinstall"></a>
+
+dsh-mnemon 的自动卸载/安装**不会**维护下面两项，装回后须手工补，否则会撞上已知坑：
+
+| 项 | 坑 | 手工补法 |
+| --- | --- | --- |
+| `pnpm-workspace.yaml` 的 `minimumReleaseAgeExclude` | 子包常是刚发布的新版本，被 pnpm 的 `minimumReleaseAge`（默认 1440 分钟）挡在门外；而 pnpm **只认每个包名的第一条规则**，一个包名写多条会被静默忽略（[pnpm#732](https://github.com/pnpm/pnpm/issues/732)），须合并成一条 | 见下方代码块，一个包名一条，版本用 `\|\|` 串联 |
+| `cordis.patch.yml` 的补丁段 | 不补则默认装载 8 个云端记忆 Provider（openviking / honcho / mem0 / hindsight / holographic / retaindb / byterover / supermemory），会话内容会出本机；且远程访问默认可写 | 见下方代码块 |
+
+```yaml
+# ~/.dsh/profiles/web/pnpm-workspace.yaml —— minimumReleaseAgeExclude 追加（一个包名一条）
+  - dsh-mnemon-source-runtime@0.5.9 || 0.5.11 || 0.5.13 || 0.5.14
+  - dsh-mnemon-strategy-default-three-tier@0.5.6 || 0.5.8
+  - dsh-mnemon@0.5.15 || 0.5.16 || 0.5.20 || 0.5.25 || 0.5.26 || 0.5.28
+  - dsh-mnemon-source-memory-spaces@0.5.10 || 0.5.13 || 0.5.17
+  - dsh-mnemon-provider-mnemon-native@0.5.7 || 0.5.9
+  - dsh-mnemon-source-documents@0.5.8 || 0.5.10
+```
+
+```yaml
+# ~/.dsh/profiles/web/cordis.patch.yml —— 记忆空间 Provider 收窄为仅本地（会话内容不出本机）
+- id: mnemon-source-memory-spaces
+  config:
+    providers:
+      - use: dsh-mnemon-provider-mnemon-native
+        instanceId: mnemon-native
+```
+
+配套组件：本地长期记忆（Mnemon Native）需要全局 CLI `npm install -g @mnemon-dev/mnemon`（装在 nvm 当前 Node 版本
+目录下，切换 Node 版本后会找不到，届时用环境变量 `MNEMON_CLI_PATH` 或用户设置里的 `mnemon.cliPath` 指定绝对路径，
+**不要**为此整体替换插件的 profile patch）；数据落在 `~/.mnemon/{runtime,documents}`。
 
 ### 8.5 客户端上下文注入 dsh-context（web profile bundle，**曾卸载、2026-09-25 重装**） <a id="plugins-removed"></a>
 
