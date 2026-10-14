@@ -209,6 +209,7 @@
         "wizard-preference-check.html",
         "bulk-theme-tenant-check.html",
         "permission-config-check.html",
+        "icon-code-check.html",
         "org-check.html",
         "file-check.html",
         "search-check.html",

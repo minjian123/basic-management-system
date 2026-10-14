@@ -202,6 +202,18 @@
         <li>图形图框 / 滑块轨道与手柄 / 缺口 / 通过态 / 冷却提示配色统一来自以上令牌；<strong>禁止在验证码件中硬编码色值</strong>；刷新与一次性失效、滑块轨迹、短信冷却与限流、失败阈值联动口径见《组件设计 · 验证码》第 4 / 5 / 6 / 7 节。</li>
       </ul>
 
+      <h2 id="perm-color">2.8 权限配置令牌（2026-10-14 登记，前端组件库 11_01）</h2>
+      <table>
+        <tr><th>令牌</th><th>用途</th><th>默认值</th></tr>
+        <tr><td><code>--bms-perm-detached-color</code></td><td>「未挂接」标记字色（菜单未关联表单 / 用户已停用等不可授予态）</td><td>亮 <code>#cf222e</code> / 暗 <code>#f89898</code></td></tr>
+        <tr><td><code>--bms-perm-readonly-bg</code></td><td>「来源只读」标记底（非本入口来源的权限项底）</td><td>亮 <code>#fdf6ec</code> / 暗 <code>#3a2f1c</code></td></tr>
+        <tr><td><code>--bms-perm-invalid-color</code></td><td>「匹配非法」标记字色（数据匹配通配符值越界）</td><td>亮 <code>#cf222e</code> / 暗 <code>#f89898</code></td></tr>
+      </table>
+      <ul>
+        <li>未挂接标记 / 来源只读标记 / 匹配非法标记配色统一来自以上令牌；<strong>禁止在权限配置件中硬编码色值</strong>；菜单权限连带与来源判定、字段权限默认全开与收窄、数据权限结构化（只选不编）与匹配校验口径见《组件设计 · 权限配置》第 4 / 5 / 6 节。</li>
+        <li>「来源只读」标记的字色复用 <code>--bms-color-text-secondary</code>，不另立令牌。</li>
+      </ul>
+
       <h2 id="font">3. 字体令牌</h2>
       <table>
         <tr><th>令牌</th><th>值</th></tr>
