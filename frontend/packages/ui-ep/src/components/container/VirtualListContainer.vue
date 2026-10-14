@@ -19,6 +19,10 @@ interface Props {
   height?: string
   /** 最大高度。 */
   maxHeight?: string
+  /** 项唯一键字段名（用于渲染复用与滚动定位）。 */
+  itemKey?: string
+  /** 触底阈值（px）。 */
+  reachThreshold?: number
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -27,19 +31,38 @@ const props = withDefaults(defineProps<Props>(), {
   estimatedHeight: 44,
   height: '',
   maxHeight: '',
+  itemKey: 'id',
+  reachThreshold: 24,
 })
 
-const emit = defineEmits<{ 'visible-change': [payload: { start: number; end: number }] }>()
+const emit = defineEmits<{
+  'visible-change': [payload: { start: number; end: number }]
+  'reach-bottom': []
+}>()
 
 const { sizeToken, isCompact } = useBaseContainer()
 const scrollbarRef = ref<InstanceType<typeof ElScrollbar>>()
 const scrollTop = ref(0)
 const viewportHeight = ref(0)
 const measured = ref<Map<number, number>>(new Map())
+const reached = ref(false)
 
 function wrapElement(): HTMLElement | undefined {
   const instance = scrollbarRef.value as unknown as { wrapRef?: HTMLElement } | undefined
   return instance?.wrapRef
+}
+
+/**
+ * 取项唯一键（缺字段回退索引）。
+ *
+ * @param item 列表项。
+ * @param index 项索引。
+ * @returns 唯一键。
+ */
+function keyOf(item: unknown, index: number): string | number {
+  const record = item as Record<string, unknown> | null
+  const value = record === null ? undefined : record[props.itemKey]
+  return typeof value === 'string' || typeof value === 'number' ? value : index
 }
 
 /** 动态高度累计偏移（长度 `items.length + 1`）。 */
@@ -85,8 +108,34 @@ function onScroll(payload: { scrollTop: number }): void {
   const element = wrapElement()
   if (element !== undefined) {
     viewportHeight.value = element.clientHeight
+    const atBottom = payload.scrollTop + element.clientHeight >= element.scrollHeight - props.reachThreshold
+    if (atBottom && !reached.value) {
+      reached.value = true
+      emit('reach-bottom')
+    } else if (!atBottom) {
+      reached.value = false
+    }
   }
 }
+
+/**
+ * 滚动到指定项索引（数据未加载时按估算高度定位）。
+ *
+ * @param index 项索引。
+ */
+async function scrollToIndex(index: number): Promise<void> {
+  await nextTick()
+  const element = wrapElement()
+  if (element === undefined) {
+    return
+  }
+  const clamped = Math.max(0, Math.min(index, props.items.length - 1))
+  const top = props.itemHeight !== undefined ? clamped * props.itemHeight : offsets.value?.[clamped] ?? 0
+  element.scrollTop = top
+  scrollTop.value = top
+}
+
+defineExpose({ scrollToIndex })
 
 watch(
   () => [range.value.start, range.value.end] as const,
@@ -113,10 +162,37 @@ onMounted(async () => {
   >
     <el-scrollbar ref="scrollbarRef" @scroll="onScroll">
       <div class="bms-virtual-list-container__spacer" :style="{ position: 'relative', height: `${range.totalHeight}px` }">
-        <div v-for="row in rows" :key="row.index" class="bms-virtual-list-container__item" :style="itemStyle(row.index)">
+        <div
+          v-for="row in rows"
+          :key="keyOf(row.item, row.index)"
+          class="bms-virtual-list-container__item"
+          :style="itemStyle(row.index)"
+        >
           <slot :item="row.item" :index="row.index" />
         </div>
       </div>
     </el-scrollbar>
   </div>
 </template>
+
+<style scoped>
+.bms-virtual-list-container {
+  position: relative;
+  box-sizing: border-box;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.bms-virtual-list-container :deep(.el-scrollbar) {
+  height: 100%;
+}
+
+.bms-virtual-list-container__spacer {
+  width: 100%;
+}
+
+.bms-virtual-list-container__item {
+  box-sizing: border-box;
+  border-bottom: 1px solid var(--bms-color-border);
+}
+</style>

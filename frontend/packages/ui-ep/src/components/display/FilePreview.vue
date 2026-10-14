@@ -1,10 +1,12 @@
 <script setup lang="ts">
 // 文件预览（07_03）：类型分发（图片 / PDF / 音视频 / 文本 / 其他降级下载）、预签名获取与失效重取、下载。
-import { computed, ref, watch } from 'vue'
+import { ElButton } from 'element-plus'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 
 import { useBasePresignedUrl } from '../../composables/useBasePresignedUrl'
 import { useDisplayPlaceholder } from '../../composables/useDisplayPlaceholder'
 import { triggerDownload } from '../../utils/downloadFile'
+import { onGlobalKeydown } from '../../utils/keyboard'
 import type { PresignedResult } from '@bms/core'
 
 /** 待预览文件。 */
@@ -27,6 +29,9 @@ export type PreviewErrorReason = 'expired' | 'unsupported' | 'load-failed' | 'fo
 /** 预览类型。 */
 export type PreviewKind = 'image' | 'video' | 'audio' | 'pdf' | 'text' | 'other'
 
+/** 预览形态。 */
+export type PreviewMode = 'overlay' | 'drawer' | 'inline'
+
 interface Props {
   /** 数据通路是否就绪。 */
   ready?: boolean
@@ -40,6 +45,10 @@ interface Props {
   presignedFetcher?: (file: PreviewFile) => Promise<PresignedResult>
   /** 文本预览截断上限（字节）。 */
   textLimit?: number
+  /** 预览形态（遮罩层 / 抽屉 / 页内嵌）。 */
+  mode?: PreviewMode
+  /** 是否显示图片缩略图条。 */
+  thumbs?: boolean
   /** 降级文案。 */
   degradeText?: string
 }
@@ -51,6 +60,8 @@ const props = withDefaults(defineProps<Props>(), {
   visible: true,
   presignedFetcher: undefined,
   textLimit: 51200,
+  mode: 'overlay',
+  thumbs: true,
   degradeText: '文件预览未就绪（占位）',
 })
 
@@ -223,6 +234,68 @@ function download(): void {
     triggerDownload({ url: sourceUrl.value, filename: file.name })
   }
 }
+
+/** PDF 当前页码（1 起）。 */
+const pdfPage = ref(1)
+/** PDF 总页数（浏览器内置阅读器不可得时为 0，仅显示当前页）。 */
+const pdfTotal = ref(0)
+
+/** 带页码片段的 PDF 地址（`#page=N`，浏览器内置阅读器支持）。 */
+const pdfUrl = computed(() => {
+  if (sourceUrl.value === '') {
+    return ''
+  }
+  return `${sourceUrl.value}#page=${pdfPage.value}`
+})
+
+/**
+ * PDF 翻页。
+ *
+ * @param delta 页偏移（+1 / -1）。
+ */
+function turnPage(delta: number): void {
+  const next = pdfPage.value + delta
+  if (next < 1 || (pdfTotal.value > 0 && next > pdfTotal.value)) {
+    return
+  }
+  pdfPage.value = next
+}
+
+/** 图片缩略图（多图切换）。 */
+const imageFiles = computed(() => props.files.filter((file) => (file.mimeType ?? '').startsWith('image/')))
+
+/**
+ * 键盘操作：← / → 切换文件，Esc 关闭（仅可见时生效）。
+ *
+ * @param event 键盘事件。
+ */
+function onKeydown(event: KeyboardEvent): void {
+  if (!props.visible) {
+    return
+  }
+  if (event.key === 'Escape') {
+    close()
+  } else if (event.key === 'ArrowLeft') {
+    go(-1)
+  } else if (event.key === 'ArrowRight') {
+    go(1)
+  }
+}
+
+let offKeydown: () => void = () => {}
+
+watch(
+  () => props.visible,
+  (visible) => {
+    offKeydown()
+    if (visible) {
+      offKeydown = onGlobalKeydown(onKeydown)
+    }
+  },
+  { immediate: true },
+)
+
+onBeforeUnmount(() => offKeydown())
 </script>
 
 <template>
@@ -232,12 +305,19 @@ function download(): void {
     :data-ready="placeholder.ready.value"
     :data-degraded="placeholder.degraded.value"
     :data-kind="kind"
+    :data-mode="mode"
   >
     <slot v-if="placeholder.degraded.value" name="degrade">
       <div class="bms-display-placeholder" data-test="placeholder">{{ degradeText }}</div>
     </slot>
     <template v-else>
       <div v-if="current" class="bms-file-preview__body" data-test="preview-body">
+        <div class="bms-file-preview__header" data-test="preview-header">
+          <span class="bms-file-preview__name" data-test="file-name">{{ current.name }}</span>
+          <span class="bms-file-preview__meta" data-test="file-kind">
+            {{ kind }} · {{ index + 1 }}/{{ files.length }}
+          </span>
+        </div>
         <slot name="live" :file="current" :kind="kind">
           <div class="bms-file-preview__stage" :data-kind="kind" data-test="stage">
             <div v-if="errorReason !== ''" class="bms-file-preview__error" data-test="preview-error">
@@ -245,6 +325,7 @@ function download(): void {
             </div>
             <img
               v-else-if="kind === 'image' && sourceUrl !== ''"
+              class="bms-file-preview__image"
               :src="sourceUrl"
               :alt="current.name"
               :style="imageStyle"
@@ -253,6 +334,7 @@ function download(): void {
             />
             <video
               v-else-if="kind === 'video' && sourceUrl !== ''"
+              class="bms-file-preview__video"
               :src="sourceUrl"
               controls
               data-test="preview-video"
@@ -260,6 +342,7 @@ function download(): void {
             />
             <audio
               v-else-if="kind === 'audio' && sourceUrl !== ''"
+              class="bms-file-preview__audio"
               :src="sourceUrl"
               controls
               data-test="preview-audio"
@@ -267,25 +350,55 @@ function download(): void {
             />
             <iframe
               v-else-if="kind === 'pdf' && sourceUrl !== ''"
-              :src="sourceUrl"
+              class="bms-file-preview__pdf"
+              :src="pdfUrl"
               title="PDF 预览"
               data-test="preview-pdf"
             />
-            <pre v-else-if="kind === 'text'" data-test="preview-text">{{ textContent }}</pre>
-            <div v-else data-test="preview-loading">加载中…</div>
+            <pre v-else-if="kind === 'text'" class="bms-file-preview__text" data-test="preview-text">{{ textContent }}</pre>
+            <div v-else class="bms-file-preview__loading" data-test="preview-loading">加载中…</div>
           </div>
         </slot>
+
+        <div v-if="kind === 'image' && thumbs && imageFiles.length > 1" class="bms-file-preview__thumbs" data-test="thumbs">
+          <img
+            v-for="file in imageFiles"
+            :key="file.id"
+            class="bms-file-preview__thumb"
+            :class="{ 'is-active': file.id === current.id }"
+            :src="file.url ?? ''"
+            :alt="file.name"
+            :data-test="`thumb-${file.id}`"
+            @click="go(files.indexOf(file) - index)"
+          />
+        </div>
+
         <div class="bms-file-preview__toolbar">
-          <button type="button" data-test="prev" :disabled="index <= 0" @click="go(-1)">上一张</button>
-          <span data-test="file-name">{{ current.name }}</span>
-          <button type="button" data-test="next" :disabled="index >= files.length - 1" @click="go(1)">下一张</button>
+          <el-button size="small" data-test="prev" :disabled="index <= 0" @click="go(-1)">上一张</el-button>
+          <el-button size="small" data-test="next" :disabled="index >= files.length - 1" @click="go(1)">
+            下一张
+          </el-button>
           <template v-if="kind === 'image' && sourceUrl !== ''">
-            <button type="button" data-test="zoom-in" @click="zoom += 0.2">放大</button>
-            <button type="button" data-test="zoom-out" @click="zoom = Math.max(0.2, zoom - 0.2)">缩小</button>
-            <button type="button" data-test="rotate" @click="rotation += 90">旋转</button>
+            <el-button size="small" data-test="zoom-in" @click="zoom += 0.2">放大</el-button>
+            <el-button size="small" data-test="zoom-out" @click="zoom = Math.max(0.2, zoom - 0.2)">缩小</el-button>
+            <el-button size="small" data-test="rotate" @click="rotation += 90">旋转</el-button>
           </template>
-          <button type="button" data-test="download" @click="download">下载</button>
-          <button type="button" data-test="close" @click="close">关闭</button>
+          <template v-if="kind === 'pdf' && sourceUrl !== ''">
+            <el-button size="small" data-test="pdf-prev" :disabled="pdfPage <= 1" @click="turnPage(-1)">上一页</el-button>
+            <span class="bms-file-preview__page" data-test="pdf-page">
+              第 {{ pdfPage }} 页<template v-if="pdfTotal > 0"> / {{ pdfTotal }}</template>
+            </span>
+            <el-button
+              size="small"
+              data-test="pdf-next"
+              :disabled="pdfTotal > 0 && pdfPage >= pdfTotal"
+              @click="turnPage(1)"
+            >
+              下一页
+            </el-button>
+          </template>
+          <el-button size="small" data-test="download" @click="download">下载</el-button>
+          <el-button size="small" type="primary" data-test="close" @click="close">关闭</el-button>
         </div>
       </div>
       <div v-else class="bms-file-preview__empty" data-test="empty">
@@ -294,3 +407,170 @@ function download(): void {
     </template>
   </div>
 </template>
+
+<style scoped>
+.bms-file-preview {
+  box-sizing: border-box;
+  color: var(--bms-color-text);
+}
+
+.bms-file-preview[data-mode='overlay'] {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  display: flex;
+  background: var(--bms-file-preview-mask-bg);
+}
+
+.bms-file-preview[data-mode='drawer'] {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 3000;
+  width: 640px;
+  max-width: 100%;
+  background: var(--bms-color-bg);
+  box-shadow: var(--bms-shadow-md);
+}
+
+.bms-file-preview[data-mode='inline'] {
+  position: relative;
+  border: 1px solid var(--bms-color-border);
+  border-radius: var(--bms-radius-md);
+}
+
+.bms-file-preview__body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.bms-file-preview__header {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--bms-space-3);
+  padding: var(--bms-space-2) var(--bms-space-4);
+  font-size: var(--bms-font-size-sm);
+  border-bottom: 1px solid var(--bms-color-border);
+}
+
+.bms-file-preview[data-mode='overlay'] .bms-file-preview__header,
+.bms-file-preview[data-mode='overlay'] .bms-file-preview__toolbar {
+  color: var(--bms-color-text-inverse);
+  border-color: var(--bms-color-border);
+}
+
+.bms-file-preview__name {
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bms-file-preview__meta {
+  flex: none;
+  color: var(--bms-color-text-secondary);
+}
+
+.bms-file-preview__stage {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  padding: var(--bms-space-4);
+  overflow: hidden;
+}
+
+.bms-file-preview__image,
+.bms-file-preview__video {
+  max-width: 100%;
+  max-height: 100%;
+  transition: transform 0.12s ease;
+}
+
+.bms-file-preview__audio,
+.bms-file-preview__pdf {
+  width: 100%;
+  height: 100%;
+  min-height: 320px;
+  border: 0;
+}
+
+.bms-file-preview__text {
+  width: 100%;
+  max-height: 100%;
+  margin: 0;
+  padding: var(--bms-space-3);
+  overflow: auto;
+  font-family: var(--bms-font-family-mono);
+  font-size: var(--bms-font-size-sm);
+  color: var(--bms-color-text);
+  background: var(--bms-color-fill);
+  border-radius: var(--bms-radius-md);
+}
+
+.bms-file-preview__error,
+.bms-file-preview__loading,
+.bms-file-preview__empty {
+  font-size: var(--bms-font-size-sm);
+  color: var(--bms-color-text-secondary);
+  text-align: center;
+}
+
+.bms-file-preview__error {
+  color: var(--bms-color-danger);
+}
+
+.bms-file-preview__empty {
+  padding: var(--bms-space-8);
+}
+
+.bms-file-preview__thumbs {
+  display: flex;
+  flex: none;
+  gap: var(--bms-space-1);
+  padding: var(--bms-space-2) var(--bms-space-4);
+  overflow-x: auto;
+}
+
+.bms-file-preview__thumb {
+  width: 56px;
+  height: 42px;
+  cursor: pointer;
+  object-fit: cover;
+  border: 2px solid transparent;
+  border-radius: var(--bms-radius-sm);
+}
+
+.bms-file-preview__thumb.is-active {
+  border-color: var(--bms-color-primary);
+}
+
+.bms-file-preview__toolbar {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--bms-space-2);
+  padding: var(--bms-space-2) var(--bms-space-4);
+  border-top: 1px solid var(--bms-color-border);
+}
+
+.bms-file-preview__page {
+  font-size: var(--bms-font-size-sm);
+  color: var(--bms-color-text-secondary);
+}
+
+@media (max-width: 768px) {
+  .bms-file-preview[data-mode='drawer'] {
+    width: 100%;
+  }
+}
+</style>
+

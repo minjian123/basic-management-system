@@ -127,3 +127,134 @@ function onImageError(): void {
     </template>
   </div>
 </template>
+
+<style scoped>
+.bms-user-avatar {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  width: 32px;
+  height: 32px;
+}
+
+.bms-user-avatar[data-size='xs'] {
+  width: 20px;
+  height: 20px;
+  font-size: var(--bms-font-size-xs);
+}
+
+.bms-user-avatar[data-size='sm'] {
+  width: 28px;
+  height: 28px;
+  font-size: var(--bms-font-size-xs);
+}
+
+.bms-user-avatar[data-size='md'] {
+  width: 32px;
+  height: 32px;
+  font-size: var(--bms-font-size);
+}
+
+.bms-user-avatar[data-size='lg'] {
+  width: 40px;
+  height: 40px;
+  font-size: var(--bms-font-size-lg);
+}
+
+.bms-user-avatar__image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.bms-user-avatar[data-shape='square'] .bms-user-avatar__image,
+.bms-user-avatar[data-shape='square'] .bms-user-avatar__initial,
+.bms-user-avatar[data-shape='square'] .bms-user-avatar__placeholder,
+.bms-user-avatar[data-shape='square'] .bms-user-avatar__member {
+  border-radius: var(--bms-radius-md);
+}
+
+.bms-user-avatar__initial,
+.bms-user-avatar__member,
+.bms-user-avatar__placeholder,
+.bms-user-avatar__overflow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--bms-color-text-inverse);
+  background: var(--bms-avatar-color, var(--bms-color-text-secondary));
+  border-radius: 50%;
+  user-select: none;
+}
+
+.bms-user-avatar__placeholder {
+  background: var(--bms-color-fill);
+  color: var(--bms-color-text-secondary);
+}
+
+.bms-user-avatar__member {
+  position: relative;
+  flex: none;
+  box-sizing: border-box;
+  border: 2px solid var(--bms-color-bg);
+}
+
+.bms-user-avatar__member + .bms-user-avatar__member,
+.bms-user-avatar__overflow {
+  margin-left: calc(var(--bms-space-2) * -1);
+}
+
+.bms-user-avatar__overflow {
+  position: relative;
+  flex: none;
+  box-sizing: border-box;
+  font-size: var(--bms-font-size-xs);
+  background: var(--bms-color-text-secondary);
+  border: 2px solid var(--bms-color-bg);
+}
+
+.bms-user-avatar__status {
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 10px;
+  height: 10px;
+  background: var(--bms-color-info);
+  border: 2px solid var(--bms-color-bg);
+  border-radius: 50%;
+}
+
+.bms-user-avatar__status[data-status='active'] {
+  background: var(--bms-color-success);
+}
+
+.bms-user-avatar__status[data-status='disabled'] {
+  background: var(--bms-color-info);
+}
+
+.bms-user-avatar__status[data-status='locked'] {
+  background: var(--bms-color-warning);
+}
+
+.bms-user-avatar__badge {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  min-width: 16px;
+  padding: 0 var(--bms-space-1);
+  font-size: var(--bms-font-size-xs);
+  line-height: 16px;
+  color: var(--bms-color-text-inverse);
+  text-align: center;
+  background: var(--bms-notice-badge-bg);
+  border-radius: var(--bms-radius-lg);
+}
+</style>
+

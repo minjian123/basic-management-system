@@ -22,6 +22,10 @@ export interface UserDisplayInfo {
   status?: UserStatus
   /** 部门路径。 */
   deptPath?: string
+  /** 岗位名称（用户胶囊悬浮卡片展示；2026-10-14 前端组件库 11_02 追加，只增可选）。 */
+  postName?: string
+  /** 联系方式（悬浮卡片展示；受脱敏 / 权限约束由调用方保证；2026-10-14 追加，只增可选）。 */
+  phone?: string
   /** 已删除（批量回显未命中 / 出口 `exists=false`）。 */
   deleted?: boolean
 }
@@ -110,5 +114,15 @@ export abstract class BaseUserDisplay extends BaseComponent {
   /** 部门路径。 */
   get deptPath(): string | undefined {
     return this.user?.deptPath
+  }
+
+  /** 岗位名称。 */
+  get postName(): string | undefined {
+    return this.user?.postName
+  }
+
+  /** 联系方式。 */
+  get phone(): string | undefined {
+    return this.user?.phone
   }
 }

@@ -5,13 +5,19 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue'
 
 import { useBaseContainer } from '../../composables/useBaseContainer'
 import { useFeedback } from '../../composables/useFeedback'
+import SkeletonBlock from '../feedback/SkeletonBlock.vue'
 
 /** 四态。 */
 export type StatusContainerState = 'loading' | 'ready' | 'empty' | 'error'
 
+/** 加载形态。 */
+export type StatusContainerVariant = 'mask' | 'skeleton' | 'spin'
+
 interface Props {
   /** 状态（受控）。 */
   status: StatusContainerState
+  /** 加载形态（遮罩 / 骨架 / 旋转）。 */
+  variant?: StatusContainerVariant
   /** 加载态延迟显示（毫秒，防闪烁）。 */
   delay?: number
   /** 加载文案。 */
@@ -27,6 +33,7 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
+  variant: 'mask',
   delay: 200,
   text: '加载中…',
   emptyText: '暂无数据',
@@ -93,6 +100,7 @@ onBeforeUnmount(clearTimer)
   <div
     class="bms-status-container"
     :data-status="resolved"
+    :data-variant="variant"
     :data-size="sizeToken"
     :data-density="isCompact ? 'compact' : 'default'"
   >
@@ -104,9 +112,18 @@ onBeforeUnmount(clearTimer)
       <slot />
     </div>
 
-    <div v-if="resolved === 'loading'" class="bms-status-container__state" data-test="status-loading">
+    <div
+      v-if="resolved === 'loading'"
+      class="bms-status-container__state"
+      :class="`is-${variant}`"
+      data-test="status-loading"
+    >
       <slot name="loading">
-        <span class="bms-status-container__text">{{ text }}</span>
+        <slot v-if="variant === 'skeleton'" name="skeleton">
+          <skeleton-block variant="list" :rows="3" />
+        </slot>
+        <span v-else-if="variant === 'spin'" class="bms-status-container__spinner" aria-hidden="true" />
+        <span v-else class="bms-status-container__text">{{ text }}</span>
       </slot>
     </div>
 
@@ -127,3 +144,60 @@ onBeforeUnmount(clearTimer)
     </div>
   </div>
 </template>
+
+<style scoped>
+.bms-status-container {
+  position: relative;
+  box-sizing: border-box;
+  min-height: var(--bms-loading-min-height, 120px);
+}
+
+.bms-status-container__content {
+  color: var(--bms-color-text);
+}
+
+.bms-status-container__state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--bms-space-2);
+  padding: var(--bms-space-4);
+  color: var(--bms-color-text-secondary);
+}
+
+.bms-status-container__state.is-mask {
+  position: absolute;
+  inset: 0;
+  background: var(--bms-color-mask-bg);
+  border-radius: var(--bms-radius-md);
+}
+
+.bms-status-container__text {
+  font-size: var(--bms-font-size-sm);
+}
+
+.bms-status-container__spinner {
+  display: block;
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--bms-color-border);
+  border-top-color: var(--bms-color-primary);
+  border-radius: 50%;
+  animation: bms-status-spin 0.8s linear infinite;
+}
+
+.bms-status-container__actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--bms-space-2);
+}
+
+@keyframes bms-status-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+</style>
+

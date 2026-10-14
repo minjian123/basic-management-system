@@ -11,9 +11,11 @@ interface Props {
   delay?: number
   /** 文案。 */
   text?: string
+  /** 整页遮罩（缺省仅覆盖包裹内容区）。 */
+  fullscreen?: boolean
 }
 
-const props = withDefaults(defineProps<Props>(), { delay: 200, text: '' })
+const props = withDefaults(defineProps<Props>(), { delay: 200, text: '', fullscreen: false })
 
 const { begin, ready } = useFeedback()
 const shown = ref(false)
@@ -56,9 +58,62 @@ onBeforeUnmount(() => {
 <template>
   <div class="bms-loading-mask">
     <slot />
-    <div v-if="shown" class="bms-loading-mask__overlay" data-test="loading-mask">
+    <div
+      v-if="shown"
+      class="bms-loading-mask__overlay"
+      :class="{ 'is-fullscreen': fullscreen }"
+      data-test="loading-mask"
+    >
       <span class="bms-loading-mask__spinner" aria-hidden="true" />
       <span v-if="text" class="bms-loading-mask__text">{{ text }}</span>
     </div>
   </div>
 </template>
+
+<style scoped>
+.bms-loading-mask {
+  position: relative;
+  box-sizing: border-box;
+}
+
+.bms-loading-mask__overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: var(--bms-space-2);
+  align-items: center;
+  justify-content: center;
+  background: var(--bms-color-mask-bg);
+  border-radius: var(--bms-radius-md);
+}
+
+.bms-loading-mask__overlay.is-fullscreen {
+  position: fixed;
+  z-index: 3000;
+  border-radius: 0;
+}
+
+.bms-loading-mask__spinner {
+  display: block;
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--bms-color-border);
+  border-top-color: var(--bms-color-primary);
+  border-radius: 50%;
+  animation: bms-loading-spin 0.8s linear infinite;
+}
+
+.bms-loading-mask__text {
+  font-size: var(--bms-font-size-sm);
+  color: var(--bms-color-text-secondary);
+}
+
+@keyframes bms-loading-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+</style>
+

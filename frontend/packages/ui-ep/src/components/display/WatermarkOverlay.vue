@@ -5,6 +5,16 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useBaseWatermark } from '../../composables/useBaseWatermark'
 import { observeChildList } from '../../utils/observe'
 
+/** 水印字体。 */
+export interface WatermarkFont {
+  /** 字号（px）。 */
+  fontSize?: number
+  /** 字重。 */
+  fontWeight?: number | string
+  /** 字体族。 */
+  fontFamily?: string
+}
+
 interface Props {
   /** 水印文案（一行或多行）；缺省由水印能力组装（用户 / 租户 / 时间）。 */
   content?: string | string[]
@@ -16,6 +26,8 @@ interface Props {
   image?: string
   /** 水印颜色（建议传设计令牌值）。 */
   color?: string
+  /** 字体（字号 / 字重 / 字体族）。 */
+  font?: WatermarkFont
   /** 整体透明度。 */
   opacity?: number
   /** 旋转角度。 */
@@ -24,6 +36,10 @@ interface Props {
   gap?: number[]
   /** 偏移 [水平, 垂直]。 */
   offset?: number[]
+  /** 单个水印宽度（缺省取间距水平值）。 */
+  width?: number
+  /** 单个水印高度（缺省取间距垂直值）。 */
+  height?: number
   /** 层级。 */
   zIndex?: number
   /** 是否全屏。 */
@@ -40,10 +56,13 @@ const props = withDefaults(defineProps<Props>(), {
   tenant: '',
   image: '',
   color: 'var(--bms-color-text-secondary)',
+  font: () => ({}),
   opacity: 0.15,
   rotate: -22,
   gap: () => [100, 100],
   offset: () => [0, 0],
+  width: 0,
+  height: 0,
   zIndex: 9,
   fullscreen: false,
   showTime: false,
@@ -96,18 +115,41 @@ function escapeXml(text: string): string {
 const tileUrl = computed(() => {
   const gapX = props.gap[0] ?? 100
   const gapY = props.gap[1] ?? 100
+  const tileWidth = props.width > 0 ? props.width : gapX
+  const tileHeight = props.height > 0 ? props.height : gapY
+  const fontSize = props.font.fontSize ?? 14
+  const lineHeight = Math.round(fontSize * 1.15)
   const texts = lines.value
     .map((line, index) => {
-      const x = gapX / 2
-      const y = gapY / 2 + index * 16
-      return `<text x="${x}" y="${y}" font-size="14" text-anchor="middle" fill="${props.color}">${escapeXml(line)}</text>`
+      const x = tileWidth / 2
+      const y = tileHeight / 2 + index * lineHeight
+      return `<text x="${x}" y="${y}" font-size="${fontSize}" font-weight="${props.font.fontWeight ?? 400}" font-family="${escapeXml(props.font.fontFamily ?? '')}" text-anchor="middle" fill="${props.color}">${escapeXml(line)}</text>`
     })
     .join('')
   const svg =
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${gapX}" height="${gapY}">` +
-    `<g transform="rotate(${props.rotate} ${gapX / 2} ${gapY / 2})">${texts}</g></svg>`
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${tileWidth}" height="${tileHeight}">` +
+    `<g transform="rotate(${props.rotate} ${tileWidth / 2} ${tileHeight / 2})">${texts}</g></svg>`
   return `url("data:image/svg+xml;utf8,${encodeURIComponent(svg)}")`
 })
+
+/** 平铺水印原始 SVG 文本（导出用）。 */
+const tileSvg = computed(() => {
+  const url = tileUrl.value
+  const start = url.indexOf('utf8,') + 'utf8,'.length
+  const end = url.lastIndexOf('")')
+  return decodeURIComponent(url.slice(start, end))
+})
+
+/**
+ * 导出水印平铺图数据地址（SVG）。
+ *
+ * @returns 数据地址（`data:image/svg+xml;utf8,...`）。
+ */
+function exportImage(): string {
+  return `data:image/svg+xml;utf8,${encodeURIComponent(tileSvg.value)}`
+}
+
+defineExpose({ exportImage })
 
 const layerStyle = computed<Record<string, string>>(() => {
   const backgrounds = [tileUrl.value]
@@ -173,3 +215,21 @@ onBeforeUnmount(() => {
     />
   </div>
 </template>
+
+<style scoped>
+.bms-watermark {
+  position: relative;
+  box-sizing: border-box;
+}
+
+.bms-watermark[data-fullscreen] {
+  position: static;
+}
+
+.bms-watermark__layer {
+  overflow: hidden;
+  pointer-events: none;
+  user-select: none;
+}
+</style>
+

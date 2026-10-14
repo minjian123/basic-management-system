@@ -273,3 +273,7 @@ mdm文档
 
 # playwright-cli 工作目录（快照 / 控制台日志 / 跟踪等临时产物，不入库）
 .playwright-cli/
+
+# 代码落点索引（脚本 scripts/tools/search/gen-code-index.py 秒级可重建的生成物；
+# 本地查用，不入库以免 docstring 频改造成 diff 噪音。语义成本高的《文档域路由索引》仍入库）
+bms文档/代码落点索引.md

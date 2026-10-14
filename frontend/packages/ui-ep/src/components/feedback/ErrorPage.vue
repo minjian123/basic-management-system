@@ -27,11 +27,14 @@ const DEFAULT_TEXT: Record<ErrorPageCode, { title: string; description: string }
 }
 
 const props = defineProps<Props>()
-const emit = defineEmits<{ home: []; retry: []; back: [] }>()
+const emit = defineEmits<{ home: []; retry: []; back: []; contact: [] }>()
 
 const resolvedTitle = computed(() => props.title || DEFAULT_TEXT[props.code].title)
 const resolvedDescription = computed(() => props.description || DEFAULT_TEXT[props.code].description)
 const retryable = computed(() => props.retry === true || props.code === 500)
+
+/** 403 缺省操作含「联系管理员」（对齐《组件设计 · 异常与空状态》§3）。 */
+const contactable = computed(() => props.code === 403)
 
 const { display, value: titleValue } = useBaseDisplay<string>()
 watch(resolvedTitle, (title) => display.setValue(title), { immediate: true })
@@ -46,8 +49,59 @@ watch(resolvedTitle, (title) => display.setValue(title), { immediate: true })
     <div class="bms-error-page__actions">
       <el-button data-test="error-back" @click="emit('back')">返回上一页</el-button>
       <el-button data-test="error-home" @click="emit('home')">返回首页</el-button>
+      <el-button v-if="contactable" data-test="error-contact" @click="emit('contact')">联系管理员</el-button>
       <el-button v-if="retryable" data-test="error-retry" type="primary" @click="emit('retry')">重试</el-button>
       <slot name="action" />
     </div>
   </div>
 </template>
+
+<style scoped>
+.bms-error-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bms-space-2);
+  align-items: center;
+  justify-content: center;
+  padding: var(--bms-space-8) var(--bms-space-4);
+  text-align: center;
+}
+
+.bms-error-page__image {
+  width: var(--bms-illustration-size);
+  height: var(--bms-illustration-size);
+  object-fit: contain;
+}
+
+.bms-error-page__code {
+  margin: 0;
+  font-size: calc(var(--bms-font-size-lg) * 2);
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--bms-color-primary);
+}
+
+.bms-error-page__title {
+  margin: 0;
+  font-size: var(--bms-font-size-lg);
+  font-weight: 600;
+  color: var(--bms-color-text);
+}
+
+.bms-error-page__description {
+  max-width: 460px;
+  margin: 0;
+  font-size: var(--bms-font-size-sm);
+  line-height: var(--bms-line-height);
+  color: var(--bms-color-text-secondary);
+}
+
+.bms-error-page__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bms-space-2);
+  justify-content: center;
+  margin-top: var(--bms-space-3);
+}
+</style>
+
