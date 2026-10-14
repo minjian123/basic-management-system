@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // 图表卡（07_06）：工作台图表卡容器——卡头 / 视图切换 / 取数编排 / 四态 / 脚注 / 导出。
 // 对外契约保持 07_01 冻结形状（导出名 / 既有 Props / 事件 / 插槽 / data-test 不变），仅向后兼容新增可选项。
+import { ElButton } from 'element-plus'
 import { computed, onBeforeUnmount, onMounted, watch } from 'vue'
 
 import type {
@@ -272,17 +273,35 @@ function onRefresh(): void {
         <span class="bms-chart-card__title" data-test="title">{{ title }}</span>
         <div class="bms-chart-card__actions">
           <slot name="header-actions" />
-          <button v-if="showViewSwitch" type="button" data-test="view-chart" :disabled="view === 'chart'" @click="switchView('chart')">
+          <el-button
+            v-if="showViewSwitch"
+            link
+            size="small"
+            data-test="view-chart"
+            :disabled="view === 'chart'"
+            @click="switchView('chart')"
+          >
             图表
-          </button>
-          <button v-if="showViewSwitch" type="button" data-test="view-table" :disabled="view === 'table'" @click="switchView('table')">
+          </el-button>
+          <el-button
+            v-if="showViewSwitch"
+            link
+            size="small"
+            data-test="view-table"
+            :disabled="view === 'table'"
+            @click="switchView('table')"
+          >
             数据表
-          </button>
+          </el-button>
           <slot name="actions" />
-          <button v-if="showRefresh" type="button" data-test="refresh" @click="onRefresh">刷新</button>
-          <button v-if="showDetail" type="button" data-test="detail" @click="emit('detail', { datasetId })">详情</button>
-          <button v-if="editable" type="button" data-test="remove" @click="emit('remove')">移除</button>
-          <button type="button" data-test="download" @click="emit('download')">导出</button>
+          <el-button v-if="showRefresh" link size="small" data-test="refresh" @click="onRefresh">刷新</el-button>
+          <el-button v-if="showDetail" link size="small" data-test="detail" @click="emit('detail', { datasetId })">
+            详情
+          </el-button>
+          <el-button v-if="editable" link size="small" type="danger" data-test="remove" @click="emit('remove')">
+            移除
+          </el-button>
+          <el-button link size="small" data-test="download" @click="emit('download')">导出</el-button>
         </div>
       </div>
       <div
@@ -308,7 +327,7 @@ function onRefresh(): void {
             :engine-factory="engineFactory"
             @retry="emit('refresh')"
           />
-          <span v-else data-test="chart-holder">图表（{{ chartType }}）</span>
+          <span v-else class="bms-chart-card__holder" data-test="chart-holder">图表（{{ chartType }}）</span>
         </slot>
       </div>
       <div v-else class="bms-chart-card__table" data-test="data-table">
@@ -317,9 +336,78 @@ function onRefresh(): void {
         </slot>
       </div>
       <div v-if="datasetName !== '' || updatedAt !== ''" class="bms-chart-card__footnote" data-test="footnote">
-        <span v-if="datasetName !== ''" data-test="dataset-name">{{ datasetName }}<template v-if="datasetRemark !== ''"> · {{ datasetRemark }}</template></span>
+        <span v-if="datasetName !== ''" data-test="dataset-name">
+          {{ datasetName }}<template v-if="datasetRemark !== ''"> · {{ datasetRemark }}</template>
+        </span>
         <span v-if="updatedAt !== ''" data-test="updated-at">最后更新：{{ updatedAt }}</span>
       </div>
     </template>
   </div>
 </template>
+
+<style scoped>
+/* 卡片形态（原型：1px 描边 + 圆角 + 纵向 flex + 溢出裁剪）。 */
+.bms-chart-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  background: var(--bms-color-bg);
+  border: 1px solid var(--bms-color-border);
+  border-radius: var(--bms-radius-md);
+}
+
+.bms-chart-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--bms-space-2);
+  padding: var(--bms-space-2) var(--bms-space-3);
+  border-bottom: 1px solid var(--bms-color-border);
+}
+
+.bms-chart-card__title {
+  color: var(--bms-color-text);
+  font-size: var(--bms-font-size);
+  font-weight: 600;
+}
+
+.bms-chart-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--bms-space-1);
+}
+
+.bms-chart-card__body {
+  position: relative;
+  min-width: 0;
+  padding: var(--bms-space-2) var(--bms-space-3);
+}
+
+.bms-chart-card__table {
+  min-width: 0;
+  padding: var(--bms-space-2) var(--bms-space-3);
+}
+
+.bms-chart-card__holder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--bms-color-text-secondary);
+  font-size: var(--bms-font-size-sm);
+}
+
+.bms-chart-card__footnote {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--bms-space-2);
+  padding: var(--bms-space-1) var(--bms-space-3);
+  color: var(--bms-color-text-secondary);
+  font-size: var(--bms-font-size-xs);
+  border-top: 1px solid var(--bms-color-border);
+}
+</style>

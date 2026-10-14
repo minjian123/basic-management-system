@@ -111,6 +111,15 @@ const rendererRef = ref<InstanceType<typeof FormRenderer>>()
 /** 自检结果。 */
 const checks = ref<{ label: string; pass: boolean }[]>([])
 
+/** 当前主题（截图对照用）。 */
+const theme = ref(document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light')
+
+/** 切换亮暗主题。 */
+function onToggleTheme(): void {
+  theme.value = theme.value === 'dark' ? 'light' : 'dark'
+  document.documentElement.dataset.theme = theme.value
+}
+
 /**
  * 作用域内查询元素。
  *
@@ -320,6 +329,27 @@ async function runChecks(): Promise<void> {
     pass: plan?.sections.length === 2 && plan.unknownFields.length === 1,
   })
 
+  // 本批（11_04）样式自检。
+  result.push({
+    label: '⑬ 分区栅格与跨整行（--bms-cols 驱动 grid-template-columns）',
+    pass: (() => {
+      const grid = document.querySelector('[data-check-scope="renderer"] .bms-form-renderer__grid')
+      if (grid === null) {
+        return false
+      }
+      const style = getComputedStyle(grid)
+      return style.display === 'grid' && style.gridTemplateColumns.split(' ').length > 1
+    })(),
+  })
+  result.push({
+    label: '⑭ 分区 / 分组容器与只读回显底有定义',
+    pass: (() => {
+      const section = document.querySelector('[data-check-scope="renderer"] .bms-form-renderer__section')
+      const group = document.querySelector('[data-check-scope="renderer"] .bms-form-renderer__group')
+      return section !== null && group !== null && getComputedStyle(section).borderStyle === 'dashed'
+    })(),
+  })
+
   checks.value = result
 }
 
@@ -331,6 +361,11 @@ onMounted(() => {
 <template>
   <div class="form-render-check">
     <h1>表单渲染器核对页（08-6-2）</h1>
+
+    <div class="form-render-check__toolbar">
+      <el-button data-test="check-theme" @click="onToggleTheme">切换到{{ theme === 'dark' ? '亮色' : '暗色' }}</el-button>
+      <span class="form-render-check__hint">主题：{{ theme }}</span>
+    </div>
     <section class="form-render-check__panel">
       <h2>自检结果</h2>
       <ol>
@@ -355,3 +390,17 @@ onMounted(() => {
     </section>
   </div>
 </template>
+
+<style scoped>
+.form-render-check__toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--bms-space-3);
+  margin-bottom: var(--bms-space-3);
+}
+
+.form-render-check__hint {
+  color: var(--bms-color-text-secondary);
+  font-size: var(--bms-font-size-sm);
+}
+</style>

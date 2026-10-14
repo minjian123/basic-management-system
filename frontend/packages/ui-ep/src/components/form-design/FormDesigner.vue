@@ -19,6 +19,7 @@ import type {
   LayoutLabelPosition,
 } from '@bms/core'
 import { DESIGNER_PLACEHOLDER_TEXT, hasField, newSectionKey, normalizeLayout } from '@bms/core'
+import { ElButton, ElRadioButton, ElRadioGroup, ElTag } from 'element-plus'
 import { computed, defineAsyncComponent, ref, watch } from 'vue'
 
 import { useBaseDragDrop } from '../../composables/useBaseDragDrop'
@@ -506,82 +507,104 @@ defineExpose({ designer: designer.designer, layout, dirty, readonly })
     <template v-else>
       <slot name="live">
         <div class="bms-form-designer__toolbar" data-test="toolbar">
-          <span data-test="form-code">{{ formCode }}</span>
-          <span data-test="level">{{ level }}</span>
-          <button type="button" data-test="level-platform" :data-active="level === 'platform'">平台默认</button>
-          <button type="button" data-test="level-tenant" :data-active="level === 'tenant'">租户覆盖</button>
-          <button type="button" data-test="level-role" :data-active="level === 'role'">角色视图</button>
-          <button type="button" data-test="create-field" :disabled="readonly" @click="openExtField">新建自定义字段</button>
-          <button type="button" data-test="save" :disabled="readonly" @click="save">保存</button>
-          <button type="button" data-test="publish" :disabled="readonly" @click="publish">发布</button>
-          <button type="button" data-test="reset" :disabled="readonly" @click="reset">恢复默认</button>
-          <span v-if="dirty" data-test="dirty">未保存</span>
-          <span v-if="readonly" data-test="readonly-hint">平台默认层级或无维护权限，当前只读</span>
+          <span class="bms-form-designer__code" data-test="form-code">{{ formCode }}</span>
+          <el-radio-group :model-value="level">
+            <el-radio-button value="platform" data-test="level-platform">平台默认</el-radio-button>
+            <el-radio-button value="tenant" data-test="level-tenant">租户覆盖</el-radio-button>
+            <el-radio-button value="role" data-test="level-role">角色视图</el-radio-button>
+          </el-radio-group>
+          <span class="bms-form-designer__level" data-test="level">{{ level }}</span>
+          <el-button :disabled="readonly" data-test="create-field" @click="openExtField">新建自定义字段</el-button>
+          <el-button type="primary" :disabled="readonly" data-test="save" @click="save">保存</el-button>
+          <el-button :disabled="readonly" data-test="publish" @click="publish">发布</el-button>
+          <el-button :disabled="readonly" data-test="reset" @click="reset">恢复默认</el-button>
+          <span v-if="dirty" class="bms-form-designer__dirty" data-test="dirty">● 有未保存修改</span>
+          <span v-if="readonly" class="bms-form-designer__readonly" data-test="readonly-hint">
+            平台默认层级或无维护权限，当前只读
+          </span>
         </div>
 
         <div class="bms-form-designer__body">
-          <div class="bms-form-designer__field-panel" data-test="field-panel">
-            <slot name="field-panel" :disabled="readonly">
-              <div v-for="group in (['platform', 'tenant'] as const)" :key="group" :data-test="`group-${group}`">
-                <strong>{{ group }}</strong>
-                <button
-                  v-for="field in groupFields(group)"
-                  :key="field.key"
-                  type="button"
-                  :data-test="`field-${field.key}`"
-                  :data-draggable="fieldDraggable(field)"
-                  :data-used="fieldUsed(field.key) || undefined"
-                  :disabled="readonly || !fieldDraggable(field)"
-                  @click="addField(field)"
-                >
-                  {{ field.label }}
-                  <span v-if="fieldUsed(field.key)" :data-test="`field-used-${field.key}`">已使用</span>
-                </button>
-              </div>
-              <p v-if="panelFields.length === 0" data-test="field-panel-empty">暂无可用字段</p>
-            </slot>
-          </div>
+          <section class="bms-form-designer__pane bms-form-designer__field-panel" data-test="field-panel">
+            <h4 class="bms-form-designer__pane-title">字段面板</h4>
+            <div class="bms-form-designer__pane-body">
+              <slot name="field-panel" :disabled="readonly">
+                <div v-for="group in (['platform', 'tenant'] as const)" :key="group" :data-test="`group-${group}`">
+                  <h5 class="bms-form-designer__group-title">{{ group === 'platform' ? '平台字段' : '租户字段' }}</h5>
+                  <el-button
+                    v-for="field in groupFields(group)"
+                    :key="field.key"
+                    class="bms-form-designer__field-item"
+                    :data-test="`field-${field.key}`"
+                    :data-draggable="fieldDraggable(field)"
+                    :data-used="fieldUsed(field.key) || undefined"
+                    :disabled="readonly || !fieldDraggable(field)"
+                    @click="addField(field)"
+                  >
+                    <span>{{ field.label }}</span>
+                    <span class="bms-form-designer__field-type">{{ field.type }}</span>
+                    <el-tag v-if="fieldUsed(field.key)" size="small" :data-test="`field-used-${field.key}`">
+                      已使用
+                    </el-tag>
+                  </el-button>
+                </div>
+                <p v-if="panelFields.length === 0" class="bms-form-designer__empty" data-test="field-panel-empty">
+                  暂无可用字段
+                </p>
+              </slot>
+            </div>
+          </section>
 
-          <div class="bms-form-designer__canvas" data-test="canvas">
-            <slot name="canvas">
-              <p v-if="layout.main.sections.length === 0" data-test="empty">暂无布局分区，拖入字段将自动新建分区（{{ nextSection }}）</p>
-              <component
-                :is="FormDesignerCanvas"
-                :fields="fields as unknown as FormField[]"
-                :layout="layout as unknown as FormLayoutShape"
-                :read-only="readonly"
-                :dirty="dirty"
-                :selection="selected"
-                :view="view"
-                :registered-types="registeredTypes"
-                @select="onSelect"
-                @move="onMove"
-                @columns-change="onColumnsChange"
-                @colspan-change="onColspanChange"
-                @add-section="onAddSection"
-                @remove-section="onRemoveSection"
-                @reorder="onReorder"
-              />
-            </slot>
-          </div>
+          <section class="bms-form-designer__pane bms-form-designer__canvas" data-test="canvas">
+            <h4 class="bms-form-designer__pane-title">布局画布</h4>
+            <div class="bms-form-designer__pane-body">
+              <slot name="canvas">
+                <p v-if="layout.main.sections.length === 0" class="bms-form-designer__empty" data-test="empty">
+                  暂无布局分区，拖入字段将自动新建分区（{{ nextSection }}）
+                </p>
+                <component
+                  :is="FormDesignerCanvas"
+                  :fields="fields as unknown as FormField[]"
+                  :layout="layout as unknown as FormLayoutShape"
+                  :read-only="readonly"
+                  :dirty="dirty"
+                  :selection="selected"
+                  :view="view"
+                  :registered-types="registeredTypes"
+                  @select="onSelect"
+                  @move="onMove"
+                  @columns-change="onColumnsChange"
+                  @colspan-change="onColspanChange"
+                  @add-section="onAddSection"
+                  @remove-section="onRemoveSection"
+                  @reorder="onReorder"
+                />
+              </slot>
+            </div>
+          </section>
 
-          <div class="bms-form-designer__properties" data-test="properties">
-            <slot name="properties" :selection="selected">
-              <p v-if="selected" data-test="properties-selected">{{ selected.kind }}：{{ selected.key }}</p>
-              <p v-else data-test="properties-empty">未选中对象</p>
-              <component
-                :is="FieldPropertyPanel"
-                :selection="selected"
-                :fields="fields as unknown as FormField[]"
-                :layout="layout as unknown as FormLayoutShape"
-                :read-only="readonly"
-                :values="fieldProps"
-                @field-change="onFieldChange"
-                @section-change="onSectionChange"
-                @canvas-change="onCanvasChange"
-              />
-            </slot>
-          </div>
+          <section class="bms-form-designer__pane bms-form-designer__properties" data-test="properties">
+            <h4 class="bms-form-designer__pane-title">属性面板</h4>
+            <div class="bms-form-designer__pane-body">
+              <p v-if="selected" class="bms-form-designer__subject" data-test="properties-selected">
+                {{ selected.kind }}：{{ selected.key }}
+              </p>
+              <p v-else class="bms-form-designer__subject" data-test="properties-empty">未选中对象</p>
+              <slot name="properties" :selection="selected">
+                <component
+                  :is="FieldPropertyPanel"
+                  :selection="selected"
+                  :fields="fields as unknown as FormField[]"
+                  :layout="layout as unknown as FormLayoutShape"
+                  :read-only="readonly"
+                  :values="fieldProps"
+                  @field-change="onFieldChange"
+                  @section-change="onSectionChange"
+                  @canvas-change="onCanvasChange"
+                />
+              </slot>
+            </div>
+          </section>
         </div>
       </slot>
     </template>
@@ -600,3 +623,125 @@ defineExpose({ designer: designer.designer, layout, dirty, readonly })
     />
   </div>
 </template>
+
+<style scoped>
+.bms-form-designer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bms-space-3);
+  min-width: 0;
+}
+
+.bms-form-designer__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--bms-space-2);
+  padding: var(--bms-space-2) var(--bms-space-3);
+  background: var(--bms-color-fill);
+  border-bottom: 1px solid var(--bms-color-border);
+  border-radius: var(--bms-radius-sm);
+}
+
+.bms-form-designer__code,
+.bms-form-designer__level {
+  color: var(--bms-color-text-secondary);
+  font-family: var(--bms-font-family-mono);
+  font-size: var(--bms-font-size-xs);
+}
+
+.bms-form-designer__dirty {
+  color: var(--bms-color-danger);
+  font-size: var(--bms-font-size-xs);
+}
+
+.bms-form-designer__readonly {
+  color: var(--bms-color-warning);
+  font-size: var(--bms-font-size-xs);
+}
+
+/* 三栏（字段面板 220 / 画布自适应 / 属性面板 260），与原型栅格口径一致。 */
+.bms-form-designer__body {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr) 260px;
+  gap: var(--bms-space-3);
+  align-items: start;
+}
+
+.bms-form-designer__pane {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 420px;
+  background: var(--bms-designer-panel-bg);
+  border: 1px solid var(--bms-color-border);
+  border-radius: var(--bms-radius-md);
+}
+
+.bms-form-designer__pane-title {
+  margin: 0;
+  padding: var(--bms-space-2) var(--bms-space-3);
+  color: var(--bms-color-text);
+  font-size: var(--bms-font-size-sm);
+  font-weight: 600;
+  border-bottom: 1px solid var(--bms-color-border);
+}
+
+.bms-form-designer__pane-body {
+  flex: 1;
+  min-width: 0;
+  padding: var(--bms-space-3);
+}
+
+.bms-form-designer__group-title {
+  margin: var(--bms-space-2) 0 var(--bms-space-1);
+  color: var(--bms-color-text-secondary);
+  font-size: var(--bms-font-size-xs);
+  font-weight: 400;
+}
+
+.bms-form-designer__field-item {
+  display: flex;
+  align-items: center;
+  gap: var(--bms-space-2);
+  width: 100%;
+  margin-bottom: var(--bms-space-1);
+  font-size: var(--bms-font-size-sm);
+  cursor: grab;
+}
+
+.bms-form-designer__field-type {
+  margin-left: auto;
+  color: var(--bms-color-text-secondary);
+  font-family: var(--bms-font-family-mono);
+  font-size: var(--bms-font-size-xs);
+}
+
+.bms-form-designer__empty {
+  margin: 0;
+  padding: var(--bms-space-4);
+  color: var(--bms-color-text-secondary);
+  font-size: var(--bms-font-size-xs);
+  text-align: center;
+  border: 1px dashed var(--bms-color-border);
+  border-radius: var(--bms-radius-sm);
+}
+
+.bms-form-designer__subject {
+  margin: 0 0 var(--bms-space-2);
+  color: var(--bms-color-text-secondary);
+  font-family: var(--bms-font-family-mono);
+  font-size: var(--bms-font-size-xs);
+}
+
+/* 窄容器改单列堆叠（与 `useResponsive` 缺省窄屏阈值一致）。 */
+@media (max-width: 992px) {
+  .bms-form-designer__body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .bms-form-designer__pane {
+    min-height: 0;
+  }
+}
+</style>

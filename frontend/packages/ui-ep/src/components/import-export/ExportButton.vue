@@ -14,6 +14,7 @@ import {
   type ExportScope,
   type TaskProgress,
 } from '@bms/core'
+import { ElButton } from 'element-plus'
 import { computed, defineAsyncComponent, watch } from 'vue'
 
 import { useBaseExportFlow } from '../../composables/useBaseExportFlow'
@@ -239,19 +240,26 @@ defineExpose({ flow: flow.flow })
 <template>
   <div class="bms-export-button" :data-ready="flow.ready.value" :data-degraded="flow.degraded.value">
     <slot v-if="flow.degraded.value" name="degrade">
-      <button type="button" data-test="export" disabled>导出</button>
+      <el-button disabled data-test="export">导出</el-button>
       <span class="bms-interaction-placeholder" data-test="placeholder">{{ degradeText }}</span>
     </slot>
     <template v-else>
       <slot name="live">
-        <span data-test="total-hint">导出 {{ total }} 条</span>
-        <button type="button" data-test="export" :disabled="exportDisabled" @click="doExport">
+        <span class="bms-export-button__total" data-test="total-hint">导出 {{ total }} 条</span>
+        <el-button
+          type="primary"
+          plain
+          data-test="export"
+          :disabled="exportDisabled"
+          :loading="flow.busy.value"
+          @click="doExport"
+        >
           <slot name="default">导出</slot>
-        </button>
-        <span v-if="!flow.plainAllowed.value" data-test="plain-hint">
+        </el-button>
+        <span v-if="!flow.plainAllowed.value" class="bms-export-button__hint" data-test="plain-hint">
           {{ plain ? '未持明文权限，敏感字段将脱敏导出' : '敏感字段将脱敏导出' }}
         </span>
-        <span v-if="flow.asyncMode.value" data-test="async-hint">
+        <span v-if="flow.asyncMode.value" class="bms-export-button__hint" data-test="async-hint">
           {{ flow.empty.value ? '当前筛选无数据可导出' : '数据量较大，将转后台导出' }}
         </span>
         <component
@@ -266,3 +274,29 @@ defineExpose({ flow: flow.flow })
     </template>
   </div>
 </template>
+
+<style scoped>
+.bms-export-button {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--bms-space-2);
+  min-width: 0;
+}
+
+.bms-export-button__total {
+  color: var(--bms-color-text-secondary);
+  font-size: var(--bms-font-size-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 脱敏 / 异步提示条（警示语义，节点 §4.3）。 */
+.bms-export-button__hint {
+  padding: 0 var(--bms-space-2);
+  color: var(--bms-color-warning);
+  font-size: var(--bms-font-size-xs);
+  line-height: var(--bms-control-height);
+  background: var(--bms-color-warning-bg);
+  border-radius: var(--bms-radius-sm);
+}
+</style>

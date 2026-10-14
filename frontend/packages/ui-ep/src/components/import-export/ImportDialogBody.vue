@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // 导入对话框主体（08_05）：由 ImportDialog 异步懒加载的独立分包入口；三步内容（选文件 → 上传解析进度 → 结果与错误行报告）。
 import { resolveImportSummary, type ImportPhase, type ImportResult, type ImportStep } from '@bms/core'
+import { ElProgress } from 'element-plus'
 import { computed, watch } from 'vue'
 
 import { useBaseDataState } from '../../composables/useBaseDataState'
@@ -75,16 +76,17 @@ const phaseText = computed(() => (props.phase === 'parsing' ? '解析校验中�
     :data-state="state"
     :data-phase="phase"
   >
-    <p v-if="step === 'select'" data-test="body-note">
+    <p v-if="step === 'select'" class="bms-import-dialog-body__note" data-test="body-note">
       选择文件后提交（仅做类型 / 大小 / 空文件快速校验，模板列核对与行级校验由后端完成）
     </p>
 
     <div v-else-if="step === 'uploading'" class="bms-import-dialog-body__progress" data-test="upload-progress">
-      <progress :value="progress" max="100" />
-      <span data-test="progress-text">{{ phaseText }} {{ progress }}%</span>
+      <p class="bms-import-dialog-body__phase" data-test="progress-text">{{ phaseText }} {{ progress }}%</p>
+      <el-progress :percentage="progress" :indeterminate="phase === 'parsing'" :stroke-width="8" />
+      <p class="bms-import-dialog-body__tip">解析校验中请勿关闭对话框</p>
     </div>
 
-    <div v-else data-test="result">
+    <div v-else class="bms-import-dialog-body__result" data-test="result">
       <ImportErrorReport
         v-if="!fileLevelError"
         :result="result"
@@ -104,9 +106,68 @@ const phaseText = computed(() => (props.phase === 'parsing' ? '解析校验中�
 
       <slot name="error-report" />
 
-      <p v-if="errorMessage" data-test="body-error">{{ errorMessage }}</p>
+      <p v-if="errorMessage" class="bms-import-dialog-body__error" data-test="body-error">{{ errorMessage }}</p>
 
       <slot name="empty" />
     </div>
   </div>
 </template>
+
+<style scoped>
+.bms-import-dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bms-space-3);
+  min-width: 0;
+}
+
+.bms-import-dialog-body__note {
+  margin: 0;
+  padding: var(--bms-space-2) var(--bms-space-3);
+  color: var(--bms-color-text-secondary);
+  font-size: var(--bms-font-size-xs);
+  background: var(--bms-color-fill);
+  border-radius: var(--bms-radius-sm);
+}
+
+.bms-import-dialog-body__progress {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bms-space-2);
+}
+
+.bms-import-dialog-body__phase {
+  margin: 0;
+  color: var(--bms-color-text);
+  font-size: var(--bms-font-size-sm);
+}
+
+.bms-import-dialog-body__tip {
+  margin: 0;
+  color: var(--bms-color-text-secondary);
+  font-size: var(--bms-font-size-xs);
+}
+
+.bms-import-dialog-body__result {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bms-space-3);
+  min-width: 0;
+}
+
+.bms-import-dialog-body__hint {
+  margin: 0;
+  padding: var(--bms-space-2);
+  color: var(--bms-color-warning);
+  font-size: var(--bms-font-size-xs);
+  background: var(--bms-color-warning-bg);
+  border-radius: var(--bms-radius-sm);
+}
+
+/* 文件级错误文案与字段错误位同口径（全局共享类）。 */
+.bms-import-dialog-body__error {
+  margin: 0;
+  color: var(--bms-field-error-color);
+  font-size: var(--bms-font-size-xs);
+}
+</style>

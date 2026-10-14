@@ -1,5 +1,6 @@
 <script setup lang="ts">
 // 基础图表件（07_06）：纯渲染，不取数、不请求；ECharts 内核经 echartsKernel 动态装载（独立分包）。
+import { ElButton } from 'element-plus'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 
 import type {
@@ -225,13 +226,16 @@ onBeforeUnmount(() => {
       <div class="bms-display-placeholder" data-test="placeholder">{{ degradeText }}</div>
     </slot>
     <template v-else>
-      <div v-if="isLoading" class="bms-chart-renderer__loading" data-test="loading">加载中…</div>
+      <div v-if="isLoading" class="bms-chart-renderer__loading" data-test="loading">
+        <span class="bms-chart-renderer__spinner" />
+        <span>加载中…</span>
+      </div>
       <div v-else-if="isEmpty" class="bms-chart-renderer__empty" data-test="empty">
         <slot name="empty">{{ emptyText }}</slot>
       </div>
       <div v-else-if="isError" class="bms-chart-renderer__error" data-test="error">
         <span>{{ errorText }}</span>
-        <button type="button" data-test="retry" @click="emit('retry')">重试</button>
+        <el-button link type="primary" data-test="retry" @click="emit('retry')">重试</el-button>
       </div>
       <slot v-else name="live" :chart-type="effectiveKind" :option="base.option.value">
         <div ref="containerRef" class="bms-chart-renderer__canvas" data-test="canvas" :data-chart-type="effectiveKind" />
@@ -242,12 +246,51 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .bms-chart-renderer {
+  position: relative;
   width: 100%;
   height: 100%;
 }
+
 .bms-chart-renderer__canvas {
   width: 100%;
   height: 100%;
   min-height: 120px;
+}
+
+/* 三态占位（原型：绝对铺满遮罩 + 居中；空态不画坐标轴）。 */
+.bms-chart-renderer__loading,
+.bms-chart-renderer__empty,
+.bms-chart-renderer__error {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--bms-space-2);
+  color: var(--bms-color-text-secondary);
+  font-size: var(--bms-font-size-sm);
+  text-align: center;
+  background: var(--bms-color-mask-bg);
+}
+
+.bms-chart-renderer__error {
+  color: var(--bms-color-danger);
+}
+
+/* 加载转圈（件内置图形尺寸，白名单⑤）。 */
+.bms-chart-renderer__spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--bms-color-border);
+  border-top-color: var(--bms-color-primary);
+  border-radius: 50%;
+  animation: bms-chart-renderer-spin 0.8s linear infinite;
+}
+
+@keyframes bms-chart-renderer-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 </style>

@@ -228,15 +228,18 @@ describe('I18nMessageEditor 国际化文案编辑器', () => {
     const wrapper = mount(I18nMessageEditor, {
       props: { ready: true, locales: LOCALES, messages: MESSAGES, dirty: true },
     })
-    expect(wrapper.find('[data-test="tab-locales"]').attributes('data-active')).toBe('false')
+    // 页签改 `el-radio-group` 承载 → 以「当前选中值」替代原 `data-active` 断言。
+    expect(
+      wrapper.findComponent({ name: 'ElRadioGroup' }).props('modelValue'),
+      '初始应停留在语言包维护页签',
+    ).toBe('messages')
 
     // 脏数据：切换被拦截（未确认前不上抛）
-    const pending = wrapper.find('[data-test="tab-locales"]').trigger('click')
+    wrapper.findComponent({ name: 'ElRadioGroup' }).vm.$emit('update:modelValue', 'locales')
     await flushPromises()
     expect(wrapper.emitted('update:tab')).toBeUndefined()
 
     resolveConfirm(true)
-    await pending
     await flushPromises()
     expect(wrapper.emitted('update:tab')?.[0]).toEqual(['locales'])
   })

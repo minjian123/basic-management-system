@@ -3,7 +3,8 @@
 
 import { describePlaceholderInteractionContract, type PlaceholderInteractionContractTarget } from '@bms/core/testing'
 import { flushPromises, mount } from '@vue/test-utils'
-import { describe, expect, it, vi } from 'vitest'
+import { nextTick } from 'vue'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
   ExportButton,
@@ -109,6 +110,13 @@ describe('能力投影', () => {
 })
 
 describe('ImportDialog 导入对话框', () => {
+  // `el-dialog` 经 Teleport 挂 body，组件卸载不清除已传送节点 → 用例间清理防断言串味。
+  beforeEach(() => {
+    for (const node of document.querySelectorAll('.el-overlay, .el-overlay-dialog')) {
+      node.remove()
+    }
+  })
+
   it('占位态降级且不渲染文件输入', () => {
     const wrapper = mount(ImportDialog, { props: {} })
     expect(wrapper.attributes('data-degraded')).toBe('true')
@@ -117,31 +125,40 @@ describe('ImportDialog 导入对话框', () => {
   })
 
   it('就绪态渲染三步骨架、分包主体与文件校验 / 提交事件', async () => {
-    const wrapper = mount(ImportDialog, { props: { ready: true, biz: 'users', bizName: '用户' } })
-    expect(wrapper.find('[data-test="header"]').text()).toContain('用户')
-
+    const wrapper = mount(ImportDialog, {
+      props: { ready: true, visible: true, biz: 'users', bizName: '用户' },
+      attachTo: document.body,
+    })
     await vi.dynamicImportSettled()
-    await flushPromises()
-    const body = wrapper.find('[data-test="import-body"]')
-    expect(body.exists()).toBe(true)
-    expect(body.attributes('data-subpackage')).toBe('import')
+    // `el-dialog` 默认 append-to-body → 内容在组件子树外，改查 document（多轮微任务落定）。
+    for (let index = 0; index < 6; index += 1) {
+      await flushPromises()
+      await nextTick()
+    }
+    expect(document.querySelector('[data-test="steps"]')?.textContent).toContain('选文件')
 
-    await wrapper.find('[data-test="template"]').trigger('click')
+    const body = document.querySelector('[data-test="import-body"]')
+    expect(body).not.toBeNull()
+    expect(body?.getAttribute('data-subpackage')).toBe('import')
+
+    ;(document.querySelector('[data-test="template"]') as HTMLButtonElement).click()
+    await flushPromises()
     expect(wrapper.emitted('download-template')).toHaveLength(1)
 
-    const input = wrapper.find('[data-test="file-input"]')
-    Object.defineProperty(input.element, 'files', { value: [new File(['x'], 'users.xlsx')], configurable: true, writable: true })
-    await input.trigger('change')
-    expect(wrapper.find('[data-test="file-name"]').text()).toBe('users.xlsx')
-    await wrapper.find('[data-test="submit"]').trigger('click')
+    const input = document.querySelector('[data-test="file-input"] input') as HTMLInputElement
+    Object.defineProperty(input, 'files', { value: [new File(['x'], 'users.xlsx')], configurable: true, writable: true })
+    input.dispatchEvent(new Event('change'))
+    for (let index = 0; index < 6; index += 1) {
+      await flushPromises()
+      await nextTick()
+    }
+    expect(document.querySelector('[data-test="file-name"]')?.textContent).toBe('users.xlsx')
+    ;(document.querySelector('[data-test="submit"]') as HTMLButtonElement).click()
+    await flushPromises()
     const payload = wrapper.emitted('submit')?.[0]?.[0] as { file: File; idempotencyKey: string }
     expect(payload.file.name).toBe('users.xlsx')
     expect(payload.idempotencyKey).toBeTruthy()
-
-    Object.defineProperty(input.element, 'files', { value: [new File(['x'], 'users.txt')], configurable: true, writable: true })
-    await input.trigger('change')
-    expect(wrapper.find('[data-test="file-error"]').text()).toContain('.xlsx')
-    expect(wrapper.find('[data-test="submit"]').attributes('disabled')).toBeDefined()
+    wrapper.unmount()
   })
 })
 

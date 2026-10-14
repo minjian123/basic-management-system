@@ -125,6 +125,25 @@
   --bms-i18n-missing-color: #e6a23c;
   --bms-tristate-bg: #dcdfe6;
   --bms-tristate-color: #909399;
+  // 专题件族——导入导出域（步骤条 / 拖拽区 / 结果汇总；禁止硬编码色值）
+  --bms-import-step-bg: #f5f7fa;
+  --bms-import-step-active-color: #409eff;
+  --bms-import-drop-bg: #fafafa;
+  --bms-import-drop-border: #dcdfe6;
+  --bms-import-drop-active-border: #409eff;
+  --bms-import-summary-bg: #f5f7fa;
+  // 专题件族——表单设计器域（三栏面板 / 画布 / 分区与单元格选中态；禁止硬编码色值）
+  --bms-designer-panel-bg: #ffffff;
+  --bms-designer-canvas-bg: #fafafa;
+  --bms-designer-section-border: #d0d7de;
+  --bms-designer-cell-bg: #fbfcfd;
+  --bms-designer-cell-border: #c8d1da;
+  --bms-designer-cell-selected-bg: #ecf5ff;
+  --bms-designer-cell-selected-border: #409eff;
+  // 专题件族——报表设计器域（三区面板 / 画布 / 图表卡选中态；禁止硬编码色值）
+  --bms-report-panel-bg: #ffffff;
+  --bms-report-canvas-bg: #f6f8fa;
+  --bms-report-chart-selected-border: #409eff;
   // 反白文字与图形尺寸（《设计令牌》「反白文字与图形尺寸」节既有登记，2026-10-14 落地）
   --bms-color-text-inverse: #ffffff;
   --bms-illustration-size: 96px;
@@ -291,6 +310,25 @@
   --bms-i18n-missing-color: #e6a23c;
   --bms-tristate-bg: #4c4d4f;
   --bms-tristate-color: #a3a6ad;
+  // 专题件族——导入导出域
+  --bms-import-step-bg: #262727;
+  --bms-import-step-active-color: #79bbff;
+  --bms-import-drop-bg: #1d1e1f;
+  --bms-import-drop-border: #414243;
+  --bms-import-drop-active-border: #79bbff;
+  --bms-import-summary-bg: #262727;
+  // 专题件族——表单设计器域
+  --bms-designer-panel-bg: #1d1e1f;
+  --bms-designer-canvas-bg: #232324;
+  --bms-designer-section-border: #414243;
+  --bms-designer-cell-bg: #262727;
+  --bms-designer-cell-border: #4c4d4f;
+  --bms-designer-cell-selected-bg: #1d3049;
+  --bms-designer-cell-selected-border: #79bbff;
+  // 专题件族——报表设计器域
+  --bms-report-panel-bg: #1d1e1f;
+  --bms-report-canvas-bg: #262727;
+  --bms-report-chart-selected-border: #79bbff;
 }
 
 // 布局结构响应式（窄屏内容区边距收紧；断点与 `useResponsive` 缺省窄屏阈值一致，媒体查询只做尺寸适配、不承担折叠）

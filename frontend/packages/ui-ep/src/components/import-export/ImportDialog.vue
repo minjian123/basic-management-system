@@ -10,7 +10,9 @@ import {
   type ImportResult,
   type ImportStep,
 } from '@bms/core'
-import { computed, defineAsyncComponent, watch } from 'vue'
+import { ElButton, ElDialog, ElStep, ElSteps, ElUpload } from 'element-plus'
+import type { UploadFile, UploadRawFile } from 'element-plus'
+import { computed, defineAsyncComponent, ref, watch } from 'vue'
 
 import { useBaseFileDownload } from '../../composables/useBaseFileDownload'
 import { useBaseImportFlow } from '../../composables/useBaseImportFlow'
@@ -143,14 +145,73 @@ const submitDisabled = computed(
 /** 关闭是否禁用（上传 / 解析中禁止关闭）。 */
 const closeDisabled = computed(() => flow.degraded.value || flow.busy.value)
 
-/** 选择文件（映射元信息后交核心校验）。 */
-function pickFile(event: Event): void {
-  const input = event.target as HTMLInputElement
-  const picked = input.files?.[0]
-  if (picked !== undefined && picked !== null) {
-    flow.selectFile(picked, { name: picked.name, size: picked.size, lastModified: picked.lastModified })
+/** el-upload 受控文件列表（仅保留单个已选文件）。 */
+const uploadFiles = ref<UploadFile[]>([])
+
+/**
+ * el-upload 选择变化（`auto-upload` 关闭，仅做选择与校验）。
+ *
+ * @param file 当前选中的上传文件。
+ */
+function onUploadChange(file: UploadFile): void {
+  const raw = file.raw as UploadRawFile | undefined
+  if (raw === undefined) {
+    return
   }
+  uploadFiles.value = [file]
+  flow.selectFile(raw, { name: raw.name, size: raw.size, lastModified: raw.lastModified })
 }
+
+/** 移除已选文件（同步清空核心态与幂等键）。 */
+function onUploadRemove(): void {
+  uploadFiles.value = []
+  flow.reset()
+}
+
+/**
+ * 超出单文件上限时替换（节点 §3.3「更换文件视为新导入（新幂等键）」）。
+ *
+ * `el-upload` 在 `limit` 命中时不触发 `change`，故经 `on-exceed` 显式换文件，
+ * 避免「再选一个文件却静默无反应」。
+ *
+ * @param files 本次新选的文件列表。
+ */
+function onUploadExceed(files: File[]): void {
+  const raw = files[0]
+  if (raw === undefined) {
+    return
+  }
+  uploadFiles.value = [{ name: raw.name, size: raw.size, status: 'ready', uid: Date.now(), raw } as UploadFile]
+  flow.selectFile(raw, { name: raw.name, size: raw.size, lastModified: raw.lastModified })
+}
+
+/**
+ * 对话框显隐（受控双向绑定；上传 / 解析中禁止关闭）。
+ */
+const dialogVisible = computed({
+  get: () => props.visible,
+  set: (value: boolean) => {
+    if (!value && closeDisabled.value) {
+      return
+    }
+    emit('update:visible', value)
+  },
+})
+
+/**
+ * 关闭前拦截（上传 / 解析中禁止关闭，节点 §3.6）。
+ *
+ * @param done 关闭回调（不允许关闭时不调用）。
+ */
+function beforeClose(done: () => void): void {
+  if (closeDisabled.value) {
+    return
+  }
+  done()
+}
+
+/** 三步步骤条当前步序（选文件 0 / 上传解析 1 / 结果 2）。 */
+const stepIndex = computed(() => (flow.step.value === 'uploading' ? 1 : flow.step.value === 'result' ? 2 : 0))
 
 /** 结果上抛（成功 → `imported` 与自动关闭；失败 → `failed`）。 */
 function settle(result: ImportResult | undefined): void {
@@ -234,54 +295,181 @@ defineExpose({ flow: flow.flow, download: download.download })
     </slot>
     <template v-else>
       <slot name="live">
-        <header class="bms-import-dialog__header" data-test="header">批量导入{{ bizName }}</header>
-        <div class="bms-import-dialog__toolbar">
-          <button type="button" data-test="template" :disabled="flow.degraded.value" @click="downloadTemplate">
-            下载模板
-          </button>
-        </div>
-        <input
-          type="file"
-          data-test="file-input"
-          :accept="accept"
-          :disabled="flow.degraded.value || flow.busy.value"
-          @change="pickFile"
-        />
-        <span v-if="flow.fileMeta.value" data-test="file-name">{{ flow.fileMeta.value.name }}</span>
-        <span v-if="flow.fileError.value" data-test="file-error">{{ flow.fileError.value }}</span>
+        <el-dialog
+          v-model="dialogVisible"
+          class="bms-import-dialog__modal"
+          :title="`批量导入${bizName}`"
+          width="640px"
+          :close-on-click-modal="false"
+          :before-close="beforeClose"
+          append-to-body
+        >
+          <div class="bms-import-dialog__steps" data-test="steps">
+            <el-steps :active="stepIndex" simple>
+              <el-step title="选文件" />
+              <el-step title="上传解析" />
+              <el-step title="结果" />
+            </el-steps>
+          </div>
 
-        <component
-          :is="ImportDialogBody"
-          :step="flow.step.value"
-          :phase="flow.phase.value"
-          :progress="flow.progress.value"
-          :result="flow.result.value"
-          :error-message="flow.errorMessage.value"
-          :error-page="flow.errorPage.value"
-          :error-page-size="errorPageSize"
-          :biz-name="bizName"
-          :busy="flow.busy.value"
-          @update:error-page="flow.setErrorPage($event)"
-          @download-errors="downloadErrors"
-        />
+          <div class="bms-import-dialog__toolbar" data-test="toolbar">
+            <el-button :disabled="flow.degraded.value" data-test="template" @click="downloadTemplate">
+              下载导入模板
+            </el-button>
+            <span class="bms-import-dialog__tip">按模板填写，列头不可增删；单次建议 ≤ 5000 行</span>
+          </div>
 
-        <footer class="bms-import-dialog__footer" data-test="footer">
-          <button type="button" data-test="submit" :disabled="submitDisabled" @click="submit">提交</button>
-          <button type="button" data-test="retry" :disabled="flow.degraded.value || !failed" @click="retry">
-            重试
-          </button>
-          <button
-            type="button"
-            data-test="download-errors"
-            :disabled="flow.degraded.value || flow.result.value === undefined"
-            @click="downloadErrors"
+          <el-upload
+            v-model:file-list="uploadFiles"
+            class="bms-import-dialog__upload"
+            drag
+            :auto-upload="false"
+            :limit="1"
+            :accept="accept"
+            :disabled="flow.degraded.value || flow.busy.value"
+            data-test="file-input"
+            @change="onUploadChange"
+            @remove="onUploadRemove"
+            @exceed="onUploadExceed"
           >
-            下载错误明细
-          </button>
-          <button type="button" data-test="reset" :disabled="flow.busy.value" @click="reset">重新导入</button>
-          <button type="button" data-test="close" :disabled="closeDisabled" @click="close">关闭</button>
-        </footer>
+            <div class="bms-import-dialog__drop">
+              <div class="bms-import-dialog__drop-icon">⇪</div>
+              <div>将 .xlsx 拖到此处，或 <em>点击选择文件</em></div>
+              <div class="bms-import-dialog__tip">仅支持 {{ accept }}，单个文件 ≤ {{ Math.round(maxSize / 1024 / 1024) }}MB</div>
+            </div>
+          </el-upload>
+
+          <p v-if="flow.fileMeta.value" class="bms-import-dialog__file" data-test="file-name">
+            {{ flow.fileMeta.value.name }}
+          </p>
+          <p v-if="flow.fileError.value" class="bms-import-dialog__error" data-test="file-error">
+            {{ flow.fileError.value }}
+          </p>
+
+          <component
+            :is="ImportDialogBody"
+            :step="flow.step.value"
+            :phase="flow.phase.value"
+            :progress="flow.progress.value"
+            :result="flow.result.value"
+            :error-message="flow.errorMessage.value"
+            :error-page="flow.errorPage.value"
+            :error-page-size="errorPageSize"
+            :biz-name="bizName"
+            :busy="flow.busy.value"
+            @update:error-page="flow.setErrorPage($event)"
+            @download-errors="downloadErrors"
+          />
+
+          <template #footer>
+            <div class="bms-import-dialog__footer" data-test="footer">
+              <el-button
+                type="primary"
+                data-test="submit"
+                :disabled="submitDisabled"
+                :loading="flow.busy.value"
+                @click="submit"
+              >
+                提交
+              </el-button>
+              <el-button data-test="retry" :disabled="flow.degraded.value || !failed" @click="retry">重试</el-button>
+              <el-button
+                data-test="download-errors"
+                :disabled="flow.degraded.value || flow.result.value === undefined"
+                @click="downloadErrors"
+              >
+                下载错误明细
+              </el-button>
+              <el-button data-test="reset" :disabled="flow.busy.value" @click="reset">重新导入</el-button>
+              <el-button data-test="close" :disabled="closeDisabled" @click="close">关闭</el-button>
+            </div>
+          </template>
+        </el-dialog>
       </slot>
     </template>
   </div>
 </template>
+
+<style scoped>
+.bms-import-dialog {
+  min-width: 0;
+}
+
+.bms-import-dialog__steps {
+  margin-bottom: var(--bms-space-4);
+}
+
+.bms-import-dialog__steps :deep(.el-steps) {
+  background: var(--bms-import-step-bg);
+  border-radius: var(--bms-radius-sm);
+}
+
+/* 当前步字色取令牌（EP 内部字色不随 --bms-* 映射）。 */
+.bms-import-dialog__steps :deep(.el-step__title.is-process),
+.bms-import-dialog__steps :deep(.el-step__head.is-process) {
+  color: var(--bms-import-step-active-color);
+  border-color: var(--bms-import-step-active-color);
+}
+
+.bms-import-dialog__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--bms-space-3);
+  padding: var(--bms-space-2) var(--bms-space-3);
+  background: var(--bms-color-fill);
+  border-radius: var(--bms-radius-sm);
+}
+
+.bms-import-dialog__tip {
+  color: var(--bms-color-text-secondary);
+  font-size: var(--bms-font-size-xs);
+}
+
+.bms-import-dialog__upload {
+  display: block;
+  margin-top: var(--bms-space-3);
+}
+
+/* 拖拽区形态（原型：虚线框 + 图标 + 说明）。 */
+.bms-import-dialog__upload :deep(.el-upload-dragger) {
+  padding: var(--bms-space-6);
+  background: var(--bms-import-drop-bg);
+  border: 1px dashed var(--bms-import-drop-border);
+  border-radius: var(--bms-radius-md);
+}
+
+.bms-import-dialog__upload :deep(.el-upload-dragger:hover),
+.bms-import-dialog__upload :deep(.el-upload-dragger.is-dragover) {
+  border-color: var(--bms-import-drop-active-border);
+}
+
+.bms-import-dialog__drop {
+  color: var(--bms-color-text);
+  font-size: var(--bms-font-size-sm);
+}
+
+.bms-import-dialog__drop-icon {
+  font-size: var(--bms-font-size-xl);
+  line-height: var(--bms-line-height);
+}
+
+.bms-import-dialog__file {
+  margin: var(--bms-space-2) 0 0;
+  color: var(--bms-color-text);
+  font-size: var(--bms-font-size-sm);
+}
+
+.bms-import-dialog__error {
+  margin: var(--bms-space-1) 0 0;
+  color: var(--bms-field-error-color);
+  font-size: var(--bms-font-size-xs);
+}
+
+.bms-import-dialog__footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--bms-space-2);
+}
+</style>

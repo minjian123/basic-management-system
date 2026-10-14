@@ -1,4 +1,4 @@
-// kiwi_id: 2295, 2296, 2297
+// kiwi_id: 2295, 2296, 2297, 2298
 /**
  * 件族样式齐备护栏（11_01 交互类 / 11_02 容器与展示反馈件族样式补齐 · 需求 11-1）：
  * **硬断言全库真裸骨架件**均含非空 `<style scoped>`，且样式块无硬编码色值（一律消费令牌）。
@@ -110,6 +110,24 @@ const FIELD_INPUT_BATCH = [
 
 /** `11_03` 新增 4 件（新增件同受样式护栏约束）。 */
 const FIELD_INPUT_NEW = ['field/TimeField', 'field/PercentField', 'field/EnumMultiField', 'input/TriStateSwitch']
+
+/** `11_04` 补齐的专题件族 14 件（导入导出 5 / 表单设计器 4 / 表单渲染器 2 / 图表卡 1 / i18n 1 / 报表 1）。 */
+const SPECIAL_BATCH = [
+  'import-export/ExportButton',
+  'import-export/ExportProgress',
+  'import-export/ImportDialog',
+  'import-export/ImportDialogBody',
+  'import-export/ImportErrorReport',
+  'form-design/ExtFieldDialog',
+  'form-design/FieldPropertyPanel',
+  'form-design/FormDesigner',
+  'form-design/FormDesignerCanvas',
+  'form-render/FormRenderer',
+  'form-render/FormRendererBody',
+  'chart/ChartCard',
+  'i18n/I18nMessageEditor',
+  'report/ReportDesigner',
+]
 
 /** 全库组件源码（`<族>/<件名>` → 源码）。 */
 function componentSources(): { name: string; path: string; source: string }[] {
@@ -266,9 +284,31 @@ describe('件族样式齐备护栏（全库真裸骨架硬断言 + EP 薄包装�
     expect(FIELD_INPUT_NEW).toHaveLength(4)
   })
 
-  it('全局样式落点存在且含跨件共用类（bms-field-error）', () => {
+  it('本批专题件族 14 件齐备（需求 11-1 第四批范围）', () => {
+    const names = componentSources().map((file) => file.name)
+    for (const target of SPECIAL_BATCH) {
+      expect(names, `缺少件 ${target}`).toContain(target)
+    }
+    expect(SPECIAL_BATCH).toHaveLength(14)
+  })
+
+  it('本批专题件族 14 件均含非空 <style scoped>', () => {
+    const sources = new Map(componentSources().map((file) => [file.name, file]))
+    for (const name of SPECIAL_BATCH) {
+      const file = sources.get(name)
+      expect(file, `缺少件 ${name}`).toBeDefined()
+      const block = file?.source.match(STYLE_BLOCK)
+      expect(block, `${name} 缺 <style scoped>`).not.toBeNull()
+      expect((block?.[1] ?? '').trim().length, `${name} 样式块为空`).toBeGreaterThan(0)
+    }
+  })
+
+  it('全局样式落点存在且含跨件共用类（错误位 + 两类降级占位）', () => {
     const global = readFileSync(resolve(process.cwd(), 'src/styles/components.css'), 'utf8')
     expect(global).toContain('.bms-field-error')
+    // 11_04：全库交互类 11 件与展示类 9 件共用的降级占位类（原全前端无定义）
+    expect(global).toContain('.bms-interaction-placeholder')
+    expect(global).toContain('.bms-display-placeholder')
     // 全局落点同样受「色值零硬编码」约束
     expect(global.replace(/\/\*[\s\S]*?\*\//g, '').match(COLOR_LITERAL)).toBeNull()
   })
@@ -279,7 +319,7 @@ describe('件族样式齐备护栏（全库真裸骨架硬断言 + EP 薄包装�
       .map((file) => file.name)
     expect(
       offenders,
-      `以下真裸骨架件缺 <style scoped>（11_02 ~ 11_04 待补，本断言按设计持续红直至全库补齐）：${offenders.join('、')}`,
+      `以下真裸骨架件缺 <style scoped>（域 11 已由 11_01 ~ 11_04 补齐，不应再有残留）：${offenders.join('、')}`,
     ).toEqual([])
   })
 

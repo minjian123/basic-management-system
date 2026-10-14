@@ -3,7 +3,8 @@
 
 import type { ImportResult, TaskProgress } from '@bms/core'
 import { flushPromises, mount } from '@vue/test-utils'
-import { describe, expect, it, vi } from 'vitest'
+import { nextTick } from 'vue'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
   ExportButton,
@@ -27,12 +28,52 @@ const partial: ImportResult = {
   ],
 }
 
-/** 生成文件并注入文件输入。 */
-async function pickFile(wrapper: ReturnType<typeof mount>, file: File): Promise<void> {
-  const input = wrapper.find('[data-test="file-input"]')
-  Object.defineProperty(input.element, 'files', { value: [file], configurable: true, writable: true })
-  await input.trigger('change')
+/** 生成文件并注入文件输入（`el-upload` 内层原生 input；弹框内容挂 body，故走 document 查询）。 */
+async function pickFile(file: File): Promise<void> {
+  const input = document.querySelector('[data-test="file-input"] input') as HTMLInputElement | null
+  if (input === null) {
+    throw new Error('未找到文件输入（el-upload 内层 input）')
+  }
+  Object.defineProperty(input, 'files', { value: [file], configurable: true, writable: true })
+  input.dispatchEvent(new Event('change'))
+  await settleDialog()
 }
+
+/**
+ * 查询弹框内元素（`el-dialog` 默认 `append-to-body` → 内容挂 body，组件子树外）。
+ *
+ * 迁移口径沿用 `11_01` `RoleAssignPanel` / `11_03` `MultilingualDetailDialog`：
+ * `mount(..., { attachTo: document.body })` + `document.querySelector` + 多轮 `flushPromises`。
+ *
+ * @param selector CSS 选择器。
+ * @returns 命中的元素；未命中返回 null。
+ */
+function inDialog(selector: string): HTMLElement | null {
+  return document.querySelector(selector)
+}
+
+/** 等待弹框内容落定（`el-dialog` 经 Teleport + `rendered` 惰性渲染，需多轮微任务）。 */
+async function settleDialog(): Promise<void> {
+  for (let index = 0; index < 6; index += 1) {
+    await flushPromises()
+    await nextTick()
+  }
+}
+
+/**
+ * 清理弹框残留 DOM（`el-dialog` 经 Teleport 挂 body，组件卸载不清除已传送节点）。
+ *
+ * 不清会导致用例间「上一个弹框的钩子仍可命中」，断言串味。
+ */
+function cleanupDialogs(): void {
+  for (const node of document.querySelectorAll('.el-overlay, .el-overlay-dialog')) {
+    node.remove()
+  }
+}
+
+beforeEach(() => {
+  cleanupDialogs()
+})
 
 describe('useBaseFileDownload 下载触发投影', () => {
   it('未注入触发手段即占位不动作，注入后经取址与触发完成下载', async () => {
@@ -278,24 +319,30 @@ describe('ImportDialog 导入对话框（真实编排）', () => {
   })
 
   it('就绪态文件校验、幂等键与提交事件透传（未注入即仅事件）', async () => {
-    const wrapper = mount(ImportDialog, { props: { ready: true, biz: 'users', bizName: '用户' } })
+    const wrapper = mount(ImportDialog, {
+      props: { ready: true, visible: true, biz: 'users', bizName: '用户' },
+      attachTo: document.body,
+    })
     await vi.dynamicImportSettled()
-    await flushPromises()
+    await settleDialog()
 
-    const input = wrapper.find('[data-test="file-input"]')
-    expect(input.exists()).toBe(true)
-    await pickFile(wrapper, new File(['x'], 'users.xlsx'))
-    expect(wrapper.find('[data-test="file-name"]').text()).toBe('users.xlsx')
+    // `el-dialog` 默认 append-to-body → 内容在组件子树外，改查 document。
+    const input = inDialog('[data-test="file-input"] input')
+    expect(input).not.toBeNull()
+    await pickFile(new File(['x'], 'users.xlsx'))
+    expect(inDialog('[data-test="file-name"]')?.textContent).toBe('users.xlsx')
 
-    await wrapper.find('[data-test="submit"]').trigger('click')
+    ;(inDialog('[data-test="submit"]') as HTMLButtonElement).click()
+    await settleDialog()
     const payload = wrapper.emitted('submit')?.[0]?.[0] as { file: File; idempotencyKey: string }
     expect(payload.file.name).toBe('users.xlsx')
     expect(payload.idempotencyKey.startsWith('imp:users:')).toBe(true)
     expect(wrapper.emitted('imported')).toBeUndefined()
 
-    await pickFile(wrapper, new File(['x'], 'users.txt'))
-    expect(wrapper.find('[data-test="file-error"]').text()).toContain('.xlsx')
-    expect(wrapper.find('[data-test="submit"]').attributes('disabled')).toBeDefined()
+    await pickFile(new File(['x'], 'users.txt'))
+    expect(inDialog('[data-test="file-error"]')?.textContent).toContain('.xlsx')
+    expect((inDialog('[data-test="submit"]') as HTMLButtonElement).disabled).toBe(true)
+    wrapper.unmount()
   })
 
   it('注入 jobs 时驱动真实编排：阶段推进、结果与错误行报告、自动关闭', async () => {
@@ -313,18 +360,21 @@ describe('ImportDialog 导入对话框（真实编排）', () => {
           },
         },
       },
+      attachTo: document.body,
     })
     await vi.dynamicImportSettled()
-    await flushPromises()
-    await pickFile(wrapper, new File(['x'], 'users.xlsx'))
-    await wrapper.find('[data-test="submit"]').trigger('click')
-    await flushPromises()
+    await settleDialog()
+    await pickFile(new File(['x'], 'users.xlsx'))
+    ;(inDialog('[data-test="submit"]') as HTMLButtonElement).click()
+    await settleDialog()
 
     expect(wrapper.emitted('imported')?.[0]?.[0]).toEqual(partial)
-    const body = wrapper.find('[data-test="import-body"]')
-    expect(body.attributes('data-step')).toBe('result')
-    expect(wrapper.find('[data-test="error-report"]').exists()).toBe(true)
-    expect(wrapper.find('[data-test="error-row-3"]').exists()).toBe(true)
+    const body = inDialog('[data-test="import-body"]')
+    expect(body?.getAttribute('data-step')).toBe('result')
+    expect(inDialog('[data-test="error-report"]')).not.toBeNull()
+    expect(inDialog('[data-test="error-table"]')).not.toBeNull()
+    expect(inDialog('[data-test="error-row-3"]')).not.toBeNull()
+    wrapper.unmount()
 
     const auto = mount(ImportDialog, {
       props: {
@@ -334,14 +384,16 @@ describe('ImportDialog 导入对话框（真实编排）', () => {
         successAutoClose: true,
         jobs: { execute: async () => ({ total: 10, successCount: 10, failCount: 0, errors: [] }) },
       },
+      attachTo: document.body,
     })
     await vi.dynamicImportSettled()
-    await flushPromises()
-    await pickFile(auto, new File(['x'], 'users.xlsx'))
-    await auto.find('[data-test="submit"]').trigger('click')
-    await flushPromises()
+    await settleDialog()
+    await pickFile(new File(['x'], 'users.xlsx'))
+    ;(inDialog('[data-test="submit"]') as HTMLButtonElement).click()
+    await settleDialog()
     expect(auto.emitted('update:visible')?.at(-1)).toEqual([false])
     expect(auto.emitted('done')).toHaveLength(1)
+    auto.unmount()
   })
 
   it('上传解析中禁止关闭，结果步可关闭', async () => {
@@ -358,19 +410,22 @@ describe('ImportDialog 导入对话框（真实编排）', () => {
             }),
         },
       },
+      attachTo: document.body,
     })
     await vi.dynamicImportSettled()
-    await flushPromises()
-    await pickFile(wrapper, new File(['x'], 'users.xlsx'))
-    await wrapper.find('[data-test="submit"]').trigger('click')
-    await flushPromises()
-    expect(wrapper.find('[data-test="close"]').attributes('disabled')).toBeDefined()
+    await settleDialog()
+    await pickFile(new File(['x'], 'users.xlsx'))
+    ;(inDialog('[data-test="submit"]') as HTMLButtonElement).click()
+    await settleDialog()
+    expect((inDialog('[data-test="close"]') as HTMLButtonElement).disabled).toBe(true)
 
     release?.()
-    await flushPromises()
-    expect(wrapper.find('[data-test="close"]').attributes('disabled')).toBeUndefined()
-    await wrapper.find('[data-test="close"]').trigger('click')
+    await settleDialog()
+    expect((inDialog('[data-test="close"]') as HTMLButtonElement).disabled).toBe(false)
+    ;(inDialog('[data-test="close"]') as HTMLButtonElement).click()
+    await settleDialog()
     expect(wrapper.emitted('update:visible')?.at(-1)).toEqual([false])
+    wrapper.unmount()
   })
 
   it('下载模板与错误明细：事件上抛 + 经下载基类触发', async () => {
@@ -383,9 +438,10 @@ describe('ImportDialog 导入对话框（真实编排）', () => {
         bizName: '用户',
         jobs: { execute: async () => partial },
       },
+      attachTo: document.body,
     })
     await vi.dynamicImportSettled()
-    await flushPromises()
+    await settleDialog()
     const vm = wrapper.vm as unknown as {
       download: {
         trigger: (input: { filename: string }) => void
@@ -398,29 +454,33 @@ describe('ImportDialog 导入对话框（真实编排）', () => {
       filename: input.filename,
     })
 
-    await wrapper.find('[data-test="template"]').trigger('click')
-    await flushPromises()
+    ;(inDialog('[data-test="template"]') as HTMLButtonElement).click()
+    await settleDialog()
     expect(wrapper.emitted('download-template')).toHaveLength(1)
     expect(seen).toEqual(['用户-导入模板.xlsx'])
 
-    await pickFile(wrapper, new File(['x'], 'users.xlsx'))
-    await wrapper.find('[data-test="submit"]').trigger('click')
-    await flushPromises()
+    await pickFile(new File(['x'], 'users.xlsx'))
+    ;(inDialog('[data-test="submit"]') as HTMLButtonElement).click()
+    await settleDialog()
 
     const report = wrapper.findComponent(ImportErrorReport)
     expect(report.exists()).toBe(true)
     report.vm.$emit('download')
-    await flushPromises()
+    await settleDialog()
     expect(wrapper.emitted('download-errors')).toHaveLength(1)
     expect(seen[1]).toContain('导入错误明细')
+    wrapper.unmount()
   })
 })
 
 describe('ImportErrorReport 错误报告件', () => {
   it('汇总与错误行分页、截断提示、全部成功空态', async () => {
     const wrapper = mount(ImportErrorReport, { props: { result: partial, pageSize: 1 } })
-    expect(wrapper.find('[data-test="error-total"]').text()).toBe('总 100')
-    expect(wrapper.find('[data-test="error-fail"]').text()).toBe('失败 2')
+    // 汇总改三宫格（数值 + 标签），按《组件设计 · 导入导出》§3.5「数值强调」。
+    expect(wrapper.find('[data-test="error-total"]').text()).toContain('100')
+    expect(wrapper.find('[data-test="error-total"]').text()).toContain('总行数')
+    expect(wrapper.find('[data-test="error-fail"]').text()).toContain('失败行数')
+    expect(wrapper.find('[data-test="error-fail"]').attributes('data-tone')).toBe('danger')
     expect(wrapper.find('[data-test="error-page-current"]').text()).toBe('1 / 2')
 
     await wrapper.find('[data-test="error-next"]').trigger('click')

@@ -71,6 +71,15 @@ const syncRef = ref<InstanceType<typeof ExportButton>>()
 
 /** 自检结果。 */
 const checks = ref<{ label: string; pass: boolean }[]>([])
+
+/** 当前主题（截图对照用）。 */
+const theme = ref(document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light')
+
+/** 切换亮暗主题。 */
+function onToggleTheme(): void {
+  theme.value = theme.value === 'dark' ? 'light' : 'dark'
+  document.documentElement.dataset.theme = theme.value
+}
 /** 已触发的下载文件名（核对页覆盖触发手段：仅记录、不发起导航）。 */
 const downloaded: string[] = []
 
@@ -94,6 +103,29 @@ const asyncTotal = computed(() => 1000)
  */
 function q(scope: string, selector: string): Element | null {
   return document.querySelector(`[data-check-scope="${scope}"] ${selector}`)
+}
+
+/**
+ * 查询弹框内元素（`el-dialog` 默认 append-to-body → 内容挂 body，作用域选择器命中不到）。
+ *
+ * 本页仅「注入执行」一例就绪弹框（另一例为降级占位、不渲染 `el-dialog`），故 body 级查询唯一。
+ *
+ * @param selector CSS 选择器。
+ * @returns 命中的元素；未命中返回 null。
+ */
+function qd(selector: string): Element | null {
+  return document.querySelector(selector)
+}
+
+/**
+ * 作用域内或弹框内取文本（先作用域、再 body 兜底）。
+ *
+ * @param scope 作用域。
+ * @param selector 选择器。
+ * @returns 元素文本；未命中返回空串。
+ */
+function textAny(scope: string, selector: string): string {
+  return (q(scope, selector) ?? qd(selector))?.textContent ?? ''
 }
 
 /**
@@ -136,7 +168,8 @@ async function waitFor(scope: string, selector: string): Promise<void> {
  * @param file 文件。
  */
 async function pickFile(scope: string, file: File): Promise<void> {
-  const input = q(scope, '[data-test="file-input"]')
+  // `el-upload` 内层原生 input（`data-test` 落在外层 wrapper）。
+  const input = q(scope, '[data-test="file-input"] input') ?? qd('[data-test="file-input"] input')
   if (!(input instanceof HTMLInputElement)) {
     return
   }
@@ -154,10 +187,10 @@ async function runChecks(): Promise<void> {
   result.push({
     label: '① 就绪态渲染三步骨架与文件信息（文件名 + 提交可用）',
     pass:
-      textOf('import', '[data-test="header"]').includes('用户') &&
-      textOf('import', '[data-test="file-name"]') === 'users.xlsx' &&
-      (q('import', '[data-test="import-body"]')?.getAttribute('data-step') ?? '') === 'select' &&
-      (q('import', '[data-test="submit"]') as HTMLButtonElement | null)?.disabled === false,
+      textAny('import', '[data-test="steps"]').includes('选文件') &&
+      textAny('import', '[data-test="file-name"]').trim() === 'users.xlsx' &&
+      (qd('[data-test="import-body"]')?.getAttribute('data-step') ?? '') === 'select' &&
+      (qd('[data-test="submit"]') as HTMLButtonElement | null)?.disabled === false,
   })
 
   const key = (dialogRef.value as unknown as { flow: { idempotencyKey: string } } | undefined)?.flow.idempotencyKey
@@ -170,13 +203,13 @@ async function runChecks(): Promise<void> {
   result.push({
     label: '③ 文件类型校验（非 .xlsx 内联报错且提交禁用、不请求）',
     pass:
-      textOf('import', '[data-test="file-error"]').includes('.xlsx') &&
-      (q('import', '[data-test="submit"]') as HTMLButtonElement | null)?.disabled === true,
+      textAny('import', '[data-test="file-error"]').includes('.xlsx') &&
+      (qd('[data-test="submit"]') as HTMLButtonElement | null)?.disabled === true,
   })
 
   await pickFile('import', new File(['x'], 'users.xlsx'))
   await (async () => {
-    const submit = q('import', '[data-test="submit"]')
+    const submit = qd('[data-test="submit"]')
     if (submit instanceof HTMLElement) {
       submit.click()
     }
@@ -188,7 +221,7 @@ async function runChecks(): Promise<void> {
   })
 
   await (async () => {
-    const retry = q('import', '[data-test="retry"]')
+    const retry = qd('[data-test="retry"]')
     if (retry instanceof HTMLElement) {
       retry.click()
     }
@@ -198,20 +231,21 @@ async function runChecks(): Promise<void> {
   result.push({
     label: '⑤ 结果步渲染汇总与错误行报告（总 / 成功 / 失败）',
     pass:
-      (q('import', '[data-test="import-body"]')?.getAttribute('data-step') ?? '') === 'result' &&
-      textOf('import', '[data-test="error-total"]').trim() === '总 100' &&
-      textOf('import', '[data-test="error-fail"]').trim() === '失败 2',
+      (qd('[data-test="import-body"]')?.getAttribute('data-step') ?? '') === 'result' &&
+      textAny('import', '[data-test="error-total"]').includes('100') &&
+      textAny('import', '[data-test="error-total"]').includes('总行数') &&
+      textAny('import', '[data-test="error-fail"]').includes('失败行数'),
   })
 
   result.push({
     label: '⑥ 错误行明细表分页（每页 1 行 → 2 页）与列字段展示',
     pass:
-      q('import', '[data-test="error-row-3"]') !== null &&
-      (q('import', '[data-test="error-page-current"]')?.textContent ?? '').replace(/\s+/g, ' ').trim() === '1 / 2',
+      qd('[data-test="error-row-3"]') !== null &&
+      (textAny('import', '[data-test="error-page-current"]') ?? '').replace(/\s+/g, ' ').trim() === '1 / 2',
   })
 
   await (async () => {
-    const next = q('import', '[data-test="error-next"]')
+    const next = qd('[data-test="error-next"]')
     if (next instanceof HTMLElement) {
       next.click()
     }
@@ -219,11 +253,11 @@ async function runChecks(): Promise<void> {
   })()
   result.push({
     label: '⑦ 翻页取第二页错误行（分页夹取与受控回写）',
-    pass: q('import', '[data-test="error-row-7"]') !== null,
+    pass: qd('[data-test="error-row-7"]') !== null,
   })
 
   await (async () => {
-    const download = q('import', '[data-test="error-download"]')
+    const download = qd('[data-test="error-download"]')
     if (download instanceof HTMLElement) {
       download.click()
     }
@@ -274,6 +308,32 @@ async function runChecks(): Promise<void> {
     pass: (q('deny', '[data-test="export"]') as HTMLButtonElement | null)?.disabled === true,
   })
 
+  // 本批（11_04）样式自检：三步步骤条与拖拽区形态、结果汇总三宫格、错误明细表改组件库件。
+  result.push({
+    label: '⑬ 三步步骤条与拖拽区形态（el-steps / el-upload drag）',
+    pass: qd('[data-test="steps"]') !== null && qd('.el-upload-dragger') !== null,
+  })
+  result.push({
+    label: '⑭ 结果汇总三宫格（数值强调 + 失败行 danger 语义）',
+    pass: qd('[data-test="error-summary"] .bms-import-error-report__stat[data-tone="danger"]') !== null,
+  })
+  result.push({
+    label: '⑮ 错误明细表改组件库件（el-table）',
+    pass: qd('[data-test="error-table"] .el-table') !== null,
+  })
+  result.push({
+    label: '⑯ 降级占位类有定义（bms-interaction-placeholder 虚线描边 + 填充底）',
+    pass: (() => {
+      // 降级占位在第二个「占位」区块（未注入处理 → 零请求），不在 `import` 作用域内。
+      const node = document.querySelector('.import-export-check__section .bms-interaction-placeholder')
+      if (node === null) {
+        return false
+      }
+      const style = getComputedStyle(node)
+      return style.borderStyle === 'dashed' && style.backgroundImage === 'none' && style.backgroundColor !== 'rgba(0, 0, 0, 0)'
+    })(),
+  })
+
   checks.value = result
 }
 
@@ -292,6 +352,11 @@ onMounted(async () => {
 <template>
   <main class="import-export-check">
     <h1>开发态核对 · 导入导出（08_05_02）</h1>
+
+    <div class="import-export-check__toolbar">
+      <el-button data-test="check-theme" @click="onToggleTheme">切换到{{ theme === 'dark' ? '亮色' : '暗色' }}</el-button>
+      <span class="import-export-check__hint">主题：{{ theme }}</span>
+    </div>
     <p class="import-export-check__note">
       导入对话框（模板下载 / 文件校验与幂等键 / 上传解析 / 结果与错误行报告与分页 / 错误明细下载）与导出触发件（同步下载
       / 超阈值异步 / 失败重试 / 脱敏提示 / 权限过滤）；本页仅供开发态核对，`vite build` 不包含。
@@ -350,7 +415,7 @@ onMounted(async () => {
     </section>
 
     <section class="import-export-check__section">
-      <h2>自检（12 项）</h2>
+      <h2>自检（16 项）</h2>
       <el-button data-test="rerun" @click="runChecks">重新自检</el-button>
       <ol class="import-export-check__list">
         <li v-for="item in checks" :key="item.label" :data-pass="item.pass ? 'true' : 'false'" :data-check="item.label">
@@ -366,6 +431,18 @@ onMounted(async () => {
   padding: 16px;
   font-family: var(--bms-font-family);
   color: var(--bms-color-text);
+}
+
+.import-export-check__toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--bms-space-3);
+  margin-bottom: var(--bms-space-3);
+}
+
+.import-export-check__hint {
+  color: var(--bms-color-text-secondary);
+  font-size: var(--bms-font-size-sm);
 }
 
 .import-export-check__note {

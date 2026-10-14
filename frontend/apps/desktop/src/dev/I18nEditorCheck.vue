@@ -60,6 +60,15 @@ const placeholderRef = ref<{ catalog: BaseMessageCatalog }>()
 /** 自检结果。 */
 const checks = ref<{ label: string; pass: boolean }[]>([])
 
+/** 当前主题（截图对照用）。 */
+const theme = ref(document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light')
+
+/** 切换亮暗主题。 */
+function onToggleTheme(): void {
+  theme.value = theme.value === 'dark' ? 'light' : 'dark'
+  document.documentElement.dataset.theme = theme.value
+}
+
 /**
  * 作用域内查询元素。
  *
@@ -243,6 +252,23 @@ async function runChecks(): Promise<void> {
       (placeholderRef.value?.catalog.requestCount ?? -1) === 0,
   })
 
+  // 本批（11_04）样式自检。
+  result.push({
+    label: '⑬ 工具栏 / 语言清单条 / 页签改组件库件（el-button + el-tag + el-radio-group）',
+    pass: (() => {
+      const toolbar = document.querySelector('[data-check-scope="ready"] .bms-i18n-message-editor__toolbar')
+      return toolbar !== null && toolbar.querySelector('.el-button') !== null && document.querySelector('[data-check-scope="ready"] .el-radio-group') !== null
+    })(),
+  })
+  result.push({
+    label: '⑭ 语言清单条与网格区容器形态齐备',
+    pass: (() => {
+      const tag = document.querySelector('[data-check-scope="ready"] .bms-i18n-message-editor__locale-tag')
+      const grid = document.querySelector('[data-check-scope="ready"] .bms-i18n-message-editor__grid')
+      return tag !== null && grid !== null && getComputedStyle(grid).borderStyle === 'solid'
+    })(),
+  })
+
   checks.value = result
 }
 
@@ -255,6 +281,11 @@ onMounted(async () => {
 <template>
   <main class="i18n-editor-check">
     <h1>开发态核对 · 国际化文案编辑器（08_07_02）</h1>
+
+    <div class="i18n-editor-check__toolbar">
+      <el-button data-test="check-theme" @click="onToggleTheme">切换到{{ theme === 'dark' ? '亮色' : '暗色' }}</el-button>
+      <span class="i18n-editor-check__hint">主题：{{ theme }}</span>
+    </div>
     <p class="i18n-editor-check__note">
       语言清单维护（增改启停与默认语言保护）/ 文案网格（缺失高亮 / 停用列置灰 / 分页与虚拟滚动）/ 缺失与筛选 /
       批量保存与缓存失效（失败降级不阻断）/ 语言包重载即时生效 / 导入导出接线；本页仅供开发态核对，`vite build` 不包含。
@@ -280,7 +311,7 @@ onMounted(async () => {
     </section>
 
     <section class="i18n-editor-check__section">
-      <h2>自检（12 项）</h2>
+      <h2>自检（14 项）</h2>
       <el-button data-test="rerun" @click="runChecks">重新自检</el-button>
       <ol class="i18n-editor-check__list">
         <li v-for="item in checks" :key="item.label" :data-pass="item.pass ? 'true' : 'false'" :data-check="item.label">
@@ -292,6 +323,18 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+.i18n-editor-check__toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--bms-space-3);
+  margin-bottom: var(--bms-space-3);
+}
+
+.i18n-editor-check__hint {
+  color: var(--bms-color-text-secondary);
+  font-size: var(--bms-font-size-sm);
+}
+
 .i18n-editor-check {
   padding: 16px;
   font-family: var(--bms-font-family);

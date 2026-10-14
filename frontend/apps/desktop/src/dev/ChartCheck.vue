@@ -146,6 +146,49 @@ async function runChecks(): Promise<void> {
   ready.value = true
   await settle()
 
+  // 本批（11_04）样式自检：卡片壳 / 卡头工具条 / 四态占位 / 降级占位类。
+  result.push({
+    label: '⑬ 卡片壳与卡头工具条形态（描边 + 圆角 + 操作按钮改 el-button）',
+    pass: (() => {
+      const card = q('chart', '.bms-chart-card')
+      if (card === null) {
+        return false
+      }
+      const style = getComputedStyle(card)
+      return (
+        style.borderStyle === 'solid' &&
+        style.borderRadius !== '0px' &&
+        q('chart', '[data-test="header"] .el-button') !== null
+      )
+    })(),
+  })
+  result.push({
+    label: '⑭ 脚注上边框与次要色（数据集标注区）',
+    pass: (() => {
+      const foot = q('chart', '[data-test="footnote"]')
+      if (foot === null) {
+        return false
+      }
+      const style = getComputedStyle(foot)
+      return style.borderTopStyle === 'solid' && style.color !== 'rgb(0, 0, 0)'
+    })(),
+  })
+  ready.value = false
+  await settle()
+  result.push({
+    label: '⑮ 降级占位类有定义（bms-display-placeholder 居中 + 非透明）',
+    pass: (() => {
+      const node = q('chart', '.bms-display-placeholder')
+      if (node === null) {
+        return false
+      }
+      const style = getComputedStyle(node)
+      return style.display === 'flex' && style.textAlign === 'center'
+    })(),
+  })
+  ready.value = true
+  await settle()
+
   checks.value = result
   document.body.setAttribute('data-check-done', result.every((item) => item.pass) ? 'pass' : 'fail')
 }
@@ -186,7 +229,7 @@ onMounted(() => {
     </section>
 
     <section style="margin-top: 16px">
-      <h2>自检结果</h2>
+      <h2>自检结果（15 项）</h2>
       <ol>
         <li v-for="item in checks" :key="item.label" :data-pass="item.pass">
           {{ item.pass ? '通过' : '失败' }} · {{ item.label }}

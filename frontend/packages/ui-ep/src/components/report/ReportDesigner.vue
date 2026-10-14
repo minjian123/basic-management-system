@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // 报表设计器（08_09_01）：三区（数据集 / 画布 / 配置）+ 工具栏（新建 / 打开 / 添加图表 / 预览 / 保存 / 发布 / 另存为）。
 // 对外契约保持 08_01_03 冻结形状（导出名 / 既有 Props / 事件 / 插槽 / data-test / 分包入口不变），仅向后兼容新增可选项。
+import { ElButton } from 'element-plus'
 import { computed, defineAsyncComponent, ref, watch } from 'vue'
 
 import type { BaseAccess, BaseNotice, ChartDatasetResult, ReportChartItem, ReportDataset, ReportJobs } from '@bms/core'
@@ -339,78 +340,190 @@ function onResize(payload: { id: string; w: number; h: number }): void {
     <template v-else>
       <slot name="live">
         <div class="bms-report-designer__toolbar" data-test="toolbar">
-          <span data-test="report-code">{{ base.designer.reportCode }}</span>
-          <span data-test="report-name">{{ base.designer.reportName }}</span>
-          <button type="button" data-test="new" :disabled="readonly" @click="onNew">新建</button>
-          <button type="button" data-test="open" :disabled="readonly" @click="onOpen('')">打开</button>
-          <button type="button" data-test="save" :disabled="readonly" @click="onSave">保存</button>
-          <button type="button" data-test="publish" :disabled="readonly" @click="onPublish">发布</button>
-          <button type="button" data-test="save-as" :disabled="readonly" @click="onSaveAs">另存为</button>
-          <button type="button" data-test="preview" @click="onPreview">预览</button>
-          <span v-if="dirtyFlag" data-test="dirty">未保存</span>
-          <span v-if="!base.validation.value.valid" data-test="validation-error">{{ base.validation.value.message }}</span>
-          <span v-if="readonly" data-test="readonly-hint">只读</span>
+          <span class="bms-report-designer__code" data-test="report-code">{{ base.designer.reportCode }}</span>
+          <span class="bms-report-designer__name" data-test="report-name">{{ base.designer.reportName }}</span>
+          <el-button :disabled="readonly" data-test="new" @click="onNew">新建</el-button>
+          <el-button :disabled="readonly" data-test="open" @click="onOpen('')">打开</el-button>
+          <el-button :disabled="readonly" data-test="save" @click="onSave">保存</el-button>
+          <el-button type="success" :disabled="readonly" data-test="publish" @click="onPublish">发布</el-button>
+          <el-button :disabled="readonly" data-test="save-as" @click="onSaveAs">另存为</el-button>
+          <el-button type="primary" data-test="preview" @click="onPreview">预览</el-button>
+          <span v-if="dirtyFlag" class="bms-report-designer__dirty" data-test="dirty">● 未保存</span>
+          <span v-if="!base.validation.value.valid" class="bms-report-designer__invalid" data-test="validation-error">
+            {{ base.validation.value.message }}
+          </span>
+          <span v-if="readonly" class="bms-report-designer__readonly" data-test="readonly-hint">只读</span>
           <slot name="report-list" />
         </div>
 
         <div class="bms-report-designer__body">
-          <div class="bms-report-designer__dataset" data-test="dataset-panel">
-            <slot name="dataset-panel" :datasets="datasetList">
-              <button
-                v-for="dataset in datasets"
-                :key="dataset.id"
-                type="button"
-                :data-test="`dataset-${dataset.id}`"
-                :data-status="dataset.status"
-                :disabled="readonly || dataset.status !== 'enabled'"
-                @click="onDataset(dataset)"
-              >
-                {{ dataset.name }}
-              </button>
-            </slot>
-            <DatasetPanel
-              :dataset="currentDataset"
-              :datasets="datasetList"
-              :dataset-id="base.designer.datasetId !== '' ? base.designer.datasetId : datasetId"
-              :read-only="readonly"
-              :preview-columns="previewResult?.columns ?? []"
-              :preview-rows="previewResult?.rows ?? []"
-              :preview-loading="previewLoading"
-              @preview="(payload) => onPreviewData(payload.datasetId)"
-            />
-          </div>
-
-          <div class="bms-report-designer__canvas" data-test="canvas">
-            <slot name="canvas">
-              <ReportCanvas
-                :charts="chartList"
-                :selected-id="selectedIdValue"
-                :read-only="readonly"
+          <section class="bms-report-designer__pane bms-report-designer__dataset" data-test="dataset-panel">
+            <h4 class="bms-report-designer__pane-title">数据集</h4>
+            <div class="bms-report-designer__pane-body">
+              <slot name="dataset-panel" :datasets="datasetList">
+                <el-button
+                  v-for="dataset in datasets"
+                  :key="dataset.id"
+                  class="bms-report-designer__dataset-item"
+                  :data-test="`dataset-${dataset.id}`"
+                  :data-status="dataset.status"
+                  :disabled="readonly || dataset.status !== 'enabled'"
+                  @click="onDataset(dataset)"
+                >
+                  {{ dataset.name }}
+                </el-button>
+              </slot>
+              <DatasetPanel
+                :dataset="currentDataset"
                 :datasets="datasetList"
-                :chart-data="chartData"
-                @select="onSelect"
-                @remove-chart="onRemove"
-                @duplicate-chart="onDuplicate"
-                @center-chart="onCenter"
-                @move-chart="onMove"
-                @resize-chart="onResize"
-              />
-            </slot>
-          </div>
-
-          <div class="bms-report-designer__config" data-test="config-panel">
-            <slot name="config-panel" :item="selectedItem">
-              <ChartConfigPanel
-                :item="selectedItem"
-                :fields="base.currentFields.value"
+                :dataset-id="base.designer.datasetId !== '' ? base.designer.datasetId : datasetId"
                 :read-only="readonly"
-                @update="onConfigUpdate"
-                @preview-data="() => currentDataset !== undefined && onPreviewData(currentDataset.id)"
+                :preview-columns="previewResult?.columns ?? []"
+                :preview-rows="previewResult?.rows ?? []"
+                :preview-loading="previewLoading"
+                @preview="(payload) => onPreviewData(payload.datasetId)"
               />
-            </slot>
-          </div>
+            </div>
+          </section>
+
+          <section class="bms-report-designer__pane bms-report-designer__canvas" data-test="canvas">
+            <h4 class="bms-report-designer__pane-title">报表画布</h4>
+            <div class="bms-report-designer__pane-body">
+              <slot name="canvas">
+                <ReportCanvas
+                  :charts="chartList"
+                  :selected-id="selectedIdValue"
+                  :read-only="readonly"
+                  :datasets="datasetList"
+                  :chart-data="chartData"
+                  @select="onSelect"
+                  @remove-chart="onRemove"
+                  @duplicate-chart="onDuplicate"
+                  @center-chart="onCenter"
+                  @move-chart="onMove"
+                  @resize-chart="onResize"
+                />
+              </slot>
+            </div>
+          </section>
+
+          <section class="bms-report-designer__pane bms-report-designer__config" data-test="config-panel">
+            <h4 class="bms-report-designer__pane-title">图表配置</h4>
+            <div class="bms-report-designer__pane-body">
+              <slot name="config-panel" :item="selectedItem">
+                <ChartConfigPanel
+                  :item="selectedItem"
+                  :fields="base.currentFields.value"
+                  :read-only="readonly"
+                  @update="onConfigUpdate"
+                  @preview-data="() => currentDataset !== undefined && onPreviewData(currentDataset.id)"
+                />
+              </slot>
+            </div>
+          </section>
         </div>
       </slot>
     </template>
   </div>
 </template>
+
+<style scoped>
+.bms-report-designer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bms-space-3);
+  min-width: 0;
+}
+
+.bms-report-designer__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--bms-space-2);
+  padding: var(--bms-space-2) var(--bms-space-3);
+  background: var(--bms-color-fill);
+  border-bottom: 1px solid var(--bms-color-border);
+  border-radius: var(--bms-radius-sm);
+}
+
+.bms-report-designer__code {
+  color: var(--bms-color-text-secondary);
+  font-family: var(--bms-font-family-mono);
+  font-size: var(--bms-font-size-xs);
+}
+
+.bms-report-designer__name {
+  color: var(--bms-color-text);
+  font-weight: 600;
+}
+
+.bms-report-designer__dirty,
+.bms-report-designer__invalid {
+  color: var(--bms-color-danger);
+  font-size: var(--bms-font-size-xs);
+}
+
+.bms-report-designer__readonly {
+  color: var(--bms-color-warning);
+  font-size: var(--bms-font-size-xs);
+}
+
+/* 三栏（数据集 240 / 画布自适应 / 配置 280），与原型栅格口径一致。 */
+.bms-report-designer__body {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr) 280px;
+  gap: var(--bms-space-3);
+  align-items: start;
+}
+
+.bms-report-designer__pane {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 420px;
+  background: var(--bms-report-panel-bg);
+  border: 1px solid var(--bms-color-border);
+  border-radius: var(--bms-radius-md);
+}
+
+.bms-report-designer__pane-title {
+  margin: 0;
+  padding: var(--bms-space-2) var(--bms-space-3);
+  color: var(--bms-color-text);
+  font-size: var(--bms-font-size-sm);
+  font-weight: 600;
+  border-bottom: 1px solid var(--bms-color-border);
+}
+
+.bms-report-designer__pane-body {
+  flex: 1;
+  min-width: 0;
+  padding: var(--bms-space-3);
+}
+
+.bms-report-designer__dataset-item {
+  display: flex;
+  width: 100%;
+  margin-bottom: var(--bms-space-1);
+}
+
+.bms-report-designer__dataset-item[data-status='disabled'] {
+  color: var(--bms-color-text-secondary);
+}
+
+.bms-report-designer__canvas .bms-report-designer__pane-body {
+  background: var(--bms-report-canvas-bg);
+  border-radius: 0 0 var(--bms-radius-md) var(--bms-radius-md);
+}
+
+/* 窄容器改单列堆叠（与 `useResponsive` 缺省窄屏阈值一致）。 */
+@media (max-width: 992px) {
+  .bms-report-designer__body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .bms-report-designer__pane {
+    min-height: 0;
+  }
+}
+</style>
