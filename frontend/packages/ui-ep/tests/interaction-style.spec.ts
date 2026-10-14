@@ -1,15 +1,15 @@
-// kiwi_id: 2295
+// kiwi_id: 2295, 2296
 /**
- * 件族样式齐备护栏（11_01 交互类件族样式补齐 · 需求 11-1）：
+ * 件族样式齐备护栏（11_01 交互类 / 11_02 容器与展示反馈件族样式补齐 · 需求 11-1）：
  * **硬断言全库真裸骨架件**均含非空 `<style scoped>`，且样式块无硬编码色值（一律消费令牌）。
  *
  * 口径（需求 11-1 §2.5）：
  * - **真裸骨架件**：模板含自绘 DOM（`div` / `span` / `button` / `input` / `select` 等）且无样式块 → **必须补齐**；
  * - **EP 薄包装**：根元素即 Element Plus 件、无自绘 DOM，靠组件库全局样式已正常 → **豁免**（显式清单 + 理由）。
  *
- * 按用户口径（2026-10-14 拍板）：本护栏**对全库真裸骨架件硬断言、不留批次豁免**——`11_01` 只补交互类 17 件，
- * 其余 49 件真裸骨架随 `11_02` ~ `11_04` 补齐，**在此之前本用例按设计持续红**（门禁红即「全库尚未补齐」的
- * 真实反映；不得以豁免清单掩盖）。
+ * 按用户口径（2026-10-14 拍板）：本护栏**对全库真裸骨架件硬断言、不留批次豁免**——`11_01` 补交互类 17 件、
+ * `11_02` 补容器与展示反馈 18 件，其余随 `11_03` / `11_04` 补齐，**在此之前本用例按设计持续红**（门禁红即
+ * 「全库尚未补齐」的真实反映；不得以豁免清单掩盖）。
  */
 
 import { readFileSync, readdirSync, statSync } from 'node:fs'
@@ -44,7 +44,7 @@ const THIN_WRAPPERS: Readonly<Record<string, string>> = {
   'modal/FormDrawer': '根元素 `el-drawer`（表单抽屉壳，无自绘 DOM）',
 }
 
-/** 本批补齐的交互类 17 件（`11_01`）。 */
+/** `11_01` 补齐的交互类 17 件。 */
 const INTERACTION_BATCH = [
   'interaction/PermissionConfig',
   'interaction/MenuPermissionPanel',
@@ -63,6 +63,28 @@ const INTERACTION_BATCH = [
   'interaction/CronEditor',
   'interaction/ExpressionEditor',
   'interaction/SqlEditor',
+]
+
+/** `11_02` 补齐的容器与展示反馈 18 件（容器族 8 + 展示族 7 + 反馈族 3）。 */
+const CONTAINER_DISPLAY_FEEDBACK_BATCH = [
+  'container/AspectRatioContainer',
+  'container/AutoHeightContainer',
+  'container/FullscreenContainer',
+  'container/LazyContainer',
+  'container/ScrollContainer',
+  'container/SectionContainer',
+  'container/StatusContainer',
+  'container/VirtualListContainer',
+  'display/AuditDiff',
+  'display/FilePreview',
+  'display/QrCode',
+  'display/QuickEntry',
+  'display/UserAvatar',
+  'display/UserInfo',
+  'display/WatermarkOverlay',
+  'feedback/EmptyState',
+  'feedback/ErrorPage',
+  'feedback/LoadingMask',
 ]
 
 /** 全库组件源码（`<族>/<件名>` → 源码）。 */
@@ -162,6 +184,25 @@ describe('件族样式齐备护栏（全库真裸骨架硬断言 + EP 薄包装�
   it('本批交互类 17 件均含非空 <style scoped>', () => {
     const sources = new Map(componentSources().map((file) => [file.name, file]))
     for (const name of INTERACTION_BATCH) {
+      const file = sources.get(name)
+      expect(file, `缺少件 ${name}`).toBeDefined()
+      const block = file?.source.match(STYLE_BLOCK)
+      expect(block, `${name} 缺 <style scoped>`).not.toBeNull()
+      expect((block?.[1] ?? '').trim().length, `${name} 样式块为空`).toBeGreaterThan(0)
+    }
+  })
+
+  it('本批容器与展示反馈 18 件齐备（需求 11-1 第二批范围）', () => {
+    const names = componentSources().map((file) => file.name)
+    for (const target of CONTAINER_DISPLAY_FEEDBACK_BATCH) {
+      expect(names, `缺少件 ${target}`).toContain(target)
+    }
+    expect(CONTAINER_DISPLAY_FEEDBACK_BATCH).toHaveLength(18)
+  })
+
+  it('本批容器与展示反馈 18 件均含非空 <style scoped>', () => {
+    const sources = new Map(componentSources().map((file) => [file.name, file]))
+    for (const name of CONTAINER_DISPLAY_FEEDBACK_BATCH) {
       const file = sources.get(name)
       expect(file, `缺少件 ${name}`).toBeDefined()
       const block = file?.source.match(STYLE_BLOCK)

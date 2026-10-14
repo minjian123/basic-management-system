@@ -79,6 +79,30 @@ describe('UserInfo 用户胶囊', () => {
     expect(wrapper.find('[data-test="user-text"]').text()).toBe('张三')
     expect(wrapper.findComponent(UserAvatar).exists()).toBe(false)
   })
+
+  it('linkTo 生效并派发 navigate（与 open 并存）', async () => {
+    const user = { id: 'u1', name: '张三' }
+    const wrapper = mount(UserInfo, { props: { user, linkTo: '/system/user/u1' } })
+    await wrapper.trigger('click')
+    expect(wrapper.emitted('open')).toHaveLength(1)
+    expect(wrapper.emitted('navigate')?.[0]).toEqual(['/system/user/u1'])
+  })
+
+  it('悬浮卡片展示部门 / 岗位 / 状态 / 联系方式', async () => {
+    const user = {
+      id: 'u1',
+      name: '张三',
+      deptPath: '研发中心',
+      postName: '部门经理',
+      phone: '138****1234',
+      status: 'active' as const,
+    }
+    const wrapper = mount(UserInfo, { props: { user, popover: true } })
+    await wrapper.trigger('mouseenter')
+    expect(wrapper.find('[data-test="user-popover-post"]').text()).toContain('部门经理')
+    expect(wrapper.find('[data-test="user-popover-status"]').text()).toContain('启用')
+    expect(wrapper.find('[data-test="user-popover-phone"]').text()).toContain('138****1234')
+  })
 })
 
 describe('QuickEntry 快捷入口', () => {
@@ -95,8 +119,10 @@ describe('QuickEntry 快捷入口', () => {
     const item = wrapper.find('[data-test="entry-a"]')
     expect(item.exists()).toBe(true)
     // a 在前（order 1? b 被过滤、a order2、c order3 → a 在前）
-    const buttons = wrapper.findAll('button.bms-quick-entry__item')
-    expect(buttons.map((node) => node.attributes('data-test'))).toEqual(['entry-a', 'entry-c'])
+    // 原断言：`findAll('button.bms-quick-entry__item')`（裸原生按钮）；现入口项为自绘可点容器（`role="button"`）
+    const items = wrapper.findAll('.bms-quick-entry__item')
+    expect(items.map((node) => node.attributes('data-test'))).toEqual(['entry-a', 'entry-c'])
+    expect(items[0]?.attributes('role')).toBe('button')
     // el:search 解析为内置 EP 图标（无降级）
     expect(item.find('[data-test="icon-fallback"]').exists()).toBe(false)
     expect(item.find('svg').exists()).toBe(true)
@@ -119,6 +145,51 @@ describe('QuickEntry 快捷入口', () => {
     await wrapper.find('[data-test="entry-a"]').trigger('click')
     expect(wrapper.emitted('open')?.[0]?.[0]).toMatchObject({ key: 'a' })
     expect(wrapper.emitted('navigate')?.[0]?.[0]).toMatchObject({ route: '/a' })
+  })
+
+  it('入口项支持键盘触发（Enter / Space）', async () => {
+    const wrapper = mount(QuickEntry, {
+      props: { entries: [{ key: 'a', label: '甲', route: '/a' }], filterByPerm: false },
+    })
+    await wrapper.find('[data-test="entry-a"]').trigger('keydown.enter')
+    await wrapper.find('[data-test="entry-a"]').trigger('keydown.space')
+    expect(wrapper.emitted('navigate')).toHaveLength(2)
+  })
+
+  it('路由未注册时拦截跳转但仍派发 open', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const wrapper = mount(QuickEntry, {
+      props: {
+        entries: [{ key: 'a', label: '甲', route: '/missing' }],
+        filterByPerm: false,
+        routes: ['/a'],
+      },
+    })
+    await wrapper.find('[data-test="entry-a"]').trigger('click')
+    expect(wrapper.emitted('open')).toHaveLength(1)
+    expect(wrapper.emitted('navigate')).toBeUndefined()
+    expect(warn).toHaveBeenCalled()
+
+    // 已注册路由正常跳转
+    const ok = mount(QuickEntry, {
+      props: { entries: [{ key: 'a', label: '甲', route: '/a' }], filterByPerm: false, routes: ['/a'] },
+    })
+    await ok.find('[data-test="entry-a"]').trigger('click')
+    expect(ok.emitted('navigate')).toHaveLength(1)
+    warn.mockRestore()
+  })
+
+  it('加载态渲染骨架，对外暴露可见入口', () => {
+    const loading = mount(QuickEntry, { props: { loading: true } })
+    expect(loading.find('[data-test="loading"]').exists()).toBe(true)
+    expect(loading.find('[data-test="empty"]').exists()).toBe(false)
+
+    const wrapper = mount(QuickEntry, {
+      props: { entries, permissions: ['a:view', 'c:view'] },
+    })
+    // `defineExpose` 暴露 ref 时经脚本代理自动解包为值
+    const exposed = wrapper.vm as unknown as { visibleEntries: { key: string }[] }
+    expect(exposed.visibleEntries.map((entry) => entry.key)).toEqual(['a', 'c'])
   })
 })
 
@@ -152,6 +223,29 @@ describe('QrCode 二维码', () => {
     expect(wrapper.emitted('refresh')).toHaveLength(1)
     expect(wrapper.attributes('data-status')).toBe('active')
   })
+
+  it('已扫 / 已确认 / 失败三态遮罩齐备（失败可重试）', async () => {
+    const wrapper = mount(QrCode, { props: { value: 'hello' } })
+    await flushPromises()
+
+    await wrapper.setProps({ status: 'scanning' })
+    expect(wrapper.find('[data-test="qr-scanning"]').text()).toContain('移动端确认')
+
+    await wrapper.setProps({ status: 'confirmed' })
+    expect(wrapper.find('[data-test="qr-confirmed"]').exists()).toBe(true)
+
+    await wrapper.setProps({ status: 'failed' })
+    expect(wrapper.find('[data-test="qr-failed"]').exists()).toBe(true)
+    await wrapper.find('[data-test="qr-retry"]').trigger('click')
+    expect(wrapper.emitted('refresh')).toHaveLength(1)
+  })
+
+  it('对外暴露取图片数据地址', async () => {
+    const wrapper = mount(QrCode, { props: { value: 'hello' } })
+    await flushPromises()
+    const exposed = wrapper.vm as unknown as { imageData: () => string }
+    expect(exposed.imageData()).toBe('data:image/png;base64,MOCKQR')
+  })
 })
 
 describe('Watermark 水印', () => {
@@ -167,6 +261,20 @@ describe('Watermark 水印', () => {
   it('禁用时不渲染水印层', () => {
     const wrapper = mount(Watermark, { props: { enabled: false } })
     expect(wrapper.find('[data-test="watermark-layer"]').exists()).toBe(false)
+  })
+
+  it('对外导出平铺水印图，字体与单个水印尺寸可配', () => {
+    const wrapper = mount(Watermark, {
+      props: { content: '内部资料', font: { fontSize: 18, fontWeight: 700, fontFamily: 'Consolas' }, width: 120, height: 90 },
+    })
+    const exposed = wrapper.vm as unknown as { exportImage: () => string }
+    const image = exposed.exportImage()
+    expect(image).toContain('data:image/svg+xml')
+    const svg = decodeURIComponent(image)
+    expect(svg).toContain('font-size="18"')
+    expect(svg).toContain('font-weight="700"')
+    expect(svg).toContain('width="120"')
+    expect(svg).toContain('height="90"')
   })
 
   it('水印层被移除后自动恢复（防篡改）', async () => {

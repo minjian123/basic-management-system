@@ -102,6 +102,39 @@ describe('StatusContainer', () => {
     expect(wrapper.find('.bms-status-container__content').attributes('style')).toContain('display: none')
   })
 
+  it('加载形态切换：遮罩（默认）/ 骨架 / 旋转', async () => {
+    const mask = mount(StatusContainer, {
+      props: { status: 'loading', delay: 0 },
+      slots: { default: '<div>x</div>' },
+      global: { stubs },
+    })
+    expect(mask.find('.bms-status-container__state').classes()).toContain('is-mask')
+    expect(mask.text()).toContain('加载中…')
+
+    const spin = mount(StatusContainer, {
+      props: { status: 'loading', delay: 0, variant: 'spin' },
+      slots: { default: '<div>x</div>' },
+      global: { stubs },
+    })
+    expect(spin.find('.bms-status-container__spinner').exists()).toBe(true)
+
+    const skeleton = mount(StatusContainer, {
+      props: { status: 'loading', delay: 0, variant: 'skeleton' },
+      slots: { default: '<div>x</div>' },
+      global: { stubs: { ...stubs, ElSkeleton: { template: '<div class="el-skeleton"><slot /></div>' }, ElSkeletonItem: { template: '<div class="el-skeleton-item" />' } } },
+    })
+    expect(skeleton.find('.el-skeleton').exists()).toBe(true)
+  })
+
+  it('加载形态的 skeleton 插槽可覆盖内置骨架', () => {
+    const wrapper = mount(StatusContainer, {
+      props: { status: 'loading', delay: 0, variant: 'skeleton' },
+      slots: { default: '<div>x</div>', skeleton: '<div data-test="sk">自定义骨架</div>' },
+      global: { stubs },
+    })
+    expect(wrapper.find('[data-test="sk"]').text()).toBe('自定义骨架')
+  })
+
   it('内置空 / 错误文案可配', () => {
     const empty = mount(StatusContainer, {
       props: { status: 'empty', delay: 0, emptyText: '没有记录' },

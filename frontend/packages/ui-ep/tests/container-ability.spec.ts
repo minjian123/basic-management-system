@@ -48,6 +48,53 @@ describe('FullscreenContainer', () => {
     expect(wrapper.classes()).toContain('is-degraded')
   })
 
+  it('进入全屏显示退出提示，点击提示可提前关闭', async () => {
+    vi.useFakeTimers()
+    const wrapper = mount(FullscreenContainer, { props: { modelValue: false }, slots: { default: '<div>x</div>' } })
+    await wrapper.setProps({ modelValue: true })
+    expect(wrapper.find('[data-test="fullscreen-hint"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="fullscreen-hint"]').text()).toContain('Esc')
+
+    await wrapper.find('[data-test="fullscreen-hint"]').trigger('click')
+    expect(wrapper.find('[data-test="fullscreen-hint"]').exists()).toBe(false)
+    vi.useRealTimers()
+  })
+
+  it('提示超过时长后自动隐藏；退出全屏时提示消失', async () => {
+    vi.useFakeTimers()
+    const wrapper = mount(FullscreenContainer, { props: { modelValue: false }, slots: { default: '<div>x</div>' } })
+    await wrapper.setProps({ modelValue: true })
+    expect(wrapper.find('[data-test="fullscreen-hint"]').exists()).toBe(true)
+
+    vi.advanceTimersByTime(3100)
+    await wrapper.vm.$nextTick()
+    expect(wrapper.find('[data-test="fullscreen-hint"]').exists()).toBe(false)
+
+    // 再次进入后退出，提示不应残留
+    await wrapper.setProps({ modelValue: false })
+    await wrapper.setProps({ modelValue: true })
+    expect(wrapper.find('[data-test="fullscreen-hint"]').exists()).toBe(true)
+    await wrapper.setProps({ modelValue: false })
+    expect(wrapper.find('[data-test="fullscreen-hint"]').exists()).toBe(false)
+    vi.useRealTimers()
+  })
+
+  it('showHint 为假时不渲染提示，hint 文案可配', async () => {
+    const noHint = mount(FullscreenContainer, {
+      props: { modelValue: false, showHint: false },
+      slots: { default: '<div>x</div>' },
+    })
+    await noHint.setProps({ modelValue: true })
+    expect(noHint.find('[data-test="fullscreen-hint"]').exists()).toBe(false)
+
+    const custom = mount(FullscreenContainer, {
+      props: { modelValue: false, hint: '自定义提示' },
+      slots: { default: '<div>x</div>' },
+    })
+    await custom.setProps({ modelValue: true })
+    expect(custom.find('[data-test="fullscreen-hint"]').text()).toBe('自定义提示')
+  })
+
   it('降级态按 Esc 退出', async () => {
     const wrapper = mount(FullscreenContainer, { props: { modelValue: true }, slots: { default: '<div>x</div>' } })
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
@@ -104,6 +151,16 @@ describe('LazyContainer', () => {
     await wrapper.vm.$nextTick()
     expect(wrapper.find('[data-test="content"]').exists()).toBe(true)
   })
+
+  it('占位内容插槽可覆盖内置骨架', () => {
+    vi.stubGlobal('IntersectionObserver', ObserverStub)
+    const custom = mount(LazyContainer, {
+      slots: { default: '<div data-test="content">内容</div>', placeholder: '<div data-test="ph">自定义占位</div>' },
+    })
+    expect(custom.find('[data-test="lazy-placeholder"]').exists()).toBe(true)
+    expect(custom.find('[data-test="ph"]').text()).toBe('自定义占位')
+    expect(custom.find('[data-test="content"]').exists()).toBe(false)
+  })
 })
 
 const items = Array.from({ length: 100 }, (_, index) => ({ id: index }))
@@ -137,5 +194,59 @@ describe('VirtualListContainer', () => {
     })
     expect(wrapper.findAll('[data-test="row"]')).toHaveLength(0)
     expect(wrapper.find('.bms-virtual-list-container__spacer').attributes('style')).toContain('height: 0px')
+  })
+
+  it('触底派发 reach-bottom，回滚后重置', async () => {
+    const wrapper = mount(VirtualListContainer, {
+      props: { items, itemHeight: 20 },
+      global: { stubs: { ElScrollbar: ElScrollbarStub } },
+      slots: { default: '<span data-test="row">{{ index }}</span>' },
+    })
+    await wrapper.vm.$nextTick()
+    const bar = wrapper.findComponent({ name: 'ElScrollbar' })
+    // wrap 替身：clientHeight 100 / scrollHeight 2000
+    bar.vm.$emit('scroll', { scrollTop: 1900, scrollLeft: 0 })
+    bar.vm.$emit('scroll', { scrollTop: 1905, scrollLeft: 0 })
+    expect(wrapper.emitted('reach-bottom')).toHaveLength(1)
+
+    bar.vm.$emit('scroll', { scrollTop: 10, scrollLeft: 0 })
+    bar.vm.$emit('scroll', { scrollTop: 1900, scrollLeft: 0 })
+    expect(wrapper.emitted('reach-bottom')).toHaveLength(2)
+  })
+
+  it('scrollToIndex 暴露并滚动到指定项（定高与动态高度）', async () => {
+    const fixed = mount(VirtualListContainer, {
+      props: { items, itemHeight: 20 },
+      global: { stubs: { ElScrollbar: ElScrollbarStub } },
+      slots: { default: '<span data-test="row">{{ index }}</span>' },
+    })
+    const exposed = fixed.vm as unknown as { scrollToIndex: (index: number) => Promise<void> }
+    await exposed.scrollToIndex(50)
+    const instance = fixed.findComponent({ name: 'ElScrollbar' }).vm as unknown as {
+      wrapRef: { scrollTop: number }
+    }
+    expect(instance.wrapRef.scrollTop).toBe(1000)
+
+    // 动态高度：按估算值累计
+    const dynamic = mount(VirtualListContainer, {
+      props: { items, estimatedHeight: 30 },
+      global: { stubs: { ElScrollbar: ElScrollbarStub } },
+      slots: { default: '<span data-test="row">{{ index }}</span>' },
+    })
+    const dynamicExposed = dynamic.vm as unknown as { scrollToIndex: (index: number) => Promise<void> }
+    await dynamicExposed.scrollToIndex(10)
+    const dynamicInstance = dynamic.findComponent({ name: 'ElScrollbar' }).vm as unknown as {
+      wrapRef: { scrollTop: number }
+    }
+    expect(dynamicInstance.wrapRef.scrollTop).toBe(300)
+  })
+
+  it('itemKey 指定项唯一键字段', () => {
+    const wrapper = mount(VirtualListContainer, {
+      props: { items: [{ code: 'a' }, { code: 'b' }], itemHeight: 20, itemKey: 'code' },
+      global: { stubs: { ElScrollbar: ElScrollbarStub } },
+      slots: { default: '<span data-test="row">{{ index }}</span>' },
+    })
+    expect(wrapper.findAll('.bms-virtual-list-container__item')).toHaveLength(2)
   })
 })

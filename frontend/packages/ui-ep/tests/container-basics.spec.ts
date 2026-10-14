@@ -55,6 +55,22 @@ describe('ScrollContainer', () => {
     const wrapper = mount(ScrollContainer, { props: { native: true }, slots: { default: '<div>内容</div>' } })
     expect(wrapper.find('.el-scrollbar').exists()).toBe(false)
   })
+
+  it('触顶通知在顶部进入时只触发一次', () => {
+    const wrapper = mount(ScrollContainer, { global: { stubs }, slots: { default: '<div>内容</div>' } })
+    const bar = wrapper.findComponent({ name: 'ElScrollbar' })
+
+    bar.vm.$emit('scroll', { scrollTop: 100, scrollLeft: 0 })
+    expect(wrapper.emitted('reach-top')).toBeUndefined()
+
+    bar.vm.$emit('scroll', { scrollTop: 10, scrollLeft: 0 })
+    bar.vm.$emit('scroll', { scrollTop: 0, scrollLeft: 0 })
+    expect(wrapper.emitted('reach-top')).toHaveLength(1)
+
+    bar.vm.$emit('scroll', { scrollTop: 200, scrollLeft: 0 })
+    bar.vm.$emit('scroll', { scrollTop: 0, scrollLeft: 0 })
+    expect(wrapper.emitted('reach-top')).toHaveLength(2)
+  })
 })
 
 describe('AutoHeightContainer', () => {
@@ -73,6 +89,26 @@ describe('AutoHeightContainer', () => {
   it('offset 支持 CSS 长度', () => {
     const wrapper = mount(AutoHeightContainer, { props: { offset: '4rem' }, slots: { default: '<div>x</div>' } })
     expect(wrapper.attributes('style')).toContain('height: calc(100% - 4rem)')
+  })
+
+  it('最大高度写入样式，内部滚动按开关切换', async () => {
+    const wrapper = mount(AutoHeightContainer, {
+      props: { maxHeight: '400px', scroll: true },
+      slots: { default: '<div>x</div>' },
+    })
+    expect(wrapper.attributes('style')).toContain('max-height: 400px')
+    expect(wrapper.attributes('data-scroll')).toBeDefined()
+
+    await wrapper.setProps({ scroll: false })
+    expect(wrapper.attributes('data-scroll')).toBeUndefined()
+  })
+
+  it('recalculate 暴露并派发 recalc（含尺寸）', async () => {
+    const wrapper = mount(AutoHeightContainer, { slots: { default: '<div>x</div>' } })
+    const exposed = wrapper.vm as unknown as { recalculate: () => void }
+    exposed.recalculate()
+    expect(wrapper.emitted('recalc')).toHaveLength(1)
+    expect(wrapper.emitted('recalc')?.[0]?.[0]).toMatchObject({ width: expect.any(Number), height: expect.any(Number) })
   })
 })
 
@@ -100,6 +136,23 @@ describe('SectionContainer', () => {
     const wrapper = mount(SectionContainer, { slots: { default: '<div>x</div>' } })
     expect(wrapper.find('.bms-section-container__header').exists()).toBe(false)
   })
+
+  it('描述入标题区，分隔线与内边距档位落到属性', async () => {
+    const wrapper = mount(SectionContainer, {
+      props: { title: '基本信息', description: '分区描述', padding: 'large', divider: true },
+      slots: { default: '<div>x</div>' },
+    })
+    expect(wrapper.find('.bms-section-container__description').text()).toBe('分区描述')
+    expect(wrapper.attributes('data-padding')).toBe('large')
+    expect(wrapper.classes()).toContain('is-divider')
+
+    await wrapper.setProps({ divider: false })
+    expect(wrapper.classes()).not.toContain('is-divider')
+
+    // 仅描述也可构成头部
+    const descOnly = mount(SectionContainer, { props: { description: '仅描述' } })
+    expect(descOnly.find('.bms-section-container__header').exists()).toBe(true)
+  })
 })
 
 describe('AspectRatioContainer', () => {
@@ -121,6 +174,17 @@ describe('AspectRatioContainer', () => {
     vi.stubGlobal('CSS', { supports: () => false })
     const wrapper = mount(AspectRatioContainer, { props: { ratio: 0 }, slots: { default: '<div>x</div>' } })
     expect(wrapper.attributes('style')).toContain('56.25%')
+  })
+
+  it('填充模式作用于内层容器，最大宽度与最小高度写入样式', () => {
+    vi.stubGlobal('CSS', { supports: () => true })
+    const wrapper = mount(AspectRatioContainer, {
+      props: { fit: 'contain', maxWidth: 320, minHeight: '120px' },
+      slots: { default: '<div>x</div>' },
+    })
+    expect(wrapper.find('.bms-aspect-ratio-container__inner').attributes('data-fit')).toBe('contain')
+    expect(wrapper.attributes('style')).toContain('max-width: 320px')
+    expect(wrapper.attributes('style')).toContain('min-height: 120px')
   })
 })
 

@@ -260,6 +260,30 @@ describe('BaseUserDisplay 用户展示能力', () => {
     user.setUser(undefined)
     expect(user.name).toBe('')
   })
+
+  it('岗位与联系方式展示（11_02 追加字段）', () => {
+    const user = new DemoUser()
+    expect(user.postName).toBeUndefined()
+    expect(user.phone).toBeUndefined()
+
+    user.setUser({ id: '1', name: '张三', postName: '部门经理', phone: '138****1234' })
+    expect(user.postName).toBe('部门经理')
+    expect(user.phone).toBe('138****1234')
+
+    user.setUser(undefined)
+    expect(user.postName).toBeUndefined()
+    expect(user.phone).toBeUndefined()
+  })
+
+  it('花名册透传岗位与联系方式（mergeUsers 覆盖）', () => {
+    const user = new DemoUser()
+    user.mergeUsers([{ id: 'u1', name: '李四', postName: '工程师' }])
+    expect(user.findUser('u1')?.postName).toBe('工程师')
+
+    user.mergeUsers([{ id: 'u1', name: '李四', phone: '139****5678' }])
+    expect(user.findUser('u1')?.postName).toBe('工程师')
+    expect(user.findUser('u1')?.phone).toBe('139****5678')
+  })
 })
 
 describe('BaseDynamicRoutes 动态路由能力', () => {

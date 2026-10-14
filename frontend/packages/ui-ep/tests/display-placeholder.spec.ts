@@ -2,7 +2,7 @@
 /** 占位版展示件用例（07_01）：契约套件 + 六件降级 / 就绪行为。 */
 
 import { describePlaceholderDisplayContract, type PlaceholderDisplayContractTarget } from '@bms/core/testing'
-import { mount } from '@vue/test-utils'
+import { flushPromises, mount } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -150,11 +150,16 @@ describe('AuditDiff 审计差异查看', () => {
     expect(placeholder.find('[data-test="placeholder"]').text()).toContain('审计数据未就绪')
 
     const wrapper = mount(AuditDiff, { props: { ready: true, records, total: 1 } })
+    // 记录列表改 `el-table` 承载（模板重构，设计 §4.3）：表体挂载后一个 tick 才渲染
+    await flushPromises()
     expect(wrapper.find('[data-test="record-r1"]').text()).toContain('sys_user')
 
     await wrapper.find('[data-test="record-r1"]').trigger('click')
     expect(wrapper.emitted('select')?.[0]).toEqual([records[0]])
 
+    // 查询为分片键（时间范围）门控：补齐范围后按钮可用并上抛筛选条件
+    await wrapper.findComponent({ name: 'ElDatePicker' }).vm.$emit('update:modelValue', ['2026-10-01', '2026-10-14'])
+    await flushPromises()
     await wrapper.find('[data-test="query"]').trigger('click')
     expect(wrapper.emitted('query')).toHaveLength(1)
 

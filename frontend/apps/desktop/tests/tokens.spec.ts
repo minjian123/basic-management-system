@@ -73,6 +73,37 @@ describe('设计令牌 tokens.scss', () => {
     }
   })
 
+  it('容器与展示反馈族令牌齐备（2026-10-14 登记，前端组件库 11_02）', () => {
+    // 新增语义令牌：亮 / 暗两套各一处 → 至少两处定义
+    for (const token of [
+      '--bms-diff-add-bg',
+      '--bms-diff-del-bg',
+      '--bms-diff-add-color',
+      '--bms-diff-del-color',
+      '--bms-qr-mask-bg',
+      '--bms-file-preview-mask-bg',
+      '--bms-color-mask-bg',
+    ]) {
+      expect(scss.split(token).length - 1).toBeGreaterThanOrEqual(2)
+    }
+  })
+
+  it('既有漂移令牌落地（《设计令牌》已登记、工程侧补齐，2026-10-14）', () => {
+    // 滚动条 5 条 + 反白字色 + 插画尺寸（漂移落地）与全屏背景（覆盖点转正式）
+    for (const token of [
+      '--bms-scrollbar-size',
+      '--bms-scrollbar-radius',
+      '--bms-scrollbar-thumb',
+      '--bms-scrollbar-thumb-hover',
+      '--bms-scrollbar-track',
+      '--bms-color-text-inverse',
+      '--bms-illustration-size',
+      '--bms-fullscreen-bg',
+    ]) {
+      expect(scss).toContain(token)
+    }
+  })
+
   it('打印样式令牌组齐备（打印与屏幕样式解耦）', () => {
     for (const token of [
       '--bms-print-paper-bg',

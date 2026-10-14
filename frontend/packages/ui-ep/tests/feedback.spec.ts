@@ -26,6 +26,16 @@ describe('ErrorPage', () => {
     expect(serverError.find('[data-test="error-retry"]').exists()).toBe(true)
   })
 
+  it('403 显示「联系管理员」并可派发 contact', async () => {
+    const forbidden = mount(ErrorPage, { props: { code: 403 }, global: { stubs } })
+    expect(forbidden.find('[data-test="error-contact"]').exists()).toBe(true)
+    await forbidden.find('[data-test="error-contact"]').trigger('click')
+    expect(forbidden.emitted('contact')).toHaveLength(1)
+
+    const notFound = mount(ErrorPage, { props: { code: 404 }, global: { stubs } })
+    expect(notFound.find('[data-test="error-contact"]').exists()).toBe(false)
+  })
+
   it('自定义文案与事件', async () => {
     const wrapper = mount(ErrorPage, {
       props: { code: 500, title: '维护中', description: '稍后开放' },
@@ -54,6 +64,31 @@ describe('EmptyState', () => {
     const wrapper = mount(EmptyState, { props: { type: 'data', title: '空空如也' } })
     expect(wrapper.find('[data-test="empty-title"]').text()).toBe('空空如也')
   })
+
+  it('引导按钮按权限码显隐并可派发 action', async () => {
+    const denied = mount(EmptyState, {
+      props: { type: 'data', action: { text: '去创建', perm: 'sys:user:create' }, permissions: [] },
+      global: { stubs },
+    })
+    expect(denied.find('[data-test="empty-action"]').exists()).toBe(false)
+
+    const granted = mount(EmptyState, {
+      props: { type: 'data', action: { text: '去创建', perm: 'sys:user:create' }, permissions: ['sys:user:create'] },
+      global: { stubs },
+    })
+    expect(granted.find('[data-test="empty-action"]').text()).toBe('去创建')
+    await granted.find('[data-test="empty-action"]').trigger('click')
+    expect(granted.emitted('action')).toHaveLength(1)
+  })
+
+  it('无权限码的引导按钮默认可见，尺寸档位落到属性', () => {
+    const wrapper = mount(EmptyState, {
+      props: { action: { text: '刷新' }, size: 'compact' },
+      global: { stubs },
+    })
+    expect(wrapper.find('[data-test="empty-action"]').exists()).toBe(true)
+    expect(wrapper.attributes('data-size')).toBe('compact')
+  })
 })
 
 describe('SkeletonBlock', () => {
@@ -80,6 +115,17 @@ describe('LoadingMask', () => {
   it('delay 为 0 立即展示', () => {
     const wrapper = mount(LoadingMask, { props: { loading: true, delay: 0 }, slots: { default: '<div>x</div>' } })
     expect(wrapper.find('[data-test="loading-mask"]').exists()).toBe(true)
+  })
+
+  it('整页遮罩档位落到遮罩层类名', () => {
+    const local = mount(LoadingMask, { props: { loading: true, delay: 0 }, slots: { default: '<div>x</div>' } })
+    expect(local.find('[data-test="loading-mask"]').classes()).not.toContain('is-fullscreen')
+
+    const whole = mount(LoadingMask, {
+      props: { loading: true, delay: 0, fullscreen: true },
+      slots: { default: '<div>x</div>' },
+    })
+    expect(whole.find('[data-test="loading-mask"]').classes()).toContain('is-fullscreen')
   })
 })
 

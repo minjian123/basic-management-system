@@ -70,8 +70,84 @@ describe('FilePreview 文件预览（真实数据通路）', () => {
   })
 })
 
+describe('FilePreview 形态 / 缩略图 / PDF 翻页 / 键盘', () => {
+  const images = [
+    { id: 'f1', name: 'a.png', mimeType: 'image/png', url: 'https://x/a.png' },
+    { id: 'f2', name: 'b.png', mimeType: 'image/png', url: 'https://x/b.png' },
+  ]
+
+  it('三形态落到 data-mode 属性', async () => {
+    for (const mode of ['overlay', 'drawer', 'inline'] as const) {
+      const wrapper = mount(FilePreview, {
+        props: { ready: true, files: images, mode },
+      })
+      await flushPromises()
+      expect(wrapper.attributes('data-mode')).toBe(mode)
+    }
+  })
+
+  it('多图显示缩略图条并可点击切换，thumbs 为假时不渲染', async () => {
+    const wrapper = mount(FilePreview, { props: { ready: true, files: images } })
+    await flushPromises()
+    expect(wrapper.find('[data-test="thumbs"]').exists()).toBe(true)
+    expect(wrapper.findAll('.bms-file-preview__thumb')).toHaveLength(2)
+
+    await wrapper.find('[data-test="thumb-f2"]').trigger('click')
+    expect(wrapper.emitted('update:index')?.[0]).toEqual([1])
+
+    const noThumbs = mount(FilePreview, { props: { ready: true, files: images, thumbs: false } })
+    await flushPromises()
+    expect(noThumbs.find('[data-test="thumbs"]').exists()).toBe(false)
+  })
+
+  it('PDF 翻页受页码下界约束并落到 iframe 片段', async () => {
+    const wrapper = mount(FilePreview, {
+      props: { ready: true, files: [{ id: 'p1', name: 'a.pdf', mimeType: 'application/pdf', url: 'https://x/a.pdf' }] },
+    })
+    await flushPromises()
+    expect(wrapper.find('[data-test="pdf-page"]').text()).toContain('第 1 页')
+    expect(wrapper.find('[data-test="preview-pdf"]').attributes('src')).toBe('https://x/a.pdf#page=1')
+    // 首页时「上一页」禁用
+    expect(wrapper.find('[data-test="pdf-prev"]').attributes('disabled')).toBeDefined()
+
+    await wrapper.find('[data-test="pdf-next"]').trigger('click')
+    expect(wrapper.find('[data-test="pdf-page"]').text()).toContain('第 2 页')
+    expect(wrapper.find('[data-test="preview-pdf"]').attributes('src')).toBe('https://x/a.pdf#page=2')
+
+    await wrapper.find('[data-test="pdf-prev"]').trigger('click')
+    expect(wrapper.find('[data-test="pdf-page"]').text()).toContain('第 1 页')
+    expect(wrapper.emitted('update:index')).toBeUndefined()
+  })
+
+  it('键盘 ← / → 切换文件，Esc 关闭', async () => {
+    const wrapper = mount(FilePreview, {
+      props: { ready: true, files: images, index: 1, visible: true, 'onUpdate:visible': undefined },
+    })
+    await flushPromises()
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft' }))
+    expect(wrapper.emitted('update:index')?.[0]).toEqual([0])
+
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight' }))
+    expect(wrapper.emitted('update:index')).toHaveLength(1)
+
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    expect(wrapper.emitted('update:visible')?.[0]).toEqual([false])
+    expect(wrapper.emitted('close')).toHaveLength(1)
+
+    wrapper.unmount()
+  })
+
+  it('不可见时不响应键盘操作', async () => {
+    const wrapper = mount(FilePreview, { props: { ready: true, files: images, visible: false } })
+    await flushPromises()
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    expect(wrapper.emitted('close')).toBeUndefined()
+    wrapper.unmount()
+  })
+})
+
 describe('AuditDiff 审计差异查看（真实渲染）', () => {
-  it('字段级差异类型感知渲染、脱敏原样展示、变更高亮', () => {
+  it('字段级差异类型感知渲染、脱敏原样展示、变更高亮', async () => {
     const wrapper = mount(AuditDiff, {
       props: {
         ready: true,
@@ -85,6 +161,8 @@ describe('AuditDiff 审计差异查看（真实渲染）', () => {
         ],
       },
     })
+    // 字段差异面板已移入 `el-drawer`（模板重构，设计 §4.3）；抽屉内容挂载后一个 tick 才渲染
+    await flushPromises()
     expect(wrapper.find('[data-test="diff-name"]').attributes('data-change')).toBe('modified')
     expect(wrapper.find('[data-test="diff-name"]').find('[data-test="diff-old"]').text()).toBe('张三')
     expect(wrapper.find('[data-test="diff-amount"]').find('[data-test="diff-new"]').text()).toContain('2,000')
@@ -104,10 +182,24 @@ describe('AuditDiff 审计差异查看（真实渲染）', () => {
         chainVerified: false,
       },
     })
+    await flushPromises()
     expect(wrapper.find('[data-test="prev-hash"]').text()).toContain('abcdef01…')
     expect(wrapper.find('[data-test="chain-status"]').text()).toBe('校验异常')
 
     await wrapper.find('[data-test="locate"]').trigger('click')
     expect(wrapper.emitted('verify')).toHaveLength(1)
+  })
+
+  it('时间范围（分片键）缺失时禁用查询，补齐后可查询', async () => {
+    const wrapper = mount(AuditDiff, { props: { ready: true, records: [] } })
+    await flushPromises()
+    expect(wrapper.find('[data-test="query"]').attributes('disabled')).toBeDefined()
+    expect(wrapper.find('[data-test="range-hint"]').exists()).toBe(true)
+
+    await wrapper.findComponent({ name: 'ElDatePicker' }).vm.$emit('update:modelValue', ['2026-10-01', '2026-10-14'])
+    await flushPromises()
+    expect(wrapper.find('[data-test="query"]').attributes('disabled')).toBeUndefined()
+    await wrapper.find('[data-test="query"]').trigger('click')
+    expect(wrapper.emitted('query')?.[0]?.[0]).toMatchObject({ range: ['2026-10-01', '2026-10-14'] })
   })
 })
