@@ -5,6 +5,7 @@
 手动锁定 → 账号被拒 → 解锁恢复的端到端链路。
 """
 
+from collections.abc import AsyncIterator
 from pathlib import Path
 
 import pytest
@@ -63,7 +64,13 @@ async def _file_app(tmp_path: Path, service_app: FastAPI) -> tuple[AsyncEngine, 
         user_id = user.id
     finally:
         await seed.close()
-    service_app.dependency_overrides[get_uow] = lambda: DbUnitOfWork(factory())
+
+    async def override_uow() -> AsyncIterator[DbUnitOfWork]:
+        # 镜像生产 `get_write_db` 的会话生命周期：响应后关闭会话，避免只读事务连接滞留至 GC（连接池告警）
+        async with factory() as session:
+            yield DbUnitOfWork(session)
+
+    service_app.dependency_overrides[get_uow] = override_uow
     return engine, factory, user_id
 
 

@@ -6,6 +6,7 @@
 """
 
 import json
+from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import cast
@@ -333,7 +334,13 @@ async def _harness(tmp_path: Path, service_app: FastAPI) -> _Harness:
         await conn.run_sync(lambda c: Base.metadata.create_all(c, tables=tables))
     factory = async_sessionmaker(engine, expire_on_commit=False)
     harness = _Harness(engine, factory)
-    service_app.dependency_overrides[get_uow] = lambda: DbUnitOfWork(factory())
+
+    async def override_uow() -> AsyncIterator[DbUnitOfWork]:
+        # 镜像生产 `get_write_db` 的会话生命周期：响应后关闭会话，避免只读事务连接滞留至 GC（连接池告警）
+        async with factory() as session:
+            yield DbUnitOfWork(session)
+
+    service_app.dependency_overrides[get_uow] = override_uow
     service_app.dependency_overrides[get_outbox_store] = lambda: harness.outbox
     service_app.dependency_overrides[get_service_client] = lambda: harness.sessions
     service_app.dependency_overrides[get_idempotency_store] = lambda: harness.idempotency
