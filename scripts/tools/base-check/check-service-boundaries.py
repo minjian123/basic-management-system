@@ -26,6 +26,7 @@
 """
 
 import ast
+import contextlib
 import json
 import os
 import re
@@ -57,6 +58,14 @@ from bms_core.boundary.exceptions import (  # noqa: E402
 )
 from bms_core.boundary.sql import analyze, operation_of  # noqa: E402
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet  # noqa: E402
+
+
+def configure_stdio():
+    """输出统一 UTF-8（Windows 管道 / 重定向下同样稳妥）。"""
+    for stream in (sys.stdout, sys.stderr):
+        with contextlib.suppress(Exception):
+            stream.reconfigure(encoding="utf-8")
+
 
 ROOT = Path(sys.argv[1] if len(sys.argv) > 1 and not sys.argv[1].startswith("-") else ".").resolve()
 
@@ -647,6 +656,7 @@ def main() -> int:
     Returns:
         int: 退出码（0 通过 / 1 失败）。
     """
+    configure_stdio()
     if "--self-test" in sys.argv:
         return _self_test()
     as_json = "--json" in sys.argv

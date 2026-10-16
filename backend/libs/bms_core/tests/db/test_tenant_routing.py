@@ -102,7 +102,8 @@ async def test_session_routes_by_tenant_db_key(tmp_path: Path) -> None:
     app.add_middleware(TenantMiddleware)
 
     def _bind_name(session: AsyncSession) -> str:
-        return str(cast("AsyncEngine", session.bind).url).rsplit("/", 1)[-1]
+        # 路径分隔符归一再取库文件名（Windows 回落 URL 含反斜杠）
+        return str(cast("AsyncEngine", session.bind).url).replace("\\", "/").rsplit("/", 1)[-1]
 
     @app.get("/api/v1/db")
     # bare-collections:allow（FastAPI 端点返回注解）

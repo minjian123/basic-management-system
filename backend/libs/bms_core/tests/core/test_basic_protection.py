@@ -73,7 +73,20 @@ async def test_docs_endpoints_follow_setting(monkeypatch: pytest.MonkeyPatch) ->
 @pytest.mark.kiwi_id(2226)
 def test_env_example_keys_pass_guard() -> None:
     """真实仓库两份模板通过键位门禁；`--self-test` 覆盖反例（自检通过）。"""
-    check = subprocess.run([sys.executable, str(_GUARD), str(_REPO)], capture_output=True, text=True)
+    # 子进程输出统一按 UTF-8 解码（脚本侧已统一 UTF-8 stdio；Windows 默认本地编码曾致解码失败）
+    check = subprocess.run(
+        [sys.executable, str(_GUARD), str(_REPO)],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
     assert check.returncode == 0, check.stdout + check.stderr
-    self_test = subprocess.run([sys.executable, str(_GUARD), "--self-test"], capture_output=True, text=True)
+    self_test = subprocess.run(
+        [sys.executable, str(_GUARD), "--self-test"],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
     assert self_test.returncode == 0, self_test.stdout + self_test.stderr

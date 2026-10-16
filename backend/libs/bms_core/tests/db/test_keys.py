@@ -225,6 +225,7 @@ def test_engine_factory_template_needs_service(tmp_path: Path) -> None:
 def test_engine_factory_empty_template_falls_back_to_url(tmp_path: Path) -> None:
     """空模板回落目标 `url` 单库（基础默认不变），无需服务标识。"""
     factory = _factory(tmp_path, "", templates=False)
-    assert factory.resolve_url("platform").endswith("/platform.db")
-    assert factory.resolve_url("tenant_demo").endswith("/tenant_fallback.db")
-    assert factory.resolve_url("archive").endswith("/bms_archive.db")
+    # 路径分隔符归一再断言（回落 URL 由 Path 拼接，Windows 为反斜杠、Linux 为正斜杠）
+    assert factory.resolve_url("platform").replace("\\", "/").endswith("/platform.db")
+    assert factory.resolve_url("tenant_demo").replace("\\", "/").endswith("/tenant_fallback.db")
+    assert factory.resolve_url("archive").replace("\\", "/").endswith("/bms_archive.db")

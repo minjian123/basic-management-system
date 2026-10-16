@@ -12,6 +12,7 @@
 退出码：0 无问题；1 存在问题；2 仓库 / 模板文件缺失。
 """
 
+import contextlib
 import sys
 from pathlib import Path
 
@@ -37,6 +38,13 @@ _REMOVED_KEYS = ("BMS_SECURITY__ALGORITHM",)
 
 #: 文档端点开关键（04_03；须在 `backend/.env.example` 中出现）。
 _DOCS_KEY = "BMS_APP__DOCS_ENABLED"
+
+
+def configure_stdio():
+    """输出统一 UTF-8（Windows 管道 / 重定向下同样稳妥）。"""
+    for stream in (sys.stdout, sys.stderr):
+        with contextlib.suppress(Exception):
+            stream.reconfigure(encoding="utf-8")
 
 
 def check_env_example_texts(backend_text, deploy_text):
@@ -101,6 +109,7 @@ def main():
     Returns:
         int: 退出码。
     """
+    configure_stdio()
     if "--self-test" in sys.argv:
         return _self_test()
     args = [item for item in sys.argv[1:] if not item.startswith("-")]

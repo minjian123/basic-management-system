@@ -62,6 +62,8 @@ def run_static(root: Path) -> ConcurrentStableDict[str, object]:
         [sys.executable, str(_CHECKER), str(root), "--json"],
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
     )
     if not result.stdout.strip():
         return ConcurrentStableDict(

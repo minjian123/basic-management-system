@@ -16,7 +16,8 @@ def test_resolve_sqlite_dir_relative(tmp_path: Path) -> None:
     """相对路径按基址解析到目标目录（并自动建目录）。"""
     target = tmp_path / "sub"
     resolved = resolve_sqlite_dir(_REL, str(target))
-    assert resolved.endswith("/bms_x.db")
+    # 路径分隔符归一再断言（Windows 为反斜杠、Linux 为正斜杠）
+    assert resolved.replace("\\", "/").endswith("/bms_x.db")
     assert str(target) in resolved
     assert target.is_dir()
 

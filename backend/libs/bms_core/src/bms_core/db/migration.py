@@ -25,12 +25,15 @@
 import asyncio
 import importlib
 import importlib.util
+import os
+from configparser import ConfigParser
 from dataclasses import dataclass
 from pathlib import Path
 from types import SimpleNamespace
 
 from alembic.config import Config
 from alembic.script import ScriptDirectory
+from alembic.util import compat as alembic_compat
 from sqlalchemy import Connection, MetaData, create_engine
 from sqlalchemy.engine import make_url
 from sqlalchemy.exc import DatabaseError, OperationalError, ProgrammingError
@@ -46,6 +49,27 @@ from bms_core.core.paths import resolve_backend_root
 from bms_core.db.keys import PLATFORM_SERVICE_KEY, build_platform_db_key
 from bms_core.models.base import Base
 from bms_core.services.table_registry import chain_tables, known_service_keys
+
+
+# bare-collections:allow（覆盖上游 alembic 钩子同签名实现，参数 / 返回受框架约束为内置容器）
+def _read_config_parser_utf8(file_config: ConfigParser, file_argument: list[str | os.PathLike[str]]) -> list[str]:
+    """以 UTF-8 读取 Alembic 配置文件的替换实现（上游默认按本地编码读）。
+
+    Args:
+        file_config: 目标配置解析器。
+        file_argument: 配置文件路径列表。
+
+    Returns:
+        list[str]: 成功读取的路径列表（与上游同签名同返回）。
+    """
+    return file_config.read(file_argument, encoding="utf-8")
+
+
+# Windows 兼容：上游 `alembic.util.compat.read_config_parser` 以 `encoding="locale"` 读配置
+# （中文 Windows 为 GBK），本仓 `alembic.ini` 一律 UTF-8 且含中文注释，读取直接解码失败；此处
+# 统一改写为 UTF-8 读入，使程序化迁移与直接构造 `Config` 的路径在 Windows / Linux 行为一致。
+alembic_compat.read_config_parser = _read_config_parser_utf8
+
 
 DATASOURCE_PLATFORM = "platform"
 """数据源段：平台服务库。"""

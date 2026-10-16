@@ -54,6 +54,7 @@ def test_resolve_env_override_expands_user(monkeypatch: pytest.MonkeyPatch, tmp_
     anchor.parent.mkdir(parents=True)
     anchor.write_text("", encoding="utf-8")
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path / "home"))  # Windows 的 expanduser 以 USERPROFILE 为准
     monkeypatch.setenv(BACKEND_ROOT_ENV, "~/backend")
     assert resolve_backend_root("alembic.ini", anchor=anchor) == home_backend
 
