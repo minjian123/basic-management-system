@@ -5,7 +5,7 @@
 ## 定位与边界
 
 - 只放**开发期工具链**；产品运维脚本见 `ops/`（后端开发期运维脚本在 `backend/ops/`），部署产物见 `deploy/`。
-- 工具以 Python 标准库或 uv 管理依赖为主，Windows / Linux 均可用；可执行入口统一「**Python 单一实现 + 薄包装**」——逻辑只在同名 `.py`（如 `本地全套.py`），Linux `.sh` / Windows `.bat` 仅转调同目录 `.py`；被拷到目标机执行的脚本（`backup/`、`wol/`、`llamacpp/`）须**包装与 `.py` 成对拷贝**。
+- 工具以 Python 标准库或 uv 管理依赖为主，Windows / Linux 均可用；少数工具的**可选**第三方依赖列在其目录 `requirements.txt`（如 `tools/preflight/` 的 pyyaml，缺失时对应检查降级跳过），按需装到本机 `python3`；可执行入口统一「**Python 单一实现 + 薄包装**」——逻辑只在同名 `.py`（如 `本地全套.py`），Linux `.sh` / Windows `.bat` 仅转调同目录 `.py`；被拷到目标机执行的脚本（`backup/`、`wol/`、`llamacpp/`）须**包装与 `.py` 成对拷贝**。
 - 凭据统一存 `deploy/.env`（不入库），各工具自动读取，不硬编码密码。
 
 ## 工具清单（`tools/` 子目录）
@@ -14,7 +14,7 @@
 | --- | --- |
 | `tools/dev/` | **本机裸跑全套**（`本地全套`：三服务起停 / seed / status / logs / unlock）、宿主端口清理（`清理宿主端口`）与 5002 模块产物服务守护（`确保模块产物服务`）——Python 单一实现，Linux `.sh` / Windows `.bat` 薄包装 |
 | `tools/deps/` | 依赖外置维护（`外置依赖` / `还原依赖` / `重装依赖`：Python 单一实现，Linux `.sh` / Windows `.bat` 瘦包装） |
-| `tools/preflight/` | 推送前本地预检（`check-preflight.py`；`--fast` 秒级只跑 CI 配置 / 静态 / 基座与边界） |
+| `tools/preflight/` | 推送前本地预检（`check-preflight.py`；`--fast` 秒级只跑 CI 配置 / 静态 / 基座与边界；可选依赖 pyyaml 见同目录 `requirements.txt`） |
 | `tools/base-check/` | 基座与边界护栏：`check-base.py`、`check-backend-base.py`、`check-service-boundaries.py`、`check-bare-collections.py`、`check-docs-scope.py`、`check-prototype-review.py`、`check-env-example.py`、`check-links.py`（链接自洽，**本地手工跑**，不挂 CI） |
 | `tools/check-docs/` | 项目文档状态一致性核对（`check-status.py`：需求 / 任务 / 计划三处，同挂 `base-integrity`） |
 | `tools/governance/` | 治理脚本（`collect_metrics.py` 阶段度量 + 用例统计、`review_stage.py` 阶段末复盘清单、`boundary_metrics.py` 越界 / 跨库 / 例外计数） |
