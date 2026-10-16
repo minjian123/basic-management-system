@@ -4,7 +4,7 @@
 
 [文档首页](../../文档首页.md) › 资料 › LM Studio 模型服务使用说明
 
-> **来源与接入（2026-09-09）**：本文自 cw 仓库同名文档导入；所述服务（mjw 的 LM Studio）与本仓库的 mjw-vision MCP 工具链（脚本、`.opencode/opencode.json` 登记、`deploy/.env` 凭据键）已同步就位；cw 仓库若有更新，以 cw 为准并同步回本文。
+> **来源与接入（2026-09-09；2026-10-16 更新）**：本文自 cw 仓库同名文档导入；所述服务（mjw 的 LM Studio）在 bms 侧为纯服务侧说明——原先配套的 mjw-vision 识图 MCP 工具链（脚本、`.opencode/opencode.json` 登记、凭据键）已于 2026-10-16 因「所用模型已普遍多模态」统一退役；cw 仓库若有更新，以 cw 为准并同步回本文。
 
 ## 1. 概述 <a id="intro"></a>
 
@@ -17,7 +17,7 @@ LM Studio 是 Windows/macOS 上的本地大模型运行工具（基于 llama.cpp
 | `hy-mt2-30b-a3b-uncensored-heretic` | **专职翻译**（英⇄中），基于腾讯混元 Hy-MT2-30B-A3B 的社区去审查版 |
 | `qwen3-vl-8b-instruct-abliterated-v2` | **多模态**（识图 / 对话 / OCR） |
 
-> 与 llama.cpp 服务（`llamacpp` 提供商，见《[llamacpp部署使用说明](llamacpp部署使用说明.md)》）互不相干：本文服务常驻 mjw（Windows 11 模型机），llama.cpp 跑在 mjpc（Ubuntu）本机。bms 的 dsh / opencode 目前仅经 mjw-vision MCP 工具使用本服务（见《[mjw识图MCP使用说明](mjw识图MCP使用说明.md)》），未登记独立的 `lmstudio` 提供商（如需 dsh 侧直调，另行在 `~/.dsh/settings.yaml` 登记，本文不展开）。
+> 与 llama.cpp 服务（`llamacpp` 提供商，见《[llamacpp部署使用说明](llamacpp部署使用说明.md)》）互不相干：本文服务常驻 mjw（Windows 11 模型机），llama.cpp 跑在 mjpc（Ubuntu）本机。bms 的 dsh / opencode 未登记独立的 `lmstudio` 提供商（opencode 侧原先经 mjw-vision MCP 使用本服务，该 MCP 已于 2026-10-16 退役；如需直调按第 4 节示例接入，本文不展开）。
 
 ## 2. 访问与鉴权 <a id="access"></a>
 
@@ -47,7 +47,7 @@ token 值不落公开文档，仅引用位置：
 - **定位**：多模态（识图 / 对话 / OCR），同样为社区去审查版。
 - **实测质量（2026-09-07）**：图形/颜色识别准确，中文描述流利；**小字 OCR 有偏差**（测试图中底部小字「测试图片 v1」被读成「©2023 简单设计」）——大幅清晰图形可靠，小字/模糊文字识别会打折扣。
 - **翻译能力**：可应急翻译，但质量明显不如 hy-mt2（逐词对应、润色不足），**翻译任务请用 hy-mt2**。
-- **经 opencode 使用**：本服务已封装为 opencode 的 mjw-vision MCP 工具（`describe_image` / `read_text`，脚本在 opencode 侧），注册配置、协议与使用见《[mjw识图MCP使用说明](mjw识图MCP使用说明.md)》。
+- **历史接入（已退役）**：本服务曾封装为 opencode 的 mjw-vision MCP 识图工具（`describe_image` / `read_text`，脚本在 opencode 侧）；2026-10-16 起因所用模型已普遍具备多模态能力，该 MCP、其脚本、登记与配套说明一并移除——图片 / 截图直接交多模态模型查看即可。
 
 ## 4. 调用示例 <a id="usage"></a>
 
