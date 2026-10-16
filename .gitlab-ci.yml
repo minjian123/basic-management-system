@@ -176,7 +176,11 @@ ci-base-build:
           - deploy/ci/Dockerfile.backend
           - deploy/ci/Dockerfile.frontend
           - deploy/ci/build-base.sh
+          - deploy/ci/build_base.py
   script:
+    # build-base.sh 为「Python 单一实现 + 薄包装」的 POSIX sh 包装（逻辑在 build_base.py）；
+    # 本镜像（Alpine）默认无 python3，先装（走清华 Alpine 镜像加速）。
+    - sed -i 's/dl-cdn.alpinelinux.org/mirrors.tuna.tsinghua.edu.cn/' /etc/apk/repositories && apk add --no-cache python3
     - sh deploy/ci/build-base.sh
 
 # ---- 门禁冒烟：所有流水线无条件必跑 ----

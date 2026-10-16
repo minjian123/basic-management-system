@@ -1,4 +1,4 @@
-"""本机四服务形态下**带调试器**启动单个服务（开发联调；配合 `scripts/tools/dev/本地全套.sh`）。
+"""本机三服务形态下**带调试器**启动单个服务（开发联调；配合 `scripts/tools/dev/本地全套.py`）。
 
 用法：
 
@@ -15,9 +15,9 @@ uv run python -m ops.dev_run --service bms_identity --dry-run    # 只看解析�
   本脚本在**导入服务前**把 host / 端口 / Redis / 密钥按本机全套口径注入 `os.environ`，
   再 `runpy.run_module` 进服务入口 ⇒ 断点、变量、调用栈、日志与 `python -m bms_<服务>` 完全一致
   （IDE 侧把本模块作为 `module` 启动即可打断点，见 `.vscode/launch.json` 的
-  「后端：单服务（debugpy · 本机四服务）」）。
+  「后端：单服务（debugpy · 本机三服务）」）。
 - **冲突**：目标地址已被占用（通常是脚本起的同名服务）时**直接报错**并提示
-  `bash scripts/tools/dev/本地全套.sh stop <服务>`——本脚本不做任何清理动作。
+  `python3 scripts/tools/dev/本地全套.py stop <服务>`——本脚本不做任何清理动作。
 - **边界**：只注入环境变量并进服务入口，不改配置、不写库、不动脚本纳管的其它服务；
   停止即随前台进程结束（Ctrl+C / IDE 停止调试）。
 """
@@ -38,7 +38,7 @@ HOST_BY_SERVICE: ConcurrentStableDict[str, str] = ConcurrentStableDict(
         "identity": "127.0.0.5",
     }
 )
-"""服务 → loopback 别名（与 `scripts/tools/dev/本地全套.sh`、服务基址模板 `http://{service}:8000` 同形）。
+"""服务 → loopback 别名（与 `scripts/tools/dev/本地全套.py`、服务基址模板 `http://{service}:8000` 同形）。
 
 `org` 已随组织主数据归 mdm 产品服务（2026-10-07）退出平台服务清单，本机全套不再纳管。
 """
@@ -47,13 +47,13 @@ KNOWN_SERVICES = "tenant / platform / identity"
 """本机全套包含的服务（其余服务需显式 `--host`）。"""
 
 DEFAULT_PORT = "8000"
-"""缺省端口（四服务同一端口，靠别名区分）。"""
+"""缺省端口（三服务同一端口，靠别名区分）。"""
 
 DEFAULT_REDIS = "redis://192.168.0.107:6379/5"
 """缺省 Redis（本机无 Redis，指向开发机 DB5 隔离；经 `BMS_REDIS__URL` / `--redis` 覆盖）。"""
 
 KEYS_FILE = Path(__file__).resolve().parents[1] / ".dev-keys.local"
-"""开发密钥文件（由 `本地全套.sh up` 生成；`export K='V'` 形态）。"""
+"""开发密钥文件（由 `本地全套.py up` 生成；`export K='V'` 形态）。"""
 
 
 def load_keys(path: Path) -> int:
@@ -117,7 +117,7 @@ def main(argv: ConcurrentStableList[str]) -> int:
     Returns:
         进程退出码；正常启动时不会返回（服务前台常驻）。
     """
-    parser = argparse.ArgumentParser(description="本机四服务形态下起单个服务（可断点调试）")
+    parser = argparse.ArgumentParser(description="本机三服务形态下起单个服务（可断点调试）")
     parser.add_argument("--service", required=True, help=f"服务名（{KNOWN_SERVICES}；可带 bms_ 前缀）")
     parser.add_argument("--host", default="", help="覆盖绑定地址（缺省按服务别名）")
     parser.add_argument("--port", default=DEFAULT_PORT, help=f"绑定端口（缺省 {DEFAULT_PORT}）")
@@ -142,7 +142,7 @@ def main(argv: ConcurrentStableList[str]) -> int:
     if keys == 0:
         print(
             f"[dev_run] 提示：未找到开发密钥 {KEYS_FILE}（本地登录 / 东西向调用会失败）——"
-            f"先跑 `bash scripts/tools/dev/本地全套.sh up` 生成",
+            f"先跑 `python3 scripts/tools/dev/本地全套.py up` 生成",
             file=sys.stderr,
         )
     if args.dry_run:
@@ -156,7 +156,7 @@ def main(argv: ConcurrentStableList[str]) -> int:
     if in_use(host, int(args.port)):
         print(
             f"[dev_run] {host}:{args.port} 已被占用——先停脚本纳管的同名服务："
-            f"`bash scripts/tools/dev/本地全套.sh stop {service}`",
+            f"`python3 scripts/tools/dev/本地全套.py stop {service}`",
             file=sys.stderr,
         )
         return 1

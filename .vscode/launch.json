@@ -5,10 +5,13 @@
   //  - 工作区为多根（bizs.code-workspace），本文件作用于「BMS 基座/平台」根，调试下拉中显示为
   //    「BMS 基座/平台: <名称>」；「前置任务」为 tasks.json 中的同名任务。
   //  - 前端：js-debug 内置（Node / Chromium）开箱可用；浏览器**首选系统 Google Chrome**
-  //    （`google-chrome`，本机 154.x，已实测支持 --user-data-dir 与远程调试端口，可断点浏览器内代码）；
-  //    备用改为系统 Chromium（`chromium`，本机 /snap/bin/chromium）——把上面的 runtimeExecutable 换掉即可。
+  //    （Linux `/usr/bin/google-chrome`；Windows 见各配置的 `windows` 平台覆盖
+  //    `C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe`），已实测支持 --user-data-dir
+  //    与远程调试端口，可断点浏览器内代码；备用改为系统 Chromium（`chromium`）——把上面的
+  //    runtimeExecutable 换掉即可。Node 类配置在 Windows 走 `pnpm.cmd`（平台覆盖）。
   //  - 后端：`debugpy`（ms-python.debugpy 已随工作区推荐安装）；服务读 `backend/config.toml`
-  //    的 `[server] host/port`（缺省 0.0.0.0:8000）。
+  //    的 `[server] host/port`（缺省 0.0.0.0:8000）；解释器为 `backend/.venv`（Linux `bin/python`、
+  //    Windows `Scripts\\python.exe`，平台覆盖）。
   //  - 运行时模块：宿主启动时按 `frontend/apps/desktop/public/modules.json` 加载**发布归档**，
   //    入口形如 `http://localhost:5002/<模块名>/<版本>/remoteEntry.js`。故本地要看完整宿主页面（含模块）
   //    须先「发布:模块产物」（tasks.json）——由 `serve-module-releases.mjs` 在 5002 托管 `releases/**`；
@@ -19,9 +22,10 @@
   //    `VITE_API_PROXY`（缺省 `http://localhost:8088` 网关），二进**并不直连**（前端经网关按 `service_key`
   //    绕行）。本机无 8088 网关时，须在 `frontend/apps/desktop/.env.local` 把代理指向可达网关（本地覆盖
   //    文件不入库），否则前端起来后 `/api` 全 502。后端单服务监听 8000。
-  //  - 端口自愈：dev 任务在 command 开头**内联**调用 `scripts/tools/dev/清理宿主端口.sh` 清理 5173
-  //    （宿主 vite 为 `strictPort: true`；非本项目占用则中止）；后端 8000 由 `dev:清理后端端口（8000）`
-  //    经 `preLaunchTask` 清理 —— 重开「全套」不必先手动停上一次调试会话。
+  //  - 端口自愈：dev 类后台任务经 `dependsOn` 前置任务 `dev:清理宿主端口（5173）` 调
+  //    `python3 scripts/tools/dev/清理宿主端口.py`（宿主 vite 为 `strictPort: true`；占用者为非本项目
+  //    进程则中止，不误杀）；后端 8000 由 `dev:清理后端端口（8000）` 经 `preLaunchTask` 清理 ——
+  //    重开「全套」不必先手动停上一次调试会话。
   "version": "0.2.0",
   "configurations": [
     // ── 前端 ────────────────────────────────────────────────────────────────
@@ -31,6 +35,7 @@
       "type": "node",
       "request": "launch",
       "runtimeExecutable": "pnpm",
+      "windows": { "runtimeExecutable": "pnpm.cmd" },
       "runtimeArgs": ["dev"],
       "cwd": "${workspaceFolder}/frontend/apps/desktop",
       "console": "integratedTerminal",
@@ -48,6 +53,7 @@
       "type": "chrome",
       "request": "launch",
       "runtimeExecutable": "/usr/bin/google-chrome",
+      "windows": { "runtimeExecutable": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" },
       "url": "http://localhost:5173/",
       "webRoot": "${workspaceFolder}/frontend/apps/desktop/src",
       "preLaunchTask": "dev:宿主（5173）",
@@ -59,6 +65,7 @@
       "type": "chrome",
       "request": "launch",
       "runtimeExecutable": "/usr/bin/google-chrome",
+      "windows": { "runtimeExecutable": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" },
       "url": "http://localhost:5173/",
       "webRoot": "${workspaceFolder}/frontend/apps/desktop/src",
       "preLaunchTask": "dev:宿主 + 模块产物（5002 + 5173）",
@@ -70,6 +77,7 @@
       "type": "chrome",
       "request": "launch",
       "runtimeExecutable": "/usr/bin/google-chrome",
+      "windows": { "runtimeExecutable": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" },
       "url": "http://localhost:5173/${input:checkPage}",
       "webRoot": "${workspaceFolder}/frontend/apps/desktop/src",
       "preLaunchTask": "dev:宿主（5173）",
@@ -81,6 +89,7 @@
       "type": "node",
       "request": "launch",
       "runtimeExecutable": "pnpm",
+      "windows": { "runtimeExecutable": "pnpm.cmd" },
       "runtimeArgs": ["exec", "vitest", "run", "${relativeFile}"],
       "cwd": "${workspaceFolder}/frontend/apps/desktop",
       "console": "integratedTerminal",
@@ -93,6 +102,7 @@
       "type": "node",
       "request": "launch",
       "runtimeExecutable": "pnpm",
+      "windows": { "runtimeExecutable": "pnpm.cmd" },
       "runtimeArgs": ["dev"],
       "cwd": "${workspaceFolder}/frontend/modules/demo",
       "console": "integratedTerminal",
@@ -104,6 +114,7 @@
       "type": "node",
       "request": "launch",
       "runtimeExecutable": "pnpm",
+      "windows": { "runtimeExecutable": "pnpm.cmd" },
       "runtimeArgs": ["dev"],
       "cwd": "${workspaceFolder}/frontend/modules/sample",
       "console": "integratedTerminal",
@@ -118,6 +129,7 @@
       "module": "${input:backendService}",
       "cwd": "${workspaceFolder}/backend",
       "python": "${workspaceFolder}/backend/.venv/bin/python",
+      "windows": { "python": "${workspaceFolder}/backend/.venv/Scripts/python.exe" },
       "preLaunchTask": "dev:清理后端端口（8000）",
       "console": "integratedTerminal",
       "justMyCode": false,
@@ -132,6 +144,7 @@
       "module": "bms_identity",
       "cwd": "${workspaceFolder}/backend",
       "python": "${workspaceFolder}/backend/.venv/bin/python",
+      "windows": { "python": "${workspaceFolder}/backend/.venv/Scripts/python.exe" },
       "preLaunchTask": "dev:清理后端端口（8000）",
       "console": "integratedTerminal",
       "justMyCode": false,
@@ -146,36 +159,38 @@
       "args": ["${relativeFile}", "-q"],
       "cwd": "${workspaceFolder}/backend",
       "python": "${workspaceFolder}/backend/.venv/bin/python",
+      "windows": { "python": "${workspaceFolder}/backend/.venv/Scripts/python.exe" },
       "console": "integratedTerminal",
       "justMyCode": false
     },
     {
-      // 「全套」的后端成员（本地开发主形态）：由 `scripts/tools/dev/本地全套.sh up` 起**四个**服务
-      // （tenant/org/platform/identity；同一 8000 + loopback 别名，与服务基址模板 http://{service}:8000 同形，
-      // 并加载 `backend/.dev-keys.local` 的开发密钥）。服务是 nohup 后台进程——本终端只承载会话，
-      // 关掉不影响服务；停服务请用任务 `dev:后端本地全套·停（四服务）`。
-      "name": "后端：本地全套（四服务 · 脚本）",
+      // 「全套」的后端成员（本地开发主形态）：由 `python3 scripts/tools/dev/本地全套.py up` 起**三个**服务
+      // （tenant/platform/identity；同一 8000 + loopback 别名，与服务基址模板 http://{service}:8000 同形，
+      // 并加载 `backend/.dev-keys.local` 的开发密钥；`org` 已归 mdm 产品服务）。服务是后台进程——本终端
+      // 只承载会话，关掉不影响服务；停服务请用任务 `dev:后端本地全套·停（三服务）`。
+      "name": "后端：本地全套（三服务 · 脚本）",
       "type": "node-terminal",
       "request": "launch",
-      "command": "bash \"${workspaceFolder}/scripts/tools/dev/本地全套.sh\" up && exec bash -i",
+      "command": "python3 \"${workspaceFolder}/scripts/tools/dev/本地全套.py\" up",
       "cwd": "${workspaceFolder}"
     },
     {
-      // **后端断点**用本项（「后端：本地全套（四服务 · 脚本）」是脚本起的后台进程，不带调试器）。
-      // 步骤：① 脚本起的四个服务里先腾出要调试的那个：
-      //   `bash scripts/tools/dev/本地全套.sh stop identity`（或任务「dev:后端本地全套·停（四服务）」后
-      //   用任务 up 只起其余——`本地全套.sh up --services "tenant org platform"`）；
-      // ② 启动本项（选服务）→ 由 `ops/dev_run.py` 注入 loopback 别名（127.0.0.2~5）+ 同一 8000 端口
+      // **后端断点**用本项（「后端：本地全套（三服务 · 脚本）」是脚本起的后台进程，不带调试器）。
+      // 步骤：① 脚本起的三个服务里先腾出要调试的那个：
+      //   `python3 scripts/tools/dev/本地全套.py stop identity`（或任务「dev:后端本地全套·停（三服务）」后
+      //   用任务 up 只起其余——`本地全套.py up --services "tenant platform"`）；
+      // ② 启动本项（选服务）→ 由 `ops/dev_run.py` 注入 loopback 别名（127.0.0.2/4/5）+ 同一 8000 端口
       //   + `backend/.dev-keys.local` 开发密钥 + Redis，再 runpy 进服务入口 ⇒ 断点 / 变量 / 调用栈与
       //   `python -m bms_<服务>` 一致（`justMyCode: false`：可步入框架与基座代码）；
-      // ③ 调试会话停止即服务结束，之后 `本地全套.sh up` 一键补回。
-      "name": "后端：单服务（debugpy · 本机四服务）",
+      // ③ 调试会话停止即服务结束，之后 `本地全套.py up` 一键补回。
+      "name": "后端：单服务（debugpy · 本机三服务）",
       "type": "debugpy",
       "request": "launch",
       "module": "ops.dev_run",
       "args": ["--service", "${input:backendService}"],
       "cwd": "${workspaceFolder}/backend",
       "python": "${workspaceFolder}/backend/.venv/bin/python",
+      "windows": { "python": "${workspaceFolder}/backend/.venv/Scripts/python.exe" },
       "console": "integratedTerminal",
       "justMyCode": false,
       "env": { "PYTHONUNBUFFERED": "1" }
@@ -184,16 +199,16 @@
   "compounds": [
     {
       // 旧口径（单后端服务）：后端**只起 identity 一个**，且不加载 `.dev-keys.local`、不绑 loopback 别名
-      // → 本机四服务形态下不足以登录（服务间 http://org:8000 亦不通）。本地开发请用下面的「本地四服务」项；
+      // → 本机三服务形态下不足以登录（服务间 http://platform:8000 亦不通）。本地开发请用下面的「本地三服务」项；
       // 本项保留用于「只调 identity 单服务」的场景。
       "name": "全套：后端单服务 + 宿主 + Chromium",
       "configurations": ["后端：单服务（debugpy · bms_identity）", "前端：宿主 + 模块 + Chromium（浏览器断点）"]
     },
     {
-      // 一键：四服务（脚本，后台进程）+ 宿主 + 模块产物 + Chromium。**前端断点可直接用**（Chromium 调试会话）；
-      // **后端断点**请改用「后端：单服务（debugpy · 本机四服务）」单项（先 `本地全套.sh stop <服务>` 腾位）。
-      "name": "全套（本地四服务 + 宿主 + Chromium）",
-      "configurations": ["后端：本地全套（四服务 · 脚本）", "前端：宿主 + 模块 + Chromium（浏览器断点）"]
+      // 一键：三服务（脚本，后台进程）+ 宿主 + 模块产物 + Chromium。**前端断点可直接用**（Chromium 调试会话）；
+      // **后端断点**请改用「后端：单服务（debugpy · 本机三服务）」单项（先 `本地全套.py stop <服务>` 腾位）。
+      "name": "全套（本地三服务 + 宿主 + Chromium）",
+      "configurations": ["后端：本地全套（三服务 · 脚本）", "前端：宿主 + 模块 + Chromium（浏览器断点）"]
     }
   ],
   "inputs": [
@@ -233,7 +248,6 @@
         "bms_identity",
         "bms_platform",
         "bms_tenant",
-        "bms_org",
         "bms_file",
         "bms_notification",
         "bms_search",

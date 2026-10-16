@@ -1,7 +1,7 @@
 # 说明：本目录存放双系统引导的辅助脚本（开发机 mjpc：Windows 11 + Ubuntu）
 #
 # 目录内容
-#   安装-重启到Windows快捷方式.sh   在 Ubuntu 侧安装「重启到 Windows」桌面快捷方式
+#   安装-重启到Windows快捷方式.py   在 Ubuntu 侧安装「重启到 Windows」桌面快捷方式（同名 .sh 为薄包装）
 #   生成-Windows侧一键重启.ps1      在 Windows 侧（管理员）生成「重启到 Ubuntu」快捷方式与计划任务
 #   回退-双系统引导.ps1             在 Windows 侧（管理员）回退 rEFInd 引导改动
 #   校验脚本编码.ps1                改动脚本后必须运行：校验 .ps1 的 BOM 与 5.1 语法、.sh 的换行符
