@@ -97,13 +97,13 @@ def _add_timestamp(_logger: WrappedLogger, _name: str, event_dict: EventDict) ->
     return event_dict
 
 
-def _is_sensitive_key(key: str, keys: ConcurrentStableSet[str], suffixes: ConcurrentStableList[str]) -> bool:
+def _is_sensitive_key(key: str, keys: ConcurrentStableSet[str], suffixes: tuple[str, ...]) -> bool:
     """判断键名是否命中敏感名单（忽略大小写，含后缀形态）。
 
     Args:
         key: 日志键名。
-        keys: 生效键名名单（内置 ∪ 配置追加）。
-        suffixes: 生效键名后缀名单（内置 ∪ 配置追加）。
+        keys: 生效键名名单（内置 ∪ 配置追加；`__contains__` 仅取读锁，热路径重入安全）。
+        suffixes: 生效键名后缀名单（**构建时快照**的不可变元组，热路径零锁）。
 
     Returns:
         bool: 命中为 True。
@@ -112,7 +112,7 @@ def _is_sensitive_key(key: str, keys: ConcurrentStableSet[str], suffixes: Concur
     return lowered in keys or any(lowered.endswith(suffix) for suffix in suffixes)
 
 
-def _redact_value(value: Any, depth: int, keys: ConcurrentStableSet[str], suffixes: ConcurrentStableList[str]) -> Any:
+def _redact_value(value: Any, depth: int, keys: ConcurrentStableSet[str], suffixes: tuple[str, ...]) -> Any:
     """递归脱敏值中的连接串密码与嵌套敏感键（限深）。"""
     if isinstance(value, str):
         return _CONN_PASSWORD_RE.sub(_replace_conn_password, value)
@@ -142,6 +142,10 @@ def _build_redact_processor(
 ) -> Callable[[WrappedLogger, str, EventDict], EventDict]:
     """构建日志脱敏处理器（生效名单闭包捕获；内置名单恒生效、配置只可追加）。
 
+    后缀名单在**构建时快照**为不可变元组——格式化热路径不得持有并发集合的共享锁：
+    持锁线程内的同步回调（如 GC 终结器嵌套打日志）再入同一集合锁会自锁死
+    （2026-10-16 偶发挂起缺陷；处理器链快照同理见 `_build_processors`）。
+
     Args:
         keys: 生效敏感键名名单。
         suffixes: 生效敏感键名后缀名单。
@@ -150,6 +154,7 @@ def _build_redact_processor(
         Callable[[WrappedLogger, str, EventDict], EventDict]: 脱敏处理器（`Processor` 兼容）；
         返回类型精确到 `EventDict`，避免调用方按 structlog 26 的宽联合返回类型（含 `str` / `tuple`）索引失败。
     """
+    suffixes_snapshot = tuple(suffixes)
 
     def _redact(_logger: WrappedLogger, _name: str, event_dict: EventDict) -> EventDict:
         """敏感键名值替换掩码；其余值扫描连接串密码（含嵌套结构）。
@@ -163,10 +168,10 @@ def _build_redact_processor(
             EventDict: 脱敏后的事件字典。
         """
         for key in list(event_dict):
-            if _is_sensitive_key(key, keys, suffixes):
+            if _is_sensitive_key(key, keys, suffixes_snapshot):
                 event_dict[key] = _MASK
             else:
-                event_dict[key] = _redact_value(event_dict[key], depth=0, keys=keys, suffixes=suffixes)
+                event_dict[key] = _redact_value(event_dict[key], depth=0, keys=keys, suffixes=suffixes_snapshot)
         return event_dict
 
     return _redact
@@ -256,30 +261,32 @@ class StdoutLogger(BaseLogger):
 
 def _build_processors(
     redact_keys: ConcurrentStableSet[str], redact_suffixes: ConcurrentStableList[str]
-) -> ConcurrentStableList[Processor]:
+) -> tuple[Processor, ...]:
     """组装处理器链（业务日志与第三方 stdlib 日志共用）。
 
     首部 `merge_contextvars` 汇聚 `structlog.contextvars` 的全局绑定（如服务身份
     `service` / `service_version`），使业务日志与第三方 stdlib 日志一并携带。
+
+    返回**不可变元组快照**：处理器链会被挂到 `ProcessorFormatter.foreign_pre_chain`
+    参与每条第三方 stdlib 日志的格式化——热路径不得持有并发集合的共享锁
+    （持锁线程内的同步回调再入同一集合锁会自锁死；2026-10-16 偶发挂起缺陷）。
 
     Args:
         redact_keys: 生效敏感键名名单（内置 ∪ 配置追加）。
         redact_suffixes: 生效敏感键名后缀名单（内置 ∪ 配置追加）。
 
     Returns:
-        ConcurrentStableList[Processor]: 处理器链。
+        tuple[Processor, ...]: 处理器链（不可变快照）。
     """
-    return ConcurrentStableList(
-        [
-            structlog.contextvars.merge_contextvars,
-            _add_context_fields,
-            structlog.stdlib.add_log_level,
-            structlog.stdlib.add_logger_name,
-            _add_timestamp,
-            structlog.processors.StackInfoRenderer(),
-            structlog.processors.format_exc_info,
-            _build_redact_processor(redact_keys, redact_suffixes),
-        ]
+    return (
+        structlog.contextvars.merge_contextvars,
+        _add_context_fields,
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.add_logger_name,
+        _add_timestamp,
+        structlog.processors.StackInfoRenderer(),
+        structlog.processors.format_exc_info,
+        _build_redact_processor(redact_keys, redact_suffixes),
     )
 
 
@@ -313,6 +320,7 @@ def configure_logging(settings: Settings) -> None:
     )
 
     formatter = structlog.stdlib.ProcessorFormatter(
+        # foreign_pre_chain 挂不可变快照（`_build_processors` 返回元组）：格式化热路径不触碰并发集合锁
         foreign_pre_chain=processors,
         processors=[structlog.stdlib.ProcessorFormatter.remove_processors_meta, _build_renderer(settings)],
     )

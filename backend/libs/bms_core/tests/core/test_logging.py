@@ -2,9 +2,11 @@
 
 import json
 import logging
+import threading
 from typing import Literal
 
 import pytest
+import structlog
 
 from bms_core.core.base import BaseObject
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
@@ -241,7 +243,7 @@ def test_redaction_depth_limit_keeps_value() -> None:
             payload,
             _MAX_REDACT_DEPTH,
             ConcurrentStableSet(_SENSITIVE_KEYS),
-            ConcurrentStableList(_SENSITIVE_SUFFIXES),
+            _SENSITIVE_SUFFIXES,
         )
         is payload
     )
@@ -272,3 +274,65 @@ def test_stdlib_logger_rendered_and_access_disabled(capsys: pytest.CaptureFixtur
     assert record["level"] == "warning"
     assert record["logger"] == "sqlalchemy.engine"
     assert logging.getLogger("uvicorn.access").disabled is True
+
+
+@pytest.mark.kiwi_id(63)
+def test_foreign_pre_chain_is_immutable_snapshot() -> None:
+    """日志格式化热路径零锁：`foreign_pre_chain` 必须为不可变快照（挂起缺陷回归）。
+
+    原实现把并发集合（处理器链）直接挂到 `ProcessorFormatter.foreign_pre_chain`——
+    每条第三方 stdlib 日志格式化都要取该集合的全局锁；持锁线程内的同步回调（如 GC
+    终结器嵌套打日志）再入同一把锁即自锁死（2026-10-16 偶发挂起）。快照化后不再触碰。
+    """
+    configure_logging(_settings("json"))
+    handler = next(h for h in logging.getLogger().handlers if getattr(h, "_bms_structlog", False))
+    formatter = handler.formatter
+    assert isinstance(formatter, structlog.stdlib.ProcessorFormatter)
+    # structlog 的 `foreign_pre_chain` 元素类型不可解析（pyright partially unknown），经 `__getattribute__` 规避
+    chain = object.__getattribute__(formatter, "foreign_pre_chain")
+    assert type(chain) is tuple and chain  # 不可变快照且非空
+
+
+@pytest.mark.kiwi_id(63)
+def test_redact_suffix_snapshot_detached_from_source() -> None:
+    """脱敏后缀名单在构建时快照：构建后追加源集合不影响生效名单（热路径不读取源集合）。"""
+    from bms_core.core.logging import (  # pyright: ignore[reportPrivateUsage]
+        _SENSITIVE_KEYS,  # pyright: ignore[reportPrivateUsage]
+        _build_redact_processor,  # pyright: ignore[reportPrivateUsage]
+    )
+
+    suffixes = ConcurrentStableList(["__secret"])
+    redact = _build_redact_processor(ConcurrentStableSet(_SENSITIVE_KEYS), suffixes)
+    suffixes.add("__late")  # 构建后追加：快照语义下不参与脱敏
+    event = {"event": "login", "field__secret": "A", "field__late": "B"}
+    redacted = redact(None, "bms", event)
+    assert redacted["field__secret"] == "***"
+    assert redacted["field__late"] == "B"
+
+
+@pytest.mark.kiwi_id(63)
+def test_redact_processor_does_not_acquire_source_collection_lock() -> None:
+    """脱敏处理器与源集合锁解耦：源集合持写锁期间处理器仍即时完成（同线程再入挂起回归）。
+
+    模拟「同线程在源集合锁内触发 GC → 终结器嵌套打日志 → 再入该锁」场景：处理器若仍
+    读取源集合（原实现每次格式化都遍历 `ConcurrentStableList`、取全局写锁）将被阻塞。
+    """
+    from bms_core.core.logging import (  # pyright: ignore[reportPrivateUsage]
+        _SENSITIVE_KEYS,  # pyright: ignore[reportPrivateUsage]
+        _build_redact_processor,  # pyright: ignore[reportPrivateUsage]
+    )
+
+    suffixes = ConcurrentStableList(["__secret"])
+    redact = _build_redact_processor(ConcurrentStableSet(_SENSITIVE_KEYS), suffixes)
+    done = threading.Event()
+
+    def run_redact() -> None:
+        redacted = redact(None, "bms", {"event": "login", "field__secret": "v"})
+        assert redacted["field__secret"] == "***"
+        done.set()
+
+    thread = threading.Thread(target=run_redact, daemon=True)
+    with suffixes._global.write():  # pyright: ignore[reportPrivateUsage]  # 源集合进入「持写锁」状态
+        thread.start()
+        assert done.wait(5)
+    thread.join(5)
