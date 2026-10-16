@@ -23,6 +23,7 @@
     python3 scripts/tools/base-check/check-backend-base.py [bms 仓库根]
 """
 
+import contextlib
 import itertools
 import json
 import os
@@ -42,6 +43,14 @@ from bms_core.core.concurrent import (  # noqa: E402
     ConcurrentStableSet,
 )
 from bms_core.core.serialization import normalize_collections  # noqa: E402
+
+
+def configure_stdio():
+    """输出统一 UTF-8（Windows 管道 / 重定向下同样稳妥）。"""
+    for stream in (sys.stdout, sys.stderr):
+        with contextlib.suppress(Exception):
+            stream.reconfigure(encoding="utf-8")
+
 
 ROOT = os.path.abspath(sys.argv[1] if len(sys.argv) > 1 else ".")
 MANIFEST = os.path.join(ROOT, "bms文档/后端基类清单.md")
@@ -272,7 +281,7 @@ def scan_direct_base_object() -> ConcurrentStableList[tuple[str, str]]:
                 for cls, bases in CLASS_RE.findall(text):
                     parents = [normalize_parent(base) for base in split_bases(bases)]
                     if "BaseObject" in parents:
-                        found.add((os.path.relpath(path, ROOT), cls))
+                        found.add((os.path.relpath(path, ROOT).replace(os.sep, "/"), cls))
     return found
 
 
@@ -635,6 +644,8 @@ def self_test() -> int:
                 [sys.executable, os.path.abspath(__file__), tmp],
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
+                errors="replace",
             )
             failed = result.returncode != 0
             passed = failed == expect_fail
@@ -758,6 +769,7 @@ def update_direct_baseline() -> int:
 
 
 def main() -> int:
+    configure_stdio()
     if "--self-test" in sys.argv:
         return self_test()
     if "--update-baseline" in sys.argv:

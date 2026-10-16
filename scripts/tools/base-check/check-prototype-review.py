@@ -29,6 +29,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import re
 import subprocess
 import sys
@@ -41,6 +42,14 @@ if str(_SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(_SRC_ROOT))
 
 from bms_core.core.concurrent import ConcurrentStableList  # noqa: E402
+
+
+def configure_stdio():
+    """输出统一 UTF-8（Windows 管道 / 重定向下同样稳妥）。"""
+    for stream in (sys.stdout, sys.stderr):
+        with contextlib.suppress(Exception):
+            stream.reconfigure(encoding="utf-8")
+
 
 DOCS_DIR = "bms文档"
 PROTOTYPE_DIR = f"{DOCS_DIR}/设计/原型设计"
@@ -80,6 +89,8 @@ def git_changed(root: Path, base: str) -> ConcurrentStableList[str] | None:
         ["git", "-C", str(root), "-c", "core.quotepath=false", "diff", "--name-only", f"{base}...HEAD"],
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         check=False,
     )
     if proc.returncode != 0:
@@ -424,6 +435,7 @@ def main() -> int:
     Returns:
         退出码。
     """
+    configure_stdio()
     argv = list(sys.argv[1:])
     if "--self-test" in argv:
         return self_test()

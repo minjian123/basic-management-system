@@ -24,6 +24,7 @@
     --no-cov     跳过覆盖率门禁（`--no-cov` 需已装 pytest-cov 时用 `-p no:cov`）
 """
 
+import contextlib
 import re
 import shutil
 import subprocess
@@ -51,6 +52,13 @@ _ROOTS = (
 )
 
 
+def configure_stdio():
+    """输出统一 UTF-8（Windows 管道 / 重定向下同样稳妥）。"""
+    for stream in (sys.stdout, sys.stderr):
+        with contextlib.suppress(Exception):
+            stream.reconfigure(encoding="utf-8")
+
+
 def _run(label: str, cmd: ConcurrentStableList[str], cwd: Path, failures: ConcurrentStableList[str]) -> bool:
     """执行一条命令并打印结果。
 
@@ -64,7 +72,7 @@ def _run(label: str, cmd: ConcurrentStableList[str], cwd: Path, failures: Concur
         bool: 是否成功。
     """
     print(f"\n[preflight] {label}\n  $ {' '.join(cmd)}")
-    result = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True)
+    result = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, encoding="utf-8", errors="replace")
     tail = "\n".join((result.stdout + result.stderr).splitlines()[-12:])
     if result.returncode != 0:
         print(tail)
@@ -153,7 +161,12 @@ def _pytest_flags_from_ci(root: Path, backend: Path, failures: ConcurrentStableL
                 collecting = False
     flags = sorted(set(flags))
     help_out = subprocess.run(
-        ["uv", "run", "python", "-m", "pytest", "--help"], cwd=backend, capture_output=True, text=True
+        ["uv", "run", "python", "-m", "pytest", "--help"],
+        cwd=backend,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
     ).stdout
     unknown = [flag for flag in flags if flag not in help_out]
     if unknown:
@@ -231,6 +244,7 @@ def main() -> int:
     Returns:
         int: 退出码（0 全通过 / 1 有失败项）。
     """
+    configure_stdio()
     args = [a for a in sys.argv[1:] if not a.startswith("-")]
     root = Path(args[0] if args else ".").resolve()
     backend = root / "backend"
