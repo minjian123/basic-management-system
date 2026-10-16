@@ -26,7 +26,7 @@ uv sync --frozen                      # job 内现装，读仓库树 backend/uv.
 
 - 基础镜像 `ci-backend:py314` 内置 uv（`Dockerfile.backend`，uv.lock 哈希驱动 rebuild）
 - job 内 `uv sync --frozen`：store/缓存走 runner `/cache/uv` 持久卷；命中即秒级 link
-- hardware：与开发机 uv 版本一致（见《[uv 部署使用说明（开发机）](../../开发机/uv部署使用说明.md)》），锁单一权威 `backend/uv.lock`
+- hardware：与开发机 uv 版本一致（见《[uv 部署使用说明（开发机）](../../开发机/linux/uv部署使用说明.md)》），锁单一权威 `backend/uv.lock`
 
 ## 3. CI 现装口径 <a id="ci"></a>
 
@@ -49,5 +49,5 @@ uv sync --frozen
 ## 5. 关联文档 <a id="related"></a>
 
 - 《[pnpm 部署使用说明](pnpm部署使用说明.md)》：前端依赖（CI 现装 + store 缓存卷）
-- 《[uv 部署使用说明（开发机）](../../开发机/uv部署使用说明.md)》：本地侧 uv（.venv 外置 + 外置/还原/重装脚本）
+- 《[uv 部署使用说明（开发机）](../../开发机/linux/uv部署使用说明.md)》：本地侧 uv（.venv 外置 + 外置/还原/重装脚本）
 - 《[开发服务器部署使用说明总览](开发服务器部署使用说明总览.md)》：CI 构建口径与基础镜像总体

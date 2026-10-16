@@ -2,7 +2,7 @@
 
 > mjpc 开发机 Command Code GOAT 用量看板（goat-gauge）部署与验证实录
 
-[文档首页](../../文档首页.md) › 资料 › 开发机 › goat-gauge 部署使用说明　|　[同级：开发机部署使用说明总览 →](开发机部署使用说明总览.md)　[opencode 部署使用说明 →](opencode部署使用说明.md)　[Steamcommunity_302部署使用说明 →](Steamcommunity_302部署使用说明.md)
+[文档首页](../../../文档首页.md) › 资料 › 开发机 › linux › goat-gauge 部署使用说明　|　[同级：开发机部署使用说明总览 →](开发机部署使用说明总览.md)　[opencode 部署使用说明 →](opencode部署使用说明.md)　[Steamcommunity_302部署使用说明 →](Steamcommunity_302部署使用说明.md)
 
 ## 1. 目的与适用范围 <a id="purpose"></a>
 
@@ -300,10 +300,10 @@ ss -lptn 'sport = :18927 or sport = :9333'              # 服务与 CDP 端口
 
 - 《[opencode部署使用说明](opencode部署使用说明.md)》：opencode 桌面端 / CLI 部署；本文看板监控的正是其使用的 `commandcode` 账号用量
 - 《[开发机部署使用说明总览](开发机部署使用说明总览.md)》：mjpc 开发机设施总览与桌面快捷方式约定（本文档在其中的定位）
-- 《[llamacpp部署使用说明](../AI/llamacpp部署使用说明.md)》：本机本地模型推理（opencode 的 `llamacpp` provider 后端）
-- 《[Ubuntu安装部署使用说明](../工具/Ubuntu安装部署使用说明.md)》：系统安装与基础配置
-- 《[文档生成规范](../../规范/文档生成规范.md)》：本文档的组织、格式与图形约定
-- 《[本地资源](../../用户文档/本地资源.md)》：mjpc 相关机器信息取值（已 gitignore）
+- 《[llamacpp部署使用说明](../../AI/llamacpp部署使用说明.md)》：本机本地模型推理（opencode 的 `llamacpp` provider 后端）
+- 《[Ubuntu安装部署使用说明](../../工具/Ubuntu安装部署使用说明.md)》：系统安装与基础配置
+- 《[文档生成规范](../../../规范/文档生成规范.md)》：本文档的组织、格式与图形约定
+- 《[本地资源](../../../用户文档/本地资源.md)》：mjpc 相关机器信息取值（已 gitignore）
 - 上游项目：`https://github.com/langjinusi985360/goat-gauge`（goat-gauge 仓库与 README）
 
-> 依《[文档生成规范](../../规范/文档生成规范.md)》编写 · 记录 mjpc 上 goat-gauge（Command Code GOAT 用量看板）的部署、使用与排障 · 口径为 Command Code 账号级，不区分客户端
+> 依《[文档生成规范](../../../规范/文档生成规范.md)》编写 · 记录 mjpc 上 goat-gauge（Command Code GOAT 用量看板）的部署、使用与排障 · 口径为 Command Code 账号级，不区分客户端

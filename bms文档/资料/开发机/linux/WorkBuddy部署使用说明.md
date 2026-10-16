@@ -2,15 +2,15 @@
 
 > mjpc 开发机 WorkBuddy（腾讯 AI Agent 桌面应用，deb 包 5.5.6 / Electron 37.10.3）部署、进程模型、数据目录、后台常驻成因与「关窗即退出」改造实录 · 2026-09-14
 
-[文档首页](../../文档首页.md) › 资料 › 开发机 › WorkBuddy 部署使用说明　|　[同级：开发机部署使用说明总览](开发机部署使用说明总览.md)
+[文档首页](../../../文档首页.md) › 资料 › 开发机 › linux › WorkBuddy 部署使用说明　|　[同级：开发机部署使用说明总览](开发机部署使用说明总览.md)
 
 ## 1. 目的与适用范围 <a id="purpose"></a>
 
 记录开发机 **mjpc**（Ubuntu 26.04.1 LTS，GNOME，Wayland，NVIDIA RTX 4090）上 **WorkBuddy** 的部署与使用：安装来源与版本、用户数据目录、配置文件、**运行时的进程模型与本地服务端口**、以及本机做的一处**「关窗即退出」改造**（WorkBuddy 在 Windows/Linux 上默认「关窗进托盘、后台常驻」，本机改掉该行为；成因、补丁步骤、验证与升级后重打见[第 7 节](#closequit)）。
 
-本文档与《[开发机部署使用说明总览](开发机部署使用说明总览.md)》「开发设施清单」节配套；WorkBuddy 与 [CodeBuddy](CodeBuddy部署使用说明.md) 同出腾讯、同由 `www.codebuddy.ai` 分发，但**是两个独立应用**（各自的安装目录与数据目录互不相干，见[第 2 节](#env)），与 [opencode](opencode部署使用说明.md)、[deepseek-harness](../AI/deepseek_harness部署使用说明.md) 同属本机 AI 工具，各自独立部署。
+本文档与《[开发机部署使用说明总览](开发机部署使用说明总览.md)》「开发设施清单」节配套；WorkBuddy 与 [CodeBuddy](CodeBuddy部署使用说明.md) 同出腾讯、同由 `www.codebuddy.ai` 分发，但**是两个独立应用**（各自的安装目录与数据目录互不相干，见[第 2 节](#env)），与 [opencode](opencode部署使用说明.md)、[deepseek-harness](../../AI/deepseek_harness部署使用说明.md) 同属本机 AI 工具，各自独立部署。
 
-> **取值说明**：本机路径统一用 `~` 表示（开发机开发用户为 `minjian`）；账号、令牌等凭据不在本文记录，以本机登录态与《[本地资源](../../用户文档/本地资源.md)》（已 gitignore）为准。
+> **取值说明**：本机路径统一用 `~` 表示（开发机开发用户为 `minjian`）；账号、令牌等凭据不在本文记录，以本机登录态与《[本地资源](../../../用户文档/本地资源.md)》（已 gitignore）为准。
 
 ## 2. 环境概览 <a id="env"></a>
 
@@ -235,7 +235,7 @@ PY
 
 > 补丁点在 asar 内 **`/main/index.js`**（本机 5.5.6 实测）；不同版本文件布局可能变化，脚本以**字符串匹配**定位而非固定偏移，升级后可原样重跑（若断言「目标出现 N 次，中止」失败，说明该版本改动或去除了这段逻辑，需重新定位后再改）。
 
-**一键重打脚本**：上述步骤已封装为 [`bms/scripts/tools/workbuddy/patch_close_to_quit.py`](../../../scripts/tools/workbuddy/patch_close_to_quit.py)（同目录入口 `重打关窗即退出.sh`，供终端/桌面调用）。升级（`.deb` 覆盖安装或自动更新）后 app.asar 被替换，一条命令即可重打：
+**一键重打脚本**：上述步骤已封装为 [`bms/scripts/tools/workbuddy/patch_close_to_quit.py`](../../../../scripts/tools/workbuddy/patch_close_to_quit.py)（同目录入口 `重打关窗即退出.sh`，供终端/桌面调用）。升级（`.deb` 覆盖安装或自动更新）后 app.asar 被替换，一条命令即可重打：
 
 ```bash
 # 先完全退出 WorkBuddy，再执行（非 root 会自动 sudo 提权）
@@ -337,4 +337,4 @@ WorkBuddy 空闲时常驻内存数百 MB、显存约 300–500 MB（主进程 + 
 - □ 一键重打脚本（`scripts/tools/workbuddy/patch_close_to_quit.py`）已就位，`status` 能正确区分「已打补丁 / 官方原始」，升级后可用其重打
 - □ 本机事实均经核实（2026-09-14），未写入账号/令牌等凭据
 
-> 依《[文档生成规范](../../规范/文档生成规范.md)》编写 · 与《[开发机部署使用说明总览](开发机部署使用说明总览.md)》《[CodeBuddy部署使用说明](CodeBuddy部署使用说明.md)》《[命名规范](../../规范/命名规范.md)》配套 · 记录 2026-09-14 mjpc 本机核实与「关窗即退出」改造
+> 依《[文档生成规范](../../../规范/文档生成规范.md)》编写 · 与《[开发机部署使用说明总览](开发机部署使用说明总览.md)》《[CodeBuddy部署使用说明](CodeBuddy部署使用说明.md)》《[命名规范](../../../规范/命名规范.md)》配套 · 记录 2026-09-14 mjpc 本机核实与「关窗即退出」改造

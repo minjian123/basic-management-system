@@ -2,13 +2,13 @@
 
 > mjpc 开发机 git 安装、全局配置与仓库使用实录 · 2026-08-31
 
-[文档首页](../../文档首页.md) › 资料 › 开发机 › git 部署使用说明　|　[同级参照：开发机部署使用说明总览 →](开发机部署使用说明总览.md)
+[文档首页](../../../文档首页.md) › 资料 › 开发机 › linux › git 部署使用说明　|　[同级参照：开发机部署使用说明总览 →](开发机部署使用说明总览.md)
 
 ## 1. 目的与适用范围 <a id="purpose"></a>
 
-记录开发机 **mjpc**（Ubuntu 26.04.1 LTS）上 git 的安装方式、全局配置、本项目仓库（内网 GitLab）接入与日常操作，作为重装系统或迁移后的配置参照。它是《[开发机部署使用说明总览](开发机部署使用说明总览.md)》「开发设施清单 · 开发工具链 git」节一行的详细说明；GitLab 服务器侧的部署见《[GitLab部署使用说明](../开发服务器/linux/GitLab部署使用说明.md)》。
+记录开发机 **mjpc**（Ubuntu 26.04.1 LTS）上 git 的安装方式、全局配置、本项目仓库（内网 GitLab）接入与日常操作，作为重装系统或迁移后的配置参照。它是《[开发机部署使用说明总览](开发机部署使用说明总览.md)》「开发设施清单 · 开发工具链 git」节一行的详细说明；GitLab 服务器侧的部署见《[GitLab部署使用说明](../../开发服务器/linux/GitLab部署使用说明.md)》。
 
-**取值说明**：`<mjbk-IP>`、`<访问令牌>` 等占位符与真实凭据的具体值见《[本地资源](../../用户文档/本地资源.md)》与 mjbk 本机 `deploy/.env`，不在文档中记录。git 协作规则（分支模型、提交信息、MR 流程）见《[Git协作规范](../../规范/Git协作规范.md)》，本文档只描述本机 git 的部署与使用。
+**取值说明**：`<mjbk-IP>`、`<访问令牌>` 等占位符与真实凭据的具体值见《[本地资源](../../../用户文档/本地资源.md)》与 mjbk 本机 `deploy/.env`，不在文档中记录。git 协作规则（分支模型、提交信息、MR 流程）见《[Git协作规范](../../../规范/Git协作规范.md)》，本文档只描述本机 git 的部署与使用。
 
 ## 2. 环境与安装 <a id="install"></a>
 
@@ -56,7 +56,7 @@ git config --global --list
 git config --list --show-origin   # 带来源文件查看，确认是全局还是仓库级
 ```
 
-提交信息遵循《[Git协作规范](../../规范/Git协作规范.md)》「提交信息」节格式：`type(scope): 中文描述`，如 `docs(开发机): 新增 git 部署使用说明`。
+提交信息遵循《[Git协作规范](../../../规范/Git协作规范.md)》「提交信息」节格式：`type(scope): 中文描述`，如 `docs(开发机): 新增 git 部署使用说明`。
 
 ## 4. 本项目仓库接入（内网 GitLab） <a id="bms-repo"></a>
 
@@ -66,7 +66,7 @@ git config --list --show-origin   # 带来源文件查看，确认是全局还�
 | --- | --- | --- |
 | `origin`（唯一） | `http://<mjbk-IP>:8080/bms/bms.git` | 开发、MR、CI、Registry（日常推送目标） |
 
-- 地址为内网 HTTP，`8080` 端口即 mjbk 上 GitLab 容器 `bms-gitlab` 的 HTTP 监听口（见《[GitLab部署使用说明](../开发服务器/linux/GitLab部署使用说明.md)》「Compose 配置」节）。
+- 地址为内网 HTTP，`8080` 端口即 mjbk 上 GitLab 容器 `bms-gitlab` 的 HTTP 监听口（见《[GitLab部署使用说明](../../开发服务器/linux/GitLab部署使用说明.md)》「Compose 配置」节）。
 - 当前 URL 中**内嵌了访问凭据**（`http://root:<访问令牌>@<mjbk-IP>:8080/...`，实测如此），clone/push 无需再输入密码。令牌属敏感信息，仅存于本机，不入文档、不入提交。
 - 分支 `main` 跟踪 `origin/main`；当前为单人直推 main 模式（《Git协作规范》「目的与适用范围」节「当前阶段简化执行」），feature 分支 → MR 门禁流程暂缓。
 
@@ -81,7 +81,7 @@ cd bms
 git status -sb          # 应显示 main...origin/main
 ```
 
-仓库迁移与 GitHub 归档的来龙去脉见《[GitLab迁移使用说明](../工具/GitLab迁移使用说明.md)》。
+仓库迁移与 GitHub 归档的来龙去脉见《[GitLab迁移使用说明](../../工具/GitLab迁移使用说明.md)》。
 
 ## 5. 日常操作 <a id="usage"></a>
 
@@ -185,7 +185,7 @@ python3 scripts/tools/wol/wake_mjbk.py
 git pull origin main
 ```
 
-> 若 ping 通但 8080 不通：GitLab 容器没起来，SSH 登录 mjbk 后 `docker ps` 查 `bms-gitlab` 状态，参照《[GitLab部署使用说明](../开发服务器/linux/GitLab部署使用说明.md)》「部署步骤」节重启。
+> 若 ping 通但 8080 不通：GitLab 容器没起来，SSH 登录 mjbk 后 `docker ps` 查 `bms-gitlab` 状态，参照《[GitLab部署使用说明](../../开发服务器/linux/GitLab部署使用说明.md)》「部署步骤」节重启。
 
 ### 8.2 GitHub 仓库 clone/pull 超时或报错 <a id="mirror-down"></a>
 
@@ -216,7 +216,7 @@ git config --global user.email "minjian_1@qq.com"
 
 ### 8.5 误把令牌写进提交或文档 <a id="leak"></a>
 
-内嵌凭据的地址只存在于本机 `.git/config` 与 `~/.git-credentials`（均已 gitignore 或非跟踪文件），正常提交不会入库。若发现含令牌的 URL 出现在 diff 中：立即换新令牌（旧令牌作废），再用 `git filter-repo` 或 `git rebase -i` 改写历史（见《[GitLab迁移使用说明](../工具/GitLab迁移使用说明.md)》相关章节）。
+内嵌凭据的地址只存在于本机 `.git/config` 与 `~/.git-credentials`（均已 gitignore 或非跟踪文件），正常提交不会入库。若发现含令牌的 URL 出现在 diff 中：立即换新令牌（旧令牌作废），再用 `git filter-repo` 或 `git rebase -i` 改写历史（见《[GitLab迁移使用说明](../../工具/GitLab迁移使用说明.md)》相关章节）。
 
 ### 8.6 pull 冲突 <a id="conflict"></a>
 
@@ -236,11 +236,11 @@ git pull               # 省略分支名，按当前分支的跟踪配置自动�
 ## 9. 关联文档 <a id="related"></a>
 
 - 《[开发机部署使用说明总览](开发机部署使用说明总览.md)》：mjpc 开发机设施总览（本文档所属目录的总纲）
-- 《[Git协作规范](../../规范/Git协作规范.md)》：分支模型、提交信息、MR 流程与版本管理（git 的使用规则）
-- 《[GitLab部署使用说明](../开发服务器/linux/GitLab部署使用说明.md)》：mjbk 上 GitLab CE + runner 的服务器侧部署
-- 《[GitLab迁移使用说明](../工具/GitLab迁移使用说明.md)》：仓库迁移至 GitLab、GitHub 归档同步与日常流程
-- 《[开发服务器电源控制使用说明](../开发服务器/linux/开发服务器电源控制使用说明.md)》：mjbk 远程唤醒（WOL）与远程关机脚本用法（8.1 节排障的前置步骤）
-- 《[文档生成规范](../../规范/文档生成规范.md)》：本文档遵循的格式规范
-- 《[本地资源](../../用户文档/本地资源.md)》：`<mjbk-IP>` 等取值（已 gitignore，不入库）
+- 《[Git协作规范](../../../规范/Git协作规范.md)》：分支模型、提交信息、MR 流程与版本管理（git 的使用规则）
+- 《[GitLab部署使用说明](../../开发服务器/linux/GitLab部署使用说明.md)》：mjbk 上 GitLab CE + runner 的服务器侧部署
+- 《[GitLab迁移使用说明](../../工具/GitLab迁移使用说明.md)》：仓库迁移至 GitLab、GitHub 归档同步与日常流程
+- 《[开发服务器电源控制使用说明](../../开发服务器/linux/开发服务器电源控制使用说明.md)》：mjbk 远程唤醒（WOL）与远程关机脚本用法（8.1 节排障的前置步骤）
+- 《[文档生成规范](../../../规范/文档生成规范.md)》：本文档遵循的格式规范
+- 《[本地资源](../../../用户文档/本地资源.md)》：`<mjbk-IP>` 等取值（已 gitignore，不入库）
 
-> 依《[文档生成规范](../../规范/文档生成规范.md)》编写 · 记录 2026-08-31 mjpc 本机核实结果（git 2.53.0、`~/.gitconfig`、本项目远端配置）
+> 依《[文档生成规范](../../../规范/文档生成规范.md)》编写 · 记录 2026-08-31 mjpc 本机核实结果（git 2.53.0、`~/.gitconfig`、本项目远端配置）

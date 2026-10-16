@@ -2,7 +2,7 @@
 
 > mjpc 开发机 opencode（命令行 CLI + 桌面端 desktop）部署与验证实录 · 初版 2026-08-29，现行版本 v2（2026-09-29 完成 v1 → v2 迁移；2026-10-02 升到 2.0.21、CommandCode 改走 Responses API；2026-10-13 启用 Web / 手机访问、桌面端升到 2.0.27）
 
-[文档首页](../../文档首页.md) › 资料 › 开发机 › opencode 部署使用说明　|　[同级参照：中文输入法部署使用说明 →](中文输入法部署使用说明.md)　[Steamcommunity_302部署使用说明 →](Steamcommunity_302部署使用说明.md)　[防火墙部署使用说明 →](防火墙部署使用说明.md)
+[文档首页](../../../文档首页.md) › 资料 › 开发机 › linux › opencode 部署使用说明　|　[同级参照：中文输入法部署使用说明 →](中文输入法部署使用说明.md)　[Steamcommunity_302部署使用说明 →](Steamcommunity_302部署使用说明.md)　[防火墙部署使用说明 →](防火墙部署使用说明.md)
 
 ## 1. 目的与适用范围 <a id="purpose"></a>
 
@@ -232,8 +232,8 @@ grep -E "main window visible|background service ready" "$D/main.log"
 
 ```text
 ~/.config/opencode/opencode.jsonc              # 全局：permissions + providers（zhipu / siliconflow / commandcode）
-~/develop/bizs/.opencode/opencode.json         # bizs 工作区：lmstudio + llamacpp + MCP mjw-vision
-~/develop/cws/.opencode/opencode.json          # cws 工作区：同上（两文件内容一致）
+~/develop/bizs/.opencode/opencode.json         # bizs 工作区：lmstudio + llamacpp（MCP mjw-vision 已于 2026-10-16 退役）
+~/develop/cws/.opencode/opencode.json          # cws 工作区：lmstudio + llamacpp + MCP mjw-vision（本次退役仅改 bizs，cws 同步与否由 cw 侧决定）
 ~/develop/bms_other/.opencode/opencode.json    # bms_other：lmstudio + MCP multimodal-local
 ~/develop/cfsx/opencode.json                   # cfsx：shell（Windows Git bash）+ instructions
 ~/story/jt/opencode.json                       # story/jt：instructions + commands
@@ -375,7 +375,7 @@ opencode service set hostname 0.0.0.0
 opencode pair --url http://<mjpc-IP>:49374
 ```
 
-手机浏览器打开该链接（或直接访问 `http://<mjpc-IP>:49374`），输入命令行打印的用户名 / 密码即可进入；`<mjpc-IP>` 取值见《[本地资源](../../用户文档/本地资源.md)》。
+手机浏览器打开该链接（或直接访问 `http://<mjpc-IP>:49374`），输入命令行打印的用户名 / 密码即可进入；`<mjpc-IP>` 取值见《[本地资源](../../../用户文档/本地资源.md)》。
 
 > **防火墙**：开发机启用 ufw（入站默认拒绝）时须先放行端口，否则手机连不上：
 >
@@ -409,7 +409,7 @@ ssh -L 49374:127.0.0.1:49374 <用户>@<mjpc-IP>
 
 **服务器密码与配置项**
 
-服务密码默认由 opencode 随机生成，存于 `~/.config/opencode/service.json`；本机实际取值见《[本地资源](../../用户文档/本地资源.md)》（不写入本文档）。改密码：
+服务密码默认由 opencode 随机生成，存于 `~/.config/opencode/service.json`；本机实际取值见《[本地资源](../../../用户文档/本地资源.md)》（不写入本文档）。改密码：
 
 ```bash
 opencode service set password '<新密码>'
@@ -560,10 +560,10 @@ grep NoNewPrivs /proc/$(pgrep -f 'opencode-cli serve --service' | head -1)/statu
 - 《[中文输入法部署使用说明](中文输入法部署使用说明.md)》：mjpc 的 Fcitx5 + kimpanel 输入法部署，其「候选窗跟随」与本文的「窗口渲染」是两条不同的线，勿混用
 - 《[Steamcommunity_302部署使用说明](Steamcommunity_302部署使用说明.md)》：mjpc 上的 Steam 社区加速反代部署与运维
 - 《[防火墙部署使用说明](防火墙部署使用说明.md)》：mjpc 开发机 ufw 防火墙规则
-- 《[llamacpp部署使用说明](../AI/llamacpp部署使用说明.md)》：本机 llama.cpp 本地推理（CLI 的 `llamacpp` provider 后端）
+- 《[llamacpp部署使用说明](../../AI/llamacpp部署使用说明.md)》：本机 llama.cpp 本地推理（CLI 的 `llamacpp` provider 后端）
 - 《[goat-gauge部署使用说明](goat-gauge部署使用说明.md)》：Command Code 账号用量看板，其兜底 API Key 从 opencode 的凭据库读取（见[第 7 节](#auth)）
 - 《[开发机部署使用说明总览](开发机部署使用说明总览.md)》：mjpc 开发机设施总览（opencode 在其中的定位）
-- 《[文档生成规范](../../规范/文档生成规范.md)》：本文档的组织、格式与图形约定
-- 《[本地资源](../../用户文档/本地资源.md)》：mjpc 相关机器信息取值（已 gitignore）
+- 《[文档生成规范](../../../规范/文档生成规范.md)》：本文档的组织、格式与图形约定
+- 《[本地资源](../../../用户文档/本地资源.md)》：mjpc 相关机器信息取值（已 gitignore）
 
-> 依《[文档生成规范](../../规范/文档生成规范.md)》编写 · 记录 mjpc 上 opencode CLI、桌面端、配置与凭据的部署、使用与排障。
+> 依《[文档生成规范](../../../规范/文档生成规范.md)》编写 · 记录 mjpc 上 opencode CLI、桌面端、配置与凭据的部署、使用与排障。

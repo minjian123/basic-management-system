@@ -52,17 +52,17 @@ BMS 作为平台支撑独立业务产品按"平台扩展"复用（产品仓库�
 
 ## 快速启动
 
-> 前置：Python 3.14（uv 管理）、Node 22（nvm 管理）。依赖**不进仓库树**：前端 node_modules 与后端 .venv 均外置到本地依赖仓（口径见《[开发机部署使用说明总览](bms文档/资料/开发机/开发机部署使用说明总览.md)》）。
+> 前置：Python 3.14（uv 管理）、Node 22（nvm 管理）。依赖**不进仓库树**：前端 node_modules 与后端 .venv 均外置到本地依赖仓（口径见《[开发机部署使用说明总览](bms文档/资料/开发机/linux/开发机部署使用说明总览.md)》）。
 
 **推荐：本机裸跑全套（后端三服务 + PC 宿主；无需 Docker / 无需开发服务器）**
 
 ```bash
 # 后端三服务（identity / tenant / platform，绑 127.0.0.2 / 4 / 5 别名，统一端口 8000；org 已退役归 mdm 产品）
-bash scripts/tools/dev/本地全套.sh up        # 启动（幂等 + 有界起停；自愈 hosts 别名与开发密钥）
-bash scripts/tools/dev/本地全套.sh seed      # 建演示租户与管理员账号（口令见《本地资源》，不写入本文件）
-bash scripts/tools/dev/本地全套.sh status    # 进程与 /healthz、/readyz 一览
-bash scripts/tools/dev/本地全套.sh logs      # 打印日志尾部（追看用 tail -f）
-bash scripts/tools/dev/本地全套.sh down      # 停止（或 stop <服务> 单独腾位给调试）
+python3 scripts/tools/dev/本地全套.py up        # 启动（幂等 + 有界起停；自愈 hosts 别名与开发密钥）
+python3 scripts/tools/dev/本地全套.py seed      # 建演示租户与管理员账号（口令见《本地资源》，不写入本文件）
+python3 scripts/tools/dev/本地全套.py status    # 进程与 /healthz、/readyz 一览
+python3 scripts/tools/dev/本地全套.py logs      # 打印日志尾部（追看用 tail -f）
+python3 scripts/tools/dev/本地全套.py down      # 停止（或 stop <服务> 单独腾位给调试）
 # 验证：GET http://127.0.0.1:8000/healthz 返回 {"status":"ok"}；/readyz 为就绪检查
 
 # PC 前端宿主（端口 5173）
@@ -194,7 +194,7 @@ bms/
 | 测试分层与缺陷管理 | [规范/测试规范](bms文档/规范/测试规范.md) |
 | 原型审查 | [规范/原型审查规范](bms文档/规范/原型审查规范.md) |
 | 开发服务器环境部署 | [资料/开发服务器/开发服务器部署使用说明总览](bms文档/资料/开发服务器/linux/开发服务器部署使用说明总览.md) |
-| 开发机环境与 AI 工具（CodeBuddy / WorkBuddy / opencode 等） | [资料/开发机/开发机部署使用说明总览](bms文档/资料/开发机/开发机部署使用说明总览.md) |
+| 开发机环境与 AI 工具（CodeBuddy / WorkBuddy / opencode 等） | [资料/开发机/linux/开发机部署使用说明总览](bms文档/资料/开发机/linux/开发机部署使用说明总览.md) |
 | 技术栈知识档案（选型背景） | [资料/知识档案/技术栈知识档案总览](bms文档/资料/知识档案/技术栈知识档案总览.md) |
 | 架构设计入口 | [设计/架构设计/01_总览](bms文档/设计/架构设计/01_架构设计_总览.md) |
 | 概要设计入口 | [设计/概要设计/01_总览](bms文档/设计/概要设计/01_概要设计_总览.md) |

@@ -22,7 +22,7 @@ pnpm --filter @bms/desktop budget         # 首屏体积预算门禁
 pnpm --filter @bms/desktop guard:shared   # MF 共享依赖白名单校验
 ```
 
-本地联调后端：`bash scripts/tools/dev/本地全套.sh up`（后端四服务）→ `bash scripts/tools/dev/本地全套.sh env`（写 `.env.local` 的本地服务映射）→ 起宿主。
+本地联调后端：`python3 scripts/tools/dev/本地全套.py up`（后端三服务）→ `python3 scripts/tools/dev/本地全套.py env`（写 `.env.local` 的本地服务映射）→ 起宿主。
 
 ## 目录结构
 
@@ -66,4 +66,4 @@ frontend/apps/desktop/
 - 《[前端开发规范](../../../bms文档/规范/前端开发规范.md)》·《[前端基类清单](../../../bms文档/前端基类清单.md)》
 - 《[组件设计总览](../../../bms文档/设计/组件设计/01_组件设计_总览.md)》·《[原型设计总览](../../../bms文档/设计/原型设计/01_原型设计_总览.html)》
 - 《[布局设计 · 主框架](../../../bms文档/设计/布局设计/04_布局设计_主框架.html)》·《[布局设计 · 导航](../../../bms文档/设计/布局设计/05_布局设计_导航.html)》·《[布局设计 · 设计令牌](../../../bms文档/设计/布局设计/02_布局设计_设计令牌.html)》
-- 《[开发机部署使用说明总览](../../../bms文档/资料/开发机/开发机部署使用说明总览.md)》
+- 《[开发机部署使用说明总览](../../../bms文档/资料/开发机/linux/开发机部署使用说明总览.md)》

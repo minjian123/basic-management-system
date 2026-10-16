@@ -2,15 +2,15 @@
 
 > mjpc 开发机 CodeBuddy（腾讯云代码助手 IDE，codebuddy-cn 4.12.0 / 应用 1.106.1）部署、配置、扩展管理、文档预览、权限与排障实录 · 2026-09-12 部署 / 2026-09-13 免确认排障 / 2026-10-03 运行与调试链路排障 / 2026-10-04 事实同步 / 2026-10-04 本机裸跑「全套」与后端断点口径 / 2026-10-10 Playwright MCP 登记与浏览器真机验证口径
 
-[文档首页](../../文档首页.md) › 资料 › 开发机 › CodeBuddy 部署使用说明　|　[同级：开发机部署使用说明总览](开发机部署使用说明总览.md)　[google-chrome部署使用说明 →](google-chrome部署使用说明.md)　[playwright部署使用说明 →](playwright部署使用说明.md)　[opencode部署使用说明 →](opencode部署使用说明.md)
+[文档首页](../../../文档首页.md) › 资料 › 开发机 › linux › CodeBuddy 部署使用说明　|　[同级：开发机部署使用说明总览](开发机部署使用说明总览.md)　[google-chrome部署使用说明 →](google-chrome部署使用说明.md)　[playwright部署使用说明 →](playwright部署使用说明.md)　[opencode部署使用说明 →](opencode部署使用说明.md)
 
 ## 1. 目的与适用范围 <a id="purpose"></a>
 
 记录开发机 **mjpc**（Ubuntu 26.04.1 LTS，GNOME，Wayland，NVIDIA RTX 4090）上 **CodeBuddy** 的部署与使用：安装来源与版本、四个用户数据目录的作用、首次配置项（登录/语言/插件/技能/MCP）、**权限与免确认设置**（自动运行命令、文件自动修改、安全检查类别、黑名单、安全删除；含**免确认失效的排查：安全类别的真正存储与生效链路**，见[6.3](#permission-security)）、**扩展管理（扩展目录 / open-vsx 市场 / 应用自带 CLI）与 HTML 文档预览**（内置 HTML 预览、Live Preview、Simple Browser；bms 文档资产与 md mermaid 的预览办法）、**运行与调试启动项**（`.vscode/launch.json` / `tasks.json` 的两处落点与「VS Code 不读子目录 `.vscode`」口径、启动项与任务清单、**端口自愈 / 就绪正则 / Python 解释器与 pyright 口径 / Chrome 绝对路径**排障，见[第 8 节](#debug)）、**本机裸跑后端「全套」**（脚本起停 / 账号种子 / **后端断点口径**，见[8.5](#local-stack)）、**工作区级 `.codebuddy/`（工作记忆三件套）与 AI 协作口径**（见[第 10 节](#workspace-ai)）、**浏览器真机验证（Playwright MCP 登记、走查用法与 playwright-cli 选型口径**，见 [10.6](#workspace-ai-browser)）、常用设置与排障入口。
 
-本文档与《[开发机部署使用说明总览](开发机部署使用说明总览.md)》「开发设施清单」节与「桌面快捷方式设置（通用）」节配套；CodeBuddy 与 [opencode](opencode部署使用说明.md)、[deepseek-harness](../AI/deepseek_harness部署使用说明.md) 同属本机 AI 编码工具，三者互不干扰、各自独立部署。
+本文档与《[开发机部署使用说明总览](开发机部署使用说明总览.md)》「开发设施清单」节与「桌面快捷方式设置（通用）」节配套；CodeBuddy 与 [opencode](opencode部署使用说明.md)、[deepseek-harness](../../AI/deepseek_harness部署使用说明.md) 同属本机 AI 编码工具，三者互不干扰、各自独立部署。
 
-> **取值说明**：本机路径统一用 `~` 表示（开发机开发用户为 `minjian`）；账号、令牌等凭据不在本文记录，以本机登录态与《[本地资源](../../用户文档/本地资源.md)》（已 gitignore）为准。
+> **取值说明**：本机路径统一用 `~` 表示（开发机开发用户为 `minjian`）；账号、令牌等凭据不在本文记录，以本机登录态与《[本地资源](../../../用户文档/本地资源.md)》（已 gitignore）为准。
 
 ## 2. 环境概览 <a id="env"></a>
 
@@ -80,7 +80,7 @@ CodeBuddy 的用户数据分散在 **四个目录**（实测体积为 2026-09-12
 | 硬件加速               | `~/.codebuddycn/argv.json` → `disable-hardware-acceleration`                 | 注释态（未启用软件渲染）                                                                                                                                                                     |
 | 插件启用               | `~/.codebuddy/settings.json` → `enabledPlugins`                              | 已启用官方插件：`pptx`、`pdf`、`docx`、`xlsx`、`agent-browser`、`playwright-cli`、`skills-sec-audit`、`find-skills`                                                          |
 | 插件/技能市场          | `~/.codebuddy/plugins/`、`~/.codebuddy/skills-marketplace/`                   | 已拉取官方市场；技能市场版本号见`~/.codebuddy/.skills-marketplace-version`                                                                                                                 |
-| MCP server             | `~/.codebuddy/mcp.json`                                                         | 按需登记 MCP server（登记与用法见《[deepseek_harness部署使用说明](../AI/deepseek_harness部署使用说明.md)》MCP 相关节与工具自身文档）；本机已登记 **Playwright MCP**（`mcp__playwright__*`，系统 Chrome + 隔离会话），供开发态浏览器真机走查，用法与选型见 [10.6](#workspace-ai-browser) |
+| MCP server             | `~/.codebuddy/mcp.json`                                                         | 按需登记 MCP server（登记与用法见《[deepseek_harness部署使用说明](../../AI/deepseek_harness部署使用说明.md)》MCP 相关节与工具自身文档）；本机已登记 **Playwright MCP**（`mcp__playwright__*`，系统 Chrome + 隔离会话），供开发态浏览器真机走查，用法与选型见 [10.6](#workspace-ai-browser) |
 | 补全模型               | 设置`codingcopilot.selectedCompletionModel`                                     | 空值 = 使用默认模型；可在补全状态栏菜单切换                                                                                                                                                  |
 | 提交信息风格           | `codingcopilot.commitMessageStyle` / `commitMessageLanguage`                  | `Auto` / `zh_CN`                                                                                                                                                                         |
 | 编辑器关联（双击行为） | `~/.config/CodeBuddy CN/User/settings.json` → `workbench.editorAssociations` | `*.html` / `*.htm` → 内置 HTML 预览 `codebuddy.html.previewEditor`；`*.md` / `*.markdown` → 内置 Markdown 预览 `vscode.markdown.preview.editor`（详见[第 7 节](#html-preview)） |
@@ -337,12 +337,12 @@ IDE 的「运行和调试」下拉由 `.vscode/launch.json`（启动项）与 `.
 | 前端：当前文件单测（Node · Vitest）             | 打开某个`tests/*.spec.ts` 后 F5 调试该文件                                                                                                                                                                                               | —                                     |
 | 模块：demo / sample 独立开发（5002 / 5003）      | 模块自身`pnpm dev`（与宿主联调无关）                                                                                                                                                                                                     | —                                     |
 | 后端：单服务（debugpy · 选服务）                | 后端单服务断点（下拉选服务；读`backend/config.toml` 的 `[server] host/port`）                                                                                                                                                          | `dev:清理后端端口（8000）`           |
-| 后端：单服务（debugpy ·**bms_identity**） | 固定默认服务的等价项（免每次手选）——旧「全套」用它；换服务用上一行或改`module`；**不加载开发密钥与 loopback 别名**，本机四服务形态下请在下面两项里选                                                                             | `dev:清理后端端口（8000）`           |
+| 后端：单服务（debugpy ·**bms_identity**） | 固定默认服务的等价项（免每次手选）——旧「全套」用它；换服务用上一行或改`module`；**不加载开发密钥与 loopback 别名**，本机三服务形态下请在下面两项里选                                                                             | `dev:清理后端端口（8000）`           |
 | 后端：当前文件单测（debugpy · pytest）          | 打开`backend/**/tests/test_*.py` 后 F5                                                                                                                                                                                                   | —                                     |
-| **后端：本地全套（四服务 · 脚本）**       | **本机裸跑四服务**（`bms/scripts/tools/dev/本地全套.sh up`；同一 8000 + loopback 别名 + 开发密钥）——「全套（本地四服务）」的后端成员（脚本起的服务是**后台进程，不带调试器**）                                             | —                                     |
-| **后端：单服务（debugpy · 本机四服务）**  | **后端断点**用（下拉选服务）：经 `bms/backend/ops/dev_run.py` 注入别名 / 8000 / Redis / 开发密钥后进服务入口 ⇒ 断点、变量、调用栈齐备；**先 `本地全套.sh stop <服务>` 腾位**，调试完 `up` 补回（见 [8.5](#local-stack)） | —                                     |
-| 全套：后端单服务 + 宿主 + Chrome                 | 组合项（后端 + 宿主 + 浏览器一起拉起）；后端用固定项`bms_identity`（**不再弹选择框**），前端用「宿主 + 模块」项（**自动确保 5002 在跑**）——**本地四服务形态下别用**（见 [8.5](#local-stack)）                         | —                                     |
-| **全套（本地四服务 + 宿主 + Chrome）**     | **一键全套（推荐）**：脚本起四服务 + 宿主 + 模块产物 + Chrome（**前端断点即用**）                                                                                                                                              | —                                     |
+| **后端：本地全套（三服务 · 脚本）**       | **本机裸跑三服务**（`bms/scripts/tools/dev/本地全套.py up`；同一 8000 + loopback 别名 + 开发密钥）——「全套（本地三服务）」的后端成员（脚本起的服务是**后台进程，不带调试器**）                                             | —                                     |
+| **后端：单服务（debugpy · 本机三服务）**  | **后端断点**用（下拉选服务）：经 `bms/backend/ops/dev_run.py` 注入别名 / 8000 / Redis / 开发密钥后进服务入口 ⇒ 断点、变量、调用栈齐备；**先 `本地全套.py stop <服务>` 腾位**，调试完 `up` 补回（见 [8.5](#local-stack)） | —                                     |
+| 全套：后端单服务 + 宿主 + Chrome                 | 组合项（后端 + 宿主 + 浏览器一起拉起）；后端用固定项`bms_identity`（**不再弹选择框**），前端用「宿主 + 模块」项（**自动确保 5002 在跑**）——**本地三服务形态下别用**（见 [8.5](#local-stack)）                         | —                                     |
+| **全套（本地三服务 + 宿主 + Chrome）**     | **一键全套（推荐）**：脚本起三服务 + 宿主 + 模块产物 + Chrome（**前端断点即用**）                                                                                                                                              | —                                     |
 
 浏览器断点项的 `runtimeExecutable` 必须写**绝对路径** `"/usr/bin/google-chrome"`（js-debug 只接受 `stable`/`beta` 等别名或可执行文件绝对路径，写命令名 `google-chrome` 会报「找不到浏览器」）；需改用 snap Chromium 时换成 `"/snap/bin/chromium"`，见《[google-chrome部署使用说明](google-chrome部署使用说明.md)》。
 
@@ -350,18 +350,18 @@ IDE 的「运行和调试」下拉由 `.vscode/launch.json`（启动项）与 `.
 
 | 任务                                                          | 说明                                                                                                                                                                                                                      |
 | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `dev:清理宿主端口（5173）`                                  | 普通任务：跑`清理宿主端口.sh` 清理占用 5173 的**本项目**旧宿主 dev（含等待端口释放），供 dev 类后台任务作 `dependsOn` 前置                                                                                      |
+| `dev:清理宿主端口（5173）`                                  | 普通任务：跑`清理宿主端口.py` 清理占用 5173 的**本项目**旧宿主 dev（含等待端口释放），供 dev 类后台任务作 `dependsOn` 前置                                                                                      |
 | `dev:确保模块产物服务（5002）`                              | 普通任务：幂等确保 5002 发布存储服务在跑（缺则后台拉起），供「宿主 + 模块」作`dependsOn` 前置                                                                                                                           |
 | `dev:宿主（5173）` / `dev:宿主 + 模块产物（5002 + 5173）` | 后台任务：命令只有`pnpm dev`，准备动作全交 `dependsOn` 前置任务（`dependsOrder: sequence`）；以 Vite 的 `Local:` 行为就绪信号（供 `preLaunchTask` 判断）                                                        |
-| `dev:清理后端端口（8000）`                                  | 普通任务：清理占用 8000 的本项目旧后端调试进程，供上表两个后端启动项作`preLaunchTask`（重开「全套」不必先手工停掉上一次调试会话）；**注意它按端口清理，会把本地全套的四服务一起清掉**——起四服务请用下面两条任务 |
-| `dev:后端本地全套（四服务）`                                | 普通任务：调`bms/scripts/tools/dev/本地全套.sh up`——幂等起 tenant/org/platform/identity（已在监听则跳过）+ 自愈 `/etc/hosts` 别名与 `bms/backend/.dev-keys.local` + 等健康                                        |
-| `dev:后端本地全套·停（四服务）`                            | 普通任务：`本地全套.sh down`——`TERM` → 5s → `KILL`，仍不死**报错交人工**（不无限等待）；单个服务用 `本地全套.sh stop <服务>`                                                                            |
+| `dev:清理后端端口（8000）`                                  | 普通任务：清理占用 8000 的本项目旧后端调试进程，供上表两个后端启动项作`preLaunchTask`（重开「全套」不必先手工停掉上一次调试会话）；**注意它按端口清理，会把本地全套的三服务一起清掉**——起三服务请用下面两条任务 |
+| `dev:后端本地全套（三服务）`                                | 普通任务：调`bms/scripts/tools/dev/本地全套.py up`——幂等起 tenant/platform/identity（已在监听则跳过）+ 自愈 `/etc/hosts` 别名与 `bms/backend/.dev-keys.local` + 等健康                                        |
+| `dev:后端本地全套·停（三服务）`                            | 普通任务：`本地全套.py down`——`TERM` → 5s → `KILL`，仍不死**报错交人工**（不无限等待）；单个服务用 `本地全套.py stop <服务>`                                                                            |
 | `服务:模块产物（5002 · CORS 静态）`                        | `serve-module-releases.mjs` 托管 `bms/frontend/releases/**`（带 CORS，宿主加载运行时模块的前置）                                                                                                                      |
 | `发布:模块产物（demo + sample · 构建 + 发布）`             | 构建并发布两个运行时模块到`frontend/releases/`（归档不入库）                                                                                                                                                            |
 | `dev:模块 demo / sample 独立开发`                           | 模块自身 dev（demo 5002 / sample 5003，与「服务:模块产物」的 5002 互斥）                                                                                                                                                  |
 | 检查：前端基座三包 / 前端宿主 / 文档基座 / 后端               | 一键跑对应门禁（lint、typecheck、用例、体积预算、文档校验、ruff+pyright）                                                                                                                                                 |
 
-> 端口自愈由脚本 `bms/scripts/tools/dev/清理宿主端口.sh` 实现（入参为端口 + 本项目目录），判定依据是占用进程的 `cwd` 是否等于给定目录——只清理本项目旧进程，占用者为非本项目进程时**中止启动**并提示，不误杀。
+> 端口自愈由脚本 `bms/scripts/tools/dev/清理宿主端口.py` 实现（入参为端口 + 本项目目录），判定依据是占用进程的 `cwd` 是否等于给定目录——只清理本项目旧进程，占用者为非本项目进程时**中止启动**并提示，不误杀。
 >
 > **准备动作一律放 `dependsOn` 前置任务，不要写进 `isBackground` 任务的 `command`**：后者的耗时（等端口释放、拉起 5002、`sleep`）会算进 background 的就绪等待窗口，触发「任务尚未退出，并且未定义 problemMatcher」提示；遇到该提示点「仍要调试」可继续跑，但正确做法是拆前置任务（本机两处 `tasks.json` 已如此）。
 
@@ -382,49 +382,49 @@ IDE 的「运行和调试」下拉由 `.vscode/launch.json`（启动项）与 `.
 | Python 环境工具（PET）反复超时、6 个 python 工具未注册              | `~/.codebuddycn/extensions/ms-python.python-*/python-env-tools/bin/pet` **缺执行位**（日志 `spawn … EACCES`）：`chmod +x` 该文件即可（本机 2026-10-03 已修，`pet --version` → `pet 0.1.0`）                                                                                                                                                                                                                 |
 | 后端`.py` 满屏「无法解析导入 sqlalchemy」                         | 分析器没关联到项目解释器：裸目录打开时`bms/.vscode/settings.json` **不生效**，须在工作区根 `settings.json` 配 `python.defaultInterpreterPath`（`bms/backend/.venv/bin/python`）与 `python.analysis.extraPaths`（`bms/backend`）                                                                                                                                                                             |
 | `alembic/versions/**` 满屏类型报错（如 `Column` 泛型缺参数）    | 该目录**本就不在门禁范围**（`bms/backend/pyproject.toml` 的 `[tool.pyright] include` 只含 `libs`/`services`），是 IDE 侧 `basedpyright` 默认 `recommended` 档在报：已在项目 `[tool.pyright]` 加 `ignore = ["alembic"]`，并让 `basedpyright.analysis.configFilePath` 指向该 `pyproject.toml`（IDE 与门禁同口径；`uv run pyright --outputjson` 实测 `filesAnalyzed=916` / 0 错，2026-10-04 复核） |
-| 本地登录**恒 401**，但四服务 `/healthz`、`/readyz` 都 200 | 本地库里**没有可用账号**（多为 `本地全套.sh up --reset-db` 重建库后未建号——现象易误判为「登录链路不通」）：跑 `bash scripts/tools/dev/本地全套.sh seed`（租户 + 菜单 + 建号 `admin`），或 `ops.seed_user` 指定 `--username/--password`（见 [8.5](#local-stack)）                                                                                                                                             |
-| 点了「全套」后登录反而不通、先前跑着的后端被杀                      | 用的是旧「全套：后端单服务 + 宿主 + Chrome」：其前置任务`清理后端端口（8000）` 按端口清理，会把本地全套的**四服务全部清掉**，且只起 `bms_identity` 一个（无密钥 / 无别名）→ 本地开发改用「全套（本地四服务 + 宿主 + Chrome）」（见 [8.5](#local-stack)）                                                                                                                                                            |
+| 本地登录**恒 401**，但三服务 `/healthz`、`/readyz` 都 200 | 本地库里**没有可用账号**（多为 `本地全套.py up --reset-db` 重建库后未建号——现象易误判为「登录链路不通」）：跑 `python3 scripts/tools/dev/本地全套.py seed`（租户 + 菜单 + 建号 `admin`），或 `ops.seed_user` 指定 `--username/--password`（见 [8.5](#local-stack)）                                                                                                                                             |
+| 点了「全套」后登录反而不通、先前跑着的后端被杀                      | 用的是旧「全套：后端单服务 + 宿主 + Chrome」：其前置任务`清理后端端口（8000）` 按端口清理，会把本地全套的**三服务全部清掉**，且只起 `bms_identity` 一个（无密钥 / 无别名）→ 本地开发改用「全套（本地三服务 + 宿主 + Chrome）」（见 [8.5](#local-stack)）                                                                                                                                                            |
 
-| 登录报 `20002`「**账号或密码错误**」                                          | 服务端与账号状态正常时多为**口令不对**：口令**以《[本地资源](../../用户文档/本地资源.md)》「BMS 应用账号」节的当前登记为准**（**历史对话 / 旧文档里出现过的口令一律视为已失效**——口令轮换后旧值即不可用；凭据只登记在该节，见《AI开发规范》）；另注意浏览器**自动填充**了旧口令（点密码框清空后重输）。连续失败 5 次会触发锁号（见下一行） |
-| 登录报 `20003`「**账号已锁定，请联系管理员或稍后重试**」                      | 触发登录防爆破：**连续 5 次失败锁 15 分钟**（`[security].login.max_failures` / `lock_seconds`；失败计数在 Redis、锁定时间记 `sys_user.locked_until`）。多为**拿真账号反复试错口令**所致（**验验证码请改用不存在的账号试错口令**）：当场解锁跑 `bash scripts/tools/dev/本地全套.sh unlock`（清 `failed_count` / `locked_until` + 删 Redis 计数键），或等锁定到期 |
+| 登录报 `20002`「**账号或密码错误**」                                          | 服务端与账号状态正常时多为**口令不对**：口令**以《[本地资源](../../../用户文档/本地资源.md)》「BMS 应用账号」节的当前登记为准**（**历史对话 / 旧文档里出现过的口令一律视为已失效**——口令轮换后旧值即不可用；凭据只登记在该节，见《AI开发规范》）；另注意浏览器**自动填充**了旧口令（点密码框清空后重输）。连续失败 5 次会触发锁号（见下一行） |
+| 登录报 `20003`「**账号已锁定，请联系管理员或稍后重试**」                      | 触发登录防爆破：**连续 5 次失败锁 15 分钟**（`[security].login.max_failures` / `lock_seconds`；失败计数在 Redis、锁定时间记 `sys_user.locked_until`）。多为**拿真账号反复试错口令**所致（**验验证码请改用不存在的账号试错口令**）：当场解锁跑 `python3 scripts/tools/dev/本地全套.py unlock`（清 `failed_count` / `locked_until` + 删 Redis 计数键），或等锁定到期 |
 
 | ESLint 扩展报 `Parsing error: No tsconfigRootDir was set, and multiple candidate TSConfigRootDirs are present`（打开 `frontend/{modules,packages,apps}/*` 下文件时） | monorepo 里**每个包各一份 `eslint.config.js`**（宿主 / 组件库 / 运行时模块），而扩展**未指定工作目录** ⇒ 默认启发式把 `apps/desktop` 的配置套到别的包的文件上，解析器看到**多个候选 tsconfig 根**即报错（**与文件内容无关**：`startLineNumber=1` 空范围 = 解析期；`pnpm --filter <包> lint` 本身是通过的）。**修法（已落地）**：① 两处 `.vscode/settings.json` 加 `eslint.useFlatConfig` / `eslint.workingDirectories: [{ "mode": "auto" }]`（按文件就近取配置）/ `eslint.validate`；② 各包 `eslint.config.js` 加 `parserOptions.tsconfigRootDir: import.meta.dirname` 锚定自身（双保险）。**改完需「Developer: Reload Window」重载才生效** |
 
 ### 8.5 本机裸跑后端「全套」（本地开发主形态） <a id="local-stack"></a>
 
-**口径**：开发态**一律本机裸跑**——`bms/backend/config.dev.toml` 本就是 SQLite 本地库 + 内存缓存 + 字典/参数走 SQL，**不需要 Docker，也不需要在 mjbk（开发服务器）上部署**；容器 / 开发服务器**只在发布时**用于发布验证。四个服务各绑一个 loopback 别名并**共用 8000 端口**，与服务间基址模板 `http://{service}:8000` 同形（故服务间调用、网关内路径与容器形态一致）。
+**口径**：开发态**一律本机裸跑**——`bms/backend/config.dev.toml` 本就是 SQLite 本地库 + 内存缓存 + 字典/参数走 SQL，**不需要 Docker，也不需要在 mjbk（开发服务器）上部署**；容器 / 开发服务器**只在发布时**用于发布验证。三个服务各绑一个 loopback 别名并**共用 8000 端口**，与服务间基址模板 `http://{service}:8000` 同形（故服务间调用、网关内路径与容器形态一致）。
 
 | 项       | 取值 / 做法                                                                                                                          |
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| 脚本     | `bms/scripts/tools/dev/本地全套.sh`（子命令 `up` / `down` / `stop <服务…>` / `status` / `seed` / `env` / `logs` / `unlock [账号]`）   |
-| 别名     | `127.0.0.2 tenant`、`127.0.0.3 org`、`127.0.0.4 platform`、`127.0.0.5 identity`（`up` 自愈写入 `/etc/hosts`，sudo 免密） |
+| 脚本     | `bms/scripts/tools/dev/本地全套.py`（子命令 `up` / `down` / `stop <服务…>` / `status` / `seed` / `env` / `logs` / `unlock [账号]`）   |
+| 别名     | `127.0.0.2 tenant`、`127.0.0.4 platform`、`127.0.0.5 identity`（`up` 自愈写入 `/etc/hosts`，sudo 免密；`org` 已随组织主数据归 mdm 产品服务，不在本机全套） |
 | 开发密钥 | `bms/backend/.dev-keys.local`（`up` 缺则用 `joserfc` 生成：`usr-` 用户令牌 + `svc-` 服务令牌两组；不入库）                 |
 | Redis    | 缺省`redis://192.168.0.107:6379/5`（本机无 Redis，指向开发机 DB5 隔离；`BMS_LOCAL_REDIS` 或 `--redis` 覆盖）                   |
-| 前端映射 | `bms/frontend/apps/desktop/.env.local` 的 `VITE_LOCAL_API`（`本地全套.sh env` 写入；未列出的服务仍走远端网关）                 |
-| 账号     | `ops/seed_user.py` 建号（缺省账号 `admin`，口令随机生成并仅打印一次）——**首次起栈后必须跑一次 `seed`**，否则本地库无账号、登录恒 401；账号 / 口令**只登记在《[本地资源](../../用户文档/本地资源.md)》（gitignore，凭据不入库）**     |
-| 库重建   | `本地全套.sh up --reset-db`（先把 `bms/backend/bms_*.db` 备份移走，服务按当前表结构重建；**重建后须重新 `seed`**）       |
+| 前端映射 | `bms/frontend/apps/desktop/.env.local` 的 `VITE_LOCAL_API`（`本地全套.py env` 写入；未列出的服务仍走远端网关）                 |
+| 账号     | `ops/seed_user.py` 建号（缺省账号 `admin`，口令随机生成并仅打印一次）——**首次起栈后必须跑一次 `seed`**，否则本地库无账号、登录恒 401；账号 / 口令**只登记在《[本地资源](../../../用户文档/本地资源.md)》（gitignore，凭据不入库）**     |
+| 库重建   | `本地全套.py up --reset-db`（先把 `bms/backend/bms_*.db` 备份移走，服务按当前表结构重建；**重建后须重新 `seed`**）       |
 
 常用流程：
 
 ```bash
 cd ~/develop/bizs/bms
-bash scripts/tools/dev/本地全套.sh up              # 起四服务（幂等：已在跑则跳过；等健康）
-bash scripts/tools/dev/本地全套.sh seed            # 租户注册库 + 菜单元数据 + 建号 admin（幂等）
-bash scripts/tools/dev/本地全套.sh status          # 进程与 /healthz、/readyz 一览
-bash scripts/tools/dev/本地全套.sh stop identity   # 只停一个（供后端断点腾位）
-bash scripts/tools/dev/本地全套.sh unlock          # 解锁账号（清失败计数 / 锁定时间 + Redis 计数键）
-bash scripts/tools/dev/本地全套.sh down            # 停全部：TERM → 5s → KILL；仍不死则报错交人工
+python3 scripts/tools/dev/本地全套.py up              # 起三服务（幂等：已在跑则跳过；等健康）
+python3 scripts/tools/dev/本地全套.py seed            # 租户注册库 + 菜单元数据 + 建号 admin（幂等）
+python3 scripts/tools/dev/本地全套.py status          # 进程与 /healthz、/readyz 一览
+python3 scripts/tools/dev/本地全套.py stop identity   # 只停一个（供后端断点腾位）
+python3 scripts/tools/dev/本地全套.py unlock          # 解锁账号（清失败计数 / 锁定时间 + Redis 计数键）
+python3 scripts/tools/dev/本地全套.py down            # 停全部：TERM → 5s → KILL；仍不死则报错交人工
 ```
 
 **断点口径**（脚本起的服务是 `nohup` 后台进程，**不带调试器**）：
 
 | 目标                                   | 做法                                                                                                                                                                                                                                                                                                                                                                                              |
 | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 前端（Vue / TS）                       | 用「全套（本地四服务 + 宿主 + Chrome）」里的 Chrome 调试会话，或单项「前端：宿主 + 模块 + Chrome（浏览器断点）」——**断点直接可用**                                                                                                                                                                                                                                                        |
-| 后端（Python）                         | ①`本地全套.sh stop <服务>` 腾出该服务；② 启动「后端：单服务（debugpy · 本机四服务）」——`bms/backend/ops/dev_run.py` 在**导入服务前**注入 `BMS_SERVER__HOST=<别名>` / `PORT=8000` / `BMS_REDIS__URL` 与开发密钥，再 `runpy` 进服务入口 ⇒ 断点 / 变量 / 调用栈与 `python -m bms_<服务>` 一致（`justMyCode: false` 可步入框架与基座）；③ 调试完 `本地全套.sh up` 补回 |
-| 旧「全套：后端单服务 + 宿主 + Chrome」 | **本地四服务形态下别用**：它只起 `bms_identity` 一个、不加载密钥与别名，且前置任务 `清理后端端口（8000）` 会把四服务**全部清掉**（该口径已就地标注在两处 `launch.json`）                                                                                                                                                                                                        |
+| 前端（Vue / TS）                       | 用「全套（本地三服务 + 宿主 + Chrome）」里的 Chrome 调试会话，或单项「前端：宿主 + 模块 + Chrome（浏览器断点）」——**断点直接可用**                                                                                                                                                                                                                                                        |
+| 后端（Python）                         | ①`本地全套.py stop <服务>` 腾出该服务；② 启动「后端：单服务（debugpy · 本机三服务）」——`bms/backend/ops/dev_run.py` 在**导入服务前**注入 `BMS_SERVER__HOST=<别名>` / `PORT=8000` / `BMS_REDIS__URL` 与开发密钥，再 `runpy` 进服务入口 ⇒ 断点 / 变量 / 调用栈与 `python -m bms_<服务>` 一致（`justMyCode: false` 可步入框架与基座）；③ 调试完 `本地全套.py up` 补回 |
+| 旧「全套：后端单服务 + 宿主 + Chrome」 | **本地三服务形态下别用**：它只起 `bms_identity` 一个、不加载密钥与别名，且前置任务 `清理后端端口（8000）` 会把三服务**全部清掉**（该口径已就地标注在两处 `launch.json`）                                                                                                                                                                                                        |
 
-> 运维细节：脚本的 pid 记录的是**真服务进程**（不是 bash 包装进程），停服务时连带 `TERM`/`KILL` 其子进程；起服务阶段若进程退出会**立刻报错并打印日志尾部**，不会把健康等待超时耗满；诊断入口 `本地全套.sh logs [服务]`（日志在 `/tmp/bms-local-stack/`）。
+> 运维细节：脚本的 pid 记录的是**真服务进程**（不是 bash 包装进程），停服务时连带 `TERM`/`KILL` 其子进程；起服务阶段若进程退出会**立刻报错并打印日志尾部**，不会把健康等待超时耗满；诊断入口 `本地全套.py logs [服务]`（日志在 `/tmp/bms-local-stack/`）。
 
 ## 9. 常用设置与排障 <a id="trouble"></a>
 
@@ -470,7 +470,7 @@ bash scripts/tools/dev/本地全套.sh down            # 停全部：TERM → 5s
 | `.codebuddy/teams/`      | 本机**未创建**（启用团队协作时由工具生成 `<团队名>/`，含各成员历史）                                    | 多代理协作                                      |
 | `.codebuddy/` 其余生成物 | 按需生成                                                                                                        | 技能 / 自动化等                                 |
 
-入库口径：工作区根仓库的 `.gitignore` 是 `/*` + 白名单（`!/.gitignore`、`!/.opencode/`、`!/.vscode/`、`!/AGENTS.md`、`!/README.md`、`!/LICENSE`、`!/scripts/`、`!/*.code-workspace`），**`.codebuddy/` 不在白名单 → 工作记忆不入库**（与 `用户文档/本地资源.md`、`deploy/.env` 同属本机私有数据；公开文档红线见《[AI开发规范](../../规范/AI开发规范.md)》「资料与资源」节）。`bms/` 下**无** `.codebuddy/`。
+入库口径：工作区根仓库的 `.gitignore` 是 `/*` + 白名单（`!/.gitignore`、`!/.opencode/`、`!/.vscode/`、`!/AGENTS.md`、`!/README.md`、`!/LICENSE`、`!/scripts/`、`!/*.code-workspace`），**`.codebuddy/` 不在白名单 → 工作记忆不入库**（与 `用户文档/本地资源.md`、`deploy/.env` 同属本机私有数据；公开文档红线见《[AI开发规范](../../../规范/AI开发规范.md)》「资料与资源」节）。`bms/` 下**无** `.codebuddy/`。
 
 ### 10.2 工作记忆三件套的读写口径 <a id="workspace-ai-memory"></a>
 
@@ -486,7 +486,7 @@ bash scripts/tools/dev/本地全套.sh down            # 停全部：TERM → 5s
 - **记忆不是交付物**：不得以「已写入记忆」替代设计 / 代码 / 记录 / 计划等交付物；用户要的结论仍须落到对应文档或回复正文。
 - **冲突处理**：日报追加更正条；`MEMORY.md` 原地改并注明原因与日期；30 天以上日报按主题蒸馏进 `MEMORY.md` 后删除。
 
-### 10.3 单任务交付「一条龙」（引自《[AI开发规范](../../规范/AI开发规范.md)》「单任务交付『一条龙』」节） <a id="workspace-ai-chain"></a>
+### 10.3 单任务交付「一条龙」（引自《[AI开发规范](../../../规范/AI开发规范.md)》「单任务交付『一条龙』」节） <a id="workspace-ai-chain"></a>
 
 链条：上下文 → 决策确认 → 详细设计 → 实施 → 测试 → 验证 → 登记回写 → 记录 → 提交 → 处理偏差与遗留 → 收尾。要点：
 
@@ -498,7 +498,7 @@ bash scripts/tools/dev/本地全套.sh down            # 停全部：TERM → 5s
 
 > 会话提示词可对该口径加**临时约束**（本机出现过「本轮不提交 git，除非明确要求」这类会话级纪律）——**以会话提示词为准**。
 
-### 10.4 核心模块的 AI 交叉评审（引自《[代码评审规范](../../规范/代码评审规范.md)》《[Git协作规范](../../规范/Git协作规范.md)》「分支模型」节） <a id="workspace-ai-review"></a>
+### 10.4 核心模块的 AI 交叉评审（引自《[代码评审规范](../../../规范/代码评审规范.md)》《[Git协作规范](../../../规范/Git协作规范.md)》「分支模型」节） <a id="workspace-ai-review"></a>
 
 - 单人开发期以 **AI 交叉评审**替代人工指派：核心模块（认证、RBAC、工作流、审计、收付款）改动**提交前**由 AI 按《代码评审规范》「通用评审清单」「后端重点」「前端重点」「数据库变更重点」节逐项核对，**评审结论随提交说明或任务记录留痕**；
 - 多人协作期恢复人工评审与 MR 流程（当前不启用分支与 MR 流转）。
@@ -522,7 +522,7 @@ pnpm --filter @bms/desktop run test ; pnpm --filter @bms/desktop run lint
 pnpm --filter @bms/desktop exec vue-tsc -b ; pnpm run api-types:gen:check
 ```
 
-> [8.3](#debug-tasks) 的「检查：前端基座三包 / 前端宿主 / 文档基座 / 后端」四个任务即上述门禁的一键入口；口径细则归《[测试规范](../../规范/测试规范.md)》与各工程说明，本节只作速查。
+> [8.3](#debug-tasks) 的「检查：前端基座三包 / 前端宿主 / 文档基座 / 后端」四个任务即上述门禁的一键入口；口径细则归《[测试规范](../../../规范/测试规范.md)》与各工程说明，本节只作速查。
 
 ### 10.6 浏览器真机验证：Playwright MCP（与 playwright-cli 对比） <a id="workspace-ai-browser"></a>
 
@@ -554,8 +554,8 @@ pnpm --filter @bms/desktop exec vue-tsc -b ; pnpm run api-types:gen:check
 
 ```bash
 cd ~/develop/bizs/bms
-bash scripts/tools/dev/本地全套.sh up                                              # 起本地四服务（见 8.5）
-bash scripts/tools/dev/本地全套.sh seed --username admin --password '<口令>' --reset-password   # 建 / 重置账号（口令只落《本地资源》）
+python3 scripts/tools/dev/本地全套.py up                                              # 起本地三服务（见 8.5）
+python3 scripts/tools/dev/本地全套.py seed --username admin --password '<口令>' --reset-password   # 建 / 重置账号（口令只落《本地资源》）
 cd frontend && pnpm --config.verify-deps-before-run=false --filter @bms/desktop dev             # 起宿主 dev（:5173，无 TTY 须加该参数）
 ```
 
@@ -596,4 +596,4 @@ cd frontend && pnpm --config.verify-deps-before-run=false --filter @bms/desktop 
 - □ 浏览器真机验证口径明确：Playwright MCP 登记于 `~/.codebuddy/mcp.json`（系统 Chrome + `--isolated`）、生效需重启 IDE；结构读 `browser_snapshot` / `browser_find`（`.playwright-mcp/*.yml` 不可依赖）、控制台只认预期错误；长会话首选 MCP（见[10.6](#workspace-ai-browser)）
 - □ 本机事实均经核实（2026-09-12 首次核实；数量类事实 2026-10-04 复核；2026-10-10 补浏览器真机验证），未写入账号/令牌等凭据
 
-> 依《[文档生成规范](../../规范/文档生成规范.md)》编写 · 与《[开发机部署使用说明总览](开发机部署使用说明总览.md)》《[opencode部署使用说明](opencode部署使用说明.md)》《[命名规范](../../规范/命名规范.md)》配套 · 记录 2026-09-12 部署核实、2026-09-13 免确认排障、2026-10-03 运行与调试启动项与扩展补齐、2026-10-03「全套」启动链路排障（端口自愈与前置任务拆分 / ANSI 就绪正则 / Python 扩展与解释器 / pyright 口径 / PET 权限 / Chrome 绝对路径 / 含模块的前端项）、2026-10-04 数量类事实同步（原型与布局 HTML 200 个 / `pyright --outputjson` `filesAnalyzed=916`）与新增[第 10 节](#workspace-ai)（工作区级 `.codebuddy/`：工作记忆三件套 + 「一条龙」/ AI 交叉评审 / 门禁速查）、2026-10-10 新增 [10.6](#workspace-ai-browser)（Playwright MCP 登记、浏览器真机走查用法与 playwright-cli 选型对比）（mjpc 本机）
+> 依《[文档生成规范](../../../规范/文档生成规范.md)》编写 · 与《[开发机部署使用说明总览](开发机部署使用说明总览.md)》《[opencode部署使用说明](opencode部署使用说明.md)》《[命名规范](../../../规范/命名规范.md)》配套 · 记录 2026-09-12 部署核实、2026-09-13 免确认排障、2026-10-03 运行与调试启动项与扩展补齐、2026-10-03「全套」启动链路排障（端口自愈与前置任务拆分 / ANSI 就绪正则 / Python 扩展与解释器 / pyright 口径 / PET 权限 / Chrome 绝对路径 / 含模块的前端项）、2026-10-04 数量类事实同步（原型与布局 HTML 200 个 / `pyright --outputjson` `filesAnalyzed=916`）与新增[第 10 节](#workspace-ai)（工作区级 `.codebuddy/`：工作记忆三件套 + 「一条龙」/ AI 交叉评审 / 门禁速查）、2026-10-10 新增 [10.6](#workspace-ai-browser)（Playwright MCP 登记、浏览器真机走查用法与 playwright-cli 选型对比）（mjpc 本机）
