@@ -4,6 +4,7 @@
 // 拖拽经 SortableJS：件层只把列表事件适配为落点 / 排序事件上抛，落点判定归编排基类与领域纯函数。
 import type { FormField, LayoutDetailColumn, LayoutSection, LayoutDetailColumnInput } from '@bms/core'
 import { normalizeColumns } from '@bms/core'
+import { ElButton, ElOption, ElRadioButton, ElRadioGroup, ElSelect, ElTag } from 'element-plus'
 import { computed, ref, watch } from 'vue'
 import draggable from 'vuedraggable'
 
@@ -209,13 +210,17 @@ function onDetailReorder(event: { item?: HTMLElement; oldIndex?: number; newInde
     :data-dirty="dirty"
   >
     <div class="bms-designer-canvas__views" data-test="designer-views">
-      <button type="button" data-test="view-main" :data-active="view === 'main'">主表</button>
-      <button type="button" data-test="view-query" :data-active="view === 'query'">查询区</button>
-      <button type="button" data-test="view-detail" :data-active="view === 'detail'">明细区</button>
+      <el-radio-group :model-value="view" :disabled="readOnly">
+        <el-radio-button value="main" data-test="view-main">主表</el-radio-button>
+        <el-radio-button value="query" data-test="view-query">查询区</el-radio-button>
+        <el-radio-button value="detail" data-test="view-detail">明细区</el-radio-button>
+      </el-radio-group>
     </div>
 
     <template v-if="view === 'main'">
-      <p v-if="sections.length === 0" data-test="canvas-empty">暂无布局分区（占位，真实实现支持字段拖入）</p>
+      <p v-if="sections.length === 0" class="bms-designer-canvas__empty" data-test="canvas-empty">
+        暂无布局分区，点「＋ 分区」开始
+      </p>
       <draggable
         v-for="section in sections"
         :key="section.key"
@@ -233,25 +238,34 @@ function onDetailReorder(event: { item?: HTMLElement; oldIndex?: number; newInde
       >
         <template #header>
           <div class="bms-designer-canvas__section-head">
-            <strong data-test="section-title" @click="emit('select', { kind: 'section', key: section.key })">
-              {{ section.title || '未命名分区' }}
-            </strong>
-            <select
-              :data-test="`section-columns-${section.key}`"
-              :value="section.columns"
-              :disabled="readOnly"
-              @change="emit('columns-change', { sectionKey: section.key, columns: normalizeColumns(($event.target as HTMLSelectElement).value) })"
+            <el-button
+              link
+              data-test="section-title"
+              @click="emit('select', { kind: 'section', key: section.key })"
             >
-              <option v-for="count in [1, 2, 3]" :key="count" :value="count">{{ count }} 列</option>
-            </select>
-            <button
-              type="button"
+              {{ section.title || '未命名分区' }}
+            </el-button>
+            <el-select
+              :data-test="`section-columns-${section.key}`"
+              :model-value="section.columns"
+              :disabled="readOnly"
+              size="small"
+              @update:model-value="
+                emit('columns-change', { sectionKey: section.key, columns: normalizeColumns($event) })
+              "
+            >
+              <el-option v-for="count in [1, 2, 3]" :key="count" :label="`${count} 列`" :value="count" />
+            </el-select>
+            <span class="bms-designer-canvas__section-count">{{ section.fields.length }} 字段</span>
+            <el-button
+              link
+              type="danger"
               :data-test="`section-remove-${section.key}`"
               :disabled="readOnly"
               @click="emit('remove-section', { sectionKey: section.key })"
             >
               删除分区
-            </button>
+            </el-button>
           </div>
         </template>
         <template #item="{ element }">
@@ -264,23 +278,30 @@ function onDetailReorder(event: { item?: HTMLElement; oldIndex?: number; newInde
             :data-draggable="draggableField(element.key)"
             @click.stop="emit('select', { kind: 'field', key: element.key })"
           >
-            <span>{{ fieldLabel(element.key) }}</span>
-            <button
-              type="button"
+            <span class="bms-designer-canvas__field-label">{{ fieldLabel(element.key) }}</span>
+            <el-tag v-if="element.colSpan" size="small" type="warning">跨整行</el-tag>
+            <el-button
+              link
+              size="small"
               :data-test="`field-colspan-${element.key}`"
               :disabled="readOnly"
               @click.stop="emit('colspan-change', { fieldKey: element.key })"
             >
               跨整行
-            </button>
+            </el-button>
           </div>
         </template>
+        <template #footer>
+          <p v-if="section.fields.length === 0" class="bms-designer-canvas__drop-empty">拖字段到此处</p>
+        </template>
       </draggable>
-      <button type="button" data-test="section-add" :disabled="readOnly" @click="emit('add-section')">＋ 分区</button>
+      <el-button :disabled="readOnly" data-test="section-add" @click="emit('add-section')">＋ 分区</el-button>
     </template>
 
     <template v-else-if="view === 'query'">
-      <p v-if="queryKeys.length === 0" data-test="query-empty">查询区未配置（回退默认前 3 项）</p>
+      <p v-if="queryKeys.length === 0" class="bms-designer-canvas__empty" data-test="query-empty">
+        查询区未配置（回退默认前 3 项）
+      </p>
       <draggable
         v-else
         v-model="queryKeys"
@@ -292,13 +313,17 @@ function onDetailReorder(event: { item?: HTMLElement; oldIndex?: number; newInde
         @end="onQueryReorder($event as never)"
       >
         <template #item="{ element }">
-          <div :data-test="`query-field-${element}`" :data-field-key="element">{{ fieldLabel(element) }}</div>
+          <div class="bms-designer-canvas__row" :data-test="`query-field-${element}`" :data-field-key="element">
+            {{ fieldLabel(element) }}
+          </div>
         </template>
       </draggable>
     </template>
 
     <template v-else>
-      <p v-if="detailColumns.length === 0" data-test="detail-empty">明细区未配置（回退默认列）</p>
+      <p v-if="detailColumns.length === 0" class="bms-designer-canvas__empty" data-test="detail-empty">
+        明细区未配置（回退默认列）
+      </p>
       <draggable
         v-else
         v-model="detailColumns"
@@ -310,9 +335,121 @@ function onDetailReorder(event: { item?: HTMLElement; oldIndex?: number; newInde
         @end="onDetailReorder($event as never)"
       >
         <template #item="{ element }">
-          <div :data-test="`detail-column-${element.key}`" :data-field-key="element.key">{{ fieldLabel(element.key) }}</div>
+          <div class="bms-designer-canvas__row" :data-test="`detail-column-${element.key}`" :data-field-key="element.key">
+            {{ fieldLabel(element.key) }}
+          </div>
         </template>
       </draggable>
     </template>
   </div>
 </template>
+
+<style scoped>
+.bms-designer-canvas {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bms-space-3);
+  padding: var(--bms-space-3);
+  min-width: 0;
+  min-height: 420px;
+  background: var(--bms-designer-canvas-bg);
+  border-radius: var(--bms-radius-md);
+}
+
+.bms-designer-canvas__views {
+  display: flex;
+}
+
+.bms-designer-canvas__empty,
+.bms-designer-canvas__drop-empty {
+  margin: 0;
+  padding: var(--bms-space-4);
+  color: var(--bms-color-text-secondary);
+  font-size: var(--bms-font-size-xs);
+  text-align: center;
+  border: 1px dashed var(--bms-color-border);
+  border-radius: var(--bms-radius-sm);
+}
+
+/* 分区容器（原型：虚线描边 + 圆角 + 内边距；选中态主色描边）。 */
+.bms-designer-canvas__section {
+  padding: var(--bms-space-3);
+  margin-bottom: var(--bms-space-3);
+  border: 1px dashed var(--bms-designer-section-border);
+  border-radius: var(--bms-radius-md);
+}
+
+.bms-designer-canvas__section[data-selected] {
+  border-color: var(--bms-designer-cell-selected-border);
+}
+
+.bms-designer-canvas__section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--bms-space-2);
+  margin-bottom: var(--bms-space-2);
+}
+
+.bms-designer-canvas__section-count,
+.bms-designer-canvas__hint {
+  margin-left: auto;
+  color: var(--bms-color-text-secondary);
+  font-size: var(--bms-font-size-xs);
+}
+
+/* 字段单元格（原型：虚线描边 + 浅底 + 悬停 / 选中主色）。 */
+.bms-designer-canvas__field {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--bms-space-2);
+  padding: var(--bms-space-2) var(--bms-space-3);
+  margin-bottom: var(--bms-space-2);
+  font-size: var(--bms-font-size-sm);
+  background: var(--bms-designer-cell-bg);
+  border: 1px dashed var(--bms-designer-cell-border);
+  border-radius: var(--bms-radius-sm);
+  cursor: grab;
+}
+
+.bms-designer-canvas__field:hover {
+  border-color: var(--bms-designer-cell-selected-border);
+}
+
+.bms-designer-canvas__field[data-selected] {
+  background: var(--bms-designer-cell-selected-bg);
+  border-color: var(--bms-designer-cell-selected-border);
+}
+
+.bms-designer-canvas__field-label {
+  color: var(--bms-color-text);
+}
+
+.bms-designer-canvas__query,
+.bms-designer-canvas__detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bms-space-2);
+}
+
+.bms-designer-canvas__row {
+  padding: var(--bms-space-2) var(--bms-space-3);
+  font-size: var(--bms-font-size-sm);
+  background: var(--bms-designer-cell-bg);
+  border: 1px solid var(--bms-color-border);
+  border-radius: var(--bms-radius-sm);
+  cursor: grab;
+}
+
+/* 窄容器单列（与 `useResponsive` 缺省窄屏阈值一致）。 */
+@media (max-width: 992px) {
+  .bms-designer-canvas__section-head {
+    align-items: flex-start;
+  }
+
+  .bms-designer-canvas__section-count {
+    margin-left: 0;
+  }
+}
+</style>

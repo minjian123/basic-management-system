@@ -230,6 +230,55 @@
         <li>文件预览背衬为<strong>深色</strong>（突出图片），内容遮罩为<strong>浅色洗白</strong>（保留内容轮廓），两者语义不同、<strong>不合并为一条</strong>。</li>
       </ul>
 
+      <h2 id="field-color">2.10 字段族令牌（2026-10-14 登记，前端组件库 11_03）</h2>
+      <table>
+        <tr><th>令牌</th><th>用途</th><th>默认值</th></tr>
+        <tr><td><code>--bms-field-error-color</code></td><td>字段错误文案字色（全库 <code>.bms-field-error</code> 共用，落 ui-ep 全局样式 <code>src/styles/components.css</code>）</td><td>亮 <code>#cf222e</code> / 暗 <code>#f89898</code></td></tr>
+        <tr><td><code>--bms-field-readonly-bg</code></td><td>字段只读回显底</td><td>亮 <code>#f5f7fa</code> / 暗 <code>#262727</code></td></tr>
+        <tr><td><code>--bms-field-readonly-border</code></td><td>字段只读回显描边</td><td>亮 <code>#dcdfe6</code> / 暗 <code>#4c4d4f</code></td></tr>
+        <tr><td><code>--bms-field-suggest-bg</code></td><td>标签输入建议面板底</td><td>亮 <code>#ffffff</code> / 暗 <code>#1d1e1f</code></td></tr>
+        <tr><td><code>--bms-field-suggest-hover-bg</code></td><td>标签输入建议项悬停底</td><td>亮 <code>#f5f7fa</code> / 暗 <code>#262727</code></td></tr>
+        <tr><td><code>--bms-richtext-toolbar-bg</code></td><td>富文本工具条底</td><td>亮 <code>#f5f7fa</code> / 暗 <code>#262727</code></td></tr>
+        <tr><td><code>--bms-richtext-content-bg</code></td><td>富文本内容区底</td><td>亮 <code>#ffffff</code> / 暗 <code>#1d1e1f</code></td></tr>
+        <tr><td><code>--bms-richtext-border</code></td><td>富文本描边（内容区 / 代码块）</td><td>亮 <code>#dcdfe6</code> / 暗 <code>#4c4d4f</code></td></tr>
+        <tr><td><code>--bms-richtext-code-bg</code></td><td>富文本代码块底</td><td>亮 <code>#f6f8fa</code> / 暗 <code>#232324</code></td></tr>
+        <tr><td><code>--bms-i18n-marker-bg</code></td><td>多语言明细语言标记底</td><td>亮 <code>#f5f7fa</code> / 暗 <code>#262727</code></td></tr>
+        <tr><td><code>--bms-i18n-missing-color</code></td><td>多语言「缺失」标记字色（warning 语义）</td><td><code>#e6a23c</code>（两主题同值）</td></tr>
+        <tr><td><code>--bms-tristate-bg</code></td><td>三态开关「未设置」轨道底</td><td>亮 <code>#dcdfe6</code> / 暗 <code>#4c4d4f</code></td></tr>
+        <tr><td><code>--bms-tristate-color</code></td><td>三态开关「未设置」字色</td><td>亮 <code>#909399</code> / 暗 <code>#a3a6ad</code></td></tr>
+      </table>
+      <ul>
+        <li>字段错误文案、只读回显、标签建议、富文本内容区、多语言标记与三态开关配色统一来自以上令牌；<strong>禁止在字段族与基础控件族件中硬编码色值</strong>。</li>
+        <li><code>--bms-field-error-color</code> 由 <strong>ui-ep 全局样式落点</strong>（<code>packages/ui-ep/src/styles/components.css</code>）消费，供全库 22 个字段件共用，避免各件 <code>&lt;style scoped&gt;</code> 重复定义。</li>
+        <li>三态开关为自绘件（Element Plus <code>el-switch</code> 无 <code>indeterminate</code>，无法承载「未设置」态）；字段契约语义见《组件设计》字段类 02 / 03 / 04 / 07 / 08 / 09 / 11 / 12 / 13 节点与基础控件类 03 / 07 节点。</li>
+      </ul>
+
+      <h2 id="special-color">2.11 专题件族令牌（2026-10-14 登记，前端组件库 11_04）</h2>
+      <table>
+        <tr><th>令牌</th><th>用途</th><th>默认值</th></tr>
+        <tr><td><code>--bms-import-step-bg</code></td><td>导入步骤条底</td><td>亮 <code>#f5f7fa</code> / 暗 <code>#262727</code></td></tr>
+        <tr><td><code>--bms-import-step-active-color</code></td><td>导入步骤条当前步字色（主色语义）</td><td>亮 <code>#409eff</code> / 暗 <code>#79bbff</code></td></tr>
+        <tr><td><code>--bms-import-drop-bg</code></td><td>导入文件拖拽区底</td><td>亮 <code>#fafafa</code> / 暗 <code>#1d1e1f</code></td></tr>
+        <tr><td><code>--bms-import-drop-border</code></td><td>导入文件拖拽区描边</td><td>亮 <code>#dcdfe6</code> / 暗 <code>#414243</code></td></tr>
+        <tr><td><code>--bms-import-drop-active-border</code></td><td>导入文件拖拽区悬停 / 拖入描边（主色语义）</td><td>亮 <code>#409eff</code> / 暗 <code>#79bbff</code></td></tr>
+        <tr><td><code>--bms-import-summary-bg</code></td><td>导入结果汇总三宫格底</td><td>亮 <code>#f5f7fa</code> / 暗 <code>#262727</code></td></tr>
+        <tr><td><code>--bms-designer-panel-bg</code></td><td>表单设计器三栏面板底</td><td>亮 <code>#ffffff</code> / 暗 <code>#1d1e1f</code></td></tr>
+        <tr><td><code>--bms-designer-canvas-bg</code></td><td>表单设计器画布底</td><td>亮 <code>#fafafa</code> / 暗 <code>#232324</code></td></tr>
+        <tr><td><code>--bms-designer-section-border</code></td><td>设计器分区容器虚线描边</td><td>亮 <code>#d0d7de</code> / 暗 <code>#414243</code></td></tr>
+        <tr><td><code>--bms-designer-cell-bg</code></td><td>设计器字段单元格底</td><td>亮 <code>#fbfcfd</code> / 暗 <code>#262727</code></td></tr>
+        <tr><td><code>--bms-designer-cell-border</code></td><td>设计器字段单元格虚线描边</td><td>亮 <code>#c8d1da</code> / 暗 <code>#4c4d4f</code></td></tr>
+        <tr><td><code>--bms-designer-cell-selected-bg</code></td><td>设计器字段单元格选中底（主色浅底）</td><td>亮 <code>#ecf5ff</code> / 暗 <code>#1d3049</code></td></tr>
+        <tr><td><code>--bms-designer-cell-selected-border</code></td><td>设计器字段单元格选中描边（主色）</td><td>亮 <code>#409eff</code> / 暗 <code>#79bbff</code></td></tr>
+        <tr><td><code>--bms-report-panel-bg</code></td><td>报表设计器三区面板底</td><td>亮 <code>#ffffff</code> / 暗 <code>#1d1e1f</code></td></tr>
+        <tr><td><code>--bms-report-canvas-bg</code></td><td>报表设计器画布底</td><td>亮 <code>#f6f8fa</code> / 暗 <code>#262727</code></td></tr>
+        <tr><td><code>--bms-report-chart-selected-border</code></td><td>报表图表卡选中描边（主色）</td><td>亮 <code>#409eff</code> / 暗 <code>#79bbff</code></td></tr>
+      </table>
+      <ul>
+        <li>导入导出步骤条与拖拽区、表单设计器三栏与画布选中态、报表设计器三区与图表卡选中态配色统一来自以上令牌；<strong>禁止在专题件族件中硬编码色值</strong>。</li>
+        <li>导入导出「文件拖拽区」与字段类「文件拖拽区」（<code>--bms-file-drop-*</code>）<strong>语义不同、不合并</strong>：前者承载批量导入 xlsx（单文件、类型与大小校验），后者为字段级附件上传（分片 / 秒传 / 断点续传）。</li>
+        <li><code>.bms-interaction-placeholder</code> / <code>.bms-display-placeholder</code> 两类降级占位同上由 <strong>ui-ep 全局样式落点</strong>（<code>packages/ui-ep/src/styles/components.css</code>）消费，供全库交互类 11 件与展示类 9 件共用；专题件族契约语义见《组件设计》交互类 01 / 05 / 11 / 12 / 08 节点与展示类 04 节点。</li>
+      </ul>
+
       <h2 id="font">3. 字体令牌</h2>
       <table>
         <tr><th>令牌</th><th>值</th></tr>

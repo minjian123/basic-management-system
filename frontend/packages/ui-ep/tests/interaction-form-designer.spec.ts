@@ -3,11 +3,20 @@
 
 import type { FormField } from '@bms/core'
 import { flushPromises, mount } from '@vue/test-utils'
-import { describe, expect, it, vi } from 'vitest'
+import { nextTick } from 'vue'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { FormDesigner, toDesignerDrop, toDragPayload, useBaseFormDesigner } from '../src'
 import ExtFieldDialog from '../src/components/form-design/ExtFieldDialog.vue'
 import FieldPropertyPanel from '../src/components/form-design/FieldPropertyPanel.vue'
+
+/** 等待弹框内容落定（`el-dialog` 经 Teleport + 惰性渲染）。 */
+async function settleDialog(): Promise<void> {
+  for (let index = 0; index < 6; index += 1) {
+    await flushPromises()
+    await nextTick()
+  }
+}
 
 /** 字段清单样例。 */
 const fields: FormField[] = [
@@ -157,6 +166,13 @@ describe('拖拽适配工具', () => {
 })
 
 describe('FormDesigner 表单设计器', () => {
+  // `el-dialog` 经 Teleport 挂 body，组件卸载不清除已传送节点 → 用例间清理防断言串味。
+  beforeEach(() => {
+    for (const node of document.querySelectorAll('.el-overlay, .el-overlay-dialog')) {
+      node.remove()
+    }
+  })
+
   it('占位态降级', () => {
     const wrapper = mount(FormDesigner, { props: {} })
     expect(wrapper.find('[data-test="placeholder"]').text()).toContain('表单设计器未就绪')
@@ -217,11 +233,12 @@ describe('FormDesigner 表单设计器', () => {
 
     await vi.dynamicImportSettled()
     await flushPromises()
-    expect(wrapper.find('[data-test="ext-submit"]').exists()).toBe(false)
+    expect(document.querySelector('[data-test="ext-dialog"]')).toBeNull()
     await wrapper.find('[data-test="create-field"]').trigger('click')
     await vi.dynamicImportSettled()
-    await flushPromises()
-    expect(wrapper.find('[data-test="ext-dialog"]').exists()).toBe(true)
+    await settleDialog()
+    // 自建字段对话框改 `el-dialog`（append-to-body）→ 内容挂 body。
+    expect(document.querySelector('[data-test="ext-dialog"]')).not.toBeNull()
   })
 
   it('未注册类型 / 停用字段置灰不可拖入', async () => {
@@ -255,54 +272,75 @@ describe('FieldPropertyPanel 字段属性面板', () => {
     expect(panel.find('[data-test="property-empty"]').exists()).toBe(true)
     expect(panel.find('[data-test="prop-label-position"]').exists()).toBe(true)
 
-    await panel.find('[data-test="prop-label-position"]').setValue('left')
+    // 改 `el-select` 承载后经组件 `update:model-value` 上抛（EP 件替换，查询方式迁移）。
+    panel.findComponent({ name: 'ElSelect' }).vm.$emit('update:modelValue', 'left')
+    await flushPromises()
     expect(panel.emitted('canvas-change')?.[0]).toEqual([{ labelPosition: 'left' }])
 
     await panel.setProps({ selection: { kind: 'field', key: 'project_no' }, fields })
     expect(panel.find('[data-test="property-field"]').exists()).toBe(true)
-    await panel.find('[data-test="prop-required"]').setValue(true)
+    panel.findComponent({ name: 'ElCheckbox' }).vm.$emit('update:modelValue', true)
+    await flushPromises()
     expect(panel.emitted('field-change')?.[0]).toEqual([{ fieldKey: 'project_no', patch: { required: true } }])
   })
 
   it('选中分区显示分区属性，只读时禁用', async () => {
     const panel = mount(FieldPropertyPanel, { props: { selection: { kind: 'section', key: 's1' }, layout } })
-    await panel.find('[data-test="prop-section-title"]').setValue('扩展信息')
+    panel.findComponent({ name: 'ElInput' }).vm.$emit('update:modelValue', '扩展信息')
+    await flushPromises()
     expect(panel.emitted('section-change')?.[0]).toEqual([{ sectionKey: 's1', patch: { title: '扩展信息' } }])
 
     const readonlyPanel = mount(FieldPropertyPanel, {
       props: { selection: { kind: 'field', key: 'name' }, fields, layout, readOnly: true },
     })
     expect(readonlyPanel.find('[data-test="property-readonly"]').exists()).toBe(true)
-    await readonlyPanel.find('[data-test="prop-required"]').setValue(true)
+    readonlyPanel.findComponent({ name: 'ElCheckbox' }).vm.$emit('update:modelValue', true)
+    await flushPromises()
     expect(readonlyPanel.emitted('field-change')).toBeUndefined()
   })
 })
 
 describe('ExtFieldDialog 自建字段对话框', () => {
   it('列名预览只读、名称与类型校验不通过不可提交', async () => {
-    const dialog = mount(ExtFieldDialog, { props: { visible: true, existingKeys: ['name'] } })
-    await dialog.find('[data-test="ext-name"]').setValue('projectNo')
-    expect(dialog.find('[data-test="ext-column-preview"]').text()).toContain('ext_project_no')
+    // 改 `el-dialog`（append-to-body）→ 内容挂 body，改查 document + 多轮微任务（迁移口径同 11_01）。
+    const dialog = mount(ExtFieldDialog, {
+      props: { visible: true, existingKeys: ['name'] },
+      attachTo: document.body,
+    })
+    await settleDialog()
+    const setName = (value: string): void => {
+      dialog.findComponent({ name: 'ElInput' }).vm.$emit('update:modelValue', value)
+    }
+    setName('projectNo')
+    await flushPromises()
+    expect(document.querySelector('[data-test="ext-column-preview"]')?.textContent).toContain('ext_project_no')
 
-    await dialog.find('[data-test="ext-name"]').setValue('name')
-    expect(dialog.find('[data-test="ext-error"]').text()).toContain('已存在')
-    expect(dialog.find('[data-test="ext-submit"]').attributes('disabled')).toBeDefined()
+    setName('name')
+    await flushPromises()
+    expect(document.querySelector('[data-test="ext-error"]')?.textContent).toContain('已存在')
+    expect((document.querySelector('[data-test="ext-submit"]') as HTMLButtonElement).disabled).toBe(true)
 
-    await dialog.find('[data-test="ext-name"]').setValue('')
-    expect(dialog.find('[data-test="ext-error"]').text()).toContain('不能为空')
+    setName('')
+    await flushPromises()
+    expect(document.querySelector('[data-test="ext-error"]')?.textContent).toContain('不能为空')
+    dialog.unmount()
   })
 
   it('下拉类必填选项集，提交后上抛草稿', async () => {
-    const dialog = mount(ExtFieldDialog, { props: { visible: true } })
-    await dialog.find('[data-test="ext-name"]').setValue('status')
-    await dialog.find('[data-test="ext-type"]').setValue('select')
+    const dialog = mount(ExtFieldDialog, { props: { visible: true }, attachTo: document.body })
+    await settleDialog()
+    dialog.findAllComponents({ name: 'ElInput' })[0]?.vm.$emit('update:modelValue', 'status')
     await flushPromises()
-    expect(dialog.find('[data-test="ext-options"]').exists()).toBe(true)
-    expect(dialog.find('[data-test="ext-error"]').text()).toContain('选项集')
+    dialog.findComponent({ name: 'ElSelect' }).vm.$emit('update:modelValue', 'select')
+    await flushPromises()
+    expect(document.querySelector('[data-test="ext-options"]')).not.toBeNull()
+    expect(document.querySelector('[data-test="ext-error"]')?.textContent).toContain('选项集')
 
-    await dialog.find('[data-test="ext-options"]').setValue('a|启用\nb|停用')
+    const inputs = dialog.findAllComponents({ name: 'ElInput' })
+    inputs[inputs.length - 1]?.vm.$emit('update:modelValue', 'a|启用\nb|停用')
     await flushPromises()
-    await dialog.find('[data-test="ext-submit"]').trigger('click')
+    ;(document.querySelector('[data-test="ext-submit"]') as HTMLButtonElement).click()
+    await flushPromises()
     expect(dialog.emitted('submit')?.[0]?.[0]).toMatchObject({
       name: 'status',
       type: 'select',
@@ -311,12 +349,19 @@ describe('ExtFieldDialog 自建字段对话框', () => {
         { value: 'b', label: '停用' },
       ],
     })
+    dialog.unmount()
   })
 
   it('DDL 状态与重试入口', async () => {
-    const dialog = mount(ExtFieldDialog, { props: { visible: true, ddlStatus: 'failed', failedFieldKey: 'ext_broken' } })
-    expect(dialog.find('[data-test="ext-ddl-status"]').text()).toBe('建列失败')
-    await dialog.find('[data-test="ext-retry"]').trigger('click')
+    const dialog = mount(ExtFieldDialog, {
+      props: { visible: true, ddlStatus: 'failed', failedFieldKey: 'ext_broken' },
+      attachTo: document.body,
+    })
+    await settleDialog()
+    expect(document.querySelector('[data-test="ext-ddl-status"]')?.textContent).toBe('建列失败')
+    ;(document.querySelector('[data-test="ext-retry"]') as HTMLButtonElement).click()
+    await flushPromises()
     expect(dialog.emitted('retry')?.[0]).toEqual([{ fieldKey: 'ext_broken' }])
+    dialog.unmount()
   })
 })

@@ -65,6 +65,15 @@ const designerRef = ref<InstanceType<typeof FormDesigner>>()
 /** 自检结果。 */
 const checks = ref<{ label: string; pass: boolean }[]>([])
 
+/** 当前主题（截图对照用）。 */
+const theme = ref(document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light')
+
+/** 切换亮暗主题。 */
+function onToggleTheme(): void {
+  theme.value = theme.value === 'dark' ? 'light' : 'dark'
+  document.documentElement.dataset.theme = theme.value
+}
+
 /**
  * 作用域内查询元素。
  *
@@ -76,13 +85,35 @@ function q(scope: string, selector: string): Element | null {
 }
 
 /**
+ * 查询弹框内元素（`el-dialog` 默认 append-to-body → 内容挂 body，作用域选择器命中不到）。
+ *
+ * @param selector CSS 选择器。
+ * @returns 命中的元素；未命中返回 null。
+ */
+function qd(selector: string): Element | null {
+  return document.querySelector(selector)
+}
+
+/**
+ * 兼容查询：先作用域、再 body 兜底。
+ *
+ * @param scope 作用域。
+ * @param selector 选择器。
+ * @returns 命中的元素；未命中返回 null。
+ */
+function qa(scope: string, selector: string): Element | null {
+  return q(scope, selector) ?? qd(selector)
+}
+
+/**
  * 作用域内取元素文本。
  *
  * @param scope 作用域。
  * @param selector 选择器。
  */
 function textOf(scope: string, selector: string): string {
-  return q(scope, selector)?.textContent ?? ''
+  // 弹框内容经 `el-dialog`（append-to-body）挂 body → 走 body 兜底。
+  return qa(scope, selector)?.textContent ?? ''
 }
 
 /** 等待渲染与异步结算（含懒加载分包件到位）。 */
@@ -101,7 +132,7 @@ async function settle(): Promise<void> {
  */
 async function waitFor(scope: string, selector: string): Promise<void> {
   for (let i = 0; i < 40; i += 1) {
-    if (q(scope, selector) !== null) {
+    if (qa(scope, selector) !== null) {
       return
     }
     await new Promise((resolve) => setTimeout(resolve, 50))
@@ -115,11 +146,79 @@ async function waitFor(scope: string, selector: string): Promise<void> {
  * @param selector 选择器。
  */
 async function click(scope: string, selector: string): Promise<void> {
-  const element = q(scope, selector)
+  const element = qa(scope, selector)
   if (element instanceof HTMLElement) {
     element.click()
   }
   await settle()
+}
+
+
+/**
+ * 经原生 setter 设值并派发事件（EP `el-input` / `el-input` textarea 内部为受控原生元素）。
+ *
+ * @param selector 选择器。
+ * @param value 目标值。
+ */
+function setNativeValue(selector: string, value: string): void {
+  const host = qd(selector)
+  // EP `el-input` 未必透传 attrs 到内层原生元素：钩子可能就落在原生 input / textarea 上。
+  const self = host instanceof HTMLInputElement || host instanceof HTMLTextAreaElement ? host : null
+  const target = self ?? host?.querySelector('input, textarea')
+  if (!(target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement)) {
+    return
+  }
+  const proto = target instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype
+  const setter = Object.getOwnPropertyDescriptor(proto, 'value')?.set
+  setter?.call(target, value)
+  target.dispatchEvent(new Event('input', { bubbles: true }))
+}
+
+/**
+ * 设 `el-input` 值。
+ *
+ * @param selector 选择器。
+ * @param value 目标值。
+ */
+function setInputValue(selector: string, value: string): void {
+  setNativeValue(selector, value)
+}
+
+/**
+ * 设 `el-input type="textarea"` 值。
+ *
+ * @param selector 选择器。
+ * @param value 目标值。
+ */
+function setTextareaValue(selector: string, value: string): void {
+  setNativeValue(selector, value)
+}
+
+/**
+ * 选 `el-select` 选项（点击展开 → 点标签匹配项；EP 选项经 popper 挂 body）。
+ *
+ * @param scope 作用域（可为 null，此时仅在 body 内查询）。
+ * @param selector 选择器。
+ * @param label 选项标签文本。
+ */
+async function setSelectValue(scope: string | null, selector: string, label: string | number): Promise<void> {
+  const host = scope === null ? qd(selector) : qa(scope, selector)
+  if (!(host instanceof HTMLElement)) {
+    return
+  }
+  const wrapper = host.querySelector('.el-select__wrapper') ?? host
+  ;(wrapper as HTMLElement).click()
+  // EP 下拉经 popper 异步挂载 → 等一轮再取选项。
+  for (let i = 0; i < 20; i += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    const hit = Array.from(document.querySelectorAll('.el-select-dropdown__item')).find(
+      (item) => (item.textContent ?? '').trim() === String(label),
+    )
+    if (hit instanceof HTMLElement) {
+      hit.click()
+      return
+    }
+  }
 }
 
 /** 设计器内部状态读取（演示核对用）。 */
@@ -186,12 +285,9 @@ async function runChecks(): Promise<void> {
     pass: (afterSection?.layout.main.sections.length ?? 0) === 2,
   })
 
-  const columns = q('designer', '[data-test="section-columns-s1"]')
-  if (columns instanceof HTMLSelectElement) {
-    columns.value = '3'
-    columns.dispatchEvent(new Event('change'))
-    await settle()
-  }
+  // 分区列数改 `el-select` 承载 → 经 EP 组件上抛（原生 select 赋值不再生效）。
+  await setSelectValue('designer', '[data-test="section-columns-s1"]', '3 列')
+  await settle()
   await click('designer', '[data-test="field-colspan-name"]')
   const afterColumns = inner()
   result.push({
@@ -201,12 +297,10 @@ async function runChecks(): Promise<void> {
 
   await click('designer', '[data-test="designer-field-name"]')
   await waitFor('designer', '[data-test="prop-required"]')
-  const required = q('designer', '[data-test="prop-required"]')
-  if (required instanceof HTMLInputElement) {
-    required.checked = true
-    required.dispatchEvent(new Event('change'))
-    await settle()
-  }
+  // 必填改 `el-checkbox` 承载 → 经 EP 组件上抛。
+  const requiredBox = q('designer', '[data-test="prop-required"]')
+  requiredBox?.querySelector('input')?.click()
+  await settle()
   result.push({
     label: '⑦ 字段属性面板随选中联动（必填等属性可编辑）',
     pass: q('designer', '[data-test="property-field"]') !== null && q('designer', '[data-test="prop-options"]') === null,
@@ -214,18 +308,11 @@ async function runChecks(): Promise<void> {
 
   await click('designer', '[data-test="create-field"]')
   await waitFor('designer', '[data-test="ext-dialog"]')
-  const extName = q('designer', '[data-test="ext-name"]')
-  if (extName instanceof HTMLInputElement) {
-    extName.value = 'projectNo'
-    extName.dispatchEvent(new Event('input'))
-    await settle()
-  }
-  const extType = q('designer', '[data-test="ext-type"]')
-  if (extType instanceof HTMLSelectElement) {
-    extType.value = 'select'
-    extType.dispatchEvent(new Event('change'))
-    await settle()
-  }
+  // 自建字段对话框改 `el-dialog`（append-to-body）+ `el-input` / `el-select` 承载。
+  setInputValue('[data-test="ext-name"]', 'projectNo')
+  await settle()
+  await setSelectValue(null, '[data-test="ext-type"]', 'select')
+  await settle()
   result.push({
     label: '⑧ 自建字段（列名只读预览 ext_ 前缀 + 下拉类选项集必填拦截）',
     pass:
@@ -233,12 +320,8 @@ async function runChecks(): Promise<void> {
       textOf('designer', '[data-test="ext-error"]').includes('选项集'),
   })
 
-  const extOptions = q('designer', '[data-test="ext-options"]')
-  if (extOptions instanceof HTMLTextAreaElement) {
-    extOptions.value = 'a|启用'
-    extOptions.dispatchEvent(new Event('input'))
-    await settle()
-  }
+  setTextareaValue('[data-test="ext-options"]', 'a|启用')
+  await settle()
   await click('designer', '[data-test="ext-submit"]')
   result.push({
     label: '⑨ 自建字段提交（触发创建处理函数并入字段清单）',
@@ -269,6 +352,31 @@ async function runChecks(): Promise<void> {
     pass: calls.includes('restore:tenant') && requestBefore > 0 && (afterReset?.layout.main.sections[0]?.fields.map((field) => field.key).join(',') ?? '') === 'name,remark',
   })
 
+  // 本批（11_04）样式自检。
+  result.push({
+    label: '⑬ 三栏 grid 与画布栅格（字段面板 / 画布 / 属性面板分栏 + 字段单元格虚线描边）',
+    pass: (() => {
+      const body = document.querySelector('[data-check-scope="designer"] .bms-form-designer__body')
+      const field = document.querySelector('[data-check-scope="designer"] .bms-designer-canvas__field')
+      if (body === null || field === null) {
+        return false
+      }
+      return getComputedStyle(body).display === 'grid' && getComputedStyle(field).borderStyle === 'dashed'
+    })(),
+  })
+  result.push({
+    label: '⑭ 属性面板分组与字段单元格选中态令牌生效',
+    pass: (() => {
+      const group = document.querySelector('[data-check-scope="designer"] .bms-field-property-panel__group-title')
+      const selected = document.querySelector('[data-check-scope="designer"] .bms-designer-canvas__field[data-selected]')
+      if (group === null || selected === null) {
+        return false
+      }
+      // 选中态底取令牌（主色浅底），且非透明。
+      return getComputedStyle(selected).backgroundColor !== 'rgba(0, 0, 0, 0)'
+    })(),
+  })
+
   checks.value = result
 }
 
@@ -280,6 +388,11 @@ onMounted(() => {
 <template>
   <div class="form-design-check">
     <h1>表单设计器核对页（08-6-1）</h1>
+
+    <div class="form-design-check__toolbar">
+      <el-button data-test="check-theme" @click="onToggleTheme">切换到{{ theme === 'dark' ? '亮色' : '暗色' }}</el-button>
+      <span class="form-design-check__hint">主题：{{ theme }}</span>
+    </div>
     <section class="form-design-check__panel">
       <h2>自检结果</h2>
       <ol>
@@ -307,3 +420,17 @@ onMounted(() => {
     </section>
   </div>
 </template>
+
+<style scoped>
+.form-design-check__toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--bms-space-3);
+  margin-bottom: var(--bms-space-3);
+}
+
+.form-design-check__hint {
+  color: var(--bms-color-text-secondary);
+  font-size: var(--bms-font-size-sm);
+}
+</style>

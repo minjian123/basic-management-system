@@ -19,6 +19,7 @@ import type {
   SubmitResult,
 } from '@bms/core'
 import { RENDERER_PLACEHOLDER_TEXT } from '@bms/core'
+import { ElButton } from 'element-plus'
 import { computed, defineAsyncComponent, ref, watch } from 'vue'
 
 import { useBaseFormMeta } from '../../composables/useBaseFormMeta'
@@ -424,11 +425,13 @@ defineExpose({
     </slot>
     <template v-else>
       <slot name="live">
-        <p v-if="plan.fallback" data-test="renderer-fallback-hint">未配置布局，已按字段默认栅格渲染</p>
-        <p v-if="readonly" data-test="renderer-readonly-hint">当前为只读态</p>
+        <p v-if="plan.fallback" class="bms-form-renderer__hint" data-test="renderer-fallback-hint">
+          未配置布局，已按字段默认栅格渲染
+        </p>
+        <p v-if="readonly" class="bms-form-renderer__hint" data-test="renderer-readonly-hint">当前为只读态</p>
 
         <slot v-if="!hasContent" name="empty">
-          <p data-test="renderer-empty">没有可渲染的字段</p>
+          <p class="bms-form-renderer__empty" data-test="renderer-empty">没有可渲染的字段</p>
         </slot>
 
         <component
@@ -458,7 +461,7 @@ defineExpose({
           </template>
         </component>
 
-        <p v-if="detailError" data-test="renderer-detail-error">{{ detailError }}</p>
+        <p v-if="detailError" class="bms-form-renderer__error" data-test="renderer-detail-error">{{ detailError }}</p>
 
         <p
           class="bms-form-renderer__summary"
@@ -473,8 +476,8 @@ defineExpose({
 
         <div class="bms-form-renderer__actions" data-test="actions">
           <slot name="actions" :readonly="readonly">
-            <button type="button" data-test="submit" :disabled="readonly" @click="submit">提交</button>
-            <button type="button" data-test="retry" :disabled="readonly" @click="retry">重试</button>
+            <el-button type="primary" data-test="submit" :disabled="readonly" @click="submit">提交</el-button>
+            <el-button data-test="retry" :disabled="readonly" @click="retry">重试</el-button>
           </slot>
         </div>
 
@@ -483,3 +486,50 @@ defineExpose({
     </template>
   </div>
 </template>
+<style scoped>
+.bms-form-renderer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bms-space-3);
+  min-width: 0;
+}
+
+/* 回退 / 只读提示条（警示语义，节点 §3 空布局回退与 §6 只读态）。 */
+.bms-form-renderer__hint {
+  margin: 0;
+  padding: var(--bms-space-2) var(--bms-space-3);
+  color: var(--bms-color-warning);
+  font-size: var(--bms-font-size-xs);
+  background: var(--bms-color-warning-bg);
+  border-radius: var(--bms-radius-sm);
+}
+
+.bms-form-renderer__empty {
+  margin: 0;
+  padding: var(--bms-space-4);
+  color: var(--bms-color-text-secondary);
+  font-size: var(--bms-font-size-sm);
+  text-align: center;
+  border: 1px dashed var(--bms-color-border);
+  border-radius: var(--bms-radius-sm);
+}
+
+.bms-form-renderer__error {
+  margin: 0;
+  color: var(--bms-field-error-color);
+  font-size: var(--bms-font-size-xs);
+}
+
+.bms-form-renderer__summary {
+  margin: 0;
+  color: var(--bms-color-text-secondary);
+  font-size: var(--bms-font-size-xs);
+}
+
+.bms-form-renderer__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--bms-space-2);
+}
+</style>

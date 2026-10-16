@@ -79,3 +79,49 @@ describe('TransferField', () => {
     expect(options[0]?.label).toBe('组一 · 甲')
   })
 })
+
+describe('TransferField 新增契约（11_03）', () => {
+  it('取值 / 展示字段名可配', () => {
+    const wrapper = mount(TransferField, {
+      props: { modelValue: [], data, fieldNames: { key: 'id', label: 'name', disabled: 'off' } },
+      global: { stubs },
+    })
+    expect(wrapper.findComponent(ElTransferStub).props('props')).toEqual({ key: 'id', label: 'name', disabled: 'off' })
+
+    const defaults = mount(TransferField, { props: { modelValue: [], data }, global: { stubs } })
+    expect(defaults.findComponent(ElTransferStub).props('props')).toEqual({ key: 'key', label: 'label', disabled: 'disabled' })
+  })
+
+  it('变化明细（新增 / 移除项）', async () => {
+    const wrapper = mount(TransferField, { props: { modelValue: [], data }, global: { stubs } })
+    await wrapper.find('[data-test="move-b"]').trigger('click')
+    expect(wrapper.emitted('change')?.[0]).toEqual([['b'], { direction: 'add', movedKeys: ['b'] }])
+
+    await wrapper.setProps({ modelValue: ['b'] })
+    await wrapper.find('[data-test="move-all"]').trigger('click')
+    expect(wrapper.emitted('change')?.at(-1)).toEqual([['a', 'b', 'c'], { direction: 'add', movedKeys: ['a', 'c'] }])
+  })
+
+  it('只读回显顿号分隔与空值占位（11_03 迁移）', () => {
+    const wrapper = mount(TransferField, { props: { modelValue: ['a', 'b'], data, readonly: true }, global: { stubs } })
+    expect(wrapper.find('[data-test="transfer-readonly"]').text()).toBe('甲、乙')
+
+    const empty = mount(TransferField, { props: { modelValue: [], data, readonly: true }, global: { stubs } })
+    expect(empty.find('[data-test="transfer-readonly"]').text()).toBe('—')
+  })
+
+  it('已选项失效标记与内容操作暴露（11_03 新增契约）', () => {
+    const wrapper = mount(TransferField, { props: { modelValue: ['ghost'], data }, global: { stubs } })
+    expect(wrapper.find('[data-test="transfer-stale"]').text()).toContain('ghost')
+
+    const exposed = wrapper.vm as unknown as { clear: () => void; refresh: () => Promise<void> }
+    exposed.clear()
+    expect(wrapper.emitted('update:modelValue')?.at(-1)).toEqual([[]])
+  })
+
+  it('空态复用空状态件（11_03 新增契约）', () => {
+    const wrapper = mount(TransferField, { props: { modelValue: [], data: [], placeholder: '暂无数据' }, global: { stubs } })
+    expect(wrapper.text()).toContain('暂无数据')
+    expect(wrapper.find('.el-transfer').exists()).toBe(false)
+  })
+})

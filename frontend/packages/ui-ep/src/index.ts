@@ -4,6 +4,9 @@
  * 具体组件按族分目录（`src/components/<族>/`）；组合式落 `src/composables/`。
  */
 
+// 全局样式落点（跨件共用类，如全库共用的 `.bms-field-error`）：入口即引，任意宿主 / 运行时模块引本包即得样式。
+import './styles/components.css'
+
 export { default as EmptyState, type EmptyStateType } from './components/feedback/EmptyState.vue'
 export { default as ErrorPage, type ErrorPageCode } from './components/feedback/ErrorPage.vue'
 export { default as LoadingMask } from './components/feedback/LoadingMask.vue'
@@ -225,18 +228,42 @@ export { default as SmsCaptcha } from './components/field/SmsCaptcha.vue'
 export { default as AmountField } from './components/field/AmountField.vue'
 export { default as CascadeField, type CascadeOption, type CascadeValue } from './components/field/CascadeField.vue'
 export { default as EnumField, type EnumFieldForm, type EnumFieldValue } from './components/field/EnumField.vue'
+export {
+  default as EnumMultiField,
+  type EnumMultiForm,
+  type EnumMultiValue,
+} from './components/field/EnumMultiField.vue'
 export { default as InlineSwitchCell } from './components/field/InlineSwitchCell.vue'
+export { default as PercentField, type PercentScale } from './components/field/PercentField.vue'
+export { default as TimeField, type TimeFieldFormat } from './components/field/TimeField.vue'
 export { default as NumberField } from './components/field/NumberField.vue'
+export { default as MultilingualNameField } from './components/field/MultilingualNameField.vue'
+export { default as MultilingualTextField } from './components/field/MultilingualTextField.vue'
+export { default as MultilingualDetailDialog } from './components/field/MultilingualDetailDialog.vue'
 export { default as RichTextField, type RichTextFieldMode } from './components/field/RichTextField.vue'
 export { default as SwitchField } from './components/field/SwitchField.vue'
-export { default as TagInputField, type TagColorMap } from './components/field/TagInputField.vue'
-export { default as TransferField, type TransferItem, type TransferValue } from './components/field/TransferField.vue'
+export {
+  default as TagInputField,
+  type TagChangeDetail,
+  type TagColorMap,
+} from './components/field/TagInputField.vue'
+export {
+  default as TransferField,
+  type TransferChangeDetail,
+  type TransferItem,
+  type TransferValue,
+} from './components/field/TransferField.vue'
 export {
   default as TreeSelectField,
   type TreeFieldNode,
   type TreeFieldValue,
 } from './components/field/TreeSelectField.vue'
-export { default as DateTimeField, type DateTimeKind, type DateTimeValue } from './components/field/DateTimeField.vue'
+export {
+  default as DateTimeField,
+  type DateTimeKind,
+  type DateTimeShortcut,
+  type DateTimeValue,
+} from './components/field/DateTimeField.vue'
 export { default as DictSelectField, type DictFieldValue } from './components/field/DictSelectField.vue'
 export { default as FileUploadField, type UploadFieldItem } from './components/field/FileUploadField.vue'
 export { default as ImageUploadField } from './components/field/ImageUploadField.vue'
@@ -260,6 +287,7 @@ export { default as NumberInput } from './components/input/NumberInput.vue'
 export { default as RadioInput, type RadioForm, type RadioValue } from './components/input/RadioInput.vue'
 export { default as SelectInput, type SelectValue } from './components/input/SelectInput.vue'
 export { default as SwitchInput } from './components/input/SwitchInput.vue'
+export { default as TriStateSwitch, type TriStateSize } from './components/input/TriStateSwitch.vue'
 export { type InputOption, type InputOptionGroup, type InputOptions } from './components/input/types'
 export { default as PasswordInput, type PasswordStrength } from './components/input/PasswordInput.vue'
 export { default as TextareaInput } from './components/input/TextareaInput.vue'

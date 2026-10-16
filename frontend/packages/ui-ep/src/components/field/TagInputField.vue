@@ -1,6 +1,7 @@
 <script setup lang="ts">
-// 标签输入（06_03）：建议与自由新建 / 去重 / 上下限 / 颜色映射 / 粘贴批量；`el-tag` + 自研输入壳。
-import { ElTag } from 'element-plus'
+// 标签输入（06_03）：建议与自由新建 / 去重 / 上下限 / 颜色映射 / 粘贴批量；`el-tag` + `el-input` 壳。
+// 补：分隔符触发（中英文逗号）/ 退格删除末尾 / 只读顿号纯文本回显 / 历史脏值归一 / 内容操作暴露 / 变化明细。
+import { ElButton, ElInput, ElTag } from 'element-plus'
 import { computed, ref, watch } from 'vue'
 
 import { useBaseInput } from '../../composables/useBaseInput'
@@ -50,9 +51,17 @@ const props = withDefaults(defineProps<Props>(), {
   errorMessage: '',
 })
 
+/** 变化明细（新增 / 移除项）。 */
+export interface TagChangeDetail {
+  /** 方向。 */
+  direction: 'add' | 'remove'
+  /** 本次变化的标签。 */
+  changed: string[]
+}
+
 const emit = defineEmits<{
   'update:modelValue': [value: string[]]
-  change: [value: string[]]
+  change: [value: string[], detail?: TagChangeDetail]
   invalid: [message: string]
 }>()
 
@@ -60,9 +69,24 @@ const { value, disabled, setValue } = useBaseInput<string[]>({ disabled: props.d
 const draft = ref('')
 const limitError = ref('')
 
+/** 历史脏值归一（去空白 / 去空串 / 去重——节点 §5「归一」）。 */
+function normalizeTags(next: unknown): string[] {
+  if (!Array.isArray(next)) {
+    return []
+  }
+  const result: string[] = []
+  for (const item of next) {
+    const tag = String(item).trim()
+    if (tag !== '' && !result.includes(tag)) {
+      result.push(tag)
+    }
+  }
+  return result
+}
+
 watch(
   () => props.modelValue,
-  (next) => setValue(Array.isArray(next) ? next : []),
+  (next) => setValue(normalizeTags(next)),
   { immediate: true },
 )
 
@@ -108,9 +132,17 @@ function tagColor(tag: string): TagType {
 
 function commit(next: string[]): void {
   limitError.value = ''
+  const added = next.filter((tag) => !tags.value.includes(tag))
+  const removed = tags.value.filter((tag) => !next.includes(tag))
+  const detail: TagChangeDetail | undefined =
+    added.length > 0
+      ? { direction: 'add', changed: added }
+      : removed.length > 0
+        ? { direction: 'remove', changed: removed }
+        : undefined
   setValue(next)
   emit('update:modelValue', next)
-  emit('change', next)
+  emit('change', next, detail)
 }
 
 function tryAppend(next: string[], raw: string): string[] | undefined {
@@ -148,24 +180,44 @@ function removeTag(tag: string): void {
   commit(tags.value.filter((item) => item !== tag))
 }
 
-function onKeydown(event: KeyboardEvent): void {
+/**
+ * 键盘处理（`el-input` 的 `keydown` 事件签名宽于 `KeyboardEvent`，此处收窄）。
+ *
+ * @param raw 原生事件。
+ */
+function onKeydown(raw: Event | KeyboardEvent): void {
+  const event = raw as KeyboardEvent
   if (event.key === 'Enter') {
     event.preventDefault()
     addTag(draft.value)
     draft.value = ''
+    return
+  }
+  // 分隔符触发创建（中英文逗号——节点 §3/§4）。
+  if (event.key === ',' || event.key === '，') {
+    event.preventDefault()
+    addTag(draft.value)
+    draft.value = ''
+    return
+  }
+  // 退格删除末尾（草稿为空时——节点 §4「删除」）。
+  if (event.key === 'Backspace' && draft.value === '' && tags.value.length > 0 && !props.readonly) {
+    event.preventDefault()
+    removeTag(tags.value[tags.value.length - 1])
   }
 }
 
 function onPaste(event: ClipboardEvent): void {
   const text = event.clipboardData?.getData('text') ?? ''
-  if (!/[,;\n]/.test(text)) {
+  if (!/[,，;；\n]/.test(text)) {
     return
   }
   event.preventDefault()
   let next = [...tags.value]
-  for (const part of text.split(/[,;\n]+/)) {
+  for (const part of text.split(/[,，;；\n]+/)) {
     const result = tryAppend(next, part)
     if (result === undefined) {
+      // 越限：停止解析但**保留已成功解析的项**（不丢弃全部）。
       break
     }
     next = result
@@ -182,44 +234,140 @@ function onBlur(): void {
     draft.value = ''
   }
 }
+
+/** 清空全部标签（内容操作）。 */
+function clear(): void {
+  commit([])
+}
+
+/** 设置标签（内容操作；经归一）。 */
+function setTags(next: string[]): void {
+  commit(normalizeTags(next))
+}
+
+defineExpose({ add: addTag, remove: removeTag, clear, setValue: setTags })
 </script>
 
 <template>
   <div class="bms-tag-input-field" :data-invalid="resolvedError !== ''" :data-readonly="readonly">
-    <div class="bms-tag-input-field__tags">
-      <el-tag
-        v-for="tag in tags"
-        :key="tag"
-        class="bms-tag-input-field__tag"
-        :type="tagColor(tag)"
-        :closable="!readonly && !disabled"
-        :data-test="`tag-${tag}`"
-        @close="removeTag(tag)"
-      >
-        {{ tag }}
-      </el-tag>
-
-      <input
-        v-if="!readonly"
-        v-model="draft"
-        class="bms-tag-input-field__input"
-        data-test="tag-input"
-        :disabled="disabled"
-        :placeholder="placeholder"
-        @keydown="onKeydown"
-        @paste="onPaste"
-        @blur="onBlur"
-      />
+    <div v-if="readonly" class="bms-tag-input-field__readonly" data-test="tag-readonly">
+      <span v-if="tags.length === 0">—</span>
+      <span v-else>{{ tags.join('、') }}</span>
     </div>
 
-    <ul v-if="!readonly && filteredSuggestions.length > 0" class="bms-tag-input-field__suggestions" data-test="tag-suggestions">
-      <li v-for="item in filteredSuggestions" :key="item">
-        <button type="button" :data-test="`suggest-${item}`" @mousedown.prevent="addTag(item); draft = ''">
-          {{ item }}
-        </button>
-      </li>
-    </ul>
+    <template v-else>
+      <div class="bms-tag-input-field__tags">
+        <el-tag
+          v-for="tag in tags"
+          :key="tag"
+          class="bms-tag-input-field__tag"
+          :type="tagColor(tag)"
+          :closable="!disabled"
+          :data-test="`tag-${tag}`"
+          @close="removeTag(tag)"
+        >
+          {{ tag }}
+        </el-tag>
+
+        <el-input
+          v-model="draft"
+          class="bms-tag-input-field__input"
+          data-test="tag-input"
+          size="small"
+          :disabled="disabled"
+          :placeholder="placeholder"
+          @keydown="onKeydown"
+          @paste="onPaste"
+          @blur="onBlur"
+        />
+      </div>
+
+      <ul v-if="filteredSuggestions.length > 0" class="bms-tag-input-field__suggestions" data-test="tag-suggestions">
+        <li v-for="item in filteredSuggestions" :key="item">
+          <el-button
+            class="bms-tag-input-field__suggestion"
+            link
+            size="small"
+            :data-test="`suggest-${item}`"
+            @click="addTag(item); draft = ''"
+          >
+            {{ item }}
+          </el-button>
+        </li>
+      </ul>
+    </template>
 
     <p v-if="resolvedError !== ''" class="bms-field-error" data-test="field-error">{{ resolvedError }}</p>
   </div>
 </template>
+
+<style scoped>
+.bms-tag-input-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bms-space-1);
+  width: 100%;
+  min-width: 0;
+}
+
+.bms-tag-input-field__tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--bms-space-1);
+  min-height: var(--bms-control-height);
+  padding: var(--bms-space-1) var(--bms-space-2);
+  background: var(--bms-richtext-content-bg);
+  border: 1px solid var(--bms-color-border);
+  border-radius: var(--bms-radius-md);
+}
+
+.bms-tag-input-field[data-invalid='true'] .bms-tag-input-field__tags {
+  border-color: var(--bms-field-error-color);
+}
+
+.bms-tag-input-field__tag {
+  flex: none;
+}
+
+.bms-tag-input-field__input {
+  flex: 1 1 120px;
+  min-width: 120px;
+}
+
+.bms-tag-input-field__input :deep(.el-input__wrapper) {
+  box-shadow: none;
+}
+
+.bms-tag-input-field__readonly {
+  min-height: var(--bms-control-height);
+  padding: 0 var(--bms-space-2);
+  color: var(--bms-color-text);
+  line-height: var(--bms-control-height);
+  background: var(--bms-field-readonly-bg);
+  border: 1px solid var(--bms-field-readonly-border);
+  border-radius: var(--bms-radius-md);
+  word-break: break-all;
+}
+
+.bms-tag-input-field__suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bms-space-1);
+  margin: 0;
+  padding: var(--bms-space-2);
+  list-style: none;
+  background: var(--bms-field-suggest-bg);
+  border: 1px solid var(--bms-color-border);
+  border-radius: var(--bms-radius-md);
+}
+
+.bms-tag-input-field__suggestion {
+  font-size: var(--bms-font-size-xs);
+}
+
+.bms-tag-input-field__suggestions li:hover {
+  background: var(--bms-field-suggest-hover-bg);
+  border-radius: var(--bms-radius-sm);
+}
+</style>

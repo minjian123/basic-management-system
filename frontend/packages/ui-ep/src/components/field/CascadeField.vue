@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // 级联选择（06_02）：多级联动 / 任意级可选 / 多选 / 搜索 / 懒加载 / 路径回显；空态经 `03_02`。
-import { ElCascader, type CascaderOption } from 'element-plus'
+// 补：路径展示开关 / 展开触发 / 可清除 / emitPath 显式化 / 懒加载加载态 / 失败重放 / 内容操作暴露。
+import { ElButton, ElCascader, type CascaderOption } from 'element-plus'
 import { computed, ref, watch } from 'vue'
 
 import { useBaseInput } from '../../composables/useBaseInput'
@@ -36,6 +37,14 @@ interface Props {
   lazy?: boolean
   /** 懒加载取子级。 */
   load?: (node: CascadeOption | undefined) => Promise<CascadeOption[]>
+  /** 路径展示开关（标签是否显示完整路径；缺省 `true`）。 */
+  pathDisplay?: boolean
+  /** 展开触发（缺省 `click`）。 */
+  expandTrigger?: 'click' | 'hover'
+  /** 可清除（缺省 `true`）。 */
+  clearable?: boolean
+  /** 值含完整路径（缺省 `true`；关闭则仅末级值）。 */
+  emitPath?: boolean
   /** 只读（路径回显）。 */
   readonly?: boolean
   /** 必填。 */
@@ -58,6 +67,10 @@ const props = withDefaults(defineProps<Props>(), {
   searchable: true,
   lazy: false,
   load: undefined,
+  pathDisplay: true,
+  expandTrigger: 'click',
+  clearable: true,
+  emitPath: true,
   readonly: false,
   required: false,
   disabled: false,
@@ -75,6 +88,10 @@ const emit = defineEmits<{
 
 const { value, disabled, setValue } = useBaseInput<CascadeValue>({ disabled: props.disabled })
 const loadError = ref(false)
+/** 懒加载中（节点 §4「加载中显示加载态」）。 */
+const loading = ref(false)
+/** 最近一次懒加载入参（失败重放用）。 */
+let lastLoad: { node: unknown; resolve: (children: Record<string, unknown>[]) => void; reject: () => void } | undefined
 
 watch(
   () => props.modelValue,
@@ -161,7 +178,9 @@ watch(
  * @param reject 失败回调。
  */
 function onLoad(node: unknown, resolve: (children: Record<string, unknown>[]) => void, reject: () => void): void {
+  lastLoad = { node, resolve, reject }
   emit('retry')
+  loading.value = true
   props
     .load?.(node as CascadeOption)
     .then((children) => {
@@ -172,7 +191,31 @@ function onLoad(node: unknown, resolve: (children: Record<string, unknown>[]) =>
       loadError.value = true
       reject()
     })
+    .finally(() => {
+      loading.value = false
+    })
 }
+
+/** 重试：**重放请求**（经 `onLoad` 再派发一次 `retry`，与既有口径一致；节点 §5「懒加载失败可重试」）。 */
+function onRetry(): void {
+  if (lastLoad !== undefined) {
+    onLoad(lastLoad.node, lastLoad.resolve, lastLoad.reject)
+  }
+}
+
+/** 清空（内容操作）。 */
+function clear(): void {
+  setValue(undefined)
+  emit('update:modelValue', undefined)
+  emit('change', undefined)
+}
+
+/** 当前已选节点（内容操作）。 */
+function selectedNodes(): string[][] {
+  return paths.value
+}
+
+defineExpose({ setValue, clear, selectedNodes })
 
 function onUpdate(next: unknown): void {
   const normalized = next as CascadeValue
@@ -183,7 +226,7 @@ function onUpdate(next: unknown): void {
 </script>
 
 <template>
-  <div class="bms-cascade-field" :data-invalid="resolvedError !== ''">
+  <div class="bms-cascade-field" :data-invalid="resolvedError !== ''" :data-loading="loading">
     <div v-if="readonly" class="bms-cascade-field__readonly" data-test="cascade-readonly">
       <span v-for="(path, index) in readonlyPaths" :key="index" class="bms-cascade-field__path">{{ path }}</span>
       <span v-if="readonlyPaths.length === 0">—</span>
@@ -205,16 +248,67 @@ function onUpdate(next: unknown): void {
         value: 'value',
         children: 'children',
         disabled: 'disabled',
+        emitPath,
+        expandTrigger,
       }"
+      :show-all-levels="pathDisplay"
       :filterable="searchable"
+      :clearable="clearable"
       :disabled="disabled"
       :placeholder="placeholder"
       @update:model-value="onUpdate"
     />
 
-    <button v-if="loadError" type="button" data-test="cascade-retry" class="bms-cascade-field__retry" @click="emit('retry')">
+    <el-button
+      v-if="loadError"
+      class="bms-cascade-field__retry"
+      link
+      size="small"
+      data-test="cascade-retry"
+      @click="onRetry"
+    >
       重试
-    </button>
+    </el-button>
     <p v-if="resolvedError !== ''" class="bms-field-error" data-test="field-error">{{ resolvedError }}</p>
   </div>
 </template>
+
+<style scoped>
+.bms-cascade-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bms-space-1);
+  width: 100%;
+  min-width: 0;
+}
+
+.bms-cascade-field__control {
+  width: 100%;
+}
+
+.bms-cascade-field__readonly {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bms-space-1);
+  min-height: var(--bms-control-height);
+  padding: 0 var(--bms-space-2);
+  color: var(--bms-color-text);
+  line-height: var(--bms-control-height);
+  background: var(--bms-field-readonly-bg);
+  border: 1px solid var(--bms-field-readonly-border);
+  border-radius: var(--bms-radius-md);
+}
+
+.bms-cascade-field__path {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 var(--bms-space-1);
+  background: var(--bms-field-suggest-hover-bg);
+  border-radius: var(--bms-radius-sm);
+}
+
+.bms-cascade-field__retry {
+  align-self: flex-start;
+  font-size: var(--bms-font-size-xs);
+}
+</style>

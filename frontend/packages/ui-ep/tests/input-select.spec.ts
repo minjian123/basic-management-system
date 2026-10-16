@@ -220,3 +220,22 @@ describe('SwitchInput', () => {
     expect(wrapper.emitted('update:modelValue')?.[0]).toEqual([true])
   })
 })
+
+describe('CheckboxInput 只读回显（11_03 新增契约）', () => {
+  it('只读态顿号纯文本、空值占位与历史值回退', async () => {
+    const wrapper = mount(CheckboxInput, { props: { modelValue: ['a', 'b'], options: flatOptions, readonly: true }, global: { stubs } })
+    expect(wrapper.find('[data-test="checkbox-readonly"]').text()).toBe('甲、乙')
+    expect(wrapper.find('[data-test="checkbox-all"]').exists()).toBe(false)
+
+    const empty = mount(CheckboxInput, { props: { modelValue: [], options: flatOptions, readonly: true }, global: { stubs } })
+    expect(empty.find('[data-test="checkbox-readonly"]').text()).toBe('—')
+
+    const ghost = mount(CheckboxInput, { props: { modelValue: ['z'], options: flatOptions, readonly: true }, global: { stubs } })
+    expect(ghost.find('[data-test="checkbox-readonly"]').text()).toBe('z')
+  })
+
+  it('编辑态不渲染只读位', () => {
+    const wrapper = mount(CheckboxInput, { props: { modelValue: ['a'], options: flatOptions }, global: { stubs } })
+    expect(wrapper.find('[data-test="checkbox-readonly"]').exists()).toBe(false)
+  })
+})

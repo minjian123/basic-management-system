@@ -165,3 +165,30 @@ describe('NumberInput', () => {
     expect([input.props('min'), input.props('max'), input.props('step'), input.props('precision')]).toEqual([0, 10, 2, 1])
   })
 })
+
+describe('PasswordInput 最小长度校验（11_03 新增契约）', () => {
+  it('空值不判错（编辑态留空表示不修改）', async () => {
+    const wrapper = mount(PasswordInput, { props: { modelValue: '' }, global: { stubs } })
+    await wrapper.vm.$nextTick()
+    expect(wrapper.find('[data-test="field-error"]').exists()).toBe(false)
+    expect(wrapper.attributes('data-invalid')).toBe('false')
+  })
+
+  it('非空且短于 minLength 派发 invalid 并展示错误', async () => {
+    const wrapper = mount(PasswordInput, { props: { modelValue: 'abc' }, global: { stubs } })
+    await wrapper.vm.$nextTick()
+    expect(wrapper.emitted('invalid')?.[0]).toEqual(['密码长度不能少于 8 位'])
+    expect(wrapper.find('[data-test="field-error"]').text()).toBe('密码长度不能少于 8 位')
+    expect(wrapper.attributes('data-invalid')).toBe('true')
+  })
+
+  it('达最小长度不报错；minLength 可配', async () => {
+    const ok = mount(PasswordInput, { props: { modelValue: 'abcdefgh' }, global: { stubs } })
+    await ok.vm.$nextTick()
+    expect(ok.find('[data-test="field-error"]').exists()).toBe(false)
+
+    const custom = mount(PasswordInput, { props: { modelValue: 'abc', minLength: 3 }, global: { stubs } })
+    await custom.vm.$nextTick()
+    expect(custom.find('[data-test="field-error"]').exists()).toBe(false)
+  })
+})

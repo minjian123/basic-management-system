@@ -4,6 +4,7 @@
 // 字段仅做分发与组合（控件本体归字段类与基础控件类）；重控件经 utils/formWidgets 二次懒加载。
 import type { FieldPermission, FieldRendererRegistry, RenderDetailColumn, RenderFieldPlan, RenderPlan } from '@bms/core'
 import { MASK_TEXT, displayFieldText, orgKindOfFieldType, resolveFieldRenderState } from '@bms/core'
+import { ElButton, ElInput, ElRadioButton, ElRadioGroup } from 'element-plus'
 import { computed, ref, watch } from 'vue'
 
 import DataTable from '../data/DataTable.vue'
@@ -310,8 +311,10 @@ function isDisplayOnly(field: RenderFieldPlan): boolean {
     :data-readonly="forceReadOnly || plan?.readonly || mode === 'view'"
     :data-fallback="plan?.fallback || undefined"
   >
-    <p v-if="state === 'empty'" data-test="renderer-empty">没有可渲染的字段</p>
-    <p v-else data-test="renderer-note">按元数据渲染字段区域</p>
+    <p v-if="state === 'empty'" class="bms-form-renderer-body__empty" data-test="renderer-empty">
+      没有可渲染的字段
+    </p>
+    <p v-else class="bms-form-renderer-body__note" data-test="renderer-note">按元数据渲染字段区域</p>
 
     <template v-for="section in sections" :key="section.key">
       <section
@@ -337,9 +340,9 @@ function isDisplayOnly(field: RenderFieldPlan): boolean {
             :data-required="field.required"
             :data-masked="field.masked"
           >
-            <label :data-test="`renderer-field-label-${field.key}`">
+            <label class="bms-form-renderer__label" :data-test="`renderer-field-label-${field.key}`">
               {{ field.label }}
-              <span v-if="field.required" data-test="renderer-required">*</span>
+              <span v-if="field.required" class="bms-form-renderer__required" data-test="renderer-required">*</span>
             </label>
             <slot
               name="field"
@@ -347,7 +350,9 @@ function isDisplayOnly(field: RenderFieldPlan): boolean {
               :value="valueOf(field)"
               :set-value="(value: unknown) => onFieldInput(field, value)"
             >
-              <p v-if="isDisplayOnly(field)" data-test="renderer-field-display">{{ textOf(field) }}</p>
+              <p v-if="isDisplayOnly(field)" class="bms-form-renderer__display" data-test="renderer-field-display">
+                {{ textOf(field) }}
+              </p>
               <component
                 :is="componentOf(field)"
                 v-else-if="componentOf(field)"
@@ -359,9 +364,15 @@ function isDisplayOnly(field: RenderFieldPlan): boolean {
                 v-bind="extraProps(field)"
                 @update:model-value="onFieldInput(field, $event)"
               />
-              <p v-else :data-test="`renderer-field-plain-${field.key}`">{{ textOf(field) }}</p>
+              <p v-else class="bms-form-renderer__display" :data-test="`renderer-field-plain-${field.key}`">
+                {{ textOf(field) }}
+              </p>
             </slot>
-            <p v-if="fieldErrors[field.key]" :data-test="`renderer-field-error-${field.key}`">
+            <p
+              v-if="fieldErrors[field.key]"
+              class="bms-form-renderer__error"
+              :data-test="`renderer-field-error-${field.key}`"
+            >
               {{ fieldErrors[field.key] }}
             </p>
           </div>
@@ -369,7 +380,7 @@ function isDisplayOnly(field: RenderFieldPlan): boolean {
 
         <template v-for="group in section.groups" :key="group.key">
           <fieldset class="bms-form-renderer__group" :data-test="`renderer-group-${group.key}`">
-            <legend v-if="group.title">{{ group.title }}</legend>
+            <legend v-if="group.title" class="bms-form-renderer__group-title">{{ group.title }}</legend>
             <div class="bms-form-renderer__grid" :style="{ '--bms-cols': section.columns }">
               <div
                 v-for="field in group.fields.filter((item) => item.visible)"
@@ -381,9 +392,9 @@ function isDisplayOnly(field: RenderFieldPlan): boolean {
                 :data-required="field.required"
                 :data-masked="field.masked"
               >
-                <label :data-test="`renderer-field-label-${field.key}`">
+                <label class="bms-form-renderer__label" :data-test="`renderer-field-label-${field.key}`">
                   {{ field.label }}
-                  <span v-if="field.required" data-test="renderer-required">*</span>
+                  <span v-if="field.required" class="bms-form-renderer__required" data-test="renderer-required">*</span>
                 </label>
                 <slot
                   name="field"
@@ -391,7 +402,9 @@ function isDisplayOnly(field: RenderFieldPlan): boolean {
                   :value="valueOf(field)"
                   :set-value="(value: unknown) => onFieldInput(field, value)"
                 >
-                  <p v-if="isDisplayOnly(field)" data-test="renderer-field-display">{{ textOf(field) }}</p>
+                  <p v-if="isDisplayOnly(field)" class="bms-form-renderer__display" data-test="renderer-field-display">
+                    {{ textOf(field) }}
+                  </p>
                   <component
                     :is="componentOf(field)"
                     v-else-if="componentOf(field)"
@@ -403,9 +416,15 @@ function isDisplayOnly(field: RenderFieldPlan): boolean {
                     v-bind="extraProps(field)"
                     @update:model-value="onFieldInput(field, $event)"
                   />
-                  <p v-else :data-test="`renderer-field-plain-${field.key}`">{{ textOf(field) }}</p>
+                  <p v-else class="bms-form-renderer__display" :data-test="`renderer-field-plain-${field.key}`">
+                    {{ textOf(field) }}
+                  </p>
                 </slot>
-                <p v-if="fieldErrors[field.key]" :data-test="`renderer-field-error-${field.key}`">
+                <p
+                  v-if="fieldErrors[field.key]"
+                  class="bms-form-renderer__error"
+                  :data-test="`renderer-field-error-${field.key}`"
+                >
                   {{ fieldErrors[field.key] }}
                 </p>
               </div>
@@ -416,21 +435,21 @@ function isDisplayOnly(field: RenderFieldPlan): boolean {
     </template>
 
     <div v-if="detailKeys.length > 0" class="bms-form-renderer__detail" data-test="renderer-detail">
-      <div class="bms-form-renderer__detail-tabs">
-        <button
-          v-for="key in detailKeys"
-          :key="key"
-          type="button"
-          :data-test="`renderer-detail-tab-${key}`"
-          :data-active="activeDetail === key"
-          @click="activeDetail = key"
-        >
-          {{ key }}（{{ (details[key] ?? []).length }}）
-        </button>
+      <div class="bms-form-renderer__detail-tabs" data-test="renderer-detail-tabs">
+        <el-radio-group :model-value="activeDetail">
+          <el-radio-button
+            v-for="key in detailKeys"
+            :key="key"
+            :value="key"
+            :data-test="`renderer-detail-tab-${key}`"
+          >
+            {{ key }}（{{ (details[key] ?? []).length }}）
+          </el-radio-button>
+        </el-radio-group>
       </div>
 
       <template v-for="key in detailKeys" :key="key">
-        <div v-if="activeDetail === key" :data-test="`renderer-detail-${key}`">
+        <div v-if="activeDetail === key" class="bms-form-renderer__detail-body" :data-test="`renderer-detail-${key}`">
           <slot name="detail" :detail-key="key" :rows="details[key] ?? []">
             <data-table
               :ready="true"
@@ -440,58 +459,56 @@ function isDisplayOnly(field: RenderFieldPlan): boolean {
             />
           </slot>
           <div class="bms-form-renderer__detail-actions">
-            <button
-              type="button"
-              :data-test="`renderer-detail-add-${key}`"
-              :disabled="plan?.readonly"
-              @click="onAddRow(key)"
-            >
+            <el-button type="primary" plain :data-test="`renderer-detail-add-${key}`" :disabled="plan?.readonly" @click="onAddRow(key)">
               ＋ 明细行
-            </button>
-            <button
+            </el-button>
+            <el-button
               v-for="(_, index) in details[key] ?? []"
               :key="`remove-${index}`"
-              type="button"
+              link
+              type="danger"
               :data-test="`renderer-detail-remove-${key}-${index}`"
               :disabled="plan?.readonly"
               @click="onRemoveRow(key, index)"
             >
               移除 {{ index + 1 }}
-            </button>
+            </el-button>
           </div>
           <div class="bms-form-renderer__detail-editor">
             <div
               v-for="(row, index) in details[key] ?? []"
               :key="`row-${index}`"
+              class="bms-form-renderer__detail-row"
               :data-test="`renderer-detail-row-${key}-${index}`"
             >
               <label
                 v-for="column in detailColumns"
                 :key="column.key"
+                class="bms-form-renderer__detail-cell"
                 :data-test="`renderer-detail-cell-${key}-${index}-${column.key}`"
                 :data-error="detailErrorMap[`${key}:${index}:${column.key}`] || undefined"
               >
-                <span>{{ column.title }}</span>
-                <input
-                  type="text"
-                  :value="row[column.key] ?? ''"
+                <span class="bms-form-renderer__detail-cell-title">{{ column.title }}</span>
+                <el-input
+                  :model-value="String(row[column.key] ?? '')"
                   :disabled="!column.editable"
-                  @change="onCellChange(key, index, column.key, ($event.target as HTMLInputElement).value)"
+                  @change="onCellChange(key, index, column.key, $event)"
                 />
                 <em
                   v-if="detailErrorMap[`${key}:${index}:${column.key}`]"
+                  class="bms-form-renderer__error"
                   :data-test="`renderer-detail-error-${key}-${index}-${column.key}`"
                 >
                   {{ detailErrorMap[`${key}:${index}:${column.key}`] }}
                 </em>
               </label>
-              <button
-                type="button"
+              <el-button
+                link
                 :data-test="`renderer-detail-submit-${key}-${index}`"
                 @click="emit('submit-row', { detailKey: key, index })"
               >
                 校验行
-              </button>
+              </el-button>
             </div>
           </div>
         </div>
@@ -509,3 +526,160 @@ function isDisplayOnly(field: RenderFieldPlan): boolean {
     </p>
   </div>
 </template>
+
+<style scoped>
+.bms-form-renderer-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bms-space-3);
+  min-width: 0;
+}
+
+.bms-form-renderer-body__empty,
+.bms-form-renderer-body__note {
+  margin: 0;
+  color: var(--bms-color-text-secondary);
+  font-size: var(--bms-font-size-xs);
+}
+
+.bms-form-renderer-body__empty {
+  padding: var(--bms-space-4);
+  text-align: center;
+  border: 1px dashed var(--bms-color-border);
+  border-radius: var(--bms-radius-sm);
+}
+
+/* 分区容器（原型：虚线描边 + 分区标题 + 列数）。 */
+.bms-form-renderer__section {
+  padding: var(--bms-space-3);
+  border: 1px dashed var(--bms-designer-section-border);
+  border-radius: var(--bms-radius-md);
+}
+
+.bms-form-renderer__section-title {
+  margin: 0 0 var(--bms-space-3);
+  padding-bottom: var(--bms-space-1);
+  color: var(--bms-color-text);
+  font-size: var(--bms-font-size-sm);
+  font-weight: 600;
+  border-bottom: 1px solid var(--bms-color-border);
+}
+
+/* 分区栅格：列数经内联 `--bms-cols` 驱动（原型 1/2/3 列等分）。 */
+.bms-form-renderer__grid {
+  display: grid;
+  grid-template-columns: repeat(var(--bms-cols, 1), minmax(0, 1fr));
+  gap: var(--bms-space-3);
+}
+
+.bms-form-renderer__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bms-space-1);
+  min-width: 0;
+}
+
+/* 跨整行（占满分区宽度）。 */
+.bms-form-renderer__field[data-colspan] {
+  grid-column: 1 / -1;
+}
+
+.bms-form-renderer__label {
+  color: var(--bms-color-text-secondary);
+  font-size: var(--bms-font-size-sm);
+}
+
+.bms-form-renderer__required {
+  color: var(--bms-color-danger);
+}
+
+.bms-form-renderer__display {
+  margin: 0;
+  color: var(--bms-color-text);
+}
+
+/* 只读态（查看态 / 只读标记）：字段壳只读回显底。 */
+.bms-form-renderer-body[data-readonly='true'] .bms-form-renderer__display {
+  min-height: var(--bms-control-height);
+  padding: 0 var(--bms-space-2);
+  line-height: var(--bms-control-height);
+  background: var(--bms-field-readonly-bg);
+  border: 1px solid var(--bms-field-readonly-border);
+  border-radius: var(--bms-radius-md);
+}
+
+.bms-form-renderer__error {
+  margin: 0;
+  color: var(--bms-field-error-color);
+  font-size: var(--bms-font-size-xs);
+}
+
+.bms-form-renderer__group {
+  margin: 0 0 var(--bms-space-3);
+  padding: var(--bms-space-2) var(--bms-space-3);
+  border: 1px solid var(--bms-color-border);
+  border-radius: var(--bms-radius-sm);
+}
+
+.bms-form-renderer__group-title {
+  padding: 0 var(--bms-space-1);
+  color: var(--bms-color-text-secondary);
+  font-size: var(--bms-font-size-xs);
+}
+
+.bms-form-renderer__detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bms-space-2);
+  padding-top: var(--bms-space-3);
+  border-top: 1px solid var(--bms-color-border);
+}
+
+.bms-form-renderer__detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--bms-space-2);
+}
+
+.bms-form-renderer__detail-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bms-space-2);
+}
+
+.bms-form-renderer__detail-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--bms-space-2);
+  padding: var(--bms-space-2);
+  background: var(--bms-color-fill);
+  border-radius: var(--bms-radius-sm);
+}
+
+.bms-form-renderer__detail-cell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bms-space-1);
+  min-width: 0;
+}
+
+.bms-form-renderer__detail-cell-title {
+  color: var(--bms-color-text-secondary);
+  font-size: var(--bms-font-size-xs);
+}
+
+.bms-form-renderer__counters {
+  margin: 0;
+  color: var(--bms-color-text-secondary);
+  font-size: var(--bms-font-size-xs);
+}
+
+/* 窄容器单列（与 `useResponsive` 缺省窄屏阈值一致）。 */
+@media (max-width: 992px) {
+  .bms-form-renderer__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+</style>

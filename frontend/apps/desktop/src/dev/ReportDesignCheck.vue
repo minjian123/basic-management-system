@@ -62,6 +62,15 @@ const designerRef = ref<InstanceType<typeof ReportDesigner>>()
 /** 自检结果。 */
 const checks = ref<{ label: string; pass: boolean }[]>([])
 
+/** 当前主题（截图对照用）。 */
+const theme = ref(document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light')
+
+/** 切换亮暗主题。 */
+function onToggleTheme(): void {
+  theme.value = theme.value === 'dark' ? 'light' : 'dark'
+  document.documentElement.dataset.theme = theme.value
+}
+
 /**
  * 作用域内查询元素。
  *
@@ -239,6 +248,27 @@ async function runChecks(): Promise<void> {
       calls.includes('saveAs'),
   })
 
+  // 本批（11_04）样式自检。
+  result.push({
+    label: '⑬ 三栏 grid 与面板形态（数据集 / 画布 / 配置分栏）',
+    pass: (() => {
+      const body = document.querySelector('[data-check-scope="designer"] .bms-report-designer__body')
+      const pane = document.querySelector('[data-check-scope="designer"] .bms-report-designer__pane')
+      if (body === null || pane === null) {
+        return false
+      }
+      return getComputedStyle(body).display === 'grid' && getComputedStyle(pane).borderStyle === 'solid'
+    })(),
+  })
+  result.push({
+    label: '⑭ 工具栏按钮组改组件库件与画布底令牌',
+    pass: (() => {
+      const toolbar = document.querySelector('[data-check-scope="designer"] .bms-report-designer__toolbar')
+      const canvas = document.querySelector('[data-check-scope="designer"] .bms-report-designer__canvas .bms-report-designer__pane-body')
+      return toolbar !== null && toolbar.querySelector('.el-button') !== null && canvas !== null && getComputedStyle(canvas).backgroundColor !== 'rgba(0, 0, 0, 0)'
+    })(),
+  })
+
   checks.value = result
   document.body.setAttribute('data-check-done', result.every((item) => item.pass) ? 'pass' : 'fail')
 }
@@ -251,6 +281,11 @@ onMounted(() => {
 <template>
   <main style="padding: 16px; font-family: sans-serif">
     <h1>报表设计器核对页（08-9-1）</h1>
+
+    <div class="report-design-check__toolbar">
+      <el-button data-test="check-theme" @click="onToggleTheme">切换到{{ theme === 'dark' ? '亮色' : '暗色' }}</el-button>
+      <span class="report-design-check__hint">主题：{{ theme }}</span>
+    </div>
     <section data-check-scope="designer">
       <ReportDesigner
         ref="designerRef"
@@ -273,3 +308,17 @@ onMounted(() => {
     </section>
   </main>
 </template>
+
+<style scoped>
+.report-design-check__toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--bms-space-3);
+  margin-bottom: var(--bms-space-3);
+}
+
+.report-design-check__hint {
+  color: var(--bms-color-text-secondary);
+  font-size: var(--bms-font-size-sm);
+}
+</style>

@@ -9,6 +9,7 @@ import type {
   MessageJobs,
   SaveResult,
 } from '@bms/core'
+import { ElButton, ElRadioButton, ElRadioGroup, ElTag } from 'element-plus'
 import { computed, defineAsyncComponent, ref, watch } from 'vue'
 
 import { useBaseLocale } from '../../composables/useBaseLocale'
@@ -454,56 +455,48 @@ defineExpose({ catalog: catalogApi.catalog })
     <template v-else>
       <slot name="live">
         <div class="bms-i18n-message-editor__toolbar" data-test="toolbar">
-          <span data-test="locale">{{ locale }}</span>
-          <button type="button" data-test="add-key" :disabled="catalogApi.degraded.value" @click="onAddKey">
-            新增 key
-          </button>
-          <button type="button" data-test="add-locale" :disabled="catalogApi.degraded.value" @click="onAddLocale">
+          <span class="bms-i18n-message-editor__locale" data-test="locale">{{ locale }}</span>
+          <el-button :disabled="catalogApi.degraded.value" data-test="add-key" @click="onAddKey">新增 key</el-button>
+          <el-button :disabled="catalogApi.degraded.value" data-test="add-locale" @click="onAddLocale">
             新增语言
-          </button>
-          <button type="button" data-test="save" :disabled="catalogApi.degraded.value" @click="onSave">保存</button>
-          <button
-            type="button"
-            data-test="invalidate-cache"
-            :disabled="catalogApi.degraded.value"
-            @click="onInvalidateCache"
-          >
+          </el-button>
+          <el-button type="primary" :disabled="catalogApi.degraded.value" data-test="save" @click="onSave">
+            保存（批量）
+          </el-button>
+          <el-button :disabled="catalogApi.degraded.value" data-test="invalidate-cache" @click="onInvalidateCache">
             缓存失效
-          </button>
-          <button type="button" data-test="export" :disabled="catalogApi.degraded.value" @click="onExport">导出</button>
-          <button type="button" data-test="import" :disabled="catalogApi.degraded.value" @click="onImport">导入</button>
-          <button type="button" data-test="retry" :disabled="catalogApi.degraded.value" @click="onRetry">重试</button>
-          <span v-if="isDirty" data-test="dirty">未保存</span>
-          <span v-if="saveHint !== ''" data-test="save-hint">{{ saveHint }}</span>
-          <span v-if="catalogApi.messagesRevision.value > 0" data-test="revision">
+          </el-button>
+          <el-button :disabled="catalogApi.degraded.value" data-test="export" @click="onExport">导出</el-button>
+          <el-button :disabled="catalogApi.degraded.value" data-test="import" @click="onImport">导入</el-button>
+          <el-button link :disabled="catalogApi.degraded.value" data-test="retry" @click="onRetry">重试</el-button>
+          <span v-if="isDirty" class="bms-i18n-message-editor__dirty" data-test="dirty">● 未保存</span>
+          <span v-if="saveHint !== ''" class="bms-i18n-message-editor__hint" data-test="save-hint">{{ saveHint }}</span>
+          <span v-if="catalogApi.messagesRevision.value > 0" class="bms-i18n-message-editor__revision" data-test="revision">
             语言包版本 {{ catalogApi.messagesRevision.value }}
           </span>
         </div>
 
         <div class="bms-i18n-message-editor__locales" data-test="locales">
-          <span
+          <el-tag
             v-for="item in effectiveLocales"
             :key="item.code"
+            class="bms-i18n-message-editor__locale-tag"
             :data-test="`locale-${item.code}`"
             :data-status="item.status"
+            :type="item.status === 'enabled' ? 'primary' : 'info'"
+            closable
+            @close="toggleLocale(item)"
           >
             {{ item.name }}
-            <button type="button" :data-test="`toggle-${item.code}`" @click="toggleLocale(item)">启停</button>
-          </span>
+            <el-button link size="small" :data-test="`toggle-${item.code}`" @click="toggleLocale(item)">启停</el-button>
+          </el-tag>
         </div>
 
         <div class="bms-i18n-message-editor__tabs" data-test="tabs">
-          <button type="button" data-test="tab-locales" :data-active="innerTab === 'locales'" @click="switchTab('locales')">
-            语言管理
-          </button>
-          <button
-            type="button"
-            data-test="tab-messages"
-            :data-active="innerTab === 'messages'"
-            @click="switchTab('messages')"
-          >
-            语言包维护
-          </button>
+          <el-radio-group :model-value="innerTab" @update:model-value="switchTab($event as 'locales' | 'messages')">
+            <el-radio-button value="locales" data-test="tab-locales">语言管理</el-radio-button>
+            <el-radio-button value="messages" data-test="tab-messages">语言包维护</el-radio-button>
+          </el-radio-group>
         </div>
 
         <div v-if="innerTab === 'locales'" class="bms-i18n-message-editor__locale-panel">
@@ -577,3 +570,68 @@ defineExpose({ catalog: catalogApi.catalog })
     </template>
   </div>
 </template>
+
+<style scoped>
+.bms-i18n-message-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bms-space-3);
+  min-width: 0;
+}
+
+.bms-i18n-message-editor__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--bms-space-2);
+  padding: var(--bms-space-2) var(--bms-space-3);
+  background: var(--bms-color-fill);
+  border-bottom: 1px solid var(--bms-color-border);
+  border-radius: var(--bms-radius-sm);
+}
+
+.bms-i18n-message-editor__locale,
+.bms-i18n-message-editor__revision {
+  color: var(--bms-color-text-secondary);
+  font-family: var(--bms-font-family-mono);
+  font-size: var(--bms-font-size-xs);
+}
+
+.bms-i18n-message-editor__dirty {
+  color: var(--bms-color-danger);
+  font-size: var(--bms-font-size-xs);
+}
+
+.bms-i18n-message-editor__hint {
+  color: var(--bms-color-success);
+  font-size: var(--bms-font-size-xs);
+}
+
+/* 语言清单条（原型：启用 / 停用分档）。 */
+.bms-i18n-message-editor__locales {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--bms-space-2);
+}
+
+.bms-i18n-message-editor__locale-tag[data-status='disabled'] {
+  opacity: 0.6;
+}
+
+.bms-i18n-message-editor__tabs {
+  display: flex;
+}
+
+.bms-i18n-message-editor__locale-panel,
+.bms-i18n-message-editor__grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bms-space-2);
+  min-width: 0;
+  padding: var(--bms-space-3);
+  background: var(--bms-color-bg);
+  border: 1px solid var(--bms-color-border);
+  border-radius: var(--bms-radius-md);
+}
+</style>

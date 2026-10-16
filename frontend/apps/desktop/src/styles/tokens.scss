@@ -111,6 +111,39 @@
   --bms-qr-mask-bg: rgba(255, 255, 255, 0.9);
   --bms-file-preview-mask-bg: rgba(0, 0, 0, 0.82);
   --bms-color-mask-bg: rgba(255, 255, 255, 0.8);
+  // 字段族（错误文案 / 只读回显 / 标签建议 / 富文本内容区 / 多语言标记 / 三态开关；禁止硬编码色值）
+  --bms-field-error-color: #cf222e;
+  --bms-field-readonly-bg: #f5f7fa;
+  --bms-field-readonly-border: #dcdfe6;
+  --bms-field-suggest-bg: #ffffff;
+  --bms-field-suggest-hover-bg: #f5f7fa;
+  --bms-richtext-toolbar-bg: #f5f7fa;
+  --bms-richtext-content-bg: #ffffff;
+  --bms-richtext-border: #dcdfe6;
+  --bms-richtext-code-bg: #f6f8fa;
+  --bms-i18n-marker-bg: #f5f7fa;
+  --bms-i18n-missing-color: #e6a23c;
+  --bms-tristate-bg: #dcdfe6;
+  --bms-tristate-color: #909399;
+  // 专题件族——导入导出域（步骤条 / 拖拽区 / 结果汇总；禁止硬编码色值）
+  --bms-import-step-bg: #f5f7fa;
+  --bms-import-step-active-color: #409eff;
+  --bms-import-drop-bg: #fafafa;
+  --bms-import-drop-border: #dcdfe6;
+  --bms-import-drop-active-border: #409eff;
+  --bms-import-summary-bg: #f5f7fa;
+  // 专题件族——表单设计器域（三栏面板 / 画布 / 分区与单元格选中态；禁止硬编码色值）
+  --bms-designer-panel-bg: #ffffff;
+  --bms-designer-canvas-bg: #fafafa;
+  --bms-designer-section-border: #d0d7de;
+  --bms-designer-cell-bg: #fbfcfd;
+  --bms-designer-cell-border: #c8d1da;
+  --bms-designer-cell-selected-bg: #ecf5ff;
+  --bms-designer-cell-selected-border: #409eff;
+  // 专题件族——报表设计器域（三区面板 / 画布 / 图表卡选中态；禁止硬编码色值）
+  --bms-report-panel-bg: #ffffff;
+  --bms-report-canvas-bg: #f6f8fa;
+  --bms-report-chart-selected-border: #409eff;
   // 反白文字与图形尺寸（《设计令牌》「反白文字与图形尺寸」节既有登记，2026-10-14 落地）
   --bms-color-text-inverse: #ffffff;
   --bms-illustration-size: 96px;
@@ -263,6 +296,39 @@
   --bms-qr-mask-bg: rgba(29, 30, 31, 0.9);
   --bms-file-preview-mask-bg: rgba(0, 0, 0, 0.82);
   --bms-color-mask-bg: rgba(29, 30, 31, 0.8);
+  // 字段族底随深色调整对比度；错误字色与缺失标记提亮 / 保持语义一致
+  --bms-field-error-color: #f89898;
+  --bms-field-readonly-bg: #262727;
+  --bms-field-readonly-border: #4c4d4f;
+  --bms-field-suggest-bg: #1d1e1f;
+  --bms-field-suggest-hover-bg: #262727;
+  --bms-richtext-toolbar-bg: #262727;
+  --bms-richtext-content-bg: #1d1e1f;
+  --bms-richtext-border: #4c4d4f;
+  --bms-richtext-code-bg: #232324;
+  --bms-i18n-marker-bg: #262727;
+  --bms-i18n-missing-color: #e6a23c;
+  --bms-tristate-bg: #4c4d4f;
+  --bms-tristate-color: #a3a6ad;
+  // 专题件族——导入导出域
+  --bms-import-step-bg: #262727;
+  --bms-import-step-active-color: #79bbff;
+  --bms-import-drop-bg: #1d1e1f;
+  --bms-import-drop-border: #414243;
+  --bms-import-drop-active-border: #79bbff;
+  --bms-import-summary-bg: #262727;
+  // 专题件族——表单设计器域
+  --bms-designer-panel-bg: #1d1e1f;
+  --bms-designer-canvas-bg: #232324;
+  --bms-designer-section-border: #414243;
+  --bms-designer-cell-bg: #262727;
+  --bms-designer-cell-border: #4c4d4f;
+  --bms-designer-cell-selected-bg: #1d3049;
+  --bms-designer-cell-selected-border: #79bbff;
+  // 专题件族——报表设计器域
+  --bms-report-panel-bg: #1d1e1f;
+  --bms-report-canvas-bg: #262727;
+  --bms-report-chart-selected-border: #79bbff;
 }
 
 // 布局结构响应式（窄屏内容区边距收紧；断点与 `useResponsive` 缺省窄屏阈值一致，媒体查询只做尺寸适配、不承担折叠）

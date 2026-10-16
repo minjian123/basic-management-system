@@ -21,12 +21,19 @@ const ElTreeSelectStub = defineComponent({
     placeholder: { type: String, default: '' },
     nodeKey: { type: String, default: 'key' },
     props: { type: Object, default: () => ({}) },
+    collapseTags: { type: Boolean, default: false },
   },
-  emits: ['update:modelValue'],
+  emits: ['update:modelValue', 'node-click'],
   template: '<div class="el-tree-select" :data-multiple="multiple" :data-strict="checkStrictly" :data-lazy="lazy"><button data-test="pick" @click="$emit(\'update:modelValue\', multiple ? [\'leaf-a\', \'leaf-b\'] : \'leaf-a\')" /></div>',
 })
 
-const stubs = { ElTreeSelect: ElTreeSelectStub }
+const ElButtonStub = defineComponent({
+  name: 'ElButton',
+  emits: ['click'],
+  template: '<button @click="$emit(\'click\')"><slot /></button>',
+})
+
+const stubs = { ElTreeSelect: ElTreeSelectStub, ElButton: ElButtonStub }
 
 const tree = [
   {
@@ -84,6 +91,52 @@ describe('TreeSelectField', () => {
     expect(wrapper.find('[data-test="field-error"]').text()).toBe('树数据加载失败')
     await wrapper.find('[data-test="tree-retry"]').trigger('click')
     expect(wrapper.emitted('retry')).toHaveLength(2)
+  })
+
+  it('默认父子独立（11_03 修正缺省语义）', () => {
+    const wrapper = mount(TreeSelectField, { props: { modelValue: undefined, data: tree }, global: { stubs } })
+    // 节点 §4 明确「父子独立（默认独立，即父节点可单独选中）」
+    expect(wrapper.findComponent(ElTreeSelectStub).props('checkStrictly')).toBe(true)
+  })
+
+  it('仅叶子可选：非叶子节点标记禁用（11_03 新增契约）', () => {
+    const wrapper = mount(TreeSelectField, { props: { modelValue: undefined, data: tree, onlyLeaf: true }, global: { stubs } })
+    const effective = wrapper.findComponent(ElTreeSelectStub).props('data') as {
+      key: string
+      disabled?: boolean
+      children?: { key: string; disabled?: boolean }[]
+    }[]
+    expect(effective[0].disabled).toBe(true)
+    expect(effective[0].children?.[0].disabled).toBeFalsy()
+  })
+
+  it('排除节点含子树（选上级防环；11_03 新增契约）', () => {
+    const wrapper = mount(TreeSelectField, {
+      props: { modelValue: undefined, data: tree, excludeSubtree: ['dept-a'] },
+      global: { stubs },
+    })
+    const effective = wrapper.findComponent(ElTreeSelectStub).props('data') as unknown[]
+    expect(effective).toHaveLength(0)
+  })
+
+  it('多选折叠回显与节点点击（11_03 新增契约）', async () => {
+    const wrapper = mount(TreeSelectField, {
+      props: { modelValue: ['leaf-a'], data: tree, multiple: true, collapseTags: false },
+      global: { stubs },
+    })
+    expect(wrapper.findComponent(ElTreeSelectStub).props('collapseTags')).toBe(false)
+
+    wrapper.findComponent(ElTreeSelectStub).vm.$emit('node-click', { key: 'leaf-a', label: '前端组' })
+    await wrapper.vm.$nextTick()
+    expect(wrapper.emitted('node-click')?.[0]).toEqual(['leaf-a'])
+  })
+
+  it('内容操作暴露：setValue / clear（11_03 新增契约）', async () => {
+    const wrapper = mount(TreeSelectField, { props: { modelValue: 'leaf-a', data: tree }, global: { stubs } })
+    const exposed = wrapper.vm as unknown as { clear: () => void }
+    exposed.clear()
+    await wrapper.vm.$nextTick()
+    expect(wrapper.emitted('update:modelValue')?.at(-1)).toEqual([undefined])
   })
 
   it('空态与校验（必填 / 不在树中）', async () => {
