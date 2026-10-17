@@ -14,8 +14,8 @@
   （`aud=api`），校验每请求会话标记存在性，写请求上下文并返回 `AuthContext`；失败抛 `AuthError`
   （20001 / 401）或 `SessionAuthError`（20012 / 401）。细粒度权限校验沿用 `require_permission`（阶段七）。
 - `require_auth_or_service`：双模入站鉴权（「前端与服务共用」只读端点）——登录态（同 `require_auth`）
-  或**东西向非网关**服务身份（`aud=service` 全校验、签发方标识非空且非 `[gateway].service_identity`）
-  任一放行；两侧都要求有效凭证，无免登录面（缺陷 #111 修复）。
+  或**东西向非网关**服务身份（纯服务身份：可信边缘身份仅带服务标识、无用户主体；或按入站服务 JWT
+  验签）任一放行；两侧都要求有效凭证，无免登录面（缺陷 #111 修复）。
 """
 
 from collections.abc import Awaitable, Callable, Iterable, Mapping, Sequence
@@ -680,8 +680,9 @@ def _gateway_service_identity(request: Request) -> str:
 async def _context_from_service(request: Request, verifier: BaseTokenVerifier) -> AuthContext | None:
     """尝试按东西向服务身份组装上下文（非服务票据 / 网关代发票据返回 None 回落登录态路径）。
 
-    仅接受**东西向**服务身份：`aud=service` 全校验通过、签发方标识非空且不等于网关身份标识
-    （网关为已过鉴权的用户请求代发的 `sub=gateway` 票据不算服务身份，避免绕过会话即时失效）。
+    **兜底路径**：仅在请求态无可信边缘身份时使用（边缘信任 provider 非 `service_jwt` 的场景）。
+    边缘信任为 `service_jwt`（默认）时，东西向服务 JWT 已由边缘中间件验签并落 `edge_identity`，
+    由 `_context_from_service_identity` 直接取用，不重复验签。
 
     Args:
         request: 请求对象。
@@ -712,6 +713,34 @@ async def _context_from_service(request: Request, verifier: BaseTokenVerifier) -
     )
 
 
+def _context_from_service_identity(identity: EdgeIdentity, gateway_identity: str) -> AuthContext | None:
+    """由可信边缘身份取东西向服务身份上下文（**纯服务身份**且非网关；否则 None 回落登录态路径）。
+
+    边缘信任为 `service_jwt` 时，东西向服务 JWT 与网关代发票据都会落 `edge_identity`——两者按
+    「有用户主体」与「签发方是否网关」区分：纯服务身份（无 `subject` / `user_id` 且签发方非网关）
+    走服务分支；带用户主体的网关路径与网关代发票据一律回落登录态路径。
+
+    Args:
+        identity: 请求态可信边缘身份。
+        gateway_identity: 网关代发服务票据的签发方标识。
+
+    Returns:
+        AuthContext | None: 服务身份上下文（`source="service"`）；用户身份 / 网关身份为 None。
+    """
+    if identity.subject or identity.user_id is not None:
+        return None
+    service = (identity.service_identity or "").strip()
+    if not service or service == gateway_identity:
+        return None
+    return AuthContext(
+        subject=service,
+        tenant_id=identity.tenant_id,
+        scopes=identity.scopes,
+        service_identity=service,
+        source="service",
+    )
+
+
 async def require_auth_or_service(
     request: Request,
     verifier: Annotated[BaseTokenVerifier, Depends(get_token_verifier)],
@@ -722,11 +751,12 @@ async def require_auth_or_service(
     用于「前端与服务共用」的只读端点（如 platform 服务目录快照 `GET /api/v1/modules/snapshot`）：
     两侧都要求**有效凭证**，无凭证 / 伪造凭证一律拒（20001 / 401），不引入免登录面。
 
-    - **服务分支**：请求态无可信边缘身份，且 `Authorization` 为有效服务 JWT（签发方标识非空且非网关）
-      时直接返回服务身份上下文（`source="service"`、`service_identity=<签发方标识>`）——东西向直连
-      无用户会话，故不做会话标记校验，也不写用户 / 租户请求上下文；
-    - **登录态分支**：其余情形（含网关为已过鉴权用户请求代发的 `sub=gateway` 服务票据）一律回落
-      `require_auth` 完整装配（可信边缘身份或本地 `aud=api` 用户令牌 + 租户接线 + 会话标记 + 设备校验）。
+    - **服务分支**：入站为**纯服务身份**（可信边缘身份仅带服务标识、无用户主体；或请求态无边缘身份时
+      按 `Authorization` 服务 JWT 验签）且签发方非网关时，返回服务身份上下文（`source="service"`、
+      `service_identity=<签发方标识>`）——东西向直连无用户会话，故不做会话标记校验，也不写用户 /
+      租户请求上下文；
+    - **登录态分支**：其余情形（用户身份的网关路径、网关为已过鉴权用户请求代发的 `sub=gateway`
+      服务票据、用户令牌）一律回落 `require_auth` 完整装配（租户接线 + 会话标记 + 设备校验）。
 
     Args:
         request: 请求对象。
@@ -741,7 +771,12 @@ async def require_auth_or_service(
         SessionAuthError: 登录态分支会话标记失效或设备不一致（20012 / 401）。
     """
     state: dict[str, object] = request.scope.setdefault("state", {})  # bare-collections:allow（Starlette scope state）
-    if state.get("edge_identity") is None:
+    identity = cast("EdgeIdentity | None", state.get("edge_identity"))
+    if identity is not None:
+        context = _context_from_service_identity(identity, _gateway_service_identity(request))
+        if context is not None:
+            return context
+    else:
         context = await _context_from_service(request, verifier)
         if context is not None:
             return context

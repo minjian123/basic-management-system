@@ -192,6 +192,15 @@ def _usr_request() -> Request:
     )
 
 
+def _demo_tenant() -> TenantContext:
+    """演示租户上下文（带雪花主键）。
+
+    Returns:
+        TenantContext: 演示租户。
+    """
+    return TenantContext(code="demo", db_key="tenant_demo", name="演示租户", tenant_id=int(_DEMO_ID))
+
+
 def _user_verified(
     *,
     subject: str = "1001",
@@ -291,8 +300,45 @@ async def test_gateway_identity_defaults_when_unconfigured() -> None:
         )
 
 
+async def test_edge_service_identity_uses_service_branch() -> None:
+    """边缘身份为**纯服务身份**（无用户主体、签发方非网关）：走服务分支，不查会话（空存储亦通过）。"""
+    state = ConcurrentStableDict[str, object](
+        {"edge_identity": EdgeIdentity(service_identity="identity", tenant_id=_DEMO_ID, scopes=("catalog",))}
+    )
+    verifier = _DualVerifier(service="identity")
+    context = await require_auth_or_service(_svc_request(state=state), verifier=verifier, store=MemorySessionStore())
+    assert context == AuthContext(
+        subject="identity",
+        tenant_id=_DEMO_ID,
+        scopes=("catalog",),
+        service_identity="identity",
+        source="service",
+    )
+    assert verifier.audiences == []
+    assert current_user_id.get() is None
+
+
+async def test_edge_gateway_service_identity_falls_back() -> None:
+    """边缘身份为网关身份（`sub=gateway`，无用户主体）：不算服务身份 → 登录态路径 401。"""
+    state = ConcurrentStableDict[str, object](
+        {"edge_identity": EdgeIdentity(service_identity=DEFAULT_GATEWAY_SERVICE_IDENTITY)}
+    )
+    verifier = _DualVerifier(service=DEFAULT_GATEWAY_SERVICE_IDENTITY)
+    with pytest.raises(AuthError) as excinfo:
+        await require_auth_or_service(_svc_request(state=state), verifier=verifier, store=MemorySessionStore())
+    assert excinfo.value.code == 20001
+    assert verifier.audiences == []
+
+
+async def test_edge_blank_service_identity_falls_back() -> None:
+    """边缘身份无用户主体且服务标识为空：不算服务身份 → 登录态路径 401。"""
+    state = ConcurrentStableDict[str, object]({"edge_identity": EdgeIdentity()})
+    with pytest.raises(AuthError):
+        await require_auth_or_service(_svc_request(state=state), verifier=_DualVerifier(), store=MemorySessionStore())
+
+
 async def test_edge_identity_uses_login_path() -> None:
-    """请求态含可信边缘身份：走登录态路径（即使同时携带服务票据头，不再探测服务身份）。"""
+    """边缘身份带用户主体：走登录态路径（即使同时携带服务票据头，不再探测服务身份）。"""
     store = await _store_with("s1")
     state = ConcurrentStableDict[str, object](
         {"edge_identity": EdgeIdentity(subject="1001", session_id="s1", tenant_code="demo")}
@@ -302,6 +348,18 @@ async def test_edge_identity_uses_login_path() -> None:
     assert context.source == "gateway"
     assert context.subject == "1001"
     assert verifier.audiences == []
+
+
+async def test_edge_user_id_only_uses_login_path() -> None:
+    """边缘身份仅有内部用户 id（无主体，无服务标识）：走登录态路径、主体回落 id 字符串。"""
+    store = await _store_with("s2")
+    state = ConcurrentStableDict[str, object](
+        {"edge_identity": EdgeIdentity(user_id=1001, session_id="s2"), "tenant": _demo_tenant()}
+    )
+    context = await require_auth_or_service(_svc_request(state=state), verifier=_DualVerifier(), store=store)
+    assert context.source == "gateway"
+    assert context.subject == "1001"
+    assert context.user_id == 1001
 
 
 async def test_user_token_uses_login_path_with_session() -> None:
