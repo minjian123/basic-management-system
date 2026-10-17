@@ -92,6 +92,9 @@ bash scripts/tools/deps/外置依赖.sh          # 安装完成后恢复外置�
 
 ```bash
 uv run ruff check . && uv run ruff format --check . && uv run pyright   # 依赖外置态下 pyright 可能不可用，交 CI 兜底
+# 依赖外置态想本地跑类型检查：pyright 探测不到符号链接 venv，显式指向本工程解释器即可（实测全项目 0 错误）
+#   Linux / macOS：.venv/bin/pyright --pythonpath .venv/bin/python
+#   Windows：      .venv\Scripts\pyright.exe --pythonpath .venv\Scripts\python.exe
 uv run pytest -q --cov=bms_core --cov=bms_platform --cov-branch --cov-fail-under=100   # 覆盖率门禁（门槛与维度见 bms文档/规范/AI开发规范.md「覆盖率要求」节）
 uv run python -m ops.check_modules                             # 模块注册清单校验
 cd ../frontend/apps/desktop && pnpm run lint && pnpm run test:cov && pnpm run build && pnpm run budget   # 宿主（覆盖率门禁同上、体积预算门禁）
