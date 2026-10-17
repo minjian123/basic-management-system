@@ -2,11 +2,14 @@
 
 - `PluginWiring` / `PLUGIN_WIRINGS`：能力清单（plugin_key → 端口类 / 配置分区 / `app.state` 属性）。
 - `register_platform_plugins`：平台内建实现登记（显式工厂，延迟导入 / 依赖注入落点；按注册表身份幂等）。
+- `assemble_base_plugins`：装配**基础能力**（`BASE_PLUGIN_KEYS`）——须先于开库引导 / 接库校验，
+  否则引导期消费方（如数据库引擎注册表的跨实例创建锁）取共享 Redis 客户端会 fail-closed 拒启。
 - `assemble_plugins`：读取各能力 provider → 解析实例化缓存（存在性 / 契约版本校验）→ `setup()` →
   登记 `ResourceManager` → 落 `app.state` → 启动日志（不含 options）；失败 `PluginError` 拒启。
+  经 `only` 限定能力键可分批装配（已装配接线跳过，可重复调用，结果在 `app.state` 累计）。
 """
 
-from collections.abc import Awaitable
+from collections.abc import Awaitable, Iterable
 from dataclasses import dataclass
 from importlib import import_module
 from pathlib import Path
@@ -41,7 +44,7 @@ from bms_core.config.sql import SqlConfigSource
 from bms_core.consistency.base import BaseConsistencyBarrier
 from bms_core.consistency.redis import RedisConsistencyBarrier
 from bms_core.core.capability import BaseAsyncResource
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.config import Settings
 from bms_core.core.exceptions import PluginError
 from bms_core.core.factory import BasePluginFactory
@@ -126,7 +129,7 @@ from bms_core.query.local import LocalQueryProviderRegistry
 from bms_core.ratelimit.base import BaseRateLimiter
 from bms_core.ratelimit.memory import MemoryRateLimiter
 from bms_core.ratelimit.redis import RedisRateLimiter
-from bms_core.redis.base import BaseRedisClient
+from bms_core.redis.base import REDIS_CLIENT_PLUGIN_KEY, BaseRedisClient
 from bms_core.redis.redis import RedisRedisClient
 from bms_core.replay.base import BaseReplayGuard
 from bms_core.scope.base import DataScope
@@ -163,8 +166,10 @@ from bms_core.workflow.base import BaseWorkflowEngine
 from bms_core.ws.base import BaseRealtimePublisher
 
 __all__ = [
+    "BASE_PLUGIN_KEYS",
     "PLUGIN_WIRINGS",
     "PluginWiring",
+    "assemble_base_plugins",
     "assemble_plugins",
     "register_platform_plugins",
 ]
@@ -1162,10 +1167,21 @@ class RedisConsistencyBarrierFactory(BasePluginFactory[RedisConsistencyBarrier])
         )
 
 
-async def assemble_plugins(
+BASE_PLUGIN_KEYS: tuple[str, ...] = (REDIS_CLIENT_PLUGIN_KEY,)
+"""基础能力插件键（经 `assemble_base_plugins` 先于开库引导 / 接库校验装配）。
+
+开库引导（`ensure_development_schema`）与接库服务目录校验都要取数据库引擎，而 `EngineRegistry` 的
+**跨实例创建锁**经分布式锁基座取**进程共享 Redis 客户端**；共享实例由 `redis_client` 实现
+（`RedisRedisClient`）在 `setup()` 期登记，未登记时 `shared_redis_client()` 回退 `null` 实现
+（fail-closed），引导期取锁即抛 `RedisUnavailableError` 而拒启。故该能力先行装配；其余能力仍在
+接库校验后装配（顺序口径不变）。扩展本清单时须同步确认消费方确实发生在装配之前。
+"""
+
+
+async def assemble_base_plugins(
     app: FastAPI, settings: Settings, resources: ResourceManager
 ) -> ConcurrentStableDict[str, str]:
-    """按清单装配各能力（lifespan 调用）：解析实例化缓存 → `setup()` → 资源登记 → `app.state` → 日志。
+    """装配基础能力（先于开库引导 / 接库校验；清单见 `BASE_PLUGIN_KEYS`）。
 
     Args:
         app: 应用实例（装配结果落 `app.state`）。
@@ -1173,12 +1189,49 @@ async def assemble_plugins(
         resources: 异步资源登记表（`aclose` 逆序统一回收）。
 
     Returns:
+        ConcurrentStableDict[str, str]: 已装配基础能力的 provider（`plugin_key → 实现名`）。
+
+    Raises:
+        PluginError: 存在性 / 契约版本校验失败，或实例化 / `setup()` 失败（拒启）。
+    """
+    return await assemble_plugins(app, settings, resources, only=BASE_PLUGIN_KEYS)
+
+
+async def assemble_plugins(
+    app: FastAPI,
+    settings: Settings,
+    resources: ResourceManager,
+    *,
+    only: Iterable[str] | None = None,
+) -> ConcurrentStableDict[str, str]:
+    """按清单装配各能力（lifespan 调用）：解析实例化缓存 → `setup()` → 资源登记 → `app.state` → 日志。
+
+    Args:
+        app: 应用实例（装配结果落 `app.state`）。
+        settings: 应用配置（各能力 provider 选择）。
+        resources: 异步资源登记表（`aclose` 逆序统一回收）。
+        only: 限定装配的能力键（`plugin_key`），`None` = 全部；分批装配时**已装配接线自动跳过**
+            （实例不重复解析、`setup()` 不重复执行），累计结果落 `app.state.plugin_providers` 与
+            `app.state.assembled_plugin_keys`。
+
+    Returns:
         ConcurrentStableDict[str, str]: 各能力当前 provider（`plugin_key → 实现名`，供启动日志 / 测试核对）。
 
     Raises:
         PluginError: 存在性 / 契约版本校验失败，或实例化 / `setup()` 失败（拒启）。
     """
-    providers: ConcurrentStableDict[str, str] = ConcurrentStableDict()
+    raw_providers = getattr(app.state, "plugin_providers", None)
+    providers: ConcurrentStableDict[str, str] = (
+        cast("ConcurrentStableDict[str, str]", raw_providers)
+        if isinstance(raw_providers, ConcurrentStableDict)
+        else ConcurrentStableDict()
+    )
+    raw_assembled = getattr(app.state, "assembled_plugin_keys", None)
+    assembled: ConcurrentStableSet[str] = (
+        cast("ConcurrentStableSet[str]", raw_assembled)
+        if isinstance(raw_assembled, ConcurrentStableSet)
+        else ConcurrentStableSet()
+    )
     redis_section = settings.redis
     if redis_section.required and not (redis_section.provider or "").strip():
         raise PluginError(
@@ -1186,6 +1239,10 @@ async def assemble_plugins(
             "如确需应急旁路，请显式置 `[redis].required=false`（届时依赖 Redis 的能力将报 10012）"
         )
     for wiring in PLUGIN_WIRINGS:
+        if only is not None and wiring.plugin_key not in only:
+            continue
+        if wiring.plugin_key in assembled:
+            continue
         selection = getattr(settings, wiring.settings_section, None)
         # 能力选择分区约定为 `PluginSelection`；「连接参数 + 实现选择」同区的分区（如 `[redis]`）
         # 直接携带 `provider` 字段（鸭子类型读取，缺省空串 → 解析到 `null`）。
@@ -1197,8 +1254,10 @@ async def assemble_plugins(
         if wiring.state_attr:
             setattr(app.state, wiring.state_attr, instance)
         providers.set(wiring.plugin_key, provider or NULL_PLUGIN_NAME)
+        assembled.add(wiring.plugin_key)
     app.state.plugin_providers = providers
-    _LOGGER.info("插件装配完成", providers=providers)
+    app.state.assembled_plugin_keys = assembled
+    _LOGGER.info("插件装配完成", keys=",".join(assembled), providers=providers)
     return providers
 
 

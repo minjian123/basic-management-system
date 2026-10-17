@@ -14,9 +14,11 @@ import pytest
 from support_app import ApplicationFactory
 
 from bms_core import application as app_module
+from bms_core.core import assembly
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import get_settings
 from bms_core.core.exceptions import CatalogError
+from bms_core.redis.base import clear_shared_redis_client, shared_redis_client
 from bms_core.services.table_registry import (
     register_table_records,
     reset_table_records,
@@ -268,3 +270,61 @@ async def test_validate_table_ownership_passes_when_consistent(monkeypatch: pyte
     app = _app()
     await app_module._validate_table_ownership(app)  # pyright: ignore[reportPrivateUsage]
     assert getattr(app.state, "ownership_degraded", False) is False
+
+
+@pytest.mark.kiwi_id(2299)
+async def test_lifespan_assembles_base_capabilities_before_db_bootstrap(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """启动顺序（缺陷 #104 回归）：基础能力（Redis 统一客户端）先于开库引导 / 接库校验登记。
+
+    开库引导与接库校验都要取数据库引擎，而引擎注册表的**跨实例创建锁**经分布式锁基座取共享
+    Redis 客户端；该客户端由基础能力装配期登记，未登记时取到 `null` 实现即 fail-closed 拒启
+    （platform 接库校验读本服务平台库故必然触发）。用例先清空共享登记，再断言两个取库步骤
+    执行时取到的是真实客户端（即基础能力已先行装配）。
+    """
+    monkeypatch.setenv("BMS_REDIS__PROVIDER", "redis")
+    get_settings.cache_clear()
+    clear_shared_redis_client()
+    observed: ConcurrentStableList[str] = ConcurrentStableList()
+
+    async def _spy_schema(*args: object, **kwargs: object) -> ConcurrentStableList[str]:
+        observed.add(type(shared_redis_client()).__name__)
+        return ConcurrentStableList()
+
+    async def _spy_catalog(app: object) -> None:
+        del app
+        observed.add(type(shared_redis_client()).__name__)
+
+    monkeypatch.setattr(app_module, "ensure_development_schema", _spy_schema)
+    monkeypatch.setattr(app_module, "_validate_service_catalog", _spy_catalog)
+    app = ApplicationFactory().create(None)
+    async with app_module.service_lifespan(app):
+        assert app.state.startup_complete is True
+    assert list(observed) == ["RedisRedisClient", "RedisRedisClient"]
+
+
+@pytest.mark.kiwi_id(2300)
+async def test_assemble_base_plugins_batches_without_duplicate_resolution(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """基础能力分批装配：先装基础能力、再装其余能力；已装配接线不重复解析，累计结果完整。"""
+    app = ApplicationFactory().create(None)
+    resolved: ConcurrentStableList[str] = ConcurrentStableList()
+    original = assembly._resolve_or_reject  # pyright: ignore[reportPrivateUsage]
+
+    def _spy(wiring: assembly.PluginWiring, provider: str) -> object:
+        resolved.add(wiring.plugin_key)
+        return original(wiring, provider)
+
+    monkeypatch.setattr(assembly, "_resolve_or_reject", _spy)
+    settings = get_settings()
+    base = await assembly.assemble_base_plugins(app, settings, app.state.resources)
+    assert list(base.keys()) == list(assembly.BASE_PLUGIN_KEYS)
+    assert list(resolved) == list(assembly.BASE_PLUGIN_KEYS)
+    full = await assembly.assemble_plugins(app, settings, app.state.resources)
+    expected = {wiring.plugin_key for wiring in assembly.PLUGIN_WIRINGS}
+    assert set(full.keys()) == expected
+    assert set(app.state.assembled_plugin_keys) == expected
+    assert resolved.count("redis_client") == 1
+    await app.state.resources.aclose()

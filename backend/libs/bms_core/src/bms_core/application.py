@@ -35,7 +35,7 @@ from bms_core.api.middleware import (
 )
 from bms_core.cache.base import CacheRegion
 from bms_core.catalog.loader import load_catalog_snapshot
-from bms_core.core.assembly import assemble_plugins, register_platform_plugins
+from bms_core.core.assembly import assemble_base_plugins, assemble_plugins, register_platform_plugins
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import Settings, get_settings, validate_startup
 from bms_core.core.exceptions import CatalogError, EventContractError
@@ -232,6 +232,10 @@ def _validate_event_contracts(app: FastAPI) -> None:
 async def service_lifespan(app: FastAPI) -> AsyncGenerator[None]:
     """服务生命周期：启动校验（离线 + 接库）+ 工厂 / 插件装配（完成后标记就绪），关闭时统一释放异步资源。
 
+    启动顺序：离线清单校验 → **基础能力先行装配**（Redis 统一客户端先登记——开库引导与接库校验
+    都要取数据库引擎，而引擎注册表的跨实例创建锁经分布式锁基座取共享客户端）→ 开发库自动建表 →
+    接库服务目录校验 → 表归属对账 → 其余能力装配 → 库数量上报 → 就绪标记。
+
     离线阶段另执行**产品维度校验**（应用工厂声明 `product_key` 时）：注入的服务目录记录须非空、
     均为产品分组、产品归属与声明一致、且含运行服务登记行（不通过即拒启；12_03）。
 
@@ -267,6 +271,9 @@ async def service_lifespan(app: FastAPI) -> AsyncGenerator[None]:
             get_logger("bms").critical("service_catalog_invalid", scope="offline", errors=errors)
             raise CatalogError("服务目录校验失败（清单）：" + "；".join(errors))
         _validate_event_contracts(app)
+        # 基础能力先行（03_04）：开库引导与接库校验都会取数据库引擎，而引擎注册表的跨实例创建锁
+        # 经分布式锁基座取共享 Redis 客户端；该客户端由插件装配期登记，故此处先装配基础能力。
+        await assemble_base_plugins(app, settings, cast("ResourceManager", app.state.resources))
         created = await ensure_development_schema(
             cast("EngineRegistry", app.state.engine_registry),
             settings,
