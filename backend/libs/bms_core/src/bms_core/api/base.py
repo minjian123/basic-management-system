@@ -13,6 +13,9 @@
 - `require_auth`：登录态依赖（**恒定强制**）——消费可信边缘身份（网关路径）或本地校验 Bearer 用户令牌
   （`aud=api`），校验每请求会话标记存在性，写请求上下文并返回 `AuthContext`；失败抛 `AuthError`
   （20001 / 401）或 `SessionAuthError`（20012 / 401）。细粒度权限校验沿用 `require_permission`（阶段七）。
+- `require_auth_or_service`：双模入站鉴权（「前端与服务共用」只读端点）——登录态（同 `require_auth`）
+  或**东西向非网关**服务身份（`aud=service` 全校验、签发方标识非空且非 `[gateway].service_identity`）
+  任一放行；两侧都要求有效凭证，无免登录面（缺陷 #111 修复）。
 """
 
 from collections.abc import Awaitable, Callable, Iterable, Mapping, Sequence
@@ -43,6 +46,7 @@ from bms_core.session.base import BaseSessionStore, get_session_store
 
 __all__ = [
     "API_PREFIX",
+    "DEFAULT_GATEWAY_SERVICE_IDENTITY",
     "DEFAULT_RESPONSES",
     "AuthContext",
     "BaseRouter",
@@ -53,6 +57,7 @@ __all__ = [
     "page_query",
     "register_router",
     "require_auth",
+    "require_auth_or_service",
     "require_service",
     "router_registry",
     "sort_query",
@@ -60,6 +65,9 @@ __all__ = [
 
 API_PREFIX = "/api/v1"
 """内部接口统一前缀（管理端 / 租户端全部接口；开放接口 `/api/open` 独立，见《API接口规范》）。"""
+
+DEFAULT_GATEWAY_SERVICE_IDENTITY = "gateway"
+"""网关代发服务票据的缺省签发方标识（`[gateway].service_identity` 未配置时的回落值）。"""
 
 DEFAULT_RESPONSES: Mapping[int, dict[str, object]] = {  # bare-collections:allow（FastAPI responses 契约，须内置 dict）
     401: {"model": ApiResponse, "description": "未认证"},
@@ -652,3 +660,89 @@ def _bearer_token(authorization: str | None) -> str | None:
     if not authorization or not authorization.lower().startswith("bearer "):
         return None
     return authorization[7:].strip() or None
+
+
+def _gateway_service_identity(request: Request) -> str:
+    """取网关代发服务票据的签发方标识（`[gateway].service_identity`；配置缺失回落缺省）。
+
+    Args:
+        request: 请求对象（取应用配置）。
+
+    Returns:
+        str: 网关服务身份标识。
+    """
+    settings = getattr(request.app.state, "settings", None)
+    gateway = getattr(settings, "gateway", None)
+    value = getattr(gateway, "service_identity", "") if gateway is not None else ""
+    return str(value) if value else DEFAULT_GATEWAY_SERVICE_IDENTITY
+
+
+async def _context_from_service(request: Request, verifier: BaseTokenVerifier) -> AuthContext | None:
+    """尝试按东西向服务身份组装上下文（非服务票据 / 网关代发票据返回 None 回落登录态路径）。
+
+    仅接受**东西向**服务身份：`aud=service` 全校验通过、签发方标识非空且不等于网关身份标识
+    （网关为已过鉴权的用户请求代发的 `sub=gateway` 票据不算服务身份，避免绕过会话即时失效）。
+
+    Args:
+        request: 请求对象。
+        verifier: 统一令牌校验器（按 `aud=service` 全校验）。
+
+    Returns:
+        AuthContext | None: 服务身份上下文（`source="service"`）；非服务身份为 None。
+
+    Raises:
+        AuthError: 上游校验器抛出的异常经此处吞并为 None（由调用方回落登录态路径，仍 fail-closed）。
+    """
+    token = _bearer_token(request.headers.get("Authorization"))
+    if token is None:
+        return None
+    try:
+        verified = await verifier.verify(token, audience=TOKEN_AUDIENCE_SERVICE)
+    except AuthError:
+        return None
+    service = (verified.service or "").strip()
+    if not service or service == _gateway_service_identity(request):
+        return None
+    return AuthContext(
+        subject=service,
+        tenant_id=verified.tenant_id,
+        scopes=verified.scopes,
+        service_identity=service,
+        source="service",
+    )
+
+
+async def require_auth_or_service(
+    request: Request,
+    verifier: Annotated[BaseTokenVerifier, Depends(get_token_verifier)],
+    store: Annotated[BaseSessionStore, Depends(get_session_store)],
+) -> AuthContext:
+    """双模入站鉴权：登录态（用户）**或**东西向服务身份（`aud=service`，不含网关代发票据）。
+
+    用于「前端与服务共用」的只读端点（如 platform 服务目录快照 `GET /api/v1/modules/snapshot`）：
+    两侧都要求**有效凭证**，无凭证 / 伪造凭证一律拒（20001 / 401），不引入免登录面。
+
+    - **服务分支**：请求态无可信边缘身份，且 `Authorization` 为有效服务 JWT（签发方标识非空且非网关）
+      时直接返回服务身份上下文（`source="service"`、`service_identity=<签发方标识>`）——东西向直连
+      无用户会话，故不做会话标记校验，也不写用户 / 租户请求上下文；
+    - **登录态分支**：其余情形（含网关为已过鉴权用户请求代发的 `sub=gateway` 服务票据）一律回落
+      `require_auth` 完整装配（可信边缘身份或本地 `aud=api` 用户令牌 + 租户接线 + 会话标记 + 设备校验）。
+
+    Args:
+        request: 请求对象。
+        verifier: 统一令牌校验器。
+        store: 会话标记存储（登录态分支使用）。
+
+    Returns:
+        AuthContext: 归一身份契约（`source` 为 `service` / `gateway` / `token`）。
+
+    Raises:
+        AuthError: 缺少 / 无效凭证（20001 / 401）。
+        SessionAuthError: 登录态分支会话标记失效或设备不一致（20012 / 401）。
+    """
+    state: dict[str, object] = request.scope.setdefault("state", {})  # bare-collections:allow（Starlette scope state）
+    if state.get("edge_identity") is None:
+        context = await _context_from_service(request, verifier)
+        if context is not None:
+            return context
+    return await require_auth(request, verifier, store)

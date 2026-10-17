@@ -7,7 +7,9 @@
   （06_01 起非目录权威服务经 `service_client` 调本接口，见 `bms_core/catalog/loader.py`）。
 - 明细：`GET /api/v1/modules/{service_key}`——`service_key` 优先、未命中回退 `module_key`；
   未登记统一 `NotFoundError`（10002 / 404 + 统一响应体）。
-- 鉴权挂 `require_auth` 登录态占位（真实登录态与平台管理权限码随认证 / RBAC 阶段回补）。
+- 鉴权挂 `require_auth_or_service`（双模：登录态**或**东西向非网关服务身份）——本模块为「前端与服务共用」
+  只读端点，快照供各服务启动接库校验直连取数（东西向服务 JWT），清单 / 明细供登录用户读取；
+  网关代发的 `sub=gateway` 票据不算服务身份（回落登录态路径），无免登录面（缺陷 #111 修复）。
 - 只读边界：仅 GET、不含密钥 / 敏感项（响应字段集固定为 `ModuleResponse`）。
 """
 
@@ -15,7 +17,7 @@ from typing import Annotated
 
 from fastapi import Depends, Path, Query
 
-from bms_core.api.base import BaseRouter, page_query, require_auth
+from bms_core.api.base import BaseRouter, page_query, require_auth_or_service
 from bms_core.api.deps import get_platform_read_db
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.exceptions import NotFoundError
@@ -29,7 +31,7 @@ router = BaseRouter(
     key="modules",
     prefix="/modules",
     tags=["module"],
-    dependencies=[Depends(require_auth)],
+    dependencies=[Depends(require_auth_or_service)],
 )
 
 PlatformDbDep = Annotated[DbSession, Depends(get_platform_read_db)]

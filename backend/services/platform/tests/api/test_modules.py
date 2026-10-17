@@ -3,12 +3,15 @@
 from pathlib import Path
 
 import pytest
+from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
 from bms_core.application import service_lifespan as lifespan
 from bms_core.core.concurrent import ConcurrentStableSet
 from bms_core.core.config import get_settings
-from bms_core.core.exceptions import CatalogError
+from bms_core.core.exceptions import AuthError, CatalogError
+from bms_core.oauth.token import TOKEN_AUDIENCE_SERVICE
+from bms_core.oauth.verify import VerifiedToken, get_token_verifier
 from bms_core.schemas.module import ModuleResponse
 from bms_platform import CONTRACT_VERSION
 from bms_platform.main import ApplicationFactory
@@ -163,6 +166,60 @@ async def test_modules_snapshot_full_catalog(client: AsyncClient) -> None:
     assert [item["module_key"] for item in data] == _EXPECTED_KEYS
     assert set(data[0]) == set(ModuleResponse.model_fields)
     assert data[0]["service_key"] == "platform"
+
+
+class _DualVerifier:
+    """按受众分支的校验器替身（服务身份 / 用户身份；其余令牌拒）。"""
+
+    async def verify(self, token: str, *, audience: str) -> VerifiedToken:
+        """按令牌串与受众返回身份声明。
+
+        Args:
+            token: 令牌串。
+            audience: 期望受众。
+
+        Returns:
+            VerifiedToken: 身份声明。
+
+        Raises:
+            AuthError: 未知令牌（20001 / 401）。
+        """
+        if audience == TOKEN_AUDIENCE_SERVICE:
+            if token in {"identity", "tenant"}:
+                return VerifiedToken(subject=token, service=token, token_type="service")
+            if token == "gateway":
+                return VerifiedToken(subject="gateway", service="gateway", token_type="service")
+            raise AuthError("invalid")
+        if token == "user":
+            return VerifiedToken(subject="1001", token_id="1001", token_type="access")
+        raise AuthError("invalid")
+
+
+@pytest.fixture
+def _dual_verifier(service_app: FastAPI) -> None:  # pyright: ignore[reportUnusedFunction]
+    """以替身顶替统一校验器（按受众返回服务 / 用户身份，避免真实外呼依赖）。"""
+    service_app.dependency_overrides[get_token_verifier] = _DualVerifier
+
+
+@pytest.mark.kiwi_id(2302)
+async def test_snapshot_readable_with_service_identity(_dual_verifier: None, client: AsyncClient) -> None:
+    """双模鉴权（缺陷 #111）：服务身份直连快照 200 + 全量清单；用户令牌仍 200；无凭证 401。"""
+    service = await client.get("/api/v1/modules/snapshot", headers={"Authorization": "Bearer identity"})
+    assert service.status_code == 200
+    assert [item["module_key"] for item in service.json()["data"]] == _EXPECTED_KEYS
+
+    user = await client.get("/api/v1/modules/snapshot", headers={"Authorization": "Bearer user"})
+    assert user.status_code == 200
+
+    anonymous = await client.get("/api/v1/modules/snapshot", headers={"Authorization": ""})
+    assert anonymous.status_code == 401
+
+
+@pytest.mark.kiwi_id(2302)
+async def test_snapshot_rejects_gateway_ticket_without_user(_dual_verifier: None, client: AsyncClient) -> None:
+    """仅持网关代发 `sub=gateway` 票据（无用户凭证）→ 401（回落登录态路径，不绕过会话校验）。"""
+    resp = await client.get("/api/v1/modules/snapshot", headers={"Authorization": "Bearer gateway"})
+    assert resp.status_code == 401
 
 
 @pytest.mark.kiwi_id(28)
