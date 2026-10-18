@@ -189,6 +189,49 @@ def is_within(path, base):
     return p == b or p.startswith(b + os.sep)
 
 
+# ---- venv 解释器路径口径（Windows 兼容入口）----
+
+
+def ensure_venv_bin_shim(venv_dir, prefix, dry_run=False):
+    """Windows：为 venv 补 `bin/python` 兼容入口（→ Scripts/python.exe），幂等。
+
+    背景：项目内解释器口径统一写 `backend/.venv/bin/python`（Linux 原生布局，跨平台一份
+    配置）；而 Windows 上 uv 建的 venv 只有 `Scripts/python.exe`，没有 `bin/`。缺这一层会让
+    Pylance / Ruff / python-envs 报「无法解析默认解释器路径 .../.venv/bin/python」。
+    做法：在 venv 内建 `bin/python`（无扩展名，供字面路径使用）与 `bin/python.exe` 两个硬链接
+    （同卷零拷贝；不支持硬链接时回退复制）。链接失效（uv sync 换过 python.exe）即重建。
+    Linux / macOS 原生就有 `bin/python`，直接跳过。dry_run 时只报告不改动。
+    """
+    if not IS_WINDOWS:
+        return
+    scripts = os.path.join(venv_dir, "Scripts", "python.exe")
+    if not os.path.isfile(scripts):
+        return
+    bin_dir = os.path.join(venv_dir, "bin")
+    for name in ("python", "python.exe"):
+        dest = os.path.join(bin_dir, name)
+        if os.path.exists(dest):
+            try:
+                if os.path.samefile(scripts, dest):
+                    continue  # 已指向当前解释器，无需重建
+            except OSError:
+                pass
+            if dry_run:
+                print(f"[dry-run] 重建解释器兼容入口 bin/{name}（硬链接 → Scripts/python.exe）")
+                continue
+            os.unlink(dest)
+        elif dry_run:
+            print(f"[dry-run] 补解释器兼容入口 bin/{name}（硬链接 → Scripts/python.exe）")
+            continue
+        os.makedirs(bin_dir, exist_ok=True)
+        try:
+            os.link(scripts, dest)
+            print(f"[{prefix}] 补解释器兼容入口 bin/{name}（硬链接 → Scripts/python.exe）")
+        except OSError:
+            shutil.copy2(scripts, dest)
+            print(f"[{prefix}] 补解释器兼容入口 bin/{name}（复制 → Scripts/python.exe）")
+
+
 # ---- 目录扫描 ----
 
 

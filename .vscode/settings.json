@@ -2,17 +2,41 @@
   // Python 后端：解释器与分析根
   // 多根工作区（bizs.code-workspace）下，本文件只对 bms folder 生效；
   // 工作区根的 .vscode/settings.json 仅作用于「工作区（配置）」folder，管不到后端代码。
+  //
+  // 解释器一律写 `bin/python`（Linux 原生布局，跨平台一份配置）：Windows 上由依赖工具链
+  // `scripts/tools/deps/外置依赖.py` 在 venv 内补 `bin/python` 兼容入口（→ Scripts/python.exe），
+  // 因此本路径双平台都成立，**不要**改成 Scripts/python.exe（会让 Linux 开发机失效）。
   "python.defaultInterpreterPath": "backend/.venv/bin/python",
-  // 让 `app` / `tests` 可被解析（[tool.pyright] include 相对 backend/）
-  "python.analysis.extraPaths": ["backend"],
-  // 类型检查与项目门禁同口径 + 忽略 alembic 迁移（项目 `[tool.pyright] include` 只含 libs/services）
-  "basedpyright.analysis.configFilePath": "backend/pyproject.toml",
-  "basedpyright.analysis.ignore": [
-    "alembic",
-    "backend/alembic",
-    "**/alembic/**"
+  // 让 `app` / `tests` 可被解析（[tool.pyright] include 相对 backend/），
+  // src 布局下各工程源码根也一并加入（与 backend/pyproject.toml 的 [tool.pyright].extraPaths 同口径）
+  "python.analysis.extraPaths": [
+    "backend",
+    "backend/libs/bms_core/src",
+    "backend/services/txn/src",
+    "backend/services/platform/src",
+    "backend/services/identity/src",
+    "backend/services/tenant/src",
+    "backend/services/file/src",
+    "backend/services/notification/src",
+    "backend/services/search/src",
+    "backend/services/ai/src",
+    "backend/services/report/src"
   ],
-  "basedpyright.analysis.exclude": ["alembic", "backend/alembic", "**/alembic/**"],
+  // 环境发现范围钉到后端 venv，避免 `*/.venv` 默认规则命中其他目录的 .venv（用错解释器）。
+  "python-envs.workspaceSearchPaths": ["backend/.venv"],
+  // 类型检查与项目门禁同口径（backend/pyproject.toml 的 [tool.pyright]：strict + include libs/services）。
+  // 本项目实际装的是 Pylance（未装 basedpyright），故按 Pylance 认的 `python.analysis.*` 写；
+  // alembic 迁移不在项目 `include` 内（含大量动态写法），用 ignore（抑制诊断）+ exclude 双保险，
+  // 避免「项目门禁不管、编辑器却满屏报错」的口径分裂。
+  "python.analysis.typeCheckingMode": "strict",
+  "python.analysis.diagnosticMode": "openFilesOnly",
+  "python.analysis.exclude": [
+    "**/node_modules",
+    "**/__pycache__",
+    "**/.venv",
+    "backend/alembic"
+  ],
+  "python.analysis.ignore": ["alembic", "backend/alembic", "**/alembic/**"],
   // ESLint（flat config）：monorepo 下**每个包各一份** `eslint.config.js`（`frontend/{apps,packages,modules}/*`），
   // 必须让扩展「按被检查文件就近取配置」——否则它会把 `apps/desktop` 的配置套到 `modules/*` 的文件上，
   // 解析器随即报「No tsconfigRootDir was set, and multiple candidate TSConfigRootDirs are present」。

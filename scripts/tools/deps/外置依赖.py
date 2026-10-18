@@ -121,6 +121,13 @@ def main(argv):
     else:
         print("[跳过] backend/.venv 不存在（先 uv sync 生成，或本仓未启用后端外置）")
 
+    # ---- 解释器路径口径 ----
+    # Windows 的 venv 只有 Scripts/python.exe；项目内配置统一写 `backend/.venv/bin/python`
+    # （Linux 原生布局），缺 bin/ 会让 Pylance / Ruff / python-envs 解析失败。外置后补上兼容
+    # 入口（幂等；对已外置的链接形态同样生效）。
+    if os.path.isdir(venv_store):
+        common.ensure_venv_bin_shim(venv_store, PREFIX, dry_run)
+
     print("[外置] 查看本地依赖仓体积： du -sh <依赖仓>（Windows 可看文件夹属性）")
     print("[外置] 确认项目内为链接： ls -la <包>/node_modules（Windows 为 junction）")
     return 0

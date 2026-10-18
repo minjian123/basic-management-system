@@ -69,7 +69,7 @@
       "presentation": { "reveal": "always", "panel": "dedicated" },
       "problemMatcher": {
         "owner": "bms-vite-desktop",
-        "pattern": [{ "regexp": "^\\[bms-vite\\]\\s(.*)$", "file": 1, "message": 1 }],
+        "pattern": [{ "regexp": "^\\[bms-vite\\]\\s(.*)$", "file": 1, "message": 1, "kind": "file" }],
         "background": {
           "activeOnStart": true,
           "beginsPattern": "VITE v",
@@ -89,7 +89,7 @@
       "presentation": { "reveal": "always", "panel": "dedicated" },
       "problemMatcher": {
         "owner": "bms-vite-desktop-with-modules",
-        "pattern": [{ "regexp": "^\\[bms-vite\\]\\s(.*)$", "file": 1, "message": 1 }],
+        "pattern": [{ "regexp": "^\\[bms-vite\\]\\s(.*)$", "file": 1, "message": 1, "kind": "file" }],
         "background": {
           "activeOnStart": true,
           "beginsPattern": "VITE v",
@@ -107,7 +107,7 @@
       "presentation": { "reveal": "always", "panel": "dedicated" },
       "problemMatcher": {
         "owner": "bms-module-releases",
-        "pattern": [{ "regexp": "^\\[bms-mreleases\\]\\s(.*)$", "file": 1, "message": 1 }],
+        "pattern": [{ "regexp": "^\\[bms-mreleases\\]\\s(.*)$", "file": 1, "message": 1, "kind": "file" }],
         "background": {
           "activeOnStart": true,
           "beginsPattern": "module-releases",
@@ -133,7 +133,7 @@
       "presentation": { "reveal": "always", "panel": "dedicated" },
       "problemMatcher": {
         "owner": "bms-vite-module-demo",
-        "pattern": [{ "regexp": "^\\[bms-vite\\]\\s(.*)$", "file": 1, "message": 1 }],
+        "pattern": [{ "regexp": "^\\[bms-vite\\]\\s(.*)$", "file": 1, "message": 1, "kind": "file" }],
         "background": {
           "activeOnStart": true,
           "beginsPattern": "VITE v",
@@ -151,7 +151,7 @@
       "presentation": { "reveal": "always", "panel": "dedicated" },
       "problemMatcher": {
         "owner": "bms-vite-module-sample",
-        "pattern": [{ "regexp": "^\\[bms-vite\\]\\s(.*)$", "file": 1, "message": 1 }],
+        "pattern": [{ "regexp": "^\\[bms-vite\\]\\s(.*)$", "file": 1, "message": 1, "kind": "file" }],
         "background": {
           "activeOnStart": true,
           "beginsPattern": "VITE v",
