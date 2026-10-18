@@ -28,6 +28,7 @@
 """
 
 import hashlib
+import io
 import json
 import subprocess
 import sys
@@ -278,17 +279,25 @@ def run(argv: tuple[str, ...], *, window_seconds: int, force: bool, show_only: b
         _emit(f"[run-once] --force 真跑：{' '.join(argv)}")
 
     started_at = time.time()
-    completed = subprocess.run(
+    # 逐行实时透传（stdout / stderr 合流，终端里能看到进度），同时收集全文供缓存回放
+    process = subprocess.Popen(
         argv,
         cwd=cwd,
-        capture_output=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
         text=True,
         encoding="utf-8",
         errors="replace",
-        check=False,
+        bufsize=1,
     )
-    stdout, stdout_clipped = _clip(completed.stdout)
-    stderr, stderr_clipped = _clip(completed.stderr)
+    buffer = io.StringIO()
+    assert process.stdout is not None
+    for line in process.stdout:
+        buffer.write(line)
+        sys.stdout.write(line)
+        sys.stdout.flush()
+    returncode = process.wait()
+    stdout, clipped = _clip(buffer.getvalue())
     duration = time.time() - started_at
     save_record(
         RunRecord(
@@ -298,17 +307,14 @@ def run(argv: tuple[str, ...], *, window_seconds: int, force: bool, show_only: b
             fingerprint=fingerprint,
             started_at=started_at,
             duration_seconds=round(duration, 3),
-            exit_code=completed.returncode,
+            exit_code=returncode,
             stdout=stdout,
-            stderr=stderr,
-            truncated=stdout_clipped or stderr_clipped,
+            stderr="",
+            truncated=clipped,
         )
     )
-    _emit(stdout)
-    if stderr:
-        _emit(stderr)
-    _emit(f"[run-once] 已记录（{duration:.1f}s，退出码 {completed.returncode}，键 {key}）")
-    return completed.returncode
+    _emit(f"[run-once] 已记录（{duration:.1f}s，退出码 {returncode}，键 {key}）")
+    return returncode
 
 
 def _split_argv(args: tuple[str, ...]) -> tuple[tuple[str, ...], tuple[str, ...]]:

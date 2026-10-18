@@ -144,10 +144,27 @@ def _run(
             return False
         limit = min(limit, remaining) if limit is not None else min(_GUARD.step_seconds, remaining)
     print(f"\n[preflight] {label}\n  $ {' '.join(cmd)}")
+    # 逐行实时透传（终端里能看到进度；IDE / CI 日志也能按行增量落盘），同时收集首尾用于摘要
+    process = subprocess.Popen(
+        cmd,
+        cwd=cwd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        bufsize=1,
+    )
+    lines: ConcurrentStableList[str] = ConcurrentStableList()
+    deadline = time.monotonic() + limit if limit is not None else None
+    assert process.stdout is not None
     try:
-        result = subprocess.run(
-            cmd, cwd=cwd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=limit
-        )
+        for line in process.stdout:
+            lines.add(line.rstrip("\n"))
+            print(line, end="", flush=True)
+            if deadline is not None and time.monotonic() > deadline:
+                process.kill()
+                raise subprocess.TimeoutExpired(cmd, limit)
     except subprocess.TimeoutExpired:
         print(
             f"  中止（单步超时 {limit:.0f}s；全量与集成交 CI，确需本地全量请显式 --full）\n"
@@ -155,12 +172,11 @@ def _run(
         )
         failures.add(f"预算护栏（单步超时）：{label}")
         return False
-    tail = "\n".join((result.stdout + result.stderr).splitlines()[-12:])
-    if result.returncode != 0:
-        print(tail)
+    returncode = process.wait()
+    if returncode != 0:
         failures.add(label)
         return False
-    print("  通过" + (f"（{tail.splitlines()[-1]}）" if tail.strip() else ""))
+    print("  通过" + (f"（{list(lines)[-1]}）" if lines else ""))
     return True
 
 
