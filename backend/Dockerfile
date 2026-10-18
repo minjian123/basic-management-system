@@ -50,8 +50,8 @@ COPY libs/bms_core/src libs/bms_core/src
 COPY services/${SERVICE}/src services/${SERVICE}/src
 RUN uv sync --frozen --no-dev --package "bms-${SERVICE}" && rm -rf /root/.cache
 
-# 迁移能力：alembic 分链迁移脚本 + 运维脚本（部署流程内一次性迁移容器复用本镜像，版本与发布一致；
-# 见 09_02 详细设计 4.3）。均为纯 Python / SQL，不引入新依赖。
+# 建表能力：alembic（迁移机制保留，当前无脚本）+ 运维脚本（部署流程内一次性建表容器复用本镜像，
+# 版本与发布一致；见 09_02 详细设计 4.3）。均为纯 Python / SQL，不引入新依赖。
 COPY alembic ./alembic
 COPY ops ./ops
 

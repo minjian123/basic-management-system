@@ -318,7 +318,7 @@ backend-plugins:
     - uv sync --frozen
     - uv run python -m ops.check_plugins
 
-# ---- 后端：服务目录校验（离线清单 + 服务包契约声明；SQLite 临时库跑「迁移 → 种子 → 接库查重与对账」；须以 -m 方式运行，直接跑脚本会 ModuleNotFoundError）----
+# ---- 后端：服务目录校验（离线清单 + 服务包契约声明；SQLite 临时库跑「建表 → 种子 → 接库查重与对账」；须以 -m 方式运行，直接跑脚本会 ModuleNotFoundError）----
 backend-modules:
   stage: lint
   image: $REGISTRY_IMAGE_PREFIX/ci-backend:py314
@@ -339,8 +339,8 @@ backend-modules:
     - cd backend
     - uv sync --frozen
     - uv run python -m ops.check_modules --offline
-    # 迁移后查重：SQLite 测试库（config.test.toml 的 sqlite_dir 解析到 database/bms/test）→ 平台链迁移 → 种子 → 接库校验（只读）
-    - uv run alembic -n alembic:platform:platform upgrade head
+    # 建表后查重：SQLite 测试库（config.test.toml 的 sqlite_dir 解析到 database/bms/test）→ 平台链建表 → 种子 → 接库校验（只读）
+    - uv run python -m ops.init_schema --service platform --target platform
     - uv run python -m ops.seed_module
     - uv run python -m ops.check_modules
 
@@ -934,7 +934,7 @@ mobile-build:
 #   deploy/ci/verify/image     按服务镜像构建 / 发布 / 扫描 —— P3 已开（2026-09-24，09_01：backend/Dockerfile 参数化就绪；
 #                              后端由服务子流水线 service-build / service-release 承载，前端镜像 frontend-image 仍待 desktop/Dockerfile）
 #   deploy/ci/verify/e2e       Playwright E2E             —— P4 待开（前置：tests/e2e 用例、--e2e-headless、Playwright 依赖与浏览器、job 内服务编排）
-#   deploy/ci/verify/db        三库真库集成                —— P4 已开（2026-09-22：test_db 实现 + alembic 在线分支 + 方言用例 + masked 变量齐备）
+#   deploy/ci/verify/db        三库真库集成                —— P4 已开（2026-09-22：test_db 实现 + 建表路径 + 方言用例 + masked 变量齐备）
 # 各 job 只守自己的档；删除对应文件即关闭该档（不再使用旧单开关 deploy/ci/verify-enabled）。
 
 # ---- E2E：服务容器起 backend（SQLite）+ 前端产物，Playwright 驱动 ----
@@ -962,12 +962,12 @@ e2e-playwright:
     - pnpm --filter @bms/desktop run build
     - cd backend && uv run pytest services/platform/tests/e2e --e2e-headless
 
-# ---- 三库方言集成测试：连 mjbk 常驻库，bms_test 前缀建库 → Alembic 迁移 → 集成用例 → 删库清理 ----
+# ---- 三库方言集成测试：连 mjbk 常驻库，bms_test 前缀建库 → 建表（ops.init_schema 同源）→ 集成用例 → 删库清理 ----
 # 分档开关 deploy/ci/verify/db（**2026-09-22 已开**；前置见 04_02 详细设计 §7.3）：
 #   1) 仓库创建 deploy/ci/verify/db 开关文件（P4 档）——已就位；
 #   2) CI/CD 变量配齐（masked）：MYSQL_TEST_PASSWORD / POSTGRES_TEST_PASSWORD / DM8_TEST_PASSWORD（连接测试库）、
 #      MYSQL_ROOT_PASSWORD（MySQL 缺陷现场 dump）、GITLAB_API_TOKEN（Issue 创建）——已就位；
-#   3) ops/test_db.py 的 create / migrate / drop 真实执行 + alembic/env.py 在线分支——已就位；
+#   3) ops/test_db.py 的 create / migrate（语义为建表）/ drop 真实执行——已就位；
 #   4) 真库用例按方言命名并加方言标记（dialect_mysql / dialect_postgres / dialect_dm8），
 #      保证 pytest -k "$DB_DIALECT" 有匹配用例（否则 pytest 退出码 5「无用例收集」会被误判为失败）。
 .integration-base: &integration-base
@@ -993,7 +993,7 @@ e2e-playwright:
       exists:
         - deploy/ci/verify/db
   script:
-    # 真库阶段：建库 / 建模式（幂等）→ 分链迁移（platform / tenant）→ 集成用例 → 失败先导 dump 再清理
+    # 真库阶段：建库 / 建模式（幂等）→ 按对象建表（幂等）→ 集成用例 → 失败先导 dump 再清理
     - cd backend
     - uv sync --frozen
     - uv run python -m ops.test_db plan --engine "$DB_DIALECT"

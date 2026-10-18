@@ -18,10 +18,10 @@
 
 - **不可变标签**：commit short SHA 主标签 + Git tag `vX.Y.Z` 追加语义化标签；禁 `latest`；版本台账
   `deploy/releases/<service>.json`（当前 / 上一版本）+ `deploy/releases/release-log.jsonl`（运行时状态，不入库）。
-- **迁移先行**：`deploy` 先以目标镜像跑一次性迁移容器（`ops.migrate_tenants`，幂等），再起容器。
+- **建表先行**：`deploy` 先以目标镜像跑一次性建表容器（`ops.init_schema`，幂等），再起容器。
 - **健康门禁**：容器 `healthy`（`/healthz`）→ `/readyz` 200 → 经网关路由可达（非 502/503/504/000）；
   失败**自动回滚**上一版本并记录。
-- **回滚**：切换上一 tag（或 `--to`）；迁移向前修复优先，**不执行 downgrade**。
+- **回滚**：切换上一 tag（或 `--to`）；结构变更由幂等建表承接（**不执行 downgrade**）。
 - **留存**：semver 标签永久；SHA 标签每服务保留最近 N（`prune` 经 GitLab Registry API 删除）。
 
 退出码：0 成功；1 失败（含门禁失败与自动回滚后仍失败）；2 参数 / 环境错误。
@@ -262,7 +262,7 @@ def build_manifest(
                     "ci": "pass",
                     "image_scan": scan,
                     "contract_snapshot": "人工确认（父流水线 swagger-snapshot 归档）",
-                    "migration_drill": "人工确认（三库迁移演练）",
+                    "schema_drill": "人工确认（三库建表演练）",
                     "backup_restorable": "人工确认（当日备份可恢复）",
                     "release_notes": "人工确认（发布说明）",
                 }
@@ -520,17 +520,17 @@ def _up(deploy_dir: Path, env: ConcurrentStableDict[str, str], service: str, tag
     _compose(deploy_dir, run_env, ConcurrentStableList(["up", "-d", service]))
 
 
-def _migrate(
+def _init_schema(
     deploy_dir: Path,
     env: ConcurrentStableDict[str, str],
     service: str,
     tag: str,
     tenants: ConcurrentStableList[str],
 ) -> None:
-    """以目标标签镜像跑一次性迁移容器（迁移先行）。"""
+    """以目标标签镜像跑一次性建表容器（建表先行）。"""
     run_env = ConcurrentStableDict(env)
     run_env.set(f"BMS_TAG_{service.upper()}", tag)
-    args = ConcurrentStableList(["python", "-m", "ops.migrate_tenants", "--service", service])
+    args = ConcurrentStableList(["python", "-m", "ops.init_schema", "--service", service])
     if tenants:
         for tenant in tenants:
             args.update(["--code", tenant])
@@ -540,13 +540,13 @@ def _migrate(
 
 
 def _deploy_one(deploy_dir: Path, env: ConcurrentStableDict[str, str], service: str, tag: str, actor: str) -> bool:
-    """单服务部署：迁移 → 起容器 → 门禁 → 台账；门禁失败自动回滚。"""
+    """单服务部署：建表 → 起容器 → 门禁 → 台账；门禁失败自动回滚。"""
     ledger = _load_ledger(deploy_dir, service)
     raw_old_current = ledger.get("current")
     old_current = raw_old_current if isinstance(raw_old_current, Mapping) else None
     tenants = ConcurrentStableList(t for t in (env.get("BMS_DEPLOY_TENANTS", "demo,acme") or "").split(",") if t)
-    print(f"[deploy] {service} → {tag}：迁移先行")
-    _migrate(deploy_dir, env, service, tag, tenants)
+    print(f"[deploy] {service} → {tag}：建表先行")
+    _init_schema(deploy_dir, env, service, tag, tenants)
     print(f"[deploy] {service} → {tag}：起容器")
     _up(deploy_dir, env, service, tag)
     if health_gate(deploy_dir, env, service):
@@ -682,7 +682,7 @@ def cmd_bootstrap(
     services: ConcurrentStableList[str],
     actor: str,
 ) -> int:
-    """首次数据引导：建库授权 → 分链迁移 → 种子（幂等；`services` 可限定子集）。"""
+    """首次数据引导：建库授权 → 建表 → 种子（幂等；`services` 可限定子集）。"""
     tenants = ConcurrentStableList(t for t in (env.get("BMS_DEPLOY_TENANTS", "demo,acme") or "").split(",") if t)
     print("[bootstrap] 1/4 应用账号与授权")
     _ensure_registry_login(env)
@@ -693,9 +693,9 @@ def cmd_bootstrap(
     for tenant in tenants:
         provision.update(["--code", tenant])
     _compose_run(deploy_dir, env, "platform", provision)
-    print("[bootstrap] 3/4 分链迁移（按服务）")
+    print("[bootstrap] 3/4 建表（按服务）")
     for service in services:
-        _migrate(deploy_dir, env, service, _bootstrap_tag(env, service), tenants)
+        _init_schema(deploy_dir, env, service, _bootstrap_tag(env, service), tenants)
     print("[bootstrap] 4/4 种子")
     # 种子按「服务包 / 表归属」选运行镜像：seed_module 需 bms_platform；seed_tenant 需 bms_tenant；
     # 字典表归属 platform（seed_dict 写平台租户库）；seed_tables 仅需 bms_core
@@ -718,7 +718,7 @@ def cmd_bootstrap(
 
 
 def _bootstrap_tag(env: ConcurrentStableDict[str, str], service: str) -> str:
-    """bootstrap 迁移所用镜像标签（缺省取 `.env` 的 BMS_IMAGE_TAG；无则报错）。"""
+    """bootstrap 建表所用镜像标签（缺省取 `.env` 的 BMS_IMAGE_TAG；无则报错）。"""
     tag = env.get(f"BMS_TAG_{service.upper()}") or env.get("BMS_IMAGE_TAG", "")
     if not tag:
         raise RuntimeError(f"bootstrap 需镜像标签：请设置 BMS_IMAGE_TAG 或 BMS_TAG_{service.upper()}")
@@ -733,7 +733,7 @@ def cmd_deploy(
     tag: str,
     actor: str,
 ) -> int:
-    """部署（迁移 → 起容器 → 门禁 → 台账；失败自动回滚）。"""
+    """部署（建表 → 起容器 → 门禁 → 台账；失败自动回滚）。"""
     if not tag:
         print("错误：deploy 必须显式 --tag（不可变标签，禁 latest）", file=sys.stderr)
         return 2
@@ -842,12 +842,12 @@ def _parse_args(argv: ConcurrentStableList[str] | None) -> argparse.Namespace:
     parser.add_argument("--actor", default=os.environ.get("USER", "unknown"), help="操作者（记入台账 / 日志）")
     sub = parser.add_subparsers(dest="command", required=True)
 
-    bootstrap = sub.add_parser("bootstrap", help="一次性数据引导（建库 + 迁移 + 种子）")
+    bootstrap = sub.add_parser("bootstrap", help="一次性数据引导（建库 + 建表 + 种子）")
     bootstrap.add_argument(
         "--service", action="append", choices=SERVICES, default=[], help="限定服务（可重复；缺省全部启用服务）"
     )
 
-    deploy = sub.add_parser("deploy", help="部署（迁移 → 起容器 → 门禁 → 台账）")
+    deploy = sub.add_parser("deploy", help="部署（建表 → 起容器 → 门禁 → 台账）")
     deploy.add_argument("--service", choices=SERVICES, help="目标服务")
     deploy.add_argument("--all", action="store_true", help="全部已启用服务")
     deploy.add_argument("--tag", default="", help="目标镜像标签（必填；禁 latest）")

@@ -2,7 +2,7 @@
 管控 job：integration-mysql / integration-postgres / integration-dm8（stage verify，连 mjbk 常驻三库）
 
 每 job 流程：plan → create --execute（建库 / 建模式 + 幂等建测试账号）
-            → migrate --execute（平台对象 platform 链、租户对象 tenant 链）
+            → migrate --execute（命令名保留、语义为建表：平台对象 platform 链表集、租户对象 tenant 链表集）
             → pytest tests/integration -k "$DB_DIALECT" -v
             → 失败：defect_capture.py 先导 dump（建 / 复用缺陷单）再 drop --execute（|| true）
             → 成功：drop --execute（|| true）

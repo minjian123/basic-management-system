@@ -111,7 +111,7 @@ service-release:
     # 发布清单（09_02）：可采集项自动填充；不可采集检查项由消费方按「人工确认」占位核对
     - |
       DIGEST="$(docker inspect --format '{{index .RepoDigests 0}}' "$IMAGE" 2>/dev/null || true)"
-      printf '{"service":"%s","commit":"%s","short_sha":"%s","tag":"%s","image":"%s","digest":"%s","scan":"pass","pipeline_url":"%s","built_at":"%s","checklist":{"ci":"pass","image_scan":"pass","contract_snapshot":"人工确认（父流水线 swagger-snapshot 归档）","migration_drill":"人工确认（三库迁移演练）","backup_restorable":"人工确认（当日备份可恢复）","release_notes":"人工确认（发布说明）"}}\n' \
+      printf '{"service":"%s","commit":"%s","short_sha":"%s","tag":"%s","image":"%s","digest":"%s","scan":"pass","pipeline_url":"%s","built_at":"%s","checklist":{"ci":"pass","image_scan":"pass","contract_snapshot":"人工确认（父流水线 swagger-snapshot 归档）","schema_drill":"人工确认（三库建表演练）","backup_restorable":"人工确认（当日备份可恢复）","release_notes":"人工确认（发布说明）"}}\n' \
         "$SERVICE" "$CI_COMMIT_SHA" "$CI_COMMIT_SHORT_SHA" "${CI_COMMIT_TAG:-}" "$IMAGE" "$DIGEST" "$CI_PIPELINE_URL" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > release-manifest.json
       cat release-manifest.json
   artifacts:

@@ -10,7 +10,7 @@
 # - 镜像标签**必填**（BMS_TAG_<SERVICE>，`:?` 语法无 latest 兜底）——由 scripts/tools/deploy/release.py
 #   按版本台账注入（当前 / 上一版本）；直接 up 而不给标签会报错（刻意，防误用 latest）；
 # - 服务运行库：MySQL 每服务库（bms_{service} / bms_{service}_{tenant}），应用账号 bms_app；
-#   建库 / 迁移 / 种子（一次性 bootstrap）由 release.py 编排（迁移先行）；
+#   建库 / 建表 / 种子（一次性 bootstrap）由 release.py 编排（建表先行）；
 # - 仓库根相对资产（边界例外白名单）挂载到容器 /opt/deploy/boundaries，经环境变量显式指向。
 
 x-service-env: &service-env
