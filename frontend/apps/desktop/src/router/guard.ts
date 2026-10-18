@@ -7,7 +7,8 @@
  * - **会话就绪**：受保护路径与登录页在判定前 `await ensureSession()`（单例续期），
  *   续期期间导航挂起；公开错误页直接放行（不等待）；
  * - **动态路由**：会话就绪后幂等装载菜单路由；装载后按新路由表**重解析**当前地址
- *   （消除「刷新深链落兜底 404」）；
+ *   （消除「刷新深链落兜底 404」）——可解析性按 `resolve(path)` 命中的**路由记录名**判定，
+ *   不用 `router.hasRoute(path)`（其参数是路由 **name**，与路径不同名时恒假）；
  * - **权限占位**：`meta.perm` 判定机制就位，权限未装载（RBAC 就绪前）**放行并记录原因**；
  * - **观测**：每次判定记一条（决策 / 路径 / 原因），经宿主注入的 `record` 落既有观测通道。
  */
@@ -138,10 +139,12 @@ export function installAuthGuard(router: Router, deps: AuthGuardDeps): boolean {
       return buildLoginLocation(to.fullPath, { publicPaths })
     }
 
-    // 动态路由：会话就绪后幂等装载；装载后若当前地址可解析则按新路由表重解析。
-    const matchedBefore = router.hasRoute(to.path)
+    // 动态路由：会话就绪后幂等装载；装载后若当前地址命中的路由记录发生变化则按新路由表重解析。
+    // 可解析性按 `resolve(path)` 命中的**路由记录**判定（不能用 `router.hasRoute(path)`：
+    // 其参数是路由 name，通用页面路由 name 为 `SystemUser` 而 path 为 `/sys/users`，恒假）。
+    const matchedBefore = matchedRecordKey(router, to.path)
     await deps.ensureRoutes()
-    if (!matchedBefore && router.hasRoute(to.path)) {
+    if (matchedBefore !== matchedRecordKey(router, to.path)) {
       record('allow', 'routes-installed')
       return { path: to.path, query: to.query, hash: to.hash, replace: true }
     }
@@ -165,6 +168,27 @@ export function installAuthGuard(router: Router, deps: AuthGuardDeps): boolean {
     return true
   })
   return true
+}
+
+/**
+ * 路径当前命中的**路由记录标识**（供「装载前后是否变化」判定，替代 `router.hasRoute`）。
+ *
+ * 未命中任何业务路由时（仅兜底 404 命中 / 无兜底路由）返回兜底记录标识或空串；动态路由装载后
+ * 该标识变化即说明地址已被纳入路由表，须按新路由表重解析。用「记录标识前后对比」而非
+ * `router.hasRoute(path)`：后者参数是路由 **name**，通用页面路由（`name: 'SystemUser'`、
+ * `path: '/sys/users'`）与模块路由 name 常与 path 不同，按路径查恒假 → 刷新落兜底 404。
+ *
+ * @param router 路由实例。
+ * @param path 目标路径。
+ * @returns 路由记录标识（name 优先，无名时取记录路径；未命中返回空串）。
+ */
+function matchedRecordKey(router: Router, path: string): string {
+  const resolved = router.resolve(path)
+  const record = resolved.matched[resolved.matched.length - 1]
+  if (record === undefined) {
+    return ''
+  }
+  return record.name === undefined || record.name === null ? record.path : String(record.name)
 }
 
 /**

@@ -63,15 +63,34 @@ function target(
  * 装配守卫并返回触发入口。
  *
  * @param overrides 依赖覆盖项。
- * @param options `hasRoute` 判定（缺省恒假）。
+ * @param options `routes` 路由表模拟（路径 → 路由记录 name，`null` 表示无名记录）；
+ *   `unmatched` 未命中时是否命中兜底记录（`fallback` 缺省 / `none` 无兜底路由）。
  */
-function install(overrides: Partial<AuthGuardDeps> = {}, options: { hasRoute?: (path: string) => boolean } = {}) {
+function install(
+  overrides: Partial<AuthGuardDeps> = {},
+  options: { routes?: () => Record<string, string | null>; unmatched?: 'fallback' | 'none' } = {},
+) {
   const guards: GuardFn[] = []
+  /** 兜底记录 name（真实路由表 `/:pathMatch(.*)*` 的 name）。 */
+  const fallback = 'NotFound'
+  const routes = options.routes ?? (() => ({}))
   const router = {
     beforeEach: (fn: GuardFn) => {
       guards.push(fn)
     },
-    hasRoute: options.hasRoute ?? (() => false),
+    /**
+     * 模拟 `router.resolve(path)`：命中业务路由返回该记录，否则命中兜底记录或空匹配。
+     *
+     * @param path 目标路径。
+     */
+    resolve: (path: string) => {
+      const table = routes()
+      if (!(path in table)) {
+        return { matched: options.unmatched === 'none' ? [] : [{ name: fallback, path }] }
+      }
+      const name = table[path]
+      return { matched: [name === null ? { path } : { name, path }] }
+    },
   } as unknown as Router
   const deps: AuthGuardDeps = {
     ensureSession: vi.fn().mockResolvedValue(true),
@@ -224,7 +243,7 @@ describe('installAuthGuard 判定与回跳（Kiwi 2231）', () => {
     })
     const { run } = install(
       { ensureSession: vi.fn().mockResolvedValue(true), ensureRoutes },
-      { hasRoute: () => installed },
+      { routes: () => (installed ? { '/system/user': '/system/user' } : {}) },
     )
 
     expect(await run(target('/system/user', { query: { from: 'deep' } }))).toEqual({
@@ -238,10 +257,63 @@ describe('installAuthGuard 判定与回跳（Kiwi 2231）', () => {
 
   it('动态路由：已在路由表内（装载前后均可解析）不重解析', async () => {
     const ensureRoutes = vi.fn()
-    const { run } = install({ ensureRoutes }, { hasRoute: () => true })
+    const { run } = install({ ensureRoutes }, { routes: () => ({ '/system/user': '/system/user' }) })
 
     expect(await run(target('/system/user'))).toBe(true)
     expect(ensureRoutes).toHaveBeenCalledTimes(1)
+  })
+
+  it('动态路由：路由 name 与 path 不同（通用页面路由 / 模块路由）同样触发重解析', async () => {
+    // 回归用例：曾按 `router.hasRoute(path)` 判定，而该 API 参数是路由 name；通用页面路由
+    // `name: 'SystemUser'` / `path: '/sys/users'` 与模块路由 name≠path 时判定恒假 → 刷新落 404。
+    let installed = false
+    const ensureRoutes = vi.fn(() => {
+      installed = true
+    })
+    const { run, deps } = install(
+      { ensureRoutes },
+      { routes: () => (installed ? { '/sys/users': 'SystemUser' } : {}) },
+    )
+
+    expect(await run(target('/sys/users', { query: { page: '2' } }))).toEqual({
+      path: '/sys/users',
+      query: { page: '2' },
+      hash: '',
+      replace: true,
+    })
+    expect(ensureRoutes).toHaveBeenCalledTimes(1)
+    expect(deps.ensureRoutes).toHaveBeenCalledTimes(1)
+  })
+
+  it('动态路由：装载后仍不可解析（未下发菜单）→ 不重解析，落兜底 404', async () => {
+    const ensureRoutes = vi.fn()
+    const { run } = install({ ensureRoutes })
+
+    expect(await run(target('/sys/unknown'))).toBe(true)
+    expect(ensureRoutes).toHaveBeenCalledTimes(1)
+  })
+
+  it('动态路由：无名记录按记录路径判定；无兜底路由时按空标识判定', async () => {
+    let installed = false
+    const ensureRoutes = vi.fn(() => {
+      installed = true
+    })
+    // 无名记录（`name` 未声明）装载后出现：记录路径与兜底路径不同 → 判定为「已可解析」。
+    const unnamed = install(
+      { ensureRoutes },
+      { routes: () => (installed ? { '/sys/raw': null } : {}), unmatched: 'none' },
+    )
+    expect(await unnamed.run(target('/sys/raw'))).toEqual({
+      path: '/sys/raw',
+      query: {},
+      hash: '',
+      replace: true,
+    })
+
+    // 无兜底路由（空匹配）且装载前后均不可解析 → 标识恒为空串 → 不重解析。
+    installed = false
+    const empty = install({ ensureRoutes: vi.fn() }, { unmatched: 'none' })
+    expect(await empty.run(target('/sys/raw'))).toBe(true)
   })
 
   it('判定观测：每次判定记一条（决策 / 路径 / 原因），放行也记', async () => {
