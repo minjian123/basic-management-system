@@ -34,11 +34,11 @@
 | 桌面端程序目录 | `%LOCALAPPDATA%\Programs\@opencodedesktop\`（`OpenCode.exe` 文件版本 2.0.32） |
 | 桌面端用户数据 | `%APPDATA%\ai.opencode.desktop\`（`logs\`、`cli\2.0.32-x64\`、`opencode.settings`） |
 | 数据目录 | `~\.local\share\opencode\`（`opencode.db`：凭据与会话库，2026-10-18 实测约 48 MB） |
-| 配置目录 | `~\.config\opencode\`（`service.json`——共享服务密码与监听覆盖值：`hostname` / `port`；无全局 `opencode.json`） |
+| 配置目录 | `~\.config\opencode\`（**全局配置 `opencode.json` 已启用**：`mcp.servers.fastctx` 本地 MCP + `plugins` 数组登记 `bg.js` / `ops.js`；同目录另有 `service.json`（共享服务密码与监听覆盖值：`hostname` / `port`）、`plugins\`、`install-fastctx.sh`） |
 | 状态目录 | `~\.local\state\opencode\`（`service.json`、`locks\`） |
 | 缓存目录 | `~\.cache\opencode\`（`bin\`） |
 | 共享后台服务 | 桌面端内嵌 `opencode-cli.exe`（`%APPDATA%\ai.opencode.desktop\cli\2.0.32-x64\`），监听 `0.0.0.0:45278`，随桌面端启停（局域网 / 手机访问见 [6.1 节](#web-access)） |
-| 工作区配置 | `D:\Develop\bizs\.opencode\opencode.json`；插件 `D:\Develop\bizs\.opencode\plugins\bg.js` |
+| 工作区配置 | `D:\Develop\bizs\.opencode\opencode.json`（**只留项目自身的模型 / 供应商**；通用插件与本地 MCP 已上移用户级，见 [5.3 节](#plugins)） |
 | 临时目录 | `%TEMP%\opencode`（即 `debug paths` 的 `tmp`） |
 
 > 路径速查的权威来源是 `opencode debug paths`（打印 home / data / cache / config / state / tmp / db 等全部落点，见[验证](#verify)）。
@@ -124,11 +124,11 @@ Get-NetTCPConnection -LocalPort 45278 -State Listen
 
 | 层级 | 路径 | 说明 |
 | --- | --- | --- |
-| 全局 | `~\.config\opencode\` | 全局配置目录（实测仅 `service.json`，无全局 `opencode.json`） |
-| 工作区 | `D:\Develop\bizs\.opencode\opencode.json` | bizs 工作区项目级配置（覆盖全局） |
-| 插件 | `D:\Develop\bizs\.opencode\plugins\` | 插件目录（自动发现，无需登记） |
+| 全局 | `~\.config\opencode\opencode.json` | **用户级工具链**：`plugins` 登记 `bg.js` / `ops.js`（绝对路径）、`mcp.servers.fastctx` 本地 MCP；同目录 `service.json` 为共享服务配置 |
+| 工作区 | `D:\Develop\bizs\.opencode\opencode.json` | bizs 工作区项目级配置：**只放项目自身的模型 / 供应商**（覆盖全局同名项） |
+| 用户级插件 | `~\.config\opencode\plugins\` | `bg.js` / `ops.js`（通用后台与命令工具，经全局 `plugins` 登记加载，**不是**工作区插件） |
 
-> 基座仓（`D:\Develop\bizs\bms`）内**没有** `opencode.json` 与 `.opencode\`（实测）——工作区级配置就在工作区根 `D:\Develop\bizs\.opencode\`。配置为 v2 原生格式（`providers` / `mcp.servers` 等），与 v1 的字段对照见 linux 侧文档「配置（v2 原生格式）」节。
+> 基座仓（`D:\Develop\bizs\bms`）内**没有** `opencode.json` 与 `.opencode\`（实测）——工作区级配置就在工作区根 `D:\Develop\bizs\.opencode\`；工作区 `.opencode\` 现只含 `opencode.json`（通用插件已上移用户级）。配置为 v2 原生格式（`providers` / `mcp.servers` / `plugins` 等），与 v1 的字段对照见 linux 侧文档「配置（v2 原生格式）」节。
 
 ### 5.2 工作区配置实例（bizs） <a id="config-bizs"></a>
 
@@ -147,15 +147,26 @@ Get-NetTCPConnection -LocalPort 45278 -State Listen
 - 默认模型 `llamacpp/qwen3.8-27b-ud-q4-k-m` 由 `llamacpp` provider 提供，指向本机 `http://127.0.0.1:8080/v1` 的 llama-server（推理服务部署见《[llamacpp部署使用说明](../../AI/llamacpp部署使用说明.md)》）；
 - 原先登记的 MCP `mjw-vision`（识图）与配套的 MCP 超时配置已于 2026-10-16 退役移除（所用模型已普遍多模态）；今后如需再登记 MCP，超时字段照 `"mcp": { "timeout": { "catalog": …, "execution": … } }` 配。
 
-### 5.3 插件 <a id="plugins"></a>
+### 5.3 用户级工具链（FastCtx MCP + ops/bg 插件） <a id="plugins"></a>
+
+通用工具链装在**用户级**、与工作区无关，任何项目可用；工作区 `.opencode\` 只留项目自身的模型 / 供应商。
 
 ```powershell
-opencode plugin list    # 实测：ID bg   VERSION local   SOURCE D:\Develop\bizs\.opencode\plugins\bg.js
+opencode plugin list    # 实测：ID bg / ops   VERSION local   SOURCE ~\.config\opencode\plugins\*.js（用户级绝对路径）
+opencode mcp list       # 实测：fastctx   connected（本地 MCP，逐项看连接状态）
 ```
 
-- `bg.js` 为 opencode v2 插件 API 实现，提供 `bg_run` / `bg_status` / `bg_stop` / `gl_watch_pipeline` 四个后台任务工具（下载 / 构建 / ssh / 安装类长操作异步执行、秒级查状态）；
-- **`.opencode\plugins\` 目录会被自动发现，无需在 `opencode.json` 登记**（bg.js 文件头自述口径）；
-- 全局未装插件；插件改动后须**完全重启**客户端（TUI / 桌面端）再验证。
+| 组件 | 落点 | 提供的工具 |
+| --- | --- | --- |
+| 插件 `bg.js` | `~\.config\opencode\plugins\bg.js` | `bg_run` / `bg_status` / `bg_stop` / `gl_watch_pipeline`（长命令后台化、秒级查状态；下载 / 构建 / ssh / 安装类） |
+| 插件 `ops.js` | `~\.config\opencode\plugins\ops.js` | `ops_bash` / `ops_run` / `ops_batch` / `ops_result`（通用命令执行、批量执行与长结果分页；**零项目知识**，命令随项目写） |
+| 本地 MCP `fastctx` | `~\.local\share\opencode\vendor\fastctx\bin\fastctx.exe` | 文件工具 `glob` / `grep` / `inspect_local_file` / `replace` |
+| 通用脚本 | `~\.local\share\opencode\bg\`（`OPS_BG_DIR` 可覆盖） | `bg-run.py` / `bg-status.py` / `bg-wait.py` / `bg-stop.py` / `watch_pipeline.py`（去 `bms_core` 依赖与 `deploy\.env` 硬编码的通用副本） |
+
+- 两个插件与 fastctx 均在**全局配置** `~\.config\opencode\opencode.json` 登记（`plugins` 数组写绝对路径、`mcp.servers.fastctx`），**不在工作区 `.opencode\opencode.json`**；改动后须**完全重启**客户端（TUI / 桌面端）再验证。
+- FastCtx 来源为 npm 包 `@dsh-ops/fastctx-win32-x64`（Apache-2.0，provenance 随二进制），重装脚本 `~\.config\opencode\install-fastctx.sh`。
+- **反向提醒**：这类「优化 opencode 自身」的插件与二进制**不要放回项目或工作区**——工作区 `.opencode\` 只保留项目自身的配置（模型 / 供应商等）。
+- 项目内仍保留命令行 / CI / 手工用的副本 `bms\scripts\tools\bg\*.py` 与 `bms\scripts\tools\gitlab\watch_pipeline.py`（**插件不再引用它们**）；`gl_watch_pipeline` 的凭据取环境变量 `GITLAB_API_URL` / `GITLAB_API_TOKEN`（或 `--env-file` / `OPS_ENV_FILE` 指向的键值文件），**不再硬编码读 `deploy\.env`**。详见《[通用后台执行器部署使用说明](../../工具/通用后台执行器部署使用说明.md)》。
 
 ## 6. 凭据与共享服务 <a id="auth"></a>
 
@@ -338,8 +349,8 @@ Get-NetTCPConnection -LocalPort 45278 -State Listen             # 共享服务�
 
 # 会话侧
 opencode auth list                          # OpenCode Go / OpenCode Console：stored
-opencode plugin list                        # bg local  D:\Develop\bizs\.opencode\plugins\bg.js
-opencode mcp list                           # 逐项看连接状态（bizs 工作区当前无 MCP 登记）
+opencode plugin list                        # bg / ops   local   ~\.config\opencode\plugins\*.js（用户级插件）
+opencode mcp list                           # 逐项看连接状态（fastctx local，已连接）
 opencode service status                     # http://0.0.0.0:45278
 ```
 
@@ -372,4 +383,4 @@ opencode service status                     # http://0.0.0.0:45278
 - 《[文档生成规范](../../../规范/文档生成规范.md)》：本文档的组织、格式与图形约定
 - 《[本地资源](../../../用户文档/本地资源.md)》：mjpc 相关机器信息取值（已 gitignore）
 
-> 依《[文档生成规范](../../../规范/文档生成规范.md)》编写 · 记录 2026-10-16 mjpc（Windows 侧）本机核实结果（opencode CLI / 桌面端 2.0.29、路径与共享服务实测、MCP mjw-vision 退役）；2026-10-18 复核并升级记录（桌面端 2.0.32、启用局域网 / 手机访问、共享服务固定 `0.0.0.0:45278` 与 Windows 防火墙放行）
+> 依《[文档生成规范](../../../规范/文档生成规范.md)》编写 · 记录 2026-10-16 mjpc（Windows 侧）本机核实结果（opencode CLI / 桌面端 2.0.29、路径与共享服务实测、MCP mjw-vision 退役）；2026-10-18 复核并升级记录（桌面端 2.0.32、启用局域网 / 手机访问、共享服务固定 `0.0.0.0:45278` 与 Windows 防火墙放行）；同日通用化改造（通用插件 / 脚本上移用户级 `~\.config\opencode\` 与 `~\.local\share\opencode\`，全局 `opencode.json` 启用 FastCtx MCP 与 ops / bg 插件登记）
