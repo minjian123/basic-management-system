@@ -136,7 +136,7 @@ echo "SELECT NAME FROM ALL_USERS;" | /opt/dmdbms/bin/disql SYSDBA/"<密码>"@loc
 | 查看日志 | `tail -f /opt/dmdbms/data/DAMENG/log/dm_DMSERVER*.log` |
 | 备份（每日 cron 2 点） | `/opt/dmdbms/bin/dmrman CTLSTMT="BACKUP DATABASE '/opt/dmdbms/data/DAMENG/dm.ini' FULL TO BAK_$(date +%F) BACKUPSET '/mnt/data/backup/dameng/$(date +%F)'"` |
 | 现场导出（缺陷重现，见《[测试规范](../../../规范/测试规范.md)》「缺陷管理」节） | `mkdir -p /mnt/data/backup/defects/<缺陷号> && /opt/dmdbms/bin/dexp SYSDBA/密码@localhost:5236 FILE=<缺陷号>.dmp DIRECTORY=/mnt/data/backup/defects/<缺陷号> OWNER=<模式名> LOG=exp.log` |
-| 防火墙 | ufw 已放行内网 5236（含 3306/5432/6379/9000/9001，见总览） |
+| 防火墙 | ufw 已放行内网 5236（含 3306/5432/6379/9000/9001，见总览）；**另需放行 Docker 网段**（CI runner 容器经宿主 DNAT 访问原生服务）：`sudo ufw allow from 172.16.0.0/12 to any port 5236 proto tcp`（窄口径；MySQL / PostgreSQL 为容器发布端口，不经 ufw INPUT，无需此规则） |
 
 ## 8. 排障记录 <a id="trouble"></a>
 
@@ -147,6 +147,7 @@ echo "SELECT NAME FROM ALL_USERS;" | /opt/dmdbms/bin/disql SYSDBA/"<密码>"@loc
 | dminit 初始化失败 | 「please set [SYSDBA_PWD] and [SYSAUDITOR_PWD] values」 | 必须显式提供两个强密码（8-48 位，大小写+数字） |
 | disql 执行 CREATE SCHEMA 挂起 | 管道输入显示 `SQL> 2 3` 后不执行 | 改用 JDBC 执行 DDL（见第 5 节警告） |
 | libncurses5 装不上 | noble 仓库无此包 | 从清华镜像 jammy 池下载 deb 安装（见 3.1） |
+| CI 容器连达梦报 `[CODE:-70028] Create SOCKET connection failure` | 服务端 ufw 只放行 LAN 网段，runner 容器（172.16/12）被默认拒绝；与 `-70089`（客户端加密模块）现象相近但**错码不同**、且本机 `disql` 正常 | 加窄口径规则 `sudo ufw allow from 172.16.0.0/12 to any port 5236 proto tcp` 后用 `ufw status numbered` 复核（见运维行「防火墙」） |
 | 客户端建连报 `[CODE:-70089] 加密模块加载失败 / Encryption module failed to load` | `dmPython` 轮子自带的通信加密模块目录（`site-packages/dmssl`：Windows `libeay32/ssleay32.dll`、Linux `libssl.so/libcrypto.so`）**未在动态库加载路径内**（2026-10-18 定位：非服务端问题；原「服务端加密模块 / 客户端环境问题、网上无明确解法」的判断已推翻） | **Windows**：把该目录前置到 `PATH`（基座建引擎前自动完成，无需手工）；**POSIX**：**进程启动前**注入 `export LD_LIBRARY_PATH=<site-packages>/dmssl:$LD_LIBRARY_PATH`（与官方 `dmPython` `METADATA` 同口径）；仓内统一入口＝`source bms/scripts/tools/db/达梦环境.sh`。**运行期修不了**：改 `PATH`、`ctypes` 预载（`RTLD_GLOBAL`）、`site-packages/lib` 候选布局、`dmsvc_path` + `LIBSSL_LOAD_PATH` 四种写法均实测无效 |
 
 ## 9. 关联文档 <a id="related"></a>

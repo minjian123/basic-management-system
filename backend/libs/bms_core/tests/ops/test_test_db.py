@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
+from bms_core.db.bootstrap import SchemaOutcome
 from ops.test_db import (
     ENGINE_CHOICES,
     FLOW_STEPS,
@@ -171,6 +172,28 @@ def test_invalid_arguments_exit_two() -> None:
         main(ConcurrentStableList(["create", "--engine", "mysql", "--scope", "all2"]))
     assert scope_exc.value.code == 2
     assert SCOPE_CHOICES == ("all", "platform", "tenant")
+
+
+@pytest.mark.kiwi_id(1156)
+async def test_migrate_dm_keeps_schema_segment_and_passes_schema(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """达梦建表：保留连接串模式段并显式传模式名（`SET SCHEMA` 改不了反射，须靠 dmPython `schema` 参数）。"""
+    from ops import test_db as test_db_module
+
+    captured: ConcurrentStableList[tuple[str, str]] = ConcurrentStableList()
+
+    async def fake_apply(chain: object, url: str, *, target: str = "", schema: str = "") -> SchemaOutcome:
+        captured.update((("url", url), ("schema", schema), ("target", target)))
+        return SchemaOutcome(target=target, total=0, created=0, existing=0)
+
+    monkeypatch.setattr(test_db_module, "apply_chain_schema", fake_apply)
+
+    assert await migrate("dm8", "tenant", url=_DM_URL) is False
+    record = dict(captured)
+    assert record["url"] == _DM_URL
+    assert record["schema"] == "BMS_TEST_DM_T1"
+    assert record["target"] == "dm8 tenant"
 
 
 @pytest.mark.kiwi_id(2306)

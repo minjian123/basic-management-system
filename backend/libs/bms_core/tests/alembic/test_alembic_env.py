@@ -134,6 +134,11 @@ def test_apply_session_schema_dialect_and_fallback() -> None:
     migration.apply_session_schema(dm_connection, "BMS_MIGRCHECK")  # type: ignore[arg-type]
     assert dm_connection.statements == ["SET SCHEMA BMS_MIGRCHECK"]
 
+    # 自定义 XA 方言 `dmxa`（05_05 归一后运行期口径）同达梦处理
+    dmxa_connection = _FakeConnection("dmxa")
+    migration.apply_session_schema(dmxa_connection, "BMS_MIGRCHECK")  # type: ignore[arg-type]
+    assert dmxa_connection.statements == ["SET SCHEMA BMS_MIGRCHECK"]
+
     fallback = _FakeConnection("dm", fail_first=True)
     migration.apply_session_schema(fallback, "BMS_MIGRCHECK")  # type: ignore[arg-type]
     assert fallback.statements == [

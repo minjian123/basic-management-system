@@ -195,10 +195,15 @@ async def test_apply_chain_schema_sync_driver_and_idempotent(tmp_path: Path) -> 
     assert second.existing == second.total
 
 
+def _blind_has_table(
+    self: object, connection: object, table_name: str, schema: str | None = None, **kwargs: object
+) -> bool:
+    """替身：模拟「方言 `has_table` 判定不可见」（恒 False）——达梦不认会话模式的等价形态。"""
+    return False
+
+
 @pytest.mark.kiwi_id(2303)
-async def test_apply_chain_schema_creates_only_missing_tables(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+async def test_apply_chain_schema_creates_only_missing_tables(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """建表只建**自算的缺失表**：不依赖方言 `has_table`（达梦不认会话模式）也不重复 CREATE。"""
     from sqlalchemy.dialects.sqlite.base import SQLiteDialect
 
@@ -208,7 +213,7 @@ async def test_apply_chain_schema_creates_only_missing_tables(
     assert first.created == first.total > 0
 
     # 模拟达梦方言 `has_table` 不认当前模式（03_DM8 实测）：恒定 False ⇒ 旧实现会对已存在表重复 CREATE
-    monkeypatch.setattr(SQLiteDialect, "has_table", lambda self, connection, table_name, schema=None, **kwargs: False)
+    monkeypatch.setattr(SQLiteDialect, "has_table", _blind_has_table)
     second = await apply_chain_schema(chain, url, target="blind")
 
     assert second.created == 0

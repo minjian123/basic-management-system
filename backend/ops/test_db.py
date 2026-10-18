@@ -302,8 +302,12 @@ async def migrate(engine: str, scope: str, *, url: str, schema: str = "") -> boo
         bool: 建出表 True；已存在 / 无表集（跳过）False。
     """
     chain = resolve_chain(CHAIN_BY_SCOPE[scope])
-    target_url = _without_database(url) if engine == "dm8" else url
-    outcome = await apply_chain_schema(chain, target_url, target=f"{engine} {scope}", schema=schema)
+    # 达梦：建表**保留连接串模式段**（dmPython `schema` 连接参数使会话真正落在目标模式——`SET SCHEMA`
+    # 改不了反射与 `has_table` 的判定，03_DM8 实测），并显式传模式名作会话切换；否则建表会落到 SYSDBA
+    # 且对已存在表重复 CREATE。
+    target_url = url
+    target_schema = (schema or resolve_test_database(engine, scope)) if engine == "dm8" else schema
+    outcome = await apply_chain_schema(chain, target_url, target=f"{engine} {scope}", schema=target_schema)
     if not outcome.total:
         print(f"[test-db] {engine} {scope} → 无表集（跳过）")
         return False

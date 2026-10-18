@@ -26,6 +26,8 @@ from bms_core.core.objects import BaseOpsReportContract
 
 _SQLITE = "sqlite"
 _DM = "dm"
+_DM_BACKENDS: tuple[str, ...] = (_DM, "dmxa")
+"""达梦后端名（原生 `dm` 与自定义 XA 方言 `dmxa`）。"""
 _IDENTIFIER_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,62}$")
 """库名 / 模式名合法形态（防拼接注入；长度限 63 字符）。"""
 
@@ -128,7 +130,7 @@ def resolve_target(url: str, *, name: str | None = None, admin_url: str = "") ->
         ConfigError: 目标名为空或形态非法。
     """
     parsed = make_url(url)
-    dialect = parsed.get_backend_name()
+    dialect = _DM if parsed.get_backend_name() in _DM_BACKENDS else parsed.get_backend_name()
     resolved_name = (name or database_name_of(url)).strip()
     if not resolved_name:
         raise ConfigError(f"未指定建库 / 建模式目标名（连接串：{parsed.render_as_string(hide_password=True)}）")
@@ -269,7 +271,7 @@ async def _execute(admin_url: str, statements: str) -> None:
         admin_url: 管理连接串。
         statements: 单条管理语句。
     """
-    if make_url(admin_url).get_backend_name() == _DM:
+    if make_url(admin_url).get_backend_name() in _DM_BACKENDS:
         await asyncio.to_thread(_execute_sync, admin_url, statements)
         return
     engine = create_async_engine(admin_url, isolation_level="AUTOCOMMIT", poolclass=NullPool)
@@ -306,7 +308,7 @@ async def _fetch(admin_url: str, statement: str, *, name: str) -> ConcurrentStab
     Returns:
         ConcurrentStableList[object]: 结果行列表。
     """
-    if make_url(admin_url).get_backend_name() == _DM:
+    if make_url(admin_url).get_backend_name() in _DM_BACKENDS:
         return await asyncio.to_thread(_fetch_sync, admin_url, statement, name)
     engine = create_async_engine(admin_url, isolation_level="AUTOCOMMIT", poolclass=NullPool)
     try:

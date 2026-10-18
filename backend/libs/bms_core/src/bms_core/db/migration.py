@@ -143,6 +143,8 @@ VERSIONS_ROOT = BACKEND_ROOT / "alembic" / "versions"
 
 _DM = "dm"
 """达梦方言名（无异步驱动，走同步引擎）。"""
+_DM_DIALECTS: tuple[str, ...] = (_DM, "dmxa")
+"""达梦方言名集合（原生 `dm` 与自定义 XA 方言 `dmxa`；05_05 归一后运行期多为 `dmxa`）。"""
 
 
 @dataclass(frozen=True)
@@ -587,7 +589,7 @@ def apply_session_schema(connection: Connection, schema: str) -> None:
         connection: 数据库连接（同步）。
         schema: 目标模式名（空串表示不切换）。
     """
-    if not schema or connection.dialect.name != _DM:
+    if not schema or connection.dialect.name not in _DM_DIALECTS:
         return
     try:
         connection.exec_driver_sql(f"SET SCHEMA {schema}")
@@ -636,7 +638,7 @@ async def current_revision(url: str, *, schema: str = "") -> str | None:
     Returns:
         str | None: 当前版本号；未迁移返回 None。
     """
-    if make_url(url).get_backend_name() == _DM:
+    if make_url(url).get_backend_name() in _DM_DIALECTS:
         return await asyncio.to_thread(_read_revision, url, schema)
     engine = create_async_engine(url, poolclass=NullPool, isolation_level="AUTOCOMMIT")
     try:
