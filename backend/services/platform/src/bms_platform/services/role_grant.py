@@ -47,6 +47,7 @@ from bms_platform.models.role import (
     POLICY_TYPE_MATCH,
     POLICY_TYPES,
     SysDataScope,
+    SysRole,
     SysRoleField,
     SysRolePermission,
 )
@@ -56,6 +57,7 @@ from bms_platform.repositories.role import (
     RolePermissionRepository,
     RoleRepository,
 )
+from bms_platform.services.separation import SeparationGuard
 
 BUILTIN_MATCH_FIELDS: tuple[str, ...] = ("code", "name", "remark")
 """数据匹配内置字段白名单（字典数据本身的字段）。"""
@@ -147,6 +149,7 @@ class RoleGrantService(BaseFrameworkObject):
         metadata: MenuMetadataChecker,
         uow: UnitOfWork,
         cache: CacheRegion,
+        guard: SeparationGuard | None = None,
     ) -> None:
         """初始化。
 
@@ -158,6 +161,7 @@ class RoleGrantService(BaseFrameworkObject):
             metadata: 平台库元数据校验器。
             uow: 工作单元（platform 租户库写事务）。
             cache: 缓存能力域（权限版本 +1）。
+            guard: 三权分立校验器（`03_02`；None 时不做 `role` 归属与防自锁校验）。
         """
         self._roles = roles
         self._permissions = permissions
@@ -166,6 +170,7 @@ class RoleGrantService(BaseFrameworkObject):
         self._metadata = metadata
         self._uow = uow
         self._cache = cache
+        self._guard = guard
 
     async def list_permission_entries(self, role_id: int) -> ConcurrentStableList[SysRolePermission]:
         """取角色授权条目（菜单 / 表单 / 权限码）。
@@ -200,11 +205,14 @@ class RoleGrantService(BaseFrameworkObject):
             RoleNotFoundError: 角色不存在。
             ParamError: 授权类型非法或条目重复。
             RoleTargetInvalidError: 授权目标不存在，或来源菜单未在本次授权内。
+            RoleSeparationConflictError: `role` 业务授予非安全管理员角色，或修改自身所属角色（30048）。
         """
         async with self._uow.begin():
-            await self._require_role(role_id)
+            role = await self._require_role(role_id)
             normalized = self._validate_perm_entries(entries)
             await self._ensure_targets_exist(normalized)
+            if self._guard is not None:
+                await self._guard.ensure_grant_scope(role=role, permission_ids=self._permission_targets(normalized))
             await self._permissions.delete_by_role(role_id)
             created: ConcurrentStableList[SysRolePermission] = ConcurrentStableList()
             for entry in normalized:
@@ -252,11 +260,14 @@ class RoleGrantService(BaseFrameworkObject):
             RoleNotFoundError: 角色不存在。
             ParamError: 条目非法（不可见即不可编辑、重复）。
             RoleFieldMismatchError: 字段不属于该表单。
+            RoleSeparationConflictError: 修改自身所属角色的授权集合（防自锁，30048）。
         """
         async with self._uow.begin():
-            await self._require_role(role_id)
+            role = await self._require_role(role_id)
             self._validate_field_entries(entries)
             await self._ensure_fields_exist(entries)
+            if self._guard is not None:
+                await self._guard.ensure_not_self_lock(role=role)
             await self._fields.delete_by_role(role_id)
             created: ConcurrentStableList[SysRoleField] = ConcurrentStableList()
             for entry in entries:
@@ -305,10 +316,13 @@ class RoleGrantService(BaseFrameworkObject):
         Raises:
             RoleNotFoundError: 角色不存在。
             RoleScopeValueInvalidError: 策略 / 匹配值 / 扩展权限非法。
+            RoleSeparationConflictError: 修改自身所属角色的授权集合（防自锁，30048）。
         """
         async with self._uow.begin():
-            await self._require_role(role_id)
+            role = await self._require_role(role_id)
             await self._validate_data_scopes(entries)
+            if self._guard is not None:
+                await self._guard.ensure_not_self_lock(role=role)
             await self._data_scopes.delete_by_role(role_id)
             created: ConcurrentStableList[SysDataScope] = ConcurrentStableList()
             for entry in entries:
@@ -497,6 +511,20 @@ class RoleGrantService(BaseFrameworkObject):
         allowed.update(record.allowlist)
         return allowed
 
+    @staticmethod
+    def _permission_targets(
+        entries: ConcurrentStableList[PermissionGrantEntry],
+    ) -> ConcurrentStableSet[int]:
+        """取授权条目中的权限码目标主键集合（`perm_type='permission'` 条目）。
+
+        Args:
+            entries: 规范化授权条目。
+
+        Returns:
+            ConcurrentStableSet[int]: 权限码主键集合。
+        """
+        return ConcurrentStableSet(entry.target_id for entry in entries if entry.perm_type == PERM_TYPE_PERMISSION)
+
     async def _bump_version(self, tenant_id: str | None) -> None:
         """权限版本 +1（授权变更后一次递增，供权限计算失效）。
 
@@ -505,14 +533,19 @@ class RoleGrantService(BaseFrameworkObject):
         """
         await self._cache.aincrease(permission_version_key(tenant_id))
 
-    async def _require_role(self, role_id: int) -> None:
-        """校验角色存在。
+    async def _require_role(self, role_id: int) -> SysRole:
+        """校验角色存在并返回。
 
         Args:
             role_id: 角色主键。
 
+        Returns:
+            SysRole: 角色记录。
+
         Raises:
             RoleNotFoundError: 角色不存在。
         """
-        if await self._roles.get(role_id) is None:
+        role = await self._roles.get(role_id)
+        if role is None:
             raise RoleNotFoundError()
+        return role

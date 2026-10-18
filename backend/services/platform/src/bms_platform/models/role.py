@@ -61,6 +61,13 @@ ROLE_TYPE_AUDIT = "audit"
 ROLE_TYPES: tuple[str, ...] = (ROLE_TYPE_CUSTOM, ROLE_TYPE_SYSTEM, ROLE_TYPE_SECURITY, ROLE_TYPE_AUDIT)
 """角色类型取值清单。"""
 
+SEPARATION_ROLE_TYPES: tuple[str, ...] = (ROLE_TYPE_SYSTEM, ROLE_TYPE_SECURITY, ROLE_TYPE_AUDIT)
+"""三权分立的参与类型（互斥主体）：系统 / 安全 / 审计管理员；`custom` 不参与。
+
+`03_02` 单一来源：互斥校验、`role` 业务归属、种子预授清单与 `04_01` 开通种子共用本常量，
+不得各自硬编码三值。
+"""
+
 
 class SysRole(BaseModel):
     """角色（`sys_role`）：角色码 / 名称 / 状态 / 类型；内置角色按 `role_type` 判定（≠ custom 即内置）。"""

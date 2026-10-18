@@ -15,7 +15,7 @@ from typing import Any, cast
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy import Table
+from sqlalchemy import Table, delete, select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from bms_core.api.deps import get_idempotency_store
@@ -24,11 +24,18 @@ from bms_core.core.config import get_settings
 from bms_core.idempotency.base import IDEMPOTENCY_PAYLOAD_TYPE
 from bms_core.models.base import Base
 from bms_platform.main import ApplicationFactory
-from bms_platform.models.role import SysDataScope, SysRole, SysRoleField, SysRolePermission, SysUserRole
+from bms_platform.models.role import (
+    ROLE_TYPE_SECURITY,
+    SysDataScope,
+    SysRole,
+    SysRoleField,
+    SysRolePermission,
+    SysUserRole,
+)
 from bms_platform.models.user import SysUser
-from tests_support.auth import auth_headers
+from tests_support.auth import TEST_SUBJECT, auth_headers
 from tests_support.menu_metadata import reset_menu_tables, seed_business, seed_permission
-from tests_support.permission_admin import assign_system_admin
+from tests_support.permission_admin import assign_role_domain_operator
 
 _ROLES = "/api/v1/roles"
 _USERS = "/api/v1/users"
@@ -127,12 +134,15 @@ async def tenant_schema(tmp_path_factory: pytest.TempPathFactory, monkeypatch: p
 
 @pytest_asyncio.fixture(autouse=True)
 async def system_admin(tenant_schema: None) -> None:
-    """测试主体置内置系统管理员（真实权限校验下的豁免层级）。
+    """测试主体置「豁免层级 + 角色域操作人」（真实权限校验 + `03_02` 三权护栏）。
+
+    角色域写端点自 `03_02` 起要求操作人为安全管理员；本文件用例未播种按钮元数据，
+    安全管理员拿不到权限码（不属豁免层级），故同时授内置系统管理员以命中豁免层级。
 
     Args:
         tenant_schema: 临时租户库夹具（先建表并注入连接串）。
     """
-    await assign_system_admin()
+    await assign_role_domain_operator()
 
 
 @pytest_asyncio.fixture
@@ -260,7 +270,7 @@ async def test_role_crud_assign_and_grant_flow(role_client: AsyncClient) -> None
     assert (await client.delete(f"{_ROLES}/{role_id}/users/{user_a}")).json()["code"] == 0
     assert (await client.delete(f"{_ROLES}/{role_id}")).json()["code"] == 30044
 
-    business_id = await seed_business("role", "角色管理")
+    business_id = await seed_business("user", "用户管理")
     permission_id = await seed_permission(business_id, "create", "新建")
     menu_id, form_id = await _create_form(client, "/t-role-api", business_id)
     field = await client.post(
@@ -460,3 +470,102 @@ async def test_user_assignments_endpoint_applies_profile(role_client: AsyncClien
     assert roles_only.json()["code"] == 0, roles_only.text
     assert roles_only.json()["data"]["applied"] == ["role_ids"]
     assert [int(item["role_id"]) for item in roles_only.json()["data"]["roles"]["items"]] == [role_id]
+
+
+async def _seed_role(code: str, name: str, *, role_type: str = "custom") -> int:
+    """直插租户库角色（指定 `role_type`，绕过建角色接口的 `custom` 恒定口径）。
+
+    Args:
+        code: 角色码。
+        name: 角色名称。
+        role_type: 角色类型（`custom` / `system` / `security` / `audit`）。
+
+    Returns:
+        int: 角色主键。
+    """
+    engine = create_async_engine(os.environ["BMS_DATABASE__TENANTS__URL"])
+    factory = async_sessionmaker(engine, expire_on_commit=False)
+    try:
+        async with factory() as session:
+            row = SysRole(code=code, name=name, status="enabled", role_type=role_type)
+            session.add(row)
+            await session.flush()
+            role_id = row.id
+            await session.commit()
+            return role_id
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.kiwi_id(2314)
+async def test_role_domain_write_rejected_for_system_admin(role_client: AsyncClient) -> None:
+    """操作人侧护栏（`30048`）：仅持系统管理员（无安全管理员）调角色域写端点 → 403 拒绝；读端点不受影响。"""
+    client = role_client
+    subject = int(TEST_SUBJECT)
+
+    # 摘掉测试装配里的安全管理员绑定 → 操作人退化为「仅系统管理员」
+    engine = create_async_engine(os.environ["BMS_DATABASE__TENANTS__URL"])
+    factory = async_sessionmaker(engine, expire_on_commit=False)
+    try:
+        async with factory() as session:
+            rows = (
+                await session.execute(
+                    select(SysRole, SysUserRole)
+                    .join(SysUserRole, SysUserRole.role_id == SysRole.id)
+                    .where(SysUserRole.user_id == subject, SysRole.role_type == ROLE_TYPE_SECURITY)
+                )
+            ).all()
+            for role, _binding in rows:
+                await session.execute(
+                    delete(SysUserRole).where(SysUserRole.user_id == subject, SysUserRole.role_id == role.id)
+                )
+            await session.commit()
+    finally:
+        await engine.dispose()
+
+    created = await client.post(_ROLES, json={"code": "blocked_role", "name": "被拦角色"})
+    assert created.status_code == 403
+    assert created.json()["code"] == 30048
+
+    # 读端点（`role:query`）不受操作人护栏约束
+    listed = await client.get(_ROLES)
+    assert listed.json()["code"] == 0
+
+
+@pytest.mark.kiwi_id(2314)
+async def test_role_business_grant_rejected_for_custom_role(role_client: AsyncClient) -> None:
+    """`role` 业务归属（`30048`）：`role` 业务权限码授予非安全管理员角色 → 403 拒绝。"""
+    client = role_client
+    business_id = await seed_business("role", "角色管理")
+    permission_id = await seed_permission(business_id)
+    role_id = int((await client.post(_ROLES, json={"code": "grantee", "name": "受授角色"})).json()["data"]["id"])
+
+    rejected = await client.put(
+        f"{_ROLES}/{role_id}/permissions",
+        json={"entries": [{"perm_type": "permission", "target_id": permission_id, "source_menu_id": 0}]},
+    )
+    assert rejected.status_code == 403
+    assert rejected.json()["code"] == 30048
+
+    entries = await client.get(f"{_ROLES}/{role_id}/permissions")
+    assert entries.json()["data"]["items"] == []
+
+
+@pytest.mark.kiwi_id(2314)
+async def test_user_assignments_reject_separation_conflict(role_client: AsyncClient) -> None:
+    """分配路径互斥（`30010`）：一次给同一用户分配系统 + 安全管理员 → 403 拒绝且角色未变。"""
+    client = role_client
+    system_role = await _seed_role("api_system_admin", "系统管理员", role_type="system")
+    security_role = await _seed_role("api_security_admin", "安全管理员", role_type="security")
+    user_id = await _seed_user("iris", "艾瑞丝")
+
+    rejected = await client.put(f"{_USERS}/{user_id}/assignments", json={"role_ids": [system_role, security_role]})
+    assert rejected.status_code == 403
+    assert rejected.json()["code"] == 30010
+
+    detail = await client.get(f"{_USERS}")
+    assert detail.json()["code"] == 0
+    # 单一内置类型放行（仅系统管理员）
+    accepted = await client.put(f"{_USERS}/{user_id}/assignments", json={"role_ids": [system_role]})
+    assert accepted.json()["code"] == 0, accepted.text
+    assert [int(item["role_id"]) for item in accepted.json()["data"]["roles"]["items"]] == [system_role]

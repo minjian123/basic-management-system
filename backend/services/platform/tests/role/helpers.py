@@ -6,6 +6,7 @@
 
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
+from bms_core.audit.base import AuditCapturer
 from bms_core.cache.memory import MemoryCacheRegion
 from bms_core.config.null import NullConfigSource
 from bms_core.db.unit_of_work import DbUnitOfWork
@@ -30,6 +31,7 @@ from bms_platform.repositories.user import UserRepository
 from bms_platform.services.role import RoleService
 from bms_platform.services.role_assign import RoleAssignService
 from bms_platform.services.role_grant import MenuMetadataChecker, RoleGrantService
+from bms_platform.services.separation import RoleBusinessPermissions, SeparationGuard
 
 
 async def session() -> tuple[AsyncSession, AsyncEngine]:
@@ -79,12 +81,15 @@ def role_service(target: AsyncSession) -> RoleService:
     return RoleService(RoleRepository(target), UserRoleRepository(target), DbUnitOfWork(target), NullConfigSource())
 
 
-def assign_service(target: AsyncSession, cache: MemoryCacheRegion | None = None) -> RoleAssignService:
+def assign_service(
+    target: AsyncSession, cache: MemoryCacheRegion | None = None, *, guard: SeparationGuard | None = None
+) -> RoleAssignService:
     """构造角色分配服务。
 
     Args:
         target: 会话。
         cache: 缓存 Region（缺省新建内存实现）。
+        guard: 三权分立校验器（缺省不校验，`03_02` 专项用例显式传入）。
 
     Returns:
         RoleAssignService: 角色分配服务。
@@ -95,15 +100,19 @@ def assign_service(target: AsyncSession, cache: MemoryCacheRegion | None = None)
         UserRepository(target),
         DbUnitOfWork(target),
         cache or MemoryCacheRegion(),
+        guard,
     )
 
 
-def grant_service(target: AsyncSession, cache: MemoryCacheRegion | None = None) -> RoleGrantService:
+def grant_service(
+    target: AsyncSession, cache: MemoryCacheRegion | None = None, *, guard: SeparationGuard | None = None
+) -> RoleGrantService:
     """构造角色授权服务。
 
     Args:
         target: 会话。
         cache: 缓存 Region（缺省新建内存实现）。
+        guard: 三权分立校验器（缺省不校验，`03_02` 专项用例显式传入）。
 
     Returns:
         RoleGrantService: 角色授权服务。
@@ -116,6 +125,31 @@ def grant_service(target: AsyncSession, cache: MemoryCacheRegion | None = None) 
         MenuMetadataChecker(target),
         DbUnitOfWork(target),
         cache or MemoryCacheRegion(),
+        guard,
+    )
+
+
+def separation_guard(
+    target: AsyncSession,
+    *,
+    audit: AuditCapturer | None = None,
+    with_business: bool = False,
+) -> SeparationGuard:
+    """构造三权分立校验器（`03_02`；租户库角色 / 分配仓储）。
+
+    Args:
+        target: 会话。
+        audit: 审计捕获器（缺省不产生事件）。
+        with_business: 是否装配 `role` 业务权限码读取器（`role` 归属校验用）。
+
+    Returns:
+        SeparationGuard: 三权分立校验器。
+    """
+    return SeparationGuard(
+        roles=RoleRepository(target),
+        user_roles=UserRoleRepository(target),
+        business_permissions=RoleBusinessPermissions(target) if with_business else None,
+        audit=audit,
     )
 
 

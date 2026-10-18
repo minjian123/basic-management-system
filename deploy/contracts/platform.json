@@ -15021,7 +15021,7 @@
     },
     "/api/v1/roles/{role_id}/assignments": {
       "put": {
-        "description": "角色保存编排（分段全量覆盖；跨服务原子）。\n\n`provider = \"xa\"` 时经 TM 全局事务（platform 分支进程内 + 组织域分支经参与端点）；\n`provider = null`（dev / test）时顺序提交（platform 本地事务 → 组织域内部写通道）。\n权限码**分段校验**：`role` 段另需 `role:update`（端点级挂 `role:grant`）。\n\nArgs:\n    role_id: 角色主键。\n    req: 分段全量覆盖请求。\n    uow: 请求级工作单元。\n    config: 系统参数取数（角色码格式）。\n    cache: 缓存能力域（角色 / 分配变更后权限版本递增）。\n    client: 服务间调用客户端（组织域分支执行 / 内部写通道）。\n    manager: 事务管理器（`provider=null` 时为 Null 实现）。\n    participant: 事务参与方（platform 自身分支进程内执行）。\n    checker: 权限校验器（`role` 段命令式复校 `role:update`）。\n    idem_key: 幂等键请求头（透传给组织域内部写通道）。\n\nReturns:\n    ApiResponse: 统一响应，data 为角色详情、生效后用户清单与本次参与分段名。\n\nRaises:\n    PermissionError: 缺少 `role:update`（30001）。\n    ParamError: 未提供任何分段（10001）。\n    TransactionUnavailableError: 分支未达 `PREPARED`（10013）。\n    ServiceUnavailableError: 跨服务调用失败（10007）。",
+        "description": "角色保存编排（分段全量覆盖；跨服务原子）。\n\n`provider = \"xa\"` 时经 TM 全局事务（platform 分支进程内 + 组织域分支经参与端点）；\n`provider = null`（dev / test）时顺序提交（platform 本地事务 → 组织域内部写通道）。\n权限码**分段校验**：`role` 段另需 `role:update`（端点级挂 `role:grant`）。\n\nArgs:\n    role_id: 角色主键。\n    req: 分段全量覆盖请求。\n    uow: 请求级工作单元。\n    config: 系统参数取数（角色码格式）。\n    cache: 缓存能力域（角色 / 分配变更后权限版本递增）。\n    client: 服务间调用客户端（组织域分支执行 / 内部写通道）。\n    manager: 事务管理器（`provider=null` 时为 Null 实现）。\n    participant: 事务参与方（platform 自身分支进程内执行）。\n    checker: 权限校验器（`role` 段命令式复校 `role:update`）。\n    audit: 审计捕获器（三权拒绝留痕）。\n    idem_key: 幂等键请求头（透传给组织域内部写通道）。\n\nReturns:\n    ApiResponse: 统一响应，data 为角色详情、生效后用户清单与本次参与分段名。\n\nRaises:\n    PermissionError: 缺少 `role:update`（30001）。\n    ParamError: 未提供任何分段（10001）。\n    TransactionUnavailableError: 分支未达 `PREPARED`（10013）。\n    ServiceUnavailableError: 跨服务调用失败（10007）。",
         "operationId": "apply_role_assignments_api_v1_roles__role_id__assignments_put",
         "parameters": [
           {
@@ -15233,7 +15233,7 @@
         ]
       },
       "put": {
-        "description": "全量覆盖角色数据权限（单事务先删后插）。\n\nArgs:\n    role_id: 角色主键。\n    req: 数据权限全量请求。\n    uow: 请求级工作单元。\n    platform_uow: 平台库工作单元（元数据校验器构造）。\n    cache: 缓存能力域（权限版本 +1）。\n\nReturns:\n    ApiResponse: 统一响应，data 为重建后的数据权限条目清单。",
+        "description": "全量覆盖角色数据权限（单事务先删后插）。\n\nArgs:\n    role_id: 角色主键。\n    req: 数据权限全量请求。\n    uow: 请求级工作单元。\n    platform_uow: 平台库工作单元（元数据校验器构造）。\n    cache: 缓存能力域（权限版本 +1）。\n    audit: 审计捕获器（三权拒绝留痕）。\n\nReturns:\n    ApiResponse: 统一响应，data 为重建后的数据权限条目清单。",
         "operationId": "replace_data_scopes_api_v1_roles__role_id__data_permissions_put",
         "parameters": [
           {
@@ -15427,7 +15427,7 @@
         ]
       },
       "put": {
-        "description": "全量覆盖角色字段权限（单事务先删后插）。\n\nArgs:\n    role_id: 角色主键。\n    req: 字段权限全量请求。\n    uow: 请求级工作单元。\n    platform_uow: 平台库工作单元（字段归属校验）。\n    cache: 缓存能力域（权限版本 +1）。\n\nReturns:\n    ApiResponse: 统一响应，data 为重建后的字段权限条目清单。",
+        "description": "全量覆盖角色字段权限（单事务先删后插）。\n\nArgs:\n    role_id: 角色主键。\n    req: 字段权限全量请求。\n    uow: 请求级工作单元。\n    platform_uow: 平台库工作单元（字段归属校验）。\n    cache: 缓存能力域（权限版本 +1）。\n    audit: 审计捕获器（三权拒绝留痕）。\n\nReturns:\n    ApiResponse: 统一响应，data 为重建后的字段权限条目清单。",
         "operationId": "replace_fields_api_v1_roles__role_id__fields_put",
         "parameters": [
           {
@@ -15621,7 +15621,7 @@
         ]
       },
       "put": {
-        "description": "全量覆盖角色授权（单事务先删后插；可按幂等键复用首次结果）。\n\nArgs:\n    role_id: 角色主键。\n    req: 授权全量请求（条目清单）。\n    uow: 请求级工作单元。\n    platform_uow: 平台库工作单元（授权目标校验）。\n    cache: 缓存能力域（权限版本 +1）。\n    idempotency: 幂等基座（首次结果复用）。\n    idempotency_key: 幂等键请求头（可选）。\n\nReturns:\n    ApiResponse: 统一响应，data 为重建后的授权条目清单。",
+        "description": "全量覆盖角色授权（单事务先删后插；可按幂等键复用首次结果）。\n\nArgs:\n    role_id: 角色主键。\n    req: 授权全量请求（条目清单）。\n    uow: 请求级工作单元。\n    platform_uow: 平台库工作单元（授权目标校验）。\n    cache: 缓存能力域（权限版本 +1）。\n    idempotency: 幂等基座（首次结果复用）。\n    audit: 审计捕获器（三权拒绝留痕）。\n    idempotency_key: 幂等键请求头（可选）。\n\nReturns:\n    ApiResponse: 统一响应，data 为重建后的授权条目清单。",
         "operationId": "replace_permissions_api_v1_roles__role_id__permissions_put",
         "parameters": [
           {
@@ -15935,7 +15935,7 @@
         ]
       },
       "post": {
-        "description": "批量分配用户（幂等 upsert；可按幂等键复用首次结果）。\n\nArgs:\n    role_id: 角色主键。\n    req: 分配请求（用户主键清单）。\n    uow: 请求级工作单元。\n    cache: 缓存能力域（权限版本 +1）。\n    idempotency: 幂等基座（首次结果复用）。\n    tenant: 解析链租户上下文（幂等键作用域位）。\n    idempotency_key: 幂等键请求头（可选）。\n\nReturns:\n    ApiResponse: 统一响应，data 为分配后的用户清单。",
+        "description": "批量分配用户（幂等 upsert；可按幂等键复用首次结果）。\n\nArgs:\n    role_id: 角色主键。\n    req: 分配请求（用户主键清单）。\n    uow: 请求级工作单元。\n    cache: 缓存能力域（权限版本 +1）。\n    idempotency: 幂等基座（首次结果复用）。\n    tenant: 解析链租户上下文（幂等键作用域位）。\n    audit: 审计捕获器（三权拒绝留痕）。\n    idempotency_key: 幂等键请求头（可选）。\n\nReturns:\n    ApiResponse: 统一响应，data 为分配后的用户清单。",
         "operationId": "assign_users_api_v1_roles__role_id__users_post",
         "parameters": [
           {

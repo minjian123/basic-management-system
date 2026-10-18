@@ -19,14 +19,17 @@ from fastapi import Depends, Header, Query
 from bms_core.api.base import BaseRouter, page_query, require_auth
 from bms_core.api.deps import (
     current_tenant_id_of,
+    get_audit_capturer,
     get_cache_region,
     get_config_source,
     get_idempotency_store,
     get_platform_uow,
+    get_read_db,
     get_service_client,
     get_tenant,
     get_uow,
 )
+from bms_core.audit.base import AuditCapturer
 from bms_core.cache.base import CacheRegion
 from bms_core.config.base import BaseConfigSource
 from bms_core.core.concurrent import ConcurrentStableList
@@ -86,6 +89,7 @@ from bms_platform.services.role_grant import (
     PermissionGrantEntry,
     RoleGrantService,
 )
+from bms_platform.services.separation import RoleBusinessPermissions, SeparationGuard
 
 router = BaseRouter(
     key="platform_roles",
@@ -96,6 +100,7 @@ router = BaseRouter(
 
 UowDep = Annotated[UnitOfWork, Depends(get_uow)]
 PlatformUowDep = Annotated[UnitOfWork, Depends(get_platform_uow)]
+ReadDbDep = Annotated[DbSession, Depends(get_read_db)]
 ConfigDep = Annotated[BaseConfigSource, Depends(get_config_source)]
 CacheDep = Annotated[CacheRegion, Depends(get_cache_region)]
 IdempotencyDep = Annotated[IdempotencyStore, Depends(get_idempotency_store)]
@@ -105,6 +110,7 @@ ServiceClientDep = Annotated[BaseServiceClient, Depends(get_service_client)]
 ManagerDep = Annotated[BaseTransactionManager, Depends(get_transaction_manager)]
 ParticipantDep = Annotated[BaseTransactionParticipant, Depends(get_transaction_participant)]
 CheckerDep = Annotated[BasePermissionChecker, Depends(get_permission_checker)]
+AuditDep = Annotated[AuditCapturer, Depends(get_audit_capturer)]
 KeywordQuery = Annotated[str | None, Query(description="关键字（角色码 / 名称；用户账号 / 姓名）")]
 StatusQuery = Annotated[str | None, Query(description="状态（enabled/disabled）")]
 IdempotencyKeyHeader = Annotated[
@@ -117,6 +123,30 @@ _REQUIRE_CREATE = Depends(require_permission("role:create"))
 _REQUIRE_UPDATE = Depends(require_permission("role:update"))
 _REQUIRE_DELETE = Depends(require_permission("role:delete"))
 _REQUIRE_GRANT = Depends(require_permission("role:grant"))
+
+
+def _separation_guard(
+    session: DbSession,
+    *,
+    audit: AuditCapturer | None = None,
+    business_permissions: RoleBusinessPermissions | None = None,
+) -> SeparationGuard:
+    """构造三权分立校验器（租户库角色 / 分配仓储 + 可选平台库 `role` 业务权限码 + 审计捕获器）。
+
+    Args:
+        session: 租户库会话（`sys_role` / `sys_user_role`）。
+        audit: 审计捕获器（拒绝尝试留痕；None 时不产生事件）。
+        business_permissions: `role` 业务权限码读取器（平台库；None 时不做归属不变量校验）。
+
+    Returns:
+        SeparationGuard: 三权分立校验器。
+    """
+    return SeparationGuard(
+        roles=RoleRepository(session),
+        user_roles=UserRoleRepository(session),
+        business_permissions=business_permissions,
+        audit=audit,
+    )
 
 
 def _role_service(uow: UnitOfWork, config: BaseConfigSource) -> RoleService:
@@ -133,41 +163,85 @@ def _role_service(uow: UnitOfWork, config: BaseConfigSource) -> RoleService:
     return RoleService(RoleRepository(session), UserRoleRepository(session), uow, config)
 
 
-def _assign_service(uow: UnitOfWork, cache: CacheRegion) -> RoleAssignService:
+def _assign_service(uow: UnitOfWork, cache: CacheRegion, *, audit: AuditCapturer | None = None) -> RoleAssignService:
     """构造角色分配服务（请求级租户库会话）。
 
     Args:
         uow: 请求级工作单元（platform 服务租户库）。
         cache: 缓存能力域（权限版本 +1）。
+        audit: 审计捕获器（三权拒绝留痕）。
 
     Returns:
         RoleAssignService: 角色分配服务实例。
     """
     session = cast("DbSession", uow.session)
-    return RoleAssignService(RoleRepository(session), UserRoleRepository(session), UserRepository(session), uow, cache)
+    return RoleAssignService(
+        RoleRepository(session),
+        UserRoleRepository(session),
+        UserRepository(session),
+        uow,
+        cache,
+        _separation_guard(session, audit=audit),
+    )
 
 
-def _grant_service(uow: UnitOfWork, platform_uow: UnitOfWork, cache: CacheRegion) -> RoleGrantService:
+def _grant_service(
+    uow: UnitOfWork,
+    platform_uow: UnitOfWork,
+    cache: CacheRegion,
+    *,
+    audit: AuditCapturer | None = None,
+) -> RoleGrantService:
     """构造角色授权服务（租户库写事务 + 平台库只读元数据校验双会话）。
 
     Args:
         uow: 请求级工作单元（platform 服务租户库）。
         platform_uow: 平台库工作单元（授权目标元数据校验，只读）。
         cache: 缓存能力域（权限版本 +1）。
+        audit: 审计捕获器（三权拒绝留痕）。
 
     Returns:
         RoleGrantService: 角色授权服务实例。
     """
     session = cast("DbSession", uow.session)
+    platform_session = cast("DbSession", platform_uow.session)
     return RoleGrantService(
         RoleRepository(session),
         RolePermissionRepository(session),
         RoleFieldRepository(session),
         DataScopeRepository(session),
-        MenuMetadataChecker(cast("DbSession", platform_uow.session)),
+        MenuMetadataChecker(platform_session),
         uow,
         cache,
+        _separation_guard(
+            session,
+            audit=audit,
+            business_permissions=RoleBusinessPermissions(platform_session),
+        ),
     )
+
+
+async def _require_role_operator(
+    db: ReadDbDep,
+    audit: AuditDep,
+) -> None:
+    """操作人侧护栏依赖：系统 / 审计管理员不得进入角色域写端点（`30048`）。
+
+    独立只读会话（不共用端点写会话）：依赖内先于端点执行查询会在请求写会话上自动开启事务，
+    端点服务再 `uow.begin()` 即抛 `InvalidRequestError`（同 `RbacPermissionChecker.aprepare`
+    以独立会话取数的既有口径）。
+
+    Args:
+        db: 租户库只读会话（`sys_user_role` / `sys_role`）。
+        audit: 审计捕获器（拒绝尝试留痕）。
+
+    Raises:
+        RoleSeparationConflictError: 操作人为系统 / 审计管理员且非安全管理员。
+    """
+    await _separation_guard(db, audit=audit).ensure_role_domain_operator()
+
+
+_ROLE_DOMAIN_GUARD = Depends(_require_role_operator)
 
 
 def _require_status(status: str | None) -> None:
@@ -339,7 +413,7 @@ async def list_roles(
     return ApiResponse.ok(BasePageResponse[RoleItem](list=items, total=total, page=query.page, size=query.size))
 
 
-@router.post("", dependencies=[_REQUIRE_CREATE])
+@router.post("", dependencies=[_REQUIRE_CREATE, _ROLE_DOMAIN_GUARD])
 async def create_role(req: RoleCreateRequest, uow: UowDep, config: ConfigDep) -> ApiResponse[RoleDetail]:
     """新增角色（角色码唯一 + 格式校验；内置角色码不可自建）。
 
@@ -374,7 +448,7 @@ async def get_role(role_id: int, uow: UowDep, config: ConfigDep) -> ApiResponse[
     return ApiResponse.ok(_role_detail(role, builtin=_is_builtin(role), subject_count=counts.get(role_id) or 0))
 
 
-@router.put("/{role_id}", dependencies=[_REQUIRE_UPDATE])
+@router.put("/{role_id}", dependencies=[_REQUIRE_UPDATE, _ROLE_DOMAIN_GUARD])
 async def update_role(role_id: int, req: RoleUpdateRequest, uow: UowDep, config: ConfigDep) -> ApiResponse[RoleDetail]:
     """修改角色（角色码 / 名称 / 状态；乐观锁 + 内置角色保护）。
 
@@ -393,7 +467,7 @@ async def update_role(role_id: int, req: RoleUpdateRequest, uow: UowDep, config:
     return ApiResponse.ok(_role_detail(role, builtin=_is_builtin(role), subject_count=counts.get(role_id) or 0))
 
 
-@router.delete("/{role_id}", dependencies=[_REQUIRE_DELETE])
+@router.delete("/{role_id}", dependencies=[_REQUIRE_DELETE, _ROLE_DOMAIN_GUARD])
 async def delete_role(role_id: int, uow: UowDep, config: ConfigDep) -> ApiResponse[None]:
     """删除角色（内置保护 + 用户分配保护）。
 
@@ -439,7 +513,7 @@ async def list_assigned_users(
     return ApiResponse.ok(BasePageResponse[AssignedUserItem](list=items, total=total, page=query.page, size=query.size))
 
 
-@router.post("/{role_id}/users", dependencies=[_REQUIRE_GRANT])
+@router.post("/{role_id}/users", dependencies=[_REQUIRE_GRANT, _ROLE_DOMAIN_GUARD])
 async def assign_users(
     role_id: int,
     req: RoleAssignRequest,
@@ -447,6 +521,7 @@ async def assign_users(
     cache: CacheDep,
     idempotency: IdempotencyDep,
     tenant: TenantDep,
+    audit: AuditDep,
     idempotency_key: IdempotencyKeyHeader = None,
 ) -> ApiResponse[RoleAssignedUsers]:
     """批量分配用户（幂等 upsert；可按幂等键复用首次结果）。
@@ -458,12 +533,13 @@ async def assign_users(
         cache: 缓存能力域（权限版本 +1）。
         idempotency: 幂等基座（首次结果复用）。
         tenant: 解析链租户上下文（幂等键作用域位）。
+        audit: 审计捕获器（三权拒绝留痕）。
         idempotency_key: 幂等键请求头（可选）。
 
     Returns:
         ApiResponse: 统一响应，data 为分配后的用户清单。
     """
-    service = _assign_service(uow, cache)
+    service = _assign_service(uow, cache, audit=audit)
     tenant_id = current_tenant_id_str()
     key = build_idempotency_key(key=idempotency_key, tenant=current_tenant_id_of(tenant)) if idempotency_key else ""
     if key and not await idempotency.begin(key):
@@ -477,7 +553,7 @@ async def assign_users(
     return ApiResponse.ok(result)
 
 
-@router.delete("/{role_id}/users/{user_id}", dependencies=[_REQUIRE_GRANT])
+@router.delete("/{role_id}/users/{user_id}", dependencies=[_REQUIRE_GRANT, _ROLE_DOMAIN_GUARD])
 async def unassign_user(role_id: int, user_id: int, uow: UowDep, cache: CacheDep) -> ApiResponse[None]:
     """解绑用户（软删分配行；未分配时幂等无操作）。
 
@@ -516,7 +592,7 @@ async def list_permissions(
     return ApiResponse.ok(RolePermissions(items=ConcurrentStableList(_permission_item(row) for row in rows)))
 
 
-@router.put("/{role_id}/permissions", dependencies=[_REQUIRE_GRANT])
+@router.put("/{role_id}/permissions", dependencies=[_REQUIRE_GRANT, _ROLE_DOMAIN_GUARD])
 async def replace_permissions(
     role_id: int,
     req: RolePermissionRequest,
@@ -524,6 +600,7 @@ async def replace_permissions(
     platform_uow: PlatformUowDep,
     cache: CacheDep,
     idempotency: IdempotencyDep,
+    audit: AuditDep,
     idempotency_key: IdempotencyKeyHeader = None,
 ) -> ApiResponse[RolePermissions]:
     """全量覆盖角色授权（单事务先删后插；可按幂等键复用首次结果）。
@@ -535,12 +612,13 @@ async def replace_permissions(
         platform_uow: 平台库工作单元（授权目标校验）。
         cache: 缓存能力域（权限版本 +1）。
         idempotency: 幂等基座（首次结果复用）。
+        audit: 审计捕获器（三权拒绝留痕）。
         idempotency_key: 幂等键请求头（可选）。
 
     Returns:
         ApiResponse: 统一响应，data 为重建后的授权条目清单。
     """
-    service = _grant_service(uow, platform_uow, cache)
+    service = _grant_service(uow, platform_uow, cache, audit=audit)
     entries = ConcurrentStableList(
         PermissionGrantEntry(perm_type=entry.perm_type, target_id=entry.target_id, source_menu_id=entry.source_menu_id)
         for entry in req.entries
@@ -580,9 +658,14 @@ async def list_fields(
     return ApiResponse.ok(RoleFields(items=ConcurrentStableList(_field_item(row) for row in rows)))
 
 
-@router.put("/{role_id}/fields", dependencies=[_REQUIRE_GRANT])
+@router.put("/{role_id}/fields", dependencies=[_REQUIRE_GRANT, _ROLE_DOMAIN_GUARD])
 async def replace_fields(
-    role_id: int, req: RoleFieldRequest, uow: UowDep, platform_uow: PlatformUowDep, cache: CacheDep
+    role_id: int,
+    req: RoleFieldRequest,
+    uow: UowDep,
+    platform_uow: PlatformUowDep,
+    cache: CacheDep,
+    audit: AuditDep,
 ) -> ApiResponse[RoleFields]:
     """全量覆盖角色字段权限（单事务先删后插）。
 
@@ -592,6 +675,7 @@ async def replace_fields(
         uow: 请求级工作单元。
         platform_uow: 平台库工作单元（字段归属校验）。
         cache: 缓存能力域（权限版本 +1）。
+        audit: 审计捕获器（三权拒绝留痕）。
 
     Returns:
         ApiResponse: 统一响应，data 为重建后的字段权限条目清单。
@@ -606,7 +690,7 @@ async def replace_fields(
         )
         for entry in req.entries
     )
-    rows = await _grant_service(uow, platform_uow, cache).replace_fields(
+    rows = await _grant_service(uow, platform_uow, cache, audit=audit).replace_fields(
         role_id, entries, tenant_id=current_tenant_id_str()
     )
     return ApiResponse.ok(RoleFields(items=ConcurrentStableList(_field_item(row) for row in rows)))
@@ -634,9 +718,14 @@ async def list_data_scopes(
     return ApiResponse.ok(RoleDataScopes(items=ConcurrentStableList(_data_scope_item(row) for row in rows)))
 
 
-@router.put("/{role_id}/data-permissions", dependencies=[_REQUIRE_GRANT])
+@router.put("/{role_id}/data-permissions", dependencies=[_REQUIRE_GRANT, _ROLE_DOMAIN_GUARD])
 async def replace_data_scopes(
-    role_id: int, req: RoleDataScopeRequest, uow: UowDep, platform_uow: PlatformUowDep, cache: CacheDep
+    role_id: int,
+    req: RoleDataScopeRequest,
+    uow: UowDep,
+    platform_uow: PlatformUowDep,
+    cache: CacheDep,
+    audit: AuditDep,
 ) -> ApiResponse[RoleDataScopes]:
     """全量覆盖角色数据权限（单事务先删后插）。
 
@@ -646,6 +735,7 @@ async def replace_data_scopes(
         uow: 请求级工作单元。
         platform_uow: 平台库工作单元（元数据校验器构造）。
         cache: 缓存能力域（权限版本 +1）。
+        audit: 审计捕获器（三权拒绝留痕）。
 
     Returns:
         ApiResponse: 统一响应，data 为重建后的数据权限条目清单。
@@ -654,7 +744,7 @@ async def replace_data_scopes(
         DataScopeGrantEntry(data_source_key=entry.data_source_key, policy_type=entry.policy_type, config=entry.config)
         for entry in req.entries
     )
-    rows = await _grant_service(uow, platform_uow, cache).replace_data_scopes(
+    rows = await _grant_service(uow, platform_uow, cache, audit=audit).replace_data_scopes(
         role_id, entries, tenant_id=current_tenant_id_str()
     )
     return ApiResponse.ok(RoleDataScopes(items=ConcurrentStableList(_data_scope_item(row) for row in rows)))
@@ -663,7 +753,7 @@ async def replace_data_scopes(
 # ------------------------------------------------------------------ 保存编排（角色本体 + 分配）
 
 
-@router.put("/{role_id}/assignments", dependencies=[_REQUIRE_GRANT])
+@router.put("/{role_id}/assignments", dependencies=[_REQUIRE_GRANT, _ROLE_DOMAIN_GUARD])
 async def apply_role_assignments(
     role_id: int,
     req: RoleAssignmentsRequest,
@@ -674,6 +764,7 @@ async def apply_role_assignments(
     manager: ManagerDep,
     participant: ParticipantDep,
     checker: CheckerDep,
+    audit: AuditDep,
     idem_key: IdempotencyKeyHeader = None,
 ) -> ApiResponse[RoleAssignmentsResult]:
     """角色保存编排（分段全量覆盖；跨服务原子）。
@@ -692,6 +783,7 @@ async def apply_role_assignments(
         manager: 事务管理器（`provider=null` 时为 Null 实现）。
         participant: 事务参与方（platform 自身分支进程内执行）。
         checker: 权限校验器（`role` 段命令式复校 `role:update`）。
+        audit: 审计捕获器（三权拒绝留痕）。
         idem_key: 幂等键请求头（透传给组织域内部写通道）。
 
     Returns:
@@ -714,6 +806,7 @@ async def apply_role_assignments(
             UserRoleRepository(session),
             UserRepository(session),
             config,
+            _separation_guard(session, audit=audit),
         ),
         roles=RoleRepository(session),
         users=UserRepository(session),

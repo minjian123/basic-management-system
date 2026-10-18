@@ -20,9 +20,11 @@ from bms_core.core.objects import BaseFrameworkObject
 from bms_core.db.unit_of_work import UnitOfWork
 from bms_core.permission.version import permission_version_key
 from bms_core.schemas.pagination import BasePageQuery
+from bms_platform.models.role import SysRole
 from bms_platform.models.user import SysUser
 from bms_platform.repositories.role import RoleRepository, UserRoleRepository
 from bms_platform.repositories.user import UserRepository
+from bms_platform.services.separation import SeparationGuard
 
 ENABLED_USER_STATUS = "enabled"
 """可分配用户状态（停用用户不可分配）。"""
@@ -38,6 +40,7 @@ class RoleAssignService(BaseFrameworkObject):
         users: UserRepository,
         uow: UnitOfWork,
         cache: CacheRegion,
+        guard: SeparationGuard | None = None,
     ) -> None:
         """初始化。
 
@@ -47,12 +50,14 @@ class RoleAssignService(BaseFrameworkObject):
             users: 用户仓储（`sys_user`，同库）。
             uow: 工作单元（platform 服务租户库写事务边界）。
             cache: 缓存能力域（分配变更后权限版本 +1）。
+            guard: 三权分立校验器（`03_02`；None 时不做互斥校验，仅供纯分配单元用例）。
         """
         self._roles = roles
         self._user_roles = user_roles
         self._users = users
         self._uow = uow
         self._cache = cache
+        self._guard = guard
 
     async def list_assigned(
         self,
@@ -109,7 +114,7 @@ class RoleAssignService(BaseFrameworkObject):
             return ConcurrentStableList()
         changed = False
         async with self._uow.begin():
-            await self._require_role(role_id)
+            role = await self._require_role(role_id)
             users = await self._users.list_by_ids(normalized)
             by_id = ConcurrentStableDict[int, SysUser]({user.id: user for user in users})
             invalid = ConcurrentStableList(
@@ -119,6 +124,8 @@ class RoleAssignService(BaseFrameworkObject):
             )
             if invalid:
                 raise RoleSubjectInvalidError(f"用户不存在或已停用：{tuple(invalid)}")
+            if self._guard is not None:
+                await self._guard.ensure_role_grant_exclusive(role=role, user_ids=normalized)
             for user_id in normalized:
                 if await self._user_roles.get_by_role_user(role_id, user_id) is not None:
                     continue
@@ -180,14 +187,19 @@ class RoleAssignService(BaseFrameworkObject):
         """
         await self._cache.aincrease(permission_version_key(tenant_id))
 
-    async def _require_role(self, role_id: int) -> None:
-        """校验角色存在。
+    async def _require_role(self, role_id: int) -> SysRole:
+        """校验角色存在并返回。
 
         Args:
             role_id: 角色主键。
 
+        Returns:
+            SysRole: 角色记录。
+
         Raises:
             RoleNotFoundError: 角色不存在。
         """
-        if await self._roles.get(role_id) is None:
+        role = await self._roles.get(role_id)
+        if role is None:
             raise RoleNotFoundError()
+        return role

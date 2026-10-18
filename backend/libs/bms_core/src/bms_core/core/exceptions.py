@@ -697,6 +697,19 @@ class UserProtectedError(UserOrgError):
         super().__init__(ErrorCode.USER_PROTECTED, message, http_status=403, data=data)
 
 
+class UserSeparationConflictError(UserOrgError):
+    """三权分立冲突：同一用户不得兼任两类内置管理员（`30010` / 403）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化用户三权冲突异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        super().__init__(ErrorCode.USER_SEPARATION_CONFLICT, message, http_status=403, data=data)
+
+
 class UserReferencedError(UserOrgError):
     """用户仍被角色 / 流程引用，禁止删除（`30011` / 409）。"""
 

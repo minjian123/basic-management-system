@@ -59,6 +59,7 @@ from bms_platform.schemas.users import (
     UserAssignmentProfile,
     UserAssignmentsRequest,
 )
+from bms_platform.services.separation import SeparationGuard
 from bms_platform.services.user_sessions import REASON_USER_DISABLED, UserSessionClient
 from bms_platform.services.users_admin import USER_STATUSES, USER_UPDATED_EVENT
 
@@ -194,6 +195,7 @@ class UserAssignmentWriter(BaseFrameworkObject):
         user_roles: UserRoleRepository,
         roles: RoleRepository,
         outbox: BaseOutboxStore,
+        guard: SeparationGuard | None = None,
     ) -> None:
         """初始化。
 
@@ -204,6 +206,7 @@ class UserAssignmentWriter(BaseFrameworkObject):
             user_roles: 角色 × 用户分配仓储。
             roles: 角色仓储。
             outbox: 事务性发件箱存储。
+            guard: 三权分立校验器（`03_02`；None 时不做互斥校验）。
         """
         self._session = session
         self._uow = uow
@@ -211,6 +214,7 @@ class UserAssignmentWriter(BaseFrameworkObject):
         self._user_roles = user_roles
         self._roles = roles
         self._outbox = outbox
+        self._guard = guard
 
     async def write(
         self,
@@ -305,13 +309,19 @@ class UserAssignmentWriter(BaseFrameworkObject):
         Raises:
             RoleSubjectInvalidError: 停用用户参与分配（30045）。
             RoleNotFoundError: 角色不存在。
+            UserSeparationConflictError: 目标角色集合含两类内置管理员（30010）。
         """
         if user.status != ENABLED_USER_STATUS:
             raise RoleSubjectInvalidError("停用账号不可分配角色 / 岗位 / 部门，请先启用")
         normalized = _dedupe(role_ids)
+        selected: ConcurrentStableList[SysRole] = ConcurrentStableList()
         for role_id in normalized:
-            if await self._roles.get(role_id) is None:
+            role = await self._roles.get(role_id)
+            if role is None:
                 raise RoleNotFoundError(f"角色不存在：{role_id}")
+            selected.add(role)
+        if self._guard is not None:
+            await self._guard.ensure_user_roles_exclusive(user_ids=ConcurrentStableList([user.id]), roles=selected)
         await self._user_roles.soft_delete_by_user_except(user.id, ConcurrentStableSet(normalized))
         for role_id in normalized:
             if await self._user_roles.get_by_role_user(role_id, user.id) is not None:

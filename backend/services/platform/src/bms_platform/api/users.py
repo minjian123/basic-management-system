@@ -69,6 +69,7 @@ from bms_platform.schemas.users import (
     UserStatusUpdateRequest,
     UserUpdateRequest,
 )
+from bms_platform.services.separation import SeparationGuard
 from bms_platform.services.user_assignments import UserAssignmentsService, UserAssignmentWriter
 from bms_platform.services.user_sessions import UserSessionClient
 from bms_platform.services.users import USER_STATUSES, UserQueryService
@@ -537,7 +538,17 @@ async def apply_user_assignments(
     session = cast("DbSession", uow.session)
     service = UserAssignmentsService(
         writer=UserAssignmentWriter(
-            session, uow, UserRepository(session), UserRoleRepository(session), RoleRepository(session), outbox
+            session,
+            uow,
+            UserRepository(session),
+            UserRoleRepository(session),
+            RoleRepository(session),
+            outbox,
+            SeparationGuard(
+                roles=RoleRepository(session),
+                user_roles=UserRoleRepository(session),
+                audit=audit,
+            ),
         ),
         user_roles=UserRoleRepository(session),
         roles=RoleRepository(session),

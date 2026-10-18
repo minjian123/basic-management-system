@@ -44,6 +44,7 @@ from bms_platform.models.role import (
     ROLE_TYPE_AUDIT,
     ROLE_TYPE_SECURITY,
     ROLE_TYPE_SYSTEM,
+    SEPARATION_ROLE_TYPES,
     SysRole,
     SysRolePermission,
     SysUserRole,
@@ -106,6 +107,17 @@ DEFAULT_ASSIGN_ACCOUNT = "admin"
 AUDIT_ADMIN_CODES: tuple[str, ...] = ()
 """审计管理员授权（本轮为空；审计域权限码随审计模块落地）。"""
 
+BUILTIN_ADMIN_ROLES: tuple[tuple[str, str, str, tuple[str, ...]], ...] = (
+    (ROLE_SYSTEM_ADMIN, "系统管理员", ROLE_TYPE_SYSTEM, SYSTEM_ADMIN_CODES),
+    (ROLE_SECURITY_ADMIN, "安全管理员", ROLE_TYPE_SECURITY, SECURITY_ADMIN_CODES),
+    (ROLE_AUDIT_ADMIN, "审计管理员", ROLE_TYPE_AUDIT, AUDIT_ADMIN_CODES),
+)
+"""三类内置管理员角色与授权清单的**单一来源**（`03_02`；`04_01` 开通种子直接引用）。
+
+元素为 `(角色码, 角色名, role_type, 权限码清单)`；`role_type` 三值即
+`SEPARATION_ROLE_TYPES`——同一用户不得兼任其中两类。
+"""
+
 
 @dataclass
 class SeedOutcome:
@@ -135,6 +147,9 @@ class SeedOutcome:
     missing_codes: ConcurrentStableList[str] = field(default_factory=lambda: ConcurrentStableList[str]())
     """平台库未登记、被跳过的权限码（需先执行 `ops.seed_menu` 或补齐产品域动作码）。"""
 
+    assign_conflicts: ConcurrentStableList[str] = field(default_factory=lambda: ConcurrentStableList[str]())
+    """因三权互斥（同一账号已持另一类内置管理员）被拒绝的绑定（需求 07-6）。"""
+
 
 async def seed_rbac(*, tenant_url: str, platform_url: str, assign_user: str = "", dry_run: bool = False) -> SeedOutcome:
     """播种三权内置角色与其授权（幂等），并按需绑定 bootstrap 账号。
@@ -150,10 +165,7 @@ async def seed_rbac(*, tenant_url: str, platform_url: str, assign_user: str = ""
     """
     outcome = SeedOutcome()
     permission_ids = await _load_permission_ids(platform_url)
-    plan: ConcurrentStableList[tuple[str, str, str, tuple[str, ...]]] = ConcurrentStableList()
-    plan.add((ROLE_SYSTEM_ADMIN, "系统管理员", ROLE_TYPE_SYSTEM, SYSTEM_ADMIN_CODES))
-    plan.add((ROLE_SECURITY_ADMIN, "安全管理员", ROLE_TYPE_SECURITY, SECURITY_ADMIN_CODES))
-    plan.add((ROLE_AUDIT_ADMIN, "审计管理员", ROLE_TYPE_AUDIT, AUDIT_ADMIN_CODES))
+    plan: ConcurrentStableList[tuple[str, str, str, tuple[str, ...]]] = ConcurrentStableList(BUILTIN_ADMIN_ROLES)
     engine = create_async_engine(tenant_url)
     factory = async_sessionmaker(engine, expire_on_commit=False)
     try:
@@ -297,6 +309,10 @@ async def _ensure_assignment(session: AsyncSession, *, role_id: int, account: st
     绑定后主体命中**豁免层级**（`role_type=system`），使本地开发对全部 `require_permission`
     端点开箱可用（无需逐码授权；权限码级判定由权限引擎专项用例覆盖）。
 
+    绑定前做**三权互斥前置校验**（需求 07-6）：账号若已持另一类内置管理员角色
+    （`role_type ∈ SEPARATION_ROLE_TYPES` 且与目标角色类型不同），拒绝绑定并记入
+    `assign_conflicts`——与 `SeparationGuard`（服务层 30010）同一口径，种子不绕过护栏。
+
     Args:
         session: 租户库会话。
         role_id: 内置系统管理员角色主键。
@@ -306,6 +322,22 @@ async def _ensure_assignment(session: AsyncSession, *, role_id: int, account: st
     user_id = await _resolve_user_id(session, account)
     if user_id is None:
         outcome.assign_unresolved.add(account)
+        return
+    target_type = (await session.execute(select(SysRole.role_type).where(SysRole.id == role_id))).scalar_one_or_none()
+    held_types = (
+        await session.execute(
+            select(SysRole.role_type)
+            .join(SysUserRole, SysUserRole.role_id == SysRole.id)
+            .where(
+                SysUserRole.user_id == user_id,
+                SysUserRole.deleted_at.is_(None),
+                SysRole.deleted_at.is_(None),
+                SysRole.role_type.in_(SEPARATION_ROLE_TYPES),
+            )
+        )
+    ).scalars()
+    if any(held != target_type for held in held_types):
+        outcome.assign_conflicts.add(account)
         return
     existing = (
         await session.execute(
@@ -353,6 +385,8 @@ async def main(args: argparse.Namespace) -> None:
         )
     if outcome.assign_unresolved:
         print(f"[seed_rbac] 待绑定但库中未找到（先执行建号脚本）：{', '.join(outcome.assign_unresolved)}")
+    if outcome.assign_conflicts:
+        print(f"[seed_rbac] 三权互斥、已拒绝绑定的账号（已持另一类内置管理员）：{', '.join(outcome.assign_conflicts)}")
     if outcome.missing_codes:
         print(f"[seed_rbac] 平台库未登记、已跳过的权限码：{', '.join(outcome.missing_codes)}")
 

@@ -27,6 +27,7 @@ from bms_platform.repositories.user import UserRepository
 from bms_platform.schemas.role import RoleAssignmentProfile
 from bms_platform.schemas.users import UserAssignmentProfile
 from bms_platform.services.role_assignments import ROLE_ASSIGNMENTS_OP, RoleAssignmentWriter
+from bms_platform.services.separation import SeparationGuard
 from bms_platform.services.user_assignments import USER_ASSIGNMENTS_OP, UserAssignmentWriter
 
 if TYPE_CHECKING:
@@ -197,6 +198,18 @@ def _config_of(app: FastAPI) -> BaseConfigSource:
     )
 
 
+def _separation_guard(session: DbSession) -> SeparationGuard:
+    """构造三权分立校验器（分支处理器无请求上下文：不注入审计捕获器）。
+
+    Args:
+        session: 分支同步会话（租户库）。
+
+    Returns:
+        SeparationGuard: 三权分立校验器。
+    """
+    return SeparationGuard(roles=RoleRepository(session), user_roles=UserRoleRepository(session))
+
+
 def build_branch_handlers(app: FastAPI) -> BranchHandlerRegistry:
     """构造并登记本服务的分支处理器（**只调已有服务层**）。
 
@@ -219,6 +232,7 @@ def build_branch_handlers(app: FastAPI) -> BranchHandlerRegistry:
             UserRoleRepository(session),
             RoleRepository(session),
             _outbox_of(app),
+            _separation_guard(session),
         )
         await writer.write(user_id=user_id, profile=profile, role_ids=role_ids)
 
@@ -234,6 +248,7 @@ def build_branch_handlers(app: FastAPI) -> BranchHandlerRegistry:
             UserRoleRepository(session),
             UserRepository(session),
             _config_of(app),
+            _separation_guard(session),
         )
         await writer.write(role_id=role_id, profile=profile, user_ids=user_ids)
 

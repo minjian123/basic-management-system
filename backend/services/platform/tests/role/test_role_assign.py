@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from bms_core.cache.memory import MemoryCacheRegion
 from bms_core.core.concurrent import ConcurrentStableList
-from bms_core.core.exceptions import RoleNotFoundError, RoleSubjectInvalidError
+from bms_core.core.exceptions import RoleNotFoundError, RoleSubjectInvalidError, UserSeparationConflictError
 from bms_core.permission.version import permission_version_key
 from bms_platform.repositories.role import RoleRepository, UserRoleRepository
 from bms_platform.repositories.user import UserRepository
@@ -108,6 +108,40 @@ async def test_assign_rejects_invalid_subject_and_lists_with_filters() -> None:
     with pytest.raises(RoleNotFoundError):
         await service.unassign_user(999999999, user_a, tenant_id=_TENANT)
 
+    await engine.dispose()
+
+
+@pytest.mark.kiwi_id(2314)
+async def test_assign_rejects_separation_conflict_before_write() -> None:
+    """三权互斥前置（`30010`）：用户已持系统管理员时再授予安全管理员 → 拒绝且**未写入**、版本未递增。"""
+    target, engine = await helpers.session()
+    _role_id, user_a, _user_b, _user_c = await _seed(target)
+    system = await RoleRepository(target).create(code="system_admin", name="系统管理员", role_type="system")
+    security = await RoleRepository(target).create(code="security_admin", name="安全管理员", role_type="security")
+    other_system = await RoleRepository(target).create(code="system_admin_2", name="系统管理员 2", role_type="system")
+    await target.commit()
+    security_id, other_system_id = security.id, other_system.id
+    await UserRoleRepository(target).create(role_id=system.id, user_id=user_a)
+    await target.commit()
+
+    cache = MemoryCacheRegion()
+    service = helpers.assign_service(target, cache, guard=helpers.separation_guard(target))
+
+    with pytest.raises(UserSeparationConflictError) as conflict:
+        await service.assign_users(security_id, ConcurrentStableList((user_a,)), tenant_id=_TENANT)
+    assert conflict.value.code == 30010
+
+    await helpers.commit(target)
+    rows = await UserRoleRepository(target).list_by_role(security_id)
+    assert rows == []
+    assert cache.get(permission_version_key(_TENANT)) is None
+
+    # 同类型（system）不构成兼任：放行
+    await helpers.commit(target)
+    await service.assign_users(other_system_id, ConcurrentStableList((user_a,)), tenant_id=_TENANT)
+    await helpers.commit(target)
+    assert len(await UserRoleRepository(target).list_by_role(other_system_id)) == 1
+    assert cache.get(permission_version_key(_TENANT)) == 1
     await engine.dispose()
 
 

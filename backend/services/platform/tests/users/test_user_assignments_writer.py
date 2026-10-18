@@ -31,6 +31,7 @@ from bms_core.core.exceptions import (
     TransactionUnavailableError,
     UserNotFoundError,
     UserProtectedError,
+    UserSeparationConflictError,
 )
 from bms_core.db.unit_of_work import DbUnitOfWork
 from bms_core.servicecall.base import ServiceRequest, ServiceResponse
@@ -45,6 +46,7 @@ from bms_platform.schemas.users import (
     UserAssignmentProfile,
     UserAssignmentsRequest,
 )
+from bms_platform.services.separation import SeparationGuard
 from bms_platform.services.user_assignments import (
     BRANCH_ID_ORG,
     BRANCH_ID_PLATFORM,
@@ -125,12 +127,13 @@ class _OutboxSpy:
         self.events.add(envelope)
 
 
-def _writer(session: AsyncSession, outbox: _OutboxSpy) -> UserAssignmentWriter:
+def _writer(session: AsyncSession, outbox: _OutboxSpy, *, guard: SeparationGuard | None = None) -> UserAssignmentWriter:
     """构造写入器（真实仓储 + 发件箱替身）。
 
     Args:
         session: 会话。
         outbox: 发件箱替身。
+        guard: 三权分立校验器（缺省不校验，`03_02` 专项用例显式传入）。
 
     Returns:
         UserAssignmentWriter: 写入器。
@@ -142,7 +145,49 @@ def _writer(session: AsyncSession, outbox: _OutboxSpy) -> UserAssignmentWriter:
         UserRoleRepository(cast("Any", session)),
         RoleRepository(cast("Any", session)),
         cast("Any", outbox),
+        guard,
     )
+
+
+@pytest.mark.kiwi_id(2314)
+async def test_writer_roles_reject_separation_conflict_before_write() -> None:
+    """三权互斥前置（`30010`）：角色集合含两类内置管理员 → 拒绝且既有绑定未软删。"""
+    session, engine = await _session()
+    try:
+        user = await _seed_user(session)
+        keep = await _seed_role(session, "keep")
+        system = await _seed_role(session, "system_admin", role_type="system")
+        security = await _seed_role(session, "security_admin", role_type="security")
+        uid, keep_id, system_id, security_id = user.id, keep.id, system.id, security.id
+        session.add(SysUserRole(role_id=keep_id, user_id=uid))
+        await session.commit()
+
+        guard = SeparationGuard(
+            roles=RoleRepository(cast("Any", session)),
+            user_roles=UserRoleRepository(cast("Any", session)),
+        )
+        writer = _writer(session, _OutboxSpy(), guard=guard)
+
+        with pytest.raises(UserSeparationConflictError) as conflict:
+            await writer.write(
+                user_id=uid,
+                profile=None,
+                role_ids=ConcurrentStableList([keep_id, system_id, security_id]),
+            )
+        assert conflict.value.code == 30010
+
+        # 拒绝发生在软删之前：既有绑定保持
+        active = set(await UserRoleRepository(cast("Any", session)).list_role_ids_by_user(uid))
+        assert active == {keep_id}
+
+        # 单一内置类型放行
+        await session.rollback()
+        await writer.write(user_id=uid, profile=None, role_ids=ConcurrentStableList([keep_id, system_id]))
+        active = set(await UserRoleRepository(cast("Any", session)).list_role_ids_by_user(uid))
+        assert active == {keep_id, system_id}
+        await session.rollback()
+    finally:
+        await engine.dispose()
 
 
 async def test_writer_profile_updates_fields_and_emits_event() -> None:

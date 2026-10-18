@@ -16,9 +16,11 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.models.base import Base
 from bms_platform.models.menu import SysAction, SysBusiness, SysPermission
-from bms_platform.models.role import SysRole, SysRolePermission
+from bms_platform.models.role import SEPARATION_ROLE_TYPES, SysRole, SysRolePermission, SysUserRole
+from bms_platform.models.user import SysUser
 from ops.seed_rbac import (
     AUDIT_ADMIN_CODES,
+    BUILTIN_ADMIN_ROLES,
     ROLE_AUDIT_ADMIN,
     ROLE_SECURITY_ADMIN,
     ROLE_SYSTEM_ADMIN,
@@ -44,7 +46,12 @@ async def urls(tmp_path: Path) -> AsyncIterator[tuple[str, str]]:
     tenant_url = f"sqlite+aiosqlite:///{tmp_path / 'tenant.db'}"
     platform_url = f"sqlite+aiosqlite:///{tmp_path / 'platform.db'}"
     tenant_engine = create_async_engine(tenant_url)
-    tenant_tables = [cast("Table", SysRole.__table__), cast("Table", SysRolePermission.__table__)]
+    tenant_tables = [
+        cast("Table", SysRole.__table__),
+        cast("Table", SysRolePermission.__table__),
+        cast("Table", SysUserRole.__table__),
+        cast("Table", SysUser.__table__),
+    ]
     async with tenant_engine.begin() as connection:
         await connection.run_sync(lambda conn: Base.metadata.create_all(conn, tables=tenant_tables))
     await tenant_engine.dispose()
@@ -129,6 +136,69 @@ async def test_seed_creates_builtin_roles_and_grants_idempotently(urls: tuple[st
     assert second.grants_skipped == 4
     _, grants_after = await _roles_and_grants(tenant_url)
     assert grants_after == 4
+
+
+@pytest.mark.kiwi_id(2314)
+def test_builtin_admin_roles_come_from_separation_single_source() -> None:
+    """三类内置管理员角色来自 `SEPARATION_ROLE_TYPES` 单一来源，且角色域码只归安全管理员（需求 07-6）。
+
+    `03_02` 口径：`BUILTIN_ADMIN_ROLES` 是「三类内置角色 + 授权清单」的唯一来源（`04_01` 开通种子
+    直接引用）；`role_type` 三值必须与模型常量 `SEPARATION_ROLE_TYPES` 完全一致，互斥校验才成立。
+    """
+    assert tuple(entry[2] for entry in BUILTIN_ADMIN_ROLES) == SEPARATION_ROLE_TYPES
+    assert tuple(entry[0] for entry in BUILTIN_ADMIN_ROLES) == (
+        ROLE_SYSTEM_ADMIN,
+        ROLE_SECURITY_ADMIN,
+        ROLE_AUDIT_ADMIN,
+    )
+    role_codes = {code for code in SECURITY_ADMIN_CODES if code.startswith("role:")}
+    assert role_codes == {"role:query", "role:create", "role:update", "role:delete", "role:grant"}
+    # 系统 / 审计管理员不得持有角色域权限码（`role` 业务仅安全管理员）
+    assert not [code for code in SYSTEM_ADMIN_CODES if code.startswith("role:")]
+    assert not [code for code in AUDIT_ADMIN_CODES if code.startswith("role:")]
+
+
+@pytest.mark.kiwi_id(2314)
+async def test_seed_refuses_assignment_conflicting_with_separation(urls: tuple[str, str]) -> None:
+    """种子绑定 bootstrap 账号前复用三权互斥口径：账号已持另一类内置管理员即拒绝绑定。
+
+    `_ensure_assignment` 与 `SeparationGuard.ensure_role_grant_exclusive`（服务层 `30010`）同一判定，
+    种子脚本不绕过护栏——已持安全管理员角色的账号不会被再绑到系统管理员。
+    """
+    tenant_url, platform_url = urls
+    first = await seed_rbac(tenant_url=tenant_url, platform_url=platform_url)
+    assert first.roles_created == 3
+    codes, _ = await _roles_and_grants(tenant_url)
+
+    engine = create_async_engine(tenant_url)
+    factory = async_sessionmaker(engine, expire_on_commit=False)
+    try:
+        async with factory() as session:
+            user = SysUser(username="seed_admin", password_hash="x", name="种子管理员")
+            session.add(user)
+            await session.flush()
+            session.add(SysUserRole(role_id=codes[ROLE_SECURITY_ADMIN], user_id=user.id))
+            await session.commit()
+    finally:
+        await engine.dispose()
+
+    second = await seed_rbac(
+        tenant_url=tenant_url,
+        platform_url=platform_url,
+        assign_user="seed_admin",
+    )
+    assert list(second.assign_conflicts) == ["seed_admin"]
+    assert second.assignments_created == 0
+    engine = create_async_engine(tenant_url)
+    factory = async_sessionmaker(engine, expire_on_commit=False)
+    try:
+        async with factory() as session:
+            bindings = (
+                (await session.execute(select(SysUserRole).where(SysUserRole.deleted_at.is_(None)))).scalars().all()
+            )
+            assert {binding.role_id for binding in bindings} == {codes[ROLE_SECURITY_ADMIN]}
+    finally:
+        await engine.dispose()
 
 
 @pytest.mark.kiwi_id(2270)

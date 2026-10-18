@@ -25,6 +25,7 @@ from bms_core.core.exceptions import (
     RoleSubjectInvalidError,
     ServiceUnavailableError,
     TransactionUnavailableError,
+    UserSeparationConflictError,
 )
 from bms_core.db.keys import build_tenant_db_key
 from bms_core.db.unit_of_work import DbUnitOfWork
@@ -50,6 +51,7 @@ from bms_platform.services.role_assignments import (
     build_org_ops,
     collect_segments,
 )
+from bms_platform.services.separation import SeparationGuard
 from tests.role import helpers
 
 pytestmark = [pytest.mark.kiwi_id(2283)]
@@ -292,8 +294,16 @@ async def _seed(target: AsyncSession) -> tuple[int, int, int, int]:
     return role.id, user_a.id, user_b.id, user_c.id
 
 
-def _writer(target: AsyncSession) -> RoleAssignmentWriter:
-    """构造 platform 侧写入器（真实仓储 + 内存会话）。"""
+def _writer(target: AsyncSession, *, guard: SeparationGuard | None = None) -> RoleAssignmentWriter:
+    """构造 platform 侧写入器（真实仓储 + 内存会话）。
+
+    Args:
+        target: 会话。
+        guard: 三权分立校验器（缺省不校验，`03_02` 专项用例显式传入）。
+
+    Returns:
+        RoleAssignmentWriter: 写入器。
+    """
     return RoleAssignmentWriter(
         target,
         DbUnitOfWork(target),
@@ -301,7 +311,36 @@ def _writer(target: AsyncSession) -> RoleAssignmentWriter:
         UserRoleRepository(target),
         UserRepository(target),
         NullConfigSource(),
+        guard,
     )
+
+
+@pytest.mark.kiwi_id(2314)
+async def test_writer_rejects_separation_conflict_before_write() -> None:
+    """三权互斥前置（`30010`）：用户已持安全管理员时再写入系统管理员 → 拒绝且未软删既有行。"""
+    target, engine = await helpers.session()
+    role_id, user_a, _b, _c = await _seed(target)
+    system = await RoleRepository(target).create(code="system_admin", name="系统管理员", role_type="system")
+    security = await RoleRepository(target).create(code="security_admin", name="安全管理员", role_type="security")
+    await target.commit()
+    system_id, security_id = system.id, security.id
+
+    writer = _writer(target, guard=helpers.separation_guard(target))
+    # 先绑安全管理员（单一内置类型：放行）
+    await writer.write(role_id=security_id, profile=None, user_ids=ConcurrentStableList((user_a,)))
+    await helpers.commit(target)
+    assert [row.user_id for row in await UserRoleRepository(target).list_by_role(security_id)] == [user_a]
+    await helpers.commit(target)
+
+    # 再绑系统管理员：兼任冲突 → 拒绝，且安全管理员绑定未被软删
+    with pytest.raises(UserSeparationConflictError) as conflict:
+        await writer.write(role_id=system_id, profile=None, user_ids=ConcurrentStableList((user_a,)))
+    assert conflict.value.code == 30010
+    await helpers.commit(target)
+    assert await UserRoleRepository(target).list_by_role(system_id) == []
+    assert [row.user_id for row in await UserRoleRepository(target).list_by_role(security_id)] == [user_a]
+    assert role_id  # 保留播种的自定义角色（不受三权约束）
+    await engine.dispose()
 
 
 async def test_writer_full_overwrite_replaces_user_set() -> None:

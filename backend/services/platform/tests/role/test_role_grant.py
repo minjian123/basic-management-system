@@ -13,11 +13,13 @@ import pytest
 
 from bms_core.cache.memory import MemoryCacheRegion
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
+from bms_core.core.context import reset_current_user_id, set_current_user_id
 from bms_core.core.exceptions import (
     ParamError,
     RoleFieldMismatchError,
     RoleNotFoundError,
     RoleScopeValueInvalidError,
+    RoleSeparationConflictError,
     RoleTargetInvalidError,
 )
 from bms_core.permission.version import permission_version_key
@@ -28,7 +30,8 @@ from bms_core.scope.extensions import (
 )
 from bms_platform.models.menu import SysMenu
 from bms_platform.models.role import NO_SOURCE_MENU_ID, PERM_TYPE_FORM, PERM_TYPE_MENU, PERM_TYPE_PERMISSION
-from bms_platform.repositories.role import RoleRepository
+from bms_platform.repositories.menu import BusinessRepository, PermissionRepository
+from bms_platform.repositories.role import RoleRepository, UserRoleRepository
 from bms_platform.services.role_grant import (
     DataScopeGrantEntry,
     FieldGrantEntry,
@@ -39,6 +42,8 @@ from tests.role import helpers
 
 _TENANT = "1001"
 _NO_SOURCE = NO_SOURCE_MENU_ID
+_ACTOR = 7001
+"""防自锁用例的操作人主键（`current_user_id`）。"""
 
 
 def _entries(*items: tuple[str, int, int]) -> ConcurrentStableList[PermissionGrantEntry]:
@@ -63,6 +68,102 @@ def _items(*items: dict[str, object]) -> ConcurrentStableList[ConcurrentStableDi
         ConcurrentStableList[ConcurrentStableDict[str, object]]: 策略配置清单。
     """
     return ConcurrentStableList(ConcurrentStableDict(item) for item in items)
+
+
+@pytest.mark.kiwi_id(2314)
+async def test_permissions_rejects_role_business_for_non_security() -> None:
+    """`role` 业务归属（`30048`）：`role` 业务权限码授予系统管理员角色 → 拒绝且未写入、版本未 +1。"""
+    target, engine = await helpers.session()
+    menu_id, business_id, form_id, action_id = await helpers.seed_metadata(target)
+    role_business = await BusinessRepository(target).create(code="role", name="角色管理", status="enabled")
+    role_permission = await PermissionRepository(target).create(
+        business_id=role_business.id, action_id=action_id, status="enabled"
+    )
+    system = await RoleRepository(target).create(code="system_admin", name="系统管理员", role_type="system")
+    security = await RoleRepository(target).create(code="security_admin", name="安全管理员", role_type="security")
+    await target.commit()
+    system_id, security_id, role_permission_id = system.id, security.id, role_permission.id
+    assert business_id and form_id and menu_id
+
+    cache = MemoryCacheRegion()
+    service = helpers.grant_service(target, cache, guard=helpers.separation_guard(target, with_business=True))
+
+    with pytest.raises(RoleSeparationConflictError) as rejected:
+        await service.replace_permissions(
+            system_id,
+            _entries((PERM_TYPE_PERMISSION, role_permission_id, _NO_SOURCE)),
+            tenant_id=_TENANT,
+        )
+    assert rejected.value.code == 30048
+    await helpers.commit(target)
+    assert await service.list_permission_entries(system_id) == []
+    assert cache.get(permission_version_key(_TENANT)) is None
+    await helpers.commit(target)
+
+    # 安全管理员角色持有 `role` 业务：放行
+    await service.replace_permissions(
+        security_id,
+        _entries((PERM_TYPE_PERMISSION, role_permission_id, _NO_SOURCE)),
+        tenant_id=_TENANT,
+    )
+    await helpers.commit(target)
+    assert [(row.perm_type, row.target_id) for row in await service.list_permission_entries(security_id)] == [
+        (PERM_TYPE_PERMISSION, role_permission_id)
+    ]
+    await engine.dispose()
+
+
+@pytest.mark.kiwi_id(2314)
+async def test_fields_and_data_scopes_reject_self_lock() -> None:
+    """防自锁（`30048`）：操作人不得修改自身所属三权角色的字段 / 数据权限集合。"""
+    target, engine = await helpers.session()
+    menu_id, _business_id, form_id, _action_id = await helpers.seed_metadata(target)
+    field_id = await helpers.seed_form_field(target, form_id)
+    security = await RoleRepository(target).create(code="security_admin", name="安全管理员", role_type="security")
+    custom = await RoleRepository(target).create(code="ops", name="运维角色")
+    await target.commit()
+    security_id, custom_id = security.id, custom.id
+    await UserRoleRepository(target).create(role_id=security_id, user_id=_ACTOR)
+    await UserRoleRepository(target).create(role_id=custom_id, user_id=_ACTOR)
+    await target.commit()
+
+    cache = MemoryCacheRegion()
+    service = helpers.grant_service(target, cache, guard=helpers.separation_guard(target))
+    token = set_current_user_id(_ACTOR)
+    try:
+        with pytest.raises(RoleSeparationConflictError):
+            await service.replace_fields(
+                security_id,
+                ConcurrentStableList([FieldGrantEntry(form_id=form_id, field_id=field_id, source_menu_id=menu_id)]),
+                tenant_id=_TENANT,
+            )
+        await helpers.commit(target)
+        with pytest.raises(RoleSeparationConflictError):
+            await service.replace_data_scopes(
+                security_id,
+                ConcurrentStableList(
+                    [
+                        DataScopeGrantEntry(
+                            data_source_key="role", policy_type="select", config=_items({"field": "label"})
+                        )
+                    ]
+                ),
+                tenant_id=_TENANT,
+            )
+        await helpers.commit(target)
+        assert cache.get(permission_version_key(_TENANT)) is None
+
+        # 自身自定义角色不受三权约束：放行（字段路径）
+        await service.replace_fields(
+            custom_id,
+            ConcurrentStableList([FieldGrantEntry(form_id=form_id, field_id=field_id, source_menu_id=menu_id)]),
+            tenant_id=_TENANT,
+        )
+        await helpers.commit(target)
+        assert len(await service.list_field_entries(custom_id)) == 1
+    finally:
+        reset_current_user_id(token)
+    await engine.dispose()
 
 
 @pytest.mark.kiwi_id(2248)

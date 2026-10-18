@@ -19,7 +19,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from bms_core.core.config import get_settings
 from bms_core.models.base import Base
-from bms_platform.models.role import ROLE_TYPE_SYSTEM, SysRole, SysUserRole
+from bms_platform.models.role import ROLE_TYPE_SECURITY, ROLE_TYPE_SYSTEM, SysRole, SysUserRole
 from tests_support.auth import TEST_SUBJECT
 
 SYSTEM_ADMIN_CODE = "bms_system_admin"
@@ -32,6 +32,12 @@ SYSTEM_ADMIN_CODE = "bms_system_admin"
 SYSTEM_ADMIN_NAME = "系统管理员"
 """内置系统管理员角色名称。"""
 
+SECURITY_ADMIN_CODE = "bms_security_admin"
+"""测试探针角色码（内置安全管理员，`03_02` 三权分立后角色域用例的操作人身份）。"""
+
+SECURITY_ADMIN_NAME = "安全管理员"
+"""内置安全管理员角色名称。"""
+
 
 async def grant_system_admin(user_id: int) -> int:
     """给指定主体授予内置系统管理员角色（角色不存在则先建）。
@@ -42,20 +48,45 @@ async def grant_system_admin(user_id: int) -> int:
     Returns:
         int: 内置系统管理员角色主键。
     """
+    return await _grant_builtin(user_id, code=SYSTEM_ADMIN_CODE, name=SYSTEM_ADMIN_NAME, role_type=ROLE_TYPE_SYSTEM)
+
+
+async def grant_security_admin(user_id: int) -> int:
+    """给指定主体授予内置安全管理员角色（角色不存在则先建）。
+
+    `03_02` 三权分立后，**角色域**写端点要求操作人为安全管理员（系统 / 审计管理员调用即
+    `30048`）；角色域用例故改用本函数构造操作人身份。
+
+    Args:
+        user_id: 用户主键（测试登录态主体）。
+
+    Returns:
+        int: 内置安全管理员角色主键。
+    """
+    return await _grant_builtin(
+        user_id, code=SECURITY_ADMIN_CODE, name=SECURITY_ADMIN_NAME, role_type=ROLE_TYPE_SECURITY
+    )
+
+
+async def _grant_builtin(user_id: int, *, code: str, name: str, role_type: str) -> int:
+    """直插内置角色并把主体绑上（按 `code` 判存、按 `(role_id, user_id)` 判绑）。
+
+    Args:
+        user_id: 用户主键。
+        code: 角色码。
+        name: 角色名称。
+        role_type: 角色类型（`system` / `security` / `audit`）。
+
+    Returns:
+        int: 角色主键。
+    """
     engine = create_async_engine(os.environ["BMS_DATABASE__TENANTS__URL"])
     factory = async_sessionmaker(engine, expire_on_commit=False)
     try:
         async with factory() as session:
-            role = (
-                await session.execute(select(SysRole).where(SysRole.code == SYSTEM_ADMIN_CODE))
-            ).scalar_one_or_none()
+            role = (await session.execute(select(SysRole).where(SysRole.code == code))).scalar_one_or_none()
             if role is None:
-                role = SysRole(
-                    code=SYSTEM_ADMIN_CODE,
-                    name=SYSTEM_ADMIN_NAME,
-                    status="enabled",
-                    role_type=ROLE_TYPE_SYSTEM,
-                )
+                role = SysRole(code=code, name=name, status="enabled", role_type=role_type)
                 session.add(role)
                 await session.flush()
             assigned = (
@@ -77,6 +108,24 @@ async def grant_system_admin(user_id: int) -> int:
 async def assign_system_admin() -> None:
     """把测试登录态主体置为内置系统管理员（供已建租户库的用例文件调用）。"""
     await grant_system_admin(int(TEST_SUBJECT))
+
+
+async def assign_security_admin() -> None:
+    """把测试登录态主体置为内置安全管理员（角色域用例的操作人身份，`03_02`）。"""
+    await grant_security_admin(int(TEST_SUBJECT))
+
+
+async def assign_role_domain_operator() -> None:
+    """把测试登录态主体同时置为「豁免层级 + 角色域操作人」（角色域用例专用装配）。
+
+    角色域写端点 `03_02` 起要求操作人为安全管理员（系统 / 审计管理员调用即 `30048`）；
+    而单元用例未播种菜单 / 按钮元数据，安全管理员角色拿不到任何权限码（`security` 不属豁免层级），
+    逐码校验必然 `30001`。故测试主体**同时**持内置系统管理员（命中豁免层级，替代逐码授权）
+    与内置安全管理员（满足角色域操作人判定）——这是测试装配口径，不代表业务上允许三权兼任；
+    三权互斥的真实判定由 `tests/role/test_separation_guard.py` 与边界用例覆盖。
+    """
+    await assign_system_admin()
+    await assign_security_admin()
 
 
 async def setup_min_tenant(tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch) -> None:

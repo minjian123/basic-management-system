@@ -1977,6 +1977,7 @@ export interface paths {
          *         manager: 事务管理器（`provider=null` 时为 Null 实现）。
          *         participant: 事务参与方（platform 自身分支进程内执行）。
          *         checker: 权限校验器（`role` 段命令式复校 `role:update`）。
+         *         audit: 审计捕获器（三权拒绝留痕）。
          *         idem_key: 幂等键请求头（透传给组织域内部写通道）。
          *
          *     Returns:
@@ -2027,6 +2028,7 @@ export interface paths {
          *         uow: 请求级工作单元。
          *         platform_uow: 平台库工作单元（元数据校验器构造）。
          *         cache: 缓存能力域（权限版本 +1）。
+         *         audit: 审计捕获器（三权拒绝留痕）。
          *
          *     Returns:
          *         ApiResponse: 统一响应，data 为重建后的数据权限条目清单。
@@ -2070,6 +2072,7 @@ export interface paths {
          *         uow: 请求级工作单元。
          *         platform_uow: 平台库工作单元（字段归属校验）。
          *         cache: 缓存能力域（权限版本 +1）。
+         *         audit: 审计捕获器（三权拒绝留痕）。
          *
          *     Returns:
          *         ApiResponse: 统一响应，data 为重建后的字段权限条目清单。
@@ -2114,6 +2117,7 @@ export interface paths {
          *         platform_uow: 平台库工作单元（授权目标校验）。
          *         cache: 缓存能力域（权限版本 +1）。
          *         idempotency: 幂等基座（首次结果复用）。
+         *         audit: 审计捕获器（三权拒绝留痕）。
          *         idempotency_key: 幂等键请求头（可选）。
          *
          *     Returns:
@@ -2162,6 +2166,7 @@ export interface paths {
          *         cache: 缓存能力域（权限版本 +1）。
          *         idempotency: 幂等基座（首次结果复用）。
          *         tenant: 解析链租户上下文（幂等键作用域位）。
+         *         audit: 审计捕获器（三权拒绝留痕）。
          *         idempotency_key: 幂等键请求头（可选）。
          *
          *     Returns:

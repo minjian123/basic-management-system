@@ -57,6 +57,7 @@ from bms_platform.schemas.role import (
     RoleAssignmentsRequest,
 )
 from bms_platform.services.role import ROLE_STATUSES, resolve_role_code_pattern
+from bms_platform.services.separation import SeparationGuard
 
 if TYPE_CHECKING:
     from bms_core.db.session import DbSession
@@ -138,6 +139,7 @@ class RoleAssignmentWriter(BaseFrameworkObject):
         user_roles: UserRoleRepository,
         users: UserRepository,
         config: BaseConfigSource,
+        guard: SeparationGuard | None = None,
     ) -> None:
         """初始化。
 
@@ -148,6 +150,7 @@ class RoleAssignmentWriter(BaseFrameworkObject):
             user_roles: 角色 × 用户分配仓储。
             users: 用户仓储（同库；分配主体有效性校验）。
             config: 系统参数取数（角色码格式）。
+            guard: 三权分立校验器（`03_02`；None 时不做互斥校验）。
         """
         self._session = session
         self._uow = uow
@@ -155,6 +158,7 @@ class RoleAssignmentWriter(BaseFrameworkObject):
         self._user_roles = user_roles
         self._users = users
         self._config = config
+        self._guard = guard
 
     async def write(
         self,
@@ -250,12 +254,15 @@ class RoleAssignmentWriter(BaseFrameworkObject):
 
         Raises:
             RoleSubjectInvalidError: 存在不存在 / 已停用的用户（30045）。
+            UserSeparationConflictError: 用户将兼任两类内置管理员（30010）。
         """
         normalized = _dedupe(user_ids)
         for user_id in normalized:
             user = await self._users.get_by_id(user_id)
             if user is None or user.status != ENABLED_USER_STATUS:
                 raise RoleSubjectInvalidError(f"用户不存在或已停用：{user_id}")
+        if self._guard is not None:
+            await self._guard.ensure_role_grant_exclusive(role=role, user_ids=normalized)
         await self._user_roles.soft_delete_by_role_except(role.id, ConcurrentStableSet(normalized))
         for user_id in normalized:
             if await self._user_roles.get_by_role_user(role.id, user_id) is not None:
