@@ -31,13 +31,13 @@
 | CLI 二进制 | `~\.opencode\bin\opencode.exe`（`opencode v2.0.29`） |
 | CLI 别名 | `~\.opencode\bin\opencode2.cmd`（内容为 `@echo off` + 转发 `opencode.exe`） |
 | PATH 登记 | `~\.opencode\bin` 已在**用户 PATH**（装后须新开终端生效） |
-| 桌面端程序目录 | `%LOCALAPPDATA%\Programs\@opencodedesktop\`（`OpenCode.exe` 文件版本 2.0.29） |
-| 桌面端用户数据 | `%APPDATA%\ai.opencode.desktop\`（`logs\`、`cli\2.0.29-x64\`、`opencode.settings`） |
-| 数据目录 | `~\.local\share\opencode\`（`opencode.db`：凭据与会话库，实测约 17 MB） |
-| 配置目录 | `~\.config\opencode\`（实测仅 `service.json`——共享服务密码；无全局 `opencode.json`） |
+| 桌面端程序目录 | `%LOCALAPPDATA%\Programs\@opencodedesktop\`（`OpenCode.exe` 文件版本 2.0.32） |
+| 桌面端用户数据 | `%APPDATA%\ai.opencode.desktop\`（`logs\`、`cli\2.0.32-x64\`、`opencode.settings`） |
+| 数据目录 | `~\.local\share\opencode\`（`opencode.db`：凭据与会话库，2026-10-18 实测约 48 MB） |
+| 配置目录 | `~\.config\opencode\`（`service.json`——共享服务密码与监听覆盖值：`hostname` / `port`；无全局 `opencode.json`） |
 | 状态目录 | `~\.local\state\opencode\`（`service.json`、`locks\`） |
 | 缓存目录 | `~\.cache\opencode\`（`bin\`） |
-| 共享后台服务 | 桌面端内嵌 `opencode-cli.exe`（`%APPDATA%\ai.opencode.desktop\cli\2.0.29-x64\`），监听 `127.0.0.1:49374`，随桌面端启停 |
+| 共享后台服务 | 桌面端内嵌 `opencode-cli.exe`（`%APPDATA%\ai.opencode.desktop\cli\2.0.32-x64\`），监听 `0.0.0.0:45278`，随桌面端启停（局域网 / 手机访问见 [6.1 节](#web-access)） |
 | 工作区配置 | `D:\Develop\bizs\.opencode\opencode.json`；插件 `D:\Develop\bizs\.opencode\plugins\bg.js` |
 | 临时目录 | `%TEMP%\opencode`（即 `debug paths` 的 `tmp`） |
 
@@ -101,13 +101,21 @@ opencode uninstall --force      # 跳过确认执行（旗标仅 --dry-run / --f
 | 进程 | `OpenCode.exe`（主进程 + 渲染 / GPU 子进程）与内嵌 `opencode-cli.exe`（监听 `127.0.0.1:49374`） |
 | 自更新器 | 检到官方 2.0.30，已下载 `%LOCALAPPDATA%\@opencodedesktop-updater\pending\opencode-desktop-win-x64.exe`（`updater state: downloading → ready`，待重启安装） |
 
+2026-10-18 复核（桌面端升至 2.0.32，启用局域网 / 手机访问）：
+
+| 证据 | 取值 |
+| --- | --- |
+| 监听 | 内嵌 `opencode-cli.exe` 监听 `0.0.0.0:45278`（`opencode service status` 打印 `http://0.0.0.0:45278`；`Get-NetTCPConnection -LocalPort 45278 -State Listen` 的 LocalAddress 为 `0.0.0.0`） |
+| 局域网可达 | 非回环网卡地址 `http://<本机内网IP>:45278/` 返回 HTTP 200（详见 [6.1 节](#web-access)） |
+| `main.log` | `v2 CLI background service ready { probed: false, url: 'http://127.0.0.1:45278', hostname: '127.0.0.1', port: '45278' }`——**该行的 `hostname` 字段未反映 `service set hostname` 覆盖值**（2.0.32 实测），判断实际监听以 `opencode service status` / `Get-NetTCPConnection` 为准 |
+
 核实命令：
 
 ```powershell
 $d = Get-ChildItem "$env:APPDATA\ai.opencode.desktop\logs" | Sort-Object LastWriteTime -Descending | Select-Object -First 1
 Select-String -Path (Join-Path $d.FullName 'main.log') -Pattern 'main window visible|background service ready|has been downloaded'
 Get-Process OpenCode, opencode-cli -ErrorAction SilentlyContinue | Select-Object Name, Id, Path
-Get-NetTCPConnection -LocalPort 49374 -State Listen
+Get-NetTCPConnection -LocalPort 45278 -State Listen
 ```
 
 ## 5. 配置与插件 <a id="config"></a>
@@ -163,12 +171,119 @@ opencode auth list
 - **共享后台服务**：桌面端启动时拉起内嵌 CLI 的 `serve --service`，所有本地客户端（TUI / 桌面端 / Web）共用；实测：
 
 ```powershell
-opencode service status    # http://127.0.0.1:49374
-opencode service get       # {}（无用户级覆盖，默认值生效）
+opencode service status    # http://0.0.0.0:45278
+opencode service get       # {"hostname":"0.0.0.0","port":45278,"password":"<取值见本地资源>"}（2026-10-18 起有用户级覆盖，此前为空）
 ```
 
 - 服务配置子命令含 `start` / `restart` / `status` / `stop` / `get` / `set` / `unset`（2.0.29 实测）；服务密码默认随机生成，存于 `~\.config\opencode\service.json`（键 `password`），取值以《[本地资源](../../../用户文档/本地资源.md)》为准、不入本文；
-- 本机未改监听地址（`service get` 为空 ⇒ 默认 `127.0.0.1`，仅本机可达）；改监听、配对与手机 / 公网访问的键位口径见 linux 侧文档「Web 与手机访问」节。
+- 本机已改监听地址并**固定端口**：`hostname` = `0.0.0.0`、`port` = `45278`（2026-10-18 启用局域网 / 手机访问）；手机、局域网与公网访问的完整口径见 [6.1 节](#web-access)，键位说明见 linux 侧文档「Web 与手机访问」节。
+
+### 6.1 Web 与手机访问（局域网 / 手机 App） <a id="web-access"></a>
+
+opencode v2 自带 Web UI，由**同一个共享后台服务**（`opencode serve --service`）提供，与 TUI / 桌面端共用会话与配置，默认开启、密码保护。Windows 侧该服务**由桌面端拉起、随桌面端启停**（不常驻、不自启，无 Windows 服务 / 计划任务）：桌面端开着服务就在，关掉即停。
+
+**访问入口（opencode pair）**
+
+```powershell
+opencode pair
+```
+
+命令打印三样东西：
+
+- **一次性配对链接**（形如 `http://<主机>:45278/auth/connect/...`，**5 分钟内有效、用一次即失效**）；
+- **用户名 / 密码**（用户名固定 `opencode`，密码取值见《[本地资源](../../../用户文档/本地资源.md)》）；
+- **二维码**（用 OpenCode 手机 / 桌面 App 扫描，或把链接粘进 App 的服务器地址栏）。
+
+浏览器打开链接即写入会话 cookie 并载入 Web UI，**会话有效 30 天**；改服务器密码会让所有会话立即登出。
+
+**本机现状与生效步骤（2026-10-18 启用）**
+
+共享服务默认只监听 `127.0.0.1`（仅本机可达）。Windows 侧已改为局域网可达并**固定端口**——不固定时端口随桌面端版本变化（实测 2.0.29 为 49374、2.0.30 及以后为 45278；45278 低于 Windows 保留段 49152+，可安全长期占用，不随升级漂移）：
+
+```powershell
+# 监听所有网卡 + 固定端口（两条都改配置，会停掉后台服务；本机服务由桌面端托管，重启桌面端生效）
+opencode service set hostname 0.0.0.0
+opencode service set port 45278
+```
+
+生效判据（Windows 2.0.32 实测）：`opencode service status` 打印 `http://0.0.0.0:45278`、`Get-NetTCPConnection -LocalPort 45278 -State Listen` 的 LocalAddress 为 `0.0.0.0`；**判断实际监听不要只看桌面端 `main.log` 的 `background service ready`**——该行 `hostname` 字段实测仍打印 `127.0.0.1`，不反映配置覆盖（见 [4.2 节](#desktop-verify)）。
+
+配对时用本机局域网地址生成链接（不带 `--url` 时链接指向 `127.0.0.1`，手机打不开）：
+
+```powershell
+opencode pair --url http://<本机内网IP>:45278
+```
+
+手机用 OpenCode App 扫描打印出的二维码（或把链接粘进 App 的服务器地址栏）；也可用手机浏览器打开该链接、或直接访问 `http://<本机内网IP>:45278` 后输入用户名 / 密码。`<本机内网IP>` 取值见《[本地资源](../../../用户文档/本地资源.md)》。
+
+**防火墙（Windows 侧差异）**
+
+Windows 防火墙三个配置文件入站默认拒绝，未放行端口时手机连不上（对应 linux 侧的 ufw 放行）。规则须在**本机管理员终端**执行（桌面端会话内无法提权，同 linux 侧 sudo 沙箱结论）：
+
+```powershell
+New-NetFirewallRule -DisplayName 'opencode web' `
+  -Description 'opencode v2 共享后台服务（Web UI / 手机 App 配对）；仅放行本地子网' `
+  -Direction Inbound -Action Allow -Protocol TCP -LocalPort 45278 -RemoteAddress LocalSubnet -Profile Any
+```
+
+规则**仅放行本地子网**（同 WiFi），不暴露到其他网段；2026-10-18 已落地（取值见《[本地资源](../../../用户文档/本地资源.md)》），脚本留存 `%TEMP%\opencode\opencode-firewall-rule.ps1`（临时目录，重装 / 换系统后按上文命令重建）。核对：
+
+```powershell
+Get-NetFirewallRule -DisplayName 'opencode web' | Select-Object DisplayName, Enabled, Direction, Action, Profile
+Get-NetFirewallAddressFilter -AssociatedNetFirewallRule (Get-NetFirewallRule -DisplayName 'opencode web') | Select-Object RemoteAddress
+```
+
+**公网访问（外出 / 移动网络）**
+
+不在同一网络时，用官方内置的 OpenTunnel 临时把服务暴露到公网：
+
+```powershell
+opencode pair --remote
+```
+
+首次执行会询问是否把服务暴露到互联网（流量端到端加密，仍需服务器密码）；非交互环境须加 `--yes` 才继续。**建议按需临时开启**，不用时关闭：
+
+```powershell
+opencode service set remote false
+```
+
+> **经 SSH 端口转发（备选）在 Windows 侧不适用**：本机 Windows 侧未安装 OpenSSH 服务端（`Get-Service sshd` 无此服务）；该备选走同机 linux 侧（见 linux 侧文档「Web 与手机访问」节）。
+
+**服务器密码与配置项**
+
+服务密码默认由 opencode 随机生成，存于 `~\.config\opencode\service.json`；本机实际取值见《[本地资源](../../../用户文档/本地资源.md)》（不写入本文档）。改密码：
+
+```powershell
+opencode service set password '<新密码>'
+```
+
+常用配置项（改完都需重启服务生效，改设置会停掉后台服务）：
+
+| 键 | 作用 | 示例 |
+| --- | --- | --- |
+| `hostname` | 监听地址 | `0.0.0.0`（所有网卡）/ `127.0.0.1`（仅本机） |
+| `port` | 固定端口（Windows 平台默认 45278） | `45278` |
+| `password` | 服务器密码 | `'<新密码>'` |
+| `cors` | 允许的跨源来源 | `https://app.example.com` |
+| `env` | 传给服务进程的环境变量 | `OPENCODE_LOG_LEVEL DEBUG` |
+| `remote` | 是否开启 OpenTunnel 远程通道 | `false` |
+
+> **独立前台服务（备选）**：需要脱离桌面端单独跑时用 `opencode serve`：
+>
+> ```powershell
+> opencode serve --hostname 0.0.0.0 --port 45278
+> ```
+>
+> 输出 `server listening on ...` 与 `server password ...`；客户端用 `opencode --server http://127.0.0.1:45278` 连接。本机日常不用这种方式——服务随桌面端启停即可。
+
+**排障速查**
+
+| 现象 | 处置 |
+| --- | --- |
+| 本机能开、手机连不上 | 多为防火墙未放行 45278（本机回环不受 Windows 防火墙入站规则约束，故「本机通、手机不通」先查防火墙） |
+| 配对链接打开报失效 | 链接一次性且 5 分钟过期，重新执行 `opencode pair --url http://<本机内网IP>:45278` |
+| 手机 App 里保存的地址突然连不上 | 端口被桌面端升级换代改默认值所致；已固定 `port 45278` 后不再发生，未固定则按本节「固定端口」处置 |
+| 本机也访问不到 | 桌面端是否在运行（服务随桌面端启停）：`opencode service status`，必要时重启桌面端 |
 
 ## 7. 常用命令 <a id="usage"></a>
 
@@ -181,13 +296,14 @@ opencode mcp list                        # MCP 服务器与连接状态
 opencode plugin list                     # 插件清单
 opencode auth list                       # 凭据连接状态
 opencode service status                  # 共享后台服务状态
+opencode pair --url http://<本机内网IP>:45278   # 打印 Web 配对链接与二维码（手机 App 扫码；见 6.1 节）
 opencode debug paths                     # 打印各路径（db/home/data/config/cache/state）
 opencode -c                              # 继续上一次会话
 opencode --standalone                    # 用私有服务运行（隔离变量，不共用后台服务）
 ```
 
 - CLI 在项目目录运行时读该项目配置（bizs 工作区即 `D:\Develop\bizs\.opencode\opencode.json`），默认模型 `llamacpp/qwen3.8-27b-ud-q4-k-m`；
-- 与 linux 侧同款「一个共享后台服务 + 多客户端」形态：默认所有本地客户端连同一个 `127.0.0.1:49374`，排障时用 `--standalone` 起私有服务隔离变量。
+- 与 linux 侧同款「一个共享后台服务 + 多客户端」形态：所有本地客户端连同一个共享服务（本机 `127.0.0.1:45278`），排障时用 `--standalone` 起私有服务隔离变量。
 
 ## 8. 验证 <a id="verify"></a>
 
@@ -200,13 +316,13 @@ opencode debug paths                        # data/config/state/cache/db 等路�
 # 桌面端
 (Get-Item "$env:LOCALAPPDATA\Programs\@opencodedesktop\OpenCode.exe").VersionInfo |
   Select-Object ProductName, ProductVersion                     # OpenCode / 2.0.29.0
-Get-NetTCPConnection -LocalPort 49374 -State Listen             # 共享服务监听（归属 opencode-cli.exe）
+Get-NetTCPConnection -LocalPort 45278 -State Listen             # 共享服务监听（归属 opencode-cli.exe；LocalAddress 应为 0.0.0.0）
 
 # 会话侧
 opencode auth list                          # OpenCode Go / OpenCode Console：stored
 opencode plugin list                        # bg local  D:\Develop\bizs\.opencode\plugins\bg.js
 opencode mcp list                           # 逐项看连接状态（bizs 工作区当前无 MCP 登记）
-opencode service status                     # http://127.0.0.1:49374
+opencode service status                     # http://0.0.0.0:45278
 ```
 
 ## 9. 常见问题与故障排查 <a id="trouble"></a>
@@ -223,10 +339,10 @@ opencode service status                     # http://127.0.0.1:49374
 - 属**正常**：两者升级通道独立——CLI 手动或 `opencode upgrade`，桌面端由内置自更新器跟进；
 - 桌面端自更新证据看 `main.log`（`Checking for update` → `Found version <新版本>` → `New version <新版本> has been downloaded to …`；本机 2.0.30 已下载、待重启安装）。
 
-### 9.3 端口 49374 冲突 / 共享服务异常 <a id="port-49374"></a>
+### 9.3 端口 45278 冲突 / 共享服务异常 <a id="port-45278"></a>
 
-- 共享服务默认监听 `127.0.0.1:49374`，由桌面端内嵌 CLI 托管、随桌面端启停（本机实测监听进程即 `%APPDATA%\ai.opencode.desktop\cli\2.0.29-x64\opencode-cli.exe`）；
-- 另有独立 `opencode serve` 常驻时会占用同一端口：先 `Get-NetTCPConnection -LocalPort 49374 -State Listen` 看归属，再用 `opencode service status` / `restart` 处置；不希望共用后台服务时用 `opencode --standalone`。
+- 共享服务本机已**固定监听 `0.0.0.0:45278`**（`service set hostname` / `port`，见 [6.1 节](#web-access)），由桌面端内嵌 CLI 托管、随桌面端启停（本机实测监听进程即 `%APPDATA%\ai.opencode.desktop\cli\2.0.32-x64\opencode-cli.exe`）；
+- 另有独立 `opencode serve` 常驻时会占用同一端口：先 `Get-NetTCPConnection -LocalPort 45278 -State Listen` 看归属，再用 `opencode service status` / `restart` 处置；不希望共用后台服务时用 `opencode --standalone`。
 
 ## 10. 关联文档 <a id="related"></a>
 
@@ -238,4 +354,4 @@ opencode service status                     # http://127.0.0.1:49374
 - 《[文档生成规范](../../../规范/文档生成规范.md)》：本文档的组织、格式与图形约定
 - 《[本地资源](../../../用户文档/本地资源.md)》：mjpc 相关机器信息取值（已 gitignore）
 
-> 依《[文档生成规范](../../../规范/文档生成规范.md)》编写 · 记录 2026-10-16 mjpc（Windows 侧）本机核实结果（opencode CLI / 桌面端 2.0.29、路径与共享服务实测、MCP mjw-vision 退役）
+> 依《[文档生成规范](../../../规范/文档生成规范.md)》编写 · 记录 2026-10-16 mjpc（Windows 侧）本机核实结果（opencode CLI / 桌面端 2.0.29、路径与共享服务实测、MCP mjw-vision 退役）；2026-10-18 复核并升级记录（桌面端 2.0.32、启用局域网 / 手机访问、共享服务固定 `0.0.0.0:45278` 与 Windows 防火墙放行）
