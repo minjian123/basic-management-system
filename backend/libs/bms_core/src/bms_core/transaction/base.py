@@ -30,10 +30,13 @@ TRANSACTION_MANAGER_KEY = "transaction_manager"
 """能力域键：跨服务事务管理器（调用方门面）。"""
 
 TRANSACTION_PARTICIPANT_KEY = "transaction_participant"
+"""能力域键：跨服务事务参与方（分支执行）。"""
+
+TRANSACTION_RECOVERY_KEY = "transaction_recovery"
+"""能力域键：全局事务恢复器（常驻对账任务；仅 TM 服务启用，缺省 `null`）。"""
 
 TM_SERVICE_NAME = "txn"
 """TM 服务键（账本与协调器所在服务；参与端点 `commit` / `rollback` / 状态查询仅接受该服务身份）。"""
-"""能力域键：跨服务事务参与方（分支执行）。"""
 
 TXN_ACTIVE = "active"
 """全局事务：已开启、分支执行中。"""
@@ -390,6 +393,38 @@ class BaseTransactionParticipant(BasePluggable, ABC):
         """
 
 
+class BaseTransactionRecovery(BasePluggable, ABC):
+    """全局事务恢复器（**常驻对账任务**）：周期扫描非终态事务、按决定点驱动至终态。
+
+    - **仅 leader 驱动**：多副本下经 `[distributed_lock]` 选举（键 / TTL 见 `[transaction_manager]`），
+      非 leader 跳过本轮；切换期重复驱动由分支状态机**幂等吸收**。
+    - **生命周期**：`setup()` 启动（实现宜**先跑一轮**再起周期）、`aclose()` 收尾（`BasePluggable`
+      已具备异步资源语义，装配后由资源管理器逆序回收）。
+    - 缺省 `null` 实现**不启用**（`enabled=False`、单轮为 0），故非 TM 服务无须关心本端口。
+    """
+
+    key: str = TRANSACTION_RECOVERY_KEY
+    plugin_key: str = TRANSACTION_RECOVERY_KEY
+    plugin_name: str = NULL_PLUGIN_NAME
+    contract_version: str = DEFAULT_CONTRACT_VERSION
+
+    @property
+    @abstractmethod
+    def enabled(self) -> bool:
+        """是否启用恢复推进（缺省实现为假——不启用即不扫描、不驱动）。"""
+
+    @abstractmethod
+    async def run_once(self, *, now: datetime | None = None) -> int:
+        """执行单轮对账（**仅 leader**：非 leader / 锁不可用即跳过并告警）。
+
+        Args:
+            now: 当前时间（UTC；缺省取系统时钟；用例可注入）。
+
+        Returns:
+            int: 本轮处置的事务数（跳过时为 0）。
+        """
+
+
 def get_transaction_manager(request: Request) -> BaseTransactionManager:
     """取应用级事务管理器（依赖注入提供者）。
 
@@ -430,6 +465,26 @@ def get_transaction_participant(request: Request) -> BaseTransactionParticipant:
     )
 
 
+def get_transaction_recovery(request: Request) -> BaseTransactionRecovery:
+    """取应用级事务恢复器（依赖注入提供者；仅 TM 服务消费）。
+
+    Args:
+        request: 请求对象。
+
+    Returns:
+        BaseTransactionRecovery: 应用装配的恢复器实例。
+    """
+    settings = cast("Settings", request.app.state.settings)
+    return cast(
+        "BaseTransactionRecovery",
+        resolve_plugin(
+            TRANSACTION_RECOVERY_KEY,
+            settings.transaction_manager.transaction_recovery,
+            expected_version=BaseTransactionRecovery.contract_version,
+        ),
+    )
+
+
 __all__ = [
     "BRANCH_ACTIVE",
     "BRANCH_COMMITTED",
@@ -442,6 +497,7 @@ __all__ = [
     "TM_SERVICE_NAME",
     "TRANSACTION_MANAGER_KEY",
     "TRANSACTION_PARTICIPANT_KEY",
+    "TRANSACTION_RECOVERY_KEY",
     "TXN_ACTIVE",
     "TXN_COMMITTED",
     "TXN_COMMITTING",
@@ -456,6 +512,7 @@ __all__ = [
     "XA_XID_SEPARATOR",
     "BaseTransactionManager",
     "BaseTransactionParticipant",
+    "BaseTransactionRecovery",
     "BranchHandler",
     "BranchHandlerRegistry",
     "BranchOp",
@@ -465,4 +522,5 @@ __all__ = [
     "build_branch_xid",
     "get_transaction_manager",
     "get_transaction_participant",
+    "get_transaction_recovery",
 ]

@@ -99,6 +99,7 @@ _EXPECTED_PLUGIN_KEYS = frozenset(
         "token_verifier",
         "tracer",
         "transaction_manager",
+        "transaction_recovery",
         "transaction_participant",
         "translator",
         "user_token",

@@ -156,8 +156,10 @@ from bms_core.tracing.base import BaseTracer
 from bms_core.transaction.base import (
     TRANSACTION_MANAGER_KEY,
     TRANSACTION_PARTICIPANT_KEY,
+    TRANSACTION_RECOVERY_KEY,
     BaseTransactionManager,
     BaseTransactionParticipant,
+    BaseTransactionRecovery,
 )
 from bms_core.transaction.xa import XA_PLUGIN_NAME, XaTransactionManagerFactory, XaTransactionParticipantFactory
 from bms_core.transfer.exporter import BaseExporter
@@ -338,11 +340,12 @@ PLUGIN_WIRINGS: tuple[PluginWiring, ...] = (
     PluginWiring("config_source", BaseConfigSource, "config_source", "config_source"),
     PluginWiring("event", EventPublisher, "event", "event_publisher"),
     PluginWiring("event_consumer", BaseEventConsumer, "event_consumer", None),  # 消费轨：仅预热，无 app.state 落点
-    # 强一致专项（05_07）：管理器与参与方共用 `[transaction_manager]` 分区（缺省 `null` ⇒ 不启用）
+    # 强一致专项（05_07）：管理器 / 参与方 / 恢复器共用 `[transaction_manager]` 分区（缺省 `null` ⇒ 不启用）
     PluginWiring(TRANSACTION_MANAGER_KEY, BaseTransactionManager, "transaction_manager", "transaction_manager"),
     PluginWiring(
         TRANSACTION_PARTICIPANT_KEY, BaseTransactionParticipant, "transaction_manager", "transaction_participant"
     ),
+    PluginWiring(TRANSACTION_RECOVERY_KEY, BaseTransactionRecovery, "transaction_manager", "transaction_recovery"),
 )
 
 

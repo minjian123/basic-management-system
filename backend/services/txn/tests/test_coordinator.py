@@ -18,12 +18,13 @@ from sqlalchemy.pool import StaticPool
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.exceptions import ParamError, TransactionUnavailableError
 from bms_core.db.unit_of_work import DbUnitOfWork
-from bms_core.lock.memory import MemoryDistributedLock
 from bms_core.transaction.base import (
+    BRANCH_COMMITTED,
     BRANCH_PREPARED,
     TXN_ACTIVE,
     TXN_COMMITTED,
     TXN_COMMITTING,
+    TXN_PREPARING,
     TXN_ROLLED_BACK,
     TXN_ROLLING_BACK,
     BranchSpec,
@@ -35,9 +36,21 @@ from bms_txn.repositories.ledger import (
     GlobalTxnRecoveryRepository,
     GlobalTxnRepository,
 )
-from bms_txn.services.coordinator import TransactionCoordinator
+from bms_txn.services.coordinator import (
+    DRIVE_ERROR,
+    DRIVE_OK,
+    METRIC_BRANCH_DRIVE,
+    METRIC_GLOBAL,
+    TransactionCoordinator,
+)
 from bms_txn.services.driver import BranchDriver, UnavailableBranchDriver
-from bms_txn.services.recovery import TransactionRecovery
+from bms_txn.services.recovery import (
+    ACTION_DRIVE_COMMIT,
+    METRIC_HUNG,
+    METRIC_RECOVERY,
+    TransactionRecovery,
+)
+from tests_support.metrics import RecordingMetrics
 
 pytestmark = [pytest.mark.kiwi_id(2271)]
 
@@ -238,7 +251,7 @@ async def test_driver_failure_keeps_draft_and_marks_error(uow: DbUnitOfWork) -> 
 
     result = await coordinator.commit(started.global_txn_id)
 
-    assert result.state == TXN_COMMITTED
+    assert result.state == TXN_COMMITTING  # 未全确认 ⇒ **不落终态**（由恢复器续行）
     assert all(ref.state != "committed" for ref in result.branches)
     branches = GlobalTxnBranchRepository(uow.session)
     async with uow.begin():
@@ -298,25 +311,59 @@ async def test_recovery_rolls_back_expired_transaction(uow: DbUnitOfWork) -> Non
     assert driver.committed == []
 
 
-async def test_recovery_requires_leadership(uow: DbUnitOfWork) -> None:
-    """恢复器单飞：非 leader（锁已被占用）不执行扫描。"""
-    driver = FakeDriver()
-    coordinator = _coordinator(uow, driver)
-    await coordinator.begin(caller_service="platform", branches=_specs())
-
-    lock = MemoryDistributedLock()
-    token = await lock.acquire("bms:global:lock:txn:leader", ttl=30, wait=0)
-    assert token is not None
-    recovery = _recovery(uow, coordinator, lock=lock)
-
-    assert await recovery.run_as_leader() == 0
-    await lock.release("bms:global:lock:txn:leader", token)
+async def test_recovery_ignores_non_unsettled_states(uow: DbUnitOfWork) -> None:
+    """恢复器单轮只处置在途状态：无在途事务时为 0（不误动终态 / 启发式终态）。"""
+    assert await _recovery(uow, _coordinator(uow, FakeDriver())).run_once() == 0
 
 
-async def test_recovery_as_leader_executes_scan(uow: DbUnitOfWork) -> None:
-    """取得 leader 身份（锁空闲）时执行单轮扫描；无在途事务返回 0。"""
-    assert await _recovery(uow, _coordinator(uow, FakeDriver())).is_leader() is True
-    assert await _recovery(uow, _coordinator(uow, FakeDriver())).run_as_leader() == 0
+class _FlakyDriver(FakeDriver):
+    """分支驱动替身：**首个提交失败、其后一律成功**（模拟参与方瞬时不可用、恢复器续行成功）。"""
+
+    def __init__(self) -> None:
+        """初始化。"""
+        super().__init__()
+        self.attempts: ConcurrentStableList[str] = ConcurrentStableList()
+        self._failed = False
+
+    async def commit(self, *, service: str, db_key: str, xid: str) -> str:
+        """提交：首次调用抛错，其后成功。"""
+        self.attempts.add(xid)
+        if not self._failed:
+            self._failed = True
+            raise RuntimeError("participant unavailable")
+        return await super().commit(service=service, db_key=db_key, xid=xid)
+
+
+async def test_drive_failure_keeps_non_terminal_and_recovery_resumes(uow: DbUnitOfWork) -> None:
+    """决定点后分支驱动失败 ⇒ **不落终态**，由恢复器下轮重驱动至 `committed`（指标同批断言）。"""
+    metrics = RecordingMetrics()
+    driver = _FlakyDriver()
+    coordinator = TransactionCoordinator(
+        GlobalTxnRepository(uow.session),
+        GlobalTxnBranchRepository(uow.session),
+        uow,
+        driver,
+        metrics=metrics,
+    )
+    started = await coordinator.begin(caller_service="platform", branches=_specs())
+
+    after_commit = await coordinator.commit(started.global_txn_id)
+    assert after_commit.state == TXN_COMMITTING  # 未全确认 ⇒ 不落终态
+    drive_results = list(metrics.labels_of(METRIC_BRANCH_DRIVE))
+    assert drive_results[:2] == [{"result": DRIVE_ERROR}, {"result": DRIVE_OK}]
+
+    assert await _recovery(uow, coordinator, metrics=metrics).run_once() == 1
+    final = await coordinator.status(started.global_txn_id)
+    assert final.state == TXN_COMMITTED
+    assert all(ref.state == BRANCH_COMMITTED for ref in final.branches)
+    assert list(metrics.labels_of(METRIC_RECOVERY)) == [{"action": ACTION_DRIVE_COMMIT}]
+    assert list(metrics.gauges) == [(METRIC_HUNG, 1.0)]
+    assert list(metrics.labels_of(METRIC_GLOBAL))[:4] == [
+        {"state": TXN_ACTIVE},
+        {"state": TXN_PREPARING},
+        {"state": TXN_COMMITTING},
+        {"state": TXN_COMMITTED},
+    ]
 
 
 async def test_recovery_rolls_back_rolling_back_transaction(uow: DbUnitOfWork) -> None:
@@ -473,14 +520,13 @@ async def test_ledger_repository_queries(uow: DbUnitOfWork) -> None:
     assert [item.branch_id for item in unsettled] == ["p1", "m1", "p1", "m1"]
 
 
-def _recovery(uow: DbUnitOfWork, coordinator: TransactionCoordinator, *, lock: Any = None) -> TransactionRecovery:
-    """构造恢复器（缺省内存锁）。"""
+def _recovery(uow: DbUnitOfWork, coordinator: TransactionCoordinator, *, metrics: Any = None) -> TransactionRecovery:
+    """构造恢复器（单轮逻辑；领导者选举归运行期任务 `recovery_poll`）。"""
     return TransactionRecovery(
         coordinator,
         GlobalTxnRepository(uow.session),
         GlobalTxnBranchRepository(uow.session),
         GlobalTxnRecoveryRepository(uow.session),
         uow,
-        lock if lock is not None else MemoryDistributedLock(),
-        leader_lock_key="bms:global:lock:txn:leader",
+        metrics=metrics,
     )

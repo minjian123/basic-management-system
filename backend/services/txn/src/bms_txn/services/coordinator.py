@@ -17,6 +17,7 @@ from bms_core.core.exceptions import ParamError
 from bms_core.core.id import id_generator
 from bms_core.core.objects import BaseFrameworkObject
 from bms_core.db.unit_of_work import UnitOfWork
+from bms_core.metrics.base import BaseMetrics
 from bms_core.transaction.base import (
     BRANCH_ACTIVE,
     BRANCH_COMMITTED,
@@ -39,10 +40,22 @@ from bms_txn.models.ledger import GlobalTxn, GlobalTxnBranch
 from bms_txn.repositories.ledger import GlobalTxnBranchRepository, GlobalTxnRepository
 from bms_txn.services.driver import BranchDriver
 
-__all__ = ["TransactionCoordinator"]
+__all__ = ["METRIC_BRANCH_DRIVE", "METRIC_GLOBAL", "TransactionCoordinator"]
 
 DEFAULT_DEADLINE_SECONDS = 300.0
 """缺省全局提交截止（秒）。"""
+
+METRIC_GLOBAL = "bms_txn_global_total"
+"""指标：全局事务状态迁移次数（按状态）。"""
+
+METRIC_BRANCH_DRIVE = "bms_txn_branch_drive_total"
+"""指标：分支驱动次数（按结果 `ok` / `error`）。"""
+
+DRIVE_OK = "ok"
+"""分支驱动结果：成功。"""
+
+DRIVE_ERROR = "error"
+"""分支驱动结果：失败（已记 `last_error` 与重试次数，等待恢复器重驱动）。"""
 
 
 class TransactionCoordinator(BaseFrameworkObject):
@@ -56,6 +69,7 @@ class TransactionCoordinator(BaseFrameworkObject):
         driver: BranchDriver,
         *,
         deadline_seconds: float = DEFAULT_DEADLINE_SECONDS,
+        metrics: BaseMetrics | None = None,
     ) -> None:
         """初始化。
 
@@ -65,12 +79,14 @@ class TransactionCoordinator(BaseFrameworkObject):
             uow: 工作单元（**平台库**写会话）。
             driver: 分支驱动端口（真实实现见参与端点接入）。
             deadline_seconds: 全局提交截止（秒；`begin` 未显式指定时取用）。
+            metrics: 指标出口（None 不上报；见《详设 05_07》§3.4）。
         """
         self._txns = txns
         self._branches = branches
         self._uow = uow
         self._driver = driver
         self._deadline_seconds = deadline_seconds
+        self._metrics = metrics
 
     async def begin(
         self, *, caller_service: str, branches: tuple[BranchSpec, ...], timeout_seconds: float | None = None
@@ -113,6 +129,7 @@ class TransactionCoordinator(BaseFrameworkObject):
                     )
                 )
             snapshot = self._snapshot(txn, rows)
+        await self._report_state(TXN_ACTIVE)
         return snapshot
 
     async def commit(self, global_txn_id: str) -> GlobalTransaction:
@@ -215,7 +232,13 @@ class TransactionCoordinator(BaseFrameworkObject):
             if txn.state == TXN_ACTIVE:
                 txn.state = TXN_PREPARING
                 await self._txns.flush()
-            return txn.state
+                flipped = True
+            else:
+                flipped = False
+            state = txn.state
+        if flipped:
+            await self._report_state(TXN_PREPARING)
+        return state
 
     async def _decide(self, global_txn_id: str, state: str) -> None:
         """落**提交决定点**（`committing`）或回滚态（决定点前）。
@@ -234,6 +257,7 @@ class TransactionCoordinator(BaseFrameworkObject):
             if state == TXN_COMMITTING and txn.decided_at is None:
                 txn.decided_at = datetime.now(UTC)
             await self._txns.flush()
+        await self._report_state(state)
 
     async def _read_branches(self, global_txn_id: str) -> ConcurrentStableList[GlobalTxnBranch]:
         """读分支清单（独立只读事务）。
@@ -283,12 +307,16 @@ class TransactionCoordinator(BaseFrameworkObject):
     async def _drive(self, global_txn_id: str, *, commit: bool) -> None:
         """驱动全部分支到指定终态（幂等：已确认分支跳过）。
 
+        **未全确认即不落终态**（详设 §3.1 不变量）：任一分支驱动失败时保持 `committing` /
+        `rolling_back`，由恢复器下轮重驱动——否则「决定点后只提交」的续行会被终态掩盖。
+
         Args:
             global_txn_id: 全局事务标识。
             commit: True 提交 / False 回滚。
         """
         rows = await self._read_branches(global_txn_id)
         expected = BRANCH_COMMITTED if commit else BRANCH_ROLLED_BACK
+        pending = False
         for row in rows:
             if row.state == expected:
                 continue
@@ -299,10 +327,37 @@ class TransactionCoordinator(BaseFrameworkObject):
                     await self._driver.rollback(service=row.service, db_key=row.db_key, xid=row.xid)
             except Exception as error:
                 await self._record_branch_error(global_txn_id, row.branch_id, str(error))
+                await self._report_drive(DRIVE_ERROR)
+                pending = True
                 continue
             await self._set_branch_state(global_txn_id, row.branch_id, expected)
+            await self._report_drive(DRIVE_OK)
+        if pending:
+            return
         final = TXN_COMMITTED if commit else TXN_ROLLED_BACK
         await self._decide(global_txn_id, final)
+
+    async def _report_state(self, state: str) -> None:
+        """上报全局事务状态迁移（metrics 缺省时空操作）。
+
+        Args:
+            state: 迁移后的状态词（`TXN_*`）。
+        """
+        metrics = self._metrics
+        if metrics is None:
+            return
+        await metrics.counter(METRIC_GLOBAL, labels={"state": state})
+
+    async def _report_drive(self, result: str) -> None:
+        """上报一次分支驱动结果（metrics 缺省时空操作）。
+
+        Args:
+            result: 驱动结果（`ok` / `error`）。
+        """
+        metrics = self._metrics
+        if metrics is None:
+            return
+        await metrics.counter(METRIC_BRANCH_DRIVE, labels={"result": result})
 
     @staticmethod
     def _validate_branches(branches: tuple[BranchSpec, ...]) -> None:

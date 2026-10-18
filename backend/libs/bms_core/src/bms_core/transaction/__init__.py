@@ -1,8 +1,10 @@
-"""跨服务事务能力域（强一致专项 05_07）：`BaseTransactionManager` + `BaseTransactionParticipant`。
+"""跨服务事务能力域（强一致专项 05_07）：管理器 + 参与方 + 恢复器三端口。
 
 - 契约：`bms_core.transaction.base`（状态常量、值对象、端口、分支处理器注册表、依赖提供者）；
-- 缺省实现：`bms_core.transaction.null`（未启用强一致：管理器 `enabled=False`、参与方明确拒绝）；
-- 真实实现：`bms_core.transaction.xa`（管理器经 TM 契约、参与方走**分支专用同步引擎** + XA）。
+- 缺省实现：`bms_core.transaction.null`（未启用强一致：管理器 `enabled=False`、参与方明确拒绝、
+  恢复器不启用）；
+- 真实实现：`bms_core.transaction.xa`（管理器经 TM 契约、参与方走**分支专用同步引擎** + XA）；
+  **恢复器实现落 `txn` 服务**（`PollTransactionRecovery`；账本与协调器在服务侧）。
 """
 
 from bms_core.transaction.base import (
@@ -17,6 +19,7 @@ from bms_core.transaction.base import (
     TM_SERVICE_NAME,
     TRANSACTION_MANAGER_KEY,
     TRANSACTION_PARTICIPANT_KEY,
+    TRANSACTION_RECOVERY_KEY,
     TXN_ACTIVE,
     TXN_COMMITTED,
     TXN_COMMITTING,
@@ -28,6 +31,7 @@ from bms_core.transaction.base import (
     XA_XID_SEPARATOR,
     BaseTransactionManager,
     BaseTransactionParticipant,
+    BaseTransactionRecovery,
     BranchHandler,
     BranchHandlerRegistry,
     BranchRef,
@@ -36,6 +40,7 @@ from bms_core.transaction.base import (
     build_branch_xid,
     get_transaction_manager,
     get_transaction_participant,
+    get_transaction_recovery,
 )
 
 __all__ = [
@@ -50,6 +55,7 @@ __all__ = [
     "TM_SERVICE_NAME",
     "TRANSACTION_MANAGER_KEY",
     "TRANSACTION_PARTICIPANT_KEY",
+    "TRANSACTION_RECOVERY_KEY",
     "TXN_ACTIVE",
     "TXN_COMMITTED",
     "TXN_COMMITTING",
@@ -61,6 +67,7 @@ __all__ = [
     "XA_XID_SEPARATOR",
     "BaseTransactionManager",
     "BaseTransactionParticipant",
+    "BaseTransactionRecovery",
     "BranchHandler",
     "BranchHandlerRegistry",
     "BranchRef",
@@ -69,4 +76,5 @@ __all__ = [
     "build_branch_xid",
     "get_transaction_manager",
     "get_transaction_participant",
+    "get_transaction_recovery",
 ]

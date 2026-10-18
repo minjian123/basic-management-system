@@ -53,6 +53,11 @@ METRIC_DOCS: ConcurrentStableDict[str, str] = ConcurrentStableDict(
         "bms_outbox_backlog": "发件箱积压（按服务 / 库键）。",
         "bms_release_total": "服务发布次数（按服务 / 结果；CI 推送 Pushgateway）。",
         "bms_contract_breaking_total": "契约破坏性变更数（按服务；CI 推送 Pushgateway）。",
+        "bms_txn_global_total": "全局事务数（按服务 / 状态）。",
+        "bms_txn_branch_drive_total": "分支驱动次数（按服务 / 结果）。",
+        "bms_txn_recovery_total": "恢复驱动次数（按服务 / 动作）。",
+        "bms_txn_hung": "悬挂（非终态）全局事务数（按服务）。",
+        "bms_txn_leader_switch_total": "恢复器 leader 切换次数（按服务）。",
     }
 )
 """候选指标名 → HELP 文档（未登记名回退通用文案）。"""

@@ -13,6 +13,7 @@ from bms_core.api.base import BaseRouter, require_service
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.db.session import DbSession, get_platform_uow
 from bms_core.db.unit_of_work import UnitOfWork
+from bms_core.metrics.base import BaseMetrics
 from bms_core.oauth.verify import VerifiedToken
 from bms_core.schemas.common import ApiResponse
 from bms_core.transaction.base import BranchSpec, GlobalTransaction
@@ -50,11 +51,11 @@ def _driver(request: Request) -> BranchDriver:
 
 
 def _coordinator(uow: UowDep, request: Request) -> TransactionCoordinator:
-    """构造协调器（请求级会话 + 应用驱动）。
+    """构造协调器（请求级会话 + 应用驱动 + 指标出口）。
 
     Args:
         uow: 请求级工作单元（**平台库**写会话）。
-        request: 请求对象（取分支驱动）。
+        request: 请求对象（取分支驱动与指标出口）。
 
     Returns:
         TransactionCoordinator: 协调器实例。
@@ -62,12 +63,14 @@ def _coordinator(uow: UowDep, request: Request) -> TransactionCoordinator:
     session = cast("DbSession", uow.session)
     settings = request.app.state.settings
     deadline = getattr(getattr(settings, "transaction_manager", None), "deadline_seconds", DEFAULT_DEADLINE_SECONDS)
+    metrics = getattr(request.app.state, "metrics", None)
     return TransactionCoordinator(
         GlobalTxnRepository(session),
         GlobalTxnBranchRepository(session),
         uow,
         _driver(request),
         deadline_seconds=float(deadline),
+        metrics=metrics if isinstance(metrics, BaseMetrics) else None,
     )
 
 

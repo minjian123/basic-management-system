@@ -917,6 +917,9 @@ class TransactionManagerSettings(PluginSelection):
     recovery_interval_seconds: float = Field(default=30.0, gt=0)
     """恢复器扫描间隔（秒；**仅 leader 驱动**）。"""
 
+    transaction_recovery: str = ""
+    """恢复器实现选择（`transaction_recovery` 插件键；空串 ⇒ `null` 不启用；仅 TM 服务缺省置 `poll`）。"""
+
     leader_lock_ttl_seconds: int = Field(default=30, ge=5)
     """领导者选举锁 TTL（秒）。"""
 

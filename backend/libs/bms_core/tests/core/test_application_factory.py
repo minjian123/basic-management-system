@@ -43,6 +43,16 @@ class _Factory(BaseServiceApplicationFactory):
         del settings
         _calls.add("prepare")
 
+    def configure_plugins(self, app: FastAPI, settings: Settings) -> None:
+        """记录服务侧插件登记钩子（须在建注册表之前）。
+
+        Args:
+            app: 应用实例。
+            settings: 应用配置。
+        """
+        del app, settings
+        _calls.add("plugins")
+
     def configure_service(self, app: FastAPI, settings: Settings) -> None:
         """记录服务 state 注入钩子（写入测试标记）。
 
@@ -72,7 +82,7 @@ async def test_factory_identity_routes_and_probes() -> None:
     assert app.version == "9.9.9"
     assert app.state.service_identity.name == "appbase_test"
     assert app.state.custom is True
-    assert _calls == ["prepare", "configure"]
+    assert _calls == ["prepare", "plugins", "configure"]
 
     paths = set(app.openapi()["paths"])
     assert "/healthz" in paths

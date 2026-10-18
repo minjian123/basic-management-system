@@ -357,6 +357,19 @@ class BaseServiceApplicationFactory(BaseApplicationFactory):
             settings: 应用配置（可变）。
         """
 
+    def configure_plugins(self, app: FastAPI, settings: Settings) -> None:
+        """服务侧**插件登记**钩子（默认空实现；须在建注册表之前）。
+
+        调用点＝`register_platform_plugins` 之后、`build_plugin_registry()` 之前：服务的**依赖应用
+        状态**的插件实现（如 `txn` 恢复器：取 `engine_registry` / `branch_driver` / 分布式锁 / 指标）
+        只可在此登记——`prepare_settings()` 早于应用构造、`configure_service()` 晚于注册表冻结
+        （`PluginError: 运行期只读`）。缺省实现下行为与改前一致。
+
+        Args:
+            app: 应用实例（取应用级状态）。
+            settings: 应用配置（可变；可在此置能力分区缺省 provider）。
+        """
+
     def configure_service(self, app: FastAPI, settings: Settings) -> None:
         """服务专属 state 注入钩子（默认空实现；如平台服务注入 demo 服务）。
 
@@ -432,8 +445,9 @@ class BaseServiceApplicationFactory(BaseApplicationFactory):
         app.state.catalog_degraded = False
         app.state.ownership_degraded = False
 
-        # 工厂 / 插件装配前置：平台实现登记 → 注册表构建 → 关键工厂解析（可替换，配置选择）
+        # 工厂 / 插件装配前置：平台实现登记 → 服务侧插件登记 → 注册表构建 → 关键工厂解析（可替换，配置选择）
         register_platform_plugins(settings, app, app.state.resources)
+        self.configure_plugins(app, settings)
         register_db_tenant_self_service(app)  # 登记 / 按应用刷新租户自助真实实现工厂（11_01）
         build_plugin_registry()
         register_factory("engine_factory", "default", EngineFactory)

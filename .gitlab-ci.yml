@@ -1053,7 +1053,9 @@ txn-2pc:
     - uv run python -m ops.test_db create --engine postgres --scope platform --url "$BMS_TEST_PG_URL" --execute
     # 达梦档（2026-10-18 纳入）：测试模式建出后同一用例文件的 `dm8` 参数即可跑（缺库自动 skip）
     - uv run python -m ops.test_db create --engine dm8 --scope platform --url "$BMS_TEST_DM_URL" --execute
-    - uv run pytest libs/bms_core/tests/integration/test_cross_db_2pc.py -v
+    # 单库 / 跨库 2PC 真库用例 + **TM 端到端真库用例**（真 XA 分支执行器 + 协调器：全票提交 / 单分支否决 /
+    # 决定点前·后崩溃注入 / 幂等重放；`services/txn/tests/integration`，2026-10-18 纳入）
+    - uv run pytest libs/bms_core/tests/integration/test_cross_db_2pc.py services/txn/tests/integration -v
 
 integration-mysql:
   <<: *integration-base

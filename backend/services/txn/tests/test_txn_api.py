@@ -21,7 +21,7 @@ from bms_core.core.config import Settings
 from bms_core.core.exceptions import ServiceUnavailableError, TransactionUnavailableError
 from bms_core.db.unit_of_work import DbUnitOfWork
 from bms_core.servicecall.base import BaseServiceClient, ServiceRequest, ServiceResponse
-from bms_core.transaction.base import TXN_COMMITTED, TXN_ROLLED_BACK
+from bms_core.transaction.base import TXN_COMMITTED, TXN_ROLLING_BACK
 from bms_txn.api.ledger import (
     begin_global_txn,
     commit_global_txn,
@@ -29,6 +29,7 @@ from bms_txn.api.ledger import (
     rollback_global_txn,
 )
 from bms_txn.models.ledger import GlobalTxn, GlobalTxnBranch, GlobalTxnRecovery
+from bms_txn.repositories.ledger import GlobalTxnRepository
 from bms_txn.schemas.ledger import BeginGlobalTxnRequest, BranchSpecRequest
 from bms_txn.services.driver import (
     BranchDriver,
@@ -172,7 +173,7 @@ async def test_global_txn_endpoints_full_cycle(uow: DbUnitOfWork) -> None:
 
 
 async def test_global_txn_endpoint_without_driver_rolls_back(uow: DbUnitOfWork) -> None:
-    """分支驱动未装配：核验与驱动皆明确拒绝 ⇒ 回滚全部分支（不静默成功）。"""
+    """分支驱动未装配：核验与驱动皆明确拒绝 ⇒ 置回滚且**不落终态**（未确认分支由恢复器续行）。"""
     request = _request()
     token = cast("Any", _TokenStub())
     began = await begin_global_txn(_begin_request(), uow, token, request)
@@ -181,7 +182,11 @@ async def test_global_txn_endpoint_without_driver_rolls_back(uow: DbUnitOfWork) 
     committed = await commit_global_txn(began.data.global_txn_id, uow, token, request)
 
     assert committed.data is not None
-    assert committed.data.state == TXN_ROLLED_BACK
+    assert committed.data.state == TXN_ROLLING_BACK  # 全分支未确认 ⇒ 终态留给恢复器收敛
+    async with uow.begin():
+        row = await GlobalTxnRepository(uow.session).get_by_global_txn_id(began.data.global_txn_id)
+    assert row is not None
+    assert row.state == TXN_ROLLING_BACK
 
 
 def _ok(state: str) -> ServiceResponse:

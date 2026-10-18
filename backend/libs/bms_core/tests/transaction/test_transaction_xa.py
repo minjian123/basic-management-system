@@ -333,6 +333,24 @@ class _FakeTwoPhase:
         self.prepared = True
 
 
+class _FakeDbapi:
+    """底层 DBAPI 连接替身（记录 close）。"""
+
+    def __init__(self) -> None:
+        self.closed = 0
+
+    def close(self) -> None:
+        """关闭（分支已 PREPARE：直接关底层连接才不会触发 XA_ROLLBACK）。"""
+        self.closed += 1
+
+
+class _FakeFairy:
+    """池连接精灵替身（暴露 `dbapi_connection`）。"""
+
+    def __init__(self, dbapi: _FakeDbapi) -> None:
+        self.dbapi_connection = dbapi
+
+
 class _FakeConnection:
     """同步连接替身（记录两阶段生命周期调用）。"""
 
@@ -344,6 +362,8 @@ class _FakeConnection:
         self.detached = False
         self.closed = 0
         self.rolled_back = 0
+        self.dbapi = _FakeDbapi()
+        self.connection = _FakeFairy(self.dbapi)
 
     def begin_twophase(self, xid: str) -> _FakeTwoPhase:
         """开启两阶段事务。"""
@@ -432,6 +452,7 @@ async def test_participant_executes_branch_prepares_and_detaches() -> None:
     assert connection.xid == "xa-1"
     assert connection.txn.prepared is True
     assert connection.detached is True
+    assert connection.dbapi.closed == 1  # 先关底层 DBAPI 连接（detach 后 close 会回滚分支）
     assert connection.rolled_back == 0
     assert connection.closed >= 1
     assert list(calls) == [args]
@@ -477,7 +498,7 @@ async def test_participant_swallows_rollback_and_close_failures() -> None:
 
 
 async def test_participant_drives_terminal_states_and_recovery() -> None:
-    """分支终态驱动：提交 / 回滚经新连接方言 API；悬挂列举与分支状态以数据库侧为准。"""
+    """分支终态驱动：提交 / 回滚经新连接方言 API；**回滚幂等**（未 `PREPARED` 者不驱动、不报错）。"""
     connection = _FakeConnection()
     dialect = _FakeDialect(recovered=("xa-1",))
     participant = XaTransactionParticipant(
@@ -486,11 +507,111 @@ async def test_participant_drives_terminal_states_and_recovery() -> None:
 
     assert await participant.commit_branch(xid="xa-1", db_key="platform") == "committed"
     assert list(dialect.commits) == [("xa-1", True, True)]
+    assert await participant.rollback_branch(xid="xa-1", db_key="platform") == "rolled_back"
+    assert list(dialect.rollbacks) == [("xa-1", True, True)]
+    # 未 PREPARED（含已被否决 / 已回收）⇒ 幂等忽略：不驱动、不报错（详设 §3.1）
     assert await participant.rollback_branch(xid="xa-2", db_key="platform") == "rolled_back"
-    assert list(dialect.rollbacks) == [("xa-2", True, True)]
+    assert list(dialect.rollbacks) == [("xa-1", True, True)]
     assert await participant.recover_branches(db_key="platform") == ("xa-1",)
     assert await participant.branch_state(xid="xa-1", db_key="platform") == "prepared"
     assert await participant.branch_state(xid="xa-9", db_key="platform") == "active"
+
+
+async def test_participant_branch_state_accepts_mysql_bytes_and_pg_text() -> None:
+    """方言表示差异：MySQL `XA RECOVER` 返回 **bytes**、PostgreSQL 返回 `gid` 字符串，两者均须判为 `prepared`。"""
+    dialect = _FakeDialect(recovered=(b"xa-1", "xa-2"))
+    participant = XaTransactionParticipant(
+        cast("Any", _FakeEngines(_FakeEngine(_FakeConnection(), dialect))), BranchHandlerRegistry()
+    )
+
+    assert await participant.branch_state(xid="xa-1", db_key="platform") == "prepared"  # bytes（MySQL）
+    assert await participant.branch_state(xid="xa-2", db_key="platform") == "prepared"  # str（PostgreSQL）
+    assert await participant.branch_state(xid="xa-3", db_key="platform") == "active"
+
+
+async def test_participant_recover_returns_readable_text() -> None:
+    """悬挂列举文本归一：bytes 解码为文本、字符串原样、非法字节以替换字符呈现。"""
+    dialect = _FakeDialect(recovered=(b"xa-1", "xa-2", b"\xff\xfe"))
+    participant = XaTransactionParticipant(
+        cast("Any", _FakeEngines(_FakeEngine(_FakeConnection(), dialect))), BranchHandlerRegistry()
+    )
+
+    assert await participant.recover_branches(db_key="platform") == ("xa-1", "xa-2", "\ufffd\ufffd")
+
+
+async def test_participant_branch_state_uses_dialect_matcher_when_present() -> None:
+    """达梦等自带可回放载体的方言：经 `matches_recovered_xid` 判定（不按文本 / 字节直比）。"""
+
+    class _MatcherDialect(_FakeDialect):
+        """带可回放匹配器的方言替身（模拟达梦 `DMXADialect`）。"""
+
+        def matches_recovered_xid(self, xid: str, recovered: object) -> bool:
+            """按载体比对（此处以「hex 前缀」模拟派生结果）。"""
+            return str(recovered) == f"hex-{xid}"
+
+    dialect = _MatcherDialect(recovered=("hex-xa-1",))
+    participant = XaTransactionParticipant(
+        cast("Any", _FakeEngines(_FakeEngine(_FakeConnection(), dialect))), BranchHandlerRegistry()
+    )
+
+    assert await participant.branch_state(xid="xa-1", db_key="platform") == "prepared"
+    assert await participant.branch_state(xid="xa-2", db_key="platform") == "active"
+
+
+async def test_participant_commits_session_before_prepare(monkeypatch: pytest.MonkeyPatch) -> None:
+    """分支执行：处理器执行后**先提交会话级 SAVEPOINT**（flush → commit）再 `prepare`、最后收尾。
+
+    实测教训（2026-10-18）：savepoint 模式下 `session.close()` 会**静默回滚**未提交写入，
+    故执行器须在 `prepare` 前统一提交（处理器自行提交的部分已释放，未提交的部分在此并入分支）。
+    """
+    from bms_core.transaction import xa as xa_module
+
+    steps: ConcurrentStableList[str] = ConcurrentStableList()
+
+    class _StubSession:
+        """会话替身：记录生命周期调用。"""
+
+        def __init__(self, engine: object, *, bind: object = None) -> None:
+            del engine, bind
+            steps.add("open")
+
+        async def execute(self, *args: object, **kwargs: object) -> None:
+            del args, kwargs
+
+        async def flush(self) -> None:
+            steps.add("flush")
+
+        async def commit(self) -> None:
+            steps.add("commit")
+
+        async def close(self) -> None:
+            steps.add("close")
+
+    class _RecordingTwoPhase(_FakeTwoPhase):
+        """两阶段事务替身：`prepare` 也记入步骤序列。"""
+
+        def prepare(self) -> None:
+            steps.add("prepare")
+            super().prepare()
+
+    monkeypatch.setattr(xa_module, "SyncSession", _StubSession)
+    connection = _FakeConnection()
+    connection.txn = _RecordingTwoPhase()
+    registry = BranchHandlerRegistry()
+
+    async def handler(session: object, args: ConcurrentStableDict[str, object]) -> None:
+        del session, args
+
+    registry.register("test.op", handler)
+    participant = XaTransactionParticipant(
+        cast("Any", _FakeEngines(_FakeEngine(connection, _FakeDialect()))), registry
+    )
+
+    await participant.execute_branch(
+        xid="xa-1", db_key="platform", ops=(BranchOp(op="test.op", args=ConcurrentStableDict[str, object]()),)
+    )
+
+    assert list(steps) == ["open", "flush", "commit", "close", "prepare"]
 
 
 async def test_manager_factory_adapter_forwards_calls() -> None:

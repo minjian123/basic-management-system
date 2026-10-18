@@ -6,14 +6,18 @@
   一致性屏障），不发起全局事务；
 - `NullTransactionParticipant`：协议动作一律抛 `TransactionUnavailableError`（`10013` / 503）——
   参与端点**不静默放行半套状态**（详设 05_07 §6 硬口径）；`recover_branches` 返回空元组
-  （未启用两阶段 ⇒ 本库不存在悬挂分支）。
+  （未启用两阶段 ⇒ 本库不存在悬挂分支）；
+- `NullTransactionRecovery`：`enabled=False`、单轮无处置（**不启用即无对账任务**，非 TM 服务的缺省）。
 """
+
+from datetime import datetime
 
 from bms_core.core.capability import BaseNullObject
 from bms_core.core.exceptions import TransactionUnavailableError
 from bms_core.transaction.base import (
     BaseTransactionManager,
     BaseTransactionParticipant,
+    BaseTransactionRecovery,
     BranchOp,
     BranchSpec,
     GlobalTransaction,
@@ -22,6 +26,7 @@ from bms_core.transaction.base import (
 __all__ = [
     "NullTransactionManager",
     "NullTransactionParticipant",
+    "NullTransactionRecovery",
 ]
 
 UNAVAILABLE_MESSAGE = "跨服务强一致未启用（[transaction_manager].provider=null）"
@@ -152,3 +157,27 @@ class NullTransactionParticipant(BaseTransactionParticipant, BaseNullObject):
             tuple[str, ...]: 空元组。
         """
         return ()
+
+
+class NullTransactionRecovery(BaseTransactionRecovery, BaseNullObject):
+    """占位恢复器：**不启用**恢复推进（非 TM 服务的缺省）。
+
+    与其他两端口不同，本端口不承载「调用方请求的协议动作」——未启用即**无对账任务**，
+    故单轮返回 0（无处置）而非抛错；`setup()` 亦不启动任何后台循环。
+    """
+
+    @property
+    def enabled(self) -> bool:
+        """恒定假（不启用恢复推进）。"""
+        return False
+
+    async def run_once(self, *, now: datetime | None = None) -> int:
+        """空操作：未启用恢复推进，单轮处置 0 项。
+
+        Args:
+            now: 当前时间（占位忽略）。
+
+        Returns:
+            int: 恒定 0。
+        """
+        return 0

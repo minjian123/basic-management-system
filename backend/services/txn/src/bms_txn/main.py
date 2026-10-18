@@ -8,6 +8,7 @@ from bms_core.core.config import Settings
 from bms_txn import CONTRACT_VERSION, SERVICE_NAME, SERVICE_TITLE, __version__
 from bms_txn.api.router import api_router
 from bms_txn.services.driver import BranchDriver, HttpBranchDriver
+from bms_txn.services.recovery_poll import POLL_PROVIDER_NAME, register_transaction_recovery
 
 
 class ApplicationFactory(BaseServiceApplicationFactory):
@@ -30,6 +31,20 @@ class ApplicationFactory(BaseServiceApplicationFactory):
         """
         if not settings.health_check_registry.provider:
             settings.health_check_registry.provider = ""
+
+    def configure_plugins(self, app: FastAPI, settings: Settings) -> None:
+        """登记本服务插件：恢复器常驻任务（详设 05_07 §3.4）。
+
+        TM 服务本职即「对账与恢复推进」⇒ `[transaction_manager].transaction_recovery` 缺省置 `poll`
+        （其他服务不消费该端口，解析到 `null` 不启用）；登记须在注册表构建之前（本钩子语义）。
+        多服务同进程（测试）下注册表可能已冻结 ⇒ 登记失败则**不下发缺省**，回落 `null` 不启用。
+
+        Args:
+            app: 应用实例（工厂延迟取用 `state`：引擎注册表 / 分布式锁 / 分支驱动 / 指标）。
+            settings: 应用配置（可变）。
+        """
+        if register_transaction_recovery(settings, app) and not settings.transaction_manager.transaction_recovery:
+            settings.transaction_manager.transaction_recovery = POLL_PROVIDER_NAME
 
     def service_routers(self) -> ConcurrentStableList[APIRouter]:
         """业务路由（探针路由由基座统一挂载）。

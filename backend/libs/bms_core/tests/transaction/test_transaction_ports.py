@@ -1,13 +1,16 @@
 """跨服务事务能力域契约用例（强一致专项 05_07；Kiwi 2271）。
 
 覆盖：① 缺省 `null` 实现**明确拒绝**而非静默降级（`10013` / 503）；② 参与方 `recover_branches` 恒空；
-③ 分支业务处理器注册表（统一注册通道，重复登记即拒）；④ 装配接线（管理器与参与方共用
-`[transaction_manager]` 分区）；⑤ 配置分区缺省值；⑥ 错误码登记。
+③ 分支业务处理器注册表（统一注册通道，重复登记即拒）；④ 装配接线（管理器 / 参与方 / **恢复器**共用
+`[transaction_manager]` 分区）；⑤ 配置分区缺省值；⑥ 错误码登记；⑦ 缺省恢复器**不启用即无对账任务**。
 """
 
 from datetime import UTC, datetime
+from types import SimpleNamespace
+from typing import cast
 
 import pytest
+from fastapi import Request
 
 import bms_core.transaction.null  # noqa: F401  # pyright: ignore[reportUnusedImport]  导入即登记缺省实现
 from bms_core.core.assembly import PLUGIN_WIRINGS
@@ -21,17 +24,24 @@ from bms_core.transaction.base import (
     MAX_XA_XID_BYTES,
     TRANSACTION_MANAGER_KEY,
     TRANSACTION_PARTICIPANT_KEY,
+    TRANSACTION_RECOVERY_KEY,
     TXN_STATES,
     TXN_TERMINAL_STATES,
     BaseTransactionManager,
     BaseTransactionParticipant,
+    BaseTransactionRecovery,
     BranchHandlerRegistry,
     BranchOp,
     BranchSpec,
     GlobalTransaction,
     build_branch_xid,
+    get_transaction_recovery,
 )
-from bms_core.transaction.null import NullTransactionManager, NullTransactionParticipant
+from bms_core.transaction.null import (
+    NullTransactionManager,
+    NullTransactionParticipant,
+    NullTransactionRecovery,
+)
 
 pytestmark = [pytest.mark.kiwi_id(2271)]
 
@@ -115,16 +125,52 @@ def test_build_branch_xid_and_length_guards() -> None:
 
 
 def test_null_provider_resolves_both_ports() -> None:
-    """缺省提供者 `null` 可解析出两个端口实现（装配不依赖具体提供者）。"""
+    """缺省提供者 `null` 可解析出三个端口实现（装配不依赖具体提供者）。"""
     manager = resolve_plugin(
         TRANSACTION_MANAGER_KEY, NULL_PLUGIN_NAME, expected_version=BaseTransactionManager.contract_version
     )
     participant = resolve_plugin(
         TRANSACTION_PARTICIPANT_KEY, NULL_PLUGIN_NAME, expected_version=BaseTransactionParticipant.contract_version
     )
+    recovery = resolve_plugin(
+        TRANSACTION_RECOVERY_KEY, NULL_PLUGIN_NAME, expected_version=BaseTransactionRecovery.contract_version
+    )
 
     assert isinstance(manager, NullTransactionManager)
     assert isinstance(participant, NullTransactionParticipant)
+    assert isinstance(recovery, NullTransactionRecovery)
+
+
+async def test_null_recovery_is_noop() -> None:
+    """缺省恢复器：`enabled=False` 且单轮无处置（**不启用即无对账任务**，非抛错）。"""
+    recovery = NullTransactionRecovery()
+
+    assert recovery.enabled is False
+    assert await recovery.run_once() == 0
+
+
+def test_plugin_wirings_include_recovery() -> None:
+    """装配接线：恢复器同域、共用 `[transaction_manager]` 分区（缺省 `null` ⇒ 不启用）。"""
+    wirings = {wiring.plugin_key: wiring for wiring in PLUGIN_WIRINGS}
+
+    assert wirings[TRANSACTION_RECOVERY_KEY].port is BaseTransactionRecovery
+    assert wirings[TRANSACTION_RECOVERY_KEY].settings_section == "transaction_manager"
+
+
+def test_recovery_provider_reads_recovery_field() -> None:
+    """依赖提供者 `get_transaction_recovery`：按 `[transaction_manager].transaction_recovery` 解析。"""
+    settings = Settings()
+    request = cast(
+        "Request",
+        SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(settings=settings))),
+    )
+    assert settings.transaction_manager.transaction_recovery in ("", NULL_PLUGIN_NAME)
+    assert isinstance(get_transaction_recovery(request), NullTransactionRecovery)
+
+
+def test_settings_recovery_field_default() -> None:
+    """配置缺省：`transaction_recovery` 为空串（非 TM 服务 ⇒ 不启用恢复推进）。"""
+    assert Settings().transaction_manager.transaction_recovery == ""
 
 
 def test_settings_defaults_disabled() -> None:

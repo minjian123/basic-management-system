@@ -48,11 +48,17 @@ METRIC_NAMES: tuple[str, ...] = (
     "bms_db_count",
     "bms_release_total",
     "bms_contract_breaking_total",
+    "bms_txn_global_total",
+    "bms_txn_branch_drive_total",
+    "bms_txn_recovery_total",
+    "bms_txn_hung",
+    "bms_txn_leader_switch_total",
 )
 """候选指标名清单（架构「指标采集」节六类 + 服务边界跨库访问计数 + 发件箱投递 + 库数量 + 阶段度量）：
 请求量 / 延迟 / 依赖状态 / 服务目录降级 / 实时连接数 / 消息积压 / AI 成本 / 跨库访问数 /
 发件箱投递与积压 / 库数量（`kind` ∈ platform / tenant / archive，标签含 `service`；06_02）/
-阶段度量（`bms_release_total` / `bms_contract_breaking_total` 由 CI 推送 Pushgateway、应用侧不记录；08_02）。"""
+阶段度量（`bms_release_total` / `bms_contract_breaking_total` 由 CI 推送 Pushgateway、应用侧不记录；08_02）/
+跨服务事务（05_07）：全局事务状态迁移、分支驱动结果、恢复驱动与悬挂、恢复器 leader 取得。"""
 
 MetricLabels = Mapping[str, str]
 """指标标签集（维度键值，如 `{"route": "/api/v1/users", "method": "GET"}`）。"""

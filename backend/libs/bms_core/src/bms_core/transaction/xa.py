@@ -5,10 +5,12 @@
 - `XaTransactionParticipant`：**参与方分支执行**——走**分支专用同步引擎**（两阶段仅同步引擎可用），
   单请求内 `XA_START → 业务写 → XA_END → XA_PREPARE`，**连接随请求释放**。
 
-**关键落地要点（实测结论）**：SQLAlchemy 的 `TwoPhaseTransaction` 继承 `RootTransaction`，
-`prepare()` 后 `is_active` 仍为真 ⇒ 直接 `Connection.close()` 会**回滚已 PREPARE 的分支**。
-故 `prepare()` 后必须 `connection.detach()`（清 `_transaction` 并分离 DBAPI 连接，使 `close()` 不回滚），
-提交 / 回滚由**新连接**经 `dialect.do_*_twophase(..., recover=True)` 完成（已 PREPARE 分支由数据库侧持有）。
+**关键落地要点（2026-10-18 真库实测修正）**：SQLAlchemy 的 `TwoPhaseTransaction` 继承 `RootTransaction`，
+`prepare()` 后 `is_active` 仍为真；`Connection.detach()` **只把底层连接从池摘除、并不清 `_transaction`**，
+直接 `Connection.close()` 仍会经方言 `do_rollback_twophase` **回滚已 PREPARE 的分支**（MySQL / PostgreSQL
+实测：`XA_RECOVER` 随即为空、业务写入永不落地）。故 `prepare()` 后必须**先关底层 DBAPI 连接**
+（`connection.connection.dbapi_connection.close()`）再让 SQLAlchemy 收尾——连接一断，服务器侧已 PREPARE
+分支保留，提交 / 回滚由**新连接**经 `dialect.do_*_twophase(..., recover=True)` 完成。
 """
 
 from __future__ import annotations
@@ -271,11 +273,15 @@ class XaTransactionParticipant(BaseTransactionParticipant):
             try:
                 for handler, item in zip(resolved, ops, strict=True):
                     await handler(session, item.args)
+                # 提交**会话级 SAVEPOINT**：处理器自行提交的部分已释放，未提交的部分在此并入分支——
+                # 否则 `session.close()`（savepoint 模式）会静默回滚未提交写入（真库实测：分支空）
+                await session.flush()
+                await session.commit()
             finally:
                 await session.close()
             await asyncio.to_thread(txn.prepare)
-            # 已 PREPARE：分离连接使 close() 不回滚（分支由数据库侧持有，提交 / 回滚走新连接）
-            await asyncio.to_thread(connection.detach)
+            # 已 PREPARE：**先关底层 DBAPI 连接**（`detach` 不清 `_transaction`，直接 `close()` 会回滚分支）
+            await self._release_prepared(connection)
         except Exception:
             await self._safe_rollback(connection)
             raise
@@ -297,7 +303,10 @@ class XaTransactionParticipant(BaseTransactionParticipant):
         return BRANCH_COMMITTED
 
     async def rollback_branch(self, *, xid: str, db_key: str) -> str:
-        """回滚分支（TM 驱动）。
+        """回滚分支（TM 驱动；**幂等**：未 `PREPARED` / 已回收的分支直接成功，不视作失败）。
+
+        详设 §3.1：「未 `PREPARED` 者按幂等忽略」——决定点前某分支否决 / 分支执行中断时，
+        该分支在数据库侧**不存在**，驱动回滚不得因此判失败（否则整笔事务会滞留在 `rolling_back`）。
 
         Args:
             xid: 分支事务标识。
@@ -306,7 +315,8 @@ class XaTransactionParticipant(BaseTransactionParticipant):
         Returns:
             str: 分支状态（`rolled_back`）。
         """
-        await self._drive(db_key=db_key, xid=xid, commit=False)
+        if await self.branch_state(xid=xid, db_key=db_key) == BRANCH_PREPARED:
+            await self._drive(db_key=db_key, xid=xid, commit=False)
         return BRANCH_ROLLED_BACK
 
     async def branch_state(self, *, xid: str, db_key: str) -> str:
@@ -319,8 +329,15 @@ class XaTransactionParticipant(BaseTransactionParticipant):
         Returns:
             str: 分支状态（`prepared` / `active`）。
         """
-        recovered = await self.recover_branches(db_key=db_key)
-        return BRANCH_PREPARED if xid in recovered else BRANCH_ACTIVE
+        engine = await self._engines.get_sync(db_key)
+        dialect = _twophase_dialect(engine)
+        connection = await asyncio.to_thread(engine.connect)
+        try:
+            recovered = await asyncio.to_thread(dialect.do_recover_twophase, connection)
+        finally:
+            await self._safe_close(connection)
+        prepared = any(_matches_recovered(engine, xid, item) for item in recovered)
+        return BRANCH_PREPARED if prepared else BRANCH_ACTIVE
 
     async def recover_branches(self, *, db_key: str) -> tuple[str, ...]:
         """列举本库悬挂分支（`XA_RECOVER` 对账用）。
@@ -340,7 +357,7 @@ class XaTransactionParticipant(BaseTransactionParticipant):
             await self._safe_close(connection)
         texts: ConcurrentStableList[str] = ConcurrentStableList()
         for item in recovered:
-            texts.add(str(item))
+            texts.add(_recovered_text(item))
         return tuple(texts)
 
     async def _drive(self, *, db_key: str, xid: str, commit: bool) -> None:
@@ -361,6 +378,25 @@ class XaTransactionParticipant(BaseTransactionParticipant):
                 await asyncio.to_thread(dialect.do_rollback_twophase, connection, xid, True, True)
         finally:
             await self._safe_close(connection)
+
+    @staticmethod
+    async def _release_prepared(connection: Any) -> None:
+        """释放**已 PREPARE 分支**的连接（真库实测口径，见模块头注）。
+
+        顺序不可颠倒：先取底层 DBAPI 连接 → `detach()` 摘池 → **直接关 DBAPI 连接**。
+        若只 `detach()` 后走 `Connection.close()`，SQLAlchemy 会经方言 `do_rollback_twophase`
+        把刚 PREPARE 的分支回滚掉（MySQL / PostgreSQL 实测 `XA_RECOVER` 随即为空）。
+
+        Args:
+            connection: 分支连接（SQLAlchemy 同步连接）。
+        """
+
+        def _run() -> None:
+            dbapi = connection.connection.dbapi_connection
+            connection.detach()
+            dbapi.close()
+
+        await asyncio.to_thread(_run)
 
     @staticmethod
     async def _safe_rollback(connection: Any) -> None:
@@ -413,6 +449,46 @@ def _twophase_dialect(engine: Engine) -> DefaultDialect:
         DefaultDialect: 方言实例。
     """
     return cast("DefaultDialect", engine.dialect)
+
+
+def _recovered_text(item: object) -> str:
+    """悬挂分支列举项的**文本形态**（各方言表示不同，统一为可读文本）。
+
+    MySQL 的 `XA RECOVER` 经 SQLAlchemy 返回 `gtrid` 的 **bytes**；PostgreSQL 返回 `gid` 字符串；
+    达梦返回可回放载体（`gtrid|bqual` 十六进制串，其 `str()` 即文本形态）。
+
+    Args:
+        item: 方言列举项。
+
+    Returns:
+        str: 文本形态（bytes 按 UTF-8 解码，非法字节以替换字符呈现，仅用于展示与对账）。
+    """
+    if isinstance(item, bytes | bytearray):
+        return bytes(item).decode("utf-8", errors="replace")
+    return str(item)
+
+
+def _matches_recovered(engine: Engine, xid: str, item: object) -> bool:
+    """判定列举项是否即给定 `xid` 对应的分支（**方言感知**比较）。
+
+    - 达梦：经方言 `matches_recovered_xid`（`xid` 先派生为 `gtrid|bqual` 再比对可回放载体）；
+    - MySQL：列举项为 `xid` 的 bytes 形态，按字节比较；
+    - PostgreSQL：列举项为 `pid` 的 `gid` 字符串，按文本比较。
+
+    Args:
+        engine: 同步引擎（取方言）。
+        xid: 分支 `xid`（TM 分配）。
+        item: 方言列举项。
+
+    Returns:
+        bool: 对应同一分支为 True。
+    """
+    matcher = getattr(engine.dialect, "matches_recovered_xid", None)
+    if callable(matcher):
+        return bool(matcher(xid, item))
+    if isinstance(item, bytes | bytearray):
+        return bytes(item) == xid.encode("utf-8")
+    return str(item) == xid
 
 
 class XaTransactionManagerFactory(BasePluginFactory[XaTransactionManager]):
