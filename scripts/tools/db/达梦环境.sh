@@ -2,7 +2,7 @@
 # 达梦客户端环境注入（POSIX）：把 dmPython 轮子内的通信加密模块目录（dmssl）并入 LD_LIBRARY_PATH。
 #
 # 用法（**必须 source**，否则环境变量不生效）：
-#   source scripts/tools/db/达梦环境.sh                 # 用 python3 定位 dmssl 目录
+#   source scripts/tools/db/达梦环境.sh                 # 解释器优先；找不到则扫描项目 venv（CI 口径）
 #   DM_ENV_PYTHON="uv run python" source scripts/tools/db/达梦环境.sh   # 指定解释器（可为复合命令）
 #
 # 背景（2026-10-18 实测）：缺少该路径时达梦建连直接报
@@ -38,6 +38,19 @@ elif spec.submodule_search_locations:
     print(pathlib.Path(next(iter(spec.submodule_search_locations))))
 PY
 )"
+
+# 兜底：解释器看不到 dmPython（典型＝CI 里 before_script 跑在系统 python 上、依赖装在项目 venv）
+# ⇒ 直接扫描**项目 venv** 的 site-packages 找 dmssl 目录（`UV_PROJECT_ENVIRONMENT` / `VIRTUAL_ENV` /
+# `backend/.venv` / `$HOME/.venv`）。
+if [ -z "$_dm_ssl_dir" ]; then
+  for _dm_root in "${UV_PROJECT_ENVIRONMENT:-}" "${VIRTUAL_ENV:-}" "$PWD/backend/.venv" "${HOME:-}/.venv"; do
+    [ -n "$_dm_root" ] || continue
+    [ -d "$_dm_root/lib" ] || continue
+    _dm_ssl_dir="$(find "$_dm_root/lib" -maxdepth 4 -type d -name dmssl -print -quit 2>/dev/null || true)"
+    [ -n "$_dm_ssl_dir" ] && break
+  done
+  unset _dm_root
+fi
 
 if [ -z "$_dm_ssl_dir" ]; then
   echo "[达梦环境] 未定位到 dmssl 目录（dmPython 未安装或轮子布局变化）：跳过注入" >&2

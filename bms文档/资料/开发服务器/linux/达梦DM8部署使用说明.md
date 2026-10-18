@@ -130,7 +130,7 @@ echo "SELECT NAME FROM ALL_USERS;" | /opt/dmdbms/bin/disql SYSDBA/"<密码>"@loc
 | 操作 | 命令 |
 | --- | --- |
 | 服务状态 | `systemctl status DmServiceDMSERVER` |
-| 客户端加密模块加载路径（应用 / 脚本建连前置） | `source bms/scripts/tools/db/达梦环境.sh`（bash；把轮子内的 `dmssl` 目录注入 `LD_LIBRARY_PATH`；**本地 Linux 与 CI 共用**；Windows 由基座自动前置 `PATH`，无需本脚本） |
+| 客户端加密模块加载路径（应用 / 脚本建连前置） | `source bms/scripts/tools/db/达梦环境.sh`（bash；把轮子内的 `dmssl` 目录注入 `LD_LIBRARY_PATH`；**本地 Linux 与 CI 共用**；Windows 由基座自动前置 `PATH`，无需本脚本）。定位顺序：**解释器优先**（`DM_ENV_PYTHON` → `$VIRTUAL_ENV` → `python3`），找不到则**扫描项目 venv**（`UV_PROJECT_ENVIRONMENT` → `VIRTUAL_ENV` → `backend/.venv` → `~/.venv`）——CI 的 `before_script` 跑在系统 `python3` 上，依赖装在 `/opt/bms-venv`，即靠该兜底生效（2026-10-18 流水线 #1017 暴露并修正） |
 | 启动 / 停止 / 重启 | `sudo systemctl start|stop|restart DmServiceDMSERVER` |
 | 命令行连接 | `/opt/dmdbms/bin/disql SYSDBA/密码@<mjbk-IP>:5236` |
 | 查看日志 | `tail -f /opt/dmdbms/data/DAMENG/log/dm_DMSERVER*.log` |
