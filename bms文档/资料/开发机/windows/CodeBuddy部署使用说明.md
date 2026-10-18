@@ -283,7 +283,7 @@ Windows 侧关键点：同一份 `launch.json` 用 **`windows` 平台覆盖**表
 | 开发密钥 | `bms\backend\.dev-keys.local`（`up` 缺则用 `joserfc` 生成：`usr-` 用户令牌 + `svc-` 服务令牌；不入库）                        |
 | Redis    | 缺省指开发服务器上的隔离库（DB5；地址以脚本缺省与《[本地资源](../../../用户文档/本地资源.md)》为准，`--redis` 或 `BMS_LOCAL_REDIS` 覆盖） |
 | 状态目录 | `%TEMP%\bms-local-stack`（pid 与日志；linux 侧为 `/tmp/bms-local-stack`）                                                          |
-| 前端映射 | `bms\frontend\apps\desktop\.env.local` 的 `VITE_LOCAL_API`（`本地全套.py env` 写入；未列出的服务仍走远端网关）                    |
+| 前端映射 | `bms\frontend\apps\desktop\.env.local` 的 `VITE_LOCAL_API`（**`up` 收尾自动写入**，`env` 子命令可单独补；未列出的服务仍走远端网关） |
 | 账号     | `seed` 建号（缺省账号 `admin`，口令随机生成并仅打印一次）——**首次起栈后必须跑一次 `seed`**，否则本地库无账号、登录恒 401；账号 / 口令**只登记在《本地资源》** |
 | 库重建   | `本地全套.py up --reset-db`（先把 `database\bms\bms_*.db` 备份移走，服务按当前表结构重建；**重建后须重新 `seed`**）      |
 
@@ -291,7 +291,7 @@ Windows 侧关键点：同一份 `launch.json` 用 **`windows` 平台覆盖**表
 
 ```powershell
 cd D:\Develop\bizs\bms
-python3 scripts\tools\dev\本地全套.py up              # 起三服务（幂等：已在跑则跳过；等健康）
+python3 scripts\tools\dev\本地全套.py up              # 起三服务（幂等：已在跑则跳过；等健康；收尾自动补 .env.local 的 VITE_LOCAL_API）
 python3 scripts\tools\dev\本地全套.py seed            # 租户注册库 + 菜单元数据 + 建号 admin（幂等）
 python3 scripts\tools\dev\本地全套.py status          # 进程与 /healthz、/readyz 一览
 python3 scripts\tools\dev\本地全套.py stop identity   # 只停一个（供后端断点腾位）
@@ -324,6 +324,8 @@ python3 scripts\tools\dev\本地全套.py down            # 停全部：TERM →
 | 点「全套」弹「任务尚未退出，并且未定义 problemMatcher」         | 该 background 任务的 `command` 里混了准备动作，耗时超出就绪等待窗口：点「仍要调试」可继续；根治是把准备动作拆成 `dependsOn` 前置任务（本机两处 `tasks.json` 已如此）                                                                                                              |
 | 本地全套写 hosts 失败                                           | Windows 写 `C:\Windows\System32\drivers\etc\hosts` **需管理员权限**：以管理员身份重跑，或按脚本提示手工追加三个别名行                                                                                                                                                                  |
 | 本地登录**恒 401**，但三服务 `/healthz`、`/readyz` 都 200  | 本地库里**没有可用账号**（多为 `--reset-db` 重建后未建号）：跑 `python3 scripts\tools\dev\本地全套.py seed`（租户 + 菜单 + 建号 `admin`），或 `seed` 加 `--username/--password`                                                                                                     |
+| 登录报 **502**（`Request failed with status code 502`）          | 前端 `/api` 未就近代理，回落到了 `VITE_API_PROXY`（缺省 `http://localhost:8088`，本机通常无此网关）：确认 `frontend\apps\desktop\.env.local` 有 `VITE_LOCAL_API=tenant=127.0.0.2,platform=127.0.0.4,identity=127.0.0.5`——跑一次 `本地全套.py up`（收尾自动补）或 `本地全套.py env`；**`.env.local` 新增后须让 vite 重载配置**（重启「前端：宿主 dev」任务，或改动任意 config 触发 vite 重启） |
+| 登录后**刷新 / 深链直开**动态菜单页落 404（如 `/sys/users`、`/sys/roles`） | 路由守卫的动态路由重解析判定曾用 `router.hasRoute(path)`（该 API 参数是路由 **name**，通用页面路由 `name: 'SystemUser'` ≠ `path: '/sys/users'` 时恒假）→ 刷新不重解析、落兜底 404。**2026-10-18 已修**（改按 `router.resolve(path)` 命中的路由记录标识前后对比）；若仍复现，确认宿主代码已更新且 vite 已热更（必要时重启 dev 任务） |
 | 登录报 `20002`「账号或密码错误」 / `20003`「账号已锁定」        | 口令以《[本地资源](../../../用户文档/本地资源.md)》「BMS 应用账号」节的当前登记为准（历史对话 / 旧文档里的口令一律失效；注意浏览器自动填充旧口令）；连续 5 次失败锁 15 分钟，解锁跑 `本地全套.py unlock`，**验验证码请用不存在的账号试错口令**                                 |
 
 ## 9. 浏览器真机验证：Playwright MCP <a id="browser-mcp"></a>

@@ -10,12 +10,13 @@
 
 用法: python3 本地全套.py <up|down|stop|status|seed|env|logs|unlock> [选项]
 （Linux 同名 .sh / Windows 同名 .bat 均为转调本文件的薄包装；逻辑只维护在这里。）
-  up                起服务（幂等；已在跑则跳过）+ 自愈 hosts 别名 / 开发密钥，并等待健康
+  up                起服务（幂等；已在跑则跳过）+ 自愈 hosts 别名 / 开发密钥，并等待健康；
+                    收尾自动确保 `.env.local` 的 `VITE_LOCAL_API`（同 env 子命令，缺则补、有则只提示）
   down              停本脚本起的服务（仅按 pid 文件；`--force` 才连带清理 IDE 起的同名进程）
   stop <服务名...>  只停指定服务（其余保持纳管）——供「用 debugpy 调试某服务」时腾出该服务
   status            进程与 /healthz、/readyz 一览
   seed              幂等种子：租户注册库 + 菜单元数据 + 建号（缺省账号 admin；口令随机生成并打印一次）
-  env               确保 `frontend/apps/desktop/.env.local` 含 `VITE_LOCAL_API` 本地服务映射
+  env               确保 `frontend/apps/desktop/.env.local` 含 `VITE_LOCAL_API` 本地服务映射（up 已自动调用）
   logs [服务名]     打印日志尾部（缺省全部服务；追看用 tail -f）
   unlock [账号]     解锁账号：清 `sys_user.failed_count` / `locked_until` + 删 Redis 登录失败计数键
                     （登录阈值 5 次 / 锁 15 分钟：**验验证码请用不存在的账号试错口令**，
@@ -487,7 +488,11 @@ def cmd_up():
         start_one(svc, ip_of(svc))
     if wait_all_health():
         return 1
-    log("全套已就绪；前端请在 IDE 跑「前端：宿主 dev」（.env.local 的 VITE_LOCAL_API 见 env 子命令）")
+    # 收尾自动补齐前端 `.env.local`：缺 `VITE_LOCAL_API` 时前端 `/api` 会回落 VITE_API_PROXY 网关
+    # （本机通常无该网关）⇒ 登录 502；此处幂等（已存在则只提示，不覆盖）。
+    if cmd_env():
+        return 1
+    log("全套已就绪；前端请在 IDE 跑「前端：宿主 dev」")
     return 0
 
 

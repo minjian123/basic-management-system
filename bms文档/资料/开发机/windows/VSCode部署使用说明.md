@@ -136,6 +136,8 @@ code D:\Develop\bizs\bizs.code-workspace    # 打开工作区
 | 「运行和调试」下拉为空 | VS Code 只读**被打开根**的 `.vscode/`；工作区文件打开时选「BMS 基座/平台」根（双平台版）；工作区根那份当前仍是 Linux 口径（见[5.2](#debug)） |
 | Python 报「无法解析导入 sqlalchemy」类 | 工作区设置的 `python.defaultInterpreterPath` 写的是 Linux 形式（`backend/.venv/bin/python`）；手动切换解释器到 `D:\Develop\bizs\bms\backend\.venv\Scripts\python.exe` 即可 |
 | 源代码管理面板看不到仓库 / 变更 | 本机 Windows 侧未复现；成因、`state.vscdb` 键与修复脚本见《[VSCode部署使用说明](../linux/VSCode部署使用说明.md)》「源代码管理面板看不到仓库」节（脚本按 Linux 口径探测，Windows 上需以 `--user-data-dir` 显式指向 `%APPDATA%\Code`） |
+| 「全套」起好后登录报 **502** | 前端 `/api` 未就近代理，回落到缺省网关 `http://localhost:8088`（本机无此网关）：`frontend\apps\desktop\.env.local` 缺 `VITE_LOCAL_API`——跑一次 `python3 scripts\tools\dev\本地全套.py up`（收尾自动补）或 `本地全套.py env`；**新增 `.env.local` 后须让 vite 重载配置**（重启「前端：宿主 dev」任务）。详见《[CodeBuddy部署使用说明](CodeBuddy部署使用说明.md)》「调试排障」节 |
+| 登录后**刷新 / 深链直开**菜单页落 404 | 路由守卫重解析判定的实施期缺陷（`router.hasRoute(path)` 参数实为路由 name），**2026-10-18 已修**；若仍复现先确认宿主代码已更新（`git pull` + 重启 dev 任务）。详见《[CodeBuddy部署使用说明](CodeBuddy部署使用说明.md)》「调试排障」节 |
 
 ## 8. 关联文档 <a id="related"></a>
 

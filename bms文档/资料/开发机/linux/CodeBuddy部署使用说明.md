@@ -383,6 +383,8 @@ IDE 的「运行和调试」下拉由 `.vscode/launch.json`（启动项）与 `.
 | 后端`.py` 满屏「无法解析导入 sqlalchemy」                         | 分析器没关联到项目解释器：裸目录打开时`bms/.vscode/settings.json` **不生效**，须在工作区根 `settings.json` 配 `python.defaultInterpreterPath`（`bms/backend/.venv/bin/python`）与 `python.analysis.extraPaths`（`bms/backend`）                                                                                                                                                                             |
 | `alembic/versions/**` 满屏类型报错（如 `Column` 泛型缺参数）    | 该目录**本就不在门禁范围**（`bms/backend/pyproject.toml` 的 `[tool.pyright] include` 只含 `libs`/`services`），是 IDE 侧 `basedpyright` 默认 `recommended` 档在报：已在项目 `[tool.pyright]` 加 `ignore = ["alembic"]`，并让 `basedpyright.analysis.configFilePath` 指向该 `pyproject.toml`（IDE 与门禁同口径；`uv run pyright --outputjson` 实测 `filesAnalyzed=916` / 0 错，2026-10-04 复核） |
 | 本地登录**恒 401**，但三服务 `/healthz`、`/readyz` 都 200 | 本地库里**没有可用账号**（多为 `本地全套.py up --reset-db` 重建库后未建号——现象易误判为「登录链路不通」）：跑 `python3 scripts/tools/dev/本地全套.py seed`（租户 + 菜单 + 建号 `admin`），或 `ops.seed_user` 指定 `--username/--password`（见 [8.5](#local-stack)）                                                                                                                                             |
+| 登录报 **502**（`Request failed with status code 502`）            | 前端 `/api` 未就近代理，回落到了 `VITE_API_PROXY`（缺省 `http://localhost:8088`，本机通常无此网关）：确认 `frontend/apps/desktop/.env.local` 有 `VITE_LOCAL_API=tenant=127.0.0.2,platform=127.0.0.4,identity=127.0.0.5`——跑一次 `本地全套.py up`（收尾自动补）或 `本地全套.py env`；**`.env.local` 新增后须让 vite 重载配置**（重启「前端：宿主 dev」任务） |
+| 登录后**刷新 / 深链直开**动态菜单页落 404（如 `/sys/users`、`/sys/roles`） | 路由守卫的动态路由重解析判定曾用 `router.hasRoute(path)`（该 API 参数是路由 **name**，通用页面路由 `name: 'SystemUser'` ≠ `path: '/sys/users'` 时恒假）→ 刷新不重解析、落兜底 404。**2026-10-18 已修**（改按 `router.resolve(path)` 命中的路由记录标识前后对比）；若仍复现，确认宿主代码已更新且 vite 已热更 |
 | 点了「全套」后登录反而不通、先前跑着的后端被杀                      | 用的是旧「全套：后端单服务 + 宿主 + Chrome」：其前置任务`清理后端端口（8000）` 按端口清理，会把本地全套的**三服务全部清掉**，且只起 `bms_identity` 一个（无密钥 / 无别名）→ 本地开发改用「全套（本地三服务 + 宿主 + Chrome）」（见 [8.5](#local-stack)）                                                                                                                                                            |
 
 | 登录报 `20002`「**账号或密码错误**」                                          | 服务端与账号状态正常时多为**口令不对**：口令**以《[本地资源](../../../用户文档/本地资源.md)》「BMS 应用账号」节的当前登记为准**（**历史对话 / 旧文档里出现过的口令一律视为已失效**——口令轮换后旧值即不可用；凭据只登记在该节，见《AI开发规范》）；另注意浏览器**自动填充**了旧口令（点密码框清空后重输）。连续失败 5 次会触发锁号（见下一行） |
@@ -400,7 +402,7 @@ IDE 的「运行和调试」下拉由 `.vscode/launch.json`（启动项）与 `.
 | 别名     | `127.0.0.2 tenant`、`127.0.0.4 platform`、`127.0.0.5 identity`（`up` 自愈写入 `/etc/hosts`，sudo 免密；`org` 已随组织主数据归 mdm 产品服务，不在本机全套） |
 | 开发密钥 | `bms/backend/.dev-keys.local`（`up` 缺则用 `joserfc` 生成：`usr-` 用户令牌 + `svc-` 服务令牌两组；不入库）                 |
 | Redis    | 缺省`redis://192.168.0.107:6379/5`（本机无 Redis，指向开发机 DB5 隔离；`BMS_LOCAL_REDIS` 或 `--redis` 覆盖）                   |
-| 前端映射 | `bms/frontend/apps/desktop/.env.local` 的 `VITE_LOCAL_API`（`本地全套.py env` 写入；未列出的服务仍走远端网关）                 |
+| 前端映射 | `bms/frontend/apps/desktop/.env.local` 的 `VITE_LOCAL_API`（**`up` 收尾自动写入**，`env` 子命令可单独补；未列出的服务仍走远端网关）                 |
 | 账号     | `ops/seed_user.py` 建号（缺省账号 `admin`，口令随机生成并仅打印一次）——**首次起栈后必须跑一次 `seed`**，否则本地库无账号、登录恒 401；账号 / 口令**只登记在《[本地资源](../../../用户文档/本地资源.md)》（gitignore，凭据不入库）**     |
 | 库重建   | `本地全套.py up --reset-db`（先把 `bms/backend/bms_*.db` 备份移走，服务按当前表结构重建；**重建后须重新 `seed`**）       |
 
@@ -408,7 +410,7 @@ IDE 的「运行和调试」下拉由 `.vscode/launch.json`（启动项）与 `.
 
 ```bash
 cd ~/develop/bizs/bms
-python3 scripts/tools/dev/本地全套.py up              # 起三服务（幂等：已在跑则跳过；等健康）
+python3 scripts/tools/dev/本地全套.py up              # 起三服务（幂等：已在跑则跳过；等健康；收尾自动补 .env.local 的 VITE_LOCAL_API）
 python3 scripts/tools/dev/本地全套.py seed            # 租户注册库 + 菜单元数据 + 建号 admin（幂等）
 python3 scripts/tools/dev/本地全套.py status          # 进程与 /healthz、/readyz 一览
 python3 scripts/tools/dev/本地全套.py stop identity   # 只停一个（供后端断点腾位）
