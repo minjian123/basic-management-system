@@ -17,6 +17,9 @@
 - **连接串取法**：显式 `db_key` 优先（运维通道）；缺省按链的数据源解析——平台链取该服务的平台
   服务库（全限定键 `platform_{service}`）、租户链回落 `[database.tenants].url`（真库批量迁移一律
   经库键）、归档链取 `[database.archive].url`（归档库不服务化）。
+- **前置数据步骤（结构与数据分离）**：`PREREQUISITE_STEPS` 登记各链「迁移到某修订前须先完成的
+  数据变更」；批量迁移（`ops.migrate_tenants`）在链头落后时经 `pending_prerequisite_steps()`
+  提示「先跑前置步骤」，**只提示不阻断**（历史数据是否已回填由运维按文档判定）。
 - 链定义是「Alembic 元数据子集 + 版本目录 + 自动建表表集 + 连接串取法」的**唯一来源**：
   `alembic/env.py` 与开发库自动建表（`db/bootstrap.py`）都从此取，避免多处漂移。
 - 表结构以《数据库设计》数据表文件为唯一事实源。
@@ -554,6 +557,79 @@ def head_revision(chain: MigrationChain) -> str | None:
     if not has_revisions(chain):
         return None
     return ScriptDirectory.from_config(alembic_config(chain)).get_current_head()
+
+
+@dataclass(frozen=True)
+class PrerequisiteStep(BaseValueObject):
+    """迁移前置数据步骤（**结构与数据分离**：链迁移到该修订前须先完成的数据变更）。"""
+
+    chain_name: str
+    """适用链名（`{service}:{datasource}`）。"""
+
+    revision: str
+    """触发修订：迁移到该修订**之前**须完成本步骤。"""
+
+    entrypoint: str
+    """执行入口（`ops` 命令行）；空串表示脚本已随退役移除、须按部署文档等价执行。"""
+
+    note: str
+    """步骤口径（回填对象 / 幂等性与不可解析处置）。"""
+
+    @property
+    def hint(self) -> str:
+        """迁移提示文案（供批量迁移在链头落后时输出）。
+
+        Returns:
+            str: 形如「迁移到 X 前须先完成前置数据步骤——…（执行入口：…）」。
+        """
+        entry = f"执行入口：{self.entrypoint}" if self.entrypoint else "无现成脚本，按部署文档等价执行"
+        return f"迁移到 {self.revision} 前须先完成前置数据步骤——{self.note}（{entry}）"
+
+
+PREREQUISITE_STEPS: tuple[PrerequisiteStep, ...] = (
+    PrerequisiteStep(
+        chain_name="platform:tenant",
+        revision="0010_dict_item_parent_id_bigint",
+        entrypoint="",
+        note="字典父项 parent_id 由「父 value」回填为「父 id」（原回填脚本已退役移除）",
+    ),
+    PrerequisiteStep(
+        chain_name="identity:platform",
+        revision="0003_sys_user_identity_bigint",
+        entrypoint="python -m ops.backfill_tenant_id_columns --service identity",
+        note="身份映射租户列由「租户 code」回填为「租户 id」（读注册库映射；不可解析即中止）",
+    ),
+)
+"""迁移前置数据步骤登记表（**唯一来源**）：各链的历史数据前置步骤在此登记，供批量迁移在链头落后时提示（缺陷 #103）。"""
+
+
+def pending_prerequisite_steps(chain: MigrationChain, current: str | None) -> tuple[PrerequisiteStep, ...]:
+    """取该链待迁移区间（`current` 之后至 head）命中的前置数据步骤。
+
+    空链 / 无登记 / 已到链头均返回空；目标库当前版本不在本链（残留或跨链值）时同样返回空——
+    提示属**增量信息**，不得改变批量迁移「失败不中断」的既有语义。
+
+    Args:
+        chain: 链定义。
+        current: 目标库当前版本（未迁移为 None）。
+
+    Returns:
+        tuple[PrerequisiteStep, ...]: 命中的前置步骤（按登记序；无命中为空元组）。
+    """
+    steps = tuple(step for step in PREREQUISITE_STEPS if step.chain_name == chain.name)
+    if not steps or not has_revisions(chain):
+        return ()
+    script = ScriptDirectory.from_config(alembic_config(chain))
+    head = script.get_current_head()
+    if head is None or current == head:
+        return ()
+    try:
+        pending: ConcurrentStableSet[str] = ConcurrentStableSet(
+            revision.revision for revision in script.iterate_revisions(head, current)
+        )
+    except Exception:  # 当前版本不在本链：无法定位待迁移区间，只跳过提示
+        return ()
+    return tuple(step for step in steps if step.revision in pending)
 
 
 def upgrade_chain(chain: MigrationChain, url: str, *, schema: str = "") -> None:

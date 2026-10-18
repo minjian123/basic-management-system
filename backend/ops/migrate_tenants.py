@@ -25,6 +25,9 @@ uv run python -m ops.migrate_tenants --target tenant \
 - **执行**：逐库经 Alembic 程序化接口 `command.upgrade(cfg, "head")`（配置段 = 链名，版本目录 /
   元数据子集取自 `db/migration.py` 链注册）；
 - **幂等**：目标 `alembic_version` 已为链 head → 输出「已是最新（跳过）」；链无脚本 → 「无脚本（跳过）」；
+- **前置数据步骤提示**：待迁移区间命中 `bms_core.db.migration.PREREQUISITE_STEPS` 登记的
+  「迁移前数据步骤」（如 `platform:tenant` `0010` 的字典父项回填、`identity:platform` `0003`
+  的租户列回填）时，打印提示行（**只提示不阻断**；结构与数据分离口径不变）；
 - **失败不中断**：单库失败记 ERROR 并继续下一库，末尾汇总；存在失败时退出码 1；
 - **`--dry-run`**：仅打印清单（连接串脱敏）与库数量统计，不建连、不迁移；
 - 达梦目标经 `--schema` 指定模式（库级隔离）。
@@ -55,6 +58,7 @@ from bms_core.db.migration import (
     build_chain_name,
     current_revision,
     head_revision,
+    pending_prerequisite_steps,
     resolve_chain,
     upgrade_chain,
 )
@@ -429,6 +433,8 @@ async def run_tasks(tasks: ConcurrentStableList[MigrationTask]) -> MigrationSumm
                 skipped.add(task.label)
                 print(f"[migrate_tenants] {chain.name} {task.label} → 已是最新（跳过）")
                 continue
+            for step in pending_prerequisite_steps(chain, current):
+                print(f"[migrate_tenants] {chain.name} {task.label} → 提示：{step.hint}")
             await asyncio.to_thread(upgrade_chain, chain, task.url, schema=task.schema)
         except Exception as exc:  # 单库失败不中断整批
             failed.add(task.label)

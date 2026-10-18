@@ -86,6 +86,7 @@ def test_migrate_tenants_idempotent_and_single_targets(
     assert migrate_tenants.main(ConcurrentStableList(args)) == 0
     out = capsys.readouterr().out
     assert "汇总：成功 2、跳过 0、失败 0" in out
+    assert "0010_dict_item_parent_id_bigint" in out and "前置数据步骤" in out
     assert _revisions(tmp_path / "bms_platform_demo.db") == ["0016_data_source_key"]
     assert _revisions(tmp_path / "bms_platform_acme.db") == ["0016_data_source_key"]
 
@@ -104,6 +105,23 @@ def test_migrate_tenants_idempotent_and_single_targets(
 
     assert migrate_tenants.main(ConcurrentStableList(["--target", "archive"])) == 0
     assert "无脚本（跳过）" in capsys.readouterr().out
+
+
+@pytest.mark.kiwi_id(1078)
+def test_migrate_prints_prerequisite_step_hint(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """链头落后且区间命中登记的前置数据步骤 → 打印提示行（只提示不阻断，迁移照常完成）。"""
+    _prepare(tmp_path, monkeypatch)
+    url = f"sqlite+aiosqlite:///{tmp_path / 'identity_platform.db'}"
+    assert (
+        migrate_tenants.main(ConcurrentStableList(["--service", "identity", "--target", "platform", "--url", url])) == 0
+    )
+    out = capsys.readouterr().out
+    assert "提示：迁移到 0003_sys_user_identity_bigint 前须先完成前置数据步骤" in out
+    assert "ops.backfill_tenant_id_columns --service identity" in out
+    assert "汇总：成功 1、跳过 0、失败 0" in out
+    assert _revisions(tmp_path / "identity_platform.db") == ["0003_sys_user_identity_bigint"]
 
 
 @pytest.mark.kiwi_id(1078)
