@@ -1,4 +1,4 @@
-"""SQLite 开发库自动建表测试（Kiwi 1078 / 2177）：开关 / 方言 / 本服务分链表集 / 幂等。"""
+"""启动期自动建表测试（Kiwi 1078 / 2177 / 2303）：开关 / 无脚本链照建 / 方言无关 / 幂等 / 跳过分支。"""
 
 import sqlite3
 from pathlib import Path
@@ -9,7 +9,13 @@ from sqlalchemy import MetaData
 import bms_core.db.bootstrap as bootstrap_module
 from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.config import get_settings
-from bms_core.db.bootstrap import db_keys_for, ensure_development_schema
+from bms_core.db.bootstrap import (
+    SchemaOutcome,
+    apply_chain_schema,
+    db_keys_for,
+    default_schema_of,
+    ensure_service_schema,
+)
 from bms_core.db.engine import EngineFactory
 from bms_core.db.migration import (
     DATASOURCE_ARCHIVE,
@@ -18,7 +24,6 @@ from bms_core.db.migration import (
     MigrationChain,
     resolve_chain,
 )
-from bms_core.db.registry import EngineRegistry
 
 
 def _tables(path: Path) -> ConcurrentStableSet[str]:
@@ -72,29 +77,25 @@ def test_db_key_mapping(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None
     assert db_keys_for(resolve_chain("platform:archive"), settings) == ["archive"]
 
 
-@pytest.mark.kiwi_id(1078)
-async def test_sqlite_auto_create_tables_and_idempotent(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """开关开 + SQLite：按**本服务分链表集**建表，重复执行幂等且不建骨架表。"""
+@pytest.mark.kiwi_id(2303)
+async def test_service_schema_auto_create_and_idempotent(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """开关开 + 四库方言：按**本服务分链表集**建表（脚本清空后空链照建），重复执行幂等且不建骨架表。"""
     platform, tenant = _point_to(tmp_path, monkeypatch)
     settings = get_settings()
     assert settings.database.auto_create is True
 
-    registry = EngineRegistry(EngineFactory(settings))
-    try:
-        handled = await ensure_development_schema(registry, settings)
-        assert handled == ["platform", "tenant_demo"]
-        platform_tables = _tables(platform)
-        assert {"sys_module", "sys_module_i18n", "sys_table_ownership", "sys_outbox"} <= platform_tables
-        assert "sys_tenant" not in platform_tables, "租户注册归 tenant 服务，不进平台服务的平台链"
-        tenant_tables = _tables(tenant)
-        assert {"sys_data_scope", "sys_query_scheme", "sys_outbox"} <= tenant_tables
-        assert "sys_task" not in tenant_tables, "骨架表（planned）不入链、不自动建表"
+    handled = await ensure_service_schema(settings, factory=EngineFactory(settings))
+    assert handled == ["platform", "tenant_demo"]
+    platform_tables = _tables(platform)
+    assert {"sys_module", "sys_module_i18n", "sys_table_ownership", "sys_outbox"} <= platform_tables
+    assert "sys_tenant" not in platform_tables, "租户注册归 tenant 服务，不进平台服务的平台链"
+    tenant_tables = _tables(tenant)
+    assert {"sys_data_scope", "sys_query_scheme", "sys_outbox"} <= tenant_tables
+    assert "sys_task" not in tenant_tables, "骨架表（planned）不入链、不自动建表"
 
-        before = (_tables(platform), _tables(tenant))
-        assert await ensure_development_schema(registry, settings) == handled
-        assert (_tables(platform), _tables(tenant)) == before, "重复执行不新建表"
-    finally:
-        await registry.aclose()
+    before = (_tables(platform), _tables(tenant))
+    assert await ensure_service_schema(settings, factory=EngineFactory(settings)) == handled
+    assert (_tables(platform), _tables(tenant)) == before, "重复执行不新建表"
 
 
 @pytest.mark.kiwi_id(2177)
@@ -109,62 +110,98 @@ async def test_auto_create_service_ized_targets(tmp_path: Path, monkeypatch: pyt
     settings = get_settings()
     settings.app.service = "platform"  # 启动期由服务包声明回写
 
-    registry = EngineRegistry(EngineFactory(settings))
-    try:
-        handled = await ensure_development_schema(registry, settings)
-        assert handled == ["platform", "tenant_demo", "tenant_acme"]
-        assert "sys_module" in _tables(tmp_path / "bms_platform.db")
-        assert "sys_data_scope" in _tables(tmp_path / "bms_platform_demo.db")
-        assert "sys_data_scope" in _tables(tmp_path / "bms_platform_acme.db")
-    finally:
-        await registry.aclose()
+    handled = await ensure_service_schema(settings, factory=EngineFactory(settings))
+    assert handled == ["platform", "tenant_demo", "tenant_acme"]
+    assert "sys_module" in _tables(tmp_path / "bms_platform.db")
+    assert "sys_data_scope" in _tables(tmp_path / "bms_platform_demo.db")
+    assert "sys_data_scope" in _tables(tmp_path / "bms_platform_acme.db")
 
 
-@pytest.mark.kiwi_id(1078)
-async def test_auto_create_skips_chains_without_revisions(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """无迁移脚本的服务链不建表（与真库迁移口径一致，避免开发库与真库漂移）。"""
-    _point_to(tmp_path, monkeypatch, service="file")
+@pytest.mark.kiwi_id(2303)
+async def test_auto_create_builds_chains_without_scripts(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """去脚本门槛（06_05）：仓库脚本清空后无迁移脚本的服务链照建当前表集（file 服务平台链三张基础设施表）。"""
+    platform, tenant = _point_to(tmp_path, monkeypatch, service="file")
     settings = get_settings()
 
-    registry = EngineRegistry(EngineFactory(settings))
-    try:
-        assert await ensure_development_schema(registry, settings) == []
-        assert registry.active_keys() == []
-    finally:
-        await registry.aclose()
+    handled = await ensure_service_schema(settings, factory=EngineFactory(settings))
+    assert handled == ["platform", "tenant_demo"]
+    assert {"sys_outbox", "sys_event_consumed", "sys_event_dead_letter"} <= _tables(platform)
+    assert platform.exists() and tenant.exists()
 
 
-@pytest.mark.kiwi_id(1078)
+@pytest.mark.kiwi_id(2303)
 async def test_auto_create_disabled_skips(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """开关关（prod 口径）：不建表。"""
+    """开关关（生产口径）：不建表、不建连。"""
     platform, tenant = _point_to(tmp_path, monkeypatch)
     settings = get_settings()
     settings.database.auto_create = False
 
-    registry = EngineRegistry(EngineFactory(settings))
-    try:
-        assert await ensure_development_schema(registry, settings) == []
-        assert not platform.exists() and not tenant.exists()
-    finally:
-        await registry.aclose()
+    assert await ensure_service_schema(settings, factory=EngineFactory(settings)) == []
+    assert not platform.exists() and not tenant.exists()
 
 
-@pytest.mark.kiwi_id(1078)
-async def test_auto_create_skips_non_sqlite(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """非 SQLite 方言：跳过建表（不建连，三库结构统一走 Alembic 迁移）。"""
+@pytest.mark.kiwi_id(2303)
+async def test_auto_create_covers_non_sqlite_dialect(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """方言无关（去 SQLite 限定）：非 SQLite 目标同样进入建表路径（建连经替身，避免真库依赖）。"""
     monkeypatch.setenv("BMS_DATABASE__PLATFORM__URL", "mysql+aiomysql://u:p@127.0.0.1:3306/bms_platform")
     monkeypatch.setenv("BMS_DATABASE__TENANTS__URL", "mysql+aiomysql://u:p@127.0.0.1:3306/bms_platform_demo")
-    monkeypatch.setenv("BMS_DATABASE__ARCHIVE__URL", "mysql+aiomysql://u:p@127.0.0.1:3306/bms_archive")
     get_settings.cache_clear()
     settings = get_settings()
     settings.app.service = "platform"
+    calls: ConcurrentStableList[str] = ConcurrentStableList()
 
-    registry = EngineRegistry(EngineFactory(settings))
-    try:
-        assert await ensure_development_schema(registry, settings) == []
-        assert registry.active_keys() == [], "跳过后不应产生引擎"
-    finally:
-        await registry.aclose()
+    async def _fake_async(url: str, metadata: MetaData) -> tuple[int, int]:
+        """替身：记录目标并返回（新建, 已存在）统计（不建连）。"""
+        calls.add(url)
+        return len(metadata.tables), 0
+
+    monkeypatch.setattr(bootstrap_module, "_apply_async", _fake_async)
+    handled = await ensure_service_schema(settings, factory=EngineFactory(settings))
+    assert handled == ["platform", "tenant_demo"]
+    assert len(calls) == 2, "非 SQLite 目标不再被跳过"
+
+
+@pytest.mark.kiwi_id(2303)
+async def test_auto_create_skips_unregistered_service(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """运行服务未登记（脚手架工程尚未登记）：派生链失败即跳过，不阻断启动、不建表。"""
+    platform, tenant = _point_to(tmp_path, monkeypatch, service="ghost")
+    settings = get_settings()
+
+    assert await ensure_service_schema(settings, factory=EngineFactory(settings)) == []
+    assert not platform.exists() and not tenant.exists()
+
+
+@pytest.mark.kiwi_id(2303)
+def test_default_schema_of_only_for_sync_dialect() -> None:
+    """模式名取法：达梦取连接串 `database` 段；其余方言为空（不把库名 / 文件路径误当模式）。"""
+    assert default_schema_of("dm+dmPython://SYSDBA:p@127.0.0.1:5236/BMS_MIGRCHECK") == "BMS_MIGRCHECK"
+    assert default_schema_of("dm+dmPython://SYSDBA:p@127.0.0.1:5236") == ""
+    assert default_schema_of("sqlite+aiosqlite:///./demo.db") == ""
+    assert default_schema_of("mysql+aiomysql://u:p@127.0.0.1:3306/bms_platform") == ""
+
+
+@pytest.mark.kiwi_id(2303)
+async def test_apply_chain_schema_sync_driver_and_idempotent(tmp_path: Path) -> None:
+    """同步驱动路径：同步连接串同样幂等建表（显式模式名对非达梦为空操作）。"""
+    url = f"sqlite:///{tmp_path / 'sync.db'}"
+    chain = resolve_chain("platform:platform")
+
+    first = await apply_chain_schema(chain, url, target="sync", schema="IGNORED")
+    assert first.created == first.total > 0
+    assert first.existing == 0
+
+    second = await apply_chain_schema(chain, url, target="sync", schema="IGNORED")
+    assert second.created == 0
+    assert second.existing == second.total
+
+
+@pytest.mark.kiwi_id(2303)
+async def test_apply_chain_schema_skips_empty_table_set(tmp_path: Path) -> None:
+    """表集空即跳过、不建连（归档链空链）：目标文件不产生。"""
+    target = tmp_path / "none.db"
+    outcome = await apply_chain_schema(resolve_chain("platform:archive"), f"sqlite+aiosqlite:///{target}")
+    assert outcome == SchemaOutcome(target="platform:archive", total=0, created=0, existing=0)
+    assert not target.exists()
 
 
 def _chain(datasource: str, *, tables: ConcurrentStableSet[str]) -> MigrationChain:
@@ -202,22 +239,16 @@ def test_db_keys_for_archive_and_tenant_branches() -> None:
     assert db_keys_for(_chain(DATASOURCE_PLATFORM, tables=ConcurrentStableSet()), settings) == ["platform"]
 
 
-@pytest.mark.kiwi_id(1078)
+@pytest.mark.kiwi_id(2303)
 async def test_auto_create_skips_chain_without_tables(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """链有迁移脚本但表集为空：跳过建表（不产生引擎）。"""
+    """链表集为空：跳过建表（不建连、不产生库文件）。"""
     platform, tenant = _point_to(tmp_path, monkeypatch)
     settings = get_settings()
 
     monkeypatch.setattr(bootstrap_module, "service_chains", _empty_table_chains)
-    monkeypatch.setattr(bootstrap_module, "has_revisions", _always_has_revisions)
     monkeypatch.setattr(bootstrap_module, "chain_metadata", _empty_metadata)
 
-    registry = EngineRegistry(EngineFactory(settings))
-    try:
-        assert await ensure_development_schema(registry, settings) == []
-        assert registry.active_keys() == []
-    finally:
-        await registry.aclose()
+    assert await ensure_service_schema(settings, factory=EngineFactory(settings)) == []
     assert not platform.exists() and not tenant.exists()
 
 
@@ -232,19 +263,6 @@ def _empty_table_chains(service: str) -> ConcurrentStableList[MigrationChain]:
     """
     del service
     return ConcurrentStableList([_chain(DATASOURCE_PLATFORM, tables=ConcurrentStableSet())])
-
-
-def _always_has_revisions(chain: MigrationChain) -> bool:
-    """迁移脚本判定替身：恒有脚本。
-
-    Args:
-        chain: 链定义（忽略）。
-
-    Returns:
-        bool: 恒 True。
-    """
-    del chain
-    return True
 
 
 def _empty_metadata(chain: MigrationChain) -> MetaData:

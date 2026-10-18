@@ -30,7 +30,7 @@ from bms_core.core.context import current_tenant
 from bms_core.core.exceptions import ConcurrentConflictError
 from bms_core.servicecall.base import BaseServiceClient, ServiceRequest, ServiceResponse
 
-from .test_config_real import _engines, _run_migrations  # pyright: ignore[reportPrivateUsage]
+from .test_config_real import _build_schema, _engines  # pyright: ignore[reportPrivateUsage]
 
 
 @pytest.mark.kiwi_id(2207)
@@ -176,7 +176,7 @@ async def test_config_providers_resolve(monkeypatch: pytest.MonkeyPatch) -> None
 
 @pytest.fixture
 def config_db_url(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[str]:
-    """临时租户库（迁移 + 覆盖配置）。
+    """临时租户库（建表 + 覆盖配置）。
 
     Args:
         tmp_path: 临时目录。
@@ -188,7 +188,7 @@ def config_db_url(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[s
     url = f"sqlite+aiosqlite:///{tmp_path / 'config_edges.db'}"
     monkeypatch.setenv("BMS_DATABASE__TENANTS__URL", url)
     get_settings.cache_clear()
-    _run_migrations(url)
+    _build_schema(url)
     yield url
     get_settings.cache_clear()
 

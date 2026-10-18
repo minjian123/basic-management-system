@@ -1,12 +1,11 @@
-"""三库测试库流程脚本测试（Kiwi 1155）：两对象清单 / 与 CI 变量一致 / 建号语句 / 真实执行分支。"""
+"""三库测试库流程脚本测试（Kiwi 1155 / 2306）：两对象清单 / 与 CI 变量一致 / 建号语句 / 真实执行分支。"""
 
 import sqlite3
 from pathlib import Path
 
 import pytest
 
-from bms_core.core.concurrent import ConcurrentStableList
-from bms_core.db.migration import head_revision, resolve_chain
+from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
 from ops.test_db import (
     ENGINE_CHOICES,
     FLOW_STEPS,
@@ -31,11 +30,13 @@ CI_FILE = REPO_ROOT / ".gitlab-ci.yml"
 _DM_URL = "dm+dmPython://SYSDBA:secret@192.0.2.10:5236/BMS_TEST_DM"
 
 
-def _revisions(path: Path) -> ConcurrentStableList[str]:
-    """读 SQLite 库 `alembic_version` 版本行。"""
+def _tables(path: Path) -> ConcurrentStableSet[str]:
+    """读 SQLite 库表名集合。"""
     connection = sqlite3.connect(path)
     try:
-        return ConcurrentStableList(row[0] for row in connection.execute("SELECT version_num FROM alembic_version"))
+        return ConcurrentStableSet(
+            row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        )
     finally:
         connection.close()
 
@@ -172,9 +173,9 @@ def test_invalid_arguments_exit_two() -> None:
     assert SCOPE_CHOICES == ("all", "platform", "tenant")
 
 
-@pytest.mark.kiwi_id(1156)
+@pytest.mark.kiwi_id(2306)
 async def test_sqlite_objects_full_flow(tmp_path: Path) -> None:
-    """真实执行（SQLite 代替真库）：建对象 → 分链迁移（幂等）→ 删对象（幂等）。"""
+    """真实执行（SQLite 代替真库）：建对象 → 建表（`migrate` 段语义内改、命令名保留、幂等）→ 删对象（幂等）。"""
     platform_url = f"sqlite+aiosqlite:///{tmp_path / 'platform.db'}"
     tenant_url = f"sqlite+aiosqlite:///{tmp_path / 'tenant.db'}"
 
@@ -184,8 +185,8 @@ async def test_sqlite_objects_full_flow(tmp_path: Path) -> None:
     assert await migrate("mysql", "platform", url=platform_url) is False
     assert await migrate("mysql", "tenant", url=tenant_url) is True
 
-    assert _revisions(tmp_path / "platform.db") == [head_revision(resolve_chain("platform:platform"))]
-    assert _revisions(tmp_path / "tenant.db") == [head_revision(resolve_chain("platform:tenant"))]
+    assert {"sys_module", "sys_table_ownership", "sys_outbox"} <= _tables(tmp_path / "platform.db")
+    assert {"sys_data_scope", "sys_query_scheme", "sys_outbox"} <= _tables(tmp_path / "tenant.db")
 
     assert await drop("mysql", "platform", url=platform_url) is True
     assert await drop("mysql", "platform", url=platform_url) is False

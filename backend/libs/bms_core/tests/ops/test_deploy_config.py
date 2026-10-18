@@ -107,9 +107,9 @@ def test_blackbox_module_requires_200() -> None:
     assert blackbox["modules"]["http_2xx"]["http"]["valid_status_codes"] == [200]
 
 
-@pytest.mark.kiwi_id(2185)
-def test_image_contains_migration_capability() -> None:
-    """运行镜像含 alembic / ops（迁移容器复用）；.dockerignore 不排除二者。"""
+@pytest.mark.kiwi_id(2309)
+def test_image_contains_schema_capability() -> None:
+    """运行镜像含 alembic（迁移机制保留）与 ops（建表入口）；一次性建表容器复用同镜像。"""
     dockerfile = _DOCKERFILE.read_text(encoding="utf-8")
     assert "COPY alembic ./alembic" in dockerfile
     assert "COPY ops ./ops" in dockerfile

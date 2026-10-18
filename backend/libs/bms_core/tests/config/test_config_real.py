@@ -1,24 +1,23 @@
-"""config 域真实实现用例（Kiwi 2207，03_08）：迁移 / 种子 / SQL 取数与缓存 / 写失效 / 跨服务读 / 缓存域。
+"""config 域真实实现用例（Kiwi 2207，03_08）：建表 / 种子 / SQL 取数与缓存 / 写失效 / 跨服务读 / 缓存域。
 
-覆盖：`sys_config` 迁移建表与模型一致 / 平台默认种子幂等 / `SqlConfigSource` 命中·未命中·缓存回源·DB 异常降级 /
+覆盖：`sys_config` 建表（与启动期同一表集派生点）与模型一致 / 平台默认种子幂等 /
+`SqlConfigSource` 命中·未命中·缓存回源·DB 异常降级 /
 `ConfigService.set`·`drop` 后缓存失效即时生效 / `HttpConfigSource` 契约调用与降级 / 内存与 Redis 缓存域 key 与版本 /
 `NullConfigSource` 恒空 / `BaseConfigSource.get` 默认。
 
-测试库：临时 SQLite 文件（跑 Alembic `platform:tenant` 链建表 + 幂等种子）。
+测试库：临时 SQLite 文件（按 `platform:tenant` 链表集幂等建表 + 幂等种子）。
 """
 
+import asyncio
 import json
 import sqlite3
 from collections.abc import AsyncIterator, Iterator
 from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
-from alembic.config import Config
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from alembic import command
 from bms_core.config.base import BaseConfigSource, ConfigCacheRegion
 from bms_core.config.cache import MemoryConfigCacheRegion, RedisConfigCacheRegion
 from bms_core.config.http import HttpConfigSource
@@ -30,8 +29,9 @@ from bms_core.config.sql import SqlConfigSource
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import get_settings
 from bms_core.core.exceptions import ServiceUnavailableError
+from bms_core.db.bootstrap import apply_chain_schema
 from bms_core.db.engine import EngineFactory
-from bms_core.db.migration import BACKEND_ROOT
+from bms_core.db.migration import resolve_chain
 from bms_core.db.registry import EngineRegistry
 from bms_core.servicecall.base import BaseServiceClient, ServiceRequest, ServiceResponse
 
@@ -57,20 +57,18 @@ EXPECTED_COLUMNS = {
 }
 
 
-def _run_migrations(url: str) -> None:
-    """对目标库执行 Alembic `platform:tenant` 链迁移。
+def _build_schema(url: str) -> None:
+    """对目标库幂等建 `platform:tenant` 链表集（与启动期 / `ops.init_schema` 同一表集派生点）。
 
     Args:
         url: 数据库 URL。
     """
-    cfg = Config(str(BACKEND_ROOT / "alembic.ini"))
-    cfg.cmd_opts = SimpleNamespace(x=[f"url={url}"])  # pyright: ignore[reportAttributeAccessIssue]
-    command.upgrade(cfg, "head")
+    asyncio.run(apply_chain_schema(resolve_chain("platform:tenant"), url, target="config_test"))
 
 
 @pytest.fixture
 def config_db_url(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[str]:
-    """临时租户库：迁移建表 + 配置覆盖。
+    """临时租户库：建表 + 配置覆盖。
 
     Args:
         tmp_path: 临时目录。
@@ -84,7 +82,7 @@ def config_db_url(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[s
     monkeypatch.setenv("BMS_CONFIG_SOURCE__PROVIDER", "sql")
     monkeypatch.setenv("BMS_CONFIG_CACHE_REGION__PROVIDER", "memory")
     get_settings.cache_clear()
-    _run_migrations(url)
+    _build_schema(url)
     yield url
     get_settings.cache_clear()
 
@@ -131,8 +129,8 @@ async def _seed(url: str) -> None:
 
 
 @pytest.mark.kiwi_id(2207)
-def test_migration_creates_sys_config(config_db_url: str) -> None:
-    """迁移建表：`sys_config` 表与关键列齐备。"""
+def test_schema_creates_sys_config(config_db_url: str) -> None:
+    """建表：`sys_config` 表与关键列齐备。"""
     db_path = config_db_url.split("///")[-1]
     con = sqlite3.connect(db_path)
     try:

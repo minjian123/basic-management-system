@@ -101,4 +101,4 @@ def test_build_manifest_fields_and_placeholders() -> None:
     assert manifest["tag"] == "v0.2.0"
     assert manifest["digest"] == "sha256:deadbeef"
     assert manifest["checklist"]["image_scan"] == "pass"
-    assert "人工确认" in str(manifest["checklist"]["migration_drill"])
+    assert "人工确认" in str(manifest["checklist"]["schema_drill"])

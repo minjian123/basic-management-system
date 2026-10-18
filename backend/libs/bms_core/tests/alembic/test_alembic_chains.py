@@ -1,19 +1,17 @@
-"""迁移链注册测试（Kiwi 1078）：分链形态（服务 × 数据源）、元数据子集、URL 解析、链完整性与空链。"""
+"""迁移链注册测试（Kiwi 1078 / 2307）：分链形态（服务 × 数据源）、元数据子集、URL 解析、空链与临时链脚本。"""
 
 from pathlib import Path
 
 import pytest
-from alembic.config import Config
-from alembic.script import ScriptDirectory
 
 from bms_core.core.config import get_settings
 from bms_core.core.exceptions import ConfigError
+from bms_core.db import migration
 from bms_core.db.migration import (
     BACKEND_ROOT,
     CONFIG_SECTION,
     DATASOURCES,
     DEFAULT_CHAIN_NAME,
-    MigrationChain,
     alembic_config,
     archive_chain,
     build_chain_name,
@@ -25,23 +23,10 @@ from bms_core.db.migration import (
     has_revisions,
     head_revision,
     parse_chain_name,
-    pending_prerequisite_steps,
     resolve_chain,
     resolve_chain_from_section,
     service_chains,
 )
-
-
-def _config(chain: MigrationChain) -> Config:
-    """取该链的 Alembic 配置（配置段名由链名派生）。
-
-    Args:
-        chain: 链定义。
-
-    Returns:
-        Config: Alembic 配置。
-    """
-    return Config(str(BACKEND_ROOT / "alembic.ini"), ini_section=config_section(chain))
 
 
 @pytest.mark.kiwi_id(1078)
@@ -247,81 +232,31 @@ def test_chain_url_resolution(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -
 
 
 @pytest.mark.kiwi_id(1078)
-@pytest.mark.kiwi_id(2247)
-def test_chain_revisions_integrity() -> None:
-    """链完整性：有脚本链单 head、分支标签与链名一致、链内 revision 唯一（跨链允许同名）。"""
-    platform_head = ScriptDirectory.from_config(_config(resolve_chain("platform:platform"))).get_current_head()
-    assert platform_head == "0010_system_fields_form_key"
-    tenant_service_head = ScriptDirectory.from_config(_config(default_chain())).get_current_head()
-    assert tenant_service_head == "0016_data_source_key"
+@pytest.mark.kiwi_id(2307)
+def test_head_revision_driven_by_temp_chain_script(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """临时链脚本自检：仓库脚本清空后，「有脚本链」分支（`has_revisions` / `head_revision`）由临时链驱动。"""
+    versions = tmp_path / "versions"
+    location = versions / "platform" / "platform"
+    location.mkdir(parents=True)
+    (location / "0001_demo.py").write_text(
+        'revision: str = "0001_demo"\n'
+        "down_revision: str | None = None\n"
+        'branch_labels: tuple[str, ...] = ("platform:platform",)\n'
+        "def upgrade() -> None:\n    pass\n"
+        "def downgrade() -> None:\n    pass\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "alembic.ini").write_text(
+        "[alembic:platform:platform]\n"
+        "path_separator = os\n"
+        f"script_location = {BACKEND_ROOT / 'alembic'}\n"
+        f"version_locations = {location}\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(migration, "VERSIONS_ROOT", versions)
+    monkeypatch.setattr(migration, "BACKEND_ROOT", tmp_path)
 
-    for name in (
-        "platform:platform",
-        "platform:tenant",
-        "tenant:platform",
-        "tenant:tenant",
-        "identity:tenant",
-        "identity:platform",
-    ):
-        heads = ScriptDirectory.from_config(_config(resolve_chain(name))).get_heads()
-        assert len(heads) == 1, f"{name} 应恰好一个 head，实际 {heads}"
-        head = ScriptDirectory.from_config(_config(resolve_chain(name))).get_revision(heads[0])
-        assert head is not None
-        assert tuple(head.branch_labels or ()) == (name,)
-        assert has_revisions(resolve_chain(name)) is True
-
-
-@pytest.mark.kiwi_id(1078)
-def test_pending_prerequisite_steps_hits_registered_range() -> None:
-    """前置数据步骤：待迁移区间命中登记项（未迁移与中途版本），提示文案含修订与执行入口。"""
-    platform = resolve_chain("platform:tenant")
-    steps = pending_prerequisite_steps(platform, None)
-    assert [step.revision for step in steps] == ["0010_dict_item_parent_id_bigint"]
-    assert steps[0].chain_name == "platform:tenant"
-    assert "0010_dict_item_parent_id_bigint" in steps[0].hint
-    assert "无现成脚本" in steps[0].hint
-
-    identity_steps = pending_prerequisite_steps(resolve_chain("identity:platform"), "0002_sys_outbox")
-    assert [step.revision for step in identity_steps] == ["0003_sys_user_identity_bigint"]
-    assert "python -m ops.backfill_tenant_id_columns --service identity" in identity_steps[0].hint
-
-
-@pytest.mark.kiwi_id(1078)
-def test_pending_prerequisite_steps_excluded_when_applied() -> None:
-    """前置数据步骤：修订已达（含已到链头）时不提示（待迁移区间不含当前版本）。"""
-    platform = resolve_chain("platform:tenant")
-    assert pending_prerequisite_steps(platform, "0010_dict_item_parent_id_bigint") == ()
-    assert pending_prerequisite_steps(platform, head_revision(platform)) == ()
-    assert pending_prerequisite_steps(resolve_chain("identity:platform"), "0003_sys_user_identity_bigint") == ()
-
-
-@pytest.mark.kiwi_id(1078)
-def test_pending_prerequisite_steps_unregistered_and_unreachable() -> None:
-    """前置数据步骤：无登记链为空；当前版本不在本链（残留 / 跨链值）只跳过提示、不报错。"""
-    assert pending_prerequisite_steps(resolve_chain("txn:tenant"), None) == ()
-    assert pending_prerequisite_steps(resolve_chain("platform:tenant"), "no_such_revision") == ()
-
-
-@pytest.mark.kiwi_id(1078)
-def test_pending_prerequisite_steps_guard_branches(monkeypatch: pytest.MonkeyPatch) -> None:
-    """前置数据步骤：登记链无脚本 / head 不可得（多 head 或异常）一律返回空——提示不得阻断迁移。"""
-    from bms_core.db import migration
-
-    step = migration.PrerequisiteStep(chain_name="platform:archive", revision="0001_x", entrypoint="", note="演练")
-    monkeypatch.setattr(migration, "PREREQUISITE_STEPS", (step,))
-    assert migration.pending_prerequisite_steps(resolve_chain("platform:archive"), None) == ()
-
-    class _GhostScript:
-        """Alembic 脚本目录替身：head 不可得。"""
-
-        @staticmethod
-        def from_config(config: Config) -> object:
-            del config
-            return _GhostScript()
-
-        def get_current_head(self) -> None:
-            """恒定返回「无 head」。"""
-            return None
-
-    monkeypatch.setattr(migration, "ScriptDirectory", _GhostScript)
-    assert migration.pending_prerequisite_steps(resolve_chain("platform:tenant"), None) == ()
+    chain = resolve_chain("platform:platform")
+    assert chain.version_location == location
+    assert migration.has_revisions(chain) is True
+    assert head_revision(chain) == "0001_demo"

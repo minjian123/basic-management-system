@@ -1,8 +1,9 @@
 """查询方案真实存储用例（Kiwi 963，02-4-27）：落库 CRUD / 三级默认解析 / 个人方案 owner 过滤。
 
-测试库：临时 SQLite 文件（跑 Alembic 首个迁移建表）。
+测试库：临时 SQLite 文件（按 `platform:tenant` 链表集幂等建表）。
 """
 
+import asyncio
 from collections.abc import AsyncGenerator, AsyncIterator, Generator, Iterator
 from contextlib import asynccontextmanager, contextmanager
 from pathlib import Path
@@ -10,30 +11,27 @@ from types import SimpleNamespace
 from typing import Any, cast
 
 import pytest
-from alembic.config import Config
 from sqlalchemy.orm.exc import StaleDataError
 
-from alembic import command
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import get_settings
 from bms_core.core.context import current_user_id
 from bms_core.core.exceptions import ConcurrentConflictError, NotFoundError
+from bms_core.db.bootstrap import apply_chain_schema
 from bms_core.db.engine import EngineFactory
-from bms_core.db.migration import BACKEND_ROOT
+from bms_core.db.migration import resolve_chain
 from bms_core.db.registry import EngineRegistry
 from bms_core.listing.base import QueryScheme, QuerySchemeScope, QuerySchemeTarget
 from bms_core.listing.store import SqlQuerySchemeStore, _to_scheme  # pyright: ignore[reportPrivateUsage]
 
 
-def _run_migrations(url: str) -> None:
-    """对目标库执行 Alembic 首个迁移。
+def _build_schema(url: str) -> None:
+    """对目标库幂等建 `platform:tenant` 链表集（与启动期 / `ops.init_schema` 同一表集派生点）。
 
     Args:
         url: 数据库 URL。
     """
-    cfg = Config(str(BACKEND_ROOT / "alembic.ini"))  # 绝对定位，与运行目录无关
-    cfg.cmd_opts = SimpleNamespace(x=[f"url={url}"])  # pyright: ignore[reportAttributeAccessIssue]
-    command.upgrade(cfg, "head")
+    asyncio.run(apply_chain_schema(resolve_chain("platform:tenant"), url, target="listing_test"))
 
 
 @contextmanager
@@ -84,7 +82,7 @@ def scheme_store(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Sq
     url = f"sqlite+aiosqlite:///{tmp_path / 'scheme_test.db'}"
     monkeypatch.setenv("BMS_DATABASE__TENANTS__URL", url)
     get_settings.cache_clear()
-    _run_migrations(url)
+    _build_schema(url)
     registry = EngineRegistry(EngineFactory(get_settings()))
     _OPEN_ENGINES.add(registry)
     store = SqlQuerySchemeStore(engines=registry)

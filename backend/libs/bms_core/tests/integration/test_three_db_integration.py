@@ -40,7 +40,7 @@ from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.core.plugin import resolve_plugin
 from bms_core.db.engine import PLATFORM_DB_KEY, EngineFactory
-from bms_core.db.migration import current_revision, head_revision, resolve_chain
+from bms_core.db.migration import resolve_chain
 from bms_core.db.registry import EngineRegistry
 from bms_core.db.session import session_scope
 from bms_core.repositories.ordering import order_criteria
@@ -200,15 +200,13 @@ async def test_multi_datasource_routing(dialect: str, urls: tuple[str, str], reg
     assert await _scalar(registry, _TENANT_DB_KEY, "SELECT 1") == 1
 
 
-async def test_migration_head_and_tables(dialect: str, urls: tuple[str, str], registry: EngineRegistry) -> None:
-    """迁移结果：平台 / 租户对象分别处于「platform 服务」两条链 head，且各自链表可查询（表集取自链注册）。
+async def test_schema_tables_queryable(dialect: str, urls: tuple[str, str], registry: EngineRegistry) -> None:
+    """建表结果：平台 / 租户对象各自链表可查询（表由 CI `ops.test_db migrate` 段建出；表集取自链注册）。
 
     对象与链的对应（06_02 分链口径）：平台对象 = `platform:platform`、租户对象 = `platform:tenant`
     （链名 `{service}:{datasource}`；`platform` 服务的租户库承载字典 / 查询方案等租户数据）。
     """
-    platform_url, tenant_url = urls
-    assert await current_revision(platform_url) == head_revision(resolve_chain("platform:platform"))
-    assert await current_revision(tenant_url) == head_revision(resolve_chain("platform:tenant"))
+    del dialect, urls
     for table in sorted(resolve_chain("platform:platform").tables):
         assert await _can_select(registry, PLATFORM_DB_KEY, table) is True, table
     for table in sorted(resolve_chain("platform:tenant").tables):

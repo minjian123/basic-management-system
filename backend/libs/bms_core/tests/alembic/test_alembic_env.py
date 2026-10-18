@@ -1,8 +1,10 @@
 """迁移环境与链取值测试（Kiwi 1078）：版本号读取（异步 / 同步）与链元数据校验。"""
 
+import asyncio
 from pathlib import Path
 
 import pytest
+from alembic.config import Config
 from sqlalchemy import create_engine
 
 import bms_core.db.migration as migration
@@ -168,3 +170,61 @@ async def test_current_revision_delegates_to_sync_for_dm(monkeypatch: pytest.Mon
     url = "dm+dmPython://SYSDBA:p@127.0.0.1:5236"
     assert await current_revision(url, schema="BMS_MIGRCHECK") == "0001_demo"
     assert calls == [(url, "BMS_MIGRCHECK")]
+
+
+def _temp_chain_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> str:
+    """造临时链脚本环境（版本目录 + 最小脚本 + 配置段），返回目标 SQLite 连接串。
+
+    Args:
+        tmp_path: 临时目录。
+        monkeypatch: 用于把工程根 / 版本根指向临时目录。
+
+    Returns:
+        str: 临时 SQLite 目标连接串。
+    """
+    versions = tmp_path / "versions"
+    location = versions / "platform" / "platform"
+    location.mkdir(parents=True)
+    (location / "0001_demo.py").write_text(
+        'revision: str = "0001_demo"\n'
+        "down_revision: str | None = None\n"
+        'branch_labels: tuple[str, ...] = ("platform:platform",)\n'
+        "def upgrade() -> None:\n    pass\n"
+        "def downgrade() -> None:\n    pass\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "alembic.ini").write_text(
+        "[alembic:platform:platform]\n"
+        "path_separator = os\n"
+        f"script_location = {migration.BACKEND_ROOT / 'alembic'}\n"
+        f"version_locations = {location}\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(migration, "VERSIONS_ROOT", versions)
+    monkeypatch.setattr(migration, "BACKEND_ROOT", tmp_path)
+    return f"sqlite+aiosqlite:///{tmp_path / 'drill.db'}"
+
+
+@pytest.mark.kiwi_id(2307)
+def test_upgrade_chain_runs_temp_chain(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """库级编排保留（临时链脚本自检）：仓库脚本清空后 `upgrade_chain` 仍能把临时链跑到 head。"""
+    url = _temp_chain_env(tmp_path, monkeypatch)
+    migration.upgrade_chain(migration.resolve_chain("platform:platform"), url)
+    assert asyncio.run(migration.current_revision(url)) == "0001_demo"
+
+
+@pytest.mark.kiwi_id(2307)
+def test_upgrade_chain_passes_schema_x_arg(monkeypatch: pytest.MonkeyPatch) -> None:
+    """达梦模式经 `-x schema=` 显式传入（非达梦方言忽略；以替身核对传参口径，避免真连达梦）。"""
+    captured: ConcurrentStableList[tuple[str, ...]] = ConcurrentStableList()
+
+    def _fake_upgrade(config: Config, revision: str) -> None:
+        """替身：记录 `-x` 参数并核对目标修订。"""
+        captured.add(tuple(config.cmd_opts.x))  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
+        assert revision == "head"
+
+    monkeypatch.setattr(migration.command, "upgrade", _fake_upgrade)
+    migration.upgrade_chain(
+        migration.resolve_chain("platform:platform"), "dm+dmPython://SYSDBA:p@127.0.0.1:5236", schema="BMS_X"
+    )
+    assert captured == [("url=dm+dmPython://SYSDBA:p@127.0.0.1:5236", "schema=BMS_X")]

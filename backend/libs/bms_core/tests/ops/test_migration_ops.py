@@ -1,6 +1,5 @@
-"""批量迁移 / 新租户初始化 / 库级建删用例（Kiwi 1078）：分链清单、幂等、失败汇总与三步初始化。"""
+"""批量迁移 / 新租户初始化 / 库级建删用例（Kiwi 1078 / 2305 / 2307）：分链清单、幂等、失败汇总与三步初始化。"""
 
-import sqlite3
 from pathlib import Path
 
 import pytest
@@ -10,6 +9,7 @@ import ops.init_tenant as init_tenant
 import ops.migrate_tenants as migrate_tenants
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import get_settings
+from bms_core.db.migration import MigrationChain
 
 
 def _prepare(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -28,20 +28,32 @@ def _prepare(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     get_settings().app.service = "platform"
 
 
-def _revisions(path: Path) -> ConcurrentStableList[str]:
-    """取库文件 `alembic_version` 版本列表。
+async def _current_none(url: str, *, schema: str = "") -> str | None:
+    """替身：目标库未迁移（版本号 None）。
 
     Args:
-        path: 库文件路径。
+        url: 连接串（忽略）。
+        schema: 模式名（忽略）。
 
     Returns:
-        ConcurrentStableList[str]: 版本号列表。
+        str | None: None。
     """
-    connection = sqlite3.connect(path)
-    try:
-        return ConcurrentStableList(row[0] for row in connection.execute("SELECT version_num FROM alembic_version"))
-    finally:
-        connection.close()
+    del url, schema
+    return None
+
+
+async def _current_head(url: str, *, schema: str = "") -> str | None:
+    """替身：目标库已达链头。
+
+    Args:
+        url: 连接串（忽略）。
+        schema: 模式名（忽略）。
+
+    Returns:
+        str | None: 链头版本号。
+    """
+    del url, schema
+    return "0001_demo"
 
 
 @pytest.mark.kiwi_id(1078)
@@ -76,65 +88,77 @@ def test_migrate_dry_run_never_connects(
     assert "dry-run" in capsys.readouterr().out
 
 
-@pytest.mark.kiwi_id(1078)
-def test_migrate_tenants_idempotent_and_single_targets(
+@pytest.mark.kiwi_id(2307)
+def test_migrate_tenants_scripts_cleared_skips(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """各租户库迁移：首跑成功、重跑「已是最新」；单库（平台 / 归档）同理。"""
+    """脚本清空（06_05）：各链输出「无脚本（跳过）」，清单与汇总照常，不建连、不落库文件。"""
     _prepare(tmp_path, monkeypatch)
     args = ["--service", "platform", "--target", "tenants", "--code", "demo", "--code", "acme"]
     assert migrate_tenants.main(ConcurrentStableList(args)) == 0
     out = capsys.readouterr().out
-    assert "汇总：成功 2、跳过 0、失败 0" in out
-    assert "0010_dict_item_parent_id_bigint" in out and "前置数据步骤" in out
-    assert _revisions(tmp_path / "bms_platform_demo.db") == ["0016_data_source_key"]
-    assert _revisions(tmp_path / "bms_platform_acme.db") == ["0016_data_source_key"]
-
-    assert migrate_tenants.main(ConcurrentStableList(args)) == 0
-    assert "汇总：成功 0、跳过 2、失败 0" in capsys.readouterr().out
-
-    platform_url = f"sqlite+aiosqlite:///{tmp_path / 'platform.db'}"
-    assert (
-        migrate_tenants.main(
-            ConcurrentStableList(["--service", "platform", "--target", "platform", "--url", platform_url])
-        )
-        == 0
-    )
-    assert _revisions(tmp_path / "platform.db") == ["0010_system_fields_form_key"]
-    assert "汇总：成功 1、跳过 0、失败 0" in capsys.readouterr().out
-
-    assert migrate_tenants.main(ConcurrentStableList(["--target", "archive"])) == 0
-    assert "无脚本（跳过）" in capsys.readouterr().out
+    assert "汇总：成功 0、跳过 2、失败 0" in out
+    assert out.count("无脚本（跳过）") == 2
+    assert not (tmp_path / "bms_platform_demo.db").exists()
 
 
-@pytest.mark.kiwi_id(1078)
-def test_migrate_prints_prerequisite_step_hint(
+@pytest.mark.kiwi_id(2307)
+def test_migrate_tenants_mechanism_with_temp_chain(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """链头落后且区间命中登记的前置数据步骤 → 打印提示行（只提示不阻断，迁移照常完成）。"""
+    """迁移机制保留（临时链脚本自检）：有脚本链走出「迁移完成」与「已是最新（跳过）」两分支。"""
     _prepare(tmp_path, monkeypatch)
-    url = f"sqlite+aiosqlite:///{tmp_path / 'identity_platform.db'}"
-    assert (
-        migrate_tenants.main(ConcurrentStableList(["--service", "identity", "--target", "platform", "--url", url])) == 0
-    )
+    calls: ConcurrentStableList[str] = ConcurrentStableList()
+
+    def _head(chain: MigrationChain) -> str:
+        """替身：该链恒有脚本（临时链脚本口径，链头 `0001_demo`）。"""
+        del chain
+        return "0001_demo"
+
+    def _upgrade(chain: MigrationChain, url: str, *, schema: str = "") -> None:
+        """替身：记录升级调用（不真跑 Alembic）。"""
+        del url, schema
+        calls.add(chain.name)
+
+    monkeypatch.setattr(migrate_tenants, "head_revision", _head)
+    monkeypatch.setattr(migrate_tenants, "current_revision", _current_none)
+    monkeypatch.setattr(migrate_tenants, "upgrade_chain", _upgrade)
+    args = ["--service", "platform", "--target", "tenants", "--code", "demo"]
+    assert migrate_tenants.main(ConcurrentStableList(args)) == 0
     out = capsys.readouterr().out
-    assert "提示：迁移到 0003_sys_user_identity_bigint 前须先完成前置数据步骤" in out
-    assert "ops.backfill_tenant_id_columns --service identity" in out
-    assert "汇总：成功 1、跳过 0、失败 0" in out
-    assert _revisions(tmp_path / "identity_platform.db") == ["0003_sys_user_identity_bigint"]
+    assert "迁移完成" in out
+    assert calls == ["platform:tenant"]
+
+    monkeypatch.setattr(migrate_tenants, "current_revision", _current_head)
+    assert migrate_tenants.main(ConcurrentStableList(args)) == 0
+    assert "已是最新（跳过）" in capsys.readouterr().out
 
 
-@pytest.mark.kiwi_id(1078)
-def test_migrate_failure_is_collected_not_fatal(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+@pytest.mark.kiwi_id(2307)
+def test_migrate_failure_is_collected_not_fatal(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
     """单库失败不中断整批：记失败并汇总结论，退出码 1（可幂等重跑补做）。"""
-    broken = "sqlite+aiosqlite:////nonexistent_dir_for_drill/bms_migrcheck.db"
-    assert (
-        migrate_tenants.main(ConcurrentStableList(["--service", "platform", "--target", "tenant", "--url", broken]))
-        == 1
-    )
+    _prepare(tmp_path, monkeypatch)
+
+    def _head(chain: MigrationChain) -> str:
+        """替身：该链恒有脚本（临时链脚本口径）。"""
+        del chain
+        return "0001_demo"
+
+    def _boom(chain: MigrationChain, url: str, *, schema: str = "") -> None:
+        """替身：升级即失败。"""
+        del chain, url, schema
+        raise RuntimeError("drill")
+
+    monkeypatch.setattr(migrate_tenants, "head_revision", _head)
+    monkeypatch.setattr(migrate_tenants, "current_revision", _current_none)
+    monkeypatch.setattr(migrate_tenants, "upgrade_chain", _boom)
+    args = ["--service", "platform", "--target", "tenants", "--code", "demo", "--code", "acme"]
+    assert migrate_tenants.main(ConcurrentStableList(args)) == 1
     out = capsys.readouterr().out
     assert "失败" in out
-    assert "汇总：成功 0、跳过 0、失败 1" in out
+    assert "汇总：成功 0、跳过 0、失败 2" in out
 
 
 @pytest.mark.kiwi_id(1078)
@@ -157,22 +181,21 @@ def test_migrate_requires_tenant_dimension(
     assert "需 --code" in capsys.readouterr().out
 
 
-@pytest.mark.kiwi_id(1078)
+@pytest.mark.kiwi_id(2305)
 def test_init_tenant_three_steps_and_idempotent(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    """新租户初始化：建库 → 迁移 → 种子三步；重复执行幂等（建库跳过 / 迁移最新 / 种子 0 行）。"""
+    """新租户初始化：建库 → 建表 → 种子三步；重复执行幂等（建库跳过 / 表已存在 / 种子 0 行）。"""
     url = f"sqlite+aiosqlite:///{tmp_path / 'tenant_acme.db'}"
     args = ["--service", "platform", "--code", "acme", "--url", url]
     assert init_tenant.main(ConcurrentStableList(args)) == 0
     out = capsys.readouterr().out
     assert "建库 → 新建" in out
-    assert "platform:tenant 链 → 完成" in out
+    assert "建表 platform:tenant 链 → 新建" in out and "已存在 0" in out
     assert "种子 → 新增" in out and "新增 0 行" not in out
-    assert _revisions(tmp_path / "tenant_acme.db") == ["0016_data_source_key"]
 
     assert init_tenant.main(ConcurrentStableList(args)) == 0
     again = capsys.readouterr().out
     assert "建库 → 已存在（跳过）" in again
-    assert "platform:tenant 链 → 已是最新" in again
+    assert "建表 platform:tenant 链 → 新建 0" in again
     assert "种子 → 新增 0 行" in again
 
 
