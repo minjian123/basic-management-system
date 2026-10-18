@@ -1,4 +1,4 @@
-"""启动校验与 CI 离线校验测试（Kiwi 534）：拒启路径 / 依赖隔离 / CI 脚本。"""
+"""启动校验与 CI 离线校验测试（Kiwi 2313）：拒启路径 / 依赖隔离 / CI 脚本。"""
 
 import importlib
 import os
@@ -57,7 +57,7 @@ def _prepare_app(monkeypatch: pytest.MonkeyPatch, settings: Settings) -> None:
     monkeypatch.setattr("bms_core.application.get_settings", lambda: settings)
 
 
-@pytest.mark.kiwi_id(534)
+@pytest.mark.kiwi_id(2313)
 async def test_illegal_provider_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
     """非法 provider 拒启：lifespan 抛出 `PluginError`（含键与 provider）。"""
     _isolated_registry(monkeypatch)
@@ -68,7 +68,7 @@ async def test_illegal_provider_rejected(monkeypatch: pytest.MonkeyPatch) -> Non
             pass
 
 
-@pytest.mark.kiwi_id(534)
+@pytest.mark.kiwi_id(2313)
 async def test_contract_version_mismatch_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
     """契约版本不符拒启：实现主版本与端口不一致。"""
 
@@ -86,7 +86,7 @@ async def test_contract_version_mismatch_rejected(monkeypatch: pytest.MonkeyPatc
             pass
 
 
-@pytest.mark.kiwi_id(534)
+@pytest.mark.kiwi_id(2313)
 async def test_setup_failure_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
     """依赖不可用拒启：`setup()` 抛错包装为 `PluginError`。"""
 
@@ -108,7 +108,7 @@ async def test_setup_failure_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
             pass
 
 
-@pytest.mark.kiwi_id(534)
+@pytest.mark.kiwi_id(2313)
 async def test_factory_import_failure_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
     """实现依赖缺失拒启：工厂导入失败包装为 `PluginError`。"""
 
@@ -129,7 +129,7 @@ async def test_factory_import_failure_rejected(monkeypatch: pytest.MonkeyPatch) 
             pass
 
 
-@pytest.mark.kiwi_id(534)
+@pytest.mark.kiwi_id(2313)
 async def test_unselected_factory_not_imported(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """依赖隔离：未选中 provider 的工厂不被调用（探针模块不进 `sys.modules`）。"""
     probe = (
@@ -184,7 +184,7 @@ def _script_env(extra: ConcurrentStableDict[str, str] | None = None) -> Concurre
     return ConcurrentStableDict(env)
 
 
-@pytest.mark.kiwi_id(534)
+@pytest.mark.kiwi_id(2313)
 def test_check_plugins_script_passes() -> None:
     """CI 离线校验：默认配置通过（退出码 0）。"""
     result = subprocess.run(
@@ -199,7 +199,7 @@ def test_check_plugins_script_passes() -> None:
     assert "[插件装配] 校验通过" in result.stdout
 
 
-@pytest.mark.kiwi_id(534)
+@pytest.mark.kiwi_id(2313)
 def test_check_plugins_script_rejects_illegal_provider() -> None:
     """CI 离线校验：非法 provider 拦截（退出码 1 + 明细）。"""
     result = subprocess.run(

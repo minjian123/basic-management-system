@@ -1,4 +1,4 @@
-"""插件配置分区与启动装配测试（Kiwi 533）：默认装配 / 配置切换 / 依赖注入 / 缓存 / 生命周期 / 日志。"""
+"""插件配置分区与启动装配测试（Kiwi 2312）：默认装配 / 配置切换 / 依赖注入 / 缓存 / 生命周期 / 日志。"""
 
 import importlib
 import pkgutil
@@ -46,7 +46,7 @@ def _isolated_registry(monkeypatch: pytest.MonkeyPatch) -> PluginRegistry:
     return registry
 
 
-@pytest.mark.kiwi_id(533)
+@pytest.mark.kiwi_id(2312)
 async def test_default_assembly_wires_null_implementations() -> None:
     """默认装配：lifespan 后各能力 `app.state` 为配置实现（对象存储缺省 local，权限为真实校验）。
 
@@ -62,7 +62,7 @@ async def test_default_assembly_wires_null_implementations() -> None:
         assert resolve_plugin("object_storage", "local") is app.state.object_storage
 
 
-@pytest.mark.kiwi_id(533)
+@pytest.mark.kiwi_id(2312)
 async def test_config_switch_takes_effect(monkeypatch: pytest.MonkeyPatch) -> None:
     """配置切换：`storage.provider` 指向测试实现后装配随实现生效且缓存复用。"""
 
@@ -81,7 +81,7 @@ async def test_config_switch_takes_effect(monkeypatch: pytest.MonkeyPatch) -> No
         assert resolve_plugin("object_storage", "custom") is app.state.object_storage
 
 
-@pytest.mark.kiwi_id(533)
+@pytest.mark.kiwi_id(2312)
 async def test_masker_factory_injects_permission_checker(monkeypatch: pytest.MonkeyPatch) -> None:
     """依赖注入工厂：缺省掩码器拿到解析后的权限检查器（`check_plain` 行为可证）。"""
 
@@ -110,7 +110,7 @@ async def test_masker_factory_injects_permission_checker(monkeypatch: pytest.Mon
         assert masker.check_plain() is False
 
 
-@pytest.mark.kiwi_id(533)
+@pytest.mark.kiwi_id(2312)
 async def test_setup_and_aclose_lifecycle(monkeypatch: pytest.MonkeyPatch) -> None:
     """生命周期：装配调用 `setup()`；lifespan 退出后经 `ResourceManager` 触发 `aclose()`。"""
     calls = {"setup": 0, "closed": 0}
@@ -137,7 +137,7 @@ async def test_setup_and_aclose_lifecycle(monkeypatch: pytest.MonkeyPatch) -> No
     assert calls["closed"] == 1
 
 
-@pytest.mark.kiwi_id(533)
+@pytest.mark.kiwi_id(2312)
 async def test_startup_log_excludes_options(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -156,6 +156,7 @@ async def test_startup_log_excludes_options(
     assert "top-secret" not in out
 
 
+@pytest.mark.kiwi_id(2312)
 def test_prepare_settings_keeps_explicit_data_scope_provider() -> None:
     """`prepare_settings` 只补缺省：显式配置的 `[data_scope].provider` 不被改写。"""
     settings = Settings()
