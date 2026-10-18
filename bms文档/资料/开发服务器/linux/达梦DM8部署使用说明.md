@@ -100,6 +100,8 @@ SELECT COUNT(*) FROM ALL_OBJECTS WHERE OBJECT_NAME = 'DBMS_XA';
 ```
 
 > 应用侧**无需关心**上述参数（`dmxa` 方言与连接串归一由基座完成）；**启用强一致时，平台启动期自检会校验这些条件，未满足即快速失败并提示本文件**。
+>
+> **客户端侧另有前置**：`dmPython` 轮子自带的通信加密模块目录须在**动态库加载路径**内，否则建连报 `[CODE:-70089] 加密模块加载失败`——Windows 由基座自动前置 `PATH`，POSIX 须进程启动前注入 `LD_LIBRARY_PATH`，见第 8 节排障表。
 
 ## 5. 开发库（schema） <a id="schema"></a>
 
@@ -128,6 +130,7 @@ echo "SELECT NAME FROM ALL_USERS;" | /opt/dmdbms/bin/disql SYSDBA/"<密码>"@loc
 | 操作 | 命令 |
 | --- | --- |
 | 服务状态 | `systemctl status DmServiceDMSERVER` |
+| 客户端加密模块加载路径（应用 / 脚本建连前置） | `source bms/scripts/tools/db/达梦环境.sh`（bash；把轮子内的 `dmssl` 目录注入 `LD_LIBRARY_PATH`；**本地 Linux 与 CI 共用**；Windows 由基座自动前置 `PATH`，无需本脚本） |
 | 启动 / 停止 / 重启 | `sudo systemctl start|stop|restart DmServiceDMSERVER` |
 | 命令行连接 | `/opt/dmdbms/bin/disql SYSDBA/密码@<mjbk-IP>:5236` |
 | 查看日志 | `tail -f /opt/dmdbms/data/DAMENG/log/dm_DMSERVER*.log` |
@@ -144,6 +147,7 @@ echo "SELECT NAME FROM ALL_USERS;" | /opt/dmdbms/bin/disql SYSDBA/"<密码>"@loc
 | dminit 初始化失败 | 「please set [SYSDBA_PWD] and [SYSAUDITOR_PWD] values」 | 必须显式提供两个强密码（8-48 位，大小写+数字） |
 | disql 执行 CREATE SCHEMA 挂起 | 管道输入显示 `SQL> 2 3` 后不执行 | 改用 JDBC 执行 DDL（见第 5 节警告） |
 | libncurses5 装不上 | noble 仓库无此包 | 从清华镜像 jammy 池下载 deb 安装（见 3.1） |
+| 客户端建连报 `[CODE:-70089] 加密模块加载失败 / Encryption module failed to load` | `dmPython` 轮子自带的通信加密模块目录（`site-packages/dmssl`：Windows `libeay32/ssleay32.dll`、Linux `libssl.so/libcrypto.so`）**未在动态库加载路径内**（2026-10-18 定位：非服务端问题；原「服务端加密模块 / 客户端环境问题、网上无明确解法」的判断已推翻） | **Windows**：把该目录前置到 `PATH`（基座建引擎前自动完成，无需手工）；**POSIX**：**进程启动前**注入 `export LD_LIBRARY_PATH=<site-packages>/dmssl:$LD_LIBRARY_PATH`（与官方 `dmPython` `METADATA` 同口径）；仓内统一入口＝`source bms/scripts/tools/db/达梦环境.sh`。**运行期修不了**：改 `PATH`、`ctypes` 预载（`RTLD_GLOBAL`）、`site-packages/lib` 候选布局、`dmsvc_path` + `LIBSSL_LOAD_PATH` 四种写法均实测无效 |
 
 ## 9. 关联文档 <a id="related"></a>
 
