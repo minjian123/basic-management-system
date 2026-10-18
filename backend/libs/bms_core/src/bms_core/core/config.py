@@ -926,6 +926,9 @@ class TransactionManagerSettings(PluginSelection):
     leader_lock_key: str = "bms:global:lock:txn:leader"
     """领导者选举锁键（复用 `[distributed_lock]` 基座）。"""
 
+    ledger_retention_days: int = Field(default=30, gt=0)
+    """账本保留期（天）：终态事务与处置台账超期即**就地物理删除**（详设 05_07 §3.5）。"""
+
 
 def _config_dir() -> Path:
     """配置目录（默认 backend/ 根；测试可 monkeypatch）。

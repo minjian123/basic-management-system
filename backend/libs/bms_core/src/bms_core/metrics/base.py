@@ -53,6 +53,7 @@ METRIC_NAMES: tuple[str, ...] = (
     "bms_txn_recovery_total",
     "bms_txn_hung",
     "bms_txn_leader_switch_total",
+    "bms_txn_cleaned_total",
 )
 """候选指标名清单（架构「指标采集」节六类 + 服务边界跨库访问计数 + 发件箱投递 + 库数量 + 阶段度量）：
 请求量 / 延迟 / 依赖状态 / 服务目录降级 / 实时连接数 / 消息积压 / AI 成本 / 跨库访问数 /

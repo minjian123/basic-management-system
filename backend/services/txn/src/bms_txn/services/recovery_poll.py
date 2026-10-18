@@ -40,6 +40,7 @@ from bms_txn.repositories.ledger import (
 )
 from bms_txn.services.coordinator import DEFAULT_DEADLINE_SECONDS, TransactionCoordinator
 from bms_txn.services.driver import BranchDriver, UnavailableBranchDriver
+from bms_txn.services.ledger_cleanup import DEFAULT_RETENTION_DAYS, LedgerCleanup
 from bms_txn.services.recovery import DEFAULT_BATCH_LIMIT, TransactionRecovery
 
 if TYPE_CHECKING:
@@ -114,6 +115,7 @@ class PollTransactionRecovery(BaseTransactionRecovery):
         leader_lock_ttl: int = 30,
         deadline_seconds: float = DEFAULT_DEADLINE_SECONDS,
         batch_limit: int = DEFAULT_BATCH_LIMIT,
+        ledger_retention_days: int = DEFAULT_RETENTION_DAYS,
         metrics: BaseMetrics | None = None,
     ) -> None:
         """初始化。
@@ -127,6 +129,7 @@ class PollTransactionRecovery(BaseTransactionRecovery):
             leader_lock_ttl: leader 锁 TTL（秒；每轮续租）。
             deadline_seconds: 全局提交截止（秒；协调器用）。
             batch_limit: 单轮扫描上限。
+            ledger_retention_days: 账本保留期（天；终态超期即清理，详设 §3.5）。
             metrics: 指标出口（None 不上报）。
         """
         self._sessions = sessions
@@ -137,6 +140,7 @@ class PollTransactionRecovery(BaseTransactionRecovery):
         self._leader_lock_ttl = leader_lock_ttl
         self._deadline_seconds = deadline_seconds
         self._batch_limit = batch_limit
+        self._ledger_retention_days = ledger_retention_days
         self._metrics = metrics
         self._token: str | None = None
         self._task: asyncio.Task[None] | None = None
@@ -182,7 +186,8 @@ class PollTransactionRecovery(BaseTransactionRecovery):
         async with self._sessions() as session:
             recovery = self._build_recovery(session)
             handled = await recovery.run_once(now=now)
-        _LOGGER.info("txn_recovery_round", handled=handled)
+            cleaned = await self._build_cleanup(session).run_once(now=now)
+        _LOGGER.info("txn_recovery_round", handled=handled, cleaned=cleaned.total)
         return handled
 
     def _build_recovery(self, session: DbSession) -> TransactionRecovery:
@@ -209,6 +214,25 @@ class PollTransactionRecovery(BaseTransactionRecovery):
             GlobalTxnBranchRepository(session),
             GlobalTxnRecoveryRepository(session),
             uow,
+            batch_limit=self._batch_limit,
+            metrics=self._metrics,
+        )
+
+    def _build_cleanup(self, session: DbSession) -> LedgerCleanup:
+        """按本轮会话构造账本清理器（**先对账、后清理**，同轮同会话）。
+
+        Args:
+            session: 本轮账本会话（平台库）。
+
+        Returns:
+            LedgerCleanup: 本轮清理器实例。
+        """
+        return LedgerCleanup(
+            GlobalTxnRepository(session),
+            GlobalTxnBranchRepository(session),
+            GlobalTxnRecoveryRepository(session),
+            DbUnitOfWork(session),
+            retention_days=self._ledger_retention_days,
             batch_limit=self._batch_limit,
             metrics=self._metrics,
         )
@@ -293,6 +317,7 @@ class PollTransactionRecoveryFactory(BasePluginFactory[PollTransactionRecovery])
             leader_lock_key=section.leader_lock_key,
             leader_lock_ttl=int(section.leader_lock_ttl_seconds),
             deadline_seconds=float(section.deadline_seconds),
+            ledger_retention_days=int(section.ledger_retention_days),
             metrics=_metrics_of(self._app),
         )
 

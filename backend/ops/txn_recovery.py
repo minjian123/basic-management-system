@@ -5,9 +5,12 @@
     uv run python -m ops.txn_recovery list --state hung [--limit N]
     uv run python -m ops.txn_recovery drive-commit --global-txn-id ID
     uv run python -m ops.txn_recovery drive-rollback --global-txn-id ID
+    uv run python -m ops.txn_recovery cleanup [--retention-days N] [--limit N] [--dry-run]
 
 - `list`：**直读 TM 账本**（平台侧独立基础设施库 `bms_txn`）——列出非终态（`hung`）或
   启发式完成（`heuristic`）事务及其分支，供人工对账；
+- `cleanup`：**账本保留期清理**（详设 05_07 §3.5）——只删**终态且超期**的主记录（连同其分支）与超期处置台账，
+  **就地物理删除**、非终态一律不动；`--dry-run` 只统计不删；
 - `drive-commit` / `drive-rollback`：**只驱动协议**——调 TM 端点完成协议推进
   （决定点之后 `rollback` 由 TM **幂等吸收**，不会回滚已提交事务）；
 - **禁止手工修改业务数据**（详设 05_07 §6 硬口径）：人的动作＝幂等重放 / 驱动协议，
@@ -31,9 +34,15 @@ from bms_core.core.resources import ResourceManager
 from bms_core.db.engine import PLATFORM_DB_KEY, EngineFactory
 from bms_core.db.registry import EngineRegistry
 from bms_core.db.session import SessionFactory, session_scope
+from bms_core.db.unit_of_work import DbUnitOfWork
 from bms_core.servicecall.base import BaseServiceClient, ServiceRequest
 from bms_core.transaction.base import TM_SERVICE_NAME
-from bms_txn.repositories.ledger import GlobalTxnBranchRepository, GlobalTxnRepository
+from bms_txn.repositories.ledger import (
+    GlobalTxnBranchRepository,
+    GlobalTxnRecoveryRepository,
+    GlobalTxnRepository,
+)
+from bms_txn.services.ledger_cleanup import DEFAULT_RETENTION_DAYS, LedgerCleanup
 
 _STATE_HUNG = "hung"
 """悬挂：非终态（在途）事务。"""
@@ -77,6 +86,39 @@ async def _list(args: argparse.Namespace) -> int:
                         f"state={branch.state}  retry={branch.retry_count}  err={error}"
                     )
             print(f"合计 {len(rows)} 项（{args.state}）")
+    finally:
+        await registry.aclose()
+    return 0
+
+
+async def _cleanup(args: argparse.Namespace) -> int:
+    """账本保留期清理（只删终态超期；`--dry-run` 只统计）。
+
+    Args:
+        args: 命令行参数（`retention_days` / `limit` / `dry_run` / `db_key`）。
+
+    Returns:
+        int: 退出码（0 成功）。
+    """
+    settings = get_settings()
+    registry = EngineRegistry(EngineFactory(settings))
+    try:
+        async with session_scope(registry, db_key=args.db_key, factory=SessionFactory()) as session:
+            cleanup = LedgerCleanup(
+                GlobalTxnRepository(session),
+                GlobalTxnBranchRepository(session),
+                GlobalTxnRecoveryRepository(session),
+                DbUnitOfWork(session),
+                retention_days=args.retention_days,
+                batch_limit=args.limit,
+            )
+            stats = await cleanup.run_once(dry_run=args.dry_run)
+        scope = "将删除" if args.dry_run else "已删除"
+        suffix = "，dry-run" if args.dry_run else ""
+        print(
+            f"账本清理（保留期 {args.retention_days} 天{suffix}）："
+            f"{scope} 主记录 {stats.globals} / 分支 {stats.branches} / 台账 {stats.recoveries}"
+        )
     finally:
         await registry.aclose()
     return 0
@@ -142,6 +184,14 @@ def _build_parser() -> argparse.ArgumentParser:
     drive_commit = subparsers.add_parser("drive-commit", help="驱动提交（只驱动协议）")
     drive_commit.add_argument("--global-txn-id", required=True, help="全局事务标识")
 
+    cleanup = subparsers.add_parser("cleanup", help="账本保留期清理（只删终态超期；就地物理删除）")
+    cleanup.add_argument(
+        "--retention-days", type=int, default=DEFAULT_RETENTION_DAYS, help="保留期（天；终态与台账超期即清理）"
+    )
+    cleanup.add_argument("--limit", type=int, default=200, help="单轮主记录上限")
+    cleanup.add_argument("--dry-run", action="store_true", help="只统计不删除")
+    cleanup.add_argument("--db-key", default=PLATFORM_DB_KEY, help="数据源键（缺省平台库 = 账本库）")
+
     drive_rollback = subparsers.add_parser("drive-rollback", help="驱动回滚（决定点后由 TM 幂等吸收）")
     drive_rollback.add_argument("--global-txn-id", required=True, help="全局事务标识")
     return parser
@@ -160,6 +210,8 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
     try:
         if args.command == "list":
             return asyncio.run(_list(args))
+        if args.command == "cleanup":
+            return asyncio.run(_cleanup(args))
         return asyncio.run(_drive(args, commit=args.command == "drive-commit"))
     except Exception as exc:
         print(f"跨服务事务恢复命令失败：{exc!r}", file=sys.stderr)

@@ -52,6 +52,7 @@ def test_metric_kinds_and_names() -> None:
         "bms_txn_recovery_total",
         "bms_txn_hung",
         "bms_txn_leader_switch_total",
+        "bms_txn_cleaned_total",
     )
     assert len(set(METRIC_NAMES)) == len(METRIC_NAMES)
     assert all(name.startswith("bms_") for name in METRIC_NAMES)

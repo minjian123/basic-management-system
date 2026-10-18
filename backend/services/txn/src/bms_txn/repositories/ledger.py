@@ -4,8 +4,10 @@
 """
 
 from datetime import datetime
+from typing import cast
 
-from sqlalchemy import Select
+from sqlalchemy import Select, delete
+from sqlalchemy.engine import CursorResult
 
 from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
 from bms_core.repositories.base_db_repository import BaseDbRepository
@@ -56,6 +58,46 @@ class GlobalTxnRepository(BaseDbRepository[GlobalTxn]):
             .limit(limit)
         )
         return ConcurrentStableList((await self._session.execute(statement)).scalars().all())
+
+    async def list_terminal_before(self, *, cutoff: datetime, limit: int = 200) -> ConcurrentStableList[GlobalTxn]:
+        """取**终态且超期**的全局事务（账本清理对象；按更新时间升序）。
+
+        终态＝`committed` / `rolled_back` / 启发式三态；在途事务（`active` / `preparing` /
+        `committing` / `rolling_back`）**永不出现在清理面**（详设 05_07 §3.5：守决定点不变量）。
+
+        Args:
+            cutoff: 保留期截止时刻（`updated_at < cutoff` 才可清理）。
+            limit: 单轮上限。
+
+        Returns:
+            ConcurrentStableList[GlobalTxn]: 可清理事务清单。
+        """
+        statement: Select[tuple[GlobalTxn]] = (
+            self._select()
+            .where(
+                self._column("state").in_(
+                    ("committed", "rolled_back", "heuristic_commit", "heuristic_rollback", "heuristic_mixed")
+                )
+            )
+            .where(self._column("updated_at") < cutoff)
+            .order_by(self._column("updated_at").asc(), self._column("id").asc())
+            .limit(limit)
+        )
+        return ConcurrentStableList((await self._session.execute(statement)).scalars().all())
+
+    async def delete_by_ids(self, ids: ConcurrentStableList[int]) -> int:
+        """按主键**物理删除**（清理用：硬删，不走软删除）。
+
+        Args:
+            ids: 待删主键（空清单即不执行）。
+
+        Returns:
+            int: 实际删除行数。
+        """
+        if not ids:
+            return 0
+        result = await self._session.execute(delete(GlobalTxn).where(GlobalTxn.id.in_(list(ids))))
+        return int(cast("CursorResult[object]", result).rowcount or 0)
 
     async def list_heuristic(self, *, limit: int = 200) -> ConcurrentStableList[GlobalTxn]:
         """取启发式完成事务（参与方单方面提交 / 回滚形成的异常终态；对账对象）。
@@ -118,6 +160,20 @@ class GlobalTxnBranchRepository(BaseDbRepository[GlobalTxnBranch]):
         )
         return ConcurrentStableList((await self._session.execute(statement)).scalars().all())
 
+    async def delete_by_txn(self, global_txn_id: str) -> int:
+        """按全局事务**物理删除**其全部分支（清理用：与主记录同批删）。
+
+        Args:
+            global_txn_id: 全局事务标识。
+
+        Returns:
+            int: 实际删除行数。
+        """
+        result = await self._session.execute(
+            delete(GlobalTxnBranch).where(GlobalTxnBranch.global_txn_id == global_txn_id)
+        )
+        return int(cast("CursorResult[object]", result).rowcount or 0)
+
     async def get_branch(self, global_txn_id: str, branch_id: str) -> GlobalTxnBranch | None:
         """取单个分支。
 
@@ -162,6 +218,38 @@ class GlobalTxnRecoveryRepository(BaseDbRepository[GlobalTxnRecovery]):
     async def flush(self) -> None:
         """落库当前会话变更。"""
         await self._session.flush()
+
+    async def list_before(self, *, cutoff: datetime, limit: int = 500) -> ConcurrentStableList[GlobalTxnRecovery]:
+        """取**超期**处置台账（`detected_at < cutoff`；最旧优先）。
+
+        Args:
+            cutoff: 保留期截止时刻。
+            limit: 单轮上限。
+
+        Returns:
+            ConcurrentStableList[GlobalTxnRecovery]: 可清理台账清单。
+        """
+        statement = (
+            self._select()
+            .where(self._column("detected_at") < cutoff)
+            .order_by(self._column("detected_at").asc(), self._column("id").asc())
+            .limit(limit)
+        )
+        return ConcurrentStableList((await self._session.execute(statement)).scalars().all())
+
+    async def delete_by_ids(self, ids: ConcurrentStableList[int]) -> int:
+        """按主键**物理删除**（清理用：硬删，不走软删除）。
+
+        Args:
+            ids: 待删主键（空清单即不执行）。
+
+        Returns:
+            int: 实际删除行数。
+        """
+        if not ids:
+            return 0
+        result = await self._session.execute(delete(GlobalTxnRecovery).where(GlobalTxnRecovery.id.in_(list(ids))))
+        return int(cast("CursorResult[object]", result).rowcount or 0)
 
     async def list_recent(self, *, limit: int = 100) -> ConcurrentStableList[GlobalTxnRecovery]:
         """取最近处置记录（按发现时刻倒序）。

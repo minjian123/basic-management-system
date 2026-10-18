@@ -58,6 +58,7 @@ METRIC_DOCS: ConcurrentStableDict[str, str] = ConcurrentStableDict(
         "bms_txn_recovery_total": "恢复驱动次数（按服务 / 动作）。",
         "bms_txn_hung": "悬挂（非终态）全局事务数（按服务）。",
         "bms_txn_leader_switch_total": "恢复器 leader 切换次数（按服务）。",
+        "bms_txn_cleaned_total": "账本清理删除行数（按服务 / 对象 global·branch·recovery）。",
     }
 )
 """候选指标名 → HELP 文档（未登记名回退通用文案）。"""
