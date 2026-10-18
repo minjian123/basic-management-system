@@ -603,9 +603,7 @@ async def test_participant_commits_session_before_prepare(monkeypatch: pytest.Mo
         del session, args
 
     registry.register("test.op", handler)
-    participant = XaTransactionParticipant(
-        cast("Any", _FakeEngines(_FakeEngine(connection, _FakeDialect()))), registry
-    )
+    participant = XaTransactionParticipant(cast("Any", _FakeEngines(_FakeEngine(connection, _FakeDialect()))), registry)
 
     await participant.execute_branch(
         xid="xa-1", db_key="platform", ops=(BranchOp(op="test.op", args=ConcurrentStableDict[str, object]()),)
