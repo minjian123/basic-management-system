@@ -4,6 +4,8 @@
 #   check-preflight.py   预检入口：CI 配置 / 后端静态 / 基座与边界 / 文档 / 界面 / 网关 / 契约，
 #                        缺省按 git 变更**定向**跑受影响工程用例与变更源文件覆盖率门禁；
 #                        带单步 / 总体耗时预算护栏（超时即中止）；失败汇总并在末尾给结论
+#   run-once.py          重命令「短窗内只真跑一次」包装：同命令 + 同工作区指纹命中即回放上次完整输出
+#                        （含退出码）；改一个源文件指纹即变，确需重跑加 --force
 #   requirements.txt     本预检的**可选**第三方依赖清单（pyyaml；未安装只影响「CI 配置自检」段）
 #
 # 用法（在 bms 仓库根）
@@ -13,6 +15,18 @@
 #   python3 scripts/tools/preflight/check-preflight.py --full     # 全量档（聚合全量 + 工程级范围；显式申请）
 #   python3 scripts/tools/preflight/check-preflight.py --no-cov   # 跳过覆盖率门禁
 #   python3 scripts/tools/preflight/check-preflight.py --self-test  # 自测定向推导与预算护栏
+#
+# 重命令「跑一次」（run-once.py）——防重复消耗
+#   分钟级命令（预检 / 全量 pytest / 全仓 ruff / pyright）第一次已给出结论后，再为「从输出里挑
+#   几行报错」整轮重跑是纯浪费。本包装把这条变成技术约束：缓存键 =「命令 + 工作目录 + 工作区指纹」，
+#   工作区指纹 = HEAD + 全部已跟踪变更与未跟踪文件内容哈希（**改一个源文件即失效**）；
+#   窗口内（缺省 30 分钟）命中直接回放上次完整输出与退出码并标注「回放」。
+#   要看具体报错时，改用**定向**命令（单文件 ruff / pyright / 单目录 pytest），不要整轮重跑重命令。
+#   python3 scripts/tools/preflight/run-once.py -- python3 scripts/tools/preflight/check-preflight.py
+#   python3 scripts/tools/preflight/run-once.py --show -- <命令...>    # 只看缓存状态
+#   python3 scripts/tools/preflight/run-once.py --force -- <命令...>   # 改完代码立刻重验
+#   python3 scripts/tools/preflight/run-once.py --window-seconds 600 -- <命令...>
+#   缓存落 `.cache/run-once/`（`.gitignore` 已忽略 `.cache`），不入库。
 #
 # 预算护栏：单步 / 总体耗时双上限（定向档 120s / 180s，全量档 600s / 1200s；可用
 #   --step-seconds / --budget-seconds 覆盖）；超时立即中止并提示「全量交 CI」。
@@ -36,3 +50,4 @@
 #      定向范围由 git 变更推导（受影响工程测试目录 + 变更源文件覆盖率 100%），全量与集成交 CI。
 #   3. 预算护栏（单步 / 总体耗时）不得为提高本地耗时而放宽；确需长跑请显式 `--full` 或交 CI。
 #   4. 本目录脚本纳入 ruff 门禁（scripts/tools 全量），改动后随 preflight 静态段一并校验。
+#   5. 分钟级重命令一律经 run-once.py 调用；只为看报错时用定向命令，不得整轮重跑（见上节）。
