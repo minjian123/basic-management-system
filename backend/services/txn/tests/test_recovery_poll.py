@@ -25,7 +25,7 @@ from bms_core.core.exceptions import PluginError
 from bms_core.core.plugin import PluginImpl
 from bms_core.db.engine import EngineFactory
 from bms_core.db.registry import EngineRegistry
-from bms_core.db.session import DbSession, session_scope
+from bms_core.db.session import DbSession
 from bms_core.db.unit_of_work import DbUnitOfWork
 from bms_core.lock.base import BaseDistributedLock
 from bms_core.lock.null import NullDistributedLock
@@ -352,15 +352,29 @@ async def test_factory_reads_app_state_and_falls_back() -> None:
     assert fallback._metrics is None  # pyright: ignore[reportPrivateUsage]
 
 
-async def test_session_opener_opens_registry_session() -> None:
-    """会话开启器：按应用状态里的引擎注册表开平台库会话（每轮新建）。"""
+async def test_session_opener_opens_registry_session(ledger: SessionMaker, monkeypatch: pytest.MonkeyPatch) -> None:
+    """会话开启器：工厂装配后**按应用注册表开会话**（单轮真实构造与执行）。"""
+    from bms_txn.services import recovery_poll as module
+
     settings = Settings()
-    settings.database.platform.url = "sqlite+aiosqlite:///:memory:"
     app = FastAPI()
     app.state.engine_registry = EngineRegistry(EngineFactory(settings))
-    PollTransactionRecoveryFactory(settings, app).create()
-    async with session_scope(app.state.engine_registry) as session:
-        assert session is not None
+    app.state.distributed_lock = FakeLock()
+    app.state.branch_driver = FakeDriver()
+    opened: ConcurrentStableList[str] = ConcurrentStableList()
+
+    def _scope(_registry: object, *, factory: object = None) -> AbstractAsyncContextManager[DbSession]:
+        del _registry, factory
+        opened.add("open")
+        return _SessionScope(ledger)
+
+    monkeypatch.setattr(module, "session_scope", _scope)
+    plugin = PollTransactionRecoveryFactory(settings, app).create()
+    try:
+        assert await plugin.run_once() == 0
+    finally:
+        await plugin.aclose()
+    assert list(opened) == ["open"]
 
 
 def test_register_transaction_recovery_is_idempotent(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -446,3 +460,15 @@ def _always_false(_settings: Settings, _app: FastAPI) -> bool:
     """登记替身：恒定失败（注册表冻结）。"""
     del _settings, _app
     return False
+
+
+async def test_setup_is_idempotent(ledger: SessionMaker, drain: ConcurrentStableList[PollTransactionRecovery]) -> None:
+    """`setup()` 幂等：已在运行时再次调用不重复起任务、不重复启动扫描。"""
+    plugin = PollTransactionRecovery(
+        sessions=_opener(ledger), lock=FakeLock(), driver=FakeDriver(), interval_seconds=30.0
+    )
+    drain.add(plugin)
+    await plugin.setup()
+    task = plugin._task  # pyright: ignore[reportPrivateUsage]
+    await plugin.setup()  # 早退：不重复起任务
+    assert plugin._task is task  # pyright: ignore[reportPrivateUsage]
