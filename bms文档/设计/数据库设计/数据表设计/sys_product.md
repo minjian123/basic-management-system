@@ -45,11 +45,11 @@
 - 无物理外键；`sys_module.product_key` 逻辑引用本表 `product_key`（产品级属性只存本表，模块行不重复）。
 - **产品下线不物理删除**：`status` 置 `retired`，保留登记便于回溯（架构 11「模块契约与产品下线」节）。
 
-## 4. 分片 / 归档 / 迁移 <a id="storage"></a>
+## 4. 分片 / 归档 / 建表 <a id="storage"></a>
 
 - **分片**：不分片（平台库常驻）。
 - **归档**：不归档（产品档案为契约元数据，注销态保留）。
-- **迁移**：随**平台链** Alembic 迁移 `alembic/versions/platform/platform/0009_sys_product.py` 落地（2026-10-07；平台库单库执行，SQLite 经 `batch_alter_table` 兼容）；种子走 `ops/seed_module.py` 幂等 upsert（`PRODUCT_CATALOG` 单一来源）。
+- **建表**：随 **`platform:platform` 链**幂等建表落地（表集经表归属登记派生；**历史迁移脚本已随 06_05 清空**，结构以模型为唯一事实源）；启动期按服务表集自动建表、运维 / CI 经 `ops.init_schema`；开发 / 演示库一律删库重建。
 
 ## 5. 变更记录 <a id="revlog"></a>
 

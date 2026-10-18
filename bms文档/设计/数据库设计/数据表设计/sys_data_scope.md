@@ -51,11 +51,11 @@
 - **读写双向**：读时按授权范围过滤（数据访问层）、写时校验（写入口）；**强制叠加租户过滤**，任何策略不得跨租户（由权限计算引擎 `02_04` 实施）。
 - **写入方式**：全量覆盖提交（先删后插、单事务）。
 
-## 4. 分片 / 归档 / 迁移 <a id="storage"></a>
+## 4. 分片 / 归档 / 建表 <a id="storage"></a>
 
 - **分片**：不分片（租户库常驻）。
 - **归档**：不归档（在用授权数据）。
-- **迁移**：随 **`platform:tenant` 链**迁移落地（`alembic/versions/platform/tenant/0007_role_tables.py` 建表；**2026-10-11 02_09**：归属列 `dict_type_id` → `dict_key`，迁移 `0012_data_scope_dict_key`，存量清空不回填；**2026-10-11 02_10**：归属列 `dict_key` → `data_source_key`，迁移 `0016_data_source_key`——**纯改名**（不改类型 / 可空性、不动数据），唯一约束同步更名 `uq_sys_data_scope_role_data_source_policy_deleted_at`）。
+- **建表**：随 **`platform:tenant` 链**幂等建表落地（表集经表归属登记派生；**历史迁移脚本已随 06_05 清空**，结构以模型为唯一事实源）；启动期按服务表集自动建表、运维 / CI 经 `ops.init_schema`；开发 / 演示库一律删库重建。
 
 ## 5. 变更记录 <a id="revlog"></a>
 

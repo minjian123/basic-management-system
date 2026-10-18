@@ -48,11 +48,11 @@
 
 - 无物理外键；公共软删除索引 `idx_sys_outbox_deleted_at` 由元数据命名约定生成，不在此重复列出。
 
-## 4. 分片 / 归档 / 迁移 <a id="storage"></a>
+## 4. 分片 / 归档 / 建表 <a id="storage"></a>
 
 - **分片**：不分片（一库一表；每服务 / 每租户库各自持有）。
 - **归档**：暂不归档（保留期内作事件账本可重放）；过期 `delivered` 记录清理随任务调度阶段（登记开放项）。
-- **迁移**：随**平台链** `alembic/versions/platform/0003_sys_outbox.py` 与**租户链** `alembic/versions/tenant/0002_sys_outbox.py` 落地（2026-09-23；一套方言无关脚本、四库通用）；`event_version` 列随**平台链** `0004_sys_outbox_event_version.py` 与**租户链** `0003_sys_outbox_event_version.py` 补列（05_04，2026-09-23；存量行补默认 `1.0.0`，降级经 `batch_alter_table` 兼容 SQLite）；`tenant_id` 列类型由 `VARCHAR(64)` 改 `BIGINT` 随 10_04 分链迁移落地（`platform:platform` `0006_sys_outbox_tenant_bigint`、`platform:tenant` `0005_sys_outbox_tenant_bigint`、`tenant:platform` `0005_sys_outbox_tenant_bigint`、`tenant:tenant` `0003_sys_outbox_tenant_bigint`，2026-09-29；存量 `code → id` 回填由 `ops/backfill_tenant_id_columns.py` 在迁移前完成）；命令 `alembic -n alembic:platform upgrade head` / `alembic -n alembic:tenant upgrade head`；SQLite 开发库由启动期自动建表覆盖。表集登记见 `bms_core/services/table_registry.py`（`chain_tables` 派生）。
+- **建表**：随**平台链**（`platform:platform`）与**各服务租户链**（`{{service}}:tenant`）幂等建表落地（基础设施表随所属链进链；**历史迁移脚本已随 06_05 清空**，结构以模型为唯一事实源）；启动期自动建表、运维 / CI 经 `ops.init_schema`。
 
 ## 5. 变更记录 <a id="revlog"></a>
 

@@ -1,6 +1,6 @@
 # opencode 部署使用说明
 
-> mjpc 开发机 Windows 侧 opencode（CLI + 桌面端）部署与使用口径 · 2026-10-16 本机采集（CLI 与桌面端均为 2.0.29）
+> mjpc 开发机 Windows 侧 opencode（CLI + 桌面端）部署与使用口径 · 2026-10-16 本机采集（CLI 与桌面端均为 2.0.29）；2026-10-18 复核（桌面端自更新至 2.0.32，启用局域网 / 手机访问、共享服务固定监听 `0.0.0.0:45278`）
 
 [文档首页](../../../文档首页.md) › 资料 › 开发机 › windows › opencode 部署使用说明　|　[同级：开发机部署使用说明总览](开发机部署使用说明总览.md)　[CodeBuddy部署使用说明 →](CodeBuddy部署使用说明.md)　[VSCode部署使用说明 →](VSCode部署使用说明.md)　[linux 侧同名文档 →](../linux/opencode部署使用说明.md)
 
@@ -19,9 +19,9 @@
 | 实体 | 版本 | 安装位置 | 启动方式 |
 | --- | --- | --- | --- |
 | CLI | 2.0.29 | `~\.opencode\bin\opencode.exe`（约 203 MB；同目录 `opencode2.cmd` 为转发到同一二进制的兼容别名） | 终端执行 `opencode`（新开终端） |
-| 桌面端 | 2.0.29 | `%LOCALAPPDATA%\Programs\@opencodedesktop\`（`OpenCode.exe`；卸载器 `Uninstall OpenCode.exe`） | 开始菜单 **OpenCode**（AppID `ai.opencode.desktop`） |
+| 桌面端 | 2.0.32 | `%LOCALAPPDATA%\Programs\@opencodedesktop\`（`OpenCode.exe`；卸载器 `Uninstall OpenCode.exe`） | 开始菜单 **OpenCode**（AppID `ai.opencode.desktop`） |
 
-两者**升级通道独立、版本号可不一致**：CLI 走 `opencode upgrade` 或手动换二进制（见 [3.1 节](#cli-install)），桌面端由内置自更新器跟进（2026-10-16 已检到 2.0.30 并下载待安装，见 [4.2 节](#desktop-verify)）。
+两者**升级通道独立、版本号可不一致**：CLI 走 `opencode upgrade` 或手动换二进制（见 [3.1 节](#cli-install)），桌面端由内置自更新器跟进（2026-10-16 检到 2.0.30、2026-10-18 实测已升至 2.0.32；CLI 仍为 2.0.29，见 [4.2 节](#desktop-verify)）。
 
 ### 2.2 版本与路径速查 <a id="env-paths"></a>
 

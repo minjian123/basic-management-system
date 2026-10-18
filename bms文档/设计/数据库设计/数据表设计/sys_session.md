@@ -48,11 +48,11 @@
 - 无物理外键；`user_id` 指向 platform 服务租户库 `sys_user.id`（跨服务逻辑外键，只持值）。
 - 运行时活跃标记另落 Redis `bms:{租户}:sess:{session_id}`（TTL 与 refresh 对齐）；本表为持久事实源。
 
-## 4. 分片 / 归档 / 迁移 <a id="storage"></a>
+## 4. 分片 / 归档 / 建表 <a id="storage"></a>
 
 - **分片**：不分片（租户库常驻；按用户数 × 并发会话数线性增长）。
 - **归档**：不归档（历史会话行保留供审计，随日志归档策略处理，不物理删除业务外数据）。
-- **迁移**：随 **`identity:tenant` 链** Alembic 迁移落地（`0001_sys_session` 建表 2026-09-26；`0005_sys_session_remember_me` 增 `remember_me` 列 2026-10-03；命令 `alembic -n alembic:identity:tenant upgrade head`）；SQLite 开发库由启动期自动建表覆盖。
+- **建表**：随 **`identity:tenant` 链**幂等建表落地（表集经表归属登记派生；**历史迁移脚本已随 06_05 清空**，结构以模型为唯一事实源）；启动期按服务表集自动建表、运维 / CI 经 `ops.init_schema`；开发 / 演示库一律删库重建。
 
 ## 5. 变更记录 <a id="revlog"></a>
 

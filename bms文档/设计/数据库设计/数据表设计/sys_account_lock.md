@@ -52,11 +52,11 @@
 - 活跃锁判定：`unlock_at IS NULL AND (expire_at IS NULL OR expire_at > now)`——`fail_limit` 到期即视为非生效，`inactive` / `manual`（`expire_at=NULL`）须手动解锁。
 - 公共软删除索引 `idx_sys_account_lock_deleted_at` 由 `BaseModel` 元数据命名约定生成，不在本表重复列出。
 
-## 4. 分片 / 归档 / 迁移 <a id="storage"></a>
+## 4. 分片 / 归档 / 建表 <a id="storage"></a>
 
 - **分片**：不分片（租户库常驻；按锁定事件线性增长）。
 - **归档**：解锁记录保留 90 天后随审计归档（归后续审计归档策略）。
-- **迁移**：随 **`platform:tenant` 链** Alembic 迁移落地（建表 `0008_user_tables`，2026-10-07）；命令 `alembic -n alembic:platform:tenant upgrade head`；**已部署环境迁移顺序**为「platform 建表 → `ops/migrate_user_tables.py` 搬数据 → `org:tenant` 链 `0006_drop_user_tables` 删表」；SQLite 开发库由启动期自动建表覆盖。
+- **建表**：随 **`platform:tenant` 链**幂等建表落地（表集经表归属登记派生；**历史迁移脚本已随 06_05 清空**，结构以模型为唯一事实源）；启动期按服务表集自动建表、运维 / CI 经 `ops.init_schema`；开发 / 演示库一律删库重建。
 
 ## 5. 变更记录 <a id="revlog"></a>
 

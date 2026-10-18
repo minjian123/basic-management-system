@@ -48,11 +48,11 @@
 
 - 无物理外键；`user_id` 指向 platform 服务租户库 `sys_user.id`（跨服务逻辑外键，只持值）。
 
-## 4. 分片 / 归档 / 迁移 <a id="storage"></a>
+## 4. 分片 / 归档 / 建表 <a id="storage"></a>
 
 - **分片**：不分片（平台库常驻；行数 = 启用 SSO 的用户数，增长可控）。
 - **归档**：不归档（身份绑定关系保留审计轨迹，随用户生命周期软删除）。
-- **迁移**：随 **`identity:platform` 链** Alembic 迁移落地（`alembic/versions/identity/platform/0001_sys_user_identity.py`，2026-09-27，新建链；命令 `alembic -n alembic:identity:platform upgrade head`）；`tenant_id` 由 `VARCHAR(64)` 改 `BIGINT` 随同链 `0003_sys_user_identity_bigint`（2026-09-29；同链 `0002_sys_outbox` 补齐此前缺失的发件箱三表）；`idp_key` 值前缀 `code → tenant_id` 由 `ops/backfill_tenant_id_columns.py` 在迁移前重写；SQLite 开发库由启动期自动建表覆盖。
+- **建表**：随 **`identity:platform` 链**幂等建表落地（表集经表归属登记派生；**历史迁移脚本已随 06_05 清空**，结构以模型为唯一事实源）；启动期按服务表集自动建表、运维 / CI 经 `ops.init_schema`；开发 / 演示库一律删库重建。
 
 ## 5. 变更记录 <a id="revlog"></a>
 

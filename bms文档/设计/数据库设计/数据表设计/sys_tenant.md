@@ -47,11 +47,11 @@
 
 - 无物理外键；租户库按命名约定 `bms_{service}_{tenant}` 由「服务标识 + 租户编码」派生（键 `tenant_{service}_{code}`），注册表不再持有数据源键。
 
-## 4. 分片 / 归档 / 迁移 <a id="storage"></a>
+## 4. 分片 / 归档 / 建表 <a id="storage"></a>
 
 - **分片**：不分片（平台库常驻）。
 - **归档**：不归档（租户注册生命周期数据）。
-- **迁移**：随**平台链** Alembic 迁移落地（`alembic/versions/platform/0001_sys_tenant_module.py`，2026-09-22 已落库；`db_key` 改可空见 `0005_sys_tenant_db_key_nullable.py`，2026-09-23；命令 `alembic -n alembic:platform -x db_key=platform_tenant upgrade head`）；种子走 `ops/seed_tenant.py`（demo / acme 两行，幂等），建表分支随迁移就位退化为纯种子路径。
+- **建表**：随 **`tenant:platform` 链**幂等建表落地（表集经表归属登记派生；**历史迁移脚本已随 06_05 清空**，结构以模型为唯一事实源）；启动期按服务表集自动建表、运维 / CI 经 `ops.init_schema`；开发 / 演示库一律删库重建。
 
 ## 5. 变更记录 <a id="revlog"></a>
 

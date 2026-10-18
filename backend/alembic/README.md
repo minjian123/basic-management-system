@@ -1,12 +1,18 @@
-# alembic — 迁移脚本目录（按「服务 × 数据源」分链）
+# alembic — 迁移机制目录（按「服务 × 数据源」分链；当前无脚本）
 
-迁移脚本按**服务 × 数据源**分链维护，链名形如 `{service}:{datasource}`，链名即 Alembic 配置段名
-（`alembic.ini`）；同一套脚本在 SQLite / MySQL / PostgreSQL / 达梦 DM8 四库执行（**禁写方言 SQL**，
-见《数据库开发规范》「迁移与建表口径」节）。**版本目录**：`alembic/versions/{service}/{datasource}/`。
+> **现状（2026-10-18，06_05「建表方式切换与迁移脚本清空」）**：历史迁移脚本已**全部清空**（48 份），
+> 目录结构与 `alembic.ini` 全 7 配置段**保留**；**迁移机制完整保留**（分链注册 / 配置段映射 / 版本目录 /
+> 达梦方言补丁 / 库级编排），将来需要「既有库在线升级」时按新基线重建脚本。当前表结构由**幂等建表**
+> 落地：启动期自动建表（`bms_core/db/bootstrap.py::ensure_service_schema`，四库方言）与运维 / CI
+> 显式入口 `ops/init_schema.py`，两处共用 `chain_metadata(chain)` 表集派生点；**开发 / 演示库一律删库重建**。
+
+链名形如 `{service}:{datasource}`，链名即 Alembic 配置段名（`alembic.ini`）；重建脚本后同一套脚本在
+SQLite / MySQL / PostgreSQL / 达梦 DM8 四库执行（**禁写方言 SQL**，见《数据库开发规范》「迁移与建表口径」节）。
+**版本目录**：`alembic/versions/{service}/{datasource}/`（现为空壳目录 + `.gitkeep`）。
 
 链定义与**表集派生**的唯一来源是 `bms_core/db/migration.py`：表集 = 表归属登记
 （`bms_core/services/table_registry.py::chain_tables(service, datasource)`，仅 `status = enabled`）
-∩ 已有模型。
+∩ 已有模型；**建表集合与迁移元数据子集同源**。
 
 | 链 | 配置段 | 版本目录 | 库 | 表集（派生） |
 | --- | --- | --- | --- | --- |
@@ -16,13 +22,17 @@
 | `tenant:tenant` | `[alembic:tenant:tenant]` | `versions/tenant/tenant/` | `bms_tenant_{tenant}` | 发件箱三表 |
 | `identity:platform` | `[alembic:identity:platform]` | `versions/identity/platform/` | `bms_identity` | `sys_user_identity` + 发件箱三表 |
 | `identity:tenant` | `[alembic:identity:tenant]` | `versions/identity/tenant/` | `bms_identity_{tenant}` | `sys_session` / `sys_identity_provider` / `sys_client` + 发件箱三表 |
-| `org`（已退役，2026-10-07） | — | — | — | 组织主数据归 mdm 产品服务（`org` 标识易主为 mdm 产品行，其库 / 迁移链由 mdm 仓库维护）；原 `bms_org_{tenant}` 库由运维清理 |
-| 其余服务（file / notification / search / ai / report） | 首次迁移时补段 | `versions/{service}/{platform,tenant}/`（目录已建，空） | `bms_{service}` / `bms_{service}_{tenant}` | 表集由 `chain_tables` 派生，脚本随该服务首个需要补 |
+| `txn:platform` | `[alembic:txn:platform]` | `versions/txn/platform/` | `bms_txn` | `txn_global` / `txn_global_branch` / `txn_global_recovery` + 发件箱三表 |
+| `org`（已退役，2026-10-07） | — | — | — | 组织主数据归 mdm 产品服务（`org` 标识易主为 mdm 产品行，其库 / 链路由 mdm 仓库维护）；原 `bms_org_{tenant}` 库由运维清理 |
+| 其余服务（file / notification / search / ai / report） | 首次迁移时补段 | `versions/{service}/{platform,tenant}/`（空壳目录 + `.gitkeep`） | `bms_{service}` / `bms_{service}_{tenant}` | 表集由 `chain_tables` 派生（当前为基础设施三表），表随该服务模型补齐自动进链 |
 
 段名规则：`[alembic]` = 缺省链 `platform:tenant`；其余链 = `[alembic:{service}:{datasource}]`。
-**只登记有迁移脚本的链**；新增服务首次迁移时须补段，否则 `alembic_config` 快速失败并给出提示。
+**配置段与版本目录全量保留（含空链）**：无脚本时 `has_revisions=False` → `head_revision()` 返回 `None`、
+`alembic upgrade head` 打印「链 X 暂无迁移脚本（跳过）」并正常退出。
 
 ## 命令
+
+当前**无脚本**：以下迁移命令输出「暂无迁移脚本（跳过）」并正常退出（机制保留、按新基线重建脚本后即生效）。
 
 ```bash
 cd backend
@@ -44,18 +54,33 @@ uv run alembic -n alembic:tenant:platform -x db_key=platform_tenant upgrade head
   `tenant_{code}` / `tenant_{service}_{code}`；命令行给库键即视为**运维通道**，自动开跨服务豁免）；
 - `-x schema=<模式名>`：达梦模式切换（迁移前 `SET SCHEMA`，仅达梦生效；用于三库演练与多模式环境）。
 
+## 建表（现行路径）
+
+```bash
+cd backend
+
+# 运维 / CI 显式建表入口（与批量迁移同构：服务 × 数据源 × 库；幂等、逐库统计）
+uv run python -m ops.init_schema --dry-run                        # 清单预演（不建连）
+uv run python -m ops.init_schema --service platform --target platform
+uv run python -m ops.init_schema --target tenants --code demo --code acme
+
+# 启动期自动建表：服务启动时按本服务分链表集幂等建表（[database].auto_create；四库方言）
+```
+
+- **单一来源**：两处均经 `chain_metadata(chain)` 取表集；**只补不建改**（`create_all(checkfirst=True)`，不做 ALTER）。
+- **建库 / 删库**：走 `ops/db_admin.py`（`bms_core/db/admin.py` 能力）与 `ops/provision_tenant.py` / `ops/init_tenant.py`（建库 → 建表 → 幂等种子）。
+- **库重建**：结构不符或分链形态变更时，开发 / 演示库一律**删库重建**（`mysqldump` 留档 → drop → 建库 → 建表 → 种子）。
+
 ## 约定
 
-- **编号**：各链**独立编号**，均从 `0001` 起（`revision` 值形如 `0001_sys_module`，文件名同 revision id）；
+- **编号**（按新基线重建脚本时适用）：各链**独立编号**，均从 `0001` 起（`revision` 值形如 `0001_sys_module`，文件名同 revision id）；
   revision 编号**链内唯一**（跨链允许同名，各链版本目录独立）；
 - **分支标签**：每链首个 revision 声明 `branch_labels=("<服务>:<数据源>",)`，其余 revision 不声明；
 - **公共字段块**：对齐 `BaseModel`（雪花 ID / 审计 / 软删除 / 乐观锁），各链同源写法；
 - **基础设施表**（发件箱三表）每服务自有：各服务每条链（`platform` / `tenant`）各含三表，脚本按服务同构；
-- **种子与结构分离**：迁移只建表不写种子，种子走 `ops/seed_*.py` 幂等脚本；
-- **零漂移**：迁移脚本须与模型元数据一致（`tests/alembic/test_alembic_drift.py` 逐链校验）；
-- **建库 / 删库**：不在迁移脚本内，走 `ops/db_admin.py`（`bms_core/db/admin.py` 能力）；
-- **库重建**：分链形态变更（链名 / 目录 / revision 归属调整）后，既有开发库 / CI 临时库 / 演练库
-  须**重建**（`alembic_version` 存量取值在新链中不存在，迁移会报「找不到 revision」）。
+- **种子与结构分离**：建表 / 迁移只建表不写种子，种子走 `ops/seed_*.py` 幂等脚本；
+- **模型与表集一致**：建表表集与迁移元数据子集同源（`chain_metadata`）；当前无脚本，逐链零漂移比对随脚本重建恢复；
+- **建库 / 删库**：不在建表 / 迁移内，走 `ops/db_admin.py`（`bms_core/db/admin.py` 能力）。
 
 ## 文档导航
 

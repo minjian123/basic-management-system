@@ -46,12 +46,11 @@
 
 - 无物理外键；`owner` 为逻辑外键（服务目录 `sys_module.service_key` / `module_key`），跨库逻辑引用。
 
-## 4. 分片 / 归档 / 迁移 <a id="storage"></a>
+## 4. 分片 / 归档 / 建表 <a id="storage"></a>
 
 - **分片**：不分片（配置类元数据，行数与表数同量级）。
 - **归档**：不归档。
-- **迁移**：随**平台服务链**（`platform:platform`）Alembic 迁移落地
-  （`alembic/versions/platform/platform/0005_sys_table_ownership.py`，2026-09-23）。
+- **建表**：随 **`platform:platform` 链**幂等建表落地（表集经表归属登记派生；**历史迁移脚本已随 06_05 清空**，结构以模型为唯一事实源）；启动期按服务表集自动建表、运维 / CI 经 `ops.init_schema`；开发 / 演示库一律删库重建。
 
 ## 5. 变更记录 <a id="revlog"></a>
 

@@ -44,11 +44,11 @@
 - 无物理外键；`user_id` 为逻辑外键指向 `sys_user.id`。
 - 公共软删除索引 `idx_sys_user_extension_deleted_at` 由 `BaseModel` 元数据命名约定生成，不在本表重复列出。
 
-## 4. 分片 / 归档 / 迁移 <a id="storage"></a>
+## 4. 分片 / 归档 / 建表 <a id="storage"></a>
 
 - **分片**：不分片（租户库常驻；按用户扩展条目线性增长，量级小）。
 - **归档**：随用户主数据生命周期处理（用户注销 / 清理时一并清除），不单独归档。
-- **迁移**：随 **`platform:tenant` 链** Alembic 迁移落地（建表 `0006_sys_user_extension`）；命令 `alembic upgrade head`（缺省链即 `platform:tenant`）；SQLite 开发库由启动期自动建表覆盖。
+- **建表**：随 **`platform:tenant` 链**幂等建表落地（表集经表归属登记派生；**历史迁移脚本已随 06_05 清空**，结构以模型为唯一事实源）；启动期按服务表集自动建表、运维 / CI 经 `ops.init_schema`；开发 / 演示库一律删库重建。
 
 ## 5. 变更记录 <a id="revlog"></a>
 

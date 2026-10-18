@@ -46,11 +46,11 @@
 - 无物理外键；`code`（DB 列名，ORM 属性 / 契约字段名 `config_key`）为平台统一命名空间键（消费方自定义前缀，如 `captcha.` / `password.` / `session.`）。
 - 无独立业务索引（查询按 `code` 唯一键命中或 `IN` 子集）；公共软删除索引 `idx_sys_config_deleted_at` 由 `BaseModel` 元数据命名约定生成，不在本表重复列出。
 
-## 4. 分片 / 归档 / 迁移 <a id="storage"></a>
+## 4. 分片 / 归档 / 建表 <a id="storage"></a>
 
 - **分片**：不分片（参数为小型热配置数据）。
 - **归档**：不归档（在用配置数据）。
-- **迁移**：随 **`platform:tenant` 链** Alembic 迁移落地（`alembic/versions/platform/tenant/0004_sys_config.py`）；命令 `alembic -n alembic:platform:tenant upgrade head`；SQLite 开发库由启动期自动建表覆盖。
+- **建表**：随 **`platform:tenant` 链**幂等建表落地（表集经表归属登记派生；**历史迁移脚本已随 06_05 清空**，结构以模型为唯一事实源）；启动期按服务表集自动建表、运维 / CI 经 `ops.init_schema`；开发 / 演示库一律删库重建。
 - **缓存**：`bms:{tenant}:config:{config_key}`（短 TTL + 随机偏移；版本键 `bms:{tenant}:config:version`），变更后删 key 并递增版本号（先写库后删缓存）。
 
 ## 5. 变更记录 <a id="revlog"></a>

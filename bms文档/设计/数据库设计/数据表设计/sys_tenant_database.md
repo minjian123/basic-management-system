@@ -46,11 +46,11 @@
 - 无物理外键；`tenant_id` 指向同库 `sys_tenant.id`（同库逻辑外键，只持值）。
 - 不按 `db_basis` 建索引（解析链按 `tenant_id` / `code` 命中 `sys_tenant` 后取本表，无按 `db_basis` 反查需求）。
 
-## 4. 分片 / 归档 / 迁移 <a id="storage"></a>
+## 4. 分片 / 归档 / 建表 <a id="storage"></a>
 
 - **分片**：不分片（平台库常驻）。
 - **归档**：不归档（租户开通生命周期数据）。
-- **迁移**：随 **`tenant:platform` 链** Alembic 迁移 `0004_sys_tenant_database` 落地（2026-09-29；含存量租户回填 `db_basis=当前 code`；降级 `drop_table`）；命令 `alembic -n alembic:tenant:platform upgrade head`；SQLite 开发库由启动期自动建表覆盖；种子 / 开通写入见 `ops/seed_tenant.py` 与租户注册仓储（同事务写 `sys_tenant` + 本表）。
+- **建表**：随 **`tenant:platform` 链**幂等建表落地（表集经表归属登记派生；**历史迁移脚本已随 06_05 清空**，结构以模型为唯一事实源）；启动期按服务表集自动建表、运维 / CI 经 `ops.init_schema`；开发 / 演示库一律删库重建。
 
 ## 5. 变更记录 <a id="revlog"></a>
 

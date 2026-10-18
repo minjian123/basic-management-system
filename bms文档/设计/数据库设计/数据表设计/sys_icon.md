@@ -47,11 +47,11 @@
 
 - 无物理外键；公共软删除索引 `idx_sys_icon_deleted_at` 由 `BaseModel` 元数据命名约定生成，不在本表重复列出。
 
-## 4. 分片 / 归档 / 迁移 <a id="storage"></a>
+## 4. 分片 / 归档 / 建表 <a id="storage"></a>
 
 - **分片**：不分片（租户库常驻；单租户自定义图标为个位数行）。
 - **归档**：不归档（配置类数据保留审计轨迹，软删除即可）。
-- **迁移**：随 **`platform:tenant` 链**迁移落地（`planned`：本阶段仅结构声明，未入迁移链；随其入链时随建表迁移补 `form_key` / `parent_id`）。
+- **建表**：`planned`——本阶段仅结构声明，未入链表集；随其补模型与表文件后自动进 `platform:tenant` 链，由启动期 / `ops.init_schema` 幂等建表落地（届时随建表补 `form_key` / `parent_id`）。
 
 ## 5. 变更记录 <a id="revlog"></a>
 

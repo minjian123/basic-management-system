@@ -51,11 +51,11 @@
 
 - 无物理外键；租户归属由所在租户库 `bms_identity_{code}` 隐含承载。
 
-## 4. 分片 / 归档 / 迁移 <a id="storage"></a>
+## 4. 分片 / 归档 / 建表 <a id="storage"></a>
 
 - **分片**：不分片（租户库常驻；单租户客户端为个位数行）。
 - **归档**：不归档（配置类数据保留审计轨迹，软删除即可）。
-- **迁移**：随 **`identity:tenant` 链** Alembic 迁移落地（`alembic/versions/identity/tenant/0003_sys_client.py`，2026-09-27；命令 `alembic -n alembic:identity:tenant upgrade head`）；SQLite 开发库由启动期自动建表覆盖。
+- **建表**：随 **`identity:tenant` 链**幂等建表落地（表集经表归属登记派生；**历史迁移脚本已随 06_05 清空**，结构以模型为唯一事实源）；启动期按服务表集自动建表、运维 / CI 经 `ops.init_schema`；开发 / 演示库一律删库重建。
 
 ## 5. 变更记录 <a id="revlog"></a>
 

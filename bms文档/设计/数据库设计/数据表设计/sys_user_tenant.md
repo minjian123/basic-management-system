@@ -48,11 +48,11 @@
 - 无物理外键；`tenant_id` / `target_tenant_id` 指向同库 `sys_tenant.id`，`user_id` 指向 platform 服务租户库 `sys_user.id`（均只持值、不建物理外键）。
 - **不另建普通索引**：读路径主查询 `WHERE tenant_id = ? AND user_id = ? AND status = 'active' AND deleted_at IS NULL` 由上述复合唯一索引的前缀 `(tenant_id, user_id)` 覆盖（《数据库开发规范》§4「禁止冗余索引」）。
 
-## 4. 分片 / 归档 / 迁移 <a id="storage"></a>
+## 4. 分片 / 归档 / 建表 <a id="storage"></a>
 
 - **分片**：不分片（平台库常驻；行数 = 用户 × 可访问租户数，增长可控）。
 - **归档**：不归档（可达关系为生命周期数据，随用户 / 租户生命周期软删除）。
-- **迁移**：随 **`tenant:platform` 链** Alembic 迁移 `0006_sys_user_tenant` 落地（2026-10-04 生成；`down_revision=0005_sys_outbox_tenant_bigint`；降级 `drop_table`）；命令 `alembic -n alembic:tenant:platform upgrade head`（或 `-x db_key=platform_tenant`）；SQLite 开发库由启动期自动建表覆盖；写入见租户服务关系仓储与内部端点（`/api/v1/tenant/internal/memberships`）。
+- **建表**：随 **`tenant:platform` 链**幂等建表落地（表集经表归属登记派生；**历史迁移脚本已随 06_05 清空**，结构以模型为唯一事实源）；启动期按服务表集自动建表、运维 / CI 经 `ops.init_schema`；开发 / 演示库一律删库重建。
 
 ## 5. 变更记录 <a id="revlog"></a>
 

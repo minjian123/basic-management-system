@@ -48,7 +48,7 @@ uv run pytest   # 全量用例（工作区根；含 Kiwi TCMS 用例 ID 标注�
 # 服务运行镜像（按服务参数化；构建上下文 backend/，锁文件一致、非目标服务源码不入镜像）
 # CI 由服务子流水线 service-build / service-release 构建推送（deploy/ci/templates/backend-service.yml）
 docker build --provenance=false --build-arg SERVICE=platform -f backend/Dockerfile backend/ -t bms-platform:dev
-docker run --rm -p 8000:8000 bms-platform:dev        # 平台库需先迁移；容器编排 / 回滚见下
+docker run --rm -p 8000:8000 bms-platform:dev        # 平台库需先建表（启动期自动建表 / ops.init_schema）；容器编排 / 回滚见下
 # 服务编排 / 一键部署 / 回滚 / 健康门禁（09_02，在部署机 deploy/ 目录）：
 #   python3 scripts/tools/deploy/release.py --deploy-dir ~/deploy bootstrap
 #   python3 scripts/tools/deploy/release.py --deploy-dir ~/deploy deploy --service platform --tag <sha 或 vX.Y.Z>
@@ -77,7 +77,7 @@ python3 scripts/tools/preflight/check-preflight.py            # 一键本地预�
 | uvicorn[standard] | 0.52.4 | ASGI 服务器 |
 | pydantic / pydantic-settings | 2.13.5 / 2.15.0 | 校验与配置 |
 | sqlalchemy | 2.0.52 | ORM |
-| alembic | 1.19.2 | 数据库迁移 |
+| alembic | 1.19.2 | 数据库迁移机制（当前无脚本，按新基线重建） |
 | aiosqlite / aiomysql | 0.22.1 / 0.3.2 | SQLite / MySQL 异步驱动 |
 | psycopg[binary] | 3.3.5 | PostgreSQL 异步驱动 |
 | dmPython | 2.5.38 | 达梦官方同步驱动 |
@@ -109,21 +109,21 @@ backend/
 ├── config.test.toml  # test 环境覆盖（日志 json/INFO、CORS 空）
 ├── config.prod.toml  # prod 环境覆盖（日志 json/WARNING、CORS 空）
 ├── .env.example      # 全部 BMS_ 应用键模板（复制为 .env 使用，密钥留空）
-├── alembic.ini       # 迁移配置（按「服务 × 数据源」分链的配置段）
-├── alembic/          # 迁移脚本（服务 × 数据源分链；详见 alembic/README.md）
+├── alembic.ini       # 迁移配置（按「服务 × 数据源」分链的配置段；全 7 段保留）
+├── alembic/          # 迁移机制（服务 × 数据源分链；当前无脚本；详见 alembic/README.md）
 ├── scripts/          # 开发期脚本（new_service.py 服务脚手架）
 ├── README.md         # 本文件
 ├── typings/          # 局部类型存根（sortedcontainers / fakeredis，pyright stubPath）
 ├── benchmarks/       # 微基准（bench_collections.py，手动执行、CI 不跑）
 ├── tests_support/    # 测试共享脚手架（认证 / 菜单元数据 / 租户来源与 SQL 辅助）
-├── ops/              # 运维脚本：check_{modules,plugins,tables,contracts,budget} · contract_{snapshot,gate,smoke} · event_contracts · gateway_config · db_admin · init_tenant · migrate_tenants · provision_tenant · dev_run · seed_*.py · test_db
+├── ops/              # 运维脚本：check_{modules,plugins,tables,contracts,budget} · contract_{snapshot,gate,smoke} · event_contracts · gateway_config · db_admin · init_schema · init_tenant · migrate_tenants · provision_tenant · dev_run · seed_*.py · test_db
 ├── libs/bms_core/    # 共享基座库（各服务复用；包 bms_core，src 布局）
 │   ├── pyproject.toml
 │   ├── src/bms_core/
 │   │   ├── application.py  # 服务应用装配基座（service_lifespan + BaseServiceApplicationFactory）
 │   │   ├── core/     # L0 根基类 · 集合体系（有序 / 并发 / Redis）· 中间层基类 · core 横切（配置 / 异常 / 安全 / 日志 / 序列化 / 锁 / 雪花 ID / 上下文 / 资源）
 │   │   ├── api/      # 接口层基座（路由基类 / 依赖 / 中间件 / 异常处理器 / 探针）
-│   │   ├── db/       # 数据访问底座（引擎 / 会话 / 读写路由 / 租户 / 引擎注册表 / 工作单元 / 迁移链）
+│   │   ├── db/       # 数据访问底座（引擎 / 会话 / 读写路由 / 租户 / 引擎注册表 / 工作单元 / 建表与迁移链）
 │   │   ├── repositories/  # 仓储基类（契约 / 内存 / 作用域 / DB 实现）
 │   │   ├── services/ # 服务基类（含事务扩展）+ 模块 / 表归属注册表
 │   │   ├── schemas/  # 契约基类 BaseSchema + 分页 / 排序 / 游标 / 统一响应
