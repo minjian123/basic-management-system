@@ -62,12 +62,12 @@ allow_demo_fallback = true
 exempt_paths = ["/", "/docs", "/redoc", "/openapi.json", "/healthz", "/readyz", "/metrics", "/.well-known/jwks.json", "/api/v1/auth/introspect"]
 # 免登录链路延迟解析路径（前缀匹配；有来源则解析、无来源置空放行，由端点层再解析）
 deferred_paths = ["/api/v1/auth/login", "/api/v1/auth/forgot-password", "/api/v1/auth/reset-password", "/api/v1/captcha", "/api/v1/auth/sso"]
-# 开发库自动建表覆盖的租户编码（仅 SQLite auto_create 生效；每服务按 tenant_{code} 相对键建表）
+# 启动期自动建表覆盖的租户编码（auto_create 生效；每服务按 tenant_{code} 相对键建表）
 dev_tenants = ["demo"]
 
 [database]
-# SQLite 开发库自动建表（按迁移链表集、幂等；仅当方言为 SQLite 时生效）
-# prod 覆盖为 false：三库结构统一走 Alembic 迁移
+# 启动期建表总开关（四库方言、按服务表集幂等；只补不建改）
+# prod 覆盖为 false：改经 ops 显式建表入口（ops.init_schema）先建表后起服务
 auto_create = true
 # 库名前缀（平台库 {prefix}_{service} / 服务租户库 {prefix}_{service}_{code} / 归档库 {prefix}_archive 的统一来源）
 # 默认 bms（基座既有口径，现有部署零影响）；产品部署可配自有前缀（如 mdm → mdm_org / mdm_org_{code} / mdm_archive）

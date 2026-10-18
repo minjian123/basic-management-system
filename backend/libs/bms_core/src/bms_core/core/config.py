@@ -242,7 +242,7 @@ class TenantSettings(BaseSettings):
     dev_tenants: Annotated[ConcurrentStableList[str], CONTRACT_COLLECTION] = Field(
         default_factory=lambda: ConcurrentStableList(["demo"])
     )
-    """开发库自动建表覆盖的租户编码（仅 `[database].auto_create` 且方言为 SQLite 时生效）；
+    """启动期自动建表覆盖的租户编码（`[database].auto_create` 为真时生效）；
     每服务按 `tenant_{code}` 相对键建表，实际库名由 `url_template` 解析。"""
 
 
@@ -354,7 +354,8 @@ class DatabaseSettings(BaseSettings):
     """三库目标（平台 / 租户 / 归档；dev 默认多 SQLite 文件）。"""
 
     auto_create: bool = True
-    """SQLite 开发库自动建表开关（仅当方言为 SQLite 时生效；prod 置 false，建表统一走 Alembic）。"""
+    """**启动期建表总开关**（四库方言：SQLite / MySQL / PostgreSQL / 达梦；幂等 `create_all(checkfirst=True)`）。
+    开发 / 测试默认开；**生产建议置 false**，改经 ops 显式建表入口（`ops.init_schema`）在部署链上先建表后起服务。"""
     name_prefix: str = "bms"
     """库名前缀（env `BMS_DATABASE__NAME_PREFIX`）——平台库 `{prefix}_{service}`、服务租户库
     `{prefix}_{service}_{code}`、归档库 `{prefix}_archive` 的统一来源（`db/keys.py` 派生）。

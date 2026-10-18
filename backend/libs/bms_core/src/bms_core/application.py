@@ -45,7 +45,7 @@ from bms_core.core.logging import configure_logging, get_logger
 from bms_core.core.plugin import build_plugin_registry, resolve_plugin
 from bms_core.core.resources import ResourceManager
 from bms_core.core.service import ServiceIdentity, attach_service
-from bms_core.db.bootstrap import ensure_development_schema
+from bms_core.db.bootstrap import ensure_service_schema
 from bms_core.db.engine import EngineFactory
 from bms_core.db.health import PrimaryHealth
 from bms_core.db.keys import PLATFORM_DB_KEY, PLATFORM_SERVICE_KEY
@@ -274,13 +274,12 @@ async def service_lifespan(app: FastAPI) -> AsyncGenerator[None]:
         # 基础能力先行（03_04）：开库引导与接库校验都会取数据库引擎，而引擎注册表的跨实例创建锁
         # 经分布式锁基座取共享 Redis 客户端；该客户端由插件装配期登记，故此处先装配基础能力。
         await assemble_base_plugins(app, settings, cast("ResourceManager", app.state.resources))
-        created = await ensure_development_schema(
-            cast("EngineRegistry", app.state.engine_registry),
+        created = await ensure_service_schema(
             settings,
             factory=cast("EngineFactory", app.state.engine_factory),
         )
         if created:
-            get_logger(_LOGGER).info("sqlite_auto_create_done", targets=",".join(created))
+            get_logger(_LOGGER).info("schema_auto_create_done", targets=",".join(created))
         await _validate_service_catalog(app)
         await _validate_table_ownership(app)
         await assemble_plugins(app, settings, cast("ResourceManager", app.state.resources))

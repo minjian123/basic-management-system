@@ -1170,7 +1170,7 @@ class RedisConsistencyBarrierFactory(BasePluginFactory[RedisConsistencyBarrier])
 BASE_PLUGIN_KEYS: tuple[str, ...] = (REDIS_CLIENT_PLUGIN_KEY,)
 """基础能力插件键（经 `assemble_base_plugins` 先于开库引导 / 接库校验装配）。
 
-开库引导（`ensure_development_schema`）与接库服务目录校验都要取数据库引擎，而 `EngineRegistry` 的
+开库引导（`ensure_service_schema`）与接库服务目录校验都要取数据库引擎，而 `EngineRegistry` 的
 **跨实例创建锁**经分布式锁基座取**进程共享 Redis 客户端**；共享实例由 `redis_client` 实现
 （`RedisRedisClient`）在 `setup()` 期登记，未登记时 `shared_redis_client()` 回退 `null` 实现
 （fail-closed），引导期取锁即抛 `RedisUnavailableError` 而拒启。故该能力先行装配；其余能力仍在

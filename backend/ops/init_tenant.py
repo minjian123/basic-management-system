@@ -1,11 +1,11 @@
-"""新租户初始化（真实）：建库 → 迁移 → 幂等种子。
+"""新租户初始化（真实）：建库 → 建表 → 幂等种子。
 
 用法：
 
 ```bash
 cd backend
 uv run python -m ops.init_tenant --code acme --dry-run                  # 计划预演
-uv run python -m ops.init_tenant --code acme                            # 建库 + 迁移 + 种子
+uv run python -m ops.init_tenant --code acme                            # 建库 + 建表 + 种子
 uv run python -m ops.init_tenant --code acme --skip-create-db           # 库已建（如 CI 建库后）
 uv run python -m ops.init_tenant --code acme \
     --admin-url "mysql+aiomysql://root:pass@host:3306"                  # 建库用管理连接串
@@ -16,10 +16,11 @@ uv run python -m ops.init_tenant --code acme \
 - **URL**：`--url` 优先；否则按库键 `tenant_{service}_{db_basis}`（`--service` 缺省取 `[app].service`）
   经 `url_template` 解析（配置 `database.tenants.*`）；库名基经对照表 `sys_tenant_database` 取数
   （缺对照行 / 注册库不可读回落当前 `code`，离线可用；10_04）；
-- **单服务单租户**：只建/迁本任务指定的一个服务租户库；按「服务 × 租户」批量建库见 `ops/provision_tenant.py`；
+- **单服务单租户**：只建/建表本任务指定的一个服务租户库；按「服务 × 租户」批量建库见
+  `ops/provision_tenant.py`；
 - **建库**：`app/db/admin.py`（MySQL / PG 建库、SQLite 建文件、达梦建模式；**幂等**，已存在跳过）；
-- **迁移**：本服务的租户链 `{service}:tenant` `upgrade head`（与 `ops/migrate_tenants.py` 同源；
-  `alembic_version` 已最新则跳过）；
+- **建表**：本服务租户链 `{service}:tenant` 的表集幂等建表（与启动期建表 / `ops.init_schema.py`
+  同一表集派生点；`create_all(checkfirst=True)`，重复执行无副作用）；
 - **种子**：系统参数种子（`bms_core/config/seed.py`）幂等；输出新增行数（字典种子随字典六表拆除，02_09）；
 - `--dry-run` 仅打印计划（连接串脱敏），不建连、不建库；
 - 平台侧租户注册（`sys_tenant` 行）由 `ops/seed_tenant.py` 或租户管理阶段开通流程负责（本脚本只管库侧三步）。
@@ -39,15 +40,13 @@ from bms_core.core.config import get_settings
 from bms_core.core.exceptions import ConfigError
 from bms_core.core.objects import BaseValueObject
 from bms_core.db.admin import DatabaseTarget, create_database, resolve_target
+from bms_core.db.bootstrap import apply_chain_schema
 from bms_core.db.engine import EngineFactory
 from bms_core.db.keys import build_platform_db_key
 from bms_core.db.migration import (
     DATASOURCE_TENANT,
     build_chain_name,
-    current_revision,
-    head_revision,
     resolve_chain,
-    upgrade_chain,
 )
 from bms_core.db.tenant import build_tenant_db_key
 from bms_core.db.tenant_source import TENANT_SERVICE_KEY
@@ -56,16 +55,19 @@ from ops.migrate_tenants import tenant_refs
 
 @dataclass(frozen=True)
 class InitResult(BaseValueObject):
-    """初始化结果（建库 / 迁移 / 种子三段）。"""
+    """初始化结果（建库 / 建表 / 种子三段）。"""
 
     created: bool
     """建库是否新建（False 表示已存在跳过 / 显式跳过）。"""
 
-    revision: str | None
-    """迁移后 `alembic_version` 版本号（无则 None）。"""
+    created_tables: int
+    """建表段本次新建表数。"""
+
+    existing_tables: int
+    """建表段建表前已存在表数。"""
 
     seeded: int
-    """种子新增行数（字典 + 系统参数；重复执行为 0）。"""
+    """种子新增行数（系统参数；重复执行为 0）。"""
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -74,7 +76,7 @@ def build_parser() -> argparse.ArgumentParser:
     Returns:
         argparse.ArgumentParser: 解析器。
     """
-    parser = argparse.ArgumentParser(description="新租户初始化（建库 → 迁移 → 幂等种子）")
+    parser = argparse.ArgumentParser(description="新租户初始化（建库 → 建表 → 幂等种子）")
     parser.add_argument("--code", required=True, help="租户编码（全小写；库键 tenant_{service}_{code}）")
     parser.add_argument("--service", default="", help="服务标识（缺省取 [app].service；服务化库键需之）")
     parser.add_argument("--url", default="", help="租户库连接串（缺省经 url_template 解析）")
@@ -183,19 +185,15 @@ async def run(args: argparse.Namespace) -> InitResult:
         created = await create_database(target)
         print(f"[init_tenant] 建库 → {'新建' if created else '已存在（跳过）'}")
 
-    head = head_revision(tenant_chain)
-    current = await current_revision(url, schema=args.schema)
-    if head is not None and current == head:
-        print(f"[init_tenant] 迁移 {tenant_chain.name} 链 → 已是最新（{current}）")
-    else:
-        await asyncio.to_thread(upgrade_chain, tenant_chain, url, schema=args.schema)
-        revision = await current_revision(url, schema=args.schema)
-        print(f"[init_tenant] 迁移 {tenant_chain.name} 链 → 完成（{current or '未迁移'} → {revision}）")
-        current = revision
+    outcome = await apply_chain_schema(tenant_chain, url, target=f"tenant_{basis}", schema=args.schema)
+    print(
+        f"[init_tenant] 建表 {tenant_chain.name} 链 → 新建 {outcome.created} / "
+        f"已存在 {outcome.existing}（共 {outcome.total}）"
+    )
 
     seeded = await _seed(url)
     print(f"[init_tenant] 种子 → 新增 {seeded} 行（幂等；重复执行输出 0）")
-    return InitResult(created=created, revision=current, seeded=seeded)
+    return InitResult(created=created, created_tables=outcome.created, existing_tables=outcome.existing, seeded=seeded)
 
 
 def main(argv: ConcurrentStableList[str] | None = None) -> int:
@@ -218,7 +216,7 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
             key = build_tenant_db_key(args.code, service=service)
             print(f"[init_tenant] 租户 {args.code} | 库键 {key} | 目标 {_masked(url)}")
             chain_name = build_chain_name(service, DATASOURCE_TENANT)
-            print(f"[init_tenant] 计划：建库（{target.describe()}）→ 迁移（{chain_name} 链）→ 幂等种子（dry-run）")
+            print(f"[init_tenant] 计划：建库（{target.describe()}）→ 建表（{chain_name} 链）→ 幂等种子（dry-run）")
             return 0
         asyncio.run(run(args))
     except ConfigError as exc:

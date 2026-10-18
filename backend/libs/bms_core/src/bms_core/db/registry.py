@@ -279,7 +279,7 @@ class EngineRegistry(BaseAsyncResource):
         豁免 SQLite（dev 单机文件库 / 内存库）的两条理由：
 
         - **语义**：跨实例锁防的是多实例并发建引擎 / 建表，SQLite 单机文件库不存在该场景；
-        - **启动**：dev 建表引导（`ensure_development_schema`）早于插件装配（`assemble_plugins`），
+        - **启动**：启动期建表引导（`ensure_service_schema`）早于插件装配（`assemble_plugins`），
           彼时共享 Redis 客户端尚未登记，取锁必然失败（2026-10-09 契约冒烟门禁暴露：
           platform / identity / tenant 冒烟容器启动即退）。
 

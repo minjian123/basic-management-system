@@ -20,8 +20,7 @@ uv run python -m ops.test_db drop    --engine mysql --execute
   PostgreSQL `CREATEDB`、达梦 `SYSDBA` 无独立测试账号）；管理连接经 `--admin-url` 显式指定，
   或按方言由管理员密码环境变量（`MYSQL_ROOT_PASSWORD` / `POSTGRES_PASSWORD` /
   `DM8_SYSDBA_PASSWORD`）推导；**无管理凭据即跳过建号并提示**（CI 路径账号已存在）。
-- **幂等**：建库 / 建模式命中已存在即跳过；迁移 `alembic_version` 已为链 head 即「已是最新」；
-  删库 / 删模式目标不存在即跳过。
+- **幂等**：建库 / 建模式命中已存在即跳过；建表段幂等（表已存在即跳过）；删库 / 删模式目标不存在即跳过。
 - **凭据**：一律不写入日志（仅以脱敏连接串展示）；测试密码经 `--password` 或
   `MYSQL_TEST_PASSWORD` / `POSTGRES_TEST_PASSWORD` / `DM8_TEST_PASSWORD` 注入；**达梦无独立测试账号**
   （连接用户即 `SYSDBA`），故其 URL / `--password` 须用实例 SYSDBA 密码（`DM8_SYSDBA_PASSWORD`，
@@ -48,7 +47,8 @@ from bms_core.db.admin import (
     resolve_target,
     run_statements,
 )
-from bms_core.db.migration import current_revision, head_revision, resolve_chain, upgrade_chain
+from bms_core.db.bootstrap import apply_chain_schema
+from bms_core.db.migration import resolve_chain
 
 TEST_DATABASES: ConcurrentStableDict[str, ConcurrentStableDict[str, str]] = ConcurrentStableDict(
     {
@@ -107,10 +107,10 @@ ADMIN_DATABASE: ConcurrentStableDict[str, str | None] = ConcurrentStableDict(
 CHAIN_BY_SCOPE: ConcurrentStableDict[str, str] = ConcurrentStableDict(
     {"platform": "platform:platform", "tenant": "platform:tenant"}
 )
-"""对象 → 迁移链（06_02 分链：平台对象跑 `platform` 服务的平台服务库链、租户对象跑其租户库链）。"""
+"""对象 → 建表链（06_02 分链：平台对象建 `platform` 服务的平台服务库链表集、租户对象建其租户库链表集）。"""
 
-FLOW_STEPS: tuple[str, ...] = ("建库", "迁移", "集成用例", "删库清理")
-"""流程步骤（建库 → 迁移 → 集成用例 → 删库清理；job 内独立、互不污染）。"""
+FLOW_STEPS: tuple[str, ...] = ("建库", "建表", "集成用例", "删库清理")
+"""流程步骤（建库 → 建表 → 集成用例 → 删库清理；job 内独立、互不污染）。"""
 
 ENGINE_CHOICES: tuple[str, ...] = ("mysql", "postgres", "dm8")
 SCOPE_CHOICES: tuple[str, ...] = ("all", "platform", "tenant")
@@ -290,27 +290,28 @@ async def _ensure_postgres_owner(admin_url: str, database: str) -> None:
 
 
 async def migrate(engine: str, scope: str, *, url: str, schema: str = "") -> bool:
-    """按对象分链迁移到 head（幂等：已为 head 即跳过）。
+    """按对象幂等建表（命令名保留 `migrate`；语义为建表，步骤文案改「建表」）。
 
     Args:
         engine: 方言。
         scope: 对象。
         url: 对象连接串。
-        schema: 达梦目标模式名（空串表示不切换）。
+        schema: 达梦目标模式名（空串表示取连接串 `database` 段）。
 
     Returns:
-        bool: 执行迁移 True；已是最新（跳过）False。
+        bool: 建出表 True；已存在 / 无表集（跳过）False。
     """
     chain = resolve_chain(CHAIN_BY_SCOPE[scope])
-    migration_url = _without_database(url) if engine == "dm8" else url
-    head = head_revision(chain)
-    current = await current_revision(migration_url, schema=schema)
-    if head is not None and current == head:
-        print(f"[test-db] {engine} {scope} → 已是最新（{current}）")
+    target_url = _without_database(url) if engine == "dm8" else url
+    outcome = await apply_chain_schema(chain, target_url, target=f"{engine} {scope}", schema=schema)
+    if not outcome.total:
+        print(f"[test-db] {engine} {scope} → 无表集（跳过）")
         return False
-    await asyncio.to_thread(upgrade_chain, chain, migration_url, schema=schema)
-    print(f"[test-db] {engine} {scope} → 迁移完成（{current or '未迁移'} → {head or '无脚本'}）")
-    return True
+    if outcome.created:
+        print(f"[test-db] {engine} {scope} → 建表完成（新建 {outcome.created} / 已存在 {outcome.existing}）")
+        return True
+    print(f"[test-db] {engine} {scope} → 已存在（跳过；表集 {outcome.total}）")
+    return False
 
 
 async def drop(engine: str, scope: str, *, url: str, admin_url: str = "", admin_password: str = "") -> bool:
@@ -337,7 +338,7 @@ def build_parser() -> argparse.ArgumentParser:
     Returns:
         argparse.ArgumentParser: 解析器。
     """
-    parser = argparse.ArgumentParser(description="三库测试库流程（建库 / 迁移 / 删除；幂等）")
+    parser = argparse.ArgumentParser(description="三库测试库流程（建库 / 建表 / 删除；幂等）")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     plan = subparsers.add_parser("plan", help="输出固定对象清单与执行步骤（无副作用）")
@@ -345,7 +346,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     for name, help_text in (
         ("create", "建库 / 建模式 + 幂等建测试账号与授权"),
-        ("migrate", "按对象分链 Alembic 迁移到 head（幂等）"),
+        ("migrate", "按对象建表（命令名保留；语义为幂等建表）"),
         ("drop", "删库 / 删模式清理（幂等）"),
     ):
         sub = subparsers.add_parser(name, help=help_text)

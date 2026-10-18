@@ -24,10 +24,8 @@ uv run python -m ops.migrate_tenants --target tenant \
   （归档库不服务化，表集为空 → 无脚本跳过）；
 - **执行**：逐库经 Alembic 程序化接口 `command.upgrade(cfg, "head")`（配置段 = 链名，版本目录 /
   元数据子集取自 `db/migration.py` 链注册）；
-- **幂等**：目标 `alembic_version` 已为链 head → 输出「已是最新（跳过）」；链无脚本 → 「无脚本（跳过）」；
-- **前置数据步骤提示**：待迁移区间命中 `bms_core.db.migration.PREREQUISITE_STEPS` 登记的
-  「迁移前数据步骤」（如 `platform:tenant` `0010` 的字典父项回填、`identity:platform` `0003`
-  的租户列回填）时，打印提示行（**只提示不阻断**；结构与数据分离口径不变）；
+- **幂等**：目标 `alembic_version` 已为链 head → 输出「已是最新（跳过）」；链无脚本 → 「无脚本（跳过）」
+  （06_05 脚本清空后各链恒走「无脚本（跳过）」；将来按新基线重建脚本即自动生效）；
 - **失败不中断**：单库失败记 ERROR 并继续下一库，末尾汇总；存在失败时退出码 1；
 - **`--dry-run`**：仅打印清单（连接串脱敏）与库数量统计，不建连、不迁移；
 - 达梦目标经 `--schema` 指定模式（库级隔离）。
@@ -58,7 +56,6 @@ from bms_core.db.migration import (
     build_chain_name,
     current_revision,
     head_revision,
-    pending_prerequisite_steps,
     resolve_chain,
     upgrade_chain,
 )
@@ -108,13 +105,16 @@ class MigrationSummary(BaseValueObject):
         return 1 if self.failed else 0
 
 
-def build_parser() -> argparse.ArgumentParser:
-    """构建命令行解析器。
+def build_task_parser(description: str) -> argparse.ArgumentParser:
+    """构建「服务 × 数据源 × 库」任务清单命令行解析器（批量迁移与 ops 建表入口共用）。
+
+    Args:
+        description: 解析器描述（各入口自定措辞）。
 
     Returns:
         argparse.ArgumentParser: 解析器。
     """
-    parser = argparse.ArgumentParser(description="批量迁移（服务 × 数据源 × 租户；幂等）")
+    parser = argparse.ArgumentParser(description=description)
     parser.add_argument("--target", default="all", choices=_TARGETS, help="迁移目标（缺省 all）")
     parser.add_argument("--service", action="append", default=[], help="服务标识（可重复；缺省全部启用服务）")
     parser.add_argument("--code", action="append", default=[], help="租户编码（可重复；库键 tenant_{service}_{code}）")
@@ -126,6 +126,15 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--schema", default="", help="达梦目标模式（仅达梦生效）")
     parser.add_argument("--dry-run", action="store_true", help="仅打印清单（不建连）")
     return parser
+
+
+def build_parser() -> argparse.ArgumentParser:
+    """构建命令行解析器。
+
+    Returns:
+        argparse.ArgumentParser: 解析器。
+    """
+    return build_task_parser("批量迁移（服务 × 数据源 × 租户；幂等）")
 
 
 def _masked(url: str) -> str:
@@ -433,8 +442,6 @@ async def run_tasks(tasks: ConcurrentStableList[MigrationTask]) -> MigrationSumm
                 skipped.add(task.label)
                 print(f"[migrate_tenants] {chain.name} {task.label} → 已是最新（跳过）")
                 continue
-            for step in pending_prerequisite_steps(chain, current):
-                print(f"[migrate_tenants] {chain.name} {task.label} → 提示：{step.hint}")
             await asyncio.to_thread(upgrade_chain, chain, task.url, schema=task.schema)
         except Exception as exc:  # 单库失败不中断整批
             failed.add(task.label)
