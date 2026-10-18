@@ -138,7 +138,9 @@ async def _apply_async(url: str, metadata: MetaData) -> tuple[int, int]:
     try:
         async with engine.begin() as connection:
             existing = await connection.run_sync(_existing_tables, metadata)
-            await connection.run_sync(metadata.create_all, checkfirst=True)
+            missing = [table for name, table in metadata.tables.items() if name not in existing]
+            if missing:
+                await connection.run_sync(metadata.create_all, tables=missing, checkfirst=False)
     finally:
         await engine.dispose()
     return len(metadata.tables) - len(existing), len(existing)
@@ -160,7 +162,11 @@ def _apply_sync(url: str, metadata: MetaData, schema: str) -> tuple[int, int]:
         with engine.connect() as connection:
             apply_session_schema(connection, schema)
             existing = _existing_tables(connection, metadata)
-            metadata.create_all(connection, checkfirst=True)
+            # 只建**自算的缺失表**：不依赖方言 `create_all(checkfirst=True)` 的 `has_table`——
+            # 达梦方言不认会话 `SET SCHEMA` 后的当前模式（03_DM8 实测），会对已存在表重复 CREATE。
+            missing = [table for name, table in metadata.tables.items() if name not in existing]
+            if missing:
+                metadata.create_all(connection, tables=missing, checkfirst=False)
     finally:
         engine.dispose()
     return len(metadata.tables) - len(existing), len(existing)

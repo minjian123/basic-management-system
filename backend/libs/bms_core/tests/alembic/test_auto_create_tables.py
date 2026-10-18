@@ -196,6 +196,26 @@ async def test_apply_chain_schema_sync_driver_and_idempotent(tmp_path: Path) -> 
 
 
 @pytest.mark.kiwi_id(2303)
+async def test_apply_chain_schema_creates_only_missing_tables(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """建表只建**自算的缺失表**：不依赖方言 `has_table`（达梦不认会话模式）也不重复 CREATE。"""
+    from sqlalchemy.dialects.sqlite.base import SQLiteDialect
+
+    url = f"sqlite:///{tmp_path / 'blind.db'}"
+    chain = resolve_chain("platform:platform")
+    first = await apply_chain_schema(chain, url, target="blind")
+    assert first.created == first.total > 0
+
+    # 模拟达梦方言 `has_table` 不认当前模式（03_DM8 实测）：恒定 False ⇒ 旧实现会对已存在表重复 CREATE
+    monkeypatch.setattr(SQLiteDialect, "has_table", lambda self, connection, table_name, schema=None, **kwargs: False)
+    second = await apply_chain_schema(chain, url, target="blind")
+
+    assert second.created == 0
+    assert second.existing == second.total
+
+
+@pytest.mark.kiwi_id(2303)
 async def test_apply_chain_schema_skips_empty_table_set(tmp_path: Path) -> None:
     """表集空即跳过、不建连（归档链空链）：目标文件不产生。"""
     target = tmp_path / "none.db"
