@@ -1,0 +1,4 @@
+# 配对二维码.py 的可选第三方依赖：纯 Python 二维码库（无编译依赖）。
+# 缺省时脚本报错提示安装（只想打印链接可用 --print-only，无需本依赖）。
+# 安装（国内镜像）: pip install segno -i https://pypi.tuna.tsinghua.edu.cn/simple
+segno>=1.6.0

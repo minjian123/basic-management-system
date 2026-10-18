@@ -31,6 +31,7 @@
 | `tools/reorder-stage/` | 阶段目录编号重排（`renumber_stage.py`） |
 | `tools/workbuddy/` | WorkBuddy 桌面端补丁脚本 |
 | `tools/ide/` | IDE 工作区状态修复（`fix_scm_state.py`：源代码管理面板看不到仓库，VS Code / CodeBuddy 通用） |
+| `tools/opencode/` | opencode Web 手机扫码访问（`配对二维码`：出一次性配对链接与二维码 PNG，手机无 App 时用浏览器扫码直连；Python 单一实现 + 双平台薄包装；可选依赖 segno 见同目录 `requirements.txt`） |
 
 ## 常用命令
 

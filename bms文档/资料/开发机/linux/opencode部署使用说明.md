@@ -1,6 +1,6 @@
 # opencode 部署使用说明
 
-> mjpc 开发机 opencode（命令行 CLI + 桌面端 desktop）部署与验证实录 · 初版 2026-08-29，现行版本 v2（2026-09-29 完成 v1 → v2 迁移；2026-10-02 升到 2.0.21、CommandCode 改走 Responses API；2026-10-13 启用 Web / 手机访问、桌面端升到 2.0.27）
+> mjpc 开发机 opencode（命令行 CLI + 桌面端 desktop）部署与验证实录 · 初版 2026-08-29，现行版本 v2（2026-09-29 完成 v1 → v2 迁移；2026-10-02 升到 2.0.21、CommandCode 改走 Responses API；2026-10-13 启用 Web / 手机访问、桌面端升到 2.0.27；2026-10-18 补手机无 App（鸿蒙等）时浏览器扫码 / 直连口径与出码脚本 `配对二维码`）
 
 [文档首页](../../../文档首页.md) › 资料 › 开发机 › linux › opencode 部署使用说明　|　[同级参照：中文输入法部署使用说明 →](中文输入法部署使用说明.md)　[Steamcommunity_302部署使用说明 →](Steamcommunity_302部署使用说明.md)　[防火墙部署使用说明 →](防火墙部署使用说明.md)
 
@@ -356,7 +356,7 @@ opencode pair
 
 - **一次性配对链接**（形如 `http://<主机>:49374/auth/connect/...`，**5 分钟内有效、用一次即失效**）；
 - **用户名 / 密码**（用户名固定 `opencode`）；
-- **二维码**（用 OpenCode 手机 / 桌面 App 扫描，或把链接粘进 App 的服务器地址栏）。
+- **二维码**（用 OpenCode 手机 / 桌面 App 扫描，或把链接粘进 App 的服务器地址栏）；**手机端没有 App 时（如鸿蒙）不必装客户端**——用系统相机 / 浏览器扫码即可，扫开即登录 Web UI。
 
 浏览器打开链接即写入会话 cookie 并载入 Web UI，**会话有效 30 天**；更改服务器密码会让所有会话立即登出。
 
@@ -375,7 +375,24 @@ opencode service set hostname 0.0.0.0
 opencode pair --url http://<mjpc-IP>:49374
 ```
 
-手机浏览器打开该链接（或直接访问 `http://<mjpc-IP>:49374`），输入命令行打印的用户名 / 密码即可进入；`<mjpc-IP>` 取值见《[本地资源](../../../用户文档/本地资源.md)》。
+手机侧三种进法（**都不需要装 App**）：① 系统相机 / 浏览器扫二维码，打开链接即登录；② 浏览器直接打开该链接；③ 浏览器访问 `http://<mjpc-IP>:49374` 后输入命令行打印的用户名 / 密码。`<mjpc-IP>` 取值见《[本地资源](../../../用户文档/本地资源.md)》。
+
+> **扫码链接一次性、5 分钟过期**：不在手机旁边时先别出码；**首次登录后把 `http://<mjpc-IP>:49374` 存为书签**（会话 30 天），之后无需再扫码。手机与开发机须在同一局域网（同一 WiFi）。
+
+**出码脚本（配对二维码）**
+
+配对链接与二维码由仓库内脚本 [`bms/scripts/tools/opencode/配对二维码.py`](../../../../scripts/tools/opencode/配对二维码.py) 一键生成（Python 单一实现，Linux `配对二维码.sh` / Windows `配对二维码.bat` 薄包装），自动探测本机局域网 IP 与服务端口：
+
+```bash
+python3 scripts/tools/opencode/配对二维码.py               # 出 PNG（/tmp/opencode/pair-qr.png）并打印链接
+python3 scripts/tools/opencode/配对二维码.py --open         # 出码后立即用系统图片查看器打开，直接扫屏幕
+python3 scripts/tools/opencode/配对二维码.py --ascii        # 终端字符二维码（不依赖看图）
+python3 scripts/tools/opencode/配对二维码.py --print-only   # 只要链接，不出图
+```
+
+- 依赖 `segno`（纯 Python 二维码库，无编译依赖，见同目录 `requirements.txt`）：`pip3 install segno -i https://pypi.tuna.tsinghua.edu.cn/simple`（本机 2026-10-18 已在 Windows 侧安装 segno 1.6.6；linux 侧首次用时装一次即可）；
+- 脚本先读 `opencode service status`：共享服务仍只监听 `127.0.0.1` 时**直接提示改监听命令并退出**（不产出手机不可达的码），确需强行出码加 `--force`；
+- 默认输出到临时目录（不落仓库），指定路径用 `--out <路径>`。
 
 > **防火墙**：开发机启用 ufw（入站默认拒绝）时须先放行端口，否则手机连不上：
 >
@@ -566,4 +583,4 @@ grep NoNewPrivs /proc/$(pgrep -f 'opencode-cli serve --service' | head -1)/statu
 - 《[文档生成规范](../../../规范/文档生成规范.md)》：本文档的组织、格式与图形约定
 - 《[本地资源](../../../用户文档/本地资源.md)》：mjpc 相关机器信息取值（已 gitignore）
 
-> 依《[文档生成规范](../../../规范/文档生成规范.md)》编写 · 记录 mjpc 上 opencode CLI、桌面端、配置与凭据的部署、使用与排障。
+> 依《[文档生成规范](../../../规范/文档生成规范.md)》编写 · 记录 mjpc 上 opencode CLI、桌面端、配置与凭据的部署、使用与排障（2026-10-18 补 Web 手机访问的无 App 口径与出码脚本）。
