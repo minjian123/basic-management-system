@@ -15,6 +15,7 @@ from sqlalchemy import Connection, Engine, TwoPhaseTransaction, create_engine, t
 
 import bms_core.db  # noqa: F401  # pyright: ignore[reportUnusedImport]  导入即注册达梦自定义 XA 方言 `dmxa`
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.db.engine import _normalize_dialect_url  # pyright: ignore[reportPrivateUsage]
 
 pytestmark = [pytest.mark.integration, pytest.mark.kiwi_id(2246)]
 
@@ -52,8 +53,8 @@ def available_dbs() -> ConcurrentStableDict[str, str]:
 
 
 def _engine(url: str) -> Engine:
-    """按连接串构造同步引擎（2PC 仅同步引擎可用）。"""
-    return create_engine(url)
+    """按连接串构造同步引擎（2PC 仅同步引擎可用；达梦连接串方言统一归一为 `dmxa`）。"""
+    return create_engine(_normalize_dialect_url(url))
 
 
 def _bound_lock_wait(connection: Connection, engine: Engine) -> None:

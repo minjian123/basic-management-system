@@ -1012,9 +1012,10 @@ e2e-playwright:
       uv run python -m ops.test_db drop --engine "$DB_DIALECT" --execute || true
       exit 1
 
-# ---- 跨库两阶段提交真库（强一致专项 05_07）：MySQL × PostgreSQL 双库同进程 2PC ----
-# 与 integration-* 同档开关（deploy/ci/verify/db）；`BMS_TEST_{MYSQL,PG}_URL` 为 2PC 用例专用变量
-# （sync 引擎：`mysql+pymysql` / `postgresql+psycopg`）；用例自建 / 自删探针表。
+# ---- 跨库两阶段提交真库（强一致专项 05_07）：MySQL × PostgreSQL × 达梦 同进程 2PC ----
+# 与 integration-* 同档开关（deploy/ci/verify/db）；`BMS_TEST_{MYSQL,PG,DM}_URL` 为 2PC 用例专用变量
+# （sync 引擎：`mysql+pymysql` / `postgresql+psycopg` / 达梦 `dm+dmPython`，达梦连接串由用例归一为 `dmxa`）；
+# 用例自建 / 自删探针表。
 txn-2pc:
   stage: verify
   image: $REGISTRY_IMAGE_PREFIX/ci-backend:py314
@@ -1024,6 +1025,11 @@ txn-2pc:
     BMS_ENV: test
     BMS_TEST_MYSQL_URL: mysql+pymysql://bms_test:$MYSQL_TEST_PASSWORD@192.168.0.107:3306/bms_test_mysql
     BMS_TEST_PG_URL: postgresql+psycopg://bms_test:$POSTGRES_TEST_PASSWORD@192.168.0.107:5432/bms_test_pg
+    # 达梦档（2026-10-18 纳入）：同步驱动串；测试库以 SYSDBA 承载（见 integration-dm8 注释）
+    BMS_TEST_DM_URL: dm+dmPython://SYSDBA:$DM8_SYSDBA_PASSWORD@192.168.0.107:5236/BMS_TEST_DM
+  before_script:
+    # 达梦客户端通信加密模块加载路径（POSIX 须进程启动前注入；`-70089`，见 integration-dm8 注释）
+    - source scripts/tools/db/达梦环境.sh
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
@@ -1033,6 +1039,7 @@ txn-2pc:
           - backend/libs/bms_core/tests/integration/**/*
           - backend/services/txn/**/*
           - backend/ops/txn_recovery.py
+          - scripts/tools/db/**/*
       exists:
         - deploy/ci/verify/db
   script:
@@ -1044,6 +1051,8 @@ txn-2pc:
     - MYSQL_ASYNC_URL="$(printf '%s' "$BMS_TEST_MYSQL_URL" | sed -E 's#^mysql\+pymysql#mysql+aiomysql#')"
     - uv run python -m ops.test_db create --engine mysql --scope platform --url "$MYSQL_ASYNC_URL" --execute
     - uv run python -m ops.test_db create --engine postgres --scope platform --url "$BMS_TEST_PG_URL" --execute
+    # 达梦档（2026-10-18 纳入）：测试模式建出后同一用例文件的 `dm8` 参数即可跑（缺库自动 skip）
+    - uv run python -m ops.test_db create --engine dm8 --scope platform --url "$BMS_TEST_DM_URL" --execute
     - uv run pytest libs/bms_core/tests/integration/test_cross_db_2pc.py -v
 
 integration-mysql:
@@ -1070,19 +1079,23 @@ integration-postgres:
 
 integration-dm8:
   <<: *integration-base
-  # 2026-09-22 临时关闭：达梦实例连接报 `dmPython DatabaseError [CODE:-70089] Encryption module failed to load`
-  # （发生在 ops.test_db create 建连阶段、早于用例执行；已排查非本仓代码，属达梦服务端加密模块 / 客户端环境问题，
-  # 网上无明确解法）。修复达梦环境后删除本 rules 覆盖即恢复。mysql / postgres 两档不受影响。
-  rules:
-    - when: never
+  # 2026-10-18 恢复（原 2026-09-22 因连接阶段 `dmPython DatabaseError [CODE:-70089] Encryption module
+  # failed to load / 加密模块加载失败` 置 `when: never`）：根因＝**客户端通信加密模块（dmssl）加载路径**
+  # 未注入（非服务端问题）——POSIX 只能在**进程启动前**注入 `LD_LIBRARY_PATH`（运行期改 PATH / ctypes
+  # 预载 / site-packages/lib 布局 / dmsvc_path + LIBSSL_LOAD_PATH 均实测无效），故经仓内包装脚本注入
+  # （`scripts/tools/db/达梦环境.sh`，本地 Linux 与 CI 共用；Windows 由基座建引擎前自动前置 PATH）。
+  # 变量：达梦测试库以 `SYSDBA` 承载（无独立测试账号）⇒ URL 须带 SYSDBA 密码（`DM8_SYSDBA_PASSWORD`）。
+  before_script:
+    - source scripts/tools/db/达梦环境.sh
   variables:
     DB_DIALECT: dm8
-    BMS_TEST_DB_URL: dm+dmPython://SYSDBA:$DM8_TEST_PASSWORD@192.168.0.107:5236/BMS_TEST_DM
-    BMS_TEST_TENANT_DB_URL: dm+dmPython://SYSDBA:$DM8_TEST_PASSWORD@192.168.0.107:5236/BMS_TEST_DM_T1
+    BMS_TEST_DB_URL: dm+dmPython://SYSDBA:$DM8_SYSDBA_PASSWORD@192.168.0.107:5236/BMS_TEST_DM
+    BMS_TEST_TENANT_DB_URL: dm+dmPython://SYSDBA:$DM8_SYSDBA_PASSWORD@192.168.0.107:5236/BMS_TEST_DM_T1
+    BMS_TEST_DM_URL: dm+dmPython://SYSDBA:$DM8_SYSDBA_PASSWORD@192.168.0.107:5236/BMS_TEST_DM
     TEST_DB_NAME: BMS_TEST_DM
     DUMP_PORT: "5236"
     DUMP_USER: SYSDBA
-    DUMP_PASSWORD: $DM8_TEST_PASSWORD
+    DUMP_PASSWORD: $DM8_SYSDBA_PASSWORD
   # dmPython 对 Python 3.14 兼容性为阶段一验证项；失败则整体回退 3.13（规划既定口径）
 
 # ---- 镜像构建推 Registry（5050，insecure 已配置于 mjbk daemon.json）----

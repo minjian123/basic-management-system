@@ -13,7 +13,9 @@
 - 达梦为同步驱动、无异步方言（原生 `dm` 与自定义 XA 方言 `dmxa`）：`create` 对其抛 `ConfigError`
   （运行期经 `app/db/sync.py` 的
   同步门面 `SyncSession` 接入，见《后端基类清单》）；`create_sync` 提供同步引擎
-  （达梦运行期与四库连通性验证），支持与异步路径同源的副本路由。
+  （达梦运行期与四库连通性验证），支持与异步路径同源的副本路由；**达梦建引擎前置自检**
+  客户端通信加密模块（`dmssl`）加载路径——Windows 就地修复、POSIX 明确告警（`-70089`，
+  见 `db/dialects/dm_ssl.py`）。
 - 工厂链：`EngineFactory → BaseDbFactory → BaseFactory → BasePluggable`（02-54）；实现可替换
   （插件键 `engine_factory`，配置经 `[engine_factory].provider` 选择，缺省 `default`）。
 """
@@ -28,6 +30,8 @@ from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import DatabaseTargetSettings, DbPoolSettings, Settings, get_settings
 from bms_core.core.exceptions import ConfigError
 from bms_core.core.factory import BaseDbFactory
+from bms_core.core.logging import get_logger
+from bms_core.db.dialects.dm_ssl import DM_SSL_MISSING, dm_ssl_hint, ensure_dm_ssl_module
 from bms_core.db.keys import (
     DB_KIND_ARCHIVE,
     DB_KIND_PLATFORM,
@@ -41,6 +45,22 @@ from bms_core.db.sync import SYNC_ONLY_DIALECTS
 _SQLITE = "sqlite"
 _CONNECT_TIMEOUT_DIALECTS = frozenset({"mysql", "postgresql"})
 """支持 `connect_args={"connect_timeout": ...}` 的异步方言。"""
+
+_LOGGER = get_logger("bms_core.db.engine")
+
+
+def _ensure_dm_ssl(dialect: str) -> None:
+    """达梦同步引擎**建连前自检**：客户端通信加密模块加载路径（`-70089`）。
+
+    Windows 就地修复（运行期 `PATH`）；POSIX 缺失时**明确告警并给出可复制的修复命令**
+    （**不静默降级**，也不阻断建引擎——个别部署可能由系统 `libssl` 满足）。详见
+    `bms_core/db/dialects/dm_ssl.py`。
+
+    Args:
+        dialect: 方言名（`dm` / `dmxa`，仅用于日志定位）。
+    """
+    if ensure_dm_ssl_module() == DM_SSL_MISSING:
+        _LOGGER.warning("达梦客户端通信加密模块未在加载路径内", dialect=dialect, hint=dm_ssl_hint())
 
 
 def _dialect_name(url: str) -> str:
@@ -170,6 +190,9 @@ class EngineFactory(BaseDbFactory[str | None, AsyncEngine]):
         engine = self._sync_engines.get((key.raw, role))
         if engine is not None:
             return engine
+        dialect = _dialect_name(url)
+        if dialect in SYNC_ONLY_DIALECTS:
+            _ensure_dm_ssl(dialect)
         engine = sqlalchemy.create_engine(url, pool_pre_ping=True)
         self._sync_engines.set((key.raw, role), engine)
         return engine

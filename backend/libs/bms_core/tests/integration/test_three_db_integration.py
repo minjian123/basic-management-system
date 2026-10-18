@@ -6,6 +6,8 @@
   租户对象跑 `tenant` 链）。
 - **方言过滤**：参数 id 与用例名均含方言标识（`mysql` / `postgres` / `dm8`），并挂方言标记，
   保证 `pytest -k "$DB_DIALECT"` 与 `pytest -m dialect_*` 双路可命中。
+- **达梦连接串归一**：经基座统一改走自定义 XA 方言 `dmxa`（05_05 口径）——`urls` 夹具把环境变量里的
+  `dm+dmPython://` 归一后**再供断言与配置使用**（否则「工厂解析结果 == 原串」这类断言必错）。
 - 达梦为同步方言：会话经 `session_scope` 的同步门面路径（本用例同时覆盖该路径）。
 """
 
@@ -39,6 +41,7 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.core.plugin import resolve_plugin
+from bms_core.db import engine as db_engine
 from bms_core.db.engine import PLATFORM_DB_KEY, EngineFactory
 from bms_core.db.migration import resolve_chain
 from bms_core.db.registry import EngineRegistry
@@ -92,14 +95,15 @@ def dialect(request: pytest.FixtureRequest) -> str:
 
 @pytest.fixture
 def urls(dialect: str) -> tuple[str, str]:
-    """真库两对象连接串（未配置 / 方言不匹配即跳过）。"""
+    """真库两对象连接串（未配置 / 方言不匹配即跳过；达梦归一为 `dmxa` 后返回）。"""
     platform_url = os.environ.get("BMS_TEST_DB_URL", "")
     tenant_url = os.environ.get("BMS_TEST_TENANT_DB_URL", "")
     if not platform_url or not tenant_url:
         pytest.skip("未配置 BMS_TEST_DB_URL / BMS_TEST_TENANT_DB_URL，跳过三库真库集成用例")
     if make_url(platform_url).get_backend_name() != _DIALECT_NAME[dialect]:
         pytest.skip(f"BMS_TEST_DB_URL 方言与 {dialect} 不匹配")
-    return platform_url, tenant_url
+    normalize = db_engine._normalize_dialect_url  # pyright: ignore[reportPrivateUsage]
+    return normalize(platform_url), normalize(tenant_url)
 
 
 def _settings(
