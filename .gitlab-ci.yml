@@ -350,11 +350,11 @@ backend-test:
   variables:
     BMS_ENV: test
   rules:
-    # MR 流水线：全量门禁（恢复 MR 流程后生效；当前 workflow 未放行 MR 事件）
+    # MR 流水线：全量触发（选测在 job 内按变更推导；恢复 MR 流程后生效）
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       exists:
         - backend/pyproject.toml
-    # main 直推：仅共享 / 工作区路径变更跑全量（服务变更由服务子流水线工程级测试覆盖）
+    # main 直推：共享 / 工作区路径 + 预检脚本变更即触发（服务变更由服务子流水线工程级测试覆盖）
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
         paths:
@@ -365,6 +365,7 @@ backend-test:
           - backend/pyproject.toml
           - backend/uv.lock
           - deploy/**/*
+          - scripts/tools/preflight/**/*
           - .gitlab-ci.yml
       exists:
         - backend/pyproject.toml
@@ -380,6 +381,7 @@ backend-test:
           - backend/pyproject.toml
           - backend/uv.lock
           - deploy/**/*
+          - scripts/tools/preflight/**/*
           - .gitlab-ci.yml
       exists:
         - backend/pyproject.toml
@@ -397,7 +399,21 @@ backend-test:
     # 会被判为「已满足」而沿用过期产物（源码已改、版本未变）⇒ 运行时模型与当前仓库不一致。
     # 强制按当前工作树重建本地包，避免陈旧模型（如缺 `form_key` 列）。
     - uv sync --frozen --reinstall
-    - uv run pytest --cov=bms_core --cov=bms_platform --cov=bms_txn --cov=bms_identity --cov=bms_tenant --cov=bms_file --cov=bms_notification --cov=bms_search --cov=bms_ai --cov=bms_report --cov-branch --cov-report=term --cov-report=json:coverage.json --cov-fail-under=100
+    - cd "$CI_PROJECT_DIR"
+    # 选测 + 覆盖率门禁 + 扩圈（13_01）：与本地预检共用 scripts/tools/preflight/run-selected.py，
+    # 推导规则只在 test_selection.py 一处维护；基准不可解析（全 0 / 浅克隆取不到 base SHA）即显式退化全量，
+    # 绝不静默跳过（空选测会被 run-selected 视为「无后端变更」直接成功）。
+    - |
+      BASE="${CI_MERGE_REQUEST_DIFF_BASE_SHA:-${CI_COMMIT_BEFORE_SHA:-}}"
+      case "$BASE" in ""|0000000000000000000000000000000000000000) BASE="" ;; esac
+      FORCE=""
+      if [ -z "$BASE" ]; then
+        echo "[test-selection] 变更基准不可解析 ⇒ 显式退化全量"
+        FORCE="--force-full"
+      fi
+      python scripts/tools/preflight/run-selected.py --root . ${BASE:+--changed-from "$BASE"} $FORCE \
+        --pytest-cwd backend --pytest-cmd "uv run pytest" --cov --cov-fail-under 100 \
+        --max-rounds 2 --cov-json backend/coverage.json
   coverage: '/^TOTAL.*?\s+\d+\s+\d+\s+(\d+(?:\.\d+)?%)$/'
   # 覆盖率快照归档（04_04）：coverage.json 供域七阶段测试报告引用（证据留痕）
   artifacts:
@@ -662,7 +678,26 @@ dependency-scan:
     - docker run --rm -v "$CI_PROJECT_DIR:/src:ro" -v trivy-cache:/root/.cache/trivy -e TRIVY_DB_REPOSITORY=ghcr.nju.edu.cn/aquasecurity/trivy-db:2 aquasec/trivy:0.74.0 fs --scanners vuln --severity CRITICAL,HIGH --exit-code 1 --skip-dirs .git --skip-dirs node_modules /src
 
 # ---- 前端：ESLint + Vitest + 双端构建 ----
+# ---- 前端选测公共片段（13_01）：受影响包列表由 test_selection.py 统一推导（与后端同一份实现）----
+# rules 无法表达 workspace 依赖闭包（改 @bms/core 时 desktop / modules 必须跑），故在 job 内取结果再判断；
+# 本 job 无受影响包时 early-exit（打印原因并 success），避免「任一前端文件改动即四包全量」。
+.test-selection:
+  before_script:
+    - |
+      BASE="${CI_MERGE_REQUEST_DIFF_BASE_SHA:-${CI_COMMIT_BEFORE_SHA:-}}"
+      case "$BASE" in ""|0000000000000000000000000000000000000000) BASE="" ;; esac
+      FORCE=""
+      if [ -z "$BASE" ]; then
+        echo "[test-selection] 变更基准不可解析 ⇒ 显式退化全包"
+        FORCE="--force-full"
+      fi
+      SELECTED_PACKAGES=$(python3 scripts/tools/preflight/test_selection.py --root . --scope frontend \
+        --format packages ${BASE:+--changed-from "$BASE"} $FORCE)
+      export SELECTED_PACKAGES
+      echo "[test-selection] 受影响前端包：${SELECTED_PACKAGES:-（无）}"
+
 desktop-check:
+  extends: .test-selection
   stage: test
   image: $REGISTRY_IMAGE_PREFIX/ci-frontend:node22
   needs: [{job: ci-base-build, optional: true}]
@@ -685,6 +720,11 @@ desktop-check:
     # pnpm 单一 workspace：job 内现装（store 走 runner /cache/pnpm 持久卷，命中即秒级 link）；
     # @bms/* 由 workspace 协议解析（源码直出，不再 /opt/ci 镜像预置 / copies）
     - pnpm install --frozen-lockfile
+    - |
+      case " $SELECTED_PACKAGES " in
+        *" @bms/desktop "*) ;;
+        *) echo "[test-selection] 无 @bms/desktop ⇒ 跳过"; exit 0 ;;
+      esac
     - pnpm --filter @bms/desktop run lint
     - pnpm --filter @bms/desktop run test:cov
   coverage: '/^All files\s*\|\s*(\d+(?:\.\d+)?)/'
@@ -695,6 +735,7 @@ desktop-check:
 
 # ---- 前端核心：@bms/core / @bms/vue（框架无关核心与绑定插件，2026-09-16 S1 接入）----
 core-check:
+  extends: .test-selection
   stage: test
   image: $REGISTRY_IMAGE_PREFIX/ci-frontend:node22
   needs: [{job: ci-base-build, optional: true}]
@@ -714,9 +755,25 @@ core-check:
       exists:
         - frontend/packages/core/package.json
   script:
-    # 全包门禁经根 `pnpm run check`；@bms/* 由单一 workspace 协议解析（源码直出）
+    # 按受影响包逐段检查（等价根 `pnpm run check` 的四包口径，但只跑本次受影响的包）；@bms/* 源码直出
     - pnpm install --frozen-lockfile
-    - pnpm run check
+    - |
+      TARGETS=""
+      for pkg in $SELECTED_PACKAGES; do
+        case "$pkg" in
+          @bms/core|@bms/api-types|@bms/vue|@bms/ui-ep) TARGETS="$TARGETS $pkg" ;;
+        esac
+      done
+      if [ -z "$TARGETS" ]; then
+        echo "[test-selection] 无受影响核心包 ⇒ 跳过"
+        exit 0
+      fi
+      for pkg in $TARGETS; do
+        echo "[test-selection] 检查 $pkg"
+        pnpm --filter "$pkg" run typecheck
+        pnpm --filter "$pkg" run lint
+        pnpm --filter "$pkg" run test
+      done
 
 # ---- 前端契约类型：@bms/api-types 零漂移（04-1-1；契约快照 / 生成包变更单独拉起）----
 api-types-check:
@@ -743,6 +800,7 @@ api-types-check:
 
 # ---- 模块工程：ESLint + 类型 + Vitest（frontend/modules/*：独立构建 / 独立发布的运行时模块，阶段五 02_01 接入）----
 module-check:
+  extends: .test-selection
   stage: test
   image: $REGISTRY_IMAGE_PREFIX/ci-frontend:node22
   needs: [{job: ci-base-build, optional: true}]
@@ -761,14 +819,19 @@ module-check:
       exists:
         - frontend/modules/demo/package.json
   script:
-    # 遍历全部模块工程（frontend/modules/*；新增模块自动纳入 lint / 类型 / 测试与契约用例）
+    # 遍历模块工程（frontend/modules/*；新增模块自动纳入），只跑本次受影响的模块（13_01）
     - pnpm install --frozen-lockfile
     - |
       for dir in frontend/modules/*/; do
         name=$(basename "$dir")
-        pnpm --filter "@bms/module-$name" run lint
-        pnpm --filter "@bms/module-$name" run typecheck
-        pnpm --filter "@bms/module-$name" run test
+        pkg="@bms/module-$name"
+        case " $SELECTED_PACKAGES " in
+          *" $pkg "*) ;;
+          *) echo "[test-selection] 跳过 $pkg（未受影响）"; continue ;;
+        esac
+        pnpm --filter "$pkg" run lint
+        pnpm --filter "$pkg" run typecheck
+        pnpm --filter "$pkg" run test
       done
 
 # ---- 模块独立构建 + 模块产物单独计量 + 产物单独归档 ----

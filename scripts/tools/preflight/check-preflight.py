@@ -43,6 +43,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -51,6 +52,13 @@ from pathlib import Path
 _SRC_ROOT = Path(__file__).resolve().parents[3] / "backend" / "libs" / "bms_core" / "src"
 if str(_SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(_SRC_ROOT))
+
+# 同目录选测器（变更 → 受影响测试的单一来源；见 13_01 详细设计）
+_SCRIPT_DIR = Path(__file__).resolve().parent
+if str(_SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(_SCRIPT_DIR))
+
+import test_selection  # noqa: E402
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList  # noqa: E402
 
@@ -222,11 +230,19 @@ def _pytest_flags_from_ci(root: Path, backend: Path, failures: ConcurrentStableL
     data = yaml.safe_load((root / ".gitlab-ci.yml").read_text(encoding="utf-8"))
     script = [str(line) for line in data.get("backend-test", {}).get("script", [])]
     joined = "\n".join(script)
-    # 仅取 `uv run pytest` 命令自身（含反斜杠续行）的选项，避免把 `uv sync --frozen` 等误算
+    # 口径（13_01 起）：`backend-test` 不再写裸 `uv run pytest`，改由 `run-selected.py` 统一构造 pytest
+    # 选项；CI 只经 `--pytest-cmd` 指定执行器、经 `--pytest-arg` 透传额外选项。故：
+    #   - `--pytest-cmd` 行不参与校验（其值 `uv run pytest` 不是选项）；
+    #   - `--pytest-arg` 的取值逐个校验（防 `--kiwicms` 类拼错）；
+    #   - 两者都没有时视为「选项全由执行器构造」，通过并说明。
     lines = joined.splitlines()
     flags: ConcurrentStableList[str] = ConcurrentStableList()
     collecting = False
     for line in lines:
+        if "--pytest-cmd" in line or "--pytest-arg" in line:
+            for match in re.finditer(r"--pytest-arg[= ]+(\S+)", line):
+                flags.update(re.findall(r"--[a-z][a-z0-9-]*", match.group(1)))
+            continue
         if not collecting and "uv run pytest" in line:
             collecting = True
         if collecting:
@@ -234,6 +250,12 @@ def _pytest_flags_from_ci(root: Path, backend: Path, failures: ConcurrentStableL
             if not line.rstrip().endswith("\\"):
                 collecting = False
     flags = sorted(set(flags))
+    if not flags:
+        if "run-selected.py" in joined:
+            print("  通过（pytest 选项由 run-selected.py 统一构造；CI 未透传额外 --pytest-arg）")
+        else:
+            print("  跳过（backend-test 未使用裸 pytest）")
+        return
     help_out = subprocess.run(
         ["uv", "run", "python", "-m", "pytest", "--help"],
         cwd=backend,
@@ -374,70 +396,27 @@ def _changed_paths(root: Path) -> ConcurrentStableList[str]:
     return paths
 
 
-def _add_test_dir(backend: Path, dirs: ConcurrentStableList[str], rel: str) -> None:
-    """登记存在的测试目录（去重）。
-
-    Args:
-        backend: `backend` 目录。
-        dirs: 测试目录收集列表（相对 `backend`）。
-        rel: 候选测试目录（相对 `backend`）。
-    """
-    if (backend / rel).is_dir() and rel not in dirs:
-        dirs.add(rel)
-
-
-def _add_cov_target(covs: ConcurrentStableList[str], rel: str, prefix: str) -> None:
-    """登记变更源文件的覆盖率目标模块（非包内 `.py` 不登记；去重）。
-
-    Args:
-        covs: 覆盖率目标收集列表。
-        rel: 变更路径（相对仓库根）。
-        prefix: 包源根前缀（相对仓库根，如 `backend/libs/bms_core/src/`）。
-    """
-    if not rel.startswith(prefix) or not rel.endswith(".py"):
-        return
-    module = rel[len(prefix) : -3].replace("/", ".")
-    if module.endswith(".__init__"):
-        module = module[: -len(".__init__")]
-    if module and module not in covs:
-        covs.add(module)
-
-
 def _scope_targets(
     backend: Path, changes: ConcurrentStableList[str]
 ) -> tuple[ConcurrentStableList[str], ConcurrentStableList[str]]:
-    """按变更路径推导定向范围：（测试目录, 覆盖率目标模块）。
+    """按变更路径推导定向范围：（测试文件, 覆盖率目标模块）——委托选测器（单一来源）。
 
-    - `backend/libs/bms_core/**` → `libs/bms_core/tests`
-    - `backend/ops/**` → `libs/bms_core/tests/ops`（ops 用例落在基座测试目录）
-    - `backend/services/<服务>/**` → `services/<服务>/tests`
-    - 覆盖率目标只取**包内源文件**（`bms_core` / `bms_<服务>`）；`ops` 与 `scripts` 不入覆盖率门禁
-      （与聚合档 `--cov` 口径一致）
+    推导规则（目录同构 + AST 导入图 + 基础模块退化 + ops / 预检脚本特殊路径）只在
+    `test_selection.py` 维护一处，预检与 CI 共用；本函数仅做返回类型适配。
 
     Args:
         backend: `backend` 目录。
         changes: 改动路径（相对仓库根）。
 
     Returns:
-        tuple[ConcurrentStableList[str], ConcurrentStableList[str]]: （测试目录, 覆盖率目标模块）。
+        tuple[ConcurrentStableList[str], ConcurrentStableList[str]]: （测试文件, 覆盖率目标模块）。
     """
-    dirs: ConcurrentStableList[str] = ConcurrentStableList()
-    covs: ConcurrentStableList[str] = ConcurrentStableList()
-    for rel in changes:
-        parts = rel.split("/")
-        if rel.startswith("backend/libs/bms_core/"):
-            _add_test_dir(backend, dirs, "libs/bms_core/tests")
-            _add_cov_target(covs, rel, "backend/libs/bms_core/src/")
-        elif rel.startswith("backend/ops/"):
-            _add_test_dir(backend, dirs, "libs/bms_core/tests/ops")
-        elif len(parts) >= 3 and parts[0] == "backend" and parts[1] == "services":
-            _add_test_dir(backend, dirs, f"services/{parts[2]}/tests")
-            _add_cov_target(covs, rel, f"backend/services/{parts[2]}/src/")
-    return dirs, covs
+    selection = test_selection.build_selection(backend, changes)
+    return ConcurrentStableList(selection.test_paths), ConcurrentStableList(selection.cov_modules)
 
 
 def _run_scoped(root: Path, backend: Path, failures: ConcurrentStableList[str], *, no_cov: bool) -> None:
-    """定向档：按 git 变更跑受影响工程用例 + 变更源文件覆盖率门禁。
+    """定向档：按 git 变更跑受影响测试文件 + 变更源文件覆盖率门禁（含扩圈）。
 
     Args:
         root: bms 仓库根。
@@ -446,21 +425,52 @@ def _run_scoped(root: Path, backend: Path, failures: ConcurrentStableList[str], 
         no_cov: 是否跳过覆盖率门禁。
     """
     changes = _changed_paths(root)
-    dirs, covs = _scope_targets(backend, changes)
+    selection = test_selection.build_selection(backend, changes)
     print(f"\n[preflight] 定向：按 git 变更（{len(changes)} 个文件）推导受影响范围")
-    if not dirs:
+    if selection.reason:
+        print(f"  退化：{selection.reason}")
+    for note in selection.notes:
+        print(f"  说明：{note}")
+    if not selection.test_paths:
         print("  无后端变更 ⇒ 跳过 pytest（静态与基座 / 边界段已执行；全量交 CI）")
         return
-    print(f"  测试目录：{'、'.join(dirs)}")
-    if covs and not no_cov:
-        print(f"  覆盖率门禁（100%）：{'、'.join(covs)}")
+    ratio = selection.picked / selection.total if selection.total else 0.0
+    print(f"  测试文件：{selection.picked}/{selection.total}（{ratio:.1%}）")
+    if selection.cov_modules and not no_cov:
+        print(f"  覆盖率门禁（行 + 分支 100%）：{'、'.join(selection.cov_modules)}")
     else:
         print("  覆盖率门禁：跳过（无变更源文件或 --no-cov）")
-    cmd: ConcurrentStableList[str] = ConcurrentStableList(["uv", "run", "pytest", "-q", *dirs])
-    if covs and not no_cov:
-        cmd.update([f"--cov={module}" for module in covs])
-        cmd.update(["--cov-branch", "--cov-fail-under=100"])
-    _run("后端测试：定向（受影响工程 + 覆盖率门禁）", cmd, backend, failures)
+
+    # 变更清单落临时文件交给执行器：与本地推导同一输入，避免二次 git diff 口径漂移
+    with tempfile.NamedTemporaryFile("w", encoding="utf-8", suffix=".txt", delete=False) as handle:
+        handle.write("\n".join(changes))
+        list_path = handle.name
+    cmd: ConcurrentStableList[str] = ConcurrentStableList(
+        [
+            sys.executable,
+            "scripts/tools/preflight/run-selected.py",
+            "--root",
+            str(root),
+            "--changed-file-list",
+            list_path,
+            "--pytest-cwd",
+            "backend",
+            "--pytest-cmd",
+            "uv run pytest",
+            "--max-rounds",
+            "2",
+            "--cov-json",
+            "backend/coverage.json",
+        ]
+    )
+    if no_cov:
+        cmd.add("--no-cov")
+    else:
+        cmd.update(["--cov-fail-under", "100"])
+    try:
+        _run("后端测试：定向（选测 + 覆盖率门禁 + 扩圈）", cmd, root, failures)
+    finally:
+        Path(list_path).unlink(missing_ok=True)
 
 
 def _self_test() -> int:
@@ -471,7 +481,7 @@ def _self_test() -> int:
     """
     print("[self-test] preflight 定向推导与预算护栏")
     backend = Path(__file__).resolve().parents[3] / "backend"
-    dirs, covs = _scope_targets(
+    selection = test_selection.build_selection(
         backend,
         ConcurrentStableList(
             [
@@ -484,20 +494,28 @@ def _self_test() -> int:
             ]
         ),
     )
-    docs_dirs, docs_covs = _scope_targets(
+    docs_selection = test_selection.build_selection(
         backend, ConcurrentStableList(["bms文档/规范/AI开发规范.md", "frontend/apps/portal/src/main.ts"])
     )
     guard = _Budget(step_seconds=0.0, total_seconds=0.0)
+    prefixes = ("libs/bms_core/tests/", "services/txn/tests/")
     checks = ConcurrentStableList[tuple[str, bool]](
         [
-            ("定向含基座测试目录", "libs/bms_core/tests" in dirs),
-            ("定向含服务测试目录", "services/txn/tests" in dirs),
-            ("ops 变更映射到基座 ops 用例", "libs/bms_core/tests/ops" in dirs),
+            (
+                "定向只选受影响工程的测试文件",
+                bool(selection.test_paths) and all(p.startswith(prefixes) for p in selection.test_paths),
+            ),
+            ("定向含基座测试文件", any(p.startswith("libs/bms_core/tests/") for p in selection.test_paths)),
+            ("定向含服务测试文件", any(p.startswith("services/txn/tests/") for p in selection.test_paths)),
+            ("ops 变更并入基座 ops 用例", any("/tests/ops/" in f"/{p}" for p in selection.test_paths)),
             (
                 "覆盖率只取包内源文件（基座 + 服务）",
-                sorted(covs) == ["bms_core.db.bootstrap", "bms_txn.services.recovery"],
+                selection.cov_modules == ("bms_core.db.bootstrap", "bms_txn.services.recovery"),
             ),
-            ("纯文档 / 前端变更不引测试与覆盖率", not docs_dirs and not docs_covs),
+            (
+                "纯文档 / 前端变更不引测试与覆盖率",
+                not docs_selection.test_paths and not docs_selection.cov_modules,
+            ),
             ("零预算即判耗尽", guard.remaining() <= 0),
         ]
     )

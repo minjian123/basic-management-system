@@ -1,8 +1,8 @@
 """预检脚本护栏用例（Kiwi 2311）：默认档定向推导与预算护栏。
 
 《测试规范》「执行方式」节：本地预检以**定向档为缺省**（全量须显式 `--full`），
-本用例锁定该口径的两条实现：**按 git 变更推导受影响范围**（测试目录 + 变更源文件覆盖率目标）
-与**单步 / 总体预算护栏**（超时即中止，防误跑长命令）。
+本用例锁定该口径的两条实现：**按 git 变更推导受影响范围**（测试文件 + 变更源文件覆盖率目标，
+推导规则委托选测器 `test_selection.py`，见 13_01）与**单步 / 总体预算护栏**（超时即中止，防误跑长命令）。
 """
 
 import importlib.util
@@ -25,8 +25,8 @@ _BACKEND = _REPO_ROOT / "backend"
 
 @pytest.mark.kiwi_id(2311)
 def test_scope_targets_maps_changed_paths() -> None:
-    """变更 → 范围映射：基座 / 服务 / ops 各自落到对应测试目录，覆盖率只取包内源文件。"""
-    dirs, covs = check_preflight._scope_targets(
+    """变更 → 范围映射：只选受影响工程的测试文件，ops 变更并入基座 ops 用例，覆盖率只取包内源文件。"""
+    files, covs = check_preflight._scope_targets(
         _BACKEND,
         ConcurrentStableList(
             [
@@ -37,25 +37,27 @@ def test_scope_targets_maps_changed_paths() -> None:
             ]
         ),
     )
-    assert list(dirs) == ["libs/bms_core/tests", "services/txn/tests", "libs/bms_core/tests/ops"]
+    assert files
+    assert all(rel.startswith(("libs/bms_core/tests/", "services/txn/tests/")) for rel in files)
+    assert any("/tests/ops/" in f"/{rel}" for rel in files)
     assert list(covs) == ["bms_core.db.bootstrap", "bms_txn.services.recovery"]
 
 
 @pytest.mark.kiwi_id(2311)
 def test_scope_targets_skips_docs_and_frontend() -> None:
-    """纯文档 / 前端变更不引测试目录与覆盖率目标（定向档跳过 pytest）。"""
-    dirs, covs = check_preflight._scope_targets(
+    """纯文档 / 前端变更不引测试与覆盖率目标（定向档跳过 pytest）。"""
+    files, covs = check_preflight._scope_targets(
         _BACKEND,
         ConcurrentStableList(["bms文档/规范/测试规范.md", "frontend/apps/portal/src/main.ts"]),
     )
-    assert not dirs
+    assert not files
     assert not covs
 
 
 @pytest.mark.kiwi_id(2311)
 def test_scope_targets_ignores_non_package_sources() -> None:
     """覆盖率只取包内源文件：`ops` / `scripts/tools` 变更不产生覆盖率目标（与聚合档 `--cov` 口径一致）。"""
-    dirs, covs = check_preflight._scope_targets(
+    files, covs = check_preflight._scope_targets(
         _BACKEND,
         ConcurrentStableList(
             [
@@ -65,7 +67,9 @@ def test_scope_targets_ignores_non_package_sources() -> None:
             ]
         ),
     )
-    assert list(dirs) == ["libs/bms_core/tests/ops", "libs/bms_core/tests"]
+    assert any("/tests/ops/" in f"/{rel}" for rel in files)
+    for guard in check_preflight.test_selection._PREFLIGHT_TESTS:
+        assert guard in files, guard
     assert list(covs) == ["bms_core.db"]
 
 

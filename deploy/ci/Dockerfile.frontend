@@ -9,5 +9,18 @@ ENV npm_config_registry=https://registry.npmmirror.com \
     npm_config_audit=false \
     npm_config_fund=false
 
+# git / python3：前端 job 的选测（13_01）与后端共用 scripts/tools/preflight/test_selection.py，
+# 需读 `git diff` 的变更清单并按 workspace 依赖推导受影响包（node:22-slim 两者都不自带）。
+# apt 换清华镜像（与 ci-backend 同口径）；兼容 Debian 12 的 sources.list 与 13 的 deb822 两种格式。
+RUN if [ -f /etc/apt/sources.list.d/debian.sources ]; then \
+      sed -i 's|deb.debian.org|mirrors.tuna.tsinghua.edu.cn|g' /etc/apt/sources.list.d/debian.sources; \
+    fi \
+ && if [ -f /etc/apt/sources.list ]; then \
+      sed -i 's|deb.debian.org|mirrors.tuna.tsinghua.edu.cn|g' /etc/apt/sources.list; \
+    fi \
+ && apt-get update \
+ && apt-get install -y --no-install-recommends git python3 \
+ && rm -rf /var/lib/apt/lists/*
+
 # pnpm 版本固定（与本地一致；pnpm-lock.yaml 的锁语义由该版本解析）
 RUN npm install -g pnpm@11.7.0
