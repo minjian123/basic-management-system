@@ -24,7 +24,7 @@
 
 ### 2.2 结论：pnpm 单一 workspace + 依赖外置 <a id="conclusion"></a>
 
-- **pnpm 11.7.0**（与 CI 基础镜像固定版本一致，pnpm-lock.yaml 锁语义由此版本解析）；
+- **pnpm 11.7.0**（与 CI 基础镜像固定版本一致，pnpm-lock.yaml 锁语义由此版本解析）；**版本由仓内 `bms/package.json` 的 `"packageManager": "pnpm@11.7.0"` 锚定**——corepack 依该字段取版本，不随 Node 版本或全局安装漂移（见[第 7.5 节](#hoist-not-real-dir)）；
 - **workspace 全收敛**：`packages/* / apps/* / modules/*` 统一到根 `pnpm-workspace.yaml`，平台基座包（`@bms/core` / `@bms/vue` / `@bms/ui-ep`）与模块的依赖协议全部改 `workspace:*`（原 `file:` / `0.0.0`）；
 - **依赖物理外置**：根与各工程 `node_modules` 经 `bms/scripts/tools/deps/` 三入口脚本（外置 / 还原 / 重装）整体 `mv` 到本地依赖仓并原位符号链接；pnpm store 本身就在项目外（`~/.local/share/pnpm/store/v11`，内容寻址全局缓存）。
 
@@ -32,9 +32,9 @@
 
 | 项 | 取值 |
 | --- | --- |
-| node（nvm） | v24.20.0（默认；`~/.nvm/versions/node/` 下另有 v22.23.2） |
-| npm | 11.19.0（随 node；pnpm 经其全局安装） |
-| pnpm | **11.7.0**（`~/.nvm/versions/node/v24.20.0/bin/pnpm`） |
+| node（nvm） | 仓内锚定 **v22.23.2**（`bms/.nvmrc` 与 `bms/frontend/apps/desktop/.nvmrc` 均为 `22`，与 CI `node:22-slim` 一致）；nvm 默认 v24.20.0 |
+| npm | 11.19.0（随 node） |
+| pnpm | **11.7.0**（由 `bms/package.json` 的 `packageManager` 锚定，corepack 按字段取版本；缓存于 corepack 的 pnpm 目录） |
 | pnpm store | `~/.local/share/pnpm/store/v11`（内容寻址；store 内的真实文件以硬链接挂入各 node_modules） |
 | 项目 registry | npmmirror（`bms/.npmrc` 的 `registry=https://registry.npmmirror.com`） |
 | workspace 收敛 | `bms/pnpm-workspace.yaml`：`frontend/packages/*`、`frontend/apps/*`、`frontend/modules/*` |
@@ -47,25 +47,35 @@
 
 ### 4.1 安装 pnpm <a id="install"></a>
 
-pnpm 随 node（nvm）的全局 npm 安装，路径落在 nvm 当前版本 bin 下，切换 node 版本后需重新 global 安装：
+**版本以仓内 `bms/package.json` 的 `"packageManager": "pnpm@11.7.0"` 为准（权威锚点）**：corepack 读到该字段后按字段取版本，不再回落到「corepack 自带的最新版」。
+
+```bash
+cd bms
+pnpm -v          # 11.7.0（由 packageManager 锚定，与 Node 版本无关）
+which pnpm       # 具体入口随机器而异：corepack 垫片或 nvm 全局 pnpm 均可
+```
+
+机器侧可选再装一份全局 pnpm（与 CI 基础镜像同款，便于脱离仓库时使用）：
 
 ```bash
 npm install -g pnpm@11.7.0
-pnpm -v          # 11.7.0
-which pnpm       # ~/.nvm/versions/node/<当前版本>/bin/pnpm
 ```
 
-> 版本与 CI 基础镜像固定版本一致（`deploy/ci/Dockerfile.frontend` 内 `pnpm@11.7.0`）；升级须同步改 Dockerfile 并核对 `pnpm-lock.yaml` 的 `lockfileVersion`。
+> 版本与 CI 基础镜像固定版本一致（`deploy/ci/Dockerfile.frontend` 内 `pnpm@11.7.0`）；升级须同步改 `packageManager` 字段与 Dockerfile，并核对 `pnpm-lock.yaml` 的 `lockfileVersion`。
+> **版本锚点统一由 `packageManager` 承担，不依赖「给某个 Node 版本装全局 pnpm」**：Node 自带 corepack 时 `pnpm` 命令可能落到 corepack 垫片，实际取哪版由 `packageManager` 决定；pnpm 自身也会按该字段自管版本（`manage-package-manager-versions`）。无该字段时 corepack 会用其缓存的最新版（实测会漂到 pnpm 12，与外置依赖不兼容，见[第 7.5 节](#hoist-not-real-dir)）。
 
 ### 4.2 项目配置 <a id="config"></a>
 
-`bms/` 根三个配置（均已入库，脚本/CI 依赖）：
+`bms/` 根四个配置（均已入库，脚本/CI 依赖）：
 
 | 文件 | 作用 |
 | --- | --- |
 | `.npmrc` | registry=npmmirror；`auto-install-peers=true`、`strict-peer-dependencies=false`（平滑迁移、peer 冲突仅告警） |
 | `pnpm-workspace.yaml` | workspace 包范围；`allowBuilds`（@parcel/watcher、vue-demi 放行 postinstall 脚本） |
 | `pnpm-lock.yaml` | 单一锁文件（**必须提交**；CI 以 `--frozen-lockfile` 为准） |
+| `package.json` 的 `packageManager` | **`pnpm@11.7.0`**——pnpm 版本权威锚点，corepack 依此取版本（见[第 7.5 节](#hoist-not-real-dir)） |
+
+`.nvmrc` 两处：`bms/.nvmrc`（`22`）与 `bms/frontend/apps/desktop/.nvmrc`（`22`），与 CI 基础镜像 `node:22-slim` 口径一致。
 
 > **pnpm 11 只读 `pnpm-workspace.yaml` 的 `allowBuilds`**：`package.json` 里的 `pnpm.onlyBuiltDependencies` 等字段已不读取（会告警），build 类包放行一律写 workspace 配置。@parcel/watcher 与 vue-demi 属依赖树中**有 postinstall 脚本但默认拦截**的包，放行后才能正常装。
 
@@ -155,6 +165,38 @@ pnpm install --frozen-lockfile
 ### 7.4 锁文件与版本对齐 <a id="frozen"></a>
 
 `--frozen-lockfile` 失败说明 `package.json` 与 `pnpm-lock.yaml` 不一致：改完依赖声明先 `pnpm install`（更新锁），再回到 frozen 校验。CI 只认 frozen，本地一致后才能推送。
+
+### 7.5 `workspace hoist directory is not a real directory`（pnpm 漂到 12） <a id="hoist-not-real-dir"></a>
+
+**现象**（2026-10-18 在 Windows 侧实测，Linux 同源机制）：在 `frontend/apps/desktop` 执行 `pnpm dev` 报
+
+```text
+Error:   × installing dependencies
+  ╰─▶ Failed to create directory at "<repo>/node_modules": workspace hoist directory is not a real directory
+[WARN] The install that runs before scripts failed, so your node_modules may be out of sync with your lockfile.
+Set "verifyDepsBeforeRun: false" to skip this install.
+```
+
+vite 仍能起来，但依赖可能已与锁文件失同步。
+
+**根因链**（逐条实测）：
+
+1. `frontend/apps/desktop/.nvmrc` 内容为 `22`，版本管理器在该目录把 Node 切到 v22.23.2；
+2. 该 Node 版本目录下**只有 corepack 与 npm、没有 pnpm**；
+3. `pnpm` 命令落到 corepack 垫片，而当时 `package.json` **无 `packageManager` 字段** → corepack 无锚定，取缓存里的**最新 pnpm 12**；
+4. **pnpm 12 不接受链接形态的工作区 hoist 目录**：它要求仓根 `node_modules` 是真实目录，而本项目按依赖外置设计把它做成了符号链接 → 报错。pnpm 12 的 `verifyDepsBeforeRun` 默认开启，故 `pnpm dev` 先跑一轮 install 才炸；
+5. pnpm 11.7.0 对同一链接形态完全正常（`Already up to date`）。实测 pnpm 12 在最小复现里会**删掉链接改建真实 node_modules**，等于架空整个依赖外置设计。
+
+**修复（已落地）**：`bms/package.json` 加 `"packageManager": "pnpm@11.7.0"` + `bms/.nvmrc`（`22`）。corepack 依字段取 11.7.0，`pnpm dev` 不再触发该轮 install。
+
+```bash
+cd bms && pnpm -v                    # 11.7.0
+cd frontend/apps/desktop && pnpm -v  # 11.7.0（此前为 12.x）
+```
+
+> **不要用 `.npmrc` 的 `verifyDepsBeforeRun=false` 掩盖**：那只是跳过启动前的校验轮，真实 `pnpm install` 仍会因 pnpm 12 与外置依赖不兼容而失败。
+> **不要为绕开此问题改 `.nvmrc` 的 Node 版本**：CI 与规划文档的 Node 22 LTS 基线是既定口径，版本该锁在 pnpm 侧而非 Node 侧。
+> **升级 pnpm 到 12 前须先改造依赖外置**：pnpm 12 要求 hoist 目录为真实目录，与外置设计正面冲突。
 
 ## 8. 关联文档 <a id="related"></a>
 
