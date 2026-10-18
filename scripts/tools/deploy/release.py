@@ -657,24 +657,6 @@ def _ensure_app_user(deploy_dir: Path, env: ConcurrentStableDict[str, str]) -> N
     )
 
 
-def _tenant_url(env: ConcurrentStableDict[str, str], service: str, tenant: str) -> str:
-    """构造服务租户库连接串（含密码；供 seed_dict 经 `BMS_MIGRATION_URL` 使用）。"""
-    template = env.get("BMS_DATABASE__TENANTS__URL_TEMPLATE", "")
-    if not template:
-        raise RuntimeError("缺少 BMS_DATABASE__TENANTS__URL_TEMPLATE")
-    url = template.format(service=service, tenant=tenant, database=f"bms_{service}_{tenant}")
-    password = env.get("BMS_DATABASE__TENANTS__PASSWORD", "")
-    if not password:
-        return url
-    parsed = urllib.parse.urlsplit(url)
-    user = urllib.parse.quote(parsed.username or "", safe="")
-    auth = f"{user}:{urllib.parse.quote(password, safe='')}@"
-    netloc = auth + (parsed.hostname or "")
-    if parsed.port:
-        netloc += f":{parsed.port}"
-    return urllib.parse.urlunsplit((parsed.scheme, netloc, parsed.path, "", ""))
-
-
 def cmd_bootstrap(
     deploy_dir: Path,
     env: ConcurrentStableDict[str, str],
@@ -702,15 +684,7 @@ def cmd_bootstrap(
     if "platform" in services:
         _compose_run(deploy_dir, env, "platform", ConcurrentStableList(["python", "-m", "ops.seed_module"]))
         _compose_run(deploy_dir, env, "platform", ConcurrentStableList(["python", "-m", "ops.seed_tables"]))
-        # 字典表归属平台服务（其余服务经 http 读 platform）；仅平台租户库种子字典
-        for tenant in tenants:
-            _compose_run(
-                deploy_dir,
-                env,
-                "platform",
-                ConcurrentStableList(["python", "-m", "ops.seed_dict"]),
-                extra_env=ConcurrentStableDict({"BMS_MIGRATION_URL": _tenant_url(env, "platform", tenant)}),
-            )
+        # 字典六表已随 02_09 退役：原「平台租户库种子字典（ops.seed_dict）」步骤删除（脚本与表均已不存在）
     if "tenant" in services:
         _compose_run(deploy_dir, env, "tenant", ConcurrentStableList(["python", "-m", "ops.seed_tenant"]))
     print("[bootstrap] 完成（幂等，可重跑）")

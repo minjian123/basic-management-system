@@ -20,7 +20,7 @@ cookie_secure = false
 # 平台服务库 bms_{service}（各服务连自身平台库）；服务租户库 bms_{service}_{tenant}
 # 首次使用：uv run python -m ops.provision_tenant --code demo --code acme（建库）
 #           → 各库迁移（分链批量编排归 06_02；当前可按库键单库执行）
-#           → uv run python -m ops.seed_tenant / seed_module / seed_dict（种子）
+#           → uv run python -m ops.seed_tenant / seed_module / seed_tables（种子；字典种子随字典六表退役）
 [database]
 # 本地 SQLite 库统一落工作区根 database/bms（相对 backend/ 上两级；仅改此处即可切库）
 sqlite_dir = "../../database/bms"
