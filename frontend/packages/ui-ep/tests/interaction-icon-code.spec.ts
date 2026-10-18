@@ -152,7 +152,8 @@ describe('IconPicker 图标选择', () => {
     await cleared.find('[data-test="clear"]').trigger('click')
     expect(cleared.emitted('clear')).toHaveLength(1)
     expect(cleared.emitted('update:modelValue')?.[0]).toEqual([''])
-  })
+    // jsdom + Element Plus 过渡在 CI 容器负载下可能超过缺省 5s（2026-10-18 实测偶发超时）⇒ 放宽本用例超时
+  }, 20_000)
 })
 
 describe('IconLibrary 清单管理', () => {
