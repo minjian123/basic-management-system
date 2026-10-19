@@ -26,6 +26,7 @@ from bms_core.permission.field import (
 from bms_core.permission.snapshot import TIER_STANDARD, TIER_SYSTEM_ADMIN, PermissionSnapshot
 from bms_platform.models.menu import SysField
 from bms_platform.models.role import SysRoleField
+from bms_platform.permission.checker import RbacPermissionChecker
 from bms_platform.permission.field_provider import StaticFieldPermissionProvider, build_static_field_provider
 
 _FORM_ID = 7001
@@ -133,6 +134,19 @@ async def test_field_provider_factory_registry_supports_override(session: AsyncS
     assert isinstance(provider, StaticFieldPermissionProvider)
     reset_field_permission_provider_factories()
     assert current_field_permission_provider_factory() is None
+
+
+@pytest.mark.kiwi_id(2269)
+async def test_build_field_provider_none_without_factory(session: AsyncSession) -> None:
+    """未登记字段权限工厂 ⇒ 求值器为 None（字段全开，不构造 provider）。"""
+    reset_field_permission_provider_factories()
+    try:
+        provider = RbacPermissionChecker._build_field_provider(  # pyright: ignore[reportPrivateUsage]
+            session, session
+        )
+        assert provider is None
+    finally:
+        reset_field_permission_provider_factories()
 
 
 @pytest.mark.kiwi_id(2269)

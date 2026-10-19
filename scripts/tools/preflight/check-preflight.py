@@ -44,6 +44,7 @@
 """
 
 import contextlib
+import os
 import re
 import shutil
 import subprocess
@@ -53,6 +54,7 @@ import threading
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 # bms_core 源码根：脚本在仓库内运行，集合声明统一落插入序集合类（ConcurrentStable*）。
 _SRC_ROOT = Path(__file__).resolve().parents[3] / "backend" / "libs" / "bms_core" / "src"
@@ -64,6 +66,7 @@ _SCRIPT_DIR = Path(__file__).resolve().parent
 if str(_SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPT_DIR))
 
+import coverage_gate  # noqa: E402
 import parallel_jobs  # noqa: E402
 import test_selection  # noqa: E402
 
@@ -81,6 +84,29 @@ _ROOTS = (
     "services/ai",
     "services/report",
 )
+
+_COVERAGE_PACKAGES = (
+    "bms_core",
+    "bms_txn",
+    "bms_platform",
+    "bms_identity",
+    "bms_tenant",
+    "bms_file",
+    "bms_notification",
+    "bms_search",
+    "bms_ai",
+    "bms_report",
+)
+"""全量档覆盖率采集范围（与 `_ROOTS` 一一对应）。"""
+
+_COVERAGE_DATA_ENV = "BMS_COVERAGE_DATA"
+"""覆盖率采集数据文件基址（测试启动插件读取）。"""
+
+_COVERAGE_SOURCE_ENV = "BMS_COVERAGE_SOURCE"
+"""覆盖率采集范围（逗号分隔的顶层包名）。"""
+
+_COVERAGE_CMD = ("uv", "run", "python")
+"""覆盖率门禁解释器前缀（backend venv，含 coverage）。"""
 
 
 def configure_stdio():
@@ -122,6 +148,7 @@ def _run(
     failures: ConcurrentStableList[str],
     *,
     timeout: float | None = None,
+    env: Any = None,
 ) -> bool:
     """执行一条命令并打印结果（受预算护栏约束）。
 
@@ -131,6 +158,7 @@ def _run(
         cwd: 工作目录。
         failures: 失败收集列表。
         timeout: 本步显式超时（秒）；缺省取护栏的单步上限。
+        env: 子进程环境变量（缺省继承当前进程）。
 
     Returns:
         bool: 是否成功。
@@ -155,6 +183,7 @@ def _run(
     process = subprocess.Popen(
         cmd,
         cwd=cwd,
+        env=env,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
@@ -635,6 +664,53 @@ def _run_self_tests(root: Path, failures: ConcurrentStableList[str], *, force_al
         _run(entry.label, ConcurrentStableList([sys.executable, entry.script, "--self-test"]), root, failures)
 
 
+def _run_full_tests(
+    root: Path, backend: Path, failures: ConcurrentStableList[str], *, jobs: tuple[str, ...], no_cov: bool
+) -> None:
+    """全量档：聚合全量（并行）+ 全量覆盖率门禁（早启动采集 + 合并判定）。
+
+    Args:
+        root: bms 仓库根。
+        backend: `backend` 目录。
+        failures: 失败收集列表。
+        jobs: 并行参数（`-n auto` 等）。
+        no_cov: 是否跳过覆盖率门禁。
+    """
+    env = dict(os.environ)
+    data_file = (backend / ".coverage").resolve()
+    if not no_cov:
+        coverage_gate.cleanup(data_file)
+        env[_COVERAGE_DATA_ENV] = str(data_file)
+        env[_COVERAGE_SOURCE_ENV] = ",".join(_COVERAGE_PACKAGES)
+        print(f"\n[preflight] 覆盖率采集：{data_file}（source={env[_COVERAGE_SOURCE_ENV]}）")
+    _run(
+        "后端测试：聚合全量（--full）",
+        ConcurrentStableList(["uv", "run", "pytest", "-q", *jobs]),
+        backend,
+        failures,
+        env=env,
+    )
+    if no_cov:
+        return
+    _run(
+        "覆盖率：全量门禁（行 + 分支 100%）",
+        ConcurrentStableList(
+            [
+                *_COVERAGE_CMD,
+                str(root / "scripts" / "tools" / "preflight" / "coverage_gate.py"),
+                "--data-file",
+                str(data_file),
+                "--out",
+                str((backend / "coverage.json").resolve()),
+                "--fail-under",
+                "100",
+            ]
+        ),
+        backend,
+        failures,
+    )
+
+
 def _self_test() -> int:
     """自测：定向推导与预算护栏（不触网、不跑测试）。
 
@@ -773,31 +849,7 @@ def main() -> int:
     )
 
     if full:
-        cov_args = (
-            []
-            if no_cov
-            else [
-                "--cov=bms_core",
-                "--cov=bms_platform",
-                "--cov=bms_txn",
-                "--cov=bms_identity",
-                "--cov=bms_tenant",
-                "--cov=bms_file",
-                "--cov=bms_notification",
-                "--cov=bms_search",
-                "--cov=bms_ai",
-                "--cov=bms_report",
-                "--cov-branch",
-                "--cov-report=json:coverage.json",
-                "--cov-fail-under=100",
-            ]
-        )
-        _run(
-            "后端测试：聚合全量（--full）",
-            ConcurrentStableList(["uv", "run", "pytest", "-q", *jobs, *cov_args]),
-            backend,
-            failures,
-        )
+        _run_full_tests(root, backend, failures, jobs=jobs, no_cov=no_cov)
         if not no_scope:
             for rel in _ROOTS:
                 _run(

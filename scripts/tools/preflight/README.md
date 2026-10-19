@@ -11,6 +11,7 @@
 #                        根配置全包退化。预检与 CI 四个 job 共用，禁止另写映射规则
 #   run-selected.py      选测执行器：推导 → 跑 pytest → 读覆盖率缺口 → 扩圈（最多 2 轮）→ 退化兜底 → 度量
 #   parallel_jobs.py     并行档位解析（--jobs → -n）：预检与执行器单一来源（13_02）
+#   coverage_gate.py     覆盖率门禁：合并并行采集数据、导出 JSON 并判定「行 + 分支 100%」（13_02）
 #   requirements.txt     本预检的**可选**第三方依赖清单（pyyaml；未安装只影响「CI 配置自检」段）
 #
 # 用法（在 bms 仓库根）
@@ -27,6 +28,13 @@
 #   并行安全的根：pytest-xdist 下测试基座按 PYTEST_XDIST_WORKER 注入独立 BMS_DATABASE__SQLITE_DIR
 #   （<basetemp>/sqlite-<worker>），SQLite 文件库不再跨 worker 共享；串行不注入（沿配置原值）。
 #
+# 覆盖率采集（13_02）
+#   采集由 backend/bms_testing_plugin.py 在**被测模块导入前**启动（pytest addopts 的 -p 入口），
+#   每个进程落一份 <data-file>.<pid>；结束后由 coverage_gate.py 合并并判定「行 + 分支 100%」。
+#   不要再用 `pytest --cov` / `--cov-fail-under`：探针晚于 conftest 与包导入，导入期执行的行会整片
+#   漏计（实测全仓曾停在 93.36%，改用本口径后同一批用例为 100%）。
+#   env：BMS_COVERAGE_DATA=<数据文件基址>、BMS_COVERAGE_SOURCE=<逗号分隔的顶层包>。
+#
 # 自测按需（13_02）
 #   7 个 --self-test 步按「脚本自身 + 依赖前缀」映射表判定（脚本自身 / backend/libs/bms_core/ /
 #   bms文档/设计/原型设计/），未触及逐条打印「跳过（变更未触及 …）」；--fast / --full 档全跑；
@@ -39,8 +47,7 @@
 #   python3 scripts/tools/preflight/run-selected.py --changed-from origin/main   # 跑选中的测试 + 覆盖率门禁 + 扩圈
 #   退化（全局配置 / 基础模块 / 无引用者 / 基准不可解析）一律显式打印原因，不做「假精细」；
 #   扩圈最多 2 轮，不收敛退化工程级全量；门禁口径恒为变更模块的行 + 分支 100%。
-#   覆盖率目标排除 `bms_core.testing.plugin`（pytest 插件入口早于覆盖率探针加载，行执行不可观测；
-#   其逻辑本体在 fixtures.py，仍受 100% 门禁）。
+#   覆盖率目标不再排除任何模块（采集前置后插件入口与 fixtures 均可观测）。
 #
 # CI 重复面（13_02）
 #   service-test 用 --format changed-services 判定本服务是否有**直接变更**；仅共享底座

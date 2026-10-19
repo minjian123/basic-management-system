@@ -415,7 +415,7 @@ backend-test:
       python scripts/tools/preflight/run-selected.py --root . ${BASE:+--changed-from "$BASE"} $FORCE \
         --pytest-cwd backend --pytest-cmd "uv run pytest" --cov --cov-fail-under 100 \
         --max-rounds 2 --cov-json backend/coverage.json --jobs auto
-  coverage: '/^TOTAL.*?\s+\d+\s+\d+\s+(\d+(?:\.\d+)?%)$/'
+  coverage: '/\[coverage\].*percent=(\d+(?:\.\d+)?)/'
   # 覆盖率快照归档（04_04）：coverage.json 供域七阶段测试报告引用（证据留痕）
   artifacts:
     when: always

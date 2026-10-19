@@ -73,8 +73,15 @@ service-test:
     # 「已满足」而沿用过期产物 ⇒ 运行时模型与当前仓库不一致（同 backend-test 口径）。
     - uv sync --frozen --reinstall
     - cd "services/$SERVICE"
-    - uv run pytest -q --cov="bms_$SERVICE" --cov-branch --cov-report=term --cov-fail-under=100
-  coverage: '/^TOTAL.*?\s+\d+\s+\d+\s+(\d+(?:\.\d+)?%)$/'
+    # 覆盖率采集（13_02）：测试启动插件（backend/bms_testing_plugin.py）在**被测模块导入前**启动采集，
+    # 每个进程落一份 `<data-file>.<pid>`；结束后合并并判定「行 + 分支 100%」。
+    # 不再用 `pytest --cov`：探针晚于 conftest / 包导入，导入期执行的行会整片漏计（实测全仓 93.36%）。
+    - BMS_COVERAGE_DATA="$CI_PROJECT_DIR/backend/.coverage-service" BMS_COVERAGE_SOURCE="bms_$SERVICE" \
+        uv run pytest -q
+    - cd "$CI_PROJECT_DIR/backend"
+    - uv run python ../scripts/tools/preflight/coverage_gate.py --data-file .coverage-service \
+        --out coverage.json --module "bms_$SERVICE" --fail-under 100
+  coverage: '/\[coverage\].*percent=(\d+(?:\.\d+)?)/'
 
 # ---- 构建：按服务镜像（main + tag + 镜像档；标签 commit short SHA，不可变口径见 09_02）----
 service-build:

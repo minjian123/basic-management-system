@@ -108,7 +108,6 @@ def test_preflight_wires_jobs_to_all_pytest_calls() -> None:
     """预检把 `--jobs` 接到定向执行器与全量档两条 pytest 调用（防漏接）。"""
     source = (_PREFLIGHT_DIR / "check-preflight.py").read_text(encoding="utf-8")
     assert '"--jobs",\n            jobs,' in source
-    assert "*jobs, *cov_args" in source
     assert 'ConcurrentStableList(["uv", "run", "pytest", "-q", *jobs])' in source
     assert parallel_jobs.DEFAULT_JOBS == "auto"
 
@@ -283,13 +282,27 @@ def test_backend_test_passes_jobs() -> None:
     assert "--jobs auto" in ci
 
 
-# ===== F 覆盖率目标排除（插件入口） =====
+# ===== F 覆盖率采集前置（13_02 遗留处置） =====
 
 
 @pytest.mark.kiwi_id(2318)
-def test_plugin_entry_excluded_from_coverage() -> None:
-    """覆盖率目标排除 pytest 插件入口（探针启动前加载，行执行不可观测），并打印原因。"""
-    runner = _load_script("run_selected_guard", _PREFLIGHT_DIR / "run-selected.py")
-    assert runner._COVERAGE_EXCLUDED_MODULES == ("bms_core.testing.plugin",)  # pyright: ignore[reportPrivateUsage]
+def test_coverage_collection_starts_before_test_package_import() -> None:
+    """采集在测试基座导入前启动：addopts 指向启动插件，且插件顶层不导入 bms_core。"""
+    pyproject = (_REPO_ROOT / "backend" / "pyproject.toml").read_text(encoding="utf-8")
+    assert "-p bms_testing_plugin" in pyproject
+    assert "-p bms_core.testing.plugin" not in pyproject
+    starter = (_REPO_ROOT / "backend" / "bms_testing_plugin.py").read_text(encoding="utf-8")
+    assert "_coverage = _start_coverage()" in starter
+    # 启动调用必须在任何 bms_core 导入之前（否则导入期行漏计，全仓覆盖率会退回到 93%）
+    assert starter.index("_coverage = _start_coverage()") < starter.index("from bms_core")
+
+
+@pytest.mark.kiwi_id(2318)
+def test_run_selected_wires_coverage_gate() -> None:
+    """执行器：早启动采集（env）+ 门禁脚本判定，不再拼 `pytest --cov` 参数。"""
     source = (_PREFLIGHT_DIR / "run-selected.py").read_text(encoding="utf-8")
-    assert "行执行不可观测" in source
+    assert "BMS_COVERAGE_DATA" in source
+    assert "coverage_gate.py" in source
+    assert "--cov=" not in source
+    gate = (_PREFLIGHT_DIR / "coverage_gate.py").read_text(encoding="utf-8")
+    assert "missing_lines" in gate and "partial_branches" in gate

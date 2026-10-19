@@ -153,8 +153,10 @@ def test_service_template_structure() -> None:
     assert template["stages"] == ["test", "build", "release"]
     test_script = "\n".join(str(line) for line in template["service-test"]["script"])
     assert 'cd "services/$SERVICE"' in test_script
-    assert '--cov="bms_$SERVICE"' in test_script
-    assert "--cov-fail-under=100" in test_script
+    # 覆盖率采集（13_02）：早启动采集 + 门禁脚本判定（不再用 pytest --cov，导入期行会漏计）
+    assert 'BMS_COVERAGE_SOURCE="bms_$SERVICE"' in test_script
+    assert "coverage_gate.py" in test_script
+    assert '--module "bms_$SERVICE"' in test_script
 
 
 @pytest.mark.kiwi_id(2184)
