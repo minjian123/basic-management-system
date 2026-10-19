@@ -81,8 +81,31 @@ _PREFLIGHT_TESTS: tuple[str, ...] = (
     "libs/bms_core/tests/boundary/test_test_selection_guard.py",
     "libs/bms_core/tests/boundary/test_preflight_scoping_guard.py",
     "libs/bms_core/tests/boundary/test_run_once_guard.py",
+    "libs/bms_core/tests/boundary/test_selection_contract_guard.py",
 )
-"""预检脚本目录变更时必须一并执行的护栏用例（相对 `backend`；单一来源）。"""
+"""预检脚本目录变更时必须一并执行的护栏用例（相对 `backend`；单一来源）。
+
+`test_selection_contract_guard.py` 锁「口径固化四项护栏」（13_03）：改选测器 / 执行器 / 预检脚本时
+必须同时跑它，否则口径护栏本身可能被改坏而无人发现。
+"""
+
+_BASE_CHECK_PREFIX = "scripts/tools/base-check/"
+"""基座校验脚本目录：改动须跑其护栏用例（13_03 补齐的存量缺口）。"""
+
+_BASE_CHECK_TESTS: tuple[tuple[str, str], ...] = (
+    ("check-bare-collections.py", "libs/bms_core/tests/boundary/test_bare_collections_guard.py"),
+    ("check-env-example.py", "libs/bms_core/tests/core/test_basic_protection.py"),
+    ("check-backend-base.py", "libs/bms_core/tests/core/test_value_object_roots.py"),
+    ("check-service-boundaries.py", "libs/bms_core/tests/crosscut/test_module_boundary.py"),
+)
+"""基座校验脚本 → 其护栏用例（脚本名, 相对 `backend` 的测试文件）。
+
+未登记的脚本（含新增脚本）一律并入 `libs/bms_core/tests/boundary/` 下**全部**测试文件——宁多跑不漏测。
+映射表完整性由 `test_selection_contract_guard.py` 的「新增脚本必须登记」护栏锁定。
+"""
+
+_BOUNDARY_TESTS_DIR = "libs/bms_core/tests/boundary"
+"""护栏用例目录（未登记基座校验脚本的兜底并入选测集）。"""
 
 _FRONTEND_GROUPS: tuple[str, ...] = ("packages", "apps", "modules")
 """前端 pnpm 工程所在分组目录（`frontend/<分组>/<工程>`）。"""
@@ -488,7 +511,7 @@ def _isomorphic_candidates(backend: Path, rel: str, project: Project) -> tuple[s
 
 
 def _classify_change(rel: str) -> str:
-    """判定变更类别：`global` / `ops` / `preflight` / `other`。
+    """判定变更类别：`global` / `ops` / `preflight` / `basecheck` / `other`。
 
     Args:
         rel: 变更路径（相对仓库根）。
@@ -504,6 +527,8 @@ def _classify_change(rel: str) -> str:
         return "ops"
     if rel.startswith(_PREFLIGHT_PREFIX):
         return "preflight"
+    if rel.startswith(_BASE_CHECK_PREFIX):
+        return "basecheck"
     return "other"
 
 
@@ -550,6 +575,45 @@ def tests_for_modules(backend: Path, modules: tuple[str, ...]) -> tuple[str, ...
     return tuple(ordered)
 
 
+def base_check_guard_tests(backend: Path, changed: tuple[str, ...] | ConcurrentStableList[str]) -> tuple[str, ...]:
+    """基座校验脚本变更 → 需一并执行的护栏用例（相对 `backend`）。
+
+    判定（13_03）：已登记脚本走精确映射；**未登记脚本**（含新增脚本）与目录内非 `.py` 文件一律并入
+    `boundary/` 下全部护栏用例——宁多跑不漏测。目录里新增脚本却忘了登记映射时，仍会跑护栏。
+
+    Args:
+        backend: `backend` 目录。
+        changed: 变更路径（相对仓库根，posix 形态）。
+
+    Returns:
+        tuple[str, ...]: 需执行的护栏用例（相对 `backend`；无基座校验脚本变更时为空）。
+    """
+    mapping: ConcurrentStableDict[str, str] = ConcurrentStableDict()
+    for script, test in _BASE_CHECK_TESTS:
+        mapping.set(script, test)
+    picked: ConcurrentStableSet[str] = ConcurrentStableSet()
+    unregistered = False
+    for item in changed:
+        rel = _norm(item)
+        if not rel.startswith(_BASE_CHECK_PREFIX):
+            continue
+        name = rel[len(_BASE_CHECK_PREFIX) :]
+        test = mapping.get(name)
+        if test is None:
+            unregistered = True
+            continue
+        picked.add(test)
+    if unregistered:
+        for path in _iter_py(backend / _BOUNDARY_TESTS_DIR):
+            if _is_test_file(path):
+                picked.add(_test_relative(backend, path))
+    ordered: ConcurrentStableList[str] = ConcurrentStableList()
+    for test in sorted(picked):
+        if (backend / test).is_file():
+            ordered.add(test)
+    return tuple(ordered)
+
+
 def build_selection(
     backend: Path,
     changed: tuple[str, ...] | ConcurrentStableList[str],
@@ -584,6 +648,7 @@ def build_selection(
     global_change = force_full
     ops_changed = False
     preflight_changed = False
+    basecheck_changed = False
     changed_modules: ConcurrentStableDict[str, ConcurrentStableSet[str]] = ConcurrentStableDict()
     for project in graph.projects:
         changed_modules.set(project.name, ConcurrentStableSet())
@@ -596,6 +661,8 @@ def build_selection(
             ops_changed = True
         elif category == "preflight":
             preflight_changed = True
+        elif category == "basecheck":
+            basecheck_changed = True
         else:
             for project in graph.projects:
                 module = _module_of_source(rel, project)
@@ -679,6 +746,17 @@ def build_selection(
                     added += 1
             if added:
                 notes.add(f"预检脚本变更 ⇒ 并入护栏用例 {added} 个")
+
+    if basecheck_changed:
+        core_selected = selected_by_project.get("bms_core")
+        if core_selected is not None:
+            added = 0
+            for rel in base_check_guard_tests(backend, changed_set):
+                if rel not in core_selected:
+                    core_selected.add(rel)
+                    added += 1
+            if added:
+                notes.add(f"基座校验脚本变更 ⇒ 并入其护栏用例 {added} 个")
 
     test_paths: ConcurrentStableList[str] = ConcurrentStableList()
     metrics: ConcurrentStableList[ProjectMetrics] = ConcurrentStableList()

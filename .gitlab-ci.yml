@@ -85,8 +85,9 @@ variables:
   npm_config_store_dir: /cache/pnpm/store
   npm_config_state_dir: /cache/pnpm/state
   REGISTRY_IMAGE_PREFIX: 192.168.0.107:5050/bms/bms
-  # 流水线级串行闸门（2026-10-09）：跨项目互斥锁落 runner 持久卷 `/cache`（bms / mdm 两仓同键）；
-  # 持有者每条作业启动刷新 `at`，超 CI_QUEUE_STALE_SECONDS 无刷新视为陈旧锁（硬取消 / runner 崩溃）可接管。
+  # 流水线级串行闸门（2026-10-09）：跨项目互斥锁落 runner 持久卷 `/cache`（bms / mdm 两仓同键）。
+  # 陈旧判定（2026-10-19 修订，13_03）：**主判据＝owner 流水线是否已终态**（经 GitLab API 查询，仅本项目可判）；
+  # `at` 年龄（CI_QUEUE_STALE_SECONDS）退为**兜底**（跨项目 / API 不可用时）。见下方闸门说明。
   CI_QUEUE_LOCK: ci-queue-lock
   CI_QUEUE_STALE_SECONDS: "7200"
 
@@ -102,12 +103,21 @@ default:
 # （`docker create --name` 重名冲突的原子性由 daemon 保证；跨作业 / 跨项目 / 跨流水线均可见）。
 #   - `ci-queue-acquire`（`.pre`，最先跑；镜像只需 docker CLI，不依赖业务镜像 / 业务依赖）：
 #     创建锁容器成功即放行；被占用则轮询等待 ⇒ **整条流水线**排在持有者（可能是另一项目的流水线）之后；
-#     持锁超 `CI_QUEUE_STALE_SECONDS` 未释放视为陈旧（硬取消 / runner 崩溃）可被等待方接管；
+#   - **陈旧判定（2026-10-19 修订，13_03）**：同分支连推时被 auto_cancel 的流水线**不保证执行** `.post` 的
+#     release，锁 owner 会停在已终止的流水线上（2026-10-19 实测 #1084 取消后 #1085 等满 stale 才接管，需人工
+#     `docker rm -f`）。故陈旧判定改为两级：
+#       ① **主判据（本项目）**：owner 形如 `<项目路径>#<流水线号>`，项目路径 == `CI_PROJECT_PATH` 时经
+#          GitLab API 查该流水线状态，已终态（success / failed / canceled / skipped）即**立即接管**；
+#       ② **兜底**：跨项目 owner（无跨项目 token，不查）、API 不可用 / 查询失败 / 状态未知，一律退回
+#          「`at` 年龄 ≥ CI_QUEUE_STALE_SECONDS」——与修订前行为一致，不引入新的抢锁风险。
+#     `at` 只在 `docker create` 时写一次（**不存在**「每条作业刷新」的机制，原注释有误，已更正）；
 #   - `ci-queue-release`（`.post`，`when: always` + `interruptible: false`）：流水线结束（含失败、被同分支
-#     新推送自动取消）时释放，避免锁泄漏；
+#     新推送自动取消）时释放；锁不属于本流水线但 owner 已终态时**也清理**（免得下一条白等），并打印原因；
 #   - 人工兜底：锁异常残留时，以变量 `CI_QUEUE_FORCE=1` 触发一次流水线即强制接管（常路径无需人工）。
 # 口径：**只串行流水线**，流水线内作业仍按 runner 并发（4）并行；纯文档推送也排队（闸门无条件执行）。
 # 注：**不可用 runner 持久卷 `/cache` 作锁**——已实测其为**每作业独立卷**（并发作业挂载来源不同），跨作业不可见。
+# 注：闸门镜像 `docker:27-cli` 无 `curl` / `python3`（实测），故用 `wget`（BusyBox，支持 `--header` / `-O -`）
+#     查 API；token 经 `--header "PRIVATE-TOKEN: …"` 传入且**不开 `set -x`**，不入日志（项目 CI/CD 变量 masked）。
 ci-queue-acquire:
   stage: .pre
   image: docker:27-cli
@@ -119,6 +129,23 @@ ci-queue-acquire:
       ME="${CI_PROJECT_PATH}#${CI_PIPELINE_ID}"
       owner() { docker inspect -f '{{index .Config.Labels "ci-queue.owner"}}' "$LOCK" 2>/dev/null || echo ''; }
       stamp() { docker inspect -f '{{index .Config.Labels "ci-queue.at"}}' "$LOCK" 2>/dev/null || echo 0; }
+      # owner 流水线是否已终态：返回 0=已终态（可接管）、1=进行中（继续等）、2=不可判定（走年龄兜底）
+      owner_finished() {
+        O="$1"
+        OP="${O%%#*}"; OPID="${O##*#}"
+        case "$OP" in "$CI_PROJECT_PATH") ;; *) return 2 ;; esac
+        case "$OPID" in ''|*[!0-9]*) return 2 ;; esac
+        [ -n "${GITLAB_API_TOKEN:-}" ] || return 2
+        [ -n "${CI_API_V4_URL:-}" ] || return 2
+        URL="$CI_API_V4_URL/projects/$CI_PROJECT_ID/pipelines/$OPID"
+        BODY="$(wget -q -T 10 -O - --header "PRIVATE-TOKEN: $GITLAB_API_TOKEN" "$URL" 2>/dev/null)" || return 2
+        STATUS="$(printf '%s' "$BODY" | sed -n 's/.*"status":"\([a-z]*\)".*/\1/p' | head -n 1)"
+        case "$STATUS" in
+          success|failed|canceled|skipped) return 0 ;;
+          created|waiting_for_resource|preparing|pending|running) return 1 ;;
+          *) return 2 ;;
+        esac
+      }
       if [ "${CI_QUEUE_FORCE:-}" = "1" ]; then
         echo "[ci-queue] CI_QUEUE_FORCE=1 ⇒ 强制接管上一把锁（人工兜底）"
         docker rm -f "$LOCK" >/dev/null 2>&1 || true
@@ -127,12 +154,23 @@ ci-queue-acquire:
         if docker inspect "$LOCK" >/dev/null 2>&1; then
           OWNER="$(owner)"
           AGE=$(( $(date +%s) - $(stamp) ))
+          owner_finished "$OWNER"
+          CASE=$?
+          if [ "$CASE" -eq 0 ]; then
+            echo "[ci-queue] owner 流水线已终态（owner=${OWNER}，持锁 ${AGE}s）⇒ 接管（auto_cancel 泄漏锁）"
+            docker rm -f "$LOCK" >/dev/null 2>&1 || true
+            continue
+          fi
           if [ "$AGE" -ge "$STALE" ]; then
             echo "[ci-queue] 锁陈旧（owner=${OWNER}，持锁 ${AGE}s ≥ ${STALE}s）⇒ 接管"
             docker rm -f "$LOCK" >/dev/null 2>&1 || true
             continue
           fi
-          echo "[ci-queue] 等待上一条流水线结束：owner=${OWNER}（持锁 ${AGE}s）"
+          if [ "$CASE" -eq 1 ]; then
+            echo "[ci-queue] 等待上一条流水线结束：owner=${OWNER}（进行中，持锁 ${AGE}s）"
+          else
+            echo "[ci-queue] 等待上一条流水线结束：owner=${OWNER}（不可判定，按年龄兜底，持锁 ${AGE}s）"
+          fi
           sleep 15
           continue
         fi
@@ -152,12 +190,33 @@ ci-queue-release:
   image: docker:27-cli
   script:
     - |
+      set -u
       LOCK="${CI_QUEUE_LOCK:-ci-queue-lock}"
       ME="${CI_PROJECT_PATH}#${CI_PIPELINE_ID}"
       OWNER="$(docker inspect -f '{{index .Config.Labels "ci-queue.owner"}}' "$LOCK" 2>/dev/null || echo '')"
+      # owner 流水线是否已终态：0=已终态、1=进行中、2=不可判定
+      owner_finished() {
+        O="$1"
+        OP="${O%%#*}"; OPID="${O##*#}"
+        case "$OP" in "$CI_PROJECT_PATH") ;; *) return 2 ;; esac
+        case "$OPID" in ''|*[!0-9]*) return 2 ;; esac
+        [ -n "${GITLAB_API_TOKEN:-}" ] || return 2
+        [ -n "${CI_API_V4_URL:-}" ] || return 2
+        URL="$CI_API_V4_URL/projects/$CI_PROJECT_ID/pipelines/$OPID"
+        BODY="$(wget -q -T 10 -O - --header "PRIVATE-TOKEN: $GITLAB_API_TOKEN" "$URL" 2>/dev/null)" || return 2
+        STATUS="$(printf '%s' "$BODY" | sed -n 's/.*"status":"\([a-z]*\)".*/\1/p' | head -n 1)"
+        case "$STATUS" in
+          success|failed|canceled|skipped) return 0 ;;
+          created|waiting_for_resource|preparing|pending|running) return 1 ;;
+          *) return 2 ;;
+        esac
+      }
       if [ "$OWNER" = "$ME" ]; then
         docker rm -f "$LOCK" >/dev/null 2>&1 || true
         echo "[ci-queue] 已释放流水线锁：$ME"
+      elif [ -n "$OWNER" ] && owner_finished "$OWNER"; then
+        docker rm -f "$LOCK" >/dev/null 2>&1 || true
+        echo "[ci-queue] 锁的 owner 流水线已终态（owner=${OWNER}）⇒ 顺带清理（避免下一条白等）"
       else
         echo "[ci-queue] 锁不属于本流水线（owner=${OWNER:-无}），跳过释放"
       fi

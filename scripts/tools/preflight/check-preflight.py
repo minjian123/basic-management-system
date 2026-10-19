@@ -70,7 +70,7 @@ import coverage_gate  # noqa: E402
 import parallel_jobs  # noqa: E402
 import test_selection  # noqa: E402
 
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList  # noqa: E402
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet  # noqa: E402
 
 _ROOTS = (
     "libs/bms_core",
@@ -149,6 +149,7 @@ def _run(
     *,
     timeout: float | None = None,
     env: Any = None,
+    capture: ConcurrentStableList[str] | None = None,
 ) -> bool:
     """执行一条命令并打印结果（受预算护栏约束）。
 
@@ -159,6 +160,7 @@ def _run(
         failures: 失败收集列表。
         timeout: 本步显式超时（秒）；缺省取护栏的单步上限。
         env: 子进程环境变量（缺省继承当前进程）。
+        capture: 传入集合时，逐行透传的内容同时写入该集合（供调用方解析度量行；缺省不采集）。
 
     Returns:
         bool: 是否成功。
@@ -197,7 +199,10 @@ def _run(
         """后台线程：逐行透传并收集（`process.wait` 才能施加超时）。"""
         assert process.stdout is not None
         for raw in process.stdout:
-            lines.add(raw.rstrip("\n"))
+            line = raw.rstrip("\n")
+            lines.add(line)
+            if capture is not None:
+                capture.add(line)
             print(raw, end="", flush=True)
 
     reader = threading.Thread(target=_pump, daemon=True)
@@ -487,12 +492,65 @@ def _changed_paths(root: Path) -> ConcurrentStableList[str]:
     return _git_changes(root)[0]
 
 
+def discovered_projects(backend: Path) -> tuple[tuple[str, str], ...]:
+    """自动发现的工程清单（工程目录, 顶层包名），供登记对账。
+
+    选测器按目录自动发现工程（不维护白名单）；本函数把发现结果转成与全量档常量同口径的两元组：
+    工程目录相对 `backend`（如 `libs/bms_core`）、顶层包名（如 `bms_core`）。
+
+    Args:
+        backend: `backend` 目录。
+
+    Returns:
+        tuple[tuple[str, str], ...]: （工程目录, 顶层包名）清单。
+    """
+    pairs: ConcurrentStableList[tuple[str, str]] = ConcurrentStableList()
+    for project in test_selection.discover_projects(backend):
+        directory = project.src.removeprefix("backend/").removesuffix("/src")
+        pairs.add((directory, project.packages[0]))
+    return tuple(pairs)
+
+
+def unregistered_projects(
+    discovered: tuple[tuple[str, str], ...],
+    roots: tuple[str, ...],
+    packages: tuple[str, ...],
+) -> tuple[str, ...]:
+    """自动发现的工程里，未登记到全量档范围 / 覆盖率范围的项（13_03「新增工程必登记」对账）。
+
+    选测器**按目录自动发现**工程（不维护白名单），而全量档工程级范围（`_ROOTS`）与覆盖率范围
+    （`_COVERAGE_PACKAGES`）是手写常量；新增工程只落目录即「全量档漏跑 + 覆盖率范围漏计」。
+    本函数把两侧对齐：工程目录口径 + 顶层包名口径各判一次。
+
+    Args:
+        discovered: 自动发现的工程清单（工程目录, 顶层包名）——见 `discovered_projects`。
+        roots: 全量档工程级范围（相对 `backend`，如 `libs/bms_core`）。
+        packages: 全量档覆盖率采集范围（顶层包名，如 `bms_core`）。
+
+    Returns:
+        tuple[str, ...]: 未登记项说明（空表示登记齐备）。
+    """
+    missing: ConcurrentStableList[str] = ConcurrentStableList()
+    package_set: ConcurrentStableSet[str] = ConcurrentStableSet()
+    for name in packages:
+        package_set.add(name)
+    root_set: ConcurrentStableSet[str] = ConcurrentStableSet()
+    for rel in roots:
+        root_set.add(rel)
+    for directory, package in discovered:
+        if directory not in root_set:
+            missing.add(f"{directory}：未登记到全量档工程级范围")
+        if package not in package_set:
+            missing.add(f"{package}：未登记到覆盖率采集范围")
+    return tuple(missing)
+
+
 def _scope_targets(
     backend: Path, changes: ConcurrentStableList[str]
 ) -> tuple[ConcurrentStableList[str], ConcurrentStableList[str]]:
     """按变更路径推导定向范围：（测试文件, 覆盖率目标模块）——委托选测器（单一来源）。
 
-    推导规则（目录同构 + AST 导入图 + 基础模块退化 + ops / 预检脚本特殊路径）只在
+    推导规则（目录同构 + AST 导入图 + 基础模块退化 + ops / 预检脚本 / 基座校验脚本特殊路径）只在
     `test_selection.py` 维护一处，预检与 CI 共用；本函数仅做返回类型适配。
 
     Args:
@@ -504,6 +562,26 @@ def _scope_targets(
     """
     selection = test_selection.build_selection(backend, changes)
     return ConcurrentStableList(selection.test_paths), ConcurrentStableList(selection.cov_modules)
+
+
+def _selection_metrics_line(lines: ConcurrentStableList[str]) -> str:
+    """从执行器输出里取最后一条选测度量行，转成预检汇总行（同一来源，不另算）。
+
+    Args:
+        lines: 执行器逐行输出（已采集）。
+
+    Returns:
+        str: 预检汇总行正文；未取到度量行时返回空串（调用方打印「不可得」，不静默省略）。
+    """
+    pattern = re.compile(r"\[test-selection\] picked=(\d+)/(\d+) degraded=(true|false) rounds=(\d+) cov=(\d+) 模块")
+    for line in reversed(list(lines)):
+        match = pattern.search(line)
+        if match is None:
+            continue
+        picked, total, degraded, rounds, cov = match.groups()
+        ratio = f"{int(picked) / int(total):.1%}" if int(total) else "—"
+        return f"picked={picked}/{total}（{ratio}）degraded={degraded} rounds={rounds} cov={cov} 模块"
+    return ""
 
 
 def _run_scoped(root: Path, backend: Path, failures: ConcurrentStableList[str], *, no_cov: bool, jobs: str) -> None:
@@ -561,10 +639,16 @@ def _run_scoped(root: Path, backend: Path, failures: ConcurrentStableList[str], 
         cmd.add("--no-cov")
     else:
         cmd.update(["--cov-fail-under", "100"])
+    output: ConcurrentStableList[str] = ConcurrentStableList()
     try:
-        _run("后端测试：定向（选测 + 覆盖率门禁 + 扩圈）", cmd, root, failures)
+        ok = _run("后端测试：定向（选测 + 覆盖率门禁 + 扩圈）", cmd, root, failures, capture=output)
     finally:
         Path(list_path).unlink(missing_ok=True)
+    summary = _selection_metrics_line(output)
+    if summary:
+        print(f"[preflight] 选测度量：{summary}")
+    elif not ok:
+        print("[preflight] 选测度量：不可得（执行器未输出度量行）")
 
 
 @dataclass(frozen=True)
@@ -742,6 +826,8 @@ def _self_test() -> int:
     prefixes = ("libs/bms_core/tests/", "services/txn/tests/")
     base_change = ConcurrentStableList(["backend/libs/bms_core/src/bms_core/core/concurrent.py"])
     docs_change = ConcurrentStableList(["bms文档/规范/AI开发规范.md"])
+    discovered = discovered_projects(backend)
+    unregistered = unregistered_projects(discovered, _ROOTS, _COVERAGE_PACKAGES)
     checks = ConcurrentStableList[tuple[str, bool]](
         [
             (
@@ -777,6 +863,18 @@ def _self_test() -> int:
             (
                 "并行默认 auto 且 off 即串行",
                 parallel_jobs.jobs_args("auto") == ("-n", "auto") and parallel_jobs.jobs_args("off") == (),
+            ),
+            (
+                "自动发现的工程全部登记（全量档范围 + 覆盖率范围）",
+                not unregistered,
+            ),
+            (
+                "基座校验脚本变更并入其护栏用例",
+                bool(
+                    test_selection.base_check_guard_tests(
+                        backend, ConcurrentStableList(["scripts/tools/base-check/check-base.py"])
+                    )
+                ),
             ),
         ]
     )
