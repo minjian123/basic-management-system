@@ -23,8 +23,8 @@ import sys
 from pathlib import Path
 
 ROOT = os.path.abspath(sys.argv[1] if len(sys.argv) > 1 else ".")
-# 本地凭据文档与本地生成的代码落点索引不入库（gitignore）：存在与否不参与链接校验
-LOCAL_ONLY = ("bms文档/用户文档/", "bms文档/代码落点索引.md")
+# 本地凭据文档不入库（gitignore）：存在与否不参与链接校验
+LOCAL_ONLY = ("bms文档/用户文档/",)
 LINK_RE = re.compile(r"\]\(([^)\s]+)\)")
 CODE_RE = re.compile(r"`[^`]*`")
 

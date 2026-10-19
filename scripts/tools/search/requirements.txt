@@ -1,0 +1,5 @@
+# 内容检索工具（scripts/tools/search/）的可选第三方依赖。
+# 缺失时工具不可用（MCP 服务与命令行检索均需要）。
+# 安装（国内镜像）：python3 -m pip install -i https://pypi.tuna.tsinghua.edu.cn/simple -r requirements.txt
+jieba>=0.42.1
+mcp>=2.3.0
