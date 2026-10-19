@@ -10,19 +10,24 @@ from starlette.types import Message, Receive, Scope, Send
 from bms_core.api.middleware import RequestLoggingMiddleware, TraceIdMiddleware
 from bms_core.application import service_lifespan as lifespan
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
-from bms_core.core.config import LogSettings, Settings
+from bms_core.core.config import LogSettings, Settings, get_settings
 from bms_core.core.context import get_current_request_id, get_current_trace_id
 from bms_core.core.logging import configure_logging
 from bms_core.tracing.base import TRACE_ID_HEADER
 from bms_platform.main import ApplicationFactory
 
 
-def _json_settings(*, slow_ms: int = 1000) -> Settings:
-    """构造 JSON 渲染配置（其余取基线文件）。"""
+def _json_settings(*, slow_ms: int = 60000) -> Settings:
+    """构造 JSON 渲染配置（其余取基线文件）。
+
+    非慢请求用例把阈值设得远高于任何请求耗时：并行执行（`-n auto`）下 CPU 争抢会让单次请求耗时
+    上到数百毫秒甚至过秒，阈值取缺省 1000ms 时同一请求会随机落到 `slow_request` 分支，
+    导致「访问日志 = request」断言偶发失败（2026-10-19 CI 实测）。
+    """
     return Settings(log=LogSettings(level="INFO", format="json", slow_request_ms=slow_ms))
 
 
-def _build_app(*, slow_ms: int = 1000) -> FastAPI:
+def _build_app(*, slow_ms: int = 60000) -> FastAPI:
     """构造最小应用：链路 + 请求日志中间件 + 回显接口。"""
     app = FastAPI()
     app.add_middleware(TraceIdMiddleware)
@@ -154,11 +159,19 @@ async def test_slow_request_warning(capsys: pytest.CaptureFixture[str]) -> None:
 
 
 @pytest.mark.kiwi_id(63)
-async def test_uncaught_exception_logged_with_context(capsys: pytest.CaptureFixture[str]) -> None:
-    """未捕获异常：响应 500 不回显堆栈；ERROR 行含堆栈与上下文；X-Request-Id 与日志同值。"""
+async def test_uncaught_exception_logged_with_context(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """未捕获异常：响应 500 不回显堆栈；ERROR 行含堆栈与上下文；X-Request-Id 与日志同值。
+
+    装配期中间件按 `[log].slow_request_ms` 取阈值，这里显式放宽（并行负载下请求可能过秒，
+    否则访问行会随机落到 `slow_request` 分支）。
+    """
+    monkeypatch.setenv("BMS_LOG__SLOW_REQUEST_MS", "60000")
+    get_settings.cache_clear()
     app = ApplicationFactory().create(None)
     async with lifespan(app):
-        configure_logging(_json_settings())
+        configure_logging(_json_settings(slow_ms=60000))
 
         @app.get("/boom")
         async def boom() -> None:  # pyright: ignore[reportUnusedFunction]
@@ -173,8 +186,11 @@ async def test_uncaught_exception_logged_with_context(capsys: pytest.CaptureFixt
         assert "RuntimeError" not in resp.text
         assert "Traceback" not in resp.text
         records = _records(capsys)
-        error = next(record for record in records if record["event"] == "uncaught_exception")
-        access = next(record for record in records if record["event"] == "request")
+        events = [record.get("event") for record in records]
+        error = next((record for record in records if record["event"] == "uncaught_exception"), None)
+        assert error is not None, f"未捕获异常事件缺失（已捕获事件：{events}）"
+        access = next((record for record in records if record["event"] == "request"), None)
+        assert access is not None, f"访问日志事件缺失（已捕获事件：{events}）"
         assert error["level"] == "error"
         assert "RuntimeError: boom" in str(error["exception"])
         assert error["trace_id"] == resp.headers[TRACE_ID_HEADER]
