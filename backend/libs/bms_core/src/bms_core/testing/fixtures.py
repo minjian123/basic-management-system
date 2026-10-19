@@ -67,6 +67,9 @@ def worker_sqlite_dir() -> str:
     目录 = `<basetemp>/sqlite-<worker>`（无 basetemp 时落系统临时目录下 `bms-pytest-sqlite/`），
     首次解析自动建目录。
 
+    注：`pytest` 的 rootdir 落在子工程（如 `libs/bms_core/pyproject.toml`）时，该工程的 `addopts`
+    不含启动插件——覆盖率采集因此要由调用方显式 `-p bms_testing_plugin`（预检与 CI 均已显式注入）。
+
     Returns:
         str: 目录路径；串行执行（无 `PYTEST_XDIST_WORKER`）时返回空串（沿配置原值）。
     """
