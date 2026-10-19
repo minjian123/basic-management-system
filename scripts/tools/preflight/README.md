@@ -34,6 +34,8 @@
 #   不要再用 `pytest --cov` / `--cov-fail-under`：探针晚于 conftest 与包导入，导入期执行的行会整片
 #   漏计（实测全仓曾停在 93.36%，改用本口径后同一批用例为 100%）。
 #   env：BMS_COVERAGE_DATA=<数据文件基址>、BMS_COVERAGE_SOURCE=<逗号分隔的顶层包>。
+#   服务级（CI service-test）在服务目录运行 pytest 时 rootdir 是本服务工程（addopts 不含启动插件），
+#   须显式 `-p bms_testing_plugin` 并把 `PYTHONPATH` 指向 backend；命令保持**单行**（跨行续行会被拆开执行）。
 #
 # 自测按需（13_02）
 #   7 个 --self-test 步按「脚本自身 + 依赖前缀」映射表判定（脚本自身 / backend/libs/bms_core/ /
