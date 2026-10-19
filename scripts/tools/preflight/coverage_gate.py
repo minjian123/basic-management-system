@@ -144,7 +144,8 @@ def module_matches(path: str, modules: tuple[str, ...]) -> bool:
     norm = path.replace("\\", "/")
     for module in modules:
         suffix = module.replace(".", "/")
-        if norm.endswith(f"{suffix}.py") or norm.endswith(f"{suffix}/__init__.py"):
+        # 模块本身（`.../a/b.py` / `.../a/b/__init__.py`）或整包（`.../bms_platform/**`）
+        if norm.endswith(f"{suffix}.py") or f"/{suffix}/" in f"{norm}/":
             return True
     return False
 

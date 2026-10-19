@@ -50,8 +50,7 @@ service-test:
       case "$BASE" in ""|0000000000000000000000000000000000000000) BASE="" ;; esac
       if [ -z "$BASE" ]; then
         echo "[service-test] 变更基准不可解析 ⇒ 保守执行本服务测试"
-      elif CHANGED=$(python3 scripts/tools/preflight/test_selection.py --root . --scope backend \
-             --changed-from "$BASE" --format changed-services); then
+      elif CHANGED=$(python3 scripts/tools/preflight/test_selection.py --root . --scope backend --changed-from "$BASE" --format changed-services); then
         case " $CHANGED " in
           *" $SERVICE "*)
             echo "[service-test] $SERVICE 有直接变更 ⇒ 执行本服务测试" ;;
@@ -76,11 +75,10 @@ service-test:
     # 覆盖率采集（13_02）：测试启动插件（backend/bms_testing_plugin.py）在**被测模块导入前**启动采集，
     # 每个进程落一份 `<data-file>.<pid>`；结束后合并并判定「行 + 分支 100%」。
     # 不再用 `pytest --cov`：探针晚于 conftest / 包导入，导入期执行的行会整片漏计（实测全仓 93.36%）。
-    - BMS_COVERAGE_DATA="$CI_PROJECT_DIR/backend/.coverage-service" BMS_COVERAGE_SOURCE="bms_$SERVICE" \
-        uv run pytest -q
+    # 服务目录的 rootdir 是本服务工程（addopts 不含启动插件），故显式 `-p` + `PYTHONPATH` 指向 backend。
+    - BMS_COVERAGE_DATA="$CI_PROJECT_DIR/backend/.coverage-service" BMS_COVERAGE_SOURCE="bms_$SERVICE" PYTHONPATH="$CI_PROJECT_DIR/backend" uv run pytest -q -p bms_testing_plugin
     - cd "$CI_PROJECT_DIR/backend"
-    - uv run python ../scripts/tools/preflight/coverage_gate.py --data-file .coverage-service \
-        --out coverage.json --module "bms_$SERVICE" --fail-under 100
+    - uv run python ../scripts/tools/preflight/coverage_gate.py --data-file .coverage-service --out coverage.json --module "bms_$SERVICE" --fail-under 100
   coverage: '/\[coverage\].*percent=(\d+(?:\.\d+)?)/'
 
 # ---- 构建：按服务镜像（main + tag + 镜像档；标签 commit short SHA，不可变口径见 09_02）----
