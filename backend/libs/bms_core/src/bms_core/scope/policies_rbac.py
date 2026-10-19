@@ -1,18 +1,18 @@
-"""平台服务：数据范围四策略求值器（`select` / `region` / `match` / `extension`）。
+"""数据范围四策略求值器（域 `data_scope`，`rbac` 实现内置）。
 
-口径（《02_04 详细设计》§5.6）：
+口径（《02_04 详细设计》§5.6，下沉后行为与下沉前一致；与表文件的收口归 `04_04`）：
 
 | 策略 | `config` 行 | 读时条件 |
 | --- | --- | --- |
 | `select` | `{"field": 列, "values": [值…]}` | 该列 `IN (...)` |
-| `region` | `{"field": 列, "start": 起, "end": 止}` | 该列 `BETWEEN 起 止` |
+| `region` | `{"field": 列, "start": 起, "end": 止}` | 该列区间条件（起 ≤ 止） |
 | `match` | `{"field": 列, "pattern": 通配}` | 该列 `LIKE`（`*`→`%`、`?`→`_`） |
 | `extension` | `{"key": 扩展键, "params": {…}}` | 经扩展求值器（未注册即拒） |
 
 **非法 / 未注册规则一律退化为「永假条件」**（`DENY_ALL_CONDITION`）——「该条不产生放行」，
 确保不因规则异常或策略缺失而放大可见 / 可写范围；同时经 `logging` 上报，便于配置期排查。
 
-越界拒绝的判定（运行期兜底，配置期另在 `02_03` 拦）：
+越界拒绝的判定（运行期兜底，配置期另在角色管理侧拦）：
 - `region`：缺 `start` / `end`，或 `start > end`；
 - `match`：通配符仅允许 `*` `?`，其余允许中英文 / 数字 / 下划线，出现其它字符即拒。
 """
@@ -180,8 +180,8 @@ def resolve_extension(
     return conditions
 
 
-def register_scope_policies() -> None:
-    """登记四策略求值器（装配期调用；后代可登记同名策略覆盖）。"""
+def register_rbac_scope_policies() -> None:
+    """登记四策略求值器（`rbac` 数据范围实现内置；后代可登记同名策略覆盖）。"""
     register_scope_policy(POLICY_SELECT, resolve_select)
     register_scope_policy(POLICY_REGION, resolve_region)
     register_scope_policy(POLICY_MATCH, resolve_match)

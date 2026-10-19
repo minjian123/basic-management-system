@@ -53,6 +53,7 @@ api_router = mount_service_routers(
             internal_users.query_router,
             internal_account_locks.router,
             permission.router,
+            permission.read_router,
             account_locks.router,
             role.router,
             users.router,

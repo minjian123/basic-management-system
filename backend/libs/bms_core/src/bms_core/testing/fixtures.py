@@ -119,6 +119,13 @@ def isolate_settings(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     monkeypatch.setenv("BMS_CAPTCHA__PROVIDER", "")
     monkeypatch.setenv("BMS_MASKING__PROVIDER", "")
     monkeypatch.setenv("BMS_DISTRIBUTED_LOCK__PROVIDER", "")
+    # 权限 / 数据范围强制占位：`get_settings()` 是进程级单例，服务套件（platform / identity）会在
+    # `prepare_settings` 里把它改成 `provider = rbac`；同进程跑其他套件（含基座自身不登记数据来源的
+    # 测试应用）时若沿用该残留，装配期即按「`rbac` 却无取数实现」拒启（与用例意图无关）。
+    # 置空后 `resolve_plugin` 回落到 `null` 占位实现，用例结果与套件执行顺序无关；
+    # 真实 RBAC 的判定口径由各服务 `tests/permission/` 专项用例自建校验器 / 数据来源覆盖。
+    monkeypatch.setenv("BMS_PERMISSION__PROVIDER", "")
+    monkeypatch.setenv("BMS_DATA_SCOPE__PROVIDER", "")
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()

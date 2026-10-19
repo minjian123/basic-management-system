@@ -1,23 +1,23 @@
-"""平台服务 services 层：主体链权限计算引擎（`02_04`）。
+"""主体链权限计算引擎（域 `permission`）：判定之外的全部**计算**。
 
 主流程五步（《02_04 详细设计》§11.2「主流程不变式」）：
 
-1. **解析器并集**（`PermissionSubjectService`：直接角色 ∪ mdm 岗位 / 部门链角色，来源经注册表注入）；
-2. **权限聚合**（角色集合 → `sys_role_permission` → 业务码 ∪ 动作码，**两段解析**）；
-3. **快照**（`bms_core.permission.snapshot.PermissionSnapshot`：码集 + 数据范围 + 字段权限 + `tier` / `profile`）；
-4. **缓存**（键 `bms:{租户}:perm:{用户}:{版本}`；租户级版本变更即换键）；
-5. **供数**（两级校验点 / 字段权限 / 数据范围 / 权限概要四处消费）。
+1. **角色收敛**：解析器并集去重（`permission/subject.py`，来源经注册表注入）——由**数据来源实现**在
+   `load_subject` 内调用，引擎只消费收敛结果（这样解析器链接缝留在基座、数据访问留在服务侧）；
+2. **权限聚合**：授权行 → 权限码集合 + 入口授权集合（**两段解析**：菜单 / 表单 → 入口；权限码 → `业务码:动作码`）；
+3. **快照**：`permission/snapshot.py::PermissionSnapshot`（码集 + 数据范围 + 字段权限 + `tier` / `profile`）；
+4. **缓存**：键 `bms:{租户}:perm:{用户}:{版本}`（`permission/version.py`），租户级版本变更即换键；
+5. **供数**：两级校验点 / 字段权限 / 数据范围 / 权限概要四处消费。
 
-聚合口径：
+**数据访问全部经接缝**（`permission/sources.py`）：本模块不 import 任何服务包、不碰任何 ORM，故可随
+引擎一并下沉共享基座；服务侧只提供数据来源实现（platform 直查本库、identity 经契约取数）。
+
+聚合口径（与下沉前一致）：
 
 - **菜单授权**：菜单入口计入 `granted_menu_ids`，并连带其关联表单计入 `granted_form_ids`（入口可见性）；
 - **表单授权**：表单计入 `granted_form_ids`（入口可见性）；
-- **权限码授权**：`perm_type="permission"` 的 `target_id` 为权限码主键，经**菜单快照的按钮元数据**
-  建 `permission_id → permission_code` 索引解析（同源于 `sys_button` ⋈ `sys_permission`，免跨库二次查询；
-  未挂按钮的权限码不进索引——与「按钮即授权入口」的界面口径一致）。
-
-档位（`profile`）与 `tier` 分列：`profile` 是引擎能力档位（`smb` / `enterprise` / `enterprise_hr`），
-`tier` 是主体层级豁免标记（`standard` / `system_admin` / `platform_admin`）。
+- **权限码授权**：`perm_type="permission"` 的 `target_id` 经元数据的权限码索引解析为 `业务码:动作码`；
+  未进索引的权限码不计入（与「按钮即授权入口」的界面口径一致）。
 """
 
 from __future__ import annotations
@@ -28,7 +28,6 @@ from bms_core.cache.base import CacheRegion
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.objects import BaseFrameworkObject, BaseValueObject
 from bms_core.i18n.base import DEFAULT_LOCALE
-from bms_core.permission.field import BaseFieldPermissionProvider, FieldPermission
 from bms_core.permission.profile import DEFAULT_PROFILE
 from bms_core.permission.snapshot import (
     TIER_PLATFORM_ADMIN,
@@ -36,18 +35,27 @@ from bms_core.permission.snapshot import (
     TIER_SYSTEM_ADMIN,
     PermissionSnapshot,
 )
-from bms_core.permission.version import permission_user_cache_key, permission_version_key
-from bms_platform.models.role import PERM_TYPE_FORM, PERM_TYPE_MENU, PERM_TYPE_PERMISSION, ROLE_TYPE_SYSTEM
-from bms_platform.repositories.role import (
-    DataScopeRepository,
-    RolePermissionRepository,
-    RoleRepository,
+from bms_core.permission.sources import (
+    BasePermissionDataSource,
+    PermissionMetadata,
+    PermissionSubjectData,
 )
-from bms_platform.services.menu import MenuMetadataService, MenuSnapshot
-from bms_platform.services.permission_subject import PermissionSubjectService
+from bms_core.permission.version import permission_user_cache_key, permission_version_key
 
 DEFAULT_SNAPSHOT_TTL = 300
 """权限快照缓存有效期（秒；缺省口径，可经 `[permission].options.snapshot_ttl_seconds` 覆盖）。"""
+
+PERM_TYPE_MENU = "menu"
+"""授权类型：菜单入口（仅菜单入口；勾选连带授予其表单查看权限）。"""
+
+PERM_TYPE_FORM = "form"
+"""授权类型：表单（「查看」= 表单权限；可由菜单入口连带或表单级直接授予）。"""
+
+PERM_TYPE_PERMISSION = "permission"
+"""授权类型：权限码（业务码 × 动作码组合，默认无）。"""
+
+ROLE_TYPE_SYSTEM = "system"
+"""角色类型：系统管理员（缺省豁免层级判定依据；与 platform 侧 `SEPARATION_ROLE_TYPES` 同值）。"""
 
 
 @dataclass(frozen=True)
@@ -81,47 +89,35 @@ async def invalidate_permission_cache(
     return version
 
 
-class PermissionService(BaseFrameworkObject):
-    """主体链权限计算引擎：角色收敛 → 权限聚合 → 快照与缓存。"""
+class PermissionEngine(BaseFrameworkObject):
+    """主体链权限计算引擎：角色收敛 → 权限聚合 → 快照与缓存（数据访问经接缝）。"""
 
     def __init__(
         self,
         *,
-        roles: RoleRepository,
-        permissions: RolePermissionRepository,
-        data_scopes: DataScopeRepository,
-        metadata: MenuMetadataService,
-        subject: PermissionSubjectService,
+        source: BasePermissionDataSource,
         cache: CacheRegion,
-        field_provider: BaseFieldPermissionProvider | None = None,
         profile: str = DEFAULT_PROFILE,
         ttl: int = DEFAULT_SNAPSHOT_TTL,
         exempt_role_types: tuple[str, ...] = (ROLE_TYPE_SYSTEM,),
+        locale: str = DEFAULT_LOCALE,
     ) -> None:
         """初始化。
 
         Args:
-            roles: 角色仓储（`sys_role`；豁免层级判定）。
-            permissions: 角色授权仓储（`sys_role_permission`）。
-            data_scopes: 角色数据权限仓储（`sys_data_scope`）。
-            metadata: 菜单与权限元数据服务（平台库；业务码 / 动作码解析源，自带缓存与版本失效）。
-            subject: 主体链收敛服务（解析器链）。
+            source: 权限数据来源（角色 / 类型 / 授权 / 数据范围 / 字段收窄 / 元数据）。
             cache: 缓存能力域（快照缓存 + 权限版本）。
-            field_provider: 字段权限求值器（None 表示无字段收窄，字段全开）。
             profile: 引擎档位（缺省 `smb`）。
             ttl: 快照缓存有效期（秒）。
             exempt_role_types: 豁免层级判定的角色类型（缺省 `system`，即系统管理员）。
+            locale: 元数据语言标识（仅影响展示名，不影响索引）。
         """
-        self._roles = roles
-        self._permissions = permissions
-        self._data_scopes = data_scopes
-        self._metadata = metadata
-        self._subject = subject
+        self._source = source
         self._cache = cache
-        self._field_provider = field_provider
         self._profile = profile
         self._ttl = ttl
         self._exempt_role_types = exempt_role_types
+        self._locale = locale
 
     async def current_version(self, tenant_id: str | None) -> int:
         """取当前租户权限版本（缓存未命中按 0 处理、不回写）。
@@ -168,31 +164,18 @@ class PermissionService(BaseFrameworkObject):
         Returns:
             PermissionSnapshot: 用户权限快照。
         """
-        role_ids = await self._subject.resolve_role_ids(user_id)
-        granted = await self._aggregate(role_ids)
+        data = await self._source.load_subject(user_id=user_id)
+        granted = await self._aggregate(data)
         return PermissionSnapshot(
             version=version,
             profile=self._profile,
-            tier=await self._tier(role_ids),
+            tier=self._tier(data),
             permission_codes=granted.permission_codes,
             granted_menu_ids=granted.menu_ids,
             granted_form_ids=granted.form_ids,
-            data_scopes=await self._data_scope_rules(role_ids),
-            field_perms=await self._field_perms(role_ids),
+            data_scopes=self._data_scope_rules(data),
+            field_perms=data.field_perms,
         )
-
-    async def _field_perms(self, role_ids: ConcurrentStableSet[int]) -> ConcurrentStableList[FieldPermission]:
-        """求值字段权限收窄项（无 provider / 无角色即全开，返回空列表）。
-
-        Args:
-            role_ids: 角色主键集合。
-
-        Returns:
-            ConcurrentStableList[FieldPermission]: 收窄项列表（空表示全开）。
-        """
-        if self._field_provider is None or not role_ids:
-            return ConcurrentStableList()
-        return await self._field_provider.resolve(role_ids=role_ids, form_ids=ConcurrentStableSet[int]())
 
     async def invalidate(self, *, tenant_id: str | None, user_ids: tuple[int, ...] | None = None) -> int:
         """失效权限快照：租户权限版本 +1；给定用户时顺带删除其旧版本键。
@@ -206,66 +189,53 @@ class PermissionService(BaseFrameworkObject):
         """
         return await invalidate_permission_cache(self._cache, tenant_id=tenant_id, user_ids=user_ids)
 
-    async def _aggregate(self, role_ids: ConcurrentStableSet[int]) -> _Granted:
-        """聚合角色授权为权限码集合与入口授权集合（两段解析）。
+    async def _aggregate(self, data: PermissionSubjectData) -> _Granted:
+        """聚合授权行为权限码集合与入口授权集合（两段解析）。
 
         Args:
-            role_ids: 角色主键集合（空集返回空集合）。
+            data: 聚合输入（授权行 + 角色集合）。
 
         Returns:
             _Granted: 权限码集合 + 菜单入口 / 表单授权集合。
         """
         granted = _Granted()
-        if not role_ids:
+        if not data.role_ids:
             return granted
-        snapshot = await self._metadata.load_snapshot(locale=DEFAULT_LOCALE, tenant_id=None, ttl=self._ttl)
-        menu_forms, permission_codes = _index_metadata(snapshot)
-        for row in await self._permissions.list_by_roles(role_ids):
-            if row.perm_type == PERM_TYPE_MENU:
-                granted.menu_ids.add(row.target_id)
-                for form_id in menu_forms.get(row.target_id, ConcurrentStableList[int]()):
-                    granted.form_ids.add(form_id)
-            elif row.perm_type == PERM_TYPE_FORM:
-                granted.form_ids.add(row.target_id)
-            elif row.perm_type == PERM_TYPE_PERMISSION:
-                code = permission_codes.get(row.target_id)
-                if code is not None:
-                    granted.permission_codes.add(code)
+        metadata = await self._source.load_metadata(locale=self._locale)
+        _merge_grants(data, metadata, granted)
         return granted
 
-    async def _tier(self, role_ids: ConcurrentStableSet[int]) -> str:
+    def _tier(self, data: PermissionSubjectData) -> str:
         """判定主体层级（命中豁免角色类型即系统管理员层级）。
 
         Args:
-            role_ids: 角色主键集合。
+            data: 聚合输入（角色类型映射）。
 
         Returns:
             str: 层级标记（`standard` / `system_admin`）。
         """
-        for role in await self._roles.list_by_ids(role_ids):
-            if role.role_type in self._exempt_role_types:
+        for role_id in data.role_ids:
+            role_type = data.role_types.get(role_id)
+            if role_type is not None and role_type in self._exempt_role_types:
                 return TIER_SYSTEM_ADMIN
         return TIER_STANDARD
 
-    async def _data_scope_rules(
-        self, role_ids: ConcurrentStableSet[int]
-    ) -> ConcurrentStableList[ConcurrentStableDict[str, object]]:
+    @staticmethod
+    def _data_scope_rules(data: PermissionSubjectData) -> ConcurrentStableList[ConcurrentStableDict[str, object]]:
         """取角色数据范围规则（多角色并集，读注入与写校验共用）。
 
         Args:
-            role_ids: 角色主键集合。
+            data: 聚合输入（数据范围规则）。
 
         Returns:
             ConcurrentStableList[ConcurrentStableDict[str, object]]: 规则列表（字典 / 策略 / 配置）。
         """
         rules: ConcurrentStableList[ConcurrentStableDict[str, object]] = ConcurrentStableList()
-        if not role_ids:
-            return rules
-        for row in await self._data_scopes.list_by_roles(role_ids):
+        for rule in data.data_scope_rules:
             item: ConcurrentStableDict[str, object] = ConcurrentStableDict()
-            item.set("data_source_key", row.data_source_key)
-            item.set("policy_type", row.policy_type)
-            item.set("config", list(row.config))
+            item.set("data_source_key", rule.data_source_key)
+            item.set("policy_type", rule.policy_type)
+            item.set("config", list(rule.config))
             rules.add(item)
         return rules
 
@@ -274,29 +244,22 @@ PLATFORM_TIER = TIER_PLATFORM_ADMIN
 """平台层层级标记（无租户上下文的运营请求；导出便于上层判定）。"""
 
 
-def _index_metadata(
-    snapshot: MenuSnapshot,
-) -> tuple[
-    ConcurrentStableDict[int, ConcurrentStableList[int]],
-    ConcurrentStableDict[int, str],
-]:
-    """由菜单快照建两类索引（菜单 → 关联表单 ID、权限码 → 权限码字符串）。
+def _merge_grants(data: PermissionSubjectData, metadata: PermissionMetadata, granted: _Granted) -> None:
+    """把授权行按两段解析并入聚合结果（菜单连带表单、权限码经索引解析）。
 
     Args:
-        snapshot: 菜单元数据快照（未按用户过滤）。
-
-    Returns:
-        tuple[ConcurrentStableDict[int, ConcurrentStableList[int]], ConcurrentStableDict[int, str]]:
-        （菜单关联表单 ID，权限码字符串）。
+        data: 聚合输入（授权行）。
+        metadata: 元数据索引（菜单 → 表单、权限码 id → 权限码）。
+        granted: 聚合结果（就地写入）。
     """
-    menu_forms: ConcurrentStableDict[int, ConcurrentStableList[int]] = ConcurrentStableDict()
-    permission_codes: ConcurrentStableDict[int, str] = ConcurrentStableDict()
-    for menu in snapshot.menus:
-        form_ids: ConcurrentStableList[int] = ConcurrentStableList()
-        for form in menu.forms:
-            form_ids.add(form.id)
-            for button in form.buttons:
-                permission_codes.set(button.permission_id, button.permission_code)
-        if form_ids:
-            menu_forms.set(menu.id, form_ids)
-    return menu_forms, permission_codes
+    for row in data.grants:
+        if row.perm_type == PERM_TYPE_MENU:
+            granted.menu_ids.add(row.target_id)
+            for form_id in metadata.menu_forms.get(row.target_id, ConcurrentStableList[int]()):
+                granted.form_ids.add(form_id)
+        elif row.perm_type == PERM_TYPE_FORM:
+            granted.form_ids.add(row.target_id)
+        elif row.perm_type == PERM_TYPE_PERMISSION:
+            code = metadata.permission_codes.get(row.target_id)
+            if code is not None:
+                granted.permission_codes.add(code)

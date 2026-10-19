@@ -15,11 +15,12 @@ from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.db.registry import EngineRegistry
 from bms_core.dict.outlet import register_data_source
+from bms_core.permission.rbac import RBAC_PROVIDER_NAME
+from bms_core.scope.rbac import RBAC_DATA_SCOPE_NAME, register_rbac_data_scope
 from bms_platform import CONTRACT_VERSION, SERVICE_NAME, SERVICE_TITLE, __version__
 from bms_platform.api.router import api_router
-from bms_platform.permission.checker import RBAC_PROVIDER_NAME, register_rbac_permission
+from bms_platform.permission.checker import register_platform_permission
 from bms_platform.repositories.demo_repository import DemoRepository
-from bms_platform.scope.rbac import RBAC_DATA_SCOPE_NAME, register_rbac_data_scope
 from bms_platform.services.branch_handlers import build_branch_handlers
 from bms_platform.services.demo_service import DemoService
 from bms_platform.sources.catalog_source import read_catalog
@@ -36,9 +37,9 @@ class ApplicationFactory(BaseServiceApplicationFactory):
     contract_version: str = CONTRACT_VERSION
 
     def prepare_settings(self, settings: Settings) -> None:
-        """启用真实权限校验（`02_04`；仅本服务持有 RBAC 实现与角色域数据）。
+        """启用真实权限校验与数据范围（`04_01` 下沉后：实现随基座分发，本服务只注入数据来源）。
 
-        `[permission].provider` 未显式配置时置为 `rbac`（真实主体链校验）；显式配置（含 `null`）
+        `[permission].provider` / `[data_scope].provider` 未显式配置时置为 `rbac`；显式配置（含 `null`）
         一律尊重——便于联调期临时回退占位实现。
 
         登记放在本钩子而非 `configure_service`：插件注册表在应用构造中段即构建并冻结，而
@@ -51,7 +52,8 @@ class ApplicationFactory(BaseServiceApplicationFactory):
             settings.permission.provider = RBAC_PROVIDER_NAME
         if not settings.data_scope.provider:
             settings.data_scope.provider = RBAC_DATA_SCOPE_NAME
-        register_rbac_permission(settings)
+        # 平台侧装配：真实校验器 + 直查本库数据来源工厂 + 字段权限 provider 工厂
+        register_platform_permission(settings)
         register_rbac_data_scope(settings)
 
     def service_routers(self) -> ConcurrentStableList[APIRouter]:

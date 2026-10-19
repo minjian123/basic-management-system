@@ -122,6 +122,7 @@ from bms_core.outbox.store import SqlOutboxStore
 from bms_core.password.base import BasePasswordPolicy
 from bms_core.password.default import DefaultPasswordPolicy
 from bms_core.permission.base import BasePermissionChecker
+from bms_core.permission.rbac import register_rbac_permission
 from bms_core.preference.base import BasePreferenceStore
 from bms_core.print.base import BasePrintExporter, BasePrintTemplateProvider
 from bms_core.query.base import BaseQueryProviderRegistry
@@ -133,6 +134,7 @@ from bms_core.redis.base import REDIS_CLIENT_PLUGIN_KEY, BaseRedisClient
 from bms_core.redis.redis import RedisRedisClient
 from bms_core.replay.base import BaseReplayGuard
 from bms_core.scope.base import DataScope
+from bms_core.scope.rbac import register_rbac_data_scope
 from bms_core.search.base import BaseSearchIndex
 from bms_core.security.base import BasePasswordHasher, BaseSessionSecurity, BaseTokenCodec
 from bms_core.security.jwt import JwtTokenCodecFactory
@@ -365,6 +367,9 @@ def register_platform_plugins(settings: Settings, app: FastAPI, resources: Resou
     # 链路真实实现（`otel`，零参可实例化）：导入即经继承自动登记
     import_module("bms_core.tracing.otel")
     register_platform_event_contracts()
+    # 真实 RBAC 权限校验与数据范围（04_01 下沉基座）：实现随基座分发，服务侧只需登记数据来源
+    register_rbac_permission(settings)
+    register_rbac_data_scope(settings)
     register_plugin("masking", NULL_PLUGIN_NAME, PlaceholderMaskerFactory(settings))
     register_plugin("masking", "default", DefaultMaskerFactory(settings))
     register_plugin("health_check_registry", "local", HealthCheckRegistryFactory(settings, app, resources))

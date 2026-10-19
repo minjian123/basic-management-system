@@ -1,4 +1,4 @@
-"""平台服务：RBAC 数据范围 provider（`[data_scope].provider = "rbac"`）。
+"""基座内建 RBAC 数据范围 provider（`[data_scope].provider = "rbac"`，域 `data_scope`）。
 
 - **输入**：请求级权限快照的 `data_scopes`（`data_source_key` / `policy_type` / `config`，由引擎计算并缓存）；
 - **读**：按 `policy_type` 经策略注册表求值（核心不判策略类型），同字典类型内多规则**并集**，
@@ -7,6 +7,9 @@
 - **豁免 / 未预加载**：不过滤、恒允许（由认证链与上层承担）；
 - **租户边界**：条件不含 `tenant_id`；租户过滤由基座注入点 `BaseScopedRepository._tenant_condition`
   强制叠加（任何策略不得跨租户）。
+
+本实现只消费基座快照与策略注册表，**不 import 任何服务包、不碰任何 ORM**，故落在共享基座；
+四策略求值器见 `scope/policies_rbac.py`（由 `register_rbac_data_scope` 一并登记）。
 
 **口径偏差（已登记）**：详设 §5.6 的「多策略结果 OR 合并」在本基座注入点（条件列表按 AND 合取）
 下只可对**同字段**的并集做真合并（多 `IN` 合并为一个 `IN`）；不同字段 / 不同操作符的并集只能退化为
@@ -26,7 +29,7 @@ from bms_core.core.plugin import default_plugin_registry, register_plugin
 from bms_core.permission.snapshot import PermissionSnapshot, get_current_permission_snapshot
 from bms_core.scope.base import DataScope, ScopeCondition
 from bms_core.scope.policies import scope_policy
-from bms_platform.scope.policies import register_scope_policies
+from bms_core.scope.policies_rbac import register_rbac_scope_policies
 
 _logger = logging.getLogger(__name__)
 
@@ -287,6 +290,6 @@ def register_rbac_data_scope(settings: Settings) -> None:
     registry = default_plugin_registry()
     if any(item is registry for item in _REGISTERED_REGISTRIES):
         return
-    register_scope_policies()
+    register_rbac_scope_policies()
     register_plugin("data_scope", RBAC_DATA_SCOPE_NAME, RbacDataScopeFactory(settings))
     _REGISTERED_REGISTRIES.add(registry)
