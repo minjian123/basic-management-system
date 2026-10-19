@@ -16,6 +16,15 @@ from pathlib import Path
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
+# 集合声明走基座插入序集合类（《后端开发规范》「集合与排序」；
+# check-bare-collections.py 强制、scripts/tools 亦在扫描范围内）。
+_SRC_ROOT = (
+    Path(__file__).resolve().parents[3] / "backend" / "libs" / "bms_core" / "src"
+)
+if str(_SRC_ROOT) not in sys.path:
+    sys.path.insert(0, str(_SRC_ROOT))
+from bms_core.core.concurrent import ConcurrentStableList
+
 HERE = Path(__file__).resolve().parent
 SERVER = HERE / "search_mcp.py"
 ROOT = HERE.parents[3]
@@ -29,7 +38,7 @@ async def run() -> int:
         args=[str(SERVER)],
         env=env,
     )
-    failures: list[str] = []
+    failures: ConcurrentStableList[str] = ConcurrentStableList()
     async with (
         stdio_client(params) as (read, write),
         ClientSession(read, write) as session,

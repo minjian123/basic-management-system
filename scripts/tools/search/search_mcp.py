@@ -48,6 +48,26 @@ from pathlib import Path
 import jieba
 from mcp.server.mcpserver import MCPServer
 
+# 集合声明走基座插入序集合类（《后端开发规范》「集合与排序」；
+# check-bare-collections.py 强制、scripts/tools 亦在扫描范围内）。
+_SRC_ROOT = (
+    Path(__file__).resolve().parents[3] / "backend" / "libs" / "bms_core" / "src"
+)
+if str(_SRC_ROOT) not in sys.path:
+    sys.path.insert(0, str(_SRC_ROOT))
+from bms_core.core.concurrent import (
+    ConcurrentStableDict,
+    ConcurrentStableList,
+    ConcurrentStableSet,
+)
+
+# MCP 工具签名必须用 Pydantic 可建模的内建容器类型：@mcp.tool 会依返回注解
+# 生成 JSON Schema，自定义集合类无 schema 支持会在注册期直接报错。
+# 用类型别名承载「内建容器」这一事实，既满足护栏可读性，也避免行宽折行
+# 破坏 check-bare-collections 的同行豁免标记（豁免按注解所在行匹配）。
+ToolResult = list[dict]
+ToolJson = dict[str, int]
+
 # ---------------- 路径解析 ----------------
 # 脚本位于 <工作区根>/bms/scripts/tools/search/，向上 4 层即「脚本所在的工作区根」。
 _SCRIPT_WORKSPACE = Path(__file__).resolve().parents[4]
@@ -155,25 +175,25 @@ _upper_seq = re.compile(r"([A-Z]+)([A-Z][a-z])")
 _nonword = re.compile(r"[\W_]+")
 
 
-def split_ident(tok: str) -> list[str]:
+def split_ident(tok: str) -> ConcurrentStableList[str]:
     """驼峰 / 下划线标识符切分：`RBACService` -> rbac service。"""
     tok = _upper_seq.sub(r"\1 \2", tok)
     tok = _camel.sub(r"\1 \2", tok)
-    return [p for p in re.split(r"[_\-\s.]+", tok.lower()) if p]
+    return ConcurrentStableList(p for p in re.split(r"[_\-\s.]+", tok.lower()) if p)
 
 
 def tokenize(text: str, *, ident: bool = False) -> str:
     """文本 -> 空格分隔 token 串（FTS5 unicode61 据此建词）。"""
-    out: list[str] = []
+    out: ConcurrentStableList[str] = ConcurrentStableList()
     for w in jieba.cut(text):
         w = w.strip()
         if not w or _nonword.fullmatch(w):
             continue
         if ident and re.search(r"[A-Za-z_]", w) and not w.islower():
-            out.extend(split_ident(w))
+            out.update(split_ident(w))
         else:
-            out.append(w.lower())
-    return " ".join(out)
+            out.add(w.lower())
+    return " ".join(out.to_list())
 
 
 # ---------------- 结构化抽取 ----------------
@@ -189,7 +209,7 @@ JS_SYM = re.compile(
 PY_DOCSTRING = re.compile(r'^\s*(?:"""|\'\'\')(.+?)(?:"""|\'\'\')', re.DOTALL)
 
 
-def parse_doc(text: str) -> dict:
+def parse_doc(text: str) -> ConcurrentStableDict[str, str]:
     """文档元数据：标题 / 摘要 / 面包屑 / 全部小标题。
 
     本仓文档有统一头部结构（H1 + `>` 摘要 + 面包屑），抽取后作为高权重字段，
@@ -212,29 +232,33 @@ def parse_doc(text: str) -> dict:
             crumb = ln.strip()
             break
     heads = " ".join(m.group(1).strip() for m in MD_H2.finditer(text))
-    return {
-        "title": title,
-        "abstract": abstract,
-        "crumb": crumb,
-        "heads": heads,
-        "symbols": "",
-    }
+    return ConcurrentStableDict(
+        {
+            "title": title,
+            "abstract": abstract,
+            "crumb": crumb,
+            "heads": heads,
+            "symbols": "",
+        }
+    )
 
 
-def parse_code(text: str, ext: str) -> dict:
+def parse_code(text: str, ext: str) -> ConcurrentStableDict[str, str]:
     """代码元数据：符号名（高权重）+ 模块文档串（作摘要）。"""
     syms = PY_SYM.findall(text) if ext == ".py" else JS_SYM.findall(text)
     doc = ""
     m = PY_DOCSTRING.match(text)
     if m:
         doc = m.group(1).strip()
-    return {
-        "title": "",
-        "abstract": doc[:200],
-        "crumb": "",
-        "heads": "",
-        "symbols": " ".join(syms),
-    }
+    return ConcurrentStableDict(
+        {
+            "title": "",
+            "abstract": doc[:200],
+            "crumb": "",
+            "heads": "",
+            "symbols": " ".join(syms),
+        }
+    )
 
 
 # ---------------- 索引 ----------------
@@ -333,16 +357,20 @@ def index_file(con: sqlite3.Connection, p: Path, st, root: Path) -> bool:
     return True
 
 
-def update_index(root: Path = ROOT, db: Path = DB, *, rebuild: bool = False) -> dict:
+def update_index(
+    root: Path = ROOT, db: Path = DB, *, rebuild: bool = False
+) -> ConcurrentStableDict[str, int]:
     """增量（或全量重建）索引。返回变更统计。"""
     db.parent.mkdir(parents=True, exist_ok=True)
     if rebuild and db.exists():
         db.unlink()
     con = sqlite3.connect(db)
     con.executescript(SCHEMA)
-    known = dict(con.execute("SELECT path, mtime FROM files").fetchall())
+    known = ConcurrentStableDict(
+        con.execute("SELECT path, mtime FROM files").fetchall()
+    )
     added = changed = removed = 0
-    seen: set[str] = set()
+    seen: ConcurrentStableSet[str] = ConcurrentStableSet()
     for p, st in iter_files(root):
         rel = str(p.relative_to(root)).replace("\\", "/")
         seen.add(rel)
@@ -361,7 +389,9 @@ def update_index(root: Path = ROOT, db: Path = DB, *, rebuild: bool = False) -> 
     con.commit()
     total = con.execute("SELECT COUNT(*) FROM files").fetchone()[0]
     con.close()
-    return {"added": added, "changed": changed, "removed": removed, "total": total}
+    return ConcurrentStableDict(
+        {"added": added, "changed": changed, "removed": removed, "total": total}
+    )
 
 
 # ---------------- 检索 ----------------
@@ -381,7 +411,7 @@ NOISE_DIRS = ("tests/", "test/", "资源/")
 NOISE_PENALTY = 0.35
 
 
-def _path_adjust(rel: str, query_tokens: list[str]) -> float:
+def _path_adjust(rel: str, query_tokens: ConcurrentStableList[str]) -> float:
     """路径相关的加减分（乘到 bm25 分数上，分数已取负，故此处为增益系数）。"""
     low = rel.lower()
     name = low.rsplit("/", 1)[-1]
@@ -400,8 +430,8 @@ def _path_adjust(rel: str, query_tokens: list[str]) -> float:
 
 def build_match(query: str) -> str:
     """查询 -> FTS5 MATCH 表达式（多 token 为 AND：全部命中才算）。"""
-    toks = [t for t in tokenize(query, ident=True).split() if t]
-    toks = [t.replace('"', "") for t in toks]
+    toks = ConcurrentStableList(t for t in tokenize(query, ident=True).split() if t)
+    toks = ConcurrentStableList(t.replace('"', "") for t in toks)
     return " AND ".join(f'"{t}"' for t in toks)
 
 
@@ -410,7 +440,7 @@ def search(
     kind: str | None = None,
     path: str | None = None,
     limit: int = 10,
-) -> list[dict]:
+) -> ConcurrentStableList[ConcurrentStableDict[str, object]]:
     """按相关性检索，返回精简结果（路径 / 类型 / 标题 / 摘要 / 分数）。
 
     流程：FTS5 bm25 初筛 -> 路径命中加分 / 噪音降权 -> 重排取前 limit。
@@ -420,8 +450,8 @@ def search(
         update_index()
     match = build_match(query)
     if not match:
-        return []
-    toks = [t for t in tokenize(query, ident=True).split() if t]
+        return ConcurrentStableList()
+    toks = ConcurrentStableList(t for t in tokenize(query, ident=True).split() if t)
     con = sqlite3.connect(DB)
     con.row_factory = sqlite3.Row
     sql = f"""
@@ -430,24 +460,33 @@ def search(
     FROM fts JOIN files f ON f.id = fts.rowid
     WHERE fts MATCH ?
     """
-    params: list = [match]
+    params: ConcurrentStableList[object] = ConcurrentStableList([match])
     if kind in ("doc", "code", "other"):
         sql += " AND f.kind = ?"
-        params.append(kind)
+        params.add(kind)
     if path:
         sql += " AND f.path LIKE ?"
-        params.append(f"%{path}%")
+        params.add(f"%{path}%")
     sql += " ORDER BY score LIMIT ?"
     pool = max(40, limit * 4)
-    params.append(pool)
-    rows = [dict(r) for r in con.execute(sql, params).fetchall()]
+    params.add(pool)
+    rows = ConcurrentStableList(
+        ConcurrentStableDict(dict(r))
+        for r in con.execute(sql, params.to_list()).fetchall()
+    )
     con.close()
-    for r in rows:
-        # bm25 越小越相关，取负后越大越相关，便于阅读与重排
-        base = -r["score"]
-        r["score"] = round(base * _path_adjust(r["path"], toks), 2)
-    rows.sort(key=lambda r: r["score"], reverse=True)
-    return rows[:limit]
+    # bm25 越小越相关，取负后越大越相关，便于阅读与重排
+    scored = ConcurrentStableList(
+        ConcurrentStableDict(
+            {
+                **r.to_dict(),
+                "score": round(-r["score"] * _path_adjust(r["path"], toks), 2),
+            }
+        )
+        for r in rows
+    )
+    ordered = scored.sorted_by(lambda r: r["score"], reverse=True)
+    return ConcurrentStableList(ordered[:limit])
 
 
 def snippet(rel: str, query: str, *, width: int = 160) -> str:
@@ -457,7 +496,7 @@ def snippet(rel: str, query: str, *, width: int = 160) -> str:
         lines = p.read_text(encoding="utf-8", errors="ignore").splitlines()
     except OSError:
         return ""
-    toks = [t for t in tokenize(query, ident=True).split() if t]
+    toks = ConcurrentStableList(t for t in tokenize(query, ident=True).split() if t)
     for i, ln in enumerate(lines, 1):
         low = ln.lower()
         if any(t in low for t in toks):
@@ -469,31 +508,42 @@ def snippet(rel: str, query: str, *, width: int = 160) -> str:
 
 
 # ---------------- 自检 ----------------
-def check(root: Path = ROOT, db: Path = DB) -> tuple[bool, dict]:
+def check(
+    root: Path = ROOT, db: Path = DB
+) -> tuple[bool, ConcurrentStableDict[str, object]]:
     """索引与实际文件集一致性自检（吸取「索引会漂移」的教训，可被脚本判失败）。"""
     if not db.exists():
-        return False, {"error": "索引不存在，请先 --rebuild"}
+        return False, ConcurrentStableDict({"error": "索引不存在，请先 --rebuild"})
     con = sqlite3.connect(db)
-    indexed = dict(con.execute("SELECT path, mtime FROM files").fetchall())
+    indexed = ConcurrentStableDict(
+        con.execute("SELECT path, mtime FROM files").fetchall()
+    )
     con.close()
-    actual = {
-        str(p.relative_to(root)).replace("\\", "/"): st.st_mtime
-        for p, st in iter_files(root)
-    }
-    stale = [
+    actual = ConcurrentStableDict(
+        {
+            str(p.relative_to(root)).replace("\\", "/"): st.st_mtime
+            for p, st in iter_files(root)
+        }
+    )
+    stale = ConcurrentStableList(
         k for k, v in actual.items() if k in indexed and abs(indexed[k] - v) > 1e-6
-    ]
-    missing = [k for k in actual if k not in indexed]
-    extra = [k for k in indexed if k not in actual]
+    )
+    missing = ConcurrentStableList(k for k in actual if k not in indexed)
+    extra = ConcurrentStableList(k for k in indexed if k not in actual)
     ok = not (stale or missing or extra)
-    return ok, {
-        "indexed": len(indexed),
-        "actual": len(actual),
-        "stale": len(stale),
-        "missing": len(missing),
-        "extra": len(extra),
-        "samples": (stale + missing + extra)[:5],
-    }
+    samples = ConcurrentStableList(
+        stale.to_list() + missing.to_list() + extra.to_list()
+    )
+    return ok, ConcurrentStableDict(
+        {
+            "indexed": len(indexed),
+            "actual": len(actual),
+            "stale": len(stale),
+            "missing": len(missing),
+            "extra": len(extra),
+            "samples": samples.to_list()[:5],
+        }
+    )
 
 
 # ---------------- MCP 服务 ----------------
@@ -520,16 +570,16 @@ def search_content(
     kind: str | None = None,
     path: str | None = None,
     limit: int = 10,
-) -> list[dict]:
+) -> ToolResult:  # bare-collections:allow MCP 工具须内建容器
     """query: 检索词（中英文均可）；kind: doc/code/other；path: 路径子串；limit: 1-50。"""
-    return search(query, kind=kind, path=path, limit=limit)
+    return list(search(query, kind=kind, path=path, limit=limit))
 
 
 @mcp.tool(
     description="增量更新检索索引（按 mtime 比对，只处理新增/变更/删除的文件，秒级）。"
 )
-def index_update() -> dict[str, int]:
-    return update_index()
+def index_update() -> ToolJson:  # bare-collections:allow MCP 须内建容器
+    return dict(update_index())
 
 
 @mcp.tool(
@@ -537,15 +587,22 @@ def index_update() -> dict[str, int]:
 )
 def search_with_snippet(
     query: str, limit: int = 5, kind: str | None = None
-) -> list[dict]:
+) -> ToolResult:  # bare-collections:allow MCP 工具须内建容器
     """在 search_content 基础上附加命中行片段。"""
     rows = search(query, kind=kind, limit=limit)
     for r in rows:
         r["snippet"] = snippet(r["path"], query)
-    return rows
+    return list(rows)
 
 
 # ---------------- 命令行 ----------------
+def _fmt_stats(stats: object) -> str:
+    """把集合统计（ConcurrentStableDict 或 dict）格式化为可读的一行。"""
+    if hasattr(stats, "to_dict"):
+        stats = stats.to_dict()
+    return "{" + ", ".join(f"'{k}': {v!r}" for k, v in dict(stats).items()) + "}"
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(
         description="工作区内容检索（MCP 服务 / 命令行）",
@@ -563,14 +620,14 @@ def main() -> int:
     args = ap.parse_args()
 
     if args.rebuild:
-        print(update_index(rebuild=True))
+        print(_fmt_stats(update_index(rebuild=True)))
         return 0
     if args.update:
-        print(update_index())
+        print(_fmt_stats(update_index()))
         return 0
     if args.check:
         ok, info = check()
-        print(("一致性通过：" if ok else "不一致：") + str(info))
+        print(("一致性通过：" if ok else "不一致：") + _fmt_stats(info))
         return 0 if ok else 1
     if not args.query:
         mcp.run(transport="stdio")  # 默认作为 MCP 服务运行
