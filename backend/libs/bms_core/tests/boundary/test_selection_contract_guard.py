@@ -316,3 +316,33 @@ def test_base_check_map_covers_every_script() -> None:
     }
     for script, test in test_selection._BASE_CHECK_TESTS:
         assert (_BACKEND / test).is_file(), f"{script} → {test} 不存在"
+
+
+# ===== G 前端选测 job 的执行环境 =====
+
+
+@pytest.mark.kiwi_id(2319)
+def test_ci_backend_image_node_satisfies_pnpm_requirement() -> None:
+    """前端选测 job 所用镜像的 Node 版本必须满足仓根 `packageManager` 的 pnpm 版本要求。
+
+    背景（流水线 #1089 实测）：13_01 把三个前端选测 job 从 `ci-frontend:node22` 迁到
+    `ci-backend:py314`（后者 python3 为 3.14，能解析 bms_core 的 PEP 695），但该镜像原预装
+    Node 22.12.0，而 `pnpm@11.7.0` 要求 Node ≥ 22.13 ⇒ 三个 job 在 `pnpm install --frozen-lockfile`
+    处直接失败。本用例把「镜像 Node 版本 ≥ pnpm 要求的最低 Node」变成机器断言，防止再次漂移。
+    """
+    dockerfile = (_REPO_ROOT / "deploy" / "ci" / "Dockerfile.backend").read_text(encoding="utf-8")
+    match = re.search(r"^ARG NODE_VERSION=(\d+)\.(\d+)\.(\d+)", dockerfile, re.MULTILINE)
+    assert match is not None, "Dockerfile.backend 未声明 NODE_VERSION"
+    node_version = tuple(int(part) for part in match.groups())
+
+    manifest = json.loads((_REPO_ROOT / "package.json").read_text(encoding="utf-8"))
+    manager = str(manifest.get("packageManager") or "")
+    assert manager.startswith("pnpm@"), manager
+    pnpm_major = int(manager.removeprefix("pnpm@").split(".")[0])
+
+    # pnpm 11 要求 Node ≥ 22.13；pnpm 10 及以下对 Node 22 无此下限（留出主版本分档，避免硬编码未来值）
+    minimum = (22, 13, 0) if pnpm_major >= 11 else (22, 0, 0)
+    assert node_version >= minimum, (
+        f"ci-backend 镜像 Node {'.'.join(map(str, node_version))} 低于 pnpm@{pnpm_major} 要求的 "
+        f"{'.'.join(map(str, minimum))}（{manager}）⇒ 三个前端选测 job 会在 pnpm install 处失败"
+    )
