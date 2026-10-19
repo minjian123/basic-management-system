@@ -972,6 +972,60 @@
         "title": "ApiResponse[PermissionList]",
         "type": "object"
       },
+      "ApiResponse_PermissionMetadataResult_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PermissionMetadataResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[PermissionMetadataResult]",
+        "type": "object"
+      },
+      "ApiResponse_PermissionSubjectResult_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PermissionSubjectResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[PermissionSubjectResult]",
+        "type": "object"
+      },
       "ApiResponse_RoleAssignedUsers_": {
         "additionalProperties": false,
         "properties": {
@@ -4468,6 +4522,93 @@
         "title": "MyMenuResponse",
         "type": "object"
       },
+      "PermissionDataScopeItem": {
+        "additionalProperties": false,
+        "description": "数据范围规则（字典类型 + 策略 + 规则行）。",
+        "properties": {
+          "config": {
+            "description": "规则行（原样，交策略求值器解析）",
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Config",
+            "type": "array"
+          },
+          "data_source_key": {
+            "description": "字典类型主键（字符串化）",
+            "title": "Data Source Key",
+            "type": "string"
+          },
+          "policy_type": {
+            "description": "策略类型：select / region / match / extension",
+            "title": "Policy Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data_source_key",
+          "policy_type"
+        ],
+        "title": "PermissionDataScopeItem",
+        "type": "object"
+      },
+      "PermissionFieldItem": {
+        "additionalProperties": false,
+        "description": "字段权限收窄项（未列出即全开）。",
+        "properties": {
+          "editable": {
+            "description": "写时是否接受",
+            "title": "Editable",
+            "type": "boolean"
+          },
+          "field_key": {
+            "description": "字段键",
+            "title": "Field Key",
+            "type": "string"
+          },
+          "form_id": {
+            "description": "表单主键",
+            "title": "Form Id",
+            "type": "string"
+          },
+          "visible": {
+            "description": "读时是否返回",
+            "title": "Visible",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "form_id",
+          "field_key",
+          "visible",
+          "editable"
+        ],
+        "title": "PermissionFieldItem",
+        "type": "object"
+      },
+      "PermissionGrantItem": {
+        "additionalProperties": false,
+        "description": "授权行（授权类型 + 目标主键）。",
+        "properties": {
+          "perm_type": {
+            "description": "授权类型：menu / form / permission",
+            "title": "Perm Type",
+            "type": "string"
+          },
+          "target_id": {
+            "description": "目标主键（按 perm_type 解释）",
+            "title": "Target Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "perm_type",
+          "target_id"
+        ],
+        "title": "PermissionGrantItem",
+        "type": "object"
+      },
       "PermissionInvalidateRequest": {
         "additionalProperties": false,
         "description": "权限快照失效请求（服务间内部契约）。",
@@ -4566,6 +4707,105 @@
           }
         },
         "title": "PermissionList",
+        "type": "object"
+      },
+      "PermissionMetadataResult": {
+        "additionalProperties": false,
+        "description": "权限元数据索引（服务间内部契约）。",
+        "properties": {
+          "menu_forms": {
+            "additionalProperties": {
+              "items": {
+                "type": "integer"
+              },
+              "type": "array"
+            },
+            "description": "菜单主键（字符串化）→ 关联表单主键列表",
+            "title": "Menu Forms",
+            "type": "object"
+          },
+          "permission_codes": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "权限码主键（字符串化）→ 权限码字符串",
+            "title": "Permission Codes",
+            "type": "object"
+          },
+          "version": {
+            "description": "元数据版本号",
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version"
+        ],
+        "title": "PermissionMetadataResult",
+        "type": "object"
+      },
+      "PermissionSubjectRequest": {
+        "additionalProperties": false,
+        "description": "按用户取聚合输入的请求（服务间内部契约）。",
+        "properties": {
+          "user_id": {
+            "description": "用户主键",
+            "title": "User Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "user_id"
+        ],
+        "title": "PermissionSubjectRequest",
+        "type": "object"
+      },
+      "PermissionSubjectResult": {
+        "additionalProperties": false,
+        "description": "按用户取回的聚合输入（服务间内部契约）。",
+        "properties": {
+          "data_scope_rules": {
+            "description": "数据范围规则列表",
+            "items": {
+              "$ref": "#/components/schemas/PermissionDataScopeItem"
+            },
+            "title": "Data Scope Rules",
+            "type": "array"
+          },
+          "field_perms": {
+            "description": "字段权限收窄项（空 = 全开）",
+            "items": {
+              "$ref": "#/components/schemas/PermissionFieldItem"
+            },
+            "title": "Field Perms",
+            "type": "array"
+          },
+          "grants": {
+            "description": "授权行列表",
+            "items": {
+              "$ref": "#/components/schemas/PermissionGrantItem"
+            },
+            "title": "Grants",
+            "type": "array"
+          },
+          "role_ids": {
+            "description": "主体链收敛后的角色主键集合",
+            "items": {
+              "type": "integer"
+            },
+            "title": "Role Ids",
+            "type": "array"
+          },
+          "role_types": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "角色主键（字符串化）→ 角色类型",
+            "title": "Role Types",
+            "type": "object"
+          }
+        },
+        "title": "PermissionSubjectResult",
         "type": "object"
       },
       "PreferenceValueRequest": {
@@ -12621,6 +12861,226 @@
           }
         },
         "summary": "失效权限快照",
+        "tags": [
+          "platform-internal"
+        ]
+      }
+    },
+    "/api/v1/platform/internal/permissions/metadata": {
+      "get": {
+        "description": "返回元数据索引（菜单 → 表单、权限码 id → 权限码）。\n\nArgs:\n    request: 当前请求（构造请求级数据来源）。\n    locale: 语言标识（缺省取实现缺省值）。\n\nReturns:\n    ApiResponse[PermissionMetadataResult]: 元数据索引。",
+        "operationId": "read_permission_metadata_api_v1_platform_internal_permissions_metadata_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "locale",
+            "required": false,
+            "schema": {
+              "default": "zh-CN",
+              "title": "Locale",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_PermissionMetadataResult_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "取权限元数据",
+        "tags": [
+          "platform-internal"
+        ]
+      }
+    },
+    "/api/v1/platform/internal/permissions/subject": {
+      "post": {
+        "description": "按用户返回聚合所需原始数据（角色 / 类型 / 授权 / 数据范围 / 字段收窄）。\n\nArgs:\n    payload: 请求（用户主键）。\n    request: 当前请求（构造请求级数据来源）。\n\nReturns:\n    ApiResponse[PermissionSubjectResult]: 原始数据。",
+        "operationId": "read_permission_subject_api_v1_platform_internal_permissions_subject_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PermissionSubjectRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_PermissionSubjectResult_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "按用户取权限数据",
         "tags": [
           "platform-internal"
         ]

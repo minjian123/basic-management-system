@@ -1428,6 +1428,60 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/platform/internal/permissions/metadata": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 取权限元数据
+         * @description 返回元数据索引（菜单 → 表单、权限码 id → 权限码）。
+         *
+         *     Args:
+         *         request: 当前请求（构造请求级数据来源）。
+         *         locale: 语言标识（缺省取实现缺省值）。
+         *
+         *     Returns:
+         *         ApiResponse[PermissionMetadataResult]: 元数据索引。
+         */
+        get: operations["read_permission_metadata_api_v1_platform_internal_permissions_metadata_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/internal/permissions/subject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 按用户取权限数据
+         * @description 按用户返回聚合所需原始数据（角色 / 类型 / 授权 / 数据范围 / 字段收窄）。
+         *
+         *     Args:
+         *         payload: 请求（用户主键）。
+         *         request: 当前请求（构造请求级数据来源）。
+         *
+         *     Returns:
+         *         ApiResponse[PermissionSubjectResult]: 原始数据。
+         */
+        post: operations["read_permission_subject_api_v1_platform_internal_permissions_subject_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/platform/internal/users/create": {
         parameters: {
             query?: never;
@@ -3242,6 +3296,34 @@ export interface components {
              */
             code: number;
             data?: components["schemas"]["PermissionList"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[PermissionMetadataResult] */
+        ApiResponse_PermissionMetadataResult_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["PermissionMetadataResult"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[PermissionSubjectResult] */
+        ApiResponse_PermissionSubjectResult_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["PermissionSubjectResult"] | null;
             /**
              * Message
              * @default ok
@@ -5434,6 +5516,71 @@ export interface components {
             version: number;
         };
         /**
+         * PermissionDataScopeItem
+         * @description 数据范围规则（字典类型 + 策略 + 规则行）。
+         */
+        PermissionDataScopeItem: {
+            /**
+             * Config
+             * @description 规则行（原样，交策略求值器解析）
+             */
+            config?: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Data Source Key
+             * @description 字典类型主键（字符串化）
+             */
+            data_source_key: string;
+            /**
+             * Policy Type
+             * @description 策略类型：select / region / match / extension
+             */
+            policy_type: string;
+        };
+        /**
+         * PermissionFieldItem
+         * @description 字段权限收窄项（未列出即全开）。
+         */
+        PermissionFieldItem: {
+            /**
+             * Editable
+             * @description 写时是否接受
+             */
+            editable: boolean;
+            /**
+             * Field Key
+             * @description 字段键
+             */
+            field_key: string;
+            /**
+             * Form Id
+             * @description 表单主键
+             */
+            form_id: string;
+            /**
+             * Visible
+             * @description 读时是否返回
+             */
+            visible: boolean;
+        };
+        /**
+         * PermissionGrantItem
+         * @description 授权行（授权类型 + 目标主键）。
+         */
+        PermissionGrantItem: {
+            /**
+             * Perm Type
+             * @description 授权类型：menu / form / permission
+             */
+            perm_type: string;
+            /**
+             * Target Id
+             * @description 目标主键（按 perm_type 解释）
+             */
+            target_id: string;
+        };
+        /**
          * PermissionInvalidateRequest
          * @description 权限快照失效请求（服务间内部契约）。
          */
@@ -5506,6 +5653,75 @@ export interface components {
              * @description 权限码行列表
              */
             items?: components["schemas"]["PermissionItem"][];
+        };
+        /**
+         * PermissionMetadataResult
+         * @description 权限元数据索引（服务间内部契约）。
+         */
+        PermissionMetadataResult: {
+            /**
+             * Menu Forms
+             * @description 菜单主键（字符串化）→ 关联表单主键列表
+             */
+            menu_forms?: {
+                [key: string]: number[];
+            };
+            /**
+             * Permission Codes
+             * @description 权限码主键（字符串化）→ 权限码字符串
+             */
+            permission_codes?: {
+                [key: string]: string;
+            };
+            /**
+             * Version
+             * @description 元数据版本号
+             */
+            version: number;
+        };
+        /**
+         * PermissionSubjectRequest
+         * @description 按用户取聚合输入的请求（服务间内部契约）。
+         */
+        PermissionSubjectRequest: {
+            /**
+             * User Id
+             * @description 用户主键
+             */
+            user_id: number;
+        };
+        /**
+         * PermissionSubjectResult
+         * @description 按用户取回的聚合输入（服务间内部契约）。
+         */
+        PermissionSubjectResult: {
+            /**
+             * Data Scope Rules
+             * @description 数据范围规则列表
+             */
+            data_scope_rules?: components["schemas"]["PermissionDataScopeItem"][];
+            /**
+             * Field Perms
+             * @description 字段权限收窄项（空 = 全开）
+             */
+            field_perms?: components["schemas"]["PermissionFieldItem"][];
+            /**
+             * Grants
+             * @description 授权行列表
+             */
+            grants?: components["schemas"]["PermissionGrantItem"][];
+            /**
+             * Role Ids
+             * @description 主体链收敛后的角色主键集合
+             */
+            role_ids?: number[];
+            /**
+             * Role Types
+             * @description 角色主键（字符串化）→ 角色类型
+             */
+            role_types?: {
+                [key: string]: string;
+            };
         };
         /**
          * PreferenceValueRequest
@@ -11144,6 +11360,164 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponse_PermissionInvalidateResult_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    read_permission_metadata_api_v1_platform_internal_permissions_metadata_get: {
+        parameters: {
+            query?: {
+                locale?: string;
+            };
+            header?: {
+                Authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_PermissionMetadataResult_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    read_permission_subject_api_v1_platform_internal_permissions_subject_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PermissionSubjectRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_PermissionSubjectResult_"];
                 };
             };
             /** @description 未认证 */
