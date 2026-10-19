@@ -51,6 +51,22 @@
 #   扩圈最多 2 轮，不收敛退化工程级全量；门禁口径恒为变更模块的行 + 分支 100%。
 #   覆盖率目标不再排除任何模块（采集前置后插件入口与 fixtures 均可观测）。
 #
+# 口径固化与机器护栏（13_03；《测试规范》§2.1.1~§2.1.6 为条款源，本文件为实现落点）
+#   1. 四项护栏用例：backend/libs/bms_core/tests/boundary/test_selection_contract_guard.py（Kiwi 2319）
+#      —— 同一来源（静态调用面 + CLI/库结果比对）/ 新增工程必登记（三方对账）/ 退化显式 / 扩圈不静默
+#      + 规范↔实现零漂移（§2.1 六子节存在、各有实现锚点、正文不写脚本名）+ base-check 映射完整性。
+#   2. 新增工程必登记对账：选测器按目录**自动发现**工程，而全量档工程级范围（check-preflight 的 _ROOTS）
+#      与覆盖率采集范围（_COVERAGE_PACKAGES）是手写常量 ⇒ 新增工程必须**两处都登记**，否则
+#      「全量档漏跑 + 覆盖率范围漏计」且不报错。对账纯函数 unregistered_projects() 供护栏与 --self-test 共用，
+#      --self-test 含「自动发现的工程全部登记」一条断言。
+#   3. 基座校验脚本映射（13_01 遗留缺口）：scripts/tools/base-check/<脚本>.py 变更 ⇒ 选中其护栏用例
+#      （映射表 _BASE_CHECK_TESTS，单一来源）。**未登记脚本**（含新增脚本）与目录内非 .py 文件一律并入
+#      libs/bms_core/tests/boundary/ 全部护栏用例——宁多跑不漏测；改校验脚本再也不会「零测试通过」。
+#   4. 选测度量：执行器打 `[test-selection] picked=…/… degraded=… rounds=… cov=… 模块`；预检定向段在测试步骤
+#      结束后追加 `[preflight] 选测度量：…` 汇总行（从执行器输出解析，同一来源不另算）；取不到时打印
+#      「不可得（执行器未输出度量行）」，不静默省略。
+#   5. 规范正文不写脚本文件名（改名不产生规范漂移）：条款只写口径，落点由本文件承载。
+#
 # CI 重复面（13_02）
 #   service-test 用 --format changed-services 判定本服务是否有**直接变更**；仅共享底座
 #   （uv.lock / Dockerfile / libs 等）变更时跳过本服务测试（由 backend-test 兜底），build / release 照常；
@@ -95,3 +111,7 @@
 #      三个 job 都只经该 CLI / run-selected.py 取值，不得在别处再写映射规则（13_01）。
 #   7. 并行档位只在 parallel_jobs.py 解析一处：预检、run-selected 与 CI 都经它取 `-n` 参数；
 #      自测按需的触发映射只在 check-preflight.py 的 `_SELF_TESTS` 维护一处（13_02）。
+#   8. 口径条款只在《测试规范》§2.1.1~§2.1.6 写一次，实现落点只在本文件与对应脚本写一次；
+#      改条款或改实现都须同步跑 test_selection_contract_guard.py（Kiwi 2319），规范↔实现零漂移由它锁定（13_03）。
+#   9. 基座校验脚本 → 护栏用例的映射只在 test_selection.py 的 `_BASE_CHECK_TESTS` 维护一处；
+#      新增 base-check 脚本时**必须**登记映射（未登记会并入 boundary 全部护栏，属兜底不是常态）（13_03）。
