@@ -683,6 +683,9 @@ dependency-scan:
 # 本 job 无受影响包时 early-exit（打印原因并 success），避免「任一前端文件改动即四包全量」。
 .test-selection:
   before_script:
+    # 选测 job 用 ci-backend 镜像（Python 3.14 + Node 22 + git）：选测器依赖 bms_core（PEP 695），
+    # 而 ci-frontend 的 python3 为 3.11 无法解析。pnpm 该镜像未预装，按需装一次（固定版本与本地一致）。
+    - command -v pnpm >/dev/null 2>&1 || npm i -g pnpm@11.7.0 --registry=https://registry.npmmirror.com
     - |
       BASE="${CI_MERGE_REQUEST_DIFF_BASE_SHA:-${CI_COMMIT_BEFORE_SHA:-}}"
       case "$BASE" in ""|0000000000000000000000000000000000000000) BASE="" ;; esac
@@ -699,7 +702,7 @@ dependency-scan:
 desktop-check:
   extends: .test-selection
   stage: test
-  image: $REGISTRY_IMAGE_PREFIX/ci-frontend:node22
+  image: $REGISTRY_IMAGE_PREFIX/ci-backend:py314
   needs: [{job: ci-base-build, optional: true}]
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
@@ -737,7 +740,7 @@ desktop-check:
 core-check:
   extends: .test-selection
   stage: test
-  image: $REGISTRY_IMAGE_PREFIX/ci-frontend:node22
+  image: $REGISTRY_IMAGE_PREFIX/ci-backend:py314
   needs: [{job: ci-base-build, optional: true}]
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
@@ -802,7 +805,7 @@ api-types-check:
 module-check:
   extends: .test-selection
   stage: test
-  image: $REGISTRY_IMAGE_PREFIX/ci-frontend:node22
+  image: $REGISTRY_IMAGE_PREFIX/ci-backend:py314
   needs: [{job: ci-base-build, optional: true}]
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
