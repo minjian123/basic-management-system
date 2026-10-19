@@ -65,17 +65,27 @@ python3 scripts/tools/search/search_mcp.py --check     # 一致性自检
 ### 作为 MCP 服务接入 agent
 
 `search_mcp.py` 不带 `-q` 参数时以 **stdio MCP 服务**运行。DSH 接入方式：在
-`~/.dsh/profiles/<profile>/cordis.patch.yml` 追加一条：
+`~/.dsh/profiles/<profile>/cordis.patch.yml` 追加一段：
 
 ```yaml
-- id: mcp-bizs-search
-  name: '@deepseek-ai/dsh-mcp-client'
-  config:
-    serverName: bizssearch
-    transport: stdio
-    command: 'python'
-    args: ['<工作区根>/bms/scripts/tools/search/search_mcp.py']
+- insert:
+    - id: mcp-bizs-search
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: bizssearch
+        transport: stdio
+        command: '<系统 Python 绝对路径>'
+        args: ['<工作区根>/bms/scripts/tools/search/search_mcp.py']
+        failOnStartupError: true
 ```
+
+**`- insert:` 是必需的（实测踩过的坑）**：`cordis.patch.yml` 是补丁层，顶层
+`- id: <已有 id>` 只做「覆盖已存在条目」；新插件必须包在 `- insert:` 里。直接写顶层
+`- id: 新id` 会被判 `patch: entry not found` 并**静默跳过**——配置写了、也重启了，
+工具就是不出现且无报错。`failOnStartupError: true` 让连接失败时明确报错而非静默。
+
+**接入后确认**：重启 DSH 后工具列表应出现 `mcp__bizssearch__search_content`；若没有，
+先跑 `python3 scripts/tools/search/selftest.py`（通过则说明服务正常、问题在 DSH 配置侧）。
 
 **一条配置覆盖所有工作区**：服务按「当前会话工作目录」向上找 `bms/` 自动定位检索根，
 索引随工作区落在 `<工作区根>/.cache/search/`。`bizs` 会话查 `bizs`、`cws` 会话查 `cws`，
