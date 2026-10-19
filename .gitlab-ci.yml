@@ -403,6 +403,7 @@ backend-test:
     # 选测 + 覆盖率门禁 + 扩圈（13_01）：与本地预检共用 scripts/tools/preflight/run-selected.py，
     # 推导规则只在 test_selection.py 一处维护；基准不可解析（全 0 / 浅克隆取不到 base SHA）即显式退化全量，
     # 绝不静默跳过（空选测会被 run-selected 视为「无后端变更」直接成功）。
+    # 并行（13_02）：--jobs auto 与本地预检同口径（按逻辑核数；资源紧张时改这里是唯一开关）。
     - |
       BASE="${CI_MERGE_REQUEST_DIFF_BASE_SHA:-${CI_COMMIT_BEFORE_SHA:-}}"
       case "$BASE" in ""|0000000000000000000000000000000000000000) BASE="" ;; esac
@@ -413,7 +414,7 @@ backend-test:
       fi
       python scripts/tools/preflight/run-selected.py --root . ${BASE:+--changed-from "$BASE"} $FORCE \
         --pytest-cwd backend --pytest-cmd "uv run pytest" --cov --cov-fail-under 100 \
-        --max-rounds 2 --cov-json backend/coverage.json
+        --max-rounds 2 --cov-json backend/coverage.json --jobs auto
   coverage: '/^TOTAL.*?\s+\d+\s+\d+\s+(\d+(?:\.\d+)?%)$/'
   # 覆盖率快照归档（04_04）：coverage.json 供域七阶段测试报告引用（证据留痕）
   artifacts:

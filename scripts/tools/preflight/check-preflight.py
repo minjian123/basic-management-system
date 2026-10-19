@@ -26,6 +26,7 @@
 
     python3 scripts/tools/preflight/check-preflight.py [bms 仓库根] [--fast|--full]
                                                     [--no-scope] [--no-cov]
+                                                    [--jobs auto|N|off]
                                                     [--budget-seconds N] [--step-seconds N]
                                                     [--self-test]
 
@@ -33,9 +34,13 @@
     --full            全量档（聚合全量 + 工程级范围）；缺省为定向档，全量必须显式申请
     --no-scope        （全量档）跳过工程级范围测试
     --no-cov          跳过覆盖率门禁（`--no-cov` 需已装 pytest-cov 时用 `-p no:cov`）
-    --budget-seconds  总体耗时上限（定向档默认 180s；全量档默认 1200s）
-    --step-seconds    单步耗时上限（定向档默认 120s；全量档默认 600s）
+    --jobs            并行档位（缺省 auto；正整数固定并发；off 串行）——定向 / 全量两档同口径
+    --budget-seconds  总体耗时上限（定向档默认 420s；全量档默认 1800s）
+    --step-seconds    单步耗时上限（定向档默认 300s；全量档默认 900s）
     --self-test       只跑本脚本的定向推导与预算护栏自测（不触网、不跑测试）
+
+自测按需（13_02）：7 个 `--self-test` 步按「脚本自身 + 依赖前缀」映射表判定，变更未触及时逐条打印
+跳过；`--fast` / `--full` 档全跑（口径不变）。
 """
 
 import contextlib
@@ -59,6 +64,7 @@ _SCRIPT_DIR = Path(__file__).resolve().parent
 if str(_SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPT_DIR))
 
+import parallel_jobs  # noqa: E402
 import test_selection  # noqa: E402
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList  # noqa: E402
@@ -356,10 +362,12 @@ def _frontend_api_types(root: Path, failures: ConcurrentStableList[str]) -> None
     )
 
 
-_DEFAULT_SCOPED_BUDGET = (120.0, 180.0)
-"""定向档预算（单步秒数, 总体秒数）——默认快路径的护栏。"""
-_DEFAULT_FULL_BUDGET = (600.0, 1200.0)
-"""全量档预算（单步秒数, 总体秒数）——`--full` 显式申请时放宽。"""
+_DEFAULT_SCOPED_BUDGET = (300.0, 420.0)
+"""定向档预算（单步秒数, 总体秒数）——默认快路径的护栏（13_02 按实测重标定：静态约 40s +
+定向测试 20~60s，最坏路径「退化全量 + 扩圈两轮」约 2~3 分钟）。"""
+_DEFAULT_FULL_BUDGET = (900.0, 1800.0)
+"""全量档预算（单步秒数, 总体秒数）——`--full` 显式申请时放宽（并行全量约 1 分钟 +
+10 个工程级范围调用）。"""
 
 
 def _numeric_flag(name: str, default: float) -> float:
@@ -380,6 +388,23 @@ def _numeric_flag(name: str, default: float) -> float:
     return default
 
 
+def _flag_value(name: str, default: str) -> str:
+    """取 `--name VALUE` 形式的字符串参数。
+
+    Args:
+        name: 选项名（含前缀 `--`）。
+        default: 缺省值（缺选项时回退）。
+
+    Returns:
+        str: 选项值。
+    """
+    if name in sys.argv:
+        index = sys.argv.index(name)
+        if index + 1 < len(sys.argv):
+            return sys.argv[index + 1]
+    return default
+
+
 def _positional_root() -> str:
     """取位置参数（仓库根）；跳过选项与选项值（`--budget-seconds 180` 的 `180` 不算根）。"""
     skip_next = False
@@ -387,12 +412,38 @@ def _positional_root() -> str:
         if skip_next:
             skip_next = False
             continue
-        if token in ("--budget-seconds", "--step-seconds"):
+        if token in ("--budget-seconds", "--step-seconds", "--jobs"):
             skip_next = True
             continue
         if not token.startswith("-"):
             return token
     return "."
+
+
+def _git_changes(root: Path) -> tuple[ConcurrentStableList[str], bool]:
+    """取本次改动路径（相对仓库根）并报告「是否可判定」。
+
+    Args:
+        root: bms 仓库根。
+
+    Returns:
+        tuple[ConcurrentStableList[str], bool]: （去重后的改动路径，posix 形态；是否至少一条 git 命令可用）。
+        两条命令均失败（无 git / 非仓库）时第二项为 `False`——调用方据此保守全跑，不静默跳过。
+    """
+    paths: ConcurrentStableList[str] = ConcurrentStableList()
+    reliable = False
+    for args in (["diff", "--name-only", "origin/main"], ["ls-files", "--others", "--exclude-standard"]):
+        result = subprocess.run(
+            ["git", *args], cwd=root, capture_output=True, text=True, encoding="utf-8", errors="replace"
+        )
+        if result.returncode != 0:
+            continue
+        reliable = True
+        for line in result.stdout.splitlines():
+            rel = line.strip().replace("\\", "/")
+            if rel and rel not in paths:
+                paths.add(rel)
+    return paths, reliable
 
 
 def _changed_paths(root: Path) -> ConcurrentStableList[str]:
@@ -404,18 +455,7 @@ def _changed_paths(root: Path) -> ConcurrentStableList[str]:
     Returns:
         ConcurrentStableList[str]: 去重后的改动路径（相对仓库根，posix 形态）。
     """
-    paths: ConcurrentStableList[str] = ConcurrentStableList()
-    for args in (["diff", "--name-only", "origin/main"], ["ls-files", "--others", "--exclude-standard"]):
-        result = subprocess.run(
-            ["git", *args], cwd=root, capture_output=True, text=True, encoding="utf-8", errors="replace"
-        )
-        if result.returncode != 0:
-            continue
-        for line in result.stdout.splitlines():
-            rel = line.strip().replace("\\", "/")
-            if rel and rel not in paths:
-                paths.add(rel)
-    return paths
+    return _git_changes(root)[0]
 
 
 def _scope_targets(
@@ -437,7 +477,7 @@ def _scope_targets(
     return ConcurrentStableList(selection.test_paths), ConcurrentStableList(selection.cov_modules)
 
 
-def _run_scoped(root: Path, backend: Path, failures: ConcurrentStableList[str], *, no_cov: bool) -> None:
+def _run_scoped(root: Path, backend: Path, failures: ConcurrentStableList[str], *, no_cov: bool, jobs: str) -> None:
     """定向档：按 git 变更跑受影响测试文件 + 变更源文件覆盖率门禁（含扩圈）。
 
     Args:
@@ -445,6 +485,7 @@ def _run_scoped(root: Path, backend: Path, failures: ConcurrentStableList[str], 
         backend: `backend` 目录。
         failures: 失败收集列表。
         no_cov: 是否跳过覆盖率门禁。
+        jobs: 并行档位（`auto` / 正整数 / `off`），透传给执行器。
     """
     changes = _changed_paths(root)
     selection = test_selection.build_selection(backend, changes)
@@ -483,6 +524,8 @@ def _run_scoped(root: Path, backend: Path, failures: ConcurrentStableList[str], 
             "2",
             "--cov-json",
             "backend/coverage.json",
+            "--jobs",
+            jobs,
         ]
     )
     if no_cov:
@@ -493,6 +536,103 @@ def _run_scoped(root: Path, backend: Path, failures: ConcurrentStableList[str], 
         _run("后端测试：定向（选测 + 覆盖率门禁 + 扩圈）", cmd, root, failures)
     finally:
         Path(list_path).unlink(missing_ok=True)
+
+
+@dataclass(frozen=True)
+class _SelfTest:
+    """护栏自测步骤：脚本 + 触发依赖（13_02 按需执行）。
+
+    Attributes:
+        label: 步骤标签（预检输出用）。
+        script: 脚本路径（相对仓库根）。
+        deps: 触发路径前缀（含脚本自身；变更命中任一前缀才执行）。
+    """
+
+    label: str
+    script: str
+    deps: tuple[str, ...]
+
+
+_SELF_TESTS = (
+    _SelfTest(
+        label="基座：check-system-fields --self-test",
+        script="scripts/tools/base-check/check-system-fields.py",
+        deps=("scripts/tools/base-check/check-system-fields.py",),
+    ),
+    _SelfTest(
+        label="基座：check-env-example --self-test",
+        script="scripts/tools/base-check/check-env-example.py",
+        deps=("scripts/tools/base-check/check-env-example.py",),
+    ),
+    _SelfTest(
+        label="基座：check-backend-base --self-test",
+        script="scripts/tools/base-check/check-backend-base.py",
+        deps=("scripts/tools/base-check/check-backend-base.py", "backend/libs/bms_core/"),
+    ),
+    _SelfTest(
+        label="边界：check-service-boundaries --self-test",
+        script="scripts/tools/base-check/check-service-boundaries.py",
+        deps=("scripts/tools/base-check/check-service-boundaries.py", "backend/libs/bms_core/"),
+    ),
+    _SelfTest(
+        label="基座：check-bare-collections --self-test",
+        script="scripts/tools/base-check/check-bare-collections.py",
+        deps=("scripts/tools/base-check/check-bare-collections.py", "backend/libs/bms_core/"),
+    ),
+    _SelfTest(
+        label="文档：check-docs-scope --self-test",
+        script="scripts/tools/base-check/check-docs-scope.py",
+        deps=("scripts/tools/base-check/check-docs-scope.py", "backend/libs/bms_core/"),
+    ),
+    _SelfTest(
+        label="界面：check-prototype-review --self-test",
+        script="scripts/tools/base-check/check-prototype-review.py",
+        deps=(
+            "scripts/tools/base-check/check-prototype-review.py",
+            "backend/libs/bms_core/",
+            "bms文档/设计/原型设计/",
+        ),
+    ),
+)
+"""7 个护栏自测：变更命中「脚本自身或依赖前缀」才执行（`--fast` / `--full` 档全跑）。"""
+
+
+def _self_test_selected(entry: _SelfTest, changes: ConcurrentStableList[str]) -> bool:
+    """变更集是否触及该自测（脚本自身或任一依赖前缀）。
+
+    Args:
+        entry: 自测步骤登记项。
+        changes: 变更路径（相对仓库根）。
+
+    Returns:
+        bool: 是否执行该自测。
+    """
+    for path in changes:
+        for dep in entry.deps:
+            if path == dep or path.startswith(dep if dep.endswith("/") else f"{dep}/"):
+                return True
+    return False
+
+
+def _run_self_tests(root: Path, failures: ConcurrentStableList[str], *, force_all: bool) -> None:
+    """执行护栏自测：按需（缺省）/ 全跑（`--fast` / `--full`）/ 变更不可判定时全跑。
+
+    Args:
+        root: bms 仓库根。
+        failures: 失败收集列表。
+        force_all: 是否强制全跑（`--fast` / `--full` 档）。
+    """
+    changes, reliable = _git_changes(root)
+    if force_all:
+        print("\n[preflight] 护栏自测：全跑（--fast / --full 档保留全跑口径）")
+    elif not reliable:
+        print("\n[preflight] 护栏自测：变更不可判定 ⇒ 全跑（不静默跳过）")
+    for entry in _SELF_TESTS:
+        selected = force_all or not reliable or _self_test_selected(entry, changes)
+        if not selected:
+            print(f"\n[preflight] {entry.label}\n  跳过（变更未触及 {entry.script} 及其依赖）")
+            continue
+        _run(entry.label, ConcurrentStableList([sys.executable, entry.script, "--self-test"]), root, failures)
 
 
 def _self_test() -> int:
@@ -521,6 +661,8 @@ def _self_test() -> int:
     )
     guard = _Budget(step_seconds=0.0, total_seconds=0.0)
     prefixes = ("libs/bms_core/tests/", "services/txn/tests/")
+    base_change = ConcurrentStableList(["backend/libs/bms_core/src/bms_core/core/concurrent.py"])
+    docs_change = ConcurrentStableList(["bms文档/规范/AI开发规范.md"])
     checks = ConcurrentStableList[tuple[str, bool]](
         [
             (
@@ -539,6 +681,24 @@ def _self_test() -> int:
                 not docs_selection.test_paths and not docs_selection.cov_modules,
             ),
             ("零预算即判耗尽", guard.remaining() <= 0),
+            (
+                "定向档预算按实测标定（单步 300s / 总体 420s）",
+                _DEFAULT_SCOPED_BUDGET == (300.0, 420.0),
+            ),
+            (
+                "全量档预算按实测标定（单步 900s / 总体 1800s）",
+                _DEFAULT_FULL_BUDGET == (900.0, 1800.0),
+            ),
+            ("自测登记 7 项且均含脚本自身依赖", len(_SELF_TESTS) == 7 and all(e.script in e.deps for e in _SELF_TESTS)),
+            (
+                "自测按需：改基座命中依赖基座的自测、纯文档不命中",
+                any(_self_test_selected(e, base_change) for e in _SELF_TESTS)
+                and not any(_self_test_selected(e, docs_change) for e in _SELF_TESTS),
+            ),
+            (
+                "并行默认 auto 且 off 即串行",
+                parallel_jobs.jobs_args("auto") == ("-n", "auto") and parallel_jobs.jobs_args("off") == (),
+            ),
         ]
     )
     failures = ConcurrentStableList[str]([name for name, ok in checks if not ok])
@@ -566,6 +726,12 @@ def main() -> int:
     full = "--full" in sys.argv
     no_scope = "--no-scope" in sys.argv
     no_cov = "--no-cov" in sys.argv
+    jobs_value = _flag_value("--jobs", parallel_jobs.DEFAULT_JOBS)
+    try:
+        jobs = parallel_jobs.jobs_args(jobs_value)
+    except ValueError as error:
+        print(f"[preflight] {error}")
+        return 1
     step_default, total_default = _DEFAULT_FULL_BUDGET if full else _DEFAULT_SCOPED_BUDGET
     global _GUARD
     _GUARD = _Budget(
@@ -578,7 +744,7 @@ def main() -> int:
         f"[preflight] 预算护栏：单步 {_GUARD.step_seconds:.0f}s / 总体 {_GUARD.total_seconds:.0f}s"
         "（超时即中止，全量交 CI）"
     )
-    print(f"[preflight] 档位：{mode}\n{guard_line}")
+    print(f"[preflight] 档位：{mode}\n{guard_line}\n[preflight] {parallel_jobs.describe(jobs_value)}")
 
     _yaml_parse(root, failures)
     _pytest_flags_from_ci(root, backend, failures)
@@ -628,7 +794,7 @@ def main() -> int:
         )
         _run(
             "后端测试：聚合全量（--full）",
-            ConcurrentStableList(["uv", "run", "pytest", "-q", *cov_args]),
+            ConcurrentStableList(["uv", "run", "pytest", "-q", *jobs, *cov_args]),
             backend,
             failures,
         )
@@ -636,12 +802,12 @@ def main() -> int:
             for rel in _ROOTS:
                 _run(
                     f"后端测试：工程级范围（{rel}）",
-                    ConcurrentStableList(["uv", "run", "pytest", "-q"]),
+                    ConcurrentStableList(["uv", "run", "pytest", "-q", *jobs]),
                     backend / rel,
                     failures,
                 )
     elif not fast:
-        _run_scoped(root, backend, failures, no_cov=no_cov)
+        _run_scoped(root, backend, failures, no_cov=no_cov, jobs=jobs_value)
 
     _run(
         "基座：check-base",
@@ -656,20 +822,8 @@ def main() -> int:
         failures,
     )
     _run(
-        "基座：check-system-fields --self-test",
-        ConcurrentStableList([sys.executable, "scripts/tools/base-check/check-system-fields.py", "--self-test"]),
-        root,
-        failures,
-    )
-    _run(
         "基座：check-env-example（环境变量模板键位）",
         ConcurrentStableList([sys.executable, "scripts/tools/base-check/check-env-example.py", str(root)]),
-        root,
-        failures,
-    )
-    _run(
-        "基座：check-env-example --self-test",
-        ConcurrentStableList([sys.executable, "scripts/tools/base-check/check-env-example.py", "--self-test"]),
         root,
         failures,
     )
@@ -680,20 +834,8 @@ def main() -> int:
         failures,
     )
     _run(
-        "基座：check-backend-base --self-test",
-        ConcurrentStableList([sys.executable, "scripts/tools/base-check/check-backend-base.py", "--self-test"]),
-        root,
-        failures,
-    )
-    _run(
         "边界：check-service-boundaries",
         ConcurrentStableList([sys.executable, "scripts/tools/base-check/check-service-boundaries.py", str(root)]),
-        root,
-        failures,
-    )
-    _run(
-        "边界：check-service-boundaries --self-test",
-        ConcurrentStableList([sys.executable, "scripts/tools/base-check/check-service-boundaries.py", "--self-test"]),
         root,
         failures,
     )
@@ -704,20 +846,8 @@ def main() -> int:
         failures,
     )
     _run(
-        "基座：check-bare-collections --self-test",
-        ConcurrentStableList([sys.executable, "scripts/tools/base-check/check-bare-collections.py", "--self-test"]),
-        root,
-        failures,
-    )
-    _run(
         "文档：check-docs-scope（排期与工时落点护栏）",
         ConcurrentStableList([sys.executable, "scripts/tools/base-check/check-docs-scope.py", str(root)]),
-        root,
-        failures,
-    )
-    _run(
-        "文档：check-docs-scope --self-test",
-        ConcurrentStableList([sys.executable, "scripts/tools/base-check/check-docs-scope.py", "--self-test"]),
         root,
         failures,
     )
@@ -735,12 +865,7 @@ def main() -> int:
         root,
         failures,
     )
-    _run(
-        "界面：check-prototype-review --self-test",
-        ConcurrentStableList([sys.executable, "scripts/tools/base-check/check-prototype-review.py", "--self-test"]),
-        root,
-        failures,
-    )
+    _run_self_tests(root, failures, force_all=fast or full)
     _run(
         "边界：boundary_metrics（越界 / 跨库 / 例外计数）",
         ConcurrentStableList([sys.executable, "scripts/tools/governance/boundary_metrics.py", "--root", str(root)]),

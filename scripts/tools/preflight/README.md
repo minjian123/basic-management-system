@@ -10,22 +10,42 @@
 #                        导入图双重收敛 + 基础模块显式退化；前端＝workspace:* 依赖反向闭包 +
 #                        根配置全包退化。预检与 CI 四个 job 共用，禁止另写映射规则
 #   run-selected.py      选测执行器：推导 → 跑 pytest → 读覆盖率缺口 → 扩圈（最多 2 轮）→ 退化兜底 → 度量
+#   parallel_jobs.py     并行档位解析（--jobs → -n）：预检与执行器单一来源（13_02）
 #   requirements.txt     本预检的**可选**第三方依赖清单（pyyaml；未安装只影响「CI 配置自检」段）
 #
 # 用法（在 bms 仓库根）
 #   python3 scripts/tools/preflight/check-preflight.py            # 定向档（缺省快路径：静态 + 基座/边界 +
 #                                                                #   受影响工程用例 + 变更源文件覆盖率 100%）
-#   python3 scripts/tools/preflight/check-preflight.py --fast     # 秒级自检（跳过 pytest，日常用）
+#   python3 scripts/tools/preflight/check-preflight.py --fast     # 秒级自检（跳过 pytest，自测全跑，日常用）
 #   python3 scripts/tools/preflight/check-preflight.py --full     # 全量档（聚合全量 + 工程级范围；显式申请）
 #   python3 scripts/tools/preflight/check-preflight.py --no-cov   # 跳过覆盖率门禁
-#   python3 scripts/tools/preflight/check-preflight.py --self-test  # 自测定向推导与预算护栏
+#   python3 scripts/tools/preflight/check-preflight.py --jobs 4   # 并行档位（auto 缺省 / 正整数 / off 串行）
+#   python3 scripts/tools/preflight/check-preflight.py --self-test  # 自测定向推导、预算与自测登记
 #
-# 选测器 / 执行器（单一来源，预检与 CI 共用；13_01）
+# 并行执行（13_02）
+#   --jobs auto|N|off（缺省 auto）同时作用于定向档执行器与全量档两条 pytest 调用；CI 显式传 --jobs auto。
+#   并行安全的根：pytest-xdist 下测试基座按 PYTEST_XDIST_WORKER 注入独立 BMS_DATABASE__SQLITE_DIR
+#   （<basetemp>/sqlite-<worker>），SQLite 文件库不再跨 worker 共享；串行不注入（沿配置原值）。
+#
+# 自测按需（13_02）
+#   7 个 --self-test 步按「脚本自身 + 依赖前缀」映射表判定（脚本自身 / backend/libs/bms_core/ /
+#   bms文档/设计/原型设计/），未触及逐条打印「跳过（变更未触及 …）」；--fast / --full 档全跑；
+#   变更基准不可判定（git 命令均失败）时全跑，不静默跳过。
+#
+# 选测器 / 执行器（单一来源，预检与 CI 共用；13_01 / 13_02）
 #   python3 scripts/tools/preflight/test_selection.py --changed-from origin/main --format json
 #   python3 scripts/tools/preflight/test_selection.py --scope frontend --changed-from origin/main --format packages
+#   python3 scripts/tools/preflight/test_selection.py --changed-from origin/main --format changed-services
 #   python3 scripts/tools/preflight/run-selected.py --changed-from origin/main   # 跑选中的测试 + 覆盖率门禁 + 扩圈
 #   退化（全局配置 / 基础模块 / 无引用者 / 基准不可解析）一律显式打印原因，不做「假精细」；
 #   扩圈最多 2 轮，不收敛退化工程级全量；门禁口径恒为变更模块的行 + 分支 100%。
+#   覆盖率目标排除 `bms_core.testing.plugin`（pytest 插件入口早于覆盖率探针加载，行执行不可观测；
+#   其逻辑本体在 fixtures.py，仍受 100% 门禁）。
+#
+# CI 重复面（13_02）
+#   service-test 用 --format changed-services 判定本服务是否有**直接变更**；仅共享底座
+#   （uv.lock / Dockerfile / libs 等）变更时跳过本服务测试（由 backend-test 兜底），build / release 照常；
+#   基准不可解析或判定失败时保守执行（宁可重复不漏测）。
 #
 # 重命令「跑一次」（run-once.py）——防重复消耗
 #   分钟级命令（预检 / 全量 pytest / 全仓 ruff / pyright）第一次已给出结论后，再为「从输出里挑
@@ -39,7 +59,7 @@
 #   python3 scripts/tools/preflight/run-once.py --window-seconds 600 -- <命令...>
 #   缓存落 `.cache/run-once/`（`.gitignore` 已忽略 `.cache`），不入库。
 #
-# 预算护栏：单步 / 总体耗时双上限（定向档 120s / 180s，全量档 600s / 1200s；可用
+# 预算护栏：单步 / 总体耗时双上限（定向档 300s / 420s，全量档 900s / 1800s；可用
 #   --step-seconds / --budget-seconds 覆盖）；超时立即中止并提示「全量交 CI」。
 # 背景与完整说明见 bms 文档《AI 开发规范》（覆盖率与验收口径）、《测试规范》「执行方式」节
 # 与仓库根 README「推送前预检」：
@@ -64,3 +84,5 @@
 #   5. 分钟级重命令一律经 run-once.py 调用；只为看报错时用定向命令，不得整轮重跑（见上节）。
 #   6. 「变更 → 受影响测试 / 前端包」只在 test_selection.py 维护一处：预检、CI 四个 job 与前端
 #      三个 job 都只经该 CLI / run-selected.py 取值，不得在别处再写映射规则（13_01）。
+#   7. 并行档位只在 parallel_jobs.py 解析一处：预检、run-selected 与 CI 都经它取 `-n` 参数；
+#      自测按需的触发映射只在 check-preflight.py 的 `_SELF_TESTS` 维护一处（13_02）。

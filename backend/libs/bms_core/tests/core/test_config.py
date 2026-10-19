@@ -391,14 +391,20 @@ def test_tenant_keys_and_url_template() -> None:
 
 
 @pytest.mark.kiwi_id(2244)
-def test_sqlite_dir_env_values() -> None:
-    """dev / test 的 sqlite_dir 取值（切库唯一旋钮）。"""
+def test_sqlite_dir_env_values(monkeypatch: pytest.MonkeyPatch) -> None:
+    """dev / test 的 sqlite_dir 取值（切库唯一旋钮）。
+
+    并行执行时测试基座按 worker 注入 `BMS_DATABASE__SQLITE_DIR`（库文件隔离），本用例验配置默认值，
+    故先移除该注入。
+    """
+    monkeypatch.delenv("BMS_DATABASE__SQLITE_DIR", raising=False)
     assert Settings().database.sqlite_dir == "../../database/bms"
 
 
 @pytest.mark.kiwi_id(2244)
 def test_sqlite_dir_test_env(monkeypatch: pytest.MonkeyPatch) -> None:
-    """BMS_ENV=test 时 sqlite_dir 指向测试库目录。"""
+    """BMS_ENV=test 时 sqlite_dir 指向测试库目录（同上：排除并行隔离注入）。"""
+    monkeypatch.delenv("BMS_DATABASE__SQLITE_DIR", raising=False)
     monkeypatch.setenv("BMS_ENV", "test")
     assert Settings().database.sqlite_dir == "../../database/bms/test"
 

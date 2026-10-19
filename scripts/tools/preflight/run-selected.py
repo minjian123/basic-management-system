@@ -17,11 +17,13 @@
 
     python3 scripts/tools/preflight/run-selected.py --changed-from origin/main
     python3 scripts/tools/preflight/run-selected.py --changed-file backend/libs/... --no-cov
-    python3 scripts/tools/preflight/run-selected.py --changed-from HEAD~1 --pytest-arg=-n --pytest-arg=auto
+    python3 scripts/tools/preflight/run-selected.py --changed-from HEAD~1 --jobs 4
 
-退出码：pytest 最终退出码（`0` 通过）；推导异常 `1`；单轮超时 `124`。
+并行：`--jobs auto|N|off`（缺省 `auto`；`off` 串行），每轮 pytest 同口径追加 `-n`（13_02）。
 
-用例：Kiwi **2316**（`backend/libs/bms_core/tests/boundary/test_test_selection_guard.py`）。
+退出码：pytest 最终退出码（`0` 通过）；推导异常 / 参数非法 `1`；单轮超时 `124`。
+
+用例：Kiwi **2316**（选测器）/ **2318**（并行与重复面护栏，`test_parallel_guard.py`）。
 """
 
 import argparse
@@ -37,11 +39,17 @@ _HERE = Path(__file__).resolve().parent
 if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
+import parallel_jobs  # noqa: E402
 import test_selection  # noqa: E402
 from test_selection import ConcurrentStableList, ConcurrentStableSet  # noqa: E402
 
 _FAILED_PATTERN = re.compile(r"\b\d+ (?:failed|error|errors)\b")
 """测试失败特征（pytest 摘要行）：出现即判定为真失败，不进入扩圈。"""
+
+_COVERAGE_EXCLUDED_MODULES = ("bms_core.testing.plugin",)
+"""覆盖率目标排除项（13_02）：pytest 插件入口由 pytest 在覆盖率探针启动**之前**加载，
+行执行不可观测（并行下恒低于 100%，串行可达）；其逻辑本体在 `bms_core.testing.fixtures`，
+仍受行 + 分支 100% 门禁。"""
 
 
 def _run_pytest(cmd: ConcurrentStableList[str], cwd: Path, timeout: float | None) -> tuple[int, str]:
@@ -114,6 +122,11 @@ def main(argv: tuple[str, ...] | None = None) -> int:
     parser.add_argument("--pytest-cmd", default="uv run pytest", help="pytest 执行器前缀（空格分词）")
     parser.add_argument("--pytest-cwd", default="backend", help="pytest 工作目录（相对仓库根）")
     parser.add_argument("--pytest-arg", action="append", default=[], help="透传 pytest 参数（可重复）")
+    parser.add_argument(
+        "--jobs",
+        default=parallel_jobs.DEFAULT_JOBS,
+        help="并行档位：auto（缺省）/ 正整数 / off（串行）",
+    )
     parser.add_argument("--cov", dest="cov", action="store_true", default=True, help="开启覆盖率门禁（缺省开）")
     parser.add_argument("--no-cov", dest="cov", action="store_false", help="跳过覆盖率门禁")
     parser.add_argument("--cov-fail-under", type=int, default=100, help="覆盖率门禁阈值")
@@ -121,6 +134,12 @@ def main(argv: tuple[str, ...] | None = None) -> int:
     parser.add_argument("--cov-json", default="backend/coverage.json", help="覆盖率报告落点（相对仓库根）")
     parser.add_argument("--timeout", type=float, default=0.0, help="单轮 pytest 超时（秒；0 表示不设限）")
     args = parser.parse_args(argv)
+    try:
+        jobs = parallel_jobs.jobs_args(args.jobs)
+    except ValueError as error:
+        print(f"[test-selection] {error}", file=sys.stderr)
+        return 1
+    print(f"[test-selection] {parallel_jobs.describe(args.jobs)}")
 
     root = Path(args.root).resolve()
     backend = root / "backend"
@@ -161,6 +180,13 @@ def main(argv: tuple[str, ...] | None = None) -> int:
 
     test_paths: ConcurrentStableList[str] = ConcurrentStableList(selection.test_paths)
     cov_modules: ConcurrentStableList[str] = ConcurrentStableList(selection.cov_modules)
+    excluded = ConcurrentStableList([module for module in cov_modules if module in _COVERAGE_EXCLUDED_MODULES])
+    if excluded:
+        print(
+            f"[test-selection] 覆盖率目标排除（插件入口由 pytest 早于覆盖率探针加载，行执行不可观测）："
+            f"{'、'.join(excluded)}"
+        )
+        cov_modules = ConcurrentStableList([module for module in cov_modules if module not in excluded])
     cov_enabled = args.cov and bool(cov_modules)
     cov_json = (root / args.cov_json).resolve()
     cwd = root / args.pytest_cwd
@@ -183,6 +209,7 @@ def main(argv: tuple[str, ...] | None = None) -> int:
                     f"--cov-fail-under={args.cov_fail_under}",
                 ]
             )
+        cmd.update(jobs)
         cmd.update(args.pytest_arg)
         print(f"\n[test-selection] 第 {rounds} 轮：{len(test_paths)} 个测试文件")
         print(f"  $ {' '.join(cmd)}")

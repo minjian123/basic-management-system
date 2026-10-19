@@ -6,7 +6,9 @@
 """
 
 import os
+import tempfile
 from collections.abc import Iterator
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -35,6 +37,44 @@ def clear_isolated_env(monkeypatch: pytest.MonkeyPatch) -> None:
             monkeypatch.delenv(key, raising=False)
 
 
+_sqlite_basetemp = ""
+"""pytest basetemp（xdist worker 下为 `<basetemp>/popen-gwN`）；由 `plugin.pytest_configure` 注入。"""
+
+_SQLITE_TEMP_SUBDIR = "bms-pytest-sqlite"
+"""无 basetemp 时的兜底目录（系统临时目录下，按 worker 再分一层）。"""
+
+
+def configure_sqlite_basetemp(value: str) -> None:
+    """记录 pytest basetemp，供 `worker_sqlite_dir` 派生 worker 目录。
+
+    Args:
+        value: pytest basetemp 路径（空串表示不介入）。
+    """
+    global _sqlite_basetemp
+    _sqlite_basetemp = value or ""
+
+
+def worker_sqlite_dir() -> str:
+    """并行执行（pytest-xdist）下本 worker 专属的 SQLite 文件目录。
+
+    SQLite 文件库在并行 worker 间共享同一路径会产生跨 worker 行级干扰（用例互相看到对方写入的行），
+    表现为随机的断言失败；按 worker 分配独立目录后每个 worker 拥有独立库文件。
+
+    目录 = `<basetemp>/sqlite-<worker>`（无 basetemp 时落系统临时目录下 `bms-pytest-sqlite/`），
+    首次解析自动建目录。
+
+    Returns:
+        str: 目录路径；串行执行（无 `PYTEST_XDIST_WORKER`）时返回空串（沿配置原值）。
+    """
+    worker = os.environ.get("PYTEST_XDIST_WORKER", "")
+    if not worker:
+        return ""
+    base = Path(_sqlite_basetemp) if _sqlite_basetemp else Path(tempfile.gettempdir()) / _SQLITE_TEMP_SUBDIR
+    directory = base / f"sqlite-{worker}"
+    directory.mkdir(parents=True, exist_ok=True)
+    return str(directory)
+
+
 @pytest.fixture(name="bms_isolate_settings")
 def isolate_settings(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     """隔离配置：清 `BMS_` 环境变量与 `.env` 读取、关闭真实 provider、重置配置单例。
@@ -49,6 +89,10 @@ def isolate_settings(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
         None: 用例运行期。
     """
     clear_isolated_env(monkeypatch)
+    # 并行执行：SQLite 文件库按 worker 隔离（串行时为空串，沿配置原值）
+    sqlite_dir = worker_sqlite_dir()
+    if sqlite_dir:
+        monkeypatch.setenv("BMS_DATABASE__SQLITE_DIR", sqlite_dir)
     # 固定关闭库连接串模板（dev 默认启用「每服务每租户」模板，会让显式 URL 失效）
     monkeypatch.setenv("BMS_DATABASE__PLATFORM__URL_TEMPLATE", "")
     monkeypatch.setenv("BMS_DATABASE__TENANTS__URL_TEMPLATE", "")

@@ -20,6 +20,7 @@
     python3 scripts/tools/preflight/test_selection.py --changed-file backend/libs/... --format pytest-args
     python3 scripts/tools/preflight/test_selection.py --changed-from origin/main --format cov-args
     python3 scripts/tools/preflight/test_selection.py --scope frontend --changed-from origin/main --format packages
+    python3 scripts/tools/preflight/test_selection.py --changed-from origin/main --format changed-services
     python3 scripts/tools/preflight/test_selection.py --force-full --format json
 
 退出码：``0`` 正常（含「无受影响用例」）；``1`` 推导异常（工程发现为空等）。
@@ -960,6 +961,34 @@ def read_changed(
     return tuple(changed)
 
 
+_SERVICE_PATH_PREFIX = "backend/services/"
+"""后端服务路径前缀（`backend/services/<服务>/...`）。"""
+
+
+def changed_services(changes: tuple[str, ...] | ConcurrentStableList[str]) -> tuple[str, ...]:
+    """变更集中**直接命中**的后端服务名（`backend/services/<服务>`）。
+
+    与 `build_selection` 的区别：只做路径前缀判定，**不做**目录同构 / AST 闭包展开——回答的是
+    「本服务是否被直接改动」，供 CI 服务子流水线判断测试是否已由 `backend-test` 兜底（13_02）
+    「共享底座变更按其影响的集合放行」。
+
+    Args:
+        changes: 变更路径（相对仓库根）。
+
+    Returns:
+        tuple[str, ...]: 服务名（去重，保变更顺序）。
+    """
+    services: ConcurrentStableList[str] = ConcurrentStableList()
+    for path in changes:
+        rel = _norm(path)
+        if not rel.startswith(_SERVICE_PATH_PREFIX):
+            continue
+        name = rel[len(_SERVICE_PATH_PREFIX) :].split("/", 1)[0]
+        if name and name not in services:
+            services.add(name)
+    return tuple(services)
+
+
 def _format(selection: Selection, fmt: str) -> str:
     """按格式输出后端选测结果。
 
@@ -1032,8 +1061,8 @@ def main(argv: tuple[str, ...] | None = None) -> int:
     parser.add_argument(
         "--format",
         default="json",
-        choices=("json", "pytest-args", "cov-args", "projects", "packages"),
-        help="输出格式（packages 仅 --scope frontend）",
+        choices=("json", "pytest-args", "cov-args", "projects", "packages", "changed-services"),
+        help="输出格式（packages 仅 --scope frontend；changed-services 输出直接变更的服务名）",
     )
     parser.add_argument("--base-threshold", type=int, default=_BASE_TEST_THRESHOLD, help="基础模块绝对阈值")
     parser.add_argument("--base-ratio", type=float, default=_BASE_TEST_RATIO, help="基础模块占比阈值")
@@ -1050,6 +1079,10 @@ def main(argv: tuple[str, ...] | None = None) -> int:
     except RuntimeError as error:
         print(f"[test-selection] {error}（确需全量请加 --force-full）", file=sys.stderr)
         return 1
+
+    if args.format == "changed-services":
+        print(" ".join(changed_services(changed)))
+        return 0
 
     if args.scope == "frontend":
         selection = build_frontend_selection(root / "frontend", changed, force_full=args.force_full)

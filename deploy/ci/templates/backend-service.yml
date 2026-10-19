@@ -42,6 +42,26 @@ service-test:
   script:
     - test -n "$SERVICE" || { echo "缺少 SERVICE 变量（须由父流水线 trigger 传入）"; exit 1; }
     - test -d "backend/services/$SERVICE" || { echo "服务目录不存在：backend/services/$SERVICE"; exit 1; }
+    # 重复面划界（13_02）：本服务**无直接变更**（仅 uv.lock / Dockerfile / libs 等共享底座被改）时，
+    # 本服务测试与覆盖率由父流水线 backend-test 兜底，这里跳过测试；build / release 照常按档位执行。
+    # 判定与 backend-test 同源：scripts/tools/preflight/test_selection.py（--format changed-services）。
+    - |
+      BASE="${CI_MERGE_REQUEST_DIFF_BASE_SHA:-${CI_COMMIT_BEFORE_SHA:-}}"
+      case "$BASE" in ""|0000000000000000000000000000000000000000) BASE="" ;; esac
+      if [ -z "$BASE" ]; then
+        echo "[service-test] 变更基准不可解析 ⇒ 保守执行本服务测试"
+      elif CHANGED=$(python3 scripts/tools/preflight/test_selection.py --root . --scope backend \
+             --changed-from "$BASE" --format changed-services); then
+        case " $CHANGED " in
+          *" $SERVICE "*)
+            echo "[service-test] $SERVICE 有直接变更 ⇒ 执行本服务测试" ;;
+          *)
+            echo "[service-test] $SERVICE 无直接变更（仅共享底座变更，测试与覆盖率由 backend-test 兜底）⇒ 跳过测试"
+            exit 0 ;;
+        esac
+      else
+        echo "[service-test] 选测判定失败 ⇒ 保守执行本服务测试"
+      fi
     # 测试库隔离（2026-10-12）：runner 工作区复用下清 **仓库上一级**的 `database/bms`（`sqlite_dir` 的
     # 实际落点，`backend/` 上两级）+ 仓库内全部 `*.db`，防旧 schema 串用（`create_all(checkfirst=True)`
     # 只补不删 ⇒ no such column → 10006）。

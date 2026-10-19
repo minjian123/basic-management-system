@@ -132,6 +132,10 @@ def test_mode_defaults_and_flags(monkeypatch: pytest.MonkeyPatch) -> None:
     assert check_preflight._positional_root() == "."
     assert check_preflight._numeric_flag("--budget-seconds", 180.0) == 180.0
 
-    assert check_preflight._DEFAULT_SCOPED_BUDGET == (120.0, 180.0)
-    assert check_preflight._DEFAULT_FULL_BUDGET == (600.0, 1200.0)
+    assert check_preflight._DEFAULT_SCOPED_BUDGET == (300.0, 420.0)
+    assert check_preflight._DEFAULT_FULL_BUDGET == (900.0, 1800.0)
     assert check_preflight._DEFAULT_FULL_BUDGET[0] > check_preflight._DEFAULT_SCOPED_BUDGET[0]
+
+    # 并行档位（13_02）：`--jobs auto` 的取值不是仓库根
+    monkeypatch.setattr(sys, "argv", ["check-preflight.py", "--jobs", "auto"])
+    assert check_preflight._positional_root() == "."
