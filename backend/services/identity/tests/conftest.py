@@ -99,6 +99,90 @@ def _plugin_fixtures(  # pyright: ignore[reportUnusedFunction]
 
 
 @pytest.fixture(autouse=True)
+def _exempt_permission_source(  # pyright: ignore[reportUnusedFunction]
+    request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch
+) -> Iterator[None]:
+    """权限数据来源替身：把测试主体置为**豁免层级**（系统管理员），使业务用例免逐码授权。
+
+    `04_01` 下沉后 identity 接入了真实权限校验：`require_permission` 经 platform 内部契约取数并
+    在进程内判定。本套件绝大多数用例测的是 SSO / 会话 / IdP 的业务语义，不是授权链路——若走真实
+    契约取数，单测内 platform 不可达会 fail-closed（503），与用例意图无关。故按 platform 侧
+    `tests_support/permission_admin.py` 的既有惯例，在测试基座注入「豁免主体」数据来源替身；
+    **权限码级判定与 fail-closed 分支**由 `tests/permission/` 专项用例覆盖（该目录不注入替身，
+    走真实装配）。
+
+    Args:
+        request: 用例请求（按目录判定是否注入替身）。
+        monkeypatch: pytest monkeypatch 夹具（替换装配时的数据来源工厂）。
+
+    Yields:
+        None: 用例运行期。
+    """
+    node_path = str(getattr(request.node, "fspath", ""))  # pyright: ignore[reportUnknownMemberType,reportUnknownArgumentType]
+    if "permission" in node_path:
+        yield
+        return
+    from bms_identity import permission as identity_permission
+
+    monkeypatch.setattr(identity_permission, "build_identity_source", _build_exempt_source)
+    yield
+
+
+class _ExemptPermissionSource:
+    """豁免主体数据来源替身（系统管理员角色类型 → `check` 恒真）。"""
+
+    key: str = "test_exempt_permission_source"
+
+    async def load_subject(self, *, user_id: int) -> object:
+        """返回「系统管理员角色」聚合输入。
+
+        Args:
+            user_id: 用户主键（忽略）。
+
+        Returns:
+            object: 聚合输入（`PermissionSubjectData`）。
+        """
+        from bms_core.core.concurrent import ConcurrentStableSet
+        from bms_core.permission.sources import PermissionSubjectData
+
+        del user_id
+        data = PermissionSubjectData(role_ids=ConcurrentStableSet([_EXEMPT_ROLE_ID]))
+        data.role_types.set(_EXEMPT_ROLE_ID, "system")
+        return data
+
+    async def load_metadata(self, *, locale: str = "zh-CN") -> object:
+        """返回空元数据。
+
+        Args:
+            locale: 语言标识（忽略）。
+
+        Returns:
+            object: 空元数据（`PermissionMetadata`）。
+        """
+        from bms_core.permission.sources import PermissionMetadata
+
+        del locale
+        return PermissionMetadata()
+
+
+_EXEMPT_ROLE_ID = 1
+"""豁免主体角色主键（替身固定值）。"""
+
+
+async def _build_exempt_source(request: object) -> _ExemptPermissionSource:
+    """豁免主体数据来源工厂（请求级；与 identity 真实工厂同签名）。
+
+    Args:
+        request: 当前请求（忽略）。
+
+    Returns:
+        _ExemptPermissionSource: 替身来源。
+    """
+    del request
+    return _ExemptPermissionSource()
+
+
+@pytest.fixture(autouse=True)
 def isolate_settings(bms_isolate_settings: None, monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     """服务专属隔离：在公共隔离之后追加 SSO 状态存储关闭、fakeredis 与测试令牌密钥。
 

@@ -1,54 +1,23 @@
-"""权限引擎用例（`02_04`）：码级判定 / 豁免 / 未预加载从严 / 校验链接缝 / 跨服务降级 / 失效链路 / 聚合。
+"""平台服务权限解析器用例（`04_01` 下沉后）：mdm 组织链降级 / 出口解析 / 并集收敛。
 
-均以替身驱动主流程（不接库）：校验器读 contextvar 快照；主体链解析器、聚合仓储、
-菜单元数据快照均为轻量替身——覆盖**判定口径**与**接缝行为**，存储正确性由服务侧用例覆盖。
+引擎主流程、校验器判定与数据来源接缝的逐分支用例已下沉基座
+（`libs/bms_core/tests/permission/{test_engine,test_sources}.py`）；本文件只覆盖**平台侧取数件**：
+
+- `OrgRoleResolver`：跨服务不可达降级、严格模式抛错、非 2xx 降级、出口载荷解析与形态回落；
+- `DirectRoleResolver`：真实仓储取数（`sys_user_role`）；
+- 主体链并集：多解析器结果去重合并（基座收敛服务 + 平台解析器组合）。
 """
 
 from collections.abc import Iterator
-from typing import Any, cast
 
 import pytest
-from fastapi import FastAPI, Request
 
-from bms_core.cache.memory import MemoryCacheRegion
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.context import current_tenant_id, current_user_id
 from bms_core.core.exceptions import InternalError
-from bms_core.permission.guard import (
-    BasePermissionGuard,
-    PermissionGuardContext,
-    register_permission_guard,
-    reset_permission_guards,
-)
-from bms_core.permission.snapshot import (
-    TIER_PLATFORM_ADMIN,
-    TIER_STANDARD,
-    TIER_SYSTEM_ADMIN,
-    PermissionSnapshot,
-    get_current_permission_snapshot,
-    set_current_permission_snapshot,
-)
-from bms_core.permission.version import permission_user_cache_key, permission_version_key
-from bms_platform.services.permission import PermissionService, invalidate_permission_cache
-from bms_platform.services.permission_subject import DirectRoleResolver, OrgRoleResolver, PermissionSubjectService
-
-
-class _DenyGuard(BasePermissionGuard):
-    """恒拒校验链环节（测接缝 3：码命中后仍可被条件环节拦下）。"""
-
-    key: str = "deny_all"
-
-    def allow(self, context: PermissionGuardContext) -> bool:
-        """恒拒。
-
-        Args:
-            context: 校验上下文。
-
-        Returns:
-            bool: False。
-        """
-        del context
-        return False
+from bms_core.permission.snapshot import set_current_permission_snapshot
+from bms_core.permission.subject import PermissionSubjectService
+from bms_platform.services.permission_subject import DirectRoleResolver, OrgRoleResolver
 
 
 class _Response:
@@ -90,7 +59,7 @@ class _Client:
         """模拟调用。
 
         Args:
-            request: 请求。
+            request: 请求（忽略）。
 
         Returns:
             object: 响应替身。
@@ -106,71 +75,19 @@ class _Client:
 
 @pytest.fixture(autouse=True)
 def clean_context() -> Iterator[None]:
-    """每例前后清空快照 / 校验链 / 上下文。
+    """每例前后清空快照与上下文。
 
     Yields:
         None: 用例运行期。
     """
     set_current_permission_snapshot(None)
-    reset_permission_guards()
     yield
     set_current_permission_snapshot(None)
-    reset_permission_guards()
     current_user_id.set(None)
     current_tenant_id.set(None)
 
 
-@pytest.mark.kiwi_id(2269)
-def test_check_uses_snapshot_codes() -> None:
-    """码级判定：业务码 / 动作码命中即通过；未命中即拒。"""
-    from bms_platform.permission.checker import RbacPermissionChecker
-
-    checker = RbacPermissionChecker()
-    codes: ConcurrentStableSet[str] = ConcurrentStableSet()
-    codes.add("role:grant")
-    set_current_permission_snapshot(PermissionSnapshot(tier=TIER_STANDARD, permission_codes=codes))
-    assert checker.check("role:grant") is True
-    assert checker.check("role:delete") is False
-
-
-@pytest.mark.kiwi_id(2269)
-def test_check_denies_without_preloaded_snapshot() -> None:
-    """未预加载（依赖漏挂）时**从严拒绝**，而非放行。"""
-    from bms_platform.permission.checker import RbacPermissionChecker
-
-    checker = RbacPermissionChecker()
-    assert checker.check("menu") is False
-
-
-@pytest.mark.kiwi_id(2269)
-def test_exempt_tiers_allow_all() -> None:
-    """豁免层级（系统管理员 / 平台层）恒通过，且不校验码集。"""
-    from bms_platform.permission.checker import RbacPermissionChecker
-
-    checker = RbacPermissionChecker()
-    set_current_permission_snapshot(PermissionSnapshot(tier=TIER_SYSTEM_ADMIN))
-    assert checker.check("anything:at-all") is True
-    set_current_permission_snapshot(PermissionSnapshot(tier=TIER_PLATFORM_ADMIN))
-    assert checker.check("anything:at-all") is True
-
-
-@pytest.mark.kiwi_id(2269)
-def test_guard_chain_can_deny_after_code_hit() -> None:
-    """校验链（接缝 3）：码命中后仍可被条件环节拦下；移出环节即恢复。"""
-    from bms_platform.permission.checker import RbacPermissionChecker
-
-    checker = RbacPermissionChecker()
-    actions: ConcurrentStableSet[str] = ConcurrentStableSet()
-    actions.add("role:grant")
-    set_current_permission_snapshot(PermissionSnapshot(tier=TIER_STANDARD, permission_codes=actions))
-    assert checker.check("role:grant") is True
-    register_permission_guard(_DenyGuard())
-    assert checker.check("role:grant") is False
-    reset_permission_guards()
-    assert checker.check("role:grant") is True
-
-
-@pytest.mark.kiwi_id(2269)
+@pytest.mark.kiwi_id(2320)
 async def test_org_resolver_degrades_when_service_unreachable() -> None:
     """跨服务降级：mdm 不可达 → 空集 + 不抛（缺省口径）；严格模式抛 `InternalError`。"""
     degraded = OrgRoleResolver(_Client(error=RuntimeError("conn refused")))  # type: ignore[arg-type]
@@ -182,7 +99,7 @@ async def test_org_resolver_degrades_when_service_unreachable() -> None:
     assert list(await bad_status.resolve(user_id=1)) == []
 
 
-@pytest.mark.kiwi_id(2269)
+@pytest.mark.kiwi_id(2320)
 async def test_org_resolver_reads_role_ids_from_payload() -> None:
     """出口解析：`data.role_ids` 取并集；非整数项忽略。"""
     payload: ConcurrentStableDict[str, object] = ConcurrentStableDict()
@@ -193,9 +110,19 @@ async def test_org_resolver_reads_role_ids_from_payload() -> None:
     assert sorted(await resolver.resolve(user_id=5)) == [7, 8]
 
 
-@pytest.mark.kiwi_id(2269)
+@pytest.mark.kiwi_id(2320)
+async def test_org_resolver_payload_shape_fallbacks() -> None:
+    """出口解析回落：`data` 非对象 / `role_ids` 非序列 → 空集。"""
+    bad_data = OrgRoleResolver(_Client(response=_Response(200, {"data": "x"})))  # type: ignore[arg-type]
+    assert list(await bad_data.resolve(user_id=1)) == []
+
+    bad_ids = OrgRoleResolver(_Client(response=_Response(200, {"data": {"role_ids": "x"}})))  # type: ignore[arg-type]
+    assert list(await bad_ids.resolve(user_id=1)) == []
+
+
+@pytest.mark.kiwi_id(2320)
 async def test_subject_service_unions_resolvers() -> None:
-    """主体链并集：多解析器结果去重合并。"""
+    """主体链并集：多解析器结果去重合并（基座收敛服务驱动平台解析器）。"""
 
     class _Fixed(DirectRoleResolver):
         """固定结果的直接角色解析器替身。"""
@@ -213,7 +140,7 @@ async def test_subject_service_unions_resolvers() -> None:
             """返回固定集合。
 
             Args:
-                user_id: 用户主键。
+                user_id: 用户主键（忽略）。
 
             Returns:
                 ConcurrentStableSet[int]: 角色集合。
@@ -234,339 +161,34 @@ async def test_subject_service_unions_resolvers() -> None:
     assert sorted(await service.resolve_role_ids(9)) == [1, 2, 3]
 
 
-@pytest.mark.kiwi_id(2269)
-async def test_invalidate_bumps_version_and_evicts_previous_user_key() -> None:
-    """失效链路：租户权限版本 +1，并删除受影响用户的旧版本键。"""
-    cache = MemoryCacheRegion()
-    version_key = permission_version_key("1001")
-    await cache.aincrease(version_key)
-    await cache.aincrease(version_key)
-    old_key = permission_user_cache_key("1001", 7, 2)
-    payload: ConcurrentStableDict[str, object] = ConcurrentStableDict()
-    await cache.aset(old_key, dict(payload), ttl=60)
-    version = await invalidate_permission_cache(cache, tenant_id="1001", user_ids=(7,))
-    assert version == 3
-    assert await cache.aget(old_key) is None
-    assert await invalidate_permission_cache(cache, tenant_id="1001") == 4
-
-
-@pytest.mark.kiwi_id(2269)
-async def test_engine_aggregates_permission_and_entry_grants() -> None:
-    """聚合：菜单/表单授权计入入口集合、权限码授权取 `业务:动作`。"""
-    service = _build_service()
-    snapshot = await service.compute(user_id=5, version=1)
-    assert sorted(snapshot.permission_codes) == ["data:export", "role:grant"]
-    assert sorted(snapshot.granted_menu_ids) == [1]
-    assert sorted(snapshot.granted_form_ids) == [11, 12]
-    assert snapshot.tier == TIER_SYSTEM_ADMIN
-    assert snapshot.exempt is True
-
-
-class _Form:
-    """表单快照替身。"""
-
-    def __init__(self, form_id: int, business_code: str, buttons: ConcurrentStableList[object] | None = None) -> None:
-        """初始化。
-
-        Args:
-            form_id: 表单 id。
-            business_code: 业务码。
-            buttons: 按钮列表。
-        """
-        self.id = form_id
-        self.business_code = business_code
-        self.buttons = buttons or ConcurrentStableList()
-
-
-class _Button:
-    """按钮快照替身。"""
-
-    def __init__(self, permission_id: int, permission_code: str) -> None:
-        """初始化。
-
-        Args:
-            permission_id: 权限码 id。
-            permission_code: 权限码。
-        """
-        self.permission_id = permission_id
-        self.permission_code = permission_code
-
-
-class _Menu:
-    """菜单快照替身。"""
-
-    def __init__(self, menu_id: int, forms: ConcurrentStableList[object]) -> None:
-        """初始化。
-
-        Args:
-            menu_id: 菜单 id。
-            forms: 表单列表。
-        """
-        self.id = menu_id
-        self.forms = forms
-
-
-class _Snapshot:
-    """菜单元数据快照替身（仅聚合所需的最小面）。"""
-
-    def __init__(self, menus: ConcurrentStableList[object]) -> None:
-        """初始化。
-
-        Args:
-            menus: 菜单列表。
-        """
-        self.menus = menus
-
-
-class _Row:
-    """授权行替身。"""
-
-    def __init__(self, perm_type: str, target_id: int) -> None:
-        """初始化。
-
-        Args:
-            perm_type: 授权类型。
-            target_id: 目标 id。
-        """
-        self.perm_type = perm_type
-        self.target_id = target_id
-
-
-class _Role:
-    """角色替身。"""
-
-    def __init__(self, role_type: str) -> None:
-        """初始化。
-
-        Args:
-            role_type: 角色类型。
-        """
-        self.role_type = role_type
-
-
-def _build_service(*, cache: MemoryCacheRegion | None = None, subject: Any | None = None) -> PermissionService:
-    """构造引擎（替身仓储：菜单 1 关联表单 11；表单 12 独立；动作 21 / 22）。
-
-    Args:
-        cache: 缓存域（缺省新建内存实现）。
-        subject: 主体链替身（缺省固定单角色）。
-
-    Returns:
-        PermissionService: 引擎实例。
-    """
-    grant_button = _Button(21, "role:grant")
-    export_button = _Button(22, "data:export")
-    forms: ConcurrentStableList[object] = ConcurrentStableList()
-    forms.add(_Form(11, "menu", _button_list(grant_button)))
-    menus: ConcurrentStableList[object] = ConcurrentStableList()
-    menus.add(_Menu(1, forms))
-
-    class _Metadata:
-        """菜单元数据服务替身。"""
-
-        async def load_snapshot(self, **kwargs: object) -> object:
-            """返回替身快照。
-
-            Args:
-                kwargs: 调用参数（忽略）。
-
-            Returns:
-                object: 快照替身。
-            """
-            del kwargs
-            return _Snapshot(_menus_holder)
-
-    rows: ConcurrentStableList[object] = ConcurrentStableList()
-    rows.add(_Row("menu", 1))
-    rows.add(_Row("form", 12))
-    rows.add(_Row("permission", 21))
-    rows.add(_Row("permission", 22))
-    rows.add(_Row("permission", 99))  # 未挂按钮的权限码 → 不进快照码集
-    rows.add(_Row("ghost", 5))  # 未登记授权类型 → 聚合跳过
-
-    form_twelve: ConcurrentStableList[object] = ConcurrentStableList()
-    form_twelve.add(_Form(12, "data", _button_list(export_button)))
-    menus.add(_Menu(2, form_twelve))
-    menus.add(_Menu(3, ConcurrentStableList()))  # 无表单目录 → 不产生入口授权
-    _menus_holder = menus
-
-    roles: ConcurrentStableList[object] = ConcurrentStableList()
-    roles.add(_Role("system"))
-
-    return PermissionService(
-        roles=_StubRoles(roles),  # type: ignore[arg-type]
-        permissions=_StubPermissions(rows),  # type: ignore[arg-type]
-        data_scopes=_StubScopes(),  # type: ignore[arg-type]
-        metadata=_Metadata(),  # type: ignore[arg-type]
-        subject=cast("Any", subject if subject is not None else _StubSubject()),  # type: ignore[arg-type]
-        cache=cache if cache is not None else MemoryCacheRegion(),
-        profile="smb",
-    )
-
-
-class _StubRoles:
-    """角色仓储替身。"""
-
-    def __init__(self, roles: ConcurrentStableList[object]) -> None:
-        """初始化。
-
-        Args:
-            roles: 角色列表。
-        """
-        self._roles = roles
-
-    async def list_by_ids(self, role_ids: ConcurrentStableSet[int]) -> ConcurrentStableList[object]:
-        """返回角色列表。
-
-        Args:
-            role_ids: 角色 id 集合。
-
-        Returns:
-            ConcurrentStableList[object]: 角色列表。
-        """
-        del role_ids
-        return self._roles
-
-
-class _StubPermissions:
-    """角色授权仓储替身。"""
-
-    def __init__(self, rows: ConcurrentStableList[object]) -> None:
-        """初始化。
-
-        Args:
-            rows: 授权行。
-        """
-        self._rows = rows
-
-    async def list_by_roles(self, role_ids: ConcurrentStableSet[int]) -> ConcurrentStableList[object]:
-        """返回授权行。
-
-        Args:
-            role_ids: 角色 id 集合。
-
-        Returns:
-            ConcurrentStableList[object]: 授权行。
-        """
-        del role_ids
-        return self._rows
-
-
-class _StubScopes:
-    """数据权限仓储替身。"""
-
-    async def list_by_roles(self, role_ids: ConcurrentStableSet[int]) -> ConcurrentStableList[object]:
-        """返回空规则。
-
-        Args:
-            role_ids: 角色 id 集合。
-
-        Returns:
-            ConcurrentStableList[object]: 空列表。
-        """
-        del role_ids
-        return ConcurrentStableList()
-
-
-class _StubSubject:
-    """主体链替身。"""
-
-    async def resolve_role_ids(self, user_id: int) -> ConcurrentStableSet[int]:
-        """返回固定角色。
-
-        Args:
-            user_id: 用户主键。
-
-        Returns:
-            ConcurrentStableSet[int]: 角色集合。
-        """
-        del user_id
-        result: ConcurrentStableSet[int] = ConcurrentStableSet()
-        result.add(1)
-        return result
-
-
-def _button_list(*items: object) -> ConcurrentStableList[object]:
-    """收集按钮。
-
-    Args:
-        items: 按钮。
-
-    Returns:
-        ConcurrentStableList[object]: 按钮列表。
-    """
-    result: ConcurrentStableList[object] = ConcurrentStableList()
-    for item in items:
-        result.add(item)
-    return result
-
-
-class _EmptySubject:
-    """主体链替身：恒返回空角色集合。"""
-
-    async def resolve_role_ids(self, user_id: int) -> ConcurrentStableSet[int]:
-        """返回空集合。
-
-        Args:
-            user_id: 用户主键（忽略）。
-
-        Returns:
-            ConcurrentStableSet[int]: 空集合。
-        """
-        del user_id
-        return ConcurrentStableSet()
-
-
-async def test_snapshot_for_recomputes_on_stale_cached_version() -> None:
-    """`snapshot_for`：缓存快照版本与当前权限版本不一致时重算并回写。"""
-    cache = MemoryCacheRegion()
-    service = _build_service(cache=cache)
-    key = permission_user_cache_key("1001", 5, 0)
-    await cache.aset(key, PermissionSnapshot(version=99, tier=TIER_STANDARD).to_payload(), ttl=60)
-
-    snapshot = await service.snapshot_for(user_id=5, tenant_id="1001")
-    assert snapshot.version == 0
-    assert cache.get(key) is not None
-
-
-async def test_compute_without_roles_returns_empty_grants() -> None:
-    """无角色主体：权限码 / 入口授权 / 数据范围规则均为空。"""
-    service = _build_service(subject=_EmptySubject())
-    snapshot = await service.compute(user_id=5, version=1)
-    assert list(snapshot.permission_codes) == []
-    assert list(snapshot.granted_menu_ids) == []
-    assert list(snapshot.granted_form_ids) == []
-    assert list(snapshot.data_scopes) == []
-
-
-async def test_org_resolver_payload_shape_fallbacks() -> None:
-    """出口解析回落：`data` 非对象 / `role_ids` 非序列 → 空集。"""
-    bad_data = OrgRoleResolver(_Client(response=_Response(200, {"data": "x"})))  # type: ignore[arg-type]
-    assert list(await bad_data.resolve(user_id=1)) == []
-
-    bad_ids = OrgRoleResolver(_Client(response=_Response(200, {"data": {"role_ids": "x"}})))  # type: ignore[arg-type]
-    assert list(await bad_ids.resolve(user_id=1)) == []
-
-
+@pytest.mark.kiwi_id(2320)
 def test_subject_service_from_registry() -> None:
     """按基座注册表构造主体链服务（缺省装配路径）。"""
     service = PermissionSubjectService.from_registry()
     assert isinstance(service, PermissionSubjectService)
 
 
-async def test_checker_aprepare_idempotent_and_without_current_user() -> None:
-    """预加载：无当前用户时按平台层快照放行；重复调用直接返回（幂等）。"""
-    from bms_platform.permission.checker import RbacPermissionChecker
+@pytest.mark.kiwi_id(2320)
+async def test_direct_resolver_reads_user_roles() -> None:
+    """直接角色解析器：经仓储取 `sys_user_role` 未软删角色（替身仓储）。"""
 
-    checker = RbacPermissionChecker()
-    app = FastAPI()
-    request = Request(scope={"type": "http", "method": "GET", "path": "/x", "headers": [], "app": app})
+    class _Repo:
+        """`UserRoleRepository` 替身。"""
 
-    current_user_id.set(None)
-    await checker.aprepare(request=request)
-    snapshot = get_current_permission_snapshot()
-    assert snapshot is not None and snapshot.tier == TIER_PLATFORM_ADMIN
+        async def list_role_ids_by_user(self, user_id: int) -> ConcurrentStableList[int]:
+            """返回固定角色集合。
 
-    current_user_id.set(None)
-    await checker.aprepare(request=request)
-    assert request.state.permission_prepared is True
+            Args:
+                user_id: 用户主键（忽略）。
+
+            Returns:
+                ConcurrentStableList[int]: 角色主键列表。
+            """
+            del user_id
+            result: ConcurrentStableList[int] = ConcurrentStableList()
+            result.add(11)
+            result.add(12)
+            return result
+
+    resolver = DirectRoleResolver(_Repo())  # type: ignore[arg-type]
+    assert sorted(await resolver.resolve(user_id=5)) == [11, 12]

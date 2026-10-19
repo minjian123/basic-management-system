@@ -14,7 +14,12 @@ from bms_core.core.config import PluginSelection, Settings
 from bms_core.core.exceptions import PermissionError
 from bms_core.core.plugin import PluginRegistry
 from bms_core.permission import guard as guard_module
-from bms_core.permission.base import BasePermissionChecker, get_permission_checker, require_permission
+from bms_core.permission.base import (
+    BasePermissionChecker,
+    get_permission_checker,
+    prepare_permission_dependency,
+    require_permission,
+)
 from bms_core.permission.guard import (
     BasePermissionGuard,
     PermissionGuardContext,
@@ -65,6 +70,15 @@ def _build_app(checker: BasePermissionChecker, monkeypatch: pytest.MonkeyPatch) 
     @app.get("/checker")
     async def checker_key(c: Annotated[BasePermissionChecker, Depends(get_permission_checker)]) -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]  # bare-collections:allow（FastAPI 端点返回注解）
         return {"key": c.key}
+
+    @app.get("/prepared")
+    async def prepared_only(_: Annotated[None, Depends(prepare_permission_dependency())]) -> dict[str, bool]:  # pyright: ignore[reportUnusedFunction]  # bare-collections:allow（FastAPI 端点返回注解）
+        """仅预加载、不校验的端点（逐码自行判定的消费面，如 `/api/v1/menus/my`）。
+
+        Returns:
+            dict[str, bool]: 固定响应。
+        """
+        return {"ok": True}
 
     return app
 
@@ -121,6 +135,16 @@ async def test_require_permission_dependency_denies(monkeypatch: pytest.MonkeyPa
         body = resp.json()
         assert body["code"] == 30001
         assert body["data"] is None
+
+
+@pytest.mark.kiwi_id(2320)
+async def test_prepare_permission_dependency_only_preloads(monkeypatch: pytest.MonkeyPatch) -> None:
+    """仅预加载依赖：不校验权限码（未持码亦放行），供逐码自行判定的端点复用。"""
+    app = _build_app(DenyChecker(), monkeypatch)
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        resp = await client.get("/prepared")
+        assert resp.status_code == 200
+        assert resp.json() == {"ok": True}
 
 
 @pytest.mark.kiwi_id(39)

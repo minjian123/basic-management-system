@@ -26,11 +26,26 @@ from bms_core.permission.field import (
 from bms_core.permission.snapshot import TIER_STANDARD, TIER_SYSTEM_ADMIN, PermissionSnapshot
 from bms_platform.models.menu import SysField
 from bms_platform.models.role import SysRoleField
-from bms_platform.permission.checker import RbacPermissionChecker
 from bms_platform.permission.field_provider import StaticFieldPermissionProvider, build_static_field_provider
 
 _FORM_ID = 7001
 _OTHER_FORM_ID = 7002
+
+
+def _build_field_provider(session: AsyncSession, platform_session: AsyncSession) -> object:
+    """按当前登记的工厂构造字段权限求值器（下沉后由平台数据来源调用，语义不变）。
+
+    Args:
+        session: 租户库会话。
+        platform_session: 平台库会话。
+
+    Returns:
+        object: 求值器；未登记工厂为 None。
+    """
+    factory = current_field_permission_provider_factory()
+    if factory is None:
+        return None
+    return factory(session, platform_session)
 
 
 @pytest_asyncio.fixture
@@ -141,9 +156,7 @@ async def test_build_field_provider_none_without_factory(session: AsyncSession) 
     """未登记字段权限工厂 ⇒ 求值器为 None（字段全开，不构造 provider）。"""
     reset_field_permission_provider_factories()
     try:
-        provider = RbacPermissionChecker._build_field_provider(  # pyright: ignore[reportPrivateUsage]
-            session, session
-        )
+        provider = _build_field_provider(session, session)
         assert provider is None
     finally:
         reset_field_permission_provider_factories()

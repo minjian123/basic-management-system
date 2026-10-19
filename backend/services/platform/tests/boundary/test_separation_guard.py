@@ -27,6 +27,8 @@ from bms_core.services.table_registry import TABLE_OWNERSHIP, Datasource, TableS
 _PLATFORM_SRC = Path(__file__).resolve().parents[2] / "src" / "bms_platform"
 _SERVICES = _PLATFORM_SRC / "services"
 _API = _PLATFORM_SRC / "api"
+_CORE_PERMISSION = Path(__file__).resolve().parents[4] / "libs" / "bms_core" / "src" / "bms_core" / "permission"
+"""基座权限能力域（`04_01` 下沉后校验器与引擎的落点）。"""
 
 _GUARD_PREFIX = "ensure_"
 """三权校验方法名前缀（`SeparationGuard.ensure_*`）。"""
@@ -158,7 +160,7 @@ def test_builtin_role_protection_kept() -> None:
 def test_platform_tier_has_single_production_point() -> None:
     """平台超管层级唯一产生点：`aprepare` 的 `user_id is None` 分支（不经租户 RBAC 计算）。"""
     hits: ConcurrentStableList[tuple[str, str, int]] = ConcurrentStableList()
-    for path in sorted(_PLATFORM_SRC.rglob("*.py")):
+    for path in sorted(_CORE_PERMISSION.rglob("*.py")):
         module = _parse(path)
         for node in ast.walk(module):
             if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Name):
@@ -174,15 +176,19 @@ def test_platform_tier_has_single_production_point() -> None:
                 continue
             hits.add((path.name, "", node.lineno))
     assert len(hits) == 1, f"TIER_PLATFORM_ADMIN 快照产生点应唯一，实际：{hits}"
-    assert hits[0][0] == "checker.py"
+    assert hits[0][0] == "rbac.py"
 
-    module = _parse(_PLATFORM_SRC / "permission" / "checker.py")
+    module = _parse(_CORE_PERMISSION / "rbac.py")
     prepare = _find_function(module, "aprepare")
     prepare_source = ast.unparse(prepare)
     assert "TIER_PLATFORM_ADMIN" in prepare_source
     # 仅在 `user_id is None` 之后产生（有用户上下文的租户请求走租户 RBAC 计算）
     assert prepare_source.index("user_id is None") < prepare_source.index("TIER_PLATFORM_ADMIN")
-    assert "PermissionService(" in prepare_source
+    assert "PermissionEngine(" in prepare_source
+
+    # 平台服务包内不再自行产生平台层快照（`04_01` 下沉后唯一产生点在基座）
+    for path in sorted(_PLATFORM_SRC.rglob("*.py")):
+        assert "TIER_PLATFORM_ADMIN" not in path.read_text(encoding="utf-8"), f"平台侧不得再产生平台层快照：{path}"
 
     assert TIER_PLATFORM_ADMIN != TIER_SYSTEM_ADMIN
 
