@@ -70,7 +70,7 @@ CodeBuddy CN 通过官网安装器以**用户级**方式安装到 `%LOCALAPPDATA
 
 - 版本核实两处：**安装器版本**取 `CodeBuddy CN.exe` 的 ProductVersion（当前 4.12.2），**应用版本**取 `product.json` 的 `version` 或 `buddycn --version`（当前 1.106.1）——两套编号体系不同，与 linux 侧「deb 包 4.12.0 ↔ 应用 1.106.1」同口径；
 - 卸载：运行安装目录下的 `unins000.exe`（或「设置 → 应用」里卸载）。**用户数据独立于安装目录**（见第 4 节），卸载安装目录不影响 `%APPDATA%\CodeBuddy CN`、`~\.codebuddy`、`~\.codebuddycn` 下的登录态与配置；
-- CodeBuddy 与 [opencode](opencode部署使用说明.md)、[deepseek-harness](../../AI/deepseek_harness部署使用说明.md) 等 AI 编码工具互不干扰、各自独立部署（opencode / dsh 的本机部署见对应文档，linux 侧同名文档为准）。
+- CodeBuddy 与 [opencode](opencode部署使用说明.md)、[deepseek-harness](../../AI/linux/deepseek_harness部署使用说明.md) 等 AI 编码工具互不干扰、各自独立部署（opencode / dsh 的本机部署见对应文档，linux 侧同名文档为准）。
 
 ### 3.2 升级 <a id="install-upgrade"></a>
 

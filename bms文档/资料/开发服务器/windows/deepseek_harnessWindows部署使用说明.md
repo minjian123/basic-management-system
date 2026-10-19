@@ -1,7 +1,8 @@
 # deepseek_harness Windows 部署使用说明
 
 > mjw（Windows 11 开发服务器）上 DeepSeek Harness（DSH）的部署、启停、访问与排障实录
-> 对应 Linux/mjpc 版部署说明（安装主体、插件扩展等通用内容）见《[deepseek_harness部署使用说明](../../AI/deepseek_harness部署使用说明.md)》
+> 对应 Linux/mjpc 版部署说明（安装主体、插件扩展等通用内容）见《[deepseek_harness部署使用说明](../../AI/linux/deepseek_harness部署使用说明.md)》
+> **本文档讲的是源码版**（`pnpm dsh web`）；桌面版（Electron 客户端）形态不同，见《[deepseek_harnessWindows桌面版部署使用说明](../../AI/windows/deepseek_harnessWindows桌面版部署使用说明.md)》
 
 [文档首页](../../../文档首页.md) › 资料 › 开发服务器 › [windows](开发服务器Windows部署使用说明总览.md) › deepseek_harness Windows 部署使用说明　|　[总览 →](开发服务器Windows部署使用说明总览.md)
 
@@ -150,7 +151,8 @@ pnpm run build
 
 ## 8. 关联文档 <a id="related"></a>
 
-- 《[deepseek_harness部署使用说明](../../AI/deepseek_harness部署使用说明.md)》：Linux/mjpc 版（主体部署、插件扩展等通用内容）
+- 《[deepseek_harness部署使用说明](../../AI/linux/deepseek_harness部署使用说明.md)》：Linux/mjpc 版（主体部署、插件扩展等通用内容）
+- 《[deepseek_harnessWindows桌面版部署使用说明](../../AI/windows/deepseek_harnessWindows桌面版部署使用说明.md)》：桌面版（Electron）形态，插件机制与更新方法，与本文档的源码版不同
 - 《[开发服务器Windows部署使用说明总览](开发服务器Windows部署使用说明总览.md)》：mjw 总览
 - 《[远程控制部署使用说明](远程控制部署使用说明.md)》：WinRM/RDP 通道与计划任务交互法
 - 《[开发服务器Windows电源控制使用说明](开发服务器Windows电源控制使用说明.md)》：mjw 唤醒/睡眠/关机工具链

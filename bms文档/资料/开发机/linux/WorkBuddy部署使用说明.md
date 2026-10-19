@@ -8,7 +8,7 @@
 
 记录开发机 **mjpc**（Ubuntu 26.04.1 LTS，GNOME，Wayland，NVIDIA RTX 4090）上 **WorkBuddy** 的部署与使用：安装来源与版本、用户数据目录、配置文件、**运行时的进程模型与本地服务端口**、以及本机做的一处**「关窗即退出」改造**（WorkBuddy 在 Windows/Linux 上默认「关窗进托盘、后台常驻」，本机改掉该行为；成因、补丁步骤、验证与升级后重打见[第 7 节](#closequit)）。
 
-本文档与《[开发机部署使用说明总览](开发机部署使用说明总览.md)》「开发设施清单」节配套；WorkBuddy 与 [CodeBuddy](CodeBuddy部署使用说明.md) 同出腾讯、同由 `www.codebuddy.ai` 分发，但**是两个独立应用**（各自的安装目录与数据目录互不相干，见[第 2 节](#env)），与 [opencode](opencode部署使用说明.md)、[deepseek-harness](../../AI/deepseek_harness部署使用说明.md) 同属本机 AI 工具，各自独立部署。
+本文档与《[开发机部署使用说明总览](开发机部署使用说明总览.md)》「开发设施清单」节配套；WorkBuddy 与 [CodeBuddy](CodeBuddy部署使用说明.md) 同出腾讯、同由 `www.codebuddy.ai` 分发，但**是两个独立应用**（各自的安装目录与数据目录互不相干，见[第 2 节](#env)），与 [opencode](opencode部署使用说明.md)、[deepseek-harness](../../AI/linux/deepseek_harness部署使用说明.md) 同属本机 AI 工具，各自独立部署。
 
 > **取值说明**：本机路径统一用 `~` 表示（开发机开发用户为 `minjian`）；账号、令牌等凭据不在本文记录，以本机登录态与《[本地资源](../../../用户文档/本地资源.md)》（已 gitignore）为准。
 

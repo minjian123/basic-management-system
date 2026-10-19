@@ -144,7 +144,7 @@ Get-NetTCPConnection -LocalPort 45278 -State Listen
 }
 ```
 
-- 默认模型 `llamacpp/qwen3.8-27b-ud-q4-k-m` 由 `llamacpp` provider 提供，指向本机 `http://127.0.0.1:8080/v1` 的 llama-server（推理服务部署见《[llamacpp部署使用说明](../../AI/llamacpp部署使用说明.md)》）；
+- 默认模型 `llamacpp/qwen3.8-27b-ud-q4-k-m` 由 `llamacpp` provider 提供，指向本机 `http://127.0.0.1:8080/v1` 的 llama-server（推理服务部署见《[llamacpp部署使用说明](../../AI/linux/llamacpp部署使用说明.md)》）；
 - 原先登记的 MCP `mjw-vision`（识图）与配套的 MCP 超时配置已于 2026-10-16 退役移除（所用模型已普遍多模态）；今后如需再登记 MCP，超时字段照 `"mcp": { "timeout": { "catalog": …, "execution": … } }` 配。
 
 ### 5.3 用户级工具链（ops / bg 插件） <a id="plugins"></a>
@@ -375,7 +375,7 @@ opencode service status                     # http://0.0.0.0:45278
 - 《[opencode部署使用说明](../linux/opencode部署使用说明.md)》：linux 侧同名文档（v1 → v2 迁移、配置字段对照、Web 与手机访问、GPU / sudo 沙箱排障）
 - 《[CodeBuddy部署使用说明](CodeBuddy部署使用说明.md)》：另一 AI 编码工具（Windows 侧；MCP 登记与浏览器真机验证）
 - 《[VSCode部署使用说明](VSCode部署使用说明.md)》：编辑器与 `.vscode` 双平台配置口径
-- 《[llamacpp部署使用说明](../../AI/llamacpp部署使用说明.md)》：`llamacpp` provider 的后端推理服务
+- 《[llamacpp部署使用说明](../../AI/linux/llamacpp部署使用说明.md)》：`llamacpp` provider 的后端推理服务
 - 《[文档生成规范](../../../规范/文档生成规范.md)》：本文档的组织、格式与图形约定
 - 《[本地资源](../../../用户文档/本地资源.md)》：mjpc 相关机器信息取值（已 gitignore）
 

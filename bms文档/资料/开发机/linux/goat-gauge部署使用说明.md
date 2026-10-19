@@ -300,7 +300,7 @@ ss -lptn 'sport = :18927 or sport = :9333'              # 服务与 CDP 端口
 
 - 《[opencode部署使用说明](opencode部署使用说明.md)》：opencode 桌面端 / CLI 部署；本文看板监控的正是其使用的 `commandcode` 账号用量
 - 《[开发机部署使用说明总览](开发机部署使用说明总览.md)》：mjpc 开发机设施总览与桌面快捷方式约定（本文档在其中的定位）
-- 《[llamacpp部署使用说明](../../AI/llamacpp部署使用说明.md)》：本机本地模型推理（opencode 的 `llamacpp` provider 后端）
+- 《[llamacpp部署使用说明](../../AI/linux/llamacpp部署使用说明.md)》：本机本地模型推理（opencode 的 `llamacpp` provider 后端）
 - 《[Ubuntu安装部署使用说明](../../工具/Ubuntu安装部署使用说明.md)》：系统安装与基础配置
 - 《[文档生成规范](../../../规范/文档生成规范.md)》：本文档的组织、格式与图形约定
 - 《[本地资源](../../../用户文档/本地资源.md)》：mjpc 相关机器信息取值（已 gitignore）

@@ -2,7 +2,7 @@
 
 > mjpc 开发机（Ubuntu 26.04 / RTX 4090 24G）· 基于 llama.cpp 0.3.0-dev（build 87，commit `9d81721`）
 
-[文档首页](../../文档首页.md) › 资料 › llamacpp 部署与使用说明
+[文档首页](../../../文档首页.md) › 资料 › [AI](../) › linux › llamacpp 部署与使用说明
 
 ## 1. 概述 <a id="intro"></a>
 
@@ -32,7 +32,7 @@ llama.cpp 是 C/C++ 实现的本地大模型推理引擎，自带 `llama-server`
 
 | 项 | 值 |
 | --- | --- |
-| 主机 | mjpc（内网，取值见《[本地资源](../../用户文档/本地资源.md)》） |
+| 主机 | mjpc（内网，取值见《[本地资源](../../../用户文档/本地资源.md)》） |
 | GPU | NVIDIA GeForce RTX 4090，显存 24564 MiB，驱动 595.91.07 |
 | 编译工具链 | GCC/GNU 15.2.0（Linux x86_64）+ CUDA 13.4.1（`nvcc` V13.4.59，`/usr/local/cuda-13.4`） |
 | llama.cpp | 0.3.0-dev（build 87，commit `9d81721`），CMake Release，CUDA 开启 |

@@ -582,7 +582,7 @@ grep NoNewPrivs /proc/$(pgrep -f 'opencode-cli serve --service' | head -1)/statu
 - 《[中文输入法部署使用说明](中文输入法部署使用说明.md)》：mjpc 的 Fcitx5 + kimpanel 输入法部署，其「候选窗跟随」与本文的「窗口渲染」是两条不同的线，勿混用
 - 《[Steamcommunity_302部署使用说明](Steamcommunity_302部署使用说明.md)》：mjpc 上的 Steam 社区加速反代部署与运维
 - 《[防火墙部署使用说明](防火墙部署使用说明.md)》：mjpc 开发机 ufw 防火墙规则
-- 《[llamacpp部署使用说明](../../AI/llamacpp部署使用说明.md)》：本机 llama.cpp 本地推理（CLI 的 `llamacpp` provider 后端）
+- 《[llamacpp部署使用说明](../../AI/linux/llamacpp部署使用说明.md)》：本机 llama.cpp 本地推理（CLI 的 `llamacpp` provider 后端）
 - 《[goat-gauge部署使用说明](goat-gauge部署使用说明.md)》：Command Code 账号用量看板，其兜底 API Key 从 opencode 的凭据库读取（见[第 7 节](#auth)）
 - 《[开发机部署使用说明总览](开发机部署使用说明总览.md)》：mjpc 开发机设施总览（opencode 在其中的定位）
 - 《[文档生成规范](../../../规范/文档生成规范.md)》：本文档的组织、格式与图形约定

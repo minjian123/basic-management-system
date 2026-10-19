@@ -2,7 +2,7 @@
 
 > mjpc 开发机（Ubuntu 26.04 / Node 24 + pnpm 11.7.0）· 基于 deepseek-harness `dsh-0.1.7-rc.2`（commit `477b4f4205`）
 
-[文档首页](../../文档首页.md) › 资料 › deepseek_harness 部署与使用说明
+[文档首页](../../../文档首页.md) › 资料 › [AI](../) › linux › deepseek_harness 部署与使用说明
 
 ## 1. 概述 <a id="intro"></a>
 
@@ -243,7 +243,7 @@ DSH_START_SKIP_UPDATE=1 bash ~/.local/bin/dsh-web-start.sh            # 启动 d
 ### 8.1 免费视觉 dsh-free-vision（web profile bundle，当前装有） <a id="plugins-free-vision"></a>
 
 在 web 会话内提供**识图工具 `image_understand`**：把 mjw 机器上 LM Studio 的
-`qwen3-vl-8b-instruct-abliterated-v2`（多模态识图模型，服务与鉴权见《[LM Studio 模型服务使用说明](LM Studio模型服务使用说明.md)》）
+`qwen3-vl-8b-instruct-abliterated-v2`（多模态识图模型，服务与鉴权见《[LM Studio 模型服务使用说明](../windows/LM Studio模型服务使用说明.md)》）
 接为本地识图能力，图片不上云。
 
 | 项 | 值 |
@@ -428,7 +428,7 @@ node apps/cli/lib/bin.js plugin --profile web add dsh-undo-savepoint@0.4.9
 ## 9. mjw（Windows）安装 <a id="mjw-install"></a>
 
 > 2026-09-10 已在 mjw（Windows 11）完成 DSH 安装（commit `b2e3b2a0`，与本文档 mjpc 环境一致），
-> **部署实录已独立成文**：《[deepseek_harnessWindows部署使用说明](../开发服务器/windows/deepseek_harnessWindows部署使用说明.md)》
+> **部署实录已独立成文**：《[deepseek_harnessWindows部署使用说明](../../开发服务器/windows/deepseek_harnessWindows部署使用说明.md)》
 > ——含 pnpm 证书坑修复、install/build、桌面启停入口、web 仅绑 127.0.0.1（官方禁止 `--host 0.0.0.0`）、计划任务长命令执行法及 Windows 排障。mjw 侧通用能力（插件 bundle 等）仍以本文档第 8 节为准。
 
 ---

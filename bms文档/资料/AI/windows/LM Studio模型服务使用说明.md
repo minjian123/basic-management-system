@@ -2,7 +2,7 @@
 
 > 本地模型机 mjw · LM Studio 本地推理服务 · 专职翻译 + 多模态识图
 
-[文档首页](../../文档首页.md) › 资料 › LM Studio 模型服务使用说明
+[文档首页](../../../文档首页.md) › 资料 › [AI](../) › windows › LM Studio 模型服务使用说明
 
 > **来源与接入（2026-09-09；2026-10-16 更新）**：本文自 cw 仓库同名文档导入；所述服务（mjw 的 LM Studio）在 bms 侧为纯服务侧说明——原先配套的 mjw-vision 识图 MCP 工具链（脚本、`.opencode/opencode.json` 登记、凭据键）已于 2026-10-16 因「所用模型已普遍多模态」统一退役；cw 仓库若有更新，以 cw 为准并同步回本文。
 
@@ -17,11 +17,11 @@ LM Studio 是 Windows/macOS 上的本地大模型运行工具（基于 llama.cpp
 | `hy-mt2-30b-a3b-uncensored-heretic` | **专职翻译**（英⇄中），基于腾讯混元 Hy-MT2-30B-A3B 的社区去审查版 |
 | `qwen3-vl-8b-instruct-abliterated-v2` | **多模态**（识图 / 对话 / OCR） |
 
-> 与 llama.cpp 服务（`llamacpp` 提供商，见《[llamacpp部署使用说明](llamacpp部署使用说明.md)》）互不相干：本文服务常驻 mjw（Windows 11 模型机），llama.cpp 跑在 mjpc（Ubuntu）本机。bms 的 dsh / opencode 未登记独立的 `lmstudio` 提供商（opencode 侧原先经 mjw-vision MCP 使用本服务，该 MCP 已于 2026-10-16 退役；如需直调按第 4 节示例接入，本文不展开）。
+> 与 llama.cpp 服务（`llamacpp` 提供商，见《[llamacpp部署使用说明](../linux/llamacpp部署使用说明.md)》）互不相干：本文服务常驻 mjw（Windows 11 模型机），llama.cpp 跑在 mjpc（Ubuntu）本机。bms 的 dsh / opencode 未登记独立的 `lmstudio` 提供商（opencode 侧原先经 mjw-vision MCP 使用本服务，该 MCP 已于 2026-10-16 退役；如需直调按第 4 节示例接入，本文不展开）。
 
 ## 2. 访问与鉴权 <a id="access"></a>
 
-访问地址（OpenAI 兼容端点）、主机信息与机器凭据见《[本地资源](../../用户文档/本地资源.md)》的「本地模型机」小节，本文不重复内网细节。
+访问地址（OpenAI 兼容端点）、主机信息与机器凭据见《[本地资源](../../../用户文档/本地资源.md)》的「本地模型机」小节，本文不重复内网细节。
 
 鉴权：服务开启 **API token**（Bearer 方式），请求须携带请求头：
 
@@ -31,7 +31,7 @@ Authorization: Bearer <token>
 
 token 值不落公开文档，仅引用位置：
 
-- 明文见《[本地资源](../../用户文档/本地资源.md)》「本地模型机」小节的 **API token** 行。
+- 明文见《[本地资源](../../../用户文档/本地资源.md)》「本地模型机」小节的 **API token** 行。
 - LM Studio 服务端：在 mjw 的 LM Studio → Developer（开发者）设置中查看/重置。
 
 ## 3. 模型清单与实测结论 <a id="models"></a>
@@ -84,7 +84,7 @@ curl http://<服务地址>/v1/chat/completions \
   }'
 ```
 
-`<服务地址>` 与 `<token>` 分别见《[本地资源](../../用户文档/本地资源.md)》与上文第 2 节。
+`<服务地址>` 与 `<token>` 分别见《[本地资源](../../../用户文档/本地资源.md)》与上文第 2 节。
 
 ## 5. 注意事项 <a id="notes"></a>
 
