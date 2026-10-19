@@ -524,6 +524,19 @@ def check(root: Path = ROOT, db: Path = DB) -> tuple[bool, ConcurrentStableDict[
 
 
 # ---------------- MCP 服务 ----------------
+# 工具边界必须返回**纯内建类型**（list[dict] 等），原因有两条：
+#  1) @mcp.tool 依返回注解生成 Pydantic JSON Schema，自定义集合类无法建模
+#     （注册期直接抛 PydanticInvalidForJsonSchema）；
+#  2) MCP 结果按 JSON 序列化回传，直接返回集合类对象会被 repr 成
+#     "ConcurrentStableDict([('path', ...)])" 这种串——既费 token 又难解析。
+# 内部实现仍用插入序集合类（裸集合护栏要求），仅在出口做一次转换。
+def _to_plain(
+    rows: ConcurrentStableList[ConcurrentStableDict[str, object]],
+) -> list:  # bare-collections:allow 内部辅助函数，出口即转内建容器
+    """把检索结果行转为纯内建 dict 列表（MCP 出口用）。"""
+    return [r.to_dict() for r in rows]
+
+
 mcp = MCPServer(
     name="bizs-search",
     instructions=(
@@ -549,12 +562,12 @@ def search_content(
     limit: int = 10,
 ) -> ToolResult:  # bare-collections:allow MCP 工具须内建容器
     """query: 检索词（中英文均可）；kind: doc/code/other；path: 路径子串；limit: 1-50。"""
-    return list(search(query, kind=kind, path=path, limit=limit))
+    return _to_plain(search(query, kind=kind, path=path, limit=limit))
 
 
 @mcp.tool(description="增量更新检索索引（按 mtime 比对，只处理新增/变更/删除的文件，秒级）。")
 def index_update() -> ToolJson:  # bare-collections:allow MCP 须内建容器
-    return dict(update_index())
+    return dict(update_index().to_dict())
 
 
 @mcp.tool(description="检索并返回命中行片段（需要看上下文时用，比返回整个文件省 token）。")
@@ -562,10 +575,10 @@ def search_with_snippet(
     query: str, limit: int = 5, kind: str | None = None
 ) -> ToolResult:  # bare-collections:allow MCP 工具须内建容器
     """在 search_content 基础上附加命中行片段。"""
-    rows = search(query, kind=kind, limit=limit)
+    rows = _to_plain(search(query, kind=kind, limit=limit))
     for r in rows:
         r["snippet"] = snippet(r["path"], query)
-    return list(rows)
+    return rows
 
 
 # ---------------- 命令行 ----------------
