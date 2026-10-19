@@ -38,7 +38,11 @@ def clear_isolated_env(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 _sqlite_basetemp = ""
-"""pytest basetemp（xdist worker 下为 `<basetemp>/popen-gwN`）；由 `plugin.pytest_configure` 注入。"""
+"""pytest basetemp（xdist worker 下为 `<basetemp>/popen-gwN`）；由 `plugin.pytest_configure` 注入。
+
+`bms` 仓的 `-p` 入口是 `backend/bms_testing_plugin.py`（采集前置）；产品仓可直接用
+`bms_core.testing.plugin`，覆盖率采集时机由产品仓自管。
+"""
 
 _SQLITE_TEMP_SUBDIR = "bms-pytest-sqlite"
 """无 basetemp 时的兜底目录（系统临时目录下，按 worker 再分一层）。"""
