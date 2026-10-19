@@ -78,7 +78,8 @@ stubPath = "typings"
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 # importlib 模式：多个同名 `tests` 目录（每服务一套）互不冲突，测试模块按路径唯一命名
-addopts = "--import-mode=importlib"
+# -p bms_core.testing.plugin：测试公共基座夹具全局注册（13_04；pytest 7+ 禁止非顶层 conftest 写 pytest_plugins）
+addopts = "--import-mode=importlib -p bms_core.testing.plugin"
 testpaths = [
     "libs/bms_core/tests",
     "services/txn/tests",

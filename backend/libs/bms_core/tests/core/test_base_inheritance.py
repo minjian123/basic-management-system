@@ -23,6 +23,8 @@ _PACKAGE_DIRS = [
 ]
 _ROOT_FILE = _PACKAGE_DIRS[0] / "core" / "base.py"
 _ROOT_CLASS = "BaseObject"
+_TEST_INFRA_DIR = _PACKAGE_DIRS[0] / "testing"
+"""测试公共基座（13_04）：测试基建类不属业务继承链，不适用「所有类必须继承业务基类」口径。"""
 _FORBIDDEN_BUILTINS = frozenset(
     {
         "object",
@@ -63,6 +65,8 @@ def test_all_app_classes_inherit_a_base() -> None:
     offenders: ConcurrentStableList[str] = ConcurrentStableList()
     for package_dir in _PACKAGE_DIRS:
         for path in sorted(package_dir.rglob("*.py")):
+            if _TEST_INFRA_DIR in path.parents:
+                continue  # 测试基建类（BaseTestCase / 内部替身）不属业务继承链
             for node in _iter_class_defs(path):
                 if path == _ROOT_FILE and node.name == _ROOT_CLASS:
                     continue  # 根基类本身无父类
