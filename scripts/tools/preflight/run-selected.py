@@ -229,6 +229,9 @@ def main(argv: tuple[str, ...] | None = None) -> int:
         sources = sorted({module.split(".", 1)[0] for module in cov_modules})
         env[_COVERAGE_DATA_ENV] = str(cov_data)
         env[_COVERAGE_SOURCE_ENV] = ",".join(sources)
+        # pytest 的 rootdir 可能落在子工程（如 `libs/bms_core/pyproject.toml`），那个工程的 addopts
+        # 不含启动插件 ⇒ 采集不会发生。这里显式注入 PYTHONPATH 并在命令里 `-p`（与 CI service-test 同法）。
+        env["PYTHONPATH"] = os.pathsep.join(filter(None, [str(cwd), env.get("PYTHONPATH", "")]))
         print(f"[test-selection] 覆盖率采集：{cov_data}（source={env[_COVERAGE_SOURCE_ENV]}）")
     rounds = 0
     expanded = 0
@@ -242,6 +245,9 @@ def main(argv: tuple[str, ...] | None = None) -> int:
             # 每轮先清旧数据：worker 按 pid 各落一份，跨轮残留会污染判定
             coverage_gate.cleanup(cov_data)
         cmd: ConcurrentStableList[str] = ConcurrentStableList([*shlex.split(args.pytest_cmd), "-q", *test_paths])
+        if cov_enabled:
+            # 显式加载启动插件（子工程 rootdir 下 addopts 不含它）
+            cmd.update(["-p", "bms_testing_plugin"])
         cmd.update(jobs)
         cmd.update(args.pytest_arg)
         print(f"\n[test-selection] 第 {rounds} 轮：{len(test_paths)} 个测试文件")

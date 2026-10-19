@@ -678,14 +678,17 @@ def _run_full_tests(
     """
     env = dict(os.environ)
     data_file = (backend / ".coverage").resolve()
+    plugin_args: tuple[str, ...] = ()
     if not no_cov:
         coverage_gate.cleanup(data_file)
         env[_COVERAGE_DATA_ENV] = str(data_file)
         env[_COVERAGE_SOURCE_ENV] = ",".join(_COVERAGE_PACKAGES)
+        env["PYTHONPATH"] = os.pathsep.join(filter(None, [str(backend), env.get("PYTHONPATH", "")]))
+        plugin_args = ("-p", "bms_testing_plugin")
         print(f"\n[preflight] 覆盖率采集：{data_file}（source={env[_COVERAGE_SOURCE_ENV]}）")
     _run(
         "后端测试：聚合全量（--full）",
-        ConcurrentStableList(["uv", "run", "pytest", "-q", *jobs]),
+        ConcurrentStableList(["uv", "run", "pytest", "-q", *plugin_args, *jobs]),
         backend,
         failures,
         env=env,
