@@ -7,8 +7,14 @@
     "ms-python.python",
     // Python：调试适配器（`launch.json` 里 type=debugpy 的后端调试项依赖它）
     "ms-python.debugpy",
-    // Python：语言服务（跳转 / 补全 / 类型检查，后端跳转依赖它）
+    // Python：解释器发现与选择（`python-envs.workspaceSearchPaths` 归属此扩展）
+    "ms-python.vscode-python-envs",
+    // Python：语言服务（跳转 / 补全 / 类型检查）。两套 IDE 分工不同，故并列：
+    //  - Pylance（配置键 `python.analysis.*`）：VS Code 侧用（闭源，仅授权微软官方产品）；
+    //  - basedpyright（配置键 `basedpyright.analysis.*`）：CodeBuddy 侧用（其扩展市场不提供 Pylance，
+    //    开源、与项目 pyright 门禁同内核）。两者设置项在 `.vscode/settings.json` 中成对镜像，改动须同步。
     "ms-python.vscode-pylance",
+    "detachhead.basedpyright",
     // 前端 ESLint 与 Prettier（frontend/apps/desktop / frontend/apps/mobile + frontend/packages/*）
     "dbaeumer.vscode-eslint",
     "esbenp.prettier-vscode"

@@ -25,7 +25,9 @@
   // 环境发现范围钉到后端 venv，避免 `*/.venv` 默认规则命中其他目录的 .venv（用错解释器）。
   "python-envs.workspaceSearchPaths": ["backend/.venv"],
   // 类型检查与项目门禁同口径（backend/pyproject.toml 的 [tool.pyright]：strict + include libs/services）。
-  // 本项目实际装的是 Pylance（未装 basedpyright），故按 Pylance 认的 `python.analysis.*` 写；
+  // **两套键名各认一套，必须成对镜像**（改一处务必同步另一处；与工作区根 .vscode/settings.json 同口径）：
+  //  - `python.analysis.*`       → Pylance（VS Code 侧；闭源，仅授权微软官方产品）；
+  //  - `basedpyright.analysis.*` → basedpyright（CodeBuddy 侧；其市场不提供 Pylance，开源同内核）。
   // alembic 迁移不在项目 `include` 内（含大量动态写法），用 ignore（抑制诊断）+ exclude 双保险，
   // 避免「项目门禁不管、编辑器却满屏报错」的口径分裂。
   "python.analysis.typeCheckingMode": "strict",
@@ -37,6 +39,28 @@
     "backend/alembic"
   ],
   "python.analysis.ignore": ["alembic", "backend/alembic", "**/alembic/**"],
+  "basedpyright.analysis.typeCheckingMode": "strict",
+  "basedpyright.analysis.diagnosticMode": "openFilesOnly",
+  "basedpyright.analysis.extraPaths": [
+    "backend",
+    "backend/libs/bms_core/src",
+    "backend/services/txn/src",
+    "backend/services/platform/src",
+    "backend/services/identity/src",
+    "backend/services/tenant/src",
+    "backend/services/file/src",
+    "backend/services/notification/src",
+    "backend/services/search/src",
+    "backend/services/ai/src",
+    "backend/services/report/src"
+  ],
+  "basedpyright.analysis.exclude": [
+    "**/node_modules",
+    "**/__pycache__",
+    "**/.venv",
+    "backend/alembic"
+  ],
+  "basedpyright.analysis.ignore": ["alembic", "backend/alembic", "**/alembic/**"],
   // ESLint（flat config）：monorepo 下**每个包各一份** `eslint.config.js`（`frontend/{apps,packages,modules}/*`），
   // 必须让扩展「按被检查文件就近取配置」——否则它会把 `apps/desktop` 的配置套到 `modules/*` 的文件上，
   // 解析器随即报「No tsconfigRootDir was set, and multiple candidate TSConfigRootDirs are present」。
