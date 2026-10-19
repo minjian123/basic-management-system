@@ -7,6 +7,7 @@
 
 import os
 from collections.abc import Iterator
+from typing import Any
 
 import pytest
 
@@ -72,17 +73,40 @@ def isolate_settings(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     get_settings.cache_clear()
 
 
-def has_fixture(request: pytest.FixtureRequest, name: str) -> bool:
-    """请求上下文是否提供指定夹具（不触发夹具构造）。
+def resolve_fixture(request: pytest.FixtureRequest, name: str) -> Any | None:
+    """尝试解析指定夹具；套件未提供该夹具时返回 `None`（不报错）。
+
+    注意：不能用 `request.fixturenames` 判断——它只含**已解析**的夹具（依赖链），
+    不含「可用但尚未请求」的夹具（如仅定义在 conftest 里的 `platform_db_url`）。
 
     Args:
         request: pytest 夹具请求。
         name: 夹具名。
 
     Returns:
-        bool: 是否可用。
+        Any | None: 夹具值；缺失时为 `None`。
     """
-    return name in request.fixturenames
+    try:
+        return request.getfixturevalue(name)
+    except pytest.FixtureLookupError:
+        return None
+
+
+def apply_platform_db(url: Any, monkeypatch: pytest.MonkeyPatch) -> bool:
+    """把平台库 URL 注入 `BMS_DATABASE__PLATFORM__URL` 并重置配置单例。
+
+    Args:
+        url: 会话级平台库连接串；`None` 表示本套件不使用平台库。
+        monkeypatch: pytest monkeypatch 夹具。
+
+    Returns:
+        bool: 是否已应用（`False` 表示无平台库、已跳过）。
+    """
+    if url is None:
+        return False
+    monkeypatch.setenv("BMS_DATABASE__PLATFORM__URL", str(url))
+    get_settings.cache_clear()
+    return True
 
 
 @pytest.fixture
@@ -102,12 +126,9 @@ def platform_db(
     Yields:
         None: 用例运行期。
     """
-    if not has_fixture(request, "platform_db_url"):
+    if not apply_platform_db(resolve_fixture(request, "platform_db_url"), monkeypatch):
         yield
         return
-    url = str(request.getfixturevalue("platform_db_url"))
-    monkeypatch.setenv("BMS_DATABASE__PLATFORM__URL", url)
-    get_settings.cache_clear()
     yield
     get_settings.cache_clear()
 

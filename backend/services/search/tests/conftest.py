@@ -16,13 +16,14 @@ from bms_core.core.config import get_settings
 from bms_core.testing.fixtures import (
     clear_tenant_cache,
     platform_db,
+    reset_plugin_registry,
     reset_request_context,
 )
 from bms_core.testing.fixtures import (
     isolate_settings as bms_isolate_settings,
 )
 
-__all__ = ("bms_isolate_settings", "platform_db", "reset_request_context")
+__all__ = ("bms_isolate_settings", "platform_db", "reset_plugin_registry", "reset_request_context")
 from bms_search.main import ApplicationFactory
 from ops.seed_tenant import seed_tenants
 from tests_support.auth import auth_headers, configure_token_env

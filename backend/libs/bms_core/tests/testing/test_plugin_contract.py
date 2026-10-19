@@ -56,15 +56,48 @@ def test_clear_tenant_cache_variants() -> None:
 
 
 @pytest.mark.kiwi_id(2317)
-def test_has_fixture_checks_request_names() -> None:
-    """夹具可用性判断：只看 `fixturenames`，不触发构造。"""
-    from bms_core.testing.fixtures import has_fixture
+def test_platform_db_fixture_skips_without_url(monkeypatch: pytest.MonkeyPatch) -> None:
+    """平台库夹具在无 `platform_db_url` 时直接结束（不进 setup 注入）。"""
+    from bms_core.testing import fixtures
 
-    with_url = cast(Any, SimpleNamespace(fixturenames=("platform_db_url",)))
-    without_url = cast(Any, SimpleNamespace(fixturenames=()))
+    class _NoUrl:
+        """无平台库的假请求：任何夹具都解析为空。"""
 
-    assert has_fixture(with_url, "platform_db_url")
-    assert not has_fixture(without_url, "platform_db_url")
+        def getfixturevalue(self, name: str) -> None:
+            """固定返回 None（模拟套件未提供夹具）。
+
+            Args:
+                name: 夹具名（忽略）。
+
+            Returns:
+                None: 固定 None。
+            """
+            return None
+
+    func = cast(Any, fixtures.platform_db).__wrapped__
+    generator = func(None, _NoUrl(), monkeypatch)
+    next(generator)
+    with pytest.raises(StopIteration):
+        next(generator)
+
+
+@pytest.mark.kiwi_id(2317)
+def test_apply_platform_db_skips_when_absent(monkeypatch: pytest.MonkeyPatch) -> None:
+    """无平台库的套件：不注入 URL、返回 False；有则注入并重置配置单例。"""
+    from bms_core.testing.fixtures import apply_platform_db
+
+    assert apply_platform_db(None, monkeypatch) is False
+    assert apply_platform_db("sqlite+aiosqlite:///tmp/app.db", monkeypatch) is True
+    assert os.environ["BMS_DATABASE__PLATFORM__URL"] == "sqlite+aiosqlite:///tmp/app.db"
+
+
+@pytest.mark.kiwi_id(2317)
+def test_resolve_fixture_handles_missing(request: pytest.FixtureRequest) -> None:
+    """夹具解析：存在则返回其值；套件未提供时返回 None 而不抛错（平台库夹具的跳过分支）。"""
+    from bms_core.testing.fixtures import resolve_fixture
+
+    assert resolve_fixture(request, "definitely_missing_fixture_xyz") is None
+    assert resolve_fixture(request, "tmp_path") is not None
 
 
 @pytest.mark.kiwi_id(2317)
