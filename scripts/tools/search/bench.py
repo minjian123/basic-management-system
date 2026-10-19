@@ -29,56 +29,54 @@ RG = Path(
 )
 
 # (查询, 人工标注的相关文档前缀集) —— 按本仓领域知识指定权威落点
-CASES: ConcurrentStableList[tuple[str, ConcurrentStableList[str]]] = (
-    ConcurrentStableList(
-        [
-            (
-                "权限计算",
-                ConcurrentStableList(
-                    [
-                        "bms/bms文档/项目/07_RBAC基础模块/任务/02_用户与角色/02_用户与角色_04_主体链权限计算引擎",
-                        "bms/bms文档/项目/07_RBAC基础模块/需求/",
-                    ]
-                ),
+CASES: ConcurrentStableList[tuple[str, ConcurrentStableList[str]]] = ConcurrentStableList(
+    [
+        (
+            "权限计算",
+            ConcurrentStableList(
+                [
+                    "bms/bms文档/项目/07_RBAC基础模块/任务/02_用户与角色/02_用户与角色_04_主体链权限计算引擎",
+                    "bms/bms文档/项目/07_RBAC基础模块/需求/",
+                ]
             ),
-            (
-                "基类继承链",
-                ConcurrentStableList(
-                    [
-                        "bms/bms文档/设计/基类体系/",
-                        "bms/bms文档/设计/架构设计/04_架构设计_后端基础类体系.md",
-                    ]
-                ),
+        ),
+        (
+            "基类继承链",
+            ConcurrentStableList(
+                [
+                    "bms/bms文档/设计/基类体系/",
+                    "bms/bms文档/设计/架构设计/04_架构设计_后端基础类体系.md",
+                ]
             ),
-            (
-                "认证刷新令牌",
-                ConcurrentStableList(
-                    [
-                        "bms/bms文档/项目/06_认证与安全/任务/01_认证与会话/01_认证与会话_03_本地登录刷新登出链路",
-                        "bms/bms文档/项目/06_认证与安全/任务/05_登录前端/05_登录前端_02_token与401静默刷新接线",
-                    ]
-                ),
+        ),
+        (
+            "认证刷新令牌",
+            ConcurrentStableList(
+                [
+                    "bms/bms文档/项目/06_认证与安全/任务/01_认证与会话/01_认证与会话_03_本地登录刷新登出链路",
+                    "bms/bms文档/项目/06_认证与安全/任务/05_登录前端/05_登录前端_02_token与401静默刷新接线",
+                ]
             ),
-            (
-                "resolve_plugin",
-                ConcurrentStableList(
-                    [
-                        "bms/backend/libs/bms_core/src/bms_core/",
-                        "bms/backend/services/platform/tests/contracts/",
-                    ]
-                ),
+        ),
+        (
+            "resolve_plugin",
+            ConcurrentStableList(
+                [
+                    "bms/backend/libs/bms_core/src/bms_core/",
+                    "bms/backend/services/platform/tests/contracts/",
+                ]
             ),
-            (
-                "租户隔离",
-                ConcurrentStableList(
-                    [
-                        "bms/bms文档/设计/",
-                        "bms/backend/libs/bms_core/src/",
-                    ]
-                ),
+        ),
+        (
+            "租户隔离",
+            ConcurrentStableList(
+                [
+                    "bms/bms文档/设计/",
+                    "bms/backend/libs/bms_core/src/",
+                ]
             ),
-        ]
-    )
+        ),
+    ]
 )
 K = 10
 
@@ -99,13 +97,11 @@ def rg_ranked(query: str, k: int = K) -> tuple[ConcurrentStableList[str], float]
         check=False,
     )
     dt = (time.perf_counter() - t0) * 1000
-    hits = ConcurrentStableList(l.strip() for l in out.stdout.splitlines() if l.strip())
+    hits = ConcurrentStableList(line.strip() for line in out.stdout.splitlines() if line.strip())
     return ConcurrentStableList(hits[:k]), dt
 
 
-def rr(
-    paths: ConcurrentStableList[str], prefixes: ConcurrentStableList[str]
-) -> tuple[float, int]:
+def rr(paths: ConcurrentStableList[str], prefixes: ConcurrentStableList[str]) -> tuple[float, int]:
     """返回 (MRR, 命中相关文档数)。"""
     for i, p in enumerate(paths, 1):
         if relevant(p, prefixes):

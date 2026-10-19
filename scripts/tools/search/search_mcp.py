@@ -50,12 +50,10 @@ from mcp.server.mcpserver import MCPServer
 
 # 集合声明走基座插入序集合类（《后端开发规范》「集合与排序」；
 # check-bare-collections.py 强制、scripts/tools 亦在扫描范围内）。
-_SRC_ROOT = (
-    Path(__file__).resolve().parents[3] / "backend" / "libs" / "bms_core" / "src"
-)
+_SRC_ROOT = Path(__file__).resolve().parents[3] / "backend" / "libs" / "bms_core" / "src"
 if str(_SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(_SRC_ROOT))
-from bms_core.core.concurrent import (
+from bms_core.core.concurrent import (  # noqa: E402  须先注入 sys.path
     ConcurrentStableDict,
     ConcurrentStableList,
     ConcurrentStableSet,
@@ -327,8 +325,7 @@ def index_file(con: sqlite3.Connection, p: Path, st, root: Path) -> bool:
 
     _drop(con, rel)
     cur = con.execute(
-        "INSERT INTO files(path,kind,ext,title,abstract,crumb,symbols,mtime,size)"
-        " VALUES(?,?,?,?,?,?,?,?,?)",
+        "INSERT INTO files(path,kind,ext,title,abstract,crumb,symbols,mtime,size) VALUES(?,?,?,?,?,?,?,?,?)",
         (
             rel,
             kind,
@@ -357,18 +354,14 @@ def index_file(con: sqlite3.Connection, p: Path, st, root: Path) -> bool:
     return True
 
 
-def update_index(
-    root: Path = ROOT, db: Path = DB, *, rebuild: bool = False
-) -> ConcurrentStableDict[str, int]:
+def update_index(root: Path = ROOT, db: Path = DB, *, rebuild: bool = False) -> ConcurrentStableDict[str, int]:
     """增量（或全量重建）索引。返回变更统计。"""
     db.parent.mkdir(parents=True, exist_ok=True)
     if rebuild and db.exists():
         db.unlink()
     con = sqlite3.connect(db)
     con.executescript(SCHEMA)
-    known = ConcurrentStableDict(
-        con.execute("SELECT path, mtime FROM files").fetchall()
-    )
+    known = ConcurrentStableDict(con.execute("SELECT path, mtime FROM files").fetchall())
     added = changed = removed = 0
     seen: ConcurrentStableSet[str] = ConcurrentStableSet()
     for p, st in iter_files(root):
@@ -389,9 +382,7 @@ def update_index(
     con.commit()
     total = con.execute("SELECT COUNT(*) FROM files").fetchone()[0]
     con.close()
-    return ConcurrentStableDict(
-        {"added": added, "changed": changed, "removed": removed, "total": total}
-    )
+    return ConcurrentStableDict({"added": added, "changed": changed, "removed": removed, "total": total})
 
 
 # ---------------- 检索 ----------------
@@ -470,10 +461,7 @@ def search(
     sql += " ORDER BY score LIMIT ?"
     pool = max(40, limit * 4)
     params.add(pool)
-    rows = ConcurrentStableList(
-        ConcurrentStableDict(dict(r))
-        for r in con.execute(sql, params.to_list()).fetchall()
-    )
+    rows = ConcurrentStableList(ConcurrentStableDict(dict(r)) for r in con.execute(sql, params.to_list()).fetchall())
     con.close()
     # bm25 越小越相关，取负后越大越相关，便于阅读与重排
     scored = ConcurrentStableList(
@@ -508,32 +496,21 @@ def snippet(rel: str, query: str, *, width: int = 160) -> str:
 
 
 # ---------------- 自检 ----------------
-def check(
-    root: Path = ROOT, db: Path = DB
-) -> tuple[bool, ConcurrentStableDict[str, object]]:
+def check(root: Path = ROOT, db: Path = DB) -> tuple[bool, ConcurrentStableDict[str, object]]:
     """索引与实际文件集一致性自检（吸取「索引会漂移」的教训，可被脚本判失败）。"""
     if not db.exists():
         return False, ConcurrentStableDict({"error": "索引不存在，请先 --rebuild"})
     con = sqlite3.connect(db)
-    indexed = ConcurrentStableDict(
-        con.execute("SELECT path, mtime FROM files").fetchall()
-    )
+    indexed = ConcurrentStableDict(con.execute("SELECT path, mtime FROM files").fetchall())
     con.close()
     actual = ConcurrentStableDict(
-        {
-            str(p.relative_to(root)).replace("\\", "/"): st.st_mtime
-            for p, st in iter_files(root)
-        }
+        {str(p.relative_to(root)).replace("\\", "/"): st.st_mtime for p, st in iter_files(root)}
     )
-    stale = ConcurrentStableList(
-        k for k, v in actual.items() if k in indexed and abs(indexed[k] - v) > 1e-6
-    )
+    stale = ConcurrentStableList(k for k, v in actual.items() if k in indexed and abs(indexed[k] - v) > 1e-6)
     missing = ConcurrentStableList(k for k in actual if k not in indexed)
     extra = ConcurrentStableList(k for k in indexed if k not in actual)
     ok = not (stale or missing or extra)
-    samples = ConcurrentStableList(
-        stale.to_list() + missing.to_list() + extra.to_list()
-    )
+    samples = ConcurrentStableList(stale.to_list() + missing.to_list() + extra.to_list())
     return ok, ConcurrentStableDict(
         {
             "indexed": len(indexed),
@@ -575,16 +552,12 @@ def search_content(
     return list(search(query, kind=kind, path=path, limit=limit))
 
 
-@mcp.tool(
-    description="增量更新检索索引（按 mtime 比对，只处理新增/变更/删除的文件，秒级）。"
-)
+@mcp.tool(description="增量更新检索索引（按 mtime 比对，只处理新增/变更/删除的文件，秒级）。")
 def index_update() -> ToolJson:  # bare-collections:allow MCP 须内建容器
     return dict(update_index())
 
 
-@mcp.tool(
-    description="检索并返回命中行片段（需要看上下文时用，比返回整个文件省 token）。"
-)
+@mcp.tool(description="检索并返回命中行片段（需要看上下文时用，比返回整个文件省 token）。")
 def search_with_snippet(
     query: str, limit: int = 5, kind: str | None = None
 ) -> ToolResult:  # bare-collections:allow MCP 工具须内建容器
