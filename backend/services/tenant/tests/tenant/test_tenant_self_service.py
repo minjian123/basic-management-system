@@ -52,8 +52,13 @@ _OTHER_USER = "9101"
 _ORPHAN_USER = "9201"
 """专用用户主体（「未建立关系」用例；不被其他用例自愈，避免跨用例状态耦合）。"""
 
-_ORPHAN_DENIED_USER = "9301"
-"""专用用户主体（「自愈后仍越权」用例；与 `_ORPHAN_USER` 分离，避免跨用例自愈状态耦合）。"""
+_ORPHAN_DENIED_USER = "9303"
+"""专用用户主体（「自愈后仍越权」用例）。
+
+与 `_ORPHAN_USER` 及 `test_tenant_membership.py` 的 `_USER`（9301，会直写 acme 关系）**都不同**：
+同 worker 内多个文件共用一个平台库，主体撞号会让「未接线用户切他人租户被拒」变成成功切换
+（2026-10-19 CI 并行实测）。
+"""
 
 
 class _RecordingIdempotency:
