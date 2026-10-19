@@ -44,6 +44,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -156,23 +157,28 @@ def _run(
         bufsize=1,
     )
     lines: ConcurrentStableList[str] = ConcurrentStableList()
-    deadline = time.monotonic() + limit if limit is not None else None
-    assert process.stdout is not None
+
+    def _pump() -> None:
+        """后台线程：逐行透传并收集（`process.wait` 才能施加超时）。"""
+        assert process.stdout is not None
+        for raw in process.stdout:
+            lines.add(raw.rstrip("\n"))
+            print(raw, end="", flush=True)
+
+    reader = threading.Thread(target=_pump, daemon=True)
+    reader.start()
     try:
-        for line in process.stdout:
-            lines.add(line.rstrip("\n"))
-            print(line, end="", flush=True)
-            if deadline is not None and time.monotonic() > deadline:
-                process.kill()
-                raise subprocess.TimeoutExpired(cmd, limit)
+        returncode = process.wait(timeout=limit)
     except subprocess.TimeoutExpired:
+        process.kill()
+        reader.join(timeout=5)
         print(
             f"  中止（单步超时 {limit:.0f}s；全量与集成交 CI，确需本地全量请显式 --full）\n"
             "  提示：`uv` 拉起的长任务可能残留子进程，必要时手工结束。"
         )
         failures.add(f"预算护栏（单步超时）：{label}")
         return False
-    returncode = process.wait()
+    reader.join()
     if returncode != 0:
         failures.add(label)
         return False
