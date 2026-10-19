@@ -624,7 +624,9 @@ def build_selection(
             selected.update(files)
             if total:
                 degraded = True
-                reasons.add("全局配置 / 迁移 / 部署变更 ⇒ 全量")
+                # 原因按工程循环触发，同一原因只登记一次（否则 10 个工程会打印 10 遍）
+                if "全局配置 / 迁移 / 部署变更 ⇒ 全量" not in reasons:
+                    reasons.add("全局配置 / 迁移 / 部署变更 ⇒ 全量")
         else:
             for rel in changed_set:
                 for candidate in _isomorphic_candidates(backend, rel, project):
