@@ -22,6 +22,7 @@ from typing import TYPE_CHECKING, cast
 from bms_core.cache.base import CacheRegion
 from bms_core.core.concurrent import (
     ConcurrentStableDict,
+    ConcurrentStableFrozenDict,
     ConcurrentStableFrozenList,
     ConcurrentStableList,
     ConcurrentStableSet,
@@ -543,7 +544,7 @@ class UserAssignmentsService(BaseFrameworkObject):
                 service=ORG_SERVICE,
                 method="POST",
                 path=BRANCH_EXECUTE_PATH,
-                json_body=body,
+                json_body=ConcurrentStableFrozenDict(body),
                 tenant_id=self._tenant_id,
             )
         )
@@ -601,8 +602,8 @@ class UserAssignmentsService(BaseFrameworkObject):
                 service=ORG_SERVICE,
                 method="PUT",
                 path=path,
-                json_body=body,
-                headers=headers,
+                json_body=ConcurrentStableFrozenDict(body),
+                headers=ConcurrentStableFrozenDict(headers),
                 tenant_id=self._tenant_id,
             )
         )
@@ -632,7 +633,7 @@ class UserAssignmentsService(BaseFrameworkObject):
         user_id: int,
         req: UserAssignmentsRequest,
         idempotency_key: str | None,
-    ) -> ConcurrentStableDict[str, object]:
+    ) -> ConcurrentStableFrozenDict[str, object]:
         """构造 platform 分支载荷（分支处理器解包后调用同一写入器）。
 
         Args:
@@ -641,7 +642,7 @@ class UserAssignmentsService(BaseFrameworkObject):
             idempotency_key: 业务幂等键。
 
         Returns:
-            ConcurrentStableDict[str, object]: 分支载荷。
+            ConcurrentStableFrozenDict[str, object]: 分支载荷（只读快照）。
         """
         args: ConcurrentStableDict[str, object] = ConcurrentStableDict()
         args.set("user_id", user_id)
@@ -657,7 +658,7 @@ class UserAssignmentsService(BaseFrameworkObject):
             args.set("role_ids", list(req.role_ids))
         if idempotency_key:
             args.set("idempotency_key", idempotency_key)
-        return args
+        return ConcurrentStableFrozenDict(args)
 
     async def _after_commit(
         self,

@@ -16,7 +16,7 @@ from __future__ import annotations
 import logging
 from typing import Any, cast
 
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableSet
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenDict, ConcurrentStableSet
 from bms_core.core.exceptions import InternalError
 from bms_core.db.tenant import current_tenant_id_str
 from bms_core.permission.resolver import BaseRoleResolver
@@ -92,7 +92,7 @@ class OrgRoleResolver(BaseRoleResolver):
             service=ORG_SERVICE_KEY,
             method="GET",
             path=ORG_USER_ROLES_PATH,
-            query=query,
+            query=ConcurrentStableFrozenDict(query),
             tenant_id=current_tenant_id_str(),
         )
         try:

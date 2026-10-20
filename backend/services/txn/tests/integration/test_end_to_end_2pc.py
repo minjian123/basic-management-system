@@ -26,6 +26,7 @@ from sqlalchemy.pool import StaticPool
 
 from bms_core.core.concurrent import (
     ConcurrentStableDict,
+    ConcurrentStableFrozenDict,
     ConcurrentStableFrozenList,
     ConcurrentStableList,
 )
@@ -141,9 +142,9 @@ def _probe_specs() -> ConcurrentStableList[BranchSpec]:
     )
 
 
-def _payload(note: str, probe_id: int) -> ConcurrentStableDict[str, object]:
+def _payload(note: str, probe_id: int) -> ConcurrentStableFrozenDict[str, object]:
     """分支载荷（写哪一行、写什么）。"""
-    return ConcurrentStableDict[str, object]({"id": probe_id, "note": note})
+    return ConcurrentStableFrozenDict[str, object]({"id": probe_id, "note": note})
 
 
 def _create_probe(engine: Engine) -> None:

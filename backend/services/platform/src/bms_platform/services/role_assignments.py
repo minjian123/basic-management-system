@@ -22,6 +22,7 @@ from bms_core.cache.base import CacheRegion
 from bms_core.config.base import BaseConfigSource
 from bms_core.core.concurrent import (
     ConcurrentStableDict,
+    ConcurrentStableFrozenDict,
     ConcurrentStableFrozenList,
     ConcurrentStableList,
     ConcurrentStableSet,
@@ -448,7 +449,7 @@ class RoleAssignmentsService(BaseFrameworkObject):
                 service=ORG_SERVICE,
                 method="POST",
                 path=BRANCH_EXECUTE_PATH,
-                json_body=body,
+                json_body=ConcurrentStableFrozenDict(body),
                 tenant_id=self._tenant_id,
             )
         )
@@ -506,8 +507,8 @@ class RoleAssignmentsService(BaseFrameworkObject):
                 service=ORG_SERVICE,
                 method="PUT",
                 path=path,
-                json_body=body,
-                headers=headers,
+                json_body=ConcurrentStableFrozenDict(body),
+                headers=ConcurrentStableFrozenDict(headers),
                 tenant_id=self._tenant_id,
             )
         )
@@ -537,7 +538,7 @@ class RoleAssignmentsService(BaseFrameworkObject):
         role_id: int,
         req: RoleAssignmentsRequest,
         idempotency_key: str | None,
-    ) -> ConcurrentStableDict[str, object]:
+    ) -> ConcurrentStableFrozenDict[str, object]:
         """构造 platform 分支载荷（分支处理器解包后调用同一写入器）。
 
         Args:
@@ -546,7 +547,7 @@ class RoleAssignmentsService(BaseFrameworkObject):
             idempotency_key: 业务幂等键。
 
         Returns:
-            ConcurrentStableDict[str, object]: 分支载荷。
+            ConcurrentStableFrozenDict[str, object]: 分支载荷（只读快照）。
         """
         args: ConcurrentStableDict[str, object] = ConcurrentStableDict()
         args.set("role_id", role_id)
@@ -561,7 +562,7 @@ class RoleAssignmentsService(BaseFrameworkObject):
             args.set("user_ids", list(req.user_ids))
         if idempotency_key:
             args.set("idempotency_key", idempotency_key)
-        return args
+        return ConcurrentStableFrozenDict(args)
 
     async def _after_commit(self, *, applied: ConcurrentStableList[str]) -> None:
         """提交后副作用（尽力而为、不阻断）：角色 / 角色分配变更权限版本一次递增。

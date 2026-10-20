@@ -15,7 +15,7 @@ from __future__ import annotations
 import logging
 from typing import Any, cast
 
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenDict, ConcurrentStableList
 from bms_core.core.objects import BaseFrameworkObject
 from bms_core.db.tenant import current_tenant_id_str
 from bms_core.servicecall.base import BaseServiceClient, ServiceRequest
@@ -71,7 +71,7 @@ class UserSessionClient(BaseFrameworkObject):
             service=IDENTITY_SERVICE_KEY,
             method="POST",
             path=REVOKE_USER_SESSIONS_PATH,
-            json_body=body,
+            json_body=ConcurrentStableFrozenDict(body),
             tenant_id=current_tenant_id_str(),
         )
         try:

@@ -176,7 +176,7 @@ class StubServiceClient(BaseServiceClient):
         """
         if self.fail:
             raise ServiceUnavailableError("identity 不可达")
-        body = request.json_body or ConcurrentStableDict()
+        body: ConcurrentStableDict[str, object] = request.json_body or ConcurrentStableDict()
         self.calls.add((request.path, body))
         payload = f'{{"code": 0, "message": "ok", "data": {{"revoked": {self.revoked}}}}}'
         return ServiceResponse(status_code=200, content=payload.encode())

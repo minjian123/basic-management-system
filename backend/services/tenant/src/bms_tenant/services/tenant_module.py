@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from typing import cast
 
 from bms_core.cache.base import CacheRegion
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenList, ConcurrentStableList
 from bms_core.core.exceptions import ParamError, ServiceUnavailableError, TenantModuleUnavailableError
 from bms_core.core.logging import get_logger
 from bms_core.core.objects import BaseFrameworkObject, BaseValueObject
@@ -38,7 +38,7 @@ _LOGGER = get_logger("bms.tenant_module")
 
 _PLATFORM_SERVICE = "platform"
 _CATALOG_PATH = "/api/v1/modules/snapshot"
-_CATALOG_SCOPES: ConcurrentStableList[str] = ConcurrentStableList(("module_catalog",))
+_CATALOG_SCOPES: ConcurrentStableFrozenList[str] = ConcurrentStableFrozenList(("module_catalog",))
 _CATALOG_TTL = 60
 
 

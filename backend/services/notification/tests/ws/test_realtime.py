@@ -11,7 +11,7 @@ from bms_core.api.deps import get_realtime_publisher
 from bms_core.application import service_lifespan as lifespan
 from bms_core.core.base import BaseObject
 from bms_core.core.capability import BaseCapability, BaseNullObject
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenDict
+from bms_core.core.concurrent import ConcurrentStableFrozenDict
 from bms_core.ws.base import REALTIME_EVENTS, BaseRealtimePublisher, RealtimeEvent
 from bms_core.ws.null import NullRealtimePublisher
 from bms_notification.main import ApplicationFactory
@@ -57,7 +57,7 @@ async def test_null_publisher_noop() -> None:
     publisher = NullRealtimePublisher()
     assert (
         await publisher.emit(
-            RealtimeEvent(event="notification.new", data=ConcurrentStableDict[str, object](), user_id="1")
+            RealtimeEvent(event="notification.new", data=ConcurrentStableFrozenDict[str, object](), user_id="1")
         )
         is None
     )
@@ -77,7 +77,7 @@ async def test_dependency_provider_resolves() -> None:
             publisher: Annotated[BaseRealtimePublisher, Depends(get_realtime_publisher)],
         ) -> dict[str, object]:  # bare-collections:allow（FastAPI 端点返回注解）
             await publisher.emit(
-                RealtimeEvent(event="notification.new", data=ConcurrentStableDict[str, object](), user_id="1")
+                RealtimeEvent(event="notification.new", data=ConcurrentStableFrozenDict[str, object](), user_id="1")
             )
             return {"key": publisher.key, "type": type(publisher).__name__}
 
