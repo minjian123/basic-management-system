@@ -11,16 +11,26 @@
 本模块顶层**只依赖标准库与 coverage**：先启动探针（`BMS_COVERAGE_DATA` 驱动），再在
 `pytest_configure` 里导入 `bms_core.testing.plugin` 注册夹具（此时探针已启动，导入行可被采集）。
 
+**全量测试守卫（08_05 起）**：`pytest_configure` 最早期先加载
+`scripts/tools/preflight/full_test_guard.py`——本地非 CI 环境既未显式声明全量（`--full` /
+`BMS_ALLOW_FULL_TESTS=1`）又未指定测试范围（无位置参数 / `-k` / `-m` / `--changed-file-list` 等）时
+**立即报错退出、零用例执行**，并打印应改用的 `run-selected.py` 定向命令。口径见《测试规范》§2.1
+「变更驱动、不全量重跑」；CI 环境变量天然放行。
+
 环境变量（由预检 / CI / 选测执行器设置）：
 
 - `BMS_COVERAGE_DATA`：覆盖率数据文件基址（xdist worker 各自写 `.coverage.<host>.<pid>.<rand>`，
   结束后由调用方 `coverage combine` 合并）；未设置则不采集；
-- `BMS_COVERAGE_SOURCE`：采集范围（逗号分隔的包名 / 模块名，如 `bms_core,bms_platform`）。
+- `BMS_COVERAGE_SOURCE`：采集范围（逗号分隔的包名 / 模块名，如 `bms_core,bms_platform`）；
+- `BMS_ALLOW_FULL_TESTS`：显式允许本地全量（`1` / `true` 等；临时排查用）。
 """
 
 import atexit
 import contextlib
+import importlib.util
 import os
+import sys
+from pathlib import Path
 from typing import Any
 
 _COVERAGE_DATA_ENV = "BMS_COVERAGE_DATA"
@@ -29,7 +39,28 @@ _COVERAGE_DATA_ENV = "BMS_COVERAGE_DATA"
 _COVERAGE_SOURCE_ENV = "BMS_COVERAGE_SOURCE"
 """采集范围（逗号分隔）。"""
 
+_GUARD_PATH = Path(__file__).resolve().parents[1] / "scripts" / "tools" / "preflight" / "full_test_guard.py"
+"""全量测试守卫模块路径（`scripts/tools/preflight/full_test_guard.py`）。"""
+
 _coverage: Any = None
+
+
+def _load_guard() -> Any:
+    """按路径加载全量测试守卫模块（不依赖 `scripts` 可导入性）。
+
+    Returns:
+        Any: 守卫模块；文件缺失时返回 `None`。
+    """
+    if not _GUARD_PATH.is_file():  # pragma: no cover - 守卫文件缺失时的退化路径
+        return None
+    if str(_GUARD_PATH.parent) not in sys.path:
+        sys.path.insert(0, str(_GUARD_PATH.parent))
+    spec = importlib.util.spec_from_file_location("bms_full_test_guard", _GUARD_PATH)
+    if spec is None or spec.loader is None:  # pragma: no cover - 极端异常
+        return None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def _start_coverage() -> Any:
@@ -77,12 +108,28 @@ def pytest_sessionfinish(session: Any, exitstatus: int) -> None:
         _stop_coverage()
 
 
+def pytest_addoption(parser: Any) -> None:
+    """注册守卫的 `--full` 选项（须在 collection 前完成注册）。
+
+    Args:
+        parser: pytest 的 Parser 对象。
+    """
+    guard = _load_guard()
+    if guard is not None:
+        guard.pytest_addoption(parser)
+
+
 def pytest_configure(config: Any) -> None:
-    """注册测试基座夹具（夹具模块此时才导入，导入行可被覆盖率采集）。
+    """全量守卫 → 注册测试基座夹具（夹具模块此时才导入，导入行可被覆盖率采集）。
+
+    守卫**先于**夹具注册执行：命中拦截条件时抛 `UsageError`，用例零执行。
 
     Args:
         config: pytest 配置对象。
     """
+    guard = _load_guard()
+    if guard is not None:
+        guard.pytest_configure(config)
     from bms_core.testing import plugin as base_plugin
 
     config.pluginmanager.register(base_plugin, "bms_testing_base_plugin")
