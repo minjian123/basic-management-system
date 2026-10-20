@@ -28,6 +28,114 @@
         "title": "ApiResponse",
         "type": "object"
       },
+      "ApiResponse_ModuleStatusResponse_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ModuleStatusResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[ModuleStatusResponse]",
+        "type": "object"
+      },
+      "ApiResponse_QuotaResult_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/QuotaResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[QuotaResult]",
+        "type": "object"
+      },
+      "ApiResponse_TenantDetail_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TenantDetail"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[TenantDetail]",
+        "type": "object"
+      },
+      "ApiResponse_TenantList_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TenantList"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[TenantList]",
+        "type": "object"
+      },
       "ApiResponse_TenantMembershipListResponse_": {
         "additionalProperties": false,
         "properties": {
@@ -55,6 +163,114 @@
         "title": "ApiResponse[TenantMembershipListResponse]",
         "type": "object"
       },
+      "ApiResponse_TenantModuleItemList_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TenantModuleItemList"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[TenantModuleItemList]",
+        "type": "object"
+      },
+      "ApiResponse_TenantModuleOptionList_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TenantModuleOptionList"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[TenantModuleOptionList]",
+        "type": "object"
+      },
+      "ApiResponse_TenantProvisionResult_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TenantProvisionResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[TenantProvisionResult]",
+        "type": "object"
+      },
+      "ApiResponse_TenantQuotaItemList_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TenantQuotaItemList"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[TenantQuotaItemList]",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -66,6 +282,410 @@
           }
         },
         "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "ModuleStatusResponse": {
+        "additionalProperties": false,
+        "description": "租户模块状态集（内部契约；模块门禁用）。",
+        "properties": {
+          "disabled": {
+            "description": "已开通但停用的模块标识",
+            "items": {
+              "type": "string"
+            },
+            "title": "Disabled",
+            "type": "array"
+          },
+          "enabled": {
+            "description": "已开通且启用的模块标识",
+            "items": {
+              "type": "string"
+            },
+            "title": "Enabled",
+            "type": "array"
+          },
+          "version": {
+            "description": "清单版本号（变更即递增）",
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version"
+        ],
+        "title": "ModuleStatusResponse",
+        "type": "object"
+      },
+      "QuotaConsumeRequest": {
+        "additionalProperties": false,
+        "description": "配额占用 / 校验请求（内部契约）。",
+        "properties": {
+          "amount": {
+            "description": "占用数量（正数）",
+            "exclusiveMinimum": 0.0,
+            "title": "Amount",
+            "type": "integer"
+          },
+          "quota_key": {
+            "description": "配额维度（user_count / storage_bytes / open_calls）",
+            "title": "Quota Key",
+            "type": "string"
+          },
+          "tenant_id": {
+            "description": "租户主键",
+            "title": "Tenant Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "tenant_id",
+          "quota_key",
+          "amount"
+        ],
+        "title": "QuotaConsumeRequest",
+        "type": "object"
+      },
+      "QuotaReleaseRequest": {
+        "additionalProperties": false,
+        "description": "配额释放请求（内部契约）。",
+        "properties": {
+          "amount": {
+            "description": "释放数量（正数）",
+            "exclusiveMinimum": 0.0,
+            "title": "Amount",
+            "type": "integer"
+          },
+          "quota_key": {
+            "description": "配额维度",
+            "title": "Quota Key",
+            "type": "string"
+          },
+          "tenant_id": {
+            "description": "租户主键",
+            "title": "Tenant Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "tenant_id",
+          "quota_key",
+          "amount"
+        ],
+        "title": "QuotaReleaseRequest",
+        "type": "object"
+      },
+      "QuotaResult": {
+        "additionalProperties": false,
+        "description": "配额操作结果（内部契约）。",
+        "properties": {
+          "allowed": {
+            "description": "是否放行（无配额行视为不限制）",
+            "title": "Allowed",
+            "type": "boolean"
+          },
+          "limit_value": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "限额（无配额行为空）",
+            "title": "Limit Value"
+          },
+          "used_value": {
+            "description": "操作后的已用量",
+            "minimum": 0.0,
+            "title": "Used Value",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "allowed",
+          "used_value"
+        ],
+        "title": "QuotaResult",
+        "type": "object"
+      },
+      "TenantCreateRequest": {
+        "additionalProperties": false,
+        "description": "开通租户请求（code / name / domain + 模块勾选清单）。",
+        "properties": {
+          "code": {
+            "description": "租户编码（全小写；库名基）",
+            "maxLength": 32,
+            "minLength": 2,
+            "pattern": "^[a-z][a-z0-9_]{1,31}$",
+            "title": "Code",
+            "type": "string"
+          },
+          "domain": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "子域名（如 acme.bms.example.com）",
+            "title": "Domain"
+          },
+          "expire_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "到期时间（UTC）",
+            "title": "Expire At"
+          },
+          "modules": {
+            "description": "开通模块勾选清单（仅可勾选产品模块；基础能力恒开通）",
+            "items": {
+              "type": "string"
+            },
+            "title": "Modules",
+            "type": "array"
+          },
+          "name": {
+            "description": "租户名称",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "name"
+        ],
+        "title": "TenantCreateRequest",
+        "type": "object"
+      },
+      "TenantDetail": {
+        "additionalProperties": false,
+        "description": "租户详情（含配额与模块）。",
+        "properties": {
+          "code": {
+            "description": "租户编码",
+            "title": "Code",
+            "type": "string"
+          },
+          "created_at": {
+            "description": "创建时间（UTC）",
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "domain": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "子域名",
+            "title": "Domain"
+          },
+          "expire_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "到期时间（UTC）",
+            "title": "Expire At"
+          },
+          "id": {
+            "description": "租户主键",
+            "title": "Id",
+            "type": "string"
+          },
+          "modules": {
+            "description": "模块清单（含未开通）",
+            "items": {
+              "$ref": "#/components/schemas/TenantModuleItem"
+            },
+            "title": "Modules",
+            "type": "array"
+          },
+          "name": {
+            "description": "租户名称",
+            "title": "Name",
+            "type": "string"
+          },
+          "quotas": {
+            "description": "配额与用量",
+            "items": {
+              "$ref": "#/components/schemas/TenantQuotaItem"
+            },
+            "title": "Quotas",
+            "type": "array"
+          },
+          "status": {
+            "description": "状态",
+            "enum": [
+              "provisioning",
+              "active",
+              "suspended"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "updated_at": {
+            "description": "更新时间（UTC）",
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "version": {
+            "description": "乐观锁版本",
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "name",
+          "status",
+          "created_at",
+          "updated_at",
+          "version"
+        ],
+        "title": "TenantDetail",
+        "type": "object"
+      },
+      "TenantList": {
+        "additionalProperties": false,
+        "description": "租户分页列表。",
+        "properties": {
+          "list": {
+            "items": {
+              "$ref": "#/components/schemas/TenantListItem"
+            },
+            "title": "List",
+            "type": "array"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "list",
+          "total",
+          "page",
+          "size"
+        ],
+        "title": "TenantList",
+        "type": "object"
+      },
+      "TenantListItem": {
+        "additionalProperties": false,
+        "description": "租户列表项。",
+        "properties": {
+          "code": {
+            "description": "租户编码",
+            "title": "Code",
+            "type": "string"
+          },
+          "created_at": {
+            "description": "创建时间（UTC）",
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "domain": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "子域名",
+            "title": "Domain"
+          },
+          "expire_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "到期时间（UTC）",
+            "title": "Expire At"
+          },
+          "id": {
+            "description": "租户主键",
+            "title": "Id",
+            "type": "string"
+          },
+          "modules": {
+            "description": "已开通模块标识",
+            "items": {
+              "type": "string"
+            },
+            "title": "Modules",
+            "type": "array"
+          },
+          "name": {
+            "description": "租户名称",
+            "title": "Name",
+            "type": "string"
+          },
+          "status": {
+            "description": "状态",
+            "enum": [
+              "provisioning",
+              "active",
+              "suspended"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "version": {
+            "description": "乐观锁版本",
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "name",
+          "status",
+          "created_at",
+          "version"
+        ],
+        "title": "TenantListItem",
         "type": "object"
       },
       "TenantMembershipGrantRequest": {
@@ -171,6 +791,301 @@
         "title": "TenantMembershipTarget",
         "type": "object"
       },
+      "TenantModuleItem": {
+        "additionalProperties": false,
+        "description": "租户模块项（目录 + 开通清单合并视图）。",
+        "properties": {
+          "errcode_segment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "错误码段",
+            "title": "Errcode Segment"
+          },
+          "module_key": {
+            "description": "模块标识",
+            "title": "Module Key",
+            "type": "string"
+          },
+          "name": {
+            "description": "模块名称",
+            "title": "Name",
+            "type": "string"
+          },
+          "opened_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "最近开通时间（UTC）",
+            "title": "Opened At"
+          },
+          "optional": {
+            "description": "是否可勾选产品模块（基础能力恒开通）",
+            "title": "Optional",
+            "type": "boolean"
+          },
+          "status": {
+            "description": "状态（enabled / disabled / not_opened）",
+            "enum": [
+              "enabled",
+              "disabled",
+              "not_opened"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "table_prefix": {
+            "description": "表前缀",
+            "title": "Table Prefix",
+            "type": "string"
+          }
+        },
+        "required": [
+          "module_key",
+          "name",
+          "table_prefix",
+          "optional",
+          "status"
+        ],
+        "title": "TenantModuleItem",
+        "type": "object"
+      },
+      "TenantModuleItemList": {
+        "additionalProperties": false,
+        "description": "租户模块清单（三态）。",
+        "properties": {
+          "items": {
+            "description": "模块项",
+            "items": {
+              "$ref": "#/components/schemas/TenantModuleItem"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "title": "TenantModuleItemList",
+        "type": "object"
+      },
+      "TenantModuleOption": {
+        "additionalProperties": false,
+        "description": "开通向导模块选项（目录快照）。",
+        "properties": {
+          "catalog_status": {
+            "description": "目录状态（enabled / disabled / planned）",
+            "title": "Catalog Status",
+            "type": "string"
+          },
+          "errcode_segment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "错误码段",
+            "title": "Errcode Segment"
+          },
+          "module_key": {
+            "description": "模块标识",
+            "title": "Module Key",
+            "type": "string"
+          },
+          "name": {
+            "description": "模块名称",
+            "title": "Name",
+            "type": "string"
+          },
+          "optional": {
+            "description": "是否可勾选（产品模块且目录已启用）",
+            "title": "Optional",
+            "type": "boolean"
+          },
+          "service_group": {
+            "description": "归属分组（foundation / capability / product）",
+            "title": "Service Group",
+            "type": "string"
+          },
+          "table_prefix": {
+            "description": "表前缀",
+            "title": "Table Prefix",
+            "type": "string"
+          }
+        },
+        "required": [
+          "module_key",
+          "name",
+          "table_prefix",
+          "service_group",
+          "catalog_status",
+          "optional"
+        ],
+        "title": "TenantModuleOption",
+        "type": "object"
+      },
+      "TenantModuleOptionList": {
+        "additionalProperties": false,
+        "description": "开通向导模块选项清单。",
+        "properties": {
+          "items": {
+            "description": "模块选项",
+            "items": {
+              "$ref": "#/components/schemas/TenantModuleOption"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "title": "TenantModuleOptionList",
+        "type": "object"
+      },
+      "TenantModuleUpdateRequest": {
+        "additionalProperties": false,
+        "description": "租户模块开关请求。",
+        "properties": {
+          "status": {
+            "description": "目标状态（enabled / disabled）",
+            "enum": [
+              "enabled",
+              "disabled"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "TenantModuleUpdateRequest",
+        "type": "object"
+      },
+      "TenantProvisionResult": {
+        "additionalProperties": false,
+        "description": "开通结果（初始管理员口令仅本次返回）。",
+        "properties": {
+          "admin_username": {
+            "description": "初始系统管理员账号",
+            "title": "Admin Username",
+            "type": "string"
+          },
+          "initial_password": {
+            "description": "初始口令（仅本次返回；首登强制改密）",
+            "title": "Initial Password",
+            "type": "string"
+          },
+          "tenant": {
+            "$ref": "#/components/schemas/TenantDetail",
+            "description": "租户详情"
+          }
+        },
+        "required": [
+          "tenant",
+          "admin_username",
+          "initial_password"
+        ],
+        "title": "TenantProvisionResult",
+        "type": "object"
+      },
+      "TenantQuotaItem": {
+        "additionalProperties": false,
+        "description": "配额项（限额与用量）。",
+        "properties": {
+          "limit_value": {
+            "description": "限额",
+            "minimum": 0.0,
+            "title": "Limit Value",
+            "type": "integer"
+          },
+          "quota_key": {
+            "description": "配额维度（user_count / storage_bytes / open_calls）",
+            "title": "Quota Key",
+            "type": "string"
+          },
+          "used_value": {
+            "description": "已用量",
+            "minimum": 0.0,
+            "title": "Used Value",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "quota_key",
+          "limit_value",
+          "used_value"
+        ],
+        "title": "TenantQuotaItem",
+        "type": "object"
+      },
+      "TenantQuotaItemList": {
+        "additionalProperties": false,
+        "description": "租户配额与用量清单。",
+        "properties": {
+          "items": {
+            "description": "配额项",
+            "items": {
+              "$ref": "#/components/schemas/TenantQuotaItem"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "title": "TenantQuotaItemList",
+        "type": "object"
+      },
+      "TenantQuotaUpdateItem": {
+        "additionalProperties": false,
+        "description": "配额配置项。",
+        "properties": {
+          "limit_value": {
+            "description": "新限额",
+            "minimum": 0.0,
+            "title": "Limit Value",
+            "type": "integer"
+          },
+          "quota_key": {
+            "description": "配额维度（user_count / storage_bytes / open_calls）",
+            "title": "Quota Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "quota_key",
+          "limit_value"
+        ],
+        "title": "TenantQuotaUpdateItem",
+        "type": "object"
+      },
+      "TenantQuotaUpdateRequest": {
+        "additionalProperties": false,
+        "description": "配额配置请求（整组覆盖；未列出的维度保持原值）。",
+        "properties": {
+          "items": {
+            "description": "配额项清单",
+            "items": {
+              "$ref": "#/components/schemas/TenantQuotaUpdateItem"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "TenantQuotaUpdateRequest",
+        "type": "object"
+      },
       "TenantSwitchRequest": {
         "additionalProperties": false,
         "description": "切换租户请求：`{code}`。",
@@ -186,6 +1101,55 @@
           "code"
         ],
         "title": "TenantSwitchRequest",
+        "type": "object"
+      },
+      "TenantUpdateRequest": {
+        "additionalProperties": false,
+        "description": "修改租户请求（名称 / 域名 / 到期时间；`code` 不可改）。",
+        "properties": {
+          "domain": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "pattern": "^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "子域名",
+            "title": "Domain"
+          },
+          "expire_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "到期时间（UTC）",
+            "title": "Expire At"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "租户名称",
+            "title": "Name"
+          }
+        },
+        "title": "TenantUpdateRequest",
         "type": "object"
       },
       "ValidationError": {
@@ -850,6 +1814,761 @@
         ]
       }
     },
+    "/api/v1/tenant/internal/modules/status": {
+      "get": {
+        "description": "取租户模块状态集（模块门禁回源）。\n\nArgs:\n    request: 请求对象。\n    session: 平台库只读会话。\n    tenant_id: 租户主键。\n\nReturns:\n    ApiResponse: 统一响应（data 为状态集）。",
+        "operationId": "module_status_api_v1_tenant_internal_modules_status_get",
+        "parameters": [
+          {
+            "description": "租户主键",
+            "in": "query",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "description": "租户主键",
+              "title": "Tenant Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ModuleStatusResponse_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Module Status",
+        "tags": [
+          "tenant-internal"
+        ]
+      }
+    },
+    "/api/v1/tenant/internal/quotas/check": {
+      "post": {
+        "description": "校验配额（不写；超限 82005）。\n\nArgs:\n    req: 校验请求。\n    session: 平台库只读会话。\n    request: 请求对象（取配置）。\n\nReturns:\n    ApiResponse: 统一响应（data 为校验结果）。",
+        "operationId": "check_quota_api_v1_tenant_internal_quotas_check_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QuotaConsumeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_QuotaResult_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Check Quota",
+        "tags": [
+          "tenant-internal"
+        ]
+      }
+    },
+    "/api/v1/tenant/internal/quotas/consume": {
+      "post": {
+        "description": "原子占用配额（超限 82005）。\n\nArgs:\n    req: 占用请求。\n    session: 平台库写会话。\n    request: 请求对象（取配置）。\n\nReturns:\n    ApiResponse: 统一响应（data 为占用结果）。",
+        "operationId": "consume_quota_api_v1_tenant_internal_quotas_consume_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QuotaConsumeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_QuotaResult_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Consume Quota",
+        "tags": [
+          "tenant-internal"
+        ]
+      }
+    },
+    "/api/v1/tenant/internal/quotas/release": {
+      "post": {
+        "description": "释放配额用量（下限 0）。\n\nArgs:\n    req: 释放请求。\n    session: 平台库写会话。\n    request: 请求对象（取配置）。\n\nReturns:\n    ApiResponse: 统一响应（data 为释放结果）。",
+        "operationId": "release_quota_api_v1_tenant_internal_quotas_release_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QuotaReleaseRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_QuotaResult_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Release Quota",
+        "tags": [
+          "tenant-internal"
+        ]
+      }
+    },
+    "/api/v1/tenants": {
+      "get": {
+        "description": "业务租户分页列表（平台租户排除）。\n\nArgs:\n    request: 请求对象。\n    session: 平台库只读会话。\n    query: 分页请求。\n    client: 服务间调用客户端。\n    cache: 缓存域。\n    code: 编码模糊筛选。\n    name: 名称模糊筛选。\n    status: 状态筛选。\n\nReturns:\n    ApiResponse: 统一响应（data 为分页结果）。",
+        "operationId": "list_tenants_api_v1_tenants_get",
+        "parameters": [
+          {
+            "description": "租户编码（模糊）",
+            "in": "query",
+            "name": "code",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "租户编码（模糊）",
+              "title": "Code"
+            }
+          },
+          {
+            "description": "租户名称（模糊）",
+            "in": "query",
+            "name": "name",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "租户名称（模糊）",
+              "title": "Name"
+            }
+          },
+          {
+            "description": "状态筛选（provisioning/active/suspended）",
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "状态筛选（provisioning/active/suspended）",
+              "title": "Status"
+            }
+          },
+          {
+            "description": "页码（从 1 起）",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "页码（从 1 起）",
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "每页条数（默认 20，上限 200）",
+            "in": "query",
+            "name": "size",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "description": "每页条数（默认 20，上限 200）",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Size",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "排序字段，逗号分隔多值（如 status,created_at）",
+            "in": "query",
+            "name": "order_by",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序字段，逗号分隔多值（如 status,created_at）",
+              "title": "Order By"
+            }
+          },
+          {
+            "description": "排序方向数组，与 order_by 位置一一对应",
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序方向数组，与 order_by 位置一一对应",
+              "title": "Order"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_TenantList_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "List Tenants",
+        "tags": [
+          "tenant"
+        ]
+      },
+      "post": {
+        "description": "开通租户（同步全流程；支持幂等键）。\n\nArgs:\n    request: 请求对象。\n    req: 开通请求。\n    session: 平台库写会话。\n    client: 服务间调用客户端。\n    cache: 缓存域。\n    auth: 登录态（操作人）。\n    idempotency: 幂等存储。\n    idempotency_key: 幂等键请求头。\n\nReturns:\n    ApiResponse: 统一响应（data 为开通结果，含初始口令）。",
+        "operationId": "create_tenant_api_v1_tenants_post",
+        "parameters": [
+          {
+            "description": "幂等键（可选；重复开通回放首次结果）",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "幂等键（可选；重复开通回放首次结果）",
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TenantCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_TenantProvisionResult_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Create Tenant",
+        "tags": [
+          "tenant"
+        ]
+      }
+    },
     "/api/v1/tenants/brand": {
       "get": {
         "description": "取品牌信息（登录前可用；缺省当前租户）。\n\nArgs:\n    service: 租户自助基座。\n    code: 租户编码（可选）。\n\nReturns:\n    ApiResponse: 统一响应，data 为品牌信息（`TenantBrandResponse`）。",
@@ -1024,6 +2743,78 @@
         ]
       }
     },
+    "/api/v1/tenants/module-options": {
+      "get": {
+        "description": "开通向导模块选项（目录全量 + 可勾选标记）。\n\nArgs:\n    request: 请求对象。\n    client: 服务间调用客户端。\n    cache: 缓存域。\n    session: 平台库只读会话。\n\nReturns:\n    ApiResponse: 统一响应（data 为选项清单）。",
+        "operationId": "module_options_api_v1_tenants_module_options_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_TenantModuleOptionList_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Module Options",
+        "tags": [
+          "tenant"
+        ]
+      }
+    },
     "/api/v1/tenants/switch": {
       "post": {
         "description": "切换到目标租户（越权校验；可按幂等键复用首次结果）。\n\nArgs:\n    service: 租户自助基座。\n    idempotency: 幂等基座（首次结果复用）。\n    tenant: 解析链租户上下文（幂等键作用域位）。\n    auth: 登录态身份（当前租户主键 / 用户主键）。\n    req: 切换请求。\n    idempotency_key: 幂等键请求头（可选）。\n\nReturns:\n    ApiResponse: 统一响应，data 为切换结果（`TenantSwitchResponse`）。",
@@ -1131,6 +2922,803 @@
           }
         },
         "summary": "Switch Tenant",
+        "tags": [
+          "tenant"
+        ]
+      }
+    },
+    "/api/v1/tenants/{tenant_id}": {
+      "get": {
+        "description": "租户详情（含配额与模块清单）。\n\nArgs:\n    request: 请求对象。\n    tenant_id: 租户主键。\n    session: 平台库只读会话。\n    client: 服务间调用客户端。\n    cache: 缓存域。\n\nReturns:\n    ApiResponse: 统一响应（data 为详情）。",
+        "operationId": "get_tenant_api_v1_tenants__tenant_id__get",
+        "parameters": [
+          {
+            "description": "租户主键",
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "description": "租户主键",
+              "title": "Tenant Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_TenantDetail_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Get Tenant",
+        "tags": [
+          "tenant"
+        ]
+      },
+      "put": {
+        "description": "修改租户（名称 / 域名 / 到期时间）。\n\nArgs:\n    request: 请求对象。\n    req: 修改请求。\n    tenant_id: 租户主键。\n    session: 平台库写会话。\n    client: 服务间调用客户端。\n    cache: 缓存域。\n\nReturns:\n    ApiResponse: 统一响应（data 为更新后的详情）。",
+        "operationId": "update_tenant_api_v1_tenants__tenant_id__put",
+        "parameters": [
+          {
+            "description": "租户主键",
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "description": "租户主键",
+              "title": "Tenant Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TenantUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_TenantDetail_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Update Tenant",
+        "tags": [
+          "tenant"
+        ]
+      }
+    },
+    "/api/v1/tenants/{tenant_id}/activate": {
+      "post": {
+        "description": "启用租户（事件 + 缓存失效）。\n\nArgs:\n    request: 请求对象。\n    tenant_id: 租户主键。\n    session: 平台库写会话。\n    client: 服务间调用客户端。\n    cache: 缓存域。\n    source: 租户源（缓存失效）。\n\nReturns:\n    ApiResponse: 统一响应（data 为启用后的详情）。",
+        "operationId": "activate_tenant_api_v1_tenants__tenant_id__activate_post",
+        "parameters": [
+          {
+            "description": "租户主键",
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "description": "租户主键",
+              "title": "Tenant Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_TenantDetail_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Activate Tenant",
+        "tags": [
+          "tenant"
+        ]
+      }
+    },
+    "/api/v1/tenants/{tenant_id}/modules": {
+      "get": {
+        "description": "租户模块清单（三态）。\n\nArgs:\n    request: 请求对象。\n    tenant_id: 租户主键。\n    session: 平台库只读会话。\n    client: 服务间调用客户端。\n    cache: 缓存域。\n\nReturns:\n    ApiResponse: 统一响应（data 为模块项）。",
+        "operationId": "get_modules_api_v1_tenants__tenant_id__modules_get",
+        "parameters": [
+          {
+            "description": "租户主键",
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "description": "租户主键",
+              "title": "Tenant Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_TenantModuleItemList_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Get Modules",
+        "tags": [
+          "tenant"
+        ]
+      }
+    },
+    "/api/v1/tenants/{tenant_id}/modules/{module_key}": {
+      "put": {
+        "description": "租户模块开关（目录校验 + 状态切换）。\n\nArgs:\n    request: 请求对象。\n    req: 开关请求。\n    tenant_id: 租户主键。\n    module_key: 模块标识。\n    session: 平台库写会话。\n    client: 服务间调用客户端。\n    cache: 缓存域。\n    auth: 登录态（操作人）。\n\nReturns:\n    ApiResponse: 统一响应（data 为更新后的模块清单）。",
+        "operationId": "put_module_api_v1_tenants__tenant_id__modules__module_key__put",
+        "parameters": [
+          {
+            "description": "租户主键",
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "description": "租户主键",
+              "title": "Tenant Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "模块标识",
+            "in": "path",
+            "name": "module_key",
+            "required": true,
+            "schema": {
+              "description": "模块标识",
+              "title": "Module Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TenantModuleUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_TenantModuleItemList_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Put Module",
+        "tags": [
+          "tenant"
+        ]
+      }
+    },
+    "/api/v1/tenants/{tenant_id}/quotas": {
+      "get": {
+        "description": "配额与用量。\n\nArgs:\n    request: 请求对象。\n    tenant_id: 租户主键。\n    session: 平台库只读会话。\n\nReturns:\n    ApiResponse: 统一响应（data 为配额项）。",
+        "operationId": "get_quotas_api_v1_tenants__tenant_id__quotas_get",
+        "parameters": [
+          {
+            "description": "租户主键",
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "description": "租户主键",
+              "title": "Tenant Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_TenantQuotaItemList_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Get Quotas",
+        "tags": [
+          "tenant"
+        ]
+      },
+      "put": {
+        "description": "配置配额限额（整组覆盖；未列出的维度保持原值）。\n\nArgs:\n    request: 请求对象。\n    req: 配额配置请求。\n    tenant_id: 租户主键。\n    session: 平台库写会话。\n\nReturns:\n    ApiResponse: 统一响应（data 为更新后的配额项）。",
+        "operationId": "put_quotas_api_v1_tenants__tenant_id__quotas_put",
+        "parameters": [
+          {
+            "description": "租户主键",
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "description": "租户主键",
+              "title": "Tenant Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TenantQuotaUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_TenantQuotaItemList_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Put Quotas",
+        "tags": [
+          "tenant"
+        ]
+      }
+    },
+    "/api/v1/tenants/{tenant_id}/suspend": {
+      "post": {
+        "description": "停用租户（事件 + 引擎回收 + 按租户撤销会话 + 缓存失效）。\n\nArgs:\n    request: 请求对象。\n    tenant_id: 租户主键。\n    session: 平台库写会话。\n    client: 服务间调用客户端。\n    cache: 缓存域。\n    source: 租户源（缓存失效）。\n\nReturns:\n    ApiResponse: 统一响应（data 为停用后的详情）。",
+        "operationId": "suspend_tenant_api_v1_tenants__tenant_id__suspend_post",
+        "parameters": [
+          {
+            "description": "租户主键",
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "description": "租户主键",
+              "title": "Tenant Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_TenantDetail_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Suspend Tenant",
         "tags": [
           "tenant"
         ]

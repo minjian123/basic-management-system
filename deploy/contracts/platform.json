@@ -5382,7 +5382,8 @@
               "custom",
               "system",
               "security",
-              "audit"
+              "audit",
+              "platform_admin"
             ],
             "title": "Role Type",
             "type": "string"
@@ -5589,7 +5590,8 @@
               "custom",
               "system",
               "security",
-              "audit"
+              "audit",
+              "platform_admin"
             ],
             "title": "Role Type",
             "type": "string"

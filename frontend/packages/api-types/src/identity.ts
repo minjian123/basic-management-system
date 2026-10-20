@@ -58,6 +58,44 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/change-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change Password
+         * @description 自助改密（首登强制改密 / 常规改密）：旧口令校验 → 策略校验 → 更新 → 其它会话失效。
+         *
+         *     Args:
+         *         request: 请求对象（取引擎注册表与会话工厂）。
+         *         req: 改密请求（旧口令 / 新口令）。
+         *         auth: 登录态（用户主键 / 当前会话）。
+         *         tenant_ctx: 请求上下文租户。
+         *         client: 服务间调用客户端（platform 凭据接口）。
+         *         security: 会话安全原语。
+         *         store: 会话标记存储。
+         *         publisher: 实时推送器。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应（data 为改密结果）。
+         *
+         *     Raises:
+         *         AuthError: 缺少登录态 / 租户上下文、旧口令不正确（20001 / 401）。
+         *         PasswordPolicyViolationError: 新口令不符合策略（30005）。
+         *         PasswordReusedError: 新口令命中历史（30006）。
+         */
+        post: operations["change_password_api_v1_auth_change_password_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/forgot-password": {
         parameters: {
             query?: never;
@@ -239,6 +277,32 @@ export interface paths {
          *         ApiResponse: 统一响应，data 为用户概要（`UserSummary`）。
          */
         get: operations["me_api_v1_auth_me_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/platform-tenant": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Platform Tenant
+         * @description 取平台租户编码（免登录；登录页「平台超管登录」预填）。
+         *
+         *     Args:
+         *         request: 请求对象（取配置）。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应（data 为平台租户编码）。
+         */
+        get: operations["platform_tenant_api_v1_auth_platform_tenant_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -584,6 +648,39 @@ export interface paths {
          *         ApiResponse: 统一响应，data 为校验结果（`CaptchaVerifyResponse`）。
          */
         post: operations["verify_captcha_api_v1_captcha_verify_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/identity/internal/sessions/revoke-tenant": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Revoke Tenant Sessions
+         * @description 按租户撤销其全部在线会话（租户停用即时失效）。
+         *
+         *     目标租户由 `tenant_code` 经租户源解析（服务 JWT 租户位为调用方 = 平台租户），会话库取目标租户库。
+         *
+         *     Args:
+         *         request: 请求对象（取引擎注册表与会话工厂）。
+         *         req: 撤销请求（目标租户编码）。
+         *         security: 会话安全原语。
+         *         store: 会话标记存储。
+         *         publisher: 实时推送器。
+         *         source: 租户源（按编码解析目标租户）。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为被撤销的在线会话数。
+         */
+        post: operations["revoke_tenant_sessions_api_v1_identity_internal_sessions_revoke_tenant_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1412,6 +1509,20 @@ export interface components {
              */
             message: string;
         };
+        /** ApiResponse[ChangePasswordResult] */
+        ApiResponse_ChangePasswordResult_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["ChangePasswordResult"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
         /** ApiResponse[ClientCreated] */
         ApiResponse_ClientCreated_: {
             /**
@@ -1553,6 +1664,20 @@ export interface components {
              */
             message: string;
         };
+        /** ApiResponse[PlatformTenantResult] */
+        ApiResponse_PlatformTenantResult_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["PlatformTenantResult"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
         /** ApiResponse[RefreshResult] */
         ApiResponse_RefreshResult_: {
             /**
@@ -1561,6 +1686,20 @@ export interface components {
              */
             code: number;
             data?: components["schemas"]["RefreshResult"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[RevokeTenantSessionsResult] */
+        ApiResponse_RevokeTenantSessionsResult_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["RevokeTenantSessionsResult"] | null;
             /**
              * Message
              * @default ok
@@ -1810,6 +1949,38 @@ export interface components {
                 number,
                 number
             ][];
+        };
+        /**
+         * ChangePasswordRequest
+         * @description 自助改密请求（首登强制改密 / 常规改密）。
+         */
+        ChangePasswordRequest: {
+            /**
+             * New Password
+             * @description 新口令（按密码策略校验）
+             */
+            new_password: string;
+            /**
+             * Old Password
+             * @description 旧口令
+             */
+            old_password: string;
+        };
+        /**
+         * ChangePasswordResult
+         * @description 自助改密结果。
+         */
+        ChangePasswordResult: {
+            /**
+             * Changed
+             * @description 是否改密成功
+             */
+            changed: boolean;
+            /**
+             * Revoked Sessions
+             * @description 被失效的其它会话数
+             */
+            revoked_sessions: number;
         };
         /**
          * ClientCreateRequest
@@ -2305,6 +2476,17 @@ export interface components {
             reset: boolean;
         };
         /**
+         * PlatformTenantResult
+         * @description 平台租户编码（登录页「平台超管登录」预填）。
+         */
+        PlatformTenantResult: {
+            /**
+             * Code
+             * @description 平台租户编码
+             */
+            code: string;
+        };
+        /**
          * RefreshResult
          * @description 刷新成功响应（新 access 在体；新 refresh 走 httpOnly cookie）。
          */
@@ -2325,6 +2507,28 @@ export interface components {
              * @default Bearer
              */
             token_type: string;
+        };
+        /**
+         * RevokeTenantSessionsRequest
+         * @description 按租户撤销全部会话请求（服务间内部端点；tenant 停用调用）。
+         */
+        RevokeTenantSessionsRequest: {
+            /**
+             * Tenant Code
+             * @description 目标租户编码（服务 JWT 租户位为调用方）
+             */
+            tenant_code: string;
+        };
+        /**
+         * RevokeTenantSessionsResult
+         * @description 按租户撤销全部会话结果。
+         */
+        RevokeTenantSessionsResult: {
+            /**
+             * Revoked
+             * @description 被撤销的在线会话数（无在线会话为 0）
+             */
+            revoked: number;
         };
         /**
          * RevokeUserSessionsRequest
@@ -2599,6 +2803,39 @@ export interface operations {
             };
         };
     };
+    change_password_api_v1_auth_change_password_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangePasswordRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_ChangePasswordResult_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     forgot_password_api_v1_auth_forgot_password_post: {
         parameters: {
             query?: never;
@@ -2819,6 +3056,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    platform_tenant_api_v1_auth_platform_tenant_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_PlatformTenantResult_"];
                 };
             };
         };
@@ -3314,6 +3571,86 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    revoke_tenant_sessions_api_v1_identity_internal_sessions_revoke_tenant_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RevokeTenantSessionsRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_RevokeTenantSessionsResult_"];
                 };
             };
             /** @description 未认证 */

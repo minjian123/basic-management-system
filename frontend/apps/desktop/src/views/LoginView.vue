@@ -21,12 +21,18 @@ import { computed, nextTick, onMounted, ref, shallowRef, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { ApiError } from '@/api/error'
-import { fetchSsoProviders, login, ssoAuthorizeUrl, type SsoProviderItem } from '@/api/identity'
+import { fetchPlatformTenant, fetchSsoProviders, login, ssoAuthorizeUrl, type SsoProviderItem } from '@/api/identity'
 import { captchaSourceOptions } from '@/api/endpoints'
 import { getTenantCode } from '@/api/tenant'
 import { useSessionStore } from '@/stores/session'
 import { notifyMustChangePassword } from '@/utils/feedback'
-import { normalizeLoginTenant, pickLoginCaptchaKind, toLoginCaptcha, buildLoginRequest, type LoginCaptchaInput } from '@/utils/login'
+import {
+  normalizeLoginTenant,
+  pickLoginCaptchaKind,
+  toLoginCaptcha,
+  buildLoginRequest,
+  type LoginCaptchaInput,
+} from '@/utils/login'
 import { redirectTo } from '@/utils/navigation'
 
 defineOptions({ name: 'LoginView' })
@@ -62,6 +68,8 @@ const captchaKind = ref<CaptchaKind | null>(null)
 const captchaForced = ref(false)
 /** 登录失败次数（大于 0 即显示验证码并强制）。 */
 const failCount = ref(0)
+/** 平台超管登录（预填平台租户编码）。 */
+const platformLogin = ref(false)
 /** 验证码重挂载键（一次性失效后取新挑战并清空输入）。 */
 const captchaAttempt = ref(0)
 /** 提交中态（防重复提交）。 */
@@ -162,7 +170,27 @@ async function handleNeedTenant(): Promise<void> {
   formError.value = ''
   tenantVisible.value = true
   await nextTick()
-  tenantField.value?.querySelector<HTMLInputElement>('[data-test="login-tenant"] input, [data-test="login-tenant"]')?.focus()
+  tenantField.value
+    ?.querySelector<HTMLInputElement>('[data-test="login-tenant"] input, [data-test="login-tenant"]')
+    ?.focus()
+}
+
+/** 平台超管登录：取平台租户编码并预填（展开租户标识，便于确认）。 */
+async function onPlatformLogin(): Promise<void> {
+  try {
+    const result = await fetchPlatformTenant()
+    platformLogin.value = true
+    tenantInput.value = result.code
+    tenantVisible.value = true
+    needTenant.value = false
+    formError.value = ''
+    await nextTick()
+    tenantField.value
+      ?.querySelector<HTMLInputElement>('[data-test="login-tenant"] input, [data-test="login-tenant"]')
+      ?.focus()
+  } catch (error: unknown) {
+    formError.value = error instanceof Error ? error.message : '平台租户解析失败'
+  }
 }
 
 /** 服务端文案为 i18n 键（如 `error.20002`）时不可直接展示——文案单一来源在前端错误码表。 */
@@ -198,7 +226,9 @@ function handleLoginFailure(error: unknown): void {
   needTenant.value = false
   // 已登记码走文案表；**未登记码 / 非 `ApiError` 链路**优先回显服务端原文（`userMessage` → `message`）——
   // 否则一律落到「操作失败，请稍后重试」，把「验证码校验不通过」「服务暂不可用」这类可行动信息吞掉。
-  formError.value = isAuthErrorCode(code) ? resolveAuthErrorText(code) : serverMessage(error) || resolveAuthErrorText(code)
+  formError.value = isAuthErrorCode(code)
+    ? resolveAuthErrorText(code)
+    : serverMessage(error) || resolveAuthErrorText(code)
   if (code === 20101 || code === 20102) {
     // 后端要求验证码 / 验证码已失效：确保验证码块出现（策略未加载时回落图形码兜底）。
     captchaKind.value ??= 'image'
@@ -242,6 +272,8 @@ async function onSubmit(): Promise<void> {
     session.signIn({ token: result.access_token, user: result.user, tenant: result.user.tenant ?? tenant.value })
     if (result.user.must_change_password) {
       notifyMustChangePassword()
+      await router.push({ path: '/change-password', query: route.query })
+      return
     }
     await router.push(resolveSafeRedirect(route.query.redirect))
   } catch (error) {
@@ -291,6 +323,7 @@ onMounted(() => {
         </svg>
         <h1 class="login-view__title">BMS 基础管理系统</h1>
         <p class="login-view__subtitle">统一认证入口</p>
+        <el-button link type="primary" data-test="login-platform" @click="onPlatformLogin"> 平台超管登录 </el-button>
       </header>
 
       <form class="login-view__form" data-test="login-form" @submit.prevent="onSubmit">
@@ -310,12 +343,7 @@ onMounted(() => {
 
         <label class="login-view__field">
           <span class="login-view__label">账号</span>
-          <text-input
-            v-model="account"
-            autocomplete="username"
-            placeholder="请输入账号"
-            data-test="login-account"
-          />
+          <text-input v-model="account" autocomplete="username" placeholder="请输入账号" data-test="login-account" />
         </label>
 
         <label class="login-view__field">
@@ -354,6 +382,10 @@ onMounted(() => {
             </template>
           </captcha-field>
         </div>
+
+        <p v-if="platformLogin" class="login-view__notice" data-test="login-platform-hint">
+          已切换为平台超管登录（租户标识预填平台租户编码，可直接输入平台超管账号）。
+        </p>
 
         <p v-if="needTenant" class="login-view__notice" data-test="login-notice">
           {{ resolveAuthErrorText(20007) }}

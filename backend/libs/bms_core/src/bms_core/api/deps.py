@@ -76,6 +76,7 @@ from bms_core.storage.base import get_multipart_upload, get_object_storage
 from bms_core.tasks.base import get_task
 from bms_core.tenant.base import get_tenant_self_service
 from bms_core.tenant.membership import TenantMembershipStore
+from bms_core.tenant_module.base import get_tenant_module_gate
 from bms_core.tracing.base import get_tracer
 from bms_core.transfer.exporter import get_exporter
 from bms_core.transfer.importer import get_importer
@@ -157,6 +158,7 @@ __all__ = [
     "get_task",
     "get_tenant",
     "get_tenant_membership_store",
+    "get_tenant_module_gate",
     "get_tenant_self_service",
     "get_tenant_source",
     "get_token_verifier",

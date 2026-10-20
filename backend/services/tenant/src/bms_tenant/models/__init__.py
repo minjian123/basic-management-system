@@ -6,6 +6,8 @@
 MODEL_MODULES: tuple[str, ...] = (
     "bms_tenant.models.tenant",
     "bms_tenant.models.tenant_database",
+    "bms_tenant.models.tenant_module",
+    "bms_tenant.models.tenant_quota",
     "bms_tenant.models.user_tenant",
 )
 """本服务模型模块清单（迁移链按服务解析模型用）。"""

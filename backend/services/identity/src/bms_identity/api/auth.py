@@ -45,13 +45,17 @@ from bms_identity.api.cookies import clear_refresh_cookie, set_refresh_cookie
 from bms_identity.api.tenancy import resolve_request_tenant
 from bms_identity.schemas.auth import (
     REFRESH_COOKIE_NAME,
+    ChangePasswordRequest,
+    ChangePasswordResult,
     LoginRequest,
     LoginResult,
+    PlatformTenantResult,
     RefreshResult,
     UserSummary,
 )
 from bms_identity.services.auth import CurrentUserService, LoginService
 from bms_identity.services.platform_client import PlatformCredentialClient
+from bms_identity.services.session import REASON_PASSWORD_RESET, SessionService
 
 router = BaseRouter(key="auth", prefix="/auth", tags=["auth"], default_responses=False)
 
@@ -394,6 +398,84 @@ async def logout(
             await service.logout(token, tenant_id=str(tenant_ctx.tenant_id))
     clear_refresh_cookie(response)
     return ApiResponse.ok(None)
+
+
+@router.post("/change-password")
+async def change_password(
+    request: Request,
+    req: ChangePasswordRequest,
+    auth: AuthDep,
+    tenant_ctx: TenantDep,
+    client: ClientDep,
+    security: SecurityDep,
+    store: StoreDep,
+    publisher: PublisherDep,
+) -> ApiResponse[ChangePasswordResult]:
+    """自助改密（首登强制改密 / 常规改密）：旧口令校验 → 策略校验 → 更新 → 其它会话失效。
+
+    Args:
+        request: 请求对象（取引擎注册表与会话工厂）。
+        req: 改密请求（旧口令 / 新口令）。
+        auth: 登录态（用户主键 / 当前会话）。
+        tenant_ctx: 请求上下文租户。
+        client: 服务间调用客户端（platform 凭据接口）。
+        security: 会话安全原语。
+        store: 会话标记存储。
+        publisher: 实时推送器。
+
+    Returns:
+        ApiResponse: 统一响应（data 为改密结果）。
+
+    Raises:
+        AuthError: 缺少登录态 / 租户上下文、旧口令不正确（20001 / 401）。
+        PasswordPolicyViolationError: 新口令不符合策略（30005）。
+        PasswordReusedError: 新口令命中历史（30006）。
+    """
+    if auth.user_id is None:
+        raise AuthError("缺少登录用户")
+    if tenant_ctx is None or tenant_ctx.tenant_id is None:
+        raise AuthError("缺少租户标识")
+    tenant_code = tenant_ctx.code
+    platform = PlatformCredentialClient(client)
+    profile = await platform.user_profile(tenant_code, auth.user_id)
+    if not profile.found or profile.user is None:
+        raise AuthError("账号不存在或已停用")
+    verified = await platform.verify(tenant_code, profile.user.username, req.old_password)
+    if not verified.valid:
+        raise AuthError("旧口令不正确")
+    if not await platform.update_password(tenant_code, profile.user.username, req.new_password):
+        raise AuthError("口令更新失败")
+    registry: EngineRegistry = request.app.state.engine_registry
+    factory = request.app.state.session_factory
+    async with session_scope(registry, db_key=tenant_ctx.db_key, factory=factory) as session:
+        service = SessionService(
+            session=session,
+            uow=DbUnitOfWork(session),
+            security=security,
+            store=store,
+            publisher=publisher,
+        )
+        revoked = await service.revoke_user_sessions(
+            auth.user_id,
+            tenant=str(tenant_ctx.tenant_id),
+            reason=REASON_PASSWORD_RESET,
+            keep_session_id=auth.session_id,
+        )
+    return ApiResponse.ok(ChangePasswordResult(changed=True, revoked_sessions=len(revoked)))
+
+
+@router.get("/platform-tenant")
+async def platform_tenant(request: Request) -> ApiResponse[PlatformTenantResult]:
+    """取平台租户编码（免登录；登录页「平台超管登录」预填）。
+
+    Args:
+        request: 请求对象（取配置）。
+
+    Returns:
+        ApiResponse: 统一响应（data 为平台租户编码）。
+    """
+    settings = request.app.state.settings
+    return ApiResponse.ok(PlatformTenantResult(code=settings.platform_tenant.code))
 
 
 @router.get("/me", responses={401: {"model": ApiResponse, "description": "未认证"}})

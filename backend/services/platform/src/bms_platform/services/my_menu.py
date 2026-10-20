@@ -16,6 +16,7 @@ from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.objects import BaseFrameworkObject
 from bms_core.permission.base import BasePermissionChecker
 from bms_core.permission.snapshot import get_current_permission_snapshot
+from bms_core.services.module_registry import module_for_business
 from bms_platform.schemas.menu import (
     MyMenuButton,
     MyMenuField,
@@ -38,18 +39,28 @@ class MyMenuService(BaseFrameworkObject):
         """
         self._metadata = metadata
         self._checker = checker
+        self._module_states: ConcurrentStableDict[str, str] = ConcurrentStableDict()
 
-    async def build(self, *, locale: str, tenant_id: str | None, ttl: int) -> MyMenuResponse:
+    async def build(
+        self,
+        *,
+        locale: str,
+        tenant_id: str | None,
+        ttl: int,
+        module_states: ConcurrentStableDict[str, str] | None = None,
+    ) -> MyMenuResponse:
         """构建当前用户的动态菜单响应。
 
         Args:
             locale: 语言标识。
             tenant_id: 租户主键字符串（缓存键租户位）。
             ttl: 元数据缓存有效期（秒）。
+            module_states: 租户模块状态映射（模块标识 → enabled/disabled；缺省不按模块过滤）。
 
         Returns:
             MyMenuResponse: 菜单树 + 表单元数据 + 权限码集合。
         """
+        self._module_states = module_states if module_states is not None else ConcurrentStableDict()
         snapshot = await self._metadata.load_snapshot(locale=locale, tenant_id=tenant_id, ttl=ttl)
         permissions = ConcurrentStableList(
             code for code in tuple(snapshot.permission_codes) if self._checker.check(code)
@@ -94,12 +105,42 @@ class MyMenuService(BaseFrameworkObject):
         """
         if not menu.forms:
             return True
+        forms = self._visible_forms(menu)
+        if not forms:
+            return False
         snapshot = get_current_permission_snapshot()
         if snapshot is None or snapshot.exempt:
             return True
         if menu.id in snapshot.granted_menu_ids:
             return True
-        return any(form.id in snapshot.granted_form_ids for form in menu.forms)
+        return any(form.id in snapshot.granted_form_ids for form in forms)
+
+    def _visible_forms(self, menu: SnapshotMenu) -> ConcurrentStableList[SnapshotForm]:
+        """按租户模块状态过滤表单（产品模块停用 / 未开通即隐藏）。
+
+        Args:
+            menu: 菜单快照。
+
+        Returns:
+            ConcurrentStableList[SnapshotForm]: 可见表单。
+        """
+        return ConcurrentStableList(form for form in menu.forms if self._module_allows(form.business_code))
+
+    def _module_allows(self, business_code: str | None) -> bool:
+        """判定表单业务码所属模块是否允许（非产品业务恒允许）。
+
+        Args:
+            business_code: 业务码。
+
+        Returns:
+            bool: 允许为 True。
+        """
+        if not business_code:
+            return True
+        module_key = module_for_business(business_code)
+        if module_key is None:
+            return True
+        return self._module_states.get(module_key) == "enabled"
 
     def _to_node(self, menu: SnapshotMenu) -> MyMenuNode:
         """菜单快照 → 动态菜单节点（含表单 / 按钮 / 字段标记）。
@@ -119,7 +160,7 @@ class MyMenuService(BaseFrameworkObject):
             icon=menu.icon,
             sort=menu.sort,
             hidden=menu.hidden,
-            forms=ConcurrentStableList(self._to_form(menu.id, form) for form in menu.forms),
+            forms=ConcurrentStableList(self._to_form(menu.id, form) for form in self._visible_forms(menu)),
             children=ConcurrentStableList(),
         )
 

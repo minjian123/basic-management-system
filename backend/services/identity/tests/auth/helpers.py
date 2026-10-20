@@ -269,6 +269,8 @@ class FakePlatformClient(BaseServiceClient):
                 )
             if body.get("new_password") == "old-pass":
                 return ConcurrentStableDict({"updated": False, "reason": "history_reused", "violations": []})
+            if body.get("new_password") == "UpdateFail@1":
+                return ConcurrentStableDict({"updated": False, "reason": "internal_error", "violations": []})
             user.set("password", body.get("new_password"))
             return ConcurrentStableDict({"updated": True, "reason": "", "violations": []})
         if action == "login-state":

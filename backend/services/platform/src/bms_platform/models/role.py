@@ -58,7 +58,16 @@ ROLE_TYPE_SECURITY = "security"
 ROLE_TYPE_AUDIT = "audit"
 """角色类型：审计管理员（内置；`03_02` 三权互斥参与方）。"""
 
-ROLE_TYPES: tuple[str, ...] = (ROLE_TYPE_CUSTOM, ROLE_TYPE_SYSTEM, ROLE_TYPE_SECURITY, ROLE_TYPE_AUDIT)
+ROLE_TYPE_PLATFORM_ADMIN = "platform_admin"
+"""角色类型：平台超管（内置；仅平台租户种子写入；全权限豁免，不参与三权互斥）。"""
+
+ROLE_TYPES: tuple[str, ...] = (
+    ROLE_TYPE_CUSTOM,
+    ROLE_TYPE_SYSTEM,
+    ROLE_TYPE_SECURITY,
+    ROLE_TYPE_AUDIT,
+    ROLE_TYPE_PLATFORM_ADMIN,
+)
 """角色类型取值清单。"""
 
 SEPARATION_ROLE_TYPES: tuple[str, ...] = (ROLE_TYPE_SYSTEM, ROLE_TYPE_SECURITY, ROLE_TYPE_AUDIT)

@@ -22,7 +22,7 @@ import pytest
 
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.permission.snapshot import TIER_PLATFORM_ADMIN, TIER_SYSTEM_ADMIN
-from bms_core.services.table_registry import TABLE_OWNERSHIP, Datasource, TableStatus
+from bms_core.services.table_registry import TABLE_OWNERSHIP, Datasource
 
 _PLATFORM_SRC = Path(__file__).resolve().parents[2] / "src" / "bms_platform"
 _SERVICES = _PLATFORM_SRC / "services"
@@ -195,12 +195,17 @@ def test_platform_tier_has_single_production_point() -> None:
 
 @pytest.mark.kiwi_id(2314)
 def test_sys_admin_not_in_tenant_tables() -> None:
-    """`sys_admin` 边界：平台库 `PLANNED` 且归属 `identity`；不在任何租户库表清单内。"""
-    record = next((item for item in TABLE_OWNERSHIP if item.table_name == "sys_admin"), None)
-    assert record is not None, "`sys_admin` 须在表归属登记中（平台运营账号预留）"
-    assert record.owner == "identity"
-    assert record.datasource is Datasource.PLATFORM
-    assert record.status is TableStatus.PLANNED
+    """平台超管边界：不采用独立 `sys_admin` 表；平台超管为平台租户 `sys_user` + `platform_admin` 角色类型。"""
+    names = {item.table_name for item in TABLE_OWNERSHIP}
+    assert "sys_admin" not in names, "`sys_admin` 已改为平台租户账号（不采用独立表）"
 
+    from bms_platform.models.role import ROLE_TYPE_PLATFORM_ADMIN, SEPARATION_ROLE_TYPES
+
+    assert ROLE_TYPE_PLATFORM_ADMIN == "platform_admin"
+    assert ROLE_TYPE_PLATFORM_ADMIN not in SEPARATION_ROLE_TYPES, "平台超管不参与三权互斥"
+
+    from bms_tenant.models.tenant import TENANT_KIND_PLATFORM
+
+    assert TENANT_KIND_PLATFORM == "platform"
     tenant_tables = {item.table_name for item in TABLE_OWNERSHIP if item.datasource is Datasource.TENANT}
-    assert "sys_admin" not in tenant_tables
+    assert "sys_tenant" not in tenant_tables, "平台租户注册表在平台服务库，不在租户库表集"

@@ -49,6 +49,26 @@ class LoginRequest(BaseSchema):
     remember_me: bool = Field(default=False, description="记住我（true=14 天；false=会话级，浏览器关闭即失效）")
 
 
+class ChangePasswordRequest(BaseSchema):
+    """自助改密请求（首登强制改密 / 常规改密）。"""
+
+    old_password: str = Field(min_length=1, max_length=512, description="旧口令")
+    new_password: str = Field(min_length=1, max_length=512, description="新口令（按密码策略校验）")
+
+
+class ChangePasswordResult(BaseSchema):
+    """自助改密结果。"""
+
+    changed: bool = Field(description="是否改密成功")
+    revoked_sessions: int = Field(description="被失效的其它会话数")
+
+
+class PlatformTenantResult(BaseSchema):
+    """平台租户编码（登录页「平台超管登录」预填）。"""
+
+    code: str = Field(description="平台租户编码")
+
+
 class UserSummary(BaseSchema):
     """登录成功返回的用户概要（权限 / 菜单概要归阶段七 RBAC）。"""
 

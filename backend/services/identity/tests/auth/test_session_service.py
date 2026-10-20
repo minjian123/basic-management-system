@@ -10,7 +10,8 @@ from bms_core.db.session import DbSession
 from bms_core.db.unit_of_work import DbUnitOfWork
 from bms_core.security.session import DefaultSessionSecurity
 from bms_core.session.memory import MemorySessionStore
-from bms_identity.services.session import REASON_KICK, SessionService
+from bms_identity.repositories.session import SessionRepository
+from bms_identity.services.session import REASON_KICK, REASON_TENANT_SUSPENDED, SessionService
 
 from .helpers import RecordingRealtimePublisher
 from .session_helpers import seed_session, tenant_scope, utc_now
@@ -87,3 +88,42 @@ async def test_enforce_max_active_no_overflow(service_app: FastAPI) -> None:
         service = _service(session, store, recorder)
         assert await service.enforce_max_active(1001, tenant="demo", max_active=5) == []
     assert recorder.events == []
+
+
+@pytest.mark.kiwi_id(2325)
+async def test_revoke_tenant_sessions_revokes_all_active(service_app: FastAPI) -> None:
+    """按租户撤销：只涉及在线会话（已撤销 / 过期不动），返回会话清单并广播。"""
+    await seed_session(service_app, session_id="8101", user_id=1)
+    await seed_session(service_app, session_id="8102", user_id=2)
+    await seed_session(service_app, session_id="8103", user_id=2, revoked_at=utc_now())
+    store, recorder = MemorySessionStore(), RecordingRealtimePublisher()
+    async with tenant_scope(service_app) as session:
+        service = _service(session, store, recorder)
+        revoked = await service.revoke_tenant_sessions(tenant="1", reason=REASON_TENANT_SUSPENDED)
+        await session.commit()
+    assert list(revoked) == ["8101", "8102"]
+    assert len(recorder.events) == 2
+    async with tenant_scope(service_app) as session:
+        repo = SessionRepository(session)
+        assert await repo.count_active(now=utc_now()) == 0
+
+
+@pytest.mark.kiwi_id(2325)
+async def test_revoke_tenant_sessions_cleanup_failure_tolerated(service_app: FastAPI) -> None:
+    """运行时清理失败不阻断 DB 撤销（逐会话尽力而为）。"""
+    await seed_session(service_app, session_id="8104", user_id=1)
+
+    class _FailingStore(MemorySessionStore):
+        async def delete(self, session_id: str, *, tenant: str | None = None) -> None:
+            del session_id, tenant
+            raise RuntimeError("store down")
+
+    _store = _FailingStore()
+    recorder = RecordingRealtimePublisher()
+    async with tenant_scope(service_app) as session:
+        service = _service(session, _store, recorder)
+        revoked = await service.revoke_tenant_sessions(tenant="1", reason=REASON_TENANT_SUSPENDED)
+        await session.commit()
+    assert list(revoked) == ["8104"]
+    async with tenant_scope(service_app) as session:
+        assert await SessionRepository(session).count_active(now=utc_now()) == 0

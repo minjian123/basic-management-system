@@ -91,6 +91,7 @@ async def test_repository_active_queries(service_app: FastAPI) -> None:
 
         by_user = await repo.list_active_by_user(1, now=now)
         assert [r.session_id for r in by_user] == ["7001", "7002"]
+        assert [r.session_id for r in await repo.list_active_all(now=now)] == ["7001", "7002", "7003"]
 
 
 @pytest.mark.kiwi_id(2195)

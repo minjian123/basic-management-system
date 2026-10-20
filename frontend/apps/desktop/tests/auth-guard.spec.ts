@@ -190,6 +190,17 @@ describe('installAuthGuard 判定与回跳（Kiwi 2231）', () => {
     expect(ensureSession).toHaveBeenCalledTimes(1)
   })
 
+  it('首登强制改密：非改密页重定向到改密页，改密页放行', async () => {
+    setAccessToken('t1')
+    const { run } = install(
+      { mustChangePassword: () => true },
+      { routes: () => ({ '/change-password': 'ChangePassword' }) },
+    )
+
+    expect(await run(target('/org/users'))).toEqual({ path: '/change-password' })
+    expect(await run(target('/change-password'))).toBe(true)
+  })
+
   it('公开错误页不等待会话（直接放行）', async () => {
     const ensureSession = vi.fn()
     const { run } = install({ ensureSession })
@@ -270,10 +281,7 @@ describe('installAuthGuard 判定与回跳（Kiwi 2231）', () => {
     const ensureRoutes = vi.fn(() => {
       installed = true
     })
-    const { run, deps } = install(
-      { ensureRoutes },
-      { routes: () => (installed ? { '/sys/users': 'SystemUser' } : {}) },
-    )
+    const { run, deps } = install({ ensureRoutes }, { routes: () => (installed ? { '/sys/users': 'SystemUser' } : {}) })
 
     expect(await run(target('/sys/users', { query: { page: '2' } }))).toEqual({
       path: '/sys/users',

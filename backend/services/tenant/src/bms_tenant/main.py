@@ -1,13 +1,14 @@
 """租户与配置服务入口：应用工厂 `ApplicationFactory`（共享基座 + 服务身份 / 路由）。"""
 
-from fastapi import APIRouter
+from fastapi import APIRouter, FastAPI
 
-from bms_core.application import BaseServiceApplicationFactory
+from bms_core.application import BaseServiceApplicationFactory, StartupHook
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.tenant.base import TENANT_SELF_SERVICE_DB_PROVIDER
 from bms_tenant import CONTRACT_VERSION, SERVICE_NAME, SERVICE_TITLE, __version__
 from bms_tenant.api.router import api_router
+from bms_tenant.services.platform_tenant import ensure_platform_tenant
 from bms_tenant.sources import register_local_tenant_membership_store, register_local_tenant_source
 
 register_local_tenant_source()  # 向共享基座登记 `local` 租户源实现（本服务直读自身平台服务库）
@@ -39,3 +40,20 @@ class ApplicationFactory(BaseServiceApplicationFactory):
             ConcurrentStableList[APIRouter]: 业务聚合路由。
         """
         return ConcurrentStableList([api_router])
+
+    def startup_hooks(self) -> tuple[StartupHook, ...]:
+        """启动钩子：幂等引导默认平台租户（任务 `04_01`）。
+
+        Returns:
+            tuple[StartupHook, ...]: 启动钩子。
+        """
+        return (_ensure_platform,)
+
+
+async def _ensure_platform(app: FastAPI) -> None:
+    """启动钩子实现（平台租户引导）。
+
+    Args:
+        app: 应用实例。
+    """
+    await ensure_platform_tenant(app)

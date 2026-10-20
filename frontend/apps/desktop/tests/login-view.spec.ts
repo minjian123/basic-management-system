@@ -72,6 +72,7 @@ function makeRouter(): Router {
     routes: [
       { path: '/login', name: 'Login', component: { template: '<div />' } },
       { path: '/', name: 'Home', component: { template: '<div />' } },
+      { path: '/change-password', name: 'ChangePassword', component: { template: '<div />' } },
       { path: '/:pathMatch(.*)*', name: 'NotFound', component: { template: '<div />' } },
     ],
   })
@@ -116,10 +117,16 @@ function stubCaptchaFetch(policy: { required?: boolean; channels?: string[] } = 
  *
  * @param options 分派覆盖项。
  */
-function stubRequests(options: { login?: () => unknown; providers?: unknown } = {}): void {
+function stubRequests(
+  options: { login?: () => unknown; providers?: unknown; platformTenant?: () => unknown } = {},
+): void {
   requestMock.mockImplementation((config: RequestConfig) => {
     if (config.url.includes('/auth/sso/providers')) {
       return Promise.resolve(options.providers ?? { items: [] })
+    }
+    if (config.url.includes('/auth/platform-tenant')) {
+      const factory = options.platformTenant
+      return factory === undefined ? Promise.resolve({ code: 'platform' }) : Promise.resolve(factory())
     }
     if (config.url.includes('/auth/login')) {
       const factory = options.login
@@ -226,15 +233,50 @@ describe('登录页（Kiwi 2232）', () => {
     expect(router.currentRoute.value.fullPath).toBe('/org/users?page=2')
   })
 
-  it('登录成功且强制改密为真：提示尽快修改初始密码', async () => {
+  it('登录成功且强制改密为真：提示并跳转改密页', async () => {
     stubRequests({
       login: () => ({ ...LOGIN_SUCCESS, user: { ...LOGIN_SUCCESS.user, must_change_password: true } }),
     })
-    const { wrapper } = await mountLogin()
+    const { wrapper, router } = await mountLogin()
 
     await submit(wrapper)
 
     expect(vi.mocked(notifyMustChangePassword)).toHaveBeenCalledTimes(1)
+    expect(router.currentRoute.value.path).toBe('/change-password')
+  })
+
+  it('平台超管登录：预填平台租户编码并展开租户标识', async () => {
+    const { wrapper } = await mountLogin()
+
+    await wrapper.find('[data-test="login-platform"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="login-platform-hint"]').exists()).toBe(true)
+    expect((wrapper.find('[data-test="login-tenant"]').element as HTMLInputElement).value).toBe('platform')
+  })
+
+  it('平台超管登录：解析失败回显错误', async () => {
+    stubRequests({ platformTenant: () => Promise.reject(new Error('平台租户不可用')) })
+    const { wrapper } = await mountLogin()
+
+    await wrapper.find('[data-test="login-platform"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="login-error"]').text()).toContain('平台租户不可用')
+  })
+
+  it('平台超管登录：非 Error 失败按缺省文案回显', async () => {
+    stubRequests({
+      platformTenant: () => {
+        throw 'boom'
+      },
+    })
+    const { wrapper } = await mountLogin()
+
+    await wrapper.find('[data-test="login-platform"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="login-error"]').text()).toContain('平台租户解析失败')
   })
 
   it('验证码策略请求失败：静默降级为不显示验证码块，不阻断本地登录', async () => {
@@ -322,6 +364,10 @@ describe('登录页（Kiwi 2232）', () => {
       if (config.url.includes('/auth/sso/providers')) {
         providersCalls += 1
         return Promise.resolve(SSO_PROVIDERS)
+      }
+      if (config.url.includes('/auth/platform-tenant')) {
+        const factory = options.platformTenant
+        return factory === undefined ? Promise.resolve({ code: 'platform' }) : Promise.resolve(factory())
       }
       if (config.url.includes('/auth/login')) {
         return Promise.reject(new ApiError(20007, 'need tenant'))

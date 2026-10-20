@@ -19,33 +19,43 @@ from bms_core.api.deps import (
     get_session_security,
     get_session_store,
     get_tenant,
+    get_tenant_source,
 )
 from bms_core.core.exceptions import AuthError
 from bms_core.db.registry import EngineRegistry
 from bms_core.db.session import session_scope
-from bms_core.db.tenant import TenantContext
+from bms_core.db.tenant import TenantContext, TenantLookup
 from bms_core.db.unit_of_work import DbUnitOfWork
 from bms_core.schemas.common import ApiResponse
 from bms_core.security.base import BaseSessionSecurity
 from bms_core.session.base import BaseSessionStore
 from bms_core.ws.base import BaseRealtimePublisher
-from bms_identity.schemas.session import RevokeUserSessionsRequest, RevokeUserSessionsResult
-from bms_identity.services.session import SessionService
+from bms_identity.schemas.session import (
+    RevokeTenantSessionsRequest,
+    RevokeTenantSessionsResult,
+    RevokeUserSessionsRequest,
+    RevokeUserSessionsResult,
+)
+from bms_identity.services.session import REASON_TENANT_SUSPENDED, SessionService
 
 PLATFORM_SERVICE = "platform"
 """允许调用本内部端点的调用方服务标识（平台服务）。"""
+
+TENANT_SERVICE = "tenant"
+"""允许调用租户撤销端点的调用方服务标识（租户服务）。"""
 
 router = BaseRouter(
     key="identity_internal_sessions",
     prefix="/identity/internal/sessions",
     tags=["identity-internal"],
-    dependencies=[Depends(require_service(PLATFORM_SERVICE))],
+    dependencies=[Depends(require_service(PLATFORM_SERVICE, TENANT_SERVICE))],
 )
 
 SecurityDep = Annotated[BaseSessionSecurity, Depends(get_session_security)]
 StoreDep = Annotated[BaseSessionStore, Depends(get_session_store)]
 PublisherDep = Annotated[BaseRealtimePublisher, Depends(get_realtime_publisher)]
 TenantDep = Annotated[TenantContext | None, Depends(get_tenant)]
+SourceDep = Annotated[TenantLookup, Depends(get_tenant_source)]
 
 
 def _require_tenant(tenant_ctx: TenantContext | None) -> TenantContext:
@@ -102,3 +112,44 @@ async def revoke_user_sessions(
         )
         revoked = await service.revoke_user_sessions(req.user_id, tenant=str(tenant.tenant_id), reason=req.reason)
     return ApiResponse.ok(RevokeUserSessionsResult(revoked=len(revoked)))
+
+
+@router.post("/revoke-tenant")
+async def revoke_tenant_sessions(
+    request: Request,
+    req: RevokeTenantSessionsRequest,
+    security: SecurityDep,
+    store: StoreDep,
+    publisher: PublisherDep,
+    source: SourceDep,
+) -> ApiResponse[RevokeTenantSessionsResult]:
+    """按租户撤销其全部在线会话（租户停用即时失效）。
+
+    目标租户由 `tenant_code` 经租户源解析（服务 JWT 租户位为调用方 = 平台租户），会话库取目标租户库。
+
+    Args:
+        request: 请求对象（取引擎注册表与会话工厂）。
+        req: 撤销请求（目标租户编码）。
+        security: 会话安全原语。
+        store: 会话标记存储。
+        publisher: 实时推送器。
+        source: 租户源（按编码解析目标租户）。
+
+    Returns:
+        ApiResponse: 统一响应，data 为被撤销的在线会话数。
+    """
+    tenant = await source.by_code(req.tenant_code)
+    if tenant.tenant_id is None:
+        raise AuthError("租户缺少主键标识")
+    registry: EngineRegistry = request.app.state.engine_registry
+    factory = request.app.state.session_factory
+    async with session_scope(registry, db_key=tenant.db_key, factory=factory) as session:
+        service = SessionService(
+            session=session,
+            uow=DbUnitOfWork(session),
+            security=security,
+            store=store,
+            publisher=publisher,
+        )
+        revoked = await service.revoke_tenant_sessions(tenant=str(tenant.tenant_id), reason=REASON_TENANT_SUSPENDED)
+    return ApiResponse.ok(RevokeTenantSessionsResult(revoked=len(revoked)))

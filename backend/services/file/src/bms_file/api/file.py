@@ -12,8 +12,10 @@ from typing import Annotated
 from fastapi import Depends, File, Header, Path, Query, UploadFile
 
 from bms_core.api.base import BaseRouter, require_auth
-from bms_core.api.deps import get_idempotency_store, get_multipart_upload
-from bms_core.core.exceptions import ParamError
+from bms_core.api.deps import get_idempotency_store, get_multipart_upload, get_object_storage, get_service_client
+from bms_core.core.context import current_tenant
+from bms_core.core.exceptions import ParamError, TenantQuotaExceededError
+from bms_core.db.tenant import current_tenant_id_str
 from bms_core.idempotency.base import IDEMPOTENCY_HEADER, IdempotencyStore, build_idempotency_key
 from bms_core.schemas.common import ApiResponse
 from bms_core.schemas.storage import (
@@ -23,7 +25,9 @@ from bms_core.schemas.storage import (
     MultipartSessionResponse,
     StoredObjectResponse,
 )
-from bms_core.storage.base import BaseMultipartUpload, MultipartInit, MultipartSession
+from bms_core.servicecall.base import BaseServiceClient
+from bms_core.storage.base import BaseMultipartUpload, BaseObjectStorage, MultipartInit, MultipartSession
+from bms_core.tenant_module.quota import TenantQuotaClient
 
 router = BaseRouter(
     key="file",
@@ -33,6 +37,8 @@ router = BaseRouter(
 )
 
 StoreDep = Annotated[BaseMultipartUpload, Depends(get_multipart_upload)]
+StorageDep = Annotated[BaseObjectStorage, Depends(get_object_storage)]
+ClientDep = Annotated[BaseServiceClient, Depends(get_service_client)]
 IdempotencyDep = Annotated[IdempotencyStore, Depends(get_idempotency_store)]
 UploadIdPath = Annotated[str, Path(description="上传会话标识")]
 PartNoPath = Annotated[int, Path(ge=1, description="分片序号（从 1 起）")]
@@ -142,17 +148,30 @@ async def upload_part(
 
 
 @router.post("/uploads/{upload_id}/complete")
-async def complete_upload(store: StoreDep, upload_id: UploadIdPath) -> ApiResponse:
-    """合并分片为最终对象。
+async def complete_upload(
+    store: StoreDep, storage: StorageDep, client: ClientDep, upload_id: UploadIdPath
+) -> ApiResponse:
+    """合并分片为最终对象，并占用租户存储配额（超限删除已合并对象并拒绝）。
 
     Args:
         store: 分片上传基座。
+        storage: 对象存储（配额超限时清理已合并对象）。
+        client: 服务间调用客户端（tenant 配额内部契约）。
         upload_id: 上传会话标识。
 
     Returns:
         ApiResponse: 统一响应，data 为合并产物元数据（`StoredObjectResponse`）。
+
+    Raises:
+        TenantQuotaExceededError: 租户存储配额超限（82005 / 409）。
     """
     stored = await store.complete(upload_id)
+    quota = TenantQuotaClient(client, tenant_id=current_tenant_id_str(), tenant_code=current_tenant.get())
+    try:
+        await quota.consume("storage_bytes", stored.size, ref=stored.key)
+    except TenantQuotaExceededError:
+        await storage.delete(stored.key)
+        raise
     return ApiResponse.ok(
         StoredObjectResponse(
             key=stored.key,

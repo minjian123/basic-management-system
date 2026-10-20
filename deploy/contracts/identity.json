@@ -109,6 +109,33 @@
         "title": "ApiResponse[BasePageResponse[SessionItem]]",
         "type": "object"
       },
+      "ApiResponse_ChangePasswordResult_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ChangePasswordResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[ChangePasswordResult]",
+        "type": "object"
+      },
       "ApiResponse_ClientCreated_": {
         "additionalProperties": false,
         "properties": {
@@ -373,6 +400,33 @@
         "title": "ApiResponse[PasswordResetResult]",
         "type": "object"
       },
+      "ApiResponse_PlatformTenantResult_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PlatformTenantResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[PlatformTenantResult]",
+        "type": "object"
+      },
       "ApiResponse_RefreshResult_": {
         "additionalProperties": false,
         "properties": {
@@ -398,6 +452,33 @@
           }
         },
         "title": "ApiResponse[RefreshResult]",
+        "type": "object"
+      },
+      "ApiResponse_RevokeTenantSessionsResult_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RevokeTenantSessionsResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[RevokeTenantSessionsResult]",
         "type": "object"
       },
       "ApiResponse_RevokeUserSessionsResult_": {
@@ -839,6 +920,54 @@
           "captcha_id"
         ],
         "title": "CaptchaVerifyRequest",
+        "type": "object"
+      },
+      "ChangePasswordRequest": {
+        "additionalProperties": false,
+        "description": "自助改密请求（首登强制改密 / 常规改密）。",
+        "properties": {
+          "new_password": {
+            "description": "新口令（按密码策略校验）",
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "New Password",
+            "type": "string"
+          },
+          "old_password": {
+            "description": "旧口令",
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Old Password",
+            "type": "string"
+          }
+        },
+        "required": [
+          "old_password",
+          "new_password"
+        ],
+        "title": "ChangePasswordRequest",
+        "type": "object"
+      },
+      "ChangePasswordResult": {
+        "additionalProperties": false,
+        "description": "自助改密结果。",
+        "properties": {
+          "changed": {
+            "description": "是否改密成功",
+            "title": "Changed",
+            "type": "boolean"
+          },
+          "revoked_sessions": {
+            "description": "被失效的其它会话数",
+            "title": "Revoked Sessions",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "changed",
+          "revoked_sessions"
+        ],
+        "title": "ChangePasswordResult",
         "type": "object"
       },
       "ClientCreateRequest": {
@@ -1571,6 +1700,22 @@
         "title": "PasswordResetResult",
         "type": "object"
       },
+      "PlatformTenantResult": {
+        "additionalProperties": false,
+        "description": "平台租户编码（登录页「平台超管登录」预填）。",
+        "properties": {
+          "code": {
+            "description": "平台租户编码",
+            "title": "Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code"
+        ],
+        "title": "PlatformTenantResult",
+        "type": "object"
+      },
       "RefreshResult": {
         "additionalProperties": false,
         "description": "刷新成功响应（新 access 在体；新 refresh 走 httpOnly cookie）。",
@@ -1597,6 +1742,40 @@
           "expires_in"
         ],
         "title": "RefreshResult",
+        "type": "object"
+      },
+      "RevokeTenantSessionsRequest": {
+        "additionalProperties": false,
+        "description": "按租户撤销全部会话请求（服务间内部端点；tenant 停用调用）。",
+        "properties": {
+          "tenant_code": {
+            "description": "目标租户编码（服务 JWT 租户位为调用方）",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Tenant Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tenant_code"
+        ],
+        "title": "RevokeTenantSessionsRequest",
+        "type": "object"
+      },
+      "RevokeTenantSessionsResult": {
+        "additionalProperties": false,
+        "description": "按租户撤销全部会话结果。",
+        "properties": {
+          "revoked": {
+            "description": "被撤销的在线会话数（无在线会话为 0）",
+            "title": "Revoked",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "revoked"
+        ],
+        "title": "RevokeTenantSessionsResult",
         "type": "object"
       },
       "RevokeUserSessionsRequest": {
@@ -2001,6 +2180,48 @@
         ]
       }
     },
+    "/api/v1/auth/change-password": {
+      "post": {
+        "description": "自助改密（首登强制改密 / 常规改密）：旧口令校验 → 策略校验 → 更新 → 其它会话失效。\n\nArgs:\n    request: 请求对象（取引擎注册表与会话工厂）。\n    req: 改密请求（旧口令 / 新口令）。\n    auth: 登录态（用户主键 / 当前会话）。\n    tenant_ctx: 请求上下文租户。\n    client: 服务间调用客户端（platform 凭据接口）。\n    security: 会话安全原语。\n    store: 会话标记存储。\n    publisher: 实时推送器。\n\nReturns:\n    ApiResponse: 统一响应（data 为改密结果）。\n\nRaises:\n    AuthError: 缺少登录态 / 租户上下文、旧口令不正确（20001 / 401）。\n    PasswordPolicyViolationError: 新口令不符合策略（30005）。\n    PasswordReusedError: 新口令命中历史（30006）。",
+        "operationId": "change_password_api_v1_auth_change_password_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePasswordRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ChangePasswordResult_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Change Password",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
     "/api/v1/auth/forgot-password": {
       "post": {
         "description": "发起找回：验证码 / 限流 / 重置目标解析 → 生成令牌并占位发送（恒 `{sent: true}`）。\n\nArgs:\n    request: 请求对象（取应用配置与引擎注册表）。\n    req: 发起找回请求（标识 / 验证码 / 租户）。\n    captcha: 验证码基座。\n    limiter: 限流基座。\n    client: 服务间调用客户端。\n    state_store: 流程状态存储。\n    notifier: 通知基座。\n    security: 会话安全原语。\n    store: 会话标记存储。\n    publisher: 实时推送器。\n    tenant_ctx: 请求上下文租户。\n    tenant_source: 租户源。\n\nReturns:\n    ApiResponse: 统一响应，data 为发起结果（`PasswordForgotResult`）。\n\nRaises:\n    NeedTenantError: 未提供租户且存在多个启用租户、无法唯一解析（20007/200；data 为空）。",
@@ -2310,6 +2531,28 @@
           }
         },
         "summary": "Me",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/platform-tenant": {
+      "get": {
+        "description": "取平台租户编码（免登录；登录页「平台超管登录」预填）。\n\nArgs:\n    request: 请求对象（取配置）。\n\nReturns:\n    ApiResponse: 统一响应（data 为平台租户编码）。",
+        "operationId": "platform_tenant_api_v1_auth_platform_tenant_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_PlatformTenantResult_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Platform Tenant",
         "tags": [
           "auth"
         ]
@@ -3082,6 +3325,116 @@
         "summary": "Verify Captcha",
         "tags": [
           "captcha"
+        ]
+      }
+    },
+    "/api/v1/identity/internal/sessions/revoke-tenant": {
+      "post": {
+        "description": "按租户撤销其全部在线会话（租户停用即时失效）。\n\n目标租户由 `tenant_code` 经租户源解析（服务 JWT 租户位为调用方 = 平台租户），会话库取目标租户库。\n\nArgs:\n    request: 请求对象（取引擎注册表与会话工厂）。\n    req: 撤销请求（目标租户编码）。\n    security: 会话安全原语。\n    store: 会话标记存储。\n    publisher: 实时推送器。\n    source: 租户源（按编码解析目标租户）。\n\nReturns:\n    ApiResponse: 统一响应，data 为被撤销的在线会话数。",
+        "operationId": "revoke_tenant_sessions_api_v1_identity_internal_sessions_revoke_tenant_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RevokeTenantSessionsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_RevokeTenantSessionsResult_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Revoke Tenant Sessions",
+        "tags": [
+          "identity-internal"
         ]
       }
     },

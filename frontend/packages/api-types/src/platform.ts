@@ -6075,7 +6075,7 @@ export interface components {
              * @description 角色类型（custom/system/security/audit）
              * @enum {string}
              */
-            role_type: "custom" | "system" | "security" | "audit";
+            role_type: "custom" | "system" | "security" | "audit" | "platform_admin";
             /**
              * Status
              * @description 状态（enabled/disabled）
@@ -6225,7 +6225,7 @@ export interface components {
              * @description 角色类型（custom/system/security/audit）
              * @enum {string}
              */
-            role_type: "custom" | "system" | "security" | "audit";
+            role_type: "custom" | "system" | "security" | "audit" | "platform_admin";
             /**
              * Status
              * @description 状态（enabled/disabled）

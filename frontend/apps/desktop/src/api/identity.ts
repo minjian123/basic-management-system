@@ -102,3 +102,32 @@ export function fetchSsoAuthorizeInfo(idpKey: string, tenant?: string | null): P
     params,
   })
 }
+
+/** 平台租户编码（登录页「平台超管登录」预填）。 */
+export type PlatformTenantResult = identity.components['schemas']['PlatformTenantResult']
+
+/** 自助改密请求（首登强制改密 / 常规改密）。 */
+export type ChangePasswordRequest = identity.components['schemas']['ChangePasswordRequest']
+
+/** 自助改密结果。 */
+export type ChangePasswordResult = identity.components['schemas']['ChangePasswordResult']
+
+/**
+ * 取平台租户编码（免登录端点）。
+ */
+export function fetchPlatformTenant(): Promise<PlatformTenantResult> {
+  return request<PlatformTenantResult>({ method: 'GET', url: apiUrl('identity', '/auth/platform-tenant') })
+}
+
+/**
+ * 自助改密（旧口令校验 → 策略校验 → 其它会话失效）。
+ *
+ * @param body 改密请求。
+ */
+export function changePassword(body: ChangePasswordRequest): Promise<ChangePasswordResult> {
+  return request<ChangePasswordResult>({
+    method: 'POST',
+    url: apiUrl('identity', '/auth/change-password'),
+    data: body,
+  })
+}

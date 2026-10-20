@@ -95,6 +95,7 @@ _EXPECTED_PLUGIN_KEYS = frozenset(
         "sharding",
         "task",
         "tenant_self_service",
+        "tenant_module",
         "token_codec",
         "token_verifier",
         "tracer",

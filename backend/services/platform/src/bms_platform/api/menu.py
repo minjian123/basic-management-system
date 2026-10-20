@@ -25,6 +25,7 @@ from bms_core.api.deps import (
 from bms_core.cache.base import CacheRegion
 from bms_core.config.base import BaseConfigSource
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.core.context import current_tenant
 from bms_core.db.session import DbSession
 from bms_core.db.tenant import current_tenant_id_str
 from bms_core.db.unit_of_work import UnitOfWork
@@ -34,6 +35,8 @@ from bms_core.menu import DEFAULT_MENU_TREE_CACHE_TTL, MENU_TREE_CACHE_TTL_KEY
 from bms_core.outbox.base import BaseOutboxStore
 from bms_core.permission.base import BasePermissionChecker, prepare_permission_dependency, require_permission
 from bms_core.schemas.common import ApiResponse
+from bms_core.services.module_registry import TENANT_OPTIONAL_MODULE_KEYS
+from bms_core.tenant_module.base import get_tenant_module_gate
 from bms_platform.models.menu import SysButton, SysField, SysForm, SysMenu
 from bms_platform.repositories.menu import (
     ActionRepository,
@@ -333,7 +336,36 @@ async def my_menus(
     locale = _accept_locale(request)
     ttl = await _tree_ttl(config)
     service = MyMenuService(metadata=_service(uow, outbox, cache), checker=checker)
-    return ApiResponse.ok(await service.build(locale=locale, tenant_id=current_tenant_id_str(), ttl=ttl))
+    return ApiResponse.ok(
+        await service.build(
+            locale=locale,
+            tenant_id=current_tenant_id_str(),
+            ttl=ttl,
+            module_states=await _module_states(request),
+        )
+    )
+
+
+async def _module_states(request: Request) -> ConcurrentStableDict[str, str]:
+    """取当前租户的可勾选模块状态（模块停用 / 未开通即隐藏对应菜单）。
+
+    Args:
+        request: 请求对象（取门禁实现）。
+
+    Returns:
+        ConcurrentStableDict[str, str]: 模块标识 → 状态（无租户上下为空）。
+    """
+    tenant_key = current_tenant_id_str()
+    if not tenant_key or not tenant_key.isdigit():
+        return ConcurrentStableDict()
+    gate = get_tenant_module_gate(request)
+    states: ConcurrentStableDict[str, str] = ConcurrentStableDict()
+    for module_key in sorted(TENANT_OPTIONAL_MODULE_KEYS):
+        states.set(
+            module_key,
+            await gate.state(tenant_id=int(tenant_key), tenant_code=current_tenant.get(), module_key=module_key),
+        )
+    return states
 
 
 # ------------------------------------------------------------------ 菜单维护

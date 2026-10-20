@@ -41,6 +41,14 @@ export const FORM_PAGE_DECLARATIONS: FormPageDeclaration[] = [
     meta: { keepAlive: true },
     list: () => import('@/views/system/user/UserView.vue'),
   },
+  {
+    formKey: 'tenant',
+    title: '租户管理',
+    path: '/sys/tenants',
+    name: 'SystemTenant',
+    meta: { keepAlive: true },
+    list: () => import('@/views/system/TenantView.vue'),
+  },
 ]
 
 pageRoute.declareAll(FORM_PAGE_DECLARATIONS)

@@ -28,7 +28,7 @@ from bms_core.api.deps import (
 from bms_core.audit.base import AuditCapturer
 from bms_core.cache.base import CacheRegion
 from bms_core.core.concurrent import ConcurrentStableList
-from bms_core.core.context import current_user_id
+from bms_core.core.context import current_tenant, current_user_id
 from bms_core.core.exceptions import ConflictError, ParamError
 from bms_core.db.session import DbSession
 from bms_core.db.tenant import current_tenant_id_str
@@ -41,6 +41,7 @@ from bms_core.schemas.common import ApiResponse
 from bms_core.schemas.pagination import BasePageQuery, BasePageResponse
 from bms_core.security.base import BasePasswordHasher
 from bms_core.servicecall.base import BaseServiceClient
+from bms_core.tenant_module.quota import TenantQuotaClient
 from bms_core.transaction.base import (
     BaseTransactionManager,
     BaseTransactionParticipant,
@@ -289,15 +290,21 @@ async def create_user(
         if cached_id is None:
             raise ConflictError("同一幂等键的请求正在处理中，请稍后重试")
         return ApiResponse.ok(UserAdminCreateResult(user=_to_detail(await service.get_user(cached_id))))
-    user, initial_password = await service.create_user(
-        username=req.username,
-        name=req.name,
-        password=req.password,
-        pwd_reset_required=req.pwd_reset_required,
-        email=req.email,
-        phone=req.phone,
-        status=req.status,
-    )
+    quota = TenantQuotaClient(client, tenant_id=current_tenant_id_str(), tenant_code=current_tenant.get())
+    await quota.consume("user_count", 1, ref=req.username)
+    try:
+        user, initial_password = await service.create_user(
+            username=req.username,
+            name=req.name,
+            password=req.password,
+            pwd_reset_required=req.pwd_reset_required,
+            email=req.email,
+            phone=req.phone,
+            status=req.status,
+        )
+    except Exception:
+        await quota.release("user_count", 1)
+        raise
     if key is not None:
         await idempotency.save(key, {"user_id": user.id})
     audit.capture(table=_TABLE, model_id=user.id, changes=ConcurrentStableList(), actor=current_user_id.get())
@@ -423,6 +430,9 @@ async def delete_user(
         ApiResponse: 统一响应，data 为删除与会话撤销结果。
     """
     revoked = await _build_service(uow, hasher, policy, outbox, client).delete_user(user_id)
+    await TenantQuotaClient(client, tenant_id=current_tenant_id_str(), tenant_code=current_tenant.get()).release(
+        "user_count", 1
+    )
     audit.capture(table=_TABLE, model_id=user_id, changes=ConcurrentStableList(), actor=current_user_id.get())
     return ApiResponse.ok(UserDeleteResult(deleted=True, session_revoked=revoked))
 

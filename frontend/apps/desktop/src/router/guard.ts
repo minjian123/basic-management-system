@@ -48,9 +48,14 @@ export interface AuthGuardDeps {
   ensureRoutes: () => void | Promise<void>
   /** 当前权限码与「是否已装载」（RBAC 就绪前 `loaded` 恒假 → 占位放行）。 */
   permissions: () => { codes: readonly string[]; loaded: boolean }
+  /** 是否处于「首登强制改密」态（为真时非改密页一律重定向）。 */
+  mustChangePassword?: () => boolean
   /** 判定观测记录（缺省不记录）。 */
   record?: (record: AuthGuardRecord) => void
 }
+
+/** 自助改密页路径（首登强制改密拦截目标）。 */
+export const MUST_CHANGE_PASSWORD_PATH = '/change-password'
 
 /**
  * 守卫是否启用（**缺省开启**；显式 `VITE_AUTH_GUARD=off` 关闭）。
@@ -83,10 +88,7 @@ export function resolvePublicPaths(dev: boolean = import.meta.env.DEV): readonly
  * @param publicPaths 公开白名单（缺省 `resolvePublicPaths()`）。
  * @returns 免会话判定返回 true。
  */
-export function isSessionFreePath(
-  path: string,
-  publicPaths: readonly string[] = resolvePublicPaths(),
-): boolean {
+export function isSessionFreePath(path: string, publicPaths: readonly string[] = resolvePublicPaths()): boolean {
   const isLoginFamily = path === DEFAULT_LOGIN_PATH || path.startsWith(`${DEFAULT_LOGIN_PATH}/`)
   return !isLoginFamily && isPublicPath(path, publicPaths)
 }
@@ -137,6 +139,12 @@ export function installAuthGuard(router: Router, deps: AuthGuardDeps): boolean {
     if (!ready) {
       record('login', 'no-session')
       return buildLoginLocation(to.fullPath, { publicPaths })
+    }
+
+    // 首登强制改密：除改密页外一律重定向（不装载菜单、不做权限判定）。
+    if (deps.mustChangePassword?.() === true && to.path !== MUST_CHANGE_PASSWORD_PATH) {
+      record('allow', 'must-change-password')
+      return { path: MUST_CHANGE_PASSWORD_PATH }
     }
 
     // 动态路由：会话就绪后幂等装载；装载后若当前地址命中的路由记录发生变化则按新路由表重解析。

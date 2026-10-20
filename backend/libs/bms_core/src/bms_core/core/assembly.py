@@ -154,6 +154,8 @@ from bms_core.sharding.base import ShardingRouter
 from bms_core.storage.base import BaseMultipartUpload, BaseObjectStorage
 from bms_core.tasks.base import BaseTask
 from bms_core.tenant.base import BaseTenantSelfService
+from bms_core.tenant_module.base import BaseTenantModuleGate
+from bms_core.tenant_module.remote import RemoteTenantModuleGate, build_remote_gate
 from bms_core.tracing.base import BaseTracer
 from bms_core.transaction.base import (
     TRANSACTION_MANAGER_KEY,
@@ -235,6 +237,7 @@ _NULL_MODULES: tuple[str, ...] = (
     "bms_core.storage.null",
     "bms_core.tasks.null",
     "bms_core.tenant.null",
+    "bms_core.tenant_module.null",
     "bms_core.tracing.null",
     "bms_core.transaction.null",
     "bms_core.transfer.null",
@@ -334,6 +337,7 @@ PLUGIN_WIRINGS: tuple[PluginWiring, ...] = (
     PluginWiring("audit", AuditCapturer, "audit", "audit"),
     PluginWiring("task", BaseTask, "task", "task"),
     PluginWiring("tenant_self_service", BaseTenantSelfService, "tenant_self_service", "tenant_self_service"),
+    PluginWiring("tenant_module", BaseTenantModuleGate, "tenant_module", "tenant_module_gate"),
     PluginWiring("print_template", BasePrintTemplateProvider, "print_template", "print_template"),
     PluginWiring("print_exporter", BasePrintExporter, "print_exporter", "print_exporter"),
     PluginWiring("icon_registry", BaseIconRegistry, "icon_registry", "icon_registry"),
@@ -417,6 +421,7 @@ def register_platform_plugins(settings: Settings, app: FastAPI, resources: Resou
     register_plugin("token_verifier", "unified", UnifiedTokenVerifierFactory(settings))
     register_plugin("data_ownership_guard", "table", TableOwnershipGuardFactory(settings))
     register_plugin("service_client", "http", HttpServiceClientFactory(settings))
+    register_plugin("tenant_module", "remote", RemoteTenantModuleGateFactory(settings, app))
     register_plugin("outbox_store", "sql", SqlOutboxStoreFactory(settings))
     register_plugin("outbox_dispatcher", "poll", PollOutboxDispatcherFactory(settings, app))
     register_plugin("idempotency", "redis", RedisIdempotencyStoreFactory(settings))
@@ -426,6 +431,38 @@ def register_platform_plugins(settings: Settings, app: FastAPI, resources: Resou
     register_plugin(TRANSACTION_PARTICIPANT_KEY, XA_PLUGIN_NAME, XaTransactionParticipantFactory(settings, app))
     register_plugin("metrics", "prometheus", PrometheusMetricsFactory(settings))
     _PREPARED_REGISTRIES.add(registry)
+
+
+class RemoteTenantModuleGateFactory(BasePluginFactory[RemoteTenantModuleGate]):
+    """租户模块门禁真实实现工厂（`remote`：tenant 服务内部契约 + 缓存）。
+
+    依赖经 `resolve_plugin` 解析（服务间客户端 / 缓存域均为应用级单例），不直接读 `app.state.<能力属性>`——
+    与跨服务取数工厂同口径，避免测试隔离下注册表复位后工厂捕获旧应用实例。
+    """
+
+    plugin_key: str = "tenant_module"
+    plugin_name: str = "remote"
+
+    def __init__(self, settings: Settings, app: FastAPI) -> None:
+        """初始化。
+
+        Args:
+            settings: 应用配置（`[tenant_module]` 分区）。
+            app: 应用实例（解析服务间客户端 / 缓存域）。
+        """
+        self._settings = settings
+        self._app = app
+
+    def create(self, options: None = None) -> RemoteTenantModuleGate:
+        """构造远端门禁。
+
+        Args:
+            options: 未使用（零参口径）。
+
+        Returns:
+            RemoteTenantModuleGate: 门禁实例。
+        """
+        return build_remote_gate(self._settings, _resolve_service_client(self._app), _resolve_cache_region(self._app))
 
 
 class RedisRedisClientFactory(BasePluginFactory[RedisRedisClient]):
@@ -1676,6 +1713,25 @@ def _resolve_service_client(app: FastAPI) -> BaseServiceClient:
             expected_version=BaseServiceClient.contract_version,
         ),
     )
+
+
+def _resolve_cache_region(app: FastAPI) -> CacheRegion | None:
+    """解析已装配的缓存域（模块门禁状态缓存；不可用返回 None）。
+
+    Args:
+        app: 应用实例（取装配配置）。
+
+    Returns:
+        CacheRegion | None: 缓存域。
+    """
+    settings = cast("Settings", app.state.settings)
+    try:
+        return cast(
+            "CacheRegion",
+            resolve_plugin("cache", settings.cache.provider, expected_version=CacheRegion.contract_version),
+        )
+    except Exception:  # 缓存为可降级依赖：解析失败按不缓存处理
+        return None
 
 
 class RoutedDictTranslatorFactory(BasePluginFactory[RoutedDictTranslator]):

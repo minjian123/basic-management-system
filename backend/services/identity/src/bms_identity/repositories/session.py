@@ -204,6 +204,23 @@ class SessionRepository(BaseDbRepository[SysSession]):
         result = await self._session.execute(statement)
         return ConcurrentStableList(result.scalars().all())
 
+    async def list_active_all(self, *, now: datetime) -> ConcurrentStableList[SysSession]:
+        """取本租户库全部在线会话（按登录时间升序、主键兜底；按租户批量吊销用）。
+
+        Args:
+            now: 当前 UTC 时间（过期判定基准）。
+
+        Returns:
+            ConcurrentStableList[SysSession]: 在线会话（最旧在前）。
+        """
+        statement = (
+            self._select()
+            .where(*self._active_conditions(now))
+            .order_by(self._column("login_at").asc(), self._column("id").asc())
+        )
+        result = await self._session.execute(statement)
+        return ConcurrentStableList(result.scalars().all())
+
     def _active_conditions(
         self,
         now: datetime,

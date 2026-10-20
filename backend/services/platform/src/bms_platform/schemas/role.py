@@ -24,8 +24,8 @@ PermType = Literal["menu", "form", "permission"]
 PolicyType = Literal["select", "region", "match", "extension"]
 """数据权限策略取值。"""
 
-RoleType = Literal["custom", "system", "security", "audit"]
-"""角色类型取值（`custom` 自定义；`system` / `security` / `audit` 内置三类管理员）。"""
+RoleType = Literal["custom", "system", "security", "audit", "platform_admin"]
+"""角色类型取值（`custom` 自定义；`system` / `security` / `audit` 内置三类管理员；`platform_admin` 平台超管）。"""
 
 
 # --------------------------------------------------------------------------- 角色

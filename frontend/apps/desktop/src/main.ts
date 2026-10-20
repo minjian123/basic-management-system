@@ -69,9 +69,7 @@ function handleSessionInvalid(): void {
   sessionInvalidHandled = true
   notifySessionExpired()
   session.clearSession()
-  void router.push(
-    buildLoginLocation(router.currentRoute.value.fullPath, { publicPaths: resolvePublicPaths() }),
-  )
+  void router.push(buildLoginLocation(router.currentRoute.value.fullPath, { publicPaths: resolvePublicPaths() }))
 }
 
 // 请求适配器装配：401 → 单例静默刷新并重放（未注入刷新处理器时按会话失效占位）。
@@ -99,6 +97,7 @@ installAuthGuard(router, {
     // 权限码来源为动态菜单接口（登录即可下发）；装载失败时 `loaded` 为假 → 守卫占位放行并记录原因。
     return { codes, loaded: menu.loaded }
   },
+  mustChangePassword: () => session.user?.must_change_password === true,
   record: (record) => {
     moduleTelemetry.record({ kind: 'guard', ...record, at: new Date().toISOString() })
   },
@@ -142,15 +141,13 @@ async function bootstrap(): Promise<void> {
     user: session.codes,
     tenant: undefined,
     api: createModuleApi(),
-  }).catch(
-    (error: unknown) => {
-      setModuleError({
-        module: 'modules.json',
-        version: '',
-        reason: error instanceof Error ? error.message : String(error),
-      })
-    },
-  )
+  }).catch((error: unknown) => {
+    setModuleError({
+      module: 'modules.json',
+      version: '',
+      reason: error instanceof Error ? error.message : String(error),
+    })
+  })
   installModuleRouteScope(router, resolveRouteModule)
   app.use(router)
   app.mount('#app')

@@ -1115,6 +1115,62 @@ class MultipleActiveTenantsError(OpenTenantError):
         super().__init__(ErrorCode.TENANT_SCOPE_AMBIGUOUS, message, http_status=409, data=data)
 
 
+class TenantCodeExistsError(OpenTenantError):
+    """租户编码已存在（管理面开通唯一性校验；`82001` / 409）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        super().__init__(ErrorCode.TENANT_CODE_EXISTS, message, http_status=409, data=data)
+
+
+class TenantAdminNotFoundError(OpenTenantError):
+    """租户不存在或已删除（管理面 CRUD；`82002` / 404）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        super().__init__(ErrorCode.TENANT_ADMIN_NOT_FOUND, message, http_status=404, data=data)
+
+
+class TenantStateConflictError(OpenTenantError):
+    """租户状态不允许当前操作（开通中 / 已停用 / 重复开通进行中；`82003` / 409）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        super().__init__(ErrorCode.TENANT_STATE_CONFLICT, message, http_status=409, data=data)
+
+
+class TenantDomainConflictError(OpenTenantError):
+    """租户域名冲突（子域名已被占用；`82004` / 409）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        super().__init__(ErrorCode.TENANT_DOMAIN_CONFLICT, message, http_status=409, data=data)
+
+
+class TenantQuotaExceededError(OpenTenantError):
+    """租户配额超限（用户数 / 存储 / 开放接口调用量；`82005` / 409）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        super().__init__(ErrorCode.TENANT_QUOTA_EXCEEDED, message, http_status=409, data=data)
+
+
+class TenantProvisionFailedError(OpenTenantError):
+    """租户建库 / 建表 / 种子失败（已清理已建库，需人工介入；`82006` / 500）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        super().__init__(ErrorCode.TENANT_PROVISION_FAILED, message, http_status=500, data=data)
+
+
+class TenantModuleUnavailableError(OpenTenantError):
+    """模块未注册或未启用（`sys_tenant_module` 引用校验失败；`82007` / 400）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        super().__init__(ErrorCode.TENANT_MODULE_UNAVAILABLE, message, http_status=400, data=data)
+
+
+class TenantModuleDisabledError(OpenTenantError):
+    """租户模块已停用（停用模块的接口 / 入口被拒；`82008` / 403）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        super().__init__(ErrorCode.TENANT_MODULE_DISABLED, message, http_status=403, data=data)
+
+
 class OidcError(OpenTenantError):
     """OIDC Provider 子段（开放 / 租户 / SSO 段内 `8010x`）异常基类。
 

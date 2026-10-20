@@ -164,15 +164,13 @@ TABLE_OWNERSHIP: tuple[TableRecord, ...] = (
         table_name="sys_tenant_quota",
         owner="tenant",
         datasource=Datasource.PLATFORM,
-        status=TableStatus.PLANNED,
-        note="租户配额（预留，寄放平台库）",
+        note="租户配额（用户数 / 存储字节 / 开放接口调用量；04_01 落库）",
     ),
     TableRecord(
         table_name="sys_tenant_module",
         owner="tenant",
         datasource=Datasource.PLATFORM,
-        status=TableStatus.PLANNED,
-        note="租户模块开关（预留，寄放平台库）",
+        note="租户-模块关系（开通清单与启停状态；04_01 落库）",
     ),
     TableRecord(
         table_name="sys_menu",
@@ -259,13 +257,6 @@ TABLE_OWNERSHIP: tuple[TableRecord, ...] = (
         datasource=Datasource.TENANT,
         status=TableStatus.PLANNED,
         note="租户自建字段（预留）",
-    ),
-    TableRecord(
-        table_name="sys_admin",
-        owner="identity",
-        datasource=Datasource.PLATFORM,
-        status=TableStatus.PLANNED,
-        note="平台运营账号（预留）",
     ),
     TableRecord(
         table_name="sys_user_identity",

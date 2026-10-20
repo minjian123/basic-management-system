@@ -51,6 +51,13 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/views/system/user/AccountLockView.vue'),
     meta: { title: '账号锁定', keepAlive: true },
   },
+  // 自助改密（首登强制改密 / 常规改密）：受保护静态路由，守卫在 `must_change_password` 时强制跳转。
+  {
+    path: '/change-password',
+    name: 'ChangePassword',
+    component: () => import('@/views/ChangePasswordView.vue'),
+    meta: { title: '修改密码' },
+  },
   {
     path: '/:pathMatch(.*)*',
     name: 'NotFound',

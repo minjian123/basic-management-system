@@ -16,7 +16,7 @@
 产品服务另声明 `product_key` 并覆写 `service_records()` 返回本产品服务清单。
 """
 
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from typing import cast
 
@@ -284,6 +284,8 @@ async def service_lifespan(app: FastAPI) -> AsyncGenerator[None]:
         await _validate_table_ownership(app)
         await assemble_plugins(app, settings, cast("ResourceManager", app.state.resources))
         await _record_db_inventory(app, settings)
+        for hook in cast("tuple[StartupHook, ...]", getattr(app.state, "startup_hooks", ())):
+            await hook(app)
     except Exception:
         # 启动失败前释放已装配资源（含引擎连接池），避免失败路径残留资源
         await cast("ResourceManager", app.state.resources).aclose()
@@ -294,6 +296,10 @@ async def service_lifespan(app: FastAPI) -> AsyncGenerator[None]:
     finally:
         app.state.startup_complete = False
         await cast("ResourceManager", app.state.resources).aclose()
+
+
+StartupHook = Callable[[FastAPI], Awaitable[None]]
+"""启动钩子（生命周期内、装配完成后执行；用于幂等引导类任务）。"""
 
 
 class BaseServiceApplicationFactory(BaseApplicationFactory):
@@ -349,6 +355,17 @@ class BaseServiceApplicationFactory(BaseApplicationFactory):
             ConcurrentStableList[APIRouter]: 业务路由（挂 `/api/v1` 前缀）。
         """
         return ConcurrentStableList()
+
+    def startup_hooks(self) -> tuple[StartupHook, ...]:
+        """启动钩子清单（子类覆写；缺省空元组）。
+
+        钩子在生命周期装配完成后、`startup_complete` 标记前逐个执行；失败按启动失败处理（释放资源并拒启）。
+        用于幂等引导类任务（如租户服务引导默认平台租户）。
+
+        Returns:
+            tuple[StartupHook, ...]: 启动钩子（执行序）。
+        """
+        return ()
 
     def prepare_settings(self, settings: Settings) -> None:
         """创建前配置调整钩子（默认空实现；如最小服务置空健康 provider）。
@@ -519,6 +536,7 @@ class BaseServiceApplicationFactory(BaseApplicationFactory):
         app.state.resources.register(primary_health)
 
         self.configure_service(app, settings)
+        app.state.startup_hooks = self.startup_hooks()
 
         @app.get("/")
         def root() -> ApiResponse:  # pyright: ignore[reportUnusedFunction]

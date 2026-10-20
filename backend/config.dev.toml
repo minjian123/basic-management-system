@@ -33,7 +33,7 @@ url_template = "sqlite+aiosqlite:///./bms_{service}_{tenant}.db"
 
 [tenant]
 # 启动期自动建表覆盖的租户（auto_create 生效）
-dev_tenants = ["demo", "acme"]
+dev_tenants = ["demo", "acme", "platform"]
 
 # 租户解析缓存（dev 保留进程内实现：本地无 Redis 亦可跑；该域属「可降级」类，语义不受影响，03_04）
 [cache]

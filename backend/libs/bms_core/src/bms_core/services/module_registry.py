@@ -366,6 +366,67 @@ PRODUCT_CATALOG: tuple[ProductRecord, ...] = (
 """
 
 
+TENANT_BASE_MODULE_KEYS: tuple[str, ...] = (
+    "sys",
+    "identity",
+    "tenant",
+    "txn",
+    "file",
+    "notification",
+    "search",
+    "ai",
+    "rpt",
+    "wf",
+    "org",
+)
+"""租户「恒开通」模块（平台域基础能力 + 组织主数据）：不参与开通勾选、不参与门禁拦截。
+
+- foundation / capability 分组模块一律恒开通；`org`（mdm 组织主数据）为角色与用户组织归属的基座，
+  虽属产品分组但按恒开通处理（关闭将使 RBAC 主体链不可用）。
+- 新增基础能力模块时在此清单显式登记（与 `SERVICE_CATALOG` 同批）。
+"""
+
+TENANT_OPTIONAL_MODULE_KEYS: tuple[str, ...] = ("pur", "pay", "sale", "wh", "sup", "cw")
+"""租户「可勾选」产品模块：开通向导勾选、运营期可开关、接口按模块门禁拦截。
+
+- 与 `SERVICE_CATALOG` 中 `service_group=product` 且具备业务域的模块一致；新增产品模块时同步登记。
+- `org` 不在本清单（见 `TENANT_BASE_MODULE_KEYS`）。
+"""
+
+_BUSINESS_MODULE_INDEX: ConcurrentStableDict[str, str] = ConcurrentStableDict(
+    {
+        record.business_code: record.module_key
+        for record in SERVICE_CATALOG
+        if record.business_code and record.module_key in TENANT_OPTIONAL_MODULE_KEYS
+    }
+)
+"""业务码 → 可勾选模块标识索引（模块门禁按权限码业务段判定用）。"""
+
+
+def module_for_business(business_code: str) -> str | None:
+    """取权限码业务段对应的可勾选模块（非产品业务返回 None）。
+
+    Args:
+        business_code: 权限码业务段（`code.split(":")[0]`，如 `pur` / `user`）。
+
+    Returns:
+        str | None: 模块标识；业务段不映射产品模块时为 None（门禁放行）。
+    """
+    return _BUSINESS_MODULE_INDEX.get(business_code)
+
+
+def is_optional_module(module_key: str) -> bool:
+    """是否为可勾选产品模块（门禁只拦此类模块）。
+
+    Args:
+        module_key: 模块标识。
+
+    Returns:
+        bool: 可勾选产品模块为 True。
+    """
+    return module_key in TENANT_OPTIONAL_MODULE_KEYS
+
+
 def product_keys() -> ConcurrentStableSet[str]:
     """已登记产品标识集合（`PRODUCT_CATALOG`，插入序）。
 

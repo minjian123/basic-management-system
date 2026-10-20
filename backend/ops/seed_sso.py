@@ -20,8 +20,9 @@ import argparse
 import asyncio
 import json
 import os
+from typing import cast
 
-from sqlalchemy import select
+from sqlalchemy import Table, select
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
@@ -107,11 +108,12 @@ def _idp_config() -> ConcurrentStableDict[str, object]:
     )
 
 
-async def seed_identity_provider(url: str) -> tuple[int, int]:
+async def seed_identity_provider(url: str, *, status: str = "enabled") -> tuple[int, int]:
     """建表并按 `idp_key` 幂等写入演示 IdP 行。
 
     Args:
         url: identity 租户库连接串。
+        status: 行状态（`enabled` 演示启用 / `disabled` 开通占位——登录页不暴露未配置入口）。
 
     Returns:
         tuple[int, int]: (新增行数, 更新行数)；重复执行为 (0, 0)。
@@ -122,7 +124,7 @@ async def seed_identity_provider(url: str) -> tuple[int, int]:
     updated = 0
     try:
         async with engine.begin() as connection:
-            await connection.run_sync(SysIdentityProvider.__table__.create, checkfirst=True)
+            await connection.run_sync(cast("Table", SysIdentityProvider.__table__).create, checkfirst=True)
         async with factory() as session:
             statement = select(SysIdentityProvider).where(
                 SysIdentityProvider.idp_key == DEFAULT_IDP_KEY, SysIdentityProvider.deleted_at.is_(None)
@@ -136,7 +138,7 @@ async def seed_identity_provider(url: str) -> tuple[int, int]:
                         type="oidc",
                         icon="",
                         config=json.dumps(normalize_collections(_idp_config()), ensure_ascii=False),
-                        status="enabled",
+                        status=status,
                         sort=10,
                     )
                 )
@@ -146,7 +148,7 @@ async def seed_identity_provider(url: str) -> tuple[int, int]:
                     "name": "Keycloak",
                     "type": "oidc",
                     "config": json.dumps(normalize_collections(_idp_config()), ensure_ascii=False),
-                    "status": "enabled",
+                    "status": status,
                     "sort": 10,
                 }
                 for field, value in payload.items():
@@ -178,7 +180,7 @@ async def seed_user_mapping(url: str, *, tenant: str, user_id: int, external_id:
     updated = 0
     try:
         async with engine.begin() as connection:
-            await connection.run_sync(SysUserIdentity.__table__.create, checkfirst=True)
+            await connection.run_sync(cast("Table", SysUserIdentity.__table__).create, checkfirst=True)
         async with factory() as session:
             statement = select(SysUserIdentity).where(
                 SysUserIdentity.idp_key == idp_key,

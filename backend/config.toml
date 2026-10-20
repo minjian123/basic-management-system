@@ -61,9 +61,32 @@ allow_demo_fallback = true
 # 租户解析豁免路径（精确匹配）
 exempt_paths = ["/", "/docs", "/redoc", "/openapi.json", "/healthz", "/readyz", "/metrics", "/.well-known/jwks.json", "/api/v1/auth/introspect"]
 # 免登录链路延迟解析路径（前缀匹配；有来源则解析、无来源置空放行，由端点层再解析）
-deferred_paths = ["/api/v1/auth/login", "/api/v1/auth/forgot-password", "/api/v1/auth/reset-password", "/api/v1/captcha", "/api/v1/auth/sso"]
+deferred_paths = ["/api/v1/auth/login", "/api/v1/auth/platform-tenant", "/api/v1/auth/forgot-password", "/api/v1/auth/reset-password", "/api/v1/captcha", "/api/v1/auth/sso"]
 # 启动期自动建表覆盖的租户编码（auto_create 生效；每服务按 tenant_{code} 相对键建表）
 dev_tenants = ["demo"]
+
+[platform_tenant]
+# 默认平台租户（任务 04_01）：承载平台超管账号 / 角色 / 会话，与业务租户同构
+code = "platform"
+name = "平台管理"
+# 启动期幂等引导（dev / test 开箱即用；prod 覆盖为 false 并改用 python -m ops.bootstrap_platform）
+auto_bootstrap = true
+
+[tenant_module]
+# 租户模块门禁（任务 04_01）：remote = 经 tenant 服务内部契约取模块状态；空串 = 占位不拦截
+provider = "remote"
+# 状态缓存 TTL（秒；0 = 每请求回源）
+ttl = 5
+
+[tenant_quota]
+# 租户配额默认值（开通播种；平台租户不播种）
+default_user_count = 500
+default_storage_bytes = 107374182400
+default_open_calls = 10000
+
+[permission.options]
+# 豁免角色类型（全权限放行）：租户系统管理员 + 平台超管（platform_admin 仅由平台租户种子写入）
+exempt_role_types = ["system", "platform_admin"]
 
 [database]
 # 启动期建表总开关（四库方言、按服务表集幂等；只补不建改）

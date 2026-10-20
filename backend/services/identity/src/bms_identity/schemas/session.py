@@ -50,3 +50,15 @@ class RevokeUserSessionsResult(BaseSchema):
     """按用户撤销全部会话结果。"""
 
     revoked: int = Field(description="被撤销的在线会话数（无在线会话为 0）")
+
+
+class RevokeTenantSessionsRequest(BaseSchema):
+    """按租户撤销全部会话请求（服务间内部端点；tenant 停用调用）。"""
+
+    tenant_code: str = Field(min_length=1, max_length=64, description="目标租户编码（服务 JWT 租户位为调用方）")
+
+
+class RevokeTenantSessionsResult(BaseSchema):
+    """按租户撤销全部会话结果。"""
+
+    revoked: int = Field(description="被撤销的在线会话数（无在线会话为 0）")

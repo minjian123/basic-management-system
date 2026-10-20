@@ -44,6 +44,9 @@ REASON_USER_DISABLED = "user_disabled"
 REASON_USER_DELETED = "user_deleted"
 """撤销原因：管理员删除（软删）账号（platform 用户管理调用内部端点）。"""
 
+REASON_TENANT_SUSPENDED = "tenant_suspended"
+"""撤销原因：租户停用（tenant 服务调用内部端点批量失效）。"""
+
 _LOGGER = get_logger("bms")
 
 
@@ -241,7 +244,9 @@ class SessionService(BaseFrameworkObject):
             await self._after_revoke(record, tenant=tenant, reason=REASON_MAX_ACTIVE, broadcast=True, now=now)
         return ConcurrentStableList(record.session_id for record in targets)
 
-    async def revoke_user_sessions(self, user_id: int, *, tenant: str | None, reason: str) -> ConcurrentStableList[str]:
+    async def revoke_user_sessions(
+        self, user_id: int, *, tenant: str | None, reason: str, keep_session_id: str | None = None
+    ) -> ConcurrentStableList[str]:
         """按用户批量撤销全部在线会话（重置密码后即时失效；复用统一撤销原语）。
 
         - 单事务内取该用户全部在线会话并逐个 `revoked_at` 落库；提交后逐会话运行时清理
@@ -252,6 +257,7 @@ class SessionService(BaseFrameworkObject):
             user_id: 用户 ID。
             tenant: 租户主键（雪花 id 字符串；定位 Redis 标记键）。
             reason: 撤销原因（`REASON_PASSWORD_RESET`）。
+            keep_session_id: 保留的当前会话 id（自助改密时保留本端；None 表示全部撤销）。
 
         Returns:
             ConcurrentStableList[str]: 被撤销的会话 id 清单（无在线会话为空）。
@@ -259,7 +265,8 @@ class SessionService(BaseFrameworkObject):
         now = _utc_now()
         targets: ConcurrentStableList[SysSession] = ConcurrentStableList()
         async with self._uow.begin():
-            targets = await self._repo.list_active_by_user(user_id, now=now)
+            rows = await self._repo.list_active_by_user(user_id, now=now)
+            targets = ConcurrentStableList(row for row in rows if row.session_id != keep_session_id)
             for record in targets:
                 await self._repo.revoke(record.session_id, revoked_at=now)
         for record in targets:
@@ -267,6 +274,32 @@ class SessionService(BaseFrameworkObject):
                 await self._after_revoke(record, tenant=tenant, reason=reason, broadcast=True, now=now)
             except Exception as exc:  # 运行时清理尽力而为，DB 撤销已提交
                 _LOGGER.warning("会话撤销运行时清理未完成", session_id=record.session_id, error=str(exc))
+        return ConcurrentStableList(record.session_id for record in targets)
+
+    async def revoke_tenant_sessions(self, *, tenant: str | None, reason: str) -> ConcurrentStableList[str]:
+        """按租户批量撤销全部在线会话（租户停用即时失效；任务 `04_01`）。
+
+        - 单事务内取本租户库全部在线会话并逐个 `revoked_at` 落库；提交后逐会话运行时清理
+          （refresh 黑名单 + 删 Redis 标记 + 广播）；
+        - 单会话清理异常记 warning 并继续（DB 已撤销，标记 TTL 自然失效兜底）。
+
+        Args:
+            tenant: 租户主键（雪花 id 字符串；定位 Redis 标记键）。
+            reason: 撤销原因（`REASON_TENANT_SUSPENDED`）。
+
+        Returns:
+            ConcurrentStableList[str]: 被撤销的会话 id 清单（无在线会话为空）。
+        """
+        now = _utc_now()
+        async with self._uow.begin():
+            targets = await self._repo.list_active_all(now=now)
+            for record in targets:
+                await self._repo.revoke(record.session_id, revoked_at=now)
+        for record in targets:
+            try:
+                await self._after_revoke(record, tenant=tenant, reason=reason, broadcast=True, now=now)
+            except Exception as exc:  # 运行时清理尽力而为，DB 撤销已提交
+                _LOGGER.warning("租户会话撤销运行时清理未完成", session_id=record.session_id, error=str(exc))
         return ConcurrentStableList(record.session_id for record in targets)
 
     async def _after_revoke(

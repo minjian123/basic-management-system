@@ -69,6 +69,10 @@ PLATFORM_CONFIG_DEFAULTS: tuple[SeedConfig, ...] = (
     SeedConfig("password.max_age_days", "90", "密码有效期（天），pwd_changed_at 驱动强制改密"),
     SeedConfig("password.history_count", "5", "历史密码不可重复比对条数"),
     SeedConfig("account.inactive_lock_days", "180", "未登录自动锁定阈值（天）"),
+    SeedConfig("audit.archive.operation_log_days", "90", "操作日志归档保留天数"),
+    SeedConfig("audit.archive.login_log_days", "90", "登录日志归档保留天数"),
+    SeedConfig("audit.archive.data_audit_log_days", "90", "数据变更审计归档保留天数"),
+    SeedConfig("audit.archive.open_log_days", "90", "开放接口审计归档保留天数"),
 )
 """平台默认参数项（验证码场景策略与渠道开关 + 密码 / 账号策略；后续模块键顺延追加）。"""
 

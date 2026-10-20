@@ -482,7 +482,8 @@ async def test_delete_reference_lock_and_reuse(client: AsyncClient, service_app:
     await harness.add_open_lock(user_id)
     deleted = _data(await client.delete(f"{API}/{user_id}"))
     assert deleted == {"deleted": True, "session_revoked": True}
-    assert harness.sessions.calls[-1][1]["reason"] == "user_deleted"
+    revoke_calls = [call for call in harness.sessions.calls if call[0] == REVOKE_PATH]
+    assert revoke_calls[-1][1]["reason"] == "user_deleted"
 
     locks = await harness.lock_rows(user_id)
     assert locks and locks[0].unlock_at is not None and locks[0].unlock_mode == "auto"

@@ -4,7 +4,14 @@
 import { configureRequestAdapter, type RequestConfig } from '@bms/core'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { fetchCurrentUser, login, logout, refreshAccessToken } from '@/api/identity'
+import {
+  changePassword,
+  fetchCurrentUser,
+  fetchPlatformTenant,
+  login,
+  logout,
+  refreshAccessToken,
+} from '@/api/identity'
 
 const requestMock = vi.fn()
 
@@ -26,14 +33,25 @@ describe('认证端点封装（Kiwi 2230）', () => {
     await logout()
     await fetchCurrentUser()
 
-    expect(requestMock.mock.calls.map((call) => `${(call[0] as RequestConfig).method} ${(call[0] as RequestConfig).url}`)).toEqual(
-      [
-        'POST /api/identity/v1/auth/login',
-        'POST /api/identity/v1/auth/refresh',
-        'POST /api/identity/v1/auth/logout',
-        'GET /api/identity/v1/auth/me',
-      ],
-    )
+    expect(
+      requestMock.mock.calls.map((call) => `${(call[0] as RequestConfig).method} ${(call[0] as RequestConfig).url}`),
+    ).toEqual([
+      'POST /api/identity/v1/auth/login',
+      'POST /api/identity/v1/auth/refresh',
+      'POST /api/identity/v1/auth/logout',
+      'GET /api/identity/v1/auth/me',
+    ])
+  })
+
+  it('平台超管登录 / 自助改密：路径、方法与载荷', async () => {
+    await fetchPlatformTenant()
+    await changePassword({ old_password: 'old', new_password: 'NewPass@123' })
+
+    expect(callAt(0).method).toBe('GET')
+    expect(callAt(0).url).toBe('/api/identity/v1/auth/platform-tenant')
+    expect(callAt(1).method).toBe('POST')
+    expect(callAt(1).url).toBe('/api/identity/v1/auth/change-password')
+    expect(callAt(1).data).toEqual({ old_password: 'old', new_password: 'NewPass@123' })
   })
 
   it('登录携带请求体；会话动作不附幂等键', async () => {

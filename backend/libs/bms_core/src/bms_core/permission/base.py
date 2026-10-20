@@ -16,8 +16,11 @@ from typing import cast
 from fastapi import Request
 
 from bms_core.core.config import Settings
+from bms_core.core.context import current_tenant, current_tenant_id
 from bms_core.core.exceptions import PermissionError
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
+from bms_core.services.module_registry import module_for_business
+from bms_core.tenant_module.base import get_tenant_module_gate
 
 
 class BasePermissionChecker(BasePluggable, ABC):
@@ -105,21 +108,59 @@ def require_permission(code: str) -> Callable[..., Awaitable[None]]:
     """
 
     async def _dependency(request: Request) -> None:
-        """预加载请求态并校验权限码。
+        """预加载请求态、校验权限码，并按业务段校验租户模块门禁。
 
         Args:
             request: 请求对象。
 
         Raises:
             PermissionError: 不持该权限码（30001 / 403）。
+            TenantModuleDisabledError: 所属产品模块未开通 / 已停用（82008 / 403）。
         """
         checker = get_permission_checker(request)
         prepare = getattr(checker, "aprepare", None)
         if callable(prepare):
             await cast("Callable[..., Awaitable[None]]", prepare)(request=request)
         checker.require(code)
+        await _ensure_module_enabled(request, code)
 
     return _dependency
+
+
+async def _ensure_module_enabled(request: Request, code: str) -> None:
+    """按权限码业务段校验租户模块门禁（仅拦可勾选产品模块）。
+
+    Args:
+        request: 请求对象。
+        code: 权限码（`业务:动作`）。
+
+    Raises:
+        TenantModuleDisabledError: 模块未开通 / 已停用（82008 / 403）。
+    """
+    module_key = module_for_business(code.split(":", 1)[0])
+    if module_key is None:
+        return
+    tenant_id = _current_tenant_id()
+    if tenant_id is None:
+        return
+    await get_tenant_module_gate(request).ensure(
+        tenant_id=tenant_id, tenant_code=current_tenant.get(), module_key=module_key
+    )
+
+
+def _current_tenant_id() -> int | None:
+    """取当前请求租户主键（无上下文 / 非法值返回 None）。
+
+    Returns:
+        int | None: 租户主键。
+    """
+    raw = current_tenant_id.get()
+    if not raw:
+        return None
+    try:
+        return int(raw)
+    except ValueError:
+        return None
 
 
 def prepare_permission_dependency() -> Callable[..., Awaitable[None]]:

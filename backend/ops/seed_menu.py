@@ -127,6 +127,7 @@ PERMISSION_SEEDS: tuple[tuple[str, str, str, str], ...] = (
     ("tenant", "query", "查询", "Query"),
     ("tenant", "create", "开通", "Create"),
     ("tenant", "update", "修改", "Update"),
+    ("tenant", "manage", "停用启用与模块开关", "Manage"),
     ("tenant", "quota", "租户配额配置", "Quota"),
     ("session", "query", "查询", "Query"),
     ("session", "kick", "强制踢出", "Kick"),
@@ -245,7 +246,8 @@ BUTTON_SEEDS: tuple[tuple[str, str, str, str, int], ...] = (
     ("/sys/menus", "删除", "delete", "toolbar", 3),
     ("/platform/tenants", "开通", "create", "toolbar", 1),
     ("/platform/tenants", "编辑", "update", "toolbar", 2),
-    ("/platform/tenants", "配额", "quota", "interface", 3),
+    ("/platform/tenants", "模块开关", "manage", "toolbar", 3),
+    ("/platform/tenants", "配额", "quota", "interface", 4),
     ("/monitor/sessions", "强制踢出", "kick", "toolbar", 1),
 )
 

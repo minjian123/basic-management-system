@@ -198,6 +198,32 @@ class TenantMembershipSettings(BaseSettings):
     """关系数据源实现（`local` / `remote`；空串 = 自动：租户服务用 `local`、其余服务用 `remote`）。"""
 
 
+class PlatformTenantSettings(BaseSettings):
+    """默认平台租户（段 `[platform_tenant]`；任务 `04_01`）。"""
+
+    code: str = "platform"
+    """平台租户编码（全小写；`sys_tenant.kind=platform` 的唯一一条）。"""
+
+    name: str = "平台管理"
+    """平台租户名称（引导创建时写入）。"""
+
+    auto_bootstrap: bool = True
+    """启动期是否幂等引导平台租户（dev / test 开箱即用；生产置 false 并改用 `ops.bootstrap_platform`）。"""
+
+
+class TenantQuotaSettings(BaseSettings):
+    """租户配额默认值（段 `[tenant_quota]`；任务 `04_01`）。"""
+
+    default_user_count: int = Field(default=500, ge=0)
+    """默认用户数限额。"""
+
+    default_storage_bytes: int = Field(default=107374182400, ge=0)
+    """默认存储限额（字节；100 GiB）。"""
+
+    default_open_calls: int = Field(default=10000, ge=0)
+    """默认开放接口日调用量限额。"""
+
+
 class TenantSettings(BaseSettings):
     """多租户解析与引擎生命周期（租户注册表缓存 / 引擎上限与阈值 / 豁免路径 / 回落策略）。"""
 
@@ -231,6 +257,7 @@ class TenantSettings(BaseSettings):
         default_factory=lambda: ConcurrentStableList(
             [
                 "/api/v1/auth/login",
+                "/api/v1/auth/platform-tenant",
                 "/api/v1/auth/forgot-password",
                 "/api/v1/auth/reset-password",
                 "/api/v1/captcha",
@@ -527,6 +554,16 @@ class PermissionSettings(PluginSelection):
         return self
 
 
+class TenantModuleSettings(PluginSelection):
+    """租户模块门禁（段 `[tenant_module]`；任务 `04_01`）。
+
+    `provider = "remote"` 时经 tenant 服务内部只读契约取租户模块状态；空串为占位实现（不拦截）。
+    """
+
+    ttl: int = Field(default=5, ge=0)
+    """状态缓存 TTL（秒；0 表示不缓存、每请求回源）。"""
+
+
 class TracerSettings(PluginSelection):
     """链路配置（`[tracer]`；在能力选择之外追加 OTLP 端点 / 采样 / 导出参数）。
 
@@ -585,6 +622,7 @@ class GatewaySettings(PluginSelection):
         default_factory=lambda: ConcurrentStableList(
             [
                 "/api/identity/v1/auth/login",
+                "/api/identity/v1/auth/platform-tenant",
                 "/api/identity/v1/auth/refresh",
                 "/api/identity/v1/captcha",
                 "/api/identity/v1/auth/sso",
@@ -1113,6 +1151,9 @@ class Settings(PydanticBaseSettings, BaseSettings):  # pyright: ignore[reportInc
     storage: PluginSelection = Field(default_factory=PluginSelection)
     task: PluginSelection = Field(default_factory=PluginSelection)
     tenant_membership: TenantMembershipSettings = Field(default_factory=TenantMembershipSettings)
+    tenant_module: TenantModuleSettings = Field(default_factory=TenantModuleSettings)
+    tenant_quota: TenantQuotaSettings = Field(default_factory=TenantQuotaSettings)
+    platform_tenant: PlatformTenantSettings = Field(default_factory=PlatformTenantSettings)
     tenant_self_service: PluginSelection = Field(default_factory=PluginSelection)
     token_codec: PluginSelection = Field(default_factory=PluginSelection)
     token_verifier: PluginSelection = Field(default_factory=PluginSelection)

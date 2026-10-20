@@ -49,6 +49,7 @@ def isolate_settings(bms_isolate_settings: None, monkeypatch: pytest.MonkeyPatch
 
     install_process_fake_redis_client()
     configure_token_env(monkeypatch)
+    monkeypatch.setenv("BMS_PLATFORM_TENANT__AUTO_BOOTSTRAP", "false")
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()

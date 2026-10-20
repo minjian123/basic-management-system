@@ -124,14 +124,19 @@ export interface paths {
         put?: never;
         /**
          * Complete Upload
-         * @description 合并分片为最终对象。
+         * @description 合并分片为最终对象，并占用租户存储配额（超限删除已合并对象并拒绝）。
          *
          *     Args:
          *         store: 分片上传基座。
+         *         storage: 对象存储（配额超限时清理已合并对象）。
+         *         client: 服务间调用客户端（tenant 配额内部契约）。
          *         upload_id: 上传会话标识。
          *
          *     Returns:
          *         ApiResponse: 统一响应，data 为合并产物元数据（`StoredObjectResponse`）。
+         *
+         *     Raises:
+         *         TenantQuotaExceededError: 租户存储配额超限（82005 / 409）。
          */
         post: operations["complete_upload_api_v1_files_uploads__upload_id__complete_post"];
         delete?: never;
