@@ -79,7 +79,7 @@ def _payload(challenge: Any) -> ConcurrentStableDict[str, Any]:
     return ConcurrentStableDict(cast("dict[str, Any]", json.loads(challenge.payload)))
 
 
-def _trace(gap_x: int, *, duration: int = 300, start: int = 0) -> ConcurrentStableList[tuple[int, int, int]]:
+def _trace(gap_x: int, *, duration: int = 300, start: int = 0) -> ConcurrentStableFrozenList[tuple[int, int, int]]:
     """构造一条终点落在 `gap_x` 的两点轨迹。
 
     Args:
@@ -88,9 +88,9 @@ def _trace(gap_x: int, *, duration: int = 300, start: int = 0) -> ConcurrentStab
         start: 起点时间（毫秒）。
 
     Returns:
-        tuple: 轨迹点序列。
+        ConcurrentStableFrozenList: 只读轨迹点序列。
     """
-    return ConcurrentStableList(((0, 0, start), (gap_x, 0, start + duration)))
+    return ConcurrentStableFrozenList(((0, 0, start), (gap_x, 0, start + duration)))
 
 
 @pytest.fixture
@@ -196,9 +196,13 @@ async def test_verify_slider_machine_traces_rejected(redis_client: fakeredis.aio
             ((0, 0, -1), (gap_x, 0, 300)),
         )
     )
-    for trace in cases:
+    for raw_trace in cases:
         assert not await captcha.verify_credential(
-            CaptchaCredential(captcha_id=challenge.captcha_id, kind=CaptchaKind.SLIDER, trace=trace)
+            CaptchaCredential(
+                captcha_id=challenge.captcha_id,
+                kind=CaptchaKind.SLIDER,
+                trace=ConcurrentStableFrozenList(raw_trace),
+            )
         )
     await captcha.aclose()
 

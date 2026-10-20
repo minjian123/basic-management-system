@@ -53,7 +53,7 @@ from bms_core.captcha.base import (
 )
 from bms_core.config.base import BaseConfigSource
 from bms_core.config.null import NullConfigSource
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenList, ConcurrentStableList
 from bms_core.core.context import get_current_client_ip
 from bms_core.core.exceptions import (
     CaptchaExpiredError,
@@ -204,7 +204,7 @@ def _channel_enabled(kind: CaptchaKind, values: ConcurrentStableDict[str, str]) 
     return _parse_bool(values.get(f"captcha.channel.{kind.value}"), default)
 
 
-def _resolve_channels(scene: str, values: ConcurrentStableDict[str, str]) -> ConcurrentStableList[CaptchaKind]:
+def _resolve_channels(scene: str, values: ConcurrentStableDict[str, str]) -> ConcurrentStableFrozenList[CaptchaKind]:
     """按场景默认降级顺序与渠道可用性计算可用渠道（图形码恒兜底）。
 
     Args:
@@ -212,13 +212,13 @@ def _resolve_channels(scene: str, values: ConcurrentStableDict[str, str]) -> Con
         values: 配置键值映射（插入序）。
 
     Returns:
-        tuple[CaptchaKind, ...]: 可用渠道（按降级顺序，末位恒为 `image`）。
+        ConcurrentStableFrozenList[CaptchaKind]: 可用渠道（按降级顺序，末位恒为 `image`）。
     """
     order = CAPTCHA_SCENE_CHANNELS.get(scene, CAPTCHA_DEFAULT_CHANNELS)
     channels = [kind for kind in order if kind is CaptchaKind.IMAGE or _channel_enabled(kind, values)]
     if CaptchaKind.IMAGE not in channels:
         channels.append(CaptchaKind.IMAGE)
-    return ConcurrentStableList(channels)
+    return ConcurrentStableFrozenList(channels)
 
 
 @dataclass(frozen=True)
