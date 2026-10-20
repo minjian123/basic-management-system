@@ -83,20 +83,20 @@ def data_source_path(data_source_key: str) -> str:
     return DATA_SOURCE_PATH.format(data_source_key=quote(data_source_key, safe=""))
 
 
-def _headers(locale: str) -> ConcurrentStableDict[str, str]:
+def _headers(locale: str) -> ConcurrentStableFrozenDict[str, str]:
     """构造调用头（语言 + 租户上下文透传）。
 
     Args:
         locale: 语言标识。
 
     Returns:
-        ConcurrentStableDict[str, str]: 请求头。
+        ConcurrentStableFrozenDict[str, str]: 请求头（只读快照，供契约调用携带）。
     """
     headers: ConcurrentStableDict[str, str] = ConcurrentStableDict({ACCEPT_LANGUAGE_HEADER: locale})
     tenant = get_current_tenant()
     if tenant:
         headers.set(TENANT_ID_HEADER, tenant)
-    return headers
+    return ConcurrentStableFrozenDict(headers)
 
 
 def _current_locale() -> str:
@@ -149,7 +149,7 @@ async def _fetch_type(
         service=DICT_SERVICE_KEY,
         method="GET",
         path=data_source_path(data_source_key),
-        query=query,
+        query=ConcurrentStableFrozenDict(query),
         headers=_headers(locale),
     )
     data = await _call(client, request)

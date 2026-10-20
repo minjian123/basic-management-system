@@ -20,7 +20,7 @@ from fastapi import Depends, Query
 from pydantic import Field
 
 from bms_core.api.base import BaseRouter, require_service
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenDict, ConcurrentStableList
 from bms_core.schemas.base import (
     CONTRACT_COLLECTION,
     CONTRACT_STABLE_DICT,
@@ -124,7 +124,7 @@ def build_branch_router(*, key: str = "txn_branches", prefix: str = "/txn/branch
         """
         ops: ConcurrentStableList[BranchOp] = ConcurrentStableList()
         for item in req.ops:
-            ops.add(BranchOp(op=item.op, args=item.args))
+            ops.add(BranchOp(op=item.op, args=ConcurrentStableFrozenDict(item.args)))
         state = await participant.execute_branch(xid=req.xid, db_key=req.db_key, ops=ConcurrentStableList(ops))
         return ApiResponse.ok(BranchStateView(xid=req.xid, state=state))
 

@@ -257,7 +257,7 @@ def resolve_chain(name: str) -> MigrationChain:
         name=f"{service}{CHAIN_SEPARATOR}{datasource}",
         service=service,
         datasource=datasource,
-        tables=chain_tables(service, datasource),
+        tables=ConcurrentStableFrozenSet(chain_tables(service, datasource)),
         scope=scope,
     )
 

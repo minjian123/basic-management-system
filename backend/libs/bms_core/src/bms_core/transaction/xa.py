@@ -21,7 +21,12 @@ from typing import TYPE_CHECKING, Any, Protocol, cast
 from sqlalchemy import Engine
 from sqlalchemy.engine.default import DefaultDialect
 
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenList, ConcurrentStableList
+from bms_core.core.concurrent import (
+    ConcurrentStableDict,
+    ConcurrentStableFrozenDict,
+    ConcurrentStableFrozenList,
+    ConcurrentStableList,
+)
 from bms_core.core.config import Settings
 from bms_core.core.exceptions import ServiceUnavailableError, TransactionUnavailableError
 from bms_core.core.factory import BasePluginFactory
@@ -181,7 +186,12 @@ class XaTransactionManager(BaseTransactionManager):
         if timeout_seconds is not None:
             body.set("timeout_seconds", timeout_seconds)
         response = await self._client.call(
-            ServiceRequest(service=TM_SERVICE, method="POST", path=GLOBAL_TXN_PATH, json_body=body)
+            ServiceRequest(
+                service=TM_SERVICE,
+                method="POST",
+                path=GLOBAL_TXN_PATH,
+                json_body=ConcurrentStableFrozenDict(body),
+            )
         )
         return _to_snapshot(_response_data(response, action="开启全局事务"))
 

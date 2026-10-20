@@ -7,7 +7,7 @@
 
 from typing import cast
 
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenDict, ConcurrentStableFrozenList
 from bms_core.core.exceptions import ServiceUnavailableError, TenantQuotaExceededError
 from bms_core.core.logging import get_logger
 from bms_core.core.objects import BaseFrameworkObject
@@ -18,7 +18,7 @@ __all__ = ["TenantQuotaClient"]
 _LOGGER = get_logger("bms.tenant_quota")
 
 _TENANT_SERVICE = "tenant"
-_SCOPES: ConcurrentStableList[str] = ConcurrentStableList(("tenant_quota",))
+_SCOPES: ConcurrentStableFrozenList[str] = ConcurrentStableFrozenList(("tenant_quota",))
 
 
 class TenantQuotaClient(BaseFrameworkObject):
@@ -88,7 +88,7 @@ class TenantQuotaClient(BaseFrameworkObject):
                 method="POST",
                 path=f"/api/v1/tenant/internal/quotas/{action}",
                 tenant_id=self._tenant_code,
-                json_body=body,
+                json_body=ConcurrentStableFrozenDict(body),
                 policy=ServiceCallPolicy(scopes=_SCOPES),
             )
         )

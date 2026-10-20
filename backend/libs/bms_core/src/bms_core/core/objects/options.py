@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Self, cast
 from bms_core.core.objects.roots import BaseValueObject
 
 if TYPE_CHECKING:  # `core.concurrent` 经 `core.holder` 反向依赖本包，运行期导入会成环
-    from bms_core.core.concurrent import ConcurrentStableDict
+    from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenDict
 
 # 说明：`PluginError` 由 `core.exceptions` 定义，而本模块被 `core.exceptions.BizError` 反向依赖
 # （`BizError` 挂 `BaseFrameworkObject`，09_05 批次 ②b）——顶层导入会形成 `core.exceptions ↔ core.objects`
@@ -124,7 +124,9 @@ class BaseOptionsContract(BaseValueObject, ABC):
         return raw
 
     @classmethod
-    def _mapping_option(cls, options: ConcurrentStableDict[str, object], key: str) -> ConcurrentStableDict[str, str]:
+    def _mapping_option(
+        cls, options: ConcurrentStableDict[str, object], key: str
+    ) -> ConcurrentStableFrozenDict[str, str]:
         """取「非空字符串 → 非空字符串」映射选项（缺失取空映射，非法拒启）。
 
         Args:
@@ -132,17 +134,18 @@ class BaseOptionsContract(BaseValueObject, ABC):
             key: 选项键。
 
         Returns:
-            ConcurrentStableDict[str, str]: 校验通过的映射（键值均为非空字符串；插入序）。
+            ConcurrentStableFrozenDict[str, str]: 校验通过的映射（键值均为非空字符串；插入序；
+            不可变形态——选项对象为 `BaseValueObject`，字段须可哈希）。
 
         Raises:
             PluginError: 非映射，或键 / 值为非非空字符串。
         """
-        from bms_core.core.concurrent import ConcurrentStableDict
+        from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenDict
         from bms_core.core.exceptions import PluginError
 
         raw: object = options.get(key)
         if raw is None:
-            return ConcurrentStableDict()
+            return ConcurrentStableFrozenDict()
         if not isinstance(raw, Mapping):
             raise PluginError(f"{cls.__name__} 选项非法：{key}（应为「键 → 值」映射）")
         parsed: ConcurrentStableDict[str, str] = ConcurrentStableDict()
@@ -152,4 +155,4 @@ class BaseOptionsContract(BaseValueObject, ABC):
             if not isinstance(value, str) or not value:
                 raise PluginError(f"{cls.__name__} 选项映射值非法（须为非空字符串）：{key}.{name}")
             parsed.set(name, value)
-        return parsed
+        return ConcurrentStableFrozenDict(parsed)

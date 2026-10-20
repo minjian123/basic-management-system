@@ -59,15 +59,15 @@ class HttpConfigSource(BaseConfigSource):
         unique = [key for key in dict.fromkeys(keys) if key]
         if not unique:
             return ConcurrentStableDict()
-        headers: ConcurrentStableDict[str, str] = ConcurrentStableDict()
+        header_values: ConcurrentStableDict[str, str] = ConcurrentStableDict()
         tenant = get_current_tenant()
         if tenant:
-            headers.set(TENANT_ID_HEADER, tenant)
+            header_values.set(TENANT_ID_HEADER, tenant)
         request = ServiceRequest(
             service=CONFIG_SERVICE_KEY,
             method="POST",
             path=CONFIG_RESOLVE_PATH,
-            headers=headers,
+            headers=ConcurrentStableFrozenDict(header_values),
             json_body=ConcurrentStableFrozenDict({"keys": ConcurrentStableFrozenList(unique)}),
         )
         try:

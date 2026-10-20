@@ -13,7 +13,7 @@ from bms_core.cache.base import CacheRegion
 from bms_core.core.concurrent import (
     ConcurrentStableDict,
     ConcurrentStableFrozenDict,
-    ConcurrentStableList,
+    ConcurrentStableFrozenList,
     ConcurrentStableSet,
 )
 from bms_core.core.config import Settings
@@ -42,7 +42,7 @@ REMOTE_TENANT_MODULE_GATE = "remote"
 """真实门禁实现名。"""
 
 _TENANT_SERVICE = "tenant"
-_MODULE_SCOPES: ConcurrentStableList[str] = ConcurrentStableList(("tenant_module",))
+_MODULE_SCOPES: ConcurrentStableFrozenList[str] = ConcurrentStableFrozenList(("tenant_module",))
 
 
 def tenant_module_cache_key(tenant_id: int, cache: CacheRegion | None = None) -> str:

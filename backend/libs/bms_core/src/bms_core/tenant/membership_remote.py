@@ -9,7 +9,7 @@
 from collections.abc import Mapping
 from typing import cast
 
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenDict, ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.core.exceptions import ConfigError, ServiceUnavailableError
 from bms_core.core.logging import get_logger
@@ -152,8 +152,8 @@ class RemoteTenantMembershipStore(BaseFrameworkObject):
 
         Args:
             method: HTTP 方法。
-            query: 查询参数。
-            json_body: 请求体。
+            query: 查询参数（可变形态；调用前转只读快照）。
+            json_body: 请求体（可变形态；调用前转只读快照）。
             tenant_scope: 调用方租户主键（随服务 JWT 传递）。
 
         Returns:
@@ -166,8 +166,8 @@ class RemoteTenantMembershipStore(BaseFrameworkObject):
             service=self._service,
             method=method,
             path=TENANT_MEMBERSHIP_INTERNAL_PATH,
-            query=query,
-            json_body=json_body,
+            query=None if query is None else ConcurrentStableFrozenDict(query),
+            json_body=None if json_body is None else ConcurrentStableFrozenDict(json_body),
             tenant_id=str(tenant_scope),
         )
         response = await self._client.call(request)

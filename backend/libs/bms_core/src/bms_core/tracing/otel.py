@@ -18,7 +18,7 @@ from opentelemetry import trace
 from opentelemetry.trace import NonRecordingSpan, TraceFlags
 from opentelemetry.trace import SpanContext as OtelSpanContext
 
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenDict
 from bms_core.core.context import get_current_trace_id
 from bms_core.tracing.base import BaseTracer, SpanContext, new_span_id, new_trace_id
 
@@ -78,7 +78,7 @@ class OtelTracer(BaseTracer):
             span_id=span_id,
             name=name,
             parent_span_id=format(otel_parent.span_id, "016x") if otel_parent is not None else None,
-            attributes=attributes,
+            attributes=_frozen_attributes(attributes),
         )
 
     async def end_span(self, span: SpanContext) -> None:
@@ -121,6 +121,20 @@ def _parent_context(parent: SpanContext | None) -> Any:
     return trace.set_span_in_context(NonRecordingSpan(remote))
 
 
+def _frozen_attributes(
+    attributes: ConcurrentStableDict[str, object] | None,
+) -> ConcurrentStableFrozenDict[str, object] | None:
+    """把调用方传入的 span 属性转为**只读快照**（`SpanContext` 字段为不可变形态）。
+
+    Args:
+        attributes: 调用方属性映射（可变形态；可为 None）。
+
+    Returns:
+        ConcurrentStableFrozenDict[str, object] | None: 只读属性快照；None 原样返回。
+    """
+    return None if attributes is None else ConcurrentStableFrozenDict(attributes)
+
+
 def _local_span(
     name: str,
     attributes: ConcurrentStableDict[str, object] | None,
@@ -142,5 +156,5 @@ def _local_span(
         span_id=new_span_id(),
         name=name,
         parent_span_id=parent.span_id if parent is not None else None,
-        attributes=attributes,
+        attributes=_frozen_attributes(attributes),
     )
