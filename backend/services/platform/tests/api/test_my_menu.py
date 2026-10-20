@@ -45,6 +45,29 @@ async def permission_engine(tmp_path_factory: pytest.TempPathFactory, monkeypatc
     await setup_min_tenant(tmp_path_factory, monkeypatch)
 
 
+def _data_or_fail(response: Any, label: str) -> Any:
+    """取统一响应的 `data`；失败时把**完整响应体**写进断言信息。
+
+    原写法 `response.json()["data"]["id"]` 在链路异常时只报
+    `TypeError: 'NoneType' object is not subscriptable`，把真实的错误码 / 提示全部吞掉，
+    排查时无法区分「权限拒绝」「库表缺失」「并发锁」等成因。此辅助把响应体带进失败信息。
+
+    Args:
+        response: httpx 响应。
+        label: 调用标识（写入断言信息）。
+
+    Returns:
+        Any: 响应的 `data` 字段。
+
+    Raises:
+        AssertionError: `data` 为空时抛出，信息含状态码与响应体。
+    """
+    body = response.json()
+    data = body.get("data")
+    assert data is not None, f"{label} 失败（HTTP {response.status_code}）：{response.text}"
+    return data
+
+
 _MENUS = "/api/v1/menus"
 _FORMS = "/api/v1/forms"
 _BUTTONS = "/api/v1/buttons"
@@ -86,8 +109,9 @@ async def _create_page(client: AsyncClient, path: str, name: str, en: str, busin
     Returns:
         菜单行（内置字典，含 id）。
     """
-    businesses = (await client.get("/api/v1/businesses")).json()["data"]["items"]
-    business_id = next(item["id"] for item in businesses if item["code"] == business)
+    listed = await client.get("/api/v1/businesses")
+    payload = _data_or_fail(listed, "GET /api/v1/businesses")
+    business_id = next(item["id"] for item in payload["items"] if item["code"] == business)
     menu = await client.post(
         _MENUS,
         json={
@@ -101,10 +125,10 @@ async def _create_page(client: AsyncClient, path: str, name: str, en: str, busin
             "i18n": {"zh-CN": name, "en-US": en},
         },
     )
-    menu_id = int(menu.json()["data"]["id"])
+    menu_id = int(_data_or_fail(menu, "POST /api/v1/menus")["id"])
     form = await client.post(_FORMS, json={"menu_ids": [menu_id], "business_id": int(business_id), "status": "enabled"})
-    assert form.json()["code"] == 0
-    return menu.json()["data"]
+    assert form.json()["code"] == 0, f"POST /api/v1/forms 失败：{form.text}"
+    return _data_or_fail(menu, "POST /api/v1/menus")
 
 
 @pytest.mark.kiwi_id(2242)
