@@ -492,7 +492,7 @@ def _changed_paths(root: Path) -> ConcurrentStableList[str]:
     return _git_changes(root)[0]
 
 
-def discovered_projects(backend: Path) -> tuple[tuple[str, str], ...]:
+def discovered_projects(backend: Path) -> ConcurrentStableList[tuple[str, str]]:
     """自动发现的工程清单（工程目录, 顶层包名），供登记对账。
 
     选测器按目录自动发现工程（不维护白名单）；本函数把发现结果转成与全量档常量同口径的两元组：
@@ -512,10 +512,10 @@ def discovered_projects(backend: Path) -> tuple[tuple[str, str], ...]:
 
 
 def unregistered_projects(
-    discovered: tuple[tuple[str, str], ...],
-    roots: tuple[str, ...],
-    packages: tuple[str, ...],
-) -> tuple[str, ...]:
+    discovered: ConcurrentStableList[tuple[str, str]],
+    roots: ConcurrentStableList[str],
+    packages: ConcurrentStableList[str],
+) -> ConcurrentStableList[str]:
     """自动发现的工程里，未登记到全量档范围 / 覆盖率范围的项（13_03「新增工程必登记」对账）。
 
     选测器**按目录自动发现**工程（不维护白名单），而全量档工程级范围（`_ROOTS`）与覆盖率范围
@@ -663,7 +663,7 @@ class _SelfTest:
 
     label: str
     script: str
-    deps: tuple[str, ...]
+    deps: ConcurrentStableList[str]
 
 
 _SELF_TESTS = (
@@ -749,7 +749,7 @@ def _run_self_tests(root: Path, failures: ConcurrentStableList[str], *, force_al
 
 
 def _run_full_tests(
-    root: Path, backend: Path, failures: ConcurrentStableList[str], *, jobs: tuple[str, ...], no_cov: bool
+    root: Path, backend: Path, failures: ConcurrentStableList[str], *, jobs: ConcurrentStableList[str], no_cov: bool
 ) -> None:
     """全量档：聚合全量（并行）+ 全量覆盖率门禁（早启动采集 + 合并判定）。
 
@@ -762,7 +762,7 @@ def _run_full_tests(
     """
     env = dict(os.environ)
     data_file = (backend / ".coverage").resolve()
-    plugin_args: tuple[str, ...] = ()
+    plugin_args: ConcurrentStableList[str] = ()
     if not no_cov:
         coverage_gate.cleanup(data_file)
         env[_COVERAGE_DATA_ENV] = str(data_file)

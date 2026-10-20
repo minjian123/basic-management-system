@@ -80,16 +80,18 @@ def _to_stable(value: object) -> object:
     return value
 
 
-SERVICES: tuple[str, ...] = (
-    "platform",
-    "identity",
-    "tenant",
-    "file",
-    "notification",
-    "search",
-    "ai",
-    "report",
-    "txn",
+SERVICES: ConcurrentStableList[str] = ConcurrentStableList(
+    (
+        "platform",
+        "identity",
+        "tenant",
+        "file",
+        "notification",
+        "search",
+        "ai",
+        "report",
+        "txn",
+    )
 )
 """已启用**平台服务**（与 `enabled_service_keys()` 一致；护栏用例断言，防漂移）。
 

@@ -171,7 +171,7 @@ def parse_task_meta(path: Path) -> ConcurrentStableDict[str, str]:
     return meta
 
 
-def parse_domain_overview(path: Path) -> tuple[str, ...]:
+def parse_domain_overview(path: Path) -> ConcurrentStableList[str]:
     """解析域总览子任务清单表：域内序号集合（进度不在任务侧）。"""
     section = read_section(path.read_text(encoding="utf-8"), r"^## 2\. 子任务清单")
     result: ConcurrentStableList[str] = ConcurrentStableList()

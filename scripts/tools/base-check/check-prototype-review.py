@@ -66,10 +66,12 @@ MIN_REASON_LEN = 10
 PROTO_SECTION_RE = r"^##[^\n]*原型"
 TABLE_HEADER_RE = re.compile(r"^\|(?![\s:|-]+\|$).*\|$")
 
-UI_CODE_PATTERNS: tuple[re.Pattern[str], ...] = (
-    re.compile(r"^frontend/apps/desktop/src/(views|components|layouts)/"),
-    re.compile(r"^frontend/packages/ui-ep/src/"),
-    re.compile(r"^frontend/.*\.vue$"),
+UI_CODE_PATTERNS: ConcurrentStableList[re.Pattern[str]] = ConcurrentStableList(
+    (
+        re.compile(r"^frontend/apps/desktop/src/(views|components|layouts)/"),
+        re.compile(r"^frontend/packages/ui-ep/src/"),
+        re.compile(r"^frontend/.*\.vue$"),
+    )
 )
 """界面源码路径（改动命中即视为界面改动，须有原型对照）。"""
 

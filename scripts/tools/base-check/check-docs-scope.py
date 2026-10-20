@@ -39,16 +39,18 @@ if str(_SRC_ROOT) not in sys.path:
 from bms_core.core.concurrent import ConcurrentStableList  # noqa: E402
 
 #: 违规特征：词面 + 数据形态（工时数字 `{数字}h` 与 `{数字}.{数字}h`）。
-RULES: tuple[tuple[re.Pattern[str], str], ...] = (
-    (re.compile(r"工时"), "工时字样"),
-    (re.compile(r"排期"), "排期字样"),
-    (re.compile(r"里程碑"), "里程碑字样"),
-    (re.compile(r"甘特"), "甘特字样"),
-    (re.compile(r"波次"), "波次字样"),
-    (re.compile(r"工期"), "工期字样"),
-    (re.compile(r"(?<![0-9A-Za-z])M\d{1,2}(?![0-9A-Za-z])"), "里程碑编号"),
-    # 工时数字：`{数字}h`；带比较符（≤ < ≥ > ～）的是时长约束（如 RTO ≤4h），不判工时。
-    (re.compile(r"(?<![\w.≤<≥>～~])\d+(?:\.\d+)?h(?![0-9A-Za-z])"), "工时数字"),
+RULES: ConcurrentStableList[tuple[re.Pattern[str], str]] = ConcurrentStableList(
+    (
+        (re.compile(r"工时"), "工时字样"),
+        (re.compile(r"排期"), "排期字样"),
+        (re.compile(r"里程碑"), "里程碑字样"),
+        (re.compile(r"甘特"), "甘特字样"),
+        (re.compile(r"波次"), "波次字样"),
+        (re.compile(r"工期"), "工期字样"),
+        (re.compile(r"(?<![0-9A-Za-z])M\d{1,2}(?![0-9A-Za-z])"), "里程碑编号"),
+        # 工时数字：`{数字}h`；带比较符（≤ < ≥ > ～）的是时长约束（如 RTO ≤4h），不判工时。
+        (re.compile(r"(?<![\w.≤<≥>～~])\d+(?:\.\d+)?h(?![0-9A-Za-z])"), "工时数字"),
+    )
 )
 
 #: 行级豁免标记。
@@ -78,7 +80,7 @@ def is_whitelisted(rel: str) -> bool:
     return bool(PLAN_DIR_RE.match(rel))
 
 
-def scan_text(text: str) -> tuple[tuple[int, str, str], ...]:
+def scan_text(text: str) -> ConcurrentStableList[tuple[int, str, str]]:
     """扫描单份文档正文，返回违规清单。
 
     Args:
@@ -99,7 +101,7 @@ def scan_text(text: str) -> tuple[tuple[int, str, str], ...]:
     return findings
 
 
-def iter_docs(docs_root: Path) -> tuple[Path, ...]:
+def iter_docs(docs_root: Path) -> ConcurrentStableList[Path]:
     """列出文档根下全部 Markdown 文档（排除白名单）。
 
     Args:
@@ -195,7 +197,7 @@ def _self_test() -> int:
     return 0
 
 
-def main(argv: tuple[str, ...] | None = None) -> int:
+def main(argv: ConcurrentStableList[str] | None = None) -> int:
     """入口。
 
     Args:

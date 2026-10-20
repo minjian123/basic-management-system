@@ -16,6 +16,15 @@
 from __future__ import annotations
 
 import re
+import sys
+from pathlib import Path
+
+_REPO_ROOT = Path(__file__).resolve().parents[3]
+_SRC_ROOT = _REPO_ROOT / "backend" / "libs" / "bms_core" / "src"
+if str(_SRC_ROOT) not in sys.path:
+    sys.path.insert(0, str(_SRC_ROOT))
+
+from bms_core.core.concurrent import ConcurrentStableList  # noqa: E402
 
 DEFAULT_JOBS = "auto"
 """缺省并行档：`auto`（按逻辑核数；可经 `--jobs N|off` 覆盖）。"""
@@ -30,7 +39,7 @@ _POSITIVE_INT = re.compile(r"[1-9]\d*")
 """正整数形态（不接受 `0` / 负数 / 小数 / 带符号）。"""
 
 
-def jobs_args(value: str) -> tuple[str, ...]:
+def jobs_args(value: str) -> ConcurrentStableList[str]:
     """把 `--jobs` 取值转换为 pytest 并行参数。
 
     Args:

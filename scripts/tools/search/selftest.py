@@ -30,7 +30,7 @@ from mcp.client.stdio import stdio_client
 _SRC_ROOT = Path(__file__).resolve().parents[3] / "backend" / "libs" / "bms_core" / "src"
 if str(_SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(_SRC_ROOT))
-from bms_core.core.concurrent import ConcurrentStableList  # noqa: E402  须先注入 sys.path
+from bms_core.core.concurrent import ConcurrentStableList  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
 SERVER = HERE / "search_mcp.py"

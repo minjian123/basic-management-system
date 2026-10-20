@@ -31,6 +31,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+_REPO_ROOT = Path(__file__).resolve().parents[3]
+_SRC_ROOT = _REPO_ROOT / "backend" / "libs" / "bms_core" / "src"
+if str(_SRC_ROOT) not in sys.path:
+    sys.path.insert(0, str(_SRC_ROOT))
+
+from bms_core.core.concurrent import ConcurrentStableList  # noqa: E402
+
 
 @dataclass(frozen=True)
 class CoverageTotals:
@@ -48,7 +55,7 @@ class CoverageTotals:
     missing_lines: int
     partial_branches: int
     percent: float
-    missing_modules: tuple[str, ...]
+    missing_modules: ConcurrentStableList[str]
 
     @property
     def passed(self) -> bool:
@@ -56,7 +63,7 @@ class CoverageTotals:
         return self.files > 0 and self.missing_lines == 0 and self.partial_branches == 0
 
 
-def data_files(data_file: Path) -> tuple[Path, ...]:
+def data_files(data_file: Path) -> ConcurrentStableList[Path]:
     """列出待合并的采集文件（`<data-file>` 与 `<data-file>.<pid>`）。
 
     Args:
@@ -129,7 +136,7 @@ def export_json(data_file: Path, out: Path) -> Any:
     return json.loads(out.read_text(encoding="utf-8"))
 
 
-def module_matches(path: str, modules: tuple[str, ...]) -> bool:
+def module_matches(path: str, modules: ConcurrentStableList[str]) -> bool:
     """判断报告文件是否属于给定模块（`a.b.c` ⇒ `a/b/c.py` 或 `a/b/c/__init__.py`）。
 
     Args:
@@ -167,7 +174,7 @@ def _module_name(path: str) -> str:
     return ".".join(parts)
 
 
-def filtered_totals(payload: Any, modules: tuple[str, ...]) -> CoverageTotals:
+def filtered_totals(payload: Any, modules: ConcurrentStableList[str]) -> CoverageTotals:
     """按门禁范围汇总覆盖率。
 
     Args:
@@ -183,7 +190,7 @@ def filtered_totals(payload: Any, modules: tuple[str, ...]) -> CoverageTotals:
     partial = 0
     covered = 0
     statements = 0
-    missing_modules: tuple[str, ...] = ()
+    missing_modules: ConcurrentStableList[str] = ()
     for path, entry in files.items():
         if not module_matches(str(path), modules):
             continue
@@ -218,7 +225,7 @@ def describe(totals: CoverageTotals) -> str:
 def check(
     data_file: Path,
     out: Path,
-    modules: tuple[str, ...] = (),
+    modules: ConcurrentStableList[str] = (),
     *,
     fail_under: int = 100,
     quiet: bool = False,
@@ -262,7 +269,7 @@ def check(
     return 1
 
 
-def main(argv: tuple[str, ...] | None = None) -> int:
+def main(argv: ConcurrentStableList[str] | None = None) -> int:
     """命令行入口。
 
     Args:

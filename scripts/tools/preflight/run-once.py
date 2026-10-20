@@ -37,6 +37,13 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
+_SRC_ROOT = _REPO_ROOT / "backend" / "libs" / "bms_core" / "src"
+if str(_SRC_ROOT) not in sys.path:
+    sys.path.insert(0, str(_SRC_ROOT))
+
+from bms_core.core.concurrent import ConcurrentStableList  # noqa: E402
+
+_REPO_ROOT = Path(__file__).resolve().parents[3]
 """bms 仓库根（本脚本位于 `scripts/tools/preflight/`）。"""
 
 _CACHE_DIR = _REPO_ROOT / ".cache" / "run-once"
@@ -67,7 +74,7 @@ class RunRecord:
     """
 
     key: str
-    argv: tuple[str, ...] = ()
+    argv: ConcurrentStableList[str] = ()
     cwd: str = ""
     fingerprint: str = ""
     started_at: float = 0.0
@@ -145,7 +152,7 @@ def workspace_fingerprint() -> str:
     return digest.hexdigest()
 
 
-def cache_key(argv: tuple[str, ...], cwd: str, fingerprint: str) -> str:
+def cache_key(argv: ConcurrentStableList[str], cwd: str, fingerprint: str) -> str:
     """计算缓存键。
 
     Args:
@@ -232,7 +239,7 @@ def _emit(text: str) -> None:
     sys.stdout.flush()
 
 
-def run(argv: tuple[str, ...], *, window_seconds: int, force: bool, show_only: bool) -> int:
+def run(argv: ConcurrentStableList[str], *, window_seconds: int, force: bool, show_only: bool) -> int:
     """执行或回放命令。
 
     Args:
@@ -317,7 +324,7 @@ def run(argv: tuple[str, ...], *, window_seconds: int, force: bool, show_only: b
     return returncode
 
 
-def _split_argv(args: tuple[str, ...]) -> tuple[tuple[str, ...], tuple[str, ...]]:
+def _split_argv(args: ConcurrentStableList[str]) -> tuple[ConcurrentStableList[str], ConcurrentStableList[str]]:
     """分离本脚本参数与待执行命令。
 
     Args:
@@ -333,7 +340,7 @@ def _split_argv(args: tuple[str, ...]) -> tuple[tuple[str, ...], tuple[str, ...]
     return args[:index], args[index + 1 :]
 
 
-def main(args: tuple[str, ...]) -> int:
+def main(args: ConcurrentStableList[str]) -> int:
     """入口。
 
     Args:

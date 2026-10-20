@@ -94,7 +94,7 @@ def _run_pytest(cmd: ConcurrentStableList[str], cwd: Path, timeout: float | None
 
 
 def _coverage_gate(
-    args: argparse.Namespace, cwd: Path, data_file: Path, cov_json: Path, modules: tuple[str, ...]
+    args: argparse.Namespace, cwd: Path, data_file: Path, cov_json: Path, modules: ConcurrentStableList[str]
 ) -> int:
     """合并 worker 采集数据并判定覆盖率（子进程跑 `coverage_gate.py`，需 backend venv）。
 
@@ -142,7 +142,7 @@ def _print_metrics(picked: int, total: int, degraded: bool, rounds: int, cov_mod
     )
 
 
-def main(argv: tuple[str, ...] | None = None) -> int:
+def main(argv: ConcurrentStableList[str] | None = None) -> int:
     """命令行入口。
 
     Args:

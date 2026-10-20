@@ -323,7 +323,7 @@ def _foreign_key_target(node: ast.Call) -> str | None:
 
 
 def _assess(
-    service: str, table: str, operation: str, exceptions: tuple[OwnershipException, ...]
+    service: str, table: str, operation: str, exceptions: ConcurrentStableList[OwnershipException]
 ) -> OwnershipViolation | None:
     """越界判定（含只读例外放行）。
 
@@ -339,7 +339,7 @@ def _assess(
     return assess_table(table, service=service, operation=operation, exceptions=exceptions)
 
 
-def _load_exceptions() -> tuple[tuple[OwnershipException, ...], ConcurrentStableList[str]]:
+def _load_exceptions() -> tuple[ConcurrentStableList[OwnershipException], ConcurrentStableList[str]]:
     """载入并校验例外白名单。
 
     Returns:

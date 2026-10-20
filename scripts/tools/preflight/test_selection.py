@@ -55,16 +55,20 @@ _BASE_TEST_THRESHOLD = 100
 _BASE_TEST_RATIO = 0.6
 """基础模块占比阈值：受影响测试文件占工程全量之比超过即退化。"""
 
-_GLOBAL_EXACT: tuple[str, ...] = (
-    "backend/pyproject.toml",
-    "backend/uv.lock",
-    ".gitlab-ci.yml",
+_GLOBAL_EXACT: ConcurrentStableList[str] = ConcurrentStableList(
+    (
+        "backend/pyproject.toml",
+        "backend/uv.lock",
+        ".gitlab-ci.yml",
+    )
 )
 """全局变更（精确匹配）：影响全部后端工程 ⇒ 直接退化全量。"""
 
-_GLOBAL_PREFIXES: tuple[str, ...] = (
-    "backend/alembic/",
-    "deploy/",
+_GLOBAL_PREFIXES: ConcurrentStableList[str] = ConcurrentStableList(
+    (
+        "backend/alembic/",
+        "deploy/",
+    )
 )
 """全局变更（前缀匹配）：迁移脚本 / 部署与 CI 配置影响全部后端工程。"""
 
@@ -77,11 +81,13 @@ _OPS_PREFIX = "backend/ops/"
 _PREFLIGHT_PREFIX = "scripts/tools/preflight/"
 """预检 / 选测器脚本变更：其护栏用例落在基座 `tests/boundary`。"""
 
-_PREFLIGHT_TESTS: tuple[str, ...] = (
-    "libs/bms_core/tests/boundary/test_test_selection_guard.py",
-    "libs/bms_core/tests/boundary/test_preflight_scoping_guard.py",
-    "libs/bms_core/tests/boundary/test_run_once_guard.py",
-    "libs/bms_core/tests/boundary/test_selection_contract_guard.py",
+_PREFLIGHT_TESTS: ConcurrentStableList[str] = ConcurrentStableList(
+    (
+        "libs/bms_core/tests/boundary/test_test_selection_guard.py",
+        "libs/bms_core/tests/boundary/test_preflight_scoping_guard.py",
+        "libs/bms_core/tests/boundary/test_run_once_guard.py",
+        "libs/bms_core/tests/boundary/test_selection_contract_guard.py",
+    )
 )
 """预检脚本目录变更时必须一并执行的护栏用例（相对 `backend`；单一来源）。
 
@@ -92,11 +98,13 @@ _PREFLIGHT_TESTS: tuple[str, ...] = (
 _BASE_CHECK_PREFIX = "scripts/tools/base-check/"
 """基座校验脚本目录：改动须跑其护栏用例（13_03 补齐的存量缺口）。"""
 
-_BASE_CHECK_TESTS: tuple[tuple[str, str], ...] = (
-    ("check-bare-collections.py", "libs/bms_core/tests/boundary/test_bare_collections_guard.py"),
-    ("check-env-example.py", "libs/bms_core/tests/core/test_basic_protection.py"),
-    ("check-backend-base.py", "libs/bms_core/tests/core/test_value_object_roots.py"),
-    ("check-service-boundaries.py", "libs/bms_core/tests/crosscut/test_module_boundary.py"),
+_BASE_CHECK_TESTS: ConcurrentStableList[tuple[str, str]] = ConcurrentStableList(
+    (
+        ("check-bare-collections.py", "libs/bms_core/tests/boundary/test_bare_collections_guard.py"),
+        ("check-env-example.py", "libs/bms_core/tests/core/test_basic_protection.py"),
+        ("check-backend-base.py", "libs/bms_core/tests/core/test_value_object_roots.py"),
+        ("check-service-boundaries.py", "libs/bms_core/tests/crosscut/test_module_boundary.py"),
+    )
 )
 """基座校验脚本 → 其护栏用例（脚本名, 相对 `backend` 的测试文件）。
 
@@ -107,19 +115,21 @@ _BASE_CHECK_TESTS: tuple[tuple[str, str], ...] = (
 _BOUNDARY_TESTS_DIR = "libs/bms_core/tests/boundary"
 """护栏用例目录（未登记基座校验脚本的兜底并入选测集）。"""
 
-_FRONTEND_GROUPS: tuple[str, ...] = ("packages", "apps", "modules")
+_FRONTEND_GROUPS: ConcurrentStableList[str] = ConcurrentStableList(("packages", "apps", "modules"))
 """前端 pnpm 工程所在分组目录（`frontend/<分组>/<工程>`）。"""
 
-_FRONTEND_GLOBAL_EXACT: tuple[str, ...] = (
-    "package.json",
-    "pnpm-lock.yaml",
-    "pnpm-workspace.yaml",
-    "tsconfig.base.json",
-    ".npmrc",
+_FRONTEND_GLOBAL_EXACT: ConcurrentStableList[str] = ConcurrentStableList(
+    (
+        "package.json",
+        "pnpm-lock.yaml",
+        "pnpm-workspace.yaml",
+        "tsconfig.base.json",
+        ".npmrc",
+    )
 )
 """前端根级配置：变更影响全部包 ⇒ 退化全量。"""
 
-_FRONTEND_GLOBAL_PREFIXES: tuple[str, ...] = ("scripts/",)
+_FRONTEND_GLOBAL_PREFIXES: ConcurrentStableList[str] = ConcurrentStableList(("scripts/",))
 """前端共享脚本（desktop / modules 的 budget / guard 脚本位于仓根 `scripts/`）⇒ 全部包。"""
 
 
@@ -137,7 +147,7 @@ class Project:
     name: str
     src: str
     tests: str
-    packages: tuple[str, ...]
+    packages: ConcurrentStableList[str]
 
 
 @dataclass(frozen=True)
@@ -172,14 +182,14 @@ class Selection:
         notes: 逐条说明（退化工程、ops / 预检用例并入等），供输出与复盘。
     """
 
-    test_paths: tuple[str, ...] = ()
-    cov_modules: tuple[str, ...] = ()
+    test_paths: ConcurrentStableList[str] = ()
+    cov_modules: ConcurrentStableList[str] = ()
     degraded: bool = False
     reason: str = ""
     picked: int = 0
     total: int = 0
-    projects: tuple[ProjectMetrics, ...] = ()
-    notes: tuple[str, ...] = ()
+    projects: ConcurrentStableList[ProjectMetrics] = ()
+    notes: ConcurrentStableList[str] = ()
 
 
 @dataclass(frozen=True)
@@ -194,7 +204,7 @@ class FrontendPackage:
 
     name: str
     path: str
-    workspace_deps: tuple[str, ...]
+    workspace_deps: ConcurrentStableList[str]
 
 
 @dataclass(frozen=True)
@@ -208,10 +218,10 @@ class FrontendSelection:
         notes: 逐条说明。
     """
 
-    packages: tuple[str, ...] = ()
+    packages: ConcurrentStableList[str] = ()
     degraded: bool = False
     reason: str = ""
-    notes: tuple[str, ...] = ()
+    notes: ConcurrentStableList[str] = ()
 
 
 @dataclass(frozen=True)
@@ -224,8 +234,8 @@ class Graph:
         test_deps: 测试文件 → 依赖闭包（直接导入 + 传递依赖）。
     """
 
-    projects: tuple[Project, ...]
-    test_files: ConcurrentStableDict[str, tuple[str, ...]]
+    projects: ConcurrentStableList[Project]
+    test_files: ConcurrentStableDict[str, ConcurrentStableList[str]]
     test_deps: ConcurrentStableDict[str, ConcurrentStableSet[str]]
 
 
@@ -253,7 +263,7 @@ def _is_test_file(path: Path) -> bool:
     return path.suffix == ".py" and path.name.startswith("test_")
 
 
-def _iter_py(root: Path) -> tuple[Path, ...]:
+def _iter_py(root: Path) -> ConcurrentStableList[Path]:
     """列出目录下全部 `.py`（跳过 `__pycache__` / 虚拟环境 / node_modules）。
 
     Args:
@@ -273,7 +283,7 @@ def _iter_py(root: Path) -> tuple[Path, ...]:
     return tuple(found)
 
 
-def discover_projects(backend: Path) -> tuple[Project, ...]:
+def discover_projects(backend: Path) -> ConcurrentStableList[Project]:
     """发现后端工程：`backend/libs/*` 与 `backend/services/*`（有 `src` 与 `tests` 才算）。
 
     不维护工程白名单——目录到位即被发现（13_03「新增工程必登记」护栏的前提）。
@@ -450,7 +460,7 @@ def build_graph(backend: Path) -> Graph:
     if not projects:
         raise RuntimeError(f"未发现任何后端工程（{backend}）")
 
-    test_files: ConcurrentStableDict[str, tuple[str, ...]] = ConcurrentStableDict()
+    test_files: ConcurrentStableDict[str, ConcurrentStableList[str]] = ConcurrentStableDict()
     for project in projects:
         files: ConcurrentStableList[str] = ConcurrentStableList()
         for path in _iter_py(backend / project.tests):
@@ -480,7 +490,7 @@ def build_graph(backend: Path) -> Graph:
     return Graph(projects=projects, test_files=test_files, test_deps=test_deps)
 
 
-def _isomorphic_candidates(backend: Path, rel: str, project: Project) -> tuple[str, ...]:
+def _isomorphic_candidates(backend: Path, rel: str, project: Project) -> ConcurrentStableList[str]:
     """目录同构候选：源包目录 ↔ 同构测试目录下的全部测试文件。
 
     Args:
@@ -519,7 +529,7 @@ def _classify_change(rel: str) -> str:
     Returns:
         str: 类别。
     """
-    if rel in _GLOBAL_EXACT or rel.startswith(_GLOBAL_PREFIXES):
+    if rel in _GLOBAL_EXACT or rel.startswith(tuple(_GLOBAL_PREFIXES)):
         return "global"
     if rel.startswith(_GLOBAL_CONFIG_PREFIX) and rel.endswith(".toml"):
         return "global"
@@ -532,7 +542,7 @@ def _classify_change(rel: str) -> str:
     return "other"
 
 
-def all_test_paths(backend: Path) -> tuple[str, ...]:
+def all_test_paths(backend: Path) -> ConcurrentStableList[str]:
     """全部后端测试文件（相对 `backend`，按工程顺序）。
 
     Args:
@@ -548,7 +558,7 @@ def all_test_paths(backend: Path) -> tuple[str, ...]:
     return tuple(paths)
 
 
-def tests_for_modules(backend: Path, modules: tuple[str, ...]) -> tuple[str, ...]:
+def tests_for_modules(backend: Path, modules: ConcurrentStableList[str]) -> ConcurrentStableList[str]:
     """扩圈用：返回直接 / 传递引用给定模块的测试文件。
 
     Args:
@@ -575,7 +585,9 @@ def tests_for_modules(backend: Path, modules: tuple[str, ...]) -> tuple[str, ...
     return tuple(ordered)
 
 
-def base_check_guard_tests(backend: Path, changed: tuple[str, ...] | ConcurrentStableList[str]) -> tuple[str, ...]:
+def base_check_guard_tests(
+    backend: Path, changed: ConcurrentStableList[str] | ConcurrentStableList[str]
+) -> ConcurrentStableList[str]:
     """基座校验脚本变更 → 需一并执行的护栏用例（相对 `backend`）。
 
     判定（13_03）：已登记脚本走精确映射；**未登记脚本**（含新增脚本）与目录内非 `.py` 文件一律并入
@@ -616,7 +628,7 @@ def base_check_guard_tests(backend: Path, changed: tuple[str, ...] | ConcurrentS
 
 def build_selection(
     backend: Path,
-    changed: tuple[str, ...] | ConcurrentStableList[str],
+    changed: ConcurrentStableList[str] | ConcurrentStableList[str],
     *,
     base_threshold: int = _BASE_TEST_THRESHOLD,
     base_ratio: float = _BASE_TEST_RATIO,
@@ -796,7 +808,7 @@ def build_selection(
     )
 
 
-def expand_from_coverage(coverage_path: Path, modules: tuple[str, ...]) -> tuple[str, ...]:
+def expand_from_coverage(coverage_path: Path, modules: ConcurrentStableList[str]) -> ConcurrentStableList[str]:
     """扩圈：读覆盖率报告，返回「有缺行」的目标模块（供调用方并入测试集）。
 
     Args:
@@ -828,7 +840,7 @@ def expand_from_coverage(coverage_path: Path, modules: tuple[str, ...]) -> tuple
     return tuple(missing)
 
 
-def discover_frontend_packages(frontend: Path) -> tuple[FrontendPackage, ...]:
+def discover_frontend_packages(frontend: Path) -> ConcurrentStableList[FrontendPackage]:
     """发现前端 pnpm 工程（`frontend/{packages,apps,modules}/*`）。
 
     Args:
@@ -877,7 +889,7 @@ def discover_frontend_packages(frontend: Path) -> tuple[FrontendPackage, ...]:
 
 def build_frontend_selection(
     frontend: Path,
-    changed: tuple[str, ...] | ConcurrentStableList[str],
+    changed: ConcurrentStableList[str] | ConcurrentStableList[str],
     *,
     force_full: bool = False,
 ) -> FrontendSelection:
@@ -903,7 +915,7 @@ def build_frontend_selection(
         rel = _norm(item)
         if not rel:
             continue
-        if rel in _FRONTEND_GLOBAL_EXACT or rel.startswith(_FRONTEND_GLOBAL_PREFIXES):
+        if rel in _FRONTEND_GLOBAL_EXACT or rel.startswith(tuple(_FRONTEND_GLOBAL_PREFIXES)):
             global_change = True
             continue
         if not rel.startswith("frontend/"):
@@ -973,7 +985,7 @@ def _ref_exists(root: Path, ref: str) -> bool:
     return result.returncode == 0
 
 
-def _git_changed(root: Path, since: str) -> tuple[str, ...]:
+def _git_changed(root: Path, since: str) -> ConcurrentStableList[str]:
     """取自 `since` 以来的改动路径（含未跟踪文件）。
 
     Args:
@@ -1001,9 +1013,9 @@ def read_changed(
     root: Path,
     *,
     changed_from: str,
-    changed_files: tuple[str, ...] | ConcurrentStableList[str],
+    changed_files: ConcurrentStableList[str] | ConcurrentStableList[str],
     changed_file_list: str,
-) -> tuple[str, ...]:
+) -> ConcurrentStableList[str]:
     """汇总变更路径（显式文件 ∪ 清单文件 ∪ git diff）。
 
     Args:
@@ -1043,7 +1055,7 @@ _SERVICE_PATH_PREFIX = "backend/services/"
 """后端服务路径前缀（`backend/services/<服务>/...`）。"""
 
 
-def changed_services(changes: tuple[str, ...] | ConcurrentStableList[str]) -> tuple[str, ...]:
+def changed_services(changes: ConcurrentStableList[str] | ConcurrentStableList[str]) -> ConcurrentStableList[str]:
     """变更集中**直接命中**的后端服务名（`backend/services/<服务>`）。
 
     与 `build_selection` 的区别：只做路径前缀判定，**不做**目录同构 / AST 闭包展开——回答的是
@@ -1120,7 +1132,7 @@ def _format_frontend(selection: FrontendSelection, fmt: str) -> str:
     return json.dumps(payload, ensure_ascii=False, indent=2)
 
 
-def main(argv: tuple[str, ...] | None = None) -> int:
+def main(argv: ConcurrentStableList[str] | None = None) -> int:
     """命令行入口。
 
     Args:

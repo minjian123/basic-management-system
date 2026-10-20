@@ -79,15 +79,15 @@ class IdeProfile(NamedTuple):
 
     label: str
     user_data_dir: str  # 相对 $HOME
-    process_markers: tuple[str, ...]  # 进程命令行里出现即视为「该 IDE 在运行」
+    process_markers: ConcurrentStableList[str]  # 进程命令行里出现即视为「该 IDE 在运行」
 
 
 class ScmState(NamedTuple):
     """某工作区当前的 SCM 面板状态。"""
 
-    hidden_views: tuple[str, ...]
-    all_repos: tuple[str, ...]
-    visible: tuple[int, ...]
+    hidden_views: ConcurrentStableList[str]
+    all_repos: ConcurrentStableList[str]
+    visible: ConcurrentStableList[int]
 
     @property
     def has_repos(self) -> bool:
@@ -111,23 +111,25 @@ class ScmState(NamedTuple):
 
 
 # 各 IDE 的默认用户数据目录（相对 $HOME）与进程特征
-IDE_PROFILES: tuple[tuple[str, IdeProfile], ...] = (
+IDE_PROFILES: ConcurrentStableList[tuple[str, IdeProfile]] = ConcurrentStableList(
     (
-        "vscode",
-        IdeProfile(
-            label="VS Code",
-            user_data_dir=".config/Code",
-            process_markers=("/usr/share/code/code",),
+        (
+            "vscode",
+            IdeProfile(
+                label="VS Code",
+                user_data_dir=".config/Code",
+                process_markers=("/usr/share/code/code",),
+            ),
         ),
-    ),
-    (
-        "codebuddy",
-        IdeProfile(
-            label="CodeBuddy",
-            user_data_dir=".config/CodeBuddy CN",
-            process_markers=("/usr/share/buddycn/",),
+        (
+            "codebuddy",
+            IdeProfile(
+                label="CodeBuddy",
+                user_data_dir=".config/CodeBuddy CN",
+                process_markers=("/usr/share/buddycn/",),
+            ),
         ),
-    ),
+    )
 )
 
 VIEW_STATE_KEY = "workbench.scm.views.state"

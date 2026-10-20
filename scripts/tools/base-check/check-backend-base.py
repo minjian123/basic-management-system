@@ -80,7 +80,7 @@ PAREN_RE = re.compile(r"[（(][^）)]*[）)]")
 CLASS_RE = re.compile(r"^class\s+(\w+)(?:\[[^\]]*\])?\s*\(([^)]*)\)", re.M)
 
 
-def parse_chains(raw_line: str) -> ConcurrentStableList[tuple[str, ...]]:
+def parse_chains(raw_line: str) -> ConcurrentStableList[ConcurrentStableList[str]]:
     """解析清单链条目：支持 `` `A` / `B` → `C` / `D` `` 组配对与 `+` 多父类说明。
 
     - 去括号注释与反引号；按 `→` 切段、按 `/` 切组；
@@ -92,7 +92,7 @@ def parse_chains(raw_line: str) -> ConcurrentStableList[tuple[str, ...]]:
         return ConcurrentStableList()
     # 链间分隔（顿号 / 全角逗号 / 分号）：逐条独立解析（避免跨链错配）
     if any(sep in line for sep in ("、", "，", "；")):
-        chains: ConcurrentStableList[tuple[str, ...]] = ConcurrentStableList()
+        chains: ConcurrentStableList[ConcurrentStableList[str]] = ConcurrentStableList()
         for part in re.split(r"[、，；]", line):
             chains.update(parse_chains(part))
         return chains
@@ -444,7 +444,7 @@ def check_error_segments() -> int:
     return count
 
 
-def _revision_fields(text: str) -> tuple[str | None, str | None, tuple[str, ...]]:
+def _revision_fields(text: str) -> tuple[str | None, str | None, ConcurrentStableList[str]]:
     """解析迁移脚本的 revision / down_revision / branch_labels。
 
     Args:
@@ -456,7 +456,7 @@ def _revision_fields(text: str) -> tuple[str | None, str | None, tuple[str, ...]
     rev = re.search(r"^revision(?::\s*str)?\s*=\s*[\"']([^\"']+)", text, re.M)
     down = re.search(r"^down_revision[^=]*=\s*(None|[\"']([^\"']+)[\"'])", text, re.M)
     branch_line = re.search(r"^branch_labels[^=]*=\s*(None|\([^)]*\))", text, re.M)
-    labels: tuple[str, ...] = ()
+    labels: ConcurrentStableList[str] = ()
     if branch_line and branch_line.group(1) != "None":
         labels = tuple(re.findall(r"[\"']([^\"']+)[\"']", branch_line.group(1)))
     parent = None if (not down or down.group(1) == "None") else down.group(2)
@@ -532,7 +532,7 @@ def check_alembic_chain() -> int:
     for service, datasource, path in _iter_chain_dirs():
         chain = f"{service}:{datasource}"
         revisions: ConcurrentStableDict[str, str | None] = ConcurrentStableDict()
-        labels: ConcurrentStableDict[str, tuple[str, ...]] = ConcurrentStableDict()
+        labels: ConcurrentStableDict[str, ConcurrentStableList[str]] = ConcurrentStableDict()
         for name in sorted(os.listdir(path)):
             if not name.endswith(".py"):
                 continue
@@ -608,7 +608,7 @@ def self_test() -> int:
                 'branch_labels: tuple[str, ...] | None = ("tenant:tenant",)\n'
             )
 
-        def write_manifest(*, chains: str = "", roots: tuple[str, ...] = ("BaseValueObject",)) -> None:
+        def write_manifest(*, chains: str = "", roots: ConcurrentStableList[str] = ("BaseValueObject",)) -> None:
             root_lines = "\n".join(f"- `{name}`：测试体系" for name in roots)
             body = (
                 "# 清单\n\n## 7. 继承链与代码位置\n\n"

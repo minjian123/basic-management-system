@@ -37,8 +37,32 @@ ROW_PARENT_ID_RE = re.compile(r"^\|\s*`parent_id`\s*\|", re.MULTILINE)
 problems = []
 
 
+def _unwrap_collection(value):
+    """拆掉集合类包装，取内层元素序列节点（`ConcurrentStableList((...))` → `(...)`）。
+
+    08_05 起，`FORM_CATALOG` 等构建期清单按《后端开发规范》「集合与排序」落插入序集合类
+    （`ConcurrentStableList((FormRecord(...), ...))`），不再是裸 tuple / list 字面量；本助手让护栏
+    同时支持两种形态（裸字面量 / 集合类包装），避免护栏因口径整改而误报「清单不可解析」。
+
+    Args:
+        value: 常量赋值右侧的 AST 节点。
+
+    Returns:
+        ast.Tuple | ast.List | None: 元素序列节点；无法识别时返回 None。
+    """
+    if isinstance(value, (ast.Tuple, ast.List)):
+        return value
+    if not isinstance(value, ast.Call):
+        return None
+    # 集合类构造：首参为元素序列（tuple / list / 生成器不解析）
+    for arg in value.args:
+        if isinstance(arg, (ast.Tuple, ast.List)):
+            return arg
+    return None
+
+
 def parse_records(path, const_name):
-    """从模块文件按 AST 解析 `const_name`（tuple / list of 构造调用）的常量关键字参数。
+    """从模块文件按 AST 解析 `const_name`（tuple / list of 构造调用，或集合类包装）的常量关键字参数。
 
     Args:
         path: 模块文件路径。
@@ -60,10 +84,11 @@ def parse_records(path, const_name):
         elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
             if node.target.id == const_name:
                 value = node.value
-        if not isinstance(value, (ast.Tuple, ast.List)):
+        sequence = _unwrap_collection(value)
+        if sequence is None:
             continue
         records = []
-        for item in value.elts:
+        for item in sequence.elts:
             if not isinstance(item, ast.Call):
                 continue
             records.append(
@@ -203,10 +228,11 @@ def parse_kind_declarations(path, const_name, enum_name, enum_values):
         elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
             if node.target.id == const_name:
                 value = node.value
-        if not isinstance(value, (ast.Tuple, ast.List)):
+        sequence = _unwrap_collection(value)
+        if sequence is None:
             continue
         declarations = []
-        for item in value.elts:
+        for item in sequence.elts:
             if not isinstance(item, ast.Call):
                 continue
             locator = ""
