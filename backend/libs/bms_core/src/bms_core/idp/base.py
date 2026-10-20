@@ -19,7 +19,11 @@ from typing import cast
 
 from fastapi import Request
 
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import (
+    ConcurrentStableFrozenDict,
+    ConcurrentStableFrozenList,
+    ConcurrentStableList,
+)
 from bms_core.core.config import Settings
 from bms_core.core.exceptions import ConfigError
 from bms_core.core.objects import (
@@ -40,7 +44,7 @@ __all__ = [
     "get_identity_provider",
 ]
 
-IDP_PROTOCOLS: tuple[str, ...] = ("oidc", "cas", "wecom", "dingtalk")
+IDP_PROTOCOLS: ConcurrentStableList[str] = ConcurrentStableList(("oidc", "cas", "wecom", "dingtalk"))
 """协议清单（OIDC / CAS / 企业微信 / 钉钉）；占位期仅登记不校验。"""
 
 
@@ -108,7 +112,7 @@ class IdentityClaims(BaseTokenClaimsContract):
     issuer: str = ""
     """签发方（`iss`）。"""
 
-    audience: tuple[str, ...] = ()
+    audience: ConcurrentStableFrozenList[str] = field(default_factory=lambda: ConcurrentStableFrozenList[str]())
     """受众（`aud`）。"""
 
     expires_at: int = 0
@@ -117,7 +121,7 @@ class IdentityClaims(BaseTokenClaimsContract):
     issued_at: int = 0
     """签发时间（`iat`，Unix 秒）。"""
 
-    payload: ConcurrentStableDict[str, object] = field(default_factory=ConcurrentStableDict[str, object])
+    payload: ConcurrentStableFrozenDict[str, object] = field(default_factory=ConcurrentStableFrozenDict[str, object])
     """完整声明载荷（只读映射）。"""
 
 

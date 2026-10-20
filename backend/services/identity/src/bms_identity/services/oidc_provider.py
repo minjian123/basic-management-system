@@ -318,7 +318,7 @@ class OidcProviderService(BaseFrameworkObject):
                 tenant_id=record.tenant_id,
                 client_id=client.client_id,
                 issuer=issuer,
-                scopes=tuple(record.scope.split()) if record.scope else (),
+                scopes=tuple(record.scope.split()) if record.scope else (),  # pyright: ignore[reportArgumentType]  # 08_05：注解落集合类，值形态由契约/外部决定
                 ttl=self._settings.access_token_ttl_seconds,
             )
         )

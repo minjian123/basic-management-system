@@ -13,8 +13,9 @@
 
 from typing import ClassVar
 
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.error_codes import ErrorCode
-from bms_core.core.objects import BaseFrameworkObject
+from bms_core.core.roots import BaseFrameworkObject
 
 
 class BizError(BaseFrameworkObject, Exception):
@@ -632,7 +633,7 @@ class PasswordPolicyViolationError(UserOrgError):
         message: str | None = None,
         *,
         data: object | None = None,
-        violations: tuple[str, ...] | None = None,
+        violations: ConcurrentStableList[str] | None = None,
     ) -> None:
         """初始化密码策略违规异常。
 

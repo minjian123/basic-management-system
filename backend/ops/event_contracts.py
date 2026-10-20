@@ -107,7 +107,9 @@ def load_product_contracts(registry: EventContractRegistry, module_path: str) ->
     cast("Callable[[EventContractRegistry], None]", hook)(registry)
 
 
-def load_snapshot(root: Path) -> tuple[tuple[EventContract, ...], tuple[EventSubscription, ...]] | None:
+def load_snapshot(
+    root: Path,
+) -> tuple[ConcurrentStableList[EventContract], ConcurrentStableList[EventSubscription]] | None:
     """读取已提交快照（缺件 None）。
 
     Args:

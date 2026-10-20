@@ -20,7 +20,12 @@ from typing import ClassVar, cast
 from fastapi import Request
 
 from bms_core.core.capability import BaseAsyncResource
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.core.concurrent import (
+    ConcurrentStableDict,
+    ConcurrentStableFrozenDict,
+    ConcurrentStableFrozenList,
+    ConcurrentStableList,
+)
 from bms_core.core.config import Settings
 from bms_core.core.objects import BaseEventRecordContract, BaseTallyContract
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
@@ -36,7 +41,9 @@ OUTBOX_STATUS_DELIVERED = "delivered"
 OUTBOX_STATUS_DEAD = "dead"
 """投递失败转死信。"""
 
-OUTBOX_STATUSES: tuple[str, ...] = (OUTBOX_STATUS_PENDING, OUTBOX_STATUS_DELIVERED, OUTBOX_STATUS_DEAD)
+OUTBOX_STATUSES: ConcurrentStableList[str] = ConcurrentStableList(
+    (OUTBOX_STATUS_PENDING, OUTBOX_STATUS_DELIVERED, OUTBOX_STATUS_DEAD)
+)
 """发件箱状态清单。"""
 
 DEAD_LETTER_STATUS_PENDING = "pending"
@@ -48,10 +55,12 @@ DEAD_LETTER_STATUS_REPLAYED = "replayed"
 DEAD_LETTER_STATUS_IGNORED = "ignored"
 """死信已忽略。"""
 
-DEAD_LETTER_STATUSES: tuple[str, ...] = (
-    DEAD_LETTER_STATUS_PENDING,
-    DEAD_LETTER_STATUS_REPLAYED,
-    DEAD_LETTER_STATUS_IGNORED,
+DEAD_LETTER_STATUSES: ConcurrentStableList[str] = ConcurrentStableList(
+    (
+        DEAD_LETTER_STATUS_PENDING,
+        DEAD_LETTER_STATUS_REPLAYED,
+        DEAD_LETTER_STATUS_IGNORED,
+    )
 )
 """死信处置状态清单。"""
 
@@ -61,7 +70,9 @@ DEAD_LETTER_SOURCE_OUTBOX = "outbox"
 DEAD_LETTER_SOURCE_CONSUMER = "consumer"
 """死信来源：消费失败。"""
 
-DEAD_LETTER_SOURCES: tuple[str, ...] = (DEAD_LETTER_SOURCE_OUTBOX, DEAD_LETTER_SOURCE_CONSUMER)
+DEAD_LETTER_SOURCES: ConcurrentStableList[str] = ConcurrentStableList(
+    (DEAD_LETTER_SOURCE_OUTBOX, DEAD_LETTER_SOURCE_CONSUMER)
+)
 """死信来源清单。"""
 
 DEFAULT_BATCH_SIZE = 100
@@ -94,7 +105,7 @@ class OutboxRecord(BaseEventRecordContract):
     """聚合 / 分区键（同聚合按序投递；空 = 独立事件）。"""
     tenant_id: str | None
     """租户主键（雪花 id 十进制字符串；无租户事件为空）。"""
-    payload: ConcurrentStableDict[str, object]
+    payload: ConcurrentStableFrozenDict[str, object]
     """事件负载。"""
     occurred_at: datetime
     """事件发生时间（UTC）。"""
@@ -144,7 +155,7 @@ class DeadLetterRecord(BaseEventRecordContract):
     """聚合 / 分区键。"""
     tenant_id: str | None
     """租户主键（雪花 id 十进制字符串；无租户事件为空）。"""
-    payload: ConcurrentStableDict[str, object]
+    payload: ConcurrentStableFrozenDict[str, object]
     """事件负载。"""
     error_msg: str
     """失败原因。"""
@@ -160,7 +171,9 @@ class DeadLetterRecord(BaseEventRecordContract):
 class DispatchResult(BaseTallyContract):
     """单次投递汇总。"""
 
-    COUNT_FIELDS: ClassVar[tuple[str, ...]] = ("published", "failed", "dead", "backlog")
+    COUNT_FIELDS: ClassVar[ConcurrentStableFrozenList[str]] = ConcurrentStableFrozenList(
+        ("published", "failed", "dead", "backlog")
+    )
 
     published: int = 0
     """投递成功条数。"""

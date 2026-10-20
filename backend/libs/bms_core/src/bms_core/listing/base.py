@@ -47,7 +47,7 @@ __all__ = [
 LIST_PREF_KEY_PREFIX = "list"
 """列表偏好键前缀（域）：`list.{form_key}`。"""
 
-LIST_DENSITIES: tuple[str, ...] = ("default", "small")
+LIST_DENSITIES: ConcurrentStableList[str] = ConcurrentStableList(("default", "small"))
 """表格密度取值（对齐《概要设计 · 用户喜好》§2.2）。"""
 
 
@@ -139,7 +139,7 @@ class BaseQuerySchemeStore(BasePluggable, ABC):
         target: QuerySchemeTarget,
         *,
         field_key: str | None = None,
-    ) -> tuple[QueryScheme, ...]:
+    ) -> ConcurrentStableList[QueryScheme]:
         """列查询方案。
 
         Args:

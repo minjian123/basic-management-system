@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from typing import cast
 
-from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableFrozenList, ConcurrentStableList
 from bms_core.core.exceptions import ParamError
 from bms_core.core.objects import BaseValueObject
 from bms_core.schemas.sorting import SortDirection, SortSpec
@@ -32,10 +32,10 @@ _DATE_TYPE = "date"
 class CursorPayload(BaseValueObject):
     """游标载荷（排序规格指纹 + 末行排序键值 + 主键）。"""
 
-    specs: tuple[tuple[str, str], ...]
+    specs: ConcurrentStableFrozenList[tuple[str, str]]
     """生效排序规格指纹（`(字段, 方向)` 序列）。"""
 
-    values: tuple[object, ...]
+    values: ConcurrentStableFrozenList[object]
     """末行排序键值（与规格一一对应）。"""
 
     item_id: int
@@ -53,7 +53,7 @@ class CursorPayload(BaseValueObject):
         return self.specs == spec_fingerprint(sort)
 
 
-def spec_fingerprint(sort: ConcurrentStableList[SortSpec]) -> tuple[tuple[str, str], ...]:
+def spec_fingerprint(sort: ConcurrentStableList[SortSpec]) -> ConcurrentStableList[tuple[str, str]]:
     """排序规格指纹（字段 + 方向）。
 
     Args:
@@ -62,7 +62,7 @@ def spec_fingerprint(sort: ConcurrentStableList[SortSpec]) -> tuple[tuple[str, s
     Returns:
         tuple[tuple[str, str], ...]: 指纹元组。
     """
-    return tuple((spec.field, spec.direction.value) for spec in sort)
+    return ConcurrentStableList((spec.field, spec.direction.value) for spec in sort)
 
 
 def encode_cursor(sort: ConcurrentStableList[SortSpec], values: ConcurrentStableList[object], item_id: int) -> str:
@@ -117,11 +117,11 @@ def decode_cursor(token: str) -> CursorPayload:
     item_id = mapping.get("id")
     if not isinstance(specs_raw, list) or not isinstance(values_raw, list) or not isinstance(item_id, int):
         raise ParamError("游标载荷不完整")
-    specs = tuple(_decode_spec(item) for item in cast("list[object]", specs_raw))
+    specs = ConcurrentStableFrozenList(_decode_spec(item) for item in cast("list[object]", specs_raw))
     raw_values = cast("list[object]", values_raw)
     if len(specs) != len(raw_values):
         raise ParamError("游标排序键数量与规格不一致")
-    values = tuple(_decode_value(item) for item in raw_values)
+    values = ConcurrentStableFrozenList(_decode_value(item) for item in raw_values)
     return CursorPayload(specs=specs, values=values, item_id=item_id)
 
 

@@ -155,6 +155,7 @@ class _Layer(BaseFrameworkObject):
         self.name = name
         self.max_items = max(1, max_items)
         self.ttl = max(0, ttl)
+        # bare-collections:allow（LRU 内部结构：需 move_to_end / popitem(last=False) 专有 API，集合类不提供）
         self.items: OrderedDict[str, tuple[object, float | None]] = OrderedDict()
 
     def get(self, key: str, now: float) -> object | None:

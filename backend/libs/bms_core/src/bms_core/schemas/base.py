@@ -102,7 +102,7 @@ class _ContractCollection(BaseFrameworkObject):
         collection = _collection_type(source_type)
         if collection is None:
             return handler.generate_schema(source_type)
-        return self._container_schema(collection, get_args(source_type), handler)
+        return self._container_schema(collection, get_args(source_type), handler)  # pyright: ignore[reportArgumentType]  # 08_05：注解落集合类，值形态由契约/外部决定
 
     def _element_schema(self, arg: Any, handler: GetCoreSchemaHandler) -> CoreSchema:
         """生成元素 / 键 / 值 schema（**嵌套基座集合类**递归经本元数据）。
@@ -119,7 +119,7 @@ class _ContractCollection(BaseFrameworkObject):
         return handler.generate_schema(arg)
 
     def _container_schema(
-        self, collection: CollectionType, args: tuple[Any, ...], handler: GetCoreSchemaHandler
+        self, collection: CollectionType, args: ConcurrentStableList[Any], handler: GetCoreSchemaHandler
     ) -> CoreSchema:
         """按集合类所属映射 / 集合 / 序列分派到同类内置容器 schema。
 

@@ -15,7 +15,7 @@ from typing import cast
 
 from fastapi import Request
 
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.core.exceptions import NotFoundError
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, resolve_plugin
@@ -29,7 +29,7 @@ __all__ = [
     "get_field_type_registry",
 ]
 
-COLUMN_TYPE_DIALECTS: tuple[str, ...] = ("mysql", "postgresql", "dm", "sqlite")
+COLUMN_TYPE_DIALECTS: ConcurrentStableList[str] = ConcurrentStableList(("mysql", "postgresql", "dm", "sqlite"))
 """方言清单（四库）；占位期仅登记不校验。"""
 
 NULL_COLUMN_TYPE = "varchar(255)"
@@ -40,7 +40,9 @@ class BaseFieldType(BaseProvider, ABC):
     """字段类型提供者契约：校验 / 渲染元数据 / 类型映射。"""
 
     @abstractmethod
-    def validate(self, value: object, *, options: ConcurrentStableDict[str, object] | None = None) -> tuple[str, ...]:
+    def validate(
+        self, value: object, *, options: ConcurrentStableDict[str, object] | None = None
+    ) -> ConcurrentStableList[str]:
         """校验字段值。
 
         Args:
@@ -81,7 +83,7 @@ class BaseFieldTypeRegistry(BaseProviderRegistry[BaseFieldType], ABC):
 
     def validate(
         self, field_type: str, value: object, *, options: ConcurrentStableDict[str, object] | None = None
-    ) -> tuple[str, ...]:
+    ) -> ConcurrentStableList[str]:
         """聚合校验（模板方法：解析字段类型 → 委托）。
 
         Args:

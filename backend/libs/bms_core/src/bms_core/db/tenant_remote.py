@@ -13,7 +13,7 @@ from collections.abc import Awaitable, Callable, Mapping
 from typing import cast
 
 from bms_core.cache.base import CacheRegion
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenDict
 from bms_core.core.config import Settings
 from bms_core.core.error_codes import ErrorCode
 from bms_core.core.exceptions import (
@@ -235,7 +235,7 @@ class RemoteTenantSource(BaseFrameworkObject):
             service=self._service,
             method="GET",
             path=TENANT_REGISTRY_PATH,
-            query=ConcurrentStableDict({"tenant_id": value} if kind == "id" else {kind: value}),
+            query=ConcurrentStableFrozenDict({"tenant_id": value} if kind == "id" else {kind: value}),
         )
         response = await self._client.call(request)
         if response.status_code == _NOT_FOUND:

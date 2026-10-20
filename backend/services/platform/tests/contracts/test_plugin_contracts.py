@@ -8,6 +8,7 @@ import pytest
 from bms_core.core import plugin as plugin_module
 from bms_core.core.assembly import PLUGIN_WIRINGS
 from bms_core.core.capability import BaseNullObject
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.exceptions import PluginError
 from bms_core.core.plugin import BasePluggable, PluginRegistry
 from tests.contracts.support import build_snapshot
@@ -15,8 +16,12 @@ from tests.contracts.support import build_snapshot
 pytestmark = pytest.mark.kiwi_id(567)
 
 _SNAPSHOT = build_snapshot()
-_CASES: tuple[tuple[str, str, object], ...] = tuple(
-    (plugin_key, plugin_name, impl) for plugin_key, bucket in _SNAPSHOT.items() for plugin_name, impl in bucket.items()
+_CASES: ConcurrentStableList[tuple[str, str, object]] = ConcurrentStableList(
+    (
+        (plugin_key, plugin_name, impl)
+        for plugin_key, bucket in _SNAPSHOT.items()
+        for plugin_name, impl in bucket.items()
+    )
 )
 _CLASS_CASES = tuple(case for case in _CASES if isinstance(case[2], type))
 _FACTORY_CASES = tuple(case for case in _CASES if not isinstance(case[2], type))

@@ -109,7 +109,7 @@ def test_build_openapi_missing_factory(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_build_openapi_build_failure(monkeypatch: pytest.MonkeyPatch) -> None:
     """应用构建失败时统一报服务名。"""
     module = types.ModuleType("bms_probe.main")
-    setattr(module, "ApplicationFactory", object)  # noqa: B010 - 动态注入测试替身
+    module.ApplicationFactory = object  # pyright: ignore[reportAttributeAccessIssue]  # 08_05：注解落集合类，值形态由契约/外部决定
 
     def fake_import(name: str, package: str | None = None) -> types.ModuleType:
         del name, package

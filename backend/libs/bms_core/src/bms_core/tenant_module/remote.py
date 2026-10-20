@@ -10,7 +10,12 @@ from collections.abc import Mapping
 from typing import cast
 
 from bms_core.cache.base import CacheRegion
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableSet
+from bms_core.core.concurrent import (
+    ConcurrentStableDict,
+    ConcurrentStableFrozenDict,
+    ConcurrentStableList,
+    ConcurrentStableSet,
+)
 from bms_core.core.config import Settings
 from bms_core.core.logging import get_logger
 from bms_core.core.objects import BaseFrameworkObject
@@ -37,7 +42,7 @@ REMOTE_TENANT_MODULE_GATE = "remote"
 """真实门禁实现名。"""
 
 _TENANT_SERVICE = "tenant"
-_MODULE_SCOPES: tuple[str, ...] = ("tenant_module",)
+_MODULE_SCOPES: ConcurrentStableList[str] = ConcurrentStableList(("tenant_module",))
 
 
 def tenant_module_cache_key(tenant_id: int, cache: CacheRegion | None = None) -> str:
@@ -161,7 +166,7 @@ class RemoteTenantModuleGate(BaseTenantModuleGate, BaseFrameworkObject):
                     service=_TENANT_SERVICE,
                     method="GET",
                     path="/api/v1/tenant/internal/modules/status",
-                    query=ConcurrentStableDict({"tenant_id": str(tenant_id)}),
+                    query=ConcurrentStableFrozenDict({"tenant_id": str(tenant_id)}),
                     tenant_id=tenant_code,
                     policy=ServiceCallPolicy(scopes=_MODULE_SCOPES),
                 )

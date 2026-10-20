@@ -33,7 +33,7 @@ from bms_identity.schemas.permission import PlatformPermissionMetadata, Platform
 PLATFORM_SERVICE = "platform"
 """权限数据归属服务标识。"""
 
-_PERMISSION_SCOPES: tuple[str, ...] = ("permission",)
+_PERMISSION_SCOPES: ConcurrentStableList[str] = ConcurrentStableList(("permission",))
 """内部权限取数所需服务 JWT scope。"""
 
 _SUBJECT_PATH = "/api/v1/platform/internal/permissions/subject"

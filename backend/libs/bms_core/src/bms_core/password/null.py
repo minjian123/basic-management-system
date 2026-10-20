@@ -14,7 +14,7 @@ __all__ = [
 class NullPasswordPolicy(BasePasswordPolicy, BaseNullObject):
     """占位密码策略：**恒定允许**（不读 sys_config、不查历史，未接入真实实现时使用）。"""
 
-    async def validate(self, password: str, *, username: str | None = None) -> tuple[str, ...]:
+    async def validate(self, password: str, *, username: str | None = None) -> ConcurrentStableList[str]:
         """恒定通过（占位不校验复杂度）。
 
         Args:
@@ -24,7 +24,7 @@ class NullPasswordPolicy(BasePasswordPolicy, BaseNullObject):
         Returns:
             tuple[str, ...]: 空元组（无违规）。
         """
-        return ()
+        return ConcurrentStableList(())
 
     async def expired(self, pwd_changed_at: datetime, *, now: datetime | None = None) -> bool:
         """恒定未过期（占位不校验有效期）。

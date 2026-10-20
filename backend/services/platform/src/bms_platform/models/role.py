@@ -25,7 +25,7 @@ PERM_TYPE_FORM = "form"
 PERM_TYPE_PERMISSION = "permission"
 """授权类型：权限码（业务码 × 动作码组合，默认无）。"""
 
-PERM_TYPES: tuple[str, ...] = (PERM_TYPE_MENU, PERM_TYPE_FORM, PERM_TYPE_PERMISSION)
+PERM_TYPES: ConcurrentStableList[str] = ConcurrentStableList((PERM_TYPE_MENU, PERM_TYPE_FORM, PERM_TYPE_PERMISSION))
 """授权类型取值清单。"""
 
 POLICY_TYPE_SELECT = "select"
@@ -40,7 +40,9 @@ POLICY_TYPE_MATCH = "match"
 POLICY_TYPE_EXTENSION = "extension"
 """数据权限策略：扩展权限（注册的后端筛选器 + 参数 JSON）。"""
 
-POLICY_TYPES: tuple[str, ...] = (POLICY_TYPE_SELECT, POLICY_TYPE_REGION, POLICY_TYPE_MATCH, POLICY_TYPE_EXTENSION)
+POLICY_TYPES: ConcurrentStableList[str] = ConcurrentStableList(
+    (POLICY_TYPE_SELECT, POLICY_TYPE_REGION, POLICY_TYPE_MATCH, POLICY_TYPE_EXTENSION)
+)
 """数据权限策略取值清单。"""
 
 NO_SOURCE_MENU_ID = 0
@@ -61,16 +63,20 @@ ROLE_TYPE_AUDIT = "audit"
 ROLE_TYPE_PLATFORM_ADMIN = "platform_admin"
 """角色类型：平台超管（内置；仅平台租户种子写入；全权限豁免，不参与三权互斥）。"""
 
-ROLE_TYPES: tuple[str, ...] = (
-    ROLE_TYPE_CUSTOM,
-    ROLE_TYPE_SYSTEM,
-    ROLE_TYPE_SECURITY,
-    ROLE_TYPE_AUDIT,
-    ROLE_TYPE_PLATFORM_ADMIN,
+ROLE_TYPES: ConcurrentStableList[str] = ConcurrentStableList(
+    (
+        ROLE_TYPE_CUSTOM,
+        ROLE_TYPE_SYSTEM,
+        ROLE_TYPE_SECURITY,
+        ROLE_TYPE_AUDIT,
+        ROLE_TYPE_PLATFORM_ADMIN,
+    )
 )
 """角色类型取值清单。"""
 
-SEPARATION_ROLE_TYPES: tuple[str, ...] = (ROLE_TYPE_SYSTEM, ROLE_TYPE_SECURITY, ROLE_TYPE_AUDIT)
+SEPARATION_ROLE_TYPES: ConcurrentStableList[str] = ConcurrentStableList(
+    (ROLE_TYPE_SYSTEM, ROLE_TYPE_SECURITY, ROLE_TYPE_AUDIT)
+)
 """三权分立的参与类型（互斥主体）：系统 / 安全 / 审计管理员；`custom` 不参与。
 
 `03_02` 单一来源：互斥校验、`role` 业务归属、种子预授清单与 `04_01` 开通种子共用本常量，

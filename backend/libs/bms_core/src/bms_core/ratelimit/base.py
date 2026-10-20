@@ -19,6 +19,7 @@ from typing import cast
 
 from fastapi import Request
 
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.core.exceptions import RateLimitError
 from bms_core.core.objects import BaseDecisionContract, BaseValueObject
@@ -33,7 +34,7 @@ GLOBAL_RATE_SCOPE = "global"
 DEFAULT_RATE_WINDOW = 60
 """默认限流窗口（秒）；真实实现按窗口滑窗计数。"""
 
-RATE_LIMIT_DIMENSIONS: tuple[str, ...] = ("ip", "user", "client")
+RATE_LIMIT_DIMENSIONS: ConcurrentStableList[str] = ConcurrentStableList(("ip", "user", "client"))
 """限流维度清单：内部接口按 IP / 用户、开放接口按 client（AppId）。"""
 
 

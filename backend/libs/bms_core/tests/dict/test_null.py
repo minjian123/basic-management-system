@@ -46,7 +46,7 @@ async def test_null_source_by_type_placeholder_and_filters() -> None:
     assert limited.has_more is True
     assert [item.value for item in (limited.items or ())] == ["demo-1"]
 
-    by_values = await source.by_type(DictQuery(data_source_key="demo", values=("demo-2",)))
+    by_values = await source.by_type(DictQuery(data_source_key="demo", values=ConcurrentStableList(("demo-2",))))
     assert [item.value for item in (by_values.items or ())] == ["demo-2"]
 
     by_keyword = await source.by_type(DictQuery(data_source_key="demo", keyword="占位demo2"))
@@ -63,12 +63,12 @@ async def test_null_source_batch_versions() -> None:
     """批量取数：版本一致各类型返 `None`；否则按类型给占位结果。"""
     source = NullDictSource()
 
-    same_version = await source.batch(DictBatchQuery(types=("a", "b"), version=NULL_DICT_VERSION))
+    same_version = await source.batch(DictBatchQuery(types=ConcurrentStableList(("a", "b")), version=NULL_DICT_VERSION))
     assert same_version.version == NULL_DICT_VERSION
     assert same_version.items.get("a") is None
     assert same_version.items.get("b") is None
 
-    fresh = await source.batch(DictBatchQuery(types=("a", "b")))
+    fresh = await source.batch(DictBatchQuery(types=ConcurrentStableList(("a", "b"))))
     assert fresh.items.get("a") is not None
     fresh_b = fresh.items.get("b")
     assert fresh_b is not None
@@ -93,7 +93,9 @@ def test_placeholder_helpers_shape() -> None:
 async def test_null_translator_generates_placeholder_labels() -> None:
     """占位翻译：按 value 生成 `占位{类型}:{value}` 标签。"""
     translator = NullDictTranslator()
-    result = await translator.translate(DictTranslateQuery(data_source_key="demo", values=("a", "b")))
+    result = await translator.translate(
+        DictTranslateQuery(data_source_key="demo", values=ConcurrentStableList(("a", "b")))
+    )
     assert result.get("a") == "占位demo:a"
     assert result.get("b") == "占位demo:b"
 

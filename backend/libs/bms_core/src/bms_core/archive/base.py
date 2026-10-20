@@ -31,7 +31,7 @@ __all__ = [
     "get_archive_query_router",
 ]
 
-ARCHIVE_LOCATIONS: tuple[str, ...] = ("online", "archive")
+ARCHIVE_LOCATIONS: ConcurrentStableList[str] = ConcurrentStableList(("online", "archive"))
 """数据位置清单（在线库 / 归档库 `bms_archive`）；占位期仅登记不校验。"""
 
 

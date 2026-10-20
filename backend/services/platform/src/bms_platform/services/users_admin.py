@@ -67,7 +67,7 @@ USER_DELETED_EVENT = "sys.user.deleted"
 USER_PASSWORD_RESET_EVENT = "sys.user.password_reset"
 """管理员重置密码事件。"""
 
-USER_STATUSES: tuple[str, ...] = ("enabled", "disabled")
+USER_STATUSES: ConcurrentStableList[str] = ConcurrentStableList(("enabled", "disabled"))
 """账号状态取值。"""
 
 _GENERATED_PASSWORD_LENGTH = 16
@@ -436,7 +436,7 @@ class UserAdminService(BaseFrameworkObject):
         """
         violations = await self._policy.validate(password, username=username)
         if violations:
-            raise PasswordPolicyViolationError("密码不符合复杂度策略", violations=tuple(violations))
+            raise PasswordPolicyViolationError("密码不符合复杂度策略", violations=ConcurrentStableList(violations))
 
     async def _assert_not_protected(self, user: SysUser, *, action: str) -> None:
         """校验内置管理员保护与「不得操作自身」。

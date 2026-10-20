@@ -105,7 +105,12 @@ async def test_dependency_provider_resolves() -> None:
             registry: Annotated[BaseDashboardCardRegistry, Depends(get_dashboard_card_registry)],
         ) -> dict[str, object]:  # bare-collections:allow（FastAPI 端点返回注解）
             data = await registry.fetch("todo", ConcurrentStableDict())
-            return {"key": registry.key, "type": type(registry).__name__, "cards": registry.keys(), "data": dict(data)}
+            return {
+                "key": registry.key,
+                "type": type(registry).__name__,
+                "cards": list(registry.keys()),
+                "data": dict(data),
+            }
 
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.get("/dashboard-probe")

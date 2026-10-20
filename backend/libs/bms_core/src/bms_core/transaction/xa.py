@@ -21,7 +21,7 @@ from typing import TYPE_CHECKING, Any, Protocol, cast
 from sqlalchemy import Engine
 from sqlalchemy.engine.default import DefaultDialect
 
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenList, ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.core.exceptions import ServiceUnavailableError, TransactionUnavailableError
 from bms_core.core.factory import BasePluginFactory
@@ -134,7 +134,7 @@ def _to_snapshot(data: ConcurrentStableDict[str, object]) -> GlobalTransaction:
         state=state,
         deadline_at=None,
         decided_at=None,
-        branches=tuple(refs),
+        branches=ConcurrentStableFrozenList(refs),
     )
 
 
@@ -157,7 +157,7 @@ class XaTransactionManager(BaseTransactionManager):
         return True
 
     async def begin(
-        self, *, caller_service: str, branches: tuple[BranchSpec, ...], timeout_seconds: float | None = None
+        self, *, caller_service: str, branches: ConcurrentStableList[BranchSpec], timeout_seconds: float | None = None
     ) -> GlobalTransaction:
         """开启全局事务（`POST /api/v1/txn/global`）。
 
@@ -248,7 +248,7 @@ class XaTransactionParticipant(BaseTransactionParticipant):
         """恒定真（本服务具备两阶段能力）。"""
         return True
 
-    async def execute_branch(self, *, xid: str, db_key: str, ops: tuple[BranchOp, ...]) -> str:
+    async def execute_branch(self, *, xid: str, db_key: str, ops: ConcurrentStableList[BranchOp]) -> str:
         """执行分支：`XA_START → 业务写（按序多个 op）→ XA_END → XA_PREPARE`（单请求内、连接随请求释放）。
 
         Args:
@@ -339,7 +339,7 @@ class XaTransactionParticipant(BaseTransactionParticipant):
         prepared = any(_matches_recovered(engine, xid, item) for item in recovered)
         return BRANCH_PREPARED if prepared else BRANCH_ACTIVE
 
-    async def recover_branches(self, *, db_key: str) -> tuple[str, ...]:
+    async def recover_branches(self, *, db_key: str) -> ConcurrentStableList[str]:
         """列举本库悬挂分支（`XA_RECOVER` 对账用）。
 
         Args:
@@ -358,7 +358,7 @@ class XaTransactionParticipant(BaseTransactionParticipant):
         texts: ConcurrentStableList[str] = ConcurrentStableList()
         for item in recovered:
             texts.add(_recovered_text(item))
-        return tuple(texts)
+        return ConcurrentStableList(texts)
 
     async def _drive(self, *, db_key: str, xid: str, commit: bool) -> None:
         """驱动已 PREPARE 分支到终态（新连接 + 方言两阶段 API；`recover=True` 表明非本会话事务）。

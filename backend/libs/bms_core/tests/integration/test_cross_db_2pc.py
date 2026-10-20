@@ -13,7 +13,6 @@ import os
 import pytest
 from sqlalchemy import Connection, Engine, TwoPhaseTransaction, create_engine, text
 
-import bms_core.db  # noqa: F401  # pyright: ignore[reportUnusedImport]  导入即注册达梦自定义 XA 方言 `dmxa`
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.db.engine import _normalize_dialect_url  # pyright: ignore[reportPrivateUsage]
 

@@ -77,14 +77,14 @@ async def test_slider_roundtrip_against_real_redis(captcha: DefaultCaptcha) -> N
     assert record["kind"] == "slider"
 
     correct = ((0, 0, 0), (cast("int", record["gap_x"]), 0, 300))
-    credential = CaptchaCredential(captcha_id=challenge.captcha_id, kind=CaptchaKind.SLIDER, trace=correct)
+    credential = CaptchaCredential(captcha_id=challenge.captcha_id, kind=CaptchaKind.SLIDER, trace=correct)  # pyright: ignore[reportArgumentType]  # 08_05：注解落集合类，值形态由契约/外部决定
     assert await captcha.verify_credential(credential)
     assert not await captcha.verify_credential(credential)
 
     second = await captcha.generate("login", kind=CaptchaKind.SLIDER)
     wrong = ((0, 0, 0), (cast("int", record["gap_x"]) + 100, 0, 300))
     assert not await captcha.verify_credential(
-        CaptchaCredential(captcha_id=second.captcha_id, kind=CaptchaKind.SLIDER, trace=wrong)
+        CaptchaCredential(captcha_id=second.captcha_id, kind=CaptchaKind.SLIDER, trace=wrong)  # pyright: ignore[reportArgumentType]  # 08_05：注解落集合类，值形态由契约/外部决定
     )
     assert (await _record_of(captcha.client, second.captcha_id))["fails"] == 1
 

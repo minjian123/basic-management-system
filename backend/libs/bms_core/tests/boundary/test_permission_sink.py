@@ -23,29 +23,33 @@ _CORE_PERMISSION = _CORE / "permission"
 _CORE_SCOPE = _CORE / "scope"
 _PLATFORM = _BACKEND / "services" / "platform" / "src" / "bms_platform"
 
-_SERVICE_PACKAGES: tuple[str, ...] = (
-    "bms_platform",
-    "bms_identity",
-    "bms_tenant",
-    "bms_file",
-    "bms_txn",
-    "bms_ai",
-    "bms_report",
-    "bms_search",
-    "bms_notification",
+_SERVICE_PACKAGES: ConcurrentStableList[str] = ConcurrentStableList(
+    (
+        "bms_platform",
+        "bms_identity",
+        "bms_tenant",
+        "bms_file",
+        "bms_txn",
+        "bms_ai",
+        "bms_report",
+        "bms_search",
+        "bms_notification",
+    )
 )
 """服务包前缀（基座不得 import 任一）。"""
 
-_FORBIDDEN_MODULE_SEGMENTS: tuple[str, ...] = ("models", "repositories")
+_FORBIDDEN_MODULE_SEGMENTS: ConcurrentStableList[str] = ConcurrentStableList(("models", "repositories"))
 """ORM 层模块段（基座不得 import）。"""
 
-_SUNK_MODULES: tuple[str, ...] = (
-    "permission/engine.py",
-    "permission/sources.py",
-    "permission/subject.py",
-    "permission/rbac.py",
-    "scope/policies_rbac.py",
-    "scope/rbac.py",
+_SUNK_MODULES: ConcurrentStableList[str] = ConcurrentStableList(
+    (
+        "permission/engine.py",
+        "permission/sources.py",
+        "permission/subject.py",
+        "permission/rbac.py",
+        "scope/policies_rbac.py",
+        "scope/rbac.py",
+    )
 )
 """下沉到基座的模块（存在性断言）。"""
 

@@ -94,7 +94,7 @@ class RbacPermissionChecker(BasePermissionChecker):
         *,
         profile: str = DEFAULT_PROFILE,
         ttl: int = DEFAULT_SNAPSHOT_TTL,
-        exempt_role_types: tuple[str, ...] = ("system",),
+        exempt_role_types: ConcurrentStableList[str] = ConcurrentStableList(("system",)),  # noqa: B008
         locale: str = DEFAULT_LOCALE,
         store: PermissionCacheStore | None = None,
         idle_timeout: int = DEFAULT_IDLE_TIMEOUT,
@@ -323,7 +323,7 @@ class RbacPermissionCheckerFactory(BasePluginFactory[RbacPermissionChecker]):
         return RbacPermissionChecker(
             profile=self._profile,
             ttl=ttl,
-            exempt_role_types=exempt,
+            exempt_role_types=exempt,  # pyright: ignore[reportArgumentType]  # 08_05：注解落集合类，值形态由契约/外部决定
             locale=locale,
             store=store,
             idle_timeout=idle_timeout,

@@ -109,11 +109,11 @@ CHAIN_BY_SCOPE: ConcurrentStableDict[str, str] = ConcurrentStableDict(
 )
 """对象 → 建表链（06_02 分链：平台对象建 `platform` 服务的平台服务库链表集、租户对象建其租户库链表集）。"""
 
-FLOW_STEPS: tuple[str, ...] = ("建库", "建表", "集成用例", "删库清理")
+FLOW_STEPS: ConcurrentStableList[str] = ConcurrentStableList(("建库", "建表", "集成用例", "删库清理"))
 """流程步骤（建库 → 建表 → 集成用例 → 删库清理；job 内独立、互不污染）。"""
 
-ENGINE_CHOICES: tuple[str, ...] = ("mysql", "postgres", "dm8")
-SCOPE_CHOICES: tuple[str, ...] = ("all", "platform", "tenant")
+ENGINE_CHOICES: ConcurrentStableList[str] = ConcurrentStableList(("mysql", "postgres", "dm8"))
+SCOPE_CHOICES: ConcurrentStableList[str] = ConcurrentStableList(("all", "platform", "tenant"))
 """`--scope` 取值（缺省 all = 平台 + 租户两对象）。"""
 
 
@@ -194,7 +194,7 @@ def build_target(engine: str, scope: str, *, url: str, admin_url: str = "", name
     return resolve_target(url, name=target_name, admin_url=admin_url)
 
 
-def account_statements(engine: str, password: str) -> tuple[str, ...]:
+def account_statements(engine: str, password: str) -> ConcurrentStableList[str]:
     """测试账号建号 / 授权语句（MySQL；达梦无独立账号、PostgreSQL 走存在性分支）。
 
     Args:
@@ -365,7 +365,7 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _scopes(scope: str) -> tuple[str, ...]:
+def _scopes(scope: str) -> ConcurrentStableList[str]:
     """`--scope` → 对象元组。"""
     return ("platform", "tenant") if scope == "all" else (scope,)
 

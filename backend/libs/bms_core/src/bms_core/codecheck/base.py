@@ -50,13 +50,17 @@ __all__ = [
     "get_code_validator",
 ]
 
-VALIDATION_LEVELS: tuple[str, ...] = ("error", "warning")
+VALIDATION_LEVELS: ConcurrentStableList[str] = ConcurrentStableList(("error", "warning"))
 """诊断级别取值集合（错误 / 警告）。"""
 
-VALIDATION_ISSUE_KINDS: tuple[str, ...] = ("syntax", "whitelist", "field", "variable", "other")
+VALIDATION_ISSUE_KINDS: ConcurrentStableList[str] = ConcurrentStableList(
+    ("syntax", "whitelist", "field", "variable", "other")
+)
 """诊断类别取值集合（语法 / 白名单 / 字段 / 变量 / 其他）。"""
 
-EXPRESSION_SCOPES: tuple[str, ...] = ("data_scope", "workflow_condition", "report", "custom")
+EXPRESSION_SCOPES: ConcurrentStableList[str] = ConcurrentStableList(
+    ("data_scope", "workflow_condition", "report", "custom")
+)
 """表达式场景取值集合（数据范围 / 工作流条件 / 报表数据集 / 自定义）。"""
 
 DEFAULT_EXPRESSION_SCOPE = "custom"

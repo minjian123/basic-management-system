@@ -12,7 +12,7 @@ from support_app import ApplicationFactory, lifespan
 from bms_core.api.deps import get_query_provider_registry
 from bms_core.core.base import BaseObject
 from bms_core.core.capability import BaseCapability, BaseNullObject
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenDict, ConcurrentStableFrozenList
 from bms_core.core.config import get_settings
 from bms_core.core.exceptions import NotFoundError
 from bms_core.query.base import BaseQueryProvider, BaseQueryProviderRegistry, QueryResult
@@ -42,7 +42,12 @@ class _FakeProvider(BaseQueryProvider):
         return f"测试查询提供者 {self._key}"
 
     async def query(self, params: ConcurrentStableDict[str, object]) -> QueryResult:
-        return QueryResult(rows=(ConcurrentStableDict({"provider": self._key, "arg": params.get("x")}),), total=1)
+        return QueryResult(
+            rows=ConcurrentStableFrozenList(
+                (ConcurrentStableFrozenDict({"provider": self._key, "arg": params.get("x")}),)
+            ),
+            total=1,
+        )
 
 
 class _InMemoryRegistry(BaseQueryProviderRegistry):
@@ -75,7 +80,7 @@ def test_inheritance_and_keys() -> None:
 @pytest.mark.kiwi_id(55)
 def test_query_result_defaults_and_frozen() -> None:
     """`QueryResult` 默认值与不可变。"""
-    result = QueryResult(rows=())
+    result = QueryResult(rows=ConcurrentStableFrozenList(()))
     assert result.total == 0
 
     field = "total"
@@ -87,7 +92,7 @@ def test_query_result_defaults_and_frozen() -> None:
 async def test_null_query_provider_empty() -> None:
     """占位提供者恒定返回空结果。"""
     result = await NullQueryProvider().query(ConcurrentStableDict({"x": 1}))
-    assert result == QueryResult(rows=(), total=0)
+    assert result == QueryResult(rows=ConcurrentStableFrozenList(()), total=0)
 
 
 @pytest.mark.kiwi_id(55)
@@ -98,7 +103,9 @@ async def test_null_registry_fixed() -> None:
     registry.register(provider)
     assert registry.get("p1") is provider
     assert registry.keys() == ("p1",)
-    assert await registry.query("p1", ConcurrentStableDict()) == QueryResult(rows=(), total=0)
+    assert await registry.query("p1", ConcurrentStableFrozenList()) == QueryResult(
+        rows=ConcurrentStableFrozenList(()), total=0
+    )
 
 
 @pytest.mark.kiwi_id(55)
@@ -110,7 +117,9 @@ async def test_registry_template_resolution() -> None:
 
     assert registry.keys() == ("p1", "p2")
     result = await registry.query("p2", ConcurrentStableDict({"x": 7}))
-    assert result == QueryResult(rows=(ConcurrentStableDict({"provider": "p2", "arg": 7}),), total=1)
+    assert result == QueryResult(
+        rows=ConcurrentStableFrozenList((ConcurrentStableFrozenDict({"provider": "p2", "arg": 7}),)), total=1
+    )
 
     with pytest.raises(NotFoundError):
         await registry.query("missing", ConcurrentStableDict())

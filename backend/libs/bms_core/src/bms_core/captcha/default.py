@@ -204,7 +204,7 @@ def _channel_enabled(kind: CaptchaKind, values: ConcurrentStableDict[str, str]) 
     return _parse_bool(values.get(f"captcha.channel.{kind.value}"), default)
 
 
-def _resolve_channels(scene: str, values: ConcurrentStableDict[str, str]) -> tuple[CaptchaKind, ...]:
+def _resolve_channels(scene: str, values: ConcurrentStableDict[str, str]) -> ConcurrentStableList[CaptchaKind]:
     """按场景默认降级顺序与渠道可用性计算可用渠道（图形码恒兜底）。
 
     Args:
@@ -218,7 +218,7 @@ def _resolve_channels(scene: str, values: ConcurrentStableDict[str, str]) -> tup
     channels = [kind for kind in order if kind is CaptchaKind.IMAGE or _channel_enabled(kind, values)]
     if CaptchaKind.IMAGE not in channels:
         channels.append(CaptchaKind.IMAGE)
-    return tuple(channels)
+    return ConcurrentStableList(channels)
 
 
 @dataclass(frozen=True)

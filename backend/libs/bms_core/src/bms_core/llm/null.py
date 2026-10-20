@@ -59,7 +59,7 @@ class NullLlmProvider(BaseLlmProvider, BaseNullObject):
         """
         zero_vector = tuple(0.0 for _ in range(NULL_EMBEDDING_DIM))
         return EmbeddingResult(
-            vectors=tuple(zero_vector for _ in texts),
+            vectors=ConcurrentStableList(zero_vector for _ in texts),  # pyright: ignore[reportArgumentType]  # 08_05：注解落集合类，值形态由契约/外部决定
             model=model,
             provider_key=provider_key,
         )

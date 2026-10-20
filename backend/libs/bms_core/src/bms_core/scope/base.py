@@ -10,22 +10,24 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.objects import BaseFieldRuleContract
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable
 
-SCOPE_OPERATORS: tuple[str, ...] = (
-    "eq",
-    "ne",
-    "in",
-    "like",
-    "gt",
-    "gte",
-    "lt",
-    "lte",
-    "between",
-    "is_null",
-    "is_not_null",
+SCOPE_OPERATORS: ConcurrentStableList[str] = ConcurrentStableList(
+    (
+        "eq",
+        "ne",
+        "in",
+        "like",
+        "gt",
+        "gte",
+        "lt",
+        "lte",
+        "between",
+        "is_null",
+        "is_not_null",
+    )
 )
 
 

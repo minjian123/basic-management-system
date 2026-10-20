@@ -80,7 +80,7 @@ def assess_statement(
     *,
     service: str,
     exceptions: Iterable[OwnershipException] = (),
-) -> tuple[OwnershipViolation, ...]:
+) -> ConcurrentStableList[OwnershipViolation]:
     """SQL 语句越界判定。
 
     Args:
@@ -96,4 +96,4 @@ def assess_statement(
         violation = assess_table(ref.table, service=service, operation=ref.operation, exceptions=exceptions)
         if violation is not None:
             violations.add(violation)
-    return tuple(violations)
+    return ConcurrentStableList(violations)

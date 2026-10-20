@@ -1,6 +1,7 @@
 """listing 能力域缺省实现（Null Object）：固定返回空 / None / 原样，不落库、无副作用。"""
 
 from bms_core.core.capability import BaseNullObject
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.listing.base import BaseQuerySchemeStore, QueryScheme, QuerySchemeTarget
 
 __all__ = ["NullQuerySchemeStore"]
@@ -9,7 +10,9 @@ __all__ = ["NullQuerySchemeStore"]
 class NullQuerySchemeStore(BaseQuerySchemeStore, BaseNullObject):
     """占位查询方案存储：列表空、详情 None、保存原样返回、删除失败、默认解析 None（不落库）。"""
 
-    async def list(self, target: QuerySchemeTarget, *, field_key: str | None = None) -> tuple[QueryScheme, ...]:
+    async def list(
+        self, target: QuerySchemeTarget, *, field_key: str | None = None
+    ) -> ConcurrentStableList[QueryScheme]:
         """列查询方案（占位恒空）。
 
         Args:
@@ -19,7 +22,7 @@ class NullQuerySchemeStore(BaseQuerySchemeStore, BaseNullObject):
         Returns:
             tuple[QueryScheme, ...]: 空元组。
         """
-        return ()
+        return ConcurrentStableList(())
 
     async def get(self, scheme_id: int) -> QueryScheme | None:
         """取单个方案（占位恒未命中）。

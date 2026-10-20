@@ -81,7 +81,7 @@ async def invalidate_permissions(
     version = await invalidate_permission_cache(
         cache,
         tenant_id=current_tenant_id_of(tenant),
-        user_ids=tuple(payload.user_ids) if payload.user_ids else None,
+        user_ids=tuple(payload.user_ids) if payload.user_ids else None,  # pyright: ignore[reportArgumentType]  # 08_05：注解落集合类，值形态由契约/外部决定
     )
     return ApiResponse(data=PermissionInvalidateResult(version=version))
 

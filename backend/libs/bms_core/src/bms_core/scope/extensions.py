@@ -47,13 +47,13 @@ def reset_data_scope_extensions() -> None:
         _EXTENSIONS.delete(key)
 
 
-def registered_data_scope_extensions() -> tuple[DataScopeExtensionInfo, ...]:
+def registered_data_scope_extensions() -> ConcurrentStableList[DataScopeExtensionInfo]:
     """已登记扩展权限清单（保序；空清单表示平台未注册任何扩展）。
 
     Returns:
         tuple[DataScopeExtensionInfo, ...]: 扩展权限描述元组。
     """
-    return tuple(cast("DataScopeExtensionInfo", _EXTENSIONS.get(key)) for key in _EXTENSIONS)
+    return ConcurrentStableList(cast("DataScopeExtensionInfo", _EXTENSIONS.get(key)) for key in _EXTENSIONS)
 
 
 ScopeExtensionResolver = Callable[

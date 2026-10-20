@@ -21,7 +21,12 @@ from pydantic import Field
 
 from bms_core.api.base import BaseRouter, require_service
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
-from bms_core.schemas.base import CONTRACT_COLLECTION, CONTRACT_STABLE_DICT, CONTRACT_STABLE_LIST, BaseSchema
+from bms_core.schemas.base import (
+    CONTRACT_COLLECTION,
+    CONTRACT_STABLE_DICT,
+    CONTRACT_STABLE_LIST,
+    BaseSchema,
+)
 from bms_core.schemas.common import ApiResponse
 from bms_core.transaction.base import (
     TM_SERVICE_NAME,
@@ -120,7 +125,7 @@ def build_branch_router(*, key: str = "txn_branches", prefix: str = "/txn/branch
         ops: ConcurrentStableList[BranchOp] = ConcurrentStableList()
         for item in req.ops:
             ops.add(BranchOp(op=item.op, args=item.args))
-        state = await participant.execute_branch(xid=req.xid, db_key=req.db_key, ops=tuple(ops))
+        state = await participant.execute_branch(xid=req.xid, db_key=req.db_key, ops=ConcurrentStableList(ops))
         return ApiResponse.ok(BranchStateView(xid=req.xid, state=state))
 
     @router.post("/{xid}/commit", dependencies=[Depends(require_service(TM_SERVICE_NAME))])

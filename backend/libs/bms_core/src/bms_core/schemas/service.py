@@ -4,7 +4,9 @@
 （`BaseQueryProvider`），禁止直接依赖他服务 ORM 模型（见《后端开发规范》「模块边界与数据所有权」节）。
 """
 
-from bms_core.schemas.base import BaseSchema
+from bms_core.schemas.base import (
+    BaseSchema,
+)
 
 __all__ = ["ServiceDto"]
 

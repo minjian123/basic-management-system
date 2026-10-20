@@ -2,7 +2,9 @@
 
 from typing import Any
 
-from bms_core.schemas.base import BaseSchema
+from bms_core.schemas.base import (
+    BaseSchema,
+)
 
 
 class ApiResponse[DataT = Any](BaseSchema):

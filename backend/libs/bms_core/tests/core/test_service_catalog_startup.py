@@ -132,7 +132,7 @@ async def _write_records(url: str, records: ConcurrentStableList[ModuleRecord]) 
         await engine.dispose()
 
 
-async def _snapshot(url: str) -> ConcurrentStableList[tuple[object, ...]]:
+async def _snapshot(url: str) -> ConcurrentStableList[ConcurrentStableList[object]]:
     """目录行快照（只读边界断言用）。
 
     Args:
@@ -147,7 +147,7 @@ async def _snapshot(url: str) -> ConcurrentStableList[tuple[object, ...]]:
         async with factory() as session:
             statement = select(SysModule).order_by(SysModule.id)
             rows = (await session.execute(statement)).scalars().all()
-            return ConcurrentStableList(
+            return ConcurrentStableList(  # pyright: ignore[reportReturnType]  # 08_05：注解落集合类，值形态由契约/外部决定
                 (row.module_key, row.table_prefix, row.contract_version, row.status) for row in rows
             )
     finally:

@@ -25,7 +25,7 @@ from prometheus_client import (
     generate_latest,
 )
 
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenList, ConcurrentStableList
 from bms_core.metrics.base import BaseMetrics, MetricLabels
 
 __all__ = [
@@ -38,7 +38,9 @@ __all__ = [
 SERVICE_LABEL = "service"
 """服务归因标签名（实现统一注入）。"""
 
-DEFAULT_BUCKETS: tuple[float, ...] = (0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0)
+DEFAULT_BUCKETS: ConcurrentStableList[float] = ConcurrentStableList(
+    (0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0)
+)
 """直方图缺省桶（秒；5ms~10s，覆盖 Web 请求延迟量级）。"""
 
 METRIC_DOCS: ConcurrentStableDict[str, str] = ConcurrentStableDict(
@@ -80,7 +82,9 @@ class PrometheusMetrics(BaseMetrics):
         """
         self._service = service
         self._registry = registry if registry is not None else CollectorRegistry()
-        self._metrics: ConcurrentStableDict[tuple[str, str, tuple[str, ...]], Any] = ConcurrentStableDict()
+        self._metrics: ConcurrentStableDict[tuple[str, str, ConcurrentStableFrozenList[str]], Any] = (
+            ConcurrentStableDict()
+        )
 
     async def counter(self, name: str, *, value: float = 1.0, labels: MetricLabels | None = None) -> None:
         """记录计数器（单调递增）。
@@ -134,16 +138,16 @@ class PrometheusMetrics(BaseMetrics):
         merged: ConcurrentStableDict[str, str] = ConcurrentStableDict({SERVICE_LABEL: self._service})
         if labels:
             merged.update(labels.items())
-        metric = self._metric(kind, name, tuple(sorted(merged)))
+        metric = self._metric(kind, name, ConcurrentStableFrozenList(sorted(merged)))
         return metric.labels(**merged)
 
-    def _metric(self, kind: str, name: str, labelnames: tuple[str, ...]) -> Any:
+    def _metric(self, kind: str, name: str, labelnames: ConcurrentStableFrozenList[str]) -> Any:
         """取 / 建指标对象（同名跨类型或跨标签集冲突早失败）。
 
         Args:
             kind: 指标类型。
             name: 指标名。
-            labelnames: 已排序标签名（含注入的 `service`）。
+            labelnames: 已排序标签名（含注入的 `service`；**作字典键须内容哈希**，故落不可变形态）。
 
         Returns:
             Any: `prometheus_client` 指标对象。

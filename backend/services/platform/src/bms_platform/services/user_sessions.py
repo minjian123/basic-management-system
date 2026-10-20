@@ -15,7 +15,7 @@ from __future__ import annotations
 import logging
 from typing import Any, cast
 
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.objects import BaseFrameworkObject
 from bms_core.db.tenant import current_tenant_id_str
 from bms_core.servicecall.base import BaseServiceClient, ServiceRequest
@@ -37,7 +37,9 @@ REASON_USER_DELETED = "user_deleted"
 REASON_PASSWORD_RESET = "password_reset"
 """撤销原因：管理员重置密码（与认证域找回密码同因）。"""
 
-REASONS: tuple[str, ...] = (REASON_USER_DISABLED, REASON_USER_DELETED, REASON_PASSWORD_RESET)
+REASONS: ConcurrentStableList[str] = ConcurrentStableList(
+    (REASON_USER_DISABLED, REASON_USER_DELETED, REASON_PASSWORD_RESET)
+)
 """撤销原因取值。"""
 
 

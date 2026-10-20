@@ -4,7 +4,9 @@ from typing import Any
 
 from pydantic import Field
 
-from bms_core.schemas.base import BaseSchema
+from bms_core.schemas.base import (
+    BaseSchema,
+)
 
 
 class PreferenceValueRequest(BaseSchema):

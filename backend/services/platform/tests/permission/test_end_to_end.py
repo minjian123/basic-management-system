@@ -112,7 +112,7 @@ class _SessionSource(BasePermissionDataSource):
             PermissionSubjectData: 聚合输入。
         """
         role_ids = await PermissionSubjectService(
-            (DirectRoleResolver(UserRoleRepository(self._session)),)
+            ConcurrentStableList((DirectRoleResolver(UserRoleRepository(self._session)),))
         ).resolve_role_ids(user_id)
         data = PermissionSubjectData(role_ids=role_ids)
         if not role_ids:
@@ -255,7 +255,7 @@ def _engine(session: AsyncSession, *, cache: MemoryCacheRegion | None = None) ->
         source=_SessionSource(session),
         cache=cache if cache is not None else MemoryCacheRegion(),
         profile="smb",
-        exempt_role_types=("system",),
+        exempt_role_types=ConcurrentStableList(("system",)),
     )
 
 

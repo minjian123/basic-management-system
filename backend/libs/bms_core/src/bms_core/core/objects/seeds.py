@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import ClassVar
 
+from bms_core.core.concurrent import ConcurrentStableFrozenList
 from bms_core.core.objects.roots import BaseValueObject
 
 __all__ = ["BaseI18nSeedContract"]
@@ -23,4 +24,4 @@ class BaseI18nSeedContract(BaseValueObject):
     其余字段（编码 / 取值 / 排序 / 明细）各自声明，不入公共段。
     """
 
-    COMMON_FIELDS: ClassVar[tuple[str, ...]] = ("i18n",)
+    COMMON_FIELDS: ClassVar[ConcurrentStableFrozenList[str]] = ConcurrentStableFrozenList(("i18n",))

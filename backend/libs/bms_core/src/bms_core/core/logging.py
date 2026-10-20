@@ -30,7 +30,7 @@ from bms_core.core.context import (
     get_current_tenant,
     get_current_trace_id,
 )
-from bms_core.core.objects import BaseFrameworkObject
+from bms_core.core.roots import BaseFrameworkObject
 
 _HANDLER_MARKER = "_bms_structlog"
 _MASK = "***"
@@ -78,12 +78,14 @@ def _add_context_fields(_logger: WrappedLogger, _name: str, event_dict: EventDic
     Returns:
         EventDict: 注入上下文字段后的事件字典。
     """
-    context_fields: tuple[tuple[str, object], ...] = (
-        ("trace_id", get_current_trace_id()),
-        ("request_id", get_current_request_id()),
-        ("tenant", get_current_tenant()),
-        ("user_id", current_user_id.get()),
-        ("client_ip", get_current_client_ip()),
+    context_fields: ConcurrentStableList[tuple[str, object]] = ConcurrentStableList(
+        (
+            ("trace_id", get_current_trace_id()),
+            ("request_id", get_current_request_id()),
+            ("tenant", get_current_tenant()),
+            ("user_id", current_user_id.get()),
+            ("client_ip", get_current_client_ip()),
+        )
     )
     for key, value in context_fields:
         if value is not None:
@@ -97,7 +99,7 @@ def _add_timestamp(_logger: WrappedLogger, _name: str, event_dict: EventDict) ->
     return event_dict
 
 
-def _is_sensitive_key(key: str, keys: ConcurrentStableSet[str], suffixes: tuple[str, ...]) -> bool:
+def _is_sensitive_key(key: str, keys: ConcurrentStableSet[str], suffixes: ConcurrentStableList[str]) -> bool:
     """判断键名是否命中敏感名单（忽略大小写，含后缀形态）。
 
     Args:
@@ -112,7 +114,7 @@ def _is_sensitive_key(key: str, keys: ConcurrentStableSet[str], suffixes: tuple[
     return lowered in keys or any(lowered.endswith(suffix) for suffix in suffixes)
 
 
-def _redact_value(value: Any, depth: int, keys: ConcurrentStableSet[str], suffixes: tuple[str, ...]) -> Any:
+def _redact_value(value: Any, depth: int, keys: ConcurrentStableSet[str], suffixes: ConcurrentStableList[str]) -> Any:
     """递归脱敏值中的连接串密码与嵌套敏感键（限深）。"""
     if isinstance(value, str):
         return _CONN_PASSWORD_RE.sub(_replace_conn_password, value)
@@ -168,10 +170,10 @@ def _build_redact_processor(
             EventDict: 脱敏后的事件字典。
         """
         for key in list(event_dict):
-            if _is_sensitive_key(key, keys, suffixes_snapshot):
+            if _is_sensitive_key(key, keys, suffixes_snapshot):  # pyright: ignore[reportArgumentType]  # 08_05：注解落集合类，值形态由契约/外部决定
                 event_dict[key] = _MASK
             else:
-                event_dict[key] = _redact_value(event_dict[key], depth=0, keys=keys, suffixes=suffixes_snapshot)
+                event_dict[key] = _redact_value(event_dict[key], depth=0, keys=keys, suffixes=suffixes_snapshot)  # pyright: ignore[reportArgumentType]  # 08_05：注解落集合类，值形态由契约/外部决定
         return event_dict
 
     return _redact
@@ -261,7 +263,7 @@ class StdoutLogger(BaseLogger):
 
 def _build_processors(
     redact_keys: ConcurrentStableSet[str], redact_suffixes: ConcurrentStableList[str]
-) -> tuple[Processor, ...]:
+) -> tuple[Processor, ...]:  # bare-collections:allow（返回注解：structlog 热路径要求内置不可变元组）
     """组装处理器链（业务日志与第三方 stdlib 日志共用）。
 
     首部 `merge_contextvars` 汇聚 `structlog.contextvars` 的全局绑定（如服务身份

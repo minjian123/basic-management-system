@@ -12,6 +12,7 @@ from contextlib import asynccontextmanager
 
 from sqlalchemy import select
 
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.datasource.base import BaseDictDataSource, DataSourceItem
 from bms_core.db.registry import EngineRegistry
 from bms_core.db.session import DbSession, session_scope
@@ -42,7 +43,7 @@ class PlatformDictDataSource(BaseDictDataSource):
         """
         return "platform"
 
-    async def load(self, data_source_key: str, locale: str) -> tuple[DataSourceItem, ...]:
+    async def load(self, data_source_key: str, locale: str) -> ConcurrentStableList[DataSourceItem]:
         """加载平台内建数据源的启用行。
 
         Args:
@@ -54,9 +55,9 @@ class PlatformDictDataSource(BaseDictDataSource):
         """
         if data_source_key == _DATA_SOURCE_KEY_ROLE:
             return await self._load_roles()
-        return ()
+        return ConcurrentStableList(())
 
-    async def _load_roles(self) -> tuple[DataSourceItem, ...]:
+    async def _load_roles(self) -> ConcurrentStableList[DataSourceItem]:
         """加载启用角色（`sys_role`）。
 
         Returns:
@@ -69,7 +70,7 @@ class PlatformDictDataSource(BaseDictDataSource):
                 select(SysRole).where(SysRole.status == "enabled", SysRole.deleted_at.is_(None)).order_by(SysRole.id)
             )
             rows = (await session.execute(statement)).scalars().all()
-        return tuple(
+        return ConcurrentStableList(
             DataSourceItem(
                 id=row.id,
                 value=row.code,

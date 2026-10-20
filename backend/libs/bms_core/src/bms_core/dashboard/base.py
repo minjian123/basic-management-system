@@ -15,7 +15,7 @@ from typing import cast
 
 from fastapi import Request
 
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.core.exceptions import NotFoundError
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, resolve_plugin
@@ -28,7 +28,7 @@ __all__ = [
     "get_dashboard_card_registry",
 ]
 
-CARD_TYPES: tuple[str, ...] = ("builtin", "dataset")
+CARD_TYPES: ConcurrentStableList[str] = ConcurrentStableList(("builtin", "dataset"))
 """卡片类型（双轨制：内置功能卡 / 数据集图表卡）；占位期仅登记不校验。"""
 
 

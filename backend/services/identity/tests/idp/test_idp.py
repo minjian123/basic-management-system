@@ -11,7 +11,7 @@ from bms_core.api.deps import get_identity_provider, get_session_store
 from bms_core.application import service_lifespan as lifespan
 from bms_core.core.base import BaseObject
 from bms_core.core.capability import BaseCapability, BaseNullObject
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenList
 from bms_core.core.exceptions import ConfigError
 from bms_core.idp.base import (
     IDP_PROTOCOLS,
@@ -135,7 +135,9 @@ def test_contract_extensions() -> None:
 
     assert IdentityUser(subject="s", username="u").idp_key == ""
 
-    claims = IdentityClaims(subject="s", idp_key="issuer", issuer="issuer", audience=("api",), expires_at=1)
+    claims = IdentityClaims(
+        subject="s", idp_key="issuer", issuer="issuer", audience=ConcurrentStableFrozenList(("api",)), expires_at=1
+    )
     assert claims.audience == ("api",)
     assert claims.payload == {}
     field = "subject"

@@ -15,7 +15,7 @@ from typing import cast
 
 from fastapi import Request
 
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 
@@ -29,7 +29,7 @@ __all__ = [
 DEFAULT_LOCALE = "zh-CN"
 """默认语言（缺省与回退）。"""
 
-SUPPORTED_LOCALES: tuple[str, ...] = ("zh-CN", "en-US")
+SUPPORTED_LOCALES: ConcurrentStableList[str] = ConcurrentStableList(("zh-CN", "en-US"))
 """种子语言清单（架构「语言与 RTL」节；语言清单可由 `sys_i18n_locale` 动态扩展）。"""
 
 

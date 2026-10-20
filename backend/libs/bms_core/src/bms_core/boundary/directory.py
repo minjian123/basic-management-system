@@ -9,7 +9,7 @@
 口径：**不再有「共享前缀」概念**——`sys_` 表按表级归属判定；未登记表名无归属可判（声明场景由静态校验拦截）。
 """
 
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableSet
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
 from bms_core.services.module_registry import SERVICE_CATALOG
 from bms_core.services.table_registry import (
     OWNER_EVERY_SERVICE,
@@ -75,13 +75,13 @@ def table_owners_map() -> ConcurrentStableDict[str, str]:
     return ConcurrentStableDict({record.table_name: record.owner for record in table_ownership_view()})
 
 
-def table_records() -> tuple[TableRecord, ...]:
+def table_records() -> ConcurrentStableList[TableRecord]:
     """归属登记记录快照。
 
     Returns:
         tuple[TableRecord, ...]: 归属记录。
     """
-    return tuple(table_ownership_view())
+    return ConcurrentStableList(table_ownership_view())
 
 
 def is_infrastructure(table: str) -> bool:

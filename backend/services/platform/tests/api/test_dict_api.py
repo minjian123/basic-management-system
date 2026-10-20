@@ -131,7 +131,7 @@ class _ProviderWithInfo:
             key="alpha",
             name="Alpha",
             target="business",
-            data_source_keys=("alpha",),
+            data_source_keys=ConcurrentStableList(("alpha",)),
             param_schema=ConcurrentStableDict(),
         )
 

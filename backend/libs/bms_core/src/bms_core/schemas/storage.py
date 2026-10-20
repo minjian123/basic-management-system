@@ -12,7 +12,9 @@ from datetime import datetime
 
 from pydantic import Field
 
-from bms_core.schemas.base import BaseSchema
+from bms_core.schemas.base import (
+    BaseSchema,
+)
 
 __all__ = [
     "DedupResponse",

@@ -12,7 +12,7 @@ from typing import cast
 import pytest
 from joserfc.jwk import ECKey, RSAKey
 
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenList
 from bms_core.core.config import ServiceTokenSettings, Settings, TokenKeySettings
 from bms_core.core.exceptions import AuthError, ConfigError
 from bms_core.oauth.base import NULL_ACCESS_TOKEN, OAuthToken
@@ -125,7 +125,11 @@ def test_build_jwks_only_public_sorted() -> None:
 async def test_issue_and_verify_claims() -> None:
     """签发服务 JWT：固定 + 扩展 claims、`aud=service`、TTL 与 scope 回填、本地验签通过。"""
     issuer = JwtServiceTokenIssuer(issuer="bms", keys=[_rsa_key()], active_kid="k1")
-    token = await issuer.issue(ServiceTokenSpec(service="platform", scopes=("user:read", "org:read"), tenant_id="2002"))
+    token = await issuer.issue(
+        ServiceTokenSpec(
+            service="platform", scopes=ConcurrentStableFrozenList(("user:read", "org:read")), tenant_id="2002"
+        )
+    )
     assert isinstance(token, OAuthToken)
     assert token.expires_in == DEFAULT_SERVICE_TOKEN_TTL
     assert token.scopes == ("user:read", "org:read")
@@ -248,7 +252,7 @@ def test_settings_env_injected_private_key(monkeypatch: pytest.MonkeyPatch) -> N
 def test_null_service_token_issuer() -> None:
     """占位实现：固定占位令牌 / 空 JWKS / 占位声明。"""
     issuer = NullServiceTokenIssuer()
-    token = asyncio.run(issuer.issue(ServiceTokenSpec(service="platform", scopes=("a",))))
+    token = asyncio.run(issuer.issue(ServiceTokenSpec(service="platform", scopes=ConcurrentStableFrozenList(("a",)))))
     assert token.access_token == NULL_ACCESS_TOKEN
     assert issuer.jwks() == {"keys": []}
     assert issuer.verify("any").subject == "null-service"

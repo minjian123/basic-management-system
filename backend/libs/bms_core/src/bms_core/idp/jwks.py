@@ -21,7 +21,7 @@ from joserfc.errors import JoseError
 from joserfc.jwk import KeySet, KeySetSerialization
 from joserfc.jwt import JWTClaimsRegistry
 
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenDict, ConcurrentStableList
 from bms_core.core.exceptions import AuthError, ServiceUnavailableError
 from bms_core.core.objects import BaseFrameworkObject
 from bms_core.idp.base import IdentityClaims
@@ -175,11 +175,11 @@ def verify_jwt(
         audience=_audience_claim(claims.get("aud")),
         expires_at=_int_claim(claims.get("exp")),
         issued_at=_int_claim(claims.get("iat")),
-        payload=ConcurrentStableDict(claims),
+        payload=ConcurrentStableFrozenDict(claims),
     )
 
 
-def _audience_claim(value: object) -> tuple[str, ...]:
+def _audience_claim(value: object) -> ConcurrentStableList[str]:
     """归一化 `aud` 声明（字符串或字符串数组）。
 
     Args:
@@ -189,10 +189,10 @@ def _audience_claim(value: object) -> tuple[str, ...]:
         tuple[str, ...]: 受众集合。
     """
     if isinstance(value, str):
-        return (value,)
+        return ConcurrentStableList((value,))
     if isinstance(value, list):
-        return tuple(str(item) for item in cast("list[object]", value))
-    return ()
+        return ConcurrentStableList(str(item) for item in cast("list[object]", value))
+    return ConcurrentStableList(())
 
 
 def _int_claim(value: object) -> int:

@@ -16,7 +16,7 @@ from typing import ClassVar, cast
 
 from joserfc.jwk import ECKey, KeyParameters, KeySet, RSAKey
 
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenList, ConcurrentStableList
 from bms_core.core.exceptions import ConfigError
 from bms_core.core.objects import BaseSecretMaterialContract
 from bms_core.idp.jwks import DEFAULT_ALGORITHMS
@@ -30,7 +30,7 @@ __all__ = [
     "to_key_set",
 ]
 
-ALLOWED_ALGORITHMS: tuple[str, ...] = tuple(DEFAULT_ALGORITHMS)
+ALLOWED_ALGORITHMS: ConcurrentStableList[str] = ConcurrentStableList(DEFAULT_ALGORITHMS)
 """签名算法白名单（仅非对称；与 idp 验签同一口径）。"""
 
 JWK_USE_SIGNATURE = "sig"
@@ -43,7 +43,7 @@ _RSA_PREFIX = "RS"
 class TokenKey(BaseSecretMaterialContract):
     """服务 JWT 签名 / 验签密钥（kid 为映射键，公私钥 PEM 均由配置注入）。"""
 
-    SECRET_FIELDS: ClassVar[tuple[str, ...]] = ("private_key",)
+    SECRET_FIELDS: ClassVar[ConcurrentStableFrozenList[str]] = ConcurrentStableFrozenList(("private_key",))
 
     kid: str
     """密钥标识（JWKS 与 JOSE header 的 `kid`，验签按此命中）。"""

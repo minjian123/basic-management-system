@@ -21,7 +21,7 @@ from bms_core.captcha.base import (
 from bms_core.captcha.default import CAPTCHA_CHARS, CaptchaImageOptions, DefaultCaptcha
 from bms_core.captcha.null import NullCaptcha
 from bms_core.core import plugin as plugin_module
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import PluginSelection, Settings
 from bms_core.core.exceptions import (
     CaptchaExpiredError,
@@ -220,12 +220,14 @@ async def test_image_options_parse_and_validate(redis_client: fakeredis.aioredis
     )
     assert (custom.width, custom.height, custom.length, custom.font_size) == (120, 50, 5, 36)
 
-    bad_options: tuple[ConcurrentStableDict[str, object], ...] = (
-        ConcurrentStableDict({"width": "abc"}),
-        ConcurrentStableDict({"width": []}),
-        ConcurrentStableDict({"length": 99}),
-        ConcurrentStableDict({"height": True}),
-        ConcurrentStableDict({"noise_dots": -1}),
+    bad_options: ConcurrentStableList[ConcurrentStableDict[str, object]] = ConcurrentStableList(
+        (
+            ConcurrentStableDict({"width": "abc"}),
+            ConcurrentStableDict({"width": []}),
+            ConcurrentStableDict({"length": 99}),
+            ConcurrentStableDict({"height": True}),
+            ConcurrentStableDict({"noise_dots": -1}),
+        )
     )
     for bad in bad_options:
         with pytest.raises(PluginError):

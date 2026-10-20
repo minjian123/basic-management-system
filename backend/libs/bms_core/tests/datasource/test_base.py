@@ -136,7 +136,7 @@ class _FakeDictSource(BaseDictDataSource):
         """
         return "fake"
 
-    async def load(self, data_source_key: str, locale: str) -> tuple[DataSourceItem, ...]:
+    async def load(self, data_source_key: str, locale: str) -> ConcurrentStableList[DataSourceItem]:
         """按标识返回单条行。
 
         Args:
@@ -146,7 +146,7 @@ class _FakeDictSource(BaseDictDataSource):
         Returns:
             tuple[DataSourceItem, ...]: 单条行。
         """
-        return (DataSourceItem(value=data_source_key, label=f"占位{data_source_key}"),)
+        return ConcurrentStableList((DataSourceItem(value=data_source_key, label=f"占位{data_source_key}"),))
 
 
 class _RenamedColumns(DictTableDataSource):
@@ -177,7 +177,7 @@ async def test_generic_default_version_and_batch() -> None:
     source = _FakeDictSource()
     assert await source.version("any") == 0
     assert source.cache_domain == "data_source"
-    merged = await source.batch(("role", "user"), "zh-CN")
+    merged = await source.batch(ConcurrentStableList(("role", "user")), "zh-CN")
     assert set(merged) == {"role", "user"}
     rows = merged["role"]
     assert rows[0].label == "占位role"

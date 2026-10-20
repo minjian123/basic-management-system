@@ -321,7 +321,7 @@ class BaseServiceApplicationFactory(BaseApplicationFactory):
     与本值一致 / 含本服务登记行），应用级清单视图为「平台清单 + 注入记录」（12_03）。
     """
 
-    def service_records(self) -> tuple[ModuleRecord, ...]:
+    def service_records(self) -> ConcurrentStableList[ModuleRecord]:
         """本服务补充的服务目录记录（子类覆写；缺省空元组）。
 
         **产品服务**在此返回本产品服务清单（与 `bms_core` 同口径 `ModuleRecord`；跨仓库直接
@@ -332,9 +332,9 @@ class BaseServiceApplicationFactory(BaseApplicationFactory):
         Returns:
             tuple[ModuleRecord, ...]: 补充的服务目录记录（插入序）。
         """
-        return ()
+        return ConcurrentStableList(())
 
-    def table_records(self) -> tuple[TableRecord, ...]:
+    def table_records(self) -> ConcurrentStableList[TableRecord]:
         """本服务补充的表归属记录（子类覆写；缺省空元组）。
 
         **产品服务**在此返回本产品表归属清单（`bms_core.services.table_registry.TableRecord`；跨仓库
@@ -346,7 +346,7 @@ class BaseServiceApplicationFactory(BaseApplicationFactory):
         Returns:
             tuple[TableRecord, ...]: 补充的表归属记录（插入序）。
         """
-        return ()
+        return ConcurrentStableList(())
 
     def service_routers(self) -> ConcurrentStableList[APIRouter]:
         """业务路由清单（子类覆写；探针路由由基座统一挂载，无需返回）。
@@ -356,7 +356,7 @@ class BaseServiceApplicationFactory(BaseApplicationFactory):
         """
         return ConcurrentStableList()
 
-    def startup_hooks(self) -> tuple[StartupHook, ...]:
+    def startup_hooks(self) -> ConcurrentStableList[StartupHook]:
         """启动钩子清单（子类覆写；缺省空元组）。
 
         钩子在生命周期装配完成后、`startup_complete` 标记前逐个执行；失败按启动失败处理（释放资源并拒启）。
@@ -365,7 +365,7 @@ class BaseServiceApplicationFactory(BaseApplicationFactory):
         Returns:
             tuple[StartupHook, ...]: 启动钩子（执行序）。
         """
-        return ()
+        return ConcurrentStableList(())
 
     def prepare_settings(self, settings: Settings) -> None:
         """创建前配置调整钩子（默认空实现；如最小服务置空健康 provider）。

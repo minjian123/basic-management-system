@@ -12,6 +12,7 @@ import asyncio
 import contextlib
 from datetime import datetime
 
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.core.exceptions import OutboxDeliveryError
 from bms_core.core.logging import get_logger
@@ -60,7 +61,7 @@ class PollOutboxDispatcher(BaseOutboxDispatcher):
         batch_size: int = DEFAULT_BATCH_SIZE,
         max_retries: int = DEFAULT_MAX_RETRIES,
         backoff: float = DEFAULT_RETRY_BACKOFF_SECONDS,
-        db_keys: tuple[str, ...] = (),
+        db_keys: ConcurrentStableList[str] = ConcurrentStableList(()),  # noqa: B008
         interval: float = 5.0,
         metrics: BaseMetrics | None = None,
         enabled: bool = False,
@@ -238,7 +239,7 @@ class PollOutboxDispatcher(BaseOutboxDispatcher):
             batch_size=outbox.batch_size,
             max_retries=outbox.max_retries,
             backoff=outbox.retry_backoff_seconds,
-            db_keys=tuple(outbox.db_keys),
+            db_keys=ConcurrentStableList(outbox.db_keys),
             interval=outbox.poll_interval_seconds,
             metrics=metrics,
             enabled=outbox.enabled,

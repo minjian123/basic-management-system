@@ -32,7 +32,7 @@ from bms_core.schemas.pagination import BasePageQuery
 from bms_platform.models.role import ROLE_TYPE_CUSTOM, SysRole
 from bms_platform.repositories.role import RoleRepository, UserRoleRepository
 
-ROLE_STATUSES: tuple[str, ...] = ("enabled", "disabled")
+ROLE_STATUSES: ConcurrentStableList[str] = ConcurrentStableList(("enabled", "disabled"))
 """角色状态取值。"""
 
 ROLE_CODE_PATTERN_KEY = "role.code_pattern"

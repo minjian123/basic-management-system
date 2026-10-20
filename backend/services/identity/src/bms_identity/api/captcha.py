@@ -14,7 +14,7 @@ from fastapi import Depends, Path
 from bms_core.api.base import BaseRouter
 from bms_core.api.deps import get_captcha
 from bms_core.captcha.base import CAPTCHA_SCENES, BaseCaptcha, CaptchaChallenge, CaptchaCredential
-from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableFrozenList, ConcurrentStableList
 from bms_core.core.exceptions import ParamError
 from bms_core.schemas.captcha import (
     CaptchaChallengeRequest,
@@ -115,7 +115,7 @@ async def verify_captcha(captcha: CaptchaDep, req: CaptchaVerifyRequest) -> ApiR
         captcha_id=req.captcha_id,
         kind=req.kind,
         code=req.code,
-        trace=tuple(req.trace),
+        trace=ConcurrentStableFrozenList(req.trace),
         scene=_ensure_scene(req.scene),
     )
     await captcha.require_credential(credential)

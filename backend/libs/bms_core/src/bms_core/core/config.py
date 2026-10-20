@@ -1173,14 +1173,14 @@ class Settings(PydanticBaseSettings, BaseSettings):  # pyright: ignore[reportInc
         def __init__(self, **data: Any) -> None: ...
 
     @classmethod
-    def settings_customise_sources(
+    def settings_customise_sources(  # pyright: ignore[reportIncompatibleMethodOverride]  # 08_05：注解落集合类，值形态由契约/外部决定
         cls,
         settings_cls: type[PydanticBaseSettings],
         init_settings: PydanticBaseSettingsSource,
         env_settings: PydanticBaseSettingsSource,
         dotenv_settings: PydanticBaseSettingsSource,
         file_secret_settings: PydanticBaseSettingsSource,
-    ) -> tuple[PydanticBaseSettingsSource, ...]:
+    ) -> ConcurrentStableList[PydanticBaseSettingsSource]:
         """组装配置源（高 → 低：生效环境 → 入参 → 环境变量 → .env → 环境覆盖 → 基线）。
 
         Args:
@@ -1196,13 +1196,15 @@ class Settings(PydanticBaseSettings, BaseSettings):  # pyright: ignore[reportInc
         env = _resolve_environment()
         overlay = _config_dir() / f"config.{env}.toml"
         files = [_config_dir() / _BASE_CONFIG] + ([overlay] if overlay.is_file() else [])
-        return (
-            _EnvSelectorSource(settings_cls, env),
-            init_settings,
-            env_settings,
-            dotenv_settings,
-            file_secret_settings,
-            TomlConfigSettingsSource(settings_cls, toml_file=files, deep_merge=True),
+        return ConcurrentStableList(
+            (
+                _EnvSelectorSource(settings_cls, env),
+                init_settings,
+                env_settings,
+                dotenv_settings,
+                file_secret_settings,
+                TomlConfigSettingsSource(settings_cls, toml_file=files, deep_merge=True),
+            )
         )
 
 

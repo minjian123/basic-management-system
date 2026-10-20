@@ -31,6 +31,7 @@ from bms_core.captcha.base import (
 from bms_core.captcha.null import NullCaptcha
 from bms_core.core.base import BaseObject
 from bms_core.core.capability import BaseCapability, BaseNullObject
+from bms_core.core.concurrent import ConcurrentStableFrozenList
 from bms_core.core.error_codes import ErrorCode
 from bms_core.core.exceptions import (
     AuthError,
@@ -123,7 +124,7 @@ def test_challenge_and_credential_contracts() -> None:
     slider = CaptchaCredential(
         captcha_id="cid",
         kind=CaptchaKind.SLIDER,
-        trace=((0, 0, 0), (60, 12, 120)),
+        trace=ConcurrentStableFrozenList(((0, 0, 0), (60, 12, 120))),
         scene="login",
     )
     assert slider.trace == ((0, 0, 0), (60, 12, 120))

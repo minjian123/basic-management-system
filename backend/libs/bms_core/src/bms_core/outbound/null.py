@@ -2,7 +2,7 @@
 （02-3 自 bms_core.outbound.http.py、bms_core.outbound.webhook.py 迁入）。"""
 
 from bms_core.core.capability import BaseNullObject
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenDict
 from bms_core.outbound.http import BaseHttpClient, HttpResponse
 from bms_core.outbound.webhook import BaseWebhookSender, WebhookResult
 
@@ -36,7 +36,7 @@ class NullHttpClient(BaseHttpClient, BaseNullObject):
         Returns:
             HttpResponse: 成功响应（`status_code=200`、空头 / 空 body）。
         """
-        return HttpResponse(status_code=200, headers=ConcurrentStableDict(), content=b"")
+        return HttpResponse(status_code=200, headers=ConcurrentStableFrozenDict(), content=b"")
 
 
 class NullWebhookSender(BaseWebhookSender, BaseNullObject):

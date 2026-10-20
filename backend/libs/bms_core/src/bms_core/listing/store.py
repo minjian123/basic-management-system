@@ -13,7 +13,7 @@ from contextlib import asynccontextmanager
 from sqlalchemy import or_, select
 from sqlalchemy.orm.exc import StaleDataError
 
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.context import current_user_id
 from bms_core.core.exceptions import ConcurrentConflictError, NotFoundError
 from bms_core.db.registry import EngineRegistry
@@ -23,7 +23,7 @@ from bms_core.listing.models import SysQueryScheme
 
 __all__ = ["SqlQuerySchemeStore"]
 
-_SCOPE_PRIORITY: tuple[str, ...] = ("user", "tenant", "platform")
+_SCOPE_PRIORITY: ConcurrentStableList[str] = ConcurrentStableList(("user", "tenant", "platform"))
 """默认方案解析优先级。"""
 
 
@@ -43,7 +43,7 @@ class SqlQuerySchemeStore(BaseQuerySchemeStore):
         target: QuerySchemeTarget,
         *,
         field_key: str | None = None,
-    ) -> tuple[QueryScheme, ...]:
+    ) -> ConcurrentStableList[QueryScheme]:
         """列查询方案（个人方案按当前用户过滤）。
 
         Args:
@@ -65,7 +65,7 @@ class SqlQuerySchemeStore(BaseQuerySchemeStore):
         stmt = stmt.order_by(SysQueryScheme.is_default.desc(), SysQueryScheme.updated_at.desc())
         async with self._session() as session:
             rows = list((await session.execute(stmt)).scalars().all())
-        return tuple(_to_scheme(row) for row in rows)
+        return ConcurrentStableList(_to_scheme(row) for row in rows)
 
     async def get(self, scheme_id: int) -> QueryScheme | None:
         """取单个方案（未命中返回 None）。

@@ -46,22 +46,26 @@ from bms_core.core.sorted_collections import (
 _ROOT = Path(__file__).resolve().parents[5]
 _MANIFEST = _ROOT / "bms文档" / "后端基类清单.md"
 
-LAYERS: tuple[type, ...] = (BaseSorted, BaseConcurrent, BaseAsyncSorted, BaseCacheSnapshot)
+LAYERS: ConcurrentStableList[type] = ConcurrentStableList(
+    (BaseSorted, BaseConcurrent, BaseAsyncSorted, BaseCacheSnapshot)
+)
 """集合体系除根之外的各层基类。"""
 
-CONCRETE: tuple[type, ...] = (
-    SortedList,
-    SortedDict,
-    SortedSet,
-    ConcurrentSortedList,
-    ConcurrentSortedSet,
-    ConcurrentSortedDict,
-    ConcurrentStableList,
-    ConcurrentStableSet,
-    ConcurrentStableDict,
-    RedisSortedSet,
-    RedisSortedDict,
-    RedisSnapshot,
+CONCRETE: ConcurrentStableList[type] = ConcurrentStableList(
+    (
+        SortedList,
+        SortedDict,
+        SortedSet,
+        ConcurrentSortedList,
+        ConcurrentSortedSet,
+        ConcurrentSortedDict,
+        ConcurrentStableList,
+        ConcurrentStableSet,
+        ConcurrentStableDict,
+        RedisSortedSet,
+        RedisSortedDict,
+        RedisSnapshot,
+    )
 )
 """集合体系全部具体集合类。"""
 

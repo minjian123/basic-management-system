@@ -6,7 +6,7 @@ from typing import Any, cast
 import pytest
 import yaml
 
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.services import gateway_catalog as gc
 from bms_core.services.module_registry import ProductRouteRecord
 
@@ -411,7 +411,7 @@ def test_product_routes_default_mdm_org() -> None:
 @pytest.mark.kiwi_id(2250)
 def test_render_product_routes_shape_and_rewrite() -> None:
     """产品级路由：产品命名空间 /api/{product_key}/v1/{domain}；上游=映射服务；重写剥离产品前缀（域段保留）。"""
-    routes = gc.render_product_routes((_product_route(),))
+    routes = gc.render_product_routes(ConcurrentStableList((_product_route(),)))
     assert len(routes) == 1
     route = routes[0]
     prefix = "/api/biz/v1/org"

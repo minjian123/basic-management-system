@@ -57,7 +57,7 @@ def register_role_resolver(resolver: BaseRoleResolver) -> None:
     _RESOLVERS.set(resolver.key, resolver)
 
 
-def registered_role_resolvers() -> tuple[BaseRoleResolver, ...]:
+def registered_role_resolvers() -> ConcurrentStableList[BaseRoleResolver]:
     """已登记解析器（按 `order` 升序、同序保持登记序）。
 
     Returns:
@@ -68,7 +68,7 @@ def registered_role_resolvers() -> tuple[BaseRoleResolver, ...]:
         resolver = _RESOLVERS.get(key)
         if resolver is not None:
             collected.add(resolver)
-    return tuple(sorted(collected, key=lambda item: item.order))
+    return ConcurrentStableList(sorted(collected, key=lambda item: item.order))
 
 
 def reset_role_resolvers() -> None:

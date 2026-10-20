@@ -344,13 +344,15 @@ def test_sms_options_parse_and_validate() -> None:
     )
     assert (custom.code_length, custom.account_limit, custom.ip_limit, custom.window) == (8, 3, 50, 600)
 
-    bad_options: tuple[ConcurrentStableDict[str, object], ...] = (
-        ConcurrentStableDict({"sms_code_length": "abc"}),
-        ConcurrentStableDict({"sms_code_length": 3}),
-        ConcurrentStableDict({"sms_account_limit": 0}),
-        ConcurrentStableDict({"sms_ip_limit": -1}),
-        ConcurrentStableDict({"sms_window": 10}),
-        ConcurrentStableDict({"sms_window": True}),
+    bad_options: ConcurrentStableList[ConcurrentStableDict[str, object]] = ConcurrentStableList(
+        (
+            ConcurrentStableDict({"sms_code_length": "abc"}),
+            ConcurrentStableDict({"sms_code_length": 3}),
+            ConcurrentStableDict({"sms_account_limit": 0}),
+            ConcurrentStableDict({"sms_ip_limit": -1}),
+            ConcurrentStableDict({"sms_window": 10}),
+            ConcurrentStableDict({"sms_window": True}),
+        )
     )
     for bad in bad_options:
         with pytest.raises(PluginError):

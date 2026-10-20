@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import ClassVar
 
+from bms_core.core.concurrent import ConcurrentStableFrozenList
 from bms_core.core.objects.roots import BaseValueObject
 
 __all__ = ["BaseTenantViewContract"]
@@ -27,4 +28,6 @@ class BaseTenantViewContract(BaseValueObject):
     `TenantSnapshot.code` dataclass 字段同名冲突），成员直接声明 `code` 字段。
     """
 
-    COMMON_FIELDS: ClassVar[tuple[str, ...]] = ("code", "name", "domain", "status", "tenant_id")
+    COMMON_FIELDS: ClassVar[ConcurrentStableFrozenList[str]] = ConcurrentStableFrozenList(
+        ("code", "name", "domain", "status", "tenant_id")
+    )

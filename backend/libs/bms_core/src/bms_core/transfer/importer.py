@@ -8,12 +8,17 @@
 """
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import cast
 
 from fastapi import Request
 
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.core.concurrent import (
+    ConcurrentStableDict,
+    ConcurrentStableFrozenDict,
+    ConcurrentStableFrozenList,
+    ConcurrentStableList,
+)
 from bms_core.core.config import Settings
 from bms_core.core.objects import BaseValueObject
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
@@ -45,10 +50,10 @@ class RowError(BaseValueObject):
 class ImportResult(BaseValueObject):
     """导入结果：有效行 + 错误回执。"""
 
-    rows: tuple[ConcurrentStableDict[str, object], ...]
+    rows: ConcurrentStableFrozenList[ConcurrentStableFrozenDict[str, object]]
     """有效行。"""
 
-    errors: tuple[RowError, ...] = ()
+    errors: ConcurrentStableFrozenList[RowError] = field(default_factory=lambda: ConcurrentStableFrozenList[RowError]())
     """错误回执。"""
 
 

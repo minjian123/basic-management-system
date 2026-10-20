@@ -62,55 +62,61 @@ ROLE_SECURITY_ADMIN = "security_admin"
 ROLE_AUDIT_ADMIN = "audit_admin"
 """审计管理员角色码（内置；审计域权限码随审计模块落地）。"""
 
-SECURITY_ADMIN_CODES: tuple[str, ...] = (
-    "role:query",
-    "role:create",
-    "role:update",
-    "role:delete",
-    "role:grant",
+SECURITY_ADMIN_CODES: ConcurrentStableList[str] = ConcurrentStableList(
+    (
+        "role:query",
+        "role:create",
+        "role:update",
+        "role:delete",
+        "role:grant",
+    )
 )
 """安全管理员授权（角色域全部权限码；需求 07-6「`role` 业务仅安全管理员持有」）。"""
 
 SYSTEM_ADMIN_EXCLUDED_CODES = frozenset(SECURITY_ADMIN_CODES)
 """系统管理员**不**持有的码（角色域；防越权授予）。"""
 
-SYSTEM_ADMIN_CODES: tuple[str, ...] = (
-    "menu:query",
-    "menu:create",
-    "menu:update",
-    "menu:delete",
-    "business:query",
-    "action:query",
-    "permission:query",
-    "permission:manage",
-    "user:query",
-    "user:create",
-    "user:update",
-    "user:delete",
-    "user:reset_pwd",
-    "user:assign_role",
-    "user:lock",
-    "user:unlock",
-    "session:query",
-    "session:kick",
-    "sso:bind",
-    "open:manage",
-    "idp:manage",
-    "user-extension:query",
-    "user-extension:update",
+SYSTEM_ADMIN_CODES: ConcurrentStableList[str] = ConcurrentStableList(
+    (
+        "menu:query",
+        "menu:create",
+        "menu:update",
+        "menu:delete",
+        "business:query",
+        "action:query",
+        "permission:query",
+        "permission:manage",
+        "user:query",
+        "user:create",
+        "user:update",
+        "user:delete",
+        "user:reset_pwd",
+        "user:assign_role",
+        "user:lock",
+        "user:unlock",
+        "session:query",
+        "session:kick",
+        "sso:bind",
+        "open:manage",
+        "idp:manage",
+        "user-extension:query",
+        "user-extension:update",
+    )
 )
 """系统管理员授权（在册权限码去除角色域码）。与 `require_permission` 在册清单同步维护。"""
 
 DEFAULT_ASSIGN_ACCOUNT = "admin"
 """缺省绑定账号（本地 bootstrap：把首个可用账号绑到内置系统管理员，命中豁免层级）。"""
 
-AUDIT_ADMIN_CODES: tuple[str, ...] = ()
+AUDIT_ADMIN_CODES: ConcurrentStableList[str] = ()
 """审计管理员授权（本轮为空；审计域权限码随审计模块落地）。"""
 
-BUILTIN_ADMIN_ROLES: tuple[tuple[str, str, str, tuple[str, ...]], ...] = (
-    (ROLE_SYSTEM_ADMIN, "系统管理员", ROLE_TYPE_SYSTEM, SYSTEM_ADMIN_CODES),
-    (ROLE_SECURITY_ADMIN, "安全管理员", ROLE_TYPE_SECURITY, SECURITY_ADMIN_CODES),
-    (ROLE_AUDIT_ADMIN, "审计管理员", ROLE_TYPE_AUDIT, AUDIT_ADMIN_CODES),
+BUILTIN_ADMIN_ROLES: ConcurrentStableList[tuple[str, str, str, ConcurrentStableList[str]]] = ConcurrentStableList(
+    (
+        (ROLE_SYSTEM_ADMIN, "系统管理员", ROLE_TYPE_SYSTEM, SYSTEM_ADMIN_CODES),
+        (ROLE_SECURITY_ADMIN, "安全管理员", ROLE_TYPE_SECURITY, SECURITY_ADMIN_CODES),
+        (ROLE_AUDIT_ADMIN, "审计管理员", ROLE_TYPE_AUDIT, AUDIT_ADMIN_CODES),
+    )
 )
 """三类内置管理员角色与授权清单的**单一来源**（`03_02`；`04_01` 开通种子直接引用）。
 
@@ -165,7 +171,9 @@ async def seed_rbac(*, tenant_url: str, platform_url: str, assign_user: str = ""
     """
     outcome = SeedOutcome()
     permission_ids = await _load_permission_ids(platform_url)
-    plan: ConcurrentStableList[tuple[str, str, str, tuple[str, ...]]] = ConcurrentStableList(BUILTIN_ADMIN_ROLES)
+    plan: ConcurrentStableList[tuple[str, str, str, ConcurrentStableList[str]]] = ConcurrentStableList(
+        BUILTIN_ADMIN_ROLES
+    )
     engine = create_async_engine(tenant_url)
     factory = async_sessionmaker(engine, expire_on_commit=False)
     try:

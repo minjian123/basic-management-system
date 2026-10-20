@@ -11,6 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar
 
+from bms_core.core.concurrent import ConcurrentStableFrozenList
 from bms_core.core.objects.roots import BaseValueObject
 
 if TYPE_CHECKING:
@@ -36,7 +37,7 @@ class BaseTallyContract(BaseValueObject):
     `succeeded` / `skipped` / `failed` 均为 `tuple[...]`）而非计数，与「计数字段」语义不同 → 保持单类链。
     """
 
-    COUNT_FIELDS: ClassVar[tuple[str, ...]] = ()
+    COUNT_FIELDS: ClassVar[ConcurrentStableFrozenList[str]] = ConcurrentStableFrozenList()
     """本类计数位字段名（成员声明；`counts` 按此汇总）。"""
 
     @property

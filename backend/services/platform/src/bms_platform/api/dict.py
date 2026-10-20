@@ -73,7 +73,7 @@ def _locale_scope(request: Request) -> Generator[None]:
         current_dict_locale.reset(token)
 
 
-def parse_values(raw: str) -> tuple[str, ...]:
+def parse_values(raw: str) -> ConcurrentStableList[str]:
     """解析逗号分隔的 value 列表（`values=a,b,c`）。
 
     Args:
@@ -82,7 +82,7 @@ def parse_values(raw: str) -> tuple[str, ...]:
     Returns:
         tuple[str, ...]: value 元组（去空白项）。
     """
-    return tuple(part.strip() for part in raw.split(",") if part.strip())
+    return ConcurrentStableList(part.strip() for part in raw.split(",") if part.strip())
 
 
 @router.post("/batch")
@@ -149,7 +149,7 @@ def _provider_info(key: str, provider: BaseQueryProvider) -> DictQueryProviderIn
         key=key,
         name=provider.describe(),
         target="business",
-        data_source_keys=(),
+        data_source_keys=ConcurrentStableList(()),
         param_schema=ConcurrentStableDict(),
     )
 

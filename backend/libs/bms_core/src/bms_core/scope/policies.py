@@ -50,13 +50,13 @@ def scope_policy(policy_type: str) -> ScopePolicy | None:
     return _POLICIES.get(policy_type)
 
 
-def registered_scope_policy_types() -> tuple[str, ...]:
+def registered_scope_policy_types() -> ConcurrentStableList[str]:
     """已登记策略类型清单（保序）。
 
     Returns:
         tuple[str, ...]: 策略类型元组。
     """
-    return tuple(_POLICIES)
+    return ConcurrentStableList(_POLICIES)
 
 
 def reset_scope_policies() -> None:

@@ -7,7 +7,12 @@ import json
 
 import pytest
 
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
+from bms_core.core.concurrent import (
+    ConcurrentStableDict,
+    ConcurrentStableFrozenDict,
+    ConcurrentStableList,
+    ConcurrentStableSet,
+)
 from bms_core.core.exceptions import EventContractError
 from bms_core.events.base import EventEnvelope
 from bms_core.events.contracts import (
@@ -48,7 +53,7 @@ def _contract(
     return EventContract(
         event_type=event_type,
         version=version,
-        fields=ConcurrentStableDict(_USER_FIELDS) if fields is None else fields,
+        fields=ConcurrentStableFrozenDict(_USER_FIELDS) if fields is None else fields,
         description=description,
         deprecated=deprecated,
     )
@@ -57,7 +62,7 @@ def _contract(
 def _subscription(
     consumer: str = "indexer",
     event_type: str = "sys.user.created",
-    majors: tuple[int, ...] = (1,),
+    majors: ConcurrentStableList[int] = ConcurrentStableList((1,)),  # noqa: B008
     description: str = "索引同步",
 ) -> EventSubscription:
     """构造事件订阅（默认合法）。"""
@@ -106,7 +111,7 @@ def test_registry_register_idempotent_and_conflict() -> None:
     registry.register_subscription(_subscription())
     assert len(registry.subscriptions()) == 1
     with pytest.raises(EventContractError):
-        registry.register_subscription(_subscription(majors=(1, 2)))
+        registry.register_subscription(_subscription(majors=ConcurrentStableList((1, 2))))
 
     assert registry.contract("sys.user.created") == contract
     assert registry.contract("ghost.thing.created") is None
@@ -134,11 +139,11 @@ def test_subscription_validation_and_version_acceptance() -> None:
     registry = EventContractRegistry()
     registry.register(_contract(version="2.1.0"))
 
-    registry.register_subscription(_subscription(event_type="ghost.thing.created", majors=(1,)))
-    registry.register_subscription(_subscription(consumer="empty", majors=()))
-    registry.register_subscription(_subscription(consumer="bad-major", majors=(0,)))
-    registry.register_subscription(_subscription(consumer="stale", majors=(1,)))
-    registry.register_subscription(_subscription(consumer="ready", majors=(1, 2)))
+    registry.register_subscription(_subscription(event_type="ghost.thing.created", majors=ConcurrentStableList((1,))))
+    registry.register_subscription(_subscription(consumer="empty", majors=ConcurrentStableList(())))
+    registry.register_subscription(_subscription(consumer="bad-major", majors=ConcurrentStableList((0,))))
+    registry.register_subscription(_subscription(consumer="stale", majors=ConcurrentStableList((1,))))
+    registry.register_subscription(_subscription(consumer="ready", majors=ConcurrentStableList((1, 2))))
 
     errors = validate_event_registry(registry, domains=DOMAINS)
     assert any("未登记契约" in error for error in errors)
@@ -146,11 +151,11 @@ def test_subscription_validation_and_version_acceptance() -> None:
     assert any("主版本非法" in error for error in errors)
     assert any("未覆盖契约当前主版本" in error for error in errors)
 
-    ready = _subscription(consumer="ready", majors=(1, 2))
+    ready = _subscription(consumer="ready", majors=ConcurrentStableList((1, 2)))
     assert ready.accepts("2.3.0") is True
     assert ready.accepts(None) is True
     assert ready.accepts("v2") is False
-    assert _subscription(majors=(2,)).accepts(None) is False
+    assert _subscription(majors=ConcurrentStableList((2,))).accepts(None) is False
     with pytest.raises(EventContractError):
         require_event_version_compatible(ready, EventEnvelope(event_type="sys.user.created", event_version="3.0.0"))
     require_event_version_compatible(ready, EventEnvelope(event_type="sys.user.created", event_version="2.0.0"))
@@ -256,8 +261,8 @@ def test_subscription_coverage_and_snapshot_compatibility() -> None:
     upgraded = _contract(
         version="2.0.0", fields=ConcurrentStableDict({**_USER_FIELDS, "dept_id": EventFieldSpec(type="string")})
     )
-    stale = _subscription(majors=(1,))
-    ready = _subscription(majors=(1, 2))
+    stale = _subscription(majors=ConcurrentStableList((1,)))
+    ready = _subscription(majors=ConcurrentStableList((1, 2)))
 
     errors = check_subscription_coverage(previous, upgraded, ConcurrentStableList([stale]))
     assert any("主版本升级未覆盖订阅" in error for error in errors)
@@ -277,7 +282,7 @@ def test_subscription_coverage_and_snapshot_compatibility() -> None:
     registry.register(_contract(version="1.0.0"))
     assert check_snapshot_compatibility(ConcurrentStableList([_contract()]), registry) == ()
     registry.register(_contract(event_type="wf.instance.finished", version="2.0.0"))
-    registry.register_subscription(_subscription(event_type="wf.instance.finished", majors=(1,)))
+    registry.register_subscription(_subscription(event_type="wf.instance.finished", majors=ConcurrentStableList((1,))))
     errors = check_snapshot_compatibility(ConcurrentStableList([_contract()]), registry)
     assert any("主版本升级未覆盖订阅" in error for error in errors)
 
@@ -314,9 +319,9 @@ def test_event_contract_validation_failure_rejected(monkeypatch: pytest.MonkeyPa
 
     import bms_core.application as application
 
-    def _fake_validate(*args: object, **kwargs: object) -> tuple[str, ...]:
+    def _fake_validate(*args: object, **kwargs: object) -> ConcurrentStableList[str]:
         del args, kwargs
-        return ("事件域未登记：ghost",)
+        return ConcurrentStableList(("事件域未登记：ghost",))
 
     monkeypatch.setattr(application, "validate_event_registry", _fake_validate)
     app = ApplicationFactory().create(None)

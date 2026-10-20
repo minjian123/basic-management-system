@@ -21,9 +21,13 @@ from typing import Annotated, ClassVar
 
 from pydantic import Field
 
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.objects import BaseFrameworkObject
-from bms_core.schemas.base import CONTRACT_COLLECTION, CONTRACT_STABLE_DICT, BaseSchema
+from bms_core.schemas.base import (
+    CONTRACT_COLLECTION,
+    CONTRACT_STABLE_DICT,
+    BaseSchema,
+)
 
 __all__ = [
     "DATA_SOURCE_CACHE_DOMAIN",
@@ -78,7 +82,7 @@ class BaseGenericDataSource(BaseFrameworkObject, ABC):
         return DATA_SOURCE_CACHE_DOMAIN
 
     @abstractmethod
-    async def load(self, data_source_key: str, locale: str) -> tuple[DataSourceItem, ...]:
+    async def load(self, data_source_key: str, locale: str) -> ConcurrentStableList[DataSourceItem]:
         """加载某数据源的全部启用行（供出口做过滤 / 截断 / 缓存）。
 
         Args:
@@ -101,8 +105,8 @@ class BaseGenericDataSource(BaseFrameworkObject, ABC):
         return 0
 
     async def batch(
-        self, data_source_keys: tuple[str, ...], locale: str
-    ) -> ConcurrentStableDict[str, tuple[DataSourceItem, ...]]:
+        self, data_source_keys: ConcurrentStableList[str], locale: str
+    ) -> ConcurrentStableDict[str, ConcurrentStableList[DataSourceItem]]:
         """批量取数（缺省逐键 `load` 合并；子类可覆写为一次批量加载）。
 
         Args:
@@ -112,7 +116,7 @@ class BaseGenericDataSource(BaseFrameworkObject, ABC):
         Returns:
             ConcurrentStableDict[str, tuple[DataSourceItem, ...]]: 按标识的启用行。
         """
-        result: ConcurrentStableDict[str, tuple[DataSourceItem, ...]] = ConcurrentStableDict()
+        result: ConcurrentStableDict[str, ConcurrentStableList[DataSourceItem]] = ConcurrentStableDict()
         for data_source_key in data_source_keys:
             result.set(data_source_key, await self.load(data_source_key, locale))
         return result
@@ -134,5 +138,7 @@ class BaseDictDataSource(BaseGenericDataSource, ABC):
     `bms_core/dict/table.py::DictTableDataSource`。
     """
 
-    DICT_FIELDS: ClassVar[tuple[str, ...]] = ("code", "name", "parent_id", "sort", "status")
+    DICT_FIELDS: ClassVar[ConcurrentStableList[str]] = ConcurrentStableList(
+        ("code", "name", "parent_id", "sort", "status")
+    )
     """标准字典系统字段（可直用实现类按此映射）。"""

@@ -2,7 +2,7 @@
 
 import pytest
 
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenDict
 from bms_core.core.exceptions import ConfigError, DingtalkConfigError, WecomConfigError
 from bms_core.idp.cas import CasIdentityProvider
 from bms_core.idp.dingtalk import DingtalkIdentityProvider
@@ -81,7 +81,9 @@ def test_build_rejects_missing_config_and_unknown_type(monkeypatch: pytest.Monke
         registry.build(_spec(config=ConcurrentStableDict({"client_secret_ref": "env:IDP_TEST_MISSING"})))
     with pytest.raises(ConfigError):
         registry.build(
-            IdentityProviderSpec(id=2, idp_key="demo:saml", type="saml", config=ConcurrentStableDict(), updated_at="t")
+            IdentityProviderSpec(
+                id=2, idp_key="demo:saml", type="saml", config=ConcurrentStableFrozenDict(), updated_at="t"
+            )
         )
 
 

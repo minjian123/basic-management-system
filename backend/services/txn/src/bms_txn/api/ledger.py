@@ -124,7 +124,7 @@ async def begin_global_txn(
     for item in req.branches:
         specs.add(BranchSpec(branch_id=item.branch_id, service=item.service, db_key=item.db_key))
     snapshot = await _coordinator(uow, request).begin(
-        caller_service=token.service or "", branches=tuple(specs), timeout_seconds=req.timeout_seconds
+        caller_service=token.service or "", branches=ConcurrentStableList(specs), timeout_seconds=req.timeout_seconds
     )
     return ApiResponse.ok(_to_view(snapshot))
 

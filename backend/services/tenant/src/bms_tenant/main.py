@@ -41,13 +41,13 @@ class ApplicationFactory(BaseServiceApplicationFactory):
         """
         return ConcurrentStableList([api_router])
 
-    def startup_hooks(self) -> tuple[StartupHook, ...]:
+    def startup_hooks(self) -> ConcurrentStableList[StartupHook]:
         """启动钩子：幂等引导默认平台租户（任务 `04_01`）。
 
         Returns:
             tuple[StartupHook, ...]: 启动钩子。
         """
-        return (_ensure_platform,)
+        return ConcurrentStableList((_ensure_platform,))
 
 
 async def _ensure_platform(app: FastAPI) -> None:

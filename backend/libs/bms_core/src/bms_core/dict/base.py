@@ -36,7 +36,11 @@ from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 from bms_core.i18n.base import DEFAULT_LOCALE
-from bms_core.schemas.base import CONTRACT_COLLECTION, CONTRACT_STABLE_DICT, BaseSchema
+from bms_core.schemas.base import (
+    CONTRACT_COLLECTION,
+    CONTRACT_STABLE_DICT,
+    BaseSchema,
+)
 
 __all__ = [
     "DICT_CACHE_DOMAIN",
@@ -61,7 +65,7 @@ __all__ = [
 DICT_CACHE_DOMAIN = "dict"
 """缓存域简称（`DictCacheRegion.domain`；key `bms:{tenant}:dict:...`）。"""
 
-DICT_STATUSES: tuple[str, ...] = ("enabled", "disabled")
+DICT_STATUSES: ConcurrentStableList[str] = ConcurrentStableList(("enabled", "disabled"))
 """字典条目状态（`enabled` 启用 / `disabled` 停用）。"""
 
 DICT_PROBE_LIMIT = 2001
@@ -81,14 +85,16 @@ class DictQuery(BaseSchema):
     version: int | None = Field(default=None, description="客户端本地版本号；与全局一致时 items 返回空")
     keyword: str | None = Field(default=None, description="关键字（label / value / code，命中列由实现定义）")
     parent_id: int | None = Field(default=None, description="上级条目 ID（0 = 顶层；不传 = 不按父过滤）")
-    values: tuple[str, ...] | None = Field(default=None, description="指定 value 子集（超大字典批量翻译用）")
+    values: Annotated[ConcurrentStableList[str] | None, CONTRACT_COLLECTION] = Field(
+        default=None, description="指定 value 子集（超大字典批量翻译用）"
+    )
     limit: int | None = Field(default=None, description="返回条数上限（探针传 DICT_PROBE_LIMIT）")
 
 
 class DictBatchQuery(BaseSchema):
     """批量合并取数参数对象（表单页多字典字段合并为一次请求）。"""
 
-    types: tuple[str, ...] = Field(description="字典类型码序列")
+    types: Annotated[ConcurrentStableList[str], CONTRACT_COLLECTION] = Field(description="字典类型码序列")
     version: int | None = Field(default=None, description="客户端本地版本号；一致的类型 items 返回空")
     locale: str = Field(default=DEFAULT_LOCALE, description="语言（默认 zh-CN）")
 
@@ -97,7 +103,7 @@ class DictTranslateQuery(BaseSchema):
     """后端翻译参数对象（value → label）。"""
 
     data_source_key: str = Field(description="字典类型码")
-    values: tuple[str, ...] = Field(description="待翻译 value 序列")
+    values: Annotated[ConcurrentStableList[str], CONTRACT_COLLECTION] = Field(description="待翻译 value 序列")
     locale: str = Field(default=DEFAULT_LOCALE, description="语言（默认 zh-CN）")
 
 
@@ -122,7 +128,7 @@ class DictTypeResult(BaseSchema):
     """单类型取数结果（`items=None` 表示版本一致，前端复用本地缓存）。"""
 
     version: int = Field(default=0, description="当前全局版本号")
-    items: tuple[DictItem, ...] | None = Field(
+    items: Annotated[ConcurrentStableList[DictItem] | None, CONTRACT_COLLECTION] = Field(
         default=None, description="条目集；None＝版本一致（省流量）；空元组＝确无数据"
     )
     has_more: bool = Field(default=False, description="是否还有更多（超过 limit 截断）")

@@ -55,7 +55,12 @@ def test_data_contracts_defaults_and_frozen() -> None:
     message = ChatMessage(content="你好")
     assert message.role == "user"
     assert ChatResult(content="x").model is None
-    assert EmbeddingResult(vectors=((0.0,),)).provider_key is None
+    assert (
+        EmbeddingResult(
+            vectors=ConcurrentStableList(ConcurrentStableList(ConcurrentStableList(ConcurrentStableList(((0.0,),)))))  # pyright: ignore[reportArgumentType]  # 08_05：注解落集合类，值形态由契约/外部决定
+        ).provider_key
+        is None
+    )
     assert OcrResult(text="x").provider_key is None
 
     field = "role"

@@ -20,7 +20,12 @@ import re
 from typing import TYPE_CHECKING, cast
 
 from bms_core.cache.base import CacheRegion
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
+from bms_core.core.concurrent import (
+    ConcurrentStableDict,
+    ConcurrentStableFrozenList,
+    ConcurrentStableList,
+    ConcurrentStableSet,
+)
 from bms_core.core.context import get_current_user_id
 from bms_core.core.exceptions import (
     ConcurrentConflictError,
@@ -467,17 +472,19 @@ class UserAssignmentsService(BaseFrameworkObject):
         specs.add(BranchSpec(branch_id=BRANCH_ID_PLATFORM, service=SERVICE_NAME, db_key=platform_db_key))
         if has_org:
             specs.add(BranchSpec(branch_id=BRANCH_ID_ORG, service=ORG_SERVICE, db_key=org_db_key))
-        txn = await self._manager.begin(caller_service=SERVICE_NAME, branches=tuple(specs))
+        txn = await self._manager.begin(caller_service=SERVICE_NAME, branches=ConcurrentStableList(specs))
         try:
             platform_xid = self._xid_of(txn, BRANCH_ID_PLATFORM)
             state = await self._participant.execute_branch(
                 xid=platform_xid,
                 db_key=platform_db_key,
-                ops=(
-                    BranchOp(
-                        op=USER_ASSIGNMENTS_OP,
-                        args=self._platform_args(user_id=user_id, req=req, idempotency_key=idempotency_key),
-                    ),
+                ops=ConcurrentStableFrozenList(
+                    (
+                        BranchOp(
+                            op=USER_ASSIGNMENTS_OP,
+                            args=self._platform_args(user_id=user_id, req=req, idempotency_key=idempotency_key),
+                        ),
+                    )
                 ),
             )
             if state != BRANCH_PREPARED:

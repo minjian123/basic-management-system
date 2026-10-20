@@ -12,7 +12,7 @@
 
 from datetime import UTC, datetime, timedelta
 
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenList, ConcurrentStableList
 from bms_core.core.exceptions import ParamError
 from bms_core.core.id import id_generator
 from bms_core.core.objects import BaseFrameworkObject
@@ -89,7 +89,7 @@ class TransactionCoordinator(BaseFrameworkObject):
         self._metrics = metrics
 
     async def begin(
-        self, *, caller_service: str, branches: tuple[BranchSpec, ...], timeout_seconds: float | None = None
+        self, *, caller_service: str, branches: ConcurrentStableList[BranchSpec], timeout_seconds: float | None = None
     ) -> GlobalTransaction:
         """开启全局事务并分配各分支 `xid`。
 
@@ -360,7 +360,7 @@ class TransactionCoordinator(BaseFrameworkObject):
         await metrics.counter(METRIC_BRANCH_DRIVE, labels={"result": result})
 
     @staticmethod
-    def _validate_branches(branches: tuple[BranchSpec, ...]) -> None:
+    def _validate_branches(branches: ConcurrentStableList[BranchSpec]) -> None:
         """校验分支声明（非空 / `branch_id` 唯一 / `xid` 长度可承载）。
 
         Args:
@@ -408,5 +408,5 @@ class TransactionCoordinator(BaseFrameworkObject):
             state=txn.state,
             deadline_at=txn.deadline_at,
             decided_at=txn.decided_at,
-            branches=tuple(refs),
+            branches=ConcurrentStableFrozenList(refs),
         )

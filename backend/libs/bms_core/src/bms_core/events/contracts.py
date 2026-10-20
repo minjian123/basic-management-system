@@ -24,7 +24,13 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import cast
 
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
+from bms_core.core.concurrent import (
+    ConcurrentStableDict,
+    ConcurrentStableFrozenDict,
+    ConcurrentStableFrozenList,
+    ConcurrentStableList,
+    ConcurrentStableSet,
+)
 from bms_core.core.exceptions import EventContractError
 from bms_core.core.objects import BaseFieldSpecContract, BaseFrameworkObject, BaseSnapshotRoundTripContract
 from bms_core.core.serialization import normalize_collections
@@ -68,7 +74,9 @@ EVENT_TYPE_RE = re.compile(r"^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$")
 EVENT_FIELD_NAME_RE = re.compile(r"^[a-z][a-z0-9_]*$")
 """事件载荷字段名格式（小写下划线）。"""
 
-EVENT_FIELD_TYPES: tuple[str, ...] = ("string", "integer", "number", "boolean", "datetime", "object", "array")
+EVENT_FIELD_TYPES: ConcurrentStableList[str] = ConcurrentStableList(
+    ("string", "integer", "number", "boolean", "datetime", "object", "array")
+)
 """事件载荷字段类型清单（跨语言通用类型名）。"""
 
 EVENT_CONTRACT_MODE_OFF = "off"
@@ -80,16 +88,20 @@ EVENT_CONTRACT_MODE_WARN = "warn"
 EVENT_CONTRACT_MODE_ENFORCE = "enforce"
 """签发契约校验模式：未登记 / 版本非法即拒发（10010）。"""
 
-EVENT_CONTRACT_MODES: tuple[str, ...] = (EVENT_CONTRACT_MODE_OFF, EVENT_CONTRACT_MODE_WARN, EVENT_CONTRACT_MODE_ENFORCE)
+EVENT_CONTRACT_MODES: ConcurrentStableList[str] = ConcurrentStableList(
+    (EVENT_CONTRACT_MODE_OFF, EVENT_CONTRACT_MODE_WARN, EVENT_CONTRACT_MODE_ENFORCE)
+)
 """签发契约校验模式清单（`[event].contract_mode`）。"""
 
-RESERVED_PAYLOAD_KEYS: tuple[str, ...] = (
-    "event_id",
-    "event_type",
-    "event_version",
-    "occurred_at",
-    "trace_id",
-    "aggregate_key",
+RESERVED_PAYLOAD_KEYS: ConcurrentStableList[str] = ConcurrentStableList(
+    (
+        "event_id",
+        "event_type",
+        "event_version",
+        "occurred_at",
+        "trace_id",
+        "aggregate_key",
+    )
 )
 """事件信封保留键（载荷字段不得占用，避免与信封语义冲突）。
 
@@ -141,7 +153,9 @@ class EventContract(BaseSnapshotRoundTripContract):
     version: str = DEFAULT_EVENT_VERSION
     """契约版本（`X.Y.Z`；破坏性变更升主版本）。"""
 
-    fields: ConcurrentStableDict[str, EventFieldSpec] = field(default_factory=ConcurrentStableDict[str, EventFieldSpec])
+    fields: ConcurrentStableFrozenDict[str, EventFieldSpec] = field(
+        default_factory=ConcurrentStableFrozenDict[str, EventFieldSpec]
+    )
     """载荷字段规格（字段名 → 规格）。"""
 
     description: str = ""
@@ -198,7 +212,7 @@ class EventContract(BaseSnapshotRoundTripContract):
         return cls(
             event_type=str(entry["event_type"]),
             version=str(entry.get("version", DEFAULT_EVENT_VERSION)),
-            fields=ConcurrentStableDict(
+            fields=ConcurrentStableFrozenDict(
                 {name: EventFieldSpec.from_snapshot(ConcurrentStableDict(spec)) for name, spec in raw_fields.items()}
             ),
             description=str(entry.get("description", "")),
@@ -216,7 +230,9 @@ class EventSubscription(BaseSnapshotRoundTripContract):
     event_type: str
     """订阅的事件类型。"""
 
-    supported_majors: tuple[int, ...] = (1,)
+    supported_majors: ConcurrentStableFrozenList[int] = field(
+        default_factory=lambda: ConcurrentStableFrozenList[int]((1,))
+    )
     """支持的主版本集合（新旧兼容窗口；须含契约当前主版本）。"""
 
     description: str = ""
@@ -263,7 +279,7 @@ class EventSubscription(BaseSnapshotRoundTripContract):
         return cls(
             consumer=str(entry["consumer"]),
             event_type=str(entry["event_type"]),
-            supported_majors=tuple(int(cast("str | int", major)) for major in majors),
+            supported_majors=ConcurrentStableFrozenList(int(cast("str | int", major)) for major in majors),
             description=str(entry.get("description", "")),
         )
 
@@ -323,23 +339,23 @@ class EventContractRegistry(BaseFrameworkObject):
         """
         return self._contracts.get(event_type)
 
-    def contracts(self) -> tuple[EventContract, ...]:
+    def contracts(self) -> ConcurrentStableList[EventContract]:
         """契约清单（按事件类型排序）。
 
         Returns:
             tuple[EventContract, ...]: 契约清单。
         """
-        return tuple(self._contracts[key] for key in sorted(self._contracts))
+        return ConcurrentStableList(self._contracts[key] for key in sorted(self._contracts))
 
-    def subscriptions(self) -> tuple[EventSubscription, ...]:
+    def subscriptions(self) -> ConcurrentStableList[EventSubscription]:
         """订阅清单（按事件类型 + 消费方排序）。
 
         Returns:
             tuple[EventSubscription, ...]: 订阅清单。
         """
-        return tuple(self._subscriptions[key] for key in sorted(self._subscriptions))
+        return ConcurrentStableList(self._subscriptions[key] for key in sorted(self._subscriptions))
 
-    def subscriptions_for(self, event_type: str) -> tuple[EventSubscription, ...]:
+    def subscriptions_for(self, event_type: str) -> ConcurrentStableList[EventSubscription]:
         """取某事件的全部订阅（按消费方排序）。
 
         Args:
@@ -348,7 +364,7 @@ class EventContractRegistry(BaseFrameworkObject):
         Returns:
             tuple[EventSubscription, ...]: 订阅清单。
         """
-        return tuple(
+        return ConcurrentStableList(
             self._subscriptions[key]
             for key in sorted(self._subscriptions)
             if self._subscriptions[key].event_type == event_type
@@ -429,7 +445,7 @@ def resolve_event_version(event_type: str, *, registry: EventContractRegistry | 
 
 def validate_event_contract(
     contract: EventContract, *, domains: ConcurrentStableSet[str] | None = None
-) -> tuple[str, ...]:
+) -> ConcurrentStableList[str]:
     """校验单个契约（命名 / 事件域 / 版本 / 字段）。
 
     Args:
@@ -453,12 +469,12 @@ def validate_event_contract(
             errors.add(f"字段名占用事件信封保留键：{contract.event_type}.{name}")
         if spec.type not in EVENT_FIELD_TYPES:
             errors.add(f"字段类型非法：{contract.event_type}.{name}（{spec.type}）")
-    return tuple(errors)
+    return ConcurrentStableList(errors)
 
 
 def validate_event_registry(
     registry: EventContractRegistry, *, domains: ConcurrentStableSet[str] | None = None
-) -> tuple[str, ...]:
+) -> ConcurrentStableList[str]:
     """校验注册表（契约 + 订阅；启动与 CLI 共用）。
 
     Args:
@@ -487,7 +503,7 @@ def validate_event_registry(
             errors.add(
                 f"订阅未覆盖契约当前主版本 {contract.major}（支持 {sorted(subscription.supported_majors)}）：{label}"
             )
-    return tuple(errors)
+    return ConcurrentStableList(errors)
 
 
 def _version_tuple(version: str) -> tuple[int, int, int] | None:
@@ -505,7 +521,7 @@ def _version_tuple(version: str) -> tuple[int, int, int] | None:
     return int(major), int(minor), int(patch)
 
 
-def check_event_compatibility(previous: EventContract, current: EventContract) -> tuple[str, ...]:
+def check_event_compatibility(previous: EventContract, current: EventContract) -> ConcurrentStableList[str]:
     """兼容校验（主版本内只增不删 / 新增可选；主版本严格升级允许破坏性变更）。
 
     - **主版本内**（次 / 补丁升级）：字段只增不删、新增必须可选、类型 / 必填性不得变更、
@@ -521,11 +537,11 @@ def check_event_compatibility(previous: EventContract, current: EventContract) -
         tuple[str, ...]: 违规明细；空元组兼容。
     """
     if previous.event_type != current.event_type:
-        return (f"事件类型不一致：{previous.event_type} → {current.event_type}",)
+        return ConcurrentStableList((f"事件类型不一致：{previous.event_type} → {current.event_type}",))
     previous_version = _version_tuple(previous.version)
     current_version = _version_tuple(current.version)
     if previous_version is None or current_version is None:
-        return (f"契约版本非法：{previous.event_type}（{previous.version} → {current.version}）",)
+        return ConcurrentStableList((f"契约版本非法：{previous.event_type}（{previous.version} → {current.version}）",))
 
     major_upgraded = current_version[0] > previous_version[0]
     violations: ConcurrentStableList[str] = ConcurrentStableList()
@@ -563,14 +579,14 @@ def check_event_compatibility(previous: EventContract, current: EventContract) -
         violations.add(f"存在破坏性变更，必须升主版本：{current.event_type}（{previous.version} → {current.version}）")
     elif structured and not breaking and current_version[:2] == previous_version[:2]:
         violations.add(f"契约字段变更至少升次版本：{current.event_type}（{previous.version} → {current.version}）")
-    return tuple(violations)
+    return ConcurrentStableList(violations)
 
 
 def check_subscription_coverage(
     previous: EventContract | None,
     current: EventContract,
     subscriptions: ConcurrentStableList[EventSubscription],
-) -> tuple[str, ...]:
+) -> ConcurrentStableList[str]:
     """订阅覆盖校验：主版本升级（或新增契约）时消费方须已支持新主版本。
 
     Args:
@@ -583,13 +599,16 @@ def check_subscription_coverage(
     """
     current_major = current.major
     if current_major is None:
-        return (f"契约版本非法：{current.event_type}@{current.version}",)
+        return ConcurrentStableList((f"契约版本非法：{current.event_type}@{current.version}",))
     previous_major = previous.major if previous is not None else None
     if previous_major is not None and current_major <= previous_major:
-        return ()
-    return tuple(
-        f"主版本升级未覆盖订阅：{current.event_type}@{current.version} 需消费方 {subscription.consumer} "
-        f"支持主版本 {current_major}（现支持 {sorted(subscription.supported_majors)}）"
+        return ConcurrentStableList(())
+    return ConcurrentStableList(
+        (
+            f"主版本升级未覆盖订阅：{current.event_type}@{current.version} 需消费方 "
+            f"{subscription.consumer} 支持主版本 {current_major}"
+            f"（现支持 {sorted(subscription.supported_majors)}）"
+        )
         for subscription in subscriptions
         if current_major not in subscription.supported_majors
     )
@@ -597,7 +616,7 @@ def check_subscription_coverage(
 
 def check_snapshot_compatibility(
     previous: ConcurrentStableList[EventContract], registry: EventContractRegistry
-) -> tuple[str, ...]:
+) -> ConcurrentStableList[str]:
     """快照 → 现行注册表的兼容校验（事件类型不得消失 + 逐事件兼容 + 订阅覆盖）。
 
     Args:
@@ -624,7 +643,7 @@ def check_snapshot_compatibility(
                 ConcurrentStableList(registry.subscriptions_for(current_contract.event_type)),
             )
         )
-    return tuple(errors)
+    return ConcurrentStableList(errors)
 
 
 def event_version_compatible(contract: EventContract, version: str | None) -> bool:
@@ -691,7 +710,9 @@ def render_event_snapshot(registry: EventContractRegistry) -> str:
     return json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
 
 
-def parse_event_snapshot(payload: object) -> tuple[tuple[EventContract, ...], tuple[EventSubscription, ...]]:
+def parse_event_snapshot(
+    payload: object,
+) -> tuple[ConcurrentStableList[EventContract], ConcurrentStableList[EventSubscription]]:
     """解析快照载荷为契约与订阅清单。
 
     Args:
@@ -717,4 +738,4 @@ def parse_event_snapshot(payload: object) -> tuple[tuple[EventContract, ...], tu
         )
     except (KeyError, TypeError, ValueError) as exc:
         raise EventContractError(f"事件契约快照解析失败：{exc!r}") from exc
-    return contracts, subscriptions
+    return ConcurrentStableList((contracts, subscriptions))  # pyright: ignore[reportReturnType]

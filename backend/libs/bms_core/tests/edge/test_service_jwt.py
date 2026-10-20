@@ -11,7 +11,7 @@ import pytest
 from joserfc import jwt as joserfc_jwt
 from joserfc.jwk import RSAKey
 
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenList
 from bms_core.core.config import Settings
 from bms_core.core.exceptions import PluginError
 from bms_core.edge.headers import (
@@ -55,7 +55,7 @@ def _issue(issuer: JwtServiceTokenIssuer, *, tenant_id: str | None = "1001") -> 
     Returns:
         str: 紧凑 JWT。
     """
-    spec = ServiceTokenSpec(service="gateway", scopes=("gateway",), tenant_id=tenant_id)
+    spec = ServiceTokenSpec(service="gateway", scopes=ConcurrentStableFrozenList(("gateway",)), tenant_id=tenant_id)
     return asyncio.run(issuer.issue(spec)).access_token
 
 

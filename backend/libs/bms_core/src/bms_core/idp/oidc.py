@@ -33,7 +33,7 @@ __all__ = [
 _HTTP_TIMEOUT = 10.0
 """OIDC 端点调用超时（秒）。"""
 
-_DEFAULT_SCOPES: tuple[str, ...] = ("openid", "profile", "email")
+_DEFAULT_SCOPES: ConcurrentStableList[str] = ConcurrentStableList(("openid", "profile", "email"))
 """缺省请求 scope。"""
 
 

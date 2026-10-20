@@ -43,7 +43,7 @@ from bms_platform.services.menu import MenuSnapshot
 DEFAULT_METADATA_TTL = 300
 """元数据快照缓存有效期（秒；与权限快照 TTL 同口径）。"""
 
-_PERM_TYPES: tuple[str, ...] = (PERM_TYPE_MENU, PERM_TYPE_FORM, PERM_TYPE_PERMISSION)
+_PERM_TYPES: ConcurrentStableList[str] = ConcurrentStableList((PERM_TYPE_MENU, PERM_TYPE_FORM, PERM_TYPE_PERMISSION))
 """授权类型取值（与 `sys_role_permission.perm_type` 一致）。"""
 
 ResolversFactory = Callable[[DbSession], tuple[BaseRoleResolver, ...]]
@@ -96,7 +96,7 @@ class PlatformPermissionDataSource(BasePermissionDataSource):
             session_scope(self._registry, read_only=True) as tenant_session,
             session_scope(self._registry, db_key=PLATFORM_DB_KEY, read_only=True) as platform_session,
         ):
-            role_ids = await PermissionSubjectService(self._resolvers_factory(tenant_session)).resolve_role_ids(user_id)
+            role_ids = await PermissionSubjectService(self._resolvers_factory(tenant_session)).resolve_role_ids(user_id)  # pyright: ignore[reportArgumentType]  # 08_05：注解落集合类，值形态由契约/外部决定
             data = PermissionSubjectData(role_ids=role_ids)
             if not role_ids:
                 return data

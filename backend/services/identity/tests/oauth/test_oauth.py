@@ -11,6 +11,7 @@ from bms_core.api.deps import get_oauth_server, get_scope_checker
 from bms_core.application import service_lifespan as lifespan
 from bms_core.core.base import BaseObject
 from bms_core.core.capability import BaseCapability, BaseNullObject
+from bms_core.core.concurrent import ConcurrentStableFrozenList
 from bms_core.oauth.base import (
     GRANT_TYPES,
     NULL_ACCESS_TOKEN,
@@ -80,7 +81,9 @@ async def test_null_server_returns_fixed_token() -> None:
     """占位服务端固定返回占位令牌（不签发、不因入参变化）。"""
     server = NullOAuthServer()
     first = await server.issue_token(ClientCredentials(client_id="c1", client_secret="s1"))
-    second = await server.issue_token(ClientCredentials(client_id="c2", client_secret="s2", scopes=("user:read",)))
+    second = await server.issue_token(
+        ClientCredentials(client_id="c2", client_secret="s2", scopes=ConcurrentStableFrozenList(("user:read",)))
+    )
 
     assert first == OAuthToken(access_token=NULL_ACCESS_TOKEN)
     assert first == second

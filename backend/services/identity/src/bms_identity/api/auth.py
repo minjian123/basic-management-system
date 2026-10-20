@@ -24,7 +24,7 @@ from bms_core.api.deps import (
     get_user_token_issuer,
 )
 from bms_core.captcha.base import BaseCaptcha
-from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableFrozenList, ConcurrentStableList
 from bms_core.core.context import current_client_ip
 from bms_core.core.exceptions import AuthError, ConfigError, ServiceUnavailableError
 from bms_core.db.registry import EngineRegistry
@@ -104,7 +104,7 @@ async def introspect(
 
     spec = ServiceTokenSpec(
         service=settings.gateway.service_identity,
-        scopes=("gateway",),
+        scopes=ConcurrentStableFrozenList(("gateway",)),
         tenant_id=verified.tenant_id,
         ttl=settings.gateway.token_ttl_seconds,
     )

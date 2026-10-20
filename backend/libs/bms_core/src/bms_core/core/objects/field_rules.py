@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import ClassVar
 
+from bms_core.core.concurrent import ConcurrentStableFrozenList
 from bms_core.core.objects.roots import BaseValueObject
 
 __all__ = ["BaseFieldRuleContract"]
@@ -23,4 +24,4 @@ class BaseFieldRuleContract(BaseValueObject):
     共用；规则引擎按同一字段名定位作用目标。
     """
 
-    COMMON_FIELDS: ClassVar[tuple[str, ...]] = ("field",)
+    COMMON_FIELDS: ClassVar[ConcurrentStableFrozenList[str]] = ConcurrentStableFrozenList(("field",))

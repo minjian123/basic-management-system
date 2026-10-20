@@ -20,7 +20,11 @@ from bms_core.api.deps import (
     get_tenant_source,
 )
 from bms_core.cache.base import CacheRegion
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import (
+    ConcurrentStableFrozenDict,
+    ConcurrentStableFrozenList,
+    ConcurrentStableList,
+)
 from bms_core.core.config import Settings
 from bms_core.core.exceptions import TenantStateConflictError
 from bms_core.core.logging import get_logger
@@ -446,7 +450,7 @@ async def put_module(
     return ApiResponse.ok(TenantModuleItemList(items=await service.list_items(tenant_id)))
 
 
-def _tenant_services() -> tuple[str, ...]:
+def _tenant_services() -> ConcurrentStableList[str]:
     """取需回收引擎的服务标识。
 
     Returns:
@@ -454,7 +458,7 @@ def _tenant_services() -> tuple[str, ...]:
     """
     from ops.tenant_provisioning import enabled_tenant_services
 
-    return tuple(enabled_tenant_services())
+    return ConcurrentStableList(enabled_tenant_services())
 
 
 async def _revoke_sessions(client: BaseServiceClient, tenant_code: str) -> int:
@@ -473,9 +477,9 @@ async def _revoke_sessions(client: BaseServiceClient, tenant_code: str) -> int:
                 service="identity",
                 method="POST",
                 path="/api/v1/identity/internal/sessions/revoke-tenant",
-                json_body=ConcurrentStableDict({"tenant_code": tenant_code}),
+                json_body=ConcurrentStableFrozenDict({"tenant_code": tenant_code}),
                 tenant_id=tenant_code,
-                policy=ServiceCallPolicy(scopes=("session_revoke",)),
+                policy=ServiceCallPolicy(scopes=ConcurrentStableFrozenList(("session_revoke",))),
             )
         )
     except Exception as exc:

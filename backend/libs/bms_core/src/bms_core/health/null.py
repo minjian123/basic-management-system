@@ -1,6 +1,7 @@
 """health 能力域缺省实现（Null Object）：占位返回、无副作用（02-3 自 bms_core.health.base.py 迁入）。"""
 
 from bms_core.core.capability import BaseNullObject
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.health.base import BaseHealthCheck, BaseHealthCheckRegistry
 
 __all__ = [
@@ -23,10 +24,10 @@ class NullHealthCheckRegistry(BaseHealthCheckRegistry, BaseNullObject):
         """
         return provider.key
 
-    def checks(self) -> tuple[BaseHealthCheck, ...]:
+    def checks(self) -> ConcurrentStableList[BaseHealthCheck]:
         """空检查项集。
 
         Returns:
             tuple[BaseHealthCheck, ...]: 空元组。
         """
-        return ()
+        return ConcurrentStableList(())

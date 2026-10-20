@@ -20,12 +20,12 @@
 import asyncio
 from abc import ABC, abstractmethod
 from contextlib import suppress
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import cast
 
 from fastapi import Request
 
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenList, ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.core.objects import BaseHealthResultContract
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, resolve_plugin
@@ -71,7 +71,9 @@ class HealthCheckReport(BaseHealthResultContract):
     ok: bool
     """总体是否就绪（全部检查项通过）。"""
 
-    checks: tuple[HealthCheckResult, ...] = ()
+    checks: ConcurrentStableFrozenList[HealthCheckResult] = field(
+        default_factory=lambda: ConcurrentStableFrozenList[HealthCheckResult]()
+    )
     """各检查项结果（注册顺序，稳定）。"""
 
 
@@ -132,7 +134,7 @@ class BaseHealthCheckRegistry(BaseProviderRegistry[BaseHealthCheck], ABC):
         self._check_timeout_ms = check_timeout_ms
         self._total_timeout_ms = total_timeout_ms
 
-    def checks(self) -> tuple[BaseHealthCheck, ...]:
+    def checks(self) -> ConcurrentStableList[BaseHealthCheck]:
         """已登记检查项（注册顺序）。
 
         Returns:
@@ -171,7 +173,7 @@ class BaseHealthCheckRegistry(BaseProviderRegistry[BaseHealthCheck], ABC):
             for index, check in enumerate(checks)
         )
         ok = all(result.ok for check, result in zip(checks, ordered, strict=True) if check.required)
-        return HealthCheckReport(ok=ok, checks=ordered)
+        return HealthCheckReport(ok=ok, checks=ordered)  # pyright: ignore[reportArgumentType]  # 08_05：注解落集合类，值形态由契约/外部决定
 
 
 def get_health_check_registry(request: Request) -> BaseHealthCheckRegistry:

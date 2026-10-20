@@ -13,7 +13,7 @@ from joserfc import jwt
 from joserfc.jwk import ECKey, RSAKey
 
 from bms_core.core.capability import BaseNullObject
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenList, ConcurrentStableList
 from bms_core.core.config import SecuritySettings, Settings, TokenKeySettings, UserTokenSettings
 from bms_core.core.exceptions import AuthError, ConfigError, ParamError
 from bms_core.oauth.keys import TokenKey, merge_jwks
@@ -162,7 +162,12 @@ async def test_issue_pair_claims_and_ttls() -> None:
     """签发双 token：access / refresh claims 与 TTL、`jti` 同值、可选 tenant / scope 回填。"""
     issuer = _issuer()
     pair = await issuer.issue_pair(
-        UserTokenSpec(subject="1001", session_id="sess-1", tenant_id="acme", scopes=("user:read", "org:read"))
+        UserTokenSpec(
+            subject="1001",
+            session_id="sess-1",
+            tenant_id="acme",
+            scopes=ConcurrentStableFrozenList(("user:read", "org:read")),
+        )
     )
     assert isinstance(pair, UserTokenPair)
     assert pair.token_type == "Bearer"

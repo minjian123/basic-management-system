@@ -13,7 +13,7 @@ from fastapi import FastAPI
 from starlette.requests import Request
 
 from bms_core.api.base import DEFAULT_GATEWAY_SERVICE_IDENTITY, AuthContext, require_auth_or_service
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenList, ConcurrentStableList
 from bms_core.core.context import current_user_id
 from bms_core.core.exceptions import AuthError, SessionAuthError
 from bms_core.db.tenant import TenantContext
@@ -63,7 +63,7 @@ class _DualVerifier(BaseTokenVerifier):
         service: str = "identity",
         service_token: str = _SVC_TOK,
         service_tenant: str | None = None,
-        service_scopes: tuple[str, ...] = (),
+        service_scopes: ConcurrentStableList[str] = ConcurrentStableList(()),  # noqa: B008
         service_error: bool = False,
         user: VerifiedToken | None = None,
         user_token: str = _USR_TOK,
@@ -206,7 +206,7 @@ def _user_verified(
     subject: str = "1001",
     tenant_id: str | None = _DEMO_ID,
     session_id: str = "s1",
-    scopes: tuple[str, ...] = ("a",),
+    scopes: ConcurrentStableList[str] = ConcurrentStableList(("a",)),  # noqa: B008
 ) -> VerifiedToken:
     """构造校验通过的用户令牌声明。
 
@@ -259,7 +259,9 @@ async def test_service_identity_passes_without_session_check() -> None:
 
 async def test_service_identity_keeps_token_tenant_and_scopes() -> None:
     """服务身份：令牌租户位与授权范围原样带入上下文（不写用户 / 租户请求上下文）。"""
-    verifier = _DualVerifier(service="tenant", service_tenant=_DEMO_ID, service_scopes=("catalog",))
+    verifier = _DualVerifier(
+        service="tenant", service_tenant=_DEMO_ID, service_scopes=ConcurrentStableList(("catalog",))
+    )
     context = await require_auth_or_service(_svc_request(), verifier=verifier, store=MemorySessionStore())
     assert context.service_identity == "tenant"
     assert context.tenant_id == _DEMO_ID
@@ -303,14 +305,18 @@ async def test_gateway_identity_defaults_when_unconfigured() -> None:
 async def test_edge_service_identity_uses_service_branch() -> None:
     """边缘身份为**纯服务身份**（无用户主体、签发方非网关）：走服务分支，不查会话（空存储亦通过）。"""
     state = ConcurrentStableDict[str, object](
-        {"edge_identity": EdgeIdentity(service_identity="identity", tenant_id=_DEMO_ID, scopes=("catalog",))}
+        {
+            "edge_identity": EdgeIdentity(
+                service_identity="identity", tenant_id=_DEMO_ID, scopes=ConcurrentStableFrozenList(("catalog",))
+            )
+        }
     )
     verifier = _DualVerifier(service="identity")
     context = await require_auth_or_service(_svc_request(state=state), verifier=verifier, store=MemorySessionStore())
     assert context == AuthContext(
         subject="identity",
         tenant_id=_DEMO_ID,
-        scopes=("catalog",),
+        scopes=ConcurrentStableFrozenList(("catalog",)),
         service_identity="identity",
         source="service",
     )

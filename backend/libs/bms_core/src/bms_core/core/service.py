@@ -21,7 +21,7 @@ from fastapi import FastAPI
 
 from bms_core.core.config import Settings, get_settings
 from bms_core.core.logging import get_logger
-from bms_core.core.objects import BaseFrameworkObject, BaseValueObject
+from bms_core.core.roots import BaseFrameworkObject, BaseValueObject
 
 __all__ = [
     "ServiceIdentity",

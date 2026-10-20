@@ -9,7 +9,7 @@
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, cast
 
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableFrozenDict
 from bms_core.core.exceptions import ServiceUnavailableError, TransactionUnavailableError
 from bms_core.core.objects import BaseFrameworkObject
 from bms_core.servicecall.base import BaseServiceClient, ServiceRequest, ServiceResponse
@@ -140,7 +140,7 @@ class HttpBranchDriver(BranchDriver):
                 service=service,
                 method="GET",
                 path=f"{BRANCHES_PATH}/{xid}",
-                query=ConcurrentStableDict({"db_key": db_key}),
+                query=ConcurrentStableFrozenDict({"db_key": db_key}),
             )
         )
         return _branch_state(response, action="分支状态核验")
@@ -161,7 +161,7 @@ class HttpBranchDriver(BranchDriver):
                 service=service,
                 method="POST",
                 path=f"{BRANCHES_PATH}/{xid}/commit",
-                query=ConcurrentStableDict({"db_key": db_key}),
+                query=ConcurrentStableFrozenDict({"db_key": db_key}),
             )
         )
         return _branch_state(response, action="分支提交")
@@ -182,7 +182,7 @@ class HttpBranchDriver(BranchDriver):
                 service=service,
                 method="POST",
                 path=f"{BRANCHES_PATH}/{xid}/rollback",
-                query=ConcurrentStableDict({"db_key": db_key}),
+                query=ConcurrentStableFrozenDict({"db_key": db_key}),
             )
         )
         return _branch_state(response, action="分支回滚")

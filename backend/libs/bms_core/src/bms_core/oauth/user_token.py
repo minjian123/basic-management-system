@@ -18,12 +18,12 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import cast
 
 from fastapi import Request
 
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenList
 from bms_core.core.config import Settings
 from bms_core.core.objects import BaseRefreshableTokenContract, BaseValueObject
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
@@ -67,7 +67,7 @@ class UserTokenSpec(BaseValueObject):
     tenant_id: str | None = None
     """租户主键（雪花 id 十进制字符串；claims `tenant_id`，可选）。"""
 
-    scopes: tuple[str, ...] = ()
+    scopes: ConcurrentStableFrozenList[str] = field(default_factory=lambda: ConcurrentStableFrozenList[str]())
     """授权范围（claims `scope`，空格分隔；可选，缺省不写）。"""
 
     remember_me: bool = True
@@ -96,7 +96,7 @@ class UserTokenPair(BaseRefreshableTokenContract):
     session_id: str = ""
     """会话 id（= `jti`，回显供调用方落会话记录）。"""
 
-    scopes: tuple[str, ...] = ()
+    scopes: ConcurrentStableFrozenList[str] = field(default_factory=lambda: ConcurrentStableFrozenList[str]())
     """生效的授权范围。"""
 
 

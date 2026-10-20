@@ -15,12 +15,12 @@
 """
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import cast
 
 from fastapi import Request
 
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenList
 from bms_core.core.config import Settings
 from bms_core.core.exceptions import AuthError
 from bms_core.core.objects import BaseDecisionContract, BaseRequestIdentityContract
@@ -59,7 +59,7 @@ class EdgeIdentity(BaseRequestIdentityContract):
     tenant_id: str | None = None
     """租户主键（雪花 id 十进制字符串）；服务 JWT `tenant_id` claim 承载，无为空。"""
 
-    scopes: tuple[str, ...] = ()
+    scopes: ConcurrentStableFrozenList[str] = field(default_factory=lambda: ConcurrentStableFrozenList[str]())
     """网关验证过的 scope 集合（逗号分隔头解析）。"""
 
     service_identity: str | None = None
@@ -94,7 +94,7 @@ class EdgeIdentity(BaseRequestIdentityContract):
             user_id=user_id,
             subject=subject,
             tenant_code=tenant_code,
-            scopes=scopes,
+            scopes=scopes,  # pyright: ignore[reportArgumentType]  # 08_05：注解落集合类，值形态由契约/外部决定
             service_identity=service_identity,
             session_id=session_id,
         )

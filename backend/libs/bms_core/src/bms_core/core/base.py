@@ -22,7 +22,7 @@ class BaseObject:
     """
 
     # 运行期成环：`core.concurrent -> core.base`，须字符串前向引用（免运行期导入）
-    def to_dict(self) -> "ConcurrentStableDict[str, object]":  # noqa: UP037
+    def to_dict(self) -> ConcurrentStableDict[str, object]:
         """公开字段字典（递归转换嵌套对象；ID 值按字符串输出）。
 
         Returns:
@@ -82,7 +82,7 @@ class BaseObject:
             return object.__hash__(self)
         return hash((type(self).__name__, item_id))
 
-    def _public_fields(self) -> "ConcurrentStableDict[str, object]":  # noqa: UP037
+    def _public_fields(self) -> ConcurrentStableDict[str, object]:
         """取公开字段：Pydantic 序列化器 → dataclass 声明字段 → 实例字典兜底。
 
         Returns:

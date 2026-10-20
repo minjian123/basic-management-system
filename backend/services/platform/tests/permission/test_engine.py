@@ -157,7 +157,7 @@ async def test_subject_service_unions_resolvers() -> None:
     ids_b: ConcurrentStableList[int] = ConcurrentStableList()
     ids_b.add(2)
     ids_b.add(3)
-    service = PermissionSubjectService((_Fixed(ids_a), _Fixed(ids_b)))
+    service = PermissionSubjectService(ConcurrentStableList((_Fixed(ids_a), _Fixed(ids_b))))
     assert sorted(await service.resolve_role_ids(9)) == [1, 2, 3]
 
 

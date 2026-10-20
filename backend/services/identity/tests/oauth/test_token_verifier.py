@@ -6,6 +6,7 @@
 import pytest
 from joserfc.jwk import RSAKey
 
+from bms_core.core.concurrent import ConcurrentStableFrozenList
 from bms_core.core.exceptions import AuthError, ParamError
 from bms_core.oauth.jwt import JwtServiceTokenIssuer
 from bms_core.oauth.keys import TokenKey
@@ -102,7 +103,9 @@ async def test_verify_service_token_locally() -> None:
     issuer = _service_issuer()
     verifier = _verifier(service=issuer)
     token = (
-        await issuer.issue(ServiceTokenSpec(service="platform", scopes=("user:read",), tenant_id="2002"))
+        await issuer.issue(
+            ServiceTokenSpec(service="platform", scopes=ConcurrentStableFrozenList(("user:read",)), tenant_id="2002")
+        )
     ).access_token
     verified = await verifier.verify(token, audience=TOKEN_AUDIENCE_SERVICE)
     assert verified.subject == "platform"
@@ -122,7 +125,9 @@ async def test_verify_user_token_locally() -> None:
     user = _user_issuer()
     verifier = _verifier(user=user)
     pair = await user.issue_pair(
-        UserTokenSpec(subject="1001", session_id="sess-1", tenant_id="2002", scopes=("profile",))
+        UserTokenSpec(
+            subject="1001", session_id="sess-1", tenant_id="2002", scopes=ConcurrentStableFrozenList(("profile",))
+        )
     )
     verified = await verifier.verify(pair.access_token, audience=TOKEN_AUDIENCE_API)
     assert verified.subject == "1001"

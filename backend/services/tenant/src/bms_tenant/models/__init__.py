@@ -1,13 +1,17 @@
+from bms_core.core.concurrent import ConcurrentStableList
+
 """租户与配置服务 models 层：SQLAlchemy ORM 模型。
 
 继承约定：ORM 模型必须继承 `bms_core.models.BaseModel`。
 """
 
-MODEL_MODULES: tuple[str, ...] = (
-    "bms_tenant.models.tenant",
-    "bms_tenant.models.tenant_database",
-    "bms_tenant.models.tenant_module",
-    "bms_tenant.models.tenant_quota",
-    "bms_tenant.models.user_tenant",
+MODEL_MODULES: ConcurrentStableList[str] = ConcurrentStableList(
+    (
+        "bms_tenant.models.tenant",
+        "bms_tenant.models.tenant_database",
+        "bms_tenant.models.tenant_module",
+        "bms_tenant.models.tenant_quota",
+        "bms_tenant.models.user_tenant",
+    )
 )
 """本服务模型模块清单（迁移链按服务解析模型用）。"""

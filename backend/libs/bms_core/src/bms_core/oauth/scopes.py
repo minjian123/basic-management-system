@@ -59,24 +59,26 @@ class OpenScope(BaseValueObject):
     """是否写接口 scope（写接口需显式授予，未授予一律拒绝）。"""
 
 
-PLATFORM_OPEN_SCOPES: tuple[OpenScope, ...] = (
-    OpenScope(scope=f"open{SCOPE_SEPARATOR}{SCOPE_ACTION_READ}", description="开放接口只读（按分配的 scope 放行）"),
-    OpenScope(
-        scope=f"open{SCOPE_SEPARATOR}{SCOPE_ACTION_WRITE}",
-        description="开放接口写入（写接口需显式授予）",
-        write=True,
-    ),
+PLATFORM_OPEN_SCOPES: ConcurrentStableList[OpenScope] = ConcurrentStableList(
+    (
+        OpenScope(scope=f"open{SCOPE_SEPARATOR}{SCOPE_ACTION_READ}", description="开放接口只读（按分配的 scope 放行）"),
+        OpenScope(
+            scope=f"open{SCOPE_SEPARATOR}{SCOPE_ACTION_WRITE}",
+            description="开放接口写入（写接口需显式授予）",
+            write=True,
+        ),
+    )
 )
 """平台开放接口基础 scope（最小集合基线）。"""
 
-OIDC_SCOPES: tuple[OpenScope, ...] = tuple(
+OIDC_SCOPES: ConcurrentStableList[OpenScope] = ConcurrentStableList(
     OpenScope(scope=scope, description="OIDC 标准 scope（BMS 兼作 IdP 的授权码客户端必备）")
     for scope in OIDC_DEFAULT_SCOPES
 )
 """OIDC 标准 scope（`openid` / `profile` / `email`）。"""
 
 
-def product_scopes(product_key: str) -> tuple[OpenScope, ...]:
+def product_scopes(product_key: str) -> ConcurrentStableList[OpenScope]:
     """取某产品的开放接口 scope（只读 + 写入两项）。
 
     Args:
@@ -85,20 +87,22 @@ def product_scopes(product_key: str) -> tuple[OpenScope, ...]:
     Returns:
         tuple[OpenScope, ...]: 该产品的 scope 登记记录（只读在前）。
     """
-    return (
-        OpenScope(
-            scope=f"{product_key}{SCOPE_SEPARATOR}{SCOPE_ACTION_READ}",
-            description=f"{product_key} 产品开放接口只读",
-        ),
-        OpenScope(
-            scope=f"{product_key}{SCOPE_SEPARATOR}{SCOPE_ACTION_WRITE}",
-            description=f"{product_key} 产品开放接口写入（写接口需显式授予）",
-            write=True,
-        ),
+    return ConcurrentStableList(
+        (
+            OpenScope(
+                scope=f"{product_key}{SCOPE_SEPARATOR}{SCOPE_ACTION_READ}",
+                description=f"{product_key} 产品开放接口只读",
+            ),
+            OpenScope(
+                scope=f"{product_key}{SCOPE_SEPARATOR}{SCOPE_ACTION_WRITE}",
+                description=f"{product_key} 产品开放接口写入（写接口需显式授予）",
+                write=True,
+            ),
+        )
     )
 
 
-def _build_open_scopes(source: ConcurrentStableList[ProductRecord]) -> tuple[OpenScope, ...]:
+def _build_open_scopes(source: ConcurrentStableList[ProductRecord]) -> ConcurrentStableList[OpenScope]:
     """按产品档案清单拼装全量 scope 登记视图（平台基础 → OIDC → 产品，保持插入序）。
 
     Args:
@@ -110,14 +114,14 @@ def _build_open_scopes(source: ConcurrentStableList[ProductRecord]) -> tuple[Ope
     records: ConcurrentStableList[OpenScope] = ConcurrentStableList([*PLATFORM_OPEN_SCOPES, *OIDC_SCOPES])
     for record in source:
         records.update(product_scopes(record.product_key))
-    return tuple(records)
+    return ConcurrentStableList(records)
 
 
-OPEN_SCOPES: tuple[OpenScope, ...] = _build_open_scopes(ConcurrentStableList(PRODUCT_CATALOG))
+OPEN_SCOPES: ConcurrentStableList[OpenScope] = _build_open_scopes(ConcurrentStableList(PRODUCT_CATALOG))
 """全量 scope 登记视图（平台基础 + OIDC 标准 + 各已登记产品域；`PRODUCT_CATALOG` 派生）。"""
 
 
-def open_scopes(products: ConcurrentStableList[ProductRecord] | None = None) -> tuple[OpenScope, ...]:
+def open_scopes(products: ConcurrentStableList[ProductRecord] | None = None) -> ConcurrentStableList[OpenScope]:
     """全量 scope 登记视图（平台基础 + OIDC 标准 + 各产品域）。
 
     Args:

@@ -14,7 +14,7 @@ from __future__ import annotations
 import secrets
 
 from bms_core.captcha.base import BaseCaptcha, CaptchaCredential, CaptchaKind
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenList
 from bms_core.core.config import PasswordResetSettings
 from bms_core.core.exceptions import (
     CaptchaVerifyError,
@@ -217,7 +217,7 @@ class PasswordResetService(BaseFrameworkObject):
                 captcha_id=captcha.captcha_id,
                 kind=kind,
                 code=captcha.code,
-                trace=tuple(captcha.trace),
+                trace=ConcurrentStableFrozenList(captcha.trace),
                 scene=_RESET_SCENE,
             )
         )

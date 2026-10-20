@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import ClassVar
 
+from bms_core.core.concurrent import ConcurrentStableFrozenList
 from bms_core.core.objects.roots import BaseValueObject
 
 __all__ = ["BaseProcessContract"]
@@ -23,4 +24,4 @@ class BaseProcessContract(BaseValueObject):
     `ProcessDefinition.definition_key`），调用方无需区分两侧字段名。
     """
 
-    COMMON_FIELDS: ClassVar[tuple[str, ...]] = ("definition_key",)
+    COMMON_FIELDS: ClassVar[ConcurrentStableFrozenList[str]] = ConcurrentStableFrozenList(("definition_key",))

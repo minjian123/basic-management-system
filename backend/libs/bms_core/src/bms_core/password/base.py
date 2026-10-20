@@ -18,14 +18,16 @@ from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 
-PASSWORD_VIOLATIONS: tuple[str, ...] = (
-    "too_short",
-    "too_long",
-    "need_upper",
-    "need_lower",
-    "need_digit",
-    "need_symbol",
-    "username_included",
+PASSWORD_VIOLATIONS: ConcurrentStableList[str] = ConcurrentStableList(
+    (
+        "too_short",
+        "too_long",
+        "need_upper",
+        "need_lower",
+        "need_digit",
+        "need_symbol",
+        "username_included",
+    )
 )
 """密码违规原因码（`validate` 返回本表子集；上层据此映射提示文案，如 `error.password.too_short`）。"""
 
@@ -42,7 +44,7 @@ class BasePasswordPolicy(BasePluggable, ABC):
     contract_version: str = DEFAULT_CONTRACT_VERSION
 
     @abstractmethod
-    async def validate(self, password: str, *, username: str | None = None) -> tuple[str, ...]:
+    async def validate(self, password: str, *, username: str | None = None) -> ConcurrentStableList[str]:
         """校验密码复杂度。
 
         Args:

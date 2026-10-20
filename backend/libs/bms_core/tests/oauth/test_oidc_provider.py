@@ -7,7 +7,7 @@ import pytest
 from joserfc import jwt
 from joserfc.jwk import RSAKey
 
-from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableFrozenList, ConcurrentStableList
 from bms_core.core.exceptions import AuthError, ConfigError, ParamError
 from bms_core.idp.jwks import verify_jwt
 from bms_core.oauth.keys import TokenKey, to_key_set
@@ -98,7 +98,13 @@ async def test_access_token_roundtrip_and_verify() -> None:
     _, keys = _keys()
     provider = JwtOidcProvider(keys=keys, active_kid="usr-k1", access_ttl=300)
     token = await provider.issue_access_token(
-        AccessTokenSpec(subject="1001", tenant_id="1001", client_id=CLIENT, issuer=ISS, scopes=("openid", "profile"))
+        AccessTokenSpec(
+            subject="1001",
+            tenant_id="1001",
+            client_id=CLIENT,
+            issuer=ISS,
+            scopes=ConcurrentStableFrozenList(("openid", "profile")),
+        )
     )
     claims = provider.verify_access_token(token, issuer=ISS)
     assert claims.subject == "1001"

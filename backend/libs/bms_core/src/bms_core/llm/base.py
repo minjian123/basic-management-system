@@ -17,7 +17,7 @@ from typing import cast
 
 from fastapi import Request
 
-from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableFrozenList, ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.core.objects import BaseLlmResultContract, BaseValueObject
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
@@ -35,7 +35,7 @@ __all__ = [
     "get_llm_provider",
 ]
 
-LLM_PROVIDER_TYPES: tuple[str, ...] = ("llm", "embedding", "ocr")
+LLM_PROVIDER_TYPES: ConcurrentStableList[str] = ConcurrentStableList(("llm", "embedding", "ocr"))
 """Provider 类型清单（对应 `sys_ai_provider.type`）；占位期仅登记不校验。"""
 
 NULL_EMBEDDING_DIM = 1024
@@ -77,7 +77,7 @@ class ChatResult(BaseLlmResultContract):
 class EmbeddingResult(BaseLlmResultContract):
     """向量化结果。"""
 
-    vectors: tuple[tuple[float, ...], ...]
+    vectors: ConcurrentStableFrozenList[ConcurrentStableFrozenList[float]]
     """向量列表（每条文本一个向量，与入参 `texts` 等长）。"""
 
     model: str | None = None

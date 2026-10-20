@@ -16,17 +16,20 @@ from typing import cast
 
 from fastapi import Request
 
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 
-DEPENDENCIES: tuple[str, ...] = (
-    "redis",
-    "database",
-    "rocketmq",
-    "elasticsearch",
-    "minio",
-    "mail_sms",
-    "external_api",
+DEPENDENCIES: ConcurrentStableList[str] = ConcurrentStableList(
+    (
+        "redis",
+        "database",
+        "rocketmq",
+        "elasticsearch",
+        "minio",
+        "mail_sms",
+        "external_api",
+    )
 )
 """依赖标识清单（降级矩阵行）；新增依赖类型在此追加，并同步架构降级矩阵表。"""
 

@@ -15,7 +15,10 @@ from pydantic import Field, computed_field
 
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.registry.forms import FormKind, FormStatus
-from bms_core.schemas.base import CONTRACT_COLLECTION, BaseSchema
+from bms_core.schemas.base import (
+    CONTRACT_COLLECTION,
+    BaseSchema,
+)
 
 __all__ = ["FormKeyListResponse", "FormKeyResponse"]
 

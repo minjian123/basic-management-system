@@ -26,7 +26,11 @@ from pydantic import Field
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
-from bms_core.schemas.base import CONTRACT_COLLECTION, CONTRACT_STABLE_LIST, BaseSchema
+from bms_core.schemas.base import (
+    CONTRACT_COLLECTION,
+    CONTRACT_STABLE_LIST,
+    BaseSchema,
+)
 
 __all__ = [
     "DEFAULT_ICON_STATUS",
@@ -47,7 +51,7 @@ __all__ = [
     "is_valid_icon_code",
 ]
 
-ICON_SOURCES: tuple[str, ...] = ("el", "biz", "custom", "van")
+ICON_SOURCES: ConcurrentStableList[str] = ConcurrentStableList(("el", "biz", "custom", "van"))
 """图标来源前缀取值集合（平台官方 / 业务自绘 / 租户自定义 / 移动端，对齐前端图标 key 口径）。"""
 
 ICON_CUSTOM_SOURCE = "custom"
@@ -56,7 +60,7 @@ ICON_CUSTOM_SOURCE = "custom"
 ICON_KEY_SEPARATOR = ":"
 """图标键前缀分隔符（`{来源}:{图标键}`）。"""
 
-ICON_STATUSES: tuple[str, ...] = ("active", "disabled")
+ICON_STATUSES: ConcurrentStableList[str] = ConcurrentStableList(("active", "disabled"))
 """图标状态取值集合（启用 / 停用）。"""
 
 DEFAULT_ICON_STATUS = "active"

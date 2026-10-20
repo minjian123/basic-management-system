@@ -22,7 +22,12 @@ from bms_core.audit.hashchain import (
 from bms_core.audit.null import NullHashChain
 from bms_core.core.base import BaseObject
 from bms_core.core.capability import BaseCapability, BaseNullObject
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.core.concurrent import (
+    ConcurrentStableDict,
+    ConcurrentStableFrozenDict,
+    ConcurrentStableFrozenList,
+    ConcurrentStableList,
+)
 
 
 @pytest.mark.kiwi_id(57)
@@ -60,7 +65,7 @@ def test_build_chain_key_partitions_by_service_and_tenant() -> None:
 @pytest.mark.kiwi_id(57)
 def test_data_contracts_defaults_and_frozen() -> None:
     """`HashChainEntry` / `ChainVerifyResult` 默认值与不可变。"""
-    entry = HashChainEntry(prev_hash=GENESIS_HASH, record=ConcurrentStableDict({"a": 1}), record_hash="h1")
+    entry = HashChainEntry(prev_hash=GENESIS_HASH, record=ConcurrentStableFrozenDict({"a": 1}), record_hash="h1")
     assert entry.prev_hash == GENESIS_HASH
     assert ChainVerifyResult(valid=True).broken_index is None
 
@@ -80,8 +85,8 @@ def test_null_compute_fixed() -> None:
 def test_null_verify_always_valid() -> None:
     """占位校验恒定通过。"""
     chain = NullHashChain()
-    entries = ConcurrentStableList(
-        [HashChainEntry(prev_hash=GENESIS_HASH, record=ConcurrentStableDict({"a": 1}), record_hash="h1")]
+    entries = ConcurrentStableFrozenList(
+        [HashChainEntry(prev_hash=GENESIS_HASH, record=ConcurrentStableFrozenDict({"a": 1}), record_hash="h1")]
     )
     assert chain.verify(entries) == ChainVerifyResult(valid=True, broken_index=None)
     assert chain.verify(ConcurrentStableList([])) == ChainVerifyResult(valid=True)

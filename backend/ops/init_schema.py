@@ -48,9 +48,9 @@ _LABELS = {
 class SchemaSummary(BaseValueObject):
     """批量建表结果汇总（成功 / 跳过 / 失败 + 新建与已存在表数）。"""
 
-    succeeded: tuple[str, ...]
-    skipped: tuple[str, ...]
-    failed: tuple[str, ...]
+    succeeded: ConcurrentStableList[str]
+    skipped: ConcurrentStableList[str]
+    failed: ConcurrentStableList[str]
     created: int
     existing: int
 

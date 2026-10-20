@@ -12,7 +12,7 @@ from joserfc.jwk import RSAKey
 
 from bms_core.api.deps import get_service_token_issuer, get_tenant_source, get_token_verifier
 from bms_core.application import service_lifespan
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenList, ConcurrentStableList
 from bms_core.core.exceptions import AuthError, ConfigError, ServiceUnavailableError, TenantNotFoundError
 from bms_core.db.tenant import TenantContext, TenantLookup
 from bms_core.idp.base import IdentityClaims
@@ -217,7 +217,12 @@ def test_protected_path_with_valid_token_issues_gateway_token() -> None:
     """受保护路径：校验通过后返回契约身份头（含会话 id）+ 网关服务 JWT（可验签）。"""
     issuer = _issuer()
     verifier = _StubVerifier(
-        result=VerifiedToken(subject="u-1", tenant_id="2002", scopes=("user:read", "user:write"), token_id="sess-1")
+        result=VerifiedToken(
+            subject="u-1",
+            tenant_id="2002",
+            scopes=ConcurrentStableFrozenList(("user:read", "user:write")),
+            token_id="sess-1",
+        )
     )
     status, headers = asyncio.run(
         _request(

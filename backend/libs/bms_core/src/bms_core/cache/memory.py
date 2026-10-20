@@ -28,6 +28,7 @@ class MemoryCacheRegion(CacheRegion):
         """
         self._domain = domain
         self._max_items = max(1, max_items)
+        # bare-collections:allow（LRU 内部结构：需 move_to_end / popitem(last=False) 专有 API，集合类不提供）
         self._items: OrderedDict[str, tuple[object, float | None]] = OrderedDict()
         self._version = 0
         self._lock = Lock()

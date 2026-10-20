@@ -11,6 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import ClassVar
 
+from bms_core.core.concurrent import ConcurrentStableFrozenList
 from bms_core.core.objects.roots import BaseValueObject
 
 __all__ = ["BaseHttpResponseContract"]
@@ -24,4 +25,6 @@ class BaseHttpResponseContract(BaseValueObject):
     （`HttpResponse`）与服务间调用（`ServiceResponse`）共用；重试判定、错误映射与日志按同一组字段读取。
     """
 
-    COMMON_FIELDS: ClassVar[tuple[str, ...]] = ("status_code", "headers", "content")
+    COMMON_FIELDS: ClassVar[ConcurrentStableFrozenList[str]] = ConcurrentStableFrozenList(
+        ("status_code", "headers", "content")
+    )

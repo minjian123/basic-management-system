@@ -11,7 +11,10 @@ from typing import Annotated
 from pydantic import Field
 
 from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
-from bms_core.schemas.base import CONTRACT_COLLECTION, BaseSchema
+from bms_core.schemas.base import (
+    CONTRACT_COLLECTION,
+    BaseSchema,
+)
 
 
 class SortDirection(StrEnum):

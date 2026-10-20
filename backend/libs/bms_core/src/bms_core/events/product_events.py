@@ -9,6 +9,7 @@
 - **本期产品契约为空清单**（产品随接入补登）；空清单登记为无操作，快照与现状零漂移。
 """
 
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.events.contracts import (
     EventContract,
     EventContractRegistry,
@@ -22,17 +23,17 @@ __all__ = [
     "register_product_event_contracts",
 ]
 
-PRODUCT_EVENT_CONTRACTS: tuple[EventContract, ...] = ()
+PRODUCT_EVENT_CONTRACTS: ConcurrentStableList[EventContract] = ConcurrentStableList()
 """产品事件契约（bms 侧本期为空；产品侧经本节登记扩展点注入）。"""
 
-PRODUCT_EVENT_SUBSCRIPTIONS: tuple[EventSubscription, ...] = ()
+PRODUCT_EVENT_SUBSCRIPTIONS: ConcurrentStableList[EventSubscription] = ConcurrentStableList()
 """产品事件订阅声明（bms 侧本期为空；产品侧经本节登记扩展点注入）。"""
 
 
 def register_product_event_contracts(
-    contracts: tuple[EventContract, ...] = PRODUCT_EVENT_CONTRACTS,
+    contracts: ConcurrentStableList[EventContract] = PRODUCT_EVENT_CONTRACTS,
     *,
-    subscriptions: tuple[EventSubscription, ...] = PRODUCT_EVENT_SUBSCRIPTIONS,
+    subscriptions: ConcurrentStableList[EventSubscription] = PRODUCT_EVENT_SUBSCRIPTIONS,
     registry: EventContractRegistry | None = None,
 ) -> None:
     """把产品事件契约与订阅登记进目标注册表（幂等；同值重复登记无操作）。

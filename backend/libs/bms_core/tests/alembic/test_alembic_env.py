@@ -8,7 +8,7 @@ from alembic.config import Config
 from sqlalchemy import create_engine
 
 import bms_core.db.migration as migration
-from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
+from bms_core.core.concurrent import ConcurrentStableFrozenSet, ConcurrentStableList
 from bms_core.core.exceptions import ConfigError
 from bms_core.db.migration import (
     MigrationChain,
@@ -49,7 +49,7 @@ def test_chain_metadata_intersects_existing_models() -> None:
         name="platform:tenant",
         service="platform",
         datasource="tenant",
-        tables=ConcurrentStableSet({"sys_role", "sys_ghost"}),
+        tables=ConcurrentStableFrozenSet({"sys_role", "sys_ghost"}),
         scope="platform 服务的服务租户库",
     )
     tables = chain_metadata(chain)
@@ -156,7 +156,7 @@ def test_apply_session_schema_dialect_and_fallback() -> None:
 def test_has_revisions_missing_directory() -> None:
     """版本目录不存在时视为空链（`False`）。"""
     ghost = MigrationChain(
-        name="ghost:tenant", service="ghost", datasource="tenant", tables=ConcurrentStableSet(), scope="测试"
+        name="ghost:tenant", service="ghost", datasource="tenant", tables=ConcurrentStableFrozenSet(), scope="测试"
     )
     assert migration.has_revisions(ghost) is False  # pyright: ignore[reportPrivateUsage]
 
@@ -221,11 +221,11 @@ def test_upgrade_chain_runs_temp_chain(tmp_path: Path, monkeypatch: pytest.Monke
 @pytest.mark.kiwi_id(2307)
 def test_upgrade_chain_passes_schema_x_arg(monkeypatch: pytest.MonkeyPatch) -> None:
     """达梦模式经 `-x schema=` 显式传入（非达梦方言忽略；以替身核对传参口径，避免真连达梦）。"""
-    captured: ConcurrentStableList[tuple[str, ...]] = ConcurrentStableList()
+    captured: ConcurrentStableList[ConcurrentStableList[str]] = ConcurrentStableList()
 
     def _fake_upgrade(config: Config, revision: str) -> None:
         """替身：记录 `-x` 参数并核对目标修订。"""
-        captured.add(tuple(config.cmd_opts.x))  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
+        captured.add(ConcurrentStableList(config.cmd_opts.x))  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
         assert revision == "head"
 
     monkeypatch.setattr(migration.command, "upgrade", _fake_upgrade)

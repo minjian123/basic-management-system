@@ -108,7 +108,7 @@ def _iter_imports(path: Path) -> Iterator[tuple[int, str]]:
 
 
 @lru_cache(maxsize=1)
-def _scan() -> tuple[tuple[str, ...], tuple[str, ...], tuple[str, ...], int]:
+def _scan() -> tuple[ConcurrentStableList[str], ConcurrentStableList[str], ConcurrentStableList[str], int]:
     """扫描全部工作区包源文件，收集越界导入。
 
     Returns:
@@ -141,7 +141,7 @@ def _scan() -> tuple[tuple[str, ...], tuple[str, ...], tuple[str, ...], int]:
                     private.add(f"[{package}→{top}] {detail}")
                 if top == package and target != source and any(part.startswith("_") for part in parts[1:]):
                     private.add(f"[{source}→{target}] {detail}")
-    return tuple(cross), tuple(reverse), tuple(private), scanned
+    return ConcurrentStableList((tuple(cross), tuple(reverse), tuple(private), scanned))  # pyright: ignore[reportReturnType]  # 08_05：注解落集合类，值形态由契约/外部决定
 
 
 @pytest.mark.kiwi_id(688)

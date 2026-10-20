@@ -13,7 +13,7 @@
 from abc import ABC, abstractmethod
 
 from bms_core.core.capability import BaseCapability
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.exceptions import ConflictError
 from bms_core.core.plugin import BasePluggable
 
@@ -79,18 +79,18 @@ class BaseProviderRegistry[ItemT](BasePluggable, ABC):
         """
         return self._providers.get(key)
 
-    def keys(self) -> tuple[str, ...]:
+    def keys(self) -> ConcurrentStableList[str]:
         """已登记键（注册顺序）。
 
         Returns:
             tuple[str, ...]: 键元组。
         """
-        return tuple(self._providers)
+        return ConcurrentStableList(self._providers)
 
-    def values(self) -> tuple[ItemT, ...]:
+    def values(self) -> ConcurrentStableList[ItemT]:
         """已登记提供者（注册顺序）。
 
         Returns:
             tuple[ItemT, ...]: 提供者元组。
         """
-        return tuple(self._providers.values())
+        return ConcurrentStableList(self._providers.values())

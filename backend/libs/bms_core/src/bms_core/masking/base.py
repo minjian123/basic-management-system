@@ -15,7 +15,7 @@ from typing import cast
 
 from fastapi import Request
 
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableSet
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.config import Settings
 from bms_core.core.context import reset_current_masker, set_current_masker
 from bms_core.core.exceptions import PluginError
@@ -23,7 +23,9 @@ from bms_core.core.objects import BaseFieldRuleContract
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 from bms_core.permission.base import BasePermissionChecker
 
-MASK_STRATEGIES: tuple[str, ...] = ("phone", "id_card", "email", "bank_card", "name", "address", "custom")
+MASK_STRATEGIES: ConcurrentStableList[str] = ConcurrentStableList(
+    ("phone", "id_card", "email", "bank_card", "name", "address", "custom")
+)
 """候选掩码策略（内置策略规格见 `masking/default.py` 的 `BUILTIN_MASK_SPECS`；`custom` 恒居末位）。"""
 
 PLAIN_PERMISSION = "data:plain"
@@ -86,13 +88,13 @@ class BaseMasker(BasePluggable, ABC):
         """
         return ConcurrentStableSet(self._rules)
 
-    def rules(self) -> tuple[MaskRule, ...]:
+    def rules(self) -> ConcurrentStableList[MaskRule]:
         """登记项快照（按字段名排序，输出稳定）。
 
         Returns:
             tuple[MaskRule, ...]: 登记项元组。
         """
-        return tuple(self._rules[field] for field in sorted(self._rules))
+        return ConcurrentStableList(self._rules[field] for field in sorted(self._rules))
 
     def register_strategy(self, name: str, strategy: MaskStrategy) -> None:
         """登记自定义掩码策略（同名自定义策略重复注册以最后一次为准）。
@@ -114,13 +116,13 @@ class BaseMasker(BasePluggable, ABC):
             raise PluginError(f"自定义掩码策略名格式非法（须为小写字母开头的 snake_case）：{name}")
         self._strategies.set(name, strategy)
 
-    def strategies(self) -> tuple[str, ...]:
+    def strategies(self) -> ConcurrentStableList[str]:
         """自定义策略名快照（按名称排序，输出稳定）。
 
         Returns:
             tuple[str, ...]: 已登记自定义策略名元组。
         """
-        return tuple(sorted(self._strategies))
+        return ConcurrentStableList(sorted(self._strategies))
 
     def check_plain(self) -> bool:
         """当前请求是否持 `data:plain`（明文查看）权限。

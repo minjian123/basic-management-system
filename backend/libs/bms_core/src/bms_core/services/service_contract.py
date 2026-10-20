@@ -52,7 +52,7 @@ def contract_file_name(service_key: str) -> str:
     return f"{service_key}.json"
 
 
-def enabled_service_records() -> tuple[ModuleRecord, ...]:
+def enabled_service_records() -> ConcurrentStableList[ModuleRecord]:
     """启用的**平台服务**登记行（`service_key` 非空 + 状态启用 + **非产品分组**）。
 
     产品分组服务（如 `org` 归 mdm）的公开契约**由产品侧自持**（不在 bms `deploy/contracts/`，
@@ -61,12 +61,12 @@ def enabled_service_records() -> tuple[ModuleRecord, ...]:
     Returns:
         tuple[ModuleRecord, ...]: 按服务目录原始顺序排列的启用平台服务行。
     """
-    return tuple(
+    return ConcurrentStableList(
         record
         for record in SERVICE_CATALOG
         if record.service_key is not None
         and record.status == ModuleStatus.ENABLED
-        and record.service_group != ServiceGroup.PRODUCT
+        and (record.service_group != ServiceGroup.PRODUCT)
     )
 
 

@@ -24,6 +24,7 @@ from typing import Protocol
 
 from fastapi import Request
 
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.context import current_tenant, current_tenant_id, get_tenant_context
 from bms_core.core.exceptions import ConfigError, TenantNotFoundError
 from bms_core.core.objects import BaseTenantViewContract
@@ -55,24 +56,28 @@ __all__ = [
     "tenant_hostname",
 ]
 
-DEFAULT_EXEMPT_PATHS: tuple[str, ...] = (
-    "/",
-    "/docs",
-    "/redoc",
-    "/openapi.json",
-    "/healthz",
-    "/readyz",
-    "/metrics",
-    "/.well-known/jwks.json",
+DEFAULT_EXEMPT_PATHS: ConcurrentStableList[str] = ConcurrentStableList(
+    (
+        "/",
+        "/docs",
+        "/redoc",
+        "/openapi.json",
+        "/healthz",
+        "/readyz",
+        "/metrics",
+        "/.well-known/jwks.json",
+    )
 )
 """租户解析豁免路径缺省集（正式取值见 `[tenant].exempt_paths`）。"""
 
-DEFAULT_DEFERRED_PATHS: tuple[str, ...] = (
-    "/api/v1/auth/login",
-    "/api/v1/auth/forgot-password",
-    "/api/v1/auth/reset-password",
-    "/api/v1/captcha",
-    "/api/v1/auth/sso",
+DEFAULT_DEFERRED_PATHS: ConcurrentStableList[str] = ConcurrentStableList(
+    (
+        "/api/v1/auth/login",
+        "/api/v1/auth/forgot-password",
+        "/api/v1/auth/reset-password",
+        "/api/v1/captcha",
+        "/api/v1/auth/sso",
+    )
 )
 """免登录链路延迟解析路径缺省集（正式取值见 `[tenant].deferred_paths`）。
 

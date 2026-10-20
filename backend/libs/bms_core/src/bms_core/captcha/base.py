@@ -19,13 +19,13 @@
 """
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from enum import StrEnum
 from typing import cast
 
 from fastapi import Request
 
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenList, ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.core.exceptions import CaptchaVerifyError
 from bms_core.core.objects import BaseCaptchaContract, BaseValueObject
@@ -66,7 +66,9 @@ SLIDER_MIN_DURATION_MS = 300
 NULL_CAPTCHA_PAYLOAD = "{}"
 """占位形态参数（JSON 空对象串；真实实现按形态填背景与块图参数）。"""
 
-CAPTCHA_SCENES: tuple[str, ...] = ("login", "reset_password", "bind", "unbind", "register")
+CAPTCHA_SCENES: ConcurrentStableList[str] = ConcurrentStableList(
+    ("login", "reset_password", "bind", "unbind", "register")
+)
 """验证码场景取值（登录 / 找回密码 / 绑定手机 / 解绑手机 / 注册）。"""
 
 
@@ -153,7 +155,9 @@ class CaptchaCredential(BaseCaptchaContract):
     code: str = ""
     """用户输入的校验码（图形 / 短信）。"""
 
-    trace: tuple[tuple[int, int, int], ...] = ()
+    trace: ConcurrentStableFrozenList[tuple[int, int, int]] = field(
+        default_factory=lambda: ConcurrentStableFrozenList[tuple[int, int, int]]()
+    )
     """滑块轨迹点序列（每点 `(x, y, 相对起点毫秒)`；位置与时间维度一次预留，避免后续破坏性扩展）。"""
 
     scene: str = "login"
@@ -179,14 +183,18 @@ class CaptchaScenePolicy(BaseValueObject):
     cooldown: int = SMS_COOLDOWN
     """重发冷却（秒）。"""
 
-    channels: tuple[CaptchaKind, ...] = (CaptchaKind.SLIDER, CaptchaKind.IMAGE)
+    channels: ConcurrentStableFrozenList[CaptchaKind] = field(
+        default_factory=lambda: ConcurrentStableFrozenList[CaptchaKind]((CaptchaKind.SLIDER, CaptchaKind.IMAGE))
+    )
     """该场景可用渠道（按降级顺序；实现按渠道可用性过滤，末位恒为图形码兜底）。"""
 
 
-CAPTCHA_DEFAULT_CHANNELS: tuple[CaptchaKind, ...] = (CaptchaKind.SLIDER, CaptchaKind.IMAGE)
+CAPTCHA_DEFAULT_CHANNELS: ConcurrentStableList[CaptchaKind] = ConcurrentStableList(
+    (CaptchaKind.SLIDER, CaptchaKind.IMAGE)
+)
 """默认可用渠道（未登记场景回落；图形码恒兜底）。"""
 
-CAPTCHA_SCENE_CHANNELS: ConcurrentStableDict[str, tuple[CaptchaKind, ...]] = ConcurrentStableDict(
+CAPTCHA_SCENE_CHANNELS: ConcurrentStableDict[str, ConcurrentStableList[CaptchaKind]] = ConcurrentStableDict(  # pyright: ignore[reportAssignmentType]  # 08_05：注解落集合类，值形态由契约/外部决定
     {
         "login": (CaptchaKind.SLIDER, CaptchaKind.IMAGE),
         "reset_password": (CaptchaKind.SMS, CaptchaKind.SLIDER, CaptchaKind.IMAGE),
@@ -198,12 +206,14 @@ CAPTCHA_SCENE_CHANNELS: ConcurrentStableDict[str, tuple[CaptchaKind, ...]] = Con
 """场景渠道降级顺序（平台默认；按 `captcha.channel.{kind}` 可用性过滤，图形码恒兜底）。"""
 
 
-CAPTCHA_SCENE_POLICIES: tuple[CaptchaScenePolicy, ...] = (
-    CaptchaScenePolicy(scene="login", required=False),
-    CaptchaScenePolicy(scene="reset_password"),
-    CaptchaScenePolicy(scene="bind"),
-    CaptchaScenePolicy(scene="unbind"),
-    CaptchaScenePolicy(scene="register"),
+CAPTCHA_SCENE_POLICIES: ConcurrentStableList[CaptchaScenePolicy] = ConcurrentStableList(
+    (
+        CaptchaScenePolicy(scene="login", required=False),
+        CaptchaScenePolicy(scene="reset_password"),
+        CaptchaScenePolicy(scene="bind"),
+        CaptchaScenePolicy(scene="unbind"),
+        CaptchaScenePolicy(scene="register"),
+    )
 )
 """平台默认场景策略表（顺序与 `CAPTCHA_SCENES` 一致；登录首次不强制、连续失败达阈值后强制）。"""
 

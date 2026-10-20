@@ -9,6 +9,7 @@
 from sqlalchemy import BigInteger, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.models.base import BaseModel
 
 QUOTA_KEY_USER_COUNT = "user_count"
@@ -20,7 +21,9 @@ QUOTA_KEY_STORAGE_BYTES = "storage_bytes"
 QUOTA_KEY_OPEN_CALLS = "open_calls"
 """配额维度：开放接口调用量（日限额）。"""
 
-QUOTA_KEYS: tuple[str, ...] = (QUOTA_KEY_USER_COUNT, QUOTA_KEY_STORAGE_BYTES, QUOTA_KEY_OPEN_CALLS)
+QUOTA_KEYS: ConcurrentStableList[str] = ConcurrentStableList(
+    (QUOTA_KEY_USER_COUNT, QUOTA_KEY_STORAGE_BYTES, QUOTA_KEY_OPEN_CALLS)
+)
 """配额维度清单（开通播种顺序）。"""
 
 

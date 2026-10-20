@@ -1,6 +1,7 @@
 """search 能力域缺省实现（Null Object）：占位返回、无副作用（02-3 自 bms_core.search.base.py 迁入）。"""
 
 from bms_core.core.capability import BaseNullObject
+from bms_core.core.concurrent import ConcurrentStableFrozenList
 from bms_core.search.base import (
     NULL_SEARCH_HIT_ID,
     BaseSearchIndex,
@@ -42,4 +43,4 @@ class NullSearchIndex(BaseSearchIndex, BaseNullObject):
         Returns:
             SearchResult: 单条占位命中（id 为 `NULL_SEARCH_HIT_ID`、`total=1`）。
         """
-        return SearchResult(hits=(SearchHit(id=NULL_SEARCH_HIT_ID, score=0.0),), total=1)
+        return SearchResult(hits=ConcurrentStableFrozenList((SearchHit(id=NULL_SEARCH_HIT_ID, score=0.0),)), total=1)

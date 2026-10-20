@@ -18,6 +18,7 @@ from typing import ClassVar, cast
 from fastapi import Request
 
 from bms_core.boundary.assess import OwnershipViolation
+from bms_core.core.concurrent import ConcurrentStableFrozenList, ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.core.objects import BaseTallyContract
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
@@ -32,7 +33,7 @@ __all__ = [
     "get_data_ownership_guard",
 ]
 
-OWNERSHIP_MODES: tuple[str, ...] = ("off", "warn", "enforce")
+OWNERSHIP_MODES: ConcurrentStableList[str] = ConcurrentStableList(("off", "warn", "enforce"))
 """运行模式：`off` 不检测 / `warn` 记录 + 计数 + 告警 / `enforce` 越界阻断。"""
 
 DEFAULT_OWNERSHIP_MODE = "warn"
@@ -46,7 +47,9 @@ BOUNDARY_METRIC_CROSS_ACCESS = "bms_boundary_cross_access_total"
 class OwnershipStats(BaseTallyContract):
     """守卫计数快照。"""
 
-    COUNT_FIELDS: ClassVar[tuple[str, ...]] = ("statements", "violations", "blocked")
+    COUNT_FIELDS: ClassVar[ConcurrentStableFrozenList[str]] = ConcurrentStableFrozenList(
+        ("statements", "violations", "blocked")
+    )
 
     statements: int = 0
     """已检测语句数。"""
@@ -67,7 +70,7 @@ class BaseDataOwnershipGuard(BasePluggable, ABC):
     contract_version: str = DEFAULT_CONTRACT_VERSION
 
     @abstractmethod
-    def assess(self, statement: str, *, service: str) -> tuple[OwnershipViolation, ...]:
+    def assess(self, statement: str, *, service: str) -> ConcurrentStableList[OwnershipViolation]:
         """判定语句是否越界访问他服务表（不抛错，由调用方按模式处置）。
 
         Args:

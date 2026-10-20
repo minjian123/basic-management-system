@@ -20,7 +20,7 @@ from collections.abc import Mapping
 from typing import cast
 from urllib.parse import quote
 
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenDict, ConcurrentStableList
 from bms_core.core.context import get_current_tenant
 from bms_core.core.exceptions import ServiceUnavailableError
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION
@@ -189,9 +189,9 @@ def _to_type_result(data: ConcurrentStableDict[str, object]) -> DictTypeResult:
         DictTypeResult: 取数结果。
     """
     raw_items = data.get("items")
-    items: tuple[DictItem, ...] | None = None
+    items: ConcurrentStableList[DictItem] | None = None
     if isinstance(raw_items, list):
-        items = tuple(
+        items = ConcurrentStableList(
             _to_item(ConcurrentStableDict(cast("Mapping[str, object]", item)))
             for item in cast("list[object]", raw_items)
             if isinstance(item, Mapping)
@@ -251,7 +251,7 @@ def _empty_result() -> DictTypeResult:
     Returns:
         DictTypeResult: 空取数结果。
     """
-    return DictTypeResult(version=0, items=(), has_more=False, total=0)
+    return DictTypeResult(version=0, items=ConcurrentStableList(()), has_more=False, total=0)
 
 
 class HttpDataSource(BaseDataSource):
@@ -310,7 +310,7 @@ class HttpDataSource(BaseDataSource):
             method="POST",
             path=DICT_BATCH_PATH,
             headers=_headers(query.locale),
-            json_body=ConcurrentStableDict(body),
+            json_body=ConcurrentStableFrozenDict(body),
         )
         data = await _call(self._client, request)
         if data is None:

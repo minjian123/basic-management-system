@@ -127,7 +127,7 @@ def _build_edge_app(
     *,
     trust: BaseEdgeTrust | None = None,
     enforce: bool = False,
-    exempt: tuple[str, ...] = (),
+    exempt: ConcurrentStableList[str] = ConcurrentStableList(()),  # noqa: B008
     with_settings: bool = True,
 ) -> FastAPI:
     """构造带边缘守卫中间件的测试应用（回显身份头 / 上下文 / 信任标记）。"""
@@ -219,7 +219,7 @@ async def test_bypass_rejected_when_enforced() -> None:
     app = _build_edge_app(
         trust=MarkerEdgeTrust(expected=GATEWAY_IDENTITY_VALUE),
         enforce=True,
-        exempt=("/healthz",),
+        exempt=ConcurrentStableList(("/healthz",)),
     )
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         rejected = await client.get("/whoami")
@@ -249,7 +249,7 @@ async def test_enforced_mode_strips_client_tenant_header() -> None:
     app = _build_edge_app(
         trust=MarkerEdgeTrust(expected=GATEWAY_IDENTITY_VALUE),
         enforce=True,
-        exempt=("/whoami",),
+        exempt=ConcurrentStableList(("/whoami",)),
     )
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         resp = await client.get("/whoami", headers={TENANT_ID_HEADER: "evil"})

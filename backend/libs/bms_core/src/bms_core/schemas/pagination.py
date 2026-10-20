@@ -13,7 +13,10 @@ from pydantic import Field, field_validator
 
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import get_settings
-from bms_core.schemas.base import CONTRACT_COLLECTION, BaseSchema
+from bms_core.schemas.base import (
+    CONTRACT_COLLECTION,
+    BaseSchema,
+)
 from bms_core.schemas.sorting import BaseSortQuery
 
 

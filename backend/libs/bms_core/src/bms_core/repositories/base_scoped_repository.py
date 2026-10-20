@@ -77,10 +77,12 @@ def _compare(value: object, target: object, op: str) -> bool:
     func = _COMPARATORS.get(op)
     if func is None:
         return False
-    candidates: tuple[tuple[object, object], ...] = (
-        (value, target),
-        (value, _coerce(target, value)),
-        (_coerce(value, target), target),
+    candidates: ConcurrentStableList[tuple[object, object]] = ConcurrentStableList(
+        (
+            (value, target),
+            (value, _coerce(target, value)),
+            (_coerce(value, target), target),
+        )
     )
     for left, right in candidates:
         try:

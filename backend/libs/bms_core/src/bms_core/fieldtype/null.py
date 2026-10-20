@@ -1,7 +1,7 @@
 """fieldtype 能力域缺省实现（Null Object）：占位返回、无副作用（02-3 自 bms_core.fieldtype.base.py 迁入）。"""
 
 from bms_core.core.capability import BaseNullObject
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.fieldtype.base import NULL_COLUMN_TYPE, BaseFieldType, BaseFieldTypeRegistry
 
 __all__ = [
@@ -26,7 +26,7 @@ class NullFieldTypeRegistry(BaseFieldTypeRegistry, BaseNullObject):
 
     def validate(
         self, field_type: str, value: object, *, options: ConcurrentStableDict[str, object] | None = None
-    ) -> tuple[str, ...]:
+    ) -> ConcurrentStableList[str]:
         """恒定通过（占位不校验）。
 
         Args:
@@ -37,7 +37,7 @@ class NullFieldTypeRegistry(BaseFieldTypeRegistry, BaseNullObject):
         Returns:
             tuple[str, ...]: 空违规元组。
         """
-        return ()
+        return ConcurrentStableList(())
 
     def column_type(self, field_type: str, dialect: str) -> str:
         """固定返回占位列类型（占位不映射）。

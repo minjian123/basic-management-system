@@ -2,6 +2,7 @@
 
 import pytest
 
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.registry import (
     FORM_CATALOG,
     FormKind,
@@ -43,7 +44,7 @@ def test_merge_appends_injected_records() -> None:
         kind=FormKind.FORM.value,
         data_source_key="purchase_order",
     )
-    merged = merge_form_records(injected=(extra,))
+    merged = merge_form_records(injected=ConcurrentStableList((extra,)))
     assert merged[-1].form_key == "purchase_order"
     assert list(FormRegistry(merged).validate()) == []
 

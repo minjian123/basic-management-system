@@ -27,7 +27,7 @@ from bms_core.core.capability import (
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.exceptions import PluginError
 from bms_core.core.logging import get_logger
-from bms_core.core.objects import BaseFrameworkObject
+from bms_core.core.roots import BaseFrameworkObject
 from bms_core.core.version import CONTRACT_VERSION_RE, contract_major
 
 __all__ = [

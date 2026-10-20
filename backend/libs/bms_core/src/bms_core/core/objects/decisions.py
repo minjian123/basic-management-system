@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import ClassVar
 
+from bms_core.core.concurrent import ConcurrentStableFrozenList
 from bms_core.core.objects.roots import BaseValueObject
 
 __all__ = ["BaseDecisionContract"]
@@ -27,4 +28,4 @@ class BaseDecisionContract(BaseValueObject):
     历史命名更正（09_03 批次 ⑤，设计 §5 字段名统一项）：`EdgeTrustDecision.trusted` → `allowed`。
     """
 
-    COMMON_FIELDS: ClassVar[tuple[str, ...]] = ("allowed",)
+    COMMON_FIELDS: ClassVar[ConcurrentStableFrozenList[str]] = ConcurrentStableFrozenList(("allowed",))

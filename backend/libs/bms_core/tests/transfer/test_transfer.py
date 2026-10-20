@@ -13,6 +13,7 @@ from bms_core.core.base import BaseObject
 from bms_core.core.capability import BaseCapability, BaseNullObject
 from bms_core.core.concurrent import (
     ConcurrentStableDict,
+    ConcurrentStableFrozenList,
     ConcurrentStableList,
 )
 from bms_core.transfer.base import ColumnSpec
@@ -58,7 +59,7 @@ def test_result_contracts_defaults_and_frozen() -> None:
     """`RowError` / `ImportResult` 默认值与不可变。"""
     error = RowError(row=1, message="必填缺失")
     assert error.field is None
-    assert ImportResult(rows=()).errors == ()
+    assert ImportResult(rows=ConcurrentStableFrozenList(())).errors == ()
 
     field = "row"
     with pytest.raises(FrozenInstanceError):
@@ -71,7 +72,9 @@ async def test_null_importer_empty() -> None:
     importer = NullImporter()
     assert await importer.parse(b"data", columns=_COLUMNS) == ()
     rows = ConcurrentStableList([ConcurrentStableDict[str, object]({"name": "甲"})])
-    assert await importer.validate(rows, columns=_COLUMNS) == ImportResult(rows=(), errors=())
+    assert await importer.validate(rows, columns=_COLUMNS) == ImportResult(
+        rows=ConcurrentStableFrozenList(()), errors=ConcurrentStableFrozenList(())
+    )
 
 
 @pytest.mark.kiwi_id(56)

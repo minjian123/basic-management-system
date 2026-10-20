@@ -12,7 +12,7 @@ import threading
 import time
 
 from bms_core.core.factory import BaseIdFactory
-from bms_core.core.objects import BaseFrameworkObject
+from bms_core.core.roots import BaseFrameworkObject
 
 _EPOCH_MS = 1_600_000_000_000  # 自定义基点（约 2020-09-13 UTC），固定不变
 _WORKER_BITS = 10

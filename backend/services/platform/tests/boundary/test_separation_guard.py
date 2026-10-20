@@ -65,7 +65,7 @@ def _find_function(module: ast.Module, name: str) -> ast.FunctionDef | ast.Async
     raise AssertionError(f"未找到函数：{name}")
 
 
-def _guard_call_lines(function: ast.FunctionDef | ast.AsyncFunctionDef) -> tuple[int, ...]:
+def _guard_call_lines(function: ast.FunctionDef | ast.AsyncFunctionDef) -> ConcurrentStableList[int]:
     """取函数体内 `SeparationGuard.ensure_*` 调用行号。
 
     Args:
@@ -80,10 +80,10 @@ def _guard_call_lines(function: ast.FunctionDef | ast.AsyncFunctionDef) -> tuple
             continue
         if node.func.attr.startswith(_GUARD_PREFIX) and "_guard" in ast.unparse(node.func.value):
             lines.add(node.lineno)
-    return tuple(sorted(lines))
+    return ConcurrentStableList(sorted(lines))
 
 
-def _write_call_lines(function: ast.FunctionDef | ast.AsyncFunctionDef) -> tuple[int, ...]:
+def _write_call_lines(function: ast.FunctionDef | ast.AsyncFunctionDef) -> ConcurrentStableList[int]:
     """取函数体内分配写入调用行号。
 
     Args:
@@ -98,7 +98,7 @@ def _write_call_lines(function: ast.FunctionDef | ast.AsyncFunctionDef) -> tuple
             continue
         if node.func.attr in _WRITE_CALLS:
             lines.add(node.lineno)
-    return tuple(sorted(lines))
+    return ConcurrentStableList(sorted(lines))
 
 
 @pytest.mark.kiwi_id(2314)

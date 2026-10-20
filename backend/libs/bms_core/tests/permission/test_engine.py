@@ -10,7 +10,12 @@ from collections.abc import Iterator
 import pytest
 
 from bms_core.cache.memory import MemoryCacheRegion
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
+from bms_core.core.concurrent import (
+    ConcurrentStableDict,
+    ConcurrentStableFrozenList,
+    ConcurrentStableList,
+    ConcurrentStableSet,
+)
 from bms_core.core.context import current_tenant_id, current_user_id
 from bms_core.permission.cache import (
     PermissionCacheStore,
@@ -93,11 +98,11 @@ class _StubSource(BasePermissionDataSource):
 
 def _data(
     *,
-    role_ids: tuple[int, ...] = (1,),
-    role_types: tuple[tuple[int, str], ...] = ((1, "system"),),
-    grants: tuple[tuple[str, int], ...] = (),
-    scopes: tuple[DataScopeRule, ...] = (),
-    fields: tuple[FieldPermission, ...] = (),
+    role_ids: ConcurrentStableList[int] | None = None,
+    role_types: ConcurrentStableList[tuple[int, str]] | None = None,
+    grants: ConcurrentStableList[tuple[str, int]] | None = None,
+    scopes: ConcurrentStableList[DataScopeRule] | None = None,
+    fields: ConcurrentStableList[FieldPermission] | None = None,
 ) -> PermissionSubjectData:
     """构造聚合输入。
 
@@ -111,14 +116,14 @@ def _data(
     Returns:
         PermissionSubjectData: 聚合输入。
     """
-    data = PermissionSubjectData(role_ids=ConcurrentStableSet(role_ids))
-    for role_id, role_type in role_types:
+    data = PermissionSubjectData(role_ids=ConcurrentStableSet(role_ids if role_ids is not None else (1,)))
+    for role_id, role_type in role_types if role_types is not None else ((1, "system"),):
         data.role_types.set(role_id, role_type)
-    for perm_type, target_id in grants:
+    for perm_type, target_id in grants or ():
         data.grants.add(PermissionGrant(perm_type=perm_type, target_id=target_id))
-    for rule in scopes:
+    for rule in scopes or ():
         data.data_scope_rules.add(rule)
-    for item in fields:
+    for item in fields or ():
         data.field_perms.add(item)
     return data
 
@@ -126,8 +131,8 @@ def _data(
 def _metadata(
     *,
     version: int = 7,
-    menu_forms: tuple[tuple[int, tuple[int, ...]], ...] = (),
-    codes: tuple[tuple[int, str], ...] = (),
+    menu_forms: ConcurrentStableList[tuple[int, ConcurrentStableFrozenList[int]]] | None = None,
+    codes: ConcurrentStableList[tuple[int, str]] | None = None,
 ) -> PermissionMetadata:
     """构造元数据索引。
 
@@ -140,9 +145,9 @@ def _metadata(
         PermissionMetadata: 元数据。
     """
     metadata = PermissionMetadata(version=version)
-    for menu_id, form_ids in menu_forms:
+    for menu_id, form_ids in menu_forms or ():
         metadata.menu_forms.set(menu_id, ConcurrentStableList(form_ids))
-    for permission_id, code in codes:
+    for permission_id, code in codes or ():
         metadata.permission_codes.set(permission_id, code)
     return metadata
 
@@ -184,22 +189,17 @@ async def test_aggregate_two_stage_resolution() -> None:
     """聚合两段解析：菜单连带其表单、表单独立计入、权限码经索引解析、未入索引的码不计入。"""
     source = _StubSource(
         data=_data(
-            grants=(
-                ("menu", 1),
-                ("form", 12),
-                ("permission", 21),
-                ("permission", 22),
-                ("permission", 99),
-                ("ghost", 5),
+            grants=ConcurrentStableList(
+                (("menu", 1), ("form", 12), ("permission", 21), ("permission", 22), ("permission", 99), ("ghost", 5))
             ),
-            role_types=(),
+            role_types=ConcurrentStableList(()),
         ),
         metadata=_metadata(
-            menu_forms=((1, (11,)),),
-            codes=((21, "role:grant"), (22, "data:export")),
+            menu_forms=ConcurrentStableList(ConcurrentStableList(((1, (11,)),))),  # pyright: ignore[reportArgumentType]  # 08_05：注解落集合类，值形态由契约/外部决定
+            codes=ConcurrentStableList(((21, "role:grant"), (22, "data:export"))),
         ),
     )
-    engine = PermissionEngine(source=source, cache=MemoryCacheRegion(), exempt_role_types=())
+    engine = PermissionEngine(source=source, cache=MemoryCacheRegion(), exempt_role_types=ConcurrentStableList(()))
     snapshot = await engine.compute(user_id=5, version=1)
     assert sorted(snapshot.permission_codes) == ["data:export", "role:grant"]
     assert sorted(snapshot.granted_menu_ids) == [1]
@@ -210,7 +210,7 @@ async def test_aggregate_two_stage_resolution() -> None:
 @pytest.mark.kiwi_id(2320)
 async def test_aggregate_skips_metadata_when_no_roles() -> None:
     """无角色：聚合直接返回空（不取元数据），码集 / 入口集 / 规则 / 字段均为空。"""
-    source = _StubSource(data=_data(role_ids=(), role_types=()))
+    source = _StubSource(data=_data(role_ids=ConcurrentStableList(()), role_types=ConcurrentStableList(())))
     engine = PermissionEngine(source=source, cache=MemoryCacheRegion())
     snapshot = await engine.compute(user_id=5, version=1)
     assert list(snapshot.permission_codes) == []
@@ -224,12 +224,14 @@ async def test_aggregate_skips_metadata_when_no_roles() -> None:
 @pytest.mark.kiwi_id(2320)
 async def test_exempt_tier_from_role_types() -> None:
     """层级判定：命中豁免角色类型即系统管理员；不在豁免集合即普通。"""
-    exempt_source = _StubSource(data=_data(role_types=((1, "system"),)))
+    exempt_source = _StubSource(data=_data(role_types=ConcurrentStableList(((1, "system"),))))
     exempt = PermissionEngine(source=exempt_source, cache=MemoryCacheRegion())
     assert (await exempt.compute(user_id=5, version=1)).tier == TIER_SYSTEM_ADMIN
 
-    plain_source = _StubSource(data=_data(role_types=((1, "custom"),)))
-    plain = PermissionEngine(source=plain_source, cache=MemoryCacheRegion(), exempt_role_types=("system",))
+    plain_source = _StubSource(data=_data(role_types=ConcurrentStableList(((1, "custom"),))))
+    plain = PermissionEngine(
+        source=plain_source, cache=MemoryCacheRegion(), exempt_role_types=ConcurrentStableList(("system",))
+    )
     assert (await plain.compute(user_id=5, version=1)).tier == TIER_STANDARD
 
 
@@ -242,8 +244,10 @@ async def test_data_scope_rules_and_field_perms_flow_into_snapshot() -> None:
     config.add(row)
     source = _StubSource(
         data=_data(
-            scopes=(DataScopeRule(data_source_key="1", policy_type="select", config=config),),
-            fields=(FieldPermission(form_id=11, field_key="salary", visible=False, editable=False),),
+            scopes=ConcurrentStableList((DataScopeRule(data_source_key="1", policy_type="select", config=config),)),
+            fields=ConcurrentStableList(
+                (FieldPermission(form_id=11, field_key="salary", visible=False, editable=False),)
+            ),
         )
     )
     engine = PermissionEngine(source=source, cache=MemoryCacheRegion())
@@ -260,7 +264,10 @@ async def test_data_scope_rules_and_field_perms_flow_into_snapshot() -> None:
 @pytest.mark.kiwi_id(2321)
 async def test_snapshot_for_caches_and_reuses() -> None:
     """缓存：首次计算后写进程内缓存，第二次命中不再取数。"""
-    source = _StubSource(data=_data(grants=(("permission", 21),)), metadata=_metadata(codes=((21, "role:grant"),)))
+    source = _StubSource(
+        data=_data(grants=ConcurrentStableList((("permission", 21),))),
+        metadata=_metadata(codes=ConcurrentStableList(((21, "role:grant"),))),
+    )
     engine = PermissionEngine(source=source, cache=MemoryCacheRegion())
     first = await engine.snapshot_for(user_id=5, tenant_id="1001")
     second = await engine.snapshot_for(user_id=5, tenant_id="1001")
@@ -284,7 +291,10 @@ async def test_snapshot_stays_in_process_not_shared_cache() -> None:
 @pytest.mark.kiwi_id(2321)
 async def test_layer1_serves_subject_and_metadata_without_source_calls() -> None:
     """层1：快照被清后重建时不再回源（subject / metadata 各只取一次）——identity 跨服务往返同收益。"""
-    source = _StubSource(data=_data(grants=(("permission", 21),)), metadata=_metadata(codes=((21, "role:grant"),)))
+    source = _StubSource(
+        data=_data(grants=ConcurrentStableList((("permission", 21),))),
+        metadata=_metadata(codes=ConcurrentStableList(((21, "role:grant"),))),
+    )
     engine = PermissionEngine(source=source, cache=MemoryCacheRegion())
     await engine.snapshot_for(user_id=5, tenant_id="1001")
     current_permission_cache_store().clear_snapshots()
@@ -335,7 +345,7 @@ async def test_invalidate_clears_process_entries() -> None:
     store = PermissionCacheStore()
     engine = PermissionEngine(source=_StubSource(data=_data()), cache=MemoryCacheRegion(), store=store)
     await engine.snapshot_for(user_id=7, tenant_id="1001")
-    await engine.invalidate(tenant_id="1001", user_ids=(7,))
+    await engine.invalidate(tenant_id="1001", user_ids=ConcurrentStableList((7,)))
     assert store.stats()["snapshot_items"] == 0
     assert store.stats()["subject_items"] == 0
 
@@ -366,7 +376,7 @@ async def test_invalidate_bumps_version_and_evicts_previous_user_key() -> None:
     old_key = permission_user_cache_key("1001", 7, 2)
     payload: ConcurrentStableDict[str, object] = ConcurrentStableDict()
     await cache.aset(old_key, dict(payload), ttl=60)
-    version = await invalidate_permission_cache(cache, tenant_id="1001", user_ids=(7,))
+    version = await invalidate_permission_cache(cache, tenant_id="1001", user_ids=ConcurrentStableList((7,)))
     assert version == 3
     assert await cache.aget(old_key) is None
     assert await invalidate_permission_cache(cache, tenant_id="1001") == 4
@@ -378,7 +388,7 @@ async def test_engine_invalidate_delegates_to_cache() -> None:
     cache = MemoryCacheRegion()
     engine = PermissionEngine(source=_StubSource(), cache=cache)
     assert await engine.invalidate(tenant_id="1001") == 1
-    assert await engine.invalidate(tenant_id="1001", user_ids=(9,)) == 2
+    assert await engine.invalidate(tenant_id="1001", user_ids=ConcurrentStableList((9,))) == 2
 
 
 @pytest.mark.kiwi_id(2320)

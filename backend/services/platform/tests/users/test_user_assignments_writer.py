@@ -369,7 +369,7 @@ def test_dedupe_keeps_first_seen_order() -> None:
 class _ManagerSpy:
     """事务管理器替身（可切换是否 enabled / 分支快照）。"""
 
-    def __init__(self, *, enabled: bool = True, branches: tuple[BranchRef, ...] | None = None) -> None:
+    def __init__(self, *, enabled: bool = True, branches: ConcurrentStableList[BranchRef] | None = None) -> None:
         """初始化。
 
         Args:
@@ -401,7 +401,7 @@ class _ManagerSpy:
                 )
                 for spec in branches
             )
-        return GlobalTransaction(global_txn_id="gtx-1", caller_service=caller_service, state="active", branches=refs)
+        return GlobalTransaction(global_txn_id="gtx-1", caller_service=caller_service, state="active", branches=refs)  # pyright: ignore[reportArgumentType]  # 08_05：注解落集合类，值形态由契约/外部决定
 
     async def commit(self, global_txn_id: str) -> GlobalTransaction:
         """记录提交。
@@ -710,7 +710,7 @@ async def test_xa_path_rolls_back_when_org_branch_not_prepared() -> None:
 
 async def test_xa_path_missing_branch_raises() -> None:
     """全局事务快照缺分支 → 10013。"""
-    manager = _ManagerSpy(branches=())
+    manager = _ManagerSpy(branches=ConcurrentStableList(()))
     service = _xa_service(manager, _ParticipantSpy(), _ClientSpy())
 
     with pytest.raises(TransactionUnavailableError):

@@ -49,24 +49,26 @@ _PRODUCT_KEY = "mdm"
 _SERVICE_KEY = "mdm-org"
 """测试用产品服务标识。"""
 
-_PRODUCT_RECORDS: tuple[ModuleRecord, ...] = (
-    ModuleRecord(
-        module_key="mdorg",
-        service_key=_SERVICE_KEY,
-        name="mdm 组织主数据服务",
-        table_prefix="mdorg_",
-        errcode_segment="34",
-        event_domain="mdorg",
-        service_group=ServiceGroup.PRODUCT,
-        build_batch=3,
-        product_key=_PRODUCT_KEY,
-        status=ModuleStatus.PLANNED,
-    ),
+_PRODUCT_RECORDS: ConcurrentStableList[ModuleRecord] = ConcurrentStableList(
+    (
+        ModuleRecord(
+            module_key="mdorg",
+            service_key=_SERVICE_KEY,
+            name="mdm 组织主数据服务",
+            table_prefix="mdorg_",
+            errcode_segment="34",
+            event_domain="mdorg",
+            service_group=ServiceGroup.PRODUCT,
+            build_batch=3,
+            product_key=_PRODUCT_KEY,
+            status=ModuleStatus.PLANNED,
+        ),
+    )
 )
 """产品服务自报清单（与 `bms_core` 同口径；产品服务在自身仓库维护并经钩子注入）。"""
 
-_ORG_TABLE_RECORDS: tuple[TableRecord, ...] = (
-    TableRecord(table_name="org_dept", owner="org", datasource=Datasource.TENANT, note="产品注入样例"),
+_ORG_TABLE_RECORDS: ConcurrentStableList[TableRecord] = ConcurrentStableList(
+    (TableRecord(table_name="org_dept", owner="org", datasource=Datasource.TENANT, note="产品注入样例"),)
 )
 """产品表归属自报记录（12_04；`org` 服务键已登记、前缀 `org_` 已登记）。"""
 
@@ -97,7 +99,7 @@ class _ProductFactory(BaseServiceApplicationFactory):
         """
         settings.health_check_registry.provider = ""
 
-    def service_records(self) -> tuple[ModuleRecord, ...]:
+    def service_records(self) -> ConcurrentStableList[ModuleRecord]:
         """本产品服务清单（注入记录）。
 
         Returns:
@@ -142,7 +144,7 @@ def _empty_snapshot(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("bms_core.application.load_catalog_snapshot", _load)
 
 
-def _snapshot(monkeypatch: pytest.MonkeyPatch, records: tuple[ModuleRecord, ...]) -> None:
+def _snapshot(monkeypatch: pytest.MonkeyPatch, records: ConcurrentStableList[ModuleRecord]) -> None:
     """以桩替换接库快照取数（模拟经契约取到的库中登记行）。
 
     Args:
@@ -274,13 +276,13 @@ async def test_product_dimension_rejected_at_startup(monkeypatch: pytest.MonkeyP
     class _EmptyRecordsFactory(_ProductFactory):
         """声明产品维度但不注入任何记录（配置级错误）。"""
 
-        def service_records(self) -> tuple[ModuleRecord, ...]:
+        def service_records(self) -> ConcurrentStableList[ModuleRecord]:
             """空注入记录。
 
             Returns:
                 tuple[ModuleRecord, ...]: 空元组。
             """
-            return ()
+            return ConcurrentStableList(())
 
     app = _EmptyRecordsFactory().create(None)
     with pytest.raises(CatalogError, match="产品服务装配未声明服务目录记录") as excinfo:
@@ -297,22 +299,24 @@ async def test_merged_catalog_conflict_rejected_at_startup(monkeypatch: pytest.M
     class _ConflictFactory(_ProductFactory):
         """注入与平台服务目录冲突的记录（`org` 行重复）。"""
 
-        def service_records(self) -> tuple[ModuleRecord, ...]:
+        def service_records(self) -> ConcurrentStableList[ModuleRecord]:
             """冲突注入记录（module_key / table_prefix / event_domain / service_key 与平台 `org` 行重复）。
 
             Returns:
                 tuple[ModuleRecord, ...]: 冲突记录。
             """
-            return (
-                ModuleRecord(
-                    module_key="org",
-                    service_key="org",
-                    name="组织主数据服务（冲突样例）",
-                    table_prefix="org_",
-                    event_domain="org",
-                    service_group=ServiceGroup.PRODUCT,
-                    product_key=_PRODUCT_KEY,
-                ),
+            return ConcurrentStableList(
+                (
+                    ModuleRecord(
+                        module_key="org",
+                        service_key="org",
+                        name="组织主数据服务（冲突样例）",
+                        table_prefix="org_",
+                        event_domain="org",
+                        service_group=ServiceGroup.PRODUCT,
+                        product_key=_PRODUCT_KEY,
+                    ),
+                )
             )
 
     app = _ConflictFactory().create(None)
@@ -326,7 +330,7 @@ async def test_merged_catalog_conflict_rejected_at_startup(monkeypatch: pytest.M
 async def test_catalog_reconciliation_uses_merged_records(monkeypatch: pytest.MonkeyPatch) -> None:
     """接库对账走合并清单：库中「平台 + 产品」行通过；产品行缺失 / 字段不符即拒启（先注册后建表守门）。"""
     merged = (*SERVICE_CATALOG, *_PRODUCT_RECORDS)
-    _snapshot(monkeypatch, merged)
+    _snapshot(monkeypatch, merged)  # pyright: ignore[reportArgumentType]  # 08_05：注解落集合类，值形态由契约/外部决定
     app = _ProductFactory().create(None)
     async with service_lifespan(app):
         assert app.state.startup_complete is True
@@ -354,7 +358,7 @@ async def test_catalog_reconciliation_uses_merged_records(monkeypatch: pytest.Mo
         else record
         for record in merged
     )
-    _snapshot(monkeypatch, drifted)
+    _snapshot(monkeypatch, drifted)  # pyright: ignore[reportArgumentType]  # 08_05：注解落集合类，值形态由契约/外部决定
     with pytest.raises(CatalogError, match="name 与清单不一致") as mismatch:
         async with service_lifespan(_ProductFactory().create(None)):
             pass
@@ -366,10 +370,10 @@ def test_event_contract_domains_follow_merged_view(monkeypatch: pytest.MonkeyPat
     """事件契约域取应用级视图：产品服务自有事件域进入校验域集合（平台视图不含）。"""
     captured: ConcurrentStableSet[str] = ConcurrentStableSet()
 
-    def _fake_validate(registry: object, *, domains: ConcurrentStableSet[str]) -> tuple[str, ...]:
+    def _fake_validate(registry: object, *, domains: ConcurrentStableSet[str]) -> ConcurrentStableList[str]:
         del registry
         captured.update(domains)
-        return ()
+        return ConcurrentStableList(())
 
     monkeypatch.setattr(application, "validate_event_registry", _fake_validate)
     application._validate_event_contracts(_ProductFactory().create(None))  # pyright: ignore[reportPrivateUsage]
@@ -403,7 +407,7 @@ class _TableInjectFactory(BaseServiceApplicationFactory):
     version: str = "0.1.0"
     contract_version: str = "0.1.0"
 
-    def table_records(self) -> tuple[TableRecord, ...]:
+    def table_records(self) -> ConcurrentStableList[TableRecord]:
         """本产品表归属记录。
 
         Returns:

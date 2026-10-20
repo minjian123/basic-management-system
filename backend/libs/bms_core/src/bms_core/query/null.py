@@ -1,7 +1,7 @@
 """query 能力域缺省实现（Null Object）：占位返回、无副作用（02-3 自 bms_core.query.base.py 迁入）。"""
 
 from bms_core.core.capability import BaseNullObject
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenList
 from bms_core.query.base import BaseQueryProvider, BaseQueryProviderRegistry, QueryResult
 
 __all__ = [
@@ -39,7 +39,7 @@ class NullQueryProvider(BaseQueryProvider, BaseNullObject):
         Returns:
             QueryResult: 空结果（`rows == ()` / `total == 0`）。
         """
-        return QueryResult(rows=(), total=0)
+        return QueryResult(rows=ConcurrentStableFrozenList(()), total=0)
 
 
 class NullQueryProviderRegistry(BaseQueryProviderRegistry, BaseNullObject):
@@ -67,4 +67,4 @@ class NullQueryProviderRegistry(BaseQueryProviderRegistry, BaseNullObject):
         Returns:
             QueryResult: 空结果。
         """
-        return QueryResult(rows=(), total=0)
+        return QueryResult(rows=ConcurrentStableFrozenList(()), total=0)

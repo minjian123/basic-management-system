@@ -24,8 +24,11 @@ from sqlalchemy import Engine, Table, create_engine, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
-import bms_core.db  # noqa: F401  # pyright: ignore[reportUnusedImport]  导入即注册达梦自定义 XA 方言 `dmxa`
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.core.concurrent import (
+    ConcurrentStableDict,
+    ConcurrentStableFrozenList,
+    ConcurrentStableList,
+)
 from bms_core.db.engine import _normalize_dialect_url  # pyright: ignore[reportPrivateUsage]
 from bms_core.db.unit_of_work import DbUnitOfWork
 from bms_core.transaction.base import (
@@ -128,11 +131,13 @@ async def _insert_handler(session: object, args: ConcurrentStableDict[str, objec
     await cast("Any", session).execute(statement, {"i": int(cast("int", args["id"])), "n": str(args["note"])})
 
 
-def _probe_specs() -> tuple[BranchSpec, ...]:
+def _probe_specs() -> ConcurrentStableList[BranchSpec]:
     """两分支声明（不透明库键 `mysql` / `pg`）。"""
-    return (
-        BranchSpec(branch_id="mysql-branch", service="platform", db_key=_DB_MYSQL),
-        BranchSpec(branch_id="pg-branch", service="org", db_key=_DB_PG),
+    return ConcurrentStableList(
+        (
+            BranchSpec(branch_id="mysql-branch", service="platform", db_key=_DB_MYSQL),
+            BranchSpec(branch_id="pg-branch", service="org", db_key=_DB_PG),
+        )
     )
 
 
@@ -236,7 +241,7 @@ def _coordinator(uow: DbUnitOfWork, driver: BranchDriver) -> TransactionCoordina
 
 async def _prepare_all(
     participant: XaTransactionParticipant,
-    specs: tuple[BranchSpec, ...],
+    specs: ConcurrentStableList[BranchSpec],
     xids: ConcurrentStableDict[str, str],
     *,
     reject: str | None = None,
@@ -259,7 +264,7 @@ async def _prepare_all(
             await participant.execute_branch(
                 xid=xids[spec.db_key],
                 db_key=spec.db_key,
-                ops=(BranchOp(op=op, args=_payload(spec.db_key, 1)),),
+                ops=ConcurrentStableFrozenList((BranchOp(op=op, args=_payload(spec.db_key, 1)),)),
             )
         )
     return states

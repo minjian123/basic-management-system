@@ -11,6 +11,8 @@
 
 from __future__ import annotations
 
+from bms_core.core.concurrent import ConcurrentStableList
+
 __all__ = [
     "DEFAULT_EDGE_EXEMPT_PATHS",
     "GATEWAY_IDENTITY_HEADER",
@@ -49,26 +51,30 @@ SERVICE_IDENTITY_HEADER = "X-Service-Identity"
 SESSION_ID_HEADER = "X-Session-Id"
 """网关注入的会话 id 头（用户 access `jti`；01_05 每请求会话标记校验依据）。"""
 
-IDENTITY_HEADERS: tuple[str, ...] = (
-    USER_ID_HEADER,
-    USER_SUBJECT_HEADER,
-    TENANT_ID_HEADER,
-    USER_SCOPES_HEADER,
-    SERVICE_IDENTITY_HEADER,
-    SESSION_ID_HEADER,
+IDENTITY_HEADERS: ConcurrentStableList[str] = ConcurrentStableList(
+    (
+        USER_ID_HEADER,
+        USER_SUBJECT_HEADER,
+        TENANT_ID_HEADER,
+        USER_SCOPES_HEADER,
+        SERVICE_IDENTITY_HEADER,
+        SESSION_ID_HEADER,
+    )
 )
 """网关注入 / 后端信任的身份头（客户端伪造一律剥除）。"""
 
-STRIPPED_HEADERS: tuple[str, ...] = (GATEWAY_IDENTITY_HEADER, *IDENTITY_HEADERS)
+STRIPPED_HEADERS: ConcurrentStableList[str] = ConcurrentStableList((GATEWAY_IDENTITY_HEADER, *IDENTITY_HEADERS))
 """客户端伪造头剥除清单（含网关标记头：只能由网关注入，客户端传入即丢弃）。"""
 
-DEFAULT_EDGE_EXEMPT_PATHS: tuple[str, ...] = (
-    "/",
-    "/docs",
-    "/redoc",
-    "/openapi.json",
-    "/healthz",
-    "/readyz",
-    "/metrics",
+DEFAULT_EDGE_EXEMPT_PATHS: ConcurrentStableList[str] = ConcurrentStableList(
+    (
+        "/",
+        "/docs",
+        "/redoc",
+        "/openapi.json",
+        "/healthz",
+        "/readyz",
+        "/metrics",
+    )
 )
 """边缘旁路拒绝 / 租户净化豁免路径缺省集（编排探针、指标端点与文档可达）。"""

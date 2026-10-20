@@ -26,7 +26,7 @@ from bms_core.core.objects import BaseOpsReportContract
 
 _SQLITE = "sqlite"
 _DM = "dm"
-_DM_BACKENDS: tuple[str, ...] = (_DM, "dmxa")
+_DM_BACKENDS: ConcurrentStableList[str] = ConcurrentStableList((_DM, "dmxa"))
 """达梦后端名（原生 `dm` 与自定义 XA 方言 `dmxa`）。"""
 _IDENTIFIER_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,62}$")
 """库名 / 模式名合法形态（防拼接注入；长度限 63 字符）。"""

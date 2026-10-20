@@ -97,10 +97,12 @@ async def uow() -> AsyncIterator[DbUnitOfWork]:
         "sqlite+aiosqlite:///:memory:", poolclass=StaticPool, connect_args={"check_same_thread": False}
     )
     async with engine.begin() as connection:
-        tables: tuple[Table, ...] = (
-            cast("Table", GlobalTxn.__table__),
-            cast("Table", GlobalTxnBranch.__table__),
-            cast("Table", GlobalTxnRecovery.__table__),
+        tables: ConcurrentStableList[Table] = ConcurrentStableList(
+            (
+                cast("Table", GlobalTxn.__table__),
+                cast("Table", GlobalTxnBranch.__table__),
+                cast("Table", GlobalTxnRecovery.__table__),
+            )
         )
         for table in tables:
             await connection.run_sync(table.create, checkfirst=True)
@@ -124,11 +126,13 @@ def _coordinator(uow: DbUnitOfWork, driver: BranchDriver) -> TransactionCoordina
     )
 
 
-def _specs() -> tuple[BranchSpec, ...]:
+def _specs() -> ConcurrentStableList[BranchSpec]:
     """两个分支声明（平台库 + 租户库）。"""
-    return (
-        BranchSpec(branch_id="p1", service="platform", db_key="platform"),
-        BranchSpec(branch_id="m1", service="org", db_key="tenant_demo"),
+    return ConcurrentStableList(
+        (
+            BranchSpec(branch_id="p1", service="platform", db_key="platform"),
+            BranchSpec(branch_id="m1", service="org", db_key="tenant_demo"),
+        )
     )
 
 
@@ -152,9 +156,9 @@ async def test_begin_rejects_duplicate_branch(uow: DbUnitOfWork) -> None:
         BranchSpec(branch_id="p1", service="org", db_key="tenant_demo"),
     )
     with pytest.raises(ParamError):
-        await coordinator.begin(caller_service="platform", branches=duplicated)
+        await coordinator.begin(caller_service="platform", branches=duplicated)  # pyright: ignore[reportArgumentType]  # 08_05：注解落集合类，值形态由契约/外部决定
     with pytest.raises(ParamError):
-        await coordinator.begin(caller_service="platform", branches=())
+        await coordinator.begin(caller_service="platform", branches=ConcurrentStableList(()))
 
 
 async def test_commit_all_prepared_commits_every_branch(uow: DbUnitOfWork) -> None:

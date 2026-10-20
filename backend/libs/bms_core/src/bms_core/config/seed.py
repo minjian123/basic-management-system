@@ -11,6 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bms_core.config.models import SysConfig
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.objects import BaseValueObject
 
 __all__ = ["PLATFORM_CONFIG_DEFAULTS", "SeedConfig", "seed_configs"]
@@ -25,7 +26,7 @@ class SeedConfig(BaseValueObject):
     remark: str = ""
 
 
-def _captcha_scene_keys(scene: str, *, required: str) -> tuple[SeedConfig, ...]:
+def _captcha_scene_keys(scene: str, *, required: str) -> ConcurrentStableList[SeedConfig]:
     """构造验证码场景策略键（required / fail_threshold / ttl / cooldown）。
 
     Args:
@@ -42,37 +43,41 @@ def _captcha_scene_keys(scene: str, *, required: str) -> tuple[SeedConfig, ...]:
         "unbind": "解绑手机",
         "register": "注册",
     }[scene]
-    return (
-        SeedConfig(f"captcha.scene.{scene}.required", required, f"{label}场景是否强制验证码"),
-        SeedConfig(f"captcha.scene.{scene}.fail_threshold", "3", f"{label}场景连续失败强制验证码阈值"),
-        SeedConfig(f"captcha.scene.{scene}.ttl", "300", f"{label}场景挑战有效期（秒）"),
-        SeedConfig(f"captcha.scene.{scene}.cooldown", "60", f"{label}场景重发冷却（秒）"),
+    return ConcurrentStableList(
+        (
+            SeedConfig(f"captcha.scene.{scene}.required", required, f"{label}场景是否强制验证码"),
+            SeedConfig(f"captcha.scene.{scene}.fail_threshold", "3", f"{label}场景连续失败强制验证码阈值"),
+            SeedConfig(f"captcha.scene.{scene}.ttl", "300", f"{label}场景挑战有效期（秒）"),
+            SeedConfig(f"captcha.scene.{scene}.cooldown", "60", f"{label}场景重发冷却（秒）"),
+        )
     )
 
 
-PLATFORM_CONFIG_DEFAULTS: tuple[SeedConfig, ...] = (
-    *_captcha_scene_keys("login", required="false"),
-    *_captcha_scene_keys("reset_password", required="true"),
-    *_captcha_scene_keys("bind", required="true"),
-    *_captcha_scene_keys("unbind", required="true"),
-    *_captcha_scene_keys("register", required="true"),
-    SeedConfig("captcha.channel.image", "true", "图形验证码渠道可用（兜底渠道，恒可用）"),
-    SeedConfig("captcha.channel.slider", "true", "滑块验证码渠道可用"),
-    SeedConfig("captcha.channel.sms", "false", "短信验证码渠道可用（未配通道默认关闭）"),
-    SeedConfig("password.min_length", "8", "密码最小长度"),
-    SeedConfig("password.max_length", "128", "密码最大长度"),
-    SeedConfig("password.require_upper", "true", "密码须含大写字母"),
-    SeedConfig("password.require_lower", "true", "密码须含小写字母"),
-    SeedConfig("password.require_digit", "true", "密码须含数字"),
-    SeedConfig("password.require_symbol", "true", "密码须含符号"),
-    SeedConfig("password.forbid_username", "true", "密码不得包含用户名"),
-    SeedConfig("password.max_age_days", "90", "密码有效期（天），pwd_changed_at 驱动强制改密"),
-    SeedConfig("password.history_count", "5", "历史密码不可重复比对条数"),
-    SeedConfig("account.inactive_lock_days", "180", "未登录自动锁定阈值（天）"),
-    SeedConfig("audit.archive.operation_log_days", "90", "操作日志归档保留天数"),
-    SeedConfig("audit.archive.login_log_days", "90", "登录日志归档保留天数"),
-    SeedConfig("audit.archive.data_audit_log_days", "90", "数据变更审计归档保留天数"),
-    SeedConfig("audit.archive.open_log_days", "90", "开放接口审计归档保留天数"),
+PLATFORM_CONFIG_DEFAULTS: ConcurrentStableList[SeedConfig] = ConcurrentStableList(
+    (
+        *_captcha_scene_keys("login", required="false"),
+        *_captcha_scene_keys("reset_password", required="true"),
+        *_captcha_scene_keys("bind", required="true"),
+        *_captcha_scene_keys("unbind", required="true"),
+        *_captcha_scene_keys("register", required="true"),
+        SeedConfig("captcha.channel.image", "true", "图形验证码渠道可用（兜底渠道，恒可用）"),
+        SeedConfig("captcha.channel.slider", "true", "滑块验证码渠道可用"),
+        SeedConfig("captcha.channel.sms", "false", "短信验证码渠道可用（未配通道默认关闭）"),
+        SeedConfig("password.min_length", "8", "密码最小长度"),
+        SeedConfig("password.max_length", "128", "密码最大长度"),
+        SeedConfig("password.require_upper", "true", "密码须含大写字母"),
+        SeedConfig("password.require_lower", "true", "密码须含小写字母"),
+        SeedConfig("password.require_digit", "true", "密码须含数字"),
+        SeedConfig("password.require_symbol", "true", "密码须含符号"),
+        SeedConfig("password.forbid_username", "true", "密码不得包含用户名"),
+        SeedConfig("password.max_age_days", "90", "密码有效期（天），pwd_changed_at 驱动强制改密"),
+        SeedConfig("password.history_count", "5", "历史密码不可重复比对条数"),
+        SeedConfig("account.inactive_lock_days", "180", "未登录自动锁定阈值（天）"),
+        SeedConfig("audit.archive.operation_log_days", "90", "操作日志归档保留天数"),
+        SeedConfig("audit.archive.login_log_days", "90", "登录日志归档保留天数"),
+        SeedConfig("audit.archive.data_audit_log_days", "90", "数据变更审计归档保留天数"),
+        SeedConfig("audit.archive.open_log_days", "90", "开放接口审计归档保留天数"),
+    )
 )
 """平台默认参数项（验证码场景策略与渠道开关 + 密码 / 账号策略；后续模块键顺延追加）。"""
 

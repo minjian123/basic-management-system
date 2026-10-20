@@ -66,25 +66,25 @@ __all__ = [
     "get_chat_stream",
 ]
 
-CHAT_STREAM_EVENT_TYPES: tuple[str, ...] = ("token", "done", "error")
+CHAT_STREAM_EVENT_TYPES: ConcurrentStableList[str] = ConcurrentStableList(("token", "done", "error"))
 """增量事件类型：`token` 增量片段 / `done` 结束 / `error` 错误。"""
 
-CHAT_MESSAGE_STATUSES: tuple[str, ...] = ("streaming", "done", "error", "stopped")
+CHAT_MESSAGE_STATUSES: ConcurrentStableList[str] = ConcurrentStableList(("streaming", "done", "error", "stopped"))
 """消息状态（与前端 `AiMessageStatus` 同源）。"""
 
-CHAT_MODULES: tuple[str, ...] = ("ask", "report", "approval", "doc_qa")
+CHAT_MODULES: ConcurrentStableList[str] = ConcurrentStableList(("ask", "report", "approval", "doc_qa"))
 """四模式：问答 / 问数 / 审批辅助 / 文档问答（与前端 `AiMode` 同源）。"""
 
-CHAT_MESSAGE_ROLES: tuple[str, ...] = ("user", "assistant", "system")
+CHAT_MESSAGE_ROLES: ConcurrentStableList[str] = ConcurrentStableList(("user", "assistant", "system"))
 """消息角色。"""
 
-CHAT_CITATION_TYPES: tuple[str, ...] = ("file", "article", "record")
+CHAT_CITATION_TYPES: ConcurrentStableList[str] = ConcurrentStableList(("file", "article", "record"))
 """引用来源类型（文件 / 帮助文章 / 业务记录）。"""
 
-CHAT_RESULT_KINDS: tuple[str, ...] = ("chart", "table")
+CHAT_RESULT_KINDS: ConcurrentStableList[str] = ConcurrentStableList(("chart", "table"))
 """问数结果形态（图表复用前端图表卡 / 表格）。"""
 
-CHAT_ACTION_STATUSES: tuple[str, ...] = ("confirmed", "revoked", "rejected", "unknown")
+CHAT_ACTION_STATUSES: ConcurrentStableList[str] = ConcurrentStableList(("confirmed", "revoked", "rejected", "unknown"))
 """确认 / 撤销结果状态。"""
 
 AI_AUTO_EXECUTE_KEY = "ai.auto_execute"

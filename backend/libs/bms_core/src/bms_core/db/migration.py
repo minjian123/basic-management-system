@@ -45,7 +45,11 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.pool import NullPool
 
 from alembic import command
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
+from bms_core.core.concurrent import (
+    ConcurrentStableDict,
+    ConcurrentStableFrozenSet,
+    ConcurrentStableList,
+)
 from bms_core.core.config import Settings, get_settings
 from bms_core.core.exceptions import ConfigError
 from bms_core.core.objects import BaseValueObject
@@ -84,7 +88,9 @@ DATASOURCE_TENANT = "tenant"
 DATASOURCE_ARCHIVE = "archive"
 """数据源段：归档库（不服务化，服务段取占位）。"""
 
-DATASOURCES: tuple[str, ...] = (DATASOURCE_PLATFORM, DATASOURCE_TENANT, DATASOURCE_ARCHIVE)
+DATASOURCES: ConcurrentStableList[str] = ConcurrentStableList(
+    (DATASOURCE_PLATFORM, DATASOURCE_TENANT, DATASOURCE_ARCHIVE)
+)
 """数据源段集合（保序：平台 → 租户 → 归档）。"""
 
 CHAIN_SEPARATOR = ":"
@@ -99,11 +105,13 @@ CONFIG_SECTION = "alembic"
 ARCHIVE_CHAIN_SERVICE = PLATFORM_SERVICE_KEY
 """归档链的服务段占位（归档库不服务化，链名固定 `platform:archive`）。"""
 
-COMMON_MODEL_MODULES: tuple[str, ...] = (
-    "bms_core.models.ownership",
-    "bms_core.models.outbox",
-    "bms_core.config.models",
-    "bms_core.listing.models",
+COMMON_MODEL_MODULES: ConcurrentStableList[str] = ConcurrentStableList(
+    (
+        "bms_core.models.ownership",
+        "bms_core.models.outbox",
+        "bms_core.config.models",
+        "bms_core.listing.models",
+    )
 )
 """公共模型模块清单（跨服务共享的基座模型；各链均需注册其元数据）。"""
 
@@ -143,7 +151,7 @@ VERSIONS_ROOT = BACKEND_ROOT / "alembic" / "versions"
 
 _DM = "dm"
 """达梦方言名（无异步驱动，走同步引擎）。"""
-_DM_DIALECTS: tuple[str, ...] = (_DM, "dmxa")
+_DM_DIALECTS: ConcurrentStableList[str] = ConcurrentStableList((_DM, "dmxa"))
 """达梦方言名集合（原生 `dm` 与自定义 XA 方言 `dmxa`；05_05 归一后运行期多为 `dmxa`）。"""
 
 
@@ -160,7 +168,7 @@ class MigrationChain(BaseValueObject):
     datasource: str
     """数据源段（`platform` / `tenant` / `archive`）。"""
 
-    tables: ConcurrentStableSet[str]
+    tables: ConcurrentStableFrozenSet[str]
     """该链目标表集（归属登记派生；实际建表以脚本为准）。"""
 
     scope: str
@@ -379,7 +387,7 @@ def service_package(service: str, *, settings: Settings | None = None) -> str:
     return f"{prefix}_{service}"
 
 
-def service_model_modules(service: str, *, settings: Settings | None = None) -> tuple[str, ...]:
+def service_model_modules(service: str, *, settings: Settings | None = None) -> ConcurrentStableList[str]:
     """取服务包自声明的模型模块清单（服务包不存在返回空元组）。
 
     **宽松语义**：服务包不存在（跨仓产品服务、`planned` / 预留服务）返回空元组——需要「已启用服务
@@ -397,17 +405,17 @@ def service_model_modules(service: str, *, settings: Settings | None = None) -> 
     """
     package = f"{service_package(service, settings=settings)}.models"
     if not _package_exists(package):
-        return ()
+        return ConcurrentStableList(())
     module = importlib.import_module(package)
     declared = getattr(module, SERVICE_MODEL_MODULES_ENTRY, None)
     if declared is None:
         raise ConfigError(
             f"服务包 {package} 未声明 {SERVICE_MODEL_MODULES_ENTRY}（模型模块清单；无模型的服务请声明空元组）"
         )
-    return tuple(str(name) for name in declared)
+    return ConcurrentStableList(str(name) for name in declared)
 
 
-def require_service_model_modules(service: str, *, settings: Settings | None = None) -> tuple[str, ...]:
+def require_service_model_modules(service: str, *, settings: Settings | None = None) -> ConcurrentStableList[str]:
     """取服务包自声明的模型模块清单；**服务包不存在即 `ConfigError`**（严格入口；12_04）。
 
     用于「服务已启用但服务包缺失」的快速失败——免静默空清单导致迁移与开发库自动建表不建表。

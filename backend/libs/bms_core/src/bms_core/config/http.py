@@ -9,7 +9,12 @@ from collections.abc import Mapping
 from typing import cast
 
 from bms_core.config.base import BaseConfigSource
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.core.concurrent import (
+    ConcurrentStableDict,
+    ConcurrentStableFrozenDict,
+    ConcurrentStableFrozenList,
+    ConcurrentStableList,
+)
 from bms_core.core.context import get_current_tenant
 from bms_core.core.exceptions import ServiceUnavailableError
 from bms_core.core.logging import get_logger
@@ -63,7 +68,7 @@ class HttpConfigSource(BaseConfigSource):
             method="POST",
             path=CONFIG_RESOLVE_PATH,
             headers=headers,
-            json_body=ConcurrentStableDict({"keys": ConcurrentStableList(unique)}),
+            json_body=ConcurrentStableFrozenDict({"keys": ConcurrentStableFrozenList(unique)}),
         )
         try:
             response = await self._client.call(request)

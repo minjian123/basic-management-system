@@ -102,7 +102,7 @@ async def test_by_type_version_current_and_values_subset() -> None:
     """版本一致（平台侧返回 `items=null`）→ `items=None`；按值子集经逗号拼接传参。"""
     client = _FakeClient(ConcurrentStableList([{"version": 7, "items": None, "has_more": False, "total": 0}]))
     source = HttpDataSource(client=client)
-    result = await source.by_type(DictQuery(data_source_key="status", values=("a", "b")))
+    result = await source.by_type(DictQuery(data_source_key="status", values=ConcurrentStableList(("a", "b"))))
     assert result.items is None
     assert client.requests[0].query == {"values": "a,b"}
 
@@ -124,7 +124,7 @@ async def test_batch_posts_body_and_parses_items() -> None:
         )
     )
     source = HttpDataSource(client=client)
-    result = await source.batch(DictBatchQuery(types=("status", "level"), version=8))
+    result = await source.batch(DictBatchQuery(types=ConcurrentStableList(("status", "level")), version=8))
 
     request = client.requests[0]
     assert request.method == "POST"
@@ -141,7 +141,9 @@ async def test_translate_maps_hits_and_keeps_misses() -> None:
     """翻译：命中取 label、未命中回退原值；单批内一次调用。"""
     client = _FakeClient(ConcurrentStableList([{"version": 3, "items": [_item_payload("a", "甲")], "total": 1}]))
     translator = HttpDictTranslator(client=client)
-    mapping = await translator.translate(DictTranslateQuery(data_source_key="status", values=("a", "b")))
+    mapping = await translator.translate(
+        DictTranslateQuery(data_source_key="status", values=ConcurrentStableList(("a", "b")))
+    )
     assert mapping == {"a": "甲", "b": "b"}
     assert client.requests[0].query == {"values": "a,b"}
 
@@ -153,7 +155,7 @@ async def test_translate_chunks_large_value_sets() -> None:
     values = tuple(f"v{index}" for index in range(size + 1))
     client = _FakeClient(ConcurrentStableList([{"version": 1, "items": [_item_payload(values[0], "首")], "total": 1}]))
     translator = HttpDictTranslator(client=client)
-    mapping = await translator.translate(DictTranslateQuery(data_source_key="big", values=values))
+    mapping = await translator.translate(DictTranslateQuery(data_source_key="big", values=values))  # pyright: ignore[reportArgumentType]  # 08_05：注解落集合类，值形态由契约/外部决定
     assert len(client.requests) == 2
     assert client.requests[0].query is not None and client.requests[0].query["values"].count(",") == size - 1
     assert mapping[values[0]] == "首"
@@ -165,12 +167,14 @@ async def test_degrade_when_platform_unavailable() -> None:
     source = HttpDataSource(client=_FakeClient(unavailable=True))
     single = await source.by_type(DictQuery(data_source_key="status"))
     assert single.items == () and single.version == 0
-    batch = await source.batch(DictBatchQuery(types=("status", "level")))
+    batch = await source.batch(DictBatchQuery(types=ConcurrentStableList(("status", "level"))))
     assert set(batch.items) == {"status", "level"}
     assert all(item is not None and item.items == () for item in batch.items.values())
 
     translator = HttpDictTranslator(client=_FakeClient(unavailable=True))
-    assert await translator.translate(DictTranslateQuery(data_source_key="status", values=("x",))) == {"x": "x"}
+    assert await translator.translate(
+        DictTranslateQuery(data_source_key="status", values=ConcurrentStableList(("x",)))
+    ) == {"x": "x"}
 
 
 @pytest.mark.kiwi_id(2178)

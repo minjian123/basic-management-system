@@ -16,7 +16,7 @@
 《[架构设计 · 权限计算引擎](../../../../../bms文档/设计/架构设计/15_架构设计_子系统_权限计算引擎.md)》§10。
 """
 
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.exceptions import ConfigError
 
 PROFILE_SMB = "smb"
@@ -31,10 +31,12 @@ PROFILE_ENTERPRISE_HR = "enterprise_hr"
 DEFAULT_PROFILE = PROFILE_SMB
 """缺省档位。"""
 
-PERMISSION_PROFILES: tuple[str, ...] = (PROFILE_SMB, PROFILE_ENTERPRISE, PROFILE_ENTERPRISE_HR)
+PERMISSION_PROFILES: ConcurrentStableList[str] = ConcurrentStableList(
+    (PROFILE_SMB, PROFILE_ENTERPRISE, PROFILE_ENTERPRISE_HR)
+)
 """全部档位（递增装配形态）。"""
 
-IMPLEMENTED_PROFILES: tuple[str, ...] = (PROFILE_SMB,)
+IMPLEMENTED_PROFILES: ConcurrentStableList[str] = ConcurrentStableList((PROFILE_SMB,))
 """当前已实现档位（其余档位一旦配置即启动 fail-closed）。"""
 
 PROFILE_AUDIENCE: ConcurrentStableDict[str, str] = ConcurrentStableDict(

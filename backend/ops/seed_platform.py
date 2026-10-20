@@ -56,24 +56,28 @@ PLATFORM_ADMIN_ROLE_CODE = "platform_admin"
 PLATFORM_OPS_ROLE_CODE = "platform_ops"
 """平台运维（只读）角色码。"""
 
-PLATFORM_BUSINESS_CODES: tuple[str, ...] = (
-    "sys",
-    "tenant",
-    "menu",
-    "business",
-    "action",
-    "permission",
-    "user-extension",
+PLATFORM_BUSINESS_CODES: ConcurrentStableList[str] = ConcurrentStableList(
+    (
+        "sys",
+        "tenant",
+        "menu",
+        "business",
+        "action",
+        "permission",
+        "user-extension",
+    )
 )
 """平台业务码（平台超管的授权范围；来源《架构设计 · 权限计算引擎》§7）。"""
 
-PLATFORM_OPS_PERMISSION_CODES: tuple[str, ...] = (
-    "sys:query",
-    "tenant:query",
-    "menu:query",
-    "business:query",
-    "action:query",
-    "permission:query",
+PLATFORM_OPS_PERMISSION_CODES: ConcurrentStableList[str] = ConcurrentStableList(
+    (
+        "sys:query",
+        "tenant:query",
+        "menu:query",
+        "business:query",
+        "action:query",
+        "permission:query",
+    )
 )
 """平台运维角色只读权限码。"""
 

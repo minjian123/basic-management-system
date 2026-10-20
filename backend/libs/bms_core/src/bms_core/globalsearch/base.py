@@ -56,10 +56,12 @@ __all__ = [
     "get_global_search",
 ]
 
-GLOBAL_SEARCH_DOMAINS: tuple[str, ...] = ("user", "dept", "role", "dict", "purchase", "file_meta", "help_article")
+GLOBAL_SEARCH_DOMAINS: ConcurrentStableList[str] = ConcurrentStableList(
+    ("user", "dept", "role", "dict", "purchase", "file_meta", "help_article")
+)
 """可检索域（对齐概要设计 33 `doc_type`）；实际可见域 = 权限并集，由实现在 `domains()` 给出。"""
 
-DEGRADE_REASONS: tuple[str, ...] = ("unavailable", "timeout", "fallback")
+DEGRADE_REASONS: ConcurrentStableList[str] = ConcurrentStableList(("unavailable", "timeout", "fallback"))
 """降级原因：不可用 / 超时 / 已降级兜底。"""
 
 NULL_DEGRADE_REASON = "unavailable"

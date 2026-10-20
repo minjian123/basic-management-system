@@ -11,7 +11,7 @@ from bms_core.api.deps import get_realtime_publisher
 from bms_core.application import service_lifespan as lifespan
 from bms_core.core.base import BaseObject
 from bms_core.core.capability import BaseCapability, BaseNullObject
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenDict
 from bms_core.ws.base import REALTIME_EVENTS, BaseRealtimePublisher, RealtimeEvent
 from bms_core.ws.null import NullRealtimePublisher
 from bms_notification.main import ApplicationFactory
@@ -41,7 +41,7 @@ def test_event_constants() -> None:
 @pytest.mark.kiwi_id(51)
 def test_data_contract_defaults_and_frozen() -> None:
     """`RealtimeEvent` 目标字段默认值与不可变。"""
-    event = RealtimeEvent(event="notification.new", data=ConcurrentStableDict({"id": "1"}))
+    event = RealtimeEvent(event="notification.new", data=ConcurrentStableFrozenDict({"id": "1"}))
     assert event.user_id is None
     assert event.session_id is None
     assert event.room is None

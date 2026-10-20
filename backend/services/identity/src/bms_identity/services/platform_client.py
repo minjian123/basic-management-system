@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from typing import cast
 
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.exceptions import (
     PasswordPolicyViolationError,
     PasswordReusedError,
@@ -26,10 +26,10 @@ from bms_identity.schemas.sso import PlatformProfileResult, PlatformUserCreateRe
 PLATFORM_SERVICE = "platform"
 """凭据主数据归属服务标识。"""
 
-_SCOPES: tuple[str, ...] = ("credential",)
+_SCOPES: ConcurrentStableList[str] = ConcurrentStableList(("credential",))
 """内部凭据调用所需服务 JWT scope。"""
 
-_PROFILE_SCOPES: tuple[str, ...] = ("user_profile",)
+_PROFILE_SCOPES: ConcurrentStableList[str] = ConcurrentStableList(("user_profile",))
 """用户概要接口所需服务 JWT scope。"""
 
 _CREDENTIAL_INTERFACE = "platform 凭据接口"
@@ -87,7 +87,7 @@ class PlatformCredentialClient(BaseFrameworkObject):
         if outcome.updated:
             return True
         if outcome.reason == "policy_violation":
-            raise PasswordPolicyViolationError(violations=tuple(outcome.violations))
+            raise PasswordPolicyViolationError(violations=ConcurrentStableList(outcome.violations))
         if outcome.reason == "history_reused":
             raise PasswordReusedError()
         return False
@@ -228,7 +228,7 @@ class PlatformCredentialClient(BaseFrameworkObject):
     async def _post_path(
         self,
         path: str,
-        scopes: tuple[str, ...],
+        scopes: ConcurrentStableList[str],
         tenant: str | None,
         body: ConcurrentStableDict[str, object],
         *,

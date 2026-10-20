@@ -76,91 +76,93 @@ class FormRecord(BaseValueObject):
     data_source_key: str | None = None
 
 
-FORM_CATALOG: tuple[FormRecord, ...] = (
-    FormRecord(
-        form_key="module",
-        table="sys_module",
-        name="业务模块注册",
-        kind=FormKind.DICT.value,
-        data_source_key="module",
-    ),
-    FormRecord(
-        form_key="product",
-        table="sys_product",
-        name="产品档案",
-        kind=FormKind.DICT.value,
-        data_source_key="product",
-    ),
-    FormRecord(
-        form_key="business",
-        table="sys_business",
-        name="业务码",
-        kind=FormKind.DICT.value,
-        data_source_key="business",
-    ),
-    FormRecord(
-        form_key="action",
-        table="sys_action",
-        name="动作码",
-        kind=FormKind.DICT.value,
-        data_source_key="action",
-    ),
-    FormRecord(
-        form_key="role",
-        table="sys_role",
-        name="角色",
-        kind=FormKind.DICT.value,
-        data_source_key="role",
-    ),
-    FormRecord(
-        form_key="user",
-        table="sys_user",
-        name="用户",
-        kind=FormKind.DICT.value,
-        data_source_key="user",
-    ),
-    FormRecord(
-        form_key="config",
-        table="sys_config",
-        name="系统参数",
-        kind=FormKind.DICT.value,
-        data_source_key="config",
-    ),
-    FormRecord(
-        form_key="tenant",
-        table="sys_tenant",
-        name="租户",
-        kind=FormKind.DICT.value,
-        data_source_key="tenant",
-    ),
-    FormRecord(
-        form_key="identity_provider",
-        table="sys_identity_provider",
-        name="外部 IdP 配置",
-        kind=FormKind.DICT.value,
-        data_source_key="identity_provider",
-    ),
-    FormRecord(
-        form_key="client",
-        table="sys_client",
-        name="第三方应用",
-        kind=FormKind.DICT.value,
-        data_source_key="client",
-    ),
-    FormRecord(
-        form_key="task",
-        table="sys_task",
-        name="定时任务",
-        kind=FormKind.DICT.value,
-        data_source_key="task",
-    ),
-    FormRecord(
-        form_key="icon",
-        table="sys_icon",
-        name="自定义图标",
-        kind=FormKind.DICT.value,
-        data_source_key="icon",
-    ),
+FORM_CATALOG: ConcurrentStableList[FormRecord] = ConcurrentStableList(
+    (
+        FormRecord(
+            form_key="module",
+            table="sys_module",
+            name="业务模块注册",
+            kind=FormKind.DICT.value,
+            data_source_key="module",
+        ),
+        FormRecord(
+            form_key="product",
+            table="sys_product",
+            name="产品档案",
+            kind=FormKind.DICT.value,
+            data_source_key="product",
+        ),
+        FormRecord(
+            form_key="business",
+            table="sys_business",
+            name="业务码",
+            kind=FormKind.DICT.value,
+            data_source_key="business",
+        ),
+        FormRecord(
+            form_key="action",
+            table="sys_action",
+            name="动作码",
+            kind=FormKind.DICT.value,
+            data_source_key="action",
+        ),
+        FormRecord(
+            form_key="role",
+            table="sys_role",
+            name="角色",
+            kind=FormKind.DICT.value,
+            data_source_key="role",
+        ),
+        FormRecord(
+            form_key="user",
+            table="sys_user",
+            name="用户",
+            kind=FormKind.DICT.value,
+            data_source_key="user",
+        ),
+        FormRecord(
+            form_key="config",
+            table="sys_config",
+            name="系统参数",
+            kind=FormKind.DICT.value,
+            data_source_key="config",
+        ),
+        FormRecord(
+            form_key="tenant",
+            table="sys_tenant",
+            name="租户",
+            kind=FormKind.DICT.value,
+            data_source_key="tenant",
+        ),
+        FormRecord(
+            form_key="identity_provider",
+            table="sys_identity_provider",
+            name="外部 IdP 配置",
+            kind=FormKind.DICT.value,
+            data_source_key="identity_provider",
+        ),
+        FormRecord(
+            form_key="client",
+            table="sys_client",
+            name="第三方应用",
+            kind=FormKind.DICT.value,
+            data_source_key="client",
+        ),
+        FormRecord(
+            form_key="task",
+            table="sys_task",
+            name="定时任务",
+            kind=FormKind.DICT.value,
+            data_source_key="task",
+        ),
+        FormRecord(
+            form_key="icon",
+            table="sys_icon",
+            name="自定义图标",
+            kind=FormKind.DICT.value,
+            data_source_key="icon",
+        ),
+    )
 )
 """bms 侧构建期清单（字典表；表单表 `form` 类随产品 / 业务表以注入方式回补）。
 
@@ -170,8 +172,8 @@ FORM_CATALOG: tuple[FormRecord, ...] = (
 
 
 def merge_form_records(
-    builtin: tuple[FormRecord, ...] = FORM_CATALOG,
-    injected: tuple[FormRecord, ...] = (),
+    builtin: ConcurrentStableList[FormRecord] = FORM_CATALOG,
+    injected: ConcurrentStableList[FormRecord] = ConcurrentStableList(()),  # noqa: B008
 ) -> ConcurrentStableList[FormRecord]:
     """拼接构建期清单与项目注入记录（应用装配期视图的构造入口）。
 

@@ -20,7 +20,10 @@ from bms_core.datasource.registry import (
     DataSourceStatus,
     DataSourceStrategy,
 )
-from bms_core.schemas.base import CONTRACT_COLLECTION, BaseSchema
+from bms_core.schemas.base import (
+    CONTRACT_COLLECTION,
+    BaseSchema,
+)
 
 __all__ = ["DataSourceListResponse", "DataSourceResponse"]
 
@@ -35,9 +38,11 @@ class DataSourceResponse(BaseSchema):
     origin: DataSourceOrigin = Field(description="来源（platform 平台内建 / product 产品提供）")
     product_key: str | None = Field(default=None, description="产品标识（origin=product 时非空）")
     path: str | None = Field(default=None, description="产品取数路径（origin=product 时前端经网关直取）")
-    allowlist: tuple[str, ...] = Field(default=(), description="数据权限可匹配字段白名单")
+    allowlist: Annotated[ConcurrentStableList[str], CONTRACT_COLLECTION] = Field(  # pyright: ignore[reportAssignmentType]  # 08_05：注解落集合类，值形态由契约/外部决定
+        default=(), description="数据权限可匹配字段白名单"
+    )
     cascade: bool = Field(default=False, description="是否级联（有无上级字段）")
-    strategies: tuple[DataSourceStrategy, ...] = Field(
+    strategies: Annotated[ConcurrentStableList[DataSourceStrategy], CONTRACT_COLLECTION] = Field(  # pyright: ignore[reportAssignmentType]  # 08_05：注解落集合类，值形态由契约/外部决定
         default=(DataSourceStrategy.SELECT,), description="可用策略集合（select / region / match / extension）"
     )
     status: DataSourceStatus = Field(default=DataSourceStatus.ENABLED, description="状态（enabled / disabled）")

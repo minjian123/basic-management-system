@@ -91,9 +91,9 @@ class TenantRef(BaseValueObject):
 class MigrationSummary(BaseValueObject):
     """批量迁移结果汇总（成功 / 跳过 / 失败 + 库数量统计）。"""
 
-    succeeded: tuple[str, ...]
-    skipped: tuple[str, ...]
-    failed: tuple[str, ...]
+    succeeded: ConcurrentStableList[str]
+    skipped: ConcurrentStableList[str]
+    failed: ConcurrentStableList[str]
 
     @property
     def exit_code(self) -> int:

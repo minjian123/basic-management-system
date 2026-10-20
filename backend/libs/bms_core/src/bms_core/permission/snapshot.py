@@ -34,7 +34,7 @@ TIER_SYSTEM_ADMIN = "system_admin"
 TIER_PLATFORM_ADMIN = "platform_admin"
 """层级：平台超管（跨租户运营，豁免全权）。"""
 
-EXEMPT_TIERS: tuple[str, ...] = (TIER_SYSTEM_ADMIN, TIER_PLATFORM_ADMIN)
+EXEMPT_TIERS: ConcurrentStableList[str] = ConcurrentStableList((TIER_SYSTEM_ADMIN, TIER_PLATFORM_ADMIN))
 """豁免层级集合（`check` 恒真）。"""
 
 

@@ -18,6 +18,7 @@ from __future__ import annotations
 from dataclasses import dataclass, fields
 from typing import ClassVar
 
+from bms_core.core.concurrent import ConcurrentStableFrozenList
 from bms_core.core.objects.roots import BaseValueObject
 
 __all__ = [
@@ -37,7 +38,7 @@ class BaseTokenContract(BaseValueObject):
     公共段：`token_type`（令牌类型标识）；成员为携带令牌串的签出结果或校验结果。
     """
 
-    COMMON_FIELDS: ClassVar[tuple[str, ...]] = ("token_type",)
+    COMMON_FIELDS: ClassVar[ConcurrentStableFrozenList[str]] = ConcurrentStableFrozenList(("token_type",))
 
 
 @dataclass(frozen=True)
@@ -47,7 +48,9 @@ class BaseRefreshableTokenContract(BaseTokenContract):
     公共段：`access_token` + `refresh_token`（刷新令牌**可为空**——外部身份源未返回时无刷新位）。
     """
 
-    COMMON_FIELDS: ClassVar[tuple[str, ...]] = ("access_token", "refresh_token")
+    COMMON_FIELDS: ClassVar[ConcurrentStableFrozenList[str]] = ConcurrentStableFrozenList(
+        ("access_token", "refresh_token")
+    )
 
 
 @dataclass(frozen=True)
@@ -57,7 +60,7 @@ class BaseTokenSpecContract(BaseValueObject):
     公共段：`ttl`（可空——不指定时用实现缺省寿命）。
     """
 
-    COMMON_FIELDS: ClassVar[tuple[str, ...]] = ("ttl",)
+    COMMON_FIELDS: ClassVar[ConcurrentStableFrozenList[str]] = ConcurrentStableFrozenList(("ttl",))
 
 
 @dataclass(frozen=True)
@@ -67,7 +70,7 @@ class BaseOidcTokenSpecContract(BaseTokenSpecContract):
     公共段：`client_id` + `issuer`（声明归属的客户端与签发方）。
     """
 
-    COMMON_FIELDS: ClassVar[tuple[str, ...]] = ("client_id", "issuer")
+    COMMON_FIELDS: ClassVar[ConcurrentStableFrozenList[str]] = ConcurrentStableFrozenList(("client_id", "issuer"))
 
 
 @dataclass(frozen=True)
@@ -77,7 +80,9 @@ class BaseTokenClaimsContract(BaseValueObject):
     公共段：`subject` + `expires_at` + `issued_at` + `payload`（主体、有效期、签发时刻与原始声明）。
     """
 
-    COMMON_FIELDS: ClassVar[tuple[str, ...]] = ("subject", "expires_at", "issued_at", "payload")
+    COMMON_FIELDS: ClassVar[ConcurrentStableFrozenList[str]] = ConcurrentStableFrozenList(
+        ("subject", "expires_at", "issued_at", "payload")
+    )
 
 
 @dataclass(frozen=True)
@@ -89,7 +94,7 @@ class BaseSecretMaterialContract(BaseValueObject):
     口令进入日志与报错信息（`frozen=True` 仍由 dataclass 强制，值语义不变）。
     """
 
-    SECRET_FIELDS: ClassVar[tuple[str, ...]] = ()
+    SECRET_FIELDS: ClassVar[ConcurrentStableFrozenList[str]] = ConcurrentStableFrozenList()
     """本类敏感字段名（子类声明；`repr` 中一律以 `***` 呈现）。"""
 
     def __repr__(self) -> str:

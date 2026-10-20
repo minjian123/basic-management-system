@@ -17,7 +17,11 @@ from bms_core.core.exceptions import ParamError
 from bms_core.core.objects import BaseFrameworkObject
 from bms_core.dict.base import BaseDataSource, DictItem, DictQuery
 from bms_core.query.base import BaseQueryProviderRegistry
-from bms_core.schemas.base import CONTRACT_COLLECTION, CONTRACT_STABLE_DICT, BaseSchema
+from bms_core.schemas.base import (
+    CONTRACT_COLLECTION,
+    CONTRACT_STABLE_DICT,
+    BaseSchema,
+)
 
 __all__ = [
     "DICT_ADV_FIXED_FIELDS",
@@ -44,7 +48,7 @@ DICT_ADV_PAGE_SIZE_DEFAULT = 20
 DICT_ADV_PAGE_SIZE_MAX = 100
 """高级查询页长上限。"""
 
-DICT_ADV_FIXED_FIELDS: tuple[str, ...] = ("value", "label", "code", "sort", "status")
+DICT_ADV_FIXED_FIELDS: ConcurrentStableList[str] = ConcurrentStableList(("value", "label", "code", "sort", "status"))
 """固定可查字段。"""
 
 DICT_FIXED_FIELD_TYPES: ConcurrentStableDict[str, str] = ConcurrentStableDict(
@@ -58,7 +62,7 @@ DICT_FIXED_FIELD_TYPES: ConcurrentStableDict[str, str] = ConcurrentStableDict(
 )
 """固定字段数据类型。"""
 
-DICT_OPERATORS_BY_TYPE: ConcurrentStableDict[str, tuple[str, ...]] = ConcurrentStableDict(
+DICT_OPERATORS_BY_TYPE: ConcurrentStableDict[str, ConcurrentStableList[str]] = ConcurrentStableDict(  # pyright: ignore[reportAssignmentType]  # 08_05：注解落集合类，值形态由契约/外部决定
     {
         "text": ("eq", "ne", "contains", "not_contains", "starts_with", "is_null", "not_null", "in", "not_in"),
         "number": ("eq", "ne", "gt", "lt", "between", "is_null", "not_null", "in", "not_in"),
@@ -94,11 +98,11 @@ class DictAttrInfo(BaseSchema):
     attr_key: str = Field(description="字段键")
     name: str = Field(description="字段名")
     data_type: str = Field(description="数据类型（text/number/enum）")
-    operators: tuple[str, ...] = Field(default=(), description="可用操作符")
+    operators: Annotated[ConcurrentStableList[str], CONTRACT_COLLECTION] = Field(default=(), description="可用操作符")  # pyright: ignore[reportAssignmentType]  # 契约字段保留 default=()（JSON Schema `default: []` 零漂移）
     widget: str | None = Field(default=None, description="值控件")
-    options: tuple[Annotated[ConcurrentStableDict[str, object], CONTRACT_COLLECTION], ...] = Field(
-        default=(), description="枚举选项集"
-    )
+    options: Annotated[
+        ConcurrentStableList[Annotated[ConcurrentStableDict[str, object], CONTRACT_COLLECTION]], CONTRACT_COLLECTION
+    ] = Field(default=(), description="枚举选项集")  # pyright: ignore[reportAssignmentType]  # 契约字段保留 default=()（JSON Schema `default: []` 零漂移）
     sort: int = Field(default=0, description="排序值")
     scope: str = Field(default="platform", description="来源（platform/tenant）")
 
@@ -109,7 +113,9 @@ class DictQueryProviderInfo(BaseSchema):
     key: str = Field(description="提供者标识")
     name: str = Field(description="显示名")
     target: str = Field(default="business", description="目标（items/business）")
-    data_source_keys: tuple[str, ...] = Field(default=(), description="适用字典标识（空 = 全部）")
+    data_source_keys: Annotated[ConcurrentStableList[str], CONTRACT_COLLECTION] = Field(  # pyright: ignore[reportAssignmentType]  # 08_05：注解落集合类，值形态由契约/外部决定
+        default=(), description="适用字典标识（空 = 全部）"
+    )
     param_schema: Annotated[ConcurrentStableDict[str, object], CONTRACT_COLLECTION] = Field(
         default_factory=CONTRACT_STABLE_DICT, description="参数 JSON Schema 子集"
     )
@@ -146,10 +152,12 @@ class DictAdvItem(BaseSchema):
 class DictAdvQueryResult(BaseSchema):
     """高级查询结果（`items` 取项 / `rows` 业务筛选二选一）。"""
 
-    items: tuple[DictAdvItem, ...] = Field(default=(), description="字典条目（target=items）")
-    rows: tuple[Annotated[ConcurrentStableDict[str, object], CONTRACT_COLLECTION], ...] = Field(
-        default=(), description="业务记录（target=business）"
+    items: Annotated[ConcurrentStableList[DictAdvItem], CONTRACT_COLLECTION] = Field(  # pyright: ignore[reportAssignmentType]  # 08_05：注解落集合类，值形态由契约/外部决定
+        default=(), description="字典条目（target=items）"
     )
+    rows: Annotated[
+        ConcurrentStableList[Annotated[ConcurrentStableDict[str, object], CONTRACT_COLLECTION]], CONTRACT_COLLECTION
+    ] = Field(default=(), description="业务记录（target=business）")  # pyright: ignore[reportAssignmentType]  # 契约字段保留 default=()（JSON Schema `default: []` 零漂移）
     total: int = Field(default=0, description="命中总数")
     page: int = Field(default=1, description="页码（自 1）")
     size: int = Field(default=DICT_ADV_PAGE_SIZE_DEFAULT, description="页长")
@@ -181,7 +189,7 @@ class DictQueryService(BaseFrameworkObject):
         """
         self._source = source
 
-    async def load_attrs(self, data_source_key: str, locale: str | None = None) -> tuple[DictAttrInfo, ...]:
+    async def load_attrs(self, data_source_key: str, locale: str | None = None) -> ConcurrentStableList[DictAttrInfo]:
         """返回固定字段 schema（无扩展属性表）。
 
         Args:
@@ -199,14 +207,16 @@ class DictQueryService(BaseFrameworkObject):
                     attr_key=field,
                     name=field,
                     data_type=data_type,
-                    operators=DICT_OPERATORS_BY_TYPE.get(data_type, ()),
+                    operators=DICT_OPERATORS_BY_TYPE.get(  # pyright: ignore[reportArgumentType]  # 08_05：注解落集合类，值形态由契约/外部决定
+                        data_type, ConcurrentStableList(ConcurrentStableList(ConcurrentStableList(())))
+                    ),
                     widget=None,
-                    options=(),
+                    options=ConcurrentStableList(()),
                     sort=index,
                     scope="platform",
                 )
             )
-        return tuple(result)
+        return ConcurrentStableList(result)
 
     async def advanced_query(
         self,
@@ -242,7 +252,7 @@ class DictQueryService(BaseFrameworkObject):
             params.set("size", size)
             result = await registry.query(key, params)
             return DictAdvQueryResult(
-                rows=tuple(ConcurrentStableDict(row) for row in result.rows),
+                rows=ConcurrentStableList(ConcurrentStableDict(row) for row in result.rows),
                 total=result.total,
                 page=page,
                 size=size,
@@ -254,7 +264,7 @@ class DictQueryService(BaseFrameworkObject):
         total = len(items)
         page_items = items[(page - 1) * size : (page - 1) * size + size]
         return DictAdvQueryResult(
-            items=tuple(_to_adv_item(item) for item in page_items),
+            items=ConcurrentStableList(_to_adv_item(item) for item in page_items),
             total=total,
             page=page,
             size=size,

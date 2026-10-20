@@ -27,7 +27,11 @@ from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 from bms_core.db.tenant import build_tenant_db_key
-from bms_core.schemas.base import CONTRACT_COLLECTION, CONTRACT_STABLE_LIST, BaseSchema
+from bms_core.schemas.base import (
+    CONTRACT_COLLECTION,
+    CONTRACT_STABLE_LIST,
+    BaseSchema,
+)
 
 __all__ = [
     "DEFAULT_BRAND_PRIMARY_COLOR",
@@ -47,29 +51,31 @@ __all__ = [
     "get_tenant_self_service",
 ]
 
-THEME_MODES: tuple[str, ...] = ("light", "dark", "system")
+THEME_MODES: ConcurrentStableList[str] = ConcurrentStableList(("light", "dark", "system"))
 """品牌默认主题模式取值（亮色 / 暗色 / 跟随系统）。"""
 
-TENANT_STATUSES: tuple[str, ...] = ("active", "suspended")
+TENANT_STATUSES: ConcurrentStableList[str] = ConcurrentStableList(("active", "suspended"))
 """租户状态取值（启用 / 停用），对齐租户注册表状态列。"""
 
-TENANT_SWITCH_MODES: tuple[str, ...] = ("token", "session")
+TENANT_SWITCH_MODES: ConcurrentStableList[str] = ConcurrentStableList(("token", "session"))
 """切换生效方式取值（经重发令牌 / 经会话内切换），供实现侧校验。"""
 
 DEFAULT_BRAND_PRIMARY_COLOR = "#1677ff"
 """平台默认品牌主色（未配置品牌时回退；与前端未配置时的回退主色一致）。"""
 
-TENANT_MEMBERSHIP_SOURCES: tuple[str, ...] = (
-    "super_admin",
-    "admin_create",
-    "import",
-    "sso_jit",
-    "self_register",
-    "self_heal",
+TENANT_MEMBERSHIP_SOURCES: ConcurrentStableList[str] = ConcurrentStableList(
+    (
+        "super_admin",
+        "admin_create",
+        "import",
+        "sso_jit",
+        "self_register",
+        "self_heal",
+    )
 )
 """用户↔租户可达关系的写入来源取值（前五＝建号路径，`self_heal`＝读路径兜底自愈补建）。"""
 
-TENANT_MEMBERSHIP_STATUSES: tuple[str, ...] = ("active", "disabled")
+TENANT_MEMBERSHIP_STATUSES: ConcurrentStableList[str] = ConcurrentStableList(("active", "disabled"))
 """用户↔租户可达关系状态取值（回收置 `disabled`，彻底移除才软删）。"""
 
 TENANT_MEMBERSHIP_SELF_HEAL_SOURCE = "self_heal"

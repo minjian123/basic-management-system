@@ -202,7 +202,7 @@ class JwtOidcProvider(BaseOidcProvider):
             subject=claims.subject,
             tenant_id=tenant_id if isinstance(tenant_id, str) else "",
             client_id=client_id if isinstance(client_id, str) else "",
-            scopes=scopes,
+            scopes=scopes,  # pyright: ignore[reportArgumentType]  # 08_05：注解落集合类，值形态由契约/外部决定
             expires_at=claims.expires_at,
             issued_at=claims.issued_at,
             token_id=str(payload.get("jti") or ""),

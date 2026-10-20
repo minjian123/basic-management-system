@@ -12,9 +12,13 @@ from typing import cast
 import pytest
 from fastapi import Request
 
-import bms_core.transaction.null  # noqa: F401  # pyright: ignore[reportUnusedImport]  导入即登记缺省实现
 from bms_core.core.assembly import PLUGIN_WIRINGS
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import (
+    ConcurrentStableDict,
+    ConcurrentStableFrozenDict,
+    ConcurrentStableFrozenList,
+    ConcurrentStableList,
+)
 from bms_core.core.config import Settings
 from bms_core.core.error_codes import ErrorCode
 from bms_core.core.exceptions import ParamError, TransactionUnavailableError
@@ -60,7 +64,9 @@ async def test_null_manager_rejects(method: str) -> None:
 
     if method == "begin":
         with pytest.raises(TransactionUnavailableError):
-            await manager.begin(caller_service="platform", branches=(BranchSpec("b1", "platform", "platform"),))
+            await manager.begin(
+                caller_service="platform", branches=ConcurrentStableList((BranchSpec("b1", "platform", "platform"),))
+            )
         return
     with pytest.raises(TransactionUnavailableError):
         await getattr(manager, method)("txn-1")
@@ -75,7 +81,9 @@ async def test_null_participant_rejects(method: str) -> None:
     with pytest.raises(TransactionUnavailableError):
         if method == "execute_branch":
             await participant.execute_branch(
-                xid="x1", db_key="platform", ops=(BranchOp(op="noop", args=ConcurrentStableDict()),)
+                xid="x1",
+                db_key="platform",
+                ops=ConcurrentStableFrozenList((BranchOp(op="noop", args=ConcurrentStableFrozenDict()),)),
             )
         else:
             await getattr(participant, method)(xid="x1", db_key="platform")

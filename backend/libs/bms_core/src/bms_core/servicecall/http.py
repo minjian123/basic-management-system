@@ -14,7 +14,7 @@ from typing import NoReturn
 import httpx
 
 from bms_core.circuit.base import BaseCircuitBreaker
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenDict
 from bms_core.core.exceptions import ServiceUnavailableError
 from bms_core.core.serialization import normalize_collections
 from bms_core.fallback.base import BaseFallbackPolicy, FallbackAction
@@ -185,7 +185,7 @@ class HttpServiceClient(BaseServiceClient):
         response = await client.request(request.method.upper(), url, **kwargs)  # pyright: ignore[reportArgumentType]
         return ServiceResponse(
             status_code=response.status_code,
-            headers=ConcurrentStableDict(response.headers),
+            headers=ConcurrentStableFrozenDict(response.headers),
             content=response.content,
         )
 

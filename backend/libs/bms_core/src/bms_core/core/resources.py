@@ -2,7 +2,7 @@
 
 from bms_core.core.capability import BaseAsyncResource
 from bms_core.core.concurrent import ConcurrentStableList
-from bms_core.core.objects import BaseFrameworkObject
+from bms_core.core.roots import BaseFrameworkObject
 
 
 class ResourceManager(BaseFrameworkObject):

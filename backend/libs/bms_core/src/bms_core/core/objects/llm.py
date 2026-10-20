@@ -11,6 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import ClassVar
 
+from bms_core.core.concurrent import ConcurrentStableFrozenList
 from bms_core.core.objects.roots import BaseValueObject
 
 __all__ = ["BaseLlmResultContract"]
@@ -25,4 +26,4 @@ class BaseLlmResultContract(BaseValueObject):
     结果载荷（正文 / 向量 / 文本）由成员各自声明，不入公共段。
     """
 
-    COMMON_FIELDS: ClassVar[tuple[str, ...]] = ("model", "provider_key")
+    COMMON_FIELDS: ClassVar[ConcurrentStableFrozenList[str]] = ConcurrentStableFrozenList(("model", "provider_key"))

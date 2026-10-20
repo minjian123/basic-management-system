@@ -1,7 +1,7 @@
 """dict 能力域缺省实现（Null Object）：固定 / 批量占位数据、原样翻译与空缓存，不连库、不连 Redis。"""
 
 from bms_core.core.capability import BaseNullObject
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.dict.base import (
     NULL_DICT_VERSION,
     BaseDataSource,
@@ -25,7 +25,7 @@ _TRANSLATE_PREFIX = "占位"
 """占位翻译前缀（`NullDictTranslator` 依此生成标签，便于断言）。"""
 
 
-def _placeholder_items(data_source_key: str) -> tuple[DictItem, ...]:
+def _placeholder_items(data_source_key: str) -> ConcurrentStableList[DictItem]:
     """构造类型占位条目（两条：顶层 + 其子级，供级联断言）。
 
     Args:
@@ -34,31 +34,33 @@ def _placeholder_items(data_source_key: str) -> tuple[DictItem, ...]:
     Returns:
         tuple[DictItem, ...]: 固定两条占位条目。
     """
-    return (
-        DictItem(
-            id=1,
-            value=f"{data_source_key}-1",
-            label=f"占位{data_source_key}1",
-            code=f"{data_source_key}_1",
-            parent_id=None,
-            sort=0,
-            status="enabled",
-            color=None,
-        ),
-        DictItem(
-            id=2,
-            value=f"{data_source_key}-2",
-            label=f"占位{data_source_key}2",
-            code=f"{data_source_key}_2",
-            parent_id=1,
-            sort=1,
-            status="enabled",
-            color="#1677ff",
-        ),
+    return ConcurrentStableList(
+        (
+            DictItem(
+                id=1,
+                value=f"{data_source_key}-1",
+                label=f"占位{data_source_key}1",
+                code=f"{data_source_key}_1",
+                parent_id=None,
+                sort=0,
+                status="enabled",
+                color=None,
+            ),
+            DictItem(
+                id=2,
+                value=f"{data_source_key}-2",
+                label=f"占位{data_source_key}2",
+                code=f"{data_source_key}_2",
+                parent_id=1,
+                sort=1,
+                status="enabled",
+                color="#1677ff",
+            ),
+        )
     )
 
 
-def _apply_filters(items: tuple[DictItem, ...], query: DictQuery) -> tuple[DictItem, ...]:
+def _apply_filters(items: ConcurrentStableList[DictItem], query: DictQuery) -> ConcurrentStableList[DictItem]:
     """按查询条件过滤占位条目（按值子集 / 关键字 / 上级条目 ID）。
 
     Args:
@@ -79,7 +81,7 @@ def _apply_filters(items: tuple[DictItem, ...], query: DictQuery) -> tuple[DictI
             for item in result
             if (item.parent_id is None if query.parent_id == 0 else item.parent_id == query.parent_id)
         )
-    return result
+    return result  # pyright: ignore[reportReturnType]  # 08_05：注解落集合类，值形态由契约/外部决定
 
 
 def _type_result(data_source_key: str) -> DictTypeResult:

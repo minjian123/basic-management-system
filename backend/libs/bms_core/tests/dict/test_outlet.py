@@ -13,7 +13,7 @@ from bms_core.dict.outlet import DataSourceOutlet, RoutedDataSource, RoutedDictT
 class _FakeProvider(BaseDictDataSource):
     """伪数据源提供者：按给定条目返回。"""
 
-    def __init__(self, data_source: str, items: tuple[DataSourceItem, ...]) -> None:
+    def __init__(self, data_source: str, items: ConcurrentStableList[DataSourceItem]) -> None:
         self._data_source = data_source
         self._items = items
 
@@ -21,22 +21,24 @@ class _FakeProvider(BaseDictDataSource):
     def data_source(self) -> str:
         return self._data_source
 
-    async def load(self, data_source_key: str, locale: str) -> tuple[DataSourceItem, ...]:
+    async def load(self, data_source_key: str, locale: str) -> ConcurrentStableList[DataSourceItem]:
         return self._items
 
 
-def _registry(records: tuple[DataSourceRecord, ...]) -> DataSourceRegistry:
+def _registry(records: ConcurrentStableList[DataSourceRecord]) -> DataSourceRegistry:
     return DataSourceRegistry(ConcurrentStableList(records))
 
 
-_ITEMS: tuple[DataSourceItem, ...] = (
-    DataSourceItem(id=1, value="admin", label="管理员", code="admin", parent_id=None, sort=0, status="enabled"),
-    DataSourceItem(id=2, value="viewer", label="访客", code="viewer", parent_id=None, sort=1, status="enabled"),
+_ITEMS: ConcurrentStableList[DataSourceItem] = ConcurrentStableList(
+    (
+        DataSourceItem(id=1, value="admin", label="管理员", code="admin", parent_id=None, sort=0, status="enabled"),
+        DataSourceItem(id=2, value="viewer", label="访客", code="viewer", parent_id=None, sort=1, status="enabled"),
+    )
 )
 
 
 def _source(
-    records: tuple[DataSourceRecord, ...], providers: ConcurrentStableDict[str, BaseGenericDataSource]
+    records: ConcurrentStableList[DataSourceRecord], providers: ConcurrentStableDict[str, BaseGenericDataSource]
 ) -> RoutedDataSource:
     return RoutedDataSource(DataSourceOutlet(_registry(records), providers), MemoryDictCacheRegion())
 
@@ -45,7 +47,9 @@ def _source(
 async def test_by_type_routes_to_provider() -> None:
     """命登记的数据源经 `data_source` 路由到对应提供者（通用条目映射为字典契约条目）。"""
     record = DataSourceRecord(data_source_key="role", name="角色", data_source="platform")
-    source = _source((record,), ConcurrentStableDict({"platform": _FakeProvider("platform", _ITEMS)}))
+    source = _source(
+        ConcurrentStableList((record,)), ConcurrentStableDict({"platform": _FakeProvider("platform", _ITEMS)})
+    )
     result = await source.by_type(DictQuery(data_source_key="role"))
     assert result.items is not None and len(result.items) == 2
     assert result.items[0].label == "管理员"
@@ -55,7 +59,7 @@ async def test_by_type_routes_to_provider() -> None:
 async def test_unknown_or_disabled_returns_empty() -> None:
     """未登记 / 停用 / 无提供者一律返回空结果（版本 0、items=()）。"""
     disabled = DataSourceRecord(data_source_key="role", name="角色", data_source="platform", status="disabled")
-    source = _source((disabled,), ConcurrentStableDict({}))
+    source = _source(ConcurrentStableList((disabled,)), ConcurrentStableDict({}))
     unknown = await source.by_type(DictQuery(data_source_key="nope"))
     off = await source.by_type(DictQuery(data_source_key="role"))
     assert unknown.version == 0 and unknown.items == ()
@@ -66,10 +70,12 @@ async def test_unknown_or_disabled_returns_empty() -> None:
 async def test_filters_keyword_and_values() -> None:
     """关键字 / 按值子集过滤在出口生效。"""
     record = DataSourceRecord(data_source_key="role", name="角色", data_source="platform")
-    source = _source((record,), ConcurrentStableDict({"platform": _FakeProvider("platform", _ITEMS)}))
+    source = _source(
+        ConcurrentStableList((record,)), ConcurrentStableDict({"platform": _FakeProvider("platform", _ITEMS)})
+    )
     by_keyword = await source.by_type(DictQuery(data_source_key="role", keyword="管理"))
     assert by_keyword.items is not None and len(by_keyword.items) == 1
-    by_values = await source.by_type(DictQuery(data_source_key="role", values=("viewer",)))
+    by_values = await source.by_type(DictQuery(data_source_key="role", values=ConcurrentStableList(("viewer",))))
     assert by_values.items is not None and by_values.items[0].value == "viewer"
 
 
@@ -77,7 +83,9 @@ async def test_filters_keyword_and_values() -> None:
 async def test_version_current_returns_none_items() -> None:
     """版本一致时 items 返回 None（省流量）。"""
     record = DataSourceRecord(data_source_key="role", name="角色", data_source="platform")
-    source = _source((record,), ConcurrentStableDict({"platform": _FakeProvider("platform", _ITEMS)}))
+    source = _source(
+        ConcurrentStableList((record,)), ConcurrentStableDict({"platform": _FakeProvider("platform", _ITEMS)})
+    )
     current = await source.by_type(DictQuery(data_source_key="role"))
     again = await source.by_type(DictQuery(data_source_key="role", version=current.version))
     assert again.items is None
@@ -87,8 +95,10 @@ async def test_version_current_returns_none_items() -> None:
 async def test_batch_merges() -> None:
     """批量合并逐标识路由，返回内层结果映射。"""
     record = DataSourceRecord(data_source_key="role", name="角色", data_source="platform")
-    source = _source((record,), ConcurrentStableDict({"platform": _FakeProvider("platform", _ITEMS)}))
-    batch = await source.batch(DictBatchQuery(types=("role", "nope")))
+    source = _source(
+        ConcurrentStableList((record,)), ConcurrentStableDict({"platform": _FakeProvider("platform", _ITEMS)})
+    )
+    batch = await source.batch(DictBatchQuery(types=ConcurrentStableList(("role", "nope"))))
     inner = batch.items.get("role")
     assert inner is not None and inner.items is not None
     unknown = batch.items.get("nope")
@@ -99,8 +109,12 @@ async def test_batch_merges() -> None:
 async def test_translate_routes_and_maps() -> None:
     """翻译经路由到提供者，value → label；未命中不占位。"""
     record = DataSourceRecord(data_source_key="role", name="角色", data_source="platform")
-    source = _source((record,), ConcurrentStableDict({"platform": _FakeProvider("platform", _ITEMS)}))
+    source = _source(
+        ConcurrentStableList((record,)), ConcurrentStableDict({"platform": _FakeProvider("platform", _ITEMS)})
+    )
     translator = RoutedDictTranslator(source.outlet, MemoryDictCacheRegion())
-    mapping = await translator.translate(DictTranslateQuery(data_source_key="role", values=("admin", "z")))
+    mapping = await translator.translate(
+        DictTranslateQuery(data_source_key="role", values=ConcurrentStableList(("admin", "z")))
+    )
     assert mapping.get("admin") == "管理员"
     assert mapping.get("z") is None

@@ -243,7 +243,7 @@ def test_redaction_depth_limit_keeps_value() -> None:
             payload,
             _MAX_REDACT_DEPTH,
             ConcurrentStableSet(_SENSITIVE_KEYS),
-            _SENSITIVE_SUFFIXES,
+            _SENSITIVE_SUFFIXES,  # pyright: ignore[reportArgumentType]  # 08_05：注解落集合类，值形态由契约/外部决定
         )
         is payload
     )

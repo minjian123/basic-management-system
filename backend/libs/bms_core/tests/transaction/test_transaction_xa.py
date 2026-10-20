@@ -12,7 +12,11 @@ from fastapi import FastAPI
 from fastapi.routing import APIRoute
 from starlette.routing import Route
 
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.core.concurrent import (
+    ConcurrentStableDict,
+    ConcurrentStableFrozenList,
+    ConcurrentStableList,
+)
 from bms_core.core.config import Settings
 from bms_core.core.exceptions import ServiceUnavailableError, TransactionUnavailableError
 from bms_core.db.session import DbSession
@@ -89,7 +93,8 @@ async def test_manager_begin_sends_branches_to_tm() -> None:
     manager = XaTransactionManager(client)
 
     snapshot = await manager.begin(
-        caller_service="platform", branches=(BranchSpec(branch_id="b1", service="platform", db_key="platform"),)
+        caller_service="platform",
+        branches=ConcurrentStableList((BranchSpec(branch_id="b1", service="platform", db_key="platform"),)),
     )
 
     assert manager.enabled is True
@@ -146,7 +151,7 @@ async def test_participant_rejects_unregistered_op() -> None:
     state = await participant.execute_branch(
         xid="1001|b1",
         db_key="platform",
-        ops=(BranchOp(op="unknown.op", args=ConcurrentStableDict[str, object]()),),
+        ops=ConcurrentStableFrozenList((BranchOp(op="unknown.op", args=ConcurrentStableDict[str, object]()),)),
     )
 
     assert state == "rejected"
@@ -187,7 +192,7 @@ class _ParticipantStub(BaseTransactionParticipant):
         """恒定真（替身具备两阶段能力）。"""
         return True
 
-    async def execute_branch(self, *, xid: str, db_key: str, ops: tuple[BranchOp, ...]) -> str:
+    async def execute_branch(self, *, xid: str, db_key: str, ops: ConcurrentStableList[BranchOp]) -> str:
         """记录执行并回 `prepared`。"""
         del ops
         self.calls.add((f"execute:{xid}", db_key))
@@ -208,10 +213,10 @@ class _ParticipantStub(BaseTransactionParticipant):
         self.calls.add((f"state:{xid}", db_key))
         return "prepared"
 
-    async def recover_branches(self, *, db_key: str) -> tuple[str, ...]:
+    async def recover_branches(self, *, db_key: str) -> ConcurrentStableList[str]:
         """记录悬挂列举并回单个 `xid`。"""
         self.calls.add(("recover", db_key))
-        return ("x1",)
+        return ConcurrentStableList(("x1",))
 
 
 def _branch_endpoints() -> ConcurrentStableDict[tuple[str, str], Any]:
@@ -315,7 +320,7 @@ async def test_manager_begin_passes_timeout() -> None:
     client = _FakeClient(_ok(ConcurrentStableDict({"global_txn_id": "1", "state": "active", "branches": []})))
     manager = XaTransactionManager(client)
 
-    await manager.begin(caller_service="platform", branches=(), timeout_seconds=5.0)
+    await manager.begin(caller_service="platform", branches=ConcurrentStableList(()), timeout_seconds=5.0)
 
     request = client.calls[0]
     assert request.json_body is not None
@@ -390,7 +395,7 @@ class _FakeConnection:
 class _FakeDialect:
     """方言替身（两阶段驱动 / 悬挂列举）。"""
 
-    def __init__(self, recovered: tuple[object, ...] = ()) -> None:
+    def __init__(self, recovered: ConcurrentStableList[object] = ConcurrentStableList(())) -> None:  # noqa: B008
         self.recovered = recovered
         self.commits: ConcurrentStableList[tuple[str, bool, bool]] = ConcurrentStableList()
         self.rollbacks: ConcurrentStableList[tuple[str, bool, bool]] = ConcurrentStableList()
@@ -403,7 +408,7 @@ class _FakeDialect:
         """记录回滚驱动。"""
         self.rollbacks.add((xid, is_prepared, recover))
 
-    def do_recover_twophase(self, connection: object) -> tuple[object, ...]:
+    def do_recover_twophase(self, connection: object) -> ConcurrentStableList[object]:
         """列举悬挂分支。"""
         return self.recovered
 
@@ -446,7 +451,9 @@ async def test_participant_executes_branch_prepares_and_detaches() -> None:
     participant = XaTransactionParticipant(cast("Any", _FakeEngines(_FakeEngine(connection, _FakeDialect()))), registry)
 
     args = ConcurrentStableDict[str, object]({"k": 1})
-    state = await participant.execute_branch(xid="xa-1", db_key="platform", ops=(BranchOp(op="test.op", args=args),))
+    state = await participant.execute_branch(
+        xid="xa-1", db_key="platform", ops=ConcurrentStableFrozenList((BranchOp(op="test.op", args=args),))
+    )
 
     assert state == "prepared"
     assert connection.xid == "xa-1"
@@ -472,7 +479,9 @@ async def test_participant_rolls_back_when_handler_fails() -> None:
 
     with pytest.raises(RuntimeError):
         await participant.execute_branch(
-            xid="xa-1", db_key="platform", ops=(BranchOp(op="test.op", args=ConcurrentStableDict[str, object]()),)
+            xid="xa-1",
+            db_key="platform",
+            ops=ConcurrentStableFrozenList((BranchOp(op="test.op", args=ConcurrentStableDict[str, object]()),)),
         )
 
     assert connection.rolled_back == 1
@@ -493,14 +502,16 @@ async def test_participant_swallows_rollback_and_close_failures() -> None:
 
     with pytest.raises(RuntimeError):
         await participant.execute_branch(
-            xid="xa-1", db_key="platform", ops=(BranchOp(op="test.op", args=ConcurrentStableDict[str, object]()),)
+            xid="xa-1",
+            db_key="platform",
+            ops=ConcurrentStableFrozenList((BranchOp(op="test.op", args=ConcurrentStableDict[str, object]()),)),
         )
 
 
 async def test_participant_drives_terminal_states_and_recovery() -> None:
     """分支终态驱动：提交 / 回滚经新连接方言 API；**回滚幂等**（未 `PREPARED` 者不驱动、不报错）。"""
     connection = _FakeConnection()
-    dialect = _FakeDialect(recovered=("xa-1",))
+    dialect = _FakeDialect(recovered=ConcurrentStableList(("xa-1",)))
     participant = XaTransactionParticipant(
         cast("Any", _FakeEngines(_FakeEngine(connection, dialect))), BranchHandlerRegistry()
     )
@@ -519,7 +530,7 @@ async def test_participant_drives_terminal_states_and_recovery() -> None:
 
 async def test_participant_branch_state_accepts_mysql_bytes_and_pg_text() -> None:
     """方言表示差异：MySQL `XA RECOVER` 返回 **bytes**、PostgreSQL 返回 `gid` 字符串，两者均须判为 `prepared`。"""
-    dialect = _FakeDialect(recovered=(b"xa-1", "xa-2"))
+    dialect = _FakeDialect(recovered=ConcurrentStableList((b"xa-1", "xa-2")))
     participant = XaTransactionParticipant(
         cast("Any", _FakeEngines(_FakeEngine(_FakeConnection(), dialect))), BranchHandlerRegistry()
     )
@@ -531,7 +542,7 @@ async def test_participant_branch_state_accepts_mysql_bytes_and_pg_text() -> Non
 
 async def test_participant_recover_returns_readable_text() -> None:
     """悬挂列举文本归一：bytes 解码为文本、字符串原样、非法字节以替换字符呈现。"""
-    dialect = _FakeDialect(recovered=(b"xa-1", "xa-2", b"\xff\xfe"))
+    dialect = _FakeDialect(recovered=ConcurrentStableList((b"xa-1", "xa-2", b"\xff\xfe")))
     participant = XaTransactionParticipant(
         cast("Any", _FakeEngines(_FakeEngine(_FakeConnection(), dialect))), BranchHandlerRegistry()
     )
@@ -549,7 +560,7 @@ async def test_participant_branch_state_uses_dialect_matcher_when_present() -> N
             """按载体比对（此处以「hex 前缀」模拟派生结果）。"""
             return str(recovered) == f"hex-{xid}"
 
-    dialect = _MatcherDialect(recovered=("hex-xa-1",))
+    dialect = _MatcherDialect(recovered=ConcurrentStableList(("hex-xa-1",)))
     participant = XaTransactionParticipant(
         cast("Any", _FakeEngines(_FakeEngine(_FakeConnection(), dialect))), BranchHandlerRegistry()
     )
@@ -606,7 +617,9 @@ async def test_participant_commits_session_before_prepare(monkeypatch: pytest.Mo
     participant = XaTransactionParticipant(cast("Any", _FakeEngines(_FakeEngine(connection, _FakeDialect()))), registry)
 
     await participant.execute_branch(
-        xid="xa-1", db_key="platform", ops=(BranchOp(op="test.op", args=ConcurrentStableDict[str, object]()),)
+        xid="xa-1",
+        db_key="platform",
+        ops=ConcurrentStableFrozenList((BranchOp(op="test.op", args=ConcurrentStableDict[str, object]()),)),
     )
 
     assert list(steps) == ["open", "flush", "commit", "close", "prepare"]
@@ -639,7 +652,7 @@ def test_participant_factory_uses_app_registry() -> None:
 async def test_lazy_engine_registry_forwards_to_app_state() -> None:
     """引擎注册表代理：转发到应用装配的注册表（延迟取用）。"""
     app = FastAPI()
-    dialect = _FakeDialect(recovered=("xa-1",))
+    dialect = _FakeDialect(recovered=ConcurrentStableList(("xa-1",)))
     app.state.engine_registry = cast("Any", _FakeEngines(_FakeEngine(_FakeConnection(), dialect)))
     participant = XaTransactionParticipantFactory(Settings(), app).create()
 

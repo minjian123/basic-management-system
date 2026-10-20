@@ -170,7 +170,7 @@ def _build_dispatcher(
         batch_size=100,
         max_retries=max_retries,
         backoff=1.0,
-        db_keys=(PLATFORM_DB_KEY,),
+        db_keys=ConcurrentStableList((PLATFORM_DB_KEY,)),
         interval=interval,
         metrics=metrics,
         enabled=enabled,
@@ -262,7 +262,7 @@ async def test_dispatch_due_isolates_broken_db(session: DbSession, registry: Eng
         publisher=publisher,
         engine_registry=registry,
         session_factory=SessionFactory(),
-        db_keys=(PLATFORM_DB_KEY, "tenant_missing"),
+        db_keys=ConcurrentStableList((PLATFORM_DB_KEY, "tenant_missing")),
         interval=3600.0,
     )
     result = await dispatcher.dispatch_due()
@@ -340,7 +340,7 @@ async def test_run_forever_survives_round_error(registry: EngineRegistry) -> Non
         publisher=RecordingPublisher(),
         engine_registry=registry,
         session_factory=SessionFactory(),
-        db_keys=(PLATFORM_DB_KEY,),
+        db_keys=ConcurrentStableList((PLATFORM_DB_KEY,)),
         interval=0.01,
         enabled=True,
     )

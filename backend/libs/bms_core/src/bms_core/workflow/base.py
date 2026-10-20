@@ -18,7 +18,7 @@ from typing import cast
 
 from fastapi import Request
 
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.core.objects import BaseProcessContract, BaseValueObject
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
@@ -35,7 +35,7 @@ __all__ = [
     "get_workflow_engine",
 ]
 
-WORKFLOW_STATUS: tuple[str, ...] = ("running", "completed", "rejected")
+WORKFLOW_STATUS: ConcurrentStableList[str] = ConcurrentStableList(("running", "completed", "rejected"))
 """实例状态清单；占位期仅登记不校验。"""
 
 NULL_INSTANCE_ID = "null-instance-id"

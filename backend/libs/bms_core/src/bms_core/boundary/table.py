@@ -23,7 +23,7 @@ from bms_core.boundary.base import (
     OwnershipStats,
 )
 from bms_core.boundary.exceptions import OwnershipException
-from bms_core.core.concurrent import ConcurrentStableSet
+from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.exceptions import ConfigError, DataOwnershipError
 from bms_core.core.logging import get_logger
 from bms_core.metrics.base import BaseMetrics
@@ -43,7 +43,7 @@ class TableOwnershipGuard(BaseDataOwnershipGuard):
         service: str,
         *,
         mode: str = DEFAULT_OWNERSHIP_MODE,
-        exceptions: tuple[OwnershipException, ...] = (),
+        exceptions: ConcurrentStableList[OwnershipException] = ConcurrentStableList(()),  # noqa: B008
         metrics: BaseMetrics | None = None,
     ) -> None:
         """初始化。
@@ -69,7 +69,7 @@ class TableOwnershipGuard(BaseDataOwnershipGuard):
         self._violations = 0
         self._blocked = 0
 
-    def assess(self, statement: str, *, service: str) -> tuple[OwnershipViolation, ...]:
+    def assess(self, statement: str, *, service: str) -> ConcurrentStableList[OwnershipViolation]:
         """判定语句是否越界访问他服务表。
 
         Args:

@@ -67,7 +67,7 @@ def register_permission_guard(guard: BasePermissionGuard) -> None:
     _GUARDS.set(guard.key, guard)
 
 
-def registered_permission_guards() -> tuple[BasePermissionGuard, ...]:
+def registered_permission_guards() -> ConcurrentStableList[BasePermissionGuard]:
     """已登记校验链环节（按 `order` 升序、同序保持登记序）。
 
     Returns:
@@ -78,7 +78,7 @@ def registered_permission_guards() -> tuple[BasePermissionGuard, ...]:
         guard = _GUARDS.get(key)
         if guard is not None:
             collected.add(guard)
-    return tuple(sorted(collected, key=lambda item: item.order))
+    return ConcurrentStableList(sorted(collected, key=lambda item: item.order))
 
 
 def guards_allow(context: PermissionGuardContext) -> bool:

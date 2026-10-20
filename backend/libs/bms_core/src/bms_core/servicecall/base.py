@@ -23,7 +23,11 @@ from urllib.parse import urlencode
 from fastapi import Request
 
 from bms_core.api.base import API_PREFIX
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import (
+    ConcurrentStableFrozenDict,
+    ConcurrentStableFrozenList,
+    ConcurrentStableList,
+)
 from bms_core.core.config import Settings
 from bms_core.core.exceptions import ParamError
 from bms_core.core.objects import BaseHttpResponseContract, BaseValueObject
@@ -59,7 +63,7 @@ DEFAULT_MAX_RETRIES = 2
 DEFAULT_RETRY_BACKOFF = 0.1
 """默认重试退避基数（秒，指数退避：`base * 2 ** 尝试序号`；0 表示不等待）。"""
 
-DEFAULT_RETRY_STATUSES: tuple[int, ...] = (429, 500, 502, 503, 504)
+DEFAULT_RETRY_STATUSES: ConcurrentStableList[int] = ConcurrentStableList((429, 500, 502, 503, 504))
 """默认可重试的响应状态码（下游瞬时故障）。"""
 
 DEFAULT_BASE_URL_TEMPLATE = "http://{service}:8000"
@@ -97,7 +101,9 @@ class ServiceCallPolicy(BaseValueObject):
     max_retries: int = DEFAULT_MAX_RETRIES
     """最大重试次数（不含首次；0 表示不重试）。"""
 
-    retry_statuses: tuple[int, ...] = DEFAULT_RETRY_STATUSES
+    retry_statuses: ConcurrentStableFrozenList[int] = field(
+        default_factory=lambda: ConcurrentStableFrozenList[int](DEFAULT_RETRY_STATUSES)
+    )
     """命中即重试的响应状态码（重试耗尽仍命中则按服务不可用处理）。"""
 
     retry_backoff: float = DEFAULT_RETRY_BACKOFF
@@ -112,7 +118,7 @@ class ServiceCallPolicy(BaseValueObject):
     rate_limit_key: str | None = None
     """限流 key（None 时按维度 `service` + 目标服务生成）。"""
 
-    scopes: tuple[str, ...] = ()
+    scopes: ConcurrentStableFrozenList[str] = field(default_factory=lambda: ConcurrentStableFrozenList[str]())
     """出站服务 JWT 所需 scope（开启 `attach_service_token` 时作为签发 scope 来源）。"""
 
 
@@ -129,13 +135,13 @@ class ServiceRequest(BaseValueObject):
     path: str
     """目标路径（须以内部公开面 `/api/v1` 开头）。"""
 
-    query: ConcurrentStableDict[str, str] | None = None
+    query: ConcurrentStableFrozenDict[str, str] | None = None
     """查询参数（可选）。"""
 
-    headers: ConcurrentStableDict[str, str] | None = None
+    headers: ConcurrentStableFrozenDict[str, str] | None = None
     """请求头（可选；出站一律剥离入站 `Authorization`，服务 JWT 由客户端按开关签发附上）。"""
 
-    json_body: ConcurrentStableDict[str, object] | None = None
+    json_body: ConcurrentStableFrozenDict[str, object] | None = None
     """JSON 请求体（可选；与 `content` 二选一）。"""
 
     content: bytes | None = None
@@ -156,7 +162,7 @@ class ServiceResponse(BaseHttpResponseContract):
     status_code: int
     """HTTP 状态码。"""
 
-    headers: ConcurrentStableDict[str, str] = field(default_factory=ConcurrentStableDict[str, str])
+    headers: ConcurrentStableFrozenDict[str, str] = field(default_factory=ConcurrentStableFrozenDict[str, str])
     """响应头。"""
 
     content: bytes = b""

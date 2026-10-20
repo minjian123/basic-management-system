@@ -8,7 +8,7 @@
 
 from typing import cast
 
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.fieldtype.base import BaseFieldType, BaseFieldTypeRegistry
 
 __all__ = ["LocalFieldTypeRegistry", "SimpleFieldType"]
@@ -64,7 +64,9 @@ class SimpleFieldType(BaseFieldType):
         """
         return f"字段类型 {self._key}（{self._widget}）"
 
-    def validate(self, value: object, *, options: ConcurrentStableDict[str, object] | None = None) -> tuple[str, ...]:
+    def validate(
+        self, value: object, *, options: ConcurrentStableDict[str, object] | None = None
+    ) -> ConcurrentStableList[str]:
         """校验字段值（类型级；空值放行，必填由字段规则承载）。
 
         Args:
@@ -75,25 +77,37 @@ class SimpleFieldType(BaseFieldType):
             tuple[str, ...]: 违规原因元组（空元组通过）。
         """
         if value is None or value == "":
-            return ()
+            return ConcurrentStableList(())
         if self._kind == _KIND_STRING:
-            return () if isinstance(value, str) else (f"{self._key} 需要字符串值",)
+            return (
+                ConcurrentStableList(())
+                if isinstance(value, str)
+                else ConcurrentStableList((f"{self._key} 需要字符串值",))
+            )
         if self._kind == _KIND_TEXT:
-            return () if isinstance(value, str) else (f"{self._key} 需要文本值",)
+            return (
+                ConcurrentStableList(())
+                if isinstance(value, str)
+                else ConcurrentStableList((f"{self._key} 需要文本值",))
+            )
         if self._kind == _KIND_NUMBER:
             if isinstance(value, bool) or not isinstance(value, int | float):
-                return (f"{self._key} 需要数值",)
-            return ()
+                return ConcurrentStableList((f"{self._key} 需要数值",))
+            return ConcurrentStableList(())
         if self._kind == _KIND_BOOL:
-            return () if isinstance(value, bool) else (f"{self._key} 需要布尔值",)
+            return (
+                ConcurrentStableList(())
+                if isinstance(value, bool)
+                else ConcurrentStableList((f"{self._key} 需要布尔值",))
+            )
         if self._kind == _KIND_STRING_LIST:
             if not isinstance(value, list):
-                return (f"{self._key} 需要字符串数组",)
+                return ConcurrentStableList((f"{self._key} 需要字符串数组",))
             items = cast("list[object]", value)
             if any(not isinstance(item, str) for item in items):
-                return (f"{self._key} 数组元素需为字符串",)
-            return ()
-        return ()
+                return ConcurrentStableList((f"{self._key} 数组元素需为字符串",))
+            return ConcurrentStableList(())
+        return ConcurrentStableList(())
 
     def render_metadata(self) -> ConcurrentStableDict[str, object]:
         """渲染元数据（控件语义键 / 是否多值）。
@@ -140,25 +154,27 @@ class LocalFieldTypeRegistry(BaseFieldTypeRegistry):
         return provider.key
 
 
-def builtin_field_types() -> tuple[SimpleFieldType, ...]:
+def builtin_field_types() -> ConcurrentStableList[SimpleFieldType]:
     """内建字段类型清单（与前端字段类型 / 语义键口径对齐）。
 
     Returns:
         tuple[SimpleFieldType, ...]: 字段类型提供者元组。
     """
-    return (
-        SimpleFieldType(key="text", widget="text", kind=_KIND_TEXT, column_type="varchar(255)"),
-        SimpleFieldType(key="longtext", widget="textarea", kind=_KIND_TEXT, column_type="text"),
-        SimpleFieldType(key="number", widget="number", kind=_KIND_NUMBER, column_type="int"),
-        SimpleFieldType(key="datetime", widget="datetime", kind=_KIND_STRING, column_type="datetime"),
-        SimpleFieldType(key="select", widget="select", kind=_KIND_STRING, column_type="varchar(64)"),
-        SimpleFieldType(
-            key="multi_select", widget="multi-select", kind=_KIND_STRING_LIST, multiple=True, column_type="text"
-        ),
-        SimpleFieldType(key="switch", widget="switch", kind=_KIND_BOOL, column_type="smallint"),
-        SimpleFieldType(key="file", widget="file", kind=_KIND_STRING, column_type="text"),
-        SimpleFieldType(key="dict", widget="dict-select", kind=_KIND_STRING, column_type="varchar(64)"),
-        SimpleFieldType(
-            key="dict_multi", widget="dict-multi", kind=_KIND_STRING_LIST, multiple=True, column_type="text"
-        ),
+    return ConcurrentStableList(
+        (
+            SimpleFieldType(key="text", widget="text", kind=_KIND_TEXT, column_type="varchar(255)"),
+            SimpleFieldType(key="longtext", widget="textarea", kind=_KIND_TEXT, column_type="text"),
+            SimpleFieldType(key="number", widget="number", kind=_KIND_NUMBER, column_type="int"),
+            SimpleFieldType(key="datetime", widget="datetime", kind=_KIND_STRING, column_type="datetime"),
+            SimpleFieldType(key="select", widget="select", kind=_KIND_STRING, column_type="varchar(64)"),
+            SimpleFieldType(
+                key="multi_select", widget="multi-select", kind=_KIND_STRING_LIST, multiple=True, column_type="text"
+            ),
+            SimpleFieldType(key="switch", widget="switch", kind=_KIND_BOOL, column_type="smallint"),
+            SimpleFieldType(key="file", widget="file", kind=_KIND_STRING, column_type="text"),
+            SimpleFieldType(key="dict", widget="dict-select", kind=_KIND_STRING, column_type="varchar(64)"),
+            SimpleFieldType(
+                key="dict_multi", widget="dict-multi", kind=_KIND_STRING_LIST, multiple=True, column_type="text"
+            ),
+        )
     )

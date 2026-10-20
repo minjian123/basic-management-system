@@ -21,7 +21,12 @@ from typing import cast
 
 from fastapi import Request
 
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.core.concurrent import (
+    ConcurrentStableDict,
+    ConcurrentStableFrozenDict,
+    ConcurrentStableFrozenList,
+    ConcurrentStableList,
+)
 from bms_core.core.config import Settings
 from bms_core.core.objects import BaseOidcTokenSpecContract, BaseTokenClaimsContract
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
@@ -61,7 +66,9 @@ OIDC_SCOPE_PROFILE = "profile"
 OIDC_SCOPE_EMAIL = "email"
 """邮箱 scope（保留；本期 `sys_user` 无 email，暂不产出声明）。"""
 
-OIDC_DEFAULT_SCOPES: tuple[str, ...] = (OIDC_SCOPE_OPENID, OIDC_SCOPE_PROFILE, OIDC_SCOPE_EMAIL)
+OIDC_DEFAULT_SCOPES: ConcurrentStableList[str] = ConcurrentStableList(
+    (OIDC_SCOPE_OPENID, OIDC_SCOPE_PROFILE, OIDC_SCOPE_EMAIL)
+)
 """默认支持的 scope 集合。"""
 
 OIDC_RESPONSE_TYPE_CODE = "code"
@@ -137,7 +144,7 @@ class AccessTokenSpec(BaseOidcTokenSpecContract):
     issuer: str = ""
     """签发方（按租户派生的 issuer）。"""
 
-    scopes: tuple[str, ...] = ()
+    scopes: ConcurrentStableFrozenList[str] = field(default_factory=lambda: ConcurrentStableFrozenList[str]())
     """授权范围（claims `scope`，空格分隔）。"""
 
     ttl: int | None = None
@@ -157,7 +164,7 @@ class OidcAccessClaims(BaseTokenClaimsContract):
     client_id: str = ""
     """客户端标识（claims `client_id`）。"""
 
-    scopes: tuple[str, ...] = ()
+    scopes: ConcurrentStableFrozenList[str] = field(default_factory=lambda: ConcurrentStableFrozenList[str]())
     """授权范围。"""
 
     expires_at: int = 0
@@ -169,7 +176,7 @@ class OidcAccessClaims(BaseTokenClaimsContract):
     token_id: str = ""
     """令牌 id（`jti`）。"""
 
-    payload: ConcurrentStableDict[str, object] = field(default_factory=ConcurrentStableDict[str, object])
+    payload: ConcurrentStableFrozenDict[str, object] = field(default_factory=ConcurrentStableFrozenDict[str, object])
     """完整声明载荷（只读映射）。"""
 
 

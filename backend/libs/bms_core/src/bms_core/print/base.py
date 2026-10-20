@@ -65,19 +65,19 @@ __all__ = [
     "get_print_template_provider",
 ]
 
-PRINT_PAPERS: tuple[str, ...] = ("A4", "A5", "custom")
+PRINT_PAPERS: ConcurrentStableList[str] = ConcurrentStableList(("A4", "A5", "custom"))
 """纸张取值集合（A4 / A5 / 自定义，对齐前端纸张名三取值）。"""
 
-PRINT_ORIENTATIONS: tuple[str, ...] = ("portrait", "landscape")
+PRINT_ORIENTATIONS: ConcurrentStableList[str] = ConcurrentStableList(("portrait", "landscape"))
 """纸张方向取值集合（纵向 / 横向）。"""
 
-PRINT_TONES: tuple[str, ...] = ("color", "mono")
+PRINT_TONES: ConcurrentStableList[str] = ConcurrentStableList(("color", "mono"))
 """打印色调取值集合（彩色 / 黑白）。"""
 
-PRINT_BATCH_MODES: tuple[str, ...] = ("separate", "merged")
+PRINT_BATCH_MODES: ConcurrentStableList[str] = ConcurrentStableList(("separate", "merged"))
 """批量模式取值集合（逐份 / 合并）。"""
 
-PRINT_TEMPLATE_STATUSES: tuple[str, ...] = ("active", "disabled")
+PRINT_TEMPLATE_STATUSES: ConcurrentStableList[str] = ConcurrentStableList(("active", "disabled"))
 """打印模板状态取值集合（启用 / 停用）。"""
 
 PRINT_CONTENT_TYPE = "application/pdf"

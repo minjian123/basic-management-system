@@ -12,7 +12,7 @@ from support_app import ApplicationFactory, lifespan
 
 from bms_core.api.deps import get_edge_trust
 from bms_core.core.assembly import MarkerEdgeTrustFactory
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenList
 from bms_core.core.config import Settings
 from bms_core.core.exceptions import AuthError
 from bms_core.edge.base import BaseEdgeTrust, EdgeIdentity, require_edge_identity
@@ -63,7 +63,7 @@ def test_marker_edge_trust_trusts_matching_marker() -> None:
     assert decision.identity == EdgeIdentity(
         user_id=42,
         tenant_code="acme",
-        scopes=("user:read", "user:write"),
+        scopes=ConcurrentStableFrozenList(("user:read", "user:write")),
         service_identity="svc-a",
         session_id="sess-1",
     )

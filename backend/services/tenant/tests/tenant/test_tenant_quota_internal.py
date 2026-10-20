@@ -112,7 +112,7 @@ class _StubVerifier:
             service = "platform"
             tenant_id = None
             subject = "platform"
-            scopes: tuple[str, ...] = ()
+            scopes: ConcurrentStableList[str] = ConcurrentStableList(())
 
         return _Verified()
 

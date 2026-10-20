@@ -16,7 +16,7 @@ from dataclasses import dataclass
 
 from sqlalchemy import Table, select
 
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.objects import BaseValueObject
 from bms_core.datasource.base import BaseDictDataSource, DataSourceItem
 from bms_core.db.registry import EngineRegistry
@@ -93,7 +93,7 @@ class DictTableDataSource(BaseDictDataSource):
         """
         return self._mapping
 
-    async def load(self, data_source_key: str, locale: str) -> tuple[DataSourceItem, ...]:
+    async def load(self, data_source_key: str, locale: str) -> ConcurrentStableList[DataSourceItem]:
         """加载某字典的全部启用行（标准列映射为通用条目）。
 
         Args:
@@ -107,7 +107,7 @@ class DictTableDataSource(BaseDictDataSource):
         columns = self._table.c
         value_col = columns.get(mapping.value)
         if value_col is None:
-            return ()
+            return ConcurrentStableList(())
         label_col = columns.get(mapping.label)
         if label_col is None:
             label_col = value_col
@@ -140,7 +140,7 @@ class DictTableDataSource(BaseDictDataSource):
 
         async with self._session() as session:
             rows = (await session.execute(statement)).mappings().all()
-        return tuple(
+        return ConcurrentStableList(
             self.row_to_item(ConcurrentStableDict({str(key): value for key, value in row.items()})) for row in rows
         )
 

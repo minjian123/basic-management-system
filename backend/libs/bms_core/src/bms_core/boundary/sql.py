@@ -32,11 +32,13 @@ _BLOCK_COMMENT = re.compile(r"/\*.*?\*/", re.DOTALL)
 _LINE_COMMENT = re.compile(r"--[^\n]*")
 _IDENTIFIER_QUOTES = re.compile(r"[`\"\[\]]")
 _FIRST_WORD = re.compile(r"[a-z]+")
-_TABLE_PATTERNS: tuple[re.Pattern[str], ...] = (
-    re.compile(r"\bfrom\s+([a-z_][\w]*(?:\.[a-z_][\w]*)?)", re.IGNORECASE),
-    re.compile(r"\bjoin\s+([a-z_][\w]*(?:\.[a-z_][\w]*)?)", re.IGNORECASE),
-    re.compile(r"\binto\s+([a-z_][\w]*(?:\.[a-z_][\w]*)?)", re.IGNORECASE),
-    re.compile(r"\bupdate\s+([a-z_][\w]*(?:\.[a-z_][\w]*)?)", re.IGNORECASE),
+_TABLE_PATTERNS: ConcurrentStableList[re.Pattern[str]] = ConcurrentStableList(
+    (
+        re.compile(r"\bfrom\s+([a-z_][\w]*(?:\.[a-z_][\w]*)?)", re.IGNORECASE),
+        re.compile(r"\bjoin\s+([a-z_][\w]*(?:\.[a-z_][\w]*)?)", re.IGNORECASE),
+        re.compile(r"\binto\s+([a-z_][\w]*(?:\.[a-z_][\w]*)?)", re.IGNORECASE),
+        re.compile(r"\bupdate\s+([a-z_][\w]*(?:\.[a-z_][\w]*)?)", re.IGNORECASE),
+    )
 )
 
 
@@ -86,7 +88,7 @@ def operation_of(statement: str) -> str:
     return "unknown"
 
 
-def extract_tables(statement: str) -> tuple[str, ...]:
+def extract_tables(statement: str) -> ConcurrentStableList[str]:
     """提取语句涉及的表名（保序去重）。
 
     Args:
@@ -103,10 +105,10 @@ def extract_tables(statement: str) -> tuple[str, ...]:
             if table in _IGNORED_TABLES or table in found:
                 continue
             found.add(table)
-    return tuple(found)
+    return ConcurrentStableList(found)
 
 
-def analyze(statement: str) -> tuple[TableRef, ...]:
+def analyze(statement: str) -> ConcurrentStableList[TableRef]:
     """按操作归类产出表引用列表。
 
     Args:
@@ -116,4 +118,4 @@ def analyze(statement: str) -> tuple[TableRef, ...]:
         tuple[TableRef, ...]: 表引用元组（同表仅出现一次）。
     """
     operation = operation_of(statement)
-    return tuple(TableRef(table=table, operation=operation) for table in extract_tables(statement))
+    return ConcurrentStableList(TableRef(table=table, operation=operation) for table in extract_tables(statement))

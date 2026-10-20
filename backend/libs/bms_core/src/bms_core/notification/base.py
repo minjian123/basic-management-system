@@ -22,7 +22,9 @@ from pydantic import Field
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
-from bms_core.schemas.base import BaseSchema
+from bms_core.schemas.base import (
+    BaseSchema,
+)
 from bms_core.schemas.filters import BaseFilterQuery
 from bms_core.schemas.pagination import BasePageQuery, BasePageResponse
 

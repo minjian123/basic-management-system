@@ -10,7 +10,7 @@
 from typing import Protocol
 
 from bms_core.cache.base import CacheRegion
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.core.exceptions import ConfigError
 from bms_core.db.registry import EngineRegistry
@@ -76,13 +76,13 @@ def register_tenant_lookup(name: str, factory: TenantLookupFactory) -> None:
     _LOOKUP_FACTORIES.set(name, factory)
 
 
-def registered_tenant_sources() -> tuple[str, ...]:
+def registered_tenant_sources() -> ConcurrentStableList[str]:
     """已登记租户源实现名（保序）。
 
     Returns:
         tuple[str, ...]: 实现名元组。
     """
-    return tuple(_LOOKUP_FACTORIES)
+    return ConcurrentStableList(_LOOKUP_FACTORIES)
 
 
 def build_tenant_lookup(

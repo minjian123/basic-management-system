@@ -24,7 +24,7 @@ from bms_core.captcha.default import CaptchaSliderOptions, DefaultCaptcha
 from bms_core.captcha.null import NullCaptcha
 from bms_core.core import plugin as plugin_module
 from bms_core.core.assembly import DefaultCaptchaFactory
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenList, ConcurrentStableList
 from bms_core.core.config import PluginSelection, Settings
 from bms_core.core.exceptions import (
     CaptchaExpiredError,
@@ -79,7 +79,7 @@ def _payload(challenge: Any) -> ConcurrentStableDict[str, Any]:
     return ConcurrentStableDict(cast("dict[str, Any]", json.loads(challenge.payload)))
 
 
-def _trace(gap_x: int, *, duration: int = 300, start: int = 0) -> tuple[tuple[int, int, int], ...]:
+def _trace(gap_x: int, *, duration: int = 300, start: int = 0) -> ConcurrentStableList[tuple[int, int, int]]:
     """构造一条终点落在 `gap_x` 的两点轨迹。
 
     Args:
@@ -90,7 +90,7 @@ def _trace(gap_x: int, *, duration: int = 300, start: int = 0) -> tuple[tuple[in
     Returns:
         tuple: 轨迹点序列。
     """
-    return ((0, 0, start), (gap_x, 0, start + duration))
+    return ConcurrentStableList(((0, 0, start), (gap_x, 0, start + duration)))
 
 
 @pytest.fixture
@@ -186,13 +186,15 @@ async def test_verify_slider_machine_traces_rejected(redis_client: fakeredis.aio
     challenge = await captcha.generate("login", kind=CaptchaKind.SLIDER)
     gap_x = (await _record(redis_client, challenge.captcha_id))["gap_x"]
 
-    cases: tuple[tuple[tuple[int, int, int], ...], ...] = (
-        ((gap_x, 0, 300),),
-        # 瞬移 + 像素级对准（偏差 0 ≤ exact_tolerance）：脚本特征，拒。
-        ((0, 0, 0), (gap_x, 0, 40)),
-        ((0, 0, 0), (gap_x, 0, 150)),
-        ((0, 0, 500), (gap_x, 0, 100)),
-        ((0, 0, -1), (gap_x, 0, 300)),
+    cases: ConcurrentStableList[ConcurrentStableList[tuple[int, int, int]]] = ConcurrentStableList(  # pyright: ignore[reportAssignmentType]  # 08_05：注解落集合类，值形态由契约/外部决定
+        (
+            ((gap_x, 0, 300),),
+            # 瞬移 + 像素级对准（偏差 0 ≤ exact_tolerance）：脚本特征，拒。
+            ((0, 0, 0), (gap_x, 0, 40)),
+            ((0, 0, 0), (gap_x, 0, 150)),
+            ((0, 0, 500), (gap_x, 0, 100)),
+            ((0, 0, -1), (gap_x, 0, 300)),
+        )
     )
     for trace in cases:
         assert not await captcha.verify_credential(
@@ -214,18 +216,20 @@ async def test_verify_slider_human_traces_accepted(redis_client: fakeredis.aiore
     exact = defaults.exact_tolerance
 
     # (时长, 落点偏差) —— 均应在容差内通过
-    accepted: tuple[tuple[int, int], ...] = (
-        (150, exact + 4),  # 快速但略偏（非像素级对准）
-        (600, exact + 4),  # 慢速略偏（最像人）
-        (600, 0),  # 慢速对准（人也能对准）
-        (4000, 2),  # 更慢、更准
+    accepted: ConcurrentStableList[tuple[int, int]] = ConcurrentStableList(
+        (
+            (150, exact + 4),  # 快速但略偏（非像素级对准）
+            (600, exact + 4),  # 慢速略偏（最像人）
+            (600, 0),  # 慢速对准（人也能对准）
+            (4000, 2),  # 更慢、更准
+        )
     )
     for duration, offset in accepted:
         challenge = await captcha.generate("login", kind=CaptchaKind.SLIDER)
         gap_x = (await _record(redis_client, challenge.captcha_id))["gap_x"]
         trace = ((0, 0, 0), (gap_x + offset, 0, duration))
         assert await captcha.verify_credential(
-            CaptchaCredential(captcha_id=challenge.captcha_id, kind=CaptchaKind.SLIDER, trace=trace)
+            CaptchaCredential(captcha_id=challenge.captcha_id, kind=CaptchaKind.SLIDER, trace=trace)  # pyright: ignore[reportArgumentType]  # 08_05：注解落集合类，值形态由契约/外部决定
         ), f"人类形态应放行：duration={duration} offset={offset}"
 
     # 落点超差（无论快慢）仍拒：超出 tolerance 即机器/乱拖
@@ -234,7 +238,7 @@ async def test_verify_slider_human_traces_accepted(redis_client: fakeredis.aiore
         gap_x = (await _record(redis_client, challenge.captcha_id))["gap_x"]
         trace = ((0, 0, 0), (gap_x + allowed + 3, 0, duration))
         assert not await captcha.verify_credential(
-            CaptchaCredential(captcha_id=challenge.captcha_id, kind=CaptchaKind.SLIDER, trace=trace)
+            CaptchaCredential(captcha_id=challenge.captcha_id, kind=CaptchaKind.SLIDER, trace=trace)  # pyright: ignore[reportArgumentType]  # 08_05：注解落集合类，值形态由契约/外部决定
         ), f"落点超差应拒：duration={duration}"
     await captcha.aclose()
 
@@ -341,14 +345,16 @@ async def test_slider_options_parse_and_validate(redis_client: fakeredis.aioredi
     )
     assert (custom.width, custom.height, custom.piece_size) == (200, 100, 30)
 
-    bad_options: tuple[ConcurrentStableDict[str, object], ...] = (
-        ConcurrentStableDict({"slider_width": "abc"}),
-        ConcurrentStableDict({"slider_height": []}),
-        ConcurrentStableDict({"slider_piece_size": 999}),
-        ConcurrentStableDict({"slider_tolerance": -1}),
-        ConcurrentStableDict({"slider_min_duration_ms": 999999}),
-        ConcurrentStableDict({"slider_min_points": 0}),
-        ConcurrentStableDict({"slider_width": True}),
+    bad_options: ConcurrentStableList[ConcurrentStableDict[str, object]] = ConcurrentStableList(
+        (
+            ConcurrentStableDict({"slider_width": "abc"}),
+            ConcurrentStableDict({"slider_height": []}),
+            ConcurrentStableDict({"slider_piece_size": 999}),
+            ConcurrentStableDict({"slider_tolerance": -1}),
+            ConcurrentStableDict({"slider_min_duration_ms": 999999}),
+            ConcurrentStableDict({"slider_min_points": 0}),
+            ConcurrentStableDict({"slider_width": True}),
+        )
     )
     for bad in bad_options:
         with pytest.raises(PluginError):
@@ -367,12 +373,16 @@ async def test_slider_empty_duration_and_single_point(redis_client: fakeredis.ai
     challenge = await captcha.generate("login", kind=CaptchaKind.SLIDER)
     gap_x = (await _record(redis_client, challenge.captcha_id))["gap_x"]
 
-    within = CaptchaCredential(captcha_id=challenge.captcha_id, kind=CaptchaKind.SLIDER, trace=((gap_x + 3, 0, 0),))
+    within = CaptchaCredential(
+        captcha_id=challenge.captcha_id, kind=CaptchaKind.SLIDER, trace=ConcurrentStableFrozenList(((gap_x + 3, 0, 0),))
+    )
     assert await captcha.verify_credential(within)
 
     other = await captcha.generate("login", kind=CaptchaKind.SLIDER)
     gap_x2 = (await _record(redis_client, other.captcha_id))["gap_x"]
-    beyond = CaptchaCredential(captcha_id=other.captcha_id, kind=CaptchaKind.SLIDER, trace=((gap_x2 + 4, 0, 0),))
+    beyond = CaptchaCredential(
+        captcha_id=other.captcha_id, kind=CaptchaKind.SLIDER, trace=ConcurrentStableFrozenList(((gap_x2 + 4, 0, 0),))
+    )
     assert not await captcha.verify_credential(beyond)
     await captcha.aclose()
 

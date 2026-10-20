@@ -57,9 +57,11 @@ class TenantSeed:
     status: str = "active"
 
 
-TENANT_SEEDS: tuple[TenantSeed, ...] = (
-    TenantSeed(code="demo", name="演示租户", domain="demo.bms.example.com"),
-    TenantSeed(code="acme", name="示例租户", domain="acme.bms.example.com"),
+TENANT_SEEDS: ConcurrentStableList[TenantSeed] = ConcurrentStableList(
+    (
+        TenantSeed(code="demo", name="演示租户", domain="demo.bms.example.com"),
+        TenantSeed(code="acme", name="示例租户", domain="acme.bms.example.com"),
+    )
 )
 
 

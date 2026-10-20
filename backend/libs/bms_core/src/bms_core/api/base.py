@@ -19,13 +19,13 @@
 """
 
 from collections.abc import Awaitable, Callable, Iterable, Mapping, Sequence
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from typing import Annotated, Any, cast
 
 from fastapi import APIRouter, Depends, Header, Query, Request, params
 from pydantic import ValidationError
 
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenList, ConcurrentStableList
 from bms_core.core.context import (
     get_current_client_ip,
     set_current_tenant,
@@ -169,21 +169,21 @@ class RouterRegistry(BaseFrameworkObject):
         """
         return self._routers.get(key)
 
-    def keys(self) -> tuple[str, ...]:
+    def keys(self) -> ConcurrentStableList[str]:
         """已登记路由键（登记顺序）。
 
         Returns:
             tuple[str, ...]: 键元组。
         """
-        return tuple(self._routers)
+        return ConcurrentStableList(self._routers)
 
-    def routers(self) -> tuple[BaseRouter, ...]:
+    def routers(self) -> ConcurrentStableList[BaseRouter]:
         """已登记路由（登记顺序）。
 
         Returns:
             tuple[BaseRouter, ...]: 路由元组。
         """
-        return tuple(self._routers.values())
+        return ConcurrentStableList(self._routers.values())
 
     def mount(self, parent: APIRouter, *, prefix: str = "") -> None:
         """把全部已登记路由挂到父路由（统一挂载）。
@@ -381,7 +381,7 @@ class AuthContext(BaseRequestIdentityContract):
     session_id: str | None = None
     """会话 id（= access `jti`；会话标记键依据）。"""
 
-    scopes: tuple[str, ...] = ()
+    scopes: ConcurrentStableFrozenList[str] = field(default_factory=lambda: ConcurrentStableFrozenList[str]())
     """授权范围（网关身份头 / 本地令牌 `scope`）。"""
 
     service_identity: str | None = None

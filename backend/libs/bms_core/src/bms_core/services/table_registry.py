@@ -28,7 +28,7 @@ TABLE_OWNERSHIP_NAME = "sys_table_ownership"
 OWNER_EVERY_SERVICE = "*"
 """归属哨兵：每服务自有（仅基础设施表可用）。"""
 
-RESERVED_SERVICE_KEYS: tuple[str, ...] = ("permission",)
+RESERVED_SERVICE_KEYS: ConcurrentStableList[str] = ConcurrentStableList(("permission",))
 """预留服务标识（服务目录尚未登记、但需被归属校验与库键解析识别的标签；随服务目录登记后收敛）。
 
 > 2026-10-10 拍板：`permission` 为**可选演进位** —— 权限（角色 / 权限码 / 菜单表单字段 / 数据范围 /
@@ -92,315 +92,319 @@ class TableRecord(BaseRegistryRecordContract):
         )
 
 
-TABLE_OWNERSHIP: tuple[TableRecord, ...] = (
-    # ---- 归属登记自身（自举登记）----
-    TableRecord(
-        table_name=TABLE_OWNERSHIP_NAME,
-        owner="platform",
-        datasource=Datasource.PLATFORM,
-        note="表归属登记表（自举）",
-    ),
-    # ---- 基础设施：每服务自有（不参与跨服务归属判定）----
-    TableRecord(
-        table_name="sys_outbox",
-        owner=OWNER_EVERY_SERVICE,
-        datasource=Datasource.BOTH,
-        note="事务性发件箱（每服务每链各一）",
-    ),
-    TableRecord(
-        table_name="sys_event_consumed",
-        owner=OWNER_EVERY_SERVICE,
-        datasource=Datasource.BOTH,
-        note="消费幂等去重（每服务每链各一）",
-    ),
-    TableRecord(
-        table_name="sys_event_dead_letter",
-        owner=OWNER_EVERY_SERVICE,
-        datasource=Datasource.BOTH,
-        note="死信（每服务每链各一）",
-    ),
-    # ---- 跨服务事务账本（TM 专属：平台侧独立基础设施库 `bms_txn`；去租户、与业务库物理分离）----
-    TableRecord(
-        table_name="txn_global",
-        owner="txn",
-        datasource=Datasource.PLATFORM,
-        note="全局事务主记录（提交决定点唯一权威）",
-    ),
-    TableRecord(
-        table_name="txn_global_branch",
-        owner="txn",
-        datasource=Datasource.PLATFORM,
-        note="全局事务分支（`db_key` 为不透明库键）",
-    ),
-    TableRecord(
-        table_name="txn_global_recovery",
-        owner="txn",
-        datasource=Datasource.PLATFORM,
-        note="恢复 / 对账台账（只驱动协议，禁止改业务数据）",
-    ),
-    # ---- 平台层表（库类别 platform）----
-    TableRecord(table_name="sys_tenant", owner="tenant", datasource=Datasource.PLATFORM, note="租户注册"),
-    TableRecord(
-        table_name="sys_tenant_database",
-        owner="tenant",
-        datasource=Datasource.PLATFORM,
-        note="租户库名对照（tenant_id ↔ db_basis）",
-    ),
-    TableRecord(
-        table_name="sys_user_tenant",
-        owner="tenant",
-        datasource=Datasource.PLATFORM,
-        note="用户↔租户可达关系（租户自助：我加入的租户 / 切换）",
-    ),
-    TableRecord(table_name="sys_module", owner="platform", datasource=Datasource.PLATFORM, note="服务目录登记"),
-    TableRecord(table_name="sys_module_i18n", owner="platform", datasource=Datasource.PLATFORM, note="服务目录多语言"),
-    TableRecord(
-        table_name="sys_product",
-        owner="platform",
-        datasource=Datasource.PLATFORM,
-        note="产品档案（产品级注册 / R4.1；`sys_module.product_key` 逻辑引用）",
-    ),
-    TableRecord(
-        table_name="sys_tenant_quota",
-        owner="tenant",
-        datasource=Datasource.PLATFORM,
-        note="租户配额（用户数 / 存储字节 / 开放接口调用量；04_01 落库）",
-    ),
-    TableRecord(
-        table_name="sys_tenant_module",
-        owner="tenant",
-        datasource=Datasource.PLATFORM,
-        note="租户-模块关系（开通清单与启停状态；04_01 落库）",
-    ),
-    TableRecord(
-        table_name="sys_menu",
-        owner="platform",
-        datasource=Datasource.PLATFORM,
-        note="平台菜单（动态路由依据；03_01 落库）",
-    ),
-    TableRecord(
-        table_name="sys_menu_i18n",
-        owner="platform",
-        datasource=Datasource.PLATFORM,
-        note="菜单名多语言（03_01 落库）",
-    ),
-    TableRecord(
-        table_name="sys_business",
-        owner="platform",
-        datasource=Datasource.PLATFORM,
-        note="业务码字典（资源维度，平台统一维护；03_01 落库）",
-    ),
-    TableRecord(
-        table_name="sys_business_i18n",
-        owner="platform",
-        datasource=Datasource.PLATFORM,
-        note="业务码名称多语言（03_01 落库）",
-    ),
-    TableRecord(
-        table_name="sys_action",
-        owner="platform",
-        datasource=Datasource.PLATFORM,
-        note="动作码字典（全局动词维度；03_01 落库）",
-    ),
-    TableRecord(
-        table_name="sys_action_i18n",
-        owner="platform",
-        datasource=Datasource.PLATFORM,
-        note="动作码名称多语言（03_01 落库）",
-    ),
-    TableRecord(
-        table_name="sys_permission",
-        owner="platform",
-        datasource=Datasource.PLATFORM,
-        note="权限码（业务码 × 动作码组合；03_01 落库）",
-    ),
-    TableRecord(
-        table_name="sys_form",
-        owner="platform",
-        datasource=Datasource.PLATFORM,
-        note="平台表单（1:1 挂业务；菜单经 sys_menu_form 多对多；02_03 返工）",
-    ),
-    TableRecord(
-        table_name="sys_menu_form",
-        owner="platform",
-        datasource=Datasource.PLATFORM,
-        note="菜单 ↔ 表单关联（多对多；02_03 返工落库）",
-    ),
-    TableRecord(
-        table_name="sys_field",
-        owner="platform",
-        datasource=Datasource.PLATFORM,
-        note="表单字段（字段权限依据；03_01 落库）",
-    ),
-    TableRecord(
-        table_name="sys_field_i18n",
-        owner="platform",
-        datasource=Datasource.PLATFORM,
-        note="字段名多语言（03_01 落库）",
-    ),
-    TableRecord(
-        table_name="sys_button",
-        owner="platform",
-        datasource=Datasource.PLATFORM,
-        note="表单按钮（按钮 1:1 挂权限码；03_01 落库）",
-    ),
-    TableRecord(
-        table_name="sys_form_layout",
-        owner="platform",
-        datasource=Datasource.TENANT,
-        status=TableStatus.PLANNED,
-        note="表单三级布局（预留）",
-    ),
-    TableRecord(
-        table_name="sys_field_ext",
-        owner="platform",
-        datasource=Datasource.TENANT,
-        status=TableStatus.PLANNED,
-        note="租户自建字段（预留）",
-    ),
-    TableRecord(
-        table_name="sys_user_identity",
-        owner="identity",
-        datasource=Datasource.PLATFORM,
-        note="SSO 全局身份映射（外部身份 → 租户 / 用户）",
-    ),
-    TableRecord(
-        table_name="sys_user",
-        owner="platform",
-        datasource=Datasource.TENANT,
-        note="用户（系统账号）最小模型（本地登录凭据 / 状态 / 锁定字段）；02_05 由 org 租户库迁入",
-    ),
-    TableRecord(
-        table_name="sys_session",
-        owner="identity",
-        datasource=Datasource.TENANT,
-        note="会话记录（登录 / 刷新 / 登出载体）",
-    ),
-    TableRecord(
-        table_name="sys_account_lock",
-        owner="platform",
-        datasource=Datasource.TENANT,
-        note="账号锁定记录（与 sys_user 同库；02_05 由 org 租户库迁入）",
-    ),
-    TableRecord(
-        table_name="sys_role",
-        owner="platform",
-        datasource=Datasource.TENANT,
-        note="角色（租户内角色定义；内置角色按配置常量判定）",
-    ),
-    TableRecord(
-        table_name="sys_user_role",
-        owner="platform",
-        datasource=Datasource.TENANT,
-        note="角色 × 用户分配（与用户管理页「用户分配角色」同一张表；user_id 同库指向 sys_user.id）",
-    ),
-    TableRecord(
-        table_name="sys_role_permission",
-        owner="platform",
-        datasource=Datasource.TENANT,
-        note="角色授权（菜单 / 表单 / 操作；带来源 source_menu_id；目标为平台元数据）",
-    ),
-    TableRecord(
-        table_name="sys_role_field",
-        owner="platform",
-        datasource=Datasource.TENANT,
-        note="角色字段权限（visible/editable；默认全开、只存收窄项）",
-    ),
-    TableRecord(
-        table_name="sys_data_scope",
-        owner="platform",
-        datasource=Datasource.TENANT,
-        note="角色数据权限（角色 × 字典 × 策略 → config；只选不编）",
-    ),
-    TableRecord(
-        table_name="sys_identity_provider",
-        owner="identity",
-        datasource=Datasource.TENANT,
-        note="租户外部 IdP 配置（OIDC/CAS/企微/钉钉）",
-    ),
-    TableRecord(
-        table_name="sys_client",
-        owner="identity",
-        datasource=Datasource.TENANT,
-        note="第三方应用客户端（BMS 兼作 IdP / 开放接口）",
-    ),
-    TableRecord(
-        table_name="sys_ai_provider",
-        owner="ai",
-        datasource=Datasource.PLATFORM,
-        status=TableStatus.PLANNED,
-        note="AI 端点配置（预留）",
-    ),
-    # ---- 租户层表（库类别 tenant）----
-    TableRecord(table_name="sys_query_scheme", owner="platform", datasource=Datasource.TENANT, note="查询方案"),
-    TableRecord(
-        table_name="sys_config",
-        owner="platform",
-        datasource=Datasource.TENANT,
-        note="系统参数（平台默认、租户覆盖）",
-    ),
-    TableRecord(
-        table_name="sys_task",
-        owner="platform",
-        datasource=Datasource.TENANT,
-        status=TableStatus.PLANNED,
-        note="定时任务定义（未定稿，不进链）",
-    ),
-    TableRecord(
-        table_name="sys_task_log",
-        owner="platform",
-        datasource=Datasource.TENANT,
-        status=TableStatus.PLANNED,
-        note="定时任务执行记录（未定稿，不进链）",
-    ),
-    TableRecord(
-        table_name="sys_user_preference",
-        owner="platform",
-        datasource=Datasource.TENANT,
-        status=TableStatus.PLANNED,
-        note="用户偏好（未定稿，不进链）",
-    ),
-    TableRecord(
-        table_name="sys_icon",
-        owner="platform",
-        datasource=Datasource.TENANT,
-        status=TableStatus.PLANNED,
-        note="租户自定义图标（未定稿，不进链）",
-    ),
-    TableRecord(
-        table_name="sys_icon_i18n",
-        owner="platform",
-        datasource=Datasource.TENANT,
-        status=TableStatus.PLANNED,
-        note="图标多语言（未定稿，不进链）",
-    ),
-    TableRecord(
-        table_name="sys_notification",
-        owner="notification",
-        datasource=Datasource.TENANT,
-        status=TableStatus.PLANNED,
-        note="站内信 / 待办（未定稿，不进链）",
-    ),
-    TableRecord(
-        table_name="ai_chat_log",
-        owner="ai",
-        datasource=Datasource.TENANT,
-        status=TableStatus.PLANNED,
-        note="AI 交互审计（未定稿，不进链）",
-    ),
-    TableRecord(
-        table_name="demo",
-        owner="platform",
-        datasource=Datasource.TENANT,
-        status=TableStatus.PLANNED,
-        note="平台服务五层示例表（无表前缀；未定稿，不进链）",
-    ),
-    TableRecord(
-        table_name="sys_user_extension",
-        owner="platform",
-        datasource=Datasource.TENANT,
-        note="用户扩展信息（具名插槽样例插件后端契约资源）",
-    ),
+TABLE_OWNERSHIP: ConcurrentStableList[TableRecord] = ConcurrentStableList(
+    (
+        # ---- 归属登记自身（自举登记）----
+        TableRecord(
+            table_name=TABLE_OWNERSHIP_NAME,
+            owner="platform",
+            datasource=Datasource.PLATFORM,
+            note="表归属登记表（自举）",
+        ),
+        # ---- 基础设施：每服务自有（不参与跨服务归属判定）----
+        TableRecord(
+            table_name="sys_outbox",
+            owner=OWNER_EVERY_SERVICE,
+            datasource=Datasource.BOTH,
+            note="事务性发件箱（每服务每链各一）",
+        ),
+        TableRecord(
+            table_name="sys_event_consumed",
+            owner=OWNER_EVERY_SERVICE,
+            datasource=Datasource.BOTH,
+            note="消费幂等去重（每服务每链各一）",
+        ),
+        TableRecord(
+            table_name="sys_event_dead_letter",
+            owner=OWNER_EVERY_SERVICE,
+            datasource=Datasource.BOTH,
+            note="死信（每服务每链各一）",
+        ),
+        # ---- 跨服务事务账本（TM 专属：平台侧独立基础设施库 `bms_txn`；去租户、与业务库物理分离）----
+        TableRecord(
+            table_name="txn_global",
+            owner="txn",
+            datasource=Datasource.PLATFORM,
+            note="全局事务主记录（提交决定点唯一权威）",
+        ),
+        TableRecord(
+            table_name="txn_global_branch",
+            owner="txn",
+            datasource=Datasource.PLATFORM,
+            note="全局事务分支（`db_key` 为不透明库键）",
+        ),
+        TableRecord(
+            table_name="txn_global_recovery",
+            owner="txn",
+            datasource=Datasource.PLATFORM,
+            note="恢复 / 对账台账（只驱动协议，禁止改业务数据）",
+        ),
+        # ---- 平台层表（库类别 platform）----
+        TableRecord(table_name="sys_tenant", owner="tenant", datasource=Datasource.PLATFORM, note="租户注册"),
+        TableRecord(
+            table_name="sys_tenant_database",
+            owner="tenant",
+            datasource=Datasource.PLATFORM,
+            note="租户库名对照（tenant_id ↔ db_basis）",
+        ),
+        TableRecord(
+            table_name="sys_user_tenant",
+            owner="tenant",
+            datasource=Datasource.PLATFORM,
+            note="用户↔租户可达关系（租户自助：我加入的租户 / 切换）",
+        ),
+        TableRecord(table_name="sys_module", owner="platform", datasource=Datasource.PLATFORM, note="服务目录登记"),
+        TableRecord(
+            table_name="sys_module_i18n", owner="platform", datasource=Datasource.PLATFORM, note="服务目录多语言"
+        ),
+        TableRecord(
+            table_name="sys_product",
+            owner="platform",
+            datasource=Datasource.PLATFORM,
+            note="产品档案（产品级注册 / R4.1；`sys_module.product_key` 逻辑引用）",
+        ),
+        TableRecord(
+            table_name="sys_tenant_quota",
+            owner="tenant",
+            datasource=Datasource.PLATFORM,
+            note="租户配额（用户数 / 存储字节 / 开放接口调用量；04_01 落库）",
+        ),
+        TableRecord(
+            table_name="sys_tenant_module",
+            owner="tenant",
+            datasource=Datasource.PLATFORM,
+            note="租户-模块关系（开通清单与启停状态；04_01 落库）",
+        ),
+        TableRecord(
+            table_name="sys_menu",
+            owner="platform",
+            datasource=Datasource.PLATFORM,
+            note="平台菜单（动态路由依据；03_01 落库）",
+        ),
+        TableRecord(
+            table_name="sys_menu_i18n",
+            owner="platform",
+            datasource=Datasource.PLATFORM,
+            note="菜单名多语言（03_01 落库）",
+        ),
+        TableRecord(
+            table_name="sys_business",
+            owner="platform",
+            datasource=Datasource.PLATFORM,
+            note="业务码字典（资源维度，平台统一维护；03_01 落库）",
+        ),
+        TableRecord(
+            table_name="sys_business_i18n",
+            owner="platform",
+            datasource=Datasource.PLATFORM,
+            note="业务码名称多语言（03_01 落库）",
+        ),
+        TableRecord(
+            table_name="sys_action",
+            owner="platform",
+            datasource=Datasource.PLATFORM,
+            note="动作码字典（全局动词维度；03_01 落库）",
+        ),
+        TableRecord(
+            table_name="sys_action_i18n",
+            owner="platform",
+            datasource=Datasource.PLATFORM,
+            note="动作码名称多语言（03_01 落库）",
+        ),
+        TableRecord(
+            table_name="sys_permission",
+            owner="platform",
+            datasource=Datasource.PLATFORM,
+            note="权限码（业务码 × 动作码组合；03_01 落库）",
+        ),
+        TableRecord(
+            table_name="sys_form",
+            owner="platform",
+            datasource=Datasource.PLATFORM,
+            note="平台表单（1:1 挂业务；菜单经 sys_menu_form 多对多；02_03 返工）",
+        ),
+        TableRecord(
+            table_name="sys_menu_form",
+            owner="platform",
+            datasource=Datasource.PLATFORM,
+            note="菜单 ↔ 表单关联（多对多；02_03 返工落库）",
+        ),
+        TableRecord(
+            table_name="sys_field",
+            owner="platform",
+            datasource=Datasource.PLATFORM,
+            note="表单字段（字段权限依据；03_01 落库）",
+        ),
+        TableRecord(
+            table_name="sys_field_i18n",
+            owner="platform",
+            datasource=Datasource.PLATFORM,
+            note="字段名多语言（03_01 落库）",
+        ),
+        TableRecord(
+            table_name="sys_button",
+            owner="platform",
+            datasource=Datasource.PLATFORM,
+            note="表单按钮（按钮 1:1 挂权限码；03_01 落库）",
+        ),
+        TableRecord(
+            table_name="sys_form_layout",
+            owner="platform",
+            datasource=Datasource.TENANT,
+            status=TableStatus.PLANNED,
+            note="表单三级布局（预留）",
+        ),
+        TableRecord(
+            table_name="sys_field_ext",
+            owner="platform",
+            datasource=Datasource.TENANT,
+            status=TableStatus.PLANNED,
+            note="租户自建字段（预留）",
+        ),
+        TableRecord(
+            table_name="sys_user_identity",
+            owner="identity",
+            datasource=Datasource.PLATFORM,
+            note="SSO 全局身份映射（外部身份 → 租户 / 用户）",
+        ),
+        TableRecord(
+            table_name="sys_user",
+            owner="platform",
+            datasource=Datasource.TENANT,
+            note="用户（系统账号）最小模型（本地登录凭据 / 状态 / 锁定字段）；02_05 由 org 租户库迁入",
+        ),
+        TableRecord(
+            table_name="sys_session",
+            owner="identity",
+            datasource=Datasource.TENANT,
+            note="会话记录（登录 / 刷新 / 登出载体）",
+        ),
+        TableRecord(
+            table_name="sys_account_lock",
+            owner="platform",
+            datasource=Datasource.TENANT,
+            note="账号锁定记录（与 sys_user 同库；02_05 由 org 租户库迁入）",
+        ),
+        TableRecord(
+            table_name="sys_role",
+            owner="platform",
+            datasource=Datasource.TENANT,
+            note="角色（租户内角色定义；内置角色按配置常量判定）",
+        ),
+        TableRecord(
+            table_name="sys_user_role",
+            owner="platform",
+            datasource=Datasource.TENANT,
+            note="角色 × 用户分配（与用户管理页「用户分配角色」同一张表；user_id 同库指向 sys_user.id）",
+        ),
+        TableRecord(
+            table_name="sys_role_permission",
+            owner="platform",
+            datasource=Datasource.TENANT,
+            note="角色授权（菜单 / 表单 / 操作；带来源 source_menu_id；目标为平台元数据）",
+        ),
+        TableRecord(
+            table_name="sys_role_field",
+            owner="platform",
+            datasource=Datasource.TENANT,
+            note="角色字段权限（visible/editable；默认全开、只存收窄项）",
+        ),
+        TableRecord(
+            table_name="sys_data_scope",
+            owner="platform",
+            datasource=Datasource.TENANT,
+            note="角色数据权限（角色 × 字典 × 策略 → config；只选不编）",
+        ),
+        TableRecord(
+            table_name="sys_identity_provider",
+            owner="identity",
+            datasource=Datasource.TENANT,
+            note="租户外部 IdP 配置（OIDC/CAS/企微/钉钉）",
+        ),
+        TableRecord(
+            table_name="sys_client",
+            owner="identity",
+            datasource=Datasource.TENANT,
+            note="第三方应用客户端（BMS 兼作 IdP / 开放接口）",
+        ),
+        TableRecord(
+            table_name="sys_ai_provider",
+            owner="ai",
+            datasource=Datasource.PLATFORM,
+            status=TableStatus.PLANNED,
+            note="AI 端点配置（预留）",
+        ),
+        # ---- 租户层表（库类别 tenant）----
+        TableRecord(table_name="sys_query_scheme", owner="platform", datasource=Datasource.TENANT, note="查询方案"),
+        TableRecord(
+            table_name="sys_config",
+            owner="platform",
+            datasource=Datasource.TENANT,
+            note="系统参数（平台默认、租户覆盖）",
+        ),
+        TableRecord(
+            table_name="sys_task",
+            owner="platform",
+            datasource=Datasource.TENANT,
+            status=TableStatus.PLANNED,
+            note="定时任务定义（未定稿，不进链）",
+        ),
+        TableRecord(
+            table_name="sys_task_log",
+            owner="platform",
+            datasource=Datasource.TENANT,
+            status=TableStatus.PLANNED,
+            note="定时任务执行记录（未定稿，不进链）",
+        ),
+        TableRecord(
+            table_name="sys_user_preference",
+            owner="platform",
+            datasource=Datasource.TENANT,
+            status=TableStatus.PLANNED,
+            note="用户偏好（未定稿，不进链）",
+        ),
+        TableRecord(
+            table_name="sys_icon",
+            owner="platform",
+            datasource=Datasource.TENANT,
+            status=TableStatus.PLANNED,
+            note="租户自定义图标（未定稿，不进链）",
+        ),
+        TableRecord(
+            table_name="sys_icon_i18n",
+            owner="platform",
+            datasource=Datasource.TENANT,
+            status=TableStatus.PLANNED,
+            note="图标多语言（未定稿，不进链）",
+        ),
+        TableRecord(
+            table_name="sys_notification",
+            owner="notification",
+            datasource=Datasource.TENANT,
+            status=TableStatus.PLANNED,
+            note="站内信 / 待办（未定稿，不进链）",
+        ),
+        TableRecord(
+            table_name="ai_chat_log",
+            owner="ai",
+            datasource=Datasource.TENANT,
+            status=TableStatus.PLANNED,
+            note="AI 交互审计（未定稿，不进链）",
+        ),
+        TableRecord(
+            table_name="demo",
+            owner="platform",
+            datasource=Datasource.TENANT,
+            status=TableStatus.PLANNED,
+            note="平台服务五层示例表（无表前缀；未定稿，不进链）",
+        ),
+        TableRecord(
+            table_name="sys_user_extension",
+            owner="platform",
+            datasource=Datasource.TENANT,
+            note="用户扩展信息（具名插槽样例插件后端契约资源）",
+        ),
+    )
 )
 """表归属登记（单一来源）。
 
@@ -418,7 +422,7 @@ _INJECTED_TABLE_RECORDS: ConcurrentStableList[TableRecord] = ConcurrentStableLis
 
 
 def merge_table_records(
-    platform_records: tuple[TableRecord, ...] | ConcurrentStableList[TableRecord],
+    platform_records: ConcurrentStableList[TableRecord] | ConcurrentStableList[TableRecord],
     injected_records: ConcurrentStableList[TableRecord],
 ) -> ConcurrentStableList[TableRecord]:
     """合并平台表归属清单与产品注入记录（**同 `table_name` 同值去重、异值即拒**；12_04）。

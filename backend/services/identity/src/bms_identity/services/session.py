@@ -12,7 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableFrozenDict, ConcurrentStableList
 from bms_core.core.exceptions import SessionExpiredError, SessionNotFoundError, SessionRevokedError
 from bms_core.core.logging import get_logger
 from bms_core.core.objects import BaseFrameworkObject, BaseValueObject
@@ -320,7 +320,7 @@ class SessionService(BaseFrameworkObject):
                 RealtimeEvent(
                     event=SESSION_REVOKED_EVENT,
                     session_id=record.session_id,
-                    data=ConcurrentStableDict(
+                    data=ConcurrentStableFrozenDict(
                         {
                             "session_id": record.session_id,
                             "user_id": record.user_id,

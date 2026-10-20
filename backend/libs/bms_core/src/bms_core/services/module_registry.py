@@ -139,204 +139,206 @@ class ProductRecord(BaseRegistryRecordContract):
         )
 
 
-SERVICE_CATALOG: tuple[ModuleRecord, ...] = (
-    ModuleRecord(
-        module_key="sys",
-        service_key="platform",
-        name="平台地基与配置服务",
-        table_prefix="sys_",
-        business_code=None,
-        errcode_segment="01",
-        event_domain="sys",
-        service_group=ServiceGroup.FOUNDATION,
-        build_batch=0,
-        contract_version="0.2.0",
-        status=ModuleStatus.ENABLED,
-    ),
-    ModuleRecord(
-        module_key="identity",
-        service_key="identity",
-        name="认证与身份服务",
-        table_prefix="identity_",
-        errcode_segment=None,
-        event_domain="identity",
-        service_group=ServiceGroup.FOUNDATION,
-        build_batch=0,
-        status=ModuleStatus.ENABLED,
-    ),
-    ModuleRecord(
-        module_key="tenant",
-        service_key="tenant",
-        name="租户与配置服务",
-        table_prefix="tenant_",
-        errcode_segment=None,
-        event_domain="tenant",
-        service_group=ServiceGroup.FOUNDATION,
-        build_batch=0,
-        status=ModuleStatus.ENABLED,
-    ),
-    ModuleRecord(
-        module_key="org",
-        service_key="org",
-        name="mdm 组织主数据服务",
-        table_prefix="org_",
-        errcode_segment="33",
-        event_domain="org",
-        service_group=ServiceGroup.PRODUCT,
-        build_batch=3,
-        product_key="mdm",
-        status=ModuleStatus.ENABLED,
-    ),
-    ModuleRecord(
-        module_key="file",
-        service_key="file",
-        name="文件服务",
-        table_prefix="file_",
-        errcode_segment=None,
-        event_domain="file",
-        service_group=ServiceGroup.CAPABILITY,
-        build_batch=1,
-        status=ModuleStatus.ENABLED,
-    ),
-    ModuleRecord(
-        module_key="notification",
-        service_key="notification",
-        name="通知服务",
-        table_prefix="notification_",
-        errcode_segment=None,
-        event_domain="notification",
-        service_group=ServiceGroup.CAPABILITY,
-        build_batch=1,
-        status=ModuleStatus.ENABLED,
-    ),
-    ModuleRecord(
-        module_key="search",
-        service_key="search",
-        name="全文检索服务",
-        table_prefix="search_",
-        errcode_segment=None,
-        event_domain="search",
-        service_group=ServiceGroup.CAPABILITY,
-        build_batch=1,
-        status=ModuleStatus.ENABLED,
-    ),
-    ModuleRecord(
-        module_key="ai",
-        service_key="ai",
-        name="AI 服务",
-        table_prefix="ai_",
-        errcode_segment="04",
-        event_domain="ai",
-        service_group=ServiceGroup.CAPABILITY,
-        build_batch=1,
-        status=ModuleStatus.ENABLED,
-    ),
-    ModuleRecord(
-        module_key="rpt",
-        service_key="report",
-        name="报表打印服务",
-        table_prefix="rpt_",
-        errcode_segment="03",
-        event_domain="rpt",
-        service_group=ServiceGroup.CAPABILITY,
-        build_batch=1,
-        status=ModuleStatus.ENABLED,
-    ),
-    ModuleRecord(
-        module_key="wf",
-        service_key="workflow",
-        name="工作流服务",
-        table_prefix="wf_",
-        errcode_segment="02",
-        event_domain="wf",
-        service_group=ServiceGroup.CAPABILITY,
-        build_batch=2,
-        status=ModuleStatus.PLANNED,
-    ),
-    ModuleRecord(
-        module_key="pur",
-        name="采购",
-        table_prefix="pur_",
-        business_code="pur",
-        errcode_segment="10",
-        event_domain="pur",
-        service_group=ServiceGroup.PRODUCT,
-        build_batch=3,
-        product_key="biz",
-        status=ModuleStatus.PLANNED,
-    ),
-    ModuleRecord(
-        module_key="pay",
-        name="收付款",
-        table_prefix="pay_",
-        business_code="pay",
-        errcode_segment="11",
-        event_domain="pay",
-        service_group=ServiceGroup.PRODUCT,
-        build_batch=3,
-        product_key="biz",
-        status=ModuleStatus.PLANNED,
-    ),
-    ModuleRecord(
-        module_key="sale",
-        name="销售",
-        table_prefix="sale_",
-        business_code="sale",
-        errcode_segment="12",
-        event_domain="sale",
-        service_group=ServiceGroup.PRODUCT,
-        build_batch=3,
-        product_key="biz",
-        status=ModuleStatus.PLANNED,
-    ),
-    ModuleRecord(
-        module_key="wh",
-        name="仓储",
-        table_prefix="wh_",
-        business_code="wh",
-        errcode_segment="13",
-        event_domain="wh",
-        service_group=ServiceGroup.PRODUCT,
-        build_batch=3,
-        product_key="biz",
-        status=ModuleStatus.PLANNED,
-    ),
-    ModuleRecord(
-        module_key="sup",
-        name="供应商",
-        table_prefix="sup_",
-        business_code="sup",
-        errcode_segment="14",
-        event_domain="sup",
-        service_group=ServiceGroup.PRODUCT,
-        build_batch=3,
-        product_key="biz",
-        status=ModuleStatus.PLANNED,
-    ),
-    ModuleRecord(
-        module_key="cw",
-        name="创作",
-        table_prefix="cw_",
-        business_code="cw",
-        errcode_segment="15",
-        event_domain="cw",
-        service_group=ServiceGroup.PRODUCT,
-        build_batch=3,
-        product_key="cw",
-        status=ModuleStatus.PLANNED,
-    ),
-    ModuleRecord(
-        module_key="txn",
-        service_key="txn",
-        name="跨服务事务管理器服务",
-        table_prefix="txn_",
-        errcode_segment="05",
-        event_domain="txn",
-        service_group=ServiceGroup.FOUNDATION,
-        build_batch=0,
-        contract_version="0.1.0",
-        status=ModuleStatus.ENABLED,
-    ),
+SERVICE_CATALOG: ConcurrentStableList[ModuleRecord] = ConcurrentStableList(
+    (
+        ModuleRecord(
+            module_key="sys",
+            service_key="platform",
+            name="平台地基与配置服务",
+            table_prefix="sys_",
+            business_code=None,
+            errcode_segment="01",
+            event_domain="sys",
+            service_group=ServiceGroup.FOUNDATION,
+            build_batch=0,
+            contract_version="0.2.0",
+            status=ModuleStatus.ENABLED,
+        ),
+        ModuleRecord(
+            module_key="identity",
+            service_key="identity",
+            name="认证与身份服务",
+            table_prefix="identity_",
+            errcode_segment=None,
+            event_domain="identity",
+            service_group=ServiceGroup.FOUNDATION,
+            build_batch=0,
+            status=ModuleStatus.ENABLED,
+        ),
+        ModuleRecord(
+            module_key="tenant",
+            service_key="tenant",
+            name="租户与配置服务",
+            table_prefix="tenant_",
+            errcode_segment=None,
+            event_domain="tenant",
+            service_group=ServiceGroup.FOUNDATION,
+            build_batch=0,
+            status=ModuleStatus.ENABLED,
+        ),
+        ModuleRecord(
+            module_key="org",
+            service_key="org",
+            name="mdm 组织主数据服务",
+            table_prefix="org_",
+            errcode_segment="33",
+            event_domain="org",
+            service_group=ServiceGroup.PRODUCT,
+            build_batch=3,
+            product_key="mdm",
+            status=ModuleStatus.ENABLED,
+        ),
+        ModuleRecord(
+            module_key="file",
+            service_key="file",
+            name="文件服务",
+            table_prefix="file_",
+            errcode_segment=None,
+            event_domain="file",
+            service_group=ServiceGroup.CAPABILITY,
+            build_batch=1,
+            status=ModuleStatus.ENABLED,
+        ),
+        ModuleRecord(
+            module_key="notification",
+            service_key="notification",
+            name="通知服务",
+            table_prefix="notification_",
+            errcode_segment=None,
+            event_domain="notification",
+            service_group=ServiceGroup.CAPABILITY,
+            build_batch=1,
+            status=ModuleStatus.ENABLED,
+        ),
+        ModuleRecord(
+            module_key="search",
+            service_key="search",
+            name="全文检索服务",
+            table_prefix="search_",
+            errcode_segment=None,
+            event_domain="search",
+            service_group=ServiceGroup.CAPABILITY,
+            build_batch=1,
+            status=ModuleStatus.ENABLED,
+        ),
+        ModuleRecord(
+            module_key="ai",
+            service_key="ai",
+            name="AI 服务",
+            table_prefix="ai_",
+            errcode_segment="04",
+            event_domain="ai",
+            service_group=ServiceGroup.CAPABILITY,
+            build_batch=1,
+            status=ModuleStatus.ENABLED,
+        ),
+        ModuleRecord(
+            module_key="rpt",
+            service_key="report",
+            name="报表打印服务",
+            table_prefix="rpt_",
+            errcode_segment="03",
+            event_domain="rpt",
+            service_group=ServiceGroup.CAPABILITY,
+            build_batch=1,
+            status=ModuleStatus.ENABLED,
+        ),
+        ModuleRecord(
+            module_key="wf",
+            service_key="workflow",
+            name="工作流服务",
+            table_prefix="wf_",
+            errcode_segment="02",
+            event_domain="wf",
+            service_group=ServiceGroup.CAPABILITY,
+            build_batch=2,
+            status=ModuleStatus.PLANNED,
+        ),
+        ModuleRecord(
+            module_key="pur",
+            name="采购",
+            table_prefix="pur_",
+            business_code="pur",
+            errcode_segment="10",
+            event_domain="pur",
+            service_group=ServiceGroup.PRODUCT,
+            build_batch=3,
+            product_key="biz",
+            status=ModuleStatus.PLANNED,
+        ),
+        ModuleRecord(
+            module_key="pay",
+            name="收付款",
+            table_prefix="pay_",
+            business_code="pay",
+            errcode_segment="11",
+            event_domain="pay",
+            service_group=ServiceGroup.PRODUCT,
+            build_batch=3,
+            product_key="biz",
+            status=ModuleStatus.PLANNED,
+        ),
+        ModuleRecord(
+            module_key="sale",
+            name="销售",
+            table_prefix="sale_",
+            business_code="sale",
+            errcode_segment="12",
+            event_domain="sale",
+            service_group=ServiceGroup.PRODUCT,
+            build_batch=3,
+            product_key="biz",
+            status=ModuleStatus.PLANNED,
+        ),
+        ModuleRecord(
+            module_key="wh",
+            name="仓储",
+            table_prefix="wh_",
+            business_code="wh",
+            errcode_segment="13",
+            event_domain="wh",
+            service_group=ServiceGroup.PRODUCT,
+            build_batch=3,
+            product_key="biz",
+            status=ModuleStatus.PLANNED,
+        ),
+        ModuleRecord(
+            module_key="sup",
+            name="供应商",
+            table_prefix="sup_",
+            business_code="sup",
+            errcode_segment="14",
+            event_domain="sup",
+            service_group=ServiceGroup.PRODUCT,
+            build_batch=3,
+            product_key="biz",
+            status=ModuleStatus.PLANNED,
+        ),
+        ModuleRecord(
+            module_key="cw",
+            name="创作",
+            table_prefix="cw_",
+            business_code="cw",
+            errcode_segment="15",
+            event_domain="cw",
+            service_group=ServiceGroup.PRODUCT,
+            build_batch=3,
+            product_key="cw",
+            status=ModuleStatus.PLANNED,
+        ),
+        ModuleRecord(
+            module_key="txn",
+            service_key="txn",
+            name="跨服务事务管理器服务",
+            table_prefix="txn_",
+            errcode_segment="05",
+            event_domain="txn",
+            service_group=ServiceGroup.FOUNDATION,
+            build_batch=0,
+            contract_version="0.1.0",
+            status=ModuleStatus.ENABLED,
+        ),
+    )
 )
 """服务目录与注册要素（单一来源，17 行：平台服务 10 + 产品服务 7）。
 
@@ -344,15 +346,17 @@ SERVICE_CATALOG: tuple[ModuleRecord, ...] = (
 仅分组 / 产品归属 / 错误码段 / 批次 / 名称变更）——见 `mdm文档` 与 bms 11_01 详细设计。
 """
 
-PRODUCT_CATALOG: tuple[ProductRecord, ...] = (
-    ProductRecord(product_key="biz", name="企业运营管理", status=ProductStatus.ENABLED),
-    ProductRecord(product_key="cw", name="创作系统", status=ProductStatus.ENABLED),
-    ProductRecord(
-        product_key="mdm",
-        name="主数据管理",
-        frontend_package_source="mdm#frontend",
-        status=ProductStatus.ENABLED,
-    ),
+PRODUCT_CATALOG: ConcurrentStableList[ProductRecord] = ConcurrentStableList(
+    (
+        ProductRecord(product_key="biz", name="企业运营管理", status=ProductStatus.ENABLED),
+        ProductRecord(product_key="cw", name="创作系统", status=ProductStatus.ENABLED),
+        ProductRecord(
+            product_key="mdm",
+            name="主数据管理",
+            frontend_package_source="mdm#frontend",
+            status=ProductStatus.ENABLED,
+        ),
+    )
 )
 """产品档案（单一来源，3 行：`biz` / `cw` / `mdm` 均已接入）。
 
@@ -366,18 +370,20 @@ PRODUCT_CATALOG: tuple[ProductRecord, ...] = (
 """
 
 
-TENANT_BASE_MODULE_KEYS: tuple[str, ...] = (
-    "sys",
-    "identity",
-    "tenant",
-    "txn",
-    "file",
-    "notification",
-    "search",
-    "ai",
-    "rpt",
-    "wf",
-    "org",
+TENANT_BASE_MODULE_KEYS: ConcurrentStableList[str] = ConcurrentStableList(
+    (
+        "sys",
+        "identity",
+        "tenant",
+        "txn",
+        "file",
+        "notification",
+        "search",
+        "ai",
+        "rpt",
+        "wf",
+        "org",
+    )
 )
 """租户「恒开通」模块（平台域基础能力 + 组织主数据）：不参与开通勾选、不参与门禁拦截。
 
@@ -386,7 +392,7 @@ TENANT_BASE_MODULE_KEYS: tuple[str, ...] = (
 - 新增基础能力模块时在此清单显式登记（与 `SERVICE_CATALOG` 同批）。
 """
 
-TENANT_OPTIONAL_MODULE_KEYS: tuple[str, ...] = ("pur", "pay", "sale", "wh", "sup", "cw")
+TENANT_OPTIONAL_MODULE_KEYS: ConcurrentStableList[str] = ConcurrentStableList(("pur", "pay", "sale", "wh", "sup", "cw"))
 """租户「可勾选」产品模块：开通向导勾选、运营期可开关、接口按模块门禁拦截。
 
 - 与 `SERVICE_CATALOG` 中 `service_group=product` 且具备业务域的模块一致；新增产品模块时同步登记。
@@ -459,13 +465,15 @@ class ProductRouteRecord(BaseValueObject):
     """说明（中文用途）。"""
 
 
-PRODUCT_ROUTES: tuple[ProductRouteRecord, ...] = (
-    ProductRouteRecord(
-        product_key="mdm",
-        domain="org",
-        service_key="org",
-        description="mdm 组织主数据域（对外 /api/mdm/v1/org/...）",
-    ),
+PRODUCT_ROUTES: ConcurrentStableList[ProductRouteRecord] = ConcurrentStableList(
+    (
+        ProductRouteRecord(
+            product_key="mdm",
+            domain="org",
+            service_key="org",
+            description="mdm 组织主数据域（对外 /api/mdm/v1/org/...）",
+        ),
+    )
 )
 """产品级路由映射登记（产品命名空间的「域段 → 服务」**单一来源**）。
 
@@ -569,7 +577,7 @@ def validate_product_service_records(
 
 
 def merge_service_records(
-    platform_records: tuple[ModuleRecord, ...] | ConcurrentStableList[ModuleRecord],
+    platform_records: ConcurrentStableList[ModuleRecord] | ConcurrentStableList[ModuleRecord],
     injected_records: ConcurrentStableList[ModuleRecord],
 ) -> ConcurrentStableList[ModuleRecord]:
     """合并平台服务清单与服务注入记录（**同 `module_key` 同值去重、异值即拒**；12_03 扩展）。
@@ -596,10 +604,10 @@ def merge_service_records(
     return merged
 
 
-_PLATFORM_DOMAIN_KEYS: tuple[str, ...] = ("sys", "wf", "rpt", "ai")
+_PLATFORM_DOMAIN_KEYS: ConcurrentStableList[str] = ConcurrentStableList(("sys", "wf", "rpt", "ai"))
 """既有平台域模块标识（段位 01~04 的平台域）。"""
 
-PLATFORM_MODULES: tuple[ModuleRecord, ...] = tuple(
+PLATFORM_MODULES: ConcurrentStableList[ModuleRecord] = ConcurrentStableList(
     module for key in _PLATFORM_DOMAIN_KEYS for module in SERVICE_CATALOG if module.module_key == key
 )
 """平台域模块视图（`sys` / `wf` / `rpt` / `ai`，保持既有引用兼容）。"""
@@ -616,7 +624,7 @@ def known_event_domains() -> ConcurrentStableSet[str]:
     return ConcurrentStableSet(record.event_domain for record in SERVICE_CATALOG)
 
 
-def enabled_service_keys() -> tuple[str, ...]:
+def enabled_service_keys() -> ConcurrentStableList[str]:
     """已启用**平台服务**标识集合（`service_key` 非空 + `status = enabled` + **非产品分组**，保持目录顺序）。
 
     用于「按服务×租户建库」的服务维度（06_01）与平台侧按服务扫描（契约快照 / 表归属 / 发布编排）：
@@ -626,10 +634,12 @@ def enabled_service_keys() -> tuple[str, ...]:
     Returns:
         tuple[str, ...]: 平台服务标识元组。
     """
-    return tuple(
+    return ConcurrentStableList(
         record.service_key
         for record in SERVICE_CATALOG
-        if record.service_key and record.status == ModuleStatus.ENABLED and record.service_group != ServiceGroup.PRODUCT
+        if record.service_key
+        and record.status == ModuleStatus.ENABLED
+        and (record.service_group != ServiceGroup.PRODUCT)
     )
 
 
@@ -858,7 +868,7 @@ class ProductRegistry(BaseFrameworkObject):
         return errors
 
 
-_PRODUCT_COMPARE_FIELDS: tuple[str, ...] = ("name", "frontend_package_source", "status")
+_PRODUCT_COMPARE_FIELDS: ConcurrentStableList[str] = ConcurrentStableList(("name", "frontend_package_source", "status"))
 """产品档案双向对账的严格一致字段。"""
 
 
@@ -910,17 +920,19 @@ def _diff_products(
     return errors
 
 
-_COMPARE_FIELDS: tuple[str, ...] = (
-    "service_key",
-    "name",
-    "table_prefix",
-    "business_code",
-    "errcode_segment",
-    "event_domain",
-    "service_group",
-    "build_batch",
-    "product_key",
-    "status",
+_COMPARE_FIELDS: ConcurrentStableList[str] = ConcurrentStableList(
+    (
+        "service_key",
+        "name",
+        "table_prefix",
+        "business_code",
+        "errcode_segment",
+        "event_domain",
+        "service_group",
+        "build_batch",
+        "product_key",
+        "status",
+    )
 )
 """双向对账的严格一致字段（不含 `contract_version`：按主版本兼容；不含 `service_version`：归发布环节）。"""
 

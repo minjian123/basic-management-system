@@ -14,12 +14,12 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import cast
 
 from fastapi import Request
 
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenList
 from bms_core.core.config import Settings
 from bms_core.core.objects import BaseTokenSpecContract
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
@@ -60,7 +60,7 @@ class ServiceTokenSpec(BaseTokenSpecContract):
     service: str
     """服务标识（`sub` / `service`；调用方所属服务，如 `platform`）。"""
 
-    scopes: tuple[str, ...] = ()
+    scopes: ConcurrentStableFrozenList[str] = field(default_factory=lambda: ConcurrentStableFrozenList[str]())
     """授权范围（`scope`，空格分隔；由调用方按需传）。"""
 
     tenant_id: str | None = None

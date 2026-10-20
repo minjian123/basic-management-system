@@ -19,7 +19,11 @@ from bms_core.core.exceptions import ConfigError
 from bms_core.db.registry import EngineRegistry
 from bms_core.db.session import SessionFactory
 from bms_core.db.tenant_source import TENANT_SERVICE_KEY
-from bms_core.schemas.base import CONTRACT_COLLECTION, CONTRACT_STABLE_LIST, BaseSchema
+from bms_core.schemas.base import (
+    CONTRACT_COLLECTION,
+    CONTRACT_STABLE_LIST,
+    BaseSchema,
+)
 
 if TYPE_CHECKING:  # pragma: no cover - 仅类型检查用（避免与 servicecall 域循环导入）
     from bms_core.servicecall.base import BaseServiceClient
@@ -193,13 +197,13 @@ def register_tenant_membership_store(name: str, factory: TenantMembershipStoreFa
     _STORE_FACTORIES.set(name, factory)
 
 
-def registered_tenant_membership_stores() -> tuple[str, ...]:
+def registered_tenant_membership_stores() -> ConcurrentStableList[str]:
     """已登记的关系数据源实现名（保序）。
 
     Returns:
         tuple[str, ...]: 实现名元组。
     """
-    return tuple(_STORE_FACTORIES)
+    return ConcurrentStableList(_STORE_FACTORIES)
 
 
 def build_tenant_membership_store(

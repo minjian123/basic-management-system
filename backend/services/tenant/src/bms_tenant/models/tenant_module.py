@@ -11,6 +11,7 @@ from datetime import datetime
 from sqlalchemy import BigInteger, DateTime, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.models.base import BaseModel
 
 TENANT_MODULE_ENABLED = "enabled"
@@ -19,7 +20,9 @@ TENANT_MODULE_ENABLED = "enabled"
 TENANT_MODULE_DISABLED = "disabled"
 """模块状态：已停用。"""
 
-TENANT_MODULE_STATUSES: tuple[str, ...] = (TENANT_MODULE_ENABLED, TENANT_MODULE_DISABLED)
+TENANT_MODULE_STATUSES: ConcurrentStableList[str] = ConcurrentStableList(
+    (TENANT_MODULE_ENABLED, TENANT_MODULE_DISABLED)
+)
 """模块状态取值清单。"""
 
 

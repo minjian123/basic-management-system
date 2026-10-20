@@ -12,6 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import ClassVar
 
+from bms_core.core.concurrent import ConcurrentStableFrozenList
 from bms_core.core.objects.roots import BaseValueObject
 
 __all__ = ["BaseAuthorizeUrlResultContract", "BaseLoginResultContract"]
@@ -27,7 +28,9 @@ class BaseLoginResultContract(BaseValueObject):
     故本层不约束其类型，只约定字段存在与语义。
     """
 
-    COMMON_FIELDS: ClassVar[tuple[str, ...]] = ("result", "refresh_token", "refresh_expires_in")
+    COMMON_FIELDS: ClassVar[ConcurrentStableFrozenList[str]] = ConcurrentStableFrozenList(
+        ("result", "refresh_token", "refresh_expires_in")
+    )
 
 
 @dataclass(frozen=True)
@@ -40,7 +43,7 @@ class BaseAuthorizeUrlResultContract(BaseValueObject):
     属性提供**统一读取名**（不重命名字段，避免消费方返工）。
     """
 
-    COMMON_FIELDS: ClassVar[tuple[str, ...]] = ()
+    COMMON_FIELDS: ClassVar[ConcurrentStableFrozenList[str]] = ConcurrentStableFrozenList()
     URL_FIELD: ClassVar[str] = ""
     """本类承载授权跳转地址的字段名（成员声明；`url` 属性按此读取）。"""
 

@@ -66,7 +66,7 @@ from bms_platform.repositories.role import (
 )
 from bms_platform.services.separation import SeparationGuard
 
-BUILTIN_MATCH_FIELDS: tuple[str, ...] = ("code", "name", "remark")
+BUILTIN_MATCH_FIELDS: ConcurrentStableList[str] = ConcurrentStableList(("code", "name", "remark"))
 """数据匹配内置字段白名单（字典数据本身的字段）。"""
 
 MATCH_PATTERN = re.compile(r"^[A-Za-z0-9_\u4e00-\u9fa5*?]+$")

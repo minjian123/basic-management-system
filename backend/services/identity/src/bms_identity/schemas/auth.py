@@ -20,7 +20,7 @@ REFRESH_COOKIE_PATH = "/"
 网关 shape / 部署形态解耦，dev 与生产同形）；`HttpOnly` / `Secure` / `SameSite=Lax` 口径不变。
 """
 
-REFRESH_COOKIE_LEGACY_PATHS: tuple[str, ...] = ("/api/v1/auth",)
+REFRESH_COOKIE_LEGACY_PATHS: ConcurrentStableList[str] = ConcurrentStableList(("/api/v1/auth",))
 """历史 cookie 作用路径（**仅登出清理用**）。
 
 `/api/v1/auth` 为改造前的服务内路径；浏览器中可能残留该作用域的旧 cookie（已惰性不可用——

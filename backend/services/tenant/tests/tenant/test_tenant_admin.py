@@ -155,7 +155,7 @@ async def _seed_tenant(
     domain: str | None = None,
     kind: str = "business",
     status: str = "active",
-    modules: tuple[tuple[str, str], ...] = (),
+    modules: ConcurrentStableList[tuple[str, str]] = (),  # pyright: ignore[reportArgumentType]  # 08_05：注解落集合类，值形态由契约/外部决定
 ) -> int:
     """写入租户（含库名对照 / 模块），返回主键。
 
@@ -195,7 +195,9 @@ async def test_list_excludes_platform_tenant_and_filters(
 ) -> None:
     """列表：平台租户排除、code 模糊 / 状态筛选、模块摘要。"""
     url = f"sqlite+aiosqlite:///{tmp_path / 'admin.db'}"
-    await _seed_tenant(url, code="acme", name="Acme", domain="acme.example.com", modules=(("pur", "enabled"),))
+    await _seed_tenant(
+        url, code="acme", name="Acme", domain="acme.example.com", modules=ConcurrentStableList((("pur", "enabled"),))
+    )
     await _seed_tenant(url, code="paused", name="Paused", status="suspended")
     await _seed_tenant(url, code="platform", name="平台管理", kind="platform")
     await _override_platform(service_app, url)
@@ -291,7 +293,7 @@ async def test_quotas_read_write_and_invalid_key(client: AsyncClient, service_ap
 async def test_modules_list_switch_and_unavailable(client: AsyncClient, service_app: FastAPI, tmp_path: Path) -> None:
     """模块：三态清单、开通 / 停用 / 重新开通、未启用模块 82007、基础能力不可勾选 10001。"""
     url = f"sqlite+aiosqlite:///{tmp_path / 'modules.db'}"
-    tenant_id = await _seed_tenant(url, code="acme", modules=(("pur", "enabled"),))
+    tenant_id = await _seed_tenant(url, code="acme", modules=ConcurrentStableList((("pur", "enabled"),)))
     await _override_platform(service_app, url)
 
     options = (await client.get(f"{API}/module-options")).json()["data"]["items"]

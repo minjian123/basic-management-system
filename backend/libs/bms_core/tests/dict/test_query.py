@@ -84,7 +84,7 @@ def _node(node_json: str) -> ConcurrentStableDict[str, object]:
 class _Loaded:
     """取数结果替身（只带 `items`）。"""
 
-    def __init__(self, items: tuple[DictItem, ...]) -> None:
+    def __init__(self, items: ConcurrentStableList[DictItem]) -> None:
         """初始化。
 
         Args:
@@ -96,7 +96,7 @@ class _Loaded:
 class _Source:
     """统一出口替身（记录取数参数并回固定条目集）。"""
 
-    def __init__(self, items: tuple[DictItem, ...]) -> None:
+    def __init__(self, items: ConcurrentStableList[DictItem]) -> None:
         """初始化。
 
         Args:
@@ -150,7 +150,7 @@ class _Registry:
 
 async def test_load_attrs_returns_fixed_field_schema() -> None:
     """`load_attrs` 返回固定字段 schema（无扩展属性表）。"""
-    service = DictQueryService(source=cast("Any", _Source(())))
+    service = DictQueryService(source=cast("Any", _Source(ConcurrentStableList(()))))
     attrs = await service.load_attrs("demo", "zh-CN")
     assert tuple(attr.attr_key for attr in attrs) == DICT_ADV_FIXED_FIELDS
     assert attrs[0].operators == DICT_OPERATORS_BY_TYPE["text"]
@@ -159,7 +159,7 @@ async def test_load_attrs_returns_fixed_field_schema() -> None:
 async def test_advanced_query_items_clamps_paging_and_filters() -> None:
     """`target=items`：分页夹取（页码 ≥ 1、页长 ≤ 上限）+ 条件过滤 + 结果映射。"""
     items = (_item("a", sort=1), _item("b", sort=5), _item("c", sort=9))
-    service = DictQueryService(source=cast("Any", _Source(items)))
+    service = DictQueryService(source=cast("Any", _Source(items)))  # pyright: ignore[reportArgumentType]  # 08_05：注解落集合类，值形态由契约/外部决定
 
     conditions = _group("AND", '[{"field": "value", "operator": "eq", "value": "b"}]')
     result = await service.advanced_query("demo", DictAdvQueryPayload(page=0, size=1000, conditions=conditions))
@@ -176,7 +176,7 @@ async def test_advanced_query_items_clamps_paging_and_filters() -> None:
 
 async def test_advanced_query_business_requires_registry() -> None:
     """`target=business` 未给注册表 → 10001。"""
-    service = DictQueryService(source=cast("Any", _Source(())))
+    service = DictQueryService(source=cast("Any", _Source(ConcurrentStableList(()))))
     with pytest.raises(ParamError):
         await service.advanced_query("demo", DictAdvQueryPayload(target="business"))
 
@@ -184,7 +184,7 @@ async def test_advanced_query_business_requires_registry() -> None:
 async def test_advanced_query_business_delegates_with_params() -> None:
     """`target=business`：经注册表执行，参数合并（`data_source_key` 补位 + 分页写入）。"""
     registry = _Registry()
-    service = DictQueryService(source=cast("Any", _Source(())))
+    service = DictQueryService(source=cast("Any", _Source(ConcurrentStableList(()))))
     params: ConcurrentStableDict[str, object] = ConcurrentStableDict()
     params.set("keyword", "x")
 

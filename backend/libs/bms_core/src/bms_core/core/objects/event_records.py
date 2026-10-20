@@ -11,6 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import ClassVar
 
+from bms_core.core.concurrent import ConcurrentStableFrozenList
 from bms_core.core.objects.roots import BaseValueObject
 
 __all__ = ["BaseEventRecordContract"]
@@ -25,4 +26,6 @@ class BaseEventRecordContract(BaseValueObject):
     各记录自有字段（重试次数 / 错误信息 / 聚合键 / 时间位）由成员声明，不入公共段。
     """
 
-    COMMON_FIELDS: ClassVar[tuple[str, ...]] = ("event_id", "event_type", "tenant_id", "payload", "status")
+    COMMON_FIELDS: ClassVar[ConcurrentStableFrozenList[str]] = ConcurrentStableFrozenList(
+        ("event_id", "event_type", "tenant_id", "payload", "status")
+    )

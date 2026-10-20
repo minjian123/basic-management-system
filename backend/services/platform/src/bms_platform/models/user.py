@@ -16,6 +16,7 @@ from datetime import datetime
 from sqlalchemy import BigInteger, Boolean, DateTime, Index, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.models.base import BaseModel
 
 LOCK_TYPE_FAIL_LIMIT = "fail_limit"
@@ -27,7 +28,9 @@ LOCK_TYPE_INACTIVE = "inactive"
 LOCK_TYPE_MANUAL = "manual"
 """锁定类型：管理员手动锁定。"""
 
-LOCK_TYPES: tuple[str, ...] = (LOCK_TYPE_FAIL_LIMIT, LOCK_TYPE_INACTIVE, LOCK_TYPE_MANUAL)
+LOCK_TYPES: ConcurrentStableList[str] = ConcurrentStableList(
+    (LOCK_TYPE_FAIL_LIMIT, LOCK_TYPE_INACTIVE, LOCK_TYPE_MANUAL)
+)
 """锁定类型取值清单。"""
 
 UNLOCK_MODE_MANUAL = "manual"
@@ -36,7 +39,7 @@ UNLOCK_MODE_MANUAL = "manual"
 UNLOCK_MODE_AUTO = "auto"
 """解锁方式：锁定到期自动解锁。"""
 
-UNLOCK_MODES: tuple[str, ...] = (UNLOCK_MODE_MANUAL, UNLOCK_MODE_AUTO)
+UNLOCK_MODES: ConcurrentStableList[str] = ConcurrentStableList((UNLOCK_MODE_MANUAL, UNLOCK_MODE_AUTO))
 """解锁方式取值清单。"""
 
 

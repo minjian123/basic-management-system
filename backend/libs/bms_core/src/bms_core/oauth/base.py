@@ -17,11 +17,12 @@ access / refresh `aud=api`）；外部 IdP 仅承担 SSO 授权码流程（`bms_
 
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import ClassVar, cast
 
 from fastapi import Request
 
+from bms_core.core.concurrent import ConcurrentStableFrozenList, ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.core.objects import BaseSecretMaterialContract, BaseTokenContract
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
@@ -38,7 +39,9 @@ __all__ = [
     "get_scope_checker",
 ]
 
-GRANT_TYPES: tuple[str, ...] = ("client_credentials", "authorization_code", "refresh_token")
+GRANT_TYPES: ConcurrentStableList[str] = ConcurrentStableList(
+    ("client_credentials", "authorization_code", "refresh_token")
+)
 """授权类型清单（Client Credentials / OIDC 授权码 / 刷新）；占位期仅登记不校验。"""
 
 TOKEN_TYPE_BEARER = "Bearer"
@@ -52,7 +55,7 @@ NULL_ACCESS_TOKEN = "null-access-token"
 class ClientCredentials(BaseSecretMaterialContract):
     """客户端凭证（Client Credentials 签发入参）。"""
 
-    SECRET_FIELDS: ClassVar[tuple[str, ...]] = ("client_secret",)
+    SECRET_FIELDS: ClassVar[ConcurrentStableFrozenList[str]] = ConcurrentStableFrozenList(("client_secret",))
 
     client_id: str
     """客户端标识（`sys_client.client_id`）。"""
@@ -60,7 +63,7 @@ class ClientCredentials(BaseSecretMaterialContract):
     client_secret: str
     """客户端密钥。"""
 
-    scopes: tuple[str, ...] = ()
+    scopes: ConcurrentStableFrozenList[str] = field(default_factory=lambda: ConcurrentStableFrozenList[str]())
     """请求授权范围（可选；真实实现按 client 注册范围最小化分配）。"""
 
 
@@ -77,7 +80,7 @@ class OAuthToken(BaseTokenContract):
     expires_in: int = 0
     """有效期（秒）。"""
 
-    scopes: tuple[str, ...] = ()
+    scopes: ConcurrentStableFrozenList[str] = field(default_factory=lambda: ConcurrentStableFrozenList[str]())
     """生效的授权范围。"""
 
 

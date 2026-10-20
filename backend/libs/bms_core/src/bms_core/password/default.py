@@ -122,7 +122,7 @@ class DefaultPasswordPolicy(BasePasswordPolicy):
         self._config = config
         self._hasher = hasher
 
-    async def validate(self, password: str, *, username: str | None = None) -> tuple[str, ...]:
+    async def validate(self, password: str, *, username: str | None = None) -> ConcurrentStableList[str]:
         """校验密码复杂度（按租户规则；返回缺失项清单）。
 
         Args:
@@ -166,7 +166,7 @@ class DefaultPasswordPolicy(BasePasswordPolicy):
             and username.strip().lower() in password.lower()
         ):
             violations.add("username_included")
-        return tuple(violations)
+        return ConcurrentStableList(violations)
 
     async def expired(self, pwd_changed_at: datetime, *, now: datetime | None = None) -> bool:
         """密码是否已过有效期（按租户 `password.max_age_days`）。

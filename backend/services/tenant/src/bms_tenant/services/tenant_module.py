@@ -38,7 +38,7 @@ _LOGGER = get_logger("bms.tenant_module")
 
 _PLATFORM_SERVICE = "platform"
 _CATALOG_PATH = "/api/v1/modules/snapshot"
-_CATALOG_SCOPES: tuple[str, ...] = ("module_catalog",)
+_CATALOG_SCOPES: ConcurrentStableList[str] = ConcurrentStableList(("module_catalog",))
 _CATALOG_TTL = 60
 
 

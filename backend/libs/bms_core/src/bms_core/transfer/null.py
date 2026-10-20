@@ -4,7 +4,7 @@
 from collections.abc import AsyncIterator
 
 from bms_core.core.capability import BaseNullObject
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenList, ConcurrentStableList
 from bms_core.core.objects import BaseFrameworkObject
 from bms_core.transfer.base import ColumnSpec
 from bms_core.transfer.exporter import BaseExporter
@@ -89,4 +89,4 @@ class NullImporter(BaseImporter, BaseNullObject):
         Returns:
             ImportResult: 空结果（无有效行 / 无错误）。
         """
-        return ImportResult(rows=(), errors=())
+        return ImportResult(rows=ConcurrentStableFrozenList(()), errors=ConcurrentStableFrozenList(()))

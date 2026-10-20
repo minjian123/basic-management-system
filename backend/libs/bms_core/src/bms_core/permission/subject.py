@@ -9,7 +9,7 @@
 
 from __future__ import annotations
 
-from bms_core.core.concurrent import ConcurrentStableSet
+from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.objects import BaseFrameworkObject
 from bms_core.permission.resolver import BaseRoleResolver, registered_role_resolvers
 
@@ -17,7 +17,7 @@ from bms_core.permission.resolver import BaseRoleResolver, registered_role_resol
 class PermissionSubjectService(BaseFrameworkObject):
     """主体链收敛服务：按注册顺序执行解析器并做并集去重。"""
 
-    def __init__(self, resolvers: tuple[BaseRoleResolver, ...]) -> None:
+    def __init__(self, resolvers: ConcurrentStableList[BaseRoleResolver]) -> None:
         """初始化。
 
         Args:

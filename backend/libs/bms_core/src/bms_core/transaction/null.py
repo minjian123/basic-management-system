@@ -13,6 +13,7 @@
 from datetime import datetime
 
 from bms_core.core.capability import BaseNullObject
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.exceptions import TransactionUnavailableError
 from bms_core.transaction.base import (
     BaseTransactionManager,
@@ -42,7 +43,7 @@ class NullTransactionManager(BaseTransactionManager, BaseNullObject):
         return False
 
     async def begin(
-        self, *, caller_service: str, branches: tuple[BranchSpec, ...], timeout_seconds: float | None = None
+        self, *, caller_service: str, branches: ConcurrentStableList[BranchSpec], timeout_seconds: float | None = None
     ) -> GlobalTransaction:
         """拒绝开启全局事务（未启用强一致）。
 
@@ -98,7 +99,7 @@ class NullTransactionParticipant(BaseTransactionParticipant, BaseNullObject):
         """恒定假（不具备两阶段能力）。"""
         return False
 
-    async def execute_branch(self, *, xid: str, db_key: str, ops: tuple[BranchOp, ...]) -> str:
+    async def execute_branch(self, *, xid: str, db_key: str, ops: ConcurrentStableList[BranchOp]) -> str:
         """拒绝执行分支（未启用强一致）。
 
         Args:
@@ -147,7 +148,7 @@ class NullTransactionParticipant(BaseTransactionParticipant, BaseNullObject):
         """
         raise TransactionUnavailableError(UNAVAILABLE_MESSAGE)
 
-    async def recover_branches(self, *, db_key: str) -> tuple[str, ...]:
+    async def recover_branches(self, *, db_key: str) -> ConcurrentStableList[str]:
         """恒返回空（未启用两阶段 ⇒ 本库不存在悬挂分支）。
 
         Args:
@@ -156,7 +157,7 @@ class NullTransactionParticipant(BaseTransactionParticipant, BaseNullObject):
         Returns:
             tuple[str, ...]: 空元组。
         """
-        return ()
+        return ConcurrentStableList(())
 
 
 class NullTransactionRecovery(BaseTransactionRecovery, BaseNullObject):

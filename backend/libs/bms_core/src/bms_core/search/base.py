@@ -17,7 +17,10 @@ from typing import cast
 
 from fastapi import Request
 
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import (
+    ConcurrentStableFrozenDict,
+    ConcurrentStableFrozenList,
+)
 from bms_core.core.config import Settings
 from bms_core.core.objects import BaseSearchContract, BaseValueObject
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
@@ -54,7 +57,7 @@ class SearchDocument(BaseSearchContract):
     doc_id: str
     """文档 id（业务主键，字符串化）。"""
 
-    fields: ConcurrentStableDict[str, object]
+    fields: ConcurrentStableFrozenDict[str, object]
     """索引字段映射。"""
 
 
@@ -68,7 +71,7 @@ class SearchQuery(BaseSearchContract):
     text: str
     """检索关键词。"""
 
-    filters: ConcurrentStableDict[str, object] | None = None
+    filters: ConcurrentStableFrozenDict[str, object] | None = None
     """业务过滤条件（租户隔离与数据权限过滤由实现强制叠加，不在此传）。"""
 
     offset: int = 0
@@ -88,7 +91,7 @@ class SearchHit(BaseValueObject):
     score: float
     """相关度分数。"""
 
-    highlight: ConcurrentStableDict[str, str] | None = None
+    highlight: ConcurrentStableFrozenDict[str, str] | None = None
     """高亮片段（字段 → 片段）。"""
 
 
@@ -96,7 +99,7 @@ class SearchHit(BaseValueObject):
 class SearchResult(BaseValueObject):
     """检索结果。"""
 
-    hits: tuple[SearchHit, ...]
+    hits: ConcurrentStableFrozenList[SearchHit]
     """命中项（分页后）。"""
 
     total: int = 0

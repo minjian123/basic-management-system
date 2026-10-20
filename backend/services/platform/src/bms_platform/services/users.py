@@ -23,7 +23,7 @@ from bms_platform.schemas.users import (
     UserResetTargetResult,
 )
 
-USER_STATUSES: tuple[str, ...] = ("enabled", "disabled")
+USER_STATUSES: ConcurrentStableList[str] = ConcurrentStableList(("enabled", "disabled"))
 """用户账号状态取值（最小只读查询筛选）。"""
 
 SSO_PASSWORD_PLACEHOLDER = "!sso"

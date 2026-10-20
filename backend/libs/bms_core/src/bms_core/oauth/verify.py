@@ -20,7 +20,10 @@ from typing import cast
 
 from fastapi import Request
 
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import (
+    ConcurrentStableFrozenDict,
+    ConcurrentStableFrozenList,
+)
 from bms_core.core.config import Settings
 from bms_core.core.exceptions import ParamError
 from bms_core.core.factory import BasePluginFactory
@@ -56,13 +59,13 @@ class VerifiedToken(BaseTokenClaimsContract):
     token_type: str = ""
     """令牌类型（claims `typ`；服务 JWT 为 `service`）。"""
 
-    audience: tuple[str, ...] = ()
+    audience: ConcurrentStableFrozenList[str] = field(default_factory=lambda: ConcurrentStableFrozenList[str]())
     """受众（`aud`）。"""
 
     issuer: str = ""
     """签发方（`iss`）。"""
 
-    scopes: tuple[str, ...] = ()
+    scopes: ConcurrentStableFrozenList[str] = field(default_factory=lambda: ConcurrentStableFrozenList[str]())
     """授权范围（claims `scope` 拆分）。"""
 
     service: str = ""
@@ -80,7 +83,7 @@ class VerifiedToken(BaseTokenClaimsContract):
     token_id: str = ""
     """令牌 id（`jti`）。"""
 
-    payload: ConcurrentStableDict[str, object] = field(default_factory=ConcurrentStableDict[str, object])
+    payload: ConcurrentStableFrozenDict[str, object] = field(default_factory=ConcurrentStableFrozenDict[str, object])
     """完整声明载荷（只读映射）。"""
 
 
@@ -212,13 +215,13 @@ def _from_claims(claims: IdentityClaims) -> VerifiedToken:
         token_type=str(payload.get("type") or payload.get("typ") or ""),
         audience=claims.audience,
         issuer=claims.issuer,
-        scopes=scopes,
+        scopes=scopes,  # pyright: ignore[reportArgumentType]  # 08_05：注解落集合类，值形态由契约/外部决定
         service=str(payload.get("service") or ""),
         tenant_id=tenant_id if isinstance(tenant_id, str) and tenant_id else None,
         expires_at=claims.expires_at,
         issued_at=claims.issued_at,
         token_id=str(payload.get("jti") or ""),
-        payload=ConcurrentStableDict(payload),
+        payload=ConcurrentStableFrozenDict(payload),
     )
 
 

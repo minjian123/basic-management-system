@@ -15,7 +15,7 @@ from typing import cast
 
 from fastapi import Request
 
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableFrozenDict, ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.core.objects import BaseValueObject
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
@@ -27,7 +27,9 @@ __all__ = [
     "get_realtime_publisher",
 ]
 
-REALTIME_EVENTS: tuple[str, ...] = ("approval.todo", "notification.new", "session.revoked")
+REALTIME_EVENTS: ConcurrentStableList[str] = ConcurrentStableList(
+    ("approval.todo", "notification.new", "session.revoked")
+)
 """事件清单（架构 17「事件路由」节）；占位期仅登记不校验。"""
 
 
@@ -38,7 +40,7 @@ class RealtimeEvent(BaseValueObject):
     event: str
     """事件名（建议取 `REALTIME_EVENTS` 之一）。"""
 
-    data: ConcurrentStableDict[str, object]
+    data: ConcurrentStableFrozenDict[str, object]
     """事件载荷。"""
 
     user_id: str | None = None

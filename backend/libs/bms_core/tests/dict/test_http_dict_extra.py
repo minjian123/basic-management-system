@@ -78,7 +78,7 @@ async def test_by_type_passes_parent_id_and_values() -> None:
     client = _Client(ConcurrentStableList([{"version": 1, "items": [], "total": 0}]))
     source = HttpDataSource(client=client)
 
-    await source.by_type(DictQuery(data_source_key="status", parent_id=0, values=("a", "b")))
+    await source.by_type(DictQuery(data_source_key="status", parent_id=0, values=ConcurrentStableList(("a", "b"))))
     assert client.requests[0].query == {"parent_id": "0", "values": "a,b"}
 
 
@@ -94,7 +94,9 @@ async def test_batch_tolerates_missing_items_mapping() -> None:
             ]
         )
     )
-    result = await HttpDataSource(client=client).batch(DictBatchQuery(types=("status", "level", "missing")))
+    result = await HttpDataSource(client=client).batch(
+        DictBatchQuery(types=ConcurrentStableList(("status", "level", "missing")))
+    )
 
     assert result.version == 4
     inner_status = result.items.get("status")
@@ -103,7 +105,7 @@ async def test_batch_tolerates_missing_items_mapping() -> None:
     assert result.items.get("missing") is not None
 
     no_items = _Client(ConcurrentStableList([{"version": 1}]))
-    empty = await HttpDataSource(client=no_items).batch(DictBatchQuery(types=("status",)))
+    empty = await HttpDataSource(client=no_items).batch(DictBatchQuery(types=ConcurrentStableList(("status",))))
     assert empty.items.get("status") is not None
 
 
@@ -121,7 +123,9 @@ async def test_translate_reuses_cache_and_backfills_fresh() -> None:
         )
     )
     translator = HttpDictTranslator(client=client, cache=cache)
-    mapping = await translator.translate(DictTranslateQuery(data_source_key="status", values=("a", "b")))
+    mapping = await translator.translate(
+        DictTranslateQuery(data_source_key="status", values=ConcurrentStableList(("a", "b")))
+    )
 
     assert mapping.get("a") == "甲"
     assert mapping.get("b") == "乙"
@@ -135,7 +139,9 @@ async def test_translate_skips_version_current_and_keeps_original() -> None:
     """翻译：平台返回版本一致（`items=None`）时跳过该批，未命中项回退原值。"""
     client = _Client(ConcurrentStableList([{"version": 1, "items": None, "total": 0}]))
     translator = HttpDictTranslator(client=client)
-    mapping = await translator.translate(DictTranslateQuery(data_source_key="status", values=("x", "y")))
+    mapping = await translator.translate(
+        DictTranslateQuery(data_source_key="status", values=ConcurrentStableList(("x", "y")))
+    )
     assert dict(mapping) == {"x": "x", "y": "y"}
 
 
@@ -179,7 +185,9 @@ async def test_translate_with_empty_cache_ignores_unrequested_items() -> None:
         )
     )
     translator = HttpDictTranslator(client=client, cache=cache)
-    mapping = await translator.translate(DictTranslateQuery(data_source_key="status", values=("x",)))
+    mapping = await translator.translate(
+        DictTranslateQuery(data_source_key="status", values=ConcurrentStableList(("x",)))
+    )
 
     assert dict(mapping) == {"x": "X"}
     assert "extra" not in mapping

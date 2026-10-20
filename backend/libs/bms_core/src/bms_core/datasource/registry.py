@@ -20,10 +20,10 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import StrEnum
 
-from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
+from bms_core.core.concurrent import ConcurrentStableFrozenList, ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.objects import BaseFrameworkObject, BaseValueObject
 
 __all__ = [
@@ -100,123 +100,129 @@ class DataSourceRecord(BaseValueObject):
     origin: str = DataSourceOrigin.PLATFORM.value
     product_key: str | None = None
     path: str | None = None
-    allowlist: tuple[str, ...] = ()
+    allowlist: ConcurrentStableFrozenList[str] = field(default_factory=lambda: ConcurrentStableFrozenList[str]())
     cascade: bool = False
-    strategies: tuple[str, ...] = (DataSourceStrategy.SELECT.value,)
+    strategies: ConcurrentStableFrozenList[str] = field(
+        default_factory=lambda: ConcurrentStableFrozenList[str]((DataSourceStrategy.SELECT.value,))
+    )
     status: str = DataSourceStatus.ENABLED.value
 
 
-DATA_SOURCE_CATALOG: tuple[DataSourceRecord, ...] = (
-    # 平台内建：bms 侧全部字典表（与 `bms_core/registry/forms.py::FORM_CATALOG` 的 `form_key` 一一对应；
-    # 数据本体在平台实体表，经平台统一出口取数）
-    DataSourceRecord(
-        data_source_key="module",
-        name="业务模块注册",
-        data_source="platform",
-        kind=DataSourceKind.DICT.value,
-        allowlist=("code",),
-    ),
-    DataSourceRecord(
-        data_source_key="product",
-        name="产品档案",
-        data_source="platform",
-        kind=DataSourceKind.DICT.value,
-        allowlist=("code",),
-    ),
-    DataSourceRecord(
-        data_source_key="business",
-        name="业务码",
-        data_source="platform",
-        kind=DataSourceKind.DICT.value,
-        allowlist=("code",),
-    ),
-    DataSourceRecord(
-        data_source_key="action",
-        name="动作码",
-        data_source="platform",
-        kind=DataSourceKind.DICT.value,
-        allowlist=("code",),
-    ),
-    DataSourceRecord(
-        data_source_key="role",
-        name="角色",
-        data_source="platform",
-        kind=DataSourceKind.DICT.value,
-        allowlist=("code", "label"),
-    ),
-    DataSourceRecord(
-        data_source_key="user",
-        name="用户",
-        data_source="platform",
-        kind=DataSourceKind.DICT.value,
-        allowlist=("code",),
-    ),
-    DataSourceRecord(
-        data_source_key="config",
-        name="系统参数",
-        data_source="platform",
-        kind=DataSourceKind.DICT.value,
-        allowlist=("code",),
-    ),
-    DataSourceRecord(
-        data_source_key="tenant",
-        name="租户",
-        data_source="platform",
-        kind=DataSourceKind.DICT.value,
-        allowlist=("code",),
-    ),
-    DataSourceRecord(
-        data_source_key="identity_provider",
-        name="外部 IdP 配置",
-        data_source="platform",
-        kind=DataSourceKind.DICT.value,
-        allowlist=("code",),
-    ),
-    DataSourceRecord(
-        data_source_key="client",
-        name="第三方应用",
-        data_source="platform",
-        kind=DataSourceKind.DICT.value,
-        allowlist=("code",),
-    ),
-    DataSourceRecord(
-        data_source_key="task",
-        name="定时任务",
-        data_source="platform",
-        kind=DataSourceKind.DICT.value,
-        allowlist=("code",),
-    ),
-    DataSourceRecord(
-        data_source_key="icon",
-        name="自定义图标",
-        data_source="platform",
-        kind=DataSourceKind.DICT.value,
-        allowlist=("code",),
-    ),
-    # 跨项目示例（数据本体在 mdm 产品；前端经网关直取产品命名空间）
-    DataSourceRecord(
-        data_source_key="org_dept",
-        name="部门",
-        data_source="mdm.org.dept",
-        kind=DataSourceKind.DICT.value,
-        origin=DataSourceOrigin.PRODUCT.value,
-        product_key="mdm",
-        path="/data-source/dept-tree",
-        allowlist=("code", "label"),
-        cascade=True,
-        strategies=(DataSourceStrategy.SELECT.value, DataSourceStrategy.REGION.value, DataSourceStrategy.MATCH.value),
-    ),
-    DataSourceRecord(
-        data_source_key="org_post",
-        name="岗位",
-        data_source="mdm.org.post",
-        kind=DataSourceKind.DICT.value,
-        origin=DataSourceOrigin.PRODUCT.value,
-        product_key="mdm",
-        path="/data-source/posts",
-        allowlist=("code", "label"),
-        strategies=(DataSourceStrategy.SELECT.value, DataSourceStrategy.MATCH.value),
-    ),
+DATA_SOURCE_CATALOG: ConcurrentStableList[DataSourceRecord] = ConcurrentStableFrozenList(
+    (
+        # 平台内建：bms 侧全部字典表（与 `bms_core/registry/forms.py::FORM_CATALOG` 的 `form_key` 一一对应；
+        # 数据本体在平台实体表，经平台统一出口取数）
+        DataSourceRecord(
+            data_source_key="module",
+            name="业务模块注册",
+            data_source="platform",
+            kind=DataSourceKind.DICT.value,
+            allowlist=ConcurrentStableFrozenList(("code",)),
+        ),
+        DataSourceRecord(
+            data_source_key="product",
+            name="产品档案",
+            data_source="platform",
+            kind=DataSourceKind.DICT.value,
+            allowlist=ConcurrentStableFrozenList(("code",)),
+        ),
+        DataSourceRecord(
+            data_source_key="business",
+            name="业务码",
+            data_source="platform",
+            kind=DataSourceKind.DICT.value,
+            allowlist=ConcurrentStableFrozenList(("code",)),
+        ),
+        DataSourceRecord(
+            data_source_key="action",
+            name="动作码",
+            data_source="platform",
+            kind=DataSourceKind.DICT.value,
+            allowlist=ConcurrentStableFrozenList(("code",)),
+        ),
+        DataSourceRecord(
+            data_source_key="role",
+            name="角色",
+            data_source="platform",
+            kind=DataSourceKind.DICT.value,
+            allowlist=ConcurrentStableFrozenList(("code", "label")),
+        ),
+        DataSourceRecord(
+            data_source_key="user",
+            name="用户",
+            data_source="platform",
+            kind=DataSourceKind.DICT.value,
+            allowlist=ConcurrentStableFrozenList(("code",)),
+        ),
+        DataSourceRecord(
+            data_source_key="config",
+            name="系统参数",
+            data_source="platform",
+            kind=DataSourceKind.DICT.value,
+            allowlist=ConcurrentStableFrozenList(("code",)),
+        ),
+        DataSourceRecord(
+            data_source_key="tenant",
+            name="租户",
+            data_source="platform",
+            kind=DataSourceKind.DICT.value,
+            allowlist=ConcurrentStableFrozenList(("code",)),
+        ),
+        DataSourceRecord(
+            data_source_key="identity_provider",
+            name="外部 IdP 配置",
+            data_source="platform",
+            kind=DataSourceKind.DICT.value,
+            allowlist=ConcurrentStableFrozenList(("code",)),
+        ),
+        DataSourceRecord(
+            data_source_key="client",
+            name="第三方应用",
+            data_source="platform",
+            kind=DataSourceKind.DICT.value,
+            allowlist=ConcurrentStableFrozenList(("code",)),
+        ),
+        DataSourceRecord(
+            data_source_key="task",
+            name="定时任务",
+            data_source="platform",
+            kind=DataSourceKind.DICT.value,
+            allowlist=ConcurrentStableFrozenList(("code",)),
+        ),
+        DataSourceRecord(
+            data_source_key="icon",
+            name="自定义图标",
+            data_source="platform",
+            kind=DataSourceKind.DICT.value,
+            allowlist=ConcurrentStableFrozenList(("code",)),
+        ),
+        # 跨项目示例（数据本体在 mdm 产品；前端经网关直取产品命名空间）
+        DataSourceRecord(
+            data_source_key="org_dept",
+            name="部门",
+            data_source="mdm.org.dept",
+            kind=DataSourceKind.DICT.value,
+            origin=DataSourceOrigin.PRODUCT.value,
+            product_key="mdm",
+            path="/data-source/dept-tree",
+            allowlist=ConcurrentStableFrozenList(("code", "label")),
+            cascade=True,
+            strategies=ConcurrentStableFrozenList(
+                (DataSourceStrategy.SELECT.value, DataSourceStrategy.REGION.value, DataSourceStrategy.MATCH.value)
+            ),
+        ),
+        DataSourceRecord(
+            data_source_key="org_post",
+            name="岗位",
+            data_source="mdm.org.post",
+            kind=DataSourceKind.DICT.value,
+            origin=DataSourceOrigin.PRODUCT.value,
+            product_key="mdm",
+            path="/data-source/posts",
+            allowlist=ConcurrentStableFrozenList(("code", "label")),
+            strategies=ConcurrentStableFrozenList((DataSourceStrategy.SELECT.value, DataSourceStrategy.MATCH.value)),
+        ),
+    )
 )
 """bms 侧构建期清单（平台内建字典表 + 跨项目示例；其余数据源随各自域以注入方式回补）。
 
@@ -226,8 +232,8 @@ DATA_SOURCE_CATALOG: tuple[DataSourceRecord, ...] = (
 
 
 def merge_data_source_records(
-    builtin: tuple[DataSourceRecord, ...] = DATA_SOURCE_CATALOG,
-    injected: tuple[DataSourceRecord, ...] = (),
+    builtin: ConcurrentStableList[DataSourceRecord] = DATA_SOURCE_CATALOG,
+    injected: ConcurrentStableList[DataSourceRecord] = ConcurrentStableList(()),  # noqa: B008
 ) -> ConcurrentStableList[DataSourceRecord]:
     """拼接构建期清单与项目注入记录（应用装配期视图的构造入口）。
 

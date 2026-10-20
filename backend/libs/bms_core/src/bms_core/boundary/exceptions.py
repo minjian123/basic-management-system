@@ -31,7 +31,7 @@ __all__ = [
     "validate_exceptions",
 ]
 
-EXCEPTION_EXITS: tuple[str, ...] = ("service_dto", "readonly_projection", "direct_read")
+EXCEPTION_EXITS: ConcurrentStableList[str] = ConcurrentStableList(("service_dto", "readonly_projection", "direct_read"))
 """出口类型：契约 DTO / 只读投影 / 已评审的跨模块直读例外。"""
 
 EXCEPTION_ACCESS = "read"
@@ -42,16 +42,18 @@ DEFAULT_EXCEPTIONS_RELATIVE = "deploy/boundaries/data_ownership_exceptions.json"
 
 _EXCEPTION_VERSION = 1
 _DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
-_REQUIRED_FIELDS: tuple[str, ...] = (
-    "service",
-    "target_prefix",
-    "access",
-    "exit",
-    "consumer",
-    "reason",
-    "alternative",
-    "expiry",
-    "registered_at",
+_REQUIRED_FIELDS: ConcurrentStableList[str] = ConcurrentStableList(
+    (
+        "service",
+        "target_prefix",
+        "access",
+        "exit",
+        "consumer",
+        "reason",
+        "alternative",
+        "expiry",
+        "registered_at",
+    )
 )
 
 
@@ -126,7 +128,7 @@ def _parse_exception(item: object, index: int) -> OwnershipException:
     )
 
 
-def load_exceptions(path: Path) -> tuple[OwnershipException, ...]:
+def load_exceptions(path: Path) -> ConcurrentStableList[OwnershipException]:
     """载入例外白名单（缺文件返回空集）。
 
     Args:
@@ -139,7 +141,7 @@ def load_exceptions(path: Path) -> tuple[OwnershipException, ...]:
         ValueError: JSON 非法、根结构 / 版本非法、条目结构非法。
     """
     if not path.is_file():
-        return ()
+        return ConcurrentStableList(())
     try:
         parsed = cast("object", json.loads(path.read_text(encoding="utf-8")))
     except json.JSONDecodeError as exc:
@@ -153,7 +155,7 @@ def load_exceptions(path: Path) -> tuple[OwnershipException, ...]:
     if not isinstance(raw_exceptions, list):
         raise ValueError(f"例外白名单 exceptions 须为数组：{path}")
     items = cast("list[object]", raw_exceptions)
-    return tuple(_parse_exception(item, index) for index, item in enumerate(items, start=1))
+    return ConcurrentStableList((_parse_exception(item, index) for index, item in enumerate(items, start=1)))
 
 
 def validate_exceptions(

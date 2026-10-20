@@ -25,7 +25,7 @@ from bms_core.dict.providers import (
 class _Loaded:
     """取数结果替身（只带 `items`）。"""
 
-    def __init__(self, items: tuple[DictItem, ...]) -> None:
+    def __init__(self, items: ConcurrentStableList[DictItem]) -> None:
         """初始化。
 
         Args:
@@ -37,7 +37,7 @@ class _Loaded:
 class _Source:
     """统一出口替身（记录查询参数并回固定条目集）。"""
 
-    def __init__(self, items: tuple[DictItem, ...]) -> None:
+    def __init__(self, items: ConcurrentStableList[DictItem]) -> None:
         """初始化。
 
         Args:
@@ -59,7 +59,7 @@ class _Source:
         return _Loaded(self.items)
 
 
-def _provider(items: tuple[DictItem, ...]) -> tuple[BuiltinDictQueryProvider, _Source]:
+def _provider(items: ConcurrentStableList[DictItem]) -> tuple[BuiltinDictQueryProvider, _Source]:
     """构造提供者与源替身。
 
     Args:
@@ -89,7 +89,7 @@ def _params(**kwargs: object) -> ConcurrentStableDict[str, object]:
 
 def test_provider_metadata() -> None:
     """提供者标识 / 描述 / 清单项（含参数 schema 子集）。"""
-    provider, _source = _provider(())
+    provider, _source = _provider(ConcurrentStableList(()))
     assert provider.key == "builtin"
     assert provider.describe() == "字典条目查询（内建示例提供者）"
 
@@ -102,7 +102,7 @@ def test_provider_metadata() -> None:
 
 async def test_provider_query_requires_data_source_key() -> None:
     """缺 `data_source_key`（缺失 / 非字符串 / 空串）→ 10001。"""
-    provider, _source = _provider(())
+    provider, _source = _provider(ConcurrentStableList(()))
     for bad in (None, 123, ""):
         with pytest.raises(ParamError):
             await provider.query(_params(data_source_key=bad))
@@ -115,7 +115,7 @@ async def test_provider_query_filters_keyword_and_pages() -> None:
         DictItem(value="b", label="乙", code="beta", sort=1),
         DictItem(value="c", label="丙", code="gamma", sort=2),
     )
-    provider, source = _provider(items)
+    provider, source = _provider(items)  # pyright: ignore[reportArgumentType]  # 08_05：注解落集合类，值形态由契约/外部决定
 
     all_rows = await provider.query(_params(data_source_key="demo", page=1, size=9999))
     assert all_rows.total == 3

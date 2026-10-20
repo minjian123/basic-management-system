@@ -12,10 +12,15 @@ from __future__ import annotations
 
 import re
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import cast
 
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.core.concurrent import (
+    ConcurrentStableDict,
+    ConcurrentStableFrozenDict,
+    ConcurrentStableFrozenList,
+    ConcurrentStableList,
+)
 from bms_core.core.exceptions import IdpConfigInvalidError
 from bms_core.core.objects import BaseValueObject
 from bms_core.idp.ssrf import validate_browser_url, validate_outbound_url
@@ -35,7 +40,7 @@ class _KeyRule(BaseValueObject):
     """配置键规格：值类型 + 可选枚举取值。"""
 
     kind: str
-    values: tuple[str, ...] = ()
+    values: ConcurrentStableFrozenList[str] = field(default_factory=lambda: ConcurrentStableFrozenList[str]())
 
 
 _SHARED_KEYS: ConcurrentStableDict[str, _KeyRule] = ConcurrentStableDict(
@@ -70,12 +75,12 @@ _PROTOCOL_SPECS: ConcurrentStableDict[str, ConcurrentStableDict[str, _KeyRule]] 
                 **_SHARED_KEYS,
             }
         ),
-        "wecom": ConcurrentStableDict(
+        "wecom": ConcurrentStableFrozenDict(
             {
                 "corp_id": _KeyRule("str"),
                 "agent_id": _KeyRule("str"),
                 "secret_ref": _KeyRule("secret_ref"),
-                "mode": _KeyRule("enum", ("qr", "oauth")),
+                "mode": _KeyRule("enum", ConcurrentStableFrozenList(("qr", "oauth"))),
                 "login_url": _KeyRule("client_url"),
                 "oauth_url": _KeyRule("client_url"),
                 "api_base_url": _KeyRule("outbound_url"),
@@ -101,7 +106,7 @@ _PROTOCOL_SPECS: ConcurrentStableDict[str, ConcurrentStableDict[str, _KeyRule]] 
 )
 """协议 → 键规格（键白名单；未知键拒绝）。"""
 
-_REQUIRED_KEYS: ConcurrentStableDict[str, tuple[str, ...]] = ConcurrentStableDict(
+_REQUIRED_KEYS: ConcurrentStableDict[str, ConcurrentStableList[str]] = ConcurrentStableDict(  # pyright: ignore[reportAssignmentType]  # 08_05：注解落集合类，值形态由契约/外部决定
     {
         "oidc": ("issuer", "client_id", "client_secret_ref"),
         "cas": ("cas_server_url",),

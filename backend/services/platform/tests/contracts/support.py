@@ -9,7 +9,7 @@ import pytest
 
 from bms_core.core.assembly import register_platform_plugins
 from bms_core.core.base import BaseObject
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenList, ConcurrentStableList
 from bms_core.core.config import Settings, get_settings
 from bms_core.core.plugin import PluginImpl, build_plugin_registry
 from bms_core.dashboard.base import BaseDashboardCardProvider, BaseDashboardCardRegistry
@@ -35,18 +35,22 @@ class RegistryContract(BaseObject):
     """注册表变体（`Null`）实例工厂。"""
 
 
-REGISTRY_CONTRACTS: tuple[RegistryContract, ...] = (
-    RegistryContract("fieldtype", NullFieldTypeRegistry),
-    RegistryContract("query", NullQueryProviderRegistry),
-    RegistryContract("dashboard", NullDashboardCardRegistry),
-    RegistryContract("health", HealthCheckRegistry),
+REGISTRY_CONTRACTS: ConcurrentStableList[RegistryContract] = ConcurrentStableList(
+    (
+        RegistryContract("fieldtype", NullFieldTypeRegistry),
+        RegistryContract("query", NullQueryProviderRegistry),
+        RegistryContract("dashboard", NullDashboardCardRegistry),
+        RegistryContract("health", HealthCheckRegistry),
+    )
 )
 
-UNIQUENESS_REGISTRIES: tuple[tuple[str, Callable[[], object]], ...] = (
-    ("fieldtype", NullFieldTypeRegistry),
-    ("query", NullQueryProviderRegistry),
-    ("dashboard", NullDashboardCardRegistry),
-    ("health", HealthCheckRegistry),
+UNIQUENESS_REGISTRIES: ConcurrentStableList[tuple[str, Callable[[], object]]] = ConcurrentStableList(
+    (
+        ("fieldtype", NullFieldTypeRegistry),
+        ("query", NullQueryProviderRegistry),
+        ("dashboard", NullDashboardCardRegistry),
+        ("health", HealthCheckRegistry),
+    )
 )
 """唯一性断言独立清单（4 域；03-3 收敛后 3 域 Null 登记改真实拒重）。"""
 
@@ -54,7 +58,7 @@ UNIQUENESS_REGISTRIES: tuple[tuple[str, Callable[[], object]], ...] = (
 class EmptyRegistryProbe(Protocol):
     """注册表变体公共探测面（空集断言用）。"""
 
-    def keys(self) -> tuple[str, ...]:
+    def keys(self) -> ConcurrentStableList[str]:
         """已登记键。"""
         ...
 
@@ -100,7 +104,9 @@ class TextFieldType(BaseFieldType):
         """
         return f"字段类型 {self.key}"
 
-    def validate(self, value: object, *, options: ConcurrentStableDict[str, object] | None = None) -> tuple[str, ...]:
+    def validate(
+        self, value: object, *, options: ConcurrentStableDict[str, object] | None = None
+    ) -> ConcurrentStableList[str]:
         """恒定通过。
 
         Args:
@@ -111,7 +117,7 @@ class TextFieldType(BaseFieldType):
             tuple[str, ...]: 空违规元组。
         """
         del value, options
-        return ()
+        return ConcurrentStableList(())
 
     def render_metadata(self) -> ConcurrentStableDict[str, object]:
         """渲染元数据。
@@ -160,7 +166,7 @@ class DictQueryProvider(BaseQueryProvider):
             QueryResult: 空结果。
         """
         del params
-        return QueryResult(rows=(), total=0)
+        return QueryResult(rows=ConcurrentStableFrozenList(()), total=0)
 
 
 class TodoCardProvider(BaseDashboardCardProvider):

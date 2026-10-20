@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
+from bms_core.core.concurrent import ConcurrentStableFrozenList, ConcurrentStableList, ConcurrentStableSet
 from bms_core.events import platform_events
 from bms_core.events.contracts import (
     EVENT_SNAPSHOT_PATH,
@@ -52,7 +52,9 @@ def test_platform_registration_idempotent() -> None:
 @pytest.mark.kiwi_id(2174)
 def test_platform_subscriptions_registered(monkeypatch: pytest.MonkeyPatch) -> None:
     """订阅声明随平台登记入口一并登记（本期为空集，机制经补丁验证）。"""
-    subscription = EventSubscription(consumer="indexer", event_type="sys.user.created", supported_majors=(1,))
+    subscription = EventSubscription(
+        consumer="indexer", event_type="sys.user.created", supported_majors=ConcurrentStableFrozenList((1,))
+    )
     monkeypatch.setattr(platform_events, "PLATFORM_EVENT_SUBSCRIPTIONS", (subscription,))
     registry = EventContractRegistry()
     register_platform_event_contracts(registry)

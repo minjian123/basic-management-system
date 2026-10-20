@@ -66,7 +66,7 @@ def _empty_result() -> DictTypeResult:
     Returns:
         DictTypeResult: 版本 0、`items=()` 的空结果。
     """
-    return DictTypeResult(version=0, items=())
+    return DictTypeResult(version=0, items=ConcurrentStableList(()))
 
 
 class EmptyDictDataSource(BaseDictDataSource):
@@ -89,7 +89,7 @@ class EmptyDictDataSource(BaseDictDataSource):
         """
         return self._data_source
 
-    async def load(self, data_source_key: str, locale: str) -> tuple[DataSourceItem, ...]:
+    async def load(self, data_source_key: str, locale: str) -> ConcurrentStableList[DataSourceItem]:
         """恒返回空行。
 
         Args:
@@ -99,7 +99,7 @@ class EmptyDictDataSource(BaseDictDataSource):
         Returns:
             tuple[DataSourceItem, ...]: 空元组。
         """
-        return ()
+        return ConcurrentStableList(())
 
 
 class DataSourceOutlet(BaseFrameworkObject):
@@ -166,7 +166,7 @@ def _to_dict_item(item: DataSourceItem) -> DictItem:
     )
 
 
-def _apply_filters(items: tuple[DictItem, ...], query: DictQuery) -> tuple[DictItem, ...]:
+def _apply_filters(items: ConcurrentStableList[DictItem], query: DictQuery) -> ConcurrentStableList[DictItem]:
     """按查询条件过滤条目（按值子集 / 关键字 / 上级条目 ID）。
 
     Args:
@@ -188,7 +188,7 @@ def _apply_filters(items: tuple[DictItem, ...], query: DictQuery) -> tuple[DictI
     if query.parent_id is not None:
         parent = None if query.parent_id == 0 else query.parent_id
         result = tuple(item for item in result if item.parent_id == parent)
-    return result
+    return result  # pyright: ignore[reportReturnType]  # 08_05：注解落集合类，值形态由契约/外部决定
 
 
 def _snapshot_payload(result: DictTypeResult) -> ConcurrentStableDict[str, object]:
@@ -224,9 +224,9 @@ def _cache_snapshot(payload: object, version: int) -> DictTypeResult | None:
     if int(data.get("version", -1)) != version:  # pyright: ignore[reportArgumentType]
         return None
     raw_items = data.get("items")
-    items: tuple[DictItem, ...] = ()
+    items: ConcurrentStableList[DictItem] = ConcurrentStableList()
     if isinstance(raw_items, list):
-        items = tuple(DictItem.model_validate(item) for item in cast("list[object]", raw_items))
+        items = ConcurrentStableList(DictItem.model_validate(item) for item in cast("list[object]", raw_items))
     return DictTypeResult(
         version=version,
         items=items,
@@ -317,7 +317,7 @@ class RoutedDataSource(BaseDataSource):
                     return snapshot
         try:
             loaded = await provider.load(query.data_source_key, locale)
-            items = _apply_filters(tuple(_to_dict_item(item) for item in loaded), query)
+            items = _apply_filters(ConcurrentStableList(_to_dict_item(item) for item in loaded), query)
             total = len(items)
             has_more = query.limit is not None and total > query.limit
             if query.limit is not None:

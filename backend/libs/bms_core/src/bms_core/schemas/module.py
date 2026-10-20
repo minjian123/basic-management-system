@@ -1,6 +1,8 @@
 """schemas 层服务目录契约：服务 / 模块登记记录响应。"""
 
-from bms_core.schemas.base import BaseSchema
+from bms_core.schemas.base import (
+    BaseSchema,
+)
 
 
 class ModuleResponse(BaseSchema):

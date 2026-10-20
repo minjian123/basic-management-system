@@ -3,7 +3,10 @@
 from typing import Annotated, Literal
 
 from bms_core.core.concurrent import ConcurrentStableList
-from bms_core.schemas.base import CONTRACT_COLLECTION, BaseSchema
+from bms_core.schemas.base import (
+    CONTRACT_COLLECTION,
+    BaseSchema,
+)
 
 
 class PluginImplementationResponse(BaseSchema):

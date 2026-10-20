@@ -4,7 +4,9 @@
 **不含密钥 / 敏感项**，新增字段须同步表文件与本节口径。
 """
 
-from bms_core.schemas.base import BaseSchema
+from bms_core.schemas.base import (
+    BaseSchema,
+)
 
 
 class ProductResponse(BaseSchema):

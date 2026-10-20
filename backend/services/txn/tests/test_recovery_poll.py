@@ -174,7 +174,7 @@ async def _seed_committing(factory: SessionMaker, driver: FakeDriver) -> None:
     coordinator = TransactionCoordinator(GlobalTxnRepository(session), GlobalTxnBranchRepository(session), uow, driver)
     started = await coordinator.begin(
         caller_service="platform",
-        branches=(BranchSpec(branch_id="p1", service="platform", db_key="platform"),),
+        branches=ConcurrentStableList((BranchSpec(branch_id="p1", service="platform", db_key="platform"),)),
     )
     txns = GlobalTxnRepository(session)
     async with uow.begin():

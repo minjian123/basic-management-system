@@ -11,7 +11,7 @@ from abc import ABC, abstractmethod
 from types import TracebackType
 from typing import Self
 
-from bms_core.core.objects import BaseFrameworkObject
+from bms_core.core.roots import BaseFrameworkObject
 
 
 class BasePlaceholder(BaseFrameworkObject):

@@ -134,7 +134,7 @@ async def test_policy_bool_value_and_image_fallback(monkeypatch: pytest.MonkeyPa
     assert (await _captcha(bool_source).policy("login")).required is True
 
     channels_map = ConcurrentStableDict(captcha_default.CAPTCHA_SCENE_CHANNELS)
-    channels_map.set("ghost", (CaptchaKind.SLIDER,))
+    channels_map.set("ghost", ConcurrentStableList((CaptchaKind.SLIDER,)))
     monkeypatch.setattr(captcha_default, "CAPTCHA_SCENE_CHANNELS", channels_map)
     channels = captcha_default._resolve_channels("ghost", ConcurrentStableDict())  # pyright: ignore[reportPrivateUsage]
     assert channels == (CaptchaKind.SLIDER, CaptchaKind.IMAGE)

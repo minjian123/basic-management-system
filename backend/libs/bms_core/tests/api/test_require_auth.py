@@ -10,7 +10,7 @@ from fastapi import FastAPI
 from starlette.requests import Request
 
 from bms_core.api.base import AuthContext, require_auth
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenList, ConcurrentStableList
 from bms_core.core.context import get_current_user_id, set_current_client_ip
 from bms_core.core.exceptions import AuthError, SessionAuthError, TenantNotFoundError
 from bms_core.db.tenant import DEMO_TENANT, TenantContext
@@ -103,7 +103,7 @@ def _verified(
     subject: str = "1001",
     tenant_id: str | None = _DEMO_ID,
     session_id: str = "s1",
-    scopes: tuple[str, ...] = ("a",),
+    scopes: ConcurrentStableList[str] = ConcurrentStableList(("a",)),  # noqa: B008
 ) -> VerifiedToken:
     """构造校验通过的令牌声明。
 
@@ -172,7 +172,9 @@ async def test_gateway_identity_builds_context() -> None:
     store = await _store_with("s1")
     state = ConcurrentStableDict[str, object](
         {
-            "edge_identity": EdgeIdentity(subject="1001", tenant_code="demo", session_id="s1", scopes=("a",)),
+            "edge_identity": EdgeIdentity(
+                subject="1001", tenant_code="demo", session_id="s1", scopes=ConcurrentStableFrozenList(("a",))
+            ),
             "tenant": _demo_tenant(),
         }
     )
@@ -183,7 +185,7 @@ async def test_gateway_identity_builds_context() -> None:
         tenant_id=_DEMO_ID,
         tenant_code="demo",
         session_id="s1",
-        scopes=("a",),
+        scopes=ConcurrentStableFrozenList(("a",)),
         source="gateway",
     )
     assert get_current_user_id() == 1001

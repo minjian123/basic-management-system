@@ -6,7 +6,7 @@
 - 删除 / 租户过滤由出口与实现侧保证；只读约束（不写库）。
 """
 
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenList, ConcurrentStableList
 from bms_core.core.exceptions import ParamError
 from bms_core.dict.base import BaseDataSource, DictItem, DictQuery
 from bms_core.dict.query import DictQueryProviderInfo
@@ -56,7 +56,7 @@ class BuiltinDictQueryProvider(BaseQueryProvider):
             key=self.key,
             name="字典条目查询（内建）",
             target="business",
-            data_source_keys=(),
+            data_source_keys=ConcurrentStableList(()),
             param_schema=ConcurrentStableDict(
                 {
                     "type": "object",
@@ -96,7 +96,7 @@ class BuiltinDictQueryProvider(BaseQueryProvider):
             items = tuple(item for item in items if text in item.label or text in item.value or text in item.code)
         total = len(items)
         page_items = items[(page - 1) * size : (page - 1) * size + size]
-        return QueryResult(rows=tuple(_to_row(item) for item in page_items), total=total)
+        return QueryResult(rows=ConcurrentStableFrozenList(_to_row(item) for item in page_items), total=total)
 
 
 def _to_row(item: DictItem) -> ConcurrentStableDict[str, object]:

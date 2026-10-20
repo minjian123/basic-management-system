@@ -9,7 +9,7 @@
 from collections.abc import Iterable
 
 from bms_core.core.capability import BaseNullObject
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenList
 from bms_core.core.exceptions import AuthError, ConfigError
 from bms_core.idp.base import IdentityClaims
 from bms_core.oauth.base import NULL_ACCESS_TOKEN, BaseOAuthServer, BaseScopeChecker, ClientCredentials, OAuthToken
@@ -97,7 +97,7 @@ class NullServiceTokenIssuer(BaseServiceTokenIssuer, BaseNullObject):
         Returns:
             IdentityClaims: 占位声明。
         """
-        return IdentityClaims(subject="null-service", issuer="null", audience=("service",))
+        return IdentityClaims(subject="null-service", issuer="null", audience=ConcurrentStableFrozenList(("service",)))
 
 
 class NullTokenVerifier(BaseTokenVerifier, BaseNullObject):
@@ -113,7 +113,7 @@ class NullTokenVerifier(BaseTokenVerifier, BaseNullObject):
         Returns:
             VerifiedToken: 占位声明。
         """
-        return VerifiedToken(subject="null-subject", audience=(audience,))
+        return VerifiedToken(subject="null-subject", audience=ConcurrentStableFrozenList((audience,)))
 
 
 class NullUserTokenIssuer(BaseUserTokenIssuer, BaseNullObject):

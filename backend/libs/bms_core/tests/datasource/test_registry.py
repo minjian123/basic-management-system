@@ -2,7 +2,7 @@
 
 import pytest
 
-from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableFrozenList, ConcurrentStableList
 from bms_core.datasource.registry import (
     DATA_SOURCE_CATALOG,
     DataSourceRecord,
@@ -41,7 +41,7 @@ def test_merge_inject_appends() -> None:
         product_key="biz",
         data_source="biz.wms_bin",
     )
-    merged = merge_data_source_records(DATA_SOURCE_CATALOG, (injected,))
+    merged = merge_data_source_records(DATA_SOURCE_CATALOG, ConcurrentStableList((injected,)))
     assert merged[-1].data_source_key == "wms_bin"
     registry = DataSourceRegistry(merged)
     assert registry.get("wms_bin") is not None
@@ -51,15 +51,22 @@ def test_merge_inject_appends() -> None:
 @pytest.mark.kiwi_id(2287)
 def test_validate_reports_issues() -> None:
     """非法项被逐条报出（格式 / 重复 / 缺名 / 类型非法 / 产品缺产品标识 / 策略非法 / 白名单非法）。"""
-    records: ConcurrentStableList[DataSourceRecord] = ConcurrentStableList(
+    records: ConcurrentStableList[DataSourceRecord] = ConcurrentStableFrozenList(
         [
             DataSourceRecord(data_source_key="Bad-Key", name="", data_source=""),
             DataSourceRecord(data_source_key="dup", name="重复", data_source="x"),
             DataSourceRecord(data_source_key="dup", name="重复二", data_source="x"),
             DataSourceRecord(data_source_key="kindbad", name="类型", data_source="x", kind="nope"),
             DataSourceRecord(data_source_key="prod", name="产品", origin="product", data_source="x"),
-            DataSourceRecord(data_source_key="strat", name="策略", data_source="x", strategies=("nope",)),
-            DataSourceRecord(data_source_key="allow", name="白名单", data_source="x", allowlist=("Bad Field",)),
+            DataSourceRecord(
+                data_source_key="strat", name="策略", data_source="x", strategies=ConcurrentStableFrozenList(("nope",))
+            ),
+            DataSourceRecord(
+                data_source_key="allow",
+                name="白名单",
+                data_source="x",
+                allowlist=ConcurrentStableFrozenList(("Bad Field",)),
+            ),
         ]
     )
     issues = DataSourceRegistry(records).validate()

@@ -15,6 +15,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import ClassVar
 
+from bms_core.core.concurrent import ConcurrentStableFrozenList
 from bms_core.core.objects.roots import BaseValueObject
 
 __all__ = ["BaseIdentityProfileContract", "BaseRequestIdentityContract"]
@@ -28,7 +29,9 @@ class BaseRequestIdentityContract(BaseValueObject):
     （主体、用户主键、授权范围、服务身份、会话标识——调用方身份的统一可读面）。
     """
 
-    COMMON_FIELDS: ClassVar[tuple[str, ...]] = ("subject", "user_id", "scopes", "service_identity", "session_id")
+    COMMON_FIELDS: ClassVar[ConcurrentStableFrozenList[str]] = ConcurrentStableFrozenList(
+        ("subject", "user_id", "scopes", "service_identity", "session_id")
+    )
 
 
 @dataclass(frozen=True)
@@ -41,4 +44,6 @@ class BaseIdentityProfileContract(BaseValueObject):
     层只约定字段存在与语义，可空性由成员声明。
     """
 
-    COMMON_FIELDS: ClassVar[tuple[str, ...]] = ("subject", "username", "name", "email")
+    COMMON_FIELDS: ClassVar[ConcurrentStableFrozenList[str]] = ConcurrentStableFrozenList(
+        ("subject", "username", "name", "email")
+    )

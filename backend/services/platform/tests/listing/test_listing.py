@@ -8,7 +8,7 @@ from httpx import ASGITransport, AsyncClient
 from bms_core.api.deps import get_query_scheme_store
 from bms_core.application import service_lifespan as lifespan
 from bms_core.core.capability import BaseCapability, BaseNullObject
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import get_settings
 from bms_core.core.plugin import BasePluggable, resolve_plugin
 from bms_core.listing.base import (
@@ -44,8 +44,10 @@ class _InMemorySchemeStore(BaseQuerySchemeStore):
         self._items: ConcurrentStableDict[int, QueryScheme] = ConcurrentStableDict()
         self._seq = 0
 
-    async def list(self, target: QuerySchemeTarget, *, field_key: str | None = None) -> tuple[QueryScheme, ...]:
-        return tuple(
+    async def list(
+        self, target: QuerySchemeTarget, *, field_key: str | None = None
+    ) -> ConcurrentStableList[QueryScheme]:
+        return ConcurrentStableList(
             scheme
             for scheme in self._items.values()
             if scheme.target == target and (field_key is None or scheme.field_key == field_key)

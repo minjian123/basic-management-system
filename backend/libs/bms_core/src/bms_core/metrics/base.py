@@ -18,6 +18,7 @@ from typing import cast
 
 from fastapi import Request
 
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 from bms_core.fallback.base import DEPENDENCIES
@@ -31,29 +32,31 @@ __all__ = [
     "get_metrics",
 ]
 
-METRIC_KINDS: tuple[str, ...] = ("counter", "gauge", "histogram")
+METRIC_KINDS: ConcurrentStableList[str] = ConcurrentStableList(("counter", "gauge", "histogram"))
 """指标类型清单：计数器（单调递增）/ 瞬时值 / 直方图（延迟等分布）。"""
 
-METRIC_NAMES: tuple[str, ...] = (
-    "bms_request_total",
-    "bms_request_duration_seconds",
-    "bms_dependency_up",
-    "bms_catalog_degraded",
-    "bms_ws_connections",
-    "bms_mq_backlog",
-    "bms_ai_cost",
-    "bms_boundary_cross_access_total",
-    "bms_outbox_delivery_total",
-    "bms_outbox_backlog",
-    "bms_db_count",
-    "bms_release_total",
-    "bms_contract_breaking_total",
-    "bms_txn_global_total",
-    "bms_txn_branch_drive_total",
-    "bms_txn_recovery_total",
-    "bms_txn_hung",
-    "bms_txn_leader_switch_total",
-    "bms_txn_cleaned_total",
+METRIC_NAMES: ConcurrentStableList[str] = ConcurrentStableList(
+    (
+        "bms_request_total",
+        "bms_request_duration_seconds",
+        "bms_dependency_up",
+        "bms_catalog_degraded",
+        "bms_ws_connections",
+        "bms_mq_backlog",
+        "bms_ai_cost",
+        "bms_boundary_cross_access_total",
+        "bms_outbox_delivery_total",
+        "bms_outbox_backlog",
+        "bms_db_count",
+        "bms_release_total",
+        "bms_contract_breaking_total",
+        "bms_txn_global_total",
+        "bms_txn_branch_drive_total",
+        "bms_txn_recovery_total",
+        "bms_txn_hung",
+        "bms_txn_leader_switch_total",
+        "bms_txn_cleaned_total",
+    )
 )
 """候选指标名清单（架构「指标采集」节六类 + 服务边界跨库访问计数 + 发件箱投递 + 库数量 + 阶段度量）：
 请求量 / 延迟 / 依赖状态 / 服务目录降级 / 实时连接数 / 消息积压 / AI 成本 / 跨库访问数 /

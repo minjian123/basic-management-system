@@ -105,10 +105,12 @@ async def uow() -> AsyncIterator[DbUnitOfWork]:
         "sqlite+aiosqlite:///:memory:", poolclass=StaticPool, connect_args={"check_same_thread": False}
     )
     async with engine.begin() as connection:
-        tables: tuple[Table, ...] = (
-            cast("Table", GlobalTxn.__table__),
-            cast("Table", GlobalTxnBranch.__table__),
-            cast("Table", GlobalTxnRecovery.__table__),
+        tables: ConcurrentStableList[Table] = ConcurrentStableList(
+            (
+                cast("Table", GlobalTxn.__table__),
+                cast("Table", GlobalTxnBranch.__table__),
+                cast("Table", GlobalTxnRecovery.__table__),
+            )
         )
         for table in tables:
             await connection.run_sync(table.create, checkfirst=True)

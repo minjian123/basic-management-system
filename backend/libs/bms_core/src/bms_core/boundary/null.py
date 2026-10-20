@@ -3,6 +3,7 @@
 from bms_core.boundary.assess import OwnershipViolation
 from bms_core.boundary.base import BaseDataOwnershipGuard, OwnershipStats
 from bms_core.core.capability import BaseNullObject
+from bms_core.core.concurrent import ConcurrentStableList
 
 __all__ = ["NullDataOwnershipGuard"]
 
@@ -10,7 +11,7 @@ __all__ = ["NullDataOwnershipGuard"]
 class NullDataOwnershipGuard(BaseDataOwnershipGuard, BaseNullObject):
     """占位守卫：恒定判定无越界、计数恒零、不安装 SQLAlchemy 监听（未配置真实实现时使用）。"""
 
-    def assess(self, statement: str, *, service: str) -> tuple[OwnershipViolation, ...]:
+    def assess(self, statement: str, *, service: str) -> ConcurrentStableList[OwnershipViolation]:
         """恒定返回无越界。
 
         Args:
@@ -21,7 +22,7 @@ class NullDataOwnershipGuard(BaseDataOwnershipGuard, BaseNullObject):
             tuple[OwnershipViolation, ...]: 空元组。
         """
         del statement, service
-        return ()
+        return ConcurrentStableList(())
 
     def snapshot(self) -> OwnershipStats:
         """计数恒零。

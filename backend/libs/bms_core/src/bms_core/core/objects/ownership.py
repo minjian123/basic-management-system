@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import ClassVar
 
+from bms_core.core.concurrent import ConcurrentStableFrozenList
 from bms_core.core.objects.roots import BaseValueObject
 
 __all__ = ["BaseOwnershipContract"]
@@ -27,6 +28,6 @@ class BaseOwnershipContract(BaseValueObject):
     `prefix` 会与 `OwnershipViolation.prefix`（dataclass 字段）同名冲突（同租户层 `code` 的处理口径）。
     """
 
-    COMMON_FIELDS: ClassVar[tuple[str, ...]] = ("service",)
+    COMMON_FIELDS: ClassVar[ConcurrentStableFrozenList[str]] = ConcurrentStableFrozenList(("service",))
     PREFIX_FIELD: ClassVar[str] = ""
     """本类承载「前缀位」的字段名（成员声明）。"""

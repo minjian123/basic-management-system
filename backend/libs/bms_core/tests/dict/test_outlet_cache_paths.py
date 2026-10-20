@@ -39,9 +39,11 @@ from bms_core.dict.outlet import (
 
 _RECORD = DataSourceRecord(data_source_key="role", name="角色", data_source="platform")
 
-_ITEMS: tuple[DataSourceItem, ...] = (
-    DataSourceItem(id=1, value="top", label="顶层", code="top", parent_id=None, sort=0, status="enabled"),
-    DataSourceItem(id=2, value="child", label="子级", code="child", parent_id=1, sort=1, status="enabled"),
+_ITEMS: ConcurrentStableList[DataSourceItem] = ConcurrentStableList(
+    (
+        DataSourceItem(id=1, value="top", label="顶层", code="top", parent_id=None, sort=0, status="enabled"),
+        DataSourceItem(id=2, value="child", label="子级", code="child", parent_id=1, sort=1, status="enabled"),
+    )
 )
 
 
@@ -53,7 +55,7 @@ class _Provider(EmptyDictDataSource):
         super().__init__("platform")
         self.calls = 0
 
-    async def load(self, data_source_key: str, locale: str) -> tuple[DataSourceItem, ...]:
+    async def load(self, data_source_key: str, locale: str) -> ConcurrentStableList[DataSourceItem]:
         """记录调用并回条目集。
 
         Args:
@@ -134,7 +136,9 @@ async def test_lock_contention_rereads_cache_after_wait() -> None:
     cache = _OnceEmptyCache()
     source = RoutedDataSource(_outlet(cast("Any", provider)), cache)
     tenant = current_tenant_id_str()
-    await cache.aset_type(tenant, DEFAULT_LOCALE, "role", _snapshot_payload(DictTypeResult(version=0, items=())))
+    await cache.aset_type(
+        tenant, DEFAULT_LOCALE, "role", _snapshot_payload(DictTypeResult(version=0, items=ConcurrentStableList(())))
+    )
     assert await cache.alock(tenant, DEFAULT_LOCALE, "role", "holder") is True
     cache.reads = 0
 
@@ -156,7 +160,7 @@ async def test_cascade_filter_by_parent_id() -> None:
 
 def test_cache_snapshot_helper_branches() -> None:
     """`_cache_snapshot`：非映射 / 版本不符不命中；条目列非映射时退化为空条目集。"""
-    payload = _snapshot_payload(DictTypeResult(version=2, items=(), has_more=False, total=0))
+    payload = _snapshot_payload(DictTypeResult(version=2, items=ConcurrentStableList(()), has_more=False, total=0))
     hit = _cache_snapshot(payload, 2)
     assert hit is not None
     assert hit.items == ()
@@ -194,7 +198,9 @@ async def test_lock_held_and_stale_cache_falls_through_to_load() -> None:
     cache = _OnceEmptyCache()
     source = RoutedDataSource(_outlet(cast("Any", provider)), cache)
     tenant = current_tenant_id_str()
-    await cache.aset_type(tenant, DEFAULT_LOCALE, "role", _snapshot_payload(DictTypeResult(version=99, items=())))
+    await cache.aset_type(
+        tenant, DEFAULT_LOCALE, "role", _snapshot_payload(DictTypeResult(version=99, items=ConcurrentStableList(())))
+    )
     assert await cache.alock(tenant, DEFAULT_LOCALE, "role", "holder") is True
     cache.reads = 0
 
@@ -228,5 +234,8 @@ async def test_translator_missing_provider_and_empty_values() -> None:
     """翻译：未登记提供者 → 空映射；入参去重后为空 → 空映射。"""
     translator = RoutedDictTranslator(_outlet(cast("Any", _Provider())), MemoryDictCacheRegion())
     # 登记里无 `nope` → 无提供者。
-    assert await translator.translate(DictTranslateQuery(data_source_key="nope", values=("top",))) == {}
-    assert await translator.translate(DictTranslateQuery(data_source_key="role", values=())) == {}
+    assert (
+        await translator.translate(DictTranslateQuery(data_source_key="nope", values=ConcurrentStableList(("top",))))
+        == {}
+    )
+    assert await translator.translate(DictTranslateQuery(data_source_key="role", values=ConcurrentStableList(()))) == {}

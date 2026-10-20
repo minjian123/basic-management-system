@@ -28,7 +28,11 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 
 from bms_core.cache.base import CacheRegion
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
+from bms_core.core.concurrent import (
+    ConcurrentStableDict,
+    ConcurrentStableList,
+    ConcurrentStableSet,
+)
 from bms_core.core.objects import BaseFrameworkObject, BaseValueObject
 from bms_core.i18n.base import DEFAULT_LOCALE
 from bms_core.permission.cache import (
@@ -80,7 +84,7 @@ async def invalidate_permission_cache(
     cache: CacheRegion,
     *,
     tenant_id: str | None,
-    user_ids: tuple[int, ...] | None = None,
+    user_ids: ConcurrentStableList[int] | None = None,
     store: PermissionCacheStore | None = None,
 ) -> int:
     """失效权限快照（租户权限版本 +1；给定用户时清理其本进程缓存条目）。
@@ -121,7 +125,7 @@ class PermissionEngine(BaseFrameworkObject):
         store: PermissionCacheStore | None = None,
         profile: str = DEFAULT_PROFILE,
         ttl: int = DEFAULT_SNAPSHOT_TTL,
-        exempt_role_types: tuple[str, ...] = (ROLE_TYPE_SYSTEM,),
+        exempt_role_types: ConcurrentStableList[str] = ConcurrentStableList((ROLE_TYPE_SYSTEM,)),  # noqa: B008
         locale: str = DEFAULT_LOCALE,
     ) -> None:
         """初始化。
@@ -195,7 +199,7 @@ class PermissionEngine(BaseFrameworkObject):
         snapshot = await self._build(data=data, version=version, tenant_id=None)
         return snapshot
 
-    async def invalidate(self, *, tenant_id: str | None, user_ids: tuple[int, ...] | None = None) -> int:
+    async def invalidate(self, *, tenant_id: str | None, user_ids: ConcurrentStableList[int] | None = None) -> int:
         """失效权限快照：租户权限版本 +1，并清理本进程受影响条目。
 
         Args:

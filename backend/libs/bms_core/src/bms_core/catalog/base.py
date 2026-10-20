@@ -22,7 +22,7 @@ CATALOG_SERVICE_KEY = "platform"
 CATALOG_SNAPSHOT_PATH = "/api/v1/modules/snapshot"
 """服务目录快照只读契约路径。"""
 
-_MODULE_FIELDS: tuple[str, ...] = tuple(field.name for field in fields(ModuleRecord))
+_MODULE_FIELDS: ConcurrentStableList[str] = ConcurrentStableList(field.name for field in fields(ModuleRecord))
 
 
 async def fetch_catalog_snapshot(

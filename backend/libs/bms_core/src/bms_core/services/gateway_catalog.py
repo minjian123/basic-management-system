@@ -187,20 +187,22 @@ AUTH_INTROSPECT_PATH = "/api/v1/auth/introspect"
 FORWARD_AUTH_PLUGIN = "forward-auth"
 """认证接线插件名（网关转调认证服务校验用户 JWT 并注入身份头）。"""
 
-AUTH_REQUEST_HEADERS: tuple[str, ...] = ("Authorization",)
+AUTH_REQUEST_HEADERS: ConcurrentStableList[str] = ConcurrentStableList(("Authorization",))
 """转发给认证服务的客户端头（用户 JWT）。"""
 
-AUTH_UPSTREAM_HEADERS: tuple[str, ...] = (
-    "Authorization",
-    USER_SUBJECT_HEADER,
-    USER_ID_HEADER,
-    TENANT_ID_HEADER,
-    USER_SCOPES_HEADER,
-    SESSION_ID_HEADER,
+AUTH_UPSTREAM_HEADERS: ConcurrentStableList[str] = ConcurrentStableList(
+    (
+        "Authorization",
+        USER_SUBJECT_HEADER,
+        USER_ID_HEADER,
+        TENANT_ID_HEADER,
+        USER_SCOPES_HEADER,
+        SESSION_ID_HEADER,
+    )
 )
 """认证服务响应头中注入上游的头（覆盖 Authorization 为网关服务 JWT + 契约身份头）。"""
 
-AUTH_CLIENT_HEADERS: tuple[str, ...] = ("WWW-Authenticate",)
+AUTH_CLIENT_HEADERS: ConcurrentStableList[str] = ConcurrentStableList(("WWW-Authenticate",))
 """认证失败时回传客户端的头。"""
 
 AUTH_TIMEOUT_MS = 3000
@@ -212,11 +214,13 @@ AUTH_STATUS_ON_ERROR = 503
 LOGIN_SERVICE_KEY = "identity"
 """认证敏感路径所属服务标识（登录限流独立路由的上游）。"""
 
-LOGIN_PATHS: tuple[str, ...] = (
-    f"{GATEWAY_PATH_PREFIX}/{LOGIN_SERVICE_KEY}/v1/auth/login",
-    f"{GATEWAY_PATH_PREFIX}/{LOGIN_SERVICE_KEY}/v1/auth/refresh",
-    f"{GATEWAY_PATH_PREFIX}/{LOGIN_SERVICE_KEY}/v1/auth/forgot-password",
-    f"{GATEWAY_PATH_PREFIX}/{LOGIN_SERVICE_KEY}/v1/auth/reset-password",
+LOGIN_PATHS: ConcurrentStableList[str] = ConcurrentStableList(
+    (
+        f"{GATEWAY_PATH_PREFIX}/{LOGIN_SERVICE_KEY}/v1/auth/login",
+        f"{GATEWAY_PATH_PREFIX}/{LOGIN_SERVICE_KEY}/v1/auth/refresh",
+        f"{GATEWAY_PATH_PREFIX}/{LOGIN_SERVICE_KEY}/v1/auth/forgot-password",
+        f"{GATEWAY_PATH_PREFIX}/{LOGIN_SERVICE_KEY}/v1/auth/reset-password",
+    )
 )
 """认证敏感路径（登录 / 刷新 / 找回 / 重置；限流更严，可随认证阶段扩展）。"""
 
@@ -367,7 +371,7 @@ _HEADER = (
 )
 
 
-def gateway_services() -> tuple[ModuleRecord, ...]:
+def gateway_services() -> ConcurrentStableList[ModuleRecord]:
     """参与网关的服务行（`service_key` 非空且 `status=enabled`）——upstream 与产品级路由的目标集。
 
     含产品分组服务：产品级路由的 `upstream_id` 即产品服务标识，需要其 upstream（如 `org:8000`）；
@@ -376,12 +380,12 @@ def gateway_services() -> tuple[ModuleRecord, ...]:
     Returns:
         tuple[ModuleRecord, ...]: 按服务目录原始顺序排列的服务登记行。
     """
-    return tuple(
+    return ConcurrentStableList(
         record for record in SERVICE_CATALOG if record.service_key is not None and record.status == ModuleStatus.ENABLED
     )
 
 
-def platform_route_services() -> tuple[ModuleRecord, ...]:
+def platform_route_services() -> ConcurrentStableList[ModuleRecord]:
     """参与**服务级路由**（`/api/{service_key}/v1`）的服务行（enabled 且**非产品分组**）。
 
     产品服务的对外入口只经产品命名空间 `/api/{product_key}/v1/{domain}/...`（架构 09「独立服务接入
@@ -391,12 +395,12 @@ def platform_route_services() -> tuple[ModuleRecord, ...]:
     Returns:
         tuple[ModuleRecord, ...]: 按服务目录原始顺序排列的服务登记行。
     """
-    return tuple(
+    return ConcurrentStableList(
         record
         for record in SERVICE_CATALOG
         if record.service_key is not None
         and record.status == ModuleStatus.ENABLED
-        and record.service_group != ServiceGroup.PRODUCT
+        and (record.service_group != ServiceGroup.PRODUCT)
     )
 
 
@@ -526,7 +530,9 @@ def product_route_prefix(product_key: str, domain: str) -> str:
     return f"{GATEWAY_PATH_PREFIX}/{product_key}/v1/{domain}"
 
 
-def product_gateway_routes(routes: tuple[ProductRouteRecord, ...] | None = None) -> tuple[ProductRouteRecord, ...]:
+def product_gateway_routes(
+    routes: ConcurrentStableList[ProductRouteRecord] | None = None,
+) -> ConcurrentStableList[ProductRouteRecord]:
     """参与网关产品级路由的映射记录（目标服务已启用）。
 
     映射可先于服务接入登记（`planned` 放行），但**只有目标服务已启用才生成路由**——服务不可达不暴露。
@@ -539,11 +545,11 @@ def product_gateway_routes(routes: tuple[ProductRouteRecord, ...] | None = None)
     """
     source = PRODUCT_ROUTES if routes is None else routes
     enabled = _enabled_service_keys()
-    return tuple(record for record in source if record.service_key in enabled)
+    return ConcurrentStableList(record for record in source if record.service_key in enabled)
 
 
 def render_product_routes(
-    routes: tuple[ProductRouteRecord, ...] | None = None,
+    routes: ConcurrentStableList[ProductRouteRecord] | None = None,
 ) -> ConcurrentStableList[ConcurrentStableDict[str, object]]:
     """产品级路由段（每映射一条；产品命名空间 + 前缀剥离 + 同平台服务插件口径）。
 

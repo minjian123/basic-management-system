@@ -14,7 +14,12 @@ from typing import Any, cast
 from sqlalchemy import ColumnElement, func, select, update
 from sqlalchemy.engine import CursorResult
 
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
+from bms_core.core.concurrent import (
+    ConcurrentStableDict,
+    ConcurrentStableFrozenDict,
+    ConcurrentStableList,
+    ConcurrentStableSet,
+)
 from bms_core.core.exceptions import ConfigError, EventContractError
 from bms_core.core.id import id_generator
 from bms_core.core.logging import get_logger
@@ -71,7 +76,7 @@ def _to_record(row: SysOutbox) -> OutboxRecord:
         event_version=row.event_version,
         aggregate_key=row.aggregate_key,
         tenant_id=_tenant_id_str(row.tenant_id),
-        payload=ConcurrentStableDict(row.payload),
+        payload=ConcurrentStableFrozenDict(row.payload),
         occurred_at=row.occurred_at,
         status=row.status,
         retry_count=row.retry_count,
@@ -118,7 +123,7 @@ def _to_dead_record(row: SysEventDeadLetter) -> DeadLetterRecord:
         consumer=row.consumer,
         aggregate_key=row.aggregate_key,
         tenant_id=_tenant_id_str(row.tenant_id),
-        payload=ConcurrentStableDict(row.payload),
+        payload=ConcurrentStableFrozenDict(row.payload),
         error_msg=row.error_msg,
         retry_count=row.retry_count,
         status=row.status,

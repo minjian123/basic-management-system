@@ -13,13 +13,18 @@
 
 from abc import ABC, abstractmethod
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import cast
 
 from fastapi import Request
 
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import (
+    ConcurrentStableDict,
+    ConcurrentStableFrozenDict,
+    ConcurrentStableFrozenList,
+    ConcurrentStableList,
+)
 from bms_core.core.config import Settings
 from bms_core.core.exceptions import ParamError
 from bms_core.core.objects import BaseFrameworkObject, BaseValueObject
@@ -65,25 +70,29 @@ TXN_HEURISTIC_ROLLBACK = "heuristic_rollback"
 TXN_HEURISTIC_MIXED = "heuristic_mixed"
 """异常终态：部分提交、部分回滚（启发式混合，须对账处置）。"""
 
-TXN_STATES: tuple[str, ...] = (
-    TXN_ACTIVE,
-    TXN_PREPARING,
-    TXN_COMMITTING,
-    TXN_COMMITTED,
-    TXN_ROLLING_BACK,
-    TXN_ROLLED_BACK,
-    TXN_HEURISTIC_COMMIT,
-    TXN_HEURISTIC_ROLLBACK,
-    TXN_HEURISTIC_MIXED,
+TXN_STATES: ConcurrentStableList[str] = ConcurrentStableList(
+    (
+        TXN_ACTIVE,
+        TXN_PREPARING,
+        TXN_COMMITTING,
+        TXN_COMMITTED,
+        TXN_ROLLING_BACK,
+        TXN_ROLLED_BACK,
+        TXN_HEURISTIC_COMMIT,
+        TXN_HEURISTIC_ROLLBACK,
+        TXN_HEURISTIC_MIXED,
+    )
 )
 """全局事务状态取值全集（登记用）。"""
 
-TXN_TERMINAL_STATES: tuple[str, ...] = (
-    TXN_COMMITTED,
-    TXN_ROLLED_BACK,
-    TXN_HEURISTIC_COMMIT,
-    TXN_HEURISTIC_ROLLBACK,
-    TXN_HEURISTIC_MIXED,
+TXN_TERMINAL_STATES: ConcurrentStableList[str] = ConcurrentStableList(
+    (
+        TXN_COMMITTED,
+        TXN_ROLLED_BACK,
+        TXN_HEURISTIC_COMMIT,
+        TXN_HEURISTIC_ROLLBACK,
+        TXN_HEURISTIC_MIXED,
+    )
 )
 """全局事务终态集合（非终态 = 在途，恢复器扫描对象）。"""
 
@@ -102,7 +111,9 @@ BRANCH_ROLLED_BACK = "rolled_back"
 BRANCH_REJECTED = "rejected"
 """分支：准备阶段否决（TM 据此回滚全部分支）。"""
 
-BRANCH_STATES: tuple[str, ...] = (BRANCH_ACTIVE, BRANCH_PREPARED, BRANCH_COMMITTED, BRANCH_ROLLED_BACK, BRANCH_REJECTED)
+BRANCH_STATES: ConcurrentStableList[str] = ConcurrentStableList(
+    (BRANCH_ACTIVE, BRANCH_PREPARED, BRANCH_COMMITTED, BRANCH_ROLLED_BACK, BRANCH_REJECTED)
+)
 """分支状态取值全集。"""
 
 
@@ -187,7 +198,9 @@ class GlobalTransaction(BaseValueObject):
     decided_at: datetime | None = None
     """提交决定点时间（UTC；非空即已过决定点）。"""
 
-    branches: tuple[BranchRef, ...] = ()
+    branches: ConcurrentStableFrozenList[BranchRef] = field(
+        default_factory=lambda: ConcurrentStableFrozenList[BranchRef]()
+    )
     """分支清单（含 `xid`）。"""
 
     @property
@@ -232,9 +245,9 @@ class BranchHandlerRegistry(BaseFrameworkObject):
         """
         return self._handlers.get(op)
 
-    def ops(self) -> tuple[str, ...]:
+    def ops(self) -> ConcurrentStableList[str]:
         """已登记操作名（排障 / 用例断言用）。"""
-        return tuple(self._handlers.keys())
+        return ConcurrentStableList(self._handlers.keys())
 
 
 BranchHandler = Callable[[DbSession, ConcurrentStableDict[str, object]], Awaitable[None]]
@@ -256,7 +269,7 @@ class BaseTransactionManager(BasePluggable, ABC):
 
     @abstractmethod
     async def begin(
-        self, *, caller_service: str, branches: tuple[BranchSpec, ...], timeout_seconds: float | None = None
+        self, *, caller_service: str, branches: ConcurrentStableList[BranchSpec], timeout_seconds: float | None = None
     ) -> GlobalTransaction:
         """开启全局事务并分配各分支 `xid`。
 
@@ -314,7 +327,7 @@ class BranchOp(BaseValueObject):
     op: str
     """操作名（参与方分支处理器注册表键）。"""
 
-    args: ConcurrentStableDict[str, object]
+    args: ConcurrentStableFrozenDict[str, object]
     """业务载荷（交给参与方已有服务层）。"""
 
 
@@ -332,7 +345,7 @@ class BaseTransactionParticipant(BasePluggable, ABC):
         """是否具备两阶段能力（`null` 提供者为假——参与端点据此明确拒绝）。"""
 
     @abstractmethod
-    async def execute_branch(self, *, xid: str, db_key: str, ops: tuple[BranchOp, ...]) -> str:
+    async def execute_branch(self, *, xid: str, db_key: str, ops: ConcurrentStableList[BranchOp]) -> str:
         """执行分支：`XA_START → 业务写 → XA_END → XA_PREPARE`（单请求内完成、连接随请求释放）。
 
         Args:
@@ -382,7 +395,7 @@ class BaseTransactionParticipant(BasePluggable, ABC):
         """
 
     @abstractmethod
-    async def recover_branches(self, *, db_key: str) -> tuple[str, ...]:
+    async def recover_branches(self, *, db_key: str) -> ConcurrentStableList[str]:
         """列举本库悬挂分支（`XA_RECOVER` 对账用；返回可回放的 `xid` 文本形态）。
 
         Args:

@@ -11,6 +11,8 @@ from pathlib import Path
 
 import pytest
 
+from bms_core.core.concurrent import ConcurrentStableList
+
 _REPO_ROOT = Path(__file__).resolve().parents[5]
 _SCRIPT = _REPO_ROOT / "scripts" / "tools" / "preflight" / "run-once.py"
 _spec = importlib.util.spec_from_file_location("run_once_guard", _SCRIPT)
@@ -35,7 +37,7 @@ def cache_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return target
 
 
-def _argv(text: str = "hello") -> tuple[str, ...]:
+def _argv(text: str = "hello") -> ConcurrentStableList[str]:
     """构造一个轻量命令（真跑耗时 < 0.1s）。
 
     Args:
@@ -44,7 +46,7 @@ def _argv(text: str = "hello") -> tuple[str, ...]:
     Returns:
         tuple[str, ...]: 命令参数。
     """
-    return (str(run_once.sys.executable), "-c", f"print({text!r})")
+    return ConcurrentStableList((str(run_once.sys.executable), "-c", f"print({text!r})"))
 
 
 @pytest.mark.kiwi_id(2315)
