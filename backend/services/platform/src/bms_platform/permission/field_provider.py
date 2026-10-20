@@ -19,7 +19,6 @@ from bms_core.permission.field import (
     DEFAULT_FIELD_PERMISSION_PROVIDER_KEY,
     BaseFieldPermissionProvider,
     FieldPermission,
-    register_field_permission_provider_factory,
 )
 from bms_platform.repositories.menu import FieldRepository
 from bms_platform.repositories.role import RoleFieldRepository
@@ -101,8 +100,3 @@ def build_static_field_provider(tenant_session: DbSession, meta_session: DbSessi
         BaseFieldPermissionProvider: 静态收窄求值器。
     """
     return StaticFieldPermissionProvider(tenant_session, meta_session)
-
-
-def register_static_field_provider() -> None:
-    """登记基础版字段权限 provider 工厂（缺省登记；后代可登记同名工厂覆盖）。"""
-    register_field_permission_provider_factory(DEFAULT_FIELD_PERMISSION_PROVIDER_KEY, build_static_field_provider)
