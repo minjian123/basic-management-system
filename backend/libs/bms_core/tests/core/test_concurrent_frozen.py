@@ -11,7 +11,7 @@
 """
 
 import copy
-from typing import Any
+from typing import Any, cast
 
 import pytest
 
@@ -262,3 +262,49 @@ def test_mutable_forms_are_unhashable(factory: Any, items: ConcurrentStableList[
     assert factory.__hash__ is None
     with pytest.raises(TypeError, match="unhashable"):
         hash(instance)
+
+
+# --------------------------------------------------------------------------- 策略保真分支（SHARDED / 非 SHARDED）
+
+
+def test_frozen_list_spawn_keeps_strategy() -> None:
+    """`ConcurrentStableFrozenList._spawn` / `_mutable_spawn` 两分支均保策略与段数。"""
+    sharded = ConcurrentStableFrozenList([1, 2])
+    assert sharded._mutable_spawn().to_list() == [1, 2]  # pyright: ignore[reportPrivateUsage]  # 用例验证内部机制
+    assert sharded.__add__([3]).to_list() == [1, 2, 3]
+    single = ConcurrentStableFrozenList([1, 2], strategy=LockStrategy.RW)
+    assert single._mutable_spawn().to_list() == [1, 2]  # pyright: ignore[reportPrivateUsage]  # 非 SHARDED 分支
+    assert single.__add__([3]).to_list() == [1, 2, 3]
+
+
+def test_frozen_set_spawn_keeps_strategy() -> None:
+    """`ConcurrentStableFrozenSet._spawn` 两分支均保策略（`SHARDED` 与非 `SHARDED`）。"""
+    sharded = ConcurrentStableFrozenSet([1, 2])
+    assert sharded.union([3]).to_list() == [1, 2, 3]
+    single = ConcurrentStableFrozenSet([1, 2], strategy=LockStrategy.RW)
+    assert single.union([3]).to_list() == [1, 2, 3]
+
+
+def test_frozen_dict_spawn_keeps_strategy() -> None:
+    """`ConcurrentStableFrozenDict._spawn` 两分支均保策略（`SHARDED` 与非 `SHARDED`）。"""
+    sharded = ConcurrentStableFrozenDict({"a": 1})
+    assert (sharded | {"b": 2}).to_dict() == {"a": 1, "b": 2}
+    single = ConcurrentStableFrozenDict({"a": 1}, strategy=LockStrategy.RW)
+    assert (single | {"b": 2}).to_dict() == {"a": 1, "b": 2}
+
+
+def test_frozen_set_and_dict_freeze_return_self() -> None:
+    """`freeze()` 幂等：集合与映射形态同样返回自身。"""
+    frozen_set = ConcurrentStableFrozenSet([1])
+    frozen_dict = ConcurrentStableFrozenDict({"a": 1})
+    assert frozen_set.freeze() is frozen_set
+    assert frozen_dict.freeze() is frozen_dict
+
+
+def test_base_immutable_mutable_spawn_is_abstract_fallback() -> None:
+    """`BaseImmutable._mutable_spawn` 缺省实现抛 `NotImplementedError`（子类须覆写）。"""
+    from bms_core.core.concurrent import BaseImmutable
+
+    instance = cast("Any", ConcurrentStableFrozenList([1]))
+    with pytest.raises(NotImplementedError, match="未实现 _mutable_spawn"):
+        BaseImmutable._mutable_spawn(instance)  # pyright: ignore[reportPrivateUsage, reportUnknownMemberType]
