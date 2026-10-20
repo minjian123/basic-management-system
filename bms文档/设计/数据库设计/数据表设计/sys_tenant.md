@@ -12,7 +12,7 @@
 | 覆盖模块 | 26-租户管理 |
 | 上游依据 | 《架构设计 · 数据架构》「数据分布」节、《架构设计 · 多租户路由》「租户解析链」节、[需求 02-15](../../../项目/01_项目骨架/需求/02_需求_后端基座.md#r02-15) |
 | ORM 模型 | `bms_tenant/models/tenant.py::SysTenant`（继承 `BaseModel`；06_03 由共享基座库迁出） |
-| 状态 | 已落库（平台链迁移 `0001_sys_tenant_module`，2026-09-22；`db_key` 改可空见 `0005_sys_tenant_db_key_nullable`，2026-09-23；种子见 `ops/seed_tenant.py`） |
+| 状态 | 已落库（平台链迁移 `0001_sys_tenant_module`，2026-09-22；`db_key` 改可空见 `0005_sys_tenant_db_key_nullable`，2026-09-23；种子见 `ops/seed_tenant.py`；`kind` / `status` / 域名唯一见 2026-10-20 v6，随 `tenant:platform` 链幂等建表） |
 | 相关节点 | [数据库设计总览](../01_数据库设计_总览.md)「核心表清单总表 · 平台库」、[架构 12-多租户路由](../../架构设计/12_架构设计_子系统_多租户路由.md) |
 
 ## 2. 字段 <a id="fields"></a>
@@ -23,11 +23,12 @@
 | --- | --- | --- | --- | --- |
 | `id` | BIGINT | 否 | 主键，雪花 ID | 主键 · **系统字段**：ID |
 | `form_key` | VARCHAR(64) | 否 | `(form_key, deleted_at)` 复合唯一 | 表单标识（**多表联合判别列**；全局唯一、保存后不变） · **系统字段**：表单标识 |
+| `kind` | VARCHAR(16) | 否 | 默认 `business` | 租户类型（`business` 业务租户 / `platform` 平台租户；平台租户全局唯一一条，`04_01` 起） |
 | `code` | VARCHAR(64) | 否 | 与 `deleted_at` 复合唯一 | 租户编码（全小写） · **系统字段**：代码 |
 | `name` | VARCHAR(128) | 否 | — | 租户名称 · **系统字段**：名称 |
-| `domain` | VARCHAR(255) | 是 | `idx_sys_tenant_domain` | 子域名（`{domain}`） |
+| `domain` | VARCHAR(255) | 是 | `uq_sys_tenant_domain_deleted_at (domain, deleted_at)` | 子域名（`{domain}`；域名唯一，冲突 `82004`） |
 | `db_key` | VARCHAR(64) | 是 | — | **已废弃**（06_01 起不再写入）：服务化后库键由 `tenant_{service}_{code}` 派生，注册表不持有数据源键；存量取值保留但不再被消费 |
-| `status` | VARCHAR(16) | 否 | — | 状态（`active` / `suspended`） |
+| `status` | VARCHAR(16) | 否 | — | 状态（`provisioning` 开通中 / `active` 启用 / `suspended` 停用） |
 | `expire_at` | DATETIME | 是 | — | 到期时间（UTC） |
 | `parent_id` | BIGINT | 是 | — | 上级字典 ID（自引用同表 `id`；顶层 NULL；本表无层级，按系统字段口径保留） · **系统字段**：上级字典 ID |
 | `created_at` | DATETIME | 否 | 审计 | 创建时间（UTC） |
@@ -43,9 +44,10 @@
 | --- | --- | --- | --- |
 | `uq_sys_tenant_code_deleted_at` | 唯一 | `(code, deleted_at)` | 租户编码唯一（软删除后可复用） |
 | `uq_sys_tenant_form_key_deleted_at` | 唯一 | `(form_key, deleted_at)` | 表单标识唯一（多表联合判别列） |
-| `idx_sys_tenant_domain` | 普通 | `(domain)` | 子域名解析查询 |
+| `uq_sys_tenant_domain_deleted_at` | 唯一 | `(domain, deleted_at)` | 子域名唯一（子域名租户路由；冲突 `82004`；允许未配置域名的多行 NULL） |
 
 - 无物理外键；租户库按命名约定 `bms_{service}_{tenant}` 由「服务标识 + 租户编码」派生（键 `tenant_{service}_{code}`），注册表不再持有数据源键。
+- `kind = platform` 的平台租户全局唯一一条，由 `[platform_tenant].code` 确定并随引导创建；业务租户列表、唯一启用租户兜底与租户切换一律排除平台租户。
 
 ## 4. 分片 / 归档 / 建表 <a id="storage"></a>
 
@@ -62,5 +64,6 @@
 | 2026-09-22 | v3 | 索引名对齐实际库与模型元数据（`idx_domain` → `idx_sys_tenant_domain`） | minjian |
 | 2026-09-23 | v4 | `db_key` 废弃：改可空（平台链 `0005`）且不再写入，库键改由 `tenant_{service}_{code}` 派生（06_01）；归属库 / ORM 模型两栏对齐 06_03 迁出结果 | minjian |
 | 2026-10-11 | v5 | 系统字段对齐（02_11）：增 `form_key`（表单标识，多表联合判别列）+ `parent_id`；随 `tenant:platform` 链 `0007_system_fields_form_key` | minjian |
+| 2026-10-20 | v6 | 增 `kind`（`business` / `platform`，平台租户）；`status` 取值增 `provisioning`；`idx_sys_tenant_domain` 改 `uq_sys_tenant_domain_deleted_at` 复合唯一（需求 07-7 / 任务 `04_01`） | minjian |
 
 > 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套
