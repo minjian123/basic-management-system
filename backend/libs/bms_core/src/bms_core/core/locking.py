@@ -10,7 +10,7 @@ from collections.abc import Generator
 from contextlib import contextmanager
 from enum import StrEnum
 
-from bms_core.core.objects import BaseFrameworkObject
+from bms_core.core.roots import BaseFrameworkObject
 
 
 class LockStrategy(StrEnum):

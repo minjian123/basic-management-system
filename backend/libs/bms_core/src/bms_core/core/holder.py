@@ -8,7 +8,7 @@
 
 from __future__ import annotations
 
-from bms_core.core.objects import BaseFrameworkObject
+from bms_core.core.roots import BaseFrameworkObject
 
 __all__ = ["ValueHolder"]
 

@@ -1,8 +1,11 @@
-"""core 层进程内并发集合：基础并发层（`BaseConcurrent`）与插入序形态（`ConcurrentStable*`）。
+"""core 层进程内并发集合：基础并发层（`BaseConcurrent`）、不可变层（`BaseImmutable`）与插入序形态
+（`ConcurrentStable*` / `ConcurrentStableFrozen*`）。
 
 - 锁策略与守卫见 bms_core.core.locking（公共横切，可被其它模块复用）
 - 遍历一律返回快照副本；跨副本共享见 bms_core.core.redis_collections
 - 插入序形态（`ConcurrentStable*`）以**分段写 + 插入序号归并**支持高并发写，是业务与契约的唯一落点
+- **不可变形态（`ConcurrentStableFrozen*`）** 承 `BaseImmutable`：构造期走同一分段写路径、构造完成即
+  置冻结，此后一切写操作抛 `TypeError`；**内容哈希**（与 `__eq__` 语义对齐）只给它，可变形态一律不可哈希
 - **无第三方依赖（集合体系「无依赖面」）**：本模块与 `core/collections.py`（根与公共段）只依赖标准库
   ——CI `base-integrity` 的精简镜像（`python:3.14-slim`，不装依赖）会导入基座模块做边界校验；
   升序形态（`ConcurrentSorted*`，基于 `sortedcontainers`）单列 `bms_core.core.sorted_collections`
@@ -12,7 +15,7 @@
 import copy
 import heapq
 import threading
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 from collections.abc import (
     Callable,
     Generator,
@@ -28,8 +31,7 @@ from collections.abc import (
 from contextlib import contextmanager
 from typing import Any, ClassVar, Self, SupportsIndex, TypeVar, cast, overload
 
-from bms_core.core.base import BaseObject
-from bms_core.core.collections import MAX_INDEX, BaseSorted
+from bms_core.core.collections import MAX_INDEX, BaseCollection, BaseSorted
 from bms_core.core.holder import ValueHolder
 from bms_core.core.locking import LockGuard, LockStrategy, ReadWriteLock
 
@@ -99,6 +101,107 @@ class BaseConcurrent[ItemT, DataT](BaseSorted[ItemT]):
             yield data
             if snapshot:
                 self._data = data
+
+
+def hash_payload(value: object) -> object:
+    """把集合内容递归规范化为**可哈希**形态（与各形态 `__eq__` 语义对齐）。
+
+    - 映射（`dict` / 插入序字典）→ `("map", frozenset((键, 值)))`：**无序**（`__eq__` 序无关）；
+    - 集合（`set` / `frozenset` / 插入序集合）→ `("set", frozenset(…))`：**无序**（`__eq__` 序无关）；
+    - 序列（列表 / 元组 / 插入序列表）→ `("seq", (…))`：**按序**（`__eq__` 序敏感）；
+    - 其余值原样返回（交由 `hash()` 判定；不可哈希即透传 `TypeError`，不包装）。
+
+    **判定顺序不可调换**：`ConcurrentStableDict` 同时是映射与集合类、`ConcurrentStableSet` 同时是集合与
+    集合类，故先判映射 / 集合、再判序列，否则集合会被当成有序序列（哈希与 `__eq__` 语义不一致）。
+
+    Args:
+        value: 待规范化的值（可为嵌套集合）。
+
+    Returns:
+        object: 可哈希载荷（嵌套逐层规范化）。
+    """
+    if isinstance(value, Mapping):
+        mapping = cast("Mapping[object, object]", value)
+        return ("map", frozenset((hash_payload(key), hash_payload(item)) for key, item in mapping.items()))
+    if isinstance(value, (frozenset, set)):
+        return ("set", frozenset(hash_payload(item) for item in cast("Iterable[object]", value)))
+    if isinstance(value, (BaseCollection, list, tuple)):
+        return ("seq", tuple(hash_payload(item) for item in cast("Iterable[object]", value)))
+    return value
+
+
+class BaseImmutable[ItemT](BaseConcurrent[ItemT, Any], ABC):
+    """不可变层：**构造期写、构造后恒冻结、内容哈希**（承 `BaseConcurrent`）。
+
+    挂 `BaseConcurrent` 而非 `BaseSorted` 的依据（实测）：
+
+    1. **构造期即写路径**：三形态的 `__init__` 末行是 `self.update(items)`，`update` 内部持**分段写锁**
+       与**全局序号锁**；把 `_frozen` 置 True 再调 `super().__init__` 会直接抛 `TypeError`——反证构造即写。
+    2. **构造完成前若被共享仍需锁**：不可变只保证「构造完成后不再变」，构造期与「发布前」的可见性仍需锁。
+    3. **数据布局完全一致**：不可变形态与 `ConcurrentStable*` 同为「分段 + 插入序号」，直接复用分段与归并。
+
+    **不复用 `freeze()`**：其实质是 `_freeze_clone` → `constructor(...)` 完整重构造（付两遍写路径成本）；
+    本层在构造末尾直接置 `_frozen = True`。**内容哈希**只给本层形态（可变形态做内容哈希会在内容变化后
+    破坏 `dict` / `set` 桶定位），哈希值首次计算后缓存。
+    """
+
+    collection_kind: ClassVar[str] = "stable_frozen"
+
+    _hash_cache: int | None = None
+    """内容哈希缓存（不可变形态内容不变，缓存安全）。"""
+
+    @abstractmethod
+    def _hash_content(self) -> object:
+        """内容哈希载荷（各形态按自身 `__eq__` 语义给出：列表按序、集合与映射无序）。
+
+        Returns:
+            object: 可哈希载荷。
+        """
+
+    def _ensure_hashed(self) -> int:
+        """计算并缓存内容哈希（首次 O(n)，后续 O(1)）。
+
+        Returns:
+            int: 内容哈希值。
+        """
+        cached = self._hash_cache
+        if cached is None:
+            cached = hash((type(self).__name__, self._hash_content()))
+            self._hash_cache = cached
+        return cached
+
+    def _mutable_spawn(self) -> BaseConcurrent[ItemT, Any]:
+        """构造**可变同类**临时实例（同策略 + 同段数、未冻结），供派生运算「先算可变再冻结」。
+
+        由各形态覆写（形态间内部数据布局不同）；返回实例与自身同族、同锁策略、内容为自身快照。
+
+        Returns:
+            BaseConcurrent[ItemT, Any]: 可写临时实例。
+        """
+        raise NotImplementedError(f"{type(self).__name__} 未实现 _mutable_spawn")
+
+    def __copy__(self) -> Self:
+        """浅复制：按内容重建同类集合（锁不共享）。
+
+        Returns:
+            Self: 同类集合（内容快照）。
+        """
+        constructor = cast("Callable[[Iterable[Any]], Self]", type(self))
+        return constructor(self.to_list())
+
+    def __deepcopy__(self, memo: dict[int, Any]) -> Self:
+        """深复制：元素深拷贝后重建同类集合（锁不共享）。
+
+        Args:
+            memo: 深拷贝对象表。
+
+        Returns:
+            Self: 同类集合（元素深拷贝）。
+        """
+        constructor = cast("Callable[[Iterable[Any]], Self]", type(self))
+        clone = constructor(copy.deepcopy(self.to_list(), memo))
+        memo[id(self)] = clone
+        return clone
 
 
 class ConcurrentStableList[ItemT](BaseConcurrent[ItemT, list[tuple[int, ItemT]]], Sequence[ItemT]):
@@ -499,7 +602,7 @@ class ConcurrentStableList[ItemT](BaseConcurrent[ItemT, list[tuple[int, ItemT]]]
         # 「无依赖面」不得反向导入；跨形态比较由对侧 `__eq__` 反射完成，结果不变。
         return NotImplemented
 
-    __hash__ = BaseObject.__hash__
+    __hash__ = None  # pyright: ignore[reportAssignmentType]  # 可变形态不可哈希（与内置 list / dict / set 一致）
 
 
 class ConcurrentStableSet[ItemT](BaseConcurrent[ItemT, dict[ItemT, int]], Set[ItemT]):
@@ -860,7 +963,7 @@ class ConcurrentStableSet[ItemT](BaseConcurrent[ItemT, dict[ItemT, int]], Set[It
             return set(self) == set(cast("Set[Any]", other))
         return NotImplemented
 
-    __hash__ = BaseObject.__hash__
+    __hash__ = None  # pyright: ignore[reportAssignmentType]  # 可变形态不可哈希（与内置 list / dict / set 一致）
 
 
 class ConcurrentStableDict[KeyT, ValueT](
@@ -1368,4 +1471,363 @@ class ConcurrentStableDict[KeyT, ValueT](
             return dict(self._view()) == dict(cast("Mapping[Any, Any]", other))
         return NotImplemented
 
-    __hash__ = BaseObject.__hash__
+    __hash__ = None  # pyright: ignore[reportAssignmentType]  # 可变形态不可哈希（与内置 list / dict / set 一致）
+
+
+class ConcurrentStableFrozenList[ItemT](ConcurrentStableList[ItemT], BaseImmutable[ItemT]):
+    """不可变插入序列表：**构造期写、构造后恒冻结、内容哈希**。
+
+    落点：`BaseValueObject`（frozen dataclass）的列表字段——frozen dataclass 生成的 `__hash__` 依赖
+    字段可哈希，可变形态（`ConcurrentStableList`）不可哈希会让「`eq` 相等而 `hash` 不同」不变量破坏。
+
+    **构造口径**：`super().__init__` 走完整分段写路径（有锁），返回后置 `_frozen = True`——**不复用
+    `freeze()`**（其实质是 `_freeze_clone` 完整重构造，会付两遍写路径成本）。
+    """
+
+    collection_kind: ClassVar[str] = "stable_frozen"
+
+    def __init__(
+        self,
+        items: Iterable[ItemT] = (),
+        *,
+        strategy: LockStrategy = LockStrategy.SHARDED,
+        shard_count: int = 16,
+    ) -> None:
+        """构造：走可变形态写路径后立即冻结。
+
+        Args:
+            items: 初始元素（按给定顺序即插入序）。
+            strategy: 锁策略（构造期写用；缺省 `SHARDED`）。
+            shard_count: 分段数（`SHARDED` 生效）。
+        """
+        super().__init__(items, strategy=strategy, shard_count=shard_count)
+        self._frozen = True
+
+    def _hash_content(self) -> object:
+        """内容哈希载荷：**按序**（与 `__eq__` 序敏感对齐）。
+
+        Returns:
+            object: 可哈希载荷。
+        """
+        return hash_payload(self.to_list())
+
+    def _mutable_spawn(self) -> ConcurrentStableList[ItemT]:
+        """构造可变同类临时实例（派生运算「先算可变再冻结」用）。
+
+        Returns:
+            ConcurrentStableList[ItemT]: 可写临时实例（内容为自身快照）。
+        """
+        if self._strategy is LockStrategy.SHARDED:
+            return ConcurrentStableList(self.to_list(), strategy=self._strategy, shard_count=self._shard_count)
+        return ConcurrentStableList(self.to_list(), strategy=self._strategy)
+
+    def freeze(self) -> Self:
+        """返回自身（已是不可变形态，无需冻结副本）。
+
+        Returns:
+            Self: 自身。
+        """
+        return self
+
+    def __hash__(self) -> int:
+        """内容哈希（与 `__eq__` 语义对齐；首次计算后缓存）。
+
+        Returns:
+            int: 哈希值。
+        """
+        return self._ensure_hashed()
+
+    def __add__(self, items: Iterable[ItemT]) -> Self:
+        """`l + items`：返回**同类不可变实例**（原实例不变，O(n + k)）。
+
+        Args:
+            items: 追加到末尾的元素序列。
+
+        Returns:
+            Self: 同类不可变新实例。
+        """
+        merged = self.to_list()
+        merged.extend(items)
+        return self._spawn(merged)
+
+    def __iadd__(self, items: Iterable[ItemT]) -> Self:  # pyright: ignore[reportIncompatibleMethodOverride]
+        """不可变形态不支持原地追加（`l += items` 会写自身）。
+
+        Args:
+            items: 待追加元素序列。
+
+        Raises:
+            TypeError: 恒抛（不可变形态禁止写入）。
+        """
+        del items
+        raise TypeError(f"{type(self).__name__} 为不可变形态，禁止原地写入（请用 `+` 生成新实例）")
+
+
+class ConcurrentStableFrozenSet[ItemT](ConcurrentStableSet[ItemT], BaseImmutable[ItemT]):
+    """不可变插入序集合：**构造期写、构造后恒冻结、内容哈希**。
+
+    落点：`BaseValueObject`（frozen dataclass）的集合字段（如 `_Granted.permission_codes`）。
+
+    **派生运算**（`|` / `union` / `difference` / `symmetric_difference` 等）走「**先算可变临时实例、
+    最后一次冻结**」——原实现 `copy()` 后 `update()` 会撞冻结（`copy()` 保类型 ⇒ 新实例构造完即冻结）。
+    """
+
+    collection_kind: ClassVar[str] = "stable_frozen"
+
+    def __init__(
+        self,
+        items: Iterable[ItemT] = (),
+        *,
+        strategy: LockStrategy = LockStrategy.SHARDED,
+        shard_count: int = 16,
+    ) -> None:
+        """构造：走可变形态写路径后立即冻结。
+
+        Args:
+            items: 初始元素（按给定顺序即插入序）。
+            strategy: 锁策略（构造期写用；缺省 `SHARDED`）。
+            shard_count: 分段数（`SHARDED` 生效）。
+        """
+        super().__init__(items, strategy=strategy, shard_count=shard_count)
+        self._frozen = True
+
+    def _hash_content(self) -> object:
+        """内容哈希载荷：**无序**（与 `__eq__` 序无关对齐）。
+
+        Returns:
+            object: 可哈希载荷。
+        """
+        return ("set", frozenset(hash_payload(item) for item in self.to_list()))
+
+    def _mutable_spawn(self) -> ConcurrentStableSet[ItemT]:
+        """构造可变同类临时实例（派生运算「先算可变再冻结」用）。
+
+        Returns:
+            ConcurrentStableSet[ItemT]: 可写临时实例（内容为自身快照）。
+        """
+        if self._strategy is LockStrategy.SHARDED:
+            return ConcurrentStableSet(self.to_list(), strategy=self._strategy, shard_count=self._shard_count)
+        return ConcurrentStableSet(self.to_list(), strategy=self._strategy)
+
+    def freeze(self) -> Self:
+        """返回自身（已是不可变形态，无需冻结副本）。
+
+        Returns:
+            Self: 自身。
+        """
+        return self
+
+    def __hash__(self) -> int:
+        """内容哈希（与 `__eq__` 语义对齐；首次计算后缓存）。
+
+        Returns:
+            int: 哈希值。
+        """
+        return self._ensure_hashed()
+
+    def union(self, *others: Iterable[ItemT]) -> Self:
+        """并集（返回同类不可变实例，保插入序，O(n + Σk)）。
+
+        Args:
+            *others: 参与求并的其他可迭代对象。
+
+        Returns:
+            Self: 并集结果（不可变）。
+        """
+        merged = self._mutable_spawn()
+        merged.update(*others)
+        return self._freeze_like(merged)
+
+    def intersection(self, *others: Iterable[ItemT]) -> Self:
+        """交集（返回同类不可变实例，保本实例插入序，O(n + Σk)）。
+
+        Args:
+            *others: 参与求交的其他可迭代对象。
+
+        Returns:
+            Self: 交集结果（不可变）。
+        """
+        keep = self.to_list()
+        for other in others:
+            members = set(other)
+            keep = [item for item in keep if item in members]
+        return self._spawn(keep)
+
+    def difference(self, *others: Iterable[ItemT]) -> Self:
+        """差集（返回同类不可变实例，保本实例插入序，O(n + Σk)）。
+
+        Args:
+            *others: 参与求差的其他可迭代对象。
+
+        Returns:
+            Self: 差集结果（不可变）。
+        """
+        excluded: set[object] = set()
+        for other in others:
+            excluded.update(other)
+        return self._spawn(item for item in self if item not in excluded)
+
+    def symmetric_difference(self, other: Iterable[ItemT]) -> Self:
+        """对称差（返回同类不可变实例，先本实例独有、再 other 独有，O(n + k)）。
+
+        Args:
+            other: 参与求对称差的可迭代对象。
+
+        Returns:
+            Self: 对称差结果（不可变）。
+        """
+        members = set(other)
+        only_self = [item for item in self if item not in members]
+        only_other = [item for item in members if item not in self]
+        return self._spawn([*only_self, *only_other])
+
+    def _freeze_like(self, mutable: ConcurrentStableSet[ItemT]) -> Self:
+        """把可变临时实例的内容冻结为同类不可变实例（派生运算的最后一步）。
+
+        Args:
+            mutable: 已算完的可变临时实例。
+
+        Returns:
+            Self: 同类不可变实例。
+        """
+        return self._spawn(mutable.to_list())
+
+    def _spawn(self, items: Iterable[ItemT]) -> Self:
+        """按「同类 + 同策略 + 同段数」构造新不可变实例。
+
+        Args:
+            items: 新实例的初始元素（按给定顺序即插入序）。
+
+        Returns:
+            Self: 同类不可变新实例。
+        """
+        if self._strategy is LockStrategy.SHARDED:
+            return type(self)(items, strategy=self._strategy, shard_count=self._shard_count)
+        return type(self)(items, strategy=self._strategy)
+
+    def __or__(self, other: Set[Any]) -> Self:
+        """并集（返回同类不可变实例，先本实例元素、再 other 新增元素）。"""
+        merged = self._mutable_spawn()
+        merged.update(other)
+        return self._freeze_like(merged)
+
+    def __and__(self, other: Set[Any]) -> Self:
+        """交集（返回同类不可变实例，保本实例插入序）。"""
+        return self._spawn(item for item in self if item in other)
+
+    def __sub__(self, other: Set[Any]) -> Self:
+        """差集（返回同类不可变实例，保本实例插入序）。"""
+        return self._spawn(item for item in self if item not in other)
+
+    def __xor__(self, other: Set[Any]) -> Self:
+        """对称差集（返回同类不可变实例，先本实例独有、再 other 独有）。"""
+        only_self = [item for item in self if item not in other]
+        only_other = [item for item in other if item not in self]
+        return self._spawn([*only_self, *only_other])
+
+
+class ConcurrentStableFrozenDict[KeyT, ValueT](  # pyright: ignore[reportIncompatibleMethodOverride]
+    ConcurrentStableDict[KeyT, ValueT],
+    BaseImmutable[tuple[KeyT, ValueT]],
+):
+    """不可变插入序字典：**构造期写、构造后恒冻结、内容哈希**。
+
+    落点：`BaseValueObject`（frozen dataclass）的映射字段（如 `HashChainEntry.record`）。
+
+    **派生运算**（`|`）走「先算可变临时实例、最后一次冻结」——原实现 `copy()` 后 `update()` 会撞冻结。
+
+    > 类型忽略说明：本类的 `ItemT`（`tuple[Key, Value]`）与 `ConcurrentStableDict.to_dict` 的返回型
+    > （`dict[Key, Value]`）经菱形继承后与 `BaseSorted.to_dict`（`ConcurrentStableDict[str, object]`）
+    > 在类型层面不相容；运行期由 `ConcurrentStableDict` 的实现决定，语义不变。
+    """
+
+    collection_kind: ClassVar[str] = "stable_frozen"
+
+    def __init__(
+        self,
+        items: Mapping[KeyT, ValueT] | Iterable[tuple[KeyT, ValueT]] = (),
+        *,
+        strategy: LockStrategy = LockStrategy.SHARDED,
+        shard_count: int = 16,
+    ) -> None:
+        """构造：走可变形态写路径后立即冻结。
+
+        Args:
+            items: 初始键值对（映射或键值对可迭代；按给定顺序即插入序）。
+            strategy: 锁策略（构造期写用；缺省 `SHARDED`）。
+            shard_count: 分段数（`SHARDED` 生效）。
+        """
+        super().__init__(items, strategy=strategy, shard_count=shard_count)
+        self._frozen = True
+
+    def _hash_content(self) -> object:
+        """内容哈希载荷：**无序**（与 `__eq__` 序无关对齐）。
+
+        Returns:
+            object: 可哈希载荷。
+        """
+        return ("map", frozenset((hash_payload(key), hash_payload(value)) for key, value in self.to_list()))
+
+    def _mutable_spawn(self) -> ConcurrentStableDict[KeyT, ValueT]:
+        """构造可变同类临时实例（派生运算「先算可变再冻结」用）。
+
+        Returns:
+            ConcurrentStableDict[KeyT, ValueT]: 可写临时实例（内容为自身快照）。
+        """
+        if self._strategy is LockStrategy.SHARDED:
+            return ConcurrentStableDict(self.to_list(), strategy=self._strategy, shard_count=self._shard_count)
+        return ConcurrentStableDict(self.to_list(), strategy=self._strategy)
+
+    def freeze(self) -> Self:
+        """返回自身（已是不可变形态，无需冻结副本）。
+
+        Returns:
+            Self: 自身。
+        """
+        return self
+
+    def __hash__(self) -> int:
+        """内容哈希（与 `__eq__` 语义对齐；首次计算后缓存）。
+
+        Returns:
+            int: 哈希值。
+        """
+        return self._ensure_hashed()
+
+    def _spawn(self, items: Mapping[KeyT, ValueT] | Iterable[tuple[KeyT, ValueT]]) -> Self:
+        """按「同类 + 同策略 + 同段数」构造新不可变实例。
+
+        Args:
+            items: 新实例的初始键值对（按给定顺序即插入序）。
+
+        Returns:
+            Self: 同类不可变新实例。
+        """
+        if self._strategy is LockStrategy.SHARDED:
+            return type(self)(items, strategy=self._strategy, shard_count=self._shard_count)
+        return type(self)(items, strategy=self._strategy)
+
+    def __or__(self, other: Mapping[KeyT, ValueT]) -> Self:
+        """`d | other`：返回同类不可变新实例（同键 other 覆盖，插入位置不变，O(n + k)）。
+
+        Args:
+            other: 参与合并的映射。
+
+        Returns:
+            Self: 合并结果（不可变）。
+        """
+        merged = self._mutable_spawn()
+        merged.update(other)
+        return self._spawn(merged.to_list())
+
+    def __ior__(self, other: Mapping[KeyT, ValueT]) -> Self:  # pyright: ignore[reportIncompatibleMethodOverride]
+        """不可变形态不支持原地合并（`d |= other` 会写自身）。
+
+        Args:
+            other: 参与合并的映射。
+
+        Raises:
+            TypeError: 恒抛（不可变形态禁止写入）。
+        """
+        del other
+        raise TypeError(f"{type(self).__name__} 为不可变形态，禁止原地写入（请用 `|` 生成新实例）")
