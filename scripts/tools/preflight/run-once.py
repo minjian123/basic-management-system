@@ -30,6 +30,7 @@
 import hashlib
 import io
 import json
+import os
 import subprocess
 import sys
 import time
@@ -286,10 +287,13 @@ def run(argv: ConcurrentStableList[str], *, window_seconds: int, force: bool, sh
         _emit(f"[run-once] --force 真跑：{' '.join(argv)}")
 
     started_at = time.time()
+    # 注入包装标记：重命令守卫据此放行（未注入即视为裸跑，守卫直接报错）
+    child_env = {**os.environ, "BMS_RUN_ONCE": "1"}
     # 逐行实时透传（stdout / stderr 合流，终端里能看到进度），同时收集全文供缓存回放
     process = subprocess.Popen(
         argv,
         cwd=cwd,
+        env=child_env,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,

@@ -67,10 +67,25 @@ if str(_SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPT_DIR))
 
 import coverage_gate  # noqa: E402
+import heavy_command_guard  # noqa: E402
 import parallel_jobs  # noqa: E402
 import test_selection  # noqa: E402
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet  # noqa: E402
+
+
+def _heavy_guard_blocker() -> str:
+    """重命令守卫：本地非 CI 环境未经 `run-once.py` 包装即返回拦截提示。
+
+    预检是本仓最重的单条命令（定向档约 100 秒），重复执行代价最高，故在入口处强制包装。
+
+    Returns:
+        str: 拦截提示（放行返回空串）。
+    """
+    if heavy_command_guard.is_ci() or heavy_command_guard.is_wrapped() or heavy_command_guard.allow_unwrapped():
+        return ""
+    return heavy_command_guard.guidance("preflight")
+
 
 _ROOTS = (
     "libs/bms_core",
@@ -897,6 +912,10 @@ def main() -> int:
     configure_stdio()
     if "--self-test" in sys.argv:
         return _self_test()
+    blocker = _heavy_guard_blocker()
+    if blocker:
+        print(blocker, file=sys.stderr)
+        return 1
     root = Path(_positional_root()).resolve()
     backend = root / "backend"
     fast = "--fast" in sys.argv

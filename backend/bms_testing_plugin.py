@@ -42,25 +42,41 @@ _COVERAGE_SOURCE_ENV = "BMS_COVERAGE_SOURCE"
 _GUARD_PATH = Path(__file__).resolve().parents[1] / "scripts" / "tools" / "preflight" / "full_test_guard.py"
 """全量测试守卫模块路径（`scripts/tools/preflight/full_test_guard.py`）。"""
 
+_HEAVY_GUARD_PATH = Path(__file__).resolve().parents[1] / "scripts" / "tools" / "preflight" / "heavy_command_guard.py"
+"""重命令包装守卫模块路径（`scripts/tools/preflight/heavy_command_guard.py`）。"""
+
 _coverage: Any = None
 
 
-def _load_guard() -> Any:
-    """按路径加载全量测试守卫模块（不依赖 `scripts` 可导入性）。
+def _load_guard_module(path: Path, name: str) -> Any:
+    """按路径加载守卫模块（不依赖 `scripts` 可导入性）。
+
+    Args:
+        path: 模块文件路径。
+        name: 模块名（供 `spec_from_file_location` 使用）。
 
     Returns:
         Any: 守卫模块；文件缺失时返回 `None`。
     """
-    if not _GUARD_PATH.is_file():  # pragma: no cover - 守卫文件缺失时的退化路径
+    if not path.is_file():  # pragma: no cover - 守卫文件缺失时的退化路径
         return None
-    if str(_GUARD_PATH.parent) not in sys.path:
-        sys.path.insert(0, str(_GUARD_PATH.parent))
-    spec = importlib.util.spec_from_file_location("bms_full_test_guard", _GUARD_PATH)
+    if str(path.parent) not in sys.path:
+        sys.path.insert(0, str(path.parent))
+    spec = importlib.util.spec_from_file_location(name, path)
     if spec is None or spec.loader is None:  # pragma: no cover - 极端异常
         return None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+def _load_guard() -> Any:
+    """按路径加载全量测试守卫模块。
+
+    Returns:
+        Any: 守卫模块；文件缺失时返回 `None`。
+    """
+    return _load_guard_module(_GUARD_PATH, "bms_full_test_guard")
 
 
 def _start_coverage() -> Any:
@@ -120,13 +136,17 @@ def pytest_addoption(parser: Any) -> None:
 
 
 def pytest_configure(config: Any) -> None:
-    """全量守卫 → 注册测试基座夹具（夹具模块此时才导入，导入行可被覆盖率采集）。
+    """重命令守卫 → 全量守卫 → 注册测试基座夹具（夹具模块此时才导入，导入行可被覆盖率采集）。
 
-    守卫**先于**夹具注册执行：命中拦截条件时抛 `UsageError`，用例零执行。
+    两道守卫均**先于**夹具注册执行：命中拦截条件时抛 `UsageError`，用例零执行。
+    重命令守卫在前（判定更宽：多目录 pytest 已属重命令，须先拦下）。
 
     Args:
         config: pytest 配置对象。
     """
+    heavy = _load_guard_module(_HEAVY_GUARD_PATH, "bms_heavy_command_guard")
+    if heavy is not None:
+        heavy.pytest_configure(config)
     guard = _load_guard()
     if guard is not None:
         guard.pytest_configure(config)
