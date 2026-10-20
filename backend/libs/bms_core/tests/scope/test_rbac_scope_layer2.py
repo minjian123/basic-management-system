@@ -104,11 +104,12 @@ def clean_layer2() -> Iterator[None]:
     reset_scope_policies()
 
 
-@pytest.mark.kiwi_id(2321)
+@pytest.mark.kiwi_id(2324)
 def test_mapping_rows_from_engine_produce_conditions() -> None:
     """真实行形态：`config` 行是 `ConcurrentStableDict`，读条件必须产生（否则读过滤静默失效）。"""
     rows: ConcurrentStableList[object] = ConcurrentStableList()
-    rows.add(_config(field="area_code", values=["13", "14"]))
+    rows.add(_config(item_code="13"))
+    rows.add(_config(item_code="14"))
     set_current_permission_snapshot(_snapshot(_rule(config=rows)))
     predicate = _provider().read_predicate()
     assert predicate is not None
@@ -118,23 +119,25 @@ def test_mapping_rows_from_engine_produce_conditions() -> None:
     assert set(cast("Any", conditions[0].value)) == {"13", "14"}  # `04_03` 起 in 值为去重集合
 
 
-@pytest.mark.kiwi_id(2321)
+@pytest.mark.kiwi_id(2324)
 def test_rule_result_is_shared_across_users() -> None:
     """按规则共享：同一规则被两个用户命中时策略只求值一次（键不含用户）。"""
     calls: ConcurrentStableList[int] = ConcurrentStableList()
 
     def _counting(
+        data_source_key: str,
         config: ConcurrentStableList[ConcurrentStableDict[str, object]],
     ) -> ConcurrentStableList[ScopeCondition]:
         """计数求值器。
 
         Args:
+            data_source_key: 数据源标识（忽略）。
             config: 规则行（忽略）。
 
         Returns:
             ConcurrentStableList[ScopeCondition]: 单条条件。
         """
-        del config
+        del data_source_key, config
         calls.add(1)
         result: ConcurrentStableList[ScopeCondition] = ConcurrentStableList()
         result.add(ScopeCondition("code", "in", ["001"]))
@@ -157,11 +160,11 @@ def test_rule_result_is_shared_across_users() -> None:
     assert first[0].value == second[0].value
 
 
-@pytest.mark.kiwi_id(2321)
+@pytest.mark.kiwi_id(2324)
 def test_illegal_rule_still_denies_all_and_is_cached() -> None:
     """非法规则：永假条件（该条不产生放行），且结果可复用。"""
     rows: ConcurrentStableList[object] = ConcurrentStableList()
-    rows.add(_config(field="not a field!"))
+    rows.add(_config(item_code=""))
     set_current_permission_snapshot(_snapshot(_rule(config=rows)))
     provider = _provider()
     first = cast("ConcurrentStableList[ScopeCondition]", provider.read_predicate())
@@ -170,7 +173,7 @@ def test_illegal_rule_still_denies_all_and_is_cached() -> None:
     assert first[0].field == second[0].field
 
 
-@pytest.mark.kiwi_id(2321)
+@pytest.mark.kiwi_id(2324)
 def test_unregistered_policy_denies_without_cache() -> None:
     """策略未注册：直接永假（不进层2，避免把「配置错」缓存成长期结论）。"""
     rows: ConcurrentStableList[object] = ConcurrentStableList()
@@ -181,11 +184,11 @@ def test_unregistered_policy_denies_without_cache() -> None:
     assert current_permission_cache_store().stats()["rule_items"] == 0
 
 
-@pytest.mark.kiwi_id(2321)
+@pytest.mark.kiwi_id(2324)
 def test_uncacheable_config_falls_back_to_direct_evaluation() -> None:
     """指纹不可算（含集合等非序列值）：不缓存、直接求值，结果仍正确。"""
     rows: ConcurrentStableList[object] = ConcurrentStableList()
-    rows.add(_config(field="code", values=["001"], extra={1, 2}))
+    rows.add(_config(item_code="001", extra={1, 2}))
     set_current_permission_snapshot(_snapshot(_rule(config=rows)))
     conditions = cast("ConcurrentStableList[ScopeCondition]", _provider().read_predicate())
     assert len(conditions) == 1
@@ -193,23 +196,25 @@ def test_uncacheable_config_falls_back_to_direct_evaluation() -> None:
     assert current_permission_cache_store().stats()["rule_items"] == 0
 
 
-@pytest.mark.kiwi_id(2321)
+@pytest.mark.kiwi_id(2324)
 def test_rule_cache_budget_eviction_falls_back_to_recompute() -> None:
     """元素预算淘汰后：该规则下次命中重新求值（不返回空、不报错）。"""
     calls: ConcurrentStableList[int] = ConcurrentStableList()
 
     def _counting(
+        data_source_key: str,
         config: ConcurrentStableList[ConcurrentStableDict[str, object]],
     ) -> ConcurrentStableList[ScopeCondition]:
         """计数求值器。
 
         Args:
+            data_source_key: 数据源标识（忽略）。
             config: 规则行（忽略）。
 
         Returns:
             ConcurrentStableList[ScopeCondition]: 单条条件。
         """
-        del config
+        del data_source_key, config
         calls.add(1)
         result: ConcurrentStableList[ScopeCondition] = ConcurrentStableList()
         result.add(ScopeCondition("code", "in", ["001"]))
@@ -220,11 +225,11 @@ def test_rule_cache_budget_eviction_falls_back_to_recompute() -> None:
     store = configure_permission_cache_store({OPTION_RULE_CACHE_MAX_ELEMENTS: 1})
 
     rows: ConcurrentStableList[object] = ConcurrentStableList()
-    rows.add(_config(field="code"))
+    rows.add(_config(any="v"))
     rule = _rule(config=rows, policy_type="counted")
     big_rows: ConcurrentStableList[object] = ConcurrentStableList()
-    big_rows.add(_config(field="code"))
-    big_rows.add(_config(field="other"))
+    big_rows.add(_config(any="v"))
+    big_rows.add(_config(other="v"))
     big_rule = _rule(config=big_rows, policy_type="counted", data_source_key="2")
     provider = _provider()
 
@@ -242,7 +247,7 @@ def test_rule_cache_budget_eviction_falls_back_to_recompute() -> None:
     assert conditions[0].operator == "in"
 
 
-@pytest.mark.kiwi_id(2321)
+@pytest.mark.kiwi_id(2324)
 def test_missing_policy_type_denies_all() -> None:
     """规则缺策略类型（非字符串）：按永假处置（该条不产生放行）。"""
     rule: ConcurrentStableDict[str, object] = ConcurrentStableDict()
@@ -254,13 +259,13 @@ def test_missing_policy_type_denies_all() -> None:
     assert [(item.field, item.operator) for item in conditions] == [("id", "in")]
 
 
-@pytest.mark.kiwi_id(2321)
-def test_non_sequence_config_yields_no_conditions() -> None:
-    """`config` 非序列：该行不产生条件（不抛错，与既有容错口径一致）。"""
+@pytest.mark.kiwi_id(2324)
+def test_non_sequence_config_denies_all() -> None:
+    """`config` 非序列：按空规则处理，`select` 无值即永假（不抛错、不放大范围）。"""
     rule: ConcurrentStableDict[str, object] = ConcurrentStableDict()
     rule.set("data_source_key", "1")
     rule.set("policy_type", "select")
     rule.set("config", "not-a-list")
     set_current_permission_snapshot(_snapshot(rule))
     conditions = cast("ConcurrentStableList[ScopeCondition]", _provider().read_predicate())
-    assert list(conditions) == []
+    assert [(item.field, item.operator) for item in conditions] == [("id", "in")]

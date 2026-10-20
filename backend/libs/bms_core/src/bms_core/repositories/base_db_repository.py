@@ -19,9 +19,11 @@ from sqlalchemy.orm import InstrumentedAttribute
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.exceptions import ConfigError
+from bms_core.core.logging import get_logger
 from bms_core.db.session import DbSession
 from bms_core.db.tenant import current_tenant_context
 from bms_core.models.base import BaseModel
+from bms_core.permission.cache import current_permission_cache_store
 from bms_core.repositories.base_scoped_repository import BaseScopedRepository
 from bms_core.repositories.ordering import keyset_condition, order_criteria
 from bms_core.schemas.cursor import decode_cursor_for
@@ -116,6 +118,94 @@ _OPERATOR_BUILDERS: ConcurrentStableDict[str, Callable[[InstrumentedAttribute[An
     )
 )
 """作用域操作符 → SQL 条件构造器（与内存基线 `_match` 的 11 种操作符一一对应）。"""
+
+_NO_COERCE_OPERATORS: ConcurrentStableSet[str] = ConcurrentStableSet({"like", "is_null", "is_not_null"})
+"""不做值类型归一的算子（`like` 模式必为字符串；空值算子无值）。"""
+
+
+def _python_type(column: InstrumentedAttribute[Any]) -> type | None:
+    """取列对应的 Python 类型（不可判返回 None）。
+
+    Args:
+        column: 模型列。
+
+    Returns:
+        type | None: 列类型（`int` / `str` / `datetime` 等）；方言不支持时为 None。
+    """
+    try:
+        return cast("type", column.type.python_type)
+    except NotImplementedError, AttributeError:
+        return None
+
+
+def _coerce_member(raw: object, python_type: type | None) -> tuple[object, bool]:
+    """把单个值按列类型归一（数据权限集合值来自字典项，多为字符串）。
+
+    Args:
+        raw: 原始值。
+        python_type: 列 Python 类型（None 表示不归一）。
+
+    Returns:
+        tuple[object, bool]: 归一后的值 + 是否成功（失败即该条件按永假处置）。
+    """
+    if python_type is None or raw is None or isinstance(raw, bool):
+        return raw, True
+    if python_type is int:
+        if isinstance(raw, int):
+            return raw, True
+        try:
+            return int(cast("Any", raw)), True
+        except TypeError, ValueError:
+            return raw, False
+    if python_type is float:
+        if isinstance(raw, float | int):
+            return float(raw), True
+        try:
+            return float(cast("Any", raw)), True
+        except TypeError, ValueError:
+            return raw, False
+    if python_type is str:
+        return (raw, True) if isinstance(raw, str) else (str(raw), True)
+    return raw, True
+
+
+def _coerce_value(column: InstrumentedAttribute[Any], operator: str, value: object) -> tuple[object, bool]:
+    """把条件值按目标列类型归一（`in` 逐元素、`between` 逐端点、其余单值）。
+
+    Args:
+        column: 模型列（取类型）。
+        operator: 作用域操作符。
+        value: 条件值。
+
+    Returns:
+        tuple[object, bool]: 归一后的值 + 是否成功（False 表示该条件按永假处置）。
+    """
+    original: object = value
+    if operator in _NO_COERCE_OPERATORS:
+        return original, True
+    python_type = _python_type(column)
+    if operator == "in":
+        if not isinstance(value, Sequence | Set) or isinstance(value, str | bytes):
+            return original, True
+        members: ConcurrentStableList[object] = ConcurrentStableList()
+        for member in cast("Iterable[object]", value):
+            coerced, ok = _coerce_member(member, python_type)
+            if not ok:
+                return original, False
+            members.add(coerced)
+        return members, True
+    if operator == "between":
+        if not isinstance(value, (list, tuple)):
+            return original, True
+        sequence = cast("Sequence[object]", value)
+        if len(sequence) != 2:
+            return original, True
+        low, ok_low = _coerce_member(sequence[0], python_type)
+        high, ok_high = _coerce_member(sequence[1], python_type)
+        if not (ok_low and ok_high):
+            return original, False
+        return (low, high), True
+    return _coerce_member(original, python_type)
 
 
 class BaseDbRepository[ModelT: BaseModel](BaseScopedRepository[ModelT], ABC):
@@ -375,7 +465,18 @@ class BaseDbRepository[ModelT: BaseModel](BaseScopedRepository[ModelT], ABC):
         builder = _OPERATOR_BUILDERS.get(condition.operator)
         if builder is None:
             raise ConfigError(f"作用域条件操作符不受支持：{condition.operator}")
-        return builder(self._column(condition.field), condition.value)
+        column = self._column(condition.field)
+        value, ok = _coerce_value(column, condition.operator, condition.value)
+        if not ok:
+            get_logger("bms").warning(
+                "数据范围条件值无法按列类型归一，按永假处置",
+                field=condition.field,
+                operator=condition.operator,
+                data_source_key=condition.data_source_key,
+            )
+            current_permission_cache_store().record_invalid_rule()
+            return false()
+        return builder(column, value)
 
     def _column(self, field: str) -> InstrumentedAttribute[Any]:
         """字段名 → 模型列对象（非映射列快速失败）。

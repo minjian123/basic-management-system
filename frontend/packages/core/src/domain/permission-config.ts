@@ -263,6 +263,22 @@ export interface DataScopeEntriesPayload {
   entries: DataScopeEntry[]
 }
 
+/** 数据权限提交条目（API 形态：键名 snake；`select` 行转 `item_code`）。 */
+export interface DataScopeSubmitEntry {
+  /** 字典类型 id。 */
+  data_source_key: string
+  /** 策略类型。 */
+  policy_type: DataScopePolicyType
+  /** 结构化配置（只选不编；snake 键名）。 */
+  config: Record<string, unknown>[]
+}
+
+/** 数据权限提交载荷（API 形态，丢弃空 config）。 */
+export interface DataScopeSubmitPayload {
+  /** 数据权限条目。 */
+  entries: DataScopeSubmitEntry[]
+}
+
 /** 错误码定位（不定位页签时为整体错误）。 */
 export interface PermissionErrorTarget {
   /** 目标页签。 */
@@ -767,6 +783,61 @@ export function collectFieldPayload(fieldEntries: readonly FieldPermEntry[]): Fi
  */
 export function collectDataScopePayload(entries: readonly DataScopeEntry[]): DataScopeEntry[] {
   return collectDataScopeEntries(entries)
+}
+
+/**
+ * 收集数据权限提交载荷（域内 camel → API snake；丢弃空 config、排序）。
+ *
+ * @param entries 数据权限条目。
+ * @returns API 形态的提交载荷。
+ */
+export function collectDataScopeSubmitPayload(entries: readonly DataScopeEntry[]): DataScopeSubmitPayload {
+  return { entries: collectDataScopeEntries(entries).map(toDataScopeSubmitEntry) }
+}
+
+/**
+ * 数据权限条目 → 提交条目（`itemCode` 转 `item_code`，其余键名本身即 snake、原样透传）。
+ *
+ * @param entry 数据权限条目。
+ * @returns 提交条目。
+ */
+export function toDataScopeSubmitEntry(entry: DataScopeEntry): DataScopeSubmitEntry {
+  return {
+    data_source_key: entry.dataSourceKey,
+    policy_type: entry.policyType,
+    config: entry.config.map((item) => toDataScopeSubmitItem(item)),
+  }
+}
+
+/**
+ * 数据权限项 → 提交行（`itemCode` 转 `item_code`；其余策略行键名即 snake，原样拷贝）。
+ *
+ * @param item 数据权限项。
+ * @returns 提交行（snake 键名）。
+ */
+function toDataScopeSubmitItem(item: DataScopePolicyItem): Record<string, unknown> {
+  const row = { ...(item as unknown as Record<string, unknown>) }
+  if (!('itemCode' in row)) {
+    return row
+  }
+  const { itemCode, ...rest } = row
+  return { ...rest, item_code: itemCode }
+}
+
+/**
+ * 接口返回行 → 数据权限项（`item_code`（兼容历史 `itemCode`）回 `itemCode`；其余原样）。
+ *
+ * 取数侧归一与提交侧转键成对存在，保证域内状态（含脏基线）始终是 camel 形态。
+ *
+ * @param row 接口返回的 `config` 行。
+ * @returns 数据权限项。
+ */
+export function fromDataScopeApiItem(row: Record<string, unknown>): DataScopePolicyItem {
+  const itemCode = row.item_code ?? row.itemCode
+  if (typeof itemCode === 'string' && itemCode !== '') {
+    return { itemCode }
+  }
+  return { ...row } as unknown as DataScopePolicyItem
 }
 
 /**

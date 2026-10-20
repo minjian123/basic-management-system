@@ -55,7 +55,7 @@ def _provider() -> RbacDataScope:
 
 
 def _rule(
-    data_source_key: int, policy_type: str, config: ConcurrentStableList[object]
+    data_source_key: str | int, policy_type: str, config: ConcurrentStableList[object]
 ) -> ConcurrentStableDict[str, object]:
     """构造一条数据范围规则（快照载荷行）。
 
@@ -122,31 +122,35 @@ def _as_conditions(predicate: object) -> ConcurrentStableList[ScopeCondition]:
     return result
 
 
-@pytest.mark.kiwi_id(2320)
+@pytest.mark.kiwi_id(2324)
 def test_provider_turns_snapshot_rules_into_read_conditions() -> None:
-    """端到端：快照里的 `select` 规则经平台装配的 provider 转成 `IN` 读条件。"""
+    """端到端：快照里的 `select` 规则经平台装配的 provider 转成数据源维度 `IN` 读条件。"""
     rows: ConcurrentStableList[object] = ConcurrentStableList()
-    rows.add(dict(_config(field="area_code", values=["13"])))
-    set_current_permission_snapshot(_snapshot(_rule(1, "select", rows)))
+    rows.add(dict(_config(item_code="13")))
+    set_current_permission_snapshot(_snapshot(_rule("org_dept", "select", rows)))
     conditions = _as_conditions(_provider().read_predicate())
     assert len(conditions) == 1
     assert conditions[0].operator == "in"
+    assert conditions[0].data_source_key == "org_dept"
+    assert conditions[0].field == ""
     assert set(cast("Any", conditions[0].value)) == {"13"}  # `04_03` 起 in 值为去重集合
 
 
-@pytest.mark.kiwi_id(2320)
+@pytest.mark.kiwi_id(2324)
 def test_provider_rejects_out_of_scope_writes() -> None:
-    """端到端：写校验按同一批条件判定（范围内放行、越界拒）。"""
+    """端到端：写校验按同一批条件判定（传列映射放行 / 越界拒 / 未传映射即拒）。"""
     rows: ConcurrentStableList[object] = ConcurrentStableList()
-    rows.add(dict(_config(field="area_code", values=["13"])))
-    set_current_permission_snapshot(_snapshot(_rule(1, "select", rows)))
+    rows.add(dict(_config(item_code="13")))
+    set_current_permission_snapshot(_snapshot(_rule("org_dept", "select", rows)))
     provider = _provider()
     inside: ConcurrentStableDict[str, object] = ConcurrentStableDict()
-    inside.set("area_code", "13")
+    inside.set("dept_id", "13")
     outside: ConcurrentStableDict[str, object] = ConcurrentStableDict()
-    outside.set("area_code", "14")
-    assert provider.allow_write(inside) is True
-    assert provider.allow_write(outside) is False
+    outside.set("dept_id", "14")
+    columns: ConcurrentStableDict[str, str] = ConcurrentStableDict({"org_dept": "dept_id"})
+    assert provider.allow_write(inside, scope_columns=columns) is True
+    assert provider.allow_write(outside, scope_columns=columns) is False
+    assert provider.allow_write(inside) is False
 
 
 @pytest.mark.kiwi_id(2320)

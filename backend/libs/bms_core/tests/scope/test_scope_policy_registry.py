@@ -17,16 +17,19 @@ from bms_core.scope.policies import (
 )
 
 
-def _policy(config: ConcurrentStableList[ConcurrentStableDict[str, object]]) -> ConcurrentStableList[ScopeCondition]:
+def _policy(
+    data_source_key: str, config: ConcurrentStableList[ConcurrentStableDict[str, object]]
+) -> ConcurrentStableList[ScopeCondition]:
     """占位求值器：忽略配置，返回单一恒真条件。
 
     Args:
+        data_source_key: 数据源标识（忽略）。
         config: 规则配置行。
 
     Returns:
         ConcurrentStableList[ScopeCondition]: 作用域条件列表。
     """
-    del config
+    del data_source_key, config
     return ConcurrentStableList([ScopeCondition(field="id", operator="is_not_null")])
 
 
@@ -57,9 +60,11 @@ def test_register_and_lookup_policy() -> None:
 def test_register_overrides_same_type() -> None:
     """同 key 重复登记：以后登记者为准（装配 / 导入期幂等重放）。"""
 
-    def _other(config: ConcurrentStableList[ConcurrentStableDict[str, object]]) -> ConcurrentStableList[ScopeCondition]:
+    def _other(
+        data_source_key: str, config: ConcurrentStableList[ConcurrentStableDict[str, object]]
+    ) -> ConcurrentStableList[ScopeCondition]:
         """另一求值器替身。"""
-        del config
+        del data_source_key, config
         return ConcurrentStableList()
 
     register_scope_policy("match", _policy)

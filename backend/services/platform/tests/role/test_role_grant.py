@@ -13,6 +13,7 @@ import pytest
 
 from bms_core.cache.memory import MemoryCacheRegion
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
+from bms_core.core.config import Settings
 from bms_core.core.context import reset_current_user_id, set_current_user_id
 from bms_core.core.exceptions import (
     ParamError,
@@ -28,6 +29,7 @@ from bms_core.scope.extensions import (
     register_data_scope_extension,
     reset_data_scope_extensions,
 )
+from bms_core.scope.limits import OPTION_MAX_IN_VALUES
 from bms_platform.models.menu import SysMenu
 from bms_platform.models.role import NO_SOURCE_MENU_ID, PERM_TYPE_FORM, PERM_TYPE_MENU, PERM_TYPE_PERMISSION
 from bms_platform.repositories.menu import BusinessRepository, PermissionRepository
@@ -144,7 +146,7 @@ async def test_fields_and_data_scopes_reject_self_lock() -> None:
                 ConcurrentStableList(
                     [
                         DataScopeGrantEntry(
-                            data_source_key="role", policy_type="select", config=_items({"field": "label"})
+                            data_source_key="role", policy_type="select", config=_items({"item_code": "label"})
                         )
                     ]
                 ),
@@ -451,4 +453,114 @@ async def test_data_scope_invalid_policy_registered_extension_and_whitelist_guar
         assert [row.policy_type for row in created] == ["extension"]
     finally:
         reset_data_scope_extensions()
+    await engine.dispose()
+
+
+@pytest.mark.kiwi_id(2324)
+async def test_data_scope_config_time_validation_for_select_and_region() -> None:
+    """配置期校验（30047）：`select` 须 `item_code`（兼容 `itemCode`）且不超阈引导；`region` 起止须齐全可比。"""
+    target, engine = await helpers.session()
+    role = await RoleRepository(target).create(code="ops", name="运维角色")
+    role_id = role.id
+    data_source_key, _attr_key = await helpers.seed_dict(target)
+    settings = Settings()
+    settings.data_scope.options.set(OPTION_MAX_IN_VALUES, 2)
+    service = helpers.grant_service(target, MemoryCacheRegion(), settings=settings)
+
+    created = await service.replace_data_scopes(
+        role_id,
+        ConcurrentStableList(
+            (
+                DataScopeGrantEntry(
+                    data_source_key=data_source_key, policy_type="select", config=_items({"itemCode": "a"})
+                ),
+            )
+        ),
+        tenant_id=_TENANT,
+    )
+    assert [row.policy_type for row in created] == ["select"]
+
+    with pytest.raises(RoleScopeValueInvalidError) as missing:
+        await service.replace_data_scopes(
+            role_id,
+            ConcurrentStableList(
+                (
+                    DataScopeGrantEntry(
+                        data_source_key=data_source_key, policy_type="select", config=_items({"field": "code"})
+                    ),
+                )
+            ),
+            tenant_id=_TENANT,
+        )
+    assert "item_code" in str(missing.value)
+
+    with pytest.raises(RoleScopeValueInvalidError) as oversized:
+        await service.replace_data_scopes(
+            role_id,
+            ConcurrentStableList(
+                (
+                    DataScopeGrantEntry(
+                        data_source_key=data_source_key,
+                        policy_type="select",
+                        config=_items({"item_code": "a"}, {"item_code": "b"}, {"item_code": "c"}),
+                    ),
+                )
+            ),
+            tenant_id=_TENANT,
+        )
+    assert "请改用数据区域 / 数据匹配 / 扩展权限" in str(oversized.value)
+
+    with pytest.raises(RoleScopeValueInvalidError):
+        await service.replace_data_scopes(
+            role_id,
+            ConcurrentStableList(
+                (
+                    DataScopeGrantEntry(
+                        data_source_key=data_source_key, policy_type="region", config=_items({"start": "m", "end": "a"})
+                    ),
+                )
+            ),
+            tenant_id=_TENANT,
+        )
+
+    with pytest.raises(RoleScopeValueInvalidError):
+        await service.replace_data_scopes(
+            role_id,
+            ConcurrentStableList(
+                (
+                    DataScopeGrantEntry(
+                        data_source_key=data_source_key, policy_type="region", config=_items({"start": "a"})
+                    ),
+                )
+            ),
+            tenant_id=_TENANT,
+        )
+
+    with pytest.raises(RoleScopeValueInvalidError):
+        await service.replace_data_scopes(
+            role_id,
+            ConcurrentStableList(
+                (
+                    DataScopeGrantEntry(
+                        data_source_key=data_source_key,
+                        policy_type="region",
+                        config=_items({"start": "a", "end": {"bad": 1}}),
+                    ),
+                )
+            ),
+            tenant_id=_TENANT,
+        )
+
+    ok = await service.replace_data_scopes(
+        role_id,
+        ConcurrentStableList(
+            (
+                DataScopeGrantEntry(
+                    data_source_key=data_source_key, policy_type="region", config=_items({"start": "a", "end": "m"})
+                ),
+            )
+        ),
+        tenant_id=_TENANT,
+    )
+    assert [row.policy_type for row in ok] == ["region"]
     await engine.dispose()

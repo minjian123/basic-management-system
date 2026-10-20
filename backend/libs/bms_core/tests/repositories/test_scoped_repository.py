@@ -1,11 +1,17 @@
-"""作用域过滤中间层测试（Kiwi 11）：软删除 + 数据范围条件。"""
+"""作用域过滤中间层测试（Kiwi 11 / 2324）：软删除 + 数据范围条件 + 数据源维度翻译。"""
 
 from dataclasses import dataclass
 
 import pytest
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
+from bms_core.permission.cache import current_permission_cache_store, reset_permission_cache_store
 from bms_core.repositories.base_memory_repository import BaseMemoryRepository
+from bms_core.repositories.base_scoped_repository import (
+    _coerce,  # pyright: ignore[reportPrivateUsage]
+    _compare,  # pyright: ignore[reportPrivateUsage]
+    _equal,  # pyright: ignore[reportPrivateUsage]
+)
 from bms_core.scope.base import DataScope, ScopeCondition
 from bms_core.scope.null import NullDataScope
 
@@ -36,7 +42,9 @@ class RowRepository(BaseMemoryRepository[Row]):
 
 
 class ScopedRowRepository(RowRepository):
-    """暴露作用域钩子的测试仓储。"""
+    """暴露作用域钩子的测试仓储（`owner_id` 承载 `org_dept` 数据源）。"""
+
+    scope_columns: ConcurrentStableDict[str, str] = ConcurrentStableDict({"org_dept": "owner_id"})
 
     def use_scope(self, scope: DataScope | None) -> None:
         """注入数据范围。"""
@@ -57,8 +65,14 @@ class FixedScope(DataScope):
         """返回固定条件。"""
         return self._condition
 
-    def allow_write(self, values: ConcurrentStableDict[str, object]) -> bool:
+    def allow_write(
+        self,
+        values: ConcurrentStableDict[str, object],
+        *,
+        scope_columns: ConcurrentStableDict[str, str] | None = None,
+    ) -> bool:
         """恒定允许。"""
+        del values, scope_columns
         return True
 
 
@@ -162,8 +176,11 @@ async def test_scope_operators() -> None:
     repo.use_scope(FixedScope(ScopeCondition("owner_id", "regex", 1)))
     assert await repo.list() == []
 
-    repo.use_scope(NullDataScope())
+    null_scope = NullDataScope()
+    repo.use_scope(null_scope)
     assert len(await repo.list()) == 4
+    assert null_scope.allow_write(ConcurrentStableDict()) is True
+    assert null_scope.allow_write(ConcurrentStableDict(), scope_columns=ConcurrentStableDict({"a": "b"})) is True
 
 
 @pytest.mark.kiwi_id(11)
@@ -204,3 +221,65 @@ async def test_scope_condition_list_and_write_scope() -> None:
     repo.use_scope(None)
     repo.soft_delete_enabled = True
     assert await repo.delete(3) is False
+
+
+class UnmappedRowRepository(ScopedRowRepository):
+    """未声明数据源映射的仓储（数据源维度条件应退化为永假）。"""
+
+    scope_columns: ConcurrentStableDict[str, str] = ConcurrentStableDict()
+
+
+@pytest.mark.kiwi_id(2324)
+async def test_data_source_conditions_translate_and_coerce() -> None:
+    """数据源维度条件：按 `scope_columns` 翻译列，集合值按实体值类型归一（`"1"` ↔ `1`）。"""
+    repo = await _repo_with_rows()
+    repo.disable_soft_delete()
+
+    repo.use_scope(FixedScope(ScopeCondition("", "in", ["1", "2"], "org_dept")))
+    assert [row.name for row in await repo.list()] == ["甲", "乙", "删"]
+
+    repo.use_scope(FixedScope(ScopeCondition("", "between", ("2", "3"), "org_dept")))
+    assert [row.name for row in await repo.list()] == ["乙", "丙", "删"]
+
+
+@pytest.mark.kiwi_id(2324)
+async def test_unmapped_data_source_condition_denies_all() -> None:
+    """未声明映射且无字段可回落：整批退化为永假（查不到数据）+ 计数。"""
+    reset_permission_cache_store()
+    repo = UnmappedRowRepository()
+    await repo.create(name="甲", owner_id=1)
+    repo.use_scope(FixedScope(ScopeCondition("", "in", ["1"], "org_dept")))
+    assert await repo.list() == []
+    assert current_permission_cache_store().stats()["invalid_rule_rejections"] == 1
+
+
+@pytest.mark.kiwi_id(2324)
+async def test_unmapped_condition_falls_back_to_field() -> None:
+    """未声明映射但条件带字段（`match`）：回落字段原名过滤。"""
+    repo = UnmappedRowRepository()
+    await repo.create(name="乙", owner_id=2)
+    repo.use_scope(FixedScope(ScopeCondition("name", "like", "乙", "org_dept")))
+    assert [row.name for row in await repo.list()] == ["乙"]
+
+
+def test_coerce_equal_and_compare_helpers() -> None:
+    """类型归一与等值 / 比较：字符串 ↔ 数值互转，不可转即不命中。"""
+    assert _coerce("5", 1) == 5
+    assert _coerce("x", 1) == "x"
+    assert _coerce("1.5", 1.5) == 1.5
+    assert _coerce("x", 1.5) == "x"
+    assert _coerce("5", True) == "5"
+    assert _coerce(True, 1) is True
+    assert _coerce(5, "s") == 5
+    assert _coerce("5", None) == "5"
+
+    assert _equal(1, "1") is True
+    assert _equal("1", 1) is True
+    assert _equal(1, "x") is False
+    assert _equal(True, "True") is False
+    assert _equal("x", "y") is False
+
+    assert _compare(3, "2", "gt") is True
+    assert _compare("3", 2, "gt") is True
+    assert _compare(3, "x", "gt") is False
+    assert _compare(3, 2, "nope") is False

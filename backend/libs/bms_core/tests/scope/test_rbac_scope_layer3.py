@@ -148,16 +148,19 @@ def _counting_policy(calls: ConcurrentStableList[int]) -> Any:
     """
 
     def _policy(
+        data_source_key: str,
         config: ConcurrentStableList[ConcurrentStableDict[str, object]],
     ) -> ConcurrentStableList[ScopeCondition]:
         """按配置行数产出条件（记录一次调用）。
 
         Args:
+            data_source_key: 数据源标识（忽略）。
             config: 规则行。
 
         Returns:
             ConcurrentStableList[ScopeCondition]: 单条条件。
         """
+        del data_source_key
         calls.add(len(config))
         result: ConcurrentStableList[ScopeCondition] = ConcurrentStableList()
         result.add(ScopeCondition("code", "in", ["001", "002"]))
@@ -183,10 +186,10 @@ def clean_state() -> Iterator[None]:
     reset_scope_policies()
 
 
-@pytest.mark.kiwi_id(2323)
+@pytest.mark.kiwi_id(2324)
 def test_in_values_materialized_as_deduplicated_set() -> None:
     """集合物化：`select` 值去重为集合（重复值不重复计入元素数）。"""
-    rule = _rule(config=_rows(_config(field="area_code", values=["13", "13", "14"])))
+    rule = _rule(config=_rows(_config(item_code="13"), _config(item_code="13"), _config(item_code="14")))
     set_current_permission_snapshot(_snapshot(rule))
     conditions = _conditions(_provider().read_predicate())
     assert len(conditions) == 1
@@ -194,13 +197,13 @@ def test_in_values_materialized_as_deduplicated_set() -> None:
     assert current_permission_cache_store().stats()["rule_elements"] == 2
 
 
-@pytest.mark.kiwi_id(2323)
+@pytest.mark.kiwi_id(2324)
 def test_rule_shared_across_snapshots_single_materialization() -> None:
     """按规则共享：三个用户命中同一规则只求值一次，层2 只有一份且内存不随用户数增长。"""
     calls: ConcurrentStableList[int] = ConcurrentStableList()
     reset_scope_policies()
     register_scope_policy("counted", _counting_policy(calls))
-    rule = _rule(config=_rows(_config(field="code")), policy_type="counted")
+    rule = _rule(config=_rows(_config(any="v")), policy_type="counted")
     provider = _provider()
     store = current_permission_cache_store()
     for user_id in (1, 2, 3):
@@ -220,13 +223,13 @@ def test_rule_shared_across_snapshots_single_materialization() -> None:
     assert results[1] is results[0]  # 命中即同一份集合（未按用户复制）
 
 
-@pytest.mark.kiwi_id(2323)
+@pytest.mark.kiwi_id(2324)
 def test_oversized_in_denies_all_with_guidance(caplog: pytest.LogCaptureFixture) -> None:
     """大集合：值数超阈 → 整体永假 + 引导日志 + 计数；退化结果进层2（不重复重扫巨型值列表）。"""
-    values: ConcurrentStableList[object] = ConcurrentStableList()
+    rows: ConcurrentStableList[ConcurrentStableDict[str, object]] = ConcurrentStableList()
     for index in range(DEFAULT_MAX_IN_VALUES + 1):
-        values.add(str(index))
-    rule = _rule(config=_rows(_config(field="code", values=list(values))))
+        rows.add(_config(item_code=str(index)))
+    rule = _rule(config=rows)
     set_current_permission_snapshot(_snapshot(rule))
     provider = _provider()
 
@@ -243,13 +246,13 @@ def test_oversized_in_denies_all_with_guidance(caplog: pytest.LogCaptureFixture)
     assert stats["rule_elements"] == 0  # 缓存的永假结果不再承载巨型值列表
 
 
-@pytest.mark.kiwi_id(2323)
+@pytest.mark.kiwi_id(2324)
 def test_threshold_comes_from_data_scope_options() -> None:
     """阈值可配：`[data_scope].options.max_in_values` 生效；非正值视为不限制。
 
     阈值不入规则指纹（改配置需重启并重建缓存仓），故每组阈值前复位进程级缓存仓。
     """
-    rule = _rule(config=_rows(_config(field="area_code", values=["13", "14", "15"])))
+    rule = _rule(config=_rows(_config(item_code="13"), _config(item_code="14"), _config(item_code="15")))
     set_current_permission_snapshot(_snapshot(rule))
 
     strict = _provider(_with_threshold(2))
@@ -265,11 +268,11 @@ def test_threshold_comes_from_data_scope_options() -> None:
     assert set(cast("Any", _conditions(unlimited.read_predicate())[0].value)) == {"13", "14", "15"}
 
 
-@pytest.mark.kiwi_id(2323)
+@pytest.mark.kiwi_id(2324)
 def test_region_and_match_not_subject_to_threshold() -> None:
     """区域 / 匹配：以 SQL 原生算子表达、不枚举，不参与大集合判定。"""
     region = _rule(
-        config=_rows(_config(field="area_code", start="110000", end="119999")),
+        config=_rows(_config(start="110000", end="119999")),
         data_source_key="2",
         policy_type="region",
     )
@@ -282,11 +285,11 @@ def test_region_and_match_not_subject_to_threshold() -> None:
     ]
 
 
-@pytest.mark.kiwi_id(2323)
+@pytest.mark.kiwi_id(2324)
 def test_union_merge_over_threshold_denies() -> None:
-    """合并后超阈：两条各自合规的同字段 `in` 合并超阈即整体永假（判定在合并之后）。"""
-    first = _rule(config=_rows(_config(field="area_code", values=["13", "14"])))
-    second = _rule(config=_rows(_config(field="area_code", values=["15", "16"])))
+    """合并后超阈：两条各自合规的同数据源 `in` 合并超阈即整体永假（判定在合并之后）。"""
+    first = _rule(config=_rows(_config(item_code="13"), _config(item_code="14")))
+    second = _rule(config=_rows(_config(item_code="15"), _config(item_code="16")))
     set_current_permission_snapshot(_snapshot(first, second))
 
     merged = _conditions(_provider(_with_threshold(3)).read_predicate())
@@ -299,18 +302,23 @@ def test_union_merge_over_threshold_denies() -> None:
     }
 
 
-@pytest.mark.kiwi_id(2323)
+@pytest.mark.kiwi_id(2324)
 def test_allow_write_denies_on_deny_all() -> None:
     """写校验：非法规则与超阈退化同样拒绝写入（读写口径一致）。"""
-    illegal = _rule(config=_rows(_config(field="not a field!")))
+    illegal = _rule(config=_rows(_config(item_code="")))
     set_current_permission_snapshot(_snapshot(illegal))
     values: ConcurrentStableDict[str, object] = ConcurrentStableDict()
     values.set("area_code", "13")
-    assert _provider().allow_write(values) is False
+    columns: ConcurrentStableDict[str, str] = ConcurrentStableDict({"1": "area_code", "2": "area_code"})
+    assert _provider().allow_write(values, scope_columns=columns) is False
 
     oversized = _rule(
-        config=_rows(_config(field="area_code", values=[str(index) for index in range(3)])),
+        config=_rows(
+            _config(item_code="13"),
+            _config(item_code="14"),
+            _config(item_code="15"),
+        ),
         data_source_key="2",
     )
     set_current_permission_snapshot(_snapshot(oversized))
-    assert _provider(_with_threshold(2)).allow_write(values) is False
+    assert _provider(_with_threshold(2)).allow_write(values, scope_columns=columns) is False

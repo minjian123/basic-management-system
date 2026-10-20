@@ -57,12 +57,15 @@ def registered_data_scope_extensions() -> tuple[DataScopeExtensionInfo, ...]:
 
 
 ScopeExtensionResolver = Callable[
-    [ConcurrentStableList[ConcurrentStableDict[str, object]]], ConcurrentStableList[ScopeCondition]
+    [str, ConcurrentStableList[ConcurrentStableDict[str, object]]], ConcurrentStableList[ScopeCondition]
 ]
-"""扩展权限求值器：`config`（扩展自带结构的 JSON 行）→ 作用域条件列表。
+"""扩展权限求值器：`(数据源标识, 该扩展键的全部 config 行) → 作用域条件列表`。
 
 扩展权限的 `config` 结构由扩展方自定义（`has_params=True` 时含参数），故求值也归扩展方：
 注册求值器即接入读过滤（写校验复用 `ScopeCondition` 判定）。
+
+**按扩展键聚合一次调用**（`04-4`）：同一 `key` 的多行一次性交给求值器，跨行语义（如多部门
+并集、一组区间参数）由扩展方自行解析；返回空集合即「该条不产生放行」。
 """
 
 
@@ -75,7 +78,7 @@ def register_scope_extension_resolver(key: str, resolver: ScopeExtensionResolver
 
     Args:
         key: 扩展权限稳定 key（与 `register_data_scope_extension` 的 `key` 对应）。
-        resolver: 求值器（`config` → 作用域条件）。
+        resolver: 求值器（`(数据源标识, 该 key 的配置行) → 作用域条件`）。
     """
     _RESOLVERS.set(key, resolver)
 

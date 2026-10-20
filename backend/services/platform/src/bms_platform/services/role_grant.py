@@ -6,7 +6,10 @@
   角色与授权表在 **platform 租户库**（`bms_platform_{code}`）——同服务、跨库，校验在同服务内完成；
 - **数据权限**按基础数据字典结构化（数据源标识 `data_source_key` 经**统一数据源登记**校验字段白名单与存在性，
   无需跨服务读出口）；
-  四类策略（选择 / 区域 / 匹配 / 扩展）**只选不编**，`match.field` 须属该字典类型白名单（内置三字段 + 已启用扩展属性），
+  四类策略（选择 / 区域 / 匹配 / 扩展）**只选不编**，`config` 结构按《数据库设计 · `sys_data_scope`》：
+  `select` 行 `item_code`（兼容前端历史键 `itemCode`）且**勾选数不超** `[data_scope].options.max_in_values`
+  （超阈即拒并引导改用区域 / 匹配 / 扩展），`region` 行起止须齐全且 `start <= end`，
+  `match.field` 须属该字典类型白名单（内置三字段 + 已启用扩展属性），
   `match.pattern` 仅允许 `*` `?` 与中英文 / 数字 / 下划线，`extension.key` 须在扩展权限注册表内；
 - **全量覆盖提交**（先删后插、单事务）；成功**一次**权限版本 +1（`bms:{租户}:permission:version`）供权限计算失效；
 - 菜单 ↔ 表单**多对多**关联（`sys_menu_form`）落 `03_01` 返工；本轮实现**存在性校验**与**来源须在本次授权内**校验，
@@ -23,6 +26,7 @@ from sqlalchemy import select
 
 from bms_core.cache.base import CacheRegion
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
+from bms_core.core.config import Settings, get_settings
 from bms_core.core.exceptions import (
     ParamError,
     RoleFieldMismatchError,
@@ -36,6 +40,7 @@ from bms_core.db.session import DbSession
 from bms_core.db.unit_of_work import UnitOfWork
 from bms_core.permission.version import permission_version_key
 from bms_core.scope.extensions import registered_data_scope_extensions
+from bms_core.scope.limits import data_scope_max_in_values
 from bms_platform.models.menu import SysField, SysForm, SysMenu, SysPermission
 from bms_platform.models.role import (
     NO_SOURCE_MENU_ID,
@@ -45,6 +50,8 @@ from bms_platform.models.role import (
     PERM_TYPES,
     POLICY_TYPE_EXTENSION,
     POLICY_TYPE_MATCH,
+    POLICY_TYPE_REGION,
+    POLICY_TYPE_SELECT,
     POLICY_TYPES,
     SysDataScope,
     SysRole,
@@ -150,6 +157,7 @@ class RoleGrantService(BaseFrameworkObject):
         uow: UnitOfWork,
         cache: CacheRegion,
         guard: SeparationGuard | None = None,
+        settings: Settings | None = None,
     ) -> None:
         """初始化。
 
@@ -162,6 +170,7 @@ class RoleGrantService(BaseFrameworkObject):
             uow: 工作单元（platform 租户库写事务）。
             cache: 缓存能力域（权限版本 +1）。
             guard: 三权分立校验器（`03_02`；None 时不做 `role` 归属与防自锁校验）。
+            settings: 应用配置（读 `[data_scope].options.max_in_values`；None 取进程单例）。
         """
         self._roles = roles
         self._permissions = permissions
@@ -171,6 +180,7 @@ class RoleGrantService(BaseFrameworkObject):
         self._uow = uow
         self._cache = cache
         self._guard = guard
+        self._settings = settings if settings is not None else get_settings()
 
     async def list_permission_entries(self, role_id: int) -> ConcurrentStableList[SysRolePermission]:
         """取角色授权条目（菜单 / 表单 / 权限码）。
@@ -444,17 +454,18 @@ class RoleGrantService(BaseFrameworkObject):
                 raise RoleFieldMismatchError(f"字段不属于该表单：form={entry.form_id} field={entry.field_id}")
 
     async def _validate_data_scopes(self, entries: ConcurrentStableList[DataScopeGrantEntry]) -> None:
-        """校验数据权限条目：字典存在、策略合法、匹配字段与通配符、扩展权限已注册。
+        """校验数据权限条目：字典存在、策略合法、各策略 `config` 结构、扩展权限已注册。
 
         Args:
             entries: 数据权限条目。
 
         Raises:
-            RoleScopeValueInvalidError: 策略 / 匹配值 / 扩展权限非法。
+            RoleScopeValueInvalidError: 策略 / `config` 结构 / 匹配值 / 扩展权限非法（30047）。
         """
         registered_keys: ConcurrentStableSet[str] = ConcurrentStableSet()
         for extension in registered_data_scope_extensions():
             registered_keys.add(extension.key)
+        max_select_items = data_scope_max_in_values(self._settings)
         seen: ConcurrentStableSet[tuple[str, str]] = ConcurrentStableSet()
         for entry in entries:
             if entry.policy_type not in POLICY_TYPES:
@@ -465,6 +476,10 @@ class RoleGrantService(BaseFrameworkObject):
             if key in seen:
                 raise RoleScopeValueInvalidError("同一字典同一策略只允许一条")
             seen.add(key)
+            if entry.policy_type == POLICY_TYPE_SELECT:
+                self._validate_select(entry, max_select_items)
+            if entry.policy_type == POLICY_TYPE_REGION:
+                self._validate_region(entry)
             if entry.policy_type == POLICY_TYPE_MATCH:
                 allowed = self._match_field_whitelist(entry.data_source_key)
                 for item in entry.config:
@@ -479,6 +494,55 @@ class RoleGrantService(BaseFrameworkObject):
                     extension_key = item.get("key")
                     if not isinstance(extension_key, str) or extension_key not in registered_keys:
                         raise RoleScopeValueInvalidError(f"扩展权限未注册：{extension_key}")
+
+    @staticmethod
+    def _validate_select(entry: DataScopeGrantEntry, max_items: int) -> None:
+        """校验数据选择条目：`item_code`（兼容 `itemCode`）非空且勾选数不超阈。
+
+        Args:
+            entry: 数据选择条目。
+            max_items: 勾选值上限（<= 0 表示不限制）。
+
+        Raises:
+            RoleScopeValueInvalidError: 缺取值 / 取值非空字符串 / 勾选数超阈（30047）。
+        """
+        codes: ConcurrentStableSet[str] = ConcurrentStableSet()
+        for item in entry.config:
+            code = None
+            for key in ("item_code", "itemCode"):
+                raw = item.get(key)
+                if isinstance(raw, str) and raw:
+                    code = raw
+                    break
+            if code is None:
+                raise RoleScopeValueInvalidError("数据选择项缺少 item_code（须为非空字符串）")
+            codes.add(code)
+        if max_items > 0 and len(codes) > max_items:
+            raise RoleScopeValueInvalidError(
+                f"数据选择勾选 {len(codes)} 个值，超过上限 {max_items}：请改用数据区域 / 数据匹配 / 扩展权限"
+            )
+
+    @staticmethod
+    def _validate_region(entry: DataScopeGrantEntry) -> None:
+        """校验数据区域条目：起止齐全、可比且开始不大于结束。
+
+        Args:
+            entry: 数据区域条目。
+
+        Raises:
+            RoleScopeValueInvalidError: 缺开始 / 结束值、起止不可比或开始大于结束（30047）。
+        """
+        for item in entry.config:
+            start = item.get("start")
+            end = item.get("end")
+            if start is None or end is None:
+                raise RoleScopeValueInvalidError("数据区域行缺少开始值或结束值")
+            try:
+                inverted = cast("Any", start) > cast("Any", end)
+            except TypeError:
+                raise RoleScopeValueInvalidError("数据区域起止值不可比较") from None
+            if inverted:
+                raise RoleScopeValueInvalidError("数据区域开始值大于结束值")
 
     def _data_source_key_exists(self, data_source_key: str) -> bool:
         """字典标识是否已登记（启用）。

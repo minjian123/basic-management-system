@@ -8,6 +8,7 @@ import {
   bindUsers,
   collectCheckedMenuIds,
   collectDataScopePayload,
+  collectDataScopeSubmitPayload,
   collectFieldEntries,
   collectPermissionPayload,
   deriveIdempotencyKey,
@@ -17,6 +18,7 @@ import {
   findMenu,
   flattenMenus,
   formSourceMenuIds,
+  fromDataScopeApiItem,
   isMenuDetached,
   isValidMatchPattern,
   menuCheckState,
@@ -29,6 +31,7 @@ import {
   resolveErrorTarget,
   setDataScopeEntry,
   setFieldPerm,
+  toDataScopeSubmitEntry,
   toggleAction,
   toggleMenu,
   unbindUser,
@@ -145,6 +148,32 @@ describe('domain/permission-config（新口径）', () => {
     expect(entries).toHaveLength(2)
     expect(removeDataScopeEntry(entries, 'dict:user', 'select')).toHaveLength(1)
     expect(collectDataScopePayload([{ dataSourceKey: 'dict:user', policyType: 'select', config: [] }])).toEqual([])
+  })
+
+  it('数据权限载荷：提交转 snake（itemCode → item_code）、取数回 camel、其余策略原样', () => {
+    const entries = [
+      { dataSourceKey: 'dict:user', policyType: 'select' as const, config: [{ itemCode: 'enabled' }] },
+      { dataSourceKey: 'dict:dept', policyType: 'region' as const, config: [{ start: 'a', end: 'm' }] },
+    ]
+    expect(collectDataScopeSubmitPayload(entries)).toEqual({
+      entries: [
+        { data_source_key: 'dict:dept', policy_type: 'region', config: [{ start: 'a', end: 'm' }] },
+        { data_source_key: 'dict:user', policy_type: 'select', config: [{ item_code: 'enabled' }] },
+      ],
+    })
+    expect(toDataScopeSubmitEntry(entries[0])).toEqual({
+      data_source_key: 'dict:user',
+      policy_type: 'select',
+      config: [{ item_code: 'enabled' }],
+    })
+
+    expect(fromDataScopeApiItem({ item_code: 'enabled' })).toEqual({ itemCode: 'enabled' })
+    expect(fromDataScopeApiItem({ itemCode: 'legacy' })).toEqual({ itemCode: 'legacy' })
+    expect(fromDataScopeApiItem({ field: 'code', pattern: 'user_*' })).toEqual({
+      field: 'code',
+      pattern: 'user_*',
+    })
+    expect(fromDataScopeApiItem({ item_code: '' })).toEqual({ item_code: '' })
   })
 
   it('用户分配：去重、解绑、差量', () => {

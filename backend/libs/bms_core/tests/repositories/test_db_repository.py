@@ -3,20 +3,28 @@ keyset 游标见 Kiwi 1078。"""
 
 from collections.abc import AsyncIterator
 from pathlib import Path
-from typing import cast
+from types import SimpleNamespace
+from typing import Any, cast
 
 import pytest
 from sqlalchemy import BigInteger, Integer, String, Table, UniqueConstraint, select
 from sqlalchemy.dialects import sqlite
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.types import UserDefinedType
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.context import current_user_id, reset_tenant_context, set_tenant_context
 from bms_core.core.exceptions import ConcurrentConflictError, ConfigError, ParamError
 from bms_core.db.tenant import TenantContext
 from bms_core.models.base import BaseModel
-from bms_core.repositories.base_db_repository import BaseDbRepository
+from bms_core.permission.cache import current_permission_cache_store, reset_permission_cache_store
+from bms_core.repositories.base_db_repository import (
+    BaseDbRepository,
+    _coerce_member,  # pyright: ignore[reportPrivateUsage]
+    _coerce_value,  # pyright: ignore[reportPrivateUsage]
+    _python_type,  # pyright: ignore[reportPrivateUsage]
+)
 from bms_core.schemas.cursor import encode_cursor
 from bms_core.schemas.pagination import BaseCursorQuery, BasePageQuery
 from bms_core.schemas.sorting import SortDirection, SortSpec
@@ -102,8 +110,14 @@ class FakeScope(DataScope):
         """返回固定条件。"""
         return self._predicate
 
-    def allow_write(self, values: ConcurrentStableDict[str, object]) -> bool:
+    def allow_write(
+        self,
+        values: ConcurrentStableDict[str, object],
+        *,
+        scope_columns: ConcurrentStableDict[str, str] | None = None,
+    ) -> bool:
         """写恒定允许（本用例只验证读侧翻译）。"""
+        del values, scope_columns
         return True
 
 
@@ -235,6 +249,91 @@ async def test_scope_condition_errors(session: AsyncSession) -> None:
         repo.apply_scope(FakeScope(condition))
         with pytest.raises(ConfigError):
             await repo.count()
+
+
+class MappedItemRepository(DbItemRepository):
+    """声明数据源映射的测试仓储（`org_dept` → `rank` 列）。"""
+
+    scope_columns: ConcurrentStableDict[str, str] = ConcurrentStableDict({"org_dept": "rank"})
+
+
+@pytest.mark.kiwi_id(2324)
+async def test_data_source_condition_translates_with_type_coercion(session: AsyncSession) -> None:
+    """数据源维度条件：按 `scope_columns` 翻译列，集合值 / 区间值按列类型归一（`"2"` → `2`）。"""
+    mapped = MappedItemRepository(session)
+    await mapped.create(name="alpha", rank=2)
+
+    mapped.apply_scope(FakeScope(ScopeCondition("", "in", ["2", "3"], "org_dept")))
+    assert await mapped.count() == 1
+
+    mapped.apply_scope(FakeScope(ScopeCondition("", "between", ("1", "3"), "org_dept")))
+    assert await mapped.count() == 1
+
+    unmapped = DbItemRepository(session)
+    unmapped.apply_scope(FakeScope(ScopeCondition("", "in", ["2"], "org_dept")))
+    assert await unmapped.count() == 0
+
+
+@pytest.mark.kiwi_id(2324)
+async def test_condition_value_coercion_failure_denies_all(session: AsyncSession) -> None:
+    """集合值无法按列类型归一：该条件译永假（查不到数据）+ 非法规则计数。"""
+    reset_permission_cache_store()
+    repo = MappedItemRepository(session)
+    await repo.create(name="alpha", rank=2)
+    repo.apply_scope(FakeScope(ScopeCondition("", "in", ["x"], "org_dept")))
+    assert await repo.count() == 0
+    assert current_permission_cache_store().stats()["invalid_rule_rejections"] == 1
+
+
+class _NoPythonType(UserDefinedType[object]):
+    """无 `python_type` 的自定义列类型（覆盖「类型不可判」分支）。"""
+
+    def get_col_spec(self, **kw: object) -> str:
+        """DDL 片段（用例不建表，仅占位）。
+
+        Args:
+            kw: 方言参数（忽略）。
+
+        Returns:
+            str: 列类型名。
+        """
+        del kw
+        return "TEXT"
+
+
+def test_coercion_helpers_cover_all_type_branches() -> None:
+    """类型归一：整型 / 浮点 / 字符串 / 不可判类型与转换失败分支。"""
+    assert _coerce_member(None, int) == (None, True)
+    assert _coerce_member(True, int) == (True, True)
+    assert _coerce_member(1, int) == (1, True)
+    assert _coerce_member("1", int) == (1, True)
+    assert _coerce_member("x", int) == ("x", False)
+    assert _coerce_member(1, float) == (1.0, True)
+    assert _coerce_member("1.5", float) == (1.5, True)
+    assert _coerce_member("x", float) == ("x", False)
+    assert _coerce_member("s", str) == ("s", True)
+    assert _coerce_member(1, str) == ("1", True)
+    assert _coerce_member(1, None) == (1, True)
+    assert _coerce_member(1, dict) == (1, True)
+
+    rank_column = cast("Any", DbItem.rank)
+    name_column = cast("Any", DbItem.name)
+    assert _coerce_value(rank_column, "like", "1%") == ("1%", True)
+    assert _coerce_value(rank_column, "in", 5) == (5, True)
+    members, ok = _coerce_value(rank_column, "in", ["1", "2"])
+    assert ok is True and list(cast("Any", members)) == [1, 2]
+    assert _coerce_value(rank_column, "in", ["x"]) == (["x"], False)
+    assert _coerce_value(rank_column, "between", 5) == (5, True)
+    assert _coerce_value(rank_column, "between", ("1",)) == (("1",), True)
+    assert _coerce_value(rank_column, "between", ("1", "3")) == ((1, 3), True)
+    assert _coerce_value(rank_column, "between", ("x", "3")) == (("x", "3"), False)
+    assert _coerce_value(name_column, "eq", "alpha") == ("alpha", True)
+
+    no_type_column: Any = SimpleNamespace(type=_NoPythonType())
+    assert _python_type(no_type_column) is None
+    raw_members, raw_ok = _coerce_value(no_type_column, "in", ["a"])
+    assert raw_ok is True and list(cast("Any", raw_members)) == ["a"]
+    assert _python_type(cast("Any", DbItem.rank)) is int
 
 
 @pytest.mark.kiwi_id(1050)
@@ -421,3 +520,14 @@ async def test_db_sort_orders_nulls_last_in_compiled_sql(session: AsyncSession) 
     assert "rank IS NULL" in sql
     assert "id ASC" in sql
     assert "NULLS LAST" not in sql.upper() and "NULLS FIRST" not in sql.upper()
+
+
+@pytest.mark.kiwi_id(2324)
+async def test_tenant_condition_absent_without_context(session: AsyncSession) -> None:
+    """租户维度仓储：上下文无租户主键时不注入租户条件（仅物理库隔离兜底）。"""
+    token = set_tenant_context(TenantContext(code="demo", db_key="tenant_demo", name="演示租户", tenant_id=None))
+    try:
+        repo = NoteRepository(session)
+        assert repo._tenant_condition() is None  # pyright: ignore[reportPrivateUsage]
+    finally:
+        reset_tenant_context(token)

@@ -20,13 +20,20 @@ class NullDataScope(DataScope, BaseNullObject):
         """
         return None
 
-    def allow_write(self, values: ConcurrentStableDict[str, object]) -> bool:
+    def allow_write(
+        self,
+        values: ConcurrentStableDict[str, object],
+        *,
+        scope_columns: ConcurrentStableDict[str, str] | None = None,
+    ) -> bool:
         """恒定允许写入。
 
         Args:
             values: 待写入字段值（占位不校验）。
+            scope_columns: 数据源 → 实体列映射（占位不使用）。
 
         Returns:
             bool: True。
         """
+        del values, scope_columns
         return True

@@ -288,6 +288,7 @@ class PermissionCacheStore(BaseFrameworkObject):
         self._rule_bytes_total = 0
         self._rule_evicted_total = 0
         self._oversized_rejections = 0
+        self._invalid_rule_rejections = 0
         self._lock = Lock()
 
     # ------------------------------------------------------------------ 内部
@@ -504,6 +505,15 @@ class PermissionCacheStore(BaseFrameworkObject):
         with self._lock:
             self._oversized_rejections += 1
 
+    def record_invalid_rule(self) -> None:
+        """累计一次「非法 / 未注册规则退化为永假」（数据范围 provider 与仓储条件翻译调用）。
+
+        与 `record_oversized_rule` 并列：前者管「规则写得不合规」，后者管「规则值太多」，
+        两者都按「该条不产生放行」处置，但运维关注的处置动作不同。
+        """
+        with self._lock:
+            self._invalid_rule_rejections += 1
+
     def _rule_full_key(self, source: str, rule_key: str) -> str:
         """层2 进程内完整键。
 
@@ -708,10 +718,11 @@ class PermissionCacheStore(BaseFrameworkObject):
 
         规则层指标：`rule_items`（集合条数）、`rule_elements`（值元素总数）、`rule_estimated_bytes`
         （估算内存）、`rule_refs`（被快照引用的规则数）、`rule_evicted_total`（累计淘汰条数）、
-        `oversized_rejections`（大集合超阈拒绝次数）；末尾附各层上限，供判断是否接近容量。
+        `oversized_rejections`（大集合超阈拒绝次数）、`invalid_rule_rejections`（非法 / 未注册
+        规则退化为永假的次数）；末尾附各层上限，供判断是否接近容量。
 
         Returns:
-            ConcurrentStableDict[str, int]: 三层条目数、规则度量、超阈计数与各层上限。
+            ConcurrentStableDict[str, int]: 三层条目数、规则度量、超阈与非法规则计数、各层上限。
         """
         with self._lock:
             result: ConcurrentStableDict[str, int] = ConcurrentStableDict()
@@ -723,6 +734,7 @@ class PermissionCacheStore(BaseFrameworkObject):
             result.set("rule_refs", len(self._rule_refs))
             result.set("rule_evicted_total", self._rule_evicted_total)
             result.set("oversized_rejections", self._oversized_rejections)
+            result.set("invalid_rule_rejections", self._invalid_rule_rejections)
             result.set("snapshot_items", len(self._snapshots))
             result.set("active_users", len(self._activity))
             result.set("subject_max_items", self._subjects.max_items)
@@ -749,6 +761,7 @@ class PermissionCacheStore(BaseFrameworkObject):
             self._rule_bytes_total = 0
             self._rule_evicted_total = 0
             self._oversized_rejections = 0
+            self._invalid_rule_rejections = 0
 
 
 _STORES: ConcurrentStableDict[str, PermissionCacheStore] = ConcurrentStableDict()

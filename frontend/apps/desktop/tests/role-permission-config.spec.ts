@@ -250,12 +250,12 @@ describe('权限配置容器（02_03 · Kiwi 2248）', () => {
     await expect(
       jobs.submitDataScopes!({
         roleId: undefined,
-        payload: { entries: [{ dataSourceKey: 'role', policyType: 'select', config: [{ key: 'a' }] }] },
+        payload: { entries: [{ data_source_key: 'role', policy_type: 'select', config: [{ item_code: 'a' }] }] },
         idempotencyKey: 'k',
       } as never),
     ).resolves.toEqual({})
     expect(replaceRoleDataScopes).toHaveBeenCalledWith('5', {
-      entries: [{ data_source_key: 'role', policy_type: 'select', config: [{ key: 'a' }] }],
+      entries: [{ data_source_key: 'role', policy_type: 'select', config: [{ item_code: 'a' }] }],
     })
   })
 

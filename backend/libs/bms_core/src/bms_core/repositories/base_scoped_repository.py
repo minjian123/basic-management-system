@@ -1,21 +1,30 @@
 """repositories 层作用域过滤中间层：软删除 + 数据范围 + 租户条件统一。
 
 - 继承契约层 `BaseRepository`，为内存基线与数据库实现提供统一作用域过滤。
-- 内存基线按 `ScopeCondition` 过滤；DB 实现回补时把条件拼入 WHERE。
+- 内存基线按 `ScopeCondition` 过滤；DB 实现把条件拼入 WHERE。
 - 租户条件（第二层隔离）：模型含 `tenant_id` 列时由具体仓储置 `tenant_scoped=True`，
   上下文租户有主键时强制注入，物理库隔离（第一层）之外的兜底口径。
+
+**数据源维度条件翻译（`04-4`）**：`select` / `region` 的条件带 `data_source_key` 且 `field` 为空，
+由本表声明的 `scope_columns`（数据源标识 → 实体列名）翻译成列条件；未声明且无 `field` 可回落时
+该条件退化为**永假**（`DENY_ALL_CONDITION`）并上报 + 计数——从严不放大可见范围。
 """
 
+import logging
 import operator
 import re
 from abc import ABC
 from collections.abc import Callable, Iterable, Sequence, Set
+from dataclasses import replace
 from typing import Any, cast
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.db.tenant import current_tenant_context
+from bms_core.permission.cache import current_permission_cache_store
 from bms_core.repositories.base_repository import BaseRepository
-from bms_core.scope.base import ScopeCondition
+from bms_core.scope.base import DENY_ALL_CONDITION, ScopeCondition
+
+_logger = logging.getLogger(__name__)
 
 _COMPARATORS: ConcurrentStableDict[str, Callable[[Any, Any], bool]] = ConcurrentStableDict(
     {
@@ -27,8 +36,35 @@ _COMPARATORS: ConcurrentStableDict[str, Callable[[Any, Any], bool]] = Concurrent
 )
 
 
+def _coerce(target: object, sample: object) -> object:
+    """把目标值按实体值的类型归一（整数 / 浮点字符串互转；不可转即原样返回）。
+
+    数据权限的集合值来自字典项（字符串），业务列可能是 BIGINT——不归一会「配了却过滤不到」；
+    归一失败（如 `"abc"` → int）保持原值，由比较返回不命中（等价于该值不在范围内）。
+
+    Args:
+        target: 目标值（区间端点 / 集合成员）。
+        sample: 实体字段值（类型参照）。
+
+    Returns:
+        object: 归一后的目标值；无法归一时返回原对象。
+    """
+    if isinstance(sample, bool) or isinstance(target, bool):
+        return target
+    if not isinstance(target, str):
+        return target
+    try:
+        if isinstance(sample, int):
+            return int(target)
+        if isinstance(sample, float):
+            return float(target)
+    except ValueError:
+        return target
+    return target
+
+
 def _compare(value: object, target: object, op: str) -> bool:
-    """按比较操作符比较（类型不匹配返回 False）。
+    """按比较操作符比较（类型不匹配时双向归一后重试；仍不匹配返回 False）。
 
     Args:
         value: 实体字段值。
@@ -41,10 +77,40 @@ def _compare(value: object, target: object, op: str) -> bool:
     func = _COMPARATORS.get(op)
     if func is None:
         return False
-    try:
-        return func(value, target)
-    except TypeError:
+    candidates: tuple[tuple[object, object], ...] = (
+        (value, target),
+        (value, _coerce(target, value)),
+        (_coerce(value, target), target),
+    )
+    for left, right in candidates:
+        try:
+            return bool(func(left, right))
+        except TypeError:
+            continue
+    return False
+
+
+def _equal(value: object, target: object) -> bool:
+    """等值判定（类型不匹配时双向归一后重试：字符串 ↔ 数值）。
+
+    Args:
+        value: 实体字段值。
+        target: 目标值（集合成员）。
+
+    Returns:
+        bool: 相等 True。
+    """
+    if value == target:
+        return True
+    if isinstance(value, bool) or isinstance(target, bool):
         return False
+    if isinstance(value, int | float) and isinstance(target, str):
+        coerced = _coerce(target, value)
+        return coerced is not target and coerced == value
+    if isinstance(target, int | float) and isinstance(value, str):
+        coerced_value = _coerce(value, target)
+        return coerced_value is not value and coerced_value == target
+    return False
 
 
 def _between(value: object, target: object) -> bool:
@@ -123,12 +189,12 @@ def _match(item: object, condition: ScopeCondition) -> bool:
     if op == "is_not_null":
         return value is not None
     if op == "eq":
-        return bool(value == target)
+        return _equal(value, target)
     if op == "ne":
-        return bool(value != target)
+        return not _equal(value, target)
     if op == "in":
         if isinstance(target, Sequence | Set) and not isinstance(target, str | bytes):
-            return any(value == member for member in cast("Iterable[object]", target))
+            return any(_equal(value, member) for member in cast("Iterable[object]", target))
         return False
     if op == "like":
         return _like(value, target)
@@ -144,6 +210,9 @@ class BaseScopedRepository[ModelT](BaseRepository[ModelT], ABC):
     tenant_scoped: bool = False
     """模型含 `tenant_id` 列时置 True（同库多租户 / 平台侧租户维度表），强制注入租户条件。"""
 
+    scope_columns: ConcurrentStableDict[str, str] = ConcurrentStableDict()
+    """数据源标识 → 本表实体列名（数据范围条件翻译用；空 = 未声明，数据源维度条件即永假）。"""
+
     def _scope_conditions(self, *, include_soft_delete: bool = True) -> ConcurrentStableList[ScopeCondition]:
         """作用域条件（软删除 → 数据范围 → 租户）。
 
@@ -151,7 +220,7 @@ class BaseScopedRepository[ModelT](BaseRepository[ModelT], ABC):
             include_soft_delete: 是否包含软删除过滤（物理删除出口需穿透已软删行时为 False）。
 
         Returns:
-            ConcurrentStableList[ScopeCondition]: 过滤条件列表。
+            ConcurrentStableList[ScopeCondition]: 过滤条件列表（数据源维度条件已翻译为列条件）。
         """
         conditions: ConcurrentStableList[ScopeCondition] = ConcurrentStableList()
         if self.soft_delete_enabled and include_soft_delete:
@@ -159,14 +228,58 @@ class BaseScopedRepository[ModelT](BaseRepository[ModelT], ABC):
         if self._data_scope is not None:
             predicate = self._data_scope.read_predicate()
             if isinstance(predicate, ScopeCondition):
-                conditions.add(predicate)
+                conditions.update(self._translate_scope((predicate,)))
             elif isinstance(predicate, (list, ConcurrentStableList)):
                 members = cast("Iterable[object]", predicate)
-                conditions.update(item for item in members if isinstance(item, ScopeCondition))
+                conditions.update(self._translate_scope(item for item in members if isinstance(item, ScopeCondition)))
         tenant = self._tenant_condition()
         if tenant is not None:
             conditions.add(tenant)
         return conditions
+
+    def _translate_scope(self, conditions: Iterable[ScopeCondition]) -> ConcurrentStableList[ScopeCondition]:
+        """把数据范围条件翻译到实体列（数据源维度条件按 `scope_columns` 声明）。
+
+        未声明映射且条件无 `field` 可回落时，整批退化为单条永假条件（从严）+ 上报 + 计数。
+
+        Args:
+            conditions: 数据范围 provider 产出的条件。
+
+        Returns:
+            ConcurrentStableList[ScopeCondition]: 可落列的条件列表（或单条永假）。
+        """
+        translated: ConcurrentStableList[ScopeCondition] = ConcurrentStableList()
+        for condition in conditions:
+            column = self._scope_column(condition)
+            if column is None:
+                denied: ConcurrentStableList[ScopeCondition] = ConcurrentStableList()
+                denied.add(DENY_ALL_CONDITION)
+                return denied
+            translated.add(replace(condition, field=column))
+        return translated
+
+    def _scope_column(self, condition: ScopeCondition) -> str | None:
+        """把单条条件翻译为实体列名。
+
+        映射优先（`match` 的白名单字段也一并被覆盖）；无映射时回落 `field` 原名；两者皆无返回 None。
+
+        Args:
+            condition: 数据范围条件。
+
+        Returns:
+            str | None: 实体列名；无法落列返回 None。
+        """
+        data_source_key = condition.data_source_key
+        if data_source_key is None:
+            return condition.field
+        mapped = self.scope_columns.get(data_source_key)
+        if mapped is not None:
+            return mapped
+        if condition.field:
+            return condition.field
+        _logger.warning("数据范围规则不产生放行：%s 未声明实体列映射（scope_columns）", data_source_key)
+        current_permission_cache_store().record_invalid_rule()
+        return None
 
     def _tenant_condition(self) -> ScopeCondition | None:
         """租户强制过滤条件（未启用租户隔离 / 上下文无主键时返回 None）。

@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 from bms_core.audit.base import AuditCapturer
 from bms_core.cache.memory import MemoryCacheRegion
 from bms_core.config.null import NullConfigSource
+from bms_core.core.config import Settings
 from bms_core.db.unit_of_work import DbUnitOfWork
 from bms_core.schemas.pagination import BasePageQuery
 from bms_platform.models.role import SysRole
@@ -105,7 +106,11 @@ def assign_service(
 
 
 def grant_service(
-    target: AsyncSession, cache: MemoryCacheRegion | None = None, *, guard: SeparationGuard | None = None
+    target: AsyncSession,
+    cache: MemoryCacheRegion | None = None,
+    *,
+    guard: SeparationGuard | None = None,
+    settings: Settings | None = None,
 ) -> RoleGrantService:
     """构造角色授权服务。
 
@@ -113,6 +118,7 @@ def grant_service(
         target: 会话。
         cache: 缓存 Region（缺省新建内存实现）。
         guard: 三权分立校验器（缺省不校验，`03_02` 专项用例显式传入）。
+        settings: 应用配置（数据范围阈值；缺省取进程单例）。
 
     Returns:
         RoleGrantService: 角色授权服务。
@@ -126,6 +132,7 @@ def grant_service(
         DbUnitOfWork(target),
         cache or MemoryCacheRegion(),
         guard,
+        settings,
     )
 
 

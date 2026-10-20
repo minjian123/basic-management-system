@@ -13,7 +13,7 @@ import {
   PERMISSION_PLACEHOLDER_TEXT,
   bindUsers as addUsers,
   collectCheckedMenuIds,
-  collectDataScopePayload,
+  collectDataScopeSubmitPayload,
   collectFieldPayload,
   collectPermissionPayload,
   deriveIdempotencyKey,
@@ -33,6 +33,7 @@ import {
   type DataScopeEntry,
   type DataScopePolicyItem,
   type DataScopePolicyType,
+  type DataScopeSubmitPayload,
   type FieldPermEntry,
   type FieldPermPatch,
   type PermissionCheckState,
@@ -81,10 +82,10 @@ export type FieldSubmitHandler = (input: {
   idempotencyKey: string
 }) => Promise<PermissionSubmitResult>
 
-/** 数据权限提交处理函数。 */
+/** 数据权限提交处理函数（载荷为 API 形态：`item_code` 等 snake 键名，可直接透传接口）。 */
 export type DataScopeSubmitHandler = (input: {
   roleId: string | number | undefined
-  payload: { entries: DataScopeEntry[] }
+  payload: DataScopeSubmitPayload
   idempotencyKey: string
 }) => Promise<PermissionSubmitResult>
 
@@ -227,9 +228,9 @@ export abstract class BasePermissionConfig extends BasePlaceholderState {
     return { entries: collectFieldPayload(this.fieldEntries) }
   }
 
-  /** 数据权限载荷。 */
-  get dataScopePayload(): { entries: DataScopeEntry[] } {
-    return { entries: collectDataScopePayload(this.dataScopeEntries) }
+  /** 数据权限载荷（API 形态：`item_code` 等 snake 键名）。 */
+  get dataScopePayload(): DataScopeSubmitPayload {
+    return collectDataScopeSubmitPayload(this.dataScopeEntries)
   }
 
   /** 是否有权授予（未注入权限上下文或未声明权限码时视为有权）。 */

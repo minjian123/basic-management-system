@@ -14,10 +14,14 @@ from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.scope.base import ScopeCondition
 
 ScopePolicy = Callable[
-    [ConcurrentStableList[ConcurrentStableDict[str, object]]],
+    [str, ConcurrentStableList[ConcurrentStableDict[str, object]]],
     ConcurrentStableList[ScopeCondition],
 ]
-"""策略求值器：`config`（该条规则的 JSON 行）→ 作用域条件列表。"""
+"""策略求值器：`(数据源标识, config 行) → 作用域条件列表`。
+
+首参为**数据源标识**：求值器据此产出数据源维度条件（`ScopeCondition.data_source_key`），
+消费方再按自身声明的「数据源 → 实体列」映射翻译（`04-4` 口径）。
+"""
 
 
 _POLICIES: ConcurrentStableDict[str, ScopePolicy] = ConcurrentStableDict()

@@ -1339,7 +1339,7 @@ export interface PermissionContractFieldEntry {
   sourceMenuId: string
 }
 
-/** 权限配置契约数据权限条目（最小面）。 */
+/** 权限配置契约数据权限条目（最小面；取数入参，域内 camel 形态）。 */
 export interface PermissionContractDataScopeEntry {
   /** 字典类型 id。 */
   dataSourceKey: string
@@ -1347,6 +1347,16 @@ export interface PermissionContractDataScopeEntry {
   policyType: string
   /** 结构化配置。 */
   config: readonly unknown[]
+}
+
+/** 权限配置契约数据权限载荷条目（最小面；提交载荷，API snake 形态）。 */
+export interface PermissionContractDataScopePayloadEntry {
+  /** 字典类型 id。 */
+  data_source_key: string
+  /** 策略类型。 */
+  policy_type: string
+  /** 结构化配置（`select` 行为 `item_code`）。 */
+  config: readonly Record<string, unknown>[]
 }
 
 /** 权限配置契约用户（最小面）。 */
@@ -1455,8 +1465,8 @@ export interface PermissionConfigContractTarget {
   payloadPermissions(): PermissionContractEntry[]
   /** 字段权限载荷。 */
   payloadFields(): PermissionContractFieldEntry[]
-  /** 数据权限载荷。 */
-  payloadDataScopes(): PermissionContractDataScopeEntry[]
+  /** 数据权限载荷（API snake 形态，可直接透传接口）。 */
+  payloadDataScopes(): PermissionContractDataScopePayloadEntry[]
   /** 指定类别幂等键。 */
   idempotencyKey(kind: string): string
   /** 绑定用户。 */
@@ -1623,7 +1633,7 @@ export function describePermissionConfigContract(
       expect(target.payloadDataScopes()).toEqual([])
       expect(target.setDataScope('dict:user', 'select', [{ itemCode: 'enabled' }])).toBe(true)
       expect(target.payloadDataScopes()).toEqual([
-        { dataSourceKey: 'dict:user', policyType: 'select', config: [{ itemCode: 'enabled' }] },
+        { data_source_key: 'dict:user', policy_type: 'select', config: [{ item_code: 'enabled' }] },
       ])
       target.setDataScope('dict:user', 'select', [])
       expect(target.payloadDataScopes()).toEqual([])

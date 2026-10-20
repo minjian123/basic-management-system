@@ -3,7 +3,8 @@
 - **输入**：请求级权限快照的 `data_scopes`（`data_source_key` / `policy_type` / `config`，由引擎计算并缓存）；
 - **读**：按 `policy_type` 经策略注册表求值（核心不判策略类型），同字典类型内多规则**并集**，
   跨字典类型**合取**；非法 / 未注册策略退化为永假（从严）；
-- **写**：服务层写入口显式调 `allow_write(values)`——待写值须落在同一批条件内，失败拒（`30001`）；
+- **写**：服务层写入口显式调 `allow_write(values, scope_columns=…)`——待写值须落在同一批条件内，
+  失败拒（`30001`）；`scope_columns`（数据源 → 实体列）用于把数据源维度条件落到列，未声明即拒；
 - **豁免 / 未预加载**：不过滤、恒允许（由认证链与上层承担）；
 - **租户边界**：条件不含 `tenant_id`；租户过滤由基座注入点 `BaseScopedRepository._tenant_condition`
   强制叠加（任何策略不得跨租户）。
@@ -20,6 +21,11 @@
 `[data_scope].options.max_in_values`（缺省 1000）即整体退化为**永假**并上报引导（改用区域 / 匹配 /
 扩展策略），保证读过滤不产出巨型 `IN` 列表——`region` / `match` 本身以 `between` / `like` 原生算子
 表达，不参与该判定。写校验与读共用同一批条件：任一条件为永假即拒绝写入。
+
+**四策略口径（`04-4`）**：`select` / `region` 产出**数据源维度**条件（`field` 留空、带
+`data_source_key`），`match` 另带配置里的白名单字段；消费方按自身声明的「数据源 → 实体列」
+映射翻译（`BaseScopedRepository.scope_columns`），写校验经 `allow_write(scope_columns=…)` 传入
+同一份映射——读写口径一致。
 """
 
 from __future__ import annotations
@@ -33,23 +39,28 @@ from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList,
 from bms_core.core.config import Settings
 from bms_core.core.factory import BasePluginFactory
 from bms_core.core.plugin import default_plugin_registry, register_plugin
-from bms_core.permission.cache import current_permission_cache_store, int_option
+from bms_core.permission.cache import current_permission_cache_store
 from bms_core.permission.snapshot import PermissionSnapshot, get_current_permission_snapshot
 from bms_core.permission.version import permission_rule_key
-from bms_core.scope.base import DataScope, ScopeCondition
+from bms_core.scope.base import DENY_ALL_CONDITION, DataScope, ScopeCondition
+from bms_core.scope.limits import DEFAULT_MAX_IN_VALUES, OPTION_MAX_IN_VALUES, data_scope_max_in_values
 from bms_core.scope.policies import scope_policy
-from bms_core.scope.policies_rbac import DENY_ALL_CONDITION, register_rbac_scope_policies
+from bms_core.scope.policies_rbac import register_rbac_scope_policies
+
+__all__ = [
+    "DEFAULT_MAX_IN_VALUES",
+    "OPTION_MAX_IN_VALUES",
+    "RBAC_DATA_SCOPE_NAME",
+    "RbacDataScope",
+    "RbacDataScopeFactory",
+    "data_scope_max_in_values",
+    "register_rbac_data_scope",
+]
 
 _logger = logging.getLogger(__name__)
 
 RBAC_DATA_SCOPE_NAME = "rbac"
 """RBAC 数据范围实现名（`[data_scope].provider`）。"""
-
-DEFAULT_MAX_IN_VALUES = 1000
-"""单条 `in` 条件允许的值元素上限（超出即整体退化为永假；<= 0 表示不限制）。"""
-
-OPTION_MAX_IN_VALUES = "max_in_values"
-"""`[data_scope].options` 的阈值键名（装配期定型，改配置需重启）。"""
 
 _REGISTERED_REGISTRIES: ConcurrentStableList[object] = ConcurrentStableList()
 """已登记 RBAC 数据范围的注册表实例清单（按实例幂等；注册表重置后需重新登记）。"""
@@ -77,7 +88,7 @@ class RbacDataScope(DataScope):
         Args:
             settings: 应用配置（读 `[data_scope].options` 的 `max_in_values`）。
         """
-        self._max_in_values = int_option(settings.data_scope.options, OPTION_MAX_IN_VALUES, DEFAULT_MAX_IN_VALUES)
+        self._max_in_values = data_scope_max_in_values(settings)
 
     @property
     def max_in_values(self) -> int:
@@ -99,11 +110,18 @@ class RbacDataScope(DataScope):
             return None
         return self._conditions(snapshot)
 
-    def allow_write(self, values: ConcurrentStableDict[str, object]) -> bool:
+    def allow_write(
+        self,
+        values: ConcurrentStableDict[str, object],
+        *,
+        scope_columns: ConcurrentStableDict[str, str] | None = None,
+    ) -> bool:
         """写校验：待写值须落在授权范围内（未涉及的条件跳过）。
 
         Args:
-            values: 待写入字段值（字段名 → 值）。
+            values: 待写入字段值（实体列名 → 值）。
+            scope_columns: 数据源标识 → 实体列名（写入口声明；未声明时数据源维度条件一律拒绝，
+                从严不放大可写范围）。
 
         Returns:
             bool: 允许为 True。
@@ -115,9 +133,12 @@ class RbacDataScope(DataScope):
         if _denies_all(conditions):
             return False
         for condition in conditions:
-            if condition.field not in values:
+            field = _condition_column(condition, scope_columns)
+            if field is None:
+                return False
+            if field not in values:
                 continue
-            if not _matches_value(values.get(condition.field), condition):
+            if not _matches_value(values.get(field), condition):
                 return False
         return True
 
@@ -208,7 +229,7 @@ class RbacDataScope(DataScope):
             cached = store.get_rule(source=RBAC_DATA_SCOPE_NAME, rule_key=key)
             if isinstance(cached, ConcurrentStableList):
                 return cast("ConcurrentStableList[ScopeCondition]", cached)
-        resolved = self._reject_oversized(_materialize(policy(rows)))
+        resolved = self._reject_oversized(_materialize(policy(data_source_key, rows)))
         if key is not None:
             store.set_rule(source=RBAC_DATA_SCOPE_NAME, rule_key=key, value=resolved, elements=_rule_weight(resolved))
         return resolved
@@ -224,6 +245,7 @@ def _deny_all(reason: str) -> ConcurrentStableList[ScopeCondition]:
         ConcurrentStableList[ScopeCondition]: 单条永假条件。
     """
     _logger.warning("数据范围规则不产生放行：%s", reason)
+    current_permission_cache_store().record_invalid_rule()
     denied: ConcurrentStableList[ScopeCondition] = ConcurrentStableList()
     denied.add(DENY_ALL_CONDITION)
     return denied
@@ -245,7 +267,14 @@ def _materialize(conditions: ConcurrentStableList[ScopeCondition]) -> Concurrent
         if condition == DENY_ALL_CONDITION or condition.operator != _IN_OPERATOR:
             materialized.add(condition)
             continue
-        materialized.add(ScopeCondition(condition.field, _IN_OPERATOR, _value_members(condition.value)))
+        materialized.add(
+            ScopeCondition(
+                condition.field,
+                _IN_OPERATOR,
+                _value_members(condition.value),
+                condition.data_source_key,
+            )
+        )
     return materialized
 
 
@@ -290,6 +319,29 @@ def _value_members(value: object) -> ConcurrentStableSet[object]:
         for member in cast("Iterable[object]", value):
             members.add(member)
     return members
+
+
+def _condition_column(condition: ScopeCondition, scope_columns: ConcurrentStableDict[str, str] | None) -> str | None:
+    """把条件翻译到实体列名（数据源维度条件按声明的映射翻译）。
+
+    Args:
+        condition: 作用域条件。
+        scope_columns: 数据源标识 → 实体列名（None 表示未声明）。
+
+    Returns:
+        str | None: 实体列名；数据源维度条件既无映射又无字段时返回 None（调用方按永假处置）。
+    """
+    data_source_key = condition.data_source_key
+    if data_source_key is None:
+        return condition.field
+    mapped = None if scope_columns is None else scope_columns.get(data_source_key)
+    if mapped is not None:
+        return mapped
+    if condition.field:
+        return condition.field
+    _logger.warning("数据范围规则不产生放行：数据源 %s 未声明实体列映射", data_source_key)
+    current_permission_cache_store().record_invalid_rule()
+    return None
 
 
 def _denies_all(conditions: ConcurrentStableList[ScopeCondition]) -> bool:
@@ -363,13 +415,15 @@ def _union(data_source_key: str, bucket: ConcurrentStableList[ScopeCondition]) -
         return bucket
     fields = {item.field for item in bucket}
     operators = {item.operator for item in bucket}
-    if len(fields) == 1 and operators == {_UNION_OPERATOR}:
+    sources = {item.data_source_key for item in bucket}
+    if len(fields) == 1 and len(sources) == 1 and operators == {_UNION_OPERATOR}:
         merged: ConcurrentStableSet[object] = ConcurrentStableSet()
         for item in bucket:
             merged.update(_value_members(item.value))
         field = next(iter(fields))
+        source = next(iter(sources))
         result: ConcurrentStableList[ScopeCondition] = ConcurrentStableList()
-        result.add(ScopeCondition(field, _UNION_OPERATOR, merged))
+        result.add(ScopeCondition(field, _UNION_OPERATOR, merged, source))
         return result
     _logger.warning("数据范围并集退化为合取（从严）：字典 %s，字段 %s，操作符 %s", data_source_key, fields, operators)
     return bucket
