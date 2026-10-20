@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 平台登录与强制改密</title>
+<link rel="stylesheet" href="../资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../资源/原型样式.css">
+<style>
+  .ep-page { background: #fff; border: 1px solid #d0d7de; border-radius: 6px; padding: 16px; }
+  .ep-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+  .ep-section { font-weight: 600; margin: 16px 0 12px; padding-bottom: 8px; border-bottom: 1px solid #eaeef2; font-size: 14px; }
+  .login-card { max-width: 420px; margin: 12px auto; }
+  .login-card .el-tabs { margin-bottom: 4px; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="01_设计说明.html">← 返回设计说明</a></span>
+  <span class="pb-name">租户管理 · 平台登录与强制改密</span>
+</div>
+
+<div class="proto-frame">
+  <div id="app">
+    <div class="ep-page">
+
+      <!-- ① 登录页：租户登录 / 平台超管登录 切换 -->
+      <div class="ep-section">登录页 · 平台超管登录入口</div>
+      <div class="login-card">
+        <el-tabs v-model="loginMode" @tab-change="onModeChange">
+          <el-tab-pane label="账号登录" name="tenant">
+            <el-form :model="tenantForm" label-position="top">
+              <el-form-item label="租户标识">
+                <el-input v-model="tenantForm.tenant" placeholder="如 acme（子域名或租户编码）"></el-input>
+              </el-form-item>
+              <el-form-item label="账号"><el-input v-model="tenantForm.account"></el-input></el-form-item>
+              <el-form-item label="密码"><el-input v-model="tenantForm.password" type="password" show-password></el-input></el-form-item>
+              <el-button type="primary" style="width:100%" @click="submitLogin">登录</el-button>
+            </el-form>
+          </el-tab-pane>
+          <el-tab-pane label="平台超管登录" name="platform">
+            <el-alert type="info" :closable="false" show-icon
+              title="平台运营入口：登录平台租户（默认平台租户编码由后端下发），不进入任何业务租户数据"></el-alert>
+            <el-form :model="platformForm" label-position="top" style="margin-top:12px">
+              <el-form-item label="租户">
+                <el-input :model-value="platformCode" disabled></el-input>
+              </el-form-item>
+              <el-form-item label="平台账号"><el-input v-model="platformForm.account"></el-input></el-form-item>
+              <el-form-item label="密码"><el-input v-model="platformForm.password" type="password" show-password></el-input></el-form-item>
+              <el-button type="primary" style="width:100%" @click="submitPlatformLogin">平台登录</el-button>
+            </el-form>
+          </el-tab-pane>
+        </el-tabs>
+      </div>
+
+      <!-- ② 强制改密：must_change_password=true 时锁路由 -->
+      <div class="ep-section">强制改密（首次登录 / 口令重置后）</div>
+      <div class="login-card">
+        <el-alert type="warning" :closable="false" show-icon
+          title="当前账号需先修改初始密码：除本页外其余路由一律拦截，改密成功后自动进入工作台"></el-alert>
+        <el-form :model="pwdForm" label-position="top" style="margin-top:12px">
+          <el-form-item label="旧口令" required>
+            <el-input v-model="pwdForm.oldPassword" type="password" show-password></el-input>
+          </el-form-item>
+          <el-form-item label="新口令" required>
+            <el-input v-model="pwdForm.newPassword" type="password" show-password
+              placeholder="至少 8 位，含大小写字母 / 数字 / 符号（按密码策略校验）"></el-input>
+          </el-form-item>
+          <el-form-item label="确认新口令" required>
+            <el-input v-model="pwdForm.confirmPassword" type="password" show-password></el-input>
+          </el-form-item>
+          <el-button type="primary" :loading="changing" style="width:100%" @click="submitChange">保存并进入</el-button>
+        </el-form>
+      </div>
+
+      <div class="proto-hint" style="margin-top:10px">
+        平台超管 = 平台租户内的用户，角色类型 `platform_admin`；登录、令牌、会话、权限与菜单与租户用户同构。
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="../资源/vendor/vue.global.prod.js"></script>
+
+<script src="../资源/vendor/element-plus.min.js"></script>
+<script src="../资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref, reactive } = Vue;
+  var ElMessage = ElementPlus.ElMessage;
+  var app = createApp({
+    template: document.getElementById('app').outerHTML.replace(/<div id="app">/, '<div>').replace(/<\/div>\s*$/, ''),
+    setup: function () {
+      var loginMode = ref('tenant');
+      var platformCode = ref('platform');
+      var tenantForm = reactive({ tenant: '', account: '', password: '' });
+      var platformForm = reactive({ account: 'admin', password: '' });
+      var pwdForm = reactive({ oldPassword: '', newPassword: '', confirmPassword: '' });
+      var changing = ref(false);
+
+      // 切到平台登录时自动填充平台租户编码（真实实现调 GET /api/v1/auth/platform-tenant）
+      function onModeChange(name) {
+        if (name === 'platform') platformCode.value = 'platform';
+      }
+      function submitLogin() {
+        if (!tenantForm.account || !tenantForm.password) { ElMessage.error('请输入账号与密码'); return; }
+        ElMessage.success('登录成功（租户：' + (tenantForm.tenant || '自动解析') + '）');
+      }
+      function submitPlatformLogin() {
+        if (!platformForm.account || !platformForm.password) { ElMessage.error('请输入平台账号与密码'); return; }
+        ElMessage.success('平台登录成功：进入平台租户（' + platformCode.value + '），首次登录需修改初始密码');
+      }
+      function submitChange() {
+        if (!pwdForm.oldPassword || !pwdForm.newPassword) { ElMessage.error('请填写旧口令与新口令'); return; }
+        if (pwdForm.newPassword !== pwdForm.confirmPassword) { ElMessage.error('两次输入的新口令不一致'); return; }
+        changing.value = true;
+        setTimeout(function () {
+          changing.value = false;
+          ElMessage.success('密码已修改：其余会话已失效，进入工作台');
+        }, 800);
+      }
+      return { loginMode, platformCode, tenantForm, platformForm, pwdForm, changing,
+        onModeChange, submitLogin, submitPlatformLogin, submitChange };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+  if (location.search.indexOf('embed=1') >= 0) { var pb = document.querySelector('.proto-bar'); if (pb) pb.style.display = 'none'; }
+</script>
+
+</body>
+</html>
