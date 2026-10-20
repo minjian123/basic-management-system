@@ -6,7 +6,9 @@
    `load_subject` 内调用，引擎只消费收敛结果（这样解析器链接缝留在基座、数据访问留在服务侧）；
 2. **权限聚合**：授权行 → 权限码集合 + 入口授权集合（**两段解析**：菜单 / 表单 → 入口；权限码 → `业务码:动作码`）；
 3. **快照**：`permission/snapshot.py::PermissionSnapshot`（码集 + 数据范围 + 字段权限 + `tier` / `profile`）；
-4. **缓存**：键 `bms:{租户}:perm:{用户}:{版本}`（`permission/version.py`），租户级版本变更即换键；
+4. **缓存**：三层进程内缓存仓（`permission/cache.py`，`04-2`）——层1 基础数据（用户聚合输入 + 元数据索引）、
+   层3 用户快照，键含**权限版本**（`permission/version.py`），版本变更即换键；**不落 Redis 共享**
+   （序列化与网络延迟不可接受），Redis 只承载版本号计数器（`CacheRegion`）；
 5. **供数**：两级校验点 / 字段权限 / 数据范围 / 权限概要四处消费。
 
 **数据访问全部经接缝**（`permission/sources.py`）：本模块不 import 任何服务包、不碰任何 ORM，故可随
@@ -22,12 +24,18 @@
 
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 
 from bms_core.cache.base import CacheRegion
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.objects import BaseFrameworkObject, BaseValueObject
 from bms_core.i18n.base import DEFAULT_LOCALE
+from bms_core.permission.cache import (
+    DEFAULT_SNAPSHOT_TTL_SECONDS,
+    PermissionCacheStore,
+    current_permission_cache_store,
+)
 from bms_core.permission.profile import DEFAULT_PROFILE
 from bms_core.permission.snapshot import (
     TIER_PLATFORM_ADMIN,
@@ -36,13 +44,14 @@ from bms_core.permission.snapshot import (
     PermissionSnapshot,
 )
 from bms_core.permission.sources import (
+    DEFAULT_PERMISSION_DATA_SOURCE_KEY,
     BasePermissionDataSource,
     PermissionMetadata,
     PermissionSubjectData,
 )
 from bms_core.permission.version import permission_user_cache_key, permission_version_key
 
-DEFAULT_SNAPSHOT_TTL = 300
+DEFAULT_SNAPSHOT_TTL = DEFAULT_SNAPSHOT_TTL_SECONDS
 """权限快照缓存有效期（秒；缺省口径，可经 `[permission].options.snapshot_ttl_seconds` 覆盖）。"""
 
 PERM_TYPE_MENU = "menu"
@@ -68,24 +77,36 @@ class _Granted(BaseValueObject):
 
 
 async def invalidate_permission_cache(
-    cache: CacheRegion, *, tenant_id: str | None, user_ids: tuple[int, ...] | None = None
+    cache: CacheRegion,
+    *,
+    tenant_id: str | None,
+    user_ids: tuple[int, ...] | None = None,
+    store: PermissionCacheStore | None = None,
 ) -> int:
-    """失效权限快照（租户权限版本 +1；给定用户时删除其旧版本缓存键）。
+    """失效权限快照（租户权限版本 +1；给定用户时清理其本进程缓存条目）。
 
     供跨服务变更（mdm 岗位 / 部门 / 角色分配）经内部失效端点触发，亦供本仓服务层复用。
+    版本 +1 是对**所有副本**的失效信号（各副本下次读取按新版本键取数）；本进程另同步释放条目，
+    避免旧版本键与新键并列占用容量。
 
     Args:
-        cache: 缓存能力域。
+        cache: 缓存能力域（承载版本号计数器）。
         tenant_id: 租户标识（版本键作用域）。
-        user_ids: 受影响用户主键（None 表示全租户，仅版本 +1）。
+        user_ids: 受影响用户主键（None 表示全租户，仅版本 +1 并释放本进程快照条目）。
+        store: 进程内三层缓存仓（None 表示进程级单份实例）。
 
     Returns:
         int: 递增后的权限版本号。
     """
     version = await cache.aincrease(permission_version_key(tenant_id))
+    target = store if store is not None else current_permission_cache_store()
     if user_ids:
         for user_id in user_ids:
+            target.invalidate_user(tenant_id=tenant_id, user_id=user_id)
+            # 兼容清理：`04-2` 之前快照写在共享缓存里，升级后旧键仍可能残留（版本键不设过期）
             await cache.adelete(permission_user_cache_key(tenant_id, user_id, version - 1))
+    else:
+        target.clear_snapshots()
     return version
 
 
@@ -97,6 +118,7 @@ class PermissionEngine(BaseFrameworkObject):
         *,
         source: BasePermissionDataSource,
         cache: CacheRegion,
+        store: PermissionCacheStore | None = None,
         profile: str = DEFAULT_PROFILE,
         ttl: int = DEFAULT_SNAPSHOT_TTL,
         exempt_role_types: tuple[str, ...] = (ROLE_TYPE_SYSTEM,),
@@ -106,18 +128,21 @@ class PermissionEngine(BaseFrameworkObject):
 
         Args:
             source: 权限数据来源（角色 / 类型 / 授权 / 数据范围 / 字段收窄 / 元数据）。
-            cache: 缓存能力域（快照缓存 + 权限版本）。
+            cache: 缓存能力域（权限版本号计数器）。
+            store: 进程内三层缓存仓（None 表示进程级单份实例）。
             profile: 引擎档位（缺省 `smb`）。
-            ttl: 快照缓存有效期（秒）。
+            ttl: 层1 用户条目与层3 快照的有效期（秒）。
             exempt_role_types: 豁免层级判定的角色类型（缺省 `system`，即系统管理员）。
             locale: 元数据语言标识（仅影响展示名，不影响索引）。
         """
         self._source = source
         self._cache = cache
+        self._store = store if store is not None else current_permission_cache_store()
         self._profile = profile
         self._ttl = ttl
         self._exempt_role_types = exempt_role_types
         self._locale = locale
+        self._source_key = str(getattr(source, "key", "") or DEFAULT_PERMISSION_DATA_SOURCE_KEY)
 
     async def current_version(self, tenant_id: str | None) -> int:
         """取当前租户权限版本（缓存未命中按 0 处理、不回写）。
@@ -134,7 +159,7 @@ class PermissionEngine(BaseFrameworkObject):
         return 0
 
     async def snapshot_for(self, *, user_id: int, tenant_id: str | None) -> PermissionSnapshot:
-        """取用户权限快照（命中缓存即返回；未命中则计算并写缓存）。
+        """取用户权限快照（层3 命中即返回；未命中经层1 取数计算并回填）。
 
         Args:
             user_id: 用户主键。
@@ -144,18 +169,20 @@ class PermissionEngine(BaseFrameworkObject):
             PermissionSnapshot: 用户权限快照。
         """
         version = await self.current_version(tenant_id)
-        key = permission_user_cache_key(tenant_id, user_id, version)
-        cached = await self._cache.aget(key)
-        if cached is not None:
-            snapshot = PermissionSnapshot.from_payload(cached)
-            if snapshot.version == version:
-                return snapshot
-        snapshot = await self.compute(user_id=user_id, version=version)
-        await self._cache.aset(key, snapshot.to_payload(), ttl=self._ttl)
+        cached = self._store.get_snapshot(
+            source=self._source_key, tenant_id=tenant_id, user_id=user_id, version=version
+        )
+        if cached is not None and cached.version == version:
+            return cached
+        data = await self._subject_data(user_id=user_id, tenant_id=tenant_id, version=version)
+        snapshot = await self._build(data=data, version=version, tenant_id=tenant_id)
+        self._store.set_snapshot(
+            source=self._source_key, tenant_id=tenant_id, user_id=user_id, version=version, value=snapshot
+        )
         return snapshot
 
     async def compute(self, *, user_id: int, version: int) -> PermissionSnapshot:
-        """按主体链计算用户权限快照（不读缓存；供缓存回源与用例断言）。
+        """按主体链计算用户权限快照（**不读缓存**；供缓存回源与用例断言）。
 
         Args:
             user_id: 用户主键。
@@ -165,7 +192,74 @@ class PermissionEngine(BaseFrameworkObject):
             PermissionSnapshot: 用户权限快照。
         """
         data = await self._source.load_subject(user_id=user_id)
-        granted = await self._aggregate(data)
+        snapshot = await self._build(data=data, version=version, tenant_id=None)
+        return snapshot
+
+    async def invalidate(self, *, tenant_id: str | None, user_ids: tuple[int, ...] | None = None) -> int:
+        """失效权限快照：租户权限版本 +1，并清理本进程受影响条目。
+
+        Args:
+            tenant_id: 租户标识（版本键作用域）。
+            user_ids: 受影响用户主键（None 表示全租户）。
+
+        Returns:
+            int: 递增后的权限版本号。
+        """
+        return await invalidate_permission_cache(self._cache, tenant_id=tenant_id, user_ids=user_ids, store=self._store)
+
+    async def _subject_data(self, *, user_id: int, tenant_id: str | None, version: int) -> PermissionSubjectData:
+        """取用户聚合输入（层1 命中即返回，未命中回源并回填）。
+
+        Args:
+            user_id: 用户主键。
+            tenant_id: 租户标识。
+            version: 权限版本号（键控）。
+
+        Returns:
+            PermissionSubjectData: 聚合输入。
+        """
+        cached = self._store.get_subject(source=self._source_key, tenant_id=tenant_id, user_id=user_id, version=version)
+        if cached is not None:
+            return cached
+        data = await self._source.load_subject(user_id=user_id)
+        self._store.set_subject(
+            source=self._source_key, tenant_id=tenant_id, user_id=user_id, version=version, value=data
+        )
+        return data
+
+    async def _metadata_data(self, *, version: int) -> PermissionMetadata:
+        """取元数据索引（层1 命中即返回，未命中回源并回填）。
+
+        Args:
+            version: 权限版本号（键控）。
+
+        Returns:
+            PermissionMetadata: 元数据索引。
+        """
+        cached = self._store.get_metadata(source=self._source_key, locale=self._locale, version=version)
+        if cached is not None:
+            return cached
+        metadata = await self._source.load_metadata(locale=self._locale)
+        self._store.set_metadata(source=self._source_key, locale=self._locale, version=version, value=metadata)
+        return metadata
+
+    async def _build(self, *, data: PermissionSubjectData, version: int, tenant_id: str | None) -> PermissionSnapshot:
+        """由聚合输入构建快照（`tenant_id` 非 None 时元数据经层1；None 为不读缓存的直算路径）。
+
+        Args:
+            data: 聚合输入。
+            version: 权限版本号。
+            tenant_id: 租户标识（None 表示不经层1 缓存）。
+
+        Returns:
+            PermissionSnapshot: 用户权限快照。
+        """
+        loader: Callable[[], Awaitable[PermissionMetadata]] = (
+            (lambda: self._metadata_data(version=version))
+            if tenant_id is not None
+            else (lambda: self._source.load_metadata(locale=self._locale))
+        )
+        granted = await self._aggregate(data, loader)
         return PermissionSnapshot(
             version=version,
             profile=self._profile,
@@ -177,23 +271,14 @@ class PermissionEngine(BaseFrameworkObject):
             field_perms=data.field_perms,
         )
 
-    async def invalidate(self, *, tenant_id: str | None, user_ids: tuple[int, ...] | None = None) -> int:
-        """失效权限快照：租户权限版本 +1；给定用户时顺带删除其旧版本键。
-
-        Args:
-            tenant_id: 租户标识（版本键作用域）。
-            user_ids: 受影响用户主键（None 表示全租户，仅版本 +1）。
-
-        Returns:
-            int: 递增后的权限版本号。
-        """
-        return await invalidate_permission_cache(self._cache, tenant_id=tenant_id, user_ids=user_ids)
-
-    async def _aggregate(self, data: PermissionSubjectData) -> _Granted:
+    async def _aggregate(
+        self, data: PermissionSubjectData, metadata_loader: Callable[[], Awaitable[PermissionMetadata]]
+    ) -> _Granted:
         """聚合授权行为权限码集合与入口授权集合（两段解析）。
 
         Args:
             data: 聚合输入（授权行 + 角色集合）。
+            metadata_loader: 元数据取数（无角色时**不调用**，与下沉前口径一致）。
 
         Returns:
             _Granted: 权限码集合 + 菜单入口 / 表单授权集合。
@@ -201,7 +286,7 @@ class PermissionEngine(BaseFrameworkObject):
         granted = _Granted()
         if not data.role_ids:
             return granted
-        metadata = await self._source.load_metadata(locale=self._locale)
+        metadata = await metadata_loader()
         _merge_grants(data, metadata, granted)
         return granted
 

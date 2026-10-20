@@ -17,6 +17,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
 from typing import Any, cast
 
 from fastapi import Request
@@ -27,9 +29,20 @@ from bms_core.core.config import Settings
 from bms_core.core.context import current_tenant_id, current_user_id
 from bms_core.core.exceptions import PluginError
 from bms_core.core.factory import BasePluginFactory
+from bms_core.core.logging import get_logger
 from bms_core.core.plugin import default_plugin_registry, register_plugin
 from bms_core.i18n.base import DEFAULT_LOCALE
 from bms_core.permission.base import BasePermissionChecker
+from bms_core.permission.cache import (
+    DEFAULT_IDLE_SWEEP_INTERVAL,
+    DEFAULT_IDLE_TIMEOUT,
+    OPTION_IDLE_SWEEP_INTERVAL,
+    OPTION_IDLE_TIMEOUT,
+    PermissionCacheStore,
+    configure_permission_cache_store,
+    current_permission_cache_store,
+    int_option,
+)
 from bms_core.permission.engine import DEFAULT_SNAPSHOT_TTL, PermissionEngine
 from bms_core.permission.guard import PermissionGuardContext, guards_allow
 from bms_core.permission.profile import DEFAULT_PROFILE
@@ -71,6 +84,9 @@ class RbacPermissionChecker(BasePermissionChecker):
 
     实现名 `rbac` **不在类上声明** `plugin_name`（避免「导入即自动登记」与工厂重名）——
     登记一律经 `RbacPermissionCheckerFactory`（需注入档位与选项）。
+
+    **闲置注销巡检**：`setup()` 起周期任务、`aclose()` 停（装配期由 `assemble_plugins` 调用并登记
+    `ResourceManager`，关闭时逆序回收）——每轮注销超过 `idle_timeout` 不活动的用户快照。
     """
 
     def __init__(
@@ -80,19 +96,93 @@ class RbacPermissionChecker(BasePermissionChecker):
         ttl: int = DEFAULT_SNAPSHOT_TTL,
         exempt_role_types: tuple[str, ...] = ("system",),
         locale: str = DEFAULT_LOCALE,
+        store: PermissionCacheStore | None = None,
+        idle_timeout: int = DEFAULT_IDLE_TIMEOUT,
+        sweep_interval: float = DEFAULT_IDLE_SWEEP_INTERVAL,
     ) -> None:
         """初始化。
 
         Args:
             profile: 引擎档位（缺省 `smb`）。
-            ttl: 权限快照缓存有效期（秒）。
+            ttl: 层1 用户条目与层3 快照的有效期（秒）。
             exempt_role_types: 豁免层级判定的角色类型（缺省 `system`，即系统管理员）。
             locale: 元数据语言标识（仅影响展示名，不影响索引）。
+            store: 进程内三层缓存仓（None 表示进程级单份实例）。
+            idle_timeout: 活动用户闲置注销阈值（秒；<= 0 表示不注销）。
+            sweep_interval: 闲置注销巡检周期（秒；<= 0 表示不起后台任务）。
         """
         self._profile = profile
         self._ttl = ttl
         self._exempt_role_types = exempt_role_types
         self._locale = locale
+        self._store = store if store is not None else current_permission_cache_store()
+        self._idle_timeout = idle_timeout
+        self._sweep_interval = sweep_interval
+        self._task: asyncio.Task[None] | None = None
+
+    @property
+    def store(self) -> PermissionCacheStore:
+        """三层进程内缓存仓（排障 / 运维观测用）。
+
+        Returns:
+            PermissionCacheStore: 本校验器使用的缓存仓实例。
+        """
+        return self._store
+
+    @property
+    def idle_timeout(self) -> int:
+        """闲置注销阈值（秒；<= 0 表示不注销）。
+
+        Returns:
+            int: 阈值秒数。
+        """
+        return self._idle_timeout
+
+    @property
+    def sweep_interval(self) -> float:
+        """闲置注销巡检周期（秒；<= 0 表示不起后台任务）。
+
+        Returns:
+            float: 周期秒数。
+        """
+        return self._sweep_interval
+
+    @property
+    def sweep_task(self) -> asyncio.Task[None] | None:
+        """当前巡检任务（未启用为 None；排障 / 用例断言用）。
+
+        Returns:
+            asyncio.Task[None] | None: 巡检任务。
+        """
+        return self._task
+
+    async def setup(self) -> None:
+        """启动闲置快照注销巡检（幂等；阈值或周期非正即不启用后台任务）。"""
+        if self._task is not None or self._idle_timeout <= 0 or self._sweep_interval <= 0:
+            return
+        self._task = asyncio.create_task(self._sweep_forever())
+
+    async def aclose(self) -> None:
+        """停止闲置快照注销巡检（幂等）。"""
+        task = self._task
+        self._task = None
+        if task is None:
+            return
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
+
+    async def _sweep_forever(self) -> None:
+        """周期注销闲置用户快照（单轮失败只记日志，不终止巡检）。"""
+        while True:
+            await asyncio.sleep(self._sweep_interval)
+            try:
+                evicted = self._store.sweep_idle(self._idle_timeout)
+            except Exception as exc:
+                get_logger("bms").warning("permission_idle_sweep_failed", detail=f"{type(exc).__name__}: {exc}")
+                continue
+            if evicted:
+                get_logger("bms").info("permission_idle_swept", users=evicted)
 
     def check(self, code: str) -> bool:
         """同步判定当前请求是否持权限码（只读预加载快照）。
@@ -141,6 +231,7 @@ class RbacPermissionChecker(BasePermissionChecker):
         engine = PermissionEngine(
             source=source,
             cache=cast("CacheRegion", request.app.state.cache),
+            store=self._store,
             profile=self._profile,
             ttl=self._ttl,
             exempt_role_types=self._exempt_role_types,
@@ -214,11 +305,15 @@ class RbacPermissionCheckerFactory(BasePluginFactory[RbacPermissionChecker]):
         )
         raw_locale = self._options.get("locale")
         locale = raw_locale if isinstance(raw_locale, str) and raw_locale else DEFAULT_LOCALE
+        store = configure_permission_cache_store(self._options, snapshot_ttl=ttl)
         return RbacPermissionChecker(
             profile=self._profile,
             ttl=ttl,
             exempt_role_types=exempt,
             locale=locale,
+            store=store,
+            idle_timeout=int_option(self._options, OPTION_IDLE_TIMEOUT, DEFAULT_IDLE_TIMEOUT),
+            sweep_interval=int_option(self._options, OPTION_IDLE_SWEEP_INTERVAL, DEFAULT_IDLE_SWEEP_INTERVAL),
         )
 
 

@@ -24,6 +24,7 @@ from bms_core.core.context import (
     current_trace_id,
     current_user_id,
 )
+from bms_core.permission.cache import reset_permission_cache_store
 
 
 def clear_isolated_env(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -126,9 +127,12 @@ def isolate_settings(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     # 真实 RBAC 的判定口径由各服务 `tests/permission/` 专项用例自建校验器 / 数据来源覆盖。
     monkeypatch.setenv("BMS_PERMISSION__PROVIDER", "")
     monkeypatch.setenv("BMS_DATA_SCOPE__PROVIDER", "")
+    # 三层权限缓存是**进程级单份**（`04-2`）：跨套件 / 跨用例共用会串味（同租户同用户同版本命中别处数据）
+    reset_permission_cache_store()
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()
+    reset_permission_cache_store()
 
 
 def resolve_fixture(request: pytest.FixtureRequest, name: str) -> Any | None:

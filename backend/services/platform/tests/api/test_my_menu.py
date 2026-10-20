@@ -10,6 +10,10 @@ import pytest
 import pytest_asyncio
 from httpx import AsyncClient
 
+from bms_core.permission.cache import current_permission_cache_store
+from bms_core.permission.sources import PermissionMetadata
+from bms_core.permission.version import permission_version_key
+from tests_support.auth import TEST_TENANT_ID
 from tests_support.menu_metadata import (
     insert_form,
     reset_menu_tables,
@@ -216,3 +220,30 @@ async def test_my_menu_version_bump_invalidates_cache(client: AsyncClient) -> No
     second = (await client.get(_MY)).json()["data"]
     assert second["version"] > first["version"]
     assert _find(second["menus"], "/t-cache-b") is not None
+
+
+@pytest.mark.kiwi_id(2321)
+async def test_metadata_write_also_invalidates_permission_snapshot(client: AsyncClient, service_app: Any) -> None:
+    """元数据写路径同步递增权限版本并清层1 元数据（`04_2`：码集 / 入口集与服务端权限同源失效）。"""
+    await seed_business("t_perm_a", "权限同步业务A")
+    await seed_business("t_perm_b", "权限同步业务B")
+    await _create_page(client, "/t-perm-a", "权限同步页A", "Perm A", "t_perm_a")
+
+    cache = service_app.state.cache
+    before = cache.get(permission_version_key(TEST_TENANT_ID))
+    store = current_permission_cache_store()
+    store.set_metadata(source="probe", locale="zh-CN", version=0, value=PermissionMetadata())
+    assert store.stats()["metadata_items"] == 1
+
+    await _create_page(client, "/t-perm-b", "权限同步页B", "Perm B", "t_perm_b")
+
+    after = cache.get(permission_version_key(TEST_TENANT_ID))
+    assert isinstance(after, int)
+    # 一次建页含「建菜单 + 建表单」两次写，故版本至少 +1（不锁死具体次数，避免与建页实现耦合）
+    assert after >= (before if isinstance(before, int) else 0) + 1
+    assert store.stats()["metadata_items"] == 0
+
+    # 连续两次读（无写）走元数据缓存命中分支，版本稳定
+    first = (await client.get(_MY)).json()["data"]
+    second = (await client.get(_MY)).json()["data"]
+    assert second["version"] == first["version"]

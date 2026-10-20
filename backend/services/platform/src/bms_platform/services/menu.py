@@ -34,6 +34,8 @@ from bms_core.events.base import EventEnvelope
 from bms_core.i18n.base import DEFAULT_LOCALE, SUPPORTED_LOCALES
 from bms_core.menu import menu_tree_key, menu_version_key
 from bms_core.outbox.base import BaseOutboxStore
+from bms_core.permission.cache import current_permission_cache_store
+from bms_core.permission.version import permission_version_key
 from bms_core.schemas.base import CONTRACT_COLLECTION, CONTRACT_STABLE_LIST, BaseSchema
 from bms_platform.models.menu import (
     SysAction,
@@ -391,12 +393,19 @@ class MenuMetadataService(BaseFrameworkObject):
         return raw if isinstance(raw, int) else 0
 
     async def invalidate(self) -> None:
-        """递增版本号并删除当前语言旧键（变更即时生效；语言与租户取请求上下文）。"""
+        """递增版本号并删除旧键（变更即时生效；语言与租户取请求上下文）。
+
+        **权限版本同步递增**（`04-2`）：菜单 / 表单 / 按钮 / 字段 / 权限码是权限快照的解析输入
+        （菜单→表单、权限码 id→码），只递增菜单版本会让已缓存的码集与入口集滞后一个快照 TTL；
+        故此处一并递增权限版本并清空本进程层1 元数据索引——元数据与快照同源失效。
+        """
         locale = current_dict_locale.get() or DEFAULT_LOCALE
         tenant_id = current_tenant_id_str()
         old_version = await self.version()
         await self._cache.aincrease(menu_version_key())
         await self._cache.adelete(menu_tree_key(tenant_id, locale, old_version))
+        await self._cache.aincrease(permission_version_key(tenant_id))
+        current_permission_cache_store().invalidate_metadata()
 
     async def load_snapshot(self, *, locale: str, tenant_id: str | None, ttl: int) -> MenuSnapshot:
         """装载未过滤的菜单与权限元数据（缓存优先、未命中回源 DB）。

@@ -1,7 +1,8 @@
-"""基座权限引擎用例（`04_01` 下沉后）：聚合 / 快照 / 缓存 / 失效 / 层级。
+"""基座权限引擎用例（`04_01` 下沉后 + `04_02` 三层缓存）：聚合 / 快照 / 缓存 / 失效 / 层级。
 
-引擎只依赖接缝（`permission/sources.py` 的数据来源与元数据）与缓存域——本套用例以**数据来源替身**
-驱动主流程，覆盖判定口径与接缝行为；服务侧取数的存储正确性由 platform / identity 各自用例覆盖。
+引擎只依赖接缝（`permission/sources.py` 与 `permission/cache.py`）与缓存域（版本号）——本套用例以
+**数据来源替身**驱动主流程，覆盖判定口径与接缝行为；服务侧取数的存储正确性由 platform / identity 各自
+用例覆盖。`04_02` 后快照与基础数据在**进程内三层缓存**，共享缓存域只承载版本号。
 """
 
 from collections.abc import Iterator
@@ -11,6 +12,11 @@ import pytest
 from bms_core.cache.memory import MemoryCacheRegion
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.context import current_tenant_id, current_user_id
+from bms_core.permission.cache import (
+    PermissionCacheStore,
+    current_permission_cache_store,
+    reset_permission_cache_store,
+)
 from bms_core.permission.engine import (
     DEFAULT_SNAPSHOT_TTL,
     PermissionEngine,
@@ -141,18 +147,36 @@ def _metadata(
     return metadata
 
 
+class _Clock:
+    """可控时钟（替身 `bms_core.permission.cache.monotonic`，用于闲置注销断言）。"""
+
+    def __init__(self) -> None:
+        """初始化（从 1000 秒起）。"""
+        self.now = 1000.0
+
+    def __call__(self) -> float:
+        """取当前时刻。
+
+        Returns:
+            float: 当前时刻。
+        """
+        return self.now
+
+
 @pytest.fixture(autouse=True)
 def clean_context() -> Iterator[None]:
-    """每例前后清空上下文（请求态隔离）。
+    """每例前后清空上下文（请求态隔离）并复位进程级三层缓存仓。
 
     Yields:
         None: 用例运行期。
     """
     current_user_id.set(None)
     current_tenant_id.set(None)
+    reset_permission_cache_store()
     yield
     current_user_id.set(None)
     current_tenant_id.set(None)
+    reset_permission_cache_store()
 
 
 @pytest.mark.kiwi_id(2320)
@@ -233,31 +257,92 @@ async def test_data_scope_rules_and_field_perms_flow_into_snapshot() -> None:
     assert snapshot.field_state(11, "name") is None
 
 
-@pytest.mark.kiwi_id(2320)
+@pytest.mark.kiwi_id(2321)
 async def test_snapshot_for_caches_and_reuses() -> None:
-    """缓存：首次计算后写缓存，第二次命中不再取数。"""
+    """缓存：首次计算后写进程内缓存，第二次命中不再取数。"""
     source = _StubSource(data=_data(grants=(("permission", 21),)), metadata=_metadata(codes=((21, "role:grant"),)))
     engine = PermissionEngine(source=source, cache=MemoryCacheRegion())
     first = await engine.snapshot_for(user_id=5, tenant_id="1001")
     second = await engine.snapshot_for(user_id=5, tenant_id="1001")
     assert sorted(first.permission_codes) == ["role:grant"]
     assert sorted(second.permission_codes) == ["role:grant"]
+    assert first is second
     assert source.subject_calls == 1
 
 
-@pytest.mark.kiwi_id(2320)
-async def test_snapshot_for_recomputes_on_stale_cached_version() -> None:
-    """`snapshot_for`：缓存快照版本与当前权限版本不一致时重算并回写。"""
+@pytest.mark.kiwi_id(2321)
+async def test_snapshot_stays_in_process_not_shared_cache() -> None:
+    """快照不落共享缓存：`CacheRegion` 里只出现版本号键，用户快照键不产生。"""
     cache = MemoryCacheRegion()
     engine = PermissionEngine(source=_StubSource(data=_data()), cache=cache)
-    key = permission_user_cache_key("1001", 5, 0)
-    from bms_core.permission.snapshot import PermissionSnapshot
+    await engine.snapshot_for(user_id=5, tenant_id="1001")
+    assert await cache.aget(permission_version_key("1001")) is None  # 未失效时连版本键都不写
+    assert cache.get(permission_user_cache_key("1001", 5, 0)) is None
+    assert current_permission_cache_store().stats()["snapshot_items"] == 1
 
-    await cache.aset(key, PermissionSnapshot(version=99, tier=TIER_STANDARD).to_payload(), ttl=60)
+
+@pytest.mark.kiwi_id(2321)
+async def test_layer1_serves_subject_and_metadata_without_source_calls() -> None:
+    """层1：快照被清后重建时不再回源（subject / metadata 各只取一次）——identity 跨服务往返同收益。"""
+    source = _StubSource(data=_data(grants=(("permission", 21),)), metadata=_metadata(codes=((21, "role:grant"),)))
+    engine = PermissionEngine(source=source, cache=MemoryCacheRegion())
+    await engine.snapshot_for(user_id=5, tenant_id="1001")
+    current_permission_cache_store().clear_snapshots()
+    snapshot = await engine.snapshot_for(user_id=5, tenant_id="1001")
+    assert sorted(snapshot.permission_codes) == ["role:grant"]
+    assert source.subject_calls == 1
+    assert source.metadata_calls == 1
+
+
+@pytest.mark.kiwi_id(2321)
+async def test_snapshot_for_recomputes_after_version_bump() -> None:
+    """版本换键：`invalidate` 后版本 +1，旧版本快照不可见 → 重算并回填新版本。"""
+    cache = MemoryCacheRegion()
+    source = _StubSource(data=_data())
+    engine = PermissionEngine(source=source, cache=cache)
+    first = await engine.snapshot_for(user_id=5, tenant_id="1001")
+    assert first.version == 0
+
+    assert await engine.invalidate(tenant_id="1001") == 1
+    second = await engine.snapshot_for(user_id=5, tenant_id="1001")
+    assert second.version == 1
+    assert source.subject_calls == 2
+
+
+@pytest.mark.kiwi_id(2321)
+async def test_idle_sweep_forces_recompute_and_refill(monkeypatch: pytest.MonkeyPatch) -> None:
+    """闲置注销：30 分钟不活动后快照与层1 条目被注销，再次访问即时重算并回填。"""
+    clock = _Clock()
+    monkeypatch.setattr("bms_core.permission.cache.monotonic", clock)
+    store = PermissionCacheStore()
+    source = _StubSource(data=_data())
+    engine = PermissionEngine(source=source, cache=MemoryCacheRegion(), store=store)
+    await engine.snapshot_for(user_id=5, tenant_id="1001")
+
+    clock.now += 1801
+    assert store.sweep_idle(1800) == 1
+    assert store.stats()["snapshot_items"] == 0
 
     snapshot = await engine.snapshot_for(user_id=5, tenant_id="1001")
     assert snapshot.version == 0
-    assert cache.get(key) is not None
+    assert store.stats()["snapshot_items"] == 1
+    assert source.subject_calls == 2
+
+
+@pytest.mark.kiwi_id(2321)
+async def test_invalidate_clears_process_entries() -> None:
+    """失效清理：给定用户清该用户层1 + 层3；全租户失效只释放快照（层1 留待重建免回源）。"""
+    store = PermissionCacheStore()
+    engine = PermissionEngine(source=_StubSource(data=_data()), cache=MemoryCacheRegion(), store=store)
+    await engine.snapshot_for(user_id=7, tenant_id="1001")
+    await engine.invalidate(tenant_id="1001", user_ids=(7,))
+    assert store.stats()["snapshot_items"] == 0
+    assert store.stats()["subject_items"] == 0
+
+    await engine.snapshot_for(user_id=7, tenant_id="1001")
+    await engine.invalidate(tenant_id="1001")
+    assert store.stats()["snapshot_items"] == 0
+    assert store.stats()["subject_items"] == 1
 
 
 @pytest.mark.kiwi_id(2320)

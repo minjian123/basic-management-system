@@ -20,16 +20,19 @@ from __future__ import annotations
 
 import logging
 import re
+from collections.abc import Mapping, Sequence
 from typing import Any, cast
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.core.factory import BasePluginFactory
 from bms_core.core.plugin import default_plugin_registry, register_plugin
+from bms_core.permission.cache import current_permission_cache_store
 from bms_core.permission.snapshot import PermissionSnapshot, get_current_permission_snapshot
+from bms_core.permission.version import permission_rule_key
 from bms_core.scope.base import DataScope, ScopeCondition
 from bms_core.scope.policies import scope_policy
-from bms_core.scope.policies_rbac import register_rbac_scope_policies
+from bms_core.scope.policies_rbac import DENY_ALL_CONDITION, register_rbac_scope_policies
 
 _logger = logging.getLogger(__name__)
 
@@ -103,24 +106,10 @@ class RbacDataScope(DataScope):
         grouped: ConcurrentStableDict[str, ConcurrentStableList[ScopeCondition]] = ConcurrentStableDict()
         for row in snapshot.data_scopes:
             data_source_key = str(row.get("data_source_key", ""))
-            policy_type = row.get("policy_type")
-            policy = scope_policy(policy_type) if isinstance(policy_type, str) else None
-            if policy is None:
-                _logger.warning("数据范围策略未注册，该条不产生放行：%s", policy_type)
-                bucket = _bucket(grouped, data_source_key)
-                bucket.add(ScopeCondition("id", "in", []))
-                continue
-            config = cast("Any", row.get("config"))
-            rows: ConcurrentStableList[ConcurrentStableDict[str, object]] = ConcurrentStableList()
-            if isinstance(config, list | tuple):
-                for item in cast("Any", config):
-                    if isinstance(item, dict):
-                        stable: ConcurrentStableDict[str, object] = ConcurrentStableDict()
-                        for key, value in cast("Any", item).items():
-                            stable.set(str(key), value)
-                        rows.add(stable)
+            raw_policy = row.get("policy_type")
+            policy_type = raw_policy if isinstance(raw_policy, str) else None
             bucket = _bucket(grouped, data_source_key)
-            bucket.update(policy(rows))
+            bucket.update(self._resolve(data_source_key, policy_type, _config_rows(row.get("config"))))
         result: ConcurrentStableList[ScopeCondition] = ConcurrentStableList()
         for key in grouped:
             bucket = grouped.get(key)
@@ -128,6 +117,81 @@ class RbacDataScope(DataScope):
                 continue
             result.update(_union(key, bucket))
         return result
+
+    def _resolve(
+        self,
+        data_source_key: str,
+        policy_type: str | None,
+        rows: ConcurrentStableList[ConcurrentStableDict[str, object]],
+    ) -> ConcurrentStableList[ScopeCondition]:
+        """单条规则的求值结果（层2 命中即复用；未命中求值后回填）。
+
+        键按「字典类型 + 策略 + `config` 内容指纹」计算、**不含用户**——同一规则被多个用户命中时只有
+        一份结果（`04-3` 在此之上加引用计数、大集合 SQL 与内存指标）；指纹不可算时**不缓存**、直接求值。
+
+        Args:
+            data_source_key: 字典类型主键（字符串化）。
+            policy_type: 策略类型；None / 未注册即不产生放行。
+            rows: 该条规则的 `config` 行。
+
+        Returns:
+            ConcurrentStableList[ScopeCondition]: 该条规则的条件（非法规则为永假条件）。
+        """
+        if policy_type is None:
+            return _deny_all("规则缺少策略类型")
+        policy = scope_policy(policy_type)
+        if policy is None:
+            return _deny_all(f"策略未注册：{policy_type}")
+        store = current_permission_cache_store()
+        key = permission_rule_key(data_source_key=data_source_key, policy_type=policy_type, config=rows)
+        if key is not None:
+            cached = store.get_rule(source=RBAC_DATA_SCOPE_NAME, rule_key=key)
+            if isinstance(cached, ConcurrentStableList):
+                return cast("ConcurrentStableList[ScopeCondition]", cached)
+        resolved = policy(rows)
+        if key is not None:
+            store.set_rule(source=RBAC_DATA_SCOPE_NAME, rule_key=key, value=resolved)
+        return resolved
+
+
+def _deny_all(reason: str) -> ConcurrentStableList[ScopeCondition]:
+    """构造「该条不产生放行」的永假条件并上报。
+
+    Args:
+        reason: 拒绝原因（入日志）。
+
+    Returns:
+        ConcurrentStableList[ScopeCondition]: 单条永假条件。
+    """
+    _logger.warning("数据范围规则不产生放行：%s", reason)
+    denied: ConcurrentStableList[ScopeCondition] = ConcurrentStableList()
+    denied.add(DENY_ALL_CONDITION)
+    return denied
+
+
+def _config_rows(raw: object) -> ConcurrentStableList[ConcurrentStableDict[str, object]]:
+    """把规则行的 `config` 规整为保序映射列表。
+
+    按 `Sequence` / `Mapping` **协议**判定（`StableJson` 读回的是基座集合类，不是内建 `list` / `dict`；
+    与 `04_01` 实施记录 §3.4 同口径），避免真实链路规则被静默丢弃。
+
+    Args:
+        raw: 原始 `config`。
+
+    Returns:
+        ConcurrentStableList[ConcurrentStableDict[str, object]]: 规则行列表。
+    """
+    rows: ConcurrentStableList[ConcurrentStableDict[str, object]] = ConcurrentStableList()
+    if not isinstance(raw, Sequence) or isinstance(raw, str | bytes):
+        return rows
+    for item in cast("Sequence[object]", raw):
+        if not isinstance(item, Mapping):
+            continue
+        stable: ConcurrentStableDict[str, object] = ConcurrentStableDict()
+        for key, value in cast("Mapping[object, object]", item).items():
+            stable.set(str(key), value)
+        rows.add(stable)
+    return rows
 
 
 def _bucket(

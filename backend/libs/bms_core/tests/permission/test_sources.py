@@ -5,6 +5,7 @@
 **provider=rbac 但未登记数据来源即拒启**（fail-closed）。
 """
 
+import asyncio
 from collections.abc import Iterator
 
 import pytest
@@ -15,6 +16,12 @@ from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.config import Settings
 from bms_core.core.context import current_tenant_id, current_user_id
 from bms_core.core.exceptions import PluginError
+from bms_core.permission.cache import (
+    OPTION_IDLE_SWEEP_INTERVAL,
+    OPTION_IDLE_TIMEOUT,
+    current_permission_cache_store,
+    reset_permission_cache_store,
+)
 from bms_core.permission.guard import (
     BasePermissionGuard,
     PermissionGuardContext,
@@ -101,9 +108,25 @@ class _DenyGuard(BasePermissionGuard):
         return False
 
 
+class _Clock:
+    """可控时钟（替身 `bms_core.permission.cache.monotonic`）。"""
+
+    def __init__(self) -> None:
+        """初始化（从 1000 秒起）。"""
+        self.now = 1000.0
+
+    def __call__(self) -> float:
+        """取当前时刻。
+
+        Returns:
+            float: 当前时刻。
+        """
+        return self.now
+
+
 @pytest.fixture(autouse=True)
 def clean_registry() -> Iterator[None]:
-    """每例前后清空数据来源注册表 / 快照 / 校验链 / 上下文。
+    """每例前后清空数据来源注册表 / 快照 / 校验链 / 上下文 / 三层缓存仓。
 
     Yields:
         None: 用例运行期。
@@ -111,10 +134,12 @@ def clean_registry() -> Iterator[None]:
     reset_permission_data_sources()
     set_current_permission_snapshot(None)
     reset_permission_guards()
+    reset_permission_cache_store()
     yield
     reset_permission_data_sources()
     set_current_permission_snapshot(None)
     reset_permission_guards()
+    reset_permission_cache_store()
     current_user_id.set(None)
     current_tenant_id.set(None)
 
@@ -299,3 +324,78 @@ async def test_aprepare_rejects_when_source_missing() -> None:
     current_tenant_id.set("1001")
     with pytest.raises(PluginError):
         await checker.aprepare(request=_request())
+
+
+@pytest.mark.kiwi_id(2321)
+def test_factory_configures_process_store_with_options() -> None:
+    """装配：工厂按 `[permission].options` 建三层缓存仓，并把闲置阈值注入校验器。"""
+    register_permission_data_source(_Source())
+    settings = Settings()
+    settings.permission.options.set(OPTION_IDLE_TIMEOUT, 90)
+    settings.permission.options.set(OPTION_IDLE_SWEEP_INTERVAL, 15)
+    checker = RbacPermissionCheckerFactory(settings).create()
+    assert checker.store is current_permission_cache_store()
+    assert checker.idle_timeout == 90
+    assert checker.sweep_interval == 15
+
+
+@pytest.mark.kiwi_id(2321)
+async def test_setup_starts_idle_sweep_and_aclose_stops(monkeypatch: pytest.MonkeyPatch) -> None:
+    """生命周期：`setup` 起巡检任务、按闲置阈值注销快照；`aclose` 停任务（幂等）。"""
+    clock = _Clock()
+    monkeypatch.setattr("bms_core.permission.cache.monotonic", clock)
+    checker = RbacPermissionChecker(idle_timeout=1800, sweep_interval=0.01)
+    checker.store.set_snapshot(source=_Source.key, tenant_id="1001", user_id=5, version=0, value=PermissionSnapshot())
+    clock.now += 1801
+
+    await checker.setup()
+    await checker.setup()  # 幂等：重复装配不重复起任务
+    await asyncio.sleep(0.05)
+    assert checker.store.stats()["snapshot_items"] == 0
+    await checker.aclose()
+    assert checker.sweep_task is None
+    await checker.aclose()  # 无任务时复用不报错
+
+
+@pytest.mark.kiwi_id(2321)
+async def test_setup_skipped_when_idle_disabled() -> None:
+    """巡检可关闭：阈值或周期非正即不起后台任务（仅保留 TTL 与容量淘汰）。"""
+    disabled = RbacPermissionChecker(idle_timeout=0)
+    await disabled.setup()
+    assert disabled.sweep_task is None
+
+    no_interval = RbacPermissionChecker(sweep_interval=0)
+    await no_interval.setup()
+    assert no_interval.sweep_task is None
+
+
+@pytest.mark.kiwi_id(2321)
+async def test_sweep_loop_survives_single_round_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+    """巡检健壮性：单轮异常只记日志，不终止循环。"""
+    checker = RbacPermissionChecker(sweep_interval=0.01)
+    calls: ConcurrentStableList[int] = ConcurrentStableList()
+
+    def _boom(idle_seconds: int, *, now: float | None = None) -> int:
+        """抛错替身。
+
+        Args:
+            idle_seconds: 闲置阈值（忽略）。
+            now: 当前时刻（忽略）。
+
+        Returns:
+            int: 不会返回。
+
+        Raises:
+            RuntimeError: 恒定抛出。
+        """
+        del idle_seconds, now
+        calls.add(1)
+        raise RuntimeError("sweep boom")
+
+    monkeypatch.setattr(checker.store, "sweep_idle", _boom)
+    await checker.setup()
+    await asyncio.sleep(0.05)
+    assert len(calls) >= 1
+    assert checker.sweep_task is not None
+    assert checker.sweep_task.done() is False
+    await checker.aclose()
