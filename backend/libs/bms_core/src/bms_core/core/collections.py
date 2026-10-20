@@ -34,6 +34,36 @@ if TYPE_CHECKING:
 MAX_INDEX = 9223372036854775807
 """`Sequence.index` 的默认上界（与内置序列一致；避免用 `None` 与 `SupportsIndex` 冲突）。"""
 
+REPR_ITEM_LIMIT = 10
+"""`__str__` / `__repr__` 的默认条目上限（超出截断并在末尾提示总项数）。"""
+
+
+def render_payload(payload: object) -> str:
+    """把 JSON 载荷渲染为「内置字面量」展示文本（超长截断）。
+
+    `_json_data()` 已返回**内置容器**（序列为 `list`、映射为 `dict`），故直接 `repr` 即得
+    与内置容器一致的字面量；条目超过 `REPR_ITEM_LIMIT` 时截断，末尾追加「共 N 项」提示。
+
+    Args:
+        payload: `_json_data()` 的输出（内置容器）。
+
+    Returns:
+        str: 展示文本（不抛错）。
+    """
+    if isinstance(payload, list):
+        items = cast("list[Any]", payload)
+        if len(items) <= REPR_ITEM_LIMIT:
+            return repr(items)
+        head = ", ".join(repr(item) for item in items[:REPR_ITEM_LIMIT])
+        return f"[{head}, … 共 {len(items)} 项]"
+    if isinstance(payload, dict):
+        mapping = cast("dict[Any, Any]", payload)
+        if len(mapping) <= REPR_ITEM_LIMIT:
+            return repr(mapping)
+        head = ", ".join(f"{key!r}: {value!r}" for key, value in list(mapping.items())[:REPR_ITEM_LIMIT])
+        return f"{{{head}, … 共 {len(mapping)} 项}}"
+    return repr(payload)
+
 
 class BaseCollection[ItemT](BaseObject, ABC):
     """基础集合基类：集合体系唯根。
@@ -53,6 +83,56 @@ class BaseCollection[ItemT](BaseObject, ABC):
     collection_kind: ClassVar[str] = "collection"
     """集合形态标识（子层覆写，如 `sorted` / `sorted_concurrent` / `sorted_async` / `stable` / `cache_snapshot`）。"""
 
+    _frozen: bool = False
+    """冻结标记：True 时一切写操作抛 `TypeError`（只读快照语义，由 `freeze()` 置位）。"""
+
+    @abstractmethod
+    def _freeze_clone(self) -> Self:
+        """构造**内容独立**的同类副本（供 `freeze()` 使用；子层按各自形态实现）。
+
+        Returns:
+            Self: 同类新实例（内容为当前快照，未置冻结标记）。
+        """
+
+    def freeze(self) -> Self:
+        """返回**冻结副本**（只读快照）：此后一切写操作抛 `TypeError`。
+
+        用途：把「只读快照」从口头约定落成**真实机制**——写入不再依赖「碰巧没有
+        `__setitem__`」这类实现细节。冻结副本内容独立（不受原实例后续写入影响）。
+
+        Returns:
+            Self: 冻结副本（内容为当前快照）。
+        """
+        clone = self._freeze_clone()
+        clone._frozen = True
+        return clone
+
+    def _ensure_mutable(self) -> None:
+        """写操作前置守卫：冻结态直接抛 `TypeError`。
+
+        Raises:
+            TypeError: 集合已冻结（只读快照）。
+        """
+        if self._frozen:
+            raise TypeError(f"{type(self).__name__} 为只读快照（已 freeze），禁止写入")
+
+    def __str__(self) -> str:
+        """兜底展示：类名 + 形态标记（子层覆写为内容式，跨副本形态覆写为描述式）。
+
+        Returns:
+            str: 形如 `RedisSnapshot(<cache_snapshot>)`；**恒不抛错**（不得触发同步读）。
+        """
+        marker = " 冻结" if self._frozen else ""
+        return f"{type(self).__name__}(<{self.collection_kind}{marker}>)"
+
+    def __repr__(self) -> str:
+        """字符串输出（与 `__str__` 一致，容器内展示统一）。
+
+        Returns:
+            str: 展示文本。
+        """
+        return self.__str__()
+
 
 class BaseSorted[ItemT](BaseCollection[ItemT], ABC):
     """有序基类（非并发有序）：稳定序列化、排序视图、分批与集合运算。
@@ -63,6 +143,18 @@ class BaseSorted[ItemT](BaseCollection[ItemT], ABC):
     """
 
     collection_kind: ClassVar[str] = "sorted"
+
+    def _freeze_clone(self) -> Self:
+        """按内容重建同类副本（有序分支统一实现：映射走键值对、序列走元素列表）。
+
+        Returns:
+            Self: 同类新实例（未置冻结标记）。
+        """
+        constructor = cast("Callable[[Iterable[Any]], Self]", type(self))
+        payload = self._json_data()
+        if isinstance(payload, dict):
+            return constructor(cast("dict[Any, Any]", payload).items())
+        return constructor(cast("Iterable[Any]", payload))
 
     @abstractmethod
     def to_list(self) -> list[ItemT]:
@@ -145,11 +237,20 @@ class BaseSorted[ItemT](BaseCollection[ItemT], ABC):
         return constructor(merged)
 
     def __str__(self) -> str:
-        """内容式展示：类名(内容列表)。"""
-        return f"{type(self).__name__}({self.to_list()})"
+        """内容式展示：类名 + 内置字面量（超长截断为「共 N 项」）。
+
+        Returns:
+            str: 形如 `SortedDict({'a': 1})`（序列为 `[..]`、映射为 `{..}`）。
+        """
+        marker = " 冻结" if self._frozen else ""
+        return f"{type(self).__name__}({render_payload(self._json_data())}{marker})"
 
     def __repr__(self) -> str:
-        """内容式展示（与 __str__ 一致）。"""
+        """内容式展示（与 `__str__` 一致）。
+
+        Returns:
+            str: 展示文本。
+        """
         return self.__str__()
 
     @abstractmethod

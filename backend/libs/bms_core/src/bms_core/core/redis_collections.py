@@ -9,7 +9,7 @@
 from abc import ABC, abstractmethod
 from collections.abc import AsyncGenerator, Awaitable, Callable, Iterator
 from contextlib import asynccontextmanager
-from typing import ClassVar, cast
+from typing import ClassVar, Self, cast
 
 from redis.asyncio import Redis
 from redis.exceptions import WatchError
@@ -147,6 +147,32 @@ class BaseAsyncSorted[ItemT](BaseSorted[ItemT], ABC):
         """
         raise NotImplementedError(
             f"{type(self).__name__} 为跨副本形态、无同步读入口，请使用异步读写方法（如 range_by_rank / top / items）"
+        )
+
+    def __str__(self) -> str:
+        """描述式展示：类名 + 键名（**不读远端**，`repr` / 日志 / 调试器打印**恒不抛错**）。
+
+        Returns:
+            str: 形如 `RedisSortedSet(key='bms:global:demo:s')`。
+        """
+        return f"{type(self).__name__}(key={getattr(self, '_key', '<unbound>')!r})"
+
+    def __repr__(self) -> str:
+        """描述式展示（与 `__str__` 一致）。
+
+        Returns:
+            str: 展示文本。
+        """
+        return self.__str__()
+
+    def _freeze_clone(self) -> Self:
+        """跨副本形态**不支持冻结副本**（无同步读入口，无法构造内容快照）。
+
+        Raises:
+            NotImplementedError: 恒抛（跨副本形态无同步读入口）。
+        """
+        raise NotImplementedError(
+            f"{type(self).__name__} 为跨副本形态、无同步读入口，不支持 freeze（请直接以只读方式使用）"
         )
 
     @abstractmethod
@@ -548,6 +574,14 @@ class BaseCacheSnapshot[DataT](BaseCollection[DataT], ABC):
     """
 
     collection_kind: ClassVar[str] = "cache_snapshot"
+
+    def _freeze_clone(self) -> Self:
+        """通用缓存层**不支持冻结副本**（快照由 `get()` 惰性重载，无同步构造路径）。
+
+        Raises:
+            NotImplementedError: 恒抛（缓存快照不提供内容副本）。
+        """
+        raise NotImplementedError(f"{type(self).__name__} 为缓存快照，不支持 freeze（请经 get() 取用）")
 
     @abstractmethod
     async def get(self) -> DataT:

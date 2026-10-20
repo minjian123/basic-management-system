@@ -305,15 +305,16 @@ class PluginRegistry(BaseFrameworkObject):
             _add_entry(registry, errors, key, name, impl)
         if errors:
             raise PluginError("插件注册表构建失败：" + "；".join(errors))
-        self._plugins = ConcurrentStableDict(
+        frozen: ConcurrentStableDict[str, ConcurrentStableDict[str, PluginImpl]] = ConcurrentStableDict(
             {
-                key: ConcurrentStableDict({name: registry[key][name] for name in sorted(registry[key])})
+                key: ConcurrentStableDict({name: registry[key][name] for name in sorted(registry[key])}).freeze()
                 for key in sorted(registry)
             }
-        )
+        ).freeze()
+        self._plugins = frozen
         for cache_key in list(self._instances):
             self._instances.get_and_remove(cache_key)
-        return self._plugins
+        return frozen
 
     def resolve(
         self,

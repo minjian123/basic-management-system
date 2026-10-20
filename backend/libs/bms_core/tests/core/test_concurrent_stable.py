@@ -150,14 +150,33 @@ def test_stable_rejects_bad_shard_count() -> None:
 
 
 @pytest.mark.kiwi_id(2222)
-def test_stable_write_only_via_explicit_methods() -> None:
-    """写入仅走显式原子方法：不提供 `append` / `__setitem__`。"""
-    list_instance = ConcurrentStableList([1, 2])
-    set_instance = ConcurrentStableSet([1, 2])
+def test_stable_write_sugar_equivalent_to_atomic_methods() -> None:
+    """写糖一律等价于对应原子方法（08-4 修订：原「无 append / 无 __setitem__」口径已废）。
+
+    `append` ≡ `add`、`extend` ≡ `update`、`d[k] = v` ≡ `set`、`del d[k]` ≡ `delete`；
+    写糖**不新增写路径**，仅转发原子方法。
+    """
+    list_instance = ConcurrentStableList([1])
+    list_instance.append(2)
+    list_instance.extend([3])
+    assert list_instance.to_list() == ConcurrentStableList([1, 2, 3]).to_list()
+
+    set_instance = ConcurrentStableSet([1])
+    set_instance.add(2)
+    assert 2 in set_instance
+
     dict_instance = ConcurrentStableDict[str, int]({"a": 1})
-    for instance in (list_instance, set_instance, dict_instance):
-        assert not hasattr(instance, "append")
-        assert not hasattr(instance, "__setitem__")
+    dict_instance["b"] = 2
+    del dict_instance["a"]
+    assert dict_instance.to_dict() == {"b": 2}
+
+
+@pytest.mark.kiwi_id(2222)
+def test_stable_rejects_full_reindexing_operations() -> None:
+    """禁用方法不存在：`insert` / 原地 `sort` / 原地 `reverse`（须全表重编号并持全局写锁）。"""
+    list_instance = ConcurrentStableList([1, 2])
+    for name in ("insert", "sort", "reverse"):
+        assert not hasattr(list_instance, name)
 
 
 @pytest.mark.kiwi_id(2222)

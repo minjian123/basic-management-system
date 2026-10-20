@@ -39,7 +39,7 @@ from sortedcontainers import SortedSet as _SortedSet
 
 from bms_core.core.base import BaseObject
 from bms_core.core.collections import MAX_INDEX, BaseSorted
-from bms_core.core.concurrent import BaseConcurrent, ConcurrentStableList
+from bms_core.core.concurrent import MISSING, BaseConcurrent, ConcurrentStableList
 from bms_core.core.holder import ValueHolder
 from bms_core.core.locking import LockStrategy, ReadWriteLock
 
@@ -156,6 +156,10 @@ class ConcurrentSortedList[ItemT](BaseConcurrent[ItemT, SortedList[ItemT]], Sequ
 
     只读面按 `Sequence` 提供（索引 / 切片 / 相等），写入走显式原子方法；
     排序需求走排序契约（业务与契约不得直接声明本类）。
+
+    **通用功能面（08-4）**：与 `ConcurrentStableList` 同一套写法（`append` / `extend` /
+    `+=` / `+` / `pop(i)` / `l[i] = v` / `del l[i]` / `sorted` / `merge` / `copy`），
+    两形态 API 不分叉；**同样不提供 `insert` / 原地 `sort` / 原地 `reverse`**。
     """
 
     def __init__(
@@ -166,7 +170,19 @@ class ConcurrentSortedList[ItemT](BaseConcurrent[ItemT, SortedList[ItemT]], Sequ
     ) -> None:
         effective = LockStrategy.RW if strategy is LockStrategy.SHARDED else strategy
         super().__init__(strategy=effective)
+        self._strategy = effective
         self._data = SortedList(items)
+
+    def _spawn(self, items: Iterable[ItemT]) -> Self:
+        """按「同类 + 同策略」构造新实例（切片 / 拼接 / 排序共用）。
+
+        Args:
+            items: 新实例的初始元素。
+
+        Returns:
+            Self: 同类新实例。
+        """
+        return type(self)(items, strategy=self._strategy)
 
     def _copy_data(self) -> SortedList[ItemT]:
         """复制内部数据（SNAPSHOT 写时复制）。"""
@@ -174,26 +190,151 @@ class ConcurrentSortedList[ItemT](BaseConcurrent[ItemT, SortedList[ItemT]], Sequ
 
     def add(self, item: ItemT) -> None:
         """插入元素。"""
+        self._ensure_mutable()
         with self._write_data() as data:
             data.add(item)
 
+    def append(self, item: ItemT) -> None:
+        """追加元素（`add` 的同义写法）。
+
+        Args:
+            item: 待追加元素。
+        """
+        self._ensure_mutable()
+        self.add(item)
+
     def update(self, items: Iterable[ItemT]) -> None:
         """批量插入。"""
+        self._ensure_mutable()
         with self._write_data() as data:
             data.update(items)
 
+    def extend(self, items: Iterable[ItemT]) -> None:
+        """批量追加（`update` 的同义写法）。
+
+        Args:
+            items: 待追加元素序列。
+        """
+        self._ensure_mutable()
+        self.update(items)
+
+    def __iadd__(self, items: Iterable[ItemT]) -> Self:
+        """`l += items`：批量插入并返回自身。
+
+        Args:
+            items: 待插入元素序列。
+
+        Returns:
+            Self: 自身。
+        """
+        self._ensure_mutable()
+        self.update(items)
+        return self
+
+    def __add__(self, items: Iterable[ItemT]) -> Self:
+        """`l + items`：返回**同类新实例**（原实例不变）。
+
+        Args:
+            items: 追加的元素序列。
+
+        Returns:
+            Self: 同类新实例。
+        """
+        merged = self.to_list()
+        merged.extend(items)
+        return self._spawn(merged)
+
+    def copy(self) -> Self:
+        """浅复制（同类 + 同策略）。
+
+        Returns:
+            Self: 内容快照构成的新实例。
+        """
+        return self._spawn(self.to_list())
+
+    def pop(self, index: SupportsIndex = -1) -> ItemT:
+        """取走并删除指定位置元素（**O(n)**）。
+
+        Args:
+            index: 位置（支持负数；默认末位）。
+
+        Returns:
+            ItemT: 被取走的元素。
+
+        Raises:
+            IndexError: 位置越界 / 空表。
+        """
+        self._ensure_mutable()
+        with self._write_data() as data:
+            item = data[index.__index__()]
+            data.remove(item)
+            return item
+
+    def __setitem__(self, index: SupportsIndex | slice, value: ItemT) -> None:
+        """按位置替换元素（**O(n)**；替换后仍按升序归位）。
+
+        Args:
+            index: 位置（支持负数）。**切片赋值不支持**。
+            value: 新元素。
+
+        Raises:
+            TypeError: 传入切片（请改用重建集合）。
+            IndexError: 位置越界。
+        """
+        self._ensure_mutable()
+        if isinstance(index, slice):
+            raise TypeError(f"{type(self).__name__} 不支持切片赋值（须全表重排），请重建集合")
+        with self._write_data() as data:
+            data.remove(data[index.__index__()])
+            data.add(value)
+
+    def __delitem__(self, index: SupportsIndex | slice) -> None:
+        """按位置删除元素（**O(n)**）。
+
+        Args:
+            index: 位置（支持负数）。**切片删除不支持**。
+
+        Raises:
+            TypeError: 传入切片（请改用重建集合）。
+            IndexError: 位置越界。
+        """
+        self._ensure_mutable()
+        if isinstance(index, slice):
+            raise TypeError(f"{type(self).__name__} 不支持切片删除（须全表重排），请重建集合")
+        with self._write_data() as data:
+            data.remove(data[index.__index__()])
+
+    def sorted(self, key: Callable[[ItemT], Any] | None = None, reverse: bool = False) -> Self:
+        """返回**升序同类副本**（升序形态的底层结构本身维持升序，排序结果落回时按升序归位）。
+
+        **升序形态的 `reverse=True` 无效**——底层 `SortedList` 插入即按升序归位，倒序需在
+        `to_list()` 快照上处理。**不提供原地 `sort` / `reverse`**（须全表重排）。
+
+        Args:
+            key: 排序键函数（仅用于确定比较口径，结果仍按升序归位）。
+            reverse: 对升序形态无效果（保留参数以与插入序形态同签名）。
+
+        Returns:
+            Self: 升序同类新实例。
+        """
+        del key, reverse
+        return self._spawn(self.to_list())
+
     def discard(self, item: ItemT) -> None:
         """删除元素（不存在不报错）。"""
+        self._ensure_mutable()
         with self._write_data() as data:
             data.discard(item)
 
     def remove(self, item: ItemT) -> None:
         """删除元素（不存在抛 ValueError）。"""
+        self._ensure_mutable()
         with self._write_data() as data:
             data.remove(item)
 
     def clear(self) -> None:
         """清空。"""
+        self._ensure_mutable()
         with self._write_data() as data:
             data.clear()
 
@@ -225,7 +366,7 @@ class ConcurrentSortedList[ItemT](BaseConcurrent[ItemT, SortedList[ItemT]], Sequ
     def __getitem__(self, index: SupportsIndex | slice) -> ItemT | Self:
         snapshot = self.to_list()
         if isinstance(index, slice):
-            return type(self)(snapshot[index])
+            return self._spawn(snapshot[index])
         return snapshot[index]
 
     def index(self, value: Any, start: SupportsIndex = 0, stop: SupportsIndex = MAX_INDEX, /) -> int:
@@ -255,6 +396,9 @@ class ConcurrentSortedSet[ItemT](BaseConcurrent[ItemT, SortedSet[ItemT]], Set[It
 
     只读面按 `Set` 提供（成员判断 / 集合运算 / 相等），写入走显式原子方法；
     业务与契约不得直接声明本类（升序形态为基座内部实现）。
+
+    **通用功能面（08-4）**：与 `ConcurrentStableSet` 同一套写法（`remove` / `pop` /
+    `copy` / 四个命名集合运算及 `*_update`），两形态 API 不分叉。
     """
 
     def __init__(
@@ -275,6 +419,7 @@ class ConcurrentSortedSet[ItemT](BaseConcurrent[ItemT, SortedSet[ItemT]], Set[It
             self._shards = []
         super().__init__(strategy=strategy if strategy is not LockStrategy.SHARDED else LockStrategy.RW)
         self._strategy = strategy
+        self._shard_count = shard_count
         materialized = list(items)
         self._data = SortedSet(materialized)
         if self._strategy is LockStrategy.SHARDED:
@@ -285,6 +430,19 @@ class ConcurrentSortedSet[ItemT](BaseConcurrent[ItemT, SortedSet[ItemT]], Set[It
         if self._strategy is LockStrategy.SHARDED:
             return self._shards[hash(item) % len(self._shards)]
         return None
+
+    def _spawn(self, items: Iterable[ItemT]) -> Self:
+        """按「同类 + 同策略 + 同段数」构造新实例（副本 / 集合运算共用）。
+
+        Args:
+            items: 新实例的初始元素。
+
+        Returns:
+            Self: 同类新实例。
+        """
+        if self._strategy is LockStrategy.SHARDED:
+            return type(self)(items, strategy=self._strategy, shard_count=self._shard_count)
+        return type(self)(items, strategy=self._strategy)
 
     def _view(self) -> list[ItemT]:
         if self._strategy is LockStrategy.SHARDED:
@@ -301,6 +459,7 @@ class ConcurrentSortedSet[ItemT](BaseConcurrent[ItemT, SortedSet[ItemT]], Set[It
 
     def add(self, item: ItemT) -> None:
         """插入元素（去重）。"""
+        self._ensure_mutable()
         shard = self._shard(item)
         if shard is not None:
             lock, data = shard
@@ -312,6 +471,7 @@ class ConcurrentSortedSet[ItemT](BaseConcurrent[ItemT, SortedSet[ItemT]], Set[It
 
     def add_if_absent(self, item: ItemT) -> bool:
         """不存在才插入，返回是否新增（原子）。"""
+        self._ensure_mutable()
         shard = self._shard(item)
         if shard is not None:
             lock, data = shard
@@ -328,6 +488,7 @@ class ConcurrentSortedSet[ItemT](BaseConcurrent[ItemT, SortedSet[ItemT]], Set[It
 
     def discard(self, item: ItemT) -> None:
         """删除元素（不存在不报错）。"""
+        self._ensure_mutable()
         shard = self._shard(item)
         if shard is not None:
             lock, data = shard
@@ -339,6 +500,7 @@ class ConcurrentSortedSet[ItemT](BaseConcurrent[ItemT, SortedSet[ItemT]], Set[It
 
     def remove_atomic(self, item: ItemT) -> bool:
         """删除元素并返回是否删除（原子）。"""
+        self._ensure_mutable()
         shard = self._shard(item)
         if shard is not None:
             lock, data = shard
@@ -353,8 +515,162 @@ class ConcurrentSortedSet[ItemT](BaseConcurrent[ItemT, SortedSet[ItemT]], Set[It
             data.discard(item)
             return True
 
+    def remove(self, item: ItemT) -> None:
+        """删除元素（缺失抛 `KeyError`，与内置 `set.remove` 一致）。
+
+        Args:
+            item: 待删除元素。
+
+        Raises:
+            KeyError: 元素不存在。
+        """
+        self._ensure_mutable()
+        if not self.remove_atomic(item):
+            raise KeyError(item)
+
+    def pop(self) -> ItemT:
+        """取走并返回**最小**元素（升序形态的首位）；空集抛 `KeyError`。
+
+        Returns:
+            ItemT: 被取走的元素。
+
+        Raises:
+            KeyError: 集合为空。
+        """
+        self._ensure_mutable()
+        if self._strategy is LockStrategy.SHARDED:
+            with self._global.write():
+                candidates = cast("list[Any]", [next(iter(data)) for _, data in self._shards if data])
+                if not candidates:
+                    raise KeyError(f"{type(self).__name__} 为空")
+                chosen = cast("ItemT", min(candidates))
+                self._shards[hash(chosen) % len(self._shards)][1].discard(chosen)
+                return chosen
+        with self._write_data() as data:
+            if not data:
+                raise KeyError(f"{type(self).__name__} 为空")
+            chosen = next(iter(data))
+            data.discard(chosen)
+            return chosen
+
+    def copy(self) -> Self:
+        """浅复制（同类 + 同策略）。
+
+        Returns:
+            Self: 内容快照构成的新实例。
+        """
+        return self._spawn(self.to_list())
+
+    def union(self, *others: Iterable[ItemT]) -> Self:
+        """并集（返回同类，O(n + Σk)）。
+
+        Args:
+            *others: 参与求并的其他可迭代对象。
+
+        Returns:
+            Self: 并集结果。
+        """
+        result = self.copy()
+        for other in others:
+            for item in other:
+                result.add(item)
+        return result
+
+    def intersection(self, *others: Iterable[ItemT]) -> Self:
+        """交集（返回同类，O(n + Σk)）。
+
+        Args:
+            *others: 参与求交的其他可迭代对象。
+
+        Returns:
+            Self: 交集结果。
+        """
+        keep = self.to_list()
+        for other in others:
+            members = set(other)
+            keep = [item for item in keep if item in members]
+        return self._spawn(keep)
+
+    def difference(self, *others: Iterable[ItemT]) -> Self:
+        """差集（返回同类，O(n + Σk)）。
+
+        Args:
+            *others: 参与求差的其他可迭代对象。
+
+        Returns:
+            Self: 差集结果。
+        """
+        excluded: set[object] = set()
+        for other in others:
+            excluded.update(other)
+        return self._spawn(item for item in self if item not in excluded)
+
+    def symmetric_difference(self, other: Iterable[ItemT]) -> Self:
+        """对称差（返回同类，O(n + k)）。
+
+        Args:
+            other: 参与求对称差的可迭代对象。
+
+        Returns:
+            Self: 对称差结果。
+        """
+        members = set(other)
+        return self._spawn(
+            [*(item for item in self if item not in members), *(item for item in members if item not in self)]
+        )
+
+    def update(self, *others: Iterable[ItemT]) -> None:  # pyright: ignore[reportIncompatibleMethodOverride]
+        """原地并集（批量插入，去重，O(Σk)）。
+
+        Args:
+            *others: 参与并集的其他可迭代对象。
+        """
+        self._ensure_mutable()
+        for other in others:
+            for item in other:
+                self.add(item)
+
+    def intersection_update(self, *others: Iterable[ItemT]) -> None:
+        """原地交集（O(n + Σk)）。
+
+        Args:
+            *others: 参与求交的其他可迭代对象。
+        """
+        self._ensure_mutable()
+        keep = set(self.intersection(*others).to_list())
+        for item in self.to_list():
+            if item not in keep:
+                self.discard(item)
+
+    def difference_update(self, *others: Iterable[ItemT]) -> None:
+        """原地差集（O(n + Σk)）：删除出现在任一 `others` 中的元素。
+
+        Args:
+            *others: 参与求差的其他可迭代对象。
+        """
+        self._ensure_mutable()
+        for other in others:
+            for item in other:
+                self.discard(item)
+
+    def symmetric_difference_update(self, other: Iterable[ItemT]) -> None:
+        """原地对称差（O(n + k)）：本实例独有与 other 独有的并集。
+
+        Args:
+            other: 参与求对称差的可迭代对象。
+        """
+        self._ensure_mutable()
+        members = set(other)
+        to_remove = [item for item in self.to_list() if item in members]
+        to_add = [item for item in members if item not in self]
+        for item in to_remove:
+            self.discard(item)
+        for item in to_add:
+            self.add(item)
+
     def clear(self) -> None:
         """清空。"""
+        self._ensure_mutable()
         if self._strategy is LockStrategy.SHARDED:
             with self._global.write():
                 for _, data in self._shards:
@@ -429,6 +745,10 @@ class ConcurrentSortedDict[KeyT, ValueT](
 
     只读面按 `Mapping` 提供（`[k]` / `keys` / `items` / `values` / 相等，`__iter__` 遍历键），
     写入走显式原子方法；业务与契约不得直接声明本类（升序形态为基座内部实现）。
+
+    **通用功能面（08-4）**：与 `ConcurrentStableDict` 同一套写法（`d[k] = v` /
+    `del d[k]` / `clear` / `pop` / `popitem` / `setdefault` / `fromkeys` /
+    `update(映射 | 键值对 | kwargs)` / `|` / `|=` / `sorted_items` / `sorted_keys`）。
     """
 
     def __init__(
@@ -449,6 +769,7 @@ class ConcurrentSortedDict[KeyT, ValueT](
             self._shards = []
         super().__init__(strategy=strategy if strategy is not LockStrategy.SHARDED else LockStrategy.RW)
         self._strategy = strategy
+        self._shard_count = shard_count
         entries: list[tuple[KeyT, ValueT]] = (
             list(cast("Mapping[KeyT, ValueT]", items).items()) if isinstance(items, Mapping) else list(items)
         )
@@ -462,6 +783,241 @@ class ConcurrentSortedDict[KeyT, ValueT](
             return self._shards[hash(key) % len(self._shards)]
         return None
 
+    def _spawn(self, items: Mapping[KeyT, ValueT] | Iterable[tuple[KeyT, ValueT]]) -> Self:
+        """按「同类 + 同策略 + 同段数」构造新实例（副本 / 并集共用）。
+
+        Args:
+            items: 新实例的初始键值对。
+
+        Returns:
+            Self: 同类新实例。
+        """
+        if self._strategy is LockStrategy.SHARDED:
+            return type(self)(items, strategy=self._strategy, shard_count=self._shard_count)
+        return type(self)(items, strategy=self._strategy)
+
+    def update(
+        self,
+        items: Mapping[KeyT, ValueT] | Iterable[tuple[KeyT, ValueT]] = (),
+        /,
+        **kwargs: ValueT,
+    ) -> None:  # pyright: ignore[reportIncompatibleMethodOverride]
+        """批量写入：接受**映射 / 键值对可迭代 / 关键字参数**（三者可叠加）。
+
+        Args:
+            items: 映射（走 `.items()`）或键值对可迭代对象。
+            **kwargs: 追加写入的键值对（键须为字符串）。
+        """
+        self._ensure_mutable()
+        pairs: Iterable[tuple[KeyT, ValueT]] = (
+            cast("Mapping[KeyT, ValueT]", items).items() if isinstance(items, Mapping) else items
+        )
+        for key, value in pairs:
+            self.set(key, value)
+        for key, value in kwargs.items():
+            self.set(cast("KeyT", key), value)
+
+    def __setitem__(self, key: KeyT, value: ValueT) -> None:
+        """`d[key] = value`（等价于 `set`）。
+
+        Args:
+            key: 键。
+            value: 值。
+        """
+        self._ensure_mutable()
+        self.set(key, value)
+
+    def __delitem__(self, key: KeyT) -> None:
+        """`del d[key]`（等价于 `delete`；缺失抛 `KeyError`）。
+
+        Args:
+            key: 键。
+
+        Raises:
+            KeyError: 键不存在。
+        """
+        self._ensure_mutable()
+        self.delete(key)
+
+    def clear(self) -> None:
+        """清空。"""
+        self._ensure_mutable()
+        if self._strategy is LockStrategy.SHARDED:
+            with self._global.write():
+                for _, data in self._shards:
+                    data.clear()
+            return
+        with self._write_data() as data:
+            data.clear()
+
+    def pop(self, key: KeyT, default: Any = MISSING) -> Any:
+        """取走并删除（缺失时返回 `default`，无默认则抛 `KeyError`）。
+
+        Args:
+            key: 键。
+            default: 缺失时的返回值。
+
+        Returns:
+            Any: 旧值或 `default`。
+
+        Raises:
+            KeyError: 键不存在且未给默认值。
+        """
+        self._ensure_mutable()
+        shard = self._shard(key)
+        if shard is not None:
+            lock, data = shard
+            with self._global.read(), lock:
+                if key not in data:
+                    if default is MISSING:
+                        raise KeyError(key)
+                    return default
+                return data.pop(key)
+        with self._write_data() as data:
+            if key not in data:
+                if default is MISSING:
+                    raise KeyError(key)
+                return default
+            return data.pop(key)
+
+    def popitem(self) -> tuple[KeyT, ValueT]:
+        """取走**最大键**的键值对（升序形态末位，与内置 `dict` 的 LIFO 语义对齐为「最后一个」）。
+
+        Returns:
+            tuple[KeyT, ValueT]: 被取走的键值对。
+
+        Raises:
+            KeyError: 空表。
+        """
+        self._ensure_mutable()
+        if self._strategy is LockStrategy.SHARDED:
+            with self._global.write():
+                snapshot = self._view()
+                if not snapshot:
+                    raise KeyError(f"{type(self).__name__} 为空")
+                key = snapshot[-1][0]
+                value = self._shards[hash(key) % len(self._shards)][1].pop(key)
+                return key, value
+        with self._write_data() as data:
+            if not data:
+                raise KeyError(f"{type(self).__name__} 为空")
+            key = next(reversed(data))
+            return key, data.pop(key)
+
+    def setdefault(self, key: KeyT, default: ValueT | None = None) -> ValueT | None:
+        """存在则返回既有值；不存在则**原子**写入 `default` 并返回它。
+
+        Args:
+            key: 键。
+            default: 缺失时写入并返回的值。
+
+        Returns:
+            ValueT | None: 既有值或 `default`。
+        """
+        self._ensure_mutable()
+        shard = self._shard(key)
+        if shard is not None:
+            lock, data = shard
+            with self._global.read(), lock:
+                if key in data:
+                    return data[key]
+                data[key] = cast("ValueT", default)
+                return default
+        with self._write_data() as data:
+            if key in data:
+                return data[key]
+            data[key] = cast("ValueT", default)
+            return default
+
+    @classmethod
+    def fromkeys(cls, keys: Iterable[KeyT], value: ValueT | None = None) -> Self:
+        """由键序列构造同类字典（值统一为 `value`）。
+
+        Args:
+            keys: 键序列。
+            value: 统一值（缺省 `None`）。
+
+        Returns:
+            Self: 同类新实例。
+        """
+        return cls((key, cast("ValueT", value)) for key in keys)
+
+    def copy(self) -> Self:
+        """浅复制（同类 + 同策略）。
+
+        Returns:
+            Self: 内容快照构成的新实例。
+        """
+        return self._spawn(self._view())
+
+    def __or__(self, other: Mapping[KeyT, ValueT]) -> Self:
+        """`d | other`：返回同类新实例（同键 other 覆盖）。
+
+        Args:
+            other: 参与合并的映射。
+
+        Returns:
+            Self: 合并结果。
+        """
+        merged = self.copy()
+        merged.update(other)
+        return merged
+
+    def __ior__(self, other: Mapping[KeyT, ValueT]) -> Self:
+        """`d |= other`：原地合并并返回自身。
+
+        Args:
+            other: 参与合并的映射。
+
+        Returns:
+            Self: 自身。
+        """
+        self._ensure_mutable()
+        self.update(other)
+        return self
+
+    def sorted_items(
+        self,
+        key: Callable[[tuple[KeyT, ValueT]], Any] | None = None,
+        reverse: bool = False,
+    ) -> list[tuple[KeyT, ValueT]]:
+        """按键值对排序输出**内置 list**（缺省按键）。
+
+        Args:
+            key: 排序键函数（缺省用键值对首元素即键）。
+            reverse: 是否倒序。
+
+        Returns:
+            list[tuple[KeyT, ValueT]]: 排序后的键值对列表（内置类型）。
+        """
+        snapshot = self._view()
+        if key is None:
+            return sorted(cast("list[Any]", snapshot), key=lambda item: item[0], reverse=reverse)
+        return sorted(cast("list[Any]", snapshot), key=key, reverse=reverse)
+
+    def sorted_keys(self, reverse: bool = False) -> list[KeyT]:
+        """按键排序输出**内置 list**。
+
+        Args:
+            reverse: 是否倒序。
+
+        Returns:
+            list[KeyT]: 排序后的键列表（内置类型）。
+        """
+        return sorted(cast("list[Any]", list(self.keys())), reverse=reverse)
+
+    def set(self, key: KeyT, value: ValueT) -> None:
+        """写入键值。"""
+        self._ensure_mutable()
+        shard = self._shard(key)
+        if shard is not None:
+            lock, data = shard
+            with self._global.read(), lock:
+                data[key] = value
+            return
+        with self._write_data() as data:
+            data[key] = value
+
     def _view(self) -> list[tuple[KeyT, ValueT]]:
         if self._strategy is LockStrategy.SHARDED:
             with self._global.write():
@@ -474,17 +1030,6 @@ class ConcurrentSortedDict[KeyT, ValueT](
     def _copy_data(self) -> SortedDict[KeyT, ValueT]:
         """复制内部数据（SNAPSHOT 写时复制）。"""
         return SortedDict(self._data)
-
-    def set(self, key: KeyT, value: ValueT) -> None:
-        """写入键值。"""
-        shard = self._shard(key)
-        if shard is not None:
-            lock, data = shard
-            with self._global.read(), lock:
-                data[key] = value
-            return
-        with self._write_data() as data:
-            data[key] = value
 
     @overload
     def get(self, key: KeyT) -> ValueT | None: ...
@@ -504,6 +1049,7 @@ class ConcurrentSortedDict[KeyT, ValueT](
 
     def delete(self, key: KeyT) -> None:
         """删除键（不存在抛 KeyError）。"""
+        self._ensure_mutable()
         shard = self._shard(key)
         if shard is not None:
             lock, data = shard
@@ -515,6 +1061,7 @@ class ConcurrentSortedDict[KeyT, ValueT](
 
     def put_if_absent(self, key: KeyT, value: ValueT) -> ValueT | None:
         """不存在才写入，返回既有值或 None（原子）。"""
+        self._ensure_mutable()
         shard = self._shard(key)
         if shard is not None:
             lock, data = shard
@@ -531,6 +1078,7 @@ class ConcurrentSortedDict[KeyT, ValueT](
 
     def update_atomic(self, key: KeyT, func: Callable[[ValueT], ValueT]) -> ValueT:
         """原子更新（func 必须纯计算、禁 IO）；键不存在抛 KeyError。"""
+        self._ensure_mutable()
         shard = self._shard(key)
         if shard is not None:
             lock, data = shard
@@ -545,6 +1093,7 @@ class ConcurrentSortedDict[KeyT, ValueT](
 
     def remove_atomic(self, key: KeyT) -> ValueT:
         """删除并返回旧值（原子）；键不存在抛 KeyError。"""
+        self._ensure_mutable()
         shard = self._shard(key)
         if shard is not None:
             lock, data = shard
@@ -559,6 +1108,7 @@ class ConcurrentSortedDict[KeyT, ValueT](
 
     def replace_if_equal(self, key: KeyT, expected: ValueT, new: ValueT) -> bool:
         """CAS：当前值等于 expected 才替换（原子）。"""
+        self._ensure_mutable()
         shard = self._shard(key)
         if shard is not None:
             lock, data = shard
@@ -575,6 +1125,7 @@ class ConcurrentSortedDict[KeyT, ValueT](
 
     def get_and_remove(self, key: KeyT) -> ValueT | None:
         """取走并删除，返回旧值或 None（原子）。"""
+        self._ensure_mutable()
         shard = self._shard(key)
         if shard is not None:
             lock, data = shard
