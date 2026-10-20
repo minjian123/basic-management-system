@@ -6,12 +6,18 @@
 1. **层1 基础数据**：用户聚合输入（角色 / 类型 / 授权行 / 数据范围规则 / 字段收窄）按
    「来源 + 租户 + 用户 + 权限版本」、元数据索引（菜单→表单、权限码 id→码）按「来源 + locale + 权限版本」；
 2. **层2 规则物化**：数据范围规则求值结果按「字典类型 + 策略 + `config` 指纹」键控——键不含用户，
-   同一规则被 N 个用户命中只有一份（`04-3` 在此之上加引用计数、大集合 SQL 与内存指标）；
+   同一规则被 N 个用户命中只有一份（集合经 `04-3` 去重物化为 `ConcurrentStableSet`）；
 3. **层3 用户快照**：`PermissionSnapshot` 按「来源 + 租户 + 用户 + 权限版本」，仅活动用户持有——
    读写刷新最近活动时间，巡检任务按 `idle_timeout` 注销闲置快照（`sweep_idle`）。
 
-**护栏**：三层各自条目上限（LRU 淘汰）+ 层2 元素总量预算（防单条大集合撑爆内存）。上限与 TTL 全经
+**护栏**：三层各自条目上限 + 层2 元素总量预算（防单条大集合撑爆内存）。上限与 TTL 全经
 `[permission].options` 配置（见 `OPTION_*` 常量），缺省保守。
+
+**集合物化（`04-3`）**：层2 除条目与元素账目外，另维护**规则引用计数**（某规则当前被多少个层3 快照
+持有）与**估算字节**——快照只持规则引用，集合本身按规则共享一份；淘汰时先回收最久未用的零引用规则，
+全部被引用才退化为 LRU（后续命中重算）。元素按条件承载的**值元素总数**计量（`in` 集合大小 /
+`between` 计 2 / 标量计 1），大集合不再被「一条只算 1」的旧口径漏算；`stats()` 输出集合条数 / 元素数 /
+估算字节 / 被引用规则数 / 淘汰与超阈计数 / 各层上限，供运维判断是否接近上限。
 
 **单份与隔离**：`current_permission_cache_store()` 返回进程内唯一实例（与数据来源注册表、插件注册表同构）；
 `configure_permission_cache_store` 供校验器装配期按配置重建，`reset_permission_cache_store` 供用例隔离。
@@ -34,6 +40,7 @@ from bms_core.permission.sources import PermissionMetadata, PermissionSubjectDat
 from bms_core.permission.version import (
     SUBJECT_LAYER,
     permission_metadata_key,
+    permission_rule_key,
     permission_snapshot_key,
     permission_subject_key,
     permission_user_token,
@@ -58,6 +65,12 @@ DEFAULT_RULE_CACHE_MAX_ITEMS = 1000
 
 DEFAULT_RULE_CACHE_MAX_ELEMENTS = 200_000
 """层2 元素总量预算（防单条大集合撑爆内存；超限淘汰最久未用规则并上报）。"""
+
+RULE_ENTRY_OVERHEAD_BYTES = 256
+"""每条层2 规则条目的估算固定开销（字节：键 + 条件对象 + 账目槽位）。"""
+
+RULE_ELEMENT_BYTES = 48
+"""每个值元素的估算字节（字符串 / 整数均摊 + 集合槽位）。"""
 
 DEFAULT_METADATA_CACHE_TTL = 3600
 """层1 元数据索引 TTL（秒；元数据已由权限版本换键 + 写路径主动清理，TTL 只作兜底）。"""
@@ -90,6 +103,21 @@ def _layer_of(key: str) -> str:
         str: 层级段。
     """
     return key.split("|", 2)[1]
+
+
+def _rule_fingerprint(key: str) -> str:
+    """取层2 完整键的规则键段（`{来源}|rule|{规则键}` → `{规则键}`）。
+
+    引用计数以规则键（指纹）为单位登记（快照侧推导时不知来源），故与层2 完整键对齐时
+    取该尾段。
+
+    Args:
+        key: 层2 完整键。
+
+    Returns:
+        str: 规则键（含字典类型 / 策略 / 指纹）。
+    """
+    return key.split("|", 2)[2]
 
 
 def int_option(options: object, key: str, default: int) -> int:
@@ -149,6 +177,29 @@ class _Layer(BaseFrameworkObject):
         self.items.move_to_end(key)
         return value
 
+    def put(self, key: str, value: object, now: float) -> None:
+        """写条目（**不做容量收敛**；供调用方按自身策略淘汰）。
+
+        Args:
+            key: 条目键。
+            value: 条目值。
+            now: 当前时刻（`monotonic`）。
+        """
+        expires = now + self.ttl if self.ttl > 0 else None
+        self.items[key] = (value, expires)
+        self.items.move_to_end(key)
+
+    def holds(self, key: str) -> bool:
+        """条目是否存在（不判 TTL；供调用方区分「未命中」与「刚过期」）。
+
+        Args:
+            key: 条目键。
+
+        Returns:
+            bool: 存在为 True。
+        """
+        return key in self.items
+
     def set(self, key: str, value: object, now: float) -> ConcurrentStableList[str]:
         """写条目（超上限按 LRU 淘汰）。
 
@@ -160,9 +211,7 @@ class _Layer(BaseFrameworkObject):
         Returns:
             ConcurrentStableList[str]: 因超上限被淘汰的键（供调用方同步账目）。
         """
-        expires = now + self.ttl if self.ttl > 0 else None
-        self.items[key] = (value, expires)
-        self.items.move_to_end(key)
+        self.put(key, value, now)
         evicted: ConcurrentStableList[str] = ConcurrentStableList()
         while len(self.items) > self.max_items:
             oldest, _ = self.items.popitem(last=False)
@@ -232,7 +281,13 @@ class PermissionCacheStore(BaseFrameworkObject):
         self._activity: ConcurrentStableDict[str, float] = ConcurrentStableDict()
         self._user_keys: ConcurrentStableDict[str, ConcurrentStableSet[str]] = ConcurrentStableDict()
         self._rule_elements: ConcurrentStableDict[str, int] = ConcurrentStableDict()
+        self._rule_bytes: ConcurrentStableDict[str, int] = ConcurrentStableDict()
+        self._rule_refs: ConcurrentStableDict[str, int] = ConcurrentStableDict()
+        self._snapshot_rules: ConcurrentStableDict[str, ConcurrentStableList[str]] = ConcurrentStableDict()
         self._rule_total = 0
+        self._rule_bytes_total = 0
+        self._rule_evicted_total = 0
+        self._oversized_rejections = 0
         self._lock = Lock()
 
     # ------------------------------------------------------------------ 内部
@@ -271,7 +326,54 @@ class PermissionCacheStore(BaseFrameworkObject):
         for key in remaining:
             self._subjects.delete(key)
             self._snapshots.delete(key)
+            self._release_snapshot(key)
         return removed
+
+    def _release_snapshot(self, key: str) -> None:
+        """释放一个层3 条目持有的规则引用（调用方持锁；无引用记录即无操作）。
+
+        Args:
+            key: 层3 快照键。
+        """
+        rules = self._snapshot_rules.get(key)
+        if rules is None:
+            return
+        self._snapshot_rules.delete(key)
+        for rule_key in rules:
+            remaining = (self._rule_refs.get(rule_key) or 0) - 1
+            if remaining > 0:
+                self._rule_refs.set(rule_key, remaining)
+            else:
+                self._rule_refs.pop(rule_key, None)
+
+    def _retain_rules(self, key: str, snapshot: PermissionSnapshot) -> None:
+        """登记某快照持有的规则引用（调用方持锁）。
+
+        规则键由快照行（`data_source_key` / `policy_type` / `config`）推导，与层2 键控同源；行不是
+        映射 / 缺策略类型 / 指纹不可算（`config` 含不可序列化值）时跳过——这些规则本就不进层2。
+
+        Args:
+            key: 层3 快照键。
+            snapshot: 用户权限快照。
+        """
+        rule_keys: ConcurrentStableSet[str] = ConcurrentStableSet()
+        for row in snapshot.data_scopes:
+            policy_type = row.get("policy_type")
+            if not isinstance(policy_type, str) or not policy_type:
+                continue
+            rule_key = permission_rule_key(
+                data_source_key=str(row.get("data_source_key", "")),
+                policy_type=policy_type,
+                config=row.get("config"),
+            )
+            if rule_key is not None:
+                rule_keys.add(rule_key)
+        if not len(rule_keys):
+            return
+        keys = ConcurrentStableList[str](rule_keys)
+        self._snapshot_rules.set(key, keys)
+        for rule_key in keys:
+            self._rule_refs.set(rule_key, (self._rule_refs.get(rule_key) or 0) + 1)
 
     def _matches(self, token: str, source: str | None) -> bool:
         """判定键索引是否属于指定来源（None 视为全部来源）。
@@ -365,44 +467,111 @@ class PermissionCacheStore(BaseFrameworkObject):
         Returns:
             object | None: 求值结果（条件列表）；未命中为 None。
         """
-        key = f"{source}|rule|{rule_key}"
+        key = self._rule_full_key(source, rule_key)
         with self._lock:
-            return self._rules.get(key, monotonic())
+            had = self._rules.holds(key)
+            value = self._rules.get(key, monotonic())
+            if value is None and had:  # TTL 过期：条目已删，账目一并回冲
+                self._forget_rule_accounts(key)
+        return value
 
-    def set_rule(self, *, source: str, rule_key: str, value: object) -> None:
-        """写层2 规则求值结果（超元素预算即淘汰最久未用规则并上报）。
+    def set_rule(self, *, source: str, rule_key: str, value: object, elements: int | None = None) -> None:
+        """写层2 规则求值结果（超条目上限或元素预算即按「零引用优先」淘汰并上报）。
 
-        单条超预算的规则不会被缓存（写入后即在预算回收中出队），保证内存不被一条大集合撑爆。
+        单条超预算的规则不会被缓存（写入即在同一轮收敛中出队），保证内存不被一条大集合撑爆。
 
         Args:
             source: 归属标识（`rbac`）。
             rule_key: 规则键（`permission_rule_key` 产物）。
-            value: 求值结果（条件列表，按 `len` 计元素数）。
+            value: 求值结果（条件列表）。
+            elements: 该规则承载的**值元素总数**（None 退化为条件条数）。
         """
-        key = f"{source}|rule|{rule_key}"
-        size = len(cast("Sized", value))
+        key = self._rule_full_key(source, rule_key)
+        weight = len(cast("Sized", value)) if elements is None else max(0, elements)
         with self._lock:
-            if key in self._rule_elements:  # 同键覆盖：先冲掉旧账
-                self._rule_total -= self._rule_elements.get(key) or 0
-                self._rule_elements.delete(key)
-            for evicted in self._rules.set(key, value, monotonic()):
-                self._rule_total -= self._rule_elements.get(evicted) or 0
-                self._rule_elements.delete(evicted)
-            if self._max_elements <= 0:
-                self._rules.delete(key)
+            if self._max_elements <= 0:  # 预算置 0：不缓存规则结果
                 return
-            self._rule_elements.set(key, size)
-            self._rule_total += size
-            dropped = 0
-            while self._rule_total > self._max_elements and self._rules.items:
-                oldest, _ = self._rules.items.popitem(last=False)
-                self._rule_total -= self._rule_elements.get(oldest) or 0
-                self._rule_elements.delete(oldest)
-                dropped += 1
-            if dropped:
-                _logger.warning(
-                    "权限规则缓存超元素预算，淘汰最久未用规则 %s 条（预算 %s）", dropped, self._max_elements
-                )
+            self._drop_rule_entry(key)  # 同键覆盖：先冲掉旧账（键不存在即无操作）
+            self._rules.put(key, value, monotonic())
+            self._rule_elements.set(key, weight)
+            self._rule_bytes.set(key, RULE_ENTRY_OVERHEAD_BYTES + weight * RULE_ELEMENT_BYTES)
+            self._rule_total += weight
+            self._rule_bytes_total += RULE_ENTRY_OVERHEAD_BYTES + weight * RULE_ELEMENT_BYTES
+            self._trim_rules(key)
+
+    def record_oversized_rule(self) -> None:
+        """累计一次「大集合 `in` 超阈拒绝」（数据范围 provider 调用；供 `stats()` 观测）。"""
+        with self._lock:
+            self._oversized_rejections += 1
+
+    def _rule_full_key(self, source: str, rule_key: str) -> str:
+        """层2 进程内完整键。
+
+        Args:
+            source: 归属标识。
+            rule_key: 规则键。
+
+        Returns:
+            str: `{来源}|rule|{规则键}`。
+        """
+        return f"{source}|rule|{rule_key}"
+
+    def _forget_rule_accounts(self, key: str) -> None:
+        """回冲某条规则的元素 / 字节账目（调用方持锁）。
+
+        Args:
+            key: 层2 完整键。
+        """
+        self._rule_total -= cast("int", self._rule_elements.pop(key, 0))
+        self._rule_bytes_total -= cast("int", self._rule_bytes.pop(key, 0))
+
+    def _drop_rule_entry(self, key: str) -> bool:
+        """移除层2 条目并回冲账目（调用方持锁）。
+
+        Args:
+            key: 层2 完整键。
+
+        Returns:
+            bool: 移除为 True；键不存在为 False。
+        """
+        if not self._rules.holds(key):
+            return False
+        self._rules.delete(key)
+        self._forget_rule_accounts(key)
+        return True
+
+    def _trim_rules(self, keep: str) -> None:
+        """收敛层2 容量：先淘汰最久未用的零引用规则，全部被引用才退化为 LRU（调用方持锁）。
+
+        Args:
+            keep: 本次刚写入的规则键（容量够时优先保留，避免写完即淘汰）。
+        """
+        dropped = 0
+        while len(self._rules) > self._rules.max_items or self._rule_total > self._max_elements:
+            self._drop_rule_entry(self._pick_rule_victim(keep))
+            dropped += 1
+        if dropped:
+            self._rule_evicted_total += dropped
+            _logger.warning(
+                "权限规则缓存超限，淘汰规则 %s 条（条目上限 %s / 元素预算 %s）",
+                dropped,
+                self._rules.max_items,
+                self._max_elements,
+            )
+
+    def _pick_rule_victim(self, keep: str) -> str:
+        """取淘汰候选：最久未用的零引用规则（跳过本次写入者）；退化为最久未用规则。
+
+        Args:
+            keep: 本次刚写入的规则键。
+
+        Returns:
+            str: 层2 完整键（调用时层2 必非空）。
+        """
+        for key in self._rules.items:
+            if key != keep and _rule_fingerprint(key) not in self._rule_refs:
+                return key
+        return next(iter(self._rules.items.items()))[0]
 
     # ------------------------------------------------------------------ 层3
 
@@ -424,16 +593,20 @@ class PermissionCacheStore(BaseFrameworkObject):
         token = permission_user_token(source, tenant_id, user_id)
         now = monotonic()
         with self._lock:
+            had = self._snapshots.holds(key)
             value = self._snapshots.get(key, now)
-            if value is not None:
-                self._activity.set(token, now)
-                self._keys_for(token).add(key)
-        return cast("PermissionSnapshot | None", value)
+            if value is None:
+                if had:  # TTL 过期：条目已删，释放其持有的规则引用
+                    self._release_snapshot(key)
+                return None
+            self._activity.set(token, now)
+            self._keys_for(token).add(key)
+        return cast("PermissionSnapshot", value)
 
     def set_snapshot(
         self, *, source: str, tenant_id: str | None, user_id: int, version: int, value: PermissionSnapshot
     ) -> None:
-        """写层3 用户快照（记录活动时间与该用户键索引）。
+        """写层3 用户快照（记录活动时间、用户键索引与规则引用）。
 
         Args:
             source: 数据来源标识。
@@ -446,9 +619,12 @@ class PermissionCacheStore(BaseFrameworkObject):
         token = permission_user_token(source, tenant_id, user_id)
         now = monotonic()
         with self._lock:
-            self._snapshots.set(key, value, now)
+            self._release_snapshot(key)  # 同键覆盖（版本回退 / 重算回填）：先释放旧引用
+            for evicted in self._snapshots.set(key, value, now):
+                self._release_snapshot(evicted)
             self._activity.set(token, now)
             self._keys_for(token).add(key)
+            self._retain_rules(key, value)
 
     # ------------------------------------------------------------------ 维护
 
@@ -491,6 +667,8 @@ class PermissionCacheStore(BaseFrameworkObject):
         """
         with self._lock:
             count = self._snapshots.clear()
+            for key in list(self._snapshot_rules.keys()):
+                self._release_snapshot(key)
             for token, keys in list(self._user_keys.items()):
                 remaining: ConcurrentStableSet[str] = ConcurrentStableSet()
                 for key in keys:
@@ -526,10 +704,14 @@ class PermissionCacheStore(BaseFrameworkObject):
         return len(tokens)
 
     def stats(self) -> ConcurrentStableDict[str, int]:
-        """取三层条目数与规则元素数（运维观测 / 用例断言）。
+        """取三层条目数 / 规则元素与内存度量（运维观测 / 用例断言）。
+
+        规则层指标：`rule_items`（集合条数）、`rule_elements`（值元素总数）、`rule_estimated_bytes`
+        （估算内存）、`rule_refs`（被快照引用的规则数）、`rule_evicted_total`（累计淘汰条数）、
+        `oversized_rejections`（大集合超阈拒绝次数）；末尾附各层上限，供判断是否接近容量。
 
         Returns:
-            ConcurrentStableDict[str, int]: 各层条目数与规则元素数。
+            ConcurrentStableDict[str, int]: 三层条目数、规则度量、超阈计数与各层上限。
         """
         with self._lock:
             result: ConcurrentStableDict[str, int] = ConcurrentStableDict()
@@ -537,12 +719,21 @@ class PermissionCacheStore(BaseFrameworkObject):
             result.set("metadata_items", len(self._metadata))
             result.set("rule_items", len(self._rules))
             result.set("rule_elements", self._rule_total)
+            result.set("rule_estimated_bytes", self._rule_bytes_total)
+            result.set("rule_refs", len(self._rule_refs))
+            result.set("rule_evicted_total", self._rule_evicted_total)
+            result.set("oversized_rejections", self._oversized_rejections)
             result.set("snapshot_items", len(self._snapshots))
             result.set("active_users", len(self._activity))
+            result.set("subject_max_items", self._subjects.max_items)
+            result.set("metadata_max_items", self._metadata.max_items)
+            result.set("rule_max_items", self._rules.max_items)
+            result.set("rule_max_elements", self._max_elements)
+            result.set("snapshot_max_items", self._snapshots.max_items)
             return result
 
     def reset(self) -> None:
-        """清空三层与活动记录（保留当前容量配置；用例隔离用）。"""
+        """清空三层、活动记录与全部账目（保留当前容量配置；用例隔离用）。"""
         with self._lock:
             self._subjects.clear()
             self._metadata.clear()
@@ -551,7 +742,13 @@ class PermissionCacheStore(BaseFrameworkObject):
             self._activity.clear()
             self._user_keys.clear()
             self._rule_elements.clear()
+            self._rule_bytes.clear()
+            self._rule_refs.clear()
+            self._snapshot_rules.clear()
             self._rule_total = 0
+            self._rule_bytes_total = 0
+            self._rule_evicted_total = 0
+            self._oversized_rejections = 0
 
 
 _STORES: ConcurrentStableDict[str, PermissionCacheStore] = ConcurrentStableDict()

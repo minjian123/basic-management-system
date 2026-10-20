@@ -161,7 +161,7 @@ def test_four_policies_generate_conditions() -> None:
     predicate = _provider().read_predicate()
     conditions = _as_conditions(predicate)
     assert [item.operator for item in conditions] == ["in", "between", "like", "in"]
-    assert conditions[0].value == ["13"]
+    assert set(cast("Any", conditions[0].value)) == {"13"}  # `04_03` 起 in 值为去重集合
     assert conditions[1].value == ("110000", "119999")
     assert conditions[2].value == "BJ%"
     assert conditions[3].field == "dept_id"

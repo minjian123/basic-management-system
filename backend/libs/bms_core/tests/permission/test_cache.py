@@ -1,7 +1,9 @@
-"""三层进程内缓存仓用例（`04_02`，Kiwi 2321）：单份 / 分层限额 / TTL / 活动时间与注销 / 元素预算 / 配置。
+"""三层进程内缓存仓用例（`04_02` / `04_03`，Kiwi 2321 / 2323）。
 
 口径见详细设计 §5.1：三层各自 LRU + TTL，层2 另设元素总量预算；活动用户按最近一次快照读写判定，
 闲置超阈值即注销其快照与层1 用户条目；进程级单份，经 `reset_permission_cache_store` 隔离。
+`04_03` 追加：规则引用计数（快照侧登记 / 五条移除路径释放）、零引用优先淘汰、值元素与估算字节账目、
+TTL 过期回冲与超阈计数。
 """
 
 from collections.abc import Iterator
@@ -18,6 +20,8 @@ from bms_core.permission.cache import (
     OPTION_RULE_CACHE_MAX_ELEMENTS,
     OPTION_SNAPSHOT_CACHE_MAX_ITEMS,
     OPTION_SUBJECT_CACHE_MAX_ITEMS,
+    RULE_ELEMENT_BYTES,
+    RULE_ENTRY_OVERHEAD_BYTES,
     PermissionCacheStore,
     configure_permission_cache_store,
     current_permission_cache_store,
@@ -26,6 +30,7 @@ from bms_core.permission.cache import (
 )
 from bms_core.permission.snapshot import PermissionSnapshot
 from bms_core.permission.sources import PermissionMetadata, PermissionSubjectData
+from bms_core.permission.version import permission_rule_key
 from bms_core.scope.base import ScopeCondition
 
 _SOURCE = "test_source"
@@ -119,6 +124,55 @@ def _rules(*values: object) -> ConcurrentStableList[ScopeCondition]:
     for value in values:
         result.add(ScopeCondition("id", "in", [value]))
     return result
+
+
+def _scope_row(
+    data_source_key: str = "area", *, policy_type: object = "select", config: object = None
+) -> ConcurrentStableDict[str, object]:
+    """构造一条快照数据范围规则行（引用登记侧口径）。
+
+    Args:
+        data_source_key: 字典类型。
+        policy_type: 策略类型（可为非法值，用于跳过分支）。
+        config: 规则行（缺省空列表）。
+
+    Returns:
+        ConcurrentStableDict[str, object]: 规则行。
+    """
+    row: ConcurrentStableDict[str, object] = ConcurrentStableDict()
+    row.set("data_source_key", data_source_key)
+    row.set("policy_type", policy_type)
+    row.set("config", [] if config is None else config)
+    return row
+
+
+def _snapshot_with(*rows: ConcurrentStableDict[str, object]) -> PermissionSnapshot:
+    """构造带数据范围规则行的快照。
+
+    Args:
+        *rows: 规则行。
+
+    Returns:
+        PermissionSnapshot: 快照。
+    """
+    scopes: ConcurrentStableList[ConcurrentStableDict[str, object]] = ConcurrentStableList()
+    for row in rows:
+        scopes.add(row)
+    return PermissionSnapshot(data_scopes=scopes)
+
+
+def _rule_key(data_source_key: str = "area") -> str:
+    """取与 `_scope_row` 同源的层2 规则键。
+
+    Args:
+        data_source_key: 字典类型。
+
+    Returns:
+        str: 规则键（`permission_rule_key` 产物）。
+    """
+    key = permission_rule_key(data_source_key=data_source_key, policy_type="select", config=[])
+    assert key is not None
+    return key
 
 
 @pytest.mark.kiwi_id(2321)
@@ -281,6 +335,150 @@ def test_clear_snapshots_keeps_subject_layer() -> None:
     assert store.stats()["active_users"] == 1  # 仅层1 用户仍在活动表
 
 
+@pytest.mark.kiwi_id(2323)
+def test_snapshot_registers_and_releases_rule_references() -> None:
+    """引用计数：写快照登记规则引用；失效 / 清空 / 闲置注销 / 过期各自释放（计数归零）。"""
+    store = PermissionCacheStore()
+    key = _rule_key()
+    store.set_rule(source=_SOURCE, rule_key=key, value=_rules(1))
+    store.set_snapshot(source=_SOURCE, tenant_id="1001", user_id=5, version=1, value=_snapshot_with(_scope_row()))
+    assert store.stats()["rule_refs"] == 1
+
+    store.set_snapshot(source=_SOURCE, tenant_id="1001", user_id=6, version=1, value=_snapshot_with(_scope_row()))
+    assert store.stats()["rule_refs"] == 1  # 两条快照引用同一规则，规则数仍为 1
+
+    assert store.invalidate_user(tenant_id="1001", user_id=6) == 1
+    assert store.stats()["rule_refs"] == 1
+    assert store.invalidate_user(tenant_id="1001", user_id=5) == 1
+    assert store.stats()["rule_refs"] == 0
+
+    store.set_snapshot(source=_SOURCE, tenant_id="1001", user_id=7, version=1, value=_snapshot_with(_scope_row()))
+    assert store.clear_snapshots() == 1
+    assert store.stats()["rule_refs"] == 0
+
+    store.set_snapshot(source=_SOURCE, tenant_id="1001", user_id=8, version=1, value=_snapshot_with(_scope_row()))
+    assert store.sweep_idle(1, now=1e9) == 1
+    assert store.stats()["rule_refs"] == 0
+
+
+@pytest.mark.kiwi_id(2323)
+def test_snapshot_rewrite_and_eviction_release_references(clock: _Clock) -> None:
+    """同键重写先释放旧引用；层3 LRU 淘汰 / TTL 过期同样释放。"""
+    store = PermissionCacheStore(snapshot_ttl=10, snapshot_max_items=1)
+    key = _rule_key()
+    store.set_rule(source=_SOURCE, rule_key=key, value=_rules(1))
+
+    store.set_snapshot(source=_SOURCE, tenant_id="1001", user_id=5, version=1, value=_snapshot_with(_scope_row()))
+    store.set_snapshot(source=_SOURCE, tenant_id="1001", user_id=5, version=1, value=_snapshot_with(_scope_row()))
+    assert store.stats()["rule_refs"] == 1  # 同键重写不叠加
+
+    store.set_snapshot(
+        source=_SOURCE, tenant_id="1001", user_id=6, version=1, value=_snapshot_with(_scope_row("other"))
+    )
+    assert store.stats()["rule_refs"] == 1  # 层3 LRU 淘汰用户 5 → 其引用释放，仅剩用户 6
+
+    clock.now += 11
+    assert store.get_snapshot(source=_SOURCE, tenant_id="1001", user_id=6, version=1) is None
+    assert store.stats()["rule_refs"] == 0  # TTL 过期一并释放
+
+
+@pytest.mark.kiwi_id(2323)
+def test_snapshot_skips_rows_without_rule_key() -> None:
+    """引用登记跳过：无规则行 / 缺策略类型 / 指纹不可算（config 含不可序列化值）。"""
+    store = PermissionCacheStore()
+    store.set_snapshot(source=_SOURCE, tenant_id="1001", user_id=1, version=1, value=_snapshot())
+    store.set_snapshot(
+        source=_SOURCE,
+        tenant_id="1001",
+        user_id=2,
+        version=1,
+        value=_snapshot_with(_scope_row(policy_type=123)),
+    )
+    store.set_snapshot(
+        source=_SOURCE,
+        tenant_id="1001",
+        user_id=3,
+        version=1,
+        value=_snapshot_with(_scope_row(config=[{1, 2}])),
+    )
+    assert store.stats()["rule_refs"] == 0
+
+
+@pytest.mark.kiwi_id(2323)
+def test_zero_reference_rule_evicted_first() -> None:
+    """零引用优先：超条目上限先淘汰最久未用的零引用规则，被引用规则保留。"""
+    store = PermissionCacheStore(rule_max_items=2)
+    key = _rule_key()
+    store.set_rule(source=_SOURCE, rule_key=key, value=_rules(1))
+    store.set_snapshot(source=_SOURCE, tenant_id="1001", user_id=5, version=1, value=_snapshot_with(_scope_row()))
+    store.set_rule(source=_SOURCE, rule_key="other", value=_rules(2))
+    store.set_rule(source=_SOURCE, rule_key="third", value=_rules(3))
+
+    assert store.get_rule(source=_SOURCE, rule_key=key) is not None
+    assert store.get_rule(source=_SOURCE, rule_key="other") is None
+    assert store.get_rule(source=_SOURCE, rule_key="third") is not None
+    assert store.stats()["rule_evicted_total"] == 1
+
+
+@pytest.mark.kiwi_id(2323)
+def test_referenced_rule_evicted_when_all_referenced() -> None:
+    """全部被引用：退化为 LRU 淘汰（规则引用记账保留，后续命中重算）。"""
+    store = PermissionCacheStore(rule_max_items=1)
+    key = _rule_key()
+    store.set_rule(source=_SOURCE, rule_key=key, value=_rules(1))
+    store.set_snapshot(source=_SOURCE, tenant_id="1001", user_id=5, version=1, value=_snapshot_with(_scope_row()))
+    store.set_rule(source=_SOURCE, rule_key="other", value=_rules(2))
+
+    assert store.get_rule(source=_SOURCE, rule_key=key) is None
+    assert store.get_rule(source=_SOURCE, rule_key="other") is not None
+    assert store.stats()["rule_refs"] == 1
+
+
+@pytest.mark.kiwi_id(2323)
+def test_element_budget_counts_value_elements() -> None:
+    """元素预算按值元素总数计：大集合单条即超预算（不缓存），且不残留账目。"""
+    store = PermissionCacheStore(rule_max_elements=1000)
+    store.set_rule(source=_SOURCE, rule_key="big", value=_rules(1), elements=5000)
+    assert store.get_rule(source=_SOURCE, rule_key="big") is None
+    assert store.stats()["rule_elements"] == 0
+    assert store.stats()["rule_estimated_bytes"] == 0
+    assert store.stats()["rule_evicted_total"] == 1
+
+
+@pytest.mark.kiwi_id(2323)
+def test_rule_accounts_reclaimed_on_ttl_expiry(clock: _Clock) -> None:
+    """TTL 过期：条目删除的同时回冲元素 / 字节账目（旧口径会长期占用预算）。"""
+    store = PermissionCacheStore(snapshot_ttl=10, rule_max_elements=100)
+    store.set_rule(source=_SOURCE, rule_key="a", value=_rules(1), elements=3)
+    assert store.stats()["rule_elements"] == 3
+
+    clock.now += 11
+    assert store.get_rule(source=_SOURCE, rule_key="a") is None
+    assert store.stats()["rule_elements"] == 0
+    assert store.stats()["rule_estimated_bytes"] == 0
+
+
+@pytest.mark.kiwi_id(2323)
+def test_stats_reports_estimated_bytes_refs_and_caps() -> None:
+    """度量：估算字节 = 条目开销 + 元素数 × 元素字节；各层上限随配置输出；超阈计数可复位。"""
+    store = PermissionCacheStore(rule_max_items=9, rule_max_elements=50, snapshot_max_items=7)
+    store.set_rule(source=_SOURCE, rule_key="a", value=_rules(1), elements=4)
+    store.record_oversized_rule()
+    store.record_oversized_rule()
+    stats = store.stats()
+    assert stats["rule_estimated_bytes"] == RULE_ENTRY_OVERHEAD_BYTES + 4 * RULE_ELEMENT_BYTES
+    assert stats["oversized_rejections"] == 2
+    assert stats["rule_max_items"] == 9
+    assert stats["rule_max_elements"] == 50
+    assert stats["snapshot_max_items"] == 7
+    assert stats["subject_max_items"] == DEFAULT_SUBJECT_CACHE_MAX_ITEMS
+    assert stats["metadata_max_items"] == DEFAULT_METADATA_CACHE_MAX_ITEMS
+
+    store.reset()
+    assert store.stats()["oversized_rejections"] == 0
+    assert store.stats()["rule_refs"] == 0
+
+
 @pytest.mark.kiwi_id(2321)
 def test_reset_clears_all_layers() -> None:
     """复位：三层与活动记录一并清空（保留容量配置）。"""
@@ -289,14 +487,15 @@ def test_reset_clears_all_layers() -> None:
     store.set_snapshot(source=_SOURCE, tenant_id="1001", user_id=5, version=1, value=_snapshot())
     store.set_rule(source=_SOURCE, rule_key="a", value=_rules(1))
     store.reset()
-    assert store.stats() == {
-        "subject_items": 0,
-        "metadata_items": 0,
-        "rule_items": 0,
-        "rule_elements": 0,
-        "snapshot_items": 0,
-        "active_users": 0,
-    }
+    stats = store.stats()
+    assert stats["subject_items"] == 0
+    assert stats["metadata_items"] == 0
+    assert stats["rule_items"] == 0
+    assert stats["rule_elements"] == 0
+    assert stats["rule_estimated_bytes"] == 0
+    assert stats["snapshot_items"] == 0
+    assert stats["active_users"] == 0
+    assert stats["subject_max_items"] == 1  # 容量配置保留
 
 
 @pytest.mark.kiwi_id(2321)

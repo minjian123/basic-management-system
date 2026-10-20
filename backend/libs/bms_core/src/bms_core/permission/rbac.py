@@ -306,14 +306,28 @@ class RbacPermissionCheckerFactory(BasePluginFactory[RbacPermissionChecker]):
         raw_locale = self._options.get("locale")
         locale = raw_locale if isinstance(raw_locale, str) and raw_locale else DEFAULT_LOCALE
         store = configure_permission_cache_store(self._options, snapshot_ttl=ttl)
+        idle_timeout = int_option(self._options, OPTION_IDLE_TIMEOUT, DEFAULT_IDLE_TIMEOUT)
+        sweep_interval = int_option(self._options, OPTION_IDLE_SWEEP_INTERVAL, DEFAULT_IDLE_SWEEP_INTERVAL)
+        stats = store.stats()
+        get_logger("bms").info(
+            "permission_cache_configured",
+            snapshot_ttl=ttl,
+            snapshot_max_items=stats["snapshot_max_items"],
+            subject_max_items=stats["subject_max_items"],
+            metadata_max_items=stats["metadata_max_items"],
+            rule_max_items=stats["rule_max_items"],
+            rule_max_elements=stats["rule_max_elements"],
+            idle_timeout_seconds=idle_timeout,
+            idle_sweep_seconds=sweep_interval,
+        )
         return RbacPermissionChecker(
             profile=self._profile,
             ttl=ttl,
             exempt_role_types=exempt,
             locale=locale,
             store=store,
-            idle_timeout=int_option(self._options, OPTION_IDLE_TIMEOUT, DEFAULT_IDLE_TIMEOUT),
-            sweep_interval=int_option(self._options, OPTION_IDLE_SWEEP_INTERVAL, DEFAULT_IDLE_SWEEP_INTERVAL),
+            idle_timeout=idle_timeout,
+            sweep_interval=sweep_interval,
         )
 
 

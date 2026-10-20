@@ -10,7 +10,7 @@
 """
 
 from abc import ABC
-from collections.abc import Callable
+from collections.abc import Callable, Iterable, Sequence, Set
 from typing import Any, ClassVar, cast
 
 from sqlalchemy import ColumnElement, Select, false, func, inspect, select
@@ -38,6 +38,9 @@ _WRITE_BLOCKED_FIELDS: ConcurrentStableSet[str] = ConcurrentStableSet(
 def _build_in(column: InstrumentedAttribute[Any], value: object) -> ColumnElement[bool]:
     """`in` 翻译：空序列恒假（与内存基线 `any(...)` 同义）。
 
+    值容器按 `Sequence` / `Set` **协议**判定（数据范围规则物化后是基座集合类
+    `ConcurrentStableSet`，不是内建 `set`）；字符串 / 字节不算容器，避免把字符序列拼进 `IN`。
+
     Args:
         column: 模型列。
         value: 目标值集合。
@@ -46,11 +49,11 @@ def _build_in(column: InstrumentedAttribute[Any], value: object) -> ColumnElemen
         ColumnElement[bool]: 条件表达式。
 
     Raises:
-        ConfigError: 值不是序列。
+        ConfigError: 值不是序列 / 集合。
     """
-    if not isinstance(value, (list, tuple, set, frozenset)):
+    if not isinstance(value, Sequence | Set) or isinstance(value, str | bytes):
         raise ConfigError("作用域条件 `in` 的值须为序列")
-    members = list(cast("list[object] | tuple[object, ...] | set[object] | frozenset[object]", value))
+    members = list(cast("Iterable[object]", value))
     if not members:
         return false()
     return column.in_(members)

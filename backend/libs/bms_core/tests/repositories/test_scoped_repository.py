@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 import pytest
 
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
 from bms_core.repositories.base_memory_repository import BaseMemoryRepository
 from bms_core.scope.base import DataScope, ScopeCondition
 from bms_core.scope.null import NullDataScope
@@ -92,6 +92,17 @@ async def test_soft_delete_disabled() -> None:
 
 
 @pytest.mark.kiwi_id(11)
+async def test_default_soft_and_hard_delete_delegate_to_delete() -> None:
+    """派生默认：内存基线未覆写软删 / 物理删，二者一律委托 `delete`（硬删语义）。"""
+    repo = await _repo_with_rows()
+    assert await repo.soft_delete(1) is True
+    assert await repo.get(1) is None
+    assert await repo.hard_delete(2) is True
+    assert await repo.get(2) is None
+    assert await repo.hard_delete(999) is False
+
+
+@pytest.mark.kiwi_id(11)
 async def test_scope_operators() -> None:
     """数据范围条件：eq / ne / in / like / 比较 / between / 空值 / 异常与未知。"""
     repo = await _repo_with_rows()
@@ -106,7 +117,13 @@ async def test_scope_operators() -> None:
     repo.use_scope(FixedScope(ScopeCondition("owner_id", "in", [1, 3])))
     assert [row.name for row in await repo.list()] == ["甲", "丙"]
 
+    repo.use_scope(FixedScope(ScopeCondition("owner_id", "in", ConcurrentStableSet([1, 3]))))
+    assert [row.name for row in await repo.list()] == ["甲", "丙"]
+
     repo.use_scope(FixedScope(ScopeCondition("owner_id", "in", 2)))
+    assert await repo.list() == []
+
+    repo.use_scope(FixedScope(ScopeCondition("owner_id", "in", "13")))
     assert await repo.list() == []
 
     repo.use_scope(FixedScope(ScopeCondition("name", "like", "乙")))

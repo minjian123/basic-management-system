@@ -131,7 +131,7 @@ def test_provider_turns_snapshot_rules_into_read_conditions() -> None:
     conditions = _as_conditions(_provider().read_predicate())
     assert len(conditions) == 1
     assert conditions[0].operator == "in"
-    assert conditions[0].value == ["13"]
+    assert set(cast("Any", conditions[0].value)) == {"13"}  # `04_03` 起 in 值为去重集合
 
 
 @pytest.mark.kiwi_id(2320)

@@ -194,6 +194,7 @@ async def test_scope_operator_translation(session: AsyncSession) -> None:
             (ConcurrentStableList([ScopeCondition("name", "eq", "alpha")]), 1),
             (ConcurrentStableList([ScopeCondition("name", "ne", "beta")]), 1),
             (ConcurrentStableList([ScopeCondition("rank", "in", [1, 2])]), 1),
+            (ConcurrentStableList([ScopeCondition("rank", "in", ConcurrentStableSet([1, 2]))]), 1),
             (ConcurrentStableList([ScopeCondition("rank", "in", [])]), 0),
             (ConcurrentStableList([ScopeCondition("name", "like", "lph")]), 1),
             (ConcurrentStableList([ScopeCondition("rank", "gt", 1)]), 1),
@@ -226,6 +227,7 @@ async def test_scope_condition_errors(session: AsyncSession) -> None:
 
     for condition in (
         ScopeCondition("rank", "in", 1),
+        ScopeCondition("rank", "in", "12"),
         ScopeCondition("name", "like", 1),
         ScopeCondition("rank", "between", (1,)),
         ScopeCondition("rank", "between", 1),

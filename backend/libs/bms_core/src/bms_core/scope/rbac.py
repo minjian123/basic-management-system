@@ -14,20 +14,26 @@
 **口径偏差（已登记）**：详设 §5.6 的「多策略结果 OR 合并」在本基座注入点（条件列表按 AND 合取）
 下只可对**同字段**的并集做真合并（多 `IN` 合并为一个 `IN`）；不同字段 / 不同操作符的并集只能退化为
 合取（从严），并上报——从严不越权，且业务维度通常单一字段。
+
+**集合物化与大集合护栏（`04-3`）**：规则结果的 `in` 值在产出时去重物化为 `ConcurrentStableSet`
+（层2 命中即同一份集合，跨用户共享）；并集合并后统一校验，任一 `in` 条件元素数超
+`[data_scope].options.max_in_values`（缺省 1000）即整体退化为**永假**并上报引导（改用区域 / 匹配 /
+扩展策略），保证读过滤不产出巨型 `IN` 列表——`region` / `match` 本身以 `between` / `like` 原生算子
+表达，不参与该判定。写校验与读共用同一批条件：任一条件为永假即拒绝写入。
 """
 
 from __future__ import annotations
 
 import logging
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence, Set, Sized
 from typing import Any, cast
 
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.config import Settings
 from bms_core.core.factory import BasePluginFactory
 from bms_core.core.plugin import default_plugin_registry, register_plugin
-from bms_core.permission.cache import current_permission_cache_store
+from bms_core.permission.cache import current_permission_cache_store, int_option
 from bms_core.permission.snapshot import PermissionSnapshot, get_current_permission_snapshot
 from bms_core.permission.version import permission_rule_key
 from bms_core.scope.base import DataScope, ScopeCondition
@@ -39,11 +45,20 @@ _logger = logging.getLogger(__name__)
 RBAC_DATA_SCOPE_NAME = "rbac"
 """RBAC 数据范围实现名（`[data_scope].provider`）。"""
 
+DEFAULT_MAX_IN_VALUES = 1000
+"""单条 `in` 条件允许的值元素上限（超出即整体退化为永假；<= 0 表示不限制）。"""
+
+OPTION_MAX_IN_VALUES = "max_in_values"
+"""`[data_scope].options` 的阈值键名（装配期定型，改配置需重启）。"""
+
 _REGISTERED_REGISTRIES: ConcurrentStableList[object] = ConcurrentStableList()
 """已登记 RBAC 数据范围的注册表实例清单（按实例幂等；注册表重置后需重新登记）。"""
 
 _UNION_OPERATOR = "in"
 """可做真并集合并的操作符（同字段多个 `in` 合并值集合）。"""
+
+_IN_OPERATOR = "in"
+"""集合物化与大集合护栏针对的操作符（`in` 的值即「值集合」）。"""
 
 _MATCH_WILDCARD = re.compile(r"^[A-Za-z0-9_%?\u4e00-\u9fff]+$")
 """写校验用 `like` 模式允许集（与配置期口径一致，另含 SQL 通配 `%` `_`）。"""
@@ -60,9 +75,18 @@ class RbacDataScope(DataScope):
         """初始化。
 
         Args:
-            settings: 应用配置（预留：后代档位的数据范围选项）。
+            settings: 应用配置（读 `[data_scope].options` 的 `max_in_values`）。
         """
-        del settings
+        self._max_in_values = int_option(settings.data_scope.options, OPTION_MAX_IN_VALUES, DEFAULT_MAX_IN_VALUES)
+
+    @property
+    def max_in_values(self) -> int:
+        """单条 `in` 条件的值元素上限（<= 0 表示不限制）。
+
+        Returns:
+            int: 阈值。
+        """
+        return self._max_in_values
 
     def read_predicate(self) -> object:
         """读过滤条件（`ScopeCondition` 列表；None 表示不过滤）。
@@ -87,7 +111,10 @@ class RbacDataScope(DataScope):
         snapshot = get_current_permission_snapshot()
         if snapshot is None or snapshot.exempt or not snapshot.data_scopes:
             return True
-        for condition in self._conditions(snapshot):
+        conditions = self._conditions(snapshot)
+        if _denies_all(conditions):
+            return False
+        for condition in conditions:
             if condition.field not in values:
                 continue
             if not _matches_value(values.get(condition.field), condition):
@@ -95,7 +122,7 @@ class RbacDataScope(DataScope):
         return True
 
     def _conditions(self, snapshot: PermissionSnapshot) -> ConcurrentStableList[ScopeCondition]:
-        """按字典类型分组求值并做并集 / 合取整理。
+        """按字典类型分组求值并做并集 / 合取整理（末段过大集合护栏）。
 
         Args:
             snapshot: 权限快照。
@@ -116,7 +143,40 @@ class RbacDataScope(DataScope):
             if bucket is None:  # pragma: no cover - 遍历期键必在
                 continue
             result.update(_union(key, bucket))
-        return result
+        return self._reject_oversized(result)
+
+    def _reject_oversized(
+        self, conditions: ConcurrentStableList[ScopeCondition]
+    ) -> ConcurrentStableList[ScopeCondition]:
+        """大集合护栏：任一 `in` 条件元素数超阈即整体退化为永假并上报引导。
+
+        两处调用：**单条规则求值后**（退化结果即进层2，后续请求不再重扫巨型值列表）与
+        **并集合并后**（两条各自合规的同字段 `in` 合并后仍可能超阈）。
+
+        Args:
+            conditions: 规则求值结果或并集合并后的条件列表。
+
+        Returns:
+            ConcurrentStableList[ScopeCondition]: 原条件；超阈时为单条永假条件。
+        """
+        if self._max_in_values <= 0:
+            return conditions
+        for condition in conditions:
+            if condition.operator != _IN_OPERATOR:
+                continue
+            size = len(cast("Sized", condition.value))
+            if size <= self._max_in_values:
+                continue
+            current_permission_cache_store().record_oversized_rule()
+            _logger.warning(
+                "数据范围 `in` 值数 %s 超阈值 %s：该数据范围已退化为永假，请改用区域 / 匹配 / 扩展策略",
+                size,
+                self._max_in_values,
+            )
+            denied: ConcurrentStableList[ScopeCondition] = ConcurrentStableList()
+            denied.add(DENY_ALL_CONDITION)
+            return denied
+        return conditions
 
     def _resolve(
         self,
@@ -148,9 +208,9 @@ class RbacDataScope(DataScope):
             cached = store.get_rule(source=RBAC_DATA_SCOPE_NAME, rule_key=key)
             if isinstance(cached, ConcurrentStableList):
                 return cast("ConcurrentStableList[ScopeCondition]", cached)
-        resolved = policy(rows)
+        resolved = self._reject_oversized(_materialize(policy(rows)))
         if key is not None:
-            store.set_rule(source=RBAC_DATA_SCOPE_NAME, rule_key=key, value=resolved)
+            store.set_rule(source=RBAC_DATA_SCOPE_NAME, rule_key=key, value=resolved, elements=_rule_weight(resolved))
         return resolved
 
 
@@ -167,6 +227,81 @@ def _deny_all(reason: str) -> ConcurrentStableList[ScopeCondition]:
     denied: ConcurrentStableList[ScopeCondition] = ConcurrentStableList()
     denied.add(DENY_ALL_CONDITION)
     return denied
+
+
+def _materialize(conditions: ConcurrentStableList[ScopeCondition]) -> ConcurrentStableList[ScopeCondition]:
+    """集合物化：把 `in` 条件的值去重为 `ConcurrentStableSet`（其余条件原样保留）。
+
+    永假条件（`DENY_ALL_CONDITION`）按同一对象保留，供写校验以「是否含永假条件」判定。
+
+    Args:
+        conditions: 策略求值器产出的条件列表。
+
+    Returns:
+        ConcurrentStableList[ScopeCondition]: 物化后的条件列表。
+    """
+    materialized: ConcurrentStableList[ScopeCondition] = ConcurrentStableList()
+    for condition in conditions:
+        if condition == DENY_ALL_CONDITION or condition.operator != _IN_OPERATOR:
+            materialized.add(condition)
+            continue
+        materialized.add(ScopeCondition(condition.field, _IN_OPERATOR, _value_members(condition.value)))
+    return materialized
+
+
+def _rule_weight(conditions: ConcurrentStableList[ScopeCondition]) -> int:
+    """规则承载的**值元素总数**（`in` 集合大小 / `between` 计 2 / 标量计 1）。
+
+    Args:
+        conditions: 规则求值结果。
+
+    Returns:
+        int: 元素总数（层2 元素预算与内存度量的计量口径）。
+    """
+    total = 0
+    for condition in conditions:
+        total += len(cast("Sized", condition.value)) if _is_members(condition.value) else 1
+    return total
+
+
+def _is_members(value: object) -> bool:
+    """值是否为「元素容器」（集合或序列；字符串 / 字节不算）。
+
+    Args:
+        value: 条件值。
+
+    Returns:
+        bool: 是元素容器为 True。
+    """
+    return isinstance(value, Set) or (isinstance(value, Sequence) and not isinstance(value, str | bytes))
+
+
+def _value_members(value: object) -> ConcurrentStableSet[object]:
+    """取条件值里的元素集合（非容器即空集）。
+
+    Args:
+        value: 条件值。
+
+    Returns:
+        ConcurrentStableSet[object]: 去重后的元素集合。
+    """
+    members: ConcurrentStableSet[object] = ConcurrentStableSet()
+    if _is_members(value):
+        for member in cast("Iterable[object]", value):
+            members.add(member)
+    return members
+
+
+def _denies_all(conditions: ConcurrentStableList[ScopeCondition]) -> bool:
+    """条件列表是否含永假条件（「不产生放行」）。
+
+    Args:
+        conditions: 作用域条件列表。
+
+    Returns:
+        bool: 含永假条件为 True。
+    """
+    return any(condition == DENY_ALL_CONDITION for condition in conditions)
 
 
 def _config_rows(raw: object) -> ConcurrentStableList[ConcurrentStableDict[str, object]]:
@@ -229,15 +364,12 @@ def _union(data_source_key: str, bucket: ConcurrentStableList[ScopeCondition]) -
     fields = {item.field for item in bucket}
     operators = {item.operator for item in bucket}
     if len(fields) == 1 and operators == {_UNION_OPERATOR}:
-        merged: ConcurrentStableList[object] = ConcurrentStableList()
+        merged: ConcurrentStableSet[object] = ConcurrentStableSet()
         for item in bucket:
-            raw = cast("Any", item.value)
-            if isinstance(raw, list | tuple):
-                for member in cast("Any", raw):
-                    merged.add(member)
+            merged.update(_value_members(item.value))
         field = next(iter(fields))
         result: ConcurrentStableList[ScopeCondition] = ConcurrentStableList()
-        result.add(ScopeCondition(field, _UNION_OPERATOR, list(merged)))
+        result.add(ScopeCondition(field, _UNION_OPERATOR, merged))
         return result
     _logger.warning("数据范围并集退化为合取（从严）：字典 %s，字段 %s，操作符 %s", data_source_key, fields, operators)
     return bucket
@@ -291,8 +423,8 @@ def _matches_value(value: object, condition: ScopeCondition) -> bool:
     if operator == "ne":
         return bool(value != target)
     if operator == "in":
-        if isinstance(target, list | tuple | set | frozenset):
-            return any(value == member for member in cast("Any", target))
+        if _is_members(target):
+            return any(value == member for member in cast("Iterable[object]", target))
         return False
     if operator == "like":
         return _like_match(value, target)

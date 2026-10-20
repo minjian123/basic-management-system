@@ -115,7 +115,7 @@ def test_mapping_rows_from_engine_produce_conditions() -> None:
     conditions = cast("ConcurrentStableList[ScopeCondition]", predicate)
     assert len(conditions) == 1
     assert conditions[0].operator == "in"
-    assert conditions[0].value == ["13", "14"]
+    assert set(cast("Any", conditions[0].value)) == {"13", "14"}  # `04_03` 起 in 值为去重集合
 
 
 @pytest.mark.kiwi_id(2321)

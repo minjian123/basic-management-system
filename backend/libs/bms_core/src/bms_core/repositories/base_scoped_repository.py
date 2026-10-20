@@ -9,7 +9,7 @@
 import operator
 import re
 from abc import ABC
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Sequence, Set
 from typing import Any, cast
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
@@ -127,7 +127,7 @@ def _match(item: object, condition: ScopeCondition) -> bool:
     if op == "ne":
         return bool(value != target)
     if op == "in":
-        if isinstance(target, (list, set, frozenset, tuple)):
+        if isinstance(target, Sequence | Set) and not isinstance(target, str | bytes):
             return any(value == member for member in cast("Iterable[object]", target))
         return False
     if op == "like":
