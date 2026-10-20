@@ -48,7 +48,9 @@ def _spec(
     )
     if config is not None:
         merged.update(config.items())
-    return IdentityProviderSpec(id=1, idp_key=idp_key, type="oidc", config=merged, updated_at=updated_at)
+    return IdentityProviderSpec(
+        id=1, idp_key=idp_key, type="oidc", config=ConcurrentStableFrozenDict(merged), updated_at=updated_at
+    )
 
 
 @pytest.mark.kiwi_id(2197)
@@ -131,7 +133,9 @@ def _cas_spec(config: ConcurrentStableDict[str, object] | None = None) -> Identi
     )
     if config is not None:
         merged.update(config.items())
-    return IdentityProviderSpec(id=3, idp_key="demo:cas", type="cas", config=merged, updated_at="t")
+    return IdentityProviderSpec(
+        id=3, idp_key="demo:cas", type="cas", config=ConcurrentStableFrozenDict(merged), updated_at="t"
+    )
 
 
 @pytest.mark.kiwi_id(2199)
@@ -186,7 +190,9 @@ def _wecom_spec(config: ConcurrentStableDict[str, object] | None = None) -> Iden
     )
     if config is not None:
         merged.update(config.items())
-    return IdentityProviderSpec(id=4, idp_key="demo:wecom", type="wecom", config=merged, updated_at="t")
+    return IdentityProviderSpec(
+        id=4, idp_key="demo:wecom", type="wecom", config=ConcurrentStableFrozenDict(merged), updated_at="t"
+    )
 
 
 @pytest.mark.kiwi_id(2200)
@@ -236,7 +242,9 @@ def _dingtalk_spec(config: ConcurrentStableDict[str, object] | None = None) -> I
     )
     if config is not None:
         merged.update(config.items())
-    return IdentityProviderSpec(id=5, idp_key="demo:dingtalk", type="dingtalk", config=merged, updated_at="t")
+    return IdentityProviderSpec(
+        id=5, idp_key="demo:dingtalk", type="dingtalk", config=ConcurrentStableFrozenDict(merged), updated_at="t"
+    )
 
 
 @pytest.mark.kiwi_id(2201)

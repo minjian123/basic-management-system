@@ -95,13 +95,13 @@ def test_frozen_forms_accept_non_sharded_strategy() -> None:
     """非 `SHARDED` 策略同样可构造（`_spawn` / `_mutable_spawn` 策略保真分支）。"""
     frozen_list = ConcurrentStableFrozenList([1, 2], strategy=LockStrategy.RW)
     assert frozen_list.to_list() == [1, 2]
-    assert frozen_list._mutable_spawn().to_list() == [1, 2]
+    assert frozen_list._mutable_spawn().to_list() == [1, 2]  # pyright: ignore[reportPrivateUsage]  # 用例专门验证内部机制
     frozen_set = ConcurrentStableFrozenSet([1], strategy=LockStrategy.RW)
     assert frozen_set.to_list() == [1]
-    assert frozen_set._mutable_spawn().to_list() == [1]
+    assert frozen_set._mutable_spawn().to_list() == [1]  # pyright: ignore[reportPrivateUsage]  # 用例专门验证内部机制
     frozen_dict = ConcurrentStableFrozenDict({"a": 1}, strategy=LockStrategy.RW)
     assert frozen_dict.to_list() == [("a", 1)]
-    assert frozen_dict._mutable_spawn().to_list() == [("a", 1)]
+    assert frozen_dict._mutable_spawn().to_list() == [("a", 1)]  # pyright: ignore[reportPrivateUsage]  # 用例专门验证内部机制
 
 
 # --------------------------------------------------------------------------- 内容哈希与 eq 对齐
@@ -136,7 +136,7 @@ def test_frozen_hash_is_cached() -> None:
     """哈希值缓存：二次调用直接命中缓存（首次计算后写回 `_hash_cache`）。"""
     instance = ConcurrentStableFrozenList([1, 2, 3])
     first = hash(instance)
-    assert instance._hash_cache == first
+    assert instance._hash_cache == first  # pyright: ignore[reportPrivateUsage]  # 用例专门验证内部机制
     assert hash(instance) == first
 
 
@@ -178,7 +178,7 @@ def test_frozen_set_union_does_not_hit_freeze() -> None:
     assert type(merged) is ConcurrentStableFrozenSet
     assert merged.to_list() == [1, 2, 3]
     assert base.to_list() == [1, 2]
-    assert merged._frozen is True
+    assert merged._frozen is True  # pyright: ignore[reportPrivateUsage]  # 用例专门验证内部机制
 
 
 def test_frozen_set_operators_return_frozen_instances() -> None:
@@ -195,7 +195,7 @@ def test_frozen_set_operators_return_frozen_instances() -> None:
         base ^ ConcurrentStableFrozenSet([4]),
     ):
         assert type(result) is ConcurrentStableFrozenSet
-        assert result._frozen is True
+        assert result._frozen is True  # pyright: ignore[reportPrivateUsage]  # 用例专门验证内部机制
 
 
 def test_frozen_set_other_derivations_return_frozen() -> None:
@@ -210,7 +210,7 @@ def test_frozen_set_other_derivations_return_frozen() -> None:
         base.symmetric_difference([4]),
     ):
         assert type(result) is ConcurrentStableFrozenSet
-        assert result._frozen is True
+        assert result._frozen is True  # pyright: ignore[reportPrivateUsage]  # 用例专门验证内部机制
 
 
 def test_frozen_dict_or_does_not_hit_freeze() -> None:
@@ -220,7 +220,7 @@ def test_frozen_dict_or_does_not_hit_freeze() -> None:
     assert type(merged) is ConcurrentStableFrozenDict
     assert merged.to_dict() == {"a": 1, "b": 2}
     assert base.to_dict() == {"a": 1}
-    assert merged._frozen is True
+    assert merged._frozen is True  # pyright: ignore[reportPrivateUsage]  # 用例专门验证内部机制
 
 
 def test_frozen_list_add_returns_frozen_instance() -> None:
@@ -230,7 +230,7 @@ def test_frozen_list_add_returns_frozen_instance() -> None:
     assert type(merged) is ConcurrentStableFrozenList
     assert merged.to_list() == [1, 2, 3]
     assert base.to_list() == [1, 2]
-    assert merged._frozen is True
+    assert merged._frozen is True  # pyright: ignore[reportPrivateUsage]  # 用例专门验证内部机制
 
 
 def test_frozen_copy_and_deepcopy_return_independent_instances() -> None:
@@ -242,7 +242,7 @@ def test_frozen_copy_and_deepcopy_return_independent_instances() -> None:
     assert deep.to_list() == base.to_list()
     assert shallow is not base
     assert deep is not base
-    assert shallow._frozen is True and deep._frozen is True
+    assert shallow._frozen is True and deep._frozen is True  # pyright: ignore[reportPrivateUsage]  # 用例专门验证冻结标记
 
 
 # --------------------------------------------------------------------------- 可变形态不可哈希

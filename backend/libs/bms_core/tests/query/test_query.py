@@ -103,7 +103,7 @@ async def test_null_registry_fixed() -> None:
     registry.register(provider)
     assert registry.get("p1") is provider
     assert registry.keys() == ("p1",)
-    assert await registry.query("p1", ConcurrentStableFrozenList()) == QueryResult(
+    assert await registry.query("p1", ConcurrentStableFrozenDict()) == QueryResult(
         rows=ConcurrentStableFrozenList(()), total=0
     )
 

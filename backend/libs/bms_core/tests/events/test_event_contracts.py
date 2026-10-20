@@ -8,8 +8,8 @@ import json
 import pytest
 
 from bms_core.core.concurrent import (
-    ConcurrentStableDict,
     ConcurrentStableFrozenDict,
+    ConcurrentStableFrozenList,
     ConcurrentStableList,
     ConcurrentStableSet,
 )
@@ -37,7 +37,7 @@ from bms_core.events.contracts import (
 )
 
 DOMAINS = ConcurrentStableSet({"sys", "wf"})
-_USER_FIELDS: ConcurrentStableDict[str, EventFieldSpec] = ConcurrentStableDict(
+_USER_FIELDS: ConcurrentStableFrozenDict[str, EventFieldSpec] = ConcurrentStableFrozenDict(
     {"user_id": EventFieldSpec(type="string", required=True)}
 )
 
@@ -45,7 +45,7 @@ _USER_FIELDS: ConcurrentStableDict[str, EventFieldSpec] = ConcurrentStableDict(
 def _contract(
     event_type: str = "sys.user.created",
     version: str = "1.0.0",
-    fields: ConcurrentStableDict[str, EventFieldSpec] | None = None,
+    fields: ConcurrentStableFrozenDict[str, EventFieldSpec] | None = None,
     description: str = "用户创建后",
     deprecated: bool = False,
 ) -> EventContract:
@@ -62,7 +62,7 @@ def _contract(
 def _subscription(
     consumer: str = "indexer",
     event_type: str = "sys.user.created",
-    majors: ConcurrentStableList[int] = ConcurrentStableList((1,)),  # noqa: B008
+    majors: ConcurrentStableFrozenList[int] = ConcurrentStableFrozenList((1,)),  # noqa: B008
     description: str = "索引同步",
 ) -> EventSubscription:
     """构造事件订阅（默认合法）。"""
@@ -82,7 +82,7 @@ def test_validate_contract_accepts_and_reports_all_violations() -> None:
         for error in validate_event_contract(_contract(event_type="ghost.thing.created"), domains=DOMAINS)
     )
     assert any("契约版本非法" in error for error in validate_event_contract(_contract(version="v1")))
-    bad_fields = ConcurrentStableDict(
+    bad_fields = ConcurrentStableFrozenDict(
         {
             "Bad-Name": EventFieldSpec(type="string"),
             "event_id": EventFieldSpec(type="string"),
@@ -111,7 +111,7 @@ def test_registry_register_idempotent_and_conflict() -> None:
     registry.register_subscription(_subscription())
     assert len(registry.subscriptions()) == 1
     with pytest.raises(EventContractError):
-        registry.register_subscription(_subscription(majors=ConcurrentStableList((1, 2))))
+        registry.register_subscription(_subscription(majors=ConcurrentStableFrozenList((1, 2))))
 
     assert registry.contract("sys.user.created") == contract
     assert registry.contract("ghost.thing.created") is None
@@ -139,11 +139,13 @@ def test_subscription_validation_and_version_acceptance() -> None:
     registry = EventContractRegistry()
     registry.register(_contract(version="2.1.0"))
 
-    registry.register_subscription(_subscription(event_type="ghost.thing.created", majors=ConcurrentStableList((1,))))
-    registry.register_subscription(_subscription(consumer="empty", majors=ConcurrentStableList(())))
-    registry.register_subscription(_subscription(consumer="bad-major", majors=ConcurrentStableList((0,))))
-    registry.register_subscription(_subscription(consumer="stale", majors=ConcurrentStableList((1,))))
-    registry.register_subscription(_subscription(consumer="ready", majors=ConcurrentStableList((1, 2))))
+    registry.register_subscription(
+        _subscription(event_type="ghost.thing.created", majors=ConcurrentStableFrozenList((1,)))
+    )
+    registry.register_subscription(_subscription(consumer="empty", majors=ConcurrentStableFrozenList(())))
+    registry.register_subscription(_subscription(consumer="bad-major", majors=ConcurrentStableFrozenList((0,))))
+    registry.register_subscription(_subscription(consumer="stale", majors=ConcurrentStableFrozenList((1,))))
+    registry.register_subscription(_subscription(consumer="ready", majors=ConcurrentStableFrozenList((1, 2))))
 
     errors = validate_event_registry(registry, domains=DOMAINS)
     assert any("未登记契约" in error for error in errors)
@@ -151,11 +153,11 @@ def test_subscription_validation_and_version_acceptance() -> None:
     assert any("主版本非法" in error for error in errors)
     assert any("未覆盖契约当前主版本" in error for error in errors)
 
-    ready = _subscription(consumer="ready", majors=ConcurrentStableList((1, 2)))
+    ready = _subscription(consumer="ready", majors=ConcurrentStableFrozenList((1, 2)))
     assert ready.accepts("2.3.0") is True
     assert ready.accepts(None) is True
     assert ready.accepts("v2") is False
-    assert _subscription(majors=ConcurrentStableList((2,))).accepts(None) is False
+    assert _subscription(majors=ConcurrentStableFrozenList((2,))).accepts(None) is False
     with pytest.raises(EventContractError):
         require_event_version_compatible(ready, EventEnvelope(event_type="sys.user.created", event_version="3.0.0"))
     require_event_version_compatible(ready, EventEnvelope(event_type="sys.user.created", event_version="2.0.0"))
@@ -175,26 +177,28 @@ def test_compatibility_rules() -> None:
     assert check_event_compatibility(base, _contract(version="1.0.1", description="措辞更新")) == ()
 
     additive = _contract(
-        version="1.1.0", fields=ConcurrentStableDict({**_USER_FIELDS, "dept_id": EventFieldSpec(type="string")})
+        version="1.1.0", fields=ConcurrentStableFrozenDict({**_USER_FIELDS, "dept_id": EventFieldSpec(type="string")})
     )
     assert check_event_compatibility(base, additive) == ()
 
     assert (
         check_event_compatibility(
-            base, _contract(version="1.0.0", fields=ConcurrentStableDict({**_USER_FIELDS, "extra": EventFieldSpec()}))
+            base,
+            _contract(version="1.0.0", fields=ConcurrentStableFrozenDict({**_USER_FIELDS, "extra": EventFieldSpec()})),
         )
         != ()
     )
     assert any(
         "必须升版本" in error
         for error in check_event_compatibility(
-            base, _contract(version="1.0.0", fields=ConcurrentStableDict({**_USER_FIELDS, "extra": EventFieldSpec()}))
+            base,
+            _contract(version="1.0.0", fields=ConcurrentStableFrozenDict({**_USER_FIELDS, "extra": EventFieldSpec()})),
         )
     )
 
     required_added = _contract(
         version="1.1.0",
-        fields=ConcurrentStableDict({**_USER_FIELDS, "extra": EventFieldSpec(type="string", required=True)}),
+        fields=ConcurrentStableFrozenDict({**_USER_FIELDS, "extra": EventFieldSpec(type="string", required=True)}),
     )
     errors = check_event_compatibility(base, required_added)
     assert any("新增字段必须可选" in error for error in errors)
@@ -202,31 +206,31 @@ def test_compatibility_rules() -> None:
 
     added_in_major = _contract(
         version="2.0.0",
-        fields=ConcurrentStableDict({**_USER_FIELDS, "extra": EventFieldSpec(type="string", required=True)}),
+        fields=ConcurrentStableFrozenDict({**_USER_FIELDS, "extra": EventFieldSpec(type="string", required=True)}),
     )
     assert check_event_compatibility(base, added_in_major) == ()
 
-    removed_in_minor = _contract(version="1.1.0", fields=ConcurrentStableDict())
+    removed_in_minor = _contract(version="1.1.0", fields=ConcurrentStableFrozenDict())
     errors = check_event_compatibility(base, removed_in_minor)
     assert any("禁止删除" in error for error in errors)
     assert any("必须升主版本" in error for error in errors)
-    assert check_event_compatibility(base, _contract(version="2.0.0", fields=ConcurrentStableDict())) == ()
+    assert check_event_compatibility(base, _contract(version="2.0.0", fields=ConcurrentStableFrozenDict())) == ()
 
     type_changed_minor = _contract(
-        version="1.1.0", fields=ConcurrentStableDict({"user_id": EventFieldSpec(type="integer", required=True)})
+        version="1.1.0", fields=ConcurrentStableFrozenDict({"user_id": EventFieldSpec(type="integer", required=True)})
     )
     assert any("字段类型变更" in error for error in check_event_compatibility(base, type_changed_minor))
     type_changed_major = _contract(
-        version="2.0.0", fields=ConcurrentStableDict({"user_id": EventFieldSpec(type="integer", required=True)})
+        version="2.0.0", fields=ConcurrentStableFrozenDict({"user_id": EventFieldSpec(type="integer", required=True)})
     )
     assert check_event_compatibility(base, type_changed_major) == ()
 
     required_changed_minor = _contract(
-        version="1.1.0", fields=ConcurrentStableDict({"user_id": EventFieldSpec(type="string")})
+        version="1.1.0", fields=ConcurrentStableFrozenDict({"user_id": EventFieldSpec(type="string")})
     )
     assert any("必填性变更" in error for error in check_event_compatibility(base, required_changed_minor))
     required_changed_major = _contract(
-        version="2.0.0", fields=ConcurrentStableDict({"user_id": EventFieldSpec(type="string")})
+        version="2.0.0", fields=ConcurrentStableFrozenDict({"user_id": EventFieldSpec(type="string")})
     )
     assert check_event_compatibility(base, required_changed_major) == ()
 
@@ -250,7 +254,7 @@ def _additive_but_patch() -> EventContract:
         EventContract: 违规契约。
     """
     return _contract(
-        version="1.0.1", fields=ConcurrentStableDict({**_USER_FIELDS, "dept_id": EventFieldSpec(type="string")})
+        version="1.0.1", fields=ConcurrentStableFrozenDict({**_USER_FIELDS, "dept_id": EventFieldSpec(type="string")})
     )
 
 
@@ -259,10 +263,10 @@ def test_subscription_coverage_and_snapshot_compatibility() -> None:
     """主版本升级订阅覆盖校验；快照 → 现行注册表（事件类型不得消失 + 逐事件兼容）。"""
     previous = _contract()
     upgraded = _contract(
-        version="2.0.0", fields=ConcurrentStableDict({**_USER_FIELDS, "dept_id": EventFieldSpec(type="string")})
+        version="2.0.0", fields=ConcurrentStableFrozenDict({**_USER_FIELDS, "dept_id": EventFieldSpec(type="string")})
     )
-    stale = _subscription(majors=ConcurrentStableList((1,)))
-    ready = _subscription(majors=ConcurrentStableList((1, 2)))
+    stale = _subscription(majors=ConcurrentStableFrozenList((1,)))
+    ready = _subscription(majors=ConcurrentStableFrozenList((1, 2)))
 
     errors = check_subscription_coverage(previous, upgraded, ConcurrentStableList([stale]))
     assert any("主版本升级未覆盖订阅" in error for error in errors)
@@ -282,7 +286,9 @@ def test_subscription_coverage_and_snapshot_compatibility() -> None:
     registry.register(_contract(version="1.0.0"))
     assert check_snapshot_compatibility(ConcurrentStableList([_contract()]), registry) == ()
     registry.register(_contract(event_type="wf.instance.finished", version="2.0.0"))
-    registry.register_subscription(_subscription(event_type="wf.instance.finished", majors=ConcurrentStableList((1,))))
+    registry.register_subscription(
+        _subscription(event_type="wf.instance.finished", majors=ConcurrentStableFrozenList((1,)))
+    )
     errors = check_snapshot_compatibility(ConcurrentStableList([_contract()]), registry)
     assert any("主版本升级未覆盖订阅" in error for error in errors)
 

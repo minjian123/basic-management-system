@@ -10,7 +10,7 @@ from fastapi import FastAPI
 from starlette.requests import Request
 
 from bms_core.api.base import AuthContext, require_auth
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenList, ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenList
 from bms_core.core.context import get_current_user_id, set_current_client_ip
 from bms_core.core.exceptions import AuthError, SessionAuthError, TenantNotFoundError
 from bms_core.db.tenant import DEMO_TENANT, TenantContext
@@ -103,7 +103,7 @@ def _verified(
     subject: str = "1001",
     tenant_id: str | None = _DEMO_ID,
     session_id: str = "s1",
-    scopes: ConcurrentStableList[str] = ConcurrentStableList(("a",)),  # noqa: B008
+    scopes: ConcurrentStableFrozenList[str] = ConcurrentStableFrozenList(("a",)),  # noqa: B008
 ) -> VerifiedToken:
     """构造校验通过的令牌声明。
 

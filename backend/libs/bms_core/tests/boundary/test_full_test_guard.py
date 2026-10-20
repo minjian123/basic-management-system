@@ -31,7 +31,7 @@ _CI_ENVS = guard.CI_ENVS
 
 
 @pytest.fixture(autouse=True)
-def _clean_env(monkeypatch: pytest.MonkeyPatch) -> None:
+def _clean_env(monkeypatch: pytest.MonkeyPatch) -> None:  # pyright: ignore[reportUnusedFunction]  # pytest 按名调用
     """隔离 CI / 显式全量环境变量（避免宿主机 CI 标识影响判定）。"""
     for name in _CI_ENVS:
         monkeypatch.delenv(name, raising=False)

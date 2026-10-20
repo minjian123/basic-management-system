@@ -14,6 +14,7 @@ from starlette.routing import Route
 
 from bms_core.core.concurrent import (
     ConcurrentStableDict,
+    ConcurrentStableFrozenDict,
     ConcurrentStableFrozenList,
     ConcurrentStableList,
 )
@@ -151,7 +152,7 @@ async def test_participant_rejects_unregistered_op() -> None:
     state = await participant.execute_branch(
         xid="1001|b1",
         db_key="platform",
-        ops=ConcurrentStableFrozenList((BranchOp(op="unknown.op", args=ConcurrentStableDict[str, object]()),)),
+        ops=ConcurrentStableFrozenList((BranchOp(op="unknown.op", args=ConcurrentStableFrozenDict[str, object]()),)),
     )
 
     assert state == "rejected"
@@ -450,7 +451,7 @@ async def test_participant_executes_branch_prepares_and_detaches() -> None:
     registry.register("test.op", handler)
     participant = XaTransactionParticipant(cast("Any", _FakeEngines(_FakeEngine(connection, _FakeDialect()))), registry)
 
-    args = ConcurrentStableDict[str, object]({"k": 1})
+    args = ConcurrentStableFrozenDict[str, object]({"k": 1})
     state = await participant.execute_branch(
         xid="xa-1", db_key="platform", ops=ConcurrentStableFrozenList((BranchOp(op="test.op", args=args),))
     )
@@ -481,7 +482,7 @@ async def test_participant_rolls_back_when_handler_fails() -> None:
         await participant.execute_branch(
             xid="xa-1",
             db_key="platform",
-            ops=ConcurrentStableFrozenList((BranchOp(op="test.op", args=ConcurrentStableDict[str, object]()),)),
+            ops=ConcurrentStableFrozenList((BranchOp(op="test.op", args=ConcurrentStableFrozenDict[str, object]()),)),
         )
 
     assert connection.rolled_back == 1
@@ -504,7 +505,7 @@ async def test_participant_swallows_rollback_and_close_failures() -> None:
         await participant.execute_branch(
             xid="xa-1",
             db_key="platform",
-            ops=ConcurrentStableFrozenList((BranchOp(op="test.op", args=ConcurrentStableDict[str, object]()),)),
+            ops=ConcurrentStableFrozenList((BranchOp(op="test.op", args=ConcurrentStableFrozenDict[str, object]()),)),
         )
 
 
@@ -619,7 +620,7 @@ async def test_participant_commits_session_before_prepare(monkeypatch: pytest.Mo
     await participant.execute_branch(
         xid="xa-1",
         db_key="platform",
-        ops=ConcurrentStableFrozenList((BranchOp(op="test.op", args=ConcurrentStableDict[str, object]()),)),
+        ops=ConcurrentStableFrozenList((BranchOp(op="test.op", args=ConcurrentStableFrozenDict[str, object]()),)),
     )
 
     assert list(steps) == ["open", "flush", "commit", "close", "prepare"]

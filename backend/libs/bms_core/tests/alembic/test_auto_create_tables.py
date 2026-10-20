@@ -7,7 +7,7 @@ import pytest
 from sqlalchemy import MetaData
 
 import bms_core.db.bootstrap as bootstrap_module
-from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
+from bms_core.core.concurrent import ConcurrentStableFrozenSet, ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.config import get_settings
 from bms_core.db.bootstrap import (
     SchemaOutcome,
@@ -229,7 +229,7 @@ async def test_apply_chain_schema_skips_empty_table_set(tmp_path: Path) -> None:
     assert not target.exists()
 
 
-def _chain(datasource: str, *, tables: ConcurrentStableSet[str]) -> MigrationChain:
+def _chain(datasource: str, *, tables: ConcurrentStableFrozenSet[str]) -> MigrationChain:
     """构造指定数据源段的迁移链替身（表集可控）。
 
     Args:
@@ -248,20 +248,20 @@ def _chain(datasource: str, *, tables: ConcurrentStableSet[str]) -> MigrationCha
 def test_db_keys_for_unknown_datasource_returns_empty() -> None:
     """未知数据源段：取键为空列表（防御分支，不抛错）。"""
     settings = get_settings()
-    assert db_keys_for(_chain("mystery", tables=ConcurrentStableSet()), settings) == []
+    assert db_keys_for(_chain("mystery", tables=ConcurrentStableFrozenSet()), settings) == []
 
 
 @pytest.mark.kiwi_id(1078)
 def test_db_keys_for_archive_and_tenant_branches() -> None:
     """归档链取单键；租户链逐 `dev_tenants` 派生（三分支对照）。"""
     settings = get_settings()
-    assert db_keys_for(_chain(DATASOURCE_ARCHIVE, tables=ConcurrentStableSet()), settings) == ["archive"]
+    assert db_keys_for(_chain(DATASOURCE_ARCHIVE, tables=ConcurrentStableFrozenSet()), settings) == ["archive"]
     settings.tenant.dev_tenants = ConcurrentStableList(["demo", "acme"])
-    assert db_keys_for(_chain(DATASOURCE_TENANT, tables=ConcurrentStableSet()), settings) == [
+    assert db_keys_for(_chain(DATASOURCE_TENANT, tables=ConcurrentStableFrozenSet()), settings) == [
         "tenant_demo",
         "tenant_acme",
     ]
-    assert db_keys_for(_chain(DATASOURCE_PLATFORM, tables=ConcurrentStableSet()), settings) == ["platform"]
+    assert db_keys_for(_chain(DATASOURCE_PLATFORM, tables=ConcurrentStableFrozenSet()), settings) == ["platform"]
 
 
 @pytest.mark.kiwi_id(2303)
@@ -287,7 +287,7 @@ def _empty_table_chains(service: str) -> ConcurrentStableList[MigrationChain]:
         ConcurrentStableList[MigrationChain]: 单条空表链。
     """
     del service
-    return ConcurrentStableList([_chain(DATASOURCE_PLATFORM, tables=ConcurrentStableSet())])
+    return ConcurrentStableList([_chain(DATASOURCE_PLATFORM, tables=ConcurrentStableFrozenSet())])
 
 
 def _empty_metadata(chain: MigrationChain) -> MetaData:

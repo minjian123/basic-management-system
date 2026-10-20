@@ -44,14 +44,14 @@ class _WithFrozenFields(BaseValueObject):
 
 def test_hash_split_mutable_forms_unhashable() -> None:
     """哈希分工（可变侧）：三形态 `__hash__ = None` 且 `hash()` 抛 `TypeError`。"""
-    for factory, items in (
-        (ConcurrentStableList, [1]),
-        (ConcurrentStableSet, [1]),
-        (ConcurrentStableDict, [("a", 1)]),
+    for instance in (
+        ConcurrentStableList([1]),
+        ConcurrentStableSet([1]),
+        ConcurrentStableDict({"a": 1}),
     ):
-        assert factory.__hash__ is None
+        assert type(instance).__hash__ is None
         with pytest.raises(TypeError, match="unhashable"):
-            hash(factory(items))
+            hash(instance)
 
 
 def test_hash_split_frozen_forms_hashable() -> None:
