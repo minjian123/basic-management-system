@@ -324,16 +324,30 @@ async def test_dispatch_rethrows_and_due_isolates(registry: EngineRegistry) -> N
 
 
 @pytest.mark.kiwi_id(2172)
-async def test_run_forever_loop(registry: EngineRegistry) -> None:
-    """后台轮询循环运行一轮后取消退出。"""
+async def test_run_forever_loop(registry: EngineRegistry, monkeypatch: pytest.MonkeyPatch) -> None:
+    """后台轮询循环运行一轮后取消退出（**事件驱动等待**，不依赖墙上时钟）。
+
+    原实现用 `asyncio.sleep(0.05)` 等一轮，机器繁忙时循环可能一轮都没跑完就取消，
+    导致「成功后 sleep」那行覆盖率随机缺失（门禁抖动）。改为在 `dispatch_due` 返回后置事件、
+    由用例等待事件——一轮必然完成，且循环随即执行到 `await asyncio.sleep(interval)` 才被取消。
+    """
     dispatcher = _build_dispatcher(registry, RecordingPublisher(), enabled=True, interval=0.01)
+    round_done = asyncio.Event()
+    original = dispatcher.dispatch_due
+
+    async def _dispatch_once() -> DispatchResult:
+        result = await original()
+        round_done.set()
+        return result
+
+    monkeypatch.setattr(dispatcher, "dispatch_due", _dispatch_once)
     await dispatcher.setup()
-    await asyncio.sleep(0.05)
+    await asyncio.wait_for(round_done.wait(), timeout=5)
     await dispatcher.aclose()
 
 
 @pytest.mark.kiwi_id(2172)
-async def test_run_forever_survives_round_error(registry: EngineRegistry) -> None:
+async def test_run_forever_survives_round_error(registry: EngineRegistry, monkeypatch: pytest.MonkeyPatch) -> None:
     """单轮异常不终止后台循环（记日志后继续）。"""
     dispatcher = BoomDispatcher(
         store=SqlOutboxStore(),
@@ -344,8 +358,18 @@ async def test_run_forever_survives_round_error(registry: EngineRegistry) -> Non
         interval=0.01,
         enabled=True,
     )
+    round_failed = asyncio.Event()
+    original = dispatcher.dispatch_due
+
+    async def _dispatch_once() -> DispatchResult:
+        try:
+            return await original()
+        finally:
+            round_failed.set()
+
+    monkeypatch.setattr(dispatcher, "dispatch_due", _dispatch_once)
     await dispatcher.setup()
-    await asyncio.sleep(0.05)
+    await asyncio.wait_for(round_failed.wait(), timeout=5)
     await dispatcher.aclose()
 
 
