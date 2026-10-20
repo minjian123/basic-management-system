@@ -11,7 +11,12 @@ from __future__ import annotations
 
 from typing import cast
 
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.core.concurrent import (
+    ConcurrentStableDict,
+    ConcurrentStableFrozenDict,
+    ConcurrentStableFrozenList,
+    ConcurrentStableList,
+)
 from bms_core.core.exceptions import (
     PasswordPolicyViolationError,
     PasswordReusedError,
@@ -26,10 +31,10 @@ from bms_identity.schemas.sso import PlatformProfileResult, PlatformUserCreateRe
 PLATFORM_SERVICE = "platform"
 """凭据主数据归属服务标识。"""
 
-_SCOPES: ConcurrentStableList[str] = ConcurrentStableList(("credential",))
+_SCOPES: ConcurrentStableFrozenList[str] = ConcurrentStableFrozenList(("credential",))
 """内部凭据调用所需服务 JWT scope。"""
 
-_PROFILE_SCOPES: ConcurrentStableList[str] = ConcurrentStableList(("user_profile",))
+_PROFILE_SCOPES: ConcurrentStableFrozenList[str] = ConcurrentStableFrozenList(("user_profile",))
 """用户概要接口所需服务 JWT scope。"""
 
 _CREDENTIAL_INTERFACE = "platform 凭据接口"
@@ -228,7 +233,7 @@ class PlatformCredentialClient(BaseFrameworkObject):
     async def _post_path(
         self,
         path: str,
-        scopes: ConcurrentStableList[str],
+        scopes: ConcurrentStableFrozenList[str],
         tenant: str | None,
         body: ConcurrentStableDict[str, object],
         *,
@@ -255,7 +260,7 @@ class PlatformCredentialClient(BaseFrameworkObject):
                 method="POST",
                 path=path,
                 tenant_id=tenant,
-                json_body=body,
+                json_body=ConcurrentStableFrozenDict(body),
                 policy=ServiceCallPolicy(scopes=scopes),
             )
         )

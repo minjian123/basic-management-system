@@ -17,7 +17,7 @@ from bms_core.api.deps import (
     get_user_token_issuer,
 )
 from bms_core.captcha.base import BaseCaptcha, CaptchaChallenge, CaptchaCredential, CaptchaKind, CaptchaScenePolicy
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenDict, ConcurrentStableList
 from bms_core.core.exceptions import AuthError, MultipleActiveTenantsError
 from bms_core.core.serialization import stable_json_dumps
 from bms_core.db.tenant import TenantContext, TenantNotFoundError
@@ -114,7 +114,7 @@ class FakeUserTokenIssuer(BaseUserTokenIssuer):
         info = self._by_token.get(token)
         if info is None or info["type"] != expected_type:
             raise AuthError("invalid token")
-        return IdentityClaims(subject=cast("str", info["sub"]), payload=info)
+        return IdentityClaims(subject=cast("str", info["sub"]), payload=ConcurrentStableFrozenDict(info))
 
     def jwks(self) -> ConcurrentStableDict[str, object]:
         """占位 JWKS。
@@ -216,7 +216,7 @@ class FakePlatformClient(BaseServiceClient):
             ServiceResponse: 统一响应。
         """
         action = request.path.rsplit("/", 1)[-1]
-        body = request.json_body or ConcurrentStableDict()
+        body: ConcurrentStableDict[str, object] = request.json_body or ConcurrentStableDict()
         self.calls.add(action)
         data = self._dispatch(action, body)
         return ServiceResponse(

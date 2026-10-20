@@ -16,7 +16,13 @@ from __future__ import annotations
 
 from typing import Any, cast
 
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
+from bms_core.core.concurrent import (
+    ConcurrentStableDict,
+    ConcurrentStableFrozenDict,
+    ConcurrentStableFrozenList,
+    ConcurrentStableList,
+    ConcurrentStableSet,
+)
 from bms_core.core.exceptions import ServiceUnavailableError
 from bms_core.i18n.base import DEFAULT_LOCALE
 from bms_core.permission.field import FieldPermission
@@ -33,7 +39,7 @@ from bms_identity.schemas.permission import PlatformPermissionMetadata, Platform
 PLATFORM_SERVICE = "platform"
 """权限数据归属服务标识。"""
 
-_PERMISSION_SCOPES: ConcurrentStableList[str] = ConcurrentStableList(("permission",))
+_PERMISSION_SCOPES: ConcurrentStableFrozenList[str] = ConcurrentStableFrozenList(("permission",))
 """内部权限取数所需服务 JWT scope。"""
 
 _SUBJECT_PATH = "/api/v1/platform/internal/permissions/subject"
@@ -145,7 +151,7 @@ class PlatformContractPermissionDataSource(BasePermissionDataSource):
                 service=PLATFORM_SERVICE,
                 method="POST",
                 path=path,
-                json_body=body,
+                json_body=ConcurrentStableFrozenDict(body),
                 policy=ServiceCallPolicy(scopes=_PERMISSION_SCOPES),
             )
         )
@@ -169,7 +175,7 @@ class PlatformContractPermissionDataSource(BasePermissionDataSource):
                 service=PLATFORM_SERVICE,
                 method="GET",
                 path=path,
-                query=query,
+                query=ConcurrentStableFrozenDict(query),
                 policy=ServiceCallPolicy(scopes=_PERMISSION_SCOPES),
             )
         )

@@ -141,7 +141,7 @@ class FakeOidcPlatformClient(BaseServiceClient):
         if action == "profile":
             if self.fail:
                 raise ServiceUnavailableError("platform 用户接口不可用")
-            body = request.json_body or ConcurrentStableDict()
+            body: ConcurrentStableDict[str, object] = request.json_body or ConcurrentStableDict()
             user_id = int(cast("int", body.get("user_id", 0)))
             user = self.users.get(user_id)
             if user is None:

@@ -17,7 +17,7 @@ from typing import cast
 
 import httpx
 
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenDict
 from bms_core.core.exceptions import ConfigError
 from bms_core.core.objects import BaseFrameworkObject
 from bms_core.idp.base import BaseIdentityProvider
@@ -79,7 +79,7 @@ class ProviderRegistry(BaseFrameworkObject):
             id=row.id,
             idp_key=row.idp_key,
             type=row.type,
-            config=config,
+            config=ConcurrentStableFrozenDict(config),
             updated_at=_normalize_updated_at(row.updated_at),
         )
 
@@ -106,7 +106,9 @@ class ProviderRegistry(BaseFrameworkObject):
         merged = ConcurrentStableDict(config)
         if redirect_uri and not merged.get("redirect_uri"):
             merged.set("redirect_uri", redirect_uri)
-        return IdentityProviderSpec(id=0, idp_key=idp_key, type=type, config=merged, updated_at="")
+        return IdentityProviderSpec(
+            id=0, idp_key=idp_key, type=type, config=ConcurrentStableFrozenDict(merged), updated_at=""
+        )
 
     def instance_for_spec(self, spec: IdentityProviderSpec) -> BaseIdentityProvider:
         """按实例规格取 IdP 实例（按规格缓存；行配置变更自动失效）。
