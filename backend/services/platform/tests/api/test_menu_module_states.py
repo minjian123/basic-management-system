@@ -9,7 +9,6 @@ from starlette.requests import Request
 
 from bms_core.core import context
 from bms_platform.api.menu import _module_states  # pyright: ignore[reportPrivateUsage]
-from bms_platform.permission.field_provider import register_static_field_provider
 
 pytestmark = pytest.mark.kiwi_id(2325)
 
@@ -28,8 +27,3 @@ async def test_module_states_empty_without_or_invalid_tenant() -> None:
         assert dict(await _module_states(request)) == {}
     finally:
         context.current_tenant_id.reset(token)
-
-
-def test_register_static_field_provider() -> None:
-    """基础版字段权限工厂登记入口可直接调用（后代档位同键覆盖）。"""
-    register_static_field_provider()
