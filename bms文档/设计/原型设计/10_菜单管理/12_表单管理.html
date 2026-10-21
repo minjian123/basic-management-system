@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 表单管理</title>
+<link rel="stylesheet" href="../资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../资源/原型样式.css">
+<style>
+  .ep-page { background: #fff; border: 1px solid #d0d7de; border-radius: 6px; padding: 16px; }
+  .ep-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+  .ep-toolbar .ep-side { margin-left: auto; }
+  .ep-filter { margin-bottom: 12px; }
+  .ep-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="01_设计说明.html">← 返回设计说明</a></span>
+  <span class="pb-name">菜单管理 · 表单管理（表单框架 · 列表 Tab）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本页为「表单管理」表单框架的<b>列表 Tab</b>（固定页签，不可关闭）；双击数据行或点「新增」打开<b>表单记录 Tab</b>
+    （见 <a href="13_表单表单页.html">13_表单表单页</a>）。表单（<code>sys_form</code>）<b>1:1 挂业务码</b>、视图组件可缺省（缺省取菜单 <code>component</code>）；
+    与菜单经关联表 <code>sys_menu_form</code> 承载<b>多对多</b>——同一表单可被多个菜单入口引用，<b>表单也可完全没有菜单入口</b>，
+    故本页是<b>含未挂接表单的总列表</b>（关联菜单数可 <code>0</code>，即「无入口表单」）。列表页三段式：工具栏 → 筛选区 → 表格；
+    <b>无操作列</b>，双击行开记录 Tab；表单存平台库、平台超管统一维护（<code>menu</code> 业务），租户侧只读引用。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <!-- ① 工具栏：左侧 新增/刷新/关闭 + 批量操作（随选中态启用）；右侧 导出 -->
+      <div class="ep-toolbar">
+        <template v-if="!editing">
+          <el-button type="primary" @click="openForm(null)">新增</el-button>
+          <el-button @click="reload">刷新</el-button>
+          <el-button @click="closePage">关闭</el-button>
+          <el-button type="danger" plain :disabled="!sel.length" @click="delSel">删除</el-button>
+          <el-button :disabled="!sel.length" @click="batchToggle">停用/启用</el-button>
+        </template>
+        <span class="ep-side">
+          <el-button @click="exportMsg">导出</el-button>
+          <span class="proto-hint" style="margin-left:10px">平台超管维护 · 含未挂接表单</span>
+        </span>
+      </div>
+
+      <!-- ② 筛选区：关键字框 240px + 业务码 + 状态；查询/重置在条件行末（单行） -->
+      <el-form class="ep-filter" label-position="top" @submit.prevent>
+        <el-row :gutter="16">
+          <el-col :span="6">
+            <el-form-item label="关键字">
+              <el-input v-model="query.kw" placeholder="关键字：视图组件" clearable style="width:240px"></el-input>
+            </el-form-item>
+          </el-col>
+          <el-col :span="6">
+            <el-form-item label="业务码">
+              <el-select v-model="query.biz" placeholder="全部" clearable style="width:100%">
+                <el-option v-for="b in bizOptions" :key="b.value" :label="b.label" :value="b.value"></el-option>
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="6">
+            <el-form-item label="状态">
+              <el-select v-model="query.status" placeholder="全部" clearable style="width:100%">
+                <el-option label="启用" value="enabled"></el-option>
+                <el-option label="停用" value="disabled"></el-option>
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="6">
+            <el-form-item style="margin-top:30px">
+              <el-button type="primary" @click="applyFilter">查询</el-button>
+              <el-button @click="resetFilter">重置</el-button>
+            </el-form-item>
+          </el-col>
+        </el-row>
+      </el-form>
+
+      <!-- ③ 表格：多选 + 数据列，无操作列；双击行打开表单记录 Tab -->
+      <el-table :data="pageRows" border stripe @selection-change="onSel" @row-dblclick="openForm" style="width:100%">
+        <el-table-column type="selection" width="48"></el-table-column>
+        <el-table-column prop="bizCode" label="业务码" min-width="140"></el-table-column>
+        <el-table-column prop="bizName" label="业务名称" min-width="200" show-overflow-tooltip></el-table-column>
+        <el-table-column prop="component" label="视图组件" min-width="170" show-overflow-tooltip></el-table-column>
+        <el-table-column label="关联菜单数" width="130" align="center">
+          <template #default="{ row }">
+            <el-tag v-if="row.menuCount === 0" size="small" type="warning">0 · 无入口</el-tag>
+            <span v-else>{{ row.menuCount }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="状态" width="100">
+          <template #default="{ row }"><el-tag :type="row.status === 'enabled' ? 'success' : 'info'">{{ row.status === 'enabled' ? '启用' : '停用' }}</el-tag></template>
+        </el-table-column>
+        <template #empty>
+          <div>
+            <div style="font-size:14px;color:#57606a">暂无数据</div>
+            <el-button style="margin-top:10px" type="primary" @click="openForm(null)">去创建</el-button>
+          </div>
+        </template>
+      </el-table>
+
+      <!-- ④ 表格下方一行：左下明细工具栏（通用工具）+ 右下分页（默认 20 条/页） -->
+      <div class="ep-bar">
+        <div>
+          <el-button size="small" @click="toast('原型演示：自动列宽')" title="自动列宽">⟷</el-button>
+          <el-button size="small" @click="toast('原型演示：自定义列')" title="自定义列">☰</el-button>
+          <el-button size="small" @click="reload" title="刷新">⟳</el-button>
+          <el-button size="small" @click="toast('原型演示：全屏')" title="全屏">⛶</el-button>
+        </div>
+        <el-pagination background layout="total, sizes, jumper, prev, pager, next" :total="filtered.length"
+          :page-size="query.size" :current-page="query.page"
+          @current-change="function (n) { query.page = n; }" @size-change="function (s) { query.size = s; query.page = 1; }"></el-pagination>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="../资源/vendor/vue.global.prod.js"></script>
+
+<script src="../资源/vendor/element-plus.min.js"></script>
+<script src="../资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref, reactive, computed } = Vue;
+  var ElMessage = ElementPlus.ElMessage;
+  var ElMessageBox = ElementPlus.ElMessageBox;
+  var app = createApp({
+    template: document.getElementById('app').outerHTML.replace(/<div id="app">/, '<div>').replace(/<\/div>\s*$/, ''),
+    setup: function () {
+      var editing = ref(false);
+      var bizOptions = [
+        { value: 'user', label: 'user · 用户管理（含账号锁定/解锁）' },
+        { value: 'role', label: 'role · 角色与授权' },
+        { value: 'menu', label: 'menu · 菜单/表单/按钮/字段维护' },
+        { value: 'business', label: 'business · 业务码维护' },
+        { value: 'icon', label: 'icon · 自定义图标' },
+        { value: 'config', label: 'config · 参数配置' }
+      ];
+      // 关联菜单数＝经 sys_menu_form 关联的菜单条数；0 即「无菜单入口」的表单（仍在本页可见可维护）
+      var rows = ref([
+        { id: 'user_form', bizCode: 'user', bizName: '用户管理（含账号锁定/解锁）', component: '用户表单', menuCount: 2, status: 'enabled' },
+        { id: 'role_form', bizCode: 'role', bizName: '角色与授权', component: '角色表单', menuCount: 1, status: 'enabled' },
+        { id: 'menu_form', bizCode: 'menu', bizName: '菜单/表单/按钮/字段维护', component: '菜单表单', menuCount: 1, status: 'enabled' },
+        { id: 'business_form', bizCode: 'business', bizName: '业务码维护', component: '业务码表单', menuCount: 1, status: 'enabled' },
+        { id: 'lock_form', bizCode: 'user', bizName: '用户管理（含账号锁定/解锁）', component: '账号锁定表单', menuCount: 1, status: 'enabled' },
+        { id: 'icon_form', bizCode: 'icon', bizName: '自定义图标', component: '图标表单', menuCount: 0, status: 'enabled' },
+        { id: 'config_form', bizCode: 'config', bizName: '参数配置', component: '参数配置表单', menuCount: 0, status: 'disabled' }
+      ]);
+      var query = reactive({ kw: '', biz: '', status: '', page: 1, size: 20 });
+      var sel = ref([]);
+
+      var filtered = computed(function () {
+        return rows.value.filter(function (r) {
+          var k = (query.kw || '').toLowerCase();
+          return (!k || (r.component || '').toLowerCase().indexOf(k) >= 0)
+            && (!query.biz || r.bizCode === query.biz)
+            && (!query.status || r.status === query.status);
+        });
+      });
+      var pageRows = computed(function () { var s = (query.page - 1) * query.size; return filtered.value.slice(s, s + query.size); });
+
+      function applyFilter() { query.page = 1; }
+      function resetFilter() { query.kw = ''; query.biz = ''; query.status = ''; query.page = 1; }
+      function onSel(s) { sel.value = s; }
+      function reload() { toast('已刷新表单清单（保留筛选与分页）'); }
+      function delSel() {
+        if (!sel.value.length) { ElMessage.warning('请先选择一行'); return; }
+        ElMessageBox.confirm('确认删除选中的 ' + sel.value.length + ' 个表单？表单被菜单挂接 / 按钮 / 字段引用时禁止删除，先解除引用（40206）；平台库以「停用」代替删除。',
+          '提示', { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消', confirmButtonClass: 'el-button--danger' })
+          .then(function () {
+            var ids = sel.value.map(function (r) { return r.id; });
+            rows.value = rows.value.filter(function (r) { return ids.indexOf(r.id) < 0; });
+            sel.value = [];
+            toast('已删除（软删除，sys.form.updated 已发布）');
+          }).catch(function () {});
+      }
+      function batchToggle() {
+        if (!sel.value.length) { ElMessage.warning('请先选择一行'); return; }
+        var toDisabled = sel.value.some(function (r) { return r.status === 'enabled'; });
+        var text = toDisabled ? '停用' : '启用';
+        ElMessageBox.confirm('确认' + text + '选中的 ' + sel.value.length + ' 个表单？' + (toDisabled ? '停用后该表单的按钮 / 字段与菜单入口即时不可用（已授予的角色保留）。' : ''),
+          '提示', { type: 'warning', confirmButtonText: text, cancelButtonText: '取消' })
+          .then(function () {
+            sel.value.forEach(function (r) { r.status = toDisabled ? 'disabled' : 'enabled'; });
+            sel.value = [];
+            toast('已批量' + text + '（sys.form.updated 已发布）');
+          }).catch(function () {});
+      }
+      function openForm(row) {
+        var url = '13_表单表单页.html' + (row ? '?id=' + encodeURIComponent(row.id) + '&name=' + encodeURIComponent(row.component) : '?new=1');
+        if (location.search.indexOf('embed=1') >= 0) {
+          try { parent.openDetail('表单记录', row ? row.component : '新建表单', row ? row.component : ''); return; } catch (e) {}
+        }
+        if (row) { toast('打开表单记录：' + row.component); location.href = url; return; }
+        toast('新建表单（打开空白记录 Tab，直接进入编辑态）');
+        location.href = url;
+      }
+      function exportMsg() { toast('按当前筛选导出表单清单（受 export:download 权限约束）'); }
+      function closePage() { toast('关闭表单管理模块页（返回）'); }
+      function toast(m, type) { ElMessage({ message: m, type: type || 'success' }); }
+
+      return { editing, bizOptions, rows, query, sel, filtered, pageRows, applyFilter, resetFilter, onSel, reload,
+        delSel, batchToggle, openForm, exportMsg, closePage, toast };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+  if (location.search.indexOf('embed=1') >= 0) { var pb = document.querySelector('.proto-bar'); if (pb) pb.style.display = 'none'; }
+</script>
+
+</body>
+</html>

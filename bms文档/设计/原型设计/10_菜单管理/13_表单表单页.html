@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型 · 表单表单页</title>
+<link rel="stylesheet" href="../资源/vendor/element-plus.css">
+<link rel="stylesheet" href="../资源/原型样式.css">
+<style>
+  .ep-page { background: #fff; border: 1px solid #d0d7de; border-radius: 6px; padding: 16px; }
+  .ep-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+  .ep-toolbar .ep-side { margin-left: auto; }
+  .sys-frame { display: block; width: 100%; border: none; background: #fff; }
+  .menu-sum { margin-top: 6px; font-size: 12px; color: #57606a; }
+  .menu-sum .menu-none { color: #9a6700; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <span class="pb-crumb"><a href="01_设计说明.html">← 返回设计说明</a></span>
+  <span class="pb-name">菜单管理 · 表单表单页（表单框架 · 表单记录 Tab）</span>
+</div>
+
+<div class="proto-frame">
+  <div class="proto-note">
+    本页为「表单管理」表单框架的<b>表单记录 Tab</b>。信息栏两个子页签：<b>详细信息</b> · <b>系统信息</b>。
+    表单（<code>sys_form</code>）<b>1:1 挂业务码</b>；与菜单经关联表 <code>sys_menu_form</code> 承载<b>多对多</b>——
+    同一表单可被多个菜单入口引用，<b>也可一个入口都不挂</b>（无入口表单，本页仍可独立维护）；视图组件可留空（缺省取菜单 <code>component</code>）。
+    挂接链断裂（<b>表单未挂业务，40202</b>）在保存时校验并提示；按钮 / 字段挂接在<a href="03_菜单表单页.html">菜单记录 Tab 的「挂接配置」</a>中维护。
+  </div>
+
+  <div id="app">
+    <div class="ep-page">
+      <!-- ① 工具栏分态：只读 修改/删除/刷新/关闭 ↔ 编辑 保存/取消；保存全局唯一 -->
+      <div class="ep-toolbar">
+        <template v-if="!editing">
+          <el-button type="primary" @click="editForm">修改</el-button>
+          <el-button type="danger" plain @click="delForm">删除</el-button>
+          <el-button @click="reload">刷新</el-button>
+        </template>
+        <template v-else>
+          <el-button type="primary" @click="saveForm">保存</el-button>
+          <el-button @click="cancelEdit">取消</el-button>
+        </template>
+        <el-button @click="closePage">关闭</el-button>
+        <span class="ep-side">
+          <span v-if="dirty" class="proto-hint" style="color:#cf222e">● 有未保存变更</span>
+          <span v-else class="proto-hint">编辑后关闭 / 切换页签将触发未保存拦截</span>
+        </span>
+      </div>
+
+      <!-- ② 信息栏：详细信息 / 系统信息 -->
+      <el-tabs v-model="section" :before-leave="beforeTabLeave">
+        <el-tab-pane label="详细信息" name="detail">
+          <el-form label-position="top" :disabled="!editing">
+            <el-row :gutter="16">
+              <el-col :span="8">
+                <el-form-item label="业务码" required>
+                  <el-select v-model="form.business" placeholder="请选择业务码" filterable style="width:100%">
+                    <el-option v-for="b in bizOptions" :key="b.value" :label="b.label" :value="b.value"></el-option>
+                  </el-select>
+                  <div class="proto-hint" style="line-height:1.6">表单 1:1 挂业务码（唯一约束）；未挂业务即挂接链断裂，保存时校验并提示（40202）</div>
+                </el-form-item>
+              </el-col>
+              <el-col :span="8">
+                <el-form-item label="视图组件">
+                  <el-select v-model="form.component" placeholder="选择组件或直接输入" filterable allow-create default-first-option clearable style="width:100%">
+                    <el-option v-for="c in componentOptions" :key="c" :label="c" :value="c"></el-option>
+                  </el-select>
+                  <div class="proto-hint" style="line-height:1.6">可从候选组件中选择，也可直接输入组件标识；留空则缺省取菜单 <code>component</code></div>
+                </el-form-item>
+              </el-col>
+              <el-col :span="8">
+                <el-form-item label="状态">
+                  <el-switch v-model="form.enabled" active-text="启用" inactive-text="停用"></el-switch>
+                  <div class="proto-hint" style="line-height:1.6">停用后该表单的按钮 / 字段与菜单入口即时不可用（已授予的角色保留）</div>
+                </el-form-item>
+              </el-col>
+            </el-row>
+            <el-row :gutter="16">
+              <el-col :span="24">
+                <el-form-item label="关联菜单">
+                  <el-select v-model="form.menus" multiple filterable collapse-tags collapse-tags-tooltip placeholder="可不选（无菜单入口）" style="width:100%">
+                    <el-option v-for="m in menuOptions" :key="m.value" :label="m.label" :value="m.value"></el-option>
+                  </el-select>
+                  <div class="menu-sum">
+                    已关联 {{ form.menus.length }} 个菜单入口 · <b>多对多</b>（关联表 <code>sys_menu_form</code>）
+                    <span v-if="!form.menus.length" class="menu-none">· 当前无菜单入口：表单独立维护，不构成挂接链断裂（断裂指表单未挂业务，40202）</span>
+                  </div>
+                  <div class="proto-hint" style="line-height:1.6">同一表单可被多入口引用；在<a href="02_菜单维护页.html">菜单维护页</a>的菜单记录「挂接配置 · 表单挂接」中亦可建立 / 取消同一关系，两处一致</div>
+                </el-form-item>
+              </el-col>
+            </el-row>
+            <el-row :gutter="16">
+              <el-col :span="24">
+                <el-form-item label="说明">
+                  <span class="proto-hint">按钮（挂 <b>权限码</b>）与字段（挂表单）是两个独立实体，不随表单记录页维护——在菜单记录 Tab「挂接配置」中按关联表单维护；字段权限（可见 / 可编辑）统一在角色管理授予（<code>role:grant</code>），本模块不提供授予入口。</span>
+                </el-form-item>
+              </el-col>
+            </el-row>
+          </el-form>
+        </el-tab-pane>
+
+        <el-tab-pane label="系统信息" name="sys">
+          <iframe class="sys-frame" src="../02_公共原型/04_系统信息组件.html" :style="{ height: sysH + 'px' }" @load="pushSys($event, sys)"></iframe>
+        </el-tab-pane>
+      </el-tabs>
+    </div>
+  </div>
+</div>
+
+<script src="../资源/vendor/vue.global.prod.js"></script>
+
+<script src="../资源/vendor/element-plus.min.js"></script>
+<script src="../资源/vendor/zh-cn.js"></script>
+<script>
+  var { createApp, ref, reactive, computed, watch } = Vue;
+  var ElMessage = ElementPlus.ElMessage;
+  var ElMessageBox = ElementPlus.ElMessageBox;
+  var app = createApp({
+    template: document.getElementById('app').outerHTML.replace(/<div id="app">/, '<div>').replace(/<\/div>\s*$/, ''),
+    setup: function () {
+      function qp(k) { var m = location.search.match(new RegExp('[?&]' + k + '=([^&]*)')); return m ? decodeURIComponent(m[1]) : null; }
+      var isNew = qp('new') === '1';
+      var editing = ref(isNew);
+      var section = ref('detail');
+      var dirty = ref(false);
+
+      var bizOptions = [
+        { value: 'user', label: 'user · 用户管理（含账号锁定/解锁）' },
+        { value: 'role', label: 'role · 角色与授权' },
+        { value: 'menu', label: 'menu · 菜单/表单/按钮/字段维护' },
+        { value: 'business', label: 'business · 业务码维护' },
+        { value: 'icon', label: 'icon · 自定义图标' },
+        { value: 'config', label: 'config · 参数配置' }
+      ];
+      var componentOptions = ['用户表单', '角色表单', '菜单表单', '业务码表单', '账号锁定表单', '图标表单', '参数配置表单'];
+      var menuOptions = [
+        { value: 'sys.user', label: '系统管理 / 用户管理' },
+        { value: 'sys.role', label: '系统管理 / 角色管理' },
+        { value: 'sys.lock', label: '系统管理 / 账号锁定' },
+        { value: 'sys.menu', label: '系统管理 / 菜单管理' },
+        { value: 'sys.perm', label: '系统管理 / 权限码管理' },
+        { value: 'sys.icon', label: '系统管理 / 自定义图标' },
+        { value: 'home', label: '首页工作台' }
+      ];
+
+      var form = reactive({ business: 'user', component: '用户表单', menus: ['sys.user', 'sys.lock'], enabled: true });
+      var sys = reactive({
+        id: '1902880022334455667', version: 1,
+        createdAt: '2026-07-01 10:00:00', createdBy: 'admin',
+        updatedAt: '2026-10-21 09:20:00', updatedBy: 'admin',
+        formKey: 'form', formLabel: '表单记录'
+      });
+
+      var sysH = ref(236);
+      function pushSys(ev, data) {
+        var f = ev.currentTarget;
+        if (f && f.contentWindow) f.contentWindow.postMessage({ type: 'sys-info', data: JSON.parse(JSON.stringify(data || {})) }, '*');
+      }
+      window.addEventListener('message', function (e) {
+        if (e.data && e.data.type === 'sys-info-height' && e.data.height > 0) sysH.value = e.data.height;
+      });
+
+      watch(form, function () { if (editing.value) dirty.value = true; }, { deep: true });
+      function beforeTabLeave() {
+        if (!dirty.value) return true;
+        return ElMessageBox.confirm('当前修改尚未保存，切换页签将丢失修改，确定切换？', '提示', { type: 'warning' })
+          .then(function () { dirty.value = false; return true; }).catch(function () { return false; });
+      }
+      function editForm() { dirty.value = false; editing.value = true; toast('已进入编辑态（字段启用）'); }
+      function cancelEdit() {
+        if (dirty.value) {
+          ElMessageBox.confirm('放弃未保存的修改？', '提示', { type: 'warning', confirmButtonText: '放弃', cancelButtonText: '继续编辑' })
+            .then(function () { dirty.value = false; editing.value = false; toast('已取消修改'); }).catch(function () {});
+        } else { editing.value = false; toast('已取消修改'); }
+      }
+      function saveForm() {
+        if (!form.business) { toast('业务码必填：表单未挂业务即挂接链断裂（40202）', 'error'); return; }
+        editing.value = false;
+        dirty.value = false;
+        toast('表单已保存（sys.form.updated 已发布，表单元数据与菜单入口即时刷新）');
+      }
+      function delForm() {
+        ElMessageBox.confirm('删除当前表单？被菜单挂接 / 按钮 / 字段引用时禁止删除，先解除引用（40206）；平台库以「停用」代替删除，删除后不可恢复。', '提示', {
+          type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消', confirmButtonClass: 'el-button--danger'
+        }).then(function () { toast('已删除（软删除，sys.form.updated 已发布）'); }).catch(function () {});
+      }
+      function reload() { toast('已重新加载当前记录'); }
+      function closePage() {
+        if (dirty.value) {
+          ElMessageBox.confirm('当前修改尚未保存，关闭将丢失修改，确定关闭？', '提示', { type: 'warning', confirmButtonText: '关闭', cancelButtonText: '取消' })
+            .then(function () { dirty.value = false; toast('已关闭'); }).catch(function () {});
+        } else { toast('已关闭'); }
+      }
+
+      // 由列表页双击（?id=&name=）/ 新增（?new=1）打开时回填
+      (function () {
+        var id = qp('id'), name = qp('name');
+        if (isNew) { form.business = ''; form.component = ''; form.menus = []; return; }
+        if (id) sys.id = id;
+        if (name) form.component = name;
+      })();
+      function toast(m, type) { ElMessage({ message: m, type: type || 'success' }); }
+
+      return {
+        editing, section, dirty, form, sys, sysH, pushSys, beforeTabLeave,
+        bizOptions, componentOptions, menuOptions,
+        editForm, cancelEdit, saveForm, delForm, reload, closePage, toast
+      };
+    }
+  });
+  app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
+  app.mount('#app');
+  if (location.search.indexOf('embed=1') >= 0) { var pb = document.querySelector('.proto-bar'); if (pb) pb.style.display = 'none'; }
+</script>
+
+</body>
+</html>

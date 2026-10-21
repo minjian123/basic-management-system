@@ -36,7 +36,7 @@
     本页为「菜单管理」表单框架的<b>菜单记录 Tab</b>。信息栏三个子页签：<b>详细信息</b> · <b>挂接配置</b> · <b>系统信息</b>。
     <b>挂接配置</b>内含三个子页签：<b>表单挂接</b>（菜单 ↔ 表单<b>多对多</b>，关联表 <code>sys_menu_form</code>）·
     <b>按钮维护</b>（按钮 1:1 挂权限码）· <b>字段维护</b>（字段挂表单），按钮 / 字段为<b>页内内联明细表</b>（行内编辑），
-    改动随页面工具栏「保存」统一提交；<b>字段权限</b>授予归角色管理（<code>role:grant</code>），本页只提供入口。
+    改动随页面工具栏「保存」统一提交；<b>字段权限</b>（可见 / 可编辑）统一在角色管理授予（<code>role:grant</code>），<b>本页不提供入口</b>。
     挂接链断裂（菜单无表单 / 表单无业务）在保存时校验并提示（<b>40202</b>）。
   </div>
 
@@ -89,7 +89,10 @@
                 <el-form-item label="视图组件"><el-input v-model="form.component" placeholder="用户表单"></el-input></el-form-item>
               </el-col>
               <el-col :span="8">
-                <el-form-item label="排序"><el-input-number v-model="form.sort" :min="0" style="width:100%"></el-input-number></el-form-item>
+                <el-form-item label="排序">
+                  <el-input :model-value="String(form.sort)" readonly></el-input>
+                  <div class="proto-hint" style="line-height:1.6">排序在<a href="02_菜单维护页.html">菜单维护页</a>用<b>拖拽</b>调整（唯一排序方式，不再手工填排序数字）；本页只读展示</div>
+                </el-form-item>
               </el-col>
               <el-col :span="8">
                 <el-form-item label="侧边栏显示">
@@ -285,8 +288,7 @@
                 <span class="proto-hint">内联明细行内编辑，随宿主工具栏「保存」统一提交</span>
               </div>
               <div class="op-row" style="margin-top:8px;border-top:1px dashed #eaeef2;padding-top:8px">
-                <el-button size="small" @click="toRoleGrant">前往角色管理配置字段权限</el-button>
-                <span class="proto-hint">字段权限（可见 / 可编辑）写入 <code>sys_role_field</code>，授予归角色管理（需 <code>role:grant</code>）；本页仅提供配置入口</span>
+                <span class="proto-hint">字段权限（可见 / 可编辑）统一在角色管理授予（<code>role:grant</code>），本页不提供入口；本页只维护字段实体（标识 / 名称 / 类型 / 排序 / 状态）</span>
               </div>
             </el-tab-pane>
           </el-tabs>
@@ -609,7 +611,6 @@
             .then(function () { dirty.value = false; toast('已关闭'); }).catch(function () {});
         } else { toast('已关闭'); }
       }
-      function toRoleGrant() { toast('前往角色管理页配置字段权限（需 role:grant）', 'warning'); }
 
       // 由列表页双击（?id=&name=）/ 新增（?new=1）打开时回填；直接打开默认展示一条已存在记录（只读态）
       (function () {
@@ -639,7 +640,7 @@
         sysH, pushSys, beforeTabLeave, editForm, cancelEdit, saveForm, delForm, reload, closePage,
         openFormPicker, onFormPickSelect, confirmFormPick,
         addButtonRow, delButtonRow, moveButton, addFieldRow, delFieldRow, moveField,
-        glyph, pickIcon, toRoleGrant, toast
+        glyph, pickIcon, toast
       };
     }
   });

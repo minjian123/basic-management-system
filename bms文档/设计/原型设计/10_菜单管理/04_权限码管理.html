@@ -27,7 +27,8 @@
     （见 <a href="05_权限码表单页.html">05_权限码表单页</a>）。权限码（<code>sys_permission</code>）＝<b>业务码 × 动作码组合</b>，
     是<b>唯一强制校验单位</b>；<a href="08_业务码管理.html">业务码</a>与<a href="09_动作码管理.html">动作码</a>为独立字典，本页只做组合（受控可授项）。
     列表页三段式：工具栏 → 筛选区 → 表格；<b>无操作列</b>，双击行开记录 Tab；权限码存平台库、平台超管统一维护，
-    <b>租户侧可见、可分配、不可增删</b>（40204）；一经发布稳定不变，<b>停用代替删除</b>（被按钮 / 角色引用时先解除，40206）。
+    <b>租户侧可见、可分配、不可增删</b>（40204）；组合<b>创建后只读</b>（换绑 = 删除重建），默认<b>停用代替删除</b>，
+    仅在无按钮挂接与角色授权时允许有条件删除（被引用先解除，40206）；工具栏「<b>补生成缺失组合</b>」按业务码 × 动作码补齐。
   </div>
 
   <div id="app">
@@ -35,6 +36,7 @@
       <div class="ep-toolbar">
         <template v-if="!editing">
           <el-button type="primary" @click="openForm(null)">新增</el-button>
+          <el-button @click="generateMissing">补生成缺失组合</el-button>
           <el-button @click="reload">刷新</el-button>
           <el-button @click="closePage">关闭</el-button>
           <el-button type="danger" plain :disabled="!sel.length" @click="delSel">删除</el-button>
@@ -179,10 +181,18 @@
         location.href = url;
       }
       function exportMsg() { toast('按当前筛选导出权限码（受 export:download 权限约束）'); }
+      function generateMissing() {
+        ElMessageBox.confirm('按「业务码 × 动作码」补齐缺失的权限码组合？默认范围为启用中的业务码与动作码，已存在组合跳过。',
+          '补生成缺失组合', { type: 'info', confirmButtonText: '开始生成', cancelButtonText: '取消' })
+          .then(function () {
+            toast('补生成完成：新建 N · 恢复 M · 跳过 K（原型示意，实际计数以后端返回为准）');
+            reload();
+          }).catch(function () {});
+      }
       function closePage() { toast('关闭权限码管理模块页（返回）'); }
       function toast(m, type) { ElMessage({ message: m, type: type || 'success' }); }
 
-      return { editing, rows, bizOptions, query, sel, filtered, pageRows, applyFilter, resetFilter, onSel, reload, delSel, batchToggle, openForm, exportMsg, closePage, toast };
+      return { editing, rows, bizOptions, query, sel, filtered, pageRows, applyFilter, resetFilter, onSel, reload, delSel, batchToggle, openForm, exportMsg, generateMissing, closePage, toast };
     }
   });
   app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });

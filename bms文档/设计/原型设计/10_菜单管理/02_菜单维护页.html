@@ -14,6 +14,15 @@
   /* 表格下方一行：左下明细工具栏（图标按钮）+ 右下提示（树形元数据不分页） */
   .ep-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
   mark { background: #fff3b0; color: #1f2328; padding: 0 1px; border-radius: 2px; }
+  /* 树拖拽排序：行首手柄（同级排序）＋ 菜单名称列（放入其中，成为子级） */
+  .drag-tip { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; font-size: 12px; color: #57606a; flex-wrap: wrap; }
+  .drag-tip b { color: #1f2328; }
+  .drag-handle { display: inline-block; color: #8b949e; cursor: grab; user-select: none; letter-spacing: -2px; font-size: 14px; padding: 0 4px; }
+  .drag-handle:hover { color: #0969da; }
+  .drag-handle:active { cursor: grabbing; }
+  .name-drop { display: inline-block; width: 100%; }
+  .el-table__body tr.drop-after > td { border-bottom: 2px solid #0969da !important; }
+  .el-table__body tr.drop-into > td { background: #ddf4ff !important; }
 </style>
 </head>
 <body>
@@ -28,13 +37,15 @@
     本页为「菜单管理」表单框架的<b>列表 Tab</b>（固定页签，不可关闭）；双击数据行或点「新增」打开<b>菜单记录 Tab</b>
     （见 <a href="03_菜单表单页.html">菜单表单页</a>，表单/按钮/字段挂接在其「挂接配置」页签内）。列表页三段式：工具栏 → 筛选区 → 表格；
     菜单为<b>树形结构</b>，用树形表格承载（<b>无操作列</b>，双击行开记录 Tab，元数据不分页）。
+    <b>排序</b>：行首拖拽手柄 <b>⋮⋮</b> 拖拽调整层级 / 排序（拖到目标行的 ⋮⋮ 手柄上＝同级并排其后；拖到「菜单名称」＝成为其子级），
+    保存后回写 <code>parent_id</code> 与 <code>sort</code>；<b>拖拽是本页唯一排序方式</b>（不再手工填排序数字），工具栏提供「保存排序 / 撤销」。
     <b>展开策略</b>：按规模自适应（节点少时默认全展开、多时只展开第一层），<b>展开状态本地记忆</b>，搜索时<b>自动展开命中路径</b>并高亮，工具栏可「全部展开 / 全部折叠」。
     菜单存平台库、平台超管统一维护，租户侧只读引用。
   </div>
 
   <div id="app">
     <div class="ep-page">
-      <!-- ① 工具栏：左侧 新增/刷新/关闭 + 批量操作（随选中态启用）+ 展开控制；右侧 导出 -->
+      <!-- ① 工具栏：左侧 新增/刷新/关闭 + 批量操作（随选中态启用）+ 排序保存/撤销；右侧 导出 -->
       <div class="ep-toolbar">
         <el-button type="primary" @click="openForm(null)">新增</el-button>
         <el-button @click="reload">刷新</el-button>
@@ -42,7 +53,10 @@
         <el-button type="danger" plain :disabled="!selRows.length" @click="delSel">删除</el-button>
         <el-button :disabled="!selRows.length" @click="batchToggle">停用/启用</el-button>
         <el-button @click="toggleExpandAll">{{ isAllExpanded ? '全部折叠' : '全部展开' }}</el-button>
+        <el-button type="primary" plain :disabled="!sortDirty" @click="saveSort">保存排序</el-button>
+        <el-button :disabled="!sortDirty" @click="undoSort">撤销</el-button>
         <span class="ep-side">
+          <span v-if="sortDirty" class="proto-hint" style="color:#cf222e;margin-right:10px">● 层级 / 排序有未保存变更</span>
           <el-button @click="exportMsg">导出</el-button>
           <span class="proto-hint" style="margin-left:10px">平台超管维护 · 租户只读</span>
         </span>
@@ -82,12 +96,21 @@
       </el-form>
 
       <!-- ③ 表格：树形表格（多选 + 数据列，无操作列）；双击行打开菜单记录 Tab；搜索命中高亮 -->
+      <div class="drag-tip">
+        <span>拖拽行首 <b>⋮⋮</b> <b>手柄</b>调整：放到目标行的手柄上＝<b>同级并排其后</b>；放到「菜单名称」＝<b>成为其子级</b>（仅目录可容纳下级）。保存后回写 <code>parent_id</code> 与 <code>sort</code>；<b>拖拽是本页唯一排序方式</b>（不再手工填排序数字）。建议在无筛选的全树下调整。</span>
+      </div>
       <el-table ref="treeTable" :key="tableKey" :data="filteredTree" border stripe row-key="id"
-        :tree-props="{ children: 'children' }" @selection-change="onSel" @row-dblclick="openForm"
-        @expand-change="onExpandChange" style="width:100%">
+        :tree-props="{ children: 'children' }" :row-class-name="rowClass"
+        @selection-change="onSel" @row-dblclick="openForm" @expand-change="onExpandChange" style="width:100%">
         <el-table-column type="selection" width="48"></el-table-column>
         <el-table-column label="菜单名称" min-width="220" show-overflow-tooltip>
-          <template #default="{ row }"><span v-html="hl(row.name)"></span></template>
+          <template #default="{ row }">
+            <!-- 行首拖拽手柄：拖到其它行的手柄＝同级并排其后；拖到名称＝成为其子级 -->
+            <span class="drag-handle" draggable="true" title="拖拽调整层级 / 排序（放到目标行的手柄＝同级并排其后）"
+              @dragstart="dragStart($event, row)" @dragend="dragEnd"
+              @dragover.prevent="hoverAfter(row)" @drop.prevent.stop="dropAfter(row)">⋮⋮</span><span class="name-drop" title="拖拽到此：成为该节点的子级（仅目录可容纳下级）"
+              @dragover.prevent="hoverInto(row)" @drop.prevent.stop="dropInto(row)"><span v-html="hl(row.name)"></span></span>
+          </template>
         </el-table-column>
         <el-table-column label="类型" width="90">
           <template #default="{ row }">
@@ -118,7 +141,7 @@
           <el-button size="small" @click="reload" title="刷新">⟳</el-button>
           <el-button size="small" @click="toast('原型演示：全屏')" title="全屏">⛶</el-button>
         </div>
-        <span class="proto-hint">树形元数据一次性返回，不分页（《概要设计 · 菜单管理》5.2）</span>
+        <span class="proto-hint">树形元数据一次性返回，不分页（《概要设计 · 菜单管理》5.2）· 排序由拖拽调整，保存后回写 parent_id 与 sort</span>
       </div>
     </div>
   </div>
@@ -151,6 +174,11 @@
       var selRows = ref([]);
       var treeTable = ref(null);
       var tableKey = ref(0);
+      // 拖拽排序状态：dragNode 为被拖节点（只记 id / 名称，行对象是筛选副本）；sortDirty 控制「保存排序 / 撤销」启用
+      var dragNode = ref(null);
+      var dropHint = ref(null);
+      var sortDirty = ref(false);
+      var sortSnapshot = null;
       // 规模阈值：≤ 50 节点默认全展开，否则只展开第一层
       var EXPAND_THRESHOLD = 50;
 
@@ -166,6 +194,102 @@
         return treeData.value.filter(function (n) { return n.children && n.children.length; }).map(function (n) { return n.id; });
       }
       function descendantIds(nodes, out) { nodes.forEach(function (n) { out.push(n.id); if (n.children) descendantIds(n.children, out); }); return out; }
+
+      // ---------- 树拖拽排序：定位 / 祖先判定 / 同级重排 ----------
+      function locate(nodes, id) {
+        for (var i = 0; i < nodes.length; i++) {
+          if (nodes[i].id === id) return { list: nodes, index: i, node: nodes[i] };
+          if (nodes[i].children) { var hit = locate(nodes[i].children, id); if (hit) return hit; }
+        }
+        return null;
+      }
+      function findNode(nodes, id) { var hit = locate(nodes, id); return hit ? hit.node : null; }
+      // 祖先链（含自身）：用于拒绝「拖到自己的子级之下」
+      function pathOf(nodes, id, chain) {
+        chain = chain || [];
+        for (var i = 0; i < nodes.length; i++) {
+          var next = chain.concat([nodes[i].id]);
+          if (nodes[i].id === id) return next;
+          if (nodes[i].children) { var hit = pathOf(nodes[i].children, id, next); if (hit) return hit; }
+        }
+        return null;
+      }
+      function isSelfOrDescendant(ancestorId, id) {
+        var p = pathOf(treeData.value, id) || [];
+        return p.indexOf(ancestorId) >= 0;
+      }
+      // 同级 sort 重排（10、20、30…，留出后续插空余量）
+      function resort(list) { (list || []).forEach(function (n, i) { n.sort = (i + 1) * 10; }); }
+      function rowClass(o) {
+        var h = dropHint.value;
+        if (!h || h.id !== o.row.id) return '';
+        return h.mode === 'into' ? 'drop-into' : 'drop-after';
+      }
+      function dragStart(e, row) {
+        if (!sortSnapshot) sortSnapshot = JSON.stringify(treeData.value);
+        dragNode.value = { id: row.id, name: row.name };
+        if (e.dataTransfer) { e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', row.id); } catch (err) {} }
+      }
+      function dragEnd() { dragNode.value = null; dropHint.value = null; }
+      function hoverAfter(row) { if (dragNode.value) dropHint.value = { id: row.id, mode: 'after' }; }
+      function hoverInto(row) { if (dragNode.value) dropHint.value = { id: row.id, mode: 'into' }; }
+      function markSortDirty(msg) { sortDirty.value = true; toast(msg); }
+      // 落在手柄列：与被落行同级，并排在其后（跨父级即改 parent_id）
+      function dropAfter(row) {
+        var targetId = row.id;
+        var src = dragNode.value;
+        dragEnd();
+        if (!src || src.id === targetId) return;
+        if (isSelfOrDescendant(src.id, targetId)) { ElMessage.warning('不能把节点拖到它自己或其子级之后'); return; }
+        var st = locate(treeData.value, src.id);
+        if (!st) return;
+        st.list.splice(st.index, 1);
+        var tt = locate(treeData.value, targetId);
+        if (!tt) return;
+        tt.list.splice(tt.index + 1, 0, st.node);
+        resort(st.list); resort(tt.list);
+        markSortDirty('已调整层级 / 排序（未保存）——保存后回写 parent_id 与 sort');
+      }
+      // 落在菜单名称：成为该行子级（仅目录可容纳下级）
+      function dropInto(row) {
+        var targetId = row.id;
+        var src = dragNode.value;
+        dragEnd();
+        if (!src || src.id === targetId) return;
+        if (isSelfOrDescendant(src.id, targetId)) { ElMessage.warning('不能把节点拖到它自己或其子级之下'); return; }
+        var target = findNode(treeData.value, targetId);
+        if (!target) return;
+        if (target.type !== '目录') { ElMessage.warning('「' + target.name + '」是菜单，不能容纳下级；请拖到目标行的手柄上做同级排序，或拖到目录行'); return; }
+        var st = locate(treeData.value, src.id);
+        if (!st) return;
+        st.list.splice(st.index, 1);
+        if (!target.children) target.children = [];
+        target.children.push(st.node);
+        resort(st.list); resort(target.children);
+        markSortDirty('已调整层级（parent_id 待保存）');
+        // 目标目录自动展开，便于看到落位结果
+        if (expandedKeys.value.indexOf(targetId) < 0) {
+          expandedKeys.value = expandedKeys.value.concat([targetId]);
+          persistKeys();
+          renderKeys.value = expandedKeys.value.slice();
+          tableKey.value++;
+          applyExpansion();
+        }
+      }
+      function saveSort() {
+        sortDirty.value = false;
+        sortSnapshot = null;
+        toast('已保存层级 / 排序（回写 parent_id 与 sort，sys.form.updated 已发布）');
+      }
+      function undoSort() {
+        if (!sortSnapshot) { sortDirty.value = false; return; }
+        treeData.value = JSON.parse(sortSnapshot);
+        sortSnapshot = null;
+        sortDirty.value = false;
+        tableKey.value++;
+        applyExpansion();
+        toast('已撤销本次拖拽调整（恢复原层级与排序）');
+      }
 
       // ---------- 展开状态：记忆 + 渲染集合 ----------
       function defaultKeys() {
@@ -317,7 +441,8 @@
       onMounted(function () { refreshRenderKeys(); applyExpansion(); });
 
       return { treeData, query, selRows, treeTable, tableKey, filteredTree, isAllExpanded, applyFilter, resetFilter, onSel, reload,
-        onExpandChange, toggleExpandAll, delSel, batchToggle, openForm, exportMsg, closePage, hl, toast };
+        onExpandChange, toggleExpandAll, delSel, batchToggle, openForm, exportMsg, closePage, hl, toast,
+        sortDirty, rowClass, dragStart, dragEnd, hoverAfter, hoverInto, dropAfter, dropInto, saveSort, undoSort };
     }
   });
   app.use(ElementPlus, { locale: ElementPlusLocaleZhCn });
