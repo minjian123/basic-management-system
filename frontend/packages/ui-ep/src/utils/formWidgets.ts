@@ -47,10 +47,13 @@ const BUILTIN_WIDGETS: Readonly<Record<string, Component>> = {
   number: NumberInput,
   datetime: DateTimeField,
   time: TimeField,
-  select: SelectInput,
-  'multi-select': SelectInput,
+  dropdown: SelectInput,
+  'dropdown-multi': SelectInput,
   radio: RadioInput,
+  button: RadioInput,
+  segmented: RadioInput,
   checkbox: CheckboxInput,
+  tag: CheckboxInput,
   switch: SwitchField,
   file: FileUploadField,
   image: FileUploadField,
@@ -74,8 +77,9 @@ const TYPE_OVERRIDES: Readonly<Record<string, Component>> = {
   amount: AmountField,
   percent: PercentField,
   number: NumberField,
+  option: EnumField,
+  option_multi: EnumMultiField,
   radio: EnumField,
-  multi_select: EnumMultiField,
 }
 
 /**
@@ -129,8 +133,9 @@ export function resolveFieldComponentByType(
 
 /** 多选语义键集合（件层据此传 `multiple`；表单渲染器复用为唯一来源）。 */
 export const MULTIPLE_WIDGETS: readonly FormWidget[] = [
-  'multi-select',
+  'dropdown-multi',
   'checkbox',
+  'tag',
   'transfer',
   'tags',
   'org-select',

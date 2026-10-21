@@ -3,10 +3,10 @@
 import { DICT_JOIN, type BaseDictStore } from '@bms/core'
 
 /**
- * 创建字典标签翻译器（统一走缓存与批量翻译；未命中触发一次子集回填、不阻塞渲染）。
+ * 创建字典标签翻译器（统一走缓存与批量翻译；未命中触发一次 id 子集回填、不阻塞渲染）。
  *
  * @param store 字典缓存能力实例。
- * @returns 翻译函数（`(dataSourceKey, value) => label | undefined`；未就绪 / 未命中返回 `undefined` 由宿主显示原值）。
+ * @returns 翻译函数（`(dataSourceKey, id) => label | undefined`；未就绪 / 未命中返回 `undefined` 由宿主显示原 id）。
  */
 export function createDictTranslator(store: BaseDictStore): (dataSourceKey: string, value: unknown) => string | undefined {
   return (dataSourceKey: string, value: unknown): string | undefined => {
@@ -14,18 +14,18 @@ export function createDictTranslator(store: BaseDictStore): (dataSourceKey: stri
       return undefined
     }
     if (Array.isArray(value)) {
-      const values = value.map((entry) => String(entry))
-      const labels = values.map((entry) => store.labelOf(dataSourceKey, entry))
+      const ids = value.map((entry) => String(entry))
+      const labels = ids.map((entry) => store.labelOf(dataSourceKey, entry))
       if (labels.some((label) => label === undefined)) {
-        void store.resolveValues(dataSourceKey, values)
+        void store.resolveIds(dataSourceKey, ids)
         return undefined
       }
       return (labels as string[]).join(DICT_JOIN)
     }
-    const text = String(value)
-    const label = store.labelOf(dataSourceKey, text)
+    const id = String(value)
+    const label = store.labelOf(dataSourceKey, id)
     if (label === undefined) {
-      void store.resolveValues(dataSourceKey, [text])
+      void store.resolveIds(dataSourceKey, [id])
       return undefined
     }
     return label

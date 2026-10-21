@@ -238,7 +238,7 @@ export const RENDER_CONTRACT_FIELDS: readonly FormField[] = [
   {
     key: 'level',
     label: '等级',
-    type: 'select',
+    type: 'option',
     group: 'platform',
     status: 'active',
     options: [{ value: 'a', label: '甲' }],

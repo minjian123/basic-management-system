@@ -1,4 +1,4 @@
-// kiwi_id: 964
+// kiwi_id: 964, 2331, 2335
 /** 字典字段用例（06_06）：契约套件（核心 + 投影）+ 五件 + 工具（HTTP 数据源 / 本地通道 / 翻译器）+ 占位契约复用。 */
 
 import { BaseDictStore, DICT_SEARCH_DEBOUNCE, bindDictStoreSource } from '@bms/core'
@@ -160,9 +160,9 @@ function makeStoreTarget(): DictStoreContractTarget {
     ensureTypes: (types) => store.ensureTypes(types),
     ensureType: (dataSourceKey) => store.ensureType(dataSourceKey),
     searchRemote: (dataSourceKey, keyword) => store.searchRemote(dataSourceKey, keyword),
-    resolveValues: (dataSourceKey, values) => store.resolveValues(dataSourceKey, values),
+    resolveIds: (dataSourceKey, ids) => store.resolveIds(dataSourceKey, ids),
     itemsOf: (dataSourceKey) => store.itemsOf(dataSourceKey),
-    labelOf: (dataSourceKey, value) => store.labelOf(dataSourceKey, value),
+    labelOf: (dataSourceKey, id) => store.labelOf(dataSourceKey, id),
     isLoaded: (dataSourceKey) => store.isLoaded(dataSourceKey),
     isLarge: (dataSourceKey) => store.isLarge(dataSourceKey),
     invalidate: (dataSourceKey) => store.invalidate(dataSourceKey),
@@ -283,7 +283,7 @@ function makeQueryTarget(): DictQueryContractTarget {
     saveScheme: (name) => api.saveScheme(name),
     deleteScheme: (schemeId) => api.deleteScheme(schemeId),
     toBusinessFilter: () => api.toBusinessFilter(),
-    selectedValues: () => api.selectedValues(),
+    selectedIds: () => api.selectedIds(),
   }
 }
 
@@ -358,14 +358,14 @@ describe('DictSelectField（真实实现）', () => {
     expect(stub.calls).toContain('getType')
     expect(wrapper.findAll('[data-test^="dict-option-"]')).toHaveLength(2)
 
-    select.vm.$emit('update:modelValue', ['enabled', 'disabled'])
+    select.vm.$emit('update:modelValue', ['101', '102'])
     await flushPromises()
     expect(wrapper.emitted('limit-exceed')?.[0]?.[0]).toBe(1)
-    expect(wrapper.emitted('update:modelValue')?.at(-1)?.[0]).toEqual(['enabled'])
+    expect(wrapper.emitted('update:modelValue')?.at(-1)?.[0]).toEqual(['101'])
 
     const readonly = mount(DictSelectField, {
       props: {
-        modelValue: ['enabled', 'disabled'],
+        modelValue: ['101', '102'],
         ready: true,
         dataSourceKey: 'user_status',
         source: stub.source,
@@ -402,20 +402,21 @@ describe('DictLabel（标签回显）', () => {
     await store.ensureType('user_status')
 
     const wrapper = mount(DictLabel, {
-      props: { value: ['enabled', 'ghost'], dataSourceKey: 'user_status', source: stub.source, store, tag: true },
+      props: { value: ['101', 'ghost'], dataSourceKey: 'user_status', source: stub.source, store, tag: true },
       global: { stubs },
     })
     await flushPromises()
     expect(wrapper.text()).toContain('启用')
     expect(wrapper.text()).toContain('ghost')
+    expect(wrapper.find('[data-test="dict-label-item-ghost"]').attributes('data-missing')).toBe('true')
   })
 
-  it('未注入数据源原值展示（零请求）', () => {
+  it('未注入数据源原 id 展示（零请求）', () => {
     const wrapper = mount(DictLabel, {
-      props: { value: 'enabled', dataSourceKey: 'user_status' },
+      props: { value: '101', dataSourceKey: 'user_status' },
       global: { stubs },
     })
-    expect(wrapper.text()).toBe('enabled')
+    expect(wrapper.text()).toBe('101')
   })
 })
 
@@ -423,7 +424,7 @@ describe('DictCascaderField（字典级联）', () => {
   it('树加载与只读路径回显', async () => {
     const stub = createDictSourceStub()
     const wrapper = mount(DictCascaderField, {
-      props: { modelValue: ['zj', 'hz'], ready: true, dataSourceKey: 'region', source: stub.source, readonly: true },
+      props: { modelValue: ['1', '2'], ready: true, dataSourceKey: 'region', source: stub.source, readonly: true },
       global: { stubs },
     })
     await flushPromises()
@@ -462,7 +463,7 @@ describe('DictAdvancedQuery（高级查询抽屉）', () => {
     expect(wrapper.findAll('[data-test^="dict-adv-result-row-"]')).toHaveLength(2)
 
     await wrapper.find('[data-test="dict-adv-confirm"]').trigger('click')
-    expect(wrapper.emitted('apply')?.[0]?.[0]).toMatchObject({ target: 'items', values: ['enabled', 'disabled'] })
+    expect(wrapper.emitted('apply')?.[0]?.[0]).toMatchObject({ target: 'items', ids: ['101', '102'] })
 
     await wrapper.find('[data-test="dict-adv-cancel"]').trigger('click')
     expect(wrapper.emitted('cancel')).toHaveLength(1)
@@ -483,8 +484,11 @@ describe('工具（HTTP 数据源 / 注册表 / 本地通道 / 翻译器）', ()
     expect(url).toContain('/api/v1/dicts/user_status')
     expect(url).toContain('version=1')
     expect(url).toContain('parent_id=0')
+    await source.getType({ dataSourceKey: 'user_status', ids: ['1790000000000000001', '2'] })
+    const idsUrl = String(fetchMock.mock.calls[1]?.[0])
+    expect(idsUrl).toContain('ids=1790000000000000001%2C2')
     await source.batch({ types: ['user_status'], locale: 'zh-CN' })
-    expect(String(fetchMock.mock.calls[1]?.[0])).toContain('/api/v1/dicts/batch')
+    expect(String(fetchMock.mock.calls[2]?.[0])).toContain('/api/v1/dicts/batch')
 
     vi.stubGlobal('fetch', undefined)
     const degraded = createHttpDictSource()
@@ -502,10 +506,10 @@ describe('工具（HTTP 数据源 / 注册表 / 本地通道 / 翻译器）', ()
     store.setReady(true)
     bindDictStoreSource(store, stub.source)
     const translate = createDictTranslator(store)
-    expect(translate('user_status', 'enabled')).toBeUndefined()
+    expect(translate('user_status', '101')).toBeUndefined()
     return store.ensureType('user_status').then(() => {
-      expect(translate('user_status', 'enabled')).toBe('启用')
-      expect(translate('user_status', ['enabled', 'disabled'])).toBe('启用、停用')
+      expect(translate('user_status', '101')).toBe('启用')
+      expect(translate('user_status', ['101', '102'])).toBe('启用、停用')
     })
   })
 

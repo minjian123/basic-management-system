@@ -41,7 +41,7 @@ describe('筛选操作符', () => {
 
   it('按字段类型取缺省操作符与可选操作符', () => {
     expect(defaultOperatorOf('text')).toBe('like')
-    expect(defaultOperatorOf('multi_select')).toBe('in')
+    expect(defaultOperatorOf('option_multi')).toBe('in')
     expect(defaultOperatorOf('number')).toBe('between')
     expect(defaultOperatorOf('switch')).toBe('eq')
     expect(operatorsOf(undefined)).toEqual(FIELD_QUERY_OPERATORS)
@@ -103,7 +103,7 @@ describe('条件序列化（与后端逐分支一致）', () => {
 
 describe('条件摘要', () => {
   const fields: FilterField[] = [
-    { key: 'status', label: '状态', type: 'select', options: [{ label: '启用', value: 'enabled' }] },
+    { key: 'status', label: '状态', type: 'option', options: [{ label: '启用', value: 'enabled' }] },
     { key: 'created', label: '创建时间', type: 'date' },
     { key: 'dept', label: '部门', type: 'dept', includeChildren: true },
   ]
@@ -135,7 +135,7 @@ describe('条件摘要', () => {
 
 describe('失效剔除与区间校验', () => {
   const fields: FilterField[] = [
-    { key: 'status', label: '状态', type: 'select', options: [{ label: '启用', value: 'enabled' }] },
+    { key: 'status', label: '状态', type: 'option', options: [{ label: '启用', value: 'enabled' }] },
     { key: 'remark', label: '备注', type: 'text', query: false },
   ]
 

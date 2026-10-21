@@ -441,18 +441,19 @@ describe('自建字段与可拖入', () => {
   })
 
   it('自建字段校验（名称 / 类型 / 唯一性 / 选项集）', () => {
-    expect(EXT_FIELD_TYPES).toContain('multi_select')
+    expect(EXT_FIELD_TYPES).toContain('option_multi')
     expect(EXT_FIELD_TYPES).not.toContain('richtext')
-    expect(extFieldNeedsOptions('select')).toBe(true)
-    expect(extFieldNeedsOptions('multi_select')).toBe(true)
+    expect(EXT_FIELD_TYPES).not.toContain('multi_select')
+    expect(extFieldNeedsOptions('option')).toBe(true)
+    expect(extFieldNeedsOptions('option_multi')).toBe(true)
     expect(extFieldNeedsOptions('text')).toBe(false)
 
     expect(checkExtField({ name: '  ', type: 'text' }, [])).toMatchObject({ valid: false })
     expect(checkExtField({ name: 'no', type: 'richtext' }, []).message).toContain('白名单')
     expect(checkExtField({ name: 'name', type: 'text' }, ['name']).message).toContain('已存在')
-    expect(checkExtField({ name: 'no', type: 'select' }, []).message).toContain('选项集')
+    expect(checkExtField({ name: 'no', type: 'option' }, []).message).toContain('选项集')
 
-    const ok = checkExtField({ name: 'projectNo', type: 'select', options: [{ value: 'a', label: '甲' }] }, ['name'])
+    const ok = checkExtField({ name: 'projectNo', type: 'option', options: [{ value: 'a', label: '甲' }] }, ['name'])
     expect(ok).toEqual({ valid: true, columnName: 'ext_project_no', message: '' })
   })
 

@@ -1,15 +1,16 @@
 <script setup lang="ts">
-// 枚举多选件（11_03 新增，06_08 §2/§6.1/§6.3）：自定义选项集多选，checkbox / tag 两形态。
-// 复用基础控件类·复选（`input/CheckboxInput.vue`，节点 §2 继承链口径），本件只补字段语义：
+// 枚举多选件（11_03 新增，06_08 §2/§6.1/§6.3）：自定义选项集多选，checkbox / tag / dropdown 三形态。
+// 复用基础控件类·复选（`input/CheckboxInput.vue`）与下拉框（`input/SelectInput.vue`），本件只补字段语义：
 // 选项集解析（sort 升序 → value 去重保留首个）、必填与数量上下限校验、超限 `exceed` 事件、只读顿号回显。
 import { computed, watch } from 'vue'
 
 import { useBaseInput } from '../../composables/useBaseInput'
 import CheckboxInput from '../input/CheckboxInput.vue'
+import SelectInput from '../input/SelectInput.vue'
 import type { InputOption, InputOptions } from '../input/types'
 
-/** 形态（checkbox 复选框组 / tag 标签点选）。 */
-export type EnumMultiForm = 'checkbox' | 'tag'
+/** 形态（checkbox 复选框组 / tag 标签点选 / dropdown 下拉多选）。 */
+export type EnumMultiForm = 'checkbox' | 'tag' | 'dropdown'
 
 /** 枚举值类型。 */
 export type EnumMultiValue = string | number
@@ -139,6 +140,21 @@ const readonlyText = computed(() => {
  *
  * @param next 复选件回传值。
  */
+/**
+ * 下拉多选变更（宽类型回传 → 值数组）。
+ *
+ * @param next 下拉件回传值。
+ */
+function onSelectUpdate(next: unknown): void {
+  const values = Array.isArray(next) ? next : next === undefined || next === null ? [] : [next]
+  onUpdate(values as EnumMultiValue[])
+}
+
+/**
+ * 值变更（越限时派发 `exceed` 并回退原值，节点 §6.3）。
+ *
+ * @param next 复选件回传值。
+ */
 function onUpdate(next: EnumMultiValue[]): void {
   const normalized = [...new Set(Array.isArray(next) ? next : [])]
   if (props.maxItems !== undefined && normalized.length > props.maxItems) {
@@ -161,12 +177,26 @@ function onUpdate(next: EnumMultiValue[]): void {
       {{ readonlyText }}
     </div>
 
+    <select-input
+      v-else-if="form === 'dropdown'"
+      class="bms-enum-multi-field__control"
+      :model-value="selected"
+      :options="resolvedOptions"
+      multiple
+      searchable
+      clearable
+      collapse-tags
+      :disabled="disabled"
+      :placeholder="placeholder"
+      @update:model-value="onSelectUpdate"
+    />
+
     <checkbox-input
       v-else
       class="bms-enum-multi-field__control"
       :model-value="selected"
       :options="resolvedOptions"
-      :form="form"
+      :form="form === 'tag' ? 'tag' : 'checkbox'"
       :disabled="disabled"
       @update:model-value="onUpdate"
     />

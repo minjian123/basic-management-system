@@ -331,7 +331,7 @@ describe('ExtFieldDialog 自建字段对话框', () => {
     await settleDialog()
     dialog.findAllComponents({ name: 'ElInput' })[0]?.vm.$emit('update:modelValue', 'status')
     await flushPromises()
-    dialog.findComponent({ name: 'ElSelect' }).vm.$emit('update:modelValue', 'select')
+    dialog.findComponent({ name: 'ElSelect' }).vm.$emit('update:modelValue', 'option')
     await flushPromises()
     expect(document.querySelector('[data-test="ext-options"]')).not.toBeNull()
     expect(document.querySelector('[data-test="ext-error"]')?.textContent).toContain('选项集')
@@ -343,7 +343,7 @@ describe('ExtFieldDialog 自建字段对话框', () => {
     await flushPromises()
     expect(dialog.emitted('submit')?.[0]?.[0]).toMatchObject({
       name: 'status',
-      type: 'select',
+      type: 'option',
       options: [
         { value: 'a', label: '启用' },
         { value: 'b', label: '停用' },

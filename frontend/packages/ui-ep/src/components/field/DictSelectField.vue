@@ -170,6 +170,9 @@ const tag = computed(() => {
   return { visible, overflow }
 })
 
+/** 未命中提示（条目不存在 / 未加载时回显原 id 并提示）。 */
+const missingHint = computed(() => (api.missingIds.value.length > 0 ? '条目不存在或已停用' : ''))
+
 const internalError = computed(() => {
   if (props.errorMessage !== '') {
     return props.errorMessage
@@ -285,9 +288,9 @@ function colorClass(item: DictItem): string {
 
     <div v-else-if="readonly" class="bms-dict-select-field__readonly" data-test="dict-readonly">
       <template v-if="readonlyTag">
-        <span v-for="item in tag.visible" :key="item.value" class="bms-dict-select-field__label">
+        <span v-for="item in tag.visible" :key="item.id" class="bms-dict-select-field__label">
           <span v-if="showColor" class="bms-dict-select-field__dot" :class="colorClass(item)" />
-          {{ api.labelOf(item.value) }}
+          {{ api.labelOf(item.id) }}
         </span>
       </template>
       <template v-else>
@@ -297,12 +300,11 @@ function colorClass(item: DictItem): string {
         +{{ tag.overflow }}
       </span>
     </div>
-
     <el-select-v2
       v-else-if="api.isLarge.value"
       class="bms-dict-select-field__control"
       :model-value="selectModelValue"
-      :options="api.items.value.map((item) => ({ value: item.value, label: api.labelOf(item.value), disabled: item.status === 'disabled' }))"
+      :options="api.items.value.map((item) => ({ value: item.id, label: api.labelOf(item.id), disabled: item.status === 'disabled' }))"
       :multiple="multiple"
       :filterable="searchable"
       :remote="searchable"
@@ -344,16 +346,16 @@ function colorClass(item: DictItem): string {
     >
       <el-option
         v-for="item in api.items.value"
-        :key="item.value"
-        :label="api.labelOf(item.value)"
-        :value="item.value"
+        :key="item.id"
+        :label="api.labelOf(item.id)"
+        :value="item.id"
         :disabled="item.status === 'disabled'"
-        :data-test="`dict-option-${item.value}`"
+        :data-test="`dict-option-${item.id}`"
       >
         <slot name="option" :item="item">
           <span class="bms-dict-select-field__option">
             <span v-if="showColor" class="bms-dict-select-field__dot" :class="colorClass(item)" />
-            <span>{{ api.labelOf(item.value) }}</span>
+            <span>{{ api.labelOf(item.id) }}</span>
             <span v-if="item.status === 'disabled'" class="bms-dict-select-field__marker" data-test="dict-marker-disabled">
               停用
             </span>
@@ -370,6 +372,9 @@ function colorClass(item: DictItem): string {
       </template>
     </el-select>
 
+    <p v-if="missingHint !== '' && !useStaticOptions" class="bms-dict-select-field__missing" data-test="dict-missing-hint">
+      {{ missingHint }}
+    </p>
     <p v-if="internalError !== ''" class="bms-field-error" data-test="dict-error">{{ internalError }}</p>
     <button
       v-if="api.error.value"
@@ -443,5 +448,10 @@ function colorClass(item: DictItem): string {
   background: transparent;
   border: none;
   cursor: pointer;
+}
+.bms-dict-select-field__missing {
+  margin: 0;
+  color: var(--bms-color-warning);
+  font-size: 12px;
 }
 </style>

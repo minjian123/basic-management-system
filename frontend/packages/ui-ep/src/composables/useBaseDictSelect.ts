@@ -19,7 +19,7 @@ class DictSelectState extends BaseDictSelect {}
 /** 具体字典缓存（可实例化）。 */
 class DictStoreState extends BaseDictStore {}
 
-/** 字段值类型（单值 / 多选数组）。 */
+/** 字段值类型（单值 / 多选数组；元素为字典条目 id，字符串化雪花以保精度）。 */
 export type DictSelectValue = string | number | (string | number)[]
 
 /** `useBaseDictSelect` 选项。 */
@@ -72,6 +72,8 @@ export interface UseBaseDictSelectResult {
   selectedValues: Ref<string[]>
   /** 选中条目（响应式）。 */
   selectedItems: Ref<DictItem[]>
+  /** 未解析的选中 id（响应式；条目不存在 / 未加载）。 */
+  missingIds: Ref<string[]>
   /** 关键词（响应式）。 */
   keyword: Ref<string>
   /** 级联父值（响应式）。 */
@@ -124,15 +126,15 @@ export interface UseBaseDictSelectResult {
   load(): Promise<void>
   /** 远程搜索。 */
   searchRemote(keyword: string): Promise<DictItem[]>
-  /** 批量回显。 */
+  /** 批量回显（入参为条目 id）。 */
   resolve(extra?: readonly string[]): Promise<void>
   /** 失效缓存。 */
   invalidate(): void
-  /** 按值取展示文案。 */
-  labelOf(value: string): string
+  /** 按条目 id 取展示文案。 */
+  labelOf(id: string): string
   /** 选中回显文本。 */
   selectionText(): string
-  /** 按值回显文案（数组「、」连接）。 */
+  /** 按条目 id 回显文案（数组「、」连接）。 */
   getLabel(value: string | string[]): string | undefined
   /** 订阅值变更。 */
   onValueChange(listener: (value: string | string[] | undefined) => void): () => void
@@ -189,6 +191,7 @@ export function useBaseDictSelect(options: UseBaseDictSelectOptions = {}): UseBa
   const items = ref<DictItem[]>([...select.items])
   const selectedValues = ref<string[]>(select.selectedValues)
   const selectedItems = ref<DictItem[]>(select.selectedItems)
+  const missingIds = ref<string[]>(select.missingIds)
   const keyword = ref(select.keyword)
   const parentId = ref(select.parentId)
   const loading = ref(select.loadingItems)
@@ -206,6 +209,7 @@ export function useBaseDictSelect(options: UseBaseDictSelectOptions = {}): UseBa
     items.value = [...select.items]
     selectedValues.value = select.selectedValues
     selectedItems.value = select.selectedItems
+    missingIds.value = select.missingIds
     keyword.value = select.keyword
     parentId.value = select.parentId
     loading.value = select.loadingItems
@@ -252,6 +256,7 @@ export function useBaseDictSelect(options: UseBaseDictSelectOptions = {}): UseBa
     items,
     selectedValues,
     selectedItems,
+    missingIds,
     keyword,
     parentId,
     isLarge,

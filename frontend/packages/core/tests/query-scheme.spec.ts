@@ -84,7 +84,7 @@ describe('BaseQueryScheme 条件模型', () => {
       { field: 'gone', operator: 'eq', value: 1 },
       { field: 'status', operator: 'eq', value: 'enabled' },
     ])
-    const fields: FilterField[] = [{ key: 'status', label: '状态', type: 'select' }]
+    const fields: FilterField[] = [{ key: 'status', label: '状态', type: 'option' }]
     expect(scheme.prune(fields)).toBe(1)
     expect(scheme.conditions).toEqual([{ field: 'status', operator: 'eq', value: 'enabled' }])
     expect(scheme.prune(fields)).toBe(0)

@@ -26,7 +26,7 @@ const fields: FormField[] = [
   {
     key: 'level',
     label: '等级',
-    type: 'select',
+    type: 'option',
     group: 'platform',
     status: 'active',
     options: [

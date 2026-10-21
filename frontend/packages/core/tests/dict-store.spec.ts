@@ -1,4 +1,4 @@
-// kiwi_id: 964
+// kiwi_id: 964, 2330
 /** 字典缓存能力基类用例（06_06）：契约同实现（核心 + 投影）+ 身份依赖 + 本地二次缓存 + 失效。 */
 
 import { describe, expect, it } from 'vitest'
@@ -48,9 +48,9 @@ function makeTarget(): DictStoreContractTarget {
     ensureTypes: (types) => store.ensureTypes(types),
     ensureType: (dataSourceKey) => store.ensureType(dataSourceKey),
     searchRemote: (dataSourceKey, keyword) => store.searchRemote(dataSourceKey, keyword),
-    resolveValues: (dataSourceKey, values) => store.resolveValues(dataSourceKey, values),
+    resolveIds: (dataSourceKey, ids) => store.resolveIds(dataSourceKey, ids),
     itemsOf: (dataSourceKey) => store.itemsOf(dataSourceKey),
-    labelOf: (dataSourceKey, value) => store.labelOf(dataSourceKey, value),
+    labelOf: (dataSourceKey, id) => store.labelOf(dataSourceKey, id),
     isLoaded: (dataSourceKey) => store.isLoaded(dataSourceKey),
     isLarge: (dataSourceKey) => store.isLarge(dataSourceKey),
     invalidate: (dataSourceKey) => store.invalidate(dataSourceKey),
@@ -86,7 +86,7 @@ describe('BaseDictStore 继承链与身份', () => {
     store.setReady(true)
     bindDictStoreSource(store, stub.source)
     const candidates = await store.searchRemote('user_status', '启')
-    expect(candidates.map((item) => item.value)).toEqual(['enabled'])
+    expect(candidates.map((item) => item.id)).toEqual(['101'])
     expect(store.isLoaded('user_status')).toBe(false)
   })
 

@@ -11,10 +11,10 @@ import { describe, expect, it } from 'vitest'
 
 import type { DictConditionGroup, DictItem, DictQueryProvider, DictQueryScheme, DictSourceAdapter } from '../src'
 
-/** 契约条目：用户状态（两条 + 一条停用）。 */
+/** 契约条目：用户状态（两条 + 一条停用；绑定值取条目 id）。 */
 export const DICT_CONTRACT_STATUS: readonly Record<string, unknown>[] = [
-  { value: 'enabled', label: '启用', code: 'enabled', sort: 0, status: 'enabled', color: 'success' },
-  { value: 'disabled', label: '停用', code: 'disabled', sort: 1, status: 'disabled', color: 'danger' },
+  { id: '101', value: 'enabled', label: '启用', code: 'enabled', sort: 0, status: 'enabled', color: 'success' },
+  { id: '102', value: 'disabled', label: '停用', code: 'disabled', sort: 1, status: 'disabled', color: 'danger' },
 ]
 
 /** 契约条目：业务类型（三条）。 */
@@ -76,8 +76,8 @@ export function createDictSourceStub(overrides: DictSourceAdapter = {}): DictSou
           return { version: stub.version, items: null, has_more: false, total: 0 }
         }
         let items = itemsOf(query.dataSourceKey)
-        if (query.values !== undefined && query.values.length > 0) {
-          items = items.filter((item) => query.values?.includes(String(item.value)))
+        if (query.ids !== undefined && query.ids.length > 0) {
+          items = items.filter((item) => query.ids?.includes(String(item.id)))
         }
         if (query.keyword !== undefined && query.keyword !== '') {
           items = items.filter((item) => String(item.label).includes(query.keyword as string))
@@ -220,12 +220,12 @@ export interface DictStoreContractTarget {
   ensureType(dataSourceKey: string): Promise<void>
   /** 远程搜索。 */
   searchRemote(dataSourceKey: string, keyword: string): Promise<DictItem[]>
-  /** 按值回显。 */
-  resolveValues(dataSourceKey: string, values: readonly string[]): Promise<void>
+  /** 按条目 id 回显。 */
+  resolveIds(dataSourceKey: string, ids: readonly string[]): Promise<void>
   /** 同步读条目。 */
   itemsOf(dataSourceKey: string): readonly DictItem[]
-  /** 按值取标签。 */
-  labelOf(dataSourceKey: string, value: string): string | undefined
+  /** 按条目 id 取标签。 */
+  labelOf(dataSourceKey: string, id: string): string | undefined
   /** 是否已加载。 */
   isLoaded(dataSourceKey: string): boolean
   /** 是否大字典。 */
@@ -358,15 +358,15 @@ export interface DictQueryContractTarget {
   deleteScheme(schemeId: number): Promise<void>
   /** 业务筛选参数。 */
   toBusinessFilter(): Record<string, unknown>
-  /** 取项选中值。 */
-  selectedValues(): readonly string[]
+  /** 取项选中条目 id。 */
+  selectedIds(): readonly string[]
 }
 
 /**
  * 字典缓存契约（`06_06` 冻结；后续移动端复用同一套断言）。
  *
- * 目标约定：`user_status`（两条，含停用）/ `biz_type`（三条）/ `region`（级联两条）；
- * 子集回显 `enabled` 命中、`ghost` 未命中不占位。
+ * 目标约定：`user_status`（两条，含停用；id `101` / `102`）/ `biz_type`（三条）/ `region`（级联两条）；
+ * 子集回显 `101` 命中、`ghost` 未命中不占位；绑定值一律为条目 id。
  *
  * @param name 契约名。
  * @param create 目标工厂。
@@ -382,7 +382,7 @@ export function describeDictStoreContract(name: string, create: () => DictStoreC
 
       await target.ensureType('user_status')
       await target.ensureTypes(['biz_type'])
-      await target.resolveValues('user_status', ['enabled'])
+      await target.resolveIds('user_status', ['101'])
       expect(target.requestCount).toBe(0)
       expect(stub.calls).toEqual([])
     })
@@ -391,7 +391,7 @@ export function describeDictStoreContract(name: string, create: () => DictStoreC
       const target = create()
       target.setReady(true)
       await target.ensureType('user_status')
-      await target.resolveValues('user_status', ['enabled'])
+      await target.resolveIds('user_status', ['101'])
       expect(target.degraded).toBe(false)
       expect(target.requestCount).toBe(0)
     })
@@ -407,7 +407,7 @@ export function describeDictStoreContract(name: string, create: () => DictStoreC
       expect(stub.queries[0]?.limit).toBe(2001)
       expect(target.itemsOf('user_status')).toHaveLength(2)
       expect(target.isLoaded('user_status')).toBe(true)
-      expect(target.labelOf('user_status', 'enabled')).toBe('启用')
+      expect(target.labelOf('user_status', '101')).toBe('启用')
 
       await target.ensureType('user_status')
       expect(target.requestCount).toBe(1)
@@ -441,13 +441,13 @@ export function describeDictStoreContract(name: string, create: () => DictStoreC
       target.setReady(true)
       target.setSource(stub.source)
 
-      await target.resolveValues('user_status', ['enabled', 'ghost'])
+      await target.resolveIds('user_status', ['101', 'ghost'])
       expect(stub.calls).toEqual(['getType'])
-      expect(stub.queries[0]?.values).toEqual(['enabled', 'ghost'])
-      expect(target.labelOf('user_status', 'enabled')).toBe('启用')
+      expect(stub.queries[0]?.ids).toEqual(['101', 'ghost'])
+      expect(target.labelOf('user_status', '101')).toBe('启用')
       expect(target.labelOf('user_status', 'ghost')).toBeUndefined()
 
-      await target.resolveValues('user_status', ['enabled', 'ghost'])
+      await target.resolveIds('user_status', ['101', 'ghost'])
       expect(target.requestCount).toBe(1)
     })
 
@@ -490,7 +490,7 @@ export function describeDictSelectContract(name: string, create: () => DictSelec
       target.setSource(stub.source)
       expect(target.degraded).toBe(true)
       await target.load()
-      await target.resolve(['enabled'])
+      await target.resolve(['101'])
       expect(target.requestCount).toBe(0)
       expect(stub.calls).toEqual([])
     })
@@ -504,12 +504,12 @@ export function describeDictSelectContract(name: string, create: () => DictSelec
 
       await target.load()
       expect(target.items).toHaveLength(2)
-      expect(target.labelOf('disabled')).toBe('停用')
+      expect(target.labelOf('102')).toBe('停用')
       expect(target.items.some((item) => item.status === 'disabled')).toBe(true)
 
       target.setKeyword('启')
       await target.load()
-      expect(target.items.map((item) => item.value)).toEqual(['enabled'])
+      expect(target.items.map((item) => item.id)).toEqual(['101'])
     })
 
     it('大字典远程搜索与禁用项', async () => {
@@ -526,7 +526,7 @@ export function describeDictSelectContract(name: string, create: () => DictSelec
       expect(target.items).toHaveLength(1)
 
       await target.searchRemote('启')
-      expect(target.items.map((item) => item.value)).toEqual(['enabled'])
+      expect(target.items.map((item) => item.id)).toEqual(['101'])
     })
 
     it('级联父值：父变清空值并重载（参数透传）', async () => {
@@ -536,15 +536,15 @@ export function describeDictSelectContract(name: string, create: () => DictSelec
       target.setSource(stub.source)
       target.setDictType('region')
 
-      target.setValue('hz')
+      target.setValue('2')
       await target.load()
-      expect(target.selectedValues).toEqual(['hz'])
+      expect(target.selectedValues).toEqual(['2'])
 
       target.setParent('1')
       expect(target.selectedValues).toEqual([])
       await target.load()
       expect(stub.queries.at(-1)?.parentId).toBe('1')
-      expect(target.items.map((item) => item.value)).toEqual(['hz'])
+      expect(target.items.map((item) => item.id)).toEqual(['2'])
     })
 
     it('多选去重 / 上限截断 / 移除 / 清空', () => {
@@ -568,19 +568,19 @@ export function describeDictSelectContract(name: string, create: () => DictSelec
       expect(target.selectionText()).toBe('—')
     })
 
-    it('批量回显：命中 label / 未命中回退值 / 选项源语义', async () => {
+    it('批量回显：命中 label / 未命中回退原 id / 选项源语义', async () => {
       const target = create()
       const stub = createDictSourceStub()
       target.setReady(true)
       target.setSource(stub.source)
       target.setDictType('user_status')
 
-      target.setValue(['enabled', 'ghost'])
+      target.setValue(['101', 'ghost'])
       await target.resolve()
-      expect(target.labelOf('enabled')).toBe('启用')
+      expect(target.labelOf('101')).toBe('启用')
       expect(target.labelOf('ghost')).toBe('ghost')
-      expect(target.getLabel(['enabled', 'ghost'])).toBe('启用、ghost')
-      expect(target.searchLocal('启').map((item) => item.value)).toEqual(['enabled'])
+      expect(target.getLabel(['101', 'ghost'])).toBe('启用、ghost')
+      expect(target.searchLocal('启').map((item) => item.value)).toEqual(['101'])
       expect(target.dataVersion).toBeGreaterThan(0)
     })
   })

@@ -45,7 +45,7 @@ const virtualRows = Array.from({ length: 260 }, (_item, index) => ({
 
 /** 查询类字段声明。 */
 const filterFields: FilterField[] = [
-  { key: 'status', label: '状态', type: 'select', options: [{ label: '启用', value: 'enabled' }] },
+  { key: 'status', label: '状态', type: 'option', options: [{ label: '启用', value: 'enabled' }] },
   { key: 'amount', label: '金额', type: 'number' },
   { key: 'created_at', label: '创建时间', type: 'date' },
   { key: 'dept', label: '部门', type: 'dept' },

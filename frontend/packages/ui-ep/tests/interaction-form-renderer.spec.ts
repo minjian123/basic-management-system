@@ -1,4 +1,4 @@
-// kiwi_id: 772
+// kiwi_id: 772, 2332, 2333
 /** 表单渲染器用例（08_06_02）：投影薄适配 + 分发映射 + 两件真实实现 + 分包边界。 */
 
 import type { FieldRendererRegistry, FormField, LayoutEffective, RenderPlan } from '@bms/core'
@@ -10,6 +10,7 @@ import { FormRenderer, getFieldWidget, resolveFieldComponent, useBaseFormRendere
 import FormRendererBody from '../src/components/form-render/FormRendererBody.vue'
 import CaptchaField from '../src/components/field/CaptchaField.vue'
 import DictSelectField from '../src/components/field/DictSelectField.vue'
+import EnumField from '../src/components/field/EnumField.vue'
 import FileUploadField from '../src/components/field/FileUploadField.vue'
 import ImageUploadField from '../src/components/field/ImageUploadField.vue'
 import OrgSelectField from '../src/components/field/OrgSelectField.vue'
@@ -22,7 +23,7 @@ const fields: FormField[] = [
   {
     key: 'level',
     label: '等级',
-    type: 'select',
+    type: 'option',
     group: 'platform',
     status: 'active',
     options: [{ value: 'a', label: '甲' }],
@@ -150,7 +151,9 @@ describe('utils/formWidgets 分发映射', () => {
     expect(getFieldWidget('text')).toBeDefined()
     expect(getFieldWidget('textarea')).toBeDefined()
     expect(getFieldWidget('datetime')).toBeDefined()
-    expect(getFieldWidget('select')).toBeDefined()
+    expect(getFieldWidget('dropdown')).toBeDefined()
+    expect(getFieldWidget('dropdown-multi')).toBeDefined()
+    expect(getFieldWidget('tag')).toBeDefined()
     expect(getFieldWidget('plain')).toBeUndefined()
   })
 
@@ -205,14 +208,14 @@ describe('utils/formWidgets 分发映射', () => {
     expect(deptField.props('multiple')).toBe(true)
   })
 
-  it('字典字段协同（06_06）：dict / dict_multi 映射字典件、dataSourceKey 透传、select + dataSourceKey 优先分发、多选语义单一来源', () => {
+  it('字典字段协同（06_06 / 06_09）：dict / dict_multi 映射字典件、dataSourceKey 透传、option + dataSourceKey 不再分发字典件、多选语义单一来源', () => {
     expect(MULTIPLE_WIDGETS).toContain('dict-multi')
     const dictMeta: LayoutEffective = {
       ...meta,
       fields: [
         { key: 'status', label: '状态', type: 'dict', group: 'platform', status: 'active', dataSourceKey: 'user_status' },
         { key: 'biz', label: '业务', type: 'dict_multi', group: 'platform', status: 'active', dataSourceKey: 'biz_type' },
-        { key: 'referenced', label: '引用字典', type: 'select', group: 'platform', status: 'active', dataSourceKey: 'user_status' },
+        { key: 'referenced', label: '枚举带字典标识', type: 'option', group: 'platform', status: 'active', dataSourceKey: 'user_status' },
       ],
       layout: {
         main: {
@@ -234,11 +237,13 @@ describe('utils/formWidgets 分发映射', () => {
       global: { stubs: { DataTable: true, DictSelectField: true } },
     })
     const fields = wrapper.findAllComponents(DictSelectField)
-    expect(fields).toHaveLength(3)
+    expect(fields).toHaveLength(2)
     expect(fields[0]?.props('dataSourceKey')).toBe('user_status')
     expect(fields[1]?.props('dataSourceKey')).toBe('biz_type')
     expect(fields[1]?.props('multiple')).toBe(true)
-    expect(fields[2]?.props('dataSourceKey')).toBe('user_status')
+    const enumField = wrapper.findComponent(EnumField)
+    expect(enumField.exists()).toBe(true)
+    expect(enumField.props('form')).toBe('radio')
   })
 
   it('文件 / 图片字段协同（06_07）：语义键分发、上传属性透传、多选语义单一来源', () => {

@@ -109,7 +109,7 @@ const treeOptions = computed(() => toDictTreeNodes(api.items.value))
 const pathMap = computed(() => {
   const map = new Map<string, string>()
   for (const item of api.items.value as DictItem[]) {
-    map.set(item.value, item.label)
+    map.set(item.id, item.label)
   }
   return map
 })

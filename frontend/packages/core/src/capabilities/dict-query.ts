@@ -531,9 +531,9 @@ export abstract class BaseDictQuery extends BasePlaceholderState {
     }
   }
 
-  /** 取项选中值（宿主回填字段）。 */
-  selectedValues(): string[] {
-    return this.results.map((item) => item.value)
+  /** 取项选中条目 id（宿主回填字典字段）。 */
+  selectedIds(): string[] {
+    return this.results.map((item) => item.id)
   }
 
   /** 失效（清结果；条件保留）。 */

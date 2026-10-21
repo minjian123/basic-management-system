@@ -1,7 +1,8 @@
 /**
  * 字典选择族组件基类 `BaseDictSelect`：字典下拉语义（小字典本地全量 / 大字典远程搜索）、
- * 禁用项、级联父值、多选与上限、批量回显（`values` 子集一次回填）。
+ * 禁用项、级联父值、多选与上限、批量回显（`ids` 子集一次回填）。
  *
+ * 受控值为**条目 id**（字符串化雪花；多选为 id 数组），条目 `value` / `code` 仅展示。
  * 全链：`BaseComponent → BasePlaceholderState → BaseValue → BaseField → BaseOptionSource → BaseDictSelect → 具体件`。
  * 数据通路经注入式 `DictSourceAdapter`（未注入即占位零请求）；缓存经注入的 `BaseDictStore`（全局一份）；
  * 核心不依赖 Vue / DOM / 浏览器 API。
@@ -45,8 +46,10 @@ export abstract class BaseDictSelect extends BaseOptionSource<string | string[]>
   multiple = false
   /** 多选上限（0 不限）。 */
   limit = 0
-  /** 候选与回显条目（常驻内存，按 value 合并）。 */
+  /** 候选与回显条目（常驻内存，按条目 id 合并）。 */
   readonly items: DictItem[] = []
+  /** 回填未命中的 id（条目不存在 / 未加载；件层据此提示并回显原 id）。 */
+  readonly _missing = new Set<string>()
   /** 多选超限标记。 */
   limitExceeded = false
   /** 错误码。 */
@@ -70,14 +73,19 @@ export abstract class BaseDictSelect extends BaseOptionSource<string | string[]>
     return this.store !== undefined && this.store.isLarge(this.dataSourceKey)
   }
 
-  /** 选中值（受控值归一）。 */
+  /** 选中值（受控值归一；值为条目 id）。 */
   get selectedValues(): string[] {
     return normalizeDictValues(this.value, this.multiple)
   }
 
-  /** 选中条目（未解析项以值占位，回显不丢值）。 */
+  /** 选中条目（未解析项以 id 占位，回显不丢值）。 */
   get selectedItems(): DictItem[] {
-    return this.selectedValues.map((value) => this.itemOf(value) ?? this.placeholderOf(value))
+    return this.selectedValues.map((id) => this.itemOf(id) ?? this.placeholderOf(id))
+  }
+
+  /** 回填未命中的选中 id（条目不存在；件层据此提示并回显原 id）。 */
+  get missingIds(): string[] {
+    return this.selectedValues.filter((id) => this._missing.has(id))
   }
 
   /** 是否可发起候选加载（就绪 ∧ 类型非空 ∧ 数据源或缓存可用）。 */
@@ -131,6 +139,7 @@ export abstract class BaseDictSelect extends BaseOptionSource<string | string[]>
     this.errorMessage = ''
     this.items.splice(0, this.items.length)
     this.options.splice(0, this.options.length)
+    this._missing.clear()
     this.emitUpdate()
   }
 
@@ -214,20 +223,20 @@ export abstract class BaseDictSelect extends BaseOptionSource<string | string[]>
   /**
    * 选中 / 取消选中（多选增删去重并按上限截断；单选整体替换）。
    *
-   * @param value 条目值。
+   * @param id 条目 id。
    */
-  toggle(value: string): void {
+  toggle(id: string): void {
     if (!this.multiple) {
-      if (this.selectedValues[0] === value) {
+      if (this.selectedValues[0] === id) {
         return
       }
-      this.setValue(value)
+      this.setValue(id)
       this.emitUpdate()
       return
     }
     const current = this.selectedValues
-    if (current.includes(value)) {
-      this.setValue(current.filter((entry) => entry !== value))
+    if (current.includes(id)) {
+      this.setValue(current.filter((entry) => entry !== id))
       this.limitExceeded = false
       this.emitUpdate()
       return
@@ -237,7 +246,7 @@ export abstract class BaseDictSelect extends BaseOptionSource<string | string[]>
       this.emitUpdate()
       return
     }
-    this.setValue([...current, value])
+    this.setValue([...current, id])
     this.limitExceeded = false
     this.emitUpdate()
   }
@@ -245,10 +254,10 @@ export abstract class BaseDictSelect extends BaseOptionSource<string | string[]>
   /**
    * 移除选中项。
    *
-   * @param value 条目值。
+   * @param id 条目 id。
    */
-  remove(value: string): void {
-    const values = this.selectedValues.filter((entry) => entry !== value)
+  remove(id: string): void {
+    const values = this.selectedValues.filter((entry) => entry !== id)
     this.limitExceeded = false
     this.setValue(this.multiple ? values : values[0])
     this.emitUpdate()
@@ -356,9 +365,9 @@ export abstract class BaseDictSelect extends BaseOptionSource<string | string[]>
   }
 
   /**
-   * 批量回显（已选值缺失项一次 `values=` 子集回填；已解析不重复请求）。
+   * 批量回显（已选 id 缺失项一次 `ids=` 子集回填；已解析不重复请求）。
    *
-   * @param extra 额外待回显值（缺省取当前选中值）。
+   * @param extra 额外待回显条目 id（缺省取当前选中值）。
    * @returns 无。
    */
   async resolve(extra?: readonly string[]): Promise<void> {
@@ -366,19 +375,21 @@ export abstract class BaseDictSelect extends BaseOptionSource<string | string[]>
     if (!this.ready || this.dataSourceKey === '' || targets.length === 0) {
       return
     }
-    const missing = targets.filter((value) => this.itemOf(value) === undefined)
+    const missing = targets.filter((id) => this.itemOf(id) === undefined)
     if (missing.length === 0) {
       return
     }
     if (this.store !== undefined && this.store.ready && this.store.source !== undefined) {
-      await this.store.resolveValues(this.dataSourceKey, missing)
+      await this.store.resolveIds(this.dataSourceKey, missing)
       this.#applyItems(
-        missing.map((value) => {
-          const label = this.store?.labelOf(this.dataSourceKey, value)
+        missing.map((id) => {
+          const label = this.store?.labelOf(this.dataSourceKey, id)
           if (label === undefined) {
-            return this.placeholderOf(value)
+            this._missing.add(id)
+            return this.placeholderOf(id)
           }
-          return { id: '0', value, label, code: '', sort: 0, status: 'enabled' } satisfies DictItem
+          this._missing.delete(id)
+          return { id, value: id, label, code: '', sort: 0, status: 'enabled' } satisfies DictItem
         }),
       )
       return
@@ -394,7 +405,7 @@ export abstract class BaseDictSelect extends BaseOptionSource<string | string[]>
     try {
       const raw = await loader.call(this.source, {
         dataSourceKey: this.dataSourceKey,
-        values: missing,
+        ids: missing,
         limit: DICT_PROBE_LIMIT,
       })
       if (token !== this.#resolveSeq) {
@@ -402,7 +413,16 @@ export abstract class BaseDictSelect extends BaseOptionSource<string | string[]>
       }
       const result = normalizeDictTypeResult(raw)
       this.loadingItems = false
-      this.#applyItems(result.items ?? [])
+      const items = result.items ?? []
+      for (const item of items) {
+        this._missing.delete(item.id)
+      }
+      this.#applyItems(items)
+      for (const id of missing) {
+        if (this.itemOf(id) === undefined) {
+          this._missing.add(id)
+        }
+      }
       this.emitUpdate()
     } catch (error) {
       if (token !== this.#resolveSeq) {
@@ -415,23 +435,23 @@ export abstract class BaseDictSelect extends BaseOptionSource<string | string[]>
   }
 
   /**
-   * 按值取条目（未解析返回 `undefined`）。
+   * 按条目 id 取条目（未解析返回 `undefined`）。
    *
-   * @param value 条目值。
+   * @param id 条目 id。
    * @returns 条目；未命中 `undefined`。
    */
-  itemOf(value: string): DictItem | undefined {
-    return findDictItem(this.items, value)
+  itemOf(id: string): DictItem | undefined {
+    return findDictItem(this.items, id)
   }
 
   /**
-   * 按值取展示文案（未解析回退值）。
+   * 按条目 id 取展示文案（未解析回退原 id）。
    *
-   * @param value 条目值。
+   * @param id 条目 id。
    * @returns 展示文案。
    */
-  labelOf(value: string): string {
-    return this.itemOf(value)?.label ?? value
+  labelOf(id: string): string {
+    return this.itemOf(id)?.label ?? id
   }
 
   /** 选中回显文本（「、」连接；空值「—」）。 */
@@ -452,6 +472,7 @@ export abstract class BaseDictSelect extends BaseOptionSource<string | string[]>
     this.store?.invalidate(this.dataSourceKey)
     this.items.splice(0, this.items.length)
     this.options.splice(0, this.options.length)
+    this._missing.clear()
     this.emitUpdate()
   }
 
@@ -466,9 +487,9 @@ export abstract class BaseDictSelect extends BaseOptionSource<string | string[]>
   }
 
   /**
-   * 按值回显文案（数组 → 「、」连接；未解析回退值）。
+   * 按条目 id 回显文案（数组 → 「、」连接；未解析回退原 id）。
    *
-   * @param value 值（单值 / 数组）。
+   * @param value 值（单值 / 数组；元素为条目 id）。
    */
   override getLabel(value: string | string[]): string | undefined {
     const values = normalizeDictValues(value, true)
@@ -482,12 +503,12 @@ export abstract class BaseDictSelect extends BaseOptionSource<string | string[]>
   }
 
   /**
-   * 未解析项的展示占位（label 留空 → 展示回退值）。
+   * 未解析项的展示占位（label 回退原 id，供未命中提示）。
    *
-   * @param value 条目值。
+   * @param id 条目 id。
    */
-  private placeholderOf(value: string): DictItem {
-    return { id: '0', value, label: value, code: '', sort: 0, status: 'enabled' }
+  private placeholderOf(id: string): DictItem {
+    return { id, value: id, label: id, code: '', sort: 0, status: 'enabled' }
   }
 
   /**
@@ -496,7 +517,7 @@ export abstract class BaseDictSelect extends BaseOptionSource<string | string[]>
    * @param candidates 候选列表。
    */
   #applyCandidates(candidates: readonly DictItem[]): void {
-    const keep = this.selectedItems.filter((item) => findDictItem(candidates, item.value) === undefined)
+    const keep = this.selectedItems.filter((item) => findDictItem(candidates, item.id) === undefined)
     this.#replaceItems(mergeDictItems(keep, candidates))
   }
 
@@ -506,11 +527,14 @@ export abstract class BaseDictSelect extends BaseOptionSource<string | string[]>
    * @param next 新条目列表。
    */
   #replaceItems(next: readonly DictItem[]): void {
+    for (const item of next) {
+      this._missing.delete(item.id)
+    }
     this.items.splice(0, this.items.length, ...next)
     this.options.splice(
       0,
       this.options.length,
-      ...next.map((item) => ({ value: item.value, label: item.label })),
+      ...next.map((item) => ({ value: item.id, label: item.label })),
     )
     this.dataVersion += 1
     this.emitUpdate()
@@ -538,7 +562,7 @@ export abstract class BaseDictSelect extends BaseOptionSource<string | string[]>
     this.options.splice(
       0,
       this.options.length,
-      ...next.map((item) => ({ value: item.value, label: item.label })),
+      ...next.map((item) => ({ value: item.id, label: item.label })),
     )
     this.dataVersion += 1
     this.emitUpdate()

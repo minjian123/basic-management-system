@@ -106,14 +106,14 @@ export const QUERY_NARROW_BREAKPOINT = 1024
 
 /** 查询类字段类型。 */
 export type FilterFieldType =
-  'text' | 'textarea' | 'select' | 'multi_select' | 'switch' | 'number' | 'datetime' | 'date' | 'dept'
+  'text' | 'textarea' | 'option' | 'option_multi' | 'switch' | 'number' | 'datetime' | 'date' | 'dept'
 
 /** 查询类字段类型集合。 */
 export const FILTER_FIELD_TYPES: readonly FilterFieldType[] = [
   'text',
   'textarea',
-  'select',
-  'multi_select',
+  'option',
+  'option_multi',
   'switch',
   'number',
   'datetime',
@@ -125,8 +125,8 @@ export const FILTER_FIELD_TYPES: readonly FilterFieldType[] = [
 export const FILTER_WIDGET_BY_TYPE: Readonly<Record<FilterFieldType, string>> = {
   text: 'text',
   textarea: 'textarea',
-  select: 'select',
-  multi_select: 'multi-select',
+  option: 'dropdown',
+  option_multi: 'dropdown-multi',
   switch: 'switch',
   number: 'number',
   datetime: 'datetime',
@@ -317,7 +317,7 @@ export function defaultOperatorOf(type: FilterFieldType): string {
     case 'text':
     case 'textarea':
       return 'like'
-    case 'multi_select':
+    case 'option_multi':
       return 'in'
     case 'number':
     case 'date':

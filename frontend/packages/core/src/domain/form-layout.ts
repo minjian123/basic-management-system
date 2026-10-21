@@ -17,13 +17,13 @@ export const EXT_FIELD_TYPES: readonly string[] = [
   'longtext',
   'number',
   'datetime',
-  'select',
-  'multi_select',
+  'option',
+  'option_multi',
   'switch',
   'file',
 ]
-/** 需要选项集的自建字段类型（下拉单选 / 多选）。 */
-export const EXT_OPTION_TYPES: readonly string[] = ['select', 'multi_select']
+/** 需要选项集的自建字段类型（选项集单选 / 多选）。 */
+export const EXT_OPTION_TYPES: readonly string[] = ['option', 'option_multi']
 
 /** 表单定制权限码（布局 / 属性 / 自建字段维护）。 */
 export const FORMDESIGN_PERM = 'formdesign:manage'
@@ -247,7 +247,9 @@ export interface FieldRenderAttrs {
   rules?: readonly FieldRule[]
   /** 选项集（下拉 / 单选 / 复选 / 穿梭等）。 */
   options?: readonly ExtFieldOption[]
-  /** 字典类型（选项集引用字典；与 `select` / `multi_select` 或 `dict` / `dict_multi` 字段类型协作）。 */
+  /** 控件形态覆盖（取控件语义键；未登记或 `plain` 时回退字段类型默认形态）。 */
+  widget?: string
+  /** 字典标识（仅 `dict` / `dict_multi` 字段类型消费；枚举字段只用选项集，不得配字典）。 */
   dataSourceKey?: string
   /** 上传接受类型（扩展名 / MIME，逗号分隔；`file-upload` / `image-upload` 字段类型协作）。 */
   uploadAccept?: string

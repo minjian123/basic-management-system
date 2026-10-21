@@ -107,7 +107,7 @@ export function describeQuerySchemeContract(name: string, create: () => QuerySch
         { field: 'remark', operator: 'like', value: 'x' },
       ])
       const fields: FilterField[] = [
-        { key: 'status', label: '状态', type: 'select' },
+        { key: 'status', label: '状态', type: 'option' },
         { key: 'remark', label: '备注', type: 'text', query: false },
       ]
       expect(target.prune(fields)).toBe(2)

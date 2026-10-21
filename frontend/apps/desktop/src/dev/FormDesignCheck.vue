@@ -311,7 +311,7 @@ async function runChecks(): Promise<void> {
   // 自建字段对话框改 `el-dialog`（append-to-body）+ `el-input` / `el-select` 承载。
   setInputValue('[data-test="ext-name"]', 'projectNo')
   await settle()
-  await setSelectValue(null, '[data-test="ext-type"]', 'select')
+  await setSelectValue(null, '[data-test="ext-type"]', 'option')
   await settle()
   result.push({
     label: '⑧ 自建字段（列名只读预览 ext_ 前缀 + 下拉类选项集必填拦截）',

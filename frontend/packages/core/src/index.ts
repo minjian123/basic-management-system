@@ -1048,6 +1048,7 @@ export {
   FIELD_WIDGETS,
   FIELD_WIDGET_MAP,
   FORM_RENDER_PERM,
+  DICT_ID_FIELD_TYPES,
   MASK_TEXT,
   RENDERER_EMPTY_HINT,
   RENDERER_FALLBACK_HINT,
@@ -1056,6 +1057,7 @@ export {
   buildFieldPlan,
   buildRenderPlan,
   buildSubmitPayload,
+  collectDictIdPaths,
   compileFieldRules,
   countPlanFields,
   displayFieldText,
@@ -1074,6 +1076,7 @@ export {
   resolveBaselineEditable,
   resolveFieldRenderState,
   resolveFieldWidget,
+  resolveFieldWidgetOf,
   sectionSpan,
   validateDetailRows,
   validateDetails,
@@ -1306,7 +1309,7 @@ export {
   type ModelerValidateResult,
   type ModelerValidateSource,
 } from './domain/process-modeler'
-export { fnv1aHex, stableStringify } from './domain/serialize'
+export { fnv1aHex, stableStringify, stringifyIntegerIds } from './domain/serialize'
 export {
   AUTO_WIDTH_SAMPLE_ROWS,
   DETAIL_PAGE_SIZE_DEFAULT,

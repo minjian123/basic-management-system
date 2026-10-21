@@ -371,6 +371,6 @@ describe('件族样式齐备护栏（全库真裸骨架硬断言 + EP 薄包装�
 
   it('相对路径工具（护栏自检：扫描面不为空）', () => {
     expect(componentSources().length).toBeGreaterThan(100)
-    expect(relative(COMPONENTS, join(COMPONENTS, 'interaction', 'IconPicker.vue'))).toBe('interaction/IconPicker.vue')
+    expect(relative(COMPONENTS, join(COMPONENTS, 'interaction', 'IconPicker.vue'))).toBe(join('interaction', 'IconPicker.vue'))
   })
 })

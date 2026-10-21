@@ -1,4 +1,4 @@
-// kiwi_id: 772
+// kiwi_id: 772, 2332, 2333
 // 领域纯函数用例：渲染分发 / 三态与权限叠加 / 渲染计划 / 规则与校验 / 明细 / 载荷。
 import { describe, expect, it } from 'vitest'
 
@@ -29,6 +29,8 @@ import {
   resolveBaselineEditable,
   resolveFieldRenderState,
   resolveFieldWidget,
+  resolveFieldWidgetOf,
+  collectDictIdPaths,
   sectionSpan,
   validateDetailRows,
   validateDetails,
@@ -46,7 +48,7 @@ const fields: FormField[] = [
   {
     key: 'level',
     label: '等级',
-    type: 'select',
+    type: 'option',
     group: 'platform',
     status: 'active',
     options: [{ value: 'a', label: '甲' }],
@@ -91,13 +93,59 @@ function effectiveOf(input: Partial<LayoutEffective> = {}): LayoutEffective {
 }
 
 describe('字段类型 → 控件语义键', () => {
+  it('字段属性 widget 覆盖（未登记与 plain 回退类型默认）', () => {
+    expect(resolveFieldWidgetOf('option', 'dropdown')).toBe('dropdown')
+    expect(resolveFieldWidgetOf('option_multi', 'dropdown-multi')).toBe('dropdown-multi')
+    expect(resolveFieldWidgetOf('option', 'segmented')).toBe('segmented')
+    expect(resolveFieldWidgetOf('option', 'plain')).toBe('radio')
+    expect(resolveFieldWidgetOf('option', 'not-a-widget')).toBe('radio')
+    expect(resolveFieldWidgetOf('option', '')).toBe('radio')
+    expect(resolveFieldWidgetOf('option')).toBe('radio')
+    expect(resolveFieldWidgetOf('dict', 'radio')).toBe('radio')
+  })
+
+  it('渲染项按属性覆盖出语义键（含默认回退）', () => {
+    const field = fields.find((item) => item.key === 'level') as FormField
+    const overridden = buildFieldPlan({ field: { ...field, widget: 'dropdown' }, mode: 'create' })
+    expect(overridden.widget).toBe('dropdown')
+    const fallback = buildFieldPlan({ field: { ...field, widget: 'not-a-widget' }, mode: 'create' })
+    expect(fallback.widget).toBe('radio')
+  })
+
+  it('字典字段提交路径收集（主表与明细通配）', () => {
+    const dictFields: FormField[] = [
+      { key: 'region', label: '地区', type: 'dict', group: 'platform', status: 'active' },
+      { key: 'tags_dict', label: '多值', type: 'dict_multi', group: 'platform', status: 'active' },
+      { key: 'name', label: '姓名', type: 'text', group: 'platform', status: 'active' },
+    ]
+    const dictLayout: FormLayout = {
+      main: {
+        labelPosition: 'top',
+        sections: [{ key: 's', title: '主表', columns: 1, fields: [{ key: 'region' }, { key: 'tags_dict' }, { key: 'name' }] }],
+      },
+      detail: { columns: [{ key: 'region' }, { key: 'name' }] },
+    }
+    const plan = buildRenderPlan({
+      layout: dictLayout,
+      fields: dictFields,
+      level: 'tenant',
+      source: 'tenant',
+      readonly: false,
+      fallback: false,
+    })
+    expect(collectDictIdPaths(plan)).toEqual(['data.region', 'data.tags_dict', 'details.*.region'])
+  })
+
   it('内建映射覆盖基础控件类与字段类', () => {
     expect(resolveFieldWidget('text')).toBe('text')
     expect(resolveFieldWidget('longtext')).toBe('textarea')
     expect(resolveFieldWidget('amount')).toBe('number')
     expect(resolveFieldWidget('percent')).toBe('number')
     expect(resolveFieldWidget('date')).toBe('datetime')
-    expect(resolveFieldWidget('multi_select')).toBe('multi-select')
+    expect(resolveFieldWidget('option')).toBe('radio')
+    expect(resolveFieldWidget('option_multi')).toBe('checkbox')
+    expect(resolveFieldWidget('select')).toBe('plain')
+    expect(resolveFieldWidget('multi_select')).toBe('plain')
     expect(resolveFieldWidget('switch')).toBe('switch')
     expect(resolveFieldWidget('richtext')).toBe('richtext')
     expect(resolveFieldWidget('dept')).toBe('org-select')

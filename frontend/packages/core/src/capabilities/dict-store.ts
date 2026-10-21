@@ -1,7 +1,7 @@
 /**
  * 字典缓存能力基类 `BaseDictStore`：全局一份缓存（跨件 / 跨表单共享）——
  * 版本比对、批量合并（同批多类型一次请求）、同类型并发去重、大小字典缓存、
- * 按值子集回填（批量翻译防 N+1）、本地二次缓存（经注入式通道，核心不触浏览器 API）。
+ * 按条目 id 子集回填（批量翻译防 N+1）、本地二次缓存（经注入式通道，核心不触浏览器 API）。
  *
  * 继承链：`BaseComponent`（组件根）→ `BaseDictStore`（能力基类，旁挂注入）；
  * 由 `BaseDictSelect` 与翻译器经**注入引用**共用（同 `BaseUserDisplay` 模式）。
@@ -62,12 +62,12 @@ export type DictTypeLoader = (query: {
   version?: number
   keyword?: string
   parentId?: string
-  values?: readonly string[]
+  ids?: readonly string[]
   limit?: number
 }) => Promise<DictTypeResult | undefined>
 
-/** 子集取数回调（按值批量回填）。 */
-export type DictSubsetLoader = (dataSourceKey: string, values: readonly string[]) => Promise<DictItem[] | undefined>
+/** 子集取数回调（按条目 id 批量回填）。 */
+export type DictSubsetLoader = (dataSourceKey: string, ids: readonly string[]) => Promise<DictItem[] | undefined>
 
 /** 字典缓存能力基类（抽象；全局一份缓存，跨件 / 跨表单共享）。 */
 export abstract class BaseDictStore extends BasePlaceholderState {
@@ -88,11 +88,11 @@ export abstract class BaseDictStore extends BasePlaceholderState {
 
   /** 类型缓存（LRU：Map 插入序即访问序）。 */
   readonly _entries = new Map<string, DictCacheEntry>()
-  /** 子集 label 缓存（`{locale}:{type}:{value}` → label）。 */
+  /** 子集 label 缓存（`{locale}:{type}:{id}` → label）。 */
   readonly _subsets = new Map<string, string>()
   /** 大字典类型登记（探针判定）。 */
   readonly _large = new Set<string>()
-  /** 已解析值登记（含未命中；避免重复请求，未命中仍不占位）。 */
+  /** 已解析 id 登记（含未命中；避免重复请求，未命中仍不占位）。 */
   readonly _resolved = new Set<string>()
   /** 在途类型请求（并发去重）。 */
   readonly _pending = new Map<string, Promise<void>>()
@@ -271,21 +271,21 @@ export abstract class BaseDictStore extends BasePlaceholderState {
   }
 
   /**
-   * 按值批量回显（缺失值一次 `values=` 子集回填；二次零请求）。
+   * 按条目 id 批量回显（缺失 id 一次 `ids=` 子集回填；二次零请求）。
    *
    * @param dataSourceKey 字典类型码。
-   * @param values 待回显值序列。
+   * @param ids 待回显条目 id 序列。
    * @returns 无。
    */
-  async resolveValues(dataSourceKey: string, values: readonly string[]): Promise<void> {
-    const targets = [...new Set(values)].filter(
-      (value) => value !== '' && !this._resolved.has(dictSubsetKey(this.locale, dataSourceKey, value)),
+  async resolveIds(dataSourceKey: string, ids: readonly string[]): Promise<void> {
+    const targets = [...new Set(ids)].filter(
+      (id) => id !== '' && !this._resolved.has(dictSubsetKey(this.locale, dataSourceKey, id)),
     )
     if (targets.length === 0) {
       return
     }
-    for (const value of targets) {
-      this._resolved.add(dictSubsetKey(this.locale, dataSourceKey, value))
+    for (const id of targets) {
+      this._resolved.add(dictSubsetKey(this.locale, dataSourceKey, id))
     }
     if (!this.canRequest()) {
       return
@@ -304,14 +304,14 @@ export abstract class BaseDictStore extends BasePlaceholderState {
         this.emitUpdate()
       } catch (error) {
         this.loading = false
-        this.reportError(error, { scope: 'BaseDictStore.resolveValues' })
+        this.reportError(error, { scope: 'BaseDictStore.resolveIds' })
         this.emitUpdate()
       }
       return
     }
     if (this._typeLoader !== undefined) {
       this.markLoaded()
-      const result = await this._typeLoader({ dataSourceKey, values: targets, limit: DICT_PROBE_LIMIT })
+      const result = await this._typeLoader({ dataSourceKey, ids: targets, limit: DICT_PROBE_LIMIT })
       if (result !== undefined && result.items !== null) {
         this._putSubset(dataSourceKey, result.items)
         this._mergeEntry(dataSourceKey, result.items)
@@ -361,18 +361,18 @@ export abstract class BaseDictStore extends BasePlaceholderState {
   }
 
   /**
-   * 按值取标签（子集缓存优先，其次类型缓存；未命中 `undefined`）。
+   * 按条目 id 取标签（子集缓存优先，其次类型缓存；未命中 `undefined`）。
    *
    * @param dataSourceKey 字典类型码。
-   * @param value 值。
+   * @param id 条目 id。
    * @returns 标签；未命中 `undefined`。
    */
-  labelOf(dataSourceKey: string, value: string): string | undefined {
-    const subset = this._subsets.get(dictSubsetKey(this.locale, dataSourceKey, value))
+  labelOf(dataSourceKey: string, id: string): string | undefined {
+    const subset = this._subsets.get(dictSubsetKey(this.locale, dataSourceKey, id))
     if (subset !== undefined) {
       return subset
     }
-    return this._entries.get(this._key(dataSourceKey))?.items.find((item) => item.value === value)?.label
+    return this._entries.get(this._key(dataSourceKey))?.items.find((item) => item.id === id)?.label
   }
 
   /**
@@ -629,7 +629,7 @@ export abstract class BaseDictStore extends BasePlaceholderState {
     }
     const merged = [...entry.items]
     for (const item of items) {
-      const index = merged.findIndex((existing) => existing.value === item.value)
+      const index = merged.findIndex((existing) => existing.id === item.id)
       if (index >= 0) {
         merged[index] = item
       } else {
@@ -647,7 +647,7 @@ export abstract class BaseDictStore extends BasePlaceholderState {
    */
   _putSubset(dataSourceKey: string, items: readonly DictItem[]): void {
     for (const item of items) {
-      const key = dictSubsetKey(this.locale, dataSourceKey, item.value)
+      const key = dictSubsetKey(this.locale, dataSourceKey, item.id)
       if (this._subsets.has(key)) {
         this._subsets.delete(key)
       }
@@ -743,13 +743,13 @@ export function bindDictStoreSource(store: BaseDictStore, source: DictSourceAdap
           version: query.version,
           keyword: query.keyword,
           parentId: query.parentId,
-          values: query.values,
+          ids: query.ids,
           limit: query.limit,
         }),
       ),
     )
-    store.bindSubsetLoader(async (dataSourceKey, values) => {
-      const result = normalizeDictTypeResult(await getType.call(source, { dataSourceKey, values }))
+    store.bindSubsetLoader(async (dataSourceKey, ids) => {
+      const result = normalizeDictTypeResult(await getType.call(source, { dataSourceKey, ids }))
       return result.items ?? []
     })
   }

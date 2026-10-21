@@ -124,7 +124,7 @@ describe('条件子键读写与失效剔除', () => {
         ],
       },
     }
-    const fields: FilterField[] = [{ key: 'status', label: '状态', type: 'select' }]
+    const fields: FilterField[] = [{ key: 'status', label: '状态', type: 'option' }]
     const result = pruneListPreference(preference, fields, [{ key: 'a', title: 'A' }])
     expect(result.removedConditions).toBe(1)
     expect(result.removedColumns).toBe(1)

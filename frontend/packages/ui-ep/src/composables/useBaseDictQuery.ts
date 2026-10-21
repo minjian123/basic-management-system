@@ -113,8 +113,8 @@ export interface UseBaseDictQueryResult {
   deleteScheme(schemeId: number): Promise<void>
   /** 业务筛选参数（宿主消费）。 */
   toBusinessFilter(): Record<string, unknown>
-  /** 取项选中值（宿主回填字段）。 */
-  selectedValues(): string[]
+  /** 取项选中条目 id（宿主回填字典字段）。 */
+  selectedIds(): string[]
   /** 失效（清结果）。 */
   invalidate(): void
 }
@@ -291,7 +291,7 @@ export function useBaseDictQuery(options: UseBaseDictQueryOptions = {}): UseBase
       sync()
     },
     toBusinessFilter: () => query.toBusinessFilter(),
-    selectedValues: () => query.selectedValues(),
+    selectedIds: () => query.selectedIds(),
     invalidate: () => {
       query.invalidate()
       sync()

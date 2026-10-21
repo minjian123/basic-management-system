@@ -54,10 +54,13 @@ export type FormWidget =
   | 'number'
   | 'datetime'
   | 'time'
-  | 'select'
-  | 'multi-select'
+  | 'dropdown'
+  | 'dropdown-multi'
   | 'radio'
+  | 'button'
+  | 'segmented'
   | 'checkbox'
+  | 'tag'
   | 'switch'
   | 'file'
   | 'image'
@@ -83,10 +86,13 @@ export const FIELD_WIDGETS: readonly FormWidget[] = [
   'number',
   'datetime',
   'time',
-  'select',
-  'multi-select',
+  'dropdown',
+  'dropdown-multi',
   'radio',
+  'button',
+  'segmented',
   'checkbox',
+  'tag',
   'switch',
   'file',
   'image',
@@ -117,8 +123,8 @@ export const FIELD_WIDGET_MAP: Readonly<Record<string, FormWidget>> = {
   date: 'datetime',
   datetime: 'datetime',
   time: 'time',
-  select: 'select',
-  multi_select: 'multi-select',
+  option: 'radio',
+  option_multi: 'checkbox',
   radio: 'radio',
   checkbox: 'checkbox',
   switch: 'switch',
@@ -358,6 +364,23 @@ const RULE_KINDS: readonly string[] = ['required', 'length', 'range', 'pattern',
  */
 export function resolveFieldWidget(type: string): FormWidget {
   return FIELD_WIDGET_MAP[type] ?? 'plain'
+}
+
+/**
+ * 解析字段生效控件语义键（字段属性 `widget` 覆盖优先，未登记值回退类型默认）。
+ *
+ * 非法值（未登记 / `plain`）不在此静默修正语义，由表单定制侧拦截（错误码 `40408`）；
+ * 渲染层只保证不会因脏属性渲染失败。
+ *
+ * @param type 字段类型。
+ * @param override 字段属性覆盖的语义键（可空）。
+ * @returns 生效语义键。
+ */
+export function resolveFieldWidgetOf(type: string, override?: string): FormWidget {
+  if (override !== undefined && override !== '' && FIELD_WIDGETS.includes(override as FormWidget) && override !== 'plain') {
+    return override as FormWidget
+  }
+  return resolveFieldWidget(type)
 }
 
 /**
@@ -639,6 +662,7 @@ function mergeAttrs(field: FormField, override: FieldRenderOverride | undefined)
     defaultValue: override.defaultValue ?? field.defaultValue,
     rules: override.rules ?? field.rules,
     options: override.options ?? field.options,
+    widget: override.widget ?? field.widget,
     dataSourceKey: override.dataSourceKey ?? field.dataSourceKey,
     uploadAccept: override.uploadAccept ?? field.uploadAccept,
     uploadMaxSize: override.uploadMaxSize ?? field.uploadMaxSize,
@@ -671,7 +695,7 @@ export function buildFieldPlan(input: {
     mode: input.mode,
     forceReadOnly: input.forceReadOnly,
   })
-  const widget = resolveFieldWidget(input.field.type)
+  const widget = resolveFieldWidgetOf(input.field.type, attrs.widget)
   return {
     ...state,
     key: input.field.key,
@@ -1171,6 +1195,32 @@ export function buildSubmitPayload(input: {
     payload.recordVersion = input.recordVersion
   }
   return payload
+}
+
+/** 字典字段类型（提交时按条目整数 id 序列化）。 */
+export const DICT_ID_FIELD_TYPES: readonly string[] = ['dict', 'dict_multi']
+
+/**
+ * 收集字典字段的提交路径（供整数 id 序列化豁免，见 `stringifyIntegerIds`）。
+ *
+ * 路径语法：主表 `data.{字段键}`；明细 `details.*.{字段键}`（`*` 表示任意明细页签）。
+ *
+ * @param plan 渲染计划。
+ * @returns 字段路径清单（去重保序）。
+ */
+export function collectDictIdPaths(plan: RenderPlan): string[] {
+  const paths: string[] = []
+  for (const field of plan.sections.flatMap((section) => section.fields)) {
+    if (DICT_ID_FIELD_TYPES.includes(field.base.type)) {
+      paths.push(`data.${field.key}`)
+    }
+  }
+  for (const column of plan.detailColumns) {
+    if (column.base !== undefined && DICT_ID_FIELD_TYPES.includes(column.base.type)) {
+      paths.push(`details.*.${column.key}`)
+    }
+  }
+  return [...new Set(paths)]
 }
 
 /**

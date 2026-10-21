@@ -284,7 +284,7 @@ function widgetOf(field: FilterField): string {
     return field.type === 'date' || field.type === 'datetime' ? 'date-range' : 'number-range'
   }
   if (operator === 'in') {
-    return 'multi-select'
+    return 'dropdown-multi'
   }
   return FILTER_WIDGET_BY_TYPE[field.type] ?? 'text'
 }
@@ -309,7 +309,7 @@ function registeredRenderer(field: FilterField): unknown {
  * @returns 是否展示入口。
  */
 function hasAdvanced(field: FilterField): boolean {
-  return props.showAdvanced && (field.type === 'select' || field.type === 'multi_select')
+  return props.showAdvanced && (field.type === 'option' || field.type === 'option_multi')
 }
 
 /**
@@ -586,7 +586,7 @@ function openAdvanced(field: FilterField): void {
                   @keydown="onEnter"
                 />
               </template>
-              <template v-else-if="widgetOf(field) === 'multi-select'">
+              <template v-else-if="widgetOf(field) === 'dropdown-multi'">
                 <select
                   class="bms-query-filter__control"
                   multiple
@@ -603,7 +603,7 @@ function openAdvanced(field: FilterField): void {
                   </option>
                 </select>
               </template>
-              <template v-else-if="widgetOf(field) === 'select'">
+              <template v-else-if="widgetOf(field) === 'dropdown'">
                 <select
                   class="bms-query-filter__control"
                   :data-test="`input-${field.key}`"

@@ -165,7 +165,7 @@ function textOf(field: RenderFieldPlan): string {
  * @param field 字段渲染项。
  */
 function componentOf(field: RenderFieldPlan): unknown {
-  // 字典引用字段（`select` / `multi-select` + `dataSourceKey`）优先分发字典件
+  // 字典字段（`dict` / `dict_multi`）分发字典件；枚举字段（`option` / `option_multi`）不再按字典标识分流
   if (isDictReferenced(field)) {
     return DictSelectField
   }
@@ -177,16 +177,39 @@ function componentOf(field: RenderFieldPlan): unknown {
 }
 
 /**
- * 是否字典引用字段（`dict` / `dict_multi` 字段类型，或 `select` / `multi-select` 且带 `dataSourceKey`）。
+ * 是否字典字段（`dict-select` / `dict-multi` 语义键；`dataSourceKey` 不参与分发判定）。
  *
  * @param field 字段渲染项。
  */
 function isDictReferenced(field: RenderFieldPlan): boolean {
-  if (field.widget === 'dict-select' || field.widget === 'dict-multi') {
-    return true
+  return field.widget === 'dict-select' || field.widget === 'dict-multi'
+}
+
+/**
+ * 枚举字段形态（语义键 → 件层形态；非枚举字段返回 `undefined`）。
+ *
+ * 默认形态与后端一致（`option → radio`、`option_multi → checkbox`）；
+ * 下拉形态语义键（`dropdown` / `dropdown-multi`）由字段属性层声明。
+ *
+ * @param field 字段渲染项。
+ */
+function enumFormOf(field: RenderFieldPlan): string | undefined {
+  if (field.base.type === 'option') {
+    if (field.widget === 'dropdown') {
+      return 'select'
+    }
+    if (field.widget === 'button' || field.widget === 'segmented') {
+      return field.widget
+    }
+    return 'radio'
   }
-  const dataSourceKey = field.base.dataSourceKey ?? ''
-  return dataSourceKey !== '' && (field.widget === 'select' || field.widget === 'multi-select')
+  if (field.base.type === 'option_multi') {
+    if (field.widget === 'dropdown-multi') {
+      return 'dropdown'
+    }
+    return field.widget === 'tag' ? 'tag' : 'checkbox'
+  }
+  return undefined
 }
 
 /**
@@ -208,7 +231,7 @@ function isMultiple(field: RenderFieldPlan): boolean {
 }
 
 /**
- * 控件附加属性（组织选择件透传 `kind`；字典件透传 `dataSourceKey`；上传件透传 `upload*`；验证码件透传 `captchaKind` / `captchaScene`；其余为空）。
+ * 控件附加属性（组织选择件透传 `kind`；字典件透传 `dataSourceKey`；枚举件透传形态 `form`；上传件透传 `upload*`；验证码件透传 `captchaKind` / `captchaScene`；其余为空）。
  *
  * @param field 字段渲染项。
  */
@@ -218,6 +241,10 @@ function extraProps(field: RenderFieldPlan): Record<string, unknown> {
   }
   if (isDictReferenced(field)) {
     return { dataSourceKey: field.base.dataSourceKey ?? '' }
+  }
+  const enumForm = enumFormOf(field)
+  if (enumForm !== undefined) {
+    return { form: enumForm }
   }
   if (field.widget === 'file-upload' || field.widget === 'image-upload') {
     return {

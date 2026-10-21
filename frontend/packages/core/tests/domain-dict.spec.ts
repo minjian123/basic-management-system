@@ -1,4 +1,4 @@
-// kiwi_id: 964
+// kiwi_id: 964, 2330
 /** 字典领域纯函数用例（06_06）：归一 / 版本三态 / 大小字典 / 值归一与选择 / 标签与过滤 / 树 / 参数与键 / 条件组 / 方案 / 错误码。 */
 
 import { describe, expect, it } from 'vitest'
@@ -59,30 +59,31 @@ describe('字典领域 · 归一', () => {
       sort: 0,
       status: 'enabled',
     })
-    expect(normalizeDictItem({ value: 'b', parent_id: 'a', status: 'disabled', color: 'danger' })).toMatchObject({
-      id: '',
+    expect(normalizeDictItem({ id: '9', value: 'b', parent_id: 'a', status: 'disabled', color: 'danger' })).toMatchObject({
+      id: '9',
       value: 'b',
       label: 'b',
       parentId: 'a',
       status: 'disabled',
       color: 'danger',
     })
-    expect(normalizeDictItem({ value: 'c', parent_id: '0' })).not.toHaveProperty('parentId')
-    expect(normalizeDictItem({ label: '无值' })).toBeUndefined()
+    expect(normalizeDictItem({ id: '10', value: 'c', parent_id: '0' })).not.toHaveProperty('parentId')
+    expect(normalizeDictItem({ id: '11' })).toMatchObject({ id: '11', value: '11', label: '11' })
+    expect(normalizeDictItem({ label: '无 id' })).toBeUndefined()
     expect(normalizeDictItem(null)).toBeUndefined()
-    expect(normalizeDictItems([{ value: 'a' }, { label: 'x' }])).toHaveLength(1)
+    expect(normalizeDictItems([{ id: '1', value: 'a' }, { label: 'x' }])).toHaveLength(1)
   })
 
   it('结果三态（items=null 版本一致 / 空数组空字典 / 非空条目集）', () => {
     expect(normalizeDictTypeResult({ version: 3, items: null }).items).toBeNull()
     expect(normalizeDictTypeResult({ version: 3, items: [] }).items).toEqual([])
-    const full = normalizeDictTypeResult({ version: 3, items: [{ value: 'a' }], has_more: true, total: 5 })
+    const full = normalizeDictTypeResult({ version: 3, items: [{ id: 'x', value: 'a' }], has_more: true, total: 5 })
     expect(full.items).toHaveLength(1)
     expect(full.hasMore).toBe(true)
     expect(full.total).toBe(5)
     const batch = normalizeDictBatchResult({
       version: 2,
-      items: { a: null, b: { version: 2, items: [{ value: 'x' }], total: 1 } },
+      items: { a: null, b: { version: 2, items: [{ id: 'bx', value: 'x' }], total: 1 } },
     })
     expect(batch.items.a).toBeNull()
     expect(batch.items.b?.items).toHaveLength(1)
@@ -114,9 +115,9 @@ describe('字典领域 · 值与选择', () => {
   })
 
   it('标签翻译 / 过滤 / 禁用判定', () => {
-    expect(dictLabelOf(items, 'enabled')).toBe('启用')
+    expect(dictLabelOf(items, '1')).toBe('启用')
     expect(dictLabelOf(items, 'ghost')).toBeUndefined()
-    expect(dictTranslateValues(items, ['enabled', 'ghost'])).toBe('启用、ghost')
+    expect(dictTranslateValues(items, ['1', 'ghost'])).toBe('启用、ghost')
     expect(filterDictItems(items, '启').map((item) => item.value)).toEqual(['enabled'])
     expect(filterDictItems(items, 'DISABLED').map((item) => item.value)).toEqual(['disabled'])
     expect(filterDictItems(items, '')).toHaveLength(2)
@@ -128,7 +129,7 @@ describe('字典领域 · 值与选择', () => {
       { id: '1', value: 'enabled', label: '启用改', code: '', sort: 0, status: 'enabled' },
     ])
     expect(merged).toHaveLength(2)
-    expect(findDictItem(merged, 'enabled')?.label).toBe('启用改')
+    expect(findDictItem(merged, '1')?.label).toBe('启用改')
   })
 })
 
@@ -139,17 +140,17 @@ describe('字典领域 · 树', () => {
       { id: '1', value: 'zj', label: '浙江省', code: 'zj', sort: 0, status: 'enabled' },
       { id: '3', value: 'orphan', label: '孤儿', code: 'o', parentId: 'ghost', sort: 2, status: 'enabled' },
     ])
-    expect(tree.map((node) => node.value)).toEqual(['zj', 'orphan'])
-    expect(tree[0]?.children?.map((node) => node.value)).toEqual(['hz'])
+    expect(tree.map((node) => node.value)).toEqual(['1', '3'])
+    expect(tree[0]?.children?.map((node) => node.value)).toEqual(['2'])
   })
 })
 
 describe('字典领域 · 参数与键', () => {
   it('单类型 / 批量 / 高级查询线参数（非空才传 / 夹取）', () => {
-    expect(buildDictTypeQuery({ dataSourceKey: 'a', version: 2, keyword: ' 启 ', parentId: '', values: ['x'], limit: 2001 })).toEqual({
+    expect(buildDictTypeQuery({ dataSourceKey: 'a', version: 2, keyword: ' 启 ', parentId: '', ids: ['1', '1', '2'], limit: 2001 })).toEqual({
       version: 2,
       keyword: '启',
-      values: 'x',
+      ids: '1,2',
       limit: 2001,
     })
     expect(buildDictTypeQuery({ dataSourceKey: 'a', parentId: '0' })).toEqual({ parent_id: '0' })
@@ -162,7 +163,7 @@ describe('字典领域 · 参数与键', () => {
 
   it('缓存键与夹取 / 关键词判定', () => {
     expect(dictCacheKey('zh-CN', 'user_status')).toBe('zh-CN:user_status')
-    expect(dictSubsetKey('zh-CN', 'user_status', 'enabled')).toBe('zh-CN:user_status:enabled')
+    expect(dictSubsetKey('zh-CN', 'user_status', '101')).toBe('zh-CN:user_status:101')
     expect(dictStorageKey('zh-CN', 'user_status')).toBe('bms:dict:zh-CN:user_status')
     expect(clampDictPage(0)).toBe(1)
     expect(clampDictPage(2.7)).toBe(2)

@@ -18,6 +18,7 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 import { createInstance, satisfy } from '@module-federation/runtime'
 import { describe, expect, it } from 'vitest'
@@ -59,7 +60,7 @@ function installedVersion(name: string): string {
     const resolved = nodeRequire.resolve(`${name}/package.json`)
     return JSON.parse(readFileSync(resolved, 'utf8')).version as string
   } catch {
-    let dir = dirname(new URL(import.meta.url).pathname)
+    let dir = dirname(fileURLToPath(import.meta.url))
     for (let depth = 0; depth < 6; depth += 1) {
       const candidate = join(dir, 'node_modules', name, 'package.json')
       if (existsSync(candidate)) return JSON.parse(readFileSync(candidate, 'utf8')).version as string

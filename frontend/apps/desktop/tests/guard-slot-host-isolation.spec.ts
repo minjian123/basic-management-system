@@ -89,6 +89,6 @@ describe('具名插槽宿主隔离护栏（Kiwi 2238）', () => {
     const referencing = files.filter((file) => readFileSync(file, 'utf8').includes('../modules/'))
 
     expect(referencing.length).toBe(1)
-    expect(referencing[0].endsWith('module/entries.ts')).toBe(true)
+    expect(referencing[0].endsWith(join('module', 'entries.ts'))).toBe(true)
   })
 })

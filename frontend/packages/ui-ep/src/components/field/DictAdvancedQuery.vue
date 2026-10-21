@@ -49,7 +49,7 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<{
   'update:visible': [value: boolean]
-  apply: [payload: { target: 'items' | 'business'; values?: string[]; filter?: Record<string, unknown> }]
+  apply: [payload: { target: 'items' | 'business'; ids?: string[]; filter?: Record<string, unknown> }]
   cancel: []
   retry: []
 }>()
@@ -200,10 +200,10 @@ function onCancel(): void {
   emit('update:visible', false)
 }
 
-/** 应用（取项 → 选中值；筛选 → 业务参数）。 */
+/** 应用（取项 → 选中条目 id；筛选 → 业务参数）。 */
 function onApply(): void {
   if (api.target.value === 'items') {
-    emit('apply', { target: 'items', values: api.selectedValues() })
+    emit('apply', { target: 'items', ids: api.selectedIds() })
   } else {
     emit('apply', { target: 'business', filter: api.toBusinessFilter() })
   }

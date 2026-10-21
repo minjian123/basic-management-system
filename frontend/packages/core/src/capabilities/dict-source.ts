@@ -29,8 +29,8 @@ export interface DictSourceTypeQuery {
   keyword?: string
   /** 级联父值（空串 = 顶层）。 */
   parentId?: string
-  /** 指定 value 子集（批量翻译）。 */
-  values?: readonly string[]
+  /** 指定条目 id 子集（批量回显 / 批量翻译）。 */
+  ids?: readonly string[]
   /** 返回条数上限（探针传 2001）。 */
   limit?: number
 }

@@ -6,7 +6,7 @@ import { computed, ref, watch } from 'vue'
 import { useBaseDictSelect } from '../../composables/useBaseDictSelect'
 
 interface Props {
-  /** 值（单值 / 数组）。 */
+  /** 条目 id（单值 / 数组；字符串化雪花）。 */
   value?: string | number | (string | number)[] | undefined
   /** 字典类型码。 */
   dataSourceKey?: string
@@ -60,8 +60,8 @@ watch(
   { immediate: true },
 )
 
-/** 值列表（归一）。 */
-const values = computed<string[]>(() => {
+/** 条目 id 列表（受控值归一；元素为字符串化雪花 id）。 */
+const ids = computed<string[]>(() => {
   const current = props.value
   if (current === undefined || current === null || current === '') {
     return []
@@ -69,40 +69,36 @@ const values = computed<string[]>(() => {
   return (Array.isArray(current) ? current : [current]).map((entry) => String(entry))
 })
 
-/** 展示项（label 未解析回退原值）。 */
-const items = ref<{ value: string; label: string; resolved: boolean }[]>([])
+/** 展示项（label 未解析回退原 id，并标记未命中共提示）。 */
+const items = ref<{ id: string; label: string; resolved: boolean }[]>([])
 
-watch(
-  values,
-  (next) => {
-    items.value = next.map((value) => {
-      const label = api.labelOf(value)
-      return { value, label: label ?? value, resolved: label !== undefined }
-    })
-  },
-  { immediate: true },
-)
+/** 重建展示项（候选与未命中集合变化时刷新）。 */
+function rebuild(): void {
+  items.value = ids.value.map((id) => {
+    const label = api.labelOf(id)
+    return { id, label, resolved: api.missingIds.value.includes(id) === false }
+  })
+}
 
-watch(
-  () => api.items.value,
-  () => {
-    items.value = values.value.map((value) => {
-      const label = api.labelOf(value)
-      return { value, label: label ?? value, resolved: label !== undefined }
-    })
-  },
-)
+watch(ids, rebuild, { immediate: true })
+watch(() => [api.items.value, api.missingIds.value], rebuild)
 
-/** 文本（未解析时显示原值，不阻塞渲染）。 */
+/** 文本（未解析时显示原 id，不阻塞渲染）。 */
 const text = computed(() => items.value.map((item) => item.label).join(props.separator))
+
+/** 未命中提示（条目不存在或已停用）。 */
+const missingText = '条目不存在或已停用'
+
+/** 是否存在未命中项（非标签形态统一挂提示）。 */
+const hasMissing = computed(() => items.value.some((item) => !item.resolved))
 
 /**
  * 条目语义色点类。
  *
- * @param value 条目值。
+ * @param id 条目 id。
  */
-function colorClass(value: string): string {
-  const color = api.items.value.find((item) => item.value === value)
+function colorClass(id: string): string {
+  const color = api.items.value.find((item) => item.id === id)
   return color?.color === undefined ? '' : `bms-dict-label__dot--${color.color}`
 }
 </script>
@@ -111,13 +107,22 @@ function colorClass(value: string): string {
   <span class="bms-dict-label" :data-degraded="api.degraded.value" data-test="dict-label">
     <template v-if="items.length === 0">{{ emptyText }}</template>
     <template v-else-if="tag">
-      <span v-for="item in items" :key="item.value" class="bms-dict-label__tag" :data-test="`dict-label-item-${item.value}`">
-        <span v-if="showColor" class="bms-dict-label__dot" :class="colorClass(item.value)" />
+      <span
+        v-for="item in items"
+        :key="item.id"
+        class="bms-dict-label__tag"
+        :data-test="`dict-label-item-${item.id}`"
+        :data-missing="!item.resolved || undefined"
+        :title="item.resolved ? undefined : missingText"
+      >
+        <span v-if="showColor" class="bms-dict-label__dot" :class="colorClass(item.id)" />
         {{ item.label }}
       </span>
     </template>
     <template v-else>
-      <slot :items="items" :text="text">{{ text }}</slot>
+      <span :data-test="hasMissing ? 'dict-label-missing' : undefined" :title="hasMissing ? missingText : undefined">
+        {{ text }}
+      </span>
     </template>
   </span>
 </template>

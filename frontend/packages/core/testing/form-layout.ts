@@ -641,7 +641,7 @@ export function describeFormDesignerContract(name: string, create: () => FormDes
 
       await expect(target.createField({ name: '', type: 'text' })).resolves.toBeUndefined()
       await expect(target.createField({ name: 'no', type: 'richtext' })).resolves.toBeUndefined()
-      await expect(target.createField({ name: 'no', type: 'select' })).resolves.toBeUndefined()
+      await expect(target.createField({ name: 'no', type: 'option' })).resolves.toBeUndefined()
       await expect(target.createField({ name: 'name', type: 'text' })).resolves.toBeUndefined()
       expect(target.requestCount).toBe(before)
 

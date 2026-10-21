@@ -100,9 +100,9 @@ export type DictDataType = 'text' | 'number' | 'date' | 'enum' | 'bool'
 
 /** 字典条目（展示最小面；兼容后端 `snake_case`）。 */
 export interface DictItem {
-  /** 条目 ID（雪花 ID 字符串；级联过滤与树构建以它为键）。 */
+  /** 条目 ID（雪花 ID 字符串；字段绑定、级联过滤与树构建均以它为键）。 */
   id: string
-  /** 条目值。 */
+  /** 条目值（仅展示与外部交换，不参与字段绑定）。 */
   value: string
   /** 条目标签（按 locale）。 */
   label: string
@@ -148,8 +148,8 @@ export interface DictTypeQuery {
   keyword?: string
   /** 上级条目 ID（`'0'` = 顶层；不传 = 不按父过滤）。 */
   parentId?: string
-  /** 指定 value 子集（批量翻译）。 */
-  values?: readonly string[]
+  /** 指定条目 id 子集（批量回显 / 批量翻译）。 */
+  ids?: readonly string[]
   /** 返回条数上限（探针传 `DICT_PROBE_LIMIT`）。 */
   limit?: number
 }
@@ -299,7 +299,7 @@ export function readDictId(raw: unknown): string {
 }
 
 /**
- * 归一单条字典条目（兼容 `snake_case`；`value` 缺失剔除）。
+ * 归一单条字典条目（兼容 `snake_case`；`id` 缺失剔除，`value` 缺失回落 `id`）。
  *
  * @param raw 原始条目。
  * @returns 归一结果；非法返回 `undefined`。
@@ -309,19 +309,22 @@ export function normalizeDictItem(raw: unknown): DictItem | undefined {
     return undefined
   }
   const record = raw as Record<string, unknown>
-  const value = record.value
-  if (typeof value !== 'string' || value === '') {
+  const idRaw = record.id ?? record.ID
+  const id = readDictId(idRaw)
+  if (id === '') {
     return undefined
   }
-  const label = typeof record.label === 'string' ? record.label : value
-  const idRaw = record.id ?? record.ID
+  const valueRaw = record.value
+  const value = typeof valueRaw === 'string' && valueRaw !== '' ? valueRaw : id
+  const labelRaw = record.label
+  const label = typeof labelRaw === 'string' && labelRaw !== '' ? labelRaw : value
   const parentRaw = record.parentId ?? record.parent_id
   const statusRaw = record.status
   const status: DictStatus = statusRaw === 'disabled' ? 'disabled' : 'enabled'
   const colorRaw = record.color
   const sortRaw = record.sort
   const item: DictItem = {
-    id: readDictId(idRaw),
+    id,
     value,
     label,
     code: typeof record.code === 'string' ? record.code : '',
@@ -410,6 +413,8 @@ export function normalizeDictBatchResult(raw: unknown): DictBatchResult {
 /**
  * 受控值归一（单值取首值、多选包数组、去重、空值剔除、统一字符串）。
  *
+ * 值为**条目 id**（字符串化雪花），保持字符串以保精度。
+ *
  * @param value 受控值。
  * @param multiple 是否多选。
  * @returns 归一后的值列表。
@@ -486,18 +491,18 @@ export function removeDictValue(values: readonly string[], value: string): strin
 }
 
 /**
- * 按值取条目（未命中返回 `undefined`）。
+ * 按 id 取条目（未命中返回 `undefined`）。
  *
  * @param items 条目列表。
- * @param value 值。
+ * @param id 条目 id。
  * @returns 条目；未命中 `undefined`。
  */
-export function findDictItem(items: readonly DictItem[], value: string): DictItem | undefined {
-  return items.find((item) => item.value === value)
+export function findDictItem(items: readonly DictItem[], id: string): DictItem | undefined {
+  return items.find((item) => item.id === id)
 }
 
 /**
- * 按 value 合并条目（入参覆盖同名项；保序：基础在前、新增追加）。
+ * 按条目 id 合并（入参覆盖同 id 项；保序：基础在前、新增追加）。
  *
  * @param base 基础条目。
  * @param incoming 增量条目。
@@ -506,7 +511,7 @@ export function findDictItem(items: readonly DictItem[], value: string): DictIte
 export function mergeDictItems(base: readonly DictItem[], incoming: readonly DictItem[]): DictItem[] {
   const merged = [...base]
   for (const item of incoming) {
-    const index = merged.findIndex((existing) => existing.value === item.value)
+    const index = merged.findIndex((existing) => existing.id === item.id)
     if (index >= 0) {
       merged[index] = item
     } else {
@@ -517,29 +522,31 @@ export function mergeDictItems(base: readonly DictItem[], incoming: readonly Dic
 }
 
 /**
- * 按值取标签（未命中返回 `undefined`）。
+ * 按条目 id 取标签（未命中返回 `undefined`）。
  *
  * @param items 条目列表。
- * @param value 值。
+ * @param id 条目 id。
  * @returns 标签；未命中 `undefined`。
  */
-export function dictLabelOf(items: readonly DictItem[], value: string): string | undefined {
-  return items.find((item) => item.value === value)?.label
+export function dictLabelOf(items: readonly DictItem[], id: string): string | undefined {
+  return items.find((item) => item.id === id)?.label
 }
 
 /**
- * 多值标签翻译（「、」连接；未命中回退原值）。
+ * 多值标签翻译（「、」连接；未命中回退原 id）。
  *
  * @param items 条目列表。
- * @param values 值列表。
+ * @param ids 条目 id 列表。
  * @returns 翻译文本。
  */
-export function dictTranslateValues(items: readonly DictItem[], values: readonly string[]): string {
-  return values.map((value) => dictLabelOf(items, value) ?? value).join(DICT_JOIN)
+export function dictTranslateValues(items: readonly DictItem[], ids: readonly string[]): string {
+  return ids.map((id) => dictLabelOf(items, id) ?? id).join(DICT_JOIN)
 }
 
 /**
  * 本地搜索（label / value / code 包含匹配；空关键词返回全部）。
+ *
+ * 条目 id 不参与搜索（雪花串命中无业务意义）；`value` 仍按展示与外部交换口径参与匹配。
  *
  * @param items 条目列表。
  * @param keyword 关键词。
@@ -571,6 +578,8 @@ export function isDictItemDisabled(item: DictItem): boolean {
 /**
  * 构建树节点（`parentId` 分组递归；孤儿提升顶层；深度上限 16 防环）。
  *
+ * 节点 `value` 为**条目 id**（字典字段与级联件受控值口径一致），`label` 为展示文案。
+ *
  * @param items 条目列表。
  * @returns 树节点列表。
  */
@@ -578,7 +587,7 @@ export function toDictTreeNodes(items: readonly DictItem[]): DictTreeNode[] {
   const nodeMap = new Map<string, DictTreeNode>()
   for (const item of items) {
     nodeMap.set(item.id, {
-      value: item.value,
+      value: item.id,
       label: item.label,
       disabled: isDictItemDisabled(item),
     })
@@ -635,15 +644,15 @@ export function dictCacheKey(locale: string, dataSourceKey: string): string {
 }
 
 /**
- * 子集缓存键（`{locale}:{type}:{value}`）。
+ * 子集缓存键（`{locale}:{type}:{id}`）。
  *
  * @param locale 语言。
  * @param dataSourceKey 字典类型码。
- * @param value 条目值。
+ * @param id 条目 id。
  * @returns 子集缓存键。
  */
-export function dictSubsetKey(locale: string, dataSourceKey: string, value: string): string {
-  return `${locale}:${dataSourceKey}:${value}`
+export function dictSubsetKey(locale: string, dataSourceKey: string, id: string): string {
+  return `${locale}:${dataSourceKey}:${id}`
 }
 
 /**
@@ -675,8 +684,8 @@ export function buildDictTypeQuery(input: DictTypeQuery): Record<string, unknown
   if (input.parentId !== undefined && input.parentId !== '') {
     params.parent_id = input.parentId
   }
-  if (input.values !== undefined && input.values.length > 0) {
-    params.values = [...input.values].join(',')
+  if (input.ids !== undefined && input.ids.length > 0) {
+    params.ids = [...new Set(input.ids.filter((id) => id !== ''))].join(',')
   }
   if (input.limit !== undefined && input.limit > 0) {
     params.limit = input.limit

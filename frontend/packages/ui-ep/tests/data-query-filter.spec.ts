@@ -44,7 +44,7 @@ describeQuerySchemeContract('查询方案契约（useBaseQueryScheme）', makeTa
 
 /** 字段声明样例。 */
 const fields = [
-  { key: 'status', label: '状态', type: 'select' as const, options: [{ label: '启用', value: 'enabled' }] },
+  { key: 'status', label: '状态', type: 'option' as const, options: [{ label: '启用', value: 'enabled' }] },
   { key: 'amount', label: '金额', type: 'number' as const },
   { key: 'created', label: '创建时间', type: 'date' as const },
   { key: 'dept', label: '部门', type: 'dept' as const },
@@ -133,7 +133,7 @@ describe('QueryFilter 查询 / 重置 / 条件摘要', () => {
     const wrapper = mount(QueryFilter, {
       props: {
         ready: true,
-        fields: [{ key: 'status', label: '状态', type: 'select', defaultValue: 'enabled', options: [] }],
+        fields: [{ key: 'status', label: '状态', type: 'option', defaultValue: 'enabled', options: [] }],
         conditions: [{ field: 'status', operator: 'eq', value: 'disabled' }],
         keyword: '张',
       },
