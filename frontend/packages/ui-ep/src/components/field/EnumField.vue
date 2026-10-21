@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // 枚举字段（06_02）：自定义选项集；下拉为默认，可切单选（radio / button / segmented）。
-// 选项集解析（节点 §6.2）：按 `sort` 升序 → 相同 `value` 去重（保留首个）→ 产出只读选项集。
+// 选项集解析（节点 §5）：按 `sort` 升序 → 相同 `value` 去重（保留首个）→ 产出只读选项集。
 // 只读回显：单选取 label（缺 label 回退原值）、未设置占位 `—`。
 import { computed, watch } from 'vue'
 
@@ -70,7 +70,7 @@ const flatOptions = computed<InputOption[]>(() =>
 )
 
 /**
- * 选项集解析（节点 §6.2）：按 `sort` 升序 → 相同 `value` 去重（保留首个）。
+ * 选项集解析（节点 §5）：按 `sort` 升序 → 相同 `value` 去重（保留首个）。
  */
 const resolvedOptions = computed<InputOption[]>(() => {
   const sorted = [...flatOptions.value].sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0))

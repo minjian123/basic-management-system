@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// 枚举多选件（11_03 新增，06_08 §2/§6.1/§6.3）：自定义选项集多选，checkbox / tag / dropdown 三形态。
+// 枚举多选件（11_03 新增，14 选项集字段 §2/§4/§6）：自定义选项集多选，checkbox / tag / dropdown-multi 三形态。
 // 复用基础控件类·复选（`input/CheckboxInput.vue`）与下拉框（`input/SelectInput.vue`），本件只补字段语义：
 // 选项集解析（sort 升序 → value 去重保留首个）、必填与数量上下限校验、超限 `exceed` 事件、只读顿号回显。
 import { computed, watch } from 'vue'
@@ -75,7 +75,7 @@ const flatOptions = computed<InputOption[]>(() =>
 )
 
 /**
- * 选项集解析（节点 §6.2）：按 `sort` 升序 → 相同 `value` 去重（保留首个）→ 产出只读选项集。
+ * 选项集解析（节点 §5）：按 `sort` 升序 → 相同 `value` 去重（保留首个）→ 产出只读选项集。
  */
 const resolvedOptions = computed<InputOption[]>(() => {
   const sorted = [...flatOptions.value].sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0))
@@ -91,7 +91,7 @@ const resolvedOptions = computed<InputOption[]>(() => {
   return result
 })
 
-/** 当前选中值（去重保序，按选项集顺序输出——节点 §4「归一」）。 */
+/** 当前选中值（去重保序，按选项集顺序输出——节点 §3「写回统一」）。 */
 const selected = computed<EnumMultiValue[]>(() => {
   const current = Array.isArray(value.value) ? value.value : []
   const order = new Map<EnumMultiValue, number>(resolvedOptions.value.map((option, index) => [option.value, index]))
@@ -136,7 +136,7 @@ const readonlyText = computed(() => {
 })
 
 /**
- * 值变更（越限时派发 `exceed` 并回退原值，节点 §6.3）。
+ * 值变更（越限时派发 `exceed` 并回退原值，节点 §6）。
  *
  * @param next 复选件回传值。
  */
@@ -151,7 +151,7 @@ function onSelectUpdate(next: unknown): void {
 }
 
 /**
- * 值变更（越限时派发 `exceed` 并回退原值，节点 §6.3）。
+ * 值变更（越限时派发 `exceed` 并回退原值，节点 §6）。
  *
  * @param next 复选件回传值。
  */
