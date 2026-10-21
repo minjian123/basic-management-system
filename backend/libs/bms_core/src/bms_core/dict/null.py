@@ -61,7 +61,7 @@ def _placeholder_items(data_source_key: str) -> ConcurrentStableList[DictItem]:
 
 
 def _apply_filters(items: ConcurrentStableList[DictItem], query: DictQuery) -> ConcurrentStableList[DictItem]:
-    """按查询条件过滤占位条目（按值子集 / 关键字 / 上级条目 ID）。
+    """按查询条件过滤占位条目（按条目 id 子集 / 关键字 / 上级条目 ID）。
 
     Args:
         items: 占位条目。
@@ -71,8 +71,9 @@ def _apply_filters(items: ConcurrentStableList[DictItem], query: DictQuery) -> C
         tuple[DictItem, ...]: 过滤后的条目。
     """
     result = items
-    if query.values is not None:
-        result = tuple(item for item in result if item.value in query.values)
+    if query.ids is not None:
+        wanted = set(query.ids)
+        result = tuple(item for item in result if item.id in wanted)
     if query.keyword:
         result = tuple(item for item in result if query.keyword in item.label or query.keyword in item.value)
     if query.parent_id is not None:
@@ -140,19 +141,19 @@ class NullDictSource(BaseDataSource, BaseNullObject):
 
 
 class NullDictTranslator(BaseDictTranslator, BaseNullObject):
-    """占位字典翻译：按 value 原样生成占位标签；不查缓存、不查库。"""
+    """占位字典翻译：按条目 id 生成占位标签；不查缓存、不查库。"""
 
-    async def translate(self, query: DictTranslateQuery) -> ConcurrentStableDict[str, str]:
+    async def translate(self, query: DictTranslateQuery) -> ConcurrentStableDict[int, str]:
         """批量翻译（占位）。
 
         Args:
             query: 翻译参数。
 
         Returns:
-            ConcurrentStableDict[str, str]: value → 占位标签。
+            ConcurrentStableDict[int, str]: 条目 id → 占位标签。
         """
         return ConcurrentStableDict(
-            {value: f"{_TRANSLATE_PREFIX}{query.data_source_key}:{value}" for value in query.values}
+            {item_id: f"{_TRANSLATE_PREFIX}{query.data_source_key}:{item_id}" for item_id in query.ids}
         )
 
 

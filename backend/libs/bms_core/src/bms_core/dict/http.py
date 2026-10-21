@@ -4,15 +4,15 @@
   `platform` 服务使用：字典数据的**权威侧是 `platform` 服务**（其租户库存字典六表），其余服务不直连
   字典表、也不复制缓存实现，统一经公开契约读取（服务间只经 `/api/v1` 公开面，东西向直连不经网关）。
 - **契约**（复用平台服务**既有**接口，不新增端点）：
-  - 单类型取数：`GET /api/v1/dicts/{data_source_key}`（`version` / `keyword` / `parent_id` / `values` / `limit`）；
+  - 单类型取数：`GET /api/v1/dicts/{data_source_key}`（`version` / `keyword` / `parent_id` / `ids` / `limit`）；
   - 批量合并：`POST /api/v1/dicts/batch`（`types` / `version` / `locale`）；
   - 语言：`Accept-Language` 头（平台端点按该头解析 locale）；租户：`X-Tenant-Id` 头（租户上下文透传，
     否则平台侧按子域名 / 令牌解析）。
 - **失败语义（降级，不抛业务错）**：不可达 / 超时 / 重试耗尽 / 熔断断开 / 非 2xx / 响应体非法 →
   取数返回**空结果**（`items=()`、`version=0`）、翻译**回退原值**；与 `null` 实现同语义，调用方无需
   区分（`/readyz` 的依赖状态仍由 `service_client` 的熔断 / 降级策略反映）。
-- **翻译实现**：按「取子集 → 本地映射」分批（`values` 子集，避免超大字典全量拉取）；可选复用已装配的
-  字典缓存域（`dict_cache_region`）缓存 value → label 子集映射。
+- **翻译实现**：按「取子集 → 本地映射」分批（**条目 `id` 子集**，避免超大字典全量拉取）；可选复用已装配的
+  字典缓存域（`dict_cache_region`）缓存 id → label 子集映射。
 - **不含**：字典 / 查询方案的**真实数据、写路径与缓存实现迁出**（归阶段八）——本模块只落跨服务读出口。
 """
 
@@ -46,7 +46,7 @@ __all__ = [
     "DICT_BATCH_PATH",
     "DICT_SERVICE_KEY",
     "HTTP_DICT_PROVIDER",
-    "TRANSLATE_VALUES_CHUNK",
+    "TRANSLATE_IDS_CHUNK",
     "HttpDataSource",
     "HttpDictTranslator",
     "data_source_path",
@@ -67,8 +67,8 @@ DICT_BATCH_PATH = "/api/v1/dicts/batch"
 ACCEPT_LANGUAGE_HEADER = "Accept-Language"
 """语言请求头（平台端点据此解析 locale）。"""
 
-TRANSLATE_VALUES_CHUNK = 200
-"""翻译按值子集的单批上限（避免一次请求过大）。"""
+TRANSLATE_IDS_CHUNK = 200
+"""翻译按条目 id 子集的单批上限（避免一次请求过大）。"""
 
 
 def data_source_path(data_source_key: str) -> str:
@@ -116,7 +116,7 @@ async def _fetch_type(
     version: int | None = None,
     keyword: str | None = None,
     parent_id: int | None = None,
-    values: ConcurrentStableList[str] | None = None,
+    ids: ConcurrentStableList[int] | None = None,
     limit: int | None = None,
 ) -> DictTypeResult | None:
     """取单类型字典（契约调用 + 降级；失败返回 None 由调用方处置）。
@@ -128,7 +128,7 @@ async def _fetch_type(
         version: 客户端本地版本号（一致时平台侧返回 `items=None`）。
         keyword: 关键字。
         parent_id: 上级条目 ID（0 = 顶层）。
-        values: 指定 value 子集。
+        ids: 指定条目 id 子集（正整数，逗号拼接透传）。
         limit: 条数上限。
 
     Returns:
@@ -141,8 +141,8 @@ async def _fetch_type(
         query.set("keyword", keyword)
     if parent_id is not None:
         query.set("parent_id", str(parent_id))
-    if values is not None:
-        query.set("values", ",".join(values))
+    if ids is not None:
+        query.set("ids", ",".join(str(item_id) for item_id in ids))
     if limit is not None:
         query.set("limit", str(limit))
     request = ServiceRequest(
@@ -269,7 +269,7 @@ class HttpDataSource(BaseDataSource):
         self._client = client
 
     async def by_type(self, query: DictQuery) -> DictTypeResult:
-        """按类型取字典（版本比对 / 关键字 / 级联 / 按值子集 / 上限）。
+        """按类型取字典（版本比对 / 关键字 / 级联 / 按条目 id 子集 / 上限）。
 
         Args:
             query: 单类型取数参数对象。
@@ -284,7 +284,7 @@ class HttpDataSource(BaseDataSource):
             version=query.version,
             keyword=query.keyword,
             parent_id=query.parent_id,
-            values=None if query.values is None else ConcurrentStableList(query.values),
+            ids=None if query.ids is None else ConcurrentStableList(query.ids),
             limit=query.limit,
         )
         return _empty_result() if result is None else result
@@ -331,7 +331,7 @@ class HttpDataSource(BaseDataSource):
 
 
 class HttpDictTranslator(BaseDictTranslator):
-    """跨服务字典翻译（按值子集分批取数 → 本地映射；不可达回退原值）。"""
+    """跨服务字典翻译（按条目 id 子集分批取数 → 本地映射；不可达回退原值）。"""
 
     plugin_name: str = HTTP_DICT_PROVIDER
     contract_version: str = DEFAULT_CONTRACT_VERSION
@@ -341,58 +341,58 @@ class HttpDictTranslator(BaseDictTranslator):
 
         Args:
             client: 服务间调用客户端。
-            cache: 字典缓存域（可选；用于 value → label 子集映射的本地复用）。
+            cache: 字典缓存域（可选；用于 id → label 子集映射的本地复用）。
         """
         self._client = client
         self._cache = cache
 
-    async def translate(self, query: DictTranslateQuery) -> ConcurrentStableDict[str, str]:
-        """按 value 批量翻译为 label（未命中回退原值；平台侧不可达同样回退原值）。
+    async def translate(self, query: DictTranslateQuery) -> ConcurrentStableDict[int, str]:
+        """按条目 id 批量翻译为 label（未命中回退原值字符串；平台侧不可达同样回退）。
 
         Args:
             query: 翻译参数对象。
 
         Returns:
-            ConcurrentStableDict[str, str]: value → label（未命中项映射为原值）。
+            ConcurrentStableDict[int, str]: id → label（未命中项映射为 `str(id)`）。
         """
-        mapping: ConcurrentStableDict[str, str] = ConcurrentStableDict({value: value for value in query.values})
-        pending: ConcurrentStableList[str] = ConcurrentStableList(query.values)
+        mapping: ConcurrentStableDict[int, str] = ConcurrentStableDict({item_id: str(item_id) for item_id in query.ids})
+        pending: ConcurrentStableList[int] = ConcurrentStableList(query.ids)
         tenant = get_current_tenant()
         if self._cache is not None and pending:
-            cached = await self._cache.avalue_subset(tenant, query.locale, query.data_source_key, pending)
+            cached = await self._cache.aid_subset(tenant, query.locale, query.data_source_key, pending)
             if cached:
-                for value, label in cached.items():
-                    mapping.set(value, label)
-                pending = ConcurrentStableList(value for value in pending if value not in cached)
-        fresh: ConcurrentStableDict[str, str] = ConcurrentStableDict()
-        for chunk in _chunks(pending, TRANSLATE_VALUES_CHUNK):
+                for item_id, label in cached.items():
+                    mapping.set(item_id, label)
+                pending = ConcurrentStableList(item_id for item_id in pending if item_id not in cached)
+        fresh: ConcurrentStableDict[int, str] = ConcurrentStableDict()
+        for chunk in _chunks(pending, TRANSLATE_IDS_CHUNK):
             result = await _fetch_type(
                 self._client,
                 data_source_key=query.data_source_key,
                 locale=query.locale,
-                values=chunk,
+                ids=chunk,
             )
             if result is None or result.items is None:
                 continue
             for item in result.items:
-                if item.value in mapping:
-                    fresh.set(item.value, item.label)
+                if item.id in mapping:
+                    fresh.set(item.id, item.label)
         mapping.update(fresh.items())
         if self._cache is not None and fresh:
-            await self._cache.aset_value_subset(tenant, query.locale, query.data_source_key, fresh)
+            await self._cache.aset_id_subset(tenant, query.locale, query.data_source_key, fresh)
         return mapping
 
 
-def _chunks(values: ConcurrentStableList[str], size: int) -> ConcurrentStableList[ConcurrentStableList[str]]:
-    """按批大小切分 value 序列（空序列返回空列表）。
+def _chunks(ids: ConcurrentStableList[int], size: int) -> ConcurrentStableList[ConcurrentStableList[int]]:
+    """按批大小切分条目 id 序列（空序列返回空列表）。
 
     Args:
-        values: value 序列。
+        ids: 条目 id 序列。
         size: 单批上限。
 
     Returns:
-        ConcurrentStableList[ConcurrentStableList[str]]: 分批结果。
+        ConcurrentStableList[ConcurrentStableList[int]]: 分批结果。
     """
-    if size <= 0 or not values:
+    if size <= 0 or not ids:
         return ConcurrentStableList()
-    return ConcurrentStableList(values[index : index + size] for index in range(0, len(values), size))
+    return ConcurrentStableList(ids[index : index + size] for index in range(0, len(ids), size))

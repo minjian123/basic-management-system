@@ -509,7 +509,7 @@ export interface paths {
         };
         /**
          * Get Dict By Type
-         * @description 按字典标识取字典（版本比对 / 关键字 / 级联 / 按值子集 / 上限）。
+         * @description 按字典标识取字典（版本比对 / 关键字 / 级联 / 按条目 id 子集 / 上限）。
          *
          *     Args:
          *         source: 字典取数契约。
@@ -518,7 +518,7 @@ export interface paths {
          *         version: 客户端本地版本号。
          *         keyword: 关键字。
          *         parent_id: 上级条目 ID（0 = 顶层）。
-         *         values: 逗号分隔的 value 子集。
+         *         ids: 逗号分隔的条目 id 子集（正整数）。
          *         limit: 返回条数上限。
          *
          *     Returns:
@@ -4378,12 +4378,13 @@ export interface components {
          * @description 字典条目（普通运行时链路字段；不含扩展属性 `attr_json`）。
          *
          *     `parent_id` 为**上级条目 ID**（自引用同表 `id`；顶层 `None`），非父条目 `value`
-         *     （2026-10-10 口径收口，任务 02_07）；`id` 供前端级联过滤与字典树构建使用。
+         *     （2026-10-10 口径收口，任务 02_07）；`id` 供前端级联过滤、字典树构建与**字典字段绑定**使用
+         *     （2026-10-21 任务 02_14：字段绑定 `id`，`value` / `code` 仅展示与外部交换）。
          */
         DictItem: {
             /**
              * Code
-             * @description 条目编码
+             * @description 条目编码（仅展示与外部交换，不参与字段绑定）
              * @default
              */
             code: string;
@@ -4422,7 +4423,7 @@ export interface components {
             status: string;
             /**
              * Value
-             * @description 条目值
+             * @description 条目值（仅展示与外部交换，不参与字段绑定）
              */
             value: string;
         };
@@ -8614,8 +8615,8 @@ export interface operations {
                 keyword?: string | null;
                 /** @description 上级条目 ID（0 = 顶层；不传 = 不按父过滤） */
                 parent_id?: number | null;
-                /** @description 指定 value 子集（逗号分隔） */
-                values?: string | null;
+                /** @description 指定条目 id 子集（逗号分隔的正整数） */
+                ids?: string | null;
                 /** @description 返回条数上限（探针传 2001） */
                 limit?: number | null;
             };

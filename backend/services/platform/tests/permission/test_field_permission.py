@@ -162,6 +162,16 @@ async def test_build_field_provider_none_without_factory(session: AsyncSession) 
         reset_field_permission_provider_factories()
 
 
+@pytest.mark.kiwi_id(2329)
+async def test_static_provider_empty_rows_after_roles(session: AsyncSession) -> None:
+    """角色有值但无字段收窄行：直接返回空列表（不查字段键）。"""
+    await _seed(session)
+    provider = StaticFieldPermissionProvider(session, session)
+    roles: ConcurrentStableSet[int] = ConcurrentStableSet()
+    roles.add(99)
+    assert list(await provider.resolve(role_ids=roles, form_ids=ConcurrentStableSet[int]())) == []
+
+
 @pytest.mark.kiwi_id(2269)
 def test_snapshot_field_state_defaults_and_exempt() -> None:
     """快照字段态：未收窄返回 None（默认全开）；豁免层级不参与收窄。"""

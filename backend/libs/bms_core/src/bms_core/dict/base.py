@@ -8,11 +8,12 @@
   **上级条目 ID**（自引用同表 `id`，顶层 `None`），2026-10-10 口径收口（任务 02_07））/
   `DictTypeResult`（version / items / has_more / total）/ `DictBatchResult`（version / items）。
 - `BaseDataSource`（`key = plugin_key = "data_source"`，02_10 由 `BaseDataSource` 改名）：异步 `by_type`
-  （版本比对 / 关键字 / 级联 / 按值子集 / 上限）+ `batch`（多类型合并，一次请求）。
-- `BaseDictTranslator`（`key = plugin_key = "dict_translator"`）：异步 `translate`（value → label，
+  （版本比对 / 关键字 / 级联 / 按 **条目 `id` 子集** / 上限）+ `batch`（多类型合并，一次请求）。
+- `BaseDictTranslator`（`key = plugin_key = "dict_translator"`）：异步 `translate`（**条目 `id` → label**，
   与取数共用同一份 L1 缓存，防 N+1）。
 - `DictCacheRegion`（`key = plugin_key = "dict_cache_region"`）：缓存域扩展子类——固定 `domain="dict"`，
-  提供 `type_cache_key` / `version_cache_key` / `is_version_current`；真实 L1 双 Region 随通用能力阶段继承本类回补。
+  提供 `type_cache_key` / `id_cache_key` / `version_cache_key` / `is_version_current`；
+  真实 L1 双 Region 随通用能力阶段继承本类回补。
 - 提供者 `get_data_source` / `get_dict_translator` / `get_dict_cache_region`（应用级单例；
   公共依赖经 `app/api/deps.py` 统一导出）。
 
@@ -85,8 +86,8 @@ class DictQuery(BaseSchema):
     version: int | None = Field(default=None, description="客户端本地版本号；与全局一致时 items 返回空")
     keyword: str | None = Field(default=None, description="关键字（label / value / code，命中列由实现定义）")
     parent_id: int | None = Field(default=None, description="上级条目 ID（0 = 顶层；不传 = 不按父过滤）")
-    values: Annotated[ConcurrentStableList[str] | None, CONTRACT_COLLECTION] = Field(
-        default=None, description="指定 value 子集（超大字典批量翻译用）"
+    ids: Annotated[ConcurrentStableList[int] | None, CONTRACT_COLLECTION] = Field(
+        default=None, description="指定条目 id 子集（正整数；超大字典批量回显 / 翻译用）"
     )
     limit: int | None = Field(default=None, description="返回条数上限（探针传 DICT_PROBE_LIMIT）")
 
@@ -100,10 +101,10 @@ class DictBatchQuery(BaseSchema):
 
 
 class DictTranslateQuery(BaseSchema):
-    """后端翻译参数对象（value → label）。"""
+    """后端翻译参数对象（条目 `id` → label）。"""
 
     data_source_key: str = Field(description="字典类型码")
-    values: Annotated[ConcurrentStableList[str], CONTRACT_COLLECTION] = Field(description="待翻译 value 序列")
+    ids: Annotated[ConcurrentStableList[int], CONTRACT_COLLECTION] = Field(description="待翻译条目 id 序列（正整数）")
     locale: str = Field(default=DEFAULT_LOCALE, description="语言（默认 zh-CN）")
 
 
@@ -111,13 +112,14 @@ class DictItem(BaseSchema):
     """字典条目（普通运行时链路字段；不含扩展属性 `attr_json`）。
 
     `parent_id` 为**上级条目 ID**（自引用同表 `id`；顶层 `None`），非父条目 `value`
-    （2026-10-10 口径收口，任务 02_07）；`id` 供前端级联过滤与字典树构建使用。
+    （2026-10-10 口径收口，任务 02_07）；`id` 供前端级联过滤、字典树构建与**字典字段绑定**使用
+    （2026-10-21 任务 02_14：字段绑定 `id`，`value` / `code` 仅展示与外部交换）。
     """
 
     id: int = Field(default=0, description="条目主键（雪花 ID，JSON 以字符串输出）")
-    value: str = Field(description="条目值")
+    value: str = Field(description="条目值（仅展示与外部交换，不参与字段绑定）")
     label: str = Field(description="条目标签（按 locale）")
-    code: str = Field(default="", description="条目编码")
+    code: str = Field(default="", description="条目编码（仅展示与外部交换，不参与字段绑定）")
     parent_id: int | None = Field(default=None, description="上级条目 ID（自引用 id；None＝顶层）")
     sort: int = Field(default=0, description="排序值")
     status: str = Field(default="enabled", description="状态（enabled / disabled）")
@@ -155,7 +157,7 @@ class BaseDataSource(BasePluggable, ABC):
 
     @abstractmethod
     async def by_type(self, query: DictQuery) -> DictTypeResult:
-        """按类型取字典（版本比对 / 关键字 / 级联 / 按值子集 / 条数上限）。
+        """按类型取字典（版本比对 / 关键字 / 级联 / 按条目 id 子集 / 条数上限）。
 
         Args:
             query: 单类型取数参数对象。
@@ -177,7 +179,7 @@ class BaseDataSource(BasePluggable, ABC):
 
 
 class BaseDictTranslator(BasePluggable, ABC):
-    """字典翻译契约：value → label（后端场景，与取数共用同一份 L1 缓存）。"""
+    """字典翻译契约：条目 `id` → label（后端场景，与取数共用同一份 L1 缓存）。"""
 
     key: str = "dict_translator"
     plugin_key: str = "dict_translator"
@@ -185,14 +187,14 @@ class BaseDictTranslator(BasePluggable, ABC):
     contract_version: str = DEFAULT_CONTRACT_VERSION
 
     @abstractmethod
-    async def translate(self, query: DictTranslateQuery) -> ConcurrentStableDict[str, str]:
-        """按 value 批量翻译为 label（当前 locale）。
+    async def translate(self, query: DictTranslateQuery) -> ConcurrentStableDict[int, str]:
+        """按条目 `id` 批量翻译为 label（当前 locale）。
 
         Args:
             query: 翻译参数对象。
 
         Returns:
-            ConcurrentStableDict[str, str]: value → label；未命中 value 回退原值（由实现定义）。
+            ConcurrentStableDict[int, str]: 条目 id → label；未命中的 id 不出现在映射中（调用方回退展示原 id）。
         """
 
 
@@ -241,8 +243,8 @@ class DictCacheRegion(CacheRegion, ABC):
         """
         return self.build_key("version", tenant=tenant)
 
-    def value_cache_key(self, tenant: str | None, locale: str, data_source_key: str) -> str:
-        """拼字典按值子集缓存键（`bms:{tenant}:dict:{locale}:{type}:v`，整体映射 JSON）。
+    def id_cache_key(self, tenant: str | None, locale: str, data_source_key: str) -> str:
+        """拼字典按条目 id 子集缓存键（`bms:{tenant}:dict:{locale}:{type}:id`，整体映射 JSON）。
 
         Args:
             tenant: 租户标识；None 为全局。
@@ -252,7 +254,7 @@ class DictCacheRegion(CacheRegion, ABC):
         Returns:
             str: 子集缓存 key。
         """
-        return self.build_key(f"{locale}:{data_source_key}:v", tenant=tenant)
+        return self.build_key(f"{locale}:{data_source_key}:id", tenant=tenant)
 
     def is_version_current(self, version: int, *, tenant: str | None) -> bool:
         """版本一致性判定（派生）。
@@ -308,50 +310,51 @@ class DictCacheRegion(CacheRegion, ABC):
         """
         self.delete(self.type_cache_key(tenant, locale, data_source_key))
 
-    async def avalue_subset(
+    async def aid_subset(
         self,
         tenant: str | None,
         locale: str,
         data_source_key: str,
-        values: ConcurrentStableList[str],
-    ) -> ConcurrentStableDict[str, str]:
-        """读按值子集缓存（异步；缺省回退同步实现）。
+        ids: ConcurrentStableList[int],
+    ) -> ConcurrentStableDict[int, str]:
+        """读按条目 id 子集缓存（异步；缺省回退同步实现）。
 
         Args:
             tenant: 租户标识；None 为全局。
             locale: 语言。
             data_source_key: 字典类型码。
-            values: 待查 value 序列。
+            ids: 待查条目 id 序列（正整数）。
 
         Returns:
-            ConcurrentStableDict[str, str]: value → label（仅命中项）。
+            ConcurrentStableDict[int, str]: id → label（仅命中项）。
         """
-        cached = self.get(self.value_cache_key(tenant, locale, data_source_key))
+        cached = self.get(self.id_cache_key(tenant, locale, data_source_key))
         if not isinstance(cached, Mapping):
             return ConcurrentStableDict()
         payload = cast("Mapping[str, object]", cached)
-        result: ConcurrentStableDict[str, str] = ConcurrentStableDict()
-        for value in values:
-            if value in payload:
-                result.set(value, str(payload[value]))
+        result: ConcurrentStableDict[int, str] = ConcurrentStableDict()
+        for item_id in ids:
+            label = payload.get(str(item_id))
+            if label is not None:
+                result.set(item_id, str(label))
         return result
 
-    async def aset_value_subset(
+    async def aset_id_subset(
         self,
         tenant: str | None,
         locale: str,
         data_source_key: str,
-        mapping: ConcurrentStableDict[str, str],
+        mapping: ConcurrentStableDict[int, str],
     ) -> None:
-        """回填按值子集缓存（异步；与既有映射合并后整体写入）。
+        """回填按条目 id 子集缓存（异步；与既有映射合并后整体写入）。
 
         Args:
             tenant: 租户标识；None 为全局。
             locale: 语言。
             data_source_key: 字典类型码。
-            mapping: 待回填的 value → label 映射。
+            mapping: 待回填的 id → label 映射。
         """
-        key = self.value_cache_key(tenant, locale, data_source_key)
+        key = self.id_cache_key(tenant, locale, data_source_key)
         current = self.get(key)
         merged: ConcurrentStableDict[str, str] = ConcurrentStableDict()
         if isinstance(current, Mapping):

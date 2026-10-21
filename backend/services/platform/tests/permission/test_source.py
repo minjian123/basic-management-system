@@ -11,7 +11,7 @@
 
 from collections.abc import AsyncIterator, Iterator
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 import pytest
 import pytest_asyncio
@@ -418,6 +418,16 @@ async def test_build_platform_source_reads_options() -> None:
     source = await build_platform_source(request)
     assert isinstance(source, PlatformPermissionDataSource)
     assert source._ttl == 60  # pyright: ignore[reportPrivateUsage]
+
+
+@pytest.mark.kiwi_id(2329)
+def test_build_menu_metadata_service_wires_read_only_ports() -> None:
+    """工厂：按平台库会话装配菜单元数据服务（仓储 / 单工作单元 / 空发件箱 / 缓存）。"""
+    from bms_platform.permission.metadata import build_menu_metadata_service
+    from bms_platform.services.menu import MenuMetadataService
+
+    service = build_menu_metadata_service(cast("Any", object()), MemoryCacheRegion())
+    assert isinstance(service, MenuMetadataService)
 
 
 @pytest.mark.kiwi_id(2320)

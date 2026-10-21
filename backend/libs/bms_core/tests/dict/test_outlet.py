@@ -67,16 +67,18 @@ async def test_unknown_or_disabled_returns_empty() -> None:
 
 
 @pytest.mark.kiwi_id(2285)
-async def test_filters_keyword_and_values() -> None:
-    """关键字 / 按值子集过滤在出口生效。"""
+async def test_filters_keyword_and_ids() -> None:
+    """关键字 / 按条目 id 子集过滤在出口生效（空子集返回空条目）。"""
     record = DataSourceRecord(data_source_key="role", name="角色", data_source="platform")
     source = _source(
         ConcurrentStableList((record,)), ConcurrentStableDict({"platform": _FakeProvider("platform", _ITEMS)})
     )
     by_keyword = await source.by_type(DictQuery(data_source_key="role", keyword="管理"))
     assert by_keyword.items is not None and len(by_keyword.items) == 1
-    by_values = await source.by_type(DictQuery(data_source_key="role", values=ConcurrentStableList(("viewer",))))
-    assert by_values.items is not None and by_values.items[0].value == "viewer"
+    by_ids = await source.by_type(DictQuery(data_source_key="role", ids=ConcurrentStableList((2,))))
+    assert by_ids.items is not None and by_ids.items[0].id == 2
+    empty = await source.by_type(DictQuery(data_source_key="role", ids=ConcurrentStableList(())))
+    assert empty.items == ()
 
 
 @pytest.mark.kiwi_id(2285)
@@ -107,14 +109,12 @@ async def test_batch_merges() -> None:
 
 @pytest.mark.kiwi_id(2285)
 async def test_translate_routes_and_maps() -> None:
-    """翻译经路由到提供者，value → label；未命中不占位。"""
+    """翻译经路由到提供者，条目 id → label；未命中不占位。"""
     record = DataSourceRecord(data_source_key="role", name="角色", data_source="platform")
     source = _source(
         ConcurrentStableList((record,)), ConcurrentStableDict({"platform": _FakeProvider("platform", _ITEMS)})
     )
     translator = RoutedDictTranslator(source.outlet, MemoryDictCacheRegion())
-    mapping = await translator.translate(
-        DictTranslateQuery(data_source_key="role", values=ConcurrentStableList(("admin", "z")))
-    )
-    assert mapping.get("admin") == "管理员"
-    assert mapping.get("z") is None
+    mapping = await translator.translate(DictTranslateQuery(data_source_key="role", ids=ConcurrentStableList((1, 99))))
+    assert mapping.get(1) == "管理员"
+    assert mapping.get(99) is None

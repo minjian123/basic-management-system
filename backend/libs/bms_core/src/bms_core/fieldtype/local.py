@@ -3,6 +3,12 @@
 - `LocalFieldTypeRegistry`（插件名 `local`）：公共注册实现 + 内建字段类型注册（含 `dict` / `dict_multi`）。
 - `SimpleFieldType`：数据驱动的字段类型提供者；`dict` / `dict_multi` 的 `render_metadata` 与前端
   `FIELD_WIDGET_MAP`（`dict` → `dict-select` / `dict_multi` → `dict-multi`）对齐，输出 `widget` 与 `multiple`。
+- **枚举字段与字典字段分家（2026-10-21 任务 02-14）**：`option` / `option_multi` 只接注册表选项集
+  （值 = 常量字符串），默认形态 `radio` / `checkbox`；`dict` / `dict_multi` 只接字典，值 = 条目 `id`
+  （`dict` 列 `bigint`，`dict_multi` 列 `text` 承载 id 的 JSON 数组，应用层解析）。旧名
+  `select` / `multi_select` **已废弃且不保留别名**。
+- 下拉形态的语义键登记为 `OPTION_DROPDOWN_WIDGET` / `OPTION_MULTI_DROPDOWN_WIDGET`（供字段属性层与前端
+  `06_09` 使用）；内建类型默认不产出下拉形态。
 - 自建字段白名单（`EXT_FIELD_TYPES`）仍归表单定制；本实现只负责类型级校验与列类型映射。
 """
 
@@ -11,13 +17,26 @@ from typing import cast
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.fieldtype.base import BaseFieldType, BaseFieldTypeRegistry
 
-__all__ = ["LocalFieldTypeRegistry", "SimpleFieldType"]
+__all__ = [
+    "OPTION_DROPDOWN_WIDGET",
+    "OPTION_MULTI_DROPDOWN_WIDGET",
+    "LocalFieldTypeRegistry",
+    "SimpleFieldType",
+]
 
 _KIND_TEXT = "text"
 _KIND_NUMBER = "number"
 _KIND_BOOL = "bool"
 _KIND_STRING = "string"
 _KIND_STRING_LIST = "string_list"
+_KIND_ID = "id"
+_KIND_ID_LIST = "id_list"
+
+OPTION_DROPDOWN_WIDGET = "dropdown"
+"""枚举单选的下拉形态语义键（字段属性层 `widget` 取值；内建默认 `radio`，不产出）。"""
+
+OPTION_MULTI_DROPDOWN_WIDGET = "dropdown-multi"
+"""枚举多选的下拉形态语义键（字段属性层 `widget` 取值；内建默认 `checkbox`，不产出）。"""
 
 
 class SimpleFieldType(BaseFieldType):
@@ -107,6 +126,17 @@ class SimpleFieldType(BaseFieldType):
             if any(not isinstance(item, str) for item in items):
                 return ConcurrentStableList((f"{self._key} 数组元素需为字符串",))
             return ConcurrentStableList(())
+        if self._kind == _KIND_ID:
+            if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+                return ConcurrentStableList((f"{self._key} 需要正整数 id",))
+            return ConcurrentStableList(())
+        if self._kind == _KIND_ID_LIST:
+            if not isinstance(value, list):
+                return ConcurrentStableList((f"{self._key} 需要 id 数组",))
+            ids = cast("list[object]", value)
+            if any(isinstance(item, bool) or not isinstance(item, int) or item <= 0 for item in ids):
+                return ConcurrentStableList((f"{self._key} 数组元素需为正整数 id",))
+            return ConcurrentStableList(())
         return ConcurrentStableList(())
 
     def render_metadata(self) -> ConcurrentStableDict[str, object]:
@@ -157,6 +187,9 @@ class LocalFieldTypeRegistry(BaseFieldTypeRegistry):
 def builtin_field_types() -> ConcurrentStableList[SimpleFieldType]:
     """内建字段类型清单（与前端字段类型 / 语义键口径对齐）。
 
+    枚举字段（`option` / `option_multi`）默认形态为 `radio` / `checkbox`；字典字段（`dict` / `dict_multi`）
+    绑定条目整数 `id`。旧名 `select` / `multi_select` 已废弃、不再注册。
+
     Returns:
         tuple[SimpleFieldType, ...]: 字段类型提供者元组。
     """
@@ -166,15 +199,15 @@ def builtin_field_types() -> ConcurrentStableList[SimpleFieldType]:
             SimpleFieldType(key="longtext", widget="textarea", kind=_KIND_TEXT, column_type="text"),
             SimpleFieldType(key="number", widget="number", kind=_KIND_NUMBER, column_type="int"),
             SimpleFieldType(key="datetime", widget="datetime", kind=_KIND_STRING, column_type="datetime"),
-            SimpleFieldType(key="select", widget="select", kind=_KIND_STRING, column_type="varchar(64)"),
+            SimpleFieldType(key="option", widget="radio", kind=_KIND_STRING, column_type="varchar(64)"),
             SimpleFieldType(
-                key="multi_select", widget="multi-select", kind=_KIND_STRING_LIST, multiple=True, column_type="text"
+                key="option_multi", widget="checkbox", kind=_KIND_STRING_LIST, multiple=True, column_type="text"
             ),
             SimpleFieldType(key="switch", widget="switch", kind=_KIND_BOOL, column_type="smallint"),
             SimpleFieldType(key="file", widget="file", kind=_KIND_STRING, column_type="text"),
-            SimpleFieldType(key="dict", widget="dict-select", kind=_KIND_STRING, column_type="varchar(64)"),
+            SimpleFieldType(key="dict", widget="dict-select", kind=_KIND_ID, column_type="bigint"),
             SimpleFieldType(
-                key="dict_multi", widget="dict-multi", kind=_KIND_STRING_LIST, multiple=True, column_type="text"
+                key="dict_multi", widget="dict-multi", kind=_KIND_ID_LIST, multiple=True, column_type="text"
             ),
         )
     )

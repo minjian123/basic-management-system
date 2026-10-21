@@ -230,12 +230,9 @@ def test_provider_registry_and_outlet_build() -> None:
     assert built.registry.get("role") is not None
 
 
-async def test_translator_missing_provider_and_empty_values() -> None:
+async def test_translator_missing_provider_and_empty_ids() -> None:
     """翻译：未登记提供者 → 空映射；入参去重后为空 → 空映射。"""
     translator = RoutedDictTranslator(_outlet(cast("Any", _Provider())), MemoryDictCacheRegion())
     # 登记里无 `nope` → 无提供者。
-    assert (
-        await translator.translate(DictTranslateQuery(data_source_key="nope", values=ConcurrentStableList(("top",))))
-        == {}
-    )
-    assert await translator.translate(DictTranslateQuery(data_source_key="role", values=ConcurrentStableList(()))) == {}
+    assert await translator.translate(DictTranslateQuery(data_source_key="nope", ids=ConcurrentStableList((1,)))) == {}
+    assert await translator.translate(DictTranslateQuery(data_source_key="role", ids=ConcurrentStableList(()))) == {}

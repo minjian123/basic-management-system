@@ -1,9 +1,10 @@
 """字典域缓存实现（`DictCacheRegion` 子类）：进程内 L1 与 Redis 两层。
 
-- `MemoryDictCacheRegion`：纯进程内 L1（双分区：整类型 + 按值子集；版本按租户计数）；无 Redis 环境 / 测试用。
+- `MemoryDictCacheRegion`：纯进程内 L1（双分区：整类型 + 按条目 id 子集；版本按租户计数）；无 Redis 环境 / 测试用。
 - `RedisDictCacheRegion`：Redis 共享层（类型 key / 版本键 `INCR` / SETNX 互斥锁 / TTL 抖动）叠加进程内 L1
   （先 L1 后 Redis，命中回填）；Redis 不可用时自动降级（`RedisCacheRegion` 内部兜底）。
-- 两层键构成统一由 `DictCacheRegion`（`type_cache_key` / `value_cache_key` / `version_cache_key`）提供，实现不重拼 key。
+- 两层键构成统一由 `DictCacheRegion`（`type_cache_key` / `id_cache_key` / `version_cache_key`）提供，实现不重拼 key。
+- 子集缓存载荷的 JSON 键为字符串化 id（Redis / JSON 限制），读出时按 `str(id)` 精确匹配、缺失即跳过。
 """
 
 from collections.abc import Mapping
@@ -311,25 +312,25 @@ class RedisDictCacheRegion(DictCacheRegion):
         self._l1.delete(key)
         await self._redis.adelete(key)
 
-    async def avalue_subset(
+    async def aid_subset(
         self,
         tenant: str | None,
         locale: str,
         data_source_key: str,
-        values: ConcurrentStableList[str],
-    ) -> ConcurrentStableDict[str, str]:
-        """读按值子集缓存（L1 + Redis）。
+        ids: ConcurrentStableList[int],
+    ) -> ConcurrentStableDict[int, str]:
+        """读按条目 id 子集缓存（L1 + Redis）。
 
         Args:
             tenant: 租户标识；None 为全局。
             locale: 语言。
             data_source_key: 字典类型码。
-            values: 待查 value 序列。
+            ids: 待查条目 id 序列（正整数）。
 
         Returns:
-            ConcurrentStableDict[str, str]: value → label（仅命中项）。
+            ConcurrentStableDict[int, str]: id → label（仅命中项）。
         """
-        key = self.value_cache_key(tenant, locale, data_source_key)
+        key = self.id_cache_key(tenant, locale, data_source_key)
         cached = self._l1.get(key)
         if not isinstance(cached, Mapping):
             cached = await self._redis.aget(key)
@@ -338,28 +339,29 @@ class RedisDictCacheRegion(DictCacheRegion):
         if not isinstance(cached, Mapping):
             return ConcurrentStableDict()
         payload = cast("Mapping[str, object]", cached)
-        result: ConcurrentStableDict[str, str] = ConcurrentStableDict()
-        for value in values:
-            if value in payload:
-                result.set(value, str(payload[value]))
+        result: ConcurrentStableDict[int, str] = ConcurrentStableDict()
+        for item_id in ids:
+            label = payload.get(str(item_id))
+            if label is not None:
+                result.set(item_id, str(label))
         return result
 
-    async def aset_value_subset(
+    async def aset_id_subset(
         self,
         tenant: str | None,
         locale: str,
         data_source_key: str,
-        mapping: ConcurrentStableDict[str, str],
+        mapping: ConcurrentStableDict[int, str],
     ) -> None:
-        """回填按值子集缓存（L1 + Redis 合并写）。
+        """回填按条目 id 子集缓存（L1 + Redis 合并写）。
 
         Args:
             tenant: 租户标识；None 为全局。
             locale: 语言。
             data_source_key: 字典类型码。
-            mapping: 待回填的 value → label 映射。
+            mapping: 待回填的 id → label 映射。
         """
-        key = self.value_cache_key(tenant, locale, data_source_key)
+        key = self.id_cache_key(tenant, locale, data_source_key)
         cached = self._l1.get(key)
         if not isinstance(cached, Mapping):
             cached = await self._redis.aget(key)

@@ -1,6 +1,6 @@
 """字典路由：`/api/v1/dicts`（登录即可；2026-10-11 02_09 口径返工）。
 
-- 运行时取数：`GET /dicts/{data_source_key}`（版本 / 关键字 / 级联 / 按值子集 / 上限）与
+- 运行时取数：`GET /dicts/{data_source_key}`（版本 / 关键字 / 级联 / 按条目 id 子集 / 上限）与
   `POST /dicts/batch`（多标识合并）；**取数经统一数据源出口**（平台内建数据源），契约形状不变。
 - 登记清单：`GET /api/v1/data-sources`（统一数据源登记清单；供数据权限左列 / 通用页面）——02_10 已由
   字典专用 `GET /dicts` **迁至** `api/data_source.py`。
@@ -24,6 +24,7 @@ from bms_core.api.deps import (
     get_query_provider_registry,
 )
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.core.exceptions import ParamError
 from bms_core.dict.base import (
     BaseDataSource,
     DictBatchQuery,
@@ -73,16 +74,27 @@ def _locale_scope(request: Request) -> Generator[None]:
         current_dict_locale.reset(token)
 
 
-def parse_values(raw: str) -> ConcurrentStableList[str]:
-    """解析逗号分隔的 value 列表（`values=a,b,c`）。
+def parse_ids(raw: str) -> ConcurrentStableList[int]:
+    """解析逗号分隔的条目 id 列表（`ids=1,2,3`；须为正整数）。
 
     Args:
         raw: 逗号分隔字符串。
 
     Returns:
-        tuple[str, ...]: value 元组（去空白项）。
+        ConcurrentStableList[int]: 条目 id 列表（去空白项、保序）。
+
+    Raises:
+        ParamError: 含非整数或非正数项（400 语义，由统一处理器转响应）。
     """
-    return ConcurrentStableList(part.strip() for part in raw.split(",") if part.strip())
+    ids: ConcurrentStableList[int] = ConcurrentStableList()
+    for part in raw.split(","):
+        text = part.strip()
+        if not text:
+            continue
+        if not text.isdigit() or int(text) <= 0:
+            raise ParamError(f"ids 需为正整数：{text}")
+        ids.add(int(text))
+    return ids
 
 
 @router.post("/batch")
@@ -206,10 +218,10 @@ async def get_dict_by_type(
     version: Annotated[int | None, Query(description="客户端本地版本号（一致时 items 返回 null）")] = None,
     keyword: Annotated[str | None, Query(description="关键字（label / value / code）")] = None,
     parent_id: Annotated[int | None, Query(ge=0, description="上级条目 ID（0 = 顶层；不传 = 不按父过滤）")] = None,
-    values: Annotated[str | None, Query(description="指定 value 子集（逗号分隔）")] = None,
+    ids: Annotated[str | None, Query(description="指定条目 id 子集（逗号分隔的正整数）")] = None,
     limit: Annotated[int | None, Query(ge=1, description="返回条数上限（探针传 2001）")] = None,
 ) -> ApiResponse[DictTypeResult]:
-    """按字典标识取字典（版本比对 / 关键字 / 级联 / 按值子集 / 上限）。
+    """按字典标识取字典（版本比对 / 关键字 / 级联 / 按条目 id 子集 / 上限）。
 
     Args:
         source: 字典取数契约。
@@ -218,7 +230,7 @@ async def get_dict_by_type(
         version: 客户端本地版本号。
         keyword: 关键字。
         parent_id: 上级条目 ID（0 = 顶层）。
-        values: 逗号分隔的 value 子集。
+        ids: 逗号分隔的条目 id 子集（正整数）。
         limit: 返回条数上限。
 
     Returns:
@@ -229,7 +241,7 @@ async def get_dict_by_type(
         version=version,
         keyword=keyword,
         parent_id=parent_id,
-        values=parse_values(values) if values else None,
+        ids=parse_ids(ids) if ids else None,
         limit=limit,
     )
     with _locale_scope(request):

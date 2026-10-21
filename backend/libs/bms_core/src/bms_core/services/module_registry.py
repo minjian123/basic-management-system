@@ -151,7 +151,7 @@ SERVICE_CATALOG: ConcurrentStableList[ModuleRecord] = ConcurrentStableList(
             event_domain="sys",
             service_group=ServiceGroup.FOUNDATION,
             build_batch=0,
-            contract_version="0.2.0",
+            contract_version="0.3.0",
             status=ModuleStatus.ENABLED,
         ),
         ModuleRecord(

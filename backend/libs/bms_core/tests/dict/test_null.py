@@ -2,10 +2,10 @@
 
 覆盖 `bms_core/dict/null.py`：
 
-- `NullDictSource.by_type`：版本一致短路（`items=None`）、占位两条、按值 / 关键字 / 上级条目过滤、
+- `NullDictSource.by_type`：版本一致短路（`items=None`）、占位两条、按条目 id / 关键字 / 上级条目过滤、
   `limit` 截断与 `has_more`；
 - `NullDictSource.batch`：版本一致各类型返 `None`，否则按类型返回占位结果；
-- `NullDictTranslator.translate`：按 value 生成占位标签；
+- `NullDictTranslator.translate`：按条目 id 生成占位标签；
 - `NullDictCacheRegion`：读恒未命中、写空操作、删恒 False、版本恒 0（含基类缺省异步实现）。
 """
 
@@ -46,8 +46,8 @@ async def test_null_source_by_type_placeholder_and_filters() -> None:
     assert limited.has_more is True
     assert [item.value for item in (limited.items or ())] == ["demo-1"]
 
-    by_values = await source.by_type(DictQuery(data_source_key="demo", values=ConcurrentStableList(("demo-2",))))
-    assert [item.value for item in (by_values.items or ())] == ["demo-2"]
+    by_ids = await source.by_type(DictQuery(data_source_key="demo", ids=ConcurrentStableList((2,))))
+    assert [item.id for item in (by_ids.items or ())] == [2]
 
     by_keyword = await source.by_type(DictQuery(data_source_key="demo", keyword="占位demo2"))
     assert [item.value for item in (by_keyword.items or ())] == ["demo-2"]
@@ -91,13 +91,11 @@ def test_placeholder_helpers_shape() -> None:
 
 
 async def test_null_translator_generates_placeholder_labels() -> None:
-    """占位翻译：按 value 生成 `占位{类型}:{value}` 标签。"""
+    """占位翻译：按条目 id 生成 `占位{类型}:{id}` 标签。"""
     translator = NullDictTranslator()
-    result = await translator.translate(
-        DictTranslateQuery(data_source_key="demo", values=ConcurrentStableList(("a", "b")))
-    )
-    assert result.get("a") == "占位demo:a"
-    assert result.get("b") == "占位demo:b"
+    result = await translator.translate(DictTranslateQuery(data_source_key="demo", ids=ConcurrentStableList((1, 2))))
+    assert result.get(1) == "占位demo:1"
+    assert result.get(2) == "占位demo:2"
 
 
 async def test_null_cache_region_is_noop() -> None:
@@ -111,8 +109,8 @@ async def test_null_cache_region_is_noop() -> None:
     await region.aset_type("t1", "zh-CN", "demo", {"version": 1})
     assert await region.aget_type("t1", "zh-CN", "demo") is None
     await region.adrop_type("t1", "zh-CN", "demo")
-    assert await region.avalue_subset("t1", "zh-CN", "demo", ConcurrentStableList(["a"])) == {}
-    await region.aset_value_subset("t1", "zh-CN", "demo", ConcurrentStableDict())
+    assert await region.aid_subset("t1", "zh-CN", "demo", ConcurrentStableList([1])) == {}
+    await region.aset_id_subset("t1", "zh-CN", "demo", ConcurrentStableDict())
     assert await region.aversion("t1") == 0
     assert await region.alock("t1", "zh-CN", "demo", "tok") is True
     assert await region.arelease_lock("t1", "zh-CN", "demo", "tok") is True

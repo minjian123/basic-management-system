@@ -3,8 +3,8 @@
 覆盖 `bms_core/dict/cache.py`（`MemoryDictCacheRegion` / `RedisDictCacheRegion`）与
 `bms_core/dict/base.py` 的 `DictCacheRegion` 键构成、缺省异步实现与版本 / 互斥锁语义：
 
-- 键构成（`type_cache_key` / `version_cache_key` / `value_cache_key`）与 `is_version_current`；
-- 基类缺省实现（`avalue_subset` / `aset_value_subset` / `aversion` / `aincrease_version` / `alock` / `arelease_lock`）；
+- 键构成（`type_cache_key` / `version_cache_key` / `id_cache_key`）与 `is_version_current`；
+- 基类缺省实现（`aid_subset` / `aset_id_subset` / `aversion` / `aincrease_version` / `alock` / `arelease_lock`）；
 - 内存实现：代理读写、按租户版本、进程内互斥锁（占用 / 令牌比对）；
 - Redis 实现：L1 命中短路、Redis 命中回填 L1、双删、版本 `INCR`、SETNX 锁与非数字版本回落；
 - 依赖注入提供者（字典取数 / 翻译 / 缓存域）。
@@ -102,7 +102,7 @@ def test_bare_region_defaults_and_key_layout() -> None:
     type_key = region.type_cache_key("t1", "zh-CN", "user_status")
     assert type_key == region.build_key("zh-CN:user_status", tenant="t1")
     assert region.version_cache_key(None) == region.build_key("version", tenant=None)
-    assert region.value_cache_key("t1", "zh-CN", "user_status").endswith(":v")
+    assert region.id_cache_key("t1", "zh-CN", "user_status").endswith(":id")
 
     assert region.is_version_current(0, tenant="t1") is True
     region.bump()
@@ -111,7 +111,7 @@ def test_bare_region_defaults_and_key_layout() -> None:
 
 
 async def test_bare_region_async_defaults_round_trip() -> None:
-    """基类缺省异步实现：类型读写删、按值子集读写、版本读写、互斥锁恒真。"""
+    """基类缺省异步实现：类型读写删、按条目 id 子集读写、版本读写、互斥锁恒真。"""
     region = _BareRegion()
     await region.aset_type("t1", "zh-CN", "demo", {"version": 1}, 60)
     assert await region.aget_type("t1", "zh-CN", "demo") == {"version": 1}
@@ -121,18 +121,18 @@ async def test_bare_region_async_defaults_round_trip() -> None:
     assert await region.aversion("t1") == 0
     assert await region.aincrease_version("t1") == 1
 
-    empty = await region.avalue_subset("t1", "zh-CN", "demo", ConcurrentStableList(["a"]))
+    empty = await region.aid_subset("t1", "zh-CN", "demo", ConcurrentStableList([1]))
     assert empty == {}
 
-    cached: ConcurrentStableDict[str, str] = ConcurrentStableDict()
-    cached.set("a", "A")
-    await region.aset_value_subset("t1", "zh-CN", "demo", cached)
-    assert await region.avalue_subset("t1", "zh-CN", "demo", ConcurrentStableList(["a", "b"])) == {"a": "A"}
+    cached: ConcurrentStableDict[int, str] = ConcurrentStableDict()
+    cached.set(1, "A")
+    await region.aset_id_subset("t1", "zh-CN", "demo", cached)
+    assert await region.aid_subset("t1", "zh-CN", "demo", ConcurrentStableList([1, 2])) == {1: "A"}
 
-    extra: ConcurrentStableDict[str, str] = ConcurrentStableDict()
-    extra.set("b", "B")
-    await region.aset_value_subset("t1", "zh-CN", "demo", extra)
-    assert await region.avalue_subset("t1", "zh-CN", "demo", ConcurrentStableList(["a", "b"])) == {"a": "A", "b": "B"}
+    extra: ConcurrentStableDict[int, str] = ConcurrentStableDict()
+    extra.set(2, "B")
+    await region.aset_id_subset("t1", "zh-CN", "demo", extra)
+    assert await region.aid_subset("t1", "zh-CN", "demo", ConcurrentStableList([1, 2])) == {1: "A", 2: "B"}
 
     assert await region.alock("t1", "zh-CN", "demo", "tok") is True
     assert await region.arelease_lock("t1", "zh-CN", "demo", "tok") is True
@@ -210,43 +210,43 @@ async def test_redis_region_two_layer_reads_writes_and_deletes() -> None:
     await region.aclose()
 
 
-async def test_redis_region_value_subset_versions_and_lock() -> None:
-    """Redis 实现：按值子集（Redis 命中回填 / 未命中空）、版本 `INCR` 与非数字版本回落、SETNX 锁。"""
+async def test_redis_region_id_subset_versions_and_lock() -> None:
+    """Redis 实现：按条目 id 子集（Redis 命中回填 / 未命中空）、版本 `INCR` 与非数字版本回落、SETNX 锁。"""
     region = _redis_region()
     inner = region.redis_region
 
-    # Redis 层预置映射（L1 为空）→ 读时回填 L1。
-    subset_key = region.value_cache_key("t1", "zh-CN", "demo")
-    await inner.aset(subset_key, {"a": "A"})
-    assert await region.avalue_subset("t1", "zh-CN", "demo", ConcurrentStableList(["a", "z"])) == {"a": "A"}
+    # Redis 层预置映射（L1 为空；JSON 键为字符串化 id）→ 读时回填 L1。
+    subset_key = region.id_cache_key("t1", "zh-CN", "demo")
+    await inner.aset(subset_key, {"1": "A"})
+    assert await region.aid_subset("t1", "zh-CN", "demo", ConcurrentStableList([1, 99])) == {1: "A"}
     assert region.get(subset_key) is not None
 
     # 完全未命中 → 空映射。
-    assert await region.avalue_subset("t1", "zh-CN", "other", ConcurrentStableList(["a"])) == {}
+    assert await region.aid_subset("t1", "zh-CN", "other", ConcurrentStableList([1])) == {}
 
     # L1 与 Redis 都缺时写子集（无既有映射可合并）。
-    only: ConcurrentStableDict[str, str] = ConcurrentStableDict()
-    only.set("x", "X")
-    await region.aset_value_subset("t1", "zh-CN", "fresh", only)
-    assert await region.avalue_subset("t1", "zh-CN", "fresh", ConcurrentStableList(["x"])) == {"x": "X"}
+    only: ConcurrentStableDict[int, str] = ConcurrentStableDict()
+    only.set(5, "X")
+    await region.aset_id_subset("t1", "zh-CN", "fresh", only)
+    assert await region.aid_subset("t1", "zh-CN", "fresh", ConcurrentStableList([5])) == {5: "X"}
 
     # L1 已有映射（命中）→ 直接合并，不再回查 Redis。
-    again: ConcurrentStableDict[str, str] = ConcurrentStableDict()
-    again.set("w", "W")
-    await region.aset_value_subset("t1", "zh-CN", "fresh", again)
-    assert await region.avalue_subset("t1", "zh-CN", "fresh", ConcurrentStableList(["x", "w"])) == {
-        "x": "X",
-        "w": "W",
+    again: ConcurrentStableDict[int, str] = ConcurrentStableDict()
+    again.set(6, "W")
+    await region.aset_id_subset("t1", "zh-CN", "fresh", again)
+    assert await region.aid_subset("t1", "zh-CN", "fresh", ConcurrentStableList([5, 6])) == {
+        5: "X",
+        6: "W",
     }
 
     # L1 缺、Redis 有映射 → 合并后整体写入。
-    await inner.aset(region.value_cache_key("t1", "zh-CN", "fresh2"), {"x": "X"})
-    merged_src: ConcurrentStableDict[str, str] = ConcurrentStableDict()
-    merged_src.set("y", "Y")
-    await region.aset_value_subset("t1", "zh-CN", "fresh2", merged_src)
-    assert await region.avalue_subset("t1", "zh-CN", "fresh2", ConcurrentStableList(["x", "y"])) == {
-        "x": "X",
-        "y": "Y",
+    await inner.aset(region.id_cache_key("t1", "zh-CN", "fresh2"), {"1": "X"})
+    merged_src: ConcurrentStableDict[int, str] = ConcurrentStableDict()
+    merged_src.set(2, "Y")
+    await region.aset_id_subset("t1", "zh-CN", "fresh2", merged_src)
+    assert await region.aid_subset("t1", "zh-CN", "fresh2", ConcurrentStableList([1, 2])) == {
+        1: "X",
+        2: "Y",
     }
 
     # 版本：按租户 `INCR`；全局版本经同步客户端读取；非数字回落 0。

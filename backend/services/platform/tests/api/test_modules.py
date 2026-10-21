@@ -112,8 +112,8 @@ async def test_get_module_detail_and_not_found(client: AsyncClient) -> None:
     assert detail["module_key"] == "sys"
     assert detail["service_key"] == "platform"
     assert detail["name"] == "平台地基与配置服务"
-    # 02_03 返工：platform 公开契约因 `sys_form` 多对多（破坏性变更）升 0.2.0
-    assert detail["contract_version"] == "0.2.0"
+    # 02_03 返工：platform 公开契约因 `sys_form` 多对多升 0.2.0；02_14：字典 ids 子集改名升 0.3.0
+    assert detail["contract_version"] == "0.3.0"
 
     fallback = await client.get("/api/v1/modules/pur")
     assert fallback.status_code == 200

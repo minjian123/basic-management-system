@@ -2765,11 +2765,11 @@
       },
       "DictItem": {
         "additionalProperties": false,
-        "description": "字典条目（普通运行时链路字段；不含扩展属性 `attr_json`）。\n\n`parent_id` 为**上级条目 ID**（自引用同表 `id`；顶层 `None`），非父条目 `value`\n（2026-10-10 口径收口，任务 02_07）；`id` 供前端级联过滤与字典树构建使用。",
+        "description": "字典条目（普通运行时链路字段；不含扩展属性 `attr_json`）。\n\n`parent_id` 为**上级条目 ID**（自引用同表 `id`；顶层 `None`），非父条目 `value`\n（2026-10-10 口径收口，任务 02_07）；`id` 供前端级联过滤、字典树构建与**字典字段绑定**使用\n（2026-10-21 任务 02_14：字段绑定 `id`，`value` / `code` 仅展示与外部交换）。",
         "properties": {
           "code": {
             "default": "",
-            "description": "条目编码",
+            "description": "条目编码（仅展示与外部交换，不参与字段绑定）",
             "title": "Code",
             "type": "string"
           },
@@ -2821,7 +2821,7 @@
             "type": "string"
           },
           "value": {
-            "description": "条目值",
+            "description": "条目值（仅展示与外部交换，不参与字段绑定）",
             "title": "Value",
             "type": "string"
           }
@@ -7016,7 +7016,7 @@
   },
   "info": {
     "title": "BMS 基础管理系统",
-    "version": "0.2.0"
+    "version": "0.3.0"
   },
   "openapi": "3.1.0",
   "paths": {
@@ -9017,7 +9017,7 @@
     },
     "/api/v1/dicts/{data_source_key}": {
       "get": {
-        "description": "按字典标识取字典（版本比对 / 关键字 / 级联 / 按值子集 / 上限）。\n\nArgs:\n    source: 字典取数契约。\n    data_source_key: 字典标识。\n    request: 请求对象（语言解析）。\n    version: 客户端本地版本号。\n    keyword: 关键字。\n    parent_id: 上级条目 ID（0 = 顶层）。\n    values: 逗号分隔的 value 子集。\n    limit: 返回条数上限。\n\nReturns:\n    ApiResponse[DictTypeResult]: 统一响应，data 为单标识取数结果。",
+        "description": "按字典标识取字典（版本比对 / 关键字 / 级联 / 按条目 id 子集 / 上限）。\n\nArgs:\n    source: 字典取数契约。\n    data_source_key: 字典标识。\n    request: 请求对象（语言解析）。\n    version: 客户端本地版本号。\n    keyword: 关键字。\n    parent_id: 上级条目 ID（0 = 顶层）。\n    ids: 逗号分隔的条目 id 子集（正整数）。\n    limit: 返回条数上限。\n\nReturns:\n    ApiResponse[DictTypeResult]: 统一响应，data 为单标识取数结果。",
         "operationId": "get_dict_by_type_api_v1_dicts__data_source_key__get",
         "parameters": [
           {
@@ -9085,9 +9085,9 @@
             }
           },
           {
-            "description": "指定 value 子集（逗号分隔）",
+            "description": "指定条目 id 子集（逗号分隔的正整数）",
             "in": "query",
-            "name": "values",
+            "name": "ids",
             "required": false,
             "schema": {
               "anyOf": [
@@ -9098,8 +9098,8 @@
                   "type": "null"
                 }
               ],
-              "description": "指定 value 子集（逗号分隔）",
-              "title": "Values"
+              "description": "指定条目 id 子集（逗号分隔的正整数）",
+              "title": "Ids"
             }
           },
           {

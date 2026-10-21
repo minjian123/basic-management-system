@@ -972,6 +972,60 @@
         "title": "ApiResponse[PermissionList]",
         "type": "object"
       },
+      "ApiResponse_PermissionMetadataResult_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PermissionMetadataResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[PermissionMetadataResult]",
+        "type": "object"
+      },
+      "ApiResponse_PermissionSubjectResult_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PermissionSubjectResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[PermissionSubjectResult]",
+        "type": "object"
+      },
       "ApiResponse_RoleAssignedUsers_": {
         "additionalProperties": false,
         "properties": {
@@ -2253,6 +2307,12 @@
             "title": "Data Source Key",
             "type": "string"
           },
+          "is_dict": {
+            "description": "是否字典（由 `kind` 派生；供界面按数据形态套用字典记录页骨架，避免前端各写一套判定）。",
+            "readOnly": true,
+            "title": "Is Dict",
+            "type": "boolean"
+          },
           "kind": {
             "$ref": "#/components/schemas/DataSourceKind",
             "description": "类型（dict 字典 / form 表单，预留其它）"
@@ -2312,7 +2372,8 @@
           "name",
           "kind",
           "data_source",
-          "origin"
+          "origin",
+          "is_dict"
         ],
         "title": "DataSourceResponse",
         "type": "object"
@@ -2704,11 +2765,11 @@
       },
       "DictItem": {
         "additionalProperties": false,
-        "description": "字典条目（普通运行时链路字段；不含扩展属性 `attr_json`）。\n\n`parent_id` 为**上级条目 ID**（自引用同表 `id`；顶层 `None`），非父条目 `value`\n（2026-10-10 口径收口，任务 02_07）；`id` 供前端级联过滤与字典树构建使用。",
+        "description": "字典条目（普通运行时链路字段；不含扩展属性 `attr_json`）。\n\n`parent_id` 为**上级条目 ID**（自引用同表 `id`；顶层 `None`），非父条目 `value`\n（2026-10-10 口径收口，任务 02_07）；`id` 供前端级联过滤、字典树构建与**字典字段绑定**使用\n（2026-10-21 任务 02_14：字段绑定 `id`，`value` / `code` 仅展示与外部交换）。",
         "properties": {
           "code": {
             "default": "",
-            "description": "条目编码",
+            "description": "条目编码（仅展示与外部交换，不参与字段绑定）",
             "title": "Code",
             "type": "string"
           },
@@ -2760,7 +2821,7 @@
             "type": "string"
           },
           "value": {
-            "description": "条目值",
+            "description": "条目值（仅展示与外部交换，不参与字段绑定）",
             "title": "Value",
             "type": "string"
           }
@@ -3262,6 +3323,12 @@
             "title": "Form Key",
             "type": "string"
           },
+          "is_dict": {
+            "description": "是否字典（由 `kind` 派生；供界面按数据形态套用字典记录页骨架，避免前端各写一套判定）。",
+            "readOnly": true,
+            "title": "Is Dict",
+            "type": "boolean"
+          },
           "kind": {
             "$ref": "#/components/schemas/FormKind",
             "description": "类型（dict 字典 / form 表单）"
@@ -3286,7 +3353,8 @@
           "form_key",
           "name",
           "kind",
-          "table"
+          "table",
+          "is_dict"
         ],
         "title": "FormKeyResponse",
         "type": "object"
@@ -4454,6 +4522,93 @@
         "title": "MyMenuResponse",
         "type": "object"
       },
+      "PermissionDataScopeItem": {
+        "additionalProperties": false,
+        "description": "数据范围规则（字典类型 + 策略 + 规则行）。",
+        "properties": {
+          "config": {
+            "description": "规则行（原样，交策略求值器解析）",
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Config",
+            "type": "array"
+          },
+          "data_source_key": {
+            "description": "字典类型主键（字符串化）",
+            "title": "Data Source Key",
+            "type": "string"
+          },
+          "policy_type": {
+            "description": "策略类型：select / region / match / extension",
+            "title": "Policy Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data_source_key",
+          "policy_type"
+        ],
+        "title": "PermissionDataScopeItem",
+        "type": "object"
+      },
+      "PermissionFieldItem": {
+        "additionalProperties": false,
+        "description": "字段权限收窄项（未列出即全开）。",
+        "properties": {
+          "editable": {
+            "description": "写时是否接受",
+            "title": "Editable",
+            "type": "boolean"
+          },
+          "field_key": {
+            "description": "字段键",
+            "title": "Field Key",
+            "type": "string"
+          },
+          "form_id": {
+            "description": "表单主键",
+            "title": "Form Id",
+            "type": "string"
+          },
+          "visible": {
+            "description": "读时是否返回",
+            "title": "Visible",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "form_id",
+          "field_key",
+          "visible",
+          "editable"
+        ],
+        "title": "PermissionFieldItem",
+        "type": "object"
+      },
+      "PermissionGrantItem": {
+        "additionalProperties": false,
+        "description": "授权行（授权类型 + 目标主键）。",
+        "properties": {
+          "perm_type": {
+            "description": "授权类型：menu / form / permission",
+            "title": "Perm Type",
+            "type": "string"
+          },
+          "target_id": {
+            "description": "目标主键（按 perm_type 解释）",
+            "title": "Target Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "perm_type",
+          "target_id"
+        ],
+        "title": "PermissionGrantItem",
+        "type": "object"
+      },
       "PermissionInvalidateRequest": {
         "additionalProperties": false,
         "description": "权限快照失效请求（服务间内部契约）。",
@@ -4552,6 +4707,105 @@
           }
         },
         "title": "PermissionList",
+        "type": "object"
+      },
+      "PermissionMetadataResult": {
+        "additionalProperties": false,
+        "description": "权限元数据索引（服务间内部契约）。",
+        "properties": {
+          "menu_forms": {
+            "additionalProperties": {
+              "items": {
+                "type": "integer"
+              },
+              "type": "array"
+            },
+            "description": "菜单主键（字符串化）→ 关联表单主键列表",
+            "title": "Menu Forms",
+            "type": "object"
+          },
+          "permission_codes": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "权限码主键（字符串化）→ 权限码字符串",
+            "title": "Permission Codes",
+            "type": "object"
+          },
+          "version": {
+            "description": "元数据版本号",
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version"
+        ],
+        "title": "PermissionMetadataResult",
+        "type": "object"
+      },
+      "PermissionSubjectRequest": {
+        "additionalProperties": false,
+        "description": "按用户取聚合输入的请求（服务间内部契约）。",
+        "properties": {
+          "user_id": {
+            "description": "用户主键",
+            "title": "User Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "user_id"
+        ],
+        "title": "PermissionSubjectRequest",
+        "type": "object"
+      },
+      "PermissionSubjectResult": {
+        "additionalProperties": false,
+        "description": "按用户取回的聚合输入（服务间内部契约）。",
+        "properties": {
+          "data_scope_rules": {
+            "description": "数据范围规则列表",
+            "items": {
+              "$ref": "#/components/schemas/PermissionDataScopeItem"
+            },
+            "title": "Data Scope Rules",
+            "type": "array"
+          },
+          "field_perms": {
+            "description": "字段权限收窄项（空 = 全开）",
+            "items": {
+              "$ref": "#/components/schemas/PermissionFieldItem"
+            },
+            "title": "Field Perms",
+            "type": "array"
+          },
+          "grants": {
+            "description": "授权行列表",
+            "items": {
+              "$ref": "#/components/schemas/PermissionGrantItem"
+            },
+            "title": "Grants",
+            "type": "array"
+          },
+          "role_ids": {
+            "description": "主体链收敛后的角色主键集合",
+            "items": {
+              "type": "integer"
+            },
+            "title": "Role Ids",
+            "type": "array"
+          },
+          "role_types": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "角色主键（字符串化）→ 角色类型",
+            "title": "Role Types",
+            "type": "object"
+          }
+        },
+        "title": "PermissionSubjectResult",
         "type": "object"
       },
       "PreferenceValueRequest": {
@@ -5128,7 +5382,8 @@
               "custom",
               "system",
               "security",
-              "audit"
+              "audit",
+              "platform_admin"
             ],
             "title": "Role Type",
             "type": "string"
@@ -5335,7 +5590,8 @@
               "custom",
               "system",
               "security",
-              "audit"
+              "audit",
+              "platform_admin"
             ],
             "title": "Role Type",
             "type": "string"
@@ -6760,7 +7016,7 @@
   },
   "info": {
     "title": "BMS 基础管理系统",
-    "version": "0.2.0"
+    "version": "0.3.0"
   },
   "openapi": "3.1.0",
   "paths": {
@@ -8761,7 +9017,7 @@
     },
     "/api/v1/dicts/{data_source_key}": {
       "get": {
-        "description": "按字典标识取字典（版本比对 / 关键字 / 级联 / 按值子集 / 上限）。\n\nArgs:\n    source: 字典取数契约。\n    data_source_key: 字典标识。\n    request: 请求对象（语言解析）。\n    version: 客户端本地版本号。\n    keyword: 关键字。\n    parent_id: 上级条目 ID（0 = 顶层）。\n    values: 逗号分隔的 value 子集。\n    limit: 返回条数上限。\n\nReturns:\n    ApiResponse[DictTypeResult]: 统一响应，data 为单标识取数结果。",
+        "description": "按字典标识取字典（版本比对 / 关键字 / 级联 / 按条目 id 子集 / 上限）。\n\nArgs:\n    source: 字典取数契约。\n    data_source_key: 字典标识。\n    request: 请求对象（语言解析）。\n    version: 客户端本地版本号。\n    keyword: 关键字。\n    parent_id: 上级条目 ID（0 = 顶层）。\n    ids: 逗号分隔的条目 id 子集（正整数）。\n    limit: 返回条数上限。\n\nReturns:\n    ApiResponse[DictTypeResult]: 统一响应，data 为单标识取数结果。",
         "operationId": "get_dict_by_type_api_v1_dicts__data_source_key__get",
         "parameters": [
           {
@@ -8829,9 +9085,9 @@
             }
           },
           {
-            "description": "指定 value 子集（逗号分隔）",
+            "description": "指定条目 id 子集（逗号分隔的正整数）",
             "in": "query",
-            "name": "values",
+            "name": "ids",
             "required": false,
             "schema": {
               "anyOf": [
@@ -8842,8 +9098,8 @@
                   "type": "null"
                 }
               ],
-              "description": "指定 value 子集（逗号分隔）",
-              "title": "Values"
+              "description": "指定条目 id 子集（逗号分隔的正整数）",
+              "title": "Ids"
             }
           },
           {
@@ -12612,6 +12868,226 @@
         ]
       }
     },
+    "/api/v1/platform/internal/permissions/metadata": {
+      "get": {
+        "description": "返回元数据索引（菜单 → 表单、权限码 id → 权限码）。\n\nArgs:\n    request: 当前请求（构造请求级数据来源）。\n    locale: 语言标识（缺省取实现缺省值）。\n\nReturns:\n    ApiResponse[PermissionMetadataResult]: 元数据索引。",
+        "operationId": "read_permission_metadata_api_v1_platform_internal_permissions_metadata_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "locale",
+            "required": false,
+            "schema": {
+              "default": "zh-CN",
+              "title": "Locale",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_PermissionMetadataResult_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "取权限元数据",
+        "tags": [
+          "platform-internal"
+        ]
+      }
+    },
+    "/api/v1/platform/internal/permissions/subject": {
+      "post": {
+        "description": "按用户返回聚合所需原始数据（角色 / 类型 / 授权 / 数据范围 / 字段收窄）。\n\nArgs:\n    payload: 请求（用户主键）。\n    request: 当前请求（构造请求级数据来源）。\n\nReturns:\n    ApiResponse[PermissionSubjectResult]: 原始数据。",
+        "operationId": "read_permission_subject_api_v1_platform_internal_permissions_subject_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PermissionSubjectRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_PermissionSubjectResult_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "按用户取权限数据",
+        "tags": [
+          "platform-internal"
+        ]
+      }
+    },
     "/api/v1/platform/internal/users/create": {
       "post": {
         "description": "统一建号入口（用户名空闲即建；撞名 `created=false`，由调用侧换后缀重试）。\n\n建号成功后经关系数据源维护「用户↔归属租户」可达关系（失败不阻断建号）。\n\nArgs:\n    req: 建号请求（账号 / 昵称 / 语言时区 / 来源）。\n    uow: 请求级工作单元。\n    tenant: 解析链租户上下文（归属租户）。\n    membership: 关系数据源（服务间调用；本服务为远端实现）。\n\nReturns:\n    ApiResponse: 统一响应，data 为建号结果（`UserCreateResult`）。",
@@ -15007,7 +15483,7 @@
     },
     "/api/v1/roles/{role_id}/assignments": {
       "put": {
-        "description": "角色保存编排（分段全量覆盖；跨服务原子）。\n\n`provider = \"xa\"` 时经 TM 全局事务（platform 分支进程内 + 组织域分支经参与端点）；\n`provider = null`（dev / test）时顺序提交（platform 本地事务 → 组织域内部写通道）。\n权限码**分段校验**：`role` 段另需 `role:update`（端点级挂 `role:grant`）。\n\nArgs:\n    role_id: 角色主键。\n    req: 分段全量覆盖请求。\n    uow: 请求级工作单元。\n    config: 系统参数取数（角色码格式）。\n    cache: 缓存能力域（角色 / 分配变更后权限版本递增）。\n    client: 服务间调用客户端（组织域分支执行 / 内部写通道）。\n    manager: 事务管理器（`provider=null` 时为 Null 实现）。\n    participant: 事务参与方（platform 自身分支进程内执行）。\n    checker: 权限校验器（`role` 段命令式复校 `role:update`）。\n    idem_key: 幂等键请求头（透传给组织域内部写通道）。\n\nReturns:\n    ApiResponse: 统一响应，data 为角色详情、生效后用户清单与本次参与分段名。\n\nRaises:\n    PermissionError: 缺少 `role:update`（30001）。\n    ParamError: 未提供任何分段（10001）。\n    TransactionUnavailableError: 分支未达 `PREPARED`（10013）。\n    ServiceUnavailableError: 跨服务调用失败（10007）。",
+        "description": "角色保存编排（分段全量覆盖；跨服务原子）。\n\n`provider = \"xa\"` 时经 TM 全局事务（platform 分支进程内 + 组织域分支经参与端点）；\n`provider = null`（dev / test）时顺序提交（platform 本地事务 → 组织域内部写通道）。\n权限码**分段校验**：`role` 段另需 `role:update`（端点级挂 `role:grant`）。\n\nArgs:\n    role_id: 角色主键。\n    req: 分段全量覆盖请求。\n    uow: 请求级工作单元。\n    config: 系统参数取数（角色码格式）。\n    cache: 缓存能力域（角色 / 分配变更后权限版本递增）。\n    client: 服务间调用客户端（组织域分支执行 / 内部写通道）。\n    manager: 事务管理器（`provider=null` 时为 Null 实现）。\n    participant: 事务参与方（platform 自身分支进程内执行）。\n    checker: 权限校验器（`role` 段命令式复校 `role:update`）。\n    audit: 审计捕获器（三权拒绝留痕）。\n    idem_key: 幂等键请求头（透传给组织域内部写通道）。\n\nReturns:\n    ApiResponse: 统一响应，data 为角色详情、生效后用户清单与本次参与分段名。\n\nRaises:\n    PermissionError: 缺少 `role:update`（30001）。\n    ParamError: 未提供任何分段（10001）。\n    TransactionUnavailableError: 分支未达 `PREPARED`（10013）。\n    ServiceUnavailableError: 跨服务调用失败（10007）。",
         "operationId": "apply_role_assignments_api_v1_roles__role_id__assignments_put",
         "parameters": [
           {
@@ -15219,7 +15695,7 @@
         ]
       },
       "put": {
-        "description": "全量覆盖角色数据权限（单事务先删后插）。\n\nArgs:\n    role_id: 角色主键。\n    req: 数据权限全量请求。\n    uow: 请求级工作单元。\n    platform_uow: 平台库工作单元（元数据校验器构造）。\n    cache: 缓存能力域（权限版本 +1）。\n\nReturns:\n    ApiResponse: 统一响应，data 为重建后的数据权限条目清单。",
+        "description": "全量覆盖角色数据权限（单事务先删后插）。\n\nArgs:\n    role_id: 角色主键。\n    req: 数据权限全量请求。\n    uow: 请求级工作单元。\n    platform_uow: 平台库工作单元（元数据校验器构造）。\n    cache: 缓存能力域（权限版本 +1）。\n    audit: 审计捕获器（三权拒绝留痕）。\n\nReturns:\n    ApiResponse: 统一响应，data 为重建后的数据权限条目清单。",
         "operationId": "replace_data_scopes_api_v1_roles__role_id__data_permissions_put",
         "parameters": [
           {
@@ -15413,7 +15889,7 @@
         ]
       },
       "put": {
-        "description": "全量覆盖角色字段权限（单事务先删后插）。\n\nArgs:\n    role_id: 角色主键。\n    req: 字段权限全量请求。\n    uow: 请求级工作单元。\n    platform_uow: 平台库工作单元（字段归属校验）。\n    cache: 缓存能力域（权限版本 +1）。\n\nReturns:\n    ApiResponse: 统一响应，data 为重建后的字段权限条目清单。",
+        "description": "全量覆盖角色字段权限（单事务先删后插）。\n\nArgs:\n    role_id: 角色主键。\n    req: 字段权限全量请求。\n    uow: 请求级工作单元。\n    platform_uow: 平台库工作单元（字段归属校验）。\n    cache: 缓存能力域（权限版本 +1）。\n    audit: 审计捕获器（三权拒绝留痕）。\n\nReturns:\n    ApiResponse: 统一响应，data 为重建后的字段权限条目清单。",
         "operationId": "replace_fields_api_v1_roles__role_id__fields_put",
         "parameters": [
           {
@@ -15607,7 +16083,7 @@
         ]
       },
       "put": {
-        "description": "全量覆盖角色授权（单事务先删后插；可按幂等键复用首次结果）。\n\nArgs:\n    role_id: 角色主键。\n    req: 授权全量请求（条目清单）。\n    uow: 请求级工作单元。\n    platform_uow: 平台库工作单元（授权目标校验）。\n    cache: 缓存能力域（权限版本 +1）。\n    idempotency: 幂等基座（首次结果复用）。\n    idempotency_key: 幂等键请求头（可选）。\n\nReturns:\n    ApiResponse: 统一响应，data 为重建后的授权条目清单。",
+        "description": "全量覆盖角色授权（单事务先删后插；可按幂等键复用首次结果）。\n\nArgs:\n    role_id: 角色主键。\n    req: 授权全量请求（条目清单）。\n    uow: 请求级工作单元。\n    platform_uow: 平台库工作单元（授权目标校验）。\n    cache: 缓存能力域（权限版本 +1）。\n    idempotency: 幂等基座（首次结果复用）。\n    audit: 审计捕获器（三权拒绝留痕）。\n    idempotency_key: 幂等键请求头（可选）。\n\nReturns:\n    ApiResponse: 统一响应，data 为重建后的授权条目清单。",
         "operationId": "replace_permissions_api_v1_roles__role_id__permissions_put",
         "parameters": [
           {
@@ -15921,7 +16397,7 @@
         ]
       },
       "post": {
-        "description": "批量分配用户（幂等 upsert；可按幂等键复用首次结果）。\n\nArgs:\n    role_id: 角色主键。\n    req: 分配请求（用户主键清单）。\n    uow: 请求级工作单元。\n    cache: 缓存能力域（权限版本 +1）。\n    idempotency: 幂等基座（首次结果复用）。\n    tenant: 解析链租户上下文（幂等键作用域位）。\n    idempotency_key: 幂等键请求头（可选）。\n\nReturns:\n    ApiResponse: 统一响应，data 为分配后的用户清单。",
+        "description": "批量分配用户（幂等 upsert；可按幂等键复用首次结果）。\n\nArgs:\n    role_id: 角色主键。\n    req: 分配请求（用户主键清单）。\n    uow: 请求级工作单元。\n    cache: 缓存能力域（权限版本 +1）。\n    idempotency: 幂等基座（首次结果复用）。\n    tenant: 解析链租户上下文（幂等键作用域位）。\n    audit: 审计捕获器（三权拒绝留痕）。\n    idempotency_key: 幂等键请求头（可选）。\n\nReturns:\n    ApiResponse: 统一响应，data 为分配后的用户清单。",
         "operationId": "assign_users_api_v1_roles__role_id__users_post",
         "parameters": [
           {

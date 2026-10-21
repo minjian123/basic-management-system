@@ -7,7 +7,7 @@
 
 - `BaseGenericDataSource` / `BaseDictDataSource`（`bms_core/datasource/base.py`）：数据源提供者契约——只负责
   **加载某数据源全部启用行**（`DataSourceItem`）；版本比对 / 缓存（L1 双分区 + Redis）/ 关键字 / 级联 /
-  按值子集 / 探针截断 **由出口统一承载**（功能一个不能少）。
+  按条目 id 子集 / 探针截断 **由出口统一承载**（功能一个不能少）。
 - `DataSourceOutlet`：登记 + 提供者的只读路由视图（应用装配期构造）。
 - `RoutedDataSource` / `RoutedDictTranslator`：统一出口的取数 / 翻译契约实现（经 `DataSourceOutlet`
   路由 + 缓存）；出口负责 `DataSourceItem → DictItem`（对外契约）映射。
@@ -167,7 +167,7 @@ def _to_dict_item(item: DataSourceItem) -> DictItem:
 
 
 def _apply_filters(items: ConcurrentStableList[DictItem], query: DictQuery) -> ConcurrentStableList[DictItem]:
-    """按查询条件过滤条目（按值子集 / 关键字 / 上级条目 ID）。
+    """按查询条件过滤条目（按条目 id 子集 / 关键字 / 上级条目 ID）。
 
     Args:
         items: 全量启用条目。
@@ -177,9 +177,9 @@ def _apply_filters(items: ConcurrentStableList[DictItem], query: DictQuery) -> C
         tuple[DictItem, ...]: 过滤后的条目。
     """
     result = items
-    if query.values is not None:
-        wanted = set(query.values)
-        result = tuple(item for item in result if item.value in wanted)
+    if query.ids is not None:
+        wanted = set(query.ids)
+        result = tuple(item for item in result if item.id in wanted)
     if query.keyword:
         keyword = query.keyword
         result = tuple(
@@ -236,7 +236,7 @@ def _cache_snapshot(payload: object, version: int) -> DictTypeResult | None:
 
 
 def _is_filtered(query: DictQuery) -> bool:
-    """是否带过滤条件（关键字 / 级联 / 按值子集 / 上限）。
+    """是否带过滤条件（关键字 / 级联 / 按条目 id 子集 / 上限）。
 
     Args:
         query: 单类型取数参数。
@@ -244,15 +244,13 @@ def _is_filtered(query: DictQuery) -> bool:
     Returns:
         bool: 带过滤返回 True。
     """
-    return (
-        query.keyword is not None or query.parent_id is not None or query.values is not None or query.limit is not None
-    )
+    return query.keyword is not None or query.parent_id is not None or query.ids is not None or query.limit is not None
 
 
 class RoutedDataSource(BaseDataSource):
     """统一出口·取数：按数据源标识经 `DataSourceOutlet` 路由到数据源 + 缓存。
 
-    承载版本比对三态 / L1+Redis 缓存（双分区、版本键、SETNX 互斥锁、TTL）/ 关键字 / 级联 / 按值子集 /
+    承载版本比对三态 / L1+Redis 缓存（双分区、版本键、SETNX 互斥锁、TTL）/ 关键字 / 级联 / 按条目 id 子集 /
     探针截断（功能一个不能少）；并负责通用条目 → 字典对外契约条目映射。
     """
 
@@ -364,29 +362,29 @@ class RoutedDictTranslator(BaseDictTranslator):
         self._outlet = outlet
         self._cache = cache or MemoryDictCacheRegion()
 
-    async def translate(self, query: DictTranslateQuery) -> ConcurrentStableDict[str, str]:
-        """按 value 批量翻译为 label（当前 locale；未命中不占位）。
+    async def translate(self, query: DictTranslateQuery) -> ConcurrentStableDict[int, str]:
+        """按条目 id 批量翻译为 label（当前 locale；未命中不占位）。
 
         Args:
             query: 翻译参数对象。
 
         Returns:
-            ConcurrentStableDict[str, str]: value → label（仅命中项；未登记 / 停用返回空）。
+            ConcurrentStableDict[int, str]: 条目 id → label（仅命中项；未登记 / 停用返回空）。
         """
         provider = self._outlet.provider_for(query.data_source_key)
         if provider is None:
             return ConcurrentStableDict()
         locale = query.locale or DEFAULT_LOCALE
-        values = ConcurrentStableList(dict.fromkeys(query.values))
-        if not values:
+        ids = ConcurrentStableList(dict.fromkeys(query.ids))
+        if not ids:
             return ConcurrentStableDict()
         loaded = await provider.load(query.data_source_key, locale)
-        wanted = set(values)
-        mapping: ConcurrentStableDict[str, str] = ConcurrentStableDict()
+        wanted = set(ids)
+        mapping: ConcurrentStableDict[int, str] = ConcurrentStableDict()
         for item in loaded:
-            if item.value in wanted:
-                mapping.set(item.value, item.label)
-        return ConcurrentStableDict((value, mapping[value]) for value in values if value in mapping)
+            if item.id in wanted:
+                mapping.set(item.id, item.label)
+        return ConcurrentStableDict((item_id, mapping[item_id]) for item_id in ids if item_id in mapping)
 
 
 _PROVIDERS: ConcurrentStableDict[str, BaseGenericDataSource] = ConcurrentStableDict()

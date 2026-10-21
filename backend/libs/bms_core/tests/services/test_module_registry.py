@@ -117,8 +117,9 @@ def test_service_catalog_shape() -> None:
     ]
     for module in SERVICE_CATALOG:
         assert module.service_version == "0.1.0"
-        # 平台服务（`sys`）契约随 02_03「`sys_form` 多对多」破坏性变更升 0.2.0；其余模块保持 0.1.0
-        assert module.contract_version == ("0.2.0" if module.module_key == "sys" else "0.1.0")
+        # 平台服务（`sys`）契约随 02_03「`sys_form` 多对多」升 0.2.0、随 02_14「字典 ids 子集」升 0.3.0；
+        # 其余模块保持 0.1.0
+        assert module.contract_version == ("0.3.0" if module.module_key == "sys" else "0.1.0")
 
 
 @pytest.mark.kiwi_id(28)

@@ -11,6 +11,7 @@ from fastapi import Request
 from httpx import AsyncClient
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.core.exceptions import ParamError
 from bms_core.dict.base import DictBatchResult, DictItem, DictTypeResult
 from bms_core.dict.query import (
     DictAdvQueryResult,
@@ -22,7 +23,7 @@ from bms_core.dict.query import (
 from bms_platform.api.dict import (
     _accept_locale,  # pyright: ignore[reportPrivateUsage]
     list_query_providers,
-    parse_values,
+    parse_ids,
 )
 from bms_platform.main import ApplicationFactory
 
@@ -112,10 +113,26 @@ async def test_dict_family_contract_schema() -> None:
 # ------------------------------------------------------------- 02_09 补齐：解析 / 提供者 / 语言
 
 
-def test_parse_values_splits_and_drops_blanks() -> None:
-    """`parse_values`：逗号分隔、去空白、丢空项（空串 → 空元组）。"""
-    assert parse_values("") == ()
-    assert parse_values(" a , b ,, c ") == ("a", "b", "c")
+def test_parse_ids_splits_and_drops_blanks() -> None:
+    """`parse_ids`：逗号分隔、去空白、丢空项（空串 → 空元组）。"""
+    assert parse_ids("") == ()
+    assert parse_ids(" 1 , 2 ,, 3 ") == (1, 2, 3)
+
+
+@pytest.mark.kiwi_id(2329)
+def test_parse_ids_rejects_non_positive_integers() -> None:
+    """`parse_ids`：非整数 / 零 / 负数一律抛 `ParamError`（业务码 10001，不做字符串兼容）。"""
+    for raw in ("1,a", "0", "-1", "1.5", "abc"):
+        with pytest.raises(ParamError):
+            parse_ids(raw)
+
+
+@pytest.mark.kiwi_id(2329)
+async def test_dict_ids_query_rejects_invalid_value(client: AsyncClient) -> None:
+    """`GET /dicts/{key}?ids=`：非法整数转参数异常（业务码 10001，HTTP 200 统一口径），不发取数。"""
+    resp = await client.get("/api/v1/dicts/module", params={"ids": "1,nope"})
+    assert resp.status_code == 200
+    assert resp.json()["code"] == 10001
 
 
 class _ProviderWithInfo:
