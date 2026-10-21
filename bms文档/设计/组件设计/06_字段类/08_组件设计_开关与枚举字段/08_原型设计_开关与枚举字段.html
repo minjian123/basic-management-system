@@ -42,8 +42,8 @@
 <div class="proto-frame">
   <div class="proto-note">
     本原型对应当前目录 <a href="08_组件设计_开关与枚举字段.md">《组件设计 · 开关与枚举字段》</a>：演示 <b>布尔开关</b>（三态、启用/停用文案、危险确认、值域归一）、
-    <b>内联切换</b>（列表内联切换、行级加载、失败回滚、局部刷新）、<b>枚举单选 / 多选</b>（radio / button / segmented / checkbox / tag 五种形态）、
-    <b>选项集</b>（静态选项与字典引用两条来源）、<b>只读回显与导入导出映射</b>。
+    <b>内联切换</b>（列表内联切换、行级加载、失败回滚、局部刷新）、<b>枚举单选 / 多选</b>（radio / button / segmented / checkbox / tag / dropdown 六种形态）、
+    <b>选项集</b>（装载时注册的选项集与字典引用两条来源）、<b>只读回显与导入导出映射</b>。
     全部交互为前端模拟（不落库）；控件行为对齐基础控件库，属验收基准。
   </div>
 
@@ -158,6 +158,14 @@
           <div class="ep-section">单选：segmented（分段控件，建议 ≤ 5 项）</div>
           <el-segmented v-model="wSegment" :options="segmentOptions" :disabled="readonly"></el-segmented>
 
+          <div class="ep-section">单选：dropdown（下拉，选项 &gt; 8 或需搜索）</div>
+          <div class="dp-bar">
+            <el-select v-model="wDropdown" :disabled="readonly" filterable clearable placeholder="请选择" style="width:220px">
+              <el-option v-for="o in options" :key="o.value" :label="o.label" :value="o.value" :disabled="o.disabled"></el-option>
+            </el-select>
+            <span class="proto-hint">控件只做原语，选项由字段层注入（注册表选项集或字典）</span>
+          </div>
+
           <div class="ep-section">多选：checkbox（选项 ≤ 8）</div>
           <el-checkbox-group v-model="wCheckbox" :disabled="readonly">
             <el-checkbox v-for="o in options" :key="o.value" :value="o.value" :disabled="o.disabled">{{ o.label }}</el-checkbox>
@@ -172,76 +180,47 @@
             :disabled="readonly || o.disabled" style="margin-right:8px"
             @change="() => toggleTag(o.value)">{{ o.label }}</el-check-tag>
 
+          <div class="ep-section">多选：dropdown（下拉多选，`multiple`）</div>
+          <el-select v-model="wDropdownMulti" :disabled="readonly" multiple filterable collapse-tags placeholder="请选择" style="width:280px">
+            <el-option v-for="o in options" :key="o.value" :label="o.label" :value="o.value" :disabled="o.disabled"></el-option>
+          </el-select>
+
           <div class="ep-section">各形态受控值（提交入库的值）</div>
           <div class="dp-out">radio: {{ j(wRadio) }}
 button: {{ j(wButton) }}
 segmented: {{ j(wSegment) }}
+dropdown: {{ j(wDropdown) }}
 checkbox: {{ j(wCheckbox) }}（提交前按选项集顺序排序、去重）
-tag: {{ j(wCheckbox) }}（与 checkbox 同一字段，仅形态不同）</div>
+tag: {{ j(wCheckbox) }}（与 checkbox 同一字段，仅形态不同）
+dropdown(multiple): {{ j(wDropdownMulti) }}（同样按选项集顺序排序、去重）</div>
         </el-tab-pane>
 
-        <!-- ④ 选项集与字典引用 -->
-        <el-tab-pane label="④ 选项集与字典引用" name="options">
+        <!-- ④ 选项集解析 -->
+        <el-tab-pane label="④ 选项集解析" name="options">
           <div class="dp-bar">
-            <span class="proto-hint">选项集来源二选一：静态 <b>options</b>（字段属性 JSON）或引用字典 <b>dictKey</b>（取数与翻译复用 02 字典字段：POST /dicts/batch + 版本比对）</span>
-            <el-radio-group v-model="source" size="small" :disabled="readonly">
-              <el-radio-button value="static">静态选项集</el-radio-button>
-              <el-radio-button value="dict">引用字典</el-radio-button>
-            </el-radio-group>
+            <span class="proto-hint">选项集是枚举字段的<b>唯一</b>来源：字段属性 <b>optionSetKey</b>（装载时注册、运行期只读、随表单元数据下发）。字典走字典字段（<b>dict-select</b>），两者不混用</span>
           </div>
 
-          <template v-if="source === 'static'">
-            <div class="ep-section">静态选项集（可增删改）</div>
-            <el-table :data="staticOptions" size="small" border style="width:100%">
-              <el-table-column label="value" width="130">
-                <template #default="{ row }"><el-input v-model="row.value" size="small"></el-input></template>
-              </el-table-column>
-              <el-table-column label="label" width="160">
-                <template #default="{ row }"><el-input v-model="row.label" size="small"></el-input></template>
-              </el-table-column>
-              <el-table-column label="颜色" width="130">
-                <template #default="{ row }">
-                  <el-select v-model="row.color" size="small" clearable placeholder="可选">
-                    <el-option v-for="c in colorChoices" :key="c" :label="c" :value="c"></el-option>
-                  </el-select>
-                </template>
-              </el-table-column>
-              <el-table-column label="禁用" width="90">
-                <template #default="{ row }"><el-switch v-model="row.disabled" size="small"></el-switch></template>
-              </el-table-column>
-              <el-table-column label="排序" width="110">
-                <template #default="{ row }"><el-input-number v-model="row.sort" size="small" :min="0" :controls="false" style="width:80px"></el-input-number></template>
-              </el-table-column>
-              <el-table-column label="操作" width="90">
-                <template #default="{ $index }"><el-button size="small" text type="danger" @click="removeOption($index)">删除</el-button></template>
-              </el-table-column>
-            </el-table>
-            <div class="dp-bar" style="margin-top:10px">
-              <el-button size="small" @click="addOption">新增选项</el-button>
-              <el-button size="small" @click="addDup">插入重复 value（演示去重）</el-button>
-            </div>
-          </template>
-
-          <template v-else>
-            <div class="ep-section">字典引用（dictKey = user_status）</div>
-            <div class="dp-bar">
-              <el-button size="small" type="primary" @click="loadDict" :disabled="readonly">POST /dicts/batch（模拟）</el-button>
-              <span class="dp-code">本地版本：{{ dictVersion === null ? '无' : dictVersion }}</span>
-              <span class="proto-hint">版本一致 → items 返回 null（复用本地缓存，零传输）；不一致 → 返回全量条目 + 新版本</span>
-            </div>
-            <el-table :data="dictOptions" size="small" border style="width:100%">
-              <el-table-column prop="value" label="value" width="130"></el-table-column>
-              <el-table-column prop="label" label="label（按 locale 下发）" min-width="160"></el-table-column>
-              <el-table-column prop="code" label="code" width="140"></el-table-column>
-            </el-table>
-          </template>
+          <div class="ep-section">注册表选项集（optionSetKey = bms.user.status；装载时注册，运行期只读）</div>
+          <div class="dp-bar">
+            <span class="proto-hint">值域随代码 / 配置发布：同 value 异名、同 label 异值、同标识异义、产品覆盖基座均在<b>装载期</b>报错并阻断启动；表单定制只能引用标识，不能在此增删改</span>
+          </div>
+          <el-table :data="staticOptions" size="small" border style="width:100%">
+            <el-table-column prop="value" label="value" width="130"></el-table-column>
+            <el-table-column prop="label" label="label" min-width="160"></el-table-column>
+            <el-table-column prop="color" label="颜色" width="130"></el-table-column>
+            <el-table-column label="禁用" width="90">
+              <template #default="{ row }">{{ row.disabled ? '是' : '否' }}</template>
+            </el-table-column>
+            <el-table-column prop="sort" label="排序" width="110"></el-table-column>
+          </el-table>
 
           <div class="ep-section">解析结果（sort 升序 → value 去重 → i18n 回退）</div>
           <div class="dp-metrics">
             <div class="dp-metric"><div class="v">{{ rawCount }}</div><div class="k">原始选项数</div></div>
             <div class="dp-metric"><div class="v">{{ parsedOptions.length }}</div><div class="k">解析后选项数</div></div>
             <div class="dp-metric"><div class="v">{{ dupCount }}</div><div class="k">去重/剔除数</div></div>
-            <div class="dp-metric"><div class="v">{{ source === 'dict' ? 'dict' : 'static' }}</div><div class="k">当前来源</div></div>
+            <div class="dp-metric"><div class="v">option</div><div class="k">字段类型</div></div>
           </div>
           <div class="dp-out">{{ parsedJson }}</div>
         </el-tab-pane>
@@ -436,6 +415,8 @@ tag: {{ j(wCheckbox) }}（与 checkbox 同一字段，仅形态不同）</div>
       var wButton = ref('mid');
       var wSegment = ref('month');
       var wCheckbox = ref(['high']);
+      var wDropdown = ref('high');
+      var wDropdownMulti = ref(['high']);
       function toggleTag(v) {
         if (readonly.value) { return; }
         var idx = wCheckbox.value.indexOf(v);
@@ -565,7 +546,7 @@ tag: {{ j(wCheckbox) }}（与 checkbox 同一字段，仅形态不同）</div>
         basicOn, enableText, smallOn, allowNull, triValue, dangerOn, normInput, normResult, validateResult,
         clearTri, beforeDangerChange, runValidate, doNormalize,
         loadingRow, lastInlineLog, rows, beforeInlineChange,
-        minItems, maxItems, priorityOptions, segmentOptions, wRadio, wButton, wSegment, wCheckbox, toggleTag,
+        minItems, maxItems, priorityOptions, segmentOptions, wRadio, wButton, wSegment, wCheckbox, wDropdown, wDropdownMulti, toggleTag,
         source, colorChoices, staticOptions, addOption, addDup, removeOption,
         dictVersion, dictOptions, loadDict, rawCount, dupCount, parsedJson, optionColor, enumText,
         parsedOptions, options: parsedOptions,
