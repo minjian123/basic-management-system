@@ -124,8 +124,7 @@ const fallbackComponent = computed<Component | undefined>(
   () => registry.get(`el:${props.fallback}`)?.source as Component | undefined,
 )
 
-/** 生效组件（未解析时用兜底）。 */
-const activeComponent = computed<Component | undefined>(() => componentSource.value ?? fallbackComponent.value)
+
 </script>
 
 <template>
@@ -139,9 +138,10 @@ const activeComponent = computed<Component | undefined>(() => componentSource.va
     :data-spin="spin || undefined"
     :style="{ width: sizeValue, height: sizeValue, color, fontSize: sizeValue }"
   >
-    <component :is="activeComponent" v-if="activeComponent" />
+    <component :is="componentSource" v-if="componentSource" />
     <!-- eslint-disable-next-line vue/no-v-html -- 自定义图标 SVG 已经 DOMPurify 白名单清洗 -->
     <span v-else-if="svgHtml" data-test="icon-svg" v-html="svgHtml" />
+    <component :is="fallbackComponent" v-else-if="fallbackComponent" />
   </span>
 </template>
 

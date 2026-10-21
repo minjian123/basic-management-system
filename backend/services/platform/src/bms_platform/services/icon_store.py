@@ -196,7 +196,7 @@ class IconStore:
             row = await self._icons.get_by_code(code)
             if row is None:
                 raise NotFoundError(f"图标不存在：{code}")
-            values: dict[str, object] = {}
+            values: dict[str, object] = {}  # bare-collections:allow（局部 kwargs 组装，不跨边界）
             if patch.category is not None:
                 values["category"] = patch.category
             if patch.tags is not None:

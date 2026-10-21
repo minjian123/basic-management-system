@@ -125,8 +125,10 @@ def test_owned_tables_and_chain_derivation() -> None:
         "sys_account_lock",
     } <= tenant_chain
     assert infrastructure_tables() <= tenant_chain
+    # 租户自定义图标（03_03 真实落库）已入链
+    assert {"sys_icon", "sys_icon_i18n"} <= tenant_chain
     # 未定稿表（骨架表 / 演示表）不进链（06_02 状态收口）
-    assert {"sys_task", "sys_task_log", "sys_icon", "demo"}.isdisjoint(tenant_chain)
+    assert {"sys_task", "sys_task_log", "demo"}.isdisjoint(tenant_chain)
 
     assert chain_tables("tenant", Datasource.PLATFORM) == frozenset(
         {

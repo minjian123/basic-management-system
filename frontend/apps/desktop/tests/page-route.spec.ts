@@ -48,7 +48,7 @@ beforeEach(() => {
 describe('表单页路由统一装载（02_13）', () => {
   it('装载表单页路由并按名卸载（幂等；跳过已存在路径）', () => {
     const names = ensureFormPageRoutes(router)
-    expect(names).toEqual(['SystemRole', 'SystemUser', 'SystemTenant'])
+    expect(names).toEqual(['SystemRole', 'SystemUser', 'SystemTenant', 'SystemMenu', 'SystemForm'])
     expect(router.hasRoute('SystemRole')).toBe(true)
     expect(router.hasRoute('SystemUser')).toBe(true)
     // 幂等：再次装载不重复
@@ -63,12 +63,12 @@ describe('表单页路由统一装载（02_13）', () => {
   it('已存在同路径静态路由时跳过（不覆盖）', () => {
     router.addRoute({ path: '/sys/roles', name: 'PreExisting', component: { template: '<div />' } })
     const names = ensureFormPageRoutes(router)
-    expect(names).toEqual(['SystemUser', 'SystemTenant'])
+    expect(names).toEqual(['SystemUser', 'SystemTenant', 'SystemMenu', 'SystemForm'])
     expect(router.hasRoute('PreExisting')).toBe(true)
   })
 
   it('平台表单页声明覆盖 role / user 且标题取自声明', () => {
-    expect(FORM_PAGE_DECLARATIONS.map((item) => item.formKey)).toEqual(['role', 'user', 'tenant'])
+    expect(FORM_PAGE_DECLARATIONS.map((item) => item.formKey)).toEqual(['role', 'user', 'tenant', 'menu', 'form'])
     expect(resolvePageRoute('role')).toBeUndefined()
     expect(pageRoute.listPreferenceKeyOf('role')).toBe('list.role')
     expect(pageRoute.schemeFieldKeyOf('role')).toBe('role')

@@ -102,6 +102,18 @@ describe('IconRenderer 只读渲染', () => {
     expect(empty.find('[data-test="icon-renderer"]').exists()).toBe(false)
   })
 
+  it('字符串 SVG 来源优先于兜底图标（租户自定义图标）', async () => {
+    const registry = new IconRegistry()
+    registry.register(new IconProvider('custom:receipt', '<svg xmlns="http://www.w3.org/2000/svg"><path d="M0 0h1" /></svg>', { name: '票据' }))
+
+    const wrapper = mount(IconRenderer, { props: { name: 'custom:receipt', registry } })
+    await flushPromises()
+    expect(wrapper.attributes('data-resolved')).toBe('custom:receipt')
+    expect(wrapper.find('[data-test="icon-svg"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="icon-svg"] svg').exists()).toBe(true)
+    expect(wrapper.attributes('data-missing')).toBeUndefined()
+  })
+
   it('el: 键名归一：小写 / kebab-case 解析到 PascalCase 官方键', async () => {
     const registry = new IconRegistry()
     registry.register(new IconProvider('el:OfficeBuilding', DummyIcon, { name: 'OfficeBuilding' }))

@@ -5073,9 +5073,9 @@ export interface components {
             id: string;
             /**
              * Menu Ids
-             * @description 关联菜单入口 ID 清单（空 = 无入口表单）
+             * @description 关联菜单入口 ID 清单（雪花 ID 字符串化；空 = 无入口表单）
              */
-            menu_ids?: number[];
+            menu_ids?: string[];
             /**
              * Status
              * @description 状态（enabled/disabled）

@@ -271,7 +271,19 @@ def _menu_item(row: SysMenu, i18n: ConcurrentStableDict[str, str]) -> MenuItem:
     )
 
 
-def _form_item(row: SysForm, menu_ids: ConcurrentStableList[int]) -> FormItem:
+def _menu_id_strings(menu_ids: ConcurrentStableList[int]) -> ConcurrentStableList[str]:
+    """菜单入口 ID 清单字符串化（雪花 ID 防 JS 精度丢失）。
+
+    Args:
+        menu_ids: 请求中的菜单入口 ID 清单（整型）。
+
+    Returns:
+        ConcurrentStableList[str]: 字符串化 ID 清单。
+    """
+    return ConcurrentStableList(str(item) for item in menu_ids)
+
+
+def _form_item(row: SysForm, menu_ids: ConcurrentStableList[str]) -> FormItem:
     """表单记录 → 契约行。
 
     Args:
@@ -505,7 +517,7 @@ async def create_form(req: FormCreateRequest, uow: UowDep, outbox: OutboxDep, ca
     row = await _service(uow, outbox, cache).create_form(
         menu_ids=req.menu_ids, business_id=req.business_id, component=req.component, status=req.status
     )
-    return ApiResponse.ok(_form_item(row, req.menu_ids))
+    return ApiResponse.ok(_form_item(row, _menu_id_strings(req.menu_ids)))
 
 
 @form_router.put("/{form_id}", dependencies=[_REQUIRE_MENU_UPDATE])
@@ -527,7 +539,7 @@ async def update_form(
     row = await _service(uow, outbox, cache).update_form(
         form_id, menu_ids=req.menu_ids, business_id=req.business_id, component=req.component, status=req.status
     )
-    return ApiResponse.ok(_form_item(row, req.menu_ids))
+    return ApiResponse.ok(_form_item(row, _menu_id_strings(req.menu_ids)))
 
 
 @form_router.delete("/{form_id}", dependencies=[_REQUIRE_MENU_DELETE])

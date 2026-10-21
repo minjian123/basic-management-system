@@ -3501,9 +3501,9 @@
             "type": "string"
           },
           "menu_ids": {
-            "description": "关联菜单入口 ID 清单（空 = 无入口表单）",
+            "description": "关联菜单入口 ID 清单（雪花 ID 字符串化；空 = 无入口表单）",
             "items": {
-              "type": "integer"
+              "type": "string"
             },
             "title": "Menu Ids",
             "type": "array"

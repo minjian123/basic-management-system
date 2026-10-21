@@ -346,9 +346,13 @@ class PermissionRepository(BaseDbRepository[SysPermission]):
         Returns:
             int: 权限码数量。
         """
-        statement = select(sa.func.count()).select_from(SysPermission).where(
-            SysPermission.business_id == business_id,
-            SysPermission.deleted_at.is_(None),
+        statement = (
+            select(sa.func.count())
+            .select_from(SysPermission)
+            .where(
+                SysPermission.business_id == business_id,
+                SysPermission.deleted_at.is_(None),
+            )
         )
         return int((await self._session.execute(statement)).scalar_one())
 
@@ -375,9 +379,13 @@ class PermissionRepository(BaseDbRepository[SysPermission]):
         Returns:
             int: 权限码数量。
         """
-        statement = select(sa.func.count()).select_from(SysPermission).where(
-            SysPermission.action_id == action_id,
-            SysPermission.deleted_at.is_(None),
+        statement = (
+            select(sa.func.count())
+            .select_from(SysPermission)
+            .where(
+                SysPermission.action_id == action_id,
+                SysPermission.deleted_at.is_(None),
+            )
         )
         return int((await self._session.execute(statement)).scalar_one())
 
@@ -753,12 +761,16 @@ class MetadataReferenceRepository(BaseDbRepository[SysRolePermission]):
         Returns:
             int: 引用数（活动行）。
         """
-        statement = select(sa.func.count()).select_from(SysRolePermission).where(
-            SysRolePermission.deleted_at.is_(None),
-            sa.or_(
-                sa.and_(SysRolePermission.perm_type == PERM_TYPE_MENU, SysRolePermission.target_id == menu_id),
-                SysRolePermission.source_menu_id == menu_id,
-            ),
+        statement = (
+            select(sa.func.count())
+            .select_from(SysRolePermission)
+            .where(
+                SysRolePermission.deleted_at.is_(None),
+                sa.or_(
+                    sa.and_(SysRolePermission.perm_type == PERM_TYPE_MENU, SysRolePermission.target_id == menu_id),
+                    SysRolePermission.source_menu_id == menu_id,
+                ),
+            )
         )
         return int((await self._session.execute(statement)).scalar_one())
 
@@ -771,10 +783,14 @@ class MetadataReferenceRepository(BaseDbRepository[SysRolePermission]):
         Returns:
             int: 引用数（活动行）。
         """
-        statement = select(sa.func.count()).select_from(SysRolePermission).where(
-            SysRolePermission.deleted_at.is_(None),
-            SysRolePermission.perm_type == PERM_TYPE_FORM,
-            sa.or_(SysRolePermission.target_id == form_id, SysRolePermission.source_menu_id == form_id),
+        statement = (
+            select(sa.func.count())
+            .select_from(SysRolePermission)
+            .where(
+                SysRolePermission.deleted_at.is_(None),
+                SysRolePermission.perm_type == PERM_TYPE_FORM,
+                sa.or_(SysRolePermission.target_id == form_id, SysRolePermission.source_menu_id == form_id),
+            )
         )
         return int((await self._session.execute(statement)).scalar_one())
 
@@ -787,10 +803,14 @@ class MetadataReferenceRepository(BaseDbRepository[SysRolePermission]):
         Returns:
             int: 引用数（活动行）。
         """
-        statement = select(sa.func.count()).select_from(SysRolePermission).where(
-            SysRolePermission.deleted_at.is_(None),
-            SysRolePermission.perm_type == PERM_TYPE_PERMISSION,
-            SysRolePermission.target_id == permission_id,
+        statement = (
+            select(sa.func.count())
+            .select_from(SysRolePermission)
+            .where(
+                SysRolePermission.deleted_at.is_(None),
+                SysRolePermission.perm_type == PERM_TYPE_PERMISSION,
+                SysRolePermission.target_id == permission_id,
+            )
         )
         return int((await self._session.execute(statement)).scalar_one())
 
@@ -806,7 +826,9 @@ class MetadataReferenceRepository(BaseDbRepository[SysRolePermission]):
         """
         if form_id is None and field_id is None:
             return 0
-        conditions = [SysRoleField.deleted_at.is_(None)]
+        conditions: ConcurrentStableList[sa.ColumnElement[bool]] = ConcurrentStableList(
+            [SysRoleField.deleted_at.is_(None)]
+        )
         if form_id is not None:
             conditions.append(SysRoleField.form_id == form_id)
         if field_id is not None:

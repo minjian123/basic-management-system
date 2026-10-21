@@ -157,7 +157,7 @@ class IconDraft(BaseSchema):
     )
     svg: str = Field(description="SVG 内容（内联；类型 / 大小校验与清洗随文件管理阶段）")
     i18n: Annotated[ConcurrentStableDict[str, str], CONTRACT_COLLECTION] = Field(
-        default_factory=ConcurrentStableDict, description="多语言名称映射（locale → 文案）"
+        default_factory=lambda: ConcurrentStableDict[str, str](), description="多语言名称映射（locale → 文案）"
     )
 
 
@@ -190,7 +190,7 @@ class IconInfo(BaseSchema):
     status: str = Field(default=DEFAULT_ICON_STATUS, description="状态（active 启用 / disabled 停用）")
     icon_key: str = Field(description="图标键派生值（custom:{图标键}，经 build_icon_key 派生）")
     i18n: Annotated[ConcurrentStableDict[str, str], CONTRACT_COLLECTION] = Field(
-        default_factory=ConcurrentStableDict, description="多语言名称（locale → 文案）"
+        default_factory=lambda: ConcurrentStableDict[str, str](), description="多语言名称（locale → 文案）"
     )
     reference_count: int = Field(default=0, description="被菜单 / 卡片引用次数（删除前置检查）")
 

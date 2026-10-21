@@ -351,9 +351,7 @@ async def test_icon_store_validation_i18n_and_menu_reference(client: AsyncClient
         resp = await client.post(API, json={**_ICON_BODY, "svg": svg, "code": "bad-svg"})
         assert resp.json()["code"] == ErrorCode.PARAM, svg
 
-    created = await client.post(
-        API, json={**_ICON_BODY, "i18n": {"zh-CN": "采购订单", "en-US": "Purchase order"}}
-    )
+    created = await client.post(API, json={**_ICON_BODY, "i18n": {"zh-CN": "采购订单", "en-US": "Purchase order"}})
     assert created.json()["data"]["name"] == "采购订单"
     assert created.json()["data"]["i18n"]["en-US"] == "Purchase order"
 

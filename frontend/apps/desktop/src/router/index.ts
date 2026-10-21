@@ -51,6 +51,32 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/views/system/user/AccountLockView.vue'),
     meta: { title: '账号锁定', keepAlive: true },
   },
+  // 权限元数据维护页（03_03）：业务码 / 动作码 / 权限码 / 自定义图标走静态路由
+  // （菜单与表单由 `page-route.ts` 的表单页声明统一装载，03_03 决策 10）。
+  {
+    path: '/sys/businesses',
+    name: 'SystemBusiness',
+    component: () => import('@/views/system/business/BusinessView.vue'),
+    meta: { title: '业务码管理', keepAlive: true },
+  },
+  {
+    path: '/sys/actions',
+    name: 'SystemAction',
+    component: () => import('@/views/system/action/ActionView.vue'),
+    meta: { title: '动作码管理', keepAlive: true },
+  },
+  {
+    path: '/sys/permissions',
+    name: 'SystemPermission',
+    component: () => import('@/views/system/permission/PermissionView.vue'),
+    meta: { title: '权限码管理', keepAlive: true },
+  },
+  {
+    path: '/sys/icons',
+    name: 'SystemIcon',
+    component: () => import('@/views/system/icon/IconView.vue'),
+    meta: { title: '自定义图标', keepAlive: true },
+  },
   // 自助改密（首登强制改密 / 常规改密）：受保护静态路由，守卫在 `must_change_password` 时强制跳转。
   {
     path: '/change-password',

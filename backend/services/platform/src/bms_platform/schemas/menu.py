@@ -178,10 +178,10 @@ class PermissionGenerateRequest(BaseSchema):
     """批量补生成缺失权限码组合请求（范围为空 = 全部启用项）。"""
 
     business_ids: Annotated[ConcurrentStableList[int], CONTRACT_COLLECTION] = Field(
-        default_factory=ConcurrentStableList, description="限定业务码 ID 清单（空 = 全部启用业务码）"
+        default_factory=CONTRACT_STABLE_LIST, description="限定业务码 ID 清单（空 = 全部启用业务码）"
     )
     action_ids: Annotated[ConcurrentStableList[int], CONTRACT_COLLECTION] = Field(
-        default_factory=ConcurrentStableList, description="限定动作码 ID 清单（空 = 全部启用动作码）"
+        default_factory=CONTRACT_STABLE_LIST, description="限定动作码 ID 清单（空 = 全部启用动作码）"
     )
     include_disabled: bool = Field(default=False, description="是否包含停用的业务 / 动作码")
 
@@ -227,8 +227,8 @@ class FormItem(BaseSchema):
     """表单行（菜单入口多对多）。"""
 
     id: int = Field(description="表单主键")
-    menu_ids: Annotated[ConcurrentStableList[int], CONTRACT_COLLECTION] = Field(
-        default_factory=CONTRACT_STABLE_LIST, description="关联菜单入口 ID 清单（空 = 无入口表单）"
+    menu_ids: Annotated[ConcurrentStableList[str], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_LIST, description="关联菜单入口 ID 清单（雪花 ID 字符串化；空 = 无入口表单）"
     )
     business_id: int = Field(description="所属业务码 ID")
     component: str | None = Field(description="表单视图组件标识")

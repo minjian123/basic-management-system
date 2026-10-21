@@ -19,7 +19,10 @@ from bms_core.permission.rbac import RBAC_PROVIDER_NAME
 from bms_core.scope.rbac import RBAC_DATA_SCOPE_NAME, register_rbac_data_scope
 from bms_platform import CONTRACT_VERSION, SERVICE_NAME, SERVICE_TITLE, __version__
 from bms_platform.api.router import api_router
-from bms_platform.icon.registry import DB_ICON_PROVIDER, DbIconRegistry  # noqa: F401  (导入即登记 icon_registry:db)
+from bms_platform.icon.registry import (  # noqa: F401  (导入即登记 icon_registry:db)
+    DB_ICON_PROVIDER,
+    DbIconRegistry,  # pyright: ignore[reportUnusedImport]
+)
 from bms_platform.permission.checker import register_platform_permission
 from bms_platform.repositories.demo_repository import DemoRepository
 from bms_platform.services.branch_handlers import build_branch_handlers

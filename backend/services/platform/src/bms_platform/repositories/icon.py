@@ -12,7 +12,7 @@ from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.repositories.base_db_repository import BaseDbRepository
 from bms_platform.models.menu import SysMenu
 from bms_platform.models.system import SysIcon, SysIconI18n
-from bms_platform.repositories.menu import _load_i18n_all, _replace_i18n
+from bms_platform.repositories.menu import _load_i18n_all, _replace_i18n  # pyright: ignore[reportPrivateUsage]
 
 
 class IconRepository(BaseDbRepository[SysIcon]):

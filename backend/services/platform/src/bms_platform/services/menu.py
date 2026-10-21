@@ -633,7 +633,7 @@ class MenuMetadataService(BaseFrameworkObject):
         items = ConcurrentStableList(
             FormItem(
                 id=row.id,
-                menu_ids=ConcurrentStableList(menu_ids_by_form.get(row.id) or ()),
+                menu_ids=ConcurrentStableList(str(item) for item in (menu_ids_by_form.get(row.id) or ())),
                 business_id=row.business_id,
                 component=row.component,
                 status=row.status,
@@ -1026,7 +1026,7 @@ class MenuMetadataService(BaseFrameworkObject):
                 actions = ConcurrentStableList(row for row in actions if row.id in wanted_action)
             existing = await self._permissions.list_all()
             active_pairs = {(row.business_id, row.action_id) for row in existing}
-            deleted_pairs: dict[tuple[int, int], int] = {}
+            deleted_pairs: dict[tuple[int, int], int] = {}  # bare-collections:allow（补生成临时映射，仅本函数内）
             for business in businesses:
                 for action in actions:
                     pair = (business.id, action.id)

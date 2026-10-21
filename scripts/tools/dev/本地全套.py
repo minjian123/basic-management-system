@@ -444,7 +444,7 @@ def open_log_append(log_path, svc):
             os.replace(log_path, log_path + ".1")
     with contextlib.suppress(OSError):
         os.makedirs(os.path.dirname(log_path), exist_ok=True)
-    logf = open(log_path, "ab")
+    logf = open(log_path, "ab")  # noqa: SIM115 —— 句柄交给 Popen 持有至进程结束，不能在此 with 关闭
     stamp = time.strftime("%Y-%m-%d %H:%M:%S")
     logf.write(f"\n===== {svc} 启动 @ {stamp}（本地全套.py）=====\n".encode())
     logf.flush()

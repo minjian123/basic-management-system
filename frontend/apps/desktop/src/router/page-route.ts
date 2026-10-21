@@ -49,6 +49,24 @@ export const FORM_PAGE_DECLARATIONS: FormPageDeclaration[] = [
     meta: { keepAlive: true },
     list: () => import('@/views/system/TenantView.vue'),
   },
+  // 菜单 / 表单维护页（03_03）：`sys_menu` / `sys_form` 为元数据表、不落 `form_key` 清单，
+  // 故 `pageRoute.resolve` 对二者返回 `undefined`；路由仍由下方声明统一装载（静态路径不重叠）。
+  {
+    formKey: 'menu',
+    title: '菜单管理',
+    path: '/sys/menus',
+    name: 'SystemMenu',
+    meta: { keepAlive: true },
+    list: () => import('@/views/system/menu/MenuView.vue'),
+  },
+  {
+    formKey: 'form',
+    title: '表单管理',
+    path: '/sys/forms',
+    name: 'SystemForm',
+    meta: { keepAlive: true },
+    list: () => import('@/views/system/form/FormView.vue'),
+  },
 ]
 
 pageRoute.declareAll(FORM_PAGE_DECLARATIONS)
