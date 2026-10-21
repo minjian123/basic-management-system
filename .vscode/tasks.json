@@ -45,6 +45,7 @@
       "type": "shell",
       "command": "python3 \"${workspaceFolder}/scripts/tools/dev/清理宿主端口.py\" 5173 \"${workspaceFolder}/frontend/apps/desktop\"",
       "options": { "cwd": "${workspaceFolder}" },
+      "presentation": { "reveal": "silent", "panel": "shared" },
       "problemMatcher": []
     },
     {
@@ -54,6 +55,7 @@
       "type": "shell",
       "command": "python3 \"${workspaceFolder}/scripts/tools/dev/确保模块产物服务.py\"",
       "options": { "cwd": "${workspaceFolder}" },
+      "presentation": { "reveal": "silent", "panel": "shared" },
       "problemMatcher": []
     },
     {
@@ -66,7 +68,7 @@
       "dependsOn": "dev:清理宿主端口（5173）",
       "dependsOrder": "sequence",
       "isBackground": true,
-      "presentation": { "reveal": "always", "panel": "dedicated" },
+      "presentation": { "reveal": "silent", "panel": "dedicated" },
       "problemMatcher": {
         "owner": "bms-vite-desktop",
         "pattern": [{ "regexp": "^\\[bms-vite\\]\\s(.*)$", "file": 1, "message": 1, "kind": "file" }],
@@ -79,14 +81,14 @@
     },
     {
       "label": "dev:宿主 + 模块产物（5002 + 5173）",
-      "detail": "宿主加载运行时模块的前置组合：先经 dependsOn 清理 5173 并确保 5002 在跑，再起宿主 dev",
+      "detail": "宿主加载运行时模块的前置组合：先起三服务（静默，缺则拉起并等健康）→ 清理 5173 → 确保 5002 在跑 → 起宿主 dev；前端不再早于后端就绪而报 ECONNREFUSED",
       "type": "shell",
       "command": "pnpm dev",
       "options": { "cwd": "${workspaceFolder}/frontend/apps/desktop" },
-      "dependsOn": ["dev:清理宿主端口（5173）", "dev:确保模块产物服务（5002）"],
+      "dependsOn": ["dev:后端本地全套（三服务）", "dev:清理宿主端口（5173）", "dev:确保模块产物服务（5002）"],
       "dependsOrder": "sequence",
       "isBackground": true,
-      "presentation": { "reveal": "always", "panel": "dedicated" },
+      "presentation": { "reveal": "silent", "panel": "dedicated" },
       "problemMatcher": {
         "owner": "bms-vite-desktop-with-modules",
         "pattern": [{ "regexp": "^\\[bms-vite\\]\\s(.*)$", "file": 1, "message": 1, "kind": "file" }],
@@ -104,7 +106,7 @@
       "command": "node frontend/scripts/serve-module-releases.mjs",
       "options": { "cwd": "${workspaceFolder}" },
       "isBackground": true,
-      "presentation": { "reveal": "always", "panel": "dedicated" },
+      "presentation": { "reveal": "silent", "panel": "dedicated" },
       "problemMatcher": {
         "owner": "bms-module-releases",
         "pattern": [{ "regexp": "^\\[bms-mreleases\\]\\s(.*)$", "file": 1, "message": 1, "kind": "file" }],
@@ -167,6 +169,7 @@
       "type": "shell",
       "command": "python3 \"${workspaceFolder}/scripts/tools/dev/清理宿主端口.py\" 8000 \"${workspaceFolder}/backend\"",
       "options": { "cwd": "${workspaceFolder}" },
+      "presentation": { "reveal": "silent", "panel": "shared" },
       "problemMatcher": []
     },
     {
@@ -174,10 +177,11 @@
       // hosts 别名与开发密钥；Redis 缺省指远端开发机 DB5，可用 `BMS_LOCAL_REDIS=...` 覆盖，
       // 库结构变更后用 `本地全套.py up --reset-db`（会先备份移走 database/bms/bms_*.db）。
       "label": "dev:后端本地全套（三服务）",
-      "detail": "python3 scripts/tools/dev/本地全套.py up —— tenant/platform/identity（127.0.0.2/4/5:8000，同一端口 + 别名）",
+      "detail": "python3 scripts/tools/dev/本地全套.py up —— tenant/platform/identity（127.0.0.2/4/5:8000，同一端口 + 别名）；服务已脱离 IDE 任务容器（Windows BREAKAWAY），关掉本终端不停止服务",
       "type": "shell",
       "command": "python3 \"${workspaceFolder}/scripts/tools/dev/本地全套.py\" up",
       "options": { "cwd": "${workspaceFolder}" },
+      "presentation": { "reveal": "silent", "panel": "dedicated", "close": true },
       "problemMatcher": []
     },
     {

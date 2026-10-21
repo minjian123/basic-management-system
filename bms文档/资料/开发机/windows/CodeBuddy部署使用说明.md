@@ -1,6 +1,6 @@
 # CodeBuddy 部署使用说明
 
-> mjpc 开发机 Windows 11 侧 CodeBuddy CN（应用 1.106.1 / 安装器 4.12.2）部署、配置、权限、扩展管理、运行调试与浏览器真机验证（Playwright MCP）实录 · 2026-10-15 安装 / 2026-10-16 事实核实 / 2026-10-21 权限与免确认设置（全 13 类放开）
+> mjpc 开发机 Windows 11 侧 CodeBuddy CN（应用 1.106.1 / 安装器 4.12.2）部署、配置、权限、扩展管理、运行调试与浏览器真机验证（Playwright MCP）实录 · 2026-10-15 安装 / 2026-10-16 事实核实 / 2026-10-21 权限与免确认设置（全 13 类放开） / 2026-10-21 本地全套脱 Job 启动与 PID 复用校验
 
 [文档首页](../../../文档首页.md) › 资料 › 开发机 › windows › CodeBuddy 部署使用说明　|　[同级：开发机部署使用说明总览](开发机部署使用说明总览.md)　[google-chrome部署使用说明 →](google-chrome部署使用说明.md)　[playwright部署使用说明 →](playwright部署使用说明.md)　[VSCode部署使用说明 →](VSCode部署使用说明.md)　[linux 版 CodeBuddy 部署使用说明 →](../linux/CodeBuddy部署使用说明.md)
 
@@ -349,7 +349,7 @@ Windows 侧关键点：同一份 `launch.json` 用 **`windows` 平台覆盖**表
 | 别名     | `127.0.0.2 tenant`、`127.0.0.4 platform`、`127.0.0.5 identity`（`up` 自愈写入 hosts；**Windows 写 hosts 需管理员权限**，失败时脚本提示手工追加） |
 | 开发密钥 | `bms\backend\.dev-keys.local`（`up` 缺则用 `joserfc` 生成：`usr-` 用户令牌 + `svc-` 服务令牌；不入库）                        |
 | Redis    | 缺省指开发服务器上的隔离库（DB5；地址以脚本缺省与《[本地资源](../../../用户文档/本地资源.md)》为准，`--redis` 或 `BMS_LOCAL_REDIS` 覆盖） |
-| 状态目录 | `%TEMP%\bms-local-stack`（pid 与日志；linux 侧为 `/tmp/bms-local-stack`）                                                          |
+| 状态目录 | `%TEMP%\bms-local-stack`（pid 与日志；linux 侧为 `/tmp/bms-local-stack`）。日志**追加**写：每次启动写一行 `===== <服务> 启动 @ 时间 =====` 分隔，单文件超 5MB 归档为 `.log.1`（保留一份）——**不再覆盖历史**，便于事后判断「进程是被强杀还是正常退出」 |
 | 前端映射 | `bms\frontend\apps\desktop\.env.local` 的 `VITE_LOCAL_API`（**`up` 收尾自动写入**，`env` 子命令可单独补；未列出的服务仍走远端网关） |
 | 账号     | `seed` 建号（缺省账号 `admin`，口令随机生成并仅打印一次）——**首次起栈后必须跑一次 `seed`**，否则本地库无账号、登录恒 401；账号 / 口令**只登记在《本地资源》** |
 | 库重建   | `本地全套.py up --reset-db`（先把 `database\bms\bms_*.db` 备份移走，服务按当前表结构重建；**重建后须重新 `seed`**）      |
@@ -366,7 +366,11 @@ python3 scripts\tools\dev\本地全套.py unlock          # 解锁账号（清�
 python3 scripts\tools\dev\本地全套.py down            # 停全部：TERM → 5s → KILL；仍不死则报错交人工
 ```
 
-> 也可在资源管理器 / 任务计划里直接跑等价 `.bat` 入口（`scripts\tools\dev\本地全套.bat` 等）。**本机 Windows 侧尚未实跑过本地全套**（2026-10-16 核实：hosts 无别名、8000 未监听），首次运行前请以管理员身份开终端（供 hosts 写入），其余流程与 linux 侧一致。
+> 也可在资源管理器 / 任务计划里直接跑等价 `.bat` 入口（`scripts\tools\dev\本地全套.bat` 等）。**本机 Windows 侧已实跑**（2026-10-21：`tenant` / `platform` / `identity` 三个 `127.0.0.x:8000` 的 `/healthz`、`/readyz` 全 200）；首次运行仍需以管理员身份开终端（供 hosts 写入），其余流程与 linux 侧一致。
+
+**不弹窗、关终端也不停服务（2026-10-21 起）**：`up` 在 Windows 起服务时用 `DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP | CREATE_BREAKAWAY_FROM_JOB` 三个创建标志——既**不新开控制台窗口**，又让服务**脱离 IDE 任务所在的 Job Object**，任务本身跑完即退出、终端随手关掉都不影响服务（`tasks.json` 的 `dev:后端本地全套（三服务）` 另设 `presentation.reveal = silent`）。受控实验（`tmp/job_test.py`，2026-10-21）实测：带 BREAKAWAY 的子进程**能被再分配进新 Job**（说明已脱离父 Job），不带的返回 `ERROR_ACCESS_DENIED`（仍在父 Job 里）；随后销毁新 Job，前者随之结束、后者存活。若运行环境不允许 breakaway，脚本会打印「无法脱离 IDE 任务容器……退化为普通后台进程」，此时关 IDE 仍可能连带停服务。
+
+**F5「全套（本地三服务 + 宿主 + Chromium）」的启动顺序（2026-10-21 起）**：复合项**不再包含**后端 `node-terminal` 成员（它必然占一个终端面板），三服务改由前端调试项的前置任务链静默拉起——`dev:宿主 + 模块产物（5002 + 5173）` 的 `dependsOn` 首环即 `dev:后端本地全套（三服务）`（`dependsOrder: sequence`，等三服务 `/healthz` 200 才继续），随后才清 5173、确保 5002、起 vite。因此：① 启动后**不再自动弹出任何终端面板**（vite / 5002 / 清理类任务均已 `reveal: silent`，要看日志从终端列表手动切）；② **不再出现启动瞬间的 `ECONNREFUSED 127.0.0.5:8000`**（前端严格晚于后端就绪）。只想单独起后端时仍可用「后端：本地全套（三服务 · 脚本）」单项，但该项是调试会话、会占终端。
 
 **断点口径**（脚本起的服务是分离后台进程，**不带调试器**）：
 
@@ -390,6 +394,7 @@ python3 scripts\tools\dev\本地全套.py down            # 停全部：TERM →
 | 启动即报端口被占（5173 / 8000）                                 | 上一次遗留的 dev / 调试进程未退出：5173 由前置任务 `dev:清理宿主端口（5173）` 自愈、8000 由 `dev:清理后端端口（8000）` 自愈；**占用者为非本项目进程时任务会中止并提示**（不误杀）                                                                                                  |
 | 点「全套」弹「任务尚未退出，并且未定义 problemMatcher」         | 该 background 任务的 `command` 里混了准备动作，耗时超出就绪等待窗口：点「仍要调试」可继续；根治是把准备动作拆成 `dependsOn` 前置任务（本机两处 `tasks.json` 已如此）                                                                                                              |
 | 本地全套写 hosts 失败                                           | Windows 写 `C:\Windows\System32\drivers\etc\hosts` **需管理员权限**：以管理员身份重跑，或按脚本提示手工追加三个别名行                                                                                                                                                                  |
+| 前端 vite 报 `http proxy error: /api/v1/auth/refresh` + `ECONNREFUSED 127.0.0.5:8000`（验证码 / SSO 同样被拒） | **identity 没在监听**（tenant / platform 正常时尤其典型）。① `本地全套.py status` 看 identity 行：PID 为 `-`、healthz `000` ⇒ 未起；② 跑 `up` 幂等补起（只补缺的服务）。根因两类：**(a) 服务被 IDE 任务连带强杀**——日志（`%TEMP%\bms-local-stack\identity.log`）里**没有** `Shutting down` 记录即属此列（强杀不走优雅关闭），2026-10-21 已用 `CREATE_BREAKAWAY_FROM_JOB` 根治；**(b) 旧 pid 文件里的 PID 已被别的程序复用**——旧版脚本只看「PID 存活」就判「已在跑」而跳过启动，`status` 还会显示假的 PID；2026-10-21 起改为校验命令行含 `-m bms_<服务>`，复用 PID 在 `status` 里显示 `-` 并提示「无有效 pid」，`down` / `stop` 也只清 pid 文件、**不误杀**被复用的进程 |
 | 本地登录**恒 401**，但三服务 `/healthz`、`/readyz` 都 200  | 本地库里**没有可用账号**（多为 `--reset-db` 重建后未建号）：跑 `python3 scripts\tools\dev\本地全套.py seed`（租户 + 菜单 + 建号 `admin`），或 `seed` 加 `--username/--password`                                                                                                     |
 | 登录报 **502**（`Request failed with status code 502`）          | 前端 `/api` 未就近代理，回落到了 `VITE_API_PROXY`（缺省 `http://localhost:8088`，本机通常无此网关）：确认 `frontend\apps\desktop\.env.local` 有 `VITE_LOCAL_API=tenant=127.0.0.2,platform=127.0.0.4,identity=127.0.0.5`——跑一次 `本地全套.py up`（收尾自动补）或 `本地全套.py env`；**`.env.local` 新增后须让 vite 重载配置**（重启「前端：宿主 dev」任务，或改动任意 config 触发 vite 重启） |
 | 登录后**刷新 / 深链直开**动态菜单页落 404（如 `/sys/users`、`/sys/roles`） | 路由守卫的动态路由重解析判定曾用 `router.hasRoute(path)`（该 API 参数是路由 **name**，通用页面路由 `name: 'SystemUser'` ≠ `path: '/sys/users'` 时恒假）→ 刷新不重解析、落兜底 404。**2026-10-18 已修**（改按 `router.resolve(path)` 命中的路由记录标识前后对比）；若仍复现，确认宿主代码已更新且 vite 已热更（必要时重启 dev 任务） |

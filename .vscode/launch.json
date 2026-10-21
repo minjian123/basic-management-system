@@ -168,6 +168,8 @@
       // （tenant/platform/identity；同一 8000 + loopback 别名，与服务基址模板 http://{service}:8000 同形，
       // 并加载 `backend/.dev-keys.local` 的开发密钥；`org` 已归 mdm 产品服务）。服务是后台进程——本终端
       // 只承载会话，关掉不影响服务；停服务请用任务 `dev:后端本地全套·停（三服务）`。
+      // **日常不必启动本项**：复合项「全套（本地三服务 + 宿主 + Chromium）」已改为经前置任务链静默拉起三服务；
+      // 本项仅在「只想单独起后端、且接受一个终端面板」时使用（node-terminal 会话必然占终端）。
       "name": "后端：本地全套（三服务 · 脚本）",
       "type": "node-terminal",
       "request": "launch",
@@ -205,10 +207,11 @@
       "configurations": ["后端：单服务（debugpy · bms_identity）", "前端：宿主 + 模块 + Chromium（浏览器断点）"]
     },
     {
-      // 一键：三服务（脚本，后台进程）+ 宿主 + 模块产物 + Chromium。**前端断点可直接用**（Chromium 调试会话）；
+      // 一键：三服务由**前置任务链静默拉起**（`dev:宿主 + 模块产物` 的 dependsOn 首环，已完成健康等待），
+      // 本复合项只含前端调试会话 ⇒ F5 不再弹后端终端、也不会在 identity 就绪前发请求。
       // **后端断点**请改用「后端：单服务（debugpy · 本机三服务）」单项（先 `本地全套.py stop <服务>` 腾位）。
       "name": "全套（本地三服务 + 宿主 + Chromium）",
-      "configurations": ["后端：本地全套（三服务 · 脚本）", "前端：宿主 + 模块 + Chromium（浏览器断点）"]
+      "configurations": ["前端：宿主 + 模块 + Chromium（浏览器断点）"]
     }
   ],
   "inputs": [

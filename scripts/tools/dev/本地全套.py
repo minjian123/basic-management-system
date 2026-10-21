@@ -76,6 +76,8 @@ PY = (
     else os.path.join(BACKEND, ".venv", "bin", "python")
 )
 PORT = os.environ.get("BMS_LOCAL_PORT") or "8000"
+# Windows 进程创建标志：脱离 IDE 任务所在的 Job Object（否则关任务终端 / 重启 IDE 会连带强杀服务）
+CREATE_BREAKAWAY_FROM_JOB = 0x01000000
 
 SERVICES_DEFAULT = "tenant platform identity"
 # 说明：`org` 已随组织主数据归 mdm 产品服务（2026-10-07，bms 11_01）退出平台服务清单，
@@ -160,6 +162,72 @@ def pid_alive(pid):
         return True
     except OSError:
         return False
+
+
+def proc_cmdline_map():
+    """全机 python 进程的 {pid: 命令行}（PID 复用校验用）；取不到时返回 {}。"""
+    if IS_WINDOWS:
+        try:
+            result = subprocess.run(
+                [
+                    "powershell",
+                    "-NoProfile",
+                    "-Command",
+                    "[Console]::OutputEncoding=[Text.Encoding]::UTF8; "
+                    "Get-CimInstance Win32_Process | Where-Object { $_.Name -like 'python*' } | "
+                    "Select-Object ProcessId,CommandLine | ConvertTo-Json -Compress",
+                ],
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=30,
+            )
+            if result.returncode != 0 or not result.stdout.strip():
+                return {}
+            data = json.loads(result.stdout)
+        except Exception:
+            return {}
+        if isinstance(data, dict):
+            data = [data]
+        procs = {}
+        for item in data:
+            with contextlib.suppress(KeyError, TypeError, ValueError):
+                procs[int(item["ProcessId"])] = item.get("CommandLine") or ""
+        return procs
+
+    procs = {}
+    for entry in os.listdir("/proc"):
+        if not entry.isdigit():
+            continue
+        try:
+            with open(f"/proc/{entry}/cmdline", "rb") as fh:
+                raw = fh.read()
+        except OSError:
+            continue
+        if b"python" not in raw:
+            continue
+        procs[int(entry)] = raw.replace(b"\x00", b" ").decode("utf-8", "replace")
+    return procs
+
+
+def is_service_pid(svc, pid, procs=None):
+    """pid 存活**且**确实是本服务进程（命令行含 `-m bms_<svc>`）。
+
+    PID 会被系统复用：服务退出后同号被别的程序（如 IDE）拿走，旧逻辑只看 `pid_alive`
+    就当成「在跑」⇒ up 跳过、status 假在跑、down 误杀无关进程。命令行取不到时降级为
+    「存活即算」（保持旧行为，避免权限/CIM 异常导致全部判死）。
+    """
+    if not pid or not pid_alive(pid):
+        return False
+    if procs is None:
+        procs = proc_cmdline_map()
+    if not procs:
+        return True
+    cmdline = procs.get(pid)
+    if cmdline is None:
+        return False
+    return f"-m bms_{svc}" in cmdline.replace("\\", "/")
 
 
 def children_of(pid):
@@ -366,13 +434,35 @@ def reset_db():
 
 # ---- 起停 ----
 
+LOG_ROTATE_BYTES = 5 * 1024 * 1024
 
-def start_one(svc, ip):
+
+def open_log_append(log_path, svc):
+    """追加打开服务日志（不再 truncate，历史留作排障证据）：先写启动分隔行；超阈值归档为 .1。"""
+    with contextlib.suppress(OSError):
+        if os.path.getsize(log_path) > LOG_ROTATE_BYTES:
+            os.replace(log_path, log_path + ".1")
+    with contextlib.suppress(OSError):
+        os.makedirs(os.path.dirname(log_path), exist_ok=True)
+    logf = open(log_path, "ab")
+    stamp = time.strftime("%Y-%m-%d %H:%M:%S")
+    logf.write(f"\n===== {svc} 启动 @ {stamp}（本地全套.py）=====\n".encode())
+    logf.flush()
+    return logf
+
+
+def start_one(svc, ip, procs=None):
     pid_file = os.path.join(STATE_DIR, f"{svc}.pid")
     pid = read_pid(pid_file) if os.path.isfile(pid_file) else 0
-    if pid and pid_alive(pid):
+    if pid and is_service_pid(svc, pid, procs):
         log(f"{svc} 已在跑（pid {pid}），跳过")
         return
+    if pid and pid_alive(pid):
+        # PID 复用：旧服务退出后同号被别的程序（如 IDE）拿走，绝不能当「在跑」跳过
+        log(f"{svc} 旧 pid {pid} 已被其他进程复用（不是本服务）——清残留 pid 文件后重新拉起")
+    if pid:
+        with contextlib.suppress(OSError):
+            os.remove(pid_file)
     # 已在监听（例如 IDE 调试起的）→ 接管跳过，避免二次绑定端口失败
     if http_code(f"http://{ip}:{PORT}/healthz") == "200":
         log(f"{svc} 已在监听 {ip}:{PORT}（非本脚本启动；未纳管 pid），跳过")
@@ -390,22 +480,34 @@ def start_one(svc, ip):
         }
     )
     kwargs = {}
-    creationflags = 0
     if IS_WINDOWS:
-        creationflags = getattr(subprocess, "DETACHED_PROCESS", 0) | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+        # DETACHED_PROCESS：不弹控制台窗口；CREATE_NEW_PROCESS_GROUP：独立信号组；
+        # CREATE_BREAKAWAY_FROM_JOB：**脱离 IDE 任务容器**——关掉任务终端 / 重启 IDE 不会被连带强杀
+        base_flags = getattr(subprocess, "DETACHED_PROCESS", 0) | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+        candidates = [base_flags | CREATE_BREAKAWAY_FROM_JOB, base_flags]
     else:
-        kwargs["start_new_session"] = True  # nohup 等价
-    with open(log_path, "wb") as logf:
-        proc = subprocess.Popen(
-            [PY, "-m", f"bms_{svc}"],
-            cwd=BACKEND,
-            env=env,
-            stdin=subprocess.DEVNULL,
-            stdout=logf,
-            stderr=subprocess.STDOUT,
-            creationflags=creationflags,
-            **kwargs,
-        )
+        kwargs["start_new_session"] = True  # nohup 等价（天然脱离父会话）
+        candidates = [0]
+    with open_log_append(log_path, svc) as logf:
+        proc = None
+        for flags in candidates:
+            try:
+                proc = subprocess.Popen(
+                    [PY, "-m", f"bms_{svc}"],
+                    cwd=BACKEND,
+                    env=env,
+                    stdin=subprocess.DEVNULL,
+                    stdout=logf,
+                    stderr=subprocess.STDOUT,
+                    creationflags=flags,
+                    **kwargs,
+                )
+                break
+            except OSError as exc:
+                if flags is candidates[0] and IS_WINDOWS:
+                    log(f"{svc} 无法脱离 IDE 任务容器（{exc}）——退化为普通后台进程：关 IDE 可能被连带停止")
+                    continue
+                raise
     with open(pid_file, "w", encoding="utf-8") as fh:
         fh.write(str(proc.pid) + "\n")
     log(f"{svc} 启动中：{ip}:{PORT}（pid {proc.pid}，日志 {log_path}）")
@@ -441,8 +543,9 @@ def stop_pid(svc, pid):
 
 
 def wait_all_health():
-    """等待全部健康：单一总超时（不逐服务串行耗满），且**进程已退出即立刻报错 + 打印日志尾部**。"""
+    """等待全部健康：单一总超时（不逐服务串行耗满），且**进程已退出 / pid 被复用即立刻报错 + 打印日志尾部**。"""
     deadline = time.time() + HEALTH_TIMEOUT
+    procs = proc_cmdline_map()
     while True:
         pending = []
         for svc in services_list():
@@ -455,7 +558,19 @@ def wait_all_health():
                 err(f"{svc} 进程已退出（pid {pid}）——日志尾部：")
                 tail_log(os.path.join(STATE_DIR, f"{svc}.log"), 20, to_stderr=True)
                 return 1
+            # 命令行明确采集到但与本服务不符 → PID 已被复用（别傻等满超时）
+            if pid and procs and pid in procs and f"-m bms_{svc}" not in procs[pid].replace("\\", "/"):
+                err(f"{svc} 的 pid {pid} 已被其他进程复用（不是本服务，端口无响应）——日志尾部：")
+                tail_log(os.path.join(STATE_DIR, f"{svc}.log"), 20, to_stderr=True)
+                return 1
             pending.append(svc)
+        if not pending:
+            log(f"全部健康（healthz 200）：{SERVICES}")
+            return 0
+        if time.time() >= deadline:
+            err(f"健康等待超时（{HEALTH_TIMEOUT}s），未就绪：{' '.join(pending)} —— 看 {STATE_DIR}/<服务>.log")
+            return 1
+        time.sleep(1)
         if not pending:
             log(f"全部健康（healthz 200）：{SERVICES}")
             return 0
@@ -484,8 +599,9 @@ def cmd_up():
     os.chdir(BACKEND)
     if load_keys_env():
         return 1
+    procs = proc_cmdline_map()
     for svc in services_list():
-        start_one(svc, ip_of(svc))
+        start_one(svc, ip_of(svc), procs)
     if wait_all_health():
         return 1
     # 收尾自动补齐前端 `.env.local`：缺 `VITE_LOCAL_API` 时前端 `/api` 会回落 VITE_API_PROXY 网关
@@ -498,50 +614,8 @@ def cmd_up():
 
 def find_unmanaged_backend_pids():
     """等价 pgrep -f '\\.venv/bin/python -m bms_'（Windows 走 CIM 命令行匹配）。"""
-    if IS_WINDOWS:
-        try:
-            result = subprocess.run(
-                [
-                    "powershell",
-                    "-NoProfile",
-                    "-Command",
-                    "[Console]::OutputEncoding=[Text.Encoding]::UTF8; "
-                    "Get-CimInstance Win32_Process | Where-Object { $_.Name -like 'python*' } | "
-                    "Select-Object ProcessId,CommandLine | ConvertTo-Json -Compress",
-                ],
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                timeout=30,
-            )
-            if result.returncode != 0 or not result.stdout.strip():
-                return []
-            data = json.loads(result.stdout)
-        except Exception:
-            return []
-        if isinstance(data, dict):
-            data = [data]
-        pids = []
-        for item in data:
-            cmdline = item.get("CommandLine") or ""
-            if ".venv\\Scripts\\python" in cmdline and "-m bms_" in cmdline:
-                with contextlib.suppress(KeyError, TypeError, ValueError):
-                    pids.append(int(item["ProcessId"]))
-        return sorted(pids)
-
-    pids = []
-    for entry in os.listdir("/proc"):
-        if not entry.isdigit():
-            continue
-        try:
-            with open(f"/proc/{entry}/cmdline", "rb") as fh:
-                cmdline = fh.read().replace(b"\x00", b" ").decode("utf-8", "replace")
-        except OSError:
-            continue
-        if ".venv/bin/python" in cmdline and "-m bms_" in cmdline:
-            pids.append(int(entry))
-    return sorted(pids)
+    procs = proc_cmdline_map()
+    return sorted(pid for pid, cmdline in procs.items() if "-m bms_" in cmdline.replace("\\", "/"))
 
 
 def cmd_down():
@@ -556,9 +630,11 @@ def cmd_down():
         if not os.path.isfile(pid_file):
             continue
         pid = read_pid(pid_file)
-        if pid and pid_alive(pid):
+        if pid and is_service_pid(svc, pid):
             if stop_pid(svc, pid):
                 rc = 1
+        elif pid and pid_alive(pid):
+            err(f"{svc} 的 pid {pid} 已被其他进程复用——只清残留 pid 文件，不动该进程（避免误杀）")
         else:
             log(f"{svc} 已不在跑（残留 pid 文件，清理）")
         with contextlib.suppress(OSError):
@@ -597,9 +673,11 @@ def cmd_stop(names):
             rc = 1
             continue
         pid = read_pid(pid_file)
-        if pid and pid_alive(pid):
+        if pid and is_service_pid(svc, pid):
             if stop_pid(svc, pid):
                 rc = 1
+        elif pid and pid_alive(pid):
+            err(f"{svc} 的 pid {pid} 已被其他进程复用——只清残留 pid 文件，不动该进程（避免误杀）")
         else:
             log(f"{svc} 已不在跑（清理残留 pid 文件）")
         with contextlib.suppress(OSError):
@@ -612,16 +690,23 @@ def cmd_stop(names):
 
 def cmd_status():
     ensure_dirs()
+    procs = proc_cmdline_map()
     print(f"{'服务':<10} {'地址':<12} {'PID':<8} {'healthz':<9} readyz")
+    stale = []
     for svc in services_list():
         ip = ip_of(svc)
-        pid = "-"
         pid_file = os.path.join(STATE_DIR, f"{svc}.pid")
-        if os.path.isfile(pid_file):
-            pid = str(read_pid(pid_file) or "-")
+        pid = read_pid(pid_file) if os.path.isfile(pid_file) else 0
+        if pid and is_service_pid(svc, pid, procs):
+            shown = str(pid)
+        else:
+            shown = "-"
+            stale.append(svc)
         health = http_code(f"http://{ip}:{PORT}/healthz") or "000"
         ready = http_code(f"http://{ip}:{PORT}/readyz") or "000"
-        print(f"{svc:<10} {ip + ':' + PORT:<12} {pid:<8} {health:<9} {ready}")
+        print(f"{svc:<10} {ip + ':' + PORT:<12} {shown:<8} {health:<9} {ready}")
+    if stale:
+        print(f"\n提示：{' '.join(stale)} 无有效 pid（进程已退出 / pid 被复用）——需要时跑 up 补起")
     return 0
 
 
