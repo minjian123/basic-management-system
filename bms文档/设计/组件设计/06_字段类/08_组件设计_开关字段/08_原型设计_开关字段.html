@@ -140,10 +140,7 @@
 
         <!-- ⑤ 只读回显与导入导出 -->
         <el-tab-pane label="③ 只读回显与导入导出" name="readonly">
-          <div class="ep-section">只读回显（纯文本为主，颜色标签为可选项）</div>
-          <div class="dp-bar">
-            <el-checkbox v-model="tagColor">颜色标签（枚举只读以颜色标签渲染，与状态标签节点同源）</el-checkbox>
-          </div>
+          <div class="ep-section">只读回显（纯文本）</div>
           <div class="ro-list">
             <div class="k">开关（无文案）</div>
             <div>{{ boolText(true, '', '') || '是' }}</div>
@@ -151,20 +148,6 @@
             <div>{{ boolText(enableText, '启用', '停用') }}</div>
             <div class="k">开关（未设置）</div>
             <div>{{ boolText(null, '启用', '停用') }}</div>
-            <div class="k">枚举单选</div>
-            <div>{{ enumText(wRadio) }}</div>
-            <div class="k">枚举多选（顿号分隔）</div>
-            <div>{{ enumText(wCheckbox) }}</div>
-            <div class="k">枚举（值缺 label 回退原值）</div>
-            <div>{{ enumText('legacy_code') }} <span class="dp-hint">（选项集无此值：回退原值并告警）</span></div>
-            <div class="k">颜色标签渲染</div>
-            <div>
-              <template v-if="tagColor">
-                <span v-for="k in wCheckbox" :key="k" class="sw-tag" :style="{ background: optionColor(k) }" style="margin-right:6px">{{ enumText(k) }}</span>
-                <span v-if="!wCheckbox.length" class="dp-hint">未选择</span>
-              </template>
-              <span v-else class="dp-code">关闭颜色标签 → 纯文本：{{ enumText(wCheckbox) }}</span>
-            </div>
           </div>
 
           <div class="ep-section">导入解析（宽容归一：开关 是/否 ⇄ 1/0/true/false）</div>
@@ -175,22 +158,12 @@
           </div>
           <el-alert v-if="importSingle" :type="importSingle.type" :closable="false" show-icon :title="importSingle.text"></el-alert>
 
-          <div class="ep-section">导入解析（枚举 label 反查 value，多选分隔符拆分）</div>
-          <div class="dp-bar">
-            <el-input v-model="importEnumCell" size="small" style="width:320px" placeholder="如：高、中|x"></el-input>
-            <el-button size="small" @click="parseEnum">解析</el-button>
-            <span class="proto-hint">接受「、」/「,」/「|」/「;」混合分隔；未识别项报行级错误</span>
-          </div>
-          <el-alert v-if="importEnum" :type="importEnum.type" :closable="false" show-icon :title="importEnum.text"></el-alert>
-
-          <div class="ep-section">导出预览（一律取 label / 是 否 文本）</div>
+          <div class="ep-section">导出预览（一律取 是 / 否 文本）</div>
           <table class="inline-table">
             <thead><tr><th>字段</th><th>库值</th><th>导出文本</th></tr></thead>
             <tbody>
               <tr><td>启用开关</td><td class="dp-code">1</td><td>是</td></tr>
               <tr><td>启用开关（停用文案）</td><td class="dp-code">0</td><td>停用</td></tr>
-              <tr><td>枚举单选</td><td class="dp-code">{{ j(wRadio) }}</td><td>{{ enumText(wRadio) }}</td></tr>
-              <tr><td>枚举多选</td><td class="dp-code">{{ j(wCheckbox) }}</td><td>{{ enumText(wCheckbox) }}</td></tr>
             </tbody>
           </table>
         </el-tab-pane>
@@ -315,112 +288,9 @@
         return submit();
       }
 
-      // ---- ③ 枚举 ----
-      var minItems = ref(1);
-      var maxItems = ref(3);
-      var priorityOptions = [
-        { value: 'high', label: '高' }, { value: 'mid', label: '中' }, { value: 'low', label: '低' }
-      ];
-      var segmentOptions = [
-        { label: '按日', value: 'day' }, { label: '按周', value: 'week' }, { label: '按月', value: 'month' }
-      ];
-      var wRadio = ref('high');
-      var wButton = ref('mid');
-      var wSegment = ref('month');
-      var wCheckbox = ref(['high']);
-      var wDropdown = ref('high');
-      var wDropdownMulti = ref(['high']);
-      function toggleTag(v) {
-        if (readonly.value) { return; }
-        var idx = wCheckbox.value.indexOf(v);
-        if (idx >= 0) { wCheckbox.value.splice(idx, 1); }
-        else if (wCheckbox.value.length >= maxItems.value) { ElMessage.warning('超出 maxItems=' + maxItems.value + '，已阻止新增（exceed 事件）'); }
-        else { wCheckbox.value.push(v); }
-      }
-
-      // ---- ④ 选项集 ----
-      var source = ref('static');
-      var colorChoices = ['#d03050', '#2080f0', '#18a058', '#f0a020', '#909399'];
-      var staticOptions = ref([
-        { value: 'high', label: '高', color: '#d03050', disabled: false, sort: 1 },
-        { value: 'mid', label: '中', color: '#f0a020', disabled: false, sort: 2 },
-        { value: 'low', label: '低', color: '#18a058', disabled: false, sort: 3 }
-      ]);
-      function addOption() { staticOptions.value.push({ value: 'new' + (staticOptions.value.length + 1), label: '新选项', color: '', disabled: false, sort: staticOptions.value.length + 1 }); }
-      function addDup() {
-        var first = staticOptions.value[0];
-        staticOptions.value.push({ value: first.value, label: '重复 value（' + first.value + '）', color: '#909399', disabled: false, sort: 99 });
-        ElMessage.info('已插入重复 value 选项：解析时按 sort 升序保留首个、剔除重复');
-      }
-      function removeOption(i) { staticOptions.value.splice(i, 1); }
-
-      var dictVersion = ref(null);
-      var dictOptions = ref([]);
-      var DICT_FIXTURE = { version: 12, items: [
-        { value: '0', label: '停用', code: 'disabled' },
-        { value: '1', label: '正常', code: 'normal' },
-        { value: '2', label: '锁定', code: 'locked' }
-      ] };
-      function loadDict() {
-        if (dictVersion.value === DICT_FIXTURE.version) {
-          ElMessage.success('版本一致（version=' + dictVersion.value + '）→ items=null，复用本地缓存，零传输');
-          return;
-        }
-        dictVersion.value = DICT_FIXTURE.version;
-        dictOptions.value = DICT_FIXTURE.items.slice();
-        ElMessage.success('POST /dicts/batch 返回 items + version=' + dictVersion.value + '（回填本地缓存与版本）');
-      }
-
-      var rawCount = computed(function () {
-        return source.value === 'dict' ? dictOptions.value.length : staticOptions.value.length;
-      });
-      var parsedOptions = computed(function () {
-        var src = source.value === 'dict'
-          ? dictOptions.value.map(function (d, i) { return { value: d.value, label: d.label, color: '', disabled: false, sort: i + 1 }; })
-          : staticOptions.value.slice();
-        var sorted = src.slice().sort(function (a, b) { return (a.sort || 0) - (b.sort || 0); });
-        var seen = {};
-        var out = [];
-        for (var i = 0; i < sorted.length; i++) {
-          var o = sorted[i];
-          if (!o.value || seen[o.value]) { continue; }
-          seen[o.value] = true;
-          out.push({ value: o.value, label: o.label, color: o.color || null, disabled: !!o.disabled, sort: o.sort || 0 });
-        }
-        return out;
-      });
-      var dupCount = computed(function () { return rawCount.value - parsedOptions.value.length; });
-      var parsedJson = computed(function () { return JSON.stringify(parsedOptions.value, null, 2); });
-      function optionColor(v) {
-        var list = parsedOptions.value;
-        for (var i = 0; i < list.length; i++) { if (list[i].value === v) { return list[i].color || '#909399'; } }
-        return '#909399';
-      }
-      function enumText(v) {
-        var list = parsedOptions.value;
-        var hit = function (x) {
-          for (var i = 0; i < list.length; i++) { if (list[i].value === x) { return list[i].label; } }
-          return null;
-        };
-        if (v === null || v === undefined || v === '' || (Array.isArray(v) && !v.length)) { return '—'; }
-        if (Array.isArray(v)) {
-          var labels = [];
-          for (var i = 0; i < v.length; i++) {
-            var l = hit(v[i]);
-            labels.push(l === null ? v[i] : l);
-          }
-          return labels.join('、');
-        }
-        var r = hit(v);
-        return r === null ? v : r;
-      }
-
       // ---- ⑤ 只读与导入 ----
-      var tagColor = ref(false);
       var importCell = ref('是');
       var importSingle = ref(null);
-      var importEnumCell = ref('高、中|x');
-      var importEnum = ref(null);
 
       function parseSingle() {
         var raw = importCell.value;
@@ -431,39 +301,14 @@
           importSingle.value = { type: 'success', text: '「' + raw + '」→ ' + r + '（库值 ' + boolToStorage(r) + '）；导入校验阶段完成，行内不中断整体导入' };
         }
       }
-      function parseEnum() {
-        var raw = importEnumCell.value || '';
-        var parts = raw.split(/[、,|;，]/);
-        var values = [];
-        var unknown = [];
-        for (var i = 0; i < parts.length; i++) {
-          var p = parts[i].trim();
-          if (!p) { continue; }
-          var hit = null;
-          var list = parsedOptions.value;
-          for (var k = 0; k < list.length; k++) {
-            if (list[k].label === p || String(list[k].value) === p) { hit = list[k].value; break; }
-          }
-          if (hit === null) { unknown.push(p); }
-          else if (values.indexOf(hit) < 0) { values.push(hit); }
-        }
-        importEnum.value = unknown.length
-          ? { type: 'error', text: '未识别项：' + unknown.join('、') + ' → 行级错误；已识别部分不落库（整行跳过）' }
-          : { type: 'success', text: '「' + raw + '」→ ' + JSON.stringify(values) + '（按选项集顺序排序、去重）' };
-      }
       parseSingle();
-      parseEnum();
 
       return {
         tab, readonly, simulateFail, j,
         basicOn, enableText, smallOn, allowNull, triValue, dangerOn, normInput, normResult, validateResult,
         clearTri, beforeDangerChange, runValidate, doNormalize,
         loadingRow, lastInlineLog, rows, beforeInlineChange,
-        minItems, maxItems, priorityOptions, segmentOptions, wRadio, wButton, wSegment, wCheckbox, wDropdown, wDropdownMulti, toggleTag,
-        source, colorChoices, staticOptions, addOption, addDup, removeOption,
-        dictVersion, dictOptions, loadDict, rawCount, dupCount, parsedJson, optionColor, enumText,
-        parsedOptions, options: parsedOptions,
-        tagColor, importCell, importSingle, importEnumCell, importEnum, parseSingle, parseEnum,
+        importCell, importSingle, parseSingle,
         boolText
       };
     }
