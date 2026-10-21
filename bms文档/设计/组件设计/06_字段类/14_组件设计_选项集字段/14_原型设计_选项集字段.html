@@ -35,15 +35,14 @@
 <body>
 
 <div class="proto-bar">
-  <span class="pb-crumb"><a href="08_组件设计_开关与枚举字段.md">← 返回组件设计文档</a></span>
-  <span class="pb-name">组件设计 · 开关与枚举字段 原型（可交互）</span>
+  <span class="pb-crumb"><a href="14_组件设计_选项集字段.md">← 返回组件设计文档</a></span>
+  <span class="pb-name">组件设计 · 选项集字段 原型（可交互）</span>
 </div>
 
 <div class="proto-frame">
   <div class="proto-note">
     本原型对应当前目录 <a href="14_组件设计_选项集字段.md">《组件设计 · 选项集字段》</a>：演示 <b>枚举单选 / 多选</b>（radio / button / segmented / checkbox / tag / dropdown 六种形态）、
     <b>选项集</b>（装载时注册、运行期只读）、<b>只读回显与导入导出映射</b>。
-    另含<b>布尔开关</b>演示（三态 / 内联切换），该部分归 <a href="../08_组件设计_开关字段/08_组件设计_开关字段.md">《组件设计 · 开关字段》</a>。
     全部交互为前端模拟（不落库）；控件行为对齐基础控件库，属验收基准。
   </div>
 
@@ -51,7 +50,7 @@
     <div class="ep-page">
       <div class="dp-header">
         <div>
-          <div class="dp-title">开关与枚举字段 原型</div>
+          <div class="dp-title">选项集字段 原型</div>
           <div class="dp-sub">布尔开关 · 内联切换 · 枚举单选/多选 · 选项集解析 · 枚举回显</div>
         </div>
         <div class="dp-bar" style="margin-bottom:0">
@@ -61,88 +60,11 @@
       </div>
 
       <el-tabs v-model="tab">
-        <!-- ① 开关编辑与三态 -->
-        <el-tab-pane label="① 开关编辑与三态" name="switch">
-          <div class="dp-bar">
-            <span class="proto-hint">受控值为 <b>布尔或未设置</b>；库值 SMALLINT 1/0（未设置存 NULL）；启用/停用文案走文案变体；危险切换先确认再提交（确认前不改受控值）</span>
-          </div>
-
-          <div class="ep-section">基础开关与文案变体</div>
-          <div class="sw-cell" style="flex-wrap:wrap;gap:20px">
-            <span>无文案：<el-switch v-model="basicOn" :disabled="readonly"></el-switch> <span class="dp-code">前端值 {{ basicOn }} / 库值 {{ basicOn ? 1 : 0 }}</span></span>
-            <span>启用/停用：<el-switch v-model="enableText" active-text="启用" inactive-text="停用" :disabled="readonly"></el-switch></span>
-            <span>列表尺寸：<el-switch v-model="smallOn" size="small" :disabled="readonly"></el-switch></span>
-          </div>
-
-          <div class="ep-section">三态（允许未设置；未设置态为 null）</div>
-          <div class="dp-bar">
-            <span>三态开关：<el-switch :model-value="triValue === true" :disabled="readonly || triValue === null"
-              @change="(v) => (triValue = v)"></el-switch>
-              <span class="dp-code">{{ triValue === null ? '不确定态（null，置灰）' : (triValue ? 'true' : 'false') }}</span></span>
-            <el-checkbox v-model="allowNull">允许未设置（三态）</el-checkbox>
-            <el-button size="small" @click="clearTri" :disabled="readonly">清空为 null（未设置）</el-button>
-          </div>
-          <div class="dp-bar">
-            <span class="dp-code">前端值 {{ triValue === null ? 'null' : triValue }} / 库值 {{ triValue === null ? 'NULL' : (triValue ? 1 : 0) }} / 只读文本 {{ boolText(triValue, '是', '否') }}</span>
-          </div>
-          <el-alert v-if="triValue === null" type="info" :closable="false" show-icon
-            title="未设置态：不确定态展示，必填校验按「未填」拦截"></el-alert>
-
-          <div class="ep-section">危险开关：二次确认后才提交</div>
-          <div class="sw-cell">
-            <el-switch v-model="dangerOn" :before-change="beforeDangerChange" active-text="模块启用" inactive-text="模块停用" :disabled="readonly"></el-switch>
-            <span class="proto-hint">如租户模块开关、账号锁定：确认文案「停用后该模块菜单/接口不可用，确认停用？」</span>
-          </div>
-
-          <div class="ep-section">必填校验口径（false 视为已填，仅 null 判未填）</div>
-          <div class="dp-bar">
-            <el-button size="small" type="primary" @click="runValidate">执行校验</el-button>
-            <span class="dp-code">三态必填字段当前值：{{ triValue === null ? 'null（未填）' : triValue + '（已填）' }}</span>
-          </div>
-          <el-alert v-if="validateResult" :type="validateResult.type" :closable="false" show-icon :title="validateResult.text"></el-alert>
-
-          <div class="ep-section">值域归一（后端历史值与接口直出容错）</div>
-          <div class="dp-bar">
-            <el-input v-model="normInput" size="small" style="width:200px" placeholder="如 0 / 1 / '是' / TRUE"></el-input>
-            <el-button size="small" @click="doNormalize">归一</el-button>
-            <span class="dp-code">结果：{{ normResult === undefined ? '—' : (normResult === null ? 'null（无法识别，按未设置处理）' : normResult) }}</span>
-          </div>
-        </el-tab-pane>
-
-        <!-- ② 列表内联切换 -->
-        <el-tab-pane label="② 列表内联切换" name="inline">
-          <div class="dp-bar">
-            <span class="proto-hint">列表页<b>无操作列</b>（《布局设计 · 列表页》），内联切换放在状态列；复用业务既有写接口（专用状态接口优先），不新增 toggle 接口；失败回滚、局部刷新、行级 loading</span>
-          </div>
-
-          <table class="inline-table">
-            <thead>
-              <tr><th style="width:60px">ID</th><th style="width:200px">名称</th><th style="width:200px">状态（内联切换）</th><th style="width:120px">version</th><th>说明</th></tr>
-            </thead>
-            <tbody>
-              <tr v-for="row in rows" :key="row.id">
-                <td>{{ row.id }}</td>
-                <td>{{ row.name }}</td>
-                <td>
-                  <el-switch v-if="row.editable" :model-value="row.enabled" size="small"
-                    :loading="loadingRow === row.id" :disabled="loadingRow === row.id || readonly"
-                    :before-change="() => beforeInlineChange(row)"></el-switch>
-                  <span v-else class="dp-code">{{ boolText(row.enabled, '启用', '停用') }}（无编辑权限）</span>
-                </td>
-                <td class="dp-code">{{ row.version }}</td>
-                <td class="dp-hint">{{ row.dangerous ? '危险开关（切换前二次确认）' : '普通开关（免确认）' }}</td>
-              </tr>
-            </tbody>
-          </table>
-
-          <div class="ep-section">局部刷新结果（仅该行更新，不整表重载）</div>
-          <div class="dp-out">{{ lastInlineLog || '尚未发生切换' }}</div>
-        </el-tab-pane>
 
         <!-- ③ 枚举形态 -->
-        <el-tab-pane label="③ 枚举形态（widget 决定）" name="enum">
+        <el-tab-pane label="① 枚举形态（widget 决定）" name="enum">
           <div class="dp-bar">
-            <span class="proto-hint">形态由字段属性 <b>widget</b> 决定；值即选项 <b>value</b>，label 只用于展示；选项集来源见 ④ 页</span>
+            <span class="proto-hint">形态由字段属性 <b>widget</b> 决定；值即选项 <b>value</b>，label 只用于展示；选项集来源见 ② 页</span>
           </div>
 
           <div class="ep-section">单选：radio（默认形态，2-5 项全展示）</div>
@@ -196,7 +118,7 @@ dropdown(multiple): {{ j(wDropdownMulti) }}（同样按选项集顺序排序、�
         </el-tab-pane>
 
         <!-- ④ 选项集解析 -->
-        <el-tab-pane label="④ 选项集解析" name="options">
+        <el-tab-pane label="② 选项集解析" name="options">
           <div class="dp-bar">
             <span class="proto-hint">选项集是枚举字段的<b>唯一</b>来源：字段属性 <b>optionSetKey</b>（装载时注册、运行期只读、随表单元数据下发）。字典走字典字段（<b>dict-select</b>），两者不混用</span>
           </div>
@@ -226,7 +148,7 @@ dropdown(multiple): {{ j(wDropdownMulti) }}（同样按选项集顺序排序、�
         </el-tab-pane>
 
         <!-- ⑤ 只读回显与导入导出 -->
-        <el-tab-pane label="⑤ 只读回显与导入导出" name="readonly">
+        <el-tab-pane label="③ 只读回显与导入导出" name="readonly">
           <div class="ep-section">只读回显（纯文本为主，颜色标签为可选项）</div>
           <div class="dp-bar">
             <el-checkbox v-model="tagColor">颜色标签（枚举只读以颜色标签渲染，与状态标签节点同源）</el-checkbox>
@@ -313,7 +235,7 @@ dropdown(multiple): {{ j(wDropdownMulti) }}（同样按选项集顺序排序、�
   var app = createApp({
     template: document.getElementById('app').outerHTML.replace(/<div id="app">/, '<div>').replace(/<\/div>\s*$/, ''),
     setup: function () {
-      var tab = ref('switch');
+      var tab = ref('enum');
       var readonly = ref(false);
       var simulateFail = ref(false);
 
