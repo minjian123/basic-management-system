@@ -20,6 +20,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from bms_core.core.config import get_settings
 from bms_core.models.base import Base
 from bms_platform.models.role import ROLE_TYPE_SECURITY, ROLE_TYPE_SYSTEM, SysRole, SysUserRole
+from bms_platform.models.system import SysIcon, SysIconI18n
 from tests_support.auth import TEST_SUBJECT
 
 SYSTEM_ADMIN_CODE = "bms_system_admin"
@@ -141,7 +142,7 @@ async def setup_min_tenant(tmp_path_factory: pytest.TempPathFactory, monkeypatch
     monkeypatch.setenv("BMS_DATABASE__TENANTS__URL", url)
     get_settings.cache_clear()
     engine = create_async_engine(url)
-    tables = [SysRole.__table__, SysUserRole.__table__]
+    tables = [SysRole.__table__, SysUserRole.__table__, SysIcon.__table__, SysIconI18n.__table__]
     async with engine.begin() as connection:
         await connection.run_sync(lambda conn: Base.metadata.create_all(conn, tables=tables))
     await engine.dispose()

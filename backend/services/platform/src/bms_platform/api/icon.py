@@ -9,22 +9,33 @@
 - 真实落库 CRUD、SVG 上传与清洗、引用检查随通用能力 / 文件管理 / 菜单管理阶段，本路由只做校验与委托。
 """
 
+from collections.abc import AsyncGenerator
 from typing import Annotated
 
 from fastapi import Depends, Header, Path, Query
 
 from bms_core.api.base import BaseRouter, require_auth
-from bms_core.api.deps import current_tenant_id_of, get_icon_registry, get_idempotency_store, get_tenant
+from bms_core.api.deps import (
+    current_tenant_id_of,
+    get_icon_registry,
+    get_idempotency_store,
+    get_platform_uow,
+    get_tenant,
+    get_uow,
+)
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.exceptions import ParamError
 from bms_core.db.tenant import TenantContext
+from bms_core.db.unit_of_work import UnitOfWork
 from bms_core.icon.base import (
     ICON_CODE_MAX_LENGTH,
     BaseIconRegistry,
     IconDraft,
     IconInfo,
     IconPatch,
+    current_icon_store,
     is_valid_icon_code,
+    set_icon_store,
 )
 from bms_core.idempotency.base import IDEMPOTENCY_HEADER, IdempotencyStore, build_idempotency_key
 from bms_core.schemas.common import ApiResponse
@@ -35,12 +46,34 @@ from bms_core.schemas.icon import (
     IconResponse,
     IconUpdateRequest,
 )
+from bms_platform.services.icon_store import IconStore
+
+UowDep = Annotated[UnitOfWork, Depends(get_uow)]
+PlatformUowDep = Annotated[UnitOfWork, Depends(get_platform_uow)]
+
+
+async def _icon_scope(uow: UowDep, platform_uow: PlatformUowDep) -> AsyncGenerator[None]:
+    """请求级图标落库作用域：把 `IconStore` 注入上下文供 `DbIconRegistry` 委托。
+
+    Args:
+        uow: 请求级租户库工作单元（`sys_icon`）。
+        platform_uow: 请求级平台库工作单元（`sys_menu` 引用计数）。
+
+    Yields:
+        None: 作用域内图标落库实现生效。
+    """
+    token = set_icon_store(IconStore(uow, platform_uow))
+    try:
+        yield
+    finally:
+        current_icon_store.reset(token)
+
 
 router = BaseRouter(
     key="icon",
     prefix="/icons",
     tags=["icon"],
-    dependencies=[Depends(require_auth)],
+    dependencies=[Depends(require_auth), Depends(_icon_scope)],
 )
 
 RegistryDep = Annotated[BaseIconRegistry, Depends(get_icon_registry)]
@@ -77,6 +110,8 @@ def _to_response(info: IconInfo) -> IconResponse:
         svg=info.svg,
         status=info.status,
         icon_key=info.icon_key,
+        i18n=info.i18n,
+        reference_count=info.reference_count,
     )
 
 
@@ -157,7 +192,7 @@ async def create_icon(
         ParamError: 图标键格式非法（10001）。
     """
     _require_valid_code(req.code)
-    draft = IconDraft(code=req.code, name=req.name, category=req.category, tags=req.tags, svg=req.svg)
+    draft = IconDraft(code=req.code, name=req.name, category=req.category, tags=req.tags, svg=req.svg, i18n=req.i18n)
     if not idempotency_key:
         return ApiResponse.ok(_to_response(await registry.create(draft)))
     key = build_idempotency_key(key=idempotency_key, tenant=current_tenant_id_of(tenant))
@@ -202,6 +237,7 @@ async def update_icon(
         tags=req.tags,
         svg=req.svg,
         status=req.status,
+        i18n=req.i18n,
     )
     if not idempotency_key:
         return ApiResponse.ok(_to_response(await registry.update(code, patch)))

@@ -1027,6 +1027,32 @@ class MenuI18nRequiredError(MenuError):
         MenuError.__init__(self, ErrorCode.MENU_I18N_REQUIRED, message, data=data)
 
 
+class MenuCodeConflictError(MenuError):
+    """业务码 / 动作码 `code` 重复（`40209`）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化码重复异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        MenuError.__init__(self, ErrorCode.MENU_CODE_CONFLICT, message, data=data)
+
+
+class MenuPermissionExistsError(MenuError):
+    """权限码组合已存在（活动行；`40210`）。"""
+
+    def __init__(self, message: str | None = None, *, data: object | None = None) -> None:
+        """初始化组合重复异常。
+
+        Args:
+            message: 提示信息。
+            data: 随附数据（可选）。
+        """
+        MenuError.__init__(self, ErrorCode.MENU_PERMISSION_EXISTS, message, data=data)
+
+
 class FileError(BizError):
     """文件段（`5xxxx`）异常基类：上传 / 下载 / 分片 / 导入导出与打印导出。"""
 

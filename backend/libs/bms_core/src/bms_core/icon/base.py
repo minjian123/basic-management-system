@@ -18,12 +18,13 @@
 
 import re
 from abc import ABC, abstractmethod
-from typing import Annotated, cast
+from contextvars import ContextVar, Token
+from typing import Annotated, Protocol, cast
 
 from fastapi import Request
 from pydantic import Field
 
-from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.core.plugin import DEFAULT_CONTRACT_VERSION, NULL_PLUGIN_NAME, BasePluggable, resolve_plugin
 from bms_core.schemas.base import (
@@ -46,9 +47,12 @@ __all__ = [
     "IconDraft",
     "IconInfo",
     "IconPatch",
+    "IconStore",
     "build_icon_key",
+    "current_icon_store",
     "get_icon_registry",
     "is_valid_icon_code",
+    "set_icon_store",
 ]
 
 ICON_SOURCES: ConcurrentStableList[str] = ConcurrentStableList(("el", "biz", "custom", "van"))
@@ -77,6 +81,39 @@ ICON_SVG_MAX_BYTES = 102400
 
 NULL_ICON_ID_PREFIX = "null-"
 """占位图标标识前缀（占位实现由图标键派生，逐键唯一且便于断言）。"""
+
+
+class IconStore(Protocol):
+    """落库实现接缝（请求级后端；由服务装配注入上下文，注册表委托调用）。"""
+
+    async def list(
+        self, *, category: str | None = None, status: str | None = None, keyword: str | None = None
+    ) -> ConcurrentStableList[IconInfo]: ...
+
+    async def get(self, code: str) -> IconInfo: ...
+
+    async def create(self, draft: IconDraft) -> IconInfo: ...
+
+    async def update(self, code: str, patch: IconPatch) -> IconInfo: ...
+
+    async def delete(self, code: str) -> bool: ...
+
+
+current_icon_store: ContextVar[IconStore | None] = ContextVar("current_icon_store", default=None)
+"""当前请求的图标落库实现（由服务侧请求依赖设置；注册表实现读取并委托）。"""
+
+
+def set_icon_store(store: IconStore | None) -> Token[IconStore | None]:
+    """设置当前请求的图标落库实现（请求作用域；调用方负责复位）。
+
+    Args:
+        store: 落库实现（None 表示解除）。
+
+    Returns:
+        Token[IconStore | None]: 复位令牌。
+    """
+    return current_icon_store.set(store)
+
 
 _ICON_CODE_RE = re.compile(r"^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$")
 """图标键规范：首段字母开头、段间单连字符、全小写字母数字（如 `purchase-order`）。"""
@@ -119,6 +156,9 @@ class IconDraft(BaseSchema):
         default_factory=CONTRACT_STABLE_LIST, description="标签（搜索用）"
     )
     svg: str = Field(description="SVG 内容（内联；类型 / 大小校验与清洗随文件管理阶段）")
+    i18n: Annotated[ConcurrentStableDict[str, str], CONTRACT_COLLECTION] = Field(
+        default_factory=ConcurrentStableDict, description="多语言名称映射（locale → 文案）"
+    )
 
 
 class IconPatch(BaseSchema):
@@ -131,6 +171,9 @@ class IconPatch(BaseSchema):
     )
     svg: str | None = Field(default=None, description="SVG 内容")
     status: str | None = Field(default=None, description="状态（active 启用 / disabled 停用）")
+    i18n: Annotated[ConcurrentStableDict[str, str] | None, CONTRACT_COLLECTION] = Field(
+        default=None, description="多语言名称映射（locale → 文案；None 表示不变）"
+    )
 
 
 class IconInfo(BaseSchema):
@@ -146,6 +189,10 @@ class IconInfo(BaseSchema):
     svg: str = Field(description="SVG 内容")
     status: str = Field(default=DEFAULT_ICON_STATUS, description="状态（active 启用 / disabled 停用）")
     icon_key: str = Field(description="图标键派生值（custom:{图标键}，经 build_icon_key 派生）")
+    i18n: Annotated[ConcurrentStableDict[str, str], CONTRACT_COLLECTION] = Field(
+        default_factory=ConcurrentStableDict, description="多语言名称（locale → 文案）"
+    )
+    reference_count: int = Field(default=0, description="被菜单 / 卡片引用次数（删除前置检查）")
 
 
 class BaseIconRegistry(BasePluggable, ABC):

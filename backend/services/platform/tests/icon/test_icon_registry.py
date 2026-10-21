@@ -3,6 +3,7 @@
 from typing import cast
 
 import pytest
+import pytest_asyncio
 from fastapi.routing import APIRoute
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import Table, UniqueConstraint
@@ -34,14 +35,29 @@ from bms_core.icon.base import (
 from bms_core.icon.null import NullIconRegistry
 from bms_core.idempotency.base import IDEMPOTENCY_PAYLOAD_TYPE
 from bms_platform.api.icon import router as icon_router
+from bms_platform.icon.registry import DbIconRegistry
 from bms_platform.main import ApplicationFactory
 from bms_platform.models.system import SysIcon, SysIconI18n
 from tests_support.auth import auth_headers
+from tests_support.menu_metadata import reset_menu_tables
+from tests_support.permission_admin import setup_min_tenant
 from tests_support.tenant_source import DEMO_TENANT_ID
 
 API = "/api/v1/icons"
 
 _ICON_BODY = {"code": "purchase-order", "name": "采购订单", "category": "menu", "tags": ["order"], "svg": "<svg/>"}
+
+
+@pytest_asyncio.fixture(autouse=True)
+async def icon_tenant_db(tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch) -> None:
+    """图标落库用例所需的最小租户库（含 `sys_icon` / `sys_icon_i18n` 与管理员主体）。
+
+    Args:
+        tmp_path_factory: pytest 临时目录工厂。
+        monkeypatch: pytest 环境变量覆盖夹具。
+    """
+    await setup_min_tenant(tmp_path_factory, monkeypatch)
+    await reset_menu_tables()
 
 
 class _RecordingIdempotency:
@@ -286,9 +302,9 @@ async def test_dependency_provider_resolves() -> None:
     app = ApplicationFactory().create(None)
     async with lifespan(app):
         registry = app.state.icon_registry
-        assert isinstance(registry, NullIconRegistry)
-        assert resolve_plugin("icon_registry", None) is registry
-        assert app.state.plugin_providers["icon_registry"] == "null"
+        assert isinstance(registry, DbIconRegistry)
+        assert resolve_plugin("icon_registry", "db") is registry
+        assert app.state.plugin_providers["icon_registry"] == "db"
 
 
 @pytest.mark.kiwi_id(927)
@@ -298,8 +314,8 @@ def test_route_auth_scope() -> None:
     assert icon_router.key == "icon"
     assert {route.path for route in routes} == {"/icons", "/icons/{code}"}
     assert {route.path: len(route.dependencies) for route in routes} == {
-        "/icons": 1,
-        "/icons/{code}": 1,
+        "/icons": 2,
+        "/icons/{code}": 2,
     }
 
 
@@ -322,33 +338,82 @@ async def test_placeholder_route_list_and_get(client: AsyncClient) -> None:
 
 
 @pytest.mark.kiwi_id(927)
+async def test_icon_store_validation_i18n_and_menu_reference(client: AsyncClient) -> None:
+    """落库语义：SVG 危险内容拒绝、重复 10003、多语言名称派生、被菜单引用删除 40206。"""
+    bad_svgs = [
+        "<svg><script>alert(1)</script></svg>",
+        '<svg onload="alert(1)"></svg>',
+        '<svg><a href="javascript:alert(1)">x</a></svg>',
+        '<svg><image href="https://example.com/a.png"/></svg>',
+        "<html></html>",
+    ]
+    for svg in bad_svgs:
+        resp = await client.post(API, json={**_ICON_BODY, "svg": svg, "code": "bad-svg"})
+        assert resp.json()["code"] == ErrorCode.PARAM, svg
+
+    created = await client.post(
+        API, json={**_ICON_BODY, "i18n": {"zh-CN": "采购订单", "en-US": "Purchase order"}}
+    )
+    assert created.json()["data"]["name"] == "采购订单"
+    assert created.json()["data"]["i18n"]["en-US"] == "Purchase order"
+
+    duplicated = await client.post(API, json=_ICON_BODY)
+    assert duplicated.json()["code"] == ErrorCode.CONFLICT
+
+    menu = await client.post(
+        "/api/v1/menus",
+        json={
+            "parent_id": 0,
+            "path": "/t-icon",
+            "icon": "custom:purchase-order",
+            "sort": 1,
+            "hidden": False,
+            "status": "enabled",
+            "i18n": {"zh-CN": "图标菜单"},
+        },
+    )
+    assert menu.json()["code"] == 0, menu.text
+    listed = await client.get(API, params={"keyword": "purchase"})
+    row = next(item for item in listed.json()["data"]["icons"] if item["code"] == "purchase-order")
+    assert row["reference_count"] == 1
+
+    blocked = await client.delete(f"{API}/purchase-order")
+    assert blocked.json()["code"] == 40206
+
+    missing = await client.get(f"{API}/not-exists")
+    assert missing.status_code == 404
+
+
+@pytest.mark.kiwi_id(927)
 async def test_placeholder_route_create_update_delete(client: AsyncClient) -> None:
-    """占位路由：新增回显、更新回显与回落、删除结果、图标键格式非法 → 10001。"""
+    """落库路由：新增回显、更新保持未提交字段、删除结果、图标键格式非法 → 10001。"""
     created = await client.post(API, json=_ICON_BODY)
     assert created.status_code == 200
-    assert created.json()["data"] == {
-        "id": f"{NULL_ICON_ID_PREFIX}purchase-order",
-        "code": "purchase-order",
-        "name": "采购订单",
-        "category": "menu",
-        "tags": ["order"],
-        "svg": "<svg/>",
-        "status": DEFAULT_ICON_STATUS,
-        "icon_key": "custom:purchase-order",
-    }
+    data = created.json()["data"]
+    assert data["code"] == "purchase-order"
+    assert data["name"] == "采购订单"
+    assert data["category"] == "menu"
+    assert data["tags"] == ["order"]
+    assert data["svg"] == "<svg/>"
+    assert data["status"] == DEFAULT_ICON_STATUS
+    assert data["icon_key"] == "custom:purchase-order"
+    assert data["i18n"] == {"zh-CN": "采购订单"}
+    assert data["reference_count"] == 0
 
     patched = await client.put(f"{API}/purchase-order", json={"name": "采购订单（新）", "status": "disabled"})
     assert patched.json()["data"]["name"] == "采购订单（新）"
-    assert patched.json()["data"]["category"] == ""
-    assert patched.json()["data"]["tags"] == []
+    assert patched.json()["data"]["category"] == "menu"
+    assert patched.json()["data"]["tags"] == ["order"]
     assert patched.json()["data"]["status"] == "disabled"
 
-    fallback = await client.put(f"{API}/purchase-order", json={})
-    assert fallback.json()["data"]["name"] == "purchase-order"
-    assert fallback.json()["data"]["status"] == DEFAULT_ICON_STATUS
+    unchanged = await client.put(f"{API}/purchase-order", json={})
+    assert unchanged.json()["data"]["name"] == "采购订单（新）"
+    assert unchanged.json()["data"]["status"] == "disabled"
 
     removed = await client.delete(f"{API}/purchase-order")
     assert removed.json()["data"] == {"deleted": True}
+    removed_again = await client.delete(f"{API}/purchase-order")
+    assert removed_again.json()["data"] == {"deleted": False}
 
     invalid = await client.post(API, json={**_ICON_BODY, "code": "Bad_Code"})
     assert invalid.json()["code"] == ErrorCode.PARAM
@@ -383,6 +448,7 @@ async def test_icon_update_idempotency_without_cached_result_executes() -> None:
     app.dependency_overrides[get_idempotency_store] = lambda: stale
     async with lifespan(app), AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         client.headers.update(auth_headers())
+        await client.post(API, json=_ICON_BODY)
         resp = await client.put(f"{API}/purchase-order", json={"name": "新名称"}, headers={"Idempotency-Key": "k-2"})
 
     assert resp.json()["data"]["name"] == "新名称"
@@ -398,6 +464,8 @@ async def test_icon_update_and_delete_idempotency_reuse() -> None:
     app.dependency_overrides[get_idempotency_store] = lambda: double
     async with lifespan(app), AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         client.headers.update(auth_headers())
+        await client.post(API, json=_ICON_BODY)
+        await client.post(API, json={**_ICON_BODY, "code": "receipt", "name": "收据"})
         updated = await client.put(f"{API}/purchase-order", json={"name": "甲"}, headers={"Idempotency-Key": "k-3"})
         updated_again = await client.put(
             f"{API}/purchase-order", json={"name": "乙"}, headers={"Idempotency-Key": "k-3"}

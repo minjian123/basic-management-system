@@ -153,8 +153,64 @@ export interface paths {
          */
         get: operations["list_actions_api_v1_actions_get"];
         put?: never;
-        post?: never;
+        /**
+         * Create Action
+         * @description 新增动作码。
+         *
+         *     Args:
+         *         req: 新增请求。
+         *         uow: 请求级工作单元。
+         *         outbox: 发件箱存储。
+         *         cache: 缓存 Region。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为动作码行。
+         */
+        post: operations["create_action_api_v1_actions_post"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/actions/{action_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Update Action
+         * @description 更新动作码（`code` 不可改；停用时连带停用其权限码）。
+         *
+         *     Args:
+         *         action_id: 动作码主键。
+         *         req: 更新请求。
+         *         uow: 请求级工作单元。
+         *         outbox: 发件箱存储。
+         *         cache: 缓存 Region。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为动作码行。
+         */
+        put: operations["update_action_api_v1_actions__action_id__put"];
+        post?: never;
+        /**
+         * Delete Action
+         * @description 删除动作码（有条件删除）。
+         *
+         *     Args:
+         *         action_id: 动作码主键。
+         *         uow: 请求级工作单元。
+         *         outbox: 发件箱存储。
+         *         cache: 缓存 Region。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应（data 为空）。
+         */
+        delete: operations["delete_action_api_v1_actions__action_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -181,8 +237,64 @@ export interface paths {
          */
         get: operations["list_businesses_api_v1_businesses_get"];
         put?: never;
-        post?: never;
+        /**
+         * Create Business
+         * @description 新增业务码。
+         *
+         *     Args:
+         *         req: 新增请求。
+         *         uow: 请求级工作单元。
+         *         outbox: 发件箱存储。
+         *         cache: 缓存 Region。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为业务码行。
+         */
+        post: operations["create_business_api_v1_businesses_post"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/businesses/{business_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Update Business
+         * @description 更新业务码（`code` 不可改；停用时连带停用其权限码）。
+         *
+         *     Args:
+         *         business_id: 业务码主键。
+         *         req: 更新请求。
+         *         uow: 请求级工作单元。
+         *         outbox: 发件箱存储。
+         *         cache: 缓存 Region。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为业务码行。
+         */
+        put: operations["update_business_api_v1_businesses__business_id__put"];
+        post?: never;
+        /**
+         * Delete Business
+         * @description 删除业务码（有条件删除）。
+         *
+         *     Args:
+         *         business_id: 业务码主键。
+         *         uow: 请求级工作单元。
+         *         outbox: 发件箱存储。
+         *         cache: 缓存 Region。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应（data 为空）。
+         */
+        delete: operations["delete_business_api_v1_businesses__business_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1251,8 +1363,93 @@ export interface paths {
          */
         get: operations["list_permissions_api_v1_permissions_get"];
         put?: never;
-        post?: never;
+        /**
+         * Create Permission
+         * @description 手工新增权限码组合。
+         *
+         *     Args:
+         *         req: 新增请求。
+         *         uow: 请求级工作单元。
+         *         outbox: 发件箱存储。
+         *         cache: 缓存 Region。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为权限码行。
+         */
+        post: operations["create_permission_api_v1_permissions_post"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/permissions/generate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Generate Permissions
+         * @description 批量补生成缺失的权限码组合。
+         *
+         *     Args:
+         *         req: 范围与是否含停用项。
+         *         uow: 请求级工作单元。
+         *         outbox: 发件箱存储。
+         *         cache: 缓存 Region。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为新建 / 恢复 / 跳过计数。
+         */
+        post: operations["generate_permissions_api_v1_permissions_generate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/permissions/{permission_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Update Permission
+         * @description 更新权限码（组合不可换绑，仅状态）。
+         *
+         *     Args:
+         *         permission_id: 权限码主键。
+         *         req: 更新请求。
+         *         uow: 请求级工作单元。
+         *         outbox: 发件箱存储。
+         *         cache: 缓存 Region。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为权限码行。
+         */
+        put: operations["update_permission_api_v1_permissions__permission_id__put"];
+        post?: never;
+        /**
+         * Delete Permission
+         * @description 删除权限码（有条件删除）。
+         *
+         *     Args:
+         *         permission_id: 权限码主键。
+         *         uow: 请求级工作单元。
+         *         outbox: 发件箱存储。
+         *         cache: 缓存 Region。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应（data 为空）。
+         */
+        delete: operations["delete_permission_api_v1_permissions__permission_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -2775,6 +2972,31 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         /**
+         * ActionCreateRequest
+         * @description 新增动作码请求（`code` 创建后只读）。
+         */
+        ActionCreateRequest: {
+            /**
+             * Code
+             * @description 动作码（全局动词 / kebab-case；创建后只读）
+             */
+            code: string;
+            /**
+             * I18N
+             * @description 多语言名称映射（locale → 文案）；必含请求语言文案
+             */
+            i18n: {
+                [key: string]: string;
+            };
+            /**
+             * Status
+             * @description 状态（enabled/disabled）
+             * @default enabled
+             * @enum {string}
+             */
+            status: "enabled" | "disabled";
+        };
+        /**
          * ActionItem
          * @description 动作码行（全局动词维度）。
          */
@@ -2819,6 +3041,26 @@ export interface components {
             items?: components["schemas"]["ActionItem"][];
         };
         /**
+         * ActionUpdateRequest
+         * @description 更新动作码请求（`code` 不可改，只改名称与状态）。
+         */
+        ActionUpdateRequest: {
+            /**
+             * I18N
+             * @description 多语言名称映射（locale → 文案）；必含请求语言文案
+             */
+            i18n: {
+                [key: string]: string;
+            };
+            /**
+             * Status
+             * @description 状态（enabled/disabled）
+             * @default enabled
+             * @enum {string}
+             */
+            status: "enabled" | "disabled";
+        };
+        /**
          * ApiResponse
          * @description 统一响应体：`code=0` 成功，非 0 业务错误码。
          *
@@ -2833,6 +3075,20 @@ export interface components {
             code: number;
             /** Data */
             data?: unknown | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[ActionItem] */
+        ApiResponse_ActionItem_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["ActionItem"] | null;
             /**
              * Message
              * @default ok
@@ -2945,6 +3201,20 @@ export interface components {
              */
             code: number;
             data?: components["schemas"]["BranchStateView"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[BusinessItem] */
+        ApiResponse_BusinessItem_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["BusinessItem"] | null;
             /**
              * Message
              * @default ok
@@ -3274,6 +3544,20 @@ export interface components {
              */
             message: string;
         };
+        /** ApiResponse[PermissionGenerateResult] */
+        ApiResponse_PermissionGenerateResult_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["PermissionGenerateResult"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
         /** ApiResponse[PermissionInvalidateResult] */
         ApiResponse_PermissionInvalidateResult_: {
             /**
@@ -3282,6 +3566,20 @@ export interface components {
              */
             code: number;
             data?: components["schemas"]["PermissionInvalidateResult"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
+        /** ApiResponse[PermissionItem] */
+        ApiResponse_PermissionItem_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["PermissionItem"] | null;
             /**
              * Message
              * @default ok
@@ -3734,6 +4032,31 @@ export interface components {
             xid: string;
         };
         /**
+         * BusinessCreateRequest
+         * @description 新增业务码请求（`code` 创建后只读）。
+         */
+        BusinessCreateRequest: {
+            /**
+             * Code
+             * @description 业务码（小写单词 / kebab-case；创建后只读）
+             */
+            code: string;
+            /**
+             * I18N
+             * @description 多语言名称映射（locale → 文案）；必含请求语言文案
+             */
+            i18n: {
+                [key: string]: string;
+            };
+            /**
+             * Status
+             * @description 状态（enabled/disabled）
+             * @default enabled
+             * @enum {string}
+             */
+            status: "enabled" | "disabled";
+        };
+        /**
          * BusinessItem
          * @description 业务码行（纯资源维度）。
          */
@@ -3761,6 +4084,12 @@ export interface components {
              */
             name: string;
             /**
+             * Permission Count
+             * @description 该业务码下的权限码数量（含停用）
+             * @default 0
+             */
+            permission_count: number;
+            /**
              * Status
              * @description 状态（enabled/disabled）
              */
@@ -3776,6 +4105,26 @@ export interface components {
              * @description 业务码行列表
              */
             items?: components["schemas"]["BusinessItem"][];
+        };
+        /**
+         * BusinessUpdateRequest
+         * @description 更新业务码请求（`code` 不可改，只改名称与状态）。
+         */
+        BusinessUpdateRequest: {
+            /**
+             * I18N
+             * @description 多语言名称映射（locale → 文案）；必含请求语言文案
+             */
+            i18n: {
+                [key: string]: string;
+            };
+            /**
+             * Status
+             * @description 状态（enabled/disabled）
+             * @default enabled
+             * @enum {string}
+             */
+            status: "enabled" | "disabled";
         };
         /**
          * ButtonCreateRequest
@@ -4860,6 +5209,13 @@ export interface components {
              */
             code: string;
             /**
+             * I18N
+             * @description 多语言名称映射（locale → 文案）
+             */
+            i18n?: {
+                [key: string]: string;
+            };
+            /**
              * Name
              * @description 图标名称
              */
@@ -4885,6 +5241,13 @@ export interface components {
              * @description 图标分组
              */
             category?: string | null;
+            /**
+             * I18N
+             * @description 多语言名称映射（locale → 文案；None 表示不变）
+             */
+            i18n?: {
+                [key: string]: string;
+            } | null;
             /**
              * Name
              * @description 图标名称
@@ -5517,6 +5880,29 @@ export interface components {
             version: number;
         };
         /**
+         * PermissionCreateRequest
+         * @description 手工新增权限码组合（组合创建后只读）。
+         */
+        PermissionCreateRequest: {
+            /**
+             * Action Id
+             * @description 动作码 ID
+             */
+            action_id: number;
+            /**
+             * Business Id
+             * @description 业务码 ID
+             */
+            business_id: number;
+            /**
+             * Status
+             * @description 状态（enabled/disabled）
+             * @default enabled
+             * @enum {string}
+             */
+            status: "enabled" | "disabled";
+        };
+        /**
          * PermissionDataScopeItem
          * @description 数据范围规则（字典类型 + 策略 + 规则行）。
          */
@@ -5564,6 +5950,49 @@ export interface components {
              * @description 读时是否返回
              */
             visible: boolean;
+        };
+        /**
+         * PermissionGenerateRequest
+         * @description 批量补生成缺失权限码组合请求（范围为空 = 全部启用项）。
+         */
+        PermissionGenerateRequest: {
+            /**
+             * Action Ids
+             * @description 限定动作码 ID 清单（空 = 全部启用动作码）
+             */
+            action_ids?: number[];
+            /**
+             * Business Ids
+             * @description 限定业务码 ID 清单（空 = 全部启用业务码）
+             */
+            business_ids?: number[];
+            /**
+             * Include Disabled
+             * @description 是否包含停用的业务 / 动作码
+             * @default false
+             */
+            include_disabled: boolean;
+        };
+        /**
+         * PermissionGenerateResult
+         * @description 批量补生成结果计数。
+         */
+        PermissionGenerateResult: {
+            /**
+             * Created
+             * @description 新建组合数
+             */
+            created: number;
+            /**
+             * Restored
+             * @description 恢复软删除组合数
+             */
+            restored: number;
+            /**
+             * Skipped
+             * @description 已存在跳过数
+             */
+            skipped: number;
         };
         /**
          * PermissionGrantItem
@@ -5638,6 +6067,12 @@ export interface components {
              * @description 权限码主键
              */
             id: string;
+            /**
+             * Name
+             * @description 权限码名称（业务名·动作名，按 locale 本地化）
+             * @default
+             */
+            name: string;
             /**
              * Status
              * @description 状态（enabled/disabled）
@@ -5723,6 +6158,18 @@ export interface components {
             role_types?: {
                 [key: string]: string;
             };
+        };
+        /**
+         * PermissionUpdateRequest
+         * @description 更新权限码（组合不可换绑，仅状态）。
+         */
+        PermissionUpdateRequest: {
+            /**
+             * Status
+             * @description 状态（enabled/disabled）
+             * @enum {string}
+             */
+            status: "enabled" | "disabled";
         };
         /**
          * PreferenceValueRequest
@@ -7467,6 +7914,240 @@ export interface operations {
             };
         };
     };
+    create_action_api_v1_actions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ActionCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_ActionItem_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    update_action_api_v1_actions__action_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                action_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ActionUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_ActionItem_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    delete_action_api_v1_actions__action_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                action_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_NoneType_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
     list_businesses_api_v1_businesses_get: {
         parameters: {
             query?: never;
@@ -7510,6 +8191,240 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    create_business_api_v1_businesses_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BusinessCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_BusinessItem_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    update_business_api_v1_businesses__business_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                business_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BusinessUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_BusinessItem_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    delete_business_api_v1_businesses__business_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                business_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_NoneType_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
             /** @description 限流 */
@@ -10881,6 +11796,318 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponse_PermissionList_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    create_permission_api_v1_permissions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PermissionCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_PermissionItem_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    generate_permissions_api_v1_permissions_generate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PermissionGenerateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_PermissionGenerateResult_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    update_permission_api_v1_permissions__permission_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                permission_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PermissionUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_PermissionItem_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    delete_permission_api_v1_permissions__permission_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                permission_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_NoneType_"];
                 };
             };
             /** @description 未认证 */

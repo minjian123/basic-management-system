@@ -19,6 +19,7 @@ from bms_core.permission.rbac import RBAC_PROVIDER_NAME
 from bms_core.scope.rbac import RBAC_DATA_SCOPE_NAME, register_rbac_data_scope
 from bms_platform import CONTRACT_VERSION, SERVICE_NAME, SERVICE_TITLE, __version__
 from bms_platform.api.router import api_router
+from bms_platform.icon.registry import DB_ICON_PROVIDER, DbIconRegistry  # noqa: F401  (导入即登记 icon_registry:db)
 from bms_platform.permission.checker import register_platform_permission
 from bms_platform.repositories.demo_repository import DemoRepository
 from bms_platform.services.branch_handlers import build_branch_handlers
@@ -52,6 +53,8 @@ class ApplicationFactory(BaseServiceApplicationFactory):
             settings.permission.provider = RBAC_PROVIDER_NAME
         if not settings.data_scope.provider:
             settings.data_scope.provider = RBAC_DATA_SCOPE_NAME
+        if not settings.icon_registry.provider:
+            settings.icon_registry.provider = DB_ICON_PROVIDER
         # 平台侧装配：真实校验器 + 直查本库数据来源工厂 + 字段权限 provider 工厂
         register_platform_permission(settings)
         register_rbac_data_scope(settings)

@@ -28,6 +28,13 @@ from bms_platform.models.menu import (
     SysMenuI18n,
     SysPermission,
 )
+from bms_platform.models.role import (
+    PERM_TYPE_FORM,
+    PERM_TYPE_MENU,
+    PERM_TYPE_PERMISSION,
+    SysRoleField,
+    SysRolePermission,
+)
 
 
 async def _load_i18n(
@@ -161,6 +168,39 @@ class BusinessRepository(BaseDbRepository[SysBusiness]):
         """
         return await _load_i18n_all(self._session, SysBusinessI18n, "business_id", business_ids)
 
+    async def get_by_code(self, code: str) -> SysBusiness | None:
+        """按业务码取活动行。
+
+        Args:
+            code: 业务码。
+
+        Returns:
+            SysBusiness | None: 命中行；不存在返回 None。
+        """
+        statement = self._select().where(self._column("code") == code)
+        return (await self._session.execute(statement)).scalars().first()
+
+    async def get_deleted_by_code(self, code: str) -> SysBusiness | None:
+        """按业务码取**软删除行**（重建同码时恢复用）。
+
+        Args:
+            code: 业务码。
+
+        Returns:
+            SysBusiness | None: 软删除行；不存在返回 None。
+        """
+        statement = select(SysBusiness).where(SysBusiness.code == code, SysBusiness.deleted_at.is_not(None))
+        return (await self._session.execute(statement)).scalars().first()
+
+    async def replace_i18n(self, business_id: int, names: ConcurrentStableDict[str, str]) -> None:
+        """整体替换业务码多语言文案。
+
+        Args:
+            business_id: 业务码 ID。
+            names: 语言标识 → 文案。
+        """
+        await _replace_i18n(self._session, SysBusinessI18n, "business_id", business_id, names)
+
 
 class ActionRepository(BaseDbRepository[SysAction]):
     """动作码字典仓储（`sys_action`）：全局动词，按主键列示与多语言装载。"""
@@ -201,6 +241,39 @@ class ActionRepository(BaseDbRepository[SysAction]):
         """
         return await _load_i18n_all(self._session, SysActionI18n, "action_id", action_ids)
 
+    async def get_by_code(self, code: str) -> SysAction | None:
+        """按动作码取活动行。
+
+        Args:
+            code: 动作码。
+
+        Returns:
+            SysAction | None: 命中行；不存在返回 None。
+        """
+        statement = self._select().where(self._column("code") == code)
+        return (await self._session.execute(statement)).scalars().first()
+
+    async def get_deleted_by_code(self, code: str) -> SysAction | None:
+        """按动作码取**软删除行**（重建同码时恢复用）。
+
+        Args:
+            code: 动作码。
+
+        Returns:
+            SysAction | None: 软删除行；不存在返回 None。
+        """
+        statement = select(SysAction).where(SysAction.code == code, SysAction.deleted_at.is_not(None))
+        return (await self._session.execute(statement)).scalars().first()
+
+    async def replace_i18n(self, action_id: int, names: ConcurrentStableDict[str, str]) -> None:
+        """整体替换动作码多语言文案。
+
+        Args:
+            action_id: 动作码 ID。
+            names: 语言标识 → 文案。
+        """
+        await _replace_i18n(self._session, SysActionI18n, "action_id", action_id, names)
+
 
 class PermissionRepository(BaseDbRepository[SysPermission]):
     """权限码仓储（`sys_permission`）：业务码 × 动作码组合，受控可授项。"""
@@ -230,6 +303,112 @@ class PermissionRepository(BaseDbRepository[SysPermission]):
             statement = statement.where(self._column("business_id") == business_id)
         statement = statement.order_by(self._column("id"))
         return ConcurrentStableList((await self._session.execute(statement)).scalars().all())
+
+    async def get_by_pair(self, business_id: int, action_id: int) -> SysPermission | None:
+        """按业务码 × 动作码取活动行。
+
+        Args:
+            business_id: 业务码 ID。
+            action_id: 动作码 ID。
+
+        Returns:
+            SysPermission | None: 命中行；不存在返回 None。
+        """
+        statement = self._select().where(
+            self._column("business_id") == business_id,
+            self._column("action_id") == action_id,
+        )
+        return (await self._session.execute(statement)).scalars().first()
+
+    async def get_deleted_by_pair(self, business_id: int, action_id: int) -> SysPermission | None:
+        """按组合取**软删除行**（重建同组合时恢复用）。
+
+        Args:
+            business_id: 业务码 ID。
+            action_id: 动作码 ID。
+
+        Returns:
+            SysPermission | None: 软删除行；不存在返回 None。
+        """
+        statement = select(SysPermission).where(
+            SysPermission.business_id == business_id,
+            SysPermission.action_id == action_id,
+            SysPermission.deleted_at.is_not(None),
+        )
+        return (await self._session.execute(statement)).scalars().first()
+
+    async def count_by_business(self, business_id: int) -> int:
+        """统计某业务码下的权限码数量（含停用）。
+
+        Args:
+            business_id: 业务码 ID。
+
+        Returns:
+            int: 权限码数量。
+        """
+        statement = select(sa.func.count()).select_from(SysPermission).where(
+            SysPermission.business_id == business_id,
+            SysPermission.deleted_at.is_(None),
+        )
+        return int((await self._session.execute(statement)).scalar_one())
+
+    async def count_by_businesses(self) -> ConcurrentStableDict[int, int]:
+        """按业务码批量统计权限码数量（列表页「权限码数」列用）。
+
+        Returns:
+            ConcurrentStableDict[int, int]: 业务码 ID → 权限码数量。
+        """
+        statement = (
+            select(SysPermission.business_id, sa.func.count())
+            .where(SysPermission.deleted_at.is_(None))
+            .group_by(SysPermission.business_id)
+        )
+        rows = (await self._session.execute(statement)).all()
+        return ConcurrentStableDict({int(cast("int", row[0])): int(cast("int", row[1])) for row in rows})
+
+    async def count_by_action(self, action_id: int) -> int:
+        """统计某动作码下的权限码数量（含停用）。
+
+        Args:
+            action_id: 动作码 ID。
+
+        Returns:
+            int: 权限码数量。
+        """
+        statement = select(sa.func.count()).select_from(SysPermission).where(
+            SysPermission.action_id == action_id,
+            SysPermission.deleted_at.is_(None),
+        )
+        return int((await self._session.execute(statement)).scalar_one())
+
+    async def list_by_action(self, action_id: int) -> ConcurrentStableList[SysPermission]:
+        """列示某动作码下的权限码（含停用；主键升序）。
+
+        Args:
+            action_id: 动作码 ID。
+
+        Returns:
+            ConcurrentStableList[SysPermission]: 权限码列表。
+        """
+        statement = self._select().where(self._column("action_id") == action_id).order_by(self._column("id"))
+        return ConcurrentStableList((await self._session.execute(statement)).scalars().all())
+
+    async def restore(self, item_id: int) -> bool:
+        """恢复软删除的权限码行。
+
+        Args:
+            item_id: 权限码主键。
+
+        Returns:
+            bool: 是否恢复成功（行不存在返回 False）。
+        """
+        statement = select(SysPermission).where(SysPermission.id == item_id, SysPermission.deleted_at.is_not(None))
+        row = (await self._session.execute(statement)).scalars().first()
+        if row is None:
+            return False
+        row.restore()
+        await self._session.flush()
+        return True
 
 
 class MenuRepository(BaseDbRepository[SysMenu]):
@@ -448,6 +627,18 @@ class ButtonRepository(BaseDbRepository[SysButton]):
         statement = self._select().order_by(self._column("id"))
         return ConcurrentStableList((await self._session.execute(statement)).scalars().all())
 
+    async def list_by_permission(self, permission_id: int) -> ConcurrentStableList[SysButton]:
+        """按权限码列示挂接的按钮（删除 / 停用权限码时的引用探测）。
+
+        Args:
+            permission_id: 权限码 ID。
+
+        Returns:
+            ConcurrentStableList[SysButton]: 按钮列表（插入序）。
+        """
+        statement = self._select().where(self._column("permission_id") == permission_id)
+        return ConcurrentStableList((await self._session.execute(statement)).scalars().all())
+
     async def get_by_form_permission(self, form_id: int, permission_id: int) -> SysButton | None:
         """按「表单 + 权限码」探测既有按钮（1:1）。
 
@@ -542,3 +733,83 @@ class FieldRepository(BaseDbRepository[SysField]):
             names: 语言标识 → 文案。
         """
         await _replace_i18n(self._session, SysFieldI18n, "field_id", field_id, names)
+
+
+class MetadataReferenceRepository(BaseDbRepository[SysRolePermission]):
+    """元数据引用探测（只读）：菜单 / 表单 / 权限码 / 字段是否被角色授权引用。
+
+    授权关系归角色域（`sys_role_permission` / `sys_role_field`），本仓储只做只读计数，
+    供养护菜单 / 表单 / 权限码的删除与停用前置校验（`40206`）。
+    """
+
+    model = SysRolePermission
+
+    async def count_menu_refs(self, menu_id: int) -> int:
+        """统计引用某菜单的角色授权数（菜单授权目标或任一带源入口的授权）。
+
+        Args:
+            menu_id: 菜单 ID。
+
+        Returns:
+            int: 引用数（活动行）。
+        """
+        statement = select(sa.func.count()).select_from(SysRolePermission).where(
+            SysRolePermission.deleted_at.is_(None),
+            sa.or_(
+                sa.and_(SysRolePermission.perm_type == PERM_TYPE_MENU, SysRolePermission.target_id == menu_id),
+                SysRolePermission.source_menu_id == menu_id,
+            ),
+        )
+        return int((await self._session.execute(statement)).scalar_one())
+
+    async def count_form_refs(self, form_id: int) -> int:
+        """统计引用某表单的角色授权数（表单授权目标或来源菜单指向该表单入口）。
+
+        Args:
+            form_id: 表单 ID。
+
+        Returns:
+            int: 引用数（活动行）。
+        """
+        statement = select(sa.func.count()).select_from(SysRolePermission).where(
+            SysRolePermission.deleted_at.is_(None),
+            SysRolePermission.perm_type == PERM_TYPE_FORM,
+            sa.or_(SysRolePermission.target_id == form_id, SysRolePermission.source_menu_id == form_id),
+        )
+        return int((await self._session.execute(statement)).scalar_one())
+
+    async def count_permission_refs(self, permission_id: int) -> int:
+        """统计引用某权限码的角色授权数。
+
+        Args:
+            permission_id: 权限码 ID。
+
+        Returns:
+            int: 引用数（活动行）。
+        """
+        statement = select(sa.func.count()).select_from(SysRolePermission).where(
+            SysRolePermission.deleted_at.is_(None),
+            SysRolePermission.perm_type == PERM_TYPE_PERMISSION,
+            SysRolePermission.target_id == permission_id,
+        )
+        return int((await self._session.execute(statement)).scalar_one())
+
+    async def count_field_refs(self, *, form_id: int | None = None, field_id: int | None = None) -> int:
+        """统计引用某表单 / 字段的角色字段权限数。
+
+        Args:
+            form_id: 表单 ID（可空）。
+            field_id: 字段 ID（可空）。
+
+        Returns:
+            int: 引用数（活动行；两参皆空返回 0）。
+        """
+        if form_id is None and field_id is None:
+            return 0
+        conditions = [SysRoleField.deleted_at.is_(None)]
+        if form_id is not None:
+            conditions.append(SysRoleField.form_id == form_id)
+        if field_id is not None:
+            conditions.append(SysRoleField.field_id == field_id)
+        statement = select(sa.func.count()).select_from(SysRoleField).where(*conditions)
+        return int((await self._session.execute(statement)).scalar_one())
