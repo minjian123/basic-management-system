@@ -38,6 +38,8 @@ describe('整数 id 序列化豁免', () => {
     expect(stringifyIntegerIds({ a: [1, '2', null], b: undefined, c: { d: true } }, ['x.y'])).toBe(
       '{"a":[1,"2",null],"c":{"d":true}}',
     )
+    expect(stringifyIntegerIds({ a: null }, ['x.y'])).toBe('{"a":null}')
+    expect(stringifyIntegerIds({ f: () => 1 }, ['x.y'])).toBe('{"f":null}')
   })
 
   it('非法 id 抛错（非数字串 / 非安全整数 / 非标量）', () => {
