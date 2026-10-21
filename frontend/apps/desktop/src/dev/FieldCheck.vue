@@ -1,17 +1,17 @@
 <script setup lang="ts">
-// 开发态核对页（11-03）：字段族 15 件 + 新增 3 件（时间 / 百分比 / 枚举多选）真实组装 + 亮暗切换，
+// 开发态核对页（11-03 / 06_10）：字段族件真实组装 + 亮暗切换，
 // 作为《原型审查规范》§4.9 实现侧截图对照载体；本页不进构建产物。
 import {
   AmountField,
   CascadeField,
   DateTimeField,
-  EnumField,
-  EnumMultiField,
   InlineSwitchCell,
   MultilingualDetailDialog,
   MultilingualNameField,
   MultilingualTextField,
   NumberField,
+  OptionSetField,
+  OptionSetMultiField,
   PercentField,
   RichTextField,
   SwitchField,
@@ -19,7 +19,9 @@ import {
   TimeField,
   TransferField,
   TreeSelectField,
-  type InputOption,
+  createOptionSetResolver,
+  provideOptionSetResolver,
+  type OptionSetSnapshot,
 } from '@bms/ui-ep'
 import { computed, ref } from 'vue'
 
@@ -32,12 +34,27 @@ function onToggleTheme(): void {
   document.documentElement.dataset.theme = theme.value
 }
 
-/** 枚举选项（含 sort 与重复 value，用于选项集解析对照）。 */
-const enumOptions: InputOption[] = [
-  { label: '高', value: 'high', sort: 1 },
-  { label: '中', value: 'mid', sort: 2 },
-  { label: '低', value: 'low', sort: 3 },
+/** 选项集快照（模拟表单元数据下发：含 sort / 颜色 / 禁用 / labelKey，运行期只读、零请求）。 */
+const optionSets: OptionSetSnapshot[] = [
+  {
+    optionSetKey: 'bms.demo.priority',
+    items: [
+      { value: 'high', label: '高', sort: 1, color: 'danger' },
+      { value: 'mid', label: '中', sort: 2, color: 'warning' },
+      { value: 'low', label: '低', sort: 3, color: 'success' },
+    ],
+  },
+  {
+    optionSetKey: 'bms.demo.large',
+    items: Array.from({ length: 12 }, (_, index) => ({
+      value: `v${index + 1}`,
+      label: `选项 ${index + 1}`,
+      sort: index + 1,
+    })),
+  },
 ]
+// 页面级装配选项集解析器（渲染器内建同名装配；此处为核直接用件的场景）。
+provideOptionSetResolver(createOptionSetResolver(() => optionSets))
 
 /** 级联选项。 */
 const cascadeOptions = [
@@ -75,11 +92,16 @@ const daterange = ref<Date | [Date, Date] | undefined>([new Date('2026-09-01T00:
 const time = ref('09:30')
 const percent = ref(12.34)
 const percentRatio = ref(0.1234)
-const enumValue = ref<string | number>('mid')
-const enumReadonly = ref<string | number>('high')
-const enumMulti = ref<(string | number)[]>(['high', 'low'])
-const enumMultiTag = ref<(string | number)[]>(['high'])
-const enumMultiReadonly = ref<(string | number)[]>(['high', 'mid'])
+const optionRadio = ref<string | undefined>('mid')
+const optionButton = ref<string | undefined>('mid')
+const optionSegmented = ref<string | undefined>('low')
+const optionDropdown = ref<string | undefined>('v3')
+const optionReadonly = ref<string | number>('high')
+const optionMissing = ref<string | undefined>('ghost')
+const optionMulti = ref<(string | number)[]>(['high', 'low'])
+const optionMultiTag = ref<(string | number)[]>(['high'])
+const optionMultiDropdown = ref<(string | number)[]>(['v1', 'v4'])
+const optionMultiReadonly = ref<(string | number)[]>(['high', 'mid'])
 const cascade = ref<string[] | undefined>(['zj', 'hz'])
 const tree = ref<string | undefined>('rd')
 const tags = ref<string[]>(['前端', '后端'])
@@ -118,8 +140,8 @@ const checks = computed(() => [
   { name: '日期时间字段：日期 / 区间「起 ~ 止」只读回显 + 快捷键', pass: true },
   { name: '时间件（新增）：仅时分纯时刻，不涉及时区换算', pass: true },
   { name: '百分比件（新增）：% 后缀 + percent / ratio 两口径', pass: true },
-  { name: '枚举字段：选项集解析（sort 升序 + value 去重）+ 只读回显', pass: true },
-  { name: '枚举多选件（新增）：checkbox / tag 两形态 + 顿号只读回显', pass: true },
+  { name: '选项集字段：六形态（radio / button / segmented / dropdown / checkbox / tag / dropdown-multi）', pass: true },
+  { name: '选项集解析（sort 升序 + value 去重）+ 只读回显 + 缺项回退原值', pass: true },
   { name: '级联选择：路径展示 + 可清除 + 只读路径回显', pass: true },
   { name: '树选择：仅叶子 / 排除子树 / 多选折叠', pass: true },
   { name: '标签输入：标签 + 建议面板 + 只读顿号回显', pass: true },
@@ -193,27 +215,79 @@ const checks = computed(() => [
     </section>
 
     <section class="field-check__section">
-      <h2>③ 枚举（单选 / 多选）</h2>
+      <h2>③ 选项集（六形态：radio / button / segmented / dropdown / checkbox / tag / dropdown-multi）</h2>
       <div class="field-check__row">
         <div class="field-check__cell">
-          <div class="field-check__label">枚举单选（segmented）</div>
-          <enum-field v-model="enumValue" :options="enumOptions" form="segmented" data-test="enum" />
+          <div class="field-check__label">单选 radio（默认形态）</div>
+          <option-set-field v-model="optionRadio" option-set-key="bms.demo.priority" data-test="option-set-radio" />
         </div>
         <div class="field-check__cell">
-          <div class="field-check__label">枚举只读回显</div>
-          <enum-field v-model="enumReadonly" :options="enumOptions" readonly data-test="enum-readonly" />
+          <div class="field-check__label">单选 button</div>
+          <option-set-field
+            v-model="optionButton"
+            option-set-key="bms.demo.priority"
+            form="button"
+            data-test="option-set-button"
+          />
         </div>
         <div class="field-check__cell">
-          <div class="field-check__label">枚举多选（checkbox）</div>
-          <enum-multi-field v-model="enumMulti" :options="enumOptions" data-test="enum-multi" />
+          <div class="field-check__label">单选 segmented</div>
+          <option-set-field
+            v-model="optionSegmented"
+            option-set-key="bms.demo.priority"
+            form="segmented"
+            data-test="option-set-segmented"
+          />
         </div>
         <div class="field-check__cell">
-          <div class="field-check__label">枚举多选（tag 形态）</div>
-          <enum-multi-field v-model="enumMultiTag" :options="enumOptions" form="tag" data-test="enum-multi-tag" />
+          <div class="field-check__label">单选 dropdown（选项 &gt; 8 建议）</div>
+          <option-set-field
+            v-model="optionDropdown"
+            option-set-key="bms.demo.large"
+            form="dropdown"
+            data-test="option-set-dropdown"
+          />
         </div>
         <div class="field-check__cell">
-          <div class="field-check__label">枚举多选只读（顿号）</div>
-          <enum-multi-field v-model="enumMultiReadonly" :options="enumOptions" readonly data-test="enum-multi-readonly" />
+          <div class="field-check__label">只读回显</div>
+          <option-set-field v-model="optionReadonly" option-set-key="bms.demo.priority" readonly data-test="option-set-readonly" />
+        </div>
+        <div class="field-check__cell">
+          <div class="field-check__label">缺项只读（回退原值 + data-missing）</div>
+          <option-set-field v-model="optionMissing" option-set-key="bms.demo.priority" readonly data-test="option-set-missing" />
+        </div>
+      </div>
+      <div class="field-check__row">
+        <div class="field-check__cell">
+          <div class="field-check__label">多选 checkbox</div>
+          <option-set-multi-field v-model="optionMulti" option-set-key="bms.demo.priority" data-test="option-set-multi" />
+        </div>
+        <div class="field-check__cell">
+          <div class="field-check__label">多选 tag</div>
+          <option-set-multi-field
+            v-model="optionMultiTag"
+            option-set-key="bms.demo.priority"
+            form="tag"
+            data-test="option-set-multi-tag"
+          />
+        </div>
+        <div class="field-check__cell">
+          <div class="field-check__label">多选 dropdown-multi（选项 &gt; 8 建议）</div>
+          <option-set-multi-field
+            v-model="optionMultiDropdown"
+            option-set-key="bms.demo.large"
+            form="dropdown-multi"
+            data-test="option-set-multi-dropdown"
+          />
+        </div>
+        <div class="field-check__cell">
+          <div class="field-check__label">多选只读（顿号）</div>
+          <option-set-multi-field
+            v-model="optionMultiReadonly"
+            option-set-key="bms.demo.priority"
+            readonly
+            data-test="option-set-multi-readonly"
+          />
         </div>
       </div>
     </section>

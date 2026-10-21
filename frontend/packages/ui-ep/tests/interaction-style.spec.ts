@@ -92,7 +92,7 @@ const FIELD_INPUT_BATCH = [
   'field/AmountField',
   'field/CascadeField',
   'field/DateTimeField',
-  'field/EnumField',
+  'field/OptionSetField',
   'field/InlineSwitchCell',
   'field/MultilingualDetailDialog',
   'field/MultilingualNameField',
@@ -109,7 +109,7 @@ const FIELD_INPUT_BATCH = [
 ]
 
 /** `11_03` 新增 4 件（新增件同受样式护栏约束）。 */
-const FIELD_INPUT_NEW = ['field/TimeField', 'field/PercentField', 'field/EnumMultiField', 'input/TriStateSwitch']
+const FIELD_INPUT_NEW = ['field/TimeField', 'field/PercentField', 'field/OptionSetMultiField', 'input/TriStateSwitch']
 
 /** `11_04` 补齐的专题件族 14 件（导入导出 5 / 表单设计器 4 / 表单渲染器 2 / 图表卡 1 / i18n 1 / 报表 1）。 */
 const SPECIAL_BATCH = [

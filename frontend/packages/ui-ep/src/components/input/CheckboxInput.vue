@@ -68,7 +68,7 @@ const indeterminate = computed(() => selected.value.length > 0 && !allChecked.va
 
 /**
  * 只读回显文本（节点 05_07 §4）：按选项集顺序取 label，**顿号分隔**，空值占位 `—`；
- * 不在选项集内的历史值回退原值（与 `EnumMultiField` 同口径，不静默丢值）。
+ * 不在选项集内的历史值回退原值（与 `OptionSetMultiField` 同口径，不静默丢值）。
  */
 const readonlyText = computed(() => {
   const order = new Map<CheckboxValue, number>(flatOptions.value.map((option, index) => [option.value, index]))

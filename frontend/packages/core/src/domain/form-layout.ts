@@ -9,6 +9,7 @@
 import type { FieldPermission } from '../capabilities/field-perm'
 
 import type { CaptchaKind, CaptchaScene } from './captcha'
+import type { OptionSetSnapshot } from './option-set'
 import { stableStringify } from './serialize'
 
 /** 自建字段类型白名单（对齐《概要设计 · 表单定制》「组件类型与自建字段边界」节；富文本不放开）。 */
@@ -245,8 +246,10 @@ export interface FieldRenderAttrs {
   defaultValue?: unknown
   /** 校验规则（声明式）。 */
   rules?: readonly FieldRule[]
-  /** 选项集（下拉 / 单选 / 复选 / 穿梭等）。 */
+  /** 静态选项（仅穿梭 / 标签 / 级联等未知类型回退件消费；`option` / `option_multi` 不收，改用 `optionSetKey`）。 */
   options?: readonly ExtFieldOption[]
+  /** 选项集标识（仅 `option` / `option_multi` 消费；与 `dataSourceKey` 互斥，选项随元数据 `optionSets` 下发）。 */
+  optionSetKey?: string
   /** 控件形态覆盖（取控件语义键；未登记或 `plain` 时回退字段类型默认形态）。 */
   widget?: string
   /** 字典标识（仅 `dict` / `dict_multi` 字段类型消费；枚举字段只用选项集，不得配字典）。 */
@@ -311,6 +314,8 @@ export interface LayoutEffective {
   readonly: boolean
   /** 是否走了空布局回退。 */
   fallback: boolean
+  /** 选项集快照集（`optionSetKey` → 条目；随一次下发，运行期只读、零请求；缺省即未下发）。 */
+  optionSets?: readonly OptionSetSnapshot[]
   /** 当前用户字段权限标记（键为字段键；缺省项按全开，由 `08-6-2` 渲染器叠加）。 */
   permissions?: Readonly<Record<string, FieldPermission>>
 }

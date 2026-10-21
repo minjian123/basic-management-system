@@ -227,12 +227,16 @@ export { default as SliderCaptcha } from './components/field/SliderCaptcha.vue'
 export { default as SmsCaptcha } from './components/field/SmsCaptcha.vue'
 export { default as AmountField } from './components/field/AmountField.vue'
 export { default as CascadeField, type CascadeOption, type CascadeValue } from './components/field/CascadeField.vue'
-export { default as EnumField, type EnumFieldForm, type EnumFieldValue } from './components/field/EnumField.vue'
 export {
-  default as EnumMultiField,
-  type EnumMultiForm,
-  type EnumMultiValue,
-} from './components/field/EnumMultiField.vue'
+  default as OptionSetField,
+  type OptionSetFieldForm,
+  type OptionSetFieldValue,
+} from './components/field/OptionSetField.vue'
+export {
+  default as OptionSetMultiField,
+  type OptionSetMultiForm,
+  type OptionSetMultiValue,
+} from './components/field/OptionSetMultiField.vue'
 export { default as InlineSwitchCell } from './components/field/InlineSwitchCell.vue'
 export { default as PercentField, type PercentScale } from './components/field/PercentField.vue'
 export { default as TimeField, type TimeFieldFormat } from './components/field/TimeField.vue'
@@ -373,6 +377,17 @@ export {
   type UseBaseOptionSourceOptions,
   type UseBaseOptionSourceResult,
 } from './composables/useBaseOptionSource'
+export {
+  OPTION_SET_RESOLVER,
+  createOptionSetResolver,
+  isOptionSetDevMode,
+  provideOptionSetResolver,
+  setOptionSetDevMode,
+  useOptionSet,
+  type OptionSetResolver,
+  type UseOptionSetInput,
+  type UseOptionSetResult,
+} from './utils/optionSet'
 export {
   useBaseSubscription,
   type SubscriptionHandler,

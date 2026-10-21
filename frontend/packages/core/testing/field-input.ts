@@ -1,7 +1,7 @@
 /**
  * 字段族基础契约（`@bms/core/testing`）。
  *
- * 面向 `11_03` 新增的四件（`TimeField` / `PercentField` / `EnumMultiField` / `TriStateSwitch`）：
+ * 面向 `11_03` 新增的四件（`TimeField` / `PercentField` / `OptionSetMultiField` / `TriStateSwitch`）：
  * 四件均为**纯前端字段件**（无后端数据源依赖），契约面为「受控值 + 空态 + 校验 + 只读回显」，
  * 故本套件按「值语义 + 校验语义 + 只读语义」三段冻结，各端（PC `ui-ep` / 移动端 / 自定义件）
  * 传入驱动器跑同一套断言（《AI开发规范》架构铁律「两轨汇入同一体系 + 同一套契约测试」）。

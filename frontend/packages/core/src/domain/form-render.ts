@@ -9,6 +9,8 @@
 
 import { normalizeCaptchaKind, normalizeCaptchaScene } from './captcha'
 import { DEFAULT_LAYOUT_COLUMNS, SECTION_KEY_PREFIX, normalizeLayout } from './form-layout'
+import type { OptionSetItem, OptionSetSnapshot } from './option-set'
+import { buildOptionSetIndex, isOptionSetFieldType } from './option-set'
 import { codePattern, lengthRange, numberRange, required as requiredRule } from './validators'
 
 import type { Validator } from '../capabilities/validatable'
@@ -183,8 +185,10 @@ export interface RenderFieldPlan extends FieldRenderState {
   placeholder: string
   /** 默认值。 */
   defaultValue: unknown
-  /** 选项集。 */
+  /** 选项集（枚举字段为 `optionSets` 快照解析值；其余为元数据静态选项）。 */
   options: ExtFieldOption[]
+  /** 选项集标识（仅 `option` / `option_multi`）。 */
+  optionSetKey?: string
   /** 校验规则。 */
   rules: FieldRule[]
   /** 当前值。 */
@@ -247,6 +251,8 @@ export interface RenderPlan {
   disabledFields: string[]
   /** 不可见字段（保留在计划中但不渲染）。 */
   hiddenFields: string[]
+  /** 选项集快照集（归一后；渲染器据此装配注入式解析器）。 */
+  optionSets: OptionSetSnapshot[]
   /** 是否走了空布局回退。 */
   fallback: boolean
   /** 是否整体只读。 */
@@ -312,6 +318,8 @@ export interface RenderMetadataInput {
   readonly?: boolean
   /** 是否走了空布局回退。 */
   fallback?: boolean
+  /** 选项集快照集（`optionSetKey` → 条目；后端可省略，省略即枚举字段空态降级）。 */
+  optionSets?: readonly OptionSetSnapshot[]
   /** 字段权限标记（省略项按全开）。 */
   permissions?: Readonly<Record<string, Partial<FieldPermission>>>
 }
@@ -407,6 +415,78 @@ function normalizeFieldStatus(status: unknown): FieldStatus | undefined {
   return typeof status === 'string' && FIELD_STATUSES.includes(status) ? (status as FieldStatus) : undefined
 }
 
+/** 开发态告警（仅 DEV；生产静默）。 */
+function devWarn(message: string): void {
+  const env = (import.meta as { env?: { DEV?: boolean } }).env
+  if (env?.DEV === true) {
+    console.warn(`[bms] ${message}`)
+  }
+}
+
+/** 归一选项集条目（`value` 必填、其余项按类型收窄）。 */
+function normalizeOptionSetItems(items: unknown): OptionSetItem[] {
+  if (!Array.isArray(items)) {
+    return []
+  }
+  const result: OptionSetItem[] = []
+  for (const item of items) {
+    if (item === null || typeof item !== 'object') {
+      continue
+    }
+    const record = item as {
+      value?: unknown
+      label?: unknown
+      labelKey?: unknown
+      color?: unknown
+      disabled?: unknown
+      sort?: unknown
+    }
+    if (record.value === null || record.value === undefined) {
+      continue
+    }
+    const value = String(record.value)
+    if (value === '') {
+      continue
+    }
+    const entry: OptionSetItem = { value, label: typeof record.label === 'string' ? record.label : '' }
+    if (typeof record.labelKey === 'string' && record.labelKey !== '') {
+      entry.labelKey = record.labelKey
+    }
+    if (typeof record.color === 'string' && record.color !== '') {
+      entry.color = record.color
+    }
+    if (record.disabled === true) {
+      entry.disabled = true
+    }
+    if (typeof record.sort === 'number' && Number.isFinite(record.sort)) {
+      entry.sort = record.sort
+    }
+    result.push(entry)
+  }
+  return result
+}
+
+/** 归一选项集快照集（同 key 保留首个；未解析项剔除）。 */
+function normalizeOptionSets(sets: unknown): OptionSetSnapshot[] {
+  if (!Array.isArray(sets)) {
+    return []
+  }
+  const seen = new Set<string>()
+  const result: OptionSetSnapshot[] = []
+  for (const set of sets) {
+    if (set === null || typeof set !== 'object') {
+      continue
+    }
+    const record = set as { optionSetKey?: unknown; items?: unknown }
+    if (typeof record.optionSetKey !== 'string' || record.optionSetKey === '' || seen.has(record.optionSetKey)) {
+      continue
+    }
+    seen.add(record.optionSetKey)
+    result.push({ optionSetKey: record.optionSetKey, items: normalizeOptionSetItems(record.items) })
+  }
+  return result
+}
+
 /** 归一选项集。 */
 function normalizeOptions(options: unknown): ExtFieldOption[] {
   if (!Array.isArray(options)) {
@@ -498,8 +578,16 @@ export function normalizeField(input: FormFieldInput | undefined, index = 0): Fo
   if (rules.length > 0) {
     field.rules = rules
   }
+  if (typeof source.optionSetKey === 'string' && source.optionSetKey !== '') {
+    field.optionSetKey = source.optionSetKey
+  }
   const options = normalizeOptions(source.options)
-  if (options.length > 0) {
+  if (isOptionSetFieldType(field.type)) {
+    // 选项集字段只消费 `optionSetKey`（选项随元数据 `optionSets` 下发）；旧字段层直传 options 一律丢弃。
+    if (options.length > 0) {
+      devWarn(`枚举字段 ${field.key} 的 options 已废弃，请改用 optionSetKey + 元数据 optionSets`)
+    }
+  } else if (options.length > 0) {
     field.options = options
   }
   if (typeof source.dataSourceKey === 'string' && source.dataSourceKey !== '') {
@@ -548,6 +636,7 @@ export function normalizeRenderMetadata(input: RenderMetadataInput | LayoutEffec
       source: 'empty',
       readonly: true,
       fallback: true,
+      optionSets: [],
       permissions: {},
     }
     return empty
@@ -584,6 +673,7 @@ export function normalizeRenderMetadata(input: RenderMetadataInput | LayoutEffec
     source,
     readonly: raw.readonly === true,
     fallback: raw.fallback === true,
+    optionSets: normalizeOptionSets(raw.optionSets),
     permissions,
   }
 }
@@ -662,6 +752,7 @@ function mergeAttrs(field: FormField, override: FieldRenderOverride | undefined)
     defaultValue: override.defaultValue ?? field.defaultValue,
     rules: override.rules ?? field.rules,
     options: override.options ?? field.options,
+    optionSetKey: override.optionSetKey ?? field.optionSetKey,
     widget: override.widget ?? field.widget,
     dataSourceKey: override.dataSourceKey ?? field.dataSourceKey,
     uploadAccept: override.uploadAccept ?? field.uploadAccept,
@@ -676,7 +767,7 @@ function mergeAttrs(field: FormField, override: FieldRenderOverride | undefined)
 /**
  * 构建字段渲染项。
  *
- * @param input 输入（字段 / 覆盖 / 权限 / 三态 / 值 / 跨列）。
+ * @param input 输入（字段 / 覆盖 / 权限 / 三态 / 值 / 跨列 / 选项集索引）。
  */
 export function buildFieldPlan(input: {
   field: FormField
@@ -686,6 +777,8 @@ export function buildFieldPlan(input: {
   forceReadOnly?: boolean
   value?: unknown
   colSpan?: boolean
+  /** 选项集索引（`optionSetKey` → 解析后条目；枚举字段据此产校验与回显选项）。 */
+  optionSets?: Readonly<Record<string, readonly OptionSetItem[]>>
 }): RenderFieldPlan {
   const attrs = mergeAttrs(input.field, input.override)
   const state = resolveFieldRenderState({
@@ -696,6 +789,15 @@ export function buildFieldPlan(input: {
     forceReadOnly: input.forceReadOnly,
   })
   const widget = resolveFieldWidgetOf(input.field.type, attrs.widget)
+  const enumType = isOptionSetFieldType(input.field.type)
+  const optionSetKey = enumType ? attrs.optionSetKey : undefined
+  // 枚举字段只消费选项集快照（缺 key / 未下发即空集，由件层空态降级）；其余类型沿用静态选项。
+  const options =
+    optionSetKey === undefined
+      ? enumType
+        ? []
+        : normalizeOptions(attrs.options)
+      : (input.optionSets?.[optionSetKey] ?? []).map((item) => ({ value: item.value, label: item.label }))
   return {
     ...state,
     key: input.field.key,
@@ -705,7 +807,8 @@ export function buildFieldPlan(input: {
     colSpan: input.colSpan === true,
     placeholder: typeof attrs.placeholder === 'string' ? attrs.placeholder : '',
     defaultValue: attrs.defaultValue,
-    options: normalizeOptions(attrs.options),
+    options,
+    ...(optionSetKey === undefined ? {} : { optionSetKey }),
     rules: mkFieldRules(input.field, { override: input.override, state }),
     value: input.value ?? attrs.defaultValue,
     base: input.field,
@@ -733,6 +836,8 @@ export function buildRenderPlan(
   const permissions = input.permissions ?? effective.permissions ?? {}
   const overrides = normalizeFieldOverrides(input.overrides)
   const layout = normalizeLayout(effective.layout)
+  const optionSets = normalizeOptionSets(effective.optionSets)
+  const optionSetIndex = buildOptionSetIndex(optionSets)
   const byKey = new Map(effective.fields.map((field) => [field.key, field]))
   const unknownFields: string[] = []
   const disabledFields: string[] = []
@@ -762,6 +867,7 @@ export function buildRenderPlan(
       forceReadOnly: input.forceReadOnly ?? false,
       value: data[key],
       colSpan,
+      optionSets: optionSetIndex,
     })
     if (!item.visible && !hiddenFields.includes(key)) {
       hiddenFields.push(key)
@@ -828,6 +934,7 @@ export function buildRenderPlan(
     unknownFields,
     disabledFields,
     hiddenFields,
+    optionSets,
     fallback: effective.fallback,
     readonly,
   }

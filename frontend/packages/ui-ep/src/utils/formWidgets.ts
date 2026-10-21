@@ -18,13 +18,13 @@ import CaptchaField from '../components/field/CaptchaField.vue'
 import CascadeField from '../components/field/CascadeField.vue'
 import DateTimeField from '../components/field/DateTimeField.vue'
 import DictSelectField from '../components/field/DictSelectField.vue'
-import EnumField from '../components/field/EnumField.vue'
-import EnumMultiField from '../components/field/EnumMultiField.vue'
 import FileUploadField from '../components/field/FileUploadField.vue'
 import ImageUploadField from '../components/field/ImageUploadField.vue'
 import MultilingualNameField from '../components/field/MultilingualNameField.vue'
 import MultilingualTextField from '../components/field/MultilingualTextField.vue'
 import NumberField from '../components/field/NumberField.vue'
+import OptionSetField from '../components/field/OptionSetField.vue'
+import OptionSetMultiField from '../components/field/OptionSetMultiField.vue'
 import OrgSelectField from '../components/field/OrgSelectField.vue'
 import PercentField from '../components/field/PercentField.vue'
 import RichTextField from '../components/field/RichTextField.vue'
@@ -72,14 +72,14 @@ const BUILTIN_WIDGETS: Readonly<Record<string, Component>> = {
   'i18n-text': MultilingualTextField,
 }
 
-/** 字段类型专用件（同语义键下按类型细分：金额 / 数值 / 百分比 / 枚举；字典类型经内建映射分发 `DictSelectField`）。 */
+/** 字段类型专用件（同语义键下按类型细分：金额 / 数值 / 百分比 / 选项集；字典类型经内建映射分发 `DictSelectField`）。 */
 const TYPE_OVERRIDES: Readonly<Record<string, Component>> = {
   amount: AmountField,
   percent: PercentField,
   number: NumberField,
-  option: EnumField,
-  option_multi: EnumMultiField,
-  radio: EnumField,
+  option: OptionSetField,
+  option_multi: OptionSetMultiField,
+  radio: OptionSetField,
 }
 
 /**

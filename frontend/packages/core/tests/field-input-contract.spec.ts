@@ -2,7 +2,7 @@
  * 字段族基础契约套件自验（`11_03` 新增四件的契约面）。
  *
  * 套件本身在 `testing/field-input.ts` 冻结；本用例以**最小驱动器**跑通套件全部断言，
- * 真实件（`TimeField` / `PercentField` / `EnumMultiField` / `TriStateSwitch`）在 `ui-ep` 侧
+ * 真实件（`TimeField` / `PercentField` / `OptionSetMultiField` / `TriStateSwitch`）在 `ui-ep` 侧
  * 以同一套件驱动（同契约多实现）。
  */
 

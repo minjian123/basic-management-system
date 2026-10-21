@@ -6,13 +6,21 @@ import { buildRenderPlan } from '@bms/core'
 import { flushPromises, mount } from '@vue/test-utils'
 import { describe, expect, it, vi } from 'vitest'
 
-import { FormRenderer, getFieldWidget, resolveFieldComponent, useBaseFormRenderer, MULTIPLE_WIDGETS } from '../src'
+import {
+  FormRenderer,
+  getFieldWidget,
+  resolveFieldComponent,
+  resolveFieldComponentByType,
+  useBaseFormRenderer,
+  MULTIPLE_WIDGETS,
+} from '../src'
 import FormRendererBody from '../src/components/form-render/FormRendererBody.vue'
 import CaptchaField from '../src/components/field/CaptchaField.vue'
 import DictSelectField from '../src/components/field/DictSelectField.vue'
-import EnumField from '../src/components/field/EnumField.vue'
 import FileUploadField from '../src/components/field/FileUploadField.vue'
 import ImageUploadField from '../src/components/field/ImageUploadField.vue'
+import OptionSetField from '../src/components/field/OptionSetField.vue'
+import OptionSetMultiField from '../src/components/field/OptionSetMultiField.vue'
 import OrgSelectField from '../src/components/field/OrgSelectField.vue'
 
 /** 字段清单样例。 */
@@ -26,7 +34,7 @@ const fields: FormField[] = [
     type: 'option',
     group: 'platform',
     status: 'active',
-    options: [{ value: 'a', label: '甲' }],
+    optionSetKey: 'bms.demo.level',
   },
   { key: 'mystery', label: '未知', type: 'wild_type', group: 'platform', status: 'active' },
   { key: 'broken', label: '失效', type: 'text', group: 'tenant', status: 'failed' },
@@ -63,6 +71,15 @@ const meta: LayoutEffective = {
   source: 'tenant',
   readonly: false,
   fallback: false,
+  optionSets: [
+    {
+      optionSetKey: 'bms.demo.level',
+      items: [
+        { value: 'a', label: '甲', sort: 1 },
+        { value: 'b', label: '乙', sort: 2 },
+      ],
+    },
+  ],
   permissions: { remark: { visible: false } },
 }
 
@@ -182,6 +199,13 @@ describe('utils/formWidgets 分发映射', () => {
     expect(getFieldWidget('richtext')).toBe(getFieldWidget('richtext'))
   })
 
+  it('按字段类型直接解析组件（选项集走专用件、未登记回退 undefined）', () => {
+    expect(resolveFieldComponentByType('option')).toBe(OptionSetField)
+    expect(resolveFieldComponentByType('option_multi')).toBe(OptionSetMultiField)
+    expect(resolveFieldComponentByType('text')).toBeDefined()
+    expect(resolveFieldComponentByType('wild_type')).toBeUndefined()
+  })
+
   it('组织字段协同（06_05）：dept 映射组织件、kind 透传、多选语义单一来源', () => {
     expect(MULTIPLE_WIDGETS).toContain('org-select')
     const orgMeta: LayoutEffective = {
@@ -241,9 +265,68 @@ describe('utils/formWidgets 分发映射', () => {
     expect(fields[0]?.props('dataSourceKey')).toBe('user_status')
     expect(fields[1]?.props('dataSourceKey')).toBe('biz_type')
     expect(fields[1]?.props('multiple')).toBe(true)
-    const enumField = wrapper.findComponent(EnumField)
-    expect(enumField.exists()).toBe(true)
-    expect(enumField.props('form')).toBe('radio')
+    const optionField = wrapper.findComponent(OptionSetField)
+    expect(optionField.exists()).toBe(true)
+    expect(optionField.props('form')).toBe('radio')
+    // 选项集件不收字段层直传选项；未配 `optionSetKey` 即空态（字典标识不参与分发）。
+    expect(optionField.vm.$props).not.toHaveProperty('options')
+    expect(optionField.props('optionSetKey')).toBe('')
+  })
+
+  it('选项集字段协同（06_10）：只收 optionSetKey / 不下发 options / 下拉形态透传 / 解析器内建装配', () => {
+    const optionMeta: LayoutEffective = {
+      ...meta,
+      fields: [
+        { key: 'level', label: '等级', type: 'option', group: 'platform', status: 'active', optionSetKey: 'bms.demo.level' },
+        {
+          key: 'tags',
+          label: '标签',
+          type: 'option_multi',
+          group: 'platform',
+          status: 'active',
+          optionSetKey: 'bms.demo.level',
+        },
+        { key: 'pick', label: '单选下拉', type: 'option', group: 'platform', status: 'active', widget: 'dropdown', optionSetKey: 'bms.demo.level' },
+        {
+          key: 'pickMulti',
+          label: '多选下拉',
+          type: 'option_multi',
+          group: 'platform',
+          status: 'active',
+          widget: 'dropdown-multi',
+          optionSetKey: 'bms.demo.level',
+        },
+      ],
+      layout: {
+        main: {
+          labelPosition: 'top',
+          sections: [
+            {
+              key: 's-option',
+              title: '选项集',
+              columns: 2,
+              fields: [{ key: 'level' }, { key: 'tags' }, { key: 'pick' }, { key: 'pickMulti' }],
+            },
+          ],
+        },
+      },
+    }
+    const plan = buildRenderPlan({ ...optionMeta, permissions: {} }, { mode: 'edit' })
+    const wrapper = mount(FormRendererBody, {
+      props: { mode: 'edit', plan, modelValue: {}, details: {}, permissions: {} },
+      global: { stubs: { DataTable: true, OptionSetField: true, OptionSetMultiField: true } },
+    })
+    const singles = wrapper.findAllComponents(OptionSetField)
+    expect(singles).toHaveLength(2)
+    expect(singles[0]?.props('form')).toBe('radio')
+    expect(singles[0]?.props('optionSetKey')).toBe('bms.demo.level')
+    expect(singles[0]?.vm.$props).not.toHaveProperty('options')
+    expect(singles[1]?.props('form')).toBe('dropdown')
+    const multis = wrapper.findAllComponents(OptionSetMultiField)
+    expect(multis).toHaveLength(2)
+    expect(multis[0]?.props('form')).toBe('checkbox')
+    expect(multis[1]?.props('form')).toBe('dropdown-multi')
+    expect(multis[1]?.props('optionSetKey')).toBe('bms.demo.level')
   })
 
   it('文件 / 图片字段协同（06_07）：语义键分发、上传属性透传、多选语义单一来源', () => {

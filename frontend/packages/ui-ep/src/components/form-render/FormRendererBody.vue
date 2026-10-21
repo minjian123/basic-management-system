@@ -11,6 +11,7 @@ import DataTable from '../data/DataTable.vue'
 import DictSelectField from '../field/DictSelectField.vue'
 import { MULTIPLE_WIDGETS, resolveFieldComponent } from '../../utils/formWidgets'
 import { useBaseDataState } from '../../composables/useBaseDataState'
+import { createOptionSetResolver, provideOptionSetResolver } from '../../utils/optionSet'
 
 /** 渲染三态。 */
 export type BodyRenderMode = 'create' | 'edit' | 'view'
@@ -104,6 +105,8 @@ const detailErrorMap = computed<Record<string, string>>(() => {
 
 /** 生效计划（缺省空计划）。 */
 const plan = computed<RenderPlan | null>(() => props.plan ?? null)
+// 选项集注入式解析器（由元数据 `optionSets` 快照装配；宿主零装配，未下发即空态降级、零请求）。
+provideOptionSetResolver(createOptionSetResolver(() => plan.value?.optionSets))
 /** 分区。 */
 const sections = computed(() => plan.value?.sections ?? [])
 /** 明细列。 */
@@ -186,30 +189,42 @@ function isDictReferenced(field: RenderFieldPlan): boolean {
 }
 
 /**
- * 枚举字段形态（语义键 → 件层形态；非枚举字段返回 `undefined`）。
+ * 选项集字段形态（语义键 → 件层形态；非选项集字段返回 `undefined`）。
  *
- * 默认形态与后端一致（`option → radio`、`option_multi → checkbox`）；
- * 下拉形态语义键（`dropdown` / `dropdown-multi`）由字段属性层声明。
+ * `form` 值即控件语义键（与后端字段类型注册表一致）：单选 `radio` / `button` / `segmented` / `dropdown`；
+ * 多选 `checkbox` / `tag` / `dropdown-multi`。默认形态为 `radio` / `checkbox`，由字段属性层覆盖。
  *
  * @param field 字段渲染项。
  */
-function enumFormOf(field: RenderFieldPlan): string | undefined {
+function optionSetFormOf(field: RenderFieldPlan): string | undefined {
   if (field.base.type === 'option') {
-    if (field.widget === 'dropdown') {
-      return 'select'
-    }
-    if (field.widget === 'button' || field.widget === 'segmented') {
+    if (field.widget === 'dropdown' || field.widget === 'button' || field.widget === 'segmented') {
       return field.widget
     }
     return 'radio'
   }
   if (field.base.type === 'option_multi') {
-    if (field.widget === 'dropdown-multi') {
-      return 'dropdown'
-    }
-    return field.widget === 'tag' ? 'tag' : 'checkbox'
+    return field.widget === 'tag' || field.widget === 'dropdown-multi' ? field.widget : 'checkbox'
   }
   return undefined
+}
+
+/**
+ * 枚举字段是否选项集类型（选项集件不收 `options`，选项经注入式解析器提供）。
+ *
+ * @param field 字段渲染项。
+ */
+function isOptionSetField(field: RenderFieldPlan): boolean {
+  return field.base.type === 'option' || field.base.type === 'option_multi'
+}
+
+/**
+ * 控件静态选项（选项集字段不传——件只消费 `optionSetKey` 与注入的解析器）。
+ *
+ * @param field 字段渲染项。
+ */
+function optionsOf(field: RenderFieldPlan): unknown[] | undefined {
+  return isOptionSetField(field) ? undefined : field.options
 }
 
 /**
@@ -231,7 +246,7 @@ function isMultiple(field: RenderFieldPlan): boolean {
 }
 
 /**
- * 控件附加属性（组织选择件透传 `kind`；字典件透传 `dataSourceKey`；枚举件透传形态 `form`；上传件透传 `upload*`；验证码件透传 `captchaKind` / `captchaScene`；其余为空）。
+ * 控件附加属性（组织选择件透传 `kind`；字典件透传 `dataSourceKey`；选项集件透传 `form` 与 `optionSetKey`；上传件透传 `upload*`；验证码件透传 `captchaKind` / `captchaScene`；其余为空）。
  *
  * @param field 字段渲染项。
  */
@@ -242,9 +257,9 @@ function extraProps(field: RenderFieldPlan): Record<string, unknown> {
   if (isDictReferenced(field)) {
     return { dataSourceKey: field.base.dataSourceKey ?? '' }
   }
-  const enumForm = enumFormOf(field)
-  if (enumForm !== undefined) {
-    return { form: enumForm }
+  const optionSetForm = optionSetFormOf(field)
+  if (optionSetForm !== undefined) {
+    return { form: optionSetForm, optionSetKey: field.optionSetKey ?? '' }
   }
   if (field.widget === 'file-upload' || field.widget === 'image-upload') {
     return {
@@ -387,7 +402,7 @@ function isDisplayOnly(field: RenderFieldPlan): boolean {
                 :multiple="isMultiple(field)"
                 :disabled="field.disabled"
                 :placeholder="placeholderOf(field)"
-                :options="field.options"
+                :options="optionsOf(field)"
                 v-bind="extraProps(field)"
                 @update:model-value="onFieldInput(field, $event)"
               />
@@ -439,7 +454,7 @@ function isDisplayOnly(field: RenderFieldPlan): boolean {
                     :multiple="isMultiple(field)"
                     :disabled="field.disabled"
                     :placeholder="placeholderOf(field)"
-                    :options="field.options"
+                    :options="optionsOf(field)"
                     v-bind="extraProps(field)"
                     @update:model-value="onFieldInput(field, $event)"
                   />

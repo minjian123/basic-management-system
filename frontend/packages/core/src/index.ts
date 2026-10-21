@@ -1042,6 +1042,21 @@ export {
   type ScreenScaleTransform,
 } from './domain/screen-play'
 export {
+  OPTION_EMPTY_TEXT,
+  OPTION_MULTI_SEPARATOR,
+  OPTION_SET_DROPDOWN_THRESHOLD,
+  buildOptionSetIndex,
+  isOptionSetFieldType,
+  missingOptionValues,
+  optionLabelOf,
+  optionLabelsOf,
+  resolveOptionSetItems,
+  suggestOptionWidget,
+  type OptionSetItem,
+  type OptionSetResolveOptions,
+  type OptionSetSnapshot,
+} from './domain/option-set'
+export {
   DEFAULT_DETAIL_COLUMNS,
   DEFAULT_DETAIL_PAGE_SIZE,
   EMPTY_TEXT,

@@ -51,7 +51,7 @@ const fields: FormField[] = [
     type: 'option',
     group: 'platform',
     status: 'active',
-    options: [{ value: 'a', label: '甲' }],
+    optionSetKey: 'bms.demo.level',
   },
   { key: 'broken', label: '失效', type: 'text', group: 'tenant', status: 'failed' },
 ]
@@ -88,6 +88,7 @@ function effectiveOf(input: Partial<LayoutEffective> = {}): LayoutEffective {
     source: 'tenant',
     readonly: false,
     fallback: false,
+    optionSets: [{ optionSetKey: 'bms.demo.level', items: [{ value: 'a', label: '甲' }] }],
     ...input,
   }
 }
@@ -518,5 +519,91 @@ describe('提交载荷与许可', () => {
     expect(isSectionColumnsValid(9)).toBe(false)
     expect(sectionSpan(2)).toBe(12)
     expect(sectionSpan(9)).toBe(8)
+  })
+})
+
+describe('选项集字段（06_10）', () => {
+  it('归一：保留 optionSetKey、丢弃枚举字段直传 options、归一 optionSets', () => {
+    const field = normalizeField({
+      key: 'level',
+      label: '等级',
+      type: 'option',
+      optionSetKey: 'bms.demo.level',
+      options: [{ value: 'a', label: '甲' }],
+    })
+    expect(field.optionSetKey).toBe('bms.demo.level')
+    expect(field.options).toBeUndefined()
+
+    const multi = normalizeField({
+      key: 'tags',
+      label: '标签',
+      type: 'option_multi',
+      optionSetKey: 'bms.demo.level',
+    })
+    expect(multi.optionSetKey).toBe('bms.demo.level')
+
+    // 非枚举类型仍保留静态选项（穿梭 / 标签 / 级联等回退件消费）。
+    const transfer = normalizeField({ key: 'pick', label: '穿梭', type: 'transfer', options: [{ value: 'a', label: '甲' }] })
+    expect(transfer.options).toEqual([{ value: 'a', label: '甲' }])
+
+    /** 刻意混入重复标识 / 空标识 / 缺值项 / 非对象项（脏数据降级用例）。 */
+    const dirtySets = [
+      {
+        optionSetKey: 'bms.demo.level',
+        items: [
+          { value: 'b', label: '乙', sort: 2 },
+          { value: 'a', label: '甲', sort: 1, color: 'success' },
+        ],
+      },
+      { optionSetKey: 'bms.demo.level', items: [{ value: 'z', label: '重复标识' }] },
+      { optionSetKey: '', items: [{ value: 'x', label: '空标识' }] },
+      { optionSetKey: 'bms.demo.broken', items: [{ label: '缺值' }, { value: 'ok' }, null] },
+    ] as unknown as LayoutEffective['optionSets']
+    const meta = normalizeRenderMetadata({
+      layout,
+      fields: [{ key: 'level', label: '等级', type: 'option', optionSetKey: 'bms.demo.level' }],
+      optionSets: dirtySets,
+    })
+    expect(meta.optionSets?.map((set) => set.optionSetKey)).toEqual(['bms.demo.level', 'bms.demo.broken'])
+    // 归一保留声明顺序，排序去重由解析侧（`resolveOptionSetItems`）统一执行。
+    expect(meta.optionSets?.[0]?.items.map((item) => item.value)).toEqual(['b', 'a'])
+    expect(meta.optionSets?.[0]?.items[1]?.color).toBe('success')
+    expect(meta.optionSets?.[1]?.items).toEqual([{ value: 'ok', label: '' }])
+  })
+
+  it('渲染计划：枚举字段选项按快照解析、带 optionSetKey，缺 key / 未下发为空集', () => {
+    const plan = buildRenderPlan(effectiveOf())
+    const level = plan.sections.flatMap((section) => section.fields).find((field) => field.key === 'level')
+    expect(level?.optionSetKey).toBe('bms.demo.level')
+    expect(level?.options).toEqual([{ value: 'a', label: '甲' }])
+    expect(plan.optionSets.map((set) => set.optionSetKey)).toEqual(['bms.demo.level'])
+
+    const noSets = buildRenderPlan(effectiveOf({ optionSets: [] }))
+    const emptyLevel = noSets.sections.flatMap((section) => section.fields).find((field) => field.key === 'level')
+    expect(emptyLevel?.options).toEqual([])
+    expect(emptyLevel?.optionSetKey).toBe('bms.demo.level')
+
+    const noKey = buildRenderPlan(
+      effectiveOf({
+        fields: [{ key: 'level', label: '等级', type: 'option', group: 'platform', status: 'active' }],
+      }),
+    )
+    const keyless = noKey.sections.flatMap((section) => section.fields).find((field) => field.key === 'level')
+    expect(keyless?.optionSetKey).toBeUndefined()
+    expect(keyless?.options).toEqual([])
+  })
+
+  it('校验：选项集按快照判定（值不在集合内报错、集合为空不报）', () => {
+    const plan = buildRenderPlan(effectiveOf())
+    const bad = validateFormData(plan, { name: '甲', level: 'b' })
+    expect(bad.valid).toBe(false)
+    expect(bad.firstField).toBe('level')
+    expect(bad.errors[0]?.message).toBe('选项不在可选范围内')
+
+    const ok = validateFormData(plan, { name: '甲', level: 'a' })
+    expect(ok.valid).toBe(true)
+
+    const empty = buildRenderPlan(effectiveOf({ optionSets: [] }))
+    expect(validateFormData(empty, { name: '甲', level: 'b' }).valid).toBe(true)
   })
 })
