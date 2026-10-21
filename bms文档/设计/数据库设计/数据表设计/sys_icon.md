@@ -12,8 +12,8 @@
 | 覆盖模块 | 02-4-26 自定义图标与代码校验基座（platform 服务租户库；平台官方与业务自绘图标随代码发布、不落表） |
 | 上游依据 | 任务 `02-4-26`（自定义图标与代码校验基座）、《数据库设计 · 数据规范》「公共字段」节、《数据库开发规范》「系统字段」节 |
 | ORM 模型 | `bms_platform/models/system.py::SysIcon`（继承 `BaseModel`；随 `bms_platform/models/__init__.py::MODEL_MODULES` 导入） |
-| 状态 | 已设计（`planned`：仅结构声明，未入迁移链；随其入链时补建表迁移） |
-| 相关节点 | [数据库设计总览](../01_数据库设计_总览.md)「已设计数据表登记」、sys_icon_i18n（多语言附表；表文件待补） |
+| 状态 | 已落库（`enabled`：03_03 已入 `platform:tenant` 链，启动期 / `ops.init_tenant` 幂等建表） |
+| 相关节点 | [数据库设计总览](../01_数据库设计_总览.md)「已设计数据表登记」、[sys_icon_i18n](sys_icon_i18n.md)（多语言附表） |
 
 ## 2. 字段 <a id="fields"></a>
 
@@ -51,12 +51,13 @@
 
 - **分片**：不分片（租户库常驻；单租户自定义图标为个位数行）。
 - **归档**：不归档（配置类数据保留审计轨迹，软删除即可）。
-- **建表**：`planned`——本阶段仅结构声明，未入链表集；随其补模型与表文件后自动进 `platform:tenant` 链，由启动期 / `ops.init_schema` 幂等建表落地（届时随建表补 `form_key` / `parent_id`）。
+- **建表**：`enabled`——已入 `platform:tenant` 链，由启动期自动建表 / `ops.init_tenant` 幂等建表落地（`form_key` / `parent_id` 已随表落地）。
 
 ## 5. 变更记录 <a id="revlog"></a>
 
 | 日期 | 版本 | 变更 | 作者 |
 | --- | --- | --- | --- |
 | 2026-10-11 | v1 | 新建表文件（`planned`；补 `form_key`（表单标识，多表联合判别列）+ `parent_id`，系统字段对齐 02_11；本阶段仅结构声明、不建表） | minjian |
+| 2026-10-21 | v2 | 转 `enabled` 并入 `platform:tenant` 链落库（03_03 图标真实 CRUD；`sys_icon_i18n` 表文件随补） | minjian |
 
 > 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套
