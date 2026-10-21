@@ -19,7 +19,7 @@
 
 | 逻辑类型（设计侧写法） | MySQL 8 落点 | 结论 |
 | --- | --- | --- |
-| `BIGINT`（主键 / 外键） | BIGINT | 实测（DDL 编译 + 真库建表） |
+| `BIGINT`（主键 / 外键 / **字典字段绑定 `id`**） | BIGINT | 实测（DDL 编译 + 真库建表；2^53+1 超出 JS 安全整数范围仍保真，2026-10-21 02-14） |
 | `DATETIME`（各 `*_at`） | DATETIME | 实测 |
 | `INT` / `SMALLINT` | INTEGER / SMALLINT | 实测 |
 | `VARCHAR(n)` | VARCHAR(n)（长度以字符计） | 实测 |
@@ -94,6 +94,7 @@
 | 2026-09-22 | JSON 值读写 | 写入读回一致（真库集成用例「类型落库往返」） | 01_05 集成用例 |
 | 2026-09-29 | 列类型变更 `VARCHAR(64)` → `BIGINT`（带存量行） | 增量迁移通过（存量数字串值保真）；revision 标识须 ≤ 32 字符（过长报 `Data too long for column 'version_num'`） | 10_04 真库实测（发件箱 / 对照表 / 身份映射三链） |
 | 2026-10-06 | 两阶段事务（XA） | 单库 `prepare→commit` 生效、`rollback`（未 prepare）与 `prepare→rollback` 均未落库；**异步 API 无 `begin_twophase`** | 分布式事务能力实测（探针库 `xa_probe`，跑完已清理） |
+| 2026-10-21 | 字典字段绑定 id 类型承载（探针表 `tmp_dict_probe`） | `dict` 列 `BIGINT`、`dict_multi` 列 `TEXT`（id 数组 JSON 文本）：`2^53+1` 大整数往返无精度丢失、`json.loads` 数组往返一致；列类型反射 `BIGINT` / `TEXT`；探针表已清理 | 02-14 实施记录「三库实测」 |
 | 待验 | 字符集与 emoji 写入、`lower_case_table_names` 变更影响、前缀索引选择性、主从只读路由、JSON 检索、XA 崩溃恢复（`XA RECOVER`） | — | — |
 
 > 数据库设计 · 与《[数据库开发规范](../../../规范/数据库开发规范.md)》「表与字段口径」至「数据库设计文档体系」各节配套
