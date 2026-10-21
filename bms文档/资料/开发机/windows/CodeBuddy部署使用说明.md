@@ -1,6 +1,6 @@
 # CodeBuddy 部署使用说明
 
-> mjpc 开发机 Windows 11 侧 CodeBuddy CN（应用 1.106.1 / 安装器 4.12.2）部署、配置、权限、扩展管理、运行调试与浏览器真机验证（Playwright MCP）实录 · 2026-10-15 安装 / 2026-10-16 事实核实
+> mjpc 开发机 Windows 11 侧 CodeBuddy CN（应用 1.106.1 / 安装器 4.12.2）部署、配置、权限、扩展管理、运行调试与浏览器真机验证（Playwright MCP）实录 · 2026-10-15 安装 / 2026-10-16 事实核实 / 2026-10-21 权限与免确认设置（全 13 类放开）
 
 [文档首页](../../../文档首页.md) › 资料 › 开发机 › windows › CodeBuddy 部署使用说明　|　[同级：开发机部署使用说明总览](开发机部署使用说明总览.md)　[google-chrome部署使用说明 →](google-chrome部署使用说明.md)　[playwright部署使用说明 →](playwright部署使用说明.md)　[VSCode部署使用说明 →](VSCode部署使用说明.md)　[linux 版 CodeBuddy 部署使用说明 →](../linux/CodeBuddy部署使用说明.md)
 
@@ -122,23 +122,90 @@ CodeBuddy 的权限开关都在 **IDE 用户设置** `%APPDATA%\CodeBuddy CN\Use
 | 位置 / 键                                                                                    | 本机值                                                                                                                                                                                                                                                              | 含义                                                                                       |
 | -------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
 | `User\settings.json` → `codingcopilot.customBlacklistCommands`                             | `[]`                                                                                                                                                                                                                                                              | 未配置自定义危险命令黑名单                                                                 |
-| `User\settings.json` → `codingcopilot.disabledSecurityCategories`                          | `[]`                                                                                                                                                                                                                                                              | **未禁用**任何内置安全检查类别（与 linux 侧「全 13 类放开」不同）                          |
-| `state.vscdb` → `CodeBuddy.settings` → `autoApprovalSettings`                              | `{"enabled": true, "actions": {"readFiles": true, "editFiles": true, "executeCommands": true, "useBrowser": true, "useMcp": true, "openWebViewInVSCode": true, "openMarkDownInVSCode": true}, "maxRequests": -1, "enableNotifications": false, "customBlacklistCommands": [], "disabledSecurityCategories": []}` | 自动审批**已开启**、各类动作（读文件 / 改文件 / 执行命令 / 浏览器 / MCP）全放行；**安全类别未放开** ⇒ 删除、权限等敏感命令仍按内置安全规则弹确认 |
-| `User\settings.json` → `codingcopilot.autoRunMode` / `autoRun` / `autoModifyFile`           | 未显式写入（取值口径以权威存储为准）                                                                                                                                                                                                                              | linux 侧的「运行所有内容」显式键在这里未落库；如需收紧 / 放开按 [6.2](#permission-apply) 与 linux 版「权限与免确认设置」节处理 |
-| `User\settings.json` → `codingcopilot.safeDeleteEnabled` / `safeDeleteBulkThreshold`       | 未显式设置（走默认）                                                                                                                                                                                                                                              | 删除操作先移回收站、批量删除达阈值需确认（`genie` 扩展中文说明：**默认 500**）             |
+| `User\settings.json` → `codingcopilot.disabledSecurityCategories`                          | 全部 13 类（2026-10-21 起，与 linux 侧一致）                                                                                                                                                                                                                       | 禁用的内置安全检查类别；**该键只是镜像**，权威值在 `state.vscdb`，以权威值为准             |
+| `state.vscdb` → `CodeBuddy.settings` → `autoApprovalSettings`                              | `{"enabled": true, "actions": {"readFiles": true, "editFiles": true, "executeCommands": true, "useBrowser": true, "useMcp": true, "openWebViewInVSCode": true, "openMarkDownInVSCode": true}, "maxRequests": -1, "enableNotifications": false, "customBlacklistCommands": [], "disabledSecurityCategories": ["injection", "scriptExec", "powershell", "fileDelete", "gitOps", "permissions", "processControl", "network", "diskOps", "windowsSystem", "systemServices", "userManagement", "custom"]}` | 自动审批**已开启**、各类动作（读文件 / 改文件 / 执行命令 / 浏览器 / MCP）全放行；**13 类安全类别全部放开** ⇒ 命令、删除、git、权限、进程等不再逐条确认 |
+| `state.vscdb` → `CodeBuddy.settings` → `chat.autoRunMode`                                  | `RunEverything`                                                                                                                                                                                                                                                   | 对话侧「运行所有内容」；`settings.json` 的 `autoRun` / `autoModifyFile` / `autoRunMode` 由它派生 |
+| `User\settings.json` → `codingcopilot.autoRunMode` / `autoRun` / `autoModifyFile`           | `runEverything` / `true` / `true`（2026-10-21 按 linux 口径补写）                                                                                                                                                                                                  | 本版 `genie` 扩展（3.10.0）**未把这三项注册为 IDE 设置项**，实际生效取权威存储 `chat.autoRunMode`；settings.json 中仅为对照 |
+| `User\settings.json` → `codingcopilot.safeDeleteEnabled` / `safeDeleteBulkThreshold`       | `safeDeleteEnabled` 未显式设置（默认 `true`）；`safeDeleteBulkThreshold` 为 **5000**（本机既有取值，2026-10-21 确认保留）                                                                                                                                         | 删除操作先移回收站、批量删除达阈值需确认（默认 500，本机放宽到 5000 以减少弹窗）           |
 
-> 安全边界：`autoApprovalSettings.enabled = true` 且动作全放行，等于允许 AI 不经确认读改文件与执行命令；**安全类别未放开**是当前唯一的额外刹车。若把类别也放开（如 `fileDelete`），删除类命令不再弹确认（仍有回收站兜底），放开口径与排查见 linux 版「免确认失效的排查」节。
+> 安全边界：`autoApprovalSettings.enabled = true`、动作全放行且**13 类安全类别全部放开**，等于允许 AI 不经确认读改文件、执行删除 / git / 权限 / 进程等命令。删除类仍有 `safeDeleteEnabled` 回收站与批量阈值兜底；放开期间建议临时文件放 `%TEMP%`、重要目录靠 git 兜底。收紧办法与生效验证见 [6.2](#permission-apply)、[6.3](#permission-verify)。
+
+> 2026-10-21 已放开全部 13 类：`injection`、`scriptExec`、`powershell`、`fileDelete`、`gitOps`、`permissions`、`processControl`、`network`、`diskOps`、`windowsSystem`、`systemServices`、`userManagement`、`custom`（类别与命令对照见 linux 版「安全类别的真正存储与生效链路」节，两平台内置表一致）。
 
 ### 6.2 修改与生效 <a id="permission-apply"></a>
 
 ```powershell
-# 查看当前权限相关设置（IDE 用户设置 + 权威存储）
+# 查看当前权限相关设置（IDE 用户设置）
 python3 -c "import json,os;d=json.load(open(os.path.join(os.environ['APPDATA'],'CodeBuddy CN','User','settings.json'),encoding='utf-8'));[print(k,'=',json.dumps(v,ensure_ascii=False)) for k,v in d.items() if k.startswith('codingcopilot.') and any(t in k for t in ['autoRun','autoModify','autoAccept','Security','Blacklist','safeDelete'])]"
 ```
 
-- **改法**：编辑 `%APPDATA%\CodeBuddy CN\User\settings.json`，或 IDE 内 `Ctrl+,` 搜索 `autoRun` / `disabledSecurityCategories`（中文项名「要禁用的内置安全检查类别」）逐项设置。
-- **生效**：设置文件改动需 `Ctrl+Shift+R` / 命令面板「重新加载窗口」（或重启 IDE）；**例外**：`disabledSecurityCategories` 的权威值在 `state.vscdb`，重载窗口不重读——改它要**完全退出后冷启动**，改法与四步取证见 linux 版「免确认失效的排查：安全类别的真正存储与生效链路」节（两平台链路相同，只是路径前缀不同）。
-- **还原**：改动前建议先备份 `User\settings.json` 与 `User\globalStorage\state.vscdb`（带时间戳副本），覆盖回去再重启 IDE。
+- **改法**：安全类别改**权威存储**（`state.vscdb`），不要只改 `settings.json`——IDE 冷启动会用权威存储回写它。下面脚本一次完成「备份 → 改库 → 同步 settings.json」，**须先完全退出 CodeBuddy**（任务管理器确认无 `CodeBuddy CN` 进程）后在 PowerShell 执行：
+
+```powershell
+@'
+import json, os, shutil, sqlite3, time
+
+TARGET = ['injection', 'scriptExec', 'powershell', 'fileDelete', 'gitOps',
+          'permissions', 'processControl', 'network', 'diskOps', 'windowsSystem',
+          'systemServices', 'userManagement', 'custom']
+
+user = os.path.join(os.environ['APPDATA'], 'CodeBuddy CN', 'User')
+settings = os.path.join(user, 'settings.json')
+db = os.path.join(user, 'globalStorage', 'state.vscdb')
+stamp = time.strftime('%Y%m%d-%H%M%S')
+
+shutil.copy2(settings, settings + '.bak-' + stamp)   # 备份 IDE 设置
+shutil.copy2(db, db + '.bak-' + stamp)               # 备份权威存储
+
+conn = sqlite3.connect(db)
+data = json.loads(conn.execute("SELECT value FROM ItemTable WHERE key='CodeBuddy.settings'").fetchone()[0])
+a = data['autoApprovalSettings']
+a['enabled'] = True
+a.setdefault('actions', {})
+for action in ['readFiles', 'editFiles', 'executeCommands', 'useBrowser',
+               'useMcp', 'openWebViewInVSCode', 'openMarkDownInVSCode']:
+    a['actions'][action] = True
+a['maxRequests'] = -1
+a['disabledSecurityCategories'] = TARGET
+data['chat']['autoRunMode'] = 'RunEverything'
+conn.execute('UPDATE ItemTable SET value=? WHERE key=?',
+             (json.dumps(data, ensure_ascii=False), 'CodeBuddy.settings'))
+conn.commit()
+conn.close()
+
+cfg = json.load(open(settings, encoding='utf-8'))
+cfg['codingcopilot.autoRun'] = True
+cfg['codingcopilot.autoModifyFile'] = True
+cfg['codingcopilot.autoRunMode'] = 'runEverything'
+cfg['codingcopilot.autoAcceptWebSearch'] = True
+cfg['codingcopilot.customBlacklistCommands'] = []
+cfg['codingcopilot.disabledSecurityCategories'] = TARGET
+json.dump(cfg, open(settings, 'w', encoding='utf-8', newline='\n'), ensure_ascii=False, indent=4)
+print('done:', TARGET)
+'@ | python -
+```
+
+- **生效**：改完**冷启动**（重新运行 `CodeBuddy CN.exe`，不是「重新加载窗口」——重载不重读权威存储）。`autoAcceptWebSearch` 等普通设置仍可只改 `settings.json` 后重载窗口。
+- **收紧**：把脚本里的 `TARGET` 换成需要保留的类别（如 `['injection', 'scriptExec', 'powershell']`），同样冷启动生效；只想回滚则把备份副本覆盖回去再冷启动。
+- **还原**：备份形如 `User\settings.json.bak-YYYYmmdd-HHMMSS`、`User\globalStorage\state.vscdb.bak-YYYYmmdd-HHMMSS`，覆盖回原路径即可。
+
+### 6.3 生效验证（Windows 取证） <a id="permission-verify"></a>
+
+```powershell
+# ① 确认真冷启动：进程启动时间与新的 IDE 日志目录
+Get-Process 'CodeBuddy CN' | Sort-Object StartTime -Descending | Select-Object -First 1 Id,StartTime
+Get-ChildItem "$env:APPDATA\CodeBuddy CN\logs" -Directory | Sort-Object Name -Descending | Select-Object -First 1
+
+# ② 扩展同步日志：类别列表应为 13 项
+$log = Get-ChildItem "$env:LOCALAPPDATA\CodeBuddyExtension\Logs\CodeBuddyIDE" -Recurse -File -Filter *.log |
+       Sort-Object LastWriteTime -Descending | Select-Object -First 1
+Select-String -Path $log -Pattern 'Synced disabledSecurityCategories|Synced autoRun'
+
+# ③ 在对话里跑一条命令（如 echo cb-check）后，看加载条数与决策来源
+Select-String -Path $log -Pattern '\[SecurityCheck\] Loaded|Permission decision' | Select-Object -Last 10
+```
+
+判断口径：`Synced disabledSecurityCategories to chat mode settings` 后列出 13 类、`[SecurityCheck] Loaded 13 disabled security categories` 即已加载；`Permission decision` 只剩 `auto_run_allow` / `default_allow` 表示免确认，出现 `safety_rule_ask` 说明该类仍被拦。2026-10-21 10:35:11 冷启动实测：`Received IDE settings` 与 `Synced disabledSecurityCategories` 均为 13 类，`Synced autoRun ... true`，末尾 `Successfully synced settings from IDE to plugin`。
 
 ## 7. 扩展管理与 HTML 文档预览 <a id="extensions"></a>
 
@@ -400,7 +467,7 @@ pnpm --filter @bms/desktop dev                                                  
 | 对话卡住 / 反复超时（市场拉取阻塞）                        | 开启 `codingcopilot.disableBuiltInMarketplace` 后重载窗口                                                                                                                                                                                                     |
 | 界面白屏 / 花屏等渲染异常                                  | 在 `~\.codebuddycn\argv.json` 打开 `"disable-hardware-acceleration": true`，重启 IDE（本机当前未启用）                                                                                                                                                     |
 | 命令被拦截或反复确认                                       | 检查 `codingcopilot.customBlacklistCommands`（命中正则会拦截）与安全类别设置（见[第 6 节](#permission)）                                                                                                                                                    |
-| 改了 `disabledSecurityCategories` 仍在弹确认               | 权威存储在 `state.vscdb` → `CodeBuddy.settings.autoApprovalSettings`，需完全退出后改并**冷启动**；改法见 linux 版「免确认失效的排查」节                                                                                                                      |
+| 改了 `disabledSecurityCategories` 仍在弹确认               | 权威存储在 `state.vscdb` → `CodeBuddy.settings.autoApprovalSettings`，需完全退出后改并**冷启动**；Windows 改法与取证见 [6.2](#permission-apply)、[6.3](#permission-verify)，失效链路见 linux 版「免确认失效的排查」节 |
 | 删除的文件想找回                                           | `safeDelete` 默认开启时删除先进回收站；关闭后为永久删除                                                                                                                                                                                                       |
 | 需要看运行日志                                             | 对话 / 扩展日志 `%LOCALAPPDATA%\CodeBuddyExtension\Logs\CodeBuddyIDE\<日期>\<工作区>__<hash>.log`；IDE 日志 `%APPDATA%\CodeBuddy CN\logs\<时间戳>\`                                                                                                     |
 | 崩溃排查                                                   | `%APPDATA%\CodeBuddy CN\CrashReport\`（崩溃转储）                                                                                                                                                                                                            |
@@ -421,7 +488,7 @@ pnpm --filter @bms/desktop dev                                                  
 | 应用版本     | 1.106.1                                                                         | 1.106.1（构建 2026-10-13）                                                                         |
 | CLI          | `/usr/share/buddycn/bin/buddycn`（**未入 PATH**）                            | **`buddycn` / `buddycn.cmd`**（包装脚本，**已入用户 PATH**）                                   |
 | 用户数据目录 | `~/.config/CodeBuddy CN`、`~/.codebuddycn`、`~/.codebuddy`、`~/.local/share/CodeBuddyExtension` | `%APPDATA%\CodeBuddy CN`、`~\.codebuddycn`、`~\.codebuddy`、`%LOCALAPPDATA%\CodeBuddyExtension` |
-| 权限现状     | `autoRunMode=runEverything`，**全 13 类安全类别已放开**                       | 自动审批已开、动作全放行，但**安全类别未放开**（`disabledSecurityCategories: []`）            |
+| 权限现状     | `autoRunMode=runEverything`，**全 13 类安全类别已放开**                       | 同上：`RunEverything` + **全 13 类已放开**（2026-10-21 对齐，权威存储 `state.vscdb`）            |
 | 扩展现状     | 官方 Python 三件 + ESLint / Prettier / Live Preview / markdown-mermaid 等       | 仅 `ms-python.vscode-python-envs`（后端断点、md mermaid 等待补装）                                 |
 | 编辑器关联   | 已设（双击 html / md 即预览）                                                   | 未设（双击开源码，按 [7.3](#html-preview) 补）                                                  |
 | 浏览器       | 系统 Chrome（`/usr/bin/google-chrome`）                                        | 系统 Chrome（`C:\Program Files\Google\Chrome\Application\chrome.exe`，155.0.8059.85）              |
@@ -436,7 +503,7 @@ pnpm --filter @bms/desktop dev                                                  
 - □ 版本已核实：安装器 4.12.2（`CodeBuddy CN.exe` ProductVersion）与应用 1.106.1（`buddycn --version` / `product.json`）分别取自两处
 - □ 安装形态明确：用户级安装器（`%LOCALAPPDATA%\Programs\CodeBuddy CN`），无包管理器；卸载用 `unins000.exe`，用户数据独立存放
 - □ 四个用户数据目录职责清晰（IDE 设置 / 扩展宿主 / AI 配置 / 日志），清理只动缓存目录
-- □ 权限设置口径明确：IDE 设置 `%APPDATA%\CodeBuddy CN\User\settings.json`（`codingcopilot.*`），安全类别权威存储在 `state.vscdb`；本机「自动审批开、安全类别未放开」
+- □ 权限设置口径明确：IDE 设置 `%APPDATA%\CodeBuddy CN\User\settings.json`（`codingcopilot.*`），安全类别权威存储在 `state.vscdb`；本机「自动审批开、13 类安全类别全部放开」（2026-10-21，冷启动取证见 [6.3](#permission-verify)）
 - □ 首配项齐备：语言 `zh-cn`、崩溃上报关闭、插件与技能市场、MCP 登记位、补全模型与提交信息风格
 - □ 扩展管理口径明确：扩展目录 `~\.codebuddycn\extensions`、市场 open-vsx、安装用 `buddycn --install-extension`（与 `~\.vscode\extensions` 区分开）
 - □ 文档预览口径明确：html 走内置 HTML 预览（`codebuddy.html.previewEditor`，双击需先设编辑器关联）、`file://` 受限改走 http 静态服务；md mermaid 需 `bierner.markdown-mermaid`
@@ -444,7 +511,7 @@ pnpm --filter @bms/desktop dev                                                  
 - □ 本地全套口径明确：`本地全套.py`（三服务 + loopback 别名 + 开发密钥），hosts 需管理员权限、`seed` 必跑（否则恒 401）
 - □ 浏览器真机验证口径明确：Playwright MCP 登记于 `~\.codebuddy\mcp.json`（系统 Chrome + `--isolated`）、生效需重启 IDE；结构读 `browser_snapshot` / `browser_find`（`.playwright-mcp\*.yml` 不可依赖）、截图落工作区 `tmp\`、控制台只认预期错误；长会话首选 MCP
 - □ 排障入口齐备：日志三处（扩展 / IDE / 崩溃转储）、`python3` 商店别名、中文编码（GBK）、CLI 未入旧终端 PATH、多开窗口
-- □ 本机事实均经核实（2026-10-15 安装实测；2026-10-16 复核版本 / 目录 / 扩展 / 权限存储 / uv 工具链 / MCP 登记 / `.vscode` 双平台取值），未写入账号 / 令牌等凭据
+- □ 本机事实均经核实（2026-10-15 安装实测；2026-10-16 复核版本 / 目录 / 扩展 / 权限存储 / uv 工具链 / MCP 登记 / `.vscode` 双平台取值；2026-10-21 权限与免确认设置改为全 13 类放开并冷启动取证），未写入账号 / 令牌等凭据
 
 ## 13. 关联文档 <a id="related"></a>
 
@@ -459,4 +526,4 @@ pnpm --filter @bms/desktop dev                                                  
 - 《[本地资源](../../../用户文档/本地资源.md)》：机器、账号与口令取值（已 gitignore，不入库）
 - 《[文档生成规范](../../../规范/文档生成规范.md)》：本文档的组织、格式与图形约定
 
-> 依《[文档生成规范](../../../规范/文档生成规范.md)》编写 · 与《[开发机部署使用说明总览](开发机部署使用说明总览.md)》《[CodeBuddy 部署使用说明](../linux/CodeBuddy部署使用说明.md)》（linux 侧）配套 · 记录 2026-10-15 安装与首次配置、2026-10-16 事实核实（版本 / 用户数据目录 / 扩展清单 / 权限存储 / uv 工具链 / `.vscode` 任务与启动项双平台取值 / Playwright MCP 登记）
+> 依《[文档生成规范](../../../规范/文档生成规范.md)》编写 · 与《[开发机部署使用说明总览](开发机部署使用说明总览.md)》《[CodeBuddy 部署使用说明](../linux/CodeBuddy部署使用说明.md)》（linux 侧）配套 · 记录 2026-10-15 安装与首次配置、2026-10-16 事实核实（版本 / 用户数据目录 / 扩展清单 / 权限存储 / uv 工具链 / `.vscode` 任务与启动项双平台取值 / Playwright MCP 登记）、2026-10-21 权限与免确认设置（全 13 类放开 + 冷启动取证）
