@@ -2,7 +2,7 @@
 
 掩码 / 权限 / 锁 / 认证 / 边缘信任 / 故障应对 / 可观测 / 探针 / 开放接口 / 存储 / 分片上传 / LLM / 检索 /
 通知 / 推送 / 出站 / 工作流 / 归档 / 身份源 / 会话 / 查询 / 导入导出 / 打印导出 / 审计链 / 字段类型 /
-国际化 / 工作台等各能力域基座提供者统一从本模块导出，业务路由按需导入，避免分散引用。
+选项集 / 国际化 / 工作台等各能力域基座提供者统一从本模块导出，业务路由按需导入，避免分散引用。
 """
 
 from typing import cast
@@ -58,6 +58,7 @@ from bms_core.oauth.oidc_provider import get_oidc_provider
 from bms_core.oauth.token import get_service_token_issuer
 from bms_core.oauth.user_token import get_user_token_issuer
 from bms_core.oauth.verify import get_token_verifier
+from bms_core.optionset.base import get_option_set_registry
 from bms_core.outbound.http import get_http_client
 from bms_core.outbound.webhook import get_webhook_sender
 from bms_core.outbox.base import get_outbox_dispatcher, get_outbox_store
@@ -131,6 +132,7 @@ __all__ = [
     "get_oauth_server",
     "get_object_storage",
     "get_oidc_provider",
+    "get_option_set_registry",
     "get_outbox_dispatcher",
     "get_outbox_store",
     "get_password_hasher",

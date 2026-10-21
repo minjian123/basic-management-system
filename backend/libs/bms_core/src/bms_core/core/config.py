@@ -1125,6 +1125,7 @@ class Settings(PydanticBaseSettings, BaseSettings):  # pyright: ignore[reportInc
     notification_center: PluginSelection = Field(default_factory=PluginSelection)
     oauth_server: PluginSelection = Field(default_factory=PluginSelection)
     oidc_provider: OidcProviderSettings = Field(default_factory=OidcProviderSettings)
+    option_set_registry: PluginSelection = Field(default_factory=PluginSelection)
     outbox: OutboxSettings = Field(default_factory=OutboxSettings)
     outbox_store: PluginSelection = Field(default_factory=PluginSelection)
     password_policy: PluginSelection = Field(default_factory=PluginSelection)

@@ -114,6 +114,8 @@ from bms_core.oauth.token import BaseServiceTokenIssuer
 from bms_core.oauth.user_jwt import JwtUserTokenIssuerFactory
 from bms_core.oauth.user_token import BaseUserTokenIssuer
 from bms_core.oauth.verify import BaseTokenVerifier, UnifiedTokenVerifierFactory
+from bms_core.optionset.base import BaseOptionSetRegistry
+from bms_core.optionset.local import LocalOptionSetRegistry
 from bms_core.outbound.http import BaseHttpClient
 from bms_core.outbound.webhook import BaseWebhookSender
 from bms_core.outbox.base import BaseOutboxDispatcher, BaseOutboxStore
@@ -219,6 +221,7 @@ _NULL_MODULES: ConcurrentStableList[str] = ConcurrentStableList(
         "bms_core.notification.null",
         "bms_core.notify.null",
         "bms_core.oauth.null",
+        "bms_core.optionset.null",
         "bms_core.outbound.null",
         "bms_core.outbox.null",
         "bms_core.password.null",
@@ -332,6 +335,7 @@ PLUGIN_WIRINGS: ConcurrentStableList[PluginWiring] = ConcurrentStableList(
         PluginWiring("archive_policy", BaseArchivePolicy, "archive_policy", "archive_policy"),
         PluginWiring("archive_query_router", BaseArchiveQueryRouter, "archive_query_router", "archive_query_router"),
         PluginWiring("field_type_registry", BaseFieldTypeRegistry, "field_type_registry", "field_type_registry"),
+        PluginWiring("option_set_registry", BaseOptionSetRegistry, "option_set_registry", "option_set_registry"),
         PluginWiring("translator", BaseTranslator, "translator", "translator"),
         PluginWiring(
             "dashboard_card_registry", BaseDashboardCardRegistry, "dashboard_card_registry", "dashboard_card_registry"
@@ -407,6 +411,7 @@ def register_platform_plugins(settings: Settings, app: FastAPI, resources: Resou
     register_plugin("config_source", "http", HttpConfigSourceFactory(app))
     register_plugin("query_scheme_store", "sql", SqlQuerySchemeStoreFactory(app))
     register_plugin("field_type_registry", "local", LocalFieldTypeRegistryFactory())
+    register_plugin("option_set_registry", "local", LocalOptionSetRegistryFactory())
     register_plugin("query_provider_registry", "local", LocalQueryProviderRegistryFactory(app))
     register_plugin("edge", "marker", MarkerEdgeTrustFactory(settings))
     register_plugin("edge", "service_jwt", ServiceJwtEdgeTrustFactory(settings))
@@ -1810,6 +1815,24 @@ class LocalFieldTypeRegistryFactory(BasePluginFactory[LocalFieldTypeRegistry]):
             LocalFieldTypeRegistry: 注册表实例。
         """
         return LocalFieldTypeRegistry()
+
+
+class LocalOptionSetRegistryFactory(BasePluginFactory[LocalOptionSetRegistry]):
+    """选项集真实注册表工厂（内建清单 + 产品注入随构造登记）。"""
+
+    plugin_key: str = "option_set_registry"
+    # 不声明 plugin_name：零参工厂避免被插件注册表自动收集（经 register_plugin 显式登记）
+
+    def create(self, options: None = None) -> LocalOptionSetRegistry:
+        """构造选项集注册表。
+
+        Args:
+            options: 未使用（零参口径）。
+
+        Returns:
+            LocalOptionSetRegistry: 注册表实例（本期内建清单为空）。
+        """
+        return LocalOptionSetRegistry()
 
 
 class LocalQueryProviderRegistryFactory(BasePluginFactory[LocalQueryProviderRegistry]):

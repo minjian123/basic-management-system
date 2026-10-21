@@ -72,6 +72,7 @@ _EXPECTED_PLUGIN_KEYS = frozenset(
         "oauth_server",
         "object_storage",
         "oidc_provider",
+        "option_set_registry",
         "outbox_dispatcher",
         "outbox_store",
         "password_policy",
