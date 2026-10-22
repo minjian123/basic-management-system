@@ -1,6 +1,6 @@
 # WSL 部署使用说明
 
-> 开发机 mjpc · Windows 侧 WSL2（Ubuntu 26.04.1）与「只读挂载双系统 Ubuntu 盘」
+> 开发机 mjpc · Windows 侧 WSL2（Ubuntu 26.04.1）与「只读挂载双系统 Ubuntu 盘」+ WSL 内 bizs 开发环境
 
 [文档首页](../../文档首页.md) › 资料 › 开发机 › WSL 部署使用说明　|　[双系统引导部署使用说明 ←](双系统引导部署使用说明.md)　[开发机部署使用说明总览（Windows 侧）→](windows/开发机部署使用说明总览.md)
 
@@ -11,6 +11,7 @@
 | 想做的事 | 用什么 |
 | --- | --- |
 | 读 / 比对 Ubuntu 侧的文件（日志、配置、仓库副本、备份） | **本文档**：WSL 只读挂载，不重启、不切系统 |
+| **在 WSL 里跑 bizs 的测试与静态检查** | **本文档第 6 节**：WSL 内复刻的开发环境（与双系统逐项对齐） |
 | 在 Linux 里改文件、跑开发环境、装软件 | 切到 Ubuntu（见《[双系统引导部署使用说明](双系统引导部署使用说明.md)》「一键切换」节） |
 | 只看分区与文件系统结构 | Windows「磁盘管理」，或本文档的只读挂载 |
 
@@ -221,7 +222,132 @@ $b = [IO.File]::ReadAllBytes($lnk); $b[0x15] = $b[0x15] -bor 0x20; [IO.File]::Wr
 - **不要在 Linux 侧重启/关机的同时读写**：WSL 挂的是同一块物理盘；只读挂载风险很低，但若要在 Linux 侧重启或关机，先按 4.3 卸载更稳妥。
 - 常驻 WSL 的内容（装的软件、写的文件）都在 `ext4.vhdx` 里，**不会**回到双系统 Ubuntu，也不占磁盘 3 的空间。
 
-## 6. 关键位置速查 <a id="quickref"></a>
+## 6. WSL 内开发环境（跑测试用） <a id="devenv"></a>
+
+> 目标：**不进 Linux 系统，也能在 WSL 里跑 bizs 的测试与静态检查**。环境与双系统 Ubuntu 侧**逐项对齐**（路径、工具版本、依赖），差异只在「没有桌面 / 没有 GPU / 磁盘独立」。
+
+### 6.1 定位与取舍 <a id="devenv-scope"></a>
+
+| 想做的事 | 用什么 |
+| --- | --- |
+| 在 Linux 环境下跑 pytest / ruff / pyright / vitest，验证改动 | **本节**：WSL 内复刻的开发环境 |
+| 改代码、写文档、跑大模型、用桌面 IDE | 切到双系统 Ubuntu（见《[双系统引导部署使用说明](双系统引导部署使用说明.md)》） |
+| 只读比对 Linux 侧文件 | 第 3~4 节：只读挂载 |
+
+三条刻意对齐的口径（**改动本节时不要破坏**）：
+
+- **路径完全复刻**：WSL 内同样是 `~/develop/bizs`（工作区）与 `~/dev-deps`（依赖仓）。原因是 Linux 侧 `.venv` 内 38 个脚本的 shebang、`pyvenv.cfg` 的 `home`、`node_modules` 软链**全是绝对路径 `/home/minjian/...`**；路径一致才能直接复用依赖、**零重装**。
+- **代码从挂载分区复制，不是 clone**：要的是「正在跑的那一份」——含 `deploy/.env`、`database/*.db`、跨仓文档软链，而不是最新远端。
+- **依赖仓整目录复制后做导入自检**：WSL 与双系统同为 x86_64 + glibc 2.43，二进制可直接复用；自检不过才回退到重装。
+
+### 6.2 一键复刻 <a id="devenv-deploy"></a>
+
+前置：已按 3.4 挂载 Ubuntu 盘（脚本要从挂载点读源）；WSL 内已装 `rsync`、`git`。
+
+```powershell
+wsl -d Ubuntu-26.04 -- bash -lc 'bash ~/develop/bizs/bms/scripts/tools/wsl/部署WSL开发环境.sh'
+```
+
+首次部署（WSL 内还没有工作区）时，从 Windows 侧直接调用挂载分区里的脚本副本：
+
+```powershell
+wsl -d Ubuntu-26.04 -- bash /mnt/wsl/PHYSICALDRIVE3p2/home/minjian/develop/bizs/bms/scripts/tools/wsl/部署WSL开发环境.sh
+```
+
+脚本口径（`scripts/tools/wsl/部署WSL开发环境.py`，`.sh` 为薄包装）：
+
+- **幂等**：重复运行只增量同步，不重复下载依赖；
+- **只读源端**：全程不对挂载分区做任何写入；
+- **复制内容**：工作区四仓 + 依赖仓 `bms`/`mdm` + 用户级配置（`.gitconfig`、`.git-credentials`、`.npmrc`、`.config/uv/uv.toml`、`.config/pip/pip.conf`）；
+- **不复制**：`tmp/`、`.playwright-mcp/`、`.playwright-cli/`（本地产物，目标端建空目录）；
+- **自动补 `/usr/local/bin/python` 软链**：venv 的 `bin/python` 指向它，WSL 默认没有（Linux 侧有），缺了 venv 里的脚本全部不可用；
+- 附加参数：`--sync`（复制后同步到最新并重装依赖，**推荐**）、`--sync-only`（只同步不复制）、`--skip-deps`（只同步工作区）、`--skip-verify`（跳过自检）、`--configs-only`（只刷用户级配置）。
+- **复制完必须同步**：源端通常落后远端（首次实测 bms 落后 204 个提交），详见 [6.4](#devenv-sync)。
+
+### 6.3 工具链 <a id="devenv-toolchain"></a>
+
+与双系统 Linux 侧版本对齐（**改动任一版本时两侧同步**）：
+
+| 工具 | 版本 | 安装方式 | 位置 |
+| --- | --- | --- | --- |
+| node | v24.20.0 | nvm + `NVM_NODEJS_ORG_MIRROR=https://npmmirror.com/mirrors/node` | `~/.nvm/versions/node/v24.20.0/bin/node` |
+| pnpm | 11.7.0 | `npm i -g pnpm@11.7.0`（registry=npmmirror） | 同上目录 |
+| uv | 0.12.7 | `curl -LsSf https://astral.sh/uv/install.sh \| sh`，再 `uv self update 0.12.7` | `~/.local/bin/uv` |
+| python3 | 3.14.4 | 系统源 | `/usr/bin/python3` |
+| gcc / make | 15.2.0 | `apt-get install build-essential` | `/usr/bin` |
+| Playwright CLI | 0.1.22 | `npm i -g @playwright/cli@0.1.22` | 全局 |
+| Firefox 内核 | 1553（Firefox 156.0） | 从 Linux 侧 `~/.cache/ms-playwright` 复制 | `~/.cache/ms-playwright/firefox-1553` |
+
+两条踩过的坑：
+
+- **apt 源要换清华 TUNA**：WSL 默认 `archive.ubuntu.com`，国内装 `build-essential` 极慢。改 `/etc/apt/sources.list.d/ubuntu.sources`（改前备份）。
+- **Firefox 内核缺系统库**：直接跑报 `libasound.so.2: cannot open shared object file`，需 `apt-get install libasound2t64 libgtk-3-0t64 libnss3 libgbm1 libasound2t64 fonts-liberation` 等一整套（Playwright 官方依赖清单）。
+- **`playwright-cli` 默认走 Chrome 通道**：WSL 没装 Google Chrome，会报 `Chromium distribution 'chrome' is not found`；**显式加 `--browser firefox`** 即可（本机口径）。
+
+### 6.4 同步到最新（复制后必做） <a id="devenv-sync"></a>
+
+**复制来的代码是「源端那一刻」的快照，通常落后远端**：首次部署实测 bms 落后 **204 个提交**（test 15、工作区 17、mdm 2、biz 1）。落后的提交里含 **pytest 启动插件（`-p bms_testing_plugin`）、覆盖率采集、`pytest-xdist`** 等测试基础设施改动——**不同步就跑测试，结论不可信**（同步后 bms_core 用例从 1551 涨到 2139）。
+
+同步不是单纯 `git pull`：**依赖锁文件会随代码一起变**，必须跟着重装。
+
+```bash
+# 一条命令搞定：四仓快进到远端 + 按锁文件重装依赖
+bash ~/develop/bizs/bms/scripts/tools/wsl/部署WSL开发环境.sh --sync-only
+```
+
+首次部署可直接一步到位（复制 + 同步 + 重装 + 自检）：
+
+```bash
+bash /mnt/wsl/PHYSICALDRIVE3p2/home/minjian/develop/bizs/bms/scripts/tools/wsl/部署WSL开发环境.sh --sync
+```
+
+`--sync` 内部顺序（与 `bms/scripts/tools/deps/` 的约定一致）：
+
+| 步骤 | 命令 | 说明 |
+| --- | --- | --- |
+| 1 | `git -C <仓> pull --ff-only origin main` | 四仓逐个快进；**只做 ff**，不产生合并提交，有本地改动即报错停下 |
+| 2 | `bash scripts/tools/deps/还原依赖.sh` | 外置 -> 原位（安装器见符号链接会误判跳过） |
+| 3 | `uv sync --frozen` | 后端按 `uv.lock` 严格安装 |
+| 4 | `pnpm install --frozen-lockfile` | 前端按 `pnpm-lock.yaml` 严格安装 |
+| 5 | `bash scripts/tools/deps/外置依赖.sh` | 原位 -> 外置，恢复依赖仓口径 |
+
+**为什么必须走「还原 -> 装 -> 再外置」**：pnpm 与 uv 在符号链接状态下会误判「已安装」而跳过，直接装会得到一个空壳。
+
+日常刷新（已部署过，只要最新代码）：
+
+```bash
+bash ~/develop/bizs/bms/scripts/tools/wsl/部署WSL开发环境.sh --sync-only
+```
+
+### 6.5 验证 <a id="devenv-verify"></a>
+
+```bash
+# 后端：基座用例（最能代表可跑性）
+cd ~/develop/bizs/bms/backend && .venv/bin/python -m pytest libs/bms_core/tests -q
+
+# 后端静态检查
+cd ~/develop/bizs/bms && backend/.venv/bin/ruff check backend/libs/bms_core/src
+
+# 前端：组件库用例
+cd ~/develop/bizs/bms/frontend/packages/ui-ep && pnpm exec vitest run
+
+# 浏览器真机（注意 --browser firefox）
+playwright-cli -s=t open --browser firefox "about:blank"
+```
+
+本机实测基线（2026-10-22，同步到远端最新后）：`bms_core` **2139 passed / 50 skipped**（87 秒）；`ui-ep` **71 文件 / 1102 用例全通过**（15 秒）；`ruff` 通过；`libs/bms_core/tests/boundary` **143 项全通过**。
+
+### 6.6 与双系统 Ubuntu 的差异（已知限制） <a id="devenv-limits"></a>
+
+| 项 | 差异与影响 |
+| --- | --- |
+| 代码与依赖同步 | 依赖仓是**复制**的，不是共享的；两侧各自独立演进，**刷新一律用 `--sync-only`**（同步代码 + 按锁文件重装依赖） |
+| git 提交 | 两侧是**独立克隆**，各自 commit / push；WSL 侧改动不会自动回到 Linux 侧（走 git 远端同步） |
+| 桌面 / GPU | WSL 无桌面与 CUDA 直通；需要桌面 IDE、真机 GUI、本地模型推理时仍要进双系统 Ubuntu |
+| 浏览器内核 | 只有 Firefox；要 Chromium 需另装 Google Chrome 或 `playwright install chromium` |
+| 磁盘 | WSL 内容在 `ext4.vhdx` 里，不占磁盘 3 空间，也不会回到双系统 |
+
+## 7. 关键位置速查 <a id="quickref"></a>
 
 | 用途 | 位置 |
 | --- | --- |
@@ -229,6 +355,10 @@ $b = [IO.File]::ReadAllBytes($lnk); $b[0x15] = $b[0x15] -bor 0x20; [IO.File]::Wr
 | 发行版 rootfs（WSL 落盘） | `C:\Users\minjian\AppData\Local\wsl\{2d1cf05e-6a37-432c-b93f-f02ea0b5c50a}\ext4.vhdx` |
 | 官方镜像留存 | `D:\tools\操作系统\linux\ubuntu\ubuntu-26.04.1-wsl-amd64.wsl` |
 | 挂载脚本 | `bms/scripts/tools/wsl/挂载Ubuntu盘.py`（+ `挂载Ubuntu盘.bat`） |
+| WSL 开发环境部署脚本 | `bms/scripts/tools/wsl/部署WSL开发环境.py`（+ `.sh` 薄包装） |
+| WSL 内工作区 | `~/develop/bizs`（四仓 + 跨仓软链） |
+| WSL 内依赖仓 | `~/dev-deps/bms`、`~/dev-deps/mdm`（外置于工作区，与 Linux 侧同口径） |
+| WSL 内浏览器内核 | `~/.cache/ms-playwright/firefox-1553` |
 | 桌面入口 | 桌面「挂载 Ubuntu 盘」（勾「以管理员身份运行」） |
 | 挂载点（WSL 内） | `/mnt/wsl/PHYSICALDRIVE3p2` |
 | Windows 侧访问 | `\\wsl.localhost\Ubuntu-26.04\mnt\wsl\PHYSICALDRIVE3p2` |
