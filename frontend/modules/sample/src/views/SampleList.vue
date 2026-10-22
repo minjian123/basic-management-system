@@ -32,13 +32,13 @@ const fields = computed<FilterField[]>(() => [
   {
     key: 'category',
     label: t('sample.list.category'),
-    type: 'select',
+    type: 'option',
     options: SAMPLE_CATEGORIES.map((item) => ({ label: t(item.labelKey), value: item.value })),
   },
   {
     key: 'status',
     label: t('sample.list.status'),
-    type: 'select',
+    type: 'option',
     options: SAMPLE_STATUSES.map((item) => ({ label: t(item.labelKey), value: item.value })),
   },
 ])

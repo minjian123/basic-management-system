@@ -67,7 +67,7 @@ const pageRows = computed(() => filteredRows.value.slice((page.value - 1) * PAGE
 async function load(): Promise<void> {
   loading.value = true
   try {
-    rows.value = (await listActions()).items
+    rows.value = (await listActions()).items ?? []
     selection.value = []
   } catch (error: unknown) {
     ElMessage.error(error instanceof Error ? error.message : '动作码列表加载失败')

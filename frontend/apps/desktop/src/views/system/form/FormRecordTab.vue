@@ -144,7 +144,7 @@ function toDraft(row: FormItem): FormDraft {
   return {
     business_id: row.business_id,
     component: row.component ?? '',
-    menu_ids: row.menu_ids.map(String),
+    menu_ids: (row.menu_ids ?? []).map(String),
     status: row.status === 'disabled' ? 'disabled' : 'enabled',
   }
 }

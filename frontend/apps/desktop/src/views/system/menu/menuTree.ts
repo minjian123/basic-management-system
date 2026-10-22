@@ -13,6 +13,16 @@ import type { MenuItem } from '@/api/menuMeta'
 /** 拖拽落位。 */
 export type DropPosition = 'before' | 'after' | 'inner'
 
+/**
+ * 取子节点清单（契约 `children` 为可选，缺省按空树处理）。
+ *
+ * @param node 菜单节点。
+ * @returns 子节点清单（恒为数组）。
+ */
+function childrenOf(node: MenuItem): MenuItem[] {
+  return node.children ?? []
+}
+
 /** 节点排序变更（提交 `PUT /menus/{id}` 的最小依据）。 */
 export interface MenuMove {
   /** 菜单主键。 */
@@ -86,7 +96,7 @@ export function menuTypeOf(node: MenuItem): 'directory' | 'menu' {
  * @returns 拷贝结果。
  */
 export function cloneMenus(nodes: readonly MenuItem[]): MenuItem[] {
-  return nodes.map((node) => ({ ...node, children: cloneMenus(node.children) }))
+  return nodes.map((node) => ({ ...node, children: cloneMenus(childrenOf(node)) }))
 }
 
 /**
@@ -101,7 +111,7 @@ export function findMenu(nodes: readonly MenuItem[], id: string): MenuItem | und
     if (node.id === id) {
       return node
     }
-    const hit = findMenu(node.children, id)
+    const hit = findMenu(childrenOf(node), id)
     if (hit !== undefined) {
       return hit
     }
@@ -119,7 +129,7 @@ export function subtreeIds(node: MenuItem): Set<string> {
   const ids = new Set<string>()
   const walk = (item: MenuItem): void => {
     ids.add(item.id)
-    for (const child of item.children) {
+    for (const child of childrenOf(item)) {
       walk(child)
     }
   }
@@ -137,7 +147,7 @@ export function flattenMenus(nodes: readonly MenuItem[]): MenuItem[] {
   const result: MenuItem[] = []
   for (const node of nodes) {
     result.push(node)
-    result.push(...flattenMenus(node.children))
+    result.push(...flattenMenus(childrenOf(node)))
   }
   return result
 }
@@ -151,7 +161,7 @@ export function flattenMenus(nodes: readonly MenuItem[]): MenuItem[] {
 export function countMenus(nodes: readonly MenuItem[]): number {
   let total = 0
   for (const node of nodes) {
-    total += 1 + countMenus(node.children)
+    total += 1 + countMenus(childrenOf(node))
   }
   return total
 }
@@ -165,10 +175,10 @@ export function countMenus(nodes: readonly MenuItem[]): number {
 export function expandableIds(nodes: readonly MenuItem[]): string[] {
   const ids: string[] = []
   for (const node of nodes) {
-    if ((node.children).length > 0) {
+    if (childrenOf(node).length > 0) {
       ids.push(node.id)
     }
-    ids.push(...expandableIds(node.children))
+    ids.push(...expandableIds(childrenOf(node)))
   }
   return ids
 }
@@ -180,7 +190,7 @@ export function expandableIds(nodes: readonly MenuItem[]): string[] {
  * @returns 第一层可展开 ID 清单。
  */
 export function firstLevelExpandableIds(nodes: readonly MenuItem[]): string[] {
-  return nodes.filter((node) => (node.children).length > 0).map((node) => node.id)
+  return nodes.filter((node) => childrenOf(node).length > 0).map((node) => node.id)
 }
 
 /**
@@ -201,7 +211,7 @@ export function expandIdsForKeyword(nodes: readonly MenuItem[], keyword: string)
     for (const node of list) {
       const selfMatch =
         node.name.toLowerCase().includes(needle) || node.path.toLowerCase().includes(needle)
-      const childMatch = walk(node.children)
+      const childMatch = walk(childrenOf(node))
       if (selfMatch || childMatch) {
         matched.add(node.id)
       }
@@ -227,7 +237,7 @@ export function filterMenus(nodes: readonly MenuItem[], filter: MenuFilter): Men
   const walk = (list: readonly MenuItem[]): MenuItem[] => {
     const result: MenuItem[] = []
     for (const node of list) {
-      const children = walk(node.children)
+      const children = walk(childrenOf(node))
       const keywordMatch =
         needle === '' ||
         node.name.toLowerCase().includes(needle) ||
@@ -295,12 +305,12 @@ export function reorderMenus(
       list.splice(index, 1)
       return true
     }
-    return list.some((node) => detach(node.children, id))
+    return list.some((node) => detach(childrenOf(node), id))
   }
   detach(tree, dragId)
 
   if (position === 'inner') {
-    target.children = [...target.children, drag]
+    target.children = [...childrenOf(target), drag]
   } else {
     const siblings = target.parent_id === '0' ? tree : (findMenu(tree, target.parent_id)?.children ?? [])
     const index = siblings.findIndex((node) => node.id === dropId)
@@ -316,7 +326,7 @@ export function reorderMenus(
       }
       node.parent_id = parentId
       node.sort = sort
-      renumber(node.children, node.id)
+      renumber(childrenOf(node), node.id)
     })
   }
   renumber(tree, '0')
@@ -344,7 +354,7 @@ export function toMenuTreeOptions(nodes: readonly MenuItem[], excludeId?: string
     list
       .filter((node) => !excluded.has(node.id))
       .map((node) => {
-        const children = walk(node.children)
+        const children = walk(childrenOf(node))
         return children.length > 0
           ? { id: node.id, label: node.name, children }
           : { id: node.id, label: node.name }
@@ -364,7 +374,7 @@ export function toMenuFlatOptions(nodes: readonly MenuItem[]): MenuFlatOption[] 
     for (const node of list) {
       const label = prefix === '' ? node.name : `${prefix} / ${node.name}`
       result.push({ id: node.id, label })
-      walk(node.children, label)
+      walk(childrenOf(node), label)
     }
   }
   walk(nodes, '')

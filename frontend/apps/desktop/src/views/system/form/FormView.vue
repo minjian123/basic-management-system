@@ -186,7 +186,7 @@ async function closeTab(key: string): Promise<boolean> {
  */
 function payloadOf(row: FormItem, overrides: { status?: MetaStatus } = {}) {
   return {
-    menu_ids: row.menu_ids.map(String),
+    menu_ids: (row.menu_ids ?? []).map(String),
     business_id: row.business_id,
     component: row.component ?? null,
     status: overrides.status ?? (row.status === 'disabled' ? 'disabled' : 'enabled'),

@@ -21,8 +21,8 @@ import {
   TreeSelectField,
   createOptionSetResolver,
   provideOptionSetResolver,
-  type OptionSetSnapshot,
 } from '@bms/ui-ep'
+import type { OptionSetSnapshot } from '@bms/core'
 import { computed, ref } from 'vue'
 
 /** 当前主题（截图对照用）。 */

@@ -266,8 +266,8 @@ async function fetchLinkDetails(formIds: readonly string[]): Promise<void> {
   await Promise.all(
     formIds.map(async (formId) => {
       const [buttonList, fieldList] = await Promise.all([listButtons(formId), listFields(formId)])
-      buttons.value[formId] = buttonList.items.map(toButtonDraft)
-      fields.value[formId] = fieldList.items.map(toFieldDraft)
+      buttons.value[formId] = (buttonList.items ?? []).map(toButtonDraft)
+      fields.value[formId] = (fieldList.items ?? []).map(toFieldDraft)
       baselineButtons.value[formId] = (buttons.value[formId] as ButtonDraft[]).map((row) => ({ ...row }))
       baselineFields.value[formId] = (fields.value[formId] as FieldDraft[]).map((row) => ({
         ...row,
@@ -332,7 +332,7 @@ async function load(): Promise<void> {
     form.value = toDraft(node)
     baselineForm.value = cloneDraft(form.value)
     originalFormIds.value = meta.forms
-      .filter((item: FormItem) => item.menu_ids.map(String).includes(props.menuId))
+      .filter((item: FormItem) => (item.menu_ids ?? []).map(String).includes(props.menuId))
       .map((item) => item.id)
     linkFormIds.value = [...originalFormIds.value]
     buttons.value = {}
@@ -390,7 +390,7 @@ async function saveFormLinks(menuId: string): Promise<void> {
     if (form === undefined) {
       continue
     }
-    const menuIds = new Set(form.menu_ids.map(String))
+    const menuIds = new Set((form.menu_ids ?? []).map(String))
     if (has) {
       menuIds.add(menuId)
     } else {
