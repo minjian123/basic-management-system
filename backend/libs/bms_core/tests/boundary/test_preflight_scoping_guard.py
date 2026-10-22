@@ -1,141 +1,79 @@
-"""预检脚本护栏用例（Kiwi 2311）：默认档定向推导与预算护栏。
+"""预检入口护栏用例（Kiwi 2311）：定向档缺省、步骤配置化、预算护栏在配置里登记。
 
-《测试规范》「执行方式」节：本地预检以**定向档为缺省**（全量须显式 `--full`），
-本用例锁定该口径的两条实现：**按 git 变更推导受影响范围**（测试文件 + 变更源文件覆盖率目标，
-推导规则委托选测器 `test_selection.py`，见 13_01）与**单步 / 总体预算护栏**（超时即中止，防误跑长命令）。
+13_05 起预检实现整体迁入 engkit（包内自带 281 条用例、覆盖率 100%），本仓只锁**包装契约**：
+
+1. `check-preflight.py` 只转发、不含推导与步骤清单（单一来源在工具包与 `engkit.toml`）；
+2. 仓根 `engkit.toml` 声明了定向 / 全量两档预算与预检步骤（缺省即定向）；
+3. 包装能把「位置根 + 选项」翻译成 engkit 参数。
 """
 
 import importlib.util
 import sys
 from pathlib import Path
 
-import pytest
-
-from bms_core.core.concurrent import ConcurrentStableList
-
 _REPO_ROOT = Path(__file__).resolve().parents[5]
-_SCRIPT = _REPO_ROOT / "scripts" / "tools" / "preflight" / "check-preflight.py"
-_spec = importlib.util.spec_from_file_location("check_preflight_guard", _SCRIPT)
-assert _spec is not None and _spec.loader is not None
-check_preflight = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(check_preflight)
+_PREFLIGHT_DIR = _REPO_ROOT / "scripts" / "tools" / "preflight"
+_SCRIPT = _PREFLIGHT_DIR / "check-preflight.py"
 
-_BACKEND = _REPO_ROOT / "backend"
+if str(_PREFLIGHT_DIR) not in sys.path:
+    sys.path.insert(0, str(_PREFLIGHT_DIR))
 
 
-@pytest.mark.kiwi_id(2311)
-def test_scope_targets_maps_changed_paths() -> None:
-    """变更 → 范围映射：只选受影响工程的测试文件，ops 变更并入基座 ops 用例，覆盖率只取包内源文件。"""
-    files, covs = check_preflight._scope_targets(
-        _BACKEND,
-        ConcurrentStableList(
-            [
-                "backend/libs/bms_core/src/bms_core/db/bootstrap.py",
-                "backend/libs/bms_core/tests/boundary/test_preflight_scoping_guard.py",
-                "backend/services/txn/src/bms_txn/services/recovery.py",
-                "backend/ops/test_db.py",
-            ]
-        ),
-    )
-    assert files
-    assert all(rel.startswith(("libs/bms_core/tests/", "services/txn/tests/")) for rel in files)
-    assert any("/tests/ops/" in f"/{rel}" for rel in files)
-    assert list(covs) == ["bms_core.db.bootstrap", "bms_txn.services.recovery"]
+def _load_wrapper() -> object:
+    """按文件路径加载预检包装模块。
+
+    Returns:
+        object: 模块对象。
+    """
+    spec = importlib.util.spec_from_file_location("check_preflight_wrapper", _SCRIPT)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
-@pytest.mark.kiwi_id(2311)
-def test_scope_targets_skips_docs_and_frontend() -> None:
-    """纯文档 / 前端变更不引测试与覆盖率目标（定向档跳过 pytest）。"""
-    files, covs = check_preflight._scope_targets(
-        _BACKEND,
-        ConcurrentStableList(["bms文档/规范/测试规范.md", "frontend/apps/portal/src/main.ts"]),
-    )
-    assert not files
-    assert not covs
+def test_wrapper_forwards_with_positional_root() -> None:
+    """位置根被翻译为 `--root`，选项原样保留。"""
+    wrapper = _load_wrapper()
+    argv = wrapper.build_argv(["/repo", "--fast", "--jobs", "auto", "--self-test"])
+    assert argv[:2] == ["preflight", "--config"]
+    assert "--root" in argv and "/repo" in argv
+    assert "--fast" in argv and "--jobs" in argv and "auto" in argv
+    assert argv[-1] == "--self-test"
 
 
-@pytest.mark.kiwi_id(2311)
-def test_scope_targets_ignores_non_package_sources() -> None:
-    """覆盖率只取包内源文件：`ops` / `scripts/tools` 变更不产生覆盖率目标（与聚合档 `--cov` 口径一致）。"""
-    files, covs = check_preflight._scope_targets(
-        _BACKEND,
-        ConcurrentStableList(
-            [
-                "backend/ops/test_db.py",
-                "scripts/tools/preflight/check-preflight.py",
-                "backend/libs/bms_core/src/bms_core/db/__init__.py",
-            ]
-        ),
-    )
-    assert any("/tests/ops/" in f"/{rel}" for rel in files)
-    for guard in check_preflight.test_selection._PREFLIGHT_TESTS:
-        assert guard in files, guard
-    assert list(covs) == ["bms_core.db"]
+def test_wrapper_has_no_derivation_logic() -> None:
+    """包装内不得出现推导 / 步骤清单（单一来源约束）。"""
+    source = _SCRIPT.read_text(encoding="utf-8")
+    for token in ("ast.parse", "pytest-args", "cov_modules", "_ROOTS", "check-base.py", "ruff check"):
+        assert token not in source
 
 
-@pytest.mark.kiwi_id(2311)
-def test_budget_guard_exhausted_skips_remaining(monkeypatch: pytest.MonkeyPatch) -> None:
-    """预算护栏：总体预算耗尽即中止并记失败项；后续步骤直接跳过、不重复记。"""
-    guard = check_preflight._Budget(step_seconds=0.0, total_seconds=0.0)
-    monkeypatch.setattr(check_preflight, "_GUARD", guard)
-    failures: ConcurrentStableList[str] = ConcurrentStableList()
-    cmd = ConcurrentStableList([sys.executable, "-c", "pass"])
+def test_config_declares_steps_and_budgets() -> None:
+    """仓配置登记了预检步骤、自测与两档预算。"""
+    sys.path.insert(0, str(_PREFLIGHT_DIR))
+    from engkit_boot import config_path
 
-    assert check_preflight._run("步骤一", cmd, _REPO_ROOT, failures) is False
-    assert guard.exhausted
-    assert len(failures) == 1
-    assert "总体超时" in failures[0]
+    from engkit.config import load
 
-    assert check_preflight._run("步骤二", cmd, _REPO_ROOT, failures) is False
-    assert len(failures) == 1
-
-
-@pytest.mark.kiwi_id(2311)
-def test_budget_guard_step_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
-    """预算护栏：单步超时即中止（子进程被结束）并记失败项。"""
-    guard = check_preflight._Budget(step_seconds=0.05, total_seconds=60.0)
-    monkeypatch.setattr(check_preflight, "_GUARD", guard)
-    failures: ConcurrentStableList[str] = ConcurrentStableList()
-    cmd = ConcurrentStableList([sys.executable, "-c", "import time; time.sleep(5)"])
-
-    assert check_preflight._run("慢步骤", cmd, _REPO_ROOT, failures) is False
-    assert len(failures) == 1
-    assert "单步超时" in failures[0]
-    assert not guard.exhausted
+    cfg = load(Path(config_path()))
+    assert cfg.preflight.budget.scoped == (300.0, 420.0)
+    assert cfg.preflight.budget.full == (900.0, 1800.0)
+    assert cfg.preflight.since == "origin/main"
+    kinds = {step.type for step in cfg.preflight.steps}
+    assert {"command", "scoped_tests", "full_tests", "project_tests"} <= kinds
+    assert len(cfg.preflight.self_tests) == 7
+    scoped = [step for step in cfg.preflight.steps if step.preset == "scoped"]
+    assert [step.type for step in scoped] == ["scoped_tests"]
 
 
-@pytest.mark.kiwi_id(2311)
-def test_budget_guard_allows_fast_step(monkeypatch: pytest.MonkeyPatch) -> None:
-    """预算护栏：预算内的步骤照常通过（不影响正常快路径）。"""
-    guard = check_preflight._Budget(step_seconds=30.0, total_seconds=60.0)
-    monkeypatch.setattr(check_preflight, "_GUARD", guard)
-    failures: ConcurrentStableList[str] = ConcurrentStableList()
-    cmd = ConcurrentStableList([sys.executable, "-c", "print('ok')"])
+def test_config_registers_all_projects() -> None:
+    """自动发现的工程全部登记到全量范围与覆盖率范围（新增工程必登记）。"""
+    sys.path.insert(0, str(_PREFLIGHT_DIR))
+    from engkit_boot import config_path
 
-    assert check_preflight._run("快步骤", cmd, _REPO_ROOT, failures) is True
-    assert not failures
-    assert not guard.exhausted
+    from engkit import selection
+    from engkit.config import load
 
-
-@pytest.mark.kiwi_id(2311)
-def test_mode_defaults_and_flags(monkeypatch: pytest.MonkeyPatch) -> None:
-    """档位与参数解析：缺省定向档（窄预算）、`--full` 放宽预算、`--self-test` 走自测、选项值不当仓库根。"""
-    monkeypatch.setattr(sys, "argv", ["check-preflight.py", "/repo", "--budget-seconds", "42", "--step-seconds", "7"])
-    assert check_preflight._positional_root() == "/repo"
-    assert check_preflight._numeric_flag("--budget-seconds", 180.0) == 42.0
-    assert check_preflight._numeric_flag("--step-seconds", 120.0) == 7.0
-
-    monkeypatch.setattr(sys, "argv", ["check-preflight.py", "--budget-seconds", "abc"])
-    assert check_preflight._numeric_flag("--budget-seconds", 180.0) == 180.0
-
-    monkeypatch.setattr(sys, "argv", ["check-preflight.py"])
-    assert check_preflight._positional_root() == "."
-    assert check_preflight._numeric_flag("--budget-seconds", 180.0) == 180.0
-
-    assert check_preflight._DEFAULT_SCOPED_BUDGET == (300.0, 420.0)
-    assert check_preflight._DEFAULT_FULL_BUDGET == (900.0, 1800.0)
-    assert check_preflight._DEFAULT_FULL_BUDGET[0] > check_preflight._DEFAULT_SCOPED_BUDGET[0]
-
-    # 并行档位（13_02）：`--jobs auto` 的取值不是仓库根
-    monkeypatch.setattr(sys, "argv", ["check-preflight.py", "--jobs", "auto"])
-    assert check_preflight._positional_root() == "."
+    cfg = load(Path(config_path()))
+    assert selection.unregistered_projects(selection.discover_projects(cfg), cfg) == []

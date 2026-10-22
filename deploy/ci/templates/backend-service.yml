@@ -40,6 +40,12 @@ service-test:
   variables:
     BMS_ENV: test
   script:
+    # engkit 接入（13_05）：选测器为薄包装，按锁定 SHA 克隆工具包（升级只改 ENGKIT_REV）
+    - export ENGKIT_REV="${ENGKIT_REV:-27ff84629484e17569fbcdc6d15ead0d6e1c4538}"
+    - |
+      test -d ../engkit/.git || git clone --quiet --no-checkout "${ENGKIT_REPO_URL:-${CI_SERVER_PROTOCOL}://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_SERVER_HOST}/bms/engkit.git}" ../engkit
+    - git -C ../engkit checkout --quiet "$ENGKIT_REV"
+    - export ENGKIT_HOME="$CI_PROJECT_DIR/../engkit"
     - test -n "$SERVICE" || { echo "缺少 SERVICE 变量（须由父流水线 trigger 传入）"; exit 1; }
     - test -d "backend/services/$SERVICE" || { echo "服务目录不存在：backend/services/$SERVICE"; exit 1; }
     # 重复面划界（13_02）：本服务**无直接变更**（仅 uv.lock / Dockerfile / libs 等共享底座被改）时，

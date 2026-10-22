@@ -1,0 +1,277 @@
+# bms 仓工程化工具包配置（唯一：路径 / 工程清单 / 选测规则 / 预检步骤 / 登记凭据键位）
+# 口径见 engkit 文档《工程化工具包说明》§4 字段全表；改本文件即可调整预检步骤，无需改工具包代码。
+
+[repo]
+name = "bms"
+
+[docs]
+root = "bms文档"
+skip = ["bms文档/用户文档/"]
+
+[docs.scope]
+whitelist_dirs = ["规范/", "资料/", "用户文档/"]
+whitelist_files = ["规划/总体项目规划.md"]
+plan_dir_pattern = "^项目/[^/]+/计划/"
+
+[backend]
+root = "backend"
+groups = ["libs", "services"]
+test_prefix = "test_"
+projects = [
+  "libs/bms_core",
+  "services/txn",
+  "services/platform",
+  "services/identity",
+  "services/tenant",
+  "services/file",
+  "services/notification",
+  "services/search",
+  "services/ai",
+  "services/report",
+]
+coverage_packages = [
+  "bms_core",
+  "bms_txn",
+  "bms_platform",
+  "bms_identity",
+  "bms_tenant",
+  "bms_file",
+  "bms_notification",
+  "bms_search",
+  "bms_ai",
+  "bms_report",
+]
+
+[frontend]
+root = "frontend"
+groups = ["packages", "apps", "modules"]
+workspace_protocol = "workspace:"
+
+[selection]
+base_threshold = 100
+base_ratio = 0.6
+
+[rules.backend.global]
+exact = ["backend/pyproject.toml", "backend/uv.lock", ".gitlab-ci.yml"]
+prefixes = ["backend/alembic/", "deploy/"]
+config_prefix = "backend/config"
+config_suffix = ".toml"
+
+[[rules.backend.extra_tests]]
+match_prefix = "backend/ops/"
+test_dir_suffix = "/tests/ops/"
+coverage = false
+
+[[rules.backend.extra_tests]]
+match_prefix = "scripts/tools/preflight/"
+test_files = [
+  "libs/bms_core/tests/boundary/test_test_selection_guard.py",
+  "libs/bms_core/tests/boundary/test_preflight_scoping_guard.py",
+  "libs/bms_core/tests/boundary/test_run_once_guard.py",
+]
+
+[[rules.backend.extra_tests]]
+match_prefix = "scripts/tools/base-check/"
+fallback_dir = "libs/bms_core/tests/boundary"
+mapping = [
+  { script = "check-bare-collections.py", test = "libs/bms_core/tests/boundary/test_bare_collections_guard.py" },
+  { script = "check-env-example.py", test = "libs/bms_core/tests/core/test_basic_protection.py" },
+  { script = "check-backend-base.py", test = "libs/bms_core/tests/core/test_value_object_roots.py" },
+  { script = "check-service-boundaries.py", test = "libs/bms_core/tests/crosscut/test_module_boundary.py" },
+]
+
+[rules.frontend.global]
+exact = ["package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml", "tsconfig.base.json", ".npmrc"]
+prefixes = ["scripts/"]
+
+[coverage]
+data_env = "BMS_COVERAGE_DATA"
+source_env = "BMS_COVERAGE_SOURCE"
+fail_under = 100
+plugin = "bms_testing_plugin"
+pythonpath = ["backend"]
+data_file = "backend/.coverage"
+interpreter = "uv run python"
+
+[pytest]
+cmd = "uv run pytest"
+cwd = "backend"
+jobs_flag = "--jobs"
+max_rounds = 2
+
+[preflight]
+cwd = "."
+since = "origin/main"
+
+[preflight.budget]
+scoped = [300, 420]
+full = [900, 1800]
+
+# ---- 预检步骤（声明序即执行序；`--fast` 只跑 always，`--full` 追加 full ----）----
+[[preflight.steps]]
+label = "CI 配置自检（YAML / pytest 选项 / GitLab Lint / 门禁资产）"
+cmd = ["{python}", "scripts/tools/preflight/check-ci-config.py", "{root}"]
+
+[[preflight.steps]]
+label = "后端静态：ruff check"
+cmd = ["uv", "run", "ruff", "check", "."]
+cwd = "backend"
+
+[[preflight.steps]]
+label = "后端静态：ruff format --check"
+cmd = ["uv", "run", "ruff", "format", "--check", "."]
+cwd = "backend"
+
+[[preflight.steps]]
+label = "后端静态：pyright"
+cmd = ["uv", "run", "pyright"]
+cwd = "backend"
+
+[[preflight.steps]]
+label = "工具静态：ruff check（scripts/tools）"
+cmd = ["uv", "run", "ruff", "check", "../scripts/tools"]
+cwd = "backend"
+
+[[preflight.steps]]
+label = "工具静态：ruff format --check（scripts/tools）"
+cmd = ["uv", "run", "ruff", "format", "--check", "../scripts/tools"]
+cwd = "backend"
+
+[[preflight.steps]]
+label = "后端测试：定向（选测 + 覆盖率门禁 + 扩圈）"
+type = "scoped_tests"
+preset = "scoped"
+
+[[preflight.steps]]
+label = "后端测试：聚合全量（--full）"
+type = "full_tests"
+preset = "full"
+
+[[preflight.steps]]
+label = "后端测试：工程级范围（--full）"
+type = "project_tests"
+preset = "full"
+
+[[preflight.steps]]
+label = "基座：check-base"
+cmd = ["{python}", "scripts/tools/base-check/check-base.py", "{root}"]
+
+[[preflight.steps]]
+label = "基座：check-system-fields"
+cmd = ["{python}", "scripts/tools/base-check/check-system-fields.py", "{root}"]
+
+[[preflight.steps]]
+label = "基座：check-env-example（环境变量模板键位）"
+cmd = ["{python}", "scripts/tools/base-check/check-env-example.py", "{root}"]
+
+[[preflight.steps]]
+label = "基座：check-backend-base"
+cmd = ["{python}", "scripts/tools/base-check/check-backend-base.py", "{root}"]
+
+[[preflight.steps]]
+label = "边界：check-service-boundaries"
+cmd = ["{python}", "scripts/tools/base-check/check-service-boundaries.py", "{root}"]
+
+[[preflight.steps]]
+label = "基座：check-bare-collections（裸无序集合护栏）"
+cmd = ["{python}", "scripts/tools/base-check/check-bare-collections.py", "{root}"]
+
+[[preflight.steps]]
+label = "文档：check-docs-scope（排期与工时落点护栏）"
+cmd = ["{python}", "scripts/tools/base-check/check-docs-scope.py", "{root}"]
+
+[[preflight.steps]]
+label = "界面：check-prototype-review（本次改动含界面源码须有原型对照）"
+cmd = ["{python}", "scripts/tools/base-check/check-prototype-review.py", "{root}", "--changed", "origin/main"]
+
+[[preflight.steps]]
+label = "边界：boundary_metrics（越界 / 跨库 / 例外计数）"
+cmd = ["{python}", "scripts/tools/governance/boundary_metrics.py", "--root", "{root}"]
+
+[[preflight.steps]]
+label = "文档：check-status"
+cmd = ["{python}", "scripts/tools/check-docs/check-status.py", "--root", "{root}"]
+
+[[preflight.steps]]
+label = "网关：gateway_config check（服务目录零漂移）"
+cmd = ["{python}", "backend/ops/gateway_config.py", "check", "--root", "{root}"]
+
+[[preflight.steps]]
+label = "契约：contract_snapshot check（公开契约零漂移）"
+cmd = ["uv", "run", "python", "-m", "ops.contract_snapshot", "check", "--root", "{root}"]
+cwd = "backend"
+
+[[preflight.steps]]
+label = "契约：check_contracts（实现路由 ⊆ 公开契约 paths + 不可见白名单）"
+cmd = ["uv", "run", "python", "-m", "ops.check_contracts"]
+cwd = "backend"
+
+[[preflight.steps]]
+label = "契约：event_contracts check（事件契约零漂移 + 兼容）"
+cmd = ["uv", "run", "python", "-m", "ops.event_contracts", "check", "--root", "{root}"]
+cwd = "backend"
+
+[[preflight.steps]]
+label = "前端类型：受影响工程逐个 typecheck / build"
+cmd = ["{python}", "scripts/tools/preflight/check-frontend-types.py", "{root}"]
+
+[[preflight.steps]]
+label = "前端：api-types 契约类型零漂移"
+cmd = ["node", "scripts/generate.mjs", "--check"]
+cwd = "frontend/packages/api-types"
+
+# ---- 护栏自测（`--fast` / `--full` 全跑；定向档按变更触及才跑）----
+[[preflight.self_tests]]
+label = "基座：check-system-fields --self-test"
+cmd = ["{python}", "scripts/tools/base-check/check-system-fields.py", "--self-test"]
+deps = ["scripts/tools/base-check/check-system-fields.py"]
+
+[[preflight.self_tests]]
+label = "基座：check-env-example --self-test"
+cmd = ["{python}", "scripts/tools/base-check/check-env-example.py", "--self-test"]
+deps = ["scripts/tools/base-check/check-env-example.py"]
+
+[[preflight.self_tests]]
+label = "基座：check-backend-base --self-test"
+cmd = ["{python}", "scripts/tools/base-check/check-backend-base.py", "--self-test"]
+deps = ["scripts/tools/base-check/check-backend-base.py", "backend/libs/bms_core/"]
+
+[[preflight.self_tests]]
+label = "边界：check-service-boundaries --self-test"
+cmd = ["{python}", "scripts/tools/base-check/check-service-boundaries.py", "--self-test"]
+deps = ["scripts/tools/base-check/check-service-boundaries.py", "backend/libs/bms_core/"]
+
+[[preflight.self_tests]]
+label = "基座：check-bare-collections --self-test"
+cmd = ["{python}", "scripts/tools/base-check/check-bare-collections.py", "--self-test"]
+deps = ["scripts/tools/base-check/check-bare-collections.py", "backend/libs/bms_core/"]
+
+[[preflight.self_tests]]
+label = "文档：check-docs-scope --self-test"
+cmd = ["{python}", "scripts/tools/base-check/check-docs-scope.py", "--self-test"]
+deps = ["scripts/tools/base-check/check-docs-scope.py", "backend/libs/bms_core/"]
+
+[[preflight.self_tests]]
+label = "界面：check-prototype-review --self-test"
+cmd = ["{python}", "scripts/tools/base-check/check-prototype-review.py", "--self-test"]
+deps = [
+  "scripts/tools/base-check/check-prototype-review.py",
+  "backend/libs/bms_core/",
+  "bms文档/设计/原型设计/",
+]
+
+[runonce]
+cache_dir = ".cache/run-once"
+window_seconds = 1800
+
+[guard]
+scripts = ["check-preflight.py", "check-base.py", "check-links.py", "check-docs-scope.py"]
+repo_dirs = ["libs", "services", "scripts", "deploy", "frontend"]
+dir_test_threshold = 20
+
+[kiwi]
+env_file = "deploy/.env"
+host_env = "MJBK_IP"
+user_env = "MJBK_SSH_USER"
+container = "bms-kiwi"
+manage = "/Kiwi/manage.py"

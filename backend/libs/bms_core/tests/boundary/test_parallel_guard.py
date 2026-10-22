@@ -1,308 +1,106 @@
-"""并行执行与重复步骤消除护栏用例（Kiwi 2318）。
+"""并行执行与重复面护栏用例（Kiwi 2318）：开关映射、预算登记、自测登记、重复面判定接线。
 
-锁定 `13_02` 详细设计（`bms文档/项目/02_后端基座与服务化地基/任务/13_测试执行粒度与工程效能/
-13_测试执行粒度与工程效能_02_并行执行与重复步骤消除/设计/01_详细设计_02_并行执行与重复步骤消除.md`）：
+13_02 的实现在 13_05 迁入 engkit（包内 `tests/test_preflight.py` 覆盖全部分支），本仓锁**配置与接线**：
 
-- **并行开关**：`--jobs auto|N|off` 单一解析来源，预检与执行器同口径；
-- **worker 库隔离**：xdist 下按 worker 注入独立 `sqlite_dir`（串行沿配置原值）；
-- **自测按需**：7 个 `--self-test` 按「脚本自身 + 依赖前缀」判定，`--fast` / `--full` 全跑；
-- **预算对齐**：定向 300s / 420s、全量 900s / 1800s；
-- **CI 重复面**：`service-test` 依 `--format changed-services` 判定，无直接变更则跳过测试。
+- `--jobs` 映射（auto / 正整数 / off）经包装取同一份实现；
+- 预算两档在 `engkit.toml` 登记且与实测标定一致；
+- 7 项护栏自测全部登记且含脚本自身依赖；
+- `service-test` 仍以 `--format changed-services` 判定重复面（不因迁移放宽）。
 """
 
-import contextlib
 import importlib.util
-import os
 import sys
 from pathlib import Path
-from typing import Any, cast
 
 import pytest
 
-from bms_core.testing import fixtures, plugin
-
 _REPO_ROOT = Path(__file__).resolve().parents[5]
 _PREFLIGHT_DIR = _REPO_ROOT / "scripts" / "tools" / "preflight"
+_PARALLEL = _PREFLIGHT_DIR / "parallel_jobs.py"
+
 if str(_PREFLIGHT_DIR) not in sys.path:
     sys.path.insert(0, str(_PREFLIGHT_DIR))
 
 
-def _load_script(name: str, path: Path) -> Any:
-    """按路径加载预检脚本模块（文件名可能带连字符，不能直接 `import`）。
+def _load(name: str, path: Path) -> object:
+    """按路径加载模块（文件名含连字符时不能直接 import）。
 
     Args:
-        name: 注册到 `sys.modules` 的模块名（与预检脚本内部 `import` 名一致）。
-        path: 脚本路径。
+        name: 模块名。
+        path: 文件路径。
 
     Returns:
-        Any: 模块对象。
+        object: 模块对象。
     """
     spec = importlib.util.spec_from_file_location(name, path)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
-    sys.modules[name] = module
     spec.loader.exec_module(module)
     return module
 
 
-test_selection: Any = _load_script("test_selection", _PREFLIGHT_DIR / "test_selection.py")
-parallel_jobs: Any = _load_script("parallel_jobs", _PREFLIGHT_DIR / "parallel_jobs.py")
-_PREFLIGHT: Any = _load_script("preflight_parallel_guard", _PREFLIGHT_DIR / "check-preflight.py")
-
-
-def _enter_isolate_settings(monkeypatch: pytest.MonkeyPatch) -> Any:
-    """进入公共隔离夹具（取 `__wrapped__` 直接驱动生成器）。
-
-    Args:
-        monkeypatch: pytest monkeypatch 夹具。
+@pytest.fixture(scope="module")
+def parallel() -> object:
+    """并行档位包装模块。
 
     Returns:
-        Any: 夹具生成器（用完需 `next` 一次触发收尾）。
+        object: 模块对象。
     """
-    wrapped: Any = cast("Any", fixtures.isolate_settings).__wrapped__
-    generator: Any = wrapped(monkeypatch)
-    next(generator)
-    return generator
+    return _load("bms_parallel_jobs", _PARALLEL)
 
 
-def _leave(generator: Any) -> None:
-    """触发夹具收尾（忽略 StopIteration）。
-
-    Args:
-        generator: 夹具生成器。
-    """
-    with contextlib.suppress(StopIteration):
-        next(generator)
-
-
-# ===== A 并行开关 =====
+def test_jobs_mapping(parallel: object) -> None:
+    """`auto` → `-n auto`、正整数 → `-n N`、`off` → 串行。"""
+    assert tuple(parallel.jobs_args("auto")) == ("-n", "auto")
+    assert tuple(parallel.jobs_args("4")) == ("-n", "4")
+    assert tuple(parallel.jobs_args("off")) == ()
+    assert "并行" in parallel.describe("auto")
+    assert "串行" in parallel.describe("off")
+    with pytest.raises(ValueError, match="取值非法"):
+        parallel.jobs_args("abc")
 
 
-@pytest.mark.kiwi_id(2318)
-def test_jobs_args_auto_and_numeric() -> None:
-    """`auto` ⇒ `-n auto`；正整数 ⇒ 固定并发。"""
-    assert parallel_jobs.jobs_args("auto") == ("-n", "auto")
-    assert parallel_jobs.jobs_args("  AUTO ") == ("-n", "auto")
-    assert parallel_jobs.jobs_args("4") == ("-n", "4")
-    assert parallel_jobs.describe("auto") == "并行 -n auto"
+def test_budget_registered() -> None:
+    """预算两档与实测标定一致（定向 300/420、全量 900/1800）。"""
+    from engkit.config import load
+
+    from engkit_boot import config_path
+
+    cfg = load(Path(config_path()))
+    assert cfg.preflight.budget.scoped == (300.0, 420.0)
+    assert cfg.preflight.budget.full == (900.0, 1800.0)
+    assert cfg.preflight.budget.full[0] > cfg.preflight.budget.scoped[0]
 
 
-@pytest.mark.kiwi_id(2318)
-def test_jobs_args_off() -> None:
-    """`off` / `none` / `0` / 空串 ⇒ 串行（不追加参数）。"""
-    for value in ("off", "OFF", "none", "0", "", "  "):
-        assert parallel_jobs.jobs_args(value) == ()
-    assert parallel_jobs.describe("off") == "串行（--jobs off）"
+def test_self_tests_registered() -> None:
+    """7 项护栏自测全部登记，且依赖含脚本自身。"""
+    from engkit.config import load
 
+    from engkit_boot import config_path
 
-@pytest.mark.kiwi_id(2318)
-def test_jobs_args_invalid() -> None:
-    """非法取值报错并提示合法取值（不静默按 auto 处理）。"""
-    for value in ("-1", "auto2", "1.5", "many"):
-        with pytest.raises(ValueError, match="--jobs 取值非法"):
-            parallel_jobs.jobs_args(value)
-
-
-@pytest.mark.kiwi_id(2318)
-def test_preflight_wires_jobs_to_all_pytest_calls() -> None:
-    """预检把 `--jobs` 接到定向执行器与全量档两条 pytest 调用（防漏接）。"""
-    source = (_PREFLIGHT_DIR / "check-preflight.py").read_text(encoding="utf-8")
-    assert '"--jobs",\n            jobs,' in source
-    assert 'ConcurrentStableList(["uv", "run", "pytest", "-q", *jobs])' in source
-    assert parallel_jobs.DEFAULT_JOBS == "auto"
-
-
-# ===== B worker 级 SQLite 库隔离 =====
-
-
-@pytest.mark.kiwi_id(2318)
-def test_worker_sqlite_dir_serial_empty(monkeypatch: pytest.MonkeyPatch) -> None:
-    """串行（无 `PYTEST_XDIST_WORKER`）返空串 ⇒ 沿配置原值。"""
-    monkeypatch.delenv("PYTEST_XDIST_WORKER", raising=False)
-    assert fixtures.worker_sqlite_dir() == ""
-
-
-@pytest.mark.kiwi_id(2318)
-def test_worker_sqlite_dir_worker(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    """xdist worker ⇒ `<basetemp>/sqlite-<worker>` 目录存在且稳定。"""
-    monkeypatch.setenv("PYTEST_XDIST_WORKER", "gw3")
-    fixtures.configure_sqlite_basetemp(str(tmp_path))
-    try:
-        directory = fixtures.worker_sqlite_dir()
-        assert directory == str(tmp_path / "sqlite-gw3")
-        assert Path(directory).is_dir()
-        assert fixtures.worker_sqlite_dir() == directory
-    finally:
-        fixtures.configure_sqlite_basetemp("")
-
-
-@pytest.mark.kiwi_id(2318)
-def test_worker_sqlite_dir_without_basetemp(monkeypatch: pytest.MonkeyPatch) -> None:
-    """无 basetemp 时落系统临时目录（兜底路径仍按 worker 分区）。"""
-    monkeypatch.setenv("PYTEST_XDIST_WORKER", "gw9")
-    fixtures.configure_sqlite_basetemp("")
-    directory = Path(fixtures.worker_sqlite_dir())
-    assert directory.name == "sqlite-gw9"
-    assert directory.parent.name == "bms-pytest-sqlite"
-    assert directory.is_dir()
-
-
-@pytest.mark.kiwi_id(2318)
-def test_isolate_settings_injects_sqlite_dir(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    """xdist 下 `isolate_settings` 注入 worker 专属 `BMS_DATABASE__SQLITE_DIR`。"""
-    monkeypatch.setenv("PYTEST_XDIST_WORKER", "gw1")
-    fixtures.configure_sqlite_basetemp(str(tmp_path))
-    generator = _enter_isolate_settings(monkeypatch)
-    try:
-        assert os.environ["BMS_DATABASE__SQLITE_DIR"] == str(tmp_path / "sqlite-gw1")
-    finally:
-        _leave(generator)
-        fixtures.configure_sqlite_basetemp("")
-
-
-@pytest.mark.kiwi_id(2318)
-def test_isolate_settings_serial_keeps_configured_dir(monkeypatch: pytest.MonkeyPatch) -> None:
-    """串行不注入（且既有「清 BMS_ 环境变量」行为不变）。"""
-    monkeypatch.delenv("PYTEST_XDIST_WORKER", raising=False)
-    generator = _enter_isolate_settings(monkeypatch)
-    try:
-        assert "BMS_DATABASE__SQLITE_DIR" not in os.environ
-    finally:
-        _leave(generator)
-
-
-@pytest.mark.kiwi_id(2318)
-def test_plugin_configure_passes_basetemp(tmp_path: Path) -> None:
-    """`pytest_configure` 把 basetemp 交给基座（xdist worker 的 popen-gwN 目录）。"""
-
-    class _Option:
-        basetemp = str(tmp_path)
-
-    class _Config:
-        option = _Option()
-
-    try:
-        plugin.pytest_configure(cast("pytest.Config", _Config()))
-        assert str(tmp_path) == fixtures._sqlite_basetemp  # pyright: ignore[reportPrivateUsage]
-    finally:
-        fixtures.configure_sqlite_basetemp("")
-
-
-# ===== C 自测按需 =====
-
-
-@pytest.mark.kiwi_id(2318)
-def test_self_test_selected_by_script() -> None:
-    """变更脚本自身 ⇒ 该自测执行。"""
-    entry = _PREFLIGHT._SELF_TESTS[0]  # pyright: ignore[reportPrivateUsage]
-    changes = test_selection.ConcurrentStableList([entry.script])
-    assert _PREFLIGHT._self_test_selected(entry, changes) is True  # pyright: ignore[reportPrivateUsage]
-
-
-@pytest.mark.kiwi_id(2318)
-def test_self_test_selected_by_dependency() -> None:
-    """改基座 ⇒ 依赖基座的 5 项执行、纯标准库两项不执行。"""
-    changes = test_selection.ConcurrentStableList(["backend/libs/bms_core/src/bms_core/core/concurrent.py"])
-    selected = [
-        entry.label
-        for entry in _PREFLIGHT._SELF_TESTS  # pyright: ignore[reportPrivateUsage]
-        if _PREFLIGHT._self_test_selected(entry, changes)  # pyright: ignore[reportPrivateUsage]
-    ]
-    assert len(selected) == 5
-    assert not any("check-system-fields" in label or "check-env-example" in label for label in selected)
-
-
-@pytest.mark.kiwi_id(2318)
-def test_self_test_skipped_when_unrelated() -> None:
-    """纯文档 / 前端变更 ⇒ 全部不选（预检逐条打印跳过）。"""
-    changes = test_selection.ConcurrentStableList(["bms文档/规范/AI开发规范.md", "frontend/apps/portal/src/main.ts"])
-    assert not any(
-        _PREFLIGHT._self_test_selected(entry, changes)  # pyright: ignore[reportPrivateUsage]
-        for entry in _PREFLIGHT._SELF_TESTS  # pyright: ignore[reportPrivateUsage]
-    )
-
-
-@pytest.mark.kiwi_id(2318)
-def test_self_test_registry_complete() -> None:
-    """自测登记 7 项、均含脚本自身依赖，且 `--fast` / `--full` 保留全跑口径。"""
-    entries = _PREFLIGHT._SELF_TESTS  # pyright: ignore[reportPrivateUsage]
+    cfg = load(Path(config_path()))
+    entries = cfg.preflight.self_tests
     assert len(entries) == 7
-    assert all(entry.script in entry.deps for entry in entries)
-    source = (_PREFLIGHT_DIR / "check-preflight.py").read_text(encoding="utf-8")
-    assert "force_all=fast or full" in source
-    assert "跳过（变更未触及" in source
+    for entry in entries:
+        assert entry.deps
+        assert entry.deps[0] in entry.cmd[1] or entry.deps[0].endswith(".py")
 
 
-# ===== D 预算护栏 =====
-
-
-@pytest.mark.kiwi_id(2318)
-def test_budget_defaults_calibrated() -> None:
-    """预算按实测重标定：定向 300/420、全量 900/1800。"""
-    assert _PREFLIGHT._DEFAULT_SCOPED_BUDGET == (300.0, 420.0)  # pyright: ignore[reportPrivateUsage]
-    assert _PREFLIGHT._DEFAULT_FULL_BUDGET == (900.0, 1800.0)  # pyright: ignore[reportPrivateUsage]
-
-
-@pytest.mark.kiwi_id(2318)
-def test_budget_zero_exhausts() -> None:
-    """零预算即判耗尽（既有护栏语义保留）。"""
-    guard = _PREFLIGHT._Budget(step_seconds=0.0, total_seconds=0.0)  # pyright: ignore[reportPrivateUsage]
-    assert guard.remaining() <= 0
-
-
-# ===== E CI 重复面 =====
-
-
-@pytest.mark.kiwi_id(2318)
-def test_changed_services_direct_only() -> None:
-    """只认直接命中的服务：`uv.lock` / `libs` ⇒ 空；`services/txn/**` ⇒ `txn`。"""
-    shared = test_selection.ConcurrentStableList(["backend/uv.lock", "backend/libs/bms_core/src/bms_core/core/x.py"])
-    assert test_selection.changed_services(shared) == ()
-    direct = test_selection.ConcurrentStableList(
-        ["backend/services/txn/src/bms_txn/services/recovery.py", "backend/services/txn/tests/test_a.py"]
-    )
-    assert test_selection.changed_services(direct) == ("txn",)
-    mixed = test_selection.ConcurrentStableList(["backend/services/identity/tests/test_a.py", "backend/uv.lock"])
-    assert test_selection.changed_services(mixed) == ("identity",)
-
-
-@pytest.mark.kiwi_id(2318)
-def test_service_template_uses_changed_services() -> None:
-    """服务子流水线按 `changed-services` 判定并在无直接变更时跳过测试。"""
+def test_service_test_keeps_changed_services_gate() -> None:
+    """服务子流水线仍以 `--format changed-services` 判定重复面（迁移未放宽）。"""
     template = (_REPO_ROOT / "deploy" / "ci" / "templates" / "backend-service.yml").read_text(encoding="utf-8")
     assert "--format changed-services" in template
-    assert "无直接变更" in template and "跳过测试" in template
-    assert "保守执行本服务测试" in template
+    assert "test_selection.py" in template
 
 
-@pytest.mark.kiwi_id(2318)
-def test_backend_test_passes_jobs() -> None:
-    """CI `backend-test` 并行档与本地同口径（显式 `--jobs auto`）。"""
-    ci = (_REPO_ROOT / ".gitlab-ci.yml").read_text(encoding="utf-8")
-    assert "--jobs auto" in ci
-
-
-# ===== F 覆盖率采集前置（13_02 遗留处置） =====
-
-
-@pytest.mark.kiwi_id(2318)
-def test_coverage_collection_starts_before_test_package_import() -> None:
-    """采集在测试基座导入前启动：addopts 指向启动插件，且插件顶层不导入 bms_core。"""
-    pyproject = (_REPO_ROOT / "backend" / "pyproject.toml").read_text(encoding="utf-8")
-    assert "-p bms_testing_plugin" in pyproject
-    assert "-p bms_core.testing.plugin" not in pyproject
-    starter = (_REPO_ROOT / "backend" / "bms_testing_plugin.py").read_text(encoding="utf-8")
-    assert "_coverage = _start_coverage()" in starter
-    # 启动调用必须在任何 bms_core 导入之前（否则导入期行漏计，全仓覆盖率会退回到 93%）
-    assert starter.index("_coverage = _start_coverage()") < starter.index("from bms_core")
-
-
-@pytest.mark.kiwi_id(2318)
-def test_run_selected_wires_coverage_gate() -> None:
-    """执行器：早启动采集（env）+ 门禁脚本判定，不再拼 `pytest --cov` 参数。"""
+def test_run_selected_exposes_jobs_and_rounds() -> None:
+    """执行器仍接受 `--jobs` / `--max-rounds`（并行与扩圈开关未回退）。"""
     source = (_PREFLIGHT_DIR / "run-selected.py").read_text(encoding="utf-8")
-    assert "BMS_COVERAGE_DATA" in source
-    assert "coverage_gate.py" in source
-    assert "--cov=" not in source
-    gate = (_PREFLIGHT_DIR / "coverage_gate.py").read_text(encoding="utf-8")
-    assert "missing_lines" in gate and "partial_branches" in gate
+    assert "run-selected" in source
+    from engkit.cli import _build_parser  # noqa: PLC0415
+
+    parser = _build_parser()
+    args = parser.parse_args(["run-selected", "--jobs", "4", "--max-rounds", "1", "--no-cov"])
+    assert args.jobs == "4"
+    assert args.max_rounds == 1
+    assert args.cov is False

@@ -1,88 +1,43 @@
 #!/usr/bin/env python3
-"""基座文档链接自洽校验（本地手工跑，不挂 CI）。
+"""基座文档链接自洽校验（薄包装）：实现在 engkit `links`（13_05 迁入）。
 
-**为什么独立出来**：链接校验对文档写作约束太强——指向未建档文件、其他仓库软链内
-路径等的链接都会判断链，逼着文档刻意少写导航链接，损害阅读体验。因此从
-`check-base.py`（CI `base-integrity` 强制项）中拆出，**只在需要时手工运行**：
-写完一批文档、重构目录、或想把某批链接收进 CI 前核对一次。
-
-校验内容：全库 `bms文档/` 相对链接自洽——断链 0、失效锚点 0
-（跳过行内代码与外部链接；gitignore 的本地文档如 `用户文档/` 不参与）。
+校验内容：文档根下全部 Markdown 的相对链接与锚点（跳过行内代码、外部链接与本地凭据文档）。
 
 用法::
 
     python3 scripts/tools/base-check/check-links.py            # bms 仓库根运行
     python3 scripts/tools/base-check/check-links.py <其他根>     # 指定根目录
 
-退出码：有问题 1，通过 0。
+退出码：有问题 1，通过 0，文档根缺失 2。
 """
 
-import os
-import re
+from __future__ import annotations
+
 import sys
 from pathlib import Path
 
-ROOT = os.path.abspath(sys.argv[1] if len(sys.argv) > 1 else ".")
-# 本地凭据文档不入库（gitignore）：存在与否不参与链接校验
-LOCAL_ONLY = ("bms文档/用户文档/",)
-LINK_RE = re.compile(r"\]\(([^)\s]+)\)")
-CODE_RE = re.compile(r"`[^`]*`")
+_SCRIPT_DIR = Path(__file__).resolve().parent
+_PREFLIGHT_DIR = _SCRIPT_DIR.parent / "preflight"
+for _entry in (_SCRIPT_DIR, _PREFLIGHT_DIR):
+    if str(_entry) not in sys.path:
+        sys.path.insert(0, str(_entry))
 
-problems = []
-
-
-def strip_code(line):
-    return CODE_RE.sub(lambda m: " " * len(m.group(0)), line)
+from engkit_boot import config_path, forward, pop_root  # noqa: E402
 
 
-def check_links():
-    n_file = n_anchor = 0
-    for dp, dns, fs in os.walk(os.path.join(ROOT, "bms文档")):
-        dns[:] = [d for d in dns if d not in {".git"}]
-        for f in fs:
-            if not f.endswith(".md"):
-                continue
-            p = os.path.join(dp, f)
-            rel = os.path.relpath(p, ROOT)
-            with open(p, encoding="utf-8", errors="ignore") as fh:
-                for i, line in enumerate(fh, 1):
-                    for m in LINK_RE.finditer(strip_code(line)):
-                        t = m.group(1).strip()
-                        if t.startswith(("http", "mailto", "data:")) or not t:
-                            continue
-                        path, _, anc = t.partition("#")
-                        path = path.lstrip("?")
-                        if not path:
-                            continue
-                        tp = os.path.normpath(os.path.join(dp, path))
-                        trel = os.path.relpath(tp, ROOT).replace(os.sep, "/")
-                        if trel.startswith(LOCAL_ONLY):
-                            continue  # 本地凭据文档不入库（gitignore）：存在与否不参与链接校验
-                        if not os.path.exists(tp):
-                            problems.append(f"[断链] {rel}:{i} -> {t}")
-                            n_file += 1
-                            continue
-                        if (
-                            anc
-                            and tp.endswith(".md")
-                            and f'id="{anc}"' not in Path(tp).read_text(encoding="utf-8", errors="ignore")
-                        ):
-                            problems.append(f"[失效锚点] {rel}:{i} -> {t}")
-                            n_anchor += 1
-    print(f"链接自洽：断链 {n_file} 处，失效锚点 {n_anchor} 处（扫描根：{ROOT}）")
+def main() -> int:
+    """入口。
 
-
-def main():
-    check_links()
-    if problems:
-        print(f"\n[check-links] 不通过：{len(problems)} 项")
-        for p in problems[:50]:
-            print("  " + p)
-        if len(problems) > 50:
-            print(f"  ... 其余 {len(problems) - 50} 项")
-        sys.exit(1)
-    print("\n[check-links] 通过：全库相对链接无断链、无失效锚点。")
+    Returns:
+        int: 退出码。
+    """
+    kept, root = pop_root(sys.argv[1:])
+    args = ["links", "--config", config_path()]
+    if root:
+        args.extend(["--root", root])
+    args.extend(kept)
+    return forward(args)
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

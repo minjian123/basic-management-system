@@ -265,6 +265,12 @@ base-integrity:
   # 用 ci-backend 镜像：其已固化 git（check-prototype-review --changed 需调用）；见 deploy/ci/Dockerfile.backend
   image: $REGISTRY_IMAGE_PREFIX/ci-backend:py314
   script:
+    # engkit 接入（13_05）：基础校验脚本已改为薄包装，需按锁定 SHA 克隆工具包
+    - export ENGKIT_REV="${ENGKIT_REV:-27ff84629484e17569fbcdc6d15ead0d6e1c4538}"
+    - |
+      test -d ../engkit/.git || git clone --quiet --no-checkout "${ENGKIT_REPO_URL:-${CI_SERVER_PROTOCOL}://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_SERVER_HOST}/bms/engkit.git}" ../engkit
+    - git -C ../engkit checkout --quiet "$ENGKIT_REV"
+    - export ENGKIT_HOME="$CI_PROJECT_DIR/../engkit"
     - python scripts/tools/base-check/check-base.py
     # 系统字段 form_key：构建期清单 ↔ 表文件双向一致 + 跨表全局唯一（02_11）
     - python scripts/tools/base-check/check-system-fields.py
@@ -445,6 +451,12 @@ backend-test:
       exists:
         - backend/pyproject.toml
   script:
+    # engkit 接入（13_05）：选测执行器与预检入口已改为薄包装，按锁定 SHA 克隆工具包
+    - export ENGKIT_REV="${ENGKIT_REV:-27ff84629484e17569fbcdc6d15ead0d6e1c4538}"
+    - |
+      test -d ../engkit/.git || git clone --quiet --no-checkout "${ENGKIT_REPO_URL:-${CI_SERVER_PROTOCOL}://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_SERVER_HOST}/bms/engkit.git}" ../engkit
+    - git -C ../engkit checkout --quiet "$ENGKIT_REV"
+    - export ENGKIT_HOME="$CI_PROJECT_DIR/../engkit"
     # 测试库隔离（2026-10-12）：runner 工作区复用（`/builds` 跨作业 / 跨流水线保留），而 SQLite 测试库
     # （`.gitignore` 不入库、git 清理不覆盖）会残留旧 schema；`auto_create` 用 `create_all(checkfirst=True)`
     # **只补不删**，既有表不会被补列 ⇒ 表现为「no such column」→ 10006 只读降级。
@@ -748,6 +760,12 @@ dependency-scan:
 # 本 job 无受影响包时 early-exit（打印原因并 success），避免「任一前端文件改动即四包全量」。
 .test-selection:
   before_script:
+    # engkit 接入（13_05）：按锁定 SHA 克隆工具包，包装入口经 ENGKIT_HOME 定位（升级只改 ENGKIT_REV）
+    - export ENGKIT_REV="${ENGKIT_REV:-27ff84629484e17569fbcdc6d15ead0d6e1c4538}"
+    - |
+      test -d ../engkit/.git || git clone --quiet --no-checkout "${ENGKIT_REPO_URL:-${CI_SERVER_PROTOCOL}://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_SERVER_HOST}/bms/engkit.git}" ../engkit
+    - git -C ../engkit checkout --quiet "$ENGKIT_REV"
+    - export ENGKIT_HOME="$CI_PROJECT_DIR/../engkit"
     # 选测 job 用 ci-backend 镜像（Python 3.14 + Node 22 + git）：选测器依赖 bms_core（PEP 695），
     # 而 ci-frontend 的 python3 为 3.11 无法解析。pnpm 该镜像未预装，按需装一次（固定版本与本地一致）。
     - command -v pnpm >/dev/null 2>&1 || npm i -g pnpm@11.7.0 --registry=https://registry.npmmirror.com
