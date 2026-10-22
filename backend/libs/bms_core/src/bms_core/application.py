@@ -14,6 +14,11 @@
 服务侧用法：声明 `service_name` / `service_title` / `version` / `contract_version`，覆写 `service_routers()`
 返回业务路由；服务专属 state 覆写 `configure_service()`，创建前调整配置覆写 `prepare_settings()`；
 产品服务另声明 `product_key` 并覆写 `service_records()` 返回本产品服务清单。
+
+- **产品 `form_key` 清单注入**：表单标识清单同为**应用级视图**——工厂经 `form_records()` 注入本产品登记项
+  （`FormRecord`），基座经 `merge_form_records()` 与 `FORM_CATALOG` 拼接后落 `app.state.form_registry`
+  （无进程级注册表、不改常量）；`GET /api/v1/form-keys` 一律取该视图。平台服务不覆写钩子，视图严格等于
+  `FORM_CATALOG`，行为不变。
 """
 
 from collections.abc import AsyncGenerator, Awaitable, Callable
@@ -58,6 +63,7 @@ from bms_core.lock.base import BaseDistributedLock
 from bms_core.masking.base import get_masker
 from bms_core.metrics.base import BaseMetrics
 from bms_core.models.ownership import SysTableOwnership
+from bms_core.registry.forms import FormRecord, FormRegistry, merge_form_records
 from bms_core.schemas.common import ApiResponse
 from bms_core.servicecall.base import BaseServiceClient
 from bms_core.services.module_registry import (
@@ -348,6 +354,20 @@ class BaseServiceApplicationFactory(BaseApplicationFactory):
         """
         return ConcurrentStableList(())
 
+    def form_records(self) -> ConcurrentStableList[FormRecord]:
+        """本服务补充的 `form_key` 登记记录（子类覆写；缺省空清单）。
+
+        **产品服务**在此返回本产品表单标识清单（`bms_core.registry.forms.FormRecord`；跨仓库直接
+        `import` 自身清单返回）：基座在装配期把它与 `FORM_CATALOG` 经 `merge_form_records()` 拼接为
+        **应用级视图**并置为 `app.state.form_registry`（`GET /api/v1/form-keys` 取该视图）。
+        产品侧清单为**唯一出处**（如 mdm 的 `services/form_registry.py`），基座不改常量、无进程级注册表。
+        平台服务不覆写——视图严格等于 `FORM_CATALOG`，装配与校验行为不变。
+
+        Returns:
+            ConcurrentStableList[FormRecord]: 补充的表单标识登记记录（插入序）。
+        """
+        return ConcurrentStableList(())
+
     def service_routers(self) -> ConcurrentStableList[APIRouter]:
         """业务路由清单（子类覆写；探针路由由基座统一挂载，无需返回）。
 
@@ -457,6 +477,11 @@ class BaseServiceApplicationFactory(BaseApplicationFactory):
         register_table_records(injected_tables)
         app.state.table_ownership = TableOwnershipRegistry(table_ownership_view())
         app.state.table_injected_records = injected_tables
+        # `form_key` 清单为**应用级视图**：平台构建期清单 + 本服务注入记录（产品服务经 `form_records()` 提供）；
+        # 无进程级注册表、不改 `FORM_CATALOG` 常量，`GET /api/v1/form-keys` 一律取该视图
+        injected_forms = ConcurrentStableList(self.form_records())
+        app.state.form_registry = FormRegistry(merge_form_records(injected=injected_forms))
+        app.state.form_injected_records = injected_forms
         app.state.settings = settings
         app.state.startup_complete = False
         app.state.catalog_degraded = False

@@ -24,6 +24,7 @@ from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.config import Settings
 from bms_core.core.error_codes import ErrorCode
 from bms_core.core.exceptions import CatalogError
+from bms_core.registry.forms import FORM_CATALOG, FormRecord, FormRegistry
 from bms_core.services.module_registry import (
     SERVICE_CATALOG,
     ModuleRecord,
@@ -71,6 +72,14 @@ _ORG_TABLE_RECORDS: ConcurrentStableList[TableRecord] = ConcurrentStableList(
     (TableRecord(table_name="org_dept", owner="org", datasource=Datasource.TENANT, note="产品注入样例"),)
 )
 """产品表归属自报记录（12_04；`org` 服务键已登记、前缀 `org_` 已登记）。"""
+
+_FORM_RECORDS: ConcurrentStableList[FormRecord] = ConcurrentStableList(
+    (
+        FormRecord(form_key="org_dept", table="org_dept", name="部门", data_source_key="org_dept"),
+        FormRecord(form_key="org_post", table="org_post", name="岗位", data_source_key="org_post"),
+    )
+)
+"""产品表单标识自报记录（mdm 组织域样例；`data_source_key` 与 `form_key` 同名闭合）。"""
 
 
 @pytest.fixture(autouse=True)
@@ -432,3 +441,40 @@ def test_table_records_hook_registers_and_merges() -> None:
     ]
     assert app.state.table_injected_records == ConcurrentStableList(_ORG_TABLE_RECORDS)
     assert "org_dept" in chain_tables("org", Datasource.TENANT)
+
+
+class _FormInjectFactory(BaseServiceApplicationFactory):
+    """测试用产品侧服务工厂：注入本产品表单标识记录（`form_records()` 钩子）。"""
+
+    key: str = "application_factory"
+    service_name: str = "org"
+    service_title: str = "mdm 组织主数据服务（form_key 注入测试）"
+    version: str = "0.1.0"
+    contract_version: str = "0.1.0"
+
+    def form_records(self) -> ConcurrentStableList[FormRecord]:
+        """本产品表单标识记录。
+
+        Returns:
+            tuple[FormRecord, ...]: 注入记录（插入序）。
+        """
+        return _FORM_RECORDS
+
+
+@pytest.mark.kiwi_id(2251)
+def test_form_records_hook_merges_into_application_view() -> None:
+    """`form_key` 钩子：不覆写 → 视图等于构建期清单；覆写 → 应用级视图含注入项、清单常量不被改动。"""
+    platform_view = cast("FormRegistry", _PlatformishFactory().create(None).state.form_registry).catalog_records()
+    assert platform_view == ConcurrentStableList(FORM_CATALOG)
+
+    app = _FormInjectFactory().create(None)
+    view = cast("FormRegistry", app.state.form_registry).catalog_records()
+    assert [record.form_key for record in view] == [
+        *[record.form_key for record in FORM_CATALOG],
+        "org_dept",
+        "org_post",
+    ]
+    assert app.state.form_injected_records == _FORM_RECORDS
+    # 注入只进应用级视图：构建期清单常量不被修改（无进程级注册表）
+    assert {record.form_key for record in FORM_CATALOG}.isdisjoint({"org_dept", "org_post"})
+    assert cast("FormRegistry", app.state.form_registry).get("org_dept") == _FORM_RECORDS[0]

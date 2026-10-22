@@ -799,7 +799,11 @@ export interface paths {
          * List Form Keys
          * @description 列表单标识清单（供通用页面路由：`form_key → data_source_key`）。
          *
+         *     取数口径＝**应用级视图**（`app.state.form_registry`：`FORM_CATALOG` + 本服务经 `form_records()`
+         *     注入的产品登记项），非直接读构建期清单常量。
+         *
          *     Args:
+         *         request: 请求（取应用级清单视图）。
          *         kind: 类型过滤（`dict` / `form`；空 = 全部）。
          *
          *     Returns:

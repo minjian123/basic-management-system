@@ -1,10 +1,12 @@
 """表单标识清单接口契约测试（Kiwi 2292）：字段与契约一致 / kind 过滤 / 鉴权 / 契约组件（02-13-1）。"""
 
 import pytest
+from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
 from bms_core.application import service_lifespan as lifespan
-from bms_core.registry.forms import FORM_CATALOG, FormKind, FormRecord
+from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.registry.forms import FORM_CATALOG, FormKind, FormRecord, FormRegistry, merge_form_records
 from bms_core.schemas.form import FormKeyListResponse, FormKeyResponse
 from bms_platform.main import ApplicationFactory
 
@@ -59,6 +61,19 @@ async def test_form_keys_kind_filter(client: AsyncClient) -> None:
     assert invalid.status_code == 200
     assert invalid.json()["code"] == 10001
     assert invalid.json()["data"] is None
+
+
+@pytest.mark.kiwi_id(2292)
+async def test_form_keys_reads_application_view(client: AsyncClient, service_app: FastAPI) -> None:
+    """端点取**应用级视图**：替换 `app.state.form_registry` 后清单含注入的产品登记项（`form_records()` 通道）。"""
+    injected: ConcurrentStableList[FormRecord] = ConcurrentStableList(
+        (FormRecord(form_key="org_dept", table="org_dept", name="部门", data_source_key="org_dept"),)
+    )
+    service_app.state.form_registry = FormRegistry(merge_form_records(injected=injected))
+    items = (await client.get("/api/v1/form-keys")).json()["data"]["items"]
+    assert len(items) == len(FORM_CATALOG) + 1
+    assert items[-1]["form_key"] == "org_dept"
+    assert items[-1]["data_source_key"] == "org_dept"
 
 
 @pytest.mark.kiwi_id(2292)

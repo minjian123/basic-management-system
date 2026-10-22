@@ -7,14 +7,14 @@
 - 与 `GET /api/v1/forms`（权限表单维护，`menu.py`）区分：后者为菜单 / 权限表单元数据，无 `form_key`。
 """
 
-from typing import Annotated
+from typing import Annotated, cast
 
-from fastapi import Depends, Query
+from fastapi import Depends, Query, Request
 
 from bms_core.api.base import BaseRouter, require_auth
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.exceptions import ParamError
-from bms_core.registry.forms import FormKind, merge_form_records
+from bms_core.registry.forms import FormKind, FormRegistry
 from bms_core.schemas.common import ApiResponse
 from bms_core.schemas.form import FormKeyListResponse, FormKeyResponse
 
@@ -28,11 +28,16 @@ router = BaseRouter(
 
 @router.get("")
 async def list_form_keys(
+    request: Request,
     kind: Annotated[str | None, Query(description="按类型过滤（dict / form；空 = 全部）")] = None,
 ) -> ApiResponse[FormKeyListResponse]:
     """列表单标识清单（供通用页面路由：`form_key → data_source_key`）。
 
+    取数口径＝**应用级视图**（`app.state.form_registry`：`FORM_CATALOG` + 本服务经 `form_records()`
+    注入的产品登记项），非直接读构建期清单常量。
+
     Args:
+        request: 请求（取应用级清单视图）。
         kind: 类型过滤（`dict` / `form`；空 = 全部）。
 
     Returns:
@@ -43,8 +48,9 @@ async def list_form_keys(
     """
     if kind is not None and kind not in {item.value for item in FormKind}:
         raise ParamError(f"表单类型非法：{kind}")
+    registry = cast("FormRegistry", request.app.state.form_registry)
     records: ConcurrentStableList[FormKeyResponse] = ConcurrentStableList()
-    for record in merge_form_records():
+    for record in registry.catalog_records():
         if kind is not None and record.kind != kind:
             continue
         records.add(FormKeyResponse.model_validate(record))

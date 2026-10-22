@@ -10742,7 +10742,7 @@
     },
     "/api/v1/form-keys": {
       "get": {
-        "description": "列表单标识清单（供通用页面路由：`form_key → data_source_key`）。\n\nArgs:\n    kind: 类型过滤（`dict` / `form`；空 = 全部）。\n\nReturns:\n    ApiResponse[FormKeyListResponse]: 统一响应，data 为表单标识清单（`items` 保序）。\n\nRaises:\n    ParamError: 类型取值非法。",
+        "description": "列表单标识清单（供通用页面路由：`form_key → data_source_key`）。\n\n取数口径＝**应用级视图**（`app.state.form_registry`：`FORM_CATALOG` + 本服务经 `form_records()`\n注入的产品登记项），非直接读构建期清单常量。\n\nArgs:\n    request: 请求（取应用级清单视图）。\n    kind: 类型过滤（`dict` / `form`；空 = 全部）。\n\nReturns:\n    ApiResponse[FormKeyListResponse]: 统一响应，data 为表单标识清单（`items` 保序）。\n\nRaises:\n    ParamError: 类型取值非法。",
         "operationId": "list_form_keys_api_v1_form_keys_get",
         "parameters": [
           {
