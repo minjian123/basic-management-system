@@ -735,7 +735,12 @@ dependency-scan:
           - deploy/**/*
           - .gitlab-ci.yml
   script:
-    - docker run --rm -v "$CI_PROJECT_DIR:/src:ro" -v trivy-cache:/root/.cache/trivy -e TRIVY_DB_REPOSITORY=ghcr.nju.edu.cn/aquasecurity/trivy-db:2 aquasec/trivy:0.74.0 fs --scanners vuln --severity CRITICAL,HIGH --exit-code 1 --skip-dirs .git --skip-dirs node_modules /src
+    - docker run --rm -v "$CI_PROJECT_DIR:/src:ro" -v trivy-cache:/root/.cache/trivy -e TRIVY_DB_REPOSITORY=ghcr.nju.edu.cn/aquasecurity/trivy-db:2 aquasec/trivy:0.74.0 fs --timeout 10m --scanners vuln --severity CRITICAL,HIGH --exit-code 1 --skip-dirs .git --skip-dirs node_modules /src
+  # 漏洞库经外部镜像源下载（2026-10-22 实测 ghcr.nju.edu.cn 约 50~150 KiB/s）：网络抖动即
+  # `context deadline exceeded`。此类失败与代码无关，故只对脚本失败重试一次，避免人工点重试。
+  retry:
+    max: 1
+    when: [script_failure]
 
 # ---- 前端：ESLint + Vitest + 双端构建 ----
 # ---- 前端选测公共片段（13_01）：受影响包列表由 test_selection.py 统一推导（与后端同一份实现）----
