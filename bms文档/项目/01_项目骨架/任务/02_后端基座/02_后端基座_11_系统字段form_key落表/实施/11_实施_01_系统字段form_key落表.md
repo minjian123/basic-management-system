@@ -99,4 +99,19 @@ bms/bms文档/设计/数据库设计/数据表设计/*.md                       
 
 **并行的环境问题（归 CI）**：同一流水线里 `services/identity` 用例报 `10006`（`no such column: sys_identity_provider.form_key`）——根因是 runner 工作区复用下 `database/bms/test` 陈旧测试库未清理（非代码缺陷），处置与口径见 [04-1-1（CI 追加）](../../../04_CI与阶段验收/04_CI与阶段验收_01_CI流水线激活/实施/02_实施_02_重验证层分档激活.md#stale-db)。
 
+## 8. 协同补记（2026-10-22 · 产品 `form_key` 注入钩子） <a id="form-hook"></a>
+
+**由来**：mdm 任务 `01_02/_04`（组织主数据系统字段对齐，需求 mdm `01-5`）要把 `org_dept` / `org_post` 的 `form_key` 登记进构建期清单。`merge_form_records(injected=…)` 在库内已备，但**应用装配无注入入口**（`create()` 未构造清单视图、`GET /api/v1/form-keys` 直读常量），产品侧无处注入 → 按「产品自持清单 + 基座装配钩子」口径补全本任务能力（属 `02_11` 口径补全，不另立需求）。
+
+| 项 | 内容 |
+| --- | --- |
+| 钩子 | `BaseServiceApplicationFactory.form_records()`（缺省空清单；产品服务返回自身 `FormRecord` 清单） |
+| 装配 | `create()` 内 `FormRegistry(merge_form_records(injected=…))` → `app.state.form_registry`（**应用级视图**）＋ `app.state.form_injected_records`；无进程级注册表、不改 `FORM_CATALOG` 常量 |
+| 端点 | `GET /api/v1/form-keys` 改读应用级视图（平台服务未注入时视图严格等于 `FORM_CATALOG`，行为不变） |
+| 用例 | `libs/bms_core/tests/core/test_product_service_assembly.py::test_form_records_hook_merges_into_application_view`（Kiwi 2251 同验收项）、`services/platform/tests/api/test_form_keys_api.py::test_form_keys_reads_application_view`（Kiwi 2292 同验收项） |
+| 验证 | 两文件定向 `pytest` **16 passed**；`ruff check` / `ruff format --check` / `pyright` 全绿 |
+| 已知边界 | 跨服务可见性未解决：`/form-keys` 由 platform 服务提供，产品服务（mdm）独立部署，其注入只进自身应用视图；跨服务可见需 bms 侧「产品清单下发 / 聚合」通道，归口 mdm 任务 `01_02/_04` 遗留 1 |
+
+**登记**：《后端基类清单》「服务应用装配基座」行已补 `form_records()`；产品侧自持清单落 mdm `backend/services/form_registry.py`。
+
 > 本文档依《文档生成规范》编写

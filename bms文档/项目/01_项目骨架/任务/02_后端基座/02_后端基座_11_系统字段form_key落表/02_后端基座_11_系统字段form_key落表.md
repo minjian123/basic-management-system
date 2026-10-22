@@ -27,6 +27,8 @@
 
 > 详细设计（逐表字段清单、迁移顺序、唯一约束与方言差异）随后续开发窗口另出——本任务**仅立项**。
 
+> **协同补记（2026-10-22）**：产品侧 `form_key` 登记缺「应用装配注入入口」——本任务补全 `BaseServiceApplicationFactory.form_records()` 钩子 + 应用级清单视图（`app.state.form_registry`），`GET /api/v1/form-keys` 改读该视图；mdm 组织域 `01_02/_04`（`org_dept` / `org_post`）为该通道首个消费方。改动与验证见[实施记录 §8](实施/11_实施_01_系统字段form_key落表.md#form-hook)。
+
 ## 3. 完成标准 <a id="accept"></a>
 
 - □ 全仓数据表设计文件逐表落 `form_key`（表单 4 项 / 字典 5 项）
