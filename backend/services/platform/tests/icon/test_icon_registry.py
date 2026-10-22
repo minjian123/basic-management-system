@@ -1,5 +1,6 @@
 """自定义图标基座契约测试（Kiwi 927）：契约 / 常量与键助手 / 数据契约 / 占位语义 / 表声明 / 依赖解析 / 占位路由。"""
 
+import asyncio
 from typing import cast
 
 import pytest
@@ -13,7 +14,7 @@ from bms_core.application import service_lifespan as lifespan
 from bms_core.core.capability import BaseCapability, BaseNullObject
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.error_codes import ErrorCode
-from bms_core.core.exceptions import NotFoundError, ParamError
+from bms_core.core.exceptions import NotFoundError, ParamError, PluginError
 from bms_core.core.plugin import BasePluggable, resolve_plugin
 from bms_core.icon.base import (
     DEFAULT_ICON_STATUS,
@@ -136,6 +137,16 @@ class _StaleIdempotency(_RecordingIdempotency):
 
 
 @pytest.mark.kiwi_id(927)
+def test_db_registry_rejects_missing_request_context() -> None:
+    """落库注册表在无请求上下文时拒绝：抛 PluginError（非 HTTP 调用路径的防御）。
+
+    覆盖 icon/registry.py 的 `_store()` 空上下文分支（32）。
+    """
+    registry = DbIconRegistry()
+    with pytest.raises(PluginError, match="图标落库实现未就绪"):
+        asyncio.run(registry.list())
+
+
 def test_contract_inheritance_and_identity() -> None:
     """契约继承链与能力域标识。"""
     assert issubclass(BaseIconRegistry, BasePluggable)

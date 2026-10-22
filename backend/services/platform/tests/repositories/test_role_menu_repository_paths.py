@@ -14,6 +14,8 @@ from bms_platform.repositories.menu import (
     FormRepository,
     MenuFormRepository,
     MenuRepository,
+    MetadataReferenceRepository,
+    PermissionRepository,
 )
 from bms_platform.repositories.role import (
     DataScopeRepository,
@@ -24,6 +26,27 @@ from bms_platform.repositories.role import (
 )
 from bms_platform.repositories.user import UserRepository
 from tests.role import helpers
+
+
+async def test_metadata_reference_counts_and_permission_restore_miss() -> None:
+    """引用计数各参数组合与权限码恢复未命中。
+
+    覆盖 MetadataReferenceRepository.count_field_refs 的 form_id / field_id / 两参皆空
+    三种组合（832-835），以及 PermissionRepository.restore 的行不存在分支（416）。
+    """
+    target, engine = await helpers.session()
+    try:
+        references = MetadataReferenceRepository(target)
+        permissions = PermissionRepository(target)
+
+        assert await references.count_field_refs() == 0
+        assert await references.count_field_refs(form_id=123456789) == 0
+        assert await references.count_field_refs(field_id=123456789) == 0
+        assert await references.count_field_refs(form_id=123456789, field_id=123456789) == 0
+
+        assert await permissions.restore(123456789) is False
+    finally:
+        await engine.dispose()
 
 
 async def test_role_repository_empty_lookup_and_assignment_paths() -> None:

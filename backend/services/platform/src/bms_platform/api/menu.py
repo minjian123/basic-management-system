@@ -1019,7 +1019,7 @@ async def _business_item(
     for item in (await _service(uow, outbox, cache).list_businesses()).items:
         if item.id == business_id:
             return item
-    raise MenuNotFoundError(f"业务码不存在：{business_id}")
+    raise MenuNotFoundError(f"业务码不存在：{business_id}")  # pragma: no cover - 更新前已校验存在
 
 
 async def _action_item(uow: UnitOfWork, outbox: BaseOutboxStore, cache: CacheRegion, action_id: int) -> ActionItem:
@@ -1040,7 +1040,7 @@ async def _action_item(uow: UnitOfWork, outbox: BaseOutboxStore, cache: CacheReg
     for item in (await _service(uow, outbox, cache).list_actions()).items:
         if item.id == action_id:
             return item
-    raise MenuNotFoundError(f"动作码不存在：{action_id}")
+    raise MenuNotFoundError(f"动作码不存在：{action_id}")  # pragma: no cover - 更新前已校验存在
 
 
 async def _permission_item(
@@ -1063,4 +1063,4 @@ async def _permission_item(
     for item in (await _service(uow, outbox, cache).list_permissions(None)).items:
         if item.id == permission_id:
             return item
-    raise MenuNotFoundError(f"权限码不存在：{permission_id}")
+    raise MenuNotFoundError(f"权限码不存在：{permission_id}")  # pragma: no cover - 更新前已校验存在

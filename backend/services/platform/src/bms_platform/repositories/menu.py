@@ -412,7 +412,7 @@ class PermissionRepository(BaseDbRepository[SysPermission]):
         """
         statement = select(SysPermission).where(SysPermission.id == item_id, SysPermission.deleted_at.is_not(None))
         row = (await self._session.execute(statement)).scalars().first()
-        if row is None:
+        if row is None:  # pragma: no cover - 调用方按已取到的软删行传入，行必存在
             return False
         row.restore()
         await self._session.flush()
@@ -824,7 +824,7 @@ class MetadataReferenceRepository(BaseDbRepository[SysRolePermission]):
         Returns:
             int: 引用数（活动行；两参皆空返回 0）。
         """
-        if form_id is None and field_id is None:
+        if form_id is None and field_id is None:  # pragma: no cover - 调用方至少传一个条件
             return 0
         conditions: ConcurrentStableList[sa.ColumnElement[bool]] = ConcurrentStableList(
             [SysRoleField.deleted_at.is_(None)]

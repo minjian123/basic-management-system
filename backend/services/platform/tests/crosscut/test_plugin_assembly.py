@@ -170,3 +170,28 @@ def test_prepare_settings_keeps_explicit_data_scope_provider() -> None:
     ApplicationFactory().prepare_settings(settings)
 
     assert settings.data_scope.provider == "custom-data-scope"
+
+
+@pytest.mark.kiwi_id(2312)
+def test_prepare_settings_keeps_explicit_icon_registry_provider() -> None:
+    """`prepare_settings` 只补缺省：显式配置的 `[icon_registry].provider` 不被改写。
+
+    覆盖 main.py 的 `if not settings.icon_registry.provider` 假分支（59->62）。
+    """
+    settings = Settings()
+    settings.icon_registry.provider = "custom-icon-registry"
+
+    ApplicationFactory().prepare_settings(settings)
+
+    assert settings.icon_registry.provider == "custom-icon-registry"
+
+
+@pytest.mark.kiwi_id(2312)
+def test_prepare_settings_fills_icon_registry_default() -> None:
+    """`prepare_settings` 缺省补齐：未配置时置为落库实现 `db`。"""
+    settings = Settings()
+    settings.icon_registry.provider = ""
+
+    ApplicationFactory().prepare_settings(settings)
+
+    assert settings.icon_registry.provider == "db"

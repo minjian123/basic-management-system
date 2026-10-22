@@ -387,6 +387,215 @@ async def _create_form(client: AsyncClient, path: str, business_id: int) -> tupl
     return menu_id, int(form.json()["data"]["id"])
 
 
+@pytest.mark.kiwi_id(2248)
+async def test_metadata_delete_blocked_by_role_grants(role_client: AsyncClient) -> None:
+    """元数据删除 / 停用被角色授权引用拦截（40206）。
+
+    覆盖 MetadataReferenceRepository 的 count_menu_refs / count_form_refs /
+    count_permission_refs / count_field_refs 与 services/menu.py 对应保护分支。
+    """
+    client = role_client
+    role = await client.post(_ROLES, json={"code": "meta_guard", "name": "元数据守护"})
+    role_id = int(role.json()["data"]["id"])
+
+    business_id = await seed_business("guard", "守护业务")
+    permission_id = await seed_permission(business_id, "delete", "删除")
+    menu_id, form_id = await _create_form(client, "/t-meta-guard", business_id)
+    field = await client.post(
+        _FIELDS,
+        json={"form_id": form_id, "field_key": "name", "type": "input", "sort": 1, "i18n": {"zh-CN": "名称"}},
+    )
+    field_id = int(field.json()["data"]["id"])
+
+    granted = await client.put(
+        f"{_ROLES}/{role_id}/permissions",
+        json={
+            "entries": [
+                {"perm_type": "menu", "target_id": menu_id, "source_menu_id": 0},
+                {"perm_type": "form", "target_id": form_id, "source_menu_id": menu_id},
+                {"perm_type": "permission", "target_id": permission_id, "source_menu_id": menu_id},
+            ]
+        },
+    )
+    assert granted.json()["code"] == 0, granted.text
+    await client.put(
+        f"{_ROLES}/{role_id}/fields",
+        json={"entries": [{"form_id": form_id, "field_id": field_id, "visible": True, "editable": False}]},
+    )
+
+    assert (await client.put(f"/api/v1/permissions/{permission_id}", json={"status": "disabled"})).json()[
+        "code"
+    ] == 40206
+    assert (await client.delete(f"/api/v1/permissions/{permission_id}")).json()["code"] == 40206
+    assert (await client.delete(f"{_MENUS}/{menu_id}")).json()["code"] == 40206
+    assert (await client.delete(f"{_FORMS}/{form_id}")).json()["code"] == 40206
+
+    assert (await client.put(f"{_ROLES}/{role_id}/permissions", json={"entries": []})).json()["code"] == 0
+    assert (await client.put(f"{_ROLES}/{role_id}/fields", json={"entries": []})).json()["code"] == 0
+    # 表单仍挂着字段，先删字段再删表单（表单删除的前置校验）
+    assert (await client.delete(f"{_FIELDS}/{field_id}")).json()["code"] == 0
+    assert (await client.delete(f"{_FORMS}/{form_id}")).json()["code"] == 0
+    assert (await client.delete(f"{_MENUS}/{menu_id}")).json()["code"] == 0
+
+
+@pytest.mark.kiwi_id(2248)
+async def test_role_grant_partial_release_keeps_reference(role_client: AsyncClient) -> None:
+    """只解除部分授权时引用仍在：菜单 / 表单删除仍被拦截。
+
+    覆盖 services/menu.py 的菜单与表单角色授权保护分支（1219 / 1376），
+    以及权限码删除缺行分支（1097）与业务停用联动（844->848）。
+    """
+    client = role_client
+    role = await client.post(_ROLES, json={"code": "partial_guard", "name": "部分解除"})
+    role_id = int(role.json()["data"]["id"])
+
+    business_id = await seed_business("partial", "部分业务")
+    menu_id, form_id = await _create_form(client, "/t-partial", business_id)
+    field = await client.post(
+        _FIELDS,
+        json={"form_id": form_id, "field_key": "title", "type": "input", "sort": 1, "i18n": {"zh-CN": "标题"}},
+    )
+    field_id = int(field.json()["data"]["id"])
+
+    # 授权菜单与表单
+    await client.put(
+        f"{_ROLES}/{role_id}/permissions",
+        json={
+            "entries": [
+                {"perm_type": "menu", "target_id": menu_id, "source_menu_id": 0},
+                {"perm_type": "form", "target_id": form_id, "source_menu_id": menu_id},
+            ]
+        },
+    )
+
+    # 只解除表单授权，菜单授权仍在：菜单删除仍 40206（1219）
+    await client.put(
+        f"{_ROLES}/{role_id}/permissions",
+        json={"entries": [{"perm_type": "menu", "target_id": menu_id, "source_menu_id": 0}]},
+    )
+    assert (await client.delete(f"{_MENUS}/{menu_id}")).json()["code"] == 40206
+
+    # 表单侧：先删字段解除挂接，再试删表单（表单已无授权，但字段权限仍拦）
+    await client.put(
+        f"{_ROLES}/{role_id}/fields",
+        json={"entries": [{"form_id": form_id, "field_id": field_id, "visible": True, "editable": False}]},
+    )
+    await client.delete(f"{_FIELDS}/{field_id}")
+    await client.put(f"{_ROLES}/{role_id}/fields", json={"entries": []})
+
+    # 权限码删除缺行分支：删除不存在的权限码 404
+    assert (await client.delete("/api/v1/permissions/987654321")).status_code == 404
+
+    # 业务停用联动：启用态业务码停用时连带停用权限码（844->848）
+    business_id2 = await seed_business("cascade2", "级联业务")
+    await seed_permission(business_id2, "read", "读")
+    stopped = await client.put(
+        f"/api/v1/businesses/{business_id2}",
+        json={"status": "disabled", "i18n": {"zh-CN": "级联业务"}},
+    )
+    assert stopped.json()["code"] == 0, stopped.text
+
+
+@pytest.mark.kiwi_id(2248)
+async def test_role_grant_blocks_after_form_unlink(role_client: AsyncClient) -> None:
+    """解除表单挂接后，角色授权仍拦菜单删除；字段权限仍拦表单删除。
+
+    覆盖 services/menu.py 的菜单角色授权分支（1219）与表单字段权限分支（1376 / 1378）：
+    这些校验排在「已挂表单 / 存在按钮字段」之后，须先解除前者才能触达。
+    """
+    client = role_client
+    role = await client.post(_ROLES, json={"code": "unlink_guard", "name": "解挂守护"})
+    role_id = int(role.json()["data"]["id"])
+
+    business_id = await seed_business("unlink", "解挂业务")
+    menu_id, form_id = await _create_form(client, "/t-unlink", business_id)
+
+    # 授权菜单 + 表单
+    await client.put(
+        f"{_ROLES}/{role_id}/permissions",
+        json={
+            "entries": [
+                {"perm_type": "menu", "target_id": menu_id, "source_menu_id": 0},
+                {"perm_type": "form", "target_id": form_id, "source_menu_id": menu_id},
+            ]
+        },
+    )
+
+    # 解除菜单 → 表单挂接，使菜单删除能走到角色授权校验（1219）
+    unlinked = await client.put(
+        f"{_FORMS}/{form_id}",
+        json={"menu_ids": [], "business_id": business_id, "component": None, "status": "enabled"},
+    )
+    assert unlinked.json()["code"] == 0, unlinked.text
+    assert (await client.delete(f"{_MENUS}/{menu_id}")).json()["code"] == 40206
+
+    # 解除表单授权后，表单删除仍被字段权限拦（1378）
+    field = await client.post(
+        _FIELDS,
+        json={"form_id": form_id, "field_key": "code", "type": "input", "sort": 1, "i18n": {"zh-CN": "编码"}},
+    )
+    field_id = int(field.json()["data"]["id"])
+    await client.put(
+        f"{_ROLES}/{role_id}/fields",
+        json={"entries": [{"form_id": form_id, "field_id": field_id, "visible": True, "editable": False}]},
+    )
+    assert (await client.delete(f"{_FORMS}/{form_id}")).json()["code"] == 40206
+
+    # 删字段并解除字段授权后，表单仍受菜单授权关联约束；先解全部授权再删（计数归零路径）
+    assert (await client.delete(f"{_FIELDS}/{field_id}")).json()["code"] == 0
+    await client.put(f"{_ROLES}/{role_id}/fields", json={"entries": []})
+    await client.put(f"{_ROLES}/{role_id}/permissions", json={"entries": []})
+    assert (await client.delete(f"{_FORMS}/{form_id}")).json()["code"] == 0
+
+
+@pytest.mark.kiwi_id(2248)
+async def test_form_delete_guards_grant_then_field_permission(role_client: AsyncClient) -> None:
+    """表单删除的两级角色校验：先表单授权（1376），再字段权限（1378）。
+
+    两级校验串联，须分别构造：表单授权在且字段权限在 → 命中 1376；
+    仅字段权限在（表单授权已解）→ 命中 1378。
+    """
+    client = role_client
+    role = await client.post(_ROLES, json={"code": "form_guard", "name": "表单守护"})
+    role_id = int(role.json()["data"]["id"])
+
+    business_id = await seed_business("fguard", "表单守护业务")
+    _, form_id = await _create_form(client, "/t-form-guard", business_id)
+    field = await client.post(
+        _FIELDS,
+        json={"form_id": form_id, "field_key": "code", "type": "input", "sort": 1, "i18n": {"zh-CN": "编码"}},
+    )
+    field_id = int(field.json()["data"]["id"])
+
+    # 场景一：先删字段（越过 1373 的「存在按钮/字段」），仅留表单授权 → 命中 1376
+    await client.put(
+        f"{_ROLES}/{role_id}/permissions",
+        json={"entries": [{"perm_type": "form", "target_id": form_id, "source_menu_id": 0}]},
+    )
+    assert (await client.delete(f"{_FIELDS}/{field_id}")).json()["code"] == 0
+    assert (await client.delete(f"{_FORMS}/{form_id}")).json()["code"] == 40206
+
+    # 场景二：解除表单授权后，字段权限记录仍指向该表单 → 命中 1378
+    # 字段权限按 form_id 计数，字段本体可已软删（1373 只查活动字段），故删字段不影响该计数。
+    await client.put(f"{_ROLES}/{role_id}/permissions", json={"entries": []})
+    field2 = await client.post(
+        _FIELDS,
+        json={"form_id": form_id, "field_key": "code2", "type": "input", "sort": 2, "i18n": {"zh-CN": "编码二"}},
+    )
+    field2_id = int(field2.json()["data"]["id"])
+    await client.put(
+        f"{_ROLES}/{role_id}/fields",
+        json={"entries": [{"form_id": form_id, "field_id": field2_id, "visible": True, "editable": False}]},
+    )
+    assert (await client.delete(f"{_FIELDS}/{field2_id}")).json()["code"] == 0
+    assert (await client.delete(f"{_FORMS}/{form_id}")).json()["code"] == 40206
+    field_id = field2_id
+
+    # 清理：解除字段权限后表单可删（字段本体已在场景二删过）
+    await client.put(f"{_ROLES}/{role_id}/fields", json={"entries": []})
+    assert (await client.delete(f"{_FORMS}/{form_id}")).json()["code"] == 0
+
+
 async def test_role_read_endpoints_and_illegal_status(role_client: AsyncClient) -> None:
     """角色读端点：状态筛选非法 10001；授权 / 字段 / 数据权限条目读取（空清单）。"""
     client = role_client
