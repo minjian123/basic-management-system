@@ -17,11 +17,5 @@ def build_snapshot() -> ConcurrentStableDict[str, ConcurrentStableDict[str, Plug
     """
     app = ApplicationFactory().create(None)
     settings = cast("Settings", app.state.settings)
-    # DIAG(临时·CI 取证，定位后删除)
-    if settings.permission.provider:
-        print(
-            f"[DIAG-permission] stage=build-snapshot provider={settings.permission.provider!r} "
-            f"app_env={settings.app.env!r} settings_id={id(settings)}"
-        )
     register_platform_plugins(settings, app, app.state.resources)
     return build_plugin_registry()
