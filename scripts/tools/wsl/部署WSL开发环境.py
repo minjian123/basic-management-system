@@ -25,13 +25,11 @@ import sys
 from pathlib import Path
 
 # bms_core 源码根：脚本在仓库内运行，集合声明统一落插入序集合类（ConcurrentStable*）。
-_SRC_ROOT = (
-    Path(__file__).resolve().parents[3] / "backend" / "libs" / "bms_core" / "src"
-)
+_SRC_ROOT = Path(__file__).resolve().parents[3] / "backend" / "libs" / "bms_core" / "src"
 if str(_SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(_SRC_ROOT))
 
-from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableList  # noqa: E402  (须先注入源码根)
 
 # 挂载点形态固定（见《WSL 部署使用说明》3.5）；可用 --source 覆盖
 DEFAULT_SOURCE = Path("/mnt/wsl/PHYSICALDRIVE3p2/home/minjian")
@@ -259,9 +257,7 @@ def sync_repos(workspace: Path) -> bool:
             log(f"{label} 已同步 -> {short}")
         else:
             ok = False
-            log(
-                f"{label} 同步失败：{proc.stderr.strip().splitlines()[-1] if proc.stderr.strip() else '未知错误'}"
-            )
+            log(f"{label} 同步失败：{proc.stderr.strip().splitlines()[-1] if proc.stderr.strip() else '未知错误'}")
     return ok
 
 
@@ -407,9 +403,7 @@ def main(
 
     log("工具版本：")
     report_versions()
-    log(
-        "完成。进入环境：wsl -d Ubuntu-26.04 -- bash -lc 'cd ~/develop/bizs/bms && bash -l'"
-    )
+    log("完成。进入环境：wsl -d Ubuntu-26.04 -- bash -lc 'cd ~/develop/bizs/bms && bash -l'")
     return 0
 
 
