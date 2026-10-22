@@ -17,9 +17,9 @@ from bms_core.api.deps import get_uow
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.db.session import DbSession
 from bms_core.db.unit_of_work import UnitOfWork
+from bms_core.models.platform.system import SysUserExtension
 from bms_core.permission.base import require_permission
 from bms_core.schemas.common import ApiResponse
-from bms_platform.models.system import SysUserExtension
 from bms_platform.repositories.user_extension import UserExtensionRepository
 from bms_platform.schemas.user_extension import (
     UserExtensionCreateRequest,

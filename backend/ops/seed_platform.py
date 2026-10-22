@@ -27,8 +27,8 @@ from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import get_settings
 from bms_core.db.engine import EngineFactory
 from bms_core.db.keys import build_platform_db_key, build_tenant_db_key
-from bms_platform.models.menu import SysAction, SysBusiness, SysForm, SysMenu, SysPermission
-from bms_platform.models.role import (
+from bms_core.models.platform.menu import SysAction, SysBusiness, SysForm, SysMenu, SysPermission
+from bms_core.models.platform.role import (
     NO_SOURCE_MENU_ID,
     PERM_TYPE_FORM,
     PERM_TYPE_MENU,
@@ -39,7 +39,7 @@ from bms_platform.models.role import (
     SysRolePermission,
     SysUserRole,
 )
-from bms_platform.models.user import SysUser
+from bms_core.models.platform.user import SysUser
 
 __all__ = [
     "PLATFORM_ADMIN_ROLE_CODE",

@@ -38,8 +38,8 @@ from bms_core.core.config import get_settings
 from bms_core.db.engine import EngineFactory
 from bms_core.db.keys import build_platform_db_key, build_tenant_db_key
 from bms_core.db.tenant_source import TENANT_SERVICE_KEY
+from bms_core.models.platform.user import SysUser
 from bms_core.security.pbkdf2 import Pbkdf2PasswordHasherFactory
-from bms_platform.models.user import SysUser
 from ops.migrate_tenants import tenant_refs
 
 DEFAULT_TENANT = "demo"

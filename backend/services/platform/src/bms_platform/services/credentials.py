@@ -14,11 +14,11 @@ from typing import cast
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.logging import get_logger
 from bms_core.db.unit_of_work import UnitOfWork
+from bms_core.models.platform.user import LOCK_TYPE_FAIL_LIMIT, UNLOCK_MODE_AUTO, SysUser
 from bms_core.password.base import BasePasswordPolicy
 from bms_core.password.null import NullPasswordPolicy
 from bms_core.security.base import BasePasswordHasher
 from bms_core.services.base_service import BaseService
-from bms_platform.models.user import LOCK_TYPE_FAIL_LIMIT, UNLOCK_MODE_AUTO, SysUser
 from bms_platform.repositories.account_lock import AccountLockRepository
 from bms_platform.repositories.user import UserRepository
 from bms_platform.schemas.credentials import (

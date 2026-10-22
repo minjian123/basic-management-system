@@ -6,7 +6,7 @@ from httpx import ASGITransport, AsyncClient
 
 from bms_core.db.registry import PLATFORM_DB_KEY
 from bms_core.db.session import session_scope
-from bms_identity.models.user_identity import SysUserIdentity
+from bms_core.models.identity.user_identity import SysUserIdentity
 
 from .helpers import IDP_KEY, TENANT, TENANT_HEADERS, TENANT_ID
 

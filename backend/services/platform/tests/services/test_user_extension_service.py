@@ -10,7 +10,7 @@ import pytest
 
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.exceptions import NotFoundError
-from bms_platform.models.system import SysUserExtension
+from bms_core.models.platform.system import SysUserExtension
 from bms_platform.repositories.user_extension import UserExtensionRepository
 from bms_platform.services.user_extension import UserExtensionService
 

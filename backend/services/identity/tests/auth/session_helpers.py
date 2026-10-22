@@ -11,9 +11,9 @@ from httpx import AsyncClient, Response
 from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.db.session import DbSession, session_scope
 from bms_core.db.tenant import DEMO_TENANT
+from bms_core.models.identity.session import SysSession
 from bms_core.ratelimit.memory import MemoryRateLimiter
 from bms_core.session.memory import MemorySessionStore
-from bms_identity.models.session import SysSession
 from tests_support.auth import TEST_SESSION_ID
 
 from .helpers import (

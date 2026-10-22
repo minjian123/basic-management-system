@@ -10,9 +10,9 @@ from sqlalchemy import delete, select
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableSet
 from bms_core.db.tenant import TenantContext
-from bms_identity.models.identity_provider import SysIdentityProvider
-from bms_identity.models.session import SysSession
-from bms_identity.models.user_identity import SysUserIdentity
+from bms_core.models.identity.identity_provider import SysIdentityProvider
+from bms_core.models.identity.session import SysSession
+from bms_core.models.identity.user_identity import SysUserIdentity
 
 from .conftest import SsoHarness
 from .helpers import IDP_KEY, TENANT, TENANT_HEADERS, TENANT_ID

@@ -10,8 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 from bms_core.api.deps import get_uow
 from bms_core.core.exceptions import AuthError
 from bms_core.db.unit_of_work import DbUnitOfWork
+from bms_core.models.platform.user import SysUser
 from bms_core.oauth.verify import VerifiedToken, get_token_verifier
-from bms_platform.models.user import SysUser
 from bms_platform.repositories.user import UserRepository
 from bms_platform.services.users import UserResetTargetService
 

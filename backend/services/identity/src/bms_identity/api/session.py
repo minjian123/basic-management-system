@@ -24,13 +24,13 @@ from bms_core.db.registry import EngineRegistry
 from bms_core.db.session import DbSession, session_scope
 from bms_core.db.tenant import TenantContext
 from bms_core.db.unit_of_work import DbUnitOfWork
+from bms_core.models.identity.session import SysSession
 from bms_core.permission.base import require_permission
 from bms_core.schemas.common import ApiResponse
 from bms_core.schemas.pagination import BasePageQuery, BasePageResponse
 from bms_core.security.base import BaseSessionSecurity
 from bms_core.session.base import BaseSessionStore
 from bms_core.ws.base import BaseRealtimePublisher
-from bms_identity.models.session import SysSession
 from bms_identity.schemas.session import KickResult, SessionItem
 from bms_identity.services.session import SessionService
 

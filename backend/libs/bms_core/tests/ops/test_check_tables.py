@@ -114,4 +114,5 @@ def test_enabled_service_missing_package_fails(monkeypatch: pytest.MonkeyPatch) 
     monkeypatch.setattr(check_tables, "enabled_service_keys", lambda: ("zzz_ghost",))
     with pytest.raises(ConfigError) as excinfo:
         check_tables.imported_model_tables()
-    assert "bms_zzz_ghost.models" in str(excinfo.value)
+    # 14_01：严格入口的缺失判定在服务包一级（不带 `.models` 后缀）
+    assert "bms_zzz_ghost" in str(excinfo.value)

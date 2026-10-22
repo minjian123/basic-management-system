@@ -10,7 +10,7 @@ from sqlalchemy import case, select, update
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.objects import BaseFrameworkObject
 from bms_core.db.session import DbSession
-from bms_tenant.models.tenant_quota import SysTenantQuota
+from bms_core.models.tenant.tenant_quota import SysTenantQuota
 
 __all__ = ["TenantQuotaRepository"]
 

@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.models.base import Base
+from bms_core.models.platform.catalog import SysModule, SysModuleI18n, SysProduct
 from bms_core.services.module_registry import (
     PLATFORM_MODULES,
     PRODUCT_CATALOG,
@@ -31,7 +32,6 @@ from bms_core.services.module_registry import (
     validate_product_routes,
     validate_products,
 )
-from bms_platform.models.catalog import SysModule, SysModuleI18n, SysProduct
 
 _BASE_RECORD = ModuleRecord(
     module_key="pur",

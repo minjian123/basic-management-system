@@ -22,8 +22,8 @@ from bms_core.core.exceptions import (
 )
 from bms_core.core.logging import get_logger
 from bms_core.db.session import DbSession
+from bms_core.models.tenant.tenant import SysTenant
 from bms_core.schemas.common import ApiResponse
-from bms_tenant.models.tenant import SysTenant
 from bms_tenant.repositories.tenant_registry import TenantRegistryRepository
 
 router = BaseRouter(key="tenant_registry", prefix="/tenant-registry", tags=["tenant"])

@@ -34,12 +34,12 @@ from bms_core.db.unit_of_work import UnitOfWork
 from bms_core.dict.base import current_dict_locale
 from bms_core.i18n.base import DEFAULT_LOCALE, SUPPORTED_LOCALES
 from bms_core.menu import DEFAULT_MENU_TREE_CACHE_TTL, MENU_TREE_CACHE_TTL_KEY
+from bms_core.models.platform.menu import SysButton, SysField, SysForm, SysMenu
 from bms_core.outbox.base import BaseOutboxStore
 from bms_core.permission.base import BasePermissionChecker, prepare_permission_dependency, require_permission
 from bms_core.schemas.common import ApiResponse
 from bms_core.services.module_registry import TENANT_OPTIONAL_MODULE_KEYS
 from bms_core.tenant_module.base import get_tenant_module_gate
-from bms_platform.models.menu import SysButton, SysField, SysForm, SysMenu
 from bms_platform.repositories.menu import (
     ActionRepository,
     BusinessRepository,

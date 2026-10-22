@@ -34,10 +34,10 @@ from bms_core.core.exceptions import (
     UserSeparationConflictError,
 )
 from bms_core.db.unit_of_work import DbUnitOfWork
+from bms_core.models.platform.role import ROLE_TYPE_SYSTEM, SysRole, SysUserRole
+from bms_core.models.platform.user import SysUser
 from bms_core.servicecall.base import ServiceRequest, ServiceResponse
 from bms_core.transaction.base import BRANCH_PREPARED, BRANCH_REJECTED, BranchRef, GlobalTransaction
-from bms_platform.models.role import ROLE_TYPE_SYSTEM, SysRole, SysUserRole
-from bms_platform.models.user import SysUser
 from bms_platform.repositories.role import RoleRepository, UserRoleRepository
 from bms_platform.repositories.user import UserRepository
 from bms_platform.schemas.users import (

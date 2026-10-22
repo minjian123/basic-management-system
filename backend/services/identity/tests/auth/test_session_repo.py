@@ -5,8 +5,8 @@ from datetime import timedelta
 import pytest
 from fastapi import FastAPI
 
+from bms_core.models.identity.session import SysSession
 from bms_core.schemas.pagination import BasePageQuery
-from bms_identity.models.session import SysSession
 from bms_identity.repositories.session import SessionRepository
 
 from .session_helpers import tenant_scope, utc_now

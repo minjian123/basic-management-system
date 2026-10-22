@@ -26,12 +26,8 @@ from bms_core.core.context import current_tenant_id, current_user_id
 from bms_core.core.plugin import default_plugin_registry
 from bms_core.db.registry import EngineRegistry
 from bms_core.models.base import Base
-from bms_core.permission.field import current_field_permission_provider_factory
-from bms_core.permission.rbac import RbacPermissionChecker
-from bms_core.permission.snapshot import set_current_permission_snapshot
-from bms_core.servicecall.base import BaseServiceClient
-from bms_platform.models.menu import SysField
-from bms_platform.models.role import (
+from bms_core.models.platform.menu import SysField
+from bms_core.models.platform.role import (
     NO_SOURCE_MENU_ID,
     PERM_TYPE_FORM,
     PERM_TYPE_MENU,
@@ -44,6 +40,10 @@ from bms_platform.models.role import (
     SysRolePermission,
     SysUserRole,
 )
+from bms_core.permission.field import current_field_permission_provider_factory
+from bms_core.permission.rbac import RbacPermissionChecker
+from bms_core.permission.snapshot import set_current_permission_snapshot
+from bms_core.servicecall.base import BaseServiceClient
 from bms_platform.permission.checker import (
     PLATFORM_DATA_SOURCE_KEY,
     build_platform_source,

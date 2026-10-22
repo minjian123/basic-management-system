@@ -37,8 +37,8 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.db.keys import PLATFORM_SERVICE_KEY
-from bms_platform.models.menu import SysAction, SysBusiness, SysPermission
-from bms_platform.models.role import (
+from bms_core.models.platform.menu import SysAction, SysBusiness, SysPermission
+from bms_core.models.platform.role import (
     NO_SOURCE_MENU_ID,
     PERM_TYPE_PERMISSION,
     ROLE_TYPE_AUDIT,
@@ -49,7 +49,7 @@ from bms_platform.models.role import (
     SysRolePermission,
     SysUserRole,
 )
-from bms_platform.models.user import SysUser
+from bms_core.models.platform.user import SysUser
 from ops.seed_tenant import resolve_url as resolve_platform_url
 from ops.seed_user import resolve_tenant_basis, resolve_tenant_url  # 复用既有租户库解析口径
 

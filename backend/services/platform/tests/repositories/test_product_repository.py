@@ -10,8 +10,8 @@ from sqlalchemy import Table
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
 from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.models.platform.catalog import SysProduct
 from bms_core.schemas.pagination import BasePageQuery
-from bms_platform.models.catalog import SysProduct
 from bms_platform.repositories import product_repository
 from bms_platform.repositories.product_repository import ProductRepository
 

@@ -15,8 +15,8 @@ from bms_core.core.exceptions import (
 from bms_core.core.logging import get_logger
 from bms_core.core.objects import BaseFrameworkObject
 from bms_core.db.session import DbSession
+from bms_core.models.tenant.tenant import TENANT_STATUS_ACTIVE, TENANT_STATUS_PROVISIONING, SysTenant
 from bms_core.outbox.base import BaseOutboxStore
-from bms_tenant.models.tenant import TENANT_STATUS_ACTIVE, TENANT_STATUS_PROVISIONING, SysTenant
 from bms_tenant.repositories.tenant_registry import TenantRegistryRepository
 from bms_tenant.schemas.tenant_admin import TenantCreateRequest, TenantProvisionResult
 from bms_tenant.services.tenant_admin import TenantAdminService

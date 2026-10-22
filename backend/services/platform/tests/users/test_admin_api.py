@@ -33,11 +33,11 @@ from bms_core.db.unit_of_work import DbUnitOfWork
 from bms_core.events.base import EventEnvelope
 from bms_core.idempotency.base import DEFAULT_IDEMPOTENCY_TTL, IDEMPOTENCY_PAYLOAD_TYPE, IdempotencyStore
 from bms_core.models.base import Base
+from bms_core.models.platform.role import ROLE_TYPE_SYSTEM, SysRole, SysUserRole
+from bms_core.models.platform.user import SysAccountLock, SysUser
 from bms_core.outbox.null import NullOutboxStore
 from bms_core.servicecall.base import BaseServiceClient, ServiceRequest, ServiceResponse
 from bms_platform.api.users import _read_cached_user_id  # pyright: ignore[reportPrivateUsage]
-from bms_platform.models.role import ROLE_TYPE_SYSTEM, SysRole, SysUserRole
-from bms_platform.models.user import SysAccountLock, SysUser
 from tests_support.permission_admin import setup_min_tenant
 
 API = "/api/v1/users"

@@ -41,7 +41,7 @@ def __getattr__(name: str) -> Any:
     （不含 `bms_tenant`），eager 导入会连带失败。仅按需（读注册库 / 归属服务运行）解析。
     """
     if name == "SysTenant":
-        from bms_tenant.models.tenant import SysTenant
+        from bms_core.models.tenant.tenant import SysTenant
 
         return SysTenant
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
@@ -106,8 +106,10 @@ async def seed_tenants(url: str) -> int:
     Returns:
         int: 新增行数（重复执行为 0）。
     """
-    from bms_tenant.models.tenant import SysTenant  # 惰性：仅本服务（tenant）镜像运行；resolve_url 供其他种子脚本复用
-    from bms_tenant.models.tenant_database import SysTenantDatabase
+    from bms_core.models.tenant.tenant import (
+        SysTenant,  # 惰性：仅本服务（tenant）镜像运行；resolve_url 供其他种子脚本复用
+    )
+    from bms_core.models.tenant.tenant_database import SysTenantDatabase
 
     engine = create_async_engine(url)
     factory: async_sessionmaker[AsyncSession] = async_sessionmaker(engine, expire_on_commit=False)

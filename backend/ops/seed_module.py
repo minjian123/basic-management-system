@@ -27,8 +27,8 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.db.keys import PLATFORM_SERVICE_KEY
+from bms_core.models.platform.catalog import SysModule, SysProduct
 from bms_core.services.module_registry import PRODUCT_CATALOG, SERVICE_CATALOG, ModuleRecord, ProductRecord
-from bms_platform.models.catalog import SysModule, SysProduct
 from ops.seed_tenant import resolve_url
 
 

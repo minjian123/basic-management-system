@@ -10,7 +10,7 @@ from httpx import AsyncClient
 from sqlalchemy import select
 
 from bms_core.core.concurrent import ConcurrentStableSet
-from bms_identity.models.user_identity import SysUserIdentity
+from bms_core.models.identity.user_identity import SysUserIdentity
 
 from .conftest import CAS_REDIRECT_URI, SsoHarness
 from .helpers import CAS_IDP_KEY, TENANT, TENANT_HEADERS, TENANT_ID

@@ -7,9 +7,9 @@ from datetime import datetime
 from sqlalchemy import ColumnElement, func, select
 
 from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
+from bms_core.models.identity.session import SysSession
 from bms_core.repositories.base_db_repository import BaseDbRepository
 from bms_core.schemas.pagination import BasePageQuery
-from bms_identity.models.session import SysSession
 
 
 class SessionRepository(BaseDbRepository[SysSession]):

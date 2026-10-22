@@ -10,10 +10,10 @@ import sqlalchemy as sa
 from sqlalchemy import ColumnElement, func, or_, select
 
 from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
+from bms_core.models.platform.role import SysDataScope, SysRole, SysRoleField, SysRolePermission, SysUserRole
+from bms_core.models.platform.user import SysUser
 from bms_core.repositories.base_db_repository import BaseDbRepository
 from bms_core.schemas.pagination import BasePageQuery
-from bms_platform.models.role import SysDataScope, SysRole, SysRoleField, SysRolePermission, SysUserRole
-from bms_platform.models.user import SysUser
 
 
 def _utc_now() -> datetime:

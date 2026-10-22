@@ -12,12 +12,12 @@ from bms_core.cache.base import CacheRegion, build_cache_key
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.events.base import EventConsumer, EventEnvelope, EventPublisher
 from bms_core.models.base import Base, BaseModel
+from bms_core.models.platform.system import SysTask, SysTaskLog
 from bms_core.scope.base import DataScope
 from bms_core.scope.null import NullDataScope
 from bms_core.sharding.base import ShardBinding, ShardingRouter
 from bms_core.sharding.null import NullShardingRouter
 from bms_core.tasks.base import BaseTask
-from bms_platform.models.system import SysTask, SysTaskLog
 from bms_platform.repositories.demo_repository import DemoRepository
 
 

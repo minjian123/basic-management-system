@@ -2,7 +2,7 @@
 
 - 归属：三表归 `platform` 服务、库类别 `platform`（链 `platform:platform`，库 `bms_platform`）——
   由 `bms_core/services/table_registry.py::TABLE_OWNERSHIP` 单一来源登记；
-- 本模块由平台服务在 `models/__init__.py::MODEL_MODULES` 声明，迁移链按服务解析模型时导入
+- 本模块登记在 `bms_core.models.platform::MODEL_MODULES`，经 `COMMON_MODEL_MODULES` 纳入各链模型发现
   （见 `bms_core/db/migration.py`）；
 - 表结构以《数据库设计》数据表文件为唯一事实源（`sys_module.md` / `sys_module_i18n.md` / `sys_product.md`）。
 """

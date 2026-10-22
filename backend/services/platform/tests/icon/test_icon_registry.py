@@ -35,10 +35,10 @@ from bms_core.icon.base import (
 )
 from bms_core.icon.null import NullIconRegistry
 from bms_core.idempotency.base import IDEMPOTENCY_PAYLOAD_TYPE
+from bms_core.models.platform.system import SysIcon, SysIconI18n
 from bms_platform.api.icon import router as icon_router
 from bms_platform.icon.registry import DbIconRegistry
 from bms_platform.main import ApplicationFactory
-from bms_platform.models.system import SysIcon, SysIconI18n
 from bms_platform.services.icon_store import validate_svg
 from tests_support.auth import auth_headers
 from tests_support.menu_metadata import reset_menu_tables

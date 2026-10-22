@@ -18,10 +18,10 @@ from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList,
 from bms_core.core.exceptions import RoleNotFoundError, RoleSubjectInvalidError
 from bms_core.core.objects import BaseFrameworkObject
 from bms_core.db.unit_of_work import UnitOfWork
+from bms_core.models.platform.role import SysRole
+from bms_core.models.platform.user import SysUser
 from bms_core.permission.version import permission_version_key
 from bms_core.schemas.pagination import BasePageQuery
-from bms_platform.models.role import SysRole
-from bms_platform.models.user import SysUser
 from bms_platform.repositories.role import RoleRepository, UserRoleRepository
 from bms_platform.repositories.user import UserRepository
 from bms_platform.services.separation import SeparationGuard

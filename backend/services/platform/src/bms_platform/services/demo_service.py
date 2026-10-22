@@ -1,8 +1,8 @@
 """demo 示例模块：业务服务（继承 BaseTransactionalService，内存实现）。"""
 
 from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.models.platform.demo import Demo
 from bms_core.services.base_transactional_service import BaseTransactionalService
-from bms_platform.models.demo import Demo
 from bms_platform.repositories.demo_repository import DemoRepository
 
 

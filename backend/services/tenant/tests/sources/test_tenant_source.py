@@ -18,8 +18,8 @@ from bms_core.db.registry import EngineRegistry
 from bms_core.db.tenant_registry import snapshot_cache_key
 from bms_core.db.tenant_source import build_tenant_lookup, registered_tenant_sources
 from bms_core.models.base import Base
-from bms_tenant.models.tenant import SysTenant
-from bms_tenant.models.tenant_database import SysTenantDatabase
+from bms_core.models.tenant.tenant import SysTenant
+from bms_core.models.tenant.tenant_database import SysTenantDatabase
 from bms_tenant.sources.tenant_source import LOCAL_TENANT_SOURCE, LocalTenantSource, register_local_tenant_source
 
 

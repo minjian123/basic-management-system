@@ -8,7 +8,7 @@ from sqlalchemy import delete
 
 from bms_core.db.session import session_scope
 from bms_core.db.tenant import DEMO_TENANT
-from bms_identity.models.session import SysSession
+from bms_core.models.identity.session import SysSession
 
 
 @pytest.fixture(autouse=True)

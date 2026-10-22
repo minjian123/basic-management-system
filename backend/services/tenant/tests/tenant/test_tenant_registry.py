@@ -13,8 +13,8 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 from bms_core.api.deps import get_platform_read_db
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.models.base import Base
-from bms_tenant.models.tenant import SysTenant
-from bms_tenant.models.tenant_database import SysTenantDatabase
+from bms_core.models.tenant.tenant import SysTenant
+from bms_core.models.tenant.tenant_database import SysTenantDatabase
 from bms_tenant.repositories.tenant_registry import TenantRegistryRepository
 
 API = "/api/v1/tenant-registry/active-single"

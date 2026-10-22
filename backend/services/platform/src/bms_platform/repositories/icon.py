@@ -8,8 +8,8 @@ import sqlalchemy as sa
 from sqlalchemy import select
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.models.platform.system import SysIcon, SysIconI18n
 from bms_core.repositories.base_db_repository import BaseDbRepository
-from bms_platform.models.system import SysIcon, SysIconI18n
 from bms_platform.repositories.menu import _load_i18n_all, _replace_i18n  # pyright: ignore[reportPrivateUsage]
 
 

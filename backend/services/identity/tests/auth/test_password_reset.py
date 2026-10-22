@@ -10,9 +10,9 @@ from sqlalchemy import select
 from bms_core.api.deps import get_rate_limiter
 from bms_core.core.exceptions import AuthError
 from bms_core.idp.state.memory import MemoryIdpStateStore
+from bms_core.models.identity.session import SysSession
 from bms_core.ratelimit.memory import MemoryRateLimiter
 from bms_core.session.memory import MemorySessionStore
-from bms_identity.models.session import SysSession
 from tests_support.auth import issue_access_token
 
 from .helpers import (

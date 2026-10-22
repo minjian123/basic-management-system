@@ -15,6 +15,9 @@
 6. **跨服务库访问**：按**表级归属**（表归属登记 `TABLE_OWNERSHIP`）判定——① 声明越权（服务声明他服务
    归属的表）；② 引用越界（原始 SQL / `ForeignKey` 目标 / 字符串表名 token 指向他服务归属的表）；
    基础设施表（发件箱三表）每服务自有、放行；引用中的未登记表名无归属可判、放行（声明场景已拦）；
+   **共享模型子包例外（14_01）**：`bms_core/models/<来源服务>/` 下的模型按定义承载跨服务共用的表
+   （如 `sys_tenant` / `sys_client`），声明场景**只校验「表已登记」、不判归属越权**；`models/` 根级文件
+   与基座其余目录口径不变（仍按 `platform` 判），访问侧判定亦不变；
 7. **读侧出口例外白名单核对**：`deploy/boundaries/data_ownership_exceptions.json` 结构 /
    字段 / 归属校验；命中的越界按「已登记例外」放行并计数，**未登记仍失败**。
 
@@ -109,6 +112,12 @@ service_tables: ConcurrentStableDict[str, ConcurrentStableList[str]] = Concurren
 
 _OWNERSHIP_REGISTRY_RELATIVE = "services/table_registry.py"
 """表归属登记模块（按定义引用全部表名，规则 6② 引用扫描豁免该模块）。"""
+
+_SHARED_MODELS_MARKER = "/libs/bms_core/src/bms_core/models/"
+"""共享模型标记（`{仓库根}/backend/libs/bms_core/src/bms_core/models/`；14_01 整包下沉后承载共享表模型）。
+
+按「标记出现在路径中」判定而非固定前缀——自检在临时仓库构造样例时相对路径形态与真实仓库一致。
+"""
 
 _FORM_CATALOG_REGISTRY_RELATIVE = "registry/forms.py"
 """`form_key` 构建期清单（按定义登记全部业务实体表名，规则 6② 引用扫描豁免该模块）。"""
@@ -429,6 +438,8 @@ def check() -> int:
     counts.set("registered_exceptions_total", len(exceptions))
 
     # 规则 6①：声明越权（`__tablename__` 归属他服务；未登记表名同拦）
+    shared_declarations: ConcurrentStableSet[tuple[str, str]] = ConcurrentStableSet()
+    """共享模型子包内的声明点（`(文件, 表名)`）——规则 6② 引用扫描对同一处不再重复计违规。"""
     for package, (root, _shared) in packages.items():
         service = _service_of_package(package)
         for path in sorted(root.rglob("*.py")):
@@ -450,6 +461,10 @@ def check() -> int:
                         "table_ownership_violation",
                     )
                     continue
+                if _is_shared_model_subpackage(rel):
+                    # 共享模型子包：跨服务共用表模型的正常形态（只校验已登记，不判归属越权；14_01）
+                    shared_declarations.add((rel, value.value))
+                    continue
                 if _assess(service, value.value, "declare", exceptions) is not None:
                     _record(
                         f"[跨服务表归属] {rel}:{node.lineno} 声明 {value.value}（归属 {_owner_of(value.value)}）",
@@ -464,6 +479,9 @@ def check() -> int:
         seen: ConcurrentStableSet[tuple[str, int, str]] = ConcurrentStableSet()
         for rel, lineno, table, operation in _iter_cross_reference_tables(root, known_table_set):
             if rel.endswith(_OWNERSHIP_REGISTRY_RELATIVE) or rel.endswith(_FORM_CATALOG_REGISTRY_RELATIVE):
+                continue
+            if _is_shared_model_subpackage(rel) and (rel, table) in shared_declarations:
+                # 共享模型子包的 `__tablename__` 是声明而非引用（14_01）；声明侧由规则 6① 判定
                 continue
             key = (rel, lineno, table)
             if key in seen:
@@ -492,6 +510,25 @@ def _owner_of(table: str) -> str:
         str: 归属标签。
     """
     return table_owner(table) or "未登记"
+
+
+def _is_shared_model_subpackage(rel: str) -> bool:
+    """判定文件是否位于共享模型子包（`bms_core/models/<来源服务>/`，14_01）。
+
+    子包语义为「跨服务共用的表模型」，其 `__tablename__` 归属必然散布在多个服务，故声明场景只校验
+    「表已登记」；`models/` 根级文件（`ownership.py` / `outbox.py` / `base.py`）不属本例外，仍按
+    `platform` 判归属。
+
+    Args:
+        rel: 相对仓库根的源文件路径（posix 形态）。
+
+    Returns:
+        bool: 位于共享模型子包内 True。
+    """
+    marker = _SHARED_MODELS_MARKER
+    if marker not in f"/{rel}":
+        return False
+    return "/" in rel.split(marker, 1)[1]
 
 
 def _self_test() -> int:
@@ -561,6 +598,19 @@ def _self_test() -> int:
 
         declare(ai / "models", "sys_tenant")
         run(True, "跨服务声明越权拦截")
+
+        # 共享模型子包（14_01）：`bms_core/models/<来源服务>/` 内声明他归属表是正常形态
+        declare(ai / "models", "ai_chat_log")
+        (core / "models/tenant").mkdir(parents=True)
+        (core / "models/__init__.py").write_text("", encoding="utf-8")
+        (core / "models/tenant/__init__.py").write_text("", encoding="utf-8")
+        declare(core / "models/tenant", "sys_tenant")
+        run(False, "共享模型子包声明他归属表放行")
+
+        (core / "models/tenant/m.py").unlink()
+        declare(core / "models", "sys_tenant")
+        run(True, "models 根级声明他归属表拦截")
+        (core / "models/m.py").unlink()
 
         declare(ai / "models", "ai_chat_log")
         (ai / "repository.py").write_text('SQL = "select * from sys_module"\n', encoding="utf-8")

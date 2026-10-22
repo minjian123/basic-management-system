@@ -11,7 +11,7 @@ from sqlalchemy import select
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.objects import BaseFrameworkObject
 from bms_core.db.session import DbSession
-from bms_tenant.models.tenant_module import (
+from bms_core.models.tenant.tenant_module import (
     TENANT_MODULE_DISABLED,
     TENANT_MODULE_ENABLED,
     SysTenantModule,

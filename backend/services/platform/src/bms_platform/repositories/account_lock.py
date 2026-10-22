@@ -5,9 +5,9 @@ from datetime import UTC, datetime
 from sqlalchemy import ColumnElement, and_, func, or_, select
 
 from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
+from bms_core.models.platform.user import SysAccountLock
 from bms_core.repositories.base_db_repository import BaseDbRepository
 from bms_core.schemas.pagination import BasePageQuery
-from bms_platform.models.user import SysAccountLock
 
 
 def _utc_now() -> datetime:

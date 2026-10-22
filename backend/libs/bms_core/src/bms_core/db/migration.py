@@ -8,10 +8,12 @@
 - **表集派生**（单一来源）：`services/table_registry.py::chain_tables(service, datasource)`（仅
   `status = enabled` 的归属表 + 基础设施表）∩ 已有模型（`Base.metadata.tables`）——
   `planned` 表与尚无模型的登记表自然不参与，随所属阶段补模型与表文件后**自动进链**。
-- **模型模块按服务解析**：公共模型模块 `COMMON_MODEL_MODULES` + 服务包自声明
-  `{package_prefix}_{service}/models/__init__.py::MODEL_MODULES`（无模型的服务声明空元组；包名前缀经
-  `[app].package_prefix` 配置，平台默认 `bms`、产品配自有前缀如 `mdm`）；服务包不存在
-  （`planned` / 预留服务）跳过，**严格入口** `require_service_model_modules()` 则缺失即报错（12_04）。
+- **模型模块按服务解析**：公共模型模块 `COMMON_MODEL_MODULES`（基座模块 + 共享模型子包
+  `models/{platform,identity,tenant}::MODEL_MODULES`，14_01）+ 服务包自声明
+  `{package_prefix}_{service}/models/__init__.py::MODEL_MODULES`（**本服务私有**模型；无私有模型的服务
+  可不建 `models` 子包；包名前缀经 `[app].package_prefix` 配置，平台默认 `bms`、产品配自有前缀如 `mdm`）；
+  服务包不存在（`planned` / 预留服务）跳过，**严格入口** `require_service_model_modules()` 则
+  **服务包**缺失即报错（12_04）、`models` 子包缺失视为「无私有模型」。
   **动态导入**（`importlib`）而非静态 import——迁移 / 运维期按链的服务取模型，`bms_core` 不静态
   依赖任何服务包（依赖方向不变，见《后端开发规范》）。
 - **连接串取法**：显式 `db_key` 优先（运维通道）；缺省按链的数据源解析——平台链取该服务的平台
@@ -56,6 +58,9 @@ from bms_core.core.objects import BaseValueObject
 from bms_core.core.paths import resolve_backend_root
 from bms_core.db.keys import PLATFORM_SERVICE_KEY, build_platform_db_key
 from bms_core.models.base import Base
+from bms_core.models.identity import MODEL_MODULES as IDENTITY_MODEL_MODULES
+from bms_core.models.platform import MODEL_MODULES as PLATFORM_MODEL_MODULES
+from bms_core.models.tenant import MODEL_MODULES as TENANT_MODEL_MODULES
 from bms_core.services.table_registry import chain_tables, known_service_keys
 
 
@@ -111,9 +116,18 @@ COMMON_MODEL_MODULES: ConcurrentStableList[str] = ConcurrentStableList(
         "bms_core.models.outbox",
         "bms_core.config.models",
         "bms_core.listing.models",
+        *PLATFORM_MODEL_MODULES,
+        *IDENTITY_MODEL_MODULES,
+        *TENANT_MODEL_MODULES,
     )
 )
-"""公共模型模块清单（跨服务共享的基座模型；各链均需注册其元数据）。"""
+"""公共模型模块清单（跨服务共享的基座模型；各链均需注册其元数据）。
+
+- 基座自有模块四条（归属登记 / 发件箱 / 系统参数 / 查询方案）；
+- 共享模型三条子包清单（14_01 整包下沉）：子包 `models/{platform,identity,tenant}::MODEL_MODULES` 是
+  「有哪些共享模型」的**唯一登记点**，本清单只做组合——漏加子包即该批模型不进任何链（`chain_metadata`
+  取不到 → 静默 0 表），由基座用例断言兜住。
+"""
 
 SERVICE_MODEL_MODULES_ENTRY = "MODEL_MODULES"
 """服务包自声明模型模块清单的常量名（`{package_prefix}_{service}/models/__init__.py`）。"""
@@ -388,10 +402,11 @@ def service_package(service: str, *, settings: Settings | None = None) -> str:
 
 
 def service_model_modules(service: str, *, settings: Settings | None = None) -> ConcurrentStableList[str]:
-    """取服务包自声明的模型模块清单（服务包不存在返回空元组）。
+    """取服务包自声明的**私有**模型模块清单（服务包 / `models` 子包不存在返回空清单）。
 
-    **宽松语义**：服务包不存在（跨仓产品服务、`planned` / 预留服务）返回空元组——需要「已启用服务
-    包缺失即失败」的调用方改用严格入口 `require_service_model_modules()`（12_04）。
+    **宽松语义**：服务包不存在（跨仓产品服务、`planned` / 预留服务）或服务包在但无 `models` 子包
+    （无私有模型，14_01 共享模型整包下沉后 platform / identity / tenant 即此形态）返回空清单——
+    需要「已启用服务包缺失即失败」的调用方改用严格入口 `require_service_model_modules()`（12_04）。
 
     Args:
         service: 服务标识。
@@ -401,7 +416,7 @@ def service_model_modules(service: str, *, settings: Settings | None = None) -> 
         tuple[str, ...]: 模型模块清单。
 
     Raises:
-        ConfigError: 服务包存在但未声明 `MODEL_MODULES`。
+        ConfigError: `models` 子包存在但未声明 `MODEL_MODULES`。
     """
     package = f"{service_package(service, settings=settings)}.models"
     if not _package_exists(package):
@@ -410,15 +425,18 @@ def service_model_modules(service: str, *, settings: Settings | None = None) -> 
     declared = getattr(module, SERVICE_MODEL_MODULES_ENTRY, None)
     if declared is None:
         raise ConfigError(
-            f"服务包 {package} 未声明 {SERVICE_MODEL_MODULES_ENTRY}（模型模块清单；无模型的服务请声明空元组）"
+            f"服务包 {package} 未声明 {SERVICE_MODEL_MODULES_ENTRY}（模型模块清单；无私有模型的服务"
+            "可不建 models 子包，建了就必须声明空元组）"
         )
     return ConcurrentStableList(str(name) for name in declared)
 
 
 def require_service_model_modules(service: str, *, settings: Settings | None = None) -> ConcurrentStableList[str]:
-    """取服务包自声明的模型模块清单；**服务包不存在即 `ConfigError`**（严格入口；12_04）。
+    """取服务包自声明的私有模型模块清单；**服务包不存在即 `ConfigError`**（严格入口；12_04）。
 
-    用于「服务已启用但服务包缺失」的快速失败——免静默空清单导致迁移与开发库自动建表不建表。
+    用于「服务已启用但服务工程未就位 / 前缀配错」的快速失败——免静默空清单导致迁移与开发库自动建表
+    不建表。**缺失判定在服务包一级**（14_01）：服务包在、`models` 子包不在 = 本服务无私有模型，
+    返回空清单而非报错（共享模型下沉后 platform / identity / tenant 即此形态）。
     由消费方显式调用（平台侧 `ops.check_tables` 对已启用服务、产品侧对本服务 / 迁移目标）；
     `service_model_modules()` 维持宽松语义（预留 / 跨仓服务返回空元组不误伤）。
 
@@ -427,12 +445,12 @@ def require_service_model_modules(service: str, *, settings: Settings | None = N
         settings: 应用配置；None 取全局配置单例。
 
     Returns:
-        tuple[str, ...]: 模型模块清单。
+        tuple[str, ...]: 模型模块清单（无私有模型为空清单）。
 
     Raises:
         ConfigError: 服务包不存在（包名前缀配置错误或工程未就位）。
     """
-    package = f"{service_package(service, settings=settings)}.models"
+    package = service_package(service, settings=settings)
     if not _package_exists(package):
         prefix = (settings or get_settings()).app.package_prefix
         raise ConfigError(

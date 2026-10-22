@@ -18,13 +18,13 @@ from bms_core.core.exceptions import (
 from bms_core.core.objects import BaseFrameworkObject
 from bms_core.db.session import DbSession
 from bms_core.events.base import EventEnvelope
-from bms_core.outbox.base import BaseOutboxStore
-from bms_tenant.models.tenant import (
+from bms_core.models.tenant.tenant import (
     TENANT_KIND_PLATFORM,
     TENANT_STATUS_ACTIVE,
     TENANT_STATUS_SUSPENDED,
     SysTenant,
 )
+from bms_core.outbox.base import BaseOutboxStore
 from bms_tenant.repositories.tenant_registry import TenantRegistryRepository
 from bms_tenant.schemas.tenant_admin import (
     TenantDetail,

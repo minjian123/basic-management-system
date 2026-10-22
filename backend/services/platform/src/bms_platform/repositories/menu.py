@@ -13,8 +13,7 @@ from sqlalchemy import select
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.db.session import DbSession
-from bms_core.repositories.base_db_repository import BaseDbRepository
-from bms_platform.models.menu import (
+from bms_core.models.platform.menu import (
     SysAction,
     SysActionI18n,
     SysBusiness,
@@ -28,13 +27,14 @@ from bms_platform.models.menu import (
     SysMenuI18n,
     SysPermission,
 )
-from bms_platform.models.role import (
+from bms_core.models.platform.role import (
     PERM_TYPE_FORM,
     PERM_TYPE_MENU,
     PERM_TYPE_PERMISSION,
     SysRoleField,
     SysRolePermission,
 )
+from bms_core.repositories.base_db_repository import BaseDbRepository
 
 
 async def _load_i18n(

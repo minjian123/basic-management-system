@@ -16,6 +16,8 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
 from bms_core.models.base import Base
+from bms_core.models.platform.menu import SysField
+from bms_core.models.platform.role import SysRoleField
 from bms_core.permission.field import (
     DEFAULT_FIELD_PERMISSION_PROVIDER_KEY,
     FieldPermission,
@@ -24,8 +26,6 @@ from bms_core.permission.field import (
     reset_field_permission_provider_factories,
 )
 from bms_core.permission.snapshot import TIER_STANDARD, TIER_SYSTEM_ADMIN, PermissionSnapshot
-from bms_platform.models.menu import SysField
-from bms_platform.models.role import SysRoleField
 from bms_platform.permission.field_provider import StaticFieldPermissionProvider, build_static_field_provider
 
 _FORM_ID = 7001

@@ -14,10 +14,10 @@ from bms_core.core.config import get_settings
 from bms_core.core.exceptions import ConfigError
 from bms_core.models.base import Base
 from bms_core.models.outbox import SysOutbox
+from bms_core.models.tenant.tenant import TENANT_KIND_PLATFORM, SysTenant
+from bms_core.models.tenant.tenant_database import SysTenantDatabase
+from bms_core.models.tenant.tenant_module import SysTenantModule
 from bms_core.outbox.null import NullOutboxStore
-from bms_tenant.models.tenant import TENANT_KIND_PLATFORM, SysTenant
-from bms_tenant.models.tenant_database import SysTenantDatabase
-from bms_tenant.models.tenant_module import SysTenantModule
 from bms_tenant.repositories.tenant_registry import TenantRegistryRepository
 from bms_tenant.services.platform_tenant import ensure_platform_tenant_row
 from bms_tenant.services.tenant_admin import TenantAdminService

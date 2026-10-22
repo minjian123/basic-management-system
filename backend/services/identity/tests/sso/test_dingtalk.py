@@ -12,7 +12,7 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy import select
 
-from bms_identity.models.user_identity import SysUserIdentity
+from bms_core.models.identity.user_identity import SysUserIdentity
 
 from .conftest import SsoHarness
 from .helpers import DINGTALK_CLIENT_ID, DINGTALK_IDP_KEY, TENANT, TENANT_HEADERS, TENANT_ID

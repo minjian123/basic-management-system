@@ -10,9 +10,9 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
 from bms_core.db.unit_of_work import DbUnitOfWork
+from bms_core.models.platform.user import LOCK_TYPE_FAIL_LIMIT, UNLOCK_MODE_AUTO, SysUser
 from bms_core.schemas.pagination import BasePageQuery
 from bms_core.security.pbkdf2 import Pbkdf2PasswordHasher
-from bms_platform.models.user import LOCK_TYPE_FAIL_LIMIT, UNLOCK_MODE_AUTO, SysUser
 from bms_platform.repositories.account_lock import AccountLockRepository
 from bms_platform.repositories.user import UserRepository
 from bms_platform.services.credentials import CredentialService

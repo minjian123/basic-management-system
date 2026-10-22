@@ -27,7 +27,9 @@ from bms_core.testing.fixtures import (
 )
 
 __all__ = ("bms_isolate_settings", "platform_db", "reset_plugin_registry", "reset_request_context")
+from bms_core.permission.sources import reset_permission_data_sources
 from bms_platform.main import ApplicationFactory
+from bms_platform.permission.checker import register_platform_permission
 from ops.seed_module import seed_modules
 from ops.seed_tenant import seed_tenants
 from tests_support.auth import auth_headers, configure_token_env
@@ -63,6 +65,27 @@ def isolate_settings(bms_isolate_settings: None, monkeypatch: pytest.MonkeyPatch
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()
+
+
+@pytest.fixture(autouse=True)
+def isolate_permission_data_sources(isolate_settings: None) -> Iterator[None]:  # pyright: ignore[reportUnusedFunction]
+    """用例隔离：重置权限数据来源注册表并重登记平台侧工厂。
+
+    `bms_core.permission.sources` 的实例 / 工厂注册表是**进程级全局表**且「最后登记者生效」，而 key
+    不止一个（平台直查本库 / 身份经平台内部契约取数）。并发（xdist）下同一 worker 内若身份用例先建过
+    应用，后续平台请求会走到身份侧实现（`10007`）。这里每个用例前重置并**只**登记本服务工厂，
+    使平台用例与执行顺序无关（与身份侧 `test_identity_checker.py` 的 `reset_permission_data_sources()`
+    隔离口径一致）。
+
+    Args:
+        isolate_settings: 配置隔离夹具（保证环境变量覆盖先完成）。
+
+    Yields:
+        None: 用例运行期。
+    """
+    reset_permission_data_sources()
+    register_platform_permission(get_settings())
+    yield
 
 
 @pytest.fixture(scope="session")

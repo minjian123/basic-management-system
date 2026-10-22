@@ -25,6 +25,7 @@ from bms_core.db.keys import PLATFORM_DB_KEY
 from bms_core.db.registry import EngineRegistry
 from bms_core.db.session import DbSession, session_scope
 from bms_core.i18n.base import DEFAULT_LOCALE
+from bms_core.models.platform.role import PERM_TYPE_FORM, PERM_TYPE_MENU, PERM_TYPE_PERMISSION
 from bms_core.permission.field import BaseFieldPermissionProvider
 from bms_core.permission.resolver import BaseRoleResolver
 from bms_core.permission.sources import (
@@ -35,7 +36,6 @@ from bms_core.permission.sources import (
     PermissionSubjectData,
 )
 from bms_core.permission.subject import PermissionSubjectService
-from bms_platform.models.role import PERM_TYPE_FORM, PERM_TYPE_MENU, PERM_TYPE_PERMISSION
 from bms_platform.permission.metadata import build_menu_metadata_service
 from bms_platform.repositories.role import DataScopeRepository, RolePermissionRepository, RoleRepository
 from bms_platform.services.menu import MenuSnapshot

@@ -18,11 +18,11 @@ from bms_core.core.logging import get_logger
 from bms_core.core.objects import BaseFrameworkObject, BaseValueObject
 from bms_core.db.session import DbSession
 from bms_core.db.unit_of_work import UnitOfWork
+from bms_core.models.identity.session import SysSession
 from bms_core.schemas.pagination import BasePageQuery
 from bms_core.security.base import BaseSessionSecurity
 from bms_core.session.base import BaseSessionStore
 from bms_core.ws.base import BaseRealtimePublisher, RealtimeEvent
-from bms_identity.models.session import SysSession
 from bms_identity.repositories.session import SessionRepository
 from bms_identity.schemas.session import SESSION_REVOKED_EVENT, KickResult
 

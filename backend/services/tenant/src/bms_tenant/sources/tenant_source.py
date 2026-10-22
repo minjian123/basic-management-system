@@ -27,8 +27,8 @@ from bms_core.db.tenant_registry import (
     to_tenant_context,
 )
 from bms_core.db.tenant_source import register_tenant_lookup
-from bms_tenant.models.tenant import SysTenant
-from bms_tenant.models.tenant_database import SysTenantDatabase
+from bms_core.models.tenant.tenant import SysTenant
+from bms_core.models.tenant.tenant_database import SysTenantDatabase
 from bms_tenant.repositories.tenant_registry import TenantRegistryRepository
 
 __all__ = ["LOCAL_TENANT_SOURCE", "LocalTenantSource", "register_local_tenant_source"]

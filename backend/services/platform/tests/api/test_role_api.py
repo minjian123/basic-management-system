@@ -23,8 +23,7 @@ from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import get_settings
 from bms_core.idempotency.base import IDEMPOTENCY_PAYLOAD_TYPE
 from bms_core.models.base import Base
-from bms_platform.main import ApplicationFactory
-from bms_platform.models.role import (
+from bms_core.models.platform.role import (
     ROLE_TYPE_SECURITY,
     SysDataScope,
     SysRole,
@@ -32,7 +31,8 @@ from bms_platform.models.role import (
     SysRolePermission,
     SysUserRole,
 )
-from bms_platform.models.user import SysUser
+from bms_core.models.platform.user import SysUser
+from bms_platform.main import ApplicationFactory
 from tests_support.auth import TEST_SUBJECT, auth_headers
 from tests_support.menu_metadata import reset_menu_tables, seed_business, seed_permission
 from tests_support.permission_admin import assign_role_domain_operator

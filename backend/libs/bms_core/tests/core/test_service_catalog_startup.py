@@ -30,8 +30,8 @@ from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import get_settings
 from bms_core.core.error_codes import ErrorCode
 from bms_core.core.exceptions import CatalogError, ServiceUnavailableError
+from bms_core.models.platform.catalog import SysModule
 from bms_core.services.module_registry import SERVICE_CATALOG, ModuleRecord, ServiceGroup
-from bms_platform.models.catalog import SysModule
 from bms_platform.sources.catalog_source import read_catalog
 
 # 工程级 / 子集运行自足（09_01）：platform 权威读取器由服务包装配期登记（bms_platform.main::configure_service）；

@@ -63,7 +63,7 @@ class PlatformDictDataSource(BaseDictDataSource):
         Returns:
             tuple[DataSourceItem, ...]: 角色条目（value=角色码 / label=名称）。
         """
-        from bms_platform.models.role import SysRole
+        from bms_core.models.platform.role import SysRole
 
         async with self._session() as session:
             statement = (

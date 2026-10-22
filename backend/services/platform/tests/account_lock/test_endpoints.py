@@ -18,7 +18,7 @@ from bms_core.api.deps import get_uow
 from bms_core.core.error_codes import ErrorCode
 from bms_core.core.exceptions import AccountLockNotFoundError
 from bms_core.db.unit_of_work import DbUnitOfWork
-from bms_platform.models.user import SysUser
+from bms_core.models.platform.user import SysUser
 from bms_platform.repositories.user import UserRepository
 from tests_support.permission_admin import setup_min_tenant
 

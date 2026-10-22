@@ -6,10 +6,10 @@ from httpx import AsyncClient, Response
 from sqlalchemy import select
 
 from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.models.identity.session import SysSession
 from bms_core.ratelimit.memory import MemoryRateLimiter
 from bms_core.security.session import DefaultSessionSecurity
 from bms_core.session.memory import MemorySessionStore
-from bms_identity.models.session import SysSession
 from bms_identity.services.session_issuer import hash_refresh_token
 
 from .helpers import TENANT_ID, FakePlatformClient, FakeUserTokenIssuer, wire_auth

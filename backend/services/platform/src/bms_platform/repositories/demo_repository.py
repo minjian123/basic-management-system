@@ -1,8 +1,8 @@
 """demo 示例模块：内存仓库（继承 BaseRepository，03 域替换为数据库访问）。"""
 
 from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.models.platform.demo import Demo
 from bms_core.repositories.base_memory_repository import BaseMemoryRepository
-from bms_platform.models.demo import Demo
 
 
 class DemoRepository(BaseMemoryRepository[Demo]):

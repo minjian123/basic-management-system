@@ -17,11 +17,11 @@ from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import get_settings
 from bms_core.core.exceptions import TenantModuleUnavailableError, TenantProvisionFailedError, TenantQuotaExceededError
 from bms_core.models.base import Base
+from bms_core.models.tenant.tenant import SysTenant
+from bms_core.models.tenant.tenant_database import SysTenantDatabase
+from bms_core.models.tenant.tenant_module import SysTenantModule
+from bms_core.models.tenant.tenant_quota import SysTenantQuota
 from bms_core.outbox.null import NullOutboxStore
-from bms_tenant.models.tenant import SysTenant
-from bms_tenant.models.tenant_database import SysTenantDatabase
-from bms_tenant.models.tenant_module import SysTenantModule
-from bms_tenant.models.tenant_quota import SysTenantQuota
 from bms_tenant.repositories.tenant_module import TenantModuleRepository
 from bms_tenant.repositories.tenant_quota import TenantQuotaRepository
 from bms_tenant.repositories.tenant_registry import TenantRegistryRepository

@@ -19,8 +19,8 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from bms_core.core.config import get_settings
 from bms_core.models.base import Base
-from bms_platform.models.role import ROLE_TYPE_SECURITY, ROLE_TYPE_SYSTEM, SysRole, SysUserRole
-from bms_platform.models.system import SysIcon, SysIconI18n
+from bms_core.models.platform.role import ROLE_TYPE_SECURITY, ROLE_TYPE_SYSTEM, SysRole, SysUserRole
+from bms_core.models.platform.system import SysIcon, SysIconI18n
 from tests_support.auth import TEST_SUBJECT
 
 SYSTEM_ADMIN_CODE = "bms_system_admin"

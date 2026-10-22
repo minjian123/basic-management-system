@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 from bms_core.config.null import NullConfigSource
 from bms_core.core.exceptions import AccountLockNotFoundError, ConcurrentConflictError
 from bms_core.db.unit_of_work import DbUnitOfWork
-from bms_platform.models.user import LOCK_TYPE_MANUAL, UNLOCK_MODE_MANUAL, SysUser
+from bms_core.models.platform.user import LOCK_TYPE_MANUAL, UNLOCK_MODE_MANUAL, SysUser
 from bms_platform.repositories.account_lock import AccountLockRepository
 from bms_platform.repositories.user import UserRepository
 from bms_platform.services.account_lock import MANUAL_LOCK_SENTINEL, AccountLockService

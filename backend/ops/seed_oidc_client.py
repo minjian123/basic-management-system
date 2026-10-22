@@ -26,8 +26,8 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import get_settings
+from bms_core.models.identity.client import SysClient
 from bms_core.security.pbkdf2 import PBKDF2_ITERATIONS, Pbkdf2PasswordHasher
-from bms_identity.models.client import SysClient
 
 DEFAULT_CLIENT_ID = "bms-demo-client"
 DEFAULT_SECRET = "bms-demo-secret"

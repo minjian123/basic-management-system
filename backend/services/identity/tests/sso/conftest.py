@@ -33,13 +33,13 @@ from bms_core.db.tenant import DEMO_TENANT
 from bms_core.idp.state.base import build_idp_state_key
 from bms_core.idp.state.memory import MemoryIdpStateStore
 from bms_core.lock.memory import MemoryDistributedLock
+from bms_core.models.identity.identity_provider import SysIdentityProvider
+from bms_core.models.identity.session import SysSession
+from bms_core.models.identity.user_identity import SysUserIdentity
 from bms_core.ratelimit.memory import MemoryRateLimiter
 from bms_core.session.memory import MemorySessionStore
 from bms_core.ws.null import NullRealtimePublisher
 from bms_identity.api import sso as sso_api
-from bms_identity.models.identity_provider import SysIdentityProvider
-from bms_identity.models.session import SysSession
-from bms_identity.models.user_identity import SysUserIdentity
 from bms_identity.services.provider_registry import ProviderRegistry
 
 from .helpers import (

@@ -40,6 +40,7 @@ from bms_core.core.objects import (
 )
 from bms_core.db.session import DbSession
 from bms_core.idp.state.base import BaseIdpStateStore
+from bms_core.models.identity.client import SysClient
 from bms_core.oauth.oidc_provider import (
     OIDC_CODE_NAMESPACE,
     OIDC_GRANT_AUTHORIZATION_CODE,
@@ -51,7 +52,6 @@ from bms_core.oauth.oidc_provider import (
     build_discovery_document,
 )
 from bms_core.security.base import BasePasswordHasher
-from bms_identity.models.client import SysClient
 from bms_identity.repositories.client import SysClientRepository
 from bms_identity.services.platform_client import PlatformCredentialClient
 

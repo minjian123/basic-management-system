@@ -14,8 +14,13 @@ from bms_core.core.exceptions import ConfigError
 from bms_core.core.logging import get_logger
 from bms_core.db.keys import PLATFORM_DB_KEY
 from bms_core.db.session import DbSession, session_scope
+from bms_core.models.tenant.tenant import (
+    TENANT_KIND_PLATFORM,
+    TENANT_STATUS_ACTIVE,
+    TENANT_STATUS_PROVISIONING,
+    SysTenant,
+)
 from bms_core.outbox.base import BaseOutboxStore
-from bms_tenant.models.tenant import TENANT_KIND_PLATFORM, TENANT_STATUS_ACTIVE, TENANT_STATUS_PROVISIONING, SysTenant
 from bms_tenant.repositories.tenant_registry import TenantRegistryRepository
 from bms_tenant.services.tenant_admin import TenantAdminService
 from bms_tenant.services.tenant_module import ModuleCatalog, TenantModuleService

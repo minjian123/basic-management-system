@@ -158,8 +158,8 @@ def _tenant_refs_sync(url: str) -> ConcurrentStableList[TenantRef]:
     Returns:
         ConcurrentStableList[TenantRef]: 租户引用列表（库名基缺对照行回落当前编码）。
     """
-    from bms_tenant.models.tenant import SysTenant  # 惰性：仅读租户注册库时需要，避免单一服务镜像强依赖
-    from bms_tenant.models.tenant_database import SysTenantDatabase
+    from bms_core.models.tenant.tenant import SysTenant  # 惰性：仅读租户注册库时需要，避免单一服务镜像强依赖
+    from bms_core.models.tenant.tenant_database import SysTenantDatabase
 
     engine: Engine = create_engine(url, poolclass=NullPool)
     try:
@@ -202,8 +202,8 @@ async def tenant_refs(registry_url: str) -> ConcurrentStableList[TenantRef]:
     """
     if make_url(registry_url).get_backend_name() == _DM:
         return await asyncio.to_thread(_tenant_refs_sync, registry_url)
-    from bms_tenant.models.tenant import SysTenant  # 惰性：仅读租户注册库时需要
-    from bms_tenant.models.tenant_database import SysTenantDatabase
+    from bms_core.models.tenant.tenant import SysTenant  # 惰性：仅读租户注册库时需要
+    from bms_core.models.tenant.tenant_database import SysTenantDatabase
 
     engine = create_async_engine(registry_url, poolclass=NullPool)
     try:

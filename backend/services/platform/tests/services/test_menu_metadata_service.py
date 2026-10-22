@@ -35,7 +35,7 @@ from bms_core.db.unit_of_work import DbUnitOfWork
 from bms_core.dict.base import current_dict_locale
 from bms_core.i18n.base import DEFAULT_LOCALE
 from bms_core.models.base import Base, BaseModel
-from bms_platform.models.menu import (
+from bms_core.models.platform.menu import (
     SysAction,
     SysActionI18n,
     SysBusiness,

@@ -10,8 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 import ops.seed_user as seed_user
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import get_settings
+from bms_core.models.platform.user import SysUser
 from bms_core.security.pbkdf2 import Pbkdf2PasswordHasherFactory
-from bms_platform.models.user import SysUser
 
 
 def _verify(password: str, hashed: str) -> bool:

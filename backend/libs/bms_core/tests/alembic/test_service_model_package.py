@@ -40,11 +40,22 @@ def test_service_package_prefix_default_and_override() -> None:
 
 @pytest.mark.kiwi_id(2254)
 def test_platform_prefix_keeps_model_resolution() -> None:
-    """默认前缀下模型模块解析与改前一致（platform 服务包自声明模块清单可解析）。"""
+    """默认前缀下服务包解析与改前一致（共享模型下沉后 platform 无私有模型）。"""
     modules = service_model_modules("platform")
+    # 14_01：platform 的模型整包下沉到 bms_core.models.platform，服务侧 models 包已删除
+    assert modules == ()
+    assert require_service_model_modules("platform") == ()
+    assert service_model_modules("platform", settings=get_settings()) == ()
+
+
+@pytest.mark.kiwi_id(2254)
+def test_declared_service_models_resolve() -> None:
+    """服务包自声明清单仍可解析（txn 保留私有模型：非空且以本服务包名开头）。"""
+    modules = require_service_model_modules("txn")
+
     assert modules
-    assert all(name.startswith("bms_platform.") for name in modules)
-    assert modules == service_model_modules("platform", settings=get_settings())
+    assert all(name.startswith("bms_txn.") for name in modules)
+    assert modules == service_model_modules("txn")
 
 
 @pytest.mark.kiwi_id(2254)
@@ -54,7 +65,8 @@ def test_require_service_model_modules_fails_loudly() -> None:
     with pytest.raises(ConfigError) as excinfo:
         require_service_model_modules("zzz_ghost")
     message = str(excinfo.value)
-    assert "bms_zzz_ghost.models" in message
+    # 14_01：缺失判定在服务包一级（`bms_zzz_ghost`），不再带 `.models` 后缀
+    assert "bms_zzz_ghost" in message
     assert "package_prefix" in message
 
 
@@ -89,8 +101,8 @@ def test_existing_package_without_declaration_fails(monkeypatch: pytest.MonkeyPa
 
 @pytest.mark.kiwi_id(2254)
 def test_require_service_model_modules_returns_existing_package() -> None:
-    """严格入口：服务包存在时返回其模型模块清单（与宽松入口一致）。"""
-    modules = require_service_model_modules("platform")
+    """严格入口：服务包存在时返回其私有模型清单（与宽松入口一致）。"""
+    modules = require_service_model_modules("txn")
 
     assert modules
-    assert modules == service_model_modules("platform")
+    assert modules == service_model_modules("txn")

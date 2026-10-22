@@ -31,8 +31,8 @@ from bms_core.core.config import get_settings
 from bms_core.core.serialization import normalize_collections
 from bms_core.db.engine import EngineFactory
 from bms_core.db.keys import build_platform_db_key
-from bms_identity.models.identity_provider import SysIdentityProvider
-from bms_identity.models.user_identity import SysUserIdentity
+from bms_core.models.identity.identity_provider import SysIdentityProvider
+from bms_core.models.identity.user_identity import SysUserIdentity
 
 DEFAULT_IDP_KEY = "keycloak"
 DEFAULT_CLIENT_ID = "bms-backend"

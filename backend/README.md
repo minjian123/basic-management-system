@@ -128,7 +128,7 @@ backend/
 │   │   ├── repositories/  # 仓储基类（契约 / 内存 / 作用域 / DB 实现）
 │   │   ├── services/ # 服务基类（含事务扩展）+ 模块 / 表归属注册表
 │   │   ├── schemas/  # 契约基类 BaseSchema + 分页 / 排序 / 游标 / 统一响应
-│   │   ├── models/   # ORM 基类 BaseModel + 平台基础模型（sys_tenant / sys_module）
+│   │   ├── models/   # ORM 基类 BaseModel + 共享模型子包（platform / identity / tenant，跨服务共用表）
 │   │   └── <能力域>/ # 横切能力域（cache / lock / health / storage / tracing / … 契约与实现）
 │   └── tests/        # 基座库测试（不依赖具体服务应用）
 └── services/         # 9 个服务工程（一服务一工程一库）

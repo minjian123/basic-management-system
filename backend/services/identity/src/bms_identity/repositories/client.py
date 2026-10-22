@@ -5,9 +5,9 @@ from __future__ import annotations
 from sqlalchemy import ColumnElement, func, select
 
 from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
+from bms_core.models.identity.client import SysClient
 from bms_core.repositories.base_db_repository import BaseDbRepository
 from bms_core.schemas.pagination import BasePageQuery
-from bms_identity.models.client import SysClient
 
 
 class SysClientRepository(BaseDbRepository[SysClient]):

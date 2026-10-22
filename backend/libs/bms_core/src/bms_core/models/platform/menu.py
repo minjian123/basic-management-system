@@ -2,7 +2,7 @@
 
 - 归属：十二表归 `platform` 服务、库类别 `platform`（链 `platform:platform`，库 `bms_platform`）——
   由 `bms_core/services/table_registry.py::TABLE_OWNERSHIP` 单一来源登记（03_01 由 `planned` 转 `enabled`）；
-- 本模块由平台服务在 `models/__init__.py::MODEL_MODULES` 声明，迁移链按服务解析模型时导入；
+- 本模块登记在 `bms_core.models.platform::MODEL_MODULES`，经 `COMMON_MODEL_MODULES` 纳入各链模型发现；
 - 表结构以《数据库设计》数据表文件为唯一事实源（`sys_menu.md` 等表文件）。
 
 三词分治（2026-10-10 拍板）：**业务码**（`sys_business`，纯资源维度）、**动作码**（`sys_action`，全局动词维度）、

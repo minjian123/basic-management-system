@@ -7,8 +7,8 @@
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.exceptions import ConflictError, NotFoundError
 from bms_core.db.unit_of_work import UnitOfWork
+from bms_core.models.platform.system import SysUserExtension
 from bms_core.services.base_transactional_service import BaseTransactionalService
-from bms_platform.models.system import SysUserExtension
 from bms_platform.repositories.user_extension import UserExtensionRepository
 
 

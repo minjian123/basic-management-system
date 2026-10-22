@@ -18,9 +18,9 @@ from bms_core.api.deps import get_rate_limiter
 from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.db.session import DbSession, session_scope
 from bms_core.db.tenant import DEMO_TENANT
+from bms_core.models.identity.identity_provider import SysIdentityProvider
 from bms_core.ratelimit.memory import MemoryRateLimiter
 from bms_identity.api import identity_providers as idp_api
-from bms_identity.models.identity_provider import SysIdentityProvider
 from bms_identity.services.provider_registry import ProviderRegistry
 
 TENANT_HEADERS: ConcurrentStableDict[str, str] = ConcurrentStableDict({"X-Tenant-ID": "demo"})

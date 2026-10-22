@@ -26,8 +26,8 @@ from bms_core.icon.base import (
     IconPatch,
     build_icon_key,
 )
-from bms_platform.models.menu import SysMenu
-from bms_platform.models.system import SysIcon
+from bms_core.models.platform.menu import SysMenu
+from bms_core.models.platform.system import SysIcon
 from bms_platform.repositories.icon import IconRepository
 
 _SCRIPT_RE = re.compile(r"<\s*script", re.IGNORECASE)

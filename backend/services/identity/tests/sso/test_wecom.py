@@ -13,7 +13,7 @@ from httpx import AsyncClient
 from sqlalchemy import select
 
 from bms_core.core.concurrent import ConcurrentStableDict
-from bms_identity.models.user_identity import SysUserIdentity
+from bms_core.models.identity.user_identity import SysUserIdentity
 
 from .conftest import WECOM_REDIRECT_URI, SsoHarness
 from .helpers import TENANT, TENANT_HEADERS, TENANT_ID, WECOM_AGENT_ID, WECOM_CORP_ID, WECOM_IDP_KEY

@@ -28,8 +28,8 @@ from bms_core.core.exceptions import (
 )
 from bms_core.core.objects import BaseFrameworkObject
 from bms_core.db.unit_of_work import UnitOfWork
+from bms_core.models.platform.role import ROLE_TYPE_CUSTOM, SysRole
 from bms_core.schemas.pagination import BasePageQuery
-from bms_platform.models.role import ROLE_TYPE_CUSTOM, SysRole
 from bms_platform.repositories.role import RoleRepository, UserRoleRepository
 
 ROLE_STATUSES: ConcurrentStableList[str] = ConcurrentStableList(("enabled", "disabled"))

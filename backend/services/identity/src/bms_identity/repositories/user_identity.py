@@ -8,8 +8,8 @@ from __future__ import annotations
 
 from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.exceptions import SsoIdentityConflictError
+from bms_core.models.identity.user_identity import SysUserIdentity
 from bms_core.repositories.base_db_repository import BaseDbRepository
-from bms_identity.models.user_identity import SysUserIdentity
 
 
 class UserIdentityRepository(BaseDbRepository[SysUserIdentity]):

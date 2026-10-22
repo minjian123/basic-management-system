@@ -14,7 +14,7 @@ from bms_core.config.base import BaseConfigSource
 from bms_core.config.null import NullConfigSource
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.db.unit_of_work import DbUnitOfWork
-from bms_platform.models.user import LOCK_TYPE_INACTIVE, SysUser
+from bms_core.models.platform.user import LOCK_TYPE_INACTIVE, SysUser
 from bms_platform.repositories.account_lock import AccountLockRepository
 from bms_platform.repositories.user import UserRepository
 from bms_platform.services.account_lock import INACTIVE_LOCK_SENTINEL, AccountLockService

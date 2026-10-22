@@ -13,13 +13,13 @@ from sqlalchemy import delete, func, select
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.objects import BaseFrameworkObject
 from bms_core.db.session import DbSession
-from bms_tenant.models.tenant import (
+from bms_core.models.tenant.tenant import (
     TENANT_KIND_BUSINESS,
     TENANT_KIND_PLATFORM,
     TENANT_STATUS_ACTIVE,
     SysTenant,
 )
-from bms_tenant.models.tenant_database import SysTenantDatabase
+from bms_core.models.tenant.tenant_database import SysTenantDatabase
 
 __all__ = ["TenantRegistryRepository"]
 

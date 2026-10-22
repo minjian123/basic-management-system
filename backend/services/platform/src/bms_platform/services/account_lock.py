@@ -18,14 +18,14 @@ from bms_core.core.exceptions import AccountLockNotFoundError, NotFoundError
 from bms_core.core.logging import get_logger
 from bms_core.core.objects import BaseFrameworkObject
 from bms_core.db.unit_of_work import UnitOfWork
-from bms_core.password.default import resolve_inactive_lock_days
-from bms_core.schemas.pagination import BasePageQuery
-from bms_platform.models.user import (
+from bms_core.models.platform.user import (
     LOCK_TYPE_INACTIVE,
     LOCK_TYPE_MANUAL,
     UNLOCK_MODE_MANUAL,
     SysAccountLock,
 )
+from bms_core.password.default import resolve_inactive_lock_days
+from bms_core.schemas.pagination import BasePageQuery
 from bms_platform.repositories.account_lock import AccountLockRepository
 from bms_platform.repositories.user import UserRepository
 from bms_platform.schemas.account_lock import InactiveScanResult

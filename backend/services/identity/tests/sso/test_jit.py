@@ -23,11 +23,11 @@ from bms_core.events.contracts import resolve_event_contract
 from bms_core.events.platform_events import register_platform_event_contracts
 from bms_core.lock.base import build_lock_key
 from bms_core.lock.memory import MemoryDistributedLock
+from bms_core.models.identity.user_identity import SysUserIdentity
 from bms_core.models.outbox import SysEventDeadLetter, SysOutbox
 from bms_core.outbox.base import BaseOutboxStore
 from bms_core.outbox.null import NullOutboxStore
 from bms_core.outbox.store import SqlOutboxStore
-from bms_identity.models.user_identity import SysUserIdentity
 from bms_identity.repositories.user_identity import UserIdentityRepository
 from bms_identity.services.jit import (
     JIT_EVENT_TYPE,

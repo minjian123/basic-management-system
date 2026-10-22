@@ -39,11 +39,11 @@ from bms_core.core.objects import BaseFrameworkObject
 from bms_core.db.session import DbSession
 from bms_core.db.unit_of_work import UnitOfWork
 from bms_core.events.base import EventEnvelope
+from bms_core.models.platform.role import ROLE_TYPE_CUSTOM, SysRole
+from bms_core.models.platform.user import UNLOCK_MODE_AUTO, SysUser
 from bms_core.outbox.base import BaseOutboxStore
 from bms_core.password.base import BasePasswordPolicy
 from bms_core.security.base import BasePasswordHasher
-from bms_platform.models.role import ROLE_TYPE_CUSTOM, SysRole
-from bms_platform.models.user import UNLOCK_MODE_AUTO, SysUser
 from bms_platform.repositories.account_lock import AccountLockRepository
 from bms_platform.repositories.role import RoleRepository, UserRoleRepository
 from bms_platform.repositories.user import UserRepository

@@ -17,7 +17,7 @@ from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.db.session import DbSession, session_scope
 from bms_core.db.tenant import DEMO_TENANT
 from bms_core.idp.state.memory import MemoryIdpStateStore
-from bms_identity.models.client import SysClient
+from bms_core.models.identity.client import SysClient
 
 from .helpers import CLIENT_ID, CLIENT_SECRET, REDIRECT_URI, FakeOidcPlatformClient
 

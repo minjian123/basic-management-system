@@ -21,10 +21,10 @@ from bms_core.core.context import current_user_id
 from bms_core.core.exceptions import ParamError
 from bms_core.db.session import DbSession
 from bms_core.db.unit_of_work import UnitOfWork
+from bms_core.models.platform.user import LOCK_TYPES, SysAccountLock, SysUser
 from bms_core.permission.base import require_permission
 from bms_core.schemas.common import ApiResponse
 from bms_core.schemas.pagination import BasePageQuery, BasePageResponse
-from bms_platform.models.user import LOCK_TYPES, SysAccountLock, SysUser
 from bms_platform.repositories.account_lock import AccountLockRepository
 from bms_platform.repositories.user import UserRepository
 from bms_platform.schemas.account_lock import LockItem, ManualLockRequest

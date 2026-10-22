@@ -17,10 +17,10 @@ from bms_core.api.deps import get_platform_read_db, get_platform_write_db, get_s
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.models.base import Base
 from bms_core.models.outbox import SysOutbox
-from bms_tenant.models.tenant import SysTenant
-from bms_tenant.models.tenant_database import SysTenantDatabase
-from bms_tenant.models.tenant_module import SysTenantModule
-from bms_tenant.models.tenant_quota import SysTenantQuota
+from bms_core.models.tenant.tenant import SysTenant
+from bms_core.models.tenant.tenant_database import SysTenantDatabase
+from bms_core.models.tenant.tenant_module import SysTenantModule
+from bms_core.models.tenant.tenant_quota import SysTenantQuota
 from bms_tenant.services.provisioning import TenantProvisionService
 from ops.tenant_provisioning import ProvisionOutcome
 

@@ -1,8 +1,8 @@
 """平台服务 repositories 层：用户扩展信息仓储（`sys_user_extension`）。"""
 
 from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.models.platform.system import SysUserExtension
 from bms_core.repositories.base_db_repository import BaseDbRepository
-from bms_platform.models.system import SysUserExtension
 
 
 class UserExtensionRepository(BaseDbRepository[SysUserExtension]):

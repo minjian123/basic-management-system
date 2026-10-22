@@ -17,10 +17,10 @@ from bms_core.core.exceptions import (
 from bms_core.db.unit_of_work import DbUnitOfWork
 from bms_core.idp.state.base import BaseIdpStateStore
 from bms_core.idp.state.memory import MemoryIdpStateStore
+from bms_core.models.identity.session import SysSession
 from bms_core.ratelimit.memory import MemoryRateLimiter
 from bms_core.security.session import DefaultSessionSecurity
 from bms_core.session.memory import MemorySessionStore
-from bms_identity.models.session import SysSession
 from bms_identity.services.password_reset import PASSWORD_RESET_NAMESPACE, PasswordResetService
 from bms_identity.services.platform_client import PlatformCredentialClient
 from bms_identity.services.session import SessionService

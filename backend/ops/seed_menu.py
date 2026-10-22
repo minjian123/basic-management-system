@@ -34,7 +34,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
 from bms_core.db.keys import PLATFORM_SERVICE_KEY
-from bms_platform.models.menu import (
+from bms_core.models.platform.menu import (
     SysAction,
     SysActionI18n,
     SysBusiness,

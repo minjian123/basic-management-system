@@ -38,11 +38,8 @@ from bms_core.core.objects import BaseFrameworkObject, BaseValueObject
 from bms_core.datasource.registry import DataSourceRegistry
 from bms_core.db.session import DbSession
 from bms_core.db.unit_of_work import UnitOfWork
-from bms_core.permission.version import permission_version_key
-from bms_core.scope.extensions import registered_data_scope_extensions
-from bms_core.scope.limits import data_scope_max_in_values
-from bms_platform.models.menu import SysField, SysForm, SysMenu, SysPermission
-from bms_platform.models.role import (
+from bms_core.models.platform.menu import SysField, SysForm, SysMenu, SysPermission
+from bms_core.models.platform.role import (
     NO_SOURCE_MENU_ID,
     PERM_TYPE_FORM,
     PERM_TYPE_MENU,
@@ -58,6 +55,9 @@ from bms_platform.models.role import (
     SysRoleField,
     SysRolePermission,
 )
+from bms_core.permission.version import permission_version_key
+from bms_core.scope.extensions import registered_data_scope_extensions
+from bms_core.scope.limits import data_scope_max_in_values
 from bms_platform.repositories.role import (
     DataScopeRepository,
     RoleFieldRepository,

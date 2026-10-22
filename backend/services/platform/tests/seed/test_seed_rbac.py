@@ -15,9 +15,9 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.models.base import Base
-from bms_platform.models.menu import SysAction, SysBusiness, SysPermission
-from bms_platform.models.role import SEPARATION_ROLE_TYPES, SysRole, SysRolePermission, SysUserRole
-from bms_platform.models.user import SysUser
+from bms_core.models.platform.menu import SysAction, SysBusiness, SysPermission
+from bms_core.models.platform.role import SEPARATION_ROLE_TYPES, SysRole, SysRolePermission, SysUserRole
+from bms_core.models.platform.user import SysUser
 from ops.seed_rbac import (
     AUDIT_ADMIN_CODES,
     BUILTIN_ADMIN_ROLES,

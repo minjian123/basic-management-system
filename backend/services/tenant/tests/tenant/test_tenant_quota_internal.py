@@ -19,9 +19,9 @@ from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import get_settings
 from bms_core.core.exceptions import ParamError, TenantQuotaExceededError
 from bms_core.models.base import Base
-from bms_tenant.models.tenant import SysTenant
-from bms_tenant.models.tenant_module import SysTenantModule
-from bms_tenant.models.tenant_quota import SysTenantQuota
+from bms_core.models.tenant.tenant import SysTenant
+from bms_core.models.tenant.tenant_module import SysTenantModule
+from bms_core.models.tenant.tenant_quota import SysTenantQuota
 from bms_tenant.repositories.tenant_quota import TenantQuotaRepository
 from bms_tenant.schemas.tenant_admin import TenantQuotaUpdateItem
 from bms_tenant.services.tenant_quota import TenantQuotaService, quota_defaults

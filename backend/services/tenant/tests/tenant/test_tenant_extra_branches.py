@@ -17,11 +17,11 @@ from bms_core.core.config import get_settings
 from bms_core.core.exceptions import ConfigError, ParamError, ServiceUnavailableError, TenantModuleUnavailableError
 from bms_core.core.serialization import stable_json_dumps
 from bms_core.models.base import Base
+from bms_core.models.tenant.tenant import SysTenant
+from bms_core.models.tenant.tenant_database import SysTenantDatabase
+from bms_core.models.tenant.tenant_module import SysTenantModule
 from bms_core.outbox.null import NullOutboxStore
 from bms_core.servicecall.base import BaseServiceClient, ServiceResponse
-from bms_tenant.models.tenant import SysTenant
-from bms_tenant.models.tenant_database import SysTenantDatabase
-from bms_tenant.models.tenant_module import SysTenantModule
 from bms_tenant.repositories.tenant_module import TenantModuleRepository
 from bms_tenant.services import platform_tenant as platform_tenant_module
 from bms_tenant.services.platform_tenant import ensure_platform_tenant, ensure_platform_tenant_row

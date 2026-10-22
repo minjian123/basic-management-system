@@ -6,6 +6,7 @@ import pytest
 from pydantic import ValidationError
 
 from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.models.platform.demo import Demo
 from bms_core.schemas.base import CONTRACT_COLLECTION, BaseSchema
 from bms_core.schemas.pagination import (
     BaseCursorQuery,
@@ -13,7 +14,6 @@ from bms_core.schemas.pagination import (
     BasePageQuery,
     BasePageResponse,
 )
-from bms_platform.models.demo import Demo
 from bms_platform.schemas.demo import DemoCreateRequest, DemoResponse, DemoUpdateRequest
 
 

@@ -43,6 +43,8 @@ from bms_core.db.keys import TENANT_DB_KEY_PREFIX, build_tenant_db_key
 from bms_core.db.tenant import current_tenant_context
 from bms_core.db.unit_of_work import UnitOfWork
 from bms_core.events.base import EventEnvelope
+from bms_core.models.platform.role import ROLE_TYPE_CUSTOM, SysRole
+from bms_core.models.platform.user import SysUser
 from bms_core.outbox.base import BaseOutboxStore
 from bms_core.permission.version import permission_version_key
 from bms_core.servicecall.base import BaseServiceClient, ServiceRequest
@@ -55,8 +57,6 @@ from bms_core.transaction.base import (
     GlobalTransaction,
 )
 from bms_platform import SERVICE_NAME
-from bms_platform.models.role import ROLE_TYPE_CUSTOM, SysRole
-from bms_platform.models.user import SysUser
 from bms_platform.repositories.role import RoleRepository, UserRoleRepository
 from bms_platform.repositories.user import UserRepository
 from bms_platform.schemas.users import (

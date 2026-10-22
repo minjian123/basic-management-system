@@ -34,6 +34,8 @@ from bms_core.db.session import DbSession
 from bms_core.db.tenant import current_tenant_id_str
 from bms_core.db.unit_of_work import UnitOfWork
 from bms_core.idempotency.base import IDEMPOTENCY_HEADER, IdempotencyStore, build_idempotency_key
+from bms_core.models.platform.role import SysRole
+from bms_core.models.platform.user import SysUser
 from bms_core.outbox.base import BaseOutboxStore
 from bms_core.password.base import BasePasswordPolicy
 from bms_core.permission.base import BasePermissionChecker, get_permission_checker, require_permission
@@ -48,8 +50,6 @@ from bms_core.transaction.base import (
     get_transaction_manager,
     get_transaction_participant,
 )
-from bms_platform.models.role import SysRole
-from bms_platform.models.user import SysUser
 from bms_platform.repositories.account_lock import AccountLockRepository
 from bms_platform.repositories.role import RoleRepository, UserRoleRepository
 from bms_platform.repositories.user import UserRepository

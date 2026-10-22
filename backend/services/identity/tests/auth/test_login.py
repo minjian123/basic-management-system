@@ -8,10 +8,10 @@ from sqlalchemy import select
 from bms_core.api.deps import get_tenant_source
 from bms_core.core.exceptions import NeedTenantError
 from bms_core.db.tenant import TenantContext, TenantNotFoundError
+from bms_core.models.identity.session import SysSession
 from bms_core.ratelimit.memory import MemoryRateLimiter
 from bms_core.session.memory import MemorySessionStore
 from bms_identity.api.tenancy import resolve_request_tenant
-from bms_identity.models.session import SysSession
 from bms_identity.services.session_issuer import truncate_field  # pyright: ignore[reportPrivateUsage]
 
 from .helpers import (

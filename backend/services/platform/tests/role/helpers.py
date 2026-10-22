@@ -11,8 +11,8 @@ from bms_core.cache.memory import MemoryCacheRegion
 from bms_core.config.null import NullConfigSource
 from bms_core.core.config import Settings
 from bms_core.db.unit_of_work import DbUnitOfWork
+from bms_core.models.platform.role import SysRole
 from bms_core.schemas.pagination import BasePageQuery
-from bms_platform.models.role import SysRole
 from bms_platform.repositories.menu import (
     ActionRepository,
     BusinessRepository,

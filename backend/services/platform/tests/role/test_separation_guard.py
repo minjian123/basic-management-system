@@ -21,7 +21,7 @@ from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList,
 from bms_core.core.context import reset_current_user_id, set_current_user_id
 from bms_core.core.exceptions import RoleSeparationConflictError, UserSeparationConflictError
 from bms_core.events.base import EventEnvelope
-from bms_platform.models.role import (
+from bms_core.models.platform.role import (
     ROLE_TYPE_AUDIT,
     ROLE_TYPE_CUSTOM,
     ROLE_TYPE_SECURITY,

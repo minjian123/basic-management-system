@@ -19,12 +19,12 @@ from bms_core.core.exceptions import ClientInvalidError, ClientNotFoundError
 from bms_core.core.objects import BaseFrameworkObject
 from bms_core.db.session import DbSession
 from bms_core.db.unit_of_work import UnitOfWork
+from bms_core.models.identity.client import SysClient
 from bms_core.oauth.base import GRANT_TYPES
 from bms_core.oauth.oidc_provider import OIDC_GRANT_AUTHORIZATION_CODE, OIDC_SCOPE_OPENID
 from bms_core.oauth.scopes import validate_scopes
 from bms_core.schemas.pagination import BasePageQuery
 from bms_core.security.base import BasePasswordHasher
-from bms_identity.models.client import SysClient
 from bms_identity.repositories.client import SysClientRepository
 
 __all__ = ["ClientSecret", "ClientService"]

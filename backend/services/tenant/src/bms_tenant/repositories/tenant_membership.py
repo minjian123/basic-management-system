@@ -11,9 +11,9 @@ from sqlalchemy import select
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.objects import BaseFrameworkObject
 from bms_core.db.session import DbSession
+from bms_core.models.tenant.tenant import SysTenant
+from bms_core.models.tenant.user_tenant import SysUserTenant
 from bms_core.tenant.membership import TenantMembershipTarget
-from bms_tenant.models.tenant import SysTenant
-from bms_tenant.models.user_tenant import SysUserTenant
 
 __all__ = ["ACTIVE_MEMBERSHIP_STATUS", "TenantMembershipRepository", "to_target"]
 

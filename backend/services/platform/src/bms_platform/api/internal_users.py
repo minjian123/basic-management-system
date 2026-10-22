@@ -20,10 +20,10 @@ from bms_core.core.exceptions import ParamError
 from bms_core.db.session import DbSession
 from bms_core.db.tenant import TenantContext
 from bms_core.db.unit_of_work import UnitOfWork
+from bms_core.models.platform.user import SysUser
 from bms_core.schemas.common import ApiResponse
 from bms_core.schemas.pagination import BasePageResponse
 from bms_core.tenant.membership import TenantMembershipStore
-from bms_platform.models.user import SysUser
 from bms_platform.repositories.user import UserRepository
 from bms_platform.schemas.users import (
     InternalUserItem,

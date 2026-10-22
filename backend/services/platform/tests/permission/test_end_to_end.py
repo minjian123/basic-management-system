@@ -22,6 +22,20 @@ from bms_core.cache.memory import MemoryCacheRegion
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.exceptions import PermissionError
 from bms_core.models.base import Base
+from bms_core.models.platform.menu import SysField
+from bms_core.models.platform.role import (
+    NO_SOURCE_MENU_ID,
+    PERM_TYPE_FORM,
+    PERM_TYPE_MENU,
+    PERM_TYPE_PERMISSION,
+    POLICY_TYPE_SELECT,
+    ROLE_TYPE_CUSTOM,
+    SysDataScope,
+    SysRole,
+    SysRoleField,
+    SysRolePermission,
+    SysUserRole,
+)
 from bms_core.permission.engine import PermissionEngine
 from bms_core.permission.field import BaseFieldPermissionProvider
 from bms_core.permission.snapshot import (
@@ -39,20 +53,6 @@ from bms_core.permission.sources import (
     PermissionSubjectData,
 )
 from bms_core.permission.subject import PermissionSubjectService
-from bms_platform.models.menu import SysField
-from bms_platform.models.role import (
-    NO_SOURCE_MENU_ID,
-    PERM_TYPE_FORM,
-    PERM_TYPE_MENU,
-    PERM_TYPE_PERMISSION,
-    POLICY_TYPE_SELECT,
-    ROLE_TYPE_CUSTOM,
-    SysDataScope,
-    SysRole,
-    SysRoleField,
-    SysRolePermission,
-    SysUserRole,
-)
 from bms_platform.permission.field_provider import StaticFieldPermissionProvider
 from bms_platform.repositories.role import (
     DataScopeRepository,

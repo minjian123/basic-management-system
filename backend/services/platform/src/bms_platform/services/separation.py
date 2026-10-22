@@ -24,7 +24,7 @@ from bms_core.core.context import get_current_user_id
 from bms_core.core.exceptions import RoleSeparationConflictError, UserSeparationConflictError
 from bms_core.core.objects import BaseFrameworkObject
 from bms_core.db.session import DbSession
-from bms_platform.models.role import (
+from bms_core.models.platform.role import (
     ROLE_TYPE_AUDIT,
     ROLE_TYPE_SECURITY,
     ROLE_TYPE_SYSTEM,

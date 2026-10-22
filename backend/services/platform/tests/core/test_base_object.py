@@ -8,10 +8,10 @@ from pydantic import computed_field
 
 from bms_core.core.base import BaseObject
 from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.models.platform.demo import Demo
 from bms_core.repositories.base_repository import BaseRepository
 from bms_core.schemas.base import BaseSchema
 from bms_core.services.base_service import BaseService
-from bms_platform.models.demo import Demo
 
 
 @dataclass

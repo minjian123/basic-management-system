@@ -31,9 +31,9 @@ from bms_core.db.unit_of_work import UnitOfWork
 from bms_core.idp.base import IdpProbeResult
 from bms_core.idp.registry import IdentityProviderSpec
 from bms_core.idp.schema import has_secret, mask_provider_config, validate_provider_config
+from bms_core.models.identity.identity_provider import SysIdentityProvider
 from bms_core.ratelimit.base import BaseRateLimiter, RateLimitRule, build_rate_limit_key
 from bms_core.schemas.pagination import BasePageQuery
-from bms_identity.models.identity_provider import SysIdentityProvider
 from bms_identity.repositories.identity_provider import IdentityProviderRepository
 from bms_identity.schemas.identity_provider import IdpProviderItem
 from bms_identity.services.provider_registry import ProviderRegistry

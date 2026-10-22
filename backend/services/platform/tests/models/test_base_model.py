@@ -15,7 +15,7 @@ from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.context import current_user_id
 from bms_core.core.id import SnowflakeGenerator, id_generator
 from bms_core.models.base import Base, BaseModel
-from bms_platform.models.demo import Demo
+from bms_core.models.platform.demo import Demo
 
 
 class Widget(BaseModel):

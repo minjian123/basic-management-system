@@ -35,11 +35,7 @@ from bms_core.dict.base import current_dict_locale
 from bms_core.events.base import EventEnvelope
 from bms_core.i18n.base import DEFAULT_LOCALE, SUPPORTED_LOCALES
 from bms_core.menu import menu_tree_key, menu_version_key
-from bms_core.outbox.base import BaseOutboxStore
-from bms_core.permission.cache import current_permission_cache_store
-from bms_core.permission.version import permission_version_key
-from bms_core.schemas.base import CONTRACT_COLLECTION, CONTRACT_STABLE_LIST, BaseSchema
-from bms_platform.models.menu import (
+from bms_core.models.platform.menu import (
     SysAction,
     SysBusiness,
     SysButton,
@@ -48,6 +44,10 @@ from bms_platform.models.menu import (
     SysMenu,
     SysPermission,
 )
+from bms_core.outbox.base import BaseOutboxStore
+from bms_core.permission.cache import current_permission_cache_store
+from bms_core.permission.version import permission_version_key
+from bms_core.schemas.base import CONTRACT_COLLECTION, CONTRACT_STABLE_LIST, BaseSchema
 from bms_platform.repositories.menu import (
     ActionRepository,
     BusinessRepository,

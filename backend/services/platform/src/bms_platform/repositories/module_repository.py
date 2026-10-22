@@ -8,9 +8,9 @@
 from sqlalchemy import ColumnElement, func, select
 
 from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
+from bms_core.models.platform.catalog import SysModule
 from bms_core.repositories.base_db_repository import BaseDbRepository
 from bms_core.schemas.pagination import BasePageQuery
-from bms_platform.models.catalog import SysModule
 
 
 class ModuleRepository(BaseDbRepository[SysModule]):

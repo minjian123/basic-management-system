@@ -199,12 +199,12 @@ def test_sys_admin_not_in_tenant_tables() -> None:
     names = {item.table_name for item in TABLE_OWNERSHIP}
     assert "sys_admin" not in names, "`sys_admin` 已改为平台租户账号（不采用独立表）"
 
-    from bms_platform.models.role import ROLE_TYPE_PLATFORM_ADMIN, SEPARATION_ROLE_TYPES
+    from bms_core.models.platform.role import ROLE_TYPE_PLATFORM_ADMIN, SEPARATION_ROLE_TYPES
 
     assert ROLE_TYPE_PLATFORM_ADMIN == "platform_admin"
     assert ROLE_TYPE_PLATFORM_ADMIN not in SEPARATION_ROLE_TYPES, "平台超管不参与三权互斥"
 
-    from bms_tenant.models.tenant import TENANT_KIND_PLATFORM
+    from bms_core.models.tenant.tenant import TENANT_KIND_PLATFORM
 
     assert TENANT_KIND_PLATFORM == "platform"
     tenant_tables = {item.table_name for item in TABLE_OWNERSHIP if item.datasource is Datasource.TENANT}

@@ -20,11 +20,11 @@ from bms_core.db.registry import EngineRegistry
 from bms_core.db.session import session_scope
 from bms_core.db.tenant import TenantContext
 from bms_core.db.unit_of_work import DbUnitOfWork
+from bms_core.models.identity.client import SysClient
 from bms_core.permission.base import require_permission
 from bms_core.schemas.common import ApiResponse
 from bms_core.schemas.pagination import BasePageQuery, BasePageResponse
 from bms_core.security.base import BasePasswordHasher
-from bms_identity.models.client import SysClient
 from bms_identity.schemas.oidc import (
     ClientCreated,
     ClientCreateRequest,

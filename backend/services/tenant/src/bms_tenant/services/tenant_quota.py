@@ -9,7 +9,7 @@ from bms_core.core.config import Settings
 from bms_core.core.exceptions import ParamError, TenantQuotaExceededError
 from bms_core.core.objects import BaseFrameworkObject
 from bms_core.db.session import DbSession
-from bms_tenant.models.tenant_quota import (
+from bms_core.models.tenant.tenant_quota import (
     QUOTA_KEY_OPEN_CALLS,
     QUOTA_KEY_STORAGE_BYTES,
     QUOTA_KEY_USER_COUNT,
