@@ -30,6 +30,7 @@
 from __future__ import annotations
 
 import argparse
+import ast
 import json
 import os
 import re
@@ -676,21 +677,92 @@ def cmd_bootstrap(
     provision = ConcurrentStableList(["python", "-m", "ops.provision_tenant", "--admin-url", admin_url])
     for tenant in tenants:
         provision.update(["--code", tenant])
-    _compose_run(deploy_dir, env, "platform", provision)
+    _compose_run(deploy_dir, env, _run_image_of("ops.provision_tenant"), provision)
     print("[bootstrap] 3/4 建表（按服务）")
     for service in services:
         _init_schema(deploy_dir, env, service, _bootstrap_tag(env, service), tenants)
     print("[bootstrap] 4/4 种子")
-    # 种子按「服务包 / 表归属」选运行镜像：seed_module 需 bms_platform；seed_tenant 需 bms_tenant；
-    # 字典表归属 platform（seed_dict 写平台租户库）；seed_tables 仅需 bms_core
+    # 运行镜像按脚本自身的 `RUN_IMAGE` 声明选取（`ops` 脚本为机器可读单一来源；14_03）：
+    # 声明 `*` 的脚本回落 platform 镜像（只需 bms_core + ops，与历史行为等价）。
     if "platform" in services:
-        _compose_run(deploy_dir, env, "platform", ConcurrentStableList(["python", "-m", "ops.seed_module"]))
-        _compose_run(deploy_dir, env, "platform", ConcurrentStableList(["python", "-m", "ops.seed_tables"]))
+        _compose_run(
+            deploy_dir, env, _run_image_of("ops.seed_module"), ConcurrentStableList(["python", "-m", "ops.seed_module"])
+        )
+        _compose_run(
+            deploy_dir, env, _run_image_of("ops.seed_tables"), ConcurrentStableList(["python", "-m", "ops.seed_tables"])
+        )
         # 字典六表已随 02_09 退役：原「平台租户库种子字典（ops.seed_dict）」步骤删除（脚本与表均已不存在）
     if "tenant" in services:
-        _compose_run(deploy_dir, env, "tenant", ConcurrentStableList(["python", "-m", "ops.seed_tenant"]))
+        _compose_run(
+            deploy_dir, env, _run_image_of("ops.seed_tenant"), ConcurrentStableList(["python", "-m", "ops.seed_tenant"])
+        )
     print("[bootstrap] 完成（幂等，可重跑）")
     return 0
+
+
+_RUN_IMAGE_FALLBACK = "platform"
+"""`RUN_IMAGE` 为 `*` 或缺失时的回落镜像（任意镜像可运行，取 platform 与历史行为等价）。"""
+
+_RUN_IMAGE_MODULE_PREFIX = "ops."
+"""`ops` 脚本模块名前缀（`python -m ops.<script>`）。"""
+
+
+def _ops_script_path(module: str) -> Path:
+    """取 `ops` 脚本源码路径。
+
+    Args:
+        module: 模块名（`ops.seed_module`）。
+
+    Returns:
+        Path: 脚本文件路径。
+
+    Raises:
+        RuntimeError: 模块名不属 `ops` 包或脚本不存在。
+    """
+    if not module.startswith(_RUN_IMAGE_MODULE_PREFIX):
+        raise RuntimeError(f"仅支持 ops 脚本（收到 {module!r}）")
+    name = module[len(_RUN_IMAGE_MODULE_PREFIX) :].replace(".", "/")
+    path = REPO_ROOT / "backend" / "ops" / f"{name}.py"
+    if not path.is_file():
+        raise RuntimeError(f"ops 脚本不存在：{path}")
+    return path
+
+
+def _run_image_of(module: str) -> str:
+    """读取 `ops` 脚本声明的运行镜像（标准库 `ast` 静态读取，部署机无需后端虚拟环境）。
+
+    口径：`RUN_IMAGE` 为脚本内的机器可读声明（`platform` / `tenant` / `txn` / `ci` / `*`）；
+    取值为 `*` 时回落 platform 镜像（任意服务镜像均可运行该脚本）。
+
+    Args:
+        module: 模块名（`ops.seed_module`）。
+
+    Returns:
+        str: 运行镜像标识（`platform` / `tenant` / `txn`）。
+
+    Raises:
+        RuntimeError: 脚本未声明 `RUN_IMAGE`、声明值非法或声明为 `ci`（无对应部署镜像）。
+    """
+    path = _ops_script_path(module)
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    declared = ""
+    for node in tree.body:
+        if isinstance(node, ast.Assign) and any(
+            isinstance(target, ast.Name) and target.id == "RUN_IMAGE" for target in node.targets
+        ):
+            value = node.value
+            if isinstance(value, ast.Constant) and isinstance(value.value, str):
+                declared = value.value
+            break
+    if not declared:
+        raise RuntimeError(f"{module} 未声明 RUN_IMAGE（须在脚本内声明运行镜像；见 14_03）")
+    if declared == "*":
+        return _RUN_IMAGE_FALLBACK
+    if declared == "ci":
+        raise RuntimeError(f"{module} 声明 RUN_IMAGE = 'ci'（CI / 开发机专用，无部署镜像可选）")
+    if declared not in ("platform", "tenant", "txn"):
+        raise RuntimeError(f"{module} 的 RUN_IMAGE 声明非法：{declared!r}")
+    return declared
 
 
 def _bootstrap_tag(env: ConcurrentStableDict[str, str], service: str) -> str:

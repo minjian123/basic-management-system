@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """服务边界机器护栏（bms 权威源侧，CI base-integrity 与本地运行）。
 
-工作区形态（`backend/libs/<共享库>` + `backend/services/<服务>`）下校验七项
+工作区形态（`backend/libs/<共享库>` + `backend/services/<服务>`）下校验十项
 （《后端开发规范》§3.1「依赖方向」、§3.2「模块边界与数据所有权」；《微服务演进规划》S1 / S2）：
 
 1. **共享库不得依赖服务**：`libs/*` 包不得 import 任一 `services/*` 包；
@@ -19,7 +19,14 @@
    （如 `sys_tenant` / `sys_client`），声明场景**只校验「表已登记」、不判归属越权**；`models/` 根级文件
    与基座其余目录口径不变（仍按 `platform` 判），访问侧判定亦不变；
 7. **读侧出口例外白名单核对**：`deploy/boundaries/data_ownership_exceptions.json` 结构 /
-   字段 / 归属校验；命中的越界按「已登记例外」放行并计数，**未登记仍失败**。
+   字段 / 归属校验；命中的越界按「已登记例外」放行并计数，**未登记仍失败**；
+8. **`ops` 运行镜像声明（14_03）**：`backend/ops/*.py` 须声明机器可读 `RUN_IMAGE`
+   （`platform` / `tenant` / `txn` / `ci` / `*`）；**跨包脚本**未声明或声明值非法即失败；
+9. **`ops` 导入闭包（14_03）**：脚本声明的运行镜像所含包 ⊇ 其**传递导入闭包**所需服务包
+   （传递闭包含 `ops` 内部互导——本次缺陷正是间接链）；`*` 只允许闭包含 `bms_core` + `ops`；
+   镜像包集合常量须与 `backend/Dockerfile` 的 COPY 面一致；
+10. **运行期代码不得依赖运维通道（14_03）**：`services/*/src` 不得导入 `ops`；非 platform 服务的
+    `src` 不得导入 `bms_platform`（硬断言、无例外；`tests/` 不纳入）。
 
 用法::
 
@@ -104,6 +111,11 @@ counts: ConcurrentStableDict[str, int] = ConcurrentStableDict(
         "cross_service_access_violation": 0,
         "registered_exceptions_total": 0,
         "registered_exceptions_used": 0,
+        "ops_run_image_missing": 0,
+        "ops_import_closure_violation": 0,
+        "ops_image_packages_drift": 0,
+        "runtime_ops_dependency": 0,
+        "runtime_cross_service_dependency": 0,
     }
 )
 service_tables: ConcurrentStableDict[str, ConcurrentStableList[str]] = ConcurrentStableDict()
@@ -121,6 +133,44 @@ _SHARED_MODELS_MARKER = "/libs/bms_core/src/bms_core/models/"
 
 _FORM_CATALOG_REGISTRY_RELATIVE = "registry/forms.py"
 """`form_key` 构建期清单（按定义登记全部业务实体表名，规则 6② 引用扫描豁免该模块）。"""
+
+_OPS_RELATIVE = "backend/ops"
+"""运维脚本目录（规则 8/9 扫描面；`ops` 是运维通道，运行期代码不得依赖）。"""
+
+_DOCKERFILE_RELATIVE = "backend/Dockerfile"
+"""服务镜像构建文件（规则 9 用它断言镜像包集合常量与实际 COPY 面一致）。"""
+
+_RUN_IMAGE_VALUES = ("platform", "tenant", "txn", "ci", "*")
+"""`RUN_IMAGE` 合法取值（`14_03`；`*` = 任意服务镜像，仅需 `bms_core` + `ops`）。"""
+
+_ALL_SERVICE_PACKAGES = frozenset(
+    {
+        "bms_platform",
+        "bms_identity",
+        "bms_tenant",
+        "bms_txn",
+        "bms_ai",
+        "bms_file",
+        "bms_notification",
+        "bms_report",
+        "bms_search",
+    }
+)
+"""平台服务包全集（`ci` 镜像 = 全量工作区，含全部服务包）。"""
+
+_IMAGE_PACKAGES: ConcurrentStableDict[str, ConcurrentStableSet[str]] = ConcurrentStableDict(
+    {
+        "platform": ConcurrentStableSet({"bms_core", "bms_platform", "ops"}),
+        "tenant": ConcurrentStableSet({"bms_core", "bms_tenant", "ops"}),
+        "txn": ConcurrentStableSet({"bms_core", "bms_txn", "ops"}),
+        "ci": ConcurrentStableSet({"bms_core", "ops"} | set(_ALL_SERVICE_PACKAGES)),
+    }
+)
+"""镜像 → 所含包集合（规则 9 单一来源；`*` 不在此表——它只保证 `bms_core` + `ops`）。"""
+
+_RUNTIME_SERVICE_PACKAGES = frozenset({"bms_core", "ops"})
+"""任意服务镜像恒含的包（`*` 声明的可用面；目标服务自身源码亦在镜像内，故 `*` 脚本允许导入本服务包）。"""
+
 
 # 说明：06_02 分链已把迁移链表集改为由表归属登记派生（`bms_core/db/migration.py` 不再以字面量登记
 # 跨归属表名），原「迁移链表集过渡豁免」（`_LEGACY_CHAIN_TABLES_RELATIVE`）已随分链落地移除。
@@ -497,6 +547,14 @@ def check() -> int:
                 "cross_service_access_violation",
             )
 
+    # 规则 8 / 9：`ops` 运行镜像声明与导入闭包（14_03）
+    ops_imports, run_images = _scan_ops()
+    _check_ops_run_images(run_images, ops_imports)
+    _check_ops_import_closure(run_images, ops_imports)
+
+    # 规则 10：运行期代码不得依赖运维通道 / 跨服务源码（14_03）
+    _check_runtime_dependencies()
+
     return len(problems)
 
 
@@ -531,6 +589,254 @@ def _is_shared_model_subpackage(rel: str) -> bool:
     return "/" in rel.split(marker, 1)[1]
 
 
+def _module_name_of(path: Path) -> str:
+    """源文件 → 模块名（`backend/ops/seed_user.py` → `ops.seed_user`）。
+
+    Args:
+        path: 源文件路径。
+
+    Returns:
+        str: 模块名（`__init__.py` 取包名）。
+    """
+    rel = path.relative_to(ROOT).as_posix()
+    parts = rel[: -len(".py")].split("/")
+    if parts[-1] == "__init__":
+        parts = parts[:-1]
+    # 去掉仓库内的目录前缀（`backend`），只保留可导入的包路径
+    if parts and parts[0] == "backend":
+        parts = parts[1:]
+    return ".".join(parts)
+
+
+def _run_image_of(tree: ast.Module) -> str | None:
+    """取模块级 `RUN_IMAGE` 声明值（14_03）。
+
+    Args:
+        tree: 语法树。
+
+    Returns:
+        str | None: 声明值；未声明或非字符串常量返回 None。
+    """
+    for node in tree.body:
+        targets: ConcurrentStableList[ast.expr] = ConcurrentStableList()
+        value: ast.expr | None = None
+        if isinstance(node, ast.Assign):
+            targets = ConcurrentStableList(node.targets)
+            value = node.value
+        elif isinstance(node, ast.AnnAssign):
+            targets = ConcurrentStableList([node.target])
+            value = node.value
+        if not targets or value is None:
+            continue
+        if not any(isinstance(t, ast.Name) and t.id == "RUN_IMAGE" for t in targets):
+            continue
+        if isinstance(value, ast.Constant) and isinstance(value.value, str):
+            return value.value
+        return None
+    return None
+
+
+def _ops_closure(
+    script: str, ops_imports: ConcurrentStableDict[str, ConcurrentStableSet[str]]
+) -> ConcurrentStableSet[str]:
+    """计算 `ops` 脚本的**传递导入闭包**（含 `ops` 内部互导）。
+
+    Args:
+        script: 脚本模块名（`ops.seed_user`）。
+        ops_imports: `ops` 模块 → 其导入的模块名集合。
+
+    Returns:
+        ConcurrentStableSet[str]: 闭包内全部被导入模块名（不含脚本自身）。
+    """
+    seen: ConcurrentStableSet[str] = ConcurrentStableSet()
+    pending = list(ops_imports.get(script, ConcurrentStableSet()))
+    while pending:
+        module = pending.pop()
+        if module in seen:
+            continue
+        seen.add(module)
+        pending.extend(ops_imports.get(module, ConcurrentStableSet()))
+    return seen
+
+
+def _needed_service_packages(closure: ConcurrentStableSet[str]) -> ConcurrentStableSet[str]:
+    """从闭包取「所需服务包」（`bms_core` 与 `ops` 之外的工作区包）。
+
+    Args:
+        closure: 导入闭包。
+
+    Returns:
+        ConcurrentStableSet[str]: 所需服务包名集合。
+    """
+    needed: ConcurrentStableSet[str] = ConcurrentStableSet()
+    for module in closure:
+        top = module.split(".")[0]
+        if top in _ALL_SERVICE_PACKAGES:
+            needed.add(top)
+    return needed
+
+
+def _scan_ops() -> tuple[ConcurrentStableDict[str, ConcurrentStableSet[str]], ConcurrentStableDict[str, str | None]]:
+    """扫描 `backend/ops`：各模块导入面与 `RUN_IMAGE` 声明。
+
+    Returns:
+        tuple[dict, dict]: （模块 → 导入模块集合，模块 → RUN_IMAGE 值）。
+    """
+    imports: ConcurrentStableDict[str, ConcurrentStableSet[str]] = ConcurrentStableDict()
+    run_images: ConcurrentStableDict[str, str | None] = ConcurrentStableDict()
+    ops_dir = ROOT / _OPS_RELATIVE
+    if not ops_dir.is_dir():
+        return imports, run_images
+    for path in sorted(ops_dir.glob("*.py")):
+        if path.name == "__init__.py":
+            continue
+        module = _module_name_of(path)
+        imports.set(module, ConcurrentStableSet(m for _lineno, m in _iter_imports(path)))
+        run_images.set(module, _run_image_of(ast.parse(path.read_text(encoding="utf-8"))))
+    return imports, run_images
+
+
+def _dockerfile_image_packages() -> tuple[ConcurrentStableSet[str], ConcurrentStableList[str]]:
+    """解析 `backend/Dockerfile` 的源码 COPY 面，推导镜像所含工作区包。
+
+    口径：镜像 = `bms_core`（`COPY libs/bms_core/src`）+ 目标服务（`COPY services/${SERVICE}/src`）
+    + `ops`（`COPY ops`）。参数化服务目录无法静态展开为具体包名，故返回「固定包集合」与「是否参数化服务」标记。
+
+    Returns:
+        tuple[set, list]: （固定包集合，问题列表）。
+    """
+    packages: ConcurrentStableSet[str] = ConcurrentStableSet()
+    issues: ConcurrentStableList[str] = ConcurrentStableList()
+    path = ROOT / _DOCKERFILE_RELATIVE
+    if not path.is_file():
+        issues.add(f"[镜像包集合] 缺 {_DOCKERFILE_RELATIVE}（无法断言镜像 COPY 面）")
+        return packages, issues
+    text = path.read_text(encoding="utf-8")
+    if "COPY libs/bms_core/src" not in text:
+        issues.add("[镜像包集合] Dockerfile 未 COPY `libs/bms_core/src`（镜像不含基座）")
+    else:
+        packages.add("bms_core")
+    if "COPY ops" not in text:
+        issues.add("[镜像包集合] Dockerfile 未 COPY `ops`（运维脚本不在镜像内）")
+    else:
+        packages.add("ops")
+    if "COPY services/${SERVICE}/src" not in text:
+        issues.add("[镜像包集合] Dockerfile 未按 `${SERVICE}` 参数化 COPY 目标服务源码")
+    return packages, issues
+
+
+def _check_ops_run_images(
+    run_images: ConcurrentStableDict[str, str | None],
+    imports: ConcurrentStableDict[str, ConcurrentStableSet[str]],
+) -> None:
+    """规则 8：`ops` 脚本运行镜像声明（14_03）。
+
+    跨包脚本（闭包含服务包）未声明或声明值非法即失败；非跨包脚本声明可选（声明则须合法）。
+
+    Args:
+        run_images: 模块 → RUN_IMAGE 值。
+        imports: 模块 → 导入模块集合。
+    """
+    for module in sorted(run_images):
+        declared = run_images[module]
+        closure = _ops_closure(module, imports)
+        needed = _needed_service_packages(closure)
+        if declared is None:
+            if needed:
+                _record(
+                    f"[运行镜像未声明] {module} 跨包导入 {sorted(needed)} 但未声明 RUN_IMAGE"
+                    f"（合法取值：{' / '.join(_RUN_IMAGE_VALUES)}）",
+                    "ops_run_image_missing",
+                )
+            continue
+        if declared not in _RUN_IMAGE_VALUES:
+            _record(
+                f"[运行镜像非法] {module} 声明 RUN_IMAGE = {declared!r}（合法取值：{' / '.join(_RUN_IMAGE_VALUES)}）",
+                "ops_run_image_missing",
+            )
+
+
+def _check_ops_import_closure(
+    run_images: ConcurrentStableDict[str, str | None],
+    imports: ConcurrentStableDict[str, ConcurrentStableSet[str]],
+) -> None:
+    """规则 9：`ops` 导入闭包 ⊇ 声明镜像所含包（14_03）。
+
+    传递闭包（含 `ops` 内部互导）所需服务包必须被声明镜像覆盖；`*` 只覆盖 `bms_core` + `ops`；
+    镜像包集合常量须与 Dockerfile COPY 面一致。
+
+    Args:
+        run_images: 模块 → RUN_IMAGE 值。
+        imports: 模块 → 导入模块集合。
+    """
+    docker_packages, docker_issues = _dockerfile_image_packages()
+    for message in docker_issues:
+        _record(message, "ops_image_packages_drift")
+    for image, packages in _IMAGE_PACKAGES.items():
+        missing_in_image = ConcurrentStableSet(docker_packages - packages)
+        if missing_in_image:
+            _record(
+                f"[镜像包集合漂移] 声明 {image} 含 {sorted(packages)}，但 Dockerfile 实际含 {sorted(docker_packages)}",
+                "ops_image_packages_drift",
+            )
+            break
+    for module in sorted(run_images):
+        declared = run_images[module]
+        if declared is None or declared not in _RUN_IMAGE_VALUES:
+            continue
+        needed = _needed_service_packages(_ops_closure(module, imports))
+        if not needed:
+            continue
+        if declared == "*":
+            _record(
+                f"[导入闭包越界] {module} 声明 RUN_IMAGE = '*'（仅含 bms_core + ops），"
+                f"但闭包需要服务包 {sorted(needed)}",
+                "ops_import_closure_violation",
+            )
+            continue
+        allowed = _IMAGE_PACKAGES.get(declared, ConcurrentStableSet())
+        missing = ConcurrentStableSet(needed - allowed)
+        if missing:
+            _record(
+                f"[导入闭包越界] {module} 声明 RUN_IMAGE = {declared!r}（含 {sorted(allowed)}），"
+                f"但闭包需要 {sorted(missing)}",
+                "ops_import_closure_violation",
+            )
+
+
+def _check_runtime_dependencies() -> None:
+    """规则 10：运行期代码不得依赖运维通道 / 跨服务源码（14_03）。
+
+    `services/*/src` 不得导入 `ops`；非 platform 服务的 `src` 不得导入 `bms_platform`（硬断言、无例外）。
+    """
+    services_dir = ROOT / "backend" / "services"
+    if not services_dir.is_dir():
+        return
+    for project in sorted(services_dir.iterdir()):
+        src = project / "src"
+        if not src.is_dir():
+            continue
+        is_platform = project.name == "platform"
+        for path in sorted(src.rglob("*.py")):
+            if "__pycache__" in path.parts:
+                continue
+            rel = path.relative_to(ROOT).as_posix()
+            for lineno, module in _iter_imports(path):
+                top = module.split(".")[0]
+                if top == "ops":
+                    _record(
+                        f"[运行期依赖运维通道] {rel}:{lineno} import {module}"
+                        "（服务运行期代码不得导入 ops；开通种子 / 编排归基座 bms_core）",
+                        "runtime_ops_dependency",
+                    )
+                elif top == "bms_platform" and not is_platform:
+                    _record(
+                        f"[运行期跨服务依赖] {rel}:{lineno} import {module}"
+                        f"（服务 {project.name} 不得导入 bms_platform）",
+                        "runtime_cross_service_dependency",
+                    )
+
+
 def _self_test() -> int:
     """护栏拦截自检：在临时仓库构造违规样例，断言脚本报错。"""
     import subprocess
@@ -555,6 +861,16 @@ def _self_test() -> int:
         (ai / "models").mkdir(parents=True)
         (ai / "__init__.py").write_text("", encoding="utf-8")
         (ai / "models/__init__.py").write_text("", encoding="utf-8")
+        # 规则 8 / 9 前置：Dockerfile（镜像 COPY 面）与 ops 目录（样例随用随建 / 随清）
+        (tmp_path / "backend/Dockerfile").write_text(
+            "COPY libs/bms_core/src libs/bms_core/src\n"
+            "COPY services/${SERVICE}/src services/${SERVICE}/src\n"
+            "COPY ops ./ops\n",
+            encoding="utf-8",
+        )
+        ops_dir = tmp_path / "backend/ops"
+        ops_dir.mkdir(parents=True)
+        (ops_dir / "__init__.py").write_text("", encoding="utf-8")
 
         def run(expect_fail: bool, label: str) -> None:
             nonlocal ok
@@ -565,9 +881,73 @@ def _self_test() -> int:
             passed = failed == expect_fail
             ok = ok and passed
             print(f"  [self-test] {label}：{'通过' if passed else '不通过'}（期望{'拦截' if expect_fail else '放行'}）")
+            if not passed:
+                detail = (result.stdout or result.stderr or "").strip()
+                for line in detail.splitlines()[:6]:
+                    print(f"      {line}")
 
         def declare(target: Path, table: str) -> None:
             (target / "m.py").write_text(f'__tablename__ = "{table}"\n', encoding="utf-8")
+
+        # 规则 8 / 9 / 10（14_03）：运行镜像声明、导入闭包、运行期反向依赖
+        def write_ops(name: str, body: str) -> None:
+            (ops_dir / f"{name}.py").write_text(body, encoding="utf-8")
+
+        write_ops("clean", 'RUN_IMAGE = "*"\nimport bms_core\n')
+        run(False, "ops 声明 * 且闭包只含基座放行")
+
+        write_ops("needs_platform", 'RUN_IMAGE = "*"\nfrom bms_platform import models\n')
+        run(True, "ops 声明 * 但闭包含服务包拦截（本次缺陷形态）")
+
+        write_ops("needs_platform", 'RUN_IMAGE = "ci"\nfrom bms_platform import models\n')
+        run(False, "ops 声明 ci 覆盖全部包放行")
+
+        write_ops("needs_platform", 'RUN_IMAGE = "tenant"\nfrom bms_platform import models\n')
+        run(True, "ops 声明 tenant 但需要 platform 拦截")
+
+        write_ops("needs_platform", "from bms_platform import models\n")
+        run(True, "ops 跨包但未声明运行镜像拦截")
+
+        write_ops("needs_platform", 'RUN_IMAGE = "ghost"\nfrom bms_platform import models\n')
+        run(True, "ops 运行镜像取值非法拦截")
+
+        # 间接链：脚本本身不跨包，但经 ops 内部互导跨包（本次缺陷的传递形态）
+        write_ops("needs_platform", 'RUN_IMAGE = "ci"\nfrom bms_platform import models\n')
+        write_ops("relay", 'RUN_IMAGE = "*"\nfrom ops.needs_platform import models\n')
+        run(True, "ops 间接跨包（传递闭包）拦截")
+
+        (ops_dir / "needs_platform.py").unlink()
+        (ops_dir / "relay.py").unlink()
+        run(False, "ops 清理后放行")
+
+        # 运行期反向依赖：服务 src 导入 ops / 非 platform 服务导入 bms_platform
+        tenant_main = tmp_path / "backend/services/tenant/src/bms_tenant/main.py"
+        tenant_main.parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / "backend/services/tenant/src/bms_tenant/__init__.py").write_text("", encoding="utf-8")
+        tenant_main.write_text("import bms_core\n", encoding="utf-8")
+        run(False, "服务运行期只依赖基座放行")
+
+        tenant_main.write_text("from ops.tenant_provisioning import provision_infrastructure\n", encoding="utf-8")
+        run(True, "服务运行期导入 ops 拦截")
+
+        tenant_main.write_text("from bms_platform.models import menu\n", encoding="utf-8")
+        run(True, "非 platform 服务导入 bms_platform 拦截")
+
+        tenant_main.write_text("import bms_core\n", encoding="utf-8")
+        (svc / "main.py").write_text("import bms_platform\n", encoding="utf-8")
+        run(False, "platform 服务导入 bms_platform 放行")
+
+        # 镜像包集合与 Dockerfile 漂移（放最后：会改坏 Dockerfile，影响后续样例）
+        (tmp_path / "backend/Dockerfile").write_text(
+            "COPY services/${SERVICE}/src services/${SERVICE}/src\n", encoding="utf-8"
+        )
+        run(True, "Dockerfile 缺 COPY 基座 / ops 时镜像包集合漂移拦截")
+        (tmp_path / "backend/Dockerfile").write_text(
+            "COPY libs/bms_core/src libs/bms_core/src\n"
+            "COPY services/${SERVICE}/src services/${SERVICE}/src\n"
+            "COPY ops ./ops\n",
+            encoding="utf-8",
+        )
 
         (svc / "api/router.py").write_text("import bms_core\n", encoding="utf-8")
         run(False, "服务依赖共享库放行")
@@ -670,6 +1050,12 @@ def _self_test() -> int:
             encoding="utf-8",
         )
         run(True, "例外白名单 access=write 拦截")
+
+        # 复位例外白名单（上一样例留下非法条目，会污染后续样例）
+        (boundaries / "data_ownership_exceptions.json").write_text(
+            json.dumps({"version": 1, "exceptions": []}, ensure_ascii=False), encoding="utf-8"
+        )
+
     return 0 if ok else 1
 
 

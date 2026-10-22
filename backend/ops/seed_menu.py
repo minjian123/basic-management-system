@@ -50,6 +50,8 @@ from bms_core.models.platform.menu import (
 )
 from ops.seed_tenant import resolve_url
 
+RUN_IMAGE = "*"
+"""本脚本只依赖 `bms_core` 与 `ops`（不导入任何服务包），任意服务镜像均可运行。"""
 ZH = "zh-CN"
 EN = "en-US"
 

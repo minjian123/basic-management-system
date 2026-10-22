@@ -5,7 +5,7 @@
 #   （--provenance=false：BuildKit 默认 attestation 清单推送会被 GitLab Registry 拒绝，报 blob unknown）
 # 运行（容器编排 / 部署与回滚见 09_02）：
 #   docker run --rm -p 8000:8000 -e BMS_ENV=<环境> <image>
-# 口径：依赖以 uv.lock 锁定（--frozen）；非目标服务源码不入镜像；启动入口 python -m bms_{service}。
+# 口径：依赖以 uv.lock 锁定（--frozen）；**镜像只装 bms_core + 目标服务 + ops**（非目标服务源码不入镜像）；\n#       启动入口 python -m bms_{service}。构建期由 service-build 做**导入自检**（容器内 import 入口模块），\n#       缺模块即构建失败并打印缺失模块名——把「镜像缺模块」从运行时前移到构建期（14_03）。
 FROM python:3.14-slim
 
 ARG SERVICE

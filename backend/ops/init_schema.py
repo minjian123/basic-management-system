@@ -37,6 +37,8 @@ from bms_core.db.bootstrap import apply_chain_schema
 from bms_core.db.migration import DATASOURCE_ARCHIVE, DATASOURCE_PLATFORM, DATASOURCE_TENANT
 from ops.migrate_tenants import MigrationTask, build_task_parser, build_tasks
 
+RUN_IMAGE = "*"
+"""本脚本只依赖 `bms_core` 与 `ops`（不导入任何服务包），任意服务镜像均可运行。"""
 _LABELS = {
     DATASOURCE_PLATFORM: "平台服务库",
     DATASOURCE_TENANT: "服务租户库",

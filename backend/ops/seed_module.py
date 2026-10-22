@@ -31,6 +31,9 @@ from bms_core.models.platform.catalog import SysModule, SysProduct
 from bms_core.services.module_registry import PRODUCT_CATALOG, SERVICE_CATALOG, ModuleRecord, ProductRecord
 from ops.seed_tenant import resolve_url
 
+RUN_IMAGE = "*"
+"""本脚本只依赖 `bms_core` 与 `ops`（不导入任何服务包），任意服务镜像均可运行。"""
+
 
 def build_parser() -> argparse.ArgumentParser:
     """构建命令行解析器。

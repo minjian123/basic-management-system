@@ -45,6 +45,8 @@ from bms_core.events.platform_events import register_platform_event_contracts
 from bms_core.events.product_events import register_product_event_contracts
 from bms_core.services.module_registry import known_event_domains
 
+RUN_IMAGE = "*"
+"""本脚本只依赖 `bms_core` 与 `ops`（不导入任何服务包），任意服务镜像均可运行。"""
 _BACKEND_ROOT = Path(__file__).resolve().parents[1]
 REPO_ROOT = _BACKEND_ROOT.parent
 """仓库根（`backend/` 的父目录）。"""

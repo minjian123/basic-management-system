@@ -36,6 +36,9 @@ from bms_core.services.service_contract import (
 )
 from ops.contract_snapshot import build_app
 
+RUN_IMAGE = "*"
+"""本脚本只依赖 `bms_core` 与 `ops`（不导入任何服务包），任意服务镜像均可运行。"""
+
 
 def build_parser() -> argparse.ArgumentParser:
     """构建命令行解析器。

@@ -40,6 +40,8 @@ from bms_core.services.service_contract import (
 )
 from ops.contract_snapshot import build_openapi
 
+RUN_IMAGE = "*"
+"""本脚本只依赖 `bms_core` 与 `ops`（不导入任何服务包），任意服务镜像均可运行。"""
 OASDIFF_IMAGE = "tufin/oasdiff:v1.32.1"
 """oasdiff 固定 tag 镜像（预拉与镜像清单见《契约门禁与契约测试使用说明》）。"""
 

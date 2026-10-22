@@ -42,6 +42,8 @@ from bms_platform.repositories.module_repository import ModuleRepository
 from bms_platform.repositories.product_repository import ProductRepository
 from ops.seed_tenant import resolve_url
 
+RUN_IMAGE = "ci"
+"""本脚本导入 `bms_platform.*`（校验职责需实例化平台应用 / 仓储），在 CI 与开发机的全量工作区运行，无镜像边界。"""
 _SERVICES_DIR = Path(__file__).resolve().parents[1] / "services"
 """服务工程根（`backend/services`）。"""
 

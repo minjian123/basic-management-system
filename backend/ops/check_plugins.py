@@ -22,6 +22,9 @@ from bms_core.core.plugin import NULL_PLUGIN_NAME, build_plugin_registry
 from bms_core.core.resources import ResourceManager
 from bms_platform.main import ApplicationFactory
 
+RUN_IMAGE = "ci"
+"""本脚本导入 `bms_platform.*`（校验职责需实例化平台应用 / 仓储），在 CI 与开发机的全量工作区运行，无镜像边界。"""
+
 
 def main(argv: ConcurrentStableList[str] | None = None) -> int:
     """校验各能力 provider 引用（存在性 / 重名 / 版本格式）。

@@ -50,6 +50,8 @@ from bms_core.db.admin import (
 from bms_core.db.bootstrap import apply_chain_schema
 from bms_core.db.migration import resolve_chain
 
+RUN_IMAGE = "*"
+"""本脚本只依赖 `bms_core` 与 `ops`（不导入任何服务包），任意服务镜像均可运行。"""
 TEST_DATABASES: ConcurrentStableDict[str, ConcurrentStableDict[str, str]] = ConcurrentStableDict(
     {
         "mysql": ConcurrentStableDict({"platform": "bms_test_mysql", "tenant": "bms_test_mysql_t1"}),

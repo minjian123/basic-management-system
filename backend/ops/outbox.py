@@ -32,6 +32,9 @@ from bms_core.metrics.null import NullMetrics
 from bms_core.outbox.dispatcher import PollOutboxDispatcher
 from bms_core.outbox.store import SqlOutboxStore
 
+RUN_IMAGE = "*"
+"""本脚本只依赖 `bms_core` 与 `ops`（不导入任何服务包），任意服务镜像均可运行。"""
+
 
 def _resolve[PortT](plugin_key: str, provider: str, expected_version: str, fallback: PortT) -> PortT:
     """解析能力实现：未配置 provider 时直接取缺省实现（不构建注册表，避免影响同进程装配）。

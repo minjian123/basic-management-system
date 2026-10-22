@@ -29,6 +29,8 @@ from bms_core.core.config import get_settings
 from bms_core.models.identity.client import SysClient
 from bms_core.security.pbkdf2 import PBKDF2_ITERATIONS, Pbkdf2PasswordHasher
 
+RUN_IMAGE = "*"
+"""本脚本只依赖 `bms_core` 与 `ops`（不导入任何服务包），任意服务镜像均可运行。"""
 DEFAULT_CLIENT_ID = "bms-demo-client"
 DEFAULT_SECRET = "bms-demo-secret"
 DEFAULT_REDIRECT_URI = "http://localhost:8080/callback"

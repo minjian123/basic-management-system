@@ -52,6 +52,9 @@ from bms_core.db.tenant import build_tenant_db_key
 from bms_core.db.tenant_source import TENANT_SERVICE_KEY
 from ops.migrate_tenants import tenant_refs
 
+RUN_IMAGE = "*"
+"""本脚本只依赖 `bms_core` 与 `ops`（不导入任何服务包），任意服务镜像均可运行。"""
+
 
 @dataclass(frozen=True)
 class InitResult(BaseValueObject):

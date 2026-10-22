@@ -30,6 +30,8 @@ from bms_tenant.services.tenant_admin import TenantAdminService
 from bms_tenant.services.tenant_module import ModuleCatalog, TenantModuleService
 from bms_tenant.services.tenant_quota import TenantQuotaService
 
+RUN_IMAGE = "tenant"
+"""本脚本导入 `bms_tenant.services.*`（平台租户引导复用 tenant 服务实现），只有 tenant 镜像含该包。"""
 __all__ = ["main"]
 
 

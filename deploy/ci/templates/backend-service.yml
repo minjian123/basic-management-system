@@ -99,6 +99,26 @@ service-build:
     # --provenance=false：BuildKit 默认 attestation（provenance）清单推送会被 GitLab Registry 拒绝
     # （报 blob unknown；2026-09-24 mjbk 实测），关闭后推送正常
     - docker build --provenance=false --build-arg SERVICE="$SERVICE" -t "$IMAGE" -f backend/Dockerfile backend/
+    # 镜像导入自检（14_03）：把「镜像缺模块」从运行时前移到构建期。
+    # 本次缺陷（流水线 1188 contract-smoke-tenant）根因即「tenant 镜像内导入链跨到 bms_platform」，
+    # 但静态检查 / 单测 / 构建全过，只有容器真正启动才暴露——这里以容器内 `import bms_<service>.main`
+    # 提前暴露；失败直接打印缺失模块名（ModuleNotFoundError.name），便于定位是哪个包没进镜像。
+    - |
+      docker run --rm --entrypoint python "$IMAGE" -c '
+      import sys
+      module = "bms_" + sys.argv[1] + ".main"
+      try:
+          __import__(module)
+      except ModuleNotFoundError as exc:
+          print(f"[service-build] 镜像缺模块：{exc.name}（入口 {module} 导入失败）", file=sys.stderr)
+          print("[service-build] 提示：该模块不在本服务镜像内（镜像只装 bms_core + 本服务 + ops）；"
+                "若为跨服务依赖，应下沉基座或改声明运行镜像（见 14_03）", file=sys.stderr)
+          sys.exit(1)
+      except Exception as exc:
+          print(f"[service-build] 入口导入失败：{type(exc).__name__}: {exc}（{module}）", file=sys.stderr)
+          sys.exit(1)
+      print(f"[service-build] 导入自检通过：{module}")
+      ' "$SERVICE"
 
 # ---- 发布：推送 Registry + 镜像安全扫描 + 语义化标签 + 发布清单 + 发布度量（main / tag + 镜像档；同服务串行、不可中断）----
 service-release:

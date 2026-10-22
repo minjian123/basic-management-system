@@ -33,6 +33,9 @@ from bms_core.db.engine import EngineFactory
 from bms_core.db.keys import build_platform_db_key
 from bms_core.db.tenant_source import TENANT_SERVICE_KEY
 
+RUN_IMAGE = "*"
+"""本脚本只依赖 `bms_core` 与 `ops`（不导入任何服务包），任意服务镜像均可运行。"""
+
 
 def __getattr__(name: str) -> Any:
     """惰性暴露 `SysTenant`（外部 `from ops.seed_tenant import SysTenant` 兼容）。

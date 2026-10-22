@@ -44,6 +44,8 @@ from bms_txn.repositories.ledger import (
 )
 from bms_txn.services.ledger_cleanup import DEFAULT_RETENTION_DAYS, LedgerCleanup
 
+RUN_IMAGE = "txn"
+"""本脚本导入 `bms_txn.*`（TM 账本仓储与清理服务），只在 txn 镜像与运维机运行。"""
 _STATE_HUNG = "hung"
 """悬挂：非终态（在途）事务。"""
 
