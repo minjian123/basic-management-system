@@ -11,7 +11,7 @@
 | 归属库 | 平台服务库 `bms_tenant`（归属服务 `tenant`，与 `sys_tenant` 同库） |
 | 覆盖模块 | 26-租户管理 |
 | 上游依据 | 《架构设计 · 多租户路由》「三库命名与建库标准」节、[需求 10-1](../../../项目/06_认证与安全/需求/10_需求_租户标识内部化.md#r10-1)、[10_01 详细设计与口径定稿](../../../项目/06_认证与安全/任务/10_租户标识内部化/10_租户标识内部化_01_详细设计与口径定稿/设计/01_详细设计_01_详细设计与口径定稿.md) §3、需求 [09-2](../../../项目/06_认证与安全/需求/09_需求_类体系根治理.md#r09-2) |
-| ORM 模型 | `bms_tenant/models/tenant_database.py::SysTenantDatabase`（继承 `BaseModel`） |
+| ORM 模型 | `bms_core/models/tenant/tenant_database.py::SysTenantDatabase`（继承 `BaseModel`；基座共享模型，14_01 下沉） |
 | 状态 | 已落库（`tenant:platform` 链迁移 `0004_sys_tenant_database`，2026-09-29） |
 | 相关节点 | [数据库设计总览](../01_数据库设计_总览.md)「已设计数据表登记」、[sys_tenant](sys_tenant.md)、[架构 12-多租户路由](../../架构设计/12_架构设计_子系统_多租户路由.md) |
 
@@ -58,5 +58,6 @@
 | --- | --- | --- | --- |
 | 2026-09-29 | v1 | 新建表结构（平台库 `bms_tenant`；`tenant_id` + `db_basis` 对照，随 10_04 迁移 `0004_sys_tenant_database` 落地并回填存量） | minjian |
 | 2026-10-11 | v2 | 系统字段对齐（02_11）：增 `parent_id`（上级明细 ID）；随 `tenant:platform` 链 `0007_system_fields_form_key` | minjian |
+| 2026-10-22 | v3 | ORM 模型落点迁基座共享 `bms_core/models/tenant/tenant_database.py`（14_01 整包下沉；表名 / 字段 / 索引 / 归属不变） | minjian |
 
 > 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套

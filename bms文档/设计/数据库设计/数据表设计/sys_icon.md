@@ -11,7 +11,7 @@
 | 归属库 | platform 服务租户库 `bms_platform_{code}`（归属服务 `platform`） |
 | 覆盖模块 | 02-4-26 自定义图标与代码校验基座（platform 服务租户库；平台官方与业务自绘图标随代码发布、不落表） |
 | 上游依据 | 任务 `02-4-26`（自定义图标与代码校验基座）、《数据库设计 · 数据规范》「公共字段」节、《数据库开发规范》「系统字段」节 |
-| ORM 模型 | `bms_platform/models/system.py::SysIcon`（继承 `BaseModel`；随 `bms_platform/models/__init__.py::MODEL_MODULES` 导入） |
+| ORM 模型 | `bms_core/models/platform/system.py::SysIcon`（继承 `BaseModel`；基座共享模型，14_01 下沉；登记于 `bms_core/models/platform::MODEL_MODULES`） |
 | 状态 | 已落库（`enabled`：03_03 已入 `platform:tenant` 链，启动期 / `ops.init_tenant` 幂等建表） |
 | 相关节点 | [数据库设计总览](../01_数据库设计_总览.md)「已设计数据表登记」、[sys_icon_i18n](sys_icon_i18n.md)（多语言附表） |
 
@@ -59,5 +59,6 @@
 | --- | --- | --- | --- |
 | 2026-10-11 | v1 | 新建表文件（`planned`；补 `form_key`（表单标识，多表联合判别列）+ `parent_id`，系统字段对齐 02_11；本阶段仅结构声明、不建表） | minjian |
 | 2026-10-21 | v2 | 转 `enabled` 并入 `platform:tenant` 链落库（03_03 图标真实 CRUD；`sys_icon_i18n` 表文件随补） | minjian |
+| 2026-10-22 | v3 | ORM 模型落点迁基座共享 `bms_core/models/platform/system.py`（14_01 整包下沉；表名 / 字段 / 索引 / 归属不变） | minjian |
 
 > 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套

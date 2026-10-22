@@ -11,7 +11,7 @@
 | 归属库 | 平台服务库 `bms_tenant`（归属服务 `tenant`，与 `sys_tenant` 同库） |
 | 覆盖模块 | 26-租户管理 |
 | 上游依据 | 《架构设计 · 多租户路由》「配额管理」节、[需求 07-7](../../../项目/07_RBAC基础模块/需求/04_需求_租户与平台超管.md#r07-7) |
-| ORM 模型 | `bms_tenant/models/tenant_quota.py::SysTenantQuota`（继承 `BaseModel`） |
+| ORM 模型 | `bms_core/models/tenant/tenant_quota.py::SysTenantQuota`（继承 `BaseModel`；基座共享模型，14_01 下沉） |
 | 状态 | 已落库（随 `tenant:platform` 链幂等建表，2026-10-20） |
 | 相关节点 | [数据库设计总览](../01_数据库设计_总览.md)「核心表清单总表 · 平台库」、[sys_tenant](sys_tenant.md)、[26-租户管理](../26_数据库设计_租户管理.md) |
 
@@ -61,5 +61,6 @@
 | 日期 | 版本 | 变更 | 作者 |
 | --- | --- | --- | --- |
 | 2026-10-20 | v1 | 新建表结构（任务 `04_01`：用户数 / 存储 / 开放接口调用量三配额；PLANNED → ENABLED） | minjian |
+| 2026-10-22 | v2 | ORM 模型落点迁基座共享 `bms_core/models/tenant/tenant_quota.py`（14_01 整包下沉；表名 / 字段 / 索引 / 归属不变） | minjian |
 
 > 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套

@@ -11,7 +11,7 @@
 | 归属库 | 租户库 `bms_tenant_{code}` |
 | 覆盖模块 | 24-任务调度 |
 | 上游依据 | [需求 02-13](../../../项目/01_项目骨架/需求/02_需求_后端基座.md#r02-13)、《架构设计 · 任务调度》、《架构设计 · 后端基础类体系》「跨阶段基座」节 |
-| ORM 模型 | `app/models/system.py::SysTaskLog`（继承 `BaseModel`） |
+| ORM 模型 | `bms_core/models/platform/system.py::SysTaskLog`（继承 `BaseModel`；基座共享模型，14_01 下沉） |
 | 状态 | 已设计 |
 | 相关节点 | [数据库设计总览](../01_数据库设计_总览.md)「核心表清单总表 · 租户库」、[sys_task](sys_task.md) |
 
@@ -56,5 +56,6 @@
 | 2026-09-13 | v1 | 新建表结构（租户库；随回补阶段迁移） | minjian |
 | 2026-09-22 | v2 | 索引名对齐实际库与模型元数据（`idx_task_id` → `idx_sys_task_log_task_id`） | minjian |
 | 2026-10-11 | v3 | 系统字段对齐（02_11）：增 `parent_id`（上级明细 ID）（`planned` 表只补表文件与模型，迁移随其入链时补） | minjian |
+| 2026-10-22 | v4 | ORM 模型落点迁基座共享 `bms_core/models/platform/system.py`（14_01 整包下沉；表名 / 字段 / 索引 / 归属不变） | minjian |
 
 > 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套

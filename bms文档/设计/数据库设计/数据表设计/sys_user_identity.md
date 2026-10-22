@@ -11,7 +11,7 @@
 | 归属库 | 平台库 `bms_platform`（归属服务 `identity`） |
 | 覆盖模块 | 27-身份认证SSO |
 | 上游依据 | [需求 02-2](../../../项目/06_认证与安全/需求/02_需求_SSO与身份联邦.md#r02-2)、《概要设计 · 身份认证SSO》「数据模型与表设计」节、《架构设计 · 认证与会话》§4 |
-| ORM 模型 | `bms_identity/models/user_identity.py::SysUserIdentity`（继承 `BaseModel`） |
+| ORM 模型 | `bms_core/models/identity/user_identity.py::SysUserIdentity`（继承 `BaseModel`；基座共享模型，14_01 下沉） |
 | 状态 | 已落库（`identity:platform` 链迁移 `0001_sys_user_identity`，2026-09-27） |
 | 相关节点 | [数据库设计总览](../01_数据库设计_总览.md)「核心表清单总表 · 平台库」、[概要 26-身份认证SSO](../../概要设计/26_概要设计_身份认证SSO.md) |
 
@@ -60,5 +60,6 @@
 | --- | --- | --- | --- |
 | 2026-09-27 | v1 | 新建表结构（平台库；随 02_01 落库迁移 `0001_sys_user_identity`，新建 `identity:platform` 链） | minjian |
 | 2026-09-29 | v2 | `tenant_id` 由 `VARCHAR(64)`（租户编码）改 `BIGINT`（雪花租户主键）；`idp_key` 值前缀 `{tenant_code}` → `{tenant_id}`（随 10_04 迁移 + `ops/backfill_tenant_id_columns.py` 回填） | minjian |
+| 2026-10-22 | v3 | ORM 模型落点迁基座共享 `bms_core/models/identity/user_identity.py`（14_01 整包下沉；表名 / 字段 / 索引 / 归属不变） | minjian |
 
 > 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套

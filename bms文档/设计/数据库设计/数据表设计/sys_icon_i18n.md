@@ -11,7 +11,7 @@
 | 归属库 | platform 服务租户库 `bms_platform_{code}`（归属服务 `platform`） |
 | 覆盖模块 | 03_03 权限元数据维护页（自定义图标维护；租户库） |
 | 上游依据 | 《[数据库设计 · 数据规范](../02_数据库设计_数据规范.md)》「多语言与 i18n 附表」节、[需求 07-17](../../../项目/07_RBAC基础模块/需求/03_需求_菜单与权限.md#r07-17) |
-| ORM 模型 | `bms_platform/models/system.py::SysIconI18n`（继承 `BaseModel`） |
+| ORM 模型 | `bms_core/models/platform/system.py::SysIconI18n`（继承 `BaseModel`；基座共享模型，14_01 下沉） |
 | 状态 | 已落库（`enabled`：随主表 `sys_icon` 入 `platform:tenant` 链） |
 | 相关节点 | [数据库设计总览](../01_数据库设计_总览.md)「已设计数据表登记」、[sys_icon](sys_icon.md) |
 
@@ -53,5 +53,6 @@
 | 日期 | 版本 | 变更 | 作者 |
 | --- | --- | --- | --- |
 | 2026-10-21 | v1 | 新建表文件；`sys_icon` 转 `enabled` 随 03_03 图标真实 CRUD 入 `platform:tenant` 链落库 | minjian |
+| 2026-10-22 | v2 | ORM 模型落点迁基座共享 `bms_core/models/platform/system.py`（14_01 整包下沉；表名 / 字段 / 索引 / 归属不变） | minjian |
 
 > 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套

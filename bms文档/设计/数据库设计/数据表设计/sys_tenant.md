@@ -11,7 +11,7 @@
 | 归属库 | 平台服务库 `bms_tenant`（归属服务 `tenant`，06_03 定案；06_01 起随平台服务库拆分） |
 | 覆盖模块 | 26-租户管理 |
 | 上游依据 | 《架构设计 · 数据架构》「数据分布」节、《架构设计 · 多租户路由》「租户解析链」节、[需求 02-15](../../../项目/01_项目骨架/需求/02_需求_后端基座.md#r02-15) |
-| ORM 模型 | `bms_tenant/models/tenant.py::SysTenant`（继承 `BaseModel`；06_03 由共享基座库迁出） |
+| ORM 模型 | `bms_core/models/tenant/tenant.py::SysTenant`（继承 `BaseModel`；基座共享模型，14_01 下沉；06_03 由共享基座库迁出） |
 | 状态 | 已落库（平台链迁移 `0001_sys_tenant_module`，2026-09-22；`db_key` 改可空见 `0005_sys_tenant_db_key_nullable`，2026-09-23；种子见 `ops/seed_tenant.py`；`kind` / `status` / 域名唯一见 2026-10-20 v6，随 `tenant:platform` 链幂等建表） |
 | 相关节点 | [数据库设计总览](../01_数据库设计_总览.md)「核心表清单总表 · 平台库」、[架构 12-多租户路由](../../架构设计/12_架构设计_子系统_多租户路由.md) |
 
@@ -65,5 +65,6 @@
 | 2026-09-23 | v4 | `db_key` 废弃：改可空（平台链 `0005`）且不再写入，库键改由 `tenant_{service}_{code}` 派生（06_01）；归属库 / ORM 模型两栏对齐 06_03 迁出结果 | minjian |
 | 2026-10-11 | v5 | 系统字段对齐（02_11）：增 `form_key`（表单标识，多表联合判别列）+ `parent_id`；随 `tenant:platform` 链 `0007_system_fields_form_key` | minjian |
 | 2026-10-20 | v6 | 增 `kind`（`business` / `platform`，平台租户）；`status` 取值增 `provisioning`；`idx_sys_tenant_domain` 改 `uq_sys_tenant_domain_deleted_at` 复合唯一（需求 07-7 / 任务 `04_01`） | minjian |
+| 2026-10-22 | v7 | ORM 模型落点迁基座共享 `bms_core/models/tenant/tenant.py`（14_01 整包下沉；表名 / 字段 / 索引 / 归属不变） | minjian |
 
 > 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套

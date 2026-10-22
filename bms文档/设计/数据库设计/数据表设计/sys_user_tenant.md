@@ -11,8 +11,8 @@
 | 归属库 | 平台服务库 `bms_tenant`（归属服务 `tenant`，与 `sys_tenant` 同库） |
 | 覆盖模块 | 26-租户管理（租户自助） |
 | 上游依据 | [需求 11-1](../../../项目/06_认证与安全/需求/11_需求_租户自助与用户租户关系.md#r11-1)、《架构设计 · 多租户路由》「租户自助」节、《架构设计 · 数据架构》「数据分布」节 |
-| ORM 模型 | `bms_tenant/models/user_tenant.py::SysUserTenant`（继承 `BaseModel`） |
-| 状态 | 待落库（`tenant:platform` 链迁移 `0006_sys_user_tenant`，2026-10-04 生成；真库执行随部署窗口） |
+| ORM 模型 | `bms_core/models/tenant/user_tenant.py::SysUserTenant`（继承 `BaseModel`；基座共享模型，14_01 下沉） |
+| 状态 | 已落库（随 `tenant:platform` 链幂等建表，2026-10-22 实测） |
 | 相关节点 | [数据库设计总览](../01_数据库设计_总览.md)「核心表清单总表 · 平台库」、[sys_tenant](sys_tenant.md)、[架构 12-多租户路由](../../架构设计/12_架构设计_子系统_多租户路由.md) |
 
 - **语义**：一行 = 「**某租户（`tenant_id`，用户归属租户，即用户登录 / 建号所在租户）内的某用户（`user_id`）可访问目标租户（`target_tenant_id`）**」；每个用户**恒有**一行指向其归属租户自身（`target_tenant_id = tenant_id`，即「自有租户」），其余行表示被额外授予 / 加入的租户。
@@ -59,5 +59,6 @@
 | 日期 | 版本 | 变更 | 作者 |
 | --- | --- | --- | --- |
 | 2026-10-04 | v1 | 新建表结构（平台库 `bms_tenant`；归属租户 + 用户 + 目标租户 + 来源 + 状态，复合唯一 `(tenant_id, user_id, target_tenant_id, deleted_at)`；随 `tenant:platform` 迁移 `0006_sys_user_tenant`） | minjian |
+| 2026-10-22 | v2 | ORM 模型落点迁基座共享 `bms_core/models/tenant/user_tenant.py`（14_01 整包下沉；表名 / 字段 / 索引 / 归属不变）；落库状态由 `待落库` 改为 `已落库`（幂等建表实测建出） | minjian |
 
 > 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套

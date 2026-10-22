@@ -11,7 +11,7 @@
 | 归属库 | identity 服务租户库 `bms_identity_{code}`（归属服务 `identity`） |
 | 覆盖模块 | 15-会话管理 |
 | 上游依据 | [需求 01-3](../../../项目/06_认证与安全/需求/01_需求_认证与会话.md#r01-3)、《概要设计 · 会话管理》「数据模型与表设计」节 |
-| ORM 模型 | `bms_identity/models/session.py::SysSession`（继承 `BaseModel`） |
+| ORM 模型 | `bms_core/models/identity/session.py::SysSession`（继承 `BaseModel`；基座共享模型，14_01 下沉） |
 | 状态 | 已落库（`identity:tenant` 链迁移 `0001_sys_session`（2026-09-26）+ `0005_sys_session_remember_me`（2026-10-03）） |
 | 相关节点 | [数据库设计总览](../01_数据库设计_总览.md)「核心表清单总表 · 租户库」、[概要 14-会话管理](../../概要设计/14_概要设计_会话管理.md) |
 
@@ -60,5 +60,6 @@
 | --- | --- | --- | --- |
 | 2026-09-26 | v1 | 新建表结构（identity 服务租户库；随 01_03 落库迁移 `0001_sys_session`） | minjian |
 | 2026-10-03 | v2 | 增 `remember_me`（可空 BOOLEAN；登录保留时长选项，随 05_05 迁移 `0005_sys_session_remember_me`） | minjian |
+| 2026-10-22 | v3 | ORM 模型落点迁基座共享 `bms_core/models/identity/session.py`（14_01 整包下沉；表名 / 字段 / 索引 / 归属不变） | minjian |
 
 > 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套

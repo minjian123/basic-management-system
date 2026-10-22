@@ -11,7 +11,7 @@
 | 归属库 | identity 服务租户库 `bms_identity_{code}`（归属服务 `identity`） |
 | 覆盖模块 | 27-身份认证SSO（BMS 兼作 IdP 客户端注册；开放接口管理模块复用） |
 | 上游依据 | [需求 02-5](../../../项目/06_认证与安全/需求/02_需求_SSO与身份联邦.md#r02-5)、《概要设计 · 身份认证SSO》「数据模型与表设计」节、《概要设计 · 开放接口管理》「数据模型与表设计」节 |
-| ORM 模型 | `bms_identity/models/client.py::SysClient`（继承 `BaseModel`） |
+| ORM 模型 | `bms_core/models/identity/client.py::SysClient`（继承 `BaseModel`；基座共享模型，14_01 下沉） |
 | 状态 | 已落库（`identity:tenant` 链迁移 `0003_sys_client`，2026-09-27） |
 | 相关节点 | [数据库设计总览](../01_数据库设计_总览.md)「核心表清单总表 · 租户库」、[概要 26-身份认证SSO](../../概要设计/26_概要设计_身份认证SSO.md) |
 
@@ -63,5 +63,6 @@
 | --- | --- | --- | --- |
 | 2026-09-27 | v1 | 新建表结构（identity 服务租户库；随 02_05 落库迁移 `0003_sys_client`） | minjian |
 | 2026-10-11 | v2 | 系统字段对齐（02_11）：增 `form_key`（表单标识，多表联合判别列）+ `parent_id`；既有标识列 `client_id` **DB 列名改 `code`**（ORM 属性 / 契约字段名保持 `client_id`），唯一约束改 `uq_sys_client_code_deleted_at`；随 `identity:tenant` 链 `0006_system_fields_form_key` | minjian |
+| 2026-10-22 | v3 | ORM 模型落点迁基座共享 `bms_core/models/identity/client.py`（14_01 整包下沉；表名 / 字段 / 索引 / 归属不变） | minjian |
 
 > 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套

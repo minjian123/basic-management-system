@@ -11,7 +11,7 @@
 | 归属库 | 平台库 `bms_platform` |
 | 覆盖模块 | 03-模块注册 |
 | 上游依据 | 《架构设计 · 模块注册》「注册表结构与数据」节、《数据库设计 · 数据规范》「多语言与 i18n 附表」节 |
-| ORM 模型 | `app/models/platform.py::SysModuleI18n`（继承 `BaseModel`） |
+| ORM 模型 | `bms_core/models/platform/catalog.py::SysModuleI18n`（继承 `BaseModel`；基座共享模型，14_01 下沉） |
 | 状态 | 已落库（平台链迁移 `0001_sys_tenant_module`，2026-09-22） |
 | 相关节点 | [数据库设计总览](../01_数据库设计_总览.md)「核心表清单总表 · 平台库」、[sys_module](sys_module.md) |
 
@@ -54,5 +54,6 @@
 | 2026-09-13 | v1 | 新建表结构（平台库；随落库阶段迁移） | minjian |
 | 2026-09-22 | v2 | 迁移落地：随平台链 `0001_sys_tenant_module` 建表 | minjian |
 | 2026-10-11 | v3 | 系统字段对齐（02_11）：增 `parent_id`（上级明细 ID）；随 `platform:platform` 链 `0010_system_fields_form_key` | minjian |
+| 2026-10-22 | v4 | ORM 模型落点迁基座共享 `bms_core/models/platform/catalog.py`（14_01 整包下沉；表名 / 字段 / 索引 / 归属不变） | minjian |
 
 > 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套

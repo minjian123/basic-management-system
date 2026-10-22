@@ -11,7 +11,7 @@
 | 归属库 | 平台库 `bms_platform`（归属服务 `platform`） |
 | 覆盖模块 | 08-菜单管理 |
 | 上游依据 | 《[数据库设计 · 数据规范](../02_数据库设计_数据规范.md)》「多语言与 i18n 附表」节、《[需求 07-5](../../../项目/07_RBAC基础模块/需求/03_需求_菜单与权限.md#r07-5)》「多语言」项 |
-| ORM 模型 | `bms_platform/models/menu.py::SysActionI18n`（继承 `BaseModel`） |
+| ORM 模型 | `bms_core/models/platform/menu.py::SysActionI18n`（继承 `BaseModel`；基座共享模型，14_01 下沉） |
 | 状态 | 已落库（随主表 `sys_action` 迁移 `0007_menu_metadata`） |
 | 相关节点 | [数据库设计总览](../01_数据库设计_总览.md)「核心表清单总表 · 平台库」、[sys_action](sys_action.md) |
 
@@ -54,5 +54,6 @@
 | --- | --- | --- | --- |
 | 2026-10-04 | v1 | 新建表结构（平台库；随平台链 `0007_menu_metadata` 迁移落地） | minjian |
 | 2026-10-11 | v2 | 系统字段对齐（02_11）：增 `parent_id`（上级明细 ID）；随 `platform:platform` 链 `0010_system_fields_form_key` | minjian |
+| 2026-10-22 | v3 | ORM 模型落点迁基座共享 `bms_core/models/platform/menu.py`（14_01 整包下沉；表名 / 字段 / 索引 / 归属不变） | minjian |
 
 > 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套

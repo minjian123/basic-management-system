@@ -11,7 +11,7 @@
 | 归属库 | 平台库 `bms_platform` |
 | 覆盖模块 | 03-模块注册（产品级注册 / R4.1） |
 | 上游依据 | 《[架构设计 · 模块注册](../../架构设计/11_架构设计_子系统_模块注册.md)》「模块契约与产品下线」节、《[平台可扩展性规划](../../../规划/平台可扩展性规划.md)》落地路线图 R4.1、[需求 12-1](../../../项目/02_后端基座与服务化地基/需求/12_需求_产品服务接入.md#r12-1) |
-| ORM 模型 | `bms_platform/models/catalog.py::SysProduct`（继承 `BaseModel`；与 `SysModule` 同文件，06_02「模型归服务」口径） |
+| ORM 模型 | `bms_core/models/platform/catalog.py::SysProduct`（继承 `BaseModel`；基座共享模型，14_01 下沉；与 `SysModule` 同文件，随来源服务分子包 `models/platform/`） |
 | 状态 | 已落库（平台链迁移 `0009_sys_product` 建表，2026-10-07；产品档案三行种子见 `ops/seed_module.py` 幂等 upsert） |
 | 相关节点 | [数据库设计总览](../01_数据库设计_总览.md)「核心表清单总表 · 平台库」、[sys_module](sys_module.md)（`product_key` 逻辑引用本表） |
 
@@ -60,5 +60,6 @@
 | 2026-10-07 | v3 | `status` 取值补 `planned`（已注册未建代码 / 建表：`mdm` 先注册后建表的预登记态，与 `sys_module.status` 口径一致） | minjian |
 | 2026-10-08 | v4 | `frontend_package_source` 取值口径定稿（产品前端工程标识 `{仓库名}#{前端根}`，不含主机与凭据）并回填已接入产品 `mdm`（`mdm#frontend`）；随 bms 任务 `03_04`（R4.3 跨仓模块产物接入）交付 | minjian |
 | 2026-10-11 | v5 | 系统字段对齐（02_11）：增 `form_key`（表单标识，多表联合判别列）+ `parent_id`；既有标识列 `product_key` **DB 列名改 `code`**（ORM 属性 / 契约字段名保持 `product_key`），唯一约束改 `uq_sys_product_code_deleted_at`；随 `platform:platform` 链 `0010_system_fields_form_key` | minjian |
+| 2026-10-22 | v6 | ORM 模型落点迁基座共享 `bms_core/models/platform/catalog.py`（14_01 整包下沉；表名 / 字段 / 索引 / 归属不变） | minjian |
 
 > 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套

@@ -11,7 +11,7 @@
 | 归属库 | 平台库 `bms_platform` |
 | 覆盖模块 | 03-模块注册（服务目录与契约登记） |
 | 上游依据 | 《架构设计 · 模块注册》「注册表结构与数据」「服务目录与契约登记」节、《命名规范》「数据库命名」节、[需求 02-16](../../../项目/01_项目骨架/需求/02_需求_后端基座.md#r02-16)、[需求 03-1](../../../项目/02_后端基座与服务化地基/需求/03_需求_服务目录与契约登记.md#r03-1) |
-| ORM 模型 | `bms_platform/models/catalog.py::SysModule`（继承 `BaseModel`；06_02 分链后随服务迁出） |
+| ORM 模型 | `bms_core/models/platform/catalog.py::SysModule`（继承 `BaseModel`；基座共享模型，14_01 下沉；06_02 分链后随服务迁出） |
 | 状态 | 已落库（平台链迁移 `0001_sys_tenant_module` 建表、`0002_sys_module_catalog` 升格服务目录，2026-09-22；服务目录 16 行种子见 `ops/seed_module.py` 幂等 upsert） |
 | 相关节点 | [数据库设计总览](../01_数据库设计_总览.md)「核心表清单总表 · 平台库」、[架构 11-模块注册](../../架构设计/11_架构设计_子系统_模块注册.md)、[sys_module_i18n](sys_module_i18n.md) |
 
@@ -71,5 +71,6 @@
 | 2026-09-22 | v2 | 迁移落地：随平台链 `0001_sys_tenant_module` 建表（索引名统一 `idx_*`；种子脚本退化为纯种子） | minjian |
 | 2026-09-22 | v3 | 升格服务目录：增 `service_key` / `business_code` / `service_group` / `build_batch` / `service_version` / `contract_version` / `product_key`；`errcode_segment` 改可空并去 DB 复合唯一（随平台链 `0002_sys_module_catalog`） | minjian |
 | 2026-10-11 | v4 | 系统字段对齐（02_11）：增 `form_key`（表单标识，多表联合判别列）+ `parent_id`；既有标识列 `module_key` **DB 列名改 `code`**（ORM 属性 / 契约字段名保持 `module_key`），唯一约束改 `uq_sys_module_code_deleted_at`；随 `platform:platform` 链 `0010_system_fields_form_key` | minjian |
+| 2026-10-22 | v5 | ORM 模型落点迁基座共享 `bms_core/models/platform/catalog.py`（14_01 整包下沉；表名 / 字段 / 索引 / 归属不变） | minjian |
 
 > 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套

@@ -11,7 +11,7 @@
 | 归属库 | 平台库 `bms_platform`（归属服务 `platform`） |
 | 覆盖模块 | 08-菜单管理（按钮 → 权限码 挂接链） |
 | 上游依据 | 《[概要设计 · 菜单管理](../../概要设计/07_概要设计_菜单管理.md)》、《[架构设计 · 权限计算引擎](../../架构设计/15_架构设计_子系统_权限计算引擎.md)》「权限模型」节、《[需求 07-5](../../../项目/07_RBAC基础模块/需求/03_需求_菜单与权限.md#r07-5)》 |
-| ORM 模型 | `bms_platform/models/menu.py::SysButton`（继承 `BaseModel`） |
+| ORM 模型 | `bms_core/models/platform/menu.py::SysButton`（继承 `BaseModel`；基座共享模型，14_01 下沉） |
 | 状态 | 已落库（表文件与平台链迁移 `0007_menu_metadata` 就绪；真库随部署窗口） |
 | 相关节点 | [数据库设计总览](../01_数据库设计_总览.md)「核心表清单总表 · 平台库」、[sys_form](sys_form.md)、[sys_permission](sys_permission.md) |
 
@@ -61,6 +61,7 @@
 | 2026-10-04 | v1 | 新建表结构（平台库；随平台链 `0007_menu_metadata` 迁移落地） | minjian |
 | 2026-10-10 | v2 | 三词分治：挂接对象 `action_id` → `permission_id`（唯一键与索引同步改） | minjian |
 | 2026-10-11 | v3 | 系统字段对齐（02_11）：增 `parent_id`（上级明细 ID）；随 `platform:platform` 链 `0010_system_fields_form_key` | minjian |
+| 2026-10-22 | v4 | ORM 模型落点迁基座共享 `bms_core/models/platform/menu.py`（14_01 整包下沉；表名 / 字段 / 索引 / 归属不变） | minjian |
 
 > 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套
 

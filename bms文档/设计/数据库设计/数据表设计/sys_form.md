@@ -11,7 +11,7 @@
 | 归属库 | 平台库 `bms_platform`（归属服务 `platform`） |
 | 覆盖模块 | 08-菜单管理（表单 → 业务 挂接；菜单 ↔ 表单 经关联表 `sys_menu_form` 多对多） |
 | 上游依据 | 《[概要设计 · 菜单管理](../../概要设计/07_概要设计_菜单管理.md)》、《[架构设计 · 权限计算引擎](../../架构设计/15_架构设计_子系统_权限计算引擎.md)》「权限模型」节、《[需求 07-5](../../../项目/07_RBAC基础模块/需求/03_需求_菜单与权限.md#r07-5)》 |
-| ORM 模型 | `bms_platform/models/menu.py::SysForm`（继承 `BaseModel`） |
+| ORM 模型 | `bms_core/models/platform/menu.py::SysForm`（继承 `BaseModel`；基座共享模型，14_01 下沉） |
 | 状态 | 已落库（`platform:platform` 链 `0007_menu_metadata` 建表，`0008_menu_form_multi` 去 `menu_id` 与唯一约束）。菜单 ↔ 表单多对多经关联表 `sys_menu_form` 承载（支持多入口指向同一表单、无入口表单） |
 | 相关节点 | [数据库设计总览](../01_数据库设计_总览.md)「核心表清单总表 · 平台库」、[sys_menu_form](sys_menu_form.md)、[sys_menu](sys_menu.md)、[sys_business](sys_business.md)、[sys_button](sys_button.md)、[sys_field](sys_field.md) |
 
@@ -55,5 +55,6 @@
 | 2026-10-04 | v1 | 新建表结构（平台库；随平台链 `0007_menu_metadata` 迁移落地） | minjian |
 | 2026-10-05 | v2 | 移除 `menu_id` 及其唯一索引；菜单 ↔ 表单改由关联表 `sys_menu_form` 多对多承载（支持多入口指向同一表单、无入口表单）。关联表模型 / 迁移与 `03_01` 已交付实现待返工 | minjian |
 | 2026-10-07 | v3 | 随 `02_03` 返工**落库**：`0008_menu_form_multi` 建 `sys_menu_form`、搬迁既有 `menu_id` 数据后删列与唯一约束；`MenuFormRepository` / 快照多表单 / `my_menu` 多表单 / 契约 `menu_ids` 同步 | minjian |
+| 2026-10-22 | v4 | ORM 模型落点迁基座共享 `bms_core/models/platform/menu.py`（14_01 整包下沉；表名 / 字段 / 索引 / 归属不变） | minjian |
 
 > 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套

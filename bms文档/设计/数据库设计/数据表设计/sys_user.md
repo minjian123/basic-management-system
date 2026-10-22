@@ -11,7 +11,7 @@
 | 归属库 | platform 服务租户库 `bms_platform_{code}`（归属服务 `platform`）；**02_05 由 org 服务租户库迁入**（用户＝系统账号，属权限 / 身份体系） |
 | 覆盖模块 | 03-用户管理（本表只承载本地登录所需最小字段；完整用户档案随用户管理阶段扩展） |
 | 上游依据 | [需求 01-3](../../../项目/06_认证与安全/需求/01_需求_认证与会话.md#r01-3)、《架构设计 · 认证与会话》「密码与账号策略」节、[需求 07-10](../../../项目/07_RBAC基础模块/需求/02_需求_用户与角色.md#r07-10) |
-| ORM 模型 | `bms_platform/models/user.py::SysUser`（继承 `BaseModel`） |
+| ORM 模型 | `bms_core/models/platform/user.py::SysUser`（继承 `BaseModel`；基座共享模型，14_01 下沉） |
 | 状态 | 已落库（`platform:tenant` 链迁移 `0008_user_tables`（建表），2026-10-07；原 `org:tenant` 链 `0001_sys_user` / `0002_password_policy_and_account_lock` / `0003_sys_user_reset_contact` 保留为历史，`0006_drop_user_tables` 删表） |
 | 相关节点 | [数据库设计总览](../01_数据库设计_总览.md)「核心表清单总表 · 租户库」、[架构 14-认证与会话](../../架构设计/14_架构设计_子系统_认证与会话.md) |
 
@@ -72,5 +72,6 @@
 | 2026-09-28 | v3 | 新增 `email` / `phone` 可空字段（找回密码通道；随 03_06 落库迁移 `0003_sys_user_reset_contact`） | minjian |
 | 2026-10-07 | v4 | **归属库迁移**：org 服务租户库 → **platform 服务租户库**（随 02_05 落 `platform:tenant` 链 `0008_user_tables`；字段 / 索引 / 约束不变） | minjian |
 | 2026-10-11 | v5 | 系统字段对齐（02_11）：增 `form_key`（表单标识，多表联合判别列）+ `parent_id`；既有标识列 `username` **DB 列名改 `code`**（ORM 属性 / 契约字段名保持 `username`），唯一约束改 `uq_sys_user_code_deleted_at`；随 `platform:tenant` 链 `0015_system_fields_form_key` | minjian |
+| 2026-10-22 | v6 | ORM 模型落点迁基座共享 `bms_core/models/platform/user.py`（14_01 整包下沉；表名 / 字段 / 索引 / 归属不变） | minjian |
 
 > 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套

@@ -11,7 +11,7 @@
 | 归属库 | platform 服务租户库 `bms_platform_{code}`（归属服务 `platform`，与 `sys_config` / `sys_user_preference` 同库） |
 | 覆盖模块 | 05-前端插件化（域 06 具名插槽：样例插件的后端契约资源；归属 `sys` 模块 —— 平台共享前缀 `sys_`，与平台服务同库同链） |
 | 上游依据 | [需求 05-10](../../../项目/05_前端插件化/需求/06_需求_具名插槽与插件挂接.md#r05-10)、《[架构设计 · 扩展点与插件化](../../架构设计/10_架构设计_子系统_扩展点与插件化.md)》§9.2（数据归属方提供插件）、《[详细设计 · 具名插槽基座功能与前后端配套插件](../../../项目/05_前端插件化/任务/06_具名插槽与插件挂接/06_具名插槽与插件挂接_01_具名插槽基座功能与前后端配套插件/设计/01_详细设计_06_具名插槽与插件挂接_01_具名插槽基座功能与前后端配套插件.md)》§3.7 |
-| ORM 模型 | `bms_platform/models/system.py::SysUserExtension`（继承 `BaseModel`；随 `bms_platform/models/__init__.py::MODEL_MODULES` 导入） |
+| ORM 模型 | `bms_core/models/platform/system.py::SysUserExtension`（继承 `BaseModel`；基座共享模型，14_01 下沉；登记于 `bms_core/models/platform::MODEL_MODULES`） |
 | 表归属登记 | `bms_core/services/table_registry.py::TABLE_OWNERSHIP`（`owner=platform`、`datasource=tenant`、`status=enabled`） |
 | 状态 | 已落库（`platform:tenant` 链迁移 `0006_sys_user_extension`） |
 | 相关节点 | [数据库设计总览](../01_数据库设计_总览.md)「核心表清单总表 · 租户库」、「已设计数据表登记」 |
@@ -56,5 +56,6 @@
 | --- | --- | --- | --- |
 | 2026-10-03 | v1 | 新建表结构（platform 服务租户库；随具名插槽样例插件后端契约落 `platform:tenant` 链迁移 `0006_sys_user_extension`） | minjian |
 | 2026-10-11 | v2 | 系统字段对齐（02_11）：增 `parent_id`（上级明细 ID）；随 `platform:tenant` 链 `0015_system_fields_form_key` | minjian |
+| 2026-10-22 | v3 | ORM 模型落点迁基座共享 `bms_core/models/platform/system.py`（14_01 整包下沉；表名 / 字段 / 索引 / 归属不变） | minjian |
 
 > 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套
