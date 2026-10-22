@@ -38,6 +38,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import get_settings
+from bms_core.core.objects import BaseDataContract
 from bms_core.db.engine import EngineFactory
 from bms_core.db.keys import PLATFORM_SERVICE_KEY, build_platform_db_key
 from bms_core.models.platform.menu import SysAction, SysBusiness, SysPermission
@@ -165,7 +166,7 @@ BUILTIN_ADMIN_ROLES: ConcurrentStableList[tuple[str, str, str, ConcurrentStableL
 
 
 @dataclass
-class SeedOutcome:
+class SeedOutcome(BaseDataContract):
     """执行结果（新增 / 跳过计数与缺码清单）。"""
 
     roles_created: int = 0

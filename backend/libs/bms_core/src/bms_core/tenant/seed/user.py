@@ -37,6 +37,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import get_settings
+from bms_core.core.objects import BaseDataContract
 from bms_core.db.engine import EngineFactory
 from bms_core.db.keys import build_platform_db_key, build_tenant_db_key
 from bms_core.db.tenant_source import TENANT_SERVICE_KEY
@@ -74,8 +75,8 @@ MIN_PASSWORD_LENGTH = 8
 """脚本侧口令最小长度防护（复杂度与强度口径归《安全开发规范》）。"""
 
 
-@dataclass(frozen=True)
-class SeedOutcome:
+@dataclass
+class SeedOutcome(BaseDataContract):
     """执行结果（新增 / 重置 / 跳过，及本次下发口令明文）。"""
 
     created: int

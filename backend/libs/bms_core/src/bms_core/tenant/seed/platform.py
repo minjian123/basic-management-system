@@ -28,6 +28,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import get_settings
+from bms_core.core.objects import BaseDataContract
 from bms_core.db.engine import EngineFactory
 from bms_core.db.keys import build_platform_db_key, build_tenant_db_key
 from bms_core.models.platform.menu import SysAction, SysBusiness, SysForm, SysMenu, SysPermission
@@ -92,7 +93,7 @@ PLATFORM_TENANT_MENU_PATH = "/platform/tenants"
 
 
 @dataclass
-class PlatformSeedOutcome:
+class PlatformSeedOutcome(BaseDataContract):
     """平台 RBAC 种子结果。"""
 
     roles_created: int = 0
