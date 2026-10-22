@@ -6,13 +6,14 @@
 """
 
 import asyncio
+import os
 from collections.abc import AsyncIterator, Iterator
 
 import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
-from bms_core.core.config import get_settings
+from bms_core.core.config import Settings, get_settings
 from bms_core.testing.fixtures import (
     clear_tenant_cache,
     platform_db,
@@ -41,6 +42,21 @@ def _plugin_fixtures(  # pyright: ignore[reportUnusedFunction]
     """
 
 
+def _diag_permission(stage: str) -> None:
+    """临时诊断（CI 取证用，定位后删除）：隔离点之后权限选择若被置为真实实现即打印上下文。
+
+    Args:
+        stage: 打印时机标识（isolate-setup / isolate-teardown）。
+    """
+    settings = get_settings()
+    if settings.permission.provider:
+        print(
+            f"[DIAG-permission] stage={stage} provider={settings.permission.provider!r} "
+            f"app_env={settings.app.env!r} os_provider={os.environ.get('BMS_PERMISSION__PROVIDER')!r} "
+            f"env_file={Settings.model_config.get('env_file')!r} settings_id={id(settings)}"
+        )
+
+
 @pytest.fixture(autouse=True)
 def isolate_settings(bms_isolate_settings: None, monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     """服务专属隔离：在公共隔离之后追加 fakeredis 与测试令牌密钥。
@@ -57,7 +73,9 @@ def isolate_settings(bms_isolate_settings: None, monkeypatch: pytest.MonkeyPatch
     install_process_fake_redis_client()
     configure_token_env(monkeypatch)
     get_settings.cache_clear()
+    _diag_permission("isolate-setup")
     yield
+    _diag_permission("isolate-teardown")
     get_settings.cache_clear()
 
 
@@ -94,6 +112,7 @@ async def service_app() -> AsyncIterator[FastAPI]:
         FastAPI: 应用实例。
     """
     app = ApplicationFactory().create(None)
+    _diag_permission("service-app")
     clear_tenant_cache(app)
     try:
         async with app.router.lifespan_context(app):
