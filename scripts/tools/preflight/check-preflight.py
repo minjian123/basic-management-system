@@ -44,6 +44,7 @@
 """
 
 import contextlib
+import json
 import os
 import re
 import shutil
@@ -386,6 +387,106 @@ def _gitlab_ci_lint(root: Path, failures: ConcurrentStableList[str]) -> None:
             failures.add("CI Lint API")
     except Exception as exc:
         print(f"  跳过（不可达：{exc}）")
+
+
+def _changed_frontend_projects(root: Path) -> ConcurrentStableList[tuple[str, str]]:
+    """按 git 变更推导受影响的前端 workspace 工程。
+
+    Args:
+        root: bms 仓库根。
+
+    Returns:
+        list[tuple[str, str]]: (包名, 任务名) 清单（去重、稳定顺序）。
+    """
+    try:
+        out = subprocess.run(
+            ["git", "diff", "--name-only", "origin/main", "--", "frontend", "pnpm-lock.yaml", "package.json"],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=30,
+        )
+    except OSError, subprocess.SubprocessError:
+        return []
+    if out.returncode != 0:
+        return []
+    return _changed_frontend_projects_with(
+        root, ConcurrentStableList([line.strip() for line in out.stdout.splitlines() if line.strip()])
+    )
+
+
+def _changed_frontend_projects_with(
+    root: Path, paths: ConcurrentStableList[str]
+) -> ConcurrentStableList[tuple[str, str]]:
+    """按给定变更清单推导受影响的前端工程（纯函数，供自测注入）。
+
+    Args:
+        root: bms 仓库根。
+        paths: 变更文件清单（仓库相对路径）。
+
+    Returns:
+        list[tuple[str, str]]: (包名, 任务名) 清单。
+    """
+    if not paths:
+        return ConcurrentStableList[tuple[str, str]]()
+    lock_changed = any(path in ("pnpm-lock.yaml", "package.json") for path in paths)
+    resolved: ConcurrentStableList[tuple[str, str]] = ConcurrentStableList()
+    project_dirs = sorted((root / "frontend").glob("apps/*"))
+    project_dirs += sorted((root / "frontend").glob("packages/*"))
+    project_dirs += sorted((root / "frontend").glob("modules/*"))
+    for project_dir in project_dirs:
+        manifest = project_dir / "package.json"
+        if not manifest.is_file():
+            continue
+        try:
+            payload = json.loads(manifest.read_text(encoding="utf-8"))
+        except OSError, ValueError:
+            continue
+        name = payload.get("name")
+        if not isinstance(name, str):
+            continue
+        scripts = payload.get("scripts", {})
+        # 有 typecheck 走 typecheck；桌面端无该脚本（类型检查内建于 build 的 vue-tsc -b）。
+        if "typecheck" in scripts:
+            task = "typecheck"
+        elif name == "@bms/desktop" and "build" in scripts:
+            task = "build"
+        else:
+            continue
+        prefix = project_dir.relative_to(root).as_posix() + "/"
+        if lock_changed or any(path.startswith(prefix) for path in paths):
+            resolved.append((name, task))
+    return resolved
+
+
+def _frontend_typecheck(root: Path, failures: ConcurrentStableList[str]) -> None:
+    """前端类型门禁：受影响工程逐个跑 typecheck（vue-tsc -b）。
+
+    缺口背景（2026-10-21）：desktop-build / module-check 的 vue-tsc 报错此前只在 CI 暴露——
+    本地定向档不跑前端类型检查，契约字段变可选、字段类型改名这类错误推送后才发现。
+    本步按 git 变更自动定向：只跑受影响工程，避免每次全量 pnpm。
+
+    Args:
+        root: bms 仓库根。
+        failures: 失败收集列表。
+    """
+    pnpm = shutil.which("pnpm")
+    # pnpm 单一 workspace：依赖装在仓库根 node_modules（可能为外置依赖仓符号链接），非 frontend/ 下。
+    if pnpm is None or not (root / "node_modules").exists():
+        print("\n[preflight] 前端类型检查：跳过（pnpm 或仓库根 node_modules 未就位）")
+        return
+    targets = _changed_frontend_projects(root)
+    if not targets:
+        print("\n[preflight] 前端类型检查：跳过（本次无前端工程受影响）")
+        return
+    for project, task in targets:
+        _run(
+            f"前端类型：{project}（{task}）",
+            ConcurrentStableList([pnpm, "--filter", project, "run", task]),
+            root,
+            failures,
+        )
 
 
 def _frontend_api_types(root: Path, failures: ConcurrentStableList[str]) -> None:
@@ -820,7 +921,8 @@ def _self_test() -> int:
         int: 退出码（0 通过 / 1 失败）。
     """
     print("[self-test] preflight 定向推导与预算护栏")
-    backend = Path(__file__).resolve().parents[3] / "backend"
+    root = Path(__file__).resolve().parents[3]
+    backend = root / "backend"
     selection = test_selection.build_selection(
         backend,
         ConcurrentStableList(
@@ -882,6 +984,13 @@ def _self_test() -> int:
             (
                 "自动发现的工程全部登记（全量档范围 + 覆盖率范围）",
                 not unregistered,
+            ),
+            (
+                "前端类型检查：无变更不跑、前端变更命中受影响工程",
+                not _changed_frontend_projects_with(root, ConcurrentStableList[str]())
+                and bool(
+                    _changed_frontend_projects_with(root, ConcurrentStableList(["frontend/apps/desktop/src/main.ts"]))
+                ),
             ),
             (
                 "基座校验脚本变更并入其护栏用例",
@@ -1074,6 +1183,7 @@ def main() -> int:
         backend,
         failures,
     )
+    _frontend_typecheck(root, failures)
     _frontend_api_types(root, failures)
 
     if _GUARD.exhausted:
