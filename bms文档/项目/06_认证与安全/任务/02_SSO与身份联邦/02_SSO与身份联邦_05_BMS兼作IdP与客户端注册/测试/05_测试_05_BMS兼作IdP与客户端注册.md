@@ -60,7 +60,7 @@
 | `bms_identity.api.oidc` | 140 | 100% |
 | `bms_identity.api.clients` | 81 | 100% |
 | `bms_identity.repositories.client` | 25 | 100% |
-| `bms_identity.models.client` | 14 | 100% |
+| `bms_core.models.identity.client` | 14 | 100% |
 | **合计** | **743** | **100%** |
 
 ## 5. 端到端证据 <a id="e2e"></a>
