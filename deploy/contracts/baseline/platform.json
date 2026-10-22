@@ -1,6 +1,44 @@
 {
   "components": {
     "schemas": {
+      "ActionCreateRequest": {
+        "additionalProperties": false,
+        "description": "新增动作码请求（`code` 创建后只读）。",
+        "properties": {
+          "code": {
+            "description": "动作码（全局动词 / kebab-case；创建后只读）",
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[a-z][a-z0-9-]*$",
+            "title": "Code",
+            "type": "string"
+          },
+          "i18n": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "多语言名称映射（locale → 文案）；必含请求语言文案",
+            "title": "I18N",
+            "type": "object"
+          },
+          "status": {
+            "default": "enabled",
+            "description": "状态（enabled/disabled）",
+            "enum": [
+              "enabled",
+              "disabled"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "i18n"
+        ],
+        "title": "ActionCreateRequest",
+        "type": "object"
+      },
       "ActionItem": {
         "additionalProperties": false,
         "description": "动作码行（全局动词维度）。",
@@ -60,6 +98,35 @@
         "title": "ActionList",
         "type": "object"
       },
+      "ActionUpdateRequest": {
+        "additionalProperties": false,
+        "description": "更新动作码请求（`code` 不可改，只改名称与状态）。",
+        "properties": {
+          "i18n": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "多语言名称映射（locale → 文案）；必含请求语言文案",
+            "title": "I18N",
+            "type": "object"
+          },
+          "status": {
+            "default": "enabled",
+            "description": "状态（enabled/disabled）",
+            "enum": [
+              "enabled",
+              "disabled"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "i18n"
+        ],
+        "title": "ActionUpdateRequest",
+        "type": "object"
+      },
       "ApiResponse": {
         "additionalProperties": false,
         "description": "统一响应体：`code=0` 成功，非 0 业务错误码。\n\n- `data` 为业务数据（泛型）；失败时为 `null`；分页载荷复用分页契约基类。\n- 雪花 ID 在 JSON 中以字符串输出（`BaseSchema` 统一序列化口径）。",
@@ -85,6 +152,33 @@
           }
         },
         "title": "ApiResponse",
+        "type": "object"
+      },
+      "ApiResponse_ActionItem_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ActionItem"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[ActionItem]",
         "type": "object"
       },
       "ApiResponse_ActionList_": {
@@ -301,6 +395,33 @@
           }
         },
         "title": "ApiResponse[BranchStateView]",
+        "type": "object"
+      },
+      "ApiResponse_BusinessItem_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BusinessItem"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[BusinessItem]",
         "type": "object"
       },
       "ApiResponse_BusinessList_": {
@@ -918,6 +1039,33 @@
         "title": "ApiResponse[NoneType]",
         "type": "object"
       },
+      "ApiResponse_PermissionGenerateResult_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PermissionGenerateResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[PermissionGenerateResult]",
+        "type": "object"
+      },
       "ApiResponse_PermissionInvalidateResult_": {
         "additionalProperties": false,
         "properties": {
@@ -943,6 +1091,33 @@
           }
         },
         "title": "ApiResponse[PermissionInvalidateResult]",
+        "type": "object"
+      },
+      "ApiResponse_PermissionItem_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PermissionItem"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[PermissionItem]",
         "type": "object"
       },
       "ApiResponse_PermissionList_": {
@@ -1825,6 +2000,44 @@
         "title": "BranchStateView",
         "type": "object"
       },
+      "BusinessCreateRequest": {
+        "additionalProperties": false,
+        "description": "新增业务码请求（`code` 创建后只读）。",
+        "properties": {
+          "code": {
+            "description": "业务码（小写单词 / kebab-case；创建后只读）",
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[a-z][a-z0-9-]*$",
+            "title": "Code",
+            "type": "string"
+          },
+          "i18n": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "多语言名称映射（locale → 文案）；必含请求语言文案",
+            "title": "I18N",
+            "type": "object"
+          },
+          "status": {
+            "default": "enabled",
+            "description": "状态（enabled/disabled）",
+            "enum": [
+              "enabled",
+              "disabled"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "i18n"
+        ],
+        "title": "BusinessCreateRequest",
+        "type": "object"
+      },
       "BusinessItem": {
         "additionalProperties": false,
         "description": "业务码行（纯资源维度）。",
@@ -1851,6 +2064,12 @@
             "description": "名称（默认文案）",
             "title": "Name",
             "type": "string"
+          },
+          "permission_count": {
+            "default": 0,
+            "description": "该业务码下的权限码数量（含停用）",
+            "title": "Permission Count",
+            "type": "integer"
           },
           "status": {
             "description": "状态（enabled/disabled）",
@@ -1882,6 +2101,35 @@
           }
         },
         "title": "BusinessList",
+        "type": "object"
+      },
+      "BusinessUpdateRequest": {
+        "additionalProperties": false,
+        "description": "更新业务码请求（`code` 不可改，只改名称与状态）。",
+        "properties": {
+          "i18n": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "多语言名称映射（locale → 文案）；必含请求语言文案",
+            "title": "I18N",
+            "type": "object"
+          },
+          "status": {
+            "default": "enabled",
+            "description": "状态（enabled/disabled）",
+            "enum": [
+              "enabled",
+              "disabled"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "i18n"
+        ],
+        "title": "BusinessUpdateRequest",
         "type": "object"
       },
       "ButtonCreateRequest": {
@@ -3253,9 +3501,9 @@
             "type": "string"
           },
           "menu_ids": {
-            "description": "关联菜单入口 ID 清单（空 = 无入口表单）",
+            "description": "关联菜单入口 ID 清单（雪花 ID 字符串化；空 = 无入口表单）",
             "items": {
-              "type": "integer"
+              "type": "string"
             },
             "title": "Menu Ids",
             "type": "array"
@@ -3471,6 +3719,14 @@
             "title": "Code",
             "type": "string"
           },
+          "i18n": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "多语言名称映射（locale → 文案）",
+            "title": "I18N",
+            "type": "object"
+          },
           "name": {
             "description": "图标名称",
             "maxLength": 128,
@@ -3517,6 +3773,21 @@
             ],
             "description": "图标分组",
             "title": "Category"
+          },
+          "i18n": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "多语言名称映射（locale → 文案；None 表示不变）",
+            "title": "I18N"
           },
           "name": {
             "anyOf": [
@@ -4522,6 +4793,40 @@
         "title": "MyMenuResponse",
         "type": "object"
       },
+      "PermissionCreateRequest": {
+        "additionalProperties": false,
+        "description": "手工新增权限码组合（组合创建后只读）。",
+        "properties": {
+          "action_id": {
+            "description": "动作码 ID",
+            "exclusiveMinimum": 0.0,
+            "title": "Action Id",
+            "type": "integer"
+          },
+          "business_id": {
+            "description": "业务码 ID",
+            "exclusiveMinimum": 0.0,
+            "title": "Business Id",
+            "type": "integer"
+          },
+          "status": {
+            "default": "enabled",
+            "description": "状态（enabled/disabled）",
+            "enum": [
+              "enabled",
+              "disabled"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "business_id",
+          "action_id"
+        ],
+        "title": "PermissionCreateRequest",
+        "type": "object"
+      },
       "PermissionDataScopeItem": {
         "additionalProperties": false,
         "description": "数据范围规则（字典类型 + 策略 + 规则行）。",
@@ -4585,6 +4890,64 @@
           "editable"
         ],
         "title": "PermissionFieldItem",
+        "type": "object"
+      },
+      "PermissionGenerateRequest": {
+        "additionalProperties": false,
+        "description": "批量补生成缺失权限码组合请求（范围为空 = 全部启用项）。",
+        "properties": {
+          "action_ids": {
+            "description": "限定动作码 ID 清单（空 = 全部启用动作码）",
+            "items": {
+              "type": "integer"
+            },
+            "title": "Action Ids",
+            "type": "array"
+          },
+          "business_ids": {
+            "description": "限定业务码 ID 清单（空 = 全部启用业务码）",
+            "items": {
+              "type": "integer"
+            },
+            "title": "Business Ids",
+            "type": "array"
+          },
+          "include_disabled": {
+            "default": false,
+            "description": "是否包含停用的业务 / 动作码",
+            "title": "Include Disabled",
+            "type": "boolean"
+          }
+        },
+        "title": "PermissionGenerateRequest",
+        "type": "object"
+      },
+      "PermissionGenerateResult": {
+        "additionalProperties": false,
+        "description": "批量补生成结果计数。",
+        "properties": {
+          "created": {
+            "description": "新建组合数",
+            "title": "Created",
+            "type": "integer"
+          },
+          "restored": {
+            "description": "恢复软删除组合数",
+            "title": "Restored",
+            "type": "integer"
+          },
+          "skipped": {
+            "description": "已存在跳过数",
+            "title": "Skipped",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "created",
+          "restored",
+          "skipped"
+        ],
+        "title": "PermissionGenerateResult",
         "type": "object"
       },
       "PermissionGrantItem": {
@@ -4673,6 +5036,12 @@
           "id": {
             "description": "权限码主键",
             "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "default": "",
+            "description": "权限码名称（业务名·动作名，按 locale 本地化）",
+            "title": "Name",
             "type": "string"
           },
           "status": {
@@ -4806,6 +5175,26 @@
           }
         },
         "title": "PermissionSubjectResult",
+        "type": "object"
+      },
+      "PermissionUpdateRequest": {
+        "additionalProperties": false,
+        "description": "更新权限码（组合不可换绑，仅状态）。",
+        "properties": {
+          "status": {
+            "description": "状态（enabled/disabled）",
+            "enum": [
+              "enabled",
+              "disabled"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "PermissionUpdateRequest",
         "type": "object"
       },
       "PreferenceValueRequest": {
@@ -7627,6 +8016,290 @@
         "tags": [
           "menu"
         ]
+      },
+      "post": {
+        "description": "新增动作码。\n\nArgs:\n    req: 新增请求。\n    uow: 请求级工作单元。\n    outbox: 发件箱存储。\n    cache: 缓存 Region。\n\nReturns:\n    ApiResponse: 统一响应，data 为动作码行。",
+        "operationId": "create_action_api_v1_actions_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ActionCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ActionItem_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Create Action",
+        "tags": [
+          "menu"
+        ]
+      }
+    },
+    "/api/v1/actions/{action_id}": {
+      "delete": {
+        "description": "删除动作码（有条件删除）。\n\nArgs:\n    action_id: 动作码主键。\n    uow: 请求级工作单元。\n    outbox: 发件箱存储。\n    cache: 缓存 Region。\n\nReturns:\n    ApiResponse: 统一响应（data 为空）。",
+        "operationId": "delete_action_api_v1_actions__action_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "action_id",
+            "required": true,
+            "schema": {
+              "title": "Action Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Delete Action",
+        "tags": [
+          "menu"
+        ]
+      },
+      "put": {
+        "description": "更新动作码（`code` 不可改；停用时连带停用其权限码）。\n\nArgs:\n    action_id: 动作码主键。\n    req: 更新请求。\n    uow: 请求级工作单元。\n    outbox: 发件箱存储。\n    cache: 缓存 Region。\n\nReturns:\n    ApiResponse: 统一响应，data 为动作码行。",
+        "operationId": "update_action_api_v1_actions__action_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "action_id",
+            "required": true,
+            "schema": {
+              "title": "Action Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ActionUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ActionItem_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Update Action",
+        "tags": [
+          "menu"
+        ]
       }
     },
     "/api/v1/businesses": {
@@ -7696,6 +8369,290 @@
           }
         },
         "summary": "List Businesses",
+        "tags": [
+          "menu"
+        ]
+      },
+      "post": {
+        "description": "新增业务码。\n\nArgs:\n    req: 新增请求。\n    uow: 请求级工作单元。\n    outbox: 发件箱存储。\n    cache: 缓存 Region。\n\nReturns:\n    ApiResponse: 统一响应，data 为业务码行。",
+        "operationId": "create_business_api_v1_businesses_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BusinessCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_BusinessItem_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Create Business",
+        "tags": [
+          "menu"
+        ]
+      }
+    },
+    "/api/v1/businesses/{business_id}": {
+      "delete": {
+        "description": "删除业务码（有条件删除）。\n\nArgs:\n    business_id: 业务码主键。\n    uow: 请求级工作单元。\n    outbox: 发件箱存储。\n    cache: 缓存 Region。\n\nReturns:\n    ApiResponse: 统一响应（data 为空）。",
+        "operationId": "delete_business_api_v1_businesses__business_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Delete Business",
+        "tags": [
+          "menu"
+        ]
+      },
+      "put": {
+        "description": "更新业务码（`code` 不可改；停用时连带停用其权限码）。\n\nArgs:\n    business_id: 业务码主键。\n    req: 更新请求。\n    uow: 请求级工作单元。\n    outbox: 发件箱存储。\n    cache: 缓存 Region。\n\nReturns:\n    ApiResponse: 统一响应，data 为业务码行。",
+        "operationId": "update_business_api_v1_businesses__business_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BusinessUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_BusinessItem_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Update Business",
         "tags": [
           "menu"
         ]
@@ -12203,6 +13160,382 @@
           }
         },
         "summary": "List Permissions",
+        "tags": [
+          "menu"
+        ]
+      },
+      "post": {
+        "description": "手工新增权限码组合。\n\nArgs:\n    req: 新增请求。\n    uow: 请求级工作单元。\n    outbox: 发件箱存储。\n    cache: 缓存 Region。\n\nReturns:\n    ApiResponse: 统一响应，data 为权限码行。",
+        "operationId": "create_permission_api_v1_permissions_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PermissionCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_PermissionItem_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Create Permission",
+        "tags": [
+          "menu"
+        ]
+      }
+    },
+    "/api/v1/permissions/generate": {
+      "post": {
+        "description": "批量补生成缺失的权限码组合。\n\nArgs:\n    req: 范围与是否含停用项。\n    uow: 请求级工作单元。\n    outbox: 发件箱存储。\n    cache: 缓存 Region。\n\nReturns:\n    ApiResponse: 统一响应，data 为新建 / 恢复 / 跳过计数。",
+        "operationId": "generate_permissions_api_v1_permissions_generate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PermissionGenerateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_PermissionGenerateResult_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Generate Permissions",
+        "tags": [
+          "menu"
+        ]
+      }
+    },
+    "/api/v1/permissions/{permission_id}": {
+      "delete": {
+        "description": "删除权限码（有条件删除）。\n\nArgs:\n    permission_id: 权限码主键。\n    uow: 请求级工作单元。\n    outbox: 发件箱存储。\n    cache: 缓存 Region。\n\nReturns:\n    ApiResponse: 统一响应（data 为空）。",
+        "operationId": "delete_permission_api_v1_permissions__permission_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "permission_id",
+            "required": true,
+            "schema": {
+              "title": "Permission Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Delete Permission",
+        "tags": [
+          "menu"
+        ]
+      },
+      "put": {
+        "description": "更新权限码（组合不可换绑，仅状态）。\n\nArgs:\n    permission_id: 权限码主键。\n    req: 更新请求。\n    uow: 请求级工作单元。\n    outbox: 发件箱存储。\n    cache: 缓存 Region。\n\nReturns:\n    ApiResponse: 统一响应，data 为权限码行。",
+        "operationId": "update_permission_api_v1_permissions__permission_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "permission_id",
+            "required": true,
+            "schema": {
+              "title": "Permission Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PermissionUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_PermissionItem_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Update Permission",
         "tags": [
           "menu"
         ]
