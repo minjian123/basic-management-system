@@ -264,7 +264,7 @@ npm 月下载量约 45.9 万、GitHub 4086 星（同类第二名的月下载量�
 | 项 | 值 |
 | --- | --- |
 | 安装 | `pnpm dsh plugin --profile web add dshmarket`（2026-09-18 装，走 npmmirror 源） |
-| 版本 | 1.47.0（要求 `dsh web ≥ 0.1.0-rc.6`，本机 0.1.6-alpha.2 满足） |
+| 版本 | 不记具体版本号（市场按日发版，现查：`npm view dshmarket version`）；兼容下限要求 `dsh web ≥ 0.1.0-rc.6` |
 | 落位 | bundle 图层（`dsh.profile.bundles` 自动登记），patch 插入 `id: dsh-market` |
 | 生效时机 | 装/卸需**重启 dsh web**；市场内装主题为一键即时生效 |
 | 与更新脚本 | 已纳入 `dsh-update.sh` 的插件清单，与另两个插件同样比对版本、`up --latest` + `rebuild`（见 6 节） |

@@ -118,7 +118,7 @@ profiles\desktop\package.json
 
 | 项 | 值 |
 | --- | --- |
-| 包名 / 版本 | `dshmarket`，当前 1.66.42 |
+| 包名 | `dshmarket`（本文不记版本号——市场按日发版，现查：`npm view dshmarket version`） |
 | 仓库 | <https://github.com/dsh-market/dsh-market>（MIT） |
 | 落位 | `profiles\desktop\node_modules\dshmarket`，`bundles` 中登记为 `dshmarket`，patch 插入 `id: dsh-market` |
 | 区域设置 | `.dsh-market\state.json`：`region: china`（国内走腾讯云镜像 `mirrors.cloud.tencent.com/npm`） |
@@ -132,15 +132,18 @@ profiles\desktop\package.json
 在市场的插件列表里对 `dshmarket` 自己点「更新」，**必然失败**，日志形如：
 
 ```text
-dshmarket -> dshmarket@1.66.42 exit=1 err=… 市场不能在自己的请求里先卸载自己 …
+dshmarket -> dshmarket@<目标版本> exit=1 err=… 市场不能在自己的请求里更新自己：桌面端的移除会先把市场从正在运行的组合里摘掉 …
 ```
+
+> 提示文案随版本变过（早期是「市场不能在自己的请求里先卸载自己」，现为上面这条并附手工升级命令），
+> 拒绝行为没变。
 
 原因（上游 issue `#900`）：桌面端的更新是「先卸载旧版 → 再安装新版」两步。卸载会把市场自己从运行中的插件组合里摘掉，
 而负责执行「安装新版」的代码**正是市场自己**——它已经被卸载，补装那一步永远不会执行。所以这不是网络、版本或权限问题，
 是设计上的自引用死结。
 
-**处置：更新市场不要从市场界面点，改用 4.3 的手工流程。** 该缺陷截至 1.66.42 仍未修复（`lib/official-desktop.js` 中
-`market-self-update` 拒绝逻辑仍在），升级市场本身之后仍会遇到同样的限制。
+**处置：更新市场不要从市场界面点，改用 4.3 的手工流程。** 该缺陷截至 2026-10-22 的最新版仍未修复（复核：`lib/official-desktop.js`
+中 `market-self-update` 拒绝逻辑仍在，命中后只返回一句「改用 pnpm 手工升级」的提示），升级市场本身之后仍会遇到同样的限制。
 
 > 若市场界面提示「有 agent 正在运行，拒绝更新」：那是另一层保护——替换插件文件前禁止有会话在跑。等会话结束再操作，
 > 或按 4.3 手工更新（手工流程不受此限制，但要自己承担文件被替换的风险）。
@@ -160,7 +163,7 @@ Copy-Item "$prof\package.json","$prof\pnpm-lock.yaml","$prof\pnpm-workspace.yaml
 
 #### 4.3.2 改版本并安装 <a id="plugins-manual-install"></a>
 
-以把市场从 1.66.37 升到 1.66.42 为例：
+以升级市场为例（2026-10-22 实测，全程约 4 秒）。目标版本现查：`npm view dshmarket version`（国内走镜像 `--registry=https://mirrors.cloud.tencent.com/npm/`）。
 
 ```powershell
 $prof = "$env:USERPROFILE\.dsh\profiles\desktop"
@@ -169,7 +172,7 @@ $pnpm = "C:\Users\$env:USERNAME\AppData\Local\Programs\DeepSeek Harness\resource
 
 # 1) 改 package.json 的 dependencies 版本号（用编辑器或脚本，这里用脚本示例）
 $pj = Get-Content "$prof\package.json" -Raw | ConvertFrom-Json
-$pj.dependencies.dshmarket = "1.66.42"
+$pj.dependencies.dshmarket = "<目标版本>"
 $pj | ConvertTo-Json -Depth 10 | Set-Content "$prof\package.json" -Encoding UTF8
 
 # 2) 用桌面版自带的 pnpm 安装（必须用它，不要用全局 pnpm）
@@ -193,16 +196,22 @@ Pop-Location
 
 #### 4.3.3 发布新鲜度门槛 <a id="plugins-manual-freshness"></a>
 
-桌面版 profile 的 `pnpm-workspace.yaml` 设了 `minimumReleaseAge: 1440`（分钟），即**发布不满 24 小时的新版本装不上**，
-表现为 pnpm 静默回退到旧版本。要装一个刚发布的版本，需把该版本加进白名单：
+**pnpm 11 自带 `minimumReleaseAge` 门槛（1440 分钟 = 24 小时）**：发布不满 24 小时的新版本不会被自动选中，
+表现为静默回退到旧版本。profile 的 `pnpm-workspace.yaml` 里**没有** `minimumReleaseAge` 这一行（不要去找），
+只有 `minimumReleaseAgeExclude` 白名单——要装一个刚发布的版本，需把该版本追加进对应包名的那一行：
 
 ```yaml
 # ~/.dsh/profiles/desktop/pnpm-workspace.yaml
 minimumReleaseAgeExclude:
-  - dshmarket@1.66.23 || 1.66.28 || 1.66.35 || 1.66.36 || 1.66.37 || 1.66.42
+  - dshmarket@<已豁免版本1> || <已豁免版本2> || <本次目标版本>
 ```
 
 > 同一个包名只能写一条规则，多个版本用 `||` 串联——写多条会被 pnpm 静默忽略。
+>
+> **实测要点（2026-10-22）**：新装一个年轻版本时 pnpm 会**自动**把该版本写进白名单并打印
+> `Added 1 entry to minimumReleaseAgeExclude`；但**锁文件校验是硬的**——已进 `pnpm-lock.yaml` 的版本若不在白名单，
+> 后续任何 `pnpm install` 都会被 `ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION` 整轮拦下（不是静默回退）。
+> 所以「先装、后补白名单」这条路走不通，顺序必须是**先补白名单、再装**。
 
 #### 4.3.4 回滚 <a id="plugins-manual-rollback"></a>
 
