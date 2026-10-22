@@ -341,7 +341,7 @@ def register_rbac_permission(settings: Settings) -> None:
         settings: 应用配置（读 `[permission]` 的档位与选项）。
     """
     registry = default_plugin_registry()
-    if any(item is registry for item in _REGISTERED_REGISTRIES):
+    # 幂等键取「注册表是否已构建」（`reset()` 后需用当前配置重新登记，见 assembly 同名说明）
+    if registry.is_built:
         return
     register_plugin("permission", RBAC_PROVIDER_NAME, RbacPermissionCheckerFactory(settings))
-    _REGISTERED_REGISTRIES.add(registry)

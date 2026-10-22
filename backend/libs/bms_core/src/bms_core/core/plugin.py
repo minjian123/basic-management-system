@@ -253,6 +253,10 @@ class PluginRegistry(BaseFrameworkObject):
     def register(self, plugin_key: str, plugin_name: str, impl: PluginImpl) -> None:
         """显式登记实现（组合路径 / 延迟导入工厂）；运行期只读，构建后拒。
 
+        同键同名按**最后者生效**替换（不保留多份）：注册表可在测试隔离中 `reset()` 回到未构建态，
+        而显式登记会保留；若不替换，同一能力域再次装配时会出现「(key, name) 重名」拒启，或沿用
+        上一次装配捕获的**配置快照**（工厂实例持有装配时的配置）。
+
         Args:
             plugin_key: 能力域键。
             plugin_name: 实现名。
@@ -263,7 +267,20 @@ class PluginRegistry(BaseFrameworkObject):
         """
         if self._plugins is not None:
             raise PluginError("插件注册表已构建，运行期只读，禁止再登记")
+        if any(item[0] == plugin_key and item[1] == plugin_name for item in self._explicit):
+            self._explicit = ConcurrentStableList(
+                [item for item in self._explicit if item[0] != plugin_key or item[1] != plugin_name]
+            )
         self._explicit.add((plugin_key, plugin_name, impl))
+
+    @property
+    def is_built(self) -> bool:
+        """注册表是否已构建并冻结（`reset()` 后回到未构建态）。
+
+        Returns:
+            bool: 已构建为真。
+        """
+        return self._plugins is not None
 
     def build(self) -> ConcurrentStableDict[str, ConcurrentStableDict[str, PluginImpl]]:
         """构建并冻结注册表：合并双轨 → 校验（抽象剔除 / 非零参剔除 / 无名跳过 / 唯一性 / 版本格式）→ 只读快照。

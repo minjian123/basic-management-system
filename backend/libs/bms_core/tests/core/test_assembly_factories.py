@@ -99,6 +99,43 @@ def test_table_ownership_guard_factory_rejects_invalid_entries(tmp_path: Path) -
         assembly.TableOwnershipGuardFactory(settings).create()
 
 
+def test_platform_plugins_rebuild_after_reset_uses_current_settings() -> None:
+    """`reset()` 后重新装配用**当前**配置重建工厂（不沿用上一次装配的配置快照）。
+
+    回归背景（2026-10-22 CI）：platform / identity 在 `prepare_settings` 把 `[permission].provider`
+    改为 `rbac`；插件工厂在登记时捕获该配置。注册表 `reset()` 只解冻、不清显式登记，若幂等键取
+    「注册表实例」就会跳过重新登记，导致后续未登记取数实现的服务（file / ai 等）解析 masking 时
+    仍走 rbac 校验器并因缺数据来源拒启。
+    """
+    from bms_core.core.plugin import default_plugin_registry, resolve_plugin
+    from bms_core.core.resources import ResourceManager
+    from bms_core.masking.null import NullMasker
+    from bms_core.permission.sources import reset_permission_data_sources
+
+    # 用进程默认注册表（自动候选已登记其中；换新实例会丢 null 实现），结束时复位避免顺序污染
+    registry = default_plugin_registry()
+    registry.reset()
+    reset_permission_data_sources()
+    app = FastAPI()
+    resources = ResourceManager()
+    try:
+        stale = Settings()
+        stale.permission.provider = "rbac"  # 模拟 platform / identity 的 prepare_settings 就地改写
+        assembly.register_platform_plugins(stale, app, resources)
+
+        registry.reset()  # 测试隔离：解冻回未构建态
+        reset_permission_data_sources()
+        fresh = Settings()
+        fresh.permission.provider = ""
+        assembly.register_platform_plugins(fresh, app, resources)
+
+        masker = resolve_plugin("masking", "")
+        assert isinstance(masker, NullMasker)
+    finally:
+        registry.reset()
+        reset_permission_data_sources()
+
+
 async def test_assemble_plugins_rejects_required_redis_without_provider() -> None:
     """装配入口：Redis 为必需能力但 provider 为空即拒启（不进入逐项装配）。"""
     settings = Settings()

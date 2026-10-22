@@ -52,7 +52,6 @@ from bms_core.core.logging import get_logger
 from bms_core.core.plugin import (
     NULL_PLUGIN_NAME,
     BasePluggable,
-    PluginRegistry,
     default_plugin_registry,
     register_plugin,
     resolve_plugin,
@@ -183,9 +182,6 @@ __all__ = [
 ]
 
 _LOGGER = get_logger("bms")
-
-_PREPARED_REGISTRIES: ConcurrentStableList[PluginRegistry] = ConcurrentStableList()
-"""已登记平台实现的注册表引用（持引用防 `id` 复用；同一注册表只登记一次）。"""
 
 _NULL_MODULES: ConcurrentStableList[str] = ConcurrentStableList(
     (
@@ -374,7 +370,11 @@ def register_platform_plugins(settings: Settings, app: FastAPI, resources: Resou
         resources: 应用资源登记表（工厂内需要随生命周期释放的检查项）。
     """
     registry = default_plugin_registry()
-    if any(item is registry for item in _PREPARED_REGISTRIES):
+    # 幂等键取「注册表是否已构建」而非注册表实例：`reset()` 会把注册表解冻回未构建态，此时必须用
+    # **当前应用**的配置重新登记工厂——否则工厂沿用上一次装配捕获的配置快照（例：platform /
+    # identity 在 `prepare_settings` 把 `[permission].provider` 改为 rbac，后续未登记取数实现的
+    # 服务套件会解析到该 rbac 工厂并拒启）。
+    if registry.is_built:
         return
     for module in _NULL_MODULES:
         import_module(module)
@@ -441,7 +441,6 @@ def register_platform_plugins(settings: Settings, app: FastAPI, resources: Resou
     register_plugin(TRANSACTION_MANAGER_KEY, XA_PLUGIN_NAME, XaTransactionManagerFactory(settings, app))
     register_plugin(TRANSACTION_PARTICIPANT_KEY, XA_PLUGIN_NAME, XaTransactionParticipantFactory(settings, app))
     register_plugin("metrics", "prometheus", PrometheusMetricsFactory(settings))
-    _PREPARED_REGISTRIES.add(registry)
 
 
 class RemoteTenantModuleGateFactory(BasePluginFactory[RemoteTenantModuleGate]):

@@ -257,6 +257,28 @@ def test_sealed_registry_rejects_register(registry: PluginRegistry) -> None:
         registry.register("test_other", "impl", lambda: object())
 
 
+@pytest.mark.kiwi_id(529)
+def test_repeated_register_replaces_same_key_name(registry: PluginRegistry) -> None:
+    """同键同名重登记按最后者生效；`reset()` 后回到未构建态（装配可重新登记）。"""
+
+    def first() -> object:
+        return object()
+
+    def second() -> object:
+        return object()
+
+    assert registry.is_built is False
+    registry.register("test_replace", "impl", first)
+    registry.register("test_replace", "impl", second)
+    assert snapshot_has(registry, "test_replace", "impl") is second
+    assert registry.is_built is True
+    registry.reset()
+    assert registry.is_built is False
+    # 复位后仍可按同一键名重新登记（不残留旧项 ⇒ 构建期不报重名）
+    registry.register("test_replace", "impl", first)
+    assert snapshot_has(registry, "test_replace", "impl") is first
+
+
 def snapshot_has(registry: PluginRegistry, key: str, name: str) -> PluginImpl:
     """取快照中指定实现（辅助断言）。
 

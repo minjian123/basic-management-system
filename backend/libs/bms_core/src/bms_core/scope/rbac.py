@@ -538,8 +538,8 @@ def register_rbac_data_scope(settings: Settings) -> None:
         settings: 应用配置。
     """
     registry = default_plugin_registry()
-    if any(item is registry for item in _REGISTERED_REGISTRIES):
+    # 幂等键取「注册表是否已构建」（`reset()` 后需用当前配置重新登记，见 assembly 同名说明）
+    if registry.is_built:
         return
     register_rbac_scope_policies()
     register_plugin("data_scope", RBAC_DATA_SCOPE_NAME, RbacDataScopeFactory(settings))
-    _REGISTERED_REGISTRIES.add(registry)
