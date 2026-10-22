@@ -93,9 +93,13 @@ function mountDetail(editing = true): VueWrapper {
  *
  * @param formIds 关联表单 ID。
  * @param editing 是否编辑态。
+ * @param stubTables 是否以轻量替身替换三张真实 `el-table`。
+ *
+ * 仅「只操作表格外工具栏按钮、不断言表格渲染」的用例开此开关——真实 `el-table` 在 CI
+ * 并发下挂载可达本地的数倍，是单例超时的主因；表格渲染与插槽分支由同文件其余用例覆盖。
  * @returns 包装器。
  */
-function mountLink(formIds: string[] = ['10', '11'], editing = true): VueWrapper {
+function mountLink(formIds: string[] = ['10', '11'], editing = true, stubTables = false): VueWrapper {
   return mount(MenuLinkSection, {
     props: {
       editing,
@@ -107,6 +111,7 @@ function mountLink(formIds: string[] = ['10', '11'], editing = true): VueWrapper
       buttons: BUTTONS,
       fields: FIELDS,
     },
+    ...(stubTables ? { global: { stubs: { ElTable: true, ElTableColumn: true } } } : {}),
   })
 }
 
@@ -337,7 +342,7 @@ describe('MenuLinkSection（03_03）', () => {
   })
 
   it('字段明细：新增 / 删除 / 上下移动 / 名称回写', async () => {
-    const wrapper = mountLink()
+    const wrapper = mountLink(['10', '11'], true, true)
     const state = stateOf(wrapper)
 
     await wrapper.find('[data-test="link-field-add"]').trigger('click')
@@ -363,6 +368,8 @@ describe('MenuLinkSection（03_03）', () => {
 
     const row = state.fieldRows[0] as FieldDraft
     expect(state.fieldName(row)).toBe('用户名')
+    // 必填语言缺失时回退空串（stub 表格后模板不再渲染，分支在此显式覆盖）
+    expect(state.fieldName({ ...row, i18n: {} } as FieldDraft)).toBe('')
     state.setFieldName(row, '用户名（改）')
     expect(row.i18n['zh-CN']).toBe('用户名（改）')
 
