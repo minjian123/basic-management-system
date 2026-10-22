@@ -21,8 +21,8 @@ from bms_core.models.tenant.tenant import SysTenant
 from bms_core.models.tenant.tenant_database import SysTenantDatabase
 from bms_core.models.tenant.tenant_module import SysTenantModule
 from bms_core.models.tenant.tenant_quota import SysTenantQuota
+from bms_core.tenant.provisioning import ProvisionOutcome
 from bms_tenant.services.provisioning import TenantProvisionService
-from ops.tenant_provisioning import ProvisionOutcome
 
 pytestmark = pytest.mark.kiwi_id(2325)
 

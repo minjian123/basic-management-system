@@ -22,6 +22,7 @@ from bms_core.models.tenant.tenant_database import SysTenantDatabase
 from bms_core.models.tenant.tenant_module import SysTenantModule
 from bms_core.models.tenant.tenant_quota import SysTenantQuota
 from bms_core.outbox.null import NullOutboxStore
+from bms_core.tenant.provisioning import ProvisionOutcome
 from bms_tenant.repositories.tenant_module import TenantModuleRepository
 from bms_tenant.repositories.tenant_quota import TenantQuotaRepository
 from bms_tenant.repositories.tenant_registry import TenantRegistryRepository
@@ -33,7 +34,6 @@ from bms_tenant.services.provisioning import TenantProvisionService
 from bms_tenant.services.tenant_admin import TenantAdminService
 from bms_tenant.services.tenant_module import ModuleCatalog, TenantModuleService
 from bms_tenant.services.tenant_quota import TenantQuotaService
-from ops.tenant_provisioning import ProvisionOutcome
 
 pytestmark = pytest.mark.kiwi_id(2325)
 

@@ -36,10 +36,7 @@ import asyncio
 from collections import Counter
 from dataclasses import dataclass
 
-from sqlalchemy import create_engine, select
-from sqlalchemy.engine import Engine, make_url
-from sqlalchemy.ext.asyncio import create_async_engine
-from sqlalchemy.pool import NullPool
+from sqlalchemy.engine import make_url
 
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import Settings, get_settings
@@ -61,8 +58,9 @@ from bms_core.db.migration import (
 )
 from bms_core.db.tenant_source import TENANT_SERVICE_KEY
 from bms_core.services.module_registry import enabled_service_keys
+from bms_core.tenant.registry import TenantRef
+from bms_core.tenant.registry import tenant_refs as tenant_refs_base
 
-_DM = "dm"
 _TARGETS = ("all", "platform", "tenants", "tenant", "archive")
 
 
@@ -74,17 +72,6 @@ class MigrationTask(BaseValueObject):
     label: str
     url: str
     schema: str = ""
-
-
-@dataclass(frozen=True)
-class TenantRef(BaseValueObject):
-    """租户引用（编码 + 库名基）：库键按 `db_basis` 派生（10_04）。"""
-
-    code: str
-    """租户编码（当前值）。"""
-
-    db_basis: str
-    """库名基（对照表 `sys_tenant_database`；缺行回落编码）。"""
 
 
 @dataclass(frozen=True)
@@ -149,50 +136,11 @@ def _masked(url: str) -> str:
     return make_url(url).render_as_string(hide_password=True)
 
 
-def _tenant_refs_sync(url: str) -> ConcurrentStableList[TenantRef]:
-    """同步枚举租户引用（达梦等无异步方言驱动的租户注册库）。
-
-    Args:
-        url: 租户注册库连接串。
-
-    Returns:
-        ConcurrentStableList[TenantRef]: 租户引用列表（库名基缺对照行回落当前编码）。
-    """
-    from bms_core.models.tenant.tenant import SysTenant  # 惰性：仅读租户注册库时需要，避免单一服务镜像强依赖
-    from bms_core.models.tenant.tenant_database import SysTenantDatabase
-
-    engine: Engine = create_engine(url, poolclass=NullPool)
-    try:
-        with engine.connect() as connection:
-            statement = (
-                select(SysTenant.code, SysTenantDatabase.db_basis)
-                .outerjoin(
-                    SysTenantDatabase,
-                    (SysTenantDatabase.tenant_id == SysTenant.id) & (SysTenantDatabase.deleted_at.is_(None)),
-                )
-                .where(SysTenant.deleted_at.is_(None))
-            )
-            return ConcurrentStableList(_ref(code, basis) for code, basis in connection.execute(statement).all())
-    finally:
-        engine.dispose()
-
-
-def _ref(code: object, db_basis: object) -> TenantRef:
-    """行值 → 租户引用（库名基为空回落编码）。
-
-    Args:
-        code: 租户编码。
-        db_basis: 库名基（可空）。
-
-    Returns:
-        TenantRef: 租户引用。
-    """
-    basis = str(db_basis) if isinstance(db_basis, str) and db_basis else str(code)
-    return TenantRef(code=str(code), db_basis=basis)
-
-
 async def tenant_refs(registry_url: str) -> ConcurrentStableList[TenantRef]:
     """枚举租户引用（租户注册库查询；库名基经对照表；达梦走同步驱动线程）。
+
+    实现已下沉 `bms_core.tenant.registry.tenant_refs`（14_04）；本函数保留同名转发，
+    使既有调用方（`ops.init_tenant` / `ops.provision_tenant` / `ops.seed_user`）零改动。
 
     Args:
         registry_url: 租户注册库连接串。
@@ -200,26 +148,7 @@ async def tenant_refs(registry_url: str) -> ConcurrentStableList[TenantRef]:
     Returns:
         ConcurrentStableList[TenantRef]: 租户引用列表（按主键序）。
     """
-    if make_url(registry_url).get_backend_name() == _DM:
-        return await asyncio.to_thread(_tenant_refs_sync, registry_url)
-    from bms_core.models.tenant.tenant import SysTenant  # 惰性：仅读租户注册库时需要
-    from bms_core.models.tenant.tenant_database import SysTenantDatabase
-
-    engine = create_async_engine(registry_url, poolclass=NullPool)
-    try:
-        async with engine.connect() as connection:
-            statement = (
-                select(SysTenant.code, SysTenantDatabase.db_basis)
-                .outerjoin(
-                    SysTenantDatabase,
-                    (SysTenantDatabase.tenant_id == SysTenant.id) & (SysTenantDatabase.deleted_at.is_(None)),
-                )
-                .where(SysTenant.deleted_at.is_(None))
-            )
-            result = await connection.execute(statement)
-            return ConcurrentStableList(_ref(code, basis) for code, basis in result.all())
-    finally:
-        await engine.dispose()
+    return await tenant_refs_base(registry_url)
 
 
 def resolve_services(requested: ConcurrentStableList[str], *, use_default: bool = True) -> ConcurrentStableList[str]:

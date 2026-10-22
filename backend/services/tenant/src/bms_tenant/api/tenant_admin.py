@@ -456,7 +456,7 @@ def _tenant_services() -> ConcurrentStableList[str]:
     Returns:
         tuple[str, ...]: 服务标识。
     """
-    from ops.tenant_provisioning import enabled_tenant_services
+    from bms_core.tenant.provisioning import enabled_tenant_services
 
     return ConcurrentStableList(enabled_tenant_services())
 
