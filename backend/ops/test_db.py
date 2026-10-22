@@ -204,19 +204,21 @@ def account_statements(engine: str, password: str) -> ConcurrentStableList[str]:
         password: 测试账号密码。
 
     Returns:
-        tuple[str, ...]: 建号与授权语句（按序执行）。
+        ConcurrentStableList[str]: 建号与授权语句（按序执行）。
     """
     if engine == "mysql":
         account = TEST_ACCOUNT["mysql"]
         literal = _quote(password)
-        return (
-            f"CREATE USER IF NOT EXISTS '{account}'@'%' IDENTIFIED BY '{literal}'",
-            f"GRANT ALL PRIVILEGES ON `bms\\_test%`.* TO '{account}'@'%'",
-            # MySQL 8.0.30+ 起 `XA RECOVER` 须有全局 `XA_RECOVER_ADMIN` 才能看到**其他会话**的悬挂分支
-            # （缺该权限报 `XAER_RMERR`），真库悬挂分支用例（test_cross_db_2pc）依赖该恢复视图。
-            f"GRANT XA_RECOVER_ADMIN ON *.* TO '{account}'@'%'",
+        return ConcurrentStableList(
+            [
+                f"CREATE USER IF NOT EXISTS '{account}'@'%' IDENTIFIED BY '{literal}'",
+                f"GRANT ALL PRIVILEGES ON `bms\\_test%`.* TO '{account}'@'%'",
+                # MySQL 8.0.30+ 起 `XA RECOVER` 须有全局 `XA_RECOVER_ADMIN` 才能看到**其他会话**的悬挂分支
+                # （缺该权限报 `XAER_RMERR`），真库悬挂分支用例（test_cross_db_2pc）依赖该恢复视图。
+                f"GRANT XA_RECOVER_ADMIN ON *.* TO '{account}'@'%'",
+            ]
         )
-    return ()
+    return ConcurrentStableList()
 
 
 async def ensure_test_account(engine: str, admin_url: str, *, password: str) -> bool:
@@ -368,8 +370,8 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def _scopes(scope: str) -> ConcurrentStableList[str]:
-    """`--scope` → 对象元组。"""
-    return ("platform", "tenant") if scope == "all" else (scope,)
+    """`--scope` → 对象清单（插入序）。"""
+    return ConcurrentStableList(["platform", "tenant"] if scope == "all" else [scope])
 
 
 def _url_of(args: argparse.Namespace, scope: str) -> str:
@@ -385,6 +387,7 @@ def _masked(url: str) -> str:
 
 def _without_database(url: str) -> str:
     """去掉连接串的库名 / 模式段（达梦建删模式与迁移用）。"""
+    # 去库名无公开方法：SQLAlchemy `URL` 只有 `_replace`（`set(database=None)` 表示不改）
     return make_url(url)._replace(database=None).render_as_string(hide_password=False)  # pyright: ignore[reportPrivateUsage]
 
 
@@ -392,6 +395,7 @@ def _rebuild_url(url: str, *, user: str, password: str, database: str | None) ->
     """按管理员账号重建连接串（库名按方言口径；均不写入日志）。"""
     parsed = make_url(url)
     updated = parsed.set(username=user, password=password)
+    # 去库名无公开方法：`set(database=None)` 表示「不改」，只能走 `URL._replace`
     updated = updated._replace(database=None) if database is None else updated.set(database=database)  # pyright: ignore[reportPrivateUsage]
     return updated.render_as_string(hide_password=False)
 

@@ -19,8 +19,9 @@ import argparse
 import asyncio
 import json
 import os
+from typing import cast
 
-from sqlalchemy import select
+from sqlalchemy import Table, select
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
@@ -100,7 +101,7 @@ async def seed_client(
     updated = 0
     try:
         async with engine.begin() as connection:
-            await connection.run_sync(SysClient.__table__.create, checkfirst=True)
+            await connection.run_sync(cast("Table", SysClient.__table__).create, checkfirst=True)
         async with factory() as session:
             statement = select(SysClient).where(SysClient.client_id == client_id, SysClient.deleted_at.is_(None))
             existing = (await session.execute(statement)).scalar_one_or_none()

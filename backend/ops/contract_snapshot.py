@@ -22,7 +22,7 @@ from importlib import import_module
 from pathlib import Path
 from typing import Any, cast
 
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
 from bms_core.services.module_registry import ModuleRecord
 from bms_core.services.service_contract import (
     CONTRACTS_DIR,
@@ -166,7 +166,9 @@ def check(root: Path) -> int:
     records = {cast("str", record.service_key): record for record in enabled_service_records()}
     expected = {contract_file_name(service_key) for service_key in records}
     directory = contracts_dir(root)
-    actual = {path.name for path in directory.glob("*.json")} if directory.is_dir() else set()
+    actual: ConcurrentStableSet[str] = ConcurrentStableSet()
+    if directory.is_dir():
+        actual.update(path.name for path in directory.glob("*.json"))
     problems: ConcurrentStableList[str] = ConcurrentStableList(
         f"缺快照文件：{name}" for name in sorted(expected - actual)
     )

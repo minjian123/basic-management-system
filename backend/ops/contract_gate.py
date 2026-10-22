@@ -411,7 +411,7 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
     parser.add_argument("--gateway", default="", help="Pushgateway 基址（push-metrics）")
     args = parser.parse_args(argv)
     if args.command == "check":
-        services = [args.service] if args.service else None
+        services = ConcurrentStableList([args.service]) if args.service else None
         return check(args.root, services=services, image=args.image, metrics_out=args.metrics_out)
     if args.command == "baseline-update":
         return baseline_update(args.root, services=_select_services(args.service, args.all_services))

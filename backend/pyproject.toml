@@ -56,7 +56,7 @@ known-first-party = [
 [tool.pyright]
 typeCheckingMode = "strict"
 pythonVersion = "3.14"
-include = ["libs", "services"]
+include = ["libs", "services", "ops"]
 # alembic 迁移脚本不纳入类型检查（含大量动态写法）；ignore 同时抑制 IDE（basedpyright）
 # 打开该目录文件时的诊断，避免「项目门禁不管、编辑器却满屏报错」的口径分裂
 ignore = ["alembic"]

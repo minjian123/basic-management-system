@@ -228,7 +228,7 @@ def _derive_action_seeds() -> ConcurrentStableList[tuple[str, str, str]]:
     """由权限码种子去重派生全局动作码字典（同码取首次出现的名称）。
 
     Returns:
-        tuple[tuple[str, str, str], ...]: （动作码，中文名，英文名）唯一清单。
+        ConcurrentStableList[tuple[str, str, str]]: （动作码，中文名，英文名）唯一清单（插入序）。
     """
     seen: ConcurrentStableSet[str] = ConcurrentStableSet()
     result: ConcurrentStableList[tuple[str, str, str]] = ConcurrentStableList()
@@ -237,7 +237,7 @@ def _derive_action_seeds() -> ConcurrentStableList[tuple[str, str, str]]:
             continue
         seen.add(action)
         result.add((action, zh, en))
-    return tuple(result)
+    return result
 
 
 ACTION_SEEDS: ConcurrentStableList[tuple[str, str, str]] = _derive_action_seeds()

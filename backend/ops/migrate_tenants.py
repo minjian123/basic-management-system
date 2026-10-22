@@ -380,7 +380,7 @@ async def run_tasks(tasks: ConcurrentStableList[MigrationTask]) -> MigrationSumm
             continue
         succeeded.add(task.label)
         print(f"[migrate_tenants] {chain.name} {task.label} → 迁移完成（{current or '未迁移'} → {head or '无脚本'}）")
-    return MigrationSummary(succeeded=tuple(succeeded), skipped=tuple(skipped), failed=tuple(failed))
+    return MigrationSummary(succeeded=succeeded, skipped=skipped, failed=failed)
 
 
 def report(summary: MigrationSummary, tasks: ConcurrentStableList[MigrationTask]) -> int:

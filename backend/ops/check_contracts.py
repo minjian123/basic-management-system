@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+from collections.abc import Callable, ItemsView, KeysView
 from typing import Any, cast
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
@@ -68,7 +69,7 @@ def _contract_openapi(app: Any) -> ConcurrentStableDict[str, object]:
     openapi = app.openapi()
     items = getattr(openapi, "items", None)
     if callable(items):
-        for key, value in items():
+        for key, value in cast("Callable[[], ItemsView[str, Any]]", items)():
             contract.set(str(key), value)
     return contract
 
@@ -86,7 +87,7 @@ def _contract_paths(contract: ConcurrentStableDict[str, object]) -> ConcurrentSt
     raw = contract.get("paths")
     keys = getattr(raw, "keys", None)
     if callable(keys):
-        for key in keys():
+        for key in cast("Callable[[], KeysView[str]]", keys)():
             paths.add(str(key))
     return paths
 

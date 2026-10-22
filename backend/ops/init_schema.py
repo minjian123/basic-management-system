@@ -133,9 +133,7 @@ async def run_tasks(tasks: ConcurrentStableList[MigrationTask]) -> SchemaSummary
             f"[init_schema] {task.chain.name} {task.label} → 新建 {outcome.created} / "
             f"已存在 {outcome.existing}（共 {outcome.total}）"
         )
-    return SchemaSummary(
-        succeeded=tuple(succeeded), skipped=tuple(skipped), failed=tuple(failed), created=created, existing=existing
-    )
+    return SchemaSummary(succeeded=succeeded, skipped=skipped, failed=failed, created=created, existing=existing)
 
 
 def report(summary: SchemaSummary, tasks: ConcurrentStableList[MigrationTask]) -> int:

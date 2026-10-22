@@ -92,7 +92,7 @@ def validate_body_size(root: Path) -> ConcurrentStableList[str]:
         ConcurrentStableList[str]: 违规说明（空列表即通过）。
     """
     problems: ConcurrentStableList[str] = ConcurrentStableList()
-    default_text: str | None = None
+    default_text: str = ""
     default_bytes: int | None = None
 
     template = root / NGINX_TEMPLATE_RELATIVE

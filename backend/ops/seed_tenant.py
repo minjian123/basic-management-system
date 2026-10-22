@@ -21,9 +21,9 @@ import argparse
 import asyncio
 import os
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 
-from sqlalchemy import select
+from sqlalchemy import Table, select
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
@@ -119,8 +119,8 @@ async def seed_tenants(url: str) -> int:
     created = 0
     try:
         async with engine.begin() as connection:
-            await connection.run_sync(SysTenant.__table__.create, checkfirst=True)
-            await connection.run_sync(SysTenantDatabase.__table__.create, checkfirst=True)
+            await connection.run_sync(cast("Table", SysTenant.__table__).create, checkfirst=True)
+            await connection.run_sync(cast("Table", SysTenantDatabase.__table__).create, checkfirst=True)
         async with factory() as session:
             for seed in TENANT_SEEDS:
                 statement = select(SysTenant).where(SysTenant.code == seed.code, SysTenant.deleted_at.is_(None))

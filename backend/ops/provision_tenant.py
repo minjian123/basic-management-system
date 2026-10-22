@@ -268,7 +268,9 @@ async def run(args: argparse.Namespace) -> int:
     settings = get_settings()
     factory = EngineFactory(settings, allow_cross_service=True)
     services = _resolve_services(ConcurrentStableList(args.service))
-    refs = ConcurrentStableList() if args.skip_tenants else await _resolve_refs(args, factory)
+    refs: ConcurrentStableList[TenantRef] = (
+        ConcurrentStableList() if args.skip_tenants else await _resolve_refs(args, factory)
+    )
     migration_tasks = service_tasks(
         services,
         refs,

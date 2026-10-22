@@ -68,7 +68,7 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
     """
     args = build_parser().parse_args(argv)
     settings = get_settings()
-    services = tuple(dict.fromkeys(args.service)) or None
+    services = ConcurrentStableList(dict.fromkeys(args.service)) or None
     rows = pool_budget_rows(settings, services=services, active_tenants=max(args.active_tenants, 0))
     print(f"[check_budget] 核算 {len(rows)} 行（服务 × 库类别；70% 预算内不代表容量充裕，请按水位复核）")
     for row in rows:
