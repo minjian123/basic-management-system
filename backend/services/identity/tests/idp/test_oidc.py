@@ -225,13 +225,16 @@ async def test_authorize_builds_authorization_url() -> None:
 async def test_exchange_token_and_userinfo_mapping() -> None:
     """换码映射令牌（含 id_token / refresh_token）；userinfo 映射身份（idp_key=issuer）。"""
     key, public = _key_pair()
-    provider = _provider(_handler(public=public, id_token=_token(key)))
+    # 固定 id_token 只签发一次：_token() 内取 int(time.time()) 作 iat，
+    # 若在此处两次调用，跨秒时 iat 不同会导致字面断言偶发失败。
+    id_token = _token(key)
+    provider = _provider(_handler(public=public, id_token=id_token))
     token = await provider.exchange_token("code-1")
     assert token.access_token == "access-token"
     assert token.token_type == "Bearer"
     assert token.expires_in == 300
     assert token.refresh_token == "refresh-token"
-    assert token.id_token == _token(key)
+    assert token.id_token == id_token
 
     user = await provider.userinfo("access-token")
     assert user.subject == "user-1"

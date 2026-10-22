@@ -25,7 +25,9 @@ RUN sed -i 's|deb.debian.org|mirrors.tuna.tsinghua.edu.cn|g' /etc/apt/sources.li
  && apt-get install -y --only-upgrade libpcre2-8-0 libssl3t64 openssl openssl-provider-legacy \
  && rm -rf /var/lib/apt/lists/*
 
-RUN pip install --no-cache-dir uv
+# uv 固定下限：Trivy 命中 GHSA-hq85-5cpj-mr62（uv 内置 CA 信任 emSign 中间 CA，
+# CRITICAL，0.13.4 起修复）。不固定上限，但下限卡住，避免基础镜像层沿用旧 uv 再次报红。
+RUN pip install --no-cache-dir "uv>=0.13.4"
 
 WORKDIR /opt/bms
 # 工作区元数据：uv.lock 与各成员 pyproject（工作区解析需要；成员源码后续按目标服务 COPY）；
