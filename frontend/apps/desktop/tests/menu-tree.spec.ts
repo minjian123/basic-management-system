@@ -95,6 +95,32 @@ describe('菜单树基础（03_03）', () => {
     expect(cloned[0]?.children[0]?.id).toBe('user')
   })
 
+  it('契约 children 缺失：按空树处理（不抛错、计数与平铺正常）', () => {
+    // 后端 `MenuItem.children` 为可选字段，叶子节点可能整个字段缺失。
+    const leafOnly = {
+      id: 'solo',
+      parent_id: '0',
+      name: '独立菜单',
+      path: '/solo',
+      component: 'solo/view',
+      icon: null,
+      sort: 10,
+      hidden: false,
+      status: 'enabled',
+      i18n: {},
+    } as MenuItem
+    const tree = [leafOnly]
+
+    expect(cloneMenus(tree)[0]?.children).toEqual([])
+    expect(findMenu(tree, 'solo')?.id).toBe('solo')
+    expect(flattenMenus(tree).map((item) => item.id)).toEqual(['solo'])
+    expect(countMenus(tree)).toBe(1)
+    expect(expandableIds(tree)).toEqual([])
+    expect(firstLevelExpandableIds(tree)).toEqual([])
+    expect([...subtreeIds(leafOnly)]).toEqual(['solo'])
+    expect(toMenuFlatOptions(tree).map((item) => item.id)).toEqual(['solo'])
+    expect(toMenuTreeOptions(tree).map((item) => item.id)).toEqual(['0', 'solo'])
+  })
   it('查找 / 子树 ID / 平铺 / 计数', () => {
     const tree = sampleTree()
     expect(findMenu(tree, 'sys')?.name).toBe('系统管理')

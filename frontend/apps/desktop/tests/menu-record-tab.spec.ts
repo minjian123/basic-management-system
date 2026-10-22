@@ -26,6 +26,7 @@ import {
   updateForm,
   updateMenu,
 } from '@/api/menuMeta'
+import { useMenuMetaStore } from '@/stores/menuMeta'
 import MenuRecordTab from '@/views/system/menu/MenuRecordTab.vue'
 
 vi.mock('@/api/menuMeta', () => ({
@@ -182,6 +183,56 @@ describe('MenuRecordTab 编辑态（03_03）', () => {
     expect(state.dirty).toBe(false)
     expect(wrapper.find('[data-test="detail-stub"]').exists()).toBe(true)
     expect(wrapper.find('[data-test="link-stub"]').exists()).toBe(true)
+  })
+
+  it('契约 items 缺失：按钮字段明细按空清单收敛', async () => {
+    // 后端 listButtons / listFields 的 items 为可选字段，缺省时明细应为空且不抛错。
+    buttonsMock.mockImplementation(() => Promise.resolve({} as { items?: typeof BUTTONS }))
+    fieldsMock.mockImplementation(() => Promise.resolve({} as { items?: typeof FIELDS }))
+    const wrapper = await mountTab('1001')
+    const state = stateOf(wrapper)
+
+    expect(state.buttons['10']).toEqual([])
+    expect(state.fields['10']).toEqual([])
+  })
+
+  it('契约 menu_ids 缺失：载入时挂接清单按空收敛', async () => {
+    // 载入阶段 originalFormIds 的 filter 走 menu_ids 缺失分支（335）。
+    formsMock.mockResolvedValue({
+      items: FORMS.map((item) => {
+        const copy = { ...item }
+        delete (copy as { menu_ids?: number[] }).menu_ids
+        return copy
+      }),
+    })
+    const wrapper = await mountTab('1001')
+    expect(stateOf(wrapper).linkFormIds).toEqual([])
+  })
+
+  it('契约 menu_ids 缺失：解除挂接时按空集合计算', async () => {
+    // FormItem.menu_ids 为可选字段；先正常挂接，再把元数据换成缺失态后解除挂接，
+    // 覆盖「解除挂接 + menu_ids 缺失」组合（保存差异计算里的空集合起算分支）。
+    const wrapper = await mountTab('1001')
+    const state = stateOf(wrapper)
+    expect(state.linkFormIds).toEqual(['10'])
+
+    // 载入后把 store 里的表单元数据换成 menu_ids 缺失态，再解除挂接触发保存差异计算。
+    // 原挂接清单保持在 originalFormIds（载入时已定），仅清空 linkFormIds 构成「解除挂接」差异。
+    const store = useMenuMetaStore()
+    store.forms = FORMS.map((item) => {
+      const copy = { ...item }
+      delete (copy as { menu_ids?: number[] }).menu_ids
+      return copy
+    }) as never
+    updateFormMock.mockResolvedValue({} as never)
+    updateMenuMock.mockResolvedValue(MENUS[0] as never)
+    await wrapper.find('[data-test="menu-record-edit"]').trigger('click')
+    state.originalFormIds = ['10']
+    state.linkFormIds = []
+    await nextTick()
+    await wrapper.find('[data-test="menu-record-save"]').trigger('click')
+    await flushPromises()
+    expect(updateFormMock).toHaveBeenCalledWith('10', expect.objectContaining({ menu_ids: [] }))
   })
 
   it('编辑 → 修改 → 取消：恢复基线并回到只读', async () => {

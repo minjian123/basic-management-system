@@ -255,6 +255,18 @@ describe('FormView（03_03）', () => {
     await stateOf(wrapper).toggleSelected()
   })
 
+  it('契约 menu_ids 缺失：批量启停按空数组提交', async () => {
+    // 后端 FormItem.menu_ids 为可选字段，缺省时提交空数组且不抛错。
+    const wrapper = await mountView()
+    const table = wrapper.findComponent({ name: 'ElTable' })
+    updateMock.mockResolvedValue(FORMS[0])
+    table.vm.$emit('selection-change', [{ ...FORMS[0], menu_ids: undefined }])
+    await nextTick()
+    await wrapper.find('[data-test="form-batch-toggle"]').trigger('click')
+    await flushPromises()
+    expect(updateMock).toHaveBeenCalledWith('10', expect.objectContaining({ menu_ids: [] }))
+  })
+
   it('交互细节：筛选下拉 / 分页 / 空态引导 / 非脏关闭 / 缺省关联菜单与保存标题缺页签', async () => {
     const wrapper = await mountView()
     const tabs = useTabsStore()

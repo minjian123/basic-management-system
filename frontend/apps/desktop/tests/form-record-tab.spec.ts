@@ -127,6 +127,13 @@ describe('FormRecordTab（03_03）', () => {
     expect(wrapper.text()).toContain('已关联 1 个菜单入口')
   })
 
+  it('契约 menu_ids 缺失：草稿按空数组收敛（不抛错）', async () => {
+    // 后端 FormItem.menu_ids 为可选字段，缺省时草稿应为空数组。
+    formsMock.mockResolvedValue({ items: [{ ...FORM, menu_ids: undefined }] })
+    const wrapper = await mountTab('10')
+    expect(stateOf(wrapper).draft.menu_ids).toEqual([])
+  })
+
   it('组件候选装载失败降级为空（保留手输）', async () => {
     formKeysMock.mockRejectedValueOnce(new Error('registry down'))
     const wrapper = await mountTab('10')

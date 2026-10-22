@@ -105,6 +105,13 @@ describe('ActionView（03_03）', () => {
     expect(wrapper2.findAll('.el-table__row')).toHaveLength(1)
   })
 
+  it('列表契约 items 缺失：按空清单处理', async () => {
+    // 后端分页响应 items 为可选字段，缺省时列表应为空且不抛错。
+    listMock.mockResolvedValue({} as { items?: ActionItem[] })
+    const wrapper = await mountView()
+    expect(wrapper.findAll('.el-table__row')).toHaveLength(0)
+  })
+
   it('记录页签：打开 / 新增换实体页签 / 保存同步标题 / 关闭拦截 / 删除关闭', async () => {
     const wrapper = await mountView()
     const tabs = useTabsStore()
