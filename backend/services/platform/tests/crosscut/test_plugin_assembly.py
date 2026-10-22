@@ -7,6 +7,7 @@ from typing import cast
 import pytest
 
 import bms_core as app_pkg
+import bms_platform as platform_pkg
 from bms_core.application import service_lifespan as lifespan
 from bms_core.core import plugin as plugin_module
 from bms_core.core.base import BaseObject
@@ -35,12 +36,16 @@ def _isolated_registry(monkeypatch: pytest.MonkeyPatch) -> PluginRegistry:
         if ".tests" in info.name or info.name.endswith("main"):
             continue
         importlib.import_module(info.name)
+    for info in pkgutil.walk_packages(platform_pkg.__path__, prefix="bms_platform."):
+        if ".tests" in info.name or info.name.endswith("main"):
+            continue
+        importlib.import_module(info.name)
     registry = PluginRegistry()
     monkeypatch.setattr(plugin_module, "_DEFAULT_REGISTRY", registry)
     pending = list(BasePluggable.__subclasses__())
     while pending:
         cls = pending.pop()
-        if cls.__module__.startswith("bms_core."):
+        if cls.__module__.startswith(("bms_core.", "bms_platform.")):
             registry.collect(cls)
         pending.extend(cls.__subclasses__())
     return registry

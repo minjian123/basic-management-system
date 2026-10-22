@@ -78,8 +78,16 @@ def test_workspace_fingerprint_tracks_file_content(tmp_path: Path, monkeypatch: 
 
 
 @pytest.mark.kiwi_id(2315)
-def test_run_records_then_replays_without_executing(capsys: pytest.CaptureFixture[str]) -> None:
-    """首次真跑并落记录；同状态再调用回放（不执行子进程，退出码透传）。"""
+def test_run_records_then_replays_without_executing(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """首次真跑并落记录；同状态再调用回放（不执行子进程，退出码透传）。
+
+    工作区指纹固定：本用例只验「记录 → 回放」链路，不验指纹推导。并发档（`-n auto`）下
+    `test_workspace_fingerprint_tracks_file_content` 会临时改写源文件改变全局指纹，
+    若不固定则两次调用的缓存键不同、回放失效（2026-10-21 竞态修复）。
+    """
+    monkeypatch.setattr(run_once, "workspace_fingerprint", lambda: "fixed-fingerprint")
     argv = _argv()
     assert run_once.run(argv, window_seconds=1800, force=False, show_only=False) == 0
     first = capsys.readouterr().out
@@ -107,8 +115,14 @@ def test_run_force_and_expired_window_execute_again(capsys: pytest.CaptureFixtur
 
 
 @pytest.mark.kiwi_id(2315)
-def test_run_propagates_exit_code_and_clips_output(capsys: pytest.CaptureFixture[str]) -> None:
-    """退出码透传（失败也记录，回放时仍为失败码）；超长输出截断并标注。"""
+def test_run_propagates_exit_code_and_clips_output(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """退出码透传（失败也记录，回放时仍为失败码）；超长输出截断并标注。
+
+    工作区指纹固定：理由同 `test_run_records_then_replays_without_executing`（并发档竞态）。
+    """
+    monkeypatch.setattr(run_once, "workspace_fingerprint", lambda: "fixed-fingerprint")
     failing = (str(run_once.sys.executable), "-c", "raise SystemExit(3)")
     assert run_once.run(failing, window_seconds=1800, force=False, show_only=False) == 3
     capsys.readouterr()
@@ -124,8 +138,14 @@ def test_run_propagates_exit_code_and_clips_output(capsys: pytest.CaptureFixture
 
 
 @pytest.mark.kiwi_id(2315)
-def test_show_only_reports_state_without_running(capsys: pytest.CaptureFixture[str]) -> None:
-    """`--show`：只报告缓存状态，不执行命令、不写记录。"""
+def test_show_only_reports_state_without_running(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`--show`：只报告缓存状态，不执行命令、不写记录。
+
+    工作区指纹固定：理由同 `test_run_records_then_replays_without_executing`（并发档竞态）。
+    """
+    monkeypatch.setattr(run_once, "workspace_fingerprint", lambda: "fixed-fingerprint")
     argv = _argv("never-printed")
     assert run_once.run(argv, window_seconds=1800, force=False, show_only=True) == 0
     assert "无缓存" in capsys.readouterr().out

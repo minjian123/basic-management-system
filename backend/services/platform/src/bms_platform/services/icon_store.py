@@ -13,6 +13,7 @@ import sqlalchemy as sa
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.exceptions import ConflictError, MenuReferencedError, NotFoundError, ParamError
+from bms_core.core.objects import BaseFrameworkObject
 from bms_core.db.session import DbSession
 from bms_core.db.unit_of_work import UnitOfWork
 from bms_core.dict.base import current_dict_locale
@@ -84,7 +85,7 @@ def _derive_name(names: ConcurrentStableDict[str, str], fallback: str) -> str:
     return names.get(locale) or names.get(DEFAULT_LOCALE) or fallback
 
 
-class IconStore:
+class IconStore(BaseFrameworkObject):
     """请求级图标落库实现（实现 `bms_core.icon.base.IconStore` 协议）。"""
 
     def __init__(self, uow: UnitOfWork, platform_uow: UnitOfWork) -> None:
@@ -170,6 +171,8 @@ class IconStore:
                 "status": DEFAULT_ICON_STATUS,
             }
             if deleted is not None:
+                # 先清 `deleted_at` 再更新：`update` 内部 `get()` 带软删过滤，不先恢复会取不到行。
+                deleted.restore()
                 row = await self._icons.update(deleted.id, **values)
             else:
                 row = await self._icons.create(**values)

@@ -13,7 +13,7 @@ from bms_core.application import service_lifespan as lifespan
 from bms_core.core.capability import BaseCapability, BaseNullObject
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.error_codes import ErrorCode
-from bms_core.core.exceptions import NotFoundError
+from bms_core.core.exceptions import NotFoundError, ParamError
 from bms_core.core.plugin import BasePluggable, resolve_plugin
 from bms_core.icon.base import (
     DEFAULT_ICON_STATUS,
@@ -38,6 +38,7 @@ from bms_platform.api.icon import router as icon_router
 from bms_platform.icon.registry import DbIconRegistry
 from bms_platform.main import ApplicationFactory
 from bms_platform.models.system import SysIcon, SysIconI18n
+from bms_platform.services.icon_store import validate_svg
 from tests_support.auth import auth_headers
 from tests_support.menu_metadata import reset_menu_tables
 from tests_support.permission_admin import setup_min_tenant
@@ -380,6 +381,78 @@ async def test_icon_store_validation_i18n_and_menu_reference(client: AsyncClient
 
     missing = await client.get(f"{API}/not-exists")
     assert missing.status_code == 404
+
+
+@pytest.mark.kiwi_id(927)
+def test_validate_svg_rejects_blank_content() -> None:
+    """SVG 基础校验：纯空白内容拒绝（路由层 `min_length=1` 拦不到空白串，落库层须自守）。"""
+    with pytest.raises(ParamError, match="不得为空"):
+        validate_svg("   ")
+
+
+@pytest.mark.kiwi_id(927)
+async def test_icon_store_svg_edges_and_update_branches(client: AsyncClient) -> None:
+    """落库边界：SVG 空内容 / 超限拒绝，update 各字段分支与软删除同键恢复。
+
+    覆盖 IconStore.validate_svg 的空串与字节上限分支、update 的 category / tags /
+    svg / i18n 逐字段赋值分支，以及 create 命中软删除行时的恢复路径。
+    """
+    empty = await client.post(API, json={**_ICON_BODY, "svg": "   "})
+    assert empty.json()["code"] == ErrorCode.PARAM
+
+    oversized = "<svg>" + "x" * (ICON_SVG_MAX_BYTES + 1) + "</svg>"
+    too_big = await client.post(API, json={**_ICON_BODY, "code": "too-big", "svg": oversized})
+    assert too_big.json()["code"] == ErrorCode.PARAM
+
+    assert (await client.post(API, json=_ICON_BODY)).json()["code"] == 0
+
+    # get 命中路径：装载多语言名称后回显（142-143）
+    detail = await client.get(f"{API}/purchase-order")
+    assert detail.json()["data"]["code"] == "purchase-order"
+    assert detail.json()["data"]["i18n"]["zh-CN"] == "采购订单"
+
+    patched = await client.put(
+        f"{API}/purchase-order",
+        json={"category": "action", "tags": ["a", "b"], "svg": "<svg><rect/></svg>"},
+    )
+    data = patched.json()["data"]
+    assert data["category"] == "action"
+    assert data["tags"] == ["a", "b"]
+    assert data["svg"] == "<svg><rect/></svg>"
+
+    renamed = await client.put(f"{API}/purchase-order", json={"i18n": {"zh-CN": "采购单", "en-US": "PO"}})
+    assert renamed.json()["data"]["name"] == "采购单"
+    assert renamed.json()["data"]["i18n"]["en-US"] == "PO"
+
+    bad_patch = await client.put(f"{API}/purchase-order", json={"svg": "<svg><script>x</script></svg>"})
+    assert bad_patch.json()["code"] == ErrorCode.PARAM
+
+    absent = await client.put(f"{API}/ghost-icon", json={"name": "x"})
+    assert absent.status_code == 404
+
+    # 引用计数（count_menu_refs）：菜单引用完整 icon key 后删除被拒，解除引用后可删
+    menu = await client.post(
+        "/api/v1/menus",
+        json={
+            "parent_id": 0,
+            "path": "/t-icon-ref",
+            "icon": "custom:purchase-order",
+            "sort": 1,
+            "hidden": False,
+            "status": "enabled",
+            "i18n": {"zh-CN": "图标引用菜单"},
+        },
+    )
+    assert menu.json()["code"] == 0, menu.text
+    blocked = await client.delete(f"{API}/purchase-order")
+    assert blocked.json()["code"] == 40206
+    assert (await client.delete(f"/api/v1/menus/{menu.json()['data']['id']}")).json()["code"] == 0
+
+    # 软删除后同键再建：走恢复分支（deleted 行复用而非新建）
+    assert (await client.delete(f"{API}/purchase-order")).json()["data"] == {"deleted": True}
+    restored = await client.post(API, json=_ICON_BODY)
+    assert restored.json()["code"] == 0
+    assert restored.json()["data"]["code"] == "purchase-order"
 
 
 @pytest.mark.kiwi_id(927)

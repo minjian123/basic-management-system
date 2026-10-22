@@ -23,9 +23,11 @@ from bms_core.cache.memory import MemoryCacheRegion
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.exceptions import (
     ConflictError,
+    MenuCodeConflictError,
     MenuI18nRequiredError,
     MenuNotFoundError,
     MenuPathConflictError,
+    MenuPermissionExistsError,
     MenuReferencedError,
 )
 from bms_core.db.session import DbSession
@@ -57,7 +59,16 @@ from bms_platform.repositories.menu import (
     MenuRepository,
     PermissionRepository,
 )
-from bms_platform.schemas.menu import MenuCreateRequest, MenuUpdateRequest
+from bms_platform.schemas.menu import (
+    ActionCreateRequest,
+    ActionUpdateRequest,
+    BusinessCreateRequest,
+    BusinessUpdateRequest,
+    MenuCreateRequest,
+    MenuUpdateRequest,
+    PermissionCreateRequest,
+    PermissionGenerateRequest,
+)
 from bms_platform.services.menu import (
     MenuMetadataService,
     _snapshot_form,  # pyright: ignore[reportPrivateUsage]
@@ -438,6 +449,138 @@ async def test_load_snapshot_skips_disabled_and_broken_rows() -> None:
 
         permissions = await service.list_permissions(None)
         assert [item.code for item in permissions.items] == ["biz1:act1", "biz1:act2", "biz1:act3", "biz3:act1"]
+    finally:
+        await engine.dispose()
+
+
+async def test_business_action_permission_write_paths() -> None:
+    """业务码 / 动作码 / 权限码写路径：创建冲突、停用联动、恢复、删除引用保护、批量补生成。
+
+    补齐 `services/menu.py` 三类写接口此前未覆盖的分支（710c9560 引入）：
+    码重复 40209、停用连带停用权限码、软删除后同键恢复、被引用时禁删、
+    权限码组合重复 40210、批量补生成含停用项。
+    """
+    session, engine = await _engine()
+    try:
+        service = _service(session, outbox=_OutboxSpy(), cache=MemoryCacheRegion())
+
+        # 业务码：创建 / 重复 40209 / 更新停用 / 软删除后同键恢复
+        business = await service.create_business(BusinessCreateRequest(code="biz-a", i18n=_names("业务甲")))
+        business_id = business.id
+        with pytest.raises(MenuCodeConflictError):
+            await service.create_business(BusinessCreateRequest(code="biz-a", i18n=_names("重复")))
+        await session.rollback()
+
+        # 动作码：创建 / 重复
+        action = await service.create_action(ActionCreateRequest(code="act-x", i18n=_names("动作甲")))
+        action_id = action.id
+        with pytest.raises(MenuCodeConflictError):
+            await service.create_action(ActionCreateRequest(code="act-x", i18n=_names("重复")))
+        await session.rollback()
+
+        # 权限码：手工新增 / 组合重复 40210 / 更新状态
+        permission = await service.create_permission(
+            PermissionCreateRequest(business_id=business_id, action_id=action_id)
+        )
+        permission_id = permission.id
+        with pytest.raises(MenuPermissionExistsError):
+            await service.create_permission(PermissionCreateRequest(business_id=business_id, action_id=action_id))
+        await session.rollback()
+
+        # 停用动作码：连带停用其权限码（update_action 的联动分支）
+        stopped = await service.update_action(action_id, ActionUpdateRequest(status="disabled", i18n=_names("动作甲")))
+        assert stopped.status == "disabled"
+        await session.rollback()
+
+        # 停用业务码：连带停用其权限码（update_business 的联动分支）
+        stopped_business = await service.update_business(
+            business_id, BusinessUpdateRequest(status="disabled", i18n=_names("业务甲"))
+        )
+        assert stopped_business.status == "disabled"
+        await session.rollback()
+
+        # 被引用时禁删：权限码存在则业务码 / 动作码不可删
+        with pytest.raises(MenuReferencedError):
+            await service.delete_business(business_id)
+        await session.rollback()
+        with pytest.raises(MenuReferencedError):
+            await service.delete_action(action_id)
+        await session.rollback()
+
+        # 删除权限码后业务码可删，再同键重建走软删除恢复分支
+        await service.delete_permission(permission_id)
+        await session.rollback()
+        await service.delete_business(business_id)
+        await session.rollback()
+        restored_business = await service.create_business(
+            BusinessCreateRequest(code="biz-a", i18n=_names("业务甲重建"))
+        )
+        assert restored_business.code == "biz-a"
+        await session.rollback()
+
+        # 缺行分支：更新 / 删除不存在的业务码与动作码（844 / 868 / 942 / 967）
+        with pytest.raises(MenuNotFoundError):
+            await service.update_business(987654321, BusinessUpdateRequest(i18n=_names("无")))
+        await session.rollback()
+        with pytest.raises(MenuNotFoundError):
+            await service.delete_business(987654321)
+        await session.rollback()
+        with pytest.raises(MenuNotFoundError):
+            await service.update_action(987654321, ActionUpdateRequest(i18n=_names("无")))
+        await session.rollback()
+        with pytest.raises(MenuNotFoundError):
+            await service.delete_action(987654321)
+        await session.rollback()
+
+        # 表单挂接引用：业务码被表单挂接时禁删（872）
+        form = await service.create_form(
+            business_id=business_id,
+            component="comp",
+            menu_ids=ConcurrentStableList(),
+            status="enabled",
+        )
+        form_id = form.id
+        with pytest.raises(MenuReferencedError):
+            await service.delete_business(business_id)
+        await session.rollback()
+        await service.delete_form(form_id)
+        await session.rollback()
+
+        # 动作码软删除后同键重建：走恢复分支（911-914）
+        await service.delete_action(action_id)
+        await session.rollback()
+        restored_action = await service.create_action(ActionCreateRequest(code="act-x", i18n=_names("动作甲重建")))
+        assert restored_action.code == "act-x"
+        await session.rollback()
+
+        # 权限码缺行校验（988 / 990）
+        with pytest.raises(MenuNotFoundError):
+            await service.create_permission(PermissionCreateRequest(business_id=987654321, action_id=action_id))
+        await session.rollback()
+        with pytest.raises(MenuNotFoundError):
+            await service.create_permission(PermissionCreateRequest(business_id=business_id, action_id=987654321))
+        await session.rollback()
+
+        # 权限码软删除后同组合重建：走恢复分支（996-999）
+        deleted_permission = await service.create_permission(
+            PermissionCreateRequest(business_id=business_id, action_id=action_id)
+        )
+        deleted_permission_id = deleted_permission.id
+        await service.delete_permission(deleted_permission_id)
+        await session.rollback()
+        restored_permission = await service.create_permission(
+            PermissionCreateRequest(business_id=business_id, action_id=action_id)
+        )
+        assert restored_permission.id == deleted_permission_id
+        await session.rollback()
+
+        # 批量补生成：含停用项开关（generate_permissions 的两个分支）
+        generated = await service.generate_permissions(PermissionGenerateRequest())
+        assert generated.created >= 0
+        await session.rollback()
+        generated_all = await service.generate_permissions(PermissionGenerateRequest(include_disabled=True))
+        assert generated_all.created >= 0
+        await session.rollback()
     finally:
         await engine.dispose()
 
