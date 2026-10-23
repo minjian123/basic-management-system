@@ -1,6 +1,6 @@
 # CodeBuddy 部署使用说明
 
-> mjpc 开发机 Windows 11 侧 CodeBuddy CN（应用 1.106.1 / 安装器 4.12.2）部署、配置、权限、扩展管理、运行调试与浏览器真机验证（Playwright MCP）实录 · 2026-10-15 安装 / 2026-10-16 事实核实 / 2026-10-21 权限与免确认设置（全 13 类放开） / 2026-10-21 本地全套脱 Job 启动与 PID 复用校验
+> mjpc 开发机 Windows 11 侧 CodeBuddy CN（应用 1.106.1 / 安装器 4.12.2）部署、配置、权限、扩展管理、运行调试与浏览器真机验证（Playwright MCP）实录 · 2026-10-15 安装 / 2026-10-16 事实核实 / 2026-10-21 权限与免确认设置（全 13 类放开） / 2026-10-21 本地全套脱 Job 启动与 PID 复用校验 / 2026-10-23 源代码管理面板仓库可见性排障
 
 [文档首页](../../../文档首页.md) › 资料 › 开发机 › windows › CodeBuddy 部署使用说明　|　[同级：开发机部署使用说明总览](开发机部署使用说明总览.md)　[google-chrome部署使用说明 →](google-chrome部署使用说明.md)　[playwright部署使用说明 →](playwright部署使用说明.md)　[VSCode部署使用说明 →](VSCode部署使用说明.md)　[linux 版 CodeBuddy 部署使用说明 →](../linux/CodeBuddy部署使用说明.md)
 
@@ -46,6 +46,7 @@ python3 -c "import json,os;print(json.load(open(os.path.join(os.environ['LOCALAP
 | --------------------------------- | -------------------------------------------------------------------------------------------- |
 | IDE 用户设置（含权限开关）        | `%APPDATA%\CodeBuddy CN\User\settings.json`                                                  |
 | 权威设置存储（安全类别 / 自动审批） | `%APPDATA%\CodeBuddy CN\User\globalStorage\state.vscdb`（SQLite，键 `CodeBuddy.settings`）    |
+| 工作区状态（SCM 仓库可见性等）    | `%APPDATA%\CodeBuddy CN\User\workspaceStorage\<hash>\state.vscdb`（SQLite；`<hash>` 按同目录 `workspace.json` 定位，见 [10.3](#scm)） |
 | AI 侧配置（插件登记 / MCP / 技能） | `~\.codebuddy\`（`settings.json`、`mcp.json`、`plugins\`、`skills-marketplace\`）             |
 | 扩展宿主                          | `~\.codebuddycn\extensions\`（另有 `argv.json`）                                             |
 | 对话与扩展日志                    | `%LOCALAPPDATA%\CodeBuddyExtension\Logs\CodeBuddyIDE\<日期>\<工作区名>__<hash>.log`          |
@@ -467,6 +468,8 @@ pnpm --filter @bms/desktop dev                                                  
 
 ### 10.2 排障入口 <a id="trouble-entry"></a>
 
+> 源代码管理面板只显示部分仓库、看不到 `bms` 等：不是 git 故障，见 [10.3](#scm)。
+
 | 现象                                                       | 处理                                                                                                                                                                                                                                                          |
 | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 对话卡住 / 反复超时（市场拉取阻塞）                        | 开启 `codingcopilot.disableBuiltInMarketplace` 后重载窗口                                                                                                                                                                                                     |
@@ -482,6 +485,42 @@ pnpm --filter @bms/desktop dev                                                  
 | 多开窗口互相干扰                                           | 排障时同一用户数据目录（`%APPDATA%\CodeBuddy CN`）下**只保留一个窗口**：多窗口共用扩展宿主与 MCP 会话，MCP 面板 / 任务可能相互干扰（CLI 默认复用已有窗口，`-n` 才新开）                                                                                        |
 | Playwright MCP 调不到工具（无 `mcp__playwright__*`）     | 工具列表是**会话启动快照**：登记或改配置后需**重启 IDE**或刷新 MCP 面板；面板内该 server 为 running 即已拉起（见[第 9 节](#browser-mcp)）；日志线索在 `%LOCALAPPDATA%\CodeBuddyExtension\Logs\…`                                                |
 | MCP / CLI `snapshot` 落盘 `.playwright-*` 文件恒 0 字节   | 二者同源缺陷：取结构改用 **`browser_snapshot` / `browser_find`**（a11y 树内联返回，含 `[ref=eNN]`），或 CLI 侧 `eval` 读 DOM（见[第 9 节](#browser-mcp)）                                                                                              |
+
+### 10.3 源代码管理面板看不到仓库（2026-10-23 排查与修复） <a id="scm"></a>
+
+多仓库工作区（`D:\Develop\bizs`：工作区根 + `biz` / `bms` / `engkit` / `mdm` / `test`，共 6 个仓库）里，源代码管理面板只显示其中 2 个（本机为 `mdm` / `test`），`bms` 等即使有改动也不出现。**git 本身正常**，故障在 IDE 的两处「视图状态」。
+
+**排查顺序（三条即可定位，前两步用来排除 git 与扫描）**
+
+| 步 | 检查 | 本机实测 |
+| --- | --- | --- |
+| ① git 层 | 各仓库 `git -C <仓库目录> status --short` | 6 个仓库均正常，仓库本身没丢 |
+| ② 仓库识别 | Git 扩展日志 `%APPDATA%\CodeBuddy CN\logs\<时间戳>\window1\exthost\vscode.git\Git.log` | `Initial repository scan completed - repositories (6), closed repositories (0)`，识别正常 |
+| ③ 视图状态 | 工作区库与全局库两处键（见下） | 两处都被改窄，见下表 |
+
+| 位置 | 路径 / 键 | 故障值（本机） | 含义 |
+| --- | --- | --- | --- |
+| 工作区库 | `%APPDATA%\CodeBuddy CN\User\workspaceStorage\<hash>\state.vscdb` 的 `scm:view:visibleRepositories` | `visible: [4,5]` | `visible` 存的是 `all` 的**下标**（不是仓库名），本机正指向 `mdm` / `test`，其余 4 个被排除 |
+| 全局库 | `%APPDATA%\CodeBuddy CN\User\globalStorage\state.vscdb` 的 `workbench.scm.views.state.hidden` | `workbench.scm.repositories` → `isHidden: true` | 面板的「仓库」视图整块消失，只剩「更改」视图；「更改」只列它认为活动的仓库，故看不到 `bms` |
+
+`<hash>` 目录按同目录 `workspace.json` 的 `folder`（裸目录打开）或 `workspace`（`.code-workspace` 打开）字段定位，两种打开方式各存一份状态。
+
+**修复**
+
+1. **完全退出 CodeBuddy**（含所有窗口，任务管理器确认 `CodeBuddy CN` 进程全无）——IDE 运行期间改库会被退出时的内存状态回写覆盖。
+2. 改两处：工作区库把 `visible` 改为 `all` 的全量下标；全局库把 `workbench.scm.repositories` 的 `isHidden` 改为 `false`。
+3. 重新打开工作区：面板出现「仓库」区块，6 个仓库齐全，可逐个切换查看变更。
+
+> 仓库内脚本 `bms/scripts/tools/ide/fix_scm_state.py` 当前是 **Linux 口径**（默认目录 `~/.config/Code`、进程检测用 `ps -eo args`、工作区 URI 未做 `%3A` 百分号编码匹配），在 Windows 上定位不到状态库，也不会拦「IDE 仍在运行」。本次用一次性脚本处理（未入库）；待该脚本补双平台后再统一走该入口。
+
+**预防与易误判**
+
+- 用户设置加 `"scm.alwaysShowRepositories": true`（`%APPDATA%\CodeBuddy CN\User\settings.json`，本机已加）：可降低复发概率，**不能完全防止**——仓库可见性仍可能被改窄，复发时按上面三步重改。
+- **易误判①**：工作区库里 `workbench.scm.views.state` 三个视图的 `isHidden: true` 是正常默认值，不参与判故障；判据只有一条——`visible` 是否覆盖 `all`。
+- **易误判②**：本次的「仓库」视图隐藏在**全局库**的 `workbench.scm.views.state.hidden`（数组形式），与工作区库里那个同名对象键不是同一处：只改工作区库不够。
+- **易误判③**：工作区根仓库只跟踪工作区配置文件（`.gitignore` 为全忽略 + 白名单），选中根仓库「没有变化」属正常；`bms` 等仓库的变更需各自可见才会展示。
+- 同一工作区在 VS Code 侧状态正常（`visible` 覆盖全部 5 个仓库），可用来区分「IDE 状态问题」与「git / 工作区问题」。
+- Linux 侧同一问题的成因、`--check` 用法与备选手段见《[VSCode 部署使用说明（linux）](../linux/VSCode部署使用说明.md#scm)》第 6 节。
 
 ## 11. 与 linux 版差异 <a id="diff-linux"></a>
 
@@ -516,6 +555,7 @@ pnpm --filter @bms/desktop dev                                                  
 - □ 本地全套口径明确：`本地全套.py`（三服务 + loopback 别名 + 开发密钥），hosts 需管理员权限、`seed` 必跑（否则恒 401）
 - □ 浏览器真机验证口径明确：Playwright MCP 登记于 `~\.codebuddy\mcp.json`（系统 Chrome + `--isolated`）、生效需重启 IDE；结构读 `browser_snapshot` / `browser_find`（`.playwright-mcp\*.yml` 不可依赖）、截图落工作区 `tmp\`、控制台只认预期错误；长会话首选 MCP
 - □ 排障入口齐备：日志三处（扩展 / IDE / 崩溃转储）、`python3` 商店别名、中文编码（GBK）、CLI 未入旧终端 PATH、多开窗口
+- □ 源代码管理面板口径明确：仓库可见性看工作区库 `scm:view:visibleRepositories` 的 `visible` 是否覆盖 `all`，视图显隐看全局库 `workbench.scm.views.state.hidden`（`scm.alwaysShowRepositories` 只降低复发）；看不到仓库按 [10.3](#scm) 处理
 - □ 本机事实均经核实（2026-10-15 安装实测；2026-10-16 复核版本 / 目录 / 扩展 / 权限存储 / uv 工具链 / MCP 登记 / `.vscode` 双平台取值；2026-10-21 权限与免确认设置改为全 13 类放开并冷启动取证），未写入账号 / 令牌等凭据
 
 ## 13. 关联文档 <a id="related"></a>
@@ -523,6 +563,7 @@ pnpm --filter @bms/desktop dev                                                  
 - 《[开发机部署使用说明总览](开发机部署使用说明总览.md)》：mjpc Windows 侧开发设施汇总（CodeBuddy 在其中的定位与取值）
 - 《[CodeBuddy 部署使用说明](../linux/CodeBuddy部署使用说明.md)》：linux 侧同名文档（权限存储链路、工作区 `.codebuddy/` 与 AI 协作口径）
 - 《[VSCode部署使用说明](VSCode部署使用说明.md)》：同机 VS Code 侧（工作区多根、调试与扩展口径对照）
+- 《[VSCode 部署使用说明（linux）](../linux/VSCode部署使用说明.md#scm)》：linux 侧编辑器口径，「源代码管理面板看不到仓库」的成因、`--check` 与修复脚本入口
 - 《[google-chrome部署使用说明](google-chrome部署使用说明.md)》：浏览器断点与 Playwright 真机验证复用的系统 Chrome
 - 《[playwright部署使用说明](playwright部署使用说明.md)》：真机验证兜底（`playwright-cli` 技能插件）的命令与选型
 - 《[pnpm 部署使用说明](pnpm部署使用说明.md)》《[uv 部署使用说明](uv部署使用说明.md)》：Node / Python 工具链与依赖外置（IDE 任务、调试解释器与后端门禁的前提）
