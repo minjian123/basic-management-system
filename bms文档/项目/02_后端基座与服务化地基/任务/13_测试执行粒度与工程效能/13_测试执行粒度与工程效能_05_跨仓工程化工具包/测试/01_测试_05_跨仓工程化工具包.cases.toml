@@ -1,0 +1,20 @@
+# 13_05 跨仓工程化工具包（engkit）· Kiwi 用例登记清单
+# 口径：`engkit kiwi register --cases <本文件>`（仓根执行）；文本字段写覆盖范围与自动化文件路径。
+
+[[case]]
+summary = "跨仓工程化工具包（13_05）：配置化接入 + 五子命令 + 单一来源（触点覆盖 engkit 与 bms / mdm 两侧）"
+category = "平台骨架"
+priority = "P2"
+status = "CONFIRMED"
+tags = ["自动化"]
+text = """
+<p><b>覆盖范围</b>：</p>
+<p>① <b>单一来源与可安装</b>：选测推导、并行档位、覆盖率门禁、重命令拦截、文档链接与口径校验的实现各只有一份，均在 <code>engkit</code> 仓；bms 侧入口为薄包装（只转发参数与退出码，不含推导 / 判定逻辑），护栏用例锁定「包装只转发」。</p>
+<p>② <b>配置化接入</b>：包内不含任何仓名与目录字面（机器断言）；仓间差异全部落仓根 <code>engkit.toml</code>（文档根 / 工程清单 / 选测规则 / 预检步骤 / 覆盖率门禁 / 拦截口径），新增仓库只加配置不改代码；配置缺段 / 类型错 / 未知键即报错退出码 2。</p>
+<p>③ <b>五子命令</b>：<code>links</code>（相对链接与锚点，含 URL 编码路径解码）/ <code>docs-scope</code>（进度类字段只落阶段计划，含行内 <code>docs-scope:allow</code> 豁免）/ <code>preflight</code>（定向 / <code>--fast</code> / <code>--full</code> 三档 + 预算护栏 + 自测按需）/ <code>run-once</code>（缓存回放 / <code>--force</code> / <code>--show</code>）/ <code>kiwi</code>（用例批量登记与回读），另有 <code>selection</code> / <code>run-selected</code> / <code>coverage</code> / <code>guard</code> 子命令。</p>
+<p>④ <b>跨仓触点</b>：bms 侧 12 个薄包装 + 30 步预检 + CI 按锁定 SHA 克隆 engkit；mdm 侧以 git 源依赖锁 rev 接入，启用 <code>links</code> / <code>docs-scope</code> / <code>preflight</code> 并完成存量文档整改（零断链 / 零违规 / 一条命令跑出定向用例与覆盖率门禁）。</p>
+<p>⑤ <b>采集与并行</b>：覆盖率采集由 <code>engkit.coverage_plugin</code> 承担（导入即启动，早于被测模块导入；按进程号落盘后由 <code>engkit coverage</code> 合并判定）；并行档位所需 pytest-xdist 随工具包安装，各仓无需自行声明，缺装时显式降级串行。</p>
+<p>⑥ <b>行为零回退</b>：<code>check-preflight.py</code> / <code>run-once.py</code> / <code>test_selection.py</code> / <code>run-selected.py</code> / <code>check-links.py</code> / <code>check-docs-scope.py</code> 的参数、输出与退出码不变；变更基准缺省取仓配置 <code>[preflight].since</code>（不静默零变更）。</p>
+<p><b>自动化文件</b>：<code>engkit/tests/</code>（14 个用例文件、覆盖率行 + 分支 100%；<code>test_guards.py</code> 锁单一来源与「包内无仓名字面」，<code>test_docs_links.py</code> 锁 URL 编码解码）+ bms 侧 <code>backend/libs/bms_core/tests/boundary/test_*_guard.py</code>（锁包装契约与配置登记）。</p>
+<p><b>关联交付</b>：engkit 仓（包 + 文档 + CI 双轨）/ bms 侧薄包装与配置 / mdm 接入与存量整改 / 工作区模型同步（AGENTS.md、搭建脚本、.ignore、*.code-workspace）。</p>
+"""
