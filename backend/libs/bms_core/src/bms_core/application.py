@@ -64,14 +64,15 @@ from bms_core.masking.base import get_masker
 from bms_core.metrics.base import BaseMetrics
 from bms_core.models.ownership import SysTableOwnership
 from bms_core.registry.forms import FormRecord, FormRegistry, merge_form_records
+from bms_core.registry.products import load_product_manifests
 from bms_core.schemas.common import ApiResponse
 from bms_core.servicecall.base import BaseServiceClient
 from bms_core.services.module_registry import (
-    SERVICE_CATALOG,
     ModuleRecord,
     ModuleRegistry,
     enabled_service_keys,
-    merge_service_records,
+    register_service_records,
+    service_catalog_view,
     validate_catalog,
     validate_product_service_records,
 )
@@ -466,8 +467,14 @@ class BaseServiceApplicationFactory(BaseApplicationFactory):
         app.state.resources = ResourceManager()
         # 服务目录为**应用级视图**：平台清单 + 本服务注入记录（产品服务经 `service_records()` 提供）；
         # 合并按「同 module_key 同值去重、异值即拒」（平台侧已登记 + 产品侧自报同值时并存不冲突；12_03 扩展）
+        # 产品登记清单（产品仓自持）：服务行 / 产品路由 / 数据源条目在装配期装载进合并视图；
+        # 缺省空配置 = 不装载（平台服务与未挂载产品的环境行为不变）
+        loads = load_product_manifests(settings.registry.product_manifests)
+        if loads:
+            get_logger("bms").info("product_manifests_loaded", count=len(loads))
         injected = ConcurrentStableList(self.service_records())
-        app.state.module_registry = ModuleRegistry(merge_service_records(SERVICE_CATALOG, injected))
+        register_service_records(injected)
+        app.state.module_registry = ModuleRegistry(service_catalog_view())
         app.state.service_product_key = self.product_key
         app.state.service_injected_records = injected
         # 表归属为**合并视图**：平台清单 + 本服务注入记录（产品服务经 `table_records()` 提供）；

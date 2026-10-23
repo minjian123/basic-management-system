@@ -13,22 +13,21 @@ from bms_core.datasource.registry import (
 
 @pytest.mark.kiwi_id(2287)
 def test_catalog_is_valid() -> None:
-    """构建期清单自身通过离线校验，覆盖 bms 侧字典表与跨项目示例。"""
-    registry = DataSourceRegistry()
+    """平台内建清单自身通过离线校验（覆盖 bms 侧字典表）；产品条目由产品清单装载、不入常量。"""
+    registry = DataSourceRegistry(DATA_SOURCE_CATALOG)
     assert registry.validate() == []
-    assert registry.get("org_dept") is not None
     keys = registry.keys()
-    for expected in ("role", "user", "tenant", "config", "module", "icon", "org_dept", "org_post"):
+    for expected in ("role", "user", "tenant", "config", "module", "icon"):
         assert expected in keys
+    assert "org_dept" not in keys
 
 
 @pytest.mark.kiwi_id(2287)
 def test_catalog_kind_and_origin() -> None:
-    """类型 / 来源：bms 侧字典表均为 `dict` / `platform`；跨项目示例为 `product` + 产品标识。"""
-    registry = DataSourceRegistry()
+    """类型 / 来源：平台内建条目均为 `dict` / `platform`（产品条目由产品清单装载）。"""
+    registry = DataSourceRegistry(DATA_SOURCE_CATALOG)
     assert {record.kind for record in registry.catalog_records()} == {"dict"}
-    product = registry.get("org_dept")
-    assert product is not None and product.origin == "product" and product.product_key == "mdm" and product.cascade
+    assert {record.origin for record in registry.catalog_records()} == {"platform"}
 
 
 @pytest.mark.kiwi_id(2287)

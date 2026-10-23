@@ -936,6 +936,18 @@ class EventSettings(PluginSelection):
     """签发契约校验模式：`off` 不校验 / `warn` 记录告警放行 / `enforce` 未登记即拒发（10010）。"""
 
 
+class RegistrySettings(BaseSettings):
+    """登记清单配置（`[registry]`）：产品仓自持清单（服务行 / 产品路由 / 数据源条目）。
+
+    产品登记不再写进基座常量；装配期与离线网关生成按本清单装载（缺省空 = 不装载产品登记）。
+    """
+
+    product_manifests: Annotated[ConcurrentStableList[str], CONTRACT_COLLECTION] = Field(
+        default_factory=CONTRACT_STABLE_LIST
+    )
+    """产品登记清单文件路径（相对当前工作目录；缺省空列表）。"""
+
+
 class TransactionManagerSettings(PluginSelection):
     """跨服务事务管理器配置（`[transaction_manager]`；在能力选择之外追加协调参数）。
 
@@ -1071,6 +1083,7 @@ class Settings(PydanticBaseSettings, BaseSettings):  # pyright: ignore[reportInc
     pagination: PaginationSettings = Field(default_factory=PaginationSettings)
     tenant: TenantSettings = Field(default_factory=TenantSettings)
     database: DatabaseSettings
+    registry: RegistrySettings = Field(default_factory=RegistrySettings)
     redis: RedisSettings = Field(default_factory=RedisSettings)
     minio: MinioSettings = Field(default_factory=MinioSettings)
     security: SecuritySettings = Field(default_factory=SecuritySettings)

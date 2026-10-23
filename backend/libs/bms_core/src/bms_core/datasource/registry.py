@@ -20,10 +20,16 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from enum import StrEnum
 
-from bms_core.core.concurrent import ConcurrentStableFrozenList, ConcurrentStableList, ConcurrentStableSet
+from bms_core.core.concurrent import (
+    ConcurrentStableDict,
+    ConcurrentStableFrozenList,
+    ConcurrentStableList,
+    ConcurrentStableSet,
+)
 from bms_core.core.objects import BaseFrameworkObject, BaseValueObject
 
 __all__ = [
@@ -196,39 +202,53 @@ DATA_SOURCE_CATALOG: ConcurrentStableList[DataSourceRecord] = ConcurrentStableFr
             kind=DataSourceKind.DICT.value,
             allowlist=ConcurrentStableFrozenList(("code",)),
         ),
-        # 跨项目示例（数据本体在 mdm 产品；前端经网关直取产品命名空间）
-        DataSourceRecord(
-            data_source_key="org_dept",
-            name="部门",
-            data_source="mdm.org.dept",
-            kind=DataSourceKind.DICT.value,
-            origin=DataSourceOrigin.PRODUCT.value,
-            product_key="mdm",
-            path="/data-source/dept-tree",
-            allowlist=ConcurrentStableFrozenList(("code", "label")),
-            cascade=True,
-            strategies=ConcurrentStableFrozenList(
-                (DataSourceStrategy.SELECT.value, DataSourceStrategy.REGION.value, DataSourceStrategy.MATCH.value)
-            ),
-        ),
-        DataSourceRecord(
-            data_source_key="org_post",
-            name="岗位",
-            data_source="mdm.org.post",
-            kind=DataSourceKind.DICT.value,
-            origin=DataSourceOrigin.PRODUCT.value,
-            product_key="mdm",
-            path="/data-source/posts",
-            allowlist=ConcurrentStableFrozenList(("code", "label")),
-            strategies=ConcurrentStableFrozenList((DataSourceStrategy.SELECT.value, DataSourceStrategy.MATCH.value)),
-        ),
     )
 )
-"""bms 侧构建期清单（平台内建字典表 + 跨项目示例；其余数据源随各自域以注入方式回补）。
+"""平台内建数据源清单（**只含平台自有字典表**；产品数据源由产品仓自持清单装载）。
 
 `kind` 一律**逐条显式声明**（2026-10-13，任务 `08_01`）——不再依赖数据类默认值；
 取值保持既有不变（本清单均为字典表）。
+
+**产品条目不入本常量**：产品（如 mdm）在 `deploy/registry/<产品>.json` 的 `data_sources` 段声明，
+经 `register_data_source_records()` 装载（装配期 / 离线网关生成），避免产品名与取数路径写进基座源码。
 """
+
+_INJECTED_DATA_SOURCE_RECORDS: ConcurrentStableDict[str, DataSourceRecord] = ConcurrentStableDict()
+"""产品清单装载的数据源条目（`data_source_key` → 记录）。"""
+
+
+def register_data_source_records(records: Iterable[DataSourceRecord]) -> None:
+    """装载产品数据源条目（幂等：同 `data_source_key` 同值覆盖、异值即拒）。
+
+    Args:
+        records: 数据源登记记录（来自产品自持清单）。
+
+    Raises:
+        CatalogError: 与已装载记录同键异值（fail-closed）。
+    """
+    from bms_core.core.exceptions import CatalogError
+
+    for record in records:
+        existing = _INJECTED_DATA_SOURCE_RECORDS.get(record.data_source_key)
+        if existing is not None and existing != record:
+            raise CatalogError(
+                f"数据源条目同键异值：{record.data_source_key!r}（已装载 {existing!r}，新 {record!r}）"
+            )
+        _INJECTED_DATA_SOURCE_RECORDS.set(record.data_source_key, record)
+
+
+def reset_data_source_records() -> None:
+    """清空已装载的产品数据源条目（测试隔离用；生产路径不调用）。"""
+    _INJECTED_DATA_SOURCE_RECORDS.clear()
+
+
+def data_source_records_view() -> ConcurrentStableList[DataSourceRecord]:
+    """数据源登记**合并视图**（平台内建 + 已装载产品条目，插入序）。
+
+    Returns:
+        ConcurrentStableList[DataSourceRecord]: 数据源登记记录。
+    """
+    return merge_data_source_records(DATA_SOURCE_CATALOG, ConcurrentStableList(_INJECTED_DATA_SOURCE_RECORDS.values()))
 
 
 def merge_data_source_records(
@@ -256,11 +276,11 @@ class DataSourceRegistry(BaseFrameworkObject):
         """初始化。
 
         Args:
-            records: 登记记录（插入序）；默认全量构建期清单 `DATA_SOURCE_CATALOG`
-                （应用装配期应传入 `merge_data_source_records()` 结果）。
+            records: 登记记录（插入序）；默认**合并视图** `data_source_records_view()`
+                （平台内建 + 已装载产品条目）。
         """
         self._records: ConcurrentStableList[DataSourceRecord] = (
-            ConcurrentStableList(DATA_SOURCE_CATALOG) if records is None else ConcurrentStableList(records)
+            data_source_records_view() if records is None else ConcurrentStableList(records)
         )
 
     def catalog_records(self) -> ConcurrentStableList[DataSourceRecord]:

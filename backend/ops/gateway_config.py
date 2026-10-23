@@ -18,15 +18,20 @@
 from __future__ import annotations
 
 import argparse
+import json
+import os
 import re
 import sys
+import tomllib
 from pathlib import Path
+from typing import cast
 
 _BACKEND_ROOT = Path(__file__).resolve().parents[1]
 _SRC_ROOT = _BACKEND_ROOT / "libs" / "bms_core" / "src"
 sys.path.insert(0, str(_SRC_ROOT))
 
 from bms_core.core.concurrent import ConcurrentStableList  # noqa: E402
+from bms_core.registry.products import load_product_manifests  # noqa: E402
 from bms_core.services.gateway_catalog import (  # noqa: E402
     render_apisix_config,
     render_apisix_yaml,
@@ -55,6 +60,9 @@ ENV_EXAMPLE_RELATIVE = Path("deploy/.env.example")
 
 BODY_SIZE_VARIABLE = "GATEWAY_MAX_BODY_SIZE"
 """请求体上限环境变量名（缺省 32m）。"""
+
+MANIFESTS_ENV = "BMS_REGISTRY__PRODUCT_MANIFESTS"
+"""产品登记清单环境变量（JSON 数组或 `os.pathsep` 分隔；优先于配置文件）。"""
 
 UPLOAD_MAX_SIZE_BYTES = 20 * 1024 * 1024
 """文件上传整包上限（`file.upload.max_size` = 20MB = 20971520）；网关请求体上限须 ≥ 此值。"""
@@ -176,6 +184,54 @@ def config_path(root: Path) -> Path:
     return root / CONFIG_RELATIVE
 
 
+def configured_manifests(root: Path) -> ConcurrentStableList[str]:
+    """取产品登记清单路径（环境变量 > `config.{env}.toml` > `config.toml`，相对 backend 解析）。
+
+    Args:
+        root: 仓库根（`backend/` 的父目录）。
+
+    Returns:
+        ConcurrentStableList[str]: 清单文件绝对路径（按登记顺序；缺省空）。
+    """
+    raw_env = os.environ.get(MANIFESTS_ENV, "").strip()
+    if raw_env:
+        if raw_env.startswith("["):
+            parsed: object = json.loads(raw_env)
+            items = cast("list[object]", parsed) if isinstance(parsed, list) else list[object]()
+            return ConcurrentStableList(str(Path(str(item))) for item in items)
+        return ConcurrentStableList(item.strip() for item in raw_env.split(os.pathsep) if item.strip())
+    env = os.environ.get("BMS_ENV", "dev")
+    merged: ConcurrentStableList[str] = ConcurrentStableList()
+    for name in ("config.toml", f"config.{env}.toml"):
+        path = root / "backend" / name
+        if not path.is_file():
+            continue
+        data = cast("dict[str, object]", tomllib.loads(path.read_text(encoding="utf-8")))
+        section = data.get("registry")
+        if not isinstance(section, dict):
+            continue
+        values = cast("dict[str, object]", section).get("product_manifests")
+        if isinstance(values, list):
+            merged = ConcurrentStableList(str(item) for item in cast("list[object]", values))
+    base = root / "backend"
+    resolved: ConcurrentStableList[str] = ConcurrentStableList()
+    for item in merged:
+        candidate = Path(item)
+        resolved.add(str(candidate if candidate.is_absolute() else (base / candidate)))
+    return resolved
+
+
+def load_registries(root: Path) -> None:
+    """装载产品登记清单（缺失路径跳过；不阻断平台路由生成）。
+
+    Args:
+        root: 仓库根。
+    """
+    paths = configured_manifests(root)
+    if paths:
+        load_product_manifests(paths)
+
+
 def render(root: Path, *, to_stdout: bool = False) -> int:
     """生成并写入 `apisix.yaml`。
 
@@ -186,6 +242,7 @@ def render(root: Path, *, to_stdout: bool = False) -> int:
     Returns:
         int: 退出码（0 成功）。
     """
+    load_registries(root)
     text = render_apisix_yaml()
     target = config_path(root)
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -206,6 +263,7 @@ def check(root: Path) -> int:
     Returns:
         int: 退出码（0 一致；1 缺失 / 漂移 / 硬编码 IP / 请求体上限口径不一致）。
     """
+    load_registries(root)
     target = config_path(root)
     if not target.is_file():
         print(f"[gateway_config] 缺失生成件：{target}（运行 render 生成）", file=sys.stderr)

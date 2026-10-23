@@ -84,8 +84,11 @@ def test_check_drift_fails(tmp_path: Path) -> None:
 
 
 @pytest.mark.kiwi_id(2165)
-def test_committed_config_in_sync() -> None:
-    """仓库内 deploy/gateway/apisix.yaml 与服务目录零漂移。"""
+def test_committed_config_in_sync(monkeypatch: pytest.MonkeyPatch) -> None:
+    """仓库内 deploy/gateway/apisix.yaml 与服务目录（含产品清单装载）零漂移。"""
+    # 用例隔离夹具默认清空产品清单；本用例校验**仓库生成件**，需按 dev 配置真实装载
+    monkeypatch.delenv(gateway_config.MANIFESTS_ENV, raising=False)
+    monkeypatch.setenv("BMS_ENV", "dev")
     assert gateway_config.check(gateway_config.REPO_ROOT) == 0
 
 

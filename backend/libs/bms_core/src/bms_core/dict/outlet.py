@@ -23,7 +23,7 @@ from uuid import uuid4
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.objects import BaseFrameworkObject
 from bms_core.datasource.base import BaseDictDataSource, BaseGenericDataSource, DataSourceItem
-from bms_core.datasource.registry import DataSourceRegistry, merge_data_source_records
+from bms_core.datasource.registry import DataSourceRegistry, data_source_records_view
 from bms_core.db.tenant import current_tenant_id_str
 from bms_core.dict.base import (
     DICT_PROBE_LIMIT,
@@ -415,4 +415,4 @@ def build_data_source_outlet() -> DataSourceOutlet:
     Returns:
         DataSourceOutlet: 数据源出口。
     """
-    return DataSourceOutlet(DataSourceRegistry(merge_data_source_records()), registered_data_sources())
+    return DataSourceOutlet(DataSourceRegistry(data_source_records_view()), registered_data_sources())

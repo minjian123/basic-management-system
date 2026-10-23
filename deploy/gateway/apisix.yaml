@@ -15,10 +15,6 @@ upstreams:
     type: roundrobin
     nodes:
       'tenant:8000': 1
-  - id: org
-    type: roundrobin
-    nodes:
-      'org:8000': 1
   - id: file
     type: roundrobin
     nodes:
@@ -43,6 +39,10 @@ upstreams:
     type: roundrobin
     nodes:
       'txn:8000': 1
+  - id: mdm
+    type: roundrobin
+    nodes:
+      'mdm:8000': 1
 routes:
   - id: route-platform
     uris:
@@ -477,11 +477,11 @@ routes:
         allow_degradation: true
         show_limit_quota_header: true
       prometheus: {}
-  - id: route-mdm-org
+  - id: route-mdm-mdm
     uris:
-      - '/api/mdm/v1/org'
-      - '/api/mdm/v1/org/*'
-    upstream_id: org
+      - '/api/mdm/v1/mdm'
+      - '/api/mdm/v1/mdm/*'
+    upstream_id: mdm
     plugins:
       proxy-rewrite:
         regex_uri:

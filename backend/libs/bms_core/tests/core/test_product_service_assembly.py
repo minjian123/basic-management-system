@@ -30,9 +30,13 @@ from bms_core.services.module_registry import (
     ModuleRecord,
     ModuleRegistry,
     ModuleStatus,
+    ProductRecord,
     ServiceGroup,
     known_event_domains,
     merge_service_records,
+    register_product_records,
+    reset_product_records,
+    reset_service_records,
     validate_product_service_records,
 )
 from bms_core.services.table_registry import (
@@ -88,6 +92,14 @@ def _reset_injected_table_records() -> Iterator[None]:  # pyright: ignore[report
     reset_table_records()
     yield
     reset_table_records()
+
+
+@pytest.fixture(autouse=True)
+def _register_mdm_product() -> Iterator[None]:  # pyright: ignore[reportUnusedFunction]
+    """测试用产品档案（mdm）：产品清单装载通道（`register_product_records`），不写进基座常量。"""
+    register_product_records((ProductRecord(product_key=_PRODUCT_KEY, name="主数据管理"),))
+    yield
+    reset_product_records()
 
 
 class _ProductFactory(BaseServiceApplicationFactory):
@@ -180,6 +192,8 @@ def test_factory_merges_injected_records_into_catalog_view() -> None:
     assert product_app.state.service_product_key == _PRODUCT_KEY
     assert product_app.state.service_injected_records == ConcurrentStableList(_PRODUCT_RECORDS)
 
+    # 产品行经装载期注册进入合并视图（进程内共享）；平台服务装配视图同样取合并视图
+    reset_service_records()
     platform_app = _PlatformishFactory().create(None)
     assert _registry(platform_app).catalog_records() == ConcurrentStableList(SERVICE_CATALOG)
     assert platform_app.state.service_product_key is None
@@ -198,7 +212,6 @@ def test_catalog_view_accessors_and_filters_unchanged() -> None:
     assert "mdorg" in domains
     assert "mdorg" not in known_event_domains()
     assert [record.module_key for record in registry.list_modules(group=ServiceGroup.PRODUCT)] == [
-        "org",
         "pur",
         "pay",
         "sale",
@@ -306,10 +319,10 @@ async def test_merged_catalog_conflict_rejected_at_startup(monkeypatch: pytest.M
     _empty_snapshot(monkeypatch)
 
     class _ConflictFactory(_ProductFactory):
-        """注入与平台服务目录冲突的记录（`org` 行重复）。"""
+        """注入与平台服务目录冲突的记录（`file` 行重复）。"""
 
         def service_records(self) -> ConcurrentStableList[ModuleRecord]:
-            """冲突注入记录（module_key / table_prefix / event_domain / service_key 与平台 `org` 行重复）。
+            """冲突注入记录（module_key / table_prefix / event_domain / service_key 与平台 `file` 行重复）。
 
             Returns:
                 tuple[ModuleRecord, ...]: 冲突记录。
@@ -317,11 +330,11 @@ async def test_merged_catalog_conflict_rejected_at_startup(monkeypatch: pytest.M
             return ConcurrentStableList(
                 (
                     ModuleRecord(
-                        module_key="org",
-                        service_key="org",
-                        name="组织主数据服务（冲突样例）",
-                        table_prefix="org_",
-                        event_domain="org",
+                        module_key="file",
+                        service_key="file",
+                        name="文件服务（冲突样例）",
+                        table_prefix="file_",
+                        event_domain="file",
                         service_group=ServiceGroup.PRODUCT,
                         product_key=_PRODUCT_KEY,
                     ),
@@ -329,7 +342,7 @@ async def test_merged_catalog_conflict_rejected_at_startup(monkeypatch: pytest.M
             )
 
     app = _ConflictFactory().create(None)
-    with pytest.raises(CatalogError, match="module_key 重复：org") as excinfo:
+    with pytest.raises(CatalogError, match="module_key 重复：file") as excinfo:
         async with service_lifespan(app):
             pass
     assert excinfo.value.code == ErrorCode.CATALOG
@@ -387,14 +400,15 @@ def test_event_contract_domains_follow_merged_view(monkeypatch: pytest.MonkeyPat
     monkeypatch.setattr(application, "validate_event_registry", _fake_validate)
     application._validate_event_contracts(_ProductFactory().create(None))  # pyright: ignore[reportPrivateUsage]
     assert "mdorg" in captured
-    assert "mdorg" not in known_event_domains()
+    # 装载期注册后合并视图含产品事件域（事件契约校验取同一视图）
+    assert "mdorg" in known_event_domains()
 
 
 @pytest.mark.kiwi_id(2252)
 def test_merge_service_records_dedupes_identical_platform_row() -> None:
     """合并去重（2026-10-07 R 架构）：平台侧登记行 + 产品侧**同值**注入 → 去重后清单唯一且校验通过；
     任一字段差异（异值）则保留为独立记录，由唯一性校验以 `module_key 重复` 拒启（fail-closed）。"""
-    platform_row = next(record for record in SERVICE_CATALOG if record.module_key == "org")
+    platform_row = next(record for record in SERVICE_CATALOG if record.module_key == "file")
     identical = ConcurrentStableList([platform_row])
     merged = merge_service_records(SERVICE_CATALOG, identical)
     assert len(merged) == len(SERVICE_CATALOG)
@@ -404,7 +418,7 @@ def test_merge_service_records_dedupes_identical_platform_row() -> None:
     conflicted = merge_service_records(SERVICE_CATALOG, drifted)
     assert len(conflicted) == len(SERVICE_CATALOG) + 1
     errors = ModuleRegistry(conflicted).validate()
-    assert any("module_key 重复：org" in error for error in errors)
+    assert any("module_key 重复：file" in error for error in errors)
 
 
 class _TableInjectFactory(BaseServiceApplicationFactory):

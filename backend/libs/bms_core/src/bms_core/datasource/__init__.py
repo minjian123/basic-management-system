@@ -16,7 +16,9 @@ from bms_core.datasource.registry import (
     DataSourceRegistry,
     DataSourceStatus,
     DataSourceStrategy,
+    data_source_records_view,
     merge_data_source_records,
+    register_data_source_records,
 )
 
 __all__ = [
@@ -33,5 +35,7 @@ __all__ = [
     "DataSourceRegistry",
     "DataSourceStatus",
     "DataSourceStrategy",
+    "data_source_records_view",
     "merge_data_source_records",
+    "register_data_source_records",
 ]

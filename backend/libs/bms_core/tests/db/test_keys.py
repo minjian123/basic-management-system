@@ -45,7 +45,7 @@ def test_key_constants() -> None:
 def test_platform_key_build_and_parse() -> None:
     """平台键：相对键与全限定键形态、往返一致、库类别与元数据正确。"""
     assert build_platform_db_key() == "platform"
-    assert build_platform_db_key("org") == "platform_org"
+    assert build_platform_db_key("ai") == "platform_ai"
 
     relative = parse_db_key("platform")
     assert (relative.kind, relative.service, relative.is_qualified) == ("platform", None, False)
@@ -59,13 +59,13 @@ def test_platform_key_build_and_parse() -> None:
 def test_tenant_key_build_and_parse() -> None:
     """租户键：相对键 / 全限定键派生与反解；首段非服务标识时整体视为编码。"""
     assert build_tenant_db_key("demo") == "tenant_demo"
-    assert build_tenant_db_key("demo", service="org") == "tenant_org_demo"
+    assert build_tenant_db_key("demo", service="ai") == "tenant_ai_demo"
 
     relative = parse_db_key("tenant_demo")
     assert (relative.kind, relative.service, relative.tenant_code) == ("tenant", None, "demo")
 
-    qualified = parse_db_key("tenant_org_acme")
-    assert (qualified.kind, qualified.service, qualified.tenant_code) == ("tenant", "org", "acme")
+    qualified = parse_db_key("tenant_ai_acme")
+    assert (qualified.kind, qualified.service, qualified.tenant_code) == ("tenant", "ai", "acme")
 
     # 首段非已知服务标识 → 整体为编码（含下划线的租户编码不受影响）
     assert parse_db_key("tenant_acme_corp").tenant_code == "acme_corp"
@@ -96,13 +96,13 @@ def test_build_tenant_db_key_requires_code() -> None:
 
 def test_database_name_derivation() -> None:
     """库名单一来源：平台 `bms_{service}`、租户 `bms_{service}_{code}`、归档 `bms_archive`。"""
-    assert platform_database_name("org") == "bms_org"
-    assert tenant_database_name("org", "acme") == "bms_org_acme"
+    assert platform_database_name("ai") == "bms_ai"
+    assert tenant_database_name("ai", "acme") == "bms_ai_acme"
 
-    assert database_name(parse_db_key("platform"), service="org") == "bms_org"
-    assert database_name(parse_db_key("platform_tenant"), service="org") == "bms_tenant"
-    assert database_name(parse_db_key("tenant_demo"), service="org") == "bms_org_demo"
-    assert database_name(parse_db_key("tenant_org_acme"), service="platform") == "bms_org_acme"
+    assert database_name(parse_db_key("platform"), service="ai") == "bms_ai"
+    assert database_name(parse_db_key("platform_tenant"), service="ai") == "bms_tenant"
+    assert database_name(parse_db_key("tenant_demo"), service="ai") == "bms_ai_demo"
+    assert database_name(parse_db_key("tenant_ai_acme"), service="platform") == "bms_ai_acme"
     assert database_name(parse_db_key("archive"), service="") == "bms_archive"
 
 
@@ -122,45 +122,45 @@ def test_database_name_rejects_illegal_identifier(service: str) -> None:
 def test_tenant_database_name_requires_code() -> None:
     """租户库名派生要求编码非空。"""
     with pytest.raises(ConfigError):
-        tenant_database_name("org", "")
+        tenant_database_name("ai", "")
 
 
 def test_resolve_relative_key_belongs_to_current_service() -> None:
     """相对键恒属当前服务：不触发越界。"""
-    assert resolve_db_key("platform", service="org").kind == "platform"
-    key = resolve_db_key("tenant_demo", service="org")
+    assert resolve_db_key("platform", service="ai").kind == "platform"
+    key = resolve_db_key("tenant_demo", service="ai")
     assert (key.tenant_code, key.service) == ("demo", None)
 
 
 def test_resolve_full_qualified_key_same_service() -> None:
     """全限定键服务段等于当前服务：放行。"""
-    assert resolve_db_key("platform_org", service="org").service == "org"
-    assert resolve_db_key("tenant_org_demo", service="org").tenant_code == "demo"
+    assert resolve_db_key("platform_ai", service="ai").service == "ai"
+    assert resolve_db_key("tenant_ai_demo", service="ai").tenant_code == "demo"
 
 
 @pytest.mark.parametrize("db_key", ["platform_platform", "tenant_platform_demo"])
 def test_resolve_rejects_cross_service_key(db_key: str) -> None:
     """越界键（服务段非当前服务）抛数据所有权错误 10008。"""
     with pytest.raises(DataOwnershipError) as excinfo:
-        resolve_db_key(db_key, service="org")
+        resolve_db_key(db_key, service="ai")
     assert excinfo.value.code == 10008
 
 
 def test_resolve_ops_exemption_allows_cross_service() -> None:
     """运维豁免：显式开启后跨服务键放行（仅运维通道使用）。"""
-    assert resolve_db_key("platform_platform", service="org", allow_cross_service=True).service == "platform"
-    assert resolve_db_key("tenant_org_acme", service="platform", allow_cross_service=True).tenant_code == "acme"
+    assert resolve_db_key("platform_platform", service="ai", allow_cross_service=True).service == "platform"
+    assert resolve_db_key("tenant_ai_acme", service="platform", allow_cross_service=True).tenant_code == "acme"
 
 
 def test_resolve_rejects_unknown_platform_service() -> None:
     """平台全限定键服务标识未登记即拒（即使开启运维豁免）。"""
     with pytest.raises(ConfigError):
-        resolve_db_key("platform_ghost", service="org", allow_cross_service=True)
+        resolve_db_key("platform_ghost", service="ai", allow_cross_service=True)
 
 
 def test_resolve_treats_unknown_head_as_relative_tenant_code() -> None:
     """`tenant_` 后首段非已知服务标识：整体视为租户编码（相对键），不按全限定键解。"""
-    key = resolve_db_key("tenant_ghost_demo", service="org", allow_cross_service=True)
+    key = resolve_db_key("tenant_ghost_demo", service="ai", allow_cross_service=True)
     assert (key.service, key.tenant_code) == (None, "ghost_demo")
 
 
@@ -194,21 +194,21 @@ def _factory(
 
 def test_engine_factory_resolves_service_db_names(tmp_path: Path) -> None:
     """平台 / 租户目标均按 `{database}` 解析为服务库名（相对键补当前服务）。"""
-    factory = _factory(tmp_path, "org")
-    assert factory.resolve_url("platform").endswith("/bms_org.db")
-    assert factory.resolve_url("tenant_demo").endswith("/bms_org_demo.db")
-    assert factory.resolved_url("tenant_demo").endswith("/bms_org_demo.db")
+    factory = _factory(tmp_path, "ai")
+    assert factory.resolve_url("platform").endswith("/bms_ai.db")
+    assert factory.resolve_url("tenant_demo").endswith("/bms_ai_demo.db")
+    assert factory.resolved_url("tenant_demo").endswith("/bms_ai_demo.db")
 
 
 def test_engine_factory_ops_channel_cross_service(tmp_path: Path) -> None:
     """运维通道：跨服务全限定键解析到目标服务库；未豁免时越界（10008）。"""
-    factory = _factory(tmp_path, "org", allow_cross_service=True)
+    factory = _factory(tmp_path, "ai", allow_cross_service=True)
     assert factory.resolve_url("platform_platform").endswith("/bms_platform.db")
     assert factory.resolve_url("platform_tenant").endswith("/bms_tenant.db")
-    assert factory.resolve_url("tenant_org_acme").endswith("/bms_org_acme.db")
+    assert factory.resolve_url("tenant_ai_acme").endswith("/bms_ai_acme.db")
     assert factory.resolve_url("tenant_tenant_demo").endswith("/bms_tenant_demo.db")
 
-    guarded = _factory(tmp_path, "org")
+    guarded = _factory(tmp_path, "ai")
     with pytest.raises(DataOwnershipError):
         guarded.resolve_url("tenant_platform_demo")
     with pytest.raises(DataOwnershipError):

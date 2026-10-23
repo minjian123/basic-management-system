@@ -20,7 +20,7 @@ from typing import Any, cast
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.objects import BaseFrameworkObject, BaseRegistryRecordContract
-from bms_core.services.module_registry import SERVICE_CATALOG, ModuleRecord
+from bms_core.services.module_registry import ModuleRecord, service_catalog_view
 
 TABLE_OWNERSHIP_NAME = "sys_table_ownership"
 """归属登记表名（平台链）。"""
@@ -503,19 +503,19 @@ def known_service_keys() -> ConcurrentStableSet[str]:
     Returns:
         ConcurrentStableSet[str]: 归属标签集合（插入序）。
     """
-    keys = ConcurrentStableSet(_owner_label(record) for record in SERVICE_CATALOG)
+    keys = ConcurrentStableSet(_owner_label(record) for record in service_catalog_view())
     keys.update(RESERVED_SERVICE_KEYS)
     return keys
 
 
 def service_table_prefixes() -> ConcurrentStableDict[str, ConcurrentStableSet[str]]:
-    """服务标识 → 该服务在服务目录登记的表前缀集合。
+    """服务标识 → 该服务在服务目录登记的表前缀集合（合并视图：平台常量 + 已装载产品行）。
 
     Returns:
         ConcurrentStableDict[str, ConcurrentStableSet[str]]: 归属标签到前缀集合（插入序）。
     """
     prefixes: ConcurrentStableDict[str, ConcurrentStableSet[str]] = ConcurrentStableDict()
-    for record in SERVICE_CATALOG:
+    for record in service_catalog_view():
         label = _owner_label(record)
         existing = prefixes.get(label)
         bucket: ConcurrentStableSet[str] = existing if existing is not None else ConcurrentStableSet()

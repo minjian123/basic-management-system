@@ -12,6 +12,11 @@ slow_request_ms = 500
 [cors]
 allow_origins = ["http://localhost:5173", "http://127.0.0.1:5173"]
 
+[registry]
+# 本地工作区：产品（mdm）自持登记清单（服务行 / 产品路由 / 数据源条目）。
+# 未克隆产品仓时文件不存在 → 跳过装载（平台路由照常生成）。
+product_manifests = ["../../mdm/deploy/registry/mdm.json"]
+
 [login]
 # 本地 http 联调：refresh cookie 不带 Secure（生产保持 true）
 cookie_secure = false

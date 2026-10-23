@@ -17,6 +17,12 @@ service = ""
 # 文档端点开关（Swagger /docs、ReDoc /redoc、OpenAPI /openapi.json；dev 基线开，生产关闭走 CI 契约快照）
 docs_enabled = true
 
+[registry]
+# 产品登记清单（产品仓自持）：服务行 / 产品路由 / 数据源条目，装配期与网关生成按此装载。
+# 本地工作区由 config.dev.toml 指向 `../../mdm/deploy/registry/mdm.json`（相对 backend/）；部署态经
+# `BMS_REGISTRY__PRODUCT_MANIFESTS`（JSON 数组或 os.pathsep 分隔）注入；缺省空 = 不装载产品登记。
+product_manifests = []
+
 [server]
 # 监听地址
 host = "0.0.0.0"

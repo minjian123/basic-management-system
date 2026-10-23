@@ -10,6 +10,15 @@ from sqlalchemy import UniqueConstraint
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.models.base import Base
 from bms_core.models.ownership import SysTableOwnership
+from bms_core.services.module_registry import (
+    ModuleRecord,
+    ProductRecord,
+    ServiceGroup,
+    register_product_records,
+    register_service_records,
+    reset_product_records,
+    reset_service_records,
+)
 from bms_core.services.table_registry import (
     OWNER_EVERY_SERVICE,
     TABLE_OWNERSHIP,
@@ -271,7 +280,24 @@ def test_registry_rejects_both_for_non_sentinel_owner() -> None:
     assert any("`both` 库类别仅限" in error for error in registry.validate())
 
 
-def _org_records() -> ConcurrentStableList[TableRecord]:
+def _mdm_service_record() -> ModuleRecord:
+    """构造产品侧服务行（mdm；表前缀 `mdm_`）。
+
+    Returns:
+        ModuleRecord: 服务登记记录。
+    """
+    return ModuleRecord(
+        module_key="mdm",
+        service_key="mdm",
+        name="mdm 主数据服务",
+        table_prefix="mdm_",
+        event_domain="mdm",
+        service_group=ServiceGroup.PRODUCT,
+        product_key="mdm",
+    )
+
+
+def _mdm_records() -> ConcurrentStableList[TableRecord]:
     """构造产品侧（mdm 组织域）注入记录。
 
     Returns:
@@ -279,8 +305,8 @@ def _org_records() -> ConcurrentStableList[TableRecord]:
     """
     return ConcurrentStableList(
         [
-            TableRecord(table_name="org_dept", owner="org", datasource=Datasource.TENANT, note="部门"),
-            TableRecord(table_name="org_post", owner="org", datasource=Datasource.TENANT, note="岗位"),
+            TableRecord(table_name="mdm_dept", owner="mdm", datasource=Datasource.TENANT, note="部门"),
+            TableRecord(table_name="mdm_post", owner="mdm", datasource=Datasource.TENANT, note="岗位"),
         ]
     )
 
@@ -288,23 +314,28 @@ def _org_records() -> ConcurrentStableList[TableRecord]:
 @pytest.mark.kiwi_id(2254)
 def test_product_table_injection_enters_chain() -> None:
     """产品表装载期注入 → 视图 / 归属查询 / 链派生均可见；清空后回到平台清单。"""
-    assert "org_dept" not in chain_tables("org", Datasource.TENANT)
-    assert table_owner("org_dept") is None
+    assert "mdm_dept" not in chain_tables("mdm", Datasource.TENANT)
+    assert table_owner("mdm_dept") is None
 
-    register_table_records(_org_records())
+    register_service_records((_mdm_service_record(),))
+    register_product_records((ProductRecord(product_key="mdm", name="主数据管理"),))
+    register_table_records(_mdm_records())
 
-    assert len(injected_table_records()) == 2
-    assert table_owner("org_dept") == "org"
-    assert "org_post" in table_names()
-    assert len(table_ownership_view()) == len(TABLE_OWNERSHIP) + 2
-    tenant_chain = chain_tables("org", Datasource.TENANT)
-    assert {"org_dept", "org_post"} <= tenant_chain
-    assert infrastructure_tables() <= tenant_chain
-    assert not chain_tables("org", Datasource.ARCHIVE), "租户层产品表不进归档链"
-    assert TableOwnershipRegistry().validate() == []
-
-    reset_table_records()
-    assert "org_dept" not in chain_tables("org", Datasource.TENANT)
+    try:
+        assert len(injected_table_records()) == 2
+        assert table_owner("mdm_dept") == "mdm"
+        assert "mdm_post" in table_names()
+        assert len(table_ownership_view()) == len(TABLE_OWNERSHIP) + 2
+        tenant_chain = chain_tables("mdm", Datasource.TENANT)
+        assert {"mdm_dept", "mdm_post"} <= tenant_chain
+        assert infrastructure_tables() <= tenant_chain
+        assert not chain_tables("mdm", Datasource.ARCHIVE), "租户层产品表不进归档链"
+        assert TableOwnershipRegistry().validate() == []
+    finally:
+        reset_table_records()
+        reset_service_records()
+        reset_product_records()
+        assert "mdm_dept" not in chain_tables("mdm", Datasource.TENANT)
 
 
 @pytest.mark.kiwi_id(2254)
@@ -330,8 +361,14 @@ def test_registered_services_excludes_every_service_owner() -> None:
     assert "platform" in services
     assert OWNER_EVERY_SERVICE not in services
 
-    register_table_records(_org_records())
-    assert "org" in registered_services()
+    register_service_records((_mdm_service_record(),))
+    register_product_records((ProductRecord(product_key="mdm", name="主数据管理"),))
+    register_table_records(_mdm_records())
+    try:
+        assert "mdm" in registered_services()
+    finally:
+        reset_service_records()
+        reset_product_records()
 
 
 @pytest.mark.kiwi_id(2254)
@@ -362,7 +399,7 @@ def test_list_tables_filters() -> None:
 @pytest.mark.kiwi_id(2254)
 def test_register_table_records_skips_already_registered() -> None:
     """同值重复登记无操作（幂等）：已登记记录不再入集合，条目数不变。"""
-    records = _org_records()
+    records = _mdm_records()
     register_table_records(records)
     before = len(injected_table_records())
 

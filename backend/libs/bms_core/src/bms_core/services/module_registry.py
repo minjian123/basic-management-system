@@ -22,6 +22,7 @@
 
 import re
 from collections import Counter
+from collections.abc import Iterable
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any, cast
@@ -176,18 +177,8 @@ SERVICE_CATALOG: ConcurrentStableList[ModuleRecord] = ConcurrentStableList(
             build_batch=0,
             status=ModuleStatus.ENABLED,
         ),
-        ModuleRecord(
-            module_key="org",
-            service_key="org",
-            name="mdm 组织主数据服务",
-            table_prefix="org_",
-            errcode_segment="33",
-            event_domain="org",
-            service_group=ServiceGroup.PRODUCT,
-            build_batch=3,
-            product_key="mdm",
-            status=ModuleStatus.ENABLED,
-        ),
+        # 产品服务行（如 mdm）**不写死在本常量**：由产品仓自持清单（`deploy/registry/<产品>.json`）
+        # 经 `register_service_records()` 装载（运行期装配 / 离线网关生成），见 `registry/products.py`。
         ModuleRecord(
             module_key="file",
             service_key="file",
@@ -340,33 +331,67 @@ SERVICE_CATALOG: ConcurrentStableList[ModuleRecord] = ConcurrentStableList(
         ),
     )
 )
-"""服务目录与注册要素（单一来源，17 行：平台服务 10 + 产品服务 7）。
+"""服务目录与注册要素（**平台服务**单一来源，10 行）。
 
-`org` 行随组织服务退役**易主**为 mdm 产品服务（四要素 `org` / `org` / `org_` / `org` 不变，
-仅分组 / 产品归属 / 错误码段 / 批次 / 名称变更）——见 `mdm文档` 与 bms 11_01 详细设计。
+**产品服务行不写死在本常量**：由产品仓自持清单（`deploy/registry/<产品>.json`）经
+`register_service_records()` 装载（运行期装配 / 离线网关生成），见 `registry/products.py`。
+本常量只保留平台地基 / 能力服务，避免产品名、表前缀、事件域等字面量进入基座源码。
 """
+
+_INJECTED_SERVICE_RECORDS: ConcurrentStableDict[str, ModuleRecord] = ConcurrentStableDict()
+"""产品清单装载的服务行（`module_key` → 记录；运行期 / 离线装载，非进程级业务注册表）。"""
+
+
+def register_service_records(records: Iterable[ModuleRecord]) -> None:
+    """装载产品服务行（幂等：同 `module_key` 同值覆盖、异值即拒）。
+
+    Args:
+        records: 产品服务登记记录（来自产品自持清单）。
+
+    Raises:
+        CatalogError: 与已装载记录同键异值（fail-closed）。
+    """
+    from bms_core.core.exceptions import CatalogError
+    from bms_core.db.keys import clear_known_service_keys
+
+    for record in records:
+        existing = _INJECTED_SERVICE_RECORDS.get(record.module_key)
+        if existing is not None and existing != record:
+            raise CatalogError(f"产品服务行同键异值：{record.module_key!r}（已装载 {existing!r}，新 {record!r}）")
+        _INJECTED_SERVICE_RECORDS.set(record.module_key, record)
+    clear_known_service_keys()
+
+
+def reset_service_records() -> None:
+    """清空已装载的产品服务行（测试隔离用；生产路径不调用）。"""
+    from bms_core.db.keys import clear_known_service_keys
+
+    _INJECTED_SERVICE_RECORDS.clear()
+    clear_known_service_keys()
+
+
+def service_catalog_view() -> ConcurrentStableList[ModuleRecord]:
+    """服务目录**合并视图**（平台常量 + 已装载产品行，插入序）。
+
+    Returns:
+        ConcurrentStableList[ModuleRecord]: 服务登记记录（平台在前、产品在后）。
+    """
+    return merge_service_records(SERVICE_CATALOG, ConcurrentStableList(_INJECTED_SERVICE_RECORDS.values()))
+
 
 PRODUCT_CATALOG: ConcurrentStableList[ProductRecord] = ConcurrentStableList(
     (
         ProductRecord(product_key="biz", name="企业运营管理", status=ProductStatus.ENABLED),
         ProductRecord(product_key="cw", name="创作系统", status=ProductStatus.ENABLED),
-        ProductRecord(
-            product_key="mdm",
-            name="主数据管理",
-            frontend_package_source="mdm#frontend",
-            status=ProductStatus.ENABLED,
-        ),
     )
 )
-"""产品档案（单一来源，3 行：`biz` / `cw` / `mdm` 均已接入）。
+"""产品档案（**平台已知产品**的种子，2 行：`biz` / `cw`）。
 
-- **先注册后建表**：产品可先于其模块登记，不要求产品必有模块；`mdm` 随 01_01 工程骨架落地由
-  `planned` 升 `enabled`（其组织域模块行 `org` 同批次置位为产品服务）；
+- **先注册后建表**：产品可先于其模块登记，不要求产品必有模块；
+- 其余产品（如 `mdm`）由产品仓自持清单装载（`register_product_records()`），不再写死在本常量；
 - `frontend_package_source` 取值＝**产品前端工程标识**（`{仓库名}#{前端根}`，如 `mdm#frontend`）：
-  只记「从哪里取」，主机 / 凭据 / 访问地址由部署环境配置注入、**不入库**；已接入产品按其前端工程回填、
-  未接入产品留空（口径来源：bms 任务 `03_04` 详细设计与知识档案《微前端 · 业务模块接入指南》
-  「跨仓接入」节）；
-- 注册要素（表前缀 / 业务码 / 错误码段 / 事件域）仍只在 `SERVICE_CATALOG`，本清单只承载产品级属性。
+  只记「从哪里取」，主机 / 凭据 / 访问地址由部署环境配置注入、**不入库**；
+- 注册要素（表前缀 / 业务码 / 错误码段 / 事件域）只在服务目录（平台常量 + 产品清单），本清单只承载产品级属性。
 """
 
 
@@ -382,14 +407,14 @@ TENANT_BASE_MODULE_KEYS: ConcurrentStableList[str] = ConcurrentStableList(
         "ai",
         "rpt",
         "wf",
-        "org",
+        "mdm",
     )
 )
-"""租户「恒开通」模块（平台域基础能力 + 组织主数据）：不参与开通勾选、不参与门禁拦截。
+"""租户「恒开通」模块（平台域基础能力 + 主数据）：不参与开通勾选、不参与门禁拦截。
 
-- foundation / capability 分组模块一律恒开通；`org`（mdm 组织主数据）为角色与用户组织归属的基座，
+- foundation / capability 分组模块一律恒开通；`mdm`（主数据服务）为角色与用户组织归属的基座，
   虽属产品分组但按恒开通处理（关闭将使 RBAC 主体链不可用）。
-- 新增基础能力模块时在此清单显式登记（与 `SERVICE_CATALOG` 同批）。
+- 产品模块标识由产品清单装载后进入 `service_catalog_view()`；本清单按标识登记。
 """
 
 TENANT_OPTIONAL_MODULE_KEYS: ConcurrentStableList[str] = ConcurrentStableList(("pur", "pay", "sale", "wh", "sup", "cw"))
@@ -433,15 +458,53 @@ def is_optional_module(module_key: str) -> bool:
     return module_key in TENANT_OPTIONAL_MODULE_KEYS
 
 
+_INJECTED_PRODUCT_RECORDS: ConcurrentStableDict[str, ProductRecord] = ConcurrentStableDict()
+"""产品清单装载的产品档案（`product_key` → 记录）。"""
+
+
+def register_product_records(records: Iterable[ProductRecord]) -> None:
+    """装载产品档案（幂等：同 `product_key` 同值覆盖、异值即拒）。
+
+    Args:
+        records: 产品档案记录（来自产品自持清单）。
+
+    Raises:
+        CatalogError: 与已装载记录同键异值（fail-closed）。
+    """
+    from bms_core.core.exceptions import CatalogError
+
+    for record in records:
+        existing = _INJECTED_PRODUCT_RECORDS.get(record.product_key)
+        if existing is not None and existing != record:
+            raise CatalogError(f"产品档案同键异值：{record.product_key!r}（已装载 {existing!r}，新 {record!r}）")
+        _INJECTED_PRODUCT_RECORDS.set(record.product_key, record)
+
+
+def reset_product_records() -> None:
+    """清空已装载的产品档案（测试隔离用；生产路径不调用）。"""
+    _INJECTED_PRODUCT_RECORDS.clear()
+
+
+def product_catalog_view() -> ConcurrentStableList[ProductRecord]:
+    """产品档案**合并视图**（平台种子 + 已装载产品行，插入序）。
+
+    Returns:
+        ConcurrentStableList[ProductRecord]: 产品档案记录（平台在前、产品在后）。
+    """
+    merged: ConcurrentStableList[ProductRecord] = ConcurrentStableList(PRODUCT_CATALOG)
+    merged.update(_INJECTED_PRODUCT_RECORDS.values())
+    return merged
+
+
 def product_keys() -> ConcurrentStableSet[str]:
-    """已登记产品标识集合（`PRODUCT_CATALOG`，插入序）。
+    """已登记产品标识集合（合并视图，插入序）。
 
     供模块产品归属校验使用（产品分组模块的 `product_key` 必须在本集合内）。
 
     Returns:
         ConcurrentStableSet[str]: 产品标识集合。
     """
-    return ConcurrentStableSet(record.product_key for record in PRODUCT_CATALOG)
+    return ConcurrentStableSet(record.product_key for record in product_catalog_view())
 
 
 @dataclass(frozen=True)
@@ -465,25 +528,53 @@ class ProductRouteRecord(BaseValueObject):
     """说明（中文用途）。"""
 
 
-PRODUCT_ROUTES: ConcurrentStableList[ProductRouteRecord] = ConcurrentStableList(
-    (
-        ProductRouteRecord(
-            product_key="mdm",
-            domain="org",
-            service_key="org",
-            description="mdm 组织主数据域（对外 /api/mdm/v1/org/...）",
-        ),
-    )
-)
-"""产品级路由映射登记（产品命名空间的「域段 → 服务」**单一来源**）。
+PRODUCT_ROUTES: ConcurrentStableList[ProductRouteRecord] = ConcurrentStableList(())
+"""平台内建产品级路由映射（**留空**：产品路由由产品仓自持清单装载）。
 
+- **单一来源在产品仓**：`deploy/registry/<产品>.json` 的 `product_routes` 段，经
+  `register_product_routes()` 装载（运行期装配 / 离线网关生成），避免产品名与域段写进基座源码。
 - **先注册后建表**：映射可先于服务接入登记——目标服务行 `status = planned` 放行
-  （网关不生成路由，服务不可达不暴露）；`disabled` 即拒（模块级注销态在 `sys_module` 取值中尚未建模）。
+  （网关不生成路由，服务不可达不暴露）；`disabled` 即拒。
 - **防漂移**：映射的 `product_key` 须与目标服务登记行的 `product_key` 一致（同一实现校验）。
-- **mdm 组织域（2026-10-07）**：`mdm/org → org`——**域段 `org` 与上游服务显式绑定**（域段与上游服务
-  解耦登记，见《架构设计 · 模块注册》「服务目录与契约登记」节）；目标服务行为产品分组且 `product_key = mdm`。
-  域段与 service_key 同名（均为 `org`）不构成冲突——二者是两个字段维度的登记。
 """
+
+_INJECTED_PRODUCT_ROUTES: ConcurrentStableDict[tuple[str, str], ProductRouteRecord] = ConcurrentStableDict()
+"""产品清单装载的产品级路由（`(product_key, domain)` → 记录）。"""
+
+
+def register_product_routes(records: Iterable[ProductRouteRecord]) -> None:
+    """装载产品级路由映射（幂等：同 `(product_key, domain)` 同值覆盖、异值即拒）。
+
+    Args:
+        records: 产品级路由记录（来自产品自持清单）。
+
+    Raises:
+        CatalogError: 与已装载记录同键异值（fail-closed）。
+    """
+    from bms_core.core.exceptions import CatalogError
+
+    for record in records:
+        key = (record.product_key, record.domain)
+        existing = _INJECTED_PRODUCT_ROUTES.get(key)
+        if existing is not None and existing != record:
+            raise CatalogError(f"产品路由同键异值：{key!r}（已装载 {existing!r}，新 {record!r}）")
+        _INJECTED_PRODUCT_ROUTES.set(key, record)
+
+
+def reset_product_routes() -> None:
+    """清空已装载的产品级路由（测试隔离用；生产路径不调用）。"""
+    _INJECTED_PRODUCT_ROUTES.clear()
+
+
+def product_routes_view() -> ConcurrentStableList[ProductRouteRecord]:
+    """产品级路由**合并视图**（平台内建 + 已装载，插入序）。
+
+    Returns:
+        ConcurrentStableList[ProductRouteRecord]: 产品级路由记录。
+    """
+    merged: ConcurrentStableList[ProductRouteRecord] = ConcurrentStableList(PRODUCT_ROUTES)
+    merged.update(_INJECTED_PRODUCT_ROUTES.values())
+    return merged
 
 
 def validate_product_routes(
@@ -621,14 +712,14 @@ def known_event_domains() -> ConcurrentStableSet[str]:
     Returns:
         ConcurrentStableSet[str]: 去重后的事件域集合（插入序）。
     """
-    return ConcurrentStableSet(record.event_domain for record in SERVICE_CATALOG)
+    return ConcurrentStableSet(record.event_domain for record in service_catalog_view())
 
 
 def enabled_service_keys() -> ConcurrentStableList[str]:
     """已启用**平台服务**标识集合（`service_key` 非空 + `status = enabled` + **非产品分组**，保持目录顺序）。
 
     用于「按服务×租户建库」的服务维度（06_01）与平台侧按服务扫描（契约快照 / 表归属 / 发布编排）：
-    `planned` 服务、无 `service_key` 的产品模块**以及产品分组服务**（如 `org` 归 mdm）均不纳入——
+    `planned` 服务、无 `service_key` 的产品模块**以及产品分组服务**（如 `mdm` 归产品）均不纳入——
     产品服务的库、契约与工程随产品仓库（网关侧其 upstream 由 `gateway_catalog.gateway_services()` 覆盖）。
 
     Returns:
@@ -636,7 +727,7 @@ def enabled_service_keys() -> ConcurrentStableList[str]:
     """
     return ConcurrentStableList(
         record.service_key
-        for record in SERVICE_CATALOG
+        for record in service_catalog_view()
         if record.service_key
         and record.status == ModuleStatus.ENABLED
         and (record.service_group != ServiceGroup.PRODUCT)
@@ -674,21 +765,21 @@ class ModuleRegistry(BaseFrameworkObject):
         """初始化。
 
         Args:
-            modules: 注册清单（插入序）；默认全量服务目录 `SERVICE_CATALOG`。
-            products: 产品档案清单（插入序）；默认 `PRODUCT_CATALOG`（产品归属校验基准）。
-            routes: 产品级路由映射清单（插入序）；默认 `PRODUCT_ROUTES`（产品命名空间校验基准）。
+            modules: 注册清单（插入序）；默认**合并视图** `service_catalog_view()`（平台常量 + 已装载产品行）。
+            products: 产品档案清单（插入序）；默认合并视图 `product_catalog_view()`（产品归属校验基准）。
+            routes: 产品级路由映射清单（插入序）；默认合并视图 `product_routes_view()`（产品命名空间校验基准）。
         """
         self._modules: ConcurrentStableList[ModuleRecord] = (
-            ConcurrentStableList(SERVICE_CATALOG) if modules is None else ConcurrentStableList(modules)
+            service_catalog_view() if modules is None else ConcurrentStableList(modules)
         )
         self._products: ConcurrentStableList[ProductRecord] = (
-            ConcurrentStableList(PRODUCT_CATALOG) if products is None else ConcurrentStableList(products)
+            product_catalog_view() if products is None else ConcurrentStableList(products)
         )
         self._product_keys: ConcurrentStableSet[str] = ConcurrentStableSet(
             record.product_key for record in self._products
         )
         self._routes: ConcurrentStableList[ProductRouteRecord] = (
-            ConcurrentStableList(PRODUCT_ROUTES) if routes is None else ConcurrentStableList(routes)
+            product_routes_view() if routes is None else ConcurrentStableList(routes)
         )
 
     def catalog_records(self) -> ConcurrentStableList[ModuleRecord]:
@@ -812,10 +903,10 @@ class ProductRegistry(BaseFrameworkObject):
         """初始化。
 
         Args:
-            products: 产品档案清单（插入序）；默认全量 `PRODUCT_CATALOG`。
+            products: 产品档案清单（插入序）；默认合并视图 `product_catalog_view()`。
         """
         self._products: ConcurrentStableList[ProductRecord] = (
-            ConcurrentStableList(PRODUCT_CATALOG) if products is None else ConcurrentStableList(products)
+            product_catalog_view() if products is None else ConcurrentStableList(products)
         )
 
     def list_products(self, *, status: str | None = None) -> ConcurrentStableList[ProductRecord]:

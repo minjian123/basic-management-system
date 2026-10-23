@@ -127,6 +127,11 @@ def _known_service_keys() -> ConcurrentStableSet[str]:
     return ConcurrentStableSet(known_service_keys())
 
 
+def clear_known_service_keys() -> None:
+    """清空已知服务标识缓存（产品清单装载后调用，使新服务键可被库键解析识别）。"""
+    _known_service_keys.cache_clear()
+
+
 def build_platform_db_key(service: str | None = None) -> str:
     """构造平台库键（`service` 为空取相对键）。
 
@@ -198,8 +203,21 @@ def parse_db_key(db_key: str) -> DbKey:
     )
 
 
+def _service_segment(service: str, prefix: str) -> str:
+    """服务名前缀段（`prefix == service` 时去重，避免 `mdm_mdm`）。
+
+    Args:
+        service: 服务标识。
+        prefix: 库名前缀（`[database].name_prefix`）。
+
+    Returns:
+        str: 库名前缀段（如 `bms_platform` 的 `bms_platform` 段、`mdm` 的 `mdm` 段）。
+    """
+    return service if prefix == service else f"{prefix}_{service}"
+
+
 def platform_database_name(service: str, *, prefix: str = DEFAULT_DATABASE_NAME_PREFIX) -> str:
-    """平台服务库名（`{prefix}_{service}`，缺省前缀 `bms`）。
+    """平台服务库名（`{prefix}_{service}`；`prefix == service` 时去重为 `{service}`）。
 
     Args:
         service: 服务标识。
@@ -211,11 +229,11 @@ def platform_database_name(service: str, *, prefix: str = DEFAULT_DATABASE_NAME_
     Raises:
         ConfigError: 服务标识为空或库名形态非法。
     """
-    return _checked_database_name(f"{prefix}_{service}", service=service)
+    return _checked_database_name(_service_segment(service, prefix), service=service)
 
 
 def tenant_database_name(service: str, db_basis: str, *, prefix: str = DEFAULT_DATABASE_NAME_PREFIX) -> str:
-    """服务租户库名（`{prefix}_{service}_{db_basis}`，缺省前缀 `bms`）。
+    """服务租户库名（`{prefix}_{service}_{db_basis}`；`prefix == service` 时去重为 `{service}_{db_basis}`）。
 
     Args:
         service: 服务标识。
@@ -230,7 +248,7 @@ def tenant_database_name(service: str, db_basis: str, *, prefix: str = DEFAULT_D
     """
     if not db_basis:
         raise ConfigError(f"库名基不得为空（服务租户库名形如 {prefix}_{{service}}_{{tenant}}）")
-    return _checked_database_name(f"{prefix}_{service}_{db_basis}", service=service)
+    return _checked_database_name(f"{_service_segment(service, prefix)}_{db_basis}", service=service)
 
 
 def archive_database_name(*, prefix: str = DEFAULT_DATABASE_NAME_PREFIX) -> str:

@@ -42,6 +42,31 @@ def _plugin_fixtures(  # pyright: ignore[reportUnusedFunction]
 
 
 @pytest.fixture(autouse=True)
+def _reset_product_registries() -> Iterator[None]:  # pyright: ignore[reportUnusedFunction]
+    """产品登记装载复位：装配期装载的服务行 / 产品档案 / 产品路由 / 数据源条目不跨用例残留。
+
+    Yields:
+        None: 用例运行期。
+    """
+    from bms_core.datasource.registry import reset_data_source_records
+    from bms_core.services.module_registry import (
+        reset_product_records,
+        reset_product_routes,
+        reset_service_records,
+    )
+
+    reset_service_records()
+    reset_product_records()
+    reset_product_routes()
+    reset_data_source_records()
+    yield
+    reset_service_records()
+    reset_product_records()
+    reset_product_routes()
+    reset_data_source_records()
+
+
+@pytest.fixture(autouse=True)
 def isolate_settings(bms_isolate_settings: None, monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     """仓库专属隔离：公共隔离之后追加令牌密钥与 fakeredis。
 
@@ -56,6 +81,8 @@ def isolate_settings(bms_isolate_settings: None, monkeypatch: pytest.MonkeyPatch
 
     install_process_fake_redis_client()
     configure_token_env(monkeypatch)
+    # 产品登记清单在单测内隔离：缺省不装载（产品行由各用例显式注册，避免跨仓路径依赖）
+    monkeypatch.setenv("BMS_REGISTRY__PRODUCT_MANIFESTS", "[]")
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()

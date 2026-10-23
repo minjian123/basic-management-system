@@ -86,7 +86,7 @@ def test_chain_tables_derived_from_ownership() -> None:
     assert "sys_task" not in tenant_chain
     assert "demo" not in tenant_chain
     assert resolve_chain("platform:archive").tables == frozenset()
-    assert "sys_outbox" not in resolve_chain("org:archive").tables
+    assert "sys_outbox" not in resolve_chain("ai:archive").tables
 
 
 @pytest.mark.kiwi_id(1078)

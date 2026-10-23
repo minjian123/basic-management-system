@@ -47,12 +47,12 @@ from bms_core.edge.headers import (
     USER_SUBJECT_HEADER,
 )
 from bms_core.services.module_registry import (
-    PRODUCT_ROUTES,
-    SERVICE_CATALOG,
     ModuleRecord,
     ModuleStatus,
     ProductRouteRecord,
     ServiceGroup,
+    product_routes_view,
+    service_catalog_view,
 )
 
 __all__ = [
@@ -381,7 +381,9 @@ def gateway_services() -> ConcurrentStableList[ModuleRecord]:
         tuple[ModuleRecord, ...]: 按服务目录原始顺序排列的服务登记行。
     """
     return ConcurrentStableList(
-        record for record in SERVICE_CATALOG if record.service_key is not None and record.status == ModuleStatus.ENABLED
+        record
+        for record in service_catalog_view()
+        if record.service_key is not None and record.status == ModuleStatus.ENABLED
     )
 
 
@@ -397,7 +399,7 @@ def platform_route_services() -> ConcurrentStableList[ModuleRecord]:
     """
     return ConcurrentStableList(
         record
-        for record in SERVICE_CATALOG
+        for record in service_catalog_view()
         if record.service_key is not None
         and record.status == ModuleStatus.ENABLED
         and (record.service_group != ServiceGroup.PRODUCT)
@@ -543,7 +545,7 @@ def product_gateway_routes(
     Returns:
         tuple[ProductRouteRecord, ...]: 参与路由的映射记录（保持登记顺序）。
     """
-    source = PRODUCT_ROUTES if routes is None else routes
+    source = product_routes_view() if routes is None else routes
     enabled = _enabled_service_keys()
     return ConcurrentStableList(record for record in source if record.service_key in enabled)
 
@@ -703,8 +705,13 @@ def render_plugin_metadata() -> ConcurrentStableList[ConcurrentStableDict[str, o
     )
 
 
-def render_apisix_config() -> ConcurrentStableDict[str, object]:
+def render_apisix_config(
+    routes: ConcurrentStableList[ProductRouteRecord] | None = None,
+) -> ConcurrentStableDict[str, object]:
     """完整配置映射（可扩展 `consumers` / `plugin_metadata`）。
+
+    Args:
+        routes: 产品级路由映射（缺省 `product_routes_view()`：平台内建 + 已装载产品清单）。
 
     Returns:
         ConcurrentStableDict[str, object]: APISIX 配置映射。
@@ -712,7 +719,9 @@ def render_apisix_config() -> ConcurrentStableDict[str, object]:
     return ConcurrentStableDict(
         {
             "upstreams": render_upstreams(),
-            "routes": ConcurrentStableList([*render_routes(), *render_login_routes(), *render_product_routes()]),
+            "routes": ConcurrentStableList(
+                [*render_routes(), *render_login_routes(), *render_product_routes(routes)]
+            ),
             "global_rules": render_global_rules(),
             "plugin_metadata": render_plugin_metadata(),
         }

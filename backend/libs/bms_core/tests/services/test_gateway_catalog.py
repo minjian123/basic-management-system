@@ -14,7 +14,6 @@ _EXPECTED_SERVICES = (
     "platform",
     "identity",
     "tenant",
-    "org",
     "file",
     "notification",
     "search",
@@ -22,7 +21,7 @@ _EXPECTED_SERVICES = (
     "report",
     "txn",
 )
-"""参与网关的服务（enabled + 有 `service_key`）——**含产品服务**（上游与产品级路由目标集）。"""
+"""参与网关的服务（enabled + 有 `service_key`）——平台服务；产品服务行由产品清单装载。"""
 
 _EXPECTED_PLATFORM_ROUTE_SERVICES = (
     "platform",
@@ -48,10 +47,9 @@ def test_gateway_services_only_enabled_with_service_key() -> None:
 
 @pytest.mark.kiwi_id(2252)
 def test_platform_route_services_exclude_product_group() -> None:
-    """**服务级路由**只取非产品分组：产品服务（`org` / mdm）不生成 `/api/{service}/v1` 路由。"""
+    """**服务级路由**只取非产品分组：产品服务（如 mdm）不生成 `/api/{service}/v1` 路由。"""
     assert tuple(record.service_key for record in gc.platform_route_services()) == _EXPECTED_PLATFORM_ROUTE_SERVICES
-    assert "org" in _EXPECTED_SERVICES
-    assert "org" not in {record.service_key for record in gc.platform_route_services()}
+    assert "platform" in {record.service_key for record in gc.platform_route_services()}
 
 
 @pytest.mark.kiwi_id(2165)
@@ -394,18 +392,12 @@ def _product_route(
 
 
 @pytest.mark.kiwi_id(2250)
-def test_product_routes_default_mdm_org() -> None:
-    """默认产品级路由映射：`mdm/org → org` 一条（route-mdm-org）；完整配置=平台服务路由 + 登录 + 产品路由。"""
-    assert tuple(record.product_key for record in gc.product_gateway_routes()) == ("mdm",)
-    routes = gc.render_product_routes()
-    assert [item["id"] for item in routes] == ["route-mdm-org"]
-    assert routes[0]["uris"] == ["/api/mdm/v1/org", "/api/mdm/v1/org/*"]
-    assert routes[0]["upstream_id"] == "org"
+def test_product_routes_default_empty() -> None:
+    """默认产品级路由为空（产品路由由产品清单装载）；完整配置=平台服务路由 + 登录。"""
+    assert gc.product_gateway_routes() == ()
+    assert gc.render_product_routes() == []
     ids = [item["id"] for item in cast("list[Any]", gc.render_apisix_config()["routes"])]
-    assert ids == [f"route-{key}" for key in _EXPECTED_PLATFORM_ROUTE_SERVICES] + [
-        gc.LOGIN_ROUTE_ID,
-        "route-mdm-org",
-    ]
+    assert ids == [f"route-{key}" for key in _EXPECTED_PLATFORM_ROUTE_SERVICES] + [gc.LOGIN_ROUTE_ID]
 
 
 @pytest.mark.kiwi_id(2250)
@@ -434,25 +426,23 @@ def test_render_product_routes_shape_and_rewrite() -> None:
 
 
 @pytest.mark.kiwi_id(2250)
-def test_product_routes_skip_unreachable_target(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_product_routes_skip_unreachable_target() -> None:
     """目标服务未启用（planned / 纯模块行）时不生成产品路由（服务不可达不暴露）。"""
-    monkeypatch.setattr(
-        gc,
-        "PRODUCT_ROUTES",
-        (_product_route(domain="wf", service_key="wf"), _product_route(domain="pur", service_key="pur")),
+    routes = ConcurrentStableList(
+        (_product_route(domain="wf", service_key="wf"), _product_route(domain="pur", service_key="pur"))
     )
-    assert gc.product_gateway_routes() == ()
-    assert gc.render_product_routes() == []
+    assert gc.product_gateway_routes(routes) == ()
+    assert gc.render_product_routes(routes) == []
 
 
 @pytest.mark.kiwi_id(2250)
-def test_product_routes_merged_into_full_config(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_product_routes_merged_into_full_config() -> None:
     """产品路由并入完整配置的路由段，且生成件保持确定性（供 Git 比对与零漂移）。"""
-    monkeypatch.setattr(gc, "PRODUCT_ROUTES", (_product_route(),))
-    ids = [item["id"] for item in cast("list[Any]", gc.render_apisix_config()["routes"])]
+    routes = ConcurrentStableList((_product_route(),))
+    ids = [item["id"] for item in cast("list[Any]", gc.render_apisix_config(routes)["routes"])]
     assert ids == [f"route-{key}" for key in _EXPECTED_PLATFORM_ROUTE_SERVICES] + [
         gc.LOGIN_ROUTE_ID,
         "route-biz-org",
     ]
     assert gc.render_apisix_yaml() == gc.render_apisix_yaml()
-    assert gc.validate_service_discovery(gc.render_apisix_config()) == []
+    assert gc.validate_service_discovery(gc.render_apisix_config(routes)) == []

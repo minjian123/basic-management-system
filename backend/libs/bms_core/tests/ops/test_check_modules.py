@@ -254,9 +254,9 @@ def test_check_catalog_db_products(tmp_path: Path) -> None:
     assert check_modules.check_catalog_db(url) == []
     assert check_modules.main(ConcurrentStableList(["--url", url])) == 0
 
-    asyncio.run(_set_product_status(url, "mdm", "planned"))
+    asyncio.run(_set_product_status(url, "biz", "planned"))
     errors = check_modules.check_catalog_db(url)
-    assert any("产品档案 mdm：status 与清单不一致" in error for error in errors)
+    assert any("产品档案 biz：status 与清单不一致" in error for error in errors)
     assert check_modules.main(ConcurrentStableList(["--url", url])) == 1
 
     asyncio.run(_exec_sql(url, "DELETE FROM sys_product WHERE code = 'cw'"))

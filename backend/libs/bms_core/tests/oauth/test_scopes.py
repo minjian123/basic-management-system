@@ -34,8 +34,8 @@ def test_oidc_scopes_included_in_registry() -> None:
 
 def test_product_scopes_derived_from_product_catalog() -> None:
     """产品域 scope 按产品档案清单派生（只读 + 写入），无需另行登记。"""
-    assert [record.scope for record in product_scopes("mdm")] == ["mdm:read", "mdm:write"]
-    assert {record.scope for record in open_scopes() if record.scope.startswith("mdm:")} == {"mdm:read", "mdm:write"}
+    assert [record.scope for record in product_scopes("biz")] == ["biz:read", "biz:write"]
+    assert {record.scope for record in open_scopes() if record.scope.startswith("biz:")} == {"biz:read", "biz:write"}
     assert {record.scope for record in open_scopes()} == {record.scope for record in OPEN_SCOPES}
     assert all(record.product_key for record in PRODUCT_CATALOG)
 
@@ -44,8 +44,8 @@ def test_known_scopes_and_validation() -> None:
     """登记集合：平台基础 + OIDC + 产品域；未登记 scope 逐项检出。"""
     known = known_scopes()
     assert {"open:read", "open:write", "openid", "profile", "email"} <= known
-    assert {"biz:read", "biz:write", "cw:write", "mdm:read"} <= known
-    assert validate_scopes(ConcurrentStableList(["open:read", "mdm:write", "openid"])) == []
+    assert {"biz:read", "biz:write", "cw:write"} <= known
+    assert validate_scopes(ConcurrentStableList(["open:read", "biz:write", "openid"])) == []
     assert validate_scopes(ConcurrentStableList(["open:read", "ghost:read", "mdm:admin"])) == [
         "ghost:read",
         "mdm:admin",
