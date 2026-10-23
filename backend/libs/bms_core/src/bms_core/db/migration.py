@@ -385,10 +385,11 @@ def _package_exists(package: str) -> bool:
 
 
 def service_package(service: str, *, settings: Settings | None = None) -> str:
-    """取服务包名（`{package_prefix}_{service}`；包名前缀经 `[app].package_prefix` 配置）。
+    """取服务包名（`{package_prefix}_{service}`；前缀等于服务标识时去重为 `{service}`）。
 
-    平台默认前缀 `bms`（如 `bms_platform`）；产品配自有前缀（如 mdm 配 `mdm` → `mdm_org`），
-    使模型解析、迁移与开发库自动建表按产品包名取模型（12_04）。
+    平台默认前缀 `bms`（如 `bms_platform`）；产品配自有前缀（如 mdm 配 `mdm`）。**前缀与产品名相同时
+    去重**（2026-10-23 拍板，与库名 `prefix == service` 去重同规则）——产品 `mdm` 的服务包即 `mdm`，
+    不再出现 `mdm_mdm`；其余仓 `prefix != service` 行为不变。
 
     Args:
         service: 服务标识。
@@ -398,7 +399,7 @@ def service_package(service: str, *, settings: Settings | None = None) -> str:
         str: 服务包名（不含 `.models` 后缀）。
     """
     prefix = (settings or get_settings()).app.package_prefix
-    return f"{prefix}_{service}"
+    return service if prefix == service else f"{prefix}_{service}"
 
 
 def service_model_modules(service: str, *, settings: Settings | None = None) -> ConcurrentStableList[str]:
@@ -455,7 +456,7 @@ def require_service_model_modules(service: str, *, settings: Settings | None = N
         prefix = (settings or get_settings()).app.package_prefix
         raise ConfigError(
             f"服务包不存在：{package}（当前包名前缀 [app].package_prefix={prefix}）；"
-            "请确认前缀配置与服务工程包名一致（如产品 mdm 配 mdm → mdm_org）"
+            "请确认前缀配置与服务工程包名一致（前缀 = 产品名时去重，如 mdm 配 mdm → 包名 mdm）"
         )
     return service_model_modules(service, settings=settings)
 

@@ -28,7 +28,7 @@ def _settings_with_prefix(prefix: str) -> Settings:
 
 @pytest.mark.kiwi_id(2254)
 def test_service_package_prefix_default_and_override() -> None:
-    """包名前缀默认 `bms`；配置覆盖后按 `{prefix}_{service}` 派生（产品场景 `mdm_org`）。"""
+    """包名前缀默认 `bms`；配置覆盖后按 `{prefix}_{service}` 派生；前缀等于服务标识时去重。"""
     base = get_settings()
     assert base.app.package_prefix == "bms"
     assert service_package("platform") == "bms_platform"
@@ -36,6 +36,8 @@ def test_service_package_prefix_default_and_override() -> None:
 
     product = _settings_with_prefix("mdm")
     assert service_package("org", settings=product) == "mdm_org"
+    # 前缀与产品名相同：去重为服务标识本身（与库名 `prefix == service` 去重同规则）
+    assert service_package("mdm", settings=product) == "mdm"
 
 
 @pytest.mark.kiwi_id(2254)
