@@ -72,6 +72,11 @@ extraPaths = [
     "services/search/src",
     "services/ai/src",
     "services/report/src",
+    # 跨仓工程化工具包（13_05）：工作区平级克隆（CI 由 job 按锁定 SHA 克隆到 ../engkit），
+    # 类型门禁按源码解析；未克隆的机器上不参与，不影响其它工程
+    "../../engkit/src",
+    # 包装入口与定位模块（`scripts/tools/preflight/engkit_boot.py`）：供边界用例导入时类型可解析
+    "../scripts/tools/preflight",
 ]
 stubPath = "typings"
 

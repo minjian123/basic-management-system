@@ -1,3 +1,6 @@
+# 允许理由：本套用例按路径动态加载包装模块（文件名含连字符，不能直接 import），其属性类型静态不可解析；
+# 判定逻辑的严格类型检查在 engkit 侧（`src/engkit/**` 全量 strict）。
+# pyright: reportAttributeAccessIssue=false, reportUnknownMemberType=false, reportUnknownArgumentType=false, reportUnknownVariableType=false, reportPrivateUsage=false
 """并行执行与重复面护栏用例（Kiwi 2318）：开关映射、预算登记、自测登记、重复面判定接线。
 
 13_02 的实现在 13_05 迁入 engkit（包内 `tests/test_preflight.py` 覆盖全部分支），本仓锁**配置与接线**：
@@ -63,7 +66,6 @@ def test_jobs_mapping(parallel: object) -> None:
 def test_budget_registered() -> None:
     """预算两档与实测标定一致（定向 300/420、全量 900/1800）。"""
     from engkit.config import load
-
     from engkit_boot import config_path
 
     cfg = load(Path(config_path()))
@@ -75,7 +77,6 @@ def test_budget_registered() -> None:
 def test_self_tests_registered() -> None:
     """7 项护栏自测全部登记，且依赖含脚本自身。"""
     from engkit.config import load
-
     from engkit_boot import config_path
 
     cfg = load(Path(config_path()))
@@ -97,7 +98,7 @@ def test_run_selected_exposes_jobs_and_rounds() -> None:
     """执行器仍接受 `--jobs` / `--max-rounds`（并行与扩圈开关未回退）。"""
     source = (_PREFLIGHT_DIR / "run-selected.py").read_text(encoding="utf-8")
     assert "run-selected" in source
-    from engkit.cli import _build_parser  # noqa: PLC0415
+    from engkit.cli import _build_parser
 
     parser = _build_parser()
     args = parser.parse_args(["run-selected", "--jobs", "4", "--max-rounds", "1", "--no-cov"])

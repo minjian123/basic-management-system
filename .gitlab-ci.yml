@@ -266,7 +266,7 @@ base-integrity:
   image: $REGISTRY_IMAGE_PREFIX/ci-backend:py314
   script:
     # engkit 接入（13_05）：基础校验脚本已改为薄包装，需按锁定 SHA 克隆工具包
-    - export ENGKIT_REV="${ENGKIT_REV:-27ff84629484e17569fbcdc6d15ead0d6e1c4538}"
+    - export ENGKIT_REV="${ENGKIT_REV:-959965a6b3b591626338b7e3bd7fd28f7a758d51}"
     - |
       test -d ../engkit/.git || git clone --quiet --no-checkout "${ENGKIT_REPO_URL:-${CI_SERVER_PROTOCOL}://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_SERVER_HOST}/bms/engkit.git}" ../engkit
     - git -C ../engkit checkout --quiet "$ENGKIT_REV"
@@ -452,7 +452,7 @@ backend-test:
         - backend/pyproject.toml
   script:
     # engkit 接入（13_05）：选测执行器与预检入口已改为薄包装，按锁定 SHA 克隆工具包
-    - export ENGKIT_REV="${ENGKIT_REV:-27ff84629484e17569fbcdc6d15ead0d6e1c4538}"
+    - export ENGKIT_REV="${ENGKIT_REV:-959965a6b3b591626338b7e3bd7fd28f7a758d51}"
     - |
       test -d ../engkit/.git || git clone --quiet --no-checkout "${ENGKIT_REPO_URL:-${CI_SERVER_PROTOCOL}://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_SERVER_HOST}/bms/engkit.git}" ../engkit
     - git -C ../engkit checkout --quiet "$ENGKIT_REV"
@@ -761,7 +761,7 @@ dependency-scan:
 .test-selection:
   before_script:
     # engkit 接入（13_05）：按锁定 SHA 克隆工具包，包装入口经 ENGKIT_HOME 定位（升级只改 ENGKIT_REV）
-    - export ENGKIT_REV="${ENGKIT_REV:-27ff84629484e17569fbcdc6d15ead0d6e1c4538}"
+    - export ENGKIT_REV="${ENGKIT_REV:-959965a6b3b591626338b7e3bd7fd28f7a758d51}"
     - |
       test -d ../engkit/.git || git clone --quiet --no-checkout "${ENGKIT_REPO_URL:-${CI_SERVER_PROTOCOL}://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_SERVER_HOST}/bms/engkit.git}" ../engkit
     - git -C ../engkit checkout --quiet "$ENGKIT_REV"

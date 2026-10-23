@@ -1,3 +1,6 @@
+# 允许理由：本套用例按路径动态加载包装模块（文件名含连字符，不能直接 import），其属性类型静态不可解析；
+# 判定逻辑的严格类型检查在 engkit 侧（`src/engkit/**` 全量 strict）。
+# pyright: reportAttributeAccessIssue=false, reportUnknownMemberType=false, reportUnknownArgumentType=false, reportUnknownVariableType=false, reportPrivateUsage=false
 """预检入口护栏用例（Kiwi 2311）：定向档缺省、步骤配置化、预算护栏在配置里登记。
 
 13_05 起预检实现整体迁入 engkit（包内自带 281 条用例、覆盖率 100%），本仓只锁**包装契约**：
@@ -52,9 +55,8 @@ def test_wrapper_has_no_derivation_logic() -> None:
 def test_config_declares_steps_and_budgets() -> None:
     """仓配置登记了预检步骤、自测与两档预算。"""
     sys.path.insert(0, str(_PREFLIGHT_DIR))
-    from engkit_boot import config_path
-
     from engkit.config import load
+    from engkit_boot import config_path
 
     cfg = load(Path(config_path()))
     assert cfg.preflight.budget.scoped == (300.0, 420.0)
@@ -70,10 +72,9 @@ def test_config_declares_steps_and_budgets() -> None:
 def test_config_registers_all_projects() -> None:
     """自动发现的工程全部登记到全量范围与覆盖率范围（新增工程必登记）。"""
     sys.path.insert(0, str(_PREFLIGHT_DIR))
-    from engkit_boot import config_path
-
     from engkit import selection
     from engkit.config import load
+    from engkit_boot import config_path
 
     cfg = load(Path(config_path()))
     assert selection.unregistered_projects(selection.discover_projects(cfg), cfg) == []

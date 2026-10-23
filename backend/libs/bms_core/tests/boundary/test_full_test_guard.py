@@ -1,3 +1,6 @@
+# 允许理由：本套用例按路径动态加载包装模块（文件名含连字符，不能直接 import），其属性类型静态不可解析；
+# 判定逻辑的严格类型检查在 engkit 侧（`src/engkit/**` 全量 strict）。
+# pyright: reportAttributeAccessIssue=false, reportUnknownMemberType=false, reportUnknownArgumentType=false, reportUnknownVariableType=false, reportPrivateUsage=false
 """全量测试守卫护栏用例（Kiwi 2329）：本地非 CI 跑全量须显式声明。
 
 13_05 起判定统一在 engkit（包内 `tests/test_guard.py` 覆盖全部分支），本仓只锁：

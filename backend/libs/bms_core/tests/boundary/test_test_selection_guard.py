@@ -88,7 +88,9 @@ def test_other_formats() -> None:
 
 def test_frontend_packages_format() -> None:
     """前端包推导输出包名列表。"""
-    result = _run("--scope", "frontend", "--changed-file", "frontend/packages/core/src/index.ts", "--format", "packages")
+    result = _run(
+        "--scope", "frontend", "--changed-file", "frontend/packages/core/src/index.ts", "--format", "packages"
+    )
     assert result.returncode == 0, result.stderr
     assert "@bms/core" in result.stdout
 
