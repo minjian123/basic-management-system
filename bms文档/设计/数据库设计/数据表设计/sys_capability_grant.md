@@ -9,11 +9,11 @@
 | 项 | 值 |
 | --- | --- |
 | 归属库 | 平台服务库 `bms_platform`（归属服务 `platform`） |
-| 业务域 | 平台注册与目录（能力登记与授权同域；见《[产品与服务划分 · 目标业务域清单](../../../项目/07C_产品与服务划分/任务/01_域划分与拓扑语义/01_域划分与拓扑语义_01_域划分判据与目标域清单/设计/01_详细设计_01_域划分判据与目标域清单.md)》） |
+| 业务域 | 平台注册与目录（`platform-registry`；能力登记与授权同域） |
 | 覆盖模块 | 07B-跨产品协同（能力分配） |
 | 上游依据 | 《[架构设计 · 跨产品协同](../../../设计/架构设计/38_架构设计_子系统_跨产品协同.md)》「能力分配与授权」节、[需求 02-4](../../../项目/07B_跨产品协同/需求/02_需求_协同基座.md#r02-4)、《[跨产品协同登记清单](../../../跨产品协同登记清单.md)》§4 |
 | ORM 模型 | `bms_core/models/platform/capability_grant.py::SysCapabilityGrant`（继承 `BaseModel`；随 `02_04` 落地） |
-| 状态 | 待落库（设计已定；建表随 `platform:platform` 链） |
+| 状态 | 待落库（设计已定；当前随 `platform:platform` 清单，域化后归 `platform-registry:platform`） |
 | 相关节点 | [数据库设计总览](../01_数据库设计_总览.md)「核心表清单总表 · 平台库」、[sys_module](sys_module.md)、[sys_product](sys_product.md) |
 
 - **语义**：一条记录 = 一个「能力 × 消费方」的**有效授权**；有有效授权即合法（直连或经平台中转均可），无授权即越界。
@@ -33,7 +33,6 @@
 | `consumer_key` | VARCHAR(64) | 否 | 同上 | 消费方标识（服务键或产品键；写入前经服务目录校验「已登记」） |
 | `source` | VARCHAR(16) | 否 | 默认 `declared` | 来源（`declared` 随产品声明装载 / `manual` 管理面人工授予） |
 | `status` | VARCHAR(16) | 否 | 默认 `enabled` | 状态（`enabled` 有效 / `disabled` 已撤销） |
-| `direct_allowed` | BOOLEAN | 否 | 默认 `false` | 是否允许**直连**（缺省须经平台中转；置真表示该授权允许点对点调用） |
 | `expire_at` | DATETIME | 是 | — | 有效期截止（UTC；NULL = 长期有效；过期视为无效） |
 | `granted_by` | BIGINT | 是 | — | 授予人（`sys_user.id`；声明装载为 NULL） |
 | `granted_at` | DATETIME | 是 | — | 授予时间（UTC） |
