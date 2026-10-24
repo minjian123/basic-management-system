@@ -1,4 +1,7 @@
-"""数据所有权守卫真实实现：SQLAlchemy 执行前按**表级归属**检测跨服务库访问（06_03 口径）。
+"""数据所有权守卫真实实现：SQLAlchemy 执行前按**表级归属**检测跨服务 / 跨域库访问（06_03；域维度 07C 03_01）。
+
+装配传入 `domain` 时按**归属域**判定（合并部署下同进程同库仍拦截），越界日志与指标随带
+`domain` / `owner_domain` 标签（D5：护栏自身观测点按域归因）。
 
 - 挂载点：SQLAlchemy `Engine` 类级 `before_cursor_execute` 事件——异步引擎底层同步引擎同属
   `Engine`，一处覆盖异步 / 同步方言 / 达梦同步门面。
@@ -33,6 +36,20 @@ __all__ = ["TableOwnershipGuard"]
 _LOGGER = get_logger("bms")
 
 
+def _violation_message(violation: OwnershipViolation) -> str:
+    """越界阻断文案（域维度优先，服务维兜底）。
+
+    Args:
+        violation: 越界项。
+
+    Returns:
+        str: 中文文案（含访问方与归属方，域维判定时带域标识）。
+    """
+    if violation.domain:
+        return f"跨域库访问被拒：域 {violation.domain} 访问 {violation.table}（归属域 {violation.owner_domain}）"
+    return f"跨服务库访问被拒：{violation.service} 访问 {violation.table}（归属 {violation.owner}）"
+
+
 class TableOwnershipGuard(BaseDataOwnershipGuard):
     """表级归属守卫（真实实现，插件名 `table`）。"""
 
@@ -45,6 +62,7 @@ class TableOwnershipGuard(BaseDataOwnershipGuard):
         mode: str = DEFAULT_OWNERSHIP_MODE,
         exceptions: ConcurrentStableList[OwnershipException] = ConcurrentStableList(()),  # noqa: B008
         metrics: BaseMetrics | None = None,
+        domain: str = "",
     ) -> None:
         """初始化。
 
@@ -53,6 +71,7 @@ class TableOwnershipGuard(BaseDataOwnershipGuard):
             mode: 运行模式（`OWNERSHIP_MODES` 之一）。
             exceptions: 只读例外登记条目。
             metrics: 指标器（None 表示不上报）。
+            domain: 当前业务域标识（非空时按归属域判定；空串保持服务维判定）。
 
         Raises:
             ConfigError: 运行模式非法。
@@ -60,6 +79,7 @@ class TableOwnershipGuard(BaseDataOwnershipGuard):
         if mode not in OWNERSHIP_MODES:
             raise ConfigError(f"数据所有权运行模式非法：{mode!r}（允许 {'、'.join(OWNERSHIP_MODES)}）")
         self._service = service
+        self._domain = domain
         self._mode = mode
         self._exceptions = exceptions
         self._metrics = metrics
@@ -70,7 +90,7 @@ class TableOwnershipGuard(BaseDataOwnershipGuard):
         self._blocked = 0
 
     def assess(self, statement: str, *, service: str) -> ConcurrentStableList[OwnershipViolation]:
-        """判定语句是否越界访问他服务表。
+        """判定语句是否越界访问他服务 / 他业务域表。
 
         Args:
             statement: SQL 语句。
@@ -79,7 +99,7 @@ class TableOwnershipGuard(BaseDataOwnershipGuard):
         Returns:
             tuple[OwnershipViolation, ...]: 越界项（无越界返回空元组）。
         """
-        return assess_statement(statement, service=service, exceptions=self._exceptions)
+        return assess_statement(statement, service=service, exceptions=self._exceptions, domain=self._domain)
 
     def snapshot(self) -> OwnershipStats:
         """取计数快照。
@@ -152,9 +172,11 @@ class TableOwnershipGuard(BaseDataOwnershipGuard):
             _LOGGER.warning(
                 "cross_service_access",
                 service=violation.service,
+                domain=violation.domain,
                 table=violation.table,
                 prefix=violation.prefix,
                 owner=violation.owner,
+                owner_domain=violation.owner_domain,
                 operation=violation.operation,
                 mode=self._mode,
             )
@@ -162,7 +184,7 @@ class TableOwnershipGuard(BaseDataOwnershipGuard):
             with self._lock:
                 self._blocked += len(violations)
             first = violations[0]
-            raise DataOwnershipError(f"跨服务库访问被拒：{first.service} 访问 {first.table}（归属 {first.owner}）")
+            raise DataOwnershipError(_violation_message(first))
 
     def _report_metric(self, violation: OwnershipViolation) -> None:
         """上报越界计数（有运行事件循环且配置了指标器时）。
@@ -179,8 +201,10 @@ class TableOwnershipGuard(BaseDataOwnershipGuard):
             return
         labels = {
             "service": violation.service,
+            "domain": violation.domain,
             "prefix": violation.prefix,
             "owner": violation.owner,
+            "owner_domain": violation.owner_domain,
             "operation": violation.operation,
         }
         task = loop.create_task(metrics.counter(BOUNDARY_METRIC_CROSS_ACCESS, labels=labels))

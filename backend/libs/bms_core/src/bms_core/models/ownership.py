@@ -19,6 +19,9 @@ class SysTableOwnership(BaseModel):
 
     table_name: Mapped[str] = mapped_column(String(64), comment="表名")
     owner: Mapped[str] = mapped_column(String(32), comment="归属服务标识（`*` = 每服务自有）")
+    domain: Mapped[str] = mapped_column(
+        String(32), default="", comment="归属业务域标识（空 = 不归域：基础设施表 / 测试遗留表）"
+    )
     datasource: Mapped[str] = mapped_column(
         String(16), default="tenant", comment="库类别（platform / tenant / archive / both）"
     )

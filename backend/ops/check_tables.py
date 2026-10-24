@@ -39,6 +39,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import NullPool
 
+from bms_core.boundary.domains import DEFAULT_LAYOUT_RELATIVE, load_layout
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
 from bms_core.db.keys import PLATFORM_SERVICE_KEY
 from bms_core.db.migration import (
@@ -71,6 +72,18 @@ RUN_IMAGE = "*"
 _CREATE_TABLE_RE = re.compile(r"op\.create_table\(\s*[\"']([a-z0-9_]+)[\"']")
 _BATCH_TABLE_RE = re.compile(r"op\.batch_alter_table\(\s*[\"']([a-z0-9_]+)[\"']")
 _DROP_TABLE_RE = re.compile(r"op\.drop_table\(\s*[\"']([a-z0-9_]+)[\"']")
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+"""本脚本所在 bms 仓库根（域布局声明定位用；镜像内无该文件时按「不做成员校验」降级）。"""
+
+
+def _domain_services() -> ConcurrentStableDict[str, str] | None:
+    """取域 → 承载服务映射（域布局声明；仓库内缺失时返回 None 表示不做成员校验）。
+
+    Returns:
+        ConcurrentStableDict[str, str] | None: 域 → 承载服务；无声明时 None。
+    """
+    mapping = load_layout(_REPO_ROOT / DEFAULT_LAYOUT_RELATIVE).domain_services()
+    return mapping if mapping else None
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -122,7 +135,7 @@ def check_offline(*, versions_root: Path = VERSIONS_ROOT) -> ConcurrentStableLis
     Returns:
         ConcurrentStableList[str]: 冲突 / 非法明细；空列表表示通过。
     """
-    errors = ConcurrentStableList(TableOwnershipRegistry().validate())
+    errors = ConcurrentStableList(TableOwnershipRegistry().validate(domain_services=_domain_services()))
     registered = table_names()
     modeled = imported_model_tables()
 

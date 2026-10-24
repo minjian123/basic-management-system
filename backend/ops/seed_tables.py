@@ -72,6 +72,7 @@ def _fields(seed: TableRecord) -> ConcurrentStableDict[str, object]:
         {
             "table_name": seed.table_name,
             "owner": seed.owner,
+            "domain": seed.domain,
             "datasource": seed.datasource,
             "status": seed.status,
             "note": seed.note,

@@ -46,7 +46,14 @@ _VIOLATION_KEYS = (
     "table_prefix_conflict",
     "table_ownership_violation",
     "cross_service_access_violation",
+    "cross_domain_import",
+    "cross_domain_table_reference",
+    "cross_domain_write",
+    "cross_domain_table_declare",
+    "domain_layout_violation",
+    "domain_ownership_violation",
 )
+"""越界计数键（服务维 1~10 与域级 D1~D5；新增域级键后总越界数含域维度）。"""
 
 
 def run_static(root: Path) -> ConcurrentStableDict[str, object]:
@@ -151,6 +158,16 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
         print(
             f"  例外白名单：登记 {counts.get('registered_exceptions_total', 0)} 条、"
             f"命中 {counts.get('registered_exceptions_used', 0)} 条"
+        )
+        print(
+            f"  域级：布局登记文件 {counts.get('domain_files_registered', 0)}、"
+            f"未归属域 {counts.get('domain_files_unregistered', 0)}"
+        )
+        print(
+            f"  域级越界：跨域 import {counts.get('cross_domain_import', 0)}、"
+            f"表引用 {counts.get('cross_domain_table_reference', 0)}、"
+            f"写 {counts.get('cross_domain_write', 0)}、表声明 {counts.get('cross_domain_table_declare', 0)}；"
+            f"域级基线 {counts.get('domain_baseline_total', 0)} 条（命中 {counts.get('domain_baseline_used', 0)} 条）"
         )
         if static.get("problems"):
             print(f"  违规明细（{len(static['problems'])} 项）：")

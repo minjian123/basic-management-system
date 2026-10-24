@@ -31,9 +31,12 @@ from bms_core.services.table_registry import (
     injected_table_records,
     known_service_keys,
     owned_tables_for,
+    owned_tables_for_domain,
     register_table_records,
+    registered_domains,
     registered_services,
     reset_table_records,
+    table_domain,
     table_names,
     table_owner,
     table_ownership_view,
@@ -50,7 +53,7 @@ def _reset_injected_table_records() -> Iterator[None]:  # pyright: ignore[report
     reset_table_records()
 
 
-_BASE_RECORD = TableRecord(table_name="zzz_item", owner="platform", datasource=Datasource.TENANT)
+_BASE_RECORD = TableRecord(table_name="zzz_item", owner="platform", domain="user", datasource=Datasource.TENANT)
 
 
 def _record(table_name: str = "zzz_item", **overrides: object) -> TableRecord:
@@ -247,10 +250,11 @@ def test_ownership_model_declared() -> None:
 
 @pytest.mark.kiwi_id(2176)
 def test_record_from_row_matches_declaration() -> None:
-    """ORM 行转换：按登记字段取值（`note` 缺省补空串），与清单同值记录一致。"""
+    """ORM 行转换：按登记字段取值（`note` 缺省补空串、`domain` 同取），与清单同值记录一致。"""
     row = SysTableOwnership(
         table_name="sys_tenant",
         owner="tenant",
+        domain="tenant",
         datasource=Datasource.PLATFORM,
         status=TableStatus.ENABLED,
         note="租户注册表",
@@ -259,13 +263,19 @@ def test_record_from_row_matches_declaration() -> None:
     assert TableRecord.from_row(row) == TableRecord(
         table_name="sys_tenant",
         owner="tenant",
+        domain="tenant",
         datasource=Datasource.PLATFORM,
         status=TableStatus.ENABLED,
         note="租户注册表",
     )
     assert TableRecord.from_row(
         SimpleNamespace(
-            table_name="zzz_item", owner="platform", datasource=Datasource.TENANT, status=TableStatus.ENABLED, note=None
+            table_name="zzz_item",
+            owner="platform",
+            domain="user",
+            datasource=Datasource.TENANT,
+            status=TableStatus.ENABLED,
+            note=None,
         )
     ) == _record("zzz_item")
 
@@ -305,8 +315,8 @@ def _mdm_records() -> ConcurrentStableList[TableRecord]:
     """
     return ConcurrentStableList(
         [
-            TableRecord(table_name="mdm_dept", owner="mdm", datasource=Datasource.TENANT, note="部门"),
-            TableRecord(table_name="mdm_post", owner="mdm", datasource=Datasource.TENANT, note="岗位"),
+            TableRecord(table_name="mdm_dept", owner="mdm", domain="org", datasource=Datasource.TENANT, note="部门"),
+            TableRecord(table_name="mdm_post", owner="mdm", domain="org", datasource=Datasource.TENANT, note="岗位"),
         ]
     )
 
@@ -406,3 +416,98 @@ def test_register_table_records_skips_already_registered() -> None:
     register_table_records(records)
 
     assert len(injected_table_records()) == before
+
+
+@pytest.mark.kiwi_id(2350)
+def test_table_domain_derivation() -> None:
+    """归属域派生（07C 03_01）：表 → 域 / 域集合 / 域下表集；不归域表返回空串。"""
+    assert table_domain("sys_user") == "user"
+    assert table_domain("sys_account_lock") == "user", "锁定表随 sys_user 同库同域（03_01 定）"
+    assert table_domain("sys_session") == "auth"
+    assert table_domain("sys_role") == "role"
+    assert table_domain("sys_tenant") == "tenant"
+    assert table_domain("sys_outbox") == ""
+    assert table_domain("demo") == ""
+    assert table_domain("zzz_unknown") is None
+
+    domains = registered_domains()
+    assert {"user", "role", "auth", "tenant", "platform-registry"} <= domains
+    assert "" not in domains
+
+    assert {"sys_user", "sys_user_extension", "sys_user_preference"} <= owned_tables_for_domain("user")
+    assert owned_tables_for_domain("user", datasource=Datasource.PLATFORM) == frozenset()
+    assert owned_tables_for_domain("user", include_planned=False) == frozenset(
+        {"sys_user", "sys_account_lock", "sys_user_extension"}
+    ), "锁定表随用户域入链；用户偏好为 planned 不进链"
+    assert owned_tables_for_domain("ghost-domain") == frozenset()
+
+
+@pytest.mark.kiwi_id(2350)
+def test_registry_validates_domain_field() -> None:
+    """双字段校验：缺域 / 域标识非法 / 基础设施表与不归域表带域逐项检出。"""
+    registry = TableOwnershipRegistry(
+        ConcurrentStableList(
+            [
+                _record("zzz_no_domain", domain=""),
+                _record("zzz_bad_domain", domain="Bad Domain"),
+                _record("zzz_infra_domain", owner=OWNER_EVERY_SERVICE, datasource=Datasource.BOTH, domain="user"),
+                _record("demo", domain="user"),
+            ]
+        )
+    )
+    joined = "；".join(registry.validate())
+    assert "zzz_no_domain：未登记归属业务域" in joined
+    assert "zzz_bad_domain：归属业务域标识非法" in joined
+    assert "基础设施表 / 不归域表不得登记业务域" in joined
+    assert "demo：基础设施表 / 不归域表不得登记业务域" in joined
+
+
+@pytest.mark.kiwi_id(2350)
+def test_registry_validates_domain_against_layout() -> None:
+    """域 → 承载服务映射校验：域未登记 / 承载服务与 `owner` 不一致逐项检出。"""
+    mapping = ConcurrentStableDict({"user": "platform", "role": "report"})
+    registry = TableOwnershipRegistry(
+        ConcurrentStableList([_record("zzz_role_item", domain="role"), _record("zzz_ghost_item", domain="ghost")])
+    )
+
+    joined = "；".join(registry.validate(domain_services=mapping))
+
+    assert "zzz_ghost_item：归属业务域未登记（ghost）" in joined
+    assert "zzz_role_item：归属业务域 role 由 report 承载，与归属服务 platform 不一致" in joined
+    assert (
+        TableOwnershipRegistry(ConcurrentStableList([_record("sys_zzz_item")])).validate(
+            domain_services=ConcurrentStableDict({"user": "platform"})
+        )
+        == []
+    )
+
+
+@pytest.mark.kiwi_id(2350)
+def test_record_from_row_reads_domain() -> None:
+    """ORM 行转换读取 `domain`（缺列 / 空值回落到空串）。"""
+    full = SimpleNamespace(
+        table_name="sys_user",
+        owner="platform",
+        domain="user",
+        datasource=Datasource.TENANT,
+        status=TableStatus.ENABLED,
+        note="",
+    )
+    assert TableRecord.from_row(full).domain == "user"
+
+    legacy = SimpleNamespace(
+        table_name="demo", owner="platform", datasource=Datasource.TENANT, status=TableStatus.PLANNED, note=None
+    )
+    assert TableRecord.from_row(legacy).domain == ""
+
+
+@pytest.mark.kiwi_id(2350)
+def test_validate_table_ownership_detects_domain_mismatch() -> None:
+    """接库对账包含 `domain` 字段：库中域与清单不符即检出。"""
+    records = ConcurrentStableList(
+        replace(record, domain="role") if record.table_name == "sys_user" else record for record in TABLE_OWNERSHIP
+    )
+
+    errors = validate_table_ownership(ConcurrentStableList(TABLE_OWNERSHIP), records)
+
+    assert any("sys_user：domain 与清单不一致" in error for error in errors)

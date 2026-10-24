@@ -1,10 +1,13 @@
-"""表归属登记：表 → 「归属服务 + 库类别」单一来源（06_03）。
+"""表归属登记：表 → 「归属服务 + 归属业务域 + 库类别」单一来源（06_03；域维度 07C 03_01）。
 
 - `TABLE_OWNERSHIP` 是种子（`ops/seed_tables.py`）、启动 / CI 双向对账（`ops/check_tables.py`）、
   静态硬校验与运行时守卫、迁移链表集派生的**单一来源**（与服务目录 `SERVICE_CATALOG` 同源模式）；
   **产品表归属经 `register_table_records()` 在装载期注入**，派生与校验统一取合并视图
   `table_ownership_view()`（12_04，机制与 12_03 服务目录注入同构）。
-- 归属语义：每张表有唯一归属服务；`sys_` 为平台共享前缀，按**表级归属**判定（不再整前缀放行）。
+- 归属语义：每张表有唯一归属服务、唯一归属业务域（`owner` + `domain` 双字段并存，`03_01`）；
+  `sys_` 为平台共享前缀，按**表级归属**判定（不再整前缀放行）。
+- 业务域取值见 `deploy/boundaries/domain_layout.json`（域清单 + 代码归属的唯一声明源）；
+  **空串 = 不归域**（仅基础设施表与测试遗留表），一致性由静态护栏断言（域已登记 + `owner` == 域承载服务）。
 - 基础设施表（发件箱三表）归「每服务自有」（`OWNER_EVERY_SERVICE`），不参与跨服务归属判定，
   每条链（平台 / 租户）各含三表。
 - 库类别（`Datasource`）：`platform` / `tenant` / `archive`；基础设施表取 `both`（两链各有）。
@@ -28,6 +31,9 @@ TABLE_OWNERSHIP_NAME = "sys_table_ownership"
 OWNER_EVERY_SERVICE = "*"
 """归属哨兵：每服务自有（仅基础设施表可用）。"""
 
+DOMAIN_NONE = ""
+"""无归属业务域的哨兵（空串）：基础设施表与测试遗留表专用。"""
+
 RESERVED_SERVICE_KEYS: ConcurrentStableList[str] = ConcurrentStableList(("permission",))
 """预留服务标识（服务目录尚未登记、但需被归属校验与库键解析识别的标签；随服务目录登记后收敛）。
 
@@ -38,8 +44,13 @@ RESERVED_SERVICE_KEYS: ConcurrentStableList[str] = ConcurrentStableList(("permis
 """
 
 _TABLE_NAME_RE = re.compile(r"^[a-z][a-z0-9_]*$")
+_DOMAIN_KEY_RE = re.compile(r"^[a-z][a-z0-9-]*$")
+"""业务域标识形态（小写字母开头，可含数字与连字符；与 `domain_layout.json` 同口径）。"""
 _SHARED_TABLE_PREFIX = "sys_"
 """平台共享前缀：`sys_` 表按表级归属判定，不要求与归属服务表前缀一致。"""
+
+NO_DOMAIN_TABLES: ConcurrentStableList[str] = ConcurrentStableList(("demo",))
+"""**不归业务域**的表（测试遗留 / 待清理；`domain` 恒为空串）。"""
 
 
 class Datasource(StrEnum):
@@ -68,6 +79,7 @@ class TableRecord(BaseRegistryRecordContract):
 
     table_name: str
     owner: str
+    domain: str = DOMAIN_NONE
     datasource: str = Datasource.TENANT
     status: str = TableStatus.ENABLED
     note: str = ""
@@ -86,6 +98,7 @@ class TableRecord(BaseRegistryRecordContract):
         return cls(
             table_name=cast("str", data.table_name),
             owner=cast("str", data.owner),
+            domain=cast("str", getattr(data, "domain", None) or DOMAIN_NONE),
             datasource=cast("str", data.datasource),
             status=cast("str", data.status),
             note=cast("str", data.note or ""),
@@ -98,6 +111,7 @@ TABLE_OWNERSHIP: ConcurrentStableList[TableRecord] = ConcurrentStableList(
         TableRecord(
             table_name=TABLE_OWNERSHIP_NAME,
             owner="platform",
+            domain="platform-registry",
             datasource=Datasource.PLATFORM,
             note="表归属登记表（自举）",
         ),
@@ -105,18 +119,21 @@ TABLE_OWNERSHIP: ConcurrentStableList[TableRecord] = ConcurrentStableList(
         TableRecord(
             table_name="sys_outbox",
             owner=OWNER_EVERY_SERVICE,
+            domain="",
             datasource=Datasource.BOTH,
             note="事务性发件箱（每服务每链各一）",
         ),
         TableRecord(
             table_name="sys_event_consumed",
             owner=OWNER_EVERY_SERVICE,
+            domain="",
             datasource=Datasource.BOTH,
             note="消费幂等去重（每服务每链各一）",
         ),
         TableRecord(
             table_name="sys_event_dead_letter",
             owner=OWNER_EVERY_SERVICE,
+            domain="",
             datasource=Datasource.BOTH,
             note="死信（每服务每链各一）",
         ),
@@ -124,132 +141,169 @@ TABLE_OWNERSHIP: ConcurrentStableList[TableRecord] = ConcurrentStableList(
         TableRecord(
             table_name="txn_global",
             owner="txn",
+            domain="txn",
             datasource=Datasource.PLATFORM,
             note="全局事务主记录（提交决定点唯一权威）",
         ),
         TableRecord(
             table_name="txn_global_branch",
             owner="txn",
+            domain="txn",
             datasource=Datasource.PLATFORM,
             note="全局事务分支（`db_key` 为不透明库键）",
         ),
         TableRecord(
             table_name="txn_global_recovery",
             owner="txn",
+            domain="txn",
             datasource=Datasource.PLATFORM,
             note="恢复 / 对账台账（只驱动协议，禁止改业务数据）",
         ),
         # ---- 平台层表（库类别 platform）----
-        TableRecord(table_name="sys_tenant", owner="tenant", datasource=Datasource.PLATFORM, note="租户注册"),
+        TableRecord(
+            table_name="sys_tenant",
+            owner="tenant",
+            domain="tenant",
+            datasource=Datasource.PLATFORM,
+            note="租户注册",
+        ),
         TableRecord(
             table_name="sys_tenant_database",
             owner="tenant",
+            domain="tenant",
             datasource=Datasource.PLATFORM,
             note="租户库名对照（tenant_id ↔ db_basis）",
         ),
         TableRecord(
             table_name="sys_user_tenant",
             owner="tenant",
+            domain="tenant",
             datasource=Datasource.PLATFORM,
             note="用户↔租户可达关系（租户自助：我加入的租户 / 切换）",
         ),
-        TableRecord(table_name="sys_module", owner="platform", datasource=Datasource.PLATFORM, note="服务目录登记"),
         TableRecord(
-            table_name="sys_module_i18n", owner="platform", datasource=Datasource.PLATFORM, note="服务目录多语言"
+            table_name="sys_module",
+            owner="platform",
+            domain="platform-registry",
+            datasource=Datasource.PLATFORM,
+            note="服务目录登记",
+        ),
+        TableRecord(
+            table_name="sys_module_i18n",
+            owner="platform",
+            domain="platform-registry",
+            datasource=Datasource.PLATFORM,
+            note="服务目录多语言",
         ),
         TableRecord(
             table_name="sys_product",
             owner="platform",
+            domain="platform-registry",
             datasource=Datasource.PLATFORM,
             note="产品档案（产品级注册 / R4.1；`sys_module.product_key` 逻辑引用）",
         ),
         TableRecord(
             table_name="sys_tenant_quota",
             owner="tenant",
+            domain="tenant",
             datasource=Datasource.PLATFORM,
             note="租户配额（用户数 / 存储字节 / 开放接口调用量；04_01 落库）",
         ),
         TableRecord(
             table_name="sys_tenant_module",
             owner="tenant",
+            domain="tenant",
             datasource=Datasource.PLATFORM,
             note="租户-模块关系（开通清单与启停状态；04_01 落库）",
         ),
         TableRecord(
             table_name="sys_menu",
             owner="platform",
+            domain="menu-form",
             datasource=Datasource.PLATFORM,
             note="平台菜单（动态路由依据；03_01 落库）",
         ),
         TableRecord(
             table_name="sys_menu_i18n",
             owner="platform",
+            domain="menu-form",
             datasource=Datasource.PLATFORM,
             note="菜单名多语言（03_01 落库）",
         ),
         TableRecord(
             table_name="sys_business",
             owner="platform",
+            domain="permission-meta",
             datasource=Datasource.PLATFORM,
             note="业务码字典（资源维度，平台统一维护；03_01 落库）",
         ),
         TableRecord(
             table_name="sys_business_i18n",
             owner="platform",
+            domain="permission-meta",
             datasource=Datasource.PLATFORM,
             note="业务码名称多语言（03_01 落库）",
         ),
         TableRecord(
             table_name="sys_action",
             owner="platform",
+            domain="permission-meta",
             datasource=Datasource.PLATFORM,
             note="动作码字典（全局动词维度；03_01 落库）",
         ),
         TableRecord(
             table_name="sys_action_i18n",
             owner="platform",
+            domain="permission-meta",
             datasource=Datasource.PLATFORM,
             note="动作码名称多语言（03_01 落库）",
         ),
         TableRecord(
             table_name="sys_permission",
             owner="platform",
+            domain="permission-meta",
             datasource=Datasource.PLATFORM,
             note="权限码（业务码 × 动作码组合；03_01 落库）",
         ),
         TableRecord(
             table_name="sys_form",
             owner="platform",
+            domain="menu-form",
             datasource=Datasource.PLATFORM,
             note="平台表单（1:1 挂业务；菜单经 sys_menu_form 多对多；02_03 返工）",
         ),
         TableRecord(
             table_name="sys_menu_form",
             owner="platform",
+            domain="menu-form",
             datasource=Datasource.PLATFORM,
             note="菜单 ↔ 表单关联（多对多；02_03 返工落库）",
         ),
         TableRecord(
             table_name="sys_field",
             owner="platform",
+            domain="menu-form",
             datasource=Datasource.PLATFORM,
             note="表单字段（字段权限依据；03_01 落库）",
         ),
         TableRecord(
             table_name="sys_field_i18n",
             owner="platform",
+            domain="menu-form",
             datasource=Datasource.PLATFORM,
             note="字段名多语言（03_01 落库）",
         ),
         TableRecord(
             table_name="sys_button",
             owner="platform",
+            domain="menu-form",
             datasource=Datasource.PLATFORM,
             note="表单按钮（按钮 1:1 挂权限码；03_01 落库）",
         ),
         TableRecord(
             table_name="sys_form_layout",
             owner="platform",
+            domain="menu-form",
             datasource=Datasource.TENANT,
             status=TableStatus.PLANNED,
             note="表单三级布局（预留）",
@@ -257,6 +311,7 @@ TABLE_OWNERSHIP: ConcurrentStableList[TableRecord] = ConcurrentStableList(
         TableRecord(
             table_name="sys_field_ext",
             owner="platform",
+            domain="menu-form",
             datasource=Datasource.TENANT,
             status=TableStatus.PLANNED,
             note="租户自建字段（预留）",
@@ -264,87 +319,107 @@ TABLE_OWNERSHIP: ConcurrentStableList[TableRecord] = ConcurrentStableList(
         TableRecord(
             table_name="sys_user_identity",
             owner="identity",
+            domain="identity-federation",
             datasource=Datasource.PLATFORM,
             note="SSO 全局身份映射（外部身份 → 租户 / 用户）",
         ),
         TableRecord(
             table_name="sys_user",
             owner="platform",
+            domain="user",
             datasource=Datasource.TENANT,
             note="用户（系统账号）最小模型（本地登录凭据 / 状态 / 锁定字段）；02_05 由 org 租户库迁入",
         ),
         TableRecord(
             table_name="sys_session",
             owner="identity",
+            domain="auth",
             datasource=Datasource.TENANT,
             note="会话记录（登录 / 刷新 / 登出载体）",
         ),
         TableRecord(
             table_name="sys_account_lock",
             owner="platform",
+            domain="user",
             datasource=Datasource.TENANT,
             note="账号锁定记录（与 sys_user 同库；02_05 由 org 租户库迁入）",
         ),
         TableRecord(
             table_name="sys_role",
             owner="platform",
+            domain="role",
             datasource=Datasource.TENANT,
             note="角色（租户内角色定义；内置角色按配置常量判定）",
         ),
         TableRecord(
             table_name="sys_user_role",
             owner="platform",
+            domain="role",
             datasource=Datasource.TENANT,
             note="角色 × 用户分配（与用户管理页「用户分配角色」同一张表；user_id 同库指向 sys_user.id）",
         ),
         TableRecord(
             table_name="sys_role_permission",
             owner="platform",
+            domain="role",
             datasource=Datasource.TENANT,
             note="角色授权（菜单 / 表单 / 操作；带来源 source_menu_id；目标为平台元数据）",
         ),
         TableRecord(
             table_name="sys_role_field",
             owner="platform",
+            domain="role",
             datasource=Datasource.TENANT,
             note="角色字段权限（visible/editable；默认全开、只存收窄项）",
         ),
         TableRecord(
             table_name="sys_data_scope",
             owner="platform",
+            domain="role",
             datasource=Datasource.TENANT,
             note="角色数据权限（角色 × 字典 × 策略 → config；只选不编）",
         ),
         TableRecord(
             table_name="sys_identity_provider",
             owner="identity",
+            domain="identity-federation",
             datasource=Datasource.TENANT,
             note="租户外部 IdP 配置（OIDC/CAS/企微/钉钉）",
         ),
         TableRecord(
             table_name="sys_client",
             owner="identity",
+            domain="identity-federation",
             datasource=Datasource.TENANT,
             note="第三方应用客户端（BMS 兼作 IdP / 开放接口）",
         ),
         TableRecord(
             table_name="sys_ai_provider",
             owner="ai",
+            domain="ai",
             datasource=Datasource.PLATFORM,
             status=TableStatus.PLANNED,
             note="AI 端点配置（预留）",
         ),
         # ---- 租户层表（库类别 tenant）----
-        TableRecord(table_name="sys_query_scheme", owner="platform", datasource=Datasource.TENANT, note="查询方案"),
+        TableRecord(
+            table_name="sys_query_scheme",
+            owner="platform",
+            domain="platform-config",
+            datasource=Datasource.TENANT,
+            note="查询方案",
+        ),
         TableRecord(
             table_name="sys_config",
             owner="platform",
+            domain="platform-config",
             datasource=Datasource.TENANT,
             note="系统参数（平台默认、租户覆盖）",
         ),
         TableRecord(
             table_name="sys_task",
             owner="platform",
+            domain="task",
             datasource=Datasource.TENANT,
             status=TableStatus.PLANNED,
             note="定时任务定义（未定稿，不进链）",
@@ -352,6 +427,7 @@ TABLE_OWNERSHIP: ConcurrentStableList[TableRecord] = ConcurrentStableList(
         TableRecord(
             table_name="sys_task_log",
             owner="platform",
+            domain="task",
             datasource=Datasource.TENANT,
             status=TableStatus.PLANNED,
             note="定时任务执行记录（未定稿，不进链）",
@@ -359,6 +435,7 @@ TABLE_OWNERSHIP: ConcurrentStableList[TableRecord] = ConcurrentStableList(
         TableRecord(
             table_name="sys_user_preference",
             owner="platform",
+            domain="user",
             datasource=Datasource.TENANT,
             status=TableStatus.PLANNED,
             note="用户偏好（未定稿，不进链）",
@@ -366,6 +443,7 @@ TABLE_OWNERSHIP: ConcurrentStableList[TableRecord] = ConcurrentStableList(
         TableRecord(
             table_name="sys_icon",
             owner="platform",
+            domain="permission-meta",
             datasource=Datasource.TENANT,
             status=TableStatus.ENABLED,
             note="租户自定义图标（03_03 真实落库，已入租户链）",
@@ -373,6 +451,7 @@ TABLE_OWNERSHIP: ConcurrentStableList[TableRecord] = ConcurrentStableList(
         TableRecord(
             table_name="sys_icon_i18n",
             owner="platform",
+            domain="permission-meta",
             datasource=Datasource.TENANT,
             status=TableStatus.ENABLED,
             note="图标多语言（03_03 真实落库，已入租户链）",
@@ -380,6 +459,7 @@ TABLE_OWNERSHIP: ConcurrentStableList[TableRecord] = ConcurrentStableList(
         TableRecord(
             table_name="sys_notification",
             owner="notification",
+            domain="notification",
             datasource=Datasource.TENANT,
             status=TableStatus.PLANNED,
             note="站内信 / 待办（未定稿，不进链）",
@@ -387,6 +467,7 @@ TABLE_OWNERSHIP: ConcurrentStableList[TableRecord] = ConcurrentStableList(
         TableRecord(
             table_name="ai_chat_log",
             owner="ai",
+            domain="ai",
             datasource=Datasource.TENANT,
             status=TableStatus.PLANNED,
             note="AI 交互审计（未定稿，不进链）",
@@ -394,6 +475,7 @@ TABLE_OWNERSHIP: ConcurrentStableList[TableRecord] = ConcurrentStableList(
         TableRecord(
             table_name="demo",
             owner="platform",
+            domain="",
             datasource=Datasource.TENANT,
             status=TableStatus.PLANNED,
             note="平台服务五层示例表（无表前缀；未定稿，不进链）",
@@ -401,6 +483,7 @@ TABLE_OWNERSHIP: ConcurrentStableList[TableRecord] = ConcurrentStableList(
         TableRecord(
             table_name="sys_user_extension",
             owner="platform",
+            domain="user",
             datasource=Datasource.TENANT,
             note="用户扩展信息（具名插槽样例插件后端契约资源）",
         ),
@@ -412,6 +495,8 @@ TABLE_OWNERSHIP: ConcurrentStableList[TableRecord] = ConcurrentStableList(
 - `TableStatus.PLANNED`：归属已定但**未定稿 / 未落库**（骨架表与演示表），不进链，
   随所属阶段补表文件与模型并转 `enabled` 时自动进链（见《数据库开发规范》「迁移与建表口径」）；
 - `sys_` 为平台共享前缀，按**表级归属**判定（不再整前缀放行）；
+- `domain`：归属业务域标识（`deploy/boundaries/domain_layout.json` 的 `domain_key`；`""` = 不归域，
+  仅基础设施表与测试遗留表）；与 `owner` 双字段并存，一致性由静态护栏断言（07C `03_01`）；
 - **产品表归属注入（12_04）**：本常量为**平台侧**清单；产品表由产品仓在**装载期**经
   `register_table_records()` 注入，派生（`chain_tables` / `table_owner` / …）与校验一律取
   **合并视图** `table_ownership_view()`（平台清单 + 注入记录，同 `table_name` 同值去重、异值即拒）。
@@ -549,6 +634,50 @@ def table_record(table_name: str) -> TableRecord | None:
         TableRecord | None: 登记记录。
     """
     return next((record for record in table_ownership_view() if record.table_name == table_name), None)
+
+
+def table_domain(table_name: str) -> str | None:
+    """取表名归属业务域（未登记返回 None；不归域返回空串）。
+
+    Args:
+        table_name: 表名。
+
+    Returns:
+        str | None: 归属业务域标识；未登记返回 None，不归域返回 `""`。
+    """
+    record = table_record(table_name)
+    return None if record is None else record.domain
+
+
+def registered_domains() -> ConcurrentStableSet[str]:
+    """归属登记中出现过的业务域集合（不含「不归域」空串）。
+
+    Returns:
+        ConcurrentStableSet[str]: 业务域标识集合（插入序）。
+    """
+    return ConcurrentStableSet(record.domain for record in table_ownership_view() if record.domain != DOMAIN_NONE)
+
+
+def owned_tables_for_domain(
+    domain: str, *, datasource: str | None = None, include_planned: bool = True
+) -> ConcurrentStableSet[str]:
+    """取某业务域名下的表集合（可按库类别与状态过滤）。
+
+    Args:
+        domain: 业务域标识（`domain_key`）。
+        datasource: 库类别过滤（`platform` / `tenant` / `archive` / `both`）；None 取全部。
+        include_planned: 是否含预留归属（`planned`）。
+
+    Returns:
+        ConcurrentStableSet[str]: 表名集合（插入序）。
+    """
+    return ConcurrentStableSet(
+        record.table_name
+        for record in table_ownership_view()
+        if record.domain == domain
+        and (datasource is None or record.datasource == datasource)
+        and (include_planned or record.status == TableStatus.ENABLED)
+    )
 
 
 def owned_tables_for(
@@ -695,25 +824,32 @@ class TableOwnershipRegistry(BaseFrameworkObject):
             result = ConcurrentStableList(record for record in result if record.status == status)
         return ConcurrentStableList(result)
 
-    def validate(self) -> ConcurrentStableList[str]:
-        """校验归属清单：表名唯一与格式 + 归属 / 库类别 / 状态合法 + 前缀归属一致。
+    def validate(self, *, domain_services: ConcurrentStableDict[str, str] | None = None) -> ConcurrentStableList[str]:
+        """校验归属清单：表名唯一与格式 + 归属 / 库类别 / 状态合法 + 归属域合法 + 前缀归属一致。
+
+        Args:
+            domain_services: 业务域 → 承载服务映射（取自域布局声明）；None 时只校验域标识形态，
+                不校验「域已登记 + owner 与承载服务一致」（运行期不读部署期声明）。
 
         Returns:
             ConcurrentStableList[str]: 非法明细；空列表表示通过。
         """
         errors: ConcurrentStableList[str] = ConcurrentStableList()
         for record in self._tables:
-            errors.update(self._validate_record(record))
+            errors.update(self._validate_record(record, domain_services))
         names = ConcurrentStableList(record.table_name for record in self._tables)
         for duplicate in _duplicates(names):
             errors.add(f"表名重复登记：{duplicate}")
         return errors
 
-    def _validate_record(self, record: TableRecord) -> ConcurrentStableList[str]:
+    def _validate_record(
+        self, record: TableRecord, domain_services: ConcurrentStableDict[str, str] | None
+    ) -> ConcurrentStableList[str]:
         """校验单条归属记录。
 
         Args:
             record: 归属记录。
+            domain_services: 业务域 → 承载服务映射（None 表示不做成员校验）。
 
         Returns:
             ConcurrentStableList[str]: 非法明细。
@@ -733,8 +869,42 @@ class TableOwnershipRegistry(BaseFrameworkObject):
             errors.add(f"{name}：`both` 库类别仅限「每服务自有」基础设施表")
         if record.status not in tuple(TableStatus):
             errors.add(f"{name}：状态非法（{record.status}）")
+        errors.update(self._validate_domain(record, domain_services))
         errors.update(self._validate_prefix(record))
         return errors
+
+    def _validate_domain(
+        self, record: TableRecord, domain_services: ConcurrentStableDict[str, str] | None
+    ) -> ConcurrentStableList[str]:
+        """校验归属业务域：不归域范围 / 标识形态 / 已登记 / 与 `owner` 一致（07C `03_01`）。
+
+        Args:
+            record: 归属记录。
+            domain_services: 业务域 → 承载服务映射（None 表示不做成员校验）。
+
+        Returns:
+            ConcurrentStableList[str]: 非法明细。
+        """
+        name = record.table_name
+        no_domain = record.owner == OWNER_EVERY_SERVICE or name in NO_DOMAIN_TABLES
+        if no_domain:
+            if record.domain != DOMAIN_NONE:
+                return ConcurrentStableList([f"{name}：基础设施表 / 不归域表不得登记业务域（现 {record.domain}）"])
+            return ConcurrentStableList()
+        if record.domain == DOMAIN_NONE:
+            return ConcurrentStableList([f"{name}：未登记归属业务域"])
+        if not _DOMAIN_KEY_RE.match(record.domain):
+            return ConcurrentStableList([f"{name}：归属业务域标识非法（{record.domain}）"])
+        if domain_services is None:
+            return ConcurrentStableList()
+        carrier = domain_services.get(record.domain)
+        if carrier is None:
+            return ConcurrentStableList([f"{name}：归属业务域未登记（{record.domain}）"])
+        if carrier != record.owner:
+            return ConcurrentStableList(
+                [f"{name}：归属业务域 {record.domain} 由 {carrier} 承载，与归属服务 {record.owner} 不一致"]
+            )
+        return ConcurrentStableList()
 
     def _validate_prefix(self, record: TableRecord) -> ConcurrentStableList[str]:
         """校验表名前缀归属（`sys_` 共享前缀与无前缀表跳过）。
@@ -795,7 +965,7 @@ def _diff_ownership(
     for name in sorted(expected.keys() - actual.keys()):
         errors.add(f"库中缺登记行：{name}")
     for name in sorted(expected.keys() & actual.keys()):
-        for field in ("owner", "datasource", "status", "note"):
+        for field in ("owner", "domain", "datasource", "status", "note"):
             expected_value = getattr(expected[name], field)
             actual_value = getattr(actual[name], field)
             if expected_value != actual_value:

@@ -28,15 +28,30 @@
 10. **运行期代码不得依赖运维通道（14_03）**：`services/*/src` 不得导入 `ops`；非 platform 服务的
     `src` 不得导入 `bms_platform`（硬断言、无例外；`tests/` 不纳入）。
 
+域级断言（07C `03_01`；维度从「服务包」下沉到「业务域」，合并部署下边界不消失）：
+
+D1 **跨域 import 禁止**：域 A 的实现文件 import 域 B 的实现模块即失败（同服务内不同域同样适用）；
+D2 **跨域只经公共面**：目标模块为源域的 `public_api` 出口时放行（能力契约 / 事件天然不经文件 import）；
+D3 **跨域表引用禁止**：原始 SQL / `ForeignKey` / 表名 token 指向他域归属的表即失败（读侧例外可放行）；
+D4 **跨域写禁止**：写操作（insert / update / delete / ddl）指向他域表即失败，**无例外**；
+D5 **观测标注**：越界文案带两侧 `domain_key`；运行期守卫日志与指标同带 `domain` / `owner_domain` 标签；
+另有：**域布局完整性**（路径重复归属 / 文件缺失 / 未登记的域实现）与**表归属双字段一致**
+（`owner` == 域承载服务、基础设施表与不归域表 `domain` 恒空）。
+
+存量跨域引用记入域级基线 `deploy/boundaries/domain_boundary_baseline.json`（**只减不增**：
+条目未命中即失败）；`--update-baseline` 人工执行并审阅。
+
 用法::
 
     python3 scripts/tools/base-check/check-service-boundaries.py [bms 仓库根]
     python3 scripts/tools/base-check/check-service-boundaries.py --self-test
     python3 scripts/tools/base-check/check-service-boundaries.py [bms 仓库根] --json
+    python3 scripts/tools/base-check/check-service-boundaries.py [bms 仓库根] --update-baseline
 """
 
 import ast
 import contextlib
+import hashlib
 import json
 import os
 import re
@@ -60,14 +75,30 @@ from bms_core.boundary.directory import (  # noqa: E402
 from bms_core.boundary.directory import (  # noqa: E402
     known_tables as registered_tables,
 )
+from bms_core.boundary.domains import (  # noqa: E402
+    DEFAULT_BASELINE_RELATIVE,
+    DEFAULT_LAYOUT_RELATIVE,
+    BaselineEntry,
+    DomainLayout,
+    dump_baseline,
+    load_baseline,
+    load_layout,
+)
 from bms_core.boundary.exceptions import (  # noqa: E402
     DEFAULT_EXCEPTIONS_RELATIVE,
     OwnershipException,
+    exception_allows,
     load_exceptions,
     validate_exceptions,
 )
 from bms_core.boundary.sql import analyze, operation_of  # noqa: E402
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet  # noqa: E402
+from bms_core.core.serialization import normalize_collections  # noqa: E402
+from bms_core.services.table_registry import (  # noqa: E402
+    TableOwnershipRegistry,
+    table_domain,
+    table_ownership_view,
+)
 
 
 def configure_stdio():
@@ -96,6 +127,10 @@ _SERVICE_LAYER_RULES: ConcurrentStableDict[str, ConcurrentStableSet[str]] = Conc
 )
 
 _SQL_HINTS = ("select", "insert", "update", "delete", "from", "join")
+_WRITE_OPERATIONS = frozenset({"write", "ddl"})
+"""跨域写判定：SQL 写操作与 DDL（D4 无例外）。"""
+_UPDATE_BASELINE = "--update-baseline" in sys.argv
+"""是否按当前扫描结果重写域级基线（人工执行并审阅；不做隐式自动更新）。"""
 _IDENTIFIER_LIKE = re.compile(r"^[A-Za-z0-9_.]+$")
 """标识符形态字符串（整串即表名 / 点分名；用于表名 token 扫描，避免文档文案误报）。"""
 
@@ -116,10 +151,29 @@ counts: ConcurrentStableDict[str, int] = ConcurrentStableDict(
         "ops_image_packages_drift": 0,
         "runtime_ops_dependency": 0,
         "runtime_cross_service_dependency": 0,
+        "cross_domain_import": 0,
+        "cross_domain_table_reference": 0,
+        "cross_domain_write": 0,
+        "cross_domain_table_declare": 0,
+        "domain_layout_violation": 0,
+        "domain_ownership_violation": 0,
+        "domain_baseline_total": 0,
+        "domain_baseline_used": 0,
+        "domain_files_registered": 0,
+        "domain_files_unregistered": 0,
     }
 )
 service_tables: ConcurrentStableDict[str, ConcurrentStableList[str]] = ConcurrentStableDict()
 """各服务声明的表名清单（规则 5 扫描产出；供服务目录（03_01）登记参考）。"""
+
+_DOMAIN_ENABLED = False
+"""域级断言开关：域布局声明**未提供或为空**时停用（产品仓 / 临时工程尚无布局，服务维断言照常）。"""
+
+_DOMAIN_BASELINE: ConcurrentStableDict[tuple[str, str, str, str, str], bool] = ConcurrentStableDict()
+"""域级基线索引：`(kind, domain, target, file, 指纹)` → 是否命中（未命中即陈旧条目）。"""
+
+_DOMAIN_BASELINE_PENDING: ConcurrentStableList[BaselineEntry] = ConcurrentStableList()
+"""`--update-baseline` 时收集的新基线条目。"""
 
 
 _OWNERSHIP_REGISTRY_RELATIVE = "services/table_registry.py"
@@ -398,8 +452,13 @@ def _assess(
     return assess_table(table, service=service, operation=operation, exceptions=exceptions)
 
 
-def _load_exceptions() -> tuple[ConcurrentStableList[OwnershipException], ConcurrentStableList[str]]:
+def _load_exceptions(
+    known_domains: ConcurrentStableSet[str] | None = None,
+) -> tuple[ConcurrentStableList[OwnershipException], ConcurrentStableList[str]]:
     """载入并校验例外白名单。
+
+    Args:
+        known_domains: 业务域清单（域布局声明的域标识）；None 时跳过域校验。
 
     Returns:
         tuple[tuple[OwnershipException, ...], ConcurrentStableList[str]]: （例外条目, 校验问题）。
@@ -414,18 +473,422 @@ def _load_exceptions() -> tuple[ConcurrentStableList[OwnershipException], Concur
         known_tables=registered_tables(),
         known_prefixes=known_prefixes(),
         known_services=known_services(),
+        known_domains=known_domains,
     )
     return entries, problems_
 
 
+def _fingerprint(line: str) -> str:
+    """行指纹：规范化（去首尾空白、压缩空白）后的 SHA-1 前 12 位。
+
+    用指纹而非行号——基线不因上下插行而失效，但跨域那一行的内容变了就要重新审阅。
+
+    Args:
+        line: 源文件行文本。
+
+    Returns:
+        str: 指纹（稳定 12 位十六进制）。
+    """
+    return hashlib.sha1(" ".join(line.split()).encode("utf-8")).hexdigest()[:12]
+
+
+def _load_domain_layout() -> DomainLayout:
+    """载入域布局声明（结构非法记违规并返回空布局）。
+
+    Returns:
+        DomainLayout: 域布局（缺文件 / 非法时为空布局）。
+    """
+    path = ROOT / DEFAULT_LAYOUT_RELATIVE
+    try:
+        return load_layout(path)
+    except ValueError as exc:
+        _record(f"[域布局] {exc}", "domain_layout_violation")
+        return load_layout(ROOT / "deploy/boundaries/__missing__.json")
+
+
+def _load_domain_baseline() -> ConcurrentStableDict[tuple[str, str, str, str, str], bool]:
+    """载入域级基线为「键 → 是否命中」表（只减不增：未命中的键即陈旧条目）。
+
+    Returns:
+        ConcurrentStableDict[tuple, bool]: 基线索引。
+    """
+    path = ROOT / DEFAULT_BASELINE_RELATIVE
+    try:
+        entries = load_baseline(path)
+    except ValueError as exc:
+        _record(f"[域级基线] {exc}", "domain_layout_violation")
+        return ConcurrentStableDict()
+    counts.set("domain_baseline_total", len(entries))
+    index: ConcurrentStableDict[tuple[str, str, str, str, str], bool] = ConcurrentStableDict()
+    for entry in entries:
+        index.set((entry.kind, entry.domain, entry.target, entry.file, entry.fingerprint), False)
+    return index
+
+
+def _domain_issue(
+    message: str,
+    *,
+    kind: str,
+    domain: str,
+    target: str,
+    rel: str,
+    line: str,
+    counter: str,
+) -> None:
+    """处置一条域级越界：基线条目命中即放行计数；`--update-baseline` 收集；否则记违规。
+
+    Args:
+        message: 违规文案（含两侧域标识）。
+        kind: 基线条目种类（`import` / `table_ref` / `table_declare`）。
+        domain: 源业务域。
+        target: 目标业务域。
+        rel: 源文件相对路径。
+        line: 触发越界的源行文本（指纹用）。
+        counter: 计数键。
+    """
+    key = (kind, domain, target, rel, _fingerprint(line))
+    if key in _DOMAIN_BASELINE:
+        if not _DOMAIN_BASELINE[key]:
+            _DOMAIN_BASELINE.set(key, True)
+            counts.set("domain_baseline_used", counts.get("domain_baseline_used", 0) + 1)
+        return
+    if _UPDATE_BASELINE:
+        _DOMAIN_BASELINE_PENDING.add(
+            BaselineEntry(kind=kind, domain=domain, target=target, file=rel, fingerprint=key[4])
+        )
+        return
+    _record(message, counter)
+
+
+def _iter_import_candidates(path: Path) -> ConcurrentStableList[tuple[int, str]]:
+    """产出文件内全部可解析导入目标候选（含 `from pkg import sub` 的 `pkg.sub` 形态）。
+
+    Args:
+        path: Python 源文件路径。
+
+    Returns:
+        ConcurrentStableList[tuple[int, str]]: 行号与候选模块名（同一行可多条）。
+    """
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    found: ConcurrentStableList[tuple[int, str]] = ConcurrentStableList()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            found.update((node.lineno, alias.name) for alias in node.names)
+            continue
+        if not isinstance(node, ast.ImportFrom) or not node.module:
+            continue
+        found.add((node.lineno, node.module))
+        found.update((node.lineno, f"{node.module}.{alias.name}") for alias in node.names)
+    return found
+
+
+def _module_file_of(module: str, packages: ConcurrentStableDict[str, tuple[Path, bool]]) -> str | None:
+    """模块名 → 相对仓库根的源文件路径（模块 / 包不存在返回 None）。
+
+    Args:
+        module: 模块名（如 `bms_platform.services.users`）。
+        packages: 工作区包表（包名 → （包根, 是否共享库））。
+
+    Returns:
+        str | None: 源文件相对路径（模块或包的 `__init__.py`）。
+    """
+    top = module.split(".")[0]
+    package = packages.get(top)
+    if package is None:
+        return None
+    base = package[0]
+    parts = module.split(".")[1:]
+    for candidate in (
+        base.joinpath(*parts).with_suffix(".py") if parts else None,
+        base.joinpath(*parts, "__init__.py"),
+    ):
+        if candidate is not None and candidate.is_file():
+            return candidate.relative_to(ROOT).as_posix()
+    return None
+
+
+def _check_domain_imports(
+    packages: ConcurrentStableDict[str, tuple[Path, bool]],
+    file_domain: ConcurrentStableDict[str, str],
+    layout: DomainLayout,
+) -> None:
+    """D1 / D2：同服务内跨域 import 断言（跨服务 import 已由规则 1 / 2 拦截，此处不重复计）。
+
+    Args:
+        packages: 工作区包表。
+        file_domain: 文件 → 域映射。
+        layout: 域布局（取域内公共出口）。
+    """
+    if not _DOMAIN_ENABLED:
+        return
+    for package, (root, _shared) in packages.items():
+        for path in sorted(root.rglob("*.py")):
+            if "__pycache__" in path.parts or _is_test_path(path, root):
+                continue
+            rel = path.relative_to(ROOT).as_posix()
+            source_domain = file_domain.get(rel)
+            if source_domain is None:
+                continue
+            lines = path.read_text(encoding="utf-8").splitlines()
+            for lineno, module in _iter_import_candidates(path):
+                if module.split(".")[0] != package:
+                    continue
+                target_rel = _module_file_of(module, packages)
+                if target_rel is None:
+                    continue
+                target_domain = file_domain.get(target_rel)
+                if target_domain is None or target_domain == source_domain:
+                    continue
+                if module in layout.public_api_of(target_domain):
+                    continue  # D2：目标是该域的公共 API 出口，允许跨域引用
+                line = lines[lineno - 1] if 0 < lineno <= len(lines) else module
+                _domain_issue(
+                    f"[跨域 import] {rel}:{lineno} {source_domain} → {target_domain}（{module}）",
+                    kind="import",
+                    domain=source_domain,
+                    target=target_domain,
+                    rel=rel,
+                    line=line,
+                    counter="cross_domain_import",
+                )
+
+
+def _check_domain_tables(
+    packages: ConcurrentStableDict[str, tuple[Path, bool]],
+    file_domain: ConcurrentStableDict[str, str],
+    exceptions: ConcurrentStableList[OwnershipException],
+    known_table_set: ConcurrentStableSet[str],
+) -> None:
+    """D3 / D4 / 域实现登记：跨域表声明与跨域表引用（写操作归 D4、读侧例外可放行）。
+
+    Args:
+        packages: 工作区包表。
+        file_domain: 文件 → 域映射。
+        exceptions: 只读例外条目。
+        known_table_set: 已声明表名集合（引用扫描用）。
+    """
+    if not _DOMAIN_ENABLED:
+        return
+    declared_by_file: ConcurrentStableDict[str, ConcurrentStableSet[str]] = ConcurrentStableDict()
+    for _package, (root, _shared) in packages.items():
+        for path in sorted(root.rglob("*.py")):
+            if "__pycache__" in path.parts or _is_test_path(path, root):
+                continue
+            rel = path.relative_to(ROOT).as_posix()
+            lines = path.read_text(encoding="utf-8").splitlines()
+            declared = _check_table_declarations(rel, lines, file_domain)
+            if declared:
+                declared_by_file.set(rel, declared)
+    for package, (root, _shared) in packages.items():
+        service = _service_of_package(package)
+        seen: ConcurrentStableSet[tuple[str, int, str]] = ConcurrentStableSet()
+        for rel, lineno, table, operation in _iter_cross_reference_tables(root, known_table_set):
+            if rel.endswith(_OWNERSHIP_REGISTRY_RELATIVE) or rel.endswith(_FORM_CATALOG_REGISTRY_RELATIVE):
+                continue
+            source_domain = file_domain.get(rel)
+            target_domain = table_domain(table)
+            if source_domain is None or not target_domain or target_domain == source_domain:
+                continue
+            if table in declared_by_file.get(rel, ConcurrentStableSet()):
+                continue  # 本文件的 `__tablename__` 声明（已由声明侧判定，不重复计引用）
+            if _assess(service, table, operation, exceptions) is not None:
+                continue  # 跨服务越界已由规则 6 拦截，此处不重复计
+            key = (rel, lineno, table)
+            if key in seen:
+                continue
+            seen.add(key)
+            line = _line_of(rel, lineno, table)
+            if operation in _WRITE_OPERATIONS:
+                _domain_issue(
+                    f"[跨域写] {rel}:{lineno} {source_domain} 写 {table}（归属域 {target_domain}，"
+                    f"操作 {operation}；跨域写须走能力契约或事件）",
+                    kind="table_ref",
+                    domain=source_domain,
+                    target=target_domain,
+                    rel=rel,
+                    line=line,
+                    counter="cross_domain_write",
+                )
+                continue
+            if exception_allows(exceptions, service=service, table=table, operation=operation, domain=source_domain):
+                counts.set("registered_exceptions_used", counts.get("registered_exceptions_used", 0) + 1)
+                continue
+            _domain_issue(
+                f"[跨域表引用] {rel}:{lineno} {source_domain} 引用 {table}（归属域 {target_domain}，操作 {operation}）",
+                kind="table_ref",
+                domain=source_domain,
+                target=target_domain,
+                rel=rel,
+                line=line,
+                counter="cross_domain_table_reference",
+            )
+
+
+def _check_table_declarations(
+    rel: str, lines: ConcurrentStableList[str], file_domain: ConcurrentStableDict[str, str]
+) -> ConcurrentStableSet[str]:
+    """表声明侧：声明他域表（D3 债务）与「声明了已登记表却未归域」的域实现。
+
+    Args:
+        rel: 源文件相对路径。
+        lines: 源文件行（指纹用）。
+        file_domain: 文件 → 域映射。
+
+    Returns:
+        ConcurrentStableSet[str]: 本文件声明的表名集合（引用扫描去重用）。
+    """
+    declared: ConcurrentStableSet[str] = ConcurrentStableSet()
+    if not any("__tablename__" in line for line in lines):
+        return declared
+    for lineno, table in _declared_tables(rel):
+        declared.add(table)
+        target_domain = table_domain(table)
+        if not target_domain:
+            continue
+        source_domain = file_domain.get(rel)
+        if source_domain is None:
+            _record(
+                f"[域实现未登记] {rel}:{lineno} 声明 {table}（归属域 {target_domain}；须在域布局登记该文件）",
+                "domain_layout_violation",
+            )
+            continue
+        if target_domain == source_domain:
+            continue
+        _domain_issue(
+            f"[跨域表声明] {rel}:{lineno} {source_domain} 声明 {table}（归属域 {target_domain}）",
+            kind="table_declare",
+            domain=source_domain,
+            target=target_domain,
+            rel=rel,
+            line=lines[lineno - 1] if 0 < lineno <= len(lines) else table,
+            counter="cross_domain_table_declare",
+        )
+    return declared
+
+
+def _declared_tables(rel: str) -> ConcurrentStableList[tuple[int, str]]:
+    """取文件内 `__tablename__` 表声明（表名小写）。
+
+    Args:
+        rel: 源文件相对路径。
+
+    Returns:
+        ConcurrentStableList[tuple[int, str]]: 行号与表名。
+    """
+    tree = ast.parse((ROOT / rel).read_text(encoding="utf-8"))
+    found: ConcurrentStableList[tuple[int, str]] = ConcurrentStableList()
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Assign):
+            continue
+        if not any(isinstance(t, ast.Name) and t.id == "__tablename__" for t in node.targets):
+            continue
+        value = node.value
+        if isinstance(value, ast.Constant) and isinstance(value.value, str):
+            found.add((node.lineno, value.value.lower()))
+    return found
+
+
+def _line_of(rel: str, lineno: int, fallback: str) -> str:
+    """取源文件指定行文本（越界时用表名兜底）。
+
+    Args:
+        rel: 源文件相对路径。
+        lineno: 行号（1 起）。
+        fallback: 兜底文本。
+
+    Returns:
+        str: 行文本。
+    """
+    lines = (ROOT / rel).read_text(encoding="utf-8").splitlines()
+    return lines[lineno - 1] if 0 < lineno <= len(lines) else fallback
+
+
+def _check_domain_files(
+    packages: ConcurrentStableDict[str, tuple[Path, bool]],
+    file_domain: ConcurrentStableDict[str, str],
+    layout: DomainLayout,
+) -> None:
+    """域实现覆盖统计：登记文件数 / 未归属域的实现文件数（软指标，不阻断）。
+
+    Args:
+        packages: 工作区包表。
+        file_domain: 文件 → 域映射。
+        layout: 域布局（域外路径判定）。
+    """
+    registered = 0
+    unregistered = 0
+    if not _DOMAIN_ENABLED:
+        counts.set("domain_files_registered", 0)
+        counts.set("domain_files_unregistered", 0)
+        return
+    for _package, (root, shared) in packages.items():
+        for path in sorted(root.rglob("*.py")):
+            if "__pycache__" in path.parts or _is_test_path(path, root):
+                continue
+            rel = path.relative_to(ROOT).as_posix()
+            if shared and "/models/" not in f"/{rel}":
+                continue  # 基座横切面（core / db / boundary / …）不是业务域实现，不计入覆盖度
+            if rel in file_domain:
+                registered += 1
+            elif not layout.is_shared(rel):
+                unregistered += 1
+    counts.set("domain_files_registered", registered)
+    counts.set("domain_files_unregistered", unregistered)
+
+
+def _finish_domain_baseline() -> None:
+    """基线与双字段收尾：陈旧基线条目即失败；`--update-baseline` 时重写基线。"""
+    if not _DOMAIN_ENABLED:
+        return
+    stale = [key for key, used in _DOMAIN_BASELINE.items() if not used]
+    if _UPDATE_BASELINE:
+        merged: ConcurrentStableList[BaselineEntry] = ConcurrentStableList(
+            BaselineEntry(kind=key[0], domain=key[1], target=key[2], file=key[3], fingerprint=key[4])
+            for key, used in _DOMAIN_BASELINE.items()
+            if used
+        )
+        merged.update(_DOMAIN_BASELINE_PENDING)
+        written = dump_baseline(ROOT / DEFAULT_BASELINE_RELATIVE, merged)
+        counts.set("domain_baseline_total", written)
+        return
+    for key in stale:
+        _record(
+            f"[域级基线陈旧] {key[0]} {key[1]} → {key[2]}（{key[3]}，指纹 {key[4]}）已不再命中，"
+            "基线只减不增，请从基线删除该条",
+            "domain_layout_violation",
+        )
+
+
+def _check_domain_ownership(layout: DomainLayout) -> None:
+    """表归属双字段一致性（`owner` == 域承载服务；基础设施表与不归域表 `domain` 恒空）。
+
+    Args:
+        layout: 域布局（域 → 承载服务映射）。
+    """
+    domain_services = layout.domain_services()
+    for message in TableOwnershipRegistry(table_ownership_view()).validate(
+        domain_services=domain_services if domain_services else None
+    ):
+        _record(f"[表归属域] {message}", "domain_ownership_violation")
+
+
 def check() -> int:
-    """执行七项护栏检查。
+    """执行七项护栏检查 + 域级断言 D1 ~ D5。
 
     Returns:
         int: 违规项数。
     """
+    global _DOMAIN_ENABLED
     packages = _discover_packages()
     names = set(packages)
+    layout = _load_domain_layout()
+    _DOMAIN_ENABLED = bool(layout.domain_keys())
+    _DOMAIN_BASELINE.update(_load_domain_baseline())
+    file_domain, layout_problems = layout.resolve_files(ROOT)
+    for message in layout_problems:
+        _record(message, "domain_layout_violation")
+    for message in layout.validate(ROOT):
+        _record(message, "domain_layout_violation")
     for package, (root, shared) in packages.items():
         layer_rules = _SHARED_LAYER_RULES if shared else _SERVICE_LAYER_RULES
         for path in sorted(root.rglob("*.py")):
@@ -481,8 +944,8 @@ def check() -> int:
             if table not in ownership:
                 _record(f"[表归属未登记] {package} 声明 {table}（表归属登记无此表）", "table_ownership_violation")
 
-    # 规则 7：例外白名单核对（先校验，命中放行由规则 6 使用）
-    exceptions, exception_problems = _load_exceptions()
+    # 规则 7：例外白名单核对（先校验，命中放行由规则 6 / D3 使用）
+    exceptions, exception_problems = _load_exceptions(layout.domain_keys())
     for message in exception_problems:
         _record(message, "table_ownership_violation")
     counts.set("registered_exceptions_total", len(exceptions))
@@ -554,6 +1017,13 @@ def check() -> int:
 
     # 规则 10：运行期代码不得依赖运维通道 / 跨服务源码（14_03）
     _check_runtime_dependencies()
+
+    # 域级断言（07C 03_01）：D1 / D2 跨域 import、D3 / D4 跨域表、域实现覆盖、双字段一致
+    _check_domain_imports(packages, file_domain, layout)
+    _check_domain_tables(packages, file_domain, exceptions, known_table_set)
+    _check_domain_files(packages, file_domain, layout)
+    _check_domain_ownership(layout)
+    _finish_domain_baseline()
 
     return len(problems)
 
@@ -1056,7 +1526,174 @@ def _self_test() -> int:
             json.dumps({"version": 1, "exceptions": []}, ensure_ascii=False), encoding="utf-8"
         )
 
+    ok = _self_test_domains() and ok
     return 0 if ok else 1
+
+
+def _self_test_domains() -> bool:
+    """域级断言自检（07C `03_01` 设计 §5 用例 1~14 的脚本侧反例）。
+
+    Returns:
+        bool: 全部样例符合预期返回 True。
+    """
+    import hashlib
+    import subprocess
+    import tempfile
+
+    ok = True
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        svc = root / "backend/services/platform/src/bms_platform"
+        services = svc / "services"
+        services.mkdir(parents=True)
+        (svc / "__init__.py").write_text("", encoding="utf-8")
+        (services / "__init__.py").write_text("", encoding="utf-8")
+        (root / "backend/Dockerfile").write_text(
+            "COPY libs/bms_core/src libs/bms_core/src\n"
+            "COPY services/${SERVICE}/src services/${SERVICE}/src\n"
+            "COPY ops ./ops\n",
+            encoding="utf-8",
+        )
+        ops_dir = root / "backend/ops"
+        ops_dir.mkdir(parents=True)
+        (ops_dir / "__init__.py").write_text("", encoding="utf-8")
+        boundaries = root / "deploy/boundaries"
+        boundaries.mkdir(parents=True)
+        layout_path = boundaries / "domain_layout.json"
+        baseline_path = boundaries / "domain_boundary_baseline.json"
+
+        a_user = services / "a_user.py"
+        b_role = services / "b_role.py"
+        c_orphan = services / "c_orphan.py"
+        b_role.write_text("VALUE = 1\n", encoding="utf-8")
+        a_user.write_text("import bms_platform.services.b_role\n", encoding="utf-8")
+
+        def rel(path: Path) -> str:
+            return path.relative_to(root).as_posix()
+
+        def fingerprint(text: str) -> str:
+            return hashlib.sha1(" ".join(text.split()).encode("utf-8")).hexdigest()[:12]
+
+        def carrier_map() -> ConcurrentStableDict[str, str]:
+            """按真实表归属登记推出「域 → 承载服务」（自检样例须与登记一致，才不误报双字段不一致）。"""
+            mapping: ConcurrentStableDict[str, str] = ConcurrentStableDict()
+            for record in table_ownership_view():
+                if record.domain and record.domain not in mapping:
+                    mapping.set(record.domain, record.owner)
+            return mapping
+
+        def write_layout(*, role_service: str = "", public_api: bool = False, duplicate: bool = False) -> None:
+            entries: ConcurrentStableList[ConcurrentStableDict[str, object]] = ConcurrentStableList()
+            carriers = carrier_map()
+            sample = {"user": a_user, "role": b_role}
+            for domain, carrier in carriers.items():
+                path = sample.get(domain)
+                if path is None:
+                    path = services / f"d_{domain.replace('-', '_')}.py"
+                    path.write_text("VALUE = 0\n", encoding="utf-8")
+                paths: ConcurrentStableList[str] = ConcurrentStableList([rel(path)])
+                if duplicate and domain == "user":
+                    paths.add(rel(b_role))
+                entries.add(
+                    ConcurrentStableDict(
+                        {
+                            "domain_key": domain,
+                            "service_key": role_service if domain == "role" and role_service else carrier,
+                            "status": "legacy",
+                            "paths": paths,
+                            "public_api": ["bms_platform.services.b_role"] if public_api and domain == "role" else [],
+                        }
+                    )
+                )
+            payload = {"version": 1, "domains": entries, "shared_paths": []}
+            layout_path.write_text(json.dumps(normalize_collections(payload), ensure_ascii=False), encoding="utf-8")
+
+        def write_baseline(entries: ConcurrentStableList[ConcurrentStableDict[str, str]]) -> None:
+            baseline_path.write_text(
+                json.dumps(normalize_collections({"version": 1, "entries": entries}), ensure_ascii=False),
+                encoding="utf-8",
+            )
+
+        def run(expect_fail: bool, label: str) -> None:
+            nonlocal ok
+            result = subprocess.run(
+                [sys.executable, os.path.abspath(__file__), str(root)], capture_output=True, text=True
+            )
+            failed = result.returncode != 0
+            passed = failed == expect_fail
+            ok = ok and passed
+            print(f"  [self-test] {label}：{'通过' if passed else '不通过'}（期望{'拦截' if expect_fail else '放行'}）")
+            if not passed:
+                detail = (result.stdout or result.stderr or "").strip()
+                for line in detail.splitlines()[:6]:
+                    print(f"      {line}")
+
+        write_baseline(ConcurrentStableList())
+        write_layout()
+        run(True, "同服务内跨域 import 拦截")
+
+        import_line = "import bms_platform.services.b_role"
+
+        def import_entry() -> ConcurrentStableList[ConcurrentStableDict[str, str]]:
+            """构造一条 import 基线（源域 user → 目标域 role，指纹取当前导入行）。
+
+            Returns:
+                ConcurrentStableList[ConcurrentStableDict[str, str]]: 基线条目。
+            """
+            return ConcurrentStableList(
+                [
+                    ConcurrentStableDict(
+                        {
+                            "kind": "import",
+                            "domain": "user",
+                            "target": "role",
+                            "file": rel(a_user),
+                            "fingerprint": fingerprint(import_line),
+                        }
+                    )
+                ]
+            )
+
+        write_baseline(import_entry())
+        run(False, "跨域 import 命中基线放行")
+
+        a_user.write_text(f"{import_line}\nfrom bms_platform.services.b_role import VALUE\n", encoding="utf-8")
+        run(True, "基线外新增跨域 import 拦截")
+
+        write_baseline(ConcurrentStableList())
+        a_user.write_text(import_line + "\n", encoding="utf-8")
+        write_layout(public_api=True)
+        run(False, "域内公共 API 出口放行（D2）")
+
+        write_layout()
+        a_user.write_text('SQL = "select * from sys_role"\n', encoding="utf-8")
+        run(True, "跨域表引用拦截（D3）")
+
+        a_user.write_text('SQL = "update sys_role set value = 2"\n', encoding="utf-8")
+        run(True, "跨域写拦截（D4，无例外）")
+
+        a_user.write_text("VALUE = 1\n", encoding="utf-8")
+        write_layout(role_service="report")
+        run(True, "表归属域与承载服务不一致拦截")
+
+        write_layout(duplicate=True)
+        run(True, "同一路径归属两个域拦截")
+
+        write_layout()
+        c_orphan.write_text('__tablename__ = "sys_role"\n', encoding="utf-8")
+        run(True, "域实现未登记拦截（声明已登记表但文件未在布局）")
+
+        c_orphan.unlink()
+        a_user.write_text("VALUE = 2\n", encoding="utf-8")
+        write_baseline(import_entry())
+        run(True, "陈旧基线条目拦截（只减不增）")
+
+        write_baseline(ConcurrentStableList())
+        layout_path.unlink()
+        a_user.write_text(import_line + "\n", encoding="utf-8")
+        run(False, "未提供域布局时域级断言停用")
+
+    return ok
 
 
 def _emit(as_json: bool) -> None:
@@ -1084,6 +1721,21 @@ def _emit(as_json: bool) -> None:
         f"  例外白名单：登记 {counts['registered_exceptions_total']} 条、"
         f"命中 {counts['registered_exceptions_used']} 条。"
     )
+    registered_files = counts.get("domain_files_registered", 0)
+    unregistered_files = counts.get("domain_files_unregistered", 0)
+    domain_scope = (
+        f"域布局登记文件 {registered_files} / 未归属域 {unregistered_files}"
+        if registered_files or unregistered_files
+        else "域布局未提供（域级断言停用）"
+    )
+    print(
+        f"  域级断言：{domain_scope}；跨域 import {counts.get('cross_domain_import', 0)}、"
+        f"表引用 {counts.get('cross_domain_table_reference', 0)}、写 {counts.get('cross_domain_write', 0)}、"
+        f"表声明 {counts.get('cross_domain_table_declare', 0)}；"
+        f"域级基线 {counts.get('domain_baseline_total', 0)} 条（命中 {counts.get('domain_baseline_used', 0)} 条）。"
+    )
+    if _UPDATE_BASELINE:
+        print("  （--update-baseline：已按当前扫描结果重写域级基线，请人工审阅 diff 后再提交）")
 
 
 def main() -> int:

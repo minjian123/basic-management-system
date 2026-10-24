@@ -1,9 +1,10 @@
-"""表归属查询：以表归属登记（`services/table_registry.py`）为单一来源（06_03）。
+"""表归属查询：以表归属登记（`services/table_registry.py`）为单一来源（06_03；域维度 07C 03_01）。
 
 - `table_owner` / `table_owners_map`：表名 → 归属服务（基础设施表返回 `*`；未登记返回 None）。
+- `table_domain`：表名 → 归属业务域（不归域返回空串；未登记返回 None）。
 - `is_infrastructure`：每服务自有基础设施表（发件箱三表，不参与跨服务归属判定）。
-- `owned_tables_for` / `known_tables` / `known_services` / `known_prefixes`：清单查询
-  （静态校验、例外白名单校验与运行时守卫同源）。
+- `owned_tables_for` / `owned_tables_for_domain` / `known_tables` / `known_services` /
+  `known_prefixes`：清单查询（静态校验、例外白名单校验与运行时守卫同源）。
 - `table_prefix_of`：取表名前缀（例外匹配与文案用）。
 
 口径：**不再有「共享前缀」概念**——`sys_` 表按表级归属判定；未登记表名无归属可判（声明场景由静态校验拦截）。
@@ -24,6 +25,12 @@ from bms_core.services.table_registry import (
     owned_tables_for as _owned_tables_for,
 )
 from bms_core.services.table_registry import (
+    owned_tables_for_domain as _owned_tables_for_domain,
+)
+from bms_core.services.table_registry import (
+    table_domain as _table_domain,
+)
+from bms_core.services.table_registry import (
     table_owner as _table_owner,
 )
 
@@ -34,6 +41,8 @@ __all__ = [
     "known_services",
     "known_tables",
     "owned_tables_for",
+    "owned_tables_for_domain",
+    "table_domain",
     "table_owner",
     "table_owners_map",
     "table_prefix_of",
@@ -110,6 +119,34 @@ def owned_tables_for(
         ConcurrentStableSet[str]: 该服务拥有的表名集合。
     """
     return ConcurrentStableSet(_owned_tables_for(service, datasource=datasource, include_planned=include_planned))
+
+
+def table_domain(table: str) -> str | None:
+    """表名归属业务域（未登记返回 None；不归域返回空串）。
+
+    Args:
+        table: 表名。
+
+    Returns:
+        str | None: 归属业务域标识。
+    """
+    return _table_domain(table)
+
+
+def owned_tables_for_domain(
+    domain: str, *, datasource: str | None = None, include_planned: bool = True
+) -> ConcurrentStableSet[str]:
+    """某业务域名下的表集合（按归属域匹配）。
+
+    Args:
+        domain: 业务域标识（`domain_key`）。
+        datasource: 库类别过滤；None 取全部。
+        include_planned: 是否含预留归属（`planned`）。
+
+    Returns:
+        ConcurrentStableSet[str]: 该域的表名集合。
+    """
+    return ConcurrentStableSet(_owned_tables_for_domain(domain, datasource=datasource, include_planned=include_planned))
 
 
 def known_tables() -> ConcurrentStableSet[str]:

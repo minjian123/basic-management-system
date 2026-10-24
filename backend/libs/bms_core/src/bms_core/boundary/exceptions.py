@@ -1,11 +1,12 @@
 """读侧出口例外登记：白名单契约 + 加载 / 校验 / 匹配（仅标准库与集合体系「无依赖面」；静态校验与运行时守卫同源）。
 
-- `OwnershipException`：一条例外登记（消费方服务 / 目标表名或前缀 / 访问类型 / 出口 / 消费方 /
-  理由 / 替代方案评估 / 失效条件 / 登记日期）。
+- `OwnershipException`：一条例外登记（消费方服务 / 消费方业务域（可选）/ 目标表名或前缀 / 访问类型 /
+  出口 / 消费方 / 理由 / 替代方案评估 / 失效条件 / 登记日期）。
 - `load_exceptions`：载入白名单文件（缺文件返回空；结构非法抛 `ValueError`）。
-- `validate_exceptions`：语义校验（服务须在服务目录、目标须为已登记表名或已知前缀、
-  `access` 只能为 `read`、出口枚举、日期格式）。
-- `exception_allows`：命中判定（目标按**表名或表前缀**匹配；仅 `access=read` 且操作 `read`）。
+- `validate_exceptions`：语义校验（服务须在服务目录、域须在业务域清单（提供时）、目标须为已登记表名或
+  已知前缀、`access` 只能为 `read`、出口枚举、日期格式）。
+- `exception_allows`：命中判定（消费方按**服务或域**匹配；目标按**表名或表前缀**匹配；
+  仅 `access=read` 且操作 `read`）。
 
 口径：**写侧硬禁无例外**——`access` 只允许 `read`，越界写一律违规；例外须写清替代方案与失效条件。
 字段名 `target_prefix` 保留（06_03 起语义扩为「表名或表前缀」），避免白名单格式破坏。
@@ -90,6 +91,9 @@ class OwnershipException(BaseOwnershipContract):
     registered_at: str
     """登记日期（`YYYY-MM-DD`）。"""
 
+    domain: str = ""
+    """消费方业务域标识（可选，07C `03_01` 起的域维度；空串 = 只按服务匹配）。"""
+
 
 def _parse_exception(item: object, index: int) -> OwnershipException:
     """解析单条例外（结构非法抛 `ValueError`）。
@@ -115,6 +119,7 @@ def _parse_exception(item: object, index: int) -> OwnershipException:
         values.set(field, raw.strip())
     if values["access"] != EXCEPTION_ACCESS:
         raise ValueError(f"例外登记第 {index} 条 access 只允许 {EXCEPTION_ACCESS!r}（写侧硬禁无例外）")
+    domain = _optional_text(fields.get("domain"), index=index, key="domain")
     return OwnershipException(
         service=values["service"],
         target_prefix=values["target_prefix"],
@@ -125,7 +130,29 @@ def _parse_exception(item: object, index: int) -> OwnershipException:
         alternative=values["alternative"],
         expiry=values["expiry"],
         registered_at=values["registered_at"],
+        domain=domain,
     )
+
+
+def _optional_text(raw: object, *, index: int, key: str) -> str:
+    """取可选字符串字段（缺省 / 空串返回空串；非字符串抛 `ValueError`）。
+
+    Args:
+        raw: JSON 字段原值。
+        index: 条目序号（错误提示用）。
+        key: 字段名。
+
+    Returns:
+        str: 去空白后的字段值（缺失为空串）。
+
+    Raises:
+        ValueError: 字段非字符串。
+    """
+    if raw is None:
+        return ""
+    if not isinstance(raw, str):
+        raise ValueError(f"例外登记第 {index} 条字段须为字符串：{key}")
+    return raw.strip()
 
 
 def load_exceptions(path: Path) -> ConcurrentStableList[OwnershipException]:
@@ -164,14 +191,16 @@ def validate_exceptions(
     known_tables: ConcurrentStableSet[str],
     known_prefixes: ConcurrentStableSet[str],
     known_services: ConcurrentStableSet[str],
+    known_domains: ConcurrentStableSet[str] | None = None,
 ) -> ConcurrentStableList[str]:
-    """语义校验例外登记（服务 / 目标 / 出口 / 日期）。
+    """语义校验例外登记（服务 / 域 / 目标 / 出口 / 日期）。
 
     Args:
         entries: 例外条目。
         known_tables: 归属登记的表名集合（`target_prefix` 允许写具体表名）。
         known_prefixes: 可作为目标的表前缀集合（服务目录前缀 ∪ 归属登记表前缀）。
         known_services: 服务目录登记标识。
+        known_domains: 业务域清单（域布局声明的域标识）；None 时跳过域校验。
 
     Returns:
         ConcurrentStableList[str]: 违规明细（空列表表示通过）。
@@ -180,6 +209,8 @@ def validate_exceptions(
     for entry in entries:
         if entry.service not in known_services:
             problems.add(f"[例外登记] service 未在服务目录：{entry.service}")
+        if entry.domain and known_domains is not None and entry.domain not in known_domains:
+            problems.add(f"[例外登记] domain 未在业务域清单：{entry.domain}")
         if entry.target_prefix not in known_tables and entry.target_prefix not in known_prefixes:
             problems.add(f"[例外登记] 目标既非已登记表名也非已知前缀：{entry.target_prefix}")
         if entry.exit not in EXCEPTION_EXITS:
@@ -195,14 +226,16 @@ def exception_allows(
     service: str,
     table: str,
     operation: str,
+    domain: str = "",
 ) -> bool:
-    """命中判定：服务匹配且目标（表名或表前缀）匹配，访问类型与操作均为只读。
+    """命中判定：消费方匹配（服务或域）且目标（表名或表前缀）匹配，访问类型与操作均为只读。
 
     Args:
         entries: 例外条目。
         service: 消费方服务标识。
         table: 被访问表名。
         operation: 操作归类（只读 `read` 可命中）。
+        domain: 消费方业务域标识（非空时按域匹配优先）。
 
     Returns:
         bool: 命中返回 True。
@@ -211,6 +244,8 @@ def exception_allows(
         return False
     prefix = table.split("_", 1)[0] + "_" if "_" in table else table
     return any(
-        entry.service == service and entry.access == EXCEPTION_ACCESS and entry.target_prefix in (table, prefix)
+        (entry.service == service or (bool(domain) and entry.domain == domain))
+        and entry.access == EXCEPTION_ACCESS
+        and entry.target_prefix in (table, prefix)
         for entry in entries
     )
