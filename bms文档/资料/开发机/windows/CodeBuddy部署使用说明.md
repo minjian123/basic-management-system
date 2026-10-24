@@ -520,7 +520,7 @@ pnpm --filter @bms/desktop dev                                                  
 - **易误判②**：本次的「仓库」视图隐藏在**全局库**的 `workbench.scm.views.state.hidden`（数组形式），与工作区库里那个同名对象键不是同一处：只改工作区库不够。
 - **易误判③**：工作区根仓库只跟踪工作区配置文件（`.gitignore` 为全忽略 + 白名单），选中根仓库「没有变化」属正常；`bms` 等仓库的变更需各自可见才会展示。
 - 同一工作区在 VS Code 侧状态正常（`visible` 覆盖全部 5 个仓库），可用来区分「IDE 状态问题」与「git / 工作区问题」。
-- Linux 侧同一问题的成因、`--check` 用法与备选手段见《[VSCode 部署使用说明（linux）](../linux/VSCode部署使用说明.md#scm)》第 6 节。
+- Linux 侧同一问题的成因、`--check` 用法与备选手段见《[VSCode 部署使用说明（linux）](../linux/VSCode部署使用说明.md#scm)》「源代码管理面板看不到仓库」节。
 
 ## 11. 与 linux 版差异 <a id="diff-linux"></a>
 
