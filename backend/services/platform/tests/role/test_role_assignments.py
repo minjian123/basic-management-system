@@ -41,10 +41,10 @@ from bms_platform.schemas.role import (
     RoleAssignmentsRequest,
 )
 from bms_platform.services.role_assignments import (
-    ORG_INTERNAL_ROLE_DEPTS_PATH,
-    ORG_INTERNAL_ROLE_POSTS_PATH,
-    ORG_ROLE_DEPTS_OP,
-    ORG_ROLE_POSTS_OP,
+    MDM_INTERNAL_ROLE_DEPTS_PATH,
+    MDM_INTERNAL_ROLE_POSTS_PATH,
+    MDM_ROLE_DEPTS_OP,
+    MDM_ROLE_POSTS_OP,
     RoleAssignmentsService,
     RoleAssignmentWriter,
     _branch_state,  # pyright: ignore[reportPrivateUsage]
@@ -223,7 +223,7 @@ async def test_sequential_path_orders_writes_and_bumps_permission_version() -> N
     assert list(applied) == ["role", "user_ids", "role_posts"]
     assert len(writer.calls) == 1
     paths = [request.path for request in client.requests]
-    assert paths == [ORG_INTERNAL_ROLE_POSTS_PATH.format(role_id=5)]
+    assert paths == [MDM_INTERNAL_ROLE_POSTS_PATH.format(role_id=5)]
     assert client.requests[0].headers is not None
     assert client.requests[0].headers.get("Idempotency-Key") == "k-1"
     assert list(cache.bumped) == ["bms:1001:permission:version"]
@@ -241,7 +241,7 @@ async def test_sequential_path_skips_bump_when_only_org_segments() -> None:
     )
 
     assert cache.bumped == []
-    assert [request.path for request in client.requests] == [ORG_INTERNAL_ROLE_DEPTS_PATH.format(role_id=5)]
+    assert [request.path for request in client.requests] == [MDM_INTERNAL_ROLE_DEPTS_PATH.format(role_id=5)]
 
 
 async def test_sequential_path_posts_without_idempotency_key() -> None:
@@ -255,7 +255,7 @@ async def test_sequential_path_posts_without_idempotency_key() -> None:
         idempotency_key=None,
     )
 
-    assert [request.path for request in client.requests] == [ORG_INTERNAL_ROLE_POSTS_PATH.format(role_id=5)]
+    assert [request.path for request in client.requests] == [MDM_INTERNAL_ROLE_POSTS_PATH.format(role_id=5)]
     body = client.requests[0].json_body
     assert body is not None
     assert body.get("post_ids") == [11]
@@ -270,7 +270,7 @@ def test_org_branch_ops_share_one_branch_request() -> None:
     )
     ops = build_org_ops(role_id=5, req=req, idempotency_key="k-1")
 
-    assert [op for op, _args in ops] == [ORG_ROLE_POSTS_OP, ORG_ROLE_DEPTS_OP]
+    assert [op for op, _args in ops] == [MDM_ROLE_POSTS_OP, MDM_ROLE_DEPTS_OP]
     posts_args = ops[0][1]
     assert posts_args.get("role_id") == 5
     assert posts_args.get("post_ids") == [11, 12]
@@ -593,9 +593,9 @@ async def test_xa_path_commits_after_all_branches_prepared() -> None:
     body = client.requests[0].json_body
     assert body is not None
     assert body.get("xid") == "xid-m"
-    assert body.get("db_key") == build_tenant_db_key("demo", service="org")
+    assert body.get("db_key") == build_tenant_db_key("demo", service="mdm")
     entries = cast("list[ConcurrentStableDict[str, object]]", body.get("ops"))
-    assert [entry.get("op") for entry in entries] == ["org.role-posts.assign", "org.role-depts.assign"]
+    assert [entry.get("op") for entry in entries] == ["mdm.role-posts.assign", "mdm.role-depts.assign"]
     assert list(manager.commits) == ["gtx-1"]
     assert manager.rollbacks == []
     assert list(cache.bumped) == ["bms:1001:permission:version"]

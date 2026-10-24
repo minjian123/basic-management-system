@@ -719,9 +719,7 @@ def render_apisix_config(
     return ConcurrentStableDict(
         {
             "upstreams": render_upstreams(),
-            "routes": ConcurrentStableList(
-                [*render_routes(), *render_login_routes(), *render_product_routes(routes)]
-            ),
+            "routes": ConcurrentStableList([*render_routes(), *render_login_routes(), *render_product_routes(routes)]),
             "global_rules": render_global_rules(),
             "plugin_metadata": render_plugin_metadata(),
         }

@@ -1,7 +1,7 @@
 """平台服务内部端点：权限快照失效 + 数据来源只读出口（服务间调用，不经网关）。
 
 - **鉴权**：两条路由各按调用方白名单分道——
-  - `router`（`/invalidate`）：`require_service("org")`——仅 mdm 组织服务可调用（岗位 / 部门 / 角色分配
+  - `router`（`/invalidate`）：`require_service("mdm")`——仅 mdm 产品服务可调用（岗位 / 部门 / 角色分配
     变更后触发）；
   - `read_router`（`/subject`、`/metadata`）：`require_service("identity")`——仅认证服务可读（`04_01`
     下沉后 identity 侧「经契约取数」的数据来源实现取用）。
@@ -38,8 +38,8 @@ from bms_platform.schemas.permission import (
     PermissionSubjectResult,
 )
 
-MDM_ORG_SERVICE = "org"
-"""允许调用失效端点的调用方服务标识（mdm 组织服务键 `org`）。"""
+MDM_SERVICE = "mdm"
+"""允许调用失效端点的调用方服务标识（mdm 产品服务键 `mdm`；2026-10-23 由 `org` 归并）。"""
 
 IDENTITY_SERVICE = "identity"
 """允许调用数据来源只读出口的调用方服务标识（认证服务键 `identity`）。"""
@@ -48,7 +48,7 @@ router = BaseRouter(
     key="platform_internal_permission",
     prefix="/platform/internal/permissions",
     tags=["platform-internal"],
-    dependencies=[Depends(require_service(MDM_ORG_SERVICE))],
+    dependencies=[Depends(require_service(MDM_SERVICE))],
 )
 
 read_router = BaseRouter(

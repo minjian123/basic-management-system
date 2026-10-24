@@ -75,26 +75,26 @@ if TYPE_CHECKING:
 USER_ASSIGNMENTS_OP = "sys.user.assignments"
 """platform 侧分支操作名（分支处理器注册表键）。"""
 
-ORG_SERVICE = "org"
-"""组织域（mdm）服务键。"""
+MDM_SERVICE = "mdm"
+"""mdm 产品服务键（2026-10-23 mdm `01_05` 服务标识归并 `org` → `mdm`）。"""
 
-ORG_USER_POSTS_OP = "org.user-posts.assign"
+MDM_USER_POSTS_OP = "mdm.user-posts.assign"
 """mdm 分支操作名：用户-岗位全量覆盖 + 主要岗位。"""
 
-ORG_USER_DEPTS_OP = "org.user-depts.assign"
+MDM_USER_DEPTS_OP = "mdm.user-depts.assign"
 """mdm 分支操作名：用户-部门全量覆盖 + 主要部门。"""
 
-ORG_INTERNAL_USER_POSTS_PATH = "/api/v1/org/internal/user-posts/{user_id}"
+MDM_INTERNAL_USER_POSTS_PATH = "/api/v1/mdm/internal/user-posts/{user_id}"
 """mdm 内部写通道：用户-岗位（`provider=null` 顺序提交路径）。"""
 
-ORG_INTERNAL_USER_DEPTS_PATH = "/api/v1/org/internal/user-depts/{user_id}"
+MDM_INTERNAL_USER_DEPTS_PATH = "/api/v1/mdm/internal/user-depts/{user_id}"
 """mdm 内部写通道：用户-部门（`provider=null` 顺序提交路径）。"""
 
 BRANCH_ID_PLATFORM = "p"
 """platform 分支标识（同一全局事务内唯一，≤ 16 字符）。"""
 
-BRANCH_ID_ORG = "m"
-"""组织域分支标识。"""
+BRANCH_ID_MDM = "m"
+"""mdm 组织域分支标识。"""
 
 BRANCH_EXECUTE_PATH = "/api/v1/txn/branches"
 """参与端点：分支执行路径。"""
@@ -467,12 +467,12 @@ class UserAssignmentsService(BaseFrameworkObject):
             ServiceUnavailableError: 分支执行调用失败（10007）。
         """
         platform_db_key = current_tenant_context().db_key
-        org_db_key = build_tenant_db_key(platform_db_key[len(TENANT_DB_KEY_PREFIX) :], service=ORG_SERVICE)
+        org_db_key = build_tenant_db_key(platform_db_key[len(TENANT_DB_KEY_PREFIX) :], service=MDM_SERVICE)
         has_org = req.user_posts is not None or req.user_depts is not None
         specs: ConcurrentStableList[BranchSpec] = ConcurrentStableList()
         specs.add(BranchSpec(branch_id=BRANCH_ID_PLATFORM, service=SERVICE_NAME, db_key=platform_db_key))
         if has_org:
-            specs.add(BranchSpec(branch_id=BRANCH_ID_ORG, service=ORG_SERVICE, db_key=org_db_key))
+            specs.add(BranchSpec(branch_id=BRANCH_ID_MDM, service=MDM_SERVICE, db_key=org_db_key))
         txn = await self._manager.begin(caller_service=SERVICE_NAME, branches=ConcurrentStableList(specs))
         try:
             platform_xid = self._xid_of(txn, BRANCH_ID_PLATFORM)
@@ -492,7 +492,7 @@ class UserAssignmentsService(BaseFrameworkObject):
                 raise TransactionUnavailableError(f"platform 分支未就绪：{state}")
             if has_org:
                 await self._execute_org_branches(
-                    xid=self._xid_of(txn, BRANCH_ID_ORG),
+                    xid=self._xid_of(txn, BRANCH_ID_MDM),
                     db_key=org_db_key,
                     user_id=user_id,
                     req=req,
@@ -541,7 +541,7 @@ class UserAssignmentsService(BaseFrameworkObject):
         body.set("ops", list(payload))
         response = await self._client.call(
             ServiceRequest(
-                service=ORG_SERVICE,
+                service=MDM_SERVICE,
                 method="POST",
                 path=BRANCH_EXECUTE_PATH,
                 json_body=ConcurrentStableFrozenDict(body),
@@ -569,13 +569,13 @@ class UserAssignmentsService(BaseFrameworkObject):
         await self._writer.write(user_id=user_id, profile=req.profile, role_ids=req.role_ids)
         if req.user_posts is not None:
             await self._call_org_internal(
-                path=ORG_INTERNAL_USER_POSTS_PATH.format(user_id=user_id),
+                path=MDM_INTERNAL_USER_POSTS_PATH.format(user_id=user_id),
                 body=_posts_args(req.user_posts),
                 idempotency_key=idempotency_key,
             )
         if req.user_depts is not None:
             await self._call_org_internal(
-                path=ORG_INTERNAL_USER_DEPTS_PATH.format(user_id=user_id),
+                path=MDM_INTERNAL_USER_DEPTS_PATH.format(user_id=user_id),
                 body=_depts_args(req.user_depts),
                 idempotency_key=idempotency_key,
             )
@@ -599,7 +599,7 @@ class UserAssignmentsService(BaseFrameworkObject):
             headers.set("Idempotency-Key", idempotency_key)
         await self._client.call(
             ServiceRequest(
-                service=ORG_SERVICE,
+                service=MDM_SERVICE,
                 method="PUT",
                 path=path,
                 json_body=ConcurrentStableFrozenDict(body),
@@ -836,10 +836,10 @@ def build_org_ops(
     ops: ConcurrentStableList[tuple[str, ConcurrentStableDict[str, object]]] = ConcurrentStableList()
     if req.user_posts is not None:
         posts_args = _posts_args(req.user_posts, user_id=user_id, idempotency_key=idempotency_key)
-        ops.add((ORG_USER_POSTS_OP, posts_args))
+        ops.add((MDM_USER_POSTS_OP, posts_args))
     if req.user_depts is not None:
         depts_args = _depts_args(req.user_depts, user_id=user_id, idempotency_key=idempotency_key)
-        ops.add((ORG_USER_DEPTS_OP, depts_args))
+        ops.add((MDM_USER_DEPTS_OP, depts_args))
     return ops
 
 

@@ -2,7 +2,7 @@
 
 - **鉴权**：两条路由各按调用方白名单分道——
   - `router`（`/profile`、`/reset-target`、`/create`）：`require_service("identity")`；
-  - `query_router`（`/query`，**用户只读出口**）：`require_service("org")`——仅 mdm 组织服务可读。
+  - `query_router`（`/query`，**用户只读出口**）：`require_service("mdm")`——仅 mdm 产品服务可读。
   两者均只接受对应签发方的有效服务 JWT（`aud=service`）；用户票据与网关服务票据（`sub=gateway`）一律拒
   （避免经网关被误信）。
 - **租户**：由服务 JWT 的 `tenant` claim 经全局租户中间件解析租户库。
@@ -50,18 +50,19 @@ router = BaseRouter(
     dependencies=[Depends(require_service("identity"))],
 )
 
-MDM_ORG_SERVICE = "org"
-"""允许调用**用户只读查询出口**的调用方服务标识（mdm 组织服务键 `org`）。
+MDM_SERVICE = "mdm"
+"""允许调用**用户只读查询出口**的调用方服务标识（mdm 产品服务键 `mdm`）。
 
 组织主数据（部门 / 岗位 / 人员）归 mdm、用户（账号）归 platform；mdm 组织域只读出口据此取用户明细，
-故白名单只登记 mdm 组织服务；后续接入方按需追加。
+故白名单只登记 mdm 产品服务；后续接入方按需追加。服务标识于 2026-10-23 由 `org` 归并为 `mdm`
+（mdm 阶段一 `01_05`），白名单随之对齐。
 """
 
 query_router = BaseRouter(
     key="platform_internal_users_query",
     prefix="/platform/internal/users",
     tags=["platform-internal"],
-    dependencies=[Depends(require_service(MDM_ORG_SERVICE))],
+    dependencies=[Depends(require_service(MDM_SERVICE))],
 )
 
 UowDep = Annotated[UnitOfWork, Depends(get_uow)]
@@ -172,7 +173,7 @@ async def query_users(req: InternalUserQueryRequest, uow: UowDep) -> ApiResponse
     """按关键字 / 状态 / 限定集合分页查询用户（**服务间只读出口**）。
 
     供 mdm 组织域只读出口（组织数据源 `users` / 名称回显 `resolve_names(user)` / 按用户解析角色）
-    取用户明细——**不跨库读** `sys_user`。仅接受 `sub=org` 服务票据；只读、不写库、不产事件；
+    取用户明细——**不跨库读** `sys_user`。仅接受 `sub=mdm` 服务票据；只读、不写库、不产事件；
     联系方式**原样返回**（脱敏归消费方 mdm 出口）。
 
     Args:

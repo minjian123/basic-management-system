@@ -2,7 +2,7 @@
 // kiwi_id: 2262
 /**
  * 组织选择字段用例（06_05；出口切址 11_02）：契约套件（核心 + 投影）+ 五件 + 工具（防抖 / HTTP 数据源）
- * + 占位契约复用；HTTP 数据源端点经寻址契约组装为 **mdm 产品命名空间**（`/api/mdm/v1/org`）。
+ * + 占位契约复用；HTTP 数据源端点经寻址契约组装为 **mdm 产品命名空间**（`/api/mdm/v1/mdm`）。
  */
 
 import { BaseUserDisplay, ORG_SEARCH_DEBOUNCE, productPrefix, type OrgSourceAdapter } from '@bms/core'
@@ -444,8 +444,8 @@ describe('工具：防抖与组织数据源', () => {
   })
 
   it('HTTP 数据源：默认端点为 mdm 产品命名空间（经寻址契约组装，不自拼前缀）', () => {
-    expect(orgSourceEndpoint()).toBe(productPrefix('mdm', 'org'))
-    expect(orgSourceEndpoint()).toBe('/api/mdm/v1/org')
+    expect(orgSourceEndpoint()).toBe(productPrefix('mdm', 'mdm'))
+    expect(orgSourceEndpoint()).toBe('/api/mdm/v1/mdm')
   })
 
   it('HTTP 数据源：查询参数与响应解包（mdm 出口路径）', async () => {
@@ -457,11 +457,11 @@ describe('工具：防抖与组织数据源', () => {
       }
     })
     vi.stubGlobal('fetch', fetchMock)
-    const source = createHttpOrgSource({ endpoint: '/api/mdm/v1/org', headers: { Authorization: 'Bearer x' } })
+    const source = createHttpOrgSource({ endpoint: '/api/mdm/v1/mdm', headers: { Authorization: 'Bearer x' } })
     const result = await source.searchUsers({ keyword: '张', deptId: 'd1', includeChildren: true, status: 'enabled', page: 1, pageSize: 20 })
     expect(result).toMatchObject({ total: 1 })
     const url = String(fetchMock.mock.calls[0]?.[0])
-    expect(url).toContain('/api/mdm/v1/org/data-source/users?')
+    expect(url).toContain('/api/mdm/v1/mdm/data-source/users?')
     expect(url).toContain('keyword=%E5%BC%A0')
     expect(url).toContain('dept_id=d1')
     expect(url).toContain('include_children=true')
@@ -482,7 +482,7 @@ describe('工具：防抖与组织数据源', () => {
     // 集合字段名差异（`items`）不影响解包（分页形态兼容）
     expect(result).toMatchObject({ items: [{ id: 'p1' }] })
     const url = String(fetchMock.mock.calls[0]?.[0])
-    expect(url).toContain('/api/mdm/v1/org/data-source/posts?')
+    expect(url).toContain('/api/mdm/v1/mdm/data-source/posts?')
     expect(url).toContain('dept_id=d1')
     expect(url).toContain('include_children=true')
   })
@@ -498,9 +498,9 @@ describe('工具：防抖与组织数据源', () => {
     vi.stubGlobal('fetch', fetchMock)
     const source = createHttpOrgSource()
     await source.resolveNames({ target: 'user', ids: ['u1', 'u2'] })
-    expect(String(fetchMock.mock.calls[0]?.[0])).toContain('/api/mdm/v1/org/resolve-names?target=user&id_in=u1%2Cu2')
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain('/api/mdm/v1/mdm/resolve-names?target=user&id_in=u1%2Cu2')
     await source.loadDeptTree({ status: 'enabled' })
-    expect(String(fetchMock.mock.calls[1]?.[0])).toContain('/api/mdm/v1/org/data-source/dept-tree?status=enabled')
+    expect(String(fetchMock.mock.calls[1]?.[0])).toContain('/api/mdm/v1/mdm/data-source/dept-tree?status=enabled')
   })
 
   it('HTTP 数据源：不可用降级与错误码', async () => {

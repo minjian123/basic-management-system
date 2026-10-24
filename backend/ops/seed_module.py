@@ -10,7 +10,9 @@ uv run python -m ops.seed_module --dry-run
 
 - URL 解析复用 `ops.seed_tenant.resolve_url(service="platform")`（`--url` > `BMS_MIGRATION_URL` >
   按库键 `platform_platform` 解析：`sys_module` / `sys_product` 归平台服务，06_01 起平台服务库按服务拆分）；
-- 单一来源：服务目录取 `SERVICE_CATALOG`、产品档案取 `PRODUCT_CATALOG`（与启动 / CI 校验清单同源，避免漂移）；
+- 单一来源：服务目录取**合并视图** `service_catalog_view()`（平台常量 + 已装载产品清单）、
+  产品档案取 `product_catalog_view()`——与启动接库校验同源，避免「库中缺产品登记行」；
+  产品清单按 `[registry].product_manifests` 装载（未配置 = 只播种平台清单，行为与旧版一致）；
 - 幂等：按 `module_key` / `product_key` + 未软删除判存——不存在插入、存在则更新本清单字段
   （服务维度 / 分组 / 批次 / 版本 / 产品状态等）；
 - 建表分支兼容保留（Alembic 落库后由 `alembic -n alembic:platform:platform upgrade head` 建表；
@@ -26,9 +28,16 @@ from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.core.config import get_settings
 from bms_core.db.keys import PLATFORM_SERVICE_KEY
 from bms_core.models.platform.catalog import SysModule, SysProduct
-from bms_core.services.module_registry import PRODUCT_CATALOG, SERVICE_CATALOG, ModuleRecord, ProductRecord
+from bms_core.registry.products import load_product_manifests
+from bms_core.services.module_registry import (
+    ModuleRecord,
+    ProductRecord,
+    product_catalog_view,
+    service_catalog_view,
+)
 from ops.seed_tenant import resolve_url
 
 RUN_IMAGE = "*"
@@ -105,6 +114,7 @@ async def seed_modules(url: str) -> tuple[int, int]:
     Returns:
         tuple[int, int]: (新增行数, 更新行数) 合计（服务目录 + 产品档案）；重复执行为 (0, 0)。
     """
+    load_product_manifests(get_settings().registry.product_manifests)
     engine = create_async_engine(url)
     factory: async_sessionmaker[AsyncSession] = async_sessionmaker(engine, expire_on_commit=False)
     created = 0
@@ -135,7 +145,7 @@ async def _upsert_modules(session: AsyncSession) -> tuple[int, int]:
     """
     created = 0
     updated = 0
-    for seed in SERVICE_CATALOG:
+    for seed in service_catalog_view():
         statement = select(SysModule).where(SysModule.module_key == seed.module_key, SysModule.deleted_at.is_(None))
         payload = _fields(seed)
         existing = (await session.execute(statement)).scalar_one_or_none()
@@ -164,7 +174,7 @@ async def _upsert_products(session: AsyncSession) -> tuple[int, int]:
     """
     created = 0
     updated = 0
-    for seed in PRODUCT_CATALOG:
+    for seed in product_catalog_view():
         statement = select(SysProduct).where(
             SysProduct.product_key == seed.product_key, SysProduct.deleted_at.is_(None)
         )
@@ -198,9 +208,10 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
     if args.dry_run:
         target = make_url(url).render_as_string(hide_password=True)
         print(f"[seed_module] 目标库：{target}")
-        for seed in SERVICE_CATALOG:
+        load_product_manifests(get_settings().registry.product_manifests)
+        for seed in service_catalog_view():
             print(f"[seed_module] 种子：{seed.module_key}（{seed.name} / {seed.table_prefix}）（dry-run）")
-        for product in PRODUCT_CATALOG:
+        for product in product_catalog_view():
             print(f"[seed_module] 产品档案：{product.product_key}（{product.name} / {product.status}）（dry-run）")
         return 0
     created, updated = asyncio.run(seed_modules(url))

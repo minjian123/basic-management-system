@@ -71,26 +71,26 @@ if TYPE_CHECKING:
 ROLE_ASSIGNMENTS_OP = "sys.role.assignments"
 """platform 侧分支操作名（分支处理器注册表键）。"""
 
-ORG_SERVICE = "org"
-"""组织域（mdm）服务键。"""
+MDM_SERVICE = "mdm"
+"""mdm 产品服务键（2026-10-23 mdm `01_05` 服务标识归并 `org` → `mdm`）。"""
 
-ORG_ROLE_POSTS_OP = "org.role-posts.assign"
+MDM_ROLE_POSTS_OP = "mdm.role-posts.assign"
 """mdm 分支操作名：角色-岗位全量覆盖。"""
 
-ORG_ROLE_DEPTS_OP = "org.role-depts.assign"
+MDM_ROLE_DEPTS_OP = "mdm.role-depts.assign"
 """mdm 分支操作名：角色-部门全量覆盖。"""
 
-ORG_INTERNAL_ROLE_POSTS_PATH = "/api/v1/org/internal/role-posts/{role_id}"
+MDM_INTERNAL_ROLE_POSTS_PATH = "/api/v1/mdm/internal/role-posts/{role_id}"
 """mdm 内部写通道：角色-岗位（`provider=null` 顺序提交路径）。"""
 
-ORG_INTERNAL_ROLE_DEPTS_PATH = "/api/v1/org/internal/role-depts/{role_id}"
+MDM_INTERNAL_ROLE_DEPTS_PATH = "/api/v1/mdm/internal/role-depts/{role_id}"
 """mdm 内部写通道：角色-部门（`provider=null` 顺序提交路径）。"""
 
 BRANCH_ID_PLATFORM = "p"
 """platform 分支标识（同一全局事务内唯一，≤ 16 字符）。"""
 
-BRANCH_ID_ORG = "m"
-"""组织域分支标识。"""
+BRANCH_ID_MDM = "m"
+"""mdm 组织域分支标识。"""
 
 BRANCH_EXECUTE_PATH = "/api/v1/txn/branches"
 """参与端点：分支执行路径。"""
@@ -372,12 +372,12 @@ class RoleAssignmentsService(BaseFrameworkObject):
             ServiceUnavailableError: 分支执行调用失败（10007）。
         """
         platform_db_key = current_tenant_context().db_key
-        org_db_key = build_tenant_db_key(platform_db_key[len(TENANT_DB_KEY_PREFIX) :], service=ORG_SERVICE)
+        org_db_key = build_tenant_db_key(platform_db_key[len(TENANT_DB_KEY_PREFIX) :], service=MDM_SERVICE)
         has_org = req.role_posts is not None or req.role_depts is not None
         specs: ConcurrentStableList[BranchSpec] = ConcurrentStableList()
         specs.add(BranchSpec(branch_id=BRANCH_ID_PLATFORM, service=SERVICE_NAME, db_key=platform_db_key))
         if has_org:
-            specs.add(BranchSpec(branch_id=BRANCH_ID_ORG, service=ORG_SERVICE, db_key=org_db_key))
+            specs.add(BranchSpec(branch_id=BRANCH_ID_MDM, service=MDM_SERVICE, db_key=org_db_key))
         txn = await self._manager.begin(caller_service=SERVICE_NAME, branches=ConcurrentStableList(specs))
         try:
             platform_xid = self._xid_of(txn, BRANCH_ID_PLATFORM)
@@ -397,7 +397,7 @@ class RoleAssignmentsService(BaseFrameworkObject):
                 raise TransactionUnavailableError(f"platform 分支未就绪：{state}")
             if has_org:
                 await self._execute_org_branches(
-                    xid=self._xid_of(txn, BRANCH_ID_ORG),
+                    xid=self._xid_of(txn, BRANCH_ID_MDM),
                     db_key=org_db_key,
                     role_id=role_id,
                     req=req,
@@ -446,7 +446,7 @@ class RoleAssignmentsService(BaseFrameworkObject):
         body.set("ops", list(payload))
         response = await self._client.call(
             ServiceRequest(
-                service=ORG_SERVICE,
+                service=MDM_SERVICE,
                 method="POST",
                 path=BRANCH_EXECUTE_PATH,
                 json_body=ConcurrentStableFrozenDict(body),
@@ -474,13 +474,13 @@ class RoleAssignmentsService(BaseFrameworkObject):
         await self._writer.write(role_id=role_id, profile=req.role, user_ids=req.user_ids)
         if req.role_posts is not None:
             await self._call_org_internal(
-                path=ORG_INTERNAL_ROLE_POSTS_PATH.format(role_id=role_id),
+                path=MDM_INTERNAL_ROLE_POSTS_PATH.format(role_id=role_id),
                 body=_posts_args(req.role_posts, idempotency_key=idempotency_key),
                 idempotency_key=idempotency_key,
             )
         if req.role_depts is not None:
             await self._call_org_internal(
-                path=ORG_INTERNAL_ROLE_DEPTS_PATH.format(role_id=role_id),
+                path=MDM_INTERNAL_ROLE_DEPTS_PATH.format(role_id=role_id),
                 body=_depts_args(req.role_depts, idempotency_key=idempotency_key),
                 idempotency_key=idempotency_key,
             )
@@ -504,7 +504,7 @@ class RoleAssignmentsService(BaseFrameworkObject):
             headers.set("Idempotency-Key", idempotency_key)
         await self._client.call(
             ServiceRequest(
-                service=ORG_SERVICE,
+                service=MDM_SERVICE,
                 method="PUT",
                 path=path,
                 json_body=ConcurrentStableFrozenDict(body),
@@ -696,9 +696,9 @@ def build_org_ops(
     """
     ops: ConcurrentStableList[tuple[str, ConcurrentStableDict[str, object]]] = ConcurrentStableList()
     if req.role_posts is not None:
-        ops.add((ORG_ROLE_POSTS_OP, _posts_args(req.role_posts, role_id=role_id, idempotency_key=idempotency_key)))
+        ops.add((MDM_ROLE_POSTS_OP, _posts_args(req.role_posts, role_id=role_id, idempotency_key=idempotency_key)))
     if req.role_depts is not None:
-        ops.add((ORG_ROLE_DEPTS_OP, _depts_args(req.role_depts, role_id=role_id, idempotency_key=idempotency_key)))
+        ops.add((MDM_ROLE_DEPTS_OP, _depts_args(req.role_depts, role_id=role_id, idempotency_key=idempotency_key)))
     return ops
 
 

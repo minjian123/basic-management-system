@@ -200,8 +200,8 @@ async function runChecks(): Promise<void> {
 
   // 13. 出口切址（11_02）：组织主数据归 mdm 产品——默认端点经寻址契约组装为 mdm 产品命名空间
   add(
-    '组织数据源默认端点为 mdm 产品命名空间（/api/mdm/v1/org）',
-    orgSourceEndpoint() === productPrefix('mdm', 'org') && orgSourceEndpoint() === '/api/mdm/v1/org',
+    '组织数据源默认端点为 mdm 产品命名空间（/api/mdm/v1/mdm）',
+    orgSourceEndpoint() === productPrefix('mdm', 'mdm') && orgSourceEndpoint() === '/api/mdm/v1/mdm',
   )
 
   checks.value = result

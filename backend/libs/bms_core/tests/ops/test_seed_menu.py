@@ -6,19 +6,20 @@ from ops import seed_menu
 
 
 @pytest.mark.kiwi_id(2254)
-def test_org_business_and_permissions_seeded() -> None:
-    """业务码种子含 `org`；权限码含域级四码与域专属 `move`；动作码字典含 `move`。"""
+def test_mdm_business_and_permissions_seeded() -> None:
+    """业务码种子含 `mdm`；权限码含域级四码（部门移动复用 `update`，无专属 `move`）。
+
+    服务标识于 2026-10-23 由 `org` 归并为 `mdm`（mdm 阶段一 `01_05`），种子随之对齐。
+    """
     business_codes = {code for code, _zh, _en in seed_menu.BUSINESS_SEEDS}
-    assert "org" in business_codes
+    assert "mdm" in business_codes
     permissions = {(business, action) for business, action, _zh, _en in seed_menu.PERMISSION_SEEDS}
     assert {
-        ("org", "query"),
-        ("org", "create"),
-        ("org", "update"),
-        ("org", "delete"),
-        ("org", "move"),
+        ("mdm", "query"),
+        ("mdm", "create"),
+        ("mdm", "update"),
+        ("mdm", "delete"),
     } <= permissions
-    assert "move" in {code for code, _zh, _en in seed_menu.ACTION_SEEDS}
 
 
 @pytest.mark.kiwi_id(2254)

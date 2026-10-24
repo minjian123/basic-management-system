@@ -2,7 +2,7 @@
  * 组织数据源：HTTP 内建实现 + 注册表默认实例（`fetch` 单一落点）。
  *
  * 端点与**组织主数据出口**同源——组织主数据归 mdm 产品，故默认端点经**寻址契约**组装为
- * **mdm 产品命名空间**（`productPrefix('mdm', 'org')` = `/api/mdm/v1/org`；见阶段二 `11_02`），
+ * **mdm 产品命名空间**（`productPrefix('mdm', 'mdm')` = `/api/mdm/v1/mdm`；见阶段二 `11_02`），
  * 路径为出口口径 `/data-source/{users,posts,dept-tree}` 与 `/resolve-names`
  * （**查询与批量回显分列两个出口**、**部门树一次性返回**）。
  * 宿主可经 `registerOrgSource` 登记定制实现（如组织 store 版）或覆盖内建键。
@@ -152,13 +152,13 @@ class HttpOrgSource extends BaseOrgSource {
 /**
  * 组织数据源默认端点（**组织主数据归 mdm 产品**）。
  *
- * 经寻址契约组装 **mdm 产品命名空间**（`/api/mdm/v1/org`）——产品服务只经产品命名空间对外暴露，
+ * 经寻址契约组装 **mdm 产品命名空间**（`/api/mdm/v1/mdm`）——产品服务只经产品命名空间对外暴露，
  * 页面 / 插件**不得自拼** `/api/...` 前缀（前端架构 §9 治理表）。
  *
  * @returns 端点前缀。
  */
 export function orgSourceEndpoint(): string {
-  return productPrefix('mdm', 'org')
+  return productPrefix('mdm', 'mdm')
 }
 
 /**

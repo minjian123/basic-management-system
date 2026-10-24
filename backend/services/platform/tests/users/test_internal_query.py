@@ -1,7 +1,7 @@
 """platform 内部用户只读出口测试（Kiwi 2257 / 2275）：服务层筛选 + 端点服务 JWT 鉴权 + 契约字段。
 
 覆盖任务 `02_06 平台用户只读出口内部契约`——`POST /api/v1/platform/internal/users/query`
-（`require_service("org")`，供 mdm 组织域只读出口取用户明细）；字段集断言随
+（`require_service("mdm")`，供 mdm 组织域只读出口取用户明细）；字段集断言随
 `02_01` 嵌套子任务 `_01 平台用户只读出口字段收口` 收口（**Kiwi 2275**：响应不含 `dept_id`）。
 """
 
@@ -87,8 +87,8 @@ class _StubVerifier:
             AuthError: 未知令牌（20001/401）。
         """
         del audience
-        if token == "org":
-            return VerifiedToken(subject="org", service="org", token_type="service")
+        if token == "mdm":
+            return VerifiedToken(subject="mdm", service="mdm", token_type="service")
         if token == "identity":
             return VerifiedToken(subject="identity", service="identity", token_type="service")
         if token == "gateway":
@@ -152,8 +152,8 @@ async def test_internal_query_service_filters_and_paging() -> None:
 
 @pytest.mark.kiwi_id(2257)
 @pytest.mark.kiwi_id(2275)
-async def test_internal_query_endpoint_requires_org_service(client: AsyncClient, service_app: FastAPI) -> None:
-    """端点：仅放行 `sub=org` 服务票据；identity / 网关 / 无票据 / 未知票据一律拒。"""
+async def test_internal_query_endpoint_requires_mdm_service(client: AsyncClient, service_app: FastAPI) -> None:
+    """端点：仅放行 `sub=mdm` 服务票据；identity / 网关 / 无票据 / 未知票据一律拒。"""
     session, engine = await _session()
     user = await _add_user(session, "alice", name="爱丽丝", phone="13800000001", email="alice@example.com")
     await _add_user(session, "bob", name="鲍勃", status="disabled")
@@ -162,13 +162,13 @@ async def test_internal_query_endpoint_requires_org_service(client: AsyncClient,
     service_app.dependency_overrides[get_token_verifier] = lambda: _StubVerifier()
     _override_uow(service_app, session)
 
-    ok = await client.post(API, json={}, headers={"Authorization": "Bearer org"})
+    ok = await client.post(API, json={}, headers={"Authorization": "Bearer mdm"})
     assert ok.status_code == 200
     body = ok.json()["data"]
     assert body["total"] == 2 and body["page"] == 1 and body["size"] == 20
 
     filtered = await client.post(
-        API, json={"keyword": "alice", "ids": [user.id]}, headers={"Authorization": "Bearer org"}
+        API, json={"keyword": "alice", "ids": [user.id]}, headers={"Authorization": "Bearer mdm"}
     )
     assert filtered.status_code == 200
     data = filtered.json()["data"]
@@ -203,7 +203,7 @@ async def test_internal_query_endpoint_rejects_invalid_status(client: AsyncClien
     service_app.dependency_overrides[get_token_verifier] = lambda: _StubVerifier()
     _override_uow(service_app, session)
 
-    bad = await client.post(API, json={"status": "unknown"}, headers={"Authorization": "Bearer org"})
+    bad = await client.post(API, json={"status": "unknown"}, headers={"Authorization": "Bearer mdm"})
     assert bad.status_code == 200
     assert bad.json()["code"] == 10001
 

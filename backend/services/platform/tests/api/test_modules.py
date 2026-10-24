@@ -7,40 +7,33 @@ from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
 from bms_core.application import service_lifespan as lifespan
-from bms_core.core.concurrent import ConcurrentStableSet
+from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.config import get_settings
 from bms_core.core.exceptions import AuthError, CatalogError
 from bms_core.oauth.token import TOKEN_AUDIENCE_SERVICE
 from bms_core.oauth.verify import VerifiedToken, get_token_verifier
 from bms_core.schemas.module import ModuleResponse
+from bms_core.services.module_registry import service_catalog_view
 from bms_platform import CONTRACT_VERSION
 from bms_platform.main import ApplicationFactory
 from tests_support.auth import auth_headers
 
-_EXPECTED_KEYS = [
-    "sys",
-    "identity",
-    "tenant",
-    "org",
-    "file",
-    "notification",
-    "search",
-    "ai",
-    "rpt",
-    "wf",
-    "pur",
-    "pay",
-    "sale",
-    "wh",
-    "sup",
-    "cw",
-    "txn",
-]
+
+def _expected_keys() -> ConcurrentStableList[str]:
+    """种子库登记键（与播种同源：平台清单 + 已装载产品清单，插入序）。
+
+    产品登记清单随环境装载（本地工作区装载产品仓自持清单，CI 不装载），故不写死字面清单——
+    断言「接口返回与登记清单一致」，两种环境均成立。
+
+    Returns:
+        ConcurrentStableList[str]: 期望的 `module_key` 顺序。
+    """
+    return ConcurrentStableList(module.module_key for module in service_catalog_view())
 
 
 @pytest.mark.kiwi_id(28)
 async def test_list_modules_contract() -> None:
-    """GET /api/v1/modules 分页结构（17 行）；status / group 筛选；POST/PUT/DELETE 405。"""
+    """GET /api/v1/modules 分页结构（与登记清单同量）；status / group 筛选；POST/PUT/DELETE 405。"""
     app = ApplicationFactory().create(None)
     async with lifespan(app), AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         client.headers.update(auth_headers())
@@ -49,8 +42,9 @@ async def test_list_modules_contract() -> None:
         body = resp.json()
         assert body["code"] == 0
         data = body["data"]
-        assert (data["total"], data["page"], data["size"]) == (17, 1, 20)
-        assert [item["module_key"] for item in data["list"]] == _EXPECTED_KEYS
+        expected = [key for key in _expected_keys()]
+        assert (data["total"], data["page"], data["size"]) == (len(expected), 1, 20)
+        assert [item["module_key"] for item in data["list"]] == expected
 
         filtered = await client.get("/api/v1/modules", params={"status": "planned"})
         assert [item["module_key"] for item in filtered.json()["data"]["list"]] == [
@@ -85,18 +79,20 @@ async def test_list_modules_contract() -> None:
 @pytest.mark.kiwi_id(2164)
 async def test_list_modules_pagination_and_sort(client: AsyncClient) -> None:
     """分页生效（size / 末页）；排序白名单（命中排序、非法字段忽略回落 id 升序）；页码限深 10001。"""
+    expected = [key for key in _expected_keys()]
     first = await client.get("/api/v1/modules", params={"page": 1, "size": 5})
     assert len(first.json()["data"]["list"]) == 5
-    assert first.json()["data"]["total"] == 17
+    assert first.json()["data"]["total"] == len(expected)
 
-    last = await client.get("/api/v1/modules", params={"page": 4, "size": 5})
-    assert [item["module_key"] for item in last.json()["data"]["list"]] == ["cw", "txn"]
+    last_page = -(-len(expected) // 5)  # 末页页码（向上取整）
+    last = await client.get("/api/v1/modules", params={"page": last_page, "size": 5})
+    assert [item["module_key"] for item in last.json()["data"]["list"]] == expected[(last_page - 1) * 5 :]
 
     sorted_by_id = await client.get("/api/v1/modules", params={"order_by": "id", "order": "desc"})
-    assert sorted_by_id.json()["data"]["list"][0]["module_key"] == "txn"
+    assert sorted_by_id.json()["data"]["list"][0]["module_key"] == expected[-1]
 
     ignored = await client.get("/api/v1/modules", params={"order_by": "module_key"})
-    assert ignored.json()["data"]["list"][0]["module_key"] == "sys"
+    assert ignored.json()["data"]["list"][0]["module_key"] == expected[0]
 
     too_deep = await client.get("/api/v1/modules", params={"page": 101})
     assert too_deep.status_code == 200
@@ -163,7 +159,7 @@ async def test_modules_snapshot_full_catalog(client: AsyncClient) -> None:
     snapshot = await client.get("/api/v1/modules/snapshot")
     assert snapshot.status_code == 200
     data = snapshot.json()["data"]
-    assert [item["module_key"] for item in data] == _EXPECTED_KEYS
+    assert [item["module_key"] for item in data] == _expected_keys()
     assert set(data[0]) == set(ModuleResponse.model_fields)
     assert data[0]["service_key"] == "platform"
 
@@ -206,7 +202,7 @@ async def test_snapshot_readable_with_service_identity(_dual_verifier: None, cli
     """双模鉴权（缺陷 #111）：服务身份直连快照 200 + 全量清单；用户令牌仍 200；无凭证 401。"""
     service = await client.get("/api/v1/modules/snapshot", headers={"Authorization": "Bearer identity"})
     assert service.status_code == 200
-    assert [item["module_key"] for item in service.json()["data"]] == _EXPECTED_KEYS
+    assert [item["module_key"] for item in service.json()["data"]] == _expected_keys()
 
     user = await client.get("/api/v1/modules/snapshot", headers={"Authorization": "Bearer user"})
     assert user.status_code == 200

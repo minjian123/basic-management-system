@@ -122,12 +122,12 @@ describe('模块请求能力宿主实现（06_02 · Kiwi 2236）', () => {
     requestMock.mockResolvedValueOnce(ok({ items: [] }))
     configureRequestAdapter(createAxiosAdapter())
 
-    const result = await createModuleApi().product('mdm', 'org').get('/data-source/dept-tree')
+    const result = await createModuleApi().product('mdm', 'mdm').get('/data-source/dept-tree')
 
     expect(result).toEqual({ items: [] })
     expect(requestMock).toHaveBeenCalledWith({
       method: 'GET',
-      url: '/api/mdm/v1/org/data-source/dept-tree',
+      url: '/api/mdm/v1/mdm/data-source/dept-tree',
       params: undefined,
       data: undefined,
       headers: {},
@@ -138,11 +138,11 @@ describe('模块请求能力宿主实现（06_02 · Kiwi 2236）', () => {
     requestMock.mockResolvedValueOnce(ok(null))
     configureRequestAdapter(createAxiosAdapter())
 
-    await createModuleApi().product('mdm', 'org').post('/user-posts', { userId: 'u1', postIds: ['p1'] })
+    await createModuleApi().product('mdm', 'mdm').post('/user-posts', { userId: 'u1', postIds: ['p1'] })
 
     const call = requestMock.mock.calls[0]?.[0] as { headers: Record<string, string>; url: string }
-    expect(call.url).toBe('/api/mdm/v1/org/user-posts')
-    expect(call.headers['Idempotency-Key']).toContain('mdm:org:/user-posts:')
+    expect(call.url).toBe('/api/mdm/v1/mdm/user-posts')
+    expect(call.headers['Idempotency-Key']).toContain('mdm:mdm:/user-posts:')
   })
 
   it('未登记产品键：抛 CAPABILITY_VIOLATION 且不发请求', () => {

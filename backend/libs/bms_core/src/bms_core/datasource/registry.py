@@ -231,9 +231,7 @@ def register_data_source_records(records: Iterable[DataSourceRecord]) -> None:
     for record in records:
         existing = _INJECTED_DATA_SOURCE_RECORDS.get(record.data_source_key)
         if existing is not None and existing != record:
-            raise CatalogError(
-                f"数据源条目同键异值：{record.data_source_key!r}（已装载 {existing!r}，新 {record!r}）"
-            )
+            raise CatalogError(f"数据源条目同键异值：{record.data_source_key!r}（已装载 {existing!r}，新 {record!r}）")
         _INJECTED_DATA_SOURCE_RECORDS.set(record.data_source_key, record)
 
 

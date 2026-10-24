@@ -2,8 +2,8 @@
 
 覆盖三条端点：
 
-- `POST /api/v1/platform/internal/permissions/invalidate`（`require_service("org")`）：
-  仅放行 `sub=org` 服务票据；`user_ids` 非空 / 为空两条入参路径均返回递增后的版本号；
+- `POST /api/v1/platform/internal/permissions/invalidate`（`require_service("mdm")`）：
+  仅放行 `sub=mdm` 服务票据；`user_ids` 非空 / 为空两条入参路径均返回递增后的版本号；
 - `POST /api/v1/platform/internal/permissions/subject`（`require_service("identity")`）：
   按用户返回聚合所需原始数据（`04_01` 下沉后 identity 经契约取数）；
 - `GET /api/v1/platform/internal/permissions/metadata`（`require_service("identity")`）：
@@ -41,8 +41,8 @@ class _StubVerifier:
             AuthError: 未知令牌（20001/401）。
         """
         del audience
-        if token == "org":
-            return VerifiedToken(subject="org", service="org", token_type="service")
+        if token == "mdm":
+            return VerifiedToken(subject="mdm", service="mdm", token_type="service")
         if token == "identity":
             return VerifiedToken(subject="identity", service="identity", token_type="service")
         if token == "gateway":
@@ -51,11 +51,11 @@ class _StubVerifier:
 
 
 @pytest.mark.kiwi_id(2269)
-async def test_invalidate_endpoint_requires_org_service(client: AsyncClient, service_app: FastAPI) -> None:
-    """端点：仅放行 `sub=org` 服务票据；网关 / 未知 / 无票据一律拒（401）。"""
+async def test_invalidate_endpoint_requires_mdm_service(client: AsyncClient, service_app: FastAPI) -> None:
+    """端点：仅放行 `sub=mdm` 服务票据；网关 / 未知 / 无票据一律拒（401）。"""
     service_app.dependency_overrides[get_token_verifier] = lambda: _StubVerifier()
 
-    ok = await client.post(API, json={}, headers={"Authorization": "Bearer org"})
+    ok = await client.post(API, json={}, headers={"Authorization": "Bearer mdm"})
     assert ok.status_code == 200
     assert ok.json()["data"]["version"] == 1
 
@@ -72,17 +72,17 @@ async def test_invalidate_endpoint_scopes_users(client: AsyncClient, service_app
     """端点：`user_ids` 非空按用户清理旧版本键、为空只做全租户版本 +1（均返回递增版本）。"""
     service_app.dependency_overrides[get_token_verifier] = lambda: _StubVerifier()
 
-    scoped = await client.post(API, json={"user_ids": [7, 8]}, headers={"Authorization": "Bearer org"})
+    scoped = await client.post(API, json={"user_ids": [7, 8]}, headers={"Authorization": "Bearer mdm"})
     assert scoped.status_code == 200
     assert scoped.json()["data"]["version"] == 1
 
-    whole_tenant = await client.post(API, json={}, headers={"Authorization": "Bearer org"})
+    whole_tenant = await client.post(API, json={}, headers={"Authorization": "Bearer mdm"})
     assert whole_tenant.json()["data"]["version"] == 2
 
 
 @pytest.mark.kiwi_id(2320)
 async def test_subject_endpoint_requires_identity_service(client: AsyncClient, service_app: FastAPI) -> None:
-    """`subject` 出口：仅放行 `sub=identity`；org / 网关 / 无票据一律拒（401）。"""
+    """`subject` 出口：仅放行 `sub=identity`；mdm / 网关 / 无票据一律拒（401）。"""
     service_app.dependency_overrides[get_token_verifier] = lambda: _StubVerifier()
 
     ok = await client.post(SUBJECT_API, json={"user_id": 1001}, headers={"Authorization": "Bearer identity"})
@@ -90,7 +90,7 @@ async def test_subject_endpoint_requires_identity_service(client: AsyncClient, s
     body = ok.json()["data"]
     assert set(body) == {"role_ids", "role_types", "grants", "data_scope_rules", "field_perms"}
 
-    for token in ("org", "gateway", "bogus"):
+    for token in ("mdm", "gateway", "bogus"):
         denied = await client.post(SUBJECT_API, json={"user_id": 1}, headers={"Authorization": f"Bearer {token}"})
         assert denied.status_code == 401
 
@@ -148,7 +148,7 @@ async def test_metadata_endpoint_requires_identity_service(
     )
     assert with_locale.status_code == 200
 
-    for token in ("org", "gateway", "bogus"):
+    for token in ("mdm", "gateway", "bogus"):
         denied = await client.get(METADATA_API, headers={"Authorization": f"Bearer {token}"})
         assert denied.status_code == 401
 

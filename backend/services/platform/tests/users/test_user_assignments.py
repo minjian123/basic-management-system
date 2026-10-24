@@ -24,10 +24,10 @@ from bms_platform.schemas.users import (
     UserAssignmentsRequest,
 )
 from bms_platform.services.user_assignments import (
-    ORG_INTERNAL_USER_DEPTS_PATH,
-    ORG_INTERNAL_USER_POSTS_PATH,
-    ORG_USER_DEPTS_OP,
-    ORG_USER_POSTS_OP,
+    MDM_INTERNAL_USER_DEPTS_PATH,
+    MDM_INTERNAL_USER_POSTS_PATH,
+    MDM_USER_DEPTS_OP,
+    MDM_USER_POSTS_OP,
     UserAssignmentsService,
     build_org_ops,
     collect_segments,
@@ -313,8 +313,8 @@ async def test_sequential_path_orders_writes_and_bumps_permission_version() -> N
     assert len(writer.calls) == 1
     paths = [request.path for request in client.requests]
     assert paths == [
-        ORG_INTERNAL_USER_POSTS_PATH.format(user_id=7),
-        ORG_INTERNAL_USER_DEPTS_PATH.format(user_id=7),
+        MDM_INTERNAL_USER_POSTS_PATH.format(user_id=7),
+        MDM_INTERNAL_USER_DEPTS_PATH.format(user_id=7),
     ]
     assert client.requests[0].headers is not None
     assert client.requests[0].headers.get("Idempotency-Key") == "k-1"
@@ -345,7 +345,7 @@ def test_org_branch_ops_share_one_branch_request() -> None:
     )
     ops = build_org_ops(user_id=7, req=req, idempotency_key="k-1")
 
-    assert [op for op, _args in ops] == [ORG_USER_POSTS_OP, ORG_USER_DEPTS_OP]
+    assert [op for op, _args in ops] == [MDM_USER_POSTS_OP, MDM_USER_DEPTS_OP]
     posts_args = ops[0][1]
     assert posts_args.get("user_id") == 7
     assert posts_args.get("post_ids") == [11, 12]

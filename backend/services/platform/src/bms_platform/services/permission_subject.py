@@ -4,7 +4,7 @@
 **数据来源相关**的解析器实现：
 
 - 直接角色（`DirectRoleResolver`）：platform 租户库 `sys_user_role`，同库查询；
-- 岗位 / 部门链角色（`OrgRoleResolver`）：mdm 只读出口 `GET /api/v1/org/user-roles`（服务令牌
+- 岗位 / 部门链角色（`OrgRoleResolver`）：mdm 只读出口 `GET /api/v1/mdm/user-roles`（服务令牌
   `aud=service`，mdm 出口白名单只放行 `platform`）。
 
 解析器经基座注册表登记后由基座收敛服务统一执行——**主流程只做并集去重**，来源增减不改主流程
@@ -25,10 +25,13 @@ from bms_platform.repositories.role import UserRoleRepository
 
 _logger = logging.getLogger(__name__)
 
-ORG_SERVICE_KEY = "org"
-"""mdm 组织域服务标识（服务目录登记名；服务间基址模板占位 `{service}`）。"""
+MDM_SERVICE_KEY = "mdm"
+"""mdm 产品服务标识（服务目录登记名 `service_key = mdm`；服务间基址模板占位 `{service}`）。
 
-ORG_USER_ROLES_PATH = "/api/v1/org/user-roles"
+2026-10-23 mdm 阶段一 `01_05` 完成服务标识归并（`org` → `mdm`），此处随之对齐。
+"""
+
+MDM_USER_ROLES_PATH = "/api/v1/mdm/user-roles"
 """mdm 只读出口路径：按用户解析角色（响应 `data.role_ids: integer[]`）。"""
 
 
@@ -89,9 +92,9 @@ class OrgRoleResolver(BaseRoleResolver):
         query: ConcurrentStableDict[str, str] = ConcurrentStableDict()
         query.set("user_id", str(user_id))
         request = ServiceRequest(
-            service=ORG_SERVICE_KEY,
+            service=MDM_SERVICE_KEY,
             method="GET",
-            path=ORG_USER_ROLES_PATH,
+            path=MDM_USER_ROLES_PATH,
             query=ConcurrentStableFrozenDict(query),
             tenant_id=current_tenant_id_str(),
         )

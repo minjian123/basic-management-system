@@ -14643,7 +14643,7 @@
     },
     "/api/v1/platform/internal/users/query": {
       "post": {
-        "description": "按关键字 / 状态 / 限定集合分页查询用户（**服务间只读出口**）。\n\n供 mdm 组织域只读出口（组织数据源 `users` / 名称回显 `resolve_names(user)` / 按用户解析角色）\n取用户明细——**不跨库读** `sys_user`。仅接受 `sub=org` 服务票据；只读、不写库、不产事件；\n联系方式**原样返回**（脱敏归消费方 mdm 出口）。\n\nArgs:\n    req: 查询请求（关键字 / 状态 / 限定集合 / 分页）。\n    uow: 请求级工作单元。\n\nReturns:\n    ApiResponse: 统一响应，data 为分页用户只读行（主键升序）。",
+        "description": "按关键字 / 状态 / 限定集合分页查询用户（**服务间只读出口**）。\n\n供 mdm 组织域只读出口（组织数据源 `users` / 名称回显 `resolve_names(user)` / 按用户解析角色）\n取用户明细——**不跨库读** `sys_user`。仅接受 `sub=mdm` 服务票据；只读、不写库、不产事件；\n联系方式**原样返回**（脱敏归消费方 mdm 出口）。\n\nArgs:\n    req: 查询请求（关键字 / 状态 / 限定集合 / 分页）。\n    uow: 请求级工作单元。\n\nReturns:\n    ApiResponse: 统一响应，data 为分页用户只读行（主键升序）。",
         "operationId": "query_users_api_v1_platform_internal_users_query_post",
         "parameters": [
           {

@@ -66,7 +66,7 @@ DEFAULT_DATABASE_NAME_PREFIX = "bms"
 """库名默认前缀（`[database].name_prefix` 缺省值）。
 
 平台库 `{prefix}_{service}`、服务租户库 `{prefix}_{service}_{code}`、归档库 `{prefix}_archive` 统一由
-本前缀派生；产品部署可配自有前缀（如 mdm → `mdm_org` / `mdm_org_{code}` / `mdm_archive`），
+本前缀派生；产品部署可配自有前缀（如 mdm 产品 → `mdm` / `mdm_{code}` / `mdm_archive`），
 **库名不得由业务代码自拼**（见《后端开发规范》「模块边界与数据所有权」节与《架构设计 · 多租户路由》）。
 """
 

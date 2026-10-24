@@ -48,10 +48,10 @@ from bms_platform.schemas.users import (
 )
 from bms_platform.services.separation import SeparationGuard
 from bms_platform.services.user_assignments import (
-    BRANCH_ID_ORG,
+    BRANCH_ID_MDM,
     BRANCH_ID_PLATFORM,
-    ORG_USER_DEPTS_OP,
-    ORG_USER_POSTS_OP,
+    MDM_USER_DEPTS_OP,
+    MDM_USER_POSTS_OP,
     SEGMENT_ROLES,
     USER_ASSIGNMENTS_OP,
     UserAssignmentsService,
@@ -655,7 +655,7 @@ async def test_xa_path_declares_branches_and_commits() -> None:
     assert user.id == 7
     assert list(applied) == [SEGMENT_ROLES, "user_posts", "user_depts"]
     _caller, specs = manager.begun[0]
-    assert [spec.branch_id for spec in specs] == [BRANCH_ID_PLATFORM, BRANCH_ID_ORG]
+    assert [spec.branch_id for spec in specs] == [BRANCH_ID_PLATFORM, BRANCH_ID_MDM]
     xid, _db_key, ops = participant.calls[0]
     assert xid == f"xid-{BRANCH_ID_PLATFORM}"
     assert ops[0].op == USER_ASSIGNMENTS_OP
@@ -665,9 +665,9 @@ async def test_xa_path_declares_branches_and_commits() -> None:
 
     assert len(client.requests) == 1
     body = cast("Any", client.requests[0].json_body)
-    assert body.get("xid") == f"xid-{BRANCH_ID_ORG}"
+    assert body.get("xid") == f"xid-{BRANCH_ID_MDM}"
     org_ops = body.get("ops")
-    assert [entry.get("op") for entry in org_ops] == [ORG_USER_POSTS_OP, ORG_USER_DEPTS_OP]
+    assert [entry.get("op") for entry in org_ops] == [MDM_USER_POSTS_OP, MDM_USER_DEPTS_OP]
     assert org_ops[0].get("args").get("user_id") == 7
     assert list(manager.commits) == ["gtx-1"]
     assert manager.rollbacks == []
