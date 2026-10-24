@@ -9,7 +9,8 @@
 | 项 | 值 |
 | --- | --- |
 | 归属库 | 平台服务库 `bms_platform`（归属服务 `platform`） |
-| 覆盖模块 | 06-数据拓扑升级（表归属登记） |
+| 归属业务域 | `platform-registry`（平台注册与目录；`03_01` 起按业务域表达，与 `owner` 双字段并存） |
+| 覆盖模块 | 06-数据拓扑升级（表归属登记）、07C 03_01（归属域维度） |
 | 上游依据 | 《架构设计 · 数据架构》「数据分布」「迁移策略」节、《微服务演进规划》「服务化地基要求与门禁」S2、《数据库设计 · 数据规范》「库划分与迁移归属」节 |
 | ORM 模型 | `bms_core/models/ownership.py::SysTableOwnership`（继承 `BaseModel`） |
 | 状态 | 已落库（平台服务链迁移 `0005_sys_table_ownership`，2026-09-23） |
@@ -28,6 +29,7 @@
 | `id` | BIGINT | 否 | 主键，雪花 ID | 主键 |
 | `table_name` | VARCHAR(64) | 否 | `(table_name, deleted_at)` 复合唯一 | 表名（小写 snake_case） |
 | `owner` | VARCHAR(32) | 否 | — | 归属服务标识（取服务目录 `service_key`；`*` = 每服务自有） |
+| `domain` | VARCHAR(32) | 否 | 默认 `''` | 归属业务域标识（`domain_layout.json` 的 `domain_key`；空串 = **不归域**，仅基础设施表与测试遗留表） |
 | `datasource` | VARCHAR(16) | 否 | 默认 `tenant` | 库类别（`platform` / `tenant` / `archive` / `both`；`both` 仅限 `*` 归属） |
 | `status` | VARCHAR(16) | 否 | 默认 `enabled` | 状态（`enabled` = 已定案且入链 / `planned` = 未定稿、不进链） |
 | `note` | VARCHAR(255) | 否 | 默认 `''` | 说明（用途 / 归属备注） |
@@ -45,6 +47,8 @@
 | `uq_sys_table_ownership_name_deleted_at` | 唯一 | `(table_name, deleted_at)` | 同表名唯一（软删除后可复用） |
 
 - 无物理外键；`owner` 为逻辑外键（服务目录 `sys_module.service_key` / `module_key`），跨库逻辑引用。
+- `domain` 无库内约束：业务域清单是部署期声明（`deploy/boundaries/domain_layout.json`），由静态护栏断言
+  「域已登记 + `owner` 与域承载服务一致」，不建库内引用。
 
 ## 4. 分片 / 归档 / 建表 <a id="storage"></a>
 
@@ -57,5 +61,6 @@
 | 日期 | 版本 | 变更 | 作者 |
 | --- | --- | --- | --- |
 | 2026-09-23 | v1 | 新建表结构（平台服务库；随分链迁移 `0005_sys_table_ownership` 落地） | minjian |
+| 2026-10-24 | v2 | 增 `domain`（归属业务域，空串 = 不归域）；与 `owner` 双字段并存，护栏强制一致（07C `03_01`） | minjian |
 
 > 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套
