@@ -63,12 +63,16 @@ def test_wrapper_has_no_derivation_logic() -> None:
 
 
 def test_json_contract() -> None:
-    """`--format json` 字段与类型稳定。"""
+    """`--format json` 字段与类型稳定（显式改动文件的模块必在覆盖集中）。
+
+    2026-10-24 修订：选测把「显式 `--changed-file`」与「相对基准的改动集」取并，断言等值会让
+    工作区有其它改动时恒红；改为断言**包含**关系（契约是「改动文件 → 其模块必被覆盖」）。
+    """
     result = _run("--changed-file", "backend/libs/bms_core/src/bms_core/db/bootstrap.py", "--format", "json")
     assert result.returncode == 0, result.stderr
     payload = json.loads(result.stdout)
     assert set(payload) >= {"test_paths", "cov_modules", "degraded", "reason", "picked", "total", "projects", "notes"}
-    assert payload["cov_modules"] == ["bms_core.db.bootstrap"]
+    assert "bms_core.db.bootstrap" in payload["cov_modules"]
     assert payload["picked"] <= payload["total"]
 
 

@@ -194,7 +194,8 @@ cmd = ["{python}", "scripts/tools/check-docs/check-status.py", "--root", "{root}
 
 [[preflight.steps]]
 label = "网关：gateway_config check（服务目录零漂移）"
-cmd = ["{python}", "backend/ops/gateway_config.py", "check", "--root", "{root}"]
+cmd = ["uv", "run", "python", "-m", "ops.gateway_config", "check", "--root", "{root}"]
+cwd = "backend"
 
 [[preflight.steps]]
 label = "契约：contract_snapshot check（公开契约零漂移）"

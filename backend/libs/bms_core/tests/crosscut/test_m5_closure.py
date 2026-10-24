@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
 
 _STAGE = Path(__file__).resolve().parents[5] / "bms文档" / "项目" / "05_前端插件化"
 _REPORT = _STAGE / "01_测试报告_前端插件化.md"
@@ -44,6 +44,18 @@ def _table_rows(section: str) -> ConcurrentStableList[str]:
     )
 
 
+def _row_ids(rows: ConcurrentStableList[str]) -> ConcurrentStableSet[str]:
+    """取表格数据行的首列（任务编号）集合。
+
+    Args:
+        rows: 表格数据行。
+
+    Returns:
+        ConcurrentStableSet[str]: 编号集合。
+    """
+    return ConcurrentStableSet(row.strip("|").split("|")[0].strip() for row in rows)
+
+
 @pytest.mark.kiwi_id(2189)
 def test_gate_table_has_conclusions_and_evidence() -> None:
     """门禁表 7 行均有结论与证据索引（计划 §5）；需求总览不再承载门禁表。
@@ -72,21 +84,18 @@ def test_gate_table_has_conclusions_and_evidence() -> None:
 
 @pytest.mark.kiwi_id(2189)
 def test_plan_closure_state() -> None:
-    """计划收口状态：头部计数与已完成 / 剩余表行数一致、工时行自洽、甘特里程碑、报告引用齐备。
+    """计划收口状态：已完成 / 剩余两表互斥、工时行自洽、甘特里程碑、报告引用齐备。
 
-    头部项数不写死（防后续阶段回写漂移 / 重开追加任务），改为校验结构自洽：
-    「已完成 N 项，剩余 M 项」且 N / M 分别等于「已完成任务 / 剩余任务排期」表数据行数；
-    工时行校验「已完成 + 剩余 = 阶段合计」（口径同 check-status S1，见《计划文档规范》）。
+    2026-10-24 修订（`302f429e` 精简 8 份阶段计划后）：计划头部不再复述项数，进度只在两张明细表，
+    故改为校验两表**任务编号互斥**；工时行仍校验「已完成 + 剩余 = 阶段合计」（口径同 check-status S1）。
     """
     text = _PLAN.read_text(encoding="utf-8")
-    match = re.search(r"已完成\s*(\d+)\s*项，剩余\s*(\d+)\s*项", text)
-    assert match, "计划头部应写明「已完成 N 项，剩余 M 项」"
     done_section = text.split("## 2. 已完成任务", 1)[1].split("## 3.", 1)[0]
     done_rows = _table_rows(done_section)
-    assert int(match.group(1)) == len(done_rows), "头部已完成项数应与已完成任务表行数一致"
     todo_section = text.split("## 3. 剩余任务排期", 1)[1].split("## 4.", 1)[0]
     todo_rows = _table_rows(todo_section)
-    assert int(match.group(2)) == len(todo_rows), "头部剩余项数应与剩余任务排期表行数一致"
+    assert done_rows, "已完成任务表不得为空"
+    assert not (_row_ids(done_rows) & _row_ids(todo_rows)), "同一任务不得同时登记在已完成与剩余两表"
     assert "M5" in text and "milestone" in text
     hours = re.search(
         r"已完成\s*\*{0,2}(\d+)h\*{0,2}；剩余\s*\*{0,2}(\d+)h\*{0,2}.*?阶段合计\s*\*{0,2}(\d+)h\*{0,2}",
