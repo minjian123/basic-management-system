@@ -145,7 +145,7 @@ docker ps --filter name=bms-gitlab-runner
 | 重启 | `docker restart bms-gitlab`（reconfigure 会重新执行） |
 | 内部服务状态 | `docker exec bms-gitlab gitlab-ctl status` |
 | 配置修改 | 编辑 `/mnt/ssd2t/gitlab/config/gitlab.rb`（root 权限）→ `docker restart bms-gitlab` |
-| 流水线盯守 | AI 助手用 `gl_watch_pipeline` 插件工具（`project` 必填；凭据取进程环境变量 `GITLAB_API_URL` / `GITLAB_API_TOKEN`，或 `--env-file` / `OPS_ENV_FILE` / 插件 `options.envFile` 指向的键值文件，**不再硬编码读某工作区的 `deploy/.env`**；插件调的是**用户级通用副本**）；命令行 `python scripts/tools/gitlab/watch_pipeline.py --pipeline-id <ID>`（**本仓项目内副本**，凭据读 `deploy/.env` 或环境变量，保留供命令行 / CI / 手工使用、插件不再引用）；两者都配合 bg 链路后台盯守，详见《通用后台执行器部署使用说明》 |
+| 流水线状态 | GitLab 界面 `CI/CD → Pipelines` 查看逐 job 状态与日志；API 侧 `GET /projects/:id/pipelines/:pipeline_id` 查询终态（凭据取 `deploy/.env` 或环境变量 `GITLAB_API_URL` / `GITLAB_API_TOKEN`） |
 | 备份（每日 cron 2 点） | `docker exec bms-gitlab gitlab-backup create`，备份落 `/mnt/ssd2t/gitlab/data/backups/`，同步至 `/mnt/data/backup/gitlab/` |
 
 ## 8. 排障记录 <a id="trouble"></a>

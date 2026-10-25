@@ -1,6 +1,6 @@
 # opencode 部署使用说明
 
-> mjpc 开发机 Windows 侧 opencode（CLI + 桌面端）部署与使用口径 · 2026-10-16 本机采集（CLI 与桌面端均为 2.0.29）；2026-10-18 复核（桌面端自更新至 2.0.32，启用局域网 / 手机访问、共享服务固定监听 `0.0.0.0:45278`）
+> mjpc 开发机 Windows 侧 opencode（CLI + 桌面端）部署与使用口径 · 2026-10-16 本机采集（CLI 与桌面端均为 2.0.29）；2026-10-18 复核（桌面端自更新至 2.0.32，启用局域网 / 手机访问、共享服务固定监听 `0.0.0.0:45278`）；**2026-10-25 全量卸载重装至 2.1.4**（CLI 与桌面端版本对齐、数据与配置归零重建，见 [2.3 节](#status-2026-10-25)）
 
 [文档首页](../../../文档首页.md) › 资料 › 开发机 › windows › opencode 部署使用说明　|　[同级：开发机部署使用说明总览](开发机部署使用说明总览.md)　[CodeBuddy部署使用说明 →](CodeBuddy部署使用说明.md)　[VSCode部署使用说明 →](VSCode部署使用说明.md)　[linux 侧同名文档 →](../linux/opencode部署使用说明.md)
 
@@ -18,53 +18,73 @@
 
 | 实体 | 版本 | 安装位置 | 启动方式 |
 | --- | --- | --- | --- |
-| CLI | 2.0.29 | `~\.opencode\bin\opencode.exe`（约 203 MB；同目录 `opencode2.cmd` 为转发到同一二进制的兼容别名） | 终端执行 `opencode`（新开终端） |
-| 桌面端 | 2.0.32 | `%LOCALAPPDATA%\Programs\@opencodedesktop\`（`OpenCode.exe`；卸载器 `Uninstall OpenCode.exe`） | 开始菜单 **OpenCode**（AppID `ai.opencode.desktop`） |
+| CLI | 2.1.4 | `~\.opencode\bin\opencode.exe`（约 235 MB；同目录 `opencode2.cmd` 为转发到同一二进制的兼容别名） | 终端执行 `opencode`（新开终端） |
+| 桌面端 | 2.1.4 | `%LOCALAPPDATA%\Programs\@opencodedesktop\`（`OpenCode.exe`；卸载器 `Uninstall OpenCode.exe`） | 开始菜单 **OpenCode**（AppID `ai.opencode.desktop`） |
 
-两者**升级通道独立、版本号可不一致**：CLI 走 `opencode upgrade` 或手动换二进制（见 [3.1 节](#cli-install)），桌面端由内置自更新器跟进（2026-10-16 检到 2.0.30、2026-10-18 实测已升至 2.0.32；CLI 仍为 2.0.29，见 [4.2 节](#desktop-verify)）。
+两者**升级通道独立、版本号可不一致**：CLI 走 `opencode upgrade` 或手动换二进制（见 [3.1 节](#cli-install)），桌面端由内置自更新器跟进（更新源 `https://opencode.ai/update/api/latest/desktop/opencode/`）。**2026-10-25 全量重装后两者已对齐到 2.1.4**，历史偏差（CLI 2.0.29 / 桌面端 2.0.32～2.1.4）不复存在。
 
 ### 2.2 版本与路径速查 <a id="env-paths"></a>
 
 | 项 | 取值 |
 | --- | --- |
-| 安装方式 | curl（官方安装脚本；`opencode uninstall --dry-run` 显示 `Installation method: curl`） |
-| CLI 二进制 | `~\.opencode\bin\opencode.exe`（`opencode v2.0.29`） |
+| 安装方式 | CLI：手动换二进制（npmmirror `@opencode/cli-windows-x64` 包解压后覆盖）；桌面端：官方 NSIS 安装包（`opencode-desktop-win-x64.exe`）。**2026-10-25 起**两者均按此重装（此前 CLI 为 curl 脚本安装） |
+| CLI 二进制 | `~\.opencode\bin\opencode.exe`（`opencode v2.1.4`，246,919,560 B） |
 | CLI 别名 | `~\.opencode\bin\opencode2.cmd`（内容为 `@echo off` + 转发 `opencode.exe`） |
 | PATH 登记 | `~\.opencode\bin` 已在**用户 PATH**（装后须新开终端生效） |
-| 桌面端程序目录 | `%LOCALAPPDATA%\Programs\@opencodedesktop\`（`OpenCode.exe` 文件版本 2.0.32） |
-| 桌面端用户数据 | `%APPDATA%\ai.opencode.desktop\`（`logs\`、`cli\2.0.32-x64\`、`opencode.settings`） |
-| 数据目录 | `~\.local\share\opencode\`（`opencode.db`：凭据与会话库，2026-10-18 实测约 48 MB） |
-| 配置目录 | `~\.config\opencode\`（**全局配置 `opencode.json` 已启用**：`plugins` 数组仅登记 `bg.js`；同目录另有 `service.json`（共享服务密码与监听覆盖值：`hostname` / `port`）、`plugins\`） |
+| 桌面端程序目录 | `%LOCALAPPDATA%\Programs\@opencodedesktop\`（`OpenCode.exe` 文件版本 2.1.4） |
+| 桌面端用户数据 | `%APPDATA%\ai.opencode.desktop\`（`logs\`、`cli\2.1.4-x64\`、`opencode.settings`） |
+| 数据目录 | `~\.local\share\opencode\`（`opencode.db`：凭据与会话库，**2026-10-25 重装后归零**，首次启动自动重建） |
+| 配置目录 | `~\.config\opencode\`（同目录含 `opencode.json`（全局配置，**重装后为空**）、`service.json`（共享服务密码与监听覆盖值：`hostname` / `port`）、`plugins\`） |
 | 状态目录 | `~\.local\state\opencode\`（`service.json`、`locks\`） |
 | 缓存目录 | `~\.cache\opencode\`（`bin\`） |
-| 共享后台服务 | 桌面端内嵌 `opencode-cli.exe`（`%APPDATA%\ai.opencode.desktop\cli\2.0.32-x64\`），监听 `0.0.0.0:45278`，随桌面端启停（局域网 / 手机访问见 [6.1 节](#web-access)） |
-| 工作区配置 | `D:\Develop\bizs\.opencode\opencode.json`（**只留项目自身的模型 / 供应商**；通用插件与本地 MCP 已上移用户级，见 [5.3 节](#plugins)） |
+| 共享后台服务 | 桌面端内嵌 `opencode-cli.exe`（`%APPDATA%\ai.opencode.desktop\cli\2.1.4-x64\`），监听 `0.0.0.0:45278`，随桌面端启停（局域网 / 手机访问见 [6.1 节](#web-access)） |
+| 工作区配置 | 工作区根 `.opencode\` 已于 2026-10-25 删除（原 `D:\Develop\bizs\.opencode\opencode.json` 的 llamacpp provider 随环境重装移出）；如需恢复项目级模型配置须重建该文件 |
 | 临时目录 | `%TEMP%\opencode`（即 `debug paths` 的 `tmp`） |
 
 > 路径速查的权威来源是 `opencode debug paths`（打印 home / data / cache / config / state / tmp / db 等全部落点，见[验证](#verify)）。
+
+### 2.3 2026-10-25 全量卸载重装 <a id="status-2026-10-25"></a>
+
+因 CLI 与桌面端版本长期偏差、且用户级插件与数据积压，做了一次**完全卸载 + 干净重装**（用户拍板：数据不备份、配置全清）。口径与结果：
+
+| 项 | 处置 |
+| --- | --- |
+| 卸载范围 | CLI + 桌面端全部；先杀进程（`opencode-cli.exe` 孤儿进程占 `0.0.0.0:45278`）再跑官方卸载器 `Uninstall OpenCode.exe /currentuser /S` |
+| 清除目录 | `~\.opencode`、`~\.config\opencode`、`~\.local\share\opencode`、`~\.local\state\opencode`、`~\.cache\opencode`、`%APPDATA%\ai.opencode.desktop`、`%LOCALAPPDATA%\opencode`、`%LOCALAPPDATA%\@opencodedesktop-updater`、`~\.bg`、`%TEMP%\opencode`——合计约 **1.45 GB** |
+| 数据 | `opencode.db`（101 MB / 527 会话 / 8585 消息 / 4 条凭据）**直接清空不备份**；重装后 `opencode auth list` 为空，需重新 `opencode auth login` |
+| 保留项 | 用户 PATH 的 `~\.opencode\bin` 登记、Windows 防火墙规则 `opencode web`（TCP 45278 / LocalSubnet） |
+| CLI 装法 | npmmirror `https://registry.npmmirror.com/@opencode/cli-windows-x64/-/cli-windows-x64-2.1.4.tgz`（111.3 MB）解压 `package\bin\opencode.exe` 覆盖到 `~\.opencode\bin\` |
+| 桌面端装法 | 官方 `https://opencode.ai/files/bin/2.1.4/opencode-desktop-win-x64.exe`（238.8 MB），**sha256 校验** `96ecb831c8746a0fbefd1d6e0ef7cf9c5fb2061a28f521dd412ac45767b3aecd`，`/S` 静默安装 |
+| 服务重建 | `opencode service set hostname 0.0.0.0` + `set port 45278`；密码由服务启动时随机重新生成 |
+| 验证 | `opencode --version` → v2.1.4；`opencode service status` → `http://0.0.0.0:45278`；本机与局域网 `http://192.168.0.124:45278/` 均 HTTP 200；`opencode run` 非交互调用 3.2s 返回 |
+
+> **重装后必须重做的两件事**：① `opencode auth login` 重新登录（凭据随数据库清空）；② 若要恢复工作区级模型配置，重建 `D:\Develop\bizs\.opencode\opencode.json`（llamacpp provider 三个本地模型条目）。
+>
+> **踩坑记录（重要）**：在 DSH 等 Electron 宿主里启动桌面端时，宿主注入的 `ELECTRON_RUN_AS_NODE=1` 会让 `OpenCode.exe` 退化为纯 Node 进程、**启动即静默退出（exit 0，不建用户数据目录、不监听端口）**。判断方法：`OpenCode.exe --help` 若打印的是 Node.js 帮助（而非应用帮助），即命中此坑。处置：启动前 `Remove-Item Env:ELECTRON_RUN_AS_NODE`（或用资源管理器 / 开始菜单等不带该变量的方式启动）。
 
 ## 3. 命令行 CLI <a id="cli"></a>
 
 ### 3.1 安装与升级与卸载 <a id="cli-install"></a>
 
-本机经官方 **curl 安装脚本**安装（`uninstall --dry-run` 自证安装方式），二进制为 `~\.opencode\bin\opencode.exe`（v2 官方分发路径，与 linux 侧一致），约 203 MB 自包含单文件。
+**2026-10-25 起**本机改用手动换二进制方式重装（npmmirror 包解压覆盖），二进制仍为 `~\.opencode\bin\opencode.exe`（v2 官方分发路径，与 linux 侧一致），约 235 MB 自包含单文件。此前（2026-10-16 首装）为官方 curl 安装脚本方式。
 
 升级两条路：
 
 ```powershell
-# 1) 官方升级命令（本机安装方式为 curl；--method 可选 curl / npm / pnpm / bun / yarn / vp / brew / winget）
+# 1) 官方升级命令（--method 可选 curl / npm / pnpm / bun / yarn / vp / brew / winget）
 opencode upgrade                # 升到最新版
-opencode upgrade 2.0.30         # 升到指定版本
+opencode upgrade 2.1.4          # 升到指定版本
 ```
 
 ```text
-# 2) 手动换二进制（本机未实测，步骤与 linux 侧同构）：下载对应版本包 → 解压出 opencode.exe → 覆盖
+# 2) 手动换二进制（2026-10-25 实测可行）：下载对应版本包 → 解压出 opencode.exe → 覆盖
 #    %USERPROFILE%\.opencode\bin\opencode.exe（先退出使用中的终端与桌面端内嵌服务，或先备份旧文件）
 官方 CDN：  https://opencode.ai/files/bin/<版本>/opencode-windows-x64.zip
 npmmirror：https://registry.npmmirror.com/@opencode/cli-windows-x64/-/cli-windows-x64-<版本>.tgz
+#   npmmirror 包内路径为 package\bin\opencode.exe，解压后直接覆盖目标即可
 ```
 
-> 2026-10-16 对上述两个下载地址做过 HEAD 探测（均可达）：官方 zip 返回 200、`application/zip`、约 96 MB；npmmirror 包 302 → 200、约 95 MB（镜像 latest 已到 2.0.30）。网络不畅时优先 npmmirror 镜像。
+> 2026-10-25 实测：npmmirror `cli-windows-x64-2.1.4.tgz` 111.3 MB（6.2s 下完），解压出 `opencode.exe` 246,919,560 B、`--version` 返回 `opencode v2.1.4`；官方 `opencode.ai/files/bin/2.1.4/opencode-windows-x64.zip` 亦可达（200，117 MB）。**镜像 latest 与官方版本可能不同步**（当时镜像 latest 已是 2.1.4）；网络不畅时优先 npmmirror。
 
 卸载：
 
@@ -72,6 +92,8 @@ npmmirror：https://registry.npmmirror.com/@opencode/cli-windows-x64/-/cli-windo
 opencode uninstall --dry-run    # 预览将要移除的内容（实测列：cache、后台服务与持久终端状态；二进制需手动删除）
 opencode uninstall --force      # 跳过确认执行（旗标仅 --dry-run / --force，--help 实测）
 ```
+
+> 上述命令只清 cache / 服务状态，**二进制与其余目录需手动删**；2026-10-25 全量卸载的实际清除清单见 [2.3 节](#status-2026-10-25)。
 
 ### 3.2 PATH 登记 <a id="cli-path"></a>
 
@@ -83,11 +105,11 @@ opencode uninstall --force      # 跳过确认执行（旗标仅 --dry-run / --f
 
 ### 4.1 安装与用户数据 <a id="desktop-install"></a>
 
-- 官方 Windows 桌面端安装包为 `opencode-desktop-win-x64.exe`（用户级安装、无需管理员；无 winget 等包管理器来源，升级由内置更新器承担）；
+- 官方 Windows 桌面端安装包为 `opencode-desktop-win-x64.exe`（用户级安装、无需管理员；**winget 源 `SST.OpenCodeDesktop` 只收录到 1.19.4，无 2.x**，故 2.x 须走官方直链 `https://opencode.ai/files/bin/<版本>/opencode-desktop-win-x64.exe`，升级由内置更新器承担）；
 - 程序目录 `%LOCALAPPDATA%\Programs\@opencodedesktop\`（`OpenCode.exe`、`resources\`、`Uninstall OpenCode.exe`）；开始菜单条目 **OpenCode**（AppID `ai.opencode.desktop`）；
 - 用户数据 `%APPDATA%\ai.opencode.desktop\`：
   - `logs\<时间戳>\`（`main.log` 等，启动与自更新证据，见 [4.2 节](#desktop-verify)）；
-  - `cli\<版本>-x64\`（各版本内嵌 CLI，现为 `2.0.29-x64`）；
+  - `cli\<版本>-x64\`（各版本内嵌 CLI，现为 `2.1.4-x64`）；
   - `opencode.settings`（首启引导完成标记、窗口 ID、背景色）。
 
 ### 4.2 启动确认与自更新 <a id="desktop-verify"></a>
@@ -107,7 +129,17 @@ opencode uninstall --force      # 跳过确认执行（旗标仅 --dry-run / --f
 | --- | --- |
 | 监听 | 内嵌 `opencode-cli.exe` 监听 `0.0.0.0:45278`（`opencode service status` 打印 `http://0.0.0.0:45278`；`Get-NetTCPConnection -LocalPort 45278 -State Listen` 的 LocalAddress 为 `0.0.0.0`） |
 | 局域网可达 | 非回环网卡地址 `http://<本机内网IP>:45278/` 返回 HTTP 200（详见 [6.1 节](#web-access)） |
-| `main.log` | `v2 CLI background service ready { probed: false, url: 'http://127.0.0.1:45278', hostname: '127.0.0.1', port: '45278' }`——**该行的 `hostname` 字段未反映 `service set hostname` 覆盖值**（2.0.32 实测），判断实际监听以 `opencode service status` / `Get-NetTCPConnection` 为准 |
+| `main.log` | `v2 CLI background service ready { probed: false, url: 'http://127.0.0.1:45278', hostname: '127.0.0.1', port: '45278' }`——**该行的 `hostname` 字段未反映 `service set hostname` 覆盖值**（2.0.32 / 2.1.4 实测），判断实际监听以 `opencode service status` / `Get-NetTCPConnection` 为准 |
+
+2026-10-25 重装后复核（2.1.4）：
+
+| 证据 | 取值 |
+| --- | --- |
+| 进程 | `OpenCode.exe` 主进程 + 4 个渲染 / GPU 子进程 + 内嵌 `opencode-cli.exe`（实测 6 个进程共存） |
+| 监听 | `opencode service status` → `http://0.0.0.0:45278`；`Get-NetTCPConnection -LocalPort 45278 -State Listen` 的 LocalAddress 为 `0.0.0.0`，归属 `%APPDATA%\ai.opencode.desktop\cli\2.1.4-x64\opencode-cli.exe` |
+| 可达性 | 本机 `http://127.0.0.1:45278/` 与局域网 `http://192.168.0.124:45278/` 均返回 HTTP 200 |
+| 自更新器 | 启动即报 `Update for version 2.1.4 is not available (latest version: 2.1.4)`——已是当前最新 |
+| **坑位** | 在 Electron 宿主（如 DSH）里启动时，宿主注入的 `ELECTRON_RUN_AS_NODE=1` 会让 `OpenCode.exe` 退化为纯 Node 进程、**启动即静默退出**；判据是 `OpenCode.exe --help` 打印 Node.js 帮助而非应用帮助。详见 [2.3 节](#status-2026-10-25) |
 
 核实命令：
 
@@ -124,9 +156,9 @@ Get-NetTCPConnection -LocalPort 45278 -State Listen
 
 | 层级 | 路径 | 说明 |
 | --- | --- | --- |
-| 全局 | `~\.config\opencode\opencode.json` | **用户级工具链**：`plugins` 登记 `bg.js`（绝对路径）；同目录 `service.json` 为共享服务配置 |
+| 全局 | `~\.config\opencode\opencode.json` | **全局配置**：`plugins` 数组登记用户级插件（绝对路径）；同目录 `service.json` 为共享服务配置 |
 | 工作区 | `D:\Develop\bizs\.opencode\opencode.json` | bizs 工作区项目级配置：**只放项目自身的模型 / 供应商**（覆盖全局同名项） |
-| 用户级插件 | `~\.config\opencode\plugins\` | `bg.js`（通用后台工具，经全局 `plugins` 登记加载，**不是**工作区插件） |
+| 用户级插件 | `~\.config\opencode\plugins\` | 用户级插件目录（经全局 `plugins` 登记加载，**不是**工作区插件） |
 
 > 基座仓（`D:\Develop\bizs\bms`）内**没有** `opencode.json` 与 `.opencode\`（实测）——工作区级配置就在工作区根 `D:\Develop\bizs\.opencode\`；工作区 `.opencode\` 现只含 `opencode.json`（通用插件已上移用户级）。配置为 v2 原生格式（`providers` / `mcp.servers` / `plugins` 等），与 v1 的字段对照见 linux 侧文档「配置（v2 原生格式）」节。
 
@@ -146,24 +178,6 @@ Get-NetTCPConnection -LocalPort 45278 -State Listen
 
 - 默认模型 `llamacpp/qwen3.8-27b-ud-q4-k-m` 由 `llamacpp` provider 提供，指向本机 `http://127.0.0.1:8080/v1` 的 llama-server（推理服务部署见《[llamacpp部署使用说明](../../AI/linux/llamacpp部署使用说明.md)》）；
 - 原先登记的 MCP `mjw-vision`（识图）与配套的 MCP 超时配置已于 2026-10-16 退役移除（所用模型已普遍多模态）；今后如需再登记 MCP，超时字段照 `"mcp": { "timeout": { "catalog": …, "execution": … } }` 配。
-
-### 5.3 用户级工具链（ops / bg 插件） <a id="plugins"></a>
-
-通用工具链装在**用户级**、与工作区无关，任何项目可用；工作区 `.opencode\` 只留项目自身的模型 / 供应商。
-
-```powershell
-opencode plugin list    # 实测：ID bg / ops   VERSION local   SOURCE ~\.config\opencode\plugins\*.js（用户级绝对路径）
-```
-
-| 组件 | 落点 | 提供的工具 |
-| --- | --- | --- |
-| 插件 `bg.js` | `~\.config\opencode\plugins\bg.js` | `bg_run` / `bg_status` / `bg_stop` / `gl_watch_pipeline`（长命令后台化、秒级查状态；下载 / 构建 / ssh / 安装类） |
-| 通用脚本 | `~\.local\share\opencode\bg\`（`OPS_BG_DIR` 可覆盖） | `bg_run.py` / `bg_status.py` / `bg_wait.py` / `bg_stop.py` / `watch_pipeline.py`（去 `bms_core` 依赖与 `deploy\.env` 硬编码的通用副本） |
-
-- 插件在**全局配置** `~\.config\opencode\opencode.json` 登记（`plugins` 数组写绝对路径），**不在工作区 `.opencode\opencode.json`**；改动后须**完全重启**客户端（TUI / 桌面端）再验证。
-- **`ops.js` 插件与 FastCtx 本地 MCP 均已下线（2026-10-19）**：`ops.js` 提供过 `ops_bash`（Git Bash 单命令执行，原 `ops_run` / `ops_batch` / `ops_result` 已于 2026-10-18 移除），现连同其登记一并删除；FastCtx 的 `mcp.servers.fastctx` 已于 2026-10-18 从全局配置移除（文件工具改用 opencode 内置 `read` / `grep` / `glob` / `edit`），二进制 `~\.local\share\opencode\vendor\fastctx\`（npm 包 `@dsh-ops/fastctx-win32-x64`，Apache-2.0）与重装脚本 `~\.config\opencode\install-fastctx.sh` 已于 2026-10-19 删除。Shell 命令改用内置 `shell` 工具，长命令后台化用 `bg.js`。
-- **反向提醒**：这类「优化 opencode 自身」的插件与二进制**不要放回项目或工作区**——工作区 `.opencode\` 只保留项目自身的配置（模型 / 供应商等）。
-- 项目内仍保留命令行 / CI / 手工用的副本 `bms\scripts\tools\bg\*.py` 与 `bms\scripts\tools\gitlab\watch_pipeline.py`（**插件不再引用它们**）；`gl_watch_pipeline` 的凭据取环境变量 `GITLAB_API_URL` / `GITLAB_API_TOKEN`（或 `--env-file` / `OPS_ENV_FILE` 指向的键值文件），**不再硬编码读 `deploy\.env`**。详见《[通用后台执行器部署使用说明](../../工具/通用后台执行器部署使用说明.md)》。
 
 ## 6. 凭据与共享服务 <a id="auth"></a>
 
@@ -319,7 +333,6 @@ opencode D:\Develop\bizs                 # 指定目录打开
 opencode run "帮我梳理这个仓库"           # 非交互执行一条消息（脚本可用）
 opencode models                          # 列出可用模型（实测非交互亦可，输出含 llamacpp/* 与 opencode-go/*）
 opencode mcp list                        # MCP 服务器与连接状态
-opencode plugin list                     # 插件清单
 opencode auth list                       # 凭据连接状态
 opencode service status                  # 共享后台服务状态
 opencode pair --url http://<本机内网IP>:45278   # 打印 Web 配对链接与二维码（手机 App 扫码；见 6.1 节）
@@ -335,18 +348,17 @@ opencode --standalone                    # 用私有服务运行（隔离变量�
 
 ```powershell
 # CLI
-opencode --version                          # opencode v2.0.29
+opencode --version                          # opencode v2.1.4
 where.exe opencode                          # C:\Users\minjian\.opencode\bin\opencode.exe
 opencode debug paths                        # data/config/state/cache/db 等路径
 
 # 桌面端
 (Get-Item "$env:LOCALAPPDATA\Programs\@opencodedesktop\OpenCode.exe").VersionInfo |
-  Select-Object ProductName, ProductVersion                     # OpenCode / 2.0.29.0
+  Select-Object ProductName, ProductVersion                     # OpenCode / 2.1.4.0
 Get-NetTCPConnection -LocalPort 45278 -State Listen             # 共享服务监听（归属 opencode-cli.exe；LocalAddress 应为 0.0.0.0）
 
 # 会话侧
-opencode auth list                          # OpenCode Go / OpenCode Console：stored
-opencode plugin list                        # bg / ops   local   ~\.config\opencode\plugins\*.js（用户级插件）
+opencode auth list                          # 2026-10-25 重装后为空，需 opencode auth login 重新登录
 opencode service status                     # http://0.0.0.0:45278
 ```
 
@@ -362,12 +374,31 @@ opencode service status                     # http://0.0.0.0:45278
 ### 9.2 CLI 与桌面端版本号不一致 <a id="version-skew"></a>
 
 - 属**正常**：两者升级通道独立——CLI 手动或 `opencode upgrade`，桌面端由内置自更新器跟进；
-- 桌面端自更新证据看 `main.log`（`Checking for update` → `Found version <新版本>` → `New version <新版本> has been downloaded to …`；本机 2.0.30 已下载、待重启安装）。
+- 桌面端自更新证据看 `main.log`（`Checking for update` → `Found version <新版本>` → `New version <新版本> has been downloaded to …`）；
+- **2026-10-25 重装后两者已对齐 2.1.4**，若再出现偏差按本节两条通道分别升级即可。
 
 ### 9.3 端口 45278 冲突 / 共享服务异常 <a id="port-45278"></a>
 
-- 共享服务本机已**固定监听 `0.0.0.0:45278`**（`service set hostname` / `port`，见 [6.1 节](#web-access)），由桌面端内嵌 CLI 托管、随桌面端启停（本机实测监听进程即 `%APPDATA%\ai.opencode.desktop\cli\2.0.32-x64\opencode-cli.exe`）；
-- 另有独立 `opencode serve` 常驻时会占用同一端口：先 `Get-NetTCPConnection -LocalPort 45278 -State Listen` 看归属，再用 `opencode service status` / `restart` 处置；不希望共用后台服务时用 `opencode --standalone`。
+- 共享服务本机已**固定监听 `0.0.0.0:45278`**（`service set hostname` / `port`，见 [6.1 节](#web-access)），由桌面端内嵌 CLI 托管、随桌面端启停（本机实测监听进程即 `%APPDATA%\ai.opencode.desktop\cli\2.1.4-x64\opencode-cli.exe`）；
+- 另有独立 `opencode serve` 常驻时会占用同一端口：先 `Get-NetTCPConnection -LocalPort 45278 -State Listen` 看归属，再用 `opencode service status` / `restart` 处置；不希望共用后台服务时用 `opencode --standalone`；
+- **孤儿进程**：桌面端异常退出后 `opencode-cli.exe` 可能残留并继续占 45278（父进程已不存在），重装 / 重启服务前先 `Get-Process opencode-cli | Stop-Process -Force`。
+
+### 9.4 桌面端启动即静默退出（Electron 宿主环境） <a id="electron-run-as-node"></a>
+
+**现象**：`OpenCode.exe` 启动后立即退出（exit 0），不创建 `%APPDATA%\ai.opencode.desktop\`、不监听 45278、无任何日志输出。
+
+**根因**：从 Electron 宿主（如 DSH、某些 IDE 集成终端）启动时会继承 `ELECTRON_RUN_AS_NODE=1`，Electron 应用被降级为纯 Node 运行，主进程逻辑根本不执行。
+
+**判据**：`& "$env:LOCALAPPDATA\Programs\@opencodedesktop\OpenCode.exe" --help` 若打印 **Node.js 帮助**（含 `Usage: node [options] [ script.js ]`）而非应用帮助，即命中此坑。
+
+**处置**：启动前清除该变量再起：
+
+```powershell
+Remove-Item Env:ELECTRON_RUN_AS_NODE -ErrorAction SilentlyContinue
+Start-Process "$env:LOCALAPPDATA\Programs\@opencodedesktop\OpenCode.exe"
+```
+
+日常用开始菜单 / 资源管理器双击启动不受影响（不经宿主环境）。
 
 ## 10. 关联文档 <a id="related"></a>
 
@@ -379,4 +410,4 @@ opencode service status                     # http://0.0.0.0:45278
 - 《[文档生成规范](../../../规范/文档生成规范.md)》：本文档的组织、格式与图形约定
 - 《[本地资源](../../../用户文档/本地资源.md)》：mjpc 相关机器信息取值（已 gitignore）
 
-> 依《[文档生成规范](../../../规范/文档生成规范.md)》编写 · 记录 2026-10-16 mjpc（Windows 侧）本机核实结果（opencode CLI / 桌面端 2.0.29、路径与共享服务实测、MCP mjw-vision 退役）；2026-10-18 复核并升级记录（桌面端 2.0.32、启用局域网 / 手机访问、共享服务固定 `0.0.0.0:45278` 与 Windows 防火墙放行）；同日通用化改造（通用插件 / 脚本上移用户级 `~\.config\opencode\` 与 `~\.local\share\opencode\`，全局 `opencode.json` 登记 ops / bg 插件）；同日工具收敛（注销 FastCtx 本地 MCP、`ops.js` 仅保留 `ops_bash`）；2026-10-19 插件下线（删除 `ops.js` 与其登记、删除 FastCtx 残留脚本与二进制）
+> 依《[文档生成规范](../../../规范/文档生成规范.md)》编写 · 记录 2026-10-16 mjpc（Windows 侧）本机核实结果（opencode CLI / 桌面端 2.0.29、路径与共享服务实测、MCP mjw-vision 退役）；2026-10-18 复核并升级记录（桌面端 2.0.32、启用局域网 / 手机访问、共享服务固定 `0.0.0.0:45278` 与 Windows 防火墙放行）；同日通用化改造（通用插件 / 脚本上移用户级 `~\.config\opencode\` 与 `~\.local\share\opencode\`，全局 `opencode.json` 登记 ops / bg 插件）；同日工具收敛（注销 FastCtx 本地 MCP、`ops.js` 仅保留 `ops_bash`）；2026-10-19 插件下线（删除 `ops.js` 与其登记、删除 FastCtx 残留脚本与二进制）；**2026-10-25 全量卸载重装至 2.1.4**（CLI 与桌面端版本对齐、数据与配置归零重建、bg 工具链全链退役、补录 Electron 宿主 `ELECTRON_RUN_AS_NODE` 坑位）
