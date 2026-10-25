@@ -25,7 +25,7 @@
 ### 2.2 结论：pnpm 单一 workspace + 依赖外置 <a id="conclusion"></a>
 
 - **pnpm 11.7.0**（与 CI 基础镜像固定版本一致，pnpm-lock.yaml 锁语义由此版本解析）；**版本由仓内 `bms/package.json` 的 `"packageManager": "pnpm@11.7.0"` 锚定**——corepack 依该字段取版本，不随 Node 版本或全局安装漂移（见[第 7.5 节](#hoist-not-real-dir)）；
-- **workspace 全收敛**：`packages/* / apps/* / modules/*` 统一到根 `pnpm-workspace.yaml`，平台基座包（`@bms/core` / `@bms/vue` / `@bms/ui-ep`）与模块的依赖协议全部改 `workspace:*`（原 `file:` / `0.0.0`）；
+- **workspace 全收敛**：`packages/* / apps/* / modules/*` 统一到根 `pnpm-workspace.yaml`，平台基座包（`@bms/core` / `@bms/vue` / `@bms/ui_ep`）与模块的依赖协议全部改 `workspace:*`（原 `file:` / `0.0.0`）；
 - **依赖物理外置**：根与各工程 `node_modules` 经 `bms/scripts/tools/deps/` 三入口脚本（外置 / 还原 / 重装）整体 `mv` 到本地依赖仓并原位符号链接；pnpm store 本身就在项目外（`~/.local/share/pnpm/store/v11`，内容寻址全局缓存）。
 
 ## 3. 技术环境 <a id="environment"></a>
@@ -130,7 +130,7 @@ workspace 唯一，命令一律在 `bms/` 根执行（子包不设独立 node_mo
 | 单包命令 | `pnpm --filter @bms/desktop run lint` |
 | 全包门禁（core 等） | `pnpm run check` |
 | 构建 + 计量 | `pnpm --filter @bms/desktop run build`（再 `run budget`） |
-| 模块构建 + 隔离扫描 | `pnpm --filter @bms/module-demo run build && pnpm --filter @bms/module-demo run budget && pnpm --filter @bms/module-demo run guard:isolation` |
+| 模块构建 + 隔离扫描 | `pnpm --filter @bms/module_demo run build && pnpm --filter @bms/module_demo run budget && pnpm --filter @bms/module_demo run guard:isolation` |
 
 常用组合（本地验证顺序，与 CI 各前端 job 对齐）：
 
@@ -138,9 +138,9 @@ workspace 唯一，命令一律在 `bms/` 根执行（子包不设独立 node_mo
 pnpm install --frozen-lockfile
 pnpm --filter @bms/core run typecheck && pnpm --filter @bms/core run test
 pnpm --filter @bms/vue run typecheck && pnpm --filter @bms/vue run test
-pnpm --filter @bms/ui-ep run typecheck && pnpm --filter @bms/ui-ep run test
+pnpm --filter @bms/ui_ep run typecheck && pnpm --filter @bms/ui_ep run test
 pnpm --filter @bms/desktop run lint && pnpm --filter @bms/desktop run test:cov && pnpm --filter @bms/desktop run build && pnpm --filter @bms/desktop run budget
-pnpm --filter @bms/module-demo run lint && pnpm --filter @bms/module-demo run typecheck && pnpm --filter @bms/module-demo run test
+pnpm --filter @bms/module_demo run lint && pnpm --filter @bms/module_demo run typecheck && pnpm --filter @bms/module_demo run test
 ```
 
 ## 7. 常见问题 <a id="troubleshoot"></a>

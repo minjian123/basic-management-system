@@ -158,7 +158,7 @@ opencode plugin list    # 实测：ID bg / ops   VERSION local   SOURCE ~\.confi
 | 组件 | 落点 | 提供的工具 |
 | --- | --- | --- |
 | 插件 `bg.js` | `~\.config\opencode\plugins\bg.js` | `bg_run` / `bg_status` / `bg_stop` / `gl_watch_pipeline`（长命令后台化、秒级查状态；下载 / 构建 / ssh / 安装类） |
-| 通用脚本 | `~\.local\share\opencode\bg\`（`OPS_BG_DIR` 可覆盖） | `bg-run.py` / `bg-status.py` / `bg-wait.py` / `bg-stop.py` / `watch_pipeline.py`（去 `bms_core` 依赖与 `deploy\.env` 硬编码的通用副本） |
+| 通用脚本 | `~\.local\share\opencode\bg\`（`OPS_BG_DIR` 可覆盖） | `bg_run.py` / `bg_status.py` / `bg_wait.py` / `bg_stop.py` / `watch_pipeline.py`（去 `bms_core` 依赖与 `deploy\.env` 硬编码的通用副本） |
 
 - 插件在**全局配置** `~\.config\opencode\opencode.json` 登记（`plugins` 数组写绝对路径），**不在工作区 `.opencode\opencode.json`**；改动后须**完全重启**客户端（TUI / 桌面端）再验证。
 - **`ops.js` 插件与 FastCtx 本地 MCP 均已下线（2026-10-19）**：`ops.js` 提供过 `ops_bash`（Git Bash 单命令执行，原 `ops_run` / `ops_batch` / `ops_result` 已于 2026-10-18 移除），现连同其登记一并删除；FastCtx 的 `mcp.servers.fastctx` 已于 2026-10-18 从全局配置移除（文件工具改用 opencode 内置 `read` / `grep` / `glob` / `edit`），二进制 `~\.local\share\opencode\vendor\fastctx\`（npm 包 `@dsh-ops/fastctx-win32-x64`，Apache-2.0）与重装脚本 `~\.config\opencode\install-fastctx.sh` 已于 2026-10-19 删除。Shell 命令改用内置 `shell` 工具，长命令后台化用 `bg.js`。

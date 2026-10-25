@@ -35,6 +35,6 @@
 - □ ORM 模型补字段、迁移可跑（表文件 ↔ 模型 ↔ 迁移零漂移）
 - □ `data_source_key` 未落实体表（归数据源注册表）
 - □ 产品仓（biz / mdm）表文件同步
-- □ 门禁全绿（check-links / check-docs-scope / check-base / check-status / preflight）
+- □ 门禁全绿（check_links / check_docs_scope / check_base / check_status / preflight）
 
 > 本文档依《文档生成规范》编写

@@ -38,7 +38,7 @@ flowchart LR
 3. **JWKS 内核**：新增 `bms_core/idp/jwks.py`——`JwksCache`（按 `jwks_uri` 缓存、`force` 强制刷新、TTL 命中）+ `verify_jwt`（经 authlib 的 JOSE 拆分包 `joserfc` 按 `kid` 选键验签，仅 `RS256`/`ES256` 白名单 + `JWTClaimsRegistry` 校验 `exp`/`iss`/`aud`）；失败语义：验签 / 过期 / `iss`/`aud` 不符 → `AuthError`（20001/401），JWKS 不可达 → `ServiceUnavailableError`（10007/503）。
 4. **真实 OIDC 客户端**：新增 `bms_core/idp/oidc.py`——`OidcIdentityProvider`（`plugin_name = "oidc"`）：Discovery 元数据获取与缓存、`authorize` 授权 URL、`exchange_token` 换码（含 `id_token`/`refresh_token`）、`userinfo` 拉取（`idp_key = issuer`）、`verify_token`（JWKS 验签 + `kid` 未命中强制刷新一次）；`OidcIdentityProviderFactory`（读 `[identity_provider]`，配置不全 `PluginError` 40002）。
 5. **配置与装配**：`core/config.py` 增 `IdentityProviderSettings`（`PluginSelection` 扩展 issuer / client_id / client_secret / redirect_uri / scopes / 缓存 TTL）与 `Settings.identity_provider`；`config.toml` 增 `[identity_provider]`（非敏感；secret 空串走环境变量）；`core/assembly.py` 登记 `register_plugin("identity_provider", "oidc", OidcIdentityProviderFactory(settings))`；`libs/bms_core/pyproject.toml` 增 `authlib>=1.8` 并 `uv lock`（引入 authlib / joserfc）。
-6. **部署件**：新增 `deploy/compose/keycloak.yml`（Keycloak 26.7.4 + PG 独立库 + realm 导入 + 健康检查）、`deploy/keycloak/bms-realm.json`（realm `bms` + confidential 客户端 `bms-backend`，secret 占位 `${KEYCLOAK_CLIENT_SECRET}`）、`deploy/postgres/init/01-keycloak.sh`（幂等建角色 / 库，读环境变量）；改 `deploy/compose/base.yml`（postgres initdb 挂载 + `KEYCLOAK_DB_PASSWORD`）、`deploy/.env.example`（KEYCLOAK_* 变量）、`deploy/setup/install-all.sh`（放行端口）。
+6. **部署件**：新增 `deploy/compose/keycloak.yml`（Keycloak 26.7.4 + PG 独立库 + realm 导入 + 健康检查）、`deploy/keycloak/bms-realm.json`（realm `bms` + confidential 客户端 `bms-backend`，secret 占位 `${KEYCLOAK_CLIENT_SECRET}`）、`deploy/postgres/init/01_keycloak.sh`（幂等建角色 / 库，读环境变量）；改 `deploy/compose/base.yml`（postgres initdb 挂载 + `KEYCLOAK_DB_PASSWORD`）、`deploy/.env.example`（KEYCLOAK_* 变量）、`deploy/setup/install_all.sh`（放行端口）。
 7. **用例与门禁**：新增 `services/identity/tests/idp/test_oidc.py`（契约 / OIDC 客户端 / JWKS 正反例 / 部署件护栏 / 集成跳过式），扩展 `services/identity/tests/idp/test_idp.py`（契约扩展断言）；全量 `pytest` / `ruff` / `pyright` / 基座校验 / 预检全绿。
 8. **mjbk 真实冒烟**：建 `keycloak` 库 → 同步部署件与 `.env` → 拉起 Keycloak（healthy，realm `bms` 导入）→ Discovery / JWKS / 取令牌经 `verify_token` 校验通过（见 §5 与测试记录）。
 9. **登记回写与记录**：见 §6 与测试记录。
@@ -51,7 +51,7 @@ flowchart LR
 | 应用级装配单测受进程全局注册表单次登记影响 | `provider=oidc` 经同一进程内多次建应用时，工厂仍绑定首次注册的默认配置，单测失败 | 装配断言改**独立子进程**执行（`sys.executable -c` + 环境变量），真实反映「全新进程冷启动装配」 |
 | joserfc API 差异 | `jwt.encode` 需 Key 对象（非 PEM 字符串）；`RSAKey.kid` 缺省为 None | 测试用 `RSAKey.generate_key` + 手工 `kid`；验签经 `KeySet.import_key_set` + `JWTClaimsRegistry`（已按实测 API 编写） |
 | pyright 严格模式 | JWKS 序列化类型 / httpx `response.json()` 未知类型 / 对称算法构造 | 显式 `cast` 收敛（`KeySetSerialization` / `Mapping[str, object]` / `list[object]`）；全量 pyright 0 error |
-| 新增基座类的清单对账 | `check-backend-base.py` 报新类未登记 | 《后端基类清单》补 idp 行、`IdentityClaims` / OIDC 实现与 §10 继承链 |
+| 新增基座类的清单对账 | `check_backend_base.py` 报新类未登记 | 《后端基类清单》补 idp 行、`IdentityClaims` / OIDC 实现与 §10 继承链 |
 | 部署件护栏 | realm JSON 的 client secret 明文风险 | 以 `${KEYCLOAK_CLIENT_SECRET}` 占位；单测断言 **无明文密钥**、字段正确 |
 
 ## 5. 验证结果 <a id="verify"></a>
@@ -61,8 +61,8 @@ flowchart LR
 | 全量用例 | `uv run pytest -q --cov=bms_core --cov-branch` | **1208 passed / 37 skipped**；总体覆盖率 **96%** |
 | 新增模块覆盖率 | `uv run pytest services/identity/tests/idp --cov=bms_core.idp --cov-branch` | idp 包（base / jwks / oidc / null）语句 + 分支 **100%** |
 | 静态检查 | `uv run ruff check .` / `ruff format --check .` / `uv run pyright` | 全通过（0 error） |
-| 基座校验 | `check-base.py` / `check-backend-base.py` / `check-service-boundaries.py` / `check-status.py --stage 02_后端基座与服务化地基` | 全通过 |
-| 本地预检 | `python3 scripts/tools/preflight/check-preflight.py --fast` | 全部通过 |
+| 基座校验 | `check_base.py` / `check_backend_base.py` / `check_service_boundaries.py` / `check_status.py --stage 02_后端基座与服务化地基` | 全通过 |
+| 本地预检 | `python3 scripts/tools/preflight/check_preflight.py --fast` | 全部通过 |
 
 **mjbk 真实冒烟证据**（Keycloak 26.7.4，realm `bms`，issuer `http://<mjbk-IP>:8090/realms/bms`）：
 

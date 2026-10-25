@@ -16,7 +16,7 @@
 
 ### 1.1 存量实测与分布 <a id="baseline"></a>
 
-**测量方式**：`python3 scripts/tools/base-check/check-bare-collections.py . --report --json`（测量即护栏同一实现，**实现文件豁免 §3.7 生效**，2026-09-29）。
+**测量方式**：`python3 scripts/tools/base_check/check_bare_collections.py . --report --json`（测量即护栏同一实现，**实现文件豁免 §3.7 生效**，2026-09-29）。
 
 | 维度 | `bms_core`（`backend/libs`） | 全局 |
 | --- | --- | --- |
@@ -76,7 +76,7 @@
 | 5 | 存量声明整改（594 处，`bms_core` 归零，含集合体系自身公共契约） | `backend/libs/bms_core/src/**`（改注解与 import） |
 | 6 | 调用方最小适配（含 `bms_core` 内部调用链） | 同上 |
 | 7 | 基线吸收与递减（548 → 918 → 324） | `deploy/boundaries/bare_collections_baseline.json` |
-| 8 | **护栏收紧**（白名单只留插入序形态 + 实现文件豁免 + 自测矩阵） | `scripts/tools/base-check/check-bare-collections.py`（修改） |
+| 8 | **护栏收紧**（白名单只留插入序形态 + 实现文件豁免 + 自测矩阵） | `scripts/tools/base_check/check_bare_collections.py`（修改） |
 | 9 | `libs` 守卫回归用例（3 条，Kiwi 先登记；编号 **2222 / 2223 / 2224**） | `backend/libs/bms_core/tests/`（新增用例文件） |
 | 10 | 规范口径回写（业务只落插入序 + 抽象 / 升序形态均不作落点） | `bms文档/规范/后端开发规范.md`「集合与排序」（修改） |
 | 11 | 基类清单回写（新形态 / 只读 API / 契约元数据 / 体系根语义 / 护栏与基线） | `bms文档/后端基类清单.md`「体系根清单」表与「集合体系」节（修改） |
@@ -214,7 +214,7 @@ items: Annotated[ConcurrentStableList[PrintExportResponse], CONTRACT_COLLECTION]
 
 - **新规则**：类字段注解与函数签名注解（参数 / 返回）中的**集合声明必须命中集合类白名单**——白名单**只含插入序形态**（`ConcurrentStableList` / `ConcurrentStableSet` / `ConcurrentStableDict` 及后续登记形态）；以下一律判违规：`dict` / `list` / `set` / `frozenset` 与 typing 别名（`Dict` / `List` / `Set` / `FrozenSet` / `DefaultDict`）、只读 / 可变抽象（`Sequence` / `Mapping` / `AbstractSet` / `Collection` / `MutableSequence` / `MutableMapping` / `MutableSet`）、**升序形态**（`ConcurrentSorted*` / `Sorted*`）。
 - **实现文件豁免**：集合体系实现文件（`backend/libs/bms_core/src/bms_core/core/collections.py`、`core/concurrent.py`、`core/sorted_collections.py`、`core/redis_collections.py`）允许 `Sorted*` / `ConcurrentSorted*`（内部实现），按**文件路径白名单**豁免。
-  - **模块拆分补充（2026-09-30 实施中拍板）**：升序形态（`Sorted*` / `ConcurrentSorted*`，基于第三方 `sortedcontainers`）单列 `core/sorted_collections.py`，与体系根、公共段、基础并发层、插入序形态（`core/collections.py` / `core/concurrent.py`，**只依赖标准库**）分开——CI `base-integrity` 的精简镜像（`python:3.14-slim`）会导入基座模块做边界校验（`check-service-boundaries.py` → `boundary/` → `services/` 注册表、`ops/gateway_config.py` → `services/gateway_catalog.py`），故后两者构成集合体系**「无依赖面」**，**不得**引入第三方依赖。
+  - **模块拆分补充（2026-09-30 实施中拍板）**：升序形态（`Sorted*` / `ConcurrentSorted*`，基于第三方 `sortedcontainers`）单列 `core/sorted_collections.py`，与体系根、公共段、基础并发层、插入序形态（`core/collections.py` / `core/concurrent.py`，**只依赖标准库**）分开——CI `base-integrity` 的精简镜像（`python:3.14-slim`）会导入基座模块做边界校验（`check_service_boundaries.py` → `boundary/` → `services/` 注册表、`ops/gateway_config.py` → `services/gateway_catalog.py`），故后两者构成集合体系**「无依赖面」**，**不得**引入第三方依赖。
 - **不查**：迭代与调用协议（`Iterable` / `Iterator` / `Generator` / `AsyncIterator` / `Callable`）、函数体内局部变量注解、测试目录。
 - 脚本既有能力（`--report` / `--json` / `--update-baseline` / `--self-test`）与扫描范围不变；`--self-test` 矩阵补「白名单命中不报 / 抽象落点报 / 升序形态报 / 实现文件豁免 / 迭代协议不报」用例。
 - 基线：先 `--update-baseline` 如实吸收口径收紧后的现状（548 → 918），批次完成后递减（`bms_core` → 324），复跑断言「新增 0 / 残留 0」；**不得手工增删条目**。
@@ -232,7 +232,7 @@ flowchart LR
 ```
 
 - **先基座、后存量**：基座新增（§3.3~§3.5）先行落地并过用例，存量整改才有可用落点；**存量批内先类字段、后签名**（承接「契约影响面优先」）。
-- 每批结束跑一次 `pyright`（秒级到十几秒）与 `check-bare-collections.py --report`（观察命中数递减），**不逐批跑全量用例**。
+- 每批结束跑一次 `pyright`（秒级到十几秒）与 `check_bare_collections.py --report`（观察命中数递减），**不逐批跑全量用例**。
 - 提交粒度（已确认）：**代码一次 `feat`**（基座新增、存量声明、调用方适配、护栏、基线快照、守卫用例）+ **文档一次 `docs`**（详细设计先行单独提交；规范 / 清单 / 需求 / 任务 / 计划与实施 / 测试记录随文档提交）。
 
 ### 3.9 失败分支与错误语义 <a id="failures"></a>
@@ -267,7 +267,7 @@ flowchart LR
 | 2 | **契约零漂移与序列化形态**：契约字段 OpenAPI schema 与 `list[X]` / `dict[K, V]` / `frozenset[X]` 逐字节一致；`model_dump()` 输出集合类实例、`model_dump_json()` 输出 `array` / `object`；`stringify_ids` / `stable_json_dumps` 输出内联容器（无 `ConcurrentStableList([...])` 字符串）；前端 `api-types` 零漂移 | `tests/schemas/test_contract_collections.py`（`@pytest.mark.kiwi_id(2223)`） | 契约不漂移、序列化链不损坏 |
 | 3 | **存量归零与护栏收紧**：跑护栏脚本 `--report --json` 断言 `by_area.libs == 0`（含抽象落点）；基线递减至 0 且无残留条目；复跑「新增 0 / 残留 0」；`--self-test` 覆盖白名单新规则与实现文件豁免 | `tests/boundary/test_bare_collections_guard.py`（`@pytest.mark.kiwi_id(2224)`） | 594 处全部整改、基线递减、护栏强制 |
 | 4 | 定向回归：`pytest backend/libs/bms_core/tests` 全量全绿；`ruff check` / `ruff format --check` / `pyright`（backend 全量）全绿 | 门禁 | 定向 pytest + ruff + pyright 全绿 |
-| 5 | 基座校验与本地预检：`check-base` / `check-backend-base(+--self-test)` / `check-service-boundaries(+--self-test)` / `boundary_metrics` / `check-status --stage 06_认证与安全` / `preflight --fast` 全绿；`check-links.py` 无断链 | 门禁 | 基座校验与 preflight 全绿 |
+| 5 | 基座校验与本地预检：`check_base` / `check_backend_base(+--self-test)` / `check_service_boundaries(+--self-test)` / `boundary_metrics` / `check_status --stage 06_认证与安全` / `preflight --fast` 全绿；`check_links.py` 无断链 | 门禁 | 基座校验与 preflight 全绿 |
 | 6 | 清单与规范一致性：《[后端基类清单](../../../../../../后端基类清单.md)》「集合体系」节（形态表 / 继承链 / 护栏与基线）与《[后端开发规范](../../../../../../规范/后端开发规范.md)》「集合与排序」与代码、基线快照一致；业务面无 `Sorted*` / `ConcurrentSorted*` 新增声明 / 继承 | 文档核对 | 清单 / 规范 / 代码一致 |
 
 **验收映射**：任务 §3「完成标准」逐条落用例 1~6。本任务含基座能力新增，**新增能力须有用例覆盖**（用例 1 / 2）；存量整改不另设覆盖率门槛，覆盖率随既有 `bms_core` 门禁执行。
@@ -360,8 +360,8 @@ flowchart TD
 
 **旧名退场**：`BaseSorted`（旧语义根）/ `BaseSyncSorted` / `BaseConcurrentSorted`；`RedisSnapshot` 不再挂 `BaseFrameworkObject`。
 
-**改动落点**：`core/collections.py`、`core/concurrent.py`、`core/redis_collections.py`、`core/objects/roots.py`（体系根注释）、`schemas/base.py`（契约元数据认集合体系唯根 `BaseCollection`）；护栏 `check-bare-collections.py`（口径收紧 + **取消全部豁免**）、`check-backend-base.py`（体系根白名单改 `BaseCollection`）；基线 `bare_collections_baseline.json` 重算；测试 6 份（`test_collections_chain` / `test_collections` / `test_concurrent` / `test_concurrent_stable` / `test_object_bases_roots` / `test_value_object_roots`）。
+**改动落点**：`core/collections.py`、`core/concurrent.py`、`core/redis_collections.py`、`core/objects/roots.py`（体系根注释）、`schemas/base.py`（契约元数据认集合体系唯根 `BaseCollection`）；护栏 `check_bare_collections.py`（口径收紧 + **取消全部豁免**）、`check_backend_base.py`（体系根白名单改 `BaseCollection`）；基线 `bare_collections_baseline.json` 重算；测试 6 份（`test_collections_chain` / `test_collections` / `test_concurrent` / `test_concurrent_stable` / `test_object_bases_roots` / `test_value_object_roots`）。
 
 **护栏口径（本节定稿，取代 §8 对齐记录第 11 / 12 条）**：白名单**只含插入序形态**；裸容器、只读 / 可变抽象、升序形态、**`ClassVar` 类级常量**、**`BaseSettings` 配置字段**、**测试目录**（扫描目标扩至 `*/tests`）与**函数体带注解局部变量**一律纳入；仅「迭代 / 调用协议（`Iterable` / `Iterator` / `Callable`）不查」；集合体系**实现文件为不属约束对象**（护栏只约束业务侧集合声明）。基线由 918 **如实吸收至 1711**（2026-09-30 实测；`libs` 1036 / `services` 348 / `scripts/tools` 224 / `ops` 103），按批递减至归零。
 
-**验收基准**：形态一致 + 逐处登记；`check-backend-base.py` 与 `check-bare-collections.py` 全绿；契约 JSON Schema 与前端 `api-types` 零漂移；定向 `pytest`、`ruff`、`pyright` 与 `preflight --fast` 全绿。
+**验收基准**：形态一致 + 逐处登记；`check_backend_base.py` 与 `check_bare_collections.py` 全绿；契约 JSON Schema 与前端 `api-types` 零漂移；定向 `pytest`、`ruff`、`pyright` 与 `preflight --fast` 全绿。

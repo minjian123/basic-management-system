@@ -38,7 +38,7 @@ flowchart LR
 4. **全量 import 重命名**：按「模块前缀字典」逐文件将 `app.*` 改写为 `bms_core.*` / `bms_platform.*`（源码 / 测试 / `alembic` / `ops`），删除旧 `app` 包，不留 shim。
 5. **测试随工程**：按「是否依赖服务应用 / `client` 夹具 / 契约支持模块」拆分——`libs/bms_core/tests`（61 文件，含 alembic / db / integration / ops / schemas / repositories 等）+ `services/platform/tests`（72 文件，含 api / 契约 / 插件装配 / 各能力域应用级用例）；各建 `conftest.py`（基座库侧不依赖服务应用、不提供 `client`）；服务测试树加包结构以支持 `tests.contracts.support` 导入。
 6. **路径常量与硬编码修正**：`bms_core/core/config.py` 的 `_CONFIG_DIR` 与 `bms_core/db/migration.py` 的 `BACKEND_ROOT` 由硬编码层级改为**向上搜根**（分别找 `config.toml` / `alembic.ini`）；`migration._MODEL_MODULES` 仅保留库内链表模型；修正 7 处测试硬编码 `parents[N]` 与扫描 `app/` 的路径。
-7. **服务边界机器护栏**：新增 `scripts/tools/base-check/check-service-boundaries.py`（四项规则 + `--self-test`）；套内 `test_module_boundary` 改写为扫描 `libs` / `services` 双包；`check-backend-base.py` 扫描路径改 `backend/libs/**` + `backend/services/**`，错误码路径与自检样例同步。
+7. **服务边界机器护栏**：新增 `scripts/tools/base_check/check_service_boundaries.py`（四项规则 + `--self-test`）；套内 `test_module_boundary` 改写为扫描 `libs` / `services` 双包；`check_backend_base.py` 扫描路径改 `backend/libs/**` + `backend/services/**`，错误码路径与自检样例同步。
 8. **服务脚手架**：新增 `backend/scripts/new_service.py`（含 `scripts/__init__.py`），生成独立工程骨架（pyproject + 五层 + 入口 + 冒烟用例）；命名 / 保留名 / 重名校验。
 9. **CI 与镜像适配**：`.gitlab-ci.yml` 后端各 job 补 `uv sync --frozen`（工作区成员装入预建 venv 之外）、`--cov=app` → `--cov=bms_core --cov=bms_platform`、三库集成用例路径改 `libs/bms_core/tests/integration`、swagger 入口改 `bms_platform.main`；`deploy/ci/Dockerfile.backend` 改 `--no-install-workspace` 并复制成员 pyproject。
 10. **门禁与构建**：`uv run pytest` → 898 passed / 36 skipped；覆盖率 96%（≥ 门禁）；`ruff check` / `ruff format --check` / `pyright` 全绿；`uv build --package bms-core|bms-platform` 各自出 wheel。
@@ -52,7 +52,7 @@ flowchart LR
 | 配置目录定位失效 | `_CONFIG_DIR` 原 `parents[2]` 在 src 布局下指向 `src/`，配置校验报 `app / database / server 缺失` | 改为向上搜根（首个含 `config.toml` 的祖先目录） |
 | 迁移工程根定位失效 | `BACKEND_ROOT` 原 `parents[2]` 指向 `src/`，Alembic 配置定位错误 | 改为向上搜根（首个含 `alembic.ini` 的祖先目录）；登记落点单测覆盖 |
 | `bms_core` 缺 `__init__.py` | 首版为命名空间包，pyright 严格模式报 `__version__` 未知 | 新增 `libs/bms_core/src/bms_core/__init__.py`（库版本） |
-| 基座对账扫描越界到测试 | `check-backend-base.py` 改扫 `backend/libs` 后把测试辅助类（`Entity` / `Nested` / `Point` / `RegistryContract`）当作基座类报未登记 | `index_classes` 跳过 `tests` 目录 |
+| 基座对账扫描越界到测试 | `check_backend_base.py` 改扫 `backend/libs` 后把测试辅助类（`Entity` / `Nested` / `Point` / `RegistryContract`）当作基座类报未登记 | `index_classes` 跳过 `tests` 目录 |
 | pyright 暴露 ops 历史类型问题 | 将 `ops` 纳入 `include` 后暴露 7 处既有类型错误（与本任务无关） | `include` 定为 `["libs", "services"]`（与改造前 `app` / `tests` 范围对齐，tests 已在两工程内） |
 | 测试硬编码路径漂移 | 7 处 `Path(__file__).parents[N]` 与内联扫描 `app/` 在搬迁后失效（结构护栏 / null 落点 / CI 变量一致 / 提供者直连等） | 逐处按新层级修正并把扫描目标指向 `bms_core` / 双包 |
 | ruff 归类漂移 | 新增 `bms_core/__init__.py` 后 ruff 将 `bms_core` 归为第一方，import 排序触发 252 处 I001 | `[tool.ruff.lint.isort] known-first-party` 显式声明自有包；`ruff check --fix` + `ruff format` 统一 |
@@ -66,9 +66,9 @@ flowchart LR
 | 静态检查 | `uv run ruff check .` / `uv run ruff format --check .` / `uv run pyright` | 全通过（0 error） |
 | 独立构建 | `uv build --package bms-core` / `uv build --package bms-platform` | 各自产出 wheel + sdist |
 | 应用启动 | `python -c "import bms_platform.asgi"` | 正常构造应用 |
-| 基座对账 | `python3 scripts/tools/base-check/check-backend-base.py [--self-test]` | 通过（继承链 381 条 / 基座类 84 / 平台码 32 / 迁移链 2） |
-| 服务边界护栏 | `python3 scripts/tools/base-check/check-service-boundaries.py [--self-test]` | 通过；自检三项（放行 / 拦截 / 合规）全通过 |
-| 文档基座校验 | `check-base.py` / `check-links.py` | 通过（174 文档一致 / 0 断链） |
+| 基座对账 | `python3 scripts/tools/base_check/check_backend_base.py [--self-test]` | 通过（继承链 381 条 / 基座类 84 / 平台码 32 / 迁移链 2） |
+| 服务边界护栏 | `python3 scripts/tools/base_check/check_service_boundaries.py [--self-test]` | 通过；自检三项（放行 / 拦截 / 合规）全通过 |
+| 文档基座校验 | `check_base.py` / `check_links.py` | 通过（174 文档一致 / 0 断链） |
 
 ## 6. 登记回写 <a id="registry"></a>
 

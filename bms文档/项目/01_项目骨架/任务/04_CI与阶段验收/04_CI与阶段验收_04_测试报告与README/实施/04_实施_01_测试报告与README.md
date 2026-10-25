@@ -38,14 +38,14 @@ flowchart LR
 
 1. **Kiwi 先登记**：经 mjbk 容器内 Django shell 登记本任务 1 条用例并取得编号 **69**（产品「BMS 基础管理系统」/ 分类「平台骨架」/ P2 / CONFIRMED / 标签「自动化」/ `is_automated=True`），题面含报告齐备、两脚本输出、复盘清单、门禁转达标与 54/54、README 一致五项断言。
 2. **治理脚本一（度量采集）**：新增 `scripts/tools/governance/collect_metrics.py`——① 阶段进度偏差（基线取计划「门禁对照」 日期、进度起点取「自 YYYY-MM-DD 起排」，偏差率＝偏差天数 / 进度窗口）；② 缺陷分布与收敛（GitLab API `state=all`，按 `defect-auto` 聚合，凭据取 `deploy/.env`、无凭据降级不报错）；③ 覆盖率（后端 `uv run pytest --cov=app --cov-branch --cov-fail-under=100` 取 `Total coverage` 精确值，前端读 `coverage-summary.json`，`--with-frontend` 可重跑）；④ 用例执行统计（pytest 摘要 + 双端 Vitest 摘要 + Playwright 未启用标注）。只读、默认不落中间产物（`--out` 可选）。
-3. **治理脚本二（复盘清单）**：新增 `scripts/tools/governance/review_stage.py`——八项自动核对（三类文档一致 / 基座自检（subprocess 复用 `check-status.py`、`check-base.py`）/ 门禁表结论齐备 / 阶段残留为 0 / 遗留项登记 / 报告与 README 就位 / 记录齐备 / Kiwi 编号引用），逐项打印「通过 / 不通过 + 证据」，有不通过则退出码 1。
-4. **工具链登记**：`scripts/README.md` 新增 `tools/governance/` 行（与 `base-check/`、`check-docs/` 同构口径）。
+3. **治理脚本二（复盘清单）**：新增 `scripts/tools/governance/review_stage.py`——八项自动核对（三类文档一致 / 基座自检（subprocess 复用 `check_status.py`、`check_base.py`）/ 门禁表结论齐备 / 阶段残留为 0 / 遗留项登记 / 报告与 README 就位 / 记录齐备 / Kiwi 编号引用），逐项打印「通过 / 不通过 + 证据」，有不通过则退出码 1。
+4. **工具链登记**：`scripts/README.md` 新增 `tools/governance/` 行（与 `base_check/`、`check_docs/` 同构口径）。
 5. **数据采集**：`collect_metrics.py --with-frontend --out /tmp/bms_metrics.json` 产出——进度偏差 `-13 天（提前，92.9% 于 14 天窗口）`、缺陷 `总数 1 / 打开 0 / 已闭环 1（准备期 #1 自动缺陷）`、后端覆盖率 `99.75%（语句 3668 未覆盖 3、分支 392 未覆盖 7）`、前端双端 `100%`、用例 `后端 417 passed / 7 skipped；前端各 4 文件 / 18 用例`。
 6. **报告初稿**：按设计 §4.1 写 `bms文档/项目/01_项目骨架/01_测试报告_项目骨架.md`（四章节 + 「5. 复盘与经验教训」+ 附录「数据采集命令与原始输出」）；§4 遗留项按计划 §3.1 逐条登记（52 条，权威表指向计划；后补登核心模块覆盖率 / 前端覆盖率扩面两项，现为 55 条）。
 7. **交叉审核**：第二 AI 独立只读复核（见 [§4](#issues) 审核结论），异常项当场处置。
 8. **README 同步（四份）**：根 README（项目状态改「阶段一已完成 54/54 + 阶段验收门禁全部达标」、快速启动补本地门禁命令块、目录结构补 `governance`、文档导航补阶段一四件套与报告）；`backend/README.md`（简介与目录结构刷新：`ops/`、`health/`、六类跨阶段与补充扩展基座、`tests/` 结构；快速启动补门禁；导航补基类清单与阶段一）；`apps/desktop/README.md`、`frontend-mobile/README.md`（阶段一交付现状与 `test:cov`，导航补阶段一与报告）。
 9. **收口回写**：《需求总览》§4 门禁第 10 行转**达标**、§4 结论改「10 项全部达标 + 54/54」、§5 域地图 04 域 4/0；需求 04-4 元信息行 + 实施结果注块；任务 04_04 与域总览（4/4全部交付）；计划（头计数 18/0、§1 进度对象与工作量 /、§1 进度口径与达成日、§2 加 04_04 行、§3 剩余表清空保留表头、§4 进度改阶段一交付区间、§5 留痕行转达标、门禁对照改「2026-09-15 已达成」）；`文档首页` 5.5（04 域 4/4）与 5.6（报告已交付）。
-10. **本地门禁与自检**：`review_stage.py` 8/8 通过；`check-status.py` 硬规则 0 不合规、软提示 0；`check-base.py` 五项通过；后端 `ruff` / `format` / `pyright` / `pytest`（覆盖率 99.75%）全绿。
+10. **本地门禁与自检**：`review_stage.py` 8/8 通过；`check_status.py` 硬规则 0 不合规、软提示 0；`check_base.py` 五项通过；后端 `ruff` / `format` / `pyright` / `pytest`（覆盖率 99.75%）全绿。
 11. **记录与提交**：任务目录 `测试/`、`实施/` 各一份；脚本与 README 一批、文档收口一批；推送后确认流水线状态（见 [§5](#verify)）。
 
 ## 4. 问题与处置 <a id="issues"></a>
@@ -57,22 +57,22 @@ flowchart LR
 | 1 | 前端用例统计解析为 `None` | Vitest 摘要带 ANSI 颜色转义（`Tests \x1b[22m \x1b[32m18 passed`） | 解析前 `strip_ansi()`；采集复跑得 `4 文件 / 18 用例`（设计 §5.2 口径不变） |
 | 2 | 后端覆盖率只取到取整 `99%` | `pytest -q --cov` 不带 `--cov-fail-under` 时不打印精确汇总行 | 采集命令补 `--cov-fail-under=100`，取 `Total coverage: 99.75%`（同时顺带校验门禁） |
 | 3 | `review_stage.py` 门禁表只数到 7 行 | 结论列含括注（`达标（占位口径）`、`进行中（…）`）未落入取值集合 | 解析改为取 `（` 前的前导结论词；设计 §6.2 措辞同步为「结论允许带括注」 |
-| 4 | 复盘清单误报 `backend/README.md 缺 ['pnpm run']` | 校验期望串写错（后端工程无 pnpm） | 期望串改为 `uv run uvicorn` / `文档导航` / `check-status.py` |
-| 5 | 需求总览链接到测试报告断链（base-check 报） | `需求/00` 位于 `需求/` 下，指向阶段根的测试报告应为 `../01_测试报告_项目骨架.md` | 已修正；`check-base.py` 断链归零 |
-| 6 | `backend/README.md` 未含门禁新命令 | 首次同步漏项 | 补 `check-docs/check-status.py` 一行（复盘清单第 6 项据此可校） |
-| 7 | 指向阶段测试报告的链接断链（需求总览 2 处、本任务实施 / 测试记录各 1 处） | 相对链接层级：`需求/` 下应为 `../01_测试报告_项目骨架.md`，任务记录目录下应为 `../../../../01_测试报告_项目骨架.md` | 均已修正；`check-base.py` 断链归零（同一类问题本阶段第 3 次出现，已写入报告 §5 改进项） |
+| 4 | 复盘清单误报 `backend/README.md 缺 ['pnpm run']` | 校验期望串写错（后端工程无 pnpm） | 期望串改为 `uv run uvicorn` / `文档导航` / `check_status.py` |
+| 5 | 需求总览链接到测试报告断链（base_check 报） | `需求/00` 位于 `需求/` 下，指向阶段根的测试报告应为 `../01_测试报告_项目骨架.md` | 已修正；`check_base.py` 断链归零 |
+| 6 | `backend/README.md` 未含门禁新命令 | 首次同步漏项 | 补 `check_docs/check_status.py` 一行（复盘清单第 6 项据此可校） |
+| 7 | 指向阶段测试报告的链接断链（需求总览 2 处、本任务实施 / 测试记录各 1 处） | 相对链接层级：`需求/` 下应为 `../01_测试报告_项目骨架.md`，任务记录目录下应为 `../../../../01_测试报告_项目骨架.md` | 均已修正；`check_base.py` 断链归零（同一类问题本阶段第 3 次出现，已写入报告 §5 改进项） |
 | 8 | 复盘清单第 5 项条数口径（含表头行） | 统计包含「待办 / 后续阶段 / 说明」表头 | 脚本排除表头行，输出改为「52 条」，与报告 §4 一致 |
 
 **交叉审核结论与人工异常项处理**（第二 AI 独立只读复核）：
 
 | # | 审核发现 | 性质 | 处置 |
 | --- | --- | --- | --- |
-| R1 | `apps/desktop/README.md` / `frontend-mobile/README.md` 指向《架构设计 · 前端架构》的链接编号错（写 `28_…`，实际为 `08_…`）；且 `check-base.py` 只扫 `bms文档/`，覆盖不到各 README | 历史断链（本次同步未察觉） | 两份 README 均改为 `08_架构设计_前端架构.md`；报告 §5 改进项登记「README 内链接需人工核对或扩展扫描范围」 |
+| R1 | `apps/desktop/README.md` / `frontend-mobile/README.md` 指向《架构设计 · 前端架构》的链接编号错（写 `28_…`，实际为 `08_…`）；且 `check_base.py` 只扫 `bms文档/`，覆盖不到各 README | 历史断链（本次同步未察觉） | 两份 README 均改为 `08_架构设计_前端架构.md`；报告 §5 改进项登记「README 内链接需人工核对或扩展扫描范围」 |
 | R2 | 同一份报告中「373 项」与「374 项」并存，跨文档亦分裂（需求 04-3 注块 / 03 实施记录为 373，03 实施 §5 与测试记录为 374） | 计数未随记录落盘同步 | 统一口径「收口时 374 项（04-3 核对时 373 项）」；需求 04-3 注块与 03 实施记录 §4 已注明；报告 §5 改 374 |
 | R3 | 设计 §6.1 声明 `review_stage.py` 支持 `--strict`（实现无）；§5.1 称 `--out` 写 JSON/Markdown（实现仅 JSON）；§5.2 称按 `defect-auto` / `defect-manual` 聚合（实现仅前者） | 设计与实现不一致 | 设计 §6.1 去掉 `--strict`、§5.1 改为「写 JSON」；脚本补 `defect_manual` 计数字段并把 `p0_p1_open` 改为按 P0/P1 标签真实统计 |
 | R4 | 报告 §3 引「核心模块覆盖率」指向计划 §3.1，但 §3.1 无该行 | 引用缺证 | 改指《项目骨架计划》§2 的 04_01 行「偏差与遗留」列（实际登记处） |
 | R5 | 报告「52 条」与复盘清单输出「53 行」并存 | 统计口径易误读 | 脚本排除表头行 → 输出「52 条」；报告 §4 标题补「共 52 条」 |
-| R6 | `scripts/README.md` 工具清单漏列 `reorder-stage/`、`workbuddy/` | 清单与磁盘不一致 | 已补两行（15 项与磁盘一致） |
+| R6 | `scripts/README.md` 工具清单漏列 `reorder_stage/`、`workbuddy/` | 清单与磁盘不一致 | 已补两行（15 项与磁盘一致） |
 | R7 | `collect_metrics.py` 措辞「默认不落中间产物到仓库」偏宽（跑测试会生成 `.coverage` / `coverage/`） | 措辞与实现偏差 | docstring 明确「本地产物均已被 `.gitignore` 忽略」 |
 | R8 | 实施信息表多「Kiwi 用例」字段（超《任务文档规范》§5 固定 8 字段） | 全项目通用写法 | 保持一致不改；如需规范对齐，后续统一调整规范或各记录 |
 
@@ -86,8 +86,8 @@ flowchart LR
 | --- | --- | --- |
 | 度量采集 | `python3 scripts/tools/governance/collect_metrics.py --with-frontend` | 四项正常输出（§3 第 5 步数据）；退出码 0 |
 | 复盘清单 | `python3 scripts/tools/governance/review_stage.py` | **8/8 通过**（含门禁表 10 行、残留 0、报告与 README 就位、记录齐备、Kiwi 引用齐备） |
-| 三类文档一致 | `python3 scripts/tools/check-docs/check-status.py` | 硬规则 0 不合规、软提示 0 |
-| 基座自检 | `python3 scripts/tools/base-check/check-base.py` | 五项通过（断链 0 / 跨层 0 / 措辞 0 / 清单 146=146 / 编号引用 0） |
+| 三类文档一致 | `python3 scripts/tools/check_docs/check_status.py` | 硬规则 0 不合规、软提示 0 |
+| 基座自检 | `python3 scripts/tools/base_check/check_base.py` | 五项通过（断链 0 / 跨层 0 / 措辞 0 / 清单 146=146 / 编号引用 0） |
 | 报告齐备 | 《[项目骨架阶段测试报告](../../../../01_测试报告_项目骨架.md)》 | 四章节 + 复盘 + 附录；数字可追溯到附录命令输出 |
 | 门禁与状态收口 | 《需求总览》§4 第 10 行 / §3 总清单 | 第 10 行「达标」；**54/54 已完成** |
 | README 一致 | 四份 README 关键命令 | 根：应用工厂启动 / 门禁块 / 报告链接；三工程：dev 端口（5173 / 5174）、`test:cov`、阶段一导航 |

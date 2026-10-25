@@ -20,7 +20,7 @@ uv 在**开发机**与**开发服务器（CI）**上是互补两侧，先讲清�
 服务器侧 uv 在 **CI 基础镜像**内（非开发机）
 
 ```bash
-# build-base.sh 后端段（伪代码口径，与开发机 uv 配置文件两处独立但同锁）
+# build_base.sh 后端段（伪代码口径，与开发机 uv 配置文件两处独立但同锁）
 uv sync --frozen                      # job 内现装，读仓库树 backend/uv.lock 单一权威
 ```
 

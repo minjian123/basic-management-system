@@ -242,7 +242,7 @@
       function publish() { ElMessage({ message: '已发布 form.updated（AI 帮助更新触发）', type: 'success' }); }
       function saveLayout() {
         if (readOnly.value) { ElMessage({ message: '平台默认层级只读', type: 'warning' }); return; }
-        ElMessage({ message: '布局已保存（PUT /form-design/layouts，缓存已失效）', type: 'success' });
+        ElMessage({ message: '布局已保存（PUT /form_design/layouts，缓存已失效）', type: 'success' });
       }
       function goNewField() { location.href = '03_新建自定义字段.html'; }
       return { curForm, scope, role, platformFields, tenantFields, sections, activeSec, selField, readOnly, toastMsg, switchForm, switchScope, secCols, renameSec, addField, moveField, toggleFull, delField, delSec, addSec, resetLayout, publish, saveLayout, goNewField };

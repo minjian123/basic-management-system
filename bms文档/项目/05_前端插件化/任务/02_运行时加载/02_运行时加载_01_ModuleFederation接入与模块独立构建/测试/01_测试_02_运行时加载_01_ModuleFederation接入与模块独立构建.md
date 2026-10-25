@@ -51,10 +51,10 @@ cd frontend/apps/desktop && pnpm run preview          # 4173
 # 浏览器渲染 http://localhost:4173/demo（无头 Chromium dump-dom 取证）
 
 # 文档与基座校验 / CI 配置
-python3 scripts/tools/base-check/check-base.py
-python3 scripts/tools/base-check/check-links.py
-python3 scripts/tools/check-docs/check-status.py --stage 05_前端插件化 --strict
-sh -n deploy/ci/build-base.sh   # 另以 YAML 解析校验 .gitlab-ci.yml 新增 job
+python3 scripts/tools/base_check/check_base.py
+python3 scripts/tools/base_check/check_links.py
+python3 scripts/tools/check_docs/check_status.py --stage 05_前端插件化 --strict
+sh -n deploy/ci/build_base.sh   # 另以 YAML 解析校验 .gitlab-ci.yml 新增 job
 ```
 
 ```text
@@ -70,7 +70,7 @@ sh -n deploy/ci/build-base.sh   # 另以 YAML 解析校验 .gitlab-ci.yml 新增
 > base    清单一致 171 / 171；跨文档编号引用 0 处
 > links   断链 0 / 失效锚点 0
 > status  检查 95 项；硬规则不合规 0，软提示 0
-> ci      build-base.sh 语法通过；.gitlab-ci.yml 解析通过（module-check / module-build 就位）
+> ci      build_base.sh 语法通过；.gitlab-ci.yml 解析通过（module-check / module-build 就位）
 > kiwi    978 新建 1 / 跳过 0 / 失败 0
 ```
 

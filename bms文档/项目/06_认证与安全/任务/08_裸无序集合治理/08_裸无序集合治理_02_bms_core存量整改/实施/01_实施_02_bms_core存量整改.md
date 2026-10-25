@@ -44,11 +44,11 @@ flowchart LR
    - `list` 按**轮转**分派段（与序号解耦）、`set` / `dict` 按**元素 / 键哈希**分派段（同元素固定落同段，定位 O(1)）；段锁内取号保证段内序号递增（`heapq.merge` 前提）。
    - 元素无需可比较（`dict` / Pydantic 模型 / ORM 模型可入）；`set` 去重（保留首次插入位置）、`dict` 更新已存在键保持原插入位置。
    - 只读面、原子方法集合、非 `SHARDED` 策略（`RW` / `RLCK` / `SNAPSHOT`）与升序形态对齐。
-5. **护栏实现文件豁免**（`scripts/tools/base-check/check-bare-collections.py`）：新增 `EXEMPT_FILES`（`core/collections.py` / `core/concurrent.py` / `core/redis_collections.py`）按文件路径白名单豁免，`collect` 跳过豁免文件；`--self-test` 矩阵新增「实现文件豁免」断言（**19 项**）；docstring 口径与用例覆盖说明同步。
+5. **护栏实现文件豁免**（`scripts/tools/base_check/check_bare_collections.py`）：新增 `EXEMPT_FILES`（`core/collections.py` / `core/concurrent.py` / `core/redis_collections.py`）按文件路径白名单豁免，`collect` 跳过豁免文件；`--self-test` 矩阵新增「实现文件豁免」断言（**19 项**）；docstring 口径与用例覆盖说明同步。
 6. **Pydantic 契约元数据 `CONTRACT_COLLECTION`**（`schemas/base.py`）：`_ContractCollection`（落 `BaseFrameworkObject`——自定义类须有基类）按 `get_origin` 分派同类内置容器 schema（映射 → `dict_schema`，其余 → `list_schema`；**集合类以 `list` 校验保插入序**，去重交集合类）；`__get_pydantic_json_schema__` 为集合类补 `uniqueItems`（与 `frozenset[X]` 一致）；序列化器按 `info.mode` 区分（Python 同类重组 / JSON 内置容器）；`Optional` 联合形态经 `union_schema` 逐成员处理。新增空集合工厂常量 `CONTRACT_STABLE_LIST` / `CONTRACT_STABLE_DICT` / `CONTRACT_STABLE_SET`。
 7. **序列化链识别集合类**（只依赖 `collections.abc`，不反向 import `core.collections` / `core.concurrent`）：`core/serialization.py` 新增 `rebuild_mapping` / `rebuild_sequence`（同型重组，构造不可用时回退内置）与 `normalize_collections`（前置规整为内置容器）；`stringify_ids` 递归映射 / 序列 / 集合（`str` / `bytes` 不参与，内置 `set` / `frozenset` 保持原样），`stable_json_dumps` 前置规整；`core/base.py` 的 `_convert` 同步按只读面识别并同型重组。
 8. **用例与回归**：新增 `tests/core/test_concurrent_stable.py`（Kiwi 2222）与 `tests/schemas/test_contract_collections.py`（Kiwi 2223）；既有 `tests/core/test_concurrent.py` 适配 `__iter__` 语义。
-9. **护栏白名单收紧**（`check-bare-collections.py`）：判违规形态收敛为**固定违规集**（裸容器 + typing 别名 + 只读 / 可变抽象 `Sequence` / `Mapping` / `AbstractSet` / `Collection` / `Mutable*` + 升序形态 `Sorted*` / `ConcurrentSorted*`），**插入序形态为白名单**（`ConcurrentStable*`），迭代 / 调用协议（`Iterable` / `Iterator` / `Generator` / `Callable` 等）不查；实现文件豁免保留；docstring 口径改写；`--self-test` 矩阵由 19 项扩到 **24 项**（新增抽象落点 / 升序形态 / 白名单命中不报 / 迭代协议不报）。
+9. **护栏白名单收紧**（`check_bare_collections.py`）：判违规形态收敛为**固定违规集**（裸容器 + typing 别名 + 只读 / 可变抽象 `Sequence` / `Mapping` / `AbstractSet` / `Collection` / `Mutable*` + 升序形态 `Sorted*` / `ConcurrentSorted*`），**插入序形态为白名单**（`ConcurrentStable*`），迭代 / 调用协议（`Iterable` / `Iterator` / `Generator` / `Callable` 等）不查；实现文件豁免保留；docstring 口径改写；`--self-test` 矩阵由 19 项扩到 **24 项**（新增抽象落点 / 升序形态 / 白名单命中不报 / 迭代协议不报）。
 10. **基线如实吸收**：`--update-baseline` 吸收口径收紧后的现状——**548 → 918 条**（852 个聚合条目；`libs` 594 / `services` 104 / `ops` 75 / `scripts/tools` 145），复跑「**新增 0 / 残留 0**」；与初稿 940 的差异（未扣实现文件豁免 20 处与 `ClassVar` 常量 2 处，共 22 处）按用户拍板修正全域数字。
 11. **文档回写**：详细设计回填 Kiwi 编号（§2 / §5 / §7）、插入序默认 `SHARDED`（§3.4）、`key=` 删除（§1.1 / §3.3）、契约元数据实现细化（§3.5）与**数字修正**（§1.1 新增说明：940 → 918、616 → 594）、《后端基类清单》§10 登记 `ConcurrentStable*` 完整继承链并回写状态；任务状态「未开始」→「进行中」；**数字全域修正**（设计 / 任务 02~03 / 父任务 / 需求 08-2 / 需求总览 / 计划 / 清单 / 盘点报告）。
 
@@ -78,12 +78,12 @@ flowchart LR
 | 并发稳定性 | 新并发用例重复执行 15 轮 | 全通过（无顺序抖动 / 无丢失） |
 | 静态检查 | `uv run ruff check` / `ruff format --check`（改动文件） | 通过 |
 | 类型检查 | `uv run pyright`（backend 全量 `libs` + `services`） | **0 errors, 0 warnings** |
-| 护栏自测 | `python3 scripts/tools/base-check/check-bare-collections.py --self-test` | **24 项断言全通过**（白名单 / 抽象落点 / 升序形态 / 实现文件豁免 / 迭代协议 / 基线语义） |
-| 护栏报告 | `python3 scripts/tools/base-check/check-bare-collections.py . --report --json` | 命中 **918** 处（类字段 153 / 参数 390 / 返回 375；`libs` 594 / `services` 104 / `ops` 75 / `scripts/tools` 145） |
+| 护栏自测 | `python3 scripts/tools/base_check/check_bare_collections.py --self-test` | **24 项断言全通过**（白名单 / 抽象落点 / 升序形态 / 实现文件豁免 / 迭代协议 / 基线语义） |
+| 护栏报告 | `python3 scripts/tools/base_check/check_bare_collections.py . --report --json` | 命中 **918** 处（类字段 153 / 参数 390 / 返回 375；`libs` 594 / `services` 104 / `ops` 75 / `scripts/tools` 145） |
 | 基线吸收与复跑 | `--update-baseline` → 直跑检查 | 基线 **918** 条（852 聚合条目）；复跑「新增 0 / 残留 0」 |
-| 本地预检 | `python3 scripts/tools/preflight/check-preflight.py --fast` | **全部通过**（静态 / 基座与边界 / 网关 / 契约零漂移 / 前端类型 / check-status 310 项 0 硬 0 软） |
-| 阶段状态 | `python3 scripts/tools/check-docs/check-status.py --root . --stage 06_认证与安全` | 502 项 0 硬 0 软 |
-| 文档链接 | `python3 scripts/tools/base-check/check-links.py` | 0 断链 / 0 失效锚点 |
+| 本地预检 | `python3 scripts/tools/preflight/check_preflight.py --fast` | **全部通过**（静态 / 基座与边界 / 网关 / 契约零漂移 / 前端类型 / check_status 310 项 0 硬 0 软） |
+| 阶段状态 | `python3 scripts/tools/check_docs/check_status.py --root . --stage 06_认证与安全` | 502 项 0 硬 0 软 |
+| 文档链接 | `python3 scripts/tools/base_check/check_links.py` | 0 断链 / 0 失效锚点 |
 
 ## 6. 偏差与遗留 <a id="deviations"></a>
 
@@ -108,11 +108,11 @@ flowchart LR
    - `core/redis_collections.py`：`BaseAsyncSorted(BaseSorted)`（跨副本异步有序）**显式覆写同步读公共段为不支持**（`to_list` / `__iter__` / `_json_data` 恒抛 `NotImplementedError`）；新增 **`BaseCacheSnapshot(BaseCollection)`**（通用缓存层，抽象 `async get()` / `async invalidate()`）；**`RedisSnapshot` 由 `BaseFrameworkObject` 改挂 `BaseCacheSnapshot`**。
    - `core/objects/roots.py`：体系根注释「集合 `BaseSorted`」→「集合 `BaseCollection`」。
    - `schemas/base.py`：契约元数据改认集合体系唯根（`CollectionType = type[BaseCollection[Any]]`，`issubclass(...)` / `isinstance(...)` 均改 `BaseCollection`）。
-2. **护栏口径收紧 + 取消全部豁免**（`scripts/tools/base-check/check-bare-collections.py`）：扫描目标扩至 `backend/libs/bms_core/tests` 与 `backend/services/*/tests`；新增**函数体带注解局部变量**检测（新增位置 `local`）；删除 `ClassVar` 与 `BaseSettings` 豁免；`EXEMPT_FILES` → `SYSTEM_IMPLEMENTATION_FILES`（语义改为「集合体系实现文件**不属约束对象**」，护栏只约束业务侧集合声明）；`--self-test` 矩阵同步（「ClassVar 报 / 配置字段报 / 局部变量报 / 测试目录纳入 / 实现文件不报」）。`check-backend-base.py` 体系根白名单随清单 §10 改 `BaseCollection`（无脚本改动）。
-3. **基线重算**：`python3 scripts/tools/base-check/check-bare-collections.py . --update-baseline` → **1711 条**（918 → 1711；`libs` 1036 / `services` 348 / `scripts/tools` 224 / `ops` 103）。
+2. **护栏口径收紧 + 取消全部豁免**（`scripts/tools/base_check/check_bare_collections.py`）：扫描目标扩至 `backend/libs/bms_core/tests` 与 `backend/services/*/tests`；新增**函数体带注解局部变量**检测（新增位置 `local`）；删除 `ClassVar` 与 `BaseSettings` 豁免；`EXEMPT_FILES` → `SYSTEM_IMPLEMENTATION_FILES`（语义改为「集合体系实现文件**不属约束对象**」，护栏只约束业务侧集合声明）；`--self-test` 矩阵同步（「ClassVar 报 / 配置字段报 / 局部变量报 / 测试目录纳入 / 实现文件不报」）。`check_backend_base.py` 体系根白名单随清单 §10 改 `BaseCollection`（无脚本改动）。
+3. **基线重算**：`python3 scripts/tools/base_check/check_bare_collections.py . --update-baseline` → **1711 条**（918 → 1711；`libs` 1036 / `services` 348 / `scripts/tools` 224 / `ops` 103）。
 4. **测试适配**：`test_collections_chain.py` 重写为唯一链（唯一根 / 分支关系 / 跨副本无同步读入口 / 形态标记 / 同步侧行为 / 清单登记，Kiwi 2221）；`test_collections.py`（`BaseSorted` 名不变）、`test_concurrent.py`、`test_concurrent_stable.py`、`test_object_bases_roots.py`（`OBJECT_BASES` 增 `BaseCollection` / `BaseConcurrent` / `BaseCacheSnapshot`；`RedisSnapshot` 台账改 `BaseCacheSnapshot`）、`test_value_object_roots.py`（`_SYSTEM_ROOTS` 改 `BaseCollection`）同步。
 
-**验证**：`pytest` 集合 / 根治理 6 份用例 **80 passed**；`check-backend-base.py` 六项全绿（继承链 744 条相邻关系 / 直继承 7 个体系根 / 数据类语义 565 个类）；`check-bare-collections.py` 复跑「新增 0 / 残留 0」；`preflight --fast` 全绿（含契约快照与前端 `api-types` 零漂移）。
+**验证**：`pytest` 集合 / 根治理 6 份用例 **80 passed**；`check_backend_base.py` 六项全绿（继承链 744 条相邻关系 / 直继承 7 个体系根 / 数据类语义 565 个类）；`check_bare_collections.py` 复跑「新增 0 / 残留 0」；`preflight --fast` 全绿（含契约快照与前端 `api-types` 零漂移）。
 
 **偏差**：设计 §3 / §8 中「`BaseSorted` 为体系根」「两条角色链」「实现文件豁免」「基线 918 → 324 / 220 / 0」为 **2026-09-29 旧口径**，已由设计 §9 与本节取代（**基线口径改为 1711 起递减**）；批次数量按 2026-09-30 实测为 `bms_core` 1036 / `services` 348 / `scripts/tools` 224 + `ops` 103。
 
@@ -129,7 +129,7 @@ flowchart LR
 5. **配置字段（原豁免，21 处）**：`core/config.py` 各分区字段 → `Annotated[ConcurrentStable*, CONTRACT_COLLECTION]` + `Field(default_factory=CONTRACT_STABLE_*)`（非空默认值包 `lambda: ConcurrentStableList([...])`）；`attribute_map` 嵌套落 `ConcurrentStableDict[str, ConcurrentStableList[str]]`。pydantic-settings（TOML / 环境变量）解析经契约元数据校验后转集合类；消费方按只读面使用。
 6. **测试适配**：`test_contract_collections.py` 的「内置容器对照模型」改为 `TypeAdapter(list[X] / dict[K, V] / frozenset[X])` 生成参照 schema（不再声明内置容器字段），比对去 `$defs` / `title` / `default`。
 
-**验证**：`pytest libs/bms_core/tests`（除既有失败 `crosscut/test_m2_closure.py` / `test_m5_closure.py`，见偏差）**1081 passed / 37 skipped**；`services/platform/tests/repositories` 同步通过；`ruff check` / `ruff format --check` 全绿；`check-bare-collections.py` 复跑「新增 0 / 残留 0」，**基线 1711 → 1647**（`libs` 类字段归零）。
+**验证**：`pytest libs/bms_core/tests`（除既有失败 `crosscut/test_m2_closure.py` / `test_m5_closure.py`，见偏差）**1081 passed / 37 skipped**；`services/platform/tests/repositories` 同步通过；`ruff check` / `ruff format --check` 全绿；`check_bare_collections.py` 复跑「新增 0 / 残留 0」，**基线 1711 → 1647**（`libs` 类字段归零）。
 
 **偏差（新发现，非本任务引入）**：`libs/bms_core/tests/crosscut/test_m2_closure.py` 与 `test_m5_closure.py` 断言任务文档含 `| 状态 | 已完成 |` 行，该行已被 2026-09-30 的「阶段计划单落点收敛」提交移除——**在干净树同样失败**，属既有 red；**已按用户拍板改为「任务 / 域总览不得承载状态与完成日期 + 由阶段计划表核对已完成与完成日期」**（`fix(基座测试)` 单独提交，两用例恢复绿）。
 
@@ -143,7 +143,7 @@ flowchart LR
 - 实现体同型产出：`names` / `directions` / `specs` / `seen` 局部量一并落集合类（子批 3 口径前置），列表写法由 `append` 改**原子方法 `add`**、白名单过滤结果包 `ConcurrentStableList(...)`。
 - 调用方与测试同步：`test_sorting.py`、`test_pagination.py`、`services/platform/tests/repositories/test_base_repository.py`（`["asc"]` → `ConcurrentStableList([...])`、`{"id"}` → `ConcurrentStableSet({...})`）。
 
-**验证**：`pytest libs/bms_core/tests` **1099 passed / 37 skipped**；`ruff check` / `ruff format --check` 全绿；`check-bare-collections.py`「新增 0 / 残留 0」，**基线 1647 → 1638**。
+**验证**：`pytest libs/bms_core/tests` **1099 passed / 37 skipped**；`ruff check` / `ruff format --check` 全绿；`check_bare_collections.py`「新增 0 / 残留 0」，**基线 1647 → 1638**。
 
 **尺度评估（供后续推进参考）**：试点 1 份文件（7 处命中 / 触达 4 份文件）为单轮可验证单元；`bms_core` 签名 658 处 + 局部 314 处分布在 219 份文件，**须按文件多轮推进**（每轮：改实现体 → 调用方适配 → 定向用例 → 护栏复跑 → 提交）。后续仍按「分子批推进、每子批一提交」执行。
 
@@ -168,9 +168,9 @@ flowchart LR
 | 全量 `libs` + 平台 | `pytest libs/bms_core/tests services/platform/tests` | **1450 passed / 38 skipped / 1 failed**（失败项见下「偏差」） |
 | 其余服务 | `pytest services/{identity,org,tenant,search,notification,file,ai,report}/tests` | **426 passed / 2 skipped** |
 | 静态检查 | `ruff check .` / `ruff format --check .`（backend 全量） | 全绿（956 文件已格式化） |
-| 护栏 | `check-bare-collections.py .` | **「新增 0 / 残留 0」**；`repositories/` **45 → 0** |
+| 护栏 | `check_bare_collections.py .` | **「新增 0 / 残留 0」**；`repositories/` **45 → 0** |
 | 基线递减 | `--update-baseline` | **1622 → 1553**（`libs` 947 → 892 / `services` 348 → 334 / `ops` 103 / `scripts/tools` 224） |
-| 本地预检 | `check-preflight.py --fast` | **全部通过**（含契约零漂移 / 网关 / 事件契约 / 前端 `api-types`） |
+| 本地预检 | `check_preflight.py --fast` | **全部通过**（含契约零漂移 / 网关 / 事件契约 / 前端 `api-types`） |
 
 **偏差（既有 red，非本轮引入）**：`services/platform/tests/dict/test_dict_real.py::test_http_endpoints` 在**干净树同样失败**——`GET /dicts/query-providers` 经 `payload.model_dump()`（Python 模式）产出 `ConcurrentStableDict` 后由 `ApiResponse` 走 JSON 序列化，报 `Unable to serialize unknown type: ConcurrentStableDict`；属早前契约字段落集合类时遗留的序列化出口适配缺口（落点 `services/platform/src/bms_platform/api/dict.py::_provider_record`，宜改 `model_dump(mode="json")`），**不在本轮「repositories/ 基座」范围**，另议处置。
 
@@ -203,9 +203,9 @@ flowchart LR
 | 全量 `libs` + 平台 | `pytest libs/bms_core/tests services/platform/tests` | **1450 passed / 38 skipped / 1 failed**（同上一既有 red，无新增） |
 | 其余服务 | `pytest services/{identity,org,tenant,search,notification,file,ai,report}/tests` | **426 passed / 2 skipped** |
 | 静态检查 | `ruff check .` / `ruff format --check .`（backend 全量） | 全绿 |
-| 护栏 | `check-bare-collections.py .` | **「新增 0 / 残留 0」**；`dict/` **70 → 0**、`query/` **4 → 0** |
+| 护栏 | `check_bare_collections.py .` | **「新增 0 / 残留 0」**；`dict/` **70 → 0**、`query/` **4 → 0** |
 | 基线递减 | `--update-baseline` | **1553 → 1476**（`libs` 892 → 817 / `services` 334 → 332 / `ops` 103 / `scripts/tools` 224） |
-| 本地预检 | `check-preflight.py --fast` | **全部通过**（含契约 / 事件契约 / 网关 / 前端 `api-types` 零漂移） |
+| 本地预检 | `check_preflight.py --fast` | **全部通过**（含契约 / 事件契约 / 网关 / 前端 `api-types` 零漂移） |
 
 **偏差（既有 red，非本轮引入）**：`services/platform/tests/dict/test_dict_real.py::test_http_endpoints`（`GET /dicts/query-providers`：`_provider_record` 的 `payload.model_dump()` 产出 `ConcurrentStableDict` 后由 `ApiResponse` 走 JSON 序列化报 `Unable to serialize unknown type`）在干净树同样失败，属早前契约字段落集合类遗留的序列化出口缺口；本轮**未扩大**，按用户拍板登记遗留、另轮单独修（落点 `services/platform/src/bms_platform/api/dict.py::_provider_record`，宜改 `model_dump(mode="json")`）。
 
@@ -239,9 +239,9 @@ flowchart LR
 | 定向用例 | `pytest libs/bms_core/tests/{idp,oauth,security} services/identity/tests/{idp,oauth,sso}` | **175 → 266 passed / 1 skipped**（identity sso 全绿） |
 | 全量后端 | `pytest`（`libs` + 9 服务） | **1876 passed / 40 skipped / 1 failed**（既有 red，见偏差） |
 | 静态检查 | `ruff check .` / `ruff format --check .`（backend 全量） | 全绿 |
-| 护栏 | `check-bare-collections.py .` | **「新增 0 / 残留 0」**；`idp/` **61 → 0** |
+| 护栏 | `check_bare_collections.py .` | **「新增 0 / 残留 0」**；`idp/` **61 → 0** |
 | 基线递减 | `--update-baseline` | **1476 → 1415**（`libs` 817 → 756 / `services` 332 / `ops` 103 / `scripts/tools` 224） |
-| 本地预检 | `check-preflight.py --fast` | **全部通过** |
+| 本地预检 | `check_preflight.py --fast` | **全部通过** |
 
 **偏差（既有 red，非本轮引入）**：`services/platform/tests/dict/test_dict_real.py::test_http_endpoints`（`query-providers` 的 `model_dump` 序列化出口）仍为既有 red，本轮未扩大；另轮单独修。
 
@@ -268,9 +268,9 @@ flowchart LR
 | 定向用例 | `pytest libs/bms_core/tests/{oauth,security,idp} services/identity/tests/{oauth,idp,sso}` | **214 passed / 1 skipped** |
 | 全量后端 | `pytest`（`libs` + 9 服务） | **1876 passed / 40 skipped / 1 failed**（既有 red，见偏差） |
 | 静态检查 | `ruff check .` / `ruff format --check .`（backend 全量） | 全绿 |
-| 护栏 | `check-bare-collections.py .` | **「新增 0 / 残留 0」**；`oauth/` **31 → 0** |
+| 护栏 | `check_bare_collections.py .` | **「新增 0 / 残留 0」**；`oauth/` **31 → 0** |
 | 基线递减 | `--update-baseline` | **1415 → 1384**（`libs` 756 → 725 / `services` 332 / `ops` 103 / `scripts/tools` 224） |
-| 本地预检 | `check-preflight.py --fast` | **全部通过** |
+| 本地预检 | `check_preflight.py --fast` | **全部通过** |
 
 **偏差（既有 red，非本轮引入）**：`services/platform/tests/dict/test_dict_real.py::test_http_endpoints`（`query-providers` 的 `model_dump` 序列化出口）仍为既有 red，本轮未扩大；另轮单独修。
 
@@ -297,10 +297,10 @@ flowchart LR
 | --- | --- | --- |
 | 定向 + 全量 `libs` | `pytest libs/bms_core/tests` | **1099 passed / 37 skipped** |
 | 静态检查 | `ruff check` / `ruff format --check`（改动文件） | 全绿 |
-| 护栏 | `check-bare-collections.py .` | **「新增 0 / 残留 0」**；`events/` **20 → 0** |
+| 护栏 | `check_bare_collections.py .` | **「新增 0 / 残留 0」**；`events/` **20 → 0** |
 | 基线递减 | `--update-baseline` | **1384 → 1360**（`libs` 725 → 701） |
 | 快照零漂移 | `python -m ops.event_contracts check --root ..` | 通过（契约 23 条，`deploy/events/contracts.json` 零漂移） |
-| 本地预检 | `check-preflight.py --fast` | **全部通过** |
+| 本地预检 | `check_preflight.py --fast` | **全部通过** |
 
 **过程处置（已闭环）**：① 首版在 `core/objects/event_contracts.py` 顶层导入 `core.concurrent` 触发循环导入（`core.concurrent → core.holder → core.objects`）→ 改 `TYPE_CHECKING` 引用；② `render_event_snapshot` 直接 `json.dumps` 集合类会失败 → 前置 `normalize_collections` 规整（输出与旧实现逐字节一致）。
 
@@ -326,15 +326,15 @@ flowchart LR
 | 全量 `libs` | `pytest libs/bms_core/tests` | **1099 passed / 37 skipped** |
 | 服务侧 | `pytest services/platform/tests services/org/tests` | **390 passed / 1 skipped / 1 failed**（既有 red，见偏差） |
 | 静态检查 | `ruff check` / `ruff format --check`（改动文件） | 全绿 |
-| 护栏 | `check-bare-collections.py .` | **「新增 0 / 残留 0」**；`captcha/` **16 → 0**、`config/` **16 → 0** |
+| 护栏 | `check_bare_collections.py .` | **「新增 0 / 残留 0」**；`captcha/` **16 → 0**、`config/` **16 → 0** |
 | 基线递减 | `--update-baseline` | **1360 → 1306**（`libs` 701 → 652 / `services` 332 → 327） |
-| 本地预检 | `check-preflight.py --fast` | **全部通过** |
+| 本地预检 | `check_preflight.py --fast` | **全部通过** |
 
 **过程处置（已闭环，两个「集合类不是内置容器超集」的坑）**：① `SqlConfigSource.get_many` 回填原为 `result.update(loaded)`——集合类 `update` **只吃键值对**，直接传映射会按键解包，改 `result.update(loaded.items())`；② `tests/captcha/test_captcha_policy.py` 原用 `monkeypatch.setitem(CAPTCHA_SCENE_CHANNELS, …)` 注入场景——集合类**不提供 `__setitem__`**，改 `monkeypatch.setattr` + 副本 `ConcurrentStableDict(...)`。
 
 **偏差（既有 red，非本轮引入）**：`services/platform/tests/dict/test_dict_real.py::test_http_endpoints`（`_provider_record` 的 `model_dump()` 序列化出口，`Unable to serialize unknown type: ConcurrentStableDict`）在干净树同样失败，本轮未扩大；另轮单独修。
 
-**另一处既有 red（非本轮引入，已另行修正）**：`check-links.py` 实测 **18 处断链**（0 失效锚点）——14 处为 `项目/01_项目骨架/` 下多层任务文档指向 `后端基类清单.md` / `规范/后端开发规范.md` 的相对层级少 3 层，4 处为 `08_03 集合体系收链` 三份文档 + 盘点报告指向 08_02 详细设计 `#unique-chain` 的链接（`../08_02…` 少一层，应为兄弟任务目录 `../../08_02…`）；均在**干净树同样失败**（本任务未改这些文档的链接），属文档层既有问题。经用户拍板**以独立 docs 提交单独修正**，未混入本任务改动；修正后 `check-links.py` 实测 **断链 0 / 失效锚点 0**。
+**另一处既有 red（非本轮引入，已另行修正）**：`check_links.py` 实测 **18 处断链**（0 失效锚点）——14 处为 `项目/01_项目骨架/` 下多层任务文档指向 `后端基类清单.md` / `规范/后端开发规范.md` 的相对层级少 3 层，4 处为 `08_03 集合体系收链` 三份文档 + 盘点报告指向 08_02 详细设计 `#unique-chain` 的链接（`../08_02…` 少一层，应为兄弟任务目录 `../../08_02…`）；均在**干净树同样失败**（本任务未改这些文档的链接），属文档层既有问题。经用户拍板**以独立 docs 提交单独修正**，未混入本任务改动；修正后 `check_links.py` 实测 **断链 0 / 失效锚点 0**。
 
 **遗留**：`bms_core` 剩余 **652 处**（`libs`：`tests` 约 291 / `services` 89 / `db` 43 / `core` 36 / `api` 32 / `boundary` 18 / `session` 13 / `schemas` 10 …）；本轮范围内的 `masking/` 余 4 处（`base.py` 两个局部、`default.py` 模块常量与 `DefaultMasker.__init__` 的 `rules` 参数）与 `core/objects/tally.py` 1 处，随各自域批次推进。
 
@@ -352,7 +352,7 @@ flowchart LR
 
 ### 16.1 基座拆分：集合体系「无依赖面」（实施中拍板，2026-09-30） <a id="batch3-split"></a>
 
-**冲突**（详见 §15「既有 red 已修正」同源）：CI `base-integrity` job 用 `python:3.14-slim`（**不装依赖**）跑 `check-service-boundaries.py(+--self-test)` 与 `python backend/ops/gateway_config.py check`；两者经 `bms_core.boundary` / `bms_core.services.gateway_catalog` **导入并调用** `services/` 注册表。注册表落 `ConcurrentStable*` 后，导入链变为 `services.module_registry → core.concurrent → core.collections → sortedcontainers`（第三方）——本地预检实测 3 项红，CI 同 job 必红；`ops/gateway_config.py` 文档明写「仅依赖标准库 + bms_core 的 stdlib 导入链」。延迟导入救不了（`known_tables()` / `known_services()` 等**会被实际调用**，调用期同样需要第三方类）。
+**冲突**（详见 §15「既有 red 已修正」同源）：CI `base-integrity` job 用 `python:3.14-slim`（**不装依赖**）跑 `check_service_boundaries.py(+--self-test)` 与 `python backend/ops/gateway_config.py check`；两者经 `bms_core.boundary` / `bms_core.services.gateway_catalog` **导入并调用** `services/` 注册表。注册表落 `ConcurrentStable*` 后，导入链变为 `services.module_registry → core.concurrent → core.collections → sortedcontainers`（第三方）——本地预检实测 3 项红，CI 同 job 必红；`ops/gateway_config.py` 文档明写「仅依赖标准库 + bms_core 的 stdlib 导入链」。延迟导入救不了（`known_tables()` / `known_services()` 等**会被实际调用**，调用期同样需要第三方类）。
 
 **拍板**：用户选定「**基座侧解耦**」（选项二），而非「CI 装依赖」或「设无依赖面豁免」。
 
@@ -361,7 +361,7 @@ flowchart LR
 - **新增** `core/sorted_collections.py`：承载 `SortedList` / `SortedDict` / `SortedSet` 与 `ConcurrentSortedList` / `ConcurrentSortedSet` / `ConcurrentSortedDict`（**第三方依赖止步于此**）。
 - **`core/collections.py`**：只留体系根 `BaseCollection` + 有序公共段 `BaseSorted` + 公共常量 `MAX_INDEX`（原 `core/concurrent.py` 的私有 `_MAX_INDEX` 上移为**单一来源**，两模块共用）；顶层**不再**导入 `sortedcontainers`。
 - **`core/concurrent.py`**：只留 `BaseConcurrent` + `ConcurrentStable*`；`ConcurrentStableList.__eq__` 去掉对 `ConcurrentSortedList` 的直接引用（跨形态比较由对侧 `__eq__` **反射**完成，行为不变）。
-- **护栏**：`check-bare-collections.py` 的 `SYSTEM_IMPLEMENTATION_FILES` 与自测矩阵补第 4 个实现文件（`.py` 白名单 + `--self-test` 设「实现文件不属约束对象」样例）。
+- **护栏**：`check_bare_collections.py` 的 `SYSTEM_IMPLEMENTATION_FILES` 与自测矩阵补第 4 个实现文件（`.py` 白名单 + `--self-test` 设「实现文件不属约束对象」样例）。
 - **回写**：《后端基类清单》§3 / §4 表落点、「集合体系」节补「模块拆分与无依赖面」段、护栏段实现文件清单；设计 §3.2 落点表补第 12 行、§3.7 实现文件豁免补拆分说明；设计 §3 补「无依赖面铁律」。
 
 **验证**：
@@ -372,9 +372,9 @@ flowchart LR
 | 全量 `libs` | `pytest libs/bms_core/tests` | **1099 passed / 37 skipped** |
 | 服务侧 | `pytest services/platform/tests services/org/tests` | **390 passed / 1 skipped / 1 failed**（既有 red） |
 | 静态检查 | `ruff check` / `ruff format --check` | 全绿 |
-| 护栏 | `check-bare-collections.py .`（+ `--self-test`） | 「新增 0 / 残留 0」；`bms_core/services` **89 → 36**（仅 `gateway_catalog`）；基线 **1306 → 1246**（`libs` 652 → 592） |
-| 基座 / 边界护栏 | `check-base.py` / `check-backend-base.py`(+`--self-test`) / `check-service-boundaries.py`(+`--self-test`) | 全绿（此前因 `sortedcontainers` 缺失而红的 2 项恢复） |
-| 本地预检 | `check-preflight.py --fast` | **全部通过** |
+| 护栏 | `check_bare_collections.py .`（+ `--self-test`） | 「新增 0 / 残留 0」；`bms_core/services` **89 → 36**（仅 `gateway_catalog`）；基线 **1306 → 1246**（`libs` 652 → 592） |
+| 基座 / 边界护栏 | `check_base.py` / `check_backend_base.py`(+`--self-test`) / `check_service_boundaries.py`(+`--self-test`) | 全绿（此前因 `sortedcontainers` 缺失而红的 2 项恢复） |
+| 本地预检 | `check_preflight.py --fast` | **全部通过** |
 
 **遗留**：`gateway_catalog.py`（36 处）下一轮——其 `render_*` 返回落集合类后，`ops/gateway_config.py` 的 YAML 出口须在 `dump_yaml` 前 `normalize_collections` 规整，且因 `ConcurrentStable*` 已在**无依赖面**内，精简镜像下仍可运行；`bms_core` 剩余 **592 处**（`libs`：`tests` 282 / `db` 43 / `core` 27 / `api` 32 / `boundary` 18 / `session` 13 / `outbox` 10 / `schemas` 10 …）。
 
@@ -400,9 +400,9 @@ flowchart LR
 | 网关零漂移 | `python -m ops.gateway_config check --root ..` | 通过（`deploy/gateway/apisix.yaml` 逐字节一致、服务发现无硬编码 IP） |
 | **无依赖面实证** | 系统 `python3`（不装第三方依赖）导入 `gateway_catalog` 并 `render_apisix_yaml` / `validate_service_discovery` | 通过（CI 精简镜像下仍可运行） |
 | 静态检查 | `ruff check` / `ruff format --check`（改动文件） | 全绿 |
-| 护栏 | `check-bare-collections.py .` | **「新增 0 / 残留 0」**；`bms_core/services` **36 → 0**（模块收尾） |
+| 护栏 | `check_bare_collections.py .` | **「新增 0 / 残留 0」**；`bms_core/services` **36 → 0**（模块收尾） |
 | 基线递减 | `--update-baseline` | **1246 → 1209**（`libs` 592 → 555；含用例 1 处局部量一并清理，故递减 37） |
-| 本地预检 | `check-preflight.py --fast` | **全部通过**（网关 / 契约快照 / 事件契约 / 前端 `api-types` 零漂移） |
+| 本地预检 | `check_preflight.py --fast` | **全部通过**（网关 / 契约快照 / 事件契约 / 前端 `api-types` 零漂移） |
 
 **偏差（实现细化，非新坑）**：交接单 §7 建议「YAML 出口在 `dump_yaml` 前置 `normalize_collections` 规整」；本轮改为**在 `_dump` 内按 `Mapping` / `Sequence` 只读面识别**——集合类与内置容器同路处理，无需引入 `normalize_collections` 依赖，输出仍逐字节一致（`_dump*` 的入参声明已落集合类，若先规整为内置容器反而与签名不符）。
 
@@ -432,9 +432,9 @@ flowchart LR
 | 全量 `libs` | `pytest libs/bms_core/tests` | **1099 passed / 37 skipped** |
 | 平台全量 | `pytest services/platform/tests` | **349 passed / 1 skipped / 1 failed**（既有 red，见偏差） |
 | 静态检查 | `ruff check .` / `ruff format --check .`（backend 全量） | 全绿（957 文件） |
-| 护栏 | `check-bare-collections.py .` | **「新增 0 / 残留 0」**；`dashboard/` **9 → 0**、`catalog/` **8 → 0** |
+| 护栏 | `check_bare_collections.py .` | **「新增 0 / 残留 0」**；`dashboard/` **9 → 0**、`catalog/` **8 → 0** |
 | 基线递减 | `--update-baseline` | **1209 → 1186**（`libs` 555 → 535 / `services` 327 → 324） |
-| 本地预检 | `check-preflight.py --fast` | **全部通过** |
+| 本地预检 | `check_preflight.py --fast` | **全部通过** |
 
 **偏差（既有 red，非本轮引入）**：`services/platform/tests/dict/test_dict_real.py::test_http_endpoints`（`query-providers` 的 `model_dump` 序列化出口）仍为既有 red，本轮未扩大；另轮单独修。
 
@@ -462,9 +462,9 @@ flowchart LR
 | 全量 `libs` | `pytest libs/bms_core/tests` | **1099 passed / 37 skipped** |
 | identity + ai 全量 | `pytest services/identity/tests services/ai/tests` | **282 passed / 1 skipped** |
 | 静态检查 | `ruff check .` / `ruff format --check .`（backend 全量） | 全绿（957 文件） |
-| 护栏 | `check-bare-collections.py .` | **「新增 0 / 残留 0」**；`session/` **13 → 0** |
+| 护栏 | `check_bare_collections.py .` | **「新增 0 / 残留 0」**；`session/` **13 → 0** |
 | 基线递减 | `--update-baseline` | **1186 → 1173**（`libs` 535 → 522） |
-| 本地预检 | `check-preflight.py --fast` | **全部通过** |
+| 本地预检 | `check_preflight.py --fast` | **全部通过** |
 
 **过程处置（已闭环）**：`tests/idp/test_idp.py` 探针路由直传集合类触发 FastAPI 序列化失败 → 按第三方 JSON 边界口径改 `dict(session)`（`None` 分支保留）。
 
@@ -499,9 +499,9 @@ flowchart LR
 | 全量 `libs` | `pytest libs/bms_core/tests` | **1099 passed / 37 skipped** |
 | 全量 `services` | `pytest services` | **787 passed / 3 skipped / 1 failed**（既有 red，见偏差） |
 | 静态检查 | `ruff check .` / `ruff format --check .`（backend 全量） | 全绿（957 文件） |
-| 护栏 | `check-bare-collections.py .` | **「新增 0 / 残留 0」**；`db/` **43 → 0** |
+| 护栏 | `check_bare_collections.py .` | **「新增 0 / 残留 0」**；`db/` **43 → 0** |
 | 基线递减 | `--update-baseline` | **1173 → 1130**（`libs` 522 → 479） |
-| 本地预检 | `check-preflight.py --fast` | **全部通过**（含契约 / 事件契约 / 网关 / 前端 `api-types` 零漂移） |
+| 本地预检 | `check_preflight.py --fast` | **全部通过**（含契约 / 事件契约 / 网关 / 前端 `api-types` 零漂移） |
 
 **偏差（既有 red，非本轮引入）**：`services/platform/tests/dict/test_dict_real.py::test_http_endpoints`（`query-providers` 的 `model_dump` 序列化出口）仍为既有 red，本轮未扩大；另轮单独修。
 
@@ -521,7 +521,7 @@ flowchart LR
    - `errors.py`：`_request_id` / `_render` / `build_error_response` 的 `scope` 参数改用 Starlette 框架类型 **`Scope`**（准确且免标记）；两处 `state` 读取与一处 `fields` 落集合类（`[]=` → `set`）。
    - `health.py`：`_service_fields` 返回落 `ConcurrentStableDict[str, str]`。
 2. **框架边界豁免（新增口径）**：FastAPI / Starlette **框架自有容器**经**行级标记** `# bare-collections:allow`（声明行行尾或紧邻上一行，附理由）豁免——`base.py` 的 `DEFAULT_RESPONSES` / `merged`（FastAPI responses 契约）、`BaseRouter.__init__` 的 `tags` / `dependencies` / `responses`、三处 `order: Annotated[list[str] | None, Query(...)]` 查询入参、两处 `request.scope.setdefault("state", {})`；`middleware.py` 两处 `scope.setdefault("state", {})`；`health.py` 的 `healthz() -> dict[str, object]` 端点返回注解。**理由**：这些容器由框架强制为内置类型（Starlette `Request.state` 的 `State.__setattr__` 走 `__setitem__`、FastAPI 查询参数绑定 / `responses` 消费 / 按端点返回注解序列化），落集合类会破坏运行期或公开契约。
-3. **护栏与文档**：`check-bare-collections.py` 新增 `ALLOW_MARKER = "# bare-collections:allow"` 与豁免逻辑（声明行或紧邻上一行命中即跳过），`--self-test` 增「框架边界标记行跳过」断言（**25 项**）；《[后端开发规范](../../../../../../规范/后端开发规范.md)》「集合与排序」与《[后端基类清单](../../../../../../后端基类清单.md)》「集合体系」节 / 护栏脚本行登记该口径（**不得**用于业务侧声明）。
+3. **护栏与文档**：`check_bare_collections.py` 新增 `ALLOW_MARKER = "# bare-collections:allow"` 与豁免逻辑（声明行或紧邻上一行命中即跳过），`--self-test` 增「框架边界标记行跳过」断言（**25 项**）；《[后端开发规范](../../../../../../规范/后端开发规范.md)》「集合与排序」与《[后端基类清单](../../../../../../后端基类清单.md)》「集合体系」节 / 护栏脚本行登记该口径（**不得**用于业务侧声明）。
 4. **调用方适配**：9 个服务的 `api/router.py` 与 `libs` 测试 `test_application_factory.py` 的 `mount_service_routers((...))` → `ConcurrentStableList([...])`（并补 import）。
 
 **验证**：
@@ -531,9 +531,9 @@ flowchart LR
 | 全量 `libs` | `pytest libs/bms_core/tests` | **1099 passed / 37 skipped** |
 | 全量 `services` | `pytest services` | **787 passed / 3 skipped / 1 failed**（既有 red，见偏差） |
 | 静态检查 | `ruff check .` / `ruff format --check .`（backend 全量） | 全绿（957 文件） |
-| 护栏 | `check-bare-collections.py .`（+ `--self-test`） | **「新增 0 / 残留 0」**；`api/` **32 → 0**；自测 **25 项**全通过 |
+| 护栏 | `check_bare_collections.py .`（+ `--self-test`） | **「新增 0 / 残留 0」**；`api/` **32 → 0**；自测 **25 项**全通过 |
 | 基线递减 | `--update-baseline` | **1130 → 1098**（`libs` 479 → 447） |
-| 本地预检 | `check-preflight.py --fast` | **全部通过**（含契约 / 事件契约 / 网关 / 前端 `api-types` 零漂移） |
+| 本地预检 | `check_preflight.py --fast` | **全部通过**（含契约 / 事件契约 / 网关 / 前端 `api-types` 零漂移） |
 
 **偏差（既有 red，非本轮引入）**：`services/platform/tests/dict/test_dict_real.py::test_http_endpoints`（`query-providers` 的 `model_dump` 序列化出口）仍为既有 red，本轮未扩大；另轮单独修。
 
@@ -561,9 +561,9 @@ flowchart LR
 | 全量 `libs` | `pytest libs/bms_core/tests` | **1099 passed / 37 skipped** |
 | 全量 `services` | `pytest services` | **787 passed / 3 skipped / 1 failed**（既有 red，见偏差） |
 | 静态检查 | `ruff check .` / `ruff format --check .`（backend 全量） | 全绿（957 文件） |
-| 护栏 | `check-bare-collections.py .`（+ `--self-test`） | **「新增 0 / 残留 0」**；`core/` **27 → 0**；自测 25 项全通过 |
+| 护栏 | `check_bare_collections.py .`（+ `--self-test`） | **「新增 0 / 残留 0」**；`core/` **27 → 0**；自测 25 项全通过 |
 | 基线递减 | `--update-baseline` | **1098 → 1071**（`libs` 447 → 420） |
-| 本地预检 | `check-preflight.py --fast` | **全部通过**（含契约 / 事件契约 / 网关 / 前端 `api-types` 零漂移） |
+| 本地预检 | `check_preflight.py --fast` | **全部通过**（含契约 / 事件契约 / 网关 / 前端 `api-types` 零漂移） |
 
 **偏差（既有 red，非本轮引入）**：`services/platform/tests/dict/test_dict_real.py::test_http_endpoints`（`query-providers` 的 `model_dump` 序列化出口）仍为既有 red，本轮未扩大；另轮单独修。
 
@@ -573,7 +573,7 @@ flowchart LR
 
 ## 23. 实施过程补充 · 存量整改子批 3 · `boundary/` 能力域（签名单轮，2026-09-30） <a id="batch3-boundary"></a>
 
-**范围**：`bms_core` `boundary/` 能力域 **18 处**（`directory.py` 6 / `exceptions.py` 5 / `sql.py` 5 / `assess.py` 1 / `table.py` 1），外加调用方适配（`scripts/tools/base-check/check-service-boundaries.py` 1 处签名注解）。按交接单 §7 第 1 项「其余 `libs`」续项推进。
+**范围**：`bms_core` `boundary/` 能力域 **18 处**（`directory.py` 6 / `exceptions.py` 5 / `sql.py` 5 / `assess.py` 1 / `table.py` 1），外加调用方适配（`scripts/tools/base_check/check_service_boundaries.py` 1 处签名注解）。按交接单 §7 第 1 项「其余 `libs`」续项推进。
 
 **动作**：
 
@@ -583,7 +583,7 @@ flowchart LR
 4. **越界判定（`assess.py`）**：`assess_statement` 局部 `violations` 落 `ConcurrentStableList[OwnershipViolation]`（`append` → `add`，`tuple(violations)` 出口不变）。
 5. **守卫计数（`table.py`）**：`TableOwnershipGuard._pending_tasks` 落 `ConcurrentStableSet[asyncio.Task[None]]`（`add` / 回调 `discard` 不变）。
 6. **`__init__` 文档**：`boundary/__init__.py` 与 `sql.py` / `exceptions.py` 头部「仅标准库」口径更新为「仅标准库与集合体系『无依赖面』」。
-7. **调用方适配**：`scripts/tools/base-check/check-service-boundaries.py::_load_exceptions` 返回注解与错误分支随 `validate_exceptions` 落 `ConcurrentStableList[str]`（导入 `core.concurrent`，与既有 `bms_core` 导入同路）；其余调用方（`core/assembly.py` 直传 `known_*()` 产物、`directory.table_owners_map` 无调用点）零改动。
+7. **调用方适配**：`scripts/tools/base_check/check_service_boundaries.py::_load_exceptions` 返回注解与错误分支随 `validate_exceptions` 落 `ConcurrentStableList[str]`（导入 `core.concurrent`，与既有 `bms_core` 导入同路）；其余调用方（`core/assembly.py` 直传 `known_*()` 产物、`directory.table_owners_map` 无调用点）零改动。
 
 **调用方与测试同步**：`libs` 侧 `tests/boundary/test_boundary.py` 两处 `validate_exceptions(known_tables=/known_prefixes=/known_services=frozenset(...))` 改 `ConcurrentStableSet(...)`（并补 import）。断言维持内容相等（`== [..]` / `== {..}` / `in`），未改语义。
 
@@ -594,13 +594,13 @@ flowchart LR
 | 定向用例 | `pytest libs/bms_core/tests/boundary` | **17 passed** |
 | 全量 `libs` | `pytest libs/bms_core/tests` | **1099 passed / 37 skipped** |
 | **无依赖面实证** | 系统 `python3`（无第三方依赖）导入 `bms_core.boundary.{directory,sql,exceptions,assess}` 并调用 `known_tables()` / `known_services()` / `known_prefixes()` / `table_owners_map()` / `assess_statement` | **通过**（导入 + 调用 + 形态断言成功；`sortedcontainers` 未入 `sys.modules`） |
-| 边界护栏 | `check-service-boundaries.py`（+`--self-test`） | 全绿（含精简镜像不依赖第三方） |
+| 边界护栏 | `check_service_boundaries.py`（+`--self-test`） | 全绿（含精简镜像不依赖第三方） |
 | 静态检查 | `ruff check .` / `ruff format --check .`（backend 全量） | 全绿（957 文件） |
-| 护栏 | `check-bare-collections.py .` | **「新增 0 / 残留 0」**；`boundary/` **18 → 0**；`scripts/tools` **224 → 223**（`_load_exceptions` 注解） |
+| 护栏 | `check_bare_collections.py .` | **「新增 0 / 残留 0」**；`boundary/` **18 → 0**；`scripts/tools` **224 → 223**（`_load_exceptions` 注解） |
 | 基线递减 | `--update-baseline` | **1071 → 1052**（`libs` 420 → 402） |
-| 本地预检 | `check-preflight.py --fast` | **全部通过**（含契约 / 事件契约 / 网关 / 前端 `api-types` 零漂移） |
+| 本地预检 | `check_preflight.py --fast` | **全部通过**（含契约 / 事件契约 / 网关 / 前端 `api-types` 零漂移） |
 
-**过程处置（已闭环）**：① `boundary/` 属 CI 精简镜像（`python:3.14-slim`）经 `check-service-boundaries.py` 导入的**无依赖面**，改动后首次用系统 `python3` 实证「导入 + 调用 + 形态」全部通过，`sortedcontainers` 未入 `sys.modules`（承接 §16.1 拆分，确认集合体系无依赖面即 `core.collections` / `core.concurrent`）；② 常量落 `ConcurrentStableSet` 后 `in` 判定 / `sorted(...)` 用法不变，`_IGNORED_TABLES` 与 `found`（集合类）成员判断语义不变。
+**过程处置（已闭环）**：① `boundary/` 属 CI 精简镜像（`python:3.14-slim`）经 `check_service_boundaries.py` 导入的**无依赖面**，改动后首次用系统 `python3` 实证「导入 + 调用 + 形态」全部通过，`sortedcontainers` 未入 `sys.modules`（承接 §16.1 拆分，确认集合体系无依赖面即 `core.collections` / `core.concurrent`）；② 常量落 `ConcurrentStableSet` 后 `in` 判定 / `sorted(...)` 用法不变，`_IGNORED_TABLES` 与 `found`（集合类）成员判断语义不变。
 
 **遗留**：`boundary/` 模块归零；`bms_core` 剩余 **402 处**（`libs`：`tests` 278 / `outbox` 10 / `schemas` 10 / `security` 9 / `fieldtype` 7 / `tracing` 7 …），按交接单 §7 第 1 项续推。
 
@@ -627,9 +627,9 @@ flowchart LR
 | 全量 `libs` | `pytest libs/bms_core/tests` | **1099 passed / 37 skipped** |
 | 全量 `services` | `pytest services` | **787 passed / 3 skipped / 1 failed**（既有 red，见偏差） |
 | 静态检查 | `ruff check .` / `ruff format --check .`（backend 全量） | 全绿（957 文件） |
-| 护栏 | `check-bare-collections.py .` | **「新增 0 / 残留 0」**；`fieldtype/` **7 → 0**、`i18n/` **4 → 0**、`tracing/` **7 → 0** |
+| 护栏 | `check_bare_collections.py .` | **「新增 0 / 残留 0」**；`fieldtype/` **7 → 0**、`i18n/` **4 → 0**、`tracing/` **7 → 0** |
 | 基线递减 | `--update-baseline` | **1052 → 1030**（`libs` 402 → 382 / `services` 324 → 322） |
-| 本地预检 | `check-preflight.py --fast` | **全部通过**（含契约 / 事件契约 / 网关 / 前端 `api-types` 零漂移） |
+| 本地预检 | `check_preflight.py --fast` | **全部通过**（含契约 / 事件契约 / 网关 / 前端 `api-types` 零漂移） |
 
 **偏差（既有 red，非本轮引入）**：`services/platform/tests/dict/test_dict_real.py::test_http_endpoints`（`query-providers` 的 `model_dump` 序列化出口）仍为既有 red，本轮未扩大；另轮单独修。
 
@@ -658,9 +658,9 @@ flowchart LR
 | 全量 `libs` | `pytest libs/bms_core/tests` | **1099 passed / 37 skipped** |
 | 全量 `services` | `pytest services` | **787 passed / 3 skipped / 1 failed**（既有 red，见偏差） |
 | 静态检查 | `ruff check .` / `ruff format --check .`（backend 全量） | 全绿（957 文件） |
-| 护栏 | `check-bare-collections.py .` | **「新增 0 / 残留 0」**；`archive/` **6 → 0**、`audit/` **6 → 0**、`chat/` **6 → 0** |
+| 护栏 | `check_bare_collections.py .` | **「新增 0 / 残留 0」**；`archive/` **6 → 0**、`audit/` **6 → 0**、`chat/` **6 → 0** |
 | 基线递减 | `--update-baseline` | **1030 → 1009**（`libs` 382 → 364 / `services` 322 → 319） |
-| 本地预检 | `check-preflight.py --fast` | **全部通过**（含契约 / 事件契约 / 网关 / 前端 `api-types` 零漂移） |
+| 本地预检 | `check_preflight.py --fast` | **全部通过**（含契约 / 事件契约 / 网关 / 前端 `api-types` 零漂移） |
 
 **偏差（既有 red，非本轮引入）**：`services/platform/tests/dict/test_dict_real.py::test_http_endpoints`（`query-providers` 的 `model_dump` 序列化出口）仍为既有 red，本轮未扩大；另轮单独修。
 
@@ -690,9 +690,9 @@ flowchart LR
 | 全量 `libs` | `pytest libs/bms_core/tests` | **1099 passed / 37 skipped** |
 | 全量 `services` | `pytest services` | **787 passed / 3 skipped / 1 failed**（既有 red，见偏差） |
 | 静态检查 | `ruff check .` / `ruff format --check .`（backend 全量） | 全绿（957 文件） |
-| 护栏 | `check-bare-collections.py .` | **「新增 0 / 残留 0」**；`edge/` **6 → 0**、`org/` **6 → 0**、`globalsearch/` **4 → 0**、`llm/` **4 → 0** |
+| 护栏 | `check_bare_collections.py .` | **「新增 0 / 残留 0」**；`edge/` **6 → 0**、`org/` **6 → 0**、`globalsearch/` **4 → 0**、`llm/` **4 → 0** |
 | 基线递减 | `--update-baseline` | **1009 → 983**（`libs` 364 → 343 / `services` 319 → 314） |
-| 本地预检 | `check-preflight.py --fast` | **全部通过**（含契约 / 事件契约 / 网关 / 前端 `api-types` 零漂移） |
+| 本地预检 | `check_preflight.py --fast` | **全部通过**（含契约 / 事件契约 / 网关 / 前端 `api-types` 零漂移） |
 
 **偏差（既有 red，非本轮引入）**：`services/platform/tests/dict/test_dict_real.py::test_http_endpoints`（`query-providers` 的 `model_dump` 序列化出口）仍为既有 red，本轮未扩大；另轮单独修。
 
@@ -721,9 +721,9 @@ flowchart LR
 | 全量 `libs` | `pytest libs/bms_core/tests` | **1099 passed / 37 skipped** |
 | 全量 `services` | `pytest services` | **787 passed / 3 skipped / 1 failed**（既有 red，见偏差） |
 | 静态检查 | `ruff check .` / `ruff format --check .`（backend 全量） | 全绿（957 文件） |
-| 护栏 | `check-bare-collections.py .` | **「新增 0 / 残留 0」**；七域 **25 → 0** |
+| 护栏 | `check_bare_collections.py .` | **「新增 0 / 残留 0」**；七域 **25 → 0** |
 | 基线递减 | `--update-baseline` | **983 → 958**（`libs` 343 → 318） |
-| 本地预检 | `check-preflight.py --fast` | **全部通过**（含契约 / 事件契约 / 网关 / 前端 `api-types` 零漂移） |
+| 本地预检 | `check_preflight.py --fast` | **全部通过**（含契约 / 事件契约 / 网关 / 前端 `api-types` 零漂移） |
 
 **偏差（既有 red，非本轮引入）**：`services/platform/tests/dict/test_dict_real.py::test_http_endpoints`（`query-providers` 的 `model_dump` 序列化出口）仍为既有 red，本轮未扩大；另轮单独修。
 
@@ -757,9 +757,9 @@ flowchart LR
 | 全量 `libs` | `pytest libs/bms_core/tests` | **1099 passed / 37 skipped** |
 | 全量 `services` | `pytest services` | **787 passed / 3 skipped / 1 failed**（既有 red，见偏差） |
 | 静态检查 | `ruff check .` / `ruff format --check .`（backend 全量） | 全绿（957 文件） |
-| 护栏 | `check-bare-collections.py .` | **「新增 0 / 残留 0」**；`libs` 源侧 **43 → 29** |
+| 护栏 | `check_bare_collections.py .` | **「新增 0 / 残留 0」**；`libs` 源侧 **43 → 29** |
 | 基线递减 | `--update-baseline` | **958 → 933**（`libs` 318 → 303 / `services` 314 → 304） |
-| 本地预检 | `check-preflight.py --fast` | **全部通过**（含契约 / 事件契约 / 网关 / 前端 `api-types` 零漂移） |
+| 本地预检 | `check_preflight.py --fast` | **全部通过**（含契约 / 事件契约 / 网关 / 前端 `api-types` 零漂移） |
 
 **偏差（既有 red，非本轮引入）**：`services/platform/tests/dict/test_dict_real.py::test_http_endpoints`（`query-providers` 的 `model_dump` 序列化出口）仍为既有 red，本轮未扩大；另轮单独修。
 
@@ -786,9 +786,9 @@ flowchart LR
 | 全量 `libs` | `pytest libs/bms_core/tests` | **1099 passed / 37 skipped** |
 | 全量 `services` | `pytest services` | **787 passed / 3 skipped / 1 failed**（既有 red，见偏差） |
 | 静态检查 | `ruff check .` / `ruff format --check .`（backend 全量） | 全绿（957 文件） |
-| 护栏 | `check-bare-collections.py .` | **「新增 0 / 残留 0」**；`outbox/` **10 → 0**、`schemas/` **10 → 0**、`security/` **9 → 0**、**`libs` 源侧 29 → 0** |
+| 护栏 | `check_bare_collections.py .` | **「新增 0 / 残留 0」**；`outbox/` **10 → 0**、`schemas/` **10 → 0**、`security/` **9 → 0**、**`libs` 源侧 29 → 0** |
 | 基线递减 | `--update-baseline` | **933 → 901**（`libs` 303 → 271） |
-| 本地预检 | `check-preflight.py --fast` | **全部通过**（含契约 / 事件契约 / 网关 / 前端 `api-types` 零漂移） |
+| 本地预检 | `check_preflight.py --fast` | **全部通过**（含契约 / 事件契约 / 网关 / 前端 `api-types` 零漂移） |
 
 **偏差（既有 red，非本轮引入）**：`services/platform/tests/dict/test_dict_real.py::test_http_endpoints`（`query-providers` 的 `model_dump` 序列化出口）仍为既有 red，本轮未扩大；另轮单独修。
 
@@ -818,7 +818,7 @@ flowchart LR
 | 全量 `services` | `pytest services` | **788 passed / 3 skipped / 0 failed**（原 787 passed / 1 failed） |
 | 全量 `libs` | `pytest libs/bms_core/tests` | **1099 passed / 37 skipped** |
 | 静态检查 | `ruff check .` / `ruff format --check .` | 全绿（957 文件） |
-| 本地预检 | `check-preflight.py --fast` | **全部通过**（`api-types` 零漂移，响应形态不变） |
+| 本地预检 | `check_preflight.py --fast` | **全部通过**（`api-types` 零漂移，响应形态不变） |
 
 **说明（非失败）**：`pytest` 输出仍有 `PytestUnhandledThreadExceptionWarning`（`aiosqlite` 连接工作线程在事件循环关闭后被 GC 清理，`test_outbox` 等用例 teardown 报 `Event loop is closed`）——属**测试夹具 / 异步引擎 GC 时机**的告警，非用例失败，与本次集合整改无关；另轮按需清理（不影响门禁）。
 
@@ -849,9 +849,9 @@ flowchart LR
 | 全量 `libs` | `pytest libs/bms_core/tests` | **1099 passed / 37 skipped** |
 | 平台 `dict` | `pytest services/platform/tests/dict` | **18 passed** |
 | 静态检查 | `ruff check .` / `ruff format --check .`（backend 全量） | 全绿（957 文件） |
-| 护栏 | `check-bare-collections.py .` | **「新增 0 / 残留 0」**；`libs` `tests` `db/` **59 → 0**、`core/` **41 → 0**、`ops/` **37 → 0** |
+| 护栏 | `check_bare_collections.py .` | **「新增 0 / 残留 0」**；`libs` `tests` `db/` **59 → 0**、`core/` **41 → 0**、`ops/` **37 → 0** |
 | 基线递减 | `--update-baseline` | **901 → 764**（`libs` 271 → 134 / `services` 304 / `scripts/tools` 223 / `ops` 103） |
-| 本地预检 | `check-preflight.py --fast` | **全部通过**（含契约 / 事件契约 / 网关 / 前端 `api-types` 零漂移） |
+| 本地预检 | `check_preflight.py --fast` | **全部通过**（含契约 / 事件契约 / 网关 / 前端 `api-types` 零漂移） |
 
 **过程处置（已闭环）**：① `frozenset` 落 `ConcurrentStableSet`（按设计 §3.1 集合语义映射；`tests/core/test_tenant_id_naming.py::_fields` 的返回值被 `{...} <= names` 断言，落 `List` 会因缺 `__ge__` 抛 `TypeError`）；② 集合类无 `pop` / `clear`（dict）与索引赋值 → 分别改复制遍历 / 逐键取走 / 按插入序重建；③ 端点返回注解落集合类在**路由注册期**即失败，保留内置 + 行级标记。
 
@@ -877,9 +877,9 @@ flowchart LR
 | 全量 `libs` | `pytest libs/bms_core/tests` | **1099 passed / 37 skipped** |
 | 定向用例 | `pytest libs/bms_core/tests/{api,captcha,crosscut,idp,servicecall}` | 通过（改动前后一致；跨目录合并运行时 `test_dependency_provider_resolves` 受插件注册表全局态影响的既有现象单文件运行不复现） |
 | 静态检查 | `ruff check .` / `ruff format --check .`（backend 全量） | 全绿（957 文件） |
-| 护栏 | `check-bare-collections.py .` | **「新增 0 / 残留 0」**；五目录 67 处全清 |
+| 护栏 | `check_bare_collections.py .` | **「新增 0 / 残留 0」**；五目录 67 处全清 |
 | 基线递减 | `--update-baseline` | **764 → 697**（`libs` 134 → 67 / `services` 304 / `scripts/tools` 223 / `ops` 103） |
-| 本地预检 | `check-preflight.py --fast` | **全部通过** |
+| 本地预检 | `check_preflight.py --fast` | **全部通过** |
 
 **过程处置（已闭环）**：① `ConcurrentStableDict.update` 只吃键值对 → 传映射处改 `.items()`（`seen` / `merged` / `base`）；② 集合类无下标赋值 / 无 `append` → 分别改 `set` / `add`；③ `_keys` / `_table_rows` 返回值包集合类；④ FastAPI 端点返回注解保留内置 + 行级标记（多行端点标记落在 `) -> dict[...]:` 行尾——行级豁免窗口为声明行与其上一行，标记需与返回注解同处两行内）。
 
@@ -904,9 +904,9 @@ flowchart LR
 | 定向用例（受影响 32 目录） | `pytest libs/bms_core/tests/{alembic,archive,audit,boundary,circuit,config,dashboard,dict,edge,fallback,fieldtype,health,i18n,idempotency,integration,lock,masking,metrics,oauth,outbound,outbox,permission,query,ratelimit,replay,repositories,saga,schemas,session,tracing,transfer,workflow}` | **376 passed / 37 skipped** |
 | 平台侧定向 | `pytest services/platform/tests/{repositories,services}` | **31 passed** |
 | 静态检查 | `ruff check .` / `ruff format --check .`（backend 全量） | 全绿（957 文件） |
-| 护栏 | `check-bare-collections.py .` | **「新增 0 / 残留 0」**；`libs` `tests` **67 → 0** |
+| 护栏 | `check_bare_collections.py .` | **「新增 0 / 残留 0」**；`libs` `tests` **67 → 0** |
 | 基线递减 | `--update-baseline` | **697 → 630**（条目 658 → 593、计数合计 630；`libs` **0** / `services` 304 / `scripts/tools` 223 / `ops` 103；新增条目 0） |
-| 本地预检 | `check-preflight.py --fast` | **全部通过** |
+| 本地预检 | `check_preflight.py --fast` | **全部通过** |
 
 **遗留**：全局剩余 **630 处**（`services` 304〔`identity` 195 / `platform` 68 / `org` 9 / `ai` 7 / `file`·`report` 各 6 / `tenant` 5 / `notification`·`search` 各 4〕、`scripts/tools` 223、`ops` 103）。`libs`（源侧 + `tests`）**已归零**；后续为批次 2 `services` → 批次 3 `scripts/tools` + `ops`。
 
@@ -929,9 +929,9 @@ flowchart LR
 | --- | --- | --- |
 | 定向用例 | `pytest services/{org,ai,file,report,tenant,notification,search}/tests` | **160 passed / 1 skipped** |
 | 静态检查 | `ruff check .` / `ruff format --check .`（backend 全量） | 全绿（957 文件） |
-| 护栏 | `check-bare-collections.py .` | **「新增 0 / 残留 0」**；七小服务 **41 → 0** |
+| 护栏 | `check_bare_collections.py .` | **「新增 0 / 残留 0」**；七小服务 **41 → 0** |
 | 基线递减 | `--update-baseline` | **630 → 589**（条目 593 → 554、计数合计 589；`services` **304 → 263**〔`identity` 195 / `platform` 68〕/ `scripts/tools` 223 / `ops` 103；新增条目 0） |
-| 本地预检 | `check-preflight.py --fast` | **全部通过** |
+| 本地预检 | `check_preflight.py --fast` | **全部通过** |
 
 **过程处置（已闭环）**：① `ConcurrentStableDict` 无 `pop(key, default)` → 幂等 / 会话 / 通知替身改用 `get_and_remove(...)`（语义一致，缺失返回 None）；② `del d[k]` → `delete(k)`；③ `json.dumps(history)` 因集合类不可直序列化 → `json.dumps(list(history))`；④ `_scope_conditions` 式「运行期识别」缺口的同类风险已在交接单 §9 立条目；⑤ `ConcurrentStableList[messages] | None = None` 规避 `ConcurrentStableSet()` 形参默认值的 ruff `B008`。
 
@@ -958,9 +958,9 @@ flowchart LR
 | 定向用例（服务） | `pytest services/platform/tests` | **350 passed / 1 skipped** |
 | 定向用例（受 `loader` 影响的 `libs`） | `pytest libs/bms_core/tests/{core,health,services,db}` | **362 passed** |
 | 静态检查 | `ruff check .` / `ruff format --check .`（backend 全量） | 全绿（957 文件） |
-| 护栏 | `check-bare-collections.py .` | **「新增 0 / 残留 0」**；`platform` **68 → 0** |
+| 护栏 | `check_bare_collections.py .` | **「新增 0 / 残留 0」**；`platform` **68 → 0** |
 | 基线递减 | `--update-baseline` | **589 → 521**（条目 554 → 489、计数合计 521；`services` **263 → 195**〔仅余 `identity`〕/ `scripts/tools` 223 / `ops` 103；新增条目 0） |
-| 本地预检 | `check-preflight.py --fast` | **全部通过** |
+| 本地预检 | `check_preflight.py --fast` | **全部通过** |
 
 **过程处置（已闭环）**：① 契约集合字段**必填形态**（无默认值）按「`Annotated[集合类, CONTRACT_COLLECTION]` 裸注解」落地，不臆造 `default_factory`；② 解析型辅助函数的**嵌套**结构在「进入签名」处包集合类（顶层 JSON 入口 + 调用点各包一层，避免只改注解不改运行期）；③ 两处 `ConcurrentStableDict(` 初值改写一度丢掉字面量花括号致语法错误，由 `ruff` 即时暴露并修正；④ 集合类无 `pop` / 无 `|=`（只读 `Set` 面）→ 分别改 `get_and_remove` / `update(...)`。
 
@@ -985,23 +985,23 @@ flowchart LR
 | --- | --- | --- |
 | 定向用例 | `pytest services/identity/tests` | **266 passed / 1 skipped** |
 | 静态检查 | `ruff check .` / `ruff format --check .`（backend 全量） | 全绿（957 文件） |
-| 护栏 | `check-bare-collections.py .` | **「新增 0 / 残留 0」**；`identity` **195 → 0**（**`services` 归零**） |
+| 护栏 | `check_bare_collections.py .` | **「新增 0 / 残留 0」**；`identity` **195 → 0**（**`services` 归零**） |
 | 基线递减 | `--update-baseline` | **521 → 326**（条目 489 → 313、计数合计 326；`libs` 0 / `services` **0** / `scripts/tools` 223 / `ops` 103；新增条目 0） |
-| 本地预检 | `check-preflight.py --fast` | **全部通过** |
+| 本地预检 | `check_preflight.py --fast` | **全部通过** |
 
 **过程处置（已闭环）**：① 测试侧批量脚本改写过程中出现「缺右括号 / 缺花括号」语法错误与导入缺失，由 `ruff`（F821 / invalid-syntax / I001）即时暴露并逐处修正；② mock 响应与 httpx `json=` 出口遇**嵌套**集合类时改用 `normalize_collections` 深转换（顶层的 `dict(...)` 不足以消除嵌套）；③ `TENANT_HEADERS` 改集合类后，`{**TENANT_HEADERS, ...}` 展开与 httpx `headers=` 均按 `Mapping` 正常接受；④ `json.dumps(<集合类>)` 在 IdP 配置落库、客户端多值列、JWT 声明三处均需显式 `dict(...)` / `list(...)`。
 
-**遗留**：全局剩余 **326 处**（`scripts/tools` 223〔`base-check` 86 / `deploy` 50 / `check-docs` 25 / `defect` 18 / `governance` 17 / 其余 27〕、`ops` 103）。**批次 2（`services`）已完成**；随后批次 3 `scripts/tools` + `ops`，其中 `scripts/tools` 含**长期口径评估**（是否纳入长期强制扫描），结论回写《后端开发规范》《后端基类清单》。
+**遗留**：全局剩余 **326 处**（`scripts/tools` 223〔`base_check` 86 / `deploy` 50 / `check_docs` 25 / `defect` 18 / `governance` 17 / 其余 27〕、`ops` 103）。**批次 2（`services`）已完成**；随后批次 3 `scripts/tools` + `ops`，其中 `scripts/tools` 含**长期口径评估**（是否纳入长期强制扫描），结论回写《后端开发规范》《后端基类清单》。
 
 ## 37. 实施过程补充 · 存量整改子批 6 · 批次 3 起步 `scripts/tools`（零依赖独立工具群 + `defect`，2026-10-01） <a id="batch6-scripts-tools-1"></a>
 
-**范围**：`scripts/tools` 起步 **36 处 / 13 文件**——零依赖独立工具群 **18 处 / 10 文件**（`winrm` 4 / `wol` 3 / `gitlab` 1 / `reorder-design` 2 / `observability` 8）与 `defect` 服务工具 **18 处 / 3 文件**（`ai_fix` 8 / `defect_capture` 7 / `reproduce` 3）。
+**范围**：`scripts/tools` 起步 **36 处 / 13 文件**——零依赖独立工具群 **18 处 / 10 文件**（`winrm` 4 / `wol` 3 / `gitlab` 1 / `reorder_design` 2 / `observability` 8）与 `defect` 服务工具 **18 处 / 3 文件**（`ai_fix` 8 / `defect_capture` 7 / `reproduce` 3）。
 
-**长期口径专项结论（需求 §关键决策 5 与完成标准要求，2026-10-01 用户拍板）**：`scripts/tools` **统一整改、不设内部工具豁免**。依据：① 脚本均在仓库内运行（以 `parents[3]` 定位仓根、读 `deploy/.env`，`check-status.py` 还被 preflight 调用）；② 引用的 `bms_core.core.concurrent` 依赖链（`core.base` / `core.collections` / `core.holder` / `core.locking`）为**无依赖面**（纯标准库），引入代价可控；③ 护栏「插入序白名单 + 无例外」口径得以完整保持，基线**最终归零**。故 22 个原纯标准库脚本**新增 `sys.path` 引导**（照抄 `check-service-boundaries.py` 既有范式：`_SRC_ROOT = <repo>/backend/libs/bms_core/src` + `sys.path.insert(0, ...)` + `# noqa: E402`）。该结论已同步回写《[后端开发规范](../../../../../../规范/后端开发规范.md)》「集合与排序」与《[后端基类清单](../../../../../../后端基类清单.md)》「集合体系」。
+**长期口径专项结论（需求 §关键决策 5 与完成标准要求，2026-10-01 用户拍板）**：`scripts/tools` **统一整改、不设内部工具豁免**。依据：① 脚本均在仓库内运行（以 `parents[3]` 定位仓根、读 `deploy/.env`，`check_status.py` 还被 preflight 调用）；② 引用的 `bms_core.core.concurrent` 依赖链（`core.base` / `core.collections` / `core.holder` / `core.locking`）为**无依赖面**（纯标准库），引入代价可控；③ 护栏「插入序白名单 + 无例外」口径得以完整保持，基线**最终归零**。故 22 个原纯标准库脚本**新增 `sys.path` 引导**（照抄 `check_service_boundaries.py` 既有范式：`_SRC_ROOT = <repo>/backend/libs/bms_core/src` + `sys.path.insert(0, ...)` + `# noqa: E402`）。该结论已同步回写《[后端开发规范](../../../../../../规范/后端开发规范.md)》「集合与排序」与《[后端基类清单](../../../../../../后端基类清单.md)》「集合体系」。
 
 **动作**（按位置归并）：
 
-1. **零依赖独立工具群**：`load_env()` / `parse_env_file()` 落 `ConcurrentStableDict[str, str]`（`env = {}` → `ConcurrentStableDict()`、`env[k] = v` → `env.set(k, v)`）；`gitlab/watch_pipeline` 的 `{**load_env(), **{...}}`（字典合并展开）改为 `env = load_env()` + `env.update(生成器)`；`observability/render_alertmanager` 的 `_get` / `_smtp_global_block` / `_email_block` / `_webhook_block` / `render` 形参与 `main(argv)` 一并落集合类（`values[k] = v` → `values.set(k, v)`、`args = parser.parse_args(argv)` 经 `list(args)` 接受集合类）；`reorder-design` 的 `build_file_mappings(...)` 签名落 `ConcurrentStableDict[str, object]` / `ConcurrentStableList[object]`、`result.append` → `result.add`，调用处按契约浅包 `ConcurrentStableDict(dir_cfg)`。
+1. **零依赖独立工具群**：`load_env()` / `parse_env_file()` 落 `ConcurrentStableDict[str, str]`（`env = {}` → `ConcurrentStableDict()`、`env[k] = v` → `env.set(k, v)`）；`gitlab/watch_pipeline` 的 `{**load_env(), **{...}}`（字典合并展开）改为 `env = load_env()` + `env.update(生成器)`；`observability/render_alertmanager` 的 `_get` / `_smtp_global_block` / `_email_block` / `_webhook_block` / `render` 形参与 `main(argv)` 一并落集合类（`values[k] = v` → `values.set(k, v)`、`args = parser.parse_args(argv)` 经 `list(args)` 接受集合类）；`reorder_design` 的 `build_file_mappings(...)` 签名落 `ConcurrentStableDict[str, object]` / `ConcurrentStableList[object]`、`result.append` → `result.add`，调用处按契约浅包 `ConcurrentStableDict(dir_cfg)`。
 2. **`defect` 工具群**：`api()` 的 `body` 与返回（`dict | list | None` → `ConcurrentStableDict | ConcurrentStableList | None`；出口按 `isinstance` 分流包集合类、空体返回 `None`）、`chat(messages)` 落 `ConcurrentStableList[ConcurrentStableDict[str, object]]`（请求体经 `normalize_collections` **递归**转内置）、`gather_context(issue)` / `find_open_issue` / `parse_patch` / `load_repro` / `load_env` / `run(cmd)` / `collect_logs` 全落集合类；调用点同步包 `ConcurrentStableList([...])` / `ConcurrentStableDict({...})`，`messages[1] = {...}` → `messages.set(1, ...)`，`ApiResponse` 式 JSON 出口 `json.dumps(dict(body))`。
 
 **验证**：
@@ -1010,11 +1010,11 @@ flowchart LR
 | --- | --- | --- |
 | 编译与冒烟 | `py_compile` + 各脚本 `--help` | **13/13 通过**（`winrm/shutdown_mjw`·`sleep_mjw` 退 2 系其原行为：顶层 `import winrm` 失败即退，缺 pywinrm） |
 | 运行期形态 | 直接调用 `load_env` / `parse_env_file` / `build_file_mappings` | 返回值均为 `ConcurrentStable*`（集合类） |
-| 护栏 | `check-bare-collections.py .` | **「新增 0」**；`scripts/tools` **223 → 187** |
+| 护栏 | `check_bare_collections.py .` | **「新增 0」**；`scripts/tools` **223 → 187** |
 | 基线递减 | `--update-baseline` | **326 → 290**（条目 313 → 279、计数合计 290；新增条目 0 / 移除 34；`scripts/tools` 187 / `ops` 103） |
-| 本地预检 | `check-preflight.py --fast` | **全部通过** |
+| 本地预检 | `check_preflight.py --fast` | **全部通过** |
 
-**遗留**：`scripts/tools` 余 **187 处**（`base-check` 86〔`check-backend-base` 39 · `check-service-boundaries` 24 · `check-bare-collections` 21 · `check-docs-scope` 2〕/ `deploy/release.py` 50 / `check-docs/check-status.py` 25 / `governance` 17 / `preflight` 9）；随后 `ops`（103）。
+**遗留**：`scripts/tools` 余 **187 处**（`base_check` 86〔`check_backend_base` 39 · `check_service_boundaries` 24 · `check_bare_collections` 21 · `check_docs_scope` 2〕/ `deploy/release.py` 50 / `check_docs/check_status.py` 25 / `governance` 17 / `preflight` 9）；随后 `ops`（103）。
 
 ## 38. 实施过程补充 · 存量整改子批 7 · 批次 3 续推 `governance` 三脚本（2026-10-01） <a id="batch7-governance"></a>
 
@@ -1032,15 +1032,15 @@ flowchart LR
 | 项 | 命令 | 结果 |
 | --- | --- | --- |
 | 编译与冒烟 | `py_compile` + 三脚本 `--help` | **3/3 通过** |
-| 护栏 | `check-bare-collections.py .` | **「新增 0」**；`scripts/tools` **187 → 170** |
+| 护栏 | `check_bare_collections.py .` | **「新增 0」**；`scripts/tools` **187 → 170** |
 | 基线递减 | `--update-baseline` | **290 → 273**（条目 279 → 263、计数合计 273；新增条目 0 / 移除 16） |
-| 本地预检 | `check-preflight.py --fast` | **全部通过** |
+| 本地预检 | `check_preflight.py --fast` | **全部通过** |
 
-**遗留**：`scripts/tools` 余 **170 处**（`base-check` 86〔`check-backend-base` 39 · `check-service-boundaries` 24 · `check-bare-collections` 21 · `check-docs-scope` 2〕/ `deploy/release.py` 50 / `check-docs/check-status.py` 25 / `preflight` 9）；随后 `ops`（103）。
+**遗留**：`scripts/tools` 余 **170 处**（`base_check` 86〔`check_backend_base` 39 · `check_service_boundaries` 24 · `check_bare_collections` 21 · `check_docs_scope` 2〕/ `deploy/release.py` 50 / `check_docs/check_status.py` 25 / `preflight` 9）；随后 `ops`（103）。
 
-## 39. 实施过程补充 · 存量整改子批 8 · 批次 3 续推 `check-docs/check-status.py`（2026-10-01） <a id="batch8-check-status"></a>
+## 39. 实施过程补充 · 存量整改子批 8 · 批次 3 续推 `check_docs/check_status.py`（2026-10-01） <a id="batch8-check_status"></a>
 
-**范围**：`scripts/tools/check-docs/check-status.py` **25 处 / 1 文件**（类字段 3 / 签名返回 7 / 签名参数 1 / 局部变量 14）。
+**范围**：`scripts/tools/check_docs/check_status.py` **25 处 / 1 文件**（类字段 3 / 签名返回 7 / 签名参数 1 / 局部变量 14）。
 
 **动作**：
 
@@ -1055,17 +1055,17 @@ flowchart LR
 | 项 | 命令 | 结果 |
 | --- | --- | --- |
 | 编译与冒烟 | `py_compile` + `--help` | 通过 |
-| 实际执行 | `check-status.py --root .` | **检查 272 项：硬规则不合规 0 / 软提示 0** |
+| 实际执行 | `check_status.py --root .` | **检查 272 项：硬规则不合规 0 / 软提示 0** |
 | `governance` 补验（子批 7） | `review_stage.py --stage 01_项目骨架` / `collect_metrics.py --skip-tests` | 均 rc=0（输出正常） |
-| 护栏 | `check-bare-collections.py .` | **「新增 0」**；`scripts/tools` **170 → 145** |
+| 护栏 | `check_bare_collections.py .` | **「新增 0」**；`scripts/tools` **170 → 145** |
 | 基线递减 | `--update-baseline` | **273 → 248**（条目 263 → 239、计数合计 248；新增条目 0 / 移除 24） |
-| 本地预检 | `check-preflight.py --fast` | **全部通过**（含 `check-status` 步骤） |
+| 本地预检 | `check_preflight.py --fast` | **全部通过**（含 `check_status` 步骤） |
 
-**遗留**：`scripts/tools` 余 **145 处**（`base-check` 86〔`check-backend-base` 39 · `check-service-boundaries` 24 · `check-bare-collections` 21 · `check-docs-scope` 2〕/ `deploy/release.py` 50 / `preflight` 9）；随后 `ops`（103）。
+**遗留**：`scripts/tools` 余 **145 处**（`base_check` 86〔`check_backend_base` 39 · `check_service_boundaries` 24 · `check_bare_collections` 21 · `check_docs_scope` 2〕/ `deploy/release.py` 50 / `preflight` 9）；随后 `ops`（103）。
 
-## 40. 实施过程补充 · 存量整改子批 9 · 批次 3 续推 `preflight/check-preflight.py`（2026-10-01） <a id="batch9-preflight"></a>
+## 40. 实施过程补充 · 存量整改子批 9 · 批次 3 续推 `preflight/check_preflight.py`（2026-10-01） <a id="batch9-preflight"></a>
 
-**范围**：`scripts/tools/preflight/check-preflight.py` **9 处 / 1 文件**（签名参数 6 / 局部变量 3）。
+**范围**：`scripts/tools/preflight/check_preflight.py` **9 处 / 1 文件**（签名参数 6 / 局部变量 3）。
 
 **动作**：
 
@@ -1079,38 +1079,38 @@ flowchart LR
 | 项 | 命令 | 结果 |
 | --- | --- | --- |
 | 编译 | `py_compile` | 通过 |
-| 护栏 | `check-bare-collections.py .` | **「新增 0」**；`scripts/tools` **145 → 136** |
+| 护栏 | `check_bare_collections.py .` | **「新增 0」**；`scripts/tools` **145 → 136** |
 | 基线递减 | `--update-baseline` | **248 → 239**（条目 239 → 231、计数合计 239；新增条目 0 / 移除 8） |
-| 自验（真实执行） | `check-preflight.py --fast` | **全部通过**（本脚本即门禁本体，跑通等价端到端验证） |
+| 自验（真实执行） | `check_preflight.py --fast` | **全部通过**（本脚本即门禁本体，跑通等价端到端验证） |
 
-**遗留**：`scripts/tools` 余 **136 处**（`base-check` 86〔`check-backend-base` 39 · `check-service-boundaries` 24 · `check-bare-collections` 21 · `check-docs-scope` 2〕/ `deploy/release.py` 50）；随后 `ops`（103）。
+**遗留**：`scripts/tools` 余 **136 处**（`base_check` 86〔`check_backend_base` 39 · `check_service_boundaries` 24 · `check_bare_collections` 21 · `check_docs_scope` 2〕/ `deploy/release.py` 50）；随后 `ops`（103）。
 
-## 41. 实施过程补充 · 存量整改子批 10 · 批次 3 续推 `base-check` 族两脚本（2026-10-01） <a id="batch10-base-check-1"></a>
+## 41. 实施过程补充 · 存量整改子批 10 · 批次 3 续推 `base_check` 族两脚本（2026-10-01） <a id="batch10-base_check-1"></a>
 
-**范围**：`scripts/tools/base-check` 两文件共 **26 处**——`check-service-boundaries.py` 24 处（局部 18 / 签名返回 5 / 签名参数 1）与 `check-docs-scope.py` 2 处（局部 2）。
+**范围**：`scripts/tools/base_check` 两文件共 **26 处**——`check_service_boundaries.py` 24 处（局部 18 / 签名返回 5 / 签名参数 1）与 `check_docs_scope.py` 2 处（局部 2）。
 
 **动作**：
 
-1. **`check-service-boundaries`（本仓唯一原本即 `import bms_core` 的脚本，导入引导已就位）**：模块级 `problems` / `counts` / `service_tables` 与函数内 `packages` / `found` / `ids` / `tables` / `prefixes` / `known_tables` / `seen` 落集合类；`_discover_packages` / `_iter_imports` / `_iter_tablenames` / `_iter_cross_reference_tables` / `_bare_string_nodes` 的返回与 `known_tables` 形参落集合类；模块级规则表 `_SHARED_LAYER_RULES` / `_SERVICE_LAYER_RULES` 落 `ConcurrentStableDict[str, ConcurrentStableSet[str]]`（其值由 `frozenset` 改 `ConcurrentStableSet`）。
+1. **`check_service_boundaries`（本仓唯一原本即 `import bms_core` 的脚本，导入引导已就位）**：模块级 `problems` / `counts` / `service_tables` 与函数内 `packages` / `found` / `ids` / `tables` / `prefixes` / `known_tables` / `seen` 落集合类；`_discover_packages` / `_iter_imports` / `_iter_tablenames` / `_iter_cross_reference_tables` / `_bare_string_nodes` 的返回与 `known_tables` 形参落集合类；模块级规则表 `_SHARED_LAYER_RULES` / `_SERVICE_LAYER_RULES` 落 `ConcurrentStableDict[str, ConcurrentStableSet[str]]`（其值由 `frozenset` 改 `ConcurrentStableSet`）。
 2. **写用法换算（新增两类）**：计数自增 `x[k] += 1` → `x.set(k, x.get(k, 0) + 1)`；`dict.setdefault(k, set()).add(v)` → `get` + 按需 `set` + 集合类 `add`（集合类无 `setdefault`）。其余沿用既有口径：`append` → `add`、`extend` → `update`、`x[k] = v` → `set`；`layer_rules.get(source, frozenset())` 默认值改 `ConcurrentStableSet()`；`frozenset(known_tables)` → `ConcurrentStableSet(known_tables)`。
-3. **`check-docs-scope`**：局部 `findings` / `failures` 落集合类（`append` → `add`），脚本新增 `sys.path` 引导。
+3. **`check_docs_scope`**：局部 `findings` / `failures` 落集合类（`append` → `add`），脚本新增 `sys.path` 引导。
 
 **验证**：
 
 | 项 | 命令 | 结果 |
 | --- | --- | --- |
 | 编译 | `py_compile`（两脚本） | 通过 |
-| 实跑 | `check-service-boundaries.py .` / `check-docs-scope.py .` | 正常（跨服务越界 0 / 口径违规 0） |
+| 实跑 | `check_service_boundaries.py .` / `check_docs_scope.py .` | 正常（跨服务越界 0 / 口径违规 0） |
 | 自测矩阵 | 两脚本 `--self-test` | **全部通过** |
-| 护栏 | `check-bare-collections.py .` | **「新增 0」**；`scripts/tools` **134 → 110** |
+| 护栏 | `check_bare_collections.py .` | **「新增 0」**；`scripts/tools` **134 → 110** |
 | 基线递减 | `--update-baseline` | **239 → 213**（条目 231 → 205、计数合计 213；新增条目 0 / 移除 26） |
-| 本地预检 | `check-preflight.py --fast` | **全部通过** |
+| 本地预检 | `check_preflight.py --fast` | **全部通过** |
 
-**遗留**：`scripts/tools` 余 **110 处**（`base-check` 60〔`check-backend-base` 39 · `check-bare-collections` 21〕/ `deploy/release.py` 50）；随后 `ops`（103）。
+**遗留**：`scripts/tools` 余 **110 处**（`base_check` 60〔`check_backend_base` 39 · `check_bare_collections` 21〕/ `deploy/release.py` 50）；随后 `ops`（103）。
 
-## 42. 实施过程补充 · 存量整改子批 11 · 批次 3 续推 `base-check/check-backend-base.py`（2026-10-01） <a id="batch11-check-backend-base"></a>
+## 42. 实施过程补充 · 存量整改子批 11 · 批次 3 续推 `base_check/check_backend_base.py`（2026-10-01） <a id="batch11-check_backend_base"></a>
 
-**范围**：`scripts/tools/base-check/check-backend-base.py` **39 处 / 1 文件**（局部 19 / 签名返回 13 / 签名参数 7）。
+**范围**：`scripts/tools/base_check/check_backend_base.py` **39 处 / 1 文件**（局部 19 / 签名返回 13 / 签名参数 7）。
 
 **动作**：
 
@@ -1123,17 +1123,17 @@ flowchart LR
 | 项 | 命令 | 结果 |
 | --- | --- | --- |
 | 编译 | `py_compile` | 通过 |
-| 实跑 | `check-backend-base.py .` | **通过**（继承链 / 清单登记 / 直继承合法性 / 数据类体系语义 / 错误码段位 / 迁移链全部对齐） |
+| 实跑 | `check_backend_base.py .` | **通过**（继承链 / 清单登记 / 直继承合法性 / 数据类体系语义 / 错误码段位 / 迁移链全部对齐） |
 | 自测矩阵 | `--self-test` | **全部通过** |
-| 护栏 | `check-bare-collections.py .` | **「新增 0」**；`scripts/tools` **110 → 71** |
+| 护栏 | `check_bare_collections.py .` | **「新增 0」**；`scripts/tools` **110 → 71** |
 | 基线递减 | `--update-baseline` | **213 → 174**（条目 205 → 166、计数合计 174；新增条目 0 / 移除 39） |
-| 本地预检 | `check-preflight.py --fast` | **全部通过** |
+| 本地预检 | `check_preflight.py --fast` | **全部通过** |
 
-**遗留**：`scripts/tools` 余 **71 处**（护栏 `check-bare-collections.py` 自身 21 / `deploy/release.py` 50）；随后 `ops`（103）。
+**遗留**：`scripts/tools` 余 **71 处**（护栏 `check_bare_collections.py` 自身 21 / `deploy/release.py` 50）；随后 `ops`（103）。
 
-## 43. 实施过程补充 · 存量整改子批 12 · 批次 3 续推护栏 `check-bare-collections.py` 自身（2026-10-01） <a id="batch12-guard-self"></a>
+## 43. 实施过程补充 · 存量整改子批 12 · 批次 3 续推护栏 `check_bare_collections.py` 自身（2026-10-01） <a id="batch12-guard-self"></a>
 
-**范围**：`scripts/tools/base-check/check-bare-collections.py`（护栏本体）**21 处 / 1 文件**（局部 15 / 签名返回 4 / 签名参数 2）。
+**范围**：`scripts/tools/base_check/check_bare_collections.py`（护栏本体）**21 处 / 1 文件**（局部 15 / 签名返回 4 / 签名参数 2）。
 
 **动作**：
 
@@ -1147,12 +1147,12 @@ flowchart LR
 | 项 | 命令 | 结果 |
 | --- | --- | --- |
 | 编译 | `py_compile` | 通过 |
-| 实跑 | `check-bare-collections.py .` | **「通过：无新增违规」** |
+| 实跑 | `check_bare_collections.py .` | **「通过：无新增违规」** |
 | 自测矩阵 | `--self-test` | **全部通过**（含 JSON 结构 / 基线语义断言） |
 | 输出模式 | `--json` / `--report` | 正常 |
 | 护栏 | 自身复跑 | **护栏自身 21 → 0**；`scripts/tools` **71 → 50** |
 | 基线递减 | `--update-baseline` | **174 → 153**（条目 166 → 147、计数合计 153；新增条目 0 / 移除 19） |
-| 本地预检 | `check-preflight.py --fast` | **全部通过** |
+| 本地预检 | `check_preflight.py --fast` | **全部通过** |
 
 **口径订正**：实测 `ConcurrentStableList.clear()` 与 `ConcurrentStableSet.clear()` **存在**，仅 `ConcurrentStableDict.clear()` 不存在——交接单 §9 原「集合类无 `clear()`」表述已订正（见该单 §9）。
 
@@ -1164,7 +1164,7 @@ flowchart LR
 
 **动作**：
 
-1. **基座导入引导**：脚本顶部以 `REPO_ROOT` 定位后 `sys.path.insert(0, REPO_ROOT/"backend"/"libs"/"bms_core"/"src")`，引入 `ConcurrentStableDict` / `ConcurrentStableList` / `ConcurrentStableSet` 与 `normalize_collections`（`# noqa: E402`；照抄 `check-service-boundaries.py` 范式）。因 `models.base.to_stable_value` 依赖 SQLAlchemy（脚本不可引），自备零依赖 `_to_stable`（内置容器递归转集合类，对齐其语义）。
+1. **基座导入引导**：脚本顶部以 `REPO_ROOT` 定位后 `sys.path.insert(0, REPO_ROOT/"backend"/"libs"/"bms_core"/"src")`，引入 `ConcurrentStableDict` / `ConcurrentStableList` / `ConcurrentStableSet` 与 `normalize_collections`（`# noqa: E402`；照抄 `check_service_boundaries.py` 范式）。因 `models.base.to_stable_value` 依赖 SQLAlchemy（脚本不可引），自备零依赖 `_to_stable`（内置容器递归转集合类，对齐其语义）。
 2. **纯函数声明**：`parse_env` / `_read_env` / `_base_env` / `_fill_service_tags` / `_load_ledger` / `rotate_ledger` / `build_manifest` 的局部 / 参数 / 返回落集合类（局部 `values` 由 `{}` 改 `ConcurrentStableDict()`，`values[key] = val` → `set`）；`select_prunable_tags` 参数 `ConcurrentStableList[ConcurrentStableDict[str, str]]`、返回 `ConcurrentStableList[str]`，`if keep <= 0: return ConcurrentStableList()`、切片返回同类（`ConcurrentStableList.__getitem__(slice) -> Self`）。
 3. **运行时辅助全链路**：`env: dict[str, str]` → `ConcurrentStableDict[str, str]`（`_compose` / `_compose_run` / `_wait_readyz` / `_check_gateway` / `health_gate` / `_up` / `_migrate` / `_deploy_one` / `_rollback_one` / `_ensure_app_user` / `_tenant_url` / `cmd_*`）；`args` / `command` / `services` / `tenants` / `argv` 落 `ConcurrentStableList`；`extra_env` 与 `headers`（原为内置字面量）落 `ConcurrentStableDict`。
 4. **写用法改原子方法**：`result[key] = v` → `result.set(key, v)`（`_fill_service_tags` / `_up` / `_migrate` / `_deploy_one` / `_rollback_one`）、`dict(env)` 复制 → `ConcurrentStableDict(env)`（构造接受 `Mapping`）、`args += [...]` → `args.update([...])`、`args.append` → `args.add`、`merged.update(_read_env(...))` → `.items()`（**集合类 `update` 只吃键值对，传 Mapping 会按键解包**）、`merged.update({k: v …})` → 生成器键值对。
@@ -1181,9 +1181,9 @@ flowchart LR
 | lint | `ruff check` + `ruff format --check`（backend 配置，line-length=120） | 全绿 |
 | 实跑只读路径 | `--help` / `status` / `deploy --service …`（缺 `--tag`）/ `prune`（缺 token） | rc 依次 0 / 0 / 2 / 2，输出正常 |
 | 运行期冒烟 | 临时脚本（纯函数 + JSON 往返 + 嵌套转换 + 切片 + CLI 端到端） | **SMOKE-OK**（用完即删） |
-| 护栏 | `check-bare-collections.py .` | **「新增 0」**；`scripts/tools` **50 → 0** |
+| 护栏 | `check_bare_collections.py .` | **「新增 0」**；`scripts/tools` **50 → 0** |
 | 基线递减 | `--update-baseline` | **153 → 103**（条目 147 → 102、计数合计 103；新增条目 0 / 移除 50） |
-| 本地预检 | `check-preflight.py --fast` | **全部通过** |
+| 本地预检 | `check_preflight.py --fast` | **全部通过** |
 
 **遗留**：`scripts/tools` **归零**（批次 3 收口）；全局余 **103 处**全在 `ops`（21 文件）。
 
@@ -1201,7 +1201,7 @@ flowchart LR
 
 **偏差修复（本轮暴露的两处既有缺口）**：
 
-- `scripts/tools/base-check/check-service-boundaries.py`（§41 遗留）：`_emit` 的 `--json` 分支未把 `counts` / `problems` 转内置容器 → `json.dumps` 报 `Object of type ConcurrentStableDict is not JSON serializable`（`libs/bms_core/tests/ops/test_boundary_metrics.py` 与度量脚本依赖 `--json`）；已改 `dict(counts)` / `list(problems)`。
+- `scripts/tools/base_check/check_service_boundaries.py`（§41 遗留）：`_emit` 的 `--json` 分支未把 `counts` / `problems` 转内置容器 → `json.dumps` 报 `Object of type ConcurrentStableDict is not JSON serializable`（`libs/bms_core/tests/ops/test_boundary_metrics.py` 与度量脚本依赖 `--json`）；已改 `dict(counts)` / `list(problems)`。
 - `ops/event_contracts.py`：`check()` 内漏改一处 `errors.append`（集合类无 `append`）→ 由 `test_event_contracts_cli.py::test_check_drift_fails` 抓到，已改 `add`。
 
 **验证**：
@@ -1210,15 +1210,15 @@ flowchart LR
 | --- | --- | --- |
 | lint | `ruff check` + `ruff format --check`（backend 配置） | 全绿（21 ops + 17 测试） |
 | 定向用例 | `pytest libs/bms_core/tests/ops services/tenant/tests/sources/test_tenant_routing_integration.py` | **155 passed / 1 skipped** |
-| 护栏 | `check-bare-collections.py .` | **「新增 0」**；`ops` **103 → 0** |
+| 护栏 | `check_bare_collections.py .` | **「新增 0」**；`ops` **103 → 0** |
 | 基线递减 | `--update-baseline` | **103 → 0**（条目 102 → 0；**全局归零**） |
-| 脚本自测 | `check-service-boundaries.py --self-test` | 全部通过 |
+| 脚本自测 | `check_service_boundaries.py --self-test` | 全部通过 |
 | 类型抽样 | `pyright libs/bms_core/tests/ops …` | 真实类型错误 0（余 1 处 `pytest.skip` 收窄属本地依赖外置噪声，CI 完整依赖不报） |
-| 本地预检 | `check-preflight.py --fast` | **全部通过**（含 `gateway_config` / `contract_snapshot` / `event_contracts` 三个 ops 脚本实跑） |
+| 本地预检 | `check_preflight.py --fast` | **全部通过**（含 `gateway_config` / `contract_snapshot` / `event_contracts` 三个 ops 脚本实跑） |
 
 **遗留**：**全局基线归零** —— `libs`（§28~§33）、`services`（§34~§36）、`scripts/tools`（§37~§44）、`ops`（§45）四批全部收口，08_02 存量整改完成；`ops/gateway_config.py` 保持**无依赖面**（CI 精简镜像直接执行，仅引标准库依赖链），其余 ops 经完整依赖环境运行。
 
-**已知非门禁项**：`scripts/tools/base-check/check-service-boundaries.py` 在 backend 配置下存 6 条 ruff 提示（import 排序 / 3 处既有超长行 / 1 处未用循环变量），均为既有且 `scripts/tools` 不在 CI ruff 范围（`cd backend && ruff check .`），不属本轮范围。
+**已知非门禁项**：`scripts/tools/base_check/check_service_boundaries.py` 在 backend 配置下存 6 条 ruff 提示（import 排序 / 3 处既有超长行 / 1 处未用循环变量），均为既有且 `scripts/tools` 不在 CI ruff 范围（`cd backend && ruff check .`），不属本轮范围。
 
 ## 46. 实施过程补充 · pyright 类型欠账分批修复（S1~S4 / T1~T4，2026-10-02） <a id="type-debt"></a>
 

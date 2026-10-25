@@ -42,7 +42,7 @@ flowchart LR
 5. **运维脚本**：`app/db/admin.py` 库级建删能力（MySQL / PostgreSQL 建删库、SQLite 建删文件、达梦建删模式；幂等且不擅动既有对象）+ 薄 CLI `ops/db_admin.py`（create / drop / exists）；`ops/migrate_tenants.py` 真实批量迁移（枚举平台库 + `sys_tenant` 各租户 + 归档库，逐库经 Alembic 程序化接口迁移，`alembic_version` 已最新则跳过，失败不中断并汇总，存在失败退出码 1）；`ops/init_tenant.py` 建库 → 迁移 → 幂等种子三步。
 6. **排序 DB 侧细化**：新增 `app/repositories/ordering.py`（`order_criteria` 生成「`列 IS NULL` + 列」排序键实现 NULL 恒末位并补主键兜底、`keyset_condition` 键集续查谓词、`sort_items` / `is_after_cursor` 内存镜像、`assert_sortable_fields_indexed` 索引断言工具）；`BaseDbRepository._apply_sort` / `list_cursor` 与 `BaseMemoryRepository` 接线；新增 `app/schemas/cursor.py`（keyset 游标载荷与 base64url JSON 编解码，规格指纹不一致或载荷非法抛 `ParamError`）；`BasePageQuery` 增加 `page ≤ [pagination].max_page` 限深（默认 100）；`BaseRepository` 增 `effective_sort` / `build_cursor` 契约，`BaseService.cursor_page` 据此生成 `next_cursor` / `has_more`。
 7. **配置**：`config.toml` 增 `[pagination].max_page` 与 `[database].auto_create`（`config.prod.toml` 置 false）、`.env.example` 补 `BMS_PAGINATION__MAX_PAGE` / `BMS_DATABASE__AUTO_CREATE`。
-8. **基座校验脚本适配**：`scripts/tools/base-check/check-backend-base.py` 迁移链校验改为「按链分目录：每链单 head / 无断链 / revision 跨链唯一 / 链首 `branch_labels` / `alembic.ini` 配置段齐备 / 禁止脚本置于版本根目录」，自检新增「迁移链分链合规」与「同链双 head」两例（拦截已验证）。
+8. **基座校验脚本适配**：`scripts/tools/base_check/check_backend_base.py` 迁移链校验改为「按链分目录：每链单 head / 无断链 / revision 跨链唯一 / 链首 `branch_labels` / `alembic.ini` 配置段齐备 / 禁止脚本置于版本根目录」，自检新增「迁移链分链合规」与「同链双 head」两例（拦截已验证）。
 9. **开发库重建**：删除本地 SQLite 开发库（先备份至 `/tmp`）→ 平台链 `0001_sys_tenant_module` + 租户链 `0001_dict_query_scheme` 迁移 → `ops.seed_tenant`（2 行）/ `ops.seed_module`（4 行）/ `ops.seed_dict`（25 行）幂等重跑；复核 `alembic_version` 与索引名（无 `ix_*` 残留）。
 10. **用例与门禁**：新增/适配 11 个用例文件（见测试记录），`pytest` / `ruff` / `pyright` 全绿；新增与改动模块覆盖率 100%。
 11. **三库真库演练**：mjbk 三库按方言建库（达梦建模式）→ 迁移平台链与租户链 → 校验 `alembic_version` 与表清单 → 清理，6 次迁移执行全部通过（结论见测试记录 §3.2）。
@@ -57,7 +57,7 @@ flowchart LR
 | 达梦「表不存在」异常类型不同 | 未迁移时 `SELECT version_num FROM alembic_version` 抛 `DatabaseError`（非 PG / MySQL 的 `ProgrammingError`、SQLite 的 `OperationalError`），导致「是否已迁移」判断失败 | `current_revision` / `_read_revision` 将三类异常统一视为「未迁移」并注明各库差异 |
 | 达梦版本行回滚 | 迁移后表已建、`alembic_version` **版本行为空**（Alembic 把 `SET SCHEMA` 打开的隐式事务视为外部事务而不再提交） | `apply_session_schema` 在切换模式后结束隐式事务（`connection.commit()`），复测版本行正常落库 |
 | 达梦模式存在性检查 | `ALL_USERS` 只含用户、不含 `CREATE SCHEMA` 建出的模式 → `drop` 误判「不存在（跳过）」 | 改查系统对象表 `SYS.SYSOBJECTS WHERE TYPE$ = 'SCH' AND NAME = :name`（实测可行） |
-| 阶段二既有文档合规偏差 | `check-status` 报 §2 表五列（规范要求六列 → 行全部漏读，连带 H6）、§1 缺进度台账行、01_01~01_03 任务状态写作「完成」（集合外取值） | 经确认本任务一并修正（§2 改六列 + 补「任务文件」列、§1 补计划合计行、三个任务状态改「已完成」），阶段二硬规则归零（决策 20） |
+| 阶段二既有文档合规偏差 | `check_status` 报 §2 表五列（规范要求六列 → 行全部漏读，连带 H6）、§1 缺进度台账行、01_01~01_03 任务状态写作「完成」（集合外取值） | 经确认本任务一并修正（§2 改六列 + 补「任务文件」列、§1 补计划合计行、三个任务状态改「已完成」），阶段二硬规则归零（决策 20） |
 | ruff 重写异常括号 | py314 目标下 ruff 自动修复把 `except (A, B):` 改为无括号形态（PEP 758） | 遵循自动修复结果（格式与门禁一致），代码形态以 `ruff format` 输出为准 |
 
 ## 5. 验证结果 <a id="verify"></a>
@@ -67,8 +67,8 @@ flowchart LR
 | 单元用例 | `uv run pytest -q` | 884 passed / 8 skipped（1 条告警为既有 aiosqlite GC 告警，非本任务引入） |
 | 覆盖率 | `uv run pytest -q --cov=app --cov-branch` | 总体 96%；新增与改动模块（`db/migration` / `db/admin` / `db/bootstrap` / `repositories/ordering` / `schemas/cursor` / `schemas/pagination` / `services/base_service` / `repositories/base_*`）**100%** |
 | 静态检查 | `uv run ruff check .` / `uv run ruff format --check .` / `uv run pyright` | 全通过（0 error / 0 warning） |
-| 基座对账 | `python3 scripts/tools/base-check/check-backend-base.py`（含 `--self-test`） | 通过（迁移链按链口径检查 2 个 revision；自检 5 例全通过） |
-| 文档对账 | `python3 scripts/tools/base-check/check-base.py` / `check-links.py` / `check-docs/check-status.py --stage 02_后端基座与服务化地基` | 全通过（阶段二硬规则 0、软提示 0） |
+| 基座对账 | `python3 scripts/tools/base_check/check_backend_base.py`（含 `--self-test`） | 通过（迁移链按链口径检查 2 个 revision；自检 5 例全通过） |
+| 文档对账 | `python3 scripts/tools/base_check/check_base.py` / `check_links.py` / `check_docs/check_status.py --stage 02_后端基座与服务化地基` | 全通过（阶段二硬规则 0、软提示 0） |
 | 开发库 | 迁移 + 三个种子脚本（幂等复核） | 平台库 3 表 + 租户库 7 表落地；索引无 `ix_*` 残留；种子重跑新增 0 行 |
 | 三库真库迁移演练 | 建库（达梦建模式）→ 迁移 → 校验 → 清理 | MySQL / PostgreSQL / 达梦 × 平台链 / 租户链 **6 次执行全部通过**（见测试记录 §3.2） |
 

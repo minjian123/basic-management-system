@@ -43,8 +43,8 @@
 | 全量用例 | `uv run pytest -q` | **884 passed / 8 skipped**（1 条既有 aiosqlite GC 告警，非本任务引入） |
 | 覆盖率 | `uv run pytest -q --cov=app --cov-branch --cov-report=term-missing` | 总体 **96%**；新增 / 改动模块 100%（见 §5） |
 | 静态检查 | `uv run ruff check .` + `uv run ruff format --check .` + `uv run pyright` | 全通过（0 error / 0 warning） |
-| 基座对账 | `python3 scripts/tools/base-check/check-backend-base.py`（含 `--self-test`） | 通过；自检 5 例（含新增「迁移链分链合规」「同链双 head」）全通过 |
-| 文档对账 | `python3 scripts/tools/base-check/check-base.py`、`scripts/tools/base-check/check-links.py`、`scripts/tools/check-docs/check-status.py --stage 02_后端基座与服务化地基` | 全通过（阶段二硬规则 0 / 软提示 0） |
+| 基座对账 | `python3 scripts/tools/base_check/check_backend_base.py`（含 `--self-test`） | 通过；自检 5 例（含新增「迁移链分链合规」「同链双 head」）全通过 |
+| 文档对账 | `python3 scripts/tools/base_check/check_base.py`、`scripts/tools/base_check/check_links.py`、`scripts/tools/check_docs/check_status.py --stage 02_后端基座与服务化地基` | 全通过（阶段二硬规则 0 / 软提示 0） |
 
 ### 3.2 三库真库迁移演练（建库 → 迁移 → 校验 → 清理）
 

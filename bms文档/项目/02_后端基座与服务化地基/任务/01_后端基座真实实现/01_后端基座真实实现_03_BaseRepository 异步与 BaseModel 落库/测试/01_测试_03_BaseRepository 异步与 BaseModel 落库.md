@@ -55,9 +55,9 @@ $ uv run pytest -q                   # 812 passed, 8 skipped
 $ uv run pytest --cov=app --cov-branch --cov-report=term   # TOTAL 95%
 $ uv run python -m ops.seed_module   # 新增 4 行（幂等；重复执行输出 0）
 $ uv run python -m ops.check_modules # 校验通过（4 项）
-$ python3 scripts/tools/base-check/check-backend-base.py   # 通过
-$ python3 scripts/tools/base-check/check-base.py           # 通过
-$ python3 scripts/tools/base-check/check-links.py          # 断链 0 / 失效锚点 0
+$ python3 scripts/tools/base_check/check_backend_base.py   # 通过
+$ python3 scripts/tools/base_check/check_base.py           # 通过
+$ python3 scripts/tools/base_check/check_links.py          # 断链 0 / 失效锚点 0
 ```
 
 结果汇总：本任务新增 / 适配用例全绿（Kiwi 1050 标注 21 处）；全量 812 passed / 8 skipped（较 01_02 快照 787 / 8 净增 25 条通过）。DB 仓储 CRUD / 作用域翻译 / 软删硬删 / 租户写读口径 / 乐观锁 / 分页排序、四库类型映射与复合唯一、索引命名、统一会话入口与 `sys_module` 种子用例均通过；开发平台库种子实测幂等（重复执行 0 行）；三库真库用例因未配置 `BMS_TEST_DB_URL` 跳过（归 01_05）。

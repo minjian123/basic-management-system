@@ -25,7 +25,7 @@
 | 项 | 现状（2026-09-15 实测） | 本任务目标 | 动作 |
 | --- | --- | --- | --- |
 | 阶段测试报告 | **不存在**；《文档首页》与《项目规划说明》已登记落点 `项目/01_项目骨架/01_测试报告_项目骨架.md` | 四章节 + 复盘 + 附录取证齐备，数据来自脚本采集 | 新增 |
-| 治理脚本 | `scripts/tools/governance/` **不存在**（现有：backup / base-check / bg / check-docs / defect / dsh / gitlab / graphify / reorder-* / vision / winrm / wol / workbuddy） | 落地 `collect_metrics.py`（三项度量 + 用例执行统计）与 `review_stage.py`（阶段末复盘清单） | 新增 |
+| 治理脚本 | `scripts/tools/governance/` **不存在**（现有：backup / base_check / bg / check_docs / defect / dsh / gitlab / graphify / reorder-* / vision / winrm / wol / workbuddy） | 落地 `collect_metrics.py`（三项度量 + 用例执行统计）与 `review_stage.py`（阶段末复盘清单） | 新增 |
 | 缺陷统计 | GitLab Issue 仅 1 条（准备期
 | 覆盖率数据 | 后端 `pytest` 417 passed / 7 skipped、覆盖率 99.75%（04-3 实测）；前端双端 Vitest v8 覆盖率已在 CI 跑 | 报告以脚本采集（后端跑 pytest 取 TOTAL，前端读 coverage 产物） | 采集 |
 | 根 README「项目状态」 | **过时**：写「阶段一收尾中：工程骨架 6/6、后端基座 5/5 已交付；后端基础能力 2/3（健康检查待执行）；CI 与阶段验收任务待推进」 | 改为阶段一收尾现状（54/54 与 阶段验收门禁结论） | 修改 |
@@ -125,8 +125,8 @@ bms文档/
 
 | # | 检查项 | 手法 |
 | --- | --- | --- |
-| 1 | 三类文档就位（进度以阶段计划为准） | 调用 `scripts/tools/check-docs/check-status.py`（subprocess，取退出码与摘要） |
-| 2 | 基座自检通过 | 调用 `scripts/tools/base-check/check-base.py` |
+| 1 | 三类文档就位（进度以阶段计划为准） | 调用 `scripts/tools/check_docs/check_status.py`（subprocess，取退出码与摘要） |
+| 2 | 基座自检通过 | 调用 `scripts/tools/base_check/check_base.py` |
 | 3 | 门禁表结论齐备 | 《需求总览》§4：10 行、5 列、结论取值合法、达标项证据索引非空 |
 | 4 | 阶段残留检查 | 本阶段需求 / 任务文档无「未开始 / 进行中」（收口后应为 0；门禁第 10 行须为「达标」） |
 | 5 | 遗留项已登记 | 计划 §3.1 存在且非空；各任务实施记录 §6 提及的遗留均能在 §3.1 或报告 §4 找到归口 |
@@ -142,7 +142,7 @@ bms文档/
 
 | 文件 | 项目状态 | 快速启动 | 目录结构 | 文档导航 |
 | --- | --- | --- | --- | --- |
-| `README.md`（根） | 改为「阶段一收尾：54/54 完成（或 53/54 + 本任务收口），阶段验收门禁 10 项结论（9 达标 + 1 待本任务）」；阶段二 ~ 五现状保留 | 保留既有命令；**补本地门禁命令块**（ruff / format / pyright / pytest 含覆盖率 / check_modules / `check-status.py` / `check-base.py`）与前端 `pnpm run test:cov` | 与现状同步（新增 `backend/ops/`、`scripts/tools/governance/` 等本阶段新增目录） | 新增「阶段一四件套」行（需求总览 / 任务基线 / 计划 / **测试报告**）与基座 / 架构链接保持 |
+| `README.md`（根） | 改为「阶段一收尾：54/54 完成（或 53/54 + 本任务收口），阶段验收门禁 10 项结论（9 达标 + 1 待本任务）」；阶段二 ~ 五现状保留 | 保留既有命令；**补本地门禁命令块**（ruff / format / pyright / pytest 含覆盖率 / check_modules / `check_status.py` / `check_base.py`）与前端 `pnpm run test:cov` | 与现状同步（新增 `backend/ops/`、`scripts/tools/governance/` 等本阶段新增目录） | 新增「阶段一四件套」行（需求总览 / 任务基线 / 计划 / **测试报告**）与基座 / 架构链接保持 |
 | `backend/README.md` | 补「阶段一后端交付现状」（基座占位口径 + 基础能力 3/3） | 校对启动命令（应用工厂）、补门禁命令 | 同步 `app/` 新增基座目录与 `ops/` | 补阶段一需求 / 任务 / 计划 / 报告链接 |
 | `apps/desktop/README.md` | 补阶段一交付现状（工程骨架 + 基类体系） | 校对 5173 / 命令与 `test:cov` | 同步 `src/` 现状 | 同上（报告 + 阶段一文档） |
 | `frontend-mobile/README.md` | 同上（5174） | 同上 | 同上 | 同上 |
@@ -180,7 +180,7 @@ flowchart LR
 cd <bms 根>
 python3 scripts/tools/governance/collect_metrics.py --stage 01_项目骨架
 python3 scripts/tools/governance/review_stage.py --stage 01_项目骨架
-python3 scripts/tools/check-docs/check-status.py && python3 scripts/tools/base-check/check-base.py
+python3 scripts/tools/check_docs/check_status.py && python3 scripts/tools/base_check/check_base.py
 cd backend && uv run pytest -q --cov=app --cov-branch --cov-fail-under=100
 ```
 
@@ -193,7 +193,7 @@ cd backend && uv run pytest -q --cov=app --cov-branch --cov-fail-under=100
 5. **交叉审核**：第二 AI 独立复核（[§8](#flow)），异常项当场处理或登记。
 6. **README 同步**：四份 README 按 [§7](#readme) 更新。
 7. **门禁与状态回写**：《需求总览》§4 第 10 行转「达标」+ 结论改 54/54；需求 04-4 元信息与注块；任务 04_04 与域总览；计划（§2 加行、§3 清空口径、统计 18/0、进度、§5 留痕行）；`文档首页` 5.5 / 5.6。
-8. **本地门禁**：`check-status.py` / `check-base.py` / `review_stage.py` 全通过；后端 `ruff` / `format` / `pyright` / `pytest` 全绿。
+8. **本地门禁**：`check_status.py` / `check_base.py` / `review_stage.py` 全通过；后端 `ruff` / `format` / `pyright` / `pytest` 全绿。
 9. **记录**：任务目录 `测试/`、`实施/` 各一份。
 10. **提交推送**：脚本与 README（代码类）与文档分开提交；推送后确认流水线全绿（README 属非基座文档，脚本属 `scripts/**` 不在触发路径——如未建流水线属预期）。
 
@@ -204,7 +204,7 @@ cd backend && uv run pytest -q --cov=app --cov-branch --cov-fail-under=100
 | 报告四章节齐备且数据来自 CI 采集 | [§4.1](#report-struct) / [§5](#collect-metrics) | 报告章节与附录命令核对；`collect_metrics.py` 输出与报告数字逐项比对 |
 | README 与现状一致 | [§7](#readme) | 四份 README 的快速启动命令逐条实跑关键项（后端 `/healthz`、双端 dev 端口、门禁命令）；目录结构与磁盘比对 |
 | 遗留项逐条登记 | [§4.1](#report-struct) §4 / [§6](#review-stage) | 计划 §3.1 逐行 ↔ 报告 §4 对位；`review_stage.py` 第 5 项通过 |
-| （04-3 完成标准衔接）门禁第 10 行转达标、54/54 | [§10](#steps) 7 | 《需求总览》§4 第 10 行结论 + §3 总清单 54 行全「已完成」；`check-status.py` 通过 |
+| （04-3 完成标准衔接）门禁第 10 行转达标、54/54 | [§10](#steps) 7 | 《需求总览》§4 第 10 行结论 + §3 总清单 54 行全「已完成」；`check_status.py` 通过 |
 
 ## 12. 职责边界与登记落点 <a id="boundary"></a>
 
@@ -213,7 +213,7 @@ cd backend && uv run pytest -q --cov=app --cov-branch --cov-fail-under=100
 | 事项 | 归属 |
 | --- | --- |
 | 测试报告、README 同步、治理脚本（`collect_metrics` / `review_stage`）、门禁第 10 行转达标与 54/54 收口 | **04-4（本文档）** |
-| 门禁前 9 项结论与证据索引、状态一致性脚本 `check-status.py` | [04_03](../../04_CI与阶段验收_03_阶段验收门禁核对/04_CI与阶段验收_03_阶段验收门禁核对.md)（已完成） |
+| 门禁前 9 项结论与证据索引、状态一致性脚本 `check_status.py` | [04_03](../../04_CI与阶段验收_03_阶段验收门禁核对/04_CI与阶段验收_03_阶段验收门禁核对.md)（已完成） |
 | 各任务级实施 / 测试记录 | 各任务（本任务只消费） |
 | 机制类真实实现与跨阶段基座回补 | 各对应阶段（计划 §3.1） |
 
@@ -228,7 +228,7 @@ cd backend && uv run pytest -q --cov=app --cov-branch --cov-fail-under=100
 | 进度偏差为「提前」 | 偏差 > 20% 须记录（§25.2） | 报告中说明原因（占位口径 + 串行无阻塞），并注明基线来源 |
 | 计划 §3 剩余进度表清空 | 阶段一收口后无剩余任务，固定列头需保留 | 保留表头 + 一行「本阶段全部完成，无剩余任务」（不破坏《计划文档规范》列头固定要求） |
 | 报告章节超需求 | 需求写「四章节固定」，本轮增复盘与附录 | 已在 [§14](#align) 登记口径（复盘依《测试规范》§12、附录为取证），并在需求 04-4 注块说明 |
-| 脚本范围膨胀 | 治理脚本易做成大而全 | 只做 §5.2 四项与 §6.2 八项；其余交既有脚本（check-status / check-base） |
+| 脚本范围膨胀 | 治理脚本易做成大而全 | 只做 §5.2 四项与 §6.2 八项；其余交既有脚本（check_status / check_base） |
 
 ## 14. 对齐记录 <a id="align"></a>
 

@@ -14,7 +14,7 @@
   3. **平台服务落地**：现 `app/` 的应用入口、接口路由与平台业务模块迁入 `bms_platform`（api 全量 + main/asgi + demo 五层示例 + 平台业务模型）。
   4. **全量 import 重命名**：`app.*` → `bms_core.*` / `bms_platform.*`（源码、测试、`alembic/`、`ops/` 一并改写），删除旧 `app` 包，不留兼容 shim。
   5. **测试随工程走**：基座库测试 `libs/bms_core/tests/`、服务测试 `services/platform/tests/`，各自独立 `conftest.py`，根 `pytest` 汇总门禁。
-  6. **边界机器护栏**：新增 `scripts/tools/base-check/check-service-boundaries.py`（共享库不得依赖服务、服务不得互相 import、服务内分层方向单向），接入 CI；基座对账脚本扫描路径改为 `libs/**` + `services/**`。
+  6. **边界机器护栏**：新增 `scripts/tools/base_check/check_service_boundaries.py`（共享库不得依赖服务、服务不得互相 import、服务内分层方向单向），接入 CI；基座对账脚本扫描路径改为 `libs/**` + `services/**`。
   7. **服务脚手架脚本**：新增 `backend/scripts/new_service.py`，按同一骨架生成新服务工程（供 02_03 与后续加服务复用）。
   8. **工程适配**：`alembic/` `ops/` `config*.toml` 暂留 `backend/` 根，仅改 import 与路径常量；CI 后端 job 与 CI 基础镜像 Dockerfile 适配工作区。
 - **不含（明确归口，见第 8 节）**：现有单体按限界上下文拆分为多个服务（02_03）；每服务独立配置与迁移链（06_需求）；数据所有权硬校验与 CI 越界度量（05_02）；父-子流水线与按服务构建发布（09_需求）；服务运行与探针（02_02）。
@@ -29,7 +29,7 @@
 | import 根 | 全量 `app.*`（源码 ~250 文件、测试 ~133 文件、`ops`/`alembic` 若干） | 全量改写为 `bms_core.*` / `bms_platform.*`，删除旧包 |
 | 测试组织 | 单 `backend/tests/`（导入 `app.main`） | 随工程走：`libs/bms_core/tests` + `services/platform/tests` |
 | 边界护栏 | 无「服务边界 / 共享库反向依赖」机器护栏 | 新增护栏脚本 + CI，完成标准可执行验证 |
-| 基座对账 | `check-backend-base.py` 扫描 `backend/app/**` | 扫描 `backend/libs/**` + `backend/services/**`，自检样例同步 |
+| 基座对账 | `check_backend_base.py` 扫描 `backend/app/**` | 扫描 `backend/libs/**` + `backend/services/**`，自检样例同步 |
 | CI / 镜像 | job 直跑 `uv run`，镜像 `uv sync --no-install-project` | 适配工作区（镜像 `--no-install-workspace`、job 补 `uv sync`、`--cov` 改包名） |
 | 迁移 / 运维 / 配置 | 在 `backend/` 根，import `app.*` | 暂留原位，import 与 `BACKEND_ROOT` 等路径常量适配 |
 
@@ -144,7 +144,7 @@ services/platform/pyproject.toml  包 bms-platform（依赖 bms-core + fastapi/u
 
 ### 4.6 服务边界机器护栏 <a id="guard"></a>
 
-新增 `scripts/tools/base-check/check-service-boundaries.py`（与 `check-backend-base.py` 同目录、同风格，支持 `--self-test`）：
+新增 `scripts/tools/base_check/check_service_boundaries.py`（与 `check_backend_base.py` 同目录、同风格，支持 `--self-test`）：
 
 | # | 规则 | 断言口径 |
 | --- | --- | --- |
@@ -191,7 +191,7 @@ services/<name>/
 | 场景 | 处理 |
 | --- | --- |
 | 工作区根无 `[project]` | uv 支持虚拟工作区根；`uv sync` 装配全部成员，`uv run` 正常 |
-| 服务 import 另一服务内部实现 | `check-service-boundaries.py` 失败（规则 2/4），CI 拦截 |
+| 服务 import 另一服务内部实现 | `check_service_boundaries.py` 失败（规则 2/4），CI 拦截 |
 | `bms_core` import 服务 | 护栏失败（规则 1），CI 拦截 |
 | 服务内反向依赖（如 models→api） | 护栏失败（规则 3），CI 拦截 |
 | `db/migration.py` 找不到 `backend/` | `BACKEND_ROOT` 单测断言其下存在 `alembic.ini`；层级修正后通过 |
@@ -263,7 +263,7 @@ flowchart LR
 3. `git mv` 迁源码到 `libs/bms_core/src/bms_core`，按映射改写 import；建 `bms_platform` 包并迁入口 / 路由 / demo / 平台模型。
 4. 测试按口径拆分并落双 conftest；删根 `tests/`。
 5. `alembic/env.py`、`ops/*`、`db/migration.py` 路径常量与 import 适配。
-6. 新增 `scripts/tools/base-check/check-service-boundaries.py`（含 `--self-test`）与 `backend/scripts/new_service.py`。
+6. 新增 `scripts/tools/base_check/check_service_boundaries.py`（含 `--self-test`）与 `backend/scripts/new_service.py`。
 7. `.gitlab-ci.yml`（`uv sync` / `--cov` / 护栏）与 `deploy/ci/Dockerfile.backend` 适配。
 8. 门禁：`uv run pytest -q --cov=bms_core --cov=bms_platform --cov-branch` / `uv run ruff check .` / `uv run ruff format --check .` / `uv run pyright`；基座校验与边界护栏。
 9. 应用启动冒烟（`uv run python -m uvicorn bms_platform.asgi:app` 或 TestClient）。
@@ -276,9 +276,9 @@ cd backend
 uv sync --frozen                 # 装配工作区成员（bms_core / bms_platform）
 uv run pytest -q --cov=bms_core --cov=bms_platform --cov-branch
 uv run ruff check . && uv run ruff format --check . && uv run pyright
-python3 ../scripts/tools/base-check/check-backend-base.py
-python3 ../scripts/tools/base-check/check-service-boundaries.py
-python3 ../scripts/tools/base-check/check-service-boundaries.py --self-test
+python3 ../scripts/tools/base_check/check_backend_base.py
+python3 ../scripts/tools/base_check/check_service_boundaries.py
+python3 ../scripts/tools/base_check/check_service_boundaries.py --self-test
 uv build --package bms-core && uv build --package bms-platform
 ```
 
@@ -294,7 +294,7 @@ uv build --package bms-core && uv build --package bms-platform
 | 6 | import 迁移方式 | **一次性全量重命名**，删旧 `app` 包，无 shim |
 | 7 | 测试组织 | **随工程走**（libs/bms_core/tests + services/platform/tests，根 pytest 汇总） |
 | 8 | alembic / ops / config 归属 | **暂留 backend 根**，仅改 import 与路径常量 |
-| 9 | 边界护栏 | **新增并接入 CI**（`check-service-boundaries.py`） |
+| 9 | 边界护栏 | **新增并接入 CI**（`check_service_boundaries.py`） |
 
 ## 11. 参考文档 <a id="ref"></a>
 

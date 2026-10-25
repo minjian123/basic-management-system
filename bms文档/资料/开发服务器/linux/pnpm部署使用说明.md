@@ -18,7 +18,7 @@ pnpm 在**开发机**与**开发服务器**上的部署口径**相反**，先讲
 
 ## 2. CI 基础镜像中的工具链 <a id="toolchain"></a>
 
-前端 CI 基础镜像 `ci-frontend:node22`（构建见 `deploy/ci/build-base.sh`）仅内置工具链，**不带任何 node_modules**：
+前端 CI 基础镜像 `ci-frontend:node22`（构建见 `deploy/ci/build_base.sh`）仅内置工具链，**不带任何 node_modules**：
 
 - 基础镜像 `node:22-slim`（`deploy/ci/Dockerfile.frontend`）
 - 内置 `npm install -g pnpm@11.7.0` —— pnpm 版本与开发机一致（单一 workspace 语义对齐）

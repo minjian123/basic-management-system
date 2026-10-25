@@ -121,16 +121,16 @@ ls build/bin/llama-server
 
 | 服务 | 端口 | 模型 | 说明 |
 | --- | --- | --- | --- |
-| `llamacpp-qwen` | 8080 | Qwen3.8-27B（档位见 `llamacpp-qwen.env`，可选 ud/std/unc） | 推理服务；前台包装脚本 `qwen-serve.sh`（薄包装，唯一实现在 `qwen_serve.py`；不做 stop-others/nohup） |
+| `llamacpp-qwen` | 8080 | Qwen3.8-27B（档位见 `llamacpp-qwen.env`，可选 ud/std/unc） | 推理服务；前台包装脚本 `qwen_serve.sh`（薄包装，唯一实现在 `qwen_serve.py`；不做 stop-others/nohup） |
 | `llamacpp-bge` | 8082 | bge-small-zh-v1.5（512 维） | 中文嵌入；CPU（`-ngl 0`），不与 27B 争显存 |
 
 ```bash
-sudo bash scripts/tools/llamacpp/install-systemd.sh          # 一次性安装（sshd + ufw 放行 + 单元；脚本会同步 `qwen-serve.sh` + `qwen_serve.py` 与档位配置）
+sudo bash scripts/tools/llamacpp/install_systemd.sh          # 一次性安装（sshd + ufw 放行 + 单元；脚本会同步 `qwen_serve.sh` + `qwen_serve.py` 与档位配置）
 sudo systemctl start|stop llamacpp-qwen llamacpp-bge         # 按需启停
 sudo systemctl status llamacpp-qwen llamacpp-bge
 ```
 
-> 单元与包装脚本的**仓库副本**在 `bms/scripts/tools/llamacpp/`（`llamacpp-*.service`、`qwen-serve.sh` + `qwen_serve.py`、`llamacpp-qwen.env.example`、`install-systemd.sh` + `install_systemd.py`）；`install-systemd.sh` 会把包装脚本（`.sh` + 同目录 `.py`，成对）同步到 `~/develop/llama.cpp/` 再安装单元，机器与仓库两处保持一致。
+> 单元与包装脚本的**仓库副本**在 `bms/scripts/tools/llamacpp/`（`llamacpp-*.service`、`qwen_serve.sh` + `qwen_serve.py`、`llamacpp-qwen.env.example`、`install_systemd.sh` + `install_systemd.py`）；`install_systemd.sh` 会把包装脚本（`.sh` + 同目录 `.py`，成对）同步到 `~/develop/llama.cpp/` 再安装单元，机器与仓库两处保持一致。
 
 > 与人工脚本（3.3 节）的 8080 互斥：两种方式一次只跑一个 27B 实例。
 
@@ -312,9 +312,9 @@ Qwen3.8-27B 的"思考强度"没有独立模型参数，由 chat 模板（第 3.
 - **2026-09-01 加速配置**：`qwen-start.sh` 启用 ngram-mod 推测解码（先 `--spec-default`，后经 16 用例 A/B 实测改为 dense 微调参数 `--spec-ngram-mod-n-match 16 --spec-ngram-mod-n-min 32 --spec-ngram-mod-n-max 64`，重复场景最高提速约 5.7 倍）；llama.cpp 以 `GGML_CUDA_FA_ALL_QUANTS=ON` 重编译（同 commit `9d81721`，仅改编译选项）；文档同步修正上下文为实际值 210K（`-c 215040`）。
 - **2026-09-09 思考强度开最大**：`qwen-start.sh` 公共参数加 `--reasoning-effort max`（服务端默认思考强度最强档）；opencode 侧 llamacpp 三模型 `reasoningEffort` 由 medium 改 `high`；dsh `~/.dsh/settings.yaml` 的 llamacpp provider 加 `reasoning: max` 默认档并为两个模型声明 `reasoningEfforts` 七档字典（wire 值与模板语汇同名），GUI 可选思考档位（改动前备份 `settings.yaml.bak_20260909_213836`）。控制方法见 5.5 节。
 
-- **2026-10-13 上下文调整为 150K**：`qwen-start.sh` / `qwen-serve.sh` 的 `-c` 由 215040（210K）改为 **153600（150K）**，为长会话/记忆压缩留出更稳的显存余量；改后重启服务（`sudo systemctl restart llamacpp-qwen` 或 `qwen-restart.sh`）生效。
+- **2026-10-13 上下文调整为 150K**：`qwen-start.sh` / `qwen_serve.sh` 的 `-c` 由 215040（210K）改为 **153600（150K）**，为长会话/记忆压缩留出更稳的显存余量；改后重启服务（`sudo systemctl restart llamacpp-qwen` 或 `qwen-restart.sh`）生效。
 
-- **2026-10-16 脚本转为 Python 单一实现**：`install-systemd.sh` / `qwen-serve.sh` 改为「Python 单一实现（`install_systemd.py` / `qwen_serve.py`）+ `.sh` 薄包装」，行为口径不变（单元 `ExecStart` 仍指 `qwen-serve.sh`）；机器侧重跑 `sudo bash scripts/tools/llamacpp/install-systemd.sh` 即同步落地 `.py`——**包装与 `.py` 须同目录成对并存**（只拷一个会报 `python3: can't open file`）。
+- **2026-10-16 脚本转为 Python 单一实现**：`install_systemd.sh` / `qwen_serve.sh` 改为「Python 单一实现（`install_systemd.py` / `qwen_serve.py`）+ `.sh` 薄包装」，行为口径不变（单元 `ExecStart` 仍指 `qwen_serve.sh`）；机器侧重跑 `sudo bash scripts/tools/llamacpp/install_systemd.sh` 即同步落地 `.py`——**包装与 `.py` 须同目录成对并存**（只拷一个会报 `python3: can't open file`）。
 
 ### 6.2 改动后的生效顺序 <a id="maintain-apply"></a>
 

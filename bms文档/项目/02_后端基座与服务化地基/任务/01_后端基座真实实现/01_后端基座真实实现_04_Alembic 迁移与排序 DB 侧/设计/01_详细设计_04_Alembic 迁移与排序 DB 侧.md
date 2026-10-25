@@ -37,7 +37,7 @@
 | 分页限深 | `BasePageQuery.page` 仅 `ge=1`，无上限（深翻可任意大） | 契约层校验 `page ≤ [pagination].max_page`（默认 100），超限按参数非法（10001） |
 | 游标分页 | 偏移口径 `LIMIT/OFFSET cursor`（内存基线按序号切片） | keyset 游标键（排序键 + 主键元组，base64url JSON 令牌）；服务层生成 `next_cursor` |
 | 迁移与模型一致性 | 无校验（已发生一次索引名漂移） | autogenerate 零漂移校验（每条链） |
-| 基座校验脚本 | `scripts/tools/base-check/check-backend-base.py` 只认「单链单 head」 | 改为「按链单 head + 分支标签与目录一致 + 跨链 revision 唯一」，自检同步适配 |
+| 基座校验脚本 | `scripts/tools/base_check/check_backend_base.py` 只认「单链单 head」 | 改为「按链单 head + 分支标签与目录一致 + 跨链 revision 唯一」，自检同步适配 |
 | 迁移演练 | 无 | 三库按方言建库（达梦为模式）→ 迁移 → 校验 → 清理，结论登记 |
 
 ## 3. 交付物清单 <a id="tree"></a>
@@ -97,7 +97,7 @@ backend/
     └── services/test_base_service.py                 # 修改：cursor_page 的 next_cursor / has_more（keyset）
 
 scripts/
-└── tools/base-check/check-backend-base.py            # 修改：迁移链校验改为按链单 head + 分支标签一致（含自检适配）
+└── tools/base_check/check_backend_base.py            # 修改：迁移链校验改为按链单 head + 分支标签一致（含自检适配）
 
 bms文档/
 ├── 后端基类清单.md                                    # 修改：§2 / §5 / §8 / §10（新增类与排序 / 游标 / 迁移契约）
@@ -399,7 +399,7 @@ flowchart LR
 | 计划 | §2 已完成表（01_04 行）与表头计数；§3 剩余任务移除 01_04 |
 | 任务 / 父任务 | 状态两处一致（需求文档不承载进度） |
 | Kiwi TCMS | 登记本任务策展用例并回读编号（`@pytest.mark.kiwi_id`） |
-| 基座校验脚本 | `scripts/tools/base-check/check-backend-base.py` 迁移链校验改按链口径（同任务内更新） |
+| 基座校验脚本 | `scripts/tools/base_check/check_backend_base.py` 迁移链校验改按链口径（同任务内更新） |
 | 实施 / 测试记录 | 任务目录 `实施/`、`测试/` 各一份（含三库演练结论） |
 
 ## 8. 边界与开放项 <a id="boundary"></a>
@@ -429,7 +429,7 @@ flowchart LR
 1. 读《KiwiTCMS部署使用说明》「用例约定」节，登记本任务用例并**回读编号**（输入文件落测试仓 `scripts/kiwi/cases/`）。
 2. 配置扩展（`PaginationSettings` / `DatabaseSettings.auto_create`）+ `app/db/migration.py` 链注册 + `EngineFactory.resolve_url` / `resolved_url` 公开化。
 3. `alembic/env.py` 重构（链选择 / 元数据子集 / URL / 达梦同步分支 / `-x schema=`）+ `alembic.ini` / `script.py.mako` / `README.md`；平台链 `0001` 新建、租户链迁址与索引名修订、归档链占位。
-4. `app/db/bootstrap.py` + `main.lifespan` 接线；`scripts/tools/base-check/check-backend-base.py` 迁移链校验改按链口径（含自检样例）。
+4. `app/db/bootstrap.py` + `main.lifespan` 接线；`scripts/tools/base_check/check_backend_base.py` 迁移链校验改按链口径（含自检样例）。
 5. `app/db/admin.py` + `ops/db_admin.py` / `ops/migrate_tenants.py` / `ops/init_tenant.py`。
 6. `app/repositories/ordering.py`（ORDER BY / 键集谓词 / 内存排序 / 索引断言）+ `BaseDbRepository` / `BaseMemoryRepository` 接线；`app/schemas/cursor.py` + `BaseRepository`（`effective_sort` / `build_cursor`）+ `BaseService.cursor_page`。
 7. 用例编码（`@pytest.mark.kiwi_id`）；`uv run pytest` / `ruff` / `pyright` 全绿、新增模块覆盖率 100%。
@@ -452,9 +452,9 @@ uv run python -m ops.seed_tenant && uv run python -m ops.seed_module
 uv run python -m ops.migrate_tenants --target all --dry-run
 uv run python -m ops.migrate_tenants --target tenants
 uv run python -m ops.db_admin create --dialect mysql --name bms_migrcheck --admin-url "<管理连接串>"
-python3 scripts/tools/base-check/check-backend-base.py   # 仓库根
-python3 scripts/tools/base-check/check-base.py
-python3 scripts/tools/base-check/check-links.py
+python3 scripts/tools/base_check/check_backend_base.py   # 仓库根
+python3 scripts/tools/base_check/check_base.py
+python3 scripts/tools/base_check/check_links.py
 ```
 
 ## 10. 决策记录（对齐记录） <a id="align"></a>

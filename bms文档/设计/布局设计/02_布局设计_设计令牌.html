@@ -249,7 +249,7 @@
       </table>
       <ul>
         <li>字段错误文案、只读回显、标签建议、富文本内容区、多语言标记与三态开关配色统一来自以上令牌；<strong>禁止在字段族与基础控件族件中硬编码色值</strong>。</li>
-        <li><code>--bms-field-error-color</code> 由 <strong>ui-ep 全局样式落点</strong>（<code>packages/ui-ep/src/styles/components.css</code>）消费，供全库 22 个字段件共用，避免各件 <code>&lt;style scoped&gt;</code> 重复定义。</li>
+        <li><code>--bms-field-error-color</code> 由 <strong>ui-ep 全局样式落点</strong>（<code>packages/ui_ep/src/styles/components.css</code>）消费，供全库 22 个字段件共用，避免各件 <code>&lt;style scoped&gt;</code> 重复定义。</li>
         <li>三态开关为自绘件（Element Plus <code>el-switch</code> 无 <code>indeterminate</code>，无法承载「未设置」态）；字段契约语义见《组件设计》字段类 02 / 03 / 04 / 07 / 08 / 09 / 11 / 12 / 13 节点与基础控件类 03 / 07 节点。</li>
       </ul>
 
@@ -276,7 +276,7 @@
       <ul>
         <li>导入导出步骤条与拖拽区、表单设计器三栏与画布选中态、报表设计器三区与图表卡选中态配色统一来自以上令牌；<strong>禁止在专题件族件中硬编码色值</strong>。</li>
         <li>导入导出「文件拖拽区」与字段类「文件拖拽区」（<code>--bms-file-drop-*</code>）<strong>语义不同、不合并</strong>：前者承载批量导入 xlsx（单文件、类型与大小校验），后者为字段级附件上传（分片 / 秒传 / 断点续传）。</li>
-        <li><code>.bms-interaction-placeholder</code> / <code>.bms-display-placeholder</code> 两类降级占位同上由 <strong>ui-ep 全局样式落点</strong>（<code>packages/ui-ep/src/styles/components.css</code>）消费，供全库交互类 11 件与展示类 9 件共用；专题件族契约语义见《组件设计》交互类 01 / 05 / 11 / 12 / 08 节点与展示类 04 节点。</li>
+        <li><code>.bms-interaction-placeholder</code> / <code>.bms-display-placeholder</code> 两类降级占位同上由 <strong>ui-ep 全局样式落点</strong>（<code>packages/ui_ep/src/styles/components.css</code>）消费，供全库交互类 11 件与展示类 9 件共用；专题件族契约语义见《组件设计》交互类 01 / 05 / 11 / 12 / 08 节点与展示类 04 节点。</li>
       </ul>
 
       <h2 id="font">3. 字体令牌</h2>
@@ -359,7 +359,7 @@
         <tr><td><code>--bms-layout-content-padding</code></td><td>24px（宽屏）/ 16px（<code>≤992px</code> 媒体查询覆盖）</td><td>内容区边距</td></tr>
       </table>
       <ul>
-        <li>落点：<code>frontend/apps/desktop/src/styles/tokens.scss</code>（亮 / 暗两套 + 媒体查询覆盖）；存在性由宿主 <code>tests/tokens.spec.ts</code> 断言、硬编码色值由 <code>ui-ep/tests/guard-tokens.spec.ts</code> 拦截。</li>
+        <li>落点：<code>frontend/apps/desktop/src/styles/tokens.scss</code>（亮 / 暗两套 + 媒体查询覆盖）；存在性由宿主 <code>tests/tokens.spec.ts</code> 断言、硬编码色值由 <code>ui_ep/tests/guard-tokens.spec.ts</code> 拦截。</li>
         <li><strong>6px 圆角档说明</strong>：设计语义圆角阶梯为 4 / 6 / 8px，工程既有为 <code>sm(2)</code> / <code>md(4)</code> / 新增 <code>lg(8)</code>；6px 档在工程以 <code>--bms-radius-md</code> 就近取用（库内一致优先，随品牌化任务统一评估）。</li>
         <li>消费口径：布局族与新增件一律消费新阶梯，<strong>不硬编码色值与尺寸</strong>；组件样式入件 <code>&lt;style scoped&gt;</code>，类名 kebab-case（BEM 简化）。</li>
       </ul>

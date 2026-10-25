@@ -13,8 +13,8 @@
 | 静态（类型） | `uv run pyright` | **0 errors / 0 warnings** |
 | 裸集合护栏 | `pytest libs/bms_core/tests/boundary/test_bare_collections_guard.py` | 4 passed（全链集合声明命中 **0**、基线 0） |
 | 插件契约 | `pytest services/platform/tests/contracts services/platform/tests/crosscut tests/test_plugin_registration.py -q` | 全绿（含新增 `redis_client` 键与 null 实现断言） |
-| 预检 | `python3 scripts/tools/preflight/check-preflight.py --fast` | 全部通过 |
-| 文档门禁 | `check-links` / `check-docs-scope` / `check-status --stage 01_项目骨架` / `check-base` | 断链 0 / 违规 0 / 硬 0 软 0 / 通过 |
+| 预检 | `python3 scripts/tools/preflight/check_preflight.py --fast` | 全部通过 |
+| 文档门禁 | `check_links` / `check_docs_scope` / `check_status --stage 01_项目骨架` / `check_base` | 断链 0 / 违规 0 / 硬 0 软 0 / 通过 |
 
 ## 2. 覆盖的关键路径 <a id="coverage"></a>
 

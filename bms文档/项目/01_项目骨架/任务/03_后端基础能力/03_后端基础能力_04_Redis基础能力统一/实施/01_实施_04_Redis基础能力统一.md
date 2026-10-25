@@ -50,6 +50,6 @@
 
 ## 6. 门禁 <a id="gate"></a>
 
-后端 `pytest` **2127 passed / 51 skipped / 0 failed**；`ruff` 全绿；`pyright` **0 error**；裸集合护栏归零；`check-links` / `check-docs-scope` / `check-status`（阶段一硬 0 软 0）/ `check-base` / `preflight --fast` 全绿。
+后端 `pytest` **2127 passed / 51 skipped / 0 failed**；`ruff` 全绿；`pyright` **0 error**；裸集合护栏归零；`check_links` / `check_docs_scope` / `check_status`（阶段一硬 0 软 0）/ `check_base` / `preflight --fast` 全绿。
 
 > 本文档依《[文档生成规范](../../../../../../规范/文档生成规范.md)》与《[AI开发规范](../../../../../../规范/AI开发规范.md)》编写

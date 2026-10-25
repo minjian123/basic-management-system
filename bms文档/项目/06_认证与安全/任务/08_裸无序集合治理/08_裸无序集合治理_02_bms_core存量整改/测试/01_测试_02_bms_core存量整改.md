@@ -82,14 +82,14 @@
 | 项 | 命令 | 结果 |
 | --- | --- | --- |
 | 定向回归 | `uv run pytest libs/bms_core/tests` | 1099 passed / 37 skipped |
-| 护栏自测 | `python3 scripts/tools/base-check/check-bare-collections.py --self-test` | **25 项通过 / exit 0** |
-| 护栏报告 | `python3 scripts/tools/base-check/check-bare-collections.py . --report --json` | 命中 **918** 处（`libs` 594 / `services` 104 / `ops` 75 / `scripts/tools` 145） |
+| 护栏自测 | `python3 scripts/tools/base_check/check_bare_collections.py --self-test` | **25 项通过 / exit 0** |
+| 护栏报告 | `python3 scripts/tools/base_check/check_bare_collections.py . --report --json` | 命中 **918** 处（`libs` 594 / `services` 104 / `ops` 75 / `scripts/tools` 145） |
 | 基线吸收与复跑 | `--update-baseline` → 直跑检查 | 基线 **918** 条；复跑「新增 0 / 残留 0」 |
 | 静态检查 | `uv run ruff check` / `ruff format --check`（改动文件） | 通过 |
 | 类型检查 | `uv run pyright`（backend 全量） | 0 errors |
-| 本地预检 | `python3 scripts/tools/preflight/check-preflight.py --fast` | 全部通过（含契约零漂移 / `api-types` 零漂移） |
-| 阶段状态 | `python3 scripts/tools/check-docs/check-status.py --root . --stage 06_认证与安全` | 502 项 0 硬 0 软 |
-| 文档链接 | `python3 scripts/tools/base-check/check-links.py` | 0 断链 / 0 失效锚点 |
+| 本地预检 | `python3 scripts/tools/preflight/check_preflight.py --fast` | 全部通过（含契约零漂移 / `api-types` 零漂移） |
+| 阶段状态 | `python3 scripts/tools/check_docs/check_status.py --root . --stage 06_认证与安全` | 502 项 0 硬 0 软 |
+| 文档链接 | `python3 scripts/tools/base_check/check_links.py` | 0 断链 / 0 失效锚点 |
 
 ## 6. 问题与偏差 <a id="issues"></a>
 
@@ -120,10 +120,10 @@
 | 4 | 形态标记 | 单测 | 同上 `::test_collection_kind_marks_shape` | `collection` / `sorted` / `sorted_concurrent` / `sorted_async` / `cache_snapshot` / `stable` | 通过 |
 | 5 | 同步侧行为零变更 | 单测 | 同上 `::test_sync_side_behaviour_unchanged` | 稳定序列化 / 排序视图 / 分批 / 归并 / 映射与失败分支仍可用 | 通过 |
 | 6 | 清单登记零漂移 | 单测 | 同上 `::test_manifest_registers_chain` | 清单含 `BaseCollection` / `BaseSorted` / `BaseConcurrent` / `BaseAsyncSorted` / `BaseCacheSnapshot` | 通过 |
-| 7 | 护栏口径（豁免取消） | 自测矩阵 | `check-bare-collections.py --self-test`（Kiwi 2213） | `ClassVar` 常量 / `BaseSettings` 配置字段 / 函数体局部变量 / 测试目录**均报**；实现文件**不报**；迭代协议不报 | 通过 |
-| 8 | 体系根与继承链对账 | 基座校验 | `check-backend-base.py` | 继承链 744 条相邻关系 / 直继承 7 个体系根（含 `BaseCollection`）/ 数据类语义 565 个类 | 通过 |
+| 7 | 护栏口径（豁免取消） | 自测矩阵 | `check_bare_collections.py --self-test`（Kiwi 2213） | `ClassVar` 常量 / `BaseSettings` 配置字段 / 函数体局部变量 / 测试目录**均报**；实现文件**不报**；迭代协议不报 | 通过 |
+| 8 | 体系根与继承链对账 | 基座校验 | `check_backend_base.py` | 继承链 744 条相邻关系 / 直继承 7 个体系根（含 `BaseCollection`）/ 数据类语义 565 个类 | 通过 |
 
-**执行记录**：`pytest libs/bms_core/tests/core/{test_collections_chain,test_collections,test_concurrent,test_concurrent_stable,test_object_bases_roots,test_value_object_roots}.py` → **80 passed**；`check-bare-collections.py` 复跑「新增 0 / 残留 0（基线 1711）」；`preflight --fast` 全绿。
+**执行记录**：`pytest libs/bms_core/tests/core/{test_collections_chain,test_collections,test_concurrent,test_concurrent_stable,test_object_bases_roots,test_value_object_roots}.py` → **80 passed**；`check_bare_collections.py` 复跑「新增 0 / 残留 0（基线 1711）」；`preflight --fast` 全绿。
 
 **偏差**：用例 2224 的「基线递减至 324」断言口径随口径扩面改为「递减至 **0**（基线 1711 起）」，其余不变；全链归零断言已于存量整改完成后落 `tests/boundary/test_bare_collections_guard.py`（Kiwi 2224，见 §9）。
 

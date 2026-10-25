@@ -60,8 +60,8 @@ flowchart LR
 | 静态检查 | `uv run ruff check .` / `ruff format --check .` / `uv run pyright` | 全通过（0 error） |
 | 迁移 | `alembic -n alembic:platform upgrade head` / `-n alembic:tenant upgrade head` | 平台链 0003 / 租户链 0002 落地，链结构零漂移 |
 | 契约快照 | `uv run python -m ops.contract_snapshot export` / `check` | `deploy/contracts/platform.json` 更新（新增死信接口），零漂移 |
-| 基座校验 | `check-base` / `check-backend-base(+--self-test)` / `check-service-boundaries(+--self-test)` / `check-status` | 全通过 |
-| 本地预检 | `python3 scripts/tools/preflight/check-preflight.py --fast` | 全部通过 |
+| 基座校验 | `check_base` / `check_backend_base(+--self-test)` / `check_service_boundaries(+--self-test)` / `check_status` | 全通过 |
+| 本地预检 | `python3 scripts/tools/preflight/check_preflight.py --fast` | 全部通过 |
 
 ## 6. 登记回写 <a id="registry"></a>
 

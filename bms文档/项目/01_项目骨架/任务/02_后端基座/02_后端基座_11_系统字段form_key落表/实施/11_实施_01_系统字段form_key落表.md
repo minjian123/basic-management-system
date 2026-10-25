@@ -26,7 +26,7 @@ bms/backend/alembic/versions/
 ├─ identity/tenant/0006_system_fields_form_key.py
 └─ txn/platform/0003_system_fields_form_key.py
 bms/backend/libs/bms_core/tests/registry/test_form_catalog.py     # 新增：清单定向用例（Kiwi 2286）
-bms/scripts/tools/base-check/check-system-fields.py               # 新增：清单 ↔ 表文件 双向一致 + 跨表唯一
+bms/scripts/tools/base_check/check_system_fields.py               # 新增：清单 ↔ 表文件 双向一致 + 跨表唯一
 bms/bms文档/设计/数据库设计/数据表设计/*.md                          # 27 份补列 + 变更记录；新增 sys_icon.md
 ```
 
@@ -41,7 +41,7 @@ bms/bms文档/设计/数据库设计/数据表设计/*.md                       
 - **唯一约束按 DB 列名解析**：`UniqueConstraint("code", "deleted_at", ...)`（列改名后原 `..._key_deleted_at` 更名 `..._code_deleted_at`）；
 - **迁移四库兼容**：`batch_alter_table`（SQLite 重建表）；改名与约束变更**分块**执行（先改名、再删建约束）。
 
-**基座校验**（设计交付边界第 10 项）：`check-system-fields.py`（清单 ↔ 表文件双向一致 + 跨表全局唯一 + 字典表文件含 `form_key` / `parent_id` 行；含 `--self-test` 反例）并入 `preflight --fast` 与 CI `base-integrity`；`ops/check_tables.py` 增「`FORM_CATALOG` ↔ 模型 `form_key` 列双向一致」断言。
+**基座校验**（设计交付边界第 10 项）：`check_system_fields.py`（清单 ↔ 表文件双向一致 + 跨表全局唯一 + 字典表文件含 `form_key` / `parent_id` 行；含 `--self-test` 反例）并入 `preflight --fast` 与 CI `base-integrity`；`ops/check_tables.py` 增「`FORM_CATALOG` ↔ 模型 `form_key` 列双向一致」断言。
 
 ## 3. 问题与处置 <a id="issues"></a>
 
@@ -49,8 +49,8 @@ bms/bms文档/设计/数据库设计/数据表设计/*.md                       
 | --- | --- | --- |
 | 1 | 标识列**是否连 ORM 属性 / 契约字段名一起改**（Python 引用 `client_id` 561 / `username` 881 / `idp_key` 266 / `product_key` 230 / `module_key` 134 / `config_key` 73 处，且含 OAuth 协议同名参数，盲目替换有误伤风险） | 逐项确认后定为**只改 DB 列名**（属性 / 契约名保持，`mapped_column("code", ...)` 映射），代码零波及 |
 | 2 | `UniqueConstraint("module_key", ...)` 报 `ConstraintColumnNotFoundError`（约束按 DB 列名解析，列已改名 `code`） | 6 处唯一约束的第二列改写为 `"code"` |
-| 3 | 边界校验 `check-service-boundaries` 报 `form_key` 清单模块「跨服务库访问」（libs 内字符串表名 token） | 该模块与 `services/table_registry.py` 同性质（按定义登记全部表名）→ 加引用扫描豁免（`_FORM_CATALOG_REGISTRY_RELATIVE`） |
-| 4 | `sys_icon`（planned 字典表）无表文件，`check-system-fields` 报「清单表缺表文件」 | 补建 `sys_icon.md`（状态 `已设计`）并在总览「已设计数据表登记」登记 |
+| 3 | 边界校验 `check_service_boundaries` 报 `form_key` 清单模块「跨服务库访问」（libs 内字符串表名 token） | 该模块与 `services/table_registry.py` 同性质（按定义登记全部表名）→ 加引用扫描豁免（`_FORM_CATALOG_REGISTRY_RELATIVE`） |
+| 4 | `sys_icon`（planned 字典表）无表文件，`check_system_fields` 报「清单表缺表文件」 | 补建 `sys_icon.md`（状态 `已设计`）并在总览「已设计数据表登记」登记 |
 | 5 | `sys_icon.md` 相关节点链接指向未建表文件 `sys_icon_i18n.md` → 断链 | 改纯文本（表文件待补） |
 
 ## 4. 验证 <a id="verify"></a>
@@ -59,8 +59,8 @@ bms/bms文档/设计/数据库设计/数据表设计/*.md                       
 - `uv run python -m ops.check_tables --offline`：通过（清单 53 项 + 模型表对账 + 脚本表集 + `form_key` 一致）。
 - `uv run ruff check`（改动范围）：All checks passed；`uv run ruff format` 已应用。
 - `uv run pyright`（改动范围）：0 errors, 0 warnings。
-- `python3 scripts/tools/preflight/check-preflight.py --fast`：**全部通过**。
-- 文档门禁：`check-base`（表文件 42 / 方言 3，登记一致）、`check-docs-scope`（0 违规）、`check-links`（本任务新增文档零断链）、`check-status --stage 01_项目骨架`（0 不合规）。
+- `python3 scripts/tools/preflight/check_preflight.py --fast`：**全部通过**。
+- 文档门禁：`check_base`（表文件 42 / 方言 3，登记一致）、`check_docs_scope`（0 违规）、`check_links`（本任务新增文档零断链）、`check_status --stage 01_项目骨架`（0 不合规）。
 
 ## 5. 覆盖率 <a id="coverage"></a>
 

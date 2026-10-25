@@ -510,18 +510,18 @@ python3 scripts/tools/dev/本地全套.py down            # 停全部：TERM →
 
 ```bash
 # 文档基座（bms 仓根）
-python3 scripts/tools/base-check/check-base.py
-python3 scripts/tools/base-check/check-links.py
-python3 scripts/tools/base-check/check-docs-scope.py
-python3 scripts/tools/check-docs/check-status.py --stage <阶段> --strict
-python3 scripts/tools/preflight/check-preflight.py --fast        # 推送前快速预检（不跑全量）
+python3 scripts/tools/base_check/check_base.py
+python3 scripts/tools/base_check/check_links.py
+python3 scripts/tools/base_check/check_docs_scope.py
+python3 scripts/tools/check_docs/check_status.py --stage <阶段> --strict
+python3 scripts/tools/preflight/check_preflight.py --fast        # 推送前快速预检（不跑全量）
 
 # 后端（bms/backend 下，uv run；只跑受变更影响的定向用例）
 uv run pytest -q ; uv run ruff check . ; uv run ruff format --check . ; uv run pyright
 
 # 前端（bms 工作区根下；apps/desktop 与 modules/* 需 --filter 单独跑）
 pnpm --filter @bms/desktop run test ; pnpm --filter @bms/desktop run lint
-pnpm --filter @bms/desktop exec vue-tsc -b ; pnpm run api-types:gen:check
+pnpm --filter @bms/desktop exec vue-tsc -b ; pnpm run api_types:gen:check
 ```
 
 > [8.3](#debug-tasks) 的「检查：前端基座三包 / 前端宿主 / 文档基座 / 后端」四个任务即上述门禁的一键入口；口径细则归《[测试规范](../../../规范/测试规范.md)》与各工程说明，本节只作速查。

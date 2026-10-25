@@ -57,7 +57,7 @@ deploy/
 ├── keycloak/bms-realm.json                    # 新：realm `bms` + OIDC 客户端 `bms-backend`（secret 占位，无明文）
 └── .env.example                                # 改：KEYCLOAK_* 变量（admin / db / client secret / 端口 / 对外基址）
 
-setup/install-all.sh                            # 改：防火墙放行 Keycloak 宿主端口
+setup/install_all.sh                            # 改：防火墙放行 Keycloak 宿主端口
 
 bms文档/
 ├── 资料/开发服务器/linux/Keycloak部署使用说明.md  # 新：部署形态 / 声明式来源 / 步骤 / 验证 / 排障
@@ -243,7 +243,7 @@ jwks_cache_ttl = 300
 | 完成 OIDC 客户端接入（JWKS 校验通过） | `OidcIdentityProvider` 单测（Discovery/授权/换码/userinfo/验签）+ mjbk 真实 Keycloak 令牌经 JWKS 校验通过 |
 | 客户端凭据不落库不入镜像 | secret 经 `.env` / 环境变量；realm JSON 占位符单测断言；`config.toml` 无明文密钥 |
 | 外部身份映射与 JIT 口径沿用 | 契约注释 + 《后端基类清单》登记（`idp_key` + `subject`）；阶段六实现 |
-| 校验通过 | `pytest` / `ruff` / `pyright` / `check-base` / `check-backend-base` / `check-service-boundaries` / `check-status` 全绿 |
+| 校验通过 | `pytest` / `ruff` / `pyright` / `check_base` / `check_backend_base` / `check_service_boundaries` / `check_status` 全绿 |
 
 ## 7. 登记落点 <a id="registry-writeback"></a>
 
@@ -286,9 +286,9 @@ flowchart LR
 1. 读《[KiwiTCMS 部署使用说明](../../../../../../资料/开发服务器/linux/KiwiTCMS部署使用说明.md)》「用例约定」节，登记本任务用例并**回读编号**（输入文件落 `test/scripts/kiwi/cases/`；先登记后编码）。
 2. 改 `bms_core/idp/base.py`（契约扩展 + `verify_token`）；新增 `idp/jwks.py`（JWKS 缓存 + 验签）；新增 `idp/oidc.py`（真实客户端 + 工厂）；改 `idp/null.py`。
 3. 改 `core/config.py`（`IdentityProviderSettings` + `Settings`）；改 `core/assembly.py`（登记 `oidc` 工厂）；`config.toml` 增 `[identity_provider]`；`libs/bms_core/pyproject.toml` 增 authlib 并 `uv lock`。
-4. 新增 `deploy/compose/keycloak.yml`、`deploy/keycloak/bms-realm.json`、`deploy/postgres/init/01-keycloak.sql`；改 `deploy/compose/base.yml`（postgres initdb 挂载）与 `deploy/.env.example`、`deploy/setup/install-all.sh`（放行端口）。
+4. 新增 `deploy/compose/keycloak.yml`、`deploy/keycloak/bms-realm.json`、`deploy/postgres/init/01-keycloak.sql`；改 `deploy/compose/base.yml`（postgres initdb 挂载）与 `deploy/.env.example`、`deploy/setup/install_all.sh`（放行端口）。
 5. 用例：契约扩展 + OIDC 客户端（MockTransport）+ 部署件护栏 + 集成（真机跳过式）；既有全量回归。
-6. 门禁：`uv run pytest -q --cov=bms_core --cov-branch` / `ruff check` / `ruff format --check` / `pyright`；`check-base` / `check-backend-base` / `check-service-boundaries` / `check-status` / `check-preflight --fast` 全绿。
+6. 门禁：`uv run pytest -q --cov=bms_core --cov-branch` / `ruff check` / `ruff format --check` / `pyright`；`check_base` / `check_backend_base` / `check_service_boundaries` / `check_status` / `check_preflight --fast` 全绿。
 7. **mjbk 真实冒烟**（远程操作，先读《Keycloak 部署使用说明》）：建 `keycloak` 库 → 同步 `deploy/` 与 `.env` → 拉起 Keycloak → `curl` Discovery / JWKS → 取令牌 → `verify_token` 通过；留痕到测试记录。
 8. 登记回写（基类清单 / 架构 / 规范 / 部署发布规范 / Keycloak 说明 / 计划 / 任务状态）+ 实施 / 测试记录 + 代码与文档分开提交。
 9. 07_02 / 07_03 前置契约标注与偏差遗留闭环（另提交）。
@@ -301,11 +301,11 @@ uv lock && uv sync
 uv run pytest -q --cov=bms_core --cov-branch
 uv run ruff check . && uv run ruff format --check . && uv run pyright
 # 仓库根
-python3 scripts/tools/base-check/check-base.py
-python3 scripts/tools/base-check/check-backend-base.py
-python3 scripts/tools/base-check/check-service-boundaries.py
-python3 scripts/tools/check-docs/check-status.py
-python3 scripts/tools/preflight/check-preflight.py --fast
+python3 scripts/tools/base_check/check_base.py
+python3 scripts/tools/base_check/check_backend_base.py
+python3 scripts/tools/base_check/check_service_boundaries.py
+python3 scripts/tools/check_docs/check_status.py
+python3 scripts/tools/preflight/check_preflight.py --fast
 # 一键拉起（deploy/，含 Keycloak）
 docker compose -f compose/base.yml -f compose/keycloak.yml --env-file .env up -d
 ```

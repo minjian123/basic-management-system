@@ -388,7 +388,7 @@ flowchart LR
 5. `ops/outbox.py`（`dispatch` / `replay`）。
 6. `services/platform` 死信接口（`api/outbox.py` / `schemas/outbox.py` / `router.py`）+ `deploy/contracts/platform.json` 重导出。
 7. 用例：`outbox/` 三份 + `idempotency` redis + `ops` CLI + `services/platform` 接口；更新端口清单与指标名断言；既有全量回归。
-8. 门禁：`uv run pytest -q --cov=bms_core --cov-branch`（新增模块覆盖率 100%）/ `uv run ruff check .` / `uv run ruff format --check .` / `uv run pyright`；`check-base` / `check-backend-base(+--self-test)` / `check-service-boundaries(+--self-test)` / `check-status` / `check-preflight --fast` 全绿。
+8. 门禁：`uv run pytest -q --cov=bms_core --cov-branch`（新增模块覆盖率 100%）/ `uv run ruff check .` / `uv run ruff format --check .` / `uv run pyright`；`check_base` / `check_backend_base(+--self-test)` / `check_service_boundaries(+--self-test)` / `check_status` / `check_preflight --fast` 全绿。
 9. 登记回写（数据库设计总览 + 表文件 / 后端基类清单 / 后端开发规范 / 迁移链 / 计划 / 任务状态）+ 实施 / 测试记录 + 代码与文档分开提交（`feat` / `docs`）。
 10. 05_04 前置契约标注与偏差遗留闭环（另提交）。
 
@@ -403,11 +403,11 @@ uv run pytest -q --cov=bms_core --cov-branch
 uv run ruff check . && uv run ruff format --check . && uv run pyright
 uv run python -m ops.contract_snapshot export
 # 仓库根
-python3 scripts/tools/base-check/check-base.py
-python3 scripts/tools/base-check/check-backend-base.py --self-test
-python3 scripts/tools/base-check/check-service-boundaries.py --self-test
-python3 scripts/tools/check-docs/check-status.py
-python3 scripts/tools/preflight/check-preflight.py --fast
+python3 scripts/tools/base_check/check_base.py
+python3 scripts/tools/base_check/check_backend_base.py --self-test
+python3 scripts/tools/base_check/check_service_boundaries.py --self-test
+python3 scripts/tools/check_docs/check_status.py
+python3 scripts/tools/preflight/check_preflight.py --fast
 ```
 
 ## 10. 决策记录（对齐记录） <a id="align"></a>

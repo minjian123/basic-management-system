@@ -355,7 +355,7 @@ sudo systemctl restart gdm3
 
 ## 9. 服务部署衔接 <a id="deploy"></a>
 
-系统就绪后，由自动化脚本完成后续部署（仓库 `deploy/setup/install-all.sh`），内容包括：
+系统就绪后，由自动化脚本完成后续部署（仓库 `deploy/setup/install_all.sh`），内容包括：
 
 - apt 清华源、基础工具、Docker Engine（清华 docker-ce 源 + 国内镜像加速）
 - MySQL、PostgreSQL、Redis、MinIO、RocketMQ、ElasticSearch（Docker Compose）

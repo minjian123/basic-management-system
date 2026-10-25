@@ -32,7 +32,7 @@
 | 11 | 同上 `::test_check_service_passes_when_response_schema_complete` | 单元 | 契约完整 → 无违规且 `main` 退出码 0 | 通过 |
 | 12 | `ops.check_contracts` 真跑（9 启用服务） | 集成 | 路由全覆盖 + 不可见白名单 + 无空 schema + 引用型响应 schema 可解析 | 通过 |
 | 13 | `ops.contract_snapshot check` | 集成 | 9 服务快照零漂移 | 通过 |
-| 14 | `pnpm run api-types:gen:check` | 集成 | 9 份前端契约类型零漂移；认证响应类型具字段（非 `unknown`） | 通过 |
+| 14 | `pnpm run api_types:gen:check` | 集成 | 9 份前端契约类型零漂移；认证响应类型具字段（非 `unknown`） | 通过 |
 | 15 | 既有序列化 / 脱敏 / 契约集合用例（`bms_core` 全量 + `platform` / `identity`） | 回归 | 运行时行为零变化 | 通过 |
 
 ## 3. 执行结果 <a id="result"></a>
@@ -43,11 +43,11 @@
 | `uv run pytest -q libs/bms_core/tests services/platform/tests services/identity/tests` | **1759 passed / 39 skipped**（无失败） |
 | `uv run python -m ops.check_contracts` | 通过（9 服务） |
 | `uv run python -m ops.contract_snapshot check` | 通过（9 服务） |
-| `pnpm run api-types:gen:check` | 通过（9 份一致） |
+| `pnpm run api_types:gen:check` | 通过（9 份一致） |
 | `uv run ruff check .` / `uv run ruff format --check .` | 全绿（968 文件已格式化） |
-| `check-base` / `check-links` / `check-backend-base` / `check-docs-scope` / `check-bare-collections` | 全绿 |
-| `check-status --stage 06_认证与安全 --strict` | 检查 411 项，硬规则不合规 0、软提示 0 |
-| `check-preflight.py --fast` | **全部通过** |
+| `check_base` / `check_links` / `check_backend_base` / `check_docs_scope` / `check_bare_collections` | 全绿 |
+| `check_status --stage 06_认证与安全 --strict` | 检查 411 项，硬规则不合规 0、软提示 0 |
+| `check_preflight.py --fast` | **全部通过** |
 
 **修复前后对比（`components.schemas` 空条目数）**：
 

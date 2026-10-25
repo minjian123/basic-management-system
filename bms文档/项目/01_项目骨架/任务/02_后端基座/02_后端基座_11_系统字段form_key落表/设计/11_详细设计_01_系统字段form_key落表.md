@@ -160,10 +160,10 @@ bms 后端**无「业务表单数据」表**（业务表单在产品仓：biz `p
 
 ## 8. 基座校验扩展 <a id="guards"></a>
 
-- **`bms/scripts/tools/base-check/check-system-fields.py`（新）**：断言 ① 每张「字典表」表文件含 `form_key` 列行、且值 ∈ `FORM_CATALOG`；② `FORM_CATALOG` 与表文件**双向一致**（清单项 ↔ 表文件，无缺漏 / 无多余）；③ `form_key` **跨表全局唯一**；④ 每张「明细表」表文件含 `parent_id` 行。纳入 `preflight --fast` 与 CI `base-integrity`。
+- **`bms/scripts/tools/base_check/check_system_fields.py`（新）**：断言 ① 每张「字典表」表文件含 `form_key` 列行、且值 ∈ `FORM_CATALOG`；② `FORM_CATALOG` 与表文件**双向一致**（清单项 ↔ 表文件，无缺漏 / 无多余）；③ `form_key` **跨表全局唯一**；④ 每张「明细表」表文件含 `parent_id` 行。纳入 `preflight --fast` 与 CI `base-integrity`。
 - **`bms/backend/ops/check_tables.py` 扩展**：断言「判为字典 / 明细的模型，其 `__table_args__` / 列含 `form_key` / `parent_id`」（模型侧存在性）；纳入后端 job。
 - **`FORM_CATALOG.validate()`**：启动期 / 离线自检（格式 + 唯一 + 表归属）。
-- **`check-base.py`**：不变（继续守表文件 ↔ 总览登记 ↔ 目录一致性）。
+- **`check_base.py`**：不变（继续守表文件 ↔ 总览登记 ↔ 目录一致性）。
 
 ## 9. 交付物清单 <a id="deliverables"></a>
 
@@ -190,7 +190,7 @@ bms/backend/alembic/versions/
 ├─ tenant/platform/0007_system_fields_form_key.py
 ├─ identity/tenant/0006_system_fields_form_key.py
 └─ txn/platform/0003_system_fields_form_key.py
-bms/scripts/tools/base-check/check-system-fields.py          # 新增：表文件 ↔ 清单 ↔ 唯一性 断言
+bms/scripts/tools/base_check/check_system_fields.py          # 新增：表文件 ↔ 清单 ↔ 唯一性 断言
 bms/backend/ops/check_tables.py                              # 扩展：模型侧 form_key / parent_id 存在性
 bms/bms文档/设计/数据库设计/数据表设计/*.md                    # 逐表补列 + 变更记录
 ```
@@ -199,12 +199,12 @@ bms/bms文档/设计/数据库设计/数据表设计/*.md                    # �
 
 | 验收项 | 测试 / 校验 |
 | --- | --- |
-| 字典表 `form_key` / `code` / `name` / `status` / `parent_id` 齐备 | 表文件断言（`check-system-fields`）+ 定向用例 |
+| 字典表 `form_key` / `code` / `name` / `status` / `parent_id` 齐备 | 表文件断言（`check_system_fields`）+ 定向用例 |
 | 明细表 `parent_id` 齐备 | 同上 |
 | 既有标识列改名为 `code`，契约字段名不变 | 契约快照零变化（`ops.contract_snapshot` / `contract_gate`）+ 前端 `api-types` 零漂移 |
 | 迁移可跑、模型零漂移 | 各链 `alembic -n alembic:{链} upgrade head`（SQLite 开发库 + 三库按需）+ 逐链 autogenerate 比对 |
-| `form_key` 全局唯一、清单一致 | `FormCatalog.validate()` + `check-system-fields` |
-| 门禁全绿 | `preflight --fast`（含 `check-base` / `check-backend-base` / `check-service-boundaries` / `check-system-fields`） |
+| `form_key` 全局唯一、清单一致 | `FormCatalog.validate()` + `check_system_fields` |
+| 门禁全绿 | `preflight --fast`（含 `check_base` / `check_backend_base` / `check_service_boundaries` / `check_system_fields`） |
 
 - 用例**先登记 Kiwi TCMS 取编号**再编码；界面无关（纯数据底座）→ 测试记录「原型对照结论」节写「不适用」+ 理由。
 - 定向用例只跑受变更影响部分（迁移 / 模型 / 清单 / 校验脚本）。

@@ -52,9 +52,9 @@ uv run ruff check . && uv run ruff format --check . && uv run pyright
 uv run pytest -q --cov=app --cov-branch
 uv run python -m ops.seed_module
 uv run python -m ops.check_modules
-python3 scripts/tools/base-check/check-backend-base.py   # 仓库根
-python3 scripts/tools/base-check/check-base.py
-python3 scripts/tools/base-check/check-links.py
+python3 scripts/tools/base_check/check_backend_base.py   # 仓库根
+python3 scripts/tools/base_check/check_base.py
+python3 scripts/tools/base_check/check_links.py
 ```
 
 ## 4. 问题与处置 <a id="issues"></a>

@@ -9,7 +9,7 @@
 修复**基座响应契约 schema 塌陷**缺陷并补一层**契约内容完整性门禁**，使 `06_01` 的「前后端字段零漂移」承诺在**响应侧**真实成立：
 
 - **修复（需求 06-4 第 1 / 2 条）**：`BaseSchema` 在**序列化模式**生成 JSON Schema 时以字段口径输出（剥离模型序列化器）；`id` / `*_id` 字段按实际输出口径标为字符串。**校验模式 schema 与运行时序列化行为保持不变**（ID 字符串化与敏感字段掩码照旧）。
-- **重生成（需求 06-4 第 3 条）**：9 个启用服务的公开契约快照与 oasdiff 基线按新口径重生成；`@bms/api-types` 重新生成，响应类型不再为 `unknown`。
+- **重生成（需求 06-4 第 3 条）**：9 个启用服务的公开契约快照与 oasdiff 基线按新口径重生成；`@bms/api_types` 重新生成，响应类型不再为 `unknown`。
 - **门禁（需求 06-4 第 4 条）**：在既有契约校验命令 `ops/check_contracts.py` 内新增响应 schema 完整性断言——`components.schemas` 不得存在空对象条目、每个操作的 2xx 响应 schema 必须可解析且非空；对**全部启用服务**生效，CI 与本地预检同口径。
 
 **不在本任务**：模块请求能力 `api` 与模块契约版本升 2（需求 06-2，归子任务 [06_02](../../06_契约与模块请求能力_02_模块请求能力api与契约版本升2/06_契约与模块请求能力_02_模块请求能力api与契约版本升2.md)）；前端请求层与登录页消费生成类型（归[域五](../../../05_登录前端/05_登录前端.md) `05_02` 起）；契约导出 / 生成 / 零漂移机制与 oasdiff 门禁的既有实现（阶段二 `03_01` / `04-1-1`、`06_01` 已交付，**不重复建设**）；契约版本自动回写（既有开放项）。
@@ -26,7 +26,7 @@
 | 2 | 具体空条目 | `ApiResponse`、`ApiResponse_LoginResult_` / `ApiResponse_RefreshResult_` 等全部响应包装、`LoginResult`、`RefreshResult`、`UserSummary`、`ConfigResolveResponse`、`LoginStateResult` …… |
 | 3 | 请求体 schema | **完整**（`LoginRequest` 具 `account` / `password` / `tenant` / `captcha`） |
 | 4 | 根因定位（本机实测） | `LoginResult.model_json_schema(mode="validation")` **具完整 properties**；`mode="serialization"` 为 **`{}`**。`BaseSchema._serialize_ids` 为 `@model_serializer(mode="wrap")`，生成的核心 serialization schema 为 `{'type': 'function-wrap', 'return_schema': {'type': 'any'}}` —— 序列化模式 JSON Schema 取 `return_schema`，`any` 即塌陷为空对象 |
-| 5 | 前端生成类型（`@bms/api-types`） | `identity.ts` 中 `LoginResult: unknown` / `RefreshResult: unknown` / `UserSummary: unknown` / 全部 `ApiResponse_*: unknown`（`packages/api-types/src/identity.ts`） |
+| 5 | 前端生成类型（`@bms/api_types`） | `identity.ts` 中 `LoginResult: unknown` / `RefreshResult: unknown` / `UserSummary: unknown` / 全部 `ApiResponse_*: unknown`（`packages/api_types/src/identity.ts`） |
 | 6 | FastAPI 生成口径 | FastAPI 0.141.1 以 `mode="serialization"` 生成**响应**模型 schema、以 `mode="validation"` 生成**请求**模型 schema（`separate_input_output_schemas` 缺省 `True`）；请求体因此不受影响 |
 | 7 | 既有三道门禁 | `contract_snapshot check`（快照零漂移）/ `contract_gate`（oasdiff 基线破坏）/ `check_contracts`（路由覆盖）**均不校验 `components.schemas` 内容**，故缺口「一致地」放行（`06_01` 未登记） |
 
@@ -49,13 +49,13 @@
 | 7 | 契约校验命令用例扩展（内容违规则失败） | `backend/libs/bms_core/tests/ops/test_check_contracts.py` | 修改 |
 | 8 | 9 服务公开契约快照重生成 | `deploy/contracts/*.json` | 修改 |
 | 9 | 9 服务 oasdiff 基线重生成 | `deploy/contracts/baseline/*.json` | 修改 |
-| 10 | 前端契约类型重生成 | `frontend/packages/api-types/src/*.ts` | 修改 |
+| 10 | 前端契约类型重生成 | `frontend/packages/api_types/src/*.ts` | 修改 |
 | 11 | 规范登记（响应契约完整性口径 + 门禁断言） | `bms文档/规范/后端开发规范.md` | 修改 |
 | 12 | 清单登记（契约校验命令断言扩展） | `bms文档/后端基类清单.md` | 修改 |
 | 13 | 需求 / 任务 / 父任务 / 计划回写 | 需求域 06、需求总览、任务 06_03、父任务 06、阶段计划 | 修改（**已完成**） |
 | 14 | 实施 / 测试记录 | 本目录 `实施/`、`测试/` | 新增 |
 
-> **CI / 预检零改动**：`ops/check_contracts.py` 已被 CI `swagger-snapshot`（`.gitlab-ci.yml:995`）与本地预检（`check-preflight.py:391`）调用，断言扩展后**自动同口径生效**，不改 CI 配置与预检脚本。
+> **CI / 预检零改动**：`ops/check_contracts.py` 已被 CI `swagger-snapshot`（`.gitlab-ci.yml:995`）与本地预检（`check_preflight.py:391`）调用，断言扩展后**自动同口径生效**，不改 CI 配置与预检脚本。
 
 ## 3. 设计与边界 <a id="design"></a>
 
@@ -115,8 +115,8 @@ service_contract.py（新增）
 | --- | --- | --- |
 | 1 快照重生成 | `uv run python -m ops.contract_snapshot export` | 9 份 `deploy/contracts/*.json` 更新（响应 schema 具字段 + ID 字符串化） |
 | 2 基线重生成 | `uv run python -m ops.contract_gate baseline-update --service <service>` | 9 份 `deploy/contracts/baseline/*.json` 同步（**评审节点**：把当前响应契约纳入已放行集合） |
-| 3 前端类型重生成 | `pnpm --filter @bms/api-types run gen` | `packages/api-types/src/*.ts` 更新，响应类型具字段 |
-| 4 零漂移校验 | `ops.contract_snapshot check` / `pnpm run api-types:gen:check` | 全绿 |
+| 3 前端类型重生成 | `pnpm --filter @bms/api_types run gen` | `packages/api_types/src/*.ts` 更新，响应类型具字段 |
+| 4 零漂移校验 | `ops.contract_snapshot check` / `pnpm run api_types:gen:check` | 全绿 |
 
 **变更性质判定**：本次变更**只向 `components.schemas` 的响应侧条目补字段信息**（请求侧 schema 走校验模式，逐字节不变），属**非破坏性新增**；契约版本保持 `0.1.0`（`info.version` / 服务包 `CONTRACT_VERSION` / 服务目录登记三处一致不改）。
 
@@ -140,9 +140,9 @@ service_contract.py（新增）
 
 - **运行时零影响**：只改 JSON Schema 生成路径；`model_dump()` / `model_dump_json()`、脱敏、ID 字符串化与请求校验行为不变。
 - **契约内容变更**：响应侧 schema 由空对象变为具字段（新增信息）；请求侧不变；契约版本不变。
-- **前端**：`@bms/api-types` 响应类型由 `unknown` 变为具字段类型——**类型收窄属「变严」**，现有以 `unknown` 消费的代码（当前无）不受破坏；域五 `05_02` 起按新类型消费。
+- **前端**：`@bms/api_types` 响应类型由 `unknown` 变为具字段类型——**类型收窄属「变严」**，现有以 `unknown` 消费的代码（当前无）不受破坏；域五 `05_02` 起按新类型消费。
 - **CI 影响**：`swagger-snapshot` job 内 `check_contracts` 断言扩展（秒级，纯内存构建）；`contract_snapshot check` / `contract_gate` 全绿。
-- **既有护栏不受影响**：`check-bare-collections` 基线已归零，本任务新增声明一律落插入序基座集合类，不新增基线条目。
+- **既有护栏不受影响**：`check_bare_collections` 基线已归零，本任务新增声明一律落插入序基座集合类，不新增基线条目。
 
 ## 5. 测试设计与验收映射 <a id="test"></a>
 
@@ -158,7 +158,7 @@ service_contract.py（新增）
 | 6 | 同上 | 单元 | 断言 D：成功响应 `$ref` 悬空 / 引用目标为空 → 报明细；可解析引用与内联 schema（含空对象）→ 通过 |
 | 7 | `libs/bms_core/tests/ops/test_check_contracts.py`（扩展） | 单元 | 桩应用含空 schema 条目 / 悬空响应引用 → `check_service` 报违规、`main` 退出码 1；契约完整 → 0 |
 | 8 | `ops/check_contracts.py` 真跑 | 集成 | 9 服务全绿（空 schema 0、响应 `$ref` 全可解析） |
-| 9 | `ops.contract_snapshot check` / `api-types:gen:check` | 集成 | 快照与生成类型零漂移 |
+| 9 | `ops.contract_snapshot check` / `api_types:gen:check` | 集成 | 快照与生成类型零漂移 |
 | 10 | 既有序列化 / 脱敏 / 契约集合用例 | 回归 | 运行时行为零变化 |
 
 **验收映射**：需求 06-4「响应契约 schema 完整」→ 用例 1~4 + 8；「前端类型具字段可用且零漂移」→ 用例 9 + 实测生成物；「门禁在空 schema / 悬空 `$ref` 时失败」→ 用例 5~7；「CI 与本地预检同口径」→ 用例 8（命令复用既有接入点）；「运行时行为零变化」→ 用例 3 / 10。门禁：`pytest` / `ruff` / `ruff format --check` / `pyright` / 基座校验全绿，新增模块覆盖率 **100%**。
@@ -220,7 +220,7 @@ service_contract.py（新增）
 | --- | --- | --- |
 | 1 | 契约机制 | 阶段二 `03_01` / `04-1-1` / 域六 `06_01` 已交付（快照导出 / oasdiff 基线 / 类型生成零漂移 / 路由覆盖护栏），本任务不重复建设 |
 | 2 | 集合形态 | 一律落插入序基座集合类 |
-| 3 | 文档层级与链接 | 遵《文档生成规范》；改后跑 `check-links` |
+| 3 | 文档层级与链接 | 遵《文档生成规范》；改后跑 `check_links` |
 | 4 | 外部服务操作 | Kiwi 登记先读《[KiwiTCMS部署使用说明](../../../../../../资料/开发服务器/linux/KiwiTCMS部署使用说明.md)》 |
 
 ## 9. 实施步骤与关键命令 <a id="steps"></a>
@@ -243,9 +243,9 @@ flowchart LR
 3. `schemas/base.py` 新增 `BaseSchema.__get_pydantic_json_schema__`（序列化模式字段口径 + ID 类型改写）；新增用例 1~4。
 4. `service_contract.py` 新增 `EMPTY_SCHEMA_ALLOWLIST` / `empty_schema_entries` / `response_schema_gaps`；新增用例 5~6。
 5. `ops/check_contracts.py` 接入断言 C / D 并更新命令说明；扩展现有用例 7。
-6. 重生成快照 / 基线 / 前端类型；`contract_snapshot check` 与 `api-types:gen:check` 零漂移。
+6. 重生成快照 / 基线 / 前端类型；`contract_snapshot check` 与 `api_types:gen:check` 零漂移。
 7. 《后端开发规范》§7.4 与《后端基类清单》§9 登记。
-8. 门禁：定向 `pytest` / `ruff` / `ruff format --check` / `pyright`（CI 兜底）/ 基座校验 / `check-preflight --fast`；覆盖率核对。
+8. 门禁：定向 `pytest` / `ruff` / `ruff format --check` / `pyright`（CI 兜底）/ 基座校验 / `check_preflight --fast`；覆盖率核对。
 9. 计划 / 任务 / 父任务状态回写 + 实施 / 测试记录 + 代码与文档分开提交（`feat` / `docs`）；偏差与遗留闭环另提。
 
 关键命令：
@@ -259,12 +259,12 @@ uv run python -m ops.contract_snapshot check              # 快照零漂移
 uv run python -m ops.contract_gate baseline-update --service <service>   # 基线重生成（逐服务）
 uv run ruff check . && uv run ruff format --check .
 # 前端（bms 根）
-pnpm --filter @bms/api-types run gen && pnpm run api-types:gen:check
+pnpm --filter @bms/api_types run gen && pnpm run api_types:gen:check
 # 仓库根
-python3 scripts/tools/base-check/check-base.py
-python3 scripts/tools/base-check/check-links.py
-python3 scripts/tools/check-docs/check-status.py --stage 06_认证与安全
-python3 scripts/tools/preflight/check-preflight.py --fast
+python3 scripts/tools/base_check/check_base.py
+python3 scripts/tools/base_check/check_links.py
+python3 scripts/tools/check_docs/check_status.py --stage 06_认证与安全
+python3 scripts/tools/preflight/check_preflight.py --fast
 ```
 
 > 本机无 docker 时 `ops.contract_gate check` 无法本地复现（依赖 `tufin/oasdiff` 镜像）；本地以 oasdiff 官方二进制（v1.32.1）复现同口径比对，CI `contract-gate` job 为权威门禁。

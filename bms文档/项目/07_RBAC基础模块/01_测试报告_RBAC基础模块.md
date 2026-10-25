@@ -26,7 +26,7 @@
 | 前端宿主本轮复跑 | Vitest | **868 例（818 passed / 50 failed）** | 部分失败 | 失败集中在 3 份记录页 spec（`user-record-tab` / `menu-record-tab` / `user-assign-slot`），均为 Element Plus `ElTabPane` 运行时断言（`HEAD` 同样失败，非本轮引入），见 §4 第 45 项 |
 | 模块工程（demo / sample） | Vitest | 15 / 25 | 通过 | 阶段六收口快照，本阶段无改动 |
 | E2E（浏览器主流程） | Playwright | 未激活 | — | 前置为完整登录链路的应用账号与前端全页面（阶段十五）；本阶段以**原型逐页对照 + 真机截图**代偿（见 §5） |
-| 文档校验（收口） | `check-status` / `check-links` / `check-base` / `preflight --fast` | 172 项 / 全绿 | 通过 | `check-status --stage 07_RBAC基础模块`：硬规则不合规 0、软提示 0 |
+| 文档校验（收口） | `check_status` / `check_links` / `check_base` / `preflight --fast` | 172 项 / 全绿 | 通过 | `check_status --stage 07_RBAC基础模块`：硬规则不合规 0、软提示 0 |
 
 **分域执行（后端各任务收口快照）**：
 
@@ -143,7 +143,7 @@
 | 07_02 / 07_03 | 58 份历史测试记录的「原型对照结论」补齐 | 组件设计自带原型 / 页面原型 | 组件类 11 份 + 页面类 8 份补节；**末批零命中、门禁首次转绿**；4 项实现偏离就地修复（分类列枚举键 / 空态英文 / 端点权限码串 / 雪花 ID 精度） |
 | 01_01 | mdm 插件经 `sys.user.detail.tabs` 真挂接 | 用户管理页原型「用户分配」页签 | 缺失即隐藏 + 在场渲染两态真机验证；**通过**（2026-10-09 闭环） |
 
-**结论**：界面类交付**无缺失页面、无裸骨架、无实现命名泄漏**；全部界面任务均有原型依据与对照结论，机器门禁 `check-prototype-review.py` 在 `preflight --fast` 中通过。
+**结论**：界面类交付**无缺失页面、无裸骨架、无实现命名泄漏**；全部界面任务均有原型依据与对照结论，机器门禁 `check_prototype_review.py` 在 `preflight --fast` 中通过。
 
 ## 6. 复盘与经验教训 <a id="retro"></a>
 
@@ -151,8 +151,8 @@
 | --- | --- | --- |
 | 1 | **跨仓标识变更必须双向核对**：mdm 归并服务标识只改了自身仓，bms 侧四类消费点（服务键 / 路径 / `op` / 白名单 / 前端命名空间）全部静默断链，且因降级路径存在，**运行时表现为「权限少一半」而非报错**——直到阶段收口才暴露 | 本任务补 `test_m7_closure.py::test_mdm_alignment_lockdown` 口径锁定断言（源码文本级护栏）；产品标识变更纳入跨仓验收清单，接收方须在同一批次内对齐 |
 | 2 | **测试种子要与装配视图同源**：种子只播种平台静态清单，而装配视图含产品清单行，接库对账直接拒启；此类缺口在「推送不跑 CI」的节奏下可潜伏很久 | `ops.seed_module` 改为「平台清单 + 已装载产品清单」合并视图；模块目录用例不再写死行数，改按登记清单断言 |
-| 3 | **门禁结论必须落在计划、报告只做汇总**：门禁表由计划承载（`check-status` 可校验），报告引用证据索引，避免两处维护漂移 | 本轮沿用阶段六口径：计划 §5 内联结论 + 门禁对照表；`test_m7_closure.py` 断言「需求总览不承载门禁表」 |
-| 4 | **界面漏检会被机器门禁补回来**：布局族 18 件无样式一路通过阶段四 / 五 / 六验收，直到 `03_01` 前置排查才暴露 | 原型对照结论成为测试记录固定节 + `check-prototype-review.py` 机器门禁；58 份历史记录补齐后门禁转绿 |
+| 3 | **门禁结论必须落在计划、报告只做汇总**：门禁表由计划承载（`check_status` 可校验），报告引用证据索引，避免两处维护漂移 | 本轮沿用阶段六口径：计划 §5 内联结论 + 门禁对照表；`test_m7_closure.py` 断言「需求总览不承载门禁表」 |
+| 4 | **界面漏检会被机器门禁补回来**：布局族 18 件无样式一路通过阶段四 / 五 / 六验收，直到 `03_01` 前置排查才暴露 | 原型对照结论成为测试记录固定节 + `check_prototype_review.py` 机器门禁；58 份历史记录补齐后门禁转绿 |
 | 5 | **高风险能力的「可证」比「有实现」更重要**：权限、数据范围、字段权限、三权、配额均以「从严拒绝 + 越界永假 + 前置校验」写用例，而不是只测正路径 | 各域用例覆盖拒绝路径与降级路径；本报告门禁每行均给可复现用例文件与 Kiwi 编号 |
 | 6 | **降级路径会掩盖断链**：`OrgRoleResolver` 对跨服务异常一律降级为空集（仅告警），断链不报错 | 严格模式 `require_roles` 保留；口径锁定断言在 CI 侧显式失败，不依赖运行期告警 |
 | 7 | **收口核对要「以平台与代码为准」而非以文档为准**：本轮以 mdm 仓实际契约（`deploy/contracts/mdm.json`、`branch_handlers.py`）对照 bms 代码，才发现四处漂移 | 收口动作清单固定为「外部契约对照 + 本仓代码扫描」，结论写进报告 §2 与计划台账 |
@@ -165,7 +165,7 @@ $ cd backend && uv run pytest libs/bms_core/tests/crosscut/test_m7_closure.py -q
 5 passed
 
 # 2) 后端口径修复定向（含服务身份白名单 / 分配编排 / 种子与目录对账）
-$ python ../scripts/tools/preflight/run-once.py -- uv run pytest services/platform/tests libs/bms_core/tests/ops \
+$ python ../scripts/tools/preflight/run_once.py -- uv run pytest services/platform/tests libs/bms_core/tests/ops \
     --cov=bms_platform --cov=ops --cov-branch --cov-report=term-missing -q
 837 passed, 1 skipped in 179.40s
 services/platform/src/bms_platform/services/permission_subject.py     58      0     14      0   100%
@@ -198,19 +198,19 @@ $ uv run python -m ops.check_modules
 [服务目录] 库中无登记行（种子未执行？）→ 校验失败（1 项）   # 本地开发库未执行 seed_module，归部署窗口（计划 §7 第 35 项）
 
 # 5) 前端（受影响包）
-$ pnpm --filter @bms/ui-ep run typecheck      → Done
-$ pnpm --filter @bms/ui-ep run test           → 72 文件全通过
+$ pnpm --filter @bms/ui_ep run typecheck      → Done
+$ pnpm --filter @bms/ui_ep run test           → 72 文件全通过
 $ pnpm --filter @bms/desktop run test         → 868 例 / 818 passed / 50 failed（3 份记录页 spec，ElTabPane 断言，HEAD 同样失败）
 
 # 6) 文档与基座自检（仓库根）
-$ python scripts/tools/check-docs/check-status.py --stage 07_RBAC基础模块
+$ python scripts/tools/check_docs/check_status.py --stage 07_RBAC基础模块
 [07_RBAC基础模块] 检查 172 项：硬规则不合规 0，软提示 0
-$ python scripts/tools/base-check/check-base.py        # base-integrity：通过
-$ python scripts/tools/base-check/check-links.py       # 断链 0 处 / 失效锚点 0 处
-$ python scripts/tools/base-check/check-docs-scope.py  # 违规 0 处
+$ python scripts/tools/base_check/check_base.py        # base-integrity：通过
+$ python scripts/tools/base_check/check_links.py       # 断链 0 处 / 失效锚点 0 处
+$ python scripts/tools/base_check/check_docs_scope.py  # 违规 0 处
 # 注：preflight 的 `{python}` 占位符取**运行 preflight 的解释器**——用仓内 venv 解释器运行方全通过；
 #     系统 Python 缺 `sqlalchemy` 时「网关」步骤误报（环境类，计划 §7 第 36 项）
-$ backend/.venv/Scripts/python.exe scripts/tools/preflight/check-preflight.py --fast
+$ backend/.venv/Scripts/python.exe scripts/tools/preflight/check_preflight.py --fast
 全部通过
 
 # 7) 流水线（GitLab 项目 bms/bms，阶段七窗口 2026-10-03 ~ 2026-10-23）

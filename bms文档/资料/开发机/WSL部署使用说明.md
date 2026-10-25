@@ -329,7 +329,7 @@ cd ~/develop/bizs/bms/backend && .venv/bin/python -m pytest libs/bms_core/tests 
 cd ~/develop/bizs/bms && backend/.venv/bin/ruff check backend/libs/bms_core/src
 
 # 前端：组件库用例
-cd ~/develop/bizs/bms/frontend/packages/ui-ep && pnpm exec vitest run
+cd ~/develop/bizs/bms/frontend/packages/ui_ep && pnpm exec vitest run
 
 # 浏览器真机（注意 --browser firefox）
 playwright-cli -s=t open --browser firefox "about:blank"

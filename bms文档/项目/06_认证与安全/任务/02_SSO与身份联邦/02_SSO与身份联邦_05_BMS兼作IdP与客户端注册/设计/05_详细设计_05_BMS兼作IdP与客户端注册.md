@@ -81,7 +81,7 @@ backend/alembic/versions/identity/tenant/0003_sys_client.py   # 新（down_revis
 backend/config.toml / config.dev.toml                         # 改：[oidc_provider]；[gateway].public_paths
 backend/ops/seed_oidc_client.py                               # 新：dev/E2E 测试客户端种子（幂等、显式执行）
 deploy/contracts/identity.json                                # 改：重生成（新端点非破坏新增）
-frontend/packages/api-types/src/identity.ts                   # 改：重生成（零漂移）
+frontend/packages/api_types/src/identity.ts                   # 改：重生成（零漂移）
 deploy/gateway/apisix.yaml                                    # 改：重生成（路由 / 公开路径变化时）
 
 bms文档/
@@ -300,7 +300,7 @@ login_url = ""                                 # /authorize 未登录跳转的�
 | 9 | `services/identity/tests/oidc/test_units.py`（新） | helper 分支：`issuer` 占位派生 / scope 校验 / redirect_uri 匹配 / PKCE S256 计算 / 授权码载荷编解码非法结构 | 覆盖率 100% |
 | 10 | `libs/bms_core/tests/alembic/test_alembic_chains.py`（扩展） | `identity:tenant` 单 head 新 revision；表集含 `sys_client`；`branch_labels` 正确 | 迁移链与零漂移 |
 | 11 | `services/platform/tests/crosscut/test_plugin_registration.py`（扩展） | `_EXPECTED_PLUGIN_KEYS` 与接线一致（`oidc_provider` 登记） | 装配一致性 |
-| 12 | 既有全量回归 + 门禁 | `pytest` / `ruff` / `pyright` / 契约快照 `check`（identity.json 重生成）/ `check-backend-base` / `check-service-boundaries` / `preflight --fast` 全绿 | 回归与门禁 |
+| 12 | 既有全量回归 + 门禁 | `pytest` / `ruff` / `pyright` / 契约快照 `check`（identity.json 重生成）/ `check_backend_base` / `check_service_boundaries` / `preflight --fast` 全绿 | 回归与门禁 |
 | 13 | mjbk 真实冒烟（人工留痕） | 开发环境 identity + org + Redis：`ops.seed_oidc_client.py` 播种 → 登录 → authorize → token → userinfo；Gateway 公开路径放行 | 端到端 |
 
 **验收映射**：需求 02-5 完成标准四句——「Discovery / JWKS 可访问且字段合规」落用例 2/3；「测试客户端授权码流程 E2E 通过（PKCE、授权码单次、scope 校验）」落用例 4/5/8；「`sys_client` 注册 / 停用 / 重置经最小接口可用且落库」落用例 7；「错误分支（非法 redirect_uri / 未知 client / 授权码重放）有用例」落用例 4/5。「`sys_client` 表文件 ↔ 登记 ↔ 迁移零漂移」落用例 10 + `preflight --fast` 基座校验。`pytest`、`pyright`、`ruff`、契约门禁与基座校验全绿为准出门禁；新增 / 变更模块（`oauth/oidc_provider`、`oauth/oidc_jwt`、`idp/state` 差异、identity `oidc` / `clients` 全套、`SysClient` / 仓储）覆盖率 100%。
@@ -313,7 +313,7 @@ login_url = ""                                 # /authorize 未登录跳转的�
 | 表归属（`sys_client` 转 enabled） | `bms_core/services/table_registry.py::TABLE_OWNERSHIP` |
 | `oidc_provider` 能力域条目 + `idp_state_store` namespace 扩展 | 《[后端基类清单](../../../../../../后端基类清单.md)》开放接口服务端 / 流程状态条目 |
 | 错误码与口径回写 | 架构 09 行（`801xx`）；概要 26 §5.1 / §5.2；概要 20 §5.1；架构 14 §4 |
-| 契约与生成件 | `deploy/contracts/identity.json`、`frontend/packages/api-types/src/identity.ts` 重生成零漂移 |
+| 契约与生成件 | `deploy/contracts/identity.json`、`frontend/packages/api_types/src/identity.ts` 重生成零漂移 |
 | 网关生成件 | `deploy/gateway/apisix.yaml`（路由 / 公开路径变化时重生成） |
 
 | 消费方前置契约标注 | 阶段十（`sys_client` 管理 / 开放接口 / 审计）、域五（登录页 `return_to`）、用户管理阶段（`email`） |
@@ -364,7 +364,7 @@ login_url = ""                                 # /authorize 未登录跳转的�
 | 3 | 内存流程状态键形 | `MemoryIdpStateStore` 键形对齐 Redis（`build_idp_state_key(state, tenant, namespace)`）；SSO 测试 `peek` / `flow_payload` 同步按键取数（§3.3 语义不变） |
 | 4 | 客户端写操作审计 | `ClientService.audit` 由可选改必填（应用恒注入 `AuditCapturer` 占位），删除不可达的空分支（§3.5 审计占位口径不变） |
 | 5 | 端点错误转换 | `/authorize` 端点边界捕获 `OidcError` 转标准 OAuth2 错误 JSON（`/token` 同）；客户端管理接口走全局处理器转平台统一响应（§3.7 不变） |
-| 6 | 契约与生成件 | `deploy/contracts/identity.json` 与 `frontend/packages/api-types/src/identity.ts` 按实施重生成，`check` / `gen:check` 零漂移；网关 `apisix.yaml` 无变更（路由按服务目录生成，`gateway_config check` 零漂移） |
+| 6 | 契约与生成件 | `deploy/contracts/identity.json` 与 `frontend/packages/api_types/src/identity.ts` 按实施重生成，`check` / `gen:check` 零漂移；网关 `apisix.yaml` 无变更（路由按服务目录生成，`gateway_config check` 零漂移） |
 | 7 | 基座清单补登 | 《后端基类清单》增 `oidc_provider` 能力域条目与认证链路 02_05 模块行（含服务 / 结果契约），`idp_state_store` 条目补 `namespace` |
 | 8 | 测试落点与 Kiwi | 新增 `libs/bms_core/tests/oauth/`、`services/identity/tests/oidc/`（含 `conftest.py` / `helpers.py`）；Kiwi 策展用例 **2202**（先登记后编码）；新增 / 变更模块覆盖率 100% |
 | 9 | 方言实测修正（真机暴露） | `sys_client.ip_whitelist` 原设 `TEXT NOT NULL DEFAULT '[]'`，MySQL 8 报 `1101`（TEXT 列不支持列级 DEFAULT）；移除 DB 默认值（迁移 / 模型 / 表文件同步），默认值改由应用侧写入；结论回写《数据库设计 · 方言特性（MySQL）》「DDL 与对象差异」节（标实测） |

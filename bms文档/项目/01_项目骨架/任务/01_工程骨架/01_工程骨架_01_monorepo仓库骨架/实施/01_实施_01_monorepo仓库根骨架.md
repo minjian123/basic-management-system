@@ -95,7 +95,7 @@ pnpm run dev   # 5173 返回占位页 HTML（title=BMS PC 管理端）
 - `.editorconfig`（新建）：UTF-8 / LF / 去行尾空格 / 文件末尾空行；Python 4 空格、前端与配置类 2 空格、Makefile tab、`*.md` 保留行尾空格。
 - `.gitignore`：启用 `.idea/`、`.vscode/*`（放行 `settings.json` / `extensions.json`），新增 `*.local`；保留 Python 模板主体、`node_modules/`、`graphify-out/`、凭据忽略等既有规则。
 - `README.md` 重写：徽标 Python 3.12+ → 3.14+ 并新增 Node 22；技术栈概览表；快速启动（bash）；目录结构按磁盘实际（含三工程、`基座文档清单.md`，并注明 AGENTS/opencode/图谱在工作区根）；文档导航合并原使用指南并补《平台可扩展性规划》行。
-- `scripts/README.md` 工具表补 `base-check` / `winrm` / `vision` / `dsh`；`ops/README.md` 的 scripts 清单补 `base-check`。
+- `scripts/README.md` 工具表补 `base_check` / `winrm` / `vision` / `dsh`；`ops/README.md` 的 scripts 清单补 `base_check`。
 
 ### 3.6 验证与提交
 

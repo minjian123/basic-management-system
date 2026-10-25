@@ -27,7 +27,7 @@
 7. **快照与基线重生成**：`ops.contract_snapshot export`（9 服务）+ `ops.contract_gate baseline-update --all`（9 服务）。
    - **变更性质核验**：本机无 docker（无法跑 oasdiff）→ 以严格结构差异核验替代：基线 ↔ 新快照**逐服务零移除键、零值变更**（`ai` 249→260、`file` 198→209、`identity` 1028→1567、`notification` 175→186、`org` 146→835、`platform` 1359→1435、`report` 211→222、`search` 126→137、`tenant` 138→149，全部仅新增），属**非破坏性**。
    - **基线现存漂移一并吸收**：8 个服务基线此前停留在较早评审节点（如 `tenant.json` 缺后续新增的 `tenant_id` 查询参数）——本次随同一口径一并重生成，消除漂移；`identity` 基线为 `06_01` 更新点，本次再随响应 schema 更新。
-8. **前端类型重生成**：`pnpm --filter @bms/api-types run gen` → `login:LoginResult` 具 `access_token` / `token_type` / `expires_in` / `user`（`UserSummary` 具 `id`（string）/ `username` / `name` / `tenant` / `locale` / `timezone` / `must_change_password`），`ApiResponse_LoginResult_` 等包装类型不再为 `unknown`；`gen:check` 零漂移。
+8. **前端类型重生成**：`pnpm --filter @bms/api_types run gen` → `login:LoginResult` 具 `access_token` / `token_type` / `expires_in` / `user`（`UserSummary` 具 `id`（string）/ `username` / `name` / `tenant` / `locale` / `timezone` / `must_change_password`），`ApiResponse_LoginResult_` 等包装类型不再为 `unknown`；`gen:check` 零漂移。
 9. **规范与清单登记**：《后端开发规范》§7.4 由「契约门禁三道」扩为**四道**并补「响应契约不得丢字段」强制口径；《后端基类清单》扩展 `BaseSchema` 行与新增「契约响应 schema 完整性护栏」行。
 
 ## 3. 关键命令 <a id="commands"></a>
@@ -41,15 +41,15 @@ uv run python -m ops.contract_snapshot check
 uv run python -m ops.contract_gate baseline-update --all
 uv run ruff check . && uv run ruff format --check .
 # 前端（bms 根）
-pnpm --filter @bms/api-types run gen && pnpm run api-types:gen:check
+pnpm --filter @bms/api_types run gen && pnpm run api_types:gen:check
 # 仓库根
-python3 scripts/tools/base-check/check-base.py
-python3 scripts/tools/base-check/check-links.py
-python3 scripts/tools/base-check/check-backend-base.py
-python3 scripts/tools/base-check/check-docs-scope.py
-python3 scripts/tools/base-check/check-bare-collections.py
-python3 scripts/tools/check-docs/check-status.py --stage 06_认证与安全 --strict
-python3 scripts/tools/preflight/check-preflight.py --fast
+python3 scripts/tools/base_check/check_base.py
+python3 scripts/tools/base_check/check_links.py
+python3 scripts/tools/base_check/check_backend_base.py
+python3 scripts/tools/base_check/check_docs_scope.py
+python3 scripts/tools/base_check/check_bare_collections.py
+python3 scripts/tools/check_docs/check_status.py --stage 06_认证与安全 --strict
+python3 scripts/tools/preflight/check_preflight.py --fast
 ```
 
 ## 4. 问题与处置 <a id="issues"></a>
@@ -70,12 +70,12 @@ python3 scripts/tools/preflight/check-preflight.py --fast
 | 受影响面回归 | `uv run pytest -q libs/bms_core/tests services/platform/tests services/identity/tests` | **1759 passed / 39 skipped** |
 | 契约校验（四道同命令） | `uv run python -m ops.check_contracts` | 通过（9 服务：路由全覆盖、不可见均在白名单、**无空 schema、引用型响应 schema 均可解析**） |
 | 快照零漂移 | `uv run python -m ops.contract_snapshot check` | 通过（9 服务） |
-| 前端类型零漂移 | `pnpm run api-types:gen:check` | 通过（9 份一致） |
+| 前端类型零漂移 | `pnpm run api_types:gen:check` | 通过（9 份一致） |
 | 空 schema 残留 | 逐服务统计 `components.schemas` 空条目 | **全 9 服务为 0**（修复前 identity 40 / org 21 / platform 3 / 其余各 1） |
 | `-Input` / `-Output` 变体 | 快照全文匹配 | **0**（无两侧同用模型，命名稳定性不受影响） |
 | Lint / 格式 | `uv run ruff check .` / `uv run ruff format --check .` | 全绿 |
-| 基座护栏 | `check-base` / `check-links` / `check-backend-base` / `check-docs-scope` / `check-bare-collections` / `check-status --strict` | 全绿 |
-| 本地预检 | `check-preflight.py --fast` | **全部通过**（含契约两道与 `api-types` 零漂移） |
+| 基座护栏 | `check_base` / `check_links` / `check_backend_base` / `check_docs_scope` / `check_bare_collections` / `check_status --strict` | 全绿 |
+| 本地预检 | `check_preflight.py --fast` | **全部通过**（含契约两道与 `api-types` 零漂移） |
 | 类型检查 | `pyright` | 本地因依赖外置不可用，由 CI 兜底（设计口径一致） |
 
 ## 6. 覆盖率 <a id="coverage"></a>

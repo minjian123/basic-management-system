@@ -56,7 +56,7 @@ services:
 | 来源 | 作用 |
 | --- | --- |
 | `deploy/keycloak/bms-realm.json` | realm `bms` 与 OIDC 客户端 `bms-backend`（`standardFlowEnabled` 授权码 + `serviceAccountsEnabled` 服务账号）；client secret 为 `${KEYCLOAK_CLIENT_SECRET}` 占位 |
-| `deploy/postgres/init/01-keycloak.sh` | 首次初始化 postgres 新卷时创建 `keycloak` 角色与库（存量实例手动执行一次，见第 5 节） |
+| `deploy/postgres/init/01_keycloak.sh` | 首次初始化 postgres 新卷时创建 `keycloak` 角色与库（存量实例手动执行一次，见第 5 节） |
 | `deploy/compose/keycloak.yml` | 容器编排（见第 3 节） |
 
 - **凭据外部化**：管理员 / 元数据库 / 客户端 secret 全部经 `deploy/.env` 注入；realm JSON 内**无明文密钥**（仅占位符）。

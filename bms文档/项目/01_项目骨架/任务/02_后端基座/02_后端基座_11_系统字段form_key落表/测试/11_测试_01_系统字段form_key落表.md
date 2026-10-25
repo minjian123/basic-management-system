@@ -18,16 +18,16 @@
 | `libs/bms_core/tests/registry/test_form_catalog.py`（Kiwi 2286） | 清单自校验通过；`form_key` 跨表全局唯一 / 表名唯一；类型合法与按标识 / 表名查询；注入合并；反例（重复与格式非法） | 通过 |
 | `libs/bms_core/tests/alembic/test_alembic_drift.py`（Kiwi 1078 / 2219） | 8 条有脚本链迁移后库结构 ↔ 链模型元数据零漂移（含本次 5 条新迁移：表 / 列 / 索引 / 唯一约束） | 通过（8 passed） |
 | `ops.check_tables --offline` | 表归属清单自校验 + 模型表对账 + 脚本表集 + **`FORM_CATALOG` ↔ 模型 `form_key` 列双向一致** | 通过 |
-| `check-system-fields.py`（+ `--self-test`） | 清单 ↔ 表文件双向一致、跨表唯一、字典表文件含 `form_key` / `parent_id` 行 | 通过（自检 4 用例） |
+| `check_system_fields.py`（+ `--self-test`） | 清单 ↔ 表文件双向一致、跨表唯一、字典表文件含 `form_key` / `parent_id` 行 | 通过（自检 4 用例） |
 
 ## 3. 门禁 <a id="gates"></a>
 
 - `pytest`（定向）：17 passed。
 - `ruff check` / `ruff format`：通过。
 - `pyright`（改动范围）：0 errors。
-- `preflight --fast`：**全部通过**（含 `check-base` / `check-backend-base` / `check-service-boundaries` / `check-system-fields` / `check-docs-scope` / 契约与 `api-types` 零漂移）。
-- `check-links`：本任务新增 / 修改文档零断链（仓库既有 9 处历史断链与本次无关）。
-- `check-status --stage 01_项目骨架`：0 硬规则不合规。
+- `preflight --fast`：**全部通过**（含 `check_base` / `check_backend_base` / `check_service_boundaries` / `check_system_fields` / `check_docs_scope` / 契约与 `api-types` 零漂移）。
+- `check_links`：本任务新增 / 修改文档零断链（仓库既有 9 处历史断链与本次无关）。
+- `check_status --stage 01_项目骨架`：0 硬规则不合规。
 
 ## 4. 原型对照结论 <a id="prototype"></a>
 

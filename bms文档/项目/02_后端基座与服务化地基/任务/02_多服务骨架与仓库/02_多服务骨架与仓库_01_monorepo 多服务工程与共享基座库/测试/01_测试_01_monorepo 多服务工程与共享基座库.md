@@ -27,7 +27,7 @@
 | 1204 | `libs/bms_core/tests/core/test_workspace_layout.py` | 单元 | 工作区成员可解析（`bms_core` 导入 + `bms_platform` spec）；`libs/bms_core` / `services/platform` / 脚手架脚本骨架就位 |
 | 1204 | `libs/bms_core/tests/ops/test_new_service.py` | 单元 | 脚手架生成目录齐备（pyproject + 五层 + 入口 + 冒烟用例）；生成件可导入并构造应用（依赖 `bms_core` 真实解析）；非法名 / 保留名 / 重名被拒 |
 | 1204 | `libs/bms_core/tests/crosscut/test_module_boundary.py` | 单元 | 共享库不依赖服务；服务内分层单向；跨包私有引用拦截；扫描样本量自检（≥ 100 文件） |
-| 1204 | `scripts/tools/base-check/check-service-boundaries.py --self-test` | 单元 | 护栏拦截自检：服务依赖共享库放行 / 共享库依赖服务拦截 / 合规导入放行 |
+| 1204 | `scripts/tools/base_check/check_service_boundaries.py --self-test` | 单元 | 护栏拦截自检：服务依赖共享库放行 / 共享库依赖服务拦截 / 合规导入放行 |
 | — | 既有全量回归（`libs/bms_core/tests` + `services/platform/tests`） | 单元 + 集成 | 搬迁与重命名无行为回归（装配 / 路由 / 探针 / 迁移链 / 能力域契约） |
 
 ### 3.1 工作区与共享库复用 <a id="workspace"></a>
@@ -49,9 +49,9 @@
 | lint | `uv run ruff check .` | 通过 |
 | 格式化 | `uv run ruff format --check .` | 通过 |
 | 类型检查 | `uv run pyright` | 0 error / 0 warning |
-| 基座对账 | `python3 scripts/tools/base-check/check-backend-base.py` | 通过（继承链 381 / 基座类 84 / 平台码 32 / 迁移链 2） |
-| 护栏自检 | `python3 scripts/tools/base-check/check-service-boundaries.py --self-test` | 通过 |
-| 文档基座 | `python3 scripts/tools/base-check/check-base.py` / `check-links.py` | 通过 |
+| 基座对账 | `python3 scripts/tools/base_check/check_backend_base.py` | 通过（继承链 381 / 基座类 84 / 平台码 32 / 迁移链 2） |
+| 护栏自检 | `python3 scripts/tools/base_check/check_service_boundaries.py --self-test` | 通过 |
+| 文档基座 | `python3 scripts/tools/base_check/check_base.py` / `check_links.py` | 通过 |
 | 独立构建 | `uv build --package bms-core` / `--package bms-platform` | 各自产出 wheel + sdist |
 
 ## 5. 问题与处置 <a id="issues"></a>

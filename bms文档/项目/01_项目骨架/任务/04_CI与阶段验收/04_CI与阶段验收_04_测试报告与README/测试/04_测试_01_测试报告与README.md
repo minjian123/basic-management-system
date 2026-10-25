@@ -26,7 +26,7 @@
 
 | Kiwi ID | 用例 | 类型 | 自动化 / 核对文件 | 结果 |
 | --- | --- | --- | --- | --- |
-| 69 | 测试报告与 README（阶段一收口）：① 报告四章节 + 复盘 + 附录齐备且数据可追溯；② `collect_metrics.py` 输出三项度量与用例统计；③ `review_stage.py` 复盘清单逐项通过；④ 门禁第 10 行转「达标」、54/54；⑤ 四份 README 与现状一致 | 验收核对（脚本 + 人工） | `scripts/tools/governance/collect_metrics.py`、`review_stage.py`、`check-docs/check-status.py`、`base-check/check-base.py` | 通过 |
+| 69 | 测试报告与 README（阶段一收口）：① 报告四章节 + 复盘 + 附录齐备且数据可追溯；② `collect_metrics.py` 输出三项度量与用例统计；③ `review_stage.py` 复盘清单逐项通过；④ 门禁第 10 行转「达标」、54/54；⑤ 四份 README 与现状一致 | 验收核对（脚本 + 人工） | `scripts/tools/governance/collect_metrics.py`、`review_stage.py`、`check_docs/check_status.py`、`base_check/check_base.py` | 通过 |
 
 **等价复现命令**：
 
@@ -34,7 +34,7 @@
 cd <bms 根>
 python3 scripts/tools/governance/collect_metrics.py --with-frontend     # 三项度量 + 用例统计
 python3 scripts/tools/governance/review_stage.py                        # 复盘清单 8 项
-python3 scripts/tools/check-docs/check-status.py && python3 scripts/tools/base-check/check-base.py
+python3 scripts/tools/check_docs/check_status.py && python3 scripts/tools/base_check/check_base.py
 cd backend && uv run pytest -q --cov=app --cov-branch --cov-fail-under=100
 ```
 
@@ -60,8 +60,8 @@ $ python3 scripts/tools/governance/collect_metrics.py --with-frontend --out /tmp
 
 $ python3 scripts/tools/governance/review_stage.py
 == 阶段末复盘清单（01_项目骨架）==
-[1/8] 通过 三类文档就位（进度以阶段计划为准）：check-status.py 退出码 0；末行：汇总：检查 374 项；硬规则不合规 0，软提示 0
-[2/8] 通过 基座自检通过：check-base.py 退出码 0
+[1/8] 通过 三类文档就位（进度以阶段计划为准）：check_status.py 退出码 0；末行：汇总：检查 374 项；硬规则不合规 0，软提示 0
+[2/8] 通过 基座自检通过：check_base.py 退出码 0
 [3/8] 通过 验收门禁表结论齐备：10 行（期望 10）
 [4/8] 通过 阶段残留为 0（需求 / 任务全部已完成）：残留 0 项
 [5/8] 通过 遗留项已登记：计划「后续阶段待办」52 条（后补登核心模块覆盖率 / 前端覆盖率扩面两项，现为 55 条）
@@ -70,7 +70,7 @@ $ python3 scripts/tools/governance/review_stage.py
 [8/8] 通过 Kiwi 用例编号引用齐备：缺 0 份
 汇总：8/8 通过（全部通过）
 
-$ python3 scripts/tools/base-check/check-base.py
+$ python3 scripts/tools/base_check/check_base.py
 1. 链接自洽：断链 0 处，失效锚点 0 处
 2. 基座跨层引用：0 处    3. 项目专属措辞残留：0 处
 4. 清单一致：登记 146 个，磁盘 146 个，缺失 0 个

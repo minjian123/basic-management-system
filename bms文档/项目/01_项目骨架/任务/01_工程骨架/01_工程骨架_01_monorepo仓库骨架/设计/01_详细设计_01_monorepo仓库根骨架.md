@@ -27,7 +27,7 @@
 | `backend/` | 缺失 | 最小可启动占位（FastAPI + `/healthz`） | 新建 |
 | `apps/desktop/` | 缺失 | 最小 Vite + Vue + TS 占位（端口 5173） | 新建 |
 | `frontend-mobile/` | 缺失 | 最小 Vite + Vue + TS 占位（端口 5174） | 新建 |
-| `scripts/` | 已含 `tools/` 工具链（含 `base-check` 基座自检）+ `README.md`（三分法已落地） | 承接开发期工具链（自 `deploy/tools/` 迁入）+ 目录说明 `README.md` | 已落地，核对清单 |
+| `scripts/` | 已含 `tools/` 工具链（含 `base_check` 基座自检）+ `README.md`（三分法已落地） | 承接开发期工具链（自 `deploy/tools/` 迁入）+ 目录说明 `README.md` | 已落地，核对清单 |
 | `ops/` | 已有 `README.md`（目录说明已就位） | 产品运维脚本目录（脚本后续阶段填充） | 已落地，核对内容 |
 | `graphify-out/`（工作区根） | 工作区层图谱产物 | 不属 bms 仓，本任务不处理（见下方工作区说明） | — |
 | `README.md` | 缺「快速启动」章节、无技术栈概览表；Python 徽标为 3.12+；文档目录树漏 `基座文档清单.md`、`项目/` | 按四章节重写 | 重写 |
@@ -81,7 +81,7 @@ bms/
 │   ├── compose/              # Docker Compose（base / gitlab / kiwi）
 │   └── setup/                # 环境安装脚本
 ├── scripts/                  # 开发期工具链（自 deploy/tools/ 迁入）
-│   └── …                     # wol / bg / graphify / defect / backup / gitlab / reorder-design / base-check
+│   └── …                     # wol / bg / graphify / defect / backup / gitlab / reorder_design / base_check
 ├── ops/                      # 产品运维脚本（种子数据、备份恢复、租户库迁移，按阶段补充）
 │   └── README.md             # 目录说明
 ├── bms文档/                  # 项目文档
@@ -99,7 +99,7 @@ bms/
 
 > **根级文件落位口径**：`.gitlab-ci.yml` 与 `renovate.json` 均为**工具约定决定的根级落位**——GitLab 默认在仓库根查找 `.gitlab-ci.yml`，Renovate 默认在仓库根查找 `renovate.json`。二者不可挪入 `deploy/` 或其他目录：挪动会导致 GitLab 检测不到（流水线不触发）或 Renovate 进入 onboarding 模式。故二者与 `deploy/` **平级**、不在其内；`deploy/` 只装部署产物（Compose 编排 / nginx 配置 / 脚本）。
 
-> **目录职责边界**：`deploy/` 为**纯部署**（Compose 编排 / nginx 配置 / setup）；`scripts/` 为**开发期工具链**（WOL / bg / graphify / defect / backup / gitlab / reorder-design / base-check，自 `deploy/tools/` 迁入）；`ops/` 为**产品运维脚本**（种子数据 / 备份恢复 / 租户库迁移，随产品交付、后续阶段填充）。三者职责不同、不可混用：`deploy/` 不装工具链，`scripts/` 不装产品运维脚本，`ops/` 不装开发工具。
+> **目录职责边界**：`deploy/` 为**纯部署**（Compose 编排 / nginx 配置 / setup）；`scripts/` 为**开发期工具链**（WOL / bg / graphify / defect / backup / gitlab / reorder_design / base_check，自 `deploy/tools/` 迁入）；`ops/` 为**产品运维脚本**（种子数据 / 备份恢复 / 租户库迁移，随产品交付、后续阶段填充）。三者职责不同、不可混用：`deploy/` 不装工具链，`scripts/` 不装产品运维脚本，`ops/` 不装开发工具。
 
 交付物清单（01 新建 / 修改的文件）：
 
@@ -108,7 +108,7 @@ bms/
 | `backend/`（6 个文件，见 7.1） | 新建 | 最小可启动占位 |
 | `apps/desktop/`（10 个文件，见 7.2） | 新建 | 最小 Vite 占位 |
 | `frontend-mobile/`（10 个文件，见 7.3） | 新建 | 最小 Vite 占位 |
-| `scripts/README.md` | 已存在，核对 | 目录说明（开发期工具链，含 `base-check` 基座自检） |
+| `scripts/README.md` | 已存在，核对 | 目录说明（开发期工具链，含 `base_check` 基座自检） |
 | `ops/README.md` | 已存在，核对 | 目录说明（产品运维脚本） |
 | `README.md` | 重写 | 四章节 |
 | `.gitignore` | 修改 | 补编辑器 / `*.local` |
@@ -384,7 +384,7 @@ createApp(App).mount('#app')
 
 | 文件 | 内容要点 |
 | --- | --- |
-| `scripts/README.md` | 目录用途：开发期工具链（WOL / bg / graphify / defect / backup / gitlab / reorder-design / base-check，自 `deploy/tools/` 迁入）；01 核对清单 |
+| `scripts/README.md` | 目录用途：开发期工具链（WOL / bg / graphify / defect / backup / gitlab / reorder_design / base_check，自 `deploy/tools/` 迁入）；01 核对清单 |
 | `ops/README.md` | 目录用途：产品运维脚本（种子数据 / 备份恢复 / 租户库迁移），按阶段补充；01 仅保留目录说明，脚本在后续任务添加 |
 
 ## 9. 与全局设计的对齐记录 <a id="align"></a>
@@ -409,7 +409,7 @@ createApp(App).mount('#app')
 1. **backend 占位**：建 `backend/`，写 `.python-version`、`pyproject.toml`、`app/__init__.py`、`app/main.py`、`README.md` → `uv lock`（网络慢切国内 PyPI 镜像）→ `uv sync` → `uv run uvicorn app.main:create_app --factory --port 8000`。验证：`GET http://127.0.0.1:8000/healthz` 返回 `{"status":"ok"}`。
 2. **apps/desktop 占位**：`pnpm create vite@latest apps/desktop -- --template vue-ts`，按 7.2 调整（name、端口 5173、`.nvmrc`=22、`App.vue` 文案、`README.md`）→ `pnpm install` 生成 lock。验证：`pnpm run dev` 访问 `http://127.0.0.1:5173` 看到占位页。
 3. **frontend-mobile 占位**：同步骤 2，端口 5174、name `bms-frontend-mobile`、文案改移动端。验证：访问 `http://127.0.0.1:5174`。
-4. **其余说明文件**：核对 `scripts/README.md`、`ops/README.md`（已存在，删 multimodal 词条、补 `base-check`）；图谱产物归工作区根，不新建 `graphify-out/README.md`。
+4. **其余说明文件**：核对 `scripts/README.md`、`ops/README.md`（已存在，删 multimodal 词条、补 `base_check`）；图谱产物归工作区根，不新建 `graphify-out/README.md`。
 5. **根 .gitignore**：按 §5 追加 / 替换规则；保留现有 Python 模板主体。
 6. **根 .editorconfig**：按 §6 新建。
 7. **根 README**：按 §4 重写四章节、修正徽标、补技术栈概览表、补全目录树（含 `基座文档清单.md`、`项目/`）。

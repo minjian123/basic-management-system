@@ -43,8 +43,8 @@
 | 全量用例 | `uv run pytest -q --cov=bms_core --cov-branch` | 1208 passed / 37 skipped；总体覆盖率 96% |
 | 新增模块覆盖率 | `uv run pytest services/identity/tests/idp --cov=bms_core.idp --cov-branch` | idp 包语句 + 分支 **100%** |
 | 静态检查 | `ruff check .` / `ruff format --check .` / `pyright` | 全通过（0 error） |
-| 基座校验 | `check-base.py` / `check-backend-base.py` / `check-service-boundaries.py` / `check-status.py --stage 02_后端基座与服务化地基` | 全通过 |
-| 本地预检 | `check-preflight.py --fast` | 全通过 |
+| 基座校验 | `check_base.py` / `check_backend_base.py` / `check_service_boundaries.py` / `check_status.py --stage 02_后端基座与服务化地基` | 全通过 |
+| 本地预检 | `check_preflight.py --fast` | 全通过 |
 
 ## 4. mjbk 真实冒烟 <a id="smoke"></a>
 

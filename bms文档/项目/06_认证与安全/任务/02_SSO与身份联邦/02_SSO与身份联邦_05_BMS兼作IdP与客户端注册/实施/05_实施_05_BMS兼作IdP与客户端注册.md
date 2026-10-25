@@ -40,9 +40,9 @@ flowchart LR
 5. **装配（`bms_core/core/assembly.py` / `api/deps.py`）**：`PLUGIN_WIRINGS` 增 `oidc_provider`；`register_plugin("oidc_provider", "jwt", …Factory)`；`deps.py` 导出 `get_oidc_provider`。
 6. **identity 模型与迁移**：新增 `models/client.py::SysClient` + `MODEL_MODULES` 登记；新增 `alembic/versions/identity/tenant/0003_sys_client.py`（`down_revision=0002_sys_identity_provider`）。
 7. **identity 仓储 / 服务 / 端点**：新增 `repositories/client.py`（`get_by_client_id` / 筛选分页）、`schemas/oidc.py`；`services/oidc_provider.py::OidcProviderService`（Discovery / authorize（授权码落 `idp_state_store` `oidccode`）/ token（basic+post 客户端认证 + PKCE）/ userinfo）；`services/clients.py::ClientService`（创建 / 列表 / 详情 / 启停 / 重置密钥，`client_secret` 只存 PBKDF2 哈希、明文仅回显一次）；`api/oidc.py` 五端点（标准 OAuth2 错误 JSON）+ `api/clients.py`（`/api/v1/open/clients`，`require_auth` + `open:manage` 占位）；`api/router.py` 挂载两路由。
-8. **种子与生成件**：新增 `ops/seed_oidc_client.py`（幂等、显式执行、打印明文密钥）；`ops.contract_snapshot export` 重生成 `deploy/contracts/identity.json`（9 份快照仅 identity 变更）；`api-types:gen` 重生成 `frontend/packages/api-types/src/identity.ts`；网关 `apisix.yaml` 经 `gateway_config check` 确认零漂移（路由按服务目录生成，无变更）。
+8. **种子与生成件**：新增 `ops/seed_oidc_client.py`（幂等、显式执行、打印明文密钥）；`ops.contract_snapshot export` 重生成 `deploy/contracts/identity.json`（9 份快照仅 identity 变更）；`api_types:gen` 重生成 `frontend/packages/api_types/src/identity.ts`；网关 `apisix.yaml` 经 `gateway_config check` 确认零漂移（路由按服务目录生成，无变更）。
 9. **测试（Kiwi 2202 先登记后编码）**：新增 `libs/bms_core/tests/oauth/test_oidc_provider.py`（Discovery / 双令牌签验 / 四向隔离 / 密钥分支 / Null）；扩展 `libs/bms_core/tests/idp/test_state_store.py`（namespace 键形与隔离）；新增 `services/identity/tests/oidc/`（`conftest.py` 替身与播种、`helpers.py` org 替身与 PKCE、`test_discovery` / `test_authorize` / `test_token` / `test_userinfo` / `test_clients` / `test_e2e` 全套）。
-10. **验证**：全量 `pytest`（见 §5）；新增 / 变更模块覆盖率 **100%**；`ruff check` / `ruff format --check` / `pyright` 全绿；契约 / 网关 / 事件 / api-types 零漂移；`check-backend-base` / `check-base` / `check-links` / `check-service-boundaries` / `check-status` / `preflight --fast` 全绿。
+10. **验证**：全量 `pytest`（见 §5）；新增 / 变更模块覆盖率 **100%**；`ruff check` / `ruff format --check` / `pyright` 全绿；契约 / 网关 / 事件 / api-types 零漂移；`check_backend_base` / `check_base` / `check_links` / `check_service_boundaries` / `check_status` / `preflight --fast` 全绿。
 11. **登记回写**：《后端基类清单》（`oidc_provider` 能力域条目 + 认证链路模块行 + `idp_state_store` namespace）；架构 09「错误码分段」补 `801xx`；架构 14 §4 BMS 兼作 IdP 口径；概要 26 §5.1 / §5.2；概要 20 §5.1 前置契约注记；数据库总览 §7.3；任务 / 父任务 / 计划状态；Kiwi cases / exports。
 12. **真机冒烟（mjbk，2026-09-27）**：CI 构建 `bms-identity:baa0e0de` 后 `release.py deploy --service identity --tag 19a620b9`（迁移先行 + 起容器 + 健康门禁通过）；经网关验证 Discovery / JWKS `200`；`ops.seed_oidc_client` 在容器内播种 `bms-demo-client` 客户端；在 identity 容器内以真实密钥签发用户 access token + Redis 会话标记，完成授权 → 换码 → userinfo 全链路（302 带 code/state → `200 {access_token, id_token, expires_in, scope}` → `200 {sub, preferred_username, name}`）。
 
@@ -54,7 +54,7 @@ flowchart LR
 | 2 | `/authorize` 校验失败被全局处理器转成平台统一响应（无 `error` 串） | `OidcError` 属 `BizError` 子类，端点未捕获 | 端点边界捕获 `OidcError` 转标准 OAuth2 错误 JSON（`{error, error_description}`）；`/token` 同口径 |
 | 3 | `reset_secret` 事务内 `repo.get` 触发 autobegin，`uow.begin` 报「transaction already begun」 | 读操作已开启隐式事务 | 把存在性检查移入 `async with uow.begin()` 内，冲突自然回滚 |
 | 4 | 客户端列表响应构造 `BasePageResponse(items=…)` 报字段缺失 | 分页契约字段为 `list` | 按契约改用 `list=`；测试断言同步 |
-| 5 | `check-backend-base` 报新增 `BaseObject` 数据契约 / 服务未登记 | 未同步《后端基类清单》 | 清单补登 02_05 模块行（含 `OidcProviderService` / `ClientService` / 结果契约等）与能力域条目；复跑通过 |
+| 5 | `check_backend_base` 报新增 `BaseObject` 数据契约 / 服务未登记 | 未同步《后端基类清单》 | 清单补登 02_05 模块行（含 `OidcProviderService` / `ClientService` / 结果契约等）与能力域条目；复跑通过 |
 | 6 | `ClientService._record` 的 `audit is None` 分支不可达 | 应用装配恒注入审计占位 | `audit` 改为必填参数、删除空分支；写操作审计占位恒经 `AuditCapturer.capture` |
 | 7 | pyright 报测试直接 import 私有 helper / `as_pem` 返回 bytes | 严格模式私有用法与类型 | 服务层 helper 提升为公开（`clean_scope` 等）；测试 PEM 补 `.decode()`；`_key_pems` 用量加 `pyright: ignore[reportPrivateUsage]` |
 | 8 | 契约与前端类型生成件需重生成 | 新增公开端点 / 类型 | 重生成 `identity.json` 与 api-types；check 零漂移 |
@@ -71,7 +71,7 @@ flowchart LR
 | 静态检查 | `uv run ruff check .` / `ruff format --check .` | All checks passed / 全部已格式化 |
 | 类型检查 | `uv run pyright` | 0 errors / 0 warnings |
 | 契约与生成件 | `ops.contract_snapshot check` / `ops.gateway_config check` / `ops.event_contracts check` / api-types `gen:check` | 全绿零漂移 |
-| 基座与边界 | `check-backend-base.py` / `check-base.py` / `check-links.py` / `check-service-boundaries.py` / `check-status.py` | 全绿 |
+| 基座与边界 | `check_backend_base.py` / `check_base.py` / `check_links.py` / `check_service_boundaries.py` / `check_status.py` | 全绿 |
 | 预检 | `preflight --fast` | **全部通过** |
 | 真机冒烟（mjbk） | `release.py deploy --service identity` + 容器内 httpx 全链路 | 迁移先行 + 门禁通过；Discovery / JWKS 经网关 `200`；授权码流程 E2E `302 → 200 → 200`（见 §3 第 12 条） |
 

@@ -63,7 +63,7 @@ literals = ["mdm", "biz", "cw"]
 # 组合形态（与该标识紧邻的下划线 / 点分片段，如表前缀、事件域、业务码）
 combine_suffixes = ["_", ".", ":", "-"]
 # 存量基线（收编期为递减清单；空 = 硬门禁）
-baseline = "scripts/tools/base-check/product-literals-baseline.txt"
+baseline = "scripts/tools/base_check/product-literals-baseline.txt"
 # 行内豁免标记前缀（必须带非空理由）
 exempt_marker = "product-literal:allow:"
 ```
@@ -124,9 +124,9 @@ exempt_marker = "product-literal:allow:"
 
 | 已有规则 | 分工 |
 | --- | --- |
-| `check-service-boundaries`（bms 自研） | 断言服务包之间的 import 与目录边界；本规则断言**标识字面量** |
+| `check_service_boundaries`（bms 自研） | 断言服务包之间的 import 与目录边界；本规则断言**标识字面量** |
 | `docs-scope` | 文档进度字段落点；本规则不碰文档 |
-| `check-backend-base` / `check-bare-collections` | 继承链与集合声明；与本规则无交集 |
+| `check_backend_base` / `check_bare_collections` | 继承链与集合声明；与本规则无交集 |
 
 ## 4. 影响面 <a id="impact"></a>
 

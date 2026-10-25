@@ -114,7 +114,7 @@ D:\dev-deps\bms\                                # 本地依赖仓（DEPS_DIR；�
 ├── node_modules\                               # bms 仓根 node_modules 的实体
 ├── frontend\                                   # 前端各工程 node_modules（拉平存放）
 │   ├── apps\desktop\node_modules\
-│   ├── modules\{demo,sample,slot-sample}\node_modules\
+│   ├── modules\{demo,sample,slot_sample}\node_modules\
 │   └── packages\{api-types,ui-ep,vue}\node_modules\
 └── backend-venv\                               # 后端虚拟环境（backend\.venv 的实体）
 ```
@@ -170,7 +170,7 @@ workspace 唯一，命令一律在 `bms\` 根执行：
 | 单包命令 | `pnpm --filter @bms/desktop run lint` |
 | 全包门禁 | `pnpm run check`（core / api-types / vue / ui-ep） |
 | 构建 + 计量 | `pnpm --filter @bms/desktop run build`（再 `run budget`） |
-| 模块构建 + 隔离扫描 | `pnpm --filter @bms/module-demo run build && pnpm --filter @bms/module-demo run budget && pnpm --filter @bms/module-demo run guard:isolation` |
+| 模块构建 + 隔离扫描 | `pnpm --filter @bms/module_demo run build && pnpm --filter @bms/module_demo run budget && pnpm --filter @bms/module_demo run guard:isolation` |
 
 常用组合（本地验证顺序，与 CI 各前端 job 对齐；完整清单见《[pnpm 部署使用说明](../linux/pnpm部署使用说明.md)》「使用」节，Windows 侧命令形态一致）：
 
@@ -178,7 +178,7 @@ workspace 唯一，命令一律在 `bms\` 根执行：
 pnpm install --frozen-lockfile
 pnpm run check                                            # core / api-types / vue / ui-ep 门禁
 pnpm --filter @bms/desktop run lint && pnpm --filter @bms/desktop run test:cov && pnpm --filter @bms/desktop run build && pnpm --filter @bms/desktop run budget
-pnpm --filter @bms/module-demo run lint && pnpm --filter @bms/module-demo run typecheck && pnpm --filter @bms/module-demo run test
+pnpm --filter @bms/module_demo run lint && pnpm --filter @bms/module_demo run typecheck && pnpm --filter @bms/module_demo run test
 ```
 
 ## 7. 常见问题 <a id="troubleshoot"></a>
