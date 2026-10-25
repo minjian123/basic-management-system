@@ -32,7 +32,7 @@ const PROBE_COMPONENT = {
 }
 
 /** 探针插件项键（用例内注册 / 清理）。 */
-const PROBE_KEY = 'mdm-org:role-posts'
+const PROBE_KEY = 'mdm_org:role_posts'
 
 /** 装饰性 EP 件桩（原生表格在 jsdom 下依赖 ResizeObserver，此处只需行为）。 */
 const stubs = {
@@ -115,7 +115,7 @@ describe('角色分配页签具名插槽与显式上下文（05-11 · Kiwi 2260�
       },
     }
     registries.pageArea.register(
-      new PageAreaProvider('mdm-org:role-depts', 'sys.role.detail.assign', probeWithRegistrar, 30, {
+      new PageAreaProvider('mdm_org:role_depts', 'sys.role.detail.assign', probeWithRegistrar, 30, {
         title: '部门分配',
       }),
     )
@@ -132,7 +132,7 @@ describe('角色分配页签具名插槽与显式上下文（05-11 · Kiwi 2260�
     await flushPromises()
     expect(wrapper.vm.buildSegments()).toEqual({ role_depts: { dept_ids: ['d1'] } })
 
-    registries.pageArea.unregister('mdm-org:role-depts')
+    registries.pageArea.unregister('mdm_org:role_depts')
   })
 
   it('草稿提交器登记：同项重复登记去重（不重复收集），脏态经暴露面上抛', async () => {
@@ -144,7 +144,7 @@ describe('角色分配页签具名插槽与显式上下文（05-11 · Kiwi 2260�
         return () => h('span')
       },
     }
-    registries.pageArea.register(new PageAreaProvider('mdm-org:role-posts', 'sys.role.detail.assign', probe, 10))
+    registries.pageArea.register(new PageAreaProvider('mdm_org:role_posts', 'sys.role.detail.assign', probe, 10))
 
     const wrapper = await mountTab('r-1')
     expect(wrapper.vm.isDirty()).toBe(false)
@@ -163,7 +163,7 @@ describe('角色分配页签具名插槽与显式上下文（05-11 · Kiwi 2260�
     expect(wrapper.vm.isDirty()).toBe(true)
     expect(wrapper.emitted('dirty')?.at(-1)).toEqual([true])
 
-    registries.pageArea.unregister('mdm-org:role-posts')
+    registries.pageArea.unregister('mdm_org:role_posts')
   })
 
   it('草稿分段收集：无改动（返回 `null`）的段不出现', async () => {
@@ -175,7 +175,7 @@ describe('角色分配页签具名插槽与显式上下文（05-11 · Kiwi 2260�
         return () => h('span')
       },
     }
-    registries.pageArea.register(new PageAreaProvider('mdm-org:role-depts', 'sys.role.detail.assign', probe, 30))
+    registries.pageArea.register(new PageAreaProvider('mdm_org:role_depts', 'sys.role.detail.assign', probe, 30))
 
     const wrapper = await mountTab('r-1')
     captured?.({ isDirty: () => false, buildSegment: () => null, reload: async () => {} })
@@ -184,7 +184,7 @@ describe('角色分配页签具名插槽与显式上下文（05-11 · Kiwi 2260�
     expect(wrapper.vm.buildSegments()).toEqual({})
     expect(wrapper.vm.isDirty()).toBe(false)
 
-    registries.pageArea.unregister('mdm-org:role-depts')
+    registries.pageArea.unregister('mdm_org:role_depts')
   })
 
   it('撤销：逐项调用各插件的 `reload` 复位草稿', async () => {
@@ -196,7 +196,7 @@ describe('角色分配页签具名插槽与显式上下文（05-11 · Kiwi 2260�
         return () => h('span')
       },
     }
-    registries.pageArea.register(new PageAreaProvider('mdm-org:role-depts', 'sys.role.detail.assign', probe, 30))
+    registries.pageArea.register(new PageAreaProvider('mdm_org:role_depts', 'sys.role.detail.assign', probe, 30))
 
     const first = vi.fn(async () => undefined)
     const second = vi.fn(async () => undefined)
@@ -214,7 +214,7 @@ describe('角色分配页签具名插槽与显式上下文（05-11 · Kiwi 2260�
     expect(first).toHaveBeenCalledTimes(1)
     expect(second).toHaveBeenCalledTimes(1)
 
-    registries.pageArea.unregister('mdm-org:role-depts')
+    registries.pageArea.unregister('mdm_org:role_depts')
   })
 
   it('新增态插槽上下文：角色标识归一为空串（不向插件暴露 `new`）', async () => {
@@ -235,7 +235,7 @@ describe('角色分配页签具名插槽与显式上下文（05-11 · Kiwi 2260�
         return () => h('span')
       },
     }
-    registries.pageArea.register(new PageAreaProvider('mdm-org:role-depts', 'sys.role.detail.assign', probe, 30))
+    registries.pageArea.register(new PageAreaProvider('mdm_org:role_depts', 'sys.role.detail.assign', probe, 30))
 
     const wrapper = await mountTab('r-1')
     captured?.({
@@ -252,6 +252,6 @@ describe('角色分配页签具名插槽与显式上下文（05-11 · Kiwi 2260�
     expect(wrapper.vm.buildSegments()).toEqual({})
     expect(wrapper.vm.isDirty()).toBe(false)
 
-    registries.pageArea.unregister('mdm-org:role-depts')
+    registries.pageArea.unregister('mdm_org:role_depts')
   })
 })

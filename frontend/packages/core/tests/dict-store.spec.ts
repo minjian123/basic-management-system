@@ -64,8 +64,8 @@ describe('BaseDictStore 继承链与身份', () => {
     const store = new DictStoreState()
     expect(store).toBeInstanceOf(BasePlaceholderState)
     expect(store).toBeInstanceOf(BaseComponent)
-    expect(store.identifier).toBe('dict-store')
-    expect(store.depends).toEqual(['placeholder-state'])
+    expect(store.identifier).toBe('dict_store')
+    expect(store.depends).toEqual(['placeholder_state'])
   })
 
   it('切换语言清空缓存', async () => {

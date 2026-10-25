@@ -14,7 +14,7 @@ export type DataStateListener = (state: DataStateName) => void
 /** 数据状态能力基类（抽象）。 */
 export abstract class BaseDataState extends BasePlaceholderState {
   /** 能力键。 */
-  readonly identifier: string = 'data-state'
+  readonly identifier: string = 'data_state'
   /** 当前状态。 */
   #state: DataStateName = 'loading'
   /** 竞态序号。 */

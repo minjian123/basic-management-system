@@ -43,9 +43,9 @@ export interface SsoQrOptions {
 /** 扫码登录能力域基类（抽象）。 */
 export abstract class BaseSsoQr extends BasePlaceholderState {
   /** 能力键。 */
-  readonly identifier: string = 'sso-qr'
+  readonly identifier: string = 'sso_qr'
   /** 依赖能力键。 */
-  override readonly depends: readonly string[] = ['placeholder-state']
+  override readonly depends: readonly string[] = ['placeholder_state']
   /** 当前相位。 */
   phase: SsoQrPhase = 'pending'
   /** 可扫码入口（已过滤 / 排序）。 */

@@ -19,7 +19,7 @@ export interface FieldPermission {
 /** 字段权限组件基类（抽象）。 */
 export abstract class BaseFieldPerm extends BaseFieldShell {
   /** 能力键（组件基类身份）。 */
-  override readonly identifier: string = 'field-perm'
+  override readonly identifier: string = 'field_perm'
   /** 权限可见。 */
   permVisible = true
   /** 权限可编辑。 */

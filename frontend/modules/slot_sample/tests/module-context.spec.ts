@@ -104,7 +104,7 @@ describe('模块注入上下文消费（Kiwi 2238）', () => {
   })
 
   it('权限码按只读快照计数', () => {
-    slotSampleModule.setup({ user: ['sys:user-extension:query', 'sys:user-extension:update'] })
+    slotSampleModule.setup({ user: ['sys:user_extension:query', 'sys:user_extension:update'] })
 
     expect(slotSampleRuntime()).toEqual({ permissionCount: 2 })
   })

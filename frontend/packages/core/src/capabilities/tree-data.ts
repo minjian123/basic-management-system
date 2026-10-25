@@ -15,7 +15,7 @@ export interface TreeNode {
 /** 树组件基类（抽象）。 */
 export abstract class BaseTreeData extends BaseDataState {
   /** 能力键（组件基类身份）。 */
-  override readonly identifier: string = 'tree-data'
+  override readonly identifier: string = 'tree_data'
   /** 节点。 */
   nodes: TreeNode[] = []
   /** 已展开节点键。 */

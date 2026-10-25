@@ -34,7 +34,7 @@ describe('parseModuleManifest（Kiwi 977 / 978）', () => {
 
   it('形态非法 / remote 入口非绝对 URL 逐项拒绝（其余项不受影响）', () => {
     const result = parseModuleManifest([
-      { name: 'bad-mode', entry: 'bad-mode', version: '1', mode: 'federation' },
+      { name: 'bad_mode', entry: 'bad_mode', version: '1', mode: 'federation' },
       { name: 'relative', entry: '/modules/demo/remoteEntry.js', version: '1', mode: 'remote' },
       { name: 'bare', entry: 'demo', version: '1', mode: 'remote' },
       { name: 'ok', entry: 'https://cdn.example.com/demo/remoteEntry.js', version: '1', mode: 'remote' },
@@ -44,7 +44,7 @@ describe('parseModuleManifest（Kiwi 977 / 978）', () => {
       { name: 'ok', entry: 'https://cdn.example.com/demo/remoteEntry.js', version: '1', mode: 'remote', enabled: true },
     ])
     expect(result.rejected).toEqual([
-      { name: 'bad-mode', reason: '加载形态非法：federation' },
+      { name: 'bad_mode', reason: '加载形态非法：federation' },
       { name: 'relative', reason: '远端入口须为绝对 URL：/modules/demo/remoteEntry.js' },
       { name: 'bare', reason: '远端入口须为绝对 URL：demo' },
     ])
@@ -56,7 +56,7 @@ describe('parseModuleManifest（Kiwi 977 / 978）', () => {
       { entry: 'no-name', version: '1' },
       { name: 'Bad_Name', entry: 'bad', version: '1' },
       { name: 'nostart', version: '1' },
-      { name: 'empty-entry', entry: '   ', version: '1' },
+      { name: 'empty_entry', entry: '   ', version: '1' },
       { name: 'demo', entry: 'demo2', version: '0.2.0' },
       { name: 'ok', entry: 'ok', version: '1' },
     ])
@@ -71,7 +71,7 @@ describe('parseModuleManifest（Kiwi 977 / 978）', () => {
       { name: '', reason: '模块名缺失或非法：' },
       { name: 'Bad_Name', reason: '模块名缺失或非法：Bad_Name' },
       { name: 'nostart', reason: '入口缺失' },
-      { name: 'empty-entry', reason: '入口缺失' },
+      { name: 'empty_entry', reason: '入口缺失' },
     ])
   })
 

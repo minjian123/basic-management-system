@@ -57,9 +57,9 @@ export const DOWNLOAD_PLACEHOLDER_TEXT = '下载未就绪（占位）'
 /** 下载触发能力基类（抽象）。 */
 export abstract class BaseFileDownload extends BaseComponent {
   /** 能力键。 */
-  readonly identifier: string = 'file-download'
+  readonly identifier: string = 'file_download'
   /** 依赖能力键（预签名取址回退）。 */
-  override readonly depends = ['presigned-url']
+  override readonly depends = ['presigned_url']
   /** 下载阶段。 */
   phase: DownloadPhase = 'idle'
   /** 最近取到的 URL。 */

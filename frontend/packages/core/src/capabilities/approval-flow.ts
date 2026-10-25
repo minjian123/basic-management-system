@@ -85,9 +85,9 @@ export interface ApprovalSubmitInput {
 /** 审批流编排能力基类（抽象）。 */
 export abstract class BaseApprovalFlow extends BasePlaceholderState {
   /** 能力键。 */
-  readonly identifier: string = 'approval-flow'
+  readonly identifier: string = 'approval_flow'
   /** 依赖能力键。 */
-  override readonly depends = ['placeholder-state', 'presigned-url', 'access', 'notice']
+  override readonly depends = ['placeholder_state', 'presigned_url', 'access', 'notice']
   /** 实例标识。 */
   instanceId = ''
   /** 数据通路是否就绪（占位语义开关）。 */

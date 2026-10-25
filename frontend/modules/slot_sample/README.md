@@ -25,13 +25,13 @@ pnpm --filter @bms/module_slot_sample guard:isolation
 **发布到本地产物服务**：
 
 ```bash
-node frontend/scripts/release-module.mjs publish --module slot-sample --force
+node frontend/scripts/release-module.mjs publish --module slot_sample --force
 ```
 
 ## 目录结构
 
 ```text
-frontend/modules/slot-sample/
+frontend/modules/slot_sample/
 ├── src/
 │   ├── index.ts        # 模块定义（只注册区域项，无 routes）
 │   ├── runtime.ts      # 运行期状态与宿主注入上下文的只读消费

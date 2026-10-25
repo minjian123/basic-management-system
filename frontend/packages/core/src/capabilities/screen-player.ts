@@ -52,9 +52,9 @@ export interface ScreenPlayerJobs {
 /** 大屏播放编排能力基类（抽象）。 */
 export abstract class BaseScreenPlayer extends BasePlaceholderState {
   /** 能力键。 */
-  readonly identifier: string = 'screen-player'
+  readonly identifier: string = 'screen_player'
   /** 依赖登记。 */
-  override readonly depends = ['placeholder-state', 'access', 'notice', 'data-state', 'async-task']
+  override readonly depends = ['placeholder_state', 'access', 'notice', 'data_state', 'async_task']
   /** 数据通路是否就绪（占位语义，缺省 `false`）。 */
   ready = false
   /** 大屏编码。 */

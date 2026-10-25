@@ -72,9 +72,9 @@ export type DictSubsetLoader = (dataSourceKey: string, ids: readonly string[]) =
 /** 字典缓存能力基类（抽象；全局一份缓存，跨件 / 跨表单共享）。 */
 export abstract class BaseDictStore extends BasePlaceholderState {
   /** 能力键。 */
-  readonly identifier: string = 'dict-store'
+  readonly identifier: string = 'dict_store'
   /** 依赖登记。 */
-  override readonly depends = ['placeholder-state']
+  override readonly depends = ['placeholder_state']
   /** 数据通路是否就绪（占位语义，缺省未就绪）。 */
   ready = false
   /** 语言（变更清空缓存）。 */

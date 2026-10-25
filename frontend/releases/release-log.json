@@ -260,6 +260,42 @@
       },
       "sourcemap": true,
       "source": "external"
+    },
+    {
+      "at": "2026-10-25T05:45:31.168Z",
+      "by": "minjian",
+      "action": "publish",
+      "module": "slot_sample",
+      "version": "0.1.0",
+      "previousVersion": null,
+      "entry": "http://localhost:5002/slot_sample/0.1.0/remoteEntry.js",
+      "contractVersion": 2,
+      "size": {
+        "entryFiles": 6,
+        "entryGzipKb": 9.7,
+        "largestGzipKb": 6.3,
+        "asyncChunkCount": 8
+      },
+      "sourcemap": true,
+      "source": "local"
+    },
+    {
+      "at": "2026-10-25T05:51:41.888Z",
+      "by": "minjian",
+      "action": "republish",
+      "module": "slot_sample",
+      "version": "0.1.0",
+      "previousVersion": null,
+      "entry": "http://localhost:5002/slot_sample/0.1.0/remoteEntry.js",
+      "contractVersion": 2,
+      "size": {
+        "entryFiles": 6,
+        "entryGzipKb": 9.7,
+        "largestGzipKb": 6.3,
+        "asyncChunkCount": 8
+      },
+      "sourcemap": true,
+      "source": "local"
     }
   ]
 }

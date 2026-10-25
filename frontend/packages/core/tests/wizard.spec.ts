@@ -26,7 +26,7 @@ describe('BaseWizard 能力键与登记', () => {
     const wizard = new DemoWizard()
     expect(wizard.identifier).toBe('wizard')
     expect(validateCapabilityGraph()).toEqual([])
-    expect(validateCapabilityGraph({ wizard: ['persisted-state'], 'persisted-state': [] })).toEqual([])
+    expect(validateCapabilityGraph({ wizard: ['persisted_state'], 'persisted_state': [] })).toEqual([])
   })
 })
 

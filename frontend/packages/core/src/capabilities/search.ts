@@ -14,7 +14,7 @@ export abstract class BaseSearch extends BaseGlobalSearch {
   /** 能力键（组件基类身份）。 */
   override readonly identifier: string = 'search'
   /** 依赖登记。 */
-  override readonly depends: readonly string[] = ['global-search']
+  override readonly depends: readonly string[] = ['global_search']
 
   /**
    * 域展示名（未登记回落键名）。

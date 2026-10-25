@@ -37,7 +37,7 @@ export interface ColumnSeed {
 /** 列配置组件基类（抽象）。 */
 export abstract class BaseColumnConfig extends BasePersistedState {
   /** 能力键（组件基类身份）。 */
-  override readonly identifier: string = 'column-config'
+  override readonly identifier: string = 'column_config'
   /** 列状态清单。 */
   readonly columns: ColumnState[] = []
 

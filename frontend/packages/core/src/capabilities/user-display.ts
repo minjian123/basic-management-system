@@ -33,7 +33,7 @@ export interface UserDisplayInfo {
 /** 用户展示能力基类（抽象）。 */
 export abstract class BaseUserDisplay extends BaseComponent {
   /** 能力键。 */
-  readonly identifier: string = 'user-display'
+  readonly identifier: string = 'user_display'
   /** 当前用户信息。 */
   user: UserDisplayInfo | undefined
   /** 成员花名册（按 id 索引；组织选择等场景复用）。 */

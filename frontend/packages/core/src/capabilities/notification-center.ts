@@ -70,7 +70,7 @@ export type NotificationPhase = 'idle' | 'loading' | 'ready' | 'empty' | 'error'
 /** 通知中心编排能力基类（抽象）。 */
 export abstract class BaseNotificationCenter extends BaseNotice {
   /** 能力键。 */
-  readonly identifier: string = 'notification-center'
+  readonly identifier: string = 'notification_center'
   /** 依赖登记。 */
   override readonly depends: readonly string[] = ['notice']
   /** 数据通路是否就绪（占位语义，缺省 `false`）。 */

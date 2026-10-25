@@ -106,9 +106,9 @@ export interface FileAcceptResult {
 /** 文件上传族组件基类（抽象）。 */
 export abstract class BaseFileUpload extends BaseInput<string | string[]> {
   /** 能力键（组件基类身份）。 */
-  override readonly identifier: string = 'file-upload'
+  override readonly identifier: string = 'file_upload'
   /** 依赖登记。 */
-  override readonly depends = ['input', 'upload-engine', 'presigned-url', 'file-download']
+  override readonly depends = ['input', 'upload_engine', 'presigned_url', 'file_download']
   /** 数据通路是否就绪（占位语义，缺省 `false`）。 */
   ready = false
   /** 文件形态。 */

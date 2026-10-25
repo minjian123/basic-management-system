@@ -73,9 +73,9 @@ export type ReportBlockAction = 'new' | 'open' | 'leave'
 /** 报表设计器编排能力基类（抽象）。 */
 export abstract class BaseReportDesigner extends BasePlaceholderState {
   /** 能力键。 */
-  readonly identifier: string = 'report-designer'
+  readonly identifier: string = 'report_designer'
   /** 依赖登记。 */
-  override readonly depends = ['placeholder-state', 'access', 'notice', 'data-state', 'drag-drop', 'async-task']
+  override readonly depends = ['placeholder_state', 'access', 'notice', 'data_state', 'drag_drop', 'async_task']
   /** 数据通路是否就绪（占位语义，缺省 `false`）。 */
   ready = false
   /** 报表编码。 */

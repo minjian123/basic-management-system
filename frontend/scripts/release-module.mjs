@@ -69,8 +69,8 @@ export const DEFAULT_ORIGIN = 'http://localhost:5002'
 /** 合法加载形态（与 core 契约同值）。 */
 export const LOAD_MODES = ['local', 'remote']
 
-/** 模块名模式（与 core `MODULE_NAME_PATTERN` 同值）。 */
-export const MODULE_NAME_PATTERN = /^[a-z][a-z0-9-]*$/
+/** 模块名模式（与 core `MODULE_NAME_PATTERN` 同值；snake_case）。 */
+export const MODULE_NAME_PATTERN = /^[a-z][a-z0-9_]*$/
 
 /** 远端入口 URL 模式（与 core `REMOTE_ENTRY_PATTERN` 同值）。 */
 export const REMOTE_ENTRY_PATTERN = /^https?:\/\/\S+$/

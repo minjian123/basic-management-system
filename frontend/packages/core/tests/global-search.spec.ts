@@ -110,7 +110,7 @@ describe('BaseSearch 身份与展示语义', () => {
   it('能力键与依赖登记', () => {
     const base = new SearchState()
     expect(base.identifier).toBe('search')
-    expect(base.depends).toContain('global-search')
+    expect(base.depends).toContain('global_search')
     expect(base).toBeInstanceOf(BaseSearch)
   })
 

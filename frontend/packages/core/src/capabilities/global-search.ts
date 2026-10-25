@@ -44,9 +44,9 @@ import {
 /** 搜索编排能力基类（抽象）。 */
 export abstract class BaseGlobalSearch extends BasePlaceholderState {
   /** 能力键。 */
-  readonly identifier: string = 'global-search'
+  readonly identifier: string = 'global_search'
   /** 依赖登记。 */
-  override readonly depends: readonly string[] = ['placeholder-state', 'access', 'persisted-state']
+  override readonly depends: readonly string[] = ['placeholder_state', 'access', 'persisted_state']
   /** 数据通路是否就绪（占位语义，缺省 `false`）。 */
   ready = false
   /** 检索阶段。 */

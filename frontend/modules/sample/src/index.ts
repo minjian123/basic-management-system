@@ -40,14 +40,14 @@ export const sampleModule = defineModule({
           meta: { title: '记录表单', menu: false },
         },
       ],
-      components: { 'sample:priority-tag': () => import('./components/SamplePriorityTag.vue') },
+      components: { 'sample:priority_tag': () => import('./components/SamplePriorityTag.vue') },
       fieldRenderers: [
         { key: 'sample:priority', component: () => import('./components/SamplePriorityTag.vue'), fieldType: 'priority' },
       ],
       icons: { 'sample:record': 'document' },
       cards: [new WorkbenchCardProvider('sample:summary', () => import('./components/SampleSummaryCard.vue'), '示例数据概览')],
       regions: [
-        { key: 'sample:header-badge', area: 'layout.header', component: () => import('./components/SampleHeaderBadge.vue'), order: 20 },
+        { key: 'sample:header_badge', area: 'layout.header', component: () => import('./components/SampleHeaderBadge.vue'), order: 20 },
       ],
       themeTokens: [{ key: 'sample:accent', tokens: { '--bms-sample-accent': '#0f766e' }, mode: 'sample' }],
       i18nPacks: [

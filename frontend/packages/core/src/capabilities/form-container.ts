@@ -7,7 +7,7 @@ import { BaseValidatable } from './validatable'
 /** 表单容器基类（抽象）。 */
 export abstract class BaseFormContainer extends BaseValidatable<Record<string, unknown>> {
   /** 能力键（组件基类身份）。 */
-  override readonly identifier: string = 'form-container'
+  override readonly identifier: string = 'form_container'
   /** 表单只读态。 */
   formReadOnly = false
   /** 字段错误（字段名 → 错误文案）。 */

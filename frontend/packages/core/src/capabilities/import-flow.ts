@@ -84,9 +84,9 @@ export interface ImportJobs {
 /** 导入流能力基类（抽象）。 */
 export abstract class BaseImportFlow extends BasePlaceholderState {
   /** 能力键。 */
-  readonly identifier: string = 'import-flow'
+  readonly identifier: string = 'import_flow'
   /** 依赖能力键。 */
-  override readonly depends = ['placeholder-state', 'upload-engine', 'file-download', 'access', 'notice']
+  override readonly depends = ['placeholder_state', 'upload_engine', 'file_download', 'access', 'notice']
   /** 业务标识（后端路径段，如 `users`）。 */
   biz = ''
   /** 业务中文名（标题与错误明细文件名）。 */

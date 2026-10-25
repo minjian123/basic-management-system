@@ -92,10 +92,10 @@ describeScreenPlayerContract('大屏播放编排契约（BaseScreenPlayer）', m
 describe('能力身份与依赖', () => {
   it('能力键与依赖登记无环', () => {
     const player = new DemoPlayer()
-    expect(player.identifier).toBe('screen-player')
-    expect(player.depends).toEqual(['placeholder-state', 'access', 'notice', 'data-state', 'async-task'])
+    expect(player.identifier).toBe('screen_player')
+    expect(player.depends).toEqual(['placeholder_state', 'access', 'notice', 'data_state', 'async_task'])
     const problems = validateCapabilityGraph().filter(
-      (problem) => problem.key === 'screen-player' || problem.detail.includes('screen-player'),
+      (problem) => problem.key === 'screen_player' || problem.detail.includes('screen_player'),
     )
     expect(problems).toEqual([])
   })

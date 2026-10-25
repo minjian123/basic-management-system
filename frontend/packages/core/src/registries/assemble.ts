@@ -7,7 +7,14 @@
 
 import type { ModuleRegistration } from '../module/types'
 
-import { assertIconKey, assertLocaleTag, assertNamespacedKey, assertPageAreaId, type FrontendRegistries } from './index'
+import {
+  assertI18nPackKey,
+  assertIconKey,
+  assertLocaleTag,
+  assertNamespacedKey,
+  assertPageAreaId,
+  type FrontendRegistries,
+} from './index'
 import {
   ComponentProvider,
   FieldRendererProvider,
@@ -105,7 +112,10 @@ function buildPlan(source: RegistrationSource, registration: RegistryRegistratio
     })
   }
   for (const declaration of registration.i18nPacks ?? []) {
-    checkKey(declaration.key, 'i18n 文案包')
+    assertI18nPackKey(declaration.key)
+    if (source !== PLATFORM_SOURCE && !declaration.key.startsWith(`${source}:`)) {
+      throw schemaError('i18n 文案包', `模块注册键须以 ${source}: 开头：${declaration.key}`)
+    }
     const provider = new I18nPackProvider(declaration.key, declaration.messages)
     assertLocaleTag(provider.locale, 'i18n 文案包')
     plan.push({ group: 'i18nPack', key: declaration.key, provider })

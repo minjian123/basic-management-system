@@ -98,8 +98,8 @@ describe('BaseOrgSelect 继承链与身份', () => {
     const base = new OrgSelectState()
     expect(base).toBeInstanceOf(BaseOptionSource)
     expect(base).toBeInstanceOf(BaseField)
-    expect(base.identifier).toBe('org-select')
-    expect(base.depends).toEqual(['option-source', 'user-display'])
+    expect(base.identifier).toBe('org_select')
+    expect(base.depends).toEqual(['option_source', 'user_display'])
   })
 
   it('继承选项源语义（options / getLabel / dataVersion 同步）', async () => {

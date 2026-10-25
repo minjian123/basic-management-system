@@ -72,7 +72,7 @@ describe('组件基类 · 继承链与身份', () => {
   it('各自身份键', () => {
     expect(new DemoInput().key).toBe('input')
     expect(new DemoTable().key).toBe('table')
-    expect(new DemoPerm().key).toBe('field-perm')
+    expect(new DemoPerm().key).toBe('field_perm')
   })
 })
 

@@ -12,7 +12,7 @@ import { BaseComponent } from '../base/BaseComponent'
 /** 占位状态能力基类（抽象）。 */
 export abstract class BasePlaceholderState extends BaseComponent {
   /** 能力键。 */
-  readonly identifier: string = 'placeholder-state'
+  readonly identifier: string = 'placeholder_state'
   /** 数据通路是否就绪（缺省视为就绪；依赖后端的件装配时置 `false`）。 */
   ready = true
   /** 已发起加载次数（占位态必须保持 0）。 */

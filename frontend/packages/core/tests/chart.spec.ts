@@ -73,7 +73,7 @@ describe('能力身份与依赖', () => {
   it('能力键为 chart，依赖登记无环且已登记', () => {
     const chart = new DemoChart()
     expect(chart.identifier).toBe('chart')
-    expect(chart.depends).toEqual(['data-state'])
+    expect(chart.depends).toEqual(['data_state'])
     const problems = validateCapabilityGraph().filter((problem) => problem.key === 'chart' || problem.detail.includes('chart'))
     expect(problems).toEqual([])
   })

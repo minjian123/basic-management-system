@@ -119,10 +119,10 @@ describe('IconRenderer 只读渲染', () => {
     registry.register(new IconProvider('el:OfficeBuilding', DummyIcon, { name: 'OfficeBuilding' }))
     registry.register(new IconProvider('el:Setting', DummyIcon, { name: 'Setting' }))
 
-    const kebab = mount(IconRenderer, { props: { name: 'el:office-building', registry } })
+    const kebab = mount(IconRenderer, { props: { name: 'el:office_building', registry } })
     await flushPromises()
     expect(kebab.find('[data-test="dummy"]').exists()).toBe(true)
-    expect(kebab.attributes('data-resolved')).toBe('el:office-building')
+    expect(kebab.attributes('data-resolved')).toBe('el:office_building')
 
     const lower = mount(IconRenderer, { props: { name: 'el:setting', registry } })
     await flushPromises()

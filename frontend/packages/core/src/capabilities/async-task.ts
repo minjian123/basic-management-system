@@ -59,7 +59,7 @@ function delay(ms: number): Promise<void> {
 /** 异步任务能力基类（抽象）。 */
 export abstract class BaseAsyncTask<TResult = unknown> extends BaseComponent {
   /** 能力键。 */
-  readonly identifier: string = 'async-task'
+  readonly identifier: string = 'async_task'
   /** 当前状态。 */
   status: TaskStatus = 'idle'
   /** 当前进度。 */

@@ -48,7 +48,7 @@ describe('模块请求能力基类（06_02）', () => {
 
   it('能力键与占位状态：identifier 为 module-api、就绪缺省为真', () => {
     const api = new ProbeModuleApi()
-    expect(api.identifier).toBe('module-api')
+    expect(api.identifier).toBe('module_api')
     expect(api.ready).toBe(true)
   })
 

@@ -17,11 +17,11 @@ describe('样例模块定义（Kiwi 982）', () => {
     const registration = sampleModule.setup({})
 
     expect(registration.routes?.map((item) => item.name)).toEqual(['SampleList', 'SampleDetail', 'SampleForm'])
-    expect(Object.keys(registration.components ?? {})).toEqual(['sample:priority-tag'])
+    expect(Object.keys(registration.components ?? {})).toEqual(['sample:priority_tag'])
     expect(registration.fieldRenderers?.map((item) => item.key)).toEqual(['sample:priority'])
     expect(Object.keys(registration.icons ?? {})).toEqual(['sample:record'])
     expect((registration.cards?.[0] as { key: string }).key).toBe('sample:summary')
-    expect(registration.regions?.map((item) => item.key)).toEqual(['sample:header-badge'])
+    expect(registration.regions?.map((item) => item.key)).toEqual(['sample:header_badge'])
     expect(registration.themeTokens?.map((item) => item.key)).toEqual(['sample:accent'])
     expect(registration.i18nPacks?.map((item) => item.key)).toEqual(['sample:zh-cn', 'sample:en'])
   })

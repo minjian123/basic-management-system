@@ -72,7 +72,7 @@ describe('BaseTable 继承与组合', () => {
     expect(table).toBeInstanceOf(BaseDataState)
     expect(table.identifier).toBe('table')
     expect(table.key).toBe('table')
-    expect(table.depends).toEqual(['data-state', 'selection', 'column-config'])
+    expect(table.depends).toEqual(['data_state', 'selection', 'column_config'])
     expect(table.selection).toBeInstanceOf(BaseSelection)
     expect(table.columnConfig).toBeInstanceOf(BaseColumnConfig)
   })

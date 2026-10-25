@@ -22,7 +22,7 @@ export type ThemeListener = (theme: string) => void
 /** 设计令牌能力基类（抽象）。 */
 export abstract class BaseDesignToken extends BaseComponent {
   /** 能力键。 */
-  readonly identifier: string = 'design-token'
+  readonly identifier: string = 'design_token'
   /** 当前令牌集（宿主注入）。 */
   #tokens: Partial<DesignTokens> = {}
   /** 当前主题。 */

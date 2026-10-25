@@ -20,25 +20,25 @@ import { applyHostContext } from './runtime'
 export const USER_DETAIL_TABS_SLOT = 'sys.user.detail.tabs'
 
 /** 后端写权限码（与后端契约端点同源；区域项 `perm` 引用同一权限码）。 */
-export const USER_EXTENSION_UPDATE_PERMISSION = 'sys:user-extension:update'
+export const USER_EXTENSION_UPDATE_PERMISSION = 'sys:user_extension:update'
 
 /** 具名插槽样例插件（清单 `name` / `version` 须与宿主 `public/modules.json` 条目严格一致；版本构建期注入）。 */
 export const slotSampleModule = defineModule({
-  manifest: { name: 'slot-sample', version: __BMS_MODULE_VERSION__, contractVersion: MODULE_CONTRACT_VERSION },
+  manifest: { name: 'slot_sample', version: __BMS_MODULE_VERSION__, contractVersion: MODULE_CONTRACT_VERSION },
   setup: (context) => {
     // 只经注入上下文访问宿主能力（只读快照）：记录只读 router（读取宿主页实体标识）与请求能力 api。
     applyHostContext(context)
     return {
       regions: [
         {
-          key: 'slot-sample:user-extension',
+          key: 'slot_sample:user_extension',
           area: USER_DETAIL_TABS_SLOT,
           component: () => import('./components/SlotExtensionTab.vue'),
           order: 20,
           title: '用户扩展示例',
         },
         {
-          key: 'slot-sample:user-extension-detail',
+          key: 'slot_sample:user_extension_detail',
           area: USER_DETAIL_TABS_SLOT,
           component: () => import('./components/SlotExtensionDetailTab.vue'),
           order: 30,
@@ -49,8 +49,8 @@ export const slotSampleModule = defineModule({
         },
       ],
       i18nPacks: [
-        { key: 'slot-sample:zh-cn', messages: SLOT_SAMPLE_MESSAGES_ZH_CN },
-        { key: 'slot-sample:en', messages: SLOT_SAMPLE_MESSAGES_EN },
+        { key: 'slot_sample:zh-cn', messages: SLOT_SAMPLE_MESSAGES_ZH_CN },
+        { key: 'slot_sample:en', messages: SLOT_SAMPLE_MESSAGES_EN },
       ],
     }
   },

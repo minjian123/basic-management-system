@@ -26,7 +26,7 @@ describe('validateCapabilityGraph', () => {
 
   it('键名非法', () => {
     const problems = validateCapabilityGraph({ Bad_Key: [] })
-    expect(problems.some((p) => p.kind === 'bad-key')).toBe(true)
+    expect(problems.some((p) => p.kind === 'bad_key')).toBe(true)
   })
 })
 

@@ -8,7 +8,7 @@ import slotSampleModule, { USER_DETAIL_TABS_SLOT, USER_EXTENSION_UPDATE_PERMISSI
 
 describe('具名插槽样例插件定义（Kiwi 2238）', () => {
   it('默认导出模块定义并冻结，清单名 / 版本 / 契约版本齐备（版本构建期注入）', () => {
-    expect(slotSampleModule.manifest.name).toBe('slot-sample')
+    expect(slotSampleModule.manifest.name).toBe('slot_sample')
     expect(slotSampleModule.manifest.version).toMatch(/^\d+\.\d+\.\d+$/)
     expect(Number.isInteger(slotSampleModule.manifest.contractVersion)).toBe(true)
     expect(Object.isFrozen(slotSampleModule)).toBe(true)
@@ -19,10 +19,10 @@ describe('具名插槽样例插件定义（Kiwi 2238）', () => {
 
     expect(registration.routes).toBeUndefined()
     expect(registration.regions?.map((item) => item.key)).toEqual([
-      'slot-sample:user-extension',
-      'slot-sample:user-extension-detail',
+      'slot_sample:user_extension',
+      'slot_sample:user_extension_detail',
     ])
-    expect(registration.i18nPacks?.map((item) => item.key)).toEqual(['slot-sample:zh-cn', 'slot-sample:en'])
+    expect(registration.i18nPacks?.map((item) => item.key)).toEqual(['slot_sample:zh-cn', 'slot_sample:en'])
   })
 
   it('具名插槽标识为 {域}.{页面}.{区域}（≥3 段）且区域项声明展示名 / 次序 / 权限码', () => {
@@ -44,6 +44,6 @@ describe('具名插槽样例插件定义（Kiwi 2238）', () => {
   })
 
   it('写权限码与后端契约同源（`sys:` 命名空间，归数据归属方）', () => {
-    expect(USER_EXTENSION_UPDATE_PERMISSION).toBe('sys:user-extension:update')
+    expect(USER_EXTENSION_UPDATE_PERMISSION).toBe('sys:user_extension:update')
   })
 })

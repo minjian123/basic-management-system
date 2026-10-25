@@ -140,9 +140,9 @@ function normalizeAdvResult(raw: unknown): { items: DictItem[]; rows: Record<str
 /** 字典高级查询编排能力基类（抽象）。 */
 export abstract class BaseDictQuery extends BasePlaceholderState {
   /** 能力键。 */
-  readonly identifier: string = 'dict-query'
+  readonly identifier: string = 'dict_query'
   /** 依赖登记。 */
-  override readonly depends = ['placeholder-state', 'dict-store']
+  override readonly depends = ['placeholder_state', 'dict_store']
   /** 数据通路是否就绪（占位语义，缺省 `false`）。 */
   ready = false
   /** 字典类型码。 */

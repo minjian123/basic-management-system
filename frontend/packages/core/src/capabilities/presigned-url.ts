@@ -53,7 +53,7 @@ interface PresignedEntry {
 /** 预签名能力基类（抽象）。 */
 export abstract class BasePresignedUrl extends BaseComponent {
   /** 能力键。 */
-  readonly identifier: string = 'presigned-url'
+  readonly identifier: string = 'presigned_url'
   /** 当前 URL（无 key 单 URL 语义）。 */
   url: string | undefined
   /** 过期时间戳（毫秒）。 */

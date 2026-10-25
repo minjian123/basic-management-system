@@ -5,8 +5,8 @@ import { ErrorCodes } from '../mechanisms/error-codes'
 
 import type { ModuleDefinition } from './types'
 
-/** 模块名合法模式（小写字母开头，可含数字与连字符）。 */
-export const MODULE_NAME_PATTERN = /^[a-z][a-z0-9-]*$/
+/** 模块名合法模式（snake_case：登记型标识，不设例外）。 */
+export const MODULE_NAME_PATTERN = /^[a-z][a-z0-9_]*$/
 
 /**
  * 定义模块（校验清单并冻结）。

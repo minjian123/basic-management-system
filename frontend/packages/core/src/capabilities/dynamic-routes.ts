@@ -17,7 +17,7 @@ export interface RouteNode {
 /** 动态路由能力基类（抽象）。 */
 export abstract class BaseDynamicRoutes extends BaseComponent {
   /** 能力键。 */
-  readonly identifier: string = 'dynamic-routes'
+  readonly identifier: string = 'dynamic_routes'
   /** 已注册路由路径（保序）。 */
   readonly routes: string[] = []
 

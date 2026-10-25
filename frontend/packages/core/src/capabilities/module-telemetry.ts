@@ -20,7 +20,7 @@ import { type BaseModuleReporter, InMemoryModuleReporter } from './module-report
 /** 模块可观测能力域基类（抽象）。 */
 export abstract class BaseModuleTelemetry extends BaseCapability {
   /** 能力键。 */
-  readonly identifier: string = 'module-telemetry'
+  readonly identifier: string = 'module_telemetry'
 
   /** 能力键（实现抽象成员；与 `identifier` 同值）。 */
   override get key(): string {

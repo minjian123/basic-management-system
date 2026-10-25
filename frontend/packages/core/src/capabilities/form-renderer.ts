@@ -76,9 +76,9 @@ export interface FormRendererJobs {
 /** 表单渲染器能力基类（抽象）。 */
 export abstract class BaseFormRenderer extends BasePlaceholderState {
   /** 能力键。 */
-  readonly identifier: string = 'form-renderer'
+  readonly identifier: string = 'form_renderer'
   /** 依赖能力键（表单元数据 / 字段权限 / 权限 / 提示 / 校验）。 */
-  override readonly depends = ['placeholder-state', 'form-meta', 'field-perm', 'access', 'notice', 'validatable']
+  override readonly depends = ['placeholder_state', 'form_meta', 'field_perm', 'access', 'notice', 'validatable']
   /** 表单标识。 */
   formCode = ''
   /** 三态。 */

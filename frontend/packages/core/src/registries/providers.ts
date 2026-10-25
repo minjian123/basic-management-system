@@ -7,14 +7,17 @@
 import { BaseProvider } from '../mechanisms/provider'
 import type { PermissionMode } from '../domain/permission'
 
-/** 注册项键模式（`<命名空间>:<键>`，命名空间为模块名或平台域）。 */
-export const REGISTRY_KEY_PATTERN = /^[a-z][a-z0-9-]*:[a-z][a-z0-9-]*$/
+/** 注册项键模式（`<命名空间>:<键>`，命名空间为模块名或平台域；登记型标识一律 snake_case）。 */
+export const REGISTRY_KEY_PATTERN = /^[a-z][a-z0-9_]*:[a-z][a-z0-9_]*$/
 
-/** 页面区域标识模式（点分 `<域>.<区域>`，如 `layout.header` / `form.toolbar`）。 */
-export const PAGE_AREA_ID_PATTERN = /^[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*)+$/
+/** 页面区域标识模式（点分 `<域>.<区域>`，如 `layout.header` / `form.toolbar`；各段 snake_case）。 */
+export const PAGE_AREA_ID_PATTERN = /^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$/
 
-/** 具名插槽标识模式（`{域}.{页面}.{区域}`，≥3 段，如 `sys.user.detail.tabs`）。 */
-export const NAMED_SLOT_ID_PATTERN = /^[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*){2,}$/
+/** 具名插槽标识模式（`{域}.{页面}.{区域}`，≥3 段，如 `sys.user.detail.tabs`；各段 snake_case）。 */
+export const NAMED_SLOT_ID_PATTERN = /^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*){2,}$/
+
+/** i18n 文案包键模式（`<命名空间 snake>:<语言标识>`，语言段保留 IETF BCP-47 形态）。 */
+export const I18N_PACK_KEY_PATTERN = /^[a-z][a-z0-9_]*:[a-z]{2,3}(-[a-z0-9]{2,8})*$/
 
 /** 语言标识模式（小写 BCP-47，如 `zh-cn` / `en`）。 */
 export const LOCALE_TAG_PATTERN = /^[a-z]{2,3}(-[a-z0-9]{2,8})*$/

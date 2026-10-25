@@ -103,8 +103,8 @@ describe('BaseDictSelect 继承链与身份', () => {
     const select = new DictSelectState()
     expect(select).toBeInstanceOf(BaseOptionSource)
     expect(select).toBeInstanceOf(BaseField)
-    expect(select.identifier).toBe('dict-select')
-    expect(select.depends).toEqual(['option-source', 'dict-store'])
+    expect(select.identifier).toBe('dict_select')
+    expect(select.depends).toEqual(['option_source', 'dict_store'])
   })
 })
 
@@ -251,8 +251,8 @@ describe('BaseDictQuery 继承链与身份', () => {
     const query = new DictQueryState()
     expect(query).toBeInstanceOf(BasePlaceholderState)
     expect(query).toBeInstanceOf(BaseComponent)
-    expect(query.identifier).toBe('dict-query')
-    expect(query.depends).toEqual(['placeholder-state', 'dict-store'])
+    expect(query.identifier).toBe('dict_query')
+    expect(query.depends).toEqual(['placeholder_state', 'dict_store'])
   })
 
   it('字段项包含固定字段与属性', async () => {

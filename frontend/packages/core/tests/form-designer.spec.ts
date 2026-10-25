@@ -173,9 +173,9 @@ describeFormDesignerContract('表单设计器编排契约（BaseFormDesigner）'
 describe('能力身份与依赖', () => {
   it('能力键与依赖登记', () => {
     const designer = new DemoDesigner()
-    expect(designer.identifier).toBe('form-designer')
-    expect(designer.depends).toEqual(['placeholder-state', 'drag-drop', 'form-meta', 'access', 'notice'])
-    expect(designer.pluginKey).toBe('form-designer')
+    expect(designer.identifier).toBe('form_designer')
+    expect(designer.depends).toEqual(['placeholder_state', 'drag_drop', 'form_meta', 'access', 'notice'])
+    expect(designer.pluginKey).toBe('form_designer')
   })
 
   it('能力依赖图合规（单向、无环、已登记）', () => {

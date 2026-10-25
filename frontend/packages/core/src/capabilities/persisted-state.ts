@@ -24,7 +24,7 @@ export type PersistedRemoteSaver = (value: unknown) => Promise<void>
 /** 偏好持久化能力基类（抽象）。 */
 export abstract class BasePersistedState extends BaseComponent {
   /** 能力键。 */
-  readonly identifier: string = 'persisted-state'
+  readonly identifier: string = 'persisted_state'
   /** 状态键（本地 / 远端一致）。 */
   stateKey = ''
   /** 远端版本号（用于版本比对）。 */

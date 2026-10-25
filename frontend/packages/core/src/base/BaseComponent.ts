@@ -45,7 +45,7 @@ const RESERVED_KEYS = new Set(['size', 'density', 'loading', 'disabled', 'visibl
 
 /** 组件根（抽象）。 */
 export abstract class BaseComponent extends BasePluggable {
-  /** 组件标识（kebab-case，族内唯一）。 */
+  /** 组件标识（snake_case，族内唯一；登记型标识不设例外）。 */
   abstract readonly identifier: string
   /** 缺省实现名（具体组件可覆写）。 */
   readonly pluginName: string = 'core'
@@ -74,9 +74,9 @@ export abstract class BaseComponent extends BasePluggable {
     return this.identifier
   }
 
-  /** 命名空间类名（`${namespace}-${identifier}`）。 */
+  /** 命名空间类名（`${namespace}-${identifier}`；CSS 类名守 kebab 惯例，标识内的 `_` 转为 `-`）。 */
   get nsClass(): string {
-    return `${this.namespace}-${this.identifier}`
+    return `${this.namespace}-${this.identifier.replaceAll('_', '-')}`
   }
 
   /** 令牌属性协议：档位 / 状态 / 可访问性属性。 */

@@ -47,8 +47,8 @@ describe('BaseQueryScheme 继承与身份', () => {
   it('继承偏好持久化能力基类', () => {
     const scheme = new DemoQuery()
     expect(scheme).toBeInstanceOf(BasePersistedState)
-    expect(scheme.identifier).toBe('query-scheme')
-    expect(scheme.key).toBe('query-scheme')
+    expect(scheme.identifier).toBe('query_scheme')
+    expect(scheme.key).toBe('query_scheme')
   })
 })
 

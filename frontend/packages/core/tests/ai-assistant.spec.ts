@@ -96,8 +96,8 @@ describeAiAssistantContract('AI 助手契约（08_10 冻结）', makeTarget)
 describe('AI 助手能力基类身份与门控', () => {
   it('能力键与依赖登记', () => {
     const base = new AiState()
-    expect(base.identifier).toBe('ai-assistant')
-    expect(base.depends).toEqual(['placeholder-state', 'access', 'notice', 'data-state', 'option-source', 'async-task'])
+    expect(base.identifier).toBe('ai_assistant')
+    expect(base.depends).toEqual(['placeholder_state', 'access', 'notice', 'data_state', 'option_source', 'async_task'])
   })
 
   it('未注入权限上下文视为持对话权限、非管理权限', () => {

@@ -11,89 +11,89 @@ import { ErrorCodes } from '../mechanisms/error-codes'
 
 /** 能力依赖登记表（key → depends）。按批随能力基类落地追加。 */
 export const CAPABILITY_MANIFEST: Readonly<Record<string, readonly string[]>> = {
-  'module-telemetry': [],
-  value: ['placeholder-state'],
+  'module_telemetry': [],
+  value: ['placeholder_state'],
   display: ['value'],
   field: ['value'],
   input: ['field'],
   sized: [],
-  'data-state': ['placeholder-state'],
-  list: ['data-state'],
-  table: ['data-state', 'selection', 'column-config'],
-  'tree-data': ['data-state'],
+  'data_state': ['placeholder_state'],
+  list: ['data_state'],
+  table: ['data_state', 'selection', 'column_config'],
+  'tree_data': ['data_state'],
   overlay: ['sized'],
-  notice: ['placeholder-state'],
+  notice: ['placeholder_state'],
   feedback: ['notice'],
-  'notification-center': ['notice'],
-  notification: ['notification-center'],
-  'ai-assistant': ['placeholder-state', 'access', 'notice', 'data-state', 'option-source', 'async-task'],
-  'global-search': ['placeholder-state', 'access', 'persisted-state'],
-  search: ['global-search'],
+  'notification_center': ['notice'],
+  notification: ['notification_center'],
+  'ai_assistant': ['placeholder_state', 'access', 'notice', 'data_state', 'option_source', 'async_task'],
+  'global_search': ['placeholder_state', 'access', 'persisted_state'],
+  search: ['global_search'],
   labeled: [],
   validatable: ['labeled'],
-  'form-container': ['validatable'],
-  'field-shell': ['labeled'],
-  'field-perm': ['field-shell'],
-  'persisted-state': [],
-  'column-config': ['persisted-state'],
-  'query-scheme': ['persisted-state'],
-  wizard: ['persisted-state'],
+  'form_container': ['validatable'],
+  'field_shell': ['labeled'],
+  'field_perm': ['field_shell'],
+  'persisted_state': [],
+  'column_config': ['persisted_state'],
+  'query_scheme': ['persisted_state'],
+  wizard: ['persisted_state'],
   selection: [],
-  'bulk-action': ['selection', 'access', 'notice'],
-  theme: ['design-token', 'persisted-state'],
-  tenant: ['module-context', 'theme', 'notice'],
-  'print-template': ['watermark', 'locale'],
-  print: ['print-template', 'async-task', 'access', 'notice'],
-  'permission-config': ['placeholder-state', 'tree-data', 'access', 'notice'],
-  'file-download': ['presigned-url'],
-  'import-flow': ['placeholder-state', 'upload-engine', 'file-download', 'access', 'notice'],
-  'export-flow': ['placeholder-state', 'async-task', 'file-download', 'access', 'notice'],
-  'form-designer': ['placeholder-state', 'drag-drop', 'form-meta', 'access', 'notice'],
-  'form-renderer': ['placeholder-state', 'form-meta', 'field-perm', 'access', 'notice', 'validatable'],
-  'message-catalog': ['placeholder-state', 'locale', 'access', 'notice'],
-  'approval-flow': ['placeholder-state', 'presigned-url', 'access', 'notice'],
-  'process-modeler': ['placeholder-state', 'access', 'notice'],
+  'bulk_action': ['selection', 'access', 'notice'],
+  theme: ['design_token', 'persisted_state'],
+  tenant: ['module_context', 'theme', 'notice'],
+  'print_template': ['watermark', 'locale'],
+  print: ['print_template', 'async_task', 'access', 'notice'],
+  'permission_config': ['placeholder_state', 'tree_data', 'access', 'notice'],
+  'file_download': ['presigned_url'],
+  'import_flow': ['placeholder_state', 'upload_engine', 'file_download', 'access', 'notice'],
+  'export_flow': ['placeholder_state', 'async_task', 'file_download', 'access', 'notice'],
+  'form_designer': ['placeholder_state', 'drag_drop', 'form_meta', 'access', 'notice'],
+  'form_renderer': ['placeholder_state', 'form_meta', 'field_perm', 'access', 'notice', 'validatable'],
+  'message_catalog': ['placeholder_state', 'locale', 'access', 'notice'],
+  'approval_flow': ['placeholder_state', 'presigned_url', 'access', 'notice'],
+  'process_modeler': ['placeholder_state', 'access', 'notice'],
   mounted: [],
-  'design-token': [],
+  'design_token': [],
   container: ['sized'],
   layout: ['sized'],
-  'media-content': ['sized'],
-  'modal-shell': ['overlay'],
+  'media_content': ['sized'],
+  'modal_shell': ['overlay'],
   clickable: [],
-  'drag-drop': [],
+  'drag_drop': [],
   tabs: [],
   locale: [],
   access: [],
-  'module-context': [],
-  'module-api': ['placeholder-state'],
-  'async-task': [],
-  'upload-engine': ['placeholder-state', 'presigned-url'],
-  'file-upload': ['input', 'upload-engine', 'presigned-url', 'file-download'],
-  'editor-kernel': [],
-  'option-source': ['field'],
-  'presigned-url': [],
-  'placeholder-state': [],
+  'module_context': [],
+  'module_api': ['placeholder_state'],
+  'async_task': [],
+  'upload_engine': ['placeholder_state', 'presigned_url'],
+  'file_upload': ['input', 'upload_engine', 'presigned_url', 'file_download'],
+  'editor_kernel': [],
+  'option_source': ['field'],
+  'presigned_url': [],
+  'placeholder_state': [],
   watermark: [],
-  'user-display': [],
-  'org-select': ['option-source', 'user-display'],
-  'dict-store': ['placeholder-state'],
-  'dict-select': ['option-source', 'dict-store'],
-  'dict-query': ['placeholder-state', 'dict-store'],
+  'user_display': [],
+  'org_select': ['option_source', 'user_display'],
+  'dict_store': ['placeholder_state'],
+  'dict_select': ['option_source', 'dict_store'],
+  'dict_query': ['placeholder_state', 'dict_store'],
   captcha: ['input'],
-  'dynamic-routes': [],
-  'page-route': ['placeholder-state'],
-  'form-meta': [],
-  'form-page': ['form-meta'],
-  chart: ['data-state'],
-  'report-designer': ['placeholder-state', 'access', 'notice', 'data-state', 'drag-drop', 'async-task'],
-  'screen-designer': ['placeholder-state', 'access', 'notice', 'data-state', 'drag-drop', 'async-task'],
-  'screen-player': ['placeholder-state', 'access', 'notice', 'data-state', 'async-task'],
-  'sso-qr': ['placeholder-state'],
-  'multilingual-name': ['input'],
+  'dynamic_routes': [],
+  'page_route': ['placeholder_state'],
+  'form_meta': [],
+  'form_page': ['form_meta'],
+  chart: ['data_state'],
+  'report_designer': ['placeholder_state', 'access', 'notice', 'data_state', 'drag_drop', 'async_task'],
+  'screen_designer': ['placeholder_state', 'access', 'notice', 'data_state', 'drag_drop', 'async_task'],
+  'screen_player': ['placeholder_state', 'access', 'notice', 'data_state', 'async_task'],
+  'sso_qr': ['placeholder_state'],
+  'multilingual_name': ['input'],
 }
 
 /** 校验问题种类。 */
-export type CapabilityProblemKind = 'unregistered' | 'cycle' | 'bad-key'
+export type CapabilityProblemKind = 'unregistered' | 'cycle' | 'bad_key'
 
 /** 一条校验问题。 */
 export interface CapabilityProblem {
@@ -105,8 +105,8 @@ export interface CapabilityProblem {
   detail: string
 }
 
-/** 能力键格式（kebab-case）。 */
-const KEBAB_KEY = /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/
+/** 能力键格式（snake_case：登记型标识，不设例外）。 */
+const CAPABILITY_KEY = /^[a-z][a-z0-9_]*$/
 
 /**
  * 校验能力依赖图（依赖已登记 / 无环 / 键名合法）。
@@ -119,12 +119,12 @@ export function validateCapabilityGraph(
 ): CapabilityProblem[] {
   const problems: CapabilityProblem[] = []
   for (const key of Object.keys(manifest)) {
-    if (!KEBAB_KEY.test(key)) {
-      problems.push({ key, kind: 'bad-key', detail: `能力键非法：${key}` })
+    if (!CAPABILITY_KEY.test(key)) {
+      problems.push({ key, kind: 'bad_key', detail: `能力键非法：${key}` })
     }
     for (const dep of manifest[key] ?? []) {
-      if (!KEBAB_KEY.test(dep)) {
-        problems.push({ key, kind: 'bad-key', detail: `依赖键非法：${dep}` })
+      if (!CAPABILITY_KEY.test(dep)) {
+        problems.push({ key, kind: 'bad_key', detail: `依赖键非法：${dep}` })
       } else if (!(dep in manifest)) {
         problems.push({ key, kind: 'unregistered', detail: `${key} 依赖未登记：${dep}` })
       }

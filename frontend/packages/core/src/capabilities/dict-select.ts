@@ -31,9 +31,9 @@ import type { DictSourceAdapter } from './dict-source'
 /** 字典选择族组件基类（抽象）。 */
 export abstract class BaseDictSelect extends BaseOptionSource<string | string[]> {
   /** 能力键（组件基类身份）。 */
-  override readonly identifier: string = 'dict-select'
+  override readonly identifier: string = 'dict_select'
   /** 依赖登记。 */
-  override readonly depends = ['option-source', 'dict-store']
+  override readonly depends = ['option_source', 'dict_store']
   /** 数据通路是否就绪（占位语义，缺省 `false`）。 */
   ready = false
   /** 字典类型码。 */

@@ -29,15 +29,15 @@ describe('批二能力键与登记表', () => {
   it('9 个能力键均登记且依赖合规', () => {
     expect(validateCapabilityGraph()).toEqual([])
     const keys = [
-      'persisted-state',
+      'persisted_state',
       'mounted',
-      'design-token',
+      'design_token',
       'clickable',
-      'drag-drop',
+      'drag_drop',
       'tabs',
       'locale',
       'access',
-      'module-context',
+      'module_context',
     ]
     for (const key of keys) {
       expect(validateCapabilityGraph({ [key]: [] })).toEqual([])
@@ -48,7 +48,7 @@ describe('批二能力键与登记表', () => {
 describe('BasePersistedState 偏好持久化能力', () => {
   it('本地状态 / 版本比对 / 远端占位', async () => {
     const state = new DemoPersisted()
-    expect(state.identifier).toBe('persisted-state')
+    expect(state.identifier).toBe('persisted_state')
     state.setLocal({ theme: 'dark' })
     expect(state.local).toEqual({ theme: 'dark' })
     expect(await state.loadRemote()).toEqual({ theme: 'dark' })
@@ -146,7 +146,7 @@ describe('BaseMounted 可挂载能力', () => {
 describe('BaseDesignToken 设计令牌能力', () => {
   it('注入令牌 / 主题订阅', () => {
     const token = new DemoToken()
-    expect(token.identifier).toBe('design-token')
+    expect(token.identifier).toBe('design_token')
     token.setTokens({ spacing: { sm: '4px' } })
     expect(token.tokens.spacing).toEqual({ sm: '4px' })
     const themes: string[] = []
@@ -176,7 +176,7 @@ describe('BaseClickable 可点击能力', () => {
 describe('BaseDragDrop 拖拽能力', () => {
   it('拖拽阶段与监听', () => {
     const drag = new DemoDragDrop()
-    expect(drag.identifier).toBe('drag-drop')
+    expect(drag.identifier).toBe('drag_drop')
     const events: string[] = []
     drag.onDrag((payload) => events.push(`${payload.phase}:${payload.target ?? ''}`))
     drag.emitDrag({ phase: 'start', source: 'a' })

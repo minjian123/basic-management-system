@@ -41,7 +41,7 @@ export abstract class BaseTable extends BaseDataState {
   /** 能力键（组件基类身份）。 */
   override readonly identifier: string = 'table'
   /** 依赖登记（组合多选与列配置，故一并声明）。 */
-  override readonly depends: readonly string[] = ['data-state', 'selection', 'column-config']
+  override readonly depends: readonly string[] = ['data_state', 'selection', 'column_config']
   /** 行数据。 */
   rows: unknown[] = []
   /** 总条数。 */

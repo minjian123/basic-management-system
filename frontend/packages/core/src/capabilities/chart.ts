@@ -67,7 +67,7 @@ export abstract class BaseChart extends BaseDataState {
   /** 能力键（组件基类身份）。 */
   override readonly identifier: string = 'chart'
   /** 依赖登记（数据状态能力基类）。 */
-  override readonly depends = ['data-state']
+  override readonly depends = ['data_state']
   /** 数据通路是否就绪（占位语义，缺省 `false`）。 */
   ready = false
   /** 图表配置。 */

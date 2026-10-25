@@ -81,9 +81,9 @@ export interface ExportJobs {
 /** 导出流能力基类（抽象）。 */
 export abstract class BaseExportFlow extends BasePlaceholderState {
   /** 能力键。 */
-  readonly identifier: string = 'export-flow'
+  readonly identifier: string = 'export_flow'
   /** 依赖能力键。 */
-  override readonly depends = ['placeholder-state', 'async-task', 'file-download', 'access', 'notice']
+  override readonly depends = ['placeholder_state', 'async_task', 'file_download', 'access', 'notice']
   /** 业务标识。 */
   biz = ''
   /** 业务中文名（文件名前缀缺省取此值）。 */

@@ -15,7 +15,7 @@ export type ModuleContextKey = keyof ModuleHostContext
 /** 上下文能力基类（抽象）。 */
 export abstract class BaseModuleContext extends BaseComponent {
   /** 能力键。 */
-  readonly identifier: string = 'module-context'
+  readonly identifier: string = 'module_context'
   /** 只读上下文快照。 */
   #context: Readonly<ModuleHostContext> = Object.freeze({})
 

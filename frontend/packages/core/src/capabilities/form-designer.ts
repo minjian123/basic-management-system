@@ -123,9 +123,9 @@ export type DesignerBlockAction = 'switch-form' | 'switch-level' | 'leave'
 /** 表单设计器能力基类（抽象）。 */
 export abstract class BaseFormDesigner extends BasePlaceholderState {
   /** 能力键。 */
-  readonly identifier: string = 'form-designer'
+  readonly identifier: string = 'form_designer'
   /** 依赖能力键（拖拽 / 表单元数据 / 权限 / 提示）。 */
-  override readonly depends = ['placeholder-state', 'drag-drop', 'form-meta', 'access', 'notice']
+  override readonly depends = ['placeholder_state', 'drag_drop', 'form_meta', 'access', 'notice']
   /** 表单标识。 */
   formCode = ''
   /** 当前层级。 */

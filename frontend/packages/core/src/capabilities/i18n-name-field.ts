@@ -39,7 +39,7 @@ import type { I18nLocaleSourceAdapter } from './i18n-locale-source'
 /** 多语言文案族组件基类（抽象；能力键 `multilingual-name`）。 */
 export abstract class BaseMultilingualName extends BaseInput<I18nNames> {
   /** 能力键（组件基类身份；键名与类名口径均不含数字，见护栏 `guard-manifest` 扫描约定）。 */
-  override readonly identifier: string = 'multilingual-name'
+  override readonly identifier: string = 'multilingual_name'
   /** 依赖登记。 */
   override readonly depends = ['input']
   /** 语言清单是否就绪（占位语义：未注入数据源即降级）。 */

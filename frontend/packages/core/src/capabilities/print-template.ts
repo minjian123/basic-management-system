@@ -54,7 +54,7 @@ const FIELD_COLUMNS = 2
 /** 打印模板能力基类（抽象）。 */
 export abstract class BasePrintTemplate extends BaseComponent {
   /** 能力键。 */
-  readonly identifier: string = 'print-template'
+  readonly identifier: string = 'print_template'
   /** 可选模板集（多模板时由件层选择）。 */
   templates: PrintTemplateDef[] = []
   /** 当前模板键（缺省取首个模板）。 */

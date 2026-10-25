@@ -117,7 +117,7 @@ function exportHandler(result: PrintJobResult, progress?: { current: number; tot
 describe('能力登记', () => {
   it('新增两条打印能力链登记合规（依赖已登记 / 无环）', () => {
     expect(validateCapabilityGraph()).toEqual([])
-    expect(new Template().identifier).toBe('print-template')
+    expect(new Template().identifier).toBe('print_template')
     expect(new Print().identifier).toBe('print')
   })
 })

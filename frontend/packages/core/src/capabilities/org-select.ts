@@ -47,9 +47,9 @@ import {
 /** 组织选择族组件基类（抽象）。 */
 export abstract class BaseOrgSelect extends BaseOptionSource<string | string[]> {
   /** 能力键（组件基类身份）。 */
-  override readonly identifier: string = 'org-select'
+  override readonly identifier: string = 'org_select'
   /** 依赖登记。 */
-  override readonly depends = ['option-source', 'user-display']
+  override readonly depends = ['option_source', 'user_display']
   /** 数据通路是否就绪（占位语义，缺省 `false`）。 */
   ready = false
   /** 对象类型。 */

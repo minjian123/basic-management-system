@@ -32,8 +32,8 @@ function makeReady(source: SsoQrLoginSourceAdapter): SsoQrState {
 describe('BaseSsoQr 身份与占位', () => {
   it('能力键与依赖登记', () => {
     const qr = new SsoQrState()
-    expect(qr.identifier).toBe('sso-qr')
-    expect(qr.depends).toEqual(['placeholder-state'])
+    expect(qr.identifier).toBe('sso_qr')
+    expect(qr.depends).toEqual(['placeholder_state'])
     expect(qr.phase).toBe('pending')
   })
 

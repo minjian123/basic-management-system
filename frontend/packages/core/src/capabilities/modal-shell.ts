@@ -7,7 +7,7 @@ import { BaseOverlay } from './overlay'
 /** 模态组件基类（抽象）。 */
 export abstract class BaseModalShell extends BaseOverlay {
   /** 能力键（组件基类身份）。 */
-  override readonly identifier: string = 'modal-shell'
+  override readonly identifier: string = 'modal_shell'
   /** 点击遮罩是否关闭。 */
   closeOnMask = true
   /** 是否展示底部操作区。 */

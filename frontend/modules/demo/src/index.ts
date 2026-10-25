@@ -44,7 +44,7 @@ export const demoModule = defineModule({
         // 顶栏区域（`layout.header`）**只注册紧凑件**：入口按钮 → 进整页 `/demo/toolbox`。
         // 勿把整页（`DemoToolbox.vue`）注册进顶栏——顶栏是一行高容器，整页会溢出并污染框架页。
         {
-          key: 'demo:toolbox-entry',
+          key: 'demo:toolbox_entry',
           area: 'layout.header',
           component: () => import('./components/DemoToolboxEntry.vue'),
           order: 10,

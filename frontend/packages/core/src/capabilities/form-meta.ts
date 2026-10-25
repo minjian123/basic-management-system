@@ -7,7 +7,7 @@ import { BaseComponent } from '../base/BaseComponent'
 /** 表单元数据能力基类（抽象）。 */
 export abstract class BaseFormMeta extends BaseComponent {
   /** 能力键。 */
-  readonly identifier: string = 'form-meta'
+  readonly identifier: string = 'form_meta'
   /** 元数据。 */
   meta: unknown
   /** 元数据版本（加载后递增；命名避开根字段 `version`）。 */

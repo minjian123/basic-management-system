@@ -119,10 +119,10 @@ describeScreenDesignerContract('大屏设计器编排契约（BaseScreenDesigner
 describe('能力身份与依赖', () => {
   it('能力键与依赖登记无环', () => {
     const designer = new DemoDesigner()
-    expect(designer.identifier).toBe('screen-designer')
-    expect(designer.depends).toEqual(['placeholder-state', 'access', 'notice', 'data-state', 'drag-drop', 'async-task'])
+    expect(designer.identifier).toBe('screen_designer')
+    expect(designer.depends).toEqual(['placeholder_state', 'access', 'notice', 'data_state', 'drag_drop', 'async_task'])
     const problems = validateCapabilityGraph().filter(
-      (problem) => problem.key === 'screen-designer' || problem.detail.includes('screen-designer'),
+      (problem) => problem.key === 'screen_designer' || problem.detail.includes('screen_designer'),
     )
     expect(problems).toEqual([])
   })

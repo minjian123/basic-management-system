@@ -129,9 +129,9 @@ class PermissionTreeState extends BaseTreeData {}
 /** 授权编排能力基类（抽象）。 */
 export abstract class BasePermissionConfig extends BasePlaceholderState {
   /** 能力键。 */
-  override readonly identifier: string = 'permission-config'
+  override readonly identifier: string = 'permission_config'
   /** 依赖登记（能力依赖表）。 */
-  override readonly depends = ['placeholder-state', 'tree-data', 'access', 'notice']
+  override readonly depends = ['placeholder_state', 'tree_data', 'access', 'notice']
   /** 当前角色标识。 */
   roleId: string | number | undefined
   /** 元数据。 */

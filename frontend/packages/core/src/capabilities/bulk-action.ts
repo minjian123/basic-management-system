@@ -69,7 +69,7 @@ export interface BulkActionProgress {
 /** 批量动作编排能力基类（抽象）。 */
 export abstract class BaseBulkAction extends BaseSelection {
   /** 能力键。 */
-  readonly identifier: string = 'bulk-action'
+  readonly identifier: string = 'bulk_action'
   /** 动作集合。 */
   actions: BulkActionDef[] = []
   /** 超量确认阈值（0 表示不限制）。 */

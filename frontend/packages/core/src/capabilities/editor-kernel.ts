@@ -10,7 +10,7 @@ export type EditorMode = 'rich' | 'markdown' | 'code'
 /** 编辑器内核能力基类（抽象）。 */
 export abstract class BaseEditorKernel extends BaseComponent {
   /** 能力键。 */
-  readonly identifier: string = 'editor-kernel'
+  readonly identifier: string = 'editor_kernel'
   /** 内容。 */
   content = ''
   /** 模式。 */

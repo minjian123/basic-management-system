@@ -25,7 +25,7 @@ export abstract class BaseNotification extends BaseNotificationCenter {
   /** 能力键（组件基类身份）。 */
   override readonly identifier: string = 'notification'
   /** 依赖登记。 */
-  override readonly depends: readonly string[] = ['notification-center']
+  override readonly depends: readonly string[] = ['notification_center']
 
   /** 未读数（基于消息清单本地计数）。 */
   get unread(): number {

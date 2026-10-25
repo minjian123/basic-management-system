@@ -18,7 +18,7 @@ export interface OptionItem<T = unknown> {
 /** 选项源能力基类（抽象）。 */
 export abstract class BaseOptionSource<T = unknown> extends BaseField<T> {
   /** 能力键。 */
-  readonly identifier: string = 'option-source'
+  readonly identifier: string = 'option_source'
   /** 依赖登记。 */
   override readonly depends = ['field']
   /** 已加载选项。 */

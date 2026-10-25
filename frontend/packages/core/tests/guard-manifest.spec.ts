@@ -18,7 +18,7 @@ function scanCapabilities(): { identifier: string; className: string; file: stri
       continue
     }
     const source = readFileSync(join(CAP_DIR, file), 'utf8')
-    const identifier = source.match(/identifier:\s*string\s*=\s*'([a-z-]+)'/)?.[1]
+    const identifier = source.match(/identifier:\s*string\s*=\s*'([a-z_]+)'/)?.[1]
     const className = source.match(/export abstract class (Base[A-Za-z]+)/)?.[1]
     if (identifier !== undefined && className !== undefined) {
       result.push({ identifier, className, file })

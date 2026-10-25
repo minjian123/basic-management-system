@@ -184,9 +184,9 @@ function readErrorCode(error: unknown): number | undefined {
 /** 上传引擎能力基类（抽象）。 */
 export abstract class BaseUploadEngine<TFile = unknown> extends BasePlaceholderState {
   /** 能力键。 */
-  readonly identifier: string = 'upload-engine'
+  readonly identifier: string = 'upload_engine'
   /** 依赖能力键（占位语义 + 预签名）。 */
-  override readonly depends = ['placeholder-state', 'presigned-url']
+  override readonly depends = ['placeholder_state', 'presigned_url']
   /** 分片大小（字节；既有字段，保留兼容）。 */
   chunkSize = 5 * 1024 * 1024
   /** 单文件大小上限（字节；既有字段，0 表示不限）。 */

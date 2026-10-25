@@ -128,9 +128,9 @@ const FILTER_DEFAULTS: I18nFilter = { ...EMPTY_I18N_FILTER }
 /** 文案目录编排能力基类（抽象）。 */
 export abstract class BaseMessageCatalog extends BasePlaceholderState {
   /** 能力键。 */
-  readonly identifier: string = 'message-catalog'
+  readonly identifier: string = 'message_catalog'
   /** 依赖能力键（语言上下文 / 权限 / 提示）。 */
-  override readonly depends = ['placeholder-state', 'locale', 'access', 'notice']
+  override readonly depends = ['placeholder_state', 'locale', 'access', 'notice']
   /** 业务标识（后端路径段，导入导出复用）。 */
   biz = 'i18n'
   /** 业务中文名（导出文件名与标题）。 */

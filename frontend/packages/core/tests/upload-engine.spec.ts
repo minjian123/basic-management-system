@@ -64,8 +64,8 @@ describe('BaseUploadEngine 继承链与身份', () => {
     const engine = new UploadEngineState()
     expect(engine).toBeInstanceOf(BasePlaceholderState)
     expect(engine).toBeInstanceOf(BaseComponent)
-    expect(engine.identifier).toBe('upload-engine')
-    expect(engine.depends).toEqual(['placeholder-state', 'presigned-url'])
+    expect(engine.identifier).toBe('upload_engine')
+    expect(engine.depends).toEqual(['placeholder_state', 'presigned_url'])
     expect(engine.ready).toBe(false)
   })
 

@@ -17,7 +17,7 @@ describe('assembleRegistrations（Kiwi 976）', () => {
   it('平台自身注册：不强制模块前缀，来源打标为 platform', () => {
     const registries = createRegistries()
     const keys = assembleRegistrations(registries, PLATFORM_SOURCE, {
-      components: { 'layout:header-actions': {} },
+      components: { 'layout:header_actions': {} },
       icons: { 'platform:sparkles': 'sparkles' },
       cards: [new WorkbenchCardProvider('platform:summary', {}, '概览')],
       regions: [{ key: 'layout:hero', area: 'layout.header', component: {} }],
@@ -26,14 +26,14 @@ describe('assembleRegistrations（Kiwi 976）', () => {
     })
 
     expect(keys).toEqual([
-      'component:layout:header-actions',
+      'component:layout:header_actions',
       'icon:platform:sparkles',
       'card:platform:summary',
       'region:layout:hero',
       'themeToken:platform:default',
       'i18nPack:platform:zh-cn',
     ])
-    expect(registries.component.get('layout:header-actions')?.registrationSource).toBe(PLATFORM_SOURCE)
+    expect(registries.component.get('layout:header_actions')?.registrationSource).toBe(PLATFORM_SOURCE)
     expect(registries.pageArea.resolveByArea('layout.header').map((item) => item.key)).toEqual(['layout:hero'])
     expect(registries.themeToken.resolve('platform:default')).toEqual({ '--bms-color-primary': '#1677ff' })
     expect(registries.i18nPack.byLocale('zh-CN').map((item) => item.key)).toEqual(['platform:zh-cn'])
@@ -214,31 +214,31 @@ describe('releaseRegistrations', () => {
     assembleRegistrations(registries, PLATFORM_SOURCE, {
       regions: [
         {
-          key: 'sys:user-detail-basic',
+          key: 'sys:user_detail_basic',
           area: 'sys.user.detail.tabs',
           component: {},
           order: 10,
           title: '基本信息',
           icon: 'el:User',
-          perm: ['sys:user-extension:update'],
+          perm: ['sys:user_extension:update'],
           permMode: 'any',
           when,
         },
       ],
     })
 
-    const provider = registries.pageArea.get('sys:user-detail-basic')
+    const provider = registries.pageArea.get('sys:user_detail_basic')
     expect(provider?.title).toBe('基本信息')
     expect(provider?.icon).toBe('el:User')
-    expect(provider?.perm).toEqual(['sys:user-extension:update'])
+    expect(provider?.perm).toEqual(['sys:user_extension:update'])
     expect(provider?.permMode).toBe('any')
     expect(provider?.when).toBe(when)
     expect(provider?.registrationSource).toBe(PLATFORM_SOURCE)
     expect(registries.pageArea.resolveByArea('sys.user.detail.tabs', { permissionCodes: [] })).toEqual([])
     expect(
       registries.pageArea
-        .resolveByArea('sys.user.detail.tabs', { permissionCodes: ['sys:user-extension:update'] })
+        .resolveByArea('sys.user.detail.tabs', { permissionCodes: ['sys:user_extension:update'] })
         .map((item) => item.key),
-    ).toEqual(['sys:user-detail-basic'])
+    ).toEqual(['sys:user_detail_basic'])
   })
 })

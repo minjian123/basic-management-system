@@ -10,9 +10,9 @@ export type FormMode = 'create' | 'edit' | 'detail'
 /** 表单页组合能力基类（抽象）。 */
 export abstract class BaseFormPage extends BaseComponent {
   /** 能力键。 */
-  readonly identifier: string = 'form-page'
+  readonly identifier: string = 'form_page'
   /** 依赖能力键（表单元数据）。 */
-  override readonly depends = ['form-meta']
+  override readonly depends = ['form_meta']
   /** 当前模式。 */
   mode: FormMode = 'create'
   /** 是否脏数据。 */

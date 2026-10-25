@@ -15,6 +15,7 @@ import { evaluatePermission } from '../domain/permission'
 import {
   ComponentProvider,
   FieldRendererProvider,
+  I18N_PACK_KEY_PATTERN,
   I18nPackProvider,
   IconProvider,
   LOCALE_TAG_PATTERN,
@@ -60,6 +61,18 @@ export function assertIconKey(key: string): void {
 export function assertPageAreaId(area: string): void {
   if (!PAGE_AREA_ID_PATTERN.test(area)) {
     throw new BaseError(ErrorCodes.CAPABILITY_VIOLATION, `区域标识非法：${area}`)
+  }
+}
+
+/**
+ * 校验 i18n 文案包键（`<命名空间>:<语言标识>`；命名空间 snake_case，语言段 IETF BCP-47）。
+ *
+ * @param key 文案包键。
+ * @throws BaseError 键非法（`CAPABILITY_VIOLATION`）。
+ */
+export function assertI18nPackKey(key: string): void {
+  if (!I18N_PACK_KEY_PATTERN.test(key)) {
+    throw new BaseError(ErrorCodes.CAPABILITY_VIOLATION, `i18n 文案包键非法：${key}`)
   }
 }
 
@@ -414,7 +427,7 @@ export class I18nPackRegistry extends BaseProviderRegistry<I18nPackProvider> {
    * @param provider 注册项。
    */
   override register(provider: I18nPackProvider): void {
-    assertNamespacedKey(provider.key, 'i18n 文案包')
+    assertI18nPackKey(provider.key)
     assertLocaleTag(provider.locale, 'i18n 文案包')
     super.register(provider)
   }

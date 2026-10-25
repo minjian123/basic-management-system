@@ -141,7 +141,7 @@ onMounted(load)
       :loading="loading"
       :error="errorText"
       row-key="id"
-      form-key="slot-sample_extension"
+      form-key="slot_sample_extension"
       :empty-text="t('slotSample.list.empty')"
       @row-dblclick="startEdit"
       @refresh="load"

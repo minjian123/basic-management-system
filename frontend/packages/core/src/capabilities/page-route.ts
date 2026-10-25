@@ -34,9 +34,9 @@ export interface PageRouteAdapter {
 /** 通用页面路由能力基类（抽象）。 */
 export abstract class BasePageRoute extends BasePlaceholderState {
   /** 能力键。 */
-  readonly identifier: string = 'page-route'
+  readonly identifier: string = 'page_route'
   /** 依赖能力键（占位状态）。 */
-  override readonly depends = ['placeholder-state']
+  override readonly depends = ['placeholder_state']
   /** 清单装载适配器（宿主注入；缺省占位零请求）。 */
   adapter: PageRouteAdapter | undefined
   /** 数据源登记清单（保序）。 */

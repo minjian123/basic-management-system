@@ -25,7 +25,7 @@ export type DragListener = (payload: DragPayload) => void
 /** 拖拽能力基类（抽象）。 */
 export abstract class BaseDragDrop extends BaseComponent {
   /** 能力键。 */
-  readonly identifier: string = 'drag-drop'
+  readonly identifier: string = 'drag_drop'
   /** 是否拖拽中。 */
   dragging = false
   /** 拖拽监听器。 */

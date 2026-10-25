@@ -38,9 +38,9 @@ class ValidatableState extends BaseValidatable {}
 describe('BaseFormRenderer 能力身份与依赖', () => {
   it('能力键与依赖登记一致且图无环', () => {
     const renderer = new RendererState()
-    expect(renderer.identifier).toBe('form-renderer')
-    expect(renderer.depends).toEqual(['placeholder-state', 'form-meta', 'field-perm', 'access', 'notice', 'validatable'])
-    expect(CAPABILITY_MANIFEST['form-renderer']).toEqual(['placeholder-state', 'form-meta', 'field-perm', 'access', 'notice', 'validatable'])
+    expect(renderer.identifier).toBe('form_renderer')
+    expect(renderer.depends).toEqual(['placeholder_state', 'form_meta', 'field_perm', 'access', 'notice', 'validatable'])
+    expect(CAPABILITY_MANIFEST['form_renderer']).toEqual(['placeholder_state', 'form_meta', 'field_perm', 'access', 'notice', 'validatable'])
     expect(validateCapabilityGraph()).toEqual([])
   })
 

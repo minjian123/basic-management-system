@@ -10,7 +10,7 @@ import { describe, expect, it } from 'vitest'
 import { blocksModuleFailure, type ModuleErrorState } from '@/module/boundary'
 
 /** 失败模块（演示：槽位样例模块）。 */
-const FAILED: ModuleErrorState = { module: 'slot-sample', version: '0.1.0', reason: '加载失败' }
+const FAILED: ModuleErrorState = { module: 'slot_sample', version: '0.1.0', reason: '加载失败' }
 
 /** 清单失败（宿主兜底记录：`modules.json`）。 */
 const MANIFEST_FAILED: ModuleErrorState = { module: 'modules.json', version: '', reason: '清单不可读' }
@@ -32,12 +32,12 @@ describe('blocksModuleFailure（Kiwi 2243）', () => {
   })
 
   it('失败模块自身路由：阻断', () => {
-    expect(blocked('/slot-sample', 'slot-sample')).toBe(true)
+    expect(blocked('/slot-sample', 'slot_sample')).toBe(true)
   })
 
   it('免登录 / 基础路由：不阻断（含子路径）', () => {
     for (const path of ['/login', '/login/qr', '/403', '/404', '/500']) {
-      expect(blocked(path, 'slot-sample')).toBe(false)
+      expect(blocked(path, 'slot_sample')).toBe(false)
     }
   })
 

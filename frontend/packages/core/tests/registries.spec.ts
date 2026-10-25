@@ -79,8 +79,8 @@ describe('八类注册表公共契约（Kiwi 976）', () => {
     assertRegistryContract(
       registries.component,
       (key) => new ComponentProvider(key, {}),
-      'platform:card-a',
-      'platform:card-b',
+      'platform:card_a',
+      'platform:card_b',
     )
     assertRegistryContract(
       registries.fieldRenderer,
@@ -326,10 +326,10 @@ describe('IconRegistry icon key 扩展（08_02）', () => {
   it('接受 icon key（大小写 / 数字段）并拒绝非法与重复', () => {
     const registries = createRegistries()
     registries.icon.register(new IconProvider('el:User', {}, { name: 'User', category: 'common' }))
-    registries.icon.register(new IconProvider('biz:purchase-order', {}))
+    registries.icon.register(new IconProvider('biz:purchase_order', {}))
     registries.icon.register(new IconProvider('custom:1024', {}))
 
-    expect(registries.icon.keys()).toEqual(['el:User', 'biz:purchase-order', 'custom:1024'])
+    expect(registries.icon.keys()).toEqual(['el:User', 'biz:purchase_order', 'custom:1024'])
     expect(() => registries.icon.register(new IconProvider('noPrefix', {}))).toThrow(BaseError)
     expect(() => registries.icon.register(new IconProvider('el:User', {}))).toThrow(BaseError)
   })

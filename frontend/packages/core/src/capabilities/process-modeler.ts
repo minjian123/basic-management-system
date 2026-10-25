@@ -89,9 +89,9 @@ export type ModelerSubmitKind = 'draft' | 'deploy'
 /** 流程建模编排能力基类（抽象）。 */
 export abstract class BaseProcessModeler extends BasePlaceholderState {
   /** 能力键。 */
-  readonly identifier: string = 'process-modeler'
+  readonly identifier: string = 'process_modeler'
   /** 依赖能力键。 */
-  override readonly depends = ['placeholder-state', 'access', 'notice']
+  override readonly depends = ['placeholder_state', 'access', 'notice']
   /** 当前定义。 */
   definition: ModelerDefinition = normalizeDefinition()
   /** 数据通路是否就绪（占位语义开关）。 */

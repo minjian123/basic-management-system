@@ -13,7 +13,7 @@ import {
 import { loadSharedDependencies } from '../../scripts/shared-deps.mjs'
 
 /** 模块名（= 模块清单 `name` = MF 容器名；见任务 02_01 详细设计 §3.3 远端命名约定）。 */
-const MODULE_NAME = 'slot-sample'
+const MODULE_NAME = 'slot_sample'
 
 /** 远端容器入口文件名（契约常量 `MODULE_REMOTE_ENTRY_FILE` 同值，构建期须一致）。 */
 const REMOTE_ENTRY_FILE = 'remoteEntry.js'

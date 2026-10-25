@@ -29,7 +29,7 @@ import type { ProductKey, ServiceKey } from '../contracts/service-endpoint'
 /** 请求能力基类（抽象）。 */
 export abstract class BaseModuleApi extends BasePlaceholderState implements ModuleApi {
   /** 能力键。 */
-  readonly identifier: string = 'module-api'
+  readonly identifier: string = 'module_api'
 
   /**
    * GET 请求。

@@ -123,7 +123,7 @@ describe('BaseAsyncTask 异步任务能力', () => {
 describe('BaseUploadEngine 上传引擎能力', () => {
   it('占位（无上传器）返回 undefined；注入后返回键', async () => {
     const upload = new DemoUpload()
-    expect(upload.depends).toEqual(['placeholder-state', 'presigned-url'])
+    expect(upload.depends).toEqual(['placeholder_state', 'presigned_url'])
     expect(await upload.upload('f')).toBeUndefined()
 
     upload.uploader = async () => 'key-1'
@@ -318,7 +318,7 @@ describe('BaseFormMeta 表单元数据能力', () => {
 describe('BaseFormPage 表单页组合能力', () => {
   it('三态 / 脏数据 / 提交 / 返回拦截', async () => {
     const page = new DemoFormPage()
-    expect(page.depends).toEqual(['form-meta'])
+    expect(page.depends).toEqual(['form_meta'])
     page.setMode('edit')
     expect(page.mode).toBe('edit')
     expect(page.back()).toBe(false)

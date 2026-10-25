@@ -11,8 +11,8 @@ describe('BaseColumnConfig 继承与身份', () => {
   it('继承偏好持久化能力基类', () => {
     const columns = new DemoColumns()
     expect(columns).toBeInstanceOf(BasePersistedState)
-    expect(columns.identifier).toBe('column-config')
-    expect(columns.key).toBe('column-config')
+    expect(columns.identifier).toBe('column_config')
+    expect(columns.key).toBe('column_config')
   })
 })
 

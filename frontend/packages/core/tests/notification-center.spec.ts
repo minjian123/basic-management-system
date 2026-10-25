@@ -100,20 +100,20 @@ describe('能力身份与依赖', () => {
   it('组件基类键为 notification、父链经通知中心能力基类到 BaseNotice', () => {
     const notification = new DemoNotification()
     expect(notification.identifier).toBe('notification')
-    expect(notification.depends).toEqual(['notification-center'])
+    expect(notification.depends).toEqual(['notification_center'])
     expect(notification).toBeInstanceOf(BaseNotificationCenter)
     expect(notification).toBeInstanceOf(BaseNotice)
   })
 
   it('能力基类键为 notification-center、依赖 notice', () => {
     const center = new DemoCenter()
-    expect(center.identifier).toBe('notification-center')
+    expect(center.identifier).toBe('notification_center')
     expect(center.depends).toEqual(['notice'])
   })
 
   it('能力登记无环且已登记', () => {
     const problems = validateCapabilityGraph().filter(
-      (problem) => problem.key === 'notification-center' || problem.key === 'notification',
+      (problem) => problem.key === 'notification_center' || problem.key === 'notification',
     )
     expect(problems).toEqual([])
   })

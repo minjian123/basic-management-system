@@ -46,7 +46,7 @@ export interface QueryScheme {
 /** 查询方案组件基类（抽象）。 */
 export abstract class BaseQueryScheme extends BasePersistedState {
   /** 能力键（组件基类身份）。 */
-  override readonly identifier: string = 'query-scheme'
+  override readonly identifier: string = 'query_scheme'
   /** 当前条件（取数唯一来源）。 */
   readonly conditions: FilterCondition[] = []
   /** 当前关键字。 */
