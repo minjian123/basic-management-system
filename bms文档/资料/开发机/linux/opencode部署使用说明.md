@@ -203,12 +203,12 @@ grep -E "main window visible|background service ready" "$D/main.log"
 | 层级 | 路径 | 作用 |
 | --- | --- | --- |
 | 全局 | `~/.config/opencode/opencode.jsonc` | provider / 权限 / 模型别名（本机三个远程 provider 在此） |
-| 全局 | `~/.config/opencode/opencode.json` | **用户级工具链登记**：`plugins` 数组（用户级 `bg.js`，绝对路径）；与 `opencode.jsonc` 同目录并存 |
+| 全局 | `~/.config/opencode/opencode.json` | **全局配置**：`plugins` 数组登记用户级插件（绝对路径）；与 `opencode.jsonc` 同目录并存 |
 | 全局 | `~/.config/opencode/skills/` | 全局技能 |
 | 项目 | `<项目>/opencode.json`、`<项目>/.opencode/opencode.json` | 项目 model、provider、命令等，覆盖全局（**通用插件不放这里**，只留项目自身配置） |
 | 客户端 | `~/.config/opencode/cli.json` | 终端客户端设置（TUI 外观/快捷键），由客户端首次启动从 `tui.json(c)` 迁移 |
 
-> **用户级工具链（以 Windows 侧实测为准）**：通用插件与脚本装在用户级、与工作区无关，任何项目可用——linux 侧同位落点为全局配置目录 `~/.config/opencode/`（插件在 `plugins/`、全局 `opencode.json` 登记 `bg.js`）与数据目录 `~/.local/share/opencode/`（通用脚本 `bg/`；提供 `ops_bash` 的 `ops.js` 与 FastCtx 的安装脚本 / 二进制已于 2026-10-19 删除）。注册的工具：`bg_run` / `bg_status` / `bg_stop` / `gl_watch_pipeline`（长命令后台化）；「命令是项目的、工具是通用的」。工作区 `.opencode/` 只保留项目自身的模型 / 供应商等配置，**不要把这类「优化 opencode 自身」的插件与二进制放回项目或工作区**。
+> **插件与工作区的边界**：用户级插件装在全局配置目录 `~/.config/opencode/plugins/`、经全局 `opencode.json` 的 `plugins` 数组登记，与工作区无关、任何项目可用。工作区 `.opencode/` 只保留项目自身的模型 / 供应商等配置，**不要把这类「优化 opencode 自身」的插件与二进制放回项目或工作区**。
 
 项目级配置一律在各自 git 仓库内跟踪，迁移时 8 份配置**全部改写为 v2 原生格式**（列表见 6.3）。
 
@@ -235,7 +235,7 @@ grep -E "main window visible|background service ready" "$D/main.log"
 
 ```text
 ~/.config/opencode/opencode.jsonc              # 全局：permissions + providers（zhipu / siliconflow / commandcode）
-~/.config/opencode/opencode.json               # 全局：plugins（用户级 bg.js）
+~/.config/opencode/opencode.json               # 全局：plugins（用户级插件）
 ~/develop/bizs/.opencode/opencode.json         # bizs 工作区：lmstudio + llamacpp（MCP mjw-vision 已于 2026-10-16 退役）
 ~/develop/cws/.opencode/opencode.json          # cws 工作区：lmstudio + llamacpp + MCP mjw-vision（本次退役仅改 bizs，cws 同步与否由 cw 侧决定）
 ~/develop/bms_other/.opencode/opencode.json    # bms_other：lmstudio + MCP multimodal-local
@@ -250,8 +250,8 @@ grep -E "main window visible|background service ready" "$D/main.log"
 ### 6.4 插件 <a id="plugins"></a>
 
 - v2 的插件 API 与 v1 **不兼容**：v1 插件实现（工作区 `.opencode/plugins/*.js`）**不会在 v2 中运行**，仅把配置项从 `plugin` 改名为 `plugins` 不够，须按 v2 插件 API 重写入口与钩子；
-- 本机**全局配置 `~/.config/opencode/opencode.json` 登记了一个通用插件**（装于用户级 `~/.config/opencode/plugins/`，与工作区无关）：`bg.js` 提供 `bg_run` / `bg_status` / `bg_stop` / `gl_watch_pipeline`（长命令后台化）；提供 `ops_bash` 的 `ops.js` 已于 2026-10-19 删除（原 `ops_run` / `ops_batch` / `ops_result` 已于 2026-10-18 移除）；项目级仍只有 `~/develop/bms_other/.opencode/opencode.json` 的 `plugins/graphify.js`（v1 实现，需按 v2 API 重写后才可用）；
-- 配套通用脚本在 `~/.local/share/opencode/bg/`（`bg_run.py` / `bg_status.py` / `bg_wait.py` / `bg_stop.py` / `watch_pipeline.py`，目录可用 `OPS_BG_DIR` 覆盖；**该工具链已退役**，本节仅作历史记录）；**FastCtx 本地 MCP 已于 2026-10-18 注销**（全局配置的 `mcp.servers.fastctx` 段移除，文件工具改用 opencode 内置 `read` / `grep` / `glob` / `edit`），其安装脚本 `~/.config/opencode/install-fastctx.sh` 与二进制 `~/.local/share/opencode/vendor/fastctx/` 已于 2026-10-19 删除；本项目仓内对应的副本 `bms/scripts/tools/bg/*.py` 与 `bms/scripts/tools/gitlab/watch_pipeline.py` 已于 2026-10-25 随工具链退役一并删除（不再有仓库内副本）；
+- 全局配置 `~/.config/opencode/opencode.json` 的 `plugins` 数组登记用户级插件（绝对路径，装于 `~/.config/opencode/plugins/`，与工作区无关）；**当前本机未登记任何插件**；
+- **FastCtx 本地 MCP 已注销**：文件工具改用 opencode 内置 `read` / `grep` / `glob` / `edit`；
 - 重新登记插件后须**完全重启**（桌面端含 sidecar 进程）并先验证会话正常，再投入日常使用。
 
 ### 6.5 CommandCode 走 Responses API（2026-10-02） <a id="commandcode-responses"></a>
