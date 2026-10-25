@@ -431,7 +431,7 @@ def test_table_domain_derivation() -> None:
     assert table_domain("zzz_unknown") is None
 
     domains = registered_domains()
-    assert {"user", "role", "auth", "tenant", "platform-registry"} <= domains
+    assert {"user", "role", "auth", "tenant", "platform_registry"} <= domains
     assert "" not in domains
 
     assert {"sys_user", "sys_user_extension", "sys_user_preference"} <= owned_tables_for_domain("user")

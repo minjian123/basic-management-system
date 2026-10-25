@@ -58,8 +58,8 @@ STATUS_PLANNED = "planned"
 
 _LAYOUT_VERSION = 1
 _BASELINE_VERSION = 1
-_DOMAIN_KEY_RE = re.compile(r"^[a-z][a-z0-9-]*$")
-"""业务域标识形态（小写字母开头，可含数字与连字符）。"""
+_DOMAIN_KEY_RE = re.compile(r"^[a-z][a-z0-9_]*$")
+"""业务域标识形态（小写字母开头，仅小写字母、数字与下划线；登记型标识一律 snake_case）。"""
 
 
 @dataclass(frozen=True)

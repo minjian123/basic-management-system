@@ -45,7 +45,7 @@
       "public_api": []
     },
     {
-      "domain_key": "identity-federation",
+      "domain_key": "identity_federation",
       "service_key": "identity",
       "status": "legacy",
       "paths": [
@@ -73,7 +73,7 @@
       "public_api": []
     },
     {
-      "domain_key": "menu-form",
+      "domain_key": "menu_form",
       "service_key": "platform",
       "status": "legacy",
       "paths": [
@@ -98,7 +98,7 @@
       "public_api": []
     },
     {
-      "domain_key": "permission-meta",
+      "domain_key": "permission_meta",
       "service_key": "platform",
       "status": "legacy",
       "paths": [
@@ -117,7 +117,7 @@
       "public_api": []
     },
     {
-      "domain_key": "platform-config",
+      "domain_key": "platform_config",
       "service_key": "platform",
       "status": "legacy",
       "paths": [
@@ -129,7 +129,7 @@
       "public_api": []
     },
     {
-      "domain_key": "platform-registry",
+      "domain_key": "platform_registry",
       "service_key": "platform",
       "status": "legacy",
       "paths": [

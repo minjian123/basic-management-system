@@ -44,8 +44,12 @@ RESERVED_SERVICE_KEYS: ConcurrentStableList[str] = ConcurrentStableList(("permis
 """
 
 _TABLE_NAME_RE = re.compile(r"^[a-z][a-z0-9_]*$")
-_DOMAIN_KEY_RE = re.compile(r"^[a-z][a-z0-9-]*$")
-"""业务域标识形态（小写字母开头，可含数字与连字符；与 `domain_layout.json` 同口径）。"""
+_DOMAIN_KEY_RE = re.compile(r"^[a-z][a-z0-9_]*$")
+"""业务域标识形态（小写字母开头，仅小写字母、数字与下划线；与 `domain_layout.json` 同口径）。
+
+登记型标识一律 snake_case（《命名规范》「大小写风格」节，2026-10-25 拍板）：连字符不是合法标识符字符，
+且会污染清单名 / 版本记录表名 / 库对象名。
+"""
 _SHARED_TABLE_PREFIX = "sys_"
 """平台共享前缀：`sys_` 表按表级归属判定，不要求与归属服务表前缀一致。"""
 
@@ -111,7 +115,7 @@ TABLE_OWNERSHIP: ConcurrentStableList[TableRecord] = ConcurrentStableList(
         TableRecord(
             table_name=TABLE_OWNERSHIP_NAME,
             owner="platform",
-            domain="platform-registry",
+            domain="platform_registry",
             datasource=Datasource.PLATFORM,
             note="表归属登记表（自举）",
         ),
@@ -184,21 +188,21 @@ TABLE_OWNERSHIP: ConcurrentStableList[TableRecord] = ConcurrentStableList(
         TableRecord(
             table_name="sys_module",
             owner="platform",
-            domain="platform-registry",
+            domain="platform_registry",
             datasource=Datasource.PLATFORM,
             note="服务目录登记",
         ),
         TableRecord(
             table_name="sys_module_i18n",
             owner="platform",
-            domain="platform-registry",
+            domain="platform_registry",
             datasource=Datasource.PLATFORM,
             note="服务目录多语言",
         ),
         TableRecord(
             table_name="sys_product",
             owner="platform",
-            domain="platform-registry",
+            domain="platform_registry",
             datasource=Datasource.PLATFORM,
             note="产品档案（产品级注册 / R4.1；`sys_module.product_key` 逻辑引用）",
         ),
@@ -219,91 +223,91 @@ TABLE_OWNERSHIP: ConcurrentStableList[TableRecord] = ConcurrentStableList(
         TableRecord(
             table_name="sys_menu",
             owner="platform",
-            domain="menu-form",
+            domain="menu_form",
             datasource=Datasource.PLATFORM,
             note="平台菜单（动态路由依据；03_01 落库）",
         ),
         TableRecord(
             table_name="sys_menu_i18n",
             owner="platform",
-            domain="menu-form",
+            domain="menu_form",
             datasource=Datasource.PLATFORM,
             note="菜单名多语言（03_01 落库）",
         ),
         TableRecord(
             table_name="sys_business",
             owner="platform",
-            domain="permission-meta",
+            domain="permission_meta",
             datasource=Datasource.PLATFORM,
             note="业务码字典（资源维度，平台统一维护；03_01 落库）",
         ),
         TableRecord(
             table_name="sys_business_i18n",
             owner="platform",
-            domain="permission-meta",
+            domain="permission_meta",
             datasource=Datasource.PLATFORM,
             note="业务码名称多语言（03_01 落库）",
         ),
         TableRecord(
             table_name="sys_action",
             owner="platform",
-            domain="permission-meta",
+            domain="permission_meta",
             datasource=Datasource.PLATFORM,
             note="动作码字典（全局动词维度；03_01 落库）",
         ),
         TableRecord(
             table_name="sys_action_i18n",
             owner="platform",
-            domain="permission-meta",
+            domain="permission_meta",
             datasource=Datasource.PLATFORM,
             note="动作码名称多语言（03_01 落库）",
         ),
         TableRecord(
             table_name="sys_permission",
             owner="platform",
-            domain="permission-meta",
+            domain="permission_meta",
             datasource=Datasource.PLATFORM,
             note="权限码（业务码 × 动作码组合；03_01 落库）",
         ),
         TableRecord(
             table_name="sys_form",
             owner="platform",
-            domain="menu-form",
+            domain="menu_form",
             datasource=Datasource.PLATFORM,
             note="平台表单（1:1 挂业务；菜单经 sys_menu_form 多对多；02_03 返工）",
         ),
         TableRecord(
             table_name="sys_menu_form",
             owner="platform",
-            domain="menu-form",
+            domain="menu_form",
             datasource=Datasource.PLATFORM,
             note="菜单 ↔ 表单关联（多对多；02_03 返工落库）",
         ),
         TableRecord(
             table_name="sys_field",
             owner="platform",
-            domain="menu-form",
+            domain="menu_form",
             datasource=Datasource.PLATFORM,
             note="表单字段（字段权限依据；03_01 落库）",
         ),
         TableRecord(
             table_name="sys_field_i18n",
             owner="platform",
-            domain="menu-form",
+            domain="menu_form",
             datasource=Datasource.PLATFORM,
             note="字段名多语言（03_01 落库）",
         ),
         TableRecord(
             table_name="sys_button",
             owner="platform",
-            domain="menu-form",
+            domain="menu_form",
             datasource=Datasource.PLATFORM,
             note="表单按钮（按钮 1:1 挂权限码；03_01 落库）",
         ),
         TableRecord(
             table_name="sys_form_layout",
             owner="platform",
-            domain="menu-form",
+            domain="menu_form",
             datasource=Datasource.TENANT,
             status=TableStatus.PLANNED,
             note="表单三级布局（预留）",
@@ -311,7 +315,7 @@ TABLE_OWNERSHIP: ConcurrentStableList[TableRecord] = ConcurrentStableList(
         TableRecord(
             table_name="sys_field_ext",
             owner="platform",
-            domain="menu-form",
+            domain="menu_form",
             datasource=Datasource.TENANT,
             status=TableStatus.PLANNED,
             note="租户自建字段（预留）",
@@ -319,7 +323,7 @@ TABLE_OWNERSHIP: ConcurrentStableList[TableRecord] = ConcurrentStableList(
         TableRecord(
             table_name="sys_user_identity",
             owner="identity",
-            domain="identity-federation",
+            domain="identity_federation",
             datasource=Datasource.PLATFORM,
             note="SSO 全局身份映射（外部身份 → 租户 / 用户）",
         ),
@@ -382,14 +386,14 @@ TABLE_OWNERSHIP: ConcurrentStableList[TableRecord] = ConcurrentStableList(
         TableRecord(
             table_name="sys_identity_provider",
             owner="identity",
-            domain="identity-federation",
+            domain="identity_federation",
             datasource=Datasource.TENANT,
             note="租户外部 IdP 配置（OIDC/CAS/企微/钉钉）",
         ),
         TableRecord(
             table_name="sys_client",
             owner="identity",
-            domain="identity-federation",
+            domain="identity_federation",
             datasource=Datasource.TENANT,
             note="第三方应用客户端（BMS 兼作 IdP / 开放接口）",
         ),
@@ -405,14 +409,14 @@ TABLE_OWNERSHIP: ConcurrentStableList[TableRecord] = ConcurrentStableList(
         TableRecord(
             table_name="sys_query_scheme",
             owner="platform",
-            domain="platform-config",
+            domain="platform_config",
             datasource=Datasource.TENANT,
             note="查询方案",
         ),
         TableRecord(
             table_name="sys_config",
             owner="platform",
-            domain="platform-config",
+            domain="platform_config",
             datasource=Datasource.TENANT,
             note="系统参数（平台默认、租户覆盖）",
         ),
@@ -443,7 +447,7 @@ TABLE_OWNERSHIP: ConcurrentStableList[TableRecord] = ConcurrentStableList(
         TableRecord(
             table_name="sys_icon",
             owner="platform",
-            domain="permission-meta",
+            domain="permission_meta",
             datasource=Datasource.TENANT,
             status=TableStatus.ENABLED,
             note="租户自定义图标（03_03 真实落库，已入租户链）",
@@ -451,7 +455,7 @@ TABLE_OWNERSHIP: ConcurrentStableList[TableRecord] = ConcurrentStableList(
         TableRecord(
             table_name="sys_icon_i18n",
             owner="platform",
-            domain="permission-meta",
+            domain="permission_meta",
             datasource=Datasource.TENANT,
             status=TableStatus.ENABLED,
             note="图标多语言（03_03 真实落库，已入租户链）",

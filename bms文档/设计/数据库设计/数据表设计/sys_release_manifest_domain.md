@@ -9,7 +9,7 @@
 | 项 | 值 |
 | --- | --- |
 | 归属库 | 平台服务库 `bms_platform`（归属服务 `platform`） |
-| 业务域 | 平台注册与目录（`platform-registry`） |
+| 业务域 | 平台注册与目录（`platform_registry`） |
 | 覆盖模块 | 07C-产品与服务划分（发布对账） |
 | 上游依据 | 《[架构设计 · 产品与服务划分](../../../设计/架构设计/39_架构设计_子系统_产品与服务划分.md)》「发布与版本」节、[需求 04-1](../../../项目/07C_产品与服务划分/需求/04_需求_发布与迁移.md#r04-1) |
 | ORM 模型 | `bms_core/models/platform/release_manifest.py::SysReleaseManifestDomain`（继承 `BaseModel`；随 `04_01` 落地） |
@@ -56,7 +56,7 @@
 
 - **分片**：不分片。
 - **归档**：不归档（发布历史长期保留；量级 = 发布次数 × 域数）。
-- **建表**：随 **`platform:platform` 清单**幂等建表落地（域化后归 `platform-registry:platform`）。
+- **建表**：随 **`platform:platform` 清单**幂等建表落地（域化后归 `platform_registry:platform`）。
 - **写入方式**：与主表同事务写入；回滚时新增一行（`status=rolled_back`）而非修改原行，保留历史。
 
 > 本文档依《[文档生成规范](../../../规范/文档生成规范.md)》与《[数据库开发规范](../../../规范/数据库开发规范.md)》编写
