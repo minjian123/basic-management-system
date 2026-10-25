@@ -23,10 +23,8 @@
 | `tools/observability/` | 可观测部署辅助（`render_alertmanager.py` 从 `deploy/.env` 渲染配置；产物不入库） |
 | `tools/wol/` | 开发服务器电源控制（远程唤醒 / 睡眠 / 关机 mjbk，睡眠含 RTC 定时唤醒；关机为破坏性操作；Python 单一实现 + `.sh` 薄包装） |
 | `tools/winrm/` | Windows（mjw）远程控制（WinRM 会话与电源） |
-| `tools/bg/` | 后台执行器（长命令后台化 + 秒级轮询状态） |
 | `tools/defect/` | 缺陷工具链（REPRO 复现包自动上报 / AI 修复 / 一键复现） |
 | `tools/backup/` | 开发服务器备份脚本（版本管理源；`backup_daily` Python 单一实现 + `.sh` 薄包装，部署须两文件成对） |
-| `tools/gitlab/` | GitLab 流水线盯守（`watch_pipeline.py`） |
 | `tools/reorder_design/` | 设计文档节点编号重排 |
 | `tools/reorder_stage/` | 阶段目录编号重排（`renumber_stage.py`） |
 | `tools/workbuddy/` | WorkBuddy 桌面端补丁脚本 |
