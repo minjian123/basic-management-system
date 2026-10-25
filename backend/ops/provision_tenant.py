@@ -57,7 +57,7 @@ from bms_core.db.keys import (
 from bms_core.db.tenant_source import TENANT_SERVICE_KEY
 from bms_core.services.module_registry import enabled_service_keys
 from bms_core.services.table_registry import known_service_keys
-from ops.migrate_tenants import TenantRef, enrich_refs, report, run_tasks, unit_tasks, tenant_refs
+from ops.migrate_tenants import TenantRef, enrich_refs, report, run_tasks, tenant_refs, unit_tasks
 
 RUN_IMAGE = "*"
 """本脚本只依赖 `bms_core` 与 `ops`（不导入任何服务包），任意服务镜像均可运行。"""

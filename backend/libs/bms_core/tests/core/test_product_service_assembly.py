@@ -44,8 +44,8 @@ from bms_core.services.table_registry import (
     Datasource,
     TableOwnershipRegistry,
     TableRecord,
-    chain_tables,
     reset_table_records,
+    series_tables,
 )
 
 _PRODUCT_KEY = "mdm"
@@ -73,7 +73,15 @@ _PRODUCT_RECORDS: ConcurrentStableList[ModuleRecord] = ConcurrentStableList(
 """产品服务自报清单（与 `bms_core` 同口径；产品服务在自身仓库维护并经钩子注入）。"""
 
 _ORG_TABLE_RECORDS: ConcurrentStableList[TableRecord] = ConcurrentStableList(
-    (TableRecord(table_name="org_dept", owner="org", datasource=Datasource.TENANT, note="产品注入样例"),)
+    (
+        TableRecord(
+            table_name="org_dept",
+            owner="org",
+            domain="org",
+            datasource=Datasource.TENANT,
+            note="产品注入样例",
+        ),
+    )
 )
 """产品表归属自报记录（12_04；`org` 服务键已登记、前缀 `org_` 已登记）。"""
 
@@ -454,7 +462,7 @@ def test_table_records_hook_registers_and_merges() -> None:
         "org_dept",
     ]
     assert app.state.table_injected_records == ConcurrentStableList(_ORG_TABLE_RECORDS)
-    assert "org_dept" in chain_tables("org", Datasource.TENANT)
+    assert "org_dept" in series_tables("org", Datasource.TENANT)
 
 
 class _FormInjectFactory(BaseServiceApplicationFactory):

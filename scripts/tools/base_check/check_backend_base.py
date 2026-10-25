@@ -471,38 +471,62 @@ DEFAULT_CHAIN_NAME = "platform:tenant"
 
 
 def _iter_chain_dirs() -> ConcurrentStableList[tuple[str, str, str]]:
-    """遍历版本目录 `versions/{service}/{datasource}/`（两级），返回（服务, 数据源, 目录）。
+    """遍历版本目录 `versions/{domain}/{datasource}/`（两级），返回（域, 数据源, 目录）。
+
+    07C `03_02`：清单按**业务域**组织（旧 `versions/<服务>/<数据源>/` 形态已废弃）。
 
     Returns:
-        ConcurrentStableList[tuple[str, str, str]]: 链目录清单（保序）。
+        ConcurrentStableList[tuple[str, str, str]]: 清单目录清单（保序）。
     """
     found: ConcurrentStableList[tuple[str, str, str]] = ConcurrentStableList()
-    for service in sorted(os.listdir(VERSIONS_DIR)):
-        if service.startswith(".") or service == "__pycache__":
+    domains = _known_domains()
+    for domain in sorted(os.listdir(VERSIONS_DIR)):
+        if domain.startswith(".") or domain == "__pycache__":
             continue
-        service_path = os.path.join(VERSIONS_DIR, service)
-        if os.path.isfile(service_path):
-            if service.endswith(".py"):
-                problems.add(f"[迁移链] {service} 位于版本根目录（迁移脚本须按 versions/<服务>/<数据源>/ 两级存放）")
+        domain_path = os.path.join(VERSIONS_DIR, domain)
+        if os.path.isfile(domain_path):
+            if domain.endswith(".py"):
+                problems.add(f"[迁移清单] {domain} 位于版本根目录（迁移脚本须按 versions/<域>/<数据源>/ 两级存放）")
             continue
-        if not os.path.isdir(service_path):
+        if not os.path.isdir(domain_path):
             continue
-        if service not in _known_services():
-            problems.add(f"[迁移链] 服务目录 {service} 不在服务目录登记内（服务标识须已登记）")
-        for datasource in sorted(os.listdir(service_path)):
+        if domains is not None and domain not in domains:
+            problems.add(f"[迁移清单] 域目录 {domain} 未在域布局声明内（domain_key 须已登记）")
+        for datasource in sorted(os.listdir(domain_path)):
             if datasource.startswith(".") or datasource == "__pycache__":
                 continue
-            ds_path = os.path.join(service_path, datasource)
+            ds_path = os.path.join(domain_path, datasource)
             if os.path.isfile(ds_path):
                 if datasource.endswith(".py"):
-                    problems.add(f"[迁移链] {service}/{datasource} 位于服务目录（版本目录须为 {service}/<数据源>/）")
+                    problems.add(f"[迁移清单] {domain}/{datasource} 位于域目录（版本目录须为 {domain}/<数据源>/）")
                 continue
             if not os.path.isdir(ds_path):
                 continue
             if datasource not in DATASOURCES:
-                problems.add(f"[迁移链] {service}/{datasource} 数据源段非法（允许 {' / '.join(DATASOURCES)}）")
-            found.add((service, datasource, ds_path))
+                problems.add(f"[迁移清单] {domain}/{datasource} 数据源段非法（允许 {' / '.join(DATASOURCES)}）")
+            found.add((domain, datasource, ds_path))
     return found
+
+
+def _known_domains() -> ConcurrentStableSet[str] | None:
+    """从域布局声明静态提取已登记业务域（不导入服务包）。
+
+    Returns:
+        ConcurrentStableSet[str] | None: 域标识集合（含归档占位 `archive`）；布局缺失返回 None（不做成员校验）。
+    """
+    path = os.path.join(ROOT, "deploy/boundaries/domain_layout.json")
+    if not os.path.isfile(path):
+        return None
+    domains: ConcurrentStableSet[str] = ConcurrentStableSet({"archive"})
+    try:
+        payload = json.loads(Path(path).read_text(encoding="utf-8", errors="ignore"))
+    except ValueError:
+        return None
+    for item in payload.get("domains", []) if isinstance(payload, dict) else []:
+        key = item.get("domain_key") if isinstance(item, dict) else None
+        if isinstance(key, str) and key:
+            domains.add(key)
+    return domains
 
 
 def _known_services() -> ConcurrentStableSet[str]:

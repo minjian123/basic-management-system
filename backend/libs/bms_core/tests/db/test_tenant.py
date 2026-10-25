@@ -143,7 +143,7 @@ def test_source_value_shape_validation() -> None:
 
 @pytest.mark.kiwi_id(1019)
 @pytest.mark.kiwi_id(2217)
-async def test_resolve_chain_priority_and_kinds() -> None:
+async def test_resolve_series_priority_and_kinds() -> None:
     """解析链次序：子域名（按 domain）→ 请求头（按 code）→ 令牌租户位（按 id）。"""
     demo = TenantContext(
         code="demo", db_key="tenant_demo", name="演示租户", domain="demo.bms.example.com", tenant_id=1001

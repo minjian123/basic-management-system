@@ -48,12 +48,12 @@ def _table_names(path: Path) -> ConcurrentStableSet[str]:
 def test_init_schema_dry_run_lists_targets(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """`--dry-run`：输出「服务 × 数据源 × 库」清单与库数量统计，不建连、不建文件。"""
+    """`--dry-run`：输出「单元 × 数据源 × 库」清单与库数量统计，不建连、不建文件。"""
     _prepare(tmp_path, monkeypatch)
     args = ["--service", "platform", "--code", "demo", "--code", "acme", "--dry-run"]
     assert init_schema.main(ConcurrentStableList(args)) == 0
     out = capsys.readouterr().out
-    for label in ("platform:platform", "platform_platform", "tenant_platform_demo", "archive", "库数量", "dry-run"):
+    for label in ("platform_platform", "tenant_platform_demo", "archive", "库数量", "dry-run", "域："):
         assert label in out
     assert not (tmp_path / "bms_platform_demo.db").exists()
 

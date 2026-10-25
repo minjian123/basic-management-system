@@ -200,7 +200,7 @@ def check_destructive(series: MigrationSeries, *, allow_destructive: bool) -> Co
 
 
 @contextlib.contextmanager
-def library_lock(url: str) -> Generator[bool, None, None]:
+def library_lock(url: str) -> Generator[bool]:
     """校验 7：库级互斥（PostgreSQL 咨询锁 / MySQL 命名锁；其余方言不提供，按部署串行）。
 
     拿不到锁即返回 False（**不排队等待**，避免两实例同时改结构）。

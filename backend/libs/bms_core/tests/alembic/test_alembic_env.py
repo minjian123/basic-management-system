@@ -1,235 +1,106 @@
-"""迁移环境与链取值测试（Kiwi 1078）：版本号读取（异步 / 同步）与链元数据校验。"""
+"""迁移环境与版本记录表（Kiwi 1079 / 2353）：每清单独立版本表、元数据子集、升级参数透传。
+
+`alembic/env.py` 按清单显式设置 `version_table = alembic_version_{domain}`（07C `03_02`）：
+多域同库时各清单各写自己的表，互不覆盖；未迁移（表不存在）视为未执行。
+"""
 
 import asyncio
+import sqlite3
 from pathlib import Path
 
 import pytest
-from alembic.config import Config
-from sqlalchemy import create_engine
 
 import bms_core.db.migration as migration
-from bms_core.core.concurrent import ConcurrentStableFrozenSet, ConcurrentStableList
-from bms_core.core.exceptions import ConfigError
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableSet
 from bms_core.db.migration import (
-    MigrationChain,
-    chain_metadata,
+    DATASOURCE_TENANT,
     current_revision,
-    resolve_chain,
-    resolve_chain_from_section,
+    resolve_series,
+    series_metadata,
+    upgrade_series,
 )
 
 
-def _write_version(sync_url: str, revision: str) -> None:
-    """用同步引擎写入 `alembic_version`（模拟迁移后状态）。
+def _make_db(path: Path, *tables: str) -> None:
+    """建一个空 SQLite 库并可选建若干版本记录表。
 
     Args:
-        sync_url: 同步连接串。
-        revision: 版本号。
+        path: 库文件路径。
+        tables: 要创建的版本记录表名。
     """
-    engine = create_engine(sync_url)
+    connection = sqlite3.connect(path)
     try:
-        with engine.begin() as connection:
-            connection.exec_driver_sql("CREATE TABLE alembic_version (version_num VARCHAR(32) NOT NULL)")
-            connection.exec_driver_sql(f"INSERT INTO alembic_version (version_num) VALUES ('{revision}')")
+        for table in tables:
+            connection.execute(f"CREATE TABLE {table} (version_num VARCHAR(32) NOT NULL)")
+        connection.commit()
     finally:
-        engine.dispose()
+        connection.close()
 
 
-@pytest.mark.kiwi_id(1078)
-def test_resolve_chain_from_section_rejects_foreign_section() -> None:
-    """非 `alembic` 前缀的配置段 → `ConfigError`（不猜测链）。"""
-    with pytest.raises(ConfigError):
-        resolve_chain_from_section("engine")
-
-
-@pytest.mark.kiwi_id(1078)
-def test_chain_metadata_intersects_existing_models() -> None:
-    """链表集与已有模型取交集：无模型的登记表不报错、不进元数据（06_02 表集派生口径）。"""
-    chain = MigrationChain(
-        name="platform:tenant",
-        service="platform",
-        datasource="tenant",
-        tables=ConcurrentStableFrozenSet({"sys_role", "sys_ghost"}),
-        scope="platform 服务的服务租户库",
-    )
-    tables = chain_metadata(chain)
-    assert set(tables.tables) == {"sys_role"}
-    assert resolve_chain("tenant:platform").name == "tenant:platform"
-
-
-@pytest.mark.kiwi_id(1078)
-async def test_current_revision_unmigrated_and_migrated(tmp_path: Path) -> None:
-    """`current_revision`：未迁移（无 `alembic_version` 表）返回 None；迁移后回读版本号。"""
-    url = f"sqlite+aiosqlite:///{tmp_path / 'rev.db'}"
-    assert await current_revision(url) is None
-
-    _write_version(f"sqlite:///{tmp_path / 'rev.db'}", "0001_demo")
-    assert await current_revision(url) == "0001_demo"
-
-
-@pytest.mark.kiwi_id(1078)
-def test_read_revision_sync_variant(tmp_path: Path) -> None:
-    """同步读取变体（达梦等无异步方言驱动）：未迁移 None、迁移后回读版本号。"""
-    sync_url = f"sqlite:///{tmp_path / 'sync_rev.db'}"
-    assert migration._read_revision(sync_url, "") is None  # pyright: ignore[reportPrivateUsage]
-    _write_version(sync_url, "0002_demo")
-    assert migration._read_revision(sync_url, "") == "0002_demo"  # pyright: ignore[reportPrivateUsage]
-
-
-class _FakeDialect:
-    """伪方言（仅承载 `name`，用于达梦分支单测）。"""
-
-    def __init__(self, name: str) -> None:
-        self.name = name
-
-
-class _FakeConnection:
-    """伪连接：记录执行语句、事务状态与提交，可指定首条语句抛错（验证回落分支）。"""
-
-    def __init__(self, dialect: str, *, fail_first: bool = False, in_transaction: bool = False) -> None:
-        self.dialect = _FakeDialect(dialect)
-        self.statements: ConcurrentStableList[str] = ConcurrentStableList()
-        self.commits = 0
-        self._fail_first = fail_first
-        self._in_transaction = in_transaction
-
-    def exec_driver_sql(self, statement: str) -> None:
-        """记录语句；`fail_first` 时首条抛错（模拟达梦不支持 `SET SCHEMA`）。
-
-        Args:
-            statement: SQL 语句。
-
-        Raises:
-            RuntimeError: 首条语句且 `fail_first` 为真时抛出。
-        """
-        self.statements.add(statement)
-        if self._fail_first and len(self.statements) == 1:
-            raise RuntimeError("SET SCHEMA 不支持")
-
-    def in_transaction(self) -> bool:
-        """是否处于事务中（测试替身口径可控）。
-
-        Returns:
-            bool: 事务中 True。
-        """
-        return self._in_transaction
-
-    def commit(self) -> None:
-        """提交并计入次数（验证 `SET SCHEMA` 后的隐式事务被结束）。"""
-        self.commits += 1
-        self._in_transaction = False
-
-
-@pytest.mark.kiwi_id(1078)
-def test_apply_session_schema_dialect_and_fallback() -> None:
-    """模式切换：非达梦 / 未指定模式为空操作；达梦优先 `SET SCHEMA`，不支持时回落标准 SQL。"""
-    sqlite_connection = _FakeConnection("sqlite")
-    migration.apply_session_schema(sqlite_connection, "BMS_MIGRCHECK")  # type: ignore[arg-type]
-    assert sqlite_connection.statements == []
-
-    dm_connection = _FakeConnection("dm")
-    migration.apply_session_schema(dm_connection, "")  # type: ignore[arg-type]
-    assert dm_connection.statements == []
-
-    migration.apply_session_schema(dm_connection, "BMS_MIGRCHECK")  # type: ignore[arg-type]
-    assert dm_connection.statements == ["SET SCHEMA BMS_MIGRCHECK"]
-
-    # 自定义 XA 方言 `dmxa`（05_05 归一后运行期口径）同达梦处理
-    dmxa_connection = _FakeConnection("dmxa")
-    migration.apply_session_schema(dmxa_connection, "BMS_MIGRCHECK")  # type: ignore[arg-type]
-    assert dmxa_connection.statements == ["SET SCHEMA BMS_MIGRCHECK"]
-
-    fallback = _FakeConnection("dm", fail_first=True)
-    migration.apply_session_schema(fallback, "BMS_MIGRCHECK")  # type: ignore[arg-type]
-    assert fallback.statements == [
-        "SET SCHEMA BMS_MIGRCHECK",
-        "ALTER SESSION SET CURRENT_SCHEMA BMS_MIGRCHECK",
-    ]
-
-    # 达梦下 `SET SCHEMA` 打开的隐式事务须立即结束（否则 Alembic 视为外部事务、版本行回滚）
-    in_tx = _FakeConnection("dm", in_transaction=True)
-    migration.apply_session_schema(in_tx, "BMS_MIGRCHECK")  # type: ignore[arg-type]
-    assert in_tx.commits == 1
-
-
-@pytest.mark.kiwi_id(1078)
-def test_has_revisions_missing_directory() -> None:
-    """版本目录不存在时视为空链（`False`）。"""
-    ghost = MigrationChain(
-        name="ghost:tenant", service="ghost", datasource="tenant", tables=ConcurrentStableFrozenSet(), scope="测试"
-    )
-    assert migration.has_revisions(ghost) is False  # pyright: ignore[reportPrivateUsage]
-
-
-@pytest.mark.kiwi_id(1078)
-async def test_current_revision_delegates_to_sync_for_dm(monkeypatch: pytest.MonkeyPatch) -> None:
-    """达梦方言走同步读取线程（不尝试异步引擎）。"""
-    calls: ConcurrentStableList[tuple[str, str]] = ConcurrentStableList()
-
-    def fake_read(url: str, schema: str) -> str:
-        """替身：记录调用并返回版本号。"""
-        calls.add((url, schema))
-        return "0001_demo"
-
-    monkeypatch.setattr(migration, "_read_revision", fake_read)
-    url = "dm+dmPython://SYSDBA:p@127.0.0.1:5236"
-    assert await current_revision(url, schema="BMS_MIGRCHECK") == "0001_demo"
-    assert calls == [(url, "BMS_MIGRCHECK")]
-
-
-def _temp_chain_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> str:
-    """造临时链脚本环境（版本目录 + 最小脚本 + 配置段），返回目标 SQLite 连接串。
+def _write_version(path: Path, table: str, value: str) -> None:
+    """向指定版本记录表写入一行版本号。
 
     Args:
-        tmp_path: 临时目录。
-        monkeypatch: 用于把工程根 / 版本根指向临时目录。
-
-    Returns:
-        str: 临时 SQLite 目标连接串。
+        path: 库文件路径。
+        table: 版本记录表名。
+        value: 版本号。
     """
-    versions = tmp_path / "versions"
-    location = versions / "platform" / "platform"
-    location.mkdir(parents=True)
-    (location / "0001_demo.py").write_text(
-        'revision: str = "0001_demo"\n'
-        "down_revision: str | None = None\n"
-        'branch_labels: tuple[str, ...] = ("platform:platform",)\n'
-        "def upgrade() -> None:\n    pass\n"
-        "def downgrade() -> None:\n    pass\n",
-        encoding="utf-8",
-    )
-    (tmp_path / "alembic.ini").write_text(
-        "[alembic:platform:platform]\n"
-        "path_separator = os\n"
-        f"script_location = {migration.BACKEND_ROOT / 'alembic'}\n"
-        f"version_locations = {location}\n",
-        encoding="utf-8",
-    )
-    monkeypatch.setattr(migration, "VERSIONS_ROOT", versions)
-    monkeypatch.setattr(migration, "BACKEND_ROOT", tmp_path)
-    return f"sqlite+aiosqlite:///{tmp_path / 'drill.db'}"
+    connection = sqlite3.connect(path)
+    try:
+        connection.execute(f"INSERT INTO {table} (version_num) VALUES (?)", (value,))
+        connection.commit()
+    finally:
+        connection.close()
 
 
-@pytest.mark.kiwi_id(2307)
-def test_upgrade_chain_runs_temp_chain(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """库级编排保留（临时链脚本自检）：仓库脚本清空后 `upgrade_chain` 仍能把临时链跑到 head。"""
-    url = _temp_chain_env(tmp_path, monkeypatch)
-    migration.upgrade_chain(migration.resolve_chain("platform:platform"), url)
-    assert asyncio.run(migration.current_revision(url)) == "0001_demo"
+@pytest.mark.kiwi_id(1079)
+def test_current_revision_per_version_table(tmp_path: Path) -> None:
+    """未迁移返回 None；各清单版本记录表**互不覆盖**（多域同库各读各的）。"""
+    path = tmp_path / "series.db"
+    _make_db(path, "alembic_version_user", "alembic_version_role")
+    _write_version(path, "alembic_version_user", "0002_add_col")
+    _write_version(path, "alembic_version_role", "0001_init")
+    url = f"sqlite+aiosqlite:///{path}"
+    assert asyncio.run(current_revision(url, version_table="alembic_version_user")) == "0002_add_col"
+    assert asyncio.run(current_revision(url, version_table="alembic_version_role")) == "0001_init"
+    assert asyncio.run(current_revision(url, version_table="alembic_version_tenant")) is None
 
 
-@pytest.mark.kiwi_id(2307)
-def test_upgrade_chain_passes_schema_x_arg(monkeypatch: pytest.MonkeyPatch) -> None:
-    """达梦模式经 `-x schema=` 显式传入（非达梦方言忽略；以替身核对传参口径，避免真连达梦）。"""
-    captured: ConcurrentStableList[ConcurrentStableList[str]] = ConcurrentStableList()
+@pytest.mark.kiwi_id(1079)
+def test_series_metadata_intersects_models() -> None:
+    """清单元数据子集 = 域表集 ∩ 已有模型（未落模型的登记表不参与建表）。"""
+    series = resolve_series("user:tenant")
+    metadata = series_metadata(series)
+    assert ConcurrentStableSet(metadata.tables) <= ConcurrentStableSet(series.tables)
+    assert "sys_user" in metadata.tables
 
-    def _fake_upgrade(config: Config, revision: str) -> None:
-        """替身：记录 `-x` 参数并核对目标修订。"""
-        captured.add(ConcurrentStableList(config.cmd_opts.x))  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
-        assert revision == "head"
 
-    monkeypatch.setattr(migration.command, "upgrade", _fake_upgrade)
-    migration.upgrade_chain(
-        migration.resolve_chain("platform:platform"), "dm+dmPython://SYSDBA:p@127.0.0.1:5236", schema="BMS_X"
-    )
-    assert captured == [("url=dm+dmPython://SYSDBA:p@127.0.0.1:5236", "schema=BMS_X")]
+@pytest.mark.kiwi_id(2353)
+def test_upgrade_series_passes_x_args(monkeypatch: pytest.MonkeyPatch) -> None:
+    """升级时连接串与达梦模式经 `-x url=` / `-x schema=` 透传（不写死、不进日志）。"""
+    captured: ConcurrentStableDict[str, object] = ConcurrentStableDict()
+
+    def fake_upgrade(config: object, revision: str) -> None:
+        captured["revision"] = revision
+        captured["x"] = getattr(getattr(config, "cmd_opts", None), "x", None)
+
+    def fake_config(series: object) -> object:
+        """替身：配置对象只需可挂 `cmd_opts`。"""
+        del series
+        return type("C", (), {})()
+
+    monkeypatch.setattr(migration.command, "upgrade", fake_upgrade)
+    monkeypatch.setattr(migration, "alembic_config", fake_config)
+    upgrade_series(resolve_series("user:tenant"), "dm+dmPython://SYSDBA:p@127.0.0.1:5236", schema="BMS_X")
+    assert captured["revision"] == "head"
+    assert captured["x"] == ["url=dm+dmPython://SYSDBA:p@127.0.0.1:5236", "schema=BMS_X"]
+
+
+@pytest.mark.kiwi_id(2353)
+def test_has_revisions_and_version_location() -> None:
+    """空清单（无脚本）视为无 revision；版本目录按 `{domain}/{datasource}` 两级。"""
+    series = resolve_series("user:tenant")
+    assert series.datasource == DATASOURCE_TENANT
+    assert series.version_location.name == "tenant"
+    assert series.version_location.parent.name == "user"
+    assert migration.has_revisions(series) is False

@@ -8,6 +8,7 @@ import pytest
 from sqlalchemy import UniqueConstraint
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.db.migration import unit_domains
 from bms_core.models.base import Base
 from bms_core.models.ownership import SysTableOwnership
 from bms_core.services.module_registry import (
@@ -26,7 +27,6 @@ from bms_core.services.table_registry import (
     TableOwnershipRegistry,
     TableRecord,
     TableStatus,
-    chain_tables,
     infrastructure_tables,
     injected_table_records,
     known_service_keys,
@@ -36,11 +36,13 @@ from bms_core.services.table_registry import (
     registered_domains,
     registered_services,
     reset_table_records,
+    series_tables,
     table_domain,
     table_names,
     table_owner,
     table_ownership_view,
     table_record,
+    unit_tables,
     validate_table_ownership,
 )
 
@@ -101,32 +103,22 @@ def test_owned_tables_and_chain_derivation() -> None:
         {"sys_tenant", "sys_tenant_database", "sys_user_tenant", "sys_tenant_quota", "sys_tenant_module"}
     )
 
-    platform_chain = chain_tables("platform", Datasource.PLATFORM)
-    assert {"sys_module", "sys_module_i18n", "sys_product", "sys_table_ownership"} <= platform_chain
-    assert "sys_tenant" not in platform_chain
-    assert infrastructure_tables() <= platform_chain
-    assert {table for table in platform_chain if table not in infrastructure_tables()} == {
-        "sys_module",
-        "sys_module_i18n",
-        "sys_product",
-        "sys_table_ownership",
-        "sys_business",
-        "sys_business_i18n",
-        "sys_action",
-        "sys_action_i18n",
-        "sys_permission",
-        "sys_menu",
-        "sys_menu_i18n",
-        "sys_form",
-        "sys_menu_form",
-        "sys_button",
-        "sys_field",
-        "sys_field_i18n",
-    }
+    # 域清单只含本域表（03_02）：表前缀 / 归属域一一对应
+    registry_platform = series_tables("platform_registry", Datasource.PLATFORM)
+    assert registry_platform == frozenset({"sys_module", "sys_module_i18n", "sys_product", "sys_table_ownership"})
+    assert "sys_tenant" not in registry_platform
+    assert infrastructure_tables().isdisjoint(registry_platform), "基础设施表不得进域清单"
+    assert {"sys_business", "sys_action", "sys_permission"} <= series_tables("permission_meta", Datasource.PLATFORM)
+    assert {"sys_menu", "sys_form", "sys_field", "sys_button"} <= series_tables("menu_form", Datasource.PLATFORM)
 
-    tenant_chain = chain_tables("platform", Datasource.TENANT)
-    assert {"sys_data_scope", "sys_query_scheme"} <= tenant_chain
-    # 角色域 5 表（02_03）与用户 / 账号锁定两表（02_05）落 platform 服务租户库
+    # 单元建表集 = 所含域并集 + 基础设施表（合并拓扑）
+    unit_platform = unit_tables(unit_domains("platform"), Datasource.PLATFORM)
+    assert infrastructure_tables() <= unit_platform
+    assert registry_platform <= unit_platform
+    assert "sys_tenant" not in unit_platform
+
+    unit_tenant = unit_tables(unit_domains("platform"), Datasource.TENANT)
+    # 角色域 5 表（02_03）与用户 / 账号锁定两表（02_05）落 platform 单元租户库
     assert {
         "sys_role",
         "sys_user_role",
@@ -135,31 +127,28 @@ def test_owned_tables_and_chain_derivation() -> None:
         "sys_data_scope",
         "sys_user",
         "sys_account_lock",
-    } <= tenant_chain
-    assert infrastructure_tables() <= tenant_chain
-    # 租户自定义图标（03_03 真实落库）已入链
-    assert {"sys_icon", "sys_icon_i18n"} <= tenant_chain
-    # 未定稿表（骨架表 / 演示表）不进链（06_02 状态收口）
-    assert {"sys_task", "sys_task_log", "demo"}.isdisjoint(tenant_chain)
+    } <= unit_tenant
+    # 租户自定义图标（03_03 真实落库）已入清单
+    assert {"sys_icon", "sys_icon_i18n"} <= unit_tenant
+    # 未定稿表（骨架表 / 演示表）不进清单（06_02 状态收口）
+    assert {"sys_task", "sys_task_log", "demo"}.isdisjoint(unit_tenant)
 
-    assert chain_tables("tenant", Datasource.PLATFORM) == frozenset(
+    assert series_tables("tenant", Datasource.PLATFORM) == frozenset(
         {
             "sys_tenant",
             "sys_tenant_database",
             "sys_user_tenant",
             "sys_tenant_quota",
             "sys_tenant_module",
-            *infrastructure_tables(),
         }
     )
-    # org 服务用户 / 账号锁定两表随 02_05 迁 platform → 该链只余基础设施三表
-    assert chain_tables("org", Datasource.TENANT) == frozenset(infrastructure_tables())
-    assert chain_tables("identity", Datasource.TENANT) == frozenset(
-        {"sys_session", "sys_identity_provider", "sys_client", *infrastructure_tables()}
-    )
-    assert chain_tables("identity", Datasource.PLATFORM) == frozenset({"sys_user_identity", *infrastructure_tables()})
-    # 归档链不含基础设施表（每服务自有仅限平台 / 租户链）
-    assert chain_tables("platform", Datasource.ARCHIVE) == frozenset()
+    # org 域（mdm 承载）不在 bms 布局内：未注入产品表归属时为空集
+    assert series_tables("org", Datasource.TENANT) == frozenset()
+    assert series_tables("auth", Datasource.TENANT) == frozenset({"sys_session"})
+    assert series_tables("identity_federation", Datasource.TENANT) == frozenset({"sys_identity_provider", "sys_client"})
+    assert series_tables("identity_federation", Datasource.PLATFORM) == frozenset({"sys_user_identity"})
+    # 归档清单不含基础设施表（每库一份，仅平台 / 租户库）
+    assert series_tables("platform_registry", Datasource.ARCHIVE) == frozenset()
 
 
 @pytest.mark.kiwi_id(2176)
@@ -324,7 +313,7 @@ def _mdm_records() -> ConcurrentStableList[TableRecord]:
 @pytest.mark.kiwi_id(2254)
 def test_product_table_injection_enters_chain() -> None:
     """产品表装载期注入 → 视图 / 归属查询 / 链派生均可见；清空后回到平台清单。"""
-    assert "mdm_dept" not in chain_tables("mdm", Datasource.TENANT)
+    assert "mdm_dept" not in series_tables("org", Datasource.TENANT)
     assert table_owner("mdm_dept") is None
 
     register_service_records((_mdm_service_record(),))
@@ -336,16 +325,18 @@ def test_product_table_injection_enters_chain() -> None:
         assert table_owner("mdm_dept") == "mdm"
         assert "mdm_post" in table_names()
         assert len(table_ownership_view()) == len(TABLE_OWNERSHIP) + 2
-        tenant_chain = chain_tables("mdm", Datasource.TENANT)
-        assert {"mdm_dept", "mdm_post"} <= tenant_chain
-        assert infrastructure_tables() <= tenant_chain
-        assert not chain_tables("mdm", Datasource.ARCHIVE), "租户层产品表不进归档链"
+        tenant_series = series_tables("org", Datasource.TENANT)
+        assert {"mdm_dept", "mdm_post"} <= tenant_series
+        # 基础设施表不进域清单（每库一份）；单元级建表集才含它们
+        assert infrastructure_tables().isdisjoint(tenant_series)
+        assert infrastructure_tables() <= unit_tables(["org"], Datasource.TENANT)
+        assert not series_tables("org", Datasource.ARCHIVE), "租户层产品表不进归档链"
         assert TableOwnershipRegistry().validate() == []
     finally:
         reset_table_records()
         reset_service_records()
         reset_product_records()
-        assert "mdm_dept" not in chain_tables("mdm", Datasource.TENANT)
+        assert "mdm_dept" not in series_tables("org", Datasource.TENANT)
 
 
 @pytest.mark.kiwi_id(2254)

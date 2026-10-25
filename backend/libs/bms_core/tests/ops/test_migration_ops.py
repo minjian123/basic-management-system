@@ -9,7 +9,7 @@ import ops.init_tenant as init_tenant
 import ops.migrate_tenants as migrate_tenants
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import get_settings
-from bms_core.db.migration import MigrationChain
+from bms_core.db.migration import MigrationSeries
 
 
 def _prepare(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -28,31 +28,33 @@ def _prepare(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     get_settings().app.service = "platform"
 
 
-async def _current_none(url: str, *, schema: str = "") -> str | None:
+async def _current_none(url: str, *, version_table: str = "", schema: str = "") -> str | None:
     """替身：目标库未迁移（版本号 None）。
 
     Args:
         url: 连接串（忽略）。
+        version_table: 版本记录表名（忽略）。
         schema: 模式名（忽略）。
 
     Returns:
         str | None: None。
     """
-    del url, schema
+    del url, version_table, schema
     return None
 
 
-async def _current_head(url: str, *, schema: str = "") -> str | None:
-    """替身：目标库已达链头。
+async def _current_head(url: str, *, version_table: str = "", schema: str = "") -> str | None:
+    """替身：目标库已达清单头。
 
     Args:
         url: 连接串（忽略）。
+        version_table: 版本记录表名（忽略）。
         schema: 模式名（忽略）。
 
     Returns:
-        str | None: 链头版本号。
+        str | None: 清单头版本号。
     """
-    del url, schema
+    del url, version_table, schema
     return "0001_demo"
 
 
@@ -69,7 +71,7 @@ def test_migrate_dry_run_lists_targets(
         == 0
     )
     out = capsys.readouterr().out
-    for label in ("platform:platform", "platform_platform", "tenant_platform_demo", "archive", "库数量"):
+    for label in ("platform_platform", "tenant_platform_demo", "archive", "库数量", "域："):
         assert label in out
     assert not (tmp_path / "bms_platform_demo.db").exists()
 
@@ -98,7 +100,8 @@ def test_migrate_tenants_scripts_cleared_skips(
     assert migrate_tenants.main(ConcurrentStableList(args)) == 0
     out = capsys.readouterr().out
     assert "汇总：成功 0、跳过 2、失败 0" in out
-    assert out.count("无脚本（跳过）") == 2
+    # 每条清单各自「无脚本（跳过）」：一个库内多域 → 行数 = 域数 × 库数（至少 2 行）
+    assert out.count("无脚本（跳过）") >= 2
     assert not (tmp_path / "bms_platform_demo.db").exists()
 
 
@@ -110,24 +113,35 @@ def test_migrate_tenants_mechanism_with_temp_chain(
     _prepare(tmp_path, monkeypatch)
     calls: ConcurrentStableList[str] = ConcurrentStableList()
 
-    def _head(chain: MigrationChain) -> str:
-        """替身：该链恒有脚本（临时链脚本口径，链头 `0001_demo`）。"""
-        del chain
+    def _head(series: MigrationSeries) -> str:
+        """替身：该清单恒有脚本（临时清单脚本口径，头 `0001_demo`）。"""
+        del series
         return "0001_demo"
 
-    def _upgrade(chain: MigrationChain, url: str, *, schema: str = "") -> None:
+    def _upgrade(series: MigrationSeries, url: str, *, schema: str = "") -> None:
         """替身：记录升级调用（不真跑 Alembic）。"""
         del url, schema
-        calls.add(chain.name)
+        calls.add(series.name)
 
     monkeypatch.setattr(migrate_tenants, "head_revision", _head)
     monkeypatch.setattr(migrate_tenants, "current_revision", _current_none)
-    monkeypatch.setattr(migrate_tenants, "upgrade_chain", _upgrade)
+    monkeypatch.setattr(migrate_tenants, "upgrade_series", _upgrade)
+
+    # 替身版本号不在真实清单脚本内（仓库脚本已清空）：版本校验按通过处理，只验机制分支
+    def _no_problems(*args: object, **kwargs: object) -> ConcurrentStableList[str]:
+        """替身：版本校验恒通过。"""
+        del args, kwargs
+        return ConcurrentStableList()
+
+    monkeypatch.setattr(migrate_tenants, "check_version_known", _no_problems)
+    monkeypatch.setattr(migrate_tenants, "check_monotonic", _no_problems)
     args = ["--service", "platform", "--target", "tenants", "--code", "demo"]
     assert migrate_tenants.main(ConcurrentStableList(args)) == 0
     out = capsys.readouterr().out
     assert "迁移完成" in out
-    assert calls == ["platform:tenant"]
+    # 一个库内按域逐条清单执行（platform 单元承载多个域）
+    assert "user:tenant" in calls
+    assert "platform_registry:tenant" in calls
 
     monkeypatch.setattr(migrate_tenants, "current_revision", _current_head)
     assert migrate_tenants.main(ConcurrentStableList(args)) == 0
@@ -141,19 +155,19 @@ def test_migrate_failure_is_collected_not_fatal(
     """单库失败不中断整批：记失败并汇总结论，退出码 1（可幂等重跑补做）。"""
     _prepare(tmp_path, monkeypatch)
 
-    def _head(chain: MigrationChain) -> str:
-        """替身：该链恒有脚本（临时链脚本口径）。"""
-        del chain
+    def _head(series: MigrationSeries) -> str:
+        """替身：该清单恒有脚本（临时清单脚本口径）。"""
+        del series
         return "0001_demo"
 
-    def _boom(chain: MigrationChain, url: str, *, schema: str = "") -> None:
+    def _boom(series: MigrationSeries, url: str, *, schema: str = "") -> None:
         """替身：升级即失败。"""
-        del chain, url, schema
+        del series, url, schema
         raise RuntimeError("drill")
 
     monkeypatch.setattr(migrate_tenants, "head_revision", _head)
     monkeypatch.setattr(migrate_tenants, "current_revision", _current_none)
-    monkeypatch.setattr(migrate_tenants, "upgrade_chain", _boom)
+    monkeypatch.setattr(migrate_tenants, "upgrade_series", _boom)
     args = ["--service", "platform", "--target", "tenants", "--code", "demo", "--code", "acme"]
     assert migrate_tenants.main(ConcurrentStableList(args)) == 1
     out = capsys.readouterr().out
@@ -189,13 +203,13 @@ def test_init_tenant_three_steps_and_idempotent(tmp_path: Path, capsys: pytest.C
     assert init_tenant.main(ConcurrentStableList(args)) == 0
     out = capsys.readouterr().out
     assert "建库 → 新建" in out
-    assert "建表 platform:tenant 链 → 新建" in out and "已存在 0" in out
+    assert "建表 platform 单元（租户库）→ 新建" in out and "已存在 0" in out
     assert "种子 → 新增" in out and "新增 0 行" not in out
 
     assert init_tenant.main(ConcurrentStableList(args)) == 0
     again = capsys.readouterr().out
     assert "建库 → 已存在（跳过）" in again
-    assert "建表 platform:tenant 链 → 新建 0" in again
+    assert "建表 platform 单元（租户库）→ 新建 0" in again
     assert "种子 → 新增 0 行" in again
 
 

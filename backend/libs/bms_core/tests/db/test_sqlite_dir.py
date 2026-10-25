@@ -6,7 +6,7 @@ import pytest
 
 from bms_core.core.config import Settings, resolve_sqlite_dir
 from bms_core.db.engine import EngineFactory
-from bms_core.db.migration import chain_url, resolve_chain
+from bms_core.db.migration import archive_series, default_series, series_url
 
 _REL = "sqlite+aiosqlite:///./bms_x.db"
 
@@ -45,15 +45,15 @@ def test_engine_resolve_url_applies_sqlite_dir(tmp_path: Path) -> None:
 
 
 @pytest.mark.kiwi_id(2244)
-def test_chain_url_applies_sqlite_dir(tmp_path: Path) -> None:
+def test_series_url_applies_sqlite_dir(tmp_path: Path) -> None:
     """迁移取连接串时经基址归一（租户 / 归档回落分支）。"""
     settings = Settings()
     settings.database.sqlite_dir = str(tmp_path)
     settings.database.tenants.url = _REL
     settings.database.tenants.url_template = ""
-    tenant_url = chain_url(resolve_chain("platform:tenant"), settings)
+    tenant_url = series_url(default_series(), settings)
     assert str(tmp_path / "bms_x.db") in tenant_url
 
     settings.database.archive.url = "sqlite+aiosqlite:///./bms_archive.db"
-    archive_url = chain_url(resolve_chain("platform:archive"), settings)
+    archive_url = series_url(archive_series(), settings)
     assert str(tmp_path / "bms_archive.db") in archive_url

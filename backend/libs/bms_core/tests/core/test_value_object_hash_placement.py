@@ -115,7 +115,7 @@ def test_mutable_collection_field_would_break_invariant() -> None:
     [
         # 08_05 主清单代表性值对象：字段落不可变形态后应可哈希（`hash()` 不抛错）
         "bms_core.audit.hashchain:HashChainEntry",
-        "bms_core.db.migration:MigrationChain",
+        "bms_core.db.migration:MigrationSeries",
         "bms_core.idp.registry:IdentityProviderSpec",
         "bms_core.query.base:QueryResult",
         "bms_core.search.base:SearchHit",

@@ -29,9 +29,8 @@ from bms_core.config.sql import SqlConfigSource
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import get_settings
 from bms_core.core.exceptions import ServiceUnavailableError
-from bms_core.db.bootstrap import apply_chain_schema
+from bms_core.db.bootstrap import apply_unit_schema
 from bms_core.db.engine import EngineFactory
-from bms_core.db.migration import resolve_chain
 from bms_core.db.registry import EngineRegistry
 from bms_core.servicecall.base import BaseServiceClient, ServiceRequest, ServiceResponse
 
@@ -63,7 +62,7 @@ def _build_schema(url: str) -> None:
     Args:
         url: 数据库 URL。
     """
-    asyncio.run(apply_chain_schema(resolve_chain("platform:tenant"), url, target="config_test"))
+    asyncio.run(apply_unit_schema("platform", "tenant", url, target="config_test"))
 
 
 @pytest.fixture

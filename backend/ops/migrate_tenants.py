@@ -48,7 +48,6 @@ from bms_core.db.migration import (
     MigrationSeries,
     archive_series,
     current_revision,
-    has_revisions,
     head_revision,
     unit_series,
     upgrade_series,
@@ -479,18 +478,18 @@ async def run_tasks(tasks: ConcurrentStableList[MigrationTask]) -> MigrationSumm
             ran = False
             broken = ""
             for series in task.series:
-                if not has_revisions(series):
-                    print(f"[migrate_tenants] {series.name} {task.label} → 无脚本（跳过）")
-                    continue
                 try:
                     head = head_revision(series)
+                    if head is None:
+                        print(f"[migrate_tenants] {series.name} {task.label} → 无脚本（跳过）")
+                        continue
                     current = await current_revision(task.url, version_table=series.version_table, schema=task.schema)
                     problems = check_version_known(series, current)
                     problems.update(check_monotonic(series, current, head))
                     if problems:
                         broken = "；".join(problems)
                         break
-                    if head is not None and current == head:
+                    if current == head:
                         print(f"[migrate_tenants] {series.name} {task.label} → 已是最新（跳过）")
                         continue
                     await asyncio.to_thread(upgrade_series, series, task.url, schema=task.schema)

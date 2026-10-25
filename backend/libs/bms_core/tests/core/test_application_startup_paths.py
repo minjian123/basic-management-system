@@ -296,7 +296,7 @@ async def test_lifespan_assembles_base_capabilities_before_db_bootstrap(
         del app
         observed.add(type(shared_redis_client()).__name__)
 
-    monkeypatch.setattr(app_module, "ensure_service_schema", _spy_schema)
+    monkeypatch.setattr(app_module, "ensure_unit_schema", _spy_schema)
     monkeypatch.setattr(app_module, "_validate_service_catalog", _spy_catalog)
     app = ApplicationFactory().create(None)
     async with app_module.service_lifespan(app):

@@ -230,11 +230,11 @@
     },
     {
       // 并行档位按执行规模选（《测试规范》「执行侧配套口径」）：单文件并行反而慢（worker 启动开销），
-      // 故本任务显式关掉并行（`-p no:xdist`），秒级出结果
+      // 故本任务显式关掉并行（`-n 0`），秒级出结果
       "label": "测试：后端当前文件（串行 · 秒级）",
-      "detail": "对当前打开的后端测试文件跑串行（uv run pytest <当前文件> -q -p no:xdist）；当前文件不在 backend 下时请改用「后端全量」",
+      "detail": "对当前打开的后端测试文件跑串行（uv run pytest <当前文件> -q -n 0）；当前文件不在 backend 下时请改用「后端全量」",
       "type": "shell",
-      "command": "uv run pytest \"${file}\" -q -p no:xdist",
+      "command": "uv run pytest \"${file}\" -q -n 0",
       "options": { "cwd": "${workspaceFolder}/backend" },
       "group": "test",
       "problemMatcher": []

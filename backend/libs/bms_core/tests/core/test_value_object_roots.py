@@ -206,7 +206,7 @@ VALUE_OBJECT_BATCH: ConcurrentStableList[tuple[str, str]] = ConcurrentStableList
         ("backend/libs/bms_core/src/bms_core/db/admin.py", "DatabaseTarget"),
         ("backend/libs/bms_core/src/bms_core/db/inventory.py", "DbCount"),
         ("backend/libs/bms_core/src/bms_core/db/keys.py", "DbKey"),
-        ("backend/libs/bms_core/src/bms_core/db/migration.py", "MigrationChain"),
+        ("backend/libs/bms_core/src/bms_core/db/migration.py", "MigrationSeries"),
         ("backend/libs/bms_core/src/bms_core/db/registry.py", "PoolBudgetRow"),
         ("backend/libs/bms_core/src/bms_core/db/tenant.py", "TenantContext"),
         ("backend/libs/bms_core/src/bms_core/db/tenant_registry.py", "TenantSnapshot"),

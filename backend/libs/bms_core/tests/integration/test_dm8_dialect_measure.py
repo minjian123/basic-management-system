@@ -42,7 +42,7 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from bms_core.core.concurrent import ConcurrentStableSet
 from bms_core.core.config import Settings
 from bms_core.db.engine import PLATFORM_DB_KEY, EngineFactory
-from bms_core.db.migration import resolve_chain
+from bms_core.db.migration import resolve_series
 from bms_core.db.registry import EngineRegistry
 from bms_core.db.session import session_scope
 
@@ -116,7 +116,7 @@ async def test_dm8_schema_prefix_and_identifier_case(registry: EngineRegistry) -
         # 故反射结果即该模式的对象，且迁移不写「模式名.表名」前缀
         # 表集按 06_02 分链口径取自平台链（`platform:platform`：sys_module / 发件箱 / 归属登记）；
         # 06_05 起建表走「启动期自动建表」（迁移脚本清空）⇒ **不再落 `alembic_version`**
-        expected = set(resolve_chain("platform:platform").tables)
+        expected = set(resolve_series("platform:platform").tables)
         assert expected <= names, sorted(names)
 
         async with session_scope(registry, db_key=PLATFORM_DB_KEY) as session:

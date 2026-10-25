@@ -43,7 +43,7 @@ from bms_core.core.config import Settings
 from bms_core.core.plugin import resolve_plugin
 from bms_core.db import engine as db_engine
 from bms_core.db.engine import PLATFORM_DB_KEY, EngineFactory
-from bms_core.db.migration import resolve_chain
+from bms_core.db.migration import resolve_series
 from bms_core.db.registry import EngineRegistry
 from bms_core.db.session import session_scope
 from bms_core.repositories.ordering import order_criteria
@@ -211,9 +211,9 @@ async def test_schema_tables_queryable(dialect: str, urls: tuple[str, str], regi
     （链名 `{service}:{datasource}`；`platform` 服务的租户库承载字典 / 查询方案等租户数据）。
     """
     del dialect, urls
-    for table in sorted(resolve_chain("platform:platform").tables):
+    for table in sorted(resolve_series("platform:platform").tables):
         assert await _can_select(registry, PLATFORM_DB_KEY, table) is True, table
-    for table in sorted(resolve_chain("platform:tenant").tables):
+    for table in sorted(resolve_series("platform:tenant").tables):
         assert await _can_select(registry, _TENANT_DB_KEY, table) is True, table
 
 

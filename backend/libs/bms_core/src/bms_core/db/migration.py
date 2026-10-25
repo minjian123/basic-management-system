@@ -437,17 +437,22 @@ def unit_key(settings: Settings | None = None) -> str:
 def unit_domains(unit: str) -> ConcurrentStableList[str]:
     """取部署单元所含业务域（由域布局按承载服务反推，稳定顺序）。
 
+    **拆分拓扑的退化形态**：单元标识若本身就是已登记的业务域（布局里没有以它为承载服务的域），
+    则该单元恰好承载这一个域——这样「一域一单元」无需额外登记即可表达（合并 / 拆分两拓扑同源验算）。
+
     Args:
-        unit: 部署单元标识（缺省形态即承载服务标识）。
+        unit: 部署单元标识（缺省形态即承载服务标识；拆分形态为域标识）。
 
     Returns:
         ConcurrentStableList[str]: 域标识列表（字典序，保证执行顺序可复现）。
     """
     if not unit:
         return ConcurrentStableList()
-    return ConcurrentStableList(
-        sorted(domain for domain, carrier in layout_domain_services().items() if carrier == unit)
-    )
+    mapping = layout_domain_services()
+    carriers = sorted(domain for domain, carrier in mapping.items() if carrier == unit)
+    if carriers:
+        return ConcurrentStableList(carriers)
+    return ConcurrentStableList([unit]) if unit in mapping else ConcurrentStableList()
 
 
 def unit_series(unit: str, datasource: str) -> ConcurrentStableList[MigrationSeries]:

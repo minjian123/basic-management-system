@@ -13,8 +13,8 @@ import pytest
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import get_settings
 from bms_core.core.exceptions import ConfigError
-from bms_core.db.bootstrap import apply_chain_schema
-from bms_core.db.migration import DATASOURCE_PLATFORM, build_chain_name, resolve_chain
+from bms_core.db.bootstrap import apply_unit_schema
+from bms_core.db.migration import DATASOURCE_PLATFORM
 from bms_core.services.module_registry import enabled_service_keys
 from bms_core.tenant import provisioning
 
@@ -40,8 +40,7 @@ async def _prepare_platform_service_db(tmp_path: Path) -> None:
         tmp_path: 临时目录。
     """
     url = f"sqlite+aiosqlite:///{tmp_path}/bms_platform.db"
-    chain = resolve_chain(build_chain_name("platform", DATASOURCE_PLATFORM))
-    await apply_chain_schema(chain, url, target="platform")
+    await apply_unit_schema("platform", DATASOURCE_PLATFORM, url, target="platform")
 
 
 @pytest.mark.kiwi_id(2343)

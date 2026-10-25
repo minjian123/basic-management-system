@@ -183,11 +183,13 @@ async def test_migrate_dm_keeps_schema_segment_and_passes_schema(
 
     captured: ConcurrentStableList[tuple[str, str]] = ConcurrentStableList()
 
-    async def fake_apply(chain: object, url: str, *, target: str = "", schema: str = "") -> SchemaOutcome:
-        captured.update((("url", url), ("schema", schema), ("target", target)))
+    async def fake_apply(unit: str, datasource: str, url: str, *, target: str = "", schema: str = "") -> SchemaOutcome:
+        captured.update(
+            (("unit", unit), ("datasource", datasource), ("url", url), ("schema", schema), ("target", target))
+        )
         return SchemaOutcome(target=target, total=0, created=0, existing=0)
 
-    monkeypatch.setattr(test_db_module, "apply_chain_schema", fake_apply)
+    monkeypatch.setattr(test_db_module, "apply_unit_schema", fake_apply)
 
     assert await migrate("dm8", "tenant", url=_DM_URL) is False
     record = dict(captured)
