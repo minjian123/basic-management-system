@@ -9,13 +9,16 @@ from __future__ import annotations
 
 import os
 import sys
+from collections.abc import Iterator
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from bms_core.core.concurrent import ConcurrentStableFrozenList, ConcurrentStableList
 
 _SRC_ROOT = Path(__file__).resolve().parents[3] / "backend" / "libs" / "bms_core" / "src"
 if str(_SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(_SRC_ROOT))
-
-from bms_core.core.concurrent import ConcurrentStableFrozenList, ConcurrentStableList  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 """bms 仓库根（本文件位于 `scripts/tools/preflight/`）。"""
@@ -24,18 +27,40 @@ CONFIG_NAME = "engkit.toml"
 """仓配置文件名（仓根）。"""
 
 
-def _candidates() -> ConcurrentStableList[Path]:
-    """engkit 克隆候选目录（环境变量优先，其次平级克隆）。
+def _stable_list() -> Any:
+    """按需导入插入序集合（解释器启动期不导入 `bms_core`，避免覆盖率漏计导入期行）。
 
     Returns:
-        ConcurrentStableList[Path]: 候选目录。
+        Any: `ConcurrentStableList()` 实例。
     """
-    found: ConcurrentStableList[Path] = ConcurrentStableList()
+    from bms_core.core.concurrent import ConcurrentStableList
+
+    return ConcurrentStableList()
+
+
+def _frozen_list() -> Any:
+    """按需导入冻结插入序集合（同上，保持启动期零 `bms_core` 导入）。
+
+    Returns:
+        Any: `ConcurrentStableFrozenList()` 实例。
+    """
+    from bms_core.core.concurrent import ConcurrentStableFrozenList
+
+    return ConcurrentStableFrozenList()
+
+
+def _candidate_sources() -> Iterator[Path]:
+    """engkit 克隆候选目录（环境变量优先，其次平级克隆）。
+
+    以生成器逐个产出，避免启动期构造集合与导入 `bms_core`（覆盖率探针须先于被测包启动）。
+
+    Yields:
+        Path: 候选克隆目录。
+    """
     env = os.environ.get("ENGKIT_HOME", "").strip()
     if env:
-        found.append(Path(env))
-    found.append(REPO_ROOT.parent / "engkit")
-    return found
+        yield Path(env)
+    yield REPO_ROOT.parent / "engkit"
 
 
 def ensure_engkit() -> None:
@@ -50,7 +75,7 @@ def ensure_engkit() -> None:
         return
     except ModuleNotFoundError:
         pass
-    for candidate in _candidates():
+    for candidate in _candidate_sources():
         source = candidate / "src"
         if (source / "engkit" / "__init__.py").is_file():
             sys.path.insert(0, str(source))
@@ -99,8 +124,8 @@ def pop_root(
     Returns:
         tuple[ConcurrentStableList[str], str]: （去掉位置根后的参数, 仓库根；缺省空串）。
     """
-    kept: ConcurrentStableList[str] = ConcurrentStableList()
-    options = ConcurrentStableFrozenList() if value_options is None else value_options
+    kept = _stable_list()
+    options = _frozen_list() if value_options is None else value_options
     root = ""
     skip_next = False
     for token in argv:
