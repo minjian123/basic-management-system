@@ -113,7 +113,7 @@ describe('BusinessRecordTab（03_03）', () => {
 
     state.code = 'Bad Code'
     await state.save()
-    expect(ElMessage.error).toHaveBeenCalledWith('业务码须小写字母开头，仅含小写字母 / 数字 / 连字符')
+    expect(ElMessage.error).toHaveBeenCalledWith('业务码须小写字母开头，仅含小写字母 / 数字 / 下划线')
 
     state.code = 'user'
     state.names = {}

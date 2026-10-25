@@ -2,7 +2,7 @@
 
 - `LocalFieldTypeRegistry`（插件名 `local`）：公共注册实现 + 内建字段类型注册（含 `dict` / `dict_multi`）。
 - `SimpleFieldType`：数据驱动的字段类型提供者；`dict` / `dict_multi` 的 `render_metadata` 与前端
-  `FIELD_WIDGET_MAP`（`dict` → `dict-select` / `dict_multi` → `dict-multi`）对齐，输出 `widget` 与 `multiple`。
+  `FIELD_WIDGET_MAP`（`dict` → `dict_select` / `dict_multi` → `dict_multi`）对齐，输出 `widget` 与 `multiple`。
 - **枚举字段与字典字段分家（2026-10-21 任务 02-14）**：`option` / `option_multi` 只接注册表选项集
   （值 = 常量字符串），默认形态 `radio` / `checkbox`；`dict` / `dict_multi` 只接字典，值 = 条目 `id`
   （`dict` 列 `bigint`，`dict_multi` 列 `text` 承载 id 的 JSON 数组，应用层解析）。旧名
@@ -205,9 +205,9 @@ def builtin_field_types() -> ConcurrentStableList[SimpleFieldType]:
             ),
             SimpleFieldType(key="switch", widget="switch", kind=_KIND_BOOL, column_type="smallint"),
             SimpleFieldType(key="file", widget="file", kind=_KIND_STRING, column_type="text"),
-            SimpleFieldType(key="dict", widget="dict-select", kind=_KIND_ID, column_type="bigint"),
+            SimpleFieldType(key="dict", widget="dict_select", kind=_KIND_ID, column_type="bigint"),
             SimpleFieldType(
-                key="dict_multi", widget="dict-multi", kind=_KIND_ID_LIST, multiple=True, column_type="text"
+                key="dict_multi", widget="dict_multi", kind=_KIND_ID_LIST, multiple=True, column_type="text"
             ),
         )
     )

@@ -23,7 +23,7 @@
 | --- | --- | --- | --- | --- |
 | `id` | BIGINT | 否 | 主键，雪花 ID | 主键 · **系统字段**：ID |
 | `form_key` | VARCHAR(64) | 否 | `(form_key, deleted_at)` 复合唯一 | 表单标识（**多表联合判别列**；全局唯一、保存后不变） · **系统字段**：表单标识 |
-| `code` | VARCHAR(64) | 否 | 与 `deleted_at` 复合唯一 | 图标键（kebab-case，租户内唯一；icon key = `custom:{code}`） · **系统字段**：代码 |
+| `code` | VARCHAR(64) | 否 | 与 `deleted_at` 复合唯一 | 自建图标码（snake_case，租户内唯一；icon key = `custom:{code}`） · **系统字段**：代码 |
 | `name` | VARCHAR(128) | 否 | — | 图标名称（默认文案；多语言见 `sys_icon_i18n`） · **系统字段**：名称 |
 | `category` | VARCHAR(64) | 否 | `idx_sys_icon_category` | 图标分组（分类） |
 | `tags` | VARCHAR(256) | 否 | 默认 `''` | 标签（逗号分隔，搜索用；跨方言安全） |
@@ -60,5 +60,6 @@
 | 2026-10-11 | v1 | 新建表文件（`planned`；补 `form_key`（表单标识，多表联合判别列）+ `parent_id`，系统字段对齐 02_11；本阶段仅结构声明、不建表） | minjian |
 | 2026-10-21 | v2 | 转 `enabled` 并入 `platform:tenant` 链落库（03_03 图标真实 CRUD；`sys_icon_i18n` 表文件随补） | minjian |
 | 2026-10-22 | v3 | ORM 模型落点迁基座共享 `bms_core/models/platform/system.py`（14_01 整包下沉；表名 / 字段 / 索引 / 归属不变） | minjian |
+| 2026-10-26 | v4 | `code` 口径由 kebab-case 收紧为 snake_case（任务 `01_08` 登记标识二期；仅注释与校验口径，无 DDL 变更、存量行不迁移） | minjian |
 
 > 数据表设计 · 与《数据库开发规范》「数据表文件规范」节配套

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // 自定义图标记录页签：两子页签「详细信息 / 系统信息」。
-// 图标键 kebab-case 唯一、创建后不可修改；icon key = custom:{图标键}（后端派生）；
+// 自建图标码 snake_case 唯一、创建后不可修改；icon key = custom:{图标码}（后端派生）；
 // 上传仅 SVG（类型白名单 + 大小上限），内容清洗由后端兜底，前端预览不执行脚本。
 defineOptions({ name: 'IconRecordTab' })
 
@@ -212,8 +212,8 @@ async function onFileChange(uploadFile: { raw?: File; name?: string }): Promise<
  */
 async function save(): Promise<void> {
   const trimmedCode = code.value.trim()
-  if (!/^[a-z][a-z0-9-]*$/.test(trimmedCode)) {
-    ElMessage.error('图标键须小写字母开头，仅含小写字母 / 数字 / 连字符')
+  if (!/^[a-z][a-z0-9_]*$/.test(trimmedCode)) {
+    ElMessage.error('图标码须小写字母开头，仅含小写字母 / 数字 / 下划线')
     return
   }
   if (category.value.trim() === '') {
@@ -360,7 +360,7 @@ defineExpose({ save, load, remove, onFileChange })
       <template #first-row>
         <el-col :span="8">
           <el-form-item label="图标键" required>
-            <el-input v-model="code" :disabled="!isNew" placeholder="kebab-case，如 receipt" data-test="icon-record-code" />
+            <el-input v-model="code" :disabled="!isNew" placeholder="snake_case，如 receipt_note" data-test="icon-record-code" />
             <div class="icon-record__hint">icon key = <code>custom:{{ code || '…' }}</code>；创建后不可修改</div>
           </el-form-item>
         </el-col>

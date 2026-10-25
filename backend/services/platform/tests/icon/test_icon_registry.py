@@ -47,7 +47,7 @@ from tests_support.tenant_source import DEMO_TENANT_ID
 
 API = "/api/v1/icons"
 
-_ICON_BODY = {"code": "purchase-order", "name": "采购订单", "category": "menu", "tags": ["order"], "svg": "<svg/>"}
+_ICON_BODY = {"code": "purchase_order", "name": "采购订单", "category": "menu", "tags": ["order"], "svg": "<svg/>"}
 
 
 @pytest_asyncio.fixture(autouse=True)
@@ -178,20 +178,19 @@ def test_constants() -> None:
 @pytest.mark.kiwi_id(927)
 def test_icon_key_helper_and_code_validation() -> None:
     """图标键派生与图标键格式校验。"""
-    assert build_icon_key("purchase-order") == "custom:purchase-order"
+    assert build_icon_key("purchase_order") == "custom:purchase_order"
     assert build_icon_key("receipt", source="biz") == "biz:receipt"
 
-    assert is_valid_icon_code("purchase-order") is True
+    assert is_valid_icon_code("purchase_order") is True
     assert is_valid_icon_code("receipt") is True
-    assert is_valid_icon_code("a1-b2-c3") is True
+    assert is_valid_icon_code("a1_b2_c3") is True
 
     assert is_valid_icon_code("") is False
-    assert is_valid_icon_code("Purchase-Order") is False
-    assert is_valid_icon_code("purchase_order") is False
+    assert is_valid_icon_code("Purchase_Order") is False
+    assert is_valid_icon_code("purchase-order") is False
     assert is_valid_icon_code("1receipt") is False
-    assert is_valid_icon_code("-receipt") is False
-    assert is_valid_icon_code("receipt-") is False
-    assert is_valid_icon_code("purchase--order") is False
+    assert is_valid_icon_code("_receipt") is False
+    assert is_valid_icon_code("purchase order") is False
     assert is_valid_icon_code("a" * (ICON_CODE_MAX_LENGTH + 1)) is False
 
 
@@ -341,7 +340,7 @@ async def test_placeholder_route_list_and_get(client: AsyncClient) -> None:
     filtered = await client.get(API, params={"category": "menu", "status": "active", "keyword": "purchase"})
     assert filtered.json()["data"] == {"icons": []}
 
-    missing = await client.get(f"{API}/purchase-order")
+    missing = await client.get(f"{API}/purchase_order")
     assert missing.status_code == 404
     assert missing.json()["code"] == ErrorCode.NOT_FOUND
 
@@ -360,7 +359,7 @@ async def test_icon_store_validation_i18n_and_menu_reference(client: AsyncClient
         "<html></html>",
     ]
     for svg in bad_svgs:
-        resp = await client.post(API, json={**_ICON_BODY, "svg": svg, "code": "bad-svg"})
+        resp = await client.post(API, json={**_ICON_BODY, "svg": svg, "code": "bad_svg"})
         assert resp.json()["code"] == ErrorCode.PARAM, svg
 
     created = await client.post(API, json={**_ICON_BODY, "i18n": {"zh-CN": "采购订单", "en-US": "Purchase order"}})
@@ -375,7 +374,7 @@ async def test_icon_store_validation_i18n_and_menu_reference(client: AsyncClient
         json={
             "parent_id": 0,
             "path": "/t-icon",
-            "icon": "custom:purchase-order",
+            "icon": "custom:purchase_order",
             "sort": 1,
             "hidden": False,
             "status": "enabled",
@@ -384,13 +383,13 @@ async def test_icon_store_validation_i18n_and_menu_reference(client: AsyncClient
     )
     assert menu.json()["code"] == 0, menu.text
     listed = await client.get(API, params={"keyword": "purchase"})
-    row = next(item for item in listed.json()["data"]["icons"] if item["code"] == "purchase-order")
+    row = next(item for item in listed.json()["data"]["icons"] if item["code"] == "purchase_order")
     assert row["reference_count"] == 1
 
-    blocked = await client.delete(f"{API}/purchase-order")
+    blocked = await client.delete(f"{API}/purchase_order")
     assert blocked.json()["code"] == 40206
 
-    missing = await client.get(f"{API}/not-exists")
+    missing = await client.get(f"{API}/not_exists")
     assert missing.status_code == 404
 
 
@@ -412,18 +411,18 @@ async def test_icon_store_svg_edges_and_update_branches(client: AsyncClient) -> 
     assert empty.json()["code"] == ErrorCode.PARAM
 
     oversized = "<svg>" + "x" * (ICON_SVG_MAX_BYTES + 1) + "</svg>"
-    too_big = await client.post(API, json={**_ICON_BODY, "code": "too-big", "svg": oversized})
+    too_big = await client.post(API, json={**_ICON_BODY, "code": "too_big", "svg": oversized})
     assert too_big.json()["code"] == ErrorCode.PARAM
 
     assert (await client.post(API, json=_ICON_BODY)).json()["code"] == 0
 
     # get 命中路径：装载多语言名称后回显（142-143）
-    detail = await client.get(f"{API}/purchase-order")
-    assert detail.json()["data"]["code"] == "purchase-order"
+    detail = await client.get(f"{API}/purchase_order")
+    assert detail.json()["data"]["code"] == "purchase_order"
     assert detail.json()["data"]["i18n"]["zh-CN"] == "采购订单"
 
     patched = await client.put(
-        f"{API}/purchase-order",
+        f"{API}/purchase_order",
         json={"category": "action", "tags": ["a", "b"], "svg": "<svg><rect/></svg>"},
     )
     data = patched.json()["data"]
@@ -431,14 +430,14 @@ async def test_icon_store_svg_edges_and_update_branches(client: AsyncClient) -> 
     assert data["tags"] == ["a", "b"]
     assert data["svg"] == "<svg><rect/></svg>"
 
-    renamed = await client.put(f"{API}/purchase-order", json={"i18n": {"zh-CN": "采购单", "en-US": "PO"}})
+    renamed = await client.put(f"{API}/purchase_order", json={"i18n": {"zh-CN": "采购单", "en-US": "PO"}})
     assert renamed.json()["data"]["name"] == "采购单"
     assert renamed.json()["data"]["i18n"]["en-US"] == "PO"
 
-    bad_patch = await client.put(f"{API}/purchase-order", json={"svg": "<svg><script>x</script></svg>"})
+    bad_patch = await client.put(f"{API}/purchase_order", json={"svg": "<svg><script>x</script></svg>"})
     assert bad_patch.json()["code"] == ErrorCode.PARAM
 
-    absent = await client.put(f"{API}/ghost-icon", json={"name": "x"})
+    absent = await client.put(f"{API}/ghost_icon", json={"name": "x"})
     assert absent.status_code == 404
 
     # 引用计数（count_menu_refs）：菜单引用完整 icon key 后删除被拒，解除引用后可删
@@ -447,7 +446,7 @@ async def test_icon_store_svg_edges_and_update_branches(client: AsyncClient) -> 
         json={
             "parent_id": 0,
             "path": "/t-icon-ref",
-            "icon": "custom:purchase-order",
+            "icon": "custom:purchase_order",
             "sort": 1,
             "hidden": False,
             "status": "enabled",
@@ -455,15 +454,15 @@ async def test_icon_store_svg_edges_and_update_branches(client: AsyncClient) -> 
         },
     )
     assert menu.json()["code"] == 0, menu.text
-    blocked = await client.delete(f"{API}/purchase-order")
+    blocked = await client.delete(f"{API}/purchase_order")
     assert blocked.json()["code"] == 40206
     assert (await client.delete(f"/api/v1/menus/{menu.json()['data']['id']}")).json()["code"] == 0
 
     # 软删除后同键再建：走恢复分支（deleted 行复用而非新建）
-    assert (await client.delete(f"{API}/purchase-order")).json()["data"] == {"deleted": True}
+    assert (await client.delete(f"{API}/purchase_order")).json()["data"] == {"deleted": True}
     restored = await client.post(API, json=_ICON_BODY)
     assert restored.json()["code"] == 0
-    assert restored.json()["data"]["code"] == "purchase-order"
+    assert restored.json()["data"]["code"] == "purchase_order"
 
 
 @pytest.mark.kiwi_id(927)
@@ -472,29 +471,29 @@ async def test_placeholder_route_create_update_delete(client: AsyncClient) -> No
     created = await client.post(API, json=_ICON_BODY)
     assert created.status_code == 200
     data = created.json()["data"]
-    assert data["code"] == "purchase-order"
+    assert data["code"] == "purchase_order"
     assert data["name"] == "采购订单"
     assert data["category"] == "menu"
     assert data["tags"] == ["order"]
     assert data["svg"] == "<svg/>"
     assert data["status"] == DEFAULT_ICON_STATUS
-    assert data["icon_key"] == "custom:purchase-order"
+    assert data["icon_key"] == "custom:purchase_order"
     assert data["i18n"] == {"zh-CN": "采购订单"}
     assert data["reference_count"] == 0
 
-    patched = await client.put(f"{API}/purchase-order", json={"name": "采购订单（新）", "status": "disabled"})
+    patched = await client.put(f"{API}/purchase_order", json={"name": "采购订单（新）", "status": "disabled"})
     assert patched.json()["data"]["name"] == "采购订单（新）"
     assert patched.json()["data"]["category"] == "menu"
     assert patched.json()["data"]["tags"] == ["order"]
     assert patched.json()["data"]["status"] == "disabled"
 
-    unchanged = await client.put(f"{API}/purchase-order", json={})
+    unchanged = await client.put(f"{API}/purchase_order", json={})
     assert unchanged.json()["data"]["name"] == "采购订单（新）"
     assert unchanged.json()["data"]["status"] == "disabled"
 
-    removed = await client.delete(f"{API}/purchase-order")
+    removed = await client.delete(f"{API}/purchase_order")
     assert removed.json()["data"] == {"deleted": True}
-    removed_again = await client.delete(f"{API}/purchase-order")
+    removed_again = await client.delete(f"{API}/purchase_order")
     assert removed_again.json()["data"] == {"deleted": False}
 
     invalid = await client.post(API, json={**_ICON_BODY, "code": "Bad_Code"})
@@ -531,7 +530,7 @@ async def test_icon_update_idempotency_without_cached_result_executes() -> None:
     async with lifespan(app), AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         client.headers.update(auth_headers())
         await client.post(API, json=_ICON_BODY)
-        resp = await client.put(f"{API}/purchase-order", json={"name": "新名称"}, headers={"Idempotency-Key": "k-2"})
+        resp = await client.put(f"{API}/purchase_order", json={"name": "新名称"}, headers={"Idempotency-Key": "k-2"})
 
     assert resp.json()["data"]["name"] == "新名称"
     assert stale.keys == [f"bms:{DEMO_TENANT_ID}:idem:k-2"]
@@ -548,9 +547,9 @@ async def test_icon_update_and_delete_idempotency_reuse() -> None:
         client.headers.update(auth_headers())
         await client.post(API, json=_ICON_BODY)
         await client.post(API, json={**_ICON_BODY, "code": "receipt", "name": "收据"})
-        updated = await client.put(f"{API}/purchase-order", json={"name": "甲"}, headers={"Idempotency-Key": "k-3"})
+        updated = await client.put(f"{API}/purchase_order", json={"name": "甲"}, headers={"Idempotency-Key": "k-3"})
         updated_again = await client.put(
-            f"{API}/purchase-order", json={"name": "乙"}, headers={"Idempotency-Key": "k-3"}
+            f"{API}/purchase_order", json={"name": "乙"}, headers={"Idempotency-Key": "k-3"}
         )
         removed = await client.delete(f"{API}/receipt", headers={"Idempotency-Key": "k-4"})
         removed_again = await client.delete(f"{API}/receipt", headers={"Idempotency-Key": "k-4"})
@@ -577,7 +576,7 @@ async def test_icon_create_and_delete_stale_idempotency_executes() -> None:
     async with lifespan(app), AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         client.headers.update(auth_headers())
         created = await client.post(API, json=_ICON_BODY, headers={"Idempotency-Key": "k-5"})
-        removed = await client.delete(f"{API}/purchase-order", headers={"Idempotency-Key": "k-6"})
+        removed = await client.delete(f"{API}/purchase_order", headers={"Idempotency-Key": "k-6"})
 
     assert created.json()["data"]["name"] == "采购订单"
     assert removed.json()["data"] == {"deleted": True}

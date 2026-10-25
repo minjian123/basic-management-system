@@ -286,7 +286,7 @@ describe('OptionSetMultiField（多选三形态）', () => {
     expect(control.props('form')).toBe('checkbox')
   })
 
-  it('tag 形态与 dropdown-multi 形态（下拉多选注入 + 值回传）', async () => {
+  it('tag 形态与 dropdown_multi 形态（下拉多选注入 + 值回传）', async () => {
     const tag = mount(OptionSetMultiField, {
       props: { modelValue: ['high'], optionSetKey: 'bms.demo.priority', form: 'tag' },
       global: { stubs, provide: provideOf() },
@@ -294,7 +294,7 @@ describe('OptionSetMultiField（多选三形态）', () => {
     expect(tag.findComponent({ name: 'CheckboxInput' }).props('form')).toBe('tag')
 
     const dropdown = mount(OptionSetMultiField, {
-      props: { modelValue: ['high'], optionSetKey: 'bms.demo.priority', form: 'dropdown-multi' },
+      props: { modelValue: ['high'], optionSetKey: 'bms.demo.priority', form: 'dropdown_multi' },
       global: { stubs, provide: provideOf() },
     })
     const select = dropdown.findComponent(ElSelectStub)
@@ -410,7 +410,7 @@ describe('OptionSetMultiField（多选三形态）', () => {
 
     // 下拉形态空态：占位提示无可选枚举且禁用。
     const emptyDropdown = mount(OptionSetMultiField, {
-      props: { modelValue: [], optionSetKey: 'bms.demo.absent', form: 'dropdown-multi' },
+      props: { modelValue: [], optionSetKey: 'bms.demo.absent', form: 'dropdown_multi' },
       global: { stubs, provide: provideOf() },
     })
     expect(emptyDropdown.findComponent(ElSelectStub).props('placeholder')).toBe('暂无可选枚举')

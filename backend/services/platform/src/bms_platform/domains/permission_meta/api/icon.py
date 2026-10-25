@@ -81,7 +81,7 @@ IdempotencyDep = Annotated[IdempotencyStore, Depends(get_idempotency_store)]
 TenantDep = Annotated[TenantContext | None, Depends(get_tenant)]
 IconCodePath = Annotated[
     str,
-    Path(min_length=1, max_length=ICON_CODE_MAX_LENGTH, description="图标键（kebab-case，见详情）"),
+    Path(min_length=1, max_length=ICON_CODE_MAX_LENGTH, description="自建图标码（snake_case，见详情）"),
 ]
 CategoryQuery = Annotated[str | None, Query(description="图标分组（缺省全部）")]
 StatusQuery = Annotated[str | None, Query(description="图标状态（active 启用 / disabled 停用；缺省全部）")]
@@ -122,7 +122,7 @@ def _require_valid_code(code: str) -> None:
         code: 图标键。
 
     Raises:
-        ParamError: 图标键不符合 kebab-case 规范（10001）。
+        ParamError: 自建图标码不符合 snake_case 规范（10001）。
     """
     if not is_valid_icon_code(code):
         raise ParamError(f"图标键格式非法：{code}")

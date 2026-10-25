@@ -96,7 +96,7 @@ function effectiveOf(input: Partial<LayoutEffective> = {}): LayoutEffective {
 describe('字段类型 → 控件语义键', () => {
   it('字段属性 widget 覆盖（未登记与 plain 回退类型默认）', () => {
     expect(resolveFieldWidgetOf('option', 'dropdown')).toBe('dropdown')
-    expect(resolveFieldWidgetOf('option_multi', 'dropdown-multi')).toBe('dropdown-multi')
+    expect(resolveFieldWidgetOf('option_multi', 'dropdown_multi')).toBe('dropdown_multi')
     expect(resolveFieldWidgetOf('option', 'segmented')).toBe('segmented')
     expect(resolveFieldWidgetOf('option', 'plain')).toBe('radio')
     expect(resolveFieldWidgetOf('option', 'not-a-widget')).toBe('radio')
@@ -149,19 +149,30 @@ describe('字段类型 → 控件语义键', () => {
     expect(resolveFieldWidget('multi_select')).toBe('plain')
     expect(resolveFieldWidget('switch')).toBe('switch')
     expect(resolveFieldWidget('richtext')).toBe('richtext')
-    expect(resolveFieldWidget('dept')).toBe('org-select')
-    expect(resolveFieldWidget('tree')).toBe('tree-select')
-    expect(resolveFieldWidget('user')).toBe('org-select')
-    expect(resolveFieldWidget('post')).toBe('org-select')
-    expect(resolveFieldWidget('org')).toBe('org-select')
+    expect(resolveFieldWidget('dept')).toBe('org_select')
+    expect(resolveFieldWidget('tree')).toBe('tree_select')
+    expect(resolveFieldWidget('user')).toBe('org_select')
+    expect(resolveFieldWidget('post')).toBe('org_select')
+    expect(resolveFieldWidget('org')).toBe('org_select')
     expect(resolveFieldWidget('transfer')).toBe('transfer')
     expect(resolveFieldWidget('cascader')).toBe('cascader')
     expect(resolveFieldWidget('tags')).toBe('tags')
     expect(resolveFieldWidget('captcha')).toBe('captcha')
-    expect(resolveFieldWidget('dict')).toBe('dict-select')
-    expect(resolveFieldWidget('dict_multi')).toBe('dict-multi')
-    expect(resolveFieldWidget('file')).toBe('file-upload')
-    expect(resolveFieldWidget('image')).toBe('image-upload')
+    expect(resolveFieldWidget('dict')).toBe('dict_select')
+    expect(resolveFieldWidget('dict_multi')).toBe('dict_multi')
+    expect(resolveFieldWidget('file')).toBe('file_upload')
+    expect(resolveFieldWidget('image')).toBe('image_upload')
+  })
+
+  it('控件语义键全量 snake_case（登记面口径，01_08）', () => {
+    for (const widget of FIELD_WIDGETS) {
+      expect(widget).toMatch(/^[a-z][a-z0-9_]*$/)
+    }
+    expect(resolveFieldWidget('i18n_name')).toBe('i18n_name')
+    expect(resolveFieldWidget('i18n_text')).toBe('i18n_text')
+    // kebab 字段类型别名已删除（一次改齐，不留双形态）。
+    expect(resolveFieldWidget('i18n-name')).toBe('plain')
+    expect(resolveFieldWidget('i18n-text')).toBe('plain')
   })
 
   it('上传引用属性透传（upload*）', () => {

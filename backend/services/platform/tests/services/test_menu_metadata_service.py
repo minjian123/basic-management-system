@@ -492,17 +492,17 @@ async def test_business_action_permission_write_paths() -> None:
         permission = _permission_service(session, cache=MemoryCacheRegion())
 
         # 业务码：创建 / 重复 40209 / 更新停用 / 软删除后同键恢复
-        business = await permission.create_business(BusinessCreateRequest(code="biz-a", i18n=_names("业务甲")))
+        business = await permission.create_business(BusinessCreateRequest(code="biz_a", i18n=_names("业务甲")))
         business_id = business.id
         with pytest.raises(MenuCodeConflictError):
-            await permission.create_business(BusinessCreateRequest(code="biz-a", i18n=_names("重复")))
+            await permission.create_business(BusinessCreateRequest(code="biz_a", i18n=_names("重复")))
         await session.rollback()
 
         # 动作码：创建 / 重复
-        action = await permission.create_action(ActionCreateRequest(code="act-x", i18n=_names("动作甲")))
+        action = await permission.create_action(ActionCreateRequest(code="act_x", i18n=_names("动作甲")))
         action_id = action.id
         with pytest.raises(MenuCodeConflictError):
-            await permission.create_action(ActionCreateRequest(code="act-x", i18n=_names("重复")))
+            await permission.create_action(ActionCreateRequest(code="act_x", i18n=_names("重复")))
         await session.rollback()
 
         # 权限码：手工新增 / 组合重复 40210 / 更新状态
@@ -542,9 +542,9 @@ async def test_business_action_permission_write_paths() -> None:
         await permission.delete_business(business_id)
         await session.rollback()
         restored_business = await permission.create_business(
-            BusinessCreateRequest(code="biz-a", i18n=_names("业务甲重建"))
+            BusinessCreateRequest(code="biz_a", i18n=_names("业务甲重建"))
         )
-        assert restored_business.code == "biz-a"
+        assert restored_business.code == "biz_a"
         await session.rollback()
 
         # 缺行分支：更新 / 删除不存在的业务码与动作码（844 / 868 / 942 / 967）
@@ -578,8 +578,8 @@ async def test_business_action_permission_write_paths() -> None:
         # 动作码软删除后同键重建：走恢复分支（911-914）
         await permission.delete_action(action_id)
         await session.rollback()
-        restored_action = await permission.create_action(ActionCreateRequest(code="act-x", i18n=_names("动作甲重建")))
-        assert restored_action.code == "act-x"
+        restored_action = await permission.create_action(ActionCreateRequest(code="act_x", i18n=_names("动作甲重建")))
+        assert restored_action.code == "act_x"
         await session.rollback()
 
         # 权限码缺行校验（988 / 990）

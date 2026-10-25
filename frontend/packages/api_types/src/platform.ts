@@ -2982,7 +2982,7 @@ export interface components {
         ActionCreateRequest: {
             /**
              * Code
-             * @description 动作码（全局动词 / kebab-case；创建后只读）
+             * @description 动作码（snake_case：小写字母开头，仅小写字母 / 数字 / 下划线；创建后只读）
              */
             code: string;
             /**
@@ -4042,7 +4042,7 @@ export interface components {
         BusinessCreateRequest: {
             /**
              * Code
-             * @description 业务码（小写单词 / kebab-case；创建后只读）
+             * @description 业务码（snake_case：小写字母开头，仅小写字母 / 数字 / 下划线；创建后只读）
              */
             code: string;
             /**
@@ -5209,7 +5209,7 @@ export interface components {
             category: string;
             /**
              * Code
-             * @description 图标键（kebab-case，租户内唯一）
+             * @description 自建图标码（snake_case，租户内唯一）
              */
             code: string;
             /**
@@ -10634,7 +10634,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description 图标键（kebab-case，见详情） */
+                /** @description 自建图标码（snake_case，见详情） */
                 code: string;
             };
             cookie?: never;
@@ -10714,7 +10714,7 @@ export interface operations {
                 "Idempotency-Key"?: string | null;
             };
             path: {
-                /** @description 图标键（kebab-case，见详情） */
+                /** @description 自建图标码（snake_case，见详情） */
                 code: string;
             };
             cookie?: never;
@@ -10798,7 +10798,7 @@ export interface operations {
                 "Idempotency-Key"?: string | null;
             };
             path: {
-                /** @description 图标键（kebab-case，见详情） */
+                /** @description 自建图标码（snake_case，见详情） */
                 code: string;
             };
             cookie?: never;

@@ -18,7 +18,7 @@ export type ActionList = Schemas['ActionList']
 
 /** 动作码新增载荷。 */
 export interface ActionCreatePayload {
-  /** 动作码（kebab-case，创建后只读）。 */
+  /** 动作码（snake_case：小写字母开头，仅小写字母 / 数字 / 下划线；创建后只读）。 */
   code: string
   /** 状态。 */
   status: MetaStatus

@@ -90,15 +90,15 @@ async def _create_permission(client: AsyncClient, business_id: int, action_id: i
 @pytest.mark.kiwi_id(2242)
 async def test_business_crud_code_readonly_and_duplicate(client: AsyncClient) -> None:
     """业务码：新增、重复 40209、code 只读（带 code 更新 422）、名称与状态更新、列表含权限码数。"""
-    business_id = await _create_business(client, "t-order", "测试订单")
+    business_id = await _create_business(client, "t_order", "测试订单")
     duplicated = await client.post(
-        _BUSINESSES, json={"code": "t-order", "status": "enabled", "i18n": {"zh-CN": "重复"}}
+        _BUSINESSES, json={"code": "t_order", "status": "enabled", "i18n": {"zh-CN": "重复"}}
     )
     assert duplicated.json()["code"] == 40209
 
     with_code = await client.put(
         f"{_BUSINESSES}/{business_id}",
-        json={"code": "t-other", "status": "enabled", "i18n": {"zh-CN": "改名"}},
+        json={"code": "t_other", "status": "enabled", "i18n": {"zh-CN": "改名"}},
     )
     assert with_code.status_code == 200
     assert with_code.json()["code"] == 10001
@@ -117,11 +117,11 @@ async def test_business_crud_code_readonly_and_duplicate(client: AsyncClient) ->
 @pytest.mark.kiwi_id(2242)
 async def test_action_crud_and_delete_guard(client: AsyncClient) -> None:
     """动作码：新增 / 重复 40209 / 有条件删除（其下有权限码时 40206）。"""
-    action_id = await _create_action(client, "t-ship", "发货")
-    duplicated = await client.post(_ACTIONS, json={"code": "t-ship", "status": "enabled", "i18n": {"zh-CN": "重复"}})
+    action_id = await _create_action(client, "t_ship", "发货")
+    duplicated = await client.post(_ACTIONS, json={"code": "t_ship", "status": "enabled", "i18n": {"zh-CN": "重复"}})
     assert duplicated.json()["code"] == 40209
 
-    business_id = await _create_business(client, "t-order")
+    business_id = await _create_business(client, "t_order")
     permission_id = await _create_permission(client, business_id, action_id)
     blocked = await client.delete(f"{_ACTIONS}/{action_id}")
     assert blocked.json()["code"] == 40206
@@ -134,10 +134,10 @@ async def test_action_crud_and_delete_guard(client: AsyncClient) -> None:
 @pytest.mark.kiwi_id(2242)
 async def test_permission_manual_create_generate_and_duplicate(client: AsyncClient) -> None:
     """权限码：手工新增、组合重复 40210、批量补生成计数与幂等。"""
-    business_a = await _create_business(client, "t-a", "业务 A")
-    business_b = await _create_business(client, "t-b", "业务 B")
-    action_x = await _create_action(client, "t-x", "动作 X")
-    action_y = await _create_action(client, "t-y", "动作 Y")
+    business_a = await _create_business(client, "t_a", "业务 A")
+    business_b = await _create_business(client, "t_b", "业务 B")
+    action_x = await _create_action(client, "t_x", "动作 X")
+    action_y = await _create_action(client, "t_y", "动作 Y")
 
     permission_id = await _create_permission(client, business_a, action_x)
     duplicated = await client.post(_PERMISSIONS, json={"business_id": business_a, "action_id": action_x})
@@ -157,15 +157,15 @@ async def test_permission_manual_create_generate_and_duplicate(client: AsyncClie
     row = next(
         item for item in (await client.get(_PERMISSIONS)).json()["data"]["items"] if int(item["id"]) == permission_id
     )
-    assert row["code"] == "t-a:t-x"
+    assert row["code"] == "t_a:t_x"
     assert row["name"] == "业务 A·动作 X"
 
 
 @pytest.mark.kiwi_id(2242)
 async def test_permission_stop_and_delete_blocked_by_button(client: AsyncClient) -> None:
     """被按钮挂接的权限码：停用 40206、删除 40206；停用业务码整批拒绝。"""
-    business_id = await _create_business(client, "t-biz")
-    action_id = await _create_action(client, "t-act")
+    business_id = await _create_business(client, "t_biz")
+    action_id = await _create_action(client, "t_act")
     permission_id = await _create_permission(client, business_id, action_id)
     form = await client.post(
         _FORMS, json={"menu_ids": [], "business_id": business_id, "component": None, "status": "enabled"}
@@ -205,8 +205,8 @@ async def test_update_and_delete_endpoints_full_paths(client: AsyncClient) -> No
     补齐 api/menu.py 未覆盖的端点成功路径（update_action / update_permission /
     delete_business）与 _business_item / _action_item / _permission_item 的缺行异常。
     """
-    business_id = await _create_business(client, "t-full")
-    action_id = await _create_action(client, "t-full-act")
+    business_id = await _create_business(client, "t_full")
+    action_id = await _create_action(client, "t_full_act")
     permission_id = await _create_permission(client, business_id, action_id)
 
     # update_action：改名称与状态，回显走 _action_item
@@ -240,8 +240,8 @@ async def test_generate_restores_soft_deleted_permission(client: AsyncClient) ->
 
     覆盖 services/menu.py 的 deleted_pairs 收集（1035-1037）与恢复计数（1048-1052）。
     """
-    business_id = await _create_business(client, "t-restore")
-    action_id = await _create_action(client, "t-restore-act")
+    business_id = await _create_business(client, "t_restore")
+    action_id = await _create_action(client, "t_restore_act")
     permission_id = await _create_permission(client, business_id, action_id)
 
     # 先软删该组合，使 active_pairs 不含它、deleted_pairs 含它
@@ -263,8 +263,8 @@ async def test_generate_restores_soft_deleted_permission(client: AsyncClient) ->
 @pytest.mark.kiwi_id(2242)
 async def test_repeat_stop_skips_cascade(client: AsyncClient) -> None:
     """已停用的业务码 / 动作码再次停用：跳过联动（844->848 / 941->946 的假分支）。"""
-    business_id = await _create_business(client, "t-idem")
-    action_id = await _create_action(client, "t-idem-act")
+    business_id = await _create_business(client, "t_idem")
+    action_id = await _create_action(client, "t_idem_act")
     await _create_permission(client, business_id, action_id)
 
     # 首次停用：走联动分支
@@ -293,9 +293,9 @@ async def test_update_permission_when_not_first_in_list(client: AsyncClient) -> 
 
     覆盖 api/menu.py 的循环未命中继续分支（1064->1063）。
     """
-    business_id = await _create_business(client, "t-iter")
-    action_first = await _create_action(client, "t-iter-a1")
-    action_second = await _create_action(client, "t-iter-a2")
+    business_id = await _create_business(client, "t_iter")
+    action_first = await _create_action(client, "t_iter_a1")
+    action_second = await _create_action(client, "t_iter_a2")
     await _create_permission(client, business_id, action_first)
     target_id = await _create_permission(client, business_id, action_second)
 
@@ -308,8 +308,8 @@ async def test_update_permission_when_not_first_in_list(client: AsyncClient) -> 
 @pytest.mark.kiwi_id(2242)
 async def test_business_stop_cascades_permission(client: AsyncClient) -> None:
     """无引用的业务码停用：其权限码连带停用。"""
-    business_id = await _create_business(client, "t-cascade")
-    action_id = await _create_action(client, "t-cascade-act")
+    business_id = await _create_business(client, "t_cascade")
+    action_id = await _create_action(client, "t_cascade_act")
     permission_id = await _create_permission(client, business_id, action_id)
 
     stopped = await client.put(f"{_BUSINESSES}/{business_id}", json={"status": "disabled", "i18n": {"zh-CN": "级联"}})

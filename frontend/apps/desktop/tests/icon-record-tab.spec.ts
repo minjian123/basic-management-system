@@ -130,7 +130,7 @@ describe('IconRecordTab（03_03）', () => {
     const wrapper = await mountTab('new')
     const state = stateOf(wrapper)
     await state.save()
-    expect(ElMessage.error).toHaveBeenCalledWith('图标键须小写字母开头，仅含小写字母 / 数字 / 连字符')
+    expect(ElMessage.error).toHaveBeenCalledWith('图标码须小写字母开头，仅含小写字母 / 数字 / 下划线')
 
     state.code = 'receipt'
     state.category = ''

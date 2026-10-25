@@ -16,7 +16,7 @@ export type IconStatus = 'active' | 'disabled'
 export interface IconItem {
   /** 图标标识（字符串化主键；非业务标识）。 */
   id: string
-  /** 图标键（kebab-case，租户内唯一）。 */
+  /** 自建图标码（snake_case，租户内唯一）。 */
   code: string
   /** 图标名称（默认文案）。 */
   name: string
@@ -54,7 +54,7 @@ export interface IconListQuery {
 
 /** 图标新增载荷。 */
 export interface IconCreatePayload {
-  /** 图标键（kebab-case）。 */
+  /** 自建图标码（snake_case）。 */
   code: string
   /** 名称。 */
   name: string

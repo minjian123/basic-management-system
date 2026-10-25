@@ -114,11 +114,11 @@ describe('选项集回显与缺项', () => {
 })
 
 describe('建议形态与类型判定', () => {
-  it('选项数超过 8 建议下拉（单选 dropdown / 多选 dropdown-multi）', () => {
+  it('选项数超过 8 建议下拉（单选 dropdown / 多选 dropdown_multi）', () => {
     expect(OPTION_SET_DROPDOWN_THRESHOLD).toBe(8)
     expect(suggestOptionWidget('option', 8)).toBeUndefined()
     expect(suggestOptionWidget('option', 9)).toBe('dropdown')
-    expect(suggestOptionWidget('option_multi', 9)).toBe('dropdown-multi')
+    expect(suggestOptionWidget('option_multi', 9)).toBe('dropdown_multi')
     expect(suggestOptionWidget('text', 9)).toBeUndefined()
   })
 

@@ -126,12 +126,12 @@ export const FILTER_WIDGET_BY_TYPE: Readonly<Record<FilterFieldType, string>> = 
   text: 'text',
   textarea: 'textarea',
   option: 'dropdown',
-  option_multi: 'dropdown-multi',
+  option_multi: 'dropdown_multi',
   switch: 'switch',
   number: 'number',
   datetime: 'datetime',
   date: 'date',
-  dept: 'tree-select',
+  dept: 'tree_select',
 }
 
 /** 单条筛选条件（与后端筛选契约同形）。 */

@@ -180,19 +180,19 @@ function componentOf(field: RenderFieldPlan): unknown {
 }
 
 /**
- * 是否字典字段（`dict-select` / `dict-multi` 语义键；`dataSourceKey` 不参与分发判定）。
+ * 是否字典字段（`dict_select` / `dict_multi` 语义键；`dataSourceKey` 不参与分发判定）。
  *
  * @param field 字段渲染项。
  */
 function isDictReferenced(field: RenderFieldPlan): boolean {
-  return field.widget === 'dict-select' || field.widget === 'dict-multi'
+  return field.widget === 'dict_select' || field.widget === 'dict_multi'
 }
 
 /**
  * 选项集字段形态（语义键 → 件层形态；非选项集字段返回 `undefined`）。
  *
  * `form` 值即控件语义键（与后端字段类型注册表一致）：单选 `radio` / `button` / `segmented` / `dropdown`；
- * 多选 `checkbox` / `tag` / `dropdown-multi`。默认形态为 `radio` / `checkbox`，由字段属性层覆盖。
+ * 多选 `checkbox` / `tag` / `dropdown_multi`。默认形态为 `radio` / `checkbox`，由字段属性层覆盖。
  *
  * @param field 字段渲染项。
  */
@@ -204,7 +204,7 @@ function optionSetFormOf(field: RenderFieldPlan): string | undefined {
     return 'radio'
   }
   if (field.base.type === 'option_multi') {
-    return field.widget === 'tag' || field.widget === 'dropdown-multi' ? field.widget : 'checkbox'
+    return field.widget === 'tag' || field.widget === 'dropdown_multi' ? field.widget : 'checkbox'
   }
   return undefined
 }
@@ -251,7 +251,7 @@ function isMultiple(field: RenderFieldPlan): boolean {
  * @param field 字段渲染项。
  */
 function extraProps(field: RenderFieldPlan): Record<string, unknown> {
-  if (field.widget === 'org-select') {
+  if (field.widget === 'org_select') {
     return { kind: orgKindOfFieldType(field.base.type) ?? 'user' }
   }
   if (isDictReferenced(field)) {
@@ -261,7 +261,7 @@ function extraProps(field: RenderFieldPlan): Record<string, unknown> {
   if (optionSetForm !== undefined) {
     return { form: optionSetForm, optionSetKey: field.optionSetKey ?? '' }
   }
-  if (field.widget === 'file-upload' || field.widget === 'image-upload') {
+  if (field.widget === 'file_upload' || field.widget === 'image_upload') {
     return {
       multiple: field.base.uploadMultiple ?? true,
       ...(field.base.uploadAccept === undefined ? {} : { accept: field.base.uploadAccept }),

@@ -142,8 +142,8 @@ async function save(): Promise<void> {
     ElMessage.error('动作码必填')
     return
   }
-  if (!/^[a-z][a-z0-9-]*$/.test(code.value.trim())) {
-    ElMessage.error('动作码须小写字母开头，仅含小写字母 / 数字 / 连字符')
+  if (!/^[a-z][a-z0-9_]*$/.test(code.value.trim())) {
+    ElMessage.error('动作码须小写字母开头，仅含小写字母 / 数字 / 下划线')
     return
   }
   if ((names.value[userLocale.value] ?? '').trim() === '') {
@@ -250,7 +250,7 @@ defineExpose({ save, load, remove })
         <el-col :span="8">
           <el-form-item label="动作码" required>
             <el-input v-model="code" :disabled="!isNew" placeholder="如 create" data-test="action-record-code" />
-            <div class="action-record__hint">{{ isNew ? '全局动词 / kebab-case，创建后只读' : '动作码创建后只读（换码 = 新建 + 迁移 + 停用旧码）' }}</div>
+            <div class="action-record__hint">{{ isNew ? 'snake_case：小写字母开头，仅小写字母 / 数字 / 下划线；创建后只读' : '动作码创建后只读（换码 = 新建 + 迁移 + 停用旧码）' }}</div>
           </el-form-item>
         </el-col>
         <el-col :span="8">

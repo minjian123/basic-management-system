@@ -169,7 +169,7 @@ describe('utils/formWidgets 分发映射', () => {
     expect(getFieldWidget('textarea')).toBeDefined()
     expect(getFieldWidget('datetime')).toBeDefined()
     expect(getFieldWidget('dropdown')).toBeDefined()
-    expect(getFieldWidget('dropdown-multi')).toBeDefined()
+    expect(getFieldWidget('dropdown_multi')).toBeDefined()
     expect(getFieldWidget('tag')).toBeDefined()
     expect(getFieldWidget('plain')).toBeUndefined()
   })
@@ -192,7 +192,7 @@ describe('utils/formWidgets 分发映射', () => {
   it('重控件按语义键解析到对应组件（富文本 / 文件 / 组织 / 穿梭 / 级联）', () => {
     expect(getFieldWidget('richtext')).toBeDefined()
     expect(getFieldWidget('file')).toBeDefined()
-    expect(getFieldWidget('org-select')).toBeDefined()
+    expect(getFieldWidget('org_select')).toBeDefined()
     expect(getFieldWidget('transfer')).toBeDefined()
     expect(getFieldWidget('cascader')).toBeDefined()
     // 同键稳定返回同一组件对象（映射表为常量）。
@@ -206,8 +206,14 @@ describe('utils/formWidgets 分发映射', () => {
     expect(resolveFieldComponentByType('wild_type')).toBeUndefined()
   })
 
+  it('控件语义键与多选清单全量 snake_case（登记面口径，01_08）', () => {
+    for (const widget of MULTIPLE_WIDGETS) {
+      expect(widget).toMatch(/^[a-z][a-z0-9_]*$/)
+    }
+  })
+
   it('组织字段协同（06_05）：dept 映射组织件、kind 透传、多选语义单一来源', () => {
-    expect(MULTIPLE_WIDGETS).toContain('org-select')
+    expect(MULTIPLE_WIDGETS).toContain('org_select')
     const orgMeta: LayoutEffective = {
       ...meta,
       fields: [
@@ -233,7 +239,7 @@ describe('utils/formWidgets 分发映射', () => {
   })
 
   it('字典字段协同（06_06 / 06_09）：dict / dict_multi 映射字典件、dataSourceKey 透传、option + dataSourceKey 不再分发字典件、多选语义单一来源', () => {
-    expect(MULTIPLE_WIDGETS).toContain('dict-multi')
+    expect(MULTIPLE_WIDGETS).toContain('dict_multi')
     const dictMeta: LayoutEffective = {
       ...meta,
       fields: [
@@ -293,7 +299,7 @@ describe('utils/formWidgets 分发映射', () => {
           type: 'option_multi',
           group: 'platform',
           status: 'active',
-          widget: 'dropdown-multi',
+          widget: 'dropdown_multi',
           optionSetKey: 'bms.demo.level',
         },
       ],
@@ -325,15 +331,15 @@ describe('utils/formWidgets 分发映射', () => {
     const multis = wrapper.findAllComponents(OptionSetMultiField)
     expect(multis).toHaveLength(2)
     expect(multis[0]?.props('form')).toBe('checkbox')
-    expect(multis[1]?.props('form')).toBe('dropdown-multi')
+    expect(multis[1]?.props('form')).toBe('dropdown_multi')
     expect(multis[1]?.props('optionSetKey')).toBe('bms.demo.level')
   })
 
   it('文件 / 图片字段协同（06_07）：语义键分发、上传属性透传、多选语义单一来源', () => {
-    expect(getFieldWidget('file-upload')).toBeDefined()
-    expect(getFieldWidget('image-upload')).toBeDefined()
-    expect(MULTIPLE_WIDGETS).toContain('file-upload')
-    expect(MULTIPLE_WIDGETS).toContain('image-upload')
+    expect(getFieldWidget('file_upload')).toBeDefined()
+    expect(getFieldWidget('image_upload')).toBeDefined()
+    expect(MULTIPLE_WIDGETS).toContain('file_upload')
+    expect(MULTIPLE_WIDGETS).toContain('image_upload')
     const uploadMeta: LayoutEffective = {
       ...meta,
       fields: [

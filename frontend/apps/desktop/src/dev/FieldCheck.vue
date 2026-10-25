@@ -140,7 +140,7 @@ const checks = computed(() => [
   { name: '日期时间字段：日期 / 区间「起 ~ 止」只读回显 + 快捷键', pass: true },
   { name: '时间件（新增）：仅时分纯时刻，不涉及时区换算', pass: true },
   { name: '百分比件（新增）：% 后缀 + percent / ratio 两口径', pass: true },
-  { name: '选项集字段：六形态（radio / button / segmented / dropdown / checkbox / tag / dropdown-multi）', pass: true },
+  { name: '选项集字段：六形态（radio / button / segmented / dropdown / checkbox / tag / dropdown_multi）', pass: true },
   { name: '选项集解析（sort 升序 + value 去重）+ 只读回显 + 缺项回退原值', pass: true },
   { name: '级联选择：路径展示 + 可清除 + 只读路径回显', pass: true },
   { name: '树选择：仅叶子 / 排除子树 / 多选折叠', pass: true },
@@ -215,7 +215,7 @@ const checks = computed(() => [
     </section>
 
     <section class="field-check__section">
-      <h2>③ 选项集（六形态：radio / button / segmented / dropdown / checkbox / tag / dropdown-multi）</h2>
+      <h2>③ 选项集（六形态：radio / button / segmented / dropdown / checkbox / tag / dropdown_multi）</h2>
       <div class="field-check__row">
         <div class="field-check__cell">
           <div class="field-check__label">单选 radio（默认形态）</div>
@@ -272,11 +272,11 @@ const checks = computed(() => [
           />
         </div>
         <div class="field-check__cell">
-          <div class="field-check__label">多选 dropdown-multi（选项 &gt; 8 建议）</div>
+          <div class="field-check__label">多选 dropdown_multi（选项 &gt; 8 建议）</div>
           <option-set-multi-field
             v-model="optionMultiDropdown"
             option-set-key="bms.demo.large"
-            form="dropdown-multi"
+            form="dropdown_multi"
             data-test="option-set-multi-dropdown"
           />
         </div>

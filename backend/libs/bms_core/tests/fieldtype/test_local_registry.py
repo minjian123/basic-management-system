@@ -1,7 +1,7 @@
 """字段类型真实注册表用例（Kiwi 963，02-4-27 / 02-14）：内建类型注册 / 校验 / 列类型 / 类型分家。
 
 - `option` / `option_multi`（枚举，选项集常量）默认形态 `radio` / `checkbox`；`dict` / `dict_multi`
-  （字典，条目整数 `id`）形态 `dict-select` / `dict-multi`；
+  （字典，条目整数 `id`）形态 `dict_select` / `dict_multi`；
 - 旧名 `select` / `multi_select` 已废弃且不保留别名；
 - 校验为类型级（空值放行，必填由字段规则承载）。
 """
@@ -61,10 +61,10 @@ def test_dict_field_type_validate_and_metadata() -> None:
 
     metadata = registry.get("dict")
     assert metadata is not None
-    assert metadata.render_metadata() == {"widget": "dict-select", "multiple": False}
+    assert metadata.render_metadata() == {"widget": "dict_select", "multiple": False}
     multi = registry.get("dict_multi")
     assert multi is not None
-    assert multi.render_metadata() == {"widget": "dict-multi", "multiple": True}
+    assert multi.render_metadata() == {"widget": "dict_multi", "multiple": True}
     assert registry.column_type("dict", "sqlite") == "bigint"
     assert registry.column_type("dict_multi", "sqlite") == "text"
 

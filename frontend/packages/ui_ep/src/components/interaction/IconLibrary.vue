@@ -21,7 +21,7 @@ import IconRenderer from './IconRenderer.vue'
 export interface CustomIcon {
   /** 标识。 */
   id: string
-  /** 编码（kebab）。 */
+  /** 自建图标码（snake_case）。 */
   code: string
   /** 名称。 */
   name: string

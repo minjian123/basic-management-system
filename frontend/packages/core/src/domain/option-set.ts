@@ -193,7 +193,7 @@ export function missingOptionValues(items: readonly OptionSetItem[], values: rea
  * @param fieldType 字段类型（`option` / `option_multi`）。
  * @param count 解析后选项数。
  */
-export function suggestOptionWidget(fieldType: string, count: number): 'dropdown' | 'dropdown-multi' | undefined {
+export function suggestOptionWidget(fieldType: string, count: number): 'dropdown' | 'dropdown_multi' | undefined {
   if (count <= OPTION_SET_DROPDOWN_THRESHOLD) {
     return undefined
   }
@@ -201,7 +201,7 @@ export function suggestOptionWidget(fieldType: string, count: number): 'dropdown
     return 'dropdown'
   }
   if (fieldType === 'option_multi') {
-    return 'dropdown-multi'
+    return 'dropdown_multi'
   }
   return undefined
 }

@@ -57,7 +57,7 @@ export type FormWidget =
   | 'datetime'
   | 'time'
   | 'dropdown'
-  | 'dropdown-multi'
+  | 'dropdown_multi'
   | 'radio'
   | 'button'
   | 'segmented'
@@ -66,19 +66,19 @@ export type FormWidget =
   | 'switch'
   | 'file'
   | 'image'
-  | 'file-upload'
-  | 'image-upload'
+  | 'file_upload'
+  | 'image_upload'
   | 'richtext'
-  | 'tree-select'
-  | 'org-select'
-  | 'dict-select'
-  | 'dict-multi'
+  | 'tree_select'
+  | 'org_select'
+  | 'dict_select'
+  | 'dict_multi'
   | 'transfer'
   | 'cascader'
   | 'tags'
   | 'captcha'
-  | 'i18n-name'
-  | 'i18n-text'
+  | 'i18n_name'
+  | 'i18n_text'
   | 'plain'
 
 /** 控件语义键全量（含未知回退 `plain`）。 */
@@ -89,7 +89,7 @@ export const FIELD_WIDGETS: readonly FormWidget[] = [
   'datetime',
   'time',
   'dropdown',
-  'dropdown-multi',
+  'dropdown_multi',
   'radio',
   'button',
   'segmented',
@@ -98,19 +98,19 @@ export const FIELD_WIDGETS: readonly FormWidget[] = [
   'switch',
   'file',
   'image',
-  'file-upload',
-  'image-upload',
+  'file_upload',
+  'image_upload',
   'richtext',
-  'tree-select',
-  'org-select',
-  'dict-select',
-  'dict-multi',
+  'tree_select',
+  'org_select',
+  'dict_select',
+  'dict_multi',
   'transfer',
   'cascader',
   'tags',
   'captcha',
-  'i18n-name',
-  'i18n-text',
+  'i18n_name',
+  'i18n_text',
   'plain',
 ]
 
@@ -130,24 +130,22 @@ export const FIELD_WIDGET_MAP: Readonly<Record<string, FormWidget>> = {
   radio: 'radio',
   checkbox: 'checkbox',
   switch: 'switch',
-  file: 'file-upload',
-  image: 'image-upload',
+  file: 'file_upload',
+  image: 'image_upload',
   richtext: 'richtext',
-  dept: 'org-select',
-  tree: 'tree-select',
-  user: 'org-select',
-  post: 'org-select',
-  org: 'org-select',
-  dict: 'dict-select',
-  dict_multi: 'dict-multi',
+  dept: 'org_select',
+  tree: 'tree_select',
+  user: 'org_select',
+  post: 'org_select',
+  org: 'org_select',
+  dict: 'dict_select',
+  dict_multi: 'dict_multi',
   transfer: 'transfer',
   cascader: 'cascader',
   tags: 'tags',
   captcha: 'captcha',
-  'i18n-name': 'i18n-name',
-  i18n_name: 'i18n-name',
-  'i18n-text': 'i18n-text',
-  i18n_text: 'i18n-text',
+  i18n_name: 'i18n_name',
+  i18n_text: 'i18n_text',
 }
 
 /** 字段渲染状态（运行态确定值）。 */

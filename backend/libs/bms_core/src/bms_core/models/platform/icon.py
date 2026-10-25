@@ -29,7 +29,9 @@ class SysIcon(BaseModel):
     form_key: Mapped[str] = mapped_column(
         String(64), default="icon", comment="表单标识（多表联合判别列；全局唯一、保存后不变）"
     )
-    code: Mapped[str] = mapped_column(String(64), comment="图标键（kebab-case，租户内唯一；icon key = custom:{code}）")
+    code: Mapped[str] = mapped_column(
+        String(64), comment="自建图标码（snake_case，租户内唯一；icon key = custom:{code}）"
+    )
     name: Mapped[str] = mapped_column(String(128), comment="图标名称（默认文案）")
     category: Mapped[str] = mapped_column(String(64), index=True, comment="图标分组（分类）")
     tags: Mapped[str] = mapped_column(String(256), default="", comment="标签（逗号分隔，搜索用；跨方言安全）")

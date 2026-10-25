@@ -284,7 +284,7 @@ function widgetOf(field: FilterField): string {
     return field.type === 'date' || field.type === 'datetime' ? 'date-range' : 'number-range'
   }
   if (operator === 'in') {
-    return 'dropdown-multi'
+    return 'dropdown_multi'
   }
   return FILTER_WIDGET_BY_TYPE[field.type] ?? 'text'
 }
@@ -586,7 +586,7 @@ function openAdvanced(field: FilterField): void {
                   @keydown="onEnter"
                 />
               </template>
-              <template v-else-if="widgetOf(field) === 'dropdown-multi'">
+              <template v-else-if="widgetOf(field) === 'dropdown_multi'">
                 <select
                   class="bms-query-filter__control"
                   multiple

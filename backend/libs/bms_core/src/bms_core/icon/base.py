@@ -5,7 +5,7 @@
 - 口径常量：图标键长度上限 `ICON_CODE_MAX_LENGTH`、名称上限 `ICON_NAME_MAX_LENGTH`、
   SVG 内容字节上限 `ICON_SVG_MAX_BYTES`、缺省状态 `DEFAULT_ICON_STATUS`、来源分隔与占位标识前缀。
 - 图标键：`build_icon_key`（`{来源}:{图标键}`，本域来源恒为 `custom`）——前端 icon key 一律由基座派生，
-  业务与前端不得自拼前缀；`is_valid_icon_code` 校验图标键 kebab-case 规范与长度上限。
+  业务与前端不得自拼前缀；`is_valid_icon_code` 校验图标键 snake_case 规范与长度上限（上游图标名例外）。
 - 数据契约：`IconDraft`（新增入参）/ `IconPatch`（更新入参，全字段可选）/ `IconInfo`（图标定义）。
 - `BaseIconRegistry`（`key = plugin_key = "icon_registry"`）：异步 `list` / `get` / `create` / `update` /
   `delete`——租户自定义图标清单维护；删除的引用检查（被菜单 / 卡片引用则不可删）归消费方实现。
@@ -115,12 +115,12 @@ def set_icon_store(store: IconStore | None) -> Token[IconStore | None]:
     return current_icon_store.set(store)
 
 
-_ICON_CODE_RE = re.compile(r"^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$")
-"""图标键规范：首段字母开头、段间单连字符、全小写字母数字（如 `purchase-order`）。"""
+_ICON_CODE_RE = re.compile(r"^[a-z][a-z0-9_]*$")
+"""自建图标码规范：小写字母开头，仅小写字母 / 数字 / 下划线（如 `purchase_order`）；上游图标名不经此校验。"""
 
 
 def is_valid_icon_code(code: str) -> bool:
-    """校验图标键是否符合 kebab-case 规范与长度上限。
+    """校验自建图标码是否符合 snake_case 规范与长度上限。
 
     Args:
         code: 图标键。
@@ -137,7 +137,7 @@ def build_icon_key(code: str, *, source: str = ICON_CUSTOM_SOURCE) -> str:
     """派生图标键（格式 `{来源}:{图标键}`）。
 
     Args:
-        code: 图标键（kebab-case，租户内唯一）。
+        code: 自建图标码（snake_case，租户内唯一）。
         source: 图标来源前缀（缺省租户自定义；业务与前端不得自拼前缀）。
 
     Returns:
@@ -149,7 +149,7 @@ def build_icon_key(code: str, *, source: str = ICON_CUSTOM_SOURCE) -> str:
 class IconDraft(BaseSchema):
     """图标新增入参（图标键 / 名称 / 分组 / 标签 / SVG 内容）。"""
 
-    code: str = Field(max_length=ICON_CODE_MAX_LENGTH, description="图标键（kebab-case，租户内唯一）")
+    code: str = Field(max_length=ICON_CODE_MAX_LENGTH, description="自建图标码（snake_case，租户内唯一）")
     name: str = Field(max_length=ICON_NAME_MAX_LENGTH, description="图标名称（默认文案）")
     category: str = Field(description="图标分组（分类）")
     tags: Annotated[ConcurrentStableList[str], CONTRACT_COLLECTION] = Field(

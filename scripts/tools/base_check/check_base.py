@@ -11,8 +11,10 @@
      状态与表文件一致；「方言特性登记」与 `方言特性/` 目录双向一致；
   6. **登记面命名形态**：登记型标识一律 snake_case（《命名规范》「大小写风格」节）——只扫**登记面**
      （`scripts/tools/*` 目录与脚本名、`frontend/{packages,modules}/*` 包目录与包名、
-     `backend/alembic/versions/*` 清单目录），**不扫**源码文本、注释、前端路由 path、CSS 类、
-     HTML 属性、文档文件名与正文（这些不参与登记与解析，受各自生态约定约束）。
+     `backend/alembic/versions/*` 清单目录），以及**运行期登记值**（后端 `fieldtype` 的 `widget` 字面量、
+     前端 `FIELD_WIDGETS` 控件语义键、业务码 / 动作码 `pattern`、自建图标码 `_ICON_CODE_RE`），
+     **不扫**源码文本、注释、前端路由 path、CSS 类、HTML 属性、文档文件名与正文（这些不参与登记与解析，
+     受各自生态约定约束）。
 
 自检（反例驱动）：`python3 check_base.py --self-test` 校验第 5、6 项的纯函数（正常 + 反例）。
 
@@ -43,7 +45,13 @@ BASE_DIRS = [
 ]
 # ② 各仓库自带副本：登记但不参与校验（已 gitignore，工作区中可能不存在）
 LOCAL_ONLY = ("bms文档/用户文档/",)
-CROSS_LAYER = ("bms文档/规划/", "bms文档/项目/", "bms文档/设计/", "bms文档/需求/", "bms文档/任务/")
+CROSS_LAYER = (
+    "bms文档/规划/",
+    "bms文档/项目/",
+    "bms文档/设计/",
+    "bms文档/需求/",
+    "bms文档/任务/",
+)
 BAD_WORDING = ("BMS 项目", "在 BMS", "本项目项目")
 LINK_RE = re.compile(r"\]\(([^)\s]+)\)")
 CODE_RE = re.compile(r"`[^`]*`")
@@ -69,7 +77,10 @@ def check_cross_layer():
                             t = m.group(1).strip().lstrip("?")
                             if t.startswith(("http", "mailto")) or not t.split("#")[0].endswith((".md", ".html")):
                                 continue
-                            ab = os.path.relpath(os.path.normpath(os.path.join(dp, t.split("#")[0])), ROOT)
+                            ab = os.path.relpath(
+                                os.path.normpath(os.path.join(dp, t.split("#")[0])),
+                                ROOT,
+                            )
                             is_cross = ab.replace(os.sep, "/").startswith(CROSS_LAYER) or (
                                 ab.count(os.sep) == 0 and ab.startswith("bms文档/")
                             )
@@ -361,11 +372,116 @@ def naming_problems(root):
     return found
 
 
+# ---- ⑥-2 运行期登记值形态（01_08：控件语义键 / 业务动作码 / 自建图标码） ----
+
+RUNTIME_FIELD_WIDGETS_PY = "backend/libs/bms_core/src/bms_core/fieldtype/local.py"
+"""后端字段类型注册表（`widget=` 字面量纳入登记面）。"""
+
+RUNTIME_FIELD_WIDGETS_TS = "frontend/packages/core/src/domain/form-render.ts"
+"""前端控件语义键全量清单（`FIELD_WIDGETS` 纳入登记面）。"""
+
+RUNTIME_CODE_SCHEMA_PY = "backend/services/platform/src/bms_platform/domains/permission_meta/schemas/permission_meta.py"
+"""业务码 / 动作码契约（`code` 字段 `pattern` 纳入登记面）。"""
+
+RUNTIME_ICON_BASE_PY = "backend/libs/bms_core/src/bms_core/icon/base.py"
+"""自建图标码校验基座（`_ICON_CODE_RE` 纳入登记面）。"""
+
+SNAKE_PATTERN = r"^[a-z][a-z0-9_]*$"
+"""登记值形态（小写字母开头，仅小写字母、数字与下划线）。"""
+
+WIDGET_LITERAL_RE = re.compile(r'widget="([^"]+)"')
+"""后端 `widget="…"` 字面量。"""
+
+FIELD_WIDGETS_BLOCK_RE = re.compile(r"export const FIELD_WIDGETS[^=]*=\s*\[(.*?)\]", re.DOTALL)
+"""前端 `FIELD_WIDGETS` 数组块。"""
+
+TS_WIDGET_RE = re.compile(r"'([^']+)'")
+"""前端块内单引号字符串。"""
+
+CODE_FIELD_PATTERN_RE = re.compile(r'code: str = Field\(\s*min_length=1,\s*max_length=64,\s*pattern=r"([^"]+)"')
+"""业务码 / 动作码 `code` 字段的 `pattern`。"""
+
+ICON_CODE_PATTERN_RE = re.compile(r'_ICON_CODE_RE = re\.compile\(r"([^"]+)"\)')
+"""自建图标码正则。"""
+
+
+def _read_text(path):
+    """读文本文件（不存在返回 `None`）。
+
+    Args:
+        path: 文件路径。
+
+    Returns:
+        str | None: 文本；不存在或不可读返回 `None`。
+    """
+    try:
+        with open(path, encoding="utf-8") as handle:
+            return handle.read()
+    except OSError:
+        return None
+
+
+def runtime_identifier_problems(root):
+    """运行期登记值形态问题清单（控件语义键 / 业务动作码 / 自建图标码）。
+
+    只扫三处登记面（后端字段类型注册表、前端 `FIELD_WIDGETS`、权限元数据契约与图标基座），
+    不扫业务源码字符串、CSS 类、路由 path 与 `data-*` 属性值。
+
+    Args:
+        root: 仓库根。
+
+    Returns:
+        list[str]: 问题明细（空列表表示通过）。
+    """
+    found = []
+    widgets_py = _read_text(os.path.join(root, RUNTIME_FIELD_WIDGETS_PY))
+    if widgets_py is not None:
+        literals = WIDGET_LITERAL_RE.findall(widgets_py)
+        if not literals:
+            found.append(f"[命名] 未找到后端控件语义键字面量：{RUNTIME_FIELD_WIDGETS_PY}")
+        for literal in literals:
+            if not DIR_IDENT_RE.match(literal):
+                found.append(f'[命名] 控件语义键须为 snake_case：{RUNTIME_FIELD_WIDGETS_PY} widget="{literal}"')
+    widgets_ts = _read_text(os.path.join(root, RUNTIME_FIELD_WIDGETS_TS))
+    if widgets_ts is not None:
+        block = FIELD_WIDGETS_BLOCK_RE.search(widgets_ts)
+        if block is None:
+            found.append(f"[命名] 未找到前端控件语义键清单 FIELD_WIDGETS：{RUNTIME_FIELD_WIDGETS_TS}")
+        else:
+            for literal in TS_WIDGET_RE.findall(block.group(1)):
+                if not DIR_IDENT_RE.match(literal):
+                    found.append(f"[命名] 控件语义键须为 snake_case：{RUNTIME_FIELD_WIDGETS_TS} '{literal}'")
+    code_schema = _read_text(os.path.join(root, RUNTIME_CODE_SCHEMA_PY))
+    if code_schema is not None:
+        patterns = CODE_FIELD_PATTERN_RE.findall(code_schema)
+        if len(patterns) < 2:
+            found.append(f"[命名] 未找到业务码 / 动作码两处 code pattern：{RUNTIME_CODE_SCHEMA_PY}")
+        for pattern in patterns:
+            if pattern != SNAKE_PATTERN:
+                found.append(
+                    f"[命名] 业务码 / 动作码 pattern 须为 {SNAKE_PATTERN}：{RUNTIME_CODE_SCHEMA_PY} "
+                    f'pattern=r"{pattern}"'
+                )
+    icon_base = _read_text(os.path.join(root, RUNTIME_ICON_BASE_PY))
+    if icon_base is not None:
+        icon_pattern = ICON_CODE_PATTERN_RE.search(icon_base)
+        if icon_pattern is None:
+            found.append(f"[命名] 未找到自建图标码正则 _ICON_CODE_RE：{RUNTIME_ICON_BASE_PY}")
+        elif icon_pattern.group(1) != SNAKE_PATTERN:
+            found.append(
+                f'[命名] 自建图标码正则须为 {SNAKE_PATTERN}：{RUNTIME_ICON_BASE_PY} r"{icon_pattern.group(1)}"'
+            )
+    return found
+
+
 def check_naming():
-    """第 6 项：登记面命名形态（登记目录 / 包名 / 工具脚本名）。"""
-    found = naming_problems(ROOT)
+    """第 6 项：登记面命名形态（登记目录 / 包名 / 工具脚本名 + 运行期登记值）。"""
+    found = naming_problems(ROOT) + runtime_identifier_problems(ROOT)
     problems.extend(found)
-    print(f"6. 登记面命名形态：{len(found)} 处（应为 0，登记目录 / 包名 / 脚本名一律 snake_case）")
+    print(
+        f"6. 登记面命名形态：{len(found)} 处（应为 0，登记目录 / 包名 / 脚本名与控件键 / 业务动作码 / "
+        "自建图标码一律 snake_case）"
+    )
 
 
 def self_test():
@@ -431,8 +547,8 @@ def self_test():
     return 1 if bad else 0
 
 
-NAMING_CASES = 6
-"""第 6 项自检用例数（1 正例 + 4 反例 + 1 中文名豁免）。"""
+NAMING_CASES = 11
+"""第 6 项自检用例数（登记面 6 个 + 运行期登记值 5 个）。"""
 
 
 def _build_naming_tree(root, *, tool_dir, script, package_dir, package_name, version_dir):
@@ -456,8 +572,48 @@ def _build_naming_tree(root, *, tool_dir, script, package_dir, package_name, ver
     os.makedirs(os.path.join(root, NAMING_VERSIONS_ROOT, version_dir), exist_ok=True)
 
 
+def _build_runtime_tree(root, *, widgets, ts_widgets, code_patterns, icon_pattern):
+    """搭运行期登记值自检夹具（字段类型注册表 / 前端清单 / 权限契约 / 图标基座）。
+
+    Args:
+        root: 临时仓库根。
+        widgets: 后端 `widget=` 字面量清单。
+        ts_widgets: 前端 `FIELD_WIDGETS` 取值清单。
+        code_patterns: 业务码 / 动作码 `pattern` 清单。
+        icon_pattern: 自建图标码正则文本。
+    """
+    fieldtype = os.path.join(root, RUNTIME_FIELD_WIDGETS_PY)
+    os.makedirs(os.path.dirname(fieldtype), exist_ok=True)
+    with open(fieldtype, "w", encoding="utf-8") as handle:
+        for widget in widgets:
+            handle.write(f'SimpleFieldType(key="x", widget="{widget}")\n')
+    render_ts = os.path.join(root, RUNTIME_FIELD_WIDGETS_TS)
+    os.makedirs(os.path.dirname(render_ts), exist_ok=True)
+    with open(render_ts, "w", encoding="utf-8") as handle:
+        handle.write("export const FIELD_WIDGETS: readonly FormWidget[] = [\n")
+        for widget in ts_widgets:
+            handle.write(f"  '{widget}',\n")
+        handle.write("]\n")
+    code_schema = os.path.join(root, RUNTIME_CODE_SCHEMA_PY)
+    os.makedirs(os.path.dirname(code_schema), exist_ok=True)
+    with open(code_schema, "w", encoding="utf-8") as handle:
+        for pattern in code_patterns:
+            handle.write(
+                "    code: str = Field(\n"
+                "        min_length=1,\n"
+                "        max_length=64,\n"
+                f'        pattern=r"{pattern}",\n'
+                '        description="码值",\n'
+                "    )\n"
+            )
+    icon_base = os.path.join(root, RUNTIME_ICON_BASE_PY)
+    os.makedirs(os.path.dirname(icon_base), exist_ok=True)
+    with open(icon_base, "w", encoding="utf-8") as handle:
+        handle.write(f'_ICON_CODE_RE = re.compile(r"{icon_pattern}")\n')
+
+
 def naming_self_test():
-    """第 6 项自检：正例 + 4 个反例 + 中文名豁免。
+    """第 6 项自检：登记面 6 例 + 运行期登记值 5 例。
 
     Returns:
         int: 失败用例数。
@@ -473,7 +629,11 @@ def naming_self_test():
         ("正例：全 snake_case 通过", ok, 0),
         ("反例 A：工具目录连字符", {**ok, "tool_dir": "bad-name"}, 1),
         ("反例 B：工具脚本连字符", {**ok, "script": "check-bad.py"}, 1),
-        ("反例 C：前端包目录与包名连字符", {**ok, "package_dir": "bad-name", "package_name": "@bms/bad-name"}, 2),
+        (
+            "反例 C：前端包目录与包名连字符",
+            {**ok, "package_dir": "bad-name", "package_name": "@bms/bad-name"},
+            2,
+        ),
         ("反例 D：清单目录连字符", {**ok, "version_dir": "Bad-Name"}, 1),
         ("正例：中文名脚本豁免", {**ok, "script": "安装-重启.py"}, 0),
     ]
@@ -482,6 +642,43 @@ def naming_self_test():
         with tempfile.TemporaryDirectory() as root:
             _build_naming_tree(root, **spec)
             got = naming_problems(root)
+        flag = "OK" if len(got) == expect else "FAIL"
+        bad += flag == "FAIL"
+        print(f"  [{flag}] {title}：期望 {expect} 项，实得 {len(got)} 项")
+        for g in got:
+            print(f"        {g}")
+    runtime_ok = {
+        "widgets": ["dict_select", "dict_multi"],
+        "ts_widgets": ["dict_select", "dict_multi", "i18n_name"],
+        "code_patterns": [SNAKE_PATTERN, SNAKE_PATTERN],
+        "icon_pattern": SNAKE_PATTERN,
+    }
+    runtime_cases = [
+        ("正例：控件键 / 码值 / 图标码全 snake_case", runtime_ok, 0),
+        ("反例 E：后端控件键连字符", {**runtime_ok, "widgets": ["dict-select"]}, 1),
+        (
+            "反例 F：前端控件键连字符",
+            {**runtime_ok, "ts_widgets": ["dict-select", "i18n-name"]},
+            2,
+        ),
+        (
+            "反例 G：业务动作码 pattern 允许连字符",
+            {
+                **runtime_ok,
+                "code_patterns": [r"^[a-z][a-z0-9-]*$", r"^[a-z][a-z0-9-]*$"],
+            },
+            2,
+        ),
+        (
+            "反例 H：自建图标码正则 kebab",
+            {**runtime_ok, "icon_pattern": r"^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"},
+            1,
+        ),
+    ]
+    for title, spec, expect in runtime_cases:
+        with tempfile.TemporaryDirectory() as root:
+            _build_runtime_tree(root, **spec)
+            got = runtime_identifier_problems(root)
         flag = "OK" if len(got) == expect else "FAIL"
         bad += flag == "FAIL"
         print(f"  [{flag}] {title}：期望 {expect} 项，实得 {len(got)} 项")

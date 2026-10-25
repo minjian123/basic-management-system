@@ -24,8 +24,8 @@ class BusinessCreateRequest(BaseSchema):
     code: str = Field(
         min_length=1,
         max_length=64,
-        pattern=r"^[a-z][a-z0-9-]*$",
-        description="业务码（小写单词 / kebab-case；创建后只读）",
+        pattern=r"^[a-z][a-z0-9_]*$",
+        description="业务码（snake_case：小写字母开头，仅小写字母 / 数字 / 下划线；创建后只读）",
     )
     status: EnabledStatus = Field(default="enabled", description="状态（enabled/disabled）")
     i18n: I18nNames = Field(description="多语言名称映射（locale → 文案）；必含请求语言文案")
@@ -44,8 +44,8 @@ class ActionCreateRequest(BaseSchema):
     code: str = Field(
         min_length=1,
         max_length=64,
-        pattern=r"^[a-z][a-z0-9-]*$",
-        description="动作码（全局动词 / kebab-case；创建后只读）",
+        pattern=r"^[a-z][a-z0-9_]*$",
+        description="动作码（snake_case：小写字母开头，仅小写字母 / 数字 / 下划线；创建后只读）",
     )
     status: EnabledStatus = Field(default="enabled", description="状态（enabled/disabled）")
     i18n: I18nNames = Field(description="多语言名称映射（locale → 文案）；必含请求语言文案")

@@ -18,7 +18,7 @@ export type BusinessList = Schemas['BusinessList']
 
 /** 业务码新增载荷。 */
 export interface BusinessCreatePayload {
-  /** 业务码（kebab-case，创建后只读）。 */
+  /** 业务码（snake_case：小写字母开头，仅小写字母 / 数字 / 下划线；创建后只读）。 */
   code: string
   /** 状态。 */
   status: MetaStatus

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // 选项集多选件（06_10 返工）：只消费 `optionSetKey`，选项经注入式解析器提供，控件不取数。
-// 形态（checkbox / tag / dropdown-multi）由字段属性 widget 决定；写回按选项集顺序去重排序。
+// 形态（checkbox / tag / dropdown_multi）由字段属性 widget 决定；写回按选项集顺序去重排序。
 // 数量上下限（minItems / maxItems）越限派发 `exceed` 并回退原值；缺项回退原值并开发态告警。
 import type { OptionSetItem } from '@bms/core'
 import { computed, ref, watch } from 'vue'
@@ -11,7 +11,7 @@ import CheckboxInput from '../input/CheckboxInput.vue'
 import SelectInput from '../input/SelectInput.vue'
 
 /** 形态（与控件语义键一致：多选三形态）。 */
-export type OptionSetMultiForm = 'checkbox' | 'tag' | 'dropdown-multi'
+export type OptionSetMultiForm = 'checkbox' | 'tag' | 'dropdown_multi'
 
 /** 选项集多选值类型。 */
 export type OptionSetMultiValue = string | number
@@ -214,7 +214,7 @@ const controlOptions = computed<OptionSetItem[]>(() => items.value)
     </div>
 
     <select-input
-      v-else-if="form === 'dropdown-multi'"
+      v-else-if="form === 'dropdown_multi'"
       class="bms-option-set-multi-field__control"
       :model-value="selected"
       :options="controlOptions"

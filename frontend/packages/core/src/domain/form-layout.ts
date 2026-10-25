@@ -254,7 +254,7 @@ export interface FieldRenderAttrs {
   widget?: string
   /** 字典标识（仅 `dict` / `dict_multi` 字段类型消费；枚举字段只用选项集，不得配字典）。 */
   dataSourceKey?: string
-  /** 上传接受类型（扩展名 / MIME，逗号分隔；`file-upload` / `image-upload` 字段类型协作）。 */
+  /** 上传接受类型（扩展名 / MIME，逗号分隔；`file_upload` / `image_upload` 控件语义键协作）。 */
   uploadAccept?: string
   /** 上传单文件大小上限（字节）。 */
   uploadMaxSize?: number
@@ -268,7 +268,7 @@ export interface FieldRenderAttrs {
   captchaScene?: CaptchaScene
   /** 只读（编辑态亦只读）。 */
   readonly?: boolean
-  /** 多语言文案单条长度上限（Unicode 码点；`i18n-name` / `i18n-text` 字段类型协作，缺省 128）。 */
+  /** 多语言文案单条长度上限（Unicode 码点；`i18n_name` / `i18n_text` 控件语义键协作，缺省 128）。 */
   i18nMaxLength?: number
   /** 隐藏（布局引用但默认不渲染）。 */
   hidden?: boolean

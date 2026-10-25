@@ -32,7 +32,7 @@ __all__ = [
 class IconCreateRequest(BaseSchema):
     """图标新增请求：`{code, name, category, tags?, svg}`。"""
 
-    code: str = Field(min_length=1, max_length=64, description="图标键（kebab-case，租户内唯一）")
+    code: str = Field(min_length=1, max_length=64, description="自建图标码（snake_case，租户内唯一）")
     name: str = Field(min_length=1, max_length=128, description="图标名称")
     category: str = Field(min_length=1, description="图标分组（分类）")
     tags: Annotated[ConcurrentStableList[str], CONTRACT_COLLECTION] = Field(
