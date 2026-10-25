@@ -9,7 +9,7 @@ import {
   createNotificationChannel,
   startUnreadPolling,
   useBaseNotification,
-} from '@bms/ui-ep'
+} from '@bms/ui_ep'
 import { ElButton } from 'element-plus'
 import { computed, nextTick, onMounted, ref } from 'vue'
 

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // 表单管理页：表单实体总列表（含未挂接任何菜单入口的表单）。
 // 对照原型《10_菜单管理/12_表单管理.html》：三段式、无操作列、双击行开记录 Tab、关联菜单数 0 标注「无入口」。
-import { EmptyState, FormFrame, PageContainer, type FormFrameTab } from '@bms/ui-ep'
+import { EmptyState, FormFrame, PageContainer, type FormFrameTab } from '@bms/ui_ep'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'

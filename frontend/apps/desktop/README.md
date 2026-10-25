@@ -4,7 +4,7 @@
 
 ## 定位
 
-- 装配 `@bms/core` / `@bms/vue` / `@bms/ui-ep` / `@bms/api-types`，提供路由、状态（Pinia）、i18n、请求层与模块宿主。
+- 装配 `@bms/core` / `@bms/vue` / `@bms/ui_ep` / `@bms/api_types`，提供路由、状态（Pinia）、i18n、请求层与模块宿主。
 - 通过 Module Federation 在运行时装载 `frontend/modules/*`，把模块贡献经扩展点注册表装配进宿主（路由 / 菜单 / 页面区域 / 通用组件 / 字段渲染器 / 图标 / 工作台卡片 / 主题令牌 / i18n）。
 - 附**开发态核对页**：根目录 `<主题>-check.html` + `src/dev/XxxCheck.vue`（不进构建产物，供人工逐族核对）。
 
@@ -58,7 +58,7 @@ frontend/apps/desktop/
 - **区域条目只挂紧凑件**：`layout.header` 等 `inline` 区域是**一行高窄容器**（徽标 / 按钮 / 状态标签），整页 / 大面板走页面路由。
 - **构建产物噪声**：跑生产 `build` 会重写 `components.d.ts`（`unplugin-vue-components` 生成物），构建后 `git checkout --` 回退再提交。
 - **新增核对页**：`src/dev/XxxCheck.vue` + `xxxCheck.ts` + 根 `xxx-check.html`，并在两处 `.vscode/launch.json` 选页清单同步。
-- **原型对照**：界面改动收口须过 `check-prototype-review.py`（依据取 `bms文档/设计/原型设计/` 或《组件设计》，须有截图与逐页结论）。
+- **原型对照**：界面改动收口须过 `check_prototype_review.py`（依据取 `bms文档/设计/原型设计/` 或《组件设计》，须有截图与逐页结论）。
 
 ## 文档导航
 

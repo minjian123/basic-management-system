@@ -57,7 +57,7 @@ def guard_module(monkeypatch: pytest.MonkeyPatch) -> object:
 
 def test_blocks_unwrapped_preflight(guard_module: object) -> None:
     """未包装跑预检脚本即拦截。"""
-    argv = [sys.executable, str(_PREFLIGHT_DIR / "check-preflight.py")]
+    argv = [sys.executable, str(_PREFLIGHT_DIR / "check_preflight.py")]
     assert guard_module.should_block(argv) == "script"
     assert guard_module.ALLOW_ENV in guard_module.guidance("script")
 

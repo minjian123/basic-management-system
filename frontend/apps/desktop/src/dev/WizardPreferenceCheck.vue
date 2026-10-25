@@ -4,7 +4,7 @@ import type { PreferenceValues } from '@bms/core'
 import { ElAlert, ElButton, ElCard, ElRadioButton, ElRadioGroup } from 'element-plus'
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 
-import { PreferencePanel, SelectInput, StepWizard, TextInput, useBasePersistedState } from '@bms/ui-ep'
+import { PreferencePanel, SelectInput, StepWizard, TextInput, useBasePersistedState } from '@bms/ui_ep'
 
 /** 自检项定义。 */
 interface CheckItem {

@@ -26,7 +26,7 @@ from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
 # 集合声明走基座插入序集合类（《后端开发规范》「集合与排序」；
-# check-bare-collections.py 强制、scripts/tools 亦在扫描范围内）。
+# check_bare_collections.py 强制、scripts/tools 亦在扫描范围内）。
 _SRC_ROOT = Path(__file__).resolve().parents[3] / "backend" / "libs" / "bms_core" / "src"
 if str(_SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(_SRC_ROOT))

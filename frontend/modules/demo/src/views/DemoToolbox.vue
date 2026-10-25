@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // 演示模块工具页：验证容器契约（滚动 / 虚拟列表）在模块内可直接复用。
 import { computeVirtualRange } from '@bms/core'
-import { PageContainer, ScrollContainer, SectionContainer, VirtualListContainer } from '@bms/ui-ep'
+import { PageContainer, ScrollContainer, SectionContainer, VirtualListContainer } from '@bms/ui_ep'
 
 defineOptions({ name: 'DemoToolbox' })
 

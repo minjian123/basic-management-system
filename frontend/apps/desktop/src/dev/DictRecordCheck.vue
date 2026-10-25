@@ -2,7 +2,7 @@
 // 开发态核对页（08_01 字典页布局对齐）：字典记录页骨架件（工具栏 + 详细信息 / 系统信息两 Tab +
 // 详细信息首行三字段 Code / Name / State）与通用系统信息件的真实组装，作为《原型审查规范》
 // 实现侧截图对照载体（数据为本地样例，不调后端）；本页不进构建产物。
-import { DictRecordLayout, SysInfoPanel, type SysInfoData } from '@bms/ui-ep'
+import { DictRecordLayout, SysInfoPanel, type SysInfoData } from '@bms/ui_ep'
 import { computed, ref } from 'vue'
 
 /** 当前子页签。 */

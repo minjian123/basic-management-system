@@ -9,7 +9,7 @@ import {
   TextInput,
   ThemeSwitch,
   useBaseTheme,
-} from '@bms/ui-ep'
+} from '@bms/ui_ep'
 import { ElButton } from 'element-plus'
 import { nextTick, ref } from 'vue'
 

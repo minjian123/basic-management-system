@@ -234,13 +234,13 @@ ci-base-build:
           - backend/uv.lock
           - deploy/ci/Dockerfile.backend
           - deploy/ci/Dockerfile.frontend
-          - deploy/ci/build-base.sh
+          - deploy/ci/build_base.sh
           - deploy/ci/build_base.py
   script:
-    # build-base.sh 为「Python 单一实现 + 薄包装」的 POSIX sh 包装（逻辑在 build_base.py）；
+    # build_base.sh 为「Python 单一实现 + 薄包装」的 POSIX sh 包装（逻辑在 build_base.py）；
     # 本镜像（Alpine）默认无 python3，先装（走清华 Alpine 镜像加速）。
     - sed -i 's/dl-cdn.alpinelinux.org/mirrors.tuna.tsinghua.edu.cn/' /etc/apk/repositories && apk add --no-cache python3
-    - sh deploy/ci/build-base.sh
+    - sh deploy/ci/build_base.sh
 
 # ---- 门禁冒烟：所有流水线无条件必跑 ----
 # 阶段一代码落地前，流水线仅含本 job（4-6 秒）；代码目录出现后 lint/test 自动激活，
@@ -258,11 +258,11 @@ gate-smoke:
 # ---- 基座完整性：跨层引用 + 措辞残留 + 清单与磁盘一致 + 编号引用（四项）----
 # 口径见《基座文档清单》第 3/5 节与《平台可扩展性规划》R1；工作区模型下基座不再向产品
 # 仓库复制/同步（产品侧以符号链接引用），本检查仅面向 bms 权威源。
-# 链接自洽校验已拆出（scripts/tools/base-check/check-links.py，本地手工跑）：
+# 链接自洽校验已拆出（scripts/tools/base_check/check_links.py，本地手工跑）：
 # 其约束过强会逼着文档少写导航链接、损害阅读，故不作 CI 强制项。
 base-integrity:
   stage: lint
-  # 用 ci-backend 镜像：其已固化 git（check-prototype-review --changed 需调用）；见 deploy/ci/Dockerfile.backend
+  # 用 ci-backend 镜像：其已固化 git（check_prototype_review --changed 需调用）；见 deploy/ci/Dockerfile.backend
   image: $REGISTRY_IMAGE_PREFIX/ci-backend:py314
   script:
     # engkit 接入（13_05）：基础校验脚本已改为薄包装，需按锁定 SHA 克隆工具包
@@ -271,34 +271,34 @@ base-integrity:
       test -d ../engkit/.git || git clone --quiet --no-checkout "${ENGKIT_REPO_URL:-${CI_SERVER_PROTOCOL}://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_SERVER_HOST}/bms/engkit.git}" ../engkit
     - git -C ../engkit checkout --quiet "$ENGKIT_REV"
     - export ENGKIT_HOME="$CI_PROJECT_DIR/../engkit"
-    - python scripts/tools/base-check/check-base.py
+    - python scripts/tools/base_check/check_base.py
     # 系统字段 form_key：构建期清单 ↔ 表文件双向一致 + 跨表全局唯一（02_11）
-    - python scripts/tools/base-check/check-system-fields.py
-    - python scripts/tools/base-check/check-system-fields.py --self-test
+    - python scripts/tools/base_check/check_system_fields.py
+    - python scripts/tools/base_check/check_system_fields.py --self-test
     # 环境变量模板键位一致性（密钥键位齐备 / 无废弃键 / 无真实密钥；04_03）
-    - python scripts/tools/base-check/check-env-example.py
-    - python scripts/tools/base-check/check-env-example.py --self-test
+    - python scripts/tools/base_check/check_env_example.py
+    - python scripts/tools/base_check/check_env_example.py --self-test
     # 后端基座合规对账（继承链 / 清单对账 / 错误码段位 / 迁移链；《后端审计规范》附录）
-    - python scripts/tools/base-check/check-backend-base.py
+    - python scripts/tools/base_check/check_backend_base.py
     # 护栏自检（fixture 拦截验证；《后端审计规范》§8）
-    - python scripts/tools/base-check/check-backend-base.py --self-test
+    - python scripts/tools/base_check/check_backend_base.py --self-test
     # 服务边界护栏：共享库 / 服务依赖、分层单向、表 / 表前缀跨服务唯一、跨服务库访问硬校验（《后端开发规范》§3.1/§3.2）
-    - python scripts/tools/base-check/check-service-boundaries.py
-    - python scripts/tools/base-check/check-service-boundaries.py --self-test
+    - python scripts/tools/base_check/check_service_boundaries.py
+    - python scripts/tools/base_check/check_service_boundaries.py --self-test
     # 裸无序集合护栏：类字段与函数签名不得使用裸 dict / list / set / frozenset（存量以基线快照豁免并递减；《后端开发规范》§3.1「集合与排序」）
-    - python scripts/tools/base-check/check-bare-collections.py
-    - python scripts/tools/base-check/check-bare-collections.py --self-test
+    - python scripts/tools/base_check/check_bare_collections.py
+    - python scripts/tools/base_check/check_bare_collections.py --self-test
     # 排期与工时落点护栏：只允许出现在《总体项目规划》与各阶段计划文档（《计划文档规范》「排期唯一落点与边界」）
-    - python scripts/tools/base-check/check-docs-scope.py
-    - python scripts/tools/base-check/check-docs-scope.py --self-test
+    - python scripts/tools/base_check/check_docs_scope.py
+    - python scripts/tools/base_check/check_docs_scope.py --self-test
     # 界面交付原型对照护栏：本次改动含界面源码（frontend 视图 / 组件 / ui-ep / *.vue）时，变更集内必须有
     # 「原型对照结论」（原型依据 + 逐页表 + 结论 + 截图；《原型审查规范》§4.9）。基准不可解析时脚本自行跳过。
-    - python scripts/tools/base-check/check-prototype-review.py . --changed "${CI_MERGE_REQUEST_DIFF_BASE_SHA:-${CI_COMMIT_BEFORE_SHA:-origin/main}}"
-    - python scripts/tools/base-check/check-prototype-review.py --self-test
+    - python scripts/tools/base_check/check_prototype_review.py . --changed "${CI_MERGE_REQUEST_DIFF_BASE_SHA:-${CI_COMMIT_BEFORE_SHA:-origin/main}}"
+    - python scripts/tools/base_check/check_prototype_review.py --self-test
     # 服务边界与跨库访问度量（S7；静态越界 / 跨库访问 / 例外数，报告步）
     - python scripts/tools/governance/boundary_metrics.py
     # 项目文档状态一致性（需求编号集合 + 计划表内部一致；规则见《计划文档规范》§6 与《需求文档规范》§5）
-    - python scripts/tools/check-docs/check-status.py
+    - python scripts/tools/check_docs/check_status.py
     # 网关声明式配置零漂移（服务目录 SERVICE_CATALOG → deploy/gateway/apisix.yaml；《04-1 详细设计》§4.7）
     - python backend/ops/gateway_config.py check
 
@@ -471,9 +471,9 @@ backend-test:
     # 强制按当前工作树重建本地包，避免陈旧模型（如缺 `form_key` 列）。
     - uv sync --frozen --reinstall
     - cd "$CI_PROJECT_DIR"
-    # 选测 + 覆盖率门禁 + 扩圈（13_01）：与本地预检共用 scripts/tools/preflight/run-selected.py，
+    # 选测 + 覆盖率门禁 + 扩圈（13_01）：与本地预检共用 scripts/tools/preflight/run_selected.py，
     # 推导规则只在 test_selection.py 一处维护；基准不可解析（全 0 / 浅克隆取不到 base SHA）即显式退化全量，
-    # 绝不静默跳过（空选测会被 run-selected 视为「无后端变更」直接成功）。
+    # 绝不静默跳过（空选测会被 run_selected 视为「无后端变更」直接成功）。
     # 并行（13_02）：--jobs auto 与本地预检同口径（按逻辑核数；资源紧张时改这里是唯一开关）。
     - |
       BASE="${CI_MERGE_REQUEST_DIFF_BASE_SHA:-${CI_COMMIT_BEFORE_SHA:-}}"
@@ -483,7 +483,7 @@ backend-test:
         echo "[test-selection] 变更基准不可解析 ⇒ 显式退化全量"
         FORCE="--force-full"
       fi
-      python scripts/tools/preflight/run-selected.py --root . ${BASE:+--changed-from "$BASE"} $FORCE \
+      python scripts/tools/preflight/run_selected.py --root . ${BASE:+--changed-from "$BASE"} $FORCE \
         --pytest-cwd backend --pytest-cmd "uv run pytest" --cov --cov-fail-under 100 \
         --max-rounds 2 --cov-json backend/coverage.json --jobs auto
   coverage: '/\[coverage\].*percent=(\d+(?:\.\d+)?)/'
@@ -847,7 +847,7 @@ core-check:
       TARGETS=""
       for pkg in $SELECTED_PACKAGES; do
         case "$pkg" in
-          @bms/core|@bms/api-types|@bms/vue|@bms/ui-ep) TARGETS="$TARGETS $pkg" ;;
+          @bms/core|@bms/api_types|@bms/vue|@bms/ui_ep) TARGETS="$TARGETS $pkg" ;;
         esac
       done
       if [ -z "$TARGETS" ]; then
@@ -861,7 +861,7 @@ core-check:
         pnpm --filter "$pkg" run test
       done
 
-# ---- 前端契约类型：@bms/api-types 零漂移（04-1-1；契约快照 / 生成包变更单独拉起）----
+# ---- 前端契约类型：@bms/api_types 零漂移（04-1-1；契约快照 / 生成包变更单独拉起）----
 api-types-check:
   stage: test
   image: $REGISTRY_IMAGE_PREFIX/ci-frontend:node22
@@ -869,20 +869,20 @@ api-types-check:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       exists:
-        - frontend/packages/api-types/package.json
-    # 去重（2026-09-27 提速）：前端变更由 core-check（`pnpm run check` 已含 api-types:check）覆盖，
+        - frontend/packages/api_types/package.json
+    # 去重（2026-09-27 提速）：前端变更由 core-check（`pnpm run check` 已含 api_types:check）覆盖，
     # 本 job 只在「契约快照变更」时单独兜底（deploy/contracts/** 不触发 core-check）
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
         paths:
           - deploy/contracts/**/*
-          - frontend/packages/api-types/src/**
+          - frontend/packages/api_types/src/**
       exists:
-        - frontend/packages/api-types/package.json
+        - frontend/packages/api_types/package.json
   script:
     # 重新生成 9 份服务契约类型并与仓库产物比对（零漂移则由 gen:check 退出码保证）
     - pnpm install --frozen-lockfile
-    - pnpm run api-types:gen:check
+    - pnpm run api_types:gen:check
 
 # ---- 模块工程：ESLint + 类型 + Vitest（frontend/modules/*：独立构建 / 独立发布的运行时模块，阶段五 02_01 接入）----
 module-check:

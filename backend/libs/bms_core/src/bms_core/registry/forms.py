@@ -65,7 +65,7 @@ class FormRecord(BaseValueObject):
         kind: 类型（`dict` 字典 / `form` 表单）。
         status: 状态（`enabled` / `disabled`）。
         data_source_key: 数据源标识（`form_key → data_source_key` 多对一；任务 `02_10` 回填，默认 1:1 同名；
-            与 `DataSourceRegistry` 的**闭合**（回填值已登记）由 `check-system-fields.py` 对 bms 侧清单断言）。
+            与 `DataSourceRegistry` 的**闭合**（回填值已登记）由 `check_system_fields.py` 对 bms 侧清单断言）。
     """
 
     form_key: str

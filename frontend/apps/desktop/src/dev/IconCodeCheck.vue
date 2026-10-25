@@ -13,7 +13,7 @@ import {
   IconRenderer,
   SqlEditor,
   type EditorDiagnostic,
-} from '@bms/ui-ep'
+} from '@bms/ui_ep'
 import { computed, defineComponent, h, ref } from 'vue'
 
 /** 核对页样例图标组件（离线演示，不依赖官方图标集）。 */

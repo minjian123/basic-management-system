@@ -2,9 +2,9 @@
 """CI 基础镜像构建（Python 单一实现；CI job 与本地 bootstrap 共用）。
 
 调用方式（路径均以本文件位置为基准，不依赖调用者 cwd）：
-    sh deploy/ci/build-base.sh                 # CI job `ci-base-build`（docker:27-cli 镜像）
+    sh deploy/ci/build_base.sh                 # CI job `ci-base-build`（docker:27-cli 镜像）
     python3 deploy/ci/build_base.py            # 本地 bootstrap / 任意 cwd
-同名 `build-base.sh` 仅为转调本文件的 **POSIX sh 瘦包装**（CI 以 `sh` 调用；docker:27-cli 为
+同名 `build_base.sh` 仅为转调本文件的 **POSIX sh 瘦包装**（CI 以 `sh` 调用；docker:27-cli 为
 Alpine 镜像、默认无 python3，故 `.gitlab-ci.yml` 于调用前 `apk add --no-cache python3`）。
 
 口径（与历史 shell 实现一致，2026-10-16 起改 Python 单一实现）：

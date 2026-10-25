@@ -2,7 +2,7 @@
 // 开发态核对页（07_03_01 菜单/表单/按钮/字段挂接与动态菜单）：真实消费动态菜单接口
 // （菜单树 → 侧栏、权限码 → 按钮显隐、字段权限矩阵），作为《原型审查规范》实现侧对照载体；
 // 本页不进构建产物，MVP 页面本体的接入随各页面任务。
-import { SideMenu } from '@bms/ui-ep'
+import { SideMenu } from '@bms/ui_ep'
 import { ElButton } from 'element-plus'
 import { computed, onMounted } from 'vue'
 

@@ -18,7 +18,7 @@ import {
   useResponsive,
   type MasterTreeNode,
   type TabNavItem,
-} from '@bms/ui-ep'
+} from '@bms/ui_ep'
 import { ref } from 'vue'
 
 /** 侧边菜单（一级配图标、二级纯文字；含三级与搜索过滤）。 */

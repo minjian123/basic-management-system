@@ -19,7 +19,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 import search_mcp as S
 
 # 集合声明走基座插入序集合类（《后端开发规范》「集合与排序」；
-# check-bare-collections.py 强制、scripts/tools 亦在扫描范围内）。
+# check_bare_collections.py 强制、scripts/tools 亦在扫描范围内）。
 sys.path.insert(0, str(S._SRC_ROOT))
 from bms_core.core.concurrent import ConcurrentStableList
 

@@ -1,4 +1,4 @@
-# 本地预检（scripts/tools/preflight/check-preflight.py）的可选第三方依赖。
+# 本地预检（scripts/tools/preflight/check_preflight.py）的可选第三方依赖。
 # 缺失时仅「CI 配置自检」段降级跳过（见同目录 README.md），其余检查照常；CI 侧自带环境不受影响。
 # 安装（国内镜像）：python3 -m pip install -i https://pypi.tuna.tsinghua.edu.cn/simple -r requirements.txt
 pyyaml>=6.0

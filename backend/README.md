@@ -59,10 +59,10 @@ docker run --rm -p 8000:8000 bms-platform:dev        # 平台库需先建表（�
 uv run ruff check . && uv run ruff format --check . && uv run pyright
 uv run pytest -q --cov=bms_core --cov=bms_platform --cov=bms_identity --cov=bms_tenant --cov=bms_org --cov=bms_file --cov=bms_notification --cov=bms_search --cov=bms_ai --cov=bms_report --cov-branch --cov-fail-under=100   # 覆盖率门禁（门槛与维度见 bms文档/规范/AI开发规范.md「覆盖率要求」节）
 uv run python -m ops.check_modules                            # 模块注册清单校验
-cd .. && python3 scripts/tools/base-check/check-base.py        # 基座自检（须在仓库根）
-python3 scripts/tools/base-check/check-service-boundaries.py  # 服务边界护栏（共享库 / 服务依赖、分层单向、表 / 表前缀跨服务唯一）
-python3 scripts/tools/check-docs/check-status.py              # 需求 / 任务 / 计划状态一致性
-python3 scripts/tools/preflight/check-preflight.py            # 一键本地预检：缺省定向档（静态 + 基座/边界 + 受影响工程用例 + 变更源文件覆盖率门禁）
+cd .. && python3 scripts/tools/base_check/check_base.py        # 基座自检（须在仓库根）
+python3 scripts/tools/base_check/check_service_boundaries.py  # 服务边界护栏（共享库 / 服务依赖、分层单向、表 / 表前缀跨服务唯一）
+python3 scripts/tools/check_docs/check_status.py              # 需求 / 任务 / 计划状态一致性
+python3 scripts/tools/preflight/check_preflight.py            # 一键本地预检：缺省定向档（静态 + 基座/边界 + 受影响工程用例 + 变更源文件覆盖率门禁）
                                                               #   --fast 秒级只静态 / 基座；--full 才跑全量（本地不缺省跑全量，全量交 CI）
 ```
 

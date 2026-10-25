@@ -10,7 +10,7 @@
  * ⑤ 权限缺省（区域项全被过滤）时不留空白，给出空态文案。
  */
 
-import { ModuleAreaOutlet } from '@bms/ui-ep'
+import { ModuleAreaOutlet } from '@bms/ui_ep'
 import { createPinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'

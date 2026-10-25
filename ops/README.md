@@ -6,7 +6,7 @@
 
 - 根 `ops/` 只放**产品运维脚本**；**不放**开发工具链（见 `scripts/`），**不放**部署产物（见 `deploy/`）。
 - **后端开发期运维脚本在 `backend/ops/`**（随后端工程走：模块 / 插件 / 契约检查、租户库初始化与批量迁移、测试库流程、各类 `seed_*.py`、`dev_run.py`），根 `ops/` 与 `backend/ops/` 不重复。
-- `scripts/` 只放开发期工具链（dev / deps / base-check / check-docs / preflight / governance / wol 等），不放产品运维脚本。
+- `scripts/` 只放开发期工具链（dev / deps / base_check / check_docs / preflight / governance / wol 等），不放产品运维脚本。
 
 ## 目录状态
 

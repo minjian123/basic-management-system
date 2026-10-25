@@ -151,7 +151,7 @@ def test_bootstrap_uses_declared_images() -> None:
 @pytest.mark.kiwi_id(2345)
 def test_guard_image_packages_match_dockerfile() -> None:
     """护栏的镜像包集合与 `backend/Dockerfile` 的 COPY 面一致（跑真实护栏，断言 0 违规）。"""
-    guard = _REPO_ROOT / "scripts" / "tools" / "base-check" / "check-service-boundaries.py"
+    guard = _REPO_ROOT / "scripts" / "tools" / "base_check" / "check_service_boundaries.py"
     result = subprocess.run(
         [sys.executable, str(guard), str(_REPO_ROOT), "--json"],
         capture_output=True,

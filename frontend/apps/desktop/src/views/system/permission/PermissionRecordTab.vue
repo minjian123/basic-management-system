@@ -3,7 +3,7 @@
 // 组合创建后只读（换绑 = 删除重建）：新增用业务码 × 动作码下拉派生组合；编辑仅允许改状态。
 defineOptions({ name: 'PermissionRecordTab' })
 
-import { DictRecordLayout, type SysInfoData } from '@bms/ui-ep'
+import { DictRecordLayout, type SysInfoData } from '@bms/ui_ep'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { computed, onMounted, ref, watch } from 'vue'
 

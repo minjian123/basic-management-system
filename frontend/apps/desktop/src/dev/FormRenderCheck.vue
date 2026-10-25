@@ -3,7 +3,7 @@
 // 即时与全量校验 / 明细区 / 脱敏 / 提交与失败 / 降级占位）实例 + 12 项自检上屏（本页不进构建产物）。
 import type { FormField, FormRendererJobs, LayoutEffective } from '@bms/core'
 import { BaseAccess } from '@bms/core'
-import { FormRenderer } from '@bms/ui-ep'
+import { FormRenderer } from '@bms/ui_ep'
 import { nextTick, onMounted, ref } from 'vue'
 
 /** 权限上下文（含渲染权限）。 */

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // 示例数据详情页：只读字段 + 编辑入口 + 删除（不存在时呈现错误态）。
-import { DescriptionList, PageContainer, SectionContainer, StatusContainer } from '@bms/ui-ep'
-import type { DescItem, StatusContainerState } from '@bms/ui-ep'
+import { DescriptionList, PageContainer, SectionContainer, StatusContainer } from '@bms/ui_ep'
+import type { DescItem, StatusContainerState } from '@bms/ui_ep'
 import { ElButton, ElPopconfirm } from 'element-plus'
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'

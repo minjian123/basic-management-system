@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // 开发态核对页（07_06）：图表卡（类型集 / 数据映射 / 风格 / 视图切换 / 四态 / 令牌主题 / 脚注）实例 + 12 项自检上屏（本页不进构建产物）。
 import type { ChartConfig, ChartDatasetResult } from '@bms/core'
-import { ChartCard } from '@bms/ui-ep'
+import { ChartCard } from '@bms/ui_ep'
 import { ElButton } from 'element-plus'
 import { nextTick, onMounted, ref } from 'vue'
 

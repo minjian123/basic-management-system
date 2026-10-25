@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // 开发态核对页（08_05_02）：导入对话框（三步 + 错误行报告 + 分页 + 幂等键）与导出触发件（同步 / 异步 / 失败重试 / 权限过滤）实例 + 10 项自检上屏（本页不进构建产物）。
 import { BaseAccess, BaseAsyncTask, type ExportJobs, type ExportResult, type ImportJobs } from '@bms/core'
-import { ExportButton, ImportDialog } from '@bms/ui-ep'
+import { ExportButton, ImportDialog } from '@bms/ui_ep'
 import { ElButton } from 'element-plus'
 import { computed, nextTick, onMounted, ref } from 'vue'
 

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // 工作台（骨架）：以页面容器承载内容。
-import { PageContainer } from '@bms/ui-ep'
+import { PageContainer } from '@bms/ui_ep'
 
 defineOptions({ name: 'HomeView' })
 </script>

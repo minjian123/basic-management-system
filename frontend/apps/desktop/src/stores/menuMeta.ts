@@ -8,7 +8,7 @@
  */
 
 import { IconProvider } from '@bms/core'
-import { getIconRegistry } from '@bms/ui-ep'
+import { getIconRegistry } from '@bms/ui_ep'
 import { defineStore } from 'pinia'
 
 import { listActions, type ActionItem } from '@/api/action'

@@ -1,6 +1,6 @@
 /** 状态错误页用例（04-1-1）：403 / 404 / 500 复用组件库错误页，操作事件接线到路由（首页 / 返回 / 重试）。 */
 
-import { ErrorPage } from '@bms/ui-ep'
+import { ErrorPage } from '@bms/ui_ep'
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { createMemoryHistory, createRouter, type Router } from 'vue-router'
 import { describe, expect, it, vi } from 'vitest'

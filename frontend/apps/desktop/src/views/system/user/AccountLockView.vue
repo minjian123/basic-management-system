@@ -2,7 +2,7 @@
 // 账号锁定页（平台内建页）：表单框架宿主——列表 Tab + 账号锁定记录 Tab。
 // 结构对照原型《08_用户管理/04_账号锁定.html》：列表**无操作列**、已解锁行不可选（不可重复解锁）；
 // 工具栏「手动锁定」（`manual` 型：选用户 + 原因必填）与「解锁」（批量）。
-import { EmptyState, FormFrame, PageContainer, type FormFrameTab } from '@bms/ui-ep'
+import { EmptyState, FormFrame, PageContainer, type FormFrameTab } from '@bms/ui_ep'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { computed, onMounted, ref } from 'vue'
 

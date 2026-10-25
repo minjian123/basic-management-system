@@ -1,6 +1,6 @@
 /** 工作台首页用例（04-1-1）：骨架页以页面容器承载标题 / 描述与占位提示。 */
 
-import { PageContainer } from '@bms/ui-ep'
+import { PageContainer } from '@bms/ui_ep'
 import { mount } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
 

@@ -9,7 +9,7 @@ import sys
 from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parents[5]
-_SCRIPT = _REPO_ROOT / "scripts" / "tools" / "preflight" / "run-once.py"
+_SCRIPT = _REPO_ROOT / "scripts" / "tools" / "preflight" / "run_once.py"
 
 
 def _run(cache_dir: Path, *args: str) -> subprocess.CompletedProcess[str]:

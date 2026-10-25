@@ -11,7 +11,7 @@ import {
   highlightKeyword,
   sanitizeHighlight,
   useBaseSearch,
-} from '@bms/ui-ep'
+} from '@bms/ui_ep'
 import { ElButton } from 'element-plus'
 import { ref } from 'vue'
 

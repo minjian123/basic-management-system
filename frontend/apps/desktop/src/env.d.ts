@@ -16,7 +16,7 @@ interface ImportMetaEnv {
 }
 
 /**
- * `bpmn-moddle` 自带类型文件不含构造器声明，宿主经 `@bms/ui-ep` 间接引用其强比对工具，
+ * `bpmn-moddle` 自带类型文件不含构造器声明，宿主经 `@bms/ui_ep` 间接引用其强比对工具，
  * 需补齐同一声明避免悬空类型。
  */
 declare module 'bpmn-moddle' {

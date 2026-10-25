@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 
 _REPO_ROOT = Path(__file__).resolve().parents[5]
-_SCRIPT = _REPO_ROOT / "scripts" / "tools" / "base-check" / "check-bare-collections.py"
+_SCRIPT = _REPO_ROOT / "scripts" / "tools" / "base_check" / "check_bare_collections.py"
 _spec = importlib.util.spec_from_file_location("check_bare_collections", _SCRIPT)
 assert _spec is not None and _spec.loader is not None
 check_bare_collections = importlib.util.module_from_spec(_spec)

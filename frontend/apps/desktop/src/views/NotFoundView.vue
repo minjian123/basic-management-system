@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // 404 页（页面不存在）：复用组件库错误页。
-import { ErrorPage } from '@bms/ui-ep'
+import { ErrorPage } from '@bms/ui_ep'
 </script>
 
 <template>

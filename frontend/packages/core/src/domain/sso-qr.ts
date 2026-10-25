@@ -69,7 +69,7 @@ export interface SsoQrPollResult {
   redirect?: string
 }
 
-/** 可扫码入口最小结构（过滤用；与 `@bms/api-types` 契约结构兼容）。 */
+/** 可扫码入口最小结构（过滤用；与 `@bms/api_types` 契约结构兼容）。 */
 export interface SsoQrProviderLike {
   /** IdP 标识。 */
   idp_key: string

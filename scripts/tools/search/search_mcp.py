@@ -49,7 +49,7 @@ import jieba
 from mcp.server.mcpserver import MCPServer
 
 # 集合声明走基座插入序集合类（《后端开发规范》「集合与排序」；
-# check-bare-collections.py 强制、scripts/tools 亦在扫描范围内）。
+# check_bare_collections.py 强制、scripts/tools 亦在扫描范围内）。
 _SRC_ROOT = Path(__file__).resolve().parents[3] / "backend" / "libs" / "bms_core" / "src"
 if str(_SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(_SRC_ROOT))
@@ -62,7 +62,7 @@ from bms_core.core.concurrent import (  # noqa: E402
 # MCP 工具签名必须用 Pydantic 可建模的内建容器类型：@mcp.tool 会依返回注解
 # 生成 JSON Schema，自定义集合类无 schema 支持会在注册期直接报错。
 # 用类型别名承载「内建容器」这一事实，既满足护栏可读性，也避免行宽折行
-# 破坏 check-bare-collections 的同行豁免标记（豁免按注解所在行匹配）。
+# 破坏 check_bare_collections 的同行豁免标记（豁免按注解所在行匹配）。
 ToolResult = list[dict]
 ToolJson = dict[str, int]
 

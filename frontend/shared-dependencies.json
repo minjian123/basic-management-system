@@ -17,7 +17,7 @@
       "requiredVersion": "^0.1.0",
       "singleton": true
     },
-    "@bms/ui-ep": {
+    "@bms/ui_ep": {
       "requiredVersion": "^0.1.0",
       "singleton": true
     }

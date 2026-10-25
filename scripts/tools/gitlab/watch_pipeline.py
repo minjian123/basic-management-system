@@ -14,7 +14,7 @@
       （含 job 名与已运行时长），供人工介入。
 
 凭据读 deploy/.env 的 GITLAB_API_URL / GITLAB_API_TOKEN。
-配合 bg 工具使用：bg-run 包装本脚本，bg-status/bg-wait 查询结果。
+配合 bg 工具使用：bg_run 包装本脚本，bg_status/bg_wait 查询结果。
 """
 
 import argparse

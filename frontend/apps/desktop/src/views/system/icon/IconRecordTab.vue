@@ -4,7 +4,7 @@
 // 上传仅 SVG（类型白名单 + 大小上限），内容清洗由后端兜底，前端预览不执行脚本。
 defineOptions({ name: 'IconRecordTab' })
 
-import { DictRecordLayout, MultilingualNameField, type SysInfoData } from '@bms/ui-ep'
+import { DictRecordLayout, MultilingualNameField, type SysInfoData } from '@bms/ui_ep'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { computed, onMounted, ref, watch } from 'vue'
 

@@ -15,7 +15,7 @@ import {
   registerUploadTransport,
   uploadTransportRegistry,
   useBaseFileUpload,
-} from '@bms/ui-ep'
+} from '@bms/ui_ep'
 import { ElButton } from 'element-plus'
 import { nextTick, ref } from 'vue'
 

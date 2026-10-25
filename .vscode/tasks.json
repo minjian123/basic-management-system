@@ -121,7 +121,7 @@
       "label": "发布:模块产物（demo + sample · 构建 + 发布）",
       "detail": "构建并发布两个运行时模块到 frontend/releases/（归档不入库；同版本重发用 --force）",
       "type": "shell",
-      "command": "pnpm --filter @bms/module-demo run build && pnpm --filter @bms/module-sample run build && node frontend/scripts/release-module.mjs publish --module demo --force && node frontend/scripts/release-module.mjs publish --module sample --force",
+      "command": "pnpm --filter @bms/module_demo run build && pnpm --filter @bms/module_sample run build && node frontend/scripts/release-module.mjs publish --module demo --force && node frontend/scripts/release-module.mjs publish --module sample --force",
       "options": { "cwd": "${workspaceFolder}" },
       "problemMatcher": []
     },
@@ -212,9 +212,9 @@
     },
     {
       "label": "检查：文档基座（断链 / 越界 / 阶段状态）",
-      "detail": "check-links + check-docs-scope + check-status --stage 06_认证与安全 --strict",
+      "detail": "check_links + check_docs_scope + check_status --stage 06_认证与安全 --strict",
       "type": "shell",
-      "command": "python3 scripts/tools/base-check/check-links.py && python3 scripts/tools/base-check/check-docs-scope.py && python3 scripts/tools/check-docs/check-status.py --stage 06_认证与安全 --strict",
+      "command": "python3 scripts/tools/base_check/check_links.py && python3 scripts/tools/base_check/check_docs_scope.py && python3 scripts/tools/check_docs/check_status.py --stage 06_认证与安全 --strict",
       "options": { "cwd": "${workspaceFolder}" },
       "group": "test",
       "problemMatcher": []

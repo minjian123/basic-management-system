@@ -4,9 +4,9 @@
 
 ## 定位
 
-- **基座（`packages/`）**：与宿主无关的能力底座——框架无关核心 `@bms/core`、Vue 绑定 `@bms/vue`、PC 实现插件 `@bms/ui-ep`、契约类型 `@bms/api-types`。
+- **基座（`packages/`）**：与宿主无关的能力底座——框架无关核心 `@bms/core`、Vue 绑定 `@bms/vue`、PC 实现插件 `@bms/ui_ep`、契约类型 `@bms/api_types`。
 - **宿主（`apps/`）**：装配基座并渲染最终界面的应用；当前为 PC 管理端 `apps/desktop`（移动端 H5 随阶段十七交付）。
-- **运行时模块（`modules/`）**：以 Module Federation 在运行时装载的业务模块（样例 `demo` / `sample` / `slot-sample`），平台与产品插件均按此形态接入。
+- **运行时模块（`modules/`）**：以 Module Federation 在运行时装载的业务模块（样例 `demo` / `sample` / `slot_sample`），平台与产品插件均按此形态接入。
 
 workspace 收敛与单一锁文件都在**仓库根（`bms/`）**：`pnpm-workspace.yaml` 收敛 `frontend/{packages,apps,modules}/*`，锁文件为根 `pnpm-lock.yaml`。依赖**不进仓库树**——node_modules 外置到本地依赖仓，原位为符号链接（见下「依赖外置」）。
 
@@ -27,10 +27,10 @@ pnpm run lint
 # 宿主与模块不在根 check 内，需按包单独跑
 pnpm --filter @bms/desktop dev            # PC 宿主开发服务器（端口 5173）
 pnpm --filter @bms/desktop test           # 宿主用例（含 guard-* 护栏）
-pnpm --filter @bms/module-demo build      # 运行时模块构建
+pnpm --filter @bms/module_demo build      # 运行时模块构建
 
 # 契约类型生成（后端 OpenAPI → 前端类型）
-pnpm run api-types:gen
+pnpm run api_types:gen
 ```
 
 ## 目录结构
@@ -40,14 +40,14 @@ frontend/
 ├── packages/                # 基座多包（源码头，宿主经 vite alias / tsconfig paths 消费）
 │   ├── core/                # @bms/core：框架无关核心（基类 / 机制 / 领域 / 契约 / 注册表 / 模块契约）
 │   ├── vue/                 # @bms/vue：Vue 绑定插件（组合式投影）
-│   ├── ui-ep/               # @bms/ui-ep：PC 实现插件（Element Plus 组件族）
-│   └── api-types/           # @bms/api-types：后端契约生成类型（9 个服务）
+│   ├── ui_ep/               # @bms/ui_ep：PC 实现插件（Element Plus 组件族）
+│   └── api_types/           # @bms/api_types：后端契约生成类型（9 个服务）
 ├── apps/
 │   └── desktop/             # @bms/desktop：PC 管理端宿主（Vue 3 + Vite）
 ├── modules/                 # 运行时模块（Module Federation 远端）
-│   ├── demo/                # @bms/module-demo：演示模块（含独立预览壳）
-│   ├── sample/              # @bms/module-sample：能力样例模块
-│   └── slot-sample/         # @bms/module-slot-sample：具名插槽样例（只注册区域项，无路由）
+│   ├── demo/                # @bms/module_demo：演示模块（含独立预览壳）
+│   ├── sample/              # @bms/module_sample：能力样例模块
+│   └── slot_sample/         # @bms/module_slot_sample：具名插槽样例（只注册区域项，无路由）
 ├── scripts/                 # 模块产物发布 / 托管与模块治理校验（release-module / serve-module-releases / check-module-*）
 ├── releases/                # 模块产物归档（不入库；仅 release-log.{json,md} 入库）
 ├── module-contract.json     # 模块契约版本单一来源（当前 v2）
@@ -61,7 +61,7 @@ frontend/
 - **基类改动同步三处**：基类清单登记 + `extends` 链 + 包 `src/index.ts` 具名导出，否则 `guard-base-registry` 护栏红。
 - **模块契约版本双源一致**：根 `module-contract.json` 与 `@bms/core` 契约常量须一致；声明增改属不向后兼容变更→升版本并重建重发布所有模块。
 - **模块产物生效链路**：`pnpm --filter @bms/module-<x> build` → `node frontend/scripts/release-module.mjs publish --module <x> --force`（**只 build 不发布 ⇒ 产物服务仍发旧产物**；同版本重发必须 `--force`）。
-- **UI 复用强制**：业务侧（宿主 + `modules/*`）模板内不得出现裸原生交互元素（`<input>` / `<button>` / `<select>` / `<textarea>`），一律经 `@bms/ui-ep` 组件族或 Element Plus 基础件。
+- **UI 复用强制**：业务侧（宿主 + `modules/*`）模板内不得出现裸原生交互元素（`<input>` / `<button>` / `<select>` / `<textarea>`），一律经 `@bms/ui_ep` 组件族或 Element Plus 基础件。
 - **界面改动须过原型对照门禁**：依据取 `bms文档/设计/原型设计/`（页面任务）或《组件设计》（件族任务）。
 
 ## 文档导航

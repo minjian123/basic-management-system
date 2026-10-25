@@ -1,6 +1,6 @@
 # 模块样例（frontend/modules/sample）
 
-> `@bms/module-sample`：**首个真实形态**的运行时模块样例（查询筛选 + 列表 + 详情 / 表单）。
+> `@bms/module_sample`：**首个真实形态**的运行时模块样例（查询筛选 + 列表 + 详情 / 表单）。
 
 ## 定位
 
@@ -13,13 +13,13 @@
 > 在**工作区根（`bms/`）**执行。
 
 ```bash
-pnpm --filter @bms/module-sample dev
-pnpm --filter @bms/module-sample build             # 构建模块产物（dist/）
-pnpm --filter @bms/module-sample build:standalone  # 构建独立预览壳
-pnpm --filter @bms/module-sample test
-pnpm --filter @bms/module-sample lint
-pnpm --filter @bms/module-sample budget            # 模块产物体积预算
-pnpm --filter @bms/module-sample guard:isolation   # 模块隔离护栏
+pnpm --filter @bms/module_sample dev
+pnpm --filter @bms/module_sample build             # 构建模块产物（dist/）
+pnpm --filter @bms/module_sample build:standalone  # 构建独立预览壳
+pnpm --filter @bms/module_sample test
+pnpm --filter @bms/module_sample lint
+pnpm --filter @bms/module_sample budget            # 模块产物体积预算
+pnpm --filter @bms/module_sample guard:isolation   # 模块隔离护栏
 ```
 
 **发布到本地产物服务**：
@@ -53,7 +53,7 @@ frontend/modules/sample/
 - **清单一致性**：`manifest.name` / `version` 须与宿主 `frontend/apps/desktop/public/modules.json` 条目严格一致（版本构建期注入）。
 - **契约用例必备**：`tests/module-contract.spec.ts` 不可删；契约版本双源一致。
 - **体积预算**：`budget.json` 为模块产物成本基线（当前 gzip 上限 660 KB，调整须有实测依据）。
-- **UI 复用**：模板内不得出现裸原生交互元素，走 `@bms/ui-ep` 组件族或 Element Plus 基础件。
+- **UI 复用**：模板内不得出现裸原生交互元素，走 `@bms/ui_ep` 组件族或 Element Plus 基础件。
 - **只 build 不发布无效**：产物服务托管 `frontend/releases/**`，同版本重发必须 `--force`。
 
 ## 文档导航

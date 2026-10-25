@@ -1,8 +1,8 @@
 <script setup lang="ts">
 // 示例数据列表页：查询筛选 + 列表 + 工具区（新建 / 刷新）；双击行打开详情。
 import type { FilterCondition, FilterField } from '@bms/core'
-import { DataTable, PageContainer, QueryFilter, SectionContainer } from '@bms/ui-ep'
-import type { DataTableColumn } from '@bms/ui-ep'
+import { DataTable, PageContainer, QueryFilter, SectionContainer } from '@bms/ui_ep'
+import type { DataTableColumn } from '@bms/ui_ep'
 import { ElButton } from 'element-plus'
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'

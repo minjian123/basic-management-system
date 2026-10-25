@@ -5,7 +5,7 @@
 
 13_05 起预检实现整体迁入 engkit（包内自带 281 条用例、覆盖率 100%），本仓只锁**包装契约**：
 
-1. `check-preflight.py` 只转发、不含推导与步骤清单（单一来源在工具包与 `engkit.toml`）；
+1. `check_preflight.py` 只转发、不含推导与步骤清单（单一来源在工具包与 `engkit.toml`）；
 2. 仓根 `engkit.toml` 声明了定向 / 全量两档预算与预检步骤（缺省即定向）；
 3. 包装能把「位置根 + 选项」翻译成 engkit 参数。
 """
@@ -16,7 +16,7 @@ from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parents[5]
 _PREFLIGHT_DIR = _REPO_ROOT / "scripts" / "tools" / "preflight"
-_SCRIPT = _PREFLIGHT_DIR / "check-preflight.py"
+_SCRIPT = _PREFLIGHT_DIR / "check_preflight.py"
 
 if str(_PREFLIGHT_DIR) not in sys.path:
     sys.path.insert(0, str(_PREFLIGHT_DIR))
@@ -48,7 +48,7 @@ def test_wrapper_forwards_with_positional_root() -> None:
 def test_wrapper_has_no_derivation_logic() -> None:
     """包装内不得出现推导 / 步骤清单（单一来源约束）。"""
     source = _SCRIPT.read_text(encoding="utf-8")
-    for token in ("ast.parse", "pytest-args", "cov_modules", "_ROOTS", "check-base.py", "ruff check"):
+    for token in ("ast.parse", "pytest-args", "cov_modules", "_ROOTS", "check_base.py", "ruff check"):
         assert token not in source
 
 

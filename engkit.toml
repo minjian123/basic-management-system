@@ -71,13 +71,13 @@ test_files = [
 ]
 
 [[rules.backend.extra_tests]]
-match_prefix = "scripts/tools/base-check/"
+match_prefix = "scripts/tools/base_check/"
 fallback_dir = "libs/bms_core/tests/boundary"
 mapping = [
-  { script = "check-bare-collections.py", test = "libs/bms_core/tests/boundary/test_bare_collections_guard.py" },
-  { script = "check-env-example.py", test = "libs/bms_core/tests/core/test_basic_protection.py" },
-  { script = "check-backend-base.py", test = "libs/bms_core/tests/core/test_value_object_roots.py" },
-  { script = "check-service-boundaries.py", test = "libs/bms_core/tests/crosscut/test_module_boundary.py" },
+  { script = "check_bare_collections.py", test = "libs/bms_core/tests/boundary/test_bare_collections_guard.py" },
+  { script = "check_env_example.py", test = "libs/bms_core/tests/core/test_basic_protection.py" },
+  { script = "check_backend_base.py", test = "libs/bms_core/tests/core/test_value_object_roots.py" },
+  { script = "check_service_boundaries.py", test = "libs/bms_core/tests/crosscut/test_module_boundary.py" },
 ]
 
 [rules.frontend.global]
@@ -110,7 +110,7 @@ full = [900, 1800]
 # ---- 预检步骤（声明序即执行序；`--fast` 只跑 always，`--full` 追加 full ----）----
 [[preflight.steps]]
 label = "CI 配置自检（YAML / pytest 选项 / GitLab Lint / 门禁资产）"
-cmd = ["{python}", "scripts/tools/preflight/check-ci-config.py", "{root}"]
+cmd = ["{python}", "scripts/tools/preflight/check_ci_config.py", "{root}"]
 
 [[preflight.steps]]
 label = "后端静态：ruff check"
@@ -153,44 +153,44 @@ type = "project_tests"
 preset = "full"
 
 [[preflight.steps]]
-label = "基座：check-base"
-cmd = ["{python}", "scripts/tools/base-check/check-base.py", "{root}"]
+label = "基座：check_base"
+cmd = ["{python}", "scripts/tools/base_check/check_base.py", "{root}"]
 
 [[preflight.steps]]
-label = "基座：check-system-fields"
-cmd = ["{python}", "scripts/tools/base-check/check-system-fields.py", "{root}"]
+label = "基座：check_system_fields"
+cmd = ["{python}", "scripts/tools/base_check/check_system_fields.py", "{root}"]
 
 [[preflight.steps]]
-label = "基座：check-env-example（环境变量模板键位）"
-cmd = ["{python}", "scripts/tools/base-check/check-env-example.py", "{root}"]
+label = "基座：check_env_example（环境变量模板键位）"
+cmd = ["{python}", "scripts/tools/base_check/check_env_example.py", "{root}"]
 
 [[preflight.steps]]
-label = "基座：check-backend-base"
-cmd = ["{python}", "scripts/tools/base-check/check-backend-base.py", "{root}"]
+label = "基座：check_backend_base"
+cmd = ["{python}", "scripts/tools/base_check/check_backend_base.py", "{root}"]
 
 [[preflight.steps]]
-label = "边界：check-service-boundaries"
-cmd = ["{python}", "scripts/tools/base-check/check-service-boundaries.py", "{root}"]
+label = "边界：check_service_boundaries"
+cmd = ["{python}", "scripts/tools/base_check/check_service_boundaries.py", "{root}"]
 
 [[preflight.steps]]
-label = "基座：check-bare-collections（裸无序集合护栏）"
-cmd = ["{python}", "scripts/tools/base-check/check-bare-collections.py", "{root}"]
+label = "基座：check_bare_collections（裸无序集合护栏）"
+cmd = ["{python}", "scripts/tools/base_check/check_bare_collections.py", "{root}"]
 
 [[preflight.steps]]
-label = "文档：check-docs-scope（排期与工时落点护栏）"
-cmd = ["{python}", "scripts/tools/base-check/check-docs-scope.py", "{root}"]
+label = "文档：check_docs_scope（排期与工时落点护栏）"
+cmd = ["{python}", "scripts/tools/base_check/check_docs_scope.py", "{root}"]
 
 [[preflight.steps]]
-label = "界面：check-prototype-review（本次改动含界面源码须有原型对照）"
-cmd = ["{python}", "scripts/tools/base-check/check-prototype-review.py", "{root}", "--changed", "origin/main"]
+label = "界面：check_prototype_review（本次改动含界面源码须有原型对照）"
+cmd = ["{python}", "scripts/tools/base_check/check_prototype_review.py", "{root}", "--changed", "origin/main"]
 
 [[preflight.steps]]
 label = "边界：boundary_metrics（越界 / 跨库 / 例外计数）"
 cmd = ["{python}", "scripts/tools/governance/boundary_metrics.py", "--root", "{root}"]
 
 [[preflight.steps]]
-label = "文档：check-status"
-cmd = ["{python}", "scripts/tools/check-docs/check-status.py", "--root", "{root}"]
+label = "文档：check_status"
+cmd = ["{python}", "scripts/tools/check_docs/check_status.py", "--root", "{root}"]
 
 [[preflight.steps]]
 label = "网关：gateway_config check（服务目录零漂移）"
@@ -214,59 +214,59 @@ cwd = "backend"
 
 [[preflight.steps]]
 label = "前端类型：受影响工程逐个 typecheck / build"
-cmd = ["{python}", "scripts/tools/preflight/check-frontend-types.py", "{root}"]
+cmd = ["{python}", "scripts/tools/preflight/check_frontend_types.py", "{root}"]
 
 [[preflight.steps]]
 label = "前端：api-types 契约类型零漂移"
 cmd = ["node", "scripts/generate.mjs", "--check"]
-cwd = "frontend/packages/api-types"
+cwd = "frontend/packages/api_types"
 
 # ---- 护栏自测（`--fast` / `--full` 全跑；定向档按变更触及才跑）----
 [[preflight.self_tests]]
-label = "基座：check-system-fields --self-test"
-cmd = ["{python}", "scripts/tools/base-check/check-system-fields.py", "--self-test"]
-deps = ["scripts/tools/base-check/check-system-fields.py"]
+label = "基座：check_system_fields --self-test"
+cmd = ["{python}", "scripts/tools/base_check/check_system_fields.py", "--self-test"]
+deps = ["scripts/tools/base_check/check_system_fields.py"]
 
 [[preflight.self_tests]]
-label = "基座：check-env-example --self-test"
-cmd = ["{python}", "scripts/tools/base-check/check-env-example.py", "--self-test"]
-deps = ["scripts/tools/base-check/check-env-example.py"]
+label = "基座：check_env_example --self-test"
+cmd = ["{python}", "scripts/tools/base_check/check_env_example.py", "--self-test"]
+deps = ["scripts/tools/base_check/check_env_example.py"]
 
 [[preflight.self_tests]]
-label = "基座：check-backend-base --self-test"
-cmd = ["{python}", "scripts/tools/base-check/check-backend-base.py", "--self-test"]
-deps = ["scripts/tools/base-check/check-backend-base.py", "backend/libs/bms_core/"]
+label = "基座：check_backend_base --self-test"
+cmd = ["{python}", "scripts/tools/base_check/check_backend_base.py", "--self-test"]
+deps = ["scripts/tools/base_check/check_backend_base.py", "backend/libs/bms_core/"]
 
 [[preflight.self_tests]]
-label = "边界：check-service-boundaries --self-test"
-cmd = ["{python}", "scripts/tools/base-check/check-service-boundaries.py", "--self-test"]
-deps = ["scripts/tools/base-check/check-service-boundaries.py", "backend/libs/bms_core/"]
+label = "边界：check_service_boundaries --self-test"
+cmd = ["{python}", "scripts/tools/base_check/check_service_boundaries.py", "--self-test"]
+deps = ["scripts/tools/base_check/check_service_boundaries.py", "backend/libs/bms_core/"]
 
 [[preflight.self_tests]]
-label = "基座：check-bare-collections --self-test"
-cmd = ["{python}", "scripts/tools/base-check/check-bare-collections.py", "--self-test"]
-deps = ["scripts/tools/base-check/check-bare-collections.py", "backend/libs/bms_core/"]
+label = "基座：check_bare_collections --self-test"
+cmd = ["{python}", "scripts/tools/base_check/check_bare_collections.py", "--self-test"]
+deps = ["scripts/tools/base_check/check_bare_collections.py", "backend/libs/bms_core/"]
 
 [[preflight.self_tests]]
-label = "文档：check-docs-scope --self-test"
-cmd = ["{python}", "scripts/tools/base-check/check-docs-scope.py", "--self-test"]
-deps = ["scripts/tools/base-check/check-docs-scope.py", "backend/libs/bms_core/"]
+label = "文档：check_docs_scope --self-test"
+cmd = ["{python}", "scripts/tools/base_check/check_docs_scope.py", "--self-test"]
+deps = ["scripts/tools/base_check/check_docs_scope.py", "backend/libs/bms_core/"]
 
 [[preflight.self_tests]]
-label = "界面：check-prototype-review --self-test"
-cmd = ["{python}", "scripts/tools/base-check/check-prototype-review.py", "--self-test"]
+label = "界面：check_prototype_review --self-test"
+cmd = ["{python}", "scripts/tools/base_check/check_prototype_review.py", "--self-test"]
 deps = [
-  "scripts/tools/base-check/check-prototype-review.py",
+  "scripts/tools/base_check/check_prototype_review.py",
   "backend/libs/bms_core/",
   "bms文档/设计/原型设计/",
 ]
 
 [runonce]
-cache_dir = ".cache/run-once"
+cache_dir = ".cache/run_once"
 window_seconds = 1800
 
 [guard]
-scripts = ["check-preflight.py", "check-base.py", "check-links.py", "check-docs-scope.py"]
+scripts = ["check_preflight.py", "check_base.py", "check_links.py", "check_docs_scope.py"]
 repo_dirs = ["libs", "services", "scripts", "deploy", "frontend"]
 dir_test_threshold = 20
 

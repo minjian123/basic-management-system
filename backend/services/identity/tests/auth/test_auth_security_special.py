@@ -3,7 +3,7 @@
 七类专项按被测物归属分处承载（见任务详细设计 §3.1）：本文件覆盖认证链路四类（限流爆破含 IP 维度、
 会话劫持含过期与踢出后重放、越权跨租户与跨用户口径、认证注入边界）；基座横切四类见
 `libs/bms_core/tests/security/test_security_controls.py`；XSS 见前端
-`frontend/packages/ui-ep/tests/guard-vhtml-sanitize.spec.ts`。
+`frontend/packages/ui_ep/tests/guard-vhtml-sanitize.spec.ts`。
 
 落点说明：本文件与既有认证用例同包（`tests/auth/`）——用例复用本包 `helpers` / `session_helpers`
 的替身与夹具（跨包相对导入不可用，`tests/` 无 `__init__.py`），故与既有用例并列而非另起子目录。

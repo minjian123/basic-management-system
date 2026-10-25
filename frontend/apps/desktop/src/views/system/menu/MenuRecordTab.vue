@@ -3,7 +3,7 @@
 // 对照原型《10_菜单管理/03_菜单表单页.html》；字段权限入口已按决策删除（统一在角色管理授予）。
 defineOptions({ name: 'MenuRecordTab' })
 
-import { DictRecordLayout, type SysInfoData } from '@bms/ui-ep'
+import { DictRecordLayout, type SysInfoData } from '@bms/ui_ep'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { computed, onMounted, ref, watch } from 'vue'
 

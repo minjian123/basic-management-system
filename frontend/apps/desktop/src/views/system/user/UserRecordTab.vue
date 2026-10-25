@@ -13,7 +13,7 @@ import {
   type HostSubmitterSegment,
   type HostSubmitterRegistrar,
   type SysInfoData,
-} from '@bms/ui-ep'
+} from '@bms/ui_ep'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { computed, onMounted, ref, watch } from 'vue'
 

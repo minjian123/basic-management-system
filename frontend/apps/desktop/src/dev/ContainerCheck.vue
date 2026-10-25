@@ -11,7 +11,7 @@ import {
   StatusContainer,
   VirtualListContainer,
   type StatusContainerState,
-} from '@bms/ui-ep'
+} from '@bms/ui_ep'
 import { computed, ref } from 'vue'
 
 /** 当前主题（截图对照用）。 */

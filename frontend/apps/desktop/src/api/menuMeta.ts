@@ -1,14 +1,14 @@
 /**
  * 菜单元数据端点封装：`/api/v1/menus`、`/forms`、`/buttons`、`/fields`（平台维护视图）。
  *
- * 服务段寻址与统一解包由宿主请求层承担（不手拼服务前缀）；响应类型取 `@bms/api-types`
+ * 服务段寻址与统一解包由宿主请求层承担（不手拼服务前缀）；响应类型取 `@bms/api_types`
  * 的 `platform` 命名空间（契约生成类型，禁止手写漂移）。
  *
  * ID 口径：契约响应把雪花 ID 统一**字符串化**输出，请求侧按数值字符串提交（后端宽松模式
  * 解析为 `int`），与 `api/role.ts` 的 `SnowflakeId` 同口径。
  */
 
-import type { platform } from '@bms/api-types'
+import type { platform } from '@bms/api_types'
 
 import { del, get, post, put } from './request'
 

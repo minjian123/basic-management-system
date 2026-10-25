@@ -4,7 +4,7 @@
 //
 // 依据（强制）：
 // - 《前端开发规范》「组件库件复用」：业务侧（宿主应用与**运行时模块**）模板内**不得出现裸原生交互元素**
-//   （`<input>`/`<button>`/…），一律经组件库件 / Element Plus 基础件承载；缺件先补进 `@bms/ui-ep` 并在
+//   （`<input>`/`<button>`/…），一律经组件库件 / Element Plus 基础件承载；缺件先补进 `@bms/ui_ep` 并在
 //   《组件设计》登记。护栏：`apps/desktop/tests/guard-library-components.spec.ts`（`button` 的替代件即
 //   `ElButton`）。
 // - 区域条目契约：`layout.header` 是一行高窄容器，**只注册紧凑件**；整页/大面板走页面路由

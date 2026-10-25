@@ -28,7 +28,7 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      # Keycloak 元数据库角色密码（initdb 脚本 01-keycloak.sh 读取；新卷首次启动建库）
+      # Keycloak 元数据库角色密码（initdb 脚本 01_keycloak.sh 读取；新卷首次启动建库）
       KEYCLOAK_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:-keycloak}
       TZ: Asia/Shanghai
     ports:
@@ -59,7 +59,7 @@ services:
   # 挂载点建成 root:root（0755），而容器以 uid 3000(rocketmq) 运行，无法创建 rocketmqlogs/
   # 子目录 → logback 抛 FileNotFoundException → broker 启动即退出 255 并被 restart 无限拉起
   # （2026-09-24 在 mjbk 实测 RestartCount 765，dockerd 持续 ~35% CPU）。故改用宿主机 bind
-  # mount，目录由 deploy/setup/install-all.sh 预建并 chown 3000:3000。
+  # mount，目录由 deploy/setup/install_all.sh 预建并 chown 3000:3000。
   rocketmq-nameserver:
     image: apache/rocketmq:5.3.2
     container_name: bms-rocketmq-nameserver

@@ -2,7 +2,7 @@
 // 角色管理页（平台内建页）：表单框架宿主——列表 Tab（固定不可关）+ 记录 Tab（新增 / 双击行打开）。
 // 结构对照原型《09_角色管理/02_角色列表页.html》《03_角色表单页.html》：列表三段式**无操作列** + 批量删除 +
 // 内置标记；记录页三子页签与工具栏单一保存见 `RoleRecordTab`。
-import { EmptyState, FormFrame, PageContainer, type FormFrameTab } from '@bms/ui-ep'
+import { EmptyState, FormFrame, PageContainer, type FormFrameTab } from '@bms/ui_ep'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { computed, onMounted, ref } from 'vue'
 

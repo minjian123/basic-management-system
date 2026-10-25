@@ -2,7 +2,7 @@
 /** 登录页用例（05_01 / 05_06）：表单提交与回跳 / 验证码时机 / SSO 入口 / 错误文案 / 密码安全口径 / 租户标识默认隐藏与 20007。 */
 
 import { configureRequestAdapter, type RequestConfig } from '@bms/core'
-import { CaptchaField } from '@bms/ui-ep'
+import { CaptchaField } from '@bms/ui_ep'
 import { flushPromises, mount, type DOMWrapper, type VueWrapper } from '@vue/test-utils'
 import { createPinia, setActivePinia, type Pinia } from 'pinia'
 import { createMemoryHistory, createRouter, type Router } from 'vue-router'

@@ -3,7 +3,7 @@
 七类专项按被测物归属分处承载（见任务详细设计 §3.1）：本文件覆盖 `bms_core` 基座横切的四类；
 认证链路侧（限流爆破 IP 维度 / 会话劫持 / 越权 / 注入边界）见
 `services/identity/tests/auth/test_auth_security_special.py`；XSS 见前端
-`frontend/packages/ui-ep/tests/guard-vhtml-sanitize.spec.ts`。
+`frontend/packages/ui_ep/tests/guard-vhtml-sanitize.spec.ts`。
 
 本套件以**补缺口 + 专项断言**为主，复用既有替身与夹具，不重复既有用例（既有覆盖见测试记录矩阵）。
 """

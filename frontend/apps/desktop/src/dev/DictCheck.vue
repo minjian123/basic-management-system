@@ -15,7 +15,7 @@ import {
   createDictTranslator,
   createHttpDictSource,
   useBaseDictSelect,
-} from '@bms/ui-ep'
+} from '@bms/ui_ep'
 import { computed, ref } from 'vue'
 
 import { dictSourceOptions } from '@/api/endpoints'

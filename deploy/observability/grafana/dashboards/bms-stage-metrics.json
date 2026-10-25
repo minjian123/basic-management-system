@@ -79,7 +79,7 @@
       "id": 4,
       "type": "timeseries",
       "title": "边界越界数（运行期，按服务 / 操作）",
-      "description": "bms_boundary_cross_access_total（05_02 交付；窗口内增量）。静态越界数由 check-service-boundaries 门禁（非零即 CI 失败），不重复推送。",
+      "description": "bms_boundary_cross_access_total（05_02 交付；窗口内增量）。静态越界数由 check_service_boundaries 门禁（非零即 CI 失败），不重复推送。",
       "datasource": {"type": "prometheus", "uid": "prometheus"},
       "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
       "targets": [
@@ -98,7 +98,7 @@
       "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
       "options": {
         "mode": "markdown",
-        "content": "**阶段度量（S7）口径**\n\n- 服务独立发布成功率：`bms_release_total{service,result}`（CI 推送 Pushgateway；09_01 / 09_02 接入）\n- 契约破坏数：`bms_contract_breaking_total{service}`（oasdiff 破坏性变更数；09_03 接入）\n- 边界越界数：运行期 `bms_boundary_cross_access_total`（05_02 交付）+ 静态门禁 `check-service-boundaries`（非零即 CI 失败）\n- 推送命令模板与排障见《可观测性栈部署使用说明》「告警与阶段度量」节"
+        "content": "**阶段度量（S7）口径**\n\n- 服务独立发布成功率：`bms_release_total{service,result}`（CI 推送 Pushgateway；09_01 / 09_02 接入）\n- 契约破坏数：`bms_contract_breaking_total{service}`（oasdiff 破坏性变更数；09_03 接入）\n- 边界越界数：运行期 `bms_boundary_cross_access_total`（05_02 交付）+ 静态门禁 `check_service_boundaries`（非零即 CI 失败）\n- 推送命令模板与排障见《可观测性栈部署使用说明》「告警与阶段度量」节"
       }
     }
   ]

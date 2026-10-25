@@ -5,7 +5,7 @@
  *
  * 四方法对应**组织主数据出口**（查询与批量回显分列两个出口）——组织主数据归 **mdm 产品**，
  * 出口经**产品命名空间**暴露：`/api/mdm/v1/org/data-source/{users,posts,dept-tree}` 与
- * `/api/mdm/v1/org/resolve-names`（前端默认端点由寻址契约组装，见 `@bms/ui-ep` 的 `orgSourceEndpoint`）；
+ * `/api/mdm/v1/org/resolve-names`（前端默认端点由寻址契约组装，见 `@bms/ui_ep` 的 `orgSourceEndpoint`）；
  * 契约（数据契约与插件基类）原在 `bms_core/org`，已随阶段二 `11_02` 迁出基座。
  */
 

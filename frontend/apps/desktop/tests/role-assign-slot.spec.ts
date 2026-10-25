@@ -9,7 +9,7 @@
  */
 
 import { PageAreaProvider } from '@bms/core'
-import { useModuleSlotField, type HostSubmitterRegistrar } from '@bms/ui-ep'
+import { useModuleSlotField, type HostSubmitterRegistrar } from '@bms/ui_ep'
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'

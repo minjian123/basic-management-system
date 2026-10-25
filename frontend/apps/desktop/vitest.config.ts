@@ -12,8 +12,8 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url)),
       '@bms/core': fileURLToPath(new URL('../../packages/core/src/index.ts', import.meta.url)),
       '@bms/vue': fileURLToPath(new URL('../../packages/vue/src/index.ts', import.meta.url)),
-      '@bms/ui-ep': fileURLToPath(new URL('../../packages/ui-ep/src/index.ts', import.meta.url)),
-      '@bms/api-types': fileURLToPath(new URL('../../packages/api-types/src/index.ts', import.meta.url)),
+      '@bms/ui_ep': fileURLToPath(new URL('../../packages/ui_ep/src/index.ts', import.meta.url)),
+      '@bms/api_types': fileURLToPath(new URL('../../packages/api_types/src/index.ts', import.meta.url)),
     },
   },
   test: {

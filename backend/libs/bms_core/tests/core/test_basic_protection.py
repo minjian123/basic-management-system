@@ -2,7 +2,7 @@
 
 口径：`[app].docs_enabled` 控制 `/docs` / `/redoc` / `/openapi.json` 三端点（基线开、生产关），
 关闭后契约仍经 `app.openapi()` 生成（CI swagger-snapshot 不受影响）；两份环境变量模板经
-`check-env-example.py` 门禁（密钥键位齐备 / 无废弃键 / 无真实密钥）。
+`check_env_example.py` 门禁（密钥键位齐备 / 无废弃键 / 无真实密钥）。
 """
 
 import subprocess
@@ -17,7 +17,7 @@ from bms_core.core.config import get_settings
 from bms_core.db.migration import BACKEND_ROOT
 
 _REPO = BACKEND_ROOT.parent
-_GUARD = _REPO / "scripts" / "tools" / "base-check" / "check-env-example.py"
+_GUARD = _REPO / "scripts" / "tools" / "base_check" / "check_env_example.py"
 
 
 class _Factory(BaseServiceApplicationFactory):

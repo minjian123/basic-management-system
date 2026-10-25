@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // 动作码管理页：动作码字典（全局动词维度、不归属业务）列表 + 批量启停删除。
 // 对照原型《10_菜单管理/09_动作码管理.html》：三段式、无操作列、双击行开记录 Tab、20 条/页。
-import { EmptyState, FormFrame, PageContainer, type FormFrameTab } from '@bms/ui-ep'
+import { EmptyState, FormFrame, PageContainer, type FormFrameTab } from '@bms/ui_ep'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'

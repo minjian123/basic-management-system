@@ -1,11 +1,11 @@
 /**
  * 用户端点封装：`/api/v1/users`（列表 / CRUD / 启停 / 重置密码 / 角色查看 / 分配编排 / SSO 绑定查看）。
  *
- * 服务段寻址与统一解包由宿主请求层承担（不手拼服务前缀）；响应类型取 `@bms/api-types`
+ * 服务段寻址与统一解包由宿主请求层承担（不手拼服务前缀）；响应类型取 `@bms/api_types`
  * 的 `platform` / `identity` 命名空间（契约生成类型，禁止手写漂移）。
  */
 
-import type { identity, platform } from '@bms/api-types'
+import type { identity, platform } from '@bms/api_types'
 
 import { del, get, post, put } from './request'
 

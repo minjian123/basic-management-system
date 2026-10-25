@@ -337,7 +337,7 @@ onMounted(async () => {
           <code>credential</code> 事件上抛，随登录请求一次性提交（登录在请求内校验并消费挑战）。
         </li>
         <li>
-          该行为由 <code>packages/ui-ep/tests/captcha-defer.spec.ts</code> 与
+          该行为由 <code>packages/ui_ep/tests/captcha-defer.spec.ts</code> 与
           <code>tests/login-view.spec.ts</code> 锁定。
         </li>
       </ul>

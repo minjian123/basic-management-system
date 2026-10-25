@@ -15,7 +15,7 @@ import {
   type CaptchaCredential,
   type CaptchaKind,
 } from '@bms/core'
-import { CaptchaField, PasswordInput, TextInput, BooleanCheckbox, createHttpCaptchaSource } from '@bms/ui-ep'
+import { CaptchaField, PasswordInput, TextInput, BooleanCheckbox, createHttpCaptchaSource } from '@bms/ui_ep'
 import { ElButton } from 'element-plus'
 import { computed, nextTick, onMounted, ref, shallowRef, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // 开发态核对页（08_10）：AI 助手实例 + 12 项自检上屏（本页不进构建产物）。
 import type { AiMessage, AiStreamAdapter, AiStreamHandlers } from '@bms/core'
-import { AiAssistant, useBaseAiAssistant } from '@bms/ui-ep'
+import { AiAssistant, useBaseAiAssistant } from '@bms/ui_ep'
 import { ElButton } from 'element-plus'
 import { nextTick, onMounted, ref } from 'vue'
 

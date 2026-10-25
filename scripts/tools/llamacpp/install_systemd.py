@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
-"""在 mjpc 上以 root 执行一次（sudo bash install-systemd.sh）：
+"""在 mjpc 上以 root 执行一次（sudo bash install_systemd.sh）：
   1) 安装并启用 openssh-server（供 mjbk 远程启停模型 / 关机）
   2) ufw 放行 mjbk 的 22 / 8080 / 8082
-  3) 把 qwen-serve.sh 同步到 llama.cpp 源码目录，并安装系统级 llamacpp-qwen / llamacpp-bge 服务
+  3) 把 qwen_serve.sh 同步到 llama.cpp 源码目录，并安装系统级 llamacpp-qwen / llamacpp-bge 服务
      （默认不自启，由 MIRIX 模型代理按需 start）
 
 2026-10-16 起「Python 单一实现 + 薄包装」：逻辑只维护在本文件，Linux 入口
-install-systemd.sh 仅转调本文件（历史完整 shell 实现见 git 历史）。
-第 4 步同步两个文件：qwen-serve.sh 薄包装 + qwen_serve.py 单一实现（两者必须同目录
+install_systemd.sh 仅转调本文件（历史完整 shell 实现见 git 历史）。
+第 4 步同步两个文件：qwen_serve.sh 薄包装 + qwen_serve.py 单一实现（两者必须同目录
 并存），以及档位配置模板 llamacpp-qwen.env.example（目标已存在时保留不动）。
-单元文件 llamacpp-qwen.service 的 ExecStart 仍指向 qwen-serve.sh（包装名不变）。
+单元文件 llamacpp-qwen.service 的 ExecStart 仍指向 qwen_serve.sh（包装名不变）。
 
-用法: sudo bash scripts/tools/llamacpp/install-systemd.sh
+用法: sudo bash scripts/tools/llamacpp/install_systemd.sh
 环境变量: MJBK_IP(默认 192.168.0.107) LLAMA_DIR(默认 /home/minjian/develop/llama.cpp)
 前置: Linux + root；apt 走系统已换的清华源（见《Ubuntu安装部署使用说明》，本脚本不配置源）。
 退出码: 0 = 安装完成；1 = 非 root / 外部命令或文件操作失败；2 = 非 Linux 平台（mjpc 侧专用）
@@ -28,7 +28,7 @@ DEFAULT_MJBK = "192.168.0.107"
 DEFAULT_LLAMA_DIR = "/home/minjian/develop/llama.cpp"
 UFW_TCP_PORTS = ("22", "8080", "8082")
 SYSTEMD_UNIT_DIR = "/etc/systemd/system"
-WRAPPER = "qwen-serve.sh"
+WRAPPER = "qwen_serve.sh"
 IMPL = "qwen_serve.py"
 ENV_EXAMPLE = "llamacpp-qwen.env.example"
 ENV_TARGET = "llamacpp-qwen.env"
@@ -74,7 +74,7 @@ def require_root(script_dir):
     """root 校验（对应原脚本 `id -u`），措辞与原脚本一致。"""
     if os.geteuid() == 0:
         return True
-    sh_path = os.path.join(script_dir, "install-systemd.sh")
+    sh_path = os.path.join(script_dir, "install_systemd.sh")
     shown = sh_path
     try:
         rel = os.path.relpath(sh_path)

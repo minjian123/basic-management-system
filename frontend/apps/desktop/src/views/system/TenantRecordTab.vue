@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // 租户记录 Tab（表单框架的记录页）：基本信息 / 配额与模块 / 系统信息。
 // 基本信息支持查看 ⇄ 编辑；配额与模块子页签内配额整组保存、模块开关即时生效。
-import { DictRecordLayout, type SysInfoData } from '@bms/ui-ep'
+import { DictRecordLayout, type SysInfoData } from '@bms/ui_ep'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { computed, onMounted, ref, watch } from 'vue'
 

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // 演示模块首页：验证模块可复用平台组件契约与设计令牌，并经宿主请求能力取真实数据。
-import { PageContainer, SectionContainer, StatusContainer } from '@bms/ui-ep'
+import { PageContainer, SectionContainer, StatusContainer } from '@bms/ui_ep'
 import { ElButton } from 'element-plus'
 import { onMounted, ref } from 'vue'
 

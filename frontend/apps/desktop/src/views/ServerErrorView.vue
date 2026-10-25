@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // 500 页（服务异常）：复用组件库错误页，重试即重载当前路由。
-import { ErrorPage } from '@bms/ui-ep'
+import { ErrorPage } from '@bms/ui_ep'
 </script>
 
 <template>

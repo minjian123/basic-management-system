@@ -87,7 +87,7 @@ def test_plan_closure_state() -> None:
     """计划收口状态：已完成 / 剩余两表互斥、工时行自洽、甘特里程碑、报告引用齐备。
 
     2026-10-24 修订（`302f429e` 精简 8 份阶段计划后）：计划头部不再复述项数，进度只在两张明细表，
-    故改为校验两表**任务编号互斥**；工时行仍校验「已完成 + 剩余 = 阶段合计」（口径同 check-status S1）。
+    故改为校验两表**任务编号互斥**；工时行仍校验「已完成 + 剩余 = 阶段合计」（口径同 check_status S1）。
     """
     text = _PLAN.read_text(encoding="utf-8")
     done_section = text.split("## 2. 已完成任务", 1)[1].split("## 3.", 1)[0]
@@ -102,7 +102,7 @@ def test_plan_closure_state() -> None:
         text,
         re.S,
     )
-    assert hours, "计划工时行应为 check-status S1 可校验形态"
+    assert hours, "计划工时行应为 check_status S1 可校验形态"
     assert int(hours.group(1)) + int(hours.group(2)) == int(hours.group(3)), "工时：已完成 + 剩余 应等于阶段合计"
     assert "## 7. 后续阶段待办" in text
     assert "01_测试报告_前端插件化.md" in text
@@ -123,7 +123,7 @@ def test_stage_report_archived_with_sections() -> None:
     ):
         assert heading in text
     assert "9 条需求" in text
-    assert "check-status" in text
+    assert "check_status" in text
 
 
 @pytest.mark.kiwi_id(2189)

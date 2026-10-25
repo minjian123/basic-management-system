@@ -19,7 +19,7 @@ export default defineConfig({
     include: ['tests/**/*.spec.ts'],
     server: {
       deps: {
-        // element-plus 组件在 jsdom 下需内联转译（同 @bms/ui-ep 测试口径），否则组件解析失败
+        // element-plus 组件在 jsdom 下需内联转译（同 @bms/ui_ep 测试口径），否则组件解析失败
         inline: ['element-plus'],
       },
     },

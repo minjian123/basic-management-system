@@ -2,7 +2,7 @@
 // 开发态核对页（03_01 弹窗抽屉表单）：表单抽屉 / 表单对话框 / 确认对话框三件**真实组装**——三态
 // （新增 / 编辑 / 查看）、尺寸阶梯、脏数据拦截、关闭规则（遮罩 / Esc / 提交中禁关）、危险语义与
 // 页脚动作，作为《原型审查规范》§4.9「实现 ↔ 原型」的截图与行为核对载体；本页不进构建产物。
-import { ConfirmDialog, FormDialog, FormDrawer } from '@bms/ui-ep'
+import { ConfirmDialog, FormDialog, FormDrawer } from '@bms/ui_ep'
 import { ElButton, ElInput, ElOption, ElSelect, ElSwitch } from 'element-plus'
 import { computed, ref } from 'vue'
 

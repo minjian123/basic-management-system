@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """mjbk Ubuntu 22.04 Server 一键部署（Python 单一实现）。
 
-用法（在服务器上以 root 执行；同名 `install-all.sh` 为转调本文件的 bash 瘦包装）：
-    sudo bash install-all.sh
+用法（在服务器上以 root 执行；同名 `install_all.sh` 为转调本文件的 bash 瘦包装）：
+    sudo bash install_all.sh
     sudo python3 deploy/setup/install_all.py
 前置：Ubuntu 安装时勾选 OpenSSH，网络静态 IP（IP 与账号见《本地资源》）；执行前 export MJBK_IP=服务器IP
       —— 未设置 MJBK_IP 即报错退出 1（原 `: "${MJBK_IP:?未设置 MJBK_IP：...}"` 语义）。

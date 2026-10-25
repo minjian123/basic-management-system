@@ -6,7 +6,7 @@ import { join, resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 const ROOT = resolve(process.cwd())
-const TARGETS = [resolve(ROOT, '../../packages/ui-ep/src/components')]
+const TARGETS = [resolve(ROOT, '../../packages/ui_ep/src/components')]
 const PROTOTYPE_PATTERN = /(Object|Array|String|Number|Boolean)\.prototype/
 
 function walk(dir: string): string[] {

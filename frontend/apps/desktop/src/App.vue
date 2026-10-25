@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // 应用根组件：主框架装配（侧栏菜单 + 多标签 + 路由出口 keep-alive）+ 模块边界兜底 + 模块区域插槽。
-import { MainLayout, ModuleAreaOutlet, useSideMenu, useTabNav } from '@bms/ui-ep'
+import { MainLayout, ModuleAreaOutlet, useSideMenu, useTabNav } from '@bms/ui_ep'
 import { computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 

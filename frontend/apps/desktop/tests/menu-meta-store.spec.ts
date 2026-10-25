@@ -4,7 +4,7 @@
 // kiwi_id: 2339
 
 import { IconRegistry, IconProvider } from '@bms/core'
-import { setIconRegistry } from '@bms/ui-ep'
+import { setIconRegistry } from '@bms/ui_ep'
 import { createPinia, setActivePinia, type Pinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -129,7 +129,7 @@ describe('useMenuMetaStore（03_03）', () => {
     await store.ensureIcons()
     await store.ensureIcons(true)
 
-    const registry = (await import('@bms/ui-ep')).getIconRegistry()
+    const registry = (await import('@bms/ui_ep')).getIconRegistry()
     const provider = registry.get('custom:receipt')
     expect(provider?.source).toBe('<svg></svg>')
     expect(provider?.name).toBe('票据')

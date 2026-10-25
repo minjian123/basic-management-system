@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // 工作台卡片（示例数据概览）：读占位服务取总数并复用平台指标卡（声明即用，消费随工作台阶段）。
-import { MetricCard } from '@bms/ui-ep'
+import { MetricCard } from '@bms/ui_ep'
 import { onMounted, ref } from 'vue'
 
 import { useSampleI18n } from '../composables/useSampleI18n'

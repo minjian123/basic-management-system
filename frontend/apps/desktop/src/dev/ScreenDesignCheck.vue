@@ -9,7 +9,7 @@ import type {
   ScreenPage,
   ScreenPlayerJobs,
 } from '@bms/core'
-import { ScreenDesigner, ScreenPlayer } from '@bms/ui-ep'
+import { ScreenDesigner, ScreenPlayer } from '@bms/ui_ep'
 import { nextTick, onMounted, ref } from 'vue'
 
 /** 画布配置。 */

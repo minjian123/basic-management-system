@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // 占位页：菜单未接后端前承接占位路由，呈现目标路径与「建设中」提示。
-import { EmptyState } from '@bms/ui-ep'
+import { EmptyState } from '@bms/ui_ep'
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 

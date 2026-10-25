@@ -96,7 +96,7 @@ def test_service_test_keeps_changed_services_gate() -> None:
 
 def test_run_selected_exposes_jobs_and_rounds() -> None:
     """执行器仍接受 `--jobs` / `--max-rounds`（并行与扩圈开关未回退）。"""
-    source = (_PREFLIGHT_DIR / "run-selected.py").read_text(encoding="utf-8")
+    source = (_PREFLIGHT_DIR / "run_selected.py").read_text(encoding="utf-8")
     assert "run-selected" in source
     from engkit.cli import _build_parser
 

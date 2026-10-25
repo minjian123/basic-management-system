@@ -3,7 +3,7 @@
 // 工具栏 + 信息栏（详细信息 / 权限配置 / 系统信息，业务 Tab 插在固定两 Tab 之间）；
 // 详细信息首行固定三字段（角色码 / 角色名 / 状态，三列等宽），其余字段排首行之后；
 // 工具栏**单一保存**：详细信息页签保存基本信息，权限配置页签保存授权（角色分配随宿主保存）。
-import { DictRecordLayout, type SysInfoData } from '@bms/ui-ep'
+import { DictRecordLayout, type SysInfoData } from '@bms/ui_ep'
 import { ElMessage } from 'element-plus'
 import { computed, onMounted, ref, watch } from 'vue'
 

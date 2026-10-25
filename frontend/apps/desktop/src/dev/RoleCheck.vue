@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // 开发态核对页（02_03 角色管理）：表单框架（列表 Tab + 记录 Tab）+ 记录页三子页签 + 系统信息面板
 // 的真实组装，作为《原型审查规范》实现侧截图对照载体（数据为本地样例，不调后端）；本页不进构建产物。
-import { EmptyState, FormFrame, SysInfoPanel, type FormFrameTab } from '@bms/ui-ep'
+import { EmptyState, FormFrame, SysInfoPanel, type FormFrameTab } from '@bms/ui_ep'
 import { computed, ref } from 'vue'
 
 /** 页签（列表固定 + 两条记录）。 */

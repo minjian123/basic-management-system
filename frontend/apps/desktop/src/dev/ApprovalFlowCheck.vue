@@ -8,7 +8,7 @@ import {
   type ApprovalInstanceInput,
   type ApprovalJobs,
 } from '@bms/core'
-import { ApprovalFlow } from '@bms/ui-ep'
+import { ApprovalFlow } from '@bms/ui_ep'
 import { ElButton } from 'element-plus'
 import { nextTick, onMounted, ref } from 'vue'
 

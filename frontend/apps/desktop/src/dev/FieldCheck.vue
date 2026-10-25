@@ -21,7 +21,7 @@ import {
   TreeSelectField,
   createOptionSetResolver,
   provideOptionSetResolver,
-} from '@bms/ui-ep'
+} from '@bms/ui_ep'
 import type { OptionSetSnapshot } from '@bms/core'
 import { computed, ref } from 'vue'
 

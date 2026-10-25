@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // 开发态核对页（08_07_02）：国际化文案编辑器（语言清单 / 文案网格 / 缺失筛选 / 批量保存与缓存失效 / 导入导出）实例 + 12 项自检上屏（本页不进构建产物）。
 import { BaseAccess, BaseMessageCatalog, BaseNotice, type I18nLocaleItem, type I18nMessageItem, type MessageJobs } from '@bms/core'
-import { I18nMessageEditor } from '@bms/ui-ep'
+import { I18nMessageEditor } from '@bms/ui_ep'
 import { ElButton } from 'element-plus'
 import { nextTick, onMounted, ref } from 'vue'
 

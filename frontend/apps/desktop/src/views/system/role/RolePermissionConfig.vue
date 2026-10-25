@@ -2,7 +2,7 @@
 // 权限配置容器（08-4-4，新口径）：消费 ui-ep 授权总容器件（菜单 / 表单 / 数据三页签经 jobs 落 platform 授权接口）。
 // 「角色分配」页签沿用宿主内建 RoleAssignTab（用户分配 + mdm 岗位 / 部门分配插件挂接位），经容器 `assign-panel` 插槽覆写。
 import { BaseAccess, fromDataScopeApiItem, type PermissionJobs } from '@bms/core'
-import { PermissionConfig } from '@bms/ui-ep'
+import { PermissionConfig } from '@bms/ui_ep'
 import { computed, ref, watch } from 'vue'
 
 import {

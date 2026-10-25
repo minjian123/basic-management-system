@@ -2,9 +2,9 @@
  * 护栏：业务侧组件库件复用 + 宿主样式聚合入口唯一性。
  *
  * **规则一（组件库件复用）**：业务侧 `.vue` 的 `<template>` 内**不得出现裸原生交互元素**
- * （`<input>` / `<button>` / `<select>` / `<textarea>`），一律经组件库件承载——`@bms/ui-ep`
+ * （`<input>` / `<button>` / `<select>` / `<textarea>`），一律经组件库件承载——`@bms/ui_ep`
  * 基础控件 / 字段件或 Element Plus 基础件（PC 端 UI 组件库）。**组件库缺件时先补进
- * `@bms/ui-ep`**（并在《组件设计》登记），不在页面自绘。
+ * `@bms/ui_ep`**（并在《组件设计》登记），不在页面自绘。
  *
  * 作用域＝业务侧（各宿主应用与运行时模块的 `src`）；`frontend/packages` 下的组件库自身实现
  * **豁免**——库内以 Element Plus 组件为底座实现库能力，属库实现而非业务自绘。
@@ -19,7 +19,7 @@ import { join, relative, resolve } from 'node:path'
 
 import { describe, expect, it } from 'vitest'
 
-/** 替代件对照（护栏提示用；缺件一律补进 `@bms/ui-ep`）。 */
+/** 替代件对照（护栏提示用；缺件一律补进 `@bms/ui_ep`）。 */
 const REPLACEMENTS: Record<string, string> = {
   input: 'TextInput / PasswordInput / NumberInput / CheckboxInput / RadioInput / FileUploadField（按 type 选件）',
   select: 'SelectInput / OptionSetField / DictSelectField',

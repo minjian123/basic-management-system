@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // 403 页（无访问权限）：复用组件库错误页。
-import { ErrorPage } from '@bms/ui-ep'
+import { ErrorPage } from '@bms/ui_ep'
 </script>
 
 <template>

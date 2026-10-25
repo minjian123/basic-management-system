@@ -7,7 +7,7 @@ import {
   type PermissionSnapshot,
   type PermissionSubmitResult,
 } from '@bms/core'
-import { PermissionConfig } from '@bms/ui-ep'
+import { PermissionConfig } from '@bms/ui_ep'
 import { ElButton } from 'element-plus'
 import { computed, ref } from 'vue'
 

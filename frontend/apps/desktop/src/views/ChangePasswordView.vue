@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // 自助改密页（首登强制改密 / 常规改密）：旧口令 → 新口令 → 确认；成功后清除强制改密标记并回工作台。
-import { PasswordInput } from '@bms/ui-ep'
+import { PasswordInput } from '@bms/ui_ep'
 import { ElMessage } from 'element-plus'
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'

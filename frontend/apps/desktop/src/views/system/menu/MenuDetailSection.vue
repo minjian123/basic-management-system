@@ -3,7 +3,7 @@
 // 对照原型《10_菜单管理/03_菜单表单页.html》详细信息页签；排序由菜单维护页拖拽调整，本页只读。
 defineOptions({ name: 'MenuDetailSection' })
 
-import { IconPicker, MultilingualNameField } from '@bms/ui-ep'
+import { IconPicker, MultilingualNameField } from '@bms/ui_ep'
 import { computed } from 'vue'
 
 import { ENABLED_LOCALES } from '../metaLocale'

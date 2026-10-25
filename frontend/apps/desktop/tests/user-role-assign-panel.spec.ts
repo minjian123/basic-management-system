@@ -6,7 +6,7 @@
  * 草稿提交器登记（`isDirty` / `buildSegment` / `reload`）。
  */
 
-import { MODULE_SLOT_CONTEXT_KEY, type HostSubmitterEntry, type HostSubmitterRegistrar } from '@bms/ui-ep'
+import { MODULE_SLOT_CONTEXT_KEY, type HostSubmitterEntry, type HostSubmitterRegistrar } from '@bms/ui_ep'
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { ElMessage } from 'element-plus'
 import { createPinia, setActivePinia } from 'pinia'

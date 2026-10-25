@@ -50,7 +50,7 @@ function writeText(path: string, text: string): void {
  */
 function createFixture(target: string): void {
   const moduleDir = join(target, 'modules/demo')
-  writeJson(join(moduleDir, 'package.json'), { name: '@bms/module-demo', version: '0.1.0' })
+  writeJson(join(moduleDir, 'package.json'), { name: '@bms/module_demo', version: '0.1.0' })
   writeText(join(moduleDir, 'vite.config.ts'), "loadSharedDependencies({ role: 'remote' })\n")
   writeJson(join(moduleDir, 'budget.json'), { pageChunkHints: ['DemoHome'] })
   writeText(join(moduleDir, 'dist/remoteEntry.js'), 'export {}\n')
@@ -72,7 +72,7 @@ function createFixture(target: string): void {
  * @param version 新版本。
  */
 function setModuleVersion(version: string): void {
-  writeJson(join(root, 'modules/demo/package.json'), { name: '@bms/module-demo', version })
+  writeJson(join(root, 'modules/demo/package.json'), { name: '@bms/module_demo', version })
   writeJson(join(root, 'modules/demo/dist/module.meta.json'), { name: 'demo', version, contractVersion: 1 })
 }
 
@@ -197,7 +197,7 @@ describe('发布（Kiwi 981）', () => {
 
   it('共享关：模块依赖未登记白名单拒绝发布', () => {
     writeJson(join(root, 'modules/demo/package.json'), {
-      name: '@bms/module-demo',
+      name: '@bms/module_demo',
       version: '0.1.0',
       dependencies: { lodash: '^4.17.21' },
     })

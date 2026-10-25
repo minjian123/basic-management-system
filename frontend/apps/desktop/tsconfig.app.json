@@ -8,8 +8,8 @@
       "@/*": ["./src/*"],
       "@bms/core": ["../../packages/core/src/index.ts"],
       "@bms/vue": ["../../packages/vue/src/index.ts"],
-      "@bms/ui-ep": ["../../packages/ui-ep/src/index.ts"],
-      "@bms/api-types": ["../../packages/api-types/src/index.ts"]
+      "@bms/ui_ep": ["../../packages/ui_ep/src/index.ts"],
+      "@bms/api_types": ["../../packages/api_types/src/index.ts"]
     },
 
     /* Linting */

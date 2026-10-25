@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // 自定义图标管理页：租户自定义图标（`sys_icon`）列表 + icon key 复制 + 引用计数 + 批量启停删除。
 // 对照原型《10_菜单管理/06_自定义图标管理.html》：三段式、无操作列、双击行开记录 Tab；仅管理租户自定义图标。
-import { EmptyState, FormFrame, IconRenderer, PageContainer, type FormFrameTab } from '@bms/ui-ep'
+import { EmptyState, FormFrame, IconRenderer, PageContainer, type FormFrameTab } from '@bms/ui_ep'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'

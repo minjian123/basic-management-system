@@ -13,7 +13,7 @@ import { loadSharedDependencies } from '../../scripts/shared-deps.mjs'
  * **单一来源** `frontend/shared-dependencies.json`（宿主与模块两侧同源，不得各写一份）；
  * 宿主为**提供方**——不设 `import: false`（须打包并提供实例），不设 `strictVersion`（拒绝权在消费方）。
  *
- * 共享面之外的 `element-plus` 与平台基座包（`@bms/core` / `@bms/ui-ep`）登记在单一来源的
+ * 共享面之外的 `element-plus` 与平台基座包（`@bms/core` / `@bms/ui_ep`）登记在单一来源的
  * `notShared`（含理由与实测数据），由白名单护栏与体积阈值守住（见任务 02_02 详细设计 §3.1 / §3.7）。
  */
 const { shared: SHARED_DEPENDENCIES } = loadSharedDependencies({ role: 'host' })
@@ -61,9 +61,9 @@ export default defineConfig(({ mode }) => {
     resolve: {
       alias: {
         '@': fileURLToPath(new URL('./src', import.meta.url)),
-        // 基座包 `@bms/core` / `@bms/ui-ep` 不设别名：经工作区包解析，使 MF 探测到共享域请求（需求 05-14）
+        // 基座包 `@bms/core` / `@bms/ui_ep` 不设别名：经工作区包解析，使 MF 探测到共享域请求（需求 05-14）
         '@bms/vue': fileURLToPath(new URL('../../packages/vue/src/index.ts', import.meta.url)),
-        '@bms/api-types': fileURLToPath(new URL('../../packages/api-types/src/index.ts', import.meta.url)),
+        '@bms/api_types': fileURLToPath(new URL('../../packages/api_types/src/index.ts', import.meta.url)),
       },
     },
     build: {

@@ -4,7 +4,7 @@
  * 业务码为纯资源维度（权限码左半），平台统一维护、租户只读；`code` 创建后只读。
  */
 
-import type { platform } from '@bms/api-types'
+import type { platform } from '@bms/api_types'
 
 import { del, get, post, put } from './request'
 import type { I18nNames, MetaStatus, SnowflakeId } from './menuMeta'

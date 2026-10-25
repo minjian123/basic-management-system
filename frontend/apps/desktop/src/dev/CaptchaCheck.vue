@@ -15,7 +15,7 @@ import {
   createHttpCaptchaSource,
   registerCaptchaSource,
   useBaseCaptcha,
-} from '@bms/ui-ep'
+} from '@bms/ui_ep'
 import { effectScope, ref } from 'vue'
 
 import { captchaSourceOptions } from '@/api/endpoints'

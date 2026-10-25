@@ -5,26 +5,26 @@
 #
 # 目录内容
 #   engkit_boot.py        engkit 定位：先 import，失败按 ENGKIT_HOME → 同级 ../engkit 注入 sys.path
-#   check-preflight.py    预检入口：转发 `engkit preflight`（位置根 → --root）
-#   run-once.py           重命令包装：转发 `engkit run-once`（缓存回放）
-#   run-selected.py       定向执行器：转发 `engkit run-selected`
+#   check_preflight.py    预检入口：转发 `engkit preflight`（位置根 → --root）
+#   run_once.py           重命令包装：转发 `engkit run_once`（缓存回放）
+#   run_selected.py       定向执行器：转发 `engkit run_selected`
 #   test_selection.py     选测器：转发 `engkit selection`
 #   coverage_gate.py      覆盖率门禁：转发 `engkit coverage`
 #   parallel_jobs.py      `--jobs` 映射：转发 `engkit.preflight.jobs_args / describe`
 #   heavy_command_guard.py 重命令拦截：转发 `engkit.guard`（判定 / 提示 / pytest 插件入口）
 #   full_test_guard.py    全量测试守卫：转发 `engkit.guard`（`--full` / 显式声明 / CI 放行）
 #   heavy_guard_boot.py   `.pth` 启动钩子：转发 `engkit.guard`（旧钩子文件仍可加载）
-#   install-guard-hook.py 钩子安装 / 校验 / 卸载：转发 `engkit guard install-hook|check-hook|remove-hook`
-#   check-ci-config.py    本仓专属：CI / 编排 YAML 解析 + pytest 选项校验 + GitLab Lint + 门禁资产
-#   check-frontend-types.py 本仓专属：按变更逐包 typecheck / build
+#   install_guard_hook.py 钩子安装 / 校验 / 卸载：转发 `engkit guard install-hook|check-hook|remove-hook`
+#   check_ci_config.py    本仓专属：CI / 编排 YAML 解析 + pytest 选项校验 + GitLab Lint + 门禁资产
+#   check_frontend_types.py 本仓专属：按变更逐包 typecheck / build
 #
 # 用法（在 bms 仓库根）
-#   python3 scripts/tools/preflight/check-preflight.py            # 定向档（缺省快路径）
-#   python3 scripts/tools/preflight/check-preflight.py --fast     # 秒级自检（跳过测试段，自测全跑）
-#   python3 scripts/tools/preflight/check-preflight.py --full     # 全量档（显式申请）
-#   python3 scripts/tools/preflight/check-preflight.py --no-cov   # 跳过覆盖率门禁
-#   python3 scripts/tools/preflight/check-preflight.py --jobs 4   # 并行档位（auto 缺省 / 正整数 / off）
-#   python3 scripts/tools/preflight/check-preflight.py --self-test
+#   python3 scripts/tools/preflight/check_preflight.py            # 定向档（缺省快路径）
+#   python3 scripts/tools/preflight/check_preflight.py --fast     # 秒级自检（跳过测试段，自测全跑）
+#   python3 scripts/tools/preflight/check_preflight.py --full     # 全量档（显式申请）
+#   python3 scripts/tools/preflight/check_preflight.py --no-cov   # 跳过覆盖率门禁
+#   python3 scripts/tools/preflight/check_preflight.py --jobs 4   # 并行档位（auto 缺省 / 正整数 / off）
+#   python3 scripts/tools/preflight/check_preflight.py --self-test
 #
 # 预检步骤不再写在本目录：**步骤清单在仓根 `engkit.toml` 的 `[[preflight.steps]]`**，改步骤即改配置；
 # 逐条口径（静态 / 测试段 / 基座与边界 / 契约 / 前端 / 自测按需）见该文件注释与 engkit 文档。
@@ -39,4 +39,4 @@
 #      `coverage.py` / `guard.py`；bms 侧护栏用例锁「包装只转发」。
 #   3. 预算护栏（单步 / 总体）与步骤清单在 `engkit.toml`；改预算即改配置，不要改代码。
 #   4. 覆盖率门禁口径见《AI开发规范》「覆盖率要求」节。
-#   5. 分钟级重命令一律经 `run-once.py` 包装；只为看报错时用定向命令，不得整轮重跑。
+#   5. 分钟级重命令一律经 `run_once.py` 包装；只为看报错时用定向命令，不得整轮重跑。

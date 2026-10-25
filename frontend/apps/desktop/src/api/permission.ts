@@ -5,7 +5,7 @@
  * 支持手工新增、批量补生成缺失组合、启停与有条件删除。
  */
 
-import type { platform } from '@bms/api-types'
+import type { platform } from '@bms/api_types'
 
 import { del, get, post, put } from './request'
 import type { MetaStatus, SnowflakeId } from './menuMeta'

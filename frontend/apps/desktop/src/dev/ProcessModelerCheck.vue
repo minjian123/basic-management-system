@@ -7,7 +7,7 @@ import {
   type ModelerDefinitionInput,
   type ModelerJobs,
 } from '@bms/core'
-import { ProcessModeler, equivalentBpmnStrong } from '@bms/ui-ep'
+import { ProcessModeler, equivalentBpmnStrong } from '@bms/ui_ep'
 import { ElButton } from 'element-plus'
 import { nextTick, onMounted, ref } from 'vue'
 

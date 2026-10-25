@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """前台常驻版 llama-server 包装（供 systemd --user 使用；不做 stop-others / nohup）。
 
-用法: qwen-serve.sh [ud|std|unc]     默认 std
+用法: qwen_serve.sh [ud|std|unc]     默认 std
 环境变量: HOST(默认 0.0.0.0) PORT(默认 8080) MODEL_KEY(默认 std)
 与人工脚本 qwen-start.sh 的区别：前台运行、不杀其它进程、默认监听 0.0.0.0。
 
 2026-10-16 起「Python 单一实现 + 薄包装」：逻辑只维护在本文件，Linux 入口
-qwen-serve.sh 仅转调本文件（历史完整 shell 实现见 git 历史）。
-install-systemd.py 会把包装 qwen-serve.sh 与本文件一并同步到 llama.cpp 源码目录，
+qwen_serve.sh 仅转调本文件（历史完整 shell 实现见 git 历史）。
+install-systemd.py 会把包装 qwen_serve.sh 与本文件一并同步到 llama.cpp 源码目录，
 两者必须同目录并存；chat 模板 / llama-server 二进制路径一律以「本文件所在目录」
 为基准（该脚本在 llama.cpp 源码目录内运行）。
 

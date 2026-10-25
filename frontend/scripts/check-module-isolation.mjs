@@ -72,7 +72,7 @@ const PATTERNS = {
    * R4 自拼服务 / 产品前缀（引号后直跟 `/api/{服务|产品}` 的**显式段**字面量）。
    *
    * 例外（经寻址契约组装 / 基座默认基址）：`/api/${...}`（参数化组装）与 `/api/v1`（平台默认基址）——
-   * `@bms/core` / `@bms/ui-ep` 按设计随模块打包（`shared-dependencies.json` 的 `notShared`），
+   * `@bms/core` / `@bms/ui_ep` 按设计随模块打包（`shared-dependencies.json` 的 `notShared`），
    * 其寻址契约基址会进模块产物，不属自拼前缀；显式服务 / 产品段（如 `/api/mdm/v1/...`）仍拦截。
    */
   apiLiteral: /['"`]\/api\/(?!\$\{|v1(?:['"`/]|$))/,

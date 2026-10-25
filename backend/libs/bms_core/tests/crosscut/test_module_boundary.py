@@ -9,7 +9,7 @@
 - 跨包不得 import 他包私有模块（下划线前缀）——模块内部类与实现不得外泄。
 
 本用例为**静态护栏（AST 扫描，不接数据库 / 不起服务）**：CI `backend-test` 阶段随 pytest 执行，新增越界即失败。
-脚本版同口径护栏（供 CI base-integrity 层无 venv 运行）见 `scripts/tools/base-check/check-service-boundaries.py`。
+脚本版同口径护栏（供 CI base-integrity 层无 venv 运行）见 `scripts/tools/base_check/check_service_boundaries.py`。
 """
 
 import ast

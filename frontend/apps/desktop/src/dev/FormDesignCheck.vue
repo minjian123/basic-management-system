@@ -2,7 +2,7 @@
 // 开发态核对页（08_06_01）：表单设计器（三区 / 拖拽落点 / 分区列数与跨列 / 属性 / 自建字段 / 层级只读 / 脏基线 / 保存发布恢复 / 失效引用）实例 + 12 项自检上屏（本页不进构建产物）。
 import type { DesignerJobs, FormField } from '@bms/core'
 import { BaseAccess, BaseDragDrop } from '@bms/core'
-import { FormDesigner } from '@bms/ui-ep'
+import { FormDesigner } from '@bms/ui_ep'
 import { nextTick, onMounted, ref } from 'vue'
 
 /** 权限上下文（含表单定制维护权限）。 */

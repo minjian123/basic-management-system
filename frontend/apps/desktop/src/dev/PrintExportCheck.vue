@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // 开发态核对页（08_03_03）：打印预览壳 / 单页纸 / 打印入口件 + 12 项自检上屏（本页不进构建产物）。
 import { BaseWatermark, type PrintJobs, type PrintTemplateDef } from '@bms/core'
-import { PrintButton, PrintPreview, PrintSheet } from '@bms/ui-ep'
+import { PrintButton, PrintPreview, PrintSheet } from '@bms/ui_ep'
 import { ElButton } from 'element-plus'
 import { computed, nextTick, onMounted, ref } from 'vue'
 

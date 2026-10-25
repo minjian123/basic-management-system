@@ -55,7 +55,7 @@ const CORE_SRC = join(CORE_ROOT, 'src')
 const CHECKLIST_PATH = resolve(CORE_ROOT, '../../../bms文档/前端基类清单.md')
 /** 插件与宿主源码根（校验其对核心基类的使用是否均已登记）。 */
 const PLUGIN_SRC_ROOTS = [
-  resolve(CORE_ROOT, '../ui-ep/src'),
+  resolve(CORE_ROOT, '../ui_ep/src'),
   resolve(CORE_ROOT, '../vue/src'),
   resolve(CORE_ROOT, '../../apps/desktop/src'),
 ]

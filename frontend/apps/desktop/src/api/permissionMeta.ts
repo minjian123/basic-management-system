@@ -8,7 +8,7 @@
  */
 
 import type { ActionMeta, DataSourceKeyMeta, FieldMeta, FormMeta, PermissionMenuNode, PermissionMetadata } from '@bms/core'
-import type { platform } from '@bms/api-types'
+import type { platform } from '@bms/api_types'
 
 import { get } from './request'
 

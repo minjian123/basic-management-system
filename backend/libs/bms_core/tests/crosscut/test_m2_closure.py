@@ -99,7 +99,7 @@ def test_plan_closure_state() -> None:
         r"已完成\s*\*{0,2}(\d+)h\*{0,2}；剩余\s*\*{0,2}(\d+)h\*{0,2}.*?阶段合计\s*\*{0,2}(\d+)h\*{0,2}",
         text,
     )
-    assert hours, "计划工时行应为 check-status S1 可校验形态"
+    assert hours, "计划工时行应为 check_status S1 可校验形态"
     assert int(hours.group(1)) + int(hours.group(2)) == int(hours.group(3)), "工时：已完成 + 剩余 应等于阶段合计"
     assert "01_测试报告_后端基座与服务化地基.md" in text
 
@@ -119,7 +119,7 @@ def test_stage_report_archived_with_sections() -> None:
     ):
         assert heading in text
     assert re.search(r"\d+ passed, \d+ skipped", text)
-    assert "check-status" in text
+    assert "check_status" in text
     assert "31 条需求" in text
 
 

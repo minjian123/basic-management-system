@@ -2,7 +2,7 @@
 // 权限码管理页：权限码（业务码 × 动作码组合）列表 + 手工新增 + 批量补生成 + 批量启停删除。
 // 对照原型《10_菜单管理/04_权限码管理.html》：三段式、无操作列、双击行开记录 Tab；
 // 「补生成缺失组合」为原型迭代记录中登记的增强（需求 07-17 决策 5）。
-import { EmptyState, FormFrame, PageContainer, type FormFrameTab } from '@bms/ui-ep'
+import { EmptyState, FormFrame, PageContainer, type FormFrameTab } from '@bms/ui_ep'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'

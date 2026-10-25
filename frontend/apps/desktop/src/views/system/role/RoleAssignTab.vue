@@ -8,7 +8,7 @@
 //
 // 本页签非独立路由（无 `:id` 路由参数），角色标识经**显式上下文注入通道**（`ModuleAreaOutlet` 的
 // `context`，需求 `05-11`）交给区域项插件；宿主页**只声明挂接位、上下文与提交器通道**，不 import 任何具体插件。
-import { EmptyState, ModuleAreaOutlet, type HostSubmitterEntry, type HostSubmitterRegistrar } from '@bms/ui-ep'
+import { EmptyState, ModuleAreaOutlet, type HostSubmitterEntry, type HostSubmitterRegistrar } from '@bms/ui_ep'
 import { computed, ref, watch } from 'vue'
 
 import { registries, registriesRevision } from '@/module/registries'

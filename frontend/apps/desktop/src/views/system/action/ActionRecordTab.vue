@@ -3,7 +3,7 @@
 // 动作码创建后只读（全局动词、不归属业务）；停用联动其权限码（任一被引用整批拒绝 40206）。
 defineOptions({ name: 'ActionRecordTab' })
 
-import { DictRecordLayout, MultilingualNameField, type SysInfoData } from '@bms/ui-ep'
+import { DictRecordLayout, MultilingualNameField, type SysInfoData } from '@bms/ui_ep'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { computed, onMounted, ref, watch } from 'vue'
 

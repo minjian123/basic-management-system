@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // 租户管理页（平台超管）：列表 Tab（固定不可关）+ 记录 Tab（双击行打开）。
 // 列表三段式无操作列之外提供「开通 / 停用 / 启用」动作；开通弹窗展示一次性初始口令。
-import { EmptyState, FormFrame, PageContainer, type FormFrameTab } from '@bms/ui-ep'
+import { EmptyState, FormFrame, PageContainer, type FormFrameTab } from '@bms/ui_ep'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { computed, onMounted, ref } from 'vue'
 

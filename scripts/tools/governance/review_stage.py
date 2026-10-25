@@ -6,8 +6,8 @@
 
 核对清单（九项）：
 
-1. 三类文档状态一致（复用 `check-docs/check-status.py`）
-2. 基座自检通过（复用 `base-check/check-base.py`）
+1. 三类文档状态一致（复用 `check_docs/check_status.py`）
+2. 基座自检通过（复用 `base_check/check_base.py`）
 3. 验收门禁表结论齐备（10 行 / 5 列 / 结论取值合法 / 达标项有证据索引）
 4. 阶段残留为 0（需求与任务文档无「未开始 / 进行中 / 部分完成」）
 5. 遗留项已登记（计划「后续阶段待办」节非空）
@@ -182,7 +182,7 @@ def check_deliverables(root: Path, stage_dir: Path) -> Check:
                 problems.add(f"报告缺「{heading}」")
     readme_expect = {
         "README.md": ["app.asgi:app", "01_测试报告_项目骨架.md", "pnpm run dev"],
-        "backend/README.md": ["uv run uvicorn", "文档导航", "check-status.py"],
+        "backend/README.md": ["uv run uvicorn", "文档导航", "check_status.py"],
     }
     for rel, needles in readme_expect.items():
         path = root / rel
@@ -266,8 +266,8 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
         print(f"未找到阶段目录：{stage_dir}")
         return 2
 
-    ok_status, evidence_status = run_script(root, "scripts/tools/check-docs/check-status.py")
-    ok_base, evidence_base = run_script(root, "scripts/tools/base-check/check-base.py")
+    ok_status, evidence_status = run_script(root, "scripts/tools/check_docs/check_status.py")
+    ok_base, evidence_base = run_script(root, "scripts/tools/base_check/check_base.py")
     checks = [
         Check("三类文档状态一致", ok_status, evidence_status),
         Check("基座自检通过", ok_base, evidence_base),

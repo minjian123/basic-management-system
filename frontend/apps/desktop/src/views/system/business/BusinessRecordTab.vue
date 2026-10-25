@@ -3,7 +3,7 @@
 // 业务码创建后只读（换码 = 新建 + 迁移 + 停用旧码）；停用联动其权限码（任一被引用整批拒绝 40206）。
 defineOptions({ name: 'BusinessRecordTab' })
 
-import { DictRecordLayout, MultilingualNameField, type SysInfoData } from '@bms/ui-ep'
+import { DictRecordLayout, MultilingualNameField, type SysInfoData } from '@bms/ui_ep'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { computed, onMounted, ref, watch } from 'vue'
 

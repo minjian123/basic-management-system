@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // 用户详情宿主页（**具名插槽宿主**）：只声明挂接点，**不 import 任何具体插件**。
 // 插槽项由平台自身注册与模块注册经统一通道登记，按权限与顺序渲染；未登记即空（不兜底、不报错）。
-import { ModuleAreaOutlet, PageContainer, SectionContainer } from '@bms/ui-ep'
+import { ModuleAreaOutlet, PageContainer, SectionContainer } from '@bms/ui_ep'
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 

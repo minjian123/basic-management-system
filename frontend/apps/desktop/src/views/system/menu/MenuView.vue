@@ -2,7 +2,7 @@
 // 菜单管理页（平台内建页）：列表 Tab（固定不可关）+ 菜单记录 Tab（新增 / 双击行打开）。
 // 对照原型《10_菜单管理/02_菜单维护页.html》：三段式、树形表格、无操作列、行首 ⋮⋮ 拖拽调序
 // （拖到手柄＝同级并排其后，拖到菜单名称＝成为其子级，仅目录可容纳下级），工具栏「保存排序 / 撤销」。
-import { EmptyState, FormFrame, PageContainer, type FormFrameTab } from '@bms/ui-ep'
+import { EmptyState, FormFrame, PageContainer, type FormFrameTab } from '@bms/ui_ep'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'

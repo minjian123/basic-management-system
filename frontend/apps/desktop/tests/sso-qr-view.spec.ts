@@ -2,7 +2,7 @@
 /** 扫码登录页用例（05_04）：可扫码源过滤 / 空态 / 确认完成（跳转 / 安全回跳）/ 返回保留回跳。 */
 
 import { configureRequestAdapter, type RequestConfig } from '@bms/core'
-import { SsoQrLoginPanel } from '@bms/ui-ep'
+import { SsoQrLoginPanel } from '@bms/ui_ep'
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia, type Pinia } from 'pinia'
 import { createMemoryHistory, createRouter, type Router } from 'vue-router'

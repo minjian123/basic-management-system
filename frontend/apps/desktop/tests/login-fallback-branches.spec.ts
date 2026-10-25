@@ -2,7 +2,7 @@
 /** 兜底分支用例（模块桩 / 桩数据驱动）：登录页与三张开发态核对页的 `??` 回落与「未通过」渲染分支。 */
 
 import { configureRequestAdapter } from '@bms/core'
-import { CaptchaField } from '@bms/ui-ep'
+import { CaptchaField } from '@bms/ui_ep'
 import { mount } from '@vue/test-utils'
 import { createPinia } from 'pinia'
 import { createMemoryHistory, createRouter } from 'vue-router'

@@ -1,6 +1,6 @@
 # 演示模块（frontend/modules/demo）
 
-> `@bms/module-demo`：模块化体系的演示模块（**开发态进菜单，不进生产菜单**），示范八类扩展点贡献与宿主注入上下文的消费方式。
+> `@bms/module_demo`：模块化体系的演示模块（**开发态进菜单，不进生产菜单**），示范八类扩展点贡献与宿主注入上下文的消费方式。
 
 ## 定位
 
@@ -13,13 +13,13 @@
 > 在**工作区根（`bms/`）**执行。
 
 ```bash
-pnpm --filter @bms/module-demo dev               # 独立工程开发服务器
-pnpm --filter @bms/module-demo build             # 构建模块产物（dist/）
-pnpm --filter @bms/module-demo build:standalone  # 构建独立预览壳
-pnpm --filter @bms/module-demo test              # 契约 / 上下文 / 定义用例
-pnpm --filter @bms/module-demo lint
-pnpm --filter @bms/module-demo budget            # 模块产物体积预算
-pnpm --filter @bms/module-demo guard:isolation   # 模块隔离护栏
+pnpm --filter @bms/module_demo dev               # 独立工程开发服务器
+pnpm --filter @bms/module_demo build             # 构建模块产物（dist/）
+pnpm --filter @bms/module_demo build:standalone  # 构建独立预览壳
+pnpm --filter @bms/module_demo test              # 契约 / 上下文 / 定义用例
+pnpm --filter @bms/module_demo lint
+pnpm --filter @bms/module_demo budget            # 模块产物体积预算
+pnpm --filter @bms/module_demo guard:isolation   # 模块隔离护栏
 ```
 
 **发布到本地产物服务**（宿主经 `modules.json` 加载）：

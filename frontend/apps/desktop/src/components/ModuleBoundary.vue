@@ -4,7 +4,7 @@
 // 作用域口径（需求 01-7）：模块**加载 / 清单失败**只阻断「归属该失败模块」的路由；免登录 / 基础路由
 // （`/login` / `/403` / `/404` / `/500`）与平台自身路由不受影响——模块产物服务不可用时仍能正常登录；
 // **当前路由自身渲染失败**仍渲染错误页（保持既有行为，带重试）。
-import { ErrorPage } from '@bms/ui-ep'
+import { ErrorPage } from '@bms/ui_ep'
 import { computed, onErrorCaptured, ref } from 'vue'
 import { useRoute } from 'vue-router'
 

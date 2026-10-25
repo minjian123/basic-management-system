@@ -5,7 +5,7 @@
  * 不持久化、不自建 HTTP（隔离约定，见任务 03_01 / 06_02）。上下文缺失项自行降级（不假定存在）。
  */
 
-import type { identity } from '@bms/api-types'
+import type { identity } from '@bms/api_types'
 import type { ModuleApi, ModuleHostContext } from '@bms/core'
 
 /** 当前用户概要（**生成类型**：不手写重复定义；与宿主 `/auth/me` 同字段同语义）。 */

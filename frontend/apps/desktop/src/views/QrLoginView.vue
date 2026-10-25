@@ -3,7 +3,7 @@
      确认后按状态源给出的完成语义跳转 / 安全回跳（复用 05_02 / 05_03 链路），本页不自行注册路由。 -->
 <script setup lang="ts">
 import { resolveSafeRedirect, selectScannableProviders } from '@bms/core'
-import { SsoQrLoginPanel, type SsoQrPanelProvider } from '@bms/ui-ep'
+import { SsoQrLoginPanel, type SsoQrPanelProvider } from '@bms/ui_ep'
 import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 

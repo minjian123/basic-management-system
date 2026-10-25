@@ -1,11 +1,11 @@
 /**
  * 认证端点封装：服务段寻址 + **生成类型消费**（不手写重复类型定义）。
  *
- * 响应类型全部取 `@bms/api-types` 的 `identity` 命名空间（需求 06-1 / 06-3 / 06-4 的零漂移门禁）；
+ * 响应类型全部取 `@bms/api_types` 的 `identity` 命名空间（需求 06-1 / 06-3 / 06-4 的零漂移门禁）；
  * refresh / logout 为**会话动作**（非业务写），用核心 `request` 显式发起、不自动附幂等键。
  */
 
-import type { identity } from '@bms/api-types'
+import type { identity } from '@bms/api_types'
 import { request } from '@bms/core'
 
 import { apiUrl } from './request'

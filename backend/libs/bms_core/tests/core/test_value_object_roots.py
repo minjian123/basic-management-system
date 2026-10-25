@@ -1,7 +1,7 @@
 """值对象存量归位（批次 1，09_03，Kiwi 2216）。
 
 依据《后端基类实现契约》§7「体系根清单」与 09_01 直继承护栏
-（`scripts/tools/base-check/check-backend-base.py`）：
+（`scripts/tools/base_check/check_backend_base.py`）：
 
 - 批次 1 的 110 个不可变值对象改挂 `BaseValueObject`（不再直继承 `BaseObject`），其中
   `ChatStreamHandle` 经复核为**运行时句柄**（含 `AsyncIterator` 字段、非数据对象）→ 迁 `BaseFrameworkObject`，

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // 顶栏全局搜索入口（折叠按钮旁，原型位置；《布局设计 · 导航》§3 文字口径为右侧组——
 // 2026-10-05 用户拍板按原型靠左）。命令面板接线归后续任务，当前只承载入口与占位。
-import { TextInput } from '@bms/ui-ep'
+import { TextInput } from '@bms/ui_ep'
 import { ElMessage } from 'element-plus'
 import { ref } from 'vue'
 

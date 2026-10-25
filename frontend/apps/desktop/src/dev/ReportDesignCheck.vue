@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // 开发态核对页（08_09_01）：报表设计器（三区 / 数据集选择与预览 / 新增图表 / 配置与映射 / 网格落点 / 复制居中删除 / 脏基线 / 保存发布另存）实例 + 12 项自检上屏（本页不进构建产物）。
 import type { ReportChartItem, ReportDataset, ReportJobs } from '@bms/core'
-import { ReportDesigner } from '@bms/ui-ep'
+import { ReportDesigner } from '@bms/ui_ep'
 import { nextTick, onMounted, ref } from 'vue'
 
 /** 演示数据集。 */

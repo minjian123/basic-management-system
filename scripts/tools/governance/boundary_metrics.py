@@ -3,7 +3,7 @@
 
 采集「服务边界越界数 / 跨库访问数 / 已登记例外数」：
 
-1. **静态**：调用 `check-service-boundaries.py --json`，解析各分类计数与违规明细；
+1. **静态**：调用 `check_service_boundaries.py --json`，解析各分类计数与违规明细；
 2. **运行时**（可选）：抓取运行期 `bms_boundary_cross_access_total`（`--metrics-url`；随 08_01
    可观测栈端点就绪后启用；不可达 / 未配置则标注降级）。
 
@@ -36,7 +36,7 @@ if str(_SRC_ROOT) not in sys.path:
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList  # noqa: E402
 from bms_core.core.serialization import normalize_collections  # noqa: E402
 
-_CHECKER = Path(__file__).resolve().parents[1] / "base-check" / "check-service-boundaries.py"
+_CHECKER = Path(__file__).resolve().parents[1] / "base_check" / "check_service_boundaries.py"
 _METRIC_LINE_RE = re.compile(r"^bms_boundary_cross_access_total(?:\{[^}]*\})?\s+([0-9.eE+]+)\s*$", re.MULTILINE)
 _VIOLATION_KEYS = (
     "cross_service_dependency",

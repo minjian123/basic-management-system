@@ -1,11 +1,11 @@
 /**
  * 租户管理端点封装：`/api/v1/tenants`（租户 CRUD / 开通 / 停用启用 / 模块开关 / 配额）。
  *
- * 服务段寻址与统一解包由宿主请求层承担（不自拼服务前缀）；响应类型取 `@bms/api-types` 的
+ * 服务段寻址与统一解包由宿主请求层承担（不自拼服务前缀）；响应类型取 `@bms/api_types` 的
  * `tenant` 命名空间（契约生成类型，禁止手写漂移）。
  */
 
-import type { tenant } from '@bms/api-types'
+import type { tenant } from '@bms/api_types'
 
 import { get, post, put } from './request'
 

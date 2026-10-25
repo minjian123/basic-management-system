@@ -14,9 +14,9 @@
 | --- | --- |
 | `tools/dev/` | **本机裸跑全套**（`本地全套`：三服务起停 / seed / status / logs / unlock）、宿主端口清理（`清理宿主端口`）与 5002 模块产物服务守护（`确保模块产物服务`）——Python 单一实现，Linux `.sh` / Windows `.bat` 薄包装 |
 | `tools/deps/` | 依赖外置维护（`外置依赖` / `还原依赖` / `重装依赖`：Python 单一实现，Linux `.sh` / Windows `.bat` 瘦包装） |
-| `tools/preflight/` | 推送前本地预检（`check-preflight.py`；`--fast` 秒级只跑 CI 配置 / 静态 / 基座与边界；可选依赖 pyyaml 见同目录 `requirements.txt`） |
-| `tools/base-check/` | 基座与边界护栏：`check-base.py`、`check-backend-base.py`、`check-service-boundaries.py`、`check-bare-collections.py`、`check-docs-scope.py`、`check-prototype-review.py`、`check-env-example.py`、`check-links.py`（链接自洽，**本地手工跑**，不挂 CI） |
-| `tools/check-docs/` | 项目文档状态一致性核对（`check-status.py`：需求 / 任务 / 计划三处，同挂 `base-integrity`） |
+| `tools/preflight/` | 推送前本地预检（`check_preflight.py`；`--fast` 秒级只跑 CI 配置 / 静态 / 基座与边界；可选依赖 pyyaml 见同目录 `requirements.txt`） |
+| `tools/base_check/` | 基座与边界护栏：`check_base.py`、`check_backend_base.py`、`check_service_boundaries.py`、`check_bare_collections.py`、`check_docs_scope.py`、`check_prototype_review.py`、`check_env_example.py`、`check_links.py`（链接自洽，**本地手工跑**，不挂 CI） |
+| `tools/check_docs/` | 项目文档状态一致性核对（`check_status.py`：需求 / 任务 / 计划三处，同挂 `base-integrity`） |
 | `tools/governance/` | 治理脚本（`collect_metrics.py` 阶段度量 + 用例统计、`review_stage.py` 阶段末复盘清单、`boundary_metrics.py` 越界 / 跨库 / 例外计数） |
 | `tools/deploy/` | 服务编排与发布部署（`release.py`：bootstrap / deploy / rollback，在部署机执行） |
 | `tools/docker/` | 本地镜像拉取辅助（`拉取镜像` + `镜像清单.txt`：Python 单一实现，Linux `.sh` / Windows `.bat` 薄包装） |
@@ -27,8 +27,8 @@
 | `tools/defect/` | 缺陷工具链（REPRO 复现包自动上报 / AI 修复 / 一键复现） |
 | `tools/backup/` | 开发服务器备份脚本（版本管理源；`backup_daily` Python 单一实现 + `.sh` 薄包装，部署须两文件成对） |
 | `tools/gitlab/` | GitLab 流水线盯守（`watch_pipeline.py`） |
-| `tools/reorder-design/` | 设计文档节点编号重排 |
-| `tools/reorder-stage/` | 阶段目录编号重排（`renumber_stage.py`） |
+| `tools/reorder_design/` | 设计文档节点编号重排 |
+| `tools/reorder_stage/` | 阶段目录编号重排（`renumber_stage.py`） |
 | `tools/workbuddy/` | WorkBuddy 桌面端补丁脚本 |
 | `tools/ide/` | IDE 工作区状态修复（`fix_scm_state.py`：源代码管理面板看不到仓库，VS Code / CodeBuddy 通用） |
 | `tools/opencode/` | opencode Web 手机扫码访问（`配对二维码`：出一次性配对链接与二维码 PNG，手机无 App 时用浏览器扫码直连；Python 单一实现 + 双平台薄包装；可选依赖 segno 见同目录 `requirements.txt`） |
@@ -39,8 +39,8 @@
 
 ```bash
 python3 scripts/tools/dev/本地全套.py up                        # 本机三服务起栈（首次后跑 seed；org 随组织主数据归 mdm，已不在平台服务清单）
-python3 scripts/tools/preflight/check-preflight.py --fast     # 推送前预检
-python3 scripts/tools/base-check/check-links.py               # 链接自洽（本地手工）
+python3 scripts/tools/preflight/check_preflight.py --fast     # 推送前预检
+python3 scripts/tools/base_check/check_links.py               # 链接自洽（本地手工）
 python3 scripts/tools/deps/外置依赖.py                         # 依赖外置态复位（Windows：scripts\tools\deps\外置依赖.bat）
 ```
 

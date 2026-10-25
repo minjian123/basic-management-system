@@ -3,7 +3,7 @@
 // 对照原型《10_菜单管理/13_表单表单页.html》：业务码 1:1、视图组件选择器 + 可手输、关联菜单多选（可空）。
 defineOptions({ name: 'FormRecordTab' })
 
-import { DictRecordLayout, type SysInfoData } from '@bms/ui-ep'
+import { DictRecordLayout, type SysInfoData } from '@bms/ui_ep'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { computed, onMounted, ref, watch } from 'vue'
 

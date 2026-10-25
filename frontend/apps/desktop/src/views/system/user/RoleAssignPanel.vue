@@ -4,7 +4,7 @@
 // 宿主记录页「用户分配」页签内的第一个子页签；改动**只进草稿**，由宿主工具栏「保存」经
 // 用户保存编排端点（`PUT /users/{id}/assignments`）与本体一次原子提交（见 `02_02/_01` 详设）。
 // 无宿主通道（如阶段五样例宿主页）时**只读**，避免绕过编排直写关系表。
-import { EmptyState, useModuleSlotField, type HostSubmitterRegistrar } from '@bms/ui-ep'
+import { EmptyState, useModuleSlotField, type HostSubmitterRegistrar } from '@bms/ui_ep'
 import { ElMessage } from 'element-plus'
 import { computed, onMounted, ref, watch } from 'vue'
 

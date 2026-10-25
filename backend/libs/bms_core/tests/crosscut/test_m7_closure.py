@@ -79,7 +79,7 @@ def test_gate_table_has_conclusions_and_evidence() -> None:
 def test_plan_closure_state() -> None:
     """计划收口状态：头部计数与两张明细表一致、进度含达成节点、工时行可校验。
 
-    头部项数不写死（防阶段回写漂移），改为校验结构自洽（口径同 check-status S1）：
+    头部项数不写死（防阶段回写漂移），改为校验结构自洽（口径同 check_status S1）：
     「已完成 N 项，剩余 M 项」中 N / M 分别等于「已完成任务」表与「剩余任务排期」表数据行数。
     """
     text = _PLAN.read_text(encoding="utf-8")
@@ -96,7 +96,7 @@ def test_plan_closure_state() -> None:
         r"已完成\s*\*{0,2}(\d+)h\*{0,2}；剩余\s*\*{0,2}(\d+)h\*{0,2}.*?阶段合计\s*\*{0,2}(\d+)h\*{0,2}",
         text,
     )
-    assert hours, "计划工时行应为 check-status S1 可校验形态"
+    assert hours, "计划工时行应为 check_status S1 可校验形态"
     assert int(hours.group(1)) + int(hours.group(2)) == int(hours.group(3)), "已完成与剩余工时应等于阶段合计"
     assert "## 7. 后续阶段待办" in text
     assert "01_测试报告_RBAC基础模块.md" in text
@@ -118,7 +118,7 @@ def test_stage_report_archived_with_sections() -> None:
     ):
         assert heading in text
     assert "17 条需求" in text
-    assert "check-status" in text
+    assert "check_status" in text
 
 
 @pytest.mark.kiwi_id(2349)
@@ -162,7 +162,7 @@ def test_mdm_alignment_lockdown() -> None:
         assert 'require_service("org")' not in text, f"{path.name} 不得残留旧白名单 org"
 
     frontend = _ROOT / "frontend"
-    org_source = (frontend / "packages" / "ui-ep" / "src" / "utils" / "orgSource.ts").read_text(encoding="utf-8")
+    org_source = (frontend / "packages" / "ui_ep" / "src" / "utils" / "orgSource.ts").read_text(encoding="utf-8")
     assert "productPrefix('mdm', 'mdm')" in org_source
     endpoints = (frontend / "apps" / "desktop" / "src" / "api" / "endpoints.ts").read_text(encoding="utf-8")
     assert "'/api/mdm/v1/mdm'" in endpoints

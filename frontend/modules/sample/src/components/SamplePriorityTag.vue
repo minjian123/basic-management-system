@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // 优先级标签：复用平台状态标签件 + 模块语义色映射与模块文案（不重复造件、不硬编码色值）。
-import { StatusTag } from '@bms/ui-ep'
+import { StatusTag } from '@bms/ui_ep'
 import { computed } from 'vue'
 
 import { useSampleI18n } from '../composables/useSampleI18n'

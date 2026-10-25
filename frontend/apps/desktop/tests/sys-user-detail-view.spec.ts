@@ -1,7 +1,7 @@
 // kiwi_id: 2276
 /** 用户详情宿主页用例（02_02/_01）：具名插槽挂接位声明 / 路由参数注入 / 会话权限码透传。 */
 
-import { ModuleAreaOutlet, PageContainer, SectionContainer } from '@bms/ui-ep'
+import { ModuleAreaOutlet, PageContainer, SectionContainer } from '@bms/ui_ep'
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia, type Pinia } from 'pinia'
 import { beforeEach, describe, expect, it } from 'vitest'

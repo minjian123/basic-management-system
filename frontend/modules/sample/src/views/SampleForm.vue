@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // 示例数据表单页：新建 / 编辑分态（按路由 `:id` 判定），含必填与范围校验。
-import { NumberInput, PageContainer, RadioInput, SectionContainer, SelectInput, TextInput, TextareaInput } from '@bms/ui-ep'
-import type { InputOptions } from '@bms/ui-ep'
+import { NumberInput, PageContainer, RadioInput, SectionContainer, SelectInput, TextInput, TextareaInput } from '@bms/ui_ep'
+import type { InputOptions } from '@bms/ui_ep'
 import { ElButton, ElMessage } from 'element-plus'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'

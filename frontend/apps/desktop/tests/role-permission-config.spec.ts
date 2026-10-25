@@ -7,7 +7,7 @@
  * 供角色记录页工具栏单一保存与撤销调用。
  */
 
-import { PermissionConfig, PermissionTree } from '@bms/ui-ep'
+import { PermissionConfig, PermissionTree } from '@bms/ui_ep'
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { ElCheckbox } from 'element-plus'
 import { createPinia, setActivePinia } from 'pinia'

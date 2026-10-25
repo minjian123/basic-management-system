@@ -1,11 +1,11 @@
 /**
  * 角色端点封装：`/api/v1/roles`（角色 CRUD / 用户分配 / 授权 / 字段权限 / 数据权限）。
  *
- * 服务段寻址与统一解包由宿主请求层承担（不手拼服务前缀）；响应类型取 `@bms/api-types`
+ * 服务段寻址与统一解包由宿主请求层承担（不手拼服务前缀）；响应类型取 `@bms/api_types`
  * 的 `platform` 命名空间（契约生成类型，禁止手写漂移）。
  */
 
-import type { platform } from '@bms/api-types'
+import type { platform } from '@bms/api_types'
 
 import { del, get, post, put } from './request'
 

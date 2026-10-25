@@ -1,8 +1,8 @@
 <script setup lang="ts">
 // 开发态核对页（07_05 数据呈现）：四件真实组装 + 14 项自检程序化跑一遍并上屏；本页不进构建产物。
 import type { FilterCondition, FilterField, QuerySchemeEntry } from '@bms/core'
-import { DataTable, DescriptionList, MetricCard, QueryFilter, StatusTag } from '@bms/ui-ep'
-import type { DataTableColumn, DataTableSort, DescItem, QueryFilterSearchPayload } from '@bms/ui-ep'
+import { DataTable, DescriptionList, MetricCard, QueryFilter, StatusTag } from '@bms/ui_ep'
+import type { DataTableColumn, DataTableSort, DescItem, QueryFilterSearchPayload } from '@bms/ui_ep'
 import { computed, nextTick, onMounted, ref } from 'vue'
 
 /** 自检项。 */
