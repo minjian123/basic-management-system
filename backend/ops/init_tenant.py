@@ -40,14 +40,10 @@ from bms_core.core.config import get_settings
 from bms_core.core.exceptions import ConfigError
 from bms_core.core.objects import BaseValueObject
 from bms_core.db.admin import DatabaseTarget, create_database, resolve_target
-from bms_core.db.bootstrap import apply_chain_schema
+from bms_core.db.bootstrap import apply_unit_schema
 from bms_core.db.engine import EngineFactory
 from bms_core.db.keys import build_platform_db_key
-from bms_core.db.migration import (
-    DATASOURCE_TENANT,
-    build_chain_name,
-    resolve_chain,
-)
+from bms_core.db.migration import DATASOURCE_TENANT
 from bms_core.db.tenant import build_tenant_db_key
 from bms_core.db.tenant_source import TENANT_SERVICE_KEY
 from ops.migrate_tenants import tenant_refs
@@ -174,8 +170,8 @@ async def run(args: argparse.Namespace) -> InitResult:
     """
     service = args.service or get_settings().app.service
     if not service:
-        raise ConfigError("需 `--service` 或 `[app].service` 指定服务（分链需服务段：{service}:tenant）")
-    tenant_chain = resolve_chain(build_chain_name(service, DATASOURCE_TENANT))
+        raise ConfigError("需 `--service` 或 `[app].service` 指定部署单元（单元所含业务域见域布局声明）")
+    unit = service
     basis = args.code if args.url else await _resolve_basis(args.code)
     url = _resolve_url(basis, args.url, args.service)
     target: DatabaseTarget = resolve_target(url, admin_url=args.admin_url)
@@ -188,9 +184,9 @@ async def run(args: argparse.Namespace) -> InitResult:
         created = await create_database(target)
         print(f"[init_tenant] 建库 → {'新建' if created else '已存在（跳过）'}")
 
-    outcome = await apply_chain_schema(tenant_chain, url, target=f"tenant_{basis}", schema=args.schema)
+    outcome = await apply_unit_schema(unit, DATASOURCE_TENANT, url, target=f"tenant_{basis}", schema=args.schema)
     print(
-        f"[init_tenant] 建表 {tenant_chain.name} 链 → 新建 {outcome.created} / "
+        f"[init_tenant] 建表 {unit} 单元（租户库）→ 新建 {outcome.created} / "
         f"已存在 {outcome.existing}（共 {outcome.total}）"
     )
 
@@ -213,13 +209,14 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
         if args.dry_run:
             service = args.service or get_settings().app.service
             if not service:
-                raise ConfigError("需 `--service` 或 `[app].service` 指定服务（分链需服务段：{service}:tenant）")
+                raise ConfigError("需 `--service` 或 `[app].service` 指定部署单元")
             url = _resolve_url(args.code, args.url, args.service)
             target = resolve_target(url, admin_url=args.admin_url)
             key = build_tenant_db_key(args.code, service=service)
             print(f"[init_tenant] 租户 {args.code} | 库键 {key} | 目标 {_masked(url)}")
-            chain_name = build_chain_name(service, DATASOURCE_TENANT)
-            print(f"[init_tenant] 计划：建库（{target.describe()}）→ 建表（{chain_name} 链）→ 幂等种子（dry-run）")
+            print(
+                f"[init_tenant] 计划：建库（{target.describe()}）→ 建表（{service} 单元的租户库）→ 幂等种子（dry-run）"
+            )
             return 0
         asyncio.run(run(args))
     except ConfigError as exc:

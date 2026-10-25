@@ -263,56 +263,62 @@ def archive_database_name(*, prefix: str = DEFAULT_DATABASE_NAME_PREFIX) -> str:
     return f"{prefix}_archive"
 
 
-def database_name(key: DbKey, *, service: str, prefix: str = DEFAULT_DATABASE_NAME_PREFIX) -> str:
-    """按库键取库名（相对键用传入的当前服务补全服务段；前缀经配置）。
+def database_name(key: DbKey, *, unit: str = "", service: str = "", prefix: str = DEFAULT_DATABASE_NAME_PREFIX) -> str:
+    """按库键取库名（相对键用传入的当前部署单元补全单元段；前缀经配置）。
 
     Args:
         key: 库键解析结果。
-        service: 当前服务标识（相对键补全用）。
+        unit: 当前部署单元标识（相对键补全用；07C `03_02` 起库跟随部署单元）。
+        service: 部署单元标识的过渡期别名（语义等同 `unit`，二者取其一即可）。
         prefix: 库名前缀（`[database].name_prefix`）。
 
     Returns:
-        str: 库名（`{prefix}_{service}` / `{prefix}_{service}_{code}` / `{prefix}_archive`）。
+        str: 库名（`{prefix}_{unit}` / `{prefix}_{unit}_{code}` / `{prefix}_archive`）。
 
     Raises:
-        ConfigError: 相对键缺当前服务标识或库名形态非法。
+        ConfigError: 相对键缺当前部署单元标识或库名形态非法。
     """
     if key.kind == DB_KIND_ARCHIVE:
         return archive_database_name(prefix=prefix)
-    effective = key.service or service
+    effective = key.service or unit or service
     if not effective:
         raise ConfigError(
-            f"数据源键 {key.raw} 为相对键，派生库名需要服务标识："
-            "请配置 [app].service（服务包声明回写）或改用全限定键 platform_{service} / tenant_{service}_{code}"
+            f"数据源键 {key.raw} 为相对键，派生库名需要部署单元标识："
+            "请配置 [app].unit（缺省回落 [app].service）或改用全限定键 platform_{unit} / tenant_{unit}_{code}"
         )
     if key.kind == DB_KIND_PLATFORM:
         return platform_database_name(effective, prefix=prefix)
     return tenant_database_name(effective, key.tenant_code or "", prefix=prefix)
 
 
-def resolve_db_key(db_key: str, *, service: str, allow_cross_service: bool = False) -> DbKey:
-    """解析数据源键并校验服务归属（取引擎入口的统一前置）。
+def resolve_db_key(db_key: str, *, unit: str = "", service: str = "", allow_cross_service: bool = False) -> DbKey:
+    """解析数据源键并校验**部署单元归属**（取引擎入口的统一前置）。
+
+    归属判定按部署单元（07C `03_02`）：全限定键的单元段非当前单元且未豁免即拒；`service` 为过渡期
+    别名（语义等同 `unit`，两者都传时以 `unit` 为准），存量调用零改动。
 
     Args:
         db_key: 数据源键。
-        service: 当前服务标识（相对键归属方）。
-        allow_cross_service: 是否允许跨服务键（**仅运维通道**使用；`False` 时越界即拒）。
+        unit: 当前部署单元标识（相对键归属方）。
+        service: 部署单元标识的过渡期别名。
+        allow_cross_service: 是否允许跨单元键（**仅运维通道**使用；`False` 时越界即拒）。
 
     Returns:
         DbKey: 解析结果。
 
     Raises:
-        ConfigError: 键形态非法或全限定键的服务标识未登记。
-        DataOwnershipError: 全限定键服务段非当前服务且未开启跨服务豁免（10008）。
+        ConfigError: 键形态非法或全限定键的单元标识未登记。
+        DataOwnershipError: 全限定键单元段非当前单元且未开启跨单元豁免（10008）。
     """
+    current = unit or service
     key = parse_db_key(db_key)
     if key.service is None:
         return key
     if key.service not in _known_service_keys():
-        raise ConfigError(f"数据源键 {db_key} 的服务标识未登记：{key.service}")
-    if key.service != service and not allow_cross_service:
+        raise ConfigError(f"数据源键 {db_key} 的单元标识未登记：{key.service}")
+    if key.service != current and not allow_cross_service:
         raise DataOwnershipError(
-            f"禁止访问他服务数据库：键 {db_key} 归属服务 {key.service}，当前服务 {service or '未声明'}"
+            f"禁止访问他单元数据库：键 {db_key} 归属单元 {key.service}，当前单元 {current or '未声明'}"
         )
     return key
 

@@ -1,15 +1,17 @@
-"""Alembic 迁移环境：按数据源分链（平台 / 租户 / 归档），离线 / 在线两模式。
+"""Alembic 迁移环境：按**业务域迁移清单**执行（清单名 = 配置段名），离线 / 在线两模式。
 
-- **链选择**：配置段名即链名——`alembic -n alembic:<链名> upgrade head`（`[alembic]` 段为缺省
-  租户链，向后兼容既有裸命令）；版本目录由配置段的 `version_locations` 指定，
-  目标元数据取自链注册表 `app/db/migration.py`（唯一来源，不在此重复登记表集）。
-- **URL 解析优先级**：`-x url=`（显式）> `BMS_MIGRATION_URL` 环境变量 > 配置（链对应库）；
-  租户链可加 `-x db_key=tenant_{code}` 经 `url_template` 解析租户库连接串。
+- **清单选择**：`alembic -n alembic:<清单名> upgrade head`（`[alembic]` 段为缺省清单
+  `platform_registry:tenant`）；版本目录由配置段的 `version_locations` 指定，目标元数据取自清单注册表
+  `bms_core/db/migration.py`（唯一来源，不在此重复登记表集）。
+- **版本记录表**：每条清单**独立一张** `alembic_version_{domain}`（多域同库互不覆盖，07C `03_02`）——
+  在此显式设置 `version_table`；未迁移时该表不存在即视为未执行（沿用 Alembic 既有语义）。
+- **URL 解析优先级**：`-x url=`（显式）> `BMS_MIGRATION_URL` 环境变量 > 配置（清单对应库）；
+  可加 `-x db_key=tenant_{code}` 经 `url_template` 解析租户库连接串。
 - **在线模式**：达梦 `dm` 为同步驱动（无异步方言）→ 同步引擎执行；其余方言异步引擎
   （`create_async_engine`）+ `connection.run_sync(context.run_migrations)`。
 - **达梦模式切换**：`-x schema=`（仅达梦生效）→ 迁移前于同一连接执行 `SET SCHEMA`，
   不被支持时回落 `ALTER SESSION SET CURRENT_SCHEMA`。
-- **空链**：该链无迁移脚本（如归档链）时打印提示并正常跳过。
+- **空清单**：该清单无迁移脚本（如归档清单）时打印提示并正常跳过。
 - 四库（SQLite / MySQL / PostgreSQL / 达梦）共用本环境；迁移脚本禁写方言 SQL，
   方言差异由模型跨方言类型与 01_05 实测结论承载。
 """
@@ -31,12 +33,12 @@ from alembic import context
 from bms_core.core.config import get_settings
 from bms_core.core.exceptions import ConfigError
 from bms_core.db.migration import (
-    MigrationChain,
+    MigrationSeries,
     apply_session_schema,
-    chain_metadata,
-    chain_url,
     has_revisions,
-    resolve_chain_from_section,
+    resolve_series_from_section,
+    series_metadata,
+    series_url,
 )
 
 config = context.config
@@ -90,23 +92,23 @@ def _x_args() -> Mapping[str, str]:
     return x_args
 
 
-def _chain() -> MigrationChain:
-    """取当前迁移链（配置段名派生：`[alembic]` → 缺省租户链；`[alembic:<链名>]` → 该链）。
+def _series() -> MigrationSeries:
+    """取当前迁移清单（配置段名派生：`[alembic]` → 缺省清单；`[alembic:<清单名>]` → 该清单）。
 
     Returns:
-        MigrationChain: 链定义。
+        MigrationSeries: 清单定义。
 
     Raises:
         ConfigError: 配置段未登记。
     """
-    return resolve_chain_from_section(config.config_ini_section)
+    return resolve_series_from_section(config.config_ini_section)
 
 
-def _database_url(chain: MigrationChain) -> str:
+def _database_url(series: MigrationSeries) -> str:
     """取迁移目标连接串（显式参数 > 环境变量 > 配置）。
 
     Args:
-        chain: 链定义。
+        series: 清单定义。
 
     Returns:
         str: 数据库 URL。
@@ -119,8 +121,8 @@ def _database_url(chain: MigrationChain) -> str:
     if env_url:
         return env_url
     db_key = x_args.get("db_key") or None
-    # 命令行显式指定库键 = 运维通道（允许跨服务键，如 platform_tenant / tenant_org_acme）
-    return chain_url(chain, get_settings(), db_key=db_key, allow_cross_service=bool(db_key))
+    # 命令行显式指定库键 = 运维通道（允许跨单元键，如 platform_platform / tenant_org_acme）
+    return series_url(series, get_settings(), db_key=db_key, allow_cross_service=bool(db_key))
 
 
 def _schema_name() -> str:
@@ -140,13 +142,14 @@ def _schema_name() -> str:
 
 def run_migrations_offline() -> None:
     """离线模式：仅生成 SQL，不连接数据库。"""
-    chain = _chain()
-    if not has_revisions(chain):
-        print(f"[alembic] 链 {chain.name} 暂无迁移脚本（跳过）")
+    series = _series()
+    if not has_revisions(series):
+        print(f"[alembic] 清单 {series.name} 暂无迁移脚本（跳过）")
         return
     context.configure(
-        url=_database_url(chain),
-        target_metadata=chain_metadata(chain),
+        url=_database_url(series),
+        target_metadata=series_metadata(series),
+        version_table=series.version_table,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
     )
@@ -154,70 +157,71 @@ def run_migrations_offline() -> None:
         context.run_migrations()
 
 
-def _do_run_migrations(connection: Connection, chain: MigrationChain, schema: str) -> None:
+def _do_run_migrations(connection: Connection, series: MigrationSeries, schema: str) -> None:
     """在线迁移主体（同步回调，由 `run_sync` 调用）。
 
     Args:
         connection: 同步连接（异步连接的同步封装）。
-        chain: 链定义。
+        series: 清单定义。
         schema: 目标模式名（仅达梦生效）。
     """
     apply_session_schema(connection, schema)
     # 达梦：显式声明版本表模式——达梦方言 `has_table` 不认会话 `SET SCHEMA` 后的当前模式，
-    # 增量迁移会重复建 `alembic_version` 报「对象已存在」（10_04 真库实测）；显式模式后
-    # 版本表检查 / 建表 / 读写均限定在目标模式内。
+    # 增量迁移会重复建版本表报「对象已存在」（10_04 真库实测）；显式模式后版本表检查 / 建表 / 读写
+    # 均限定在目标模式内。`version_table` 按清单派生（每清单一张，多域同库互不覆盖）。
     context.configure(
         connection=connection,
-        target_metadata=chain_metadata(chain),
+        target_metadata=series_metadata(series),
+        version_table=series.version_table,
         version_table_schema=schema or None,
     )
     with context.begin_transaction():
         context.run_migrations()
 
 
-async def _run_async_migrations(url: str, chain: MigrationChain, schema: str) -> None:
+async def _run_async_migrations(url: str, series: MigrationSeries, schema: str) -> None:
     """在线模式（异步引擎）：连接并执行迁移。
 
     Args:
         url: 数据库 URL。
-        chain: 链定义。
+        series: 清单定义。
         schema: 目标模式名（仅达梦生效）。
     """
     engine = create_async_engine(url, poolclass=pool.NullPool)
     async with engine.connect() as connection:
-        await connection.run_sync(partial(_do_run_migrations, chain=chain, schema=schema))
+        await connection.run_sync(partial(_do_run_migrations, series=series, schema=schema))
     await engine.dispose()
 
 
-def _run_sync_migrations(url: str, chain: MigrationChain, schema: str) -> None:
+def _run_sync_migrations(url: str, series: MigrationSeries, schema: str) -> None:
     """在线模式（同步引擎，达梦等无异步方言的驱动）：连接并执行迁移。
 
     Args:
         url: 数据库 URL。
-        chain: 链定义。
+        series: 清单定义。
         schema: 目标模式名（仅达梦生效）。
     """
     engine: Engine = create_engine(url, poolclass=pool.NullPool)
     try:
         with engine.connect() as connection:
-            _do_run_migrations(connection, chain, schema)
+            _do_run_migrations(connection, series, schema)
     finally:
         engine.dispose()
 
 
 def run_migrations_online() -> None:
     """在线模式入口（按方言分支：达梦同步、其余异步）。"""
-    chain = _chain()
-    if not has_revisions(chain):
-        print(f"[alembic] 链 {chain.name} 暂无迁移脚本（跳过）")
+    series = _series()
+    if not has_revisions(series):
+        print(f"[alembic] 清单 {series.name} 暂无迁移脚本（跳过）")
         return
-    url = _database_url(chain)
+    url = _database_url(series)
     schema = _schema_name()
     dialect = make_url(url).get_backend_name()
     if dialect in _SYNC_ONLY_DIALECTS:
-        _run_sync_migrations(url, chain, schema)
+        _run_sync_migrations(url, series, schema)
         return
-    asyncio.run(_run_async_migrations(url, chain, schema))
+    asyncio.run(_run_async_migrations(url, series, schema))
 
 
 if context.is_offline_mode():

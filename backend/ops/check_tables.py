@@ -13,11 +13,11 @@ uv run python -m ops.check_tables --offline    # 仅离线断言（无库场景�
 1. **清单自校验**：`TableOwnershipRegistry().validate()`（表名唯一与格式 / 归属与库类别合法 / 前缀归属一致）；
 2. **模型表必登记**：各启用服务模型（按服务 `MODEL_MODULES` + 公共模型模块导入）的 `__tablename__`
    必须已登记（未登记即失败——防「模型落地却未进归属登记」）；
-3. **enabled 表必入链**：`status = enabled` 的归属表必须出现在其归属服务 + 库类别对应链的
-   `chain_tables` 中（派生自证 + 防漏；`*` 基础设施表跳过）；
-4. **脚本表集不越界（净新建口径）**：每条**有脚本**的链，按**整链汇总**后
-   `（建表 ∪ 批量改表）− 删表 ⊆ 该链 chain_tables`——同一链内先建后删的表**净零**放行
-   （表迁出后历史建表脚本 + 补删表迁移即属此类，如 `org:tenant` 的 `sys_user`）；
+3. **enabled 表必入清单**：`status = enabled` 的归属表必须出现在其**归属业务域 + 库类别**对应清单的
+   `series_tables` 中（派生自证 + 防漏；`*` 基础设施表跳过——它们不进域清单、由单元级建表集追加）；
+4. **脚本表集不越界（净新建口径）**：每条**有脚本**的清单，按**整清单汇总**后
+   `（建表 ∪ 批量改表）− 删表 ⊆ 该清单 series_tables`——同一清单内先建后删的表**净零**放行
+   （表迁出后历史建表脚本 + 补删表迁移即属此类）；
 5. **form_key 一致**（02_11）：`FormRegistry().validate()`（标识格式与跨表全局唯一）+ `FORM_CATALOG`
    与模型元数据**双向一致**（清单表须有 `form_key` 列；有 `form_key` 列的模型表须在清单）。
 
@@ -47,9 +47,9 @@ from bms_core.db.migration import (
     DATASOURCES,
     VERSIONS_ROOT,
     apply_session_schema,
-    import_models,
+    import_service_models,
     require_service_model_modules,
-    resolve_chain,
+    resolve_series,
 )
 from bms_core.db.sync import is_sync_only_url
 from bms_core.models.base import Base
@@ -60,7 +60,7 @@ from bms_core.services.table_registry import (
     OWNER_EVERY_SERVICE,
     TableOwnershipRegistry,
     TableRecord,
-    chain_tables,
+    series_tables,
     table_names,
     table_ownership_view,
     validate_table_ownership,
@@ -112,7 +112,7 @@ def imported_model_tables() -> ConcurrentStableSet[str]:
     for service in enabled_service_keys():
         # 严格入口：已启用服务必有服务包（包名前缀经 `[app].package_prefix`），缺失即报错（12_04）
         declared.update(require_service_model_modules(service))
-        import_models(service)
+        import_service_models(service)
 
     tables: ConcurrentStableSet[str] = ConcurrentStableSet()
     for mapper in Base.registry.mappers:
@@ -145,9 +145,9 @@ def check_offline(*, versions_root: Path = VERSIONS_ROOT) -> ConcurrentStableLis
     for record in table_ownership_view():
         if record.owner == OWNER_EVERY_SERVICE or record.status != "enabled":
             continue
-        owned_chain = chain_tables(record.owner, record.datasource)
-        if record.table_name not in owned_chain:
-            errors.add(f"{record.table_name}：enabled 但未进入归属服务 {record.owner} 的 {record.datasource} 链")
+        owned = series_tables(record.domain, record.datasource)
+        if record.table_name not in owned:
+            errors.add(f"{record.table_name}：enabled 但未进入归属域 {record.domain} 的 {record.datasource} 清单")
 
     errors.update(_check_script_tables(versions_root))
     errors.update(_check_form_keys())
@@ -192,28 +192,28 @@ def _check_script_tables(versions_root: Path) -> ConcurrentStableList[str]:
     errors: ConcurrentStableList[str] = ConcurrentStableList()
     if not versions_root.is_dir():
         return errors
-    for service_dir in sorted(versions_root.iterdir()):
-        if not service_dir.is_dir() or service_dir.name.startswith("."):
+    for domain_dir in sorted(versions_root.iterdir()):
+        if not domain_dir.is_dir() or domain_dir.name.startswith("."):
             continue
         for datasource in DATASOURCES:
-            location = service_dir / datasource
+            location = domain_dir / datasource
             if not location.is_dir():
                 continue
-            chain = resolve_chain(f"{service_dir.name}:{datasource}")
+            series = resolve_series(f"{domain_dir.name}:{datasource}")
             scripts = ConcurrentStableList(sorted(location.glob("*.py")))
-            errors.update(_chain_script_errors(chain.name, chain.tables, scripts))
+            errors.update(_series_script_errors(series.name, series.tables, scripts))
     return errors
 
 
-def _chain_script_errors(
-    chain_name: str, chain_tables_set: ConcurrentStableSet[str], scripts: ConcurrentStableList[Path]
+def _series_script_errors(
+    series_name: str, series_tables_set: ConcurrentStableSet[str], scripts: ConcurrentStableList[Path]
 ) -> ConcurrentStableList[str]:
-    """单条链的脚本净新建表集校验（先建后删相抵）。
+    """单条清单的脚本净新建表集校验（先建后删相抵）。
 
     Args:
-        chain_name: 链名（错误提示用）。
-        chain_tables_set: 该链派生表集。
-        scripts: 该链版本目录下的脚本（按名排序）。
+        series_name: 清单名（错误提示用）。
+        series_tables_set: 该清单派生表集（归属本域，不含基础设施表）。
+        scripts: 该清单版本目录下的脚本（按名排序）。
 
     Returns:
         ConcurrentStableList[str]: 违规明细。
@@ -228,11 +228,11 @@ def _chain_script_errors(
         dropped.update(_DROP_TABLE_RE.findall(text))
     errors: ConcurrentStableList[str] = ConcurrentStableList()
     for name in sorted(origins.keys()):
-        if name in dropped or name in chain_tables_set:
+        if name in dropped or name in series_tables_set:
             continue
         errors.add(
-            f"{chain_name}/{origins.get(name) or '?'}：建表 / 改表 {name} 不在该链派生表集内"
-            "（须先登记归属并置 enabled；同链先建后删的表净零放行）"
+            f"{series_name}/{origins.get(name) or '?'}：建表 / 改表 {name} 不在该清单派生表集内"
+            "（须先登记归属域并置 enabled；同清单先建后删的表净零放行）"
         )
     return errors
 

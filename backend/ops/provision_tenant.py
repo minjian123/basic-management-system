@@ -28,7 +28,7 @@ uv run python -m ops.provision_tenant --code demo \
   `sys_tenant_database.db_basis` 派生（缺对照行回落编码，10_04）；
 - **幂等**：`create_database` 命中已存在即跳过（不重建、不清空）；重复执行全为「已存在（跳过）」；
 - **`--migrate`（06_02，缺省关）**：建库成功后按同一编排内核迁移本次涉及的服务 × 数据源
-  （`ops/migrate_tenants.py::service_tasks`，幂等可重跑）——一条命令完成「开通（建库 + 迁移）」；
+  （`ops/migrate_tenants.py::unit_tasks`，幂等可重跑）——一条命令完成「开通（建库 + 迁移）」；
   缺省不迁移，避免建库权限 / 网络问题连带失败；
 - **不做迁移（缺省）**：库结构由 Alembic 迁移或（SQLite 开发库）启动期自动建表负责；
 - 达梦无 `CREATE DATABASE`：以**模式**为库级隔离单位（`--schema` 指定模式名）。
@@ -57,7 +57,7 @@ from bms_core.db.keys import (
 from bms_core.db.tenant_source import TENANT_SERVICE_KEY
 from bms_core.services.module_registry import enabled_service_keys
 from bms_core.services.table_registry import known_service_keys
-from ops.migrate_tenants import TenantRef, enrich_refs, report, run_tasks, service_tasks, tenant_refs
+from ops.migrate_tenants import TenantRef, enrich_refs, report, run_tasks, unit_tasks, tenant_refs
 
 RUN_IMAGE = "*"
 """本脚本只依赖 `bms_core` 与 `ops`（不导入任何服务包），任意服务镜像均可运行。"""
@@ -272,7 +272,7 @@ async def run(args: argparse.Namespace) -> int:
     refs: ConcurrentStableList[TenantRef] = (
         ConcurrentStableList() if args.skip_tenants else await _resolve_refs(args, factory)
     )
-    migration_tasks = service_tasks(
+    migration_tasks = unit_tasks(
         services,
         refs,
         settings=settings,

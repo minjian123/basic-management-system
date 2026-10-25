@@ -13,9 +13,9 @@ uv run python -m ops.init_schema --target tenant \
     --url "dm+dmPython://SYSDBA:pass@host:5236" --schema BMS_MIGRCHECK   # 达梦目标模式
 ```
 
-- **表集单一来源**：与启动期建表（`db/bootstrap.py::ensure_service_schema`）共用
-  `chain_metadata(chain)`（表归属登记派生 ∩ 已有模型），避免两处表集漂移；
-- **任务清单同构**：服务 / 租户 / 单库维度与 `ops.migrate_tenants` 完全一致（复用其任务构建）；
+- **表集单一来源**：与启动期建表（`db/bootstrap.py::ensure_unit_schema`）共用
+  `unit_metadata(unit, datasource)`（所含域表集并集 + 基础设施表 ∩ 已有模型），避免两处表集漂移；
+- **任务清单同构**：单元 / 租户 / 单库维度与 `ops.migrate_tenants` 完全一致（复用其任务构建）；
 - **幂等**：`create_all(checkfirst=True)`，重复执行无副作用；逐库输出「新建 N 表 / 已存在 M 表」；
 - **失败不中断**：单库失败记 ERROR 并继续下一库，末尾汇总；存在失败时退出码 1；
 - **方言**：SQLite / MySQL / PostgreSQL / 达梦一律支持（达梦建表前切到 `--schema` 或连接串
@@ -33,7 +33,7 @@ from sqlalchemy.engine import make_url
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.exceptions import ConfigError
 from bms_core.core.objects import BaseValueObject
-from bms_core.db.bootstrap import apply_chain_schema
+from bms_core.db.bootstrap import apply_unit_schema
 from bms_core.db.migration import DATASOURCE_ARCHIVE, DATASOURCE_PLATFORM, DATASOURCE_TENANT
 from ops.migrate_tenants import MigrationTask, build_task_parser, build_tasks
 
@@ -96,7 +96,7 @@ def _counts(tasks: ConcurrentStableList[MigrationTask]) -> str:
     Returns:
         str: 统计文案（如「平台服务库 9 / 服务租户库 18」）。
     """
-    by_datasource = Counter(task.chain.datasource for task in tasks)
+    by_datasource = Counter(task.datasource for task in tasks)
     detail = "、".join(f"{_LABELS.get(name, name)} {count}" for name, count in sorted(by_datasource.items()))
     return f"共 {len(tasks)} 个目标（{detail}）"
 
@@ -117,20 +117,22 @@ async def run_tasks(tasks: ConcurrentStableList[MigrationTask]) -> SchemaSummary
     existing = 0
     for task in tasks:
         try:
-            outcome = await apply_chain_schema(task.chain, task.url, target=task.label, schema=task.schema)
+            outcome = await apply_unit_schema(
+                task.unit, task.datasource, task.url, target=task.label, schema=task.schema
+            )
         except Exception as exc:  # 单库失败不中断整批（缺库 / 权限 / 驱动异常）
             failed.add(task.label)
-            print(f"[init_schema] {task.chain.name} {task.label} → 失败：{type(exc).__name__}: {exc}")
+            print(f"[init_schema] {task.unit} {task.label} → 失败：{type(exc).__name__}: {exc}")
             continue
         if not outcome.total:
             skipped.add(task.label)
-            print(f"[init_schema] {task.chain.name} {task.label} → 无表集（跳过）")
+            print(f"[init_schema] {task.unit} {task.label} → 无表集（跳过）")
             continue
         created += outcome.created
         existing += outcome.existing
         succeeded.add(task.label)
         print(
-            f"[init_schema] {task.chain.name} {task.label} → 新建 {outcome.created} / "
+            f"[init_schema] {task.unit} {task.label} → 新建 {outcome.created} / "
             f"已存在 {outcome.existing}（共 {outcome.total}）"
         )
     return SchemaSummary(succeeded=succeeded, skipped=skipped, failed=failed, created=created, existing=existing)
@@ -168,7 +170,7 @@ async def run(args: argparse.Namespace) -> int:
     print(f"[init_schema] 待建表 {len(tasks)} 个目标（target={args.target}）")
     for task in tasks:
         suffix = f" schema={task.schema}" if task.schema else ""
-        print(f"[init_schema] {task.chain.name:<22} {task.label:<28} {_masked(task.url)}{suffix}")
+        print(f"[init_schema] {task.unit:<18} {task.label:<28} 域：{task.domains} {_masked(task.url)}{suffix}")
     if args.dry_run:
         print(f"[init_schema] 库数量：{_counts(tasks)}")
         print("[init_schema] dry-run：不建连、不建表")

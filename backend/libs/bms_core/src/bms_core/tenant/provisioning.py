@@ -31,10 +31,10 @@ from bms_core.core.config import get_settings
 from bms_core.core.exceptions import ConfigError
 from bms_core.core.objects import BaseValueObject
 from bms_core.db.admin import DatabaseTarget, create_database, drop_database, resolve_target
-from bms_core.db.bootstrap import apply_chain_schema
+from bms_core.db.bootstrap import apply_unit_schema
 from bms_core.db.engine import EngineFactory
 from bms_core.db.keys import build_platform_db_key, build_tenant_db_key
-from bms_core.db.migration import DATASOURCE_TENANT, build_chain_name, resolve_chain
+from bms_core.db.migration import DATASOURCE_TENANT
 from bms_core.services.module_registry import SERVICE_CATALOG, ModuleRecord, ModuleStatus, enabled_service_keys
 from bms_core.tenant.seed.platform import seed_platform_rbac
 from bms_core.tenant.seed.rbac import seed_rbac
@@ -172,8 +172,7 @@ async def provision_infrastructure(
             if await create_database(target):
                 created.add((service, target))
         for service, url in urls:
-            chain = resolve_chain(build_chain_name(service, DATASOURCE_TENANT))
-            await apply_chain_schema(chain, url, target=f"tenant_{db_basis}")
+            await apply_unit_schema(service, DATASOURCE_TENANT, url, target=f"tenant_{db_basis}")
         seeded = await _seed_configs(dict(urls)["platform"])
         user = await seed_user(
             url=dict(urls)["platform"],

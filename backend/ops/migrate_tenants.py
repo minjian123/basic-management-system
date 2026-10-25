@@ -1,31 +1,28 @@
-"""批量迁移：按「服务 × 数据源 × 租户」遍历（分链执行 Alembic 迁移，幂等）（06_02）。
+"""批量迁移：按「部署单元 × 数据源 × 库」执行所含各业务域清单（幂等）（07C `03_02`）。
 
 用法：
 
 ```bash
 cd backend
 uv run python -m ops.migrate_tenants --dry-run                 # 清单预演（不建连）
-uv run python -m ops.migrate_tenants                           # 全部启用服务 × 各租户 + 归档
-uv run python -m ops.migrate_tenants --service platform        # 仅指定服务（可重复）
-uv run python -m ops.migrate_tenants --target platform         # 仅各服务的平台服务库
+uv run python -m ops.migrate_tenants                           # 全部启用单元 × 各租户 + 归档
+uv run python -m ops.migrate_tenants --unit platform           # 仅指定单元（可重复；--service 为同义别名）
+uv run python -m ops.migrate_tenants --target platform         # 仅各单元的平台服务库
 uv run python -m ops.migrate_tenants --target tenants --code demo --code acme
 uv run python -m ops.migrate_tenants --target tenant \
-    --url "dm+dmPython://SYSDBA:pass@host:5236" --schema BMS_MIGRCHECK   # 单库（演练 / 迁移演练）
+    --url "dm+dmPython://SYSDBA:pass@host:5236" --schema BMS_MIGRCHECK   # 单库（演练）
 ```
 
-- **服务维度**：`--service`（可重复）显式指定，缺省取服务目录**已启用服务**（`enabled_service_keys()`）；
-- **租户维度**：`--code`（可重复）显式指定，或 `--all-tenants` 从**租户注册库**（键 `platform_tenant`）
+- **单元维度**：`--unit`（可重复）显式指定，缺省取服务目录**已启用服务**（缺省形态下单元标识即服务标识）；
+- **清单维度**：一个单元在一个库里承载多个业务域 → 按域名**稳定顺序**逐条执行业务域清单；
+  每条清单独立一张版本记录表 `alembic_version_{domain}`，已到 head 直接跳过；
+- **租户维度**：`--code`（可重复）显式指定，或 `--all-tenants` 从租户注册库（键 `platform_tenant`）
   读未软删租户编码；`--target tenants|all` 需要二者之一；
 - **库名基 `db_basis`（10_04）**：库键取「租户库名对照」`sys_tenant_database.db_basis`（缺对照行回落
-  当前 `code`）——注册库不可读的显式 `--code` 模式回落 `code`（离线 / 演练可用）；库名与当前编码
-  可不一致，由对照表解释；
-- **链映射（06_02 分链）**：平台服务库 `bms_{service}` → 链 `{service}:platform`；服务租户库
-  `bms_{service}_{db_basis}` → 链 `{service}:tenant`；归档库 `bms_archive` → 链 `platform:archive`
-  （归档库不服务化，表集为空 → 无脚本跳过）；
-- **执行**：逐库经 Alembic 程序化接口 `command.upgrade(cfg, "head")`（配置段 = 链名，版本目录 /
-  元数据子集取自 `db/migration.py` 链注册）；
-- **幂等**：目标 `alembic_version` 已为链 head → 输出「已是最新（跳过）」；链无脚本 → 「无脚本（跳过）」
-  （06_05 脚本清空后各链恒走「无脚本（跳过）」；将来按新基线重建脚本即自动生效）；
+  当前 `code`）——库名与当前编码可不一致，由对照表解释；
+- **执行期校验（§3.8）**：执行前先全量预检（脚本目标表归属 / 清单表集不相交 / 破坏性操作放行），
+  执行中同库加库级锁（PostgreSQL / MySQL；其余方言按部署串行）、逐清单核对版本记录表与单调性；
+  **任一清单失败 → 该库整体失败并指出域与脚本，不回滚已成功清单**；
 - **失败不中断**：单库失败记 ERROR 并继续下一库，末尾汇总；存在失败时退出码 1；
 - **`--dry-run`**：仅打印清单（连接串脱敏）与库数量统计，不建连、不迁移；
 - 达梦目标经 `--schema` 指定模式（库级隔离）。
@@ -48,13 +45,19 @@ from bms_core.db.migration import (
     DATASOURCE_ARCHIVE,
     DATASOURCE_PLATFORM,
     DATASOURCE_TENANT,
-    MigrationChain,
-    archive_chain,
-    build_chain_name,
+    MigrationSeries,
+    archive_series,
     current_revision,
+    has_revisions,
     head_revision,
-    resolve_chain,
-    upgrade_chain,
+    unit_series,
+    upgrade_series,
+)
+from bms_core.db.migration_guard import (
+    MigrationGuard,
+    check_monotonic,
+    check_version_known,
+    library_lock,
 )
 from bms_core.db.tenant_source import TENANT_SERVICE_KEY
 from bms_core.services.module_registry import enabled_service_keys
@@ -68,12 +71,24 @@ _TARGETS = ("all", "platform", "tenants", "tenant", "archive")
 
 @dataclass(frozen=True)
 class MigrationTask(BaseValueObject):
-    """单个迁移任务（链 / 展示名 / 连接串 / 模式）。"""
+    """单个迁移任务（库维度：单元 + 数据源 + 目标库 + 该库要跑的清单序列）。"""
 
-    chain: MigrationChain
+    unit: str
+    datasource: str
+    series: ConcurrentStableList[MigrationSeries]
     label: str
     url: str
     schema: str = ""
+    allow_destructive: bool = False
+
+    @property
+    def domains(self) -> str:
+        """清单域列表（展示用，如 `platform_registry, user`）。
+
+        Returns:
+            str: 逗号分隔的域标识。
+        """
+        return ", ".join(series.domain for series in self.series) or "—"
 
 
 @dataclass(frozen=True)
@@ -95,7 +110,7 @@ class MigrationSummary(BaseValueObject):
 
 
 def build_task_parser(description: str) -> argparse.ArgumentParser:
-    """构建「服务 × 数据源 × 库」任务清单命令行解析器（批量迁移与 ops 建表入口共用）。
+    """构建「单元 × 数据源 × 库」任务清单命令行解析器（批量迁移与 ops 建表入口共用）。
 
     Args:
         description: 解析器描述（各入口自定措辞）。
@@ -105,14 +120,24 @@ def build_task_parser(description: str) -> argparse.ArgumentParser:
     """
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument("--target", default="all", choices=_TARGETS, help="迁移目标（缺省 all）")
-    parser.add_argument("--service", action="append", default=[], help="服务标识（可重复；缺省全部启用服务）")
-    parser.add_argument("--code", action="append", default=[], help="租户编码（可重复；库键 tenant_{service}_{code}）")
-    parser.add_argument("--all-tenants", action="store_true", help="租户取注册库（platform_tenant）未软删全集")
     parser.add_argument(
-        "--db-key", default="", help="指定单个库键（单库模式：platform_{service} / tenant_{service}_{code}）"
+        "--unit",
+        "--service",
+        dest="unit",
+        action="append",
+        default=[],
+        help="部署单元标识（可重复；`--service` 为同义别名；缺省全部启用服务）",
     )
+    parser.add_argument("--code", action="append", default=[], help="租户编码（可重复；库键 tenant_{unit}_{code}）")
+    parser.add_argument("--all-tenants", action="store_true", help="租户取注册库（platform_tenant）未软删全集")
+    parser.add_argument("--db-key", default="", help="指定单个库键（单库模式：platform_{unit} / tenant_{unit}_{code}）")
     parser.add_argument("--url", default="", help="显式连接串（单库模式；含密码，禁止写入日志）")
     parser.add_argument("--schema", default="", help="达梦目标模式（仅达梦生效）")
+    parser.add_argument(
+        "--allow-destructive",
+        action="store_true",
+        help="显式放行破坏性操作（drop table / drop column；缺省拒绝）",
+    )
     parser.add_argument("--dry-run", action="store_true", help="仅打印清单（不建连）")
     return parser
 
@@ -123,7 +148,7 @@ def build_parser() -> argparse.ArgumentParser:
     Returns:
         argparse.ArgumentParser: 解析器。
     """
-    return build_task_parser("批量迁移（服务 × 数据源 × 租户；幂等）")
+    return build_task_parser("批量迁移（单元 × 数据源 × 租户；幂等）")
 
 
 def _masked(url: str) -> str:
@@ -153,71 +178,108 @@ async def tenant_refs(registry_url: str) -> ConcurrentStableList[TenantRef]:
     return await tenant_refs_base(registry_url)
 
 
-def resolve_services(requested: ConcurrentStableList[str], *, use_default: bool = True) -> ConcurrentStableList[str]:
-    """解析服务维度（显式指定须为已登记服务标识；缺省取全部启用服务）。
+def resolve_units(requested: ConcurrentStableList[str], *, use_default: bool = True) -> ConcurrentStableList[str]:
+    """解析单元维度（显式指定须为已登记单元；缺省取全部启用服务——缺省形态下单元即服务）。
 
     Args:
-        requested: 命令行指定的服务标识列表。
+        requested: 命令行指定的单元标识列表。
         use_default: 未指定时是否回落全部启用服务（False 时返回空列表）。
 
     Returns:
-        ConcurrentStableList[str]: 服务标识列表（保序去重）。
+        ConcurrentStableList[str]: 单元标识列表（保序去重）。
 
     Raises:
-        ConfigError: 指定服务未登记 / 目录无启用服务。
+        ConfigError: 指定单元未登记 / 目录无启用服务。
     """
     if requested:
         return ConcurrentStableList(dict.fromkeys(requested))
     if not use_default:
         return ConcurrentStableList()
-    services = enabled_service_keys()
-    if not services:
-        raise ConfigError("服务目录无已启用服务（service_key 非空且 status=enabled），请显式 --service")
-    return ConcurrentStableList(services)
+    units = enabled_service_keys()
+    if not units:
+        raise ConfigError("服务目录无已启用单元（service_key 非空且 status=enabled），请显式 --unit")
+    return ConcurrentStableList(units)
 
 
-def service_tasks(
-    services: ConcurrentStableList[str],
+def _series_or_empty(unit: str, datasource: str) -> ConcurrentStableList[MigrationSeries]:
+    """取单元在某库类别的清单序列（该库无域时为空；归档固定单清单）。
+
+    Args:
+        unit: 部署单元标识。
+        datasource: 数据源段。
+
+    Returns:
+        ConcurrentStableList[MigrationSeries]: 清单序列（执行序）。
+    """
+    if datasource == DATASOURCE_ARCHIVE:
+        return ConcurrentStableList([archive_series()])
+    return unit_series(unit, datasource)
+
+
+def unit_tasks(
+    units: ConcurrentStableList[str],
     tenants: ConcurrentStableList[TenantRef],
     *,
     settings: Settings | None = None,
     include_platform: bool = True,
     include_tenants: bool = True,
     include_archive: bool = False,
+    allow_destructive: bool = False,
 ) -> ConcurrentStableList[MigrationTask]:
-    """构建「服务 × 数据源 × 租户」迁移任务清单（建库入口与批量迁移共用）。
+    """构建「单元 × 数据源 × 租户」迁移任务清单（建库入口与批量迁移共用）。
 
     Args:
-        services: 服务标识列表。
+        units: 单元标识列表。
         tenants: 租户引用列表（`include_tenants` 为真时使用；库键按 `db_basis` 派生）。
         settings: 应用配置；None 取全局配置单例。
-        include_platform: 是否包含各服务的平台服务库。
-        include_tenants: 是否包含各服务的租户库。
+        include_platform: 是否包含各单元的平台服务库。
+        include_tenants: 是否包含各单元的租户库。
         include_archive: 是否包含归档库。
 
     Returns:
-        ConcurrentStableList[MigrationTask]: 任务清单（保序：平台 → 各服务租户 → 归档）。
-
-    Raises:
-        ConfigError: 服务标识未登记。
+        ConcurrentStableList[MigrationTask]: 任务清单（保序：平台 → 各单元租户 → 归档）。
     """
     resolved = settings or get_settings()
-    factory = EngineFactory(resolved, allow_cross_service=True)  # 运维通道：批量迁移按各服务库执行
+    factory = EngineFactory(resolved, allow_cross_service=True)  # 运维通道：批量迁移按各单元库执行
     tasks: ConcurrentStableList[MigrationTask] = ConcurrentStableList()
-    for service in services:
+    for unit in units:
         if include_platform:
-            chain = resolve_chain(build_chain_name(service, DATASOURCE_PLATFORM))
-            key = build_platform_db_key(service)
-            tasks.add(MigrationTask(chain=chain, label=key, url=factory.resolved_url(key)))
+            key = build_platform_db_key(unit)
+            tasks.add(
+                MigrationTask(
+                    unit=unit,
+                    datasource=DATASOURCE_PLATFORM,
+                    series=_series_or_empty(unit, DATASOURCE_PLATFORM),
+                    label=key,
+                    url=factory.resolved_url(key),
+                    allow_destructive=allow_destructive,
+                )
+            )
         if not include_tenants:
             continue
         for tenant in tenants:
-            chain = resolve_chain(build_chain_name(service, DATASOURCE_TENANT))
-            key = build_tenant_db_key(tenant.db_basis, service=service)
-            tasks.add(MigrationTask(chain=chain, label=key, url=factory.resolved_url(key)))
+            key = build_tenant_db_key(tenant.db_basis, service=unit)
+            tasks.add(
+                MigrationTask(
+                    unit=unit,
+                    datasource=DATASOURCE_TENANT,
+                    series=_series_or_empty(unit, DATASOURCE_TENANT),
+                    label=key,
+                    url=factory.resolved_url(key),
+                    allow_destructive=allow_destructive,
+                )
+            )
     if include_archive:
-        chain = archive_chain()
-        tasks.add(MigrationTask(chain=chain, label="archive", url=factory.resolved_url("archive")))
+        tasks.add(
+            MigrationTask(
+                unit=archive_series().domain,
+                datasource=DATASOURCE_ARCHIVE,
+                series=ConcurrentStableList([archive_series()]),
+                label="archive",
+                url=factory.resolved_url("archive"),
+                allow_destructive=allow_destructive,
+            )
+        )
     return tasks
 
 
@@ -235,40 +297,70 @@ async def build_tasks(args: argparse.Namespace) -> ConcurrentStableList[Migratio
     """
     settings = get_settings()
     factory = EngineFactory(settings, allow_cross_service=True)
-    use_default_services = args.target in ("all", "platform", "tenants")
-    services = resolve_services(ConcurrentStableList(args.service), use_default=use_default_services)
+    use_default_units = args.target in ("all", "platform", "tenants")
+    units = resolve_units(ConcurrentStableList(args.unit), use_default=use_default_units)
+    allow_destructive = bool(args.allow_destructive)
 
     if args.target == "tenant":
         if not args.url:
             raise ConfigError("`--target tenant` 需显式 `--url`（单库模式：演练 / 指定库）")
-        service = services[0] if services else settings.app.service
-        chain = resolve_chain(build_chain_name(service, DATASOURCE_TENANT))
+        unit = units[0] if units else settings.app.unit or settings.app.service
         return ConcurrentStableList(
-            [MigrationTask(chain=chain, label=args.db_key or "tenant", url=args.url, schema=args.schema)]
+            [
+                MigrationTask(
+                    unit=unit,
+                    datasource=DATASOURCE_TENANT,
+                    series=_series_or_empty(unit, DATASOURCE_TENANT),
+                    label=args.db_key or "tenant",
+                    url=args.url,
+                    schema=args.schema,
+                    allow_destructive=allow_destructive,
+                )
+            ]
         )
 
     if args.target == "archive":
-        chain = archive_chain()
+        series = archive_series()
         url = args.url or factory.resolved_url("archive")
-        return ConcurrentStableList([MigrationTask(chain=chain, label="archive", url=url, schema=args.schema)])
+        return ConcurrentStableList(
+            [
+                MigrationTask(
+                    unit=series.domain,
+                    datasource=DATASOURCE_ARCHIVE,
+                    series=ConcurrentStableList([series]),
+                    label="archive",
+                    url=url,
+                    schema=args.schema,
+                    allow_destructive=allow_destructive,
+                )
+            ]
+        )
 
     if args.target == "platform":
-        if args.url:  # 单库模式（演练）：指定服务（缺省取 [app].service）的平台服务库
-            service = services[0] if services else settings.app.service
-            if not service:
-                raise ConfigError("`--target platform --url` 需 `--service` 或 [app].service 指定服务")
-            chain = resolve_chain(build_chain_name(service, DATASOURCE_PLATFORM))
+        if args.url:  # 单库模式（演练）：指定单元（缺省取 [app].unit / [app].service）的平台服务库
+            unit = units[0] if units else settings.app.unit or settings.app.service
+            if not unit:
+                raise ConfigError("`--target platform --url` 需 `--unit` 或 [app].unit / [app].service 指定单元")
             return ConcurrentStableList(
                 [
                     MigrationTask(
-                        chain=chain,
-                        label=args.db_key or build_platform_db_key(service),
+                        unit=unit,
+                        datasource=DATASOURCE_PLATFORM,
+                        series=_series_or_empty(unit, DATASOURCE_PLATFORM),
+                        label=args.db_key or build_platform_db_key(unit),
                         url=args.url,
                         schema=args.schema,
+                        allow_destructive=allow_destructive,
                     )
                 ]
             )
-        return service_tasks(services, ConcurrentStableList(), settings=settings, include_tenants=False)
+        return unit_tasks(
+            units,
+            ConcurrentStableList(),
+            settings=settings,
+            include_tenants=False,
+            allow_destructive=allow_destructive,
+        )
 
     codes = ConcurrentStableList(dict.fromkeys(args.code))
     registry_url = factory.resolved_url(build_platform_db_key(TENANT_SERVICE_KEY))
@@ -282,13 +374,14 @@ async def build_tasks(args: argparse.Namespace) -> ConcurrentStableList[Migratio
             print("[migrate_tenants] 租户注册库未注册租户（sys_tenant 为空）")
     if not refs and args.target in ("all", "tenants"):
         raise ConfigError("需 --code（可重复）或 --all-tenants 指定租户；仅迁移平台服务库请用 --target platform")
-    return service_tasks(
-        services,
+    return unit_tasks(
+        units,
         refs,
         settings=settings,
         include_platform=args.target == "all",
         include_tenants=bool(refs),
         include_archive=args.target == "all",
+        allow_destructive=allow_destructive,
     )
 
 
@@ -330,7 +423,7 @@ async def enrich_refs(refs: ConcurrentStableList[TenantRef], registry_url: str) 
 
 
 def _counts(tasks: ConcurrentStableList[MigrationTask]) -> str:
-    """库数量统计（按库类别与链名）。
+    """库数量统计（按库类别）。
 
     Args:
         tasks: 任务清单。
@@ -338,7 +431,7 @@ def _counts(tasks: ConcurrentStableList[MigrationTask]) -> str:
     Returns:
         str: 统计文案（如「平台服务库 9 / 服务租户库 18」）。
     """
-    by_datasource = Counter(task.chain.datasource for task in tasks)
+    by_datasource = Counter(task.datasource for task in tasks)
     labels = {
         DATASOURCE_PLATFORM: "平台服务库",
         DATASOURCE_TENANT: "服务租户库",
@@ -348,8 +441,20 @@ def _counts(tasks: ConcurrentStableList[MigrationTask]) -> str:
     return f"共 {len(tasks)} 个目标（{detail}）"
 
 
+def _fail(failed: ConcurrentStableList[str], label: str, reason: str) -> None:
+    """记录单库失败（打印明细并计入汇总）。
+
+    Args:
+        failed: 失败汇总（就地追加）。
+        label: 目标标签。
+        reason: 失败原因。
+    """
+    failed.add(label)
+    print(f"[migrate_tenants] {label} → 失败：{reason}")
+
+
 async def run_tasks(tasks: ConcurrentStableList[MigrationTask]) -> MigrationSummary:
-    """逐库执行迁移（幂等；单库失败不中断）。
+    """逐库执行迁移（执行期校验 + 库级锁 + 幂等；单库失败不中断整批）。
 
     Args:
         tasks: 任务清单。
@@ -361,25 +466,48 @@ async def run_tasks(tasks: ConcurrentStableList[MigrationTask]) -> MigrationSumm
     skipped: ConcurrentStableList[str] = ConcurrentStableList()
     failed: ConcurrentStableList[str] = ConcurrentStableList()
     for task in tasks:
-        chain = task.chain
-        if head_revision(chain) is None:
-            skipped.add(task.label)
-            print(f"[migrate_tenants] {chain.name} {task.label} → 无脚本（跳过）")
+        guard_problems = MigrationGuard(
+            task.unit, task.datasource, allow_destructive=task.allow_destructive
+        ).preflight()
+        if guard_problems:
+            _fail(failed, task.label, "执行前校验不通过 → " + "；".join(guard_problems))
             continue
-        try:
-            head = head_revision(chain)
-            current = await current_revision(task.url, schema=task.schema)
-            if head is not None and current == head:
-                skipped.add(task.label)
-                print(f"[migrate_tenants] {chain.name} {task.label} → 已是最新（跳过）")
+        with library_lock(task.url) as acquired:
+            if not acquired:
+                _fail(failed, task.label, "库级锁被占用（另有实例正在改结构），本次不执行")
                 continue
-            await asyncio.to_thread(upgrade_chain, chain, task.url, schema=task.schema)
-        except Exception as exc:  # 单库失败不中断整批
-            failed.add(task.label)
-            print(f"[migrate_tenants] {chain.name} {task.label} → 失败：{type(exc).__name__}: {exc}")
-            continue
-        succeeded.add(task.label)
-        print(f"[migrate_tenants] {chain.name} {task.label} → 迁移完成（{current or '未迁移'} → {head or '无脚本'}）")
+            ran = False
+            broken = ""
+            for series in task.series:
+                if not has_revisions(series):
+                    print(f"[migrate_tenants] {series.name} {task.label} → 无脚本（跳过）")
+                    continue
+                try:
+                    head = head_revision(series)
+                    current = await current_revision(task.url, version_table=series.version_table, schema=task.schema)
+                    problems = check_version_known(series, current)
+                    problems.update(check_monotonic(series, current, head))
+                    if problems:
+                        broken = "；".join(problems)
+                        break
+                    if head is not None and current == head:
+                        print(f"[migrate_tenants] {series.name} {task.label} → 已是最新（跳过）")
+                        continue
+                    await asyncio.to_thread(upgrade_series, series, task.url, schema=task.schema)
+                except Exception as exc:  # 单清单失败：该库整体失败，不回滚已成功清单
+                    broken = f"{series.name}：{type(exc).__name__}: {exc}"
+                    break
+                ran = True
+                print(
+                    f"[migrate_tenants] {series.name} {task.label} → 迁移完成"
+                    f"（{current or '未迁移'} → {head or '无脚本'}）"
+                )
+        if broken:
+            _fail(failed, task.label, broken)
+        elif ran:
+            succeeded.add(task.label)
+        else:
+            skipped.add(task.label)
     return MigrationSummary(succeeded=succeeded, skipped=skipped, failed=failed)
 
 
@@ -414,7 +542,7 @@ async def run(args: argparse.Namespace) -> int:
     print(f"[migrate_tenants] 待迁移 {len(tasks)} 个目标（target={args.target}）")
     for task in tasks:
         suffix = f" schema={task.schema}" if task.schema else ""
-        print(f"[migrate_tenants] {task.chain.name:<22} {task.label:<28} {_masked(task.url)}{suffix}")
+        print(f"[migrate_tenants] {task.unit:<18} {task.label:<28} 域：{task.domains} {_masked(task.url)}{suffix}")
     if args.dry_run:
         print(f"[migrate_tenants] 库数量：{_counts(tasks)}")
         print("[migrate_tenants] dry-run：不建连、不迁移")

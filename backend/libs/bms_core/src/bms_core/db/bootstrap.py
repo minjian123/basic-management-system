@@ -1,14 +1,15 @@
-"""启动期自动建表：按「服务 × 数据源」表集幂等建表（方言无关、不依赖迁移脚本）。
+"""启动期自动建表：按「部署单元 × 数据源」建表集幂等建表（方言无关、不依赖迁移脚本）。
 
+- **建表集口径（07C `03_02`）**：单元在某库类别的表集 = **所含各业务域表集的并集 + 基础设施表**
+  （`services/table_registry.py::unit_tables`）。域表集由归属登记按域派生，基础设施表（发件箱三表）
+  不进任何域清单、每库一份。任一拓扑下「库结构 = 所含域表集并集」由本函数保证。
 - **开关**：`[database].auto_create`（默认 `true`）；语义为**启动期建表总开关**——开发 / 测试默认开，
   生产建议置 `false` 并改经 ops 显式建表入口（`ops.init_schema`：部署链上先建表、后起服务）；
-- **方言**：SQLite / MySQL / PostgreSQL / 达梦一律生效（去方言限定；DDL 由 SQLAlchemy 按方言生成，
-  达梦走既有方言补丁），建表前把会话切到连接串 `database` 段指定的模式（达梦；其余方言无此概念）；
-- **链集（06_02 分链）**：只处理**本服务**的链（`service_chains(settings.app.service)`），且**不要求
-  该链有迁移脚本**（06_05：历史迁移脚本已清空，新库 / 新服务首次接入无需先造脚本）；
-- **表集**：`chain_metadata(chain)` = 归属登记派生表集（`chain_tables`，仅 `status = enabled`）∩
-  已有模型——与 ops 显式建表入口（`ops.init_schema`）**同一派生点**，避免两处表集漂移；
-- **取键**：平台链 → 本服务平台服务库（相对键 `platform`）；归档链 → `archive`；租户链 → 本服务 ×
+- **方言**：SQLite / MySQL / PostgreSQL / 达梦一律生效（DDL 由 SQLAlchemy 按方言生成，达梦走既有方言
+  补丁），建表前把会话切到连接串 `database` 段指定的模式（达梦；其余方言无此概念）；
+- **单元**：`[app].unit` 可选，缺省回落 `[app].service`；单元所含域由域布局声明按承载服务反推
+  （`migration.py::unit_domains`），不在此另登记；
+- **取键**：平台库 → 本单元平台服务库（相对键 `platform`）；归档库 → `archive`；租户库 → 本单元 ×
   `[tenant].dev_tenants` 逐租户相对键（`tenant_{code}`），空 `url_template` 时诸键解析到同一
   `[database.tenants].url`，经 URL 去重后与既有单库行为一致；
 - **幂等**：`create_all(checkfirst=True)`，重复启动不报错、不重建、**只补不建改**（不做 ALTER；需干净库时
@@ -34,13 +35,14 @@ from bms_core.db.migration import (
     DATASOURCE_ARCHIVE,
     DATASOURCE_PLATFORM,
     DATASOURCE_TENANT,
-    MigrationChain,
     apply_session_schema,
-    chain_metadata,
-    config_section,
-    service_chains,
+    import_models,
+    unit_domains,
+    unit_key,
 )
 from bms_core.db.sync import is_sync_only_url
+from bms_core.models.base import Base
+from bms_core.services.table_registry import unit_tables
 
 logger = get_logger("bms_core.db.bootstrap")
 
@@ -48,21 +50,21 @@ _ASYNC_DRIVERS = frozenset({"aiosqlite", "aiomysql", "asyncmy", "asyncpg"})
 """异步驱动名集合（其余驱动一律走同步建表路径；达梦等同步方言亦经此）。"""
 
 
-def db_keys_for(chain: MigrationChain, settings: Settings) -> ConcurrentStableList[str]:
-    """取该链用于取引擎的数据源键集合（服务化：平台链本服务、租户链逐开发租户）。
+def db_keys_for(datasource: str, settings: Settings) -> ConcurrentStableList[str]:
+    """取该库类别用于取引擎的数据源键集合（单元化：平台库本单元、租户库逐开发租户）。
 
     Args:
-        chain: 链定义（自带服务与数据源段）。
-        settings: 应用配置（租户链取 `[tenant].dev_tenants`）。
+        datasource: 数据源段（`platform` / `tenant` / `archive`）。
+        settings: 应用配置（租户库取 `[tenant].dev_tenants`）。
 
     Returns:
         ConcurrentStableList[str]: 数据源键列表（保序；可能为空，如无开发租户时）。
     """
-    if chain.datasource == DATASOURCE_PLATFORM:
+    if datasource == DATASOURCE_PLATFORM:
         return ConcurrentStableList([PLATFORM_DB_KEY])
-    if chain.datasource == DATASOURCE_TENANT:
+    if datasource == DATASOURCE_TENANT:
         return ConcurrentStableList(build_tenant_db_key(code) for code in settings.tenant.dev_tenants)
-    if chain.datasource == DATASOURCE_ARCHIVE:
+    if datasource == DATASOURCE_ARCHIVE:
         return ConcurrentStableList([ARCHIVE_DB_KEY])
     return ConcurrentStableList()
 
@@ -75,7 +77,7 @@ class SchemaOutcome(BaseValueObject):
     """目标标签（库键 / 运维通道自定名）。"""
 
     total: int
-    """该链表集大小（归属登记 `enabled` 且已有模型）。"""
+    """该库建表集大小（所含域表集并集 + 基础设施表，且已有模型）。"""
 
     created: int
     """本次新建表数。"""
@@ -111,11 +113,11 @@ def _is_async_url(url: str) -> bool:
 
 
 def _existing_tables(connection: Connection, metadata: MetaData) -> ConcurrentStableSet[str]:
-    """取目标库中该链表集的已存在表名（建表前统计用）。
+    """取目标库中该建表集的已存在表名（建表前统计用）。
 
     Args:
         connection: 同步连接（异步路径经 `run_sync` 传入）。
-        metadata: 链表集元数据。
+        metadata: 建表集元数据。
 
     Returns:
         ConcurrentStableSet[str]: 已存在的表名集合。
@@ -129,7 +131,7 @@ async def _apply_async(url: str, metadata: MetaData) -> tuple[int, int]:
 
     Args:
         url: 目标连接串（禁止写入日志）。
-        metadata: 链表集元数据。
+        metadata: 建表集元数据。
 
     Returns:
         tuple[int, int]: （新建表数, 已存在表数）。
@@ -151,7 +153,7 @@ def _apply_sync(url: str, metadata: MetaData, schema: str) -> tuple[int, int]:
 
     Args:
         url: 目标连接串（禁止写入日志）。
-        metadata: 链表集元数据。
+        metadata: 建表集元数据。
         schema: 目标模式名（空串表示不切换）。
 
     Returns:
@@ -172,23 +174,46 @@ def _apply_sync(url: str, metadata: MetaData, schema: str) -> tuple[int, int]:
     return len(metadata.tables) - len(existing), len(existing)
 
 
-async def apply_chain_schema(chain: MigrationChain, url: str, *, target: str = "", schema: str = "") -> SchemaOutcome:
-    """对目标连接串幂等建该链的表集（方言无关；表集空即跳过、不建连）。
-
-    启动期与 ops 显式建表入口（`ops.init_schema` / `ops.test_db` 的 `migrate` 段）共用本函数，
-    表集一律经 `chain_metadata(chain)` 派生（单一来源）。
+def unit_metadata(unit: str, datasource: str) -> MetaData:
+    """取部署单元在某库类别的建表集元数据（各域表集并集 + 基础设施表 ∩ 已有模型）。
 
     Args:
-        chain: 链定义。
+        unit: 部署单元标识。
+        datasource: 数据源段。
+
+    Returns:
+        MetaData: 元数据子集（迁移目标 / 自动建表共用）。
+    """
+    domains = unit_domains(unit)
+    for domain in domains:
+        import_models(domain)
+    tables = unit_tables(domains, datasource)
+    metadata = MetaData(naming_convention=Base.metadata.naming_convention)
+    for name in sorted(tables & set(Base.metadata.tables)):
+        Base.metadata.tables[name].to_metadata(metadata)
+    return metadata
+
+
+async def apply_unit_schema(
+    unit: str, datasource: str, url: str, *, target: str = "", schema: str = ""
+) -> SchemaOutcome:
+    """对目标连接串幂等建该单元在该库类别的建表集（方言无关；表集空即跳过、不建连）。
+
+    启动期与 ops 显式建表入口（`ops.init_schema` / `ops.test_db` 的 `migrate` 段）共用本函数，
+    表集一律经 `unit_metadata` 派生（单一来源）。
+
+    Args:
+        unit: 部署单元标识。
+        datasource: 数据源段。
         url: 目标连接串（含密码；禁止写入日志）。
-        target: 目标标签（日志与统计用；缺省取链名）。
+        target: 目标标签（日志与统计用；缺省取 `{unit}:{datasource}`）。
         schema: 达梦目标模式名（空串表示取连接串 `database` 段）。
 
     Returns:
         SchemaOutcome: 建表结果（表集空返回全 0）。
     """
-    label = target or chain.name
-    metadata = chain_metadata(chain)
+    label = target or f"{unit}:{datasource}"
+    metadata = unit_metadata(unit, datasource)
     if not metadata.tables:
         return SchemaOutcome(target=label, total=0, created=0, existing=0)
     if _is_async_url(url):
@@ -198,7 +223,8 @@ async def apply_chain_schema(chain: MigrationChain, url: str, *, target: str = "
     logger.info(
         "schema_auto_create",
         target=label,
-        config_section=config_section(chain),
+        unit=unit,
+        domains=list(unit_domains(unit)),
         tables=len(metadata.tables),
         created=created,
         existing=existing,
@@ -206,10 +232,8 @@ async def apply_chain_schema(chain: MigrationChain, url: str, *, target: str = "
     return SchemaOutcome(target=label, total=len(metadata.tables), created=created, existing=existing)
 
 
-async def ensure_service_schema(
-    settings: Settings, *, factory: EngineFactory | None = None
-) -> ConcurrentStableList[str]:
-    """启动期按本服务三链的表集建表（开关关 / 服务未登记 / 表集空 / 同 URL 重复 跳过）。
+async def ensure_unit_schema(settings: Settings, *, factory: EngineFactory | None = None) -> ConcurrentStableList[str]:
+    """启动期按本单元三库类别建表（开关关 / 单元未登记域 / 表集空 / 同 URL 重复 跳过）。
 
     Args:
         settings: 应用配置。
@@ -221,22 +245,29 @@ async def ensure_service_schema(
     if not settings.database.auto_create:
         logger.info("schema_auto_create_skipped", reason="auto_create=false")
         return ConcurrentStableList()
-    engine_factory = factory or EngineFactory(settings)
-    try:
-        chains = service_chains(settings.app.service)
-    except ConfigError as exc:
-        # 运行服务未在服务目录登记（脚手架生成的工程尚未登记）：无法派生链，跳过（不阻断启动）
-        logger.warning("schema_auto_create_skipped", reason="service_not_registered", detail=str(exc))
+    unit = unit_key(settings)
+    if not unit:
+        logger.warning("schema_auto_create_skipped", reason="unit_not_declared")
         return ConcurrentStableList()
+    try:
+        domains = unit_domains(unit)
+    except ConfigError as exc:
+        logger.warning("schema_auto_create_skipped", reason="unit_not_registered", detail=str(exc))
+        return ConcurrentStableList()
+    if not domains:
+        # 运行服务未在域布局登记（脚手架生成 / 产品仓自建布局）：无法派生域集，跳过（不阻断启动）
+        logger.warning("schema_auto_create_skipped", reason="unit_has_no_domain", unit=unit)
+        return ConcurrentStableList()
+    engine_factory = factory or EngineFactory(settings)
     handled: ConcurrentStableList[str] = ConcurrentStableList()
     seen_urls: ConcurrentStableSet[str] = ConcurrentStableSet()
-    for chain in chains:
-        for db_key in db_keys_for(chain, settings):
+    for datasource in (DATASOURCE_PLATFORM, DATASOURCE_TENANT, DATASOURCE_ARCHIVE):
+        for db_key in db_keys_for(datasource, settings):
             url = engine_factory.resolved_url(db_key)
             if url in seen_urls:
                 continue
             seen_urls.add(url)
-            outcome = await apply_chain_schema(chain, url, target=db_key)
+            outcome = await apply_unit_schema(unit, datasource, url, target=db_key)
             if outcome.total:
                 handled.add(db_key)
     return handled

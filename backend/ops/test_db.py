@@ -47,8 +47,7 @@ from bms_core.db.admin import (
     resolve_target,
     run_statements,
 )
-from bms_core.db.bootstrap import apply_chain_schema
-from bms_core.db.migration import resolve_chain
+from bms_core.db.bootstrap import apply_unit_schema
 
 RUN_IMAGE = "*"
 """本脚本只依赖 `bms_core` 与 `ops`（不导入任何服务包），任意服务镜像均可运行。"""
@@ -106,9 +105,8 @@ ADMIN_DATABASE: ConcurrentStableDict[str, str | None] = ConcurrentStableDict(
 )
 """管理连接默认库（MySQL 不带库名、PostgreSQL 用 `postgres` 库、达梦回落目标连接串）。"""
 
-CHAIN_BY_SCOPE: ConcurrentStableDict[str, str] = ConcurrentStableDict(
-    {"platform": "platform:platform", "tenant": "platform:tenant"}
-)
+UNIT_BY_SCOPE: ConcurrentStableDict[str, str] = ConcurrentStableDict({"platform": "platform", "tenant": "platform"})
+"""测试库作用域 → 承载它的部署单元（`platform` 单元承载平台侧全部业务域；作用域名即数据源段）。"""
 """对象 → 建表链（06_02 分链：平台对象建 `platform` 服务的平台服务库链表集、租户对象建其租户库链表集）。"""
 
 FLOW_STEPS: ConcurrentStableList[str] = ConcurrentStableList(("建库", "建表", "集成用例", "删库清理"))
@@ -305,13 +303,13 @@ async def migrate(engine: str, scope: str, *, url: str, schema: str = "") -> boo
     Returns:
         bool: 建出表 True；已存在 / 无表集（跳过）False。
     """
-    chain = resolve_chain(CHAIN_BY_SCOPE[scope])
+    unit = UNIT_BY_SCOPE[scope]
     # 达梦：建表**保留连接串模式段**（dmPython `schema` 连接参数使会话真正落在目标模式——`SET SCHEMA`
     # 改不了反射与 `has_table` 的判定，03_DM8 实测），并显式传模式名作会话切换；否则建表会落到 SYSDBA
     # 且对已存在表重复 CREATE。
     target_url = url
     target_schema = (schema or resolve_test_database(engine, scope)) if engine == "dm8" else schema
-    outcome = await apply_chain_schema(chain, target_url, target=f"{engine} {scope}", schema=target_schema)
+    outcome = await apply_unit_schema(unit, scope, target_url, target=f"{engine} {scope}", schema=target_schema)
     if not outcome.total:
         print(f"[test-db] {engine} {scope} → 无表集（跳过）")
         return False

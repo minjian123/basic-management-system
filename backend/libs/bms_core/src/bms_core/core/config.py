@@ -87,6 +87,14 @@ class AppSettings(BaseSettings):
     用于选取按服务的连接池覆盖与租户库 `url_template` 的 `{service}` 占位（见 `core/service.py`）。
     """
 
+    unit: str = ""
+    """部署单元标识（07C `03_02`；空则回落 `service`——既有部署库名不变）。
+
+    部署单元是业务域的**组合**（架构 39 §2）：一个单元承载一个或多个业务域、对应一套库。库名与库键的
+    单元段取本值；缺省形态下单元标识即服务标识，故存量部署零改动。单元所含域由域布局声明
+    （`deploy/boundaries/domain_layout.json`）按承载服务反推，不在此配置。
+    """
+
     docs_enabled: bool = True
     """文档端点开关（Swagger `/docs` / ReDoc `/redoc` / OpenAPI `/openapi.json`）。
 

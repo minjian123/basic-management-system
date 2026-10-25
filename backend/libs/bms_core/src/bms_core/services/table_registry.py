@@ -719,37 +719,55 @@ def infrastructure_tables() -> ConcurrentStableSet[str]:
     )
 
 
-def chain_tables(service: str, datasource: str) -> ConcurrentStableSet[str]:
-    """取迁移链 / 自动建表的**目标表集**（归属登记派生：该服务表 + 基础设施表）。
+def series_tables(domain: str, datasource: str) -> ConcurrentStableSet[str]:
+    """取该业务域迁移清单 / 自动建表的**目标表集**（归属登记按域派生）。
 
-    口径（06_02 收口）：
-    - 只取 `status = enabled` 的归属表——`planned`（未定稿 / 未落库）不参与，随所属阶段转
-      `enabled` 时**自动进链**；
-    - 基础设施表（发件箱三表）只进入 `platform` / `tenant` 链，**归档链不含**；
-    - 目标表集与「已有模型」取交集后才是实际建表集（见 `db/migration.py::chain_metadata`）。
+    口径（07C `03_02`）：
+    - **只含本域的表**：`domain` 命中且 `status = enabled`；`planned` 不参与，转 `enabled` 时
+      自动进清单；
+    - **基础设施表不进域清单**（每库一份、不归属任何业务域，架构 39 §4.1 例外）——由部署单元级
+      建表集（`unit_tables`）追加；
+    - 目标表集与「已有模型」取交集后才是实际建表集（见 `db/migration.py::series_metadata`）。
 
     Args:
-        service: 服务标识（归属标签）。
+        domain: 业务域标识（`domain_key`；空串表示不归域，返回空集）。
         datasource: 库类别（`platform` / `tenant` / `archive`）。
 
     Returns:
         ConcurrentStableSet[str]: 表名集合（插入序）。
     """
-    owned = ConcurrentStableSet(
+    if not domain:
+        return ConcurrentStableSet()
+    return ConcurrentStableSet(
         record.table_name
         for record in table_ownership_view()
-        if record.owner == service and record.datasource == datasource and record.status == TableStatus.ENABLED
+        if record.domain == domain and record.datasource == datasource and record.status == TableStatus.ENABLED
     )
+
+
+def unit_tables(unit_domains: Iterable[str], datasource: str) -> ConcurrentStableSet[str]:
+    """取部署单元的**建表集**：所含各域表集并集 + 基础设施表（`platform` / `tenant` 库类别）。
+
+    Args:
+        unit_domains: 该单元所含业务域标识集合。
+        datasource: 库类别。
+
+    Returns:
+        ConcurrentStableSet[str]: 表名集合（插入序；基础设施表在后）。
+    """
+    tables: ConcurrentStableSet[str] = ConcurrentStableSet()
+    for domain in unit_domains:
+        tables.update(series_tables(domain, datasource))
     if datasource == Datasource.ARCHIVE:
-        return ConcurrentStableSet(owned)
-    infra = ConcurrentStableSet(
+        return tables
+    tables.update(
         record.table_name
         for record in table_ownership_view()
         if record.owner == OWNER_EVERY_SERVICE
         and record.datasource in (datasource, Datasource.BOTH)
         and record.status == TableStatus.ENABLED
     )
-    return owned | infra
+    return tables
 
 
 def table_names() -> ConcurrentStableSet[str]:
