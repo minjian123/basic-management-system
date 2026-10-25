@@ -4,6 +4,7 @@
 
 | 时间（UTC） | 操作者 | 动作 | 模块 | 版本 | 前版本 | 入口 gzip（KB） | 入口 | 来源 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 2026-10-25T13:32:43.194Z | minjian | publish | mdm_org | 0.1.0 | — | 12.2 | http://localhost:5002/mdm_org/0.1.0/remoteEntry.js | external |
 | 2026-10-25T05:51:41.888Z | minjian | republish | slot_sample | 0.1.0 | — | 9.7 | http://localhost:5002/slot_sample/0.1.0/remoteEntry.js | local |
 | 2026-10-25T05:45:31.168Z | minjian | publish | slot_sample | 0.1.0 | — | 9.7 | http://localhost:5002/slot_sample/0.1.0/remoteEntry.js | local |
 | 2026-10-09T10:14:31.886Z | minjian | republish | mdm-org | 0.1.0 | — | 12.2 | http://localhost:5002/mdm-org/0.1.0/remoteEntry.js | external |

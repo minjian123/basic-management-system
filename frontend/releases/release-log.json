@@ -296,6 +296,24 @@
       },
       "sourcemap": true,
       "source": "local"
+    },
+    {
+      "at": "2026-10-25T13:32:43.194Z",
+      "by": "minjian",
+      "action": "publish",
+      "module": "mdm_org",
+      "version": "0.1.0",
+      "previousVersion": null,
+      "entry": "http://localhost:5002/mdm_org/0.1.0/remoteEntry.js",
+      "contractVersion": 2,
+      "size": {
+        "entryFiles": 6,
+        "entryGzipKb": 12.2,
+        "largestGzipKb": 6.3,
+        "asyncChunkCount": 17
+      },
+      "sourcemap": true,
+      "source": "external"
     }
   ]
 }
