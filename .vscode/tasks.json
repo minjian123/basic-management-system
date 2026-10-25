@@ -193,8 +193,8 @@
       "problemMatcher": []
     },
     {
-      "label": "检查：前端基座三包（lint + typecheck + 用例）",
-      "detail": "core / api-types / vue / ui-ep 四包检查（bms 根：pnpm run check）",
+      "label": "检查：前端基座四包（lint + typecheck + 用例）",
+      "detail": "core / api_types / vue / ui_ep 四包检查（bms 根：pnpm run check）",
       "type": "shell",
       "command": "pnpm run check",
       "options": { "cwd": "${workspaceFolder}" },
@@ -224,6 +224,27 @@
       "detail": "backend：uv run ruff check / ruff format --check / pyright（本地 pyright 依赖外置时可能不可用，CI 兜底）",
       "type": "shell",
       "command": "uv run ruff check . && uv run ruff format --check . && uv run pyright",
+      "options": { "cwd": "${workspaceFolder}/backend" },
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      // 并行档位按执行规模选（《测试规范》「执行侧配套口径」）：单文件并行反而慢（worker 启动开销），
+      // 故本任务显式关掉并行（`-p no:xdist`），秒级出结果
+      "label": "测试：后端当前文件（串行 · 秒级）",
+      "detail": "对当前打开的后端测试文件跑串行（uv run pytest <当前文件> -q -p no:xdist）；当前文件不在 backend 下时请改用「后端全量」",
+      "type": "shell",
+      "command": "uv run pytest \"${file}\" -q -p no:xdist",
+      "options": { "cwd": "${workspaceFolder}/backend" },
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      // 全量走并行：各工程 addopts 已缺省 `-n auto`，此处不传参数，与预检 / CI 同口径
+      "label": "测试：后端全量（并行 · 缺省档）",
+      "detail": "backend 全量（uv run pytest -q）；并行档位由 pyproject 的 addopts 缺省提供，无需传参",
+      "type": "shell",
+      "command": "uv run pytest -q",
       "options": { "cwd": "${workspaceFolder}/backend" },
       "group": "test",
       "problemMatcher": []
