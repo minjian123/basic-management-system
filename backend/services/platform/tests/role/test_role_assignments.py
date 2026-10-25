@@ -32,15 +32,14 @@ from bms_core.db.unit_of_work import DbUnitOfWork
 from bms_core.servicecall.base import ServiceRequest, ServiceResponse
 from bms_core.transaction.base import BRANCH_PREPARED, BRANCH_REJECTED, BranchRef, GlobalTransaction
 from bms_core.transaction.null import NullTransactionManager, NullTransactionParticipant
-from bms_platform.repositories.role import RoleRepository, UserRoleRepository
-from bms_platform.repositories.user import UserRepository
-from bms_platform.schemas.role import (
+from bms_platform.domains.role.repositories.role import RoleRepository, UserRoleRepository
+from bms_platform.domains.role.schemas.role import (
     RoleAssignmentDepts,
     RoleAssignmentPosts,
     RoleAssignmentProfile,
     RoleAssignmentsRequest,
 )
-from bms_platform.services.role_assignments import (
+from bms_platform.domains.role.services.role_assignments import (
     MDM_INTERNAL_ROLE_DEPTS_PATH,
     MDM_INTERNAL_ROLE_POSTS_PATH,
     MDM_ROLE_DEPTS_OP,
@@ -51,7 +50,8 @@ from bms_platform.services.role_assignments import (
     build_org_ops,
     collect_segments,
 )
-from bms_platform.services.separation import SeparationGuard
+from bms_platform.domains.role.services.separation import SeparationGuard
+from bms_platform.domains.user.repositories.user import UserRepository
 from tests.role import helpers
 
 pytestmark = [pytest.mark.kiwi_id(2283)]

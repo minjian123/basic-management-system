@@ -36,7 +36,7 @@ from sqlalchemy.schema import CreateTable
 
 from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.models.platform.catalog import SysModule
-from bms_core.models.platform.system import SysTask
+from bms_core.models.platform.task import SysTask
 
 _SYS_MODULE_TABLE = cast("Table", SysModule.__table__)
 

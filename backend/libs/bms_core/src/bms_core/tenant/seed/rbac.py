@@ -41,7 +41,7 @@ from bms_core.core.config import get_settings
 from bms_core.core.objects import BaseDataContract
 from bms_core.db.engine import EngineFactory
 from bms_core.db.keys import PLATFORM_SERVICE_KEY, build_platform_db_key
-from bms_core.models.platform.menu import SysAction, SysBusiness, SysPermission
+from bms_core.models.platform.permission_meta import SysAction, SysBusiness, SysPermission
 from bms_core.models.platform.role import (
     NO_SOURCE_MENU_ID,
     PERM_TYPE_PERMISSION,

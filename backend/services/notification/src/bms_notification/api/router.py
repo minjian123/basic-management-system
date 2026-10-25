@@ -6,6 +6,6 @@
 
 from bms_core.api.base import mount_service_routers
 from bms_core.core.concurrent import ConcurrentStableList
-from bms_notification.api import notification
+from bms_notification.domains.notification.api import notification
 
 api_router = mount_service_routers(ConcurrentStableList([notification.router]))

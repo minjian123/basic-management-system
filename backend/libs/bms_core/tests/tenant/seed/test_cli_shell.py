@@ -99,7 +99,7 @@ def _prepare_rbac_dbs(tenant_url: str, platform_url: str) -> None:
     from sqlalchemy.ext.asyncio import create_async_engine
 
     from bms_core.models.base import Base
-    from bms_core.models.platform.menu import SysAction, SysBusiness, SysPermission
+    from bms_core.models.platform.permission_meta import SysAction, SysBusiness, SysPermission
     from bms_core.models.platform.role import SysRole, SysRolePermission, SysUserRole
     from bms_core.models.platform.user import SysUser
 

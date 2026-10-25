@@ -15,8 +15,8 @@ from bms_core.cache.memory import MemoryCacheRegion
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.exceptions import RoleNotFoundError, RoleSubjectInvalidError, UserSeparationConflictError
 from bms_core.permission.version import permission_version_key
-from bms_platform.repositories.role import RoleRepository, UserRoleRepository
-from bms_platform.repositories.user import UserRepository
+from bms_platform.domains.role.repositories.role import RoleRepository, UserRoleRepository
+from bms_platform.domains.user.repositories.user import UserRepository
 from tests.role import helpers
 
 _TENANT = "1001"

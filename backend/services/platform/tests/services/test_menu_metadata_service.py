@@ -35,11 +35,7 @@ from bms_core.db.unit_of_work import DbUnitOfWork
 from bms_core.dict.base import current_dict_locale
 from bms_core.i18n.base import DEFAULT_LOCALE
 from bms_core.models.base import Base, BaseModel
-from bms_core.models.platform.menu import (
-    SysAction,
-    SysActionI18n,
-    SysBusiness,
-    SysBusinessI18n,
+from bms_core.models.platform.menu_form import (
     SysButton,
     SysField,
     SysFieldI18n,
@@ -47,30 +43,24 @@ from bms_core.models.platform.menu import (
     SysMenu,
     SysMenuForm,
     SysMenuI18n,
+)
+from bms_core.models.platform.permission_meta import (
+    SysAction,
+    SysActionI18n,
+    SysBusiness,
+    SysBusinessI18n,
     SysPermission,
 )
-from bms_platform.repositories.menu import (
-    ActionRepository,
-    BusinessRepository,
+from bms_platform.domains.menu_form.repositories.menu import (
     ButtonRepository,
     FieldRepository,
     FormRepository,
     MenuFormRepository,
     MenuRepository,
-    PermissionRepository,
 )
-from bms_platform.schemas.menu import (
-    ActionCreateRequest,
-    ActionUpdateRequest,
-    BusinessCreateRequest,
-    BusinessUpdateRequest,
-    MenuCreateRequest,
-    MenuUpdateRequest,
-    PermissionCreateRequest,
-    PermissionGenerateRequest,
-)
-from bms_platform.services.menu import (
-    MenuMetadataService,
+from bms_platform.domains.menu_form.schemas.menu import MenuCreateRequest, MenuUpdateRequest
+from bms_platform.domains.menu_form.services.menu import (
+    MenuFormService,
     _snapshot_form,  # pyright: ignore[reportPrivateUsage]
     clean_i18n,
     derive_default_name,
@@ -78,6 +68,20 @@ from bms_platform.services.menu import (
     request_locale,
     require_i18n_name,
 )
+from bms_platform.domains.permission_meta.repositories.business import (
+    ActionRepository,
+    BusinessRepository,
+    PermissionRepository,
+)
+from bms_platform.domains.permission_meta.schemas.permission_meta import (
+    ActionCreateRequest,
+    ActionUpdateRequest,
+    BusinessCreateRequest,
+    BusinessUpdateRequest,
+    PermissionCreateRequest,
+    PermissionGenerateRequest,
+)
+from bms_platform.domains.permission_meta.services.permission_meta import PermissionMetadataService
 
 _MENU_TABLES = (
     SysBusiness.__table__,
@@ -235,7 +239,7 @@ def _service(
     forms: FormRepository | None = None,
     buttons: ButtonRepository | None = None,
     fields: FieldRepository | None = None,
-) -> MenuMetadataService:
+) -> MenuFormService:
     """构造元数据服务（真实仓储 + 可替换的单仓储替身）。
 
     Args:
@@ -248,10 +252,10 @@ def _service(
         fields: 字段仓储覆写。
 
     Returns:
-        MenuMetadataService: 元数据服务。
+        MenuFormService: 元数据服务。
     """
     db = cast("DbSession", session)
-    return MenuMetadataService(
+    return MenuFormService(
         uow=DbUnitOfWork(db),
         businesses=BusinessRepository(db),
         actions=ActionRepository(db),
@@ -262,6 +266,28 @@ def _service(
         buttons=buttons if buttons is not None else ButtonRepository(db),
         fields=fields if fields is not None else FieldRepository(db),
         outbox=outbox,
+        cache=cache,
+    )
+
+
+def _permission_service(session: AsyncSession, *, cache: CacheRegion) -> PermissionMetadataService:
+    """构造权限元数据服务（真实仓储 + 菜单表单只读探测）。
+
+    Args:
+        session: 会话。
+        cache: 缓存 Region。
+
+    Returns:
+        PermissionMetadataService: 权限元数据服务。
+    """
+    db = cast("DbSession", session)
+    return PermissionMetadataService(
+        uow=DbUnitOfWork(db),
+        businesses=BusinessRepository(db),
+        actions=ActionRepository(db),
+        permissions=PermissionRepository(db),
+        buttons=ButtonRepository(db),
+        forms=FormRepository(db),
         cache=cache,
     )
 
@@ -324,7 +350,7 @@ def test_request_locale_falls_back_when_unsupported() -> None:
 
 def test_dedupe_removes_repeated_ids() -> None:
     """入口去重：保持首次出现序。"""
-    assert list(MenuMetadataService._dedupe(ConcurrentStableList([1, 2, 1, 2, 3]))) == [1, 2, 3]  # pyright: ignore[reportPrivateUsage]
+    assert list(MenuFormService._dedupe(ConcurrentStableList([1, 2, 1, 2, 3]))) == [1, 2, 3]  # pyright: ignore[reportPrivateUsage]
 
 
 def test_snapshot_form_skips_buttons_with_broken_links() -> None:
@@ -447,7 +473,7 @@ async def test_load_snapshot_skips_disabled_and_broken_rows() -> None:
         assert [button.name for button in forms[0].buttons] == ["按钮一", "按钮二"]
         assert [field.field_key for field in forms[0].fields] == ["ka", "kb"]
 
-        permissions = await service.list_permissions(None)
+        permissions = await _permission_service(session, cache=MemoryCacheRegion()).list_permissions(None)
         assert [item.code for item in permissions.items] == ["biz1:act1", "biz1:act2", "biz1:act3", "biz3:act1"]
     finally:
         await engine.dispose()
@@ -463,37 +489,40 @@ async def test_business_action_permission_write_paths() -> None:
     session, engine = await _engine()
     try:
         service = _service(session, outbox=_OutboxSpy(), cache=MemoryCacheRegion())
+        permission = _permission_service(session, cache=MemoryCacheRegion())
 
         # 业务码：创建 / 重复 40209 / 更新停用 / 软删除后同键恢复
-        business = await service.create_business(BusinessCreateRequest(code="biz-a", i18n=_names("业务甲")))
+        business = await permission.create_business(BusinessCreateRequest(code="biz-a", i18n=_names("业务甲")))
         business_id = business.id
         with pytest.raises(MenuCodeConflictError):
-            await service.create_business(BusinessCreateRequest(code="biz-a", i18n=_names("重复")))
+            await permission.create_business(BusinessCreateRequest(code="biz-a", i18n=_names("重复")))
         await session.rollback()
 
         # 动作码：创建 / 重复
-        action = await service.create_action(ActionCreateRequest(code="act-x", i18n=_names("动作甲")))
+        action = await permission.create_action(ActionCreateRequest(code="act-x", i18n=_names("动作甲")))
         action_id = action.id
         with pytest.raises(MenuCodeConflictError):
-            await service.create_action(ActionCreateRequest(code="act-x", i18n=_names("重复")))
+            await permission.create_action(ActionCreateRequest(code="act-x", i18n=_names("重复")))
         await session.rollback()
 
         # 权限码：手工新增 / 组合重复 40210 / 更新状态
-        permission = await service.create_permission(
+        permission_row = await permission.create_permission(
             PermissionCreateRequest(business_id=business_id, action_id=action_id)
         )
-        permission_id = permission.id
+        permission_id = permission_row.id
         with pytest.raises(MenuPermissionExistsError):
-            await service.create_permission(PermissionCreateRequest(business_id=business_id, action_id=action_id))
+            await permission.create_permission(PermissionCreateRequest(business_id=business_id, action_id=action_id))
         await session.rollback()
 
         # 停用动作码：连带停用其权限码（update_action 的联动分支）
-        stopped = await service.update_action(action_id, ActionUpdateRequest(status="disabled", i18n=_names("动作甲")))
+        stopped = await permission.update_action(
+            action_id, ActionUpdateRequest(status="disabled", i18n=_names("动作甲"))
+        )
         assert stopped.status == "disabled"
         await session.rollback()
 
         # 停用业务码：连带停用其权限码（update_business 的联动分支）
-        stopped_business = await service.update_business(
+        stopped_business = await permission.update_business(
             business_id, BusinessUpdateRequest(status="disabled", i18n=_names("业务甲"))
         )
         assert stopped_business.status == "disabled"
@@ -501,18 +530,18 @@ async def test_business_action_permission_write_paths() -> None:
 
         # 被引用时禁删：权限码存在则业务码 / 动作码不可删
         with pytest.raises(MenuReferencedError):
-            await service.delete_business(business_id)
+            await permission.delete_business(business_id)
         await session.rollback()
         with pytest.raises(MenuReferencedError):
-            await service.delete_action(action_id)
+            await permission.delete_action(action_id)
         await session.rollback()
 
         # 删除权限码后业务码可删，再同键重建走软删除恢复分支
-        await service.delete_permission(permission_id)
+        await permission.delete_permission(permission_id)
         await session.rollback()
-        await service.delete_business(business_id)
+        await permission.delete_business(business_id)
         await session.rollback()
-        restored_business = await service.create_business(
+        restored_business = await permission.create_business(
             BusinessCreateRequest(code="biz-a", i18n=_names("业务甲重建"))
         )
         assert restored_business.code == "biz-a"
@@ -520,16 +549,16 @@ async def test_business_action_permission_write_paths() -> None:
 
         # 缺行分支：更新 / 删除不存在的业务码与动作码（844 / 868 / 942 / 967）
         with pytest.raises(MenuNotFoundError):
-            await service.update_business(987654321, BusinessUpdateRequest(i18n=_names("无")))
+            await permission.update_business(987654321, BusinessUpdateRequest(i18n=_names("无")))
         await session.rollback()
         with pytest.raises(MenuNotFoundError):
-            await service.delete_business(987654321)
+            await permission.delete_business(987654321)
         await session.rollback()
         with pytest.raises(MenuNotFoundError):
-            await service.update_action(987654321, ActionUpdateRequest(i18n=_names("无")))
+            await permission.update_action(987654321, ActionUpdateRequest(i18n=_names("无")))
         await session.rollback()
         with pytest.raises(MenuNotFoundError):
-            await service.delete_action(987654321)
+            await permission.delete_action(987654321)
         await session.rollback()
 
         # 表单挂接引用：业务码被表单挂接时禁删（872）
@@ -541,44 +570,44 @@ async def test_business_action_permission_write_paths() -> None:
         )
         form_id = form.id
         with pytest.raises(MenuReferencedError):
-            await service.delete_business(business_id)
+            await permission.delete_business(business_id)
         await session.rollback()
         await service.delete_form(form_id)
         await session.rollback()
 
         # 动作码软删除后同键重建：走恢复分支（911-914）
-        await service.delete_action(action_id)
+        await permission.delete_action(action_id)
         await session.rollback()
-        restored_action = await service.create_action(ActionCreateRequest(code="act-x", i18n=_names("动作甲重建")))
+        restored_action = await permission.create_action(ActionCreateRequest(code="act-x", i18n=_names("动作甲重建")))
         assert restored_action.code == "act-x"
         await session.rollback()
 
         # 权限码缺行校验（988 / 990）
         with pytest.raises(MenuNotFoundError):
-            await service.create_permission(PermissionCreateRequest(business_id=987654321, action_id=action_id))
+            await permission.create_permission(PermissionCreateRequest(business_id=987654321, action_id=action_id))
         await session.rollback()
         with pytest.raises(MenuNotFoundError):
-            await service.create_permission(PermissionCreateRequest(business_id=business_id, action_id=987654321))
+            await permission.create_permission(PermissionCreateRequest(business_id=business_id, action_id=987654321))
         await session.rollback()
 
         # 权限码软删除后同组合重建：走恢复分支（996-999）
-        deleted_permission = await service.create_permission(
+        deleted_permission = await permission.create_permission(
             PermissionCreateRequest(business_id=business_id, action_id=action_id)
         )
         deleted_permission_id = deleted_permission.id
-        await service.delete_permission(deleted_permission_id)
+        await permission.delete_permission(deleted_permission_id)
         await session.rollback()
-        restored_permission = await service.create_permission(
+        restored_permission = await permission.create_permission(
             PermissionCreateRequest(business_id=business_id, action_id=action_id)
         )
         assert restored_permission.id == deleted_permission_id
         await session.rollback()
 
         # 批量补生成：含停用项开关（generate_permissions 的两个分支）
-        generated = await service.generate_permissions(PermissionGenerateRequest())
+        generated = await permission.generate_permissions(PermissionGenerateRequest())
         assert generated.created >= 0
         await session.rollback()
-        generated_all = await service.generate_permissions(PermissionGenerateRequest(include_disabled=True))
+        generated_all = await permission.generate_permissions(PermissionGenerateRequest(include_disabled=True))
         assert generated_all.created >= 0
         await session.rollback()
     finally:

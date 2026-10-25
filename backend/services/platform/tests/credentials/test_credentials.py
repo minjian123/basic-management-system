@@ -15,8 +15,8 @@ from bms_core.models.platform.user import SysUser
 from bms_core.oauth.verify import VerifiedToken, get_token_verifier
 from bms_core.password.default import DefaultPasswordPolicy
 from bms_core.security.pbkdf2 import Pbkdf2PasswordHasher
-from bms_platform.repositories.user import UserRepository
-from bms_platform.services.credentials import CredentialService, parse_password_history
+from bms_platform.domains.user.repositories.user import UserRepository
+from bms_platform.domains.user.services.credentials import CredentialService, parse_password_history
 
 API = "/api/v1/platform/internal/credentials"
 

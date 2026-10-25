@@ -20,9 +20,9 @@ from bms_core.models.platform.user import (
     SysUser,
 )
 from bms_core.schemas.pagination import BasePageQuery
-from bms_platform.repositories.account_lock import AccountLockRepository
-from bms_platform.repositories.user import UserRepository
-from bms_platform.services.account_lock import AccountLockService
+from bms_platform.domains.user.repositories.account_lock import AccountLockRepository
+from bms_platform.domains.user.repositories.user import UserRepository
+from bms_platform.domains.user.services.account_lock import AccountLockService
 
 _NOW = datetime(2026, 10, 14, 12, 0, 0)
 

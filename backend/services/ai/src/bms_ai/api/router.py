@@ -4,7 +4,7 @@
 服务级登记表（`mount_service_routers`）避免多服务同进程登记串扰。
 """
 
-from bms_ai.api import chat
+from bms_ai.domains.ai.api import chat
 from bms_core.api.base import mount_service_routers
 from bms_core.core.concurrent import ConcurrentStableList
 

@@ -83,7 +83,7 @@ def test_other_formats() -> None:
     assert args.returncode == 0
     assert args.stdout.strip()
     cov = _run(*changed, "--format", "cov-args")
-    assert "--cov=bms_txn.services.recovery" in cov.stdout
+    assert "--cov=bms_txn.domains.txn.services.recovery" in cov.stdout
     projects = _run(*changed, "--format", "projects")
     assert "bms_txn" in projects.stdout
     services = _run(*changed, "--format", "changed-services")

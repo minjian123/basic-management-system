@@ -14,8 +14,8 @@ import httpx
 import pytest
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
-from bms_identity.api import sso as sso_api
-from bms_identity.services.provider_registry import ProviderRegistry
+from bms_identity.domains.identity_federation.api import sso as sso_api
+from bms_identity.domains.identity_federation.services.provider_registry import ProviderRegistry
 
 from .conftest import SsoHarness
 from .helpers import IDP_KEY, TENANT_HEADERS

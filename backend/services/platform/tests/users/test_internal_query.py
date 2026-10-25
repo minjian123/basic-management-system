@@ -16,8 +16,8 @@ from bms_core.core.exceptions import AuthError
 from bms_core.db.unit_of_work import DbUnitOfWork
 from bms_core.models.platform.user import SysUser
 from bms_core.oauth.verify import VerifiedToken, get_token_verifier
-from bms_platform.repositories.user import UserRepository
-from bms_platform.services.users import InternalUserQueryService
+from bms_platform.domains.user.repositories.user import UserRepository
+from bms_platform.domains.user.services.users import InternalUserQueryService
 
 API = "/api/v1/platform/internal/users/query"
 

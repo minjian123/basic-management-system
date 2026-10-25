@@ -12,8 +12,8 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.models.platform.catalog import SysProduct
 from bms_core.schemas.pagination import BasePageQuery
-from bms_platform.repositories import product_repository
-from bms_platform.repositories.product_repository import ProductRepository
+from bms_platform.domains.platform_registry.repositories import product_repository
+from bms_platform.domains.platform_registry.repositories.product_repository import ProductRepository
 
 _WRITE_VERBS = frozenset({"create", "update", "delete", "save", "flush", "commit", "upsert", "insert"})
 """仓储自有方法名中的写动词（只读护栏：命中即失败）。"""

@@ -142,13 +142,24 @@ COMMON_MODEL_MODULES: ConcurrentStableList[str] = ConcurrentStableList(
         *TENANT_MODEL_MODULES,
     )
 )
-"""公共模型模块清单（跨服务共享的基座模型；各清单均需注册其元数据）。
+"""**全量**共享模型模块清单（无域布局时的安全回退面；不表示「每条清单都导入」）。
 
 - 基座自有模块四条（归属登记 / 发件箱 / 系统参数 / 查询方案）；
 - 共享模型三条子包清单（14_01 整包下沉）：子包 `models/{platform,identity,tenant}::MODEL_MODULES` 是
-  「有哪些共享模型」的**唯一登记点**，本清单只做组合——漏加子包即该批模型不进任何清单
-  （`series_metadata` 取不到 → 静默 0 表），由基座用例断言兜住。
+  「有哪些共享模型」的唯一登记点，本清单只做组合；
+- 有域布局时按域派生（`domain_model_modules`），本清单只在**布局缺失**（容器内未携带 `deploy/`）时兜底，
+  保证建表集与分包前一致。
 """
+
+BASE_MODEL_MODULES: ConcurrentStableList[str] = ConcurrentStableList(("bms_core.models.outbox",))
+"""基座基础设施模型（发件箱三表：不归业务域、每库一份，由部署单元级建表集追加）。"""
+
+_DOMAIN_MODEL_CACHE: ConcurrentStableDict[str, ConcurrentStableList[str]] = ConcurrentStableDict()
+"""域 → 模型模块缓存（布局只读一次；键为域标识）。"""
+
+_LAYOUT_FILE_DOMAIN_CACHE: ConcurrentStableDict[str, str] = ConcurrentStableDict()
+"""布局「文件 → 域」缓存（空表示尚未装载或布局缺失）。"""
+
 
 SERVICE_MODEL_MODULES_ENTRY = "MODEL_MODULES"
 """服务包自声明模型模块清单的常量名（`{package_prefix}_{service}/models/__init__.py`）。"""
@@ -621,43 +632,163 @@ def require_service_model_modules(service: str, *, settings: Settings | None = N
     return service_model_modules(service, settings=settings)
 
 
-def domain_model_modules(domain: str, *, settings: Settings | None = None) -> ConcurrentStableList[str]:
-    """取该业务域的模型模块清单（承载服务的模型模块；域未登记返回空清单）。
+def _layout_file_domains() -> ConcurrentStableDict[str, str]:
+    """取域布局的「文件 → 域」索引（布局缺失返回空；进程内缓存一次）。
 
-    **当前实现按承载服务导入全量模型**：模型文件仍是文件级混域（如 `models/platform/menu.py` 同时声明
-    菜单与权限元数据两张表），没有按域的模型包；实际建表集由 `series_tables(domain, …)` 过滤，故
-    多导入不影响结果。按域分包落地后此处收紧为逐域模块（设计 §8 对齐记录）。
+    Returns:
+        ConcurrentStableDict[str, str]: 相对仓库根文件 → 域标识。
+    """
+    if _LAYOUT_FILE_DOMAIN_CACHE:
+        return _LAYOUT_FILE_DOMAIN_CACHE
+    path = REPO_ROOT / DOMAIN_LAYOUT_RELATIVE
+    if not path.is_file():
+        return _LAYOUT_FILE_DOMAIN_CACHE
+    from bms_core.boundary.domains import load_layout
+
+    layout = load_layout(path)
+    files, _problems = layout.resolve_files(REPO_ROOT)
+    _LAYOUT_FILE_DOMAIN_CACHE.update({rel: domain for rel, domain in files.items() if rel.endswith(".py")})
+    return _LAYOUT_FILE_DOMAIN_CACHE
+
+
+def _module_of_source(rel: str) -> str | None:
+    """源文件相对路径 → 模块名（`backend/{libs,services}/<工程>/src/` 前缀剥离）。
+
+    Args:
+        rel: 相对仓库根 posix 路径。
+
+    Returns:
+        str | None: 模块名；非源码返回 None。
+    """
+    match = re.match(r"^backend/(?:libs|services)/[^/]+/src/(.+)$", rel)
+    if not match:
+        return None
+    parts = match.group(1)[:-3].split("/") if match.group(1).endswith(".py") else []
+    if not parts:
+        return None
+    if parts[-1] == "__init__":
+        parts = parts[:-1]
+    return ".".join(parts) if parts else None
+
+
+def _declares_table(rel: str) -> bool:
+    """文件是否声明 ORM 模型（含 `__tablename__` 赋值）。
+
+    Args:
+        rel: 相对仓库根 posix 路径。
+
+    Returns:
+        bool: 声明表返回 True。
+    """
+    import ast
+
+    try:
+        tree = ast.parse((REPO_ROOT / rel).read_text(encoding="utf-8"))
+    except OSError, SyntaxError:
+        return False
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Assign):
+            continue
+        if not any(isinstance(target, ast.Name) and target.id == "__tablename__" for target in node.targets):
+            continue
+        if isinstance(node.value, ast.Constant) and isinstance(node.value.value, str):
+            return True
+    return False
+
+
+def _derived_domain_models(domain: str) -> ConcurrentStableList[str] | None:
+    """按域布局派生该域的模型模块（布局缺失返回 None）。
+
+    判定口径：域布局登记的文件中**声明了 `__tablename__`** 的模块即该域模型模块。
+
+    Args:
+        domain: 业务域标识。
+
+    Returns:
+        ConcurrentStableList[str] | None: 模型模块清单；布局缺失返回 None。
+    """
+    cached = _DOMAIN_MODEL_CACHE.get(domain)
+    if cached is not None:
+        return cached
+    mapping = _layout_file_domains()
+    if not mapping:
+        return None
+    modules: ConcurrentStableList[str] = ConcurrentStableList()
+    for rel, owner in mapping.items():
+        if owner != domain or not _declares_table(rel):
+            continue
+        module = _module_of_source(rel)
+        if module is not None:
+            modules.add(module)
+    _DOMAIN_MODEL_CACHE.set(domain, modules)
+    return modules
+
+
+def domain_model_modules(domain: str, *, settings: Settings | None = None) -> ConcurrentStableList[str]:
+    """取该业务域的模型模块清单（按域布局派生；布局缺失时回退全量）。
+
+    - **有布局**：该域登记文件中声明了 `__tablename__` 的模块（一域一文件，跨域模型不混入）；
+    - **无布局**（容器内未携带 `deploy/`）：`COMMON_MODEL_MODULES + service_model_modules(承载服务)`，
+      与分包前行为一致（安全回退，建表集不变）；
+    - 域未登记 / 无承载服务：空清单。
 
     Args:
         domain: 业务域标识。
         settings: 应用配置；None 取全局配置单例。
 
     Returns:
-        ConcurrentStableList[str]: 模型模块清单（域未登记 / 无承载服务为空）。
+        ConcurrentStableList[str]: 模型模块清单。
     """
+    derived = _derived_domain_models(domain)
+    if derived is not None:
+        return derived
     service = domain_service(domain)
     if not service:
         return ConcurrentStableList(())
-    return service_model_modules(service, settings=settings)
+    modules: ConcurrentStableList[str] = ConcurrentStableList(COMMON_MODEL_MODULES)
+    modules.update(service_model_modules(service, settings=settings))
+    return modules
+
+
+def all_model_modules(*, settings: Settings | None = None) -> ConcurrentStableList[str]:
+    """全部模型模块清单（基座 + 共享子包 + 各服务自声明 + 布局派生域模型；保序去重）。
+
+    供「按服务清点模型」的离线校验使用（声明集与导入面同源）。
+
+    Args:
+        settings: 应用配置；None 取全局配置单例。
+
+    Returns:
+        ConcurrentStableList[str]: 模型模块清单。
+    """
+    modules: ConcurrentStableList[str] = ConcurrentStableList(BASE_MODEL_MODULES)
+    modules.update(COMMON_MODEL_MODULES)
+    for service in known_service_keys():
+        modules.update(service_model_modules(service, settings=settings))
+    for domain in _layout_file_domains().values():
+        modules.update(_derived_domain_models(domain) or ())
+    return modules
 
 
 def import_models(domain: str) -> None:
     """导入该清单域的模型模块（注册 `Base.metadata`；幂等）。
 
-    动态导入：迁移 / 运维期按清单域取模型，`bms_core` 不静态依赖任何服务包。
+    基座基础设施模型（发件箱）恒导入；业务域模型按布局派生（见 `domain_model_modules`）。
 
     Args:
         domain: 业务域标识。
 
     Raises:
-        ConfigError: 承载服务包存在但未声明 `MODEL_MODULES`。
+        ConfigError: 承载服务包存在但未声明 `MODEL_MODULES`（无布局回退路径）。
     """
-    for module in (*COMMON_MODEL_MODULES, *domain_model_modules(domain)):
+    for module in (*BASE_MODEL_MODULES, *domain_model_modules(domain)):
         importlib.import_module(module)
 
 
 def import_service_models(service: str) -> None:
     """导入某服务的全部模型模块（离线校验按服务清点模型时用；与域清单导入同源）。
+
+    有布局：基座基础设施模型 + 该服务承载域的全部模型模块；无布局：基座公共 + 服务自声明模型。
 
     Args:
         service: 服务标识。
@@ -665,7 +796,17 @@ def import_service_models(service: str) -> None:
     Raises:
         ConfigError: 服务包存在但未声明 `MODEL_MODULES`。
     """
-    for module in (*COMMON_MODEL_MODULES, *service_model_modules(service)):
+    mapping = _layout_file_domains()
+    modules: ConcurrentStableList[str] = ConcurrentStableList(BASE_MODEL_MODULES)
+    if mapping:
+        for domain, carrier in layout_domain_services().items():
+            if carrier != service:
+                continue
+            modules.update(_derived_domain_models(domain) or ())
+    else:
+        modules.update(COMMON_MODEL_MODULES)
+    modules.update(service_model_modules(service))
+    for module in modules:
         importlib.import_module(module)
 
 

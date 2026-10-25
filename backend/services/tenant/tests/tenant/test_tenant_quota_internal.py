@@ -22,9 +22,9 @@ from bms_core.models.base import Base
 from bms_core.models.tenant.tenant import SysTenant
 from bms_core.models.tenant.tenant_module import SysTenantModule
 from bms_core.models.tenant.tenant_quota import SysTenantQuota
-from bms_tenant.repositories.tenant_quota import TenantQuotaRepository
-from bms_tenant.schemas.tenant_admin import TenantQuotaUpdateItem
-from bms_tenant.services.tenant_quota import TenantQuotaService, quota_defaults
+from bms_tenant.domains.tenant.repositories.tenant_quota import TenantQuotaRepository
+from bms_tenant.domains.tenant.schemas.tenant_admin import TenantQuotaUpdateItem
+from bms_tenant.domains.tenant.services.tenant_quota import TenantQuotaService, quota_defaults
 
 pytestmark = pytest.mark.kiwi_id(2325)
 

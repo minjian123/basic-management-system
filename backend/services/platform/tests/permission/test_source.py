@@ -26,7 +26,7 @@ from bms_core.core.context import current_tenant_id, current_user_id
 from bms_core.core.plugin import default_plugin_registry
 from bms_core.db.registry import EngineRegistry
 from bms_core.models.base import Base
-from bms_core.models.platform.menu import SysField
+from bms_core.models.platform.menu_form import SysField
 from bms_core.models.platform.role import (
     NO_SOURCE_MENU_ID,
     PERM_TYPE_FORM,
@@ -44,18 +44,18 @@ from bms_core.permission.field import current_field_permission_provider_factory
 from bms_core.permission.rbac import RbacPermissionChecker
 from bms_core.permission.snapshot import set_current_permission_snapshot
 from bms_core.servicecall.base import BaseServiceClient
-from bms_platform.permission.checker import (
+from bms_platform.domains.permission_meta.permission.checker import (
     PLATFORM_DATA_SOURCE_KEY,
     build_platform_source,
     register_platform_permission,
 )
-from bms_platform.permission.field_provider import build_static_field_provider
-from bms_platform.permission.source import (
+from bms_platform.domains.permission_meta.permission.source import (
     DEFAULT_METADATA_TTL,
     PlatformPermissionDataSource,
 )
-from bms_platform.repositories.role import UserRoleRepository
-from bms_platform.services.permission_subject import DirectRoleResolver
+from bms_platform.domains.role.permission.field_provider import build_static_field_provider
+from bms_platform.domains.role.repositories.role import UserRoleRepository
+from bms_platform.domains.role.services.permission_subject import DirectRoleResolver
 
 _USER_ID = 1001
 _MENU_ID = 900
@@ -329,7 +329,7 @@ async def test_load_subject_short_circuits_without_roles(engine: AsyncEngine) ->
 async def test_load_subject_skips_unknown_perm_type(engine: AsyncEngine, monkeypatch: pytest.MonkeyPatch) -> None:
     """取数：未登记授权类型的行跳过（不污染授权集合）。"""
     from bms_core.core.concurrent import ConcurrentStableList as StableList
-    from bms_platform.permission import source as source_module
+    from bms_platform.domains.permission_meta.permission import source as source_module
 
     monkeypatch.setattr(source_module, "_PERM_TYPES", (PERM_TYPE_MENU,))
 
@@ -377,7 +377,7 @@ async def test_load_subject_skips_unknown_perm_type(engine: AsyncEngine, monkeyp
 @pytest.mark.kiwi_id(2320)
 async def test_load_metadata_indexes_menu_forms_and_codes(engine: AsyncEngine, monkeypatch: pytest.MonkeyPatch) -> None:
     """元数据：菜单 → 表单索引（无表单菜单不入索引）、权限码 id → 权限码、版本透传。"""
-    from bms_platform.permission import source as source_module
+    from bms_platform.domains.permission_meta.permission import source as source_module
 
     def _builder(session: object, cache: object) -> _MetadataService:
         """替身元数据服务构造器。
@@ -423,11 +423,11 @@ async def test_build_platform_source_reads_options() -> None:
 @pytest.mark.kiwi_id(2329)
 def test_build_menu_metadata_service_wires_read_only_ports() -> None:
     """工厂：按平台库会话装配菜单元数据服务（仓储 / 单工作单元 / 空发件箱 / 缓存）。"""
-    from bms_platform.permission.metadata import build_menu_metadata_service
-    from bms_platform.services.menu import MenuMetadataService
+    from bms_platform.domains.menu_form.services.menu import MenuFormService
+    from bms_platform.domains.permission_meta.permission.metadata import build_menu_metadata_service
 
     service = build_menu_metadata_service(cast("Any", object()), MemoryCacheRegion())
-    assert isinstance(service, MenuMetadataService)
+    assert isinstance(service, MenuFormService)
 
 
 @pytest.mark.kiwi_id(2320)
@@ -465,7 +465,9 @@ async def test_build_platform_source_tolerates_non_mapping_options() -> None:
 @pytest.mark.kiwi_id(2320)
 def test_stable_rows_tolerates_bad_shapes() -> None:
     """规则行规整：非序列（None / 字符串）→ 空；序列内非映射项跳过。"""
-    from bms_platform.permission.source import _stable_rows  # pyright: ignore[reportPrivateUsage]
+    from bms_platform.domains.permission_meta.permission.source import (
+        _stable_rows,  # pyright: ignore[reportPrivateUsage]
+    )
 
     assert list(_stable_rows(None)) == []
     assert list(_stable_rows("not-a-sequence")) == []

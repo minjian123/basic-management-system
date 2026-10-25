@@ -19,11 +19,11 @@ from bms_core.models.tenant.tenant_database import SysTenantDatabase
 from bms_core.models.tenant.tenant_module import SysTenantModule
 from bms_core.outbox.null import NullOutboxStore
 from bms_core.tenant.provisioning import ProvisionOutcome
-from bms_tenant.repositories.tenant_registry import TenantRegistryRepository
-from bms_tenant.services.platform_tenant import ensure_platform_tenant_row
-from bms_tenant.services.tenant_admin import TenantAdminService
-from bms_tenant.services.tenant_module import TenantModuleService
-from bms_tenant.services.tenant_quota import TenantQuotaService
+from bms_tenant.domains.tenant.repositories.tenant_registry import TenantRegistryRepository
+from bms_tenant.domains.tenant.services.platform_tenant import ensure_platform_tenant_row
+from bms_tenant.domains.tenant.services.tenant_admin import TenantAdminService
+from bms_tenant.domains.tenant.services.tenant_module import TenantModuleService
+from bms_tenant.domains.tenant.services.tenant_quota import TenantQuotaService
 
 pytestmark = pytest.mark.kiwi_id(2325)
 
@@ -87,7 +87,7 @@ async def test_platform_tenant_created_and_reused(tmp_path: Path, monkeypatch: p
         del kwargs
         return ProvisionOutcome(db_basis="platform", admin_username="admin", initial_password="p")
 
-    monkeypatch.setattr("bms_tenant.services.platform_tenant.provision_infrastructure", _ok)
+    monkeypatch.setattr("bms_tenant.domains.tenant.services.platform_tenant.provision_infrastructure", _ok)
     modules = _StubModules()
     created, _ = await _run(factory, modules, bootstrap=True)
     assert created is True and modules.opened == 1
@@ -116,7 +116,7 @@ async def test_platform_tenant_provision_failure_cleans(tmp_path: Path, monkeypa
         del kwargs
         raise RuntimeError("db down")
 
-    monkeypatch.setattr("bms_tenant.services.platform_tenant.provision_infrastructure", _fail)
+    monkeypatch.setattr("bms_tenant.domains.tenant.services.platform_tenant.provision_infrastructure", _fail)
     created, _ = await _run(factory, _StubModules(), bootstrap=True)
     assert created is False
     async with factory() as session:

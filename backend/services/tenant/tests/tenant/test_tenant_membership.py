@@ -18,9 +18,9 @@ from bms_core.db.session import session_scope
 from bms_core.db.unit_of_work import DbUnitOfWork
 from bms_core.oauth.verify import VerifiedToken, get_token_verifier
 from bms_core.tenant.membership import LOCAL_TENANT_MEMBERSHIP_STORE
-from bms_tenant.repositories.tenant_membership import TenantMembershipRepository
-from bms_tenant.services.membership import TenantMembershipService
-from bms_tenant.sources.membership import LocalTenantMembershipStore
+from bms_tenant.domains.tenant.repositories.tenant_membership import TenantMembershipRepository
+from bms_tenant.domains.tenant.services.membership import TenantMembershipService
+from bms_tenant.domains.tenant.sources.membership import LocalTenantMembershipStore
 from tests_support.tenant_sql import membership_status_source
 
 API = "/api/v1/tenant/internal/memberships"

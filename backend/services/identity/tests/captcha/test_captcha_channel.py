@@ -41,7 +41,7 @@ from bms_core.core.exceptions import (
     CaptchaTooFrequentError,
     CaptchaVerifyError,
 )
-from bms_identity.api.captcha import router as captcha_router
+from bms_identity.domains.auth.api.captcha import router as captcha_router
 from bms_identity.main import ApplicationFactory
 
 

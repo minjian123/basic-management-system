@@ -6,15 +6,17 @@
 
 from bms_core.api.base import mount_service_routers
 from bms_core.core.concurrent import ConcurrentStableList
-from bms_identity.api import (
+from bms_identity.domains.auth.api import (
     auth,
     captcha,
-    clients,
-    identity_providers,
     internal_sessions,
-    oidc,
     password_reset,
     session,
+)
+from bms_identity.domains.identity_federation.api import (
+    clients,
+    identity_providers,
+    oidc,
     sso,
     users,
 )

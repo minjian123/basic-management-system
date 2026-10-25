@@ -8,7 +8,7 @@ from bms_core.core.config import Settings
 from bms_core.tenant.base import TENANT_SELF_SERVICE_DB_PROVIDER
 from bms_tenant import CONTRACT_VERSION, SERVICE_NAME, SERVICE_TITLE, __version__
 from bms_tenant.api.router import api_router
-from bms_tenant.services.platform_tenant import ensure_platform_tenant
+from bms_tenant.domains.tenant.services.platform_tenant import ensure_platform_tenant
 from bms_tenant.sources import register_local_tenant_membership_store, register_local_tenant_source
 
 register_local_tenant_source()  # 向共享基座登记 `local` 租户源实现（本服务直读自身平台服务库）

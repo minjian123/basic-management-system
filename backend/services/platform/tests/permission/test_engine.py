@@ -17,7 +17,7 @@ from bms_core.core.context import current_tenant_id, current_user_id
 from bms_core.core.exceptions import InternalError
 from bms_core.permission.snapshot import set_current_permission_snapshot
 from bms_core.permission.subject import PermissionSubjectService
-from bms_platform.services.permission_subject import DirectRoleResolver, OrgRoleResolver
+from bms_platform.domains.role.services.permission_subject import DirectRoleResolver, OrgRoleResolver
 
 
 class _Response:

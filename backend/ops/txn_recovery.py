@@ -37,12 +37,12 @@ from bms_core.db.session import SessionFactory, session_scope
 from bms_core.db.unit_of_work import DbUnitOfWork
 from bms_core.servicecall.base import BaseServiceClient, ServiceRequest
 from bms_core.transaction.base import TM_SERVICE_NAME
-from bms_txn.repositories.ledger import (
+from bms_txn.domains.txn.repositories.ledger import (
     GlobalTxnBranchRepository,
     GlobalTxnRecoveryRepository,
     GlobalTxnRepository,
 )
-from bms_txn.services.ledger_cleanup import DEFAULT_RETENTION_DAYS, LedgerCleanup
+from bms_txn.domains.txn.services.ledger_cleanup import DEFAULT_RETENTION_DAYS, LedgerCleanup
 
 RUN_IMAGE = "txn"
 """本脚本导入 `bms_txn.*`（TM 账本仓储与清理服务），只在 txn 镜像与运维机运行。"""

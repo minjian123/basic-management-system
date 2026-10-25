@@ -14,9 +14,9 @@ from bms_core.db.tenant import TenantContext, TenantLookup, TenantNotFoundError
 from bms_core.idp.state.base import BaseIdpStateStore
 from bms_core.oauth.oidc_provider import BaseOidcProvider
 from bms_core.security.base import BasePasswordHasher
-from bms_identity.api import clients as clients_api
-from bms_identity.api import oidc as oidc_api
-from bms_identity.services.oidc_provider import (
+from bms_identity.domains.identity_federation.api import clients as clients_api
+from bms_identity.domains.identity_federation.api import oidc as oidc_api
+from bms_identity.domains.identity_federation.services.oidc_provider import (
     OidcProviderService,
     clean_scope,
     code_from_payload,

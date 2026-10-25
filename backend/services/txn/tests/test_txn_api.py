@@ -22,16 +22,16 @@ from bms_core.core.exceptions import ServiceUnavailableError, TransactionUnavail
 from bms_core.db.unit_of_work import DbUnitOfWork
 from bms_core.servicecall.base import BaseServiceClient, ServiceRequest, ServiceResponse
 from bms_core.transaction.base import TXN_COMMITTED, TXN_ROLLING_BACK
-from bms_txn.api.ledger import (
+from bms_txn.domains.txn.api.ledger import (
     begin_global_txn,
     commit_global_txn,
     get_global_txn,
     rollback_global_txn,
 )
-from bms_txn.models.ledger import GlobalTxn, GlobalTxnBranch, GlobalTxnRecovery
-from bms_txn.repositories.ledger import GlobalTxnRepository
-from bms_txn.schemas.ledger import BeginGlobalTxnRequest, BranchSpecRequest
-from bms_txn.services.driver import (
+from bms_txn.domains.txn.models.ledger import GlobalTxn, GlobalTxnBranch, GlobalTxnRecovery
+from bms_txn.domains.txn.repositories.ledger import GlobalTxnRepository
+from bms_txn.domains.txn.schemas.ledger import BeginGlobalTxnRequest, BranchSpecRequest
+from bms_txn.domains.txn.services.driver import (
     BranchDriver,
     HttpBranchDriver,
     UnavailableBranchDriver,

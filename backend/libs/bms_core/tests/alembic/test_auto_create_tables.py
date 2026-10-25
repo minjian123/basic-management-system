@@ -90,6 +90,18 @@ def test_unit_metadata_is_domain_union(tmp_path: Path, monkeypatch: pytest.Monke
     assert {"sys_user", "sys_role", "sys_outbox"} <= ConcurrentStableSet(metadata.tables)
 
 
+@pytest.mark.kiwi_id(2355)
+def test_unit_metadata_equals_registry_derivation(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """逐单元建表集与归属登记派生**严格相等**（模型按域收紧后建表集不变；07C `03_03`）。"""
+    _point_to(tmp_path, monkeypatch)
+    for unit in ("platform", "identity", "tenant"):
+        domains = unit_domains(unit)
+        for datasource in (DATASOURCE_PLATFORM, DATASOURCE_TENANT):
+            expected = ConcurrentStableSet(unit_tables(domains, datasource))
+            metadata = unit_metadata(unit, datasource)
+            assert ConcurrentStableSet(metadata.tables) == expected, (unit, datasource)
+
+
 @pytest.mark.kiwi_id(2303)
 def test_apply_unit_schema_creates_and_is_idempotent(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """建表幂等：首跑新建、重跑「新建 0 / 已存在 N」，表集不变。"""

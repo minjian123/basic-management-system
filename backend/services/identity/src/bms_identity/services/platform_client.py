@@ -24,9 +24,13 @@ from bms_core.core.exceptions import (
 )
 from bms_core.core.objects import BaseFrameworkObject
 from bms_core.servicecall.base import BaseServiceClient, ServiceCallPolicy, ServiceRequest, ServiceResponse
-from bms_identity.schemas.auth import PlatformLoginState, PlatformUpdatePasswordResult, PlatformVerifyResult
-from bms_identity.schemas.password_reset import PlatformResetTargetResult
-from bms_identity.schemas.sso import PlatformProfileResult, PlatformUserCreateResult
+from bms_identity.domains.auth.schemas.auth import (
+    PlatformLoginState,
+    PlatformUpdatePasswordResult,
+    PlatformVerifyResult,
+)
+from bms_identity.domains.auth.schemas.password_reset import PlatformResetTargetResult
+from bms_identity.domains.identity_federation.schemas.sso import PlatformProfileResult, PlatformUserCreateResult
 
 PLATFORM_SERVICE = "platform"
 """凭据主数据归属服务标识。"""

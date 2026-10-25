@@ -10,9 +10,9 @@ import pytest
 
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.exceptions import NotFoundError
-from bms_core.models.platform.system import SysUserExtension
-from bms_platform.repositories.user_extension import UserExtensionRepository
-from bms_platform.services.user_extension import UserExtensionService
+from bms_core.models.platform.user import SysUserExtension
+from bms_platform.domains.user.repositories.user_extension import UserExtensionRepository
+from bms_platform.domains.user.services.user_extension import UserExtensionService
 
 
 class _VanishingRepository:

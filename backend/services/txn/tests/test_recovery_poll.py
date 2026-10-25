@@ -30,11 +30,11 @@ from bms_core.db.unit_of_work import DbUnitOfWork
 from bms_core.lock.base import BaseDistributedLock
 from bms_core.lock.null import NullDistributedLock
 from bms_core.transaction.base import BRANCH_PREPARED, TXN_COMMITTING, BranchSpec
-from bms_txn.models.ledger import GlobalTxn, GlobalTxnBranch, GlobalTxnRecovery
-from bms_txn.repositories.ledger import GlobalTxnBranchRepository, GlobalTxnRepository
-from bms_txn.services.coordinator import TransactionCoordinator
-from bms_txn.services.driver import BranchDriver
-from bms_txn.services.recovery_poll import (
+from bms_txn.domains.txn.models.ledger import GlobalTxn, GlobalTxnBranch, GlobalTxnRecovery
+from bms_txn.domains.txn.repositories.ledger import GlobalTxnBranchRepository, GlobalTxnRepository
+from bms_txn.domains.txn.services.coordinator import TransactionCoordinator
+from bms_txn.domains.txn.services.driver import BranchDriver
+from bms_txn.domains.txn.services.recovery_poll import (
     METRIC_LEADER_SWITCH,
     POLL_PROVIDER_NAME,
     PollTransactionRecovery,
@@ -354,7 +354,7 @@ async def test_factory_reads_app_state_and_falls_back() -> None:
 
 async def test_session_opener_opens_registry_session(ledger: SessionMaker, monkeypatch: pytest.MonkeyPatch) -> None:
     """会话开启器：工厂装配后**按应用注册表开会话**（单轮真实构造与执行）。"""
-    from bms_txn.services import recovery_poll as module
+    from bms_txn.domains.txn.services import recovery_poll as module
 
     settings = Settings()
     app = FastAPI()
@@ -379,7 +379,7 @@ async def test_session_opener_opens_registry_session(ledger: SessionMaker, monke
 
 def test_register_transaction_recovery_is_idempotent(monkeypatch: pytest.MonkeyPatch) -> None:
     """登记：同一注册表重复调用只登记一次（幂等）且返回真。"""
-    from bms_txn.services import recovery_poll as module
+    from bms_txn.domains.txn.services import recovery_poll as module
 
     recorded: ConcurrentStableList[str] = ConcurrentStableList()
     monkeypatch.setattr(module, "_REGISTERED_REGISTRIES", ConcurrentStableList())
@@ -393,7 +393,7 @@ def test_register_transaction_recovery_is_idempotent(monkeypatch: pytest.MonkeyP
 
 def test_register_transaction_recovery_skips_when_frozen(monkeypatch: pytest.MonkeyPatch) -> None:
     """注册表已冻结（多服务同进程）：跳过登记并返回假（调用方回落 `null`，不阻断应用构造）。"""
-    from bms_txn.services import recovery_poll as module
+    from bms_txn.domains.txn.services import recovery_poll as module
 
     def _frozen(*args: object, **kwargs: object) -> None:
         raise PluginError("插件注册表已构建，运行期只读，禁止再登记")

@@ -7,8 +7,8 @@ import pytest
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.permission.base import BasePermissionChecker
-from bms_platform.services.menu import MenuSnapshot, SnapshotForm, SnapshotMenu
-from bms_platform.services.my_menu import MyMenuService
+from bms_platform.domains.menu_form.services.menu import MenuSnapshot, SnapshotForm, SnapshotMenu
+from bms_platform.domains.menu_form.services.my_menu import MyMenuService
 
 pytestmark = pytest.mark.kiwi_id(2325)
 

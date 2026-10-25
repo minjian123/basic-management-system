@@ -131,7 +131,7 @@ async def test_me_fails_closed_when_org_unavailable(client: AsyncClient, service
 async def test_current_user_rejects_missing_user_id() -> None:
     """当前用户服务（防御分支）：登录态缺用户主键 → 20001（不触达 platform）。"""
     from bms_core.core.exceptions import AuthError
-    from bms_identity.services.auth import CurrentUserService
+    from bms_identity.domains.auth.services.auth import CurrentUserService
     from bms_identity.services.platform_client import PlatformCredentialClient
 
     client = FakePlatformClient()

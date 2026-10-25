@@ -78,6 +78,7 @@ from bms_core.boundary.directory import (  # noqa: E402
 from bms_core.boundary.domains import (  # noqa: E402
     DEFAULT_BASELINE_RELATIVE,
     DEFAULT_LAYOUT_RELATIVE,
+    STATUS_PLACEMENT,
     BaselineEntry,
     DomainLayout,
     dump_baseline,
@@ -308,7 +309,10 @@ def _iter_tablenames(root: Path) -> ConcurrentStableList[str]:
 
 
 def _subpackage(package: str, root: Path, path: Path) -> str:
-    """取源文件子包名（包根下文件返回包名）。
+    """取源文件子包名（包根下文件返回包名；域子包取「域内层名」）。
+
+    域子包形态 `domains/<domain_key>/<层>/…`：分层规则按**跳过域目录后的层名**判定，
+    否则同一域内的 `api → services → repositories` 方向会因第一段都是 `domains` 而失效。
 
     Args:
         package: 包名。
@@ -316,10 +320,12 @@ def _subpackage(package: str, root: Path, path: Path) -> str:
         path: 源文件路径。
 
     Returns:
-        str: 子包名。
+        str: 子包名（域内层名；域根文件返回 `domains`）。
     """
     rel = path.relative_to(root).as_posix()
     parts = rel.split("/")
+    if parts[0] == "domains" and len(parts) > 2:
+        return parts[2]
     return parts[0] if len(parts) > 1 else package
 
 
@@ -612,7 +618,12 @@ def _check_domain_imports(
     file_domain: ConcurrentStableDict[str, str],
     layout: DomainLayout,
 ) -> None:
-    """D1 / D2：同服务内跨域 import 断言（跨服务 import 已由规则 1 / 2 拦截，此处不重复计）。
+    """D1 / D2：跨域 import 断言（同服务内 + 共享库模型；跨服务 import 已由规则 1 / 2 拦截）。
+
+    判定范围（07C `03_03`）：
+    - **同服务包内**跨域 import；
+    - **共享库模型**（`bms_core.models.*`）跨域 import——模型按域登记后，模型 import 即跨域数据面引用；
+    - 其余 `bms_core` 模块（core / db / boundary / …）不归域，天然放行。
 
     Args:
         packages: 工作区包表。
@@ -631,7 +642,8 @@ def _check_domain_imports(
                 continue
             lines = path.read_text(encoding="utf-8").splitlines()
             for lineno, module in _iter_import_candidates(path):
-                if module.split(".")[0] != package:
+                top = module.split(".")[0]
+                if top != package and not module.startswith("bms_core.models"):
                     continue
                 target_rel = _module_file_of(module, packages)
                 if target_rel is None:
@@ -808,7 +820,7 @@ def _check_domain_files(
     file_domain: ConcurrentStableDict[str, str],
     layout: DomainLayout,
 ) -> None:
-    """域实现覆盖统计：登记文件数 / 未归属域的实现文件数（软指标，不阻断）。
+    """域实现覆盖：登记文件数 / 未归属域的实现文件数（**硬门禁**：分包后未归属即失败）。
 
     Args:
         packages: 工作区包表。
@@ -816,7 +828,7 @@ def _check_domain_files(
         layout: 域布局（域外路径判定）。
     """
     registered = 0
-    unregistered = 0
+    unregistered: ConcurrentStableList[str] = ConcurrentStableList()
     if not _DOMAIN_ENABLED:
         counts.set("domain_files_registered", 0)
         counts.set("domain_files_unregistered", 0)
@@ -831,9 +843,84 @@ def _check_domain_files(
             if rel in file_domain:
                 registered += 1
             elif not layout.is_shared(rel):
-                unregistered += 1
+                unregistered.add(rel)
     counts.set("domain_files_registered", registered)
-    counts.set("domain_files_unregistered", unregistered)
+    counts.set("domain_files_unregistered", len(unregistered))
+    for rel in unregistered:
+        _record(
+            f"[域实现未登记] {rel}（既不在任何域 paths，也不在 shared_paths；分包后不允许未归属）",
+            "domain_layout_violation",
+        )
+
+
+def _is_model_module(rel: str) -> bool:
+    """文件是否声明 ORM 表（`__tablename__` 常量赋值即视为模型模块）。
+
+    Args:
+        rel: 相对仓库根 posix 路径。
+
+    Returns:
+        bool: 声明表返回 True。
+    """
+    try:
+        tree = ast.parse((ROOT / rel).read_text(encoding="utf-8"))
+    except OSError, SyntaxError:
+        return False
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Assign):
+            continue
+        if not any(isinstance(target, ast.Name) and target.id == "__tablename__" for target in node.targets):
+            continue
+        if isinstance(node.value, ast.Constant) and isinstance(node.value.value, str):
+            return True
+    return False
+
+
+def _check_domain_layout_shape(layout: DomainLayout, packages: ConcurrentStableDict[str, tuple[Path, bool]]) -> None:
+    """`placement` 形态校验（L1 ~ L3）：域子包目录 / 唯一公共出口 / 模型单文件例外。
+
+    - L1：每条路径要么是 `<包根>/domains/<domain_key>/**` 目录 glob，要么是声明表的单文件（模型）；
+    - L2：路径中的域目录段必须等于 `domain_key`（由 L1 的前缀判定同时覆盖）；
+    - L3：`placement` 域必须声明恰好 1 个 `public_api`，且模块文件位于该域目录内、可导入。
+
+    Args:
+        layout: 域布局。
+        packages: 工作区包表（公共出口模块解析用）。
+    """
+    if not _DOMAIN_ENABLED:
+        return
+    for entry in layout.entries:
+        if entry.status != STATUS_PLACEMENT:
+            continue
+        expected = f"/domains/{entry.domain_key}/"
+        for declared in entry.paths:
+            if expected in f"/{declared}":
+                continue
+            if declared.endswith(".py") and _is_model_module(declared):
+                continue
+            _record(
+                f"[域布局形态] {entry.domain_key} 的路径既不是域子包目录（{expected}）也不是模型单文件：{declared}",
+                "domain_layout_violation",
+            )
+        if len(entry.public_api) != 1:
+            _record(
+                f"[域布局形态] {entry.domain_key} 的 public_api 须恰好 1 个（现 {len(entry.public_api)} 个）",
+                "domain_layout_violation",
+            )
+            continue
+        module = entry.public_api[0]
+        target = _module_file_of(module, packages)
+        if target is None:
+            _record(
+                f"[域布局形态] {entry.domain_key} 的公共出口模块不存在：{module}",
+                "domain_layout_violation",
+            )
+            continue
+        if expected not in f"/{target}":
+            _record(
+                f"[域布局形态] {entry.domain_key} 的公共出口不在该域目录内：{module} → {target}",
+                "domain_layout_violation",
+            )
 
 
 def _finish_domain_baseline() -> None:
@@ -1022,6 +1109,7 @@ def check() -> int:
     _check_domain_imports(packages, file_domain, layout)
     _check_domain_tables(packages, file_domain, exceptions, known_table_set)
     _check_domain_files(packages, file_domain, layout)
+    _check_domain_layout_shape(layout, packages)
     _check_domain_ownership(layout)
     _finish_domain_baseline()
 
@@ -1605,7 +1693,8 @@ def _self_test_domains() -> bool:
                         }
                     )
                 )
-            payload = {"version": 1, "domains": entries, "shared_paths": []}
+            shared_paths = ConcurrentStableList([rel(svc / "__init__.py"), rel(services / "__init__.py")])
+            payload = {"version": 1, "domains": entries, "shared_paths": shared_paths}
             layout_path.write_text(json.dumps(normalize_collections(payload), ensure_ascii=False), encoding="utf-8")
 
         def write_baseline(entries: ConcurrentStableList[ConcurrentStableDict[str, str]]) -> None:
@@ -1692,6 +1781,67 @@ def _self_test_domains() -> bool:
         layout_path.unlink()
         a_user.write_text(import_line + "\n", encoding="utf-8")
         run(False, "未提供域布局时域级断言停用")
+
+        # ---- placement 形态校验（L1 / L3） ----
+        domain_dir = svc / "domains" / "user" / "api"
+        domain_dir.mkdir(parents=True)
+        (svc / "domains" / "__init__.py").write_text("", encoding="utf-8")
+        (svc / "domains" / "user" / "__init__.py").write_text("", encoding="utf-8")
+        (domain_dir / "__init__.py").write_text("", encoding="utf-8")
+        domain_file = domain_dir / "users.py"
+        domain_file.write_text("VALUE = 1\n", encoding="utf-8")
+        a_user.unlink()
+
+        def write_placement(*, public_api: ConcurrentStableList[str], extra_path: str = "") -> None:
+            """写「user 为 placement、其余域 legacy」的样例布局。
+
+            Args:
+                public_api: user 域的公共出口模块名清单。
+                extra_path: 追加到 user 域 paths 的额外路径（相对仓库根）。
+            """
+            entries: ConcurrentStableList[ConcurrentStableDict[str, object]] = ConcurrentStableList()
+            for domain, carrier in carrier_map().items():
+                path = {
+                    "user": domain_file,
+                    "role": b_role,
+                }.get(domain) or services / f"d_{domain.replace('-', '_')}.py"
+                if domain not in {"user", "role"}:
+                    path.write_text("VALUE = 0\n", encoding="utf-8")
+                declared = (
+                    "backend/services/platform/src/bms_platform/domains/user/**/*.py" if domain == "user" else rel(path)
+                )
+                paths: ConcurrentStableList[str] = ConcurrentStableList([declared])
+                if domain == "user" and extra_path:
+                    paths.add(extra_path)
+                entries.add(
+                    ConcurrentStableDict(
+                        {
+                            "domain_key": domain,
+                            "service_key": carrier,
+                            "status": "placement" if domain == "user" else "legacy",
+                            "paths": paths,
+                            "public_api": public_api if domain == "user" else [],
+                        }
+                    )
+                )
+            shared_paths = ConcurrentStableList(
+                [rel(svc / "__init__.py"), rel(services / "__init__.py"), rel(svc / "domains" / "__init__.py")]
+            )
+            payload = {"version": 1, "domains": entries, "shared_paths": shared_paths}
+            layout_path.write_text(json.dumps(normalize_collections(payload), ensure_ascii=False), encoding="utf-8")
+
+        write_placement(public_api=[])
+        run(True, "placement 域缺公共出口拦截（L3）")
+
+        write_placement(public_api=["bms_platform.domains.user.public"])
+        run(True, "placement 域公共出口模块缺失拦截（L3）")
+
+        (svc / "domains" / "user" / "public.py").write_text("", encoding="utf-8")
+        write_placement(public_api=["bms_platform.domains.user.public"])
+        run(False, "placement 域子包 + 公共出口放行")
+
+        write_placement(public_api=["bms_platform.domains.user.public"], extra_path=rel(b_role))
+        run(True, "placement 域路径越出域子包拦截（L1）")
 
     return ok
 

@@ -12,11 +12,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from bms_core.models.base import Base
 from bms_core.models.outbox import SysOutbox
-from bms_core.models.platform.menu import (
-    SysAction,
-    SysActionI18n,
-    SysBusiness,
-    SysBusinessI18n,
+from bms_core.models.platform.menu_form import (
     SysButton,
     SysField,
     SysFieldI18n,
@@ -24,6 +20,12 @@ from bms_core.models.platform.menu import (
     SysMenu,
     SysMenuForm,
     SysMenuI18n,
+)
+from bms_core.models.platform.permission_meta import (
+    SysAction,
+    SysActionI18n,
+    SysBusiness,
+    SysBusinessI18n,
     SysPermission,
 )
 

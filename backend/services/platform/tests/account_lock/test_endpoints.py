@@ -19,7 +19,7 @@ from bms_core.core.error_codes import ErrorCode
 from bms_core.core.exceptions import AccountLockNotFoundError
 from bms_core.db.unit_of_work import DbUnitOfWork
 from bms_core.models.platform.user import SysUser
-from bms_platform.repositories.user import UserRepository
+from bms_platform.domains.user.repositories.user import UserRepository
 from tests_support.permission_admin import setup_min_tenant
 
 API = "/api/v1/account-locks"

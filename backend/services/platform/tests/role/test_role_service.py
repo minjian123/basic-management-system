@@ -21,8 +21,8 @@ from bms_core.core.exceptions import (
     RoleProtectedError,
 )
 from bms_core.db.unit_of_work import DbUnitOfWork
-from bms_platform.repositories.role import RoleRepository, UserRoleRepository
-from bms_platform.services.role import ROLE_CODE_PATTERN_KEY, RoleService
+from bms_platform.domains.role.repositories.role import RoleRepository, UserRoleRepository
+from bms_platform.domains.role.services.role import ROLE_CODE_PATTERN_KEY, RoleService
 from tests.role import helpers
 
 

@@ -17,10 +17,10 @@ from bms_core.core.context import current_user_id
 from bms_core.core.exceptions import InternalError, ParamError, UserProtectedError
 from bms_core.db.unit_of_work import DbUnitOfWork
 from bms_core.outbox.null import NullOutboxStore
-from bms_platform.repositories.account_lock import AccountLockRepository
-from bms_platform.repositories.role import RoleRepository, UserRoleRepository
-from bms_platform.repositories.user import UserRepository
-from bms_platform.services.users_admin import (
+from bms_platform.domains.role.repositories.role import RoleRepository, UserRoleRepository
+from bms_platform.domains.user.repositories.account_lock import AccountLockRepository
+from bms_platform.domains.user.repositories.user import UserRepository
+from bms_platform.domains.user.services.users_admin import (
     _GENERATED_PASSWORD_ATTEMPTS,  # pyright: ignore[reportPrivateUsage]
     UserAdminService,
 )

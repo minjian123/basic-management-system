@@ -17,8 +17,8 @@ from bms_core.db.unit_of_work import DbUnitOfWork
 from bms_core.models.platform.user import SysUser
 from bms_core.oauth.verify import VerifiedToken, get_token_verifier
 from bms_core.tenant.membership import TenantMembershipTarget
-from bms_platform.repositories.user import UserRepository
-from bms_platform.services.users import UserCreateService
+from bms_platform.domains.user.repositories.user import UserRepository
+from bms_platform.domains.user.services.users import UserCreateService
 
 API = "/api/v1/platform/internal/users/create"
 DEMO_TENANT_ID = 1001

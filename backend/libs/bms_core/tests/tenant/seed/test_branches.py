@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.models.base import Base
-from bms_core.models.platform.menu import SysAction, SysBusiness, SysPermission
+from bms_core.models.platform.permission_meta import SysAction, SysBusiness, SysPermission
 from bms_core.models.platform.role import SysRole, SysRolePermission, SysUserRole
 from bms_core.models.platform.user import SysUser
 from bms_core.tenant.seed import platform as platform_seed

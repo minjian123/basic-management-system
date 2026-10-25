@@ -12,7 +12,7 @@ from bms_core.core.config import Settings
 from bms_core.permission.rbac import RBAC_PROVIDER_NAME
 from bms_identity import CONTRACT_VERSION, SERVICE_NAME, SERVICE_TITLE, __version__
 from bms_identity.api.router import api_router
-from bms_identity.api.wellknown import router as wellknown_router
+from bms_identity.domains.auth.api.wellknown import router as wellknown_router
 from bms_identity.permission import register_identity_permission
 
 

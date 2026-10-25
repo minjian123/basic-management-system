@@ -8,7 +8,8 @@
 
 口径（《架构设计 · 产品与服务划分》「边界纪律」节、07C `03_01` 详细设计 §3.1 / §3.4）：
 
-- 一条 = 一个业务域 + 其**全部实现文件**（`legacy` 逐文件声明，不用整目录兜底——域退化为服务即失效）；
+- 一条 = 一个业务域 + 其**全部实现文件**（`placement` 用域子包目录 glob `domains/<域>/**/*.py` + 模型单文件；
+  `legacy` 逐文件声明，仅过渡——域退化为服务即失效）；
 - 同一路径不得归属两个域；`shared_paths` 为域外装配 / 基座 / 基础设施面，与域路径互斥；
 - 基线记录**存量**跨域引用（`kind` ∈ `import` / `table_ref` / `table_declare`），新增即失败，迁移时逐项删除。
 """
@@ -47,7 +48,8 @@ DEFAULT_BASELINE_RELATIVE = "deploy/boundaries/domain_boundary_baseline.json"
 """域级基线默认相对仓库根路径。"""
 
 DOMAIN_STATUSES: ConcurrentStableList[str] = ConcurrentStableList(("placement", "legacy", "planned"))
-"""域布局状态：`placement` 已分包到域子包 / `legacy` 仍在服务扁平目录（逐文件声明）/ `planned` 未落地。"""
+"""域布局状态：`placement` 域实现已有明确域载体（域子包 `domains/<域>/`，路径可用目录 glob）/
+`legacy` 仍在服务扁平目录（逐文件声明，仅过渡）/ `planned` 未落地。"""
 
 BASELINE_KINDS: ConcurrentStableList[str] = ConcurrentStableList(("import", "table_ref", "table_declare"))
 """基线条目种类：跨域 import / 跨域表引用 / 跨域表声明（混域文件的主域债务）。"""
@@ -70,13 +72,14 @@ class DomainEntry(BaseRegistryRecordContract):
     """业务域标识（与《业务域清单》一致；一经发布不改）。"""
 
     service_key: str
-    """当前承载服务（分包前为服务包；分包后为该服务内的域子包）。"""
+    """当前承载服务标识（恒不变；与表归属 `owner` 对齐，分包后的域子包由 `paths` 表达）。"""
 
     status: str = STATUS_LEGACY
     """布局状态（`DOMAIN_STATUSES` 之一）。"""
 
     paths: ConcurrentStableFrozenList[str] = field(default_factory=lambda: ConcurrentStableFrozenList[str]())
-    """域实现文件路径（相对仓库根，posix；允许 glob）；`legacy` 须逐文件显式列出。"""
+    """域实现路径（相对仓库根，posix；允许 glob）：`placement` 为域子包目录 glob + 模型单文件，
+    `legacy` 须逐文件显式列出。"""
 
     public_api: ConcurrentStableFrozenList[str] = field(default_factory=lambda: ConcurrentStableFrozenList[str]())
     """域内公共出口模块名（D2 允许的跨域引用面；分包前为空）。"""

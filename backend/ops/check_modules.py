@@ -38,8 +38,8 @@ from bms_core.services.module_registry import (
     validate_catalog,
     validate_products,
 )
-from bms_platform.repositories.module_repository import ModuleRepository
-from bms_platform.repositories.product_repository import ProductRepository
+from bms_platform.domains.platform_registry.repositories.module_repository import ModuleRepository
+from bms_platform.domains.platform_registry.repositories.product_repository import ProductRepository
 from ops.seed_tenant import resolve_url
 
 RUN_IMAGE = "ci"

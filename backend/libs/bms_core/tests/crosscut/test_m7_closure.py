@@ -147,12 +147,23 @@ def test_mdm_alignment_lockdown() -> None:
     """
     platform_src = _ROOT / "backend" / "services" / "platform" / "src" / "bms_platform"
     guards = {
-        platform_src / "services" / "permission_subject.py": ('MDM_SERVICE_KEY = "mdm"', "/api/v1/mdm/user-roles"),
-        platform_src / "services" / "user_assignments.py": ('MDM_SERVICE = "mdm"', "mdm.user-posts.assign"),
-        platform_src / "services" / "role_assignments.py": ('MDM_SERVICE = "mdm"', "mdm.role-depts.assign"),
-        platform_src / "api" / "internal_users.py": ('MDM_SERVICE = "mdm"',),
-        platform_src / "api" / "permission.py": ('MDM_SERVICE = "mdm"',),
-        platform_src / "api" / "internal_config.py": ('require_service("identity", "mdm")',),
+        platform_src / "domains" / "role" / "services" / "permission_subject.py": (
+            'MDM_SERVICE_KEY = "mdm"',
+            "/api/v1/mdm/user-roles",
+        ),
+        platform_src / "domains" / "user" / "services" / "user_assignments.py": (
+            'MDM_SERVICE = "mdm"',
+            "mdm.user-posts.assign",
+        ),
+        platform_src / "domains" / "role" / "services" / "role_assignments.py": (
+            'MDM_SERVICE = "mdm"',
+            "mdm.role-depts.assign",
+        ),
+        platform_src / "domains" / "user" / "api" / "internal_users.py": ('MDM_SERVICE = "mdm"',),
+        platform_src / "domains" / "permission_meta" / "api" / "permission.py": ('MDM_SERVICE = "mdm"',),
+        platform_src / "domains" / "platform_config" / "api" / "internal_config.py": (
+            'require_service("identity", "mdm")',
+        ),
     }
     for path, needles in guards.items():
         text = path.read_text(encoding="utf-8")

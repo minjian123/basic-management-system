@@ -14,9 +14,9 @@ from bms_core.config.null import NullConfigSource
 from bms_core.core.exceptions import AccountLockNotFoundError, ConcurrentConflictError
 from bms_core.db.unit_of_work import DbUnitOfWork
 from bms_core.models.platform.user import LOCK_TYPE_MANUAL, UNLOCK_MODE_MANUAL, SysUser
-from bms_platform.repositories.account_lock import AccountLockRepository
-from bms_platform.repositories.user import UserRepository
-from bms_platform.services.account_lock import MANUAL_LOCK_SENTINEL, AccountLockService
+from bms_platform.domains.user.repositories.account_lock import AccountLockRepository
+from bms_platform.domains.user.repositories.user import UserRepository
+from bms_platform.domains.user.services.account_lock import MANUAL_LOCK_SENTINEL, AccountLockService
 
 _LOCKED_AT = datetime(2026, 10, 14, 12, 0, 0)
 

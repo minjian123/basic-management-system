@@ -25,10 +25,10 @@ from bms_core.db.engine import EngineFactory
 from bms_core.db.keys import PLATFORM_DB_KEY
 from bms_core.outbox.null import NullOutboxStore
 from bms_core.servicecall.null import NullServiceClient
-from bms_tenant.services.platform_tenant import ensure_platform_tenant_row
-from bms_tenant.services.tenant_admin import TenantAdminService
-from bms_tenant.services.tenant_module import ModuleCatalog, TenantModuleService
-from bms_tenant.services.tenant_quota import TenantQuotaService
+from bms_tenant.domains.tenant.services.platform_tenant import ensure_platform_tenant_row
+from bms_tenant.domains.tenant.services.tenant_admin import TenantAdminService
+from bms_tenant.domains.tenant.services.tenant_module import ModuleCatalog, TenantModuleService
+from bms_tenant.domains.tenant.services.tenant_quota import TenantQuotaService
 
 RUN_IMAGE = "tenant"
 """本脚本导入 `bms_tenant.services.*`（平台租户引导复用 tenant 服务实现），只有 tenant 镜像含该包。"""

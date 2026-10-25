@@ -277,18 +277,33 @@ VALUE_OBJECT_BATCH: ConcurrentStableList[tuple[str, str]] = ConcurrentStableList
         ("backend/ops/migrate_tenants.py", "MigrationSummary"),
         ("backend/ops/migrate_tenants.py", "MigrationTask"),
         ("backend/ops/provision_tenant.py", "ProvisionTask"),
-        ("backend/services/identity/src/bms_identity/services/auth.py", "LoginOutcome"),
-        ("backend/services/identity/src/bms_identity/services/auth.py", "RefreshOutcome"),
-        ("backend/services/identity/src/bms_identity/services/jit.py", "ExternalIdentity"),
-        ("backend/services/identity/src/bms_identity/services/jit.py", "JitResult"),
-        ("backend/services/identity/src/bms_identity/services/oidc_provider.py", "AuthorizeResult"),
-        ("backend/services/identity/src/bms_identity/services/oidc_provider.py", "OidcCode"),
-        ("backend/services/identity/src/bms_identity/services/oidc_provider.py", "TokenResult"),
-        ("backend/services/identity/src/bms_identity/services/oidc_provider.py", "UserInfoResult"),
-        ("backend/services/identity/src/bms_identity/services/session.py", "SessionRevokeResult"),
-        ("backend/services/identity/src/bms_identity/services/session_issuer.py", "IssuedSession"),
-        ("backend/services/identity/src/bms_identity/services/sso.py", "SsoAuthorizeResult"),
-        ("backend/services/identity/src/bms_identity/services/sso.py", "SsoLoginResult"),
+        ("backend/services/identity/src/bms_identity/domains/auth/services/auth.py", "LoginOutcome"),
+        ("backend/services/identity/src/bms_identity/domains/auth/services/auth.py", "RefreshOutcome"),
+        ("backend/services/identity/src/bms_identity/domains/identity_federation/services/jit.py", "ExternalIdentity"),
+        ("backend/services/identity/src/bms_identity/domains/identity_federation/services/jit.py", "JitResult"),
+        (
+            "backend/services/identity/src/bms_identity/domains/identity_federation/services/oidc_provider.py",
+            "AuthorizeResult",
+        ),
+        (
+            "backend/services/identity/src/bms_identity/domains/identity_federation/services/oidc_provider.py",
+            "OidcCode",
+        ),
+        (
+            "backend/services/identity/src/bms_identity/domains/identity_federation/services/oidc_provider.py",
+            "TokenResult",
+        ),
+        (
+            "backend/services/identity/src/bms_identity/domains/identity_federation/services/oidc_provider.py",
+            "UserInfoResult",
+        ),
+        ("backend/services/identity/src/bms_identity/domains/auth/services/session.py", "SessionRevokeResult"),
+        ("backend/services/identity/src/bms_identity/domains/auth/services/session_issuer.py", "IssuedSession"),
+        (
+            "backend/services/identity/src/bms_identity/domains/identity_federation/services/sso.py",
+            "SsoAuthorizeResult",
+        ),
+        ("backend/services/identity/src/bms_identity/domains/identity_federation/services/sso.py", "SsoLoginResult"),
     )
 )
 

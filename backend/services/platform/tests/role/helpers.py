@@ -13,26 +13,24 @@ from bms_core.core.config import Settings
 from bms_core.db.unit_of_work import DbUnitOfWork
 from bms_core.models.platform.role import SysRole
 from bms_core.schemas.pagination import BasePageQuery
-from bms_platform.repositories.menu import (
+from bms_platform.domains.menu_form.repositories.menu import FieldRepository, FormRepository, MenuRepository
+from bms_platform.domains.permission_meta.repositories.business import (
     ActionRepository,
     BusinessRepository,
-    FieldRepository,
-    FormRepository,
-    MenuRepository,
     PermissionRepository,
 )
-from bms_platform.repositories.role import (
+from bms_platform.domains.role.repositories.role import (
     DataScopeRepository,
     RoleFieldRepository,
     RolePermissionRepository,
     RoleRepository,
     UserRoleRepository,
 )
-from bms_platform.repositories.user import UserRepository
-from bms_platform.services.role import RoleService
-from bms_platform.services.role_assign import RoleAssignService
-from bms_platform.services.role_grant import MenuMetadataChecker, RoleGrantService
-from bms_platform.services.separation import RoleBusinessPermissions, SeparationGuard
+from bms_platform.domains.role.services.role import RoleService
+from bms_platform.domains.role.services.role_assign import RoleAssignService
+from bms_platform.domains.role.services.role_grant import MenuMetadataChecker, RoleGrantService
+from bms_platform.domains.role.services.separation import RoleBusinessPermissions, SeparationGuard
+from bms_platform.domains.user.repositories.user import UserRepository
 
 
 async def session() -> tuple[AsyncSession, AsyncEngine]:

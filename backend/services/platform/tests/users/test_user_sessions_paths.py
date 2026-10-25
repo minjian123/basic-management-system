@@ -8,7 +8,7 @@ from __future__ import annotations
 from typing import Any, cast
 
 from bms_core.servicecall.base import ServiceRequest, ServiceResponse
-from bms_platform.services.user_sessions import (
+from bms_platform.domains.user.services.user_sessions import (
     REASON_USER_DISABLED,
     UserSessionClient,
     _read_revoked,  # pyright: ignore[reportPrivateUsage]

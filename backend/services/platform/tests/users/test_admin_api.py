@@ -37,7 +37,7 @@ from bms_core.models.platform.role import ROLE_TYPE_SYSTEM, SysRole, SysUserRole
 from bms_core.models.platform.user import SysAccountLock, SysUser
 from bms_core.outbox.null import NullOutboxStore
 from bms_core.servicecall.base import BaseServiceClient, ServiceRequest, ServiceResponse
-from bms_platform.api.users import _read_cached_user_id  # pyright: ignore[reportPrivateUsage]
+from bms_platform.domains.user.api.users import _read_cached_user_id  # pyright: ignore[reportPrivateUsage]
 from tests_support.permission_admin import setup_min_tenant
 
 API = "/api/v1/users"

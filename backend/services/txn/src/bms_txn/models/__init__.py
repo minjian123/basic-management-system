@@ -7,5 +7,5 @@ from bms_core.core.concurrent import ConcurrentStableList
 继承约定：ORM 模型必须继承 `bms_core.models.BaseModel`。
 """
 
-MODEL_MODULES: ConcurrentStableList[str] = ConcurrentStableList(("bms_txn.models.ledger",))
+MODEL_MODULES: ConcurrentStableList[str] = ConcurrentStableList(("bms_txn.domains.txn.models.ledger",))
 """本服务模型模块清单（迁移链按服务解析模型用）。"""

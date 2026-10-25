@@ -43,7 +43,7 @@ from bms_core.print.base import (
 )
 from bms_core.print.null import NullPrintExporter, NullPrintTemplateProvider
 from bms_core.storage.base import DEFAULT_PRESIGN_TTL
-from bms_report.api.print import router as print_router
+from bms_report.domains.report.api.print import router as print_router
 from bms_report.main import ApplicationFactory
 from tests_support.auth import auth_headers
 from tests_support.tenant_source import DEMO_TENANT_ID

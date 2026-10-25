@@ -14,6 +14,8 @@ from fastapi import FastAPI
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.exceptions import ParamError
+from bms_platform.domains.role.services.role_assignments import ROLE_ASSIGNMENTS_OP
+from bms_platform.domains.user.services.user_assignments import USER_ASSIGNMENTS_OP
 from bms_platform.services import branch_handlers as bh
 from bms_platform.services.branch_handlers import (
     BRANCH_OPS,
@@ -24,8 +26,6 @@ from bms_platform.services.branch_handlers import (
     _role_profile_arg,  # pyright: ignore[reportPrivateUsage]
     build_branch_handlers,
 )
-from bms_platform.services.role_assignments import ROLE_ASSIGNMENTS_OP
-from bms_platform.services.user_assignments import USER_ASSIGNMENTS_OP
 
 
 def _args(**values: object) -> ConcurrentStableDict[str, object]:

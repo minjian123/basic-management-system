@@ -43,9 +43,9 @@ from bms_core.boundary.domains import DEFAULT_LAYOUT_RELATIVE, load_layout
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
 from bms_core.db.keys import PLATFORM_SERVICE_KEY
 from bms_core.db.migration import (
-    COMMON_MODEL_MODULES,
     DATASOURCES,
     VERSIONS_ROOT,
+    all_model_modules,
     apply_session_schema,
     import_service_models,
     require_service_model_modules,
@@ -108,7 +108,7 @@ def imported_model_tables() -> ConcurrentStableSet[str]:
     Returns:
         ConcurrentStableSet[str]: 模型表名集合。
     """
-    declared: ConcurrentStableSet[str] = ConcurrentStableSet(COMMON_MODEL_MODULES)
+    declared: ConcurrentStableSet[str] = ConcurrentStableSet(all_model_modules())
     for service in enabled_service_keys():
         # 严格入口：已启用服务必有服务包（包名前缀经 `[app].package_prefix`），缺失即报错（12_04）
         declared.update(require_service_model_modules(service))

@@ -433,3 +433,90 @@ def test_table_records_declare_domains() -> None:
             assert record.domain == ""
             continue
         assert record.domain, f"{record.table_name} 未登记归属业务域"
+
+
+_REPO_ROOT = Path(__file__).resolve().parents[5]
+"""仓库根（`backend/libs/bms_core/tests/boundary/` 向上五级）。"""
+
+
+@pytest.mark.kiwi_id(2355)
+def test_real_layout_all_placement() -> None:
+    """真实域布局：16 域全 `placement`、每域恰 1 个公共出口且出口在本域目录内（07C `03_03`）。"""
+    layout = load_layout(_REPO_ROOT / DEFAULT_LAYOUT_RELATIVE)
+    entries = layout.entries
+    assert len(entries) == 16
+    for entry in entries:
+        assert entry.status == "placement", entry.domain_key
+        assert len(entry.public_api) == 1, entry.domain_key
+        module = entry.public_api[0]
+        assert module.endswith(".public"), entry.domain_key
+        assert f".domains.{entry.domain_key}.public" in module, entry.domain_key
+        for declared in entry.paths:
+            if declared.endswith(".py"):
+                continue
+            assert f"/domains/{entry.domain_key}/" in f"/{declared}", (entry.domain_key, declared)
+
+
+@pytest.mark.kiwi_id(2355)
+def test_real_layout_covers_all_service_files() -> None:
+    """真实域布局覆盖完整：服务包内非测试源码要么在某域 paths，要么在 `shared_paths`。"""
+    layout = load_layout(_REPO_ROOT / DEFAULT_LAYOUT_RELATIVE)
+    mapping, problems = layout.resolve_files(_REPO_ROOT)
+    assert list(problems) == []
+    registered = ConcurrentStableSet(mapping)
+    shared = ConcurrentStableSet(layout.shared_paths)
+    missing: ConcurrentStableList[str] = ConcurrentStableList()
+    for path in (_REPO_ROOT / "backend" / "services").rglob("*.py"):
+        if "__pycache__" in path.parts or "tests" in path.parts:
+            continue
+        rel = path.relative_to(_REPO_ROOT).as_posix()
+        if rel not in registered and rel not in shared:
+            missing.add(rel)
+    assert list(missing) == []
+
+
+@pytest.mark.kiwi_id(2355)
+def test_real_baseline_is_empty() -> None:
+    """域级基线归零：存量跨域引用已全部收敛，基线只减不增（07C `03_03` 完成标准）。"""
+    assert list(load_baseline(_REPO_ROOT / DEFAULT_BASELINE_RELATIVE)) == []
+
+
+@pytest.mark.kiwi_id(2355)
+def test_domain_model_modules_cover_domain_tables() -> None:
+    """逐域模型模块覆盖该域全部已启用表；多出的只允许是 `planned` 表（未进清单）。"""
+    from typing import Any, cast
+
+    from bms_core.db.migration import DATASOURCES, domain_model_modules, import_models
+    from bms_core.models.base import Base
+    from bms_core.services.table_registry import TableStatus, series_tables, table_ownership_view
+
+    planned = {record.table_name for record in table_ownership_view() if record.status == TableStatus.PLANNED}
+    for domain in load_layout(_REPO_ROOT / DEFAULT_LAYOUT_RELATIVE).domain_keys():
+        import_models(domain)
+        modules = ConcurrentStableSet(domain_model_modules(domain))
+        declared = ConcurrentStableSet(
+            str(cast("Any", mapper).local_table.name)
+            for mapper in Base.registry.mappers
+            if str(getattr(mapper.class_, "__module__", "")) in modules and cast("Any", mapper).local_table is not None
+        )
+        expected = ConcurrentStableSet(
+            table for datasource in DATASOURCES for table in series_tables(domain, datasource)
+        )
+        assert expected <= declared, (domain, sorted(expected - declared))
+        assert (declared - expected) <= planned, (domain, sorted(declared - expected))
+
+
+@pytest.mark.kiwi_id(2355)
+def test_domain_model_modules_are_disjoint() -> None:
+    """域模型模块两两不相交（清单只导入本域模型，不再承载全量）。"""
+    from bms_core.db.migration import domain_model_modules
+
+    modules = {
+        domain: ConcurrentStableSet(domain_model_modules(domain))
+        for domain in load_layout(_REPO_ROOT / DEFAULT_LAYOUT_RELATIVE).domain_keys()
+    }
+    for left, left_modules in modules.items():
+        for right, right_modules in modules.items():
+            if left >= right:
+                continue
+            assert not (left_modules & right_modules), (left, right)

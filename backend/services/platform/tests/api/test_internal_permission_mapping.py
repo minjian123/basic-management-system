@@ -18,7 +18,7 @@ from bms_core.permission.sources import (
     PermissionMetadata,
     PermissionSubjectData,
 )
-from bms_platform.api import permission as permission_api
+from bms_platform.domains.permission_meta.api import permission as permission_api
 
 _to_metadata_result = permission_api._to_metadata_result  # pyright: ignore[reportPrivateUsage]
 _to_subject_result = permission_api._to_subject_result  # pyright: ignore[reportPrivateUsage]

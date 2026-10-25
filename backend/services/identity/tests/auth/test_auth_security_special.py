@@ -20,7 +20,7 @@ from httpx import AsyncClient
 from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.ratelimit.memory import MemoryRateLimiter
 from bms_core.session.memory import MemorySessionStore
-from bms_identity.services.session_issuer import hash_refresh_token
+from bms_identity.domains.auth.services.session_issuer import hash_refresh_token
 
 from .helpers import (
     TENANT_ID,

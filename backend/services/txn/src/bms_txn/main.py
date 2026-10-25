@@ -7,8 +7,8 @@ from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_txn import CONTRACT_VERSION, SERVICE_NAME, SERVICE_TITLE, __version__
 from bms_txn.api.router import api_router
-from bms_txn.services.driver import BranchDriver, HttpBranchDriver
-from bms_txn.services.recovery_poll import POLL_PROVIDER_NAME, register_transaction_recovery
+from bms_txn.domains.txn.services.driver import BranchDriver, HttpBranchDriver
+from bms_txn.domains.txn.services.recovery_poll import POLL_PROVIDER_NAME, register_transaction_recovery
 
 
 class ApplicationFactory(BaseServiceApplicationFactory):

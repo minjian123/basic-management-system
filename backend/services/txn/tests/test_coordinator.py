@@ -30,21 +30,21 @@ from bms_core.transaction.base import (
     BranchSpec,
     build_branch_xid,
 )
-from bms_txn.models.ledger import GlobalTxn, GlobalTxnBranch, GlobalTxnRecovery
-from bms_txn.repositories.ledger import (
+from bms_txn.domains.txn.models.ledger import GlobalTxn, GlobalTxnBranch, GlobalTxnRecovery
+from bms_txn.domains.txn.repositories.ledger import (
     GlobalTxnBranchRepository,
     GlobalTxnRecoveryRepository,
     GlobalTxnRepository,
 )
-from bms_txn.services.coordinator import (
+from bms_txn.domains.txn.services.coordinator import (
     DRIVE_ERROR,
     DRIVE_OK,
     METRIC_BRANCH_DRIVE,
     METRIC_GLOBAL,
     TransactionCoordinator,
 )
-from bms_txn.services.driver import BranchDriver, UnavailableBranchDriver
-from bms_txn.services.recovery import (
+from bms_txn.domains.txn.services.driver import BranchDriver, UnavailableBranchDriver
+from bms_txn.domains.txn.services.recovery import (
     ACTION_DRIVE_COMMIT,
     METRIC_HUNG,
     METRIC_RECOVERY,

@@ -11,7 +11,7 @@ from bms_core.core.exceptions import AuthError, PermissionError
 from bms_core.core.serialization import normalize_collections
 from bms_core.db.tenant import TenantContext
 from bms_core.permission import base as permission_base
-from bms_identity.api import identity_providers as idp_api
+from bms_identity.domains.identity_federation.api import identity_providers as idp_api
 
 from .conftest import ISSUER, TENANT_HEADERS, TENANT_ID, ManageHarness
 

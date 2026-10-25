@@ -7,29 +7,26 @@ from bms_core.api.base import mount_service_routers
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.transaction.api import build_branch_router
 from bms_platform.api import (
-    account_locks,
     codecheck,
-    data_source,
     demo,
-    form_key,
-    icon,
+    outbox,
+    plugins,
+)
+from bms_platform.domains.menu_form.api import form_key, menu
+from bms_platform.domains.permission_meta.api import icon, permission, permission_meta
+from bms_platform.domains.platform_config.api import internal_config, query_scheme
+from bms_platform.domains.platform_registry.api import data_source, modules, products
+from bms_platform.domains.platform_registry.api import dict as dict_api
+from bms_platform.domains.role.api import role
+from bms_platform.domains.user.api import (
+    account_locks,
     internal_account_locks,
-    internal_config,
     internal_credentials,
     internal_users,
-    menu,
-    modules,
-    outbox,
-    permission,
-    plugins,
     preference,
-    products,
-    query_scheme,
-    role,
     user_extensions,
     users,
 )
-from bms_platform.api import dict as dict_api
 
 api_router = mount_service_routers(
     ConcurrentStableList(
@@ -61,9 +58,9 @@ api_router = mount_service_routers(
             menu.form_router,
             menu.button_router,
             menu.field_router,
-            menu.business_router,
-            menu.action_router,
-            menu.permission_router,
+            permission_meta.business_router,
+            permission_meta.action_router,
+            permission_meta.permission_router,
             # 跨服务事务参与端点（`/txn/branches*`；谁挂端点谁参与，05_07）
             build_branch_router(),
         ]

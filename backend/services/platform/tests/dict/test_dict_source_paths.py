@@ -17,7 +17,7 @@ from bms_core.core.config import get_settings
 from bms_core.db.engine import EngineFactory
 from bms_core.db.registry import EngineRegistry
 from bms_core.models.platform.role import SysRole
-from bms_platform.sources.dict_source import PlatformDictDataSource
+from bms_platform.domains.platform_registry.sources.dict_source import PlatformDictDataSource
 
 
 @pytest_asyncio.fixture

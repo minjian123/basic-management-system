@@ -17,13 +17,13 @@ from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.exceptions import ParamError
 from bms_core.servicecall.base import ServiceRequest, ServiceResponse
 from bms_core.transaction.null import NullTransactionManager, NullTransactionParticipant
-from bms_platform.schemas.users import (
+from bms_platform.domains.user.schemas.users import (
     UserAssignmentDepts,
     UserAssignmentPosts,
     UserAssignmentProfile,
     UserAssignmentsRequest,
 )
-from bms_platform.services.user_assignments import (
+from bms_platform.domains.user.services.user_assignments import (
     MDM_INTERNAL_USER_DEPTS_PATH,
     MDM_INTERNAL_USER_POSTS_PATH,
     MDM_USER_DEPTS_OP,

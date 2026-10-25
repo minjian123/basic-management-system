@@ -34,7 +34,7 @@ from bms_core.tenant.base import (
 )
 from bms_core.tenant.db import DbTenantSelfService
 from bms_core.tenant.null import NullTenantSelfService
-from bms_tenant.api.tenant import router as tenant_router
+from bms_tenant.domains.tenant.api.tenant import router as tenant_router
 from bms_tenant.main import ApplicationFactory
 from tests_support.auth import auth_headers
 from tests_support.tenant_source import DEMO_TENANT_ID

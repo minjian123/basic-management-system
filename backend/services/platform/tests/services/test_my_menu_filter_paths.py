@@ -12,7 +12,7 @@ from typing import Any, cast
 from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
 from bms_core.permission.field import FieldPermission
 from bms_core.permission.snapshot import TIER_STANDARD, PermissionSnapshot, set_current_permission_snapshot
-from bms_platform.services.my_menu import MyMenuService
+from bms_platform.domains.menu_form.services.my_menu import MyMenuService
 
 
 class _Checker:

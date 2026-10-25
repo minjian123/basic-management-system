@@ -16,7 +16,7 @@ from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import Settings
 from bms_core.db.engine import EngineFactory
 from bms_core.db.registry import PLATFORM_DB_KEY, EngineRegistry
-from bms_tenant.sources.tenant_source import LocalTenantSource
+from bms_tenant.domains.tenant.sources.tenant_source import LocalTenantSource
 from ops.seed_tenant import seed_tenants
 from ops.test_db import FLOW_STEPS, TEST_DATABASES, main
 

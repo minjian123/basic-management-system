@@ -10,8 +10,8 @@ from bms_core.db.session import DbSession
 from bms_core.db.unit_of_work import DbUnitOfWork
 from bms_core.security.session import DefaultSessionSecurity
 from bms_core.session.memory import MemorySessionStore
-from bms_identity.repositories.session import SessionRepository
-from bms_identity.services.session import REASON_KICK, REASON_TENANT_SUSPENDED, SessionService
+from bms_identity.domains.auth.repositories.session import SessionRepository
+from bms_identity.domains.auth.services.session import REASON_KICK, REASON_TENANT_SUSPENDED, SessionService
 
 from .helpers import RecordingRealtimePublisher
 from .session_helpers import seed_session, tenant_scope, utc_now

@@ -38,16 +38,16 @@ from bms_core.models.platform.role import ROLE_TYPE_SYSTEM, SysRole, SysUserRole
 from bms_core.models.platform.user import SysUser
 from bms_core.servicecall.base import ServiceRequest, ServiceResponse
 from bms_core.transaction.base import BRANCH_PREPARED, BRANCH_REJECTED, BranchRef, GlobalTransaction
-from bms_platform.repositories.role import RoleRepository, UserRoleRepository
-from bms_platform.repositories.user import UserRepository
-from bms_platform.schemas.users import (
+from bms_platform.domains.role.repositories.role import RoleRepository, UserRoleRepository
+from bms_platform.domains.role.services.separation import SeparationGuard
+from bms_platform.domains.user.repositories.user import UserRepository
+from bms_platform.domains.user.schemas.users import (
     UserAssignmentDepts,
     UserAssignmentPosts,
     UserAssignmentProfile,
     UserAssignmentsRequest,
 )
-from bms_platform.services.separation import SeparationGuard
-from bms_platform.services.user_assignments import (
+from bms_platform.domains.user.services.user_assignments import (
     BRANCH_ID_MDM,
     BRANCH_ID_PLATFORM,
     MDM_USER_DEPTS_OP,

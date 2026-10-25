@@ -28,8 +28,8 @@ from bms_core.models.outbox import SysEventDeadLetter, SysOutbox
 from bms_core.outbox.base import BaseOutboxStore
 from bms_core.outbox.null import NullOutboxStore
 from bms_core.outbox.store import SqlOutboxStore
-from bms_identity.repositories.user_identity import UserIdentityRepository
-from bms_identity.services.jit import (
+from bms_identity.domains.identity_federation.repositories.user_identity import UserIdentityRepository
+from bms_identity.domains.identity_federation.services.jit import (
     JIT_EVENT_TYPE,
     ExternalIdentity,
     JitService,

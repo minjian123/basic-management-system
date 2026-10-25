@@ -22,13 +22,13 @@ from bms_core.db.session import DbSession
 from bms_core.db.unit_of_work import DbUnitOfWork
 from bms_core.outbox.base import BaseOutboxStore
 from bms_core.transaction.base import BranchHandlerRegistry
-from bms_platform.repositories.role import RoleRepository, UserRoleRepository
-from bms_platform.repositories.user import UserRepository
-from bms_platform.schemas.role import RoleAssignmentProfile
-from bms_platform.schemas.users import UserAssignmentProfile
-from bms_platform.services.role_assignments import ROLE_ASSIGNMENTS_OP, RoleAssignmentWriter
-from bms_platform.services.separation import SeparationGuard
-from bms_platform.services.user_assignments import USER_ASSIGNMENTS_OP, UserAssignmentWriter
+from bms_platform.domains.role.repositories.role import RoleRepository, UserRoleRepository
+from bms_platform.domains.role.schemas.role import RoleAssignmentProfile
+from bms_platform.domains.role.services.role_assignments import ROLE_ASSIGNMENTS_OP, RoleAssignmentWriter
+from bms_platform.domains.role.services.separation import SeparationGuard
+from bms_platform.domains.user.repositories.user import UserRepository
+from bms_platform.domains.user.schemas.users import UserAssignmentProfile
+from bms_platform.domains.user.services.user_assignments import USER_ASSIGNMENTS_OP, UserAssignmentWriter
 
 if TYPE_CHECKING:
     from fastapi import FastAPI

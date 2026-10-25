@@ -13,9 +13,9 @@ from bms_core.db.unit_of_work import DbUnitOfWork
 from bms_core.models.platform.user import LOCK_TYPE_FAIL_LIMIT, UNLOCK_MODE_AUTO, SysUser
 from bms_core.schemas.pagination import BasePageQuery
 from bms_core.security.pbkdf2 import Pbkdf2PasswordHasher
-from bms_platform.repositories.account_lock import AccountLockRepository
-from bms_platform.repositories.user import UserRepository
-from bms_platform.services.credentials import CredentialService
+from bms_platform.domains.user.repositories.account_lock import AccountLockRepository
+from bms_platform.domains.user.repositories.user import UserRepository
+from bms_platform.domains.user.services.credentials import CredentialService
 
 
 def _now() -> datetime:

@@ -13,10 +13,8 @@ from fastapi import Request
 from httpx import AsyncClient
 
 from bms_core.menu import DEFAULT_MENU_TREE_CACHE_TTL
-from bms_platform.api.menu import (
-    _accept_locale,  # pyright: ignore[reportPrivateUsage]
-    _tree_ttl,  # pyright: ignore[reportPrivateUsage]
-)
+from bms_platform.api.locale import accept_locale
+from bms_platform.domains.menu_form.api.menu import _tree_ttl  # pyright: ignore[reportPrivateUsage]
 from tests_support.menu_metadata import outbox_types, reset_menu_tables, seed_business, seed_permission
 from tests_support.permission_admin import setup_min_tenant
 
@@ -403,8 +401,8 @@ def _language_request(accept_language: str) -> Request:
 
 def test_accept_locale_prefix_fallback() -> None:
     """语言解析：区域变体按前缀回落清单语言；无匹配回默认语言。"""
-    assert _accept_locale(_language_request("zh-TW")) == "zh-CN"
-    assert _accept_locale(_language_request("fr")) == "zh-CN"
+    assert accept_locale(_language_request("zh-TW")) == "zh-CN"
+    assert accept_locale(_language_request("fr")) == "zh-CN"
 
 
 class _BadConfigSource:

@@ -117,7 +117,7 @@ def test_platform_side_keeps_only_source_and_wiring() -> None:
     )
     still_there = [name for name in removed if (_PLATFORM / name).is_file()]
     assert still_there == [], f"已下沉模块仍留在服务包：{still_there}"
-    assert (_PLATFORM / "permission" / "source.py").is_file(), "平台侧缺少数据来源实现"
+    assert (_PLATFORM / "domains" / "permission_meta" / "permission" / "source.py").is_file(), "平台侧缺少数据来源实现"
 
 
 @pytest.mark.kiwi_id(2320)

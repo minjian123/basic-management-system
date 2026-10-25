@@ -10,7 +10,7 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from bms_core.models.platform.menu import SysMenu
+from bms_core.models.platform.menu_form import SysMenu
 from ops.seed_menu import ACTION_SEEDS, BUSINESS_SEEDS, FIELD_SEEDS, MENU_SEEDS, seed_menu
 
 

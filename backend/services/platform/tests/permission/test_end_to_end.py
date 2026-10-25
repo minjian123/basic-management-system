@@ -6,7 +6,7 @@
 并验证写时字段校验接缝 `assert_fields_writable`（豁免 / 未预加载放行，收窄字段即拒）。
 
 数据来源以**本文件内的会话来源**实现（接缝可替换的直接演示）：取数与映射走真实仓储，算法走基座引擎
-`bms_core.permission.engine`——与生产装配（`bms_platform.permission.source`）同一套口径。
+`bms_core.permission.engine`——与生产装配（`bms_platform.domains.permission_meta.permission.source`）同一套口径。
 """
 
 from collections.abc import AsyncIterator, Iterator
@@ -22,7 +22,7 @@ from bms_core.cache.memory import MemoryCacheRegion
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.exceptions import PermissionError
 from bms_core.models.base import Base
-from bms_core.models.platform.menu import SysField
+from bms_core.models.platform.menu_form import SysField
 from bms_core.models.platform.role import (
     NO_SOURCE_MENU_ID,
     PERM_TYPE_FORM,
@@ -53,14 +53,14 @@ from bms_core.permission.sources import (
     PermissionSubjectData,
 )
 from bms_core.permission.subject import PermissionSubjectService
-from bms_platform.permission.field_provider import StaticFieldPermissionProvider
-from bms_platform.repositories.role import (
+from bms_platform.domains.role.permission.field_provider import StaticFieldPermissionProvider
+from bms_platform.domains.role.repositories.role import (
     DataScopeRepository,
     RolePermissionRepository,
     RoleRepository,
     UserRoleRepository,
 )
-from bms_platform.services.permission_subject import DirectRoleResolver
+from bms_platform.domains.role.services.permission_subject import DirectRoleResolver
 
 _USER_ID = 1001
 _MENU_ID = 900

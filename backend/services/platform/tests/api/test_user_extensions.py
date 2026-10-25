@@ -16,7 +16,7 @@ from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import get_settings
 from bms_core.models.base import Base
 from bms_core.models.platform.role import SysRole, SysUserRole
-from bms_core.models.platform.system import SysUserExtension
+from bms_core.models.platform.user import SysUserExtension
 from tests_support.permission_admin import assign_system_admin
 
 _TABLES: ConcurrentStableList[Table] = ConcurrentStableList(

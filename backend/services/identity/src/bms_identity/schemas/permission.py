@@ -1,7 +1,7 @@
 """认证与身份服务 schemas 层：platform 权限数据只读契约（`04_01` 下沉后 identity 侧取数用）。
 
-契约形状与 platform 侧 `bms_platform.schemas.permission` 的响应体一致——两侧同源（`04_01` 把算法下沉
-基座后，identity 取的是**原始数据**，在本地跑同一引擎）。
+契约形状与 platform 侧 `bms_platform.domains.permission_meta.schemas.permission` 的响应体一致——两侧同源
+（`04_01` 把算法下沉基座后，identity 取的是**原始数据**，在本地跑同一引擎）。
 """
 
 from typing import Annotated

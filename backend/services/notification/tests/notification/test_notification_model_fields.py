@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from bms_notification.models.notification import SysNotification
+from bms_notification.domains.notification.models.notification import SysNotification
 
 
 def test_sys_notification_model_declaration() -> None:

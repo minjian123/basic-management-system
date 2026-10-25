@@ -5,8 +5,8 @@ from collections.abc import AsyncIterator
 import pytest
 from httpx import ASGITransport, AsyncClient
 
+from bms_ai.domains.ai.models.ai import AiChatLog
 from bms_ai.main import ApplicationFactory
-from bms_ai.models.ai import AiChatLog
 from bms_core.api.deps import get_chat_action_gate, get_chat_session_store, get_chat_stream
 from bms_core.application import service_lifespan as lifespan
 from bms_core.chat.base import (

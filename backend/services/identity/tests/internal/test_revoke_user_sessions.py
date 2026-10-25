@@ -13,7 +13,7 @@ import pytest
 from fastapi import FastAPI
 from httpx import AsyncClient
 
-import bms_identity.api.internal_sessions as module
+import bms_identity.domains.auth.api.internal_sessions as module
 from bms_core.api.deps import get_tenant, get_token_verifier
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.exceptions import AuthError

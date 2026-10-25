@@ -8,23 +8,21 @@
 from __future__ import annotations
 
 from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
-from bms_platform.repositories.menu import (
+from bms_platform.domains.menu_form.repositories.menu import FormRepository, MenuFormRepository, MenuRepository
+from bms_platform.domains.permission_meta.repositories.business import (
     ActionRepository,
     BusinessRepository,
-    FormRepository,
-    MenuFormRepository,
-    MenuRepository,
-    MetadataReferenceRepository,
     PermissionRepository,
 )
-from bms_platform.repositories.role import (
+from bms_platform.domains.role.repositories.reference import MetadataReferenceRepository
+from bms_platform.domains.role.repositories.role import (
     DataScopeRepository,
     RoleFieldRepository,
     RolePermissionRepository,
     RoleRepository,
     UserRoleRepository,
 )
-from bms_platform.repositories.user import UserRepository
+from bms_platform.domains.user.repositories.user import UserRepository
 from tests.role import helpers
 
 

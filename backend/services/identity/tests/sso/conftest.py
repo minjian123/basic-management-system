@@ -39,8 +39,8 @@ from bms_core.models.identity.user_identity import SysUserIdentity
 from bms_core.ratelimit.memory import MemoryRateLimiter
 from bms_core.session.memory import MemorySessionStore
 from bms_core.ws.null import NullRealtimePublisher
-from bms_identity.api import sso as sso_api
-from bms_identity.services.provider_registry import ProviderRegistry
+from bms_identity.domains.identity_federation.api import sso as sso_api
+from bms_identity.domains.identity_federation.services.provider_registry import ProviderRegistry
 
 from .helpers import (
     CAS_IDP_KEY,

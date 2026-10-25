@@ -21,22 +21,22 @@ from bms_core.idp.state.memory import MemoryIdpStateStore
 from bms_core.lock.null import NullDistributedLock
 from bms_core.outbox.null import NullOutboxStore
 from bms_core.ratelimit.memory import MemoryRateLimiter
-from bms_identity.api.sso import (
+from bms_identity.domains.identity_federation.api.sso import (
     _resolve_sso_tenant,  # pyright: ignore[reportPrivateUsage]
     _resolve_sso_tenant_required,  # pyright: ignore[reportPrivateUsage]
 )
-from bms_identity.services.platform_client import PlatformCredentialClient
-from bms_identity.services.provider_registry import (
+from bms_identity.domains.identity_federation.services.provider_registry import (
     ProviderRegistry,
     _normalize_updated_at,  # pyright: ignore[reportPrivateUsage]
     _parse_config,  # pyright: ignore[reportPrivateUsage]
     _resolve_redirect_uri,  # pyright: ignore[reportPrivateUsage]
 )
-from bms_identity.services.sso import (  # pyright: ignore[reportPrivateUsage]
+from bms_identity.domains.identity_federation.services.sso import (  # pyright: ignore[reportPrivateUsage]
     SsoService,
     _build_service_url,  # pyright: ignore[reportPrivateUsage]
     _flow_from_payload,  # pyright: ignore[reportPrivateUsage]
 )
+from bms_identity.services.platform_client import PlatformCredentialClient
 
 
 @pytest.mark.kiwi_id(2199)

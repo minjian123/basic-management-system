@@ -35,11 +35,11 @@ from bms_core.icon.base import (
 )
 from bms_core.icon.null import NullIconRegistry
 from bms_core.idempotency.base import IDEMPOTENCY_PAYLOAD_TYPE
-from bms_core.models.platform.system import SysIcon, SysIconI18n
-from bms_platform.api.icon import router as icon_router
-from bms_platform.icon.registry import DbIconRegistry
+from bms_core.models.platform.icon import SysIcon, SysIconI18n
+from bms_platform.domains.permission_meta.api.icon import router as icon_router
+from bms_platform.domains.permission_meta.icon.registry import DbIconRegistry
+from bms_platform.domains.permission_meta.services.icon_store import validate_svg
 from bms_platform.main import ApplicationFactory
-from bms_platform.services.icon_store import validate_svg
 from tests_support.auth import auth_headers
 from tests_support.menu_metadata import reset_menu_tables
 from tests_support.permission_admin import setup_min_tenant

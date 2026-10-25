@@ -23,17 +23,17 @@ from bms_core.models.tenant.tenant_module import SysTenantModule
 from bms_core.models.tenant.tenant_quota import SysTenantQuota
 from bms_core.outbox.null import NullOutboxStore
 from bms_core.tenant.provisioning import ProvisionOutcome
-from bms_tenant.repositories.tenant_module import TenantModuleRepository
-from bms_tenant.repositories.tenant_quota import TenantQuotaRepository
-from bms_tenant.repositories.tenant_registry import TenantRegistryRepository
-from bms_tenant.schemas.tenant_admin import TenantCreateRequest
-from bms_tenant.services import platform_tenant as platform_tenant_module
-from bms_tenant.services import provisioning as provisioning_module
-from bms_tenant.services.platform_tenant import ensure_platform_tenant_row
-from bms_tenant.services.provisioning import TenantProvisionService
-from bms_tenant.services.tenant_admin import TenantAdminService
-from bms_tenant.services.tenant_module import ModuleCatalog, TenantModuleService
-from bms_tenant.services.tenant_quota import TenantQuotaService
+from bms_tenant.domains.tenant.repositories.tenant_module import TenantModuleRepository
+from bms_tenant.domains.tenant.repositories.tenant_quota import TenantQuotaRepository
+from bms_tenant.domains.tenant.repositories.tenant_registry import TenantRegistryRepository
+from bms_tenant.domains.tenant.schemas.tenant_admin import TenantCreateRequest
+from bms_tenant.domains.tenant.services import platform_tenant as platform_tenant_module
+from bms_tenant.domains.tenant.services import provisioning as provisioning_module
+from bms_tenant.domains.tenant.services.platform_tenant import ensure_platform_tenant_row
+from bms_tenant.domains.tenant.services.provisioning import TenantProvisionService
+from bms_tenant.domains.tenant.services.tenant_admin import TenantAdminService
+from bms_tenant.domains.tenant.services.tenant_module import ModuleCatalog, TenantModuleService
+from bms_tenant.domains.tenant.services.tenant_quota import TenantQuotaService
 
 pytestmark = pytest.mark.kiwi_id(2325)
 

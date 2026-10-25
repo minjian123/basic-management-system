@@ -20,7 +20,11 @@ from bms_core.db.tenant_source import build_tenant_lookup, registered_tenant_sou
 from bms_core.models.base import Base
 from bms_core.models.tenant.tenant import SysTenant
 from bms_core.models.tenant.tenant_database import SysTenantDatabase
-from bms_tenant.sources.tenant_source import LOCAL_TENANT_SOURCE, LocalTenantSource, register_local_tenant_source
+from bms_tenant.domains.tenant.sources.tenant_source import (
+    LOCAL_TENANT_SOURCE,
+    LocalTenantSource,
+    register_local_tenant_source,
+)
 
 
 @pytest.fixture

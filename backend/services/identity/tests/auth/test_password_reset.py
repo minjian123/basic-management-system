@@ -219,7 +219,7 @@ async def test_reset_revokes_all_sessions_and_next_request_401(client: AsyncClie
 def test_require_tenant_id_rejects_missing_primary_key() -> None:
     """租户主键闸门（防御分支）：演示兜底口径（无雪花主键）→ 20001。"""
     from bms_core.db.tenant import TenantContext
-    from bms_identity.api import password_reset as password_reset_api
+    from bms_identity.domains.auth.api import password_reset as password_reset_api
 
     with pytest.raises(AuthError):
         password_reset_api._require_tenant_id(  # pyright: ignore[reportPrivateUsage]

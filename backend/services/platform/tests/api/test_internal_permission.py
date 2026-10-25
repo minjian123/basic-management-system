@@ -103,7 +103,7 @@ async def test_metadata_endpoint_requires_identity_service(
     client: AsyncClient, service_app: FastAPI, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """`metadata` 出口：仅放行 `sub=identity`；返回元数据索引；`locale` 缺省可取。"""
-    from bms_platform.permission import source as source_module
+    from bms_platform.domains.permission_meta.permission import source as source_module
 
     class _Builder:
         """元数据服务替身（空快照）。"""

@@ -25,8 +25,8 @@ from bms_core.permission.snapshot import TIER_PLATFORM_ADMIN, TIER_SYSTEM_ADMIN
 from bms_core.services.table_registry import TABLE_OWNERSHIP, Datasource
 
 _PLATFORM_SRC = Path(__file__).resolve().parents[2] / "src" / "bms_platform"
-_SERVICES = _PLATFORM_SRC / "services"
-_API = _PLATFORM_SRC / "api"
+_SERVICES = _PLATFORM_SRC / "domains"
+_API = _PLATFORM_SRC / "domains" / "role" / "api"
 _CORE_PERMISSION = Path(__file__).resolve().parents[4] / "libs" / "bms_core" / "src" / "bms_core" / "permission"
 """基座权限能力域（`04_01` 下沉后校验器与引擎的落点）。"""
 
@@ -35,6 +35,24 @@ _GUARD_PREFIX = "ensure_"
 
 _WRITE_CALLS = ("soft_delete_by_user_except", "soft_delete_by_role_except", "restore", "create")
 """分配写入调用名（`sys_user_role` 的实际写入动作）。"""
+
+
+def _find_source(name: str) -> Path:
+    """按文件名在域子包内定位实现文件（`domains/<域>/services/<name>`）。
+
+    Args:
+        name: 文件名（如 `role_assign.py`）。
+
+    Returns:
+        Path: 源文件路径。
+
+    Raises:
+        FileNotFoundError: 未找到。
+    """
+    matches = sorted(_SERVICES.glob(f"*/services/{name}"))
+    if not matches:
+        raise FileNotFoundError(name)
+    return matches[0]
 
 
 def _parse(path: Path) -> ast.Module:
@@ -112,7 +130,7 @@ def _write_call_lines(function: ast.FunctionDef | ast.AsyncFunctionDef) -> Concu
 )
 def test_assignment_entrypoints_call_guard_before_write(module_name: str, function_name: str) -> None:
     """三处分配写入口：均调用三权校验，且调用行号早于任何分配写入调用。"""
-    module = _parse(_SERVICES / module_name)
+    module = _parse(_find_source(module_name))
     function = _find_function(module, function_name)
 
     guard_lines = _guard_call_lines(function)
@@ -128,7 +146,7 @@ def test_assignment_entrypoints_call_guard_before_write(module_name: str, functi
 @pytest.mark.kiwi_id(2314)
 def test_grant_entrypoint_calls_guard_before_delete() -> None:
     """授权入口：`replace_permissions` 调用 `ensure_grant_scope` 且早于 `delete_by_role`。"""
-    module = _parse(_SERVICES / "role_grant.py")
+    module = _parse(_find_source("role_grant.py"))
     function = _find_function(module, "replace_permissions")
 
     guard_lines = _guard_call_lines(function)
@@ -145,7 +163,7 @@ def test_grant_entrypoint_calls_guard_before_delete() -> None:
 @pytest.mark.kiwi_id(2314)
 def test_builtin_role_protection_kept() -> None:
     """内置角色保护保留（`30043`）：角色服务三处 `role_type != ROLE_TYPE_CUSTOM` 判定不缺失。"""
-    module = _parse(_SERVICES / "role.py")
+    module = _parse(_find_source("role.py"))
     source = ast.unparse(module)
 
     assert source.count("ROLE_TYPE_CUSTOM") >= 3

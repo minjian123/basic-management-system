@@ -19,13 +19,13 @@ from sqlalchemy.pool import StaticPool
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.db.unit_of_work import DbUnitOfWork
 from bms_core.transaction.base import TXN_ACTIVE
-from bms_txn.models.ledger import GlobalTxn, GlobalTxnBranch, GlobalTxnRecovery
-from bms_txn.repositories.ledger import (
+from bms_txn.domains.txn.models.ledger import GlobalTxn, GlobalTxnBranch, GlobalTxnRecovery
+from bms_txn.domains.txn.repositories.ledger import (
     GlobalTxnBranchRepository,
     GlobalTxnRecoveryRepository,
     GlobalTxnRepository,
 )
-from bms_txn.services.ledger_cleanup import METRIC_CLEANED, CleanupStats, LedgerCleanup
+from bms_txn.domains.txn.services.ledger_cleanup import METRIC_CLEANED, CleanupStats, LedgerCleanup
 from tests_support.metrics import RecordingMetrics
 
 pytestmark = [pytest.mark.kiwi_id(2271)]

@@ -10,7 +10,7 @@
 import pytest
 
 from bms_core.core.exceptions import ParamError, RoleCodeExistsError, RoleProtectedError
-from bms_platform.repositories.role import RoleRepository
+from bms_platform.domains.role.repositories.role import RoleRepository
 from tests.role import helpers
 
 

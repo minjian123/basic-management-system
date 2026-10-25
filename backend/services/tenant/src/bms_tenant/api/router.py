@@ -6,7 +6,13 @@
 
 from bms_core.api.base import mount_service_routers
 from bms_core.core.concurrent import ConcurrentStableList
-from bms_tenant.api import membership, tenant, tenant_admin, tenant_internal, tenant_registry
+from bms_tenant.domains.tenant.api import (
+    membership,
+    tenant,
+    tenant_admin,
+    tenant_internal,
+    tenant_registry,
+)
 
 api_router = mount_service_routers(
     ConcurrentStableList(

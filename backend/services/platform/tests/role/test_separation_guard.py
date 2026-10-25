@@ -28,10 +28,14 @@ from bms_core.models.platform.role import (
     ROLE_TYPE_SYSTEM,
     SysRole,
 )
-from bms_platform.repositories.menu import ActionRepository, BusinessRepository, PermissionRepository
-from bms_platform.repositories.role import RoleRepository, UserRoleRepository
-from bms_platform.repositories.user import UserRepository
-from bms_platform.services.separation import RoleBusinessPermissions, SeparationGuard
+from bms_platform.domains.permission_meta.repositories.business import (
+    ActionRepository,
+    BusinessRepository,
+    PermissionRepository,
+)
+from bms_platform.domains.role.repositories.role import RoleRepository, UserRoleRepository
+from bms_platform.domains.role.services.separation import RoleBusinessPermissions, SeparationGuard
+from bms_platform.domains.user.repositories.user import UserRepository
 from tests.role import helpers
 
 _ACTOR = 7001

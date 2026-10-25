@@ -6,6 +6,6 @@
 
 from bms_core.api.base import mount_service_routers
 from bms_core.core.concurrent import ConcurrentStableList
-from bms_report.api import print
+from bms_report.domains.report.api import print
 
 api_router = mount_service_routers(ConcurrentStableList([print.router]))

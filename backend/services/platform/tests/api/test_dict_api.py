@@ -20,7 +20,7 @@ from bms_core.dict.query import (
     DictQueryProviderInfo,
     DictQueryProviderListResponse,
 )
-from bms_platform.api.dict import (
+from bms_platform.domains.platform_registry.api.dict import (
     _accept_locale,  # pyright: ignore[reportPrivateUsage]
     list_query_providers,
     parse_ids,

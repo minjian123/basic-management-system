@@ -22,7 +22,7 @@ from bms_core.models.tenant.tenant_database import SysTenantDatabase
 from bms_core.models.tenant.tenant_module import SysTenantModule
 from bms_core.models.tenant.tenant_quota import SysTenantQuota
 from bms_core.tenant.provisioning import ProvisionOutcome
-from bms_tenant.services.provisioning import TenantProvisionService
+from bms_tenant.domains.tenant.services.provisioning import TenantProvisionService
 
 pytestmark = pytest.mark.kiwi_id(2325)
 
@@ -339,7 +339,7 @@ async def test_create_tenant_success_idempotency_and_validation(
             initial_password="Bms1@secret",
         )
 
-    monkeypatch.setattr("bms_tenant.services.provisioning.provision_infrastructure", _provision)
+    monkeypatch.setattr("bms_tenant.domains.tenant.services.provisioning.provision_infrastructure", _provision)
     from bms_core.api.deps import get_idempotency_store
 
     store = _MemoryIdempotency()
@@ -383,7 +383,7 @@ async def test_create_tenant_failure_cleans_registry(
         calls["count"] += 1
         raise RuntimeError("db down")
 
-    monkeypatch.setattr("bms_tenant.services.provisioning.provision_infrastructure", _fail)
+    monkeypatch.setattr("bms_tenant.domains.tenant.services.provisioning.provision_infrastructure", _fail)
     from bms_core.api.deps import get_idempotency_store
 
     store = _MemoryIdempotency()
@@ -396,7 +396,7 @@ async def test_create_tenant_failure_cleans_registry(
         del kwargs
         return ProvisionOutcome(db_basis="bad", admin_username="admin", initial_password="p")
 
-    monkeypatch.setattr("bms_tenant.services.provisioning.provision_infrastructure", _ok)
+    monkeypatch.setattr("bms_tenant.domains.tenant.services.provisioning.provision_infrastructure", _ok)
     retry = await client.post(API, json={"code": "bad", "name": "Bad"}, headers={"Idempotency-Key": "k2"})
     assert retry.status_code == 201
     assert calls["count"] == 1
@@ -433,10 +433,10 @@ async def test_provision_service_skips_duplicate_and_seeds(tmp_path: Path) -> No
     from bms_core.core.config import get_settings
     from bms_core.core.exceptions import TenantCodeExistsError, TenantDomainConflictError
     from bms_core.outbox.null import NullOutboxStore
-    from bms_tenant.schemas.tenant_admin import TenantCreateRequest
-    from bms_tenant.services.tenant_admin import TenantAdminService
-    from bms_tenant.services.tenant_module import ModuleCatalog, TenantModuleService
-    from bms_tenant.services.tenant_quota import TenantQuotaService
+    from bms_tenant.domains.tenant.schemas.tenant_admin import TenantCreateRequest
+    from bms_tenant.domains.tenant.services.tenant_admin import TenantAdminService
+    from bms_tenant.domains.tenant.services.tenant_module import ModuleCatalog, TenantModuleService
+    from bms_tenant.domains.tenant.services.tenant_quota import TenantQuotaService
 
     url = f"sqlite+aiosqlite:///{tmp_path / 'svc.db'}"
     engine = create_async_engine(url)

@@ -23,7 +23,7 @@ from bms_core.core.exceptions import (
     RoleSeparationConflictError,
     RoleTargetInvalidError,
 )
-from bms_core.models.platform.menu import SysMenu
+from bms_core.models.platform.menu_form import SysMenu
 from bms_core.models.platform.role import NO_SOURCE_MENU_ID, PERM_TYPE_FORM, PERM_TYPE_MENU, PERM_TYPE_PERMISSION
 from bms_core.permission.version import permission_version_key
 from bms_core.scope.extensions import (
@@ -32,9 +32,9 @@ from bms_core.scope.extensions import (
     reset_data_scope_extensions,
 )
 from bms_core.scope.limits import OPTION_MAX_IN_VALUES
-from bms_platform.repositories.menu import BusinessRepository, PermissionRepository
-from bms_platform.repositories.role import RoleRepository, UserRoleRepository
-from bms_platform.services.role_grant import (
+from bms_platform.domains.permission_meta.repositories.business import BusinessRepository, PermissionRepository
+from bms_platform.domains.role.repositories.role import RoleRepository, UserRoleRepository
+from bms_platform.domains.role.services.role_grant import (
     DataScopeGrantEntry,
     FieldGrantEntry,
     MenuMetadataChecker,

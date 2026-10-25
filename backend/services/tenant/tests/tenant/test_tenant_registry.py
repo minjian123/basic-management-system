@@ -15,7 +15,7 @@ from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.models.base import Base
 from bms_core.models.tenant.tenant import SysTenant
 from bms_core.models.tenant.tenant_database import SysTenantDatabase
-from bms_tenant.repositories.tenant_registry import TenantRegistryRepository
+from bms_tenant.domains.tenant.repositories.tenant_registry import TenantRegistryRepository
 
 API = "/api/v1/tenant-registry/active-single"
 REGISTRY_API = "/api/v1/tenant-registry"

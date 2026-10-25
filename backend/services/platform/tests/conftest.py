@@ -28,8 +28,8 @@ from bms_core.testing.fixtures import (
 
 __all__ = ("bms_isolate_settings", "platform_db", "reset_plugin_registry", "reset_request_context")
 from bms_core.permission.sources import reset_permission_data_sources
+from bms_platform.domains.permission_meta.permission.checker import register_platform_permission
 from bms_platform.main import ApplicationFactory
-from bms_platform.permission.checker import register_platform_permission
 from ops.seed_module import seed_modules
 from ops.seed_tenant import seed_tenants
 from tests_support.auth import auth_headers, configure_token_env

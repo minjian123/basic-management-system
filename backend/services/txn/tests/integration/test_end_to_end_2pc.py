@@ -41,15 +41,15 @@ from bms_core.transaction.base import (
     BranchSpec,
 )
 from bms_core.transaction.xa import XaTransactionParticipant
-from bms_txn.models.ledger import GlobalTxn, GlobalTxnBranch, GlobalTxnRecovery
-from bms_txn.repositories.ledger import (
+from bms_txn.domains.txn.models.ledger import GlobalTxn, GlobalTxnBranch, GlobalTxnRecovery
+from bms_txn.domains.txn.repositories.ledger import (
     GlobalTxnBranchRepository,
     GlobalTxnRecoveryRepository,
     GlobalTxnRepository,
 )
-from bms_txn.services.coordinator import TransactionCoordinator
-from bms_txn.services.driver import BranchDriver
-from bms_txn.services.recovery import TransactionRecovery
+from bms_txn.domains.txn.services.coordinator import TransactionCoordinator
+from bms_txn.domains.txn.services.driver import BranchDriver
+from bms_txn.domains.txn.services.recovery import TransactionRecovery
 
 pytestmark = [pytest.mark.integration, pytest.mark.kiwi_id(2271)]
 

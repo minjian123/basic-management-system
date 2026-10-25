@@ -19,8 +19,8 @@ from bms_core.health.registry import HealthCheckRegistry
 from bms_core.masking.null import NullMasker
 from bms_core.permission.base import BasePermissionChecker
 from bms_core.storage.local import LocalObjectStorage
+from bms_platform.domains.permission_meta.permission.checker import RbacPermissionChecker
 from bms_platform.main import ApplicationFactory
-from bms_platform.permission.checker import RbacPermissionChecker
 
 
 def _isolated_registry(monkeypatch: pytest.MonkeyPatch) -> PluginRegistry:

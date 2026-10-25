@@ -10,7 +10,7 @@ from bms_core.models.identity.session import SysSession
 from bms_core.ratelimit.memory import MemoryRateLimiter
 from bms_core.security.session import DefaultSessionSecurity
 from bms_core.session.memory import MemorySessionStore
-from bms_identity.services.session_issuer import hash_refresh_token
+from bms_identity.domains.auth.services.session_issuer import hash_refresh_token
 
 from .helpers import TENANT_ID, FakePlatformClient, FakeUserTokenIssuer, wire_auth
 from .session_helpers import seed_session, tenant_scope, utc_now
