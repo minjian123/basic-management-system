@@ -86,7 +86,7 @@ def test_all_ops_scripts_declare_valid_run_image() -> None:
     """全部 `ops` 脚本都声明 `RUN_IMAGE` 且取值合法（`platform` / `tenant` / `txn` / `ci` / `*`）。"""
     ops_dir = _REPO_ROOT / "backend" / "ops"
     scripts = ConcurrentStableList(p.stem for p in sorted(ops_dir.glob("*.py")) if p.name != "__init__.py")
-    assert len(scripts) == 31
+    assert len(scripts) == 32
     for script in scripts:
         declared = _declared(f"ops.{script}")
         assert declared is not None, f"{script} 未声明 RUN_IMAGE"
