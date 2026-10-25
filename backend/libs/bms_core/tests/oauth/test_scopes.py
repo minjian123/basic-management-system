@@ -13,7 +13,12 @@ from bms_core.oauth.scopes import (
     product_scopes,
     validate_scopes,
 )
-from bms_core.services.module_registry import PRODUCT_CATALOG, ProductRecord
+from bms_core.services.module_registry import (
+    PRODUCT_CATALOG,
+    ProductRecord,
+    register_product_records,
+    reset_product_records,
+)
 
 pytestmark = pytest.mark.kiwi_id(2250)
 
@@ -58,3 +63,15 @@ def test_validation_uses_injected_product_catalog() -> None:
     assert validate_scopes(ConcurrentStableList(["mdm:read"]), products) == []
     assert validate_scopes(ConcurrentStableList(["biz:read"]), products) == ["biz:read"]
     assert validate_scopes(ConcurrentStableList(), products) == []
+
+
+def test_runtime_registered_product_scopes_are_validated() -> None:
+    """运行期注册的产品清单同样纳入 scope 校验（产品仓清单装载后不再「scope 未登记」）。"""
+    register_product_records((ProductRecord(product_key="probe", name="探针产品", status="enabled"),))
+    try:
+        known = known_scopes()
+        assert {"probe:read", "probe:write"} <= known
+        assert validate_scopes(ConcurrentStableList(["probe:read"])) == []
+    finally:
+        reset_product_records()
+    assert not {"probe:read", "probe:write"} & known_scopes()

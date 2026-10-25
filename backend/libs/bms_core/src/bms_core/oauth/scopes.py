@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.objects import BaseValueObject
 from bms_core.oauth.oidc_provider import OIDC_DEFAULT_SCOPES
-from bms_core.services.module_registry import PRODUCT_CATALOG, ProductRecord
+from bms_core.services.module_registry import PRODUCT_CATALOG, ProductRecord, product_catalog_view
 
 __all__ = [
     "OIDC_SCOPES",
@@ -118,26 +118,31 @@ def _build_open_scopes(source: ConcurrentStableList[ProductRecord]) -> Concurren
 
 
 OPEN_SCOPES: ConcurrentStableList[OpenScope] = _build_open_scopes(ConcurrentStableList(PRODUCT_CATALOG))
-"""全量 scope 登记视图（平台基础 + OIDC 标准 + 各已登记产品域；`PRODUCT_CATALOG` 派生）。"""
+"""**静态基线** scope 登记视图（平台基础 + OIDC 标准 + 平台内建产品；`PRODUCT_CATALOG` 派生）。
+
+产品仓清单在应用装配期注册（`register_product_records()`），本常量**不含**运行期产品；
+运行期校验一律走 `open_scopes()` / `known_scopes()`（取合并视图），本常量只作静态基线与对照。"""
 
 
 def open_scopes(products: ConcurrentStableList[ProductRecord] | None = None) -> ConcurrentStableList[OpenScope]:
     """全量 scope 登记视图（平台基础 + OIDC 标准 + 各产品域）。
 
     Args:
-        products: 产品档案清单（插入序）；缺省 `PRODUCT_CATALOG`（返回常量 `OPEN_SCOPES`）。
+        products: 产品档案清单（插入序）；缺省取**运行期合并视图** `product_catalog_view()`
+        （平台内建产品 + 产品仓装载后注册的产品，装载不改变本函数语义）。
 
     Returns:
         tuple[OpenScope, ...]: 登记记录（平台基础 → OIDC → 产品，保持插入序）。
     """
-    return OPEN_SCOPES if products is None else _build_open_scopes(ConcurrentStableList(products))
+    source = ConcurrentStableList(product_catalog_view() if products is None else products)
+    return _build_open_scopes(source)
 
 
 def known_scopes(products: ConcurrentStableList[ProductRecord] | None = None) -> ConcurrentStableSet[str]:
     """登记 scope 集合（校验基准，插入序去重）。
 
     Args:
-        products: 产品档案清单（插入序）；缺省 `PRODUCT_CATALOG`。
+        products: 产品档案清单（插入序）；缺省取运行期合并视图 `product_catalog_view()`。
 
     Returns:
         ConcurrentStableSet[str]: 已登记 scope 标识集合。
