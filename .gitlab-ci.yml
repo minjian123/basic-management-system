@@ -256,9 +256,17 @@ base-integrity:
   image: $REGISTRY_IMAGE_PREFIX/ci-backend:py314
   script:
     # engkit 接入（13_05）：基础校验脚本已改为薄包装，需按锁定 SHA 克隆工具包
+    # 克隆地址用 `CI_SERVER_URL`（含协议与端口，本 GitLab 在 8080）；`CI_SERVER_HOST` 不含端口，
+    # 会连到 :80 超时（2026-10-26 手工全量流水线实测，既有缺陷，本次修）
     - export ENGKIT_REV="${ENGKIT_REV:-959965a6b3b591626338b7e3bd7fd28f7a758d51}"
     - |
-      test -d ../engkit/.git || git clone --quiet --no-checkout "${ENGKIT_REPO_URL:-${CI_SERVER_PROTOCOL}://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_SERVER_HOST}/bms/engkit.git}" ../engkit
+      # 克隆地址用 `CI_SERVER_URL`（含协议与端口，本 GitLab 在 8080）；`CI_SERVER_HOST` 不含端口，
+      # 用它拼接会连到 :80 超时（2026-10-26 手工全量流水线实测，既有缺陷，本次修）
+      ENGKIT_SCHEME="${CI_SERVER_URL%%://*}"
+      ENGKIT_HOSTPORT="${CI_SERVER_URL#*://}"
+      ENGKIT_DEFAULT_URL="${ENGKIT_SCHEME}://gitlab-ci-token:${CI_JOB_TOKEN}@${ENGKIT_HOSTPORT}/bms/engkit.git"
+      ENGKIT_URL="${ENGKIT_REPO_URL:-$ENGKIT_DEFAULT_URL}"
+      test -d ../engkit/.git || git clone --quiet --no-checkout "$ENGKIT_URL" ../engkit
     - git -C ../engkit checkout --quiet "$ENGKIT_REV"
     - export ENGKIT_HOME="$CI_PROJECT_DIR/../engkit"
     - python scripts/tools/base_check/check_base.py
@@ -344,7 +352,13 @@ backend-typecheck:
     # ——此前漏此步，靠 `changes` 放行长期未暴露（2026-10-26 手工全量流水线 #1255 首次真跑即失败）。
     - export ENGKIT_REV="${ENGKIT_REV:-959965a6b3b591626338b7e3bd7fd28f7a758d51}"
     - |
-      test -d ../engkit/.git || git clone --quiet --no-checkout "${ENGKIT_REPO_URL:-${CI_SERVER_PROTOCOL}://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_SERVER_HOST}/bms/engkit.git}" ../engkit
+      # 克隆地址用 `CI_SERVER_URL`（含协议与端口，本 GitLab 在 8080）；`CI_SERVER_HOST` 不含端口，
+      # 用它拼接会连到 :80 超时（2026-10-26 手工全量流水线实测，既有缺陷，本次修）
+      ENGKIT_SCHEME="${CI_SERVER_URL%%://*}"
+      ENGKIT_HOSTPORT="${CI_SERVER_URL#*://}"
+      ENGKIT_DEFAULT_URL="${ENGKIT_SCHEME}://gitlab-ci-token:${CI_JOB_TOKEN}@${ENGKIT_HOSTPORT}/bms/engkit.git"
+      ENGKIT_URL="${ENGKIT_REPO_URL:-$ENGKIT_DEFAULT_URL}"
+      test -d ../engkit/.git || git clone --quiet --no-checkout "$ENGKIT_URL" ../engkit
     - git -C ../engkit checkout --quiet "$ENGKIT_REV"
     - export ENGKIT_HOME="$CI_PROJECT_DIR/../engkit"
     - cd backend && uv run pyright
@@ -431,7 +445,13 @@ backend-test:
     # engkit 接入（13_05）：选测执行器与预检入口已改为薄包装，按锁定 SHA 克隆工具包
     - export ENGKIT_REV="${ENGKIT_REV:-959965a6b3b591626338b7e3bd7fd28f7a758d51}"
     - |
-      test -d ../engkit/.git || git clone --quiet --no-checkout "${ENGKIT_REPO_URL:-${CI_SERVER_PROTOCOL}://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_SERVER_HOST}/bms/engkit.git}" ../engkit
+      # 克隆地址用 `CI_SERVER_URL`（含协议与端口，本 GitLab 在 8080）；`CI_SERVER_HOST` 不含端口，
+      # 用它拼接会连到 :80 超时（2026-10-26 手工全量流水线实测，既有缺陷，本次修）
+      ENGKIT_SCHEME="${CI_SERVER_URL%%://*}"
+      ENGKIT_HOSTPORT="${CI_SERVER_URL#*://}"
+      ENGKIT_DEFAULT_URL="${ENGKIT_SCHEME}://gitlab-ci-token:${CI_JOB_TOKEN}@${ENGKIT_HOSTPORT}/bms/engkit.git"
+      ENGKIT_URL="${ENGKIT_REPO_URL:-$ENGKIT_DEFAULT_URL}"
+      test -d ../engkit/.git || git clone --quiet --no-checkout "$ENGKIT_URL" ../engkit
     - git -C ../engkit checkout --quiet "$ENGKIT_REV"
     - export ENGKIT_HOME="$CI_PROJECT_DIR/../engkit"
     # 测试库隔离（2026-10-12）：runner 工作区复用（`/builds` 跨作业 / 跨流水线保留），而 SQLite 测试库
@@ -727,7 +747,13 @@ dependency-scan:
     # engkit 接入（13_05）：按锁定 SHA 克隆工具包，包装入口经 ENGKIT_HOME 定位（升级只改 ENGKIT_REV）
     - export ENGKIT_REV="${ENGKIT_REV:-959965a6b3b591626338b7e3bd7fd28f7a758d51}"
     - |
-      test -d ../engkit/.git || git clone --quiet --no-checkout "${ENGKIT_REPO_URL:-${CI_SERVER_PROTOCOL}://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_SERVER_HOST}/bms/engkit.git}" ../engkit
+      # 克隆地址用 `CI_SERVER_URL`（含协议与端口，本 GitLab 在 8080）；`CI_SERVER_HOST` 不含端口，
+      # 用它拼接会连到 :80 超时（2026-10-26 手工全量流水线实测，既有缺陷，本次修）
+      ENGKIT_SCHEME="${CI_SERVER_URL%%://*}"
+      ENGKIT_HOSTPORT="${CI_SERVER_URL#*://}"
+      ENGKIT_DEFAULT_URL="${ENGKIT_SCHEME}://gitlab-ci-token:${CI_JOB_TOKEN}@${ENGKIT_HOSTPORT}/bms/engkit.git"
+      ENGKIT_URL="${ENGKIT_REPO_URL:-$ENGKIT_DEFAULT_URL}"
+      test -d ../engkit/.git || git clone --quiet --no-checkout "$ENGKIT_URL" ../engkit
     - git -C ../engkit checkout --quiet "$ENGKIT_REV"
     - export ENGKIT_HOME="$CI_PROJECT_DIR/../engkit"
     # 选测 job 用 ci-backend 镜像（Python 3.14 + Node 22 + git）：选测器依赖 bms_core（PEP 695），
