@@ -99,6 +99,10 @@ def main(argv):
     venv_store = os.path.join(deps_dir, "backend-venv")
     if common.is_link(venv_live):
         print("[跳过] backend/.venv 是链接（已外置）")
+        if not dry_run and common.reject_foreign_venv(venv_live, PREFIX):
+            print("[跳过] 外置态指向的 venv 由另一平台创建，本平台不可用（见上方提示）")
+    elif common.reject_foreign_venv(venv_store, PREFIX) or common.reject_foreign_venv(venv_live, PREFIX):
+        print("[跳过] backend/.venv：跨平台 venv 不搬移（在本平台重建后再外置）")
     elif os.path.isdir(venv_store):
         if os.path.lexists(venv_live):
             print("[外置] backend/.venv：依赖仓已有环境，删除仓内残留目录（以依赖仓为准）")

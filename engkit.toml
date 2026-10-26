@@ -115,8 +115,8 @@ cmd = ["{python}", "scripts/tools/preflight/check_workspace_hygiene.py", "--quie
 
 [[preflight.steps]]
 label = "行尾：工作树 CRLF 检查（应为 LF 的文件不得残留 CRLF）"
-cmd = ["uv", "run", "engkit", "eol", "--quiet"]
-cwd = "backend"
+# 从仓根跑：`engkit eol` 需读仓根的 engkit.toml；`--project backend` 让 uv 用 backend 的 venv
+cmd = ["uv", "run", "--project", "backend", "engkit", "eol", "--quiet"]
 
 [[preflight.steps]]
 label = "CI 配置自检（YAML / pytest 选项 / GitLab Lint / 门禁资产）"

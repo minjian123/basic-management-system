@@ -57,11 +57,14 @@ def main(argv):
         venv_link = os.path.join(root, "backend", ".venv")
         venv_store = os.path.join(deps_dir, "backend-venv")
         if common.is_link(venv_link) and os.path.isdir(venv_store):
-            print("[还原] backend/.venv")
-            count += 1
-            if not dry_run:
-                common.remove_link(venv_link)
-                common.move_dir(venv_store, venv_link)
+            if common.reject_foreign_venv(venv_store, PREFIX):
+                print("[跳过] backend/.venv：依赖仓环境由另一平台创建，本平台不可用（见上方提示）")
+            else:
+                print("[还原] backend/.venv")
+                count += 1
+                if not dry_run:
+                    common.remove_link(venv_link)
+                    common.move_dir(venv_store, venv_link)
 
     print(f"[{PREFIX}] 完成：共 {count} 个依赖目录已搬回。")
     return 0

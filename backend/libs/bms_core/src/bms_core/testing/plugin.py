@@ -14,6 +14,8 @@
 故这里的夹具必须显式导入到本模块命名空间，pytest 才会收集注册。
 """
 
+import os
+
 import pytest
 
 from bms_core.testing import fixtures
@@ -42,8 +44,17 @@ def pytest_configure(config: pytest.Config) -> None:
     xdist worker 的 basetemp 形如 `<根>/popen-gwN`，天然按 worker 隔离；交由
     `fixtures.worker_sqlite_dir` 派生 `<basetemp>/sqlite-gwN` 作为该 worker 的 `sqlite_dir`。
 
+    同时补齐 `--basetemp` 的父目录：`addopts` 里的 `--basetemp=.cache/pytest` 指向仓内
+    缓存目录，而 pytest 的 `TmpPathFactory.getbasetemp()` 只 `mkdir` 末级目录、**不递归建父目录**
+    （`tmpdir.py` 中 `basetemp.mkdir(mode=0o700)`），父目录 `.cache` 不存在时 xdist 起 worker
+    即 `FileNotFoundError` 崩掉。此处在本钩子里 `makedirs(exist_ok=True)`——本钩子早于
+    `pytest_sessionstart`（xdist 在后者里才取 basetemp），故能保证父目录就位。
+
     Args:
         config: pytest 配置对象。
     """
     basetemp = getattr(config.option, "basetemp", "") or ""
+    if basetemp:
+        # `abspath` 结果必然含父目录，无需再判空
+        os.makedirs(os.path.dirname(os.path.abspath(os.fspath(basetemp))), exist_ok=True)
     fixtures.configure_sqlite_basetemp(str(basetemp))

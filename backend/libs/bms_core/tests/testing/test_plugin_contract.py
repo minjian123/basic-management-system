@@ -1,12 +1,14 @@
 """测试公共基座：插件注册与「同名同语义」契约（Kiwi 2317）。"""
 
 import os
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, cast
 
 import pytest
 
 from bms_core.cache.memory import MemoryCacheRegion
+from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.testing import plugin
 from bms_core.testing.fixtures import clear_isolated_env, clear_tenant_cache
 
@@ -111,3 +113,38 @@ def test_clear_isolated_env_keeps_test_prefix(monkeypatch: pytest.MonkeyPatch) -
 
     assert "BMS_DATABASE__PLATFORM__URL" not in os.environ
     assert os.environ.get("BMS_TEST_FIXED") == "keep"
+
+
+@pytest.mark.kiwi_id(2317)
+def test_configure_creates_basetemp_parent(tmp_path: Path) -> None:
+    """`pytest_configure` 补齐 `--basetemp` 父目录（pytest 只 mkdir 末级、不递归建父目录）。
+
+    背景：`addopts` 里的 `--basetemp=.cache/pytest` 指向仓内缓存目录，父目录 `.cache`
+    不存在时 xdist 起 worker 即 `FileNotFoundError` 崩掉。
+    """
+    basetemp: Path = tmp_path / "nested" / "pytest"
+    config = cast(Any, SimpleNamespace(option=SimpleNamespace(basetemp=str(basetemp))))
+
+    plugin.pytest_configure(config)
+
+    assert basetemp.parent.is_dir()
+
+
+@pytest.mark.kiwi_id(2317)
+def test_configure_without_basetemp_skips_makedirs(monkeypatch: pytest.MonkeyPatch) -> None:
+    """未设 `--basetemp` 时不建目录（仅把空基址交给测试基座）。"""
+    seen: ConcurrentStableList[str] = ConcurrentStableList()
+
+    def record(value: str) -> None:
+        """记录交给测试基座的基址。
+
+        Args:
+            value: basetemp 基址。
+        """
+        seen.append(value)
+
+    monkeypatch.setattr(plugin.fixtures, "configure_sqlite_basetemp", record)
+
+    plugin.pytest_configure(cast(Any, SimpleNamespace(option=SimpleNamespace(basetemp=""))))
+
+    assert list(seen) == [""]

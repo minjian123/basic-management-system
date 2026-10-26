@@ -189,6 +189,64 @@ def is_within(path, base):
     return p == b or p.startswith(b + os.sep)
 
 
+# ---- venv 平台归属校验（防跨平台互相覆盖）----
+
+
+def venv_home(venv_dir):
+    """读 venv 的 `pyvenv.cfg` 中 `home=`（解释器所在目录）；缺失或不可读返回空串。"""
+    config = os.path.join(os.fspath(venv_dir), "pyvenv.cfg")
+    try:
+        with open(config, encoding="utf-8", errors="replace") as handle:
+            for line in handle:
+                key, _, value = line.partition("=")
+                if key.strip().lower() == "home":
+                    return value.strip()
+    except OSError:
+        return ""
+    return ""
+
+
+def venv_foreign(venv_dir):
+    """判定 venv 是否由**另一平台**创建（跨平台共用同一路径会互相破坏结构）。
+
+    背景（2026-10-26 排查）：WSL 侧 uv 经 `/mnt/d/...` 作用于同一个 `backend/.venv` 时，
+    会把 `pyvenv.cfg` 的 `home` 写成 POSIX 路径（`/usr/local/bin`）并留下 Linux 专有的
+    `lib64` 结构；回到 Windows 该 venv 即不可用，`uv run` 会重建，形成「反复被破坏」。
+
+    判定依据 `home` 的形态（不用目录结构判定：Windows 侧 `ensure_venv_bin_shim` 会补
+    `bin/` 硬链接，`bin` 与 `Scripts` 可能同时存在，结构不可靠）：
+
+    - Windows：`home` 应为盘符路径（`C:\\...`）或 UNC（`\\\\...`）；
+    - POSIX：`home` 应为 `/...`。
+
+    Returns:
+        空串表示与本平台一致（或无法判定，按一致处理，不阻断既有流程）；
+        非空串为不匹配原因（供调用方打印与拒绝搬移）。
+    """
+    home = venv_home(venv_dir)
+    if not home:
+        return ""
+    is_posix_path = home.startswith("/")
+    if IS_WINDOWS and is_posix_path:
+        return f"pyvenv.cfg 的 home 为 POSIX 路径（{home}），该 venv 由 Linux/WSL 侧创建"
+    if not IS_WINDOWS and not is_posix_path:
+        return f"pyvenv.cfg 的 home 为 Windows 路径（{home}），该 venv 由 Windows 侧创建"
+    return ""
+
+
+def reject_foreign_venv(venv_dir, prefix):
+    """搬移 / 采用 venv 前校验平台归属：不匹配即提示并返回 True（调用方应跳过）。"""
+    reason = venv_foreign(venv_dir)
+    if not reason:
+        return False
+    sys.stderr.write(f"[{prefix}] 拒绝搬移 {venv_dir}：{reason}\n")
+    sys.stderr.write(
+        f"[{prefix}] 跨平台共用同一 .venv 会互相破坏结构。处置：在本平台重新创建环境"
+        f"（删除该目录后按《uv部署使用说明》7.2 节重建），或为各平台使用独立依赖仓。\n"
+    )
+    return True
+
+
 # ---- venv 解释器路径口径（Windows 兼容入口）----
 
 
