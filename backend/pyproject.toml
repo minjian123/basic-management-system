@@ -11,8 +11,9 @@ dev = [
     "pytest-asyncio>=0.24",
     "httpx>=0.27",
     "pytest-cov>=5.0",
-    "ruff>=0.6",
-    "pyright>=1.1.380",
+    # 跨仓工程化工具包（13_05 / 13_07）：ruff 与 pyright 的**版本**随其 [devtools] 组下发，
+    # 本仓不再另行声明工具版本（升级只改 [tool.uv.sources] 的 rev 一处）
+    "engkit[devtools]",
     "fakeredis[lua]>=2.38.0",
     "allure-pytest>=2.16.0",
     "kiwitcms-pytest-plugin>=15.4",
@@ -23,17 +24,23 @@ dev = [
 ]
 
 [tool.ruff]
-line-length = 120
+# 规则段（行宽 / 规则集 / 忽略项）**不在本仓声明**：唯一来源是 engkit 仓 `toolchain/ruff-base.toml`
+# （13_07）。相对路径按**本配置文件所在目录**解析（ruff 实测口径，不展开环境变量）；
+# 基线缺失时 ruff 直接退出码 2（不静默回落）——故本仓与 CI 均需先有 engkit 克隆，仓内不留副本。
+# 本仓专属项（target-version / known-first-party）仍写在这里。
+extend = "../../engkit/toolchain/ruff-base.toml"
 target-version = "py314"
 
 [[tool.uv.index]]
 url = "https://pypi.tuna.tsinghua.edu.cn/simple"
 default = true
 
-[tool.ruff.lint]
-select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF"]
-# 中文标点为文档与注释的有意用法，关闭歧义字符检查
-ignore = ["RUF001", "RUF002", "RUF003"]
+[tool.uv.sources]
+# 跨仓工程化工具包（engkit 仓，13_05 / 13_07）：锁提交 SHA 保证可精确复现，升级只改本处 rev
+# （与 mdm 同构；CI 侧另有 `ENGKIT_REV` 供克隆使用，两者同一次升级一起改）。
+# 注意：包提供 ruff / pyright 版本与 engkit 命令；**规则基线另需平级克隆**——`extend` 读文件路径，
+# 读不了安装包内资源（且本仓 `.venv` 外置符号链接，包内路径不稳定），两条路径都要有。
+engkit = { git = "http://192.168.0.107:8080/bms/engkit.git", rev = "bb2199f26ef815a4f4ebaee72af28f97076837e2" }
 
 [tool.ruff.lint.isort]
 # 工作区自有包与脚本区视为第一方（与第三方依赖分组稳定，避免归类漂移）

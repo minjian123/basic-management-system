@@ -29,9 +29,13 @@
 # 预检步骤不再写在本目录：**步骤清单在仓根 `engkit.toml` 的 `[[preflight.steps]]`**，改步骤即改配置；
 # 逐条口径（静态 / 测试段 / 基座与边界 / 契约 / 前端 / 自测按需）见该文件注释与 engkit 文档。
 #
-# 运行前提
-#   本地：工作区里平级克隆 `engkit`（`../engkit`），或 `pip install engkit`，或设 `ENGKIT_HOME`；
-#   CI：job 内按锁定 SHA 克隆并 `export ENGKIT_HOME`（见 `.gitlab-ci.yml` 各 job 的 engkit 接入段）。
+# 运行前提（13_07 起）
+#   本地：`uv sync` 按 git 源依赖装好 engkit 包（`backend/pyproject.toml` 的 `[tool.uv.sources]`），
+#         且工作区里平级克隆 `engkit`（`../engkit`）——**ruff 规则基线是文件路径，必须读克隆**：
+#         缺克隆时 ruff 直接报 `Failed to load extended configuration` 并退出码 2（不静默回落，
+#         仓内也不留副本）；包不可用时 `engkit_boot.py` 仍按 `ENGKIT_HOME` → 同级克隆兜底。
+#   CI：job 内 `. scripts/tools/ci/engkit_setup.sh`（按锁定 SHA 克隆 + 导出 `ENGKIT_HOME`，一处维护）；
+#       `uv sync --frozen` 另按同一 rev 拉 engkit 包——克隆与包是两条都要有的路径。
 #
 # 关键约束（改动脚本时务必遵守）
 #   1. 包内口径改在 `engkit` 仓（用例与覆盖率 100% 门禁在那侧）；本目录**不得**再写推导 / 判定逻辑。

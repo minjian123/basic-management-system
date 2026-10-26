@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """engkit 包定位（薄包装共用）：先 `import engkit`，失败则按 `ENGKIT_HOME` → 同级 `../engkit` 注入路径。
 
-口径（13_05）：本仓不安装 engkit 也能跑——本地有平级克隆即可；CI 由 job 按锁定 SHA 克隆并导出
-`ENGKIT_HOME`。包装脚本**不含任何推导逻辑**，只做参数转发（见《工程化工具包说明》）。
+口径（13_05 / 13_07）：`13_07` 起 bms 以 **git 源依赖**安装 `engkit[devtools]`（与 mdm 同构，
+install 成功即走第一条路径）；路径探测保留为**兜底**——包不可用（未 sync / 老环境）时，
+本地平级克隆或 CI 的 `ENGKIT_HOME` 仍能让包装入口工作。ruff 规则基线另需**克隆**（读文件路径），
+与包是两条独立路径。包装脚本**不含任何推导逻辑**，只做参数转发（见《工程化工具包说明》）。
 """
 
 from __future__ import annotations

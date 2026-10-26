@@ -255,20 +255,10 @@ base-integrity:
   # 用 ci-backend 镜像：其已固化 git（check_prototype_review --changed 需调用）；见 deploy/ci/Dockerfile.backend
   image: $REGISTRY_IMAGE_PREFIX/ci-backend:py314
   script:
-    # engkit 接入（13_05）：基础校验脚本已改为薄包装，需按锁定 SHA 克隆工具包
-    # 克隆地址用 `CI_SERVER_URL`（含协议与端口，本 GitLab 在 8080）；`CI_SERVER_HOST` 不含端口，
-    # 会连到 :80 超时（2026-10-26 手工全量流水线实测，既有缺陷，本次修）
-    - export ENGKIT_REV="${ENGKIT_REV:-959965a6b3b591626338b7e3bd7fd28f7a758d51}"
-    - |
-      # 克隆地址用 `CI_SERVER_URL`（含协议与端口，本 GitLab 在 8080）；`CI_SERVER_HOST` 不含端口，
-      # 用它拼接会连到 :80 超时（2026-10-26 手工全量流水线实测，既有缺陷，本次修）
-      ENGKIT_SCHEME="${CI_SERVER_URL%%://*}"
-      ENGKIT_HOSTPORT="${CI_SERVER_URL#*://}"
-      ENGKIT_DEFAULT_URL="${ENGKIT_SCHEME}://gitlab-ci-token:${CI_JOB_TOKEN}@${ENGKIT_HOSTPORT}/bms/engkit.git"
-      ENGKIT_URL="${ENGKIT_REPO_URL:-$ENGKIT_DEFAULT_URL}"
-      test -d ../engkit/.git || git clone --quiet --no-checkout "$ENGKIT_URL" ../engkit
-    - git -C ../engkit checkout --quiet "$ENGKIT_REV"
-    - export ENGKIT_HOME="$CI_PROJECT_DIR/../engkit"
+    # engkit 接入（13_05 / 13_07）：基础校验脚本是薄包装，且 ruff 规则基线已外置到 engkit 仓，
+    # 故需按锁定 SHA 克隆工具包。克隆步统一由片段脚本提供（`ENGKIT_REV` 缺省值、克隆地址口径、
+    # `ENGKIT_HOME` 导出都在该文件一处维护；升级只改那里 + 各仓 pyproject 的 rev）。
+    - . scripts/tools/ci/engkit_setup.sh
     - python scripts/tools/base_check/check_base.py
     # 系统字段 form_key：构建期清单 ↔ 表文件双向一致 + 跨表全局唯一（02_11）
     - python scripts/tools/base_check/check_system_fields.py
@@ -319,10 +309,18 @@ backend-lint:
       exists:
         - backend/pyproject.toml
   script:
+    # ruff 规则基线外置（13_07）：`backend/pyproject.toml` 的 `extend` 指向 engkit 仓
+    # `toolchain/ruff-base.toml`（文件路径，读不了安装包内资源），故本 job 也必须先有克隆；
+    # ruff 版本由 `engkit[devtools]` 下发，仓内不再声明。
+    - . scripts/tools/ci/engkit_setup.sh
     - cd backend && uv run ruff check .
 
 # ---- 工具脚本：ruff 检查 + 格式（仓根 scripts/tools；08_01 遗留「scripts/tools 未纳入 CI lint」收口，
-#      2026-10-02）——从 backend/ 运行以取用 backend/pyproject.toml 的 ruff 配置（line-length=120 / py314）----
+#      2026-10-02）——从 backend/ 运行以取用 backend/pyproject.toml 的 ruff 配置（行宽 / 规则集由 engkit
+#      基线提供，py314 为本仓专属项）。13_07 起该兜底链变为 `backend/pyproject.toml` 的 `extend` →
+#      `../../engkit/toolchain/ruff-base.toml`：命令**原文不变**，但必须先有 engkit 克隆；
+#      将来若给 scripts/tools 加独立 ruff 配置，兜底链会断（配置向上找不到就不再回落 backend/），
+#      届时须在该配置里同样 `extend` 基线。----
 tooling-lint:
   stage: lint
   image: $REGISTRY_IMAGE_PREFIX/ci-backend:py314
@@ -336,6 +334,8 @@ tooling-lint:
       exists:
         - backend/pyproject.toml
   script:
+    # 基线外置后仍需克隆（配置兜底链见本 job 头注释）
+    - . scripts/tools/ci/engkit_setup.sh
     - cd backend
     - uv run ruff check ../scripts/tools
     - uv run ruff format --check ../scripts/tools
@@ -353,20 +353,11 @@ backend-typecheck:
       exists:
         - backend/pyproject.toml
   script:
-    # engkit 接入（13_05）：`backend/pyproject.toml` 的 pyright `extraPaths` 含 `../../engkit/src`
-    # （边界用例导入 `engkit.config` / `engkit.cli`，类型门禁须按源码解析），故本 job 也要克隆工具包
-    # ——此前漏此步，靠 `changes` 放行长期未暴露（2026-10-26 手工全量流水线 #1255 首次真跑即失败）。
-    - export ENGKIT_REV="${ENGKIT_REV:-959965a6b3b591626338b7e3bd7fd28f7a758d51}"
-    - |
-      # 克隆地址用 `CI_SERVER_URL`（含协议与端口，本 GitLab 在 8080）；`CI_SERVER_HOST` 不含端口，
-      # 用它拼接会连到 :80 超时（2026-10-26 手工全量流水线实测，既有缺陷，本次修）
-      ENGKIT_SCHEME="${CI_SERVER_URL%%://*}"
-      ENGKIT_HOSTPORT="${CI_SERVER_URL#*://}"
-      ENGKIT_DEFAULT_URL="${ENGKIT_SCHEME}://gitlab-ci-token:${CI_JOB_TOKEN}@${ENGKIT_HOSTPORT}/bms/engkit.git"
-      ENGKIT_URL="${ENGKIT_REPO_URL:-$ENGKIT_DEFAULT_URL}"
-      test -d ../engkit/.git || git clone --quiet --no-checkout "$ENGKIT_URL" ../engkit
-    - git -C ../engkit checkout --quiet "$ENGKIT_REV"
-    - export ENGKIT_HOME="$CI_PROJECT_DIR/../engkit"
+    # engkit 接入（13_05 / 13_07）：`backend/pyproject.toml` 的 pyright `extraPaths` 含 `../../engkit/src`
+    # （边界用例导入 `engkit.config` / `engkit.cli`，类型门禁须按源码解析），且 pyright **版本**由
+    # `engkit[devtools]` 下发；故本 job 也要克隆工具包（此前漏此步，靠 `changes` 放行长期未暴露，
+    # 2026-10-26 手工全量流水线 #1255 首次真跑即失败）。
+    - . scripts/tools/ci/engkit_setup.sh
     - cd backend && uv run pyright
 
 # ---- 后端：插件装配离线校验（复用装配清单与注册表语义；见 01-2-1 详细设计）----
@@ -448,18 +439,9 @@ backend-test:
       exists:
         - backend/pyproject.toml
   script:
-    # engkit 接入（13_05）：选测执行器与预检入口已改为薄包装，按锁定 SHA 克隆工具包
-    - export ENGKIT_REV="${ENGKIT_REV:-959965a6b3b591626338b7e3bd7fd28f7a758d51}"
-    - |
-      # 克隆地址用 `CI_SERVER_URL`（含协议与端口，本 GitLab 在 8080）；`CI_SERVER_HOST` 不含端口，
-      # 用它拼接会连到 :80 超时（2026-10-26 手工全量流水线实测，既有缺陷，本次修）
-      ENGKIT_SCHEME="${CI_SERVER_URL%%://*}"
-      ENGKIT_HOSTPORT="${CI_SERVER_URL#*://}"
-      ENGKIT_DEFAULT_URL="${ENGKIT_SCHEME}://gitlab-ci-token:${CI_JOB_TOKEN}@${ENGKIT_HOSTPORT}/bms/engkit.git"
-      ENGKIT_URL="${ENGKIT_REPO_URL:-$ENGKIT_DEFAULT_URL}"
-      test -d ../engkit/.git || git clone --quiet --no-checkout "$ENGKIT_URL" ../engkit
-    - git -C ../engkit checkout --quiet "$ENGKIT_REV"
-    - export ENGKIT_HOME="$CI_PROJECT_DIR/../engkit"
+    # engkit 接入（13_05 / 13_07）：选测执行器与预检入口是薄包装，按锁定 SHA 克隆工具包
+    # （片段脚本一处维护）。
+    - . scripts/tools/ci/engkit_setup.sh
     # 测试库隔离（2026-10-12）：runner 工作区复用（`/builds` 跨作业 / 跨流水线保留），而 SQLite 测试库
     # （`.gitignore` 不入库、git 清理不覆盖）会残留旧 schema；`auto_create` 用 `create_all(checkfirst=True)`
     # **只补不删**，既有表不会被补列 ⇒ 表现为「no such column」→ 10006 只读降级。
@@ -750,18 +732,9 @@ dependency-scan:
 # 本 job 无受影响包时 early-exit（打印原因并 success），避免「任一前端文件改动即四包全量」。
 .test-selection:
   before_script:
-    # engkit 接入（13_05）：按锁定 SHA 克隆工具包，包装入口经 ENGKIT_HOME 定位（升级只改 ENGKIT_REV）
-    - export ENGKIT_REV="${ENGKIT_REV:-959965a6b3b591626338b7e3bd7fd28f7a758d51}"
-    - |
-      # 克隆地址用 `CI_SERVER_URL`（含协议与端口，本 GitLab 在 8080）；`CI_SERVER_HOST` 不含端口，
-      # 用它拼接会连到 :80 超时（2026-10-26 手工全量流水线实测，既有缺陷，本次修）
-      ENGKIT_SCHEME="${CI_SERVER_URL%%://*}"
-      ENGKIT_HOSTPORT="${CI_SERVER_URL#*://}"
-      ENGKIT_DEFAULT_URL="${ENGKIT_SCHEME}://gitlab-ci-token:${CI_JOB_TOKEN}@${ENGKIT_HOSTPORT}/bms/engkit.git"
-      ENGKIT_URL="${ENGKIT_REPO_URL:-$ENGKIT_DEFAULT_URL}"
-      test -d ../engkit/.git || git clone --quiet --no-checkout "$ENGKIT_URL" ../engkit
-    - git -C ../engkit checkout --quiet "$ENGKIT_REV"
-    - export ENGKIT_HOME="$CI_PROJECT_DIR/../engkit"
+    # engkit 接入（13_05 / 13_07）：按锁定 SHA 克隆工具包，包装入口经 ENGKIT_HOME 定位
+    # （片段脚本一处维护：ENGKIT_REV 缺省值与克隆地址口径都在 scripts/tools/ci/engkit_setup.sh）
+    - . scripts/tools/ci/engkit_setup.sh
     # 选测 job 用 ci-backend 镜像（Python 3.14 + Node 22 + git）：选测器依赖 bms_core（PEP 695），
     # 而 ci-frontend 的 python3 为 3.11 无法解析。pnpm 该镜像未预装，按需装一次（固定版本与本地一致）。
     - command -v pnpm >/dev/null 2>&1 || npm i -g pnpm@11.7.0 --registry=https://registry.npmmirror.com
