@@ -129,7 +129,32 @@ SKIP_DIRS = {
     ".idea",
     ".vs",
     "tmp",
+    "temp",
+    "vendor",
 }
+
+# 目录名**前缀**跳过：pytest 的 basetemp（`pytest-of-<用户>`，内含每用例一份临时仓库）
+# 与它清理失败留下的 `garbage-<uuid>`。这些是测试残留、不入 git，但名字不在 SKIP_DIRS
+# 里会被整棵扫进索引——实测一次残留 2 万余文件、占索引 15MB，故按前缀拦截。
+SKIP_DIR_PREFIXES = ("pytest-of-", "garbage-")
+
+# 目录名**后缀**跳过：前端独立预览产物（bms `.gitignore` 口径 `dist-standalone/`）。
+SKIP_DIR_SUFFIXES = ("-standalone",)
+
+# 文件级跳过：第三方压缩库与字体等**二进制/机器生成**资源。
+# 注意这类文件**通常仍被 git 跟踪**（原型要求 file:// 离线双击可用，故 vendor 组件库
+# 与 mermaid.min.js 是仓库资产，不是可外置的依赖），所以不能靠 gitignore 排除；
+# 但对检索无价值且体量大（实测 34 个 / 8.26MB），按特征拦在索引入口。
+SKIP_FILE_SUFFIXES = (
+    ".min.js",
+    ".min.css",
+    ".min.mjs",
+    ".woff",
+    ".woff2",
+    ".ttf",
+    ".eot",
+    ".otf",
+)
 DOC_EXT = {".md"}
 CODE_EXT = {
     ".py",
@@ -282,13 +307,43 @@ CREATE VIRTUAL TABLE IF NOT EXISTS fts USING fts5(
 """
 
 
+def _skip_dir(name: str) -> bool:
+    """目录是否跳过：点开头、黑名单、前缀（pytest 残留）、后缀（构建产物）。"""
+    if name.startswith("."):
+        return True
+    if name in SKIP_DIRS:
+        return True
+    if name.startswith(SKIP_DIR_PREFIXES):
+        return True
+    return name.endswith(SKIP_DIR_SUFFIXES)
+
+
+def _skip_file(rel: str) -> bool:
+    """文件是否跳过。
+
+    两类：
+      1. 第三方压缩库与字体——多数仍被 git 跟踪，但对检索无价值；
+      2. 模块发布版本目录（`frontend/releases/<模块>/<版本>/`）下的构建产物——
+         与 `.ignore` 同口径：版本目录为产物不入检索，但 `release-log.*` 治理留痕保留。
+    """
+    name = rel.rsplit("/", 1)[-1].lower()
+    if name.endswith(SKIP_FILE_SUFFIXES):
+        return True
+    # 模块发布版本目录（`frontend/releases/<模块>/<版本>/`）为构建产物，与 `.ignore` 同口径；
+    # `release-log.*` 是治理留痕，须可检索。
+    return "/releases/" in f"/{rel}" and not name.startswith("release-log.")
+
+
 def iter_files(root: Path):
-    """遍历待索引文件（跳过依赖与产物目录）。"""
+    """遍历待索引文件（跳过依赖、产物、缓存与第三方压缩库）。"""
     for dp, dns, fns in os.walk(root):
-        dns[:] = [d for d in dns if d not in SKIP_DIRS and not d.startswith(".")]
+        dns[:] = [d for d in dns if not _skip_dir(d)]
         for fn in fns:
             p = Path(dp) / fn
             if p.suffix.lower() not in TEXT_EXT:
+                continue
+            rel = str(p.relative_to(root)).replace("\\", "/")
+            if _skip_file(rel):
                 continue
             try:
                 st = p.stat()
