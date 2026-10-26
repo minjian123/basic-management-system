@@ -95,8 +95,49 @@ def test_trigger_jobs_cover_enabled_services() -> None:
         assert trigger["strategy"] == "depend"
         paths = _rule_paths(ConcurrentStableList(ConcurrentStableDict(rule) for rule in job["rules"]))
         assert f"backend/services/{service}/**/*" in paths
-        assert any(rule.get("if") == '$CI_PIPELINE_SOURCE == "merge_request_event"' for rule in job["rules"])
         assert any("compare_to" in (rule.get("changes") or {}) for rule in job["rules"])
+
+
+@pytest.mark.kiwi_id(2184)
+def test_workflow_only_manual_and_tag_triggers() -> None:
+    """推送 / MR 不建流水线（2026-10-26 拍板）：workflow 只放行 web / api / tag，全文件无 push / MR 规则。
+
+    口径：日常验证以推送前本地预检为准，CI 按需手工触发（手工触发即全量——无 Git 推送事件的流水线里
+    `rules:changes` 恒为真）；推 `vX.Y.Z` tag 仍自动建流水线（发布语义）。本用例防「推送触发」被回加。
+    """
+    ci = _load(_CI_PATH)
+    conditions = [str(rule.get("if", "")) for rule in ci["workflow"]["rules"]]
+    assert conditions == [
+        '$CI_PIPELINE_SOURCE == "web"',
+        '$CI_PIPELINE_SOURCE == "api"',
+        "$CI_COMMIT_TAG =~ /^v/",
+    ]
+    # 全文件（含各 job 的 rules）不得出现推送 / MR 事件判定
+    for name, job in ci.items():
+        if not isinstance(job, dict):
+            continue
+        raw_rules: object = cast("dict[str, Any]", job).get("rules")
+        if not isinstance(raw_rules, list):
+            continue
+        for rule in cast("list[Any]", raw_rules):
+            condition = str(cast("dict[str, Any]", rule).get("if", ""))
+            assert '"push"' not in condition, f"{name} 仍按 push 触发：{condition}"
+            assert "merge_request_event" not in condition, f"{name} 仍按 MR 触发：{condition}"
+
+
+@pytest.mark.kiwi_id(2184)
+def test_manual_trigger_tool_is_registered() -> None:
+    """手工触发入口就位：`scripts/tools/ci/trigger.py` 存在且被 tooling-lint 覆盖（scripts/tools 全域）。"""
+    tool = _REPO / "scripts" / "tools" / "ci" / "trigger.py"
+    assert tool.is_file()
+    script = tool.read_text(encoding="utf-8")
+    assert "/pipeline" in script
+    assert "PRIVATE-TOKEN" in script
+    # 口径写在脚本头部：推送不触发、手工触发即全量
+    assert "推送不再触发流水线" in script
+    ci = _load(_CI_PATH)
+    lint = "\n".join(str(line) for line in ci["tooling-lint"]["script"])
+    assert "../scripts/tools" in lint
 
 
 @pytest.mark.kiwi_id(2184)

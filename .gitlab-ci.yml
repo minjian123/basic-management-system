@@ -1,8 +1,11 @@
-# MR 流水线门禁（《开发部署规划》第 7 节）
+# CI 流水线配置（《开发部署规划》第 7 节）
+# 触发口径（2026-10-26 用户拍板）：**推送不触发流水线**——日常验证以推送前的本地预检为准，
+#   CI 只作按需的全量 / 集成验证，**手工触发即全量**（GitLab 界面 Run pipeline / API，
+#   便捷入口 `scripts/tools/ci/trigger.py`）；推 `vX.Y.Z` tag 仍自动建流水线（发布语义，非日常推送）。
 # 口径：后端 ruff + pyright + pytest（SQLite，覆盖率门禁）+ 模块注册清单校验；
 #       前端 ESLint + Vitest（双端，覆盖率门禁）+ frontend/apps/desktop / frontend/apps/mobile 双端构建。
 # **覆盖率门槛 / 维度 / 本地与 CI 同口径：口径见《AI开发规范》「覆盖率要求」节，本文件不复述数字。**
-# 存量缺口补齐前**不推送**（不触发流水线）；本地 preflight 按同一口径硬拦，不设 allow_failure 软门禁。
+# 存量缺口补齐前**不推送**；本地 preflight 按同一口径硬拦，不设 allow_failure 软门禁。
 # backend/ frontend/apps/desktop/ 尚未落地（阶段一骨架），对应 job 以 exists 守卫，
 # 目录与清单文件出现后自动启用。
 #
@@ -12,7 +15,7 @@
 #     发布该服务；镜像与版本按服务独立）；
 #   - backend/services/** 变更只拉起对应服务；共享 / 工作区路径（backend/libs、backend/ops、
 #     backend/alembic、config*.toml、pyproject.toml、uv.lock、deploy/**、.gitlab-ci.yml）变更由
-#     backend-test 全量测试兜底；MR 流水线全量（恢复 MR 流程后生效）；其他分支以 compare_to 兜底；
+#     backend-test 全量测试兜底；手工触发时 changes 恒真（等价全量）；其他分支以 compare_to 兜底；
 #   - 前端 job 群（desktop / mobile / modules）保持父流水线现状，不套「服务」概念。
 
 # 依赖漏洞扫描（供应链安全）：官方 Dependency Scanning 模板（gemnasium 分析器，覆盖 pnpm-lock.yaml 等）。
@@ -23,46 +26,23 @@ include:
   - template: Security/Dependency-Scanning.gitlab-ci.yml
 
 workflow:
-  # 新推送自动取消同分支上一条未完成流水线（仅取消可中断 job）：
-  # 避免连续 push 时多条流水线抢占有限的 runner 并发槽（2026-09-22 提速）。
+  # 同分支新流水线自动取消上一条未完成流水线（仅取消可中断 job）：
+  # 避免连续手工触发时多条流水线抢占有限的 runner 并发槽（2026-09-22 提速；2026-10-26 起无推送触发，
+  # 该开关只在手工连发 / tag 场景生效）。
   auto_cancel:
     on_new_commit: interruptible
   rules:
-    # 指令驱动 + main 直推自动验证（2026-08-22）：
-    # push/MR 事件不再无条件建流水线；main 直推仅当代码/CI 配置路径有变更时才跑
-    # （2026-08-23：纯文档推送免 CI——单人期冒烟无价值，流程开销优先砍）。
-    # 双层口径（2026-09-17 修订，用户拍板）：
-    #   - 流水线级：下方 changes 用「并集」写法（代码 + 基座文档路径，任一命中即建流水线）；
-    #   - job 级：main 直推的 job 以 changes 按域放行（后端组 / 前端组 / 镜像档各守各自路径），
-    #     纯基座文档推送只跑 gate-smoke + base-integrity（秒级），不再全量；
-    #   - MR 流水线维持全量门禁（不做 job 级 changes 放行，避免“含代码 MR 只跑占位 job”类漏判——2026-08-22 教训）。
-    # MR 流水线：新建 / 更新 MR 时建流水线（各 job 以 merge_request_event 规则放行；不做 job 级 changes）
-    # （2026-09-24 修复：此前 workflow 漏配本条，导致 MR 不生成流水线，与项目「Pipelines must succeed」冲突、MR 无法合并）
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    # **推送不触发流水线（2026-10-26 用户拍板）**：日常验证以推送前的本地预检为准，CI 只作按需的
+    # 全量 / 集成验证。`workflow` 不再监听 `push` 与 `merge_request_event`——推送一律不建流水线
+    # （因此推送**无需**再加 `-o ci.skip`）。保留的触发来源：
+    #   - `web` / `api`：手工触发（GitLab 界面 Run pipeline 或 `POST /projects/<id>/pipeline`，
+    #     便捷入口 `scripts/tools/ci/trigger.py`）——**手工触发即全量**：无 Git 推送事件的流水线里
+    #     `rules:changes` 恒为真，各 job 天然全跑，不另设档位变量；
+    #   - 版本标签（09_02）：推 `vX.Y.Z` tag 建流水线，拉起服务子流水线构建语义化镜像。
+    # job 级 `changes` 保留：手工触发时恒真（等价全量）；将来若恢复推送触发，路径放行可直接复用。
     - if: $CI_PIPELINE_SOURCE == "web"
     - if: $CI_PIPELINE_SOURCE == "api"
-    # 版本标签流水线（09_02）：推 vX.Y.Z tag 时建流水线，拉起服务子流水线构建语义化镜像
     - if: $CI_COMMIT_TAG =~ /^v/
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE == "push"
-      changes:
-        paths:
-          - backend/**/*
-          - frontend/**/*
-          - deploy/**/*
-          - scripts/tools/**/*
-          - package.json
-          - pnpm-lock.yaml
-          - pnpm-workspace.yaml
-          - tsconfig.base.json
-          - .npmrc
-          - .gitlab-ci.yml
-          # 基座路径（2026-09-10）：基座文档改动需过 base-integrity 校验
-          # （链接自洽 / 无跨层引用 / 无措辞残留 / 清单与磁盘一致）；
-          # 其余纯业务文档（规划、项目、设计、产品资料）仍免 CI。
-          - bms文档/规范/**/*
-          - bms文档/资料/**/*
-          - bms文档/资源/**/*
-          - bms文档/基座文档清单.md
 
 stages:
   - prepare
@@ -246,7 +226,7 @@ ci-base-build:
 # 阶段一代码落地前，流水线仅含本 job（4-6 秒）；代码目录出现后 lint/test 自动激活，
 # 重验证 job（E2E/集成/镜像/扫描）仅 main 流水线运行——分层门禁见《开发部署规划》第 7 节。
 # changes 的匹配语义是「任一命中」而非「全部命中」，不得用它区分文档/代码场景
-# （曾因此导致含代码的 MR 只跑了占位 job——2026-08-22 修复，合并为本 job）。
+# （曾因此导致含代码的流水线只跑了占位 job——2026-08-22 修复，合并为本 job）。
 gate-smoke:
   stage: lint
   image: python:3.14-slim
@@ -307,9 +287,6 @@ backend-lint:
   stage: lint
   image: $REGISTRY_IMAGE_PREFIX/ci-backend:py314
   rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-      exists:
-        - backend/pyproject.toml
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
         paths:
@@ -326,12 +303,6 @@ tooling-lint:
   stage: lint
   image: $REGISTRY_IMAGE_PREFIX/ci-backend:py314
   rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-      changes:
-        paths:
-          - scripts/tools/**/*
-          - backend/pyproject.toml
-          - .gitlab-ci.yml
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
         paths:
@@ -350,9 +321,6 @@ backend-typecheck:
   stage: lint
   image: $REGISTRY_IMAGE_PREFIX/ci-backend:py314
   rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-      exists:
-        - backend/pyproject.toml
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
         paths:
@@ -368,9 +336,6 @@ backend-plugins:
   stage: lint
   image: $REGISTRY_IMAGE_PREFIX/ci-backend:py314
   rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-      exists:
-        - backend/pyproject.toml
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
         paths:
@@ -390,9 +355,6 @@ backend-modules:
   variables:
     BMS_ENV: test
   rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-      exists:
-        - backend/pyproject.toml
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
         paths:
@@ -415,11 +377,8 @@ backend-test:
   variables:
     BMS_ENV: test
   rules:
-    # MR 流水线：全量触发（选测在 job 内按变更推导；恢复 MR 流程后生效）
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-      exists:
-        - backend/pyproject.toml
-    # main 直推：共享 / 工作区路径 + 预检脚本变更即触发（服务变更由服务子流水线工程级测试覆盖）
+    # 手工触发（web / api）时 changes 恒真 ⇒ 全量触发（选测在 job 内按变更推导）
+    # main 分支：共享 / 工作区路径 + 预检脚本变更即触发（服务变更由服务子流水线工程级测试覆盖）
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
         paths:
@@ -494,8 +453,8 @@ backend-test:
     expire_in: 30 days
 
 # ---- 服务子流水线调度（父-子流水线，09_01）----
-# 口径：main 直推按变更路径只拉起受影响服务；MR 流水线全量（恢复 MR 流程后生效）；
-#       其他分支（web / api 手动触发）以 main 为 diff 基准兜底（compare_to）。
+# 口径：手工触发（web / api）时 changes 恒真 ⇒ 全部服务子流水线都拉起；
+#       其他分支以 main 为 diff 基准兜底（compare_to）；tag 流水线全服务构建。
 # 服务子流水线：公共模板 deploy/ci/templates/backend-service.yml（只测 / 构建 / 发布该服务），
 #       strategy: depend 使父流水线反映子流水线终态（失败即父流水线失败，缺陷上报链路照常）。
 # 服务清单与 .gitlab-ci.yml 的一致性由 CI 配置护栏用例断言（tests/ops/test_ci_pipeline.py）。
@@ -512,7 +471,6 @@ trigger-platform:
     SERVICE: platform
   rules:
     - if: $CI_COMMIT_TAG =~ /^v/
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
         paths:
@@ -533,7 +491,6 @@ trigger-identity:
     SERVICE: identity
   rules:
     - if: $CI_COMMIT_TAG =~ /^v/
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
         paths:
@@ -554,7 +511,6 @@ trigger-tenant:
     SERVICE: tenant
   rules:
     - if: $CI_COMMIT_TAG =~ /^v/
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
         paths:
@@ -575,7 +531,6 @@ trigger-file:
     SERVICE: file
   rules:
     - if: $CI_COMMIT_TAG =~ /^v/
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
         paths:
@@ -596,7 +551,6 @@ trigger-notification:
     SERVICE: notification
   rules:
     - if: $CI_COMMIT_TAG =~ /^v/
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
         paths:
@@ -617,7 +571,6 @@ trigger-search:
     SERVICE: search
   rules:
     - if: $CI_COMMIT_TAG =~ /^v/
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
         paths:
@@ -638,7 +591,6 @@ trigger-ai:
     SERVICE: ai
   rules:
     - if: $CI_COMMIT_TAG =~ /^v/
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
         paths:
@@ -659,7 +611,6 @@ trigger-report:
     SERVICE: report
   rules:
     - if: $CI_COMMIT_TAG =~ /^v/
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
         paths:
@@ -680,7 +631,6 @@ trigger-txn:
     SERVICE: txn
   rules:
     - if: $CI_COMMIT_TAG =~ /^v/
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
         paths:
@@ -702,9 +652,6 @@ integration-plan:
   stage: test
   image: $REGISTRY_IMAGE_PREFIX/ci-backend:py314
   rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-      exists:
-        - backend/ops/test_db.py
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
         paths:
@@ -726,7 +673,6 @@ dependency-scan:
   stage: test
   image: docker:27-cli
   rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
         paths:
@@ -788,9 +734,6 @@ desktop-check:
   image: $REGISTRY_IMAGE_PREFIX/ci-backend:py314
   needs: [{job: ci-base-build, optional: true}]
   rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-      exists:
-        - frontend/apps/desktop/package.json
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
         paths:
@@ -826,9 +769,6 @@ core-check:
   image: $REGISTRY_IMAGE_PREFIX/ci-backend:py314
   needs: [{job: ci-base-build, optional: true}]
   rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-      exists:
-        - frontend/packages/core/package.json
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
         paths:
@@ -867,9 +807,6 @@ api-types-check:
   image: $REGISTRY_IMAGE_PREFIX/ci-frontend:node22
   needs: [{job: ci-base-build, optional: true}]
   rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-      exists:
-        - frontend/packages/api_types/package.json
     # 去重（2026-09-27 提速）：前端变更由 core-check（`pnpm run check` 已含 api_types:check）覆盖，
     # 本 job 只在「契约快照变更」时单独兜底（deploy/contracts/** 不触发 core-check）
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
@@ -891,9 +828,6 @@ module-check:
   image: $REGISTRY_IMAGE_PREFIX/ci-backend:py314
   needs: [{job: ci-base-build, optional: true}]
   rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-      exists:
-        - frontend/modules/demo/package.json
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
         paths:
@@ -926,9 +860,6 @@ module-build:
   image: $REGISTRY_IMAGE_PREFIX/ci-frontend:node22
   needs: [{job: module-check, optional: true}]
   rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-      exists:
-        - frontend/modules/demo/package.json
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
         paths:
@@ -969,9 +900,6 @@ shared-deps-check:
       artifacts: true
       optional: true
   rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-      exists:
-        - frontend/shared-dependencies.json
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
         paths:
@@ -995,9 +923,6 @@ mobile-check:
   image: $REGISTRY_IMAGE_PREFIX/ci-frontend:node22
   needs: [{job: ci-base-build, optional: true}]
   rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-      exists:
-        - frontend/apps/mobile/package.json
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
         paths:
@@ -1024,9 +949,6 @@ desktop-build:
   image: $REGISTRY_IMAGE_PREFIX/ci-frontend:node22
   needs: [{job: desktop-check, optional: true}]
   rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-      exists:
-        - frontend/apps/desktop/package.json
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
         paths:
@@ -1054,9 +976,6 @@ mobile-build:
   image: $REGISTRY_IMAGE_PREFIX/ci-frontend:node22
   needs: [{job: mobile-check, optional: true}]
   rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-      exists:
-        - frontend/apps/mobile/package.json
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
         paths:
@@ -1329,9 +1248,7 @@ contract-gate:
     # 阶段度量地址（可被项目 CI/CD 变量覆盖，未配置则跳过推送）
     PUSHGATEWAY_URL: "http://192.168.0.107:9092"
   rules:
-    # MR 流水线：全量门禁（恢复 MR 流程后生效；当前 workflow 未放行 MR 事件）
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-      exists: [deploy/ci/verify/contract-gate]
+    # 手工触发（web / api）时 changes 恒真 ⇒ 全量门禁
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
         paths:
@@ -1374,10 +1291,6 @@ contract-smoke-platform:
   needs: [{job: trigger-platform, optional: true}]
   variables: {SERVICE: platform}
   rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-      changes:
-        paths: [backend/services/platform/**/*]
-      exists: [deploy/ci/verify/contract-gate]
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
         paths: [backend/services/platform/**/*]
@@ -1388,10 +1301,6 @@ contract-smoke-identity:
   needs: [{job: trigger-identity, optional: true}]
   variables: {SERVICE: identity}
   rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-      changes:
-        paths: [backend/services/identity/**/*]
-      exists: [deploy/ci/verify/contract-gate]
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
         paths: [backend/services/identity/**/*]
@@ -1402,10 +1311,6 @@ contract-smoke-tenant:
   needs: [{job: trigger-tenant, optional: true}]
   variables: {SERVICE: tenant}
   rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-      changes:
-        paths: [backend/services/tenant/**/*]
-      exists: [deploy/ci/verify/contract-gate]
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
         paths: [backend/services/tenant/**/*]
@@ -1416,10 +1321,6 @@ contract-smoke-file:
   needs: [{job: trigger-file, optional: true}]
   variables: {SERVICE: file}
   rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-      changes:
-        paths: [backend/services/file/**/*]
-      exists: [deploy/ci/verify/contract-gate]
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
         paths: [backend/services/file/**/*]
@@ -1430,10 +1331,6 @@ contract-smoke-notification:
   needs: [{job: trigger-notification, optional: true}]
   variables: {SERVICE: notification}
   rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-      changes:
-        paths: [backend/services/notification/**/*]
-      exists: [deploy/ci/verify/contract-gate]
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
         paths: [backend/services/notification/**/*]
@@ -1444,10 +1341,6 @@ contract-smoke-search:
   needs: [{job: trigger-search, optional: true}]
   variables: {SERVICE: search}
   rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-      changes:
-        paths: [backend/services/search/**/*]
-      exists: [deploy/ci/verify/contract-gate]
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
         paths: [backend/services/search/**/*]
@@ -1458,10 +1351,6 @@ contract-smoke-ai:
   needs: [{job: trigger-ai, optional: true}]
   variables: {SERVICE: ai}
   rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-      changes:
-        paths: [backend/services/ai/**/*]
-      exists: [deploy/ci/verify/contract-gate]
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
         paths: [backend/services/ai/**/*]
@@ -1472,10 +1361,6 @@ contract-smoke-report:
   needs: [{job: trigger-report, optional: true}]
   variables: {SERVICE: report}
   rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-      changes:
-        paths: [backend/services/report/**/*]
-      exists: [deploy/ci/verify/contract-gate]
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
         paths: [backend/services/report/**/*]
@@ -1487,10 +1372,6 @@ contract-smoke-txn:
   needs: [{job: trigger-txn, optional: true}]
   variables: {SERVICE: txn}
   rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-      changes:
-        paths: [backend/services/txn/**/*]
-      exists: [deploy/ci/verify/contract-gate]
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
         paths: [backend/services/txn/**/*]
