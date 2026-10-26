@@ -498,6 +498,27 @@ def test_load_manifests_resolves_relative_path_by_backend_root(tmp_path: Path, m
     assert (backend / "deploy" / "registry" / "demo.toml").is_file()
 
 
+def test_inspect_manifest_without_collaborations(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """无能力段清单：跳过契约定位与域基准校验，装载成功且无警示（既有四类清单照常工作）。
+
+    Args:
+        tmp_path: 临时目录。
+        monkeypatch: pytest monkeypatch 夹具。
+    """
+    _point_base(monkeypatch, tmp_path)
+    path = _write(
+        tmp_path,
+        'product_key = "demo"\n\n[[products]]\nproduct_key = "demo"\nname = "演示产品"\n',
+        name="plain.toml",
+    )
+
+    inspection = inspect_product_manifests(ConcurrentStableList([path]))
+
+    assert inspection.errors == []
+    assert inspection.warnings == []
+    assert len(inspection.manifests) == 1
+
+
 def test_inspect_full_manifest_passes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """六段齐备 + 契约 + 域布局 + 可导入种子：校验通过、无警示。
 
@@ -824,6 +845,7 @@ def test_inspect_same_branch_id_same_domain(tmp_path: Path, monkeypatch: pytest.
     text = (
         'product_key = "demo"\n\n[[services]]\nmodule_key = "demo"\nname = "演示服务"\n'
         'table_prefix = "demo_"\nevent_domain = "demo"\ncontract_version = "0.2.0"\n\n'
+        '[[product_routes]]\nproduct_key = "demo"\ndomain = "mdm"\nservice_key = "demo"\n\n'
         '[[collaborations]]\nname = "demo.org.user-posts.assign"\ndomain = "org"\nkind = "txn-branch"\n'
         'path = "/api/v1/demo/internal/user-posts/{user_id}"\nbranch_id = "m"\n'
         'branch_op = "demo.user-posts.assign"\ncontract_version = "0.2.0"\n\n'
@@ -844,6 +866,38 @@ def test_inspect_same_branch_id_same_domain(tmp_path: Path, monkeypatch: pytest.
     _write_layout(tmp_path)
 
     assert inspect_product_manifests(ConcurrentStableList([path])).errors == []
+
+
+def test_inspect_frontend_prefix_underivable(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """前端命名空间不可推导：无路由域段 / 路由域段不唯一且未显式声明即拒。
+
+    Args:
+        tmp_path: 临时目录。
+        monkeypatch: pytest monkeypatch 夹具。
+    """
+    _point_base(monkeypatch, tmp_path)
+    _write_contract(tmp_path)
+    _write_layout(tmp_path)
+    _install_seed_package(monkeypatch)
+    base = (
+        'product_key = "demo"\n\n[[services]]\nmodule_key = "demo"\nname = "演示服务"\n'
+        'table_prefix = "demo_"\nevent_domain = "demo"\ncontract_version = "0.2.0"\n\n'
+        '[[collaborations]]\nname = "demo.org.dept-data"\ndomain = "org"\nkind = "dataset"\n'
+        'path = "/api/v1/demo/data-source/dept-tree"\ndata_source_key = "demo_dept"\n'
+        'contract_version = "0.2.0"\n'
+    )
+
+    errors = inspect_product_manifests(ConcurrentStableList([_write(tmp_path, base, name="no-route.toml")])).errors
+    assert any("前端命名空间不可推导" in error for error in errors)
+
+    multi = base.replace(
+        'contract_version = "0.2.0"\n\n[[collaborations]]',
+        'contract_version = "0.2.0"\n\n[[product_routes]]\nproduct_key = "demo"\ndomain = "mdm"\n'
+        'service_key = "demo"\n\n[[product_routes]]\nproduct_key = "demo"\ndomain = "org"\n'
+        'service_key = "demo"\n\n[[collaborations]]',
+    )
+    errors = inspect_product_manifests(ConcurrentStableList([_write(tmp_path, multi, name="multi-route.toml")])).errors
+    assert any("前端命名空间不可推导" in error for error in errors)
 
 
 def test_inspect_collaboration_field_errors(tmp_path: Path) -> None:

@@ -813,6 +813,7 @@ def _validate_manifest_entries(
     """
     errors: ConcurrentStableList[str] = ConcurrentStableList()
     label = str(source)
+    route_domains = ConcurrentStableSet(route.domain for route in manifest.product_routes)
     service_versions = ConcurrentStableList(service.contract_version for service in manifest.services)
     service_majors: ConcurrentStableSet[int] = ConcurrentStableSet(
         major for version in service_versions if (major := contract_major(version)) is not None
@@ -851,6 +852,11 @@ def _validate_manifest_entries(
         if service_majors and (capability_major is None or capability_major not in service_majors):
             errors.add(
                 f"{prefix}：契约版本不兼容（能力 {record.contract_version} / 服务 {', '.join(service_versions)}）"
+            )
+        if record.kind != CollaborationKind.CODES and record.frontend_prefix is None and len(route_domains) != 1:
+            errors.add(
+                f"{prefix}：前端命名空间不可推导"
+                f"（清单 product_routes 域段须唯一，现 {len(route_domains)} 个；或显式声明 frontend_prefix）"
             )
         for consumer in record.default_consumers:
             if consumer not in consumer_keys:
