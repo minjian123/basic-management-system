@@ -298,7 +298,9 @@ base-integrity:
     # 项目文档状态一致性（需求编号集合 + 计划表内部一致；规则见《计划文档规范》§6 与《需求文档规范》§5）
     - python scripts/tools/check_docs/check_status.py
     # 网关声明式配置零漂移（服务目录 SERVICE_CATALOG → deploy/gateway/apisix.yaml；《04-1 详细设计》§4.7）
-    - python backend/ops/gateway_config.py check
+    # 用镜像内 venv（`ci-backend:py314` 的依赖在 backend/.venv）：系统 python 无 pydantic，
+    # 裸 `python backend/ops/gateway_config.py check` 会 ModuleNotFoundError（2026-10-26 手工全量实测）
+    - cd backend && uv run python -m ops.gateway_config check --root ..
 
 # ---- 后端：ruff + pytest（SQLite）----
 backend-lint:
