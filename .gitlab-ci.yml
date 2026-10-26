@@ -299,8 +299,12 @@ base-integrity:
     - python scripts/tools/check_docs/check_status.py
     # 网关声明式配置零漂移（服务目录 SERVICE_CATALOG → deploy/gateway/apisix.yaml；《04-1 详细设计》§4.7）
     # 用镜像内 venv（`ci-backend:py314` 的依赖在 backend/.venv）：系统 python 无 pydantic，
-    # 裸 `python backend/ops/gateway_config.py check` 会 ModuleNotFoundError（2026-10-26 手工全量实测）
-    - cd backend && uv run python -m ops.gateway_config check --root ..
+    # 裸 `python backend/ops/gateway_config.py check` 会 ModuleNotFoundError（2026-10-26 手工全量实测）。
+    # `--reinstall`（同 backend-test 口径，2026-10-12）：镜像预置 venv + 持久 uv 缓存下，工作区包
+    # （`bms-*`，版本恒 0.1.0）会被判「已满足」而沿用镜像旧产物 ⇒ 读到的服务目录 / 产品登记是旧版，
+    # 零漂移校验假红（2026-10-26 手工全量流水线 #1260 实测，本地因按工作树即时同步故不复现）。
+    - cd backend && uv sync --frozen --reinstall
+    - cd "$CI_PROJECT_DIR/backend" && uv run python -m ops.gateway_config check --root "$CI_PROJECT_DIR"
 
 # ---- 后端：ruff + pytest（SQLite）----
 backend-lint:
