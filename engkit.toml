@@ -523,3 +523,128 @@ not_applicable_word = "不适用"
 min_reason_len = 10
 base = "origin/main"
 context_dirs = ["设计", "实施", "测试"]
+
+# ---- 服务边界与跨库访问（`engkit base service-boundaries`；登记源留仓内、工具包只做判定）----
+
+[rules.service_boundaries]
+shared_groups = ["libs"]
+service_groups = ["services"]
+shared_libs = ["bms_core", "ops"]
+service_packages = [
+  "bms_platform",
+  "bms_identity",
+  "bms_tenant",
+  "bms_txn",
+  "bms_ai",
+  "bms_file",
+  "bms_notification",
+  "bms_report",
+  "bms_search",
+]
+runtime_packages = ["bms_core", "ops"]
+layout = "deploy/boundaries/domain_layout.json"
+exceptions = "deploy/boundaries/data_ownership_exceptions.json"
+baseline = "deploy/boundaries/domain_boundary_baseline.json"
+shared_models_marker = "/libs/bms_core/src/bms_core/models/"
+package_prefix = "bms_"
+shared_lib_service = "platform"
+domain_subdir = "domains"
+shared_table_prefixes = ["sys_"]
+counters = [
+  "cross_service_dependency",
+  "layer_violation",
+  "private_reference",
+  "table_name_conflict",
+  "table_prefix_conflict",
+  "table_ownership_violation",
+  "cross_service_access_violation",
+  "registered_exceptions_total",
+  "registered_exceptions_used",
+  "ops_run_image_missing",
+  "ops_import_closure_violation",
+  "ops_image_packages_drift",
+  "runtime_ops_dependency",
+  "runtime_cross_service_dependency",
+  "cross_domain_import",
+  "cross_domain_table_reference",
+  "cross_domain_write",
+  "cross_domain_table_declare",
+  "domain_layout_violation",
+  "domain_ownership_violation",
+  "domain_baseline_total",
+  "domain_baseline_used",
+  "domain_files_registered",
+  "domain_files_unregistered",
+]
+
+# 分层反向依赖黑名单：源子包 → 禁止依赖的目标子包
+[rules.service_boundaries.layers.shared]
+core = ["api", "services"]
+repositories = ["services"]
+
+[rules.service_boundaries.layers.service]
+services = ["api"]
+repositories = ["api", "services"]
+models = ["api", "services", "repositories"]
+schemas = ["api", "services", "repositories"]
+
+# 表归属登记（单一来源：种子、启动守卫、迁移链表集派生与静态校验同源）
+[rules.service_boundaries.ownership]
+module = "backend/libs/bms_core/src/bms_core/services/table_registry.py"
+const = "TABLE_OWNERSHIP"
+owner_every_service = "*"
+infrastructure_tables = ["sys_outbox", "sys_event_consumed", "sys_event_dead_letter"]
+exempt_modules = ["services/table_registry.py", "registry/forms.py"]
+no_domain_tables = ["demo"]
+
+# 服务目录（服务标识与表前缀登记）
+[rules.service_boundaries.catalog]
+module = "backend/libs/bms_core/src/bms_core/services/module_registry.py"
+const = "SERVICE_CATALOG"
+
+# 运维脚本运行镜像（`RUN_IMAGE` 合法取值 + 镜像所含包集合）
+[rules.service_boundaries.ops]
+dir = "backend/ops"
+dockerfile = "backend/Dockerfile"
+run_image_values = ["platform", "tenant", "txn", "ci", "*"]
+
+[rules.service_boundaries.ops.image_packages]
+platform = ["bms_core", "bms_platform", "ops"]
+tenant = ["bms_core", "bms_tenant", "ops"]
+txn = ["bms_core", "bms_txn", "ops"]
+ci = [
+  "bms_core",
+  "ops",
+  "bms_platform",
+  "bms_identity",
+  "bms_tenant",
+  "bms_txn",
+  "bms_ai",
+  "bms_file",
+  "bms_notification",
+  "bms_report",
+  "bms_search",
+]
+
+# ---- 边界度量采集（`engkit base boundary-metrics`）----
+
+[rules.metrics]
+violation_keys = [
+  "cross_service_dependency",
+  "layer_violation",
+  "private_reference",
+  "table_name_conflict",
+  "table_prefix_conflict",
+  "table_ownership_violation",
+  "cross_service_access_violation",
+  "cross_domain_import",
+  "cross_domain_table_reference",
+  "cross_domain_write",
+  "cross_domain_table_declare",
+  "domain_layout_violation",
+  "domain_ownership_violation",
+]
+cross_access_key = "cross_service_access_violation"
+registered_exceptions_key = "registered_exceptions_total"
+metric_name = "bms_boundary_cross_access_total"
+checker = "service-boundaries"

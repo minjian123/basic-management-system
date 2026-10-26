@@ -26,7 +26,11 @@ _BASE_DIR = _REPO / "scripts" / "tools" / "base_check"
 _WRAPPERS = {
     "check_links.py": None,
     "check_docs_scope.py": None,
+    "check_service_boundaries.py": "service_boundaries",
 }
+
+#: 治理目录下的包装脚本（计量采集入口不在 base_check 目录）。
+_GOVERNANCE_WRAPPERS = {"boundary_metrics.py": "metrics"}
 
 
 def _config() -> Any:
@@ -42,11 +46,13 @@ def _config() -> Any:
 def test_wrappers_are_thin() -> None:
     """包装脚本只转发：不出现 AST 解析、规则常量或自建判定函数。"""
     forbidden = ("ast.parse", 're.compile(r"^\\[a-z\\]', "def check_", "PROBLEMS", "sys.exit(1)")
-    for name in _WRAPPERS:
-        text = (_BASE_DIR / name).read_text(encoding="utf-8")
-        assert "forward(" in text, f"{name} 应经 engkit_boot.forward 转发"
+    governance_dir = _REPO / "scripts" / "tools" / "governance"
+    scripts = [*(_BASE_DIR / name for name in _WRAPPERS), *(governance_dir / name for name in _GOVERNANCE_WRAPPERS)]
+    for path in scripts:
+        text = path.read_text(encoding="utf-8")
+        assert "forward(" in text, f"{path.name} 应经 engkit_boot.forward 转发"
         for token in forbidden:
-            assert token not in text, f"{name} 含推导逻辑：{token}"
+            assert token not in text, f"{path.name} 含推导逻辑：{token}"
 
 
 @pytest.mark.kiwi_id(2361)
@@ -56,6 +62,7 @@ def test_repo_rules_registered() -> None:
     assert isinstance(rules, dict)
     assert "prototype" in rules
     assert "base" in rules and "bare_collections" in rules
+    assert "service_boundaries" in rules and "metrics" in rules
 
 
 @pytest.mark.kiwi_id(2361)
@@ -64,7 +71,7 @@ def test_engkit_subcommands_available() -> None:
     import pytest as _pytest
 
     cli = _pytest.importorskip("engkit.cli")
-    for name in ("base", "docs-status", "prototype-review"):
+    for name in ("base", "docs-status", "prototype-review", "service-boundaries", "boundary-metrics"):
         buffer = io.StringIO()
         with contextlib.suppress(SystemExit), contextlib.redirect_stdout(buffer):
             cli.main(["base", name, "--help"])

@@ -21,9 +21,7 @@ _SCRIPT = _REPO / "scripts" / "tools" / "base_check" / "check_bare_collections.p
 @pytest.mark.kiwi_id(2213)
 def test_guard_passes_on_repo() -> None:
     """真实仓库跑包装：集合声明无新增违规（退出码 0）。"""
-    completed = subprocess.run(
-        [sys.executable, str(_SCRIPT), str(_REPO)], capture_output=True, text=True, check=False
-    )
+    completed = subprocess.run([sys.executable, str(_SCRIPT), str(_REPO)], capture_output=True, text=True, check=False)
     assert completed.returncode == 0, completed.stdout + completed.stderr
 
 

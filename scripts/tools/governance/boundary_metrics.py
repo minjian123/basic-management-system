@@ -1,191 +1,42 @@
 #!/usr/bin/env python3
-"""服务边界与跨库访问度量采集（《微服务演进规划》S7；只读脚本）。
+"""服务边界与跨库访问度量采集（薄包装）：实现在 engkit `base boundary-metrics`（13_06 迁入）。
 
-采集「服务边界越界数 / 跨库访问数 / 已登记例外数」：
-
-1. **静态**：调用 `check_service_boundaries.py --json`，解析各分类计数与违规明细；
-2. **运行时**（可选）：抓取运行期 `bms_boundary_cross_access_total`（`--metrics-url`；随 08_01
-   可观测栈端点就绪后启用；不可达 / 未配置则标注降级）。
-
-默认退出码 0（只作度量与留痕）；`--fail-on-violation` 时静态越界数非零退 1。**不并入**
-`collect_metrics.py` 的既有「三项度量」口径（《项目规划说明》§25.2）。
+判定与采集逻辑在 engkit，越界计数键 / 跨库访问键 / 例外登记键 / 运行期指标名落本仓 `engkit.toml`
+的 `[rules.metrics]`，静态来源取 `[rules.service_boundaries]`（登记源留仓内、工具包只做判定）；
+本脚本只做参数转发与退出码透传，**不含任何推导逻辑**（《AI开发规范》「重命令不重跑」+ 13_05 决策 9）。
 
 用法::
 
     python3 scripts/tools/governance/boundary_metrics.py [--root <仓库根>]
     python3 scripts/tools/governance/boundary_metrics.py --metrics-url http://127.0.0.1:9090/metrics
     python3 scripts/tools/governance/boundary_metrics.py --out /tmp/boundary.json --fail-on-violation
+
+退出码：0 采集完成 / 1 静态越界非零（`--fail-on-violation`）/ 2 规则未登记。
 """
 
 from __future__ import annotations
 
-import argparse
-import json
-import re
-import subprocess
 import sys
-import urllib.request
-from datetime import date
 from pathlib import Path
 
-# bms_core 源码根：脚本在仓库内运行，集合声明统一落插入序集合类（ConcurrentStable*）。
-_SRC_ROOT = Path(__file__).resolve().parents[3] / "backend" / "libs" / "bms_core" / "src"
-if str(_SRC_ROOT) not in sys.path:
-    sys.path.insert(0, str(_SRC_ROOT))
+_SCRIPT_DIR = Path(__file__).resolve().parent
+_PREFLIGHT_DIR = _SCRIPT_DIR.parent / "preflight"
+for _entry in (_SCRIPT_DIR, _PREFLIGHT_DIR):
+    if str(_entry) not in sys.path:
+        sys.path.insert(0, str(_entry))
 
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList  # noqa: E402
-from bms_core.core.serialization import normalize_collections  # noqa: E402
-
-_CHECKER = Path(__file__).resolve().parents[1] / "base_check" / "check_service_boundaries.py"
-_METRIC_LINE_RE = re.compile(r"^bms_boundary_cross_access_total(?:\{[^}]*\})?\s+([0-9.eE+]+)\s*$", re.MULTILINE)
-_VIOLATION_KEYS = (
-    "cross_service_dependency",
-    "layer_violation",
-    "private_reference",
-    "table_name_conflict",
-    "table_prefix_conflict",
-    "table_ownership_violation",
-    "cross_service_access_violation",
-    "cross_domain_import",
-    "cross_domain_table_reference",
-    "cross_domain_write",
-    "cross_domain_table_declare",
-    "domain_layout_violation",
-    "domain_ownership_violation",
-)
-"""越界计数键（服务维 1~10 与域级 D1~D5；新增域级键后总越界数含域维度）。"""
+from engkit_boot import config_path, forward  # noqa: E402
 
 
-def run_static(root: Path) -> ConcurrentStableDict[str, object]:
-    """运行静态边界校验并解析 `--json` 输出。
-
-    Args:
-        root: bms 仓库根。
+def main() -> int:
+    """入口。
 
     Returns:
-        ConcurrentStableDict[str, object]: 校验结果（`counts` / `problems` / `passed`）；运行失败时 `error`。
+        int: 退出码（engkit 透传）。
     """
-    result = subprocess.run(
-        [sys.executable, str(_CHECKER), str(root), "--json"],
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-    )
-    if not result.stdout.strip():
-        return ConcurrentStableDict(
-            {"error": f"边界校验无输出（退出码 {result.returncode}）：{result.stderr.strip()[:200]}"}
-        )
-    try:
-        return ConcurrentStableDict(json.loads(result.stdout))
-    except json.JSONDecodeError as exc:
-        return ConcurrentStableDict({"error": f"边界校验输出非 JSON：{exc}"})
-
-
-def scrape_runtime(metrics_url: str | None) -> ConcurrentStableDict[str, object]:
-    """抓取运行期跨库访问计数（未配置 / 不可达则降级）。
-
-    Args:
-        metrics_url: Prometheus 文本端点地址；None 表示未采集。
-
-    Returns:
-        ConcurrentStableDict[str, object]: `available` + `cross_access_total`（或 `reason`）。
-    """
-    if not metrics_url:
-        return ConcurrentStableDict({"available": False, "reason": "未配置 --metrics-url（运行期遥测随 08_01）"})
-    try:
-        with urllib.request.urlopen(metrics_url, timeout=10) as resp:
-            text = resp.read().decode("utf-8", errors="ignore")
-    except Exception as exc:
-        return ConcurrentStableDict({"available": False, "reason": f"指标端点不可达：{type(exc).__name__}"})
-    matches = [float(value) for value in _METRIC_LINE_RE.findall(text)]
-    return ConcurrentStableDict({"available": True, "cross_access_total": sum(matches) if matches else 0.0})
-
-
-def main(argv: ConcurrentStableList[str] | None = None) -> int:
-    """入口：采集静态与运行时计数并打印 / 落盘。
-
-    Args:
-        argv: 命令行参数。
-
-    Returns:
-        int: 退出码（0 采集完成；--fail-on-violation 且静态越界非零时 1；2 参数 / 路径错误）。
-    """
-    parser = argparse.ArgumentParser(description="服务边界与跨库访问度量采集（只读）")
-    parser.add_argument("--root", default=".", help="bms 仓库根（默认当前目录）")
-    parser.add_argument("--metrics-url", default=None, help="运行期 Prometheus 指标端点（可选）")
-    parser.add_argument("--out", default=None, help="结果写为 JSON（默认只打印）")
-    parser.add_argument("--fail-on-violation", action="store_true", help="静态越界非零时退码 1")
-    args = parser.parse_args(argv)
-
-    root = Path(args.root).resolve()
-    if not (root / "backend").is_dir():
-        print(f"未找到 bms 仓库根（缺 backend/）：{root}")
-        return 2
-
-    static = run_static(root)
-    runtime = scrape_runtime(args.metrics_url)
-    if "error" in static:
-        total_violations = None
-        cross_access = None
-    else:
-        counts = static.get("counts", {})
-        total_violations = sum(int(counts.get(key, 0)) for key in _VIOLATION_KEYS)
-        cross_access = int(counts.get("cross_service_access_violation", 0))
-    result = {
-        "collected_at": date.today().isoformat(),
-        "static": static,
-        "runtime": runtime,
-        "summary": {
-            "boundary_violations": total_violations,
-            "cross_db_access": cross_access,
-            "registered_exceptions": (
-                (static.get("counts", {}) or {}).get("registered_exceptions_total") if "error" not in static else None
-            ),
-        },
-    }
-
-    print(f"== 服务边界与跨库访问度量（{result['collected_at']}）==")
-    if "error" in static:
-        print(f"  静态校验失败：{static['error']}")
-    else:
-        counts = static.get("counts", {})
-        print(
-            f"  静态：服务边界越界数 {total_violations}（跨库访问 {cross_access}、"
-            f"表归属越界 {counts.get('table_ownership_violation', 0)}、"
-            f"表名前缀冲突 {int(counts.get('table_name_conflict', 0)) + int(counts.get('table_prefix_conflict', 0))}）"
-        )
-        print(
-            f"  例外白名单：登记 {counts.get('registered_exceptions_total', 0)} 条、"
-            f"命中 {counts.get('registered_exceptions_used', 0)} 条"
-        )
-        print(
-            f"  域级：布局登记文件 {counts.get('domain_files_registered', 0)}、"
-            f"未归属域 {counts.get('domain_files_unregistered', 0)}"
-        )
-        print(
-            f"  域级越界：跨域 import {counts.get('cross_domain_import', 0)}、"
-            f"表引用 {counts.get('cross_domain_table_reference', 0)}、"
-            f"写 {counts.get('cross_domain_write', 0)}、表声明 {counts.get('cross_domain_table_declare', 0)}；"
-            f"域级基线 {counts.get('domain_baseline_total', 0)} 条（命中 {counts.get('domain_baseline_used', 0)} 条）"
-        )
-        if static.get("problems"):
-            print(f"  违规明细（{len(static['problems'])} 项）：")
-            for problem in static["problems"]:
-                print(f"    {problem}")
-    if runtime.get("available"):
-        print(f"  运行时：跨库访问计数 {runtime.get('cross_access_total')}")
-    else:
-        print(f"  运行时：未采集（{runtime.get('reason')}）")
-
-    if args.out:
-        Path(args.out).write_text(
-            json.dumps(normalize_collections(result), ensure_ascii=False, indent=2), encoding="utf-8"
-        )
-        print(f"已写入 JSON：{args.out}")
-    if args.fail_on_violation and total_violations:
-        return 1
-    return 0
+    args = ["base", "boundary-metrics", "--config", config_path()]
+    args.extend(sys.argv[1:])
+    return forward(args)
 
 
 if __name__ == "__main__":

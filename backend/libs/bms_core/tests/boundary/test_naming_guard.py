@@ -21,9 +21,7 @@ _SCRIPT = _REPO / "scripts" / "tools" / "base_check" / "check_base.py"
 @pytest.mark.kiwi_id(2351)
 def test_naming_guard_clean_on_repo() -> None:
     """真实仓库跑包装：登记面零问题（退出码 0）。"""
-    completed = subprocess.run(
-        [sys.executable, str(_SCRIPT), str(_REPO)], capture_output=True, text=True, check=False
-    )
+    completed = subprocess.run([sys.executable, str(_SCRIPT), str(_REPO)], capture_output=True, text=True, check=False)
     assert completed.returncode == 0, completed.stdout + completed.stderr
 
 
