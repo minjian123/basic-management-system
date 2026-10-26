@@ -1,0 +1,21 @@
+# 13_07 工具链基线与版本统一 · Kiwi 用例登记清单
+
+# 口径：`engkit kiwi register --cases <本文件>`（bms 仓根执行，凭据取 `deploy/.env`）；
+# 文本字段写覆盖范围与自动化文件路径（《KiwiTCMS部署使用说明》§5.3：一任务一条用例，多条断言共用同一编号）。
+
+[[case]]
+summary = "工具链基线与版本统一（13_07）：ruff 规则单一来源 + 版本随 engkit devtools 下发 + 缺克隆即失败"
+category = "平台骨架"
+priority = "P2"
+status = "CONFIRMED"
+tags = ["自动化"]
+text = """
+<p><b>覆盖范围</b>：</p>
+<p>① <b>基线单一来源</b>：<code>engkit/toolchain/ruff-base.toml</code> 是 ruff 规则（行宽 / 规则集 / 忽略项）的唯一来源，文件含 <code>line-length</code> / <code>[lint].select</code> / <code>[lint].ignore</code>，且<b>不含</b> <code>target-version</code> / <code>known-first-party</code> 等本仓专属项（防专属项被误收进基线）。</p>
+<p>② <b>各仓只 extend</b>：bms / mdm / engkit 三仓 <code>[tool.ruff]</code> 段只写 <code>extend</code> 与本仓专属键，<b>不得</b>出现 <code>line-length</code> / <code>select</code> / <code>ignore</code> 复制；<code>extend</code> 目标文件必须可解析（相对配置文件所在目录），层级写错即被检出。</p>
+<p>③ <b>版本随 engkit 下发</b>：engkit <code>[project.optional-dependencies].devtools</code> 声明 ruff 与 pyright 的版本下限，仓内 dev 组不另行声明工具版本；升级只改 engkit 的 rev 一处。</p>
+<p>④ <b>行为零回退</b>：改造后三仓 <code>ruff check</code> / <code>ruff format --check</code> / <code>pyright</code> 结论与改造前一致（bms 1364 文件、mdm 108 文件全通过），三仓 <code>uv.lock</code> 中 ruff / pyright 版本一致。</p>
+<p>⑤ <b>缺克隆即失败</b>：engkit 克隆缺失时 ruff 直接退出码 2 并报 <code>Failed to load extended configuration</code>，不静默回落到旧规则；CI 各 lint / typecheck job 统一引用克隆片段（<code>ENGKIT_REV</code> 一处维护），命令原文不变。</p>
+<p><b>自动化文件</b>：<code>engkit/tests/test_toolchain.py</code>（基线键位与专属项排除 / 各仓配置只 extend 且 extend 目标可解析 / devtools 版本下限）；bms 与 mdm 侧以实跑 ruff / pyright 结论核对。</p>
+<p><b>关联交付</b>：engkit 仓（<code>toolchain/ruff-base.toml</code> + <code>devtools</code> 组 + <code>[toolchain]</code> 配置段 + 文档）/ bms（git 源依赖 + CI 克隆片段）/ mdm（git 源依赖 + CI 克隆片段）。</p>
+"""
