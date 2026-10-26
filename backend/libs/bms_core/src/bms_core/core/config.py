@@ -953,7 +953,7 @@ class RegistrySettings(BaseSettings):
     product_manifests: Annotated[ConcurrentStableList[str], CONTRACT_COLLECTION] = Field(
         default_factory=CONTRACT_STABLE_LIST
     )
-    """产品登记清单文件路径（相对当前工作目录；缺省空列表）。"""
+    """产品登记清单文件路径（相对路径按**后端工程根** `backend/` 解析；缺省空列表）。"""
 
 
 class TransactionManagerSettings(PluginSelection):

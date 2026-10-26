@@ -12,6 +12,7 @@ from sqlalchemy import Engine, Table, UniqueConstraint, create_engine, select
 from sqlalchemy.orm import Session
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.core.exceptions import CatalogError
 from bms_core.models.base import Base
 from bms_core.models.platform.catalog import SysModule, SysModuleI18n, SysProduct
 from bms_core.services.module_registry import (
@@ -28,6 +29,12 @@ from bms_core.services.module_registry import (
     ProductStatus,
     ServiceGroup,
     product_keys,
+    register_product_records,
+    register_product_routes,
+    register_service_records,
+    reset_product_records,
+    reset_product_routes,
+    reset_service_records,
     validate_catalog,
     validate_product_routes,
     validate_products,
@@ -555,3 +562,38 @@ def test_validate_catalog_unaffected_by_route_validation() -> None:
     """接库校验入口（`validate_catalog`）在映射为空清单时不引入新失败（启动 / CI 口径不变）。"""
     catalog = ConcurrentStableList(SERVICE_CATALOG)
     assert validate_catalog(catalog, catalog) == []
+
+
+@pytest.mark.kiwi_id(2359)
+def test_injected_catalogs_reject_same_key_with_different_value() -> None:
+    """三张注入表（服务行 / 产品档案 / 产品路由）同键异值即拒（fail-closed），同值幂等。"""
+    service = ModuleRecord(
+        module_key="demo",
+        service_key="demo",
+        name="演示服务",
+        table_prefix="demo_",
+        event_domain="demo",
+        service_group=ServiceGroup.PRODUCT,
+        product_key="demo",
+    )
+    product = ProductRecord(product_key="demo", name="演示产品")
+    route = ProductRouteRecord(product_key="demo", domain="demo", service_key="demo")
+    try:
+        register_service_records(ConcurrentStableList([service]))
+        with pytest.raises(CatalogError, match="产品服务行同键异值"):
+            register_service_records(ConcurrentStableList([replace(service, name="另一个服务")]))
+        register_service_records(ConcurrentStableList([service]))
+
+        register_product_records(ConcurrentStableList([product]))
+        with pytest.raises(CatalogError, match="产品档案同键异值"):
+            register_product_records(ConcurrentStableList([replace(product, name="另一个产品")]))
+        register_product_records(ConcurrentStableList([product]))
+
+        register_product_routes(ConcurrentStableList([route]))
+        with pytest.raises(CatalogError, match="产品路由同键异值"):
+            register_product_routes(ConcurrentStableList([replace(route, service_key="other")]))
+        register_product_routes(ConcurrentStableList([route]))
+    finally:
+        reset_service_records()
+        reset_product_records()
+        reset_product_routes()

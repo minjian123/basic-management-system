@@ -70,13 +70,23 @@ def test_allows_single_file_pytest(guard_module: object, tmp_path: Path) -> None
 
 
 def test_blocks_directory_pytest(guard_module: object) -> None:
-    """目录覆盖的用例数超阈值即拦截（本仓测试目录远超 20 个文件）。"""
-    assert guard_module.should_block(["pytest", "libs/bms_core/tests"]) == "pytest"
+    """目录覆盖的用例数超阈值即拦截（本仓测试目录远超 20 个文件）。
+
+    路径一律取仓库根绝对路径：工程级 cwd（如 `libs/bms_core`）下相对路径数不到文件，
+    判定会退化为「放行」而与真实调用不符（04_05 测试稳定性收口）。
+    """
+    target = _REPO_ROOT / "backend" / "libs" / "bms_core" / "tests"
+    assert guard_module.should_block(["pytest", str(target)]) == "pytest"
 
 
 def test_allows_narrow_scanner(guard_module: object) -> None:
-    """扫描单个包目录放行；扫仓库级目录拦截。"""
-    assert guard_module.should_block(["pyright", "libs/bms_core/src/bms_core/captcha"]) == ""
+    """扫描单个包目录放行；扫仓库级目录拦截。
+
+    扫描类判定只比对目录字面（`libs` / `services` 等）而不落文件系统，故仓库级用相对字面；
+    窄目录取仓库根绝对路径（真实存在，与 cwd 无关）。
+    """
+    narrow = str(_REPO_ROOT / "backend" / "libs" / "bms_core" / "src" / "bms_core" / "captcha")
+    assert guard_module.should_block(["pyright", narrow]) == ""
     assert guard_module.should_block(["ruff", "check", "libs"]) == "ruff"
 
 

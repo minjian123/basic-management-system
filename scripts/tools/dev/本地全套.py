@@ -69,7 +69,12 @@ FRONTEND_ENV = os.path.join(ROOT, "frontend", "apps", "desktop", ".env.local")
 STATE_DIR = os.environ.get("BMS_LOCAL_STATE_DIR") or (
     os.path.join(tempfile.gettempdir(), "bms-local-stack") if IS_WINDOWS else "/tmp/bms-local-stack"
 )
-KEYS_FILE = os.path.join(BACKEND, ".dev-keys.local")
+KEYS_FILE = os.path.join(ROOT, "deploy", ".dev-keys.local")
+"""开发密钥文件（`${ROOT}/deploy/.dev-keys.local`）。
+
+落仓级 `deploy/`、不落 `backend/` 根：后端根只放受跟踪的工程文件，本地产物 / 凭据一律进
+`deploy/`、`.cache/` 或工作区 `tmp/`（2026-10-26 拍板）。
+"""
 PY = (
     os.path.join(BACKEND, ".venv", "Scripts", "python.exe")
     if IS_WINDOWS

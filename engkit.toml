@@ -90,7 +90,8 @@ source_env = "BMS_COVERAGE_SOURCE"
 fail_under = 100
 plugin = "bms_testing_plugin"
 pythonpath = ["backend"]
-data_file = "backend/.coverage"
+# 采集数据落点：仓内缓存目录（`.cache/` 已忽略），不落仓库根 / `backend/` 根（2026-10-25 拍板）
+data_file = ".cache/coverage/.coverage"
 interpreter = "uv run python"
 
 [pytest]
@@ -108,6 +109,10 @@ scoped = [300, 420]
 full = [900, 1800]
 
 # ---- 预检步骤（声明序即执行序；`--fast` 只跑 always，`--full` 追加 full ----）----
+[[preflight.steps]]
+label = "工作区卫生：临时 / 日志文件只许落在工作区根 tmp/ 与各仓 .cache/"
+cmd = ["{python}", "scripts/tools/preflight/check_workspace_hygiene.py", "--quiet"]
+
 [[preflight.steps]]
 label = "CI 配置自检（YAML / pytest 选项 / GitLab Lint / 门禁资产）"
 cmd = ["{python}", "scripts/tools/preflight/check_ci_config.py", "{root}"]

@@ -3,11 +3,15 @@
 import pytest
 
 from bms_core.core.concurrent import ConcurrentStableFrozenList, ConcurrentStableList
+from bms_core.core.exceptions import CatalogError
 from bms_core.datasource.registry import (
     DATA_SOURCE_CATALOG,
     DataSourceRecord,
     DataSourceRegistry,
+    data_source_records_view,
     merge_data_source_records,
+    register_data_source_records,
+    reset_data_source_records,
 )
 
 
@@ -94,3 +98,21 @@ def test_validate_reports_illegal_origin() -> None:
     )
     issues = DataSourceRegistry(records).validate()
     assert any("来源取值非法：'bad_origin' → 'vendor'" in issue for issue in issues)
+
+
+@pytest.mark.kiwi_id(2359)
+def test_injected_records_reject_same_key_with_different_value() -> None:
+    """产品清单装载的数据源条目同键异值即拒（fail-closed）；同值重复装载幂等。"""
+    record = DataSourceRecord(data_source_key="demo_dept", name="部门", data_source="demo.demo.dept")
+    try:
+        register_data_source_records(ConcurrentStableList([record]))
+        with pytest.raises(CatalogError, match="数据源条目同键异值"):
+            register_data_source_records(
+                ConcurrentStableList(
+                    [DataSourceRecord(data_source_key="demo_dept", name="另一个部门", data_source="demo.demo.dept")]
+                )
+            )
+        register_data_source_records(ConcurrentStableList([record]))
+        assert "demo_dept" in [item.data_source_key for item in data_source_records_view()]
+    finally:
+        reset_data_source_records()

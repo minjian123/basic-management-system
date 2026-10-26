@@ -354,7 +354,7 @@ IDE 的「运行和调试」下拉由 `.vscode/launch.json`（启动项）与 `.
 | `dev:确保模块产物服务（5002）`                              | 普通任务：幂等确保 5002 发布存储服务在跑（缺则后台拉起），供「宿主 + 模块」作`dependsOn` 前置                                                                                                                           |
 | `dev:宿主（5173）` / `dev:宿主 + 模块产物（5002 + 5173）` | 后台任务：命令只有`pnpm dev`，准备动作全交 `dependsOn` 前置任务（`dependsOrder: sequence`）；以 Vite 的 `Local:` 行为就绪信号（供 `preLaunchTask` 判断）                                                        |
 | `dev:清理后端端口（8000）`                                  | 普通任务：清理占用 8000 的本项目旧后端调试进程，供上表两个后端启动项作`preLaunchTask`（重开「全套」不必先手工停掉上一次调试会话）；**注意它按端口清理，会把本地全套的三服务一起清掉**——起三服务请用下面两条任务 |
-| `dev:后端本地全套（三服务）`                                | 普通任务：调`bms/scripts/tools/dev/本地全套.py up`——幂等起 tenant/platform/identity（已在监听则跳过）+ 自愈 `/etc/hosts` 别名与 `bms/backend/.dev-keys.local` + 等健康                                        |
+| `dev:后端本地全套（三服务）`                                | 普通任务：调`bms/scripts/tools/dev/本地全套.py up`——幂等起 tenant/platform/identity（已在监听则跳过）+ 自愈 `/etc/hosts` 别名与 `bms/deploy/.dev-keys.local` + 等健康                                        |
 | `dev:后端本地全套·停（三服务）`                            | 普通任务：`本地全套.py down`——`TERM` → 5s → `KILL`，仍不死**报错交人工**（不无限等待）；单个服务用 `本地全套.py stop <服务>`                                                                            |
 | `服务:模块产物（5002 · CORS 静态）`                        | `serve-module-releases.mjs` 托管 `bms/frontend/releases/**`（带 CORS，宿主加载运行时模块的前置）                                                                                                                      |
 | `发布:模块产物（demo + sample · 构建 + 发布）`             | 构建并发布两个运行时模块到`frontend/releases/`（归档不入库）                                                                                                                                                            |
@@ -400,7 +400,7 @@ IDE 的「运行和调试」下拉由 `.vscode/launch.json`（启动项）与 `.
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------ |
 | 脚本     | `bms/scripts/tools/dev/本地全套.py`（子命令 `up` / `down` / `stop <服务…>` / `status` / `seed` / `env` / `logs` / `unlock [账号]`）   |
 | 别名     | `127.0.0.2 tenant`、`127.0.0.4 platform`、`127.0.0.5 identity`（`up` 自愈写入 `/etc/hosts`，sudo 免密；`org` 已随组织主数据归 mdm 产品服务，不在本机全套） |
-| 开发密钥 | `bms/backend/.dev-keys.local`（`up` 缺则用 `joserfc` 生成：`usr-` 用户令牌 + `svc-` 服务令牌两组；不入库）                 |
+| 开发密钥 | `bms/deploy/.dev-keys.local`（`up` 缺则用 `joserfc` 生成：`usr-` 用户令牌 + `svc-` 服务令牌两组；不入库）                 |
 | Redis    | 缺省`redis://192.168.0.107:6379/5`（本机无 Redis，指向开发机 DB5 隔离；`BMS_LOCAL_REDIS` 或 `--redis` 覆盖）                   |
 | 前端映射 | `bms/frontend/apps/desktop/.env.local` 的 `VITE_LOCAL_API`（**`up` 收尾自动写入**，`env` 子命令可单独补；未列出的服务仍走远端网关）                 |
 | 账号     | `ops/seed_user.py` 建号（缺省账号 `admin`，口令随机生成并仅打印一次）——**首次起栈后必须跑一次 `seed`**，否则本地库无账号、登录恒 401；账号 / 口令**只登记在《[本地资源](../../../用户文档/本地资源.md)》（gitignore，凭据不入库）**     |

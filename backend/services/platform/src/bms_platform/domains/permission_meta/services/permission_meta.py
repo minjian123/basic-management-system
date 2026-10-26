@@ -5,7 +5,7 @@
 - 写路径统一：工作单元内变更 → 递增元数据版本（与菜单表单域共用 `bms_platform.services.metadata_cache`）。
 """
 
-from typing import Any, Protocol, cast
+from typing import Any, Protocol
 
 from bms_core.cache.base import CacheRegion
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
@@ -16,7 +16,6 @@ from bms_core.core.exceptions import (
     MenuReferencedError,
 )
 from bms_core.core.objects import BaseFrameworkObject
-from bms_core.db.session import DbSession
 from bms_core.db.unit_of_work import UnitOfWork
 from bms_core.models.platform.permission_meta import SysAction, SysBusiness, SysPermission
 from bms_platform.domains.permission_meta.repositories.business import (
@@ -102,15 +101,6 @@ class PermissionMetadataService(BaseFrameworkObject):
         self._forms = forms
         self._cache = cache
         self._references = references
-
-    @property
-    def _session(self) -> DbSession:
-        """请求级会话。
-
-        Returns:
-            DbSession: 工作单元绑定的会话。
-        """
-        return cast("DbSession", self._uow.session)
 
     async def invalidate(self) -> None:
         """递增元数据版本（与菜单表单域共用双版本失效）。"""

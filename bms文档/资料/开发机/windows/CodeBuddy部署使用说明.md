@@ -348,7 +348,7 @@ Windows 侧关键点：同一份 `launch.json` 用 **`windows` 平台覆盖**表
 | -------- | ---------------------------------------------------------------------------------------------------------------------------------- |
 | 脚本     | `bms\scripts\tools\dev\本地全套.py`（子命令 `up` / `down` / `stop <服务…>` / `status` / `seed` / `env` / `logs` / `unlock [账号]`） |
 | 别名     | `127.0.0.2 tenant`、`127.0.0.4 platform`、`127.0.0.5 identity`（`up` 自愈写入 hosts；**Windows 写 hosts 需管理员权限**，失败时脚本提示手工追加） |
-| 开发密钥 | `bms\backend\.dev-keys.local`（`up` 缺则用 `joserfc` 生成：`usr-` 用户令牌 + `svc-` 服务令牌；不入库）                        |
+| 开发密钥 | `bms\deploy\.dev-keys.local`（`up` 缺则用 `joserfc` 生成：`usr-` 用户令牌 + `svc-` 服务令牌；不入库）                        |
 | Redis    | 缺省指开发服务器上的隔离库（DB5；地址以脚本缺省与《[本地资源](../../../用户文档/本地资源.md)》为准，`--redis` 或 `BMS_LOCAL_REDIS` 覆盖） |
 | 状态目录 | `%TEMP%\bms-local-stack`（pid 与日志；linux 侧为 `/tmp/bms-local-stack`）。日志**追加**写：每次启动写一行 `===== <服务> 启动 @ 时间 =====` 分隔，单文件超 5MB 归档为 `.log.1`（保留一份）——**不再覆盖历史**，便于事后判断「进程是被强杀还是正常退出」 |
 | 前端映射 | `bms\frontend\apps\desktop\.env.local` 的 `VITE_LOCAL_API`（**`up` 收尾自动写入**，`env` 子命令可单独补；未列出的服务仍走远端网关） |

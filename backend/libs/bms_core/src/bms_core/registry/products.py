@@ -39,6 +39,7 @@ from typing import cast
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenList, ConcurrentStableList
 from bms_core.core.exceptions import CatalogError
 from bms_core.core.objects import BaseValueObject
+from bms_core.core.paths import resolve_backend_root
 from bms_core.datasource.registry import DataSourceRecord, register_data_source_records
 from bms_core.services.module_registry import (
     ModuleRecord,
@@ -55,6 +56,10 @@ __all__ = [
     "load_product_manifests",
     "register_manifest",
 ]
+
+_MANIFEST_BASE = resolve_backend_root("alembic.ini", anchor=Path(__file__))
+"""清单相对路径的解析基准（**后端工程根**，与 `[registry].product_manifests` 注释及
+`ops.gateway_config` 的解析口径一致；不随进程工作目录变化）。"""
 
 _SERVICE_STRING_FIELDS: ConcurrentStableFrozenList[str] = ConcurrentStableFrozenList(
     ("module_key", "name", "table_prefix", "event_domain")
@@ -313,18 +318,31 @@ def register_manifest(manifest: ProductManifest) -> None:
     register_data_source_records(manifest.data_sources)
 
 
+def _resolve_manifest_path(raw: str | Path) -> Path:
+    """把清单路径规整为绝对路径（相对路径按**后端工程根**解析）。
+
+    Args:
+        raw: 配置里的清单路径（绝对或相对）。
+
+    Returns:
+        Path: 绝对路径（不校验存在性）。
+    """
+    path = Path(raw)
+    return path if path.is_absolute() else _MANIFEST_BASE / path
+
+
 def load_product_manifests(paths: Iterable[str | Path]) -> ConcurrentStableList[ProductManifest]:
     """按配置路径批量装载并注册产品清单（缺省空清单；不存在的路径跳过）。
 
     Args:
-        paths: 清单文件路径序列（相对路径按当前工作目录解析）。
+        paths: 清单文件路径序列（相对路径按**后端工程根** `backend/` 解析，不随工作目录变化）。
 
     Returns:
         ConcurrentStableList[ProductManifest]: 已装载清单（插入序）。
     """
     manifests: ConcurrentStableList[ProductManifest] = ConcurrentStableList()
     for raw_path in paths:
-        path = Path(raw_path)
+        path = _resolve_manifest_path(raw_path)
         if not path.is_file():
             continue
         manifest = load_product_manifest(path)

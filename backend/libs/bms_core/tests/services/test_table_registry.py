@@ -502,3 +502,10 @@ def test_validate_table_ownership_detects_domain_mismatch() -> None:
     errors = validate_table_ownership(ConcurrentStableList(TABLE_OWNERSHIP), records)
 
     assert any("sys_user：domain 与清单不一致" in error for error in errors)
+
+
+@pytest.mark.kiwi_id(2359)
+def test_series_tables_empty_domain_returns_empty() -> None:
+    """空域（不归域的表）不参与任何清单：返回空集合而非全表。"""
+    assert series_tables("", "tenant") == set()
+    assert series_tables("", "platform") == set()

@@ -77,13 +77,19 @@ def test_json_contract() -> None:
 
 
 def test_other_formats() -> None:
-    """`pytest-args` / `cov-args` / `projects` / `changed-services` 形态。"""
-    changed = ("--changed-file", "backend/services/txn/src/bms_txn/services/recovery.py")
+    """`pytest-args` / `cov-args` / `projects` / `changed-services` 形态。
+
+    变更路径必须是**真实存在**的源文件（2026-10-25 04_05 修正：按域分包后旧路径已不存在，
+    选测只能推出残缺模块名）；`cov-args` 只锁包前缀，避免包内再分包时再次失效。
+    """
+    changed = ("--changed-file", "backend/services/txn/src/bms_txn/domains/txn/services/recovery.py")
     args = _run(*changed, "--format", "pytest-args")
     assert args.returncode == 0
     assert args.stdout.strip()
     cov = _run(*changed, "--format", "cov-args")
-    assert "--cov=bms_txn.domains.txn.services.recovery" in cov.stdout
+    assert any(
+        token.startswith("--cov=bms_txn.") and token.endswith(".services.recovery") for token in cov.stdout.split()
+    )
     projects = _run(*changed, "--format", "projects")
     assert "bms_txn" in projects.stdout
     services = _run(*changed, "--format", "changed-services")

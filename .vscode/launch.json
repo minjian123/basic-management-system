@@ -166,7 +166,7 @@
     {
       // 「全套」的后端成员（本地开发主形态）：由 `python3 scripts/tools/dev/本地全套.py up` 起**三个**服务
       // （tenant/platform/identity；同一 8000 + loopback 别名，与服务基址模板 http://{service}:8000 同形，
-      // 并加载 `backend/.dev-keys.local` 的开发密钥；`org` 已归 mdm 产品服务）。服务是后台进程——本终端
+      // 并加载 `deploy/.dev-keys.local` 的开发密钥；`org` 已归 mdm 产品服务）。服务是后台进程——本终端
       // 只承载会话，关掉不影响服务；停服务请用任务 `dev:后端本地全套·停（三服务）`。
       // **日常不必启动本项**：复合项「全套（本地三服务 + 宿主 + Chromium）」已改为经前置任务链静默拉起三服务；
       // 本项仅在「只想单独起后端、且接受一个终端面板」时使用（node-terminal 会话必然占终端）。
@@ -182,7 +182,7 @@
       //   `python3 scripts/tools/dev/本地全套.py stop identity`（或任务「dev:后端本地全套·停（三服务）」后
       //   用任务 up 只起其余——`本地全套.py up --services "tenant platform"`）；
       // ② 启动本项（选服务）→ 由 `ops/dev_run.py` 注入 loopback 别名（127.0.0.2/4/5）+ 同一 8000 端口
-      //   + `backend/.dev-keys.local` 开发密钥 + Redis，再 runpy 进服务入口 ⇒ 断点 / 变量 / 调用栈与
+      //   + `deploy/.dev-keys.local` 开发密钥 + Redis，再 runpy 进服务入口 ⇒ 断点 / 变量 / 调用栈与
       //   `python -m bms_<服务>` 一致（`justMyCode: false`：可步入框架与基座代码）；
       // ③ 调试会话停止即服务结束，之后 `本地全套.py up` 一键补回。
       "name": "后端：单服务（debugpy · 本机三服务）",

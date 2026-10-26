@@ -15,7 +15,12 @@ from bms_core.core.config import get_settings
 from bms_core.core.exceptions import ConfigError
 from bms_core.db.bootstrap import apply_unit_schema
 from bms_core.db.migration import DATASOURCE_PLATFORM
-from bms_core.services.module_registry import enabled_service_keys
+from bms_core.services.module_registry import (
+    SERVICE_CATALOG,
+    ModuleRecord,
+    ServiceGroup,
+    enabled_service_keys,
+)
 from bms_core.tenant import provisioning
 
 
@@ -162,3 +167,27 @@ def test_build_parser_requires_code() -> None:
     assert args.dry_run is False
     with pytest.raises(SystemExit):
         provisioning.build_parser().parse_args([])
+
+
+@pytest.mark.kiwi_id(2359)
+def test_enabled_tenant_services_includes_new_catalog_service(monkeypatch: pytest.MonkeyPatch) -> None:
+    """目录出现「已启用且带 service_key」的新服务行时纳入建库服务（替身目录，业务逻辑不动）。"""
+    extra = ModuleRecord(
+        module_key="demo",
+        service_key="demo",
+        name="演示服务",
+        table_prefix="demo_",
+        event_domain="demo",
+        service_group=ServiceGroup.PRODUCT,
+        product_key="demo",
+    )
+    monkeypatch.setattr(
+        provisioning,
+        "_catalog_records",
+        lambda: ConcurrentStableList([*SERVICE_CATALOG, extra]),
+    )
+
+    services = provisioning.enabled_tenant_services()
+
+    assert "demo" in services
+    assert services[0] == "platform"

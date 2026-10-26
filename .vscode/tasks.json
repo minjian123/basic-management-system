@@ -22,7 +22,7 @@
   //    选服务）` 的 `preLaunchTask` 复用——重开「全套」不必先手动停上一次调试会话（否则 Address already in use）；
   //  - **本地裸跑后端＝本机开发主形态**：`dev:后端本地全套（三服务）` 调 `python3 scripts/tools/dev/本地全套.py up`，
   //    起 tenant / platform / identity 三服务（**同一 8000 端口 + loopback 别名**，与服务基址模板
-  //    `http://{service}:8000` 同形；SQLite 本地库 + 内存缓存，自愈 hosts 别名与 `backend/.dev-keys.local`；
+  //    `http://{service}:8000` 同形；SQLite 本地库 + 内存缓存，自愈 hosts 别名与 `deploy/.dev-keys.local`；
   //    `org` 已随组织主数据归 mdm 产品服务，不再纳管）。**容器 / mjbk 只在发布验证时用**（开发机部署说明）；
   //    停服务用 `dev:后端本地全套·停（三服务）`（TERM → 5s → KILL，仍不死则报错交人工）。
   //    注意：`清理宿主端口.py 8000 backend` 会连**三服务**一并清掉，故起本地全套请用上述任务，

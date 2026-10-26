@@ -12,9 +12,12 @@ import pytest
 
 from bms_core.core.concurrent import ConcurrentStableSet
 from bms_core.core.config import get_settings
+from bms_core.core.exceptions import ConfigError
+from bms_core.db import bootstrap
 from bms_core.db.bootstrap import (
     apply_unit_schema,
     db_keys_for,
+    default_schema_of,
     ensure_unit_schema,
     unit_metadata,
 )
@@ -142,3 +145,56 @@ async def test_ensure_unit_schema_switch(tmp_path: Path, monkeypatch: pytest.Mon
     assert "platform" in handled
     assert "sys_menu" in _tables(platform)
     assert "sys_outbox" in _tables(platform)
+
+
+@pytest.mark.kiwi_id(2359)
+def test_db_keys_for_unknown_datasource(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """未知数据源段不产库键（早退空清单，不抛错）。"""
+    _point_to(tmp_path, monkeypatch)
+    assert db_keys_for("legacy", get_settings()) == []
+
+
+@pytest.mark.kiwi_id(2359)
+def test_default_schema_of_dm_only() -> None:
+    """模式名取自达梦连接串的 `database` 段；异步方言返回空串（不切模式）。"""
+    assert default_schema_of("dm+dmPython://SYSDBA:pwd@127.0.0.1:5236/BMS_TEST_DM") == "BMS_TEST_DM"
+    assert default_schema_of("sqlite+aiosqlite:///./bms.db") == ""
+
+
+@pytest.mark.kiwi_id(2359)
+def test_apply_unit_schema_sync_driver_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """同步驱动建表（与达梦同路径）：首跑新建、重跑「新建 0 / 已存在 N」，不重复建表。"""
+    _point_to(tmp_path, monkeypatch)
+    database = tmp_path / "sync.db"
+    url = f"sqlite:///{database}"
+    first = asyncio.run(apply_unit_schema("platform", DATASOURCE_PLATFORM, url, target="platform-sync"))
+    assert first.created == first.total
+    assert "sys_menu" in _tables(database)
+    second = asyncio.run(apply_unit_schema("platform", DATASOURCE_PLATFORM, url, target="platform-sync"))
+    assert second.created == 0
+    assert second.existing == first.total
+
+
+@pytest.mark.kiwi_id(2359)
+async def test_ensure_unit_schema_swallows_config_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """域派生失败（单元未登记 / 布局异常）不阻断启动：返回空清单。"""
+    _point_to(tmp_path, monkeypatch)
+    settings = get_settings()
+
+    def _boom(unit: str) -> ConcurrentStableSet[str]:
+        """替身：域派生即抛配置异常。"""
+        raise ConfigError(f"单元未登记：{unit}")
+
+    monkeypatch.setattr(bootstrap, "unit_domains", _boom)
+    assert await ensure_unit_schema(settings) == []
+
+
+@pytest.mark.kiwi_id(2359)
+async def test_ensure_unit_schema_skips_when_unit_not_declared(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """单元标识未声明（`[app].unit` 与 `[app].service` 均为空）：跳过建表、返回空清单。"""
+    _point_to(tmp_path, monkeypatch)
+    settings = get_settings()
+    settings.app.unit = ""
+    settings.app.service = ""
+
+    assert await ensure_unit_schema(settings) == []

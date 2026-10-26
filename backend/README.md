@@ -23,7 +23,7 @@ uv run python -m bms_platform          # 各服务启动入口（读 config 的 
 # 其他服务：python -m bms_identity / bms_tenant / bms_org / bms_file / bms_notification / bms_search / bms_ai / bms_report
 # 本地并行多服务时用 BMS_SERVER__PORT 覆盖端口（每服务独立配置归 06_需求）
 # 本地「全套」一键起停（推荐；三服务各绑 loopback 别名 127.0.0.2~5 + **同一 8000 端口**，与服务间
-# 基址模板 http://{service}:8000 同形；自愈 /etc/hosts 别名与 backend/.dev-keys.local 开发密钥）：
+# 基址模板 http://{service}:8000 同形；自愈 /etc/hosts 别名与 deploy/.dev-keys.local 开发密钥）：
 #   python3 scripts/tools/dev/本地全套.py up       # 幂等起 tenant/platform/identity（已在跑则跳过）
 #   python3 scripts/tools/dev/本地全套.py seed     # 租户注册库 + 菜单元数据 + 建号（**首次起栈后跑一次**）
 #     └ 缺省账号 `admin`；**口令缺省随机生成并仅打印一次**——凭据**只登记在《bms文档/用户文档/本地资源.md》

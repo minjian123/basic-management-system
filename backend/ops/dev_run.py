@@ -10,7 +10,7 @@ uv run python -m ops.dev_run --service bms_identity --dry-run    # 只看解析�
 
 - **为何需要**：本机多服务要求每个服务绑各自 loopback 别名（`127.0.0.2 tenant` /
   `.4 platform` / `.5 identity`）且**同一 8000 端口**（服务间基址模板 `http://{service}:8000`），
-  并加载 `backend/.dev-keys.local` 的开发密钥；IDE 的 `后端：单服务（debugpy）` 只设
+  并加载 `deploy/.dev-keys.local` 的开发密钥（原 `backend/` 根，2026-10-26 迁出）；IDE 的 `后端：单服务（debugpy）` 只设
   `PYTHONUNBUFFERED` ⇒ 起来的是 `127.0.0.1:8000` 且**无密钥**，登录链路必断。
   本脚本在**导入服务前**把 host / 端口 / Redis / 密钥按本机全套口径注入 `os.environ`，
   再 `runpy.run_module` 进服务入口 ⇒ 断点、变量、调用栈、日志与 `python -m bms_<服务>` 完全一致
@@ -54,8 +54,12 @@ DEFAULT_PORT = "8000"
 DEFAULT_REDIS = "redis://192.168.0.107:6379/5"
 """缺省 Redis（本机无 Redis，指向开发机 DB5 隔离；经 `BMS_REDIS__URL` / `--redis` 覆盖）。"""
 
-KEYS_FILE = Path(__file__).resolve().parents[1] / ".dev-keys.local"
-"""开发密钥文件（由 `本地全套.py up` 生成；`export K='V'` 形态）。"""
+KEYS_FILE = Path(__file__).resolve().parents[2] / "deploy" / ".dev-keys.local"
+"""开发密钥文件（由 `本地全套.py up` 生成；`export K='V'` 形态）。
+
+落 `deploy/`（仓级部署目录），不落 `backend/` 根：后端根只放受跟踪的工程文件，
+本地产物 / 凭据一律进 `deploy/`、`.cache/` 或工作区 `tmp/`（2026-10-26 拍板）。
+"""
 
 
 def load_keys(path: Path) -> int:

@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+from bms_core.core import config as config_module
 from bms_core.core.config import Settings, resolve_sqlite_dir
 from bms_core.db.engine import EngineFactory
 from bms_core.db.migration import archive_series, default_series, series_url
@@ -42,6 +43,17 @@ def test_engine_resolve_url_applies_sqlite_dir(tmp_path: Path) -> None:
     settings.database.platform.url_template = ""
     resolved = EngineFactory(settings).resolve_url()
     assert str(tmp_path / "bms_x.db") in resolved
+
+
+@pytest.mark.kiwi_id(2359)
+def test_resolve_sqlite_dir_relative_base_uses_config_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """基址本身为相对路径时以配置目录为基准（`_CONFIG_DIR`），解析到绝对路径并建目录。"""
+    monkeypatch.setattr(config_module, "_CONFIG_DIR", tmp_path)
+
+    resolved = resolve_sqlite_dir(_REL, "relative-base")
+
+    assert str(tmp_path / "relative-base" / "bms_x.db") in resolved
+    assert (tmp_path / "relative-base").is_dir()
 
 
 @pytest.mark.kiwi_id(2244)
