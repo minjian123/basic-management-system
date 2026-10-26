@@ -74,10 +74,15 @@ test_files = [
 match_prefix = "scripts/tools/base_check/"
 fallback_dir = "libs/bms_core/tests/boundary"
 mapping = [
-  { script = "check_bare_collections.py", test = "libs/bms_core/tests/boundary/test_bare_collections_guard.py" },
-  { script = "check_env_example.py", test = "libs/bms_core/tests/core/test_basic_protection.py" },
+  { script = "check_base.py", test = "libs/bms_core/tests/boundary/test_naming_guard.py" },
   { script = "check_backend_base.py", test = "libs/bms_core/tests/core/test_value_object_roots.py" },
+  { script = "check_bare_collections.py", test = "libs/bms_core/tests/boundary/test_bare_collections_guard.py" },
+  { script = "check_docs_scope.py", test = "libs/bms_core/tests/boundary/test_base_check_wrappers.py" },
+  { script = "check_env_example.py", test = "libs/bms_core/tests/core/test_basic_protection.py" },
+  { script = "check_links.py", test = "libs/bms_core/tests/boundary/test_base_check_wrappers.py" },
+  { script = "check_prototype_review.py", test = "libs/bms_core/tests/boundary/test_base_check_wrappers.py" },
   { script = "check_service_boundaries.py", test = "libs/bms_core/tests/crosscut/test_module_boundary.py" },
+  { script = "check_system_fields.py", test = "libs/bms_core/tests/registry/test_form_catalog.py" },
 ]
 
 [rules.frontend.global]
@@ -286,3 +291,235 @@ host_env = "MJBK_IP"
 user_env = "MJBK_SSH_USER"
 container = "bms-kiwi"
 manage = "/Kiwi/manage.py"
+
+
+# ---- 基座校验器规则（`engkit base <名>`；缺段 = 该校验器未启用）----
+
+[rules.base]
+manifest = "bms文档/基座文档清单.md"
+base_dirs = [
+  "bms文档/规范",
+  "bms文档/资源",
+  "bms文档/资料/AI",
+  "bms文档/资料/工具",
+  "bms文档/资料/开发服务器",
+  "bms文档/资料/开发机",
+  "bms文档/资料/知识档案",
+  "bms文档/资料/审计",
+]
+local_only = ["bms文档/用户文档/"]
+cross_layer = [
+  "bms文档/规划/",
+  "bms文档/项目/",
+  "bms文档/设计/",
+  "bms文档/需求/",
+  "bms文档/任务/",
+]
+bad_wording = ["BMS 项目", "在 BMS", "本项目项目"]
+link_suffixes = [".md", ".html"]
+
+[rules.base.design]
+dir = "bms文档/设计/数据库设计"
+overview = "bms文档/设计/数据库设计/01_数据库设计_总览.md"
+table_subdir = "数据表设计"
+dialect_subdir = "方言特性"
+status_values = ["已设计", "待落库", "已落库", "已废弃"]
+
+[rules.base.naming]
+tool_root = "scripts/tools"
+package_roots = ["frontend/packages", "frontend/modules"]
+versions_root = "backend/alembic/versions"
+
+[[rules.base.runtime]]
+path = "backend/libs/bms_core/src/bms_core/fieldtype/local.py"
+extract = "widget_literal"
+
+[[rules.base.runtime]]
+path = "frontend/packages/core/src/domain/form-render.ts"
+extract = "ts_widgets"
+
+[[rules.base.runtime]]
+path = "backend/services/platform/src/bms_platform/domains/permission_meta/schemas/permission_meta.py"
+extract = "code_pattern"
+expect_count = 2
+
+[[rules.base.runtime]]
+path = "backend/libs/bms_core/src/bms_core/icon/base.py"
+extract = "icon_pattern"
+
+[rules.env_example]
+removed_keys = ["BMS_SECURITY__ALGORITHM"]
+private_key_marker = "PRIVATE KEY"
+placeholder_marker = "..."
+
+[[rules.env_example.templates]]
+path = "backend/.env.example"
+required_keys = [
+  "BMS_SECURITY__SECRET_KEY",
+  "BMS_SECURITY__ACCESS_TOKEN_EXPIRE_MINUTES",
+  "BMS_SECURITY__REFRESH_TOKEN_EXPIRE_DAYS",
+  "BMS_SECURITY__ACTIVE_KID",
+  "BMS_SECURITY__KEYS",
+  "BMS_APP__DOCS_ENABLED",
+]
+
+[[rules.env_example.templates]]
+path = "deploy/.env.example"
+required_keys = [
+  "BMS_SECURITY__SECRET_KEY",
+  "BMS_SECURITY__ACTIVE_KID",
+  "BMS_SECURITY__KEYS",
+  "BMS_SERVICE_TOKEN__KEYS",
+]
+
+[rules.backend_base]
+manifest = "bms文档/后端基类清单.md"
+chain_doc = "bms文档/设计/基类体系/后端基类实现契约.md"
+source_dirs = ["backend/libs", "backend/services", "backend/ops"]
+error_codes = "backend/libs/bms_core/src/bms_core/core/error_codes.py"
+versions_dir = "backend/alembic/versions"
+direct_baseline = "deploy/boundaries/direct_base_object_baseline.json"
+root_bases_marker = "体系根清单"
+value_object_root = "BaseValueObject"
+framework_object_root = "BaseFrameworkObject"
+datasources = ["platform", "tenant", "archive"]
+default_chain = "platform:tenant"
+domain_layout = "deploy/boundaries/domain_layout.json"
+
+[rules.bare_collections]
+scan_targets = [
+  "backend/libs/bms_core/src",
+  "backend/libs/bms_core/tests",
+  "backend/services",
+  "backend/ops",
+  "scripts/tools",
+]
+exclude_parts = ["__pycache__", ".venv", "node_modules", ".git"]
+whitelist = [
+  "ConcurrentStableList",
+  "ConcurrentStableSet",
+  "ConcurrentStableDict",
+  "ConcurrentStableFrozenList",
+  "ConcurrentStableFrozenSet",
+  "ConcurrentStableFrozenDict",
+]
+unregistered = [
+  "deque",
+  "Deque",
+  "Counter",
+  "OrderedDict",
+  "ChainMap",
+  "defaultdict",
+  "UserDict",
+  "UserList",
+  "UserString",
+  "KeysView",
+  "ItemsView",
+  "ValuesView",
+  "MappingView",
+]
+tuple_forms = ["tuple", "Tuple"]
+protocol_forms = [
+  "Iterable",
+  "Iterator",
+  "Generator",
+  "AsyncIterator",
+  "AsyncIterable",
+  "AsyncGenerator",
+  "Callable",
+  "Awaitable",
+  "Coroutine",
+  "Reversible",
+  "Container",
+  "Sized",
+  "Hashable",
+]
+implementation_files = [
+  "backend/libs/bms_core/src/bms_core/core/collections.py",
+  "backend/libs/bms_core/src/bms_core/core/concurrent.py",
+  "backend/libs/bms_core/src/bms_core/core/sorted_collections.py",
+  "backend/libs/bms_core/src/bms_core/core/redis_collections.py",
+]
+allow_marker = "# bare-collections:allow"
+baseline = "deploy/boundaries/bare_collections_baseline.json"
+baseline_version = 1
+
+[rules.bare_collections.banned]
+bare = ["dict", "list", "set", "frozenset", "Dict", "List", "Set", "FrozenSet", "DefaultDict"]
+readonly = [
+  "Sequence",
+  "Mapping",
+  "AbstractSet",
+  "Collection",
+  "MutableSequence",
+  "MutableMapping",
+  "MutableSet",
+]
+ascending = [
+  "SortedList",
+  "SortedDict",
+  "SortedSet",
+  "ConcurrentSortedList",
+  "ConcurrentSortedSet",
+  "ConcurrentSortedDict",
+]
+
+[rules.bare_collections.reasons]
+tuple = "同构 tuple 视为集合声明，请落 ConcurrentStableList（值对象字段落 ConcurrentStableFrozenList）"
+bare_tuple = "裸 tuple 无元素类型信息，请写明元素类型后按同构 / 固定元数判定"
+banned = "集合声明须命中白名单（插入序 ConcurrentStable* / 不可变 ConcurrentStableFrozen*）"
+unregistered = "未登记的集合形态：请先登记护栏白名单与《后端基类清单》，或改用插入序集合类"
+
+[rules.system_fields]
+table_dir = "bms文档/设计/数据库设计/数据表设计"
+row_form_key = "form_key"
+row_parent_id = "parent_id"
+
+[rules.system_fields.catalog]
+path = "backend/libs/bms_core/src/bms_core/registry/forms.py"
+const = "FORM_CATALOG"
+enum = "FormKind"
+key_field = "form_key"
+table_field = "table"
+kind_field = "kind"
+
+[rules.system_fields.datasource]
+path = "backend/libs/bms_core/src/bms_core/datasource/registry.py"
+const = "DATA_SOURCE_CATALOG"
+enum = "DataSourceKind"
+key_field = "data_source_key"
+kind_field = "kind"
+
+[rules.docs_status]
+project_dir = "bms文档/项目"
+stage = "01_项目骨架"
+statuses = ["未开始", "进行中", "部分完成", "已完成", "搁置"]
+todo_statuses = ["未开始", "进行中", "部分完成", "搁置"]
+done_status = "已完成"
+req_id_pattern = '^\d{2}-\d+$'
+task_id_pattern = '^\d{2}-\d+-\d+$'
+plan_id_pattern = '^\d{2}_\d{2}$'
+overview_glob = "00_需求_*.md"
+plan_glob = "01_计划_*.md"
+aid_dirs = ["设计", "测试", "实施"]
+plan_done_columns = 6
+plan_todo_columns = 8
+record_dirs = ["实施"]
+
+[rules.prototype]
+record_pattern = '^bms文档/项目/[^/]+/任务/.+/测试/[^/]+\.md$'
+context_pattern = '^bms文档/项目/[^/]+/任务/.+/(设计|实施|测试)/[^/]+\.md$'
+prototype_ref_pattern = "设计/((?:原型设计|组件设计)/[^\\s()\\[\\]\"'`<>|]*\\.html)"
+ui_patterns = [
+  '^frontend/apps/desktop/src/(views|components|layouts)/',
+  '^frontend/packages/ui_ep/src/',
+  '^frontend/.*\.vue$',
+]
+section_heading = '^##[^\n]*原型'
+table_header_keyword = "结论"
+screenshot_pattern = '\]\(([^)\s]+\.png)\)'
+unfinished_words = ["待补", "待对照", "待核", "未核对", "未核", "待定", "TODO", "待办"]
+not_applicable_word = "不适用"
+min_reason_len = 10
+base = "origin/main"
+context_dirs = ["设计", "实施", "测试"]
