@@ -329,6 +329,14 @@ backend-typecheck:
       exists:
         - backend/pyproject.toml
   script:
+    # engkit 接入（13_05）：`backend/pyproject.toml` 的 pyright `extraPaths` 含 `../../engkit/src`
+    # （边界用例导入 `engkit.config` / `engkit.cli`，类型门禁须按源码解析），故本 job 也要克隆工具包
+    # ——此前漏此步，靠 `changes` 放行长期未暴露（2026-10-26 手工全量流水线 #1255 首次真跑即失败）。
+    - export ENGKIT_REV="${ENGKIT_REV:-959965a6b3b591626338b7e3bd7fd28f7a758d51}"
+    - |
+      test -d ../engkit/.git || git clone --quiet --no-checkout "${ENGKIT_REPO_URL:-${CI_SERVER_PROTOCOL}://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_SERVER_HOST}/bms/engkit.git}" ../engkit
+    - git -C ../engkit checkout --quiet "$ENGKIT_REV"
+    - export ENGKIT_HOME="$CI_PROJECT_DIR/../engkit"
     - cd backend && uv run pyright
 
 # ---- 后端：插件装配离线校验（复用装配清单与注册表语义；见 01-2-1 详细设计）----
