@@ -1,0 +1,25 @@
+# Kiwi 用例登记清单（一任务一条；多条断言共用同一 kiwi_id）
+# 登记：在 bms 仓根执行 `uv run --project backend engkit kiwi register --cases <本文件>`
+[[case]]
+summary = "13_06 基座校验器迁入与各仓规则对齐"
+category = "平台骨架"
+priority = "P2"
+status = "CONFIRMED"
+tags = ["自动化"]
+text = """覆盖范围：7 个基座校验器的规则数据与判定分离、迁入 engkit（`engkit base <名>`）、
+bms 侧薄包装零回退、mdm 规则段接入、`check_base` 映射缺口补齐。
+
+断言要点：
+1. engkit 包内无仓名字面（`tests/test_guards.py::test_package_has_no_repo_literals`，递归扫描含 `base/` 子包）。
+2. 规则数据全部来自 `[rules.<名>]`：缺段即该校验器未启用（退出码 2）、未知键 / 类型错即配置报错。
+3. 7 器判定与原脚本逐条一致（bms 真仓实测：清单 212/212、继承链 727 条、类形态 716 个、错误码 115 个、文档核对 391 项、集合声明基线 0 处、环境模板 2 份）。
+4. bms 七脚本薄包装：入口名 / 位置根参数 / `--self-test` / `--changed` / `--task` / `--stage` 透传，输出与退出码不变。
+5. 映射表覆盖 `scripts/tools/base_check/` 全部 9 个脚本；新增 `test_base_check_wrappers.py` 承担 3 个薄弱脚本的护栏。
+6. mdm 规则段接入并实跑：`links` 0 断链、`env-example` 通过、`prototype-review` 巡检正常。
+
+自动化文件：
+- engkit：`tests/test_base_check.py`（配置与判定）、`tests/test_guards.py`（包内无仓名字面）
+- bms：`backend/libs/bms_core/tests/boundary/test_base_check_wrappers.py`、
+  `backend/libs/bms_core/tests/boundary/test_naming_guard.py`（2351 / 2357）、
+  `backend/libs/bms_core/tests/boundary/test_bare_collections_guard.py`（2213 / 2326）
+"""
