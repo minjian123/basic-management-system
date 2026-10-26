@@ -114,6 +114,11 @@ label = "工作区卫生：临时 / 日志文件只许落在工作区根 tmp/ �
 cmd = ["{python}", "scripts/tools/preflight/check_workspace_hygiene.py", "--quiet"]
 
 [[preflight.steps]]
+label = "行尾：工作树 CRLF 检查（应为 LF 的文件不得残留 CRLF）"
+cmd = ["uv", "run", "engkit", "eol", "--quiet"]
+cwd = "backend"
+
+[[preflight.steps]]
 label = "CI 配置自检（YAML / pytest 选项 / GitLab Lint / 门禁资产）"
 cmd = ["{python}", "scripts/tools/preflight/check_ci_config.py", "{root}"]
 
