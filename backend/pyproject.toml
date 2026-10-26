@@ -89,7 +89,7 @@ asyncio_mode = "auto"
 # -n auto：pytest-xdist 进程级并行（随 engkit 安装，2026-10-25 拍板默认并行）——全量 / 选测 / 预检
 #   一律并行，不再依赖调用方记得加参数；确需串行（共享库文件或端口独占）的用例用 `-p no:xdist` 或
 #   `@pytest.mark.xdist_group` 局部隔离
-addopts = "--import-mode=importlib -p bms_testing_plugin -n auto"
+addopts = "--import-mode=importlib -p bms_testing_plugin -n auto --basetemp=.cache/pytest"
 testpaths = [
     "libs/bms_core/tests",
     "services/txn/tests",
