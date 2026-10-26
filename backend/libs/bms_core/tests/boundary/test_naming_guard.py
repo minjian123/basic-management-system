@@ -1,56 +1,46 @@
-"""登记面命名形态护栏（Kiwi 2351 / 2357）：真实仓库零问题、自检 11 例全通过。
+"""登记面命名形态护栏的调用面（Kiwi 2351 / 2357）：包装可跑、规则齐备。
 
-护栏实现见 `scripts/tools/base_check/check_base.py` 第 6 项：`naming_problems` 扫登记目录 / 包名 /
-脚本名（Kiwi 2351），`runtime_identifier_problems` 扫运行期登记值——控件语义键、业务 / 动作码
-`pattern`、自建图标码正则（Kiwi 2357，任务 `01_08`）。只扫登记面，不扫源码文本 / 注释 / 前端路由 /
-CSS / 文档；本用例以 importlib 直接加载脚本调用纯函数。
+判定与自检向量已随 13_06 迁入 engkit（`engkit base base`，其 `--self-test` 覆盖 12 例：登记面 6 例 +
+运行期登记值 6 例）；本用例只锁**本仓调用面**——脚本能按原命令跑通、规则段齐备、退出码不变。
 """
 
-import importlib.util
-from pathlib import Path
+from __future__ import annotations
+
+import subprocess
+import sys
+import tomllib
 
 import pytest
 
-_REPO_ROOT = Path(__file__).resolve().parents[5]
-_SCRIPT = _REPO_ROOT / "scripts" / "tools" / "base_check" / "check_base.py"
-_spec = importlib.util.spec_from_file_location("check_base", _SCRIPT)
-assert _spec is not None and _spec.loader is not None
-check_base = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(check_base)
+from bms_core.db.migration import BACKEND_ROOT
+
+_REPO = BACKEND_ROOT.parent
+_SCRIPT = _REPO / "scripts" / "tools" / "base_check" / "check_base.py"
 
 
 @pytest.mark.kiwi_id(2351)
-def test_naming_clean_on_repo() -> None:
-    """真实仓库登记面零问题：无连字符工具目录 / 脚本名 / 包目录 / 包名 / 清单目录。"""
-    assert check_base.naming_problems(_REPO_ROOT) == []
-
-
-@pytest.mark.kiwi_id(2351)
-def test_naming_self_test_cases() -> None:
-    """自检 11 例全部符合预期（登记面 6 例 + 运行期登记值 5 例）。"""
-    assert check_base.NAMING_CASES == 11
-    assert check_base.naming_self_test() == 0
-
-
-@pytest.mark.kiwi_id(2351)
-def test_naming_regex_forms() -> None:
-    """形态判定本身：snake_case 通过、连字符与大写开头被拒（判据不随实现漂移）。"""
-    assert check_base.DIR_IDENT_RE.match("ui_ep")
-    assert not check_base.DIR_IDENT_RE.match("ui-ep")
-    assert not check_base.DIR_IDENT_RE.match("UI_ep")
-    assert check_base.SCRIPT_STEM_RE.match("check_base2")
-    assert not check_base.SCRIPT_STEM_RE.match("check-base")
+def test_naming_guard_clean_on_repo() -> None:
+    """真实仓库跑包装：登记面零问题（退出码 0）。"""
+    completed = subprocess.run(
+        [sys.executable, str(_SCRIPT), str(_REPO)], capture_output=True, text=True, check=False
+    )
+    assert completed.returncode == 0, completed.stdout + completed.stderr
 
 
 @pytest.mark.kiwi_id(2357)
-def test_runtime_identifier_clean_on_repo() -> None:
-    """运行期登记值零问题：控件语义键 / 业务动作码 pattern / 自建图标码正则均为 snake_case。"""
-    assert check_base.runtime_identifier_problems(_REPO_ROOT) == []
+def test_naming_rules_registered() -> None:
+    """规则数据在本仓 `engkit.toml`（判定在 engkit，脚本不含规则）。"""
+    config = tomllib.loads((_REPO / "engkit.toml").read_text(encoding="utf-8"))
+    rules = config["rules"]["base"]
+    assert rules["manifest"].startswith("bms文档/")
+    assert rules["naming"]["tool_root"] == "scripts/tools"
+    assert len(rules["runtime"]) >= 4
 
 
-@pytest.mark.kiwi_id(2357)
-def test_runtime_identifier_regex_forms() -> None:
-    """运行期判据：snake_case 形态常量与 kebab 反例（判据不随实现漂移）。"""
-    assert check_base.DIR_IDENT_RE.match("dict_multi")
-    assert not check_base.DIR_IDENT_RE.match("dict-multi")
-    assert check_base.SNAKE_PATTERN == r"^[a-z][a-z0-9_]*$"
+@pytest.mark.kiwi_id(2351)
+def test_wrapper_has_no_rules() -> None:
+    """包装脚本不含推导逻辑（不出现正则常量与判定函数）。"""
+    text = _SCRIPT.read_text(encoding="utf-8")
+    assert "engkit_boot" in text
+    for token in ("re.compile", "def naming_problems", "BASE_DIRS"):
+        assert token not in text

@@ -1,46 +1,47 @@
-"""裸无序集合护栏归零回归（Kiwi 2224）：全链集合声明零命中、基线条目归零、护栏复跑「新增 0 / 残留 0」。
+"""集合声明护栏的调用面（Kiwi 2213 / 2326）：包装可跑、规则齐备、基线有效。
 
-护栏脚本以 importlib 直接加载（与 `tests/ops/test_render_alertmanager.py` 同模式），只调用其 `collect`
-与 `check` 并读取基线快照；断言口径见 08_02 详细设计 §5 用例 3（存量归零与护栏收紧）。
+判定矩阵与自检向量已随 13_06 迁入 engkit（`engkit base bare-collections --self-test`）；本用例只锁
+**本仓调用面**：原命令跑通、白名单 / 基线在配置里、包装不含判定逻辑。
 """
 
-import importlib.util
-import json
-from pathlib import Path
+from __future__ import annotations
+
+import subprocess
+import sys
+import tomllib
 
 import pytest
 
-_REPO_ROOT = Path(__file__).resolve().parents[5]
-_SCRIPT = _REPO_ROOT / "scripts" / "tools" / "base_check" / "check_bare_collections.py"
-_spec = importlib.util.spec_from_file_location("check_bare_collections", _SCRIPT)
-assert _spec is not None and _spec.loader is not None
-check_bare_collections = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(check_bare_collections)
+from bms_core.db.migration import BACKEND_ROOT
 
-_BASELINE = _REPO_ROOT / "deploy" / "boundaries" / "bare_collections_baseline.json"
+_REPO = BACKEND_ROOT.parent
+_SCRIPT = _REPO / "scripts" / "tools" / "base_check" / "check_bare_collections.py"
 
 
-@pytest.mark.kiwi_id(2224)
-def test_bare_collections_hits_zero() -> None:
-    """存量归零：全链（`libs` / `services` / `ops` / `scripts/tools`）集合声明命中 0 处（各区域均为 0）。"""
-    assert len(check_bare_collections.collect(_REPO_ROOT)) == 0
+@pytest.mark.kiwi_id(2213)
+def test_guard_passes_on_repo() -> None:
+    """真实仓库跑包装：集合声明无新增违规（退出码 0）。"""
+    completed = subprocess.run(
+        [sys.executable, str(_SCRIPT), str(_REPO)], capture_output=True, text=True, check=False
+    )
+    assert completed.returncode == 0, completed.stdout + completed.stderr
 
 
-@pytest.mark.kiwi_id(2224)
-def test_bare_collections_baseline_zero() -> None:
-    """基线台账归零：`bare_collections_baseline.json` 条目计数合计为 0（无残留）。"""
-    payload = json.loads(_BASELINE.read_text(encoding="utf-8"))
-    entries = payload["entries"]
-    assert sum(int(entry["count"]) for entry in entries) == 0
+@pytest.mark.kiwi_id(2326)
+def test_rules_registered_in_config() -> None:
+    """白名单 / 判违规形态 / 基线均在本仓配置（脚本内不再出现仓专属字面）。"""
+    config = tomllib.loads((_REPO / "engkit.toml").read_text(encoding="utf-8"))
+    rules = config["rules"]["bare_collections"]
+    assert "ConcurrentStableList" in rules["whitelist"]
+    assert "list" in rules["banned"]["bare"]
+    assert rules["baseline"] == "deploy/boundaries/bare_collections_baseline.json"
+    assert rules["baseline_version"] == 1
 
 
-@pytest.mark.kiwi_id(2224)
-def test_bare_collections_check_clean() -> None:
-    """护栏复跑：`check` 无问题，新增 0 / 残留 0、基线条目 0。"""
-    check_bare_collections.problems.clear()
-    check_bare_collections.counts.clear()
-    check_bare_collections.check(_REPO_ROOT)
-    assert list(check_bare_collections.problems) == []
-    assert check_bare_collections.counts["baseline_entries"] == 0
-    assert check_bare_collections.counts["added"] == 0
-    assert check_bare_collections.counts["stale"] == 0
+@pytest.mark.kiwi_id(2213)
+def test_wrapper_is_thin() -> None:
+    """包装脚本只转发（无 AST 扫描与基线比对实现）。"""
+    text = _SCRIPT.read_text(encoding="utf-8")
+    assert "engkit_boot" in text
+    for token in ("ast.walk", "write_baseline", "BARE_CONTAINERS"):
+        assert token not in text
