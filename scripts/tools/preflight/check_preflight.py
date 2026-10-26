@@ -26,7 +26,7 @@ from engkit_boot import config_path, forward, pop_root  # noqa: E402
 
 from bms_core.core.concurrent import ConcurrentStableList  # noqa: E402
 
-_VALUE_OPTIONS = ("--jobs", "--budget-seconds", "--step-seconds")
+_VALUE_OPTIONS = ("--root", "--config", "--jobs", "--budget-seconds", "--step-seconds")
 """带取值的选项（其取值不算位置参数）。"""
 
 

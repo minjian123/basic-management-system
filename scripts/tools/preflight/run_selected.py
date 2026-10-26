@@ -18,6 +18,8 @@ from engkit_boot import config_path, forward, pop_root  # noqa: E402
 from bms_core.core.concurrent import ConcurrentStableList  # noqa: E402
 
 _VALUE_OPTIONS = (
+    "--root",
+    "--config",
     "--changed-from",
     "--changed-file",
     "--changed-file-list",
