@@ -108,7 +108,13 @@ ci-queue-acquire:
       LOCK="${CI_QUEUE_LOCK:-ci-queue-lock}"
       ME="${CI_PROJECT_PATH}#${CI_PIPELINE_ID}"
       owner() { docker inspect -f '{{index .Config.Labels "ci-queue.owner"}}' "$LOCK" 2>/dev/null || echo ''; }
-      stamp() { docker inspect -f '{{index .Config.Labels "ci-queue.at"}}' "$LOCK" 2>/dev/null || echo 0; }
+      # 持锁时间戳：标签缺失 / 非数字一律回落空串（`$(( … ))` 在 `set -u` 下遇到空串会语法错误
+      # 直接退出且无任何输出，2026-10-26 手工连续触发实测 #1256 即因此失败——既有缺陷，本次顺手修）；
+      # 调用方把空串视为「刚创建」（AGE=0，不误判为陈旧）
+      stamp() {
+        RAW="$(docker inspect -f '{{index .Config.Labels "ci-queue.at"}}' "$LOCK" 2>/dev/null || echo '')"
+        case "$RAW" in ''|*[!0-9]*) echo '' ;; *) echo "$RAW" ;; esac
+      }
       # owner 流水线是否已终态：返回 0=已终态（可接管）、1=进行中（继续等）、2=不可判定（走年龄兜底）
       owner_finished() {
         O="$1"
@@ -133,7 +139,11 @@ ci-queue-acquire:
       while :; do
         if docker inspect "$LOCK" >/dev/null 2>&1; then
           OWNER="$(owner)"
-          AGE=$(( $(date +%s) - $(stamp) ))
+          # 算术兜底：stamp 为空（标签缺失 / 非数字）视为刚创建，AGE=0 —— 不误判为陈旧而抢锁
+          NOW="$(date +%s)"
+          AT="$(stamp)"
+          case "$AT" in ''|*[!0-9]*) AT="$NOW" ;; esac
+          AGE=$(( NOW - AT ))
           owner_finished "$OWNER"
           CASE=$?
           if [ "$CASE" -eq 0 ]; then
