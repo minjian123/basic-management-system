@@ -13,6 +13,7 @@ from __future__ import annotations
 import contextlib
 import io
 import tomllib
+from typing import Any
 
 import pytest
 
@@ -28,11 +29,11 @@ _WRAPPERS = {
 }
 
 
-def _config() -> dict[str, object]:
+def _config() -> Any:
     """读取本仓 `engkit.toml`。
 
     Returns:
-        dict[str, object]: 解析后的配置映射。
+        Any: 解析后的配置映射。
     """
     return tomllib.loads((_REPO / "engkit.toml").read_text(encoding="utf-8"))
 
@@ -40,7 +41,7 @@ def _config() -> dict[str, object]:
 @pytest.mark.kiwi_id(2361)
 def test_wrappers_are_thin() -> None:
     """包装脚本只转发：不出现 AST 解析、规则常量或自建判定函数。"""
-    forbidden = ("ast.parse", "re.compile(r\"^\\[a-z\\]", "def check_", "PROBLEMS", "sys.exit(1)")
+    forbidden = ("ast.parse", 're.compile(r"^\\[a-z\\]', "def check_", "PROBLEMS", "sys.exit(1)")
     for name in _WRAPPERS:
         text = (_BASE_DIR / name).read_text(encoding="utf-8")
         assert "forward(" in text, f"{name} 应经 engkit_boot.forward 转发"
