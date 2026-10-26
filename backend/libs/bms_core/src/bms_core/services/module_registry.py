@@ -18,16 +18,26 @@
   含运行服务登记行）。
 - `known_event_domains()`：已登记事件域集合（事件契约命名校验的域来源，需求 05-4；**平台清单视图**，
   应用装配期请改取 `ModuleRegistry.event_domains()`）。
+- **能力（第五类）与种子（第六类）记录**（07B `02_01`）：同一装载通道（产品自持清单
+  `[[collaborations]]` / `[[seeds]]`）、同一视图族（`collaboration_catalog_view()` /
+  `seed_catalog_view()`）、同一唯一性纪律（同键同值合并、异键异值即拒）；平台侧常量留空，
+  声明权威只在产品仓，校验归 `registry/products.py`（不新增第二套注册表）。
 """
 
 import re
 from collections import Counter
 from collections.abc import Iterable
 from dataclasses import dataclass
+from dataclasses import field as dataclass_field
 from enum import StrEnum
 from typing import Any, cast
 
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
+from bms_core.core.concurrent import (
+    ConcurrentStableDict,
+    ConcurrentStableFrozenList,
+    ConcurrentStableList,
+    ConcurrentStableSet,
+)
 from bms_core.core.objects import BaseFrameworkObject, BaseRegistryRecordContract, BaseValueObject
 from bms_core.core.version import CONTRACT_VERSION_RE, contract_major
 
@@ -140,6 +150,156 @@ class ProductRecord(BaseRegistryRecordContract):
         )
 
 
+class CollaborationKind(StrEnum):
+    """能力访问面类别（对应《跨产品协同登记清单》§5「访问面类别」）。"""
+
+    READ = "read"
+    WRITE = "write"
+    TXN_BRANCH = "txn-branch"
+    DATASET = "dataset"
+    CODES = "codes"
+
+
+class CollaborationStatus(StrEnum):
+    """能力状态（弃用期仍下发，但须给出替代能力）。"""
+
+    ENABLED = "enabled"
+    DISABLED = "disabled"
+    DEPRECATED = "deprecated"
+
+
+_PATH_PARAMETER_RE = re.compile(r"\{([^{}]*)\}")
+"""访问面路径参数占位符（`{user_id}` → `user_id`；`{}` 视为匿名占位）。"""
+
+
+def normalize_capability_path(path: str) -> str:
+    """归一化访问面路径（参数名统一为 `{}`，供契约定位比对）。
+
+    Args:
+        path: 访问面路径（可含 `{name}` 占位）。
+
+    Returns:
+        str: 归一化路径（参数名不参与比较，只比路径形态）。
+    """
+    return _PATH_PARAMETER_RE.sub("{}", path)
+
+
+@dataclass(frozen=True)
+class CollaborationRecord(BaseValueObject):
+    """跨产品能力登记记录（**第五类记录**；唯一键 `name`；不落库，故不实现 `from_row`）。
+
+    与产品档案 / 服务行 / 产品路由 / 数据源**同源、同装载入口、同合并视图族、同唯一性纪律**；
+    声明权威在产品仓自持清单，平台侧只装载并投影为只读视图（不手写第二份源）。
+    """
+
+    name: str
+    """能力名（全局唯一，`{product}.{domain}.{capability}`；与提供方实现标识解耦）。"""
+
+    domain: str
+    """提供方**业务域**标识（须在域布局登记；不是服务标识）。"""
+
+    kind: str
+    """访问面类别（取值见 `CollaborationKind`）。"""
+
+    contract_version: str
+    """随提供方服务契约版本（主版本须与清单 `services` 段一致）。"""
+
+    path: str | None = None
+    """访问面路径模板（`codes` 类为 None；参数占位用 `{name}`）。"""
+
+    product_key: str | None = None
+    """能力对外暴露的产品命名空间段；None 表示取清单 `product_key`。"""
+
+    branch_id: str | None = None
+    """XA 分支标识（`txn-branch` 必填；全局唯一、≤ 16 字符、一经确定不随版本漂移）。"""
+
+    branch_op: str | None = None
+    """分支动作名（`txn-branch` 必填）。"""
+
+    data_source_key: str | None = None
+    """关联数据源登记键（`dataset` 必填）。"""
+
+    permission_codes: ConcurrentStableFrozenList[str] = dataclass_field(
+        default_factory=lambda: ConcurrentStableFrozenList()
+    )
+    """业务语义要素集合（`codes` 必填：业务码 / 权限码）。"""
+
+    frontend_prefix: str | None = None
+    """前端命名空间**域段**；None 表示按服务行的路由域段推导（产品段恒取 `product_key`）。"""
+
+    default_consumers: ConcurrentStableFrozenList[str] = dataclass_field(
+        default_factory=lambda: ConcurrentStableFrozenList()
+    )
+    """默认分配消费方（服务键 / 产品键；**前端应用不入此列**，分配见 `02_04`）。"""
+
+    status: str = CollaborationStatus.ENABLED
+    """状态（`enabled` / `disabled` / `deprecated`）。"""
+
+    replacement: str | None = None
+    """替代能力名（`deprecated` 必填）。"""
+
+    def normalized_path(self) -> str | None:
+        """取归一化后的访问面路径（`codes` 类为 None）。
+
+        Returns:
+            str | None: 归一化路径（参数名统一为 `{}`）。
+        """
+        return None if self.path is None else normalize_capability_path(self.path)
+
+    def render_path(self, **params: object) -> str:
+        """按访问面模板填充路径参数（缺失 / 多余参数即拒，消费方不自行拼接）。
+
+        Args:
+            **params: 路径参数（键须与模板占位名一致）。
+
+        Returns:
+            str: 填充后的访问面路径。
+
+        Raises:
+            ParamError: 无访问面（`codes` 类）、缺参数或多参数。
+        """
+        from bms_core.core.exceptions import ParamError
+
+        if self.path is None:
+            raise ParamError(f"能力无访问面（kind={self.kind}）：{self.name}")
+        names = ConcurrentStableSet(match.group(1) for match in _PATH_PARAMETER_RE.finditer(self.path))
+        provided = ConcurrentStableSet(str(key) for key in params)
+        missing = ConcurrentStableList(name for name in names if name not in provided)
+        extra = ConcurrentStableList(key for key in provided if key not in names)
+        if missing:
+            raise ParamError(f"能力 {self.name}：访问面缺少路径参数（{', '.join(missing)}）")
+        if extra:
+            raise ParamError(f"能力 {self.name}：访问面路径参数多余（{', '.join(extra)}）")
+        return _PATH_PARAMETER_RE.sub(lambda match: str(params[match.group(1)]), self.path)
+
+
+@dataclass(frozen=True)
+class SeedRecord(BaseValueObject):
+    """产品默认数据种子记录（**第六类记录**；唯一键 `name`；不落库，故不实现 `from_row`）。
+
+    声明 = 「模块路径 + 入口名 + 依赖顺序」；执行归平台统一种子编排（`02_03`），
+    平台侧不代写产品数据（红线三）。
+    """
+
+    name: str
+    """种子名（全局唯一，与平台自身种子共用一个命名空间）。"""
+
+    module: str
+    """入口模块点分路径（如 `mdm.seeds.permissions`）。"""
+
+    entry: str
+    """入口函数名（装载期校验可导入且可调用）。"""
+
+    after: ConcurrentStableFrozenList[str] = dataclass_field(default_factory=lambda: ConcurrentStableFrozenList())
+    """依赖的其他种子名（可空；拓扑排序用）。"""
+
+    description: str = ""
+    """用途说明（中文）。"""
+
+    status: str = CollaborationStatus.ENABLED
+    """状态（`enabled` / `disabled` / `deprecated`）。"""
+
+
 SERVICE_CATALOG: ConcurrentStableList[ModuleRecord] = ConcurrentStableList(
     (
         ModuleRecord(
@@ -177,7 +337,7 @@ SERVICE_CATALOG: ConcurrentStableList[ModuleRecord] = ConcurrentStableList(
             build_batch=0,
             status=ModuleStatus.ENABLED,
         ),
-        # 产品服务行（如 mdm）**不写死在本常量**：由产品仓自持清单（`deploy/registry/<产品>.json`）
+        # 产品服务行（如 mdm）**不写死在本常量**：由产品仓自持清单（`deploy/registry/<产品>.toml`）
         # 经 `register_service_records()` 装载（运行期装配 / 离线网关生成），见 `registry/products.py`。
         ModuleRecord(
             module_key="file",
@@ -333,7 +493,7 @@ SERVICE_CATALOG: ConcurrentStableList[ModuleRecord] = ConcurrentStableList(
 )
 """服务目录与注册要素（**平台服务**单一来源，10 行）。
 
-**产品服务行不写死在本常量**：由产品仓自持清单（`deploy/registry/<产品>.json`）经
+**产品服务行不写死在本常量**：由产品仓自持清单（`deploy/registry/<产品>.toml`）经
 `register_service_records()` 装载（运行期装配 / 离线网关生成），见 `registry/products.py`。
 本常量只保留平台地基 / 能力服务，避免产品名、表前缀、事件域等字面量进入基座源码。
 """
@@ -507,6 +667,94 @@ def product_keys() -> ConcurrentStableSet[str]:
     return ConcurrentStableSet(record.product_key for record in product_catalog_view())
 
 
+COLLABORATION_CATALOG: ConcurrentStableList[CollaborationRecord] = ConcurrentStableList(())
+"""平台内建能力（**留空**：跨产品能力的声明权威只在产品仓自持清单）。
+
+与 `SERVICE_CATALOG` / `PRODUCT_ROUTES` 同口径——平台不写产品能力，只经
+`register_collaboration_records()` 装载产品声明并投影为只读视图。
+"""
+
+_INJECTED_COLLABORATIONS: ConcurrentStableDict[str, CollaborationRecord] = ConcurrentStableDict()
+"""产品清单装载的能力记录（`name` → 记录）。"""
+
+
+def register_collaboration_records(records: Iterable[CollaborationRecord]) -> None:
+    """装载能力记录（幂等：同 `name` 同值覆盖、异值即拒）。
+
+    Args:
+        records: 能力登记记录（来自产品自持清单 `[[collaborations]]` 段）。
+
+    Raises:
+        CatalogError: 与已装载记录同键异值（fail-closed，不静默取一侧）。
+    """
+    from bms_core.core.exceptions import CatalogError
+
+    for record in records:
+        existing = _INJECTED_COLLABORATIONS.get(record.name)
+        if existing is not None and existing != record:
+            raise CatalogError(f"能力记录同键异值：{record.name!r}（已装载 {existing!r}，新 {record!r}）")
+        _INJECTED_COLLABORATIONS.set(record.name, record)
+
+
+def reset_collaboration_records() -> None:
+    """清空已装载的能力记录（测试隔离用；生产路径不调用）。"""
+    _INJECTED_COLLABORATIONS.clear()
+
+
+def collaboration_catalog_view() -> ConcurrentStableList[CollaborationRecord]:
+    """能力**合并视图**（平台内建 + 已装载记录，插入序）。
+
+    视图是投影不是第二份源：能力声明权威只在产品仓自持清单。
+
+    Returns:
+        ConcurrentStableList[CollaborationRecord]: 能力登记记录（平台在前、产品在后）。
+    """
+    merged: ConcurrentStableList[CollaborationRecord] = ConcurrentStableList(COLLABORATION_CATALOG)
+    merged.update(_INJECTED_COLLABORATIONS.values())
+    return merged
+
+
+SEED_CATALOG: ConcurrentStableList[SeedRecord] = ConcurrentStableList(())
+"""平台内建种子记录（**留空**：平台自身种子是「可调用入口登记表」，归 `02_03`；本视图只承载清单声明）。"""
+
+_INJECTED_SEEDS: ConcurrentStableDict[str, SeedRecord] = ConcurrentStableDict()
+"""产品清单装载的种子记录（`name` → 记录）。"""
+
+
+def register_seed_records(records: Iterable[SeedRecord]) -> None:
+    """装载种子记录（幂等：同 `name` 同值覆盖、异值即拒）。
+
+    Args:
+        records: 种子登记记录（来自产品自持清单 `[[seeds]]` 段）。
+
+    Raises:
+        CatalogError: 与已装载记录同键异值（fail-closed，不静默取一侧）。
+    """
+    from bms_core.core.exceptions import CatalogError
+
+    for record in records:
+        existing = _INJECTED_SEEDS.get(record.name)
+        if existing is not None and existing != record:
+            raise CatalogError(f"种子记录同键异值：{record.name!r}（已装载 {existing!r}，新 {record!r}）")
+        _INJECTED_SEEDS.set(record.name, record)
+
+
+def reset_seed_records() -> None:
+    """清空已装载的种子记录（测试隔离用；生产路径不调用）。"""
+    _INJECTED_SEEDS.clear()
+
+
+def seed_catalog_view() -> ConcurrentStableList[SeedRecord]:
+    """种子**合并视图**（平台内建 + 已装载记录，插入序）。
+
+    Returns:
+        ConcurrentStableList[SeedRecord]: 种子登记记录（平台在前、产品在后）。
+    """
+    merged: ConcurrentStableList[SeedRecord] = ConcurrentStableList(SEED_CATALOG)
+    merged.update(_INJECTED_SEEDS.values())
+    return merged
+
+
 @dataclass(frozen=True)
 class ProductRouteRecord(BaseValueObject):
     """产品级路由映射记录（产品命名空间「域段 → 服务」显式登记，需求 12-2）。
@@ -531,7 +779,7 @@ class ProductRouteRecord(BaseValueObject):
 PRODUCT_ROUTES: ConcurrentStableList[ProductRouteRecord] = ConcurrentStableList(())
 """平台内建产品级路由映射（**留空**：产品路由由产品仓自持清单装载）。
 
-- **单一来源在产品仓**：`deploy/registry/<产品>.json` 的 `product_routes` 段，经
+- **单一来源在产品仓**：`deploy/registry/<产品>.toml` 的 `product_routes` 段，经
   `register_product_routes()` 装载（运行期装配 / 离线网关生成），避免产品名与域段写进基座源码。
 - **先注册后建表**：映射可先于服务接入登记——目标服务行 `status = planned` 放行
   （网关不生成路由，服务不可达不暴露）；`disabled` 即拒。

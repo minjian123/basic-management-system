@@ -18,9 +18,10 @@ service = ""
 docs_enabled = true
 
 [registry]
-# 产品登记清单（产品仓自持）：服务行 / 产品路由 / 数据源条目，装配期与网关生成按此装载。
-# 本地工作区由 config.dev.toml 指向 `../../mdm/deploy/registry/mdm.json`（相对 backend/）；部署态经
-# `BMS_REGISTRY__PRODUCT_MANIFESTS`（JSON 数组或 os.pathsep 分隔）注入；缺省空 = 不装载产品登记。
+# 产品登记清单（产品仓自持）：服务行 / 产品路由 / 数据源 / 能力 / 种子，装配期与网关生成按此装载。
+# 清单格式为 **toml**（`deploy/registry/<产品>.toml`，07B `02_01`；不再支持 json 兼容分支）；
+# 本地工作区经 `backend/.env` 的 `BMS_REGISTRY__PRODUCT_MANIFESTS` 注入（相对路径按 backend/ 解析），
+# 部署态同经该变量（JSON 数组或 os.pathsep 分隔）注入；缺省空 = 不装载产品登记。
 product_manifests = []
 
 [server]

@@ -16,7 +16,7 @@ allow_origins = ["http://localhost:5173", "http://127.0.0.1:5173"]
 # 产品登记清单（服务行 / 产品路由 / 数据源条目）：**基座仓不写任何产品路径**——产品清单属产品侧
 # 资产，由本机经环境变量注入（`backend/.env` 的 `BMS_REGISTRY__PRODUCT_MANIFESTS`，JSON 数组或
 # `os.pathsep` 分隔；见 `backend/.env.example` 同名段与 `config.toml` 注释）。
-# 2026-10-26：原值 `["../../mdm/deploy/registry/mdm.json"]` 是对同级 mdm 克隆的**硬绑定**——
+# 2026-10-26：原值 `["../../mdm/deploy/registry/mdm.toml"]` 是对同级 mdm 克隆的**硬绑定**——
 # 基座仓出现产品字面、且 bms 单仓 CI 读不到该文件导致 `gateway_config check` 零漂移假红，故清空。
 product_manifests = []
 

@@ -209,7 +209,7 @@ DATA_SOURCE_CATALOG: ConcurrentStableList[DataSourceRecord] = ConcurrentStableFr
 `kind` 一律**逐条显式声明**（2026-10-13，任务 `08_01`）——不再依赖数据类默认值；
 取值保持既有不变（本清单均为字典表）。
 
-**产品条目不入本常量**：产品（如 mdm）在 `deploy/registry/<产品>.json` 的 `data_sources` 段声明，
+**产品条目不入本常量**：产品（如 mdm）在 `deploy/registry/<产品>.toml` 的 `data_sources` 段声明，
 经 `register_data_source_records()` 装载（装配期 / 离线网关生成），避免产品名与取数路径写进基座源码。
 """
 

@@ -4,12 +4,14 @@ import asyncio
 import runpy
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 from typing import cast
 
 import pytest
 from sqlalchemy import Table, select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+import bms_core.registry.products as products
 import ops.check_modules as check_modules
 import ops.seed_module as seed_module
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
@@ -63,6 +65,63 @@ def test_check_modules_fails_on_conflict(monkeypatch: pytest.MonkeyPatch) -> Non
 
     monkeypatch.setattr(check_modules, "ModuleRegistry", BadRegistry)
     assert check_modules.main(ConcurrentStableList([])) == 1
+
+
+def _manifest_settings(paths: ConcurrentStableList[str]) -> SimpleNamespace:
+    """构造只含 `[registry].product_manifests` 的配置替身。
+
+    Args:
+        paths: 清单路径序列。
+
+    Returns:
+        SimpleNamespace: 配置替身（`registry.product_manifests`）。
+    """
+    return SimpleNamespace(registry=SimpleNamespace(product_manifests=paths))
+
+
+def test_check_manifests_not_configured(monkeypatch: pytest.MonkeyPatch) -> None:
+    """未配置产品清单：跳过能力 / 种子校验并给出提示（不失败）。
+
+    Args:
+        monkeypatch: pytest monkeypatch 夹具。
+    """
+    monkeypatch.setattr(check_modules, "get_settings", lambda: _manifest_settings(ConcurrentStableList()))
+
+    errors, warnings = check_modules.check_manifests()
+
+    assert errors == []
+    assert any("未配置 [registry].product_manifests" in warning for warning in warnings)
+
+
+def test_check_manifests_reports_errors(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """配置了非法清单：能力 / 种子段错误进入明细，CLI 退出码 1 且逐条打印。
+
+    Args:
+        tmp_path: 临时目录。
+        monkeypatch: pytest monkeypatch 夹具。
+        capsys: pytest 输出捕获夹具。
+    """
+    backend = tmp_path / "backend"
+    registry = backend / "deploy" / "registry"
+    registry.mkdir(parents=True)
+    manifest = registry / "demo.toml"
+    manifest.write_text(
+        'product_key = "demo"\n\n[[collaborations]]\nname = "demo.org.x"\nkind = "read"\n', encoding="utf-8"
+    )
+    monkeypatch.setattr(products, "_MANIFEST_BASE", backend)
+    monkeypatch.setattr(
+        check_modules, "get_settings", lambda: _manifest_settings(ConcurrentStableList([str(manifest)]))
+    )
+
+    errors, warnings = check_modules.check_manifests()
+
+    assert any("缺少必填字段" in error for error in errors)
+    assert warnings == []
+    assert check_modules.main(ConcurrentStableList(["--offline"])) == 1
+    printed = capsys.readouterr().out
+    assert "缺少必填字段" in printed
 
 
 def _write_service(root: Path, name: str, body: str) -> None:

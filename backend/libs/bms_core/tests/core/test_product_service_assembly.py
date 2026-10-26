@@ -10,7 +10,6 @@
 - 平台服务（不覆写钩子 / 不声明产品维度）视图与校验口径不变。
 """
 
-import json
 from collections.abc import Iterator
 from dataclasses import replace
 from pathlib import Path
@@ -525,21 +524,11 @@ def test_assembly_loads_product_manifests_and_logs_count(
     backend = tmp_path / "backend"
     registry = backend / "deploy" / "registry"
     registry.mkdir(parents=True)
-    payload = {
-        "product_key": "demo",
-        "products": [
-            {
-                "product_key": "demo",
-                "name": "演示产品",
-                "frontend_package_source": "demo#frontend",
-                "status": "enabled",
-            }
-        ],
-        "services": [],
-        "product_routes": [],
-        "data_sources": [],
-    }
-    (registry / "demo.json").write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+    (registry / "demo.toml").write_text(
+        'product_key = "demo"\n\n[[products]]\nproduct_key = "demo"\nname = "演示产品"\n'
+        'frontend_package_source = "demo#frontend"\nstatus = "enabled"\n',
+        encoding="utf-8",
+    )
 
     events: ConcurrentStableList[str] = ConcurrentStableList()
     counts: ConcurrentStableList[int] = ConcurrentStableList()
@@ -562,7 +551,7 @@ def test_assembly_loads_product_manifests_and_logs_count(
 
     # `create()` 内部经 `get_settings()` 取配置（忽略入参），故在此桩替换
     settings = Settings()
-    settings.registry.product_manifests = ConcurrentStableList(["deploy/registry/demo.json"])
+    settings.registry.product_manifests = ConcurrentStableList(["deploy/registry/demo.toml"])
     monkeypatch.setattr(application, "get_settings", lambda: settings)
 
     app = _PlatformishFactory().create(None)

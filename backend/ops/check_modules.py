@@ -12,6 +12,9 @@ uv run python -m ops.check_modules --offline    # 仅离线断言（无库场景
   （服务目录四要素唯一 / 格式 / 维度 / 产品归属；产品档案标识唯一 / 格式 / 状态），并比对
   服务工程自报契约版本（`CONTRACT_VERSION`）与清单登记值的主版本；服务工程 ↔ 清单双向核对
   （工程存在但未登记即失败；planned 且无工程目录跳过）。服务包常量经 AST 静态读取，不导入服务包。
+- **产品自持清单**（07B `02_01`）：按 `[registry].product_manifests` 装载并做能力 / 种子两段校验
+  （重名 / 业务域 / 归属 / 访问面契约定位 / 版本兼容 / 种子入口），**复用装载期同一校验函数**
+  （不新增并行校验入口）；未配置清单时跳过并打印提示，跳过项与降级提示一律输出（不静默）。
 - **接库**（缺省读配置解析，`--url` 显式覆盖）：读平台库 `sys_module` / `sys_product`（未软删行）
   查重与格式校验 + 与清单双向对账，**只读不写**；空库判失败（种子未执行）。`--offline` 强制跳过接库。
 - 冲突 / 非法 → 打印明细并退出码 1；通过 → 退出码 0。
@@ -26,8 +29,10 @@ from pathlib import Path
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.core.config import get_settings
 from bms_core.core.version import contract_major
 from bms_core.db.keys import PLATFORM_SERVICE_KEY
+from bms_core.registry.products import inspect_product_manifests
 from bms_core.services.module_registry import (
     PRODUCT_CATALOG,
     SERVICE_CATALOG,
@@ -157,6 +162,24 @@ def check_offline(services_dir: Path = _SERVICES_DIR) -> ConcurrentStableList[st
     return errors
 
 
+def check_manifests() -> tuple[ConcurrentStableList[str], ConcurrentStableList[str]]:
+    """装载并校验产品自持清单的能力 / 种子段（**复用装载期同一实现**，不新增并行校验入口）。
+
+    清单与产品代码清单的对账（服务行逐字段同值等）由产品仓自身的 `ops.check_modules` 承担；
+    平台侧只校验已装载清单的跨仓契约一致性。
+
+    Returns:
+        tuple[ConcurrentStableList[str], ConcurrentStableList[str]]: （错误明细, 跳过 / 降级提示）。
+    """
+    paths = ConcurrentStableList(get_settings().registry.product_manifests)
+    if not paths:
+        return ConcurrentStableList(), ConcurrentStableList(
+            ["[清单] 未配置 [registry].product_manifests（跳过能力 / 种子校验）"]
+        )
+    inspection = inspect_product_manifests(paths)
+    return ConcurrentStableList(inspection.errors), ConcurrentStableList(inspection.warnings)
+
+
 async def _read_catalog(url: str) -> ConcurrentStableList[ModuleRecord]:
     """只读读取平台库服务目录（未软删行）。
 
@@ -236,15 +259,19 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
     """
     args = build_parser().parse_args(argv)
     errors = check_offline()
+    manifest_errors, manifest_warnings = check_manifests()
+    errors.update(manifest_errors)
     url = "" if args.offline else (args.url or resolve_url(service=PLATFORM_SERVICE_KEY))
     if url:
         errors.update(check_catalog_db(url))
+    for warning in manifest_warnings:
+        print(warning)
     if errors:
         for error in errors:
             print(f"[服务目录] {error}")
         print(f"[服务目录] 校验失败（{len(errors)} 项）")
         return 1
-    scope = f"清单 {len(SERVICE_CATALOG)} 项 + 产品档案 {len(PRODUCT_CATALOG)} 项 + 服务包声明"
+    scope = f"清单 {len(SERVICE_CATALOG)} 项 + 产品档案 {len(PRODUCT_CATALOG)} 项 + 服务包声明 + 产品清单能力 / 种子段"
     if url:
         scope += " + 接库对账"
     print(f"[服务目录] 校验通过（{scope}）")
