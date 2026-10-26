@@ -264,7 +264,11 @@ async def test_create_invalid_scopes(client: AsyncClient, oidc: OidcHarness) -> 
 
 @pytest.mark.kiwi_id(2250)
 async def test_create_scope_outside_registry_rejected(client: AsyncClient, oidc: OidcHarness) -> None:
-    """scope 登记集合校验（R4.2）：未登记 scope 拒绝（80112）；登记集合内产品域 scope 放行。"""
+    """scope 登记集合校验（R4.2）：未登记 scope 拒绝（80112）；登记集合内产品域 scope 放行。
+
+    产品域 scope 取平台种子产品 `biz`：`mdm` 已改由产品仓自持清单装载，基座配置不再
+    硬绑定同级产品仓清单（`[registry].product_manifests` 缺省空），此处不得依赖它。
+    """
     unknown = await client.post(
         _CLIENTS,
         json={
@@ -285,13 +289,13 @@ async def test_create_scope_outside_registry_rejected(client: AsyncClient, oidc:
             "name": "外部系统",
             "redirect_uris": [],
             "grant_types": ["client_credentials"],
-            "scopes": ["mdm:read", "open:read"],
+            "scopes": ["biz:read", "open:read"],
         },
         headers=TENANT_HEADERS,
     )
     assert product_scope.status_code == 200
     created = product_scope.json()["data"]
-    assert created["scopes"] == ["mdm:read", "open:read"]
+    assert created["scopes"] == ["biz:read", "open:read"]
 
 
 @pytest.mark.kiwi_id(2202)

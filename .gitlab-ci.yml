@@ -893,8 +893,8 @@ module-check:
     - pnpm install --frozen-lockfile
     - |
       for dir in frontend/modules/*/; do
-        name=$(basename "$dir")
-        pkg="@bms/module-$name"
+        # 包名从各工程 package.json 读（命名统一后为 @bms/module_<目录名>，不再按目录名拼连字符）
+        pkg=$(node -p "require('./${dir}package.json').name")
         case " $SELECTED_PACKAGES " in
           *" $pkg "*) ;;
           *) echo "[test-selection] 跳过 $pkg（未受影响）"; continue ;;
@@ -925,10 +925,11 @@ module-build:
     - pnpm install --frozen-lockfile
     - |
       for dir in frontend/modules/*/; do
-        name=$(basename "$dir")
-        pnpm --filter "@bms/module-$name" run build
-        pnpm --filter "@bms/module-$name" run budget
-        pnpm --filter "@bms/module-$name" run guard:isolation
+        # 包名从各工程 package.json 读（命名统一后为 @bms/module_<目录名>，不再按目录名拼连字符）
+        pkg=$(node -p "require('./${dir}package.json').name")
+        pnpm --filter "$pkg" run build
+        pnpm --filter "$pkg" run budget
+        pnpm --filter "$pkg" run guard:isolation
       done
     # 清单 / 版本发现 / 契约用例齐备护栏（清单唯一来源 + 全部注册实现同一套断言）
     - node frontend/scripts/check-module-manifest.mjs
