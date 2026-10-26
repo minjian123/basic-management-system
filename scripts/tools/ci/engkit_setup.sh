@@ -14,7 +14,7 @@
 
 ENGKIT_REPO_ROOT="${CI_PROJECT_DIR:-$(cd "$(dirname "$0")/../../.." && pwd)}"
 ENGKIT_CLONE_DIR="${ENGKIT_REPO_ROOT}/../engkit"
-ENGKIT_REF="${ENGKIT_REV:-a880f5660b108fa8d23ce317bd5990f359b25266}"
+ENGKIT_REF="${ENGKIT_REV:-af033a19a1f42c4d43371c9d34795bd4975976d1}"
 
 if [ ! -d "${ENGKIT_CLONE_DIR}/.git" ]; then
     ENGKIT_SCHEME="${CI_SERVER_URL%%://*}"
