@@ -10,8 +10,10 @@
 - 平台服务（不覆写钩子 / 不声明产品维度）视图与校验口径不变。
 """
 
+import json
 from collections.abc import Iterator
 from dataclasses import replace
+from pathlib import Path
 from typing import cast
 
 import pytest
@@ -19,6 +21,7 @@ from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
 import bms_core.application as application
+import bms_core.registry.products as products
 from bms_core.application import BaseServiceApplicationFactory, service_lifespan
 from bms_core.core.concurrent import ConcurrentStableList, ConcurrentStableSet
 from bms_core.core.config import Settings
@@ -500,3 +503,70 @@ def test_form_records_hook_merges_into_application_view() -> None:
     # 注入只进应用级视图：构建期清单常量不被修改（无进程级注册表）
     assert {record.form_key for record in FORM_CATALOG}.isdisjoint({"org_dept", "org_post"})
     assert cast("FormRegistry", app.state.form_registry).get("org_dept") == _FORM_RECORDS[0]
+
+
+@pytest.mark.kiwi_id(2251)
+def test_assembly_loads_product_manifests_and_logs_count(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """装配期装载产品登记清单：非空时落 `product_manifests_loaded` 日志（含装载条数）。
+
+    覆盖 `application.py` 中 `loads = load_product_manifests(...)` 后
+    `if loads:` 为真的分支（空配置走假分支，行为不变）。
+
+    日志经 `get_logger` 返回的 structlog 门面输出（不走标准 `logging`，`caplog` 抓不到），
+    故以桩替换 `application.get_logger` 断言事件名与字段。
+
+    Args:
+        monkeypatch: pytest monkeypatch 夹具。
+        tmp_path: 临时目录（造清单文件）。
+    """
+    backend = tmp_path / "backend"
+    registry = backend / "deploy" / "registry"
+    registry.mkdir(parents=True)
+    payload = {
+        "product_key": "demo",
+        "products": [
+            {
+                "product_key": "demo",
+                "name": "演示产品",
+                "frontend_package_source": "demo#frontend",
+                "status": "enabled",
+            }
+        ],
+        "services": [],
+        "product_routes": [],
+        "data_sources": [],
+    }
+    (registry / "demo.json").write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+
+    events: ConcurrentStableList[str] = ConcurrentStableList()
+    counts: ConcurrentStableList[int] = ConcurrentStableList()
+
+    class _Recorder:
+        """记录 `info(event, **fields)` 调用的假日志门面。"""
+
+        def info(self, event: str, **fields: object) -> None:
+            """记录事件与字段。
+
+            Args:
+                event: 事件名。
+                **fields: 结构化字段。
+            """
+            events.add(event)
+            counts.add(cast(int, fields.get("count")))
+
+    monkeypatch.setattr(application, "get_logger", lambda _name="bms": _Recorder())
+    monkeypatch.setattr(products, "_MANIFEST_BASE", backend)
+
+    # `create()` 内部经 `get_settings()` 取配置（忽略入参），故在此桩替换
+    settings = Settings()
+    settings.registry.product_manifests = ConcurrentStableList(["deploy/registry/demo.json"])
+    monkeypatch.setattr(application, "get_settings", lambda: settings)
+
+    app = _PlatformishFactory().create(None)
+
+    assert app.state.service_product_key is None
+    assert list(events) == ["product_manifests_loaded"]
+    assert list(counts) == [1]
