@@ -134,6 +134,22 @@ async def seed_modules(url: str) -> tuple[int, int]:
     return created, updated
 
 
+async def seed_modules_entry(session: AsyncSession, args: ConcurrentStableDict[str, object]) -> None:
+    """XA 分支入口（07B `02_03`）：在编排器传入的分支会话内幂等 upsert 服务目录与产品档案。
+
+    **与 `seed_modules(url)` 的分工**：那个是内部单步（自建 engine，排障用）；本入口不建连接，
+    写入自动并入 XA 分支事务（由执行器统一 flush + prepare）。
+
+    Args:
+        session: 已绑定 XA 分支连接的会话。
+        args: 分支参数（本种子不消费）。
+    """
+    del args
+    load_product_manifests(get_settings().registry.product_manifests)
+    await _upsert_modules(session)
+    await _upsert_products(session)
+
+
 async def _upsert_modules(session: AsyncSession) -> tuple[int, int]:
     """按 `module_key` 幂等 upsert 服务目录（既有行仅差异赋值）。
 

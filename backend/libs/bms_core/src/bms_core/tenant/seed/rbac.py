@@ -197,6 +197,52 @@ class SeedOutcome(BaseDataContract):
     """因三权互斥（同一账号已持另一类内置管理员）被拒绝的绑定（需求 07-6）。"""
 
 
+async def seed_rbac_roles_entry(session: AsyncSession, args: ConcurrentStableDict[str, object]) -> None:
+    """XA 分支入口：**三类内置管理员角色**写入租户库（07B `02_03` 拆分后的前半）。
+
+    跨库拆分原因同 `seed_platform`：一个 XA 分支只能连一个库。
+
+    Args:
+        session: 已绑定**租户库**分支连接的会话。
+        args: 分支参数（本入口不消费）。
+    """
+    del args
+    outcome = SeedOutcome()
+    for code, name, role_type, _codes in BUILTIN_ADMIN_ROLES:
+        await _ensure_role(session, code=code, name=name, role_type=role_type, outcome=outcome)
+
+
+async def seed_rbac_grants_entry(session: AsyncSession, args: ConcurrentStableDict[str, object]) -> None:
+    """XA 分支入口：**三类内置管理员的授权**写入租户库（07B `02_03` 拆分后的后半）。
+
+    权限码映射从平台库读取（只读，不经分支连接），授权条目写入租户库分支。
+
+    Args:
+        session: 已绑定**租户库**分支连接的会话。
+        args: 分支参数（`tenant` 用于解析平台库连接串）。
+    """
+    del args  # 权限码映射只依赖服务配置，与租户参数无关
+    platform_url = _resolve_platform_url("", service=PLATFORM_SERVICE_KEY)
+    permission_ids = await _load_permission_ids(platform_url)
+    outcome = SeedOutcome()
+    for code, _name, _role_type, codes in BUILTIN_ADMIN_ROLES:
+        role = (
+            await session.execute(select(SysRole).where(SysRole.code == code, SysRole.deleted_at.is_(None)))
+        ).scalar_one_or_none()
+        if role is None:
+            from bms_core.core.exceptions import ParamError
+
+            raise ParamError(f"内置管理员授权种子：角色不存在（{code}；须先执行 seed-rbac-role）")
+        role_id = int(role.id)
+        for permission in codes:
+            target_id = permission_ids.get(permission)
+            if target_id is None:
+                if permission not in outcome.missing_codes:
+                    outcome.missing_codes.add(permission)
+                continue
+            await _ensure_grant(session, role_id=role_id, target_id=target_id, outcome=outcome)
+
+
 async def seed_rbac(*, tenant_url: str, platform_url: str, assign_user: str = "", dry_run: bool = False) -> SeedOutcome:
     """播种三权内置角色与其授权（幂等），并按需绑定 bootstrap 账号。
 

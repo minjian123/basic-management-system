@@ -6204,6 +6204,55 @@
         "title": "RoleUpdateRequest",
         "type": "object"
       },
+      "SeedOrchestrationRequestSchema": {
+        "description": "编排请求（内部端点入参）。",
+        "properties": {
+          "dry_run": {
+            "default": false,
+            "description": "只做装载 + 排序 + 冲突预检，不开事务不执行",
+            "title": "Dry Run",
+            "type": "boolean"
+          },
+          "only": {
+            "description": "只执行这些种子（空表示不限制）",
+            "items": {
+              "type": "string"
+            },
+            "title": "Only",
+            "type": "array"
+          },
+          "require": {
+            "description": "人工强制前置（必须在本批之前完成）",
+            "items": {
+              "type": "string"
+            },
+            "title": "Require",
+            "type": "array"
+          },
+          "skip": {
+            "description": "跳过这些种子",
+            "items": {
+              "type": "string"
+            },
+            "title": "Skip",
+            "type": "array"
+          },
+          "tenant": {
+            "default": "",
+            "description": "目标租户；空串取 [platform_tenant].code",
+            "title": "Tenant",
+            "type": "string"
+          },
+          "timeout_seconds": {
+            "default": 300.0,
+            "description": "全局事务超时（秒）",
+            "title": "Timeout Seconds",
+            "type": "number"
+          }
+        },
+        "title": "SeedOrchestrationRequestSchema",
+        "type": "object"
+      },
       "SqlValidateRequest": {
         "additionalProperties": false,
         "description": "SQL 校验请求：`{sql, datasource?}`。",
@@ -15019,6 +15068,98 @@
           }
         },
         "summary": "按用户取权限数据",
+        "tags": [
+          "platform-internal"
+        ]
+      }
+    },
+    "/api/v1/platform/internal/seeds/orchestrate": {
+      "post": {
+        "description": "统一执行全部种子（一个 XA 全局事务；串行 prepare、统一提交 / 整体回滚）。\n\nArgs:\n    payload: 编排请求（租户 / 筛选 / dry-run / 超时）。\n    context: 入站身份（服务身份或登录态）。\n\nReturns:\n    ApiResponse: 编排结果（退出码 + 逐项报告 + 错误 / 冲突明细）。\n\nRaises:\n    ParamError: 参数非法（筛选引用了不存在的种子）。",
+        "operationId": "orchestrate_seeds_api_v1_platform_internal_seeds_orchestrate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SeedOrchestrationRequestSchema"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Orchestrate Seeds",
         "tags": [
           "platform-internal"
         ]

@@ -1,0 +1,127 @@
+# 平台自持种子声明（07B `02_03`）
+#
+# 与产品 `deploy/registry/<product>.toml` **同一形态、同一解析器、同一合并视图**：
+# 平台种子不再写代码常量，声明外置于此，由平台统一编排在一个 XA 全局事务内串行执行。
+#
+# 字段口径见《02_03 详细设计》§3.3：
+#   name     种子名（全局唯一）
+#   service  执行服务键（决定 XA 分支的参与方）
+#   db_key   分支目标库键（支持 {tenant} 占位）
+#   module / entry  入口（签名 async def entry(session, args) -> None）
+#   after    依赖的其他种子名（拓扑排序）
+#   tables   目标表 → 自然键（编排器据此做执行前后对比，生成逐项统计）
+
+product_key = "platform"
+
+# ---- 平台库：服务目录 / 表归属 / 菜单与权限元数据 ----
+
+[[seeds]]
+name = "seed-module"
+service = "platform"
+db_key = "platform_platform"
+module = "ops.seed_module"
+entry = "seed_modules_entry"
+after = []
+description = "服务目录与产品档案（sys_module + sys_product）"
+
+[seeds.tables]
+module = "module_key"
+product = "product_key"
+
+[[seeds]]
+name = "seed-tables"
+service = "platform"
+db_key = "platform_platform"
+module = "ops.seed_tables"
+entry = "seed_tables_entry"
+after = ["seed-module"]
+description = "表归属登记（sys_table_ownership，含退役清退）"
+
+[seeds.tables]
+ownership = "table_name"
+
+[[seeds]]
+name = "seed-menu"
+service = "platform"
+db_key = "platform_platform"
+module = "ops.seed_menu"
+entry = "seed_menu_entry"
+after = ["seed-module"]
+description = "业务码 / 动作码 / 权限码 / 菜单 / 表单 / 按钮 / 字段"
+
+[seeds.tables]
+business = "code"
+action = "code"
+menu = "path"
+
+# ---- 平台库：租户注册 ----
+
+[[seeds]]
+name = "seed-tenant"
+service = "tenant"
+db_key = "platform_tenant"
+module = "ops.seed_tenant"
+entry = "seed_tenants_entry"
+after = []
+description = "租户注册库（sys_tenant + sys_tenant_database）"
+
+[seeds.tables]
+tenant = "code"
+
+# ---- 租户库：系统参数 / 平台 RBAC / 内置管理员角色 ----
+
+[[seeds]]
+name = "seed-config"
+service = "tenant"
+db_key = "tenant_platform_{tenant}"
+module = "ops.seed_config"
+entry = "seed_configs_entry"
+after = ["seed-tenant"]
+description = "系统参数默认值"
+
+[[seeds]]
+name = "seed-platform-role"
+service = "platform"
+db_key = "tenant_platform_{tenant}"
+module = "bms_core.tenant.seed.platform"
+entry = "seed_platform_roles_entry"
+after = ["seed-menu"]
+description = "平台租户 RBAC（platform_admin / platform_ops 角色与授权）"
+
+[seeds.tables]
+role = "code"
+
+[[seeds]]
+name = "seed-rbac-role"
+service = "platform"
+db_key = "tenant_platform_{tenant}"
+module = "bms_core.tenant.seed.rbac"
+entry = "seed_rbac_roles_entry"
+after = ["seed-menu", "seed-platform-role"]
+description = "三类内置管理员角色与授权（系统 / 安全 / 审计三权互斥）"
+
+[seeds.tables]
+role = "code"
+[[seeds]]
+name = "seed-platform-grant"
+service = "platform"
+db_key = "tenant_platform_{tenant}"
+module = "bms_core.tenant.seed.platform"
+entry = "seed_platform_grants_entry"
+after = ["seed-platform-role"]
+description = "平台 RBAC 授权（platform_admin / platform_ops 的权限与菜单入口）"
+
+[seeds.tables]
+grant = "role_id"
+
+[[seeds]]
+name = "seed-rbac-grant"
+service = "platform"
+db_key = "tenant_platform_{tenant}"
+module = "bms_core.tenant.seed.rbac"
+entry = "seed_rbac_grants_entry"
+after = ["seed-rbac-role"]
+description = "三类内置管理员的授权（系统 / 安全 / 审计三权互斥）"
+
+[seeds.tables]
+grant = "role_id"

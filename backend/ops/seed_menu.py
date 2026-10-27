@@ -488,8 +488,225 @@ async def _verify_derived_names(session: AsyncSession) -> int:
     return checked
 
 
+async def _seed_menu_in_session(session: AsyncSession) -> tuple[int, int, int]:
+    """在给定会话内幂等写入菜单元数据种子（**不提交**，由调用方决定事务边界）。
+
+    Args:
+        session: 数据库会话（XA 分支会话或单步自建会话）。
+
+    Returns:
+        tuple[int, int, int]: (新增行数, 跳过行数, 派生一致性校验通过行数)。
+    """
+    created = 0
+    skipped = 0
+    business_ids = ConcurrentStableDict[str, int]()
+    for code, zh, en in BUSINESS_SEEDS:
+        existing = (
+            (
+                await session.execute(
+                    select(SysBusiness).where(SysBusiness.code == code, SysBusiness.deleted_at.is_(None))
+                )
+            )
+            .scalars()
+            .first()
+        )
+        if existing is None:
+            existing = SysBusiness(code=code, name=zh, status="enabled")
+            session.add(existing)
+            await session.flush()
+            created += 1
+        else:
+            skipped += 1
+        business_ids.set(code, existing.id)
+        created += await _add_i18n(session, SysBusinessI18n, "business_id", existing.id, zh, en)
+
+    action_ids = ConcurrentStableDict[str, int]()
+    for code, zh, en in ACTION_SEEDS:
+        existing_action = (
+            (await session.execute(select(SysAction).where(SysAction.code == code, SysAction.deleted_at.is_(None))))
+            .scalars()
+            .first()
+        )
+        if existing_action is None:
+            existing_action = SysAction(code=code, name=zh, status="enabled")
+            session.add(existing_action)
+            await session.flush()
+            created += 1
+        else:
+            skipped += 1
+        action_ids.set(code, existing_action.id)
+        created += await _add_i18n(session, SysActionI18n, "action_id", existing_action.id, zh, en)
+
+    permission_ids = ConcurrentStableDict[tuple[str, str], int]()
+    for business_code, action_code, _zh, _en in PERMISSION_SEEDS:
+        business_id = business_ids.get(business_code, 0)
+        action_id = action_ids.get(action_code, 0)
+        existing_permission = (
+            (
+                await session.execute(
+                    select(SysPermission).where(
+                        SysPermission.business_id == business_id,
+                        SysPermission.action_id == action_id,
+                        SysPermission.deleted_at.is_(None),
+                    )
+                )
+            )
+            .scalars()
+            .first()
+        )
+        if existing_permission is None:
+            existing_permission = SysPermission(business_id=business_id, action_id=action_id, status="enabled")
+            session.add(existing_permission)
+            await session.flush()
+            created += 1
+        else:
+            skipped += 1
+        permission_ids.set((business_code, action_code), existing_permission.id)
+
+    menu_ids = ConcurrentStableDict[str, int]()
+    form_ids_by_menu = ConcurrentStableDict[int, int]()
+    for parent_index, path, zh, en, component, icon, sort, hidden, business_code in MENU_SEEDS:
+        parent_id = 0
+        if parent_index:
+            parent_id = menu_ids.get(MENU_SEEDS[parent_index - 1][1], 0)
+        existing_menu = (
+            (await session.execute(select(SysMenu).where(SysMenu.path == path, SysMenu.deleted_at.is_(None))))
+            .scalars()
+            .first()
+        )
+        if existing_menu is None:
+            existing_menu = SysMenu(
+                parent_id=parent_id,
+                name=zh,
+                path=path,
+                component=component,
+                icon=icon,
+                sort=sort,
+                hidden=hidden,
+                status="enabled",
+            )
+            session.add(existing_menu)
+            await session.flush()
+            created += 1
+        else:
+            skipped += 1
+        menu_ids.set(path, existing_menu.id)
+        created += await _add_i18n(session, SysMenuI18n, "menu_id", existing_menu.id, zh, en)
+        if business_code is not None:
+            business_id = business_ids[business_code]
+            form = (
+                (
+                    await session.execute(
+                        select(SysForm).where(SysForm.business_id == business_id, SysForm.deleted_at.is_(None))
+                    )
+                )
+                .scalars()
+                .first()
+            )
+            if form is None:
+                form = SysForm(business_id=business_id, component=component, status="enabled")
+                session.add(form)
+                await session.flush()
+                created += 1
+            else:
+                skipped += 1
+            form_ids_by_menu.set(existing_menu.id, form.id)
+            link = (
+                (
+                    await session.execute(
+                        select(SysMenuForm).where(
+                            SysMenuForm.menu_id == existing_menu.id,
+                            SysMenuForm.form_id == form.id,
+                            SysMenuForm.deleted_at.is_(None),
+                        )
+                    )
+                )
+                .scalars()
+                .first()
+            )
+            if link is None:
+                session.add(SysMenuForm(menu_id=existing_menu.id, form_id=form.id))
+                created += 1
+            else:
+                skipped += 1
+
+    for path, zh, action_code, button_type, sort in BUTTON_SEEDS:
+        form_id = form_ids_by_menu.get(menu_ids.get(path, 0), 0)
+        if not form_id:
+            continue
+        business_code = next(seed[8] for seed in MENU_SEEDS if seed[1] == path and seed[8] is not None)
+        permission_id = permission_ids.get((business_code, action_code), 0)
+        if await _exists(session, SysButton, SysButton.form_id == form_id, SysButton.permission_id == permission_id):
+            skipped += 1
+            continue
+        session.add(
+            SysButton(
+                form_id=form_id,
+                permission_id=permission_id,
+                name=zh,
+                type=button_type,
+                sort=sort,
+                status="enabled",
+            )
+        )
+        created += 1
+
+    for path, field_key, zh, en, field_type, sort in FIELD_SEEDS:
+        form_id = form_ids_by_menu.get(menu_ids.get(path, 0), 0)
+        if not form_id:
+            continue
+        existing_field = (
+            (
+                await session.execute(
+                    select(SysField).where(
+                        SysField.form_id == form_id,
+                        SysField.field_key == field_key,
+                        SysField.deleted_at.is_(None),
+                    )
+                )
+            )
+            .scalars()
+            .first()
+        )
+        if existing_field is None:
+            existing_field = SysField(
+                form_id=form_id,
+                field_key=field_key,
+                name=zh,
+                type=field_type,
+                sort=sort,
+                status="enabled",
+            )
+            session.add(existing_field)
+            await session.flush()
+            created += 1
+        else:
+            skipped += 1
+        created += await _add_i18n(session, SysFieldI18n, "field_id", existing_field.id, zh, en)
+
+    checked = await _verify_derived_names(session)
+    return created, skipped, checked
+
+
+async def seed_menu_entry(session: AsyncSession, args: ConcurrentStableDict[str, object]) -> None:
+    """XA 分支入口（07B `02_03`）：在分支会话内幂等写入菜单元数据种子。
+
+    **与 `seed_menu(url)` 的分工**：那个是内部单步（自建 engine + 自提交，排障用）；
+    本入口不建连接、不提交，写入自动并入 XA 分支事务。
+
+    Args:
+        session: 已绑定 XA 分支连接的会话。
+        args: 分支参数（本种子不消费）。
+    """
+    del args
+    await _seed_menu_in_session(session)
+
+
 async def seed_menu(url: str) -> tuple[int, int, int]:
     """建表并幂等写入菜单元数据种子（写入后断言主表默认文案与附表默认语言一致）。
+
+    **内部单步入口**（排障用）：自建 engine 并自行提交。编排路径走 `seed_menu_entry`
+    （不建连接、不提交，写入并入 XA 分支事务）。
 
     Args:
         url: 平台库连接串。
@@ -499,206 +716,12 @@ async def seed_menu(url: str) -> tuple[int, int, int]:
     """
     engine = create_async_engine(url)
     factory: async_sessionmaker[AsyncSession] = async_sessionmaker(engine, expire_on_commit=False)
-    created = 0
-    skipped = 0
-    checked = 0
     try:
         async with engine.begin() as connection:
             for table in _MENU_TABLES:
                 await connection.run_sync(table.create, checkfirst=True)
         async with factory() as session:
-            business_ids = ConcurrentStableDict[str, int]()
-            for code, zh, en in BUSINESS_SEEDS:
-                existing = (
-                    (
-                        await session.execute(
-                            select(SysBusiness).where(SysBusiness.code == code, SysBusiness.deleted_at.is_(None))
-                        )
-                    )
-                    .scalars()
-                    .first()
-                )
-                if existing is None:
-                    existing = SysBusiness(code=code, name=zh, status="enabled")
-                    session.add(existing)
-                    await session.flush()
-                    created += 1
-                else:
-                    skipped += 1
-                business_ids.set(code, existing.id)
-                created += await _add_i18n(session, SysBusinessI18n, "business_id", existing.id, zh, en)
-
-            action_ids = ConcurrentStableDict[str, int]()
-            for code, zh, en in ACTION_SEEDS:
-                existing_action = (
-                    (
-                        await session.execute(
-                            select(SysAction).where(SysAction.code == code, SysAction.deleted_at.is_(None))
-                        )
-                    )
-                    .scalars()
-                    .first()
-                )
-                if existing_action is None:
-                    existing_action = SysAction(code=code, name=zh, status="enabled")
-                    session.add(existing_action)
-                    await session.flush()
-                    created += 1
-                else:
-                    skipped += 1
-                action_ids.set(code, existing_action.id)
-                created += await _add_i18n(session, SysActionI18n, "action_id", existing_action.id, zh, en)
-
-            permission_ids = ConcurrentStableDict[tuple[str, str], int]()
-            for business_code, action_code, _zh, _en in PERMISSION_SEEDS:
-                business_id = business_ids.get(business_code, 0)
-                action_id = action_ids.get(action_code, 0)
-                existing_permission = (
-                    (
-                        await session.execute(
-                            select(SysPermission).where(
-                                SysPermission.business_id == business_id,
-                                SysPermission.action_id == action_id,
-                                SysPermission.deleted_at.is_(None),
-                            )
-                        )
-                    )
-                    .scalars()
-                    .first()
-                )
-                if existing_permission is None:
-                    existing_permission = SysPermission(business_id=business_id, action_id=action_id, status="enabled")
-                    session.add(existing_permission)
-                    await session.flush()
-                    created += 1
-                else:
-                    skipped += 1
-                permission_ids.set((business_code, action_code), existing_permission.id)
-
-            menu_ids = ConcurrentStableDict[str, int]()
-            form_ids_by_menu = ConcurrentStableDict[int, int]()
-            for parent_index, path, zh, en, component, icon, sort, hidden, business_code in MENU_SEEDS:
-                parent_id = 0
-                if parent_index:
-                    parent_id = menu_ids.get(MENU_SEEDS[parent_index - 1][1], 0)
-                existing_menu = (
-                    (await session.execute(select(SysMenu).where(SysMenu.path == path, SysMenu.deleted_at.is_(None))))
-                    .scalars()
-                    .first()
-                )
-                if existing_menu is None:
-                    existing_menu = SysMenu(
-                        parent_id=parent_id,
-                        name=zh,
-                        path=path,
-                        component=component,
-                        icon=icon,
-                        sort=sort,
-                        hidden=hidden,
-                        status="enabled",
-                    )
-                    session.add(existing_menu)
-                    await session.flush()
-                    created += 1
-                else:
-                    skipped += 1
-                menu_ids.set(path, existing_menu.id)
-                created += await _add_i18n(session, SysMenuI18n, "menu_id", existing_menu.id, zh, en)
-                if business_code is not None:
-                    business_id = business_ids[business_code]
-                    form = (
-                        (
-                            await session.execute(
-                                select(SysForm).where(SysForm.business_id == business_id, SysForm.deleted_at.is_(None))
-                            )
-                        )
-                        .scalars()
-                        .first()
-                    )
-                    if form is None:
-                        form = SysForm(business_id=business_id, component=component, status="enabled")
-                        session.add(form)
-                        await session.flush()
-                        created += 1
-                    else:
-                        skipped += 1
-                    form_ids_by_menu.set(existing_menu.id, form.id)
-                    link = (
-                        (
-                            await session.execute(
-                                select(SysMenuForm).where(
-                                    SysMenuForm.menu_id == existing_menu.id,
-                                    SysMenuForm.form_id == form.id,
-                                    SysMenuForm.deleted_at.is_(None),
-                                )
-                            )
-                        )
-                        .scalars()
-                        .first()
-                    )
-                    if link is None:
-                        session.add(SysMenuForm(menu_id=existing_menu.id, form_id=form.id))
-                        created += 1
-                    else:
-                        skipped += 1
-
-            for path, zh, action_code, button_type, sort in BUTTON_SEEDS:
-                form_id = form_ids_by_menu.get(menu_ids.get(path, 0), 0)
-                if not form_id:
-                    continue
-                business_code = next(seed[8] for seed in MENU_SEEDS if seed[1] == path and seed[8] is not None)
-                permission_id = permission_ids.get((business_code, action_code), 0)
-                if await _exists(
-                    session, SysButton, SysButton.form_id == form_id, SysButton.permission_id == permission_id
-                ):
-                    skipped += 1
-                    continue
-                session.add(
-                    SysButton(
-                        form_id=form_id,
-                        permission_id=permission_id,
-                        name=zh,
-                        type=button_type,
-                        sort=sort,
-                        status="enabled",
-                    )
-                )
-                created += 1
-
-            for path, field_key, zh, en, field_type, sort in FIELD_SEEDS:
-                form_id = form_ids_by_menu.get(menu_ids.get(path, 0), 0)
-                if not form_id:
-                    continue
-                existing_field = (
-                    (
-                        await session.execute(
-                            select(SysField).where(
-                                SysField.form_id == form_id,
-                                SysField.field_key == field_key,
-                                SysField.deleted_at.is_(None),
-                            )
-                        )
-                    )
-                    .scalars()
-                    .first()
-                )
-                if existing_field is None:
-                    existing_field = SysField(
-                        form_id=form_id,
-                        field_key=field_key,
-                        name=zh,
-                        type=field_type,
-                        sort=sort,
-                        status="enabled",
-                    )
-                    session.add(existing_field)
-                    await session.flush()
-                    created += 1
-                else:
-                    skipped += 1
-                created += await _add_i18n(session, SysFieldI18n, "field_id", existing_field.id, zh, en)
-
-            checked = await _verify_derived_names(session)
+            created, skipped, checked = await _seed_menu_in_session(session)
             await session.commit()
     finally:
         await engine.dispose()

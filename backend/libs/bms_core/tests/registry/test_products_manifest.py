@@ -98,6 +98,8 @@ default_consumers = ["platform"]
 
 [[seeds]]
 name = "demo-admin-codes"
+service = "demo"
+db_key = "platform_platform"
 module = "demo.seeds.permissions"
 entry = "seed_admin_codes"
 after = []

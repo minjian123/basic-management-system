@@ -27,7 +27,7 @@ from sqlalchemy import Table, select
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from bms_core.core.concurrent import ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import get_settings
 from bms_core.db.engine import EngineFactory
 from bms_core.db.keys import build_platform_db_key
@@ -98,6 +98,33 @@ def resolve_url(url: str = "", *, service: str = TENANT_SERVICE_KEY) -> str:
     settings = get_settings()
     # 运维通道：允许跨服务库键（种子脚本按归属服务写库，不以运行服务为限）
     return EngineFactory(settings, allow_cross_service=True).resolved_url(build_platform_db_key(service))
+
+
+async def seed_tenants_entry(session: AsyncSession, args: ConcurrentStableDict[str, object]) -> None:
+    """XA 分支入口（07B `02_03`）：在分支会话内幂等写入种子租户。
+
+    **与 `seed_tenants(url)` 的分工**：那个是内部单步（自建 engine，排障用）；本入口不建连接。
+
+    Args:
+        session: 已绑定 XA 分支连接的会话。
+        args: 分支参数（本种子不消费）。
+    """
+    del args
+    from bms_core.models.tenant.tenant import SysTenant
+    from bms_core.models.tenant.tenant_database import SysTenantDatabase
+
+    for seed in TENANT_SEEDS:
+        statement = select(SysTenant).where(SysTenant.code == seed.code, SysTenant.deleted_at.is_(None))
+        row = (await session.execute(statement)).scalar_one_or_none()
+        if row is None:
+            row = SysTenant(code=seed.code, name=seed.name, domain=seed.domain, status=seed.status)
+            session.add(row)
+            await session.flush()
+        basis = select(SysTenantDatabase).where(
+            SysTenantDatabase.tenant_id == row.id, SysTenantDatabase.deleted_at.is_(None)
+        )
+        if (await session.execute(basis)).scalar_one_or_none() is None:
+            session.add(SysTenantDatabase(tenant_id=row.id, db_basis=row.code))
 
 
 async def seed_tenants(url: str) -> int:

@@ -148,6 +148,38 @@ def _seed_tables_sync(url: str, schema: str) -> tuple[int, int, int]:
     return created, updated, retired
 
 
+async def seed_tables_entry(session: AsyncSession, args: ConcurrentStableDict[str, object]) -> None:
+    """XA 分支入口（07B `02_03`）：在分支会话内幂等 upsert 表归属登记并清退退役行。
+
+    **与 `seed_tables(url)` 的分工**：那个是内部单步（自建 engine，排障用）；本入口不建连接，
+    写入自动并入 XA 分支事务。
+
+    Args:
+        session: 已绑定 XA 分支连接的会话。
+        args: 分支参数（本种子不消费）。
+    """
+    del args
+    seeds = table_ownership_view()
+    known = ConcurrentStableSet(seed.table_name for seed in seeds)
+    for seed in seeds:
+        statement = select(SysTableOwnership).where(
+            SysTableOwnership.table_name == seed.table_name,
+            SysTableOwnership.deleted_at.is_(None),
+        )
+        payload = _fields(seed)
+        existing = (await session.execute(statement)).scalar_one_or_none()
+        if existing is None:
+            session.add(SysTableOwnership(**payload))
+            continue
+        for field, value in payload.items():
+            if getattr(existing, field) != value:
+                setattr(existing, field, value)
+    rows = (
+        (await session.execute(select(SysTableOwnership).where(SysTableOwnership.deleted_at.is_(None)))).scalars().all()
+    )
+    _retire_absent(rows, known)
+
+
 async def seed_tables(url: str, *, schema: str = "") -> tuple[int, int, int]:
     """建表并按 `table_name` 幂等 upsert 归属登记，并清退不在清单的退役行。
 

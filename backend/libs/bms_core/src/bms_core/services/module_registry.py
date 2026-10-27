@@ -317,6 +317,25 @@ class SeedRecord(BaseValueObject):
     entry: str
     """入口函数名（装载期校验可导入且可调用）。"""
 
+    service: str = ""
+    """**执行服务键**（07B `02_03`）：该种子在哪个服务执行，决定 XA 分支的参与方。
+
+    平台种子为 `platform`；产品种子为其服务键（如 `mdm`）。空串表示未声明
+    （仅 `02_01` 阶段的旧清单会如此，编排时按前置错误拒绝）。
+    """
+
+    db_key: str = ""
+    """**分支目标库键**（07B `02_03`）：该种子写哪个库，XA 分支据此连接。
+
+    形如 `platform_platform` / `tenant_platform_demo`；支持 `{tenant}` 占位由运行时展开。
+    """
+
+    op: str = ""
+    """XA 分支操作名（缺省取 `name`；与 `SEED_CATALOG` 同键，全局唯一）。"""
+
+    tables: ConcurrentStableFrozenDict[str, str] = dataclass_field(default_factory=lambda: ConcurrentStableFrozenDict())
+    """目标表 → 自然键（如 `{"sys_business": "code"}`），供编排器执行前后对比生成逐项统计。"""
+
     after: ConcurrentStableFrozenList[str] = dataclass_field(default_factory=lambda: ConcurrentStableFrozenList())
     """依赖的其他种子名（可空；拓扑排序用）。"""
 

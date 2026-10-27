@@ -306,6 +306,90 @@ async def _ensure_assignment(
     outcome.assignments_created += 1
 
 
+async def seed_platform_roles_entry(session: AsyncSession, args: ConcurrentStableDict[str, object]) -> None:
+    """XA 分支入口：**角色**写入租户库（07B `02_03` 拆分后的前半）。
+
+    跨库拆分原因：一个 XA 分支只能连一个库。原 `seed_platform_rbac` 同时写租户库（角色 / 绑定）
+    与平台库（权限码查询），故拆成「角色」与「授权」两个种子，用 `after` 串联、同一全局事务。
+
+    Args:
+        session: 已绑定**租户库**分支连接的会话。
+        args: 分支参数（`tenant` 展开 `platform_code`）。
+    """
+    platform_code = str(args.get("tenant") or "")
+    if not platform_code:
+        from bms_core.core.config import get_settings
+
+        platform_code = get_settings().platform_tenant.code
+    del platform_code  # 角色码固定，不随租户变化；保留读取以便日志与排障
+    outcome = PlatformSeedOutcome()
+    await _ensure_role(
+        session,
+        code=PLATFORM_ADMIN_ROLE_CODE,
+        name="平台超级管理员",
+        role_type=ROLE_TYPE_PLATFORM_ADMIN,
+        outcome=outcome,
+    )
+    await _ensure_role(
+        session,
+        code=PLATFORM_OPS_ROLE_CODE,
+        name="平台运维员",
+        role_type=ROLE_TYPE_CUSTOM,
+        outcome=outcome,
+    )
+
+
+async def seed_platform_grants_entry(session: AsyncSession, args: ConcurrentStableDict[str, object]) -> None:
+    """XA 分支入口：**授权**写入租户库（07B `02_03` 拆分后的后半）。
+
+    权限码清单从平台库读取（只读，不经分支连接），授权条目写入租户库分支。
+
+    Args:
+        session: 已绑定**租户库**分支连接的会话。
+        args: 分支参数（`tenant` 展开 `platform_code`）。
+    """
+    platform_code = str(args.get("tenant") or "")
+    if not platform_code:
+        from bms_core.core.config import get_settings
+
+        platform_code = get_settings().platform_tenant.code
+    _, platform_url = _urls(platform_code)
+    permissions = await _permission_ids(platform_url)
+    menus, forms = await _entry_targets(platform_url)
+    outcome = PlatformSeedOutcome()
+    admin_role = (
+        await session.execute(
+            select(SysRole).where(SysRole.code == PLATFORM_ADMIN_ROLE_CODE, SysRole.deleted_at.is_(None))
+        )
+    ).scalar_one_or_none()
+    ops_role = (
+        await session.execute(
+            select(SysRole).where(SysRole.code == PLATFORM_OPS_ROLE_CODE, SysRole.deleted_at.is_(None))
+        )
+    ).scalar_one_or_none()
+    if admin_role is None or ops_role is None:
+        from bms_core.core.exceptions import ParamError
+
+        raise ParamError("平台 RBAC 授权种子：角色不存在（须先执行 seed-platform-role）")
+    admin_id = int(admin_role.id)
+    ops_id = int(ops_role.id)
+    for permission_id in permissions.values():
+        await _ensure_grant(
+            session, role_id=admin_id, perm_type=PERM_TYPE_PERMISSION, target_id=permission_id, outcome=outcome
+        )
+    for code in PLATFORM_OPS_PERMISSION_CODES:
+        permission_id = permissions.get(code)
+        if permission_id is None:
+            continue
+        await _ensure_grant(
+            session, role_id=ops_id, perm_type=PERM_TYPE_PERMISSION, target_id=permission_id, outcome=outcome
+        )
+    for menu_id in menus:
+        await _ensure_grant(session, role_id=ops_id, perm_type=PERM_TYPE_MENU, target_id=menu_id, outcome=outcome)
+    for form_id in forms:
+        await _ensure_grant(session, role_id=ops_id, perm_type=PERM_TYPE_FORM, target_id=form_id, outcome=outcome)
+
+
 async def seed_platform_rbac(*, platform_code: str, assign_user: str = "") -> PlatformSeedOutcome:
     """播种平台租户 RBAC（两个角色 + 授权 + 可选绑定）。
 

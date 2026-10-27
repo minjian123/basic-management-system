@@ -20,10 +20,24 @@ import os
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from bms_core.config.seed import seed_configs
+from bms_core.core.concurrent import ConcurrentStableDict
 from bms_core.core.config import get_settings
 
 RUN_IMAGE = "*"
 """本脚本只依赖 `bms_core` 与 `ops`（不导入任何服务包），任意服务镜像均可运行。"""
+
+
+async def seed_configs_entry(session: AsyncSession, args: ConcurrentStableDict[str, object]) -> None:
+    """XA 分支入口（07B `02_03`）：在分支会话内幂等写入系统参数默认值。
+
+    **与 `main()` 的分工**：那个是内部单步（自建 engine，排障用）；本入口不建连接。
+
+    Args:
+        session: 已绑定 XA 分支连接的会话。
+        args: 分支参数（本种子不消费）。
+    """
+    del args
+    await seed_configs(session)
 
 
 def _database_url() -> str:

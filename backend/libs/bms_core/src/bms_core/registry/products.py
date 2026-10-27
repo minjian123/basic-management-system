@@ -540,10 +540,38 @@ def _seed_record(raw: object, *, scope: str) -> SeedRecord:
         name=name,
         module=module,
         entry=entry,
+        service=str(data.get("service") or ""),
+        db_key=str(data.get("db_key") or ""),
+        op=str(data.get("op") or name),
+        tables=_seed_tables(data.get("tables"), scope=record_scope),
         after=_strings(data.get("after"), scope=record_scope, key="after"),
         description=str(data.get("description") or ""),
         status=status,
     )
+
+
+def _seed_tables(raw: object, *, scope: str) -> ConcurrentStableFrozenDict[str, str]:
+    """解析种子目标表声明（`[seeds.tables]` 段：表名 → 自然键）。
+
+    Args:
+        raw: 原始映射（可为 None，表示未声明）。
+        scope: 错误信息作用域。
+
+    Returns:
+        ConcurrentStableFrozenDict[str, str]: 表名 → 自然键。
+
+    Raises:
+        CatalogError: 结构非法（非映射 / 值非字符串）。
+    """
+    if raw is None:
+        return ConcurrentStableFrozenDict()
+    data = _as_mapping(raw)
+    result: ConcurrentStableDict[str, str] = ConcurrentStableDict()
+    for table, key in data.items():
+        if not isinstance(table, str) or not isinstance(key, str) or not key:
+            raise CatalogError(f"产品清单结构非法：{scope} → tables 项须为「表名: 自然键」字符串对（{table!r}）")
+        result.set(table, key)
+    return ConcurrentStableFrozenDict(result)
 
 
 def _manifest_segment(services: ConcurrentStableList[ModuleRecord], *, product_key: str) -> str | None:
@@ -992,6 +1020,31 @@ def _check_seed_entry(
     return errors
 
 
+def _check_seed_declaration(record: SeedRecord, *, manifest: ProductManifest, label: str) -> ConcurrentStableList[str]:
+    """校验种子声明的新增字段（07B `02_03`）：`service` / `db_key` / 名称前缀。
+
+    Args:
+        record: 种子记录。
+        manifest: 该种子所属清单（取 `product_key` 判定前缀）。
+        label: 清单标识（错误定位用）。
+
+    Returns:
+        ConcurrentStableList[str]: 错误明细。
+    """
+    errors: ConcurrentStableList[str] = ConcurrentStableList()
+    prefix = f"{label}｜种子 {record.name}"
+    if not record.service:
+        errors.add(f"{prefix}：缺少执行服务声明（service）")
+    if not record.db_key:
+        errors.add(f"{prefix}：缺少分支目标库声明（db_key）")
+    elif not (record.db_key.startswith("platform_") or record.db_key.startswith("tenant_")):
+        errors.add(f"{prefix}：db_key 形态非法（{record.db_key}；须以 platform_ / tenant_ 开头）")
+    product_key = manifest.product_key
+    if product_key and product_key != "platform" and not record.name.startswith(f"{product_key}-"):
+        errors.add(f'{prefix}：产品种子名须以 "{product_key}-" 开头')
+    return errors
+
+
 def _validate_collaboration_names(
     manifests: ConcurrentStableList[ProductManifest], sources: ConcurrentStableList[Path]
 ) -> ConcurrentStableList[str]:
@@ -1102,6 +1155,7 @@ def _validate_manifest_entries(
                 errors.add(f"{prefix}：默认消费方未登记（{consumer}）")
     for record in manifest.seeds:
         errors.update(_check_seed_entry(record, label=label, warnings=warnings))
+        errors.update(_check_seed_declaration(record, manifest=manifest, label=label))
     if manifest.error_codes:
         errors.update(
             _check_contract_error_codes(
@@ -1272,6 +1326,39 @@ def register_manifest(manifest: ProductManifest) -> None:
     register_error_code_records(manifest.error_codes)
 
 
+LOCAL_REGISTRY_DIR = "deploy/registry"
+"""本仓自持声明目录（相对工程根的父级：仓根）。"""
+
+
+def _local_manifest_paths() -> ConcurrentStableList[Path]:
+    """发现**本仓**自持声明（`<仓根>/deploy/registry/*.toml`，按文件名排序）。
+
+    07B `02_03`：平台种子与产品种子同一形态——平台声明 `deploy/registry/platform.toml`
+    与产品声明走同一扫描规则，无需逐个配置。目录不存在时返回空（极简环境 / CI 单包）。
+
+    Returns:
+        ConcurrentStableList[Path]: 本仓声明路径（排序稳定）。
+    """
+    directory = _MANIFEST_BASE.parent / LOCAL_REGISTRY_DIR
+    if not directory.is_dir():
+        return ConcurrentStableList()
+    return ConcurrentStableList(sorted(directory.glob("*.toml")))
+
+
+def _with_local_manifests(paths: Iterable[str | Path]) -> ConcurrentStableList[str | Path]:
+    """把本仓声明**排在配置路径之前**（平台在前、外部产品在后）。
+
+    Args:
+        paths: 配置注入的清单路径序列。
+
+    Returns:
+        ConcurrentStableList[str | Path]: 合并后的路径序列（本仓在前）。
+    """
+    merged: ConcurrentStableList[str | Path] = ConcurrentStableList(_local_manifest_paths())
+    merged.update(paths)
+    return merged
+
+
 def _resolve_manifest_path(raw: str | Path) -> Path:
     """把清单路径规整为绝对路径（相对路径按**后端工程根**解析）。
 
@@ -1300,7 +1387,7 @@ def load_product_manifests(paths: Iterable[str | Path]) -> ConcurrentStableList[
     Raises:
         CatalogError: 清单非法或校验不通过（拒启）。
     """
-    inspection = inspect_product_manifests(paths)
+    inspection = inspect_product_manifests(_with_local_manifests(paths))
     logger = get_logger("bms")
     for warning in inspection.warnings:
         logger.warning("product_manifest_warning", detail=warning)
