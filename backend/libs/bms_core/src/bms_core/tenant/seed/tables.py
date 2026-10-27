@@ -32,16 +32,45 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import NullPool
 
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
+from bms_core.core.concurrent import (
+    ConcurrentStableDict,
+    ConcurrentStableFrozenDict,
+    ConcurrentStableList,
+    ConcurrentStableSet,
+)
 from bms_core.db.keys import PLATFORM_SERVICE_KEY
 from bms_core.db.migration import apply_session_schema
 from bms_core.db.sync import is_sync_only_url
 from bms_core.models.ownership import SysTableOwnership
 from bms_core.services.table_registry import TableRecord, table_ownership_view
+from bms_core.tenant.seed.contract import ExpectedRow
 from bms_core.tenant.seed.tenant import resolve_url
 
 RUN_IMAGE = "*"
 """本脚本只依赖 `bms_core` 与 `ops`（不导入任何服务包），任意服务镜像均可运行。"""
+
+
+def expected_rows() -> ConcurrentStableList[ExpectedRow]:
+    """表归属登记的期望行（冲突预检用；详设 §3.5）。
+
+    **纯函数**：只读合并视图 `table_ownership_view()`，不连库、不写库。比对字段取
+    `_fields` 写入的归属 / 库类别 / 状态三列。
+
+    Returns:
+        ConcurrentStableList[ExpectedRow]: 期望行（每张表一条）。
+    """
+    rows: ConcurrentStableList[ExpectedRow] = ConcurrentStableList()
+    for seed in table_ownership_view():
+        rows.add(
+            ExpectedRow(
+                table="sys_table_ownership",
+                key=ConcurrentStableFrozenDict({"table_name": seed.table_name}),
+                values=ConcurrentStableFrozenDict(
+                    {"owner": seed.owner, "datasource": seed.datasource, "status": seed.status}
+                ),
+            )
+        )
+    return rows
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -256,5 +285,5 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
     return 0
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover - 模块直跑入口（部署与用例都走 main()）
     raise SystemExit(main())

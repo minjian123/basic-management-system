@@ -331,6 +331,24 @@ class BranchOp(BaseValueObject):
     """业务载荷（交给参与方已有服务层）。"""
 
 
+@dataclass(frozen=True)
+class BranchStats(BaseValueObject):
+    """分支内逐项统计（**执行器采集，种子不报数**；07B `02_03` §3.10）。
+
+    在**分支连接内**、handler 执行**前后各查一次**目标表采集——同一连接能看到本分支未提交的
+    写入，统计必然准确；分支外采集只能算「本批净增」且失败时恒为 0。
+    """
+
+    created: int = 0
+    """新建行数（执行后 - 执行前）。"""
+
+    updated: int = 0
+    """更新行数（自然键命中且字段值有变化的行）。"""
+
+    skipped: int = 0
+    """跳过行数（自然键命中且无变化的行）。"""
+
+
 class BaseTransactionParticipant(BasePluggable, ABC):
     """跨服务事务参与方（**分支执行**）：协议执行 + 本服务已有服务层调用。"""
 
@@ -357,6 +375,26 @@ class BaseTransactionParticipant(BasePluggable, ABC):
         Returns:
             str: 分支状态（`prepared` / `rejected`）。
         """
+
+    async def execute_branch_with_stats(
+        self, *, xid: str, db_key: str, ops: ConcurrentStableList[BranchOp]
+    ) -> tuple[str, BranchStats]:
+        """执行分支并返回逐项统计（**缺省回退**：不采集统计，等价于 `execute_branch` + 零统计）。
+
+        为什么单独一个方法：`execute_branch` 是**跨服务协议端点**的契约（返回分支状态字符串），
+        改其返回类型会波及 TM 驱动、参与端点与既有调用方；本方法只给「需要逐项统计的编排方」
+        使用，缺省实现保证不采集统计的实现方零改动。
+
+        Args:
+            xid: 分支事务标识（TM 分配）。
+            db_key: 目标库键。
+            ops: 分支操作清单。
+
+        Returns:
+            tuple[str, BranchStats]: （分支状态, 逐项统计）。
+        """
+        state = await self.execute_branch(xid=xid, db_key=db_key, ops=ops)
+        return state, BranchStats()
 
     @abstractmethod
     async def commit_branch(self, *, xid: str, db_key: str) -> str:
@@ -531,6 +569,7 @@ __all__ = [
     "BranchOp",
     "BranchRef",
     "BranchSpec",
+    "BranchStats",
     "GlobalTransaction",
     "build_branch_xid",
     "get_transaction_manager",

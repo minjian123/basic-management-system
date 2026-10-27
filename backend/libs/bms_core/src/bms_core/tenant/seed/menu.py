@@ -33,7 +33,12 @@ from sqlalchemy import Table, select
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
+from bms_core.core.concurrent import (
+    ConcurrentStableDict,
+    ConcurrentStableFrozenDict,
+    ConcurrentStableList,
+    ConcurrentStableSet,
+)
 from bms_core.db.keys import PLATFORM_SERVICE_KEY
 from bms_core.models.platform.menu_form import (
     SysButton,
@@ -51,6 +56,7 @@ from bms_core.models.platform.permission_meta import (
     SysBusinessI18n,
     SysPermission,
 )
+from bms_core.tenant.seed.contract import ExpectedRow
 from bms_core.tenant.seed.tenant import resolve_url
 
 RUN_IMAGE = "*"
@@ -728,6 +734,44 @@ async def seed_menu(url: str) -> tuple[int, int, int]:
     return created, skipped, checked
 
 
+def expected_rows() -> ConcurrentStableList[ExpectedRow]:
+    """业务码 / 动作码 / 菜单的期望行（冲突预检用；详设 §3.5）。
+
+    **纯函数**：只读模块常量，不连库、不写库。只覆盖**有稳定自然键**的三类：
+    `sys_business`（按 `code`）、`sys_action`（按 `code`）、`sys_menu`（按 `path`）；
+    权限码 / 表单 / 按钮 / 字段的组合键依赖运行期自增 id，不在此比对（由唯一约束兜底）。
+
+    Returns:
+        ConcurrentStableList[ExpectedRow]: 期望行（业务码 + 动作码 + 菜单）。
+    """
+    rows: ConcurrentStableList[ExpectedRow] = ConcurrentStableList()
+    for code, zh, _en in BUSINESS_SEEDS:
+        rows.add(
+            ExpectedRow(
+                table="sys_business",
+                key=ConcurrentStableFrozenDict({"code": code}),
+                values=ConcurrentStableFrozenDict({"name": zh}),
+            )
+        )
+    for code, zh, _en in ACTION_SEEDS:
+        rows.add(
+            ExpectedRow(
+                table="sys_action",
+                key=ConcurrentStableFrozenDict({"code": code}),
+                values=ConcurrentStableFrozenDict({"name": zh}),
+            )
+        )
+    for _parent, path, zh, _en, _component, _icon, _sort, _hidden, _business in MENU_SEEDS:
+        rows.add(
+            ExpectedRow(
+                table="sys_menu",
+                key=ConcurrentStableFrozenDict({"path": path}),
+                values=ConcurrentStableFrozenDict({"name": zh}),
+            )
+        )
+    return rows
+
+
 def build_parser() -> argparse.ArgumentParser:
     """构建命令行解析器。
 
@@ -766,5 +810,5 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
     return 0
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover - 模块直跑入口（部署与用例都走 main()）
     raise SystemExit(main())

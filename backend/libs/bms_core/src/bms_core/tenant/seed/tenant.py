@@ -27,11 +27,17 @@ from sqlalchemy import Table, select
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.core.concurrent import (
+    ConcurrentStableDict,
+    ConcurrentStableFrozenDict,
+    ConcurrentStableList,
+)
 from bms_core.core.config import get_settings
+from bms_core.core.objects import BaseValueObject
 from bms_core.db.engine import EngineFactory
 from bms_core.db.keys import build_platform_db_key
 from bms_core.db.tenant_source import TENANT_SERVICE_KEY
+from bms_core.tenant.seed.contract import ExpectedRow
 
 RUN_IMAGE = "*"
 """本脚本只依赖 `bms_core` 与 `ops`（不导入任何服务包），任意服务镜像均可运行。"""
@@ -51,7 +57,7 @@ def __getattr__(name: str) -> Any:
 
 
 @dataclass(frozen=True)
-class TenantSeed:
+class TenantSeed(BaseValueObject):
     """演示租户种子（开发 / 实测：demo 与 acme 双租户，供跨租户隔离验证）。"""
 
     code: str
@@ -66,6 +72,28 @@ TENANT_SEEDS: ConcurrentStableList[TenantSeed] = ConcurrentStableList(
         TenantSeed(code="acme", name="示例租户", domain="acme.bms.example.com"),
     )
 )
+
+
+def expected_rows() -> ConcurrentStableList[ExpectedRow]:
+    """种子租户的期望行（冲突预检用；详设 §3.5）。
+
+    **纯函数**：只读常量 `TENANT_SEEDS`，不连库、不写库。比对字段取写入的显示名与域名。
+
+    Returns:
+        ConcurrentStableList[ExpectedRow]: 期望行（每个种子租户一条）。
+    """
+    from bms_core.models.tenant.tenant import SysTenant
+
+    rows: ConcurrentStableList[ExpectedRow] = ConcurrentStableList()
+    for seed in TENANT_SEEDS:
+        rows.add(
+            ExpectedRow(
+                table=SysTenant.__tablename__,
+                key=ConcurrentStableFrozenDict({"code": seed.code}),
+                values=ConcurrentStableFrozenDict({"name": seed.name, "domain": seed.domain}),
+            )
+        )
+    return rows
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -196,5 +224,5 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
     return 0
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover - 模块直跑入口（部署与用例都走 main()）
     raise SystemExit(main())

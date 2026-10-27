@@ -7,31 +7,30 @@
 职责不同；分文件便于按需注册与排障定位。
 """
 
-from typing import TYPE_CHECKING
+from typing import cast
 
-from bms_core.core.concurrent import ConcurrentStableDict
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.tenant.seed.platform import (
     seed_platform_grants_entry,
     seed_platform_roles_entry,
 )
 from bms_core.tenant.seed.rbac import seed_rbac_grants_entry, seed_rbac_roles_entry
-from bms_core.transaction.base import BranchHandlerRegistry
+from bms_core.transaction.base import BranchHandler, BranchHandlerRegistry
 
-if TYPE_CHECKING:
-    pass
+__all__ = ["SEED_OPS", "register_seed_handlers", "register_seed_stats"]
 
-__all__ = ["SEED_OPS", "register_seed_handlers"]
-
-SEED_OPS: tuple[str, ...] = (
-    "seed-module",
-    "seed-tables",
-    "seed-menu",
-    "seed-tenant",
-    "seed-config",
-    "seed-platform-role",
-    "seed-platform-grant",
-    "seed-rbac-role",
-    "seed-rbac-grant",
+SEED_OPS: ConcurrentStableList[str] = ConcurrentStableList(
+    (
+        "seed-module",
+        "seed-tables",
+        "seed-menu",
+        "seed-tenant",
+        "seed-config",
+        "seed-platform-role",
+        "seed-platform-grant",
+        "seed-rbac-role",
+        "seed-rbac-grant",
+    )
 )
 """平台侧登记的种子分支操作名（与 `deploy/registry/platform.toml` 的 `name` 一一对应）。"""
 
@@ -51,18 +50,30 @@ def register_seed_handlers(registry: BranchHandlerRegistry) -> BranchHandlerRegi
     from bms_core.tenant.seed.tables import seed_tables_entry
     from bms_core.tenant.seed.tenant import seed_tenants_entry
 
-    handlers: ConcurrentStableDict[str, object] = ConcurrentStableDict()
-    handlers.set("seed-module", seed_modules_entry)
-    handlers.set("seed-tables", seed_tables_entry)
-    handlers.set("seed-menu", seed_menu_entry)
-    handlers.set("seed-tenant", seed_tenants_entry)
-    handlers.set("seed-config", seed_configs_entry)
-    handlers.set("seed-platform-role", seed_platform_roles_entry)
-    handlers.set("seed-platform-grant", seed_platform_grants_entry)
-    handlers.set("seed-rbac-role", seed_rbac_roles_entry)
-    handlers.set("seed-rbac-grant", seed_rbac_grants_entry)
+    # 种子入口签名统一为 `async def entry(session, args) -> None`（详设 §3.9），与 BranchHandler 一致
+    handlers: ConcurrentStableDict[str, BranchHandler] = ConcurrentStableDict()
+    handlers.set("seed-module", cast("BranchHandler", seed_modules_entry))
+    handlers.set("seed-tables", cast("BranchHandler", seed_tables_entry))
+    handlers.set("seed-menu", cast("BranchHandler", seed_menu_entry))
+    handlers.set("seed-tenant", cast("BranchHandler", seed_tenants_entry))
+    handlers.set("seed-config", cast("BranchHandler", seed_configs_entry))
+    handlers.set("seed-platform-role", cast("BranchHandler", seed_platform_roles_entry))
+    handlers.set("seed-platform-grant", cast("BranchHandler", seed_platform_grants_entry))
+    handlers.set("seed-rbac-role", cast("BranchHandler", seed_rbac_roles_entry))
+    handlers.set("seed-rbac-grant", cast("BranchHandler", seed_rbac_grants_entry))
     for op, handler in handlers.items():
         if registry.resolve(op) is not None:
             continue
         registry.register(op, handler)
     return registry
+
+
+def register_seed_stats(participant: object) -> None:
+    """把种子统计探针登记进事务参与方（详设 §3.10：分支内采集逐项统计）。
+
+    Args:
+        participant: 事务参与方（须具备 `register_stats_probe`；占位实现无此方法时静默跳过）。
+    """
+    from bms_core.tenant.seed.probe import register_seed_probes
+
+    register_seed_probes(participant)

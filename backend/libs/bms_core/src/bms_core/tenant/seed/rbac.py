@@ -36,7 +36,11 @@ from dataclasses import dataclass, field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.core.concurrent import (
+    ConcurrentStableDict,
+    ConcurrentStableFrozenDict,
+    ConcurrentStableList,
+)
 from bms_core.core.config import get_settings
 from bms_core.core.objects import BaseDataContract
 from bms_core.db.engine import EngineFactory
@@ -54,6 +58,7 @@ from bms_core.models.platform.role import (
     SysUserRole,
 )
 from bms_core.models.platform.user import SysUser
+from bms_core.tenant.seed.contract import ExpectedRow
 from bms_core.tenant.seed.user import resolve_tenant_basis, resolve_tenant_url
 
 __all__ = [
@@ -195,6 +200,27 @@ class SeedOutcome(BaseDataContract):
 
     assign_conflicts: ConcurrentStableList[str] = field(default_factory=lambda: ConcurrentStableList[str]())
     """因三权互斥（同一账号已持另一类内置管理员）被拒绝的绑定（需求 07-6）。"""
+
+
+def expected_rows() -> ConcurrentStableList[ExpectedRow]:
+    """三类内置管理员角色的期望行（冲突预检用；详设 §3.5）。
+
+    **纯函数**：只读常量 `BUILTIN_ADMIN_ROLES`，不连库、不写库。只覆盖**角色**（`sys_role` 按 `code`）；
+    授权条目组合键依赖运行期自增 id，不在此比对（由唯一约束兜底）。
+
+    Returns:
+        ConcurrentStableList[ExpectedRow]: 期望行（三类内置管理员角色）。
+    """
+    rows: ConcurrentStableList[ExpectedRow] = ConcurrentStableList()
+    for code, name, _role_type, _codes in BUILTIN_ADMIN_ROLES:
+        rows.add(
+            ExpectedRow(
+                table="sys_role",
+                key=ConcurrentStableFrozenDict({"code": code}),
+                values=ConcurrentStableFrozenDict({"name": name}),
+            )
+        )
+    return rows
 
 
 async def seed_rbac_roles_entry(session: AsyncSession, args: ConcurrentStableDict[str, object]) -> None:

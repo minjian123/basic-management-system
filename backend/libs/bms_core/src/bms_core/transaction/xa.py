@@ -47,6 +47,7 @@ from bms_core.transaction.base import (
     BranchOp,
     BranchRef,
     BranchSpec,
+    BranchStats,
     GlobalTransaction,
 )
 
@@ -55,6 +56,7 @@ if TYPE_CHECKING:
 
 __all__ = [
     "XA_PLUGIN_NAME",
+    "StatsProbe",
     "XaTransactionManager",
     "XaTransactionManagerFactory",
     "XaTransactionParticipant",
@@ -252,6 +254,7 @@ class XaTransactionParticipant(BaseTransactionParticipant):
         """
         self._engines = engines
         self._handlers = handlers
+        self._stats_probes: ConcurrentStableDict[str, StatsProbe] = ConcurrentStableDict()
 
     @property
     def enabled(self) -> bool:
@@ -269,24 +272,75 @@ class XaTransactionParticipant(BaseTransactionParticipant):
         Returns:
             str: 分支状态（`prepared` / `rejected`）。
         """
+        state, _stats = await self._execute(xid=xid, db_key=db_key, ops=ops, probe=None)
+        return state
+
+    async def execute_branch_with_stats(
+        self, *, xid: str, db_key: str, ops: ConcurrentStableList[BranchOp]
+    ) -> tuple[str, BranchStats]:
+        """执行分支并返回逐项统计（**分支连接内**采集；详设 §3.10）。
+
+        统计口径：handler 执行**前后**在同一分支连接上查目标表——同一连接能看到本分支未提交的
+        写入，故统计准确；分支外采集只能算「本批净增」且失败时恒为 0。
+
+        **采集范围**：只有**单 op 且该 op 的处理器登记了统计探针**时才采集（种子编排场景）；
+        其余情形（多 op / 未登记探针）返回零统计，不影响既有调用方。
+
+        Args:
+            xid: 分支事务标识（TM 分配）。
+            db_key: 目标库键。
+            ops: 分支操作清单。
+
+        Returns:
+            tuple[str, BranchStats]: （分支状态, 逐项统计）。
+        """
+        probe = self._stats_probes.get(ops[0].op) if len(ops) == 1 else None
+        return await self._execute(xid=xid, db_key=db_key, ops=ops, probe=probe)
+
+    async def _execute(
+        self,
+        *,
+        xid: str,
+        db_key: str,
+        ops: ConcurrentStableList[BranchOp],
+        probe: StatsProbe | None,
+    ) -> tuple[str, BranchStats]:
+        """分支执行**唯一实现**：`XA_START → 业务写 → XA_END → XA_PREPARE`（可选统计探针）。
+
+        统计探针在 handler 执行**前后**于同一连接上各取一次快照（详设 §3.10）。
+
+        Args:
+            xid: 分支事务标识。
+            db_key: 目标库键。
+            ops: 分支操作清单。
+            probe: 统计探针（None 表示不采集统计）。
+
+        Returns:
+            tuple[str, BranchStats]: （分支状态, 逐项统计）。
+        """
         resolved: ConcurrentStableList[BranchHandler] = ConcurrentStableList()
         for item in ops:
             handler = self._handlers.resolve(item.op)
             if handler is None:
-                return BRANCH_REJECTED
+                return BRANCH_REJECTED, BranchStats()
             resolved.add(handler)
         engine = await self._engines.get_sync(db_key)
         connection = await asyncio.to_thread(engine.connect)
+        stats = BranchStats()
         try:
             txn = await asyncio.to_thread(connection.begin_twophase, xid)
             session = SyncSession(engine, bind=connection)
             try:
+                before = None if probe is None else await asyncio.to_thread(probe.snapshot, connection)
                 for handler, item in zip(resolved, ops, strict=True):
                     await handler(session, item.args)
                 # 提交**会话级 SAVEPOINT**：处理器自行提交的部分已释放，未提交的部分在此并入分支——
                 # 否则 `session.close()`（savepoint 模式）会静默回滚未提交写入（真库实测：分支空）
                 await session.flush()
                 await session.commit()
+                if probe is not None:
+                    after = await asyncio.to_thread(probe.snapshot, connection)
+                    stats = probe.diff(before, after)
             finally:
                 await session.close()
             await asyncio.to_thread(txn.prepare)
@@ -297,7 +351,16 @@ class XaTransactionParticipant(BaseTransactionParticipant):
             raise
         finally:
             await self._safe_close(connection)
-        return BRANCH_PREPARED
+        return BRANCH_PREPARED, stats
+
+    def register_stats_probe(self, op: str, probe: StatsProbe) -> None:
+        """登记统计探针（种子编排用：`op` → 目标表与采集方式）。
+
+        Args:
+            op: 分支操作名。
+            probe: 统计探针。
+        """
+        self._stats_probes.set(op, probe)
 
     async def commit_branch(self, *, xid: str, db_key: str) -> str:
         """提交分支（TM 驱动；新连接经方言 `do_commit_twophase` 驱动已 PREPARE 分支）。
@@ -431,6 +494,33 @@ class XaTransactionParticipant(BaseTransactionParticipant):
             await asyncio.to_thread(connection.close)
         except Exception:
             return
+
+
+class StatsProbe(Protocol):
+    """分支统计探针（种子编排用）：在**分支连接**上采集目标表快照并求差。"""
+
+    def snapshot(self, connection: object) -> object:
+        """取目标表快照（同步；供 `asyncio.to_thread` 调用）。
+
+        Args:
+            connection: 分支连接（同步 SQLAlchemy 连接）。
+
+        Returns:
+            object: 不透明快照（交给 `diff` 解释）。
+        """
+        ...
+
+    def diff(self, before: object, after: object) -> BranchStats:
+        """比对前后快照得出逐项统计。
+
+        Args:
+            before: 执行前快照。
+            after: 执行后快照。
+
+        Returns:
+            BranchStats: 逐项统计。
+        """
+        ...
 
 
 class SyncEngineProvider(Protocol):

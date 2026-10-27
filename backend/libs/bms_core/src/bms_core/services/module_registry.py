@@ -345,6 +345,13 @@ class SeedRecord(BaseValueObject):
     status: str = CollaborationStatus.ENABLED
     """状态（`enabled` / `disabled` / `deprecated`）。"""
 
+    source: str = ""
+    """**声明来源**（07B `02_03`）：`platform` 或产品键，**装载期由清单 `product_key` 注入**。
+
+    声明文件不写本字段（写了即与清单归属冲突）。编排报告「来源」列直接取本字段，
+    不再按种子名首段推断——名字首段会把 `seed-module` 误判为 `seed`（详设 §3.3 / §8 #25）。
+    """
+
 
 class ErrorSeverity(StrEnum):
     """错误码严重级别（`info` / `warning` / `error`）。

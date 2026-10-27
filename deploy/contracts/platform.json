@@ -6205,6 +6205,7 @@
         "type": "object"
       },
       "SeedOrchestrationRequestSchema": {
+        "additionalProperties": false,
         "description": "编排请求（内部端点入参）。",
         "properties": {
           "dry_run": {
@@ -15075,7 +15076,7 @@
     },
     "/api/v1/platform/internal/seeds/orchestrate": {
       "post": {
-        "description": "统一执行全部种子（一个 XA 全局事务；串行 prepare、统一提交 / 整体回滚）。\n\nArgs:\n    payload: 编排请求（租户 / 筛选 / dry-run / 超时）。\n    context: 入站身份（服务身份或登录态）。\n\nReturns:\n    ApiResponse: 编排结果（退出码 + 逐项报告 + 错误 / 冲突明细）。\n\nRaises:\n    ParamError: 参数非法（筛选引用了不存在的种子）。",
+        "description": "统一执行全部种子（一个 XA 全局事务；串行 prepare、统一提交 / 整体回滚）。\n\n**依赖注入**（2026-10-27 修复）：事务管理器 / 参与方 / 引擎注册表在此（有请求上下文）\n从应用 state 解析后注入服务——服务层拿不到 `Request`，故不在编排器内零参调用基座取用器。\n\nArgs:\n    payload: 编排请求（租户 / 筛选 / dry-run / 超时）。\n    context: 入站身份（服务身份或登录态）。\n    request: 请求对象（取应用 state 中的事务与引擎依赖）。\n\nReturns:\n    ApiResponse: 编排结果（退出码 + 逐项报告 + 错误 / 冲突明细）。\n\nRaises:\n    ParamError: 参数非法（筛选引用了不存在的种子）。",
         "operationId": "orchestrate_seeds_api_v1_platform_internal_seeds_orchestrate_post",
         "requestBody": {
           "content": {

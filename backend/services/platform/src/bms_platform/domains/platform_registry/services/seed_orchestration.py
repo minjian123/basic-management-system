@@ -8,6 +8,7 @@
 
 from dataclasses import dataclass
 from dataclasses import field as dataclass_field
+from typing import Any, Protocol, cast
 
 from bms_core.core.concurrent import (
     ConcurrentStableFrozenList,
@@ -15,20 +16,43 @@ from bms_core.core.concurrent import (
 )
 from bms_core.core.config import get_settings
 from bms_core.core.logging import get_logger
-from bms_core.core.objects import BaseDataContract
+from bms_core.core.objects import BaseDataContract, BaseFrameworkObject
 from bms_core.registry.products import load_product_manifests
-from bms_core.services.module_registry import seed_catalog_view
+from bms_core.services.module_registry import SeedRecord, seed_catalog_view
 from bms_core.tenant.seed.orchestrator import (
     DEFAULT_TIMEOUT_SECONDS,
+    EXIT_CONFLICT,
+    EXIT_EXECUTE,
+    EXIT_OK,
+    EXIT_PRECHECK,
+    SeedBranchRunner,
     SeedReport,
+    SeedTransactionManager,
     build_plan,
     ensure_structure,
     execute_plan,
+    precheck_conflicts,
     precheck_seeds,
     select_seeds,
 )
 
-__all__ = ["SeedOrchestrationRequest", "SeedOrchestrationResult", "SeedOrchestrationService"]
+__all__ = ["SeedOrchestrationRequest", "SeedOrchestrationResult", "SeedOrchestrationService", "SyncEngineProvider"]
+
+
+class SyncEngineProvider(Protocol):
+    """同步引擎提供者（冲突预检只读查库用；生产为 `EngineRegistry`）。"""
+
+    async def get_sync(self, db_key: str, *, read_only: bool = False) -> Any:
+        """取同步引擎。
+
+        Args:
+            db_key: 数据源键。
+            read_only: 是否只读。
+
+        Returns:
+            Any: 同步引擎。
+        """
+        ...
 
 
 @dataclass
@@ -38,13 +62,13 @@ class SeedOrchestrationRequest(BaseDataContract):
     tenant: str = ""
     """目标租户（展开 `db_key` 占位）；空串取 `[platform_tenant].code`。"""
 
-    only: ConcurrentStableFrozenList[str] = dataclass_field(default_factory=lambda: ConcurrentStableFrozenList())
+    only: ConcurrentStableList[str] = dataclass_field(default_factory=lambda: ConcurrentStableList())
     """只执行这些种子（空表示不限制）。"""
 
-    skip: ConcurrentStableFrozenList[str] = dataclass_field(default_factory=lambda: ConcurrentStableFrozenList())
+    skip: ConcurrentStableList[str] = dataclass_field(default_factory=lambda: ConcurrentStableList())
     """跳过这些种子。"""
 
-    require: ConcurrentStableFrozenList[str] = dataclass_field(default_factory=lambda: ConcurrentStableFrozenList())
+    require: ConcurrentStableList[str] = dataclass_field(default_factory=lambda: ConcurrentStableList())
     """人工强制前置（这些种子必须在本批之前完成）。"""
 
     dry_run: bool = False
@@ -76,23 +100,43 @@ class SeedOrchestrationResult(BaseDataContract):
     """警示。"""
 
 
-class SeedOrchestrationService:
-    """种子统一编排服务（平台进程内）。"""
+class SeedOrchestrationService(BaseFrameworkObject):
+    """种子统一编排服务（平台进程内）。
 
-    def __init__(self, *, caller_service: str) -> None:
+    继承 `BaseFrameworkObject`（与本域其他服务一致）：本服务不绑定单一仓储（跨多个库与
+    种子实现），只承载编排流程，故不用 `BaseService`（那个包装仓储 CRUD）。
+    """
+
+    def __init__(
+        self,
+        *,
+        caller_service: str,
+        manager: object | None = None,
+        participant: object | None = None,
+        engines: object | None = None,
+    ) -> None:
         """初始化。
+
+        **依赖注入**（2026-10-27 修复）：事务管理器 / 参与方 / 引擎注册表由调用方（端点层，
+        有请求上下文）注入——基座取用器需 FastAPI `Request`，服务层拿不到，故不能在此零参调用。
 
         Args:
             caller_service: 发起方服务键（写进 XA 全局事务，供 TM 审计）。
+            manager: 事务管理器（缺省由端点注入）。
+            participant: 事务参与方（缺省由端点注入）。
+            engines: 引擎注册表（冲突预检只读查库用；缺省由端点注入）。
         """
         self._caller = caller_service
+        self._manager: SeedTransactionManager | None = cast("SeedTransactionManager | None", manager)
+        self._participant: SeedBranchRunner | None = cast("SeedBranchRunner | None", participant)
+        self._engines: SyncEngineProvider | None = cast("SyncEngineProvider | None", engines)
         self._logger = get_logger("bms")
 
-    def _load_records(self) -> ConcurrentStableList:
+    def _load_records(self) -> ConcurrentStableList[SeedRecord]:
         """装载全部种子声明（本仓 `deploy/registry/*.toml` + 配置注入的产品清单）。
 
         Returns:
-            ConcurrentStableList: 种子记录合并视图。
+            ConcurrentStableList[SeedRecord]: 种子记录合并视图。
         """
         load_product_manifests(get_settings().registry.product_manifests)
         return ConcurrentStableList(seed_catalog_view())
@@ -111,28 +155,28 @@ class SeedOrchestrationService:
         """
         tenant = request.tenant or get_settings().platform_tenant.code
         records = self._load_records()
+        require = ConcurrentStableList(request.require)
         selected = select_seeds(
             records,
             only=ConcurrentStableList(request.only),
             skip=ConcurrentStableList(request.skip),
-            require=ConcurrentStableList(request.require),
+            require=require,
         )
         precheck = precheck_seeds(selected)
         if precheck.errors:
             self._logger.error("seed_precheck_failed", count=len(precheck.errors))
             return SeedOrchestrationResult(
-                exit_code=3,
+                exit_code=EXIT_PRECHECK,
                 errors=ConcurrentStableFrozenList(precheck.errors),
                 warnings=ConcurrentStableFrozenList(precheck.warnings),
             )
-        plan = build_plan(selected, tenant=tenant)
+        plan = build_plan(selected, tenant=tenant, require=require)
         if request.dry_run:
             self._logger.info("seed_dry_run", count=len(plan), tenant=tenant)
             return SeedOrchestrationResult(
-                exit_code=0,
+                exit_code=EXIT_OK,
                 reports=ConcurrentStableFrozenList(
-                    SeedReport(name=item.record.name, source=item.record.name.split("-", 1)[0], status="planned")
-                    for item in plan
+                    SeedReport(name=item.record.name, source=item.record.source, status="planned") for item in plan
                 ),
                 warnings=ConcurrentStableFrozenList(precheck.warnings),
             )
@@ -142,17 +186,29 @@ class SeedOrchestrationService:
         if structure_errors:
             self._logger.error("seed_structure_failed", count=len(structure_errors))
             return SeedOrchestrationResult(
-                exit_code=3,
+                exit_code=EXIT_PRECHECK,
                 errors=ConcurrentStableFrozenList(structure_errors),
                 warnings=ConcurrentStableFrozenList(precheck.warnings),
             )
+        # 数据冲突预检（详设 §3.5）：结构就绪之后、事务之前只读比对，一次看全全部冲突。
+        if self._engines is not None:
+            conflicts = await precheck_conflicts(plan, engines=self._engines)
+            if conflicts:
+                self._logger.error("seed_conflicts_found", count=len(conflicts))
+                return SeedOrchestrationResult(
+                    exit_code=EXIT_CONFLICT,
+                    conflicts=ConcurrentStableFrozenList(conflicts),
+                    warnings=ConcurrentStableFrozenList(precheck.warnings),
+                )
         reports = await execute_plan(
             plan,
             tenant=tenant,
             caller_service=self._caller,
             timeout_seconds=request.timeout_seconds,
+            branch_runner=self._participant,
+            manager=self._manager,
         )
-        exit_code = 0 if all(report.status in ("ok", "skipped") for report in reports) else 2
+        exit_code = EXIT_OK if all(report.status in ("ok", "skipped") for report in reports) else EXIT_EXECUTE
         return SeedOrchestrationResult(
             exit_code=exit_code,
             reports=reports,

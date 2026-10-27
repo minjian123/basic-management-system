@@ -181,8 +181,16 @@ def test_shells_are_thin_and_do_not_import_service_packages() -> None:
 
 @pytest.mark.kiwi_id(2344)
 def test_release_py_does_not_invoke_sunk_scripts() -> None:
-    """部署脚本 `release.py` 的 bootstrap 不含本次下沉的 5 个脚本（部署命令零改动口径）。"""
+    """部署脚本 `release.py` 不再调用**已下沉的单步种子脚本**（部署命令零改动口径）。
+
+    07B `02_03` 后口径调整：`ops.seed_platform` 已是**统一编排入口**（薄客户端），
+    `release.py seed` 子命令**应当**调用它——故它从「不得调用」清单移除；
+    其余四个（`seed_rbac` / `seed_sso` / `seed_user` / `tenant_provisioning`）仍为内部单步，
+    部署脚本不得直接调用。
+    """
     release = (_REPO_ROOT / "scripts" / "tools" / "deploy" / "release.py").read_text(encoding="utf-8")
-    for sunk in ("ops.seed_platform", "ops.seed_rbac", "ops.seed_sso", "ops.seed_user"):
+    for sunk in ("ops.seed_rbac", "ops.seed_sso", "ops.seed_user"):
         assert sunk not in release, f"release.py 仍调用已下沉脚本 {sunk}"
     assert "ops.tenant_provisioning" not in release
+    # 统一编排入口是唯一推荐的播种方式：`seed` 子命令须调用它
+    assert "ops.seed_platform" in release, "release.py 的 seed 子命令未走统一编排入口"

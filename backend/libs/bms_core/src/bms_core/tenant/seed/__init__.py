@@ -11,6 +11,7 @@
 `python -m ops.<script>` 的命令、参数与退出码不变。
 """
 
+from bms_core.tenant.seed.contract import ExpectedRow
 from bms_core.tenant.seed.platform import (
     PLATFORM_ADMIN_ROLE_CODE,
     PLATFORM_OPS_ROLE_CODE,
@@ -39,6 +40,7 @@ __all__ = [
     "ROLE_AUDIT_ADMIN",
     "ROLE_SECURITY_ADMIN",
     "ROLE_SYSTEM_ADMIN",
+    "ExpectedRow",
     "PlatformSeedOutcome",
     "RbacSeedOutcome",
     "UserSeedOutcome",

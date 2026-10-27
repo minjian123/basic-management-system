@@ -27,7 +27,11 @@ from sqlalchemy import Table, select
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.core.concurrent import (
+    ConcurrentStableDict,
+    ConcurrentStableFrozenDict,
+    ConcurrentStableList,
+)
 from bms_core.core.config import get_settings
 from bms_core.db.keys import PLATFORM_SERVICE_KEY
 from bms_core.models.platform.catalog import SysModule, SysProduct
@@ -38,10 +42,46 @@ from bms_core.services.module_registry import (
     product_catalog_view,
     service_catalog_view,
 )
+from bms_core.tenant.seed.contract import ExpectedRow
 from bms_core.tenant.seed.tenant import resolve_url
 
 RUN_IMAGE = "*"
 """本脚本只依赖 `bms_core` 与 `ops`（不导入任何服务包），任意服务镜像均可运行。"""
+
+
+def expected_rows() -> ConcurrentStableList[ExpectedRow]:
+    """服务目录与产品档案的期望行（冲突预检用；详设 §3.5）。
+
+    **纯函数**：只读合并视图（`service_catalog_view` / `product_catalog_view`），不连库、不写库。
+    比对字段取「幂等 upsert 会写入的那些列」，与 `_fields` / `_product_fields` 同源。
+
+    Returns:
+        ConcurrentStableList[ExpectedRow]: 期望行（服务目录 + 产品档案）。
+    """
+    rows: ConcurrentStableList[ExpectedRow] = ConcurrentStableList()
+    for seed in service_catalog_view():
+        rows.add(
+            ExpectedRow(
+                table="sys_module",
+                key=ConcurrentStableFrozenDict({"module_key": seed.module_key}),
+                values=ConcurrentStableFrozenDict(
+                    {
+                        "name": seed.name,
+                        "table_prefix": seed.table_prefix,
+                        "event_domain": seed.event_domain,
+                    }
+                ),
+            )
+        )
+    for product in product_catalog_view():
+        rows.add(
+            ExpectedRow(
+                table="sys_product",
+                key=ConcurrentStableFrozenDict({"product_key": product.product_key}),
+                values=ConcurrentStableFrozenDict({"name": product.name}),
+            )
+        )
+    return rows
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -235,5 +275,5 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
     return 0
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover - 模块直跑入口（部署与用例都走 main()）
     raise SystemExit(main())

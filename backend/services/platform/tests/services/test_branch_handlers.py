@@ -119,7 +119,9 @@ async def test_user_assignments_handler_bridges_payload(service_app: FastAPI, mo
 
     monkeypatch.setattr(bh, "UserAssignmentWriter", _WriterStub)
     registry = build_branch_handlers(service_app)
-    assert registry.ops() == BRANCH_OPS
+    # 07B 02_03：同一注册表另登记 9 个**种子**分支 op（种子编排与业务编排共用注册通道），
+    # 故此处断言「业务 op 属于已登记集合」，而非全等。
+    assert set(BRANCH_OPS) <= set(registry.ops())
     handler = registry.resolve(USER_ASSIGNMENTS_OP)
     assert handler is not None
 

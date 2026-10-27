@@ -26,7 +26,11 @@ from dataclasses import dataclass
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.core.concurrent import (
+    ConcurrentStableDict,
+    ConcurrentStableFrozenDict,
+    ConcurrentStableList,
+)
 from bms_core.core.config import get_settings
 from bms_core.core.objects import BaseDataContract
 from bms_core.db.engine import EngineFactory
@@ -45,6 +49,7 @@ from bms_core.models.platform.role import (
     SysUserRole,
 )
 from bms_core.models.platform.user import SysUser
+from bms_core.tenant.seed.contract import ExpectedRow
 
 __all__ = [
     "PLATFORM_ADMIN_ROLE_CODE",
@@ -388,6 +393,33 @@ async def seed_platform_grants_entry(session: AsyncSession, args: ConcurrentStab
         await _ensure_grant(session, role_id=ops_id, perm_type=PERM_TYPE_MENU, target_id=menu_id, outcome=outcome)
     for form_id in forms:
         await _ensure_grant(session, role_id=ops_id, perm_type=PERM_TYPE_FORM, target_id=form_id, outcome=outcome)
+
+
+def expected_rows() -> ConcurrentStableList[ExpectedRow]:
+    """平台 RBAC 的期望行（冲突预检用；详设 §3.5）。
+
+    **纯函数**：只读模块常量，不连库、不写库。只覆盖**角色**（`sys_role` 按 `code`）；
+    授权条目（`sys_role_permission`）的组合键依赖运行期自增 id，不在此比对（由唯一约束兜底）。
+
+    Returns:
+        ConcurrentStableList[ExpectedRow]: 期望行（两个平台角色）。
+    """
+    rows: ConcurrentStableList[ExpectedRow] = ConcurrentStableList()
+    rows.add(
+        ExpectedRow(
+            table="sys_role",
+            key=ConcurrentStableFrozenDict({"code": PLATFORM_ADMIN_ROLE_CODE}),
+            values=ConcurrentStableFrozenDict({"name": "平台超级管理员"}),
+        )
+    )
+    rows.add(
+        ExpectedRow(
+            table="sys_role",
+            key=ConcurrentStableFrozenDict({"code": PLATFORM_OPS_ROLE_CODE}),
+            values=ConcurrentStableFrozenDict({"name": "平台运维员"}),
+        )
+    )
+    return rows
 
 
 async def seed_platform_rbac(*, platform_code: str, assign_user: str = "") -> PlatformSeedOutcome:

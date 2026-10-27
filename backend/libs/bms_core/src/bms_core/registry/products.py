@@ -515,12 +515,13 @@ def _fill_frontend_prefix(
     return filled
 
 
-def _seed_record(raw: object, *, scope: str) -> SeedRecord:
+def _seed_record(raw: object, *, scope: str, product_key: str = "") -> SeedRecord:
     """构造种子登记记录（第六类记录）。
 
     Args:
         raw: 原始映射。
         scope: 错误信息作用域。
+        product_key: 该清单归属的产品键（**注入为 `source`**，声明文件不写本字段）。
 
     Returns:
         SeedRecord: 种子登记记录。
@@ -547,6 +548,7 @@ def _seed_record(raw: object, *, scope: str) -> SeedRecord:
         after=_strings(data.get("after"), scope=record_scope, key="after"),
         description=str(data.get("description") or ""),
         status=status,
+        source=product_key,
     )
 
 
@@ -568,7 +570,7 @@ def _seed_tables(raw: object, *, scope: str) -> ConcurrentStableFrozenDict[str, 
     data = _as_mapping(raw)
     result: ConcurrentStableDict[str, str] = ConcurrentStableDict()
     for table, key in data.items():
-        if not isinstance(table, str) or not isinstance(key, str) or not key:
+        if not isinstance(key, str) or not key:
             raise CatalogError(f"产品清单结构非法：{scope} → tables 项须为「表名: 自然键」字符串对（{table!r}）")
         result.set(table, key)
     return ConcurrentStableFrozenDict(result)
@@ -748,7 +750,7 @@ def load_product_manifest(path: Path) -> ProductManifest:
         routes,
     )
     seeds: ConcurrentStableList[SeedRecord] = ConcurrentStableList(
-        _seed_record(raw, scope="seeds") for raw in _records(root.get("seeds"), scope="seeds")
+        _seed_record(raw, scope="seeds", product_key=product_key) for raw in _records(root.get("seeds"), scope="seeds")
     )
     error_codes: ConcurrentStableList[ErrorCodeRecord] = _error_code_records(
         root.get("errcodes"), product_key=product_key, services=services, path=path

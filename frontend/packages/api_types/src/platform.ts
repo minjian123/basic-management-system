@@ -1814,6 +1814,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/platform/internal/seeds/orchestrate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Orchestrate Seeds
+         * @description 统一执行全部种子（一个 XA 全局事务；串行 prepare、统一提交 / 整体回滚）。
+         *
+         *     **依赖注入**（2026-10-27 修复）：事务管理器 / 参与方 / 引擎注册表在此（有请求上下文）
+         *     从应用 state 解析后注入服务——服务层拿不到 `Request`，故不在编排器内零参调用基座取用器。
+         *
+         *     Args:
+         *         payload: 编排请求（租户 / 筛选 / dry-run / 超时）。
+         *         context: 入站身份（服务身份或登录态）。
+         *         request: 请求对象（取应用 state 中的事务与引擎依赖）。
+         *
+         *     Returns:
+         *         ApiResponse: 编排结果（退出码 + 逐项报告 + 错误 / 冲突明细）。
+         *
+         *     Raises:
+         *         ParamError: 参数非法（筛选引用了不存在的种子）。
+         */
+        post: operations["orchestrate_seeds_api_v1_platform_internal_seeds_orchestrate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/platform/internal/users/create": {
         parameters: {
             query?: never;
@@ -6948,6 +6982,45 @@ export interface components {
              * @description 客户端版本（乐观锁比对）
              */
             version: number;
+        };
+        /**
+         * SeedOrchestrationRequestSchema
+         * @description 编排请求（内部端点入参）。
+         */
+        SeedOrchestrationRequestSchema: {
+            /**
+             * Dry Run
+             * @description 只做装载 + 排序 + 冲突预检，不开事务不执行
+             * @default false
+             */
+            dry_run: boolean;
+            /**
+             * Only
+             * @description 只执行这些种子（空表示不限制）
+             */
+            only?: string[];
+            /**
+             * Require
+             * @description 人工强制前置（必须在本批之前完成）
+             */
+            require?: string[];
+            /**
+             * Skip
+             * @description 跳过这些种子
+             */
+            skip?: string[];
+            /**
+             * Tenant
+             * @description 目标租户；空串取 [platform_tenant].code
+             * @default
+             */
+            tenant: string;
+            /**
+             * Timeout Seconds
+             * @description 全局事务超时（秒）
+             * @default 300
+             */
+            timeout_seconds: number;
         };
         /**
          * SqlValidateRequest
@@ -13248,6 +13321,84 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponse_PermissionSubjectResult_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    orchestrate_seeds_api_v1_platform_internal_seeds_orchestrate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SeedOrchestrationRequestSchema"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
                 };
             };
             /** @description 未认证 */

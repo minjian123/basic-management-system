@@ -20,9 +20,14 @@ import os
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from bms_core.config.seed import seed_configs
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.config.seed import PLATFORM_CONFIG_DEFAULTS, seed_configs
+from bms_core.core.concurrent import (
+    ConcurrentStableDict,
+    ConcurrentStableFrozenDict,
+    ConcurrentStableList,
+)
 from bms_core.core.config import get_settings
+from bms_core.tenant.seed.contract import ExpectedRow
 
 RUN_IMAGE = "*"
 """本脚本只依赖 `bms_core` 与 `ops`（不导入任何服务包），任意服务镜像均可运行。"""
@@ -68,6 +73,27 @@ async def _run() -> int:
         await engine.dispose()
 
 
+def expected_rows() -> ConcurrentStableList[ExpectedRow]:
+    """系统参数默认值的期望行（冲突预检用；详设 §3.5）。
+
+    **纯函数**：只读常量 `PLATFORM_CONFIG_DEFAULTS`，不连库、不写库。比对字段为参数值
+    （键相同但值被改过即视为冲突——参数默认值漂移必须显式处置，不静默覆盖）。
+
+    Returns:
+        ConcurrentStableList[ExpectedRow]: 期望行（每个默认参数一条）。
+    """
+    rows: ConcurrentStableList[ExpectedRow] = ConcurrentStableList()
+    for seed in PLATFORM_CONFIG_DEFAULTS:
+        rows.add(
+            ExpectedRow(
+                table="sys_config",
+                key=ConcurrentStableFrozenDict({"config_key": seed.config_key}),
+                values=ConcurrentStableFrozenDict({"value": seed.value}),
+            )
+        )
+    return rows
+
+
 def build_parser() -> argparse.ArgumentParser:
     """构建命令行解析器。
 
@@ -97,5 +123,5 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
     return 0
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover - 模块直跑入口（部署与用例都走 main()）
     raise SystemExit(main())
