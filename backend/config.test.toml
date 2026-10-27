@@ -16,6 +16,9 @@ allow_origins = []
 [registry]
 # 单测 / CI 不装载产品登记清单（不依赖产品仓在场；需要时由用例显式注册记录）
 product_manifests = []
+# 启动期不自动注册平台自身声明（07B `02_06`）：用例显式调注册端点，
+# 避免「声明即全量」的退役口径把夹具种下的目录行清掉；生产 / 部署态缺省开启
+register_on_startup = false
 
 [platform_tenant]
 # CI / 单测默认不引导平台租户（需要时显式调用 ops.bootstrap_platform 或用例内直接调用）

@@ -1397,6 +1397,17 @@ LOCAL_REGISTRY_DIR = "deploy/registry"
 """本仓自持声明目录（相对工程根的父级：仓根）。"""
 
 
+def local_manifest_paths() -> ConcurrentStableList[Path]:
+    """本仓自持声明路径（`deploy/registry/*.toml`，按文件名排序）。
+
+    平台自注册（`02_06`）与单仓自检共用同一发现规则：只读**本仓**清单，不读别的产品仓。
+
+    Returns:
+        ConcurrentStableList[Path]: 清单路径（目录不存在为空）。
+    """
+    return _local_manifest_paths()
+
+
 def _local_manifest_paths() -> ConcurrentStableList[Path]:
     """发现**本仓**自持声明（`<仓根>/deploy/registry/*.toml`，按文件名排序）。
 

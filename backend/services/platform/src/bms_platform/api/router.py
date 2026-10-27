@@ -19,6 +19,7 @@ from bms_platform.domains.platform_registry.api import (
     capability_grants,
     data_source,
     internal_capability_grants,
+    internal_declarations,
     internal_seeds,
     modules,
     products,
@@ -71,6 +72,8 @@ api_router = mount_service_routers(
             # 能力分配授权（07B `02_04`）：管理面 + 内部授权视图（新增路由追加在末尾，契约快照仅追加）
             capability_grants.router,
             internal_capability_grants.router,
+            # 产品声明注册通道（07B `02_06`）：产品启动时全量上报 + 消费方拉取快照
+            internal_declarations.router,
             # 种子统一编排（07B `02_03`）：部署初始化时由 CLI 触发，平台进程内执行
             internal_seeds.router,
             # 跨服务事务参与端点（`/txn/branches*`；谁挂端点谁参与，05_07）

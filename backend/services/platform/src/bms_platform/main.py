@@ -27,6 +27,9 @@ from bms_platform.domains.permission_meta.permission.checker import register_pla
 from bms_platform.domains.platform_registry.services.capability_grant_bootstrap import (
     bootstrap_capability_grants,
 )
+from bms_platform.domains.platform_registry.services.declaration_bootstrap import (
+    bootstrap_platform_declarations,
+)
 from bms_platform.domains.platform_registry.sources.catalog_source import read_catalog
 from bms_platform.domains.platform_registry.sources.dict_source import PlatformDictDataSource
 from bms_platform.repositories.demo_repository import DemoRepository
@@ -74,12 +77,14 @@ class ApplicationFactory(BaseServiceApplicationFactory):
         return ConcurrentStableList([api_router])
 
     def startup_hooks(self) -> ConcurrentStableList[StartupHook]:
-        """启动钩子：能力分配声明同步 + 授权视图来源登记 + 快照预热（07B `02_04`）。
+        """启动钩子：平台自身声明注册（`02_06`）→ 能力分配声明同步 + 授权视图来源登记 + 预热（`02_04`）。
+
+        顺序不可颠倒：授权基线与入站判定都从**注册表派生的视图**取能力，声明必须先落。
 
         Returns:
             ConcurrentStableList[StartupHook]: 启动钩子清单。
         """
-        return ConcurrentStableList((bootstrap_capability_grants,))
+        return ConcurrentStableList((bootstrap_platform_declarations, bootstrap_capability_grants))
 
     def configure_service(self, app: FastAPI, settings: Settings) -> None:
         """注入平台专属 state（demo 服务）并登记本地权威读取器（服务目录）与权限实现。
