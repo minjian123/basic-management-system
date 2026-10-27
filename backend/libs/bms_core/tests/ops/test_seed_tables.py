@@ -172,7 +172,9 @@ async def test_seed_tables_retires_absent_rows(tmp_path: Path) -> None:
 @pytest.mark.kiwi_id(2178)
 async def test_seed_tables_retires_absent_rows_sync(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """同步方言分支（达梦）同样清退不在清单的登记行。"""
-    from ops import seed_tables as module
+    # 07B `02_03`：实现已下沉 `bms_core.tenant.seed.tables`，`ops.seed_tables` 是薄壳；
+    # 打补丁须落在**实际执行模块**上（薄壳的模块级属性转发不改变基座模块全局）。
+    from bms_core.tenant.seed import tables as module
 
     monkeypatch.setattr(module, "is_sync_only_url", _force_sync)
     url = _sync_url(tmp_path)

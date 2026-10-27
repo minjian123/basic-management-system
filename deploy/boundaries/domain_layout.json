@@ -274,6 +274,7 @@
     "backend/services/platform/src/bms_platform/scope/__init__.py",
     "backend/services/platform/src/bms_platform/services/__init__.py",
     "backend/services/platform/src/bms_platform/services/branch_handlers.py",
+    "backend/services/platform/src/bms_platform/services/seed_branch_handlers.py",
     "backend/services/platform/src/bms_platform/services/demo_service.py",
     "backend/services/platform/src/bms_platform/services/i18n_text.py",
     "backend/services/platform/src/bms_platform/services/metadata_cache.py",

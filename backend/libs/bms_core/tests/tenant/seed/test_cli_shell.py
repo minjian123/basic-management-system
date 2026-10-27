@@ -57,11 +57,15 @@ def test_tenant_provisioning_shell_dry_run() -> None:
 
 @pytest.mark.kiwi_id(2344)
 def test_seed_platform_shell_dry_run() -> None:
-    """`python -m ops.seed_platform --dry-run`：退出码 0 且打印角色与业务码。"""
-    result = _run_module("ops.seed_platform", "--code", "platform", "--dry-run")
+    """`python -m ops.seed_platform --help`：编排入口参数齐备（07B `02_03` 改为薄客户端）。
+
+    原用例断言的是「打印角色与业务码」（旧 RBAC 种子口径）；本任务把 `seed_platform` 升级为
+    统一编排入口（CLI 只做触发与报告渲染，执行在 platform 服务内），故改为断言参数契约。
+    """
+    result = _run_module("ops.seed_platform", "--help")
     assert result.returncode == 0, result.stderr
-    assert "platform_admin" in result.stdout
-    assert "平台业务码" in result.stdout
+    for flag in ("--tenant", "--only", "--skip", "--require", "--dry-run", "--json", "--timeout"):
+        assert flag in result.stdout
 
 
 @pytest.mark.kiwi_id(2344)

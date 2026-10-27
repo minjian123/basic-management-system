@@ -29,6 +29,7 @@ from bms_platform.domains.role.services.separation import SeparationGuard
 from bms_platform.domains.user.repositories.user import UserRepository
 from bms_platform.domains.user.schemas.users import UserAssignmentProfile
 from bms_platform.domains.user.services.user_assignments import USER_ASSIGNMENTS_OP, UserAssignmentWriter
+from bms_platform.services.seed_branch_handlers import register_seed_handlers
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
@@ -255,4 +256,6 @@ def build_branch_handlers(app: FastAPI) -> BranchHandlerRegistry:
     registry = BranchHandlerRegistry()
     registry.register(USER_ASSIGNMENTS_OP, apply_user_assignments)
     registry.register(ROLE_ASSIGNMENTS_OP, apply_role_assignments)
+    # 种子分支（07B `02_03`）：9 个种子入口挂进同一注册表，由 XA 编排器统一驱动
+    register_seed_handlers(registry)
     return registry

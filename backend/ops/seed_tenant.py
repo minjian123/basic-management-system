@@ -1,200 +1,60 @@
-"""租户注册种子脚本（幂等）：**租户服务平台库**建 `sys_tenant` 表并写入演示租户（需求 01-2）。
+"""租户注册种子 CLI 薄壳（实现已下沉 `bms_core.tenant.seed.tenant`；07B `02_03`）。
 
-用法：
+命令、参数与退出码**不变**：
 
 ```bash
 cd backend
-uv run python -m ops.seed_tenant
 uv run python -m ops.seed_tenant --dry-run
+uv run python -m ops.seed_tenant
 ```
 
-- URL 解析：`--url` 参数 > `BMS_MIGRATION_URL` 环境变量 > 按库键 `platform_tenant` 解析
-  （`sys_tenant` 归属租户服务，06_03 / 06_01；`url_template` 为空时回落 `database.platform.url`）；
-- 幂等：`SysTenant` / `SysTenantDatabase` 表 `create(checkfirst=True)`，租户按 `code` + 未软删除判存、
-  对照行按 `tenant_id` + 未软删除判存跳过；
-- `db_key` 列**已废弃不再写入**（06_01）：租户库键一律由 `tenant_{service}_{db_basis}` 派生；
-- 对照表 `sys_tenant_database` 随种子写入（`db_basis = 当前 code`；10_04），保证解析链库键稳定；
-- 迁移与 SQLite 全量自动建表归 01_04（Alembic 落地后本脚本退化为纯种子脚本，建表分支兼容保留）。
+口径：`ops/` 属运维通道，本脚本只做入口转发；实现、参数解析与种子数据全部归基座。
+
+**内部单步**：本命令仅供排障；统一编排请用 `python -m ops.seed_platform`。
 """
 
-import argparse
-import asyncio
-import os
-from dataclasses import dataclass
-from typing import Any, cast
+from typing import Any
 
-from sqlalchemy import Table, select
-from sqlalchemy.engine import make_url
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
-from bms_core.core.config import get_settings
-from bms_core.db.engine import EngineFactory
-from bms_core.db.keys import build_platform_db_key
-from bms_core.db.tenant_source import TENANT_SERVICE_KEY
+from bms_core.tenant.seed.tenant import (
+    TENANT_SEEDS,
+    TenantSeed,
+    build_parser,
+    main,
+    resolve_url,
+    seed_tenants,
+    seed_tenants_entry,
+)
 
 RUN_IMAGE = "*"
 """本脚本只依赖 `bms_core` 与 `ops`（不导入任何服务包），任意服务镜像均可运行。"""
 
 
 def __getattr__(name: str) -> Any:
-    """惰性暴露 `SysTenant`（外部 `from ops.seed_tenant import SysTenant` 兼容）。
-
-    模块级不 eager 导入 `bms_tenant`：`seed_module` 复用本模块 `resolve_url` 而运行于 platform 镜像
-    （不含 `bms_tenant`），eager 导入会连带失败。仅按需（读注册库 / 归属服务运行）解析。
-    """
-    if name == "SysTenant":
-        from bms_core.models.tenant.tenant import SysTenant
-
-        return SysTenant
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-
-
-@dataclass(frozen=True)
-class TenantSeed:
-    """演示租户种子（开发 / 实测：demo 与 acme 双租户，供跨租户隔离验证）。"""
-
-    code: str
-    name: str
-    domain: str
-    status: str = "active"
-
-
-TENANT_SEEDS: ConcurrentStableList[TenantSeed] = ConcurrentStableList(
-    (
-        TenantSeed(code="demo", name="演示租户", domain="demo.bms.example.com"),
-        TenantSeed(code="acme", name="示例租户", domain="acme.bms.example.com"),
-    )
-)
-
-
-def build_parser() -> argparse.ArgumentParser:
-    """构建命令行解析器。
-
-    Returns:
-        argparse.ArgumentParser: 解析器。
-    """
-    parser = argparse.ArgumentParser(description="租户注册种子（平台库 sys_tenant，幂等）")
-    parser.add_argument("--url", default="", help="平台库连接串（缺省读 BMS_MIGRATION_URL / 配置）")
-    parser.add_argument("--dry-run", action="store_true", help="仅输出目标库与种子清单")
-    return parser
-
-
-def resolve_url(url: str = "", *, service: str = TENANT_SERVICE_KEY) -> str:
-    """解析目标**平台服务库** URL（参数 > 环境变量 > 按库键 `platform_{service}` 解析）。
+    """惰性转发基座模块的模块级属性（如 `SysTenant`）。
 
     Args:
-        url: 命令行传入的 URL（空串表示未指定）。
-        service: 目标服务标识（缺省租户服务：`sys_tenant` 归属方）。
+        name: 属性名。
 
     Returns:
-        str: 平台服务库连接串。
+        Any: 基座模块中的同名属性。
+
+    Raises:
+        AttributeError: 基座模块无该属性。
     """
-    if url:
-        return url
-    env_url = os.environ.get("BMS_MIGRATION_URL", "")
-    if env_url:
-        return env_url
-    settings = get_settings()
-    # 运维通道：允许跨服务库键（种子脚本按归属服务写库，不以运行服务为限）
-    return EngineFactory(settings, allow_cross_service=True).resolved_url(build_platform_db_key(service))
+    from bms_core.tenant.seed import tenant as _impl
+
+    return getattr(_impl, name)
 
 
-async def seed_tenants_entry(session: AsyncSession, args: ConcurrentStableDict[str, object]) -> None:
-    """XA 分支入口（07B `02_03`）：在分支会话内幂等写入种子租户。
-
-    **与 `seed_tenants(url)` 的分工**：那个是内部单步（自建 engine，排障用）；本入口不建连接。
-
-    Args:
-        session: 已绑定 XA 分支连接的会话。
-        args: 分支参数（本种子不消费）。
-    """
-    del args
-    from bms_core.models.tenant.tenant import SysTenant
-    from bms_core.models.tenant.tenant_database import SysTenantDatabase
-
-    for seed in TENANT_SEEDS:
-        statement = select(SysTenant).where(SysTenant.code == seed.code, SysTenant.deleted_at.is_(None))
-        row = (await session.execute(statement)).scalar_one_or_none()
-        if row is None:
-            row = SysTenant(code=seed.code, name=seed.name, domain=seed.domain, status=seed.status)
-            session.add(row)
-            await session.flush()
-        basis = select(SysTenantDatabase).where(
-            SysTenantDatabase.tenant_id == row.id, SysTenantDatabase.deleted_at.is_(None)
-        )
-        if (await session.execute(basis)).scalar_one_or_none() is None:
-            session.add(SysTenantDatabase(tenant_id=row.id, db_basis=row.code))
-
-
-async def seed_tenants(url: str) -> int:
-    """建表并写入种子租户（幂等）。
-
-    Args:
-        url: 平台库连接串。
-
-    Returns:
-        int: 新增行数（重复执行为 0）。
-    """
-    from bms_core.models.tenant.tenant import (
-        SysTenant,  # 惰性：仅本服务（tenant）镜像运行；resolve_url 供其他种子脚本复用
-    )
-    from bms_core.models.tenant.tenant_database import SysTenantDatabase
-
-    engine = create_async_engine(url)
-    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(engine, expire_on_commit=False)
-    created = 0
-    try:
-        async with engine.begin() as connection:
-            await connection.run_sync(cast("Table", SysTenant.__table__).create, checkfirst=True)
-            await connection.run_sync(cast("Table", SysTenantDatabase.__table__).create, checkfirst=True)
-        async with factory() as session:
-            for seed in TENANT_SEEDS:
-                statement = select(SysTenant).where(SysTenant.code == seed.code, SysTenant.deleted_at.is_(None))
-                row = (await session.execute(statement)).scalar_one_or_none()
-                if row is None:
-                    row = SysTenant(
-                        code=seed.code,
-                        name=seed.name,
-                        domain=seed.domain,
-                        status=seed.status,
-                    )
-                    session.add(row)
-                    await session.flush()
-                    created += 1
-                basis = select(SysTenantDatabase).where(
-                    SysTenantDatabase.tenant_id == row.id, SysTenantDatabase.deleted_at.is_(None)
-                )
-                if (await session.execute(basis)).scalar_one_or_none() is None:
-                    session.add(SysTenantDatabase(tenant_id=row.id, db_basis=row.code))
-                    created += 1
-            await session.commit()
-    finally:
-        await engine.dispose()
-    return created
-
-
-def main(argv: ConcurrentStableList[str] | None = None) -> int:
-    """入口。
-
-    Args:
-        argv: 命令行参数。
-
-    Returns:
-        int: 退出码。
-    """
-    args = build_parser().parse_args(argv)
-    url = resolve_url(args.url)
-    if args.dry_run:
-        target = make_url(url).render_as_string(hide_password=True)
-        print(f"[seed_tenant] 目标库：{target}")
-        for seed in TENANT_SEEDS:
-            print(f"[seed_tenant] 种子租户：{seed.code}（{seed.name} / {seed.domain}）（dry-run）")
-        return 0
-    created = asyncio.run(seed_tenants(url))
-    print(f"[seed_tenant] 新增 {created} 行（幂等；重复执行输出 0）")
-    return 0
-
+__all__ = [
+    "TENANT_SEEDS",
+    "TenantSeed",
+    "build_parser",
+    "main",
+    "resolve_url",
+    "seed_tenants",
+    "seed_tenants_entry",
+]
 
 if __name__ == "__main__":
     raise SystemExit(main())
