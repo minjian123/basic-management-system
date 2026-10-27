@@ -272,11 +272,11 @@ async def test_seed_menu_entry_writes_metadata(tmp_path: Path) -> None:
 def test_seed_module_main_success(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """`seed_module.main` 正常路径：建表 + 播种 + 打印计数。"""
+    """`seed_module.main` 应急写库路径（`--write`）：建表 + 播种 + 打印计数。"""
     monkeypatch.setenv("BMS_MIGRATION_URL", f"sqlite+aiosqlite:///{tmp_path / 'mm.db'}")
-    assert module_seed.main(ConcurrentStableList([])) == 0
+    assert module_seed.main(ConcurrentStableList(["--write"])) == 0
     out = capsys.readouterr().out
-    assert "服务目录 + 产品档案" in out
+    assert "应急写库" in out
 
 
 def test_seed_tables_main_success(

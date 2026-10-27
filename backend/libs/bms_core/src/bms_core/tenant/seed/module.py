@@ -25,6 +25,7 @@ from typing import cast
 
 from sqlalchemy import Table, select
 from sqlalchemy.engine import make_url
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from bms_core.core.concurrent import (
@@ -41,6 +42,8 @@ from bms_core.services.module_registry import (
     ProductRecord,
     product_catalog_view,
     service_catalog_view,
+    validate_catalog,
+    validate_products,
 )
 from bms_core.tenant.seed.contract import ExpectedRow
 from bms_core.tenant.seed.tenant import resolve_url
@@ -90,11 +93,14 @@ def build_parser() -> argparse.ArgumentParser:
     Returns:
         argparse.ArgumentParser: 解析器。
     """
-    parser = argparse.ArgumentParser(
-        description="服务目录与产品档案种子（平台库 sys_module + sys_product，幂等 upsert）"
-    )
+    parser = argparse.ArgumentParser(description="服务目录与产品档案的引导性校验（默认只校验；写库由平台启动注册完成）")
     parser.add_argument("--url", default="", help="平台库连接串（缺省读 BMS_MIGRATION_URL / 配置）")
     parser.add_argument("--dry-run", action="store_true", help="仅输出目标库与种子清单")
+    parser.add_argument(
+        "--write",
+        action="store_true",
+        help="兼容空库 / 回滚场景：按登记视图幂等 upsert 服务目录与产品档案（注册取代种子写库后仅作应急）",
+    )
     return parser
 
 
@@ -250,6 +256,59 @@ async def _upsert_products(session: AsyncSession) -> tuple[int, int]:
     return created, updated
 
 
+async def check_modules(url: str) -> ConcurrentStableList[str]:
+    """引导性校验（07B `02_06`）：库中服务行 / 产品档案须与登记视图一致。
+
+    `02_06` 起写库归**注册通道**（平台启动注册自身声明、产品启动上报）；本命令退化为校验：
+    缺行 / 漂移都提示「由平台启动注册写入」，不再由种子代写（`--write` 仅作应急）。
+
+    Args:
+        url: 平台库连接串。
+
+    Returns:
+        ConcurrentStableList[str]: 差异明细（空表示一致；空库亦为明细，提示先启动平台）。
+    """
+    load_product_manifests(get_settings().registry.product_manifests)
+    engine = create_async_engine(url)
+    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(engine, expire_on_commit=False)
+    errors: ConcurrentStableList[str] = ConcurrentStableList()
+    module_rows: ConcurrentStableList[object] = ConcurrentStableList()
+    product_rows: ConcurrentStableList[object] = ConcurrentStableList()
+    try:
+        async with factory() as session:
+            module_rows.update(
+                (await session.execute(select(SysModule).where(SysModule.deleted_at.is_(None)))).scalars().all()
+            )
+            product_rows.update(
+                (await session.execute(select(SysProduct).where(SysProduct.deleted_at.is_(None)))).scalars().all()
+            )
+    except OperationalError as exc:
+        # 未建表 / 未迁移：按「空库」处理（提示先启动平台注册，而不是抛栈）
+        errors.add(f"平台库不可读（{type(exc).__name__}）：请先执行迁移并启动平台注册")
+        return errors
+    finally:
+        await engine.dispose()
+    if not module_rows:
+        errors.add("服务目录为空：请先启动平台（注册通道会写入平台自身服务行），勿再用种子代写")
+    else:
+        errors.update(
+            validate_catalog(
+                service_catalog_view(),
+                ConcurrentStableList(ModuleRecord.from_row(row) for row in module_rows),
+            )
+        )
+    if not product_rows:
+        errors.add("产品档案为空：请先启动平台（注册通道会写入产品档案）")
+    else:
+        errors.update(
+            validate_products(
+                product_catalog_view(),
+                ConcurrentStableList(ProductRecord.from_row(row) for row in product_rows),
+            )
+        )
+    return errors
+
+
 def main(argv: ConcurrentStableList[str] | None = None) -> int:
     """入口。
 
@@ -270,8 +329,20 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
         for product in product_catalog_view():
             print(f"[seed_module] 产品档案：{product.product_key}（{product.name} / {product.status}）（dry-run）")
         return 0
-    created, updated = asyncio.run(seed_modules(url))
-    print(f"[seed_module] 服务目录 + 产品档案 新增 {created} 行 / 更新 {updated} 行（幂等；重复执行输出 0 / 0）")
+    if args.write:
+        created, updated = asyncio.run(seed_modules(url))
+        print(
+            f"[seed_module] 应急写库：新增 {created} 行 / 更新 {updated} 行"
+            "（注册通道才是权威写入口；仅在空库 / 回滚时使用）"
+        )
+        return 0
+    errors = asyncio.run(check_modules(url))
+    if errors:
+        for error in errors:
+            print(f"[seed_module] {error}")
+        print(f"[seed_module] 引导性校验未通过（{len(errors)} 项）")
+        return 1
+    print("[seed_module] 引导性校验通过：库中服务目录与产品档案与登记视图一致")
     return 0
 
 
