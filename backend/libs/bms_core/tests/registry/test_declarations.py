@@ -24,6 +24,7 @@ from bms_core.registry.declarations import (
     RegistrySnapshot,
     content_hash_of,
     declaration_key,
+    declaration_wire,
     from_manifest,
     plan_declarations,
     validate_declarations,
@@ -76,10 +77,11 @@ def _payload(**kwargs: object) -> DeclarationPayload:
     return DeclarationPayload(**base)  # type: ignore[arg-type]
 
 
-def _snapshot(**kwargs: object) -> RegistrySnapshot:
-    """按类别构造注册表现状（自动补内容指纹与行主键）。
+def _snapshot(*, owner: str = "demo", **kwargs: object) -> RegistrySnapshot:
+    """按类别构造注册表现状（自动补内容指纹 / 行主键 / 声明方）。
 
     Args:
+        owner: 记录自带 `product_key` 缺失时的声明方（默认 `demo`；平台行用 `platform`）。
         **kwargs: `{类别: 记录列表}`。
 
     Returns:
@@ -89,19 +91,23 @@ def _snapshot(**kwargs: object) -> RegistrySnapshot:
     hashes: ConcurrentStableDict[str, ConcurrentStableDict[str, str]] = ConcurrentStableDict()
     ids: ConcurrentStableDict[str, ConcurrentStableDict[str, int]] = ConcurrentStableDict()
     retired: ConcurrentStableDict[str, ConcurrentStableSet[str]] = ConcurrentStableDict()
+    owners: ConcurrentStableDict[str, ConcurrentStableDict[str, str]] = ConcurrentStableDict()
     for kind in DECLARATION_KINDS:
         items = ConcurrentStableList(kwargs.get(kind) or ())
         records.set(kind, items)
         kind_hashes: ConcurrentStableDict[str, str] = ConcurrentStableDict()
         kind_ids: ConcurrentStableDict[str, int] = ConcurrentStableDict()
+        kind_owners: ConcurrentStableDict[str, str] = ConcurrentStableDict()
         for index, record in enumerate(items):
             key = declaration_key(kind, record)
             kind_hashes.set(key, content_hash_of(kind, record))
             kind_ids.set(key, index + 1)
+            kind_owners.set(key, str(getattr(record, "product_key", None) or owner))
         hashes.set(kind, kind_hashes)
         ids.set(kind, kind_ids)
+        owners.set(kind, kind_owners)
         retired.set(kind, ConcurrentStableSet())
-    return RegistrySnapshot(records=records, hashes=hashes, ids=ids, retired=retired)
+    return RegistrySnapshot(records=records, hashes=hashes, ids=ids, retired=retired, owners=owners)
 
 
 @pytest.fixture(autouse=True)
@@ -754,6 +760,78 @@ def test_declaration_models_registered_tables() -> None:
     assert SysProductRoute.__tablename__ == "sys_product_route"
 
 
+def test_plan_does_not_retire_other_products_rows() -> None:
+    """共享表按声明方作用域对账：别的产品的行不因本次未声明而退役。"""
+    ours = ProductRecord(product_key="demo", name="演示产品")
+    theirs = ProductRecord(product_key="other", name="其他产品")
+    payload = _payload(products=ConcurrentStableFrozenList((ours,)))
+
+    plan, conflicts = plan_declarations(payload, _snapshot(products=[ours, theirs]))
+
+    assert list(conflicts) == []
+    assert plan.retired.get("products") == []
+    assert len(plan.unchanged.get("products") or ()) == 1
+
+
+def test_platform_owns_service_rows_without_product_key() -> None:
+    """平台服务行（`product_key` 为空）归 `platform`：平台注册时不误退役，也不与其他产品撞键。"""
+    platform_row = ModuleRecord(
+        module_key="sys",
+        name="平台地基服务",
+        table_prefix="sys_",
+        event_domain="sys",
+        service_key="platform",
+    )
+    product_row = ModuleRecord(
+        module_key="mdm",
+        name="主数据服务",
+        table_prefix="mdm_",
+        event_domain="mdm",
+        service_key="mdm",
+        service_group="product",
+        product_key="mdm",
+    )
+    payload = DeclarationPayload(
+        product_key="platform",
+        service_key="platform",
+        services=ConcurrentStableFrozenList((platform_row,)),
+    )
+
+    plan, conflicts = plan_declarations(payload, _snapshot(owner="platform", services=[platform_row, product_row]))
+
+    assert list(conflicts) == []
+    assert plan.retired.get("services") == []
+    assert len(plan.unchanged.get("services") or ()) == 1
+
+
+def test_parse_manifest_text_feeds_payload() -> None:
+    """清单文本 → 载荷（注册通道输入解析与文件装载同一实现）。"""
+    from bms_core.registry.products import parse_manifest_text
+
+    text = """
+product_key = "demo"
+
+[[services]]
+module_key = "demo"
+service_key = "demo-svc"
+name = "演示服务"
+table_prefix = "demo_"
+event_domain = "demo"
+service_group = "product"
+product_key = "demo"
+
+[[usages]]
+name = "demo.org.roles"
+degrade = "empty"
+reason = "断链按无角色"
+"""
+    payload = from_manifest(parse_manifest_text(text, source="<test>"))
+
+    assert payload.product_key == "demo"
+    assert payload.service_key == "demo-svc"
+    assert len(payload.usages) == 1
+
+
 def test_declaration_payload_of_and_snapshot_accessors() -> None:
     """载荷 / 现状的取值访问器：缺类别返回空、缺键返回 None。"""
     payload = _payload()
@@ -765,4 +843,9 @@ def test_declaration_payload_of_and_snapshot_accessors() -> None:
     assert snapshot.row_id("collaborations", "demo.org.user-roles") == 1
     assert snapshot.row_id("collaborations", "missing") is None
     assert snapshot.is_retired("collaborations", "demo.org.user-roles") is False
+    assert snapshot.owner_of("collaborations", "demo.org.user-roles") == "demo"
+    assert snapshot.owner_of("collaborations", "missing") is None
     assert snapshot.of("seeds") == []
+    wire = declaration_wire("collaborations", _capability())
+    assert wire.get("name") == "demo.org.user-roles"
+    assert wire.get("path") == "/api/v1/demo/roles"

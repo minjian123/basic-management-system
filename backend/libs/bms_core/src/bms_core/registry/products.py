@@ -705,7 +705,42 @@ def load_product_manifest(path: Path) -> ProductManifest:
         raise CatalogError(f"产品清单不可读：{path}（{exc}）") from exc
     except tomllib.TOMLDecodeError as exc:
         raise CatalogError(f"产品清单 TOML 非法：{path}（{exc}）") from exc
-    root = _as_mapping(payload)
+    return _build_manifest(_as_mapping(payload), path=path)
+
+
+def parse_manifest_text(text: str, *, source: str = "<remote>") -> ProductManifest:
+    """解析**清单文本**为产品声明（注册通道的输入解析，与文件装载同一实现）。
+
+    Args:
+        text: 清单 TOML 文本（产品启动上报时携带自身清单内容）。
+        source: 来源标识（错误定位用）。
+
+    Returns:
+        ProductManifest: 清单记录（八段）。
+
+    Raises:
+        CatalogError: TOML 非法或结构不合法。
+    """
+    try:
+        payload: object = tomllib.loads(text)
+    except tomllib.TOMLDecodeError as exc:
+        raise CatalogError(f"产品清单 TOML 非法：{source}（{exc}）") from exc
+    return _build_manifest(_as_mapping(payload), path=Path(source))
+
+
+def _build_manifest(root: ConcurrentStableDict[str, object], *, path: Path) -> ProductManifest:
+    """由已解析的清单映射构造产品声明（文件装载与文本解析共用）。
+
+    Args:
+        root: 清单映射。
+        path: 来源路径（错误定位与契约定位用）。
+
+    Returns:
+        ProductManifest: 清单记录（八段）。
+
+    Raises:
+        CatalogError: 结构不合法。
+    """
     product_key = str(_require(root, "product_key", scope=str(path)))
 
     products: ConcurrentStableList[ProductRecord] = ConcurrentStableList()

@@ -109,6 +109,23 @@ class RegistrySnapshot(BaseValueObject):
     )
     """`{类别: {业务键: 行主键}}`（落库更新 / 退役定位用）。"""
 
+    owners: ConcurrentStableDict[str, ConcurrentStableDict[str, str]] = field(
+        default_factory=lambda: ConcurrentStableDict()
+    )
+    """`{类别: {业务键: 声明方产品键}}`（共享表按声明方作用域对账用）。"""
+
+    def owner_of(self, kind: str, key: str) -> str | None:
+        """取某记录的声明方产品键。
+
+        Args:
+            kind: 声明类别。
+            key: 业务键。
+
+        Returns:
+            str | None: 声明方产品键；不存在为 None。
+        """
+        return (self.owners.get(kind) or ConcurrentStableDict()).get(key)
+
     def of(self, kind: str) -> ConcurrentStableList[Any]:
         """取某类记录。
 
@@ -305,6 +322,19 @@ def from_manifest(manifest: object) -> DeclarationPayload:
     )
 
 
+def declaration_wire(kind: str, record: object) -> ConcurrentStableDict[str, object]:
+    """把声明记录转成**对外传输形态**（服务身份出口下发用）。
+
+    Args:
+        kind: 声明类别。
+        record: 声明记录。
+
+    Returns:
+        ConcurrentStableDict[str, object]: 要素映射（只含声明要素，不含行主键与审计字段）。
+    """
+    return _record_payload(kind, record)
+
+
 def declaration_key(kind: str, record: object) -> str:
     """取某条声明的业务键。
 
@@ -494,7 +524,7 @@ def plan_declarations(
                 conflicts.add(f"{kind}｜{key}：同一产品重复声明")
                 continue
             incoming.set(key, record)
-            existing_owner = _owner_of(current, kind, key)
+            existing_owner = current.owner_of(kind, key)
             if existing_owner is not None and existing_owner != payload.product_key:
                 conflicts.add(f"{kind}｜{key}：已被产品 {existing_owner} 注册（跨产品撞键）")
                 continue
@@ -509,6 +539,9 @@ def plan_declarations(
             key = declaration_key(kind, record)
             if key in incoming or current.is_retired(kind, key):
                 continue
+            if current.owner_of(kind, key) != payload.product_key:
+                # 声明方作用域：别的产品名下的行不属本次全量，不退役
+                continue
             retired.add(key)
         plan_created.set(kind, created)
         plan_updated.set(kind, updated)
@@ -518,25 +551,6 @@ def plan_declarations(
         DeclarationPlan(created=plan_created, updated=plan_updated, unchanged=plan_unchanged, retired=plan_retired),
         conflicts,
     )
-
-
-def _owner_of(current: RegistrySnapshot, kind: str, key: str) -> str | None:
-    """取某记录当前归属的产品键。
-
-    Args:
-        current: 注册表现状。
-        kind: 声明类别。
-        key: 业务键。
-
-    Returns:
-        str | None: 归属产品键（`products` / `services` 等行内自带的 product_key）。
-    """
-    for record in current.of(kind):
-        if declaration_key(kind, record) != key:
-            continue
-        owner = getattr(record, "product_key", None)
-        return None if owner is None else str(owner)
-    return None
 
 
 def validate_declarations(
