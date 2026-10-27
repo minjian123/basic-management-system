@@ -763,6 +763,42 @@ def _bootstrap_tag(env: ConcurrentStableDict[str, str], service: str) -> str:
     return tag
 
 
+def cmd_seed(
+    deploy_dir: Path,
+    env: ConcurrentStableDict[str, str],
+    *,
+    tenant: str,
+    dry_run: bool,
+    actor: str,
+) -> int:
+    """种子统一编排（07B `02_03`）：在 platform 容器内调编排端点，逐项报告。
+
+    **为什么在 deploy 之后**：XA 分支要求参与方在线（跨服务分支经 `/api/v1/txn/branches`
+    驱动），故顺序必须是「起服务 → 跑种子 → 开流量」。
+
+    Args:
+        deploy_dir: deploy 目录。
+        env: 部署环境变量。
+        tenant: 目标租户。
+        dry_run: 只做装载 + 排序 + 冲突预检（不开事务）。
+        actor: 操作者（记入日志）。
+
+    Returns:
+        int: 退出码（0 成功 / 1 冲突 / 2 执行失败 / 3 前置错误）。
+    """
+    mode = "（dry-run）" if dry_run else ""
+    print(f"[seed] 种子统一编排：租户 {tenant}{mode}")
+    args = ConcurrentStableList(["python", "-m", "ops.seed_platform", "--tenant", tenant])
+    if dry_run:
+        args.update(["--dry-run"])
+    code = _compose_run(deploy_dir, env, _run_image_of("ops.seed_platform"), args)
+    if code != 0:
+        print(f"[seed] 编排未通过（退出码 {code}）：整体已回滚，无脏数据", file=sys.stderr)
+        return code
+    print(f"[seed] 完成（操作者 {actor}；幂等，可重跑）")
+    return 0
+
+
 def cmd_deploy(
     deploy_dir: Path,
     env: ConcurrentStableDict[str, str],
@@ -890,6 +926,10 @@ def _parse_args(argv: ConcurrentStableList[str] | None) -> argparse.Namespace:
     deploy.add_argument("--all", action="store_true", help="全部已启用服务")
     deploy.add_argument("--tag", default="", help="目标镜像标签（必填；禁 latest）")
 
+    seed = sub.add_parser("seed", help="种子统一编排（须在 deploy 之后执行；一个 XA 全局事务）")
+    seed.add_argument("--tenant", required=True, help="目标租户")
+    seed.add_argument("--dry-run", action="store_true", help="只做装载 + 排序 + 冲突预检")
+
     rollback = sub.add_parser("rollback", help="一键回滚（切换上一 tag / --to）")
     rollback.add_argument("--service", choices=SERVICES, required=True, help="目标服务")
     rollback.add_argument("--to", default="", help="目标标签（缺省取台账上一版本）")
@@ -931,6 +971,8 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
                 print("错误：deploy 需 --service 或 --all", file=sys.stderr)
                 return 2
             return cmd_deploy(deploy_dir, env, services=services, tag=args.tag, actor=args.actor)
+        if args.command == "seed":
+            return cmd_seed(deploy_dir, env, tenant=args.tenant, dry_run=args.dry_run, actor=args.actor)
         if args.command == "rollback":
             return cmd_rollback(deploy_dir, env, service=args.service, to=args.to, actor=args.actor)
         if args.command == "status":
