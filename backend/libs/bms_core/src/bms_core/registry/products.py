@@ -42,6 +42,7 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import cast
 
+from bms_core.collaboration.usage import DEGRADE_MODES, DEGRADE_NONE, CapabilityUsage
 from bms_core.core.concurrent import (
     ConcurrentStableDict,
     ConcurrentStableFrozenDict,
@@ -156,6 +157,8 @@ class ProductManifest(BaseValueObject):
     error_codes: ConcurrentStableFrozenList[ErrorCodeRecord] = field(
         default_factory=lambda: ConcurrentStableFrozenList()
     )
+    usages: ConcurrentStableFrozenList[CapabilityUsage] = field(default_factory=lambda: ConcurrentStableFrozenList())
+    """消费方使用声明（第八类记录；声明方即消费方，07B `02_06` 起为注册输入的一段）。"""
 
 
 @dataclass(frozen=True)
@@ -755,6 +758,9 @@ def load_product_manifest(path: Path) -> ProductManifest:
     error_codes: ConcurrentStableList[ErrorCodeRecord] = _error_code_records(
         root.get("errcodes"), product_key=product_key, services=services, path=path
     )
+    usages: ConcurrentStableList[CapabilityUsage] = ConcurrentStableList(
+        _usage_record(raw, scope="usages") for raw in _records(root.get("usages"), scope="usages")
+    )
     return ProductManifest(
         product_key=product_key,
         products=ConcurrentStableFrozenList(products),
@@ -764,7 +770,31 @@ def load_product_manifest(path: Path) -> ProductManifest:
         collaborations=ConcurrentStableFrozenList(collaborations),
         seeds=ConcurrentStableFrozenList(seeds),
         error_codes=ConcurrentStableFrozenList(error_codes),
+        usages=ConcurrentStableFrozenList(usages),
     )
+
+
+def _usage_record(raw: object, *, scope: str) -> CapabilityUsage:
+    """构造消费方使用声明（第八类记录）。
+
+    Args:
+        raw: 原始映射。
+        scope: 错误信息作用域。
+
+    Returns:
+        CapabilityUsage: 使用声明（`degrade` / `reason` 的可兑现性由注册校验判定）。
+
+    Raises:
+        CatalogError: 必填缺失或降级模式非法。
+    """
+    data = _as_mapping(raw)
+    name = str(_require(data, "name", scope=scope))
+    degrade = str(data.get("degrade") or DEGRADE_NONE)
+    if degrade not in DEGRADE_MODES:
+        raise CatalogError(
+            f"产品清单结构非法：{scope}｜使用声明 {name} → degrade 非法（{degrade}；取值 {'/'.join(DEGRADE_MODES)}）"
+        )
+    return CapabilityUsage(name=name, degrade=degrade, reason=str(data.get("reason") or ""))
 
 
 def _error_code_records(
