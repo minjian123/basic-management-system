@@ -10,14 +10,27 @@
 > 视图层仍是**只读权威副本**：谁都不直接改视图，只从注册表重建。
 """
 
+from collections.abc import Iterable
+from typing import cast
+
 from bms_core.collaboration.usage import CapabilityUsage, register_capability_usages
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
-from bms_core.datasource.registry import register_data_source_records, reset_data_source_records
+from bms_core.datasource.registry import (
+    DataSourceRecord,
+    register_data_source_records,
+    reset_data_source_records,
+)
 from bms_core.registry.declarations import RegistrySnapshot, declaration_key
 from bms_core.services.module_registry import (
     PRODUCT_CATALOG,
     SEED_CATALOG,
     SERVICE_CATALOG,
+    CollaborationRecord,
+    ErrorCodeRecord,
+    ModuleRecord,
+    ProductRecord,
+    ProductRouteRecord,
+    SeedRecord,
     register_collaboration_records,
     register_error_code_records,
     register_product_records,
@@ -48,13 +61,17 @@ def project_registry(view: RegistrySnapshot) -> None:
     reset_collaboration_records()
     reset_seed_records()
     reset_error_code_records()
-    register_product_records(_without_constants(view, "products", _constant_product_keys()))
-    register_service_records(_without_constants(view, "services", _constant_service_keys()))
-    register_product_routes(_enabled(view, "product_routes"))
-    register_data_source_records(_enabled(view, "data_sources"))
-    register_collaboration_records(_enabled(view, "collaborations"))
-    register_seed_records(_without_constants(view, "seeds", _constant_seed_names()))
-    register_error_code_records(_enabled(view, "errcodes"))
+    register_product_records(
+        cast("Iterable[ProductRecord]", _without_constants(view, "products", _constant_product_keys()))
+    )
+    register_service_records(
+        cast("Iterable[ModuleRecord]", _without_constants(view, "services", _constant_service_keys()))
+    )
+    register_product_routes(cast("Iterable[ProductRouteRecord]", _enabled(view, "product_routes")))
+    register_data_source_records(cast("Iterable[DataSourceRecord]", _enabled(view, "data_sources")))
+    register_collaboration_records(cast("Iterable[CollaborationRecord]", _enabled(view, "collaborations")))
+    register_seed_records(cast("Iterable[SeedRecord]", _without_constants(view, "seeds", _constant_seed_names())))
+    register_error_code_records(cast("Iterable[ErrorCodeRecord]", _enabled(view, "errcodes")))
     _project_usages(view)
 
 
@@ -132,7 +149,9 @@ def _project_usages(view: RegistrySnapshot) -> None:
         owner = view.owner_of("usages", usage.name) or ""
         if not owner:
             continue
-        grouped.setdefault(owner, ConcurrentStableList()).add(usage)
+        if owner not in grouped:
+            grouped.set(owner, ConcurrentStableList())
+        cast("ConcurrentStableList[CapabilityUsage]", grouped.get(owner)).add(usage)
     for declarer, usages in grouped.items():
         # 消费者视图（`capability_usage_view()`）是「声明方 → 声明列表」的登记位；
         # 注册表是权威来源，这里按声明方覆盖登记（退役项已在 `_enabled` 过滤）

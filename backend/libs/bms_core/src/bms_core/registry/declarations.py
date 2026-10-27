@@ -325,7 +325,7 @@ def from_manifest(manifest: object) -> DeclarationPayload:
     )
 
 
-def record_from_wire(kind: str, data: Mapping[str, object]) -> object:
+def record_from_wire(kind: str, data: ConcurrentStableDict[str, object]) -> object:
     """把**对外传输形态**的要素还原为声明记录（消费方拉取快照后重建视图用）。
 
     Args:
@@ -426,8 +426,8 @@ def record_from_wire(kind: str, data: Mapping[str, object]) -> object:
             message_key=str(data.get("message_key") or ""),
             severity=str(data.get("severity") or "error"),
             description=str(data.get("description") or ""),
-            product_key=_opt_str(data.get("product_key")),
-            segment=_opt_str(data.get("segment")),
+            product_key=str(data.get("product_key") or ""),
+            segment=str(data.get("segment") or ""),
             status=str(data.get("status") or "enabled"),
         )
     if kind == "usages":

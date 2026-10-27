@@ -11,7 +11,7 @@
 
 from typing import cast
 
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenDict, ConcurrentStableList
 from bms_core.core.exceptions import CatalogError
 from bms_core.core.logging import get_logger
 from bms_core.registry.declarations import (
@@ -73,7 +73,7 @@ async def report_declarations(
             service=_PLATFORM_SERVICE,
             method="PUT",
             path=DECLARATIONS_PATH,
-            json_body=ConcurrentStableDict(
+            json_body=ConcurrentStableFrozenDict(
                 {"product_key": product_key, "service_key": service_key, "manifest_toml": manifest_text}
             ),
         )
@@ -111,7 +111,7 @@ async def snapshot_from_wire(body: object) -> RegistrySnapshot:
     hashes: ConcurrentStableDict[str, ConcurrentStableDict[str, str]] = ConcurrentStableDict()
     owners: ConcurrentStableDict[str, ConcurrentStableDict[str, str]] = ConcurrentStableDict()
     for kind in DECLARATION_KINDS:
-        rows = cast("dict[str, object]", declarations).get(kind) or []
+        rows: object = cast("dict[str, object]", declarations).get(kind) or []
         if not isinstance(rows, list):
             raise CatalogError(f"注册表快照响应非法：{kind} 段非数组")
         kind_records: ConcurrentStableList[object] = ConcurrentStableList()
@@ -120,7 +120,7 @@ async def snapshot_from_wire(body: object) -> RegistrySnapshot:
         for raw in cast("list[object]", rows):
             if not isinstance(raw, dict):
                 raise CatalogError(f"注册表快照响应非法：{kind} 段含非对象行")
-            element = cast("dict[str, object]", raw)
+            element = ConcurrentStableDict(cast("dict[str, object]", raw))
             record = record_from_wire(kind, element)
             key = declaration_key(kind, record)
             kind_records.add(record)
