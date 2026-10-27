@@ -71,6 +71,7 @@ from bms_core.lock.base import BaseDistributedLock
 from bms_core.masking.base import get_masker
 from bms_core.metrics.base import BaseMetrics
 from bms_core.models.ownership import SysTableOwnership
+from bms_core.registry.boot import bootstrap_declarations
 from bms_core.registry.forms import FormRecord, FormRegistry, merge_form_records
 from bms_core.registry.products import load_product_manifests
 from bms_core.schemas.common import ApiResponse
@@ -321,6 +322,10 @@ async def service_lifespan(app: FastAPI) -> AsyncGenerator[None]:
         if created:
             get_logger(_LOGGER).info("schema_auto_create_done", targets=",".join(created))
         await _validate_service_catalog(app)
+        # 注册表启动装配（07B `02_06`）：产品进程上报自身声明并拉取权威快照投影；
+        # 平台进程跳过（本库即权威，由平台自身启动钩子注册）。必须早于能力使用声明校验——
+        # 后者要对着「注册表派生的视图」判定，否则单仓 / 部署态都会误判。
+        await bootstrap_declarations(app)
         await _validate_capability_usages(app)
         await _validate_table_ownership(app)
         await assemble_plugins(app, settings, cast("ResourceManager", app.state.resources))

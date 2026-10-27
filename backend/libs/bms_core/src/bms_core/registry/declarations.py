@@ -20,12 +20,14 @@ import hashlib
 import json
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Any, cast
 
 from bms_core.collaboration.base import WRITE_KINDS
-from bms_core.collaboration.usage import DEGRADE_STALE, CapabilityUsage
+from bms_core.collaboration.usage import DEGRADE_NONE, DEGRADE_STALE, CapabilityUsage
 from bms_core.core.concurrent import (
     ConcurrentStableDict,
+    ConcurrentStableFrozenDict,
     ConcurrentStableFrozenList,
     ConcurrentStableList,
     ConcurrentStableSet,
@@ -52,6 +54,7 @@ __all__ = [
     "declaration_key",
     "from_manifest",
     "plan_declarations",
+    "record_from_wire",
     "validate_declarations",
 ]
 
@@ -322,6 +325,135 @@ def from_manifest(manifest: object) -> DeclarationPayload:
     )
 
 
+def record_from_wire(kind: str, data: Mapping[str, object]) -> object:
+    """把**对外传输形态**的要素还原为声明记录（消费方拉取快照后重建视图用）。
+
+    Args:
+        kind: 声明类别。
+        data: 要素映射（`declaration_wire()` 的输出）。
+
+    Returns:
+        object: 声明记录（各记录值对象）。
+
+    Raises:
+        CatalogError: 类别未知。
+    """
+    if kind == "products":
+        return ProductRecord(
+            product_key=str(data.get("product_key") or ""),
+            name=str(data.get("name") or ""),
+            frontend_package_source=_opt_str(data.get("frontend_package_source")),
+            status=str(data.get("status") or "enabled"),
+        )
+    if kind == "services":
+        return ModuleRecord(
+            module_key=str(data.get("module_key") or ""),
+            service_key=_opt_str(data.get("service_key")),
+            name=str(data.get("name") or ""),
+            table_prefix=str(data.get("table_prefix") or ""),
+            business_code=_opt_str(data.get("business_code")),
+            errcode_segment=_opt_str(data.get("errcode_segment")),
+            event_domain=str(data.get("event_domain") or ""),
+            service_group=str(data.get("service_group") or "product"),
+            build_batch=int(cast("Any", data.get("build_batch") or 0)),
+            service_version=str(data.get("service_version") or "0.1.0"),
+            contract_version=str(data.get("contract_version") or "0.1.0"),
+            product_key=_opt_str(data.get("product_key")),
+            status=str(data.get("status") or "enabled"),
+        )
+    if kind == "product_routes":
+        return ProductRouteRecord(
+            product_key=str(data.get("product_key") or ""),
+            domain=str(data.get("domain") or ""),
+            service_key=str(data.get("service_key") or ""),
+            description=str(data.get("description") or ""),
+        )
+    if kind == "data_sources":
+        return DataSourceRecord(
+            data_source_key=str(data.get("data_source_key") or ""),
+            name=str(data.get("name") or ""),
+            data_source=str(data.get("data_source") or ""),
+            kind=str(data.get("kind") or "dict"),
+            origin=str(data.get("origin") or "product"),
+            product_key=str(data.get("product_key") or ""),
+            path=_opt_str(data.get("path")),
+            allowlist=ConcurrentStableFrozenList(str(item) for item in cast("Any", data.get("allowlist") or ())),
+            cascade=bool(data.get("cascade")),
+            strategies=ConcurrentStableFrozenList(str(item) for item in cast("Any", data.get("strategies") or ())),
+            status=str(data.get("status") or "enabled"),
+        )
+    if kind == "collaborations":
+        return CollaborationRecord(
+            name=str(data.get("name") or ""),
+            domain=str(data.get("domain") or ""),
+            kind=str(data.get("kind") or "read"),
+            contract_version=str(data.get("contract_version") or "0.1.0"),
+            path=_opt_str(data.get("path")),
+            product_key=_opt_str(data.get("product_key")),
+            branch_id=_opt_str(data.get("branch_id")),
+            branch_op=_opt_str(data.get("branch_op")),
+            data_source_key=_opt_str(data.get("data_source_key")),
+            permission_codes=ConcurrentStableFrozenList(
+                str(item) for item in cast("Any", data.get("permission_codes") or ())
+            ),
+            frontend_prefix=_opt_str(data.get("frontend_prefix")),
+            default_consumers=ConcurrentStableFrozenList(
+                str(item) for item in cast("Any", data.get("default_consumers") or ())
+            ),
+            status=str(data.get("status") or "enabled"),
+            replacement=_opt_str(data.get("replacement")),
+        )
+    if kind == "seeds":
+        return SeedRecord(
+            name=str(data.get("name") or ""),
+            module=str(data.get("module") or ""),
+            entry=str(data.get("entry") or ""),
+            service=str(data.get("service") or ""),
+            db_key=str(data.get("db_key") or ""),
+            op=str(data.get("op") or ""),
+            tables=ConcurrentStableFrozenDict(
+                (str(key), str(value))
+                for key, value in cast("Mapping[object, object]", data.get("tables") or {}).items()
+            ),
+            after=ConcurrentStableFrozenList(str(item) for item in cast("Any", data.get("after") or ())),
+            description=str(data.get("description") or ""),
+        )
+    if kind == "errcodes":
+        return ErrorCodeRecord(
+            code=int(cast("Any", data.get("code") or 0)),
+            domain=str(data.get("domain") or ""),
+            http_status=int(cast("Any", data.get("http_status") or 500)),
+            message_key=str(data.get("message_key") or ""),
+            severity=str(data.get("severity") or "error"),
+            description=str(data.get("description") or ""),
+            product_key=_opt_str(data.get("product_key")),
+            segment=_opt_str(data.get("segment")),
+            status=str(data.get("status") or "enabled"),
+        )
+    if kind == "usages":
+        return CapabilityUsage(
+            name=str(data.get("name") or ""),
+            degrade=str(data.get("degrade") or DEGRADE_NONE),
+            reason=str(data.get("reason") or ""),
+        )
+    raise CatalogError(f"未知的声明类别：{kind}（取值 {'/'.join(DECLARATION_KINDS)}）")
+
+
+def _opt_str(value: object) -> str | None:
+    """取可选字符串（空串归一为 None）。
+
+    Args:
+        value: 原始值。
+
+    Returns:
+        str | None: 字符串或 None。
+    """
+    if value is None:
+        return None
+    text = str(value)
+    return text or None
+
+
 def declaration_wire(kind: str, record: object) -> ConcurrentStableDict[str, object]:
     """把声明记录转成**对外传输形态**（服务身份出口下发用）。
 
@@ -483,6 +615,9 @@ def _jsonable(value: object) -> object:
     Returns:
         object: 可序列化值。
     """
+    if isinstance(value, Enum):
+        # 枚举取 `value`：同一语义在「清单解析（枚举）」与「库回读（字符串）」两侧指纹一致
+        return _jsonable(value.value)
     if isinstance(value, Mapping):
         mapping = cast("Mapping[object, object]", value)
         return {str(key): _jsonable(item) for key, item in mapping.items()}

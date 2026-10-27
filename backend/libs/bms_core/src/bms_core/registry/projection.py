@@ -15,6 +15,7 @@ from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList,
 from bms_core.datasource.registry import register_data_source_records, reset_data_source_records
 from bms_core.registry.declarations import RegistrySnapshot, declaration_key
 from bms_core.services.module_registry import (
+    PRODUCT_CATALOG,
     SEED_CATALOG,
     SERVICE_CATALOG,
     register_collaboration_records,
@@ -47,7 +48,7 @@ def project_registry(view: RegistrySnapshot) -> None:
     reset_collaboration_records()
     reset_seed_records()
     reset_error_code_records()
-    register_product_records(_enabled(view, "products"))
+    register_product_records(_without_constants(view, "products", _constant_product_keys()))
     register_service_records(_without_constants(view, "services", _constant_service_keys()))
     register_product_routes(_enabled(view, "product_routes"))
     register_data_source_records(_enabled(view, "data_sources"))
@@ -55,6 +56,15 @@ def project_registry(view: RegistrySnapshot) -> None:
     register_seed_records(_without_constants(view, "seeds", _constant_seed_names()))
     register_error_code_records(_enabled(view, "errcodes"))
     _project_usages(view)
+
+
+def _constant_product_keys() -> ConcurrentStableSet[str]:
+    """平台内建产品档案常量（`PRODUCT_CATALOG`）的产品键集合。
+
+    Returns:
+        ConcurrentStableSet[str]: 产品键集合（常量已承载，投影不重复登记）。
+    """
+    return ConcurrentStableSet(record.product_key for record in PRODUCT_CATALOG)
 
 
 def _constant_service_keys() -> ConcurrentStableSet[str]:

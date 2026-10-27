@@ -18,6 +18,7 @@ from bms_core.core.concurrent import (
     ConcurrentStableList,
     ConcurrentStableSet,
 )
+from bms_core.datasource.registry import DataSourceRecord
 from bms_core.registry.declarations import (
     DECLARATION_KINDS,
     DeclarationPayload,
@@ -830,6 +831,98 @@ reason = "断链按无角色"
     assert payload.product_key == "demo"
     assert payload.service_key == "demo-svc"
     assert len(payload.usages) == 1
+
+
+def test_wire_roundtrip_keeps_content_fingerprint() -> None:
+    """传输形态往返（`declaration_wire` → `record_from_wire`）：内容指纹不变（八类逐类）。"""
+    from bms_core.registry.declarations import record_from_wire
+
+    samples = {
+        "products": ProductRecord(product_key="demo", name="演示产品"),
+        "services": ModuleRecord(
+            module_key="demo",
+            service_key="demo",
+            name="演示服务",
+            table_prefix="demo_",
+            event_domain="demo",
+            service_group="product",
+            product_key="demo",
+        ),
+        "product_routes": ProductRouteRecord(product_key="demo", domain="demo", service_key="demo"),
+        "data_sources": DataSourceRecord(
+            data_source_key="demo_dept",
+            name="部门",
+            data_source="demo.demo.dept",
+            product_key="demo",
+        ),
+        "collaborations": _capability(),
+        "seeds": SeedRecord(
+            name="demo-seed",
+            module="demo.seeds",
+            entry="seed_demo",
+            service="demo",
+            db_key="platform_platform",
+        ),
+        "errcodes": ErrorCodeRecord(
+            code=880001,
+            domain="demo",
+            http_status=200,
+            message_key="demo.error.bad",
+            severity="warning",
+            description="说明",
+            product_key="demo",
+            segment="88",
+        ),
+        "usages": CapabilityUsage(name="demo.user.roles", degrade="empty", reason="断链按无角色"),
+    }
+    for kind, record in samples.items():
+        wire = declaration_wire(kind, record)
+        restored = record_from_wire(kind, wire)
+        assert content_hash_of(kind, restored) == content_hash_of(kind, record), kind
+
+
+def test_record_from_wire_rejects_unknown_kind() -> None:
+    """未知类别还原即拒（内部契约错误）。"""
+    from bms_core.core.exceptions import CatalogError
+    from bms_core.registry.declarations import record_from_wire
+
+    with pytest.raises(CatalogError, match="未知的声明类别"):
+        record_from_wire("unknown", {})
+
+
+async def test_snapshot_from_wire_builds_registry_view() -> None:
+    """快照响应体还原：八类记录 + 指纹 + 声明方；结构非法即拒。"""
+    from bms_core.registry.remote import snapshot_from_wire
+
+    wire = {
+        "snapshot_version": "2",
+        "declarations": {
+            "collaborations": [dict(declaration_wire("collaborations", _capability()))],
+            "usages": [dict(declaration_wire("usages", CapabilityUsage(name="demo.user.roles")))],
+        },
+    }
+
+    snapshot = await snapshot_from_wire(wire)
+
+    assert len(snapshot.of("collaborations")) == 1
+    assert snapshot.owner_of("collaborations", "demo.org.user-roles") == "demo"
+    assert len(snapshot.of("usages")) == 1
+    assert snapshot.of("seeds") == []
+
+
+async def test_snapshot_from_wire_rejects_bad_payload() -> None:
+    """快照响应体非法：非对象 / 缺段 / 段非数组 三种都拒。"""
+    from bms_core.core.exceptions import CatalogError
+    from bms_core.registry.remote import snapshot_from_wire
+
+    with pytest.raises(CatalogError, match="data 非对象"):
+        await snapshot_from_wire(None)
+    with pytest.raises(CatalogError, match="缺 declarations 段"):
+        await snapshot_from_wire({"snapshot_version": "1"})
+    with pytest.raises(CatalogError, match="非数组"):
+        await snapshot_from_wire({"declarations": {"products": "x"}})
+    with pytest.raises(CatalogError, match="含非对象行"):
+        await snapshot_from_wire({"declarations": {"products": ["x"]}})
 
 
 def test_declaration_payload_of_and_snapshot_accessors() -> None:
