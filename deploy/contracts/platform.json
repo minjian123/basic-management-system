@@ -2692,6 +2692,31 @@
         "title": "DataSourceStrategy",
         "type": "string"
       },
+      "DeclarationSubmitRequest": {
+        "additionalProperties": false,
+        "description": "全量上报请求（单次全量，服务端按「本产品维度整体对账」）。",
+        "properties": {
+          "manifest_toml": {
+            "title": "Manifest Toml",
+            "type": "string"
+          },
+          "product_key": {
+            "title": "Product Key",
+            "type": "string"
+          },
+          "service_key": {
+            "title": "Service Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "product_key",
+          "service_key",
+          "manifest_toml"
+        ],
+        "title": "DeclarationSubmitRequest",
+        "type": "object"
+      },
       "DemoCreateRequest": {
         "additionalProperties": false,
         "description": "创建 demo 请求。",
@@ -14739,6 +14764,170 @@
           }
         },
         "summary": "Verify Credential",
+        "tags": [
+          "platform-internal"
+        ]
+      }
+    },
+    "/api/v1/platform/internal/declarations": {
+      "put": {
+        "description": "全量上报本产品声明（幂等；冲突即拒）。\n\nArgs:\n    req: 上报请求（产品键 / 服务键 / 清单文本）。\n    uow: 平台库工作单元（写事务边界）。\n    context: 入站身份（服务键须与请求一致）。\n\nReturns:\n    ApiResponse: 统一响应，data 为逐类计数与警示。\n\nRaises:\n    ParamError: 产品键与清单不符、服务键与身份或清单不符（10001）。\n    CatalogError: 校验不过或跨产品撞键（拒绝注册）。",
+        "operationId": "submit_declarations_api_v1_platform_internal_declarations_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeclarationSubmitRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Submit Declarations",
+        "tags": [
+          "platform-internal"
+        ]
+      }
+    },
+    "/api/v1/platform/internal/declarations/snapshot": {
+      "get": {
+        "description": "下发注册表快照（服务身份专用；八类完整要素）。\n\nArgs:\n    session: 平台库只读会话。\n\nReturns:\n    ApiResponse: 统一响应，data 为 `{snapshot_version, declarations}`。",
+        "operationId": "declaration_snapshot_api_v1_platform_internal_declarations_snapshot_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Declaration Snapshot",
         "tags": [
           "platform-internal"
         ]

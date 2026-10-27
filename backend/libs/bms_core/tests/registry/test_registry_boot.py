@@ -341,22 +341,26 @@ async def test_bootstrap_skips_platform() -> None:
     assert cast("Any", app.state.service_client).requests == []
 
 
-async def test_bootstrap_requires_local_manifest(monkeypatch: pytest.MonkeyPatch) -> None:
-    """本仓清单缺失：拒启（不带着空视图启动）。"""
+async def test_bootstrap_skips_without_manifest(monkeypatch: pytest.MonkeyPatch) -> None:
+    """本仓清单缺失：无可注册内容，告警跳过（不拒启）。"""
     monkeypatch.setattr(boot_module, "local_manifest_paths", lambda: ConcurrentStableList())
+    app = _app()
 
-    with pytest.raises(CatalogError, match="本仓清单缺失"):
-        await boot_module.bootstrap_declarations(_app())
+    await boot_module.bootstrap_declarations(app)
+
+    assert cast("Any", app.state.service_client).requests == []
 
 
-async def test_bootstrap_requires_service_declared(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> None:
-    """清单存在但未声明本服务：拒启。"""
+async def test_bootstrap_skips_when_service_not_declared(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    """清单存在但未声明本服务：同样跳过（区分「没声明」与「声明坏了」）。"""
     manifest = tmp_path / "demo.toml"
     manifest.write_text('product_key = "demo"\n', encoding="utf-8")
     monkeypatch.setattr(boot_module, "local_manifest_paths", lambda: ConcurrentStableList([manifest]))
+    app = _app()
 
-    with pytest.raises(CatalogError, match="未声明服务 demo"):
-        await boot_module.bootstrap_declarations(_app())
+    await boot_module.bootstrap_declarations(app)
+
+    assert cast("Any", app.state.service_client).requests == []
 
 
 async def test_bootstrap_reports_and_projects(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> None:

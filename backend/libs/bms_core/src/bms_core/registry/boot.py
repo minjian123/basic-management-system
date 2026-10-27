@@ -11,7 +11,6 @@ from pathlib import Path
 from fastapi import FastAPI
 
 from bms_core.core.config import Settings
-from bms_core.core.exceptions import CatalogError
 from bms_core.core.logging import get_logger
 from bms_core.registry.declarations import from_manifest
 from bms_core.registry.products import local_manifest_paths, parse_manifest_text
@@ -45,6 +44,11 @@ async def bootstrap_declarations(app: FastAPI) -> None:
         # 平台自己就是权威：本库直读注册（`declaration_bootstrap`），不走 HTTP
         return
     manifest_path = _manifest_path_for(service_key)
+    if manifest_path is None:
+        # 本仓没有声明本服务（如刚脚手架出来的空服务）：无可注册内容，告警跳过；
+        # 有清单但注册失败才拒启（区分「没声明」与「声明坏了」）
+        _LOGGER.warning("declaration_manifest_missing", service=service_key)
+        return
     manifest_text = manifest_path.read_text(encoding="utf-8")
     payload = from_manifest(parse_manifest_text(manifest_text, source=str(manifest_path)))
     client = app.state.service_client
@@ -58,23 +62,17 @@ async def bootstrap_declarations(app: FastAPI) -> None:
     project_registry(await fetch_declarations(client))
 
 
-def _manifest_path_for(service_key: str) -> Path:
+def _manifest_path_for(service_key: str) -> Path | None:
     """在本仓清单里定位本服务所属清单（按 `[[services]].service_key` 匹配）。
 
     Args:
         service_key: 本服务键。
 
     Returns:
-        Path: 清单路径。
-
-    Raises:
-        CatalogError: 本仓清单缺失或没有声明本服务（拒启，避免带着空视图启动）。
+        Path | None: 清单路径；本仓无清单或清单未声明本服务时为 None（调用方告警跳过）。
     """
-    candidates = list(local_manifest_paths())
-    if not candidates:
-        raise CatalogError("本仓清单缺失：deploy/registry/*.toml（无法上报自身声明）")
-    for path in candidates:
+    for path in local_manifest_paths():
         manifest = parse_manifest_text(path.read_text(encoding="utf-8"), source=str(path))
         if any(record.service_key == service_key for record in manifest.services):
             return path
-    raise CatalogError(f"本仓清单未声明服务 {service_key}：{[p.name for p in candidates]}")
+    return None
