@@ -29,12 +29,25 @@ from pathlib import Path
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.core.concurrent import (
+    ConcurrentStableDict,
+    ConcurrentStableFrozenList,
+    ConcurrentStableList,
+)
 from bms_core.core.config import get_settings
+from bms_core.core.exceptions import CatalogError
 from bms_core.core.version import contract_major
 from bms_core.db.keys import PLATFORM_SERVICE_KEY
 from bms_core.db.migration import validate_series_registry
-from bms_core.registry.products import inspect_product_manifests
+from bms_core.registry.declarations import (
+    DECLARATION_KINDS,
+    DeclarationPayload,
+    RegistrySnapshot,
+    content_hash_of,
+    declaration_key,
+    from_manifest,
+)
+from bms_core.registry.products import inspect_product_manifests, load_product_manifest, local_manifest_paths
 from bms_core.services.module_registry import (
     PRODUCT_CATALOG,
     SERVICE_CATALOG,
@@ -45,6 +58,7 @@ from bms_core.services.module_registry import (
     validate_catalog,
     validate_products,
 )
+from bms_platform.domains.platform_registry.repositories.declaration_repository import DeclarationRepository
 from bms_platform.domains.platform_registry.repositories.module_repository import ModuleRepository
 from bms_platform.domains.platform_registry.repositories.product_repository import ProductRepository
 from ops.seed_tenant import resolve_url
@@ -255,6 +269,122 @@ def check_catalog_db(url: str) -> ConcurrentStableList[str]:
     return errors
 
 
+def diff_platform_declarations(snapshot: RegistrySnapshot, payload: DeclarationPayload) -> ConcurrentStableList[str]:
+    """注册表 ↔ 本仓声明对账（07B `02_06`）：本产品维度逐类比对。
+
+    口径：
+
+    - 只比**本产品**名下的行（`RegistrySnapshot.owner_of`），别的产品行不参与；
+    - 已退役的行视为「库里没有」（再声明即恢复，不算缺失）；
+    - 内容指纹不同 = 声明漂移（库未随代码更新）；库里多出的行同样报出（声明缺失）。
+
+    Args:
+        snapshot: 注册表现状（只读）。
+        payload: 本仓声明载荷（`from_manifest(...)`，含平台服务行）。
+
+    Returns:
+        ConcurrentStableList[str]: 差异明细（空表示一致）。
+    """
+    errors: ConcurrentStableList[str] = ConcurrentStableList()
+    for kind in DECLARATION_KINDS:
+        declared: ConcurrentStableDict[str, str] = ConcurrentStableDict()
+        for record in payload.of(kind):
+            declared.set(declaration_key(kind, record), content_hash_of(kind, record))
+        stored: ConcurrentStableDict[str, str] = ConcurrentStableDict()
+        for record in snapshot.of(kind):
+            key = declaration_key(kind, record)
+            if snapshot.owner_of(kind, key) != payload.product_key or snapshot.is_retired(kind, key):
+                continue
+            stored.set(key, content_hash_of(kind, record))
+        for key, fingerprint in declared.items():
+            current = stored.get(key)
+            if current is None:
+                errors.add(f"{kind}｜{key}：注册表缺该声明（未注册或已退役）")
+            elif current != fingerprint:
+                errors.add(f"{kind}｜{key}：声明与注册表不一致（库未随代码更新）")
+        for key in stored:
+            if key not in declared:
+                errors.add(f"{kind}｜{key}：注册表多出声明（本仓清单未声明）")
+    return errors
+
+
+async def _read_registry(url: str) -> RegistrySnapshot:
+    """只读读取注册表现状（八类表）。
+
+    Args:
+        url: 平台库连接串。
+
+    Returns:
+        RegistrySnapshot: 注册表快照。
+    """
+    engine = create_async_engine(url)
+    factory: async_sessionmaker[AsyncSession] = async_sessionmaker(engine, expire_on_commit=False)
+    try:
+        async with factory() as session:
+            return await DeclarationRepository(session).load_snapshot()
+    finally:
+        await engine.dispose()
+
+
+def check_registry_db(url: str) -> ConcurrentStableList[str]:
+    """接库对账：注册表 ↔ 本仓声明（平台自身维度）。
+
+    Args:
+        url: 平台库连接串（迁移 + 注册后）。
+
+    Returns:
+        ConcurrentStableList[str]: 差异明细（含库不可读 / 清单缺失）。
+    """
+    try:
+        payload = _platform_payload()
+    except CatalogError as exc:
+        return ConcurrentStableList([f"本仓声明不可读：{exc}"])
+    try:
+        snapshot = asyncio.run(_read_registry(url))
+    except Exception as exc:
+        text = str(exc).lower()
+        if "no such table" in text or "does not exist" in text or "invalid object name" in text:
+            # 尚未建注册表（老库 / 迁移未跑）：跳过对账并明示，不把「还没迁移」当成「声明漂移」
+            print("[注册表] 未建表：跳过注册表对账（请先执行迁移与注册）")
+            return ConcurrentStableList()
+        return ConcurrentStableList([f"注册表库不可读（请先执行迁移与注册）：{exc}"])
+    return diff_platform_declarations(snapshot, payload)
+
+
+def _platform_payload() -> DeclarationPayload:
+    """取本仓平台声明载荷（平台自身清单 + `SERVICE_CATALOG` 服务行）。
+
+    Returns:
+        DeclarationPayload: 注册载荷。
+
+    Raises:
+        CatalogError: 本仓平台清单缺失。
+    """
+    for path in local_manifest_paths():
+        if path.name == f"{PLATFORM_SERVICE_KEY}.toml":
+            manifest = load_product_manifest(path)
+            payload = from_manifest(manifest)
+            services: ConcurrentStableList[ModuleRecord] = ConcurrentStableList(SERVICE_CATALOG)
+            known = {record.module_key for record in services}
+            for record in payload.services:
+                if record.module_key not in known:
+                    services.add(record)
+            return DeclarationPayload(
+                product_key=payload.product_key,
+                service_key=payload.service_key,
+                contract_version=payload.contract_version,
+                products=payload.products,
+                services=ConcurrentStableFrozenList(services),
+                product_routes=payload.product_routes,
+                data_sources=payload.data_sources,
+                collaborations=payload.collaborations,
+                seeds=payload.seeds,
+                errcodes=payload.errcodes,
+                usages=payload.usages,
+            )
+    raise CatalogError(f"本仓平台清单缺失：deploy/registry/{PLATFORM_SERVICE_KEY}.toml")
+
+
 def main(argv: ConcurrentStableList[str] | None = None) -> int:
     """入口：离线校验（默认）+ 可选接库校验。
 
@@ -271,6 +401,8 @@ def main(argv: ConcurrentStableList[str] | None = None) -> int:
     url = "" if args.offline else (args.url or resolve_url(service=PLATFORM_SERVICE_KEY))
     if url:
         errors.update(check_catalog_db(url))
+        # 注册表 ↔ 本仓声明对账（07B `02_06`）：声明漂移在 CI 暴露，而不是等到启动期
+        errors.update(check_registry_db(url))
     for warning in manifest_warnings:
         print(warning)
     if errors:
