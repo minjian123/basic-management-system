@@ -168,6 +168,19 @@ async def test_submit_rejects_service_key_mismatch(client: AsyncClient) -> None:
     assert response.json()["code"] == 10001
 
 
+async def test_submit_rejects_product_key_mismatch(client: AsyncClient) -> None:
+    """请求产品键与清单归属不一致：10001（不落库）。"""
+    response = await client.put(
+        API,
+        json={"product_key": "other", "service_key": "demo", "manifest_toml": _MANIFEST},
+        headers={"Authorization": "Bearer demo"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["code"] == 10001
+    assert "清单归属与请求不一致" in response.json()["message"]
+
+
 async def test_submit_rejects_proxy_registration(client: AsyncClient) -> None:
     """服务身份不得代其他服务注册：10001。"""
     response = await _submit(client, token="other")

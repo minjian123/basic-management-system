@@ -12,7 +12,7 @@ from dataclasses import replace
 from pathlib import Path
 
 import pytest
-from sqlalchemy import update
+from sqlalchemy import delete, text, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from bms_core.collaboration.usage import CapabilityUsage
@@ -56,6 +56,24 @@ service_group = "product"
 product_key = "demo"
 status = "enabled"
 errcode_segment = "88"
+
+[[product_routes]]
+product_key = "demo"
+domain = "demo"
+service_key = "demo"
+description = "演示域"
+
+[[data_sources]]
+data_source_key = "demo_dept"
+name = "部门"
+data_source = "demo.demo.dept"
+kind = "dict"
+origin = "platform"
+product_key = "demo"
+allowlist = ["dept"]
+cascade = true
+strategies = ["tenant"]
+status = "enabled"
 
 [[collaborations]]
 name = "demo.demo_op.roles"
@@ -192,6 +210,9 @@ async def test_apply_then_snapshot_roundtrip(session: AsyncSession) -> None:
     assert [item.name for item in snapshot.of("seeds")] == ["demo-seed"]
     assert [item.product_key for item in snapshot.of("products")] == ["demo"]
     assert [item.module_key for item in snapshot.of("services")] == ["demo"]
+    assert [item.domain for item in snapshot.of("product_routes")] == ["demo"]
+    assert [item.data_source_key for item in snapshot.of("data_sources")] == ["demo_dept"]
+    assert snapshot.of("data_sources")[0].cascade is True
     assert [item.name for item in snapshot.of("usages")] == ["demo.demo_op.roles"]
     assert snapshot.owner_of("collaborations", "demo.demo_op.roles") == "demo"
     assert snapshot.is_retired("collaborations", "demo.demo_op.roles") is False
@@ -247,6 +268,23 @@ async def test_service_register_and_snapshot(session: AsyncSession) -> None:
     assert len(snapshot.of("collaborations")) == 1
 
 
+async def test_service_register_tolerates_service_row_without_key(session: AsyncSession) -> None:
+    """服务行可无 `service_key`（平台基础模块）：消费方集合推导跳过该行。"""
+    payload = _payload()
+    extra = ModuleRecord(
+        module_key="demo-extra",
+        name="无服务键行",
+        table_prefix="demo_",
+        event_domain="demo",
+        service_group="foundation",
+    )
+    merged = replace(payload, services=ConcurrentStableFrozenList((payload.services[0], extra)))
+
+    report = await DeclarationRegistryService(session).register(merged)
+
+    assert report.created["services"] == 2
+
+
 async def test_service_rejects_unregistered_domain(session: AsyncSession) -> None:
     """校验不过（提供方业务域未登记）：抛 `CatalogError`，不写库。"""
     payload = replace(
@@ -285,6 +323,18 @@ async def test_service_rejects_cross_product_conflict(session: AsyncSession) -> 
         await service.register(other)
 
 
+def test_assign_sets_content_hash_for_unknown_kind(session: AsyncSession) -> None:
+    """`_assign` 对未匹配类别的记录仍写内容指纹（防御分支：任何类别都有指纹）。"""
+    repository = DeclarationRepository(session)
+    row = SysCollaboration(name="demo.demo_op.roles", product_key="demo")
+    record = _capability_with_path("/api/v1/demo/roles")
+
+    repository._assign("unknown", row, record, product_key="demo")  # pyright: ignore[reportPrivateUsage]
+
+    assert row.content_hash == content_hash_of("unknown", record)
+    assert len(row.content_hash) == 64
+
+
 def test_platform_payload_merges_service_catalog() -> None:
     """平台载荷合并：`SERVICE_CATALOG` 服务行在前、清单独有行追加在后。"""
     extra = ModuleRecord(
@@ -307,6 +357,114 @@ def test_platform_payload_merges_service_catalog() -> None:
     keys = [record.module_key for record in merged.services]
     assert keys[0] == "sys"
     assert keys[-1] == "extra"
+
+
+def test_platform_payload_skips_duplicate_service_rows() -> None:
+    """清单服务行与平台常量重名：不重复追加（同键只留常量那一行）。"""
+    duplicate = ModuleRecord(
+        module_key="sys",
+        name="平台地基服务",
+        table_prefix="sys_",
+        event_domain="sys",
+        service_group="foundation",
+    )
+    payload = DeclarationPayload(
+        product_key="platform",
+        service_key="platform",
+        services=ConcurrentStableFrozenList((duplicate,)),
+    )
+
+    merged = with_platform_services(payload)
+
+    assert [record.module_key for record in merged.services].count("sys") == 1
+
+
+async def test_reapply_after_row_deleted_inserts_again(session: AsyncSession) -> None:
+    """对账为「覆盖」但行已不在库（被清理）：按新增重插，不丢声明。"""
+    repository = DeclarationRepository(session)
+    await _apply(repository, _payload())
+    await session.execute(delete(SysCollaboration))
+    await session.commit()
+
+    await _apply(repository, _payload("/api/v1/demo/roles-v2"))
+
+    snapshot = await repository.load_snapshot()
+    assert [item.path for item in snapshot.of("collaborations")] == ["/api/v1/demo/roles-v2"]
+
+
+async def test_apply_inserts_when_updated_row_missing(session: AsyncSession) -> None:
+    """计划判为「覆盖」但行已被删：按新增补回（不丢声明、不报错）。"""
+    repository = DeclarationRepository(session)
+    payload = _payload("/api/v1/demo/roles-v2")
+    await _apply(repository, _payload())
+    current = await repository.load_snapshot()
+    plan, conflicts = plan_declarations(payload, current)
+    assert list(conflicts) == []
+    await session.execute(delete(SysCollaboration))
+    await session.commit()
+
+    await repository.apply(plan, product_key="demo")
+
+    snapshot = await repository.load_snapshot()
+    assert [item.path for item in snapshot.of("collaborations")] == ["/api/v1/demo/roles-v2"]
+
+
+async def test_apply_skips_retire_when_row_missing(session: AsyncSession) -> None:
+    """计划判为「退役」但行已被删：跳过而不报错。"""
+    repository = DeclarationRepository(session)
+    await _apply(repository, _payload())
+    current = await repository.load_snapshot()
+    plan, _conflicts = plan_declarations(DeclarationPayload(product_key="demo", service_key="demo"), current)
+    await session.execute(delete(SysCollaboration))
+    await session.commit()
+
+    await repository.apply(plan, product_key="demo")
+
+    snapshot = await repository.load_snapshot()
+    assert snapshot.of("collaborations") == []
+
+
+async def test_corrupt_mapping_json_raises(session: AsyncSession) -> None:
+    """映射型 JSON 字段损坏：同样抛 `CatalogError`。"""
+    repository = DeclarationRepository(session)
+    await _apply(repository, _payload())
+    await session.execute(text("UPDATE sys_seed SET tables = 'not-json'"))
+    await session.commit()
+
+    with pytest.raises(CatalogError, match="JSON 字段损坏"):
+        await repository.load_snapshot()
+
+
+async def test_reapply_updates_product_and_service_rows(session: AsyncSession) -> None:
+    """服务行 / 产品档案走覆盖分支（共享表更新路径）。"""
+    repository = DeclarationRepository(session)
+    payload = _payload()
+    await _apply(repository, payload)
+
+    renamed = replace(
+        payload,
+        products=ConcurrentStableFrozenList((replace(payload.products[0], name="演示产品 v2"),)),
+        services=ConcurrentStableFrozenList((replace(payload.services[0], name="演示服务 v2"),)),
+    )
+    await _apply(repository, renamed)
+
+    snapshot = await repository.load_snapshot()
+    assert snapshot.of("products")[0].name == "演示产品 v2"
+    assert snapshot.of("services")[0].name == "演示服务 v2"
+
+
+async def test_empty_json_fields_read_as_empty_collections(session: AsyncSession) -> None:
+    """空 JSON 字段（历史行 / 未声明集合）：读回为空集合而非报错。"""
+    repository = DeclarationRepository(session)
+    await _apply(repository, _payload())
+    await session.execute(update(SysCollaboration).values(default_consumers=""))
+    await session.execute(text("UPDATE sys_seed SET tables = ''"))
+    await session.commit()
+
+    snapshot = await repository.load_snapshot()
+
+    assert list(snapshot.of("collaborations")[0].default_consumers) == []
+    assert dict(snapshot.of("seeds")[0].tables) == {}
 
 
 def test_usage_only_payload_keeps_snapshot_shape() -> None:

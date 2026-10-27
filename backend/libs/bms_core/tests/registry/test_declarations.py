@@ -11,7 +11,7 @@ from typing import Any, cast
 
 import pytest
 
-from bms_core.collaboration.usage import CapabilityUsage
+from bms_core.collaboration.usage import CapabilityUsage, capability_usage_view
 from bms_core.core.concurrent import (
     ConcurrentStableDict,
     ConcurrentStableFrozenDict,
@@ -924,6 +924,47 @@ async def test_snapshot_from_wire_rejects_bad_payload() -> None:
         await snapshot_from_wire({"declarations": {"products": "x"}})
     with pytest.raises(CatalogError, match="含非对象行"):
         await snapshot_from_wire({"declarations": {"products": ["x"]}})
+
+
+def test_parse_manifest_text_rejects_bad_input() -> None:
+    """清单文本非法：TOML 语法错与使用声明降级模式非法均即拒。"""
+    from bms_core.core.exceptions import CatalogError
+    from bms_core.registry.products import parse_manifest_text
+
+    with pytest.raises(CatalogError, match="TOML 非法"):
+        parse_manifest_text("product_key = [", source="<test>")
+
+    with pytest.raises(CatalogError, match="degrade 非法"):
+        parse_manifest_text(
+            'product_key = "demo"\n\n[[usages]]\nname = "demo.user.roles"\ndegrade = "oops"\n',
+            source="<test>",
+        )
+
+
+def test_projection_groups_multiple_usages_of_same_declarer() -> None:
+    """同一声明方多条使用声明：同组累加（不覆盖）。"""
+    from bms_core.registry.projection import project_registry
+
+    snapshot = _snapshot(
+        usages=[
+            CapabilityUsage(name="demo.user.roles"),
+            CapabilityUsage(name="demo.user.posts", degrade="empty", reason="断链"),
+        ],
+        owners=ConcurrentStableDict(
+            {
+                "usages": ConcurrentStableDict(
+                    {"demo.user.roles": "demo", "demo.user.posts": "demo"},
+                )
+            }
+        ),
+    )
+
+    project_registry(snapshot)
+
+    assert [item.name for item in capability_usage_view().get("demo") or ()] == [
+        "demo.user.roles",
+        "demo.user.posts",
+    ]
 
 
 def test_declaration_payload_of_and_snapshot_accessors() -> None:
