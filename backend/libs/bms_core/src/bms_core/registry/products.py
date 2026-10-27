@@ -35,12 +35,13 @@ import json
 import os
 import tomllib
 from collections.abc import Iterable, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import cast
 
 from bms_core.core.concurrent import (
     ConcurrentStableDict,
+    ConcurrentStableFrozenDict,
     ConcurrentStableFrozenList,
     ConcurrentStableFrozenSet,
     ConcurrentStableList,
@@ -64,6 +65,7 @@ from bms_core.services.module_registry import (
     SeedRecord,
     normalize_capability_path,
     register_collaboration_records,
+    register_domain_services,
     register_product_records,
     register_product_routes,
     register_seed_records,
@@ -145,12 +147,16 @@ class ManifestInspection(BaseValueObject):
         sources: 与 `manifests` 逐一对应的清单绝对路径。
         errors: 阻断性问题（拒启 / 门禁失败）。
         warnings: 跳过项与降级提示（不得静默，须输出）。
+        domain_services: 业务域 → 承载服务键（域布局派生，供能力寻址第二段）。
     """
 
     manifests: ConcurrentStableFrozenList[ProductManifest] = field(default_factory=lambda: ConcurrentStableFrozenList())
     sources: ConcurrentStableFrozenList[Path] = field(default_factory=lambda: ConcurrentStableFrozenList())
     errors: ConcurrentStableFrozenList[str] = field(default_factory=lambda: ConcurrentStableFrozenList())
     warnings: ConcurrentStableFrozenList[str] = field(default_factory=lambda: ConcurrentStableFrozenList())
+    domain_services: ConcurrentStableFrozenDict[str, str] = field(
+        default_factory=lambda: ConcurrentStableFrozenDict[str, str]()
+    )
 
 
 def _as_mapping(value: object) -> ConcurrentStableDict[str, object]:
@@ -463,6 +469,32 @@ def _collaboration_record(raw: object, *, product_key: str, scope: str) -> Colla
     )
 
 
+def _fill_frontend_prefix(
+    records: ConcurrentStableList[CollaborationRecord], routes: ConcurrentStableList[ProductRouteRecord]
+) -> ConcurrentStableList[CollaborationRecord]:
+    """装载期补齐前端命名空间域段（清单未声明时按本清单**唯一**的路由域段填实）。
+
+    推导规则与装载校验同源（`_validate_manifest_entries`「路由域段须唯一」）：路由域段不唯一时不补齐
+    （保留 None），由校验报「前端命名空间不可推导」；`codes` 类无前端面，不补齐。
+
+    Args:
+        records: 能力记录（插入序）。
+        routes: 本清单的产品路由记录。
+
+    Returns:
+        ConcurrentStableList[CollaborationRecord]: 补齐后的记录（插入序）。
+    """
+    domains = ConcurrentStableSet(route.domain for route in routes)
+    if len(domains) != 1:
+        return records
+    prefix = next(iter(domains))
+    filled: ConcurrentStableList[CollaborationRecord] = ConcurrentStableList()
+    for record in records:
+        needs_fill = record.frontend_prefix is None and record.kind != CollaborationKind.CODES
+        filled.add(replace(record, frontend_prefix=prefix) if needs_fill else record)
+    return filled
+
+
 def _seed_record(raw: object, *, scope: str) -> SeedRecord:
     """构造种子登记记录（第六类记录）。
 
@@ -577,9 +609,12 @@ def load_product_manifest(path: Path) -> ProductManifest:
         _data_source_record(raw, product_key=product_key, scope="data_sources")
         for raw in _records(root.get("data_sources"), scope="data_sources")
     )
-    collaborations: ConcurrentStableList[CollaborationRecord] = ConcurrentStableList(
-        _collaboration_record(raw, product_key=product_key, scope="collaborations")
-        for raw in _records(root.get("collaborations"), scope="collaborations")
+    collaborations: ConcurrentStableList[CollaborationRecord] = _fill_frontend_prefix(
+        ConcurrentStableList(
+            _collaboration_record(raw, product_key=product_key, scope="collaborations")
+            for raw in _records(root.get("collaborations"), scope="collaborations")
+        ),
+        routes,
     )
     seeds: ConcurrentStableList[SeedRecord] = ConcurrentStableList(
         _seed_record(raw, scope="seeds") for raw in _records(root.get("seeds"), scope="seeds")
@@ -649,61 +684,69 @@ def _contract_paths(path: Path) -> ConcurrentStableFrozenSet[str]:
     return ConcurrentStableFrozenSet(items)
 
 
-def _layout_domains(path: Path, warnings: ConcurrentStableList[str]) -> ConcurrentStableList[str]:
-    """读取域布局文件的 `domain_key` 集合（不可读 / 非法即警示并返回空）。
+def _layout_registry(path: Path, warnings: ConcurrentStableList[str]) -> ConcurrentStableDict[str, str]:
+    """读取域布局文件的 `domain_key → service_key` 映射（不可读 / 非法即警示并返回空）。
 
     Args:
         path: 域布局文件路径。
         warnings: 警示收集器。
 
     Returns:
-        ConcurrentStableList[str]: 域标识（插入序）。
+        ConcurrentStableDict[str, str]: `{domain: service_key}`（未声明承载服务时值为空串）。
     """
-    keys: ConcurrentStableList[str] = ConcurrentStableList()
+    registry: ConcurrentStableDict[str, str] = ConcurrentStableDict()
     try:
         payload: object = json.loads(path.read_text(encoding="utf-8"))
         root = _as_mapping(payload)
         raw = root.get("domains")
         if not isinstance(raw, Sequence) or isinstance(raw, (str, bytes)):
             warnings.add(f"[能力] 域布局结构非法（缺 domains 数组）：{path}")
-            return keys
+            return registry
         for item in cast("Sequence[object]", raw):
-            key = _as_mapping(item).get("domain_key")
-            if key:
-                keys.add(str(key))
+            entry = _as_mapping(item)
+            key = entry.get("domain_key")
+            if not key:
+                continue
+            service = entry.get("service_key")
+            registry.set(str(key), str(service) if service else "")
     except OSError as exc:
         warnings.add(f"[能力] 域布局不可读：{path}（{exc}）")
     except json.JSONDecodeError as exc:
         warnings.add(f"[能力] 域布局 JSON 非法：{path}（{exc}）")
     except CatalogError as exc:
         warnings.add(f"[能力] 域布局结构非法：{path}（{exc}）")
-    return keys
+    return registry
 
 
-def _domain_keys(sources: ConcurrentStableList[Path], warnings: ConcurrentStableList[str]) -> ConcurrentStableSet[str]:
-    """取域基准（本仓布局 ∪ 各清单同仓布局）。
+def _layout_registry_map(
+    sources: ConcurrentStableList[Path], warnings: ConcurrentStableList[str]
+) -> ConcurrentStableDict[str, str]:
+    """取域布局登记映射（本仓布局 ∪ 各清单同仓布局；同域取先出现的非空承载服务）。
 
     Args:
         sources: 清单文件绝对路径（插入序）。
         warnings: 警示收集器（两处都缺时记录，不得静默）。
 
     Returns:
-        ConcurrentStableSet[str]: 已登记业务域标识集合。
+        ConcurrentStableDict[str, str]: `{domain: service_key}`（未声明承载服务时值为空串）。
     """
     candidates: ConcurrentStableSet[Path] = ConcurrentStableSet()
     candidates.add(_MANIFEST_BASE.parent / "deploy" / DOMAIN_LAYOUT_RELATIVE)
     for source in sources:
         candidates.add(source.parent.parent / DOMAIN_LAYOUT_RELATIVE)
-    keys: ConcurrentStableSet[str] = ConcurrentStableSet()
+    merged: ConcurrentStableDict[str, str] = ConcurrentStableDict()
     found = False
     for path in candidates:
         if not path.is_file():
             continue
         found = True
-        keys.update(_layout_domains(path, warnings))
+        for domain, service in _layout_registry(path, warnings).items():
+            if merged.get(domain):
+                continue
+            merged.set(domain, service)
     if not found:
         warnings.add("[能力] 域布局不可用：业务域只做标识形态校验（deploy/boundaries/domain_layout.json 缺失）")
-    return keys
+    return merged
 
 
 def _consumer_keys(manifests: ConcurrentStableList[ProductManifest]) -> ConcurrentStableSet[str]:
@@ -794,6 +837,7 @@ def _validate_manifest_entries(
     source: Path,
     *,
     domain_keys: ConcurrentStableSet[str],
+    domain_services: ConcurrentStableDict[str, str],
     consumer_keys: ConcurrentStableSet[str],
     branch_domains: ConcurrentStableDict[str, str],
     warnings: ConcurrentStableList[str],
@@ -804,6 +848,7 @@ def _validate_manifest_entries(
         manifest: 清单。
         source: 清单文件绝对路径。
         domain_keys: 域基准（空集表示不可用，只做形态校验）。
+        domain_services: 业务域 → 承载服务键（空集表示域布局未提供该信息，跳过承载校验）。
         consumer_keys: 可作默认消费方的标识集合。
         branch_domains: 全局 `branch_id` → 业务域（跨清单一致性）。
         warnings: 警示收集器。
@@ -840,6 +885,11 @@ def _validate_manifest_entries(
         prefix = f"{label}｜能力 {record.name}"
         if domain_keys and record.domain not in domain_keys:
             errors.add(f"{prefix}：提供方业务域未登记（{record.domain}）")
+        elif domain_services and not domain_services.get(record.domain):
+            errors.add(
+                f"{prefix}：提供方业务域未登记承载服务（{record.domain}；"
+                "域布局须为该域声明 service_key，能力寻址第二段据此解析）"
+            )
         if record.branch_id is not None:
             owner_domain = branch_domains.get(record.branch_id)
             if owner_domain is None:
@@ -898,8 +948,12 @@ def inspect_product_manifests(paths: Iterable[str | Path]) -> ManifestInspection
         )
     errors.update(_validate_collaboration_names(manifests, sources))
     has_collaborations = any(manifest.collaborations for manifest in manifests)
-    domain_keys: ConcurrentStableSet[str] = (
-        _domain_keys(sources, warnings) if has_collaborations else ConcurrentStableSet()
+    layout: ConcurrentStableDict[str, str] = (
+        _layout_registry_map(sources, warnings) if has_collaborations else ConcurrentStableDict()
+    )
+    domain_keys: ConcurrentStableSet[str] = ConcurrentStableSet(layout.keys())
+    domain_services: ConcurrentStableDict[str, str] = ConcurrentStableDict(
+        (domain, service) for domain, service in layout.items() if service
     )
     consumer_keys = _consumer_keys(manifests)
     branch_domains: ConcurrentStableDict[str, str] = ConcurrentStableDict()
@@ -909,6 +963,7 @@ def inspect_product_manifests(paths: Iterable[str | Path]) -> ManifestInspection
                 manifest,
                 source,
                 domain_keys=domain_keys,
+                domain_services=domain_services,
                 consumer_keys=consumer_keys,
                 branch_domains=branch_domains,
                 warnings=warnings,
@@ -919,6 +974,7 @@ def inspect_product_manifests(paths: Iterable[str | Path]) -> ManifestInspection
         sources=ConcurrentStableFrozenList(sources),
         errors=ConcurrentStableFrozenList(errors),
         warnings=ConcurrentStableFrozenList(warnings),
+        domain_services=ConcurrentStableFrozenDict(domain_services),
     )
 
 
@@ -972,4 +1028,6 @@ def load_product_manifests(paths: Iterable[str | Path]) -> ConcurrentStableList[
         raise CatalogError("产品清单装载失败：" + "；".join(inspection.errors))
     for manifest in inspection.manifests:
         register_manifest(manifest)
+    # 业务域 → 承载服务键（能力寻址第二段过渡实现的取数来源；派生视图，不是第二份声明）
+    register_domain_services(inspection.domain_services)
     return ConcurrentStableList(inspection.manifests)

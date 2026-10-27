@@ -40,6 +40,14 @@ from bms_core.api.middleware import (
 )
 from bms_core.cache.base import CacheRegion
 from bms_core.catalog.loader import load_catalog_snapshot
+from bms_core.collaboration.usage import (
+    CapabilityUsage,
+    register_capability_usages,
+    validate_capability_usages,
+)
+from bms_core.collaboration.usage import (
+    capability_usages as registered_capability_usages,
+)
 from bms_core.core.assembly import assemble_base_plugins, assemble_plugins, register_platform_plugins
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import Settings, get_settings, validate_startup
@@ -134,6 +142,31 @@ async def _validate_service_catalog(app: FastAPI) -> None:
     if errors:
         logger.critical("service_catalog_invalid", scope="database", errors=errors)
         raise CatalogError("服务目录校验失败：" + "；".join(errors))
+
+
+async def _validate_capability_usages(app: FastAPI) -> None:
+    """能力使用登记校验（07B `02_02`）：消费方声明的能力必须已登记，降级声明须合规，否则拒启。
+
+    三档失败语义中的**第一档**（装载 / 启动）：`02_01` 六类校验管「提供方声明是否自洽」，
+    本步管「消费方声明是否可兑现」——声明了未登记能力（拼错 / 未装载）、无理由降级、`stale`
+    无投影来源、写 / 强一致能力声明降级，一律 `CatalogError` 拒启并定位到能力名。
+
+    Args:
+        app: 应用实例（取配置中的服务标识与装配期登记的声明视图）。
+
+    Raises:
+        CatalogError: 使用声明不满足（信息含消费方与能力名）。
+    """
+    settings = cast("Settings", app.state.settings)
+    service = settings.app.service
+    usages = registered_capability_usages(service)
+    if not usages:
+        return
+    try:
+        validate_capability_usages(service, usages)
+    except CatalogError as exc:
+        get_logger("bms").critical("capability_usage_invalid", scope="startup", consumer=service, detail=str(exc))
+        raise
 
 
 async def _validate_table_ownership(app: FastAPI) -> None:
@@ -288,6 +321,7 @@ async def service_lifespan(app: FastAPI) -> AsyncGenerator[None]:
         if created:
             get_logger(_LOGGER).info("schema_auto_create_done", targets=",".join(created))
         await _validate_service_catalog(app)
+        await _validate_capability_usages(app)
         await _validate_table_ownership(app)
         await assemble_plugins(app, settings, cast("ResourceManager", app.state.resources))
         await _record_db_inventory(app, settings)
@@ -366,6 +400,20 @@ class BaseServiceApplicationFactory(BaseApplicationFactory):
 
         Returns:
             ConcurrentStableList[FormRecord]: 补充的表单标识登记记录（插入序）。
+        """
+        return ConcurrentStableList(())
+
+    def capability_usages(self) -> ConcurrentStableList[CapabilityUsage]:
+        """本服务（作为消费方）的跨产品能力使用声明（子类覆写；缺省空清单）。
+
+        声明含**降级策略**（`CapabilityUsage.degrade` / `reason`）：降级是消费方策略，提供方无权替
+        消费者决定能否接受空集。基座在装配期登记该清单，并在启动校验步骤 fail-closed——声明了未登记
+        能力（拼错 / 未装载）、无理由降级、`stale`（无投影来源）、写 / 强一致能力声明降级，一律拒启。
+
+        未覆写 = 该服务不声明任何能力使用，行为与改造前一致（无进程级注册表、无空登记）。
+
+        Returns:
+            ConcurrentStableList[CapabilityUsage]: 能力使用声明（插入序）。
         """
         return ConcurrentStableList(())
 
@@ -472,6 +520,12 @@ class BaseServiceApplicationFactory(BaseApplicationFactory):
         loads = load_product_manifests(settings.registry.product_manifests)
         if loads:
             get_logger("bms").info("product_manifests_loaded", count=len(loads))
+        # 能力使用登记（07B `02_02`）：消费方声明须在装配期登记，生命周期内由校验步骤 fail-closed；
+        # 空声明不登记（未声明降级的服务与既有一致，不产生进程级状态）
+        declared_usages = ConcurrentStableList(self.capability_usages())
+        if declared_usages:
+            register_capability_usages(settings.app.service, declared_usages)
+        app.state.capability_usages = declared_usages
         injected = ConcurrentStableList(self.service_records())
         register_service_records(injected)
         app.state.module_registry = ModuleRegistry(service_catalog_view())

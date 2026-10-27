@@ -12426,8 +12426,28 @@
     },
     "/api/v1/modules/snapshot": {
       "get": {
-        "description": "服务目录快照（只读，全量清单不分页）。\n\n供各服务启动接库校验对账（`validate_catalog`）：字段与 `sys_module` 登记一致，\n响应 `data` 为清单数组（**注意**：路径须先于 `/modules/{service_key}` 注册，避免被明细路由吞掉）。\n\nArgs:\n    session: 平台库只读会话。\n\nReturns:\n    ApiResponse: 统一响应，data 为服务目录记录数组（`ModuleResponse`）。",
+        "description": "服务目录快照（只读，全量清单不分页；带参分支一并下发产品段与能力段）。\n\n供各服务启动接库校验对账（`validate_catalog`）：字段与 `sys_module` 登记一致，\n响应 `data` 为清单数组（**注意**：路径须先于 `/modules/{service_key}` 注册，避免被明细路由吞掉）。\n\n带参分支（`?with=products,collaborations`）：`data` 为\n`{modules, products, collaborations, snapshot_version, warnings}`——产品段与能力段来自**运行时视图**\n（产品清单装载的内存投影，不落库），因此必须在装载完成后才有效；未装载时为空数组并在 `warnings`\n给出提示（不静默）。`with` 取值集合外的值按参数非法拒绝（10001），不静默回退数组契约。\n\nArgs:\n    session: 平台库只读会话。\n    with_: 附带段（逗号分隔多值；缺省保持原数组契约）。\n\nReturns:\n    ApiResponse: 统一响应。缺省形态 data 为服务目录记录数组（`ModuleResponse`）；\n    带参形态 data 为 `CatalogSnapshotResponse`。\n\nRaises:\n    ParamError: `with` 出现未支持的段名（10001）。",
         "operationId": "catalog_snapshot_api_v1_modules_snapshot_get",
+        "parameters": [
+          {
+            "description": "附带段（逗号分隔多值：modules / products / collaborations）；缺省保持原数组契约",
+            "in": "query",
+            "name": "with",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "附带段（逗号分隔多值：modules / products / collaborations）；缺省保持原数组契约",
+              "title": "With"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -12468,6 +12488,16 @@
               }
             },
             "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           },
           "429": {
             "content": {

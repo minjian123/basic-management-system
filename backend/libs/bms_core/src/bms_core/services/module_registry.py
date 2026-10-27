@@ -22,6 +22,9 @@
   `[[collaborations]]` / `[[seeds]]`）、同一视图族（`collaboration_catalog_view()` /
   `seed_catalog_view()`）、同一唯一性纪律（同键同值合并、异键异值即拒）；平台侧常量留空，
   声明权威只在产品仓，校验归 `registry/products.py`（不新增第二套注册表）。
+- **业务域 → 承载服务键**（07B `02_02`）：`domain_service_view()` / `service_key_for_domain()`——
+  由各仓 `deploy/boundaries/domain_layout.json` 的 `service_key` 装载期派生，供能力寻址第二段的
+  过渡默认实现使用（派生视图，不是第二份声明；07C `02_02` 落地后作为「域 → 服务标识」登记表）。
 """
 
 import re
@@ -34,6 +37,7 @@ from typing import Any, cast
 
 from bms_core.core.concurrent import (
     ConcurrentStableDict,
+    ConcurrentStableFrozenDict,
     ConcurrentStableFrozenList,
     ConcurrentStableList,
     ConcurrentStableSet,
@@ -184,6 +188,34 @@ def normalize_capability_path(path: str) -> str:
     return _PATH_PARAMETER_RE.sub("{}", path)
 
 
+def render_capability_path(path: str, *, subject: str = "", **params: object) -> str:
+    """按访问面模板填充路径参数（缺失 / 多余参数即拒，消费方不自行拼接）。
+
+    Args:
+        path: 访问面路径模板（可含 `{name}` 占位）。
+        subject: 出错信息主语（通常为能力名，便于定位）。
+        **params: 路径参数（键须与模板占位名一致）。
+
+    Returns:
+        str: 填充后的访问面路径。
+
+    Raises:
+        ParamError: 缺参数或多参数（10001）。
+    """
+    from bms_core.core.exceptions import ParamError
+
+    label = f"能力 {subject}" if subject else "访问面"
+    names = ConcurrentStableSet(match.group(1) for match in _PATH_PARAMETER_RE.finditer(path))
+    provided = ConcurrentStableSet(str(key) for key in params)
+    missing = ConcurrentStableList(name for name in names if name not in provided)
+    extra = ConcurrentStableList(key for key in provided if key not in names)
+    if missing:
+        raise ParamError(f"{label}：访问面缺少路径参数（{', '.join(missing)}）")
+    if extra:
+        raise ParamError(f"{label}：访问面路径参数多余（{', '.join(extra)}）")
+    return _PATH_PARAMETER_RE.sub(lambda match: str(params[match.group(1)]), path)
+
+
 @dataclass(frozen=True)
 class CollaborationRecord(BaseValueObject):
     """跨产品能力登记记录（**第五类记录**；唯一键 `name`；不落库，故不实现 `from_row`）。
@@ -262,15 +294,7 @@ class CollaborationRecord(BaseValueObject):
 
         if self.path is None:
             raise ParamError(f"能力无访问面（kind={self.kind}）：{self.name}")
-        names = ConcurrentStableSet(match.group(1) for match in _PATH_PARAMETER_RE.finditer(self.path))
-        provided = ConcurrentStableSet(str(key) for key in params)
-        missing = ConcurrentStableList(name for name in names if name not in provided)
-        extra = ConcurrentStableList(key for key in provided if key not in names)
-        if missing:
-            raise ParamError(f"能力 {self.name}：访问面缺少路径参数（{', '.join(missing)}）")
-        if extra:
-            raise ParamError(f"能力 {self.name}：访问面路径参数多余（{', '.join(extra)}）")
-        return _PATH_PARAMETER_RE.sub(lambda match: str(params[match.group(1)]), self.path)
+        return render_capability_path(self.path, subject=self.name, **params)
 
 
 @dataclass(frozen=True)
@@ -712,6 +736,58 @@ def collaboration_catalog_view() -> ConcurrentStableList[CollaborationRecord]:
     merged: ConcurrentStableList[CollaborationRecord] = ConcurrentStableList(COLLABORATION_CATALOG)
     merged.update(_INJECTED_COLLABORATIONS.values())
     return merged
+
+
+_DOMAIN_SERVICES: ConcurrentStableDict[str, str] = ConcurrentStableDict()
+"""业务域 → 承载服务键映射（由各仓 `deploy/boundaries/domain_layout.json` 装载期派生）。
+
+口径：这是**派生视图**（不是第二份声明），供能力寻址第二段（`07B 02_02`）的过渡默认实现使用；
+07C `02_02` 用租户拓扑替换解析实现后，本视图仍可作为「域 → 服务标识」登记表。
+"""
+
+
+def register_domain_services(mapping: ConcurrentStableFrozenDict[str, str]) -> None:
+    """登记「业务域 → 承载服务键」映射（幂等：同域同值覆盖、异值即拒）。
+
+    Args:
+        mapping: `{domain: service_key}`（不可变映射，与装载视图同口径）。
+
+    Raises:
+        CatalogError: 同一业务域映射到不同服务（域布局冲突，fail-closed）。
+    """
+    from bms_core.core.exceptions import CatalogError
+
+    for domain, service in mapping.items():
+        existing = _DOMAIN_SERVICES.get(domain)
+        if existing is not None and existing != service:
+            raise CatalogError(f"业务域承载服务冲突：{domain!r}（已登记 {existing!r}，新 {service!r}）")
+        _DOMAIN_SERVICES.set(domain, service)
+
+
+def reset_domain_services() -> None:
+    """清空已登记的业务域承载映射（测试隔离用；生产路径不调用）。"""
+    _DOMAIN_SERVICES.clear()
+
+
+def domain_service_view() -> ConcurrentStableDict[str, str]:
+    """业务域承载服务视图（只读副本，插入序）。
+
+    Returns:
+        ConcurrentStableDict[str, str]: `{domain: service_key}`。
+    """
+    return ConcurrentStableDict(ConcurrentStableList(_DOMAIN_SERVICES.to_list()))
+
+
+def service_key_for_domain(domain: str) -> str | None:
+    """取业务域的承载服务键。
+
+    Args:
+        domain: 业务域标识。
+
+    Returns:
+        str | None: 承载服务键；未登记返回 None。
+    """
+    return _DOMAIN_SERVICES.get(domain)
 
 
 SEED_CATALOG: ConcurrentStableList[SeedRecord] = ConcurrentStableList(())

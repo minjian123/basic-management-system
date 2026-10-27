@@ -601,6 +601,37 @@ def test_inspect_domain_not_registered(tmp_path: Path, monkeypatch: pytest.Monke
     assert any("提供方业务域未登记（org）" in error for error in errors)
 
 
+def test_inspect_domain_without_service_key(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """提供方业务域未登记承载服务：域布局声明了该域但缺 `service_key` → 拒（能力寻址第二段无解）。
+
+    Args:
+        tmp_path: 临时目录。
+        monkeypatch: pytest monkeypatch 夹具。
+    """
+    _point_base(monkeypatch, tmp_path)
+    path = _write(tmp_path, _TOML)
+    _write_contract(tmp_path)
+    layout = tmp_path / "backend" / "deploy" / "boundaries" / "domain_layout.json"
+    layout.parent.mkdir(parents=True, exist_ok=True)
+    layout.write_text(
+        json.dumps(
+            {
+                "version": 1,
+                "domains": [
+                    {"domain_key": "org"},
+                    {"domain_key": "demo", "service_key": "demo"},
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    _install_seed_package(monkeypatch)
+
+    errors = inspect_product_manifests(ConcurrentStableList([path])).errors
+
+    assert any("提供方业务域未登记承载服务（org；" in error for error in errors)
+
+
 def test_inspect_domain_layout_missing_warns(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """域布局两处都缺：只做形态校验并输出警示（不静默、不因此拒启）。
 
@@ -656,8 +687,37 @@ def test_layout_domains_read_error(tmp_path: Path, monkeypatch: pytest.MonkeyPat
 
     monkeypatch.setattr(Path, "read_text", _boom)
     warnings: ConcurrentStableList[str] = ConcurrentStableList()
-    assert products._layout_domains(layout, warnings) == []  # pyright: ignore[reportPrivateUsage]
+    assert products._layout_registry(layout, warnings) == {}  # pyright: ignore[reportPrivateUsage]
     assert any("域布局不可读" in warning for warning in warnings)
+
+
+def test_layout_registry_map_keeps_first_non_empty_service(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """域布局合并：同域多处登记时取先出现的非空承载服务键（后续同域不再覆盖）。
+
+    覆盖 `_layout_registry_map` 的「已合并同域跳过」分支（07B `02_02` 域 → 服务键派生的去重口径）。
+
+    Args:
+        tmp_path: 临时目录。
+        monkeypatch: pytest monkeypatch 夹具。
+    """
+    backend = tmp_path / "backend"
+    backend.mkdir()
+    monkeypatch.setattr(products, "_MANIFEST_BASE", backend)
+    sources: ConcurrentStableList[Path] = ConcurrentStableList()
+    for index, (repo, service) in enumerate((("a", "mdm"), ("b", "other"))):
+        layout = tmp_path / repo / "deploy" / "boundaries" / "domain_layout.json"
+        layout.parent.mkdir(parents=True, exist_ok=True)
+        layout.write_text(
+            json.dumps({"version": 1, "domains": [{"domain_key": "org", "service_key": service}]}),
+            encoding="utf-8",
+        )
+        sources.add(tmp_path / repo / "deploy" / "registry" / f"{index}.toml")
+
+    warnings: ConcurrentStableList[str] = ConcurrentStableList()
+    merged = products._layout_registry_map(sources, warnings)  # pyright: ignore[reportPrivateUsage]
+
+    assert merged == {"org": "mdm"}
+    assert warnings == []
 
 
 def test_inspect_contract_path_normalized(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

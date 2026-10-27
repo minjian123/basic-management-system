@@ -1170,16 +1170,26 @@ export interface paths {
         };
         /**
          * Catalog Snapshot
-         * @description 服务目录快照（只读，全量清单不分页）。
+         * @description 服务目录快照（只读，全量清单不分页；带参分支一并下发产品段与能力段）。
          *
          *     供各服务启动接库校验对账（`validate_catalog`）：字段与 `sys_module` 登记一致，
          *     响应 `data` 为清单数组（**注意**：路径须先于 `/modules/{service_key}` 注册，避免被明细路由吞掉）。
          *
+         *     带参分支（`?with=products,collaborations`）：`data` 为
+         *     `{modules, products, collaborations, snapshot_version, warnings}`——产品段与能力段来自**运行时视图**
+         *     （产品清单装载的内存投影，不落库），因此必须在装载完成后才有效；未装载时为空数组并在 `warnings`
+         *     给出提示（不静默）。`with` 取值集合外的值按参数非法拒绝（10001），不静默回退数组契约。
+         *
          *     Args:
          *         session: 平台库只读会话。
+         *         with_: 附带段（逗号分隔多值；缺省保持原数组契约）。
          *
          *     Returns:
-         *         ApiResponse: 统一响应，data 为服务目录记录数组（`ModuleResponse`）。
+         *         ApiResponse: 统一响应。缺省形态 data 为服务目录记录数组（`ModuleResponse`）；
+         *         带参形态 data 为 `CatalogSnapshotResponse`。
+         *
+         *     Raises:
+         *         ParamError: `with` 出现未支持的段名（10001）。
          */
         get: operations["catalog_snapshot_api_v1_modules_snapshot_get"];
         put?: never;
@@ -11323,7 +11333,10 @@ export interface operations {
     };
     catalog_snapshot_api_v1_modules_snapshot_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description 附带段（逗号分隔多值：modules / products / collaborations）；缺省保持原数组契约 */
+                with?: string | null;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -11364,6 +11377,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
             /** @description 限流 */
