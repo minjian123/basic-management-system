@@ -12,8 +12,8 @@
 | 业务域 | 平台注册与目录（`platform_registry`；能力登记与授权同域） |
 | 覆盖模块 | 07B-跨产品协同（能力分配） |
 | 上游依据 | 《[架构设计 · 跨产品协同](../../../设计/架构设计/38_架构设计_子系统_跨产品协同.md)》「能力分配与授权」节、[需求 02-4](../../../项目/07B_跨产品协同/需求/02_需求_协同基座.md#r02-4)、《[跨产品协同登记清单](../../../跨产品协同登记清单.md)》§4 |
-| ORM 模型 | `bms_core/models/platform/capability_grant.py::SysCapabilityGrant`（继承 `BaseModel`；随 `02_04` 落地） |
-| 状态 | 待落库（设计已定；当前随 `platform:platform` 清单，域化后归 `platform_registry:platform`） |
+| ORM 模型 | `bms_core/models/platform/capability_grant.py::SysCapabilityGrant`（继承 `BaseModel`；07B `02_04` 已落地） |
+| 状态 | 已落库（归 `platform_registry` 域 × 归属服务 `platform`；建表随平台链自动建表 / `ops.init_schema`） |
 | 相关节点 | [数据库设计总览](../01_数据库设计_总览.md)「核心表清单总表 · 平台库」、[sys_module](sys_module.md)、[sys_product](sys_product.md) |
 
 - **语义**：一条记录 = 一个「能力 × 消费方」的**有效授权**；有有效授权即合法（直连或经平台中转均可），无授权即越界。
