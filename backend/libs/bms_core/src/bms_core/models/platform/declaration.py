@@ -58,9 +58,7 @@ class SysDataSource(BaseModel):
     """数据源声明（`sys_data_source`）：字典 / 参考数据的取数登记。"""
 
     __tablename__ = "sys_data_source"
-    __table_args__ = (
-        UniqueConstraint("data_source_key", "deleted_at", name="uq_sys_data_source_key_deleted_at"),
-    )
+    __table_args__ = (UniqueConstraint("data_source_key", "deleted_at", name="uq_sys_data_source_key_deleted_at"),)
 
     data_source_key: Mapped[str] = mapped_column(String(64), comment="数据源键（前端与后端共用标识）")
     product_key: Mapped[str] = mapped_column(String(32), comment="声明方产品键")
@@ -85,16 +83,12 @@ class SysCollaboration(BaseModel):
     name: Mapped[str] = mapped_column(String(128), comment="能力名（{产品}.{业务域}.{能力}，全局唯一）")
     product_key: Mapped[str] = mapped_column(String(32), comment="声明方产品键（提供方）")
     domain: Mapped[str] = mapped_column(String(64), comment="提供方业务域（须在域布局登记）")
-    kind: Mapped[str] = mapped_column(
-        String(16), comment="访问面类别（read/write/txn-branch/dataset/codes）"
-    )
+    kind: Mapped[str] = mapped_column(String(16), comment="访问面类别（read/write/txn-branch/dataset/codes）")
     contract_version: Mapped[str] = mapped_column(String(16), comment="随提供方服务契约版本")
     path: Mapped[str | None] = mapped_column(String(255), nullable=True, comment="访问面路径模板（codes 为空）")
     branch_id: Mapped[str | None] = mapped_column(String(16), nullable=True, comment="事务分支标识（txn-branch）")
     branch_op: Mapped[str | None] = mapped_column(String(128), nullable=True, comment="事务分支动作名（txn-branch）")
-    data_source_key: Mapped[str | None] = mapped_column(
-        String(64), nullable=True, comment="关联数据源键（dataset）"
-    )
+    data_source_key: Mapped[str | None] = mapped_column(String(64), nullable=True, comment="关联数据源键（dataset）")
     permission_codes: Mapped[str | None] = mapped_column(Text, nullable=True, comment="业务码/权限码集合（JSON 数组）")
     frontend_prefix: Mapped[str | None] = mapped_column(String(32), nullable=True, comment="前端命名空间域段")
     default_consumers: Mapped[str | None] = mapped_column(Text, nullable=True, comment="默认分配消费方（JSON 数组）")

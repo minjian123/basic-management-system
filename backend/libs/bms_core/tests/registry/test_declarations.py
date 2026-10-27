@@ -7,6 +7,7 @@
 """
 
 from collections.abc import Iterator
+from typing import Any, cast
 
 import pytest
 
@@ -51,7 +52,7 @@ def _capability(name: str = "demo.org.user-roles", *, kind: str = "read", **kwar
     Returns:
         CollaborationRecord: 能力记录。
     """
-    base = {
+    base: Any = {
         "name": name,
         "domain": "org",
         "kind": kind,
@@ -73,9 +74,9 @@ def _payload(**kwargs: object) -> DeclarationPayload:
     Returns:
         DeclarationPayload: 注册载荷。
     """
-    base = {"product_key": "demo", "service_key": "demo"}
+    base: Any = {"product_key": "demo", "service_key": "demo"}
     base.update(kwargs)
-    return DeclarationPayload(**base)  # type: ignore[arg-type]
+    return DeclarationPayload(**base)
 
 
 def _snapshot(*, owner: str = "demo", **kwargs: object) -> RegistrySnapshot:
@@ -94,7 +95,7 @@ def _snapshot(*, owner: str = "demo", **kwargs: object) -> RegistrySnapshot:
     retired: ConcurrentStableDict[str, ConcurrentStableSet[str]] = ConcurrentStableDict()
     owners: ConcurrentStableDict[str, ConcurrentStableDict[str, str]] = ConcurrentStableDict()
     for kind in DECLARATION_KINDS:
-        items = ConcurrentStableList(kwargs.get(kind) or ())
+        items = ConcurrentStableList(cast("Any", kwargs.get(kind) or ()))
         records.set(kind, items)
         kind_hashes: ConcurrentStableDict[str, str] = ConcurrentStableDict()
         kind_ids: ConcurrentStableDict[str, int] = ConcurrentStableDict()
@@ -877,7 +878,7 @@ def test_wire_roundtrip_keeps_content_fingerprint() -> None:
     }
     for kind, record in samples.items():
         wire = declaration_wire(kind, record)
-        restored = record_from_wire(kind, wire)
+        restored = record_from_wire(kind, ConcurrentStableDict(cast("Any", wire)))
         assert content_hash_of(kind, restored) == content_hash_of(kind, record), kind
 
 
@@ -887,7 +888,7 @@ def test_record_from_wire_rejects_unknown_kind() -> None:
     from bms_core.registry.declarations import record_from_wire
 
     with pytest.raises(CatalogError, match="未知的声明类别"):
-        record_from_wire("unknown", {})
+        record_from_wire("unknown", ConcurrentStableDict())
 
 
 async def test_snapshot_from_wire_builds_registry_view() -> None:

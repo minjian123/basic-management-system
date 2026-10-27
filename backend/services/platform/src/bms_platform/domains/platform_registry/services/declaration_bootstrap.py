@@ -68,7 +68,7 @@ async def bootstrap_platform_declarations(app: FastAPI) -> None:
     payload = from_manifest(manifest)
     if payload.product_key != service_key:
         raise CatalogError(f"平台清单归属与服务标识不一致：清单 {payload.product_key}，服务 {service_key}")
-    payload = _with_platform_services(payload)
+    payload = with_platform_services(payload)
     try:
         async with session_scope(
             app.state.engine_registry,
@@ -88,7 +88,6 @@ async def bootstrap_platform_declarations(app: FastAPI) -> None:
     _LOGGER.info(
         "declaration_registered",
         product_key=report.product_key,
-        service_key=report.service_key if hasattr(report, "service_key") else service_key,
         created=dict(report.created),
         updated=dict(report.updated),
         retired=dict(report.retired),
@@ -97,7 +96,7 @@ async def bootstrap_platform_declarations(app: FastAPI) -> None:
         _LOGGER.warning("declaration_register_warning", detail=message)
 
 
-def _with_platform_services(payload: DeclarationPayload) -> DeclarationPayload:
+def with_platform_services(payload: DeclarationPayload) -> DeclarationPayload:
     """把平台自身服务行（`SERVICE_CATALOG` 常量）并入注册载荷。
 
     平台各模块在 `SERVICE_CATALOG` 中是代码常量（`sys` / `identity` / …），不走清单；
@@ -109,7 +108,11 @@ def _with_platform_services(payload: DeclarationPayload) -> DeclarationPayload:
     Returns:
         DeclarationPayload: 补入服务行后的载荷（服务行排在清单服务行之前）。
     """
-    services: ConcurrentStableList[ModuleRecord] = ConcurrentStableList(SERVICE_CATALOG)
+    # 只并入**平台自身**的服务行（`product_key` 为空）：`SERVICE_CATALOG` 里还含产品模块
+    # （`pur` / `pay` / …），那些行归各自产品声明，平台代声明会与产品注册撞键
+    services: ConcurrentStableList[ModuleRecord] = ConcurrentStableList(
+        record for record in SERVICE_CATALOG if not record.product_key
+    )
     for record in payload.services:
         if record.module_key not in {item.module_key for item in services}:
             services.add(record)

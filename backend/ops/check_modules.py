@@ -336,7 +336,7 @@ def check_registry_db(url: str) -> ConcurrentStableList[str]:
         ConcurrentStableList[str]: 差异明细（含库不可读 / 清单缺失）。
     """
     try:
-        payload = _platform_payload()
+        payload = platform_payload()
     except CatalogError as exc:
         return ConcurrentStableList([f"本仓声明不可读：{exc}"])
     try:
@@ -351,7 +351,7 @@ def check_registry_db(url: str) -> ConcurrentStableList[str]:
     return diff_platform_declarations(snapshot, payload)
 
 
-def _platform_payload() -> DeclarationPayload:
+def platform_payload() -> DeclarationPayload:
     """取本仓平台声明载荷（平台自身清单 + `SERVICE_CATALOG` 服务行）。
 
     Returns:

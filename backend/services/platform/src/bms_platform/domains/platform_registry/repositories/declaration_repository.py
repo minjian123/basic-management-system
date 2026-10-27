@@ -11,6 +11,7 @@ from typing import Any, cast
 from sqlalchemy import select
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
+from bms_core.core.exceptions import CatalogError
 from bms_core.datasource.registry import DataSourceRecord
 from bms_core.models.platform.catalog import SysModule, SysProduct
 from bms_core.models.platform.declaration import (
@@ -72,24 +73,44 @@ class DeclarationRepository(BaseDbRepository[Any]):
         hashes: ConcurrentStableDict[str, ConcurrentStableDict[str, str]] = ConcurrentStableDict()
         ids: ConcurrentStableDict[str, ConcurrentStableDict[str, int]] = ConcurrentStableDict()
         retired: ConcurrentStableDict[str, ConcurrentStableSet[str]] = ConcurrentStableDict()
+        owners: ConcurrentStableDict[str, ConcurrentStableDict[str, str]] = ConcurrentStableDict()
         for kind in DECLARATION_KINDS:
             kind_records: ConcurrentStableList[Any] = ConcurrentStableList()
             kind_hashes: ConcurrentStableDict[str, str] = ConcurrentStableDict()
             kind_ids: ConcurrentStableDict[str, int] = ConcurrentStableDict()
             kind_retired: ConcurrentStableSet[str] = ConcurrentStableSet()
+            kind_owners: ConcurrentStableDict[str, str] = ConcurrentStableDict()
             for row in await self._rows(kind):
                 record = self._to_record(kind, row)
                 key = declaration_key(kind, record)
                 kind_records.add(record)
                 kind_hashes.set(key, content_hash_of(kind, record))
-                kind_ids.set(key, int(cast("Any", row).id))
-                if str(cast("Any", row).status) == _RETIRED:
+                kind_ids.set(key, int(row.id))
+                kind_owners.set(key, self._owner_of_row(kind, row))
+                if str(row.status) == _RETIRED:
                     kind_retired.add(key)
             records.set(kind, kind_records)
             hashes.set(kind, kind_hashes)
             ids.set(kind, kind_ids)
+            owners.set(kind, kind_owners)
             retired.set(kind, kind_retired)
-        return RegistrySnapshot(records=records, hashes=hashes, ids=ids, retired=retired)
+        return RegistrySnapshot(records=records, hashes=hashes, ids=ids, retired=retired, owners=owners)
+
+    @staticmethod
+    def _owner_of_row(kind: str, row: Any) -> str:
+        """取行归属的声明方（共享表里 `product_key` 为空的平台行归 `platform`）。
+
+        Args:
+            kind: 声明类别。
+            row: ORM 行。
+
+        Returns:
+            str: 声明方产品键（空串表示无法判定）。
+        """
+        owner = getattr(row, "product_key", None)
+        if owner:
+            return str(owner)
+        return "platform" if kind in ("products", "services") else ""
 
     async def apply(self, plan: DeclarationPlan, *, product_key: str) -> None:
         """把对账结果落库（新增 / 覆盖 / 退役）。
@@ -103,15 +124,15 @@ class DeclarationRepository(BaseDbRepository[Any]):
             for record in plan.created.get(kind) or ():
                 session.add(self._to_model(kind, record, product_key=product_key))
             for key in plan.retired.get(kind) or ():
-                row = await self._row_by_key(kind, key)
+                row: Any = await self._row_by_key(kind, key)
                 if row is not None:
-                    cast("Any", row).status = _RETIRED
+                    row.status = _RETIRED
             for record in plan.updated.get(kind) or ():
                 row = await self._row_by_key(kind, declaration_key(kind, record))
                 if row is None:
                     session.add(self._to_model(kind, record, product_key=product_key))
                     continue
-                self._assign(kind, cast("Any", row), record, product_key=product_key)
+                self._assign(kind, row, record, product_key=product_key)
         await session.flush()
 
     async def _rows(self, kind: str) -> ConcurrentStableList[Any]:
@@ -203,8 +224,8 @@ class DeclarationRepository(BaseDbRepository[Any]):
             Any: 模型对象。
         """
         model = self._model_of(kind)
-        row = model()
-        self._assign(kind, cast("Any", row), record, product_key=product_key, creating=True)
+        row: Any = model()
+        self._assign(kind, row, record, product_key=product_key, creating=True)
         return row
 
     def _assign(self, kind: str, row: Any, record: object, *, product_key: str, creating: bool = False) -> None:
@@ -381,7 +402,7 @@ class DeclarationRepository(BaseDbRepository[Any]):
                 tables=_frozen_mapping(data.tables),
                 after=_frozen_list(data.after),
                 description=str(data.description or ""),
-                status=CollaborationStatus(str(data.status)),
+                status=_status_of(data.status),
                 source=str(data.product_key or ""),
             )
         return ErrorCodeRecord(
@@ -395,6 +416,22 @@ class DeclarationRepository(BaseDbRepository[Any]):
             segment=str(data.segment),
             status=str(data.status),
         )
+
+
+def _status_of(raw: object) -> str:
+    """把库内状态读回记录状态（`retired` 不在枚举内，按原值保留）。
+
+    Args:
+        raw: 库内状态值。
+
+    Returns:
+        str: 状态值（`StrEnum` 与字符串同值比较，不影响指纹与对账）。
+    """
+    text = str(raw or "enabled")
+    try:
+        return str(CollaborationStatus(text))
+    except ValueError:
+        return text
 
 
 def _json_list(values: object) -> str:
@@ -438,12 +475,14 @@ def _frozen_mapping(raw: object) -> Any:
 
     from bms_core.core.concurrent import ConcurrentStableFrozenDict
 
+    empty: Any = ConcurrentStableFrozenDict[str, str]()
     if not raw:
-        return ConcurrentStableFrozenDict()
+        return empty
     try:
         parsed = json.loads(str(raw))
-    except json.JSONDecodeError:
-        return ConcurrentStableFrozenDict()
+    except json.JSONDecodeError as exc:
+        # 注册表数据损坏属内部错误：不静默退化为空（否则视图与库不一致却无人知晓）
+        raise CatalogError(f"注册表 JSON 字段损坏（应为对象）：{raw!r}") from exc
     return ConcurrentStableFrozenDict(
         {str(key): str(value) for key, value in cast("dict[str, object]", parsed).items()}
     )
@@ -466,6 +505,7 @@ def _frozen_list(raw: object) -> Any:
         return ConcurrentStableFrozenList()
     try:
         parsed = json.loads(str(raw))
-    except json.JSONDecodeError:
-        return ConcurrentStableFrozenList()
+    except json.JSONDecodeError as exc:
+        # 同上：注册表数据损坏即抛，不静默退化为空
+        raise CatalogError(f"注册表 JSON 字段损坏（应为数组）：{raw!r}") from exc
     return ConcurrentStableFrozenList(str(item) for item in cast("list[object]", parsed))

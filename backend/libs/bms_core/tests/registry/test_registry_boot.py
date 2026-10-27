@@ -60,7 +60,7 @@ def _snapshot(
     hashes: ConcurrentStableDict[str, ConcurrentStableDict[str, str]] = ConcurrentStableDict()
     owner_map: ConcurrentStableDict[str, ConcurrentStableDict[str, str]] = ConcurrentStableDict()
     for kind, items in kwargs.items():
-        kind_records: ConcurrentStableList[object] = ConcurrentStableList(items)
+        kind_records: ConcurrentStableList[object] = ConcurrentStableList(cast("Any", items))
         records.set(kind, kind_records)
         kind_hashes: ConcurrentStableDict[str, str] = ConcurrentStableDict()
         kind_owners: ConcurrentStableDict[str, str] = ConcurrentStableDict()
@@ -84,7 +84,7 @@ class _Client:
             payload: 响应体。
         """
         self.status_code = status_code
-        self.payload_body = payload if payload is not None else {"code": 0, "data": {}}
+        self.payload_body: Any = payload if payload is not None else {"code": 0, "data": {}}
         self.requests: ConcurrentStableList[ServiceRequest] = ConcurrentStableList()
 
     async def call(self, request: ServiceRequest) -> Any:
@@ -97,7 +97,7 @@ class _Client:
             Any: 响应替身（`status_code` + `payload()`）。
         """
         self.requests.add(request)
-        body = self.payload_body
+        body: Any = self.payload_body
         return SimpleNamespace(status_code=self.status_code, payload=lambda: body)
 
 
@@ -329,7 +329,7 @@ async def test_bootstrap_skips_when_disabled() -> None:
 
     await boot_module.bootstrap_declarations(app)
 
-    assert cast("Any", app.state.service_client).requests == []
+    assert app.state.service_client.requests == []
 
 
 async def test_bootstrap_skips_platform() -> None:
@@ -338,7 +338,7 @@ async def test_bootstrap_skips_platform() -> None:
 
     await boot_module.bootstrap_declarations(app)
 
-    assert cast("Any", app.state.service_client).requests == []
+    assert app.state.service_client.requests == []
 
 
 async def test_bootstrap_skips_without_manifest(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -348,7 +348,7 @@ async def test_bootstrap_skips_without_manifest(monkeypatch: pytest.MonkeyPatch)
 
     await boot_module.bootstrap_declarations(app)
 
-    assert cast("Any", app.state.service_client).requests == []
+    assert app.state.service_client.requests == []
 
 
 async def test_bootstrap_skips_when_service_not_declared(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -360,7 +360,7 @@ async def test_bootstrap_skips_when_service_not_declared(tmp_path: Any, monkeypa
 
     await boot_module.bootstrap_declarations(app)
 
-    assert cast("Any", app.state.service_client).requests == []
+    assert app.state.service_client.requests == []
 
 
 async def test_bootstrap_reports_and_projects(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -382,8 +382,8 @@ product_key = "demo"
         encoding="utf-8",
     )
     monkeypatch.setattr(boot_module, "local_manifest_paths", lambda: ConcurrentStableList([manifest]))
-    reported: ConcurrentStableList[ConcurrentStableDict[str, object]] = ConcurrentStableList()
-    projected: ConcurrentStableList[object] = ConcurrentStableList()
+    reported: ConcurrentStableList[Any] = ConcurrentStableList()
+    projected: ConcurrentStableList[Any] = ConcurrentStableList()
 
     async def _report(client: object, **kwargs: object) -> ConcurrentStableDict[str, object]:
         """上报替身。
@@ -396,7 +396,7 @@ product_key = "demo"
             ConcurrentStableDict[str, object]: 回执。
         """
         del client
-        reported.add(dict(kwargs))
+        reported.add(ConcurrentStableDict(kwargs))
         return ConcurrentStableDict({"product_key": "demo"})
 
     async def _fetch(client: object) -> RegistrySnapshot:
@@ -413,7 +413,7 @@ product_key = "demo"
 
     monkeypatch.setattr(boot_module, "report_declarations", _report)
     monkeypatch.setattr(boot_module, "fetch_declarations", _fetch)
-    monkeypatch.setattr(boot_module, "project_registry", lambda snapshot: projected.add(snapshot))
+    monkeypatch.setattr(boot_module, "project_registry", projected.add)
 
     await boot_module.bootstrap_declarations(_app())
 

@@ -1732,6 +1732,64 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/platform/internal/declarations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Submit Declarations
+         * @description 全量上报本产品声明（幂等；冲突即拒）。
+         *
+         *     Args:
+         *         req: 上报请求（产品键 / 服务键 / 清单文本）。
+         *         uow: 平台库工作单元（写事务边界）。
+         *         context: 入站身份（服务键须与请求一致）。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为逐类计数与警示。
+         *
+         *     Raises:
+         *         ParamError: 产品键与清单不符、服务键与身份或清单不符（10001）。
+         *         CatalogError: 校验不过或跨产品撞键（拒绝注册）。
+         */
+        put: operations["submit_declarations_api_v1_platform_internal_declarations_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/internal/declarations/snapshot": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Declaration Snapshot
+         * @description 下发注册表快照（服务身份专用；八类完整要素）。
+         *
+         *     Args:
+         *         session: 平台库只读会话。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为 `{snapshot_version, declarations}`。
+         */
+        get: operations["declaration_snapshot_api_v1_platform_internal_declarations_snapshot_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/platform/internal/permissions/invalidate": {
         parameters: {
             query?: never;
@@ -4670,6 +4728,18 @@ export interface components {
          * @enum {string}
          */
         DataSourceStrategy: "select" | "region" | "match" | "extension";
+        /**
+         * DeclarationSubmitRequest
+         * @description 全量上报请求（单次全量，服务端按「本产品维度整体对账」）。
+         */
+        DeclarationSubmitRequest: {
+            /** Manifest Toml */
+            manifest_toml: string;
+            /** Product Key */
+            product_key: string;
+            /** Service Key */
+            service_key: string;
+        };
         /**
          * DemoCreateRequest
          * @description 创建 demo 请求。
@@ -13119,6 +13189,149 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    submit_declarations_api_v1_platform_internal_declarations_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeclarationSubmitRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    declaration_snapshot_api_v1_platform_internal_declarations_snapshot_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
                 };
             };
             /** @description 限流 */

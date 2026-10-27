@@ -119,11 +119,11 @@ def test_diff_reports_extra_declaration() -> None:
     assert any("注册表多出声明" in item for item in errors)
 
 
-def test_platform_payload_reads_local_manifest_and_services() -> None:
+def testplatform_payload_reads_local_manifest_and_services() -> None:
     """本仓平台载荷：读 `deploy/registry/platform.toml` 并并入 `SERVICE_CATALOG` 服务行。"""
-    from ops.check_modules import _platform_payload
+    from ops.check_modules import platform_payload
 
-    payload = _platform_payload()
+    payload = platform_payload()
 
     assert payload.product_key == "platform"
     assert {"sys", "identity"} <= {record.module_key for record in payload.services}
@@ -155,7 +155,7 @@ def test_check_registry_db_reports_unreadable_db_with_manifest(tmp_path: object,
     from ops import check_modules
 
     monkeypatch.setattr(  # type: ignore[attr-defined]
-        check_modules, "_platform_payload", lambda: DeclarationPayload(product_key="platform", service_key="platform")
+        check_modules, "platform_payload", lambda: DeclarationPayload(product_key="platform", service_key="platform")
     )
 
     errors = check_modules.check_registry_db(f"sqlite+aiosqlite:///{tmp_path}/missing-dir/y.db")
@@ -163,7 +163,7 @@ def test_check_registry_db_reports_unreadable_db_with_manifest(tmp_path: object,
     assert any("注册表库不可读" in item for item in errors)
 
 
-def test_platform_payload_requires_manifest(monkeypatch: object) -> None:
+def testplatform_payload_requires_manifest(monkeypatch: object) -> None:
     """本仓平台清单缺失：抛 `CatalogError`（由调用方转成明细）。"""
     import pytest as _pytest
 
@@ -173,7 +173,7 @@ def test_platform_payload_requires_manifest(monkeypatch: object) -> None:
     monkeypatch.setattr(check_modules, "local_manifest_paths", lambda: ConcurrentStableList())  # type: ignore[attr-defined]
 
     with _pytest.raises(CatalogError, match="本仓平台清单缺失"):
-        check_modules._platform_payload()
+        check_modules.platform_payload()
 
 
 def test_check_registry_db_reports_missing_manifest(monkeypatch: object) -> None:
@@ -187,7 +187,7 @@ def test_check_registry_db_reports_missing_manifest(monkeypatch: object) -> None
     assert any("本仓声明不可读" in item for item in errors)
 
 
-def test_platform_payload_merges_manifest_services(monkeypatch: object) -> None:
+def testplatform_payload_merges_manifest_services(monkeypatch: object) -> None:
     """平台载荷：清单里未在 `SERVICE_CATALOG` 的服务行被并入（去重后追加）；非平台清单行被跳过。"""
     from pathlib import Path
 
@@ -224,7 +224,7 @@ def test_platform_payload_merges_manifest_services(monkeypatch: object) -> None:
     monkeypatch.setattr(check_modules, "load_product_manifest", lambda path: path)  # type: ignore[attr-defined]
     monkeypatch.setattr(check_modules, "from_manifest", lambda manifest: fake_payload)  # type: ignore[attr-defined]
 
-    payload = check_modules._platform_payload()
+    payload = check_modules.platform_payload()
 
     module_keys = {record.module_key for record in payload.services}
     assert {"sys", "extra"} <= module_keys
