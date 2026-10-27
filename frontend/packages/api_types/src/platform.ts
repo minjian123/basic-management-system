@@ -385,6 +385,92 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/capability-grants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Capability Grants
+         * @description 授权记录清单（只读，分页 + 筛选）。
+         *
+         *     需要 `capability-grant:query` 权限；只读会话取平台库（授权记录跨租户共享）。
+         *
+         *     Args:
+         *         session: 平台库只读会话。
+         *         query: 分页与排序请求（排序白名单校验、非法忽略）。
+         *         audit: 审计捕获器（占位注入；只读端点不产生审计事件）。
+         *         capability_name: 能力名筛选。
+         *         consumer_key: 消费方筛选。
+         *         status: 状态筛选。
+         *         source: 来源筛选。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为分页结构 `{list, total, page, size}`。
+         */
+        get: operations["list_capability_grants_api_v1_capability_grants_get"];
+        put?: never;
+        /**
+         * Grant Capability
+         * @description 人工授予（同一「能力 × 消费方」幂等 UPSERT；临时授权必填有效期与理由）。
+         *
+         *     需要 `capability-grant:manage` 权限；授予后清授权视图快照，撤销 / 授予在有界周期内生效。
+         *
+         *     Args:
+         *         req: 授予请求（能力名 / 消费方 / 可选有效期与理由）。
+         *         uow: 平台库工作单元（写事务边界）。
+         *         audit: 审计捕获器。
+         *         metrics: 指标器（刷新有效授权数）。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为授权记录。
+         *
+         *     Raises:
+         *         ParamError: 能力未登记 / 消费方未登记 / 有效期非法 / 临时授权缺理由（10001）。
+         */
+        post: operations["grant_capability_api_v1_capability_grants_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/capability-grants/{grant_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Revoke Capability
+         * @description 撤销授权（软撤销：置 `disabled` + `revoked_at`，保留授权历史；重复撤销幂等）。
+         *
+         *     需要 `capability-grant:manage` 权限。
+         *
+         *     Args:
+         *         grant_id: 授权记录主键。
+         *         uow: 平台库工作单元（写事务边界）。
+         *         audit: 审计捕获器。
+         *         metrics: 指标器（刷新有效授权数）。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为撤销后的授权记录。
+         *
+         *     Raises:
+         *         NotFoundError: 记录不存在（10002）。
+         */
+        delete: operations["revoke_capability_api_v1_capability_grants__grant_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/code/validate-expression": {
         parameters: {
             query?: never;
@@ -1491,6 +1577,41 @@ export interface paths {
          *         ApiResponse: 统一响应，data 为扫描概要（`InactiveScanResult`）。
          */
         post: operations["scan_inactive_api_v1_platform_internal_account_locks_scan_inactive_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/internal/capability-grants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Capability Grant View
+         * @description 按维度下发授权视图（`provider` / `consumer` 二选一）。
+         *
+         *     Args:
+         *         request: 请求对象（登录态分支的权限码校验用）。
+         *         session: 平台库只读会话。
+         *         context: 入站身份（服务身份或登录态）。
+         *         audit: 审计捕获器（占位注入；只读端点不产生审计事件）。
+         *         provider: 提供方业务域（入站维度）。
+         *         consumer: 消费方服务键（出站维度）。
+         *
+         *     Returns:
+         *         ApiResponse: 统一响应，data 为 `{provider, consumer, grants}`。
+         *
+         *     Raises:
+         *         ParamError: `provider` / `consumer` 未二选一（10001）。
+         *         PermissionError: 服务身份越界读取，或登录态缺少权限码（30001 / 403）。
+         */
+        get: operations["capability_grant_view_api_v1_platform_internal_capability_grants_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -4268,6 +4389,36 @@ export interface components {
              * @enum {string}
              */
             type: "toolbar" | "interface";
+        };
+        /**
+         * CapabilityGrantCreateRequest
+         * @description 人工授予请求（幂等 UPSERT 同一「能力 × 消费方」行）。
+         *
+         *     `expire_at` 与 `note` **成对出现**：临时授权（排障 / 迁移窗口）必须给有效期与理由，
+         *     避免长期留存的排障授权；长期授权可不填有效期。
+         */
+        CapabilityGrantCreateRequest: {
+            /**
+             * Capability Name
+             * @description 能力名（须已登记）
+             */
+            capability_name: string;
+            /**
+             * Consumer Key
+             * @description 消费方服务键（须已登记）
+             */
+            consumer_key: string;
+            /**
+             * Expire At
+             * @description 有效期截止（UTC；空=长期有效）
+             */
+            expire_at?: string | null;
+            /**
+             * Note
+             * @description 授予理由（临时授权必填）
+             * @default
+             */
+            note: string;
         };
         /**
          * ConfigResolveRequest
@@ -8772,6 +8923,252 @@ export interface operations {
             };
         };
     };
+    list_capability_grants_api_v1_capability_grants_get: {
+        parameters: {
+            query?: {
+                /** @description 能力名筛选；缺省全部 */
+                capability_name?: string | null;
+                /** @description 消费方标识筛选；缺省全部 */
+                consumer_key?: string | null;
+                /** @description 状态筛选（enabled / disabled）；缺省全部 */
+                status?: string | null;
+                /** @description 来源筛选（declared / manual）；缺省全部 */
+                source?: string | null;
+                /** @description 页码（从 1 起） */
+                page?: number;
+                /** @description 每页条数（默认 20，上限 200） */
+                size?: number;
+                /** @description 排序字段，逗号分隔多值（如 status,created_at） */
+                order_by?: string | null;
+                /** @description 排序方向数组，与 order_by 位置一一对应 */
+                order?: string[] | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    grant_capability_api_v1_capability_grants_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CapabilityGrantCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    revoke_capability_api_v1_capability_grants__grant_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 授权记录主键（雪花 ID） */
+                grant_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
     validate_expression_api_v1_code_validate_expression_post: {
         parameters: {
             query?: never;
@@ -12214,6 +12611,85 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponse_InactiveScanResult_"];
+                };
+            };
+            /** @description 未认证 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 无权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description 限流 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description 服务异常 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    capability_grant_view_api_v1_platform_internal_capability_grants_get: {
+        parameters: {
+            query?: {
+                /** @description 提供方业务域（入站维度；与 consumer 二选一） */
+                provider?: string | null;
+                /** @description 消费方服务键（出站维度；与 provider 二选一） */
+                consumer?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
                 };
             };
             /** @description 未认证 */

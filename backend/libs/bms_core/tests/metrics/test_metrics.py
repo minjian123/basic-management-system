@@ -55,6 +55,9 @@ def test_metric_kinds_and_names() -> None:
         "bms_txn_cleaned_total",
         "bms_capability_degrade_total",
         "bms_capability_resolve_error_total",
+        "bms_capability_call_total",
+        "bms_capability_denied_total",
+        "bms_capability_grant_active",
     )
     assert len(set(METRIC_NAMES)) == len(METRIC_NAMES)
     assert all(name.startswith("bms_") for name in METRIC_NAMES)

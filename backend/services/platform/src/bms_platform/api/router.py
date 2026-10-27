@@ -15,7 +15,13 @@ from bms_platform.api import (
 from bms_platform.domains.menu_form.api import form_key, menu
 from bms_platform.domains.permission_meta.api import icon, permission, permission_meta
 from bms_platform.domains.platform_config.api import internal_config, query_scheme
-from bms_platform.domains.platform_registry.api import data_source, modules, products
+from bms_platform.domains.platform_registry.api import (
+    capability_grants,
+    data_source,
+    internal_capability_grants,
+    modules,
+    products,
+)
 from bms_platform.domains.platform_registry.api import dict as dict_api
 from bms_platform.domains.role.api import role
 from bms_platform.domains.user.api import (
@@ -61,6 +67,9 @@ api_router = mount_service_routers(
             permission_meta.business_router,
             permission_meta.action_router,
             permission_meta.permission_router,
+            # 能力分配授权（07B `02_04`）：管理面 + 内部授权视图（新增路由追加在末尾，契约快照仅追加）
+            capability_grants.router,
+            internal_capability_grants.router,
             # 跨服务事务参与端点（`/txn/branches*`；谁挂端点谁参与，05_07）
             build_branch_router(),
         ]

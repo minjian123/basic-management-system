@@ -2309,6 +2309,52 @@
         "title": "ButtonUpdateRequest",
         "type": "object"
       },
+      "CapabilityGrantCreateRequest": {
+        "additionalProperties": false,
+        "description": "人工授予请求（幂等 UPSERT 同一「能力 × 消费方」行）。\n\n`expire_at` 与 `note` **成对出现**：临时授权（排障 / 迁移窗口）必须给有效期与理由，\n避免长期留存的排障授权；长期授权可不填有效期。",
+        "properties": {
+          "capability_name": {
+            "description": "能力名（须已登记）",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Capability Name",
+            "type": "string"
+          },
+          "consumer_key": {
+            "description": "消费方服务键（须已登记）",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Consumer Key",
+            "type": "string"
+          },
+          "expire_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "有效期截止（UTC；空=长期有效）",
+            "title": "Expire At"
+          },
+          "note": {
+            "default": "",
+            "description": "授予理由（临时授权必填）",
+            "maxLength": 255,
+            "title": "Note",
+            "type": "string"
+          }
+        },
+        "required": [
+          "capability_name",
+          "consumer_key"
+        ],
+        "title": "CapabilityGrantCreateRequest",
+        "type": "object"
+      },
       "ConfigResolveRequest": {
         "additionalProperties": false,
         "description": "批量取参数请求。",
@@ -9045,6 +9091,413 @@
         ]
       }
     },
+    "/api/v1/capability-grants": {
+      "get": {
+        "description": "授权记录清单（只读，分页 + 筛选）。\n\n需要 `capability-grant:query` 权限；只读会话取平台库（授权记录跨租户共享）。\n\nArgs:\n    session: 平台库只读会话。\n    query: 分页与排序请求（排序白名单校验、非法忽略）。\n    audit: 审计捕获器（占位注入；只读端点不产生审计事件）。\n    capability_name: 能力名筛选。\n    consumer_key: 消费方筛选。\n    status: 状态筛选。\n    source: 来源筛选。\n\nReturns:\n    ApiResponse: 统一响应，data 为分页结构 `{list, total, page, size}`。",
+        "operationId": "list_capability_grants_api_v1_capability_grants_get",
+        "parameters": [
+          {
+            "description": "能力名筛选；缺省全部",
+            "in": "query",
+            "name": "capability_name",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "能力名筛选；缺省全部",
+              "title": "Capability Name"
+            }
+          },
+          {
+            "description": "消费方标识筛选；缺省全部",
+            "in": "query",
+            "name": "consumer_key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "消费方标识筛选；缺省全部",
+              "title": "Consumer Key"
+            }
+          },
+          {
+            "description": "状态筛选（enabled / disabled）；缺省全部",
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "状态筛选（enabled / disabled）；缺省全部",
+              "title": "Status"
+            }
+          },
+          {
+            "description": "来源筛选（declared / manual）；缺省全部",
+            "in": "query",
+            "name": "source",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "来源筛选（declared / manual）；缺省全部",
+              "title": "Source"
+            }
+          },
+          {
+            "description": "页码（从 1 起）",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "页码（从 1 起）",
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "每页条数（默认 20，上限 200）",
+            "in": "query",
+            "name": "size",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "description": "每页条数（默认 20，上限 200）",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Size",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "排序字段，逗号分隔多值（如 status,created_at）",
+            "in": "query",
+            "name": "order_by",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序字段，逗号分隔多值（如 status,created_at）",
+              "title": "Order By"
+            }
+          },
+          {
+            "description": "排序方向数组，与 order_by 位置一一对应",
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序方向数组，与 order_by 位置一一对应",
+              "title": "Order"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "List Capability Grants",
+        "tags": [
+          "capability-grant"
+        ]
+      },
+      "post": {
+        "description": "人工授予（同一「能力 × 消费方」幂等 UPSERT；临时授权必填有效期与理由）。\n\n需要 `capability-grant:manage` 权限；授予后清授权视图快照，撤销 / 授予在有界周期内生效。\n\nArgs:\n    req: 授予请求（能力名 / 消费方 / 可选有效期与理由）。\n    uow: 平台库工作单元（写事务边界）。\n    audit: 审计捕获器。\n    metrics: 指标器（刷新有效授权数）。\n\nReturns:\n    ApiResponse: 统一响应，data 为授权记录。\n\nRaises:\n    ParamError: 能力未登记 / 消费方未登记 / 有效期非法 / 临时授权缺理由（10001）。",
+        "operationId": "grant_capability_api_v1_capability_grants_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CapabilityGrantCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Grant Capability",
+        "tags": [
+          "capability-grant"
+        ]
+      }
+    },
+    "/api/v1/capability-grants/{grant_id}": {
+      "delete": {
+        "description": "撤销授权（软撤销：置 `disabled` + `revoked_at`，保留授权历史；重复撤销幂等）。\n\n需要 `capability-grant:manage` 权限。\n\nArgs:\n    grant_id: 授权记录主键。\n    uow: 平台库工作单元（写事务边界）。\n    audit: 审计捕获器。\n    metrics: 指标器（刷新有效授权数）。\n\nReturns:\n    ApiResponse: 统一响应，data 为撤销后的授权记录。\n\nRaises:\n    NotFoundError: 记录不存在（10002）。",
+        "operationId": "revoke_capability_api_v1_capability_grants__grant_id__delete",
+        "parameters": [
+          {
+            "description": "授权记录主键（雪花 ID）",
+            "in": "path",
+            "name": "grant_id",
+            "required": true,
+            "schema": {
+              "description": "授权记录主键（雪花 ID）",
+              "title": "Grant Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Revoke Capability",
+        "tags": [
+          "capability-grant"
+        ]
+      }
+    },
     "/api/v1/code/validate-expression": {
       "post": {
         "description": "校验表达式（语法 / 字段 / 变量诊断，含位置）。\n\nArgs:\n    validator: 代码校验基座。\n    req: 表达式校验请求（表达式文本 / 上下文）。\n\nReturns:\n    ApiResponse: 统一响应，data 为校验结果（`ExpressionValidationResponse`）。",
@@ -13676,6 +14129,126 @@
           }
         },
         "summary": "Scan Inactive",
+        "tags": [
+          "platform-internal"
+        ]
+      }
+    },
+    "/api/v1/platform/internal/capability-grants": {
+      "get": {
+        "description": "按维度下发授权视图（`provider` / `consumer` 二选一）。\n\nArgs:\n    request: 请求对象（登录态分支的权限码校验用）。\n    session: 平台库只读会话。\n    context: 入站身份（服务身份或登录态）。\n    audit: 审计捕获器（占位注入；只读端点不产生审计事件）。\n    provider: 提供方业务域（入站维度）。\n    consumer: 消费方服务键（出站维度）。\n\nReturns:\n    ApiResponse: 统一响应，data 为 `{provider, consumer, grants}`。\n\nRaises:\n    ParamError: `provider` / `consumer` 未二选一（10001）。\n    PermissionError: 服务身份越界读取，或登录态缺少权限码（30001 / 403）。",
+        "operationId": "capability_grant_view_api_v1_platform_internal_capability_grants_get",
+        "parameters": [
+          {
+            "description": "提供方业务域（入站维度；与 consumer 二选一）",
+            "in": "query",
+            "name": "provider",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "提供方业务域（入站维度；与 consumer 二选一）",
+              "title": "Provider"
+            }
+          },
+          {
+            "description": "消费方服务键（出站维度；与 provider 二选一）",
+            "in": "query",
+            "name": "consumer",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "消费方服务键（出站维度；与 provider 二选一）",
+              "title": "Consumer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "未认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "description": "服务异常"
+          }
+        },
+        "summary": "Capability Grant View",
         "tags": [
           "platform-internal"
         ]

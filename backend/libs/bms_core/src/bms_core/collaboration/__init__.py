@@ -1,11 +1,14 @@
-"""跨产品协同能力寻址（07B `02_02`）：单点取用入口 + 两段解析 + 三档失败语义。
+"""跨产品协同能力寻址（07B `02_02`）与能力分配（07B `02_04`）：单点入口 + 两段解析 + 三档失败语义。
 
 - `resolve_capability(name)`：**唯一**取用入口（能力名 → 访问面与解析目标；缺失 / 禁用即抛，不返回空值）；
 - `CapabilityEndpoint` / `CapabilityTarget` / `CapabilityMode`：冻结返回模型与部署模式；
 - `TopologyResolver` / `register_topology_resolver()`：第二段解析协议与替换点（真实实现归 07C `02_02`）；
 - `CapabilityUsage` / `call_capability()`：消费方降级声明与统一执行入口（写 / 强一致路径不得声明降级）；
-- `build_capability_request()`：由取用结果构造 `ServiceRequest`（消费方不自拼服务键与路径）；
+- `build_capability_request()`：由取用结果构造 `ServiceRequest`（消费方不自拼服务键与路径；出站 scope 按授权自动填）；
 - `find_undeclared_degradations()`：无声明降级的护栏扫描（`03_01` 收编后对消费方零命中）。
+
+能力分配（`02_04`）：`CapabilityGrant` / `plan_grant_sync()`（声明差异纯函数）、`granted_scopes()`（出站）、
+`check_capability_access()`（入站判定 + 打点）、授权视图来源登记与 TTL 刷新。
 """
 
 from bms_core.collaboration.base import (
@@ -13,6 +16,35 @@ from bms_core.collaboration.base import (
     CapabilityEndpoint,
     CapabilityMode,
     CapabilityTarget,
+)
+from bms_core.collaboration.grant import (
+    CALL_RESULT_ALLOWED,
+    CALL_RESULT_DENIED,
+    CALL_RESULT_EXPIRED,
+    GRANT_VIEW_PATH,
+    GRANT_VIEW_TTL_SECONDS,
+    METRIC_CAPABILITY_CALL,
+    METRIC_CAPABILITY_DENIED,
+    METRIC_CAPABILITY_GRANT_ACTIVE,
+    SCOPE_PREFIX,
+    CapabilityGrant,
+    CapabilityGrantSource,
+    GrantSyncPlan,
+    GrantViewSnapshot,
+    RemoteCapabilityGrantSource,
+    capability_grant_pairs,
+    check_capability_access,
+    declare_capability_grants,
+    ensure_grant_view,
+    granted_consumers,
+    granted_scopes,
+    invalidate_capability_grants,
+    is_grant_effective,
+    plan_grant_sync,
+    record_capability_call,
+    register_capability_grant_source,
+    reset_capability_grants,
+    scope_action_of,
 )
 from bms_core.collaboration.guard import find_undeclared_degradations
 from bms_core.collaboration.request import build_capability_request
@@ -43,31 +75,58 @@ from bms_core.collaboration.usage import (
 )
 
 __all__ = [
+    "CALL_RESULT_ALLOWED",
+    "CALL_RESULT_DENIED",
+    "CALL_RESULT_EXPIRED",
     "DEGRADE_EMPTY",
     "DEGRADE_MODES",
     "DEGRADE_NONE",
     "DEGRADE_STALE",
+    "GRANT_VIEW_PATH",
+    "GRANT_VIEW_TTL_SECONDS",
+    "METRIC_CAPABILITY_CALL",
     "METRIC_CAPABILITY_DEGRADE",
+    "METRIC_CAPABILITY_DENIED",
+    "METRIC_CAPABILITY_GRANT_ACTIVE",
     "METRIC_CAPABILITY_RESOLVE_ERROR",
+    "SCOPE_PREFIX",
     "WRITE_KINDS",
     "CapabilityEndpoint",
+    "CapabilityGrant",
+    "CapabilityGrantSource",
     "CapabilityMode",
     "CapabilityTarget",
     "CapabilityUsage",
     "DomainLayoutTopologyResolver",
+    "GrantSyncPlan",
+    "GrantViewSnapshot",
+    "RemoteCapabilityGrantSource",
     "TopologyResolver",
     "build_capability_request",
     "call_capability",
+    "capability_grant_pairs",
     "capability_usage_view",
     "capability_usages",
+    "check_capability_access",
+    "declare_capability_grants",
+    "ensure_grant_view",
     "find_capability_usage",
     "find_undeclared_degradations",
+    "granted_consumers",
+    "granted_scopes",
     "inspect_capability_usages",
+    "invalidate_capability_grants",
+    "is_grant_effective",
+    "plan_grant_sync",
+    "record_capability_call",
+    "register_capability_grant_source",
     "register_capability_usages",
     "register_topology_resolver",
+    "reset_capability_grants",
     "reset_capability_usages",
     "reset_topology_resolver",
     "resolve_capability",
     "resolve_topology",
+    "scope_action_of",
     "validate_capability_usages",
 ]

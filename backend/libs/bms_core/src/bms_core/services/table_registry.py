@@ -207,6 +207,13 @@ TABLE_OWNERSHIP: ConcurrentStableList[TableRecord] = ConcurrentStableList(
             note="产品档案（产品级注册 / R4.1；`sys_module.product_key` 逻辑引用）",
         ),
         TableRecord(
+            table_name="sys_capability_grant",
+            owner="platform",
+            domain="platform_registry",
+            datasource=Datasource.PLATFORM,
+            note="能力分配授权（能力 × 消费方；声明默认与人工授予同表；撤销不删行，07B 02_04）",
+        ),
+        TableRecord(
             table_name="sys_tenant_quota",
             owner="tenant",
             domain="tenant",

@@ -11,6 +11,7 @@ from bms_core.core.concurrent import ConcurrentStableList
 
 MODEL_MODULES: ConcurrentStableList[str] = ConcurrentStableList(
     (
+        "bms_core.models.platform.capability_grant",
         "bms_core.models.platform.catalog",
         "bms_core.models.platform.demo",
         "bms_core.models.platform.icon",

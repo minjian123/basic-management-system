@@ -96,6 +96,7 @@
       "paths": [
         "backend/services/platform/src/bms_platform/domains/platform_registry/**/*.py",
         "backend/libs/bms_core/src/bms_core/models/ownership.py",
+        "backend/libs/bms_core/src/bms_core/models/platform/capability_grant.py",
         "backend/libs/bms_core/src/bms_core/models/platform/catalog.py"
       ],
       "public_api": [

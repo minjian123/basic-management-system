@@ -9,7 +9,7 @@ from typing import cast
 
 from fastapi import APIRouter, FastAPI
 
-from bms_core.application import BaseServiceApplicationFactory
+from bms_core.application import BaseServiceApplicationFactory, StartupHook
 from bms_core.catalog.loader import register_catalog_reader
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.config import Settings
@@ -24,6 +24,9 @@ from bms_platform.domains.permission_meta.icon.registry import (  # noqa: F401  
     DbIconRegistry,  # pyright: ignore[reportUnusedImport]
 )
 from bms_platform.domains.permission_meta.permission.checker import register_platform_permission
+from bms_platform.domains.platform_registry.services.capability_grant_bootstrap import (
+    bootstrap_capability_grants,
+)
 from bms_platform.domains.platform_registry.sources.catalog_source import read_catalog
 from bms_platform.domains.platform_registry.sources.dict_source import PlatformDictDataSource
 from bms_platform.repositories.demo_repository import DemoRepository
@@ -69,6 +72,14 @@ class ApplicationFactory(BaseServiceApplicationFactory):
             ConcurrentStableList[APIRouter]: 业务聚合路由（探针由基座统一挂载）。
         """
         return ConcurrentStableList([api_router])
+
+    def startup_hooks(self) -> ConcurrentStableList[StartupHook]:
+        """启动钩子：能力分配声明同步 + 授权视图来源登记 + 快照预热（07B `02_04`）。
+
+        Returns:
+            ConcurrentStableList[StartupHook]: 启动钩子清单。
+        """
+        return ConcurrentStableList((bootstrap_capability_grants,))
 
     def configure_service(self, app: FastAPI, settings: Settings) -> None:
         """注入平台专属 state（demo 服务）并登记本地权威读取器（服务目录）与权限实现。

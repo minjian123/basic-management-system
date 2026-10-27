@@ -103,6 +103,7 @@ BUSINESS_SEEDS: ConcurrentStableList[tuple[str, str, str]] = ConcurrentStableLis
         ("import", "Excel 批量导入", "Bulk import"),
         ("export", "列表导出", "Export"),
         ("query", "列表查询方案管理", "Query scheme"),
+        ("capability-grant", "能力分配授权", "Capability grant"),
     )
 )
 """业务权限码种子（《架构设计 · 权限计算引擎》「业务与动作权限码清单」节）。"""
@@ -217,6 +218,8 @@ PERMISSION_SEEDS: ConcurrentStableList[tuple[str, str, str, str]] = ConcurrentSt
         ("mdm", "delete", "删除", "Delete"),
         ("idp", "query", "查询", "Query"),
         ("pur", "query", "查询", "Query"),
+        ("capability-grant", "query", "查询", "Query"),
+        ("capability-grant", "manage", "管理（授予 / 撤销）", "Manage"),
     )
 )
 """权限码种子（业务码 × 动作码组合；名称由业务名 + 动作名组合生成）。

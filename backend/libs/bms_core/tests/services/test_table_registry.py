@@ -105,7 +105,9 @@ def test_owned_tables_and_chain_derivation() -> None:
 
     # 域清单只含本域表（03_02）：表前缀 / 归属域一一对应
     registry_platform = series_tables("platform_registry", Datasource.PLATFORM)
-    assert registry_platform == frozenset({"sys_module", "sys_module_i18n", "sys_product", "sys_table_ownership"})
+    assert registry_platform == frozenset(
+        {"sys_module", "sys_module_i18n", "sys_product", "sys_capability_grant", "sys_table_ownership"}
+    )
     assert "sys_tenant" not in registry_platform
     assert infrastructure_tables().isdisjoint(registry_platform), "基础设施表不得进域清单"
     assert {"sys_business", "sys_action", "sys_permission"} <= series_tables("permission_meta", Datasource.PLATFORM)

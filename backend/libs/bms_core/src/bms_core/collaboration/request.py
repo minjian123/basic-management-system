@@ -13,7 +13,9 @@
 from dataclasses import replace
 
 from bms_core.collaboration.base import CapabilityEndpoint
+from bms_core.collaboration.grant import granted_scopes
 from bms_core.core.concurrent import ConcurrentStableFrozenDict
+from bms_core.core.config import get_settings
 from bms_core.core.exceptions import ParamError
 from bms_core.servicecall.base import ServiceCallPolicy, ServiceRequest
 from bms_core.services.module_registry import render_capability_path
@@ -40,7 +42,7 @@ def build_capability_request(
         query: 查询参数（可选）。
         json_body: JSON 请求体（可选）。
         tenant_id: 调用方租户主键（可选；随服务 JWT 的 `tenant_id` claim 传递）。
-        policy: 调用韧性策略（None 取 `ServiceCallPolicy` 缺省值）。
+        policy: 调用韧性策略（None 时取缺省策略，并按当前服务**有效授权**自动填 `scopes`）。
 
     Returns:
         ServiceRequest: 服务间调用请求（`service` 为承载服务标识）。
@@ -59,4 +61,7 @@ def build_capability_request(
         json_body=json_body,
         tenant_id=tenant_id,
     )
-    return request if policy is None else replace(request, policy=policy)
+    if policy is None:
+        # 出站 scope 由授权派生（07B `02_04`）：消费方零感知，杜绝漏填；显式传入的 policy 原样尊重
+        policy = ServiceCallPolicy(scopes=granted_scopes(get_settings().app.service))
+    return replace(request, policy=policy)

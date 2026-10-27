@@ -58,6 +58,9 @@ METRIC_NAMES: ConcurrentStableList[str] = ConcurrentStableList(
         "bms_txn_cleaned_total",
         "bms_capability_degrade_total",
         "bms_capability_resolve_error_total",
+        "bms_capability_call_total",
+        "bms_capability_denied_total",
+        "bms_capability_grant_active",
     )
 )
 """候选指标名清单（架构「指标采集」节六类 + 服务边界跨库访问计数 + 发件箱投递 + 库数量 + 阶段度量）：
@@ -65,7 +68,9 @@ METRIC_NAMES: ConcurrentStableList[str] = ConcurrentStableList(
 发件箱投递与积压 / 库数量（`kind` ∈ platform / tenant / archive，标签含 `service`；06_02）/
 阶段度量（`bms_release_total` / `bms_contract_breaking_total` 由 CI 推送 Pushgateway、应用侧不记录；08_02）/
 跨服务事务（05_07）：全局事务状态迁移、分支驱动结果、恢复驱动与悬挂、恢复器 leader 取得 /
-跨产品能力寻址（07B `02_02`）：读侧降级（`{capability, consumer, mode}`）与能力取用失败（`{capability, consumer}`）。"""
+跨产品能力寻址（07B `02_02`）：读侧降级（`{capability, consumer, mode}`）与能力取用失败（`{capability, consumer}`）/
+跨产品能力分配（07B `02_04`）：调用计数（`{capability, consumer, result}`，覆盖调用量 / 失败率 / 越权）、
+越权尝试（`{capability, consumer}`）与有效授权数（gauge，`{capability}`）。"""
 
 MetricLabels = Mapping[str, str]
 """指标标签集（维度键值，如 `{"route": "/api/v1/users", "method": "GET"}`）。"""
