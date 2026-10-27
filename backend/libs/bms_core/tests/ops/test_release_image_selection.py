@@ -140,12 +140,18 @@ def test_run_image_of_rejects_missing_or_illegal_declaration(tmp_path: Path, mon
 
 @pytest.mark.kiwi_id(2345)
 def test_bootstrap_uses_declared_images() -> None:
-    """`cmd_bootstrap` 的种子段按声明取镜像（源码断言：不再有硬编码挑镜像注释 / 字面量镜像）。"""
+    """`cmd_bootstrap` 按声明取镜像（源码断言：无硬编码挑镜像注释 / 字面量镜像）。
+
+    07B `02_03` 起种子段由**统一编排入口**承担，且须在服务启动后执行（XA 分支要求参与方在线），
+    故 `bootstrap` 不再直接跑 `ops.seed_*`；建库 / 建表仍按声明取镜像。
+    """
     source = (_DEPLOY_DIR / "release.py").read_text(encoding="utf-8")
     assert "_run_image_of(" in source
     assert "种子按「服务包 / 表归属」选运行镜像" not in source
-    for module in ("ops.seed_module", "ops.seed_tables", "ops.seed_tenant", "ops.provision_tenant"):
-        assert f'_run_image_of("{module}")' in source, f"bootstrap 未按声明取 {module} 的运行镜像"
+    # 建库仍按脚本声明取运行镜像（建表经 `_init_schema` 走 `ops.init_schema` 镜像选择）
+    assert '_run_image_of("ops.provision_tenant")' in source, "bootstrap 未按声明取 ops.provision_tenant 的运行镜像"
+    # 种子段改为提示在服务启动后统一编排（不再逐个跑 seed_* 脚本）
+    assert "种子编排须在服务启动后执行" in source
 
 
 @pytest.mark.kiwi_id(2345)

@@ -681,21 +681,11 @@ def cmd_bootstrap(
     print("[bootstrap] 3/4 建表（按服务）")
     for service in services:
         _init_schema(deploy_dir, env, service, _bootstrap_tag(env, service), tenants)
-    print("[bootstrap] 4/4 种子")
-    # 运行镜像按脚本自身的 `RUN_IMAGE` 声明选取（`ops` 脚本为机器可读单一来源；14_03）：
-    # 声明 `*` 的脚本回落 platform 镜像（只需 bms_core + ops，与历史行为等价）。
-    if "platform" in services:
-        _compose_run(
-            deploy_dir, env, _run_image_of("ops.seed_module"), ConcurrentStableList(["python", "-m", "ops.seed_module"])
-        )
-        _compose_run(
-            deploy_dir, env, _run_image_of("ops.seed_tables"), ConcurrentStableList(["python", "-m", "ops.seed_tables"])
-        )
-        # 字典六表已随 02_09 退役：原「平台租户库种子字典（ops.seed_dict）」步骤删除（脚本与表均已不存在）
-    if "tenant" in services:
-        _compose_run(
-            deploy_dir, env, _run_image_of("ops.seed_tenant"), ConcurrentStableList(["python", "-m", "ops.seed_tenant"])
-        )
+    print("[bootstrap] 4/4 种子（统一编排：平台 + 产品同构声明，一个 XA 全局事务）")
+    # 07B `02_03`：种子由**统一编排入口**执行（原 3 条独立脚本已并入）。
+    # 约束：XA 分支要求参与方在线，故本步骤须在服务已起、未接流量时执行——
+    # `bootstrap` 只建库建表，种子由 `seed` 子命令在 `deploy` 之后单独触发（见 cmd_seed）。
+    print("[bootstrap] 提示：种子编排须在服务启动后执行（python3 ... seed --tenant <租户>）")
     print("[bootstrap] 完成（幂等，可重跑）")
     return 0
 

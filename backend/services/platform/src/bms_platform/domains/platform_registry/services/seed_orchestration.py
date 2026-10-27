@@ -22,6 +22,7 @@ from bms_core.tenant.seed.orchestrator import (
     DEFAULT_TIMEOUT_SECONDS,
     SeedReport,
     build_plan,
+    ensure_structure,
     execute_plan,
     precheck_seeds,
     select_seeds,
@@ -133,6 +134,16 @@ class SeedOrchestrationService:
                     SeedReport(name=item.record.name, source=item.record.name.split("-", 1)[0], status="planned")
                     for item in plan
                 ),
+                warnings=ConcurrentStableFrozenList(precheck.warnings),
+            )
+        # 结构前置阶段（07B `02_03`）：种子依赖表结构就绪，先幂等建表再播种。
+        # 失败即中止，不进事务（退出码 3：编排前置错误）。
+        structure_errors = await ensure_structure(plan, tenant=tenant)
+        if structure_errors:
+            self._logger.error("seed_structure_failed", count=len(structure_errors))
+            return SeedOrchestrationResult(
+                exit_code=3,
+                errors=ConcurrentStableFrozenList(structure_errors),
                 warnings=ConcurrentStableFrozenList(precheck.warnings),
             )
         reports = await execute_plan(

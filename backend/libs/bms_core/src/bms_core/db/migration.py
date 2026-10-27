@@ -910,6 +910,37 @@ def alembic_config(series: MigrationSeries) -> Config:
     return config
 
 
+def validate_series_registry() -> ConcurrentStableList[str]:
+    """校验**迁移清单注册完整性**（07B `02_03`）：域布局里的域是否都已在 `alembic.ini` 登记。
+
+    **为什么需要**：`alembic_config()` 只在「真要跑迁移时」才校验配置段，新增业务域忘登记
+    要等到执行期才炸。本函数把这条校验前移到装载期 / CI 门禁，与其余装载校验同源。
+
+    校验范围：`series_names()` 枚举的候选清单中**已有脚本的那些**（`has_revisions` 为真）。
+
+    **为什么只查有脚本的**：当前阶段迁移脚本已清空（`06_05`），空清单不需要配置段——
+    `alembic upgrade head` 对空清单直接「无脚本（跳过）」。只有真加了脚本的清单才必须登记，
+    否则 `alembic_config()` 会在执行期抛 `ConfigError`。本校验把这条前移到装载期。
+
+    Returns:
+        ConcurrentStableList[str]: 错误明细（空列表表示全部已登记）。
+    """
+    errors: ConcurrentStableList[str] = ConcurrentStableList()
+    for name in series_names():
+        try:
+            series = resolve_series(name)
+        except ConfigError as exc:
+            errors.add(f"迁移清单 {name} 解析失败：{exc}")
+            continue
+        if not has_revisions(series):
+            continue
+        try:
+            alembic_config(series)
+        except ConfigError as exc:
+            errors.add(str(exc))
+    return errors
+
+
 def head_revision(series: MigrationSeries) -> str | None:
     """取该清单 head 版本号（空清单返回 None；供「已是最新」幂等判定）。
 

@@ -80,17 +80,23 @@ def _manifest_settings(paths: ConcurrentStableList[str]) -> SimpleNamespace:
 
 
 def test_check_manifests_not_configured(monkeypatch: pytest.MonkeyPatch) -> None:
-    """未配置产品清单：跳过能力 / 种子校验并给出提示（不失败）。
+    """未配置 `product_manifests` 且本仓无声明：仍成功，并给出「无清单可校验」提示。
+
+    07B `02_03` 起本仓 `deploy/registry/*.toml`（含平台 `platform.toml`）由装载器自动发现，
+    故「未配置 product_manifests」不再等于「无清单」——提示文案相应改为「无任何清单可校验」，
+    且仅在本仓声明目录也为空时出现。
 
     Args:
         monkeypatch: pytest monkeypatch 夹具。
     """
     monkeypatch.setattr(check_modules, "get_settings", lambda: _manifest_settings(ConcurrentStableList()))
+    # 把本仓声明目录指向空目录，模拟「完全没有清单」的极简环境
+    monkeypatch.setattr(products, "_local_manifest_paths", lambda: ConcurrentStableList())
 
     errors, warnings = check_modules.check_manifests()
 
     assert errors == []
-    assert any("未配置 [registry].product_manifests" in warning for warning in warnings)
+    assert any("无任何清单可校验" in warning for warning in warnings)
 
 
 def test_check_manifests_reports_errors(

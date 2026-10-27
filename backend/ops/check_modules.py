@@ -33,6 +33,7 @@ from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.config import get_settings
 from bms_core.core.version import contract_major
 from bms_core.db.keys import PLATFORM_SERVICE_KEY
+from bms_core.db.migration import validate_series_registry
 from bms_core.registry.products import inspect_product_manifests
 from bms_core.services.module_registry import (
     PRODUCT_CATALOG,
@@ -173,12 +174,17 @@ def check_manifests() -> tuple[ConcurrentStableList[str], ConcurrentStableList[s
         tuple[ConcurrentStableList[str], ConcurrentStableList[str]]: （错误明细, 跳过 / 降级提示）。
     """
     paths = ConcurrentStableList(get_settings().registry.product_manifests)
-    if not paths:
-        return ConcurrentStableList(), ConcurrentStableList(
-            ["[清单] 未配置 [registry].product_manifests（跳过能力 / 种子校验）"]
-        )
+    # 07B `02_03`：本仓 `deploy/registry/*.toml`（含平台 `platform.toml`）由装载器**自动发现**，
+    # 故「未配置 product_manifests」不再等于「无清单可校验」——实际清单由 `_with_local_manifests` 合并。
     inspection = inspect_product_manifests(paths)
-    return ConcurrentStableList(inspection.errors), ConcurrentStableList(inspection.warnings)
+    errors = ConcurrentStableList(inspection.errors)
+    # 迁移清单注册完整性（07B `02_03`）：有脚本的清单必须已在 alembic.ini 登记配置段。
+    # 与清单校验同源（同一门禁命令），不新增并行校验入口。
+    errors.update(validate_series_registry())
+    warnings = ConcurrentStableList(inspection.warnings)
+    if not paths and not inspection.manifests:
+        warnings.add("[清单] 无任何清单可校验（本仓 deploy/registry/ 与 [registry].product_manifests 均为空）")
+    return errors, warnings
 
 
 async def _read_catalog(url: str) -> ConcurrentStableList[ModuleRecord]:

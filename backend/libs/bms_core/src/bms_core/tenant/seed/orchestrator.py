@@ -508,3 +508,38 @@ def _rolled_back(
             report.status = "rolled_back"
             report.note = f"← 失败：{note}"
     return ConcurrentStableFrozenList(reports)
+
+
+async def ensure_structure(
+    plan: ConcurrentStableList[SeedPlanItem],
+    *,
+    tenant: str,
+) -> ConcurrentStableList[str]:
+    """**结构前置阶段**（07B `02_03`）：种子执行前确保目标库表结构就绪。
+
+    **为什么必须在种子之前**：种子写的是具体表（`sys_business` / `sys_menu` / …），
+    表不存在时种子直接失败。故编排在 `TM.begin()` **之前**先做幂等建表。
+
+    **只建表、不跑迁移**（拍板）：当前阶段迁移脚本已清空（`06_05`），建表是唯一落地路径；
+    迁移机制保留，等需要「既有库在线升级」时再接（开放项）。
+
+    Args:
+        plan: 编排计划（取涉及的库键）。
+        tenant: 目标租户（展开库键占位）。
+
+    Returns:
+        ConcurrentStableList[str]: 错误明细（空表示结构就绪）。
+    """
+    from bms_core.core.config import get_settings
+    from bms_core.db.bootstrap import ensure_unit_schema
+
+    del plan, tenant  # 建表按「单元 × 数据源 × 租户」矩阵，不逐种子推导
+    errors: ConcurrentStableList[str] = ConcurrentStableList()
+    try:
+        created = await ensure_unit_schema(get_settings())
+    except Exception as exc:  # 建表失败即中止，不进种子
+        errors.add(f"结构就绪失败：{type(exc).__name__}: {exc}")
+        return errors
+    if created:
+        get_logger("bms").info("seed_structure_ready", tables=len(created))
+    return errors
