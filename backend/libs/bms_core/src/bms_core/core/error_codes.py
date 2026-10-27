@@ -9,9 +9,15 @@
   由产品仓库各自定义错误码（不得占用平台段）。
 
 新增平台错误码只改本文件；模块错误码按段位在各自域登记。
+
+**产品码（第七类记录，07B `02_05`）**：产品错误码段与码级定义由产品仓自持声明（`[[errcodes]]`），
+装载期注册进 `services/module_registry.py` 的合并视图（`error_code_view()`）；平台枚举保持代码常量，
+**不迁不并**。
 """
 
 from enum import IntEnum
+
+from bms_core.core.concurrent import ConcurrentStableFrozenDict
 
 
 class ErrorSegment(IntEnum):
@@ -146,3 +152,92 @@ class ErrorCode(IntEnum):
     CLIENT_NOT_FOUND = 80111
     CLIENT_INVALID = 80112
     CLIENT_CONFLICT = 80113
+
+
+ERROR_CODE_HTTP_STATUS: ConcurrentStableFrozenDict[ErrorCode, int] = ConcurrentStableFrozenDict(
+    {
+        ErrorCode.INTERNAL: 500,
+        ErrorCode.NOT_FOUND: 404,
+        ErrorCode.CONCURRENT_CONFLICT: 409,
+        ErrorCode.RATE_LIMIT: 429,
+        ErrorCode.DATABASE_UNAVAILABLE: 503,
+        ErrorCode.SERVICE_UNAVAILABLE: 503,
+        ErrorCode.DATA_OWNERSHIP: 500,
+        ErrorCode.OUTBOX_DELIVERY: 500,
+        ErrorCode.EVENT_CONTRACT: 500,
+        ErrorCode.CONSISTENCY_BARRIER: 409,
+        ErrorCode.REDIS_UNAVAILABLE: 503,
+        ErrorCode.TRANSACTION_UNAVAILABLE: 503,
+        ErrorCode.AUTH: 401,
+        ErrorCode.LOGIN_FAILED: 401,
+        ErrorCode.ACCOUNT_LOCKED: 401,
+        ErrorCode.ACCOUNT_DISABLED: 401,
+        ErrorCode.PASSWORD_RESET_TOKEN_INVALID: 400,
+        ErrorCode.PASSWORD_RESET_TOO_FREQUENT: 429,
+        ErrorCode.SESSION_NOT_FOUND: 404,
+        ErrorCode.SESSION_EXPIRED: 401,
+        ErrorCode.SSO_PROVIDER_NOT_FOUND: 404,
+        ErrorCode.SSO_CALLBACK_FAILED: 400,
+        ErrorCode.SSO_PROVIDER_UNAVAILABLE: 503,
+        ErrorCode.SSO_IDENTITY_UNMATCHED: 403,
+        ErrorCode.SSO_IDENTITY_CONFLICT: 409,
+        ErrorCode.LOCAL_LOGIN_GUARD: 429,
+        ErrorCode.WECOM_CONFIG: 503,
+        ErrorCode.WECOM_AUTH: 400,
+        ErrorCode.WECOM_UNAVAILABLE: 503,
+        ErrorCode.DINGTALK_CONFIG: 503,
+        ErrorCode.DINGTALK_AUTH: 400,
+        ErrorCode.DINGTALK_UNAVAILABLE: 503,
+        ErrorCode.IDP_NOT_FOUND: 404,
+        ErrorCode.IDP_CONFIG_INVALID: 400,
+        ErrorCode.IDP_KEY_CONFLICT: 409,
+        ErrorCode.IDP_TEST_FAILED: 502,
+        ErrorCode.CAPTCHA_EXPIRED: 404,
+        ErrorCode.CAPTCHA_TOO_FREQUENT: 429,
+        ErrorCode.PERMISSION: 403,
+        ErrorCode.USER_NOT_FOUND: 404,
+        ErrorCode.USERNAME_EXISTS: 409,
+        ErrorCode.PASSWORD_POLICY_VIOLATION: 400,
+        ErrorCode.PASSWORD_REUSED: 400,
+        ErrorCode.USER_PROTECTED: 403,
+        ErrorCode.USER_SEPARATION_CONFLICT: 403,
+        ErrorCode.USER_REFERENCED: 409,
+        ErrorCode.ROLE_NOT_FOUND: 404,
+        ErrorCode.ROLE_SCOPE_VALUE_INVALID: 400,
+        ErrorCode.ROLE_SEPARATION_CONFLICT: 403,
+        ErrorCode.ROLE_FIELD_MISMATCH: 400,
+        ErrorCode.CONFIG: 500,
+        ErrorCode.PLUGIN: 500,
+        ErrorCode.CATALOG: 500,
+        ErrorCode.MENU_NOT_FOUND: 404,
+        ErrorCode.MENU_PLATFORM_READONLY: 403,
+        ErrorCode.PRINT_TEMPLATE_NOT_FOUND: 404,
+        ErrorCode.PRINT_ARTIFACT_NOT_FOUND: 404,
+        ErrorCode.TENANT_NOT_FOUND: 404,
+        ErrorCode.TENANT_SUSPENDED: 403,
+        ErrorCode.TENANT_ACCESS_DENIED: 403,
+        ErrorCode.TENANT_SCOPE_AMBIGUOUS: 409,
+        ErrorCode.OIDC_INVALID_REQUEST: 400,
+        ErrorCode.OIDC_INVALID_CLIENT: 401,
+        ErrorCode.OIDC_INVALID_GRANT: 400,
+        ErrorCode.OIDC_INVALID_SCOPE: 400,
+        ErrorCode.OIDC_UNSUPPORTED_GRANT: 400,
+        ErrorCode.OIDC_ACCESS_DENIED: 401,
+        ErrorCode.CLIENT_NOT_FOUND: 404,
+        ErrorCode.CLIENT_INVALID: 400,
+        ErrorCode.CLIENT_CONFLICT: 409,
+        ErrorCode.TENANT_CODE_EXISTS: 409,
+        ErrorCode.TENANT_ADMIN_NOT_FOUND: 404,
+        ErrorCode.TENANT_STATE_CONFLICT: 409,
+        ErrorCode.TENANT_DOMAIN_CONFLICT: 409,
+        ErrorCode.TENANT_QUOTA_EXCEEDED: 409,
+        ErrorCode.TENANT_PROVISION_FAILED: 500,
+        ErrorCode.TENANT_MODULE_UNAVAILABLE: 400,
+        ErrorCode.TENANT_MODULE_DISABLED: 403,
+    }
+)
+"""平台错误码 → HTTP 状态（07B `02_05`；**只列非 200 的码**，未列出者按 200 处理）。
+
+`http_status` 的运行期事实源仍是异常子类（`core/exceptions.py` 各类构造时预置），本表只供
+**合并视图与手册导出**读取（渲染命中异常时以视图为准并校验一致）。双源护栏：用例遍历可无参
+实例化的 `BizError` 子类，断言「本表 ↔ 异常类状态」一致（新增非 200 平台码须同步两处）。"""

@@ -18,10 +18,12 @@
   含运行服务登记行）。
 - `known_event_domains()`：已登记事件域集合（事件契约命名校验的域来源，需求 05-4；**平台清单视图**，
   应用装配期请改取 `ModuleRegistry.event_domains()`）。
-- **能力（第五类）与种子（第六类）记录**（07B `02_01`）：同一装载通道（产品自持清单
-  `[[collaborations]]` / `[[seeds]]`）、同一视图族（`collaboration_catalog_view()` /
-  `seed_catalog_view()`）、同一唯一性纪律（同键同值合并、异键异值即拒）；平台侧常量留空，
-  声明权威只在产品仓，校验归 `registry/products.py`（不新增第二套注册表）。
+- **能力（第五类）、种子（第六类）与错误码（第七类）记录**（07B `02_01` / `02_05`）：同一装载通道
+  （产品自持清单 `[[collaborations]]` / `[[seeds]]` / `[[errcodes]]`）、同一视图族
+  （`collaboration_catalog_view()` / `seed_catalog_view()` / `error_code_view()`）、同一唯一性纪律
+  （同键同值合并、异键异值即拒）；平台侧常量留空，声明权威只在产品仓，校验归
+  `registry/products.py`（不新增第二套注册表）。错误码视图另含**平台枚举适配投影**
+  （`PLATFORM_ERROR_CODE_RECORDS`，`ErrorCode` 保持代码常量、不迁不并）。
 - **业务域 → 承载服务键**（07B `02_02`）：`domain_service_view()` / `service_key_for_domain()`——
   由各仓 `deploy/boundaries/domain_layout.json` 的 `service_key` 装载期派生，供能力寻址第二段的
   过渡默认实现使用（派生视图，不是第二份声明；07C `02_02` 落地后作为「域 → 服务标识」登记表）。
@@ -42,6 +44,7 @@ from bms_core.core.concurrent import (
     ConcurrentStableList,
     ConcurrentStableSet,
 )
+from bms_core.core.error_codes import ERROR_CODE_HTTP_STATUS, ErrorCode
 from bms_core.core.objects import BaseFrameworkObject, BaseRegistryRecordContract, BaseValueObject
 from bms_core.core.version import CONTRACT_VERSION_RE, contract_major
 
@@ -322,6 +325,136 @@ class SeedRecord(BaseValueObject):
 
     status: str = CollaborationStatus.ENABLED
     """状态（`enabled` / `disabled` / `deprecated`）。"""
+
+
+class ErrorSeverity(StrEnum):
+    """错误码严重级别（`info` / `warning` / `error`）。
+
+    07B `02_05` 拍板：本期**仅登记与导出**，不改既有日志级别与告警行为。
+    """
+
+    INFO = "info"
+    WARNING = "warning"
+    ERROR = "error"
+
+
+PLATFORM_ERROR_CODE_PROVIDER = "platform"
+"""平台码在视图中的提供方标识（产品码取清单 `product_key`）。"""
+
+
+@dataclass(frozen=True)
+class ErrorCodeRecord(BaseValueObject):
+    """错误码登记记录（**第七类记录**；唯一键 `code`；不落库，故不实现 `from_row`）。
+
+    与产品档案 / 服务行 / 产品路由 / 数据源 / 能力 / 种子**同源、同装载入口、同合并视图族、
+    同唯一性纪律**；声明权威在产品仓自持清单 `[[errcodes]]`，平台枚举保持代码常量（不迁不并），
+    视图是两者合并的只读投影。
+
+    `product_key` 与 `segment` 由装载期注入（段位单一事实源在服务行 `errcode_segment`，不手写）。
+    """
+
+    code: int
+    """错误码（产品码 6 位 = 2 位段 + 4 位序号；平台码 5 位，万位为段）。"""
+
+    domain: str
+    """归属业务域（形态校验，不要求域布局登记）；平台码固定 `platform`。"""
+
+    http_status: int
+    """传输层状态（业务失败统一 200；平台码取 `ERROR_CODE_HTTP_STATUS`）。"""
+
+    message_key: str
+    """文案键（产品码 `<product>.error.<snake>`；平台码 `error.{code}`，与前端文案表同口径）。"""
+
+    severity: str
+    """严重级别（`ErrorSeverity`；本期仅登记与导出）。"""
+
+    description: str
+    """默认描述（文案缺失时兜底，并供手册导出）。"""
+
+    product_key: str
+    """提供方（产品键；平台码为 `platform`）。"""
+
+    segment: str
+    """段位（产品码取服务行 `errcode_segment`；平台码取码首位）。"""
+
+    status: str = CollaborationStatus.ENABLED
+    """状态（`enabled` / `disabled`）；`disabled` 仅影响手册口径，渲染仍参与（码位保留不复用）。"""
+
+
+def _platform_error_code_records() -> ConcurrentStableFrozenDict[int, ErrorCodeRecord]:
+    """平台错误码适配为登记记录（枚举为唯一事实源，只读投影）。
+
+    Returns:
+        ConcurrentStableFrozenDict[int, ErrorCodeRecord]: `code → 记录`（按枚举定义序）。
+    """
+    records: ConcurrentStableDict[int, ErrorCodeRecord] = ConcurrentStableDict()
+    for member in ErrorCode:
+        code = int(member)
+        records.set(
+            code,
+            ErrorCodeRecord(
+                code=code,
+                domain=PLATFORM_ERROR_CODE_PROVIDER,
+                http_status=ERROR_CODE_HTTP_STATUS.get(member, 200),
+                message_key=f"error.{code}",
+                severity=ErrorSeverity.ERROR,
+                description=member.name,
+                product_key=PLATFORM_ERROR_CODE_PROVIDER,
+                segment=str(code)[0],
+            ),
+        )
+    return ConcurrentStableFrozenDict(records)
+
+
+PLATFORM_ERROR_CODE_RECORDS: ConcurrentStableFrozenDict[int, ErrorCodeRecord] = _platform_error_code_records()
+"""平台错误码记录（枚举适配投影；与 `ErrorCode` 严格同量同序）。"""
+
+_INJECTED_ERROR_CODES: ConcurrentStableDict[int, ErrorCodeRecord] = ConcurrentStableDict()
+"""产品清单装载的错误码记录（`code` → 记录）。"""
+
+
+def register_error_code_records(records: Iterable[ErrorCodeRecord]) -> None:
+    """装载产品错误码记录（幂等：同 `code` 同值覆盖、异值即拒）。
+
+    Args:
+        records: 错误码登记记录（来自产品自持清单 `[[errcodes]]` 段）。
+
+    Raises:
+        CatalogError: 与已装载记录同码异值（fail-closed，不静默取一侧）。
+    """
+    from bms_core.core.exceptions import CatalogError
+
+    for record in records:
+        existing = _INJECTED_ERROR_CODES.get(record.code)
+        if existing is not None and existing != record:
+            raise CatalogError(f"错误码记录同码异值：{record.code}（已装载 {existing!r}，新 {record!r}）")
+        _INJECTED_ERROR_CODES.set(record.code, record)
+
+
+def reset_error_code_records() -> None:
+    """清空已装载的错误码记录（测试隔离用；生产路径不调用）。"""
+    _INJECTED_ERROR_CODES.clear()
+
+
+def error_code_view() -> ConcurrentStableDict[int, ErrorCodeRecord]:
+    """错误码**合并视图**（平台枚举 + 已装载产品码，`code → 定义`）。
+
+    返回新字典（调用方不得写回）；同码重复由装载期校验拦截，此处再作一次防御性拒绝。
+
+    Returns:
+        ConcurrentStableDict[int, ErrorCodeRecord]: `code → 记录`（平台码在前、产品码在后）。
+
+    Raises:
+        CatalogError: 产品码与平台码撞码（装载期漏检的防御分支）。
+    """
+    from bms_core.core.exceptions import CatalogError
+
+    view: ConcurrentStableDict[int, ErrorCodeRecord] = ConcurrentStableDict(PLATFORM_ERROR_CODE_RECORDS)
+    for code, record in _INJECTED_ERROR_CODES.items():
+        if code in view:
+            raise CatalogError(f"错误码与平台码撞码：{code}（{record.product_key}）")
+        view.set(code, record)
+    return view
 
 
 SERVICE_CATALOG: ConcurrentStableList[ModuleRecord] = ConcurrentStableList(

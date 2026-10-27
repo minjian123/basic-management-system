@@ -9,7 +9,7 @@
 - **离线**：网关配置生成（`ops.gateway_config`）按 `[registry].product_manifests` 装载后合并；
 - **缺省降级**：未配置清单 / 文件不存在时为空清单（平台路由照常生成），不静默使用旧值。
 
-清单格式为 **toml**（直接切换，**不留 json 兼容分支**），六段并列（除 `product_key` 外均可缺省）：
+清单格式为 **toml**（直接切换，**不留 json 兼容分支**），七段并列（除 `product_key` 外均可缺省）：
 
 ```toml
 product_key = "demo"
@@ -20,12 +20,14 @@ product_key = "demo"
 [[data_sources]]      # 数据源
 [[collaborations]]    # 能力（第五类记录）
 [[seeds]]             # 默认数据种子（第六类记录）
+[[errcodes]]          # 错误码（第七类记录，07B `02_05`）
 ```
 
-**装载期六类校验**（载体 `inspect_product_manifests()`，任一不满足即拒启）：能力重名 / 提供方业务域
-未登记 / 归属不符 / 访问面不在对端契约 / 契约版本不兼容 / 种子入口不可解析；另有 `kind` 要素匹配、
-`branch_id` 长度与业务域一致性、`default_consumers` 登记等补充校验。校验实现唯一——装配期
-（`load_product_manifests()`）与离线门禁（`ops.check_modules`）复用同一函数，不新增并行校验入口。
+**装载期七类校验**（载体 `inspect_product_manifests()`，任一不满足即拒启）：能力重名 / 提供方业务域
+未登记 / 归属不符 / 访问面不在对端契约 / 契约版本不兼容 / 种子入口不可解析 / 错误码段位与撞码；
+另有 `kind` 要素匹配、`branch_id` 长度与业务域一致性、`default_consumers` 登记、错误码契约反向
+对账（两档）等补充校验。校验实现唯一——装配期（`load_product_manifests()`）与离线门禁
+（`ops.check_modules`）复用同一函数，不新增并行校验入口。
 """
 
 from __future__ import annotations
@@ -33,6 +35,7 @@ from __future__ import annotations
 import importlib
 import json
 import os
+import re
 import tomllib
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
@@ -47,6 +50,7 @@ from bms_core.core.concurrent import (
     ConcurrentStableList,
     ConcurrentStableSet,
 )
+from bms_core.core.error_codes import ErrorCode
 from bms_core.core.exceptions import CatalogError
 from bms_core.core.logging import get_logger
 from bms_core.core.objects import BaseValueObject
@@ -59,6 +63,7 @@ from bms_core.services.module_registry import (
     CollaborationKind,
     CollaborationRecord,
     CollaborationStatus,
+    ErrorCodeRecord,
     ModuleRecord,
     ProductRecord,
     ProductRouteRecord,
@@ -66,6 +71,7 @@ from bms_core.services.module_registry import (
     normalize_capability_path,
     register_collaboration_records,
     register_domain_services,
+    register_error_code_records,
     register_product_records,
     register_product_routes,
     register_seed_records,
@@ -93,6 +99,16 @@ _SERVICE_STRING_FIELDS: ConcurrentStableFrozenList[str] = ConcurrentStableFrozen
 _DATA_SOURCE_STRING_FIELDS: ConcurrentStableFrozenList[str] = ConcurrentStableFrozenList(
     ("data_source_key", "name", "data_source")
 )
+_ERROR_CODE_DOMAIN_RE = re.compile(r"^[a-z][a-z0-9_]*$")
+"""错误码业务域形态（仅形态校验，不要求域布局登记，07B `02_05` 拍板）。"""
+_ERROR_CODE_SEVERITIES: ConcurrentStableFrozenSet[str] = ConcurrentStableFrozenSet(("info", "warning", "error"))
+"""错误码严重级别取值（本期仅登记与导出）。"""
+_ERROR_CODE_STATUSES: ConcurrentStableFrozenSet[str] = ConcurrentStableFrozenSet(("enabled", "disabled"))
+"""错误码状态取值（`disabled` 仅影响手册口径，渲染仍参与）。"""
+_ERROR_CODE_HTTP_RANGE = (100, 599)
+"""传输层状态允许区间（含端点）。"""
+CONTRACT_ERROR_CODES_KEY = "x-error-codes"
+"""契约扩展键：端点可能返回的错误码（整数数组，operation 级；07B `02_05`）。"""
 
 CONTRACTS_DIR_NAME = "contracts"
 """研发仓契约目录名（`deploy/contracts/<product_key>.json`）。"""
@@ -121,6 +137,7 @@ class ProductManifest(BaseValueObject):
         data_sources: 数据源登记记录。
         collaborations: 能力记录（第五类）。
         seeds: 默认数据种子记录（第六类）。
+        error_codes: 错误码记录（第七类；`product_key` / `segment` 装载期注入）。
     """
 
     product_key: str
@@ -136,6 +153,9 @@ class ProductManifest(BaseValueObject):
         default_factory=lambda: ConcurrentStableFrozenList()
     )
     seeds: ConcurrentStableFrozenList[SeedRecord] = field(default_factory=lambda: ConcurrentStableFrozenList())
+    error_codes: ConcurrentStableFrozenList[ErrorCodeRecord] = field(
+        default_factory=lambda: ConcurrentStableFrozenList()
+    )
 
 
 @dataclass(frozen=True)
@@ -526,6 +546,89 @@ def _seed_record(raw: object, *, scope: str) -> SeedRecord:
     )
 
 
+def _manifest_segment(services: ConcurrentStableList[ModuleRecord], *, product_key: str) -> str | None:
+    """取本清单服务行声明的错误码段位（唯一非空段；多段视为非法）。
+
+    Args:
+        services: 本清单服务行。
+        product_key: 清单归属产品（错误定位用）。
+
+    Returns:
+        str | None: 段位；服务行均未声明返回 None。
+
+    Raises:
+        CatalogError: 多个不同段位无法确定错误码归属段。
+    """
+    segments = {service.errcode_segment for service in services if service.errcode_segment}
+    if len(segments) > 1:
+        raise CatalogError(
+            f"产品清单 {product_key}：声明 `[[errcodes]]` 时服务行段位须唯一（现 {'、'.join(sorted(segments))}）"
+        )
+    return next(iter(segments), None)
+
+
+def _error_code_record(raw: object, *, product_key: str, segment: str, scope: str) -> ErrorCodeRecord:
+    """构造错误码登记记录（第七类记录；结构级校验，跨清单校验见 `_validate_error_codes`）。
+
+    Args:
+        raw: 原始映射。
+        product_key: 清单归属产品（注入为提供方）。
+        segment: 本清单服务行段位（注入）。
+        scope: 错误信息作用域。
+
+    Returns:
+        ErrorCodeRecord: 错误码登记记录。
+
+    Raises:
+        CatalogError: 必填缺失 / 类型非法 / 形态非法 / 码位形态不符。
+    """
+    data = _as_mapping(raw)
+    raw_code = _require(data, "code", scope=scope)
+    if isinstance(raw_code, bool) or not isinstance(raw_code, int):
+        raise CatalogError(f"产品清单结构非法：{scope} → code 须为整数（现 {type(raw_code).__name__}）")
+    code = int(raw_code)
+    record_scope = f"{scope}｜错误码 {code}"
+    segment_text = str(code)
+    if len(segment_text) != 6:
+        raise CatalogError(f"{record_scope}：产品码须为 6 位（2 位段 + 4 位序号；5 位属平台码区，产品不得声明）")
+    if segment_text[:2] != segment:
+        raise CatalogError(f"{record_scope}：段位不符（码前两位 {segment_text[:2]}，声明段 {segment}）")
+    domain = str(_require(data, "domain", scope=record_scope))
+    if not _ERROR_CODE_DOMAIN_RE.match(domain):
+        raise CatalogError(f"{record_scope}：domain 形态非法（{domain}；须为小写标识符）")
+    raw_status = _require(data, "http_status", scope=record_scope)
+    if isinstance(raw_status, bool) or not isinstance(raw_status, int):
+        raise CatalogError(f"{record_scope}：http_status 须为整数（现 {type(raw_status).__name__}）")
+    low, high = _ERROR_CODE_HTTP_RANGE
+    if not low <= int(raw_status) <= high:
+        raise CatalogError(f"{record_scope}：http_status 越界（{raw_status}；须在 {low}~{high}）")
+    message_key = str(_require(data, "message_key", scope=record_scope))
+    expected_prefix = f"{product_key}.error."
+    if not message_key.startswith(expected_prefix) or not re.fullmatch(
+        r"[a-z][a-z0-9_]*", message_key[len(expected_prefix) :]
+    ):
+        raise CatalogError(
+            f"{record_scope}：message_key 须为 `<product>.error.<snake_case>`（{message_key}；产品段 {product_key}）"
+        )
+    severity = str(_require(data, "severity", scope=record_scope))
+    if severity not in _ERROR_CODE_SEVERITIES:
+        raise CatalogError(f"{record_scope}：severity 非法（{severity}；须为 info / warning / error）")
+    status = str(data.get("status") or CollaborationStatus.ENABLED)
+    if status not in _ERROR_CODE_STATUSES:
+        raise CatalogError(f"{record_scope}：status 非法（{status}；须为 enabled / disabled）")
+    return ErrorCodeRecord(
+        code=code,
+        domain=domain,
+        http_status=int(raw_status),
+        message_key=message_key,
+        severity=severity,
+        description=str(_require(data, "description", scope=record_scope)),
+        product_key=product_key,
+        segment=segment,
+        status=status,
+    )
+
+
 def _records(raw: object, *, scope: str) -> ConcurrentStableList[object]:
     """把清单数组规整为对象序列（非数组 / 元素非对象即拒）。
 
@@ -619,6 +722,9 @@ def load_product_manifest(path: Path) -> ProductManifest:
     seeds: ConcurrentStableList[SeedRecord] = ConcurrentStableList(
         _seed_record(raw, scope="seeds") for raw in _records(root.get("seeds"), scope="seeds")
     )
+    error_codes: ConcurrentStableList[ErrorCodeRecord] = _error_code_records(
+        root.get("errcodes"), product_key=product_key, services=services, path=path
+    )
     return ProductManifest(
         product_key=product_key,
         products=ConcurrentStableFrozenList(products),
@@ -627,7 +733,48 @@ def load_product_manifest(path: Path) -> ProductManifest:
         data_sources=ConcurrentStableFrozenList(data_sources),
         collaborations=ConcurrentStableFrozenList(collaborations),
         seeds=ConcurrentStableFrozenList(seeds),
+        error_codes=ConcurrentStableFrozenList(error_codes),
     )
+
+
+def _error_code_records(
+    raw: object,
+    *,
+    product_key: str,
+    services: ConcurrentStableList[ModuleRecord],
+    path: Path,
+) -> ConcurrentStableList[ErrorCodeRecord]:
+    """解析 `[[errcodes]]` 段（段位取自本清单服务行；重复声明即拒）。
+
+    Args:
+        raw: `errcodes` 数组原值。
+        product_key: 清单归属产品。
+        services: 本清单服务行（段位来源）。
+        path: 清单路径（错误定位用）。
+
+    Returns:
+        ConcurrentStableList[ErrorCodeRecord]: 错误码记录（插入序）。
+
+    Raises:
+        CatalogError: 有错误码但服务行无段位 / 同清单重复声明 / 字段非法。
+    """
+    entries = _records(raw, scope="errcodes")
+    records: ConcurrentStableList[ErrorCodeRecord] = ConcurrentStableList()
+    if not entries:
+        return records
+    segment = _manifest_segment(services, product_key=product_key)
+    if segment is None:
+        raise CatalogError(
+            f"产品清单 {path}：声明 `[[errcodes]]` 时服务行须声明 `errcode_segment`（错误码段位取自服务行）"
+        )
+    seen: ConcurrentStableSet[int] = ConcurrentStableSet()
+    for entry in entries:
+        record = _error_code_record(entry, product_key=product_key, segment=segment, scope="errcodes")
+        if record.code in seen:
+            raise CatalogError(f"产品清单 {path}：错误码重复声明（{record.code}）")
+        seen.add(record.code)
+        records.add(record)
+    return records
 
 
 def _skip_contract_check() -> bool:
@@ -657,17 +804,19 @@ def _contract_path(source: Path, product_key: str) -> Path | None:
     return fallback if fallback.is_file() else None
 
 
-def _contract_paths(path: Path) -> ConcurrentStableFrozenSet[str]:
-    """读取契约文件并归一化 `paths` 键集合（参数名统一为 `{}`）。
+def _contract_spec(
+    path: Path,
+) -> tuple[ConcurrentStableFrozenSet[str], ConcurrentStableFrozenDict[str, ConcurrentStableFrozenList[int]]]:
+    """读取契约文件：归一化路径集合 + 端点声明的错误码（`x-error-codes`，operation 级）。
 
     Args:
         path: 契约文件路径。
 
     Returns:
-        ConcurrentStableFrozenSet[str]: 归一化路径集合。
+        tuple: `(归一化路径集合, {归一化路径: 声明的错误码})`；未声明的路径不入映射。
 
     Raises:
-        CatalogError: 契约不可读 / JSON 非法。
+        CatalogError: 契约不可读 / JSON 非法 / 错误码声明形态非法。
     """
     try:
         payload: object = json.loads(path.read_text(encoding="utf-8"))
@@ -677,11 +826,48 @@ def _contract_paths(path: Path) -> ConcurrentStableFrozenSet[str]:
         raise CatalogError(f"对端契约 JSON 非法：{path}（{exc}）") from exc
     root = _as_mapping(payload)
     raw = root.get("paths")
-    items: ConcurrentStableSet[str] = ConcurrentStableSet()
+    paths: ConcurrentStableSet[str] = ConcurrentStableSet()
+    declared: ConcurrentStableDict[str, ConcurrentStableFrozenList[int]] = ConcurrentStableDict()
     if isinstance(raw, Mapping):
-        for key in cast("Mapping[object, object]", raw):
-            items.add(normalize_capability_path(str(key)))
-    return ConcurrentStableFrozenSet(items)
+        for key, operations in cast("Mapping[object, object]", raw).items():
+            normalized = normalize_capability_path(str(key))
+            paths.add(normalized)
+            codes = _declared_error_codes(operations, path=normalized)
+            if codes:
+                declared.set(normalized, codes)
+    return ConcurrentStableFrozenSet(paths), ConcurrentStableFrozenDict(declared)
+
+
+def _declared_error_codes(operations: object, *, path: str) -> ConcurrentStableFrozenList[int]:
+    """取单个端点各方法声明的 `x-error-codes`（去重，插入序）。
+
+    Args:
+        operations: 契约 `paths.<path>` 下的方法映射。
+        path: 归一化路径（错误定位用）。
+
+    Returns:
+        ConcurrentStableFrozenList[int]: 声明的错误码（空表示未声明）。
+
+    Raises:
+        CatalogError: 声明非整数数组（不静默转换）。
+    """
+    codes: ConcurrentStableList[int] = ConcurrentStableList()
+    for method, operation in _as_mapping(operations).items():
+        raw = _as_mapping(operation).get(CONTRACT_ERROR_CODES_KEY)
+        if raw is None:
+            continue
+        if not isinstance(raw, Sequence) or isinstance(raw, (str, bytes)):
+            raise CatalogError(
+                f"对端契约错误码声明非法（{method.upper()} {path}：{CONTRACT_ERROR_CODES_KEY} 须为整数数组）"
+            )
+        for item in cast("Sequence[object]", raw):
+            if isinstance(item, bool) or not isinstance(item, int):
+                raise CatalogError(
+                    f"对端契约错误码声明非法（{method.upper()} {path}：元素须为整数，现 {type(item).__name__}）"
+                )
+            if int(item) not in codes:
+                codes.add(int(item))
+    return ConcurrentStableFrozenList(codes)
 
 
 def _layout_registry(path: Path, warnings: ConcurrentStableList[str]) -> ConcurrentStableDict[str, str]:
@@ -842,7 +1028,7 @@ def _validate_manifest_entries(
     branch_domains: ConcurrentStableDict[str, str],
     warnings: ConcurrentStableList[str],
 ) -> ConcurrentStableList[str]:
-    """校验单份清单的能力与种子段（域 / 契约 / 版本 / 分支 / 消费方 / 种子入口）。
+    """校验单份清单的能力 / 种子 / 错误码段（域 / 契约 / 版本 / 分支 / 消费方 / 入口 / 码段）。
 
     Args:
         manifest: 清单。
@@ -864,20 +1050,23 @@ def _validate_manifest_entries(
         major for version in service_versions if (major := contract_major(version)) is not None
     )
     contract_paths: ConcurrentStableFrozenSet[str] = ConcurrentStableFrozenSet()
+    contract_error_codes: ConcurrentStableFrozenDict[str, ConcurrentStableFrozenList[int]] = (
+        ConcurrentStableFrozenDict()
+    )
     contract_ready = False
-    if manifest.collaborations:
+    if manifest.collaborations or manifest.error_codes:
         contract_path = _contract_path(source, manifest.product_key)
         if contract_path is None:
             if _skip_contract_check():
-                warnings.add(f"[能力] 跳过契约定位（契约缺失且已显式跳过）：{label} → {manifest.product_key}.json")
+                warnings.add(f"[清单] 跳过契约定位（契约缺失且已显式跳过）：{label} → {manifest.product_key}.json")
             else:
                 errors.add(
-                    f"{label}｜能力：对端契约文件缺失"
+                    f"{label}｜清单：对端契约文件缺失"
                     f"（deploy/contracts/{manifest.product_key}.json；如属极简环境请设 {SKIP_CONTRACT_ENV}）"
                 )
         else:
             try:
-                contract_paths = _contract_paths(contract_path)
+                contract_paths, contract_error_codes = _contract_spec(contract_path)
                 contract_ready = True
             except CatalogError as exc:
                 errors.add(str(exc))
@@ -913,6 +1102,95 @@ def _validate_manifest_entries(
                 errors.add(f"{prefix}：默认消费方未登记（{consumer}）")
     for record in manifest.seeds:
         errors.update(_check_seed_entry(record, label=label, warnings=warnings))
+    if manifest.error_codes:
+        errors.update(
+            _check_contract_error_codes(
+                manifest,
+                label=label,
+                contract_codes=contract_error_codes,
+                contract_ready=contract_ready,
+                contract_paths=contract_paths,
+                warnings=warnings,
+            )
+        )
+    return errors
+
+
+def _check_contract_error_codes(
+    manifest: ProductManifest,
+    *,
+    label: str,
+    contract_codes: ConcurrentStableFrozenDict[str, ConcurrentStableFrozenList[int]],
+    contract_ready: bool,
+    contract_paths: ConcurrentStableFrozenSet[str],
+    warnings: ConcurrentStableList[str],
+) -> ConcurrentStableList[str]:
+    """契约反向对账（两档）：已声明强校验，未声明端点只统计（软提示）。
+
+    Args:
+        manifest: 清单（含已登记错误码）。
+        label: 清单标识（错误定位用）。
+        contract_codes: 契约中声明的 `路径 → 错误码`。
+        contract_ready: 契约是否可用（缺失 / 跳过时为 False，此时不重复报错）。
+        contract_paths: 契约归一化路径集合。
+        warnings: 警示收集器。
+
+    Returns:
+        ConcurrentStableList[str]: 错误明细（已声明但未登记）。
+    """
+    errors: ConcurrentStableList[str] = ConcurrentStableList()
+    if not contract_ready:
+        return errors
+    registered = {record.code for record in manifest.error_codes}
+    for path, codes in contract_codes.items():
+        for code in codes:
+            if code not in registered:
+                errors.add(f"{label}｜错误码：契约声明的码未登记（{path} → {code}）")
+    undeclared = sorted(path for path in contract_paths if path not in contract_codes)
+    if undeclared:
+        sample = "、".join(undeclared[:3])
+        warnings.add(f"[错误码] {label}：{len(undeclared)} 个端点未声明 {CONTRACT_ERROR_CODES_KEY}（例：{sample}）")
+    return errors
+
+
+def _validate_error_codes(
+    manifests: ConcurrentStableList[ProductManifest], sources: ConcurrentStableList[Path]
+) -> ConcurrentStableList[str]:
+    """跨清单校验错误码：与平台码撞码 / 跨产品撞码 / 段位跨产品复用。
+
+    Args:
+        manifests: 本次装载的清单（插入序）。
+        sources: 与 `manifests` 对应的清单路径。
+
+    Returns:
+        ConcurrentStableList[str]: 冲突明细。
+    """
+    errors: ConcurrentStableList[str] = ConcurrentStableList()
+    platform_codes: ConcurrentStableSet[int] = ConcurrentStableSet(int(member) for member in ErrorCode)
+    segments: ConcurrentStableDict[str, str] = ConcurrentStableDict()
+    for module in SERVICE_CATALOG:
+        if module.errcode_segment:
+            segments.setdefault(module.errcode_segment, module.product_key or module.service_key or "platform")
+    seen: ConcurrentStableDict[int, tuple[ErrorCodeRecord, Path]] = ConcurrentStableDict()
+    for manifest, source in zip(manifests, sources, strict=True):
+        for record in manifest.error_codes:
+            if record.code in platform_codes:
+                errors.add(f"{source}｜错误码 {record.code}：与平台错误码撞码")
+            existing = seen.get(record.code)
+            if existing is None:
+                seen.set(record.code, (record, source))
+            else:
+                other, other_source = existing
+                if other != record:
+                    errors.add(
+                        f"产品清单错误码撞码：{record.code}"
+                        f"（{other.product_key}@{other_source} 与 {record.product_key}@{source}）"
+                    )
+            owner = segments.get(record.segment)
+            if owner is None:
+                segments.set(record.segment, record.product_key)
+            elif owner != record.product_key:
+                errors.add(f"{source}｜错误码 {record.code}：段位跨产品复用（段 {record.segment} 已被 {owner} 使用）")
     return errors
 
 
@@ -947,6 +1225,7 @@ def inspect_product_manifests(paths: Iterable[str | Path]) -> ManifestInspection
             warnings=ConcurrentStableFrozenList(warnings),
         )
     errors.update(_validate_collaboration_names(manifests, sources))
+    errors.update(_validate_error_codes(manifests, sources))
     has_collaborations = any(manifest.collaborations for manifest in manifests)
     layout: ConcurrentStableDict[str, str] = (
         _layout_registry_map(sources, warnings) if has_collaborations else ConcurrentStableDict()
@@ -979,7 +1258,7 @@ def inspect_product_manifests(paths: Iterable[str | Path]) -> ManifestInspection
 
 
 def register_manifest(manifest: ProductManifest) -> None:
-    """把清单记录注册进基座运行期视图（六类；幂等、同键异值即拒）。
+    """把清单记录注册进基座运行期视图（七类；幂等、同键异值即拒）。
 
     Args:
         manifest: 产品登记清单。
@@ -990,6 +1269,7 @@ def register_manifest(manifest: ProductManifest) -> None:
     register_data_source_records(manifest.data_sources)
     register_collaboration_records(manifest.collaborations)
     register_seed_records(manifest.seeds)
+    register_error_code_records(manifest.error_codes)
 
 
 def _resolve_manifest_path(raw: str | Path) -> Path:

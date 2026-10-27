@@ -61,6 +61,8 @@ METRIC_NAMES: ConcurrentStableList[str] = ConcurrentStableList(
         "bms_capability_call_total",
         "bms_capability_denied_total",
         "bms_capability_grant_active",
+        "bms_error_code_unknown_total",
+        "bms_error_code_unresolved_total",
     )
 )
 """候选指标名清单（架构「指标采集」节六类 + 服务边界跨库访问计数 + 发件箱投递 + 库数量 + 阶段度量）：
@@ -70,7 +72,8 @@ METRIC_NAMES: ConcurrentStableList[str] = ConcurrentStableList(
 跨服务事务（05_07）：全局事务状态迁移、分支驱动结果、恢复驱动与悬挂、恢复器 leader 取得 /
 跨产品能力寻址（07B `02_02`）：读侧降级（`{capability, consumer, mode}`）与能力取用失败（`{capability, consumer}`）/
 跨产品能力分配（07B `02_04`）：调用计数（`{capability, consumer, result}`，覆盖调用量 / 失败率 / 越权）、
-越权尝试（`{capability, consumer}`）与有效授权数（gauge，`{capability}`）。"""
+越权尝试（`{capability, consumer}`）与有效授权数（gauge，`{capability}`）/
+跨产品错误码（07B `02_05`）：未登记码（`{code}`）与文案回退（`{code}`）计数。"""
 
 MetricLabels = Mapping[str, str]
 """指标标签集（维度键值，如 `{"route": "/api/v1/users", "method": "GET"}`）。"""

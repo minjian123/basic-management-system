@@ -194,7 +194,8 @@ class TenantMiddleware(BaseMiddleware):
                 allow_demo_fallback=settings.tenant.allow_demo_fallback if settings is not None else True,
             )
         except BizError as exc:
-            await build_error_response(scope, exc)(scope, receive, send)
+            response = await build_error_response(scope, exc)
+            await response(scope, receive, send)
             return
 
         state["tenant"] = tenant
@@ -387,7 +388,8 @@ class EdgeGuardMiddleware(BaseMiddleware):
         decision = trust.evaluate(_raw_headers(scope))
         trusted = decision.allowed and decision.identity is not None
         if enforced and not exempt and not trusted:
-            await build_error_response(scope, AuthError("未携带网关可信身份（网关旁路或未认证）"))(scope, receive, send)
+            response = await build_error_response(scope, AuthError("未携带网关可信身份（网关旁路或未认证）"))
+            await response(scope, receive, send)
             return
 
         identity = decision.identity if trusted else None

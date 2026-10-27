@@ -1109,7 +1109,7 @@ def test_contract_paths_read_error(tmp_path: Path, monkeypatch: pytest.MonkeyPat
 
     monkeypatch.setattr(Path, "read_text", _boom)
     with pytest.raises(CatalogError, match="对端契约不可读"):
-        products._contract_paths(contract)  # pyright: ignore[reportPrivateUsage]
+        products._contract_spec(contract)  # pyright: ignore[reportPrivateUsage]
 
 
 def test_inspect_default_consumers(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
