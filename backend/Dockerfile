@@ -45,7 +45,9 @@ COPY services/ai/pyproject.toml services/ai/pyproject.toml
 COPY services/report/pyproject.toml services/report/pyproject.toml
 COPY services/txn/pyproject.toml services/txn/pyproject.toml
 # 第三方依赖层（不装工作区成员；锁文件零漂移）
-RUN uv sync --frozen --no-install-workspace --package "bms-${SERVICE}" && rm -rf /root/.cache
+# `--no-dev`：dev 组含跨仓路径依赖 `engkit`（`../../engkit`，2026-10-27 起），镜像内无该源码；
+# 运行镜像也不需要 pytest / ruff 等开发件（实测：路径依赖缺失时含 dev 的 sync 报错、`--no-dev` 正常）
+RUN uv sync --frozen --no-dev --no-install-workspace --package "bms-${SERVICE}" && rm -rf /root/.cache
 
 # 工作区成员源码（共享基座库 + 目标服务）
 COPY libs/bms_core/src libs/bms_core/src

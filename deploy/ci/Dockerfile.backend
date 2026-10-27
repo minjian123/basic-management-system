@@ -48,7 +48,9 @@ RUN curl -fsSL "https://mirrors.tuna.tsinghua.edu.cn/nodejs-release/v${NODE_VERS
  && rm -f /tmp/node.tar.gz \
  && node --version \
  && npm --version
-# 工作区形态：预装第三方依赖（不装工作区成员——成员源码不入镜像，运行时由 job `uv sync` 装入）
+# 工作区形态：预装第三方**运行**依赖（不装工作区成员——成员源码不入镜像，运行时由 job `uv sync` 装入）
+# `--no-dev`：dev 组含跨仓路径依赖 `engkit`（`../../engkit`，2026-10-27 起），本镜像构建上下文
+# 不含该源码；开发件（pytest / ruff / pyright / engkit）由各 job 先克隆 engkit 再 `uv sync --frozen` 装入
 COPY pyproject.toml uv.lock ./
 COPY libs/bms_core/pyproject.toml libs/bms_core/pyproject.toml
 COPY services/platform/pyproject.toml services/platform/pyproject.toml
@@ -60,4 +62,4 @@ COPY services/search/pyproject.toml services/search/pyproject.toml
 COPY services/ai/pyproject.toml services/ai/pyproject.toml
 COPY services/report/pyproject.toml services/report/pyproject.toml
 COPY services/txn/pyproject.toml services/txn/pyproject.toml
-RUN uv sync --frozen --no-install-workspace && rm -rf /root/.cache
+RUN uv sync --frozen --no-dev --no-install-workspace && rm -rf /root/.cache

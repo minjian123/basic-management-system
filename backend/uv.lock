@@ -19,7 +19,7 @@ members = [
 [manifest.dependency-groups]
 dev = [
     { name = "allure-pytest", specifier = ">=2.16.0" },
-    { name = "engkit", extras = ["devtools"], git = "http://192.168.0.107:8080/bms/engkit.git?rev=af033a19a1f42c4d43371c9d34795bd4975976d1" },
+    { name = "engkit", extras = ["devtools"], editable = "../../engkit" },
     { name = "fakeredis", extras = ["lua"], specifier = ">=2.38.0" },
     { name = "httpx", specifier = ">=0.27" },
     { name = "kiwitcms-pytest-plugin", specifier = ">=15.4" },
@@ -757,7 +757,7 @@ wheels = [
 [[package]]
 name = "engkit"
 version = "0.2.0"
-source = { git = "http://192.168.0.107:8080/bms/engkit.git?rev=af033a19a1f42c4d43371c9d34795bd4975976d1#af033a19a1f42c4d43371c9d34795bd4975976d1" }
+source = { editable = "../../engkit" }
 dependencies = [
     { name = "pytest-xdist" },
 ]
@@ -766,6 +766,22 @@ dependencies = [
 devtools = [
     { name = "pyright" },
     { name = "ruff" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "pyright", marker = "extra == 'devtools'", specifier = "==1.1.414" },
+    { name = "pytest-xdist", specifier = ">=3.6" },
+    { name = "ruff", marker = "extra == 'devtools'", specifier = "==0.17.2" },
+]
+provides-extras = ["devtools"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "engkit", extras = ["devtools"] },
+    { name = "pytest", specifier = ">=8.0" },
+    { name = "pytest-asyncio", specifier = ">=0.24" },
+    { name = "pytest-cov", specifier = ">=5.0" },
 ]
 
 [[package]]

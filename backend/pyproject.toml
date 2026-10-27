@@ -36,11 +36,13 @@ url = "https://pypi.tuna.tsinghua.edu.cn/simple"
 default = true
 
 [tool.uv.sources]
-# 跨仓工程化工具包（engkit 仓，13_05 / 13_07）：锁提交 SHA 保证可精确复现，升级只改本处 rev
-# （与 mdm 同构；CI 侧另有 `ENGKIT_REV` 供克隆使用，两者同一次升级一起改）。
-# 注意：包提供 ruff / pyright 版本与 engkit 命令；**规则基线另需平级克隆**——`extend` 读文件路径，
-# 读不了安装包内资源（且本仓 `.venv` 外置符号链接，包内路径不稳定），两条路径都要有。
-engkit = { git = "http://192.168.0.107:8080/bms/engkit.git", rev = "af033a19a1f42c4d43371c9d34795bd4975976d1" }
+# 跨仓工程化工具包（engkit 仓，13_05 / 13_07）：**路径依赖**（2026-10-27 拍板，与 mdm 同构）——
+# 与 bms 平级并置的 engkit 克隆即唯一来源，改工具包代码即时生效，无需推送与改 rev。
+# 注意：包提供 ruff / pyright 版本与 engkit 命令；**规则基线另需平级克隆**（同一目录，
+# `extend = "../../engkit/toolchain/ruff-base.toml"` 读文件路径）。
+# CI：后端 job 先经 `scripts/tools/ci/engkit_setup.sh` 克隆到 `../engkit`（ref 由 `ENGKIT_REV` 锁定）。
+# 镜像：运行镜像 `--no-dev` 不装本依赖（dev 组），故无需把 engkit 源码带入镜像。
+engkit = { path = "../../engkit", editable = true }
 
 [tool.ruff.lint.isort]
 # 工作区自有包与脚本区视为第一方（与第三方依赖分组稳定，避免归类漂移）
