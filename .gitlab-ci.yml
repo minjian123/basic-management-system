@@ -316,7 +316,11 @@ backend-lint:
     # `toolchain/ruff-base.toml`（文件路径，读不了安装包内资源），故本 job 也必须先有克隆；
     # ruff 版本由 `engkit[devtools]` 下发，仓内不再声明。
     - . scripts/tools/ci/engkit_setup.sh
-    - cd backend && uv run ruff check .
+    - cd backend
+    # 镜像按 `--no-dev` 构建，ruff / pyright 由 `engkit[devtools]` 提供，须显式同步后才有可执行文件
+    # （2026-10-28 #1281 实测：跳过此步直接 `uv run ruff` 报 `Failed to spawn: ruff`）
+    - uv sync --frozen
+    - uv run ruff check .
 
 # ---- 工具脚本：ruff 检查 + 格式（仓根 scripts/tools；08_01 遗留「scripts/tools 未纳入 CI lint」收口，
 #      2026-10-02）——从 backend/ 运行以取用 backend/pyproject.toml 的 ruff 配置（行宽 / 规则集由 engkit
@@ -340,6 +344,7 @@ tooling-lint:
     # 基线外置后仍需克隆（配置兜底链见本 job 头注释）
     - . scripts/tools/ci/engkit_setup.sh
     - cd backend
+    - uv sync --frozen
     - uv run ruff check ../scripts/tools
     - uv run ruff format --check ../scripts/tools
 
@@ -361,7 +366,9 @@ backend-typecheck:
     # `engkit[devtools]` 下发；故本 job 也要克隆工具包（此前漏此步，靠 `changes` 放行长期未暴露，
     # 2026-10-26 手工全量流水线 #1255 首次真跑即失败）。
     - . scripts/tools/ci/engkit_setup.sh
-    - cd backend && uv run pyright
+    - cd backend
+    - uv sync --frozen
+    - uv run pyright
 
 # ---- 后端：插件装配离线校验（复用装配清单与注册表语义；见 01-2-1 详细设计）----
 backend-plugins:
@@ -400,10 +407,9 @@ backend-modules:
     - uv run python -m ops.check_modules --offline
     # 建表后查重：SQLite 测试库（config.test.toml 的 sqlite_dir 解析到 database/bms/test）→ 平台链建表 → 种子 → 接库校验（只读）
     - uv run python -m ops.init_schema --service platform --target platform
-    # `seed_module` 是「平台启动后由注册通道写库、此处只校对」的运行期校验：CI 里没有运行中的平台
-    # 实例（刚建完空表），跑必报「服务目录为空 / 产品档案为空」——2026-10-28 起不在 CI 跑，
-    # 该口径由部署验收（`deploy/` 启动链路）覆盖。
-    - uv run python -m ops.check_modules
+    # 接库校验（`ops.seed_module` 的引导性校验 + 不带 `--offline` 的 `check_modules`）都要求平台已启动、
+    # 注册通道已写入服务目录与产品档案；CI 里只有刚建完的空表，跑必报「服务目录为空 / 注册表缺该声明」
+    # （2026-10-28 #1279、#1281 实测）——不在 CI 跑，该口径由部署验收（`deploy/` 启动链路）覆盖。
 
 backend-test:
   stage: test
