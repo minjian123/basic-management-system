@@ -68,8 +68,9 @@ nginx_config:
 | 项 | 说明 |
 | --- | --- |
 | 单一来源 | 服务目录 `SERVICE_CATALOG`（`backend/libs/bms_core/src/bms_core/services/module_registry.py`）；07B `02_06` 起部署态可改读**平台库注册表**（`--from-registry`），两者渲染产物逐字一致 |
-| 生成 | 清单模式：`cd backend && uv run python -m ops.gateway_config render`（写出 `deploy/gateway/apisix.yaml`，CI 零依赖）；注册表模式：`render --from-registry --url <平台库连接串>` |
-| 校验 | `uv run python -m ops.gateway_config check`（零漂移；CI `base-integrity` 与本地预检同跑）；注册表模式同一命令加 `--from-registry --url …` |
+| 生成 | 清单模式：`cd backend && uv run python -m ops.gateway_config render`（写出 `deploy/gateway/apisix.yaml`，CI 零依赖）；注册表模式：`render --from-registry`（`--url` 可省——按配置解析平台库，与 `ops.check_modules` 同口径；需覆盖时加 `--url <平台库连接串>`） |
+| 校验 | `uv run python -m ops.gateway_config check`（零漂移；CI `base-integrity` 与本地预检同跑）；注册表模式同一命令加 `--from-registry` |
+| 部署态对账（07B `02_06`） | 部署机：`python3 scripts/tools/deploy/release.py --deploy-dir deploy gateway`——在 platform 镜像内以 `--from-registry` 重渲，与仓库 `deploy/gateway/apisix.yaml` 逐字比对（宿主 `deploy/` 只读挂到容器 `/opt/registry-check/deploy`，不在宿主传库凭据）；`release.py deploy` 已把它作为**前置步骤**（不一致即中止部署） |
 | 参与服务 | 仅启用且带服务标识的服务（当前 9 个：platform / identity / tenant / org / file / notification / search / ai / report） |
 | 外部路径 | `/api/{service_key}/v1/...`，网关 `proxy-rewrite` 剥离为服务内 `/api/v1/...` |
 | 认证 / 限流钩子 | 限流（`limit-count`）由生成器直接产出；**认证（`forward-auth`）07_03 接入**（见下） |
@@ -82,6 +83,13 @@ nginx_config:
 **改配置的唯一正确路径**：改服务目录或生成脚本 → `render` 重新生成 → 提交 →（热加载或重建）→ 禁止在控制台手工增删。
 
 ## 5. 部署步骤 <a id="deploy"></a>
+
+**先对账**（07B `02_06`：部署态权威 = 平台库注册表）：同步前在部署机跑一次注册表对账，确认仓库生成件与注册表渲染结果逐字一致——不一致即说明「声明改了但生成件没重生成」或「平台未完成注册」，此时同步上去等于把错配置推上线：
+
+```bash
+cd /home/minjian/bms
+python3 scripts/tools/deploy/release.py --deploy-dir deploy gateway
+```
 
 ```bash
 # mjpc：同步配置到 mjbk（保持 deploy/ 相对结构：compose/gateway.yml + gateway/）
@@ -185,8 +193,8 @@ curl -s http://127.0.0.1:9080/api/platform/v1/ping -H "Authorization: Bearer <�
 | 查看日志 | `docker logs -f bms-apisix` |
 | 重启 | `docker restart bms-apisix` |
 | 停止 / 启动 | `docker compose -p compose -f compose/gateway.yml stop apisix` / `start apisix`（在 `~/deploy/compose`） |
-| 重新生成配置 | mjpc：`cd backend && uv run python -m ops.gateway_config render`（或 `--from-registry --url …`），再按第 5 节同步 |
-| 校验配置零漂移 | `uv run python -m ops.gateway_config check`（CI `base-integrity` 同跑） |
+| 重新生成配置 | mjpc：`cd backend && uv run python -m ops.gateway_config render`（清单模式）；按注册表重生成：`render --from-registry`（`--url` 可省），再按第 5 节同步 |
+| 校验配置零漂移 | `uv run python -m ops.gateway_config check`（CI `base-integrity` 同跑）；部署态对账：`python3 scripts/tools/deploy/release.py --deploy-dir deploy gateway`（容器内 `--from-registry`） |
 | 升级镜像 | 改 `gateway.yml` 版本标签 → `docker compose … up -d`（锁定版本，勿用 `latest`） |
 
 ## 9. 排障记录 <a id="trouble"></a>
