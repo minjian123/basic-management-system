@@ -35,7 +35,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import re
 import sys
 import time
 import urllib.error
@@ -55,6 +54,8 @@ _SRC_ROOT = ROOT / "backend" / "libs" / "bms_core" / "src"
 if str(_SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(_SRC_ROOT))
 
+from ci_common import clean_trace_lines  # noqa: E402
+from ci_common import tail as tail_lines  # noqa: E402
 from trigger import ENV_FILE, REPO_NAMES, TERMINAL_STATUSES, load_env, resolve  # noqa: E402
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList  # noqa: E402
@@ -76,15 +77,6 @@ DEFAULT_TIMEOUT_SECONDS = 7200
 
 DEFAULT_LOG_TAIL_LINES = 50
 """失败 job 日志尾部行数缺省值（0 表示不打日志）。"""
-
-_ANSI_ESCAPE = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
-"""GitLab 日志里的 ANSI 颜色 / 清行控制码。"""
-
-_TRACE_PREFIX = re.compile(r"^\d{4}-\d{2}-\d{2}T[\d:.]+Z \d{2}O ?")
-"""GitLab runner 给每行加的「时间戳 + 流标记」前缀。"""
-
-_SECTION_LINE = re.compile(r"^\+?section_(start|end):")
-"""GitLab 折叠段标记行（无信息量，剔除）。"""
 
 
 @dataclass(frozen=True)
@@ -335,19 +327,6 @@ def _job_field(job: ConcurrentStableDict[str, object], key: str, default: object
     return job.get(key, default)
 
 
-def _clean_trace_line(line: str) -> str:
-    """去掉 ANSI 控制码与 runner 时间戳前缀。
-
-    Args:
-        line: 原始日志行。
-
-    Returns:
-        str: 清理后的行（去行尾空白）。
-    """
-    text = _ANSI_ESCAPE.sub("", line)
-    return _TRACE_PREFIX.sub("", text).rstrip()
-
-
 def job_trace_tail(api: str, token: str, target: Target, job_id: int, tail: int) -> ConcurrentStableList[str]:
     """取 job 日志尾部若干有效行（日志已过期时返回提示行）。
 
@@ -367,14 +346,7 @@ def job_trace_tail(api: str, token: str, target: Target, job_id: int, tail: int)
         text = _get_text(api, token, f"projects/{_quoted(target.path)}/jobs/{job_id}/trace")
     except urllib.error.HTTPError as exc:
         return ConcurrentStableList((f"（日志不可取：HTTP {exc.code}）",))
-    lines = text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
-    cleaned: ConcurrentStableList[str] = ConcurrentStableList()
-    for line in lines:
-        text_line = _clean_trace_line(line)
-        if not text_line.strip() or _SECTION_LINE.match(text_line):
-            continue
-        cleaned.append(text_line)
-    return cleaned[-tail:]
+    return tail_lines(clean_trace_lines(text), tail)
 
 
 def _counts(jobs: ConcurrentStableList[ConcurrentStableDict[str, object]]) -> str:
