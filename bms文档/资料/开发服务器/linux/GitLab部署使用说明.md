@@ -147,6 +147,7 @@ docker ps --filter name=bms-gitlab-runner
 | 配置修改 | 编辑 `/mnt/ssd2t/gitlab/config/gitlab.rb`（root 权限）→ `docker restart bms-gitlab` |
 | 流水线状态 | GitLab 界面 `CI/CD → Pipelines` 查看逐 job 状态与日志；API 侧 `GET /projects/:id/pipelines/:pipeline_id` 查询终态（凭据取 `deploy/.env` 或环境变量 `GITLAB_API_URL` / `GITLAB_API_TOKEN`） |
 | **手工触发流水线**（推送不触发，2026-10-26 起） | `python3 scripts/tools/ci/trigger.py`（bms 仓根；`--project mdm\|engkit` 触发他仓、`--ref <分支/tag>`、`--watch` 盯终态、`--dry-run` 只看请求）；等价于 GitLab 界面 Run pipeline 或 `POST /projects/:id/pipeline`（`ref` 传分支或 tag）。**手工触发即全量**：无 Git 推送事件的流水线里 `rules:changes` 恒为真 |
+| **跨仓基座 ref（mdm CI 的 `BMS_REF`）** | `python3 scripts/tools/ci/bms_ref.py show`（看 bms main 头 / 最新 tag 与目标项目现值）；`set --ref <main\|latest-tag\|分支\|tag\|SHA>` 钉版本、`set --clear` 回到缺省跟随 main 头（`--project` 缺省 `mdm`、`--dry-run` 只看请求）。mdm `scripts/tools/ci/bms_setup.sh` 缺省每次取 bms **main 头**，日常无需维护 |
 | 备份（每日 cron 2 点） | `docker exec bms-gitlab gitlab-backup create`，备份落 `/mnt/ssd2t/gitlab/data/backups/`，同步至 `/mnt/data/backup/gitlab/` |
 
 ## 8. 排障记录 <a id="trouble"></a>
