@@ -10,8 +10,14 @@ from typing import Any
 
 import pytest
 
-from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenList, ConcurrentStableList
+from bms_core.core.concurrent import (
+    ConcurrentStableDict,
+    ConcurrentStableFrozenDict,
+    ConcurrentStableFrozenList,
+    ConcurrentStableList,
+)
 from bms_core.core.exceptions import ParamError
+from bms_core.services.module_registry import SeedRecord
 from bms_core.transaction.base import BranchHandlerRegistry
 from bms_platform.domains.platform_registry.schemas.seed_orchestration import (
     SeedOrchestrationRequestSchema,
@@ -210,6 +216,81 @@ async def test_orchestrate_all_success_returns_exit_0() -> None:
     assert list(manager.events) == ["begin", "commit"]
 
 
+# ---- 用例 15 / 12：探针在记录装载后按声明登记 ----
+
+
+class _StatsRunner(_StubRunner):
+    """分支执行器替身（同时具备探针登记能力）。"""
+
+    def __init__(self) -> None:
+        """初始化登记表。"""
+        super().__init__()
+        self.registered: ConcurrentStableDict[str, Any] = ConcurrentStableDict()
+
+    def register_stats_probe(self, op: str, probe: Any) -> None:
+        """记录探针。
+
+        Args:
+            op: 操作名。
+            probe: 探针。
+        """
+        self.registered.set(op, probe)
+
+
+async def test_orchestrate_registers_probes_after_loading_product_records() -> None:
+    """用例 15：探针在 `_load_records()` 之后登记——产品种子同样能被登记。"""
+    from bms_core.services.module_registry import SeedRecord, register_seed_records, reset_seed_records
+
+    register_seed_records(
+        (
+            SeedRecord(
+                name="demo-admin-codes",
+                module="bms_platform.seeds.demo",
+                entry="seed_demo",
+                service="platform",
+                db_key="platform_platform",
+                tables=ConcurrentStableFrozenDict({"sys_business": "code"}),
+            ),
+        ),
+    )
+    runner = _StatsRunner()
+    try:
+        result = await _service(runner=runner).orchestrate(
+            SeedOrchestrationRequest(only=ConcurrentStableFrozenList(["seed-module", "demo-admin-codes"]), dry_run=True)
+        )
+    finally:
+        reset_seed_records()
+    assert set(runner.registered) == {"seed-module", "demo-admin-codes"}, list(result.errors)
+    assert list(result.warnings) == []
+
+
+async def test_orchestrate_unknown_probe_table_warns_in_report() -> None:
+    """用例 14：声明了未知表名时记警示到编排报告，不阻断编排。"""
+    from bms_core.services.module_registry import SeedRecord, register_seed_records, reset_seed_records
+
+    register_seed_records(
+        (
+            SeedRecord(
+                name="seed-ghost-table",
+                module="bms_platform.seeds.demo",
+                entry="seed_demo",
+                service="platform",
+                db_key="platform_platform",
+                tables=ConcurrentStableFrozenDict({"no_such_table": "id"}),
+            ),
+        ),
+    )
+    runner = _StatsRunner()
+    try:
+        result = await _service(runner=runner).orchestrate(
+            SeedOrchestrationRequest(only=ConcurrentStableFrozenList(["seed-ghost-table"]), dry_run=True)
+        )
+    finally:
+        reset_seed_records()
+    assert dict(runner.registered) == {}
+    assert any("no_such_table" in item for item in result.warnings)
+
+
 # ---- 用例 15：失败整体回滚 ----
 
 
@@ -388,13 +469,33 @@ def test_register_seed_handlers_preserves_existing() -> None:
     assert registry.resolve("seed-module") is _sentinel
 
 
+def _seed_record(name: str, **tables: str) -> SeedRecord:
+    """构造只带统计声明的种子记录。
+
+    Args:
+        name: 种子名。
+        **tables: 目标表声明（真实表名 = 自然键）。
+
+    Returns:
+        SeedRecord: 种子记录。
+    """
+    return SeedRecord(
+        name=name,
+        module="demo.seeds",
+        entry="seed",
+        service="platform",
+        db_key="platform_platform",
+        tables=ConcurrentStableFrozenDict(tables),
+    )
+
+
 def test_register_seed_stats_skips_participant_without_method() -> None:
     """占位参与方（无 `register_stats_probe`）时静默跳过，不抛错。"""
-    register_seed_stats(object())
+    assert list(register_seed_stats(object(), [_seed_record("seed-menu", sys_business="code")])) == []
 
 
 def test_register_seed_stats_registers_probes() -> None:
-    """有 `register_stats_probe` 的参与方收到全部种子探针。"""
+    """有 `register_stats_probe` 的参与方按记录收到探针。"""
     registered: ConcurrentStableDict[str, Any] = ConcurrentStableDict()
 
     class _Participant:
@@ -409,8 +510,12 @@ def test_register_seed_stats_registers_probes() -> None:
             """
             registered.set(op, probe)
 
-    register_seed_stats(_Participant())
-    assert set(SEED_OPS) <= set(registered)
+    warnings = register_seed_stats(
+        _Participant(),
+        [_seed_record(name, sys_module="module_key") for name in SEED_OPS],
+    )
+    assert set(registered) == set(SEED_OPS)
+    assert list(warnings) == []
 
 
 def test_seed_branch_handlers_exports() -> None:

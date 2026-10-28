@@ -18,11 +18,11 @@ from bms_core.core.concurrent import (
     ConcurrentStableFrozenList,
     ConcurrentStableList,
 )
+from bms_core.services.module_registry import SeedRecord
 from bms_core.tenant.seed.probe import (
     SeedStatsProbe,
     TableSnapshot,
     _as_snapshot,  # pyright: ignore[reportPrivateUsage]
-    _table_name_of,  # pyright: ignore[reportPrivateUsage]
     register_seed_probes,
 )
 
@@ -129,26 +129,31 @@ def test_snapshot_skips_unregistered_table() -> None:
     assert dict(probe.snapshot(object())) == {}
 
 
-# ---- 表名派生 ----
+# ---- 登记（声明驱动，07B `03_03`）----
 
 
-def test_table_name_of_resolves_known_models() -> None:  # pyright: ignore[reportPrivateUsage]
-    """`_table_name_of` 按模型类名取真实表名（避免共享库里写跨服务表字面量）。"""
-    assert _table_name_of("SysTenant") == "sys_tenant"  # pyright: ignore[reportPrivateUsage]
-    assert _table_name_of("SysBusiness") == "sys_business"  # pyright: ignore[reportPrivateUsage]
-    assert _table_name_of("SysRole") == "sys_role"  # pyright: ignore[reportPrivateUsage]
+def _record(name: str, **tables: str) -> SeedRecord:
+    """构造只带统计声明的种子记录。
+
+    Args:
+        name: 种子名。
+        **tables: 目标表声明（真实表名 = 自然键）。
+
+    Returns:
+        SeedRecord: 种子记录。
+    """
+    return SeedRecord(
+        name=name,
+        module="demo.seeds",
+        entry="seed",
+        service="platform",
+        db_key="platform_platform",
+        tables=ConcurrentStableFrozenDict(tables),
+    )
 
 
-def test_table_name_of_returns_empty_for_unknown_model() -> None:  # pyright: ignore[reportPrivateUsage]
-    """未知模型名返回空串（该表不参与统计）。"""
-    assert _table_name_of("NoSuchModel") == ""  # pyright: ignore[reportPrivateUsage]
-
-
-# ---- 登记 ----
-
-
-def test_register_seed_probes_registers_all_ops() -> None:
-    """`register_seed_probes` 把 9 个平台种子 + mdm 种子全部登记。"""
+def test_register_seed_probes_registers_declared_tables() -> None:
+    """`register_seed_probes` 按传入记录登记（多表一条种子仍为一个探针）。"""
     registered: ConcurrentStableDict[str, Any] = ConcurrentStableDict()
 
     class _Participant:
@@ -163,28 +168,24 @@ def test_register_seed_probes_registers_all_ops() -> None:
             """
             registered.set(op, probe)
 
-    register_seed_probes(_Participant())
-    assert {
-        "seed-module",
-        "seed-tables",
-        "seed-menu",
-        "seed-tenant",
-        "seed-config",
-        "seed-platform-role",
-        "seed-platform-grant",
-        "seed-rbac-role",
-        "seed-rbac-grant",
-        "mdm-admin-codes",
-    } == set(registered)
+    register_seed_probes(
+        _Participant(),
+        [
+            _record("seed-module", sys_module="module_key", sys_product="product_key"),
+            _record("seed-menu", sys_business="code"),
+        ],
+    )
+    assert set(registered) == {"seed-module", "seed-menu"}
+    assert len(registered["seed-module"]._tables) == 2  # pyright: ignore[reportPrivateUsage]
 
 
 def test_register_seed_probes_skips_participant_without_method() -> None:
     """无 `register_stats_probe` 的参与方（占位实现）静默跳过。"""
-    register_seed_probes(object())
+    assert list(register_seed_probes(object(), [_record("seed-menu", sys_business="code")])) == []
 
 
-@pytest.mark.parametrize("op", ["seed-module", "seed-menu", "mdm-admin-codes"])
-def test_registered_probe_has_target_tables(op: str) -> None:
+@pytest.mark.parametrize("table", ["sys_module", "sys_business", "sys_config"])
+def test_registered_probe_has_target_tables(table: str) -> None:
     """登记的探针带目标表口径（可对真实库取快照）。"""
     registered: ConcurrentStableDict[str, Any] = ConcurrentStableDict()
 
@@ -200,7 +201,7 @@ def test_registered_probe_has_target_tables(op: str) -> None:
             """
             registered.set(name, probe)
 
-    register_seed_probes(_Participant())
-    probe = registered[op]
+    register_seed_probes(_Participant(), [_record("seed-x", **{table: "id"})])
+    probe = registered["seed-x"]
     assert isinstance(probe, SeedStatsProbe)
     assert probe._tables  # pyright: ignore[reportPrivateUsage]

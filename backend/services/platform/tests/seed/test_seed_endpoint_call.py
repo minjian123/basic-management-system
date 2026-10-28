@@ -243,24 +243,15 @@ async def test_endpoint_dry_run_returns_reports(app: FastAPI) -> None:
 # - 参数非法 → `test_orchestrate_param_error_propagates`（服务层）+ `test_main_http_400_maps_to_64`（CLI 层）
 
 
-async def test_endpoint_registers_stats_probes(app: FastAPI, monkeypatch: pytest.MonkeyPatch) -> None:
-    """端点调用时把统计探针登记进参与方（详设 §3.10）。"""
-    captured: ConcurrentStableList[str] = ConcurrentStableList()
+async def test_endpoint_leaves_probe_registration_to_service(app: FastAPI, monkeypatch: pytest.MonkeyPatch) -> None:
+    """端点不再提前登记统计探针（07B `03_03`）：登记由编排服务在记录装载后完成。"""
+    # 端点模块不再持有登记入口（提前登记会因产品种子尚未装载而漏口径）。
+    assert not hasattr(internal_seeds, "register_seed_stats")
     participant = _Participant()
-
-    def _spy(instance: Any) -> None:
-        """替身：记录登记调用。
-
-        Args:
-            instance: 参与方。
-        """
-        captured.add("called")
-
-    monkeypatch.setattr(internal_seeds, "register_seed_stats", _spy)
     monkeypatch.setattr(internal_seeds, "get_transaction_participant", lambda _request: participant)  # type: ignore[reportUnknownLambdaType]
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://t") as client:
-        await client.post(
+        response = await client.post(
             "/api/v1/platform/internal/seeds/orchestrate",
             json={"only": ["seed-module"], "dry_run": True},
         )
-    assert list(captured) == ["called"]
+    assert response.status_code in (200, 503)

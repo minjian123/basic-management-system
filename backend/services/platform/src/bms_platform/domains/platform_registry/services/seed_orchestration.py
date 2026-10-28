@@ -35,6 +35,7 @@ from bms_core.tenant.seed.orchestrator import (
     precheck_seeds,
     select_seeds,
 )
+from bms_platform.services.seed_branch_handlers import register_seed_stats
 
 __all__ = ["SeedOrchestrationRequest", "SeedOrchestrationResult", "SeedOrchestrationService", "SyncEngineProvider"]
 
@@ -170,6 +171,10 @@ class SeedOrchestrationService(BaseFrameworkObject):
                 errors=ConcurrentStableFrozenList(precheck.errors),
                 warnings=ConcurrentStableFrozenList(precheck.warnings),
             )
+        # 统计探针（07B `03_03`）：取种子声明的目标表，须在记录装载后、执行前登记。
+        warnings = ConcurrentStableList(precheck.warnings)
+        if self._participant is not None:
+            warnings.update(register_seed_stats(self._participant, selected))
         plan = build_plan(selected, tenant=tenant, require=require)
         if request.dry_run:
             self._logger.info("seed_dry_run", count=len(plan), tenant=tenant)
@@ -178,7 +183,7 @@ class SeedOrchestrationService(BaseFrameworkObject):
                 reports=ConcurrentStableFrozenList(
                     SeedReport(name=item.record.name, source=item.record.source, status="planned") for item in plan
                 ),
-                warnings=ConcurrentStableFrozenList(precheck.warnings),
+                warnings=ConcurrentStableFrozenList(warnings),
             )
         # 结构前置阶段（07B `02_03`）：种子依赖表结构就绪，先幂等建表再播种。
         # 失败即中止，不进事务（退出码 3：编排前置错误）。
@@ -188,7 +193,7 @@ class SeedOrchestrationService(BaseFrameworkObject):
             return SeedOrchestrationResult(
                 exit_code=EXIT_PRECHECK,
                 errors=ConcurrentStableFrozenList(structure_errors),
-                warnings=ConcurrentStableFrozenList(precheck.warnings),
+                warnings=ConcurrentStableFrozenList(warnings),
             )
         # 数据冲突预检（详设 §3.5）：结构就绪之后、事务之前只读比对，一次看全全部冲突。
         if self._engines is not None:
@@ -198,7 +203,7 @@ class SeedOrchestrationService(BaseFrameworkObject):
                 return SeedOrchestrationResult(
                     exit_code=EXIT_CONFLICT,
                     conflicts=ConcurrentStableFrozenList(conflicts),
-                    warnings=ConcurrentStableFrozenList(precheck.warnings),
+                    warnings=ConcurrentStableFrozenList(warnings),
                 )
         reports = await execute_plan(
             plan,
@@ -212,5 +217,5 @@ class SeedOrchestrationService(BaseFrameworkObject):
         return SeedOrchestrationResult(
             exit_code=exit_code,
             reports=reports,
-            warnings=ConcurrentStableFrozenList(precheck.warnings),
+            warnings=ConcurrentStableFrozenList(warnings),
         )

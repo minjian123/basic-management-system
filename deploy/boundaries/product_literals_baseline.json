@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generated_at": "2026-10-28",
+  "generated_at": "2026-10-29",
   "entries": [
     {
       "path": "backend/libs/bms_core/src/bms_core/application.py",
@@ -301,94 +301,6 @@
     {
       "path": "backend/libs/bms_core/src/bms_core/services/service_contract.py",
       "fingerprint": "487b0fd755dbfc31",
-      "count": 1,
-      "samples": [
-        "mdm"
-      ]
-    },
-    {
-      "path": "backend/libs/bms_core/src/bms_core/tenant/seed/cli.py",
-      "fingerprint": "ee782c4a70d0ddb0",
-      "count": 1,
-      "samples": [
-        "mdm"
-      ]
-    },
-    {
-      "path": "backend/libs/bms_core/src/bms_core/tenant/seed/menu.py",
-      "fingerprint": "34d2368b58dfe586",
-      "count": 2,
-      "samples": [
-        "mdm"
-      ]
-    },
-    {
-      "path": "backend/libs/bms_core/src/bms_core/tenant/seed/menu.py",
-      "fingerprint": "494abf25c1a33e8e",
-      "count": 1,
-      "samples": [
-        "mdm"
-      ]
-    },
-    {
-      "path": "backend/libs/bms_core/src/bms_core/tenant/seed/menu.py",
-      "fingerprint": "5c6741e844503ecb",
-      "count": 6,
-      "samples": [
-        "mdm"
-      ]
-    },
-    {
-      "path": "backend/libs/bms_core/src/bms_core/tenant/seed/menu.py",
-      "fingerprint": "61edd94315b495f1",
-      "count": 2,
-      "samples": [
-        "mdm"
-      ]
-    },
-    {
-      "path": "backend/libs/bms_core/src/bms_core/tenant/seed/menu.py",
-      "fingerprint": "7b8f0d8a732323cd",
-      "count": 1,
-      "samples": [
-        "mdm"
-      ]
-    },
-    {
-      "path": "backend/libs/bms_core/src/bms_core/tenant/seed/menu.py",
-      "fingerprint": "821100b6c383a95c",
-      "count": 1,
-      "samples": [
-        "mdm"
-      ]
-    },
-    {
-      "path": "backend/libs/bms_core/src/bms_core/tenant/seed/menu.py",
-      "fingerprint": "880a539ef6f06abc",
-      "count": 1,
-      "samples": [
-        "mdm"
-      ]
-    },
-    {
-      "path": "backend/libs/bms_core/src/bms_core/tenant/seed/menu.py",
-      "fingerprint": "c4628fa8f9a02e30",
-      "count": 2,
-      "samples": [
-        "mdm"
-      ]
-    },
-    {
-      "path": "backend/libs/bms_core/src/bms_core/tenant/seed/menu.py",
-      "fingerprint": "db83acf9561f3997",
-      "count": 1,
-      "samples": [
-        "mdm"
-      ]
-    },
-    {
-      "path": "backend/libs/bms_core/src/bms_core/tenant/seed/probe.py",
-      "fingerprint": "50a1a1bd7650b9ad",
       "count": 1,
       "samples": [
         "mdm"

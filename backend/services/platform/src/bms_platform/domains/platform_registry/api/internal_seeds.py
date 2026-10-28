@@ -24,7 +24,6 @@ from bms_platform.domains.platform_registry.services.seed_orchestration import (
     SeedOrchestrationRequest,
     SeedOrchestrationService,
 )
-from bms_platform.services.seed_branch_handlers import register_seed_stats
 
 router = BaseRouter(
     key="platform_internal_seeds",
@@ -60,8 +59,8 @@ async def orchestrate_seeds(
     """
     del context
     participant = get_transaction_participant(request)
-    # 统计探针（详设 §3.10）：分支内前后快照采集，须在参与方实例上登记后才会生效。
-    register_seed_stats(participant)
+    # 统计探针（详设 §3.10 / 07B `03_03`）：改由编排服务在种子记录装载后登记
+    # （端点此时尚未装载产品种子，提前登记会漏掉产品侧口径）。
     service = SeedOrchestrationService(
         caller_service=PLATFORM_SERVICE_KEY,
         manager=get_transaction_manager(request),

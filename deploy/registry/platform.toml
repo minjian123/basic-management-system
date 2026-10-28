@@ -25,8 +25,8 @@ after = []
 description = "服务目录与产品档案（sys_module + sys_product）"
 
 [seeds.tables]
-module = "module_key"
-product = "product_key"
+sys_module = "module_key"
+sys_product = "product_key"
 
 [[seeds]]
 name = "seed-tables"
@@ -38,7 +38,7 @@ after = ["seed-module"]
 description = "表归属登记（sys_table_ownership，含退役清退）"
 
 [seeds.tables]
-ownership = "table_name"
+sys_table_ownership = "table_name"
 
 [[seeds]]
 name = "seed-menu"
@@ -50,9 +50,9 @@ after = ["seed-module"]
 description = "业务码 / 动作码 / 权限码 / 菜单 / 表单 / 按钮 / 字段"
 
 [seeds.tables]
-business = "code"
-action = "code"
-menu = "path"
+sys_business = "code"
+sys_action = "code"
+sys_menu = "path"
 
 # ---- 平台库：租户注册 ----
 
@@ -66,7 +66,7 @@ after = []
 description = "租户注册库（sys_tenant + sys_tenant_database）"
 
 [seeds.tables]
-tenant = "code"
+sys_tenant = "code"
 
 # ---- 租户库：系统参数 / 平台 RBAC / 内置管理员角色 ----
 
@@ -79,6 +79,9 @@ entry = "seed_configs_entry"
 after = ["seed-tenant"]
 description = "系统参数默认值"
 
+[seeds.tables]
+sys_config = "config_key"
+
 [[seeds]]
 name = "seed-platform-role"
 service = "platform"
@@ -89,7 +92,7 @@ after = ["seed-menu"]
 description = "平台租户 RBAC（platform_admin / platform_ops 角色与授权）"
 
 [seeds.tables]
-role = "code"
+sys_role = "code"
 
 [[seeds]]
 name = "seed-rbac-role"
@@ -101,7 +104,7 @@ after = ["seed-menu", "seed-platform-role"]
 description = "三类内置管理员角色与授权（系统 / 安全 / 审计三权互斥）"
 
 [seeds.tables]
-role = "code"
+sys_role = "code"
 [[seeds]]
 name = "seed-platform-grant"
 service = "platform"
@@ -112,7 +115,7 @@ after = ["seed-platform-role"]
 description = "平台 RBAC 授权（platform_admin / platform_ops 的权限与菜单入口）"
 
 [seeds.tables]
-grant = "role_id"
+sys_role_permission = "role_id,perm_type,target_id"
 
 [[seeds]]
 name = "seed-rbac-grant"
@@ -124,7 +127,7 @@ after = ["seed-rbac-role"]
 description = "三类内置管理员的授权（系统 / 安全 / 审计三权互斥）"
 
 [seeds.tables]
-grant = "role_id"
+sys_role_permission = "role_id,perm_type,target_id"
 
 # ---- 能力（第五类记录，07B `03_01`）----
 # 平台自身作为**提供方**的三条跨产品能力：入站判定改由能力分配派生（`require_capability`）。

@@ -10,7 +10,7 @@
 cd backend
 uv run python -m ops.seed_platform --dry-run              # 只预检，不开事务
 uv run python -m ops.seed_platform --tenant demo          # 执行全部种子
-uv run python -m ops.seed_platform --only mdm-admin-codes # 只跑指定种子
+uv run python -m ops.seed_platform --only seed-menu     # 只跑指定种子
 ```
 
 退出码：0 成功 / 1 数据冲突 / 2 执行失败（已整体回滚）/ 3 前置错误 / 64 参数错误。

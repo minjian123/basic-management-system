@@ -7,9 +7,11 @@
 职责不同；分文件便于按需注册与排障定位。
 """
 
+from collections.abc import Iterable
 from typing import cast
 
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
+from bms_core.services.module_registry import SeedRecord
 from bms_core.tenant.seed.platform import (
     seed_platform_grants_entry,
     seed_platform_roles_entry,
@@ -68,12 +70,18 @@ def register_seed_handlers(registry: BranchHandlerRegistry) -> BranchHandlerRegi
     return registry
 
 
-def register_seed_stats(participant: object) -> None:
+def register_seed_stats(participant: object, records: Iterable[SeedRecord]) -> ConcurrentStableList[str]:
     """把种子统计探针登记进事务参与方（详设 §3.10：分支内采集逐项统计）。
+
+    **时序**：须在种子记录装载之后调用（07B `03_03`：探针目标表取声明，产品种子须已可见）。
 
     Args:
         participant: 事务参与方（须具备 `register_stats_probe`；占位实现无此方法时静默跳过）。
+        records: 本次编排选中的种子记录。
+
+    Returns:
+        ConcurrentStableList[str]: 警示（未知表名等；并入编排报告，不阻断）。
     """
     from bms_core.tenant.seed.probe import register_seed_probes
 
-    register_seed_probes(participant)
+    return register_seed_probes(participant, records)

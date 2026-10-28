@@ -4,21 +4,28 @@
 且失败时恒为 0；同一连接能看到本分支未提交的写入，统计必然准确（详设 §3.10 / §8 #28）。
 
 **口径**：`created` = 行数差；`updated` = 自然键命中且字段值有变化的行；`skipped` = 命中且无变化。
-自然键列来自种子声明的 `tables` 段（`<逻辑名> = "<列名>"`），这里按**真实表名**登记。
+
+**目标表来源（07B `03_03`）**：取种子声明的 `tables` 段（**真实表名 → 自然键**），不再维护平台侧
+硬编码映射；值列（判定「是否更新」的列）由表结构**自动派生**——排除主键列、自然键列与系统列。
 """
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from dataclasses import field as dataclass_field
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from bms_core.core.concurrent import (
     ConcurrentStableDict,
     ConcurrentStableFrozenDict,
     ConcurrentStableFrozenList,
+    ConcurrentStableFrozenSet,
     ConcurrentStableList,
 )
 from bms_core.core.objects import BaseFrameworkObject, BaseValueObject
 from bms_core.transaction.base import BranchStats
+
+if TYPE_CHECKING:
+    from bms_core.services.module_registry import SeedRecord
 
 __all__ = ["SeedStatsProbe", "TableSnapshot", "register_seed_probes"]
 
@@ -125,18 +132,8 @@ class SeedStatsProbe(BaseFrameworkObject):
         return BranchStats(created=created, updated=updated, skipped=skipped)
 
 
-def _table_name_of(model: str) -> str:
-    """按模型类名取真实表名（避免在共享库里写跨服务表的字面量）。
-
-    Args:
-        model: 模型类名（在 `bms_core.models` 下唯一）。
-
-    Returns:
-        str: 真实表名；模型未导入时返回空串（该表不参与统计）。
-    """
-    import importlib
-
-    modules = (
+_MODEL_MODULES: ConcurrentStableFrozenList[str] = ConcurrentStableFrozenList(
+    (
         "bms_core.models.tenant.tenant",
         "bms_core.models.tenant.tenant_database",
         "bms_core.models.platform.catalog",
@@ -147,140 +144,74 @@ def _table_name_of(model: str) -> str:
         "bms_core.models.ownership",
         "bms_core.config.models",
     )
-    for module_name in modules:
-        module = importlib.import_module(module_name)
-        found = getattr(module, model, None)
-        if found is not None:
-            return str(getattr(found, "__tablename__", ""))
-    return ""
+)
+"""目标表所在模型模块（导入后 `Base.metadata.tables` 可按真实表名查表）。"""
+
+_SYSTEM_COLUMNS: ConcurrentStableFrozenSet[str] = ConcurrentStableFrozenSet(
+    ("tenant_id", "created_at", "updated_at", "deleted_at", "created_by", "updated_by", "version")
+)
+"""值列自动派生时排除的系统列（拓扑 / 审计 / 时间戳 / 并发版本，不参与「是否更新」判定）。"""
 
 
-def register_seed_probes(registry: object) -> None:
-    """把种子统计探针登记进参与方（`op` → 探针）。
+def _ensure_models() -> None:
+    """导入已知模型模块，确保目标表进入 `Base.metadata`。"""
+    import importlib
 
-    口径与种子声明的 `tables` 段一致：每个种子一项，目标表取 `tables` 的**真实表名**。
+    for module_name in _MODEL_MODULES:
+        importlib.import_module(module_name)
+
+
+def _specs_for(record: SeedRecord, warnings: ConcurrentStableList[str]) -> ConcurrentStableList[_TableSpec]:
+    """按种子声明的 `tables` 段生成该种子的表统计口径。
 
     Args:
-        registry: 事务参与方（须具备 `register_stats_probe`）。
+        record: 种子登记记录（`tables` 为「真实表名 → 自然键」）。
+        warnings: 警示收集器（未知表名记一条，不阻断）。
+
+    Returns:
+        ConcurrentStableList[_TableSpec]: 表统计口径（未知表跳过；无声明时为空）。
     """
+    from bms_core.models.base import Base
+
+    specs: ConcurrentStableList[_TableSpec] = ConcurrentStableList()
+    for table_name, raw_keys in record.tables.items():
+        table = Base.metadata.tables.get(table_name)
+        if table is None:
+            warnings.add(f"[种子] 目标表未在模型中登记，跳过统计：{record.name} → {table_name}")
+            continue
+        key_columns: ConcurrentStableFrozenList[str] = ConcurrentStableFrozenList(
+            part.strip() for part in str(raw_keys).split(",") if part.strip()
+        )
+        value_columns: ConcurrentStableFrozenList[str] = ConcurrentStableFrozenList(
+            column.name
+            for column in table.columns
+            if not column.primary_key and column.name not in key_columns and column.name not in _SYSTEM_COLUMNS
+        )
+        specs.add(_TableSpec(table=table_name, key_columns=key_columns, value_columns=value_columns))
+    return specs
+
+
+def register_seed_probes(registry: object, records: Iterable[SeedRecord]) -> ConcurrentStableList[str]:
+    """按种子声明把统计探针登记进参与方（`op` → 探针）。
+
+    **登记时机**：调用方须在**种子记录装载之后**、执行之前调用（本次实际执行的记录为准），
+    否则产品种子尚未装载会漏登记（详设 §3.4.2）。
+
+    Args:
+        registry: 事务参与方（须具备 `register_stats_probe`；无此方法时静默跳过）。
+        records: 本次编排选中的种子记录。
+
+    Returns:
+        ConcurrentStableList[str]: 警示（未知表名等；调用方并入编排报告，不阻断）。
+    """
+    warnings: ConcurrentStableList[str] = ConcurrentStableList()
     register = getattr(registry, "register_stats_probe", None)
     if not callable(register):
-        return
-    for op, tables in _PROBE_TABLES.items():
-        register(op, SeedStatsProbe(tables))
-
-
-_PROBE_TABLES: ConcurrentStableDict[str, ConcurrentStableList[_TableSpec]] = ConcurrentStableDict(
-    {
-        "seed-module": ConcurrentStableList(
-            (
-                _TableSpec(
-                    table="sys_module",
-                    key_columns=ConcurrentStableFrozenList(("module_key",)),
-                    value_columns=ConcurrentStableFrozenList(("name", "table_prefix", "event_domain")),
-                ),
-                _TableSpec(
-                    table="sys_product",
-                    key_columns=ConcurrentStableFrozenList(("product_key",)),
-                    value_columns=ConcurrentStableFrozenList(("name",)),
-                ),
-            )
-        ),
-        "seed-tables": ConcurrentStableList(
-            (
-                _TableSpec(
-                    table="sys_table_ownership",
-                    key_columns=ConcurrentStableFrozenList(("table_name",)),
-                    value_columns=ConcurrentStableFrozenList(("owner", "datasource", "status")),
-                ),
-            )
-        ),
-        "seed-menu": ConcurrentStableList(
-            (
-                _TableSpec(
-                    table="sys_business",
-                    key_columns=ConcurrentStableFrozenList(("code",)),
-                    value_columns=ConcurrentStableFrozenList(("name",)),
-                ),
-                _TableSpec(
-                    table="sys_action",
-                    key_columns=ConcurrentStableFrozenList(("code",)),
-                    value_columns=ConcurrentStableFrozenList(("name",)),
-                ),
-                _TableSpec(
-                    table="sys_menu",
-                    key_columns=ConcurrentStableFrozenList(("path",)),
-                    value_columns=ConcurrentStableFrozenList(("name",)),
-                ),
-            )
-        ),
-        "seed-tenant": ConcurrentStableList(
-            (
-                _TableSpec(
-                    # 表名经模型派生（`sys_tenant` 归属 tenant 服务；在共享库里写字面量会触发
-                    # 跨服务库访问校验，故不写字面量）
-                    table=_table_name_of("SysTenant"),
-                    key_columns=ConcurrentStableFrozenList(("code",)),
-                    value_columns=ConcurrentStableFrozenList(("name", "domain")),
-                ),
-            )
-        ),
-        "seed-config": ConcurrentStableList(
-            (
-                _TableSpec(
-                    table="sys_config",
-                    key_columns=ConcurrentStableFrozenList(("config_key",)),
-                    value_columns=ConcurrentStableFrozenList(("value",)),
-                ),
-            )
-        ),
-        "seed-platform-role": ConcurrentStableList(
-            (
-                _TableSpec(
-                    table="sys_role",
-                    key_columns=ConcurrentStableFrozenList(("code",)),
-                    value_columns=ConcurrentStableFrozenList(("name",)),
-                ),
-            )
-        ),
-        "seed-platform-grant": ConcurrentStableList(
-            (
-                _TableSpec(
-                    table="sys_role_permission",
-                    key_columns=ConcurrentStableFrozenList(("role_id", "perm_type", "target_id")),
-                ),
-            )
-        ),
-        "seed-rbac-role": ConcurrentStableList(
-            (
-                _TableSpec(
-                    table="sys_role",
-                    key_columns=ConcurrentStableFrozenList(("code",)),
-                    value_columns=ConcurrentStableFrozenList(("name",)),
-                ),
-            )
-        ),
-        "seed-rbac-grant": ConcurrentStableList(
-            (
-                _TableSpec(
-                    table="sys_role_permission",
-                    key_columns=ConcurrentStableFrozenList(("role_id", "perm_type", "target_id")),
-                ),
-            )
-        ),
-        "mdm-admin-codes": ConcurrentStableList(
-            (
-                _TableSpec(
-                    table="sys_business",
-                    key_columns=ConcurrentStableFrozenList(("code",)),
-                    value_columns=ConcurrentStableFrozenList(("name",)),
-                ),
-                _TableSpec(
-                    table="sys_permission",
-                    key_columns=ConcurrentStableFrozenList(("business_id", "action_id")),
-                ),
-            )
-        ),
-    }
-)
-"""`op` → 目标表统计口径（与 `deploy/registry/*.toml` 的 `tables` 段同源）。"""
+        return warnings
+    _ensure_models()
+    for record in records:
+        specs = _specs_for(record, warnings)
+        if not specs:
+            continue
+        register(record.op or record.name, SeedStatsProbe(specs))
+    return warnings

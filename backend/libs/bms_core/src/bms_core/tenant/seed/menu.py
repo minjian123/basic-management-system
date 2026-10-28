@@ -15,9 +15,9 @@ uv run python -m ops.seed_menu --dry-run
 - 菜单 ↔ 表单为**多对多**（02_03 返工）：表单先按 `business_id` upsert，再经 `sys_menu_form` 关联入口；
 - 业务码清单取自《架构设计 · 权限计算引擎》「业务与动作权限码清单」节；权限码组合（业务码 × 动作码）与
   动作码字典（全局动词）同源于该节；
-- **产品管理面权限码（12_04）**：产品业务码与域级 / 专属动作码随产品接入登记（首例 mdm 产品服务
-  `mdm` 及其 `mdm:query` / `mdm:create` / `mdm:update` / `mdm:delete`；部门移动复用 `mdm:update`。
-  服务标识于 2026-10-23 由 `org` 归并为 `mdm`（mdm 阶段一 `01_05`），此处随之对齐）；
+- **业务码与权限码归属**：平台种子只播平台自身业务码与权限码；产品管理面业务码与权限码由
+  **产品种子声明**、平台统一种子编排执行（平台不代写产品数据，红线见《架构设计 · 跨产品协同》
+  「依赖方向与红线」节），故本清单不含任何产品业务码或产品权限码；
 - 建表分支兼容保留（Alembic 落库后由 `alembic -n alembic:platform:platform upgrade head` 建表；
   SQLite 开发库由启动期自动建表）；
 - **派生化口径（2026-10-10）**：主表默认文案列（`sys_menu.name` 等）是按**默认语言派生的快照**，
@@ -78,7 +78,6 @@ BUSINESS_SEEDS: ConcurrentStableList[tuple[str, str, str]] = ConcurrentStableLis
         ("user", "用户管理", "User management"),
         ("post", "岗位管理", "Position management"),
         ("dept", "部门管理", "Department management"),
-        ("mdm", "组织主数据（mdm 产品）", "Organization master data"),
         ("role", "角色管理", "Role management"),
         ("dict", "字典管理", "Dictionary management"),
         ("config", "系统参数", "System configuration"),
@@ -218,10 +217,6 @@ PERMISSION_SEEDS: ConcurrentStableList[tuple[str, str, str, str]] = ConcurrentSt
         ("backup", "query", "查询", "Query"),
         ("post", "query", "查询", "Query"),
         ("dept", "query", "查询", "Query"),
-        ("mdm", "query", "查询", "Query"),
-        ("mdm", "create", "新建", "Create"),
-        ("mdm", "update", "修改", "Update"),
-        ("mdm", "delete", "删除", "Delete"),
         ("idp", "query", "查询", "Query"),
         ("pur", "query", "查询", "Query"),
         ("capability-grant", "query", "查询", "Query"),
@@ -231,7 +226,7 @@ PERMISSION_SEEDS: ConcurrentStableList[tuple[str, str, str, str]] = ConcurrentSt
 """权限码种子（业务码 × 动作码组合；名称由业务名 + 动作名组合生成）。
 
 三词分治（2026-10-10）：组合即**权限码**（`sys_permission`）；动作码字典由本表按动作码去重派生
-（`ACTION_SEEDS`，全局唯一动词）。「产品管理面权限码」随产品接入登记（首例 mdm 产品服务 `mdm`）。
+（`ACTION_SEEDS`，全局唯一动词）。**产品管理面权限码不在此登记**——由产品种子声明、平台统一调度。
 """
 
 
