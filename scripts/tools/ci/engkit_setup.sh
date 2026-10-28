@@ -40,6 +40,11 @@ has_tree() {
 }
 
 clone_engkit
+# 复用目录里 origin 存的是**上一次 job** 的 URL（含当时的 CI_JOB_TOKEN，每个 job 都不同），
+# 直接 fetch 会 401/403 并误触发「删除重克隆」（2026-10-28 #1281 实测）——先刷新 remote URL。
+if [ -n "${ENGKIT_URL}" ]; then
+    git -C "${ENGKIT_CLONE_DIR}" remote set-url origin "${ENGKIT_URL}"
+fi
 # runner 工作区跨作业复用：已有克隆可能残缺（历史 shallow / 中途失败），先补齐对象再 checkout。
 # 2026-10-28 实测：残留克隆里缺锁定 rev 的 tree，直接 checkout 报
 # `fatal: unable to read tree (<sha>)`，故先验对象、缺则补拉、仍缺则重克隆。
