@@ -43,6 +43,8 @@ coverage/
 .nox/
 .coverage
 .coverage.*
+# 覆盖率采集数据（13_02：`BMS_COVERAGE_DATA` 用 `<svc>` 后缀，形如 `.coverage-service`）
+.coverage-*
 .cache
 nosetests.xml
 coverage.xml

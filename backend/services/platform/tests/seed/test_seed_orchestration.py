@@ -18,6 +18,8 @@ from bms_platform.domains.platform_registry.schemas.seed_orchestration import (
     SeedOrchestrationResultSchema,
 )
 from bms_platform.domains.platform_registry.services.seed_orchestration import (
+    EXIT_OK,
+    EXIT_PRECHECK,
     SeedOrchestrationRequest,
     SeedOrchestrationResult,
     SeedOrchestrationService,
@@ -170,6 +172,30 @@ async def test_orchestrate_precheck_error_returns_exit_3() -> None:
     assert list(manager.events) == []
 
 
+async def test_orchestrate_seed_declaration_errors_return_exit_3() -> None:
+    """用例 4/8/9 服务侧：种子声明不自洽（缺执行服务 / 目标库）→ 退出码 3，不进事务。
+
+    与上一条的分工：那条测的是 `select_seeds` 的参数错误（`ParamError`），这条测
+    `precheck_seeds` 汇总出的**声明类**前置错误（服务侧编排的首个拒绝分支）。
+    """
+    from bms_core.services.module_registry import SeedRecord, register_seed_records, reset_seed_records
+
+    register_seed_records(
+        (SeedRecord(name="seed-broken", module="bms_platform.seeds.broken", entry="seed_broken"),),
+    )
+    manager = _StubManager()
+    try:
+        result = await _service(manager=manager).orchestrate(
+            SeedOrchestrationRequest(only=ConcurrentStableFrozenList(["seed-broken"]), dry_run=True)
+        )
+    finally:
+        reset_seed_records()
+    assert result.exit_code == EXIT_PRECHECK
+    assert any("service" in item for item in result.errors)
+    assert any("db_key" in item for item in result.errors)
+    assert list(manager.events) == []
+
+
 # ---- 用例 14：全部成功 ----
 
 
@@ -232,6 +258,38 @@ async def test_orchestrate_conflicts_return_exit_1() -> None:
     assert result.exit_code == 1
     assert len(result.conflicts) == 1
     assert list(manager.events) == []
+
+
+async def test_orchestrate_engines_without_conflicts_executes() -> None:
+    """用例 5 服务侧：注入引擎且**无冲突** → 冲突分支不停，继续进事务执行（退出码 0）。"""
+    from bms_core.tenant.seed import orchestrator
+
+    async def _no_conflicts(_plan: Any, *, engines: Any) -> ConcurrentStableList[str]:
+        """替身：无冲突。
+
+        Args:
+            _plan: 计划（忽略）。
+            engines: 引擎（忽略）。
+
+        Returns:
+            ConcurrentStableList[str]: 空冲突集。
+        """
+        del engines
+        return ConcurrentStableList()
+
+    original = orchestrator.precheck_conflicts
+    import bms_platform.domains.platform_registry.services.seed_orchestration as module
+
+    module.precheck_conflicts = _no_conflicts  # type: ignore[attr-defined]
+    manager = _StubManager()
+    try:
+        result = await _service(manager=manager, engines=object()).orchestrate(
+            SeedOrchestrationRequest(only=ConcurrentStableFrozenList(["seed-module"]))
+        )
+    finally:
+        module.precheck_conflicts = original  # type: ignore[attr-defined]
+    assert result.exit_code == EXIT_OK
+    assert list(manager.events) == ["begin", "commit"]
 
 
 # ---- 用例 20/21：筛选与强制前置 ----
