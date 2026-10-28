@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import os
+import uuid
 from collections.abc import AsyncIterator, Iterator
 from datetime import UTC, datetime
 from typing import Any, cast
@@ -53,8 +54,8 @@ from bms_txn.domains.txn.services.recovery import TransactionRecovery
 
 pytestmark = [pytest.mark.integration, pytest.mark.kiwi_id(2271)]
 
-_PROBE_TABLE = "bms_it_tm_probe"
-"""跨服务两阶段探针表（两库各建删一次；用例内建删）。"""
+_PROBE_TABLE = f"bms_it_tm_probe_{uuid.uuid4().hex[:8]}"
+"""跨服务两阶段探针表（两库各建删一次；带进程随机后缀，避免 xdist 并行同库撞表）。"""
 
 _OP_INSERT = "it.probe.insert"
 """已登记的分支 `op`：写入探针行。"""

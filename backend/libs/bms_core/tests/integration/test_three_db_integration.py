@@ -14,6 +14,7 @@
 import asyncio
 import json
 import os
+import uuid
 from collections.abc import AsyncIterator, Callable
 from datetime import datetime
 from typing import Any, cast
@@ -43,11 +44,12 @@ from bms_core.core.config import Settings
 from bms_core.core.plugin import resolve_plugin
 from bms_core.db import engine as db_engine
 from bms_core.db.engine import PLATFORM_DB_KEY, EngineFactory
-from bms_core.db.migration import resolve_series
+from bms_core.db.migration import unit_domains
 from bms_core.db.registry import EngineRegistry
 from bms_core.db.session import session_scope
 from bms_core.repositories.ordering import order_criteria
 from bms_core.schemas.sorting import SortDirection, SortSpec
+from bms_core.services.table_registry import Datasource, unit_tables
 from bms_core.sharding.base import ShardingRouter
 from bms_core.sharding.null import NullShardingRouter
 
@@ -59,8 +61,12 @@ _DIALECT_NAME = {"mysql": "mysql", "postgres": "postgresql", "dm8": "dm"}
 _TENANT_DB_KEY = "tenant_demo"
 """租户库键（`url_template` 置空时回落配置的租户连接串）。"""
 
+_PROBE_SUFFIX = uuid.uuid4().hex[:8]
+"""探针表名后缀：集成 job 用 xdist 并行且共用同一测试库，固定表名会互相建 / 删（`already exists` /
+`doesn't exist`）。每次进程启动取随机后缀，用例内仍自建自删。"""
+
 _PROBE = Table(
-    "bms_it_probe",
+    f"bms_it_probe_{_PROBE_SUFFIX}",
     MetaData(),
     Column("id", BigInteger, primary_key=True, autoincrement=False),
     Column("flag", Boolean),
@@ -71,12 +77,12 @@ _PROBE = Table(
 """真库探针表（类型落库往返与排序 NULL 位次取证；用例内建删）。"""
 
 _UNIQUE_PROBE = Table(
-    "bms_it_unique_probe",
+    f"bms_it_unique_probe_{_PROBE_SUFFIX}",
     MetaData(),
     Column("id", BigInteger, primary_key=True, autoincrement=False),
     Column("name", String(16)),
     Column("deleted_at", DateTime),
-    UniqueConstraint("name", "deleted_at", name="uq_bms_it_unique_probe_name_deleted_at"),
+    UniqueConstraint("name", "deleted_at", name=f"uq_bms_it_unique_{_PROBE_SUFFIX}_name_deleted_at"),
 )
 """软删除复合唯一探针表（未删行多 NULL 语义取证；用例内建删）。"""
 
@@ -205,15 +211,17 @@ async def test_multi_datasource_routing(dialect: str, urls: tuple[str, str], reg
 
 
 async def test_schema_tables_queryable(dialect: str, urls: tuple[str, str], registry: EngineRegistry) -> None:
-    """建表结果：平台 / 租户对象各自链表可查询（表由 CI `ops.test_db migrate` 段建出；表集取自链注册）。
+    """建表结果：平台 / 租户对象各自链表可查询（表由 CI `ops.test_db migrate` 段建出）。
 
-    对象与链的对应（06_02 分链口径）：平台对象 = `platform:platform`、租户对象 = `platform:tenant`
-    （链名 `{service}:{datasource}`；`platform` 服务的租户库承载字典 / 查询方案等租户数据）。
+    表集按 **部署单元** 推导（07C `03_02` / 2026-10-25 拍板：清单按业务域组织，旧 `{service}:{datasource}`
+    形态已废弃）：`unit_domains("platform")` 取平台服务承载的全部业务域，`unit_tables()` 聚合各域表集
+    并追加基础设施表；库类别区分平台对象与租户对象（`platform` 服务的租户库承载字典 / 查询方案等）。
     """
     del dialect, urls
-    for table in sorted(resolve_series("platform:platform").tables):
+    domains = unit_domains("platform")
+    for table in sorted(unit_tables(domains, Datasource.PLATFORM)):
         assert await _can_select(registry, PLATFORM_DB_KEY, table) is True, table
-    for table in sorted(resolve_series("platform:tenant").tables):
+    for table in sorted(unit_tables(domains, Datasource.TENANT)):
         assert await _can_select(registry, _TENANT_DB_KEY, table) is True, table
 
 
@@ -252,9 +260,9 @@ async def test_sharding_key_query(dialect: str, urls: tuple[str, str], registry:
     """分片：缺省路由契约（不路由）+ 真库按分片键（日期列）条件查询（分片表预创建归任务调度阶段）。"""
     router = cast(ShardingRouter, resolve_plugin("sharding", ""))
     assert isinstance(router, NullShardingRouter)
-    binding = router.resolve("bms_it_probe", shard_key="202609")
+    binding = router.resolve(_PROBE.name, shard_key="202609")
     assert binding.db_key == "default"
-    assert binding.physical_table == "bms_it_probe"
+    assert binding.physical_table == _PROBE.name
 
     await _recreate_table(registry, _TENANT_DB_KEY, _PROBE)
     try:
@@ -293,7 +301,7 @@ async def test_type_probe_roundtrip(dialect: str, urls: tuple[str, str], registr
             await _scalar(
                 registry,
                 _TENANT_DB_KEY,
-                "SELECT COUNT(*) FROM bms_it_probe WHERE flag = :flag",
+                f"SELECT COUNT(*) FROM {_PROBE.name} WHERE flag = :flag",
                 ConcurrentStableDict({"flag": True}),
             )
             == 1
@@ -327,7 +335,7 @@ async def test_soft_delete_composite_unique_semantics(
                 await session.execute(_UNIQUE_PROBE.insert(), [{"id": 2, "name": "same", "deleted_at": None}])
                 await session.commit()
             async with session_scope(registry, db_key=_TENANT_DB_KEY) as session:
-                assert (await session.execute(text("SELECT COUNT(*) FROM bms_it_unique_probe"))).scalar_one() == 2
+                assert (await session.execute(text(f"SELECT COUNT(*) FROM {_UNIQUE_PROBE.name}"))).scalar_one() == 2
 
         async with session_scope(registry, db_key=_TENANT_DB_KEY) as session:
             await session.execute(

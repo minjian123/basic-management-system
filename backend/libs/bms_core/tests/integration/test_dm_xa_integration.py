@@ -7,6 +7,7 @@
 """
 
 import os
+import uuid
 from collections.abc import Iterator
 
 import pytest
@@ -20,12 +21,12 @@ from bms_core.db.engine import PLATFORM_DB_KEY, EngineFactory
 pytestmark = [pytest.mark.integration, pytest.mark.dialect_dm8, pytest.mark.kiwi_id(2245)]
 
 _PROBE = Table(
-    "bms_it_dm_xa_probe",
+    f"bms_it_dm_xa_probe_{uuid.uuid4().hex[:8]}",
     MetaData(),
     Column("id", BigInteger, primary_key=True, autoincrement=False),
     Column("note", String(50)),
 )
-"""XA 探针表（用例内建删）。"""
+"""XA 探针表（带进程随机后缀，避免 xdist 并行同库撞表；用例内建删）。"""
 
 
 @pytest.fixture
@@ -60,11 +61,8 @@ def _setup(engine: Engine) -> None:
 
 def _count(engine: Engine, probe_id: int) -> int:
     with engine.connect() as connection:
-        return int(
-            connection.execute(
-                text("SELECT COUNT(*) FROM bms_it_dm_xa_probe WHERE id = :i"), {"i": probe_id}
-            ).scalar_one()
-        )
+        statement = text(f"SELECT COUNT(*) FROM {_PROBE.name} WHERE id = :i")
+        return int(connection.execute(statement, {"i": probe_id}).scalar_one())
 
 
 def test_dmxa_engine_uses_dmxa_dialect(engine: Engine) -> None:
@@ -78,7 +76,7 @@ def test_dmxa_two_phase_commit(engine: Engine) -> None:
     try:
         with engine.connect() as connection:
             txn = connection.begin_twophase()
-            connection.execute(text("INSERT INTO bms_it_dm_xa_probe (id, note) VALUES (1, 'commit')"))
+            connection.execute(text(f"INSERT INTO {_PROBE.name} (id, note) VALUES (1, 'commit')"))
             txn.prepare()
             txn.commit()
         assert _count(engine, 1) == 1
@@ -92,13 +90,13 @@ def test_dmxa_two_phase_rollback(engine: Engine) -> None:
     try:
         with engine.connect() as connection:
             txn = connection.begin_twophase()
-            connection.execute(text("INSERT INTO bms_it_dm_xa_probe (id, note) VALUES (2, 'rb1')"))
+            connection.execute(text(f"INSERT INTO {_PROBE.name} (id, note) VALUES (2, 'rb1')"))
             txn.rollback()
         assert _count(engine, 2) == 0
 
         with engine.connect() as connection:
             txn = connection.begin_twophase()
-            connection.execute(text("INSERT INTO bms_it_dm_xa_probe (id, note) VALUES (3, 'rb2')"))
+            connection.execute(text(f"INSERT INTO {_PROBE.name} (id, note) VALUES (3, 'rb2')"))
             txn.prepare()
             txn.rollback()
         assert _count(engine, 3) == 0

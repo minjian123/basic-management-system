@@ -9,6 +9,7 @@
 """
 
 import os
+import uuid
 
 import pytest
 from sqlalchemy import Connection, Engine, TwoPhaseTransaction, create_engine, text
@@ -18,7 +19,9 @@ from bms_core.db.engine import _normalize_dialect_url  # pyright: ignore[reportP
 
 pytestmark = [pytest.mark.integration, pytest.mark.kiwi_id(2246)]
 
-_TABLE = "bms_it_2pc_probe"
+_TABLE = f"bms_it_2pc_probe_{uuid.uuid4().hex[:8]}"
+"""2PC 探针表名（带进程随机后缀）：集成 job 用 xdist 并行且共用同一测试库，固定表名会互相建 / 删
+（结束后同 job 里另一个用例撞上 `already exists`）。"""
 _ENV = {
     "mysql": "BMS_TEST_MYSQL_URL",
     "postgres": "BMS_TEST_PG_URL",

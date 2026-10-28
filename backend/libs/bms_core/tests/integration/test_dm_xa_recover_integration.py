@@ -8,6 +8,7 @@
 """
 
 import os
+import uuid
 from collections.abc import Iterator
 from typing import cast
 
@@ -23,12 +24,12 @@ from bms_core.db.engine import PLATFORM_DB_KEY, EngineFactory
 pytestmark = [pytest.mark.integration, pytest.mark.dialect_dm8, pytest.mark.kiwi_id(2271)]
 
 _PROBE = Table(
-    "bms_it_dm_xa_recover_probe",
+    f"bms_it_dm_xa_recover_probe_{uuid.uuid4().hex[:8]}",
     MetaData(),
     Column("id", BigInteger, primary_key=True, autoincrement=False),
     Column("note", String(50)),
 )
-"""悬挂分支可回放探针表（用例内建删）。"""
+"""悬挂分支可回放探针表（带进程随机后缀，避免 xdist 并行同库撞表；用例内建删）。"""
 
 _XID_COMMIT = "bms-it-dmxa-recover-commit"
 """提交路径的分支标识（`gtrid` 派生源）。"""

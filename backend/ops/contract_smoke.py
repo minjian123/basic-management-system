@@ -28,8 +28,10 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shutil
 import subprocess
 import sys
+import tempfile
 import time
 from collections.abc import Callable
 from pathlib import Path
@@ -45,6 +47,19 @@ SCHEMATHESIS_IMAGE = "schemathesis/schemathesis:4.28.0"
 
 CONTAINER_COMMAND = "docker"
 """容器命令（起服务容器 / 跑 Schemathesis；单测可注入桩替换）。"""
+
+DEPLOY_DIR = "deploy"
+"""本仓部署资产目录（`registry/*.toml` 声明清单等）。
+
+镜像构建上下文是 `backend/`，镜像内**不含** `deploy/`；而平台服务的启动钩子按
+`deploy/registry/<service>.toml` 读取自身声明。故冒烟起容器时把该目录复制进容器（配置与镜像分离）。
+"""
+
+CONTAINER_DEPLOY_PATH = "/opt/bms/deploy"
+"""容器内部署资产落点（与镜像 `WORKDIR /opt/bms` 对齐）。"""
+
+DEPLOY_EXCLUDES = (".env", "*.env", ".env.*")
+"""复制部署资产时排除的模式：本地 `.env`（凭据，已 gitignore）不随复制进临时容器；CI 无这些文件。"""
 
 DEFAULT_MAX_EXAMPLES = 1
 """每操作样例上限（冒烟口径：1 例即证明服务可达且无 5xx，不做 fuzz）。"""
@@ -165,15 +180,20 @@ def service_up(
     service_key: str,
     image: str,
     *,
+    deploy_dir: Path | None = None,
     run: Runner = _run_command,
     sleep: Callable[[float], None] = time.sleep,
     attempts: int = HEALTH_ATTEMPTS,
 ) -> bool:
     """以已构建镜像起服务容器并等待其 `healthy`。
 
+    起容器分三步：`create` → `cp` 部署资产 → `start`。中间必须用 `docker cp` 而不是 `-v` 挂载：
+    门禁 job 本身在容器内，其路径在**宿主 daemon** 不可见，`-v` 会挂成空目录（同 schema 的处理）。
+
     Args:
         service_key: 服务标识。
         image: 服务镜像（含固定 tag）。
+        deploy_dir: 本仓 `deploy/` 目录（None 或目录不存在表示不注入；平台启动钩子需要其中的声明清单）。
         run: 子进程执行器（单测注入桩）。
         sleep: 休眠函数（单测注入桩）。
         attempts: 就绪轮询次数。
@@ -184,12 +204,11 @@ def service_up(
     name = service_container_name(service_key)
     run(ConcurrentStableList([CONTAINER_COMMAND, "rm", "-f", name]))
     token_keys, active_kid = smoke_service_token_keys()
-    started = run(
+    created = run(
         ConcurrentStableList(
             [
                 CONTAINER_COMMAND,
-                "run",
-                "-d",
+                "create",
                 "--name",
                 name,
                 "-e",
@@ -202,6 +221,20 @@ def service_up(
             ]
         )
     )
+    if created.returncode != 0:
+        return False
+    if deploy_dir is not None and deploy_dir.is_dir():
+        # 先剔除凭据文件再复制（`docker cp` 不支持排除），临时目录用完即删
+        with tempfile.TemporaryDirectory(prefix="bms-deploy-") as staging:
+            staged = Path(staging) / DEPLOY_DIR
+            shutil.copytree(deploy_dir, staged, ignore=shutil.ignore_patterns(*DEPLOY_EXCLUDES))
+            copied = run(
+                ConcurrentStableList([CONTAINER_COMMAND, "cp", str(staged), f"{name}:{CONTAINER_DEPLOY_PATH}"])
+            )
+        if copied.returncode != 0:
+            run(ConcurrentStableList([CONTAINER_COMMAND, "rm", "-f", name]))
+            return False
+    started = run(ConcurrentStableList([CONTAINER_COMMAND, "start", name]))
     if started.returncode != 0:
         return False
     for _ in range(attempts):
@@ -351,7 +384,7 @@ def run(
         int: 退出码（0 通过；1 起容器 / 就绪失败或冒烟失败）。
     """
     schema_path = root / CONTRACTS_DIR / contract_file_name(service)
-    if not service_up(service, image, run=run_cmd, sleep=sleep):
+    if not service_up(service, image, deploy_dir=root / DEPLOY_DIR, run=run_cmd, sleep=sleep):
         print(f"[contract_smoke] 服务 {service}：容器启动 / 就绪失败（镜像 {image}）", file=sys.stderr)
         # 先回显容器状态与日志（容器即将被清理），便于在 CI 上直接定位根因
         print(container_diagnostics(service, run=run_cmd), file=sys.stderr)

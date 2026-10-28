@@ -43,8 +43,8 @@ def test_container_name_and_schemathesis_args() -> None:
 
 
 @pytest.mark.kiwi_id(2186)
-def test_service_up_healthy() -> None:
-    """起容器 → 轮询 healthy 即就绪；镜像标签随命令传入；注入一次性测试服务令牌密钥。"""
+def test_service_up_healthy(tmp_path: Path) -> None:
+    """create → cp 部署资产 → start → 轮询 healthy 即就绪；镜像标签随命令传入；注入一次性测试服务令牌密钥。"""
     calls: ConcurrentStableList[ConcurrentStableList[str]] = ConcurrentStableList()
     inspect_n = {"n": 0}
 
@@ -53,14 +53,52 @@ def test_service_up_healthy() -> None:
         if "inspect" in command:
             inspect_n["n"] += 1
             return _completed(command, 0, "starting" if inspect_n["n"] == 1 else "healthy")
+        if command[1] == "cp":
+            # 复制前已剔除凭据文件，且声明清单随行
+            staged = Path(command[-2])
+            assert not (staged / ".env").exists()
+            assert (staged / "registry" / "platform.toml").is_file()
         return _completed(command, 0)
 
-    assert contract_smoke.service_up("platform", "reg/bms-platform:abc", run=fake_run, sleep=lambda _s: None) is True
-    run_cmd = next(call for call in calls if call[1] == "run")
+    deploy_dir = tmp_path / "deploy"
+    (deploy_dir / "registry").mkdir(parents=True)
+    (deploy_dir / "registry" / "platform.toml").write_text('product_key = "platform"\n', encoding="utf-8")
+    (deploy_dir / ".env").write_text("SECRET=1\n", encoding="utf-8")
+    assert (
+        contract_smoke.service_up(
+            "platform", "reg/bms-platform:abc", deploy_dir=deploy_dir, run=fake_run, sleep=lambda _s: None
+        )
+        is True
+    )
+    run_cmd = next(call for call in calls if call[1] == "create")
     assert "BMS_ENV=dev" in run_cmd and "reg/bms-platform:abc" in run_cmd
     assert any(arg.startswith("BMS_SERVICE_TOKEN__KEYS={") for arg in run_cmd)
     assert "BMS_SERVICE_TOKEN__ACTIVE_KID=svc-smoke" in run_cmd
+    assert "-d" not in run_cmd
+    copied = next(call for call in calls if call[1] == "cp")
+    assert copied[-2].replace("\\", "/").endswith("/deploy")
+    assert copied[-1] == f"bms-smoke-platform:{contract_smoke.CONTAINER_DEPLOY_PATH}"
+    assert any(call[1] == "start" for call in calls)
     assert inspect_n["n"] == 2
+
+
+@pytest.mark.kiwi_id(2186)
+def test_service_up_deploy_copy_failure_cleans_up(tmp_path: Path) -> None:
+    """部署资产复制失败：不起容器、清理残留并返回 False（宁可失败也不让服务缺清单启动）。"""
+    calls: ConcurrentStableList[ConcurrentStableList[str]] = ConcurrentStableList()
+
+    def copy_fail(command: Any) -> subprocess.CompletedProcess[str]:
+        calls.add(ConcurrentStableList(command))
+        return _completed(command, 1, "", "boom") if command[1] == "cp" else _completed(command, 0)
+
+    deploy_dir = tmp_path / "deploy"
+    deploy_dir.mkdir()
+    assert (
+        contract_smoke.service_up("platform", "img", deploy_dir=deploy_dir, run=copy_fail, sleep=lambda _s: None)
+        is False
+    )
+    assert not any(call[1] == "start" for call in calls)
+    assert calls[-1][1:4] == ["rm", "-f", "bms-smoke-platform"]
 
 
 @pytest.mark.kiwi_id(2186)
@@ -82,7 +120,7 @@ def test_service_up_start_failure_and_timeout() -> None:
     """起容器失败即 False；就绪超时 False。"""
 
     def fail_run(command: Any) -> subprocess.CompletedProcess[str]:
-        return _completed(command, 1, "", "boom") if command[1] == "run" else _completed(command, 0)
+        return _completed(command, 1, "", "boom") if command[1] == "create" else _completed(command, 0)
 
     assert contract_smoke.service_up("platform", "img", run=fail_run, sleep=lambda _s: None) is False
 

@@ -16,6 +16,7 @@
 import asyncio
 import json
 import os
+import uuid
 from collections.abc import AsyncIterator
 from datetime import datetime
 from typing import cast
@@ -42,17 +43,21 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from bms_core.core.concurrent import ConcurrentStableSet
 from bms_core.core.config import Settings
 from bms_core.db.engine import PLATFORM_DB_KEY, EngineFactory
-from bms_core.db.migration import resolve_series
+from bms_core.db.migration import unit_domains
 from bms_core.db.registry import EngineRegistry
 from bms_core.db.session import session_scope
+from bms_core.services.table_registry import Datasource, unit_tables
 
 pytestmark = [pytest.mark.integration, pytest.mark.dialect_dm8, pytest.mark.kiwi_id(1156)]
 
 _SCHEMA = "BMS_TEST_DM"
 """实测模式名（平台对象；与 CI 变量 `BMS_TEST_DB_URL` 的模式段一致）。"""
 
+_PROBE_SUFFIX = uuid.uuid4().hex[:8]
+"""探针表名后缀：集成 job 用 xdist 并行且共用同一测试库，固定表名会互相建 / 删。"""
+
 _PROBE = Table(
-    "bms_it_dm_probe",
+    f"bms_it_dm_probe_{_PROBE_SUFFIX}",
     MetaData(),
     Column("id", BigInteger, primary_key=True, autoincrement=False),
     Column("flag", Boolean),
@@ -60,7 +65,7 @@ _PROBE = Table(
     Column("at", DateTime),
     Column("tags", JSON),
     Column("deleted_at", DateTime),
-    UniqueConstraint("name", "deleted_at", name="uq_bms_it_dm_probe_name_deleted_at"),
+    UniqueConstraint("name", "deleted_at", name=f"uq_bms_it_dm_{_PROBE_SUFFIX}_name_deleted_at"),
 )
 """达梦实测探针表（布尔 / JSON / 复合唯一 NULL 语义；用例内建删）。"""
 
@@ -114,9 +119,9 @@ async def test_dm8_schema_prefix_and_identifier_case(registry: EngineRegistry) -
         names = await asyncio.to_thread(_table_names, engine)
         # 连接落在模式段指定的模式内（URL 的 database 段 → dmPython `schema` 连接参数），
         # 故反射结果即该模式的对象，且迁移不写「模式名.表名」前缀
-        # 表集按 06_02 分链口径取自平台链（`platform:platform`：sys_module / 发件箱 / 归属登记）；
+        # 表集按部署单元推导（07C `03_02` / 清单按业务域组织）：平台服务承载的各域表集 + 基础设施表；
         # 06_05 起建表走「启动期自动建表」（迁移脚本清空）⇒ **不再落 `alembic_version`**
-        expected = set(resolve_series("platform:platform").tables)
+        expected = set(unit_tables(unit_domains("platform"), Datasource.PLATFORM))
         assert expected <= names, sorted(names)
 
         async with session_scope(registry, db_key=PLATFORM_DB_KEY) as session:
@@ -217,8 +222,8 @@ async def test_dm8_boolean_and_json_roundtrip(registry: EngineRegistry) -> None:
             await session.commit()
 
         async with session_scope(registry, db_key=PLATFORM_DB_KEY) as session:
-            raw_true = (await session.execute(text("SELECT flag FROM bms_it_dm_probe WHERE id = 1"))).scalar_one()
-            raw_false = (await session.execute(text("SELECT flag FROM bms_it_dm_probe WHERE id = 2"))).scalar_one()
+            raw_true = (await session.execute(text(f"SELECT flag FROM {_PROBE.name} WHERE id = 1"))).scalar_one()
+            raw_false = (await session.execute(text(f"SELECT flag FROM {_PROBE.name} WHERE id = 2"))).scalar_one()
             row = (await session.execute(select(_PROBE).where(_PROBE.c.id == 1))).one()
         assert int(cast("int", raw_true)) == 1
         assert int(cast("int", raw_false)) == 0
