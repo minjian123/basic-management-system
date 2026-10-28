@@ -3,7 +3,7 @@
 // 工具栏 + 信息栏（详细信息 / 用户分配 / 系统信息，业务 Tab 插在固定两 Tab 之间）；
 // 详细信息首行固定三字段（用户名 / 姓名 / 状态，三列等宽），其余字段排首行之后；
 // 系统信息侧由骨架件内置系统信息件承载，SSO 身份绑定只读区块经骨架件 `sys-extra` 扩展位呈现。
-// 工具栏**单一保存**：基础资料与「用户分配」（角色 + mdm 岗位 / 部门，均为插件草稿）一次提交；
+// 工具栏**单一保存**：基础资料与「用户分配」（角色 + 产品插件的岗位 / 部门，均为插件草稿）一次提交；
 // 分配段存在时经**用户保存编排端点**（跨服务原子），仅改基础资料时走 `PUT /users/{id}`。
 import {
   DictRecordLayout,
@@ -446,7 +446,7 @@ defineExpose({ save, isDirty: (): boolean => dirty.value })
             <p v-if="disabledAccount" class="user-record__hint" data-test="user-assign-disabled-hint">
               账号已停用：分配只读（仅启用账号可持有角色 / 岗位 / 部门分配），请先启用后再分配。
             </p>
-            <!-- 具名插槽：平台内建「角色分配」与 mdm 岗位 / 部门插件同槽并列（缺失即不渲染，不报错） -->
+            <!-- 具名插槽：平台内建「角色分配」与产品插件的岗位 / 部门插件同槽并列（缺失即不渲染，不报错） -->
             <module-area-outlet
               :area="USER_ASSIGN_SLOT"
               variant="tabs"

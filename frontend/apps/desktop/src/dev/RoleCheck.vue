@@ -146,7 +146,7 @@ function onClose(key: string): void {
                   </el-tab-pane>
                   <el-tab-pane label="角色分配" name="assign">
                     <p class="role-check__hint" data-test="check-assign-hint">
-                      用户分配内建（选择用户弹窗 + 已分配列表，随宿主保存）；岗位 / 部门分配由 mdm 插件插入，插件缺失即隐藏。
+                      用户分配内建（选择用户弹窗 + 已分配列表，随宿主保存）；岗位 / 部门分配由产品插件插入，插件缺失即隐藏。
                     </p>
                   </el-tab-pane>
                 </el-tabs>

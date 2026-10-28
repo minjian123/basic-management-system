@@ -169,7 +169,7 @@ export function getRole(roleId: string): Promise<RoleDetail> {
 /**
  * 角色保存编排（分段全量覆盖；跨服务原子）。
  *
- * 一次请求提交角色本体 + 用户分配 + mdm 岗位 / 部门分配；`provider=xa` 走 TM 全局事务、
+ * 一次请求提交角色本体 + 用户分配 + 产品插件的岗位 / 部门分配；`provider=xa` 走 TM 全局事务、
  * `provider=null`（dev / test）走顺序提交（见 `02_03/_02` 详设）。
  *
  * @param roleId 角色主键。

@@ -1,11 +1,12 @@
 // kiwi_id: 2236
 // kiwi_id: 2259
+// kiwi_id: 2363
 /**
  * 模块请求能力宿主实现用例（06_02；产品域通道 05-13）：模块 → `context.api` → 宿主请求层 → 适配器整链；
  * 401 单例静默刷新与重放对模块**透明**；刷新失败模块收到会话失效；产品服务经产品命名空间取数。
  */
 
-import { ErrorCodes, configureRequestAdapter } from '@bms/core'
+import { ErrorCodes, applyCatalogSnapshot, configureRequestAdapter, resetCatalog } from '@bms/core'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const { requestMock, useMock, createMock } = vi.hoisted(() => {
@@ -111,11 +112,18 @@ describe('模块请求能力宿主实现（06_02 · Kiwi 2236）', () => {
     await expect(createModuleApi().get('platform', '/tenants')).rejects.toMatchObject({ code: 10003 })
   })
 
-  it('非法服务键：抛 CAPABILITY_VIOLATION 且不发请求', async () => {
+  it('非法服务键（目录已加载）：抛 CAPABILITY_VIOLATION 且不发请求', async () => {
+    applyCatalogSnapshot({
+      products: [],
+      services: [{ serviceKey: 'platform', serviceGroup: 'foundation', status: 'enabled' }],
+      collaborations: [],
+      warnings: [],
+    })
     configureRequestAdapter(createAxiosAdapter())
 
     await expect(createModuleApi().get('nope' as never)).rejects.toMatchObject({ code: ErrorCodes.CAPABILITY_VIOLATION })
     expect(requestMock).not.toHaveBeenCalled()
+    resetCatalog()
   })
 
   it('产品域通道：模块经 api.product 访问产品命名空间（产品前缀 + 统一解包）', async () => {
@@ -145,10 +153,17 @@ describe('模块请求能力宿主实现（06_02 · Kiwi 2236）', () => {
     expect(call.headers['Idempotency-Key']).toContain('mdm:mdm:/user-posts:')
   })
 
-  it('未登记产品键：抛 CAPABILITY_VIOLATION 且不发请求', () => {
+  it('未登记产品键（目录已加载）：抛 CAPABILITY_VIOLATION 且不发请求', () => {
+    applyCatalogSnapshot({
+      products: [{ productKey: 'mdm', status: 'enabled' }],
+      services: [],
+      collaborations: [],
+      warnings: [],
+    })
     configureRequestAdapter(createAxiosAdapter())
 
-    expect(() => createModuleApi().product('biz' as never, 'org')).toThrowError()
+    expect(() => createModuleApi().product('biz', 'org')).toThrowError()
     expect(requestMock).not.toHaveBeenCalled()
+    resetCatalog()
   })
 })

@@ -44,10 +44,13 @@ class CollaborationSnapshotItem(BaseSchema):
     """带参快照的能力段（前端取址 / 服务启动对账共用）。
 
     **不含** `path`（不向浏览器暴露服务内部路径）与 `default_consumers` 等授权信息（分配出口归 `02_04`）。
+    `kind` 供前端区分**能力种类**（`read` / `dataset` / `txn-branch`）——前端按「业务域 + 种类」取址，
+    不在平台代码写死含产品键的能力名（`03_02`）。
     """
 
     name: str
     domain: str
+    kind: str
     product_key: str | None
     frontend_prefix: str | None
     contract_version: str

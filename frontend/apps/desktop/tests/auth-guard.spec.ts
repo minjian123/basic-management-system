@@ -4,6 +4,7 @@
  * 01_07 / Kiwi 2243（守卫关闭仍触发一次会话就绪，避免停在骨架屏）。
  */
 // kiwi_id: 2191, 2231, 2243
+// kiwi_id: 2363
 
 import { DEFAULT_PUBLIC_PATHS, PLACEHOLDER_MENU } from '@bms/core'
 import { flushPromises, mount } from '@vue/test-utils'
@@ -168,6 +169,43 @@ describe('installAuthGuard 开关（Kiwi 2191 / 2231）', () => {
 
   it('默认开启时注册钩子', () => {
     expect(install().installed).toBe(true)
+  })
+})
+
+describe('installAuthGuard 目录钩子（07B 03_02）', () => {
+  it('会话就绪后、动态路由装载前调用一次', async () => {
+    setAccessToken('t1')
+    const order: string[] = []
+    const ensureCatalog = vi.fn(() => {
+      order.push('catalog')
+    })
+    const ensureRoutes = vi.fn(() => {
+      order.push('routes')
+    })
+    const { run } = install({ ensureCatalog, ensureRoutes })
+
+    expect(await run(target('/sys/users'))).toBe(true)
+    expect(order).toEqual(['catalog', 'routes'])
+  })
+
+  it('目录钩子抛错不阻断导航，观测记 catalog-failed', async () => {
+    setAccessToken('t1')
+    const record = vi.fn()
+    const ensureCatalog = vi.fn().mockRejectedValue(new Error('boom'))
+    const { run } = install({ ensureCatalog, record })
+
+    expect(await run(target('/sys/users'))).toBe(true)
+    expect(record).toHaveBeenCalledWith(expect.objectContaining({ reason: 'catalog-failed' }))
+  })
+
+  it('守卫关闭时仍触发一次目录装载（失败静默）', async () => {
+    vi.stubEnv('VITE_AUTH_GUARD', 'off')
+    const ensureCatalog = vi.fn().mockRejectedValue(new Error('boom'))
+
+    install({ ensureCatalog })
+    await flushPromises()
+
+    expect(ensureCatalog).toHaveBeenCalledTimes(1)
   })
 })
 

@@ -1,13 +1,14 @@
 /** 能力源端点解析：按「域 → 服务前缀」单一来源为各能力源注入 endpoint 与令牌头。 */
 
 import { servicePrefix, serviceUrl, type ServiceKey } from '@bms/core'
+import { orgSourceEndpoint } from '@bms/ui_ep'
 
 import { getAccessToken } from './token'
 
 /** 能力源端点选项（结构兼容各 `createHttp*` 的 options）。 */
 export interface SourceEndpointOptions {
-  /** 端点前缀（如 `/api/platform/v1`）。 */
-  endpoint: string
+  /** 端点前缀（如 `/api/platform/v1`）；**缺省表示目录不可用**，消费方据此进入降级、不发起请求。 */
+  endpoint?: string
   /** 请求头提供器（有令牌时注入 Bearer）。 */
   headers: () => Record<string, string>
 }
@@ -37,17 +38,15 @@ export function dictSourceOptions(): SourceEndpointOptions {
 }
 
 /**
- * 组织主数据源选项（mdm 组织域**产品命名空间** `/api/mdm/v1/mdm`）。
+ * 组织主数据源选项（**端点运行期取自平台目录快照**）。
  *
- * 组织主数据已归 mdm 产品服务（2026-10-07，bms 11_01），平台不再有 `org` 服务级路由；
- * 产品服务对外只经产品命名空间（`/api/{product_key}/v1/{domain}`），故此处不经 `ServiceKey`
- * 组装服务前缀。真实出口（契约与类型）随 mdm 需求 01-03 交付，前端 adapter 切换归 bms 11_02 前段。
+ * 组织主数据归**产品服务**（经产品命名空间 `/api/{产品键}/v1/{域段}` 对外），平台不再持有产品键与
+ * 命名空间常量：端点由 `@bms/ui_ep` 的 `orgSourceEndpoint()` 按「业务域 + 能力种类」从目录推导
+ * （`03_02`）。目录不可用 / 未接入 / 目标不唯一时**不返回端点**（消费方进入降级，不发起请求）。
  */
-const ORG_PRODUCT_ENDPOINT = '/api/mdm/v1/mdm'
-
-/** 组织主数据源选项（mdm 组织域产品命名空间）。 */
 export function orgSourceOptions(): SourceEndpointOptions {
-  return { endpoint: ORG_PRODUCT_ENDPOINT, headers: authHeaders }
+  const endpoint = orgSourceEndpoint()
+  return endpoint === null ? { headers: authHeaders } : { endpoint, headers: authHeaders }
 }
 
 /** 验证码数据源选项（`identity`）。 */

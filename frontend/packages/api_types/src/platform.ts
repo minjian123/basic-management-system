@@ -1266,6 +1266,10 @@ export interface paths {
          *     （产品清单装载的内存投影，不落库），因此必须在装载完成后才有效；未装载时为空数组并在 `warnings`
          *     给出提示（不静默）。`with` 取值集合外的值按参数非法拒绝（10001），不静默回退数组契约。
          *
+         *     **契约形态**：返回注解为两分支联合（`ApiResponse[CatalogSnapshotResponse]` 为带参形态、
+         *     `ApiResponse[list[ModuleResponse]]` 为缺省数组形态），使公开契约与前端生成类型同时覆盖两种形态
+         *     （`03_02` 消费）。
+         *
          *     Args:
          *         session: 平台库只读会话。
          *         with_: 附带段（逗号分隔多值；缺省保持原数组契约）。
@@ -3490,6 +3494,20 @@ export interface components {
              */
             message: string;
         };
+        /** ApiResponse[CatalogSnapshotResponse] */
+        ApiResponse_CatalogSnapshotResponse_: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            data?: components["schemas"]["CatalogSnapshotResponse"] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
         /** ApiResponse[ConfigResolveResponse] */
         ApiResponse_ConfigResolveResponse_: {
             /**
@@ -4121,6 +4139,21 @@ export interface components {
              */
             message: string;
         };
+        /** ApiResponse[list[ModuleResponse]] */
+        ApiResponse_list_ModuleResponse__: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            /** Data */
+            data?: components["schemas"]["ModuleResponse"][] | null;
+            /**
+             * Message
+             * @default ok
+             */
+            message: string;
+        };
         /**
          * AssignedUserItem
          * @description 角色已分配用户行（最小字段，同库取 `sys_user`）。
@@ -4511,6 +4544,55 @@ export interface components {
              * @default
              */
             note: string;
+        };
+        /**
+         * CatalogSnapshotResponse
+         * @description 带参快照响应（`GET /api/v1/modules/snapshot?with=`；**缺省形态仍为 `ModuleResponse` 数组**）。
+         *
+         *     口径：
+         *
+         *     - `modules` 恒下发（服务目录本体，来源不变）；
+         *     - `products` / `collaborations` 仅在 `with` 中声明的段下发，未声明为空数组（不额外查询、不多暴露）；
+         *     - `snapshot_version` 为带参形态的契约版本（形态变更时递增，便于消费方识别，避免与数组形态混用）；
+         *     - `warnings` 承载降级提示（如产品声明未装载），不静默。
+         */
+        CatalogSnapshotResponse: {
+            /** Collaborations */
+            collaborations: components["schemas"]["CollaborationSnapshotItem"][];
+            /** Modules */
+            modules: components["schemas"]["ModuleResponse"][];
+            /** Products */
+            products: components["schemas"]["ProductSnapshotItem"][];
+            /** Snapshot Version */
+            snapshot_version: string;
+            /** Warnings */
+            warnings: string[];
+        };
+        /**
+         * CollaborationSnapshotItem
+         * @description 带参快照的能力段（前端取址 / 服务启动对账共用）。
+         *
+         *     **不含** `path`（不向浏览器暴露服务内部路径）与 `default_consumers` 等授权信息（分配出口归 `02_04`）。
+         *     `kind` 供前端区分**能力种类**（`read` / `dataset` / `txn-branch`）——前端按「业务域 + 种类」取址，
+         *     不在平台代码写死含产品键的能力名（`03_02`）。
+         */
+        CollaborationSnapshotItem: {
+            /** Contract Version */
+            contract_version: string;
+            /** Domain */
+            domain: string;
+            /** Frontend Prefix */
+            frontend_prefix: string | null;
+            /** Kind */
+            kind: string;
+            /** Name */
+            name: string;
+            /** Product Key */
+            product_key: string | null;
+            /** Replacement */
+            replacement: string | null;
+            /** Status */
+            status: string;
         };
         /**
          * ConfigResolveRequest
@@ -5944,6 +6026,46 @@ export interface components {
             status: "enabled" | "disabled";
         };
         /**
+         * ModuleResponse
+         * @description 服务目录登记记录响应（与 `sys_module` 对齐）。
+         *
+         *     `tenant_base` 为**派生标记**：平台模块取自 `TENANT_BASE_MODULE_KEYS`，产品模块取自恒开通清单
+         *     （`tenant_base_module_keys()`，其来源是服务行落库的 `tenant_base` 声明）；租户服务据此判定恒开通。
+         */
+        ModuleResponse: {
+            /** Build Batch */
+            build_batch: number;
+            /** Business Code */
+            business_code: string | null;
+            /** Contract Version */
+            contract_version: string;
+            /** Errcode Segment */
+            errcode_segment: string | null;
+            /** Event Domain */
+            event_domain: string;
+            /** Module Key */
+            module_key: string;
+            /** Name */
+            name: string;
+            /** Product Key */
+            product_key: string | null;
+            /** Service Group */
+            service_group: string;
+            /** Service Key */
+            service_key: string | null;
+            /** Service Version */
+            service_version: string;
+            /** Status */
+            status: string;
+            /** Table Prefix */
+            table_prefix: string;
+            /**
+             * Tenant Base
+             * @default false
+             */
+            tenant_base: boolean;
+        };
+        /**
          * MyMenuButton
          * @description 动态菜单下的按钮元数据（按权限码标记可见）。
          */
@@ -6450,6 +6572,18 @@ export interface components {
              * @description 偏好值（JSON 可序列化的任意结构）
              */
             value?: unknown;
+        };
+        /**
+         * ProductSnapshotItem
+         * @description 带参快照的产品段（前端产品键来源；**不含** `frontend_package_source` 等构建期信息）。
+         */
+        ProductSnapshotItem: {
+            /** Name */
+            name: string;
+            /** Product Key */
+            product_key: string;
+            /** Status */
+            status: string;
         };
         /**
          * QueryScheme
@@ -11889,7 +12023,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ApiResponse"];
+                    "application/json": components["schemas"]["ApiResponse_CatalogSnapshotResponse_"] | components["schemas"]["ApiResponse_list_ModuleResponse__"];
                 };
             };
             /** @description 未认证 */

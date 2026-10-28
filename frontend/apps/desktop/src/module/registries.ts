@@ -9,7 +9,7 @@ export const registries: FrontendRegistries = createRegistries()
 /** 平台自身注册声明（启动期经统一装配器倒入；随平台页面迁移逐步扩充）。 */
 export const PLATFORM_REGISTRATION: RegistryRegistration = {
   // 具名插槽宿主页（用户记录页「用户分配」页签）的平台来源区域项：与模块来源项同槽、同排序、同权限口径。
-  // 「角色分配」为本任务内建能力，按**同一登记通道**注册，与 mdm 的岗位 / 部门插件并列成一条子页签带
+  // 「角色分配」为本任务内建能力，按**同一登记通道**注册，与产品插件的岗位 / 部门插件并列成一条子页签带
   // （见 `02_02/_01` 详设 §4：机制零改动）。
   regions: [
     {
@@ -20,7 +20,7 @@ export const PLATFORM_REGISTRATION: RegistryRegistration = {
       title: '角色分配',
       perm: 'user:assign_role',
     },
-    // 角色记录页「角色分配」页签内的平台内建「用户分配」子页签：与 mdm 岗位 / 部门插件同槽、按 order 排在最前
+    // 角色记录页「角色分配」页签内的平台内建「用户分配」子页签：与产品插件的岗位 / 部门插件同槽、按 order 排在最前
     // （见 `02_03/_02` 详设 §6：机制零改动，单个 outlet 三子页签并列）。
     {
       key: 'sys:role_detail_users',

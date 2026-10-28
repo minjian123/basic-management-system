@@ -192,7 +192,14 @@ def test_mdm_alignment_lockdown() -> None:
 
     frontend = _ROOT / "frontend"
     org_source = (frontend / "packages" / "ui_ep" / "src" / "utils" / "orgSource.ts").read_text(encoding="utf-8")
-    assert "productPrefix('mdm', 'mdm')" in org_source
+    # 07B `03_02` 收编：组织源端点改为运行期按「业务域 + 能力种类」取址，平台前端不再持有产品键
+    assert "resolveCapabilityEndpoint(ORG_SOURCE_DOMAIN" in org_source
+    assert "productPrefix('mdm'" not in org_source
     endpoints = (frontend / "apps" / "desktop" / "src" / "api" / "endpoints.ts").read_text(encoding="utf-8")
-    assert "'/api/mdm/v1/mdm'" in endpoints
+    assert "orgSourceEndpoint()" in endpoints
+    assert "'/api/mdm/v1/mdm'" not in endpoints
     assert "/api/mdm/v1/org" not in endpoints
+    service_endpoint = (frontend / "packages" / "core" / "src" / "contracts" / "service-endpoint.ts").read_text(
+        encoding="utf-8"
+    )
+    assert "PRODUCT_KEYS" not in service_endpoint, "产品键清单已运行期化（07B 03_02），不得回退手写常量"

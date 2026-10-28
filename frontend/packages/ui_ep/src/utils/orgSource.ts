@@ -1,10 +1,12 @@
 /**
  * 组织数据源：HTTP 内建实现 + 注册表默认实例（`fetch` 单一落点）。
  *
- * 端点与**组织主数据出口**同源——组织主数据归 mdm 产品，故默认端点经**寻址契约**组装为
- * **mdm 产品命名空间**（`productPrefix('mdm', 'mdm')` = `/api/mdm/v1/mdm`；见阶段二 `11_02`），
- * 路径为出口口径 `/data-source/{users,posts,dept-tree}` 与 `/resolve-names`
+ * 端点**运行期取自平台目录快照**（`03_02`）：按「业务域 `org` + 能力种类 `dataset`」推导提供方产品键与
+ * 前端命名空间域段，再经**寻址契约**组装为 `/api/{产品键}/v1/{域段}`——平台代码不持有产品键、不持有
+ * 产品命名空间常量。路径为出口口径 `/data-source/{users,posts,dept-tree}` 与 `/resolve-names`
  * （**查询与批量回显分列两个出口**、**部门树一次性返回**）。
+ * 目录不可用（或该域无数据源类能力 / 目标不唯一）时端点解析为 `null`：**不发请求**、不拼默认地址，
+ * 由消费方进入降级（禁用并提示）。
  * 宿主可经 `registerOrgSource` 登记定制实现（如组织 store 版）或覆盖内建键。
  */
 
@@ -15,7 +17,7 @@ import {
   OrgSourceRegistry,
   buildOrgResolveQuery,
   buildOrgSearchQuery,
-  productPrefix,
+  resolveCapabilityEndpoint,
   type OrgDeptTreeQuery,
   type OrgKind,
   type OrgPostQuery,
@@ -23,6 +25,24 @@ import {
   type OrgSourceOptions,
   type OrgUserQuery,
 } from '@bms/core'
+
+/** 组织主数据所属**业务域**标识（非产品键；产品改名 / 新增产品不影响本常量）。 */
+export const ORG_SOURCE_DOMAIN = 'org'
+
+/** 组织数据源对应的**能力种类**（数据源类能力；同域可能另有读出口与事务分支类）。 */
+export const ORG_SOURCE_CAPABILITY_KIND = 'dataset'
+
+/** 降级文案：目录不可用（请求失败 / 结构不合规 / 产品为空 / 有警示）。 */
+export const ORG_DEGRADE_UNAVAILABLE_TEXT = '组织数据暂不可用，请稍后重试'
+
+/** 降级文案：目录正常但未登记组织数据源类能力。 */
+export const ORG_DEGRADE_NOT_INTEGRATED_TEXT = '未接入组织主数据'
+
+/** 降级文案：同一业务域存在多组数据源目标（不猜、不挑选）。 */
+export const ORG_DEGRADE_AMBIGUOUS_TEXT = '组织数据源配置不唯一'
+
+/** 端点缺失告警是否已输出（避免每次取数刷屏）。 */
+let endpointWarningEmitted = false
 
 /** 链路内默认组织数据源注册表实例（宿主可登记定制实现或覆盖内建键）。 */
 export const orgSourceRegistry = new OrgSourceRegistry()
@@ -130,15 +150,18 @@ class HttpOrgSource extends BaseOrgSource {
     if (typeof fetchFn !== 'function') {
       return undefined
     }
-    // 默认端点＝mdm 产品命名空间（**经寻址契约组装**，不自拼前缀）；宿主可传 `endpoint` 覆盖
-    const endpoint = (this.#options.endpoint ?? orgSourceEndpoint()).replace(/\/+$/, '')
-    const search = new URLSearchParams()
-    for (const [key, value] of Object.entries(params)) {
-      if (value === undefined || value === null || value === '' || value === false) {
-        continue
+    // 端点：显式覆盖优先；否则按目录取址（**经寻址契约组装**，不自拼前缀）。解析为 null 即降级不发请求
+    const resolved = this.#options.endpoint ?? orgSourceEndpoint()
+    if (resolved === null) {
+      if (!endpointWarningEmitted) {
+        endpointWarningEmitted = true
+        console.warn('[org-source] 组织数据源端点不可用（目录未就绪或未登记数据源类能力）：已跳过请求')
       }
-      search.set(key, value === true ? 'true' : String(value))
+      return undefined
     }
+    const endpoint = resolved.replace(/\/+$/, '')
+    const search = new URLSearchParams()
+    appendOrgSearchParams(search, params)
     const query = search.size > 0 ? `?${search.toString()}` : ''
     const headers = typeof this.#options.headers === 'function' ? this.#options.headers() : this.#options.headers
     const response = await fetchFn(`${endpoint}${path}${query}`, { method: 'GET', headers })
@@ -150,21 +173,41 @@ class HttpOrgSource extends BaseOrgSource {
 }
 
 /**
- * 组织数据源默认端点（**组织主数据归 mdm 产品**）。
+ * 追加组织数据源查询参数（跳过空值：`undefined` / `null` / 空串 / `false`；布尔真写 `true`）。
  *
- * 经寻址契约组装 **mdm 产品命名空间**（`/api/mdm/v1/mdm`）——产品服务只经产品命名空间对外暴露，
- * 页面 / 插件**不得自拼** `/api/...` 前缀（前端架构 §9 治理表）。
+ * 抽为独立函数是为了让「空值过滤」这一分支可被直接用例覆盖（服务端参数口径与后端同源，
+ * 空值必须**不出现**在查询串里，否则后端会按空串过滤而不是不过滤）。
  *
- * @returns 端点前缀。
+ * @param search 目标参数集（就地写入）。
+ * @param params 参数映射。
  */
-export function orgSourceEndpoint(): string {
-  return productPrefix('mdm', 'mdm')
+export function appendOrgSearchParams(search: URLSearchParams, params: Record<string, unknown>): void {
+  for (const [key, value] of Object.entries(params)) {
+    if (value === undefined || value === null || value === '' || value === false) {
+      continue
+    }
+    search.set(key, value === true ? 'true' : String(value))
+  }
+}
+
+/**
+ * 组织数据源默认端点（**运行期取自平台目录快照**）。
+ *
+ * 按「业务域 `org` + 能力种类 `dataset`」解析提供方产品键与前端域段，经寻址契约组装为
+ * `/api/{产品键}/v1/{域段}`——产品服务只经产品命名空间对外暴露，页面 / 插件**不得自拼** `/api/...`
+ * 前缀（前端架构 §9 治理表）。
+ *
+ * @returns 端点前缀；目录未就绪 / 该域无数据源类能力 / 目标不唯一时返回 `null`（调用方进入降级）。
+ */
+export function orgSourceEndpoint(): string | null {
+  const target = resolveCapabilityEndpoint(ORG_SOURCE_DOMAIN, ORG_SOURCE_CAPABILITY_KIND)
+  return target.status === 'ok' ? target.endpoint : null
 }
 
 /**
  * 创建 HTTP 内建组织数据源。
  *
- * @param options 装载选项（`endpoint` 缺省＝mdm 产品命名空间，见 `orgSourceEndpoint`）。
+ * @param options 装载选项（`endpoint` 缺省＝按目录取址，见 `orgSourceEndpoint`）。
  * @returns 数据源实例。
  */
 export function createHttpOrgSource(options: OrgSourceOptions = {}): BaseOrgSource {

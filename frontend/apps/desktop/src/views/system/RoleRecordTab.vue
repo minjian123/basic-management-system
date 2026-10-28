@@ -183,7 +183,7 @@ function buildAssignmentsPayload(hasRole: boolean): RoleAssignmentsPayload {
 /**
  * 提交保存（工具栏唯一入口，全局一次保存）。
  *
- * 角色本体 + 「角色分配」页签（用户分配 + mdm 岗位 / 部门插件草稿）经**角色保存编排端点**
+ * 角色本体 + 「角色分配」页签（用户分配 + 产品插件的岗位 / 部门插件草稿）经**角色保存编排端点**
  * 一次原子提交（`PUT /roles/{id}/assignments`）；仅本体改动时走既有 `PUT /roles/{id}`；
  * 授权（菜单 / 字段 / 数据权限）各自既有端点单独提交（见 `02_03/_02` 详设 §6.3）。
  */

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // 角色分配（权限配置第四页签）：**具名插槽宿主**——平台内建「用户分配」按区域项注册，
-// 与 mdm「岗位分配 / 部门分配」插件由**单个** `ModuleAreaOutlet variant="tabs"` 渲染为并列子页签
+// 与产品插件「岗位分配 / 部门分配」由**单个** `ModuleAreaOutlet variant="tabs"` 渲染为并列子页签
 // （机制零改动；见 `02_03/_02` 详设 §6）。
 //
 // 变更**随宿主保存**（原型口径：保存只在页面工具栏一处）：本页签只**收集草稿**并暴露给记录页，
@@ -96,7 +96,7 @@ defineExpose({ buildSegments, isDirty: (): boolean => dirty.value, revert })
       data-test="role-assign-new-hint"
     />
 
-    <!-- 具名插槽：平台内建「用户分配」与 mdm 岗位 / 部门插件同槽并列（缺失 / 未启用 / 无权限即隐藏，不报错） -->
+    <!-- 具名插槽：平台内建「用户分配」与产品插件的岗位 / 部门插件同槽并列（缺失 / 未启用 / 无权限即隐藏，不报错） -->
     <module-area-outlet
       v-else
       :area="ROLE_ASSIGN_SLOT"

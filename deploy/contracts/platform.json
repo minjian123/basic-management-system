@@ -505,6 +505,33 @@
         "title": "ApiResponse[ButtonList]",
         "type": "object"
       },
+      "ApiResponse_CatalogSnapshotResponse_": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CatalogSnapshotResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[CatalogSnapshotResponse]",
+        "type": "object"
+      },
       "ApiResponse_ConfigResolveResponse_": {
         "additionalProperties": false,
         "properties": {
@@ -1714,6 +1741,37 @@
         "title": "ApiResponse[UserStatusResult]",
         "type": "object"
       },
+      "ApiResponse_list_ModuleResponse__": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "default": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ModuleResponse"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data"
+          },
+          "message": {
+            "default": "ok",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[list[ModuleResponse]]",
+        "type": "object"
+      },
       "AssignedUserItem": {
         "additionalProperties": false,
         "description": "角色已分配用户行（最小字段，同库取 `sys_user`）。",
@@ -2353,6 +2411,124 @@
           "consumer_key"
         ],
         "title": "CapabilityGrantCreateRequest",
+        "type": "object"
+      },
+      "CatalogSnapshotResponse": {
+        "additionalProperties": false,
+        "description": "带参快照响应（`GET /api/v1/modules/snapshot?with=`；**缺省形态仍为 `ModuleResponse` 数组**）。\n\n口径：\n\n- `modules` 恒下发（服务目录本体，来源不变）；\n- `products` / `collaborations` 仅在 `with` 中声明的段下发，未声明为空数组（不额外查询、不多暴露）；\n- `snapshot_version` 为带参形态的契约版本（形态变更时递增，便于消费方识别，避免与数组形态混用）；\n- `warnings` 承载降级提示（如产品声明未装载），不静默。",
+        "properties": {
+          "collaborations": {
+            "items": {
+              "$ref": "#/components/schemas/CollaborationSnapshotItem"
+            },
+            "title": "Collaborations",
+            "type": "array"
+          },
+          "modules": {
+            "items": {
+              "$ref": "#/components/schemas/ModuleResponse"
+            },
+            "title": "Modules",
+            "type": "array"
+          },
+          "products": {
+            "items": {
+              "$ref": "#/components/schemas/ProductSnapshotItem"
+            },
+            "title": "Products",
+            "type": "array"
+          },
+          "snapshot_version": {
+            "title": "Snapshot Version",
+            "type": "string"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "modules",
+          "products",
+          "collaborations",
+          "snapshot_version",
+          "warnings"
+        ],
+        "title": "CatalogSnapshotResponse",
+        "type": "object"
+      },
+      "CollaborationSnapshotItem": {
+        "additionalProperties": false,
+        "description": "带参快照的能力段（前端取址 / 服务启动对账共用）。\n\n**不含** `path`（不向浏览器暴露服务内部路径）与 `default_consumers` 等授权信息（分配出口归 `02_04`）。\n`kind` 供前端区分**能力种类**（`read` / `dataset` / `txn-branch`）——前端按「业务域 + 种类」取址，\n不在平台代码写死含产品键的能力名（`03_02`）。",
+        "properties": {
+          "contract_version": {
+            "title": "Contract Version",
+            "type": "string"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "frontend_prefix": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Frontend Prefix"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "product_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Product Key"
+          },
+          "replacement": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Replacement"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "domain",
+          "kind",
+          "product_key",
+          "frontend_prefix",
+          "contract_version",
+          "status",
+          "replacement"
+        ],
+        "title": "CollaborationSnapshotItem",
         "type": "object"
       },
       "ConfigResolveRequest": {
@@ -4571,6 +4747,114 @@
         "title": "MenuUpdateRequest",
         "type": "object"
       },
+      "ModuleResponse": {
+        "additionalProperties": false,
+        "description": "服务目录登记记录响应（与 `sys_module` 对齐）。\n\n`tenant_base` 为**派生标记**：平台模块取自 `TENANT_BASE_MODULE_KEYS`，产品模块取自恒开通清单\n（`tenant_base_module_keys()`，其来源是服务行落库的 `tenant_base` 声明）；租户服务据此判定恒开通。",
+        "properties": {
+          "build_batch": {
+            "title": "Build Batch",
+            "type": "integer"
+          },
+          "business_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Business Code"
+          },
+          "contract_version": {
+            "title": "Contract Version",
+            "type": "string"
+          },
+          "errcode_segment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Errcode Segment"
+          },
+          "event_domain": {
+            "title": "Event Domain",
+            "type": "string"
+          },
+          "module_key": {
+            "title": "Module Key",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "product_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Product Key"
+          },
+          "service_group": {
+            "title": "Service Group",
+            "type": "string"
+          },
+          "service_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Service Key"
+          },
+          "service_version": {
+            "title": "Service Version",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "table_prefix": {
+            "title": "Table Prefix",
+            "type": "string"
+          },
+          "tenant_base": {
+            "default": false,
+            "title": "Tenant Base",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "module_key",
+          "service_key",
+          "name",
+          "table_prefix",
+          "business_code",
+          "errcode_segment",
+          "event_domain",
+          "service_group",
+          "build_batch",
+          "service_version",
+          "contract_version",
+          "product_key",
+          "status"
+        ],
+        "title": "ModuleResponse",
+        "type": "object"
+      },
       "MyMenuButton": {
         "additionalProperties": false,
         "description": "动态菜单下的按钮元数据（按权限码标记可见）。",
@@ -5278,6 +5562,31 @@
           }
         },
         "title": "PreferenceValueRequest",
+        "type": "object"
+      },
+      "ProductSnapshotItem": {
+        "additionalProperties": false,
+        "description": "带参快照的产品段（前端产品键来源；**不含** `frontend_package_source` 等构建期信息）。",
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "product_key": {
+            "title": "Product Key",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "product_key",
+          "name",
+          "status"
+        ],
+        "title": "ProductSnapshotItem",
         "type": "object"
       },
       "QueryScheme": {
@@ -12954,7 +13263,7 @@
     },
     "/api/v1/modules/snapshot": {
       "get": {
-        "description": "服务目录快照（只读，全量清单不分页；带参分支一并下发产品段与能力段）。\n\n供各服务启动接库校验对账（`validate_catalog`）：字段与 `sys_module` 登记一致，\n响应 `data` 为清单数组（**注意**：路径须先于 `/modules/{service_key}` 注册，避免被明细路由吞掉）。\n\n带参分支（`?with=products,collaborations`）：`data` 为\n`{modules, products, collaborations, snapshot_version, warnings}`——产品段与能力段来自**运行时视图**\n（产品清单装载的内存投影，不落库），因此必须在装载完成后才有效；未装载时为空数组并在 `warnings`\n给出提示（不静默）。`with` 取值集合外的值按参数非法拒绝（10001），不静默回退数组契约。\n\nArgs:\n    session: 平台库只读会话。\n    with_: 附带段（逗号分隔多值；缺省保持原数组契约）。\n\nReturns:\n    ApiResponse: 统一响应。缺省形态 data 为服务目录记录数组（`ModuleResponse`）；\n    带参形态 data 为 `CatalogSnapshotResponse`。\n\nRaises:\n    ParamError: `with` 出现未支持的段名（10001）。",
+        "description": "服务目录快照（只读，全量清单不分页；带参分支一并下发产品段与能力段）。\n\n供各服务启动接库校验对账（`validate_catalog`）：字段与 `sys_module` 登记一致，\n响应 `data` 为清单数组（**注意**：路径须先于 `/modules/{service_key}` 注册，避免被明细路由吞掉）。\n\n带参分支（`?with=products,collaborations`）：`data` 为\n`{modules, products, collaborations, snapshot_version, warnings}`——产品段与能力段来自**运行时视图**\n（产品清单装载的内存投影，不落库），因此必须在装载完成后才有效；未装载时为空数组并在 `warnings`\n给出提示（不静默）。`with` 取值集合外的值按参数非法拒绝（10001），不静默回退数组契约。\n\n**契约形态**：返回注解为两分支联合（`ApiResponse[CatalogSnapshotResponse]` 为带参形态、\n`ApiResponse[list[ModuleResponse]]` 为缺省数组形态），使公开契约与前端生成类型同时覆盖两种形态\n（`03_02` 消费）。\n\nArgs:\n    session: 平台库只读会话。\n    with_: 附带段（逗号分隔多值；缺省保持原数组契约）。\n\nReturns:\n    ApiResponse: 统一响应。缺省形态 data 为服务目录记录数组（`ModuleResponse`）；\n    带参形态 data 为 `CatalogSnapshotResponse`。\n\nRaises:\n    ParamError: `with` 出现未支持的段名（10001）。",
         "operationId": "catalog_snapshot_api_v1_modules_snapshot_get",
         "parameters": [
           {
@@ -12981,7 +13290,15 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse_CatalogSnapshotResponse_"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ApiResponse_list_ModuleResponse__"
+                    }
+                  ],
+                  "title": "Response Catalog Snapshot Api V1 Modules Snapshot Get"
                 }
               }
             },

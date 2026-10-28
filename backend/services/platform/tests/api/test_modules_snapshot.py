@@ -1,7 +1,8 @@
 """目录快照带参分支（`?with=`）：产品段与能力段一并下发，缺省契约不变（07B `02_02`）。
 
-Kiwi 编号归 07B `05_01` 统一登记。覆盖详细设计 §5 用例 13~15、18：
-无参仍是数组、带参三段 + `snapshot_version`、能力段不含 `path` 与授权信息、`codes` / `disabled` 不下发、
+Kiwi 2363（07B `03_02` 前端目录消费）：能力段含 `kind`（前端按「业务域 + 种类」取址）。
+覆盖详细设计 §5 用例 13~15、18：
+无参仍是数组、带参三段 + `snapshot_version`、能力段含 `kind` 且不含 `path` 与授权信息、`codes` / `disabled` 不下发、
 `deprecated` 带 `replacement`、未装载时 `warnings` 非空、非法段名报 10001。
 """
 
@@ -24,6 +25,8 @@ from bms_core.services.module_registry import (
     service_catalog_view,
 )
 from tests_support.auth import auth_headers
+
+pytestmark = pytest.mark.kiwi_id(2363)
 
 _DEMO_RECORDS: ConcurrentStableList[CollaborationRecord] = ConcurrentStableList(
     (
@@ -123,7 +126,7 @@ async def test_snapshot_with_segments_returns_products_and_collaborations(
     assert response.status_code == 200
     data = response.json()["data"]
     assert set(data) == {"modules", "products", "collaborations", "snapshot_version", "warnings"}
-    assert data["snapshot_version"] == "1"
+    assert data["snapshot_version"] == "2"
     assert [item["module_key"] for item in data["modules"]] == [module.module_key for module in service_catalog_view()]
 
     demo_products = [item for item in data["products"] if item["product_key"] == "demo"]
@@ -141,6 +144,7 @@ async def test_snapshot_with_segments_returns_products_and_collaborations(
     assert set(first) == {
         "name",
         "domain",
+        "kind",
         "product_key",
         "frontend_prefix",
         "contract_version",
@@ -148,6 +152,10 @@ async def test_snapshot_with_segments_returns_products_and_collaborations(
         "replacement",
     }
     assert first["frontend_prefix"] == "demo"
+    assert first["kind"] == "read"
+
+    dataset = next(item for item in data["collaborations"] if item["name"] == "demo.org.dept-data")
+    assert dataset["kind"] == "dataset"
 
     legacy = next(item for item in data["collaborations"] if item["name"] == "demo.org.legacy-roles")
     assert legacy["status"] == "deprecated"

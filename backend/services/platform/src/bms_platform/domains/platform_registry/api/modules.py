@@ -67,8 +67,11 @@ WithQuery = Annotated[
 SNAPSHOT_SEGMENTS: ConcurrentStableSet[str] = ConcurrentStableSet(("modules", "products", "collaborations"))
 """带参快照可接受的段名（集合外的值按参数非法拒绝，不静默回退数组契约）。"""
 
-CATALOG_SNAPSHOT_VERSION = "1"
-"""带参快照的契约版本（形态变更时递增；缺省数组形态不带该字段）。"""
+CATALOG_SNAPSHOT_VERSION = "2"
+"""带参快照的契约版本（形态变更时递增；缺省数组形态不带该字段）。
+
+`"2"`（2026-10-28，`03_02`）：能力段增 `kind` 字段（前端按「业务域 + 种类」取址）。
+"""
 
 
 @router.get("")
@@ -100,7 +103,11 @@ async def list_modules(
 
 
 @router.get("/snapshot")
-async def catalog_snapshot(session: PlatformDbDep, with_: WithQuery = None) -> ApiResponse:
+async def catalog_snapshot(
+    session: PlatformDbDep,
+    with_: WithQuery = None,
+    # bare-collections:allow: OpenAPI 数组形态（Pydantic 不支持并发集合泛型）
+) -> ApiResponse[CatalogSnapshotResponse] | ApiResponse[list[ModuleResponse]]:
     """服务目录快照（只读，全量清单不分页；带参分支一并下发产品段与能力段）。
 
     供各服务启动接库校验对账（`validate_catalog`）：字段与 `sys_module` 登记一致，
@@ -110,6 +117,10 @@ async def catalog_snapshot(session: PlatformDbDep, with_: WithQuery = None) -> A
     `{modules, products, collaborations, snapshot_version, warnings}`——产品段与能力段来自**运行时视图**
     （产品清单装载的内存投影，不落库），因此必须在装载完成后才有效；未装载时为空数组并在 `warnings`
     给出提示（不静默）。`with` 取值集合外的值按参数非法拒绝（10001），不静默回退数组契约。
+
+    **契约形态**：返回注解为两分支联合（`ApiResponse[CatalogSnapshotResponse]` 为带参形态、
+    `ApiResponse[list[ModuleResponse]]` 为缺省数组形态），使公开契约与前端生成类型同时覆盖两种形态
+    （`03_02` 消费）。
 
     Args:
         session: 平台库只读会话。
@@ -256,6 +267,7 @@ def _collaboration_segment(
             CollaborationSnapshotItem(
                 name=record.name,
                 domain=record.domain,
+                kind=str(record.kind),
                 product_key=record.product_key,
                 frontend_prefix=record.frontend_prefix,
                 contract_version=record.contract_version,

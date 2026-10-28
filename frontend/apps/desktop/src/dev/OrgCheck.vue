@@ -5,8 +5,10 @@ import {
   BaseOrgSource,
   ORG_PLACEHOLDER_TEXT,
   ORG_SEARCH_DEBOUNCE,
+  applyCatalogSnapshot,
   orgTagSummary,
   productPrefix,
+  resetCatalog,
   toOrgTreeNodes,
   type OrgSourceAdapter,
 } from '@bms/core'
@@ -198,10 +200,21 @@ async function runChecks(): Promise<void> {
   // 12. 数据源可替换（注册表登记与默认键）
   add('数据源可替换（默认键 http + 自定义登记）', orgSourceRegistry.get('http') !== undefined && orgSourceRegistry.get('check-store') !== undefined)
 
-  // 13. 出口切址（11_02）：组织主数据归 mdm 产品——默认端点经寻址契约组装为 mdm 产品命名空间
+  // 13. 出口取址（03_02）：组织数据源端点由目录快照按「业务域 + 能力种类」推导，平台不持有产品键
+  applyCatalogSnapshot({
+    products: [{ productKey: 'demo', status: 'enabled' }],
+    services: [],
+    collaborations: [
+      { name: 'demo.org.dept-data', domain: 'org', kind: 'dataset', productKey: 'demo', frontendPrefix: 'demo' },
+    ],
+    warnings: [],
+  })
+  const resolved = orgSourceEndpoint()
+  resetCatalog()
+  const degraded = orgSourceEndpoint()
   add(
-    '组织数据源默认端点为 mdm 产品命名空间（/api/mdm/v1/mdm）',
-    orgSourceEndpoint() === productPrefix('mdm', 'mdm') && orgSourceEndpoint() === '/api/mdm/v1/mdm',
+    '组织数据源端点由目录推导（虚构产品 /api/demo/v1/demo）；目录复位后显式降级为 null',
+    resolved === productPrefix('demo', 'demo') && resolved === '/api/demo/v1/demo' && degraded === null,
   )
 
   checks.value = result

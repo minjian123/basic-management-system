@@ -1,11 +1,19 @@
 // kiwi_id: 962
 // kiwi_id: 2262
+// kiwi_id: 2363
 /**
  * 组织选择字段用例（06_05；出口切址 11_02）：契约套件（核心 + 投影）+ 五件 + 工具（防抖 / HTTP 数据源）
  * + 占位契约复用；HTTP 数据源端点经寻址契约组装为 **mdm 产品命名空间**（`/api/mdm/v1/mdm`）。
  */
 
-import { BaseUserDisplay, ORG_SEARCH_DEBOUNCE, productPrefix, type OrgSourceAdapter } from '@bms/core'
+import {
+  BaseUserDisplay,
+  ORG_SEARCH_DEBOUNCE,
+  applyCatalogSnapshot,
+  productPrefix,
+  resetCatalog,
+  type OrgSourceAdapter,
+} from '@bms/core'
 import {
   createOrgSourceStub,
   describeOrgSelectContract,
@@ -25,6 +33,7 @@ import {
   TreeSelectField,
   UserSelectField,
   createHttpOrgSource,
+  appendOrgSearchParams,
   debounce,
   orgSourceEndpoint,
   orgSourceRegistry,
@@ -425,6 +434,7 @@ describe('工具：防抖与组织数据源', () => {
   afterEach(() => {
     vi.unstubAllGlobals()
     vi.useRealTimers()
+    resetCatalog()
   })
 
   it('防抖：等待期内合并调用，cancel 取消', async () => {
@@ -443,12 +453,71 @@ describe('工具：防抖与组织数据源', () => {
     expect(calls).toEqual(['b'])
   })
 
-  it('HTTP 数据源：默认端点为 mdm 产品命名空间（经寻址契约组装，不自拼前缀）', () => {
-    expect(orgSourceEndpoint()).toBe(productPrefix('mdm', 'mdm'))
-    expect(orgSourceEndpoint()).toBe('/api/mdm/v1/mdm')
+  it('HTTP 数据源：默认端点按目录取址（业务域 + 能力种类推导，不自拼前缀）', () => {
+    applyCatalogSnapshot({
+      products: [{ productKey: 'demo', status: 'enabled' }],
+      services: [],
+      collaborations: [
+        { name: 'demo.org.dept-data', domain: 'org', kind: 'dataset', productKey: 'demo', frontendPrefix: 'demo' },
+      ],
+      warnings: [],
+    })
+    expect(orgSourceEndpoint()).toBe(productPrefix('demo', 'demo'))
+    expect(orgSourceEndpoint()).toBe('/api/demo/v1/demo')
+    resetCatalog()
+    expect(orgSourceEndpoint()).toBeNull()
   })
 
-  it('HTTP 数据源：查询参数与响应解包（mdm 出口路径）', async () => {
+  it('HTTP 数据源：端点不可用时不发请求（显式降级，不拼默认地址）', async () => {
+    const fetchMock = vi.fn(async (input: unknown) => {
+      void input
+      return { ok: true, json: async () => ({ code: 0, data: {} }) }
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+
+    const result = await createHttpOrgSource().searchUsers({})
+
+    expect(result).toBeUndefined()
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(warn).toHaveBeenCalledTimes(1)
+
+    // 再次调用不再重复告警（避免刷屏）
+    await expect(createHttpOrgSource().searchUsers({})).resolves.toBeUndefined()
+    expect(warn).toHaveBeenCalledTimes(1)
+    warn.mockRestore()
+  })
+
+  it('HTTP 数据源：请求头支持函数形态（动态取令牌）', async () => {
+    applyCatalogSnapshot({
+      products: [{ productKey: 'demo', status: 'enabled' }],
+      services: [],
+      collaborations: [
+        { name: 'demo.org.dept-data', domain: 'org', kind: 'dataset', productKey: 'demo', frontendPrefix: 'demo' },
+      ],
+      warnings: [],
+    })
+    const fetchMock = vi.fn(async (input: unknown, init?: { headers?: Record<string, string> }) => {
+      void input
+      void init
+      return { ok: true, json: async () => ({ code: 0, data: { list: [], total: 0 } }) }
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await createHttpOrgSource({ headers: () => ({ Authorization: 'Bearer t9' }) }).searchUsers({})
+
+    expect(fetchMock.mock.calls[0]?.[1]?.headers).toEqual({ Authorization: 'Bearer t9' })
+  })
+
+  it('HTTP 数据源：查询参数与响应解包（数据源出口路径）', async () => {
+    applyCatalogSnapshot({
+      products: [{ productKey: 'demo', status: 'enabled' }],
+      services: [],
+      collaborations: [
+        { name: 'demo.org.dept-data', domain: 'org', kind: 'dataset', productKey: 'demo', frontendPrefix: 'demo' },
+      ],
+      warnings: [],
+    })
     const fetchMock = vi.fn(async (input: unknown) => {
       void input
       return {
@@ -457,11 +526,11 @@ describe('工具：防抖与组织数据源', () => {
       }
     })
     vi.stubGlobal('fetch', fetchMock)
-    const source = createHttpOrgSource({ endpoint: '/api/mdm/v1/mdm', headers: { Authorization: 'Bearer x' } })
+    const source = createHttpOrgSource({ headers: { Authorization: 'Bearer x' } })
     const result = await source.searchUsers({ keyword: '张', deptId: 'd1', includeChildren: true, status: 'enabled', page: 1, pageSize: 20 })
     expect(result).toMatchObject({ total: 1 })
     const url = String(fetchMock.mock.calls[0]?.[0])
-    expect(url).toContain('/api/mdm/v1/mdm/data-source/users?')
+    expect(url).toContain('/api/demo/v1/demo/data-source/users?')
     expect(url).toContain('keyword=%E5%BC%A0')
     expect(url).toContain('dept_id=d1')
     expect(url).toContain('include_children=true')
@@ -470,7 +539,15 @@ describe('工具：防抖与组织数据源', () => {
     expect(url).toContain('size=20')
   })
 
-  it('HTTP 数据源：岗位查询走出口路径（缺省端点即 mdm 命名空间）', async () => {
+  it('HTTP 数据源：岗位查询走出口路径（缺省端点即目录取址结果）', async () => {
+    applyCatalogSnapshot({
+      products: [{ productKey: 'demo', status: 'enabled' }],
+      services: [],
+      collaborations: [
+        { name: 'demo.org.dept-data', domain: 'org', kind: 'dataset', productKey: 'demo', frontendPrefix: 'demo' },
+      ],
+      warnings: [],
+    })
     const fetchMock = vi.fn(async (input: unknown) => {
       void input
       return { ok: true, json: async () => ({ code: 0, data: { items: [{ id: 'p1', name: '研发经理' }] } }) }
@@ -482,12 +559,20 @@ describe('工具：防抖与组织数据源', () => {
     // 集合字段名差异（`items`）不影响解包（分页形态兼容）
     expect(result).toMatchObject({ items: [{ id: 'p1' }] })
     const url = String(fetchMock.mock.calls[0]?.[0])
-    expect(url).toContain('/api/mdm/v1/mdm/data-source/posts?')
+    expect(url).toContain('/api/demo/v1/demo/data-source/posts?')
     expect(url).toContain('dept_id=d1')
     expect(url).toContain('include_children=true')
   })
 
   it('HTTP 数据源：批量回显与部门树', async () => {
+    applyCatalogSnapshot({
+      products: [{ productKey: 'demo', status: 'enabled' }],
+      services: [],
+      collaborations: [
+        { name: 'demo.org.dept-data', domain: 'org', kind: 'dataset', productKey: 'demo', frontendPrefix: 'demo' },
+      ],
+      warnings: [],
+    })
     const fetchMock = vi.fn(async (input: unknown) => {
       void input
       return {
@@ -498,12 +583,20 @@ describe('工具：防抖与组织数据源', () => {
     vi.stubGlobal('fetch', fetchMock)
     const source = createHttpOrgSource()
     await source.resolveNames({ target: 'user', ids: ['u1', 'u2'] })
-    expect(String(fetchMock.mock.calls[0]?.[0])).toContain('/api/mdm/v1/mdm/resolve-names?target=user&id_in=u1%2Cu2')
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain('/api/demo/v1/demo/resolve-names?target=user&id_in=u1%2Cu2')
     await source.loadDeptTree({ status: 'enabled' })
-    expect(String(fetchMock.mock.calls[1]?.[0])).toContain('/api/mdm/v1/mdm/data-source/dept-tree?status=enabled')
+    expect(String(fetchMock.mock.calls[1]?.[0])).toContain('/api/demo/v1/demo/data-source/dept-tree?status=enabled')
   })
 
   it('HTTP 数据源：不可用降级与错误码', async () => {
+    applyCatalogSnapshot({
+      products: [{ productKey: 'demo', status: 'enabled' }],
+      services: [],
+      collaborations: [
+        { name: 'demo.org.dept-data', domain: 'org', kind: 'dataset', productKey: 'demo', frontendPrefix: 'demo' },
+      ],
+      warnings: [],
+    })
     vi.stubGlobal('fetch', undefined)
     const source = createHttpOrgSource()
     await expect(source.searchUsers({})).resolves.toBeUndefined()
@@ -524,7 +617,53 @@ describe('工具：防抖与组织数据源', () => {
         return { ok: true, json: async () => ({ code: 30101, message: '不可用' }) }
       }),
     )
-    await expect(source.searchUsers({})).rejects.toMatchObject({ code: 30101 })
+    await expect(source.searchUsers({})).rejects.toMatchObject({ code: 30101, message: '不可用' })
+
+    // 业务错误码无文案 → 以空串兜底
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: unknown) => {
+        void input
+        return { ok: true, json: async () => ({ code: 30102 }) }
+      }),
+    )
+    await expect(source.searchUsers({})).rejects.toMatchObject({ code: 30102, message: '' })
+
+    // 非统一响应包装（无数字业务码）→ 原样返回
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: unknown) => {
+        void input
+        return { ok: true, json: async () => ({ rows: [] }) }
+      }),
+    )
+    await expect(source.searchUsers({})).resolves.toEqual({ rows: [] })
+  })
+
+  it('查询参数：空值（undefined / null / 空串 / false）不进查询串，布尔真写 true', () => {
+    const search = new URLSearchParams()
+    appendOrgSearchParams(search, { a: undefined, b: null, c: '', d: false, e: true, f: 1, g: 'x' })
+    expect(search.toString()).toBe('e=true&f=1&g=x')
+  })
+
+  it('HTTP 数据源：空值参数时查询串为空（不拼空参数）', async () => {
+    applyCatalogSnapshot({
+      products: [{ productKey: 'demo', status: 'enabled' }],
+      services: [],
+      collaborations: [
+        { name: 'demo.org.dept-data', domain: 'org', kind: 'dataset', productKey: 'demo', frontendPrefix: 'demo' },
+      ],
+      warnings: [],
+    })
+    const fetchMock = vi.fn(async (input: unknown) => {
+      void input
+      return { ok: true, json: async () => ({ code: 0, data: [] }) }
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await createHttpOrgSource().loadDeptTree({ status: '' })
+
+    expect(String(fetchMock.mock.calls[0]?.[0])).toBe('/api/demo/v1/demo/data-source/dept-tree')
   })
 
   it('数据源注册表：自定义实现登记与同键拒重', () => {

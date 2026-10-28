@@ -1,27 +1,48 @@
 /**
- * 服务寻址契约用例（04-1-1 / Kiwi 2191；产品命名空间寻址 05-13 / Kiwi 2259）：
- * 服务键与产品键 / 前缀 / URL 组装与边界。
+ * 服务寻址契约用例（04-1-1 / Kiwi 2191；产品命名空间寻址 05-13 / Kiwi 2259；目录运行期化 07B 03_02）：
+ * 服务键与产品键 / 前缀 / URL 组装与边界，含「未加载按形态放行、加载后按目录严格判定」两段口径。
  */
 // kiwi_id: 2191
 // kiwi_id: 2259
+// kiwi_id: 2363
 
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 
 import {
   BaseError,
-  PRODUCT_KEYS,
   SERVICE_KEYS,
+  applyCatalogSnapshot,
   isProductKey,
   isServiceKey,
   productDomain,
   productPrefix,
   productUrl,
+  resetCatalog,
   servicePrefix,
   serviceUrl,
 } from '../src'
 
+/**
+ * 注入最小目录（单产品 / 单服务）。
+ *
+ * @param productKey 产品键（缺省 `demo`）。
+ * @param serviceKey 服务键（缺省 `platform`）。
+ */
+function applyMinimalCatalog(productKey = 'demo', serviceKey = 'platform'): void {
+  applyCatalogSnapshot({
+    products: [{ productKey, status: 'enabled' }],
+    services: [{ serviceKey, serviceGroup: 'foundation', status: 'enabled' }],
+    collaborations: [],
+    warnings: [],
+  })
+}
+
+afterEach(() => {
+  resetCatalog()
+})
+
 describe('服务键与「域 → 服务前缀」映射（Kiwi 2191）', () => {
-  it('服务键为 9 个已启用平台服务且顺序与目录一致', () => {
+  it('编译期服务键基线为 9 个已启用平台服务且顺序与目录一致', () => {
     expect(SERVICE_KEYS).toEqual([
       'platform',
       'identity',
@@ -35,11 +56,20 @@ describe('服务键与「域 → 服务前缀」映射（Kiwi 2191）', () => {
     ])
   })
 
-  it('isServiceKey 正反例', () => {
+  it('未加载目录：形态合法即放行（产品侧插件与单测可在目录就绪前取址）', () => {
     expect(isServiceKey('platform')).toBe(true)
-    expect(isServiceKey('workflow')).toBe(false)
+    expect(isServiceKey('workflow')).toBe(true)
+    expect(isServiceKey('Platform')).toBe(false)
+    expect(isServiceKey('1platform')).toBe(false)
     expect(isServiceKey(1)).toBe(false)
     expect(isServiceKey(undefined)).toBe(false)
+    expect(servicePrefix('workflow')).toBe('/api/workflow/v1')
+  })
+
+  it('已加载目录：目录内为真、目录外为假', () => {
+    applyMinimalCatalog('demo', 'platform')
+    expect(isServiceKey('platform')).toBe(true)
+    expect(isServiceKey('workflow')).toBe(false)
   })
 
   it('servicePrefix 逐服务给出外部前缀', () => {
@@ -48,9 +78,10 @@ describe('服务键与「域 → 服务前缀」映射（Kiwi 2191）', () => {
     }
   })
 
-  it('未登记服务键抛参数段位错误', () => {
+  it('已加载目录且服务未登记 → 抛参数段位错误', () => {
+    applyMinimalCatalog('demo', 'platform')
     try {
-      servicePrefix('workflow' as never)
+      servicePrefix('workflow')
       throw new Error('should throw')
     } catch (error) {
       expect(error).toBeInstanceOf(BaseError)
@@ -80,37 +111,42 @@ describe('serviceUrl 组装与路径归一（Kiwi 2191）', () => {
 })
 
 describe('产品命名空间寻址（05-13 · Kiwi 2259）', () => {
-  it('产品键清单与判定（未登记产品不静默放行）', () => {
-    expect(PRODUCT_KEYS).toEqual(['mdm'])
-    expect(isProductKey('mdm')).toBe(true)
-    expect(isProductKey('biz')).toBe(false)
+  it('产品键判定：未加载按形态、加载后按目录（不再维护手写清单）', () => {
+    expect(isProductKey('demo')).toBe(true)
+    expect(isProductKey('Demo')).toBe(false)
+    expect(isProductKey('demo_x')).toBe(false)
     expect(isProductKey(1)).toBe(false)
     expect(isProductKey(undefined)).toBe(false)
+
+    applyMinimalCatalog('demo')
+    expect(isProductKey('demo')).toBe(true)
+    expect(isProductKey('biz')).toBe(false)
   })
 
   it('productPrefix / productUrl 按「产品键 + 域 + 路径」组装', () => {
-    expect(productPrefix('mdm', 'org')).toBe('/api/mdm/v1/org')
-    expect(productUrl('mdm', 'org')).toBe('/api/mdm/v1/org')
-    expect(productUrl('mdm', 'org', '/posts')).toBe('/api/mdm/v1/org/posts')
-    expect(productUrl('mdm', 'org', 'posts')).toBe('/api/mdm/v1/org/posts')
+    expect(productPrefix('demo', 'org')).toBe('/api/demo/v1/org')
+    expect(productUrl('demo', 'org')).toBe('/api/demo/v1/org')
+    expect(productUrl('demo', 'org', '/posts')).toBe('/api/demo/v1/org/posts')
+    expect(productUrl('demo', 'org', 'posts')).toBe('/api/demo/v1/org/posts')
   })
 
   it('域段归一（首尾斜杠 / 空白）与路径归一与服务通道同口径', () => {
     expect(productDomain('/org/')).toBe('org')
-    expect(productUrl('mdm', ' /org/ ', '//data-source//dept-tree')).toBe('/api/mdm/v1/org/data-source/dept-tree')
+    expect(productUrl('demo', ' /org/ ', '//data-source//dept-tree')).toBe('/api/demo/v1/org/data-source/dept-tree')
   })
 
   it('保留查询串与深层路径', () => {
-    expect(productUrl('mdm', 'org', 'posts?deptId=1&page=2')).toBe('/api/mdm/v1/org/posts?deptId=1&page=2')
+    expect(productUrl('demo', 'org', 'posts?deptId=1&page=2')).toBe('/api/demo/v1/org/posts?deptId=1&page=2')
   })
 
-  it('未登记产品键 / 非法或缺失域段抛参数段位错误', () => {
+  it('已加载目录且产品未登记 / 非法或缺失域段 → 抛参数段位错误', () => {
+    applyMinimalCatalog('demo')
     const calls = [
-      () => productPrefix('biz' as never, 'org'),
-      () => productPrefix('mdm', ''),
-      () => productPrefix('mdm', 'ORG'),
-      () => productPrefix('mdm', '1org'),
-      () => productUrl('mdm', 'org/x'),
+      () => productPrefix('biz', 'org'),
+      () => productPrefix('demo', ''),
+      () => productPrefix('demo', 'ORG'),
+      () => productPrefix('demo', '1org'),
+      () => productUrl('demo', 'org/x'),
     ]
     for (const call of calls) {
       try {
@@ -124,17 +160,6 @@ describe('产品命名空间寻址（05-13 · Kiwi 2259）', () => {
   })
 
   it('平台服务寻址零变化（清单不含产品域，产品键不进入服务清单）', () => {
-    expect(SERVICE_KEYS).toEqual([
-      'platform',
-      'identity',
-      'tenant',
-      'file',
-      'notification',
-      'search',
-      'ai',
-      'report',
-      'txn',
-    ])
     expect((SERVICE_KEYS as readonly string[]).includes('org')).toBe(false)
     expect(serviceUrl('platform', '/tenants')).toBe('/api/platform/v1/tenants')
   })

@@ -1,5 +1,6 @@
 // kiwi_id: 2236
 // kiwi_id: 2259
+// kiwi_id: 2363
 /**
  * 模块请求能力基类与契约面用例（06_02；产品域通道 05-13）：
  * 服务键 + 路径寻址 / 产品键 + 域寻址 / 幂等键实现点 / 未注入占位 / 非法服务键与产品键。
@@ -7,7 +8,15 @@
 
 import { describe, expect, it } from 'vitest'
 
-import { BaseModuleApi, ErrorCodes, configureRequestAdapter, productUrl, serviceUrl } from '../src'
+import {
+  BaseModuleApi,
+  ErrorCodes,
+  applyCatalogSnapshot,
+  configureRequestAdapter,
+  productUrl,
+  resetCatalog,
+  serviceUrl,
+} from '../src'
 
 import type { RequestAdapter, RequestConfig, ServiceKey } from '../src'
 
@@ -120,14 +129,21 @@ describe('模块请求能力基类（06_02）', () => {
     })
   })
 
-  it('非法服务键抛 CAPABILITY_VIOLATION（不静默放行、不发请求）', async () => {
+  it('非法服务键（目录已加载）抛 CAPABILITY_VIOLATION（不静默放行、不发请求）', async () => {
     const { configs, adapter } = recordingAdapter()
     configureRequestAdapter(adapter)
+    applyCatalogSnapshot({
+      products: [],
+      services: [{ serviceKey: 'platform', serviceGroup: 'foundation', status: 'enabled' }],
+      collaborations: [],
+      warnings: [],
+    })
 
     await expect(new ProbeModuleApi().get('unknown' as ServiceKey)).rejects.toMatchObject({
       code: ErrorCodes.CAPABILITY_VIOLATION,
     })
     expect(configs).toEqual([])
+    resetCatalog()
   })
 })
 
@@ -201,11 +217,17 @@ describe('模块请求能力 · 产品域通道（05-13 · Kiwi 2259）', () => 
     expect(configs[0]?.url).toBe('/api/mdm/v1/org')
   })
 
-  it('未登记产品键 / 非法域段：立即抛 CAPABILITY_VIOLATION 且零请求', () => {
+  it('未登记产品键（目录已加载）/ 非法域段：立即抛 CAPABILITY_VIOLATION 且零请求', () => {
     const { configs, adapter } = recordingAdapter()
     configureRequestAdapter(adapter)
+    applyCatalogSnapshot({
+      products: [{ productKey: 'mdm', status: 'enabled' }],
+      services: [],
+      collaborations: [],
+      warnings: [],
+    })
     const api = new ProbeModuleApi()
-    const calls = [() => api.product('biz' as never, 'org'), () => api.product('mdm', 'ORG'), () => api.product('mdm', '')]
+    const calls = [() => api.product('biz', 'org'), () => api.product('mdm', 'ORG'), () => api.product('mdm', '')]
 
     for (const call of calls) {
       expect(call).toThrowError()
@@ -216,5 +238,6 @@ describe('模块请求能力 · 产品域通道（05-13 · Kiwi 2259）', () => 
       }
     }
     expect(configs).toEqual([])
+    resetCatalog()
   })
 })

@@ -739,7 +739,7 @@ export {
 export { BaseApi, type HttpMethod } from './contracts/api'
 export {
   API_VERSION_SEGMENT,
-  PRODUCT_KEYS,
+  IDENTIFIER_PATTERN,
   SERVICE_KEYS,
   isProductKey,
   isServiceKey,
@@ -751,6 +751,27 @@ export {
   type ProductKey,
   type ServiceKey,
 } from './contracts/service-endpoint'
+export {
+  applyCatalogSnapshot,
+  catalogState,
+  catalogUnavailableReason,
+  catalogWarnings,
+  derivedServiceKeys,
+  markCatalogLoading,
+  markCatalogUnavailable,
+  productKeys,
+  resetCatalog,
+  resolveCapabilityTarget,
+  type CapabilityTargetBase,
+  type CapabilityTargetStatus,
+  type CatalogCollaboration,
+  type CatalogProduct,
+  type CatalogService,
+  type CatalogSnapshotProjection,
+  type CatalogState,
+  type CatalogUnavailableReason,
+} from './catalog/lookup'
+export { resolveCapabilityEndpoint, type CapabilityTarget } from './catalog/target'
 export {
   DEFAULT_FORBIDDEN_PATH,
   DEFAULT_HOME_PATH,

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // 用户管理页（平台内建页）：表单框架宿主——列表 Tab（固定不可关）+ 用户记录 Tab（新增 / 双击行打开）。
 // 结构对照原型《08_用户管理/02_用户列表页.html》：列表三段式**无操作列** + 状态列**内联开关**；
-// 筛选仅「关键字 + 状态」（不含部门 / 岗位 / 角色——组织关系归 mdm，仅经记录页插件呈现）。
+// 筛选仅「关键字 + 状态」（不含部门 / 岗位 / 角色——组织关系归组织主数据产品，仅经记录页插件呈现）。
 import { EmptyState, FormFrame, InlineSwitchCell, PageContainer, type FormFrameTab } from '@bms/ui_ep'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { computed, onMounted, ref } from 'vue'
@@ -263,7 +263,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <page-container title="用户管理" description="用户＝系统账号：账号生命周期治理；组织关系归 mdm，仅经记录页插件呈现">
+  <page-container title="用户管理" description="用户＝系统账号：账号生命周期治理；组织关系归组织主数据产品，仅经记录页插件呈现">
     <form-frame
       :model-value="activeKey"
       :tabs="frameTabs"

@@ -677,6 +677,7 @@ exclude_globs = [
   "frontend/packages/api_types/**",
   "frontend/releases/**",
   "frontend/apps/desktop/public/modules.json",
+  "**/node_modules/**",
 ]
 literals = ["mdm"]
 include_comments = true

@@ -46,6 +46,8 @@ export interface AuthGuardDeps {
   ensureSession: () => Promise<boolean>
   /** 会话就绪后幂等装载动态（菜单）路由（可异步：动态菜单需先取数）。 */
   ensureRoutes: () => void | Promise<void>
+  /** 会话就绪后装载平台目录快照（可异步；失败不阻断导航，仅记录原因）。 */
+  ensureCatalog?: () => void | Promise<void>
   /** 当前权限码与「是否已装载」（RBAC 就绪前 `loaded` 恒假 → 占位放行）。 */
   permissions: () => { codes: readonly string[]; loaded: boolean }
   /** 是否处于「首登强制改密」态（为真时非改密页一律重定向）。 */
@@ -105,6 +107,8 @@ export function installAuthGuard(router: Router, deps: AuthGuardDeps): boolean {
     // 守卫关闭时**仍触发一次会话就绪**：应用根以 `session.ready` 渲染骨架屏，若无人触发会永久停在
     // 骨架屏（计划 §7 第 29 项）；失败静默（与守卫开启路径同口径：不提示、不跳转）。
     void deps.ensureSession()
+    // 目录快照独立于守卫：关闭守卫时同样触发一次（失败静默），避免依赖产品目录的能力无地址可用。
+    void Promise.resolve(deps.ensureCatalog?.()).catch(() => undefined)
     return false
   }
   router.beforeEach(async (to) => {
@@ -145,6 +149,13 @@ export function installAuthGuard(router: Router, deps: AuthGuardDeps): boolean {
     if (deps.mustChangePassword?.() === true && to.path !== MUST_CHANGE_PASSWORD_PATH) {
       record('allow', 'must-change-password')
       return { path: MUST_CHANGE_PASSWORD_PATH }
+    }
+
+    // 平台目录快照：会话就绪后、动态路由装载前（`03_02`）。失败不阻断导航，只记录原因。
+    try {
+      await deps.ensureCatalog?.()
+    } catch {
+      record('allow', 'catalog-failed')
     }
 
     // 动态路由：会话就绪后幂等装载；装载后若当前地址命中的路由记录发生变化则按新路由表重解析。

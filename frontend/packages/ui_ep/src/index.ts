@@ -444,7 +444,18 @@ export {
   type UseBaseOrgSelectResult,
 } from './composables/useBaseOrgSelect'
 export { debounce, type DebouncedFunction } from './utils/debounce'
-export { createHttpOrgSource, orgSourceEndpoint, orgSourceRegistry, registerOrgSource } from './utils/orgSource'
+export {
+  ORG_DEGRADE_AMBIGUOUS_TEXT,
+  ORG_DEGRADE_NOT_INTEGRATED_TEXT,
+  ORG_DEGRADE_UNAVAILABLE_TEXT,
+  ORG_SOURCE_CAPABILITY_KIND,
+  ORG_SOURCE_DOMAIN,
+  appendOrgSearchParams,
+  createHttpOrgSource,
+  orgSourceEndpoint,
+  orgSourceRegistry,
+  registerOrgSource,
+} from './utils/orgSource'
 export {
   useBaseCaptcha,
   type UseBaseCaptchaOptions,
