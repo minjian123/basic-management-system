@@ -50,6 +50,12 @@ workspace_protocol = "workspace:"
 [selection]
 base_threshold = 100
 base_ratio = 0.6
+# 开发环（`测试改动内容.sh`）的依赖深度：direct = 只认直接 import，不做传递闭包
+# 推送前预检固定用 closure（不受本项影响），口径见《AI开发规范》「开发环 / 推送环」
+depth = "direct"
+# 开发环只对改动文件跑 ruff（静态全量留推送前预检）
+ruff_cmd = "uv run --project backend ruff"
+ruff_config = "backend/pyproject.toml"
 
 [rules.backend.global]
 exact = ["backend/pyproject.toml", "backend/uv.lock", ".gitlab-ci.yml"]

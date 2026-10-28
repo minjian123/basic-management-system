@@ -8,6 +8,7 @@
 #   check_preflight.py    预检入口：转发 `engkit preflight`（位置根 → --root）
 #   run_once.py           重命令包装：转发 `engkit run_once`（缓存回放）
 #   run_selected.py       定向执行器：转发 `engkit run_selected`
+#   测试改动内容.py        开发环：转发 `engkit run-changed`（只跑改动相关：直接依赖测试 + 前端受影响包 + 改动文件 ruff）
 #   test_selection.py     选测器：转发 `engkit selection`
 #   coverage_gate.py      覆盖率门禁：转发 `engkit coverage`
 #   parallel_jobs.py      `--jobs` 映射：转发 `engkit.preflight.jobs_args / describe`
@@ -19,12 +20,17 @@
 #   check_frontend_types.py 本仓专属：按变更逐包 typecheck / build
 #
 # 用法（在 bms 仓库根）
-#   python3 scripts/tools/preflight/check_preflight.py            # 定向档（缺省快路径）
+#   python3 scripts/tools/preflight/测试改动内容.py           # 开发环：只跑 git 改动相关（推荐改 bug 即测）
+#   python3 scripts/tools/preflight/check_preflight.py            # 推送前定向档（静态 + 护栏 + 定向用例 + 覆盖率）
 #   python3 scripts/tools/preflight/check_preflight.py --fast     # 秒级自检（跳过测试段，自测全跑）
 #   python3 scripts/tools/preflight/check_preflight.py --full     # 全量档（显式申请）
 #   python3 scripts/tools/preflight/check_preflight.py --no-cov   # 跳过覆盖率门禁
 #   python3 scripts/tools/preflight/check_preflight.py --jobs 4   # 并行档位（auto 缺省 / 正整数 / off）
 #   python3 scripts/tools/preflight/check_preflight.py --self-test
+#
+# 开发环口径（`测试改动内容.py`，等价 `engkit run-changed`）：依赖深度 direct（不做传递闭包、
+# 不退化工程级全量）、不采集覆盖率、只对改动文件跑 ruff、前端只跑直接命中包；间接依赖与覆盖率
+# 由推送前定向档（闭包选测 + 100% 门禁）与 CI 全量兜底。Windows 入口同名 `.bat`、Linux 为 `.sh`。
 #
 # 预检步骤不再写在本目录：**步骤清单在仓根 `engkit.toml` 的 `[[preflight.steps]]`**，改步骤即改配置；
 # 逐条口径（静态 / 测试段 / 基座与边界 / 契约 / 前端 / 自测按需）见该文件注释与 engkit 文档。
