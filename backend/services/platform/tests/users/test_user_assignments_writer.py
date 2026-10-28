@@ -20,6 +20,7 @@ from typing import Any, cast
 import pytest
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
+from bms_core.collaboration.resolver import resolve_capability
 from bms_core.core.concurrent import ConcurrentStableList
 from bms_core.core.context import current_user_id
 from bms_core.core.exceptions import (
@@ -48,10 +49,7 @@ from bms_platform.domains.user.schemas.users import (
     UserAssignmentsRequest,
 )
 from bms_platform.domains.user.services.user_assignments import (
-    BRANCH_ID_MDM,
     BRANCH_ID_PLATFORM,
-    MDM_USER_DEPTS_OP,
-    MDM_USER_POSTS_OP,
     SEGMENT_ROLES,
     USER_ASSIGNMENTS_OP,
     UserAssignmentsService,
@@ -59,6 +57,7 @@ from bms_platform.domains.user.services.user_assignments import (
     _branch_state,  # pyright: ignore[reportPrivateUsage]
     _clean_optional,  # pyright: ignore[reportPrivateUsage]
     _dedupe,  # pyright: ignore[reportPrivateUsage]
+    resolve_org_endpoints,
 )
 
 pytestmark = [pytest.mark.kiwi_id(2278)]
@@ -655,7 +654,10 @@ async def test_xa_path_declares_branches_and_commits() -> None:
     assert user.id == 7
     assert list(applied) == [SEGMENT_ROLES, "user_posts", "user_depts"]
     _caller, specs = manager.begun[0]
-    assert [spec.branch_id for spec in specs] == [BRANCH_ID_PLATFORM, BRANCH_ID_MDM]
+    # 分支标识 / 承载服务 / 库键均取自已解析的能力声明（历史值不变：m / mdm / txn 库键按服务键派生）
+    org = resolve_capability("mdm.org.user-posts.assign")
+    assert [spec.branch_id for spec in specs] == [BRANCH_ID_PLATFORM, org.branch_id]
+    assert specs[1].service == org.target.service_key
     xid, _db_key, ops = participant.calls[0]
     assert xid == f"xid-{BRANCH_ID_PLATFORM}"
     assert ops[0].op == USER_ASSIGNMENTS_OP
@@ -665,9 +667,9 @@ async def test_xa_path_declares_branches_and_commits() -> None:
 
     assert len(client.requests) == 1
     body = cast("Any", client.requests[0].json_body)
-    assert body.get("xid") == f"xid-{BRANCH_ID_MDM}"
+    assert body.get("xid") == f"xid-{org.branch_id}"
     org_ops = body.get("ops")
-    assert [entry.get("op") for entry in org_ops] == [MDM_USER_POSTS_OP, MDM_USER_DEPTS_OP]
+    assert [entry.get("op") for entry in org_ops] == ["mdm.user-posts.assign", "mdm.user-depts.assign"]
     assert org_ops[0].get("args").get("user_id") == 7
     assert list(manager.commits) == ["gtx-1"]
     assert manager.rollbacks == []
@@ -708,6 +710,22 @@ async def test_xa_path_rolls_back_when_org_branch_not_prepared() -> None:
     assert list(manager.rollbacks) == ["gtx-1"]
 
 
+async def test_xa_path_depts_only_executes_one_org_op() -> None:
+    """XA 路径只给部门段：组织域分支只含一个 op（岗位段缺失时 op 清单按段裁剪）。"""
+    manager = _ManagerSpy()
+    client = _ClientSpy()
+    service = _xa_service(manager, _ParticipantSpy(), client)
+
+    await service.apply(
+        user_id=7,
+        req=UserAssignmentsRequest(user_depts=UserAssignmentDepts(dept_ids=ConcurrentStableList([31]))),
+    )
+
+    body = cast("Any", client.requests[0].json_body)
+    assert [entry.get("op") for entry in body.get("ops")] == ["mdm.user-depts.assign"]
+    assert list(manager.commits) == ["gtx-1"]
+
+
 async def test_xa_path_missing_branch_raises() -> None:
     """全局事务快照缺分支 → 10013。"""
     manager = _ManagerSpy(branches=ConcurrentStableList(()))
@@ -726,11 +744,13 @@ async def test_execute_org_branches_returns_early_without_org_segments() -> None
     client = _ClientSpy()
     service = _xa_service(_ManagerSpy(), _ParticipantSpy(), client)
 
+    empty = UserAssignmentsRequest(role_ids=ConcurrentStableList())
     await service._execute_org_branches(  # pyright: ignore[reportPrivateUsage]
         xid="x",
-        db_key="k",
+        branch=None,
+        endpoints=resolve_org_endpoints(empty),
         user_id=7,
-        req=UserAssignmentsRequest(role_ids=ConcurrentStableList()),
+        req=empty,
         idempotency_key=None,
     )
 

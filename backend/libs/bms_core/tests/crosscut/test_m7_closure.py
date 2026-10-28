@@ -151,14 +151,16 @@ def test_mdm_alignment_lockdown() -> None:
             "CAPABILITY_MDM_USER_ROLES",
             "resolve_capability(",
         ),
-        # 两个写通道文件尚未收编（03_01 后续）：仍以 mdm 服务键 + 能力名为口径
+        # 两个写通道文件已收编（03_01 第二批）：服务键 / 路径 / 动作名一律取自已解析的能力声明
         platform_src / "domains" / "user" / "services" / "user_assignments.py": (
-            'MDM_SERVICE = "mdm"',
-            "mdm.user-posts.assign",
+            "CAPABILITY_MDM_USER_POSTS",
+            "resolve_capability(",
+            "branch_target(",
         ),
         platform_src / "domains" / "role" / "services" / "role_assignments.py": (
-            'MDM_SERVICE = "mdm"',
-            "mdm.role-depts.assign",
+            "CAPABILITY_MDM_ROLE_POSTS",
+            "resolve_capability(",
+            "branch_target(",
         ),
         platform_src / "domains" / "user" / "api" / "internal_users.py": ("require_capability(",),
         platform_src / "domains" / "permission_meta" / "api" / "permission.py": ("require_capability(",),
@@ -169,8 +171,9 @@ def test_mdm_alignment_lockdown() -> None:
     for path, needles in guards.items():
         text = path.read_text(encoding="utf-8")
         for needle in needles:
-            assert needle in text, f"{path.name} 应含 mdm 口径：{needle}"
+            assert needle in text, f"{path.name} 应含能力声明口径：{needle}"
         assert "/api/v1/org" not in text, f"{path.name} 不得残留旧路径 /api/v1/org"
+        assert "/api/v1/mdm" not in text, f"{path.name} 不得残留对端路径字面量（应取自已解析的能力声明）"
         assert 'require_service("org")' not in text, f"{path.name} 不得残留旧白名单 org"
 
     frontend = _ROOT / "frontend"

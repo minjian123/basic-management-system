@@ -11,6 +11,8 @@
 
 from __future__ import annotations
 
+from typing import NamedTuple
+
 from bms_core.collaboration.base import CapabilityEndpoint
 from bms_core.collaboration.request import build_capability_request
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableFrozenDict, ConcurrentStableList
@@ -18,14 +20,28 @@ from bms_core.core.exceptions import CatalogError
 from bms_core.db.keys import TENANT_DB_KEY_PREFIX, build_tenant_db_key
 from bms_core.servicecall.base import ServiceRequest
 
-__all__ = ["branch_op", "branch_target", "internal_write_request"]
+__all__ = ["OrgBranch", "branch_op", "branch_target", "internal_write_request"]
+
+
+class OrgBranch(NamedTuple):
+    """组织域分支三要素（分支标识 / 承载服务 / 租户库键；均取自已解析的能力声明）。
+
+    Attributes:
+        branch_id: 事务参与者稳定短标识（声明 `branch_id`）。
+        service_key: 承载服务标识（声明解析出的 `target.service_key`）。
+        db_key: 分支目标租户库键（拓扑有值取之，空集按承载服务键派生）。
+    """
+
+    branch_id: str
+    service_key: str
+    db_key: str
 
 
 def branch_target(
     endpoints: ConcurrentStableList[CapabilityEndpoint],
     *,
     platform_db_key: str,
-) -> tuple[str, str, str]:
+) -> OrgBranch:
     """取组织域分支三要素（分支标识 / 承载服务 / 租户库键）。
 
     同一保存请求的多段（如岗位 + 部门）须落在**同一分支**：声明若漂移（分支标识或承载服务不唯一）
@@ -36,7 +52,7 @@ def branch_target(
         platform_db_key: 平台租户库键（库键回退派生的基准）。
 
     Returns:
-        tuple[str, str, str]: （分支标识, 承载服务键, 租户库键）。
+        OrgBranch: 分支三要素（分支标识 / 承载服务键 / 租户库键）。
 
     Raises:
         CatalogError: 声明不一致或缺少分支标识。
@@ -51,7 +67,11 @@ def branch_target(
     branch_id = branch_ids[0]
     if not branch_id:
         raise CatalogError("组织域能力声明缺少 branch_id（写 / 强一致能力须声明事务分支标识）")
-    return branch_id, service_keys[0], _db_key(endpoints[0], platform_db_key=platform_db_key)
+    return OrgBranch(
+        branch_id=branch_id,
+        service_key=service_keys[0],
+        db_key=_db_key(endpoints[0], platform_db_key=platform_db_key),
+    )
 
 
 def branch_op(endpoint: CapabilityEndpoint) -> str:

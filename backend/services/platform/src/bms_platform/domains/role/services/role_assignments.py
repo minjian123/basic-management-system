@@ -5,8 +5,8 @@
 - **分段全量覆盖**：`role`（角色本体）/ `user_ids`（角色 × 用户分配）/ `role_posts`（岗位）/
   `role_depts`（部门）；分段为 `None` 表示**不参与**，空集表示清空；角色侧**无主要项**语义。
 - **两条路径**：`[transaction_manager].provider = "xa"` ⇒ TM 全局事务（platform 自身分支**进程内执行**、
-  mdm 分支经参与端点 `POST /api/v1/txn/branches` 执行，全部 `PREPARED` 后由 TM 提交）；
-  `provider = null`（dev / test 的 SQLite）⇒ **顺序提交**（platform 本地事务 → mdm 内部写通道），
+  组织域分支经参与端点 `POST /api/v1/txn/branches` 执行，全部 `PREPARED` 后由 TM 提交）；
+  `provider = null`（dev / test 的 SQLite）⇒ **顺序提交**（platform 本地事务 → 组织域内部写通道），
   **不做反向补偿、不做一致性屏障**（过渡期基线与屏障判据属废路径）。
 - **跨服务副作用在提交之后**：角色 / 角色分配变更的权限版本递增为**提交后**尽力而为（失败不阻断、
   不影响已提交结果），避免把跨服务调用卷进两阶段窗口。
@@ -19,6 +19,8 @@ import re
 from typing import TYPE_CHECKING, cast
 
 from bms_core.cache.base import CacheRegion
+from bms_core.collaboration.base import CapabilityEndpoint
+from bms_core.collaboration.resolver import resolve_capability
 from bms_core.config.base import BaseConfigSource
 from bms_core.core.concurrent import (
     ConcurrentStableDict,
@@ -38,7 +40,6 @@ from bms_core.core.exceptions import (
     TransactionUnavailableError,
 )
 from bms_core.core.objects import BaseFrameworkObject
-from bms_core.db.keys import TENANT_DB_KEY_PREFIX, build_tenant_db_key
 from bms_core.db.tenant import current_tenant_context
 from bms_core.db.unit_of_work import UnitOfWork
 from bms_core.models.platform.role import ROLE_TYPE_CUSTOM, SysRole
@@ -53,6 +54,7 @@ from bms_core.transaction.base import (
     GlobalTransaction,
 )
 from bms_platform import SERVICE_NAME
+from bms_platform.capabilities import CAPABILITY_MDM_ROLE_DEPTS, CAPABILITY_MDM_ROLE_POSTS
 from bms_platform.domains.role.repositories.role import RoleRepository, UserRoleRepository
 from bms_platform.domains.role.schemas.role import (
     RoleAssignmentDepts,
@@ -63,6 +65,7 @@ from bms_platform.domains.role.schemas.role import (
 from bms_platform.domains.role.services.role import ROLE_STATUSES, resolve_role_code_pattern
 from bms_platform.domains.role.services.separation import SeparationGuard
 from bms_platform.domains.user.public import SysUser, UserRepository
+from bms_platform.services.org_branch import OrgBranch, branch_op, branch_target, internal_write_request
 
 if TYPE_CHECKING:
     from bms_core.db.session import DbSession
@@ -70,26 +73,11 @@ if TYPE_CHECKING:
 ROLE_ASSIGNMENTS_OP = "sys.role.assignments"
 """platform 侧分支操作名（分支处理器注册表键）。"""
 
-MDM_SERVICE = "mdm"
-"""mdm 产品服务键（2026-10-23 mdm `01_05` 服务标识归并 `org` → `mdm`）。"""
-
-MDM_ROLE_POSTS_OP = "mdm.role-posts.assign"
-"""mdm 分支操作名：角色-岗位全量覆盖。"""
-
-MDM_ROLE_DEPTS_OP = "mdm.role-depts.assign"
-"""mdm 分支操作名：角色-部门全量覆盖。"""
-
-MDM_INTERNAL_ROLE_POSTS_PATH = "/api/v1/mdm/internal/role-posts/{role_id}"
-"""mdm 内部写通道：角色-岗位（`provider=null` 顺序提交路径）。"""
-
-MDM_INTERNAL_ROLE_DEPTS_PATH = "/api/v1/mdm/internal/role-depts/{role_id}"
-"""mdm 内部写通道：角色-部门（`provider=null` 顺序提交路径）。"""
-
 BRANCH_ID_PLATFORM = "p"
 """platform 分支标识（同一全局事务内唯一，≤ 16 字符）。"""
 
-BRANCH_ID_MDM = "m"
-"""mdm 组织域分支标识。"""
+ORG_SERVICE_SCOPE = "组织域"
+"""组织域称谓（分支标识 / 承载服务 / 库键 / 动作名一律取自已解析的能力声明）。"""
 
 BRANCH_EXECUTE_PATH = "/api/v1/txn/branches"
 """参与端点：分支执行路径。"""
@@ -305,7 +293,7 @@ class RoleAssignmentsService(BaseFrameworkObject):
             cache: 缓存能力域（角色 / 分配变更后权限版本递增）。
             manager: 事务管理器（`provider=null` 时为 Null 实现，`enabled` 为假）。
             participant: 事务参与方（platform 自身分支进程内执行）。
-            client: 服务间调用客户端（mdm 分支执行 / 顺序提交内部写通道）。
+            client: 服务间调用客户端（组织域分支执行 / 顺序提交内部写通道）。
             tenant_id: 当前租户标识（权限版本键作用域）。
         """
         self._writer = writer
@@ -330,7 +318,7 @@ class RoleAssignmentsService(BaseFrameworkObject):
         Args:
             role_id: 角色主键。
             req: 分段全量覆盖请求。
-            idempotency_key: 业务幂等键（透传给 mdm 内部写通道 / 分支载荷）。
+            idempotency_key: 业务幂等键（透传给组织域内部写通道 / 分支载荷）。
 
         Returns:
             tuple[SysRole, ConcurrentStableList[SysUser], ConcurrentStableList[str]]:
@@ -359,7 +347,7 @@ class RoleAssignmentsService(BaseFrameworkObject):
         req: RoleAssignmentsRequest,
         idempotency_key: str | None,
     ) -> None:
-        """`provider=xa`：TM 全局事务路径（platform 分支进程内 + mdm 分支远端）。
+        """`provider=xa`：TM 全局事务路径（platform 分支进程内 + 组织域分支远端）。
 
         Args:
             role_id: 角色主键。
@@ -371,12 +359,12 @@ class RoleAssignmentsService(BaseFrameworkObject):
             ServiceUnavailableError: 分支执行调用失败（10007）。
         """
         platform_db_key = current_tenant_context().db_key
-        org_db_key = build_tenant_db_key(platform_db_key[len(TENANT_DB_KEY_PREFIX) :], service=MDM_SERVICE)
-        has_org = req.role_posts is not None or req.role_depts is not None
+        endpoints = resolve_org_endpoints(req)
+        branch = branch_target(endpoints, platform_db_key=platform_db_key) if endpoints else None
         specs: ConcurrentStableList[BranchSpec] = ConcurrentStableList()
         specs.add(BranchSpec(branch_id=BRANCH_ID_PLATFORM, service=SERVICE_NAME, db_key=platform_db_key))
-        if has_org:
-            specs.add(BranchSpec(branch_id=BRANCH_ID_MDM, service=MDM_SERVICE, db_key=org_db_key))
+        if branch is not None:
+            specs.add(BranchSpec(branch_id=branch.branch_id, service=branch.service_key, db_key=branch.db_key))
         txn = await self._manager.begin(caller_service=SERVICE_NAME, branches=ConcurrentStableList(specs))
         try:
             platform_xid = self._xid_of(txn, BRANCH_ID_PLATFORM)
@@ -394,10 +382,11 @@ class RoleAssignmentsService(BaseFrameworkObject):
             )
             if state != BRANCH_PREPARED:
                 raise TransactionUnavailableError(f"platform 分支未就绪：{state}")
-            if has_org:
+            if branch is not None:
                 await self._execute_org_branches(
-                    xid=self._xid_of(txn, BRANCH_ID_MDM),
-                    db_key=org_db_key,
+                    xid=self._xid_of(txn, branch.branch_id),
+                    branch=branch,
+                    endpoints=endpoints,
                     role_id=role_id,
                     req=req,
                     idempotency_key=idempotency_key,
@@ -411,18 +400,21 @@ class RoleAssignmentsService(BaseFrameworkObject):
         self,
         *,
         xid: str,
-        db_key: str,
+        branch: OrgBranch | None,
+        endpoints: ConcurrentStableList[CapabilityEndpoint],
         role_id: int,
         req: RoleAssignmentsRequest,
         idempotency_key: str | None,
     ) -> None:
-        """执行 mdm 分支（岗位 + 部门合并为**同一分支的同一请求**，按序执行）。
+        """执行组织域分支（岗位 + 部门合并为**同一分支的同一请求**，按序执行）。
 
         一个分支＝一条 XA 事务＝一条数据库连接，故两段必须一次请求提交（基座 `ops` 列表）。
+        承载服务取自已解析的能力声明（与分支规格同一来源），不写死产品服务键。
 
         Args:
             xid: 组织域分支事务标识（TM 分配）。
-            db_key: 组织域租户库键。
+            branch: 组织域分支三要素（分支标识 / 承载服务 / 库键）；无组织域分段时为 None。
+            endpoints: 本次参与的组织域能力取用结果（动作名由各自声明提供）。
             role_id: 角色主键。
             req: 分段全量覆盖请求。
             idempotency_key: 业务幂等键。
@@ -430,9 +422,10 @@ class RoleAssignmentsService(BaseFrameworkObject):
         Raises:
             TransactionUnavailableError: 分支未达 `PREPARED`（10013）。
         """
-        branch_ops = build_org_ops(role_id=role_id, req=req, idempotency_key=idempotency_key)
-        if not branch_ops:
+        if branch is None:
             return
+        # 分支非空 ⟹ 本次至少一段组织域分段（`resolve_org_endpoints` 与分段一一对应），故 op 清单必非空
+        branch_ops = build_org_ops(role_id=role_id, req=req, idempotency_key=idempotency_key, endpoints=endpoints)
         payload: ConcurrentStableList[ConcurrentStableDict[str, object]] = ConcurrentStableList()
         for op, args in branch_ops:
             entry: ConcurrentStableDict[str, object] = ConcurrentStableDict()
@@ -441,11 +434,11 @@ class RoleAssignmentsService(BaseFrameworkObject):
             payload.add(entry)
         body: ConcurrentStableDict[str, object] = ConcurrentStableDict()
         body.set("xid", xid)
-        body.set("db_key", db_key)
+        body.set("db_key", branch.db_key)
         body.set("ops", list(payload))
         response = await self._client.call(
             ServiceRequest(
-                service=MDM_SERVICE,
+                service=branch.service_key,
                 method="POST",
                 path=BRANCH_EXECUTE_PATH,
                 json_body=ConcurrentStableFrozenDict(body),
@@ -454,7 +447,7 @@ class RoleAssignmentsService(BaseFrameworkObject):
         )
         state = _branch_state(response)
         if state != BRANCH_PREPARED:
-            raise TransactionUnavailableError(f"组织域分支未就绪：{state}")
+            raise TransactionUnavailableError(f"{ORG_SERVICE_SCOPE}分支未就绪：{state}")
 
     async def _apply_sequential(
         self,
@@ -463,7 +456,7 @@ class RoleAssignmentsService(BaseFrameworkObject):
         req: RoleAssignmentsRequest,
         idempotency_key: str | None,
     ) -> None:
-        """`provider=null`：顺序提交路径（platform 本地事务 → mdm 内部写通道；无补偿）。
+        """`provider=null`：顺序提交路径（platform 本地事务 → 组织域内部写通道；无补偿）。
 
         Args:
             role_id: 角色主键。
@@ -473,41 +466,41 @@ class RoleAssignmentsService(BaseFrameworkObject):
         await self._writer.write(role_id=role_id, profile=req.role, user_ids=req.user_ids)
         if req.role_posts is not None:
             await self._call_org_internal(
-                path=MDM_INTERNAL_ROLE_POSTS_PATH.format(role_id=role_id),
+                resolve_capability(CAPABILITY_MDM_ROLE_POSTS),
+                params=ConcurrentStableFrozenDict({"role_id": str(role_id)}),
                 body=_posts_args(req.role_posts, idempotency_key=idempotency_key),
                 idempotency_key=idempotency_key,
             )
         if req.role_depts is not None:
             await self._call_org_internal(
-                path=MDM_INTERNAL_ROLE_DEPTS_PATH.format(role_id=role_id),
+                resolve_capability(CAPABILITY_MDM_ROLE_DEPTS),
+                params=ConcurrentStableFrozenDict({"role_id": str(role_id)}),
                 body=_depts_args(req.role_depts, idempotency_key=idempotency_key),
                 idempotency_key=idempotency_key,
             )
 
     async def _call_org_internal(
         self,
+        endpoint: CapabilityEndpoint,
         *,
-        path: str,
+        params: ConcurrentStableFrozenDict[str, object],
         body: ConcurrentStableDict[str, object],
         idempotency_key: str | None,
     ) -> None:
-        """调 mdm 内部写通道（服务身份由客户端附上；幂等键经请求头透传）。
+        """调组织域内部写通道（承载服务与路径模板取自能力声明；幂等键经请求头透传）。
 
         Args:
-            path: 目标路径。
+            endpoint: 能力取用结果（承载服务与路径模板均取自声明）。
+            params: 路径模板参数（如 `{role_id}`）。
             body: 请求体。
             idempotency_key: 业务幂等键（可空）。
         """
-        headers: ConcurrentStableDict[str, str] = ConcurrentStableDict()
-        if idempotency_key:
-            headers.set("Idempotency-Key", idempotency_key)
         await self._client.call(
-            ServiceRequest(
-                service=MDM_SERVICE,
-                method="PUT",
-                path=path,
-                json_body=ConcurrentStableFrozenDict(body),
-                headers=ConcurrentStableFrozenDict(headers),
+            internal_write_request(
+                endpoint,
+                params=params,
+                body=body,
+                idempotency_key=idempotency_key,
                 tenant_id=self._tenant_id,
             )
         )
@@ -677,27 +670,59 @@ def collect_segments(req: RoleAssignmentsRequest) -> ConcurrentStableList[str]:
     return applied
 
 
+def resolve_org_endpoints(req: RoleAssignmentsRequest) -> ConcurrentStableList[CapabilityEndpoint]:
+    """解析本次参与的组织域能力（岗位段在前、部门段在后，与 `build_org_ops` 同序）。
+
+    惰性解析（每次调用现取装载视图）：声明变更即时生效，装配期不解析。
+
+    Args:
+        req: 分段全量覆盖请求。
+
+    Returns:
+        ConcurrentStableList[CapabilityEndpoint]: 能力取用结果（缺失段不出现）。
+
+    Raises:
+        ParamError: 能力未声明 / 已禁用（10001，取用入口抛出的契约断链）。
+    """
+    endpoints: ConcurrentStableList[CapabilityEndpoint] = ConcurrentStableList()
+    if req.role_posts is not None:
+        endpoints.add(resolve_capability(CAPABILITY_MDM_ROLE_POSTS))
+    if req.role_depts is not None:
+        endpoints.add(resolve_capability(CAPABILITY_MDM_ROLE_DEPTS))
+    return endpoints
+
+
 def build_org_ops(
     *,
     role_id: int,
     req: RoleAssignmentsRequest,
     idempotency_key: str | None,
+    endpoints: ConcurrentStableList[CapabilityEndpoint],
 ) -> ConcurrentStableList[tuple[str, ConcurrentStableDict[str, object]]]:
     """构造组织域**分支**操作清单（岗位 / 部门各一 op；同一分支内按序执行）。
+
+    动作名取自已解析的能力声明（`branch_op`），与 `endpoints` 逐段对位。
 
     Args:
         role_id: 角色主键。
         req: 分段全量覆盖请求。
         idempotency_key: 业务幂等键。
+        endpoints: `resolve_org_endpoints(req)` 的结果（同序对位）。
 
     Returns:
         ConcurrentStableList[tuple[str, ConcurrentStableDict[str, object]]]: (op, 载荷) 清单。
+
+    Raises:
+        CatalogError: 能力声明缺少 `branch_op`（写能力声明不全）。
     """
     ops: ConcurrentStableList[tuple[str, ConcurrentStableDict[str, object]]] = ConcurrentStableList()
+    remaining = iter(endpoints)
     if req.role_posts is not None:
-        ops.add((MDM_ROLE_POSTS_OP, _posts_args(req.role_posts, role_id=role_id, idempotency_key=idempotency_key)))
+        posts_args = _posts_args(req.role_posts, role_id=role_id, idempotency_key=idempotency_key)
+        ops.add((branch_op(next(remaining)), posts_args))
     if req.role_depts is not None:
-        ops.add((MDM_ROLE_DEPTS_OP, _depts_args(req.role_depts, role_id=role_id, idempotency_key=idempotency_key)))
+        depts_args = _depts_args(req.role_depts, role_id=role_id, idempotency_key=idempotency_key)
+        ops.add((branch_op(next(remaining)), depts_args))
     return ops
 
 

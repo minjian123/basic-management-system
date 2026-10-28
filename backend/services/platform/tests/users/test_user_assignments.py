@@ -13,10 +13,12 @@ from typing import Any, cast
 
 import pytest
 
+from bms_core.collaboration.resolver import resolve_capability
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.exceptions import ParamError
 from bms_core.servicecall.base import ServiceRequest, ServiceResponse
 from bms_core.transaction.null import NullTransactionManager, NullTransactionParticipant
+from bms_platform.capabilities import CAPABILITY_MDM_USER_DEPTS, CAPABILITY_MDM_USER_POSTS
 from bms_platform.domains.user.schemas.users import (
     UserAssignmentDepts,
     UserAssignmentPosts,
@@ -24,13 +26,10 @@ from bms_platform.domains.user.schemas.users import (
     UserAssignmentsRequest,
 )
 from bms_platform.domains.user.services.user_assignments import (
-    MDM_INTERNAL_USER_DEPTS_PATH,
-    MDM_INTERNAL_USER_POSTS_PATH,
-    MDM_USER_DEPTS_OP,
-    MDM_USER_POSTS_OP,
     UserAssignmentsService,
     build_org_ops,
     collect_segments,
+    resolve_org_endpoints,
 )
 
 pytestmark = [pytest.mark.kiwi_id(2278)]
@@ -311,10 +310,15 @@ async def test_sequential_path_orders_writes_and_bumps_permission_version() -> N
     assert [role.code for role in roles] == ["role_a"]
     assert list(applied) == ["profile", "role_ids", "user_posts", "user_depts"]
     assert len(writer.calls) == 1
-    paths = [request.path for request in client.requests]
-    assert paths == [
-        MDM_INTERNAL_USER_POSTS_PATH.format(user_id=7),
-        MDM_INTERNAL_USER_DEPTS_PATH.format(user_id=7),
+    posts = resolve_capability(CAPABILITY_MDM_USER_POSTS)
+    depts = resolve_capability(CAPABILITY_MDM_USER_DEPTS)
+    # 声明解析出的服务键与路径模板须与收编前的常量逐字一致（行为等价锁）
+    assert posts.target.service_key == "mdm" and posts.path == "/api/v1/mdm/internal/user-posts/{user_id}"
+    assert depts.target.service_key == "mdm" and depts.path == "/api/v1/mdm/internal/user-depts/{user_id}"
+    assert [request.service for request in client.requests] == [posts.target.service_key, depts.target.service_key]
+    assert [request.path for request in client.requests] == [
+        "/api/v1/mdm/internal/user-posts/7",
+        "/api/v1/mdm/internal/user-depts/7",
     ]
     assert client.requests[0].headers is not None
     assert client.requests[0].headers.get("Idempotency-Key") == "k-1"
@@ -343,9 +347,9 @@ def test_org_branch_ops_share_one_branch_request() -> None:
         user_posts=UserAssignmentPosts(post_ids=ConcurrentStableList([11, 12]), primary_post_id=12),
         user_depts=UserAssignmentDepts(dept_ids=ConcurrentStableList([21]), primary_dept_id=21),
     )
-    ops = build_org_ops(user_id=7, req=req, idempotency_key="k-1")
+    ops = build_org_ops(user_id=7, req=req, idempotency_key="k-1", endpoints=resolve_org_endpoints(req))
 
-    assert [op for op, _args in ops] == [MDM_USER_POSTS_OP, MDM_USER_DEPTS_OP]
+    assert [op for op, _args in ops] == ["mdm.user-posts.assign", "mdm.user-depts.assign"]
     posts_args = ops[0][1]
     assert posts_args.get("user_id") == 7
     assert posts_args.get("post_ids") == [11, 12]

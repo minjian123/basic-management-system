@@ -14,6 +14,7 @@ from typing import Any, cast
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bms_core.collaboration.resolver import resolve_capability
 from bms_core.config.null import NullConfigSource
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList
 from bms_core.core.exceptions import (
@@ -32,6 +33,7 @@ from bms_core.db.unit_of_work import DbUnitOfWork
 from bms_core.servicecall.base import ServiceRequest, ServiceResponse
 from bms_core.transaction.base import BRANCH_PREPARED, BRANCH_REJECTED, BranchRef, GlobalTransaction
 from bms_core.transaction.null import NullTransactionManager, NullTransactionParticipant
+from bms_platform.capabilities import CAPABILITY_MDM_ROLE_POSTS
 from bms_platform.domains.role.repositories.role import RoleRepository, UserRoleRepository
 from bms_platform.domains.role.schemas.role import (
     RoleAssignmentDepts,
@@ -40,15 +42,12 @@ from bms_platform.domains.role.schemas.role import (
     RoleAssignmentsRequest,
 )
 from bms_platform.domains.role.services.role_assignments import (
-    MDM_INTERNAL_ROLE_DEPTS_PATH,
-    MDM_INTERNAL_ROLE_POSTS_PATH,
-    MDM_ROLE_DEPTS_OP,
-    MDM_ROLE_POSTS_OP,
     RoleAssignmentsService,
     RoleAssignmentWriter,
     _branch_state,  # pyright: ignore[reportPrivateUsage]
     build_org_ops,
     collect_segments,
+    resolve_org_endpoints,
 )
 from bms_platform.domains.role.services.separation import SeparationGuard
 from bms_platform.domains.user.repositories.user import UserRepository
@@ -222,8 +221,11 @@ async def test_sequential_path_orders_writes_and_bumps_permission_version() -> N
     assert [user.id for user in users] == [7]
     assert list(applied) == ["role", "user_ids", "role_posts"]
     assert len(writer.calls) == 1
-    paths = [request.path for request in client.requests]
-    assert paths == [MDM_INTERNAL_ROLE_POSTS_PATH.format(role_id=5)]
+    posts = resolve_capability(CAPABILITY_MDM_ROLE_POSTS)
+    # 声明解析出的服务键与路径模板须与收编前的常量逐字一致（行为等价锁）
+    assert posts.target.service_key == "mdm" and posts.path == "/api/v1/mdm/internal/role-posts/{role_id}"
+    assert [request.service for request in client.requests] == [posts.target.service_key]
+    assert [request.path for request in client.requests] == ["/api/v1/mdm/internal/role-posts/5"]
     assert client.requests[0].headers is not None
     assert client.requests[0].headers.get("Idempotency-Key") == "k-1"
     assert list(cache.bumped) == ["bms:1001:permission:version"]
@@ -241,7 +243,7 @@ async def test_sequential_path_skips_bump_when_only_org_segments() -> None:
     )
 
     assert cache.bumped == []
-    assert [request.path for request in client.requests] == [MDM_INTERNAL_ROLE_DEPTS_PATH.format(role_id=5)]
+    assert [request.path for request in client.requests] == ["/api/v1/mdm/internal/role-depts/5"]
 
 
 async def test_sequential_path_posts_without_idempotency_key() -> None:
@@ -255,7 +257,7 @@ async def test_sequential_path_posts_without_idempotency_key() -> None:
         idempotency_key=None,
     )
 
-    assert [request.path for request in client.requests] == [MDM_INTERNAL_ROLE_POSTS_PATH.format(role_id=5)]
+    assert [request.path for request in client.requests] == ["/api/v1/mdm/internal/role-posts/5"]
     body = client.requests[0].json_body
     assert body is not None
     assert body.get("post_ids") == [11]
@@ -268,9 +270,9 @@ def test_org_branch_ops_share_one_branch_request() -> None:
         role_posts=RoleAssignmentPosts(post_ids=ConcurrentStableList([11, 12])),
         role_depts=RoleAssignmentDepts(dept_ids=ConcurrentStableList([21])),
     )
-    ops = build_org_ops(role_id=5, req=req, idempotency_key="k-1")
+    ops = build_org_ops(role_id=5, req=req, idempotency_key="k-1", endpoints=resolve_org_endpoints(req))
 
-    assert [op for op, _args in ops] == [MDM_ROLE_POSTS_OP, MDM_ROLE_DEPTS_OP]
+    assert [op for op, _args in ops] == ["mdm.role-posts.assign", "mdm.role-depts.assign"]
     posts_args = ops[0][1]
     assert posts_args.get("role_id") == 5
     assert posts_args.get("post_ids") == [11, 12]
@@ -644,6 +646,24 @@ async def test_xa_path_rolls_back_when_org_branch_rejected() -> None:
     assert list(manager.rollbacks) == ["gtx-1"]
 
 
+async def test_xa_path_posts_only_executes_one_org_op() -> None:
+    """XA 路径只给岗位段：组织域分支只含一个 op（部门段缺失时 op 清单按段裁剪）。"""
+    manager = _ManagerSpy()
+    client = _ClientSpy()
+    service, _writer, _cache = _service(manager, _ParticipantSpy(), client)
+
+    await service.apply(
+        role_id=5,
+        req=RoleAssignmentsRequest(role_posts=RoleAssignmentPosts(post_ids=ConcurrentStableList([11]))),
+    )
+
+    body = client.requests[0].json_body
+    assert body is not None
+    entries = cast("ConcurrentStableList[Any]", body.get("ops"))
+    assert [entry.get("op") for entry in entries] == ["mdm.role-posts.assign"]
+    assert list(manager.commits) == ["gtx-1"]
+
+
 async def test_xa_path_missing_branch_raises() -> None:
     """全局事务快照缺分支 → 10013 并回滚。"""
     manager = _ManagerSpy(branches=ConcurrentStableList(()))
@@ -662,11 +682,13 @@ async def test_execute_org_branches_returns_early_without_org_segments() -> None
     client = _ClientSpy()
     service, _writer, _cache = _service(_ManagerSpy(), _ParticipantSpy(), client)
 
+    empty = RoleAssignmentsRequest(role=RoleAssignmentProfile(name="运维角色", version=1))
     await service._execute_org_branches(  # pyright: ignore[reportPrivateUsage]
         xid="x",
-        db_key="k",
+        branch=None,
+        endpoints=resolve_org_endpoints(empty),
         role_id=5,
-        req=RoleAssignmentsRequest(role=RoleAssignmentProfile(name="运维角色", version=1)),
+        req=empty,
         idempotency_key=None,
     )
 
