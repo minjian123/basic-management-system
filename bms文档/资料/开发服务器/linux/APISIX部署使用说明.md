@@ -67,9 +67,9 @@ nginx_config:
 
 | 项 | 说明 |
 | --- | --- |
-| 单一来源 | 服务目录 `SERVICE_CATALOG`（`backend/libs/bms_core/src/bms_core/services/module_registry.py`） |
-| 生成 | `cd backend && uv run python -m ops.gateway_config render`（写出 `deploy/gateway/apisix.yaml`） |
-| 校验 | `uv run python -m ops.gateway_config check`（零漂移；CI `base-integrity` 与本地预检同跑） |
+| 单一来源 | 服务目录 `SERVICE_CATALOG`（`backend/libs/bms_core/src/bms_core/services/module_registry.py`）；07B `02_06` 起部署态可改读**平台库注册表**（`--from-registry`），两者渲染产物逐字一致 |
+| 生成 | 清单模式：`cd backend && uv run python -m ops.gateway_config render`（写出 `deploy/gateway/apisix.yaml`，CI 零依赖）；注册表模式：`render --from-registry --url <平台库连接串>` |
+| 校验 | `uv run python -m ops.gateway_config check`（零漂移；CI `base-integrity` 与本地预检同跑）；注册表模式同一命令加 `--from-registry --url …` |
 | 参与服务 | 仅启用且带服务标识的服务（当前 9 个：platform / identity / tenant / org / file / notification / search / ai / report） |
 | 外部路径 | `/api/{service_key}/v1/...`，网关 `proxy-rewrite` 剥离为服务内 `/api/v1/...` |
 | 认证 / 限流钩子 | 限流（`limit-count`）由生成器直接产出；**认证（`forward-auth`）07_03 接入**（见下） |
@@ -185,7 +185,7 @@ curl -s http://127.0.0.1:9080/api/platform/v1/ping -H "Authorization: Bearer <�
 | 查看日志 | `docker logs -f bms-apisix` |
 | 重启 | `docker restart bms-apisix` |
 | 停止 / 启动 | `docker compose -p compose -f compose/gateway.yml stop apisix` / `start apisix`（在 `~/deploy/compose`） |
-| 重新生成配置 | mjpc：`cd backend && uv run python -m ops.gateway_config render`，再按第 5 节同步 |
+| 重新生成配置 | mjpc：`cd backend && uv run python -m ops.gateway_config render`（或 `--from-registry --url …`），再按第 5 节同步 |
 | 校验配置零漂移 | `uv run python -m ops.gateway_config check`（CI `base-integrity` 同跑） |
 | 升级镜像 | 改 `gateway.yml` 版本标签 → `docker compose … up -d`（锁定版本，勿用 `latest`） |
 
