@@ -17,14 +17,22 @@ import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
+from bms_core.collaboration.usage import reset_capability_usages
 from bms_core.core.concurrent import ConcurrentStableFrozenDict, ConcurrentStableFrozenList, ConcurrentStableList
 from bms_core.core.config import Settings, get_settings
+from bms_core.datasource.registry import reset_data_source_records
 from bms_core.permission.sources import reset_permission_data_sources
 from bms_core.registry.products import load_product_manifests
 from bms_core.services.module_registry import (
     CollaborationRecord,
     register_collaboration_records,
     register_domain_services,
+    reset_collaboration_records,
+    reset_error_code_records,
+    reset_product_records,
+    reset_product_routes,
+    reset_seed_records,
+    reset_service_records,
 )
 from bms_core.testing.fixtures import (
     clear_tenant_cache,
@@ -98,11 +106,16 @@ def isolate_catalog_records(
     isolate_settings: None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> Iterator[None]:
-    """用例隔离：固定产品清单环境变量并复位 / 重载四张注入登记表。
+    """用例隔离：固定产品清单环境变量，复位视图族后重载平台注入清单。
 
     进程级注入表（服务行 / 产品档案 / 产品路由 / 数据源条目）会随同一 worker 内先前用例的装载累积；
-    与「会话级播种库」不同源时清单接口的总数断言会随执行顺序漂移。这里每例复位后按**同一份**
-    会话级清单幂等重载，使「播种集合 ≡ 目录视图」恒成立。
+    与「会话级播种库」不同源时清单接口的总数断言会随执行顺序漂移。这里每例先**复位**视图族、再按
+    **同一份**会话级清单幂等重载，使「播种集合 ≡ 目录视图」恒成立。
+
+    复位范围对齐 `registry.projection.project_registry` 的整体重建集合（八类）：声明注册 / 投影类
+    用例会把自身造的 `demo` 服务行与产品路由投影进进程内视图，用例结束不恢复；不复位时同 worker 后
+    续用例（如 `service_app` 装配）会带着这些行去核对库，报「目标服务未登记 / 库中缺登记行」
+    （2026-10-28 单服务子流水线 `service-test` 实测）。
 
     Args:
         pinned_product_manifests: 会话级固定的清单路径。
@@ -114,6 +127,14 @@ def isolate_catalog_records(
     """
     monkeypatch.setenv(MANIFESTS_ENV, json.dumps(list(pinned_product_manifests)))
     get_settings.cache_clear()
+    reset_product_records()
+    reset_service_records()
+    reset_product_routes()
+    reset_data_source_records()
+    reset_collaboration_records()
+    reset_seed_records()
+    reset_error_code_records()
+    reset_capability_usages()
     load_product_manifests(pinned_product_manifests)
     yield
 
