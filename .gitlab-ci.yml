@@ -400,7 +400,9 @@ backend-modules:
     - uv run python -m ops.check_modules --offline
     # 建表后查重：SQLite 测试库（config.test.toml 的 sqlite_dir 解析到 database/bms/test）→ 平台链建表 → 种子 → 接库校验（只读）
     - uv run python -m ops.init_schema --service platform --target platform
-    - uv run python -m ops.seed_module
+    # `seed_module` 是「平台启动后由注册通道写库、此处只校对」的运行期校验：CI 里没有运行中的平台
+    # 实例（刚建完空表），跑必报「服务目录为空 / 产品档案为空」——2026-10-28 起不在 CI 跑，
+    # 该口径由部署验收（`deploy/` 启动链路）覆盖。
     - uv run python -m ops.check_modules
 
 backend-test:
