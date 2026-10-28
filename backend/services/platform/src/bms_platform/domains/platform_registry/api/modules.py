@@ -16,6 +16,7 @@
   服务内部路径与授权信息）。
 """
 
+from collections.abc import Iterable
 from typing import Annotated
 
 from fastapi import Depends, Path, Query
@@ -39,6 +40,7 @@ from bms_core.services.module_registry import (
     CollaborationStatus,
     collaboration_catalog_view,
     product_catalog_view,
+    tenant_base_module_keys,
 )
 from bms_platform.domains.platform_registry.repositories.module_repository import ModuleRepository
 
@@ -89,7 +91,7 @@ async def list_modules(
     """
     rows, total = await ModuleRepository(session).page_catalog(query, group=group, status=status)
     page = BasePageResponse[ModuleResponse](
-        list=ConcurrentStableList(ModuleResponse.model_validate(row) for row in rows),
+        list=_module_responses(rows),
         total=total,
         page=query.page,
         size=query.size,
@@ -121,7 +123,7 @@ async def catalog_snapshot(session: PlatformDbDep, with_: WithQuery = None) -> A
         ParamError: `with` 出现未支持的段名（10001）。
     """
     rows = await ModuleRepository(session).list_catalog()
-    modules = ConcurrentStableList(ModuleResponse.model_validate(row) for row in rows)
+    modules = _module_responses(rows)
     segments = _requested_segments(with_)
     if not segments:
         # 缺省形态保持原契约：`data` 为纯数组（逐字段与改造前一致）
@@ -157,7 +159,35 @@ async def get_module(session: PlatformDbDep, service_key: ServiceKeyPath) -> Api
         row = await repository.get_by_key(service_key)
     if row is None:
         raise NotFoundError(f"服务未登记：{service_key}")
-    return ApiResponse.ok(ModuleResponse.model_validate(row))
+    return ApiResponse.ok(_module_response(row))
+
+
+def _module_responses(rows: Iterable[object]) -> ConcurrentStableList[ModuleResponse]:
+    """目录行 → 响应清单（派生恒开通标记）。`tenant_base` 按恒开通清单派生，不直接取库列。
+
+    Args:
+        rows: 库中目录行（`sys_module` 行或同构对象，插入序）。
+
+    Returns:
+        ConcurrentStableList[ModuleResponse]: 响应清单（顺序与入参一致）。
+    """
+    base_keys = ConcurrentStableSet(tenant_base_module_keys())
+    return ConcurrentStableList(_module_response(row, base_keys=base_keys) for row in rows)
+
+
+def _module_response(row: object, *, base_keys: ConcurrentStableSet[str] | None = None) -> ModuleResponse:
+    """单个目录行 → 响应（`tenant_base` 按恒开通清单派生）。
+
+    Args:
+        row: 库中目录行（`sys_module` 行或同构对象）。
+        base_keys: 恒开通模块键集合（批量转换时复用，避免逐行重算）。
+
+    Returns:
+        ModuleResponse: 目录响应（其余字段与行逐字段一致）。
+    """
+    keys = ConcurrentStableSet(tenant_base_module_keys()) if base_keys is None else base_keys
+    payload = ModuleResponse.model_validate(row)
+    return payload.model_copy(update={"tenant_base": payload.module_key in keys})
 
 
 def _requested_segments(raw: str | None) -> ConcurrentStableSet[str]:

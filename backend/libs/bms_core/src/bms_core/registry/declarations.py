@@ -520,6 +520,7 @@ _ELEMENT_FIELDS: ConcurrentStableDict[str, ConcurrentStableFrozenList[str]] = Co
                 "contract_version",
                 "product_key",
                 "status",
+                "tenant_base",
             )
         ),
         "product_routes": ConcurrentStableFrozenList(("product_key", "domain", "service_key", "description")),

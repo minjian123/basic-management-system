@@ -10,7 +10,11 @@ from bms_core.schemas.base import (
 
 
 class ModuleResponse(BaseSchema):
-    """服务目录登记记录响应（与 `sys_module` 对齐）。"""
+    """服务目录登记记录响应（与 `sys_module` 对齐）。
+
+    `tenant_base` 为**派生标记**：平台模块取自 `TENANT_BASE_MODULE_KEYS`，产品模块取自恒开通清单
+    （`tenant_base_module_keys()`，其来源是服务行落库的 `tenant_base` 声明）；租户服务据此判定恒开通。
+    """
 
     module_key: str
     service_key: str | None
@@ -25,6 +29,7 @@ class ModuleResponse(BaseSchema):
     contract_version: str
     product_key: str | None
     status: str
+    tenant_base: bool = False
 
 
 class ProductSnapshotItem(BaseSchema):

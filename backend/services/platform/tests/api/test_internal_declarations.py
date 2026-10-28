@@ -5,18 +5,41 @@
 """
 
 from collections.abc import Iterator
+from pathlib import Path
 
 import pytest
 from fastapi import FastAPI
 from httpx import AsyncClient
 
 from bms_core.core.concurrent import ConcurrentStableFrozenDict
+from bms_core.core.config import get_settings
 from bms_core.core.exceptions import AuthError
 from bms_core.oauth.verify import VerifiedToken, get_token_verifier
 from bms_core.services.module_registry import register_domain_services
 
 API = "/api/v1/platform/internal/declarations"
 SNAPSHOT_API = f"{API}/snapshot"
+
+
+@pytest.fixture(autouse=True)
+def _isolated_platform_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, platform_db: None) -> Iterator[None]:  # pyright: ignore[reportUnusedFunction]
+    """声明通道用例独占临时平台库（不写共享会话库）。
+
+    上报会把**产品**服务行写进 `sys_module`；共享会话库里残留该行后，后续用例的应用启动
+    接库对账会判「库中登记行不在清单」（顺序相关）。独占临时库使结果与执行顺序无关。
+
+    Args:
+        tmp_path: 临时目录。
+        monkeypatch: pytest monkeypatch 夹具。
+        platform_db: 公共平台库夹具（仅用于排序：本夹具在其之后覆盖 URL）。
+
+    Yields:
+        None: 用例运行期。
+    """
+    monkeypatch.setenv("BMS_DATABASE__PLATFORM__URL", f"sqlite+aiosqlite:///{tmp_path / 'declarations.db'}")
+    get_settings.cache_clear()
+    yield
+    get_settings.cache_clear()
 
 
 @pytest.fixture(autouse=True)

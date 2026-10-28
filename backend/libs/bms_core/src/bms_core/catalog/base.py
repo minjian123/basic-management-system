@@ -22,7 +22,12 @@ CATALOG_SERVICE_KEY = "platform"
 CATALOG_SNAPSHOT_PATH = "/api/v1/modules/snapshot"
 """服务目录快照只读契约路径。"""
 
-_MODULE_FIELDS: ConcurrentStableList[str] = ConcurrentStableList(field.name for field in fields(ModuleRecord))
+_OPTIONAL_MODULE_FIELDS: ConcurrentStableList[str] = ConcurrentStableList(("tenant_base",))
+"""目录快照的**可选**字段：`tenant_base` 由平台按已装载清单派生，旧版本对端不返回时按缺省处理。"""
+
+_MODULE_FIELDS: ConcurrentStableList[str] = ConcurrentStableList(
+    field.name for field in fields(ModuleRecord) if field.name not in _OPTIONAL_MODULE_FIELDS
+)
 
 
 async def fetch_catalog_snapshot(
@@ -87,6 +92,9 @@ def _to_record(row: ConcurrentStableDict[str, object]) -> ModuleRecord:
         ServiceUnavailableError: 必填字段缺失。
     """
     try:
-        return ModuleRecord(**{name: row[name] for name in _MODULE_FIELDS})  # type: ignore[arg-type]
+        payload: ConcurrentStableDict[str, object] = ConcurrentStableDict({name: row[name] for name in _MODULE_FIELDS})
     except KeyError as exc:
         raise ServiceUnavailableError(f"服务目录快照响应缺字段：{exc}") from exc
+    # 可选字段：对端旧版本不返回时按缺省值补齐（与清单解析「缺省 false」同口径）
+    payload["tenant_base"] = row.get("tenant_base") is True
+    return ModuleRecord(**payload)  # type: ignore[arg-type]

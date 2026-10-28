@@ -88,6 +88,36 @@ _CATALOG = [
     }
 ]
 
+_CATALOG_TENANT_BASE = [
+    {
+        "module_key": "mdm",
+        "name": "主数据",
+        "table_prefix": "mdm_",
+        "errcode_segment": "33",
+        "service_group": "product",
+        "status": "enabled",
+        "tenant_base": True,
+    },
+    {
+        # 旧版本对端不返回 `tenant_base`：由基座常量兜底（foundation 分组恒开通）
+        "module_key": "sys",
+        "name": "平台地基",
+        "table_prefix": "sys_",
+        "errcode_segment": "01",
+        "service_group": "foundation",
+        "status": "enabled",
+    },
+    {
+        "module_key": "pur",
+        "name": "采购",
+        "table_prefix": "pur_",
+        "errcode_segment": "10",
+        "service_group": "product",
+        "status": "enabled",
+        "tenant_base": False,
+    },
+]
+
 
 class _Cache:
     def __init__(self) -> None:
@@ -166,6 +196,27 @@ async def test_module_service_switch_absent_reopen_and_cache(tmp_path: Path) -> 
             await service.validate_optional(ConcurrentStableList(["sys"]))
         with pytest.raises(TenantModuleUnavailableError):
             await service.validate_optional(ConcurrentStableList(["unknown"]))
+
+
+async def test_tenant_base_module_flag_drives_open_and_validation(tmp_path: Path) -> None:
+    """恒开通：目录行标记并入基础开通、不参与勾选；缺标记时基座常量兜底；缓存往返保标记。"""
+    factory, _url = await _session(tmp_path)
+    cache = _Cache()
+    async with factory() as session:
+        session.add(SysTenant(code="acme", name="Acme", status="active"))
+        await session.commit()
+        catalog = ModuleCatalog(
+            client=cast("Any", _Client({"code": 0, "data": _CATALOG_TENANT_BASE})), cache=cast("Any", cache)
+        )
+        service = TenantModuleService(session=cast("Any", session), catalog=catalog)
+        await service.open_base_modules(1, opened_by=1)
+        await session.commit()
+        opened = {row.module_key for row in await TenantModuleRepository(session).list_by_tenant(1)}
+        assert opened == {"mdm", "sys"}
+        with pytest.raises(ParamError):
+            await service.validate_optional(ConcurrentStableList(["mdm"]))
+        # 第二次取目录走缓存：`_to_row` / `_from_row` 往返后行标记不丢
+        assert [item.tenant_base for item in await catalog.modules()] == [True, False, False]
 
 
 async def test_module_repository_open_reopen_status_map(tmp_path: Path) -> None:

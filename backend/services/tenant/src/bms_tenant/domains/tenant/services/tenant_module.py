@@ -4,6 +4,7 @@
   不可达时抛 `ServiceUnavailableError`（管理面失败可见；门禁侧另有 fail-open 口径）。
 - **可勾选**：`TENANT_OPTIONAL_MODULE_KEYS` 中且目录 `status=enabled`；未注册 / 未启用 → `82007`。
 - **状态集**（内部契约）：开通清单 `enabled` / `disabled` 两组；基础模块恒 `enabled`（不在清单也视为开通）。
+- **恒开通**：目录行标记 `tenant_base`（平台按恒开通清单下发）**或**基座常量兜底（对端旧版本缺字段）。
 - 开关只切状态、不删行；变更后删除共享缓存键（Redis 域跨实例即删）。
 """
 
@@ -52,6 +53,23 @@ class CatalogModule(BaseValueObject):
     errcode_segment: str | None
     service_group: str
     status: str
+    tenant_base: bool = False
+    """恒开通标记（平台按恒开通清单下发的派生标记；旧版本对端不返回时缺省 `False`，由基座常量兜底）。"""
+
+
+def is_tenant_base_module(item: CatalogModule) -> bool:
+    """模块是否「恒开通」（不参与开通勾选、不受模块门禁拦截）。
+
+    判定 = 目录行标记 **或** 基座常量：租户服务不装载产品清单，无法自行知道产品模块的恒开通声明，
+    故以平台目录出口下发的 `tenant_base` 为准；对端旧版本不返回该字段时回落常量（平台模块仍恒开通）。
+
+    Args:
+        item: 目录模块。
+
+    Returns:
+        bool: 恒开通为 True。
+    """
+    return item.tenant_base or item.module_key in TENANT_BASE_MODULE_KEYS
 
 
 class ModuleCatalog(BaseFrameworkObject):
@@ -187,9 +205,7 @@ class TenantModuleService(BaseFrameworkObject):
         """
         modules = await self._catalog.modules()
         keys = ConcurrentStableList(
-            item.module_key
-            for item in modules
-            if item.module_key in TENANT_BASE_MODULE_KEYS and item.status == "enabled"
+            item.module_key for item in modules if is_tenant_base_module(item) and item.status == "enabled"
         )
         await self._repo.open(tenant_id=tenant_id, module_keys=keys, opened_by=opened_by)
 
@@ -270,9 +286,12 @@ class TenantModuleService(BaseFrameworkObject):
         modules = ConcurrentStableDict({item.module_key: item for item in await self._catalog.modules()})
         validated = ConcurrentStableList[str]()
         for module_key in dict.fromkeys(module_keys):
-            if module_key in TENANT_BASE_MODULE_KEYS:
-                raise ParamError(f"基础能力模块恒开通、不参与勾选：{module_key}")
             item = modules.get(module_key)
+            # 目录缺行时仍按基座常量判定：对端旧版本 / 目录裁剪也须维持「基础模块不参与勾选」语义
+            if (item is not None and is_tenant_base_module(item)) or (
+                item is None and module_key in TENANT_BASE_MODULE_KEYS
+            ):
+                raise ParamError(f"基础能力模块恒开通、不参与勾选：{module_key}")
             if item is None or item.status != "enabled":
                 raise TenantModuleUnavailableError(f"模块未注册或未启用：{module_key}")
             if not self._repo_optional(module_key):
@@ -349,6 +368,7 @@ def _from_row(row: ConcurrentStableDict[str, object]) -> CatalogModule:
         errcode_segment=cast("str | None", row.get("errcode_segment")),
         service_group=str(row.get("service_group", "")),
         status=str(row.get("status", "")),
+        tenant_base=row.get("tenant_base") is True,
     )
 
 
@@ -369,5 +389,6 @@ def _to_row(item: CatalogModule) -> ConcurrentStableDict[str, object]:
             "errcode_segment": item.errcode_segment,
             "service_group": item.service_group,
             "status": item.status,
+            "tenant_base": item.tenant_base,
         }
     )

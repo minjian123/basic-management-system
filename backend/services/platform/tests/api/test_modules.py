@@ -65,6 +65,8 @@ async def test_list_modules_contract() -> None:
             "tenant",
             "txn",
         ]
+        # 恒开通标记：平台模块恒 true（派生自基座常量，不落库）
+        assert all(item["tenant_base"] is True for item in foundation.json()["data"]["list"])
 
         products = await client.get("/api/v1/modules", params={"group": "product", "status": "planned"})
         assert products.json()["data"]["total"] == 6
@@ -136,6 +138,62 @@ async def test_modules_response_fields_whitelist(client: AsyncClient) -> None:
     detail = await client.get("/api/v1/modules/platform")
     assert set(detail.json()["data"]) == expected
     assert not expected & {"options", "secret", "password", "token", "config"}
+
+
+@pytest.mark.kiwi_id(2164)
+async def test_modules_tenant_base_flag_derived(client: AsyncClient) -> None:
+    """目录出口派生恒开通标记：平台模块 true、未声明的产品模块 false（逐行下发，不落库）。"""
+    planned = await client.get("/api/v1/modules", params={"group": "product", "status": "planned"})
+    assert [item["module_key"] for item in planned.json()["data"]["list"]] == [
+        "pur",
+        "pay",
+        "sale",
+        "wh",
+        "sup",
+        "cw",
+    ]
+    assert all(item["tenant_base"] is False for item in planned.json()["data"]["list"])
+    detail = await client.get("/api/v1/modules/sys")
+    assert detail.json()["data"]["tenant_base"] is True
+
+
+@pytest.mark.kiwi_id(2164)
+def test_module_response_tenant_base_from_loaded_manifest() -> None:
+    """已装载 `tenant_base = true` 的服务行：目录响应标记为 true（派生自装载视图，不读库）。"""
+    from types import SimpleNamespace
+
+    from bms_core.services.module_registry import ModuleRecord, register_service_records, reset_service_records
+    from bms_platform.domains.platform_registry.api.modules import (
+        _module_response,  # pyright: ignore[reportPrivateUsage]
+    )
+
+    record = ModuleRecord(
+        module_key="demo",
+        service_key="demo",
+        name="演示服务",
+        table_prefix="demo_",
+        event_domain="demo",
+        service_group="product",
+        product_key="demo",
+        tenant_base=True,
+    )
+    try:
+        register_service_records((record,))
+        assert _module_response(record).tenant_base is True
+        plain = ModuleRecord(
+            module_key="extra",
+            name="其它服务",
+            table_prefix="extra_",
+            event_domain="extra",
+            service_group="product",
+            product_key="demo",
+        )
+        assert _module_response(plain).tenant_base is False
+        # 库行不带该属性（`sys_module` 无此列）：缺省 false，按装载视图派生为 true
+        row = SimpleNamespace(**{**record.__dict__, "tenant_base": False})
+        assert _module_response(row).tenant_base is True
+    finally:
+        reset_service_records()
 
 
 @pytest.mark.kiwi_id(2164)

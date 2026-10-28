@@ -13,7 +13,11 @@
 from collections.abc import Iterable
 from typing import cast
 
-from bms_core.collaboration.usage import CapabilityUsage, register_capability_usages
+from bms_core.collaboration.usage import (
+    CapabilityUsage,
+    register_capability_usages,
+    reset_capability_usages,
+)
 from bms_core.core.concurrent import ConcurrentStableDict, ConcurrentStableList, ConcurrentStableSet
 from bms_core.datasource.registry import (
     DataSourceRecord,
@@ -61,6 +65,7 @@ def project_registry(view: RegistrySnapshot) -> None:
     reset_collaboration_records()
     reset_seed_records()
     reset_error_code_records()
+    reset_capability_usages()
     register_product_records(
         cast("Iterable[ProductRecord]", _without_constants(view, "products", _constant_product_keys()))
     )

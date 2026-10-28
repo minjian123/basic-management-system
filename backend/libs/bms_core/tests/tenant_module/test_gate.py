@@ -15,8 +15,12 @@ from bms_core.servicecall.base import BaseServiceClient
 from bms_core.services.module_registry import (
     TENANT_BASE_MODULE_KEYS,
     TENANT_OPTIONAL_MODULE_KEYS,
+    ModuleRecord,
     is_optional_module,
     module_for_business,
+    register_service_records,
+    reset_service_records,
+    tenant_base_module_keys,
 )
 from bms_core.tenant_module.base import (
     TENANT_MODULE_STATE_ABSENT,
@@ -91,10 +95,65 @@ def _gate(client: object, cache: _MemoryCache | None = None, ttl: int = 5) -> Re
 def test_module_registry_single_source() -> None:
     """模块清单单一来源：基础 / 可勾选互斥、业务段映射只对产品模块、判定函数一致。"""
     assert not set(TENANT_BASE_MODULE_KEYS) & set(TENANT_OPTIONAL_MODULE_KEYS)
+    assert "mdm" not in TENANT_BASE_MODULE_KEYS
     assert module_for_business("pur") == "pur"
     assert module_for_business("user") is None
     assert is_optional_module("pur") is True
     assert is_optional_module("sys") is False
+
+
+def _product_service(module_key: str, *, tenant_base: bool) -> ModuleRecord:
+    """构造产品服务行（只填装载判定所需字段）。
+
+    Args:
+        module_key: 模块标识。
+        tenant_base: 恒开通声明。
+
+    Returns:
+        ModuleRecord: 产品分组服务行。
+    """
+    return ModuleRecord(
+        module_key=module_key,
+        service_key=module_key,
+        name=f"{module_key} 演示服务",
+        table_prefix=f"{module_key}_",
+        event_domain=module_key,
+        service_group="product",
+        product_key="demo",
+        tenant_base=tenant_base,
+    )
+
+
+def test_tenant_base_module_keys_follow_loaded_manifest() -> None:
+    """恒开通集合：纯平台环境不含产品模块；装载 `tenant_base` 声明后并入（插入序、同键去重）。"""
+    try:
+        reset_service_records()
+        assert list(tenant_base_module_keys()) == list(TENANT_BASE_MODULE_KEYS)
+
+        register_service_records(
+            (
+                _product_service("mdm", tenant_base=True),
+                _product_service("pur", tenant_base=False),
+                # 与平台常量同键：并入时去重（同键不重复追加）
+                ModuleRecord(
+                    module_key="sys",
+                    service_key="platform",
+                    name="平台地基与配置服务",
+                    table_prefix="sys_",
+                    event_domain="sys",
+                    service_group="foundation",
+                    tenant_base=True,
+                ),
+            )
+        )
+        keys = list(tenant_base_module_keys())
+        assert keys.count("mdm") == 1
+        assert keys.count("sys") == 1
+        assert "pur" not in keys
+        assert keys[-1] == "mdm"
+        assert keys[: len(TENANT_BASE_MODULE_KEYS)] == list(TENANT_BASE_MODULE_KEYS)
+    finally:
+        reset_service_records()
 
 
 async def test_null_gate_allows_everything() -> None:

@@ -100,6 +100,12 @@ class ModuleRecord(BaseRegistryRecordContract):
     contract_version: str = "0.1.0"
     product_key: str | None = None
     status: str = ModuleStatus.ENABLED
+    tenant_base: bool = False
+    """租户「恒开通」声明（**清单级属性、随服务行落库**）：产品服务行在自持清单声明，缺省 `False`。
+
+    落库后经注册表权威视图贯通（平台侧 `tenant_base_module_keys()` 派生、租户侧读目录行标记），
+    故跨进程语义一致；`sys_module.tenant_base` 为对应列，纳接库对账严格字段。
+    """
 
     @classmethod
     def from_row(cls, row: object) -> ModuleRecord:
@@ -126,6 +132,7 @@ class ModuleRecord(BaseRegistryRecordContract):
             contract_version=cast("str", data.contract_version),
             product_key=cast("str | None", data.product_key),
             status=cast("str", data.status),
+            tenant_base=bool(getattr(data, "tenant_base", False)),
         )
 
 
@@ -750,21 +757,37 @@ TENANT_BASE_MODULE_KEYS: ConcurrentStableList[str] = ConcurrentStableList(
         "ai",
         "rpt",
         "wf",
-        "mdm",
     )
 )
-"""租户「恒开通」模块（平台域基础能力 + 主数据）：不参与开通勾选、不参与门禁拦截。
+"""租户「恒开通」的**平台**模块（foundation / capability 分组）：不参与开通勾选、不参与门禁拦截。
 
-- foundation / capability 分组模块一律恒开通；`mdm`（主数据服务）为角色与用户组织归属的基座，
-  虽属产品分组但按恒开通处理（关闭将使 RBAC 主体链不可用）。
-- 产品模块标识由产品清单装载后进入 `service_catalog_view()`；本清单按标识登记。
+- 本清单只含平台自身模块，**不写产品模块标识**；产品模块是否恒开通由产品自持清单的服务行
+  `tenant_base = true` 声明，装载后经 `tenant_base_module_keys()` 并入（见该函数）。
+- 租户服务不装载产品清单，按目录快照的行标记判定（`bms_tenant` 的 `is_tenant_base_module()`）。
 """
+
+
+def tenant_base_module_keys() -> ConcurrentStableList[str]:
+    """租户「恒开通」模块键（**平台侧视图**）：平台常量 + 已装载且声明 `tenant_base` 的模块键。
+
+    产品服务行经清单装载 / 注册通道投影进入注入视图（`tenant_base` 随行落库），仅在装载后可见；
+    常量在 import 期求值、无法承载声明，故标记只可按需派生（目录出口据此下发 `tenant_base`）。
+
+    Returns:
+        ConcurrentStableList[str]: 恒开通模块键（平台在前、产品在后；插入序、同键去重）。
+    """
+    keys: ConcurrentStableList[str] = ConcurrentStableList(TENANT_BASE_MODULE_KEYS)
+    for record in _INJECTED_SERVICE_RECORDS.values():
+        if record.tenant_base and record.module_key not in keys:
+            keys.add(record.module_key)
+    return keys
+
 
 TENANT_OPTIONAL_MODULE_KEYS: ConcurrentStableList[str] = ConcurrentStableList(("pur", "pay", "sale", "wh", "sup", "cw"))
 """租户「可勾选」产品模块：开通向导勾选、运营期可开关、接口按模块门禁拦截。
 
 - 与 `SERVICE_CATALOG` 中 `service_group=product` 且具备业务域的模块一致；新增产品模块时同步登记。
-- `org` 不在本清单（见 `TENANT_BASE_MODULE_KEYS`）。
+- 恒开通模块（平台模块 + 声明 `tenant_base` 的产品模块）不在此列，两清单互斥。
 """
 
 _BUSINESS_MODULE_INDEX: ConcurrentStableDict[str, str] = ConcurrentStableDict(
@@ -1506,9 +1529,11 @@ _COMPARE_FIELDS: ConcurrentStableList[str] = ConcurrentStableList(
         "build_batch",
         "product_key",
         "status",
+        "tenant_base",
     )
 )
-"""双向对账的严格一致字段（不含 `contract_version`：按主版本兼容；不含 `service_version`：归发布环节）。"""
+"""双向对账的严格一致字段（不含 `contract_version`：按主版本兼容；不含 `service_version`：归发布环节；
+含 `tenant_base`：清单声明与库中行须一致，漏配即报）。"""
 
 
 def validate_catalog(

@@ -7,7 +7,7 @@
 - 表结构以《数据库设计》数据表文件为唯一事实源（`sys_module.md` / `sys_module_i18n.md` / `sys_product.md`）。
 """
 
-from sqlalchemy import BigInteger, Integer, String, UniqueConstraint
+from sqlalchemy import BigInteger, Boolean, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from bms_core.models.base import BaseModel
@@ -55,6 +55,9 @@ class SysModule(BaseModel):
     contract_version: Mapped[str] = mapped_column(String(16), default="0.1.0", comment="契约版本（semver）")
     product_key: Mapped[str | None] = mapped_column(String(32), nullable=True, comment="产品标识（biz/cw；空=平台）")
     status: Mapped[str] = mapped_column(String(16), default="enabled", comment="状态（enabled/disabled/planned）")
+    tenant_base: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False, comment="租户恒开通（产品服务行在自持清单声明；缺省 false）"
+    )
     parent_id: Mapped[int | None] = mapped_column(
         BigInteger, nullable=True, comment="上级字典 ID（自引用同表 id；顶层 NULL）"
     )

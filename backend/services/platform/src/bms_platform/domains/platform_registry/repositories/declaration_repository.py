@@ -264,6 +264,7 @@ class DeclarationRepository(BaseDbRepository[Any]):
                 "contract_version",
                 "product_key",
                 "status",
+                "tenant_base",
             ):
                 setattr(row, name, getattr(data, name))
             return

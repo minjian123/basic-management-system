@@ -128,6 +128,7 @@ def _fields(seed: ModuleRecord) -> ConcurrentStableDict[str, object]:
             "contract_version": seed.contract_version,
             "product_key": seed.product_key,
             "status": seed.status,
+            "tenant_base": seed.tenant_base,
         }
     )
 

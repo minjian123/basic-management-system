@@ -69,6 +69,7 @@ from bms_core.services.module_registry import (
     ProductRecord,
     ProductRouteRecord,
     SeedRecord,
+    ServiceGroup,
     normalize_capability_path,
     register_collaboration_records,
     register_domain_services,
@@ -316,7 +317,7 @@ def _service_record(raw: object, *, product_key: str, scope: str) -> ModuleRecor
         ModuleRecord: 服务登记记录。
 
     Raises:
-        CatalogError: 必填缺失 / 类型非法 / 产品归属不符。
+        CatalogError: 必填缺失 / 类型非法 / 产品归属不符 / 恒开通声明与分组不匹配。
     """
     data = _as_mapping(raw)
     for name in _SERVICE_STRING_FIELDS:
@@ -335,9 +336,15 @@ def _service_record(raw: object, *, product_key: str, scope: str) -> ModuleRecor
         contract_version=str(data.get("contract_version") or "0.1.0"),
         product_key=str(data.get("product_key") or product_key),
         status=str(data.get("status") or "enabled"),
+        tenant_base=_bool_value(data, "tenant_base", scope=scope),
     )
     if record.product_key != product_key:
         raise CatalogError(f"产品清单服务行产品归属不符：{scope} → {record.product_key!r}（应为 {product_key!r}）")
+    if record.tenant_base and record.service_group != ServiceGroup.PRODUCT:
+        raise CatalogError(
+            f"产品清单服务行恒开通声明与分组不符：{scope} → tenant_base 仅适用于 product 分组的服务行"
+            f"（现 {record.service_group}）"
+        )
     return record
 
 

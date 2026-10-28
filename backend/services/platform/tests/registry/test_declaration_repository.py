@@ -268,14 +268,38 @@ async def test_service_register_and_snapshot(session: AsyncSession) -> None:
     assert len(snapshot.of("collaborations")) == 1
 
 
+async def test_service_tenant_base_round_trips_through_registry(session: AsyncSession) -> None:
+    """租户恒开通标记随注册落库 / 读回 / 投影贯通（不在落库字段表里会被静默丢弃）。"""
+    from bms_core.services.module_registry import tenant_base_module_keys
+
+    service = DeclarationRegistryService(session)
+    payload = _payload()
+    declared = replace(
+        payload,
+        services=ConcurrentStableFrozenList((replace(payload.services[0], tenant_base=True),)),
+    )
+    await service.register(payload)
+    report = await service.register(declared)
+    assert report.updated["services"] == 1  # 指纹含该要素：改声明即视为一次更新
+
+    snapshot = await service.snapshot()
+    assert snapshot.of("services")[0].tenant_base is True
+    # 投影（注册后整表重建）把标记带进恒开通集合
+    assert "demo" in tenant_base_module_keys()
+
+
 async def test_service_register_tolerates_service_row_without_key(session: AsyncSession) -> None:
-    """服务行可无 `service_key`（平台基础模块）：消费方集合推导跳过该行。"""
+    """服务行可无 `service_key`（平台基础模块）：消费方集合推导跳过该行。
+
+    附加行须为**合法登记行**（模块键 / 表前缀 / 事件域一致且不与既有行重复）：注册会把整份快照
+    投影到进程级注入表，非法行会让同 worker 内后续用例的应用启动校验失败（顺序相关）。
+    """
     payload = _payload()
     extra = ModuleRecord(
-        module_key="demo-extra",
+        module_key="demoextra",
         name="无服务键行",
-        table_prefix="demo_",
-        event_domain="demo",
+        table_prefix="demoextra_",
+        event_domain="demoextra",
         service_group="foundation",
     )
     merged = replace(payload, services=ConcurrentStableFrozenList((payload.services[0], extra)))

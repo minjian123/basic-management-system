@@ -64,6 +64,7 @@ service_group = "product"
 build_batch = 3
 service_version = "0.2.0"
 contract_version = "0.2.0"
+tenant_base = true
 product_key = "demo"
 status = "enabled"
 
@@ -268,6 +269,7 @@ def test_load_full_manifest(tmp_path: Path) -> None:
     assert service.errcode_segment == "39"
     assert service.service_version == "0.2.0"
     assert service.build_batch == 3
+    assert service.tenant_base is True
     route = manifest.product_routes[0]
     assert (route.domain, route.service_key, route.description) == ("demo", "demo", "演示域")
     data_source = manifest.data_sources[0]
@@ -329,6 +331,7 @@ data_source = "demo.demo.dept"
     assert service.contract_version == "0.1.0"
     assert service.product_key == "demo"
     assert service.status == "enabled"
+    assert service.tenant_base is False
     data_source = manifest.data_sources[0]
     assert data_source.kind == "dict"
     assert data_source.origin == "product"
@@ -412,6 +415,41 @@ def test_load_manifest_rejects_ownership_mismatch(tmp_path: Path) -> None:
     for index, (message, text) in enumerate(cases):
         with pytest.raises(CatalogError, match=message):
             load_product_manifest(_write(tmp_path, text, name=f"owner-{index}.toml"))
+
+
+@pytest.mark.kiwi_id(2359)
+def test_load_manifest_tenant_base_requires_product_group(tmp_path: Path) -> None:
+    """恒开通声明：`tenant_base = true` 的服务行须为 `product` 分组（违规即装载期拒）；非布尔亦拒。
+
+    Args:
+        tmp_path: 临时目录。
+    """
+    foundation = """\
+product_key = "demo"
+
+[[services]]
+module_key = "demo"
+name = "演示服务"
+table_prefix = "demo_"
+event_domain = "demo"
+service_group = "foundation"
+tenant_base = true
+"""
+    with pytest.raises(CatalogError, match="tenant_base 仅适用于 product 分组"):
+        load_product_manifest(_write(tmp_path, foundation, name="tenant-foundation.toml"))
+
+    non_bool = """\
+product_key = "demo"
+
+[[services]]
+module_key = "demo"
+name = "演示服务"
+table_prefix = "demo_"
+event_domain = "demo"
+tenant_base = "yes"
+"""
+    with pytest.raises(CatalogError, match="tenant_base 须为布尔"):
+        load_product_manifest(_write(tmp_path, non_bool, name="tenant-type.toml"))
 
 
 @pytest.mark.kiwi_id(2359)
