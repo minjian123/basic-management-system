@@ -29,7 +29,7 @@ def main() -> int:
     Returns:
         int: 退出码（真跑 / 回放透传命令退出码；选项错为 2）。
     """
-    return forward(["run-once", "--config", config_path(), *sys.argv[1:]])
+    return forward(["run_once", "--config", config_path(), *sys.argv[1:]])
 
 
 if __name__ == "__main__":
